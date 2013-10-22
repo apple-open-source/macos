@@ -39,18 +39,19 @@ krb5_read_message (krb5_context context,
 		   krb5_data *data)
 {
     krb5_error_code ret;
+    krb5_ssize_t sret;
     uint32_t len;
     uint8_t buf[4];
 
     krb5_data_zero(data);
 
-    ret = krb5_net_read (context, p_fd, buf, 4);
-    if(ret == -1) {
+    sret = krb5_net_read (context, p_fd, buf, 4);
+    if(sret == -1) {
 	ret = errno;
 	krb5_clear_error_message (context);
 	return ret;
     }
-    if(ret < 4) {
+    if(sret < 4) {
 	krb5_clear_error_message(context);
 	return HEIM_ERR_EOF;
     }

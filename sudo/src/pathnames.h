@@ -60,7 +60,7 @@
  * NOTE: _PATH_SUDOERS is usually overridden by the Makefile.
  */
 #ifndef _PATH_SUDOERS
-#define _PATH_SUDOERS		"/private/etc/sudoers"
+#define _PATH_SUDOERS		"/etc/sudoers"
 #endif /* _PATH_SUDOERS */
 
 /*
@@ -96,7 +96,7 @@
 #endif /* _PATH_SUDO_SENDMAIL */
 
 #ifndef _PATH_SUDO_NOEXEC
-#define _PATH_SUDO_NOEXEC "/usr/local/libexec/sudo_noexec.dylib"
+/* #undef _PATH_SUDO_NOEXEC */
 #endif /* _PATH_SUDO_NOEXEC */
 
 #ifndef _PATH_SUDO_ASKPASS
@@ -128,7 +128,7 @@
 #endif /* _PATH_USRTMP */
 
 #ifndef _PATH_MAILDIR
-#define _PATH_MAILDIR "/var/mail"
+/* #undef _PATH_MAILDIR */
 #endif /* _PATH_MAILDIR */
 
 #ifndef _PATH_SUDO_SESH

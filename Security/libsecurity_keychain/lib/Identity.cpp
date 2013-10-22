@@ -28,6 +28,7 @@
 
 #include <security_cdsa_utilities/KeySchema.h>
 #include <security_keychain/KCCursor.h>
+#include <string.h>
 
 using namespace KeychainCore;
 
@@ -85,9 +86,50 @@ Identity::operator == (const Identity &other) const
 	return (mCertificate == other.mCertificate && mPrivateKey == other.mPrivateKey);
 }
 
-bool
-Identity::equal(SecCFObject &other)
+bool Identity::equal(SecCFObject &other)
 {
-    return (*this) == (const Identity &)other;
+	CFHashCode this_hash = hash();
+	CFHashCode other_hash = other.hash();
+	return (this_hash == other_hash);
+}
+
+CFHashCode Identity::hash()
+{
+	CFHashCode result = SecCFObject::hash();
+	
+	   
+    struct keyAndCertHash
+    {
+        CFHashCode keyHash;
+        CFHashCode certHash;
+    };
+    
+    struct keyAndCertHash hashes;
+    memset(&hashes, 0, sizeof(struct keyAndCertHash));
+	
+	KeyItem* pKeyItem = mPrivateKey.get();
+	if (NULL != pKeyItem)
+	{
+		hashes.keyHash = pKeyItem->hash();
+	}
+	
+	Certificate* pCert = mCertificate.get();
+	if (NULL != pCert)
+	{
+		hashes.certHash = pCert->hash();
+	}
+	
+	if (hashes.keyHash != 0 || hashes.certHash != 0)
+	{
+        
+		CFDataRef temp_data = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)&hashes, sizeof(struct keyAndCertHash), kCFAllocatorNull);
+		if (NULL != temp_data)
+		{
+			result = CFHash(temp_data);	
+			CFRelease(temp_data);
+		}
+	}
+
+	return result;
 }
 

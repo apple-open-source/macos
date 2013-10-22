@@ -36,10 +36,9 @@
 #include "AsyncFileSystem.h"
 #include "DOMFilePath.h"
 #include "DOMFileSystemBase.h"
-#include "PlatformString.h"
 #include "SecurityOrigin.h"
 #include <wtf/PassRefPtr.h>
-#include <wtf/text/StringBuilder.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -54,9 +53,13 @@ EntryBase::~EntryBase()
 {
 }
 
-String EntryBase::toURL()
+String EntryBase::toURL() const
 {
-    return m_fileSystem->asyncFileSystem()->toURL(m_fileSystem->securityOrigin()->toString(), m_fullPath);
+    // Some filesystem type may not support toURL.
+    if (!m_fileSystem->supportsToURL())
+        return String();
+
+    return m_fileSystem->createFileSystemURL(this).string();
 }
 
 } // namespace WebCore

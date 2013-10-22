@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -59,7 +61,7 @@ bsd_in_acceptmsg(int fd)
 	line[n] = '\0';
 
 	m = asl_input_parse(line, n, NULL, SOURCE_BSD_SOCKET);
-	dispatch_async(global.work_queue, ^{ process_message(m, SOURCE_BSD_SOCKET); });
+	process_message(m, SOURCE_BSD_SOCKET);
 }
 
 int
@@ -69,7 +71,11 @@ bsd_in_init()
 	int len;
 	launch_data_t sockets_dict, fd_array, fd_dict;
 	static dispatch_once_t once;
-	
+
+#if TARGET_IPHONE_SIMULATOR
+	const char *_PATH_SYSLOG_IN = getenv("IOS_SIMULATOR_SYSLOG_SOCKET");
+#endif
+
 	dispatch_once(&once, ^{
 		in_queue = dispatch_queue_create(MY_ID, NULL);
 	});

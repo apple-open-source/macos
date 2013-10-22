@@ -116,7 +116,7 @@ public:
 	
 	static Type load(const Type &store) { readBarrier(); return store; }
 	static Type store(Type value, Type &store)
-	{ while (!casb(store, value, store)) /* again */; return value; }
+	{ while (!casb(store, value, store)) {}; return value; }
 };
 
 

@@ -74,6 +74,7 @@ protected:
     io_object_t mHandle;
     IOPMConnection mIOPMconn;
     dispatch_queue_t mIOPMqueue;
+    dispatch_group_t mDarkWakeGroup;
     
     static void ioCallback(void *refCon, io_service_t service,
         natural_t messageType, void *argument);

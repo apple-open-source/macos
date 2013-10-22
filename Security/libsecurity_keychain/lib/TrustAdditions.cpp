@@ -41,6 +41,7 @@
 #include <AvailabilityMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <Security/SecBase.h>
 #include <Security/Security.h>
 #include <Security/cssmtype.h>
 #include <Security/cssmapplePriv.h>            // for CSSM_APPLE_TP_OCSP_OPTIONS, CSSM_APPLE_TP_OCSP_OPT_FLAGS
@@ -58,8 +59,8 @@
 	} /* status is only set on error */ \
 	catch (const MacOSError &err) { status=err.osStatus(); } \
 	catch (const CommonError &err) { status=SecKeychainErrFromOSStatus(err.osStatus()); } \
-	catch (const std::bad_alloc &) { status=memFullErr; } \
-	catch (...) { status=internalComponentErr; }
+	catch (const std::bad_alloc &) { status=errSecAllocate; } \
+	catch (...) { status=errSecInternalComponent; }
 
 //
 // Static constants
@@ -99,7 +100,7 @@ static CFDataRef dataWithContentsOfFile(const char *fileName)
 	int rtn;
 	int fd;
 	struct stat	sb;
-	off_t fileSize;
+	size_t fileSize;
 	UInt8 *fileData = NULL;
 	CFDataRef outCFData = NULL;
 
@@ -111,16 +112,16 @@ static CFDataRef dataWithContentsOfFile(const char *fileName)
 	if(rtn)
 		goto errOut;
 
-	fileSize = sb.st_size;
+	fileSize = (size_t)sb.st_size;
 	fileData = (UInt8 *) malloc(fileSize);
 	if(fileData == NULL)
 		goto errOut;
 
-	rtn = lseek(fd, 0, SEEK_SET);
+	rtn = (int)lseek(fd, 0, SEEK_SET);
 	if(rtn < 0)
 		goto errOut;
 
-	rtn = read(fd, fileData, fileSize);
+	rtn = (int)read(fd, fileData, fileSize);
 	if(rtn != (int)fileSize) {
 		rtn = EIO;
 	} else {
@@ -141,14 +142,14 @@ static SecKeychainRef systemRootStore()
 {
     SecKeychainStatus keychainStatus = 0;
     SecKeychainRef systemRoots = NULL;
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	// note: Sec* APIs are not re-entrant due to the API lock
 	// status = SecKeychainOpen(SYSTEM_ROOTS_PLIST_SYSTEM_PATH, &systemRoots);
 	BEGIN_SECAPI_INTERNAL_CALL
 	systemRoots=globals().storageManager.make(SYSTEM_ROOTS_PLIST_SYSTEM_PATH, false)->handle();
 	END_SECAPI_INTERNAL_CALL
 
-	// SecKeychainOpen will return noErr even if the file didn't exist on disk.
+	// SecKeychainOpen will return errSecSuccess even if the file didn't exist on disk.
 	// We need to do a further check using SecKeychainGetStatus().
     if (!status && systemRoots) {
 		// note: Sec* APIs are not re-entrant due to the API lock
@@ -165,7 +166,7 @@ static SecKeychainRef systemRootStore()
 		BEGIN_SECAPI_INTERNAL_CALL
 		systemRoots=globals().storageManager.make(X509ANCHORS_SYSTEM_PATH, false)->handle();
 		END_SECAPI_INTERNAL_CALL
-        // SecKeychainOpen will return noErr even if the file didn't exist on disk.
+        // SecKeychainOpen will return errSecSuccess even if the file didn't exist on disk.
 		// We need to do a further check using SecKeychainGetStatus().
         if (!status && systemRoots) {
 			// note: Sec* APIs are not re-entrant due to the API lock
@@ -207,7 +208,7 @@ static CFDictionaryRef dictionaryWithContentsOfPlistFile(const char *fileName)
 static CFStringRef organizationNameForCertificate(SecCertificateRef certificate)
 {
     CFStringRef organizationName = nil;
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 
 #if MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_4
     CSSM_OID_PTR oidPtr = (CSSM_OID_PTR) &CSSMOID_OrganizationName;
@@ -376,7 +377,7 @@ static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificate
     // get data+length for the provided certificate
     CSSM_CL_HANDLE clHandle = 0;
     CSSM_DATA certData = { 0, NULL };
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	// note: Sec* APIs are not re-entrant due to the API lock
 	// status = SecCertificateGetCLHandle(certificate, &clHandle);
 	BEGIN_SECAPI_INTERNAL_CALL
@@ -423,18 +424,18 @@ static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificate
             uint8 buf[CC_SHA1_DIGEST_LENGTH];
             CSSM_DATA digest = { sizeof(buf), buf };
 			if (!cssmKey || !cssmKey->KeyData.Data || !cssmKey->KeyData.Length) {
-				status = paramErr;
+				status = errSecParam;
 			} else {
-				CC_SHA1(cssmKey->KeyData.Data, cssmKey->KeyData.Length, buf);
+				CC_SHA1(cssmKey->KeyData.Data, (CC_LONG)cssmKey->KeyData.Length, buf);
 			}
             if (!status) {
                 // set up attribute vector (each attribute consists of {tag, length, pointer})
                 // we want to match on the public key hash and the normalized subject name
                 // as well as ensure that the issuer matches the subject
                 SecKeychainAttribute attrs[] = {
-                    { kSecPublicKeyHashItemAttr, digest.Length, (void *)digest.Data },
-                    { kSecSubjectItemAttr, subjectDataPtr->Length, (void *)subjectDataPtr->Data },
-                    { kSecIssuerItemAttr, subjectDataPtr->Length, (void *)subjectDataPtr->Data }
+                    { kSecPublicKeyHashItemAttr, (UInt32)digest.Length, (void *)digest.Data },
+                    { kSecSubjectItemAttr, (UInt32)subjectDataPtr->Length, (void *)subjectDataPtr->Data },
+                    { kSecIssuerItemAttr, (UInt32)subjectDataPtr->Length, (void *)subjectDataPtr->Data }
                 };
                 const SecKeychainAttributeList attributes = { sizeof(attrs) / sizeof(attrs[0]), attrs };
                 SecKeychainSearchRef searchRef = NULL;
@@ -494,7 +495,7 @@ static void logSKID(const char *msg, const CssmData &subjectKeyID)
 void showCertSKID(const void *value, void *context)
 {
 	SecCertificateRef certificate = (SecCertificateRef)value;
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	BEGIN_SECAPI_INTERNAL_CALL
 	const CssmData &subjectKeyID = Certificate::required(certificate)->subjectKeyIdentifier();
 	logSKID("subjectKeyID: ", subjectKeyID);
@@ -509,7 +510,7 @@ void showCertSKID(const void *value, void *context)
 static SecCertificateRef _rootCertificateWithSubjectKeyIDOfCertificate(SecCertificateRef certificate)
 {
     SecCertificateRef resultCert = NULL;
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 
     if (!certificate)
         return NULL;
@@ -544,6 +545,7 @@ static SecCertificateRef _rootCertificateWithSubjectKeyIDOfCertificate(SecCertif
 // returns an array of possible root certificates (SecCertificateRef instances)
 // for the given EV OID (a hex string); caller must release the array
 //
+static
 CFArrayRef _possibleRootCertificatesForOidString(CFStringRef oidString)
 {
 	StLock<Mutex> _(SecTrustKeychainsGetMutex());
@@ -564,7 +566,7 @@ CFArrayRef _possibleRootCertificatesForOidString(CFStringRef oidString)
 	CFIndex hashCount = CFArrayGetCount(possibleCertificateHashes);
 	secdebug("evTrust", "_possibleRootCertificatesForOidString: %d possible hashes", (int)hashCount);
 
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	SecKeychainSearchRef searchRef = NULL;
 	// note: Sec* APIs are not re-entrant due to the API lock
 	// status = SecKeychainSearchCreateFromAttributes(systemRoots, kSecCertificateItemClass, NULL, &searchRef);
@@ -602,9 +604,9 @@ CFArrayRef _possibleRootCertificatesForOidString(CFStringRef oidString)
 				uint8 buf[CC_SHA1_DIGEST_LENGTH];
 				CSSM_DATA digest = { sizeof(buf), buf };
 				if (!certData.Data || !certData.Length) {
-					status = paramErr;
+					status = errSecParam;
 				} else {
-					CC_SHA1(certData.Data, certData.Length, buf);
+					CC_SHA1(certData.Data, (CC_LONG)certData.Length, buf);
 				}
 				if (!status) {
 					CFDataRef hashData = CFDataCreateWithBytesNoCopy(NULL, digest.Data, digest.Length, kCFAllocatorNull);
@@ -660,7 +662,7 @@ CFArrayRef _allowedRootCertificatesForOidString(CFStringRef oidString)
 					&foundMatch,	/* foundMatchingEntry */
 					&foundAny);		/* foundAnyEntry */
 
-				if (status == noErr) {
+				if (status == errSecSuccess) {
 					secdebug("evTrust", "_allowedRootCertificatesForOidString: cert %lu has result %d from domain %d",
 						idx, (int)result, (int)foundDomain);
 					// Root certificates must be trusted by the system (and not have
@@ -866,7 +868,7 @@ CFArrayRef allowedEVRootsForLeafCertificate(CFArrayRef certificates)
     CSSM_CL_HANDLE clHandle = 0;
     CSSM_DATA certData = { 0, NULL };
     SecCertificateRef certRef = (SecCertificateRef) CFArrayGetValueAtIndex(certificates, 0);
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	// note: Sec* APIs are not re-entrant due to the API lock
 	// status = SecCertificateGetCLHandle(certRef, &clHandle);
 	BEGIN_SECAPI_INTERNAL_CALL
@@ -913,6 +915,7 @@ CFArrayRef allowedEVRootsForLeafCertificate(CFArrayRef certificates)
 // or NULL if the certificate chain did not meet all EV criteria. (Caller must
 // release the result if not NULL.)
 //
+static
 CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultType trustResult, OSStatus tpResult)
 {
 	// This function is intended to be called after the "regular" TP evaluation
@@ -970,7 +973,7 @@ CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultTy
 	CSSM_OID_PTR oidPtr = (CSSM_OID_PTR) &CSSMOID_CertificatePolicies;
     for (chainIndex = 1; hasRequiredExtensions && chainLen > 2 && chainIndex < chainLen - 1; chainIndex++) {
         SecCertificateRef intermediateCert = (SecCertificateRef) CFArrayGetValueAtIndex(certChain, chainIndex);
-		OSStatus status = noErr;
+		OSStatus status = errSecSuccess;
 		// note: Sec* APIs are not re-entrant due to the API lock
 		// status = SecCertificateGetCLHandle(intermediateCert, &clHandle);
 		BEGIN_SECAPI_INTERNAL_CALL

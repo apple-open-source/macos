@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -69,6 +69,11 @@
 #include <netinet/ip.h>
 #include <netinet/ip_dummynet.h>
 #include <arpa/inet.h>
+
+/*
+ * Limit delay to avoid computation overflow
+ */
+#define MAX_DELAY (INT_MAX / 1000)
 
 
 int
@@ -584,6 +589,7 @@ delete(int ac, char *av[])
  * arguments.
  */
 #define	NEED1(msg)	{if (!ac) errx(EX_USAGE, msg);}
+#define	NEED2(msg, arg)	{if (!ac) errx(EX_USAGE, msg, arg);}
 
 static void
 config_pipe(int ac, char **av)
@@ -820,7 +826,7 @@ end_mask:
             case TOK_DELAY:
                 if (do_pipe != 1)
                     errx(EX_DATAERR, "delay only valid for pipes");
-                NEED1("delay needs argument 0..10000ms\n");
+                NEED2("delay needs argument 0..%d\n", MAX_DELAY);
                 p.delay = (int)strtoul(av[0], NULL, 0);
                 ac--; av++;
                 break;
@@ -848,8 +854,8 @@ end_mask:
 	if (do_pipe == 1) {
 		if (p.pipe_nr == 0)
 			errx(EX_DATAERR, "pipe_nr must be > 0");
-		if (p.delay > 10000)
-			errx(EX_DATAERR, "delay must be < 10000");
+		if (p.delay > MAX_DELAY)
+			errx(EX_DATAERR, "delay must be < %d ms", MAX_DELAY);
 	} else { /* do_pipe == 2, queue */
 		if (p.fs.parent_nr == 0)
 			errx(EX_DATAERR, "pipe must be > 0");

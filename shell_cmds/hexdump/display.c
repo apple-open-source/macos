@@ -270,7 +270,12 @@ get(void)
 			 * XXX bcmp() is not quite right in the presence
 			 * of multibyte characters.
 			 */
+#ifdef __APPLE__
+			/* 5650060 */
+			if (!need && vflag != ALL && 
+#else
 			if (vflag != ALL && 
+#endif
 			    valid_save && 
 			    bcmp(curp, savp, nread) == 0) {
 				if (vflag != DUP)

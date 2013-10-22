@@ -15,9 +15,11 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = MCDisassembler MCParser
+
 [component_0]
 type = Library
 name = MC
 parent = Libraries
-required_libraries = Support
-
+required_libraries = Object Support

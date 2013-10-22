@@ -75,22 +75,21 @@ bool SVGComponentTransferFunctionElement::isSupportedAttribute(const QualifiedNa
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGComponentTransferFunctionElement::parseAttribute(Attribute* attr)
+void SVGComponentTransferFunctionElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGElement::parseAttribute(name, value);
         return;
     }
 
-    const AtomicString& value = attr->value();
-    if (attr->name() == SVGNames::typeAttr) {
+    if (name == SVGNames::typeAttr) {
         ComponentTransferType propertyValue = SVGPropertyTraits<ComponentTransferType>::fromString(value);
         if (propertyValue > 0)
             setTypeBaseValue(propertyValue);
         return;
     }
 
-    if (attr->name() == SVGNames::tableValuesAttr) {
+    if (name == SVGNames::tableValuesAttr) {
         SVGNumberList newList;
         newList.parse(value);
         detachAnimatedTableValuesListWrappers(newList.size());
@@ -98,27 +97,27 @@ void SVGComponentTransferFunctionElement::parseAttribute(Attribute* attr)
         return;
     }
 
-    if (attr->name() == SVGNames::slopeAttr) {
+    if (name == SVGNames::slopeAttr) {
         setSlopeBaseValue(value.toFloat());
         return;
     }
 
-    if (attr->name() == SVGNames::interceptAttr) {
+    if (name == SVGNames::interceptAttr) {
         setInterceptBaseValue(value.toFloat());
         return;
     }
 
-    if (attr->name() == SVGNames::amplitudeAttr) {
+    if (name == SVGNames::amplitudeAttr) {
         setAmplitudeBaseValue(value.toFloat());
         return;
     }
 
-    if (attr->name() == SVGNames::exponentAttr) {
+    if (name == SVGNames::exponentAttr) {
         setExponentBaseValue(value.toFloat());
         return;
     }
 
-    if (attr->name() == SVGNames::offsetAttr) {
+    if (name == SVGNames::offsetAttr) {
         setOffsetBaseValue(value.toFloat());
         return;
     }

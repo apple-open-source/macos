@@ -27,6 +27,7 @@
 #include "GraphicsContext.h"
 
 #include "AffineTransform.h"
+#include "DIBPixelData.h"
 #include "Path.h"
 
 #include <cairo-win32.h>
@@ -36,6 +37,7 @@ using namespace std;
 
 namespace WebCore {
 
+#if PLATFORM(WIN)
 static cairo_t* createCairoContextWithHDC(HDC hdc, bool hasAlpha)
 {
     // Put the HDC In advanced mode so it will honor affine transforms.
@@ -86,7 +88,10 @@ void GraphicsContext::platformInit(HDC dc, bool hasAlpha)
         setPlatformFillColor(fillColor(), fillColorSpace());
         setPlatformStrokeColor(strokeColor(), strokeColorSpace());
     }
+    if (cr)
+        cairo_destroy(cr);
 }
+#endif
 
 static void setRGBABitmapAlpha(unsigned char* bytes, size_t length, unsigned char level)
 {
@@ -149,6 +154,7 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
     ::DeleteDC(hdc);
 }
 
+#if PLATFORM(WIN)
 void GraphicsContext::drawWindowsBitmap(WindowsBitmap* bitmap, const IntPoint& point)
 {
     drawBitmapToContext(m_data, platformContext()->cr(), bitmap->windowsDIB(), IntSize(point.x(), bitmap->size().height() + point.y()));
@@ -171,5 +177,6 @@ void GraphicsContextPlatformPrivate::flush()
     cairo_surface_flush(surface);
     cairo_surface_destroy(surface);
 }
+#endif
 
 }

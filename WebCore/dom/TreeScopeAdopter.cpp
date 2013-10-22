@@ -25,65 +25,70 @@
 #include "config.h"
 #include "TreeScopeAdopter.h"
 
+#include "Attr.h"
 #include "Document.h"
+#include "ElementRareData.h"
+#include "ElementShadow.h"
 #include "NodeRareData.h"
+#include "NodeTraversal.h"
+#include "RenderStyle.h"
 #include "ShadowRoot.h"
-#include "ShadowTree.h"
 
 namespace WebCore {
-
-static inline ShadowTree* shadowTreeFor(Node* node)
-{
-    return node->isElementNode() ? toElement(node)->shadowTree() : 0;
-}
 
 void TreeScopeAdopter::moveTreeToNewScope(Node* root) const
 {
     ASSERT(needsScopeChange());
 
+    m_oldScope->guardRef();
+
     // If an element is moved from a document and then eventually back again the collection cache for
     // that element may contain stale data as changes made to it will have updated the DOMTreeVersion
     // of the document it was moved to. By increasing the DOMTreeVersion of the donating document here
     // we ensure that the collection cache will be invalidated as needed when the element is moved back.
-    Document* oldDocument = m_oldScope ? m_oldScope->rootNode()->document() : 0;
-    Document* newDocument = m_newScope->rootNode()->document();
+    Document* oldDocument = m_oldScope->documentScope();
+    Document* newDocument = m_newScope->documentScope();
     bool willMoveToNewDocument = oldDocument != newDocument;
     if (oldDocument && willMoveToNewDocument)
         oldDocument->incDOMTreeVersion();
 
-    for (Node* node = root; node; node = node->traverseNextNode(root)) {
-        NodeRareData* rareData = node->setTreeScope(newDocument == m_newScope ? 0 : m_newScope);
-        if (rareData && rareData->nodeLists()) {
-            rareData->nodeLists()->invalidateCaches();
-            if (m_oldScope)
-                m_oldScope->removeNodeListCache();
-            m_newScope->addNodeListCache();
-        }
+    for (Node* node = root; node; node = NodeTraversal::next(node, root)) {
+        updateTreeScope(node);
 
         if (willMoveToNewDocument)
             moveNodeToNewDocument(node, oldDocument, newDocument);
+        else if (node->hasRareData()) {
+            NodeRareData* rareData = node->rareData();
+            if (rareData->nodeLists())
+                rareData->nodeLists()->adoptTreeScope();
+        }
 
-        if (ShadowTree* tree = shadowTreeFor(node)) {
-            tree->setParentTreeScope(m_newScope);
+        if (!node->isElementNode())
+            continue;
+
+        if (node->hasSyntheticAttrChildNodes()) {
+            const Vector<RefPtr<Attr> >& attrs = toElement(node)->attrNodeList();
+            for (unsigned i = 0; i < attrs.size(); ++i)
+                moveTreeToNewScope(attrs[i].get());
+        }
+
+        if (ShadowRoot* shadow = node->shadowRoot()) {
+            shadow->setParentTreeScope(m_newScope);
             if (willMoveToNewDocument)
-                moveShadowTreeToNewDocument(tree, oldDocument, newDocument);
+                moveTreeToNewDocument(shadow, oldDocument, newDocument);
         }
     }
+
+    m_oldScope->guardDeref();
 }
 
 void TreeScopeAdopter::moveTreeToNewDocument(Node* root, Document* oldDocument, Document* newDocument) const
 {
-    for (Node* node = root; node; node = node->traverseNextNode(root)) {
+    for (Node* node = root; node; node = NodeTraversal::next(node, root)) {
         moveNodeToNewDocument(node, oldDocument, newDocument);
-        if (ShadowTree* tree = shadowTreeFor(node))
-            moveShadowTreeToNewDocument(tree, oldDocument, newDocument);
+        if (ShadowRoot* shadow = node->shadowRoot())
+            moveTreeToNewDocument(shadow, oldDocument, newDocument);
     }
-}
-
-inline void TreeScopeAdopter::moveShadowTreeToNewDocument(ShadowTree* tree, Document* oldDocument, Document* newDocument) const
-{
-    for (ShadowRoot* root = tree->youngestShadowRoot(); root; root = root->olderShadowRoot())
-        moveTreeToNewDocument(root, oldDocument, newDocument);
 }
 
 #ifndef NDEBUG
@@ -98,15 +103,30 @@ void TreeScopeAdopter::ensureDidMoveToNewDocumentWasCalled(Document* oldDocument
 }
 #endif
 
+inline void TreeScopeAdopter::updateTreeScope(Node* node) const
+{
+    ASSERT(!node->isTreeScope());
+    ASSERT(node->treeScope() == m_oldScope);
+    m_newScope->guardRef();
+    m_oldScope->guardDeref();
+    node->setTreeScope(m_newScope);
+}
+
 inline void TreeScopeAdopter::moveNodeToNewDocument(Node* node, Document* oldDocument, Document* newDocument) const
 {
     ASSERT(!node->inDocument() || oldDocument != newDocument);
 
-    newDocument->guardRef();
+    if (node->hasRareData()) {
+        NodeRareData* rareData = node->rareData();
+        if (rareData->nodeLists())
+            rareData->nodeLists()->adoptDocument(oldDocument, newDocument);
+    }
+
     if (oldDocument)
         oldDocument->moveNodeIteratorsToNewDocument(node, newDocument);
 
-    node->setDocument(newDocument);
+    if (node->isShadowRoot())
+        toShadowRoot(node)->setDocumentScope(newDocument);
 
 #ifndef NDEBUG
     didMoveToNewDocumentWasCalled = false;
@@ -115,9 +135,6 @@ inline void TreeScopeAdopter::moveNodeToNewDocument(Node* node, Document* oldDoc
 
     node->didMoveToNewDocument(oldDocument);
     ASSERT(didMoveToNewDocumentWasCalled);
-    
-    if (oldDocument)
-        oldDocument->guardDeref();
 }
 
 }

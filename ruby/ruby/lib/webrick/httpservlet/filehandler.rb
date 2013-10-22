@@ -18,11 +18,28 @@ require 'webrick/httpstatus'
 module WEBrick
   module HTTPServlet
 
+    ##
+    # Servlet for serving a single file.  You probably want to use the
+    # FileHandler servlet instead as it handles directories and fancy indexes.
+    #
+    # Example:
+    #
+    #   server.mount('/my_page.txt', WEBrick::HTTPServlet::DefaultFileHandler,
+    #                '/path/to/my_page.txt')
+    #
+    # This servlet handles If-Modified-Since and Range requests.
+
     class DefaultFileHandler < AbstractServlet
+
+      ##
+      # Creates a DefaultFileHandler instance for the file at +local_path+.
+
       def initialize(server, local_path)
-        super
+        super(server, local_path)
         @local_path = local_path
       end
+
+      # :stopdoc:
 
       def do_GET(req, res)
         st = File::stat(@local_path)
@@ -32,7 +49,7 @@ module WEBrick
         if not_modified?(req, res, mtime, res['etag'])
           res.body = ''
           raise HTTPStatus::NotModified
-        elsif req['range'] 
+        elsif req['range']
           make_partial_content(req, res, @local_path, st.size)
           raise HTTPStatus::PartialContent
         else
@@ -123,18 +140,45 @@ module WEBrick
         last = filesize - 1 if last >= filesize
         return first, last
       end
+
+      # :startdoc:
     end
 
+    ##
+    # Serves a directory including fancy indexing and a variety of other
+    # options.
+    #
+    # Example:
+    #
+    #   server.mount '/assets', WEBrick::FileHandler, '/path/to/assets'
+
     class FileHandler < AbstractServlet
-      HandlerTable = Hash.new
+      HandlerTable = Hash.new # :nodoc:
+
+      ##
+      # Allow custom handling of requests for files with +suffix+ by class
+      # +handler+
 
       def self.add_handler(suffix, handler)
         HandlerTable[suffix] = handler
       end
 
+      ##
+      # Remove custom handling of requests for files with +suffix+
+
       def self.remove_handler(suffix)
         HandlerTable.delete(suffix)
       end
+
+      ##
+      # Creates a FileHandler servlet on +server+ that serves files starting
+      # at directory +root+
+      #
+      # +options+ may be a Hash containing keys from
+      # WEBrick::Config::FileHandler or +true+ or +false+.
+      #
+      # If +options+ is true or false then +:FancyIndexing+ is enabled or
+      # disabled respectively.
 
       def initialize(server, root, options={}, default=Config::FileHandler)
         @config = server.config
@@ -145,6 +189,8 @@ module WEBrick
         end
         @options = default.dup.update(options)
       end
+
+      # :stopdoc:
 
       def service(req, res)
         # if this class is mounted on "/" and /~username is requested.
@@ -214,16 +260,20 @@ module WEBrick
         # character in URI notation. So the value of path_info should be
         # normalize before accessing to the filesystem.
 
+        # dirty hack for filesystem encoding; in nature, File.expand_path
+        # should not be used for path normalization.  [Bug #3345]
+        path = req.path_info.dup.force_encoding(Encoding.find("filesystem"))
         if trailing_pathsep?(req.path_info)
           # File.expand_path removes the trailing path separator.
           # Adding a character is a workaround to save it.
           #  File.expand_path("/aaa/")        #=> "/aaa"
           #  File.expand_path("/aaa/" + "x")  #=> "/aaa/x"
-          expanded = File.expand_path(req.path_info + "x")
+          expanded = File.expand_path(path + "x")
           expanded.chop!  # remove trailing "x"
         else
-          expanded = File.expand_path(req.path_info)
+          expanded = File.expand_path(path)
         end
+        expanded.force_encoding(req.path_info.encoding)
         req.path_info = expanded
       end
 
@@ -402,25 +452,25 @@ module WEBrick
         res.body << "<A HREF=\"?M=#{d1}\">Last modified</A>         "
         res.body << "<A HREF=\"?S=#{d1}\">Size</A>\n"
         res.body << "<HR>\n"
-       
+
         list.unshift [ "..", File::mtime(local_path+"/.."), -1 ]
         list.each{ |name, time, size|
           if name == ".."
             dname = "Parent Directory"
-          elsif name.size > 25
-            dname = name.sub(/^(.{23})(.*)/){ $1 + ".." }
+          elsif name.bytesize > 25
+            dname = name.sub(/^(.{23})(?:.*)/, '\1..')
           else
             dname = name
           end
-          s =  " <A HREF=\"#{HTTPUtils::escape(name)}\">#{dname}</A>"
-          s << " " * (30 - dname.size)
+          s =  " <A HREF=\"#{HTTPUtils::escape(name)}\">#{HTMLUtils::escape(dname)}</A>"
+          s << " " * (30 - dname.bytesize)
           s << (time ? time.strftime("%Y/%m/%d %H:%M      ") : " " * 22)
           s << (size >= 0 ? size.to_s : "-") << "\n"
           res.body << s
         }
         res.body << "</PRE><HR>"
 
-        res.body << <<-_end_of_html_    
+        res.body << <<-_end_of_html_
     <ADDRESS>
      #{HTMLUtils::escape(@config[:ServerSoftware])}<BR>
      at #{req.host}:#{req.port}
@@ -430,6 +480,7 @@ module WEBrick
         _end_of_html_
       end
 
+      # :startdoc:
     end
   end
 end

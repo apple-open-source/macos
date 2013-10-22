@@ -32,15 +32,11 @@
 
 #include <Security/SecRSAKey.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 OSStatus SecRSAKeyGeneratePair(CFDictionaryRef parameters,
     SecKeyRef *rsaPublicKey, SecKeyRef *rsaPrivateKey);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECRSAKEY_H_ */

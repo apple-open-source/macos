@@ -2,17 +2,10 @@
 # Makefile for the NFS project
 #
 
-pathsearch = $(firstword $(wildcard $(addsuffix /$(1),$(subst :, ,$(PATH)))))
-TCONF := $(call pathsearch,tconf)
-
-ifneq "$(TCONF)" ""
-Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
-endif
-
 SUBPROJECTS = mount_nfs nfs_fs nfsiod nfsstat showmount files
 
-ifneq "$(Embedded)" "YES"
-SUBPROJECTS += nfsd rpc.lockd rpc.statd rpc.rquotad
+ifneq "$(RC_TARGET_CONFIG)" "iPhone"
+SUBPROJECTS += nfsd rpc.lockd rpc.statd rpc.rquotad ncdestroy
 endif
 
 .PHONY: installsrc clean installhdrs install inplace

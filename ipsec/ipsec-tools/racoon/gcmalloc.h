@@ -96,17 +96,7 @@ strdup(const char *str)
 
 #endif /* GC */
 
-/*
- * Dmalloc only requires that you pull in a header file and link
- * against libdmalloc.
- */
-#ifdef DMALLOC
-#include <dmalloc.h>
-#endif /* DMALLOC */
 
-#ifdef DEBUG_RECORD_MALLOCATION
-#include <debugrm.h>
-#else
 #ifndef racoon_malloc
 #define	racoon_malloc(sz)	malloc((sz))
 #endif
@@ -122,6 +112,5 @@ strdup(const char *str)
 #ifndef racoon_strdup
 #define	racoon_strdup(s)	strdup((s))
 #endif
-#endif /* DEBUG_RECORD_MALLOCATION */
 
 #endif /* _GCMALLOC_H_DEFINED */

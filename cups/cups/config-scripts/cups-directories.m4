@@ -3,7 +3,7 @@ dnl "$Id: cups-directories.m4 7799 2008-07-25 20:06:08Z mike $"
 dnl
 dnl   Directory stuff for CUPS.
 dnl
-dnl   Copyright 2007-2012 by Apple Inc.
+dnl   Copyright 2007-2013 by Apple Inc.
 dnl   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -102,9 +102,6 @@ fi
 dnl Fix "libdir" variable...
 if test "$libdir" = "\${exec_prefix}/lib"; then
 	case "$uname" in
-		IRIX*)
-			libdir="$exec_prefix/lib32"
-			;;
 		Linux*)
 			if test -d /usr/lib64 -a ! -d /usr/lib64/fakeroot; then
 				libdir="$exec_prefix/lib64"
@@ -167,13 +164,6 @@ if test x$rcdir = x; then
 			RCLEVELS="2"
 			RCSTART="380"
 			RCSTOP="620"
-			;;
-
-		IRIX*)
-			# IRIX
-			INITDIR="/etc"
-			RCSTART="60"
-			RCSTOP="25"
 			;;
 
 		Linux | GNU | GNU/k*BSD*)
@@ -422,16 +412,17 @@ AC_DEFINE_UNQUOTED(CUPS_SERVERROOT, "$sysconfdir/cups")
 AC_SUBST(CUPS_SERVERROOT)
 
 # Transient run-time state
-case "$uname" in
-	Darwin*)
-		# Darwin (OS X)
-		CUPS_STATEDIR="$CUPS_SERVERROOT"
-		;;
-	*)
-		# All others
-		CUPS_STATEDIR="$localstatedir/run/cups"
-		;;
-esac
+AC_ARG_WITH(rundir, [  --with-rundir           set transient run-time state directory],CUPS_STATEDIR="$withval",[
+	case "$uname" in
+		Darwin*)
+			# Darwin (OS X)
+			CUPS_STATEDIR="$CUPS_SERVERROOT"
+			;;
+		*)
+			# All others
+			CUPS_STATEDIR="$localstatedir/run/cups"
+			;;
+	esac])
 AC_DEFINE_UNQUOTED(CUPS_STATEDIR, "$CUPS_STATEDIR")
 AC_SUBST(CUPS_STATEDIR)
 

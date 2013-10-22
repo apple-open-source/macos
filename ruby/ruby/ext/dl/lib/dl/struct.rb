@@ -1,149 +1,236 @@
-# -*- ruby -*-
-
 require 'dl'
-require 'dl/import'
+require 'dl/value'
+require 'dl/pack.rb'
 
 module DL
-  module Importable
-    module Internal
-      def define_struct(contents)
-	init_types()
-	Struct.new(@types, contents)
+  # C struct shell
+  class CStruct
+    # accessor to DL::CStructEntity
+    def CStruct.entity_class()
+      CStructEntity
+    end
+  end
+
+  # C union shell
+  class CUnion
+    # accessor to DL::CUnionEntity
+    def CUnion.entity_class()
+      CUnionEntity
+    end
+  end
+
+  # Used to construct C classes (CUnion, CStruct, etc)
+  #
+  # DL::Importer#struct and DL::Importer#union wrap this functionality in an
+  # easy-to-use manner.
+  module CStructBuilder
+    # Construct a new class given a C:
+    # * class +klass+ (CUnion, CStruct, or other that provide an
+    #   #entity_class)
+    # * +types+ (DL:TYPE_INT, DL::TYPE_SIZE_T, etc., see the C types
+    #   constants)
+    # * corresponding +members+
+    #
+    # DL::Importer#struct and DL::Importer#union wrap this functionality in an
+    # easy-to-use manner.
+    #
+    # Example:
+    #
+    #   require 'dl/struct'
+    #   require 'dl/cparser'
+    #
+    #   include DL::CParser
+    #
+    #   types, members = parse_struct_signature(['int i','char c'])
+    #
+    #   MyStruct = DL::CStructBuilder.create(CUnion, types, members)
+    #
+    #   obj = MyStruct.allocate
+    #
+    def create(klass, types, members)
+      new_class = Class.new(klass){
+        define_method(:initialize){|addr|
+          @entity = klass.entity_class.new(addr, types)
+          @entity.assign_names(members)
+        }
+        define_method(:to_ptr){ @entity }
+        define_method(:to_i){ @entity.to_i }
+        members.each{|name|
+          define_method(name){ @entity[name] }
+          define_method(name + "="){|val| @entity[name] = val }
+        }
+      }
+      size = klass.entity_class.size(types)
+      new_class.module_eval(<<-EOS, __FILE__, __LINE__+1)
+        def new_class.size()
+          #{size}
+        end
+        def new_class.malloc()
+          addr = DL.malloc(#{size})
+          new(addr)
+        end
+      EOS
+      return new_class
+    end
+    module_function :create
+  end
+
+  # A C struct wrapper
+  class CStructEntity < (DL.fiddle? ? Fiddle::Pointer : CPtr)
+    include PackInfo
+    include ValueUtil
+
+    # Allocates a C struct the +types+ provided.  The C function +func+ is
+    # called when the instance is garbage collected.
+    def CStructEntity.malloc(types, func = nil)
+      addr = DL.malloc(CStructEntity.size(types))
+      CStructEntity.new(addr, types, func)
+    end
+
+    # Given +types+, returns the offset for the packed sizes of those types
+    #
+    #   DL::CStructEntity.size([DL::TYPE_DOUBLE, DL::TYPE_INT, DL::TYPE_CHAR,
+    #                           DL::TYPE_VOIDP])
+    #   => 24
+    def CStructEntity.size(types)
+      offset = 0
+
+      max_align = types.map { |type, count = 1|
+        last_offset = offset
+
+        align = PackInfo::ALIGN_MAP[type]
+        offset = PackInfo.align(last_offset, align) +
+                 (PackInfo::SIZE_MAP[type] * count)
+
+        align
+      }.max
+
+      PackInfo.align(offset, max_align)
+    end
+
+    # Wraps the C pointer +addr+ as a C struct with the given +types+.  The C
+    # function +func+ is called when the instance is garbage collected.
+    #
+    # See also DL::CPtr.new
+    def initialize(addr, types, func = nil)
+      set_ctypes(types)
+      super(addr, @size, func)
+    end
+
+    # Set the names of the +members+ in this C struct
+    def assign_names(members)
+      @members = members
+    end
+
+    # Given +types+, calculate the offsets and sizes for the types in the
+    # struct.
+    def set_ctypes(types)
+      @ctypes = types
+      @offset = []
+      offset = 0
+
+      max_align = types.map { |type, count = 1|
+        orig_offset = offset
+        align = ALIGN_MAP[type]
+        offset = PackInfo.align(orig_offset, align)
+
+        @offset << offset
+
+        offset += (SIZE_MAP[type] * count)
+
+        align
+      }.max
+
+      @size = PackInfo.align(offset, max_align)
+    end
+
+    # Fetch struct member +name+
+    def [](name)
+      idx = @members.index(name)
+      if( idx.nil? )
+        raise(ArgumentError, "no such member: #{name}")
       end
-      alias struct define_struct
-
-      def define_union(contents)
-	init_types()
-	Union.new(@types, contents)
+      ty = @ctypes[idx]
+      if( ty.is_a?(Array) )
+        r = super(@offset[idx], SIZE_MAP[ty[0]] * ty[1])
+      else
+        r = super(@offset[idx], SIZE_MAP[ty.abs])
       end
-      alias union define_union
-
-      class Memory
-	def initialize(ptr, names, ty, len, enc, dec)
-	  @ptr = ptr
-	  @names = names
-	  @ty    = ty
-	  @len   = len
-	  @enc   = enc
-	  @dec   = dec
-
-	  # define methods
-	  @names.each{|name|
-	    instance_eval [
-	      "def #{name}",
-	      "  v = @ptr[\"#{name}\"]",
-	      "  if( @len[\"#{name}\"] )",
-	      "    v = v.collect{|x| @dec[\"#{name}\"] ? @dec[\"#{name}\"].call(x) : x }",
-              "  else",
-	      "    v = @dec[\"#{name}\"].call(v) if @dec[\"#{name}\"]",
-	      "  end",
-	      "  return v",
-	      "end",
-	      "def #{name}=(v)",
-	      "  if( @len[\"#{name}\"] )",
-	      "    v = v.collect{|x| @enc[\"#{name}\"] ? @enc[\"#{name}\"].call(x) : x }",
-	      "  else",
-	      "    v = @enc[\"#{name}\"].call(v) if @enc[\"#{name}\"]",
-              "  end",
-	      "  @ptr[\"#{name}\"] = v",
-	      "  return v",
-	      "end",
-	    ].join("\n")
-	  }
-	end
-
-	def to_ptr
-	  return @ptr
-	end
-
-	def size
-	  return @ptr.size
-	end
+      packer = Packer.new([ty])
+      val = packer.unpack([r])
+      case ty
+      when Array
+        case ty[0]
+        when TYPE_VOIDP
+          val = val.collect{|v| CPtr.new(v)}
+        end
+      when TYPE_VOIDP
+        val = CPtr.new(val[0])
+      else
+        val = val[0]
       end
-
-      class Struct
-	def initialize(types, contents)
-	  @names = []
-	  @ty   = {}
-	  @len  = {}
-	  @enc  = {}
-	  @dec  = {}
-	  @size = 0
-	  @tys  = ""
-	  @types = types
-	  parse(contents)
-	end
-
-	def size
-	  return @size
-	end
-
-	def members
-	  return @names
-	end
-
-	# ptr must be a PtrData object.
-	def new(ptr)
-	  ptr.struct!(@tys, *@names)
-	  mem = Memory.new(ptr, @names, @ty, @len, @enc, @dec)
-	  return mem
-	end
-
-	def malloc(size = nil)
-	  if( !size )
-	    size = @size
-	  end
-	  ptr = DL::malloc(size)
-	  return new(ptr)
-	end
-
-	def parse(contents)
-	  contents.each{|elem|
-	    name,ty,num,enc,dec = parse_elem(elem)
-	    @names.push(name)
-	    @ty[name]  = ty
-	    @len[name] = num
-	    @enc[name] = enc
-	    @dec[name] = dec
-	    if( num )
-	      @tys += "#{ty}#{num}"
-	    else
-	      @tys += ty
-	    end
-	  }
-	  @size = DL.sizeof(@tys)
-	end
-	
-	def parse_elem(elem)
-	  elem.strip!
-	  case elem
-	  when /^([\w\d_\*]+)([\*\s]+)([\w\d_]+)$/
-	    ty = ($1 + $2).strip
-	    name = $3
-	    num = nil;
-	  when /^([\w\d_\*]+)([\*\s]+)([\w\d_]+)\[(\d+)\]$/
-	    ty = ($1 + $2).strip
-	    name = $3
-	    num = $4.to_i
-	  else
-	    raise(RuntimeError, "invalid element: #{elem}")
-	  end
-	  ty,enc,dec = @types.encode_struct_type(ty)
-          if( !ty )
-            raise(TypeError, "unsupported type: #{ty}")
-          end
-	  return [name,ty,num,enc,dec]
-	end
-      end  # class Struct
-      
-      class Union < Struct
-	def new
-	  ptr = DL::malloc(@size)
-	  ptr.union!(@tys, *@names)
-	  mem = Memory.new(ptr, @names, @ty, @len, @enc, @dec)
-	  return mem
-	end
+      if( ty.is_a?(Integer) && (ty < 0) )
+        return unsigned_value(val, ty)
+      elsif( ty.is_a?(Array) && (ty[0] < 0) )
+        return val.collect{|v| unsigned_value(v,ty[0])}
+      else
+        return val
       end
-    end  # module Internal
-  end  # module Importable
-end  # module DL
+    end
+
+    # Set struct member +name+, to value +val+
+    def []=(name, val)
+      idx = @members.index(name)
+      if( idx.nil? )
+        raise(ArgumentError, "no such member: #{name}")
+      end
+      ty  = @ctypes[idx]
+      packer = Packer.new([ty])
+      val = wrap_arg(val, ty, [])
+      buff = packer.pack([val].flatten())
+      super(@offset[idx], buff.size, buff)
+      if( ty.is_a?(Integer) && (ty < 0) )
+        return unsigned_value(val, ty)
+      elsif( ty.is_a?(Array) && (ty[0] < 0) )
+        return val.collect{|v| unsigned_value(v,ty[0])}
+      else
+        return val
+      end
+    end
+
+    def to_s() # :nodoc:
+      super(@size)
+    end
+  end
+
+  # A C union wrapper
+  class CUnionEntity < CStructEntity
+    include PackInfo
+
+    # Allocates a C union the +types+ provided.  The C function +func+ is
+    # called when the instance is garbage collected.
+    def CUnionEntity.malloc(types, func=nil)
+      addr = DL.malloc(CUnionEntity.size(types))
+      CUnionEntity.new(addr, types, func)
+    end
+
+    # Given +types+, returns the size needed for the union.
+    #
+    #   DL::CUnionEntity.size([DL::TYPE_DOUBLE, DL::TYPE_INT, DL::TYPE_CHAR,
+    #                          DL::TYPE_VOIDP])
+    #   => 8
+    def CUnionEntity.size(types)
+      types.map { |type, count = 1|
+        PackInfo::SIZE_MAP[type] * count
+      }.max
+    end
+
+    # Given +types+, calculate the necessary offset and for each union member
+    def set_ctypes(types)
+      @ctypes = types
+      @offset = Array.new(types.length, 0)
+      @size   = self.class.size types
+    end
+  end
+end
+

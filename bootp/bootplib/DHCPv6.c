@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,8 @@
 #include "DHCPv6Options.h"
 #include <stddef.h>
 #include "util.h"
+#include "cfutil.h"
+#include <SystemConfiguration/SCPrivate.h>
 
 const char *
 DHCPv6MessageName(int message)
@@ -147,15 +149,29 @@ DHCPv6PacketGetTransactionID(const DHCPv6PacketRef pkt)
 }
 
 void
-DHCPv6PacketFPrint(FILE * file, const DHCPv6PacketRef pkt, int pkt_len)
+DHCPv6PacketPrintToString(CFMutableStringRef str,
+			  const DHCPv6PacketRef pkt, int pkt_len)
 {
     if (pkt_len < DHCPV6_PACKET_HEADER_LENGTH) {
-	fprintf(file, "Packet too short %d < %d\n",
-		pkt_len, DHCPV6_PACKET_HEADER_LENGTH);
-	return;
+	STRING_APPEND(str, "Packet too short %d < %d\n",
+		      pkt_len, DHCPV6_PACKET_HEADER_LENGTH);
     }
-    fprintf(file, "DHCPv6 %s (%d) Transaction ID 0x%06x Length %d\n",
-	    DHCPv6MessageName(pkt->msg_type), pkt->msg_type,
-	    DHCPv6PacketGetTransactionID(pkt), pkt_len);
+    else {
+	STRING_APPEND(str, "DHCPv6 %s (%d) Transaction ID 0x%06x Length %d\n",
+		      DHCPv6MessageName(pkt->msg_type), pkt->msg_type,
+		      DHCPv6PacketGetTransactionID(pkt), pkt_len);
+    }
+    return;
+}
+
+void
+DHCPv6PacketFPrint(FILE * file, const DHCPv6PacketRef pkt, int pkt_len)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    DHCPv6PacketPrintToString(str, pkt, pkt_len);
+    SCPrint(TRUE, file, CFSTR("%@"), str);
+    CFRelease(str);
     return;
 }

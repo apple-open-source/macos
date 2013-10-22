@@ -24,13 +24,19 @@
 
 namespace WebKit {
 
-bool WebSoupRequestManagerClient::didReceiveURIRequest(WebSoupRequestManagerProxy* soupRequestManager, WebURL* url, uint64_t requestID)
+bool WebSoupRequestManagerClient::didReceiveURIRequest(WebSoupRequestManagerProxy* soupRequestManager, WebURL* url, WebPageProxy* initiaingPage, uint64_t requestID)
 {
     if (!m_client.didReceiveURIRequest)
         return false;
 
-    m_client.didReceiveURIRequest(toAPI(soupRequestManager), toAPI(url), requestID, m_client.clientInfo);
+    m_client.didReceiveURIRequest(toAPI(soupRequestManager), toAPI(url), toAPI(initiaingPage), requestID, m_client.clientInfo);
     return true;
+}
+
+void WebSoupRequestManagerClient::didFailToLoadURIRequest(WebSoupRequestManagerProxy* soupRequestManager, uint64_t requestID)
+{
+    if (m_client.didFailToLoadURIRequest)
+        m_client.didFailToLoadURIRequest(toAPI(soupRequestManager), requestID, m_client.clientInfo);
 }
 
 } // namespace WebKit

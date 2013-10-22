@@ -69,9 +69,8 @@ module RSS
       doc = REXML::Document.new(feed.to_s)
       xmldecl = doc.xml_decl
 
-      %w(version encoding).each do |x|
-        assert_equal(instance_eval(x), xmldecl.__send__(x))
-      end
+      assert_equal(version, xmldecl.version)
+      assert_equal(encoding, xmldecl.encoding.to_s)
       assert_equal(standalone, !xmldecl.standalone.nil?)
 
       assert_equal(@uri, doc.root.namespace)
@@ -96,9 +95,8 @@ module RSS
       doc = REXML::Document.new(entry.to_s)
       xmldecl = doc.xml_decl
 
-      %w(version encoding).each do |x|
-        assert_equal(instance_eval(x), xmldecl.__send__(x))
-      end
+      assert_equal(version, xmldecl.version)
+      assert_equal(encoding, xmldecl.encoding.to_s)
       assert_equal(standalone, !xmldecl.standalone.nil?)
 
       assert_equal(@uri, doc.root.namespace)
@@ -455,11 +453,13 @@ module RSS
     def assert_atom_link_to_s(target_class)
       _wrap_assertion do
         href = "http://example.com/atom.xml"
-        rel = "self"
-        type = "application/atom+xml"
-        hreflang = "ja"
-        title = "Atom Feed"
-        length = "801"
+        optvs = {
+          'rel' => "self",
+          'type' => "application/atom+xml",
+          'hreflang' => "ja",
+          'title' => "Atom Feed",
+          'length' => "801",
+        }
 
         link = target_class.new
         assert_equal("", link.to_s)
@@ -474,24 +474,24 @@ module RSS
           rest = optional_arguments.reject {|x| x == name}
 
           link = target_class.new
-          link.__send__("#{name}=", eval(name))
+          link.__send__("#{name}=", optvs[name])
           assert_equal("", link.to_s)
 
           rest.each do |n|
-            link.__send__("#{n}=", eval(n))
+            link.__send__("#{n}=", optvs[n])
             assert_equal("", link.to_s)
           end
 
           link = target_class.new
           link.href = href
-          link.__send__("#{name}=", eval(name))
-          attrs = [["href", href], [name, eval(name)]]
+          link.__send__("#{name}=", optvs[name])
+          attrs = [["href", href], [name, optvs[name]]]
           xml = REXML::Document.new(link.to_s).root
           assert_rexml_element([], attrs, nil, xml)
 
           rest.each do |n|
-            link.__send__("#{n}=", eval(n))
-            attrs << [n, eval(n)]
+            link.__send__("#{n}=", optvs[n])
+            attrs << [n, optvs[n]]
             xml = REXML::Document.new(link.to_s).root
             assert_rexml_element([], attrs, nil, xml)
           end
@@ -643,14 +643,16 @@ module RSS
       _wrap_assertion do
         type = "image/png"
         png_file = File.join(File.dirname(__FILE__), "dot.png")
-        original_content = File.open(png_file, "rb") {|file| file.read}
+        original_content = File.open(png_file, "rb") do |file|
+          file.read.force_encoding("binary")
+        end
 
         content = target_class.new
         content.type = type
         content.content = original_content
         xml = REXML::Document.new(content.to_s).root
         assert_rexml_element([], {"type" => type},
-                             [original_content].pack("m"),
+                             [original_content].pack("m").delete("\n"),
                              xml)
       end
     end

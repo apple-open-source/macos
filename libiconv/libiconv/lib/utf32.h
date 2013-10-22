@@ -32,7 +32,7 @@
    The default is big-endian. */
 /* The state is 0 if big-endian, 1 if little-endian. */
 static int
-utf32_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+utf32_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   state_t state = conv->istate;
   int count = 0;
@@ -61,7 +61,7 @@ utf32_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 /* We output UTF-32 in big-endian order, with byte-order mark. */
 /* The state is 0 at the beginning, 1 after the BOM has been written. */
 static int
-utf32_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+utf32_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (wc < 0x110000 && !(wc >= 0xd800 && wc < 0xe000)) {
     int count = 0;

@@ -5,9 +5,9 @@ EXECUTABLE_PREFIX =
 
 CODE_SIGN_IDENTITY = 
 
-HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR) $(PROJECT_DIR)/../libsecurity_asn1 $(PROJECT_DIR)/../libsecurity_keychain/libDER $(BUILT_PRODUCTS_DIR) $(PROJECT_DIR)/../sec $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers $(inherited)
+HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR) $(PROJECT_DIR)/../regressions $(PROJECT_DIR)/../include $(BUILT_PRODUCTS_DIR)/derived_src $(PROJECT_DIR)/../utilities $(PROJECT_DIR)/../libsecurity_keychain/ $(PROJECT_DIR)/../libsecurity_keychain/libDER $(BUILT_PRODUCTS_DIR) $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers $(inherited)
 
-HEADER_SEARCH_PATHS[sdk=iphone*] = $(PROJECT_DIR) $(PROJECT_DIR)/../libsecurity_asn1 $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(inherited)
+HEADER_SEARCH_PATHS[sdk=iphone*] = $(PROJECT_DIR) $(PROJECT_DIR)/../regressions $(PROJECT_DIR)/../utilities $(PROJECT_DIR)/../libsecurity_asn1 $(PROJECT_DIR)/../libDER $(PROJECT_DIR)/../sec $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(inherited)
 
 SKIP_INSTALL = YES
 

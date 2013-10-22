@@ -124,8 +124,8 @@ public:
     bool atEnd() const			{ return mAtEnd; }	// valid after zero-length read only
 	
 	// basic I/O with positioning
-	size_t read(void *addr, size_t length, off_t position);
-	size_t write(const void *addr, size_t length, off_t position);
+	size_t read(void *addr, size_t length, size_t position);
+	size_t write(const void *addr, size_t length, size_t position);
 
 	// read/write all of a buffer, in pieces of necessary
 	size_t readAll(void *addr, size_t length);
@@ -141,12 +141,12 @@ public:
     template <class T> size_t write(const T &obj) { return write(&obj, sizeof(obj)); }
     
     // seeking
-    size_t seek(off_t position, int whence = SEEK_SET);
+    size_t seek(size_t position, int whence = SEEK_SET);
 	size_t position() const;
     
     // mapping support
     void *mmap(int prot = PROT_READ, size_t length = 0,
-		int flags = MAP_FILE | MAP_PRIVATE, off_t offset = 0, void *addr = NULL);
+		int flags = MAP_FILE | MAP_PRIVATE, size_t offset = 0, void *addr = NULL);
     
     // fcntl support
     int fcntl(int cmd, void *arg = NULL) const;
@@ -166,11 +166,11 @@ public:
 	
 	// lock support (fcntl style)
 	struct Pos {
-		Pos(off_t s = 0, int wh = SEEK_SET, off_t siz = 0)
+		Pos(size_t s = 0, int wh = SEEK_SET, size_t siz = 0)
 			: start(s), size(siz), whence(wh) { }
 
-		off_t start;
-		off_t size;
+		size_t start;
+		size_t size;
 		int whence;
 	};
 	static Pos lockAll()	{ return Pos(0, SEEK_SET, 0); }

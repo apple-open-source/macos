@@ -28,6 +28,7 @@
 
 #include "CodeBlock.h"
 #include "ExecutableAllocator.h"
+#include <wtf/StringExtras.h>
 
 namespace JSC {
 
@@ -112,7 +113,8 @@ bool ExecutionCounter::hasCrossedThreshold(CodeBlock* codeBlock) const
     double modifiedThreshold = applyMemoryUsageHeuristics(m_activeThreshold, codeBlock);
     
     return static_cast<double>(m_totalCount) + m_counter >=
-         modifiedThreshold - static_cast<double>(m_activeThreshold) / 2;
+        modifiedThreshold - static_cast<double>(
+            std::min(m_activeThreshold, Options::maximumExecutionCountsBetweenCheckpoints())) / 2;
 }
 
 bool ExecutionCounter::setThreshold(CodeBlock* codeBlock)
@@ -125,7 +127,7 @@ bool ExecutionCounter::setThreshold(CodeBlock* codeBlock)
     ASSERT(!hasCrossedThreshold(codeBlock));
         
     // Compute the true total count.
-    double trueTotalCount = static_cast<double>(m_totalCount) + m_counter;
+    double trueTotalCount = count();
         
     // Correct the threshold for current memory usage.
     double threshold = applyMemoryUsageHeuristics(m_activeThreshold, codeBlock);
@@ -143,9 +145,8 @@ bool ExecutionCounter::setThreshold(CodeBlock* codeBlock)
         return true;
     }
 
-    if (threshold > std::numeric_limits<int32_t>::max())
-        threshold = std::numeric_limits<int32_t>::max();
-        
+    threshold = clippedThreshold(codeBlock->globalObject(), threshold);
+    
     m_counter = static_cast<int32_t>(-threshold);
         
     m_totalCount = trueTotalCount + threshold;
@@ -158,6 +159,11 @@ void ExecutionCounter::reset()
     m_counter = 0;
     m_totalCount = 0;
     m_activeThreshold = 0;
+}
+
+void ExecutionCounter::dump(PrintStream& out) const
+{
+    out.printf("%lf/%lf, %d", count(), static_cast<double>(m_activeThreshold), m_counter);
 }
 
 } // namespace JSC

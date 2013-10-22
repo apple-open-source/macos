@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -239,7 +239,7 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  failover->arp = arp_client_init(G_arp_session, if_p);
 	  if (failover->arp == NULL) {
-	      my_log(LOG_INFO, "FAILOVER %s: arp_client_init failed", 
+	      my_log(LOG_NOTICE, "FAILOVER %s: arp_client_init failed", 
 		     if_name(if_p));
 	      goto stop;
 	  }

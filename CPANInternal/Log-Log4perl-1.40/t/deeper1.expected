@@ -1,0 +1,14 @@
+INFO  plant N/A - info message 1 
+WARN  plant N/A - warning message 1 
+FATAL plant N/A - fatal message 1 
+DEBUG animal.dog N/A - debugging message 2 
+INFO  animal.dog N/A - info message 2 
+WARN  animal.dog N/A - warning message 2 
+FATAL animal.dog N/A - fatal message 2 
+INFO  animal N/A - info message 3 
+WARN  animal N/A - warning message 3 
+FATAL animal N/A - fatal message 3 
+DEBUG animal.dog.leg.toenail N/A - debug message
+INFO  animal N/A - info message
+WARN  animal.dog.leg.toenail N/A - warning message
+FATAL animal N/A - fatal message

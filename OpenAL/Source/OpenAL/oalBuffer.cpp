@@ -51,7 +51,8 @@ OALBuffer::OALBuffer (ALuint	inSelfToken)
 		mDataSize (0),
 		mPreConvertedDataSize(0),
 		mDataHasBeenConverted(false),
-		mAttachedSourceList(NULL)
+		mAttachedSourceList(NULL),
+        mIsInPostRenderMessageQueue(false)
 {
 #if LOG_VERBOSE
 	DebugMessageN1("OALBuffer::OALBuffer() - OALBuffer = %ld", (long int) mSelfToken);
@@ -136,7 +137,7 @@ bool	OALBuffer::IsPurgable()
 #endif
 	
 	// make sure that no other source has attached this buffer, and that no other thread is editing it
-	if ((mAttachedSourceList->Size() == 0) && mBufferLock.IsFree() && (mInUseFlag <= 0))
+	if ((mAttachedSourceList->Size() == 0) && mBufferLock.IsFree() && (mInUseFlag <= 0) && (!IsInPostRenderMessageQueue()))
 		returnValue = true; 
 	
 #if USE_SOURCE_LIST_MUTEX

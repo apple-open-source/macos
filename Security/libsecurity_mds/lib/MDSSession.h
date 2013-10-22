@@ -135,13 +135,20 @@ public:
 		time_t mLaterTimestamp;
 	};	/* DbFilesInfo */
 private:
-	bool obtainLock(
-		const char *lockFile,
-		int &fd, 
-		int timeout = 0);
-	void releaseLock(
-		int &fd);
-	
+    class LockHelper
+    {
+    private:
+        int mFD;
+
+    public:
+        LockHelper() : mFD(-1) {}
+        ~LockHelper();
+
+        bool obtainLock(
+            const char *lockFile,
+            int timeout = 0);
+	};
+
 	/* given DB file name, fill in fully specified path */
 	void dbFullPath(
 		const char *dbName,

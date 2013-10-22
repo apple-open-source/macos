@@ -29,11 +29,11 @@
 #include <Security/SecKey.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/cssmapi.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <string.h>
 #include <dotMacTp.h>
 #include <Security/oidsattr.h>
 #include <security_utilities/simpleprefs.h>
+#include <SecBase.h>
 
 /* one top-level prefs file for all of .mac cert requests */
 #define DOT_MAC_REQ_PREFS	"com.apple.security.certreq"
@@ -66,6 +66,7 @@
 /*
  * Compare two CSSM_DATAs (or two CSSM_OIDs), return true if identical.
  */
+static
 bool nssCompareCssmData(
 	const CSSM_DATA *data1,
 	const CSSM_DATA *data2)
@@ -166,7 +167,7 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 	     nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_ENCRYPT, &policy) ||
 	     nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_SHARED_SERVICES, &policy))) {
 		certReqDbg("CertificateRequest(): unknown policy oid");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	if(privateKeyItemRef) {
 		mPrivKey = privateKeyItemRef;
@@ -187,7 +188,7 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 		const SecCertificateRequestAttribute *attr = &attributeList->attr[dex];
 		
 		if((attr->oid.Data == NULL) || (attr->value.Data == NULL)) {
-			MacOSError::throwMe(paramErr);
+			MacOSError::throwMe(errSecParam);
 		}
 		if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_VALUE_USERNAME, &attr->oid)) {
             CSSM_DATA userName = { 0, NULL };
@@ -225,7 +226,7 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 		
 		else {
 			certReqDbg("CertificateRequest(): unknown name/value oid");
-			MacOSError::throwMe(paramErr);
+			MacOSError::throwMe(errSecParam);
 		}
 	}
 	if(mCertState == CRS_Reconstructed) {
@@ -280,7 +281,7 @@ void CertificateRequest::submit(
 		/* shouldn't be here, we already validated policy in constructor */
 		assert(0);
 		certReqDbg("CertificateRequest::submit(): bad policy");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 }
 
@@ -305,17 +306,17 @@ void CertificateRequest::submitDotMac(
 	
 	if(mCertState != CRS_New) {
 		certReqDbg("CertificateRequest: can only submit a new request");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	if((mUserName.data() == NULL) || (mPassword.data() == NULL)) {
 		certReqDbg("CertificateRequest: user name and password required");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 
 	/* get keys and CSP handle in CSSM terms */
 	if((mPrivKey == NULL) || (mPubKey == NULL)) {
 		certReqDbg("CertificateRequest: pub and priv keys required");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	ortn = SecKeyGetCSSMKey(mPrivKey, &privKey);
 	if(ortn) {
@@ -338,8 +339,8 @@ void CertificateRequest::submitDotMac(
 	tvp.type = CSSMOID_CommonName;
 	tvp.valueType = BER_TAG_PKIX_UTF8_STRING;
 	CssmAutoData fullUserName(mAlloc);
-	unsigned nameLen = mUserName.length();
-	unsigned domainLen = mDomain.length();
+	size_t nameLen = mUserName.length();
+	size_t domainLen = mDomain.length();
 	fullUserName.malloc(nameLen + 1 + domainLen);
 	tvp.value = fullUserName.get();
 	memmove(tvp.value.Data, mUserName.data(), nameLen);
@@ -483,7 +484,7 @@ void CertificateRequest::getResult(
 		/* shouldn't be here, we already validated policy in constructor */
 		assert(0);
 		certReqDbg("CertificateRequest::getResult(): bad policy");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 }
 
@@ -539,22 +540,22 @@ void CertificateRequest::getResultDotMac(
 			}
 			if(resultSet == NULL) {
 				certReqDbg("***CSSM_TP_RetrieveCredResult OK, but no result set");
-				MacOSError::throwMe(internalComponentErr);
+				MacOSError::throwMe(errSecInternalComponent);
 			}
 			if(resultSet->NumberOfResults != 1) {
 				certReqDbg("***CSSM_TP_RetrieveCredResult OK, NumberOfResults (%lu)",
 					(unsigned long)resultSet->NumberOfResults);
-				MacOSError::throwMe(internalComponentErr);
+				MacOSError::throwMe(errSecInternalComponent);
 			}
 			if(resultSet->Results == NULL) {
 				certReqDbg("***CSSM_TP_RetrieveCredResult OK, but empty result set");
-				MacOSError::throwMe(internalComponentErr);
+				MacOSError::throwMe(errSecInternalComponent);
 			}
 			certReqDbg("getResultDotMac: polled server, SUCCESS");
 			CSSM_DATA_PTR result = (CSSM_DATA_PTR)resultSet->Results;
 			if(result->Data == NULL) {
 				certReqDbg("***CSSM_TP_RetrieveCredResult OK, but empty result");
-				MacOSError::throwMe(internalComponentErr);
+				MacOSError::throwMe(errSecInternalComponent);
 			}
 			mCertData.copy(*result);
 			certData = mCertData.get();
@@ -575,7 +576,7 @@ void CertificateRequest::getResultDotMac(
 		default:
 			/* what do we do with this? */
 			certReqDbg("CertificateRequest::getResultDotMac(): bad state");
-			MacOSError::throwMe(internalComponentErr);
+			MacOSError::throwMe(errSecInternalComponent);
 	}
 	
 	/*
@@ -617,8 +618,8 @@ CFStringRef CertificateRequest::createPolicyKey()
 	char oidstr[MAX_OID_LEN];
 	unsigned char *inp = (unsigned char *)mPolicy.data();
 	char *outp = oidstr;
-	unsigned len = mPolicy.length();
-	for(unsigned dex=0; dex<len; dex++) {
+	CFIndex len = mPolicy.length();
+	for(CFIndex dex=0; dex<len; dex++) {
 		sprintf(outp, "%02X ", *inp++);
 		outp += 3;
 	}
@@ -691,10 +692,10 @@ OSStatus CertificateRequest::storeResults(
 	delete policyDict;
 	
 	/* prefs --> disk */
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	if(!prefsDict->writePlistToPrefs(DOT_MAC_REQ_PREFS, Dictionary::US_User)) {
 		certReqDbg("storeResults: error writing prefs to disk");
-		ortn = ioErr;
+		ortn = errSecIO;
 	}
 	delete prefsDict;
 	return ortn;
@@ -763,8 +764,8 @@ void CertificateRequest::removeResults()
  * user. Always throws: either 
  * CSSMERR_APPLE_DOTMAC_REQ_IS_PENDING  -- request pending
  * CSSMERR_APPLE_DOTMAC_NO_REQ_PENDING  -- no request pending
- * paramErr -- no user, no password
- * other gross errors, e.g. ioErr for server connection failure
+ * errSecParam -- no user, no password
+ * other gross errors, e.g. errSecIO for server connection failure
  *
  * The distinguishing features about this TP request are:
  *
@@ -790,7 +791,7 @@ void CertificateRequest::postPendingRequest()
 	assert(mCertState == CRS_Reconstructed);
 	if((mUserName.data() == NULL) || (mPassword.data() == NULL)) {
 		certReqDbg("postPendingRequest: user name and password required");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	
 	/* Fill in the CSSM_APPLE_DOTMAC_TP_CERT_REQUEST */
@@ -846,7 +847,7 @@ void CertificateRequest::postPendingRequest()
 		case CSSM_OK:
 			/* should never happen */
 			certReqDbg("postPendingRequest: unexpected success!");
-			crtn = internalComponentErr;
+			crtn = errSecInternalComponent;
 			break;
 		default:
 			certReqDbg("postPendingRequest: unexpected rtn %lu", (unsigned long)crtn);

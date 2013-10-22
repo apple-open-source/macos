@@ -654,6 +654,7 @@ purgePastEvents(PowerEventBehavior  *behave)
 static void
 copyScheduledPowerChangeArrays(void)
 {
+#if !TARGET_OS_EMBEDDED
     CFArrayRef              tmp;
     SCPreferencesRef        prefs;
     PowerEventBehavior      *this_behavior;
@@ -687,6 +688,8 @@ copyScheduledPowerChangeArrays(void)
 
 
     CFRelease(prefs);
+
+#endif
 }
 
 /*
@@ -848,10 +851,8 @@ createSCSession(SCPreferencesRef *prefs, uid_t euid, int lock)
 {
     IOReturn ret = kIOReturnSuccess;
 
-#if TARGET_OS_EMBEDDED
-    *prefs = SCPreferencesCreate( 0, CFSTR("PM-configd-AutoWake"),
-                                 CFSTR(kIOPMAutoWakePrefsPath));
-#else
+#if !TARGET_OS_EMBEDDED
+
     if (euid == 0)
         *prefs = SCPreferencesCreate( 0, CFSTR("PM-configd-AutoWake"),
                                  CFSTR(kIOPMAutoWakePrefsPath));
@@ -861,7 +862,6 @@ createSCSession(SCPreferencesRef *prefs, uid_t euid, int lock)
         goto exit;
     }
 
-#endif 
     if(!(*prefs))
     {
         if(kSCStatusAccessError == SCError())
@@ -878,6 +878,7 @@ createSCSession(SCPreferencesRef *prefs, uid_t euid, int lock)
 
 
 exit:
+#endif
     return ret;
 }
 
@@ -885,10 +886,12 @@ __private_extern__ void
 destroySCSession(SCPreferencesRef prefs, int unlock)
 {
 
+#if !TARGET_OS_EMBEDDED
     if (prefs) {
         if(unlock) SCPreferencesUnlock(prefs); 
         CFRelease(prefs);
     }
+#endif
 }
 
 static void
@@ -921,6 +924,7 @@ static IOReturn
 updateToDisk(SCPreferencesRef prefs, PowerEventBehavior  *behavior, CFStringRef type)  
 {
     IOReturn ret = kIOReturnSuccess;
+#if !TARGET_OS_EMBEDDED
 
     if(!SCPreferencesSetValue(prefs, type, behavior->array)) 
     {
@@ -939,6 +943,7 @@ updateToDisk(SCPreferencesRef prefs, PowerEventBehavior  *behavior, CFStringRef 
         goto exit;
     }
 exit:
+#endif
     return ret;
 }
 

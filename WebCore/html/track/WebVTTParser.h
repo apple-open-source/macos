@@ -33,10 +33,10 @@
 
 #if ENABLE(VIDEO_TRACK)
 
-#include "Document.h"
 #include "DocumentFragment.h"
 #include "HTMLNames.h"
 #include "TextTrackCue.h"
+#include "TextTrackRegion.h"
 #include "WebVTTTokenizer.h"
 #include <wtf/PassOwnPtr.h>
 #include <wtf/text/StringBuilder.h>
@@ -45,19 +45,34 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+class Document;
+
 class WebVTTParserClient {
 public:
     virtual ~WebVTTParserClient() { }
-    
+
     virtual void newCuesParsed() = 0;
+#if ENABLE(WEBVTT_REGIONS)
+    virtual void newRegionsParsed() = 0;
+#endif
     virtual void fileFailedToParse() = 0;
 };
 
 class WebVTTParser {
 public:
     virtual ~WebVTTParser() { }
-    
-    enum ParseState { Initial, Header, Id, TimingsAndSettings, CueText, BadCue };
+
+    enum ParseState {
+        Initial,
+        Header,
+#if ENABLE(WEBVTT_REGIONS)
+        Metadata,
+#endif
+        Id,
+        TimingsAndSettings,
+        CueText,
+        BadCue
+    };
 
     static PassOwnPtr<WebVTTParser> create(WebVTTParserClient* client, ScriptExecutionContext* context)
     {
@@ -87,17 +102,27 @@ public:
     static String collectDigits(const String&, unsigned*);
     static String collectWord(const String&, unsigned*);
 
+#if ENABLE(WEBVTT_REGIONS)
+    // Useful functions for parsing percentage settings.
+    static float parseFloatPercentageValue(const String&, bool&);
+    static FloatPoint parseFloatPercentageValuePair(const String&, char, bool&);
+#endif
+
     // Input data to the parser to parse.
     void parseBytes(const char* data, unsigned length);
 
     // Transfers ownership of last parsed cues to caller.
     void getNewCues(Vector<RefPtr<TextTrackCue> >&);
+#if ENABLE(WEBVTT_REGIONS)
+    void getNewRegions(Vector<RefPtr<TextTrackRegion> >&);
+#endif
 
     PassRefPtr<DocumentFragment> createDocumentFragmentFromCueText(const String&);
+    double collectTimeStamp(const String&, unsigned*);
 
 protected:
     WebVTTParser(WebVTTParserClient*, ScriptExecutionContext*);
-    
+
     ScriptExecutionContext* m_scriptExecutionContext;
     ParseState m_state;
 
@@ -110,12 +135,20 @@ private:
 
     void createNewCue();
     void resetCueValues();
-    double collectTimeStamp(const String&, unsigned*);
+
+#if ENABLE(WEBVTT_REGIONS)
+    void collectHeader(const String&);
+    void createNewRegion();
+#endif
+
     void skipWhiteSpace(const String&, unsigned*);
     static void skipLineTerminator(const char* data, unsigned length, unsigned*);
     static String collectNextLine(const char* data, unsigned length, unsigned*);
-    
+
     void constructTreeFromToken(Document*);
+
+    String m_currentHeaderName;
+    String m_currentHeaderValue;
 
     Vector<char> m_identifierData;
     String m_currentId;
@@ -131,7 +164,12 @@ private:
 
     WebVTTParserClient* m_client;
 
+    Vector<AtomicString> m_languageStack;
     Vector<RefPtr<TextTrackCue> > m_cuelist;
+
+#if ENABLE(WEBVTT_REGIONS)
+    Vector<RefPtr<TextTrackRegion> > m_regionList;
+#endif
 };
 
 } // namespace WebCore

@@ -30,11 +30,13 @@
 #include "Attribute.h"
 #include "Document.h"
 #include "ExceptionCode.h"
+#include "HTMLDataListElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSelectElement.h"
 #include "NodeRenderStyle.h"
 #include "NodeRenderingContext.h"
+#include "NodeTraversal.h"
 #include "RenderMenuList.h"
 #include "RenderTheme.h"
 #include "ScriptElement.h"
@@ -54,6 +56,7 @@ HTMLOptionElement::HTMLOptionElement(const QualifiedName& tagName, Document* doc
     , m_isSelected(false)
 {
     ASSERT(hasTagName(optionTag));
+    setHasCustomStyleCallbacks();
 }
 
 PassRefPtr<HTMLOptionElement> HTMLOptionElement::create(Document* document)
@@ -87,17 +90,20 @@ PassRefPtr<HTMLOptionElement> HTMLOptionElement::createForJSConstructor(Document
     return element.release();
 }
 
-void HTMLOptionElement::attach()
+void HTMLOptionElement::attach(const AttachContext& context)
 {
-    if (parentNode()->renderStyle())
-        setRenderStyle(styleForRenderer());
-    HTMLElement::attach();
+    HTMLElement::attach(context);
+    // If after attaching nothing called styleForRenderer() on this node we
+    // manually cache the value. This happens if our parent doesn't have a
+    // renderer like <optgroup> or if it doesn't allow children like <select>.
+    if (!m_style && parentNode()->renderStyle())
+        updateNonRenderStyle();
 }
 
-void HTMLOptionElement::detach()
+void HTMLOptionElement::detach(const AttachContext& context)
 {
     m_style.clear();
-    HTMLElement::detach();
+    HTMLElement::detach(context);
 }
 
 bool HTMLOptionElement::supportsFocus() const
@@ -185,26 +191,32 @@ int HTMLOptionElement::index() const
     return 0;
 }
 
-void HTMLOptionElement::parseAttribute(Attribute* attr)
+void HTMLOptionElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attr->name() == disabledAttr) {
+#if ENABLE(DATALIST_ELEMENT)
+    if (name == valueAttr) {
+        if (HTMLDataListElement* dataList = ownerDataListElement())
+            dataList->optionElementChildrenChanged();
+    } else
+#endif
+    if (name == disabledAttr) {
         bool oldDisabled = m_disabled;
-        m_disabled = !attr->isNull();
+        m_disabled = !value.isNull();
         if (oldDisabled != m_disabled) {
-            setNeedsStyleRecalc();
+            didAffectSelector(AffectedSelectorDisabled | AffectedSelectorEnabled);
             if (renderer() && renderer()->style()->hasAppearance())
                 renderer()->theme()->stateChanged(renderer(), EnabledState);
         }
-    } else if (attr->name() == selectedAttr) {
+    } else if (name == selectedAttr) {
         // FIXME: This doesn't match what the HTML specification says.
         // The specification implies that removing the selected attribute or
         // changing the value of a selected attribute that is already present
         // has no effect on whether the element is selected. Further, it seems
         // that we need to do more than just set m_isSelected to select in that
         // case; we'd need to do the other work from the setSelected function.
-        m_isSelected = !attr->isNull();
+        m_isSelected = !value.isNull();
     } else
-        HTMLElement::parseAttribute(attr);
+        HTMLElement::parseAttribute(name, value);
 }
 
 String HTMLOptionElement::value() const
@@ -244,15 +256,34 @@ void HTMLOptionElement::setSelectedState(bool selected)
         return;
 
     m_isSelected = selected;
-    setNeedsStyleRecalc();
+    didAffectSelector(AffectedSelectorChecked);
+
+    if (HTMLSelectElement* select = ownerSelectElement())
+        select->invalidateSelectedItems();
 }
 
 void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
+#if ENABLE(DATALIST_ELEMENT)
+    if (HTMLDataListElement* dataList = ownerDataListElement())
+        dataList->optionElementChildrenChanged();
+    else
+#endif
     if (HTMLSelectElement* select = ownerSelectElement())
         select->optionElementChildrenChanged();
     HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
+
+#if ENABLE(DATALIST_ELEMENT)
+HTMLDataListElement* HTMLOptionElement::ownerDataListElement() const
+{
+    for (ContainerNode* parent = parentNode(); parent ; parent = parent->parentNode()) {
+        if (parent->hasTagName(datalistTag))
+            return static_cast<HTMLDataListElement*>(parent);
+    }
+    return 0;
+}
+#endif
 
 HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 {
@@ -279,18 +310,32 @@ void HTMLOptionElement::setLabel(const String& label)
     setAttribute(labelAttr, label);
 }
 
-void HTMLOptionElement::setRenderStyle(PassRefPtr<RenderStyle> newStyle)
+void HTMLOptionElement::updateNonRenderStyle()
 {
-    m_style = newStyle;
+    m_style = document()->ensureStyleResolver()->styleForElement(this);
+}
+
+RenderStyle* HTMLOptionElement::nonRendererStyle() const
+{
+    return m_style.get();
+}
+
+PassRefPtr<RenderStyle> HTMLOptionElement::customStyleForRenderer()
+{
+    // styleForRenderer is called whenever a new style should be associated
+    // with an Element so now is a good time to update our cached style.
+    updateNonRenderStyle();
+    return m_style;
+}
+
+void HTMLOptionElement::didRecalcStyle(StyleChange)
+{
+    // FIXME: This is nasty, we ask our owner select to repaint even if the new
+    // style is exactly the same.
     if (HTMLSelectElement* select = ownerSelectElement()) {
         if (RenderObject* renderer = select->renderer())
             renderer->repaint();
     }
-}
-
-RenderStyle* HTMLOptionElement::nonRendererRenderStyle() const
-{
-    return m_style.get();
 }
 
 String HTMLOptionElement::textIndentedToRespectGroupLabel() const
@@ -301,12 +346,19 @@ String HTMLOptionElement::textIndentedToRespectGroupLabel() const
     return text();
 }
 
-bool HTMLOptionElement::disabled() const
+bool HTMLOptionElement::isDisabledFormControl() const
 {
-    return ownElementDisabled() || (parentNode() && parentNode()->isHTMLElement() && static_cast<HTMLElement*>(parentNode())->disabled());
+    if (ownElementDisabled())
+        return true;
+
+    if (!parentNode() || !parentNode()->isHTMLElement())
+        return false;
+
+    HTMLElement* parentElement = static_cast<HTMLElement*>(parentNode());
+    return parentElement->hasTagName(optgroupTag) && parentElement->isDisabledFormControl();
 }
 
-Node::InsertionNotificationRequest HTMLOptionElement::insertedInto(Node* insertionPoint)
+Node::InsertionNotificationRequest HTMLOptionElement::insertedInto(ContainerNode* insertionPoint)
 {
     if (HTMLSelectElement* select = ownerSelectElement()) {
         select->setRecalcListItems();
@@ -329,10 +381,10 @@ String HTMLOptionElement::collectOptionInnerText() const
         if (node->isTextNode())
             text.append(node->nodeValue());
         // Text nodes inside script elements are not part of the option text.
-        if (node->isElementNode() && toScriptElement(toElement(node)))
-            node = node->traverseNextSibling(this);
+        if (node->isElementNode() && toScriptElementIfPossible(toElement(node)))
+            node = NodeTraversal::nextSkippingChildren(node, this);
         else
-            node = node->traverseNextNode(this);
+            node = NodeTraversal::next(node, this);
     }
     return text.toString();
 }
@@ -341,13 +393,13 @@ String HTMLOptionElement::collectOptionInnerText() const
 
 HTMLOptionElement* toHTMLOptionElement(Node* node)
 {
-    ASSERT(!node || node->hasTagName(optionTag));
+    ASSERT_WITH_SECURITY_IMPLICATION(!node || node->hasTagName(optionTag));
     return static_cast<HTMLOptionElement*>(node);
 }
 
 const HTMLOptionElement* toHTMLOptionElement(const Node* node)
 {
-    ASSERT(!node || node->hasTagName(optionTag));
+    ASSERT_WITH_SECURITY_IMPLICATION(!node || node->hasTagName(optionTag));
     return static_cast<const HTMLOptionElement*>(node);
 }
 

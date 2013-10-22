@@ -330,7 +330,7 @@ SecSMIMEEncryptionPossible(void)
 }
 
 
-static int
+static unsigned long
 nss_SMIME_FindCipherForSMIMECap(NSSSMIMECapability *cap)
 {
     int i;
@@ -776,6 +776,7 @@ extern const char __nss_smime_rcsid[];
 extern const char __nss_smime_sccsid[];
 #endif
 
+#if 0 /* -- unused */
 Boolean
 NSSSMIME_VersionCheck(const char *importedVersion)
 {
@@ -798,4 +799,4 @@ NSSSMIME_VersionCheck(const char *importedVersion)
     return NSS_VersionCheck(importedVersion);
 #endif
 }
-
+#endif

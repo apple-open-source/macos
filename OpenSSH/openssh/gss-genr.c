@@ -42,7 +42,11 @@
 #include "cipher.h"
 #include "key.h"
 #include "kex.h"
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#else
 #include <openssl/evp.h>
+#endif
 
 #include "ssh-gss.h"
 

@@ -58,8 +58,8 @@ SSDLSession::SSDLSession(CSSM_MODULE_HANDLE handle,
 }
 
 SSDLSession::~SSDLSession()
+try
 {
-	// @@@ What about a catch?
 	StLock<Mutex> _1(mSSUniqueRecordLock);
 	mSSUniqueRecordMap.clear();
 
@@ -70,6 +70,9 @@ SSDLSession::~SSDLSession()
 
 	mDbHandleMap.clear();
 	mDL->detach();
+}
+catch (...)
+{
 }
 
 // Utility functions
@@ -597,7 +600,7 @@ SSDLSession::unwrapAttributesAndData (uint32 &numAttributes,
 					case CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32:
 					{
 						uint32* d = (uint32*) attributes[i].Value[j].Data;
-						uint32 numValues = attributes[i].Value[j].Length / sizeof (UInt32);
+						unsigned long numValues = attributes[i].Value[j].Length / sizeof (UInt32);
 						while (numValues--)
 						{
 							*d++ = GetUInt32AtFinger (finger);
@@ -737,7 +740,7 @@ SSDLSession::getWrappedAttributesAndData (SSDatabase &db,
 		unsigned j;
 		for (j = 0; j < attributes[i].NumberOfValues; ++j)
 		{
-			appendUInt32ToData (attributes[i].Value[j].Length, output);
+			appendUInt32ToData ((uint32)attributes[i].Value[j].Length, output);
 			if (attributes[i].Value[j].Length != 0)
 			{
 				switch (attributes[i].Info.AttributeFormat)
@@ -764,7 +767,7 @@ SSDLSession::getWrappedAttributesAndData (SSDatabase &db,
 	}
 	
 	// write the length of the data
-	appendUInt32ToData (data.Length, output);
+	appendUInt32ToData ((uint32)data.Length, output);
 	
 	// write the data itself
 	if (data.Length != 0)
@@ -877,7 +880,7 @@ void SSDLSession::doGetWithoutEncryption (SSDatabase &db, const void *inInputPar
 	getWrappedAttributesAndData (db, params->attributes->DataRecordType, uniqueID, data, &blobData);
 	
 	// write out the data blob
-	appendUInt32ToData (data.Length, output);
+	appendUInt32ToData ((uint32)data.Length, output);
 	output.append (CssmPolyData (data));
 	
 	// figure out what we need to do with the key blob
@@ -904,7 +907,7 @@ void SSDLSession::doGetWithoutEncryption (SSDatabase &db, const void *inInputPar
 	
 	
 	// write out the length of the key blob
-	appendUInt32ToData (key.Length, output);
+	appendUInt32ToData ((uint32)key.Length, output);
 
 	if (key.Length != 0)
 	{
@@ -1185,7 +1188,13 @@ SSDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 			else
 				db->unlock();
 			break;
-		case CSSM_APPLECSPDL_DB_GET_SETTINGS:
+		case CSSM_APPLECSPDL_DB_STASH:
+            db->stash();
+            break;
+        case CSSM_APPLECSPDL_DB_STASH_CHECK:
+            db->stashCheck();
+            break;
+        case CSSM_APPLECSPDL_DB_GET_SETTINGS:
 		{
 			if (!outOutputParams)
 				CssmError::throwMe(CSSM_ERRCODE_INVALID_OUTPUT_POINTER);
@@ -1313,7 +1322,8 @@ SSDLSession::makeDbHandle(SSDatabase &inDb)
 {
 	StLock<Mutex> _(mDbHandleLock);
 	CSSM_DB_HANDLE aDbHandle = inDb->handle().DBHandle;
-	IFDEBUG(bool inserted =) mDbHandleMap.insert(DbHandleMap::value_type(aDbHandle, inDb)).second;
+	bool inserted;
+    inserted = mDbHandleMap.insert(DbHandleMap::value_type(aDbHandle, inDb)).second;
 	assert(inserted);
 	// fprintf(stderr, "%p Added %p to %p\n", pthread_self(), (void*) aDbHandle, (void*) this);
 	return aDbHandle;
@@ -1363,7 +1373,8 @@ SSDLSession::makeSSUniqueRecord(SSUniqueRecord &uniqueId)
 {
 	StLock<Mutex> _(mSSUniqueRecordLock);
 	CSSM_HANDLE ref = CSSM_HANDLE(static_cast<CSSM_DB_UNIQUE_RECORD *>(uniqueId));
-	IFDEBUG(bool inserted =) mSSUniqueRecordMap.insert(SSUniqueRecordMap::value_type(ref, uniqueId)).second;
+	bool inserted;
+    inserted = mSSUniqueRecordMap.insert(SSUniqueRecordMap::value_type(ref, uniqueId)).second;
 	assert(inserted);
 	return createUniqueRecord(ref);
 }

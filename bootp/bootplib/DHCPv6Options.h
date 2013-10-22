@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -178,15 +178,15 @@ void
 DHCPv6OptionListFPrint(FILE * file, DHCPv6OptionListRef options);
 
 void
-DHCPv6OptionListFPrintLevel(FILE * file, DHCPv6OptionListRef options,
-			    int level);
+DHCPv6OptionListPrintToString(CFMutableStringRef str, 
+			      DHCPv6OptionListRef options);
+
 
 int
 DHCPv6OptionListGetCount(DHCPv6OptionListRef options);
 
 DHCPv6OptionRef
 DHCPv6OptionListGetOptionAtIndex(DHCPv6OptionListRef options, int i);
-
 
 /**
  ** IA_NA option
@@ -238,13 +238,6 @@ DHCPv6OptionIA_NASetT2(DHCPv6OptionIA_NARef ia_na, uint32_t t2)
     net_uint32_set(ia_na->t2, t2);
     return;
 }
-
-void
-DHCPv6OptionIA_NAFPrint(FILE * file, const DHCPv6OptionIA_NARef ia_na,
-			int ia_na_len);
-void
-DHCPv6OptionIA_NAFPrintLevel(FILE * file, const DHCPv6OptionIA_NARef ia_na,
-			     int ia_na_len, int level);
 
 /**
  ** IAADDR option
@@ -301,12 +294,9 @@ DHCPv6OptionIAADDRSetValidLifetime(DHCPv6OptionIAADDRRef ia_addr,
 }
 
 void
-DHCPv6OptionIAADDRFPrintLevel(FILE * file, DHCPv6OptionIAADDRRef ia_addr, 
-			      int ia_addr_len, int level);
-
-void
-DHCPv6OptionIAADDRFPrint(FILE * file, DHCPv6OptionIAADDRRef ia_addr, 
-			 int ia_addr_len);
+DHCPv6OptionIAADDRPrintToString(CFMutableStringRef str,
+				DHCPv6OptionIAADDRRef ia_addr, 
+				int ia_addr_len);
 
 /**
  ** Status Code option

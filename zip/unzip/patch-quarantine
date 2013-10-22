@@ -1,5 +1,6 @@
---- unix/unix.c.orig	2011-09-19 17:25:09.000000000 -0700
-+++ unix/unix.c	2011-09-19 17:26:53.000000000 -0700
+diff -ru unzip-5.52/unix/unix.c unzip-5.52.new/unix/unix.c
+--- unix/unix.c.orig	2005-02-26 11:43:42.000000000 -0800
++++ unix/unix.c	2012-06-30 00:09:07.000000000 -0700
 @@ -71,6 +71,8 @@
  #  endif
  #endif /* ?DIRENT */
@@ -9,9 +10,51 @@
  #ifdef SET_DIR_ATTRIB
  typedef struct uxdirattr {      /* struct for holding unix style directory */
      struct uxdirattr *next;     /*  info until can be sorted and set at end */
-@@ -1052,6 +1054,14 @@
-         perror("chmod (file attributes) error");
- #endif
+@@ -685,6 +687,23 @@
+ /* Function checkdir() */
+ /***********************/
+ 
++static int
++mkdir_qtn(int zipfd, const char *path, int mode)
++{
++    int r = mkdir(path, mode);
++
++    if (r != 0 && errno != EEXIST)
++        return r;
++
++    qtn_file_t qf = qtn_file_alloc();
++    if (qf != NULL) {
++        if (qtn_file_init_with_fd(qf, zipfd) == 0) {
++            (void)qtn_file_apply_to_path(qf, path);
++        }
++        qtn_file_free(qf);
++    }
++}
++
+ int checkdir(__G__ pathcomp, flag)
+     __GDEF
+     char *pathcomp;
+@@ -751,7 +770,7 @@
+                 /* no room for filenames:  fatal */
+                 return MPN_ERR_TOOLONG;
+             }
+-            if (mkdir(G.buildpath, 0777) == -1) {   /* create the directory */
++            if (mkdir_qtn(G.zipfd, G.buildpath, 0777) == -1) {   /* create the directory */
+                 Info(slide, 1, ((char *)slide,
+                   "checkdir error:  cannot create %s\n\
+                  unable to process %s.\n",
+@@ -897,7 +916,7 @@
+                 }
+                 /* create the directory (could add loop here scanning tmproot
+                  * to create more than one level, but why really necessary?) */
+-                if (mkdir(tmproot, 0777) == -1) {
++                if (mkdir_qtn(G.zipfd, tmproot, 0777) == -1) {
+                     Info(slide, 1, ((char *)slide,
+                       "checkdir:  cannot create extraction directory: %s\n",
+                       FnFilter1(tmproot)));
+@@ -1042,6 +1061,14 @@
+     ush z_uidgid[2];
+     int have_uidgid_flg;
  
 +    qtn_file_t qf = qtn_file_alloc();
 +    if (qf != NULL) {
@@ -24,3 +67,4 @@
      fclose(G.outfile);
  
  /*---------------------------------------------------------------------------
+Only in unzip-5.52.new/unix: unix.c.orig

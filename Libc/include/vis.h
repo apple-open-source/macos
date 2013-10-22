@@ -59,11 +59,7 @@
 #define	_VIS_H_
 
 #include <_types.h>
-
-#ifndef	_SIZE_T
-#define	_SIZE_T
-typedef	__darwin_size_t		size_t;
-#endif
+#include <sys/_types/_size_t.h>
 
 /*
  * to select alternate encoding format

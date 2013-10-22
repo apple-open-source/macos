@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2007,2012 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,9 +34,8 @@
 #include <security_keychain/KeyItem.h>
 #include <security_keychain/KCCursor.h>
 #include <vector>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-//#include "CLFieldsCommon.h"
-
+#include <CommonCrypto/CommonDigestSPI.h>
+#include <SecBase.h>
 
 using namespace KeychainCore;
 
@@ -50,16 +49,17 @@ Certificate::Certificate(const CSSM_DATA &data, CSSM_CERT_TYPE type, CSSM_CERT_E
 	ItemImpl(CSSM_DL_DB_RECORD_X509_CERTIFICATE, reinterpret_cast<SecKeychainAttributeList *>(NULL), UInt32(data.Length), reinterpret_cast<const void *>(data.Data)),
 	mHaveTypeAndEncoding(true),
 	mPopulated(false),
-    mType(type),
-    mEncoding(encoding),
-    mCL(clForType(type)),
+	mType(type),
+	mEncoding(encoding),
+	mCL(clForType(type)),
 	mCertHandle(0),
 	mV1SubjectPublicKeyCStructValue(NULL),
-    mV1SubjectNameCStructValue(NULL),
-    mV1IssuerNameCStructValue(NULL)
+	mV1SubjectNameCStructValue(NULL),
+	mV1IssuerNameCStructValue(NULL),
+	mSha1Hash(NULL)
 {
 	if (data.Length == 0 || data.Data == NULL)
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 }
 
 // db item constructor
@@ -67,11 +67,12 @@ Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey,
 	ItemImpl(keychain, primaryKey, uniqueId),
 	mHaveTypeAndEncoding(false),
 	mPopulated(false),
-    mCL(NULL),
+	mCL(NULL),
 	mCertHandle(0),
 	mV1SubjectPublicKeyCStructValue(NULL),
-    mV1SubjectNameCStructValue(NULL),
-    mV1IssuerNameCStructValue(NULL)
+	mV1SubjectNameCStructValue(NULL),
+	mV1IssuerNameCStructValue(NULL),
+	mSha1Hash(NULL)
 {
 }
 
@@ -101,11 +102,12 @@ Certificate::Certificate(const Keychain &keychain, const PrimaryKey &primaryKey)
 	ItemImpl(keychain, primaryKey),
 	mHaveTypeAndEncoding(false),
 	mPopulated(false),
-    mCL(NULL),
+	mCL(NULL),
 	mCertHandle(0),
 	mV1SubjectPublicKeyCStructValue(NULL),
-    mV1SubjectNameCStructValue(NULL),
-    mV1IssuerNameCStructValue(NULL)
+	mV1SubjectNameCStructValue(NULL),
+	mV1IssuerNameCStructValue(NULL),
+	mSha1Hash(NULL)
 {
 	// @@@ In this case we don't know the type...
 }
@@ -114,17 +116,19 @@ Certificate::Certificate(Certificate &certificate) :
 	ItemImpl(certificate),
 	mHaveTypeAndEncoding(certificate.mHaveTypeAndEncoding),
 	mPopulated(false /* certificate.mPopulated */),
-    mType(certificate.mType),
-    mEncoding(certificate.mEncoding),
-    mCL(certificate.mCL),
+	mType(certificate.mType),
+	mEncoding(certificate.mEncoding),
+	mCL(certificate.mCL),
 	mCertHandle(0),
 	mV1SubjectPublicKeyCStructValue(NULL),
-    mV1SubjectNameCStructValue(NULL),
-    mV1IssuerNameCStructValue(NULL)
+	mV1SubjectNameCStructValue(NULL),
+	mV1IssuerNameCStructValue(NULL),
+	mSha1Hash(NULL)
 {
 }
 
-Certificate::~Certificate() throw()
+Certificate::~Certificate()
+try
 {
 	if (mV1SubjectPublicKeyCStructValue)
 		releaseFieldValue(CSSMOID_X509V1SubjectPublicKeyCStruct, mV1SubjectPublicKeyCStructValue);
@@ -132,11 +136,17 @@ Certificate::~Certificate() throw()
 	if (mCertHandle && mCL)
 		CSSM_CL_CertAbortCache(mCL->handle(), mCertHandle);
 
-    if (mV1SubjectNameCStructValue)
-        releaseFieldValue(CSSMOID_X509V1SubjectNameCStruct, mV1SubjectNameCStructValue);
+	if (mV1SubjectNameCStructValue)
+		releaseFieldValue(CSSMOID_X509V1SubjectNameCStruct, mV1SubjectNameCStructValue);
 
-    if (mV1IssuerNameCStructValue)
-        releaseFieldValue(CSSMOID_X509V1IssuerNameCStruct, mV1IssuerNameCStructValue);
+	if (mV1IssuerNameCStructValue)
+		releaseFieldValue(CSSMOID_X509V1IssuerNameCStruct, mV1IssuerNameCStructValue);
+
+	if (mSha1Hash)
+		CFRelease(mSha1Hash);
+}
+catch (...)
+{
 }
 
 CSSM_HANDLE
@@ -711,7 +721,7 @@ Certificate::data()
 		/* new data allocated by CSPDL, implicitly freed by CssmDataContainer */
 		mUniqueId->get(NULL, &_data);
 		/* this saves a copy to be freed at destruction and to be passed to caller */
-		setData(_data.length(), _data.data());
+		setData((UInt32)_data.length(), _data.data());
 		return *mData.get();
 	}
 
@@ -720,6 +730,12 @@ Certificate::data()
 		MacOSError::throwMe(errSecDataNotAvailable);
 
 	return *data;
+}
+
+CFHashCode Certificate::hash()
+{
+	(void)data();  // ensure that mData is set up
+	return ItemImpl::hash();
 }
 
 CSSM_CERT_TYPE
@@ -764,6 +780,27 @@ Certificate::algorithmID()
 	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *info = (CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *)mV1SubjectPublicKeyCStructValue->Data;
 	CSSM_X509_ALGORITHM_IDENTIFIER *algid = &info->algorithm;
 	return algid;
+}
+
+CFDataRef
+Certificate::sha1Hash()
+{
+	StLock<Mutex>_(mMutex);
+	if (!mSha1Hash) {
+		SecCertificateRef certRef = handle(false);
+		CFAllocatorRef allocRef = (certRef) ? CFGetAllocator(certRef) : NULL;
+		CSSM_DATA certData = data();
+		if (certData.Length == 0 || !certData.Data) {
+			MacOSError::throwMe(errSecDataNotAvailable);
+		}
+		const UInt8 *dataPtr = (const UInt8 *)certData.Data;
+		CFIndex dataLen = (CFIndex)certData.Length;
+		CFMutableDataRef digest = CFDataCreateMutable(allocRef, CC_SHA1_DIGEST_LENGTH);
+		CFDataSetLength(digest, CC_SHA1_DIGEST_LENGTH);
+		CCDigest(kCCDigestSHA1, dataPtr, dataLen, CFDataGetMutableBytePtr(digest));
+		mSha1Hash = digest;
+	}
+	return mSha1Hash; /* object is owned by our instance; caller should NOT release it */
 }
 
 CFStringRef
@@ -916,12 +953,6 @@ Certificate::operator == (Certificate &other)
 	// Certificates in different keychains are considered equal if data is equal
 	// Note that the Identity '==' operator relies on this assumption.
 	return data() == other.data();
-}
-
-bool
-Certificate::equal(SecCFObject &other)
-{
-    return (*this) == (Certificate &)other;
 }
 
 void
@@ -1247,13 +1278,13 @@ Boolean Certificate::isSelfSigned()
 	StLock<Mutex>_(mMutex);
 	CSSM_DATA_PTR issuer = NULL;
 	CSSM_DATA_PTR subject = NULL;
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	Boolean brtn = false;
 
 	issuer  = copyFirstFieldValue(CSSMOID_X509V1IssuerNameStd);
 	subject = copyFirstFieldValue(CSSMOID_X509V1SubjectNameStd);
 	if((issuer == NULL) || (subject == NULL)) {
-		ortn = paramErr;
+		ortn = errSecParam;
 	}
 	else if((issuer->Length == subject->Length) &&
 		!memcmp(issuer->Data, subject->Data, issuer->Length)) {

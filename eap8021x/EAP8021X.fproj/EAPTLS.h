@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,7 @@
 
 /*
  * EAPTLS.h
- * - definitions for EAP/TLS
+ * - definitions for EAP-TLS
  */
 
 /* 

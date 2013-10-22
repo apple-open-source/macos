@@ -242,7 +242,7 @@ SDCSPSession::DeriveKey(CSSM_CC_HANDLE ccHandle,
 		{
 			// special interpretation: take DLDBHandle -> DbHandle from params
 			clientSession().extractMasterKey(ClientSession::toIPCHandle(database), context,
-				getDatabase(param.interpretedAs<CSSM_DL_DB_HANDLE>(CSSMERR_CSP_INVALID_ATTR_DL_DB_HANDLE)),
+				(DbHandle)getDatabase(param.interpretedAs<CSSM_DL_DB_HANDLE>(CSSMERR_CSP_INVALID_ATTR_DL_DB_HANDLE)),
 				keyUsage, keyAttr, cred, owner, keyHandle, derivedKey.header());
 		}
 		break;

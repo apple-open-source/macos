@@ -57,7 +57,7 @@ public:
     {
     }
 
-    virtual void destroy(RenderArena*);
+    virtual void destroy(RenderArena*) FINAL;
 
     InlineTextBox* prevTextBox() const { return m_prevTextBox; }
     InlineTextBox* nextTextBox() const { return m_nextTextBox; }
@@ -76,7 +76,7 @@ public:
 
     unsigned short truncation() { return m_truncation; }
 
-    virtual void markDirty(bool dirty = true) OVERRIDE;
+    virtual void markDirty(bool dirty = true) OVERRIDE FINAL;
 
     using InlineBox::hasHyphen;
     using InlineBox::setHasHyphen;
@@ -85,8 +85,8 @@ public:
 
     static inline bool compareByStart(const InlineTextBox* first, const InlineTextBox* second) { return first->start() < second->start(); }
 
-    virtual LayoutUnit baselinePosition(FontBaseline) const;
-    virtual LayoutUnit lineHeight() const;
+    virtual int baselinePosition(FontBaseline) const FINAL;
+    virtual LayoutUnit lineHeight() const FINAL;
 
     bool getEmphasisMarkPosition(RenderStyle*, TextEmphasisPosition&) const;
 
@@ -101,13 +101,14 @@ public:
     virtual void showBox(int = 0) const;
     virtual const char* boxName() const;
 #endif
+
 private:
     LayoutUnit selectionTop();
     LayoutUnit selectionBottom();
     LayoutUnit selectionHeight();
 
     TextRun constructTextRun(RenderStyle*, const Font&, BufferForAppendingHyphen* = 0) const;
-    TextRun constructTextRun(RenderStyle*, const Font&, const UChar*, int length, int maximumLength, BufferForAppendingHyphen* = 0) const;
+    TextRun constructTextRun(RenderStyle*, const Font&, String, int maximumLength, BufferForAppendingHyphen* = 0) const;
 
 public:
     virtual FloatRect calculateBoundaries() const { return FloatRect(x(), y(), width(), height()); }
@@ -118,25 +119,25 @@ public:
 
 protected:
     virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom) OVERRIDE;
 
 public:
     RenderText* textRenderer() const;
 
 private:
-    virtual void deleteLine(RenderArena*);
-    virtual void extractLine();
-    virtual void attachLine();
+    virtual void deleteLine(RenderArena*) FINAL;
+    virtual void extractLine() FINAL;
+    virtual void attachLine() FINAL;
 
 public:
-    virtual RenderObject::SelectionState selectionState();
+    virtual RenderObject::SelectionState selectionState() FINAL;
 
 private:
-    virtual void clearTruncation() { m_truncation = cNoTruncation; }
-    virtual float placeEllipsisBox(bool flowIsLTR, float visibleLeftEdge, float visibleRightEdge, float ellipsisWidth, bool& foundBox);
+    virtual void clearTruncation() FINAL { m_truncation = cNoTruncation; }
+    virtual float placeEllipsisBox(bool flowIsLTR, float visibleLeftEdge, float visibleRightEdge, float ellipsisWidth, float &truncatedWidth, bool& foundBox) OVERRIDE FINAL;
 
 public:
-    virtual bool isLineBreak() const;
+    virtual bool isLineBreak() const FINAL;
 
     void setExpansion(int newExpansion)
     {
@@ -146,11 +147,11 @@ public:
     }
 
 private:
-    virtual bool isInlineTextBox() const { return true; }    
+    virtual bool isInlineTextBox() const FINAL { return true; }
 
 public:
-    virtual int caretMinOffset() const;
-    virtual int caretMaxOffset() const;
+    virtual int caretMinOffset() const FINAL;
+    virtual int caretMaxOffset() const FINAL;
 
 private:
     float textPos() const; // returns the x position relative to the left start of the text line.
@@ -183,8 +184,8 @@ protected:
 #endif
 
 private:
-    void paintDecoration(GraphicsContext*, const FloatPoint& boxOrigin, int decoration, const ShadowData*);
-    void paintSelection(GraphicsContext*, const FloatPoint& boxOrigin, RenderStyle*, const Font&);
+    void paintDecoration(GraphicsContext*, const FloatPoint& boxOrigin, TextDecoration, TextDecorationStyle, const ShadowData*);
+    void paintSelection(GraphicsContext*, const FloatPoint& boxOrigin, RenderStyle*, const Font&, Color textColor);
     void paintDocumentMarker(GraphicsContext*, const FloatPoint& boxOrigin, DocumentMarker*, RenderStyle*, const Font&, bool grammar);
     void paintTextMatchMarker(GraphicsContext*, const FloatPoint& boxOrigin, DocumentMarker*, RenderStyle*, const Font&);
     void computeRectForReplacementMarker(DocumentMarker*, RenderStyle*, const Font&);
@@ -198,13 +199,13 @@ private:
 
 inline InlineTextBox* toInlineTextBox(InlineBox* inlineBox)
 {
-    ASSERT(!inlineBox || inlineBox->isInlineTextBox());
+    ASSERT_WITH_SECURITY_IMPLICATION(!inlineBox || inlineBox->isInlineTextBox());
     return static_cast<InlineTextBox*>(inlineBox);
 }
 
 inline const InlineTextBox* toInlineTextBox(const InlineBox* inlineBox)
 {
-    ASSERT(!inlineBox || inlineBox->isInlineTextBox());
+    ASSERT_WITH_SECURITY_IMPLICATION(!inlineBox || inlineBox->isInlineTextBox());
     return static_cast<const InlineTextBox*>(inlineBox);
 }
 
@@ -215,6 +216,8 @@ inline RenderText* InlineTextBox::textRenderer() const
 {
     return toRenderText(renderer());
 }
+
+void alignSelectionRectToDevicePixels(FloatRect&);
 
 } // namespace WebCore
 

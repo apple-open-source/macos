@@ -14,8 +14,9 @@
 
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/FoldingSet.h"
+#include "llvm/ADT/Hashing.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include <limits.h>
@@ -195,8 +196,10 @@ totalExponent(StringRef::iterator p, StringRef::iterator end,
     assert(value < 10U && "Invalid character in exponent");
 
     unsignedExponent = unsignedExponent * 10 + value;
-    if (unsignedExponent > 32767)
+    if (unsignedExponent > 32767) {
       overflow = true;
+      break;
+    }
   }
 
   if (exponentAdjustment > 32767 || exponentAdjustment < -32768)
@@ -1150,9 +1153,6 @@ APFloat::roundAwayFromZero(roundingMode rounding_mode,
   assert(lost_fraction != lfExactlyZero);
 
   switch (rounding_mode) {
-  default:
-    llvm_unreachable(0);
-
   case rmNearestTiesToAway:
     return lost_fraction == lfExactlyHalf || lost_fraction == lfMoreThanHalf;
 
@@ -1175,6 +1175,7 @@ APFloat::roundAwayFromZero(roundingMode rounding_mode,
   case rmTowardNegative:
     return sign == true;
   }
+  llvm_unreachable("Invalid rounding mode found");
 }
 
 APFloat::opStatus
@@ -1765,6 +1766,50 @@ APFloat::fusedMultiplyAdd(const APFloat &multiplicand,
 
   return fs;
 }
+
+/* Rounding-mode corrrect round to integral value.  */
+APFloat::opStatus APFloat::roundToIntegral(roundingMode rounding_mode) {
+  opStatus fs;
+  assertArithmeticOK(*semantics);
+
+  // If the exponent is large enough, we know that this value is already
+  // integral, and the arithmetic below would potentially cause it to saturate
+  // to +/-Inf.  Bail out early instead.
+  if (category == fcNormal && exponent+1 >= (int)semanticsPrecision(*semantics))
+    return opOK;
+
+  // The algorithm here is quite simple: we add 2^(p-1), where p is the
+  // precision of our format, and then subtract it back off again.  The choice
+  // of rounding modes for the addition/subtraction determines the rounding mode
+  // for our integral rounding as well.
+  // NOTE: When the input value is negative, we do subtraction followed by
+  // addition instead.
+  APInt IntegerConstant(NextPowerOf2(semanticsPrecision(*semantics)), 1);
+  IntegerConstant <<= semanticsPrecision(*semantics)-1;
+  APFloat MagicConstant(*semantics);
+  fs = MagicConstant.convertFromAPInt(IntegerConstant, false,
+                                      rmNearestTiesToEven);
+  MagicConstant.copySign(*this);
+
+  if (fs != opOK)
+    return fs;
+
+  // Preserve the input sign so that we can handle 0.0/-0.0 cases correctly.
+  bool inputSign = isNegative();
+
+  fs = add(MagicConstant, rounding_mode);
+  if (fs != opOK && fs != opInexact)
+    return fs;
+
+  fs = subtract(MagicConstant, rounding_mode);
+
+  // Restore the input sign.
+  if (inputSign != isNegative())
+    changeSign();
+
+  return fs;
+}
+
 
 /* Comparison requires normalized numbers.  */
 APFloat::cmpResult
@@ -2683,21 +2728,19 @@ APFloat::convertNormalToHexString(char *dst, unsigned int hexDigits,
   return writeSignedDecimal (dst, exponent);
 }
 
-// For good performance it is desirable for different APFloats
-// to produce different integers.
-uint32_t
-APFloat::getHashValue() const
-{
-  if (category==fcZero) return sign<<8 | semantics->precision ;
-  else if (category==fcInfinity) return sign<<9 | semantics->precision;
-  else if (category==fcNaN) return 1<<10 | semantics->precision;
-  else {
-    uint32_t hash = sign<<11 | semantics->precision | exponent<<12;
-    const integerPart* p = significandParts();
-    for (int i=partCount(); i>0; i--, p++)
-      hash ^= ((uint32_t)*p) ^ (uint32_t)((*p)>>32);
-    return hash;
-  }
+hash_code llvm::hash_value(const APFloat &Arg) {
+  if (Arg.category != APFloat::fcNormal)
+    return hash_combine((uint8_t)Arg.category,
+                        // NaN has no sign, fix it at zero.
+                        Arg.isNaN() ? (uint8_t)0 : (uint8_t)Arg.sign,
+                        Arg.semantics->precision);
+
+  // Normal floats need their exponent and significand hashed.
+  return hash_combine((uint8_t)Arg.category, (uint8_t)Arg.sign,
+                      Arg.semantics->precision, Arg.exponent,
+                      hash_combine_range(
+                        Arg.significandParts(),
+                        Arg.significandParts() + Arg.partCount()));
 }
 
 // Conversion from APFloat to/from host float/double.  It may eventually be
@@ -3281,16 +3324,8 @@ APFloat::APFloat(double d) : exponent2(0), sign2(0) {
 }
 
 namespace {
-  static void append(SmallVectorImpl<char> &Buffer,
-                     unsigned N, const char *Str) {
-    unsigned Start = Buffer.size();
-    Buffer.set_size(Start + N);
-    memcpy(&Buffer[Start], Str, N);
-  }
-
-  template <unsigned N>
-  void append(SmallVectorImpl<char> &Buffer, const char (&Str)[N]) {
-    append(Buffer, N, Str);
+  void append(SmallVectorImpl<char> &Buffer, StringRef Str) {
+    Buffer.append(Str.begin(), Str.end());
   }
 
   /// Removes data from the given significand until it is no more
@@ -3342,7 +3377,7 @@ namespace {
     // Rounding down is just a truncation, except we also want to drop
     // trailing zeros from the new result.
     if (buffer[FirstSignificant - 1] < '5') {
-      while (buffer[FirstSignificant] == '0')
+      while (FirstSignificant < N && buffer[FirstSignificant] == '0')
         FirstSignificant++;
 
       exp += FirstSignificant;

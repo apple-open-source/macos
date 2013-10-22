@@ -147,7 +147,7 @@ sec_xdr_array(XDR *xdrs, uint8_t **addrp, u_int *sizep, u_int maxsize, u_int els
     for (i = 0; (i < c) && stat; i++) {
         if ((xdrs->x_op == XDR_DECODE) && sizeof_alloc)
             memset(obj, 0, elsize);
-        stat = (*elproc)(xdrs, target);
+        stat = (*elproc)(xdrs, target, 0);
         if ((xdrs->x_op == XDR_ENCODE) || !sizeof_alloc)
             target += elsize;
     }

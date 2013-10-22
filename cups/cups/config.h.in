@@ -1,5 +1,5 @@
 /*
- * "$Id: config.h.in 7918 2008-09-08 22:03:01Z mike $"
+ * "$Id: config.h.in 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Configuration file for CUPS.
  *
@@ -132,13 +132,11 @@
 
 
 /*
- * Do we have various image libraries?
+ * Do we have ZLIB?
  */
 
-#undef HAVE_LIBPNG
 #undef HAVE_LIBZ
-#undef HAVE_LIBJPEG
-#undef HAVE_LIBTIFF
+#undef HAVE_INFLATECOPY
 
 
 /*
@@ -166,13 +164,6 @@
  */
 
 #undef HAVE_CRYPT_H
-
-
-/*
- * Do we have <scsi/sg.h>?
- */
-
-#undef HAVE_SCSI_SG_H
 
 
 /*
@@ -323,34 +314,6 @@
 #undef HAVE_SECPOLICY_H
 #undef HAVE_SECPOLICYPRIV_H
 #undef HAVE_SECURETRANSPORTPRIV_H
-
-
-/*
- * Do we have the SecCertificateCopyData function?
- */
-
-#undef HAVE_SECCERTIFICATECOPYDATA
-
-
-/*
- * Do we have the SecIdentitySearchCreateWithPolicy function?
- */
-
-#undef HAVE_SECIDENTITYSEARCHCREATEWITHPOLICY
-
-
-/*
- * Do we have the SecPolicyCreateSSL function?
- */
-
-#undef HAVE_SECPOLICYCREATESSL
-
-
-/*
- * Do we have the SecPolicyCreateSSL function?
- */
-
-#undef HAVE_SECPOLICYCREATESSL
 
 
 /*
@@ -743,5 +706,5 @@ static __inline int _cups_abs(int i) { return (i < 0 ? -i : i); }
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h.in 7918 2008-09-08 22:03:01Z mike $".
+ * End of "$Id: config.h.in 11093 2013-07-03 20:48:42Z msweet $".
  */

@@ -1,0 +1,1 @@
+[% a = 420; b = 0; TRY; a / b; CATCH; error; END %]

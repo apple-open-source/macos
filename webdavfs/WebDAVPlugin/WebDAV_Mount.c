@@ -907,7 +907,7 @@ GetHostAndPort(CFURLRef in_URL, CFStringRef *out_Host,
     altPort = CFURLGetPortNumber (in_URL);
     if (altPort != -1) {
 		port = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"),
-										altPort);
+										(int)altPort);
 		if (port == NULL) {
 			error = ENOMEM;
 			goto exit;

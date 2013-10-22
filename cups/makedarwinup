@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Script to make a CUPS root compatible with the darwinup command.  Standard
+# instructions for people getting these roots are:
+#
+#    sudo echo LogLevel debug >>/etc/cups/cupsd.conf
+#    sudo darwinup install ~/Desktop/Shared_cups-NNNNNNNN_DSTROOT_osx.tar.gz
+#    sudo killall cupsd
+#
+# Usage:
+#
+#   makedarwinup radar-number
+#
+
+if test $# != 1; then
+	echo "Usage: makedarwinup radar-number"
+	exit 1
+fi
+
+buildit -project cups -archive -archiveName cups-$1 -archiveOutputDir ~/Desktop -dsymsInDstroot -buildAllAliases -noverify . || exit 1
+echo "Send ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz to tester."
+echo ""
+echo "Commands for tester to run:"
+echo ""
+echo "  sudo echo LogLevel debug >>/etc/cups/cupsd.conf"
+echo "  sudo darwinup install ~/Desktop/Shared_cups-$1_DSTROOT_osx.tar.gz"
+echo "  sudo killall cupsd"

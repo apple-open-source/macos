@@ -100,7 +100,7 @@ libxslt_xsltGetTransformContextHashCode(PyObject *self ATTRIBUTE_UNUSED, PyObjec
     long hash_code;
     xsltTransformContextPtr tctxt;
 
-    if (!PyArg_ParseTuple(args, (char *)"O:getTransformContextHashCode", 
+    if (!PyArg_ParseTuple(args, (char *)"O:getTransformContextHashCode",
                           &py_tctxt))
         return NULL;
 
@@ -113,11 +113,11 @@ libxslt_xsltGetTransformContextHashCode(PyObject *self ATTRIBUTE_UNUSED, PyObjec
 
 PyObject *
 libxslt_xsltCompareTransformContextsEqual(PyObject *self ATTRIBUTE_UNUSED, PyObject *args) {
-    
+
     PyObject *py_tctxt1, *py_tctxt2;
     xsltTransformContextPtr tctxt1, tctxt2;
 
-    if (!PyArg_ParseTuple(args, (char *)"OO:compareTransformContextsEqual", 
+    if (!PyArg_ParseTuple(args, (char *)"OO:compareTransformContextsEqual",
                           &py_tctxt1, &py_tctxt2))
         return NULL;
 
@@ -137,7 +137,7 @@ libxslt_xsltGetStylesheetHashCode(PyObject *self ATTRIBUTE_UNUSED, PyObject *arg
     long hash_code;
     xsltStylesheetPtr style;
 
-    if (!PyArg_ParseTuple(args, (char *)"O:getStylesheetHashCode", 
+    if (!PyArg_ParseTuple(args, (char *)"O:getStylesheetHashCode",
                           &py_style))
         return NULL;
 
@@ -151,11 +151,11 @@ libxslt_xsltGetStylesheetHashCode(PyObject *self ATTRIBUTE_UNUSED, PyObject *arg
 
 PyObject *
 libxslt_xsltCompareStylesheetsEqual(PyObject *self ATTRIBUTE_UNUSED, PyObject *args) {
-    
+
     PyObject *py_style1, *py_style2;
     xsltStylesheetPtr style1, style2;
 
-    if (!PyArg_ParseTuple(args, (char *)"OO:compareStylesheetsEqual", 
+    if (!PyArg_ParseTuple(args, (char *)"OO:compareStylesheetsEqual",
                           &py_style1, &py_style2))
         return NULL;
 
@@ -240,12 +240,12 @@ libxslt_xsltElementPreCompCallback(xsltStylesheetPtr style, xmlNodePtr inst,
 
     if (style == NULL)
 	return (NULL);
-    
+
     if (inst != NULL && inst->ns != NULL) {
 	name = inst->name;
 	ns_uri = inst->ns->href;
     } else {
-	xsltTransformError(NULL, style, inst, 
+	xsltTransformError(NULL, style, inst,
 		"libxslt_xsltElementPreCompCallback: internal error bad parameter\n");
 		printf("libxslt_xsltElementPreCompCallback: internal error bad parameter\n");
 	if (style != NULL) style->errors++;
@@ -258,7 +258,7 @@ libxslt_xsltElementPreCompCallback(xsltStylesheetPtr style, xmlNodePtr inst,
     pyobj_precomp_f = xmlHashLookup2(libxslt_extModuleElementPreComp,
 	                              name, ns_uri);
     if (pyobj_precomp_f == NULL) {
-	xsltTransformError(NULL, style, inst, 
+	xsltTransformError(NULL, style, inst,
 		"libxslt_xsltElementPreCompCallback: internal error, could not find precompile python function!\n");
 	if (style != NULL) style->errors++;
 	return (NULL);
@@ -267,13 +267,13 @@ libxslt_xsltElementPreCompCallback(xsltStylesheetPtr style, xmlNodePtr inst,
     pyobj_element_f = xmlHashLookup2(libxslt_extModuleElements,
 	                              name, ns_uri);
     if (pyobj_element_f == NULL) {
-	xsltTransformError(NULL, style, inst, 
+	xsltTransformError(NULL, style, inst,
 		"libxslt_xsltElementPreCompCallback: internal error, could not find element python function!\n");
 	if (style != NULL) style->errors++;
 	return (NULL);
     }
 
-    args = Py_BuildValue((char *)"(OOO)", 
+    args = Py_BuildValue((char *)"(OOO)",
 	    libxslt_xsltStylesheetPtrWrap(style),
 	    libxml_xmlNodePtrWrap(inst),
 	    pyobj_element_f);
@@ -295,9 +295,9 @@ libxslt_xsltElementPreCompCallback(xsltStylesheetPtr style, xmlNodePtr inst,
 
 static void
 libxslt_xsltElementTransformCallback(xsltTransformContextPtr ctxt,
-				    xmlNodePtr node, 
+				    xmlNodePtr node,
 				    xmlNodePtr inst,
-				    xsltElemPreCompPtr comp) 
+				    xsltElemPreCompPtr comp)
 {
     PyObject *args, *result;
     PyObject *func = NULL;
@@ -306,7 +306,7 @@ libxslt_xsltElementTransformCallback(xsltTransformContextPtr ctxt,
 
     if (ctxt == NULL)
 	return;
-    
+
     if (inst != NULL && inst->name != NULL && inst->ns != NULL && inst->ns->href != NULL) {
 	name = inst->name;
 	ns_uri = inst->ns->href;
@@ -331,10 +331,10 @@ libxslt_xsltElementTransformCallback(xsltTransformContextPtr ctxt,
     }
 
     args = Py_BuildValue((char *)"OOOO",
-    	libxslt_xsltTransformContextPtrWrap(ctxt),
-    	libxml_xmlNodePtrWrap(node),
-    	libxml_xmlNodePtrWrap(inst),
-    	libxslt_xsltElemPreCompPtrWrap(comp));
+	libxslt_xsltTransformContextPtrWrap(ctxt),
+	libxml_xmlNodePtrWrap(node),
+	libxml_xmlNodePtrWrap(inst),
+	libxslt_xsltElemPreCompPtrWrap(comp));
 
     Py_INCREF(func); /* Protect refcount against reentrant manipulation of callback hash */
     result = PyEval_CallObject(func, args);
@@ -401,7 +401,7 @@ libxslt_xsltRegisterExtModuleElement(PyObject *self ATTRIBUTE_UNUSED,
     }
     Py_XINCREF(pyobj_precomp_f);
 
-    ret = xsltRegisterExtModuleElement(name, ns_uri, 
+    ret = xsltRegisterExtModuleElement(name, ns_uri,
 					libxslt_xsltElementPreCompCallback,
 					libxslt_xsltElementTransformCallback);
     py_retval = libxml_intWrap((int) ret);
@@ -495,7 +495,7 @@ libxslt_xsltRegisterExtModuleFunction(PyObject *self ATTRIBUTE_UNUSED,
     }
     Py_XINCREF(pyobj_f);
 
-    ret = xsltRegisterExtModuleFunction(name, ns_uri, 
+    ret = xsltRegisterExtModuleFunction(name, ns_uri,
 	                                     libxslt_xmlXPathFuncCallback);
     py_retval = libxml_intWrap((int) ret);
     return(py_retval);
@@ -536,7 +536,7 @@ pythonDocLoaderFuncWrapper(const xmlChar * URI, xmlDictPtr dict, int options,
     xmlCtxtUseOptions(pctxt, options);
 
     /*
-     * Now pass to python the URI, the xsltParserContext and the context 
+     * Now pass to python the URI, the xsltParserContext and the context
      * (either a transformContext or a stylesheet) and get back an xmlDocPtr
      */
     if (pythonDocLoaderObject != NULL) {
@@ -545,13 +545,13 @@ pythonDocLoaderFuncWrapper(const xmlChar * URI, xmlDictPtr dict, int options,
 
         if (type == XSLT_LOAD_DOCUMENT) {
           ctxtobj = libxslt_xsltTransformContextPtrWrap(ctxt);
-          result = PyObject_CallFunction(pythonDocLoaderObject, 
-                                         (char *) "(sOOi)", URI, pctxtobj, ctxtobj, 0); 
+          result = PyObject_CallFunction(pythonDocLoaderObject,
+                                         (char *) "(sOOi)", URI, pctxtobj, ctxtobj, 0);
         }
         else {
           ctxtobj = libxslt_xsltStylesheetPtrWrap(ctxt);
-          result = PyObject_CallFunction(pythonDocLoaderObject, 
-                                         (char *) "(sOOi)", URI, pctxtobj, ctxtobj, 1); 
+          result = PyObject_CallFunction(pythonDocLoaderObject,
+                                         (char *) "(sOOi)", URI, pctxtobj, ctxtobj, 1);
         }
 
 	Py_XDECREF(pctxtobj);
@@ -599,7 +599,7 @@ libxslt_xsltSetLoaderFunc(PyObject *self ATTRIBUTE_UNUSED, PyObject *args) {
     xsltSetLoaderFunc(pythonDocLoaderFuncWrapper);
 
     py_retval = PyInt_FromLong(0);
-    return(py_retval);    
+    return(py_retval);
 }
 
 PyObject *
@@ -607,7 +607,7 @@ libxslt_xsltGetLoaderFunc(void) {
     PyObject *py_retval;
 
     py_retval = pythonDocLoaderObject;
-    return(py_retval);    
+    return(py_retval);
 }
 
 
@@ -632,7 +632,7 @@ libxslt_xsltNewTransformContext(PyObject *self ATTRIBUTE_UNUSED, PyObject *args)
 
     style = (xsltStylesheetPtr) Pystylesheet_Get(pyobj_style);
     doc = (xmlDocPtr) PyxmlNode_Get(pyobj_doc);
-    
+
     c_retval = xsltNewTransformContext(style, doc);
     py_retval = libxslt_xsltTransformContextPtrWrap((xsltTransformContextPtr) c_retval);
     return (py_retval);
@@ -645,13 +645,13 @@ libxslt_xsltFreeTransformContext(PyObject *self ATTRIBUTE_UNUSED, PyObject *args
 
     if (!PyArg_ParseTuple(args, (char *) "O:xsltFreeTransformContext", &py_tctxt))
         return(NULL);
-                     
+
     tctxt = (xsltTransformContextPtr) PytransformCtxt_Get(py_tctxt);
     xsltFreeTransformContext(tctxt);
 
     /* Return None */
     Py_INCREF(Py_None);
-    return(Py_None);    
+    return(Py_None);
 }
 
 PyObject *
@@ -808,7 +808,7 @@ libxslt_xsltApplyStylesheet(PyObject *self ATTRIBUTE_UNUSED, PyObject *args) {
 
 PyObject *
 libxslt_xsltSaveResultToString(PyObject *self ATTRIBUTE_UNUSED, PyObject *args) {
-    PyObject *py_retval;        /* our final return value, a python string   */ 
+    PyObject *py_retval;        /* our final return value, a python string   */
     xmlChar  *buffer;
     int       size    = 0;
     int       emitted = 0;
@@ -822,14 +822,14 @@ libxslt_xsltSaveResultToString(PyObject *self ATTRIBUTE_UNUSED, PyObject *args) 
     result = (xmlDocPtr) PyxmlNode_Get(pyobj_result);
     style  = (xsltStylesheetPtr) Pystylesheet_Get(pyobj_style);
 
-     
+
     /* FIXME: We should probably add more restrictive error checking
      * and raise an error instead of "just" returning NULL.
      * FIXME: Documentation and code for xsltSaveResultToString diff
-     * -> emmitted will never be positive non-null. 
+     * -> emmitted will never be positive non-null.
      */
     emitted = xsltSaveResultToString(&buffer, &size, result, style);
-    if(!buffer || emitted < 0) 
+    if(!buffer || emitted < 0)
       goto FAIL;
     /* We haven't tested the aberrant case of a transformation that
      * renders to an empty string. For now we try to play it safe.
@@ -837,7 +837,7 @@ libxslt_xsltSaveResultToString(PyObject *self ATTRIBUTE_UNUSED, PyObject *args) 
     if(size)
       {
       buffer[size] = '\0';
-      py_retval = PyString_FromString((char *) buffer); 
+      py_retval = PyString_FromString((char *) buffer);
       xmlFree(buffer);
       }
     else
@@ -1125,7 +1125,7 @@ libxslt_xsltRegisterExtensionClass(PyObject *self ATTRIBUTE_UNUSED,
     }
     Py_XINCREF(pyobj_c);
 
-    ret = xsltRegisterExtModuleFull(ns_uri, 
+    ret = xsltRegisterExtModuleFull(ns_uri,
        (xsltExtInitFunction) libxslt_xsltPythonExtModuleCtxtInit,
        (xsltExtShutdownFunction) libxslt_xsltPythonExtModuleCtxtShutdown,
        (xsltStyleExtInitFunction) libxslt_xsltPythonExtModuleStyleInit,

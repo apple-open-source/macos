@@ -1,0 +1,21 @@
+Changes
+LICENSE
+Makefile.PL
+MANIFEST
+ptable.h
+README
+smp-test/collision.t
+smp-test/uuid-fork.pl
+t/basic.t
+t/from-name-collisions.t
+t/leaky_dollar_bang.t
+t/pod-coverage.t
+t/pod.t
+t/segv.t
+t/threads.t
+typemap
+UUID.h
+UUID.pm
+UUID.xs
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

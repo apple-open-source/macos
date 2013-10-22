@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * keychain_add.c
@@ -60,7 +60,7 @@ do_update_generic_password(const char *keychainName,
 	OSStatus status;
 	SecKeychainRef keychainRef = NULL;
 	SecKeychainItemRef itemRef = NULL;
-	
+
 	if (keychainName) {
 		keychainRef = keychain_open(keychainName);
 	}
@@ -124,7 +124,7 @@ do_update_generic_password(const char *keychainName,
 		attrs[attrList.count].data = (void *)accountName;
 		attrList.count++;
 	}
-	
+
 	// modify attributes and password data, if provided
 	status = SecKeychainItemModifyContent(itemRef, &attrList, (passwordData) ? strlen(passwordData) : 0, passwordData);
 	if (status) {
@@ -152,9 +152,9 @@ do_update_generic_password(const char *keychainName,
 			CFRelease(curAccess);
 		}
 	}
-		
+
 	CFRelease(itemRef);
-	
+
 	return status;
 }
 
@@ -173,7 +173,7 @@ do_add_generic_password(const char *keychainName,
 	Boolean update)
 {
 	SecKeychainRef keychain = NULL;
-	OSStatus result;
+	OSStatus result = 0;
     SecKeychainItemRef itemRef = NULL;
 
 	// if update flag is specified, try to find and update an existing item
@@ -262,7 +262,7 @@ do_update_internet_password(const char *keychainName,
 	OSStatus status;
 	SecKeychainRef keychainRef = NULL;
 	SecKeychainItemRef itemRef = NULL;
-	
+
 	if (keychainName) {
 		keychainRef = keychain_open(keychainName);
 	}
@@ -274,11 +274,11 @@ do_update_internet_password(const char *keychainName,
 	if (!itemRef) {
 		return errSecItemNotFound;
 	}
-	
+
 	// build list of attributes
 	SecKeychainAttribute attrs[12]; // maximum number of attributes
 	SecKeychainAttributeList attrList = { 0, attrs };
-	
+
 	if ((UInt32)itemCreator != 0) {
 		attrs[attrList.count].tag = kSecCreatorItemAttr;
 		attrs[attrList.count].length = sizeof(FourCharCode);
@@ -357,15 +357,15 @@ do_update_internet_password(const char *keychainName,
 	if (status) {
 		sec_error("SecKeychainItemModifyContent: %s", sec_errstr(status));
 	}
-	
+
 	// modify access, if provided
 	if (!status && access) {
 		status = modify_access(itemRef, access);
 	}
-	
+
 	CFRelease(itemRef);
-	
-	return status;	
+
+	return status;
 }
 
 static int
@@ -388,7 +388,7 @@ do_add_internet_password(const char *keychainName,
 {
 	SecKeychainRef keychain = NULL;
     SecKeychainItemRef itemRef = NULL;
-	OSStatus result;
+	OSStatus result = 0;
 
 	// if update flag is specified, try to find and update an existing item
 	if (update) {
@@ -398,7 +398,7 @@ do_add_internet_password(const char *keychainName,
 		if (result == noErr)
 			return result;
 	}
-	
+
 	if (keychainName)
 	{
 		keychain = keychain_open(keychainName);
@@ -537,7 +537,7 @@ keychain_add_generic_password(int argc, char * const *argv)
 	FourCharCode itemCreator = 0, itemType = 0;
 	int ch, result = 0;
 	const char *keychainName = NULL;
-	Boolean access_specified = FALSE; 
+	Boolean access_specified = FALSE;
 	Boolean always_allow = FALSE;
 	Boolean update_item = FALSE;
 	SecAccessRef access = NULL;
@@ -640,7 +640,7 @@ keychain_add_generic_password(int argc, char * const *argv)
 
 	argc -= optind;
 	argv += optind;
-	
+
 	if (!accountName || !serviceName)
 	{
 		result = 2;
@@ -696,7 +696,7 @@ keychain_add_internet_password(int argc, char * const *argv)
 	SecAuthenticationType authenticationType = OSSwapHostToBigInt32('dflt');
 	int ch, result = 0;
 	const char *keychainName = NULL;
-	Boolean access_specified = FALSE; 
+	Boolean access_specified = FALSE;
 	Boolean always_allow = FALSE;
 	Boolean update_item = FALSE;
 	SecAccessRef access = NULL;

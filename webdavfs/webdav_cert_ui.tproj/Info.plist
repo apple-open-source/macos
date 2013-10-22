@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>webdav_cert_ui</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.WebDAVFS.webdav_cert_ui</string>
+	<string>com.apple.WebDAVFS.webdav-cert-ui</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundlePackageType</key>

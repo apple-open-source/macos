@@ -61,6 +61,7 @@
 #include "acsp.h"
 #include "acscp.h"
 #include "acscp_plugin.h"
+#include "ipcp.h"
 #include <net/if.h> 		// required for if_ppp.h
 #include "../../Family/if_ppp.h"
 #include "../vpnd/RASSchemaDefinitions.h"
@@ -797,6 +798,9 @@ acscp_up(fsm *f)
     notify(acsp_up_notifier, 0);
     if (acsp_up_hook)
         acsp_up_hook();
+    
+    check_protocols_ready();
+   
     acsp_start(mtu);
 }
 

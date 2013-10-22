@@ -28,22 +28,46 @@
 #ifndef WebKitWebViewBasePrivate_h
 #define WebKitWebViewBasePrivate_h
 
+#include "WebContextMenuProxyGtk.h"
 #include "WebKitPrivate.h"
 #include "WebKitWebViewBase.h"
 #include "WebPageProxy.h"
 
-using namespace WebKit;
-
-WebKitWebViewBase* webkitWebViewBaseCreate(WebContext*, WebPageGroup*);
+WebKitWebViewBase* webkitWebViewBaseCreate(WebKit::WebContext*, WebKit::WebPageGroup*);
 GtkIMContext* webkitWebViewBaseGetIMContext(WebKitWebViewBase*);
-WebPageProxy* webkitWebViewBaseGetPage(WebKitWebViewBase*);
-void webkitWebViewBaseCreateWebPage(WebKitWebViewBase*, WKContextRef, WKPageGroupRef);
+WebKit::WebPageProxy* webkitWebViewBaseGetPage(WebKitWebViewBase*);
+void webkitWebViewBaseCreateWebPage(WebKitWebViewBase*, WebKit::WebContext*, WebKit::WebPageGroup*);
 void webkitWebViewBaseSetTooltipText(WebKitWebViewBase*, const char*);
+void webkitWebViewBaseSetTooltipArea(WebKitWebViewBase*, const WebCore::IntRect&);
 void webkitWebViewBaseForwardNextKeyEvent(WebKitWebViewBase*);
-void webkitWebViewBaseStartDrag(WebKitWebViewBase*, const WebCore::DragData&, PassRefPtr<ShareableBitmap> dragImage);
+void webkitWebViewBaseStartDrag(WebKitWebViewBase*, const WebCore::DragData&, PassRefPtr<WebKit::ShareableBitmap> dragImage);
 void webkitWebViewBaseChildMoveResize(WebKitWebViewBase*, GtkWidget*, const WebCore::IntRect&);
 void webkitWebViewBaseEnterFullScreen(WebKitWebViewBase*);
 void webkitWebViewBaseExitFullScreen(WebKitWebViewBase*);
 void webkitWebViewBaseInitializeFullScreenClient(WebKitWebViewBase*, const WKFullScreenClientGtk*);
+void webkitWebViewBaseSetInspectorViewHeight(WebKitWebViewBase*, unsigned height);
+void webkitWebViewBaseSetActiveContextMenuProxy(WebKitWebViewBase*, WebKit::WebContextMenuProxyGtk*);
+WebKit::WebContextMenuProxyGtk* webkitWebViewBaseGetActiveContextMenuProxy(WebKitWebViewBase*);
+GdkEvent* webkitWebViewBaseTakeContextMenuEvent(WebKitWebViewBase*);
+void webkitWebViewBaseSetInputMethodState(WebKitWebViewBase*, bool enabled);
+void webkitWebViewBaseUpdateTextInputState(WebKitWebViewBase*);
+
+#if USE(TEXTURE_MAPPER_GL)
+void webkitWebViewBaseQueueDrawOfAcceleratedCompositingResults(WebKitWebViewBase*);
+#endif
+
+void webkitWebViewBaseSetFocus(WebKitWebViewBase*, bool focused);
+bool webkitWebViewBaseIsInWindowActive(WebKitWebViewBase*);
+bool webkitWebViewBaseIsFocused(WebKitWebViewBase*);
+bool webkitWebViewBaseIsVisible(WebKitWebViewBase*);
+bool webkitWebViewBaseIsInWindow(WebKitWebViewBase*);
+
+typedef void (*WebKitWebViewBaseDownloadRequestHandler) (WebKitWebViewBase*, WebKit::DownloadProxy*);
+void webkitWebViewBaseSetDownloadRequestHandler(WebKitWebViewBase*, WebKitWebViewBaseDownloadRequestHandler);
+void webkitWebViewBaseHandleDownloadRequest(WebKitWebViewBase*, WebKit::DownloadProxy*);
+
+void webkitWebViewBaseAddAuthenticationDialog(WebKitWebViewBase*, GtkWidget* authDialog);
+void webkitWebViewBaseCancelAuthenticationDialog(WebKitWebViewBase*);
+void webkitWebViewBaseAddWebInspector(WebKitWebViewBase*, GtkWidget* inspector);
 
 #endif // WebKitWebViewBasePrivate_h

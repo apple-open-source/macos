@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -39,5 +39,5 @@ __private_extern__ void *PoolAllocateResident (vm_size_t size, unsigned char cle
 __private_extern__ OSStatus PoolDeallocate (void *ptr, vm_size_t size)
 {
 	IOFree(ptr, size);
-	return noErr;
+	return 0;
 }

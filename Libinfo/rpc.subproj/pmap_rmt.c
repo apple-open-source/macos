@@ -153,7 +153,7 @@ xdr_rmtcall_args(xdrs, cap)
 		if (! xdr_u_long(xdrs, &(cap->arglen)))
 		    return (FALSE);
 		argposition = XDR_GETPOS(xdrs);
-		if (! (*(cap->xdr_args))(xdrs, cap->args_ptr))
+		if (! (*(cap->xdr_args))(xdrs, cap->args_ptr, 0))
 		    return (FALSE);
 		position = XDR_GETPOS(xdrs);
 #ifdef __LP64__
@@ -185,12 +185,12 @@ xdr_rmtcallres(xdrs, crp)
 #ifdef __LP64__
 	if (xdr_reference(xdrs, &port_ptr, sizeof (uint32_t), (xdrproc_t)xdr_u_long) && xdr_u_long(xdrs, &crp->resultslen)) {
 		crp->port_ptr = (unsigned int *)port_ptr;
-		return ((*(crp->xdr_results))(xdrs, crp->results_ptr));
+		return ((*(crp->xdr_results))(xdrs, crp->results_ptr, 0));
 	}
 #else
 	if (xdr_reference(xdrs, &port_ptr, sizeof (u_long), (xdrproc_t)xdr_u_long) && xdr_u_long(xdrs, &crp->resultslen)) {
 		crp->port_ptr = (unsigned long *)port_ptr;
-		return ((*(crp->xdr_results))(xdrs, crp->results_ptr));
+		return ((*(crp->xdr_results))(xdrs, crp->results_ptr, 0));
 	}
 #endif
 	return (FALSE);
@@ -444,7 +444,7 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 		xdrs->x_op = XDR_FREE;
 		msg.acpted_rply.ar_results.proc = (xdrproc_t)xdr_void;
 		(void)xdr_replymsg(xdrs, &msg);
-		(void)(*xresults)(xdrs, resultsp);
+		(void)(*xresults)(xdrs, resultsp, 0);
 		xdr_destroy(xdrs);
 		if (done) {
 			stat = RPC_SUCCESS;

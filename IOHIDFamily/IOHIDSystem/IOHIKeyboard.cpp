@@ -27,6 +27,7 @@
 
 #include <AssertMacros.h>
 #include <IOKit/IOLib.h>
+#include <IOKit/IOLocks.h>
 #include <IOKit/hidsystem/IOHIKeyboardMapper.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
@@ -58,7 +59,8 @@ struct KeyboardReserved
     IOHIDKeyboardDevice *	keyboardNub;
 };
 
-static OSArray *gKeyboardReservedArray = OSArray::withCapacity(4);
+static OSArray  *gKeyboardReservedArray = OSArray::withCapacity(4);
+IOLock          *gKeyboardReservedArrayLock = IOLockAlloc();
 
 static KeyboardReserved * GetKeyboardReservedStructEventForService(IOHIKeyboard *service, UInt32 * index = 0)
 {
@@ -70,7 +72,11 @@ static KeyboardReserved * GetKeyboardReservedStructEventForService(IOHIKeyboard 
             bool done = false;
             while (!done) {
                 OSObject * obj = 0;
+                IOLockLock(gKeyboardReservedArrayLock);
                 while (!done && (NULL != (obj = iterator->getNextObject()))) {
+                    obj->retain();
+                    IOLockUnlock(gKeyboardReservedArrayLock);
+                    
                     OSData * data = OSDynamicCast(OSData, obj);
                     if (data) {
                         retVal = (KeyboardReserved *)data->getBytesNoCopy();
@@ -83,7 +89,9 @@ static KeyboardReserved * GetKeyboardReservedStructEventForService(IOHIKeyboard 
                             retVal = 0;
                         }
                     }
+                    IOLockLock(gKeyboardReservedArrayLock);
                 }
+                IOLockUnlock(gKeyboardReservedArrayLock);
                 if (iterator->isValid()) {
                     done = true;
                 }
@@ -107,9 +115,10 @@ static void AppendNewKeyboardReservedStructForService(IOHIKeyboard *service)
         bzero(&temp, sizeof(KeyboardReserved));
         temp.repeatMode = true;
         temp.service = service;
-        
         data = OSData::withBytes(&temp, sizeof(KeyboardReserved));
+        IOLockLock(gKeyboardReservedArrayLock);
         gKeyboardReservedArray->setObject(data);
+        IOLockUnlock(gKeyboardReservedArrayLock);
         data->release();
     }
 }
@@ -120,7 +129,9 @@ static void RemoveKeyboardReservedStructForService(IOHIKeyboard *service)
     
     if (gKeyboardReservedArray && GetKeyboardReservedStructEventForService(service, &index) )
     {
-    	gKeyboardReservedArray->removeObject(index);
+        IOLockLock(gKeyboardReservedArrayLock);
+        gKeyboardReservedArray->removeObject(index);
+        IOLockUnlock(gKeyboardReservedArrayLock);
     }
 }
 
@@ -174,7 +185,7 @@ bool IOHIKeyboard::start(IOService * provider)
     tempReservedStruct->repeat_thread_call = thread_call_allocate(_autoRepeat, this);
   }
 
-  registerService(kIOServiceSynchronous);
+  registerService(kIOServiceAsynchronous);
 
   return true;
 }

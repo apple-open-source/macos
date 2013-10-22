@@ -68,12 +68,11 @@ public:
     bool send(const char* data, int length);
 
     // ThreadableWebSocketChannel functions.
-    virtual bool useHixie76Protocol() OVERRIDE;
     virtual void connect(const KURL&, const String& protocol) OVERRIDE;
     virtual String subprotocol() OVERRIDE;
     virtual String extensions() OVERRIDE;
     virtual ThreadableWebSocketChannel::SendResult send(const String& message) OVERRIDE;
-    virtual ThreadableWebSocketChannel::SendResult send(const ArrayBuffer&) OVERRIDE;
+    virtual ThreadableWebSocketChannel::SendResult send(const ArrayBuffer&, unsigned byteOffset, unsigned byteLength) OVERRIDE;
     virtual ThreadableWebSocketChannel::SendResult send(const Blob&) OVERRIDE;
     virtual unsigned long bufferedAmount() const OVERRIDE;
     virtual void close(int code, const String& reason) OVERRIDE; // Start closing handshake.
@@ -102,7 +101,12 @@ public:
         CloseEventCodeFrameTooLarge = 1004,
         CloseEventCodeNoStatusRcvd = 1005,
         CloseEventCodeAbnormalClosure = 1006,
-        CloseEventCodeInvalidUTF8 = 1007,
+        CloseEventCodeInvalidFramePayloadData = 1007,
+        CloseEventCodePolicyViolation = 1008,
+        CloseEventCodeMessageTooBig = 1009,
+        CloseEventCodeMandatoryExt = 1010,
+        CloseEventCodeInternalError = 1011,
+        CloseEventCodeTLSHandshake = 1015,
         CloseEventCodeMinimumUserDefined = 3000,
         CloseEventCodeMaximumUserDefined = 4999
     };
@@ -133,7 +137,6 @@ private:
     void closingTimerFired(Timer<WebSocketChannel>*);
 
     bool processFrame();
-    bool processFrameHixie76();
 
     // It is allowed to send a Blob as a binary frame if hybi-10 protocol is in use. Sending a Blob
     // can be delayed because it must be read asynchronously. Other types of data (String or
@@ -143,8 +146,6 @@ private:
     // data frame is going to be sent, it first must go to the queue. Items in the queue are processed
     // in the order they were put into the queue. Sending request of a Blob blocks further processing
     // until the Blob is completely read and sent to the socket stream.
-    //
-    // When hixie-76 protocol is chosen, the queue is not used and messages are sent directly.
     enum QueuedFrameType {
         QueuedFrameTypeString,
         QueuedFrameTypeVector,
@@ -180,7 +181,6 @@ private:
     // If you are going to send a hybi-10 frame, you need to use the outgoing frame queue
     // instead of call sendFrame() directly.
     bool sendFrame(WebSocketFrame::OpCode, const char* data, size_t dataLength);
-    bool sendFrameHixie76(const char* data, size_t dataLength);
 
 #if ENABLE(BLOB)
     enum BlobLoaderStatus {
@@ -195,8 +195,7 @@ private:
     WebSocketChannelClient* m_client;
     OwnPtr<WebSocketHandshake> m_handshake;
     RefPtr<SocketStreamHandle> m_handle;
-    char* m_buffer;
-    size_t m_bufferSize;
+    Vector<char> m_buffer;
 
     Timer<WebSocketChannel> m_resumeTimer;
     bool m_suspended;
@@ -208,8 +207,6 @@ private:
     unsigned long m_unhandledBufferedAmount;
 
     unsigned long m_identifier; // m_identifier == 0 means that we could not obtain a valid identifier.
-
-    bool m_useHixie76Protocol;
 
     // Private members only for hybi-10 protocol.
     bool m_hasContinuousFrame;

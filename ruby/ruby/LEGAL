@@ -5,34 +5,59 @@ All the files in this distribution are covered under either the Ruby's
 license (see the file COPYING) or public-domain except some files
 mentioned below.
 
-regex.[ch]:
+include/ruby/oniguruma.h:
+regcomp.c:
+regenc.[ch]:
+regerror.c:
+regexec.c:
+regint.h:
+regparse.[ch]:
+enc/ascii.c
+enc/big5.c
+enc/cp949.c
+enc/emacs_mule.c
+enc/encdb.c
+enc/euc_jp.c
+enc/euc_kr.c
+enc/euc_tw.c
+enc/gb18030.c
+enc/gb2312.c
+enc/gbk.c
+enc/iso_8859_1.c
+enc/iso_8859_10.c
+enc/iso_8859_11.c
+enc/iso_8859_13.c
+enc/iso_8859_14.c
+enc/iso_8859_15.c
+enc/iso_8859_16.c
+enc/iso_8859_2.c
+enc/iso_8859_3.c
+enc/iso_8859_4.c
+enc/iso_8859_5.c
+enc/iso_8859_6.c
+enc/iso_8859_7.c
+enc/iso_8859_8.c
+enc/iso_8859_9.c
+enc/koi8_r.c
+enc/koi8_u.c
+enc/shift_jis.c
+enc/unicode.c
+enc/us_ascii.c
+enc/utf_16be.c
+enc/utf_16le.c
+enc/utf_32be.c
+enc/utf_32le.c
+enc/utf_8.c
+enc/windows_1251.c
 
-  These files are under LGPL.  Treat them as LGPL says. (See the file
-  LGPL for details)
+Oniguruma  ----   (C) K.Kosako <sndgk393 AT ybb DOT ne DOT jp>
 
-    Extended regular expression matching and search library.
-    Copyright (C) 1993, 94, 95, 96, 97, 98 Free Software Foundation, Inc.
+http://www.geocities.jp/kosako3/oniguruma/
+http://www.ruby-lang.org/cgi-bin/cvsweb.cgi/oniguruma/
+http://www.freebsd.org/cgi/cvsweb.cgi/ports/devel/oniguruma/
 
-    The GNU C Library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public License as
-    published by the Free Software Foundation; either version 2 of the
-    License, or (at your option) any later version.
-
-    The GNU C Library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public
-    License along with the GNU C Library; see the file LGPL.  If not,
-    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-    Boston, MA 02111-1307, USA.  */
-
-    Multi-byte extension added May, 1993 by t^2 (Takahiro Tanimoto)
-    Last change: May 21, 1993 by t^2
-    removed gapped buffer support, multiple syntax support by matz <matz@nts.co.jp>
-    Perl5 extension added by matz <matz@caelum.co.jp>
-    UTF-8 extension added Jan 16 1999 by Yoshida Masato  <yoshidam@tau.bekkoame.ne.jp>
+   When this software is partly used or it is distributed with Ruby, 
+   this of Ruby follows the license of Ruby.
 
 configure:
 
@@ -43,8 +68,8 @@ configure:
     This configure script is free software; the Free Software Foundation
     gives unlimited permission to copy, distribute and modify it.
 
-config.guess:
-config.sub:
+tool/config.guess:
+tool/config.sub:
 
   As long as you distribute these files with the file configure, they
   are covered under the Ruby's license.
@@ -109,6 +134,20 @@ parse.c:
      version 2.2 of Bison.  */
 
 util.c (partly):
+
+    Copyright (c) 1991, 2000, 2001 by Lucent Technologies.
+
+    Permission to use, copy, modify, and distribute this software for any
+    purpose without fee is hereby granted, provided that this entire notice
+    is included in all copies of any software which is or includes a copy
+    or modification of this software and in all copies of the supporting
+    documentation for such software.
+
+    THIS SOFTWARE IS BEING PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED
+    WARRANTY.  IN PARTICULAR, NEITHER THE AUTHOR NOR LUCENT MAKES ANY
+    REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY
+    OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
+
 win32/win32.[ch]:
 
   You can apply the Artistic License to these files. (or GPL,
@@ -118,6 +157,32 @@ win32/win32.[ch]:
 
     You may distribute under the terms of either the GNU General Public
     License or the Artistic License, as specified in the perl README file.
+
+util.c (partly):
+
+   Copyright (c) 2004-2008 David Schultz <das@FreeBSD.ORG>
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+
+   THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+   ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+   ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+   FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+   DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+   OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+   HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+   LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+   OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+   SUCH DAMAGE.
 
 random.c
 
@@ -166,63 +231,7 @@ random.c
     http://www.math.keio.ac.jp/matumoto/emt.html
     email: matumoto@math.keio.ac.jp
 
-st.[ch]:
-x68/*:
-missing/alloca.c:
-missing/dup2.c:
-missing/finite.c:
-missing/hypot.c:
-missing/isinf.c:
-missing/isnan.c:
-missing/memcmp.c:
-missing/memmove.c:
-missing/strcasecmp.c:
-missing/strchr.c:
-missing/streror.c:
-missing/strftime.c:
-missing/strncasecmp.c:
-missing/strstr.c:
-missing/strtol.c:
-ext/digest/sha1/sha1.[ch]:
-
-  These files are all under public domain.
-
-missing/strtod.c:
-
-  This file will not be used on most platforms depending on how the
-  configure script results.  In any case you must not receive any fee
-  with the file itself.
-
-    Copyright (c) 1988-1993 The Regents of the University of California.
-    Copyright (c) 1994 Sun Microsystems, Inc.
-
-    Permission to use, copy, modify, and distribute this
-    software and its documentation for any purpose and without
-    fee is hereby granted, provided that the above copyright
-    notice appear in all copies.  The University of California
-    makes no representations about the suitability of this
-    software for any purpose.  It is provided "as is" without
-    express or implied warranty.
-
-missing/strtoul.c:
-
-  This file will not be used on most platforms depending on how the
-  configure script results.  In any case you must not receive any fee
-  with the file itself.
-
-    Copyright 1988 Regents of the University of California
-
-    Permission to use, copy, modify, and distribute this
-    software and its documentation for any purpose and without
-    fee is hereby granted, provided that the above copyright
-    notice appear in all copies.  The University of California
-    makes no representations about the suitability of this
-    software for any purpose.  It is provided "as is" without
-    express or implied warranty.
-
-missing/erf.c:
-missing/crypt.c:
-missing/vsnprintf.c:
+vsnprintf.c:
 
   This file is under the old-style BSD license.  Note that the
   paragraph 3 below is now null and void.
@@ -262,6 +271,135 @@ missing/vsnprintf.c:
     From ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change
     paragraph 3 above is now null and void.
 
+st.[ch]:
+missing/alloca.c:
+missing/dup2.c:
+missing/erf.c:
+missing/finite.c:
+missing/hypot.c:
+missing/isinf.c:
+missing/isnan.c:
+missing/lgamma_r.c:
+missing/memcmp.c:
+missing/memmove.c:
+missing/strchr.c:
+missing/strstr.c:
+missing/strtol.c:
+missing/tgamma.c:
+ext/digest/sha1/sha1.[ch]:
+
+  These files are all under public domain.
+
+missing/crypt.c:
+
+  This file is under the old-style BSD license.  Note that the
+  paragraph 3 below is now null and void.
+
+    Copyright (c) 1989, 1993
+    	The Regents of the University of California.  All rights reserved.
+
+    This code is derived from software contributed to Berkeley by
+    Tom Truscott.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in the
+       documentation and/or other materials provided with the distribution.
+    3. Neither the name of the University nor the names of its contributors
+       may be used to endorse or promote products derived from this software
+       without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+    ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+    FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+    DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+    OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+    HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+    SUCH DAMAGE.
+
+missing/setproctitle.c
+
+  This file is under the old-style BSD license.  Note that the
+  paragraph 3 below is now null and void.
+
+    Copyright 2003 Damien Miller
+    Copyright (c) 1983, 1995-1997 Eric P. Allman
+    Copyright (c) 1988, 1993
+    	The Regents of the University of California.  All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in the
+       documentation and/or other materials provided with the distribution.
+    3. Neither the name of the University nor the names of its contributors
+       may be used to endorse or promote products derived from this software
+       without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+    ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+    FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+    DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+    OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+    HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+    OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+    SUCH DAMAGE.
+
+missing/strlcat.c
+missing/strlcpy.c
+
+  These files are under the new-style BSD license.
+
+   Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions
+   are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   3. The name of the author may not be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
+   INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+   AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL
+   THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+   OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+   WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+   OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+   ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+missing/langinfo.c
+
+  This file is from http://www.cl.cam.ac.uk/~mgk25/ucs/langinfo.c.
+  Ruby uses a modified version. The file contains the following
+  author/copyright notice:
+
+  Markus.Kuhn@cl.cam.ac.uk -- 2002-03-11
+  Permission to use, copy, modify, and distribute this software
+  for any purpose and without fee is hereby granted. The author
+  disclaims all warranties with regard to this software.
+
 ext/digest/md5/md5.[ch]:
 
   These files are under the following license.  Ruby uses modified
@@ -300,18 +438,7 @@ ext/digest/rmd160/rmd160.[ch]:
     Copyright (c) Katholieke Universiteit Leuven
     1996, All Rights Reserved
 
-ext/digest/rmd160/rmd160hl.c:
-ext/digest/sha1/sha1hl.c:
-
-  These files are under the beer-ware license.
-
-    "THE BEER-WARE LICENSE" (Revision 42):
-    <phk@login.dkuug.dk> wrote this file.  As long as you retain this notice you
-    can do whatever you want with this stuff. If we meet some day, and you think
-    this stuff is worth it, you can buy me a beer in return.   Poul-Henning Kamp
-
 ext/digest/sha2/sha2.[ch]:
-ext/digest/sha2/sha2hl.c:
 
   These files are under the new-style BSD license.
 

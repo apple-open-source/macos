@@ -38,6 +38,7 @@
 /* only supported by mbr_identifier_translate for target type */
 #define ID_TYPE_UID_OR_GID 30
 #define ID_TYPE_NAME 31
+#define ID_TYPE_WINDOWS_FQN 32
 
 __BEGIN_DECLS
 

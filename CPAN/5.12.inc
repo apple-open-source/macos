@@ -22,7 +22,6 @@ CPAN_PROJECTS = \
     Mac-Apps-Launch-1.93 \
     Mac-AppleEvents-Simple-1.18 \
     Mac-OSA-Simple-1.09 \
-    Mac-Glue-1.30 \
     Convert-BinHex-1.119 \
     Convert-UUlib-1.4 \
     IO-String-1.08 \

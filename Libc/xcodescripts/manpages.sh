@@ -13,6 +13,13 @@ cat ${MANPAGES_LIST} | grep -v -E '(^#|^\s*$)' | while read first solid rest; do
 ${FILES}
 EOF
 )
+
+	# This is a subshell, the real exit is after the loop.
+	if [ -z "${SOURCE}" ]; then
+		echo "Error: ${first} not found"
+		exit 1
+	fi
+
 	SECTION=$(echo ${first} | tail -c 2)
 
 	DESTDIR=${DSTROOT}/usr/share/man/man${SECTION}
@@ -31,6 +38,11 @@ EOF
 		eval ${cmd}
 	done
 done
+
+if [ $? -ne 0 ]; then
+	echo "Exiting due to previous error(s)."
+	exit 1
+fi
 
 # grrr, uuid special case
 for page in libuuid.3 uuid_clear.3 uuid_compare.3 uuid_copy.3 uuid_generate.3 uuid_is_null.3 uuid_parse.3 uuid_unparse.3; do

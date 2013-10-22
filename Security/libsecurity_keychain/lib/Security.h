@@ -67,6 +67,7 @@
 #include <Security/SecTrustedApplication.h>
 #include <Security/SecTrustSettings.h>
 #include <Security/SecImportExport.h>
+#include <Security/SecRandom.h>
 
 /* Code Signing */
 #include <Security/SecStaticCode.h>

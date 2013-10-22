@@ -110,12 +110,12 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
     if (pppref) {
         s = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPTP);
         if (s < 0) {
-            if (url = CFBundleCopyBundleURL(pppref)) {
+            if ((url = CFBundleCopyBundleURL(pppref))) {
                 name[0] = 0;
                 CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                 CFRelease(url);
                 strlcat(name, "/", sizeof(name));
-                if (url = CFBundleCopyBuiltInPlugInsURL(pppref)) {
+                if ((url = CFBundleCopyBuiltInPlugInsURL(pppref))) {
                     CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                                 MAXPATHLEN - strlen(name) - strlen(PPTP_NKE) - 1);
                     CFRelease(url);
@@ -333,9 +333,7 @@ int pptpvpn_refuse(void)
 void pptpvpn_close(void)
 {
     if (listen_sockfd != -1) {
-        if (pptp_sys_close(listen_sockfd) < 0)
-            ;  // do nothing      
-            
+        pptp_sys_close(listen_sockfd);
         listen_sockfd = -1;
     }
 }

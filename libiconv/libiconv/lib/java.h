@@ -26,7 +26,7 @@
  */
 
 static int
-java_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+java_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c;
   ucs4_t wc, wc2;
@@ -95,7 +95,7 @@ simply_backslash:
 }
 
 static int
-java_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+java_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (wc < 0x80) {
     *r = wc;

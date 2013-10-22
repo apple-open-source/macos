@@ -27,37 +27,36 @@
 namespace WebCore {
 
 WebGLLayerWebKitThread::WebGLLayerWebKitThread()
-    : LayerWebKitThread(WebGLLayer, 0)
+    : EGLImageLayerWebKitThread(WebGLLayer)
     , m_webGLContext(0)
-    , m_needsDisplay(false)
 {
-    setLayerProgramShader(LayerProgramShaderRGBA);
 }
 
 WebGLLayerWebKitThread::~WebGLLayerWebKitThread()
 {
-    if (m_frontBufferLock)
-        pthread_mutex_destroy(m_frontBufferLock);
-}
-
-void WebGLLayerWebKitThread::setNeedsDisplay()
-{
-    m_needsDisplay = true;
-    setNeedsCommit();
+    deleteTextures();
 }
 
 void WebGLLayerWebKitThread::updateTextureContentsIfNeeded()
 {
-    // FIXME: Does WebGLLayer always need display? Or can we just return immediately if (!m_needsDisplay)?
-    m_needsDisplay = false;
+    if (!m_webGLContext || !m_webGLContext->makeContextCurrent())
+        return;
 
-    if (!m_frontBufferLock)
-        createFrontBufferLock();
-
-    // Lock copied GL texture so that the UI thread won't access it while we are drawing into it.
-    pthread_mutex_lock(m_frontBufferLock);
     m_webGLContext->prepareTexture();
-    pthread_mutex_unlock(m_frontBufferLock);
+
+    updateFrontBuffer(m_webGLContext->getInternalFramebufferSize(), m_webGLContext->platformTexture());
+}
+
+void WebGLLayerWebKitThread::deleteTextures()
+{
+    if (m_webGLContext && m_webGLContext->makeContextCurrent())
+        deleteFrontBuffer();
+}
+
+void WebGLLayerWebKitThread::webGLContextDestroyed()
+{
+    deleteTextures();
+    m_webGLContext = 0;
 }
 
 } // namespace WebCore

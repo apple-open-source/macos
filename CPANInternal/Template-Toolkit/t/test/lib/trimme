@@ -1,0 +1,12 @@
+[% DEFAULT 
+   title  = 'something'
+   colour = 'red'
+%]
+
+[%# more spae-gobbling directives %]
+
+I am a template element file which will get TRIMmed
+
+[% foo = 'bar' %]
+
+

@@ -152,12 +152,19 @@
 >hello
 >goodbye
 
-  (exec 3<&-
+  ({ exec 3<&- } 2>/dev/null
+  exec 3<&-
   read foo <&-)
 1:'<&-' redirection
+*?\(eval\):*: failed to close file descriptor 3:*
 
   print foo >&-
 0:'>&-' redirection
+
+  (exec >&-
+  print foo)
+0:'>&-' with attempt to use closed fd
+*?\(eval\):2: write error:*
 
   fn() { local foo; read foo; print $foo; }
   coproc fn
@@ -366,3 +373,74 @@
 >more output:
 >This file contains data.
 >This file contains data.
+
+  $ZTST_testdir/../Src/zsh -fc 'exec >/nonexistent/nonexistent
+  echo output'
+0:failed exec redir, no POSIX_BUILTINS
+>output
+?zsh:1: no such file or directory: /nonexistent/nonexistent
+
+  $ZTST_testdir/../Src/zsh -f -o POSIX_BUILTINS -c '
+  exec >/nonexistent/nonexistent
+  echo output'
+1:failed exec redir, POSIX_BUILTINS
+?zsh:2: no such file or directory: /nonexistent/nonexistent
+
+  $ZTST_testdir/../Src/zsh -f -o POSIX_BUILTINS -c '
+  set >/nonexistent/nonexistent
+  echo output'
+1:failed special builtin redir, POSIX_BUILTINS
+?zsh:2: no such file or directory: /nonexistent/nonexistent
+
+  $ZTST_testdir/../Src/zsh -f -o POSIX_BUILTINS -c '
+  command set >/nonexistent/nonexistent
+  echo output'
+0:failed special builtin redir with command prefix, POSIX_BUILTINS
+>output
+?zsh:2: no such file or directory: /nonexistent/nonexistent
+
+  $ZTST_testdir/../Src/zsh -f -o POSIX_BUILTINS -c '
+  echo >/nonexistent/nonexistent
+  echo output'
+0:failed unspecial builtin redir, POSIX_BUILTINS
+>output
+?zsh:2: no such file or directory: /nonexistent/nonexistent
+
+  $ZTST_testdir/../Src/zsh -f -o POSIX_BUILTINS -c '
+  . /nonexistent/nonexistent
+  echo output'
+1:failed dot, POSIX_BUILTINS
+?zsh:.:2: no such file or directory: /nonexistent/nonexistent
+
+  $ZTST_testdir/../Src/zsh -f -c '
+  . /nonexistent/nonexistent
+  echo output'
+0:failed dot, NO_POSIX_BUILTINS
+>output
+?zsh:.:2: no such file or directory: /nonexistent/nonexistent
+
+  $ZTST_testdir/../Src/zsh -f -o CONTINUE_ON_ERROR <<<'
+  readonly foo
+  foo=bar set output
+  echo output'
+0:failed assignment on posix special, CONTINUE_ON_ERROR
+>output
+?zsh: read-only variable: foo
+
+  $ZTST_testdir/../Src/zsh -f <<<'
+  readonly foo
+  foo=bar set output
+  echo output'
+1:failed assignment on posix special, NO_CONTINUE_ON_ERROR
+?zsh: read-only variable: foo
+
+  $ZTST_testdir/../Src/zsh -f -o CONTINUE_ON_ERROR <<<'
+  readonly foo
+  foo=bar echo output
+  echo output'
+0:failed assignment on non-posix-special, CONTINUE_ON_ERROR
+>output
+?zsh: read-only variable: foo
+
+  [</dev/null ]
+1:check behaviour with square brackets

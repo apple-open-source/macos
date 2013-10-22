@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e -x
 
+# check if we're building for the simulator
+if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
+	DSTROOT="${DSTROOT}${SDKROOT}"
+fi
+
 DIR="$DSTROOT"/usr/include/arpa
 install -d -m 0755 -o "$INSTALL_OWNER" -g "$INSTALL_GROUP" \
 	"$DIR"

@@ -38,31 +38,28 @@ OBJC_CLASS NSView;
 typedef union _GdkEvent GdkEvent;
 #elif PLATFORM(EFL)
 #include <Evas.h>
+#include <WebCore/AffineTransform.h>
 #endif
 
 namespace WebKit {
 
 class NativeWebMouseEvent : public WebMouseEvent {
 public:
-#if PLATFORM(MAC)
+#if USE(APPKIT)
     NativeWebMouseEvent(NSEvent *, NSView *);
-#elif PLATFORM(WIN)
-    NativeWebMouseEvent(HWND, UINT message, WPARAM, LPARAM, bool);
 #elif PLATFORM(QT)
     explicit NativeWebMouseEvent(QMouseEvent*, const QTransform& fromItemTransform, int eventClickCount);
 #elif PLATFORM(GTK)
     NativeWebMouseEvent(const NativeWebMouseEvent&);
     NativeWebMouseEvent(GdkEvent*, int);
 #elif PLATFORM(EFL)
-    NativeWebMouseEvent(const Evas_Event_Mouse_Down*, const Evas_Point*);
-    NativeWebMouseEvent(const Evas_Event_Mouse_Up*, const Evas_Point*);
-    NativeWebMouseEvent(const Evas_Event_Mouse_Move*, const Evas_Point*);
+    NativeWebMouseEvent(const Evas_Event_Mouse_Down*, const WebCore::AffineTransform&, const WebCore::AffineTransform&);
+    NativeWebMouseEvent(const Evas_Event_Mouse_Up*, const WebCore::AffineTransform&, const WebCore::AffineTransform&);
+    NativeWebMouseEvent(const Evas_Event_Mouse_Move*, const WebCore::AffineTransform&, const WebCore::AffineTransform&);
 #endif
 
-#if PLATFORM(MAC)
+#if USE(APPKIT)
     NSEvent* nativeEvent() const { return m_nativeEvent.get(); }
-#elif PLATFORM(WIN)
-    const MSG* nativeEvent() const { return &m_nativeEvent; }
 #elif PLATFORM(QT)
     const QMouseEvent* nativeEvent() const { return m_nativeEvent; }
 #elif PLATFORM(GTK)
@@ -72,10 +69,8 @@ public:
 #endif
 
 private:
-#if PLATFORM(MAC)
+#if USE(APPKIT)
     RetainPtr<NSEvent> m_nativeEvent;
-#elif PLATFORM(WIN)
-    MSG m_nativeEvent;
 #elif PLATFORM(QT)
     QMouseEvent* m_nativeEvent;
 #elif PLATFORM(GTK)

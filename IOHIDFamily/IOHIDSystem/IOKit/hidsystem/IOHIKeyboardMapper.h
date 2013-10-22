@@ -215,14 +215,6 @@ private:
 	// the number of modifiers being held down by stickyKeys
 	int		    		_stickyKeys_NumModifiersDown;
         
-        //////////////////////////////////////////////////////////////
-        // THE FOLLOWING CLASS VARIABLE HAS BEEN DEPRECATED
-        //
-        // PLEASE USE _stickyKeys_StuckModifiers
-        //
-	UInt8		    	_stickyKeys_Modifiers[kMAX_MODIFIERS];
-        //////////////////////////////////////////////////////////////
-	
 	// contains the info needed to keep track of shift repetitions
 	StickyKeys_ToggleInfo * _stickyKeys_ShiftToggle;
 

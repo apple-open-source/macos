@@ -34,24 +34,23 @@
 #include <wtf/PassOwnPtr.h>
 
 namespace CoreIPC {
-    class ArgumentDecoder;
     class Connection;
-    class MessageID;
+    class MessageDecoder;
 }
 
 namespace WebCore {
     class GraphicsLayer;
+    class GraphicsLayerFactory;
 }
 
 namespace WebKit {
 
+struct ColorSpaceData;
 class LayerTreeHost;
+class PageOverlay;
 class WebPage;
 struct WebPageCreationParameters;
-
-#if PLATFORM(WIN)
-struct WindowGeometry;
-#endif
+struct WebPreferencesStore;
 
 class DrawingArea {
     WTF_MAKE_NONCOPYABLE(DrawingArea);
@@ -60,41 +59,46 @@ public:
     static PassOwnPtr<DrawingArea> create(WebPage*, const WebPageCreationParameters&);
     virtual ~DrawingArea();
     
-    void didReceiveDrawingAreaMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    void didReceiveDrawingAreaMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
 
-    virtual void setNeedsDisplay(const WebCore::IntRect&) = 0;
-    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset) = 0;
+    virtual void setNeedsDisplay() = 0;
+    virtual void setNeedsDisplayInRect(const WebCore::IntRect&) = 0;
+    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) = 0;
 
     // FIXME: These should be pure virtual.
     virtual void pageBackgroundTransparencyChanged() { }
     virtual void forceRepaint() { }
-    virtual bool forceRepaintAsync(uint64_t callbackID) { return false; }
+    virtual bool forceRepaintAsync(uint64_t /*callbackID*/) { return false; }
     virtual void setLayerTreeStateIsFrozen(bool) { }
     virtual bool layerTreeStateIsFrozen() const { return false; }
     virtual LayerTreeHost* layerTreeHost() const { return 0; }
 
-    virtual void didInstallPageOverlay() { }
-    virtual void didUninstallPageOverlay() { }
-    virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&) { }
-    virtual void setPageOverlayOpacity(float) { }
+    virtual void didInstallPageOverlay(PageOverlay*) { }
+    virtual void didUninstallPageOverlay(PageOverlay*) { }
+    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&) { }
+    virtual void setPageOverlayOpacity(PageOverlay*, float) { }
     // If this function returns false, PageOverlay should apply opacity when painting.
     virtual bool pageOverlayShouldApplyFadeWhenPainting() const { return true; }
     virtual void pageCustomRepresentationChanged() { }
 
     virtual void setPaintingEnabled(bool) { }
-    virtual void updatePreferences() { }
+    virtual void updatePreferences(const WebPreferencesStore&) { }
+    virtual void mainFrameContentSizeChanged(const WebCore::IntSize&) { }
+
+    virtual void setExposedRect(const WebCore::FloatRect&) { }
+    virtual void setClipsToExposedRect(bool) { }
+    virtual void mainFrameScrollabilityChanged(bool) { }
+
+    virtual void didChangeScrollOffsetForAnyFrame() { }
 
 #if USE(ACCELERATED_COMPOSITING)
+    virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return 0; }
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
-    virtual void scheduleCompositingLayerSync() = 0;
+    virtual void scheduleCompositingLayerFlush() = 0;
 #endif
 
-#if USE(UI_SIDE_COMPOSITING)
-    virtual void didReceiveLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*) = 0;
-#endif
-
-#if PLATFORM(WIN)
-    virtual void scheduleChildWindowGeometryUpdate(const WindowGeometry&) = 0;
+#if USE(COORDINATED_GRAPHICS)
+    virtual void didReceiveCoordinatedLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) = 0;
 #endif
 
     virtual void dispatchAfterEnsuringUpdatedScrollPosition(const Function<void ()>&);
@@ -108,7 +112,8 @@ protected:
 private:
     // CoreIPC message handlers.
     // FIXME: These should be pure virtual.
-    virtual void updateBackingStoreState(uint64_t backingStoreStateID, bool respondImmediately, float deviceScaleFactor, const WebCore::IntSize& size, const WebCore::IntSize& scrollOffset) { }
+    virtual void updateBackingStoreState(uint64_t /*backingStoreStateID*/, bool /*respondImmediately*/, float /*deviceScaleFactor*/, const WebCore::IntSize& /*size*/, 
+                                         const WebCore::IntSize& /*scrollOffset*/) { }
     virtual void didUpdate() { }
     virtual void suspendPainting() { }
     virtual void resumePainting() { }
@@ -116,8 +121,9 @@ private:
 
 #if PLATFORM(MAC)
     // Used by TiledCoreAnimationDrawingArea.
-    virtual void updateGeometry(const WebCore::IntSize& viewSize) { }
+    virtual void updateGeometry(const WebCore::IntSize& viewSize, const WebCore::IntSize& layerPosition) { }
     virtual void setDeviceScaleFactor(float) { }
+    virtual void setColorSpace(const ColorSpaceData&) { }
 #endif
 };
 

@@ -1,0 +1,1347 @@
+diff -Naurp ChangeLog ChangeLog
+--- ChangeLog	2005-09-04 03:01:44.000000000 -0700
++++ ChangeLog	2012-10-02 15:09:49.000000000 -0700
+@@ -6,7 +6,7 @@
+ 
+ 	* install-sh, mkinstalldirs: New versions; taken from texinfo CVS.
+ 
+-2005-09-04  Jˆrgen Grahn <jgrahn@algonet.se>
++2005-09-04  J√∂rgen Grahn <jgrahn@algonet.se>
+ 
+ 	* tmac/groff_ms.man: Document `PO' better.
+ 
+@@ -142,7 +142,7 @@
+ 	`clear' with `mark' in /PBEGIN and `cleartomark' in /PEND (I've
+ 	never found this necessary).
+ 
+-2005-06-20  Jˆrgen Grahn  <jgrahn@algonet.se>
++2005-06-20  J√∂rgen Grahn  <jgrahn@algonet.se>
+ 
+ 	* src/preproc/soelim/soelim.cpp (do_file): Append trailing zero
+ 	earlier to get correct error message.
+@@ -781,7 +781,7 @@
+ 
+ 	* README.CVS: Updated.
+ 
+-2005-02-09  Alejandro LÛpez-Valencia <palopez@etb.net.co> (tiny change)
++2005-02-09  Alejandro L√≥pez-Valencia <palopez@etb.net.co> (tiny change)
+ 
+ 	* doc/groff.texinfo (ms Document Control Registers): Document `HY'
+ 	and `FAM' registers.
+@@ -936,7 +936,7 @@
+ 	* tmac/s.tmac (TL): Don't set `need_eo_tl'.
+ 	(cov*tl-au-print): Emit `.eo.tl' tag.
+ 
+-2004-12-05  Alejandro LÛpez-Valencia  <dradul@etb.net.co>
++2004-12-05  Alejandro L√≥pez-Valencia  <dradul@etb.net.co>
+ 
+ 	* man/groff_char.man: Minor imrovements.
+ 
+@@ -1434,7 +1434,7 @@
+ 
+ 	* NEWS: Updated.
+ 
+-2004-09-28  Heinz-J¸rgen Oertel  <hj.oertel@surfeu.de>
++2004-09-28  Heinz-J√ºrgen Oertel  <hj.oertel@surfeu.de>
+ 
+ 	* tmac/groff_www.man: Revised and updated.
+ 
+@@ -1657,7 +1657,7 @@
+ 	avoid arrow sticking.
+ 	(arc_object::print): Take arrow direction into account.
+ 
+-2004-07-03  Heinz-J¸rgen Oertel  <hj.oertel@surfeu.de>
++2004-07-03  Heinz-J√ºrgen Oertel  <hj.oertel@surfeu.de>
+ 
+ 	* tmac/groff_www.man: Update documentation of .MPIMG.
+ 
+@@ -2385,7 +2385,7 @@ Version 1.19.1 released
+ 	MS Symbol (SYMBOL), Wingdings (WINGDINGS).
+ 	* NEWS: Document new lj4 fonts and revised hpftodit.
+ 
+-2004-02-17  Paco AndrÈs Verd˙  <pandres@dragonet.es>
++2004-02-17  Paco Andr√©s Verd√∫  <pandres@dragonet.es>
+ 
+ 	* src/devices/grolbp/lbp.h (vmdvarc): Fix formatting string.
+ 
+@@ -2691,7 +2691,7 @@ Version 1.19.1 released
+ 
+ 	* src/include/unicode.h: Remove `extern' keywords.
+ 
+-2003-12-20  Nilg¸n Belma Bug¸ner  <nilgun@superonline.com>
++2003-12-20  Nilg√ºn Belma Bug√ºner  <nilgun@superonline.com>
+ 
+ 	* tmac/latin5.tmac: New file.
+ 
+@@ -3104,7 +3104,7 @@ Version 1.19.1 released
+ 	g++ linker is used.  Reported by Mark J. Reed
+ 	<mark.reed@turner.com>.
+ 
+-2003-08-16  Heinz-J¸rgen Oertel  <hj.oertel@surfeu.de>
++2003-08-16  Heinz-J√ºrgen Oertel  <hj.oertel@surfeu.de>
+ 
+ 	Add key character `x' to tbl which makes tbl call a user-defined
+ 	macro on a table cell.
+@@ -3177,7 +3177,7 @@ Version 1.19.1 released
+ 	* NEWS, man/groff_diff.man, man/groff.man, doc/groff.texinfo:
+ 	Document new requests.
+ 
+-2003-07-22  Heinz-J¸rgen Oertel  <hj.oertel@surfeu.de>
++2003-07-22  Heinz-J√ºrgen Oertel  <hj.oertel@surfeu.de>
+ 
+ 	Add option -G to .MPIMG to insert a gap between text and the image.
+ 
+@@ -4642,7 +4642,7 @@ Version 1.19 released
+ 
+ 	* NEWS: Updated.
+ 
+-2003-01-16  Jˆrgen Grahn  <jgrahn@algonet.se>
++2003-01-16  J√∂rgen Grahn  <jgrahn@algonet.se>
+ 
+ 	* src/preproc/refer/refer.man: Mention REFER environment variable.
+ 
+diff -Naurp ChangeLog.116 ChangeLog.116
+--- ChangeLog.116	2005-06-28 09:10:40.000000000 -0700
++++ ChangeLog.116	2012-10-02 15:09:49.000000000 -0700
+@@ -207,7 +207,7 @@ Version 1.16.1 released
+ 	src/roff/groff/groff.cc: Use it.
+ 	* Makefile.in, configure: Updated.
+ 
+-2000-06-07  Paco AndrÈs Verd˙  <pandres@dragonet.es>
++2000-06-07  Paco Andr√©s Verd√∫  <pandres@dragonet.es>
+ 
+ 	* src/devides/grolbp/lbp.h: Removed unused variables.
+ 
+@@ -701,7 +701,7 @@ Version 1.16 released
+ 
+ 	* src/roff/grog/grog.man: Updated copyright date.
+ 
+-2000-03-14  Francisco AndrÈs Verd˙  <pandres@dragonet.es>
++2000-03-14  Francisco Andr√©s Verd√∫  <pandres@dragonet.es>
+ 
+ 	* configure.in: Added test for strdup.
+ 
+@@ -786,7 +786,7 @@ Version 1.16 released
+ 	Implement it.
+ 	* src/roff/troff/env.h: Add prototype.
+ 
+-2000-03-05  Francisco AndrÈs Verd˙  <pandres@dragonet.es>
++2000-03-05  Francisco Andr√©s Verd√∫  <pandres@dragonet.es>
+ 
+ 	Adding strsep() -- Solaris 8 doesn't have it.
+ 
+@@ -810,7 +810,7 @@ Version 1.16 released
+ 
+ 	* tmac/troffrc: Add tmac.lbp.
+ 
+-2000-03-03  Francisco AndrÈs Verd˙  <pandres@dragonet.es>
++2000-03-03  Francisco Andr√©s Verd√∫  <pandres@dragonet.es>
+ 
+ 	* tmac/tmac.lbp: New file.
+ 	* src/devices/grolbp/grolbp.man: Add documentation of `lbpname'
+@@ -895,7 +895,7 @@ Version 1.16 released
+ 
+ 	Adding a new driver, grolbp, for Canon CAPSL printers (LBP-4 and
+ 	LBP-8 series laser printers).  This code has been contributed by
+-	Francisco AndrÈs Verd˙ <pandres@dragonet.es>.
++	Francisco Andr√©s Verd√∫ <pandres@dragonet.es>.
+ 
+ 	* src/devices/grolbp/*: The grolbp output device.
+ 	* font/devlpb/*: The font description files.
+diff -Naurp ChangeLog.117 ChangeLog.117
+--- ChangeLog.117	2005-06-28 09:10:59.000000000 -0700
++++ ChangeLog.117	2012-10-02 15:09:50.000000000 -0700
+@@ -1459,9 +1459,9 @@ Version 1.17 released
+ 
+ 	* man/groff_char.man: Use table header traps only conditionally.
+ 
+-2001-01-09  Bjarni Ingi GÌslason  <bjarniig@hi.is>
++2001-01-09  Bjarni Ingi G√≠slason  <bjarniig@hi.is>
+ 
+-	* man/groff_char.man: Add `˝' and `›' to the `acute' group.
++	* man/groff_char.man: Add `√Ω' and `√ù' to the `acute' group.
+ 
+ 2001-01-08  Werner LEMBERG  <wl@gnu.org>
+ 
+@@ -1972,7 +1972,7 @@ Version 1.17 released
+ 
+ 	* src/roff/troff/troff.man, NEWS, man/groff.man: Updated.
+ 
+-2000-09-22  Ricardo Soares Guimar„es  <ricardo@conectiva.com.br>
++2000-09-22  Ricardo Soares Guimar√£es  <ricardo@conectiva.com.br>
+ 
+ 	Adding a new option -P and new environment variable GROPS_PROLOGUE
+ 	to grops, selecting a different prologue file (minor modifications
+diff -Naurp ChangeLog.118 ChangeLog.118
+--- ChangeLog.118	2005-06-28 09:10:27.000000000 -0700
++++ ChangeLog.118	2012-10-02 15:09:50.000000000 -0700
+@@ -131,7 +131,7 @@ Version 1.18.1 released
+ 
+ 	* src/devices/grolbp/grolbp.man, NEWS, doc/webpage.ms: Updated.
+ 
+-2002-09-22  Paco AndrÈs Verd˙  <pandres@dragonet.es>
++2002-09-22  Paco Andr√©s Verd√∫  <pandres@dragonet.es>
+ 
+ 	Fixed a bug in the line thickness setting code.
+ 
+@@ -1782,7 +1782,7 @@ Version 1.18.0 released
+ 	included.
+ 	Handle CYGWIN properly.
+ 
+-2002-03-07  Paco AndrÈs Verd˙  <pandres@dragonet.es>
++2002-03-07  Paco Andr√©s Verd√∫  <pandres@dragonet.es>
+ 
+ 	* font/devlbp/Makefile.sub (DEVFILES): Add some missing fonts.
+ 	* tmac/lbp.tmac: Add some font translations.
+diff -Naurp NEWS NEWS
+--- NEWS	2005-09-04 02:42:10.000000000 -0700
++++ NEWS	2012-10-02 15:09:57.000000000 -0700
+@@ -233,7 +233,7 @@ Tbl
+ ---
+ 
+ o New key character `x' to make tbl call a user-defined macro on a table
+-  cell.  Patch by Heinz-J¸rgen Oertel <hj.oertel@surfeu.de>.
++  cell.  Patch by Heinz-J√ºrgen Oertel <hj.oertel@surfeu.de>.
+ 
+ Grap2graph
+ ----------
+diff -Naurp contrib/mm/ChangeLog contrib/mm/ChangeLog
+--- contrib/mm/ChangeLog	2005-05-25 23:25:03.000000000 -0700
++++ contrib/mm/ChangeLog	2012-10-02 15:09:50.000000000 -0700
+@@ -147,7 +147,7 @@ Thu Apr 12 00:00:00 2001 Ruslan Ermilov 
+ 
+ 	* groff_mm.man: Fixing some typos.
+ 
+-Mon Mar 5 09:30:18 2001 Jˆrgen H‰gg (jh@axis.com)
++Mon Mar 5 09:30:18 2001 J√∂rgen H√§gg (jh@axis.com)
+ 
+ 	* S didn't reset to default point size
+ 	* (dummy line to force cvs update...)
+@@ -156,11 +156,11 @@ Sat Jan 06 10:30:00 2001 Werner LEMBERG 
+ 
+ 	* Fixed assignment of page offset given as a command line argument.
+ 
+-Fri Nov 17 05:34:17 2000 Jˆrgen H‰gg (jh@axis.com)
++Fri Nov 17 05:34:17 2000 J√∂rgen H√§gg (jh@axis.com)
+ 
+ 	* Renamed tmac.m and tmac.mse to m.tmac and mse.tmac
+ 
+-Thu Sep 14 05:52:48 2000 Jˆrgen H‰gg (jh@axis.com)
++Thu Sep 14 05:52:48 2000 J√∂rgen H√§gg (jh@axis.com)
+ 
+ 	* New Changelog-format, it will show changes better.
+ 	  Easier for other to use. (Somehow I didn't really
+@@ -172,7 +172,7 @@ Mon Aug 28 00:00:00 2000 Bruno Haible (h
+ 	* Makefile.sub: New target 'all', makes all prerequisites of
+ 	'install'.
+ 
+-Thu Sep 7 06:17:42 2000 Jˆrgen H‰gg (jh at axis.com)
++Thu Sep 7 06:17:42 2000 J√∂rgen H√§gg (jh at axis.com)
+ 
+ 	* version 2.0
+ 	* Had to do something about my version numbering.
+@@ -192,13 +192,13 @@ Tue Mar 7 00:00:00 2000 OKAZAKI Tetsurou
+ 
+ 	* Makefile.sub: Use $(INSTALL_SCRIPT) for script files.
+ 
+-Sun Jan 30 22:52:20 2000 Jˆrgen H‰gg (jh at axis.com)
++Sun Jan 30 22:52:20 2000 J√∂rgen H√§gg (jh at axis.com)
+ 
+ 	* version 1.34
+ 	* Changed the version number in the CVS repository
+ 	* MC had a bug in column calculation, (thanks to T. Kurt Bond)
+ 
+-Fri Sep 3 07:33:14 1999 Jˆrgen H‰gg (jh at axis.com)
++Fri Sep 3 07:33:14 1999 J√∂rgen H√§gg (jh at axis.com)
+ 
+ 	* version 1.33
+ 	* At last! I finally tracked down the PGFORM bug!
+@@ -219,7 +219,7 @@ Fri Sep 3 07:33:14 1999 Jˆrgen H‰gg (jh 
+ 	* Added test for missing abstract in 4.MT
+ 	* Updated Makefile.sub, using tmac_m_prefix.
+ 
+-Mon Mar 15 22:22:42 1999 Jˆrgen H‰gg (jh at axis.com)
++Mon Mar 15 22:22:42 1999 J√∂rgen H√§gg (jh at axis.com)
+ 
+ 	* OK, let's release this as a beta, 1.33 will be better. :-)
+ 	* version 1.32
+@@ -246,14 +246,14 @@ Mon Mar 15 22:22:42 1999 Jˆrgen H‰gg (jh
+ 	* fixed Hps-bug, should be 1, not 1v.
+ 	* fixed bug with APPSK, variable not set.
+ 
+-Wed Feb 4 15:46:04 1998 Jˆrgen H‰gg (jh at axis.se)
++Wed Feb 4 15:46:04 1998 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.31
+ 	* .LI will now honor a space mark.
+ 	* Another fix for .AU to let it be used without arguments.
+ 	* uninitialized eq*label fixed
+ 
+-Fri Sep 6 07:13:07 1996 Jˆrgen H‰gg (jh at axis.se)
++Fri Sep 6 07:13:07 1996 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.30
+ 	* This is more like a beta-release, bugs might pop up. :-)
+@@ -293,7 +293,7 @@ Fri Sep 6 07:13:07 1996 Jˆrgen H‰gg (jh 
+ 		footnote on the page occurred at just the wrong place
+ 
+ 
+-Wed May 15 07:39:32 1996 Jˆrgen H‰gg (jh at axis.se)
++Wed May 15 07:39:32 1996 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.29
+ 	* Syntax and scaling errror fixed, (thanks to Frazer Williams)
+@@ -311,7 +311,7 @@ Wed May 15 07:39:32 1996 Jˆrgen H‰gg (jh
+ 	* Corrected line length for figure caption (FG and friends)
+ 
+ 
+-Mon Apr 24 07:37:52 1995 Jˆrgen H‰gg (jh at axis.se)
++Mon Apr 24 07:37:52 1995 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.28
+ 	* Added AVL (AV without date)
+@@ -330,7 +330,7 @@ Mon Apr 24 07:37:52 1995 Jˆrgen H‰gg (jh
+ 	* Space may be omitted between prefix and mark in automatic lists (.AL)
+ 	  See .LI
+ 
+-Tue Jan 10 07:51:37 1995 Jˆrgen H‰gg (jh at axis.se)
++Tue Jan 10 07:51:37 1995 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.27
+ 	* Manual updated
+@@ -344,7 +344,7 @@ Tue Jan 10 07:51:37 1995 Jˆrgen H‰gg (jh
+ 	* Added support for EOP (TPs twin)
+ 	* Hyphenation turned off by default. (Hy == 0)
+ 
+-Fri Nov 4 08:14:50 1994 Jˆrgen H‰gg (jh at axis.se)
++Fri Nov 4 08:14:50 1994 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.25
+ 	* DS/DF separated and several bugs fixed. Watch out for new though. :-)
+@@ -352,7 +352,7 @@ Fri Nov 4 08:14:50 1994 Jˆrgen H‰gg (jh 
+ 	* RD made prettier.
+ 	* typo in AV and let@print-head fixed.
+ 
+-Mon Oct 31 08:19:24 1994 Jˆrgen H‰gg (jh at axis.se)
++Mon Oct 31 08:19:24 1994 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.24
+ 	* Bug fixed and format extended in .SG and .FC.
+@@ -361,13 +361,13 @@ Mon Oct 31 08:19:24 1994 Jˆrgen H‰gg (jh
+ 	* Swedish letter-standards implemented in tmac.mse.
+ 	* .ND can be used to turn off the date. (Empty argument)
+ 
+-Mon Oct 31 08:14:09 1994 Jˆrgen H‰gg (jh at axis.se)
++Mon Oct 31 08:14:09 1994 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.23
+ 	* An attempt to get in sync with RCS. This is the distributed
+ 	  version.
+ 
+-Thu Oct 27 08:29:34 1994 Jˆrgen H‰gg (jh at axis.se)
++Thu Oct 27 08:29:34 1994 J√∂rgen H√§gg (jh at axis.se)
+ 
+ 	* version 1.22
+ 	* (version 1.21 lost... :-)
+@@ -389,7 +389,7 @@ Tue Dec 14 16:26:36 1993 Joergen Haegg (
+ 	  became necessary.
+ 	* WC WD now works in two-column-mode.
+ 
+-Tue Sep 7 08:37:00 1993 Jˆrgen H‰gg (jh at efd.lth.se)
++Tue Sep 7 08:37:00 1993 J√∂rgen H√§gg (jh at efd.lth.se)
+ 
+ 	* version 1.19
+ 	* .lt is called in the header for .TP also.
+diff -Naurp contrib/mm/README contrib/mm/README
+--- contrib/mm/README	2002-05-21 23:26:12.000000000 -0700
++++ contrib/mm/README	2012-10-02 15:09:51.000000000 -0700
+@@ -24,7 +24,7 @@ make -f Makefile.sim install
+ 
+ This README should be bigger :-)
+ 
+-/Jˆrgen H‰gg
++/J√∂rgen H√§gg
+ 
+ Thanks to everyone who have sent me bug-reports and fixes.
+ 
+diff -Naurp contrib/mm/examples/LT.se contrib/mm/examples/LT.se
+--- contrib/mm/examples/LT.se	2000-09-13 20:40:24.000000000 -0700
++++ contrib/mm/examples/LT.se	2012-10-02 15:09:50.000000000 -0700
+@@ -19,10 +19,10 @@ Text xxxxxxxxxxxxxxxxxx
+ .LO BIL 2
+ .LO KOMP Kompletteringsuppgift
+ .LO DBET dokumentnummer
+-.LO BET ‰rendebeteckning
++.LO BET √§rendebeteckning
+ .LO MBET "Mottagarens b"
+ .LO SIDOR 22
+-.\" v‰nster eller hˆgerst‰llt brev
++.\" v√§nster eller h√∂gerst√§llt brev
+ .\" .LT SVH
+ .LT SVV
+ hepp
+diff -Naurp contrib/mm/examples/MOVE contrib/mm/examples/MOVE
+--- contrib/mm/examples/MOVE	2000-09-13 20:40:24.000000000 -0700
++++ contrib/mm/examples/MOVE	2012-10-02 15:09:50.000000000 -0700
+@@ -1,9 +1,9 @@
+ .PH "'hej'hopp'i skogen'"
+-.PF "'livet'‰r'h‰rligt'"
+-.OH "'oj‰mn'%'sida'"
+-.EH "'oj‰mn'%'sida'"
+-.OF "'oj‰mn'%'sida'"
+-.EF "'oj‰mn'%'sida'"
++.PF "'livet'√§r'h√§rligt'"
++.OH "'oj√§mn'%'sida'"
++.EH "'oj√§mn'%'sida'"
++.OF "'oj√§mn'%'sida'"
++.EF "'oj√§mn'%'sida'"
+ 10th
+ 1st
+ 2nd
+diff -Naurp contrib/mm/groff_mm.man contrib/mm/groff_mm.man
+--- contrib/mm/groff_mm.man	2004-07-03 05:46:56.000000000 -0700
++++ contrib/mm/groff_mm.man	2012-10-02 15:09:50.000000000 -0700
+@@ -2079,7 +2079,7 @@ variable \fBlet*lo-\fP\fItype\fP.
+ .LP
+ .\".SH BUGS
+ .SH AUTHOR
+-Jˆrgen H‰gg, Lund, Sweden <jh@axis.se>.
++J√∂rgen H√§gg, Lund, Sweden <jh@axis.se>.
+ .SH FILES
+ .TP
+ .B @MACRODIR@/tmac.@TMAC_M_PREFIX@m
+diff -Naurp contrib/mm/groff_mmse.man contrib/mm/groff_mmse.man
+--- contrib/mm/groff_mmse.man	2001-12-09 04:15:09.000000000 -0800
++++ contrib/mm/groff_mmse.man	2012-10-02 15:09:50.000000000 -0700
+@@ -1,10 +1,10 @@
+ .\"
+ .\" $Id: groff_mmse.man,v 2.2 2001/12/09 12:15:09 wlemb Exp $
+-.\" Skrivet av Jˆrgen H‰gg, Lund, Sverige
++.\" Skrivet av J√∂rgen H√§gg, Lund, Sverige
+ .\"
+ .TH GROFF_MMSE @MAN7EXT@ "@MDATE@" "Groff Version @VERSION@"
+ .SH NAMN
+-groff_mmse \- svenska mm makro fˆr groff
++groff_mmse \- svenska mm makro f√∂r groff
+ .SH SYNTAX
+ .B groff
+ .B \-m@TMAC_M_PREFIX@mse
+@@ -15,26 +15,26 @@ groff_mmse \- svenska mm makro fˆr groff
+ .IR filer .\|.\|.
+ ]
+ .SH BESKRIVNING
+-\fBm@TMAC_M_PREFIX@mse\fP ‰r en svensk variant av \fBm@TMAC_M_PREFIX@m\fP. Alla texter
+-‰r ˆversatta. En A4 sida fÂr text som ‰r 13 cm bred, 3.5 cm indragning
+-samt ‰r 28.5 cm hˆg.
+-Det finns stˆd fˆr brevuppst‰llning enligt svensk standard
+-fˆr v‰nster och hˆgerjusterad text.
++\fBm@TMAC_M_PREFIX@mse\fP √§r en svensk variant av \fBm@TMAC_M_PREFIX@m\fP. Alla texter
++√§r √∂versatta. En A4 sida f√•r text som √§r 13 cm bred, 3.5 cm indragning
++samt √§r 28.5 cm h√∂g.
++Det finns st√∂d f√∂r brevuppst√§llning enligt svensk standard
++f√∂r v√§nster och h√∂gerjusterad text.
+ .LP
+-\fBCOVER\fP kan anv‰nda \fIse_ms\fP som argument. Detta ger ett
+-svenskt fˆrs‰ttsblad.
+-Se \fBgroff_mm(@MAN7EXT@)\fP fˆr ˆvriga detaljer.
++\fBCOVER\fP kan anv√§nda \fIse_ms\fP som argument. Detta ger ett
++svenskt f√∂rs√§ttsblad.
++Se \fBgroff_mm(@MAN7EXT@)\fP f√∂r √∂vriga detaljer.
+ .SH BREV
+-Tillg‰ngliga brevtyper:
++Tillg√§ngliga brevtyper:
+ .TP
+ .B ".LT SVV"
+-V‰nsterst‰lld lˆptext med adressat i position T0 (v‰nsterst‰llt).
++V√§nsterst√§lld l√∂ptext med adressat i position T0 (v√§nsterst√§llt).
+ .TP
+ .B ".LT SVH"
+-Hˆgerst‰lld lˆptext med adressat i position T4 (passar
+-fˆnsterkuvert).
++H√∂gerst√§lld l√∂ptext med adressat i position T4 (passar
++f√∂nsterkuvert).
+ .LP
+-Fˆljande extra LO-variabler anv‰nds.
++F√∂ljande extra LO-variabler anv√§nds.
+ .TP
+ .B ".LO DNAMN\fI namn\fP"
+ Anger dokumentets namn.
+@@ -44,8 +44,8 @@ Anger dokumentets namn.
+ Mottagarens datum, anges under \fBErt datum:\fP (\fBLetMDAT\fP).
+ .TP
+ .br
+-.B ".LO BIL\fI str‰ng\fP"
+-Anger bilaga, nummer eller str‰ng med \fBBilaga\fP (\fBLetBIL\fP)
++.B ".LO BIL\fI str√§ng\fP"
++Anger bilaga, nummer eller str√§ng med \fBBilaga\fP (\fBLetBIL\fP)
+ som prefix.
+ .TP
+ .br
+@@ -58,21 +58,21 @@ Anger dokumentbeteckning eller dokumentn
+ .TP
+ .br
+ .B ".LO BET\fI beteckning\fP"
+-Anger beteckning (‰rendebeteckning i form av diarienummer eller liknande).
++Anger beteckning (√§rendebeteckning i form av diarienummer eller liknande).
+ .TP
+ .br
+ .B ".LO SIDOR\fI antal\fP"
+ Anger totala antalet sidor och skrivs ut efter sidnumret inom
+ parenteser.
+ .LP
+-Om makrot \fB.TP\fP ‰r definierat anropas det efter utskrift av brevhuvudet.
+-D‰r l‰gger man l‰mpligen in postadress och annat som brevfot.
++Om makrot \fB.TP\fP √§r definierat anropas det efter utskrift av brevhuvudet.
++D√§r l√§gger man l√§mpligen in postadress och annat som brevfot.
+ .SH "SKRIVET AV"
+-Jˆrgen H‰gg, Lund, Sweden <Jorgen.Hagg@axis.se>
++J√∂rgen H√§gg, Lund, Sweden <Jorgen.Hagg@axis.se>
+ .SH FILER
+ .B @MACRODIR@/tmac.@TMAC_M_PREFIX@mse
+ .B @TMAC_MDIR@/se_*.cov
+-.SH "SE OCKS≈"
++.SH "SE OCKS√Ö"
+ .BR groff (@MAN1EXT@),
+ .BR @g@troff (@MAN1EXT@),
+ .BR @g@tbl (@MAN1EXT@),
+diff -Naurp contrib/mm/m.tmac contrib/mm/m.tmac
+--- contrib/mm/m.tmac	2005-05-25 23:28:38.000000000 -0700
++++ contrib/mm/m.tmac	2012-10-02 15:09:50.000000000 -0700
+@@ -9,7 +9,7 @@
+ 
+ Copyright (C) 1991-2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
+-mgm is written by Jˆrgen H‰gg <jh@axis.com>
++mgm is written by J√∂rgen H√§gg <jh@axis.com>
+ 
+ mgm is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free
+diff -Naurp contrib/mm/mmroff.man contrib/mm/mmroff.man
+--- contrib/mm/mmroff.man	2001-12-09 04:15:09.000000000 -0800
++++ contrib/mm/mmroff.man	2012-10-02 15:09:51.000000000 -0700
+@@ -25,7 +25,7 @@ references and by using this option \fBg
+ be run once.
+ .\".SH BUGS
+ .SH AUTHOR
+-Jˆrgen H‰gg, Lund, Sweden <jh@axis.se>.
++J√∂rgen H√§gg, Lund, Sweden <jh@axis.se>.
+ .SH FILES
+ .TP
+ .B @MACRODIR@/tmac.@TMAC_M_PREFIX@m
+diff -Naurp contrib/mm/mse.tmac contrib/mm/mse.tmac
+--- contrib/mm/mse.tmac	2000-11-16 20:26:02.000000000 -0800
++++ contrib/mm/mse.tmac	2012-10-02 15:09:51.000000000 -0700
+@@ -9,7 +9,7 @@
+ .ds App Bilaga
+ .ds Lf Figurer
+ .ds Lt Tabeller
+-.ds Lx Uppst‰llningar
++.ds Lx Uppst√§llningar
+ .ds Le Ekvationer
+ .\"	Page length
+ .if !r L .nr @pl 28.5c
+@@ -23,18 +23,18 @@
+ .pl \n[@pl]u
+ .ds Lifg Figur
+ .ds Litb Tabell
+-.ds Liex Uppst‰llning
++.ds Liex Uppst√§llning
+ .ds Liec Ekvation
+-.ds Licon InnehÂllsfˆrteckning
++.ds Licon Inneh√•llsf√∂rteckning
+ .ds Qrf Se kapitel \\*[Qrfh], sidan \\*[Qrfp].
+ .ds Rp Referenser
+-.ds Letfc V‰nliga h‰lsningar
+-.ds Letapp Godk‰nd av:
++.ds Letfc V√§nliga h√§lsningar
++.ds Letapp Godk√§nd av:
+ .ds Letdate datum
+ .ds Letconf KONFIDENTIELLT
+-.ds Letsal Till vederbˆrande:
++.ds Letsal Till vederb√∂rande:
+ .ds Letatt ATTENTION:
+-.ds Letsubj InnehÂll:
++.ds Letsubj Inneh√•ll:
+ .ds Letref Refererande till:
+ .\"
+ .ds Letns!copy Kopia \" space!
+@@ -46,7 +46,7 @@
+ .ds Letns!4 Atts.
+ .ds Letns!5 Enc.
+ .ds Letns!6 Encs.
+-.ds Letns!7 Annat fˆrs‰ttsblad
++.ds Letns!7 Annat f√∂rs√§ttsblad
+ .ds Letns!8 Brev till
+ .ds Letns!9 Dokument till
+ .ds Letns!10 Kopia (med atts.) till
+@@ -79,13 +79,13 @@
+ .ds LetKOMP
+ .\" Dokumentbeteckning eller dokumentnummer
+ .ds LetDBET
+-.\" Beteckning (‰rendebeteckning i form av diarienummer e.d.
++.\" Beteckning (√§rendebeteckning i form av diarienummer e.d.
+ .ds LetBET Beteckning:
+ .\" Mottagarens beteckning.
+ .ds LetMBET Er beteckning:
+ .\" Antal sidor
+ .ds LetSIDOR
+-.\" Svensk standard med hˆgerst‰lld lˆptext. ---------------------
++.\" Svensk standard med h√∂gerst√§lld l√∂ptext. ---------------------
+ .de let@init_SVH
+ .in 4.57c
+ .ll 17.57c
+@@ -98,7 +98,7 @@
+ ..
+ .de let@fc_SVH
+ ..
+-.\" Svensk standard med v‰nsterst‰lld lˆptext. ---------------------
++.\" Svensk standard med v√§nsterst√§lld l√∂ptext. ---------------------
+ .de let@init_SVV
+ ..
+ .de let@head_SVV
+diff -Naurp contrib/mom/ChangeLog contrib/mom/ChangeLog
+--- contrib/mom/ChangeLog	2005-08-10 21:19:16.000000000 -0700
++++ contrib/mom/ChangeLog	2012-10-02 15:09:51.000000000 -0700
+@@ -509,7 +509,7 @@ o Added \*[RULE] ( = \l'\n(.lu' ) so tha
+ 
+ o Macro .PS renamed to .PT_SIZE.  Alias .TS removed.
+ 
+-o .tr bits in .CAPS rewritten in the form .tr È\[`E].
++o .tr bits in .CAPS rewritten in the form .tr √©\[`E].
+ 
+ o General cleanup of docs to reflect changes
+ 
+diff -Naurp contrib/mom/examples/README.txt contrib/mom/examples/README.txt
+--- contrib/mom/examples/README.txt	2005-05-13 22:54:53.000000000 -0700
++++ contrib/mom/examples/README.txt	2012-10-02 15:09:51.000000000 -0700
+@@ -94,7 +94,7 @@ rules for emacs. :)
+ 
+ ***mom.vim***
+ 
+-Christian V. J. Br¸ssow has kindly contributed a set of mom syntax
++Christian V. J. Br√ºssow has kindly contributed a set of mom syntax
+ highlighting rules for use with vim.  Copy the file to your
+ ~/.vim/syntax directory, then, if your vim isn't already set up to
+ do so, enable mom syntax highlighting with
+@@ -106,7 +106,7 @@ or
+     :syntax on
+ 
+ Please note: I don't use vim, so I won't be making changes to this
+-file myself.  Christian Br¸ssow is the maintainer of the ruleset,
++file myself.  Christian Br√ºssow is the maintainer of the ruleset,
+ which is available on the Web at
+ 
+     http://www.cvjb.de/comp/vim/mom.vim
+diff -Naurp contrib/mom/examples/letter.mom contrib/mom/examples/letter.mom
+--- contrib/mom/examples/letter.mom	2002-06-07 14:19:47.000000000 -0700
++++ contrib/mom/examples/letter.mom	2012-10-02 15:09:51.000000000 -0700
+@@ -5,7 +5,7 @@
+ .DATE
+ August 25, 2004
+ .TO
+-GUILLAUME BARRI»RES
++GUILLAUME BARRI√àRES
+ Minidoux Corporation
+ 5000 Pannes Drive
+ Redmond, Virginia
+@@ -13,10 +13,10 @@ USA
+ .FROM
+ Y.P. GUIQUE
+ 022 Umask Road
+-St-Sauveur-en-dehors-de-la-mappe, QuÈbec
++St-Sauveur-en-dehors-de-la-mappe, Qu√©bec
+ CANADA
+ .GREETING
+-Dear Mr. BarriËres,
++Dear Mr. Barri√®res,
+ .PP
+ It has come to my attention that you have been lobbying the
+ US government to prohibit the use of open source software by
+diff -Naurp contrib/mom/examples/typesetting.mom contrib/mom/examples/typesetting.mom
+--- contrib/mom/examples/typesetting.mom	2004-06-03 23:43:07.000000000 -0700
++++ contrib/mom/examples/typesetting.mom	2012-10-02 15:09:51.000000000 -0700
+@@ -74,27 +74,27 @@ and multi-columns"
+ \#
+ .TAB 1                 \" Notice that this tab gets set line-for-line
+ \*[IT]Peelee Island    \" Set italic
+-\*[PREV]Gew¸rztraminer \" Revert to former font (roman)
++\*[PREV]Gew√ºrztraminer \" Revert to former font (roman)
+ 2000
+ (Canada)
+ .MCR           \" Return to top of column
+ .TAB 2         \" Call tab 2; in multi-column mode, don't use .TN
+-Jaune p‚le.
++Jaune p√¢le.
+ .MCR
+ .TB 3          \" Notice that from here on, we use the alias TB instead of TAB
+-Frais, fruitÈ, ci\%tronnÈ, arÙmes fortes de lichee et de fruits
++Frais, fruit√©, ci\%tronn√©, ar√¥mes fortes de lichee et de fruits
+ tropicaux.
+ .MCR
+ .TB 4
+-Doux, fruitÈ, bien ÈquilibrÈ avec une bonne aciditÈ.
++Doux, fruit√©, bien √©quilibr√© avec une bonne acidit√©.
+ .MCR
+ .TB 5
+-Bon apÈro.  Servir avec des plats
++Bon ap√©ro.  Servir avec des plats
+ .RW .1         \" Reduce Whitespace between letters to tighten this line
+ indiens ou \%chinois.
+ .RW 0          \" Back to normal spacing between letters
+ .BR
+-Excellent rapport qualitÈ/prix.
++Excellent rapport qualit√©/prix.
+ .MCX 8p        \" Multi-column mode off; advance an extra 8 points
+ .MCO           \" Re-invoke multi-columns for next wine description
+ .TB 1
+@@ -104,11 +104,11 @@ Excellent rapport qualitÈ/prix.
+ (Uraguay)
+ .MCR
+ .TB 2
+-Rubis foncÈ, vio\%lacÈe, presque opaque.
++Rubis fonc√©, vio\%lac√©e, presque opaque.
+ .MCR
+ .TB 3
+-Belles arÙmes de fruits foncÈs (prunes, cerises noires, cassis).
+-Odeurs tertiares de cuir, cËdre, violets, eucalyptus, avec une trace
++Belles ar√¥mes de fruits fonc√©s (prunes, cerises noires, cassis).
++Odeurs tertiares de cuir, c√®dre, violets, eucalyptus, avec une trace
+ exotique de Band-Aid*\*[BU 12].
+ \#
+ \# The \*[BU 12], above, pulls the period back so that it falls
+@@ -117,11 +117,11 @@ exotique de Band-Aid*\*[BU 12].
+ \#
+ .MCR
+ .TB 4
+-TrËs rond, tannins m˚res et veloutÈs, avec un long finis fruitÈ et
++Tr√®s rond, tannins m√ªres et velout√©s, avec un long finis fruit√© et
+ doucement alcoolique.
+ .MCR
+ .TB 5
+-Superbe\|!  Une aubaine ‡ ne pas manquer.  PrÍt ‡ boire maintenant.
++Superbe\|!  Une aubaine √† ne pas manquer.  Pr√™t √† boire maintenant.
+ .MCX 1v  \" Multi-columns off; advance an extra linespace
+ \#
+ \# Now, an example of a hanging indent.  This is excessively fussy
+diff -Naurp contrib/mom/momdoc/docelement.html contrib/mom/momdoc/docelement.html
+--- contrib/mom/momdoc/docelement.html	2005-08-07 00:59:33.000000000 -0700
++++ contrib/mom/momdoc/docelement.html	2012-10-02 15:09:51.000000000 -0700
+@@ -4357,7 +4357,7 @@ number of every blank page and keeps tra
+ stuff, but otherwise, does nothing.  It's up to you, the user, to
+ figure out what to do with this feature.  However, it's worth
+ noting that without it, inserting completely blank pages, to use
+-a vernacular QuÈbÈcois phrase, &quot;c'est pas Èvident&quot;
++a vernacular Qu√©b√©cois phrase, &quot;c'est pas √©vident&quot;
+ (somewhere between &quot;isn't easy&quot;, &quot;isn't
+ obvious&quot; and &quot;isn't fun&quot;).
+ <p>
+diff -Naurp contrib/mom/momdoc/docprocessing.html contrib/mom/momdoc/docprocessing.html
+--- contrib/mom/momdoc/docprocessing.html	2005-08-07 00:59:33.000000000 -0700
++++ contrib/mom/momdoc/docprocessing.html	2012-10-02 15:09:51.000000000 -0700
+@@ -239,7 +239,7 @@ draft-style, etc).  Thirdly, you make as
+ <strong>mom</strong>'s default behaviour as you wish.  Lastly, you
+ invoke the
+ <a href="#START">START</a>
+-macro.  Voil‡!  You're ready to write.
++macro.  Voil√†!  You're ready to write.
+ <p>
+ <hr>
+ 
+@@ -826,7 +826,7 @@ telling her what it is with the <strong>
+ macro, like this:
+ <p>
+ <pre>
+-	.CHAPTER_STRING "ChapÓtre"
++	.CHAPTER_STRING "Chap√Ætre"
+ </pre>
+ 
+ You can also use <strong>CHAPTER_STRING</strong> if you want
+@@ -989,7 +989,7 @@ thereof, in your own language by telling
+ <strong>REVISION_STRING</strong> macro, like this:
+ <p>
+ <pre>
+-	.REVISION_STRING "RÈv."
++	.REVISION_STRING "R√©v."
+ </pre>
+ 
+ Additionally, you may sometimes want to make use of
+diff -Naurp contrib/mom/momdoc/goodies.html contrib/mom/momdoc/goodies.html
+--- contrib/mom/momdoc/goodies.html	2005-08-07 00:59:33.000000000 -0700
++++ contrib/mom/momdoc/goodies.html	2012-10-02 15:09:51.000000000 -0700
+@@ -289,7 +289,7 @@ right, and closes them with guillemets p
+ this ascii approximation:
+ <p>
+ <pre>
+-	&gt;&gt;Zur¸ck !&lt;&lt;
++	&gt;&gt;Zur√ºck !&lt;&lt;
+ </pre>
+ 
+ <kbd>&lt;&lt;</kbd> opens quotes with guillemets pointing to the
+@@ -312,10 +312,10 @@ and <strong>mom</strong> will output the
+ <pre>
+ 	.SMARTQUOTES DA     = Danish      &gt;&gt;text&lt;&lt;
+ 	.SMARTQUOTES DE     = German      ,,text``
+-	.SMARTQUOTES ES     = Spanish     ``text¥¥
++	.SMARTQUOTES ES     = Spanish     ``text¬¥¬¥
+ 	.SMARTQUOTES FR     = French      &lt;&lt; text &gt;&gt;
+ 	.SMARTQUOTES IT     = Italian     &lt;&lt; text &gt;&gt;
+-	.SMARTQUOTES NL     = Dutch       ¥¥text¥¥
++	.SMARTQUOTES NL     = Dutch       ¬¥¬¥text¬¥¬¥
+ 	.SMARTQUOTES NO     = Norwegian   &lt;&lt;text&gt;&gt;
+ 	.SMARTQUOTES PT     = Portuguese  &lt;&lt;text&gt;&gt;
+ 	.SMARTQUOTES SV     = Swedish     &gt;&gt;text&gt;&gt;
+diff -Naurp contrib/mom/momdoc/headfootpage.html contrib/mom/momdoc/headfootpage.html
+--- contrib/mom/momdoc/headfootpage.html	2005-08-07 00:59:33.000000000 -0700
++++ contrib/mom/momdoc/headfootpage.html	2012-10-02 15:09:51.000000000 -0700
+@@ -768,7 +768,7 @@ And last, you'd do:
+ 	.START
+ </pre>
+ 
+-Voil‡!  Any argument you pass to <strong>TITLE</strong> from here
++Voil√†!  Any argument you pass to <strong>TITLE</strong> from here
+ on in (say, for subsequent documents) is back in the header centre
+ position.  Here's the whole routine again:
+ <p>
+diff -Naurp contrib/mom/momdoc/inlines.html contrib/mom/momdoc/inlines.html
+--- contrib/mom/momdoc/inlines.html	2005-05-13 22:54:53.000000000 -0700
++++ contrib/mom/momdoc/inlines.html	2012-10-02 15:09:51.000000000 -0700
+@@ -206,8 +206,8 @@ of the rest of the line.
+ </pre>
+ 
+ <strong>NOTE:</strong> If you're accustomed to groff's usual way
+-of handling inline size requests (<kbd>\sN, \s±N, \s(NN, \s±(NN,
+-\s[NNN], \s±[NNN]</kbd>), feel free to continue with your old habits.
++of handling inline size requests (<kbd>\sN, \s¬±N, \s(NN, \s¬±(NN,
++\s[NNN], \s¬±[NNN]</kbd>), feel free to continue with your old habits.
+ <strong>Mom</strong> doesn't care.
+ <p>
+ 
+diff -Naurp contrib/mom/momdoc/letters.html contrib/mom/momdoc/letters.html
+--- contrib/mom/momdoc/letters.html	2005-05-13 22:54:53.000000000 -0700
++++ contrib/mom/momdoc/letters.html	2012-10-02 15:09:51.000000000 -0700
+@@ -118,16 +118,16 @@ here's what the complete letter looks li
+ 	.DATE
+ 	August 25, 2004
+ 	.TO
+-	GUILLAUME BARRI»RES
++	GUILLAUME BARRI√àRES
+ 	Minidoux Corporation
+ 	5000 Pannes Drive
+ 	Redmond, Virginia
+ 	.FROM
+ 	Y.P. GUIQUE
+ 	022 Umask Road
+-	St-Sauveur-en-dehors-de-la-mappe, QuÈbec
++	St-Sauveur-en-dehors-de-la-mappe, Qu√©bec
+ 	.GREETING
+-	Dear Mr. BarriËres,
++	Dear Mr. Barri√®res,
+ 	.PP
+ 	It has come to my attention that you have been lobbying the
+ 	US government to prohibit the use of open source software by
+@@ -160,9 +160,9 @@ same letter like this:
+ 	.RIGHT
+ 	Y.P. GUIQUE
+ 	022 Umask Road
+-	St-Sauveur-en-dehors-de-la-mappe, QuÈbec
++	St-Sauveur-en-dehors-de-la-mappe, Qu√©bec
+ 	.TO
+-	GUILLAUME BARRI»RES
++	GUILLAUME BARRI√àRES
+ 	Minidoux Corporation
+ 	5000 Pannes Drive
+ 	Redmond, Virginia
+@@ -170,7 +170,7 @@ same letter like this:
+ 	.RIGHT
+ 	August 25, 2004
+ 	.GREETING
+-	Dear Mr. BarriËres,
++	Dear Mr. Barri√®res,
+ </pre>
+ 
+ Notice the use of <strong>.RIGHT</strong> after
+@@ -379,7 +379,7 @@ and address of the addresser underneath,
+ 	.FROM
+ 	JOE BLOW
+ 	15 Brunette Road
+-	Ste-Vieille-Andouille, QuÈbec
++	Ste-Vieille-Andouille, Qu√©bec
+ </pre>
+ 
+ If you wish to change the default quad direction for the address,
+@@ -394,7 +394,7 @@ address, not at the top of the next head
+ 	.FROM
+ 	JOE BLOW
+ 	15 Brunette Road
+-	Ste-Vieille-Andouille, QuÈbec
++	Ste-Vieille-Andouille, Qu√©bec
+ 	.SPACE     \" Or, more simply, .SP
+ </pre>
+ 
+diff -Naurp contrib/mom/momdoc/typesetting.html contrib/mom/momdoc/typesetting.html
+--- contrib/mom/momdoc/typesetting.html	2005-08-07 00:59:33.000000000 -0700
++++ contrib/mom/momdoc/typesetting.html	2012-10-02 15:09:51.000000000 -0700
+@@ -111,7 +111,7 @@ the same thing.
+ package, independent of the
+ <a href="docprocessing.html#DOCPROCESSING">document processing macros</a>.
+ With them, you can typeset on-the-fly.  Book covers, your best
+-friend's rÈsumÈ, a poster for a lost dog--none of these requires
++friend's r√©sum√©, a poster for a lost dog--none of these requires
+ structured document processing (page headers, paragraphs, heads,
+ footnotes, etc).  What they do demand is precise control over every
+ element on the page.  The typesetting macros give you that control.
+@@ -3815,7 +3815,7 @@ line length.  In many instances where in
+ it's better to use tabs, or actually change the left margin or the
+ line length.  <strong>Mom</strong>'s indenting macros are flexible
+ and powerful, but easy to get tangled up in.  Personally, I don't
+-use them much, except for cutarounds and multi-level lists ‡ la html,
++use them much, except for cutarounds and multi-level lists √† la html,
+ at which they excel.
+ <p>
+ <strong>NOTE:</strong> see the section
+diff -Naurp contrib/mom/momdoc/using.html contrib/mom/momdoc/using.html
+--- contrib/mom/momdoc/using.html	2005-05-13 22:54:53.000000000 -0700
++++ contrib/mom/momdoc/using.html	2012-10-02 15:09:51.000000000 -0700
+@@ -218,7 +218,7 @@ the file inside <strong>gv</strong>.  Ev
+ look at any changes I make, I simply tell elvis to work his magic
+ again.  The Watch File option in <strong>gv</strong> registers that
+ the file has changed, and automatically loads the new version.
+-Voil‡! --instant previewing.
++Voil√†! --instant previewing.
+ 
+ <p>
+ <hr>
+diff -Naurp contrib/mom/om.tmac contrib/mom/om.tmac
+--- contrib/mom/om.tmac	2005-08-07 00:59:33.000000000 -0700
++++ contrib/mom/om.tmac	2012-10-02 15:09:51.000000000 -0700
+@@ -23,7 +23,7 @@ Foundation, 51 Franklin Street, Fifth Fl
+ 
+ Version 1.3-a
+ -------------
+-Antoine de St-ExupÈry asserted that elegance in engineering is
++Antoine de St-Exup√©ry asserted that elegance in engineering is
+ achieved not when there is nothing left to add, but when there is
+ nothing left to take away.
+ 
+@@ -3250,72 +3250,72 @@ can use HI.
+ .MAC CAPS END
+ .    ie '\\$1'' \{\
+ .       tr aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ
+-.       tr ‡\[`A]
+-.       tr ‚\[^A]
+-.       tr ·\['A]
+-.       tr ‰\[:A]
+-.       tr Â\[oA]
+-.       tr „\[~A]
+-.       tr Ê\[AE]
+-.       tr Ë\[`E]
+-.       tr Í\[^E]
+-.       tr È\['E]
+-.       tr Î\[:E]
+-.       tr Ï\[`I]
+-.       tr Ó\[^I]
+-.       tr Ì\['I]
+-.       tr Ô\[:I]
+-.       tr Ú\[`O]
+-.       tr Ù\[^O]
+-.       tr Û\['O]
+-.       tr ˆ\[:O]
+-.       tr ı\[~O]
+-.       tr ¯\[/O]
+-.       tr ˘\[`U]
+-.       tr ˚\[^U]
+-.       tr ˙\['U]
+-.       tr ¸\[:U]
+-.       tr Á\[,C]
+-.       tr \[-D]
+-.       tr Ò\[~N]
+-.       tr ˛\[TP]
+-.       tr ˝\['Y]
+-.       tr ˇ\[:Y]
++.       tr √†\[`A]
++.       tr √¢\[^A]
++.       tr √°\['A]
++.       tr √§\[:A]
++.       tr √•\[oA]
++.       tr √£\[~A]
++.       tr √¶\[AE]
++.       tr √®\[`E]
++.       tr √™\[^E]
++.       tr √©\['E]
++.       tr √´\[:E]
++.       tr √¨\[`I]
++.       tr √Æ\[^I]
++.       tr √≠\['I]
++.       tr √Ø\[:I]
++.       tr √≤\[`O]
++.       tr √¥\[^O]
++.       tr √≥\['O]
++.       tr √∂\[:O]
++.       tr √µ\[~O]
++.       tr √∏\[/O]
++.       tr √π\[`U]
++.       tr √ª\[^U]
++.       tr √∫\['U]
++.       tr √º\[:U]
++.       tr √ß\[,C]
++.       tr √∞\[-D]
++.       tr √±\[~N]
++.       tr √æ\[TP]
++.       tr √Ω\['Y]
++.       tr √ø\[:Y]
+ .       nr #CAPS_ON 1
+ .    \}
+ .    el \{\
+ .       tr aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz
+-.       tr ‡\[`a]
+-.       tr ‚\[^a]
+-.       tr ·\['a]
+-.       tr ‰\[:a]
+-.       tr Â\[oa]
+-.       tr „\[~a]
+-.       tr Ê\[ae]
+-.       tr Ë\[`e]
+-.       tr Í\[^e]
+-.       tr È\['e]
+-.       tr Î\[:e]
+-.       tr Ï\[`i]
+-.       tr Ó\[^i]
+-.       tr Ì\['i]
+-.       tr Ô\[:i]
+-.       tr Ú\[`o]
+-.       tr Ù\[^o]
+-.       tr Û\['o]
+-.       tr ˆ\[:o]
+-.       tr ı\[~o]
+-.       tr ¯\[/o]
+-.       tr ˘\[`u]
+-.       tr ˚\[^u]
+-.       tr ˙\['u]
+-.       tr ¸\[:u]
+-.       tr Á\[,c]
+-.       tr \[Sd]
+-.       tr Ò\[~n]
+-.       tr ˛\[Tp]
+-.       tr ˝\['y]
+-.       tr ˇ\[:y]
++.       tr √†\[`a]
++.       tr √¢\[^a]
++.       tr √°\['a]
++.       tr √§\[:a]
++.       tr √•\[oa]
++.       tr √£\[~a]
++.       tr √¶\[ae]
++.       tr √®\[`e]
++.       tr √™\[^e]
++.       tr √©\['e]
++.       tr √´\[:e]
++.       tr √¨\[`i]
++.       tr √Æ\[^i]
++.       tr √≠\['i]
++.       tr √Ø\[:i]
++.       tr √≤\[`o]
++.       tr √¥\[^o]
++.       tr √≥\['o]
++.       tr √∂\[:o]
++.       tr √µ\[~o]
++.       tr √∏\[/o]
++.       tr √π\[`u]
++.       tr √ª\[^u]
++.       tr √∫\['u]
++.       tr √º\[:u]
++.       tr √ß\[,c]
++.       tr √∞\[Sd]
++.       tr √±\[~n]
++.       tr √æ\[Tp]
++.       tr √Ω\['y]
++.       tr √ø\[:y]
+ .       rr #CAPS_ON
+ .    \}
+ .END
+diff -Naurp doc/groff-1 doc/groff-1
+--- doc/groff-1	2005-09-04 03:16:17.000000000 -0700
++++ doc/groff-1	2012-10-02 15:09:52.000000000 -0700
+@@ -176,7 +176,7 @@ changes).
+ transform certain parts of a document into `troff', which made a very
+ natural use of pipes in UNIX.
+ 
+-   The `eqn' preprocessor allowed mathematical formulÊ to be specified
++   The `eqn' preprocessor allowed mathematical formul√¶ to be specified
+ in a much simpler and more intuitive manner.  `tbl' is a preprocessor
+ for formatting tables.  The `refer' preprocessor (and the similar
+ program, `bib') processes citations in a document according to a
+@@ -3215,7 +3215,7 @@ macro:
+      Upside-down exclamation point.
+ 
+  -- String: \*[8]
+-     German ﬂ ligature.
++     German √ü ligature.
+ 
+  -- String: \*[3]
+      Yogh.
+@@ -3236,10 +3236,10 @@ macro:
+      Hooked o.
+ 
+  -- String: \*[ae]
+-     Lowercase Ê ligature.
++     Lowercase √¶ ligature.
+ 
+  -- String: \*[Ae]
+-     Uppercase ∆ ligature.
++     Uppercase √Ü ligature.
+ 
+ 
+ File: groff,  Node: ms Strings and Special Characters-Footnotes,  Up: ms Strings and Special Characters
+@@ -4214,7 +4214,7 @@ makes e.g.
+ 
+ 
+      in Paris
+-       => A cafÈ in Paris
++       => A caf√© in Paris
+ 
+ possible, but it is better not to use this feature to avoid confusion.
+ 
+@@ -5189,21 +5189,21 @@ Here a description of requests which inf
+      for.  Words which contain other letters won't be hyphenated
+      properly if the corresponding hyphenation patterns actually do
+      contain them.  For example, the following `hcode' requests are
+-     necessary to assign hyphenation codes to the letters `ƒ‰÷ˆ‹¸ﬂ'
++     necessary to assign hyphenation codes to the letters `√Ñ√§√ñ√∂√ú√º√ü'
+      (this is needed for German):
+ 
+ 
+-          .hcode ‰ ‰  ƒ ‰
+-          .hcode ˆ ˆ  ÷ ˆ
+-          .hcode ¸ ¸  ‹ ¸
+-          .hcode ﬂ ﬂ
++          .hcode √§ √§  √Ñ √§
++          .hcode √∂ √∂  √ñ √∂
++          .hcode √º √º  √ú √º
++          .hcode √ü √ü
+ 
+      Without those assignments, groff treats German words like
+-     `Kinderg‰rten' (the plural form of `kindergarten') as two
++     `Kinderg√§rten' (the plural form of `kindergarten') as two
+      substrings `kinderg' and `rten' because the hyphenation code of
+      the umlaut a is zero by default.  There is a German hyphenation
+      pattern which covers `kinder', so groff finds the hyphenation
+-     `kin-der'.  The other two hyphenation points (`kin-der-g‰r-ten')
++     `kin-der'.  The other two hyphenation points (`kin-der-g√§r-ten')
+      are missed.
+ 
+      This request is ignored if it has no parameter.
+@@ -5912,9 +5912,9 @@ Internals::, for more on this process).
+           Consider the following translation:
+ 
+ 
+-               .tr È…
++               .tr √©√â
+ 
+-          This maps input character `È' onto glyph `…', which is
++          This maps input character `√©' onto glyph `√â', which is
+           identical to glyph `char201'.  But this glyph intentionally
+           doesn't exist!  Instead, `\[char201]' is treated as an input
+           character entity and is by default mapped onto `\['E]', and
+@@ -5923,7 +5923,7 @@ Internals::, for more on this process).
+           The right way to write the above translation is
+ 
+ 
+-               .tr È\['E]
++               .tr √©\['E]
+ 
+           With other words, the first argument of `tr' should be an
+           input character or entity, and the second one a glyph entity.
+diff -Naurp doc/groff-2 doc/groff-2
+--- doc/groff-2	2005-09-04 03:16:17.000000000 -0700
++++ doc/groff-2	2012-10-02 15:09:52.000000000 -0700
+@@ -1602,7 +1602,7 @@ real glyph `foo'.
+      ..
+      .cp 0     \" switch compatibility mode off
+      .xx caf\['e]
+-         => cafÈ
++         => caf√©
+ 
+ Since compatibility mode is on while `de' is called, the macro `xx'
+ activates compatibility mode while executing.  Argument `$1' can still
+diff -Naurp doc/groff.texinfo doc/groff.texinfo
+--- doc/groff.texinfo	2005-09-04 02:42:19.000000000 -0700
++++ doc/groff.texinfo	2012-10-02 15:09:52.000000000 -0700
+@@ -434,27 +434,27 @@ Software Foundation raise funds for GNU 
+ @c We map some latin-1 characters to corresponding texinfo macros.
+ 
+ @tex
+-\global\catcode`^^e4\active % ‰
++\global\catcode`^^e4\active % √§
+ \gdef^^e4{\"a}
+-\global\catcode`^^c4\active % ƒ
++\global\catcode`^^c4\active % √Ñ
+ \gdef^^c4{\"A}
+-\global\catcode`^^e9\active % È
++\global\catcode`^^e9\active % √©
+ \gdef^^e9{\'e}
+-\global\catcode`^^c9\active % …
++\global\catcode`^^c9\active % √â
+ \gdef^^c9{\'E}
+-\global\catcode`^^f6\active % ˆ
++\global\catcode`^^f6\active % √∂
+ \gdef^^f6{\"o}
+-\global\catcode`^^d6\active % ÷
++\global\catcode`^^d6\active % √ñ
+ \gdef^^d6{\"O}
+-\global\catcode`^^fc\active % ¸
++\global\catcode`^^fc\active % √º
+ \gdef^^fc{\"u}
+-\global\catcode`^^dc\active % ‹
++\global\catcode`^^dc\active % √ú
+ \gdef^^dc{\"U}
+-\global\catcode`^^e6\active % Ê
++\global\catcode`^^e6\active % √¶
+ \gdef^^e6{\ae}
+-\global\catcode`^^c6\active % ∆
++\global\catcode`^^c6\active % √Ü
+ \gdef^^c6{\AE}
+-\global\catcode`^^df\active % ﬂ
++\global\catcode`^^df\active % √ü
+ \gdef^^df{\ss}
+ @end tex
+ 
+@@ -668,7 +668,7 @@ Since there are several things which can
+ transform certain parts of a document into @code{troff}, which made a
+ very natural use of pipes in @acronym{UNIX}.
+ 
+-The @code{eqn} preprocessor allowed mathematical formulÊ to be
++The @code{eqn} preprocessor allowed mathematical formul√¶ to be
+ specified in a much simpler and more intuitive manner.  @code{tbl} is a
+ preprocessor for formatting tables.  The @code{refer} preprocessor (and
+ the similar program, @code{bib}) processes citations in a document
+@@ -4254,7 +4254,7 @@ Upside-down exclamation point.
+ @endDefstr
+ 
+ @Defstr {8, ms}
+-German ﬂ ligature.
++German √ü ligature.
+ @endDefstr
+ 
+ @Defstr {3, ms}
+@@ -4282,11 +4282,11 @@ Hooked o.
+ @endDefstr
+ 
+ @Defstr {ae, ms}
+-Lowercase Ê ligature.
++Lowercase √¶ ligature.
+ @endDefstr
+ 
+ @Defstr {Ae, ms}
+-Uppercase ∆ ligature.
++Uppercase √Ü ligature.
+ @endDefstr
+ 
+ @c ---------------------------------------------------------------------
+@@ -5611,7 +5611,7 @@ e\'
+ 
+ 
+ in Paris
+-  @result{} A cafÈ in Paris
++  @result{} A caf√© in Paris
+ @endExample
+ 
+ @noindent
+@@ -6959,23 +6959,23 @@ same way as the word `foo' is hyphenated
+ is good for.  Words which contain other letters won't be hyphenated
+ properly if the corresponding hyphenation patterns actually do contain
+ them.  For example, the following @code{hcode} requests are necessary to
+-assign hyphenation codes to the letters @samp{ƒ‰÷ˆ‹¸ﬂ} (this is needed
++assign hyphenation codes to the letters @samp{√Ñ√§√ñ√∂√ú√º√ü} (this is needed
+ for German):
+ 
+ @Example
+-.hcode ‰ ‰  ƒ ‰
+-.hcode ˆ ˆ  ÷ ˆ
+-.hcode ¸ ¸  ‹ ¸
+-.hcode ﬂ ﬂ
++.hcode √§ √§  √Ñ √§
++.hcode √∂ √∂  √ñ √∂
++.hcode √º √º  √ú √º
++.hcode √ü √ü
+ @endExample
+ 
+ Without those assignments, groff treats German words like
+-@w{`Kinderg‰rten'} (the plural form of `kindergarten') as two
++@w{`Kinderg√§rten'} (the plural form of `kindergarten') as two
+ substrings @w{`kinderg'} and @w{`rten'} because the hyphenation code
+ of the umlaut@tie{}a is zero by default.  There is a German
+ hyphenation pattern which covers @w{`kinder'}, so groff finds the
+ hyphenation `kin-der'.  The other two hyphenation points
+-(`kin-der-g‰r-ten') are missed.
++(`kin-der-g√§r-ten') are missed.
+ 
+ This request is ignored if it has no parameter.
+ @endDefreq
+@@ -7849,11 +7849,11 @@ if the @code{tr} request isn't handled p
+ Consider the following translation:
+ 
+ @Example
+-.tr È…
++.tr √©√â
+ @endExample
+ 
+ @noindent
+-This maps input character @code{È} onto glyph @code{…}, which is
++This maps input character @code{√©} onto glyph @code{√â}, which is
+ identical to glyph @code{char201}.  But this glyph intentionally
+ doesn't exist!  Instead, @code{\[char201]} is treated as an input
+ character entity and is by default mapped onto @code{\['E]}, and
+@@ -7862,7 +7862,7 @@ character entity and is by default mappe
+ The right way to write the above translation is
+ 
+ @Example
+-.tr È\['E]
++.tr √©\['E]
+ @endExample
+ 
+ @noindent
+@@ -13379,7 +13379,7 @@ Macro and request arguments preserve the
+ ..
+ .cp 0     \" switch compatibility mode off
+ .xx caf\['e]
+-    @result{} cafÈ
++    @result{} caf√©
+ @endExample
+ 
+ @noindent
+diff -Naurp src/devices/grolbp/grolbp.man src/devices/grolbp/grolbp.man
+--- src/devices/grolbp/grolbp.man	2002-09-23 02:52:25.000000000 -0700
++++ src/devices/grolbp/grolbp.man	2012-10-02 15:09:57.000000000 -0700
+@@ -20,7 +20,7 @@ versions, except that this permission no
+ translations approved by the Free Software Foundation instead of in
+ the original English.
+ 
+-Modified by Francisco AndrÈs Verd˙ <pandres@dragonet.es> for the grolbp
++Modified by Francisco Andr√©s Verd√∫ <pandres@dragonet.es> for the grolbp
+ program.
+ ..
+ .de TQ
+diff -Naurp src/devices/grolbp/lbp.cpp src/devices/grolbp/lbp.cpp
+--- src/devices/grolbp/lbp.cpp	2005-05-27 22:38:28.000000000 -0700
++++ src/devices/grolbp/lbp.cpp	2012-10-02 15:09:57.000000000 -0700
+@@ -1,7 +1,7 @@
+ // -*- C++ -*-
+ /* Copyright (C) 1994, 2000, 2001, 2002, 2003, 2004, 2005
+    Free Software Foundation, Inc.
+-     Written by Francisco AndrÈs Verd˙ <pandres@dragonet.es> with many ideas
++     Written by Francisco Andr√©s Verd√∫ <pandres@dragonet.es> with many ideas
+      taken from the other groff drivers.
+ 
+ 
+diff -Naurp src/devices/grolbp/lbp.h src/devices/grolbp/lbp.h
+--- src/devices/grolbp/lbp.h	2005-05-27 22:39:34.000000000 -0700
++++ src/devices/grolbp/lbp.h	2012-10-02 15:09:57.000000000 -0700
+@@ -1,7 +1,7 @@
+ // -*- C -*-
+ /* Copyright (C) 1994, 2000, 2001, 2003, 2004, 2005
+    Free Software Foundation, Inc.
+-     Written by Francisco AndrÈs Verd˙ <pandres@dragonet.es>
++     Written by Francisco Andr√©s Verd√∫ <pandres@dragonet.es>
+ 
+ groff is free software; you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free

@@ -46,7 +46,7 @@ PassRefPtr<MediaElementAudioSourceNode> MediaElementAudioSourceNode::create(Audi
 }
 
 MediaElementAudioSourceNode::MediaElementAudioSourceNode(AudioContext* context, HTMLMediaElement* mediaElement)
-    : AudioSourceNode(context, context->sampleRate())
+    : AudioNode(context, context->sampleRate())
     , m_mediaElement(mediaElement)
     , m_sourceNumberOfChannels(0)
     , m_sourceSampleRate(0)
@@ -68,9 +68,7 @@ MediaElementAudioSourceNode::~MediaElementAudioSourceNode()
 void MediaElementAudioSourceNode::setFormat(size_t numberOfChannels, float sourceSampleRate)
 {
     if (numberOfChannels != m_sourceNumberOfChannels || sourceSampleRate != m_sourceSampleRate) {
-        // FIXME: implement multi-channel greater than stereo.
-        // https://bugs.webkit.org/show_bug.cgi?id=75119
-        if (!numberOfChannels || numberOfChannels > 2 || sourceSampleRate < minSampleRate || sourceSampleRate > maxSampleRate) {
+        if (!numberOfChannels || numberOfChannels > AudioContext::maxNumberOfChannels() || sourceSampleRate < minSampleRate || sourceSampleRate > maxSampleRate) {
             // process() will generate silence for these uninitialized values.
             LOG(Media, "MediaElementAudioSourceNode::setFormat(%u, %f) - unhandled format change", static_cast<unsigned>(numberOfChannels), sourceSampleRate);
             m_sourceNumberOfChannels = 0;

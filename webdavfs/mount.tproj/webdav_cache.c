@@ -121,8 +121,6 @@ static CFArrayRef internal_get_locktokens(
 	struct node_entry *a_node);
 
 static int init_node_cache_lock(void);
-static void lock_node_cache(void);
-static void unlock_node_cache(void);
 
 /*****************************************************************************/
 
@@ -143,7 +141,6 @@ static int internal_add_attributes(
 	
 	current_time = time(NULL);
 	require_action(current_time != -1, time, error = errno);
-	
 	/* add appledoubleheader first since it could fail */
 	if ( appledoubleheader != NULL )
 	{
@@ -1056,6 +1053,7 @@ static int internal_delete_invalid_directory_nodes(struct node_entry *dir_node)
 		next_node = node->entries.le_next;
 		if ( node->node_time == 0 )
 		{
+			//syslog(LOG_ERR,"NODE NAME IS %s",node->name);
 			error = delete_node_tree(node, TRUE);
 			require_noerr(error, delete_node_tree);
 		}
@@ -1519,8 +1517,7 @@ CFURLRef nodecache_get_baseURL(void)
 }
 
 /*****************************************************************************/
-
-static void lock_node_cache(void)
+ void lock_node_cache(void)
 {
 	int error;
 	
@@ -1534,7 +1531,7 @@ pthread_mutex_lock:
 
 /*****************************************************************************/
 
-static void unlock_node_cache(void)
+void unlock_node_cache(void)
 {
 	int error;
 	

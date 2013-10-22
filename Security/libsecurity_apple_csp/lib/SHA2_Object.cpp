@@ -45,7 +45,7 @@ void SHA224Object::digestUpdate(
 	const void 	*data, 
 	size_t 		len)
 {
-	CC_SHA224_Update(&mCtx, (const unsigned char *)data, len);
+	CC_SHA224_Update(&mCtx, (const unsigned char *)data, (CC_LONG)len);
 }
 
 void SHA224Object::digestFinal(
@@ -79,7 +79,7 @@ void SHA256Object::digestUpdate(
 	const void 	*data, 
 	size_t 		len)
 {
-	CC_SHA256_Update(&mCtx, (const unsigned char *)data, len);
+	CC_SHA256_Update(&mCtx, (const unsigned char *)data, (CC_LONG)len);
 }
 
 void SHA256Object::digestFinal(
@@ -113,7 +113,7 @@ void SHA384Object::digestUpdate(
 	const void 	*data, 
 	size_t 		len)
 {
-	CC_SHA384_Update(&mCtx, (const unsigned char *)data, len);
+	CC_SHA384_Update(&mCtx, (const unsigned char *)data, (CC_LONG)len);
 }
 
 void SHA384Object::digestFinal(
@@ -147,7 +147,7 @@ void SHA512Object::digestUpdate(
 	const void 	*data, 
 	size_t 		len)
 {
-	CC_SHA512_Update(&mCtx, (const unsigned char *)data, len);
+	CC_SHA512_Update(&mCtx, (const unsigned char *)data, (CC_LONG)len);
 }
 
 void SHA512Object::digestFinal(

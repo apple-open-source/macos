@@ -31,7 +31,7 @@
 #include <security_cdsa_utilities/uniformrandom.h>
 #include <security_cdsa_client/aclclient.h>
 #include <vector>
-
+#include <SecBase.h>
 using namespace KeychainCore;
 using namespace CssmClient;
 
@@ -240,7 +240,7 @@ void Access::copyOwnerAndAcl(CSSM_ACL_OWNER_PROTOTYPE * &ownerResult,
 {
 	StLock<Mutex>_(mMutex);
 	Allocator& alloc = Allocator::standard();
-	int count = mAcls.size() - 1;	// one will be owner, others are acls
+	unsigned long count = mAcls.size() - 1;	// one will be owner, others are acls
 	AclOwnerPrototype owner;
 	CssmAutoPtr<AclEntryInfo> acls = new(alloc) AclEntryInfo[count];
 	AclEntryInfo *aclp = acls;	// -> next unfilled acl element
@@ -258,7 +258,7 @@ void Access::copyOwnerAndAcl(CSSM_ACL_OWNER_PROTOTYPE * &ownerResult,
 
 	// commit output
 	ownerResult = new(alloc) AclOwnerPrototype(owner);
-	aclCount = count;
+	aclCount = (uint32)count;
 	aclsResult = acls.release();
 }
 
@@ -297,7 +297,7 @@ void Access::add(ACL *newAcl)
 {
 	StLock<Mutex>_(mMutex);
 	if (&newAcl->access != this)
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	assert(!mAcls[newAcl->entryHandle()]);
 	mAcls[newAcl->entryHandle()] = newAcl;
 }

@@ -8,5 +8,9 @@
 		<y>eye</y>
 		<y>billow</y>
 		<y>a longer string</y>
+                <from>$</from>
+                <from>\</from>
+                <to>\$</to>
+                <to>$\backslash$</to>
 	</strings>
 </doc>

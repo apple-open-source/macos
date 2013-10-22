@@ -36,9 +36,13 @@ SSDatabaseImpl::SSDatabaseImpl(ClientSession &inClientSession, const CssmClient:
 }
 
 SSDatabaseImpl::~SSDatabaseImpl()
+try
 {
 	if (mSSDbHandle != noDb)
 		mClientSession.releaseDb(mSSDbHandle);
+}
+catch (...)
+{
 }
 
 SSUniqueRecord
@@ -80,6 +84,18 @@ void
 SSDatabaseImpl::unlock(const CSSM_DATA &password)
 {
 	mClientSession.unlock(dbHandle(), CssmData::overlay(password));
+}
+
+void
+SSDatabaseImpl::stash()
+{
+    mClientSession.stashDb(dbHandle());
+}
+
+void
+SSDatabaseImpl::stashCheck()
+{
+    mClientSession.stashDbCheck(dbHandle());
 }
 
 void

@@ -10,9 +10,15 @@ set(CMAKE_MODULE_PATH
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
   )
 
-set(PACKAGE_VERSION "3.1svn")
+set(LLVM_VERSION_MAJOR 3)
+set(LLVM_VERSION_MINOR 2)
 
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+set(PACKAGE_VERSION "${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}svn")
+
+option(LLVM_USE_FOLDERS "Enable solution folders in Visual Studio. Disable for Express versions." ON)
+if ( LLVM_USE_FOLDERS )
+  set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+endif()
 
 include(VersionFromVCS)
 
@@ -23,9 +29,9 @@ if( LLVM_APPEND_VC_REV )
   add_version_info_from_vcs(PACKAGE_VERSION)
 endif()
 
-set(PACKAGE_NAME llvm)
+set(PACKAGE_NAME LLVM)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-set(PACKAGE_BUGREPORT "llvmbugs@cs.uiuc.edu")
+set(PACKAGE_BUGREPORT "http://llvm.org/bugs/")
 
 # Sanity check our source directory to make sure that we are not trying to
 # generate an in-tree build (unless on MSVC_IDE, where it is ok), and to make
@@ -69,14 +75,14 @@ set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name 
 
 set(LLVM_ALL_TARGETS
   ARM
-  CBackend
   CellSPU
   CppBackend
+  Hexagon
   Mips
   MBlaze
   MSP430
+  NVPTX
   PowerPC
-  PTX
   Sparc
   X86
   XCore
@@ -89,9 +95,15 @@ if( MSVC )
   set(LLVM_TARGETS_TO_BUILD X86
     CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
 else( MSVC )
-  set(LLVM_TARGETS_TO_BUILD ${LLVM_ALL_TARGETS}
+  set(LLVM_TARGETS_TO_BUILD "all"
     CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
 endif( MSVC )
+
+set(LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ""
+  CACHE STRING "Semicolon-separated list of experimental targets to build.")
+
+option(BUILD_SHARED_LIBS
+  "Build all libraries as shared libraries instead of static" OFF)
 
 option(LLVM_ENABLE_CBE_PRINTF_A "Set to ON if CBE is enabled for printf %a output" ON)
 if(LLVM_ENABLE_CBE_PRINTF_A)
@@ -101,6 +113,11 @@ endif()
 option(LLVM_ENABLE_TIMESTAMPS "Enable embedding timestamp information in build" ON)
 if(LLVM_ENABLE_TIMESTAMPS)
   set(ENABLE_TIMESTAMPS 1)
+endif()
+
+option(LLVM_ENABLE_BACKTRACES "Enable embedding backtraces on crash." ON)
+if(LLVM_ENABLE_BACKTRACES)
+  set(ENABLE_BACKTRACES 1)
 endif()
 
 option(LLVM_ENABLE_FFI "Use libffi to call external functions from the interpreter" OFF)
@@ -116,10 +133,15 @@ if( LLVM_TARGETS_TO_BUILD STREQUAL "all" )
   set( LLVM_TARGETS_TO_BUILD ${LLVM_ALL_TARGETS} )
 endif()
 
+set(LLVM_TARGETS_TO_BUILD
+   ${LLVM_TARGETS_TO_BUILD}
+   ${LLVM_EXPERIMENTAL_TARGETS_TO_BUILD})
+
 set(LLVM_ENUM_TARGETS "")
 foreach(c ${LLVM_TARGETS_TO_BUILD})
   list(FIND LLVM_ALL_TARGETS ${c} idx)
-  if( idx LESS 0 )
+  list(FIND LLVM_EXPERIMENTAL_TARGETS_TO_BUILD ${c} idy)
+  if( idx LESS 0 AND idy LESS 0 )
     message(FATAL_ERROR "The target `${c}' does not exist.
     It should be one of\n${LLVM_ALL_TARGETS}")
   else()
@@ -149,6 +171,28 @@ else()
   option(LLVM_ENABLE_ASSERTIONS "Enable assertions" ON)
 endif()
 
+option(LLVM_USE_INTEL_JITEVENTS
+  "Use Intel JIT API to inform Intel(R) VTune(TM) Amplifier XE 2011 about JIT code"
+  OFF)
+
+if( LLVM_USE_INTEL_JITEVENTS )
+  # Verify we are on a supported platform
+  if( NOT CMAKE_SYSTEM_NAME MATCHES "Windows" AND NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )
+    message(FATAL_ERROR
+      "Intel JIT API support is available on Linux and Windows only.")
+  endif()
+endif( LLVM_USE_INTEL_JITEVENTS )
+
+option(LLVM_USE_OPROFILE
+  "Use opagent JIT interface to inform OProfile about JIT code" OFF)
+
+# If enabled, ierify we are on a platform that supports oprofile.
+if( LLVM_USE_OPROFILE )
+  if( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )
+    message(FATAL_ERROR "OProfile support is available on Linux only.") 
+  endif( NOT CMAKE_SYSTEM_NAME MATCHES "Linux" )
+endif( LLVM_USE_OPROFILE )
+
 # Define an option controlling whether we should build for 32-bit on 64-bit
 # platforms, where supported.
 if( CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32 )
@@ -164,18 +208,9 @@ if (MSVC OR XCODE)
 endif()
 set(LLVM_LIT_ARGS "${LIT_ARGS_DEFAULT}" CACHE STRING "Default options for lit")
 
-# On Win32/Cygwin, provide an option to specify the path to the GnuWin32 tools.
-if( WIN32 AND CYGWIN )
+# On Win32 hosts, provide an option to specify the path to the GnuWin32 tools.
+if( WIN32 AND NOT CYGWIN )
   set(LLVM_LIT_TOOLS_DIR "" CACHE PATH "Path to GnuWin32 tools")
-endif()
-
-# On Win32 using MS tools, provide an option to set the number of parallel jobs
-# to use.
-if( MSVC_IDE AND ( MSVC90 OR MSVC10 ) )
-  # Only Visual Studio 2008 and 2010 officially supports /MP.  Visual Studio
-  # 2005 supports it but it is experimental.
-  set(LLVM_COMPILER_JOBS "0" CACHE STRING
-    "Number of parallel compiler jobs. 0 means use all processors. Default is 0.")
 endif()
 
 # Define options to control the inclusion and default build behavior for
@@ -203,6 +238,14 @@ option(LLVM_INCLUDE_TESTS "Generate build targets for the LLVM unit tests." ON)
 # BEFORE this include, otherwise options will not be correctly set on
 # first cmake run
 include(config-ix)
+
+# By default, we target the host, but this can be overridden at CMake
+# invocation time.
+set(LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_HOST_TRIPLE}" CACHE STRING
+  "Default target for which LLVM will generate code." )
+set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}" CACHE STRING
+  "Default target for which LLVM will generate code." )
+
 include(HandleLLVMOptions)
 
 # Verify that we can find a Python interpreter,
@@ -230,14 +273,24 @@ endif()
 
 set(LLVMBUILDTOOL "${LLVM_MAIN_SRC_DIR}/utils/llvm-build/llvm-build")
 set(LLVMCONFIGLIBRARYDEPENDENCIESINC
-  "${LLVM_BINARY_DIR}/tools/llvm-config-2/LibraryDependencies.inc")
+  "${LLVM_BINARY_DIR}/tools/llvm-config/LibraryDependencies.inc")
 set(LLVMBUILDCMAKEFRAG
   "${LLVM_BINARY_DIR}/LLVMBuild.cmake")
+
+# Create the list of optional components that are enabled
+if (LLVM_USE_INTEL_JITEVENTS)
+  set(LLVMOPTIONALCOMPONENTS IntelJITEvents)
+endif (LLVM_USE_INTEL_JITEVENTS)
+if (LLVM_USE_OPROFILE)
+  set(LLVMOPTIONALCOMPONENTS ${LLVMOPTIONALCOMPONENTS} OProfileJIT)
+endif (LLVM_USE_OPROFILE)
+
 message(STATUS "Constructing LLVMBuild project information")
 execute_process(
   COMMAND ${PYTHON_EXECUTABLE} ${LLVMBUILDTOOL}
             --native-target "${LLVM_NATIVE_ARCH}"
             --enable-targets "${LLVM_TARGETS_TO_BUILD}"
+            --enable-optional-components "${LLVMOPTIONALCOMPONENTS}"
             --write-library-table ${LLVMCONFIGLIBRARYDEPENDENCIESINC}
             --write-cmake-fragment ${LLVMBUILDCMAKEFRAG}
             ERROR_VARIABLE LLVMBUILDOUTPUT
@@ -352,6 +405,9 @@ add_subdirectory(utils/FileUpdate)
 add_subdirectory(utils/count)
 add_subdirectory(utils/not)
 add_subdirectory(utils/llvm-lit)
+add_subdirectory(utils/yaml-bench)
+add_subdirectory(utils/obj2yaml)
+add_subdirectory(utils/yaml2obj)
 
 add_subdirectory(projects)
 
@@ -376,6 +432,20 @@ if( LLVM_INCLUDE_TESTS )
     # Windows.
     add_subdirectory(utils/KillTheDoctor)
   endif()
+
+  # Add a global check rule now that all subdirectories have been traversed
+  # and we know the total set of lit testsuites.
+  get_property(LLVM_LIT_TESTSUITES GLOBAL PROPERTY LLVM_LIT_TESTSUITES)
+  get_property(LLVM_LIT_PARAMS GLOBAL PROPERTY LLVM_LIT_PARAMS)
+  get_property(LLVM_LIT_DEPENDS GLOBAL PROPERTY LLVM_LIT_DEPENDS)
+  get_property(LLVM_LIT_EXTRA_ARGS GLOBAL PROPERTY LLVM_LIT_EXTRA_ARGS)
+  add_lit_target(check-all
+    "Running all regression tests"
+    ${LLVM_LIT_TESTSUITES}
+    PARAMS ${LLVM_LIT_PARAMS}
+    DEPENDS ${LLVM_LIT_DEPENDS}
+    ARGS ${LLVM_LIT_EXTRA_ARGS}
+    )
 endif()
 
 add_subdirectory(cmake/modules)
@@ -406,8 +476,8 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include/
 # TODO: make and install documentation.
 
 set(CPACK_PACKAGE_VENDOR "LLVM")
-set(CPACK_PACKAGE_VERSION_MAJOR 2)
-set(CPACK_PACKAGE_VERSION_MINOR 9)
+set(CPACK_PACKAGE_VERSION_MAJOR ${LLVM_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${LLVM_VERSION_MINOR})
 add_version_info_from_vcs(CPACK_PACKAGE_VERSION_PATCH)
 include(CPack)
 

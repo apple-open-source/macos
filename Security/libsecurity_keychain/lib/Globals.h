@@ -70,4 +70,6 @@ extern bool gServerMode;
 
 } // end namespace Security
 
+extern "C" bool GetServerMode();
+
 #endif // !_SECURITY_GLOBALS_H_

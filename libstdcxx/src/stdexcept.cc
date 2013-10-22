@@ -33,17 +33,20 @@
 
 #include <string>
 #include <stdexcept>
+#include <cxxabi.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
   logic_error::logic_error(const string& __arg) 
   : exception(), _M_msg(__arg) { }
 
+#ifndef _LIBCPPABI_VERSION
   logic_error::~logic_error() throw() { }
 
   const char*
   logic_error::what() const throw()
   { return _M_msg.c_str(); }
+#endif  // _LIBCPPABI_VERSION
 
   domain_error::domain_error(const string& __arg)
   : logic_error(__arg) { }
@@ -60,11 +63,13 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   runtime_error::runtime_error(const string& __arg) 
   : exception(), _M_msg(__arg) { }
 
+#ifndef _LIBCPPABI_VERSION
   runtime_error::~runtime_error() throw() { }
 
   const char*
   runtime_error::what() const throw()
   { return _M_msg.c_str(); }
+#endif  // _LIBCPPABI_VERSION
 
   range_error::range_error(const string& __arg)
   : runtime_error(__arg) { }

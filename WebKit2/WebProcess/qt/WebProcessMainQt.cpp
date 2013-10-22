@@ -1,4 +1,6 @@
 /*
+ * Copyright (C) 2013 University of Szeged
+ * Copyright (C) 2013 Renata Hodovan <reni@inf.u-szeged.hu>
  * Copyright (C) 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
@@ -27,6 +29,7 @@
 #include "config.h"
 #include "WebProcess.h"
 
+#include "WebKit2Initialize.h"
 #include <QGuiApplication>
 #include <QList>
 #include <QNetworkProxyFactory>
@@ -34,12 +37,7 @@
 #include <QStringList>
 #include <QUrl>
 #include <WebCore/RunLoop.h>
-#include <runtime/InitializeThreading.h>
-#include <wtf/MainThread.h>
-
-#if USE(ACCELERATED_COMPOSITING)
-#include "WebGraphicsLayer.h"
-#endif
+#include <errno.h>
 
 #ifndef NDEBUG
 #if !OS(WINDOWS)
@@ -51,10 +49,15 @@
 #include <QDebug>
 #endif
 
-#if !USE(UNIX_DOMAIN_SOCKETS)
+#if OS(DARWIN) && !USE(UNIX_DOMAIN_SOCKETS)
 #include <servers/bootstrap.h>
 
 extern "C" kern_return_t bootstrap_look_up2(mach_port_t, const name_t, mach_port_t*, pid_t, uint64_t);
+#endif
+
+#if ENABLE(SUID_SANDBOX_LINUX)
+#include "SandboxEnvironmentLinux.h"
+#include <sys/wait.h>
 #endif
 
 using namespace WebCore;
@@ -139,15 +142,72 @@ static void initializeProxy()
     QNetworkProxyFactory::setUseSystemConfiguration(true);
 }
 
+#if ENABLE(SUID_SANDBOX_LINUX)
+pid_t chrootMe()
+{
+    // Get the file descriptor of the socketpair.
+    char* sandboxSocketDescriptorString = getenv(SANDBOX_DESCRIPTOR);
+    if (!sandboxSocketDescriptorString)
+        return -1;
+
+    char* firstInvalidCharacter;
+    long int sandboxSocketDescriptor = strtol(sandboxSocketDescriptorString, &firstInvalidCharacter, 10);
+    if (*firstInvalidCharacter != '\0') {
+        fprintf(stderr, "The socket descriptor of sandbox is not valid.\n");
+        return -1;
+    }
+
+    // Get the PID of the setuid helper.
+    char* sandboxHelperPIDString = getenv(SANDBOX_HELPER_PID);
+    pid_t sandboxHelperPID = -1;
+
+    // If no PID is available, the default of -1 will do.
+    if (sandboxHelperPIDString) {
+        errno = 0;
+        sandboxHelperPID = strtol(sandboxHelperPIDString, &firstInvalidCharacter, 10);
+        if (*firstInvalidCharacter != '\0') {
+            fprintf(stderr, "The PID of sandbox is not valid.\n");
+            return -1;
+        }
+    }
+
+    // Send the chrootMe message to the helper.
+    char sandboxMeMessage = MSG_CHROOTME;
+    ssize_t numberOfCharacters = write(sandboxSocketDescriptor, &sandboxMeMessage, 1);
+    if (numberOfCharacters != 1) {
+        fprintf(stderr, "ChrootMe msg failed to write: %s.\n", strerror(errno));
+        return -1;
+    }
+
+    // Read the acknowledgement message from the helper.
+    numberOfCharacters = read(sandboxSocketDescriptor, &sandboxMeMessage, 1);
+    if (numberOfCharacters != 1 || sandboxMeMessage != MSG_CHROOTED) {
+        fprintf(stderr, "Couldn't read the confirmation message: %s.\n", strerror(errno));
+        return -1;
+    }
+    close(sandboxSocketDescriptor);
+
+    // Wait for the helper process.
+    int expectedPID = waitpid(sandboxHelperPID, 0, 0);
+    if (expectedPID != -1 && (sandboxHelperPID == -1 || expectedPID == sandboxHelperPID))
+        return expectedPID;
+    fprintf(stderr, "Couldn't wait for the helper process: %s\n", strerror(errno));
+    return -1;
+}
+#endif
+
 Q_DECL_EXPORT int WebProcessMainQt(QGuiApplication* app)
 {
+#if ENABLE(SUID_SANDBOX_LINUX)
+    pid_t helper = chrootMe();
+    if (helper == -1) {
+        fprintf(stderr, "Asking for chroot failed.\n");
+        return -1;
+    }
+#endif
     initializeProxy();
 
-    srandom(time(0));
-
-    JSC::initializeThreading();
-    WTF::initializeMainThread();
-    RunLoop::initializeMainRunLoop();
+    InitializeWebKit2();
 
     // Create the connection.
     if (app->arguments().size() <= 1) {
@@ -167,17 +227,26 @@ Q_DECL_EXPORT int WebProcessMainQt(QGuiApplication* app)
     }
 #else
     bool wasNumber = false;
-    int identifier = app->arguments().at(1).toInt(&wasNumber, 10);
+    qulonglong id = app->arguments().at(1).toULongLong(&wasNumber, 10);
     if (!wasNumber) {
         qDebug() << "Error: connection identifier wrong.";
         return 1;
     }
+    CoreIPC::Connection::Identifier identifier;
+#if OS(WINDOWS)
+    // Convert to HANDLE
+    identifier = reinterpret_cast<CoreIPC::Connection::Identifier>(id);
+#else
+    // Convert to int
+    identifier = static_cast<CoreIPC::Connection::Identifier>(id);
 #endif
-#if USE(ACCELERATED_COMPOSITING)
-    WebGraphicsLayer::initFactory();
 #endif
 
-    WebKit::WebProcess::shared().initialize(identifier, RunLoop::main());
+
+    WebKit::ChildProcessInitializationParameters parameters;
+    parameters.connectionIdentifier = identifier;
+
+    WebKit::WebProcess::shared().initialize(parameters);
 
     RunLoop::run();
 

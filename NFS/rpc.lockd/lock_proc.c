@@ -84,6 +84,8 @@ __RCSID("$NetBSD: lock_proc.c,v 1.7 2000/10/11 20:23:56 is Exp $");
 #define	CLIENT_CACHE_SIZE	64	/* No. of client sockets cached */
 #define	CLIENT_CACHE_LIFETIME	120	/* In seconds */
 
+#define AOK	(void *)	// assert alignment is OK
+
 static void	log_from_addr(const char *, struct svc_req *);
 static void	log_netobj(netobj *obj);
 
@@ -209,13 +211,13 @@ addrcmp(const struct sockaddr *sa1, const struct sockaddr *sa2)
 
 	switch (sa1->sa_family) {
 	case AF_INET:
-		p1 = &((struct sockaddr_in *)sa1)->sin_addr;
-		p2 = &((struct sockaddr_in *)sa2)->sin_addr;
+		p1 = &((struct sockaddr_in *) AOK sa1)->sin_addr;
+		p2 = &((struct sockaddr_in *) AOK sa2)->sin_addr;
 		len = 4;
 		break;
 	case AF_INET6:
-		p1 = &((struct sockaddr_in6 *)sa1)->sin6_addr;
-		p2 = &((struct sockaddr_in6 *)sa2)->sin6_addr;
+		p1 = &((struct sockaddr_in6 *) AOK sa1)->sin6_addr;
+		p2 = &((struct sockaddr_in6 *) AOK sa2)->sin6_addr;
 		len = 16;
 		break;
 	default:
@@ -344,9 +346,9 @@ get_client(host_addr, vers, client_request, use_tcp)
 	retry_time.tv_sec = 5;
 	retry_time.tv_usec = 0;
 	if (host_addr->sa_family == AF_INET)	/* Force consultation with portmapper   */
-		((struct sockaddr_in *)host_addr)->sin_port = 0;
+		((struct sockaddr_in *) AOK host_addr)->sin_port = 0;
 	else
-		((struct sockaddr_in6 *)host_addr)->sin6_port = 0;
+		((struct sockaddr_in6 *) AOK host_addr)->sin6_port = 0;
 	if (use_tcp)
 		client = clnttcp_create_sa(host_addr, NLM_PROG, vers, &sock_no, 0, 0);
 	if (!use_tcp || !client)
@@ -675,7 +677,7 @@ nlm_lock_1_svc(arg, rqstp)
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
-	res.stat.stat = getlock(&arg4, rqstp, LOCK_MON);
+	res.stat.stat = (nlm_stats) getlock(&arg4, rqstp, LOCK_MON);
 	return (&res);
 }
 
@@ -698,7 +700,7 @@ nlm_lock_msg_1_svc(arg, rqstp)
 		log_from_addr("nlm_lock_msg", rqstp);
 
 	res.cookie = arg->cookie;
-	res.stat.stat = getlock(&arg4, rqstp, LOCK_ASYNC | LOCK_MON);
+	res.stat.stat = (nlm_stats) getlock(&arg4, rqstp, LOCK_ASYNC | LOCK_MON);
 	if (transmit_result(NLM_LOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* if res.stat.stat was success/blocked, then unlock/cancel */
 		if (res.stat.stat == nlm_granted)
@@ -741,7 +743,7 @@ nlm_cancel_1_svc(arg, rqstp)
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
-	res.stat.stat = cancellock(&arg4, 0);
+	res.stat.stat = (nlm_stats) cancellock(&arg4, 0);
 	return (&res);
 }
 
@@ -762,7 +764,7 @@ nlm_cancel_msg_1_svc(arg, rqstp)
 		log_from_addr("nlm_cancel_msg", rqstp);
 
 	res.cookie = arg->cookie;
-	res.stat.stat = cancellock(&arg4, 0);
+	res.stat.stat = (nlm_stats) cancellock(&arg4, 0);
 	if (transmit_result(NLM_CANCEL_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
@@ -790,7 +792,7 @@ nlm_unlock_1_svc(arg, rqstp)
 	if (config.verbose)
 		log_from_addr("nlm_unlock", rqstp);
 
-	res.stat.stat = unlock(&arg4, 0);
+	res.stat.stat = (nlm_stats) unlock(&arg4, 0);
 	res.cookie = arg->cookie;
 
 	return (&res);
@@ -809,7 +811,7 @@ nlm_unlock_msg_1_svc(arg, rqstp)
 	if (config.verbose)
 		log_from_addr("nlm_unlock_msg", rqstp);
 
-	res.stat.stat = unlock(&arg4, 0);
+	res.stat.stat = (nlm_stats) unlock(&arg4, 0);
 	res.cookie = arg->cookie;
 
 	if (transmit_result(NLM_UNLOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
@@ -1002,7 +1004,7 @@ nlm_granted_res_1_svc(arg, rqstp)
 	if (arg->stat.stat != nlm_granted) {
 		nlm4_res arg4;
 		arg4.cookie = arg->cookie;
-		arg4.stat.stat = arg->stat.stat;
+		arg4.stat.stat = (nlm4_stats) arg->stat.stat;
 		granted_failed(&arg4);
 	}
 	return (NULL);
@@ -1037,7 +1039,7 @@ nlm_share_3_svc(arg, rqstp)
 	res.cookie = arg->cookie;
 	res.sequence = 0;	/* X/Open says this field is ignored? */
 
-	res.stat = getshare(arg, rqstp, 0);
+	res.stat = (nlm_stats) getshare(arg, rqstp, 0);
 	return (&res);
 }
 
@@ -1060,7 +1062,7 @@ nlm_unshare_3_svc(arg, rqstp)
 	res.cookie = arg->cookie;
 	res.sequence = 0;	/* X/Open says this field is ignored? */
 
-	res.stat = unshare(arg, rqstp, 0);
+	res.stat = (nlm_stats) unshare(arg, rqstp, 0);
 	return (&res);
 }
 
@@ -1094,7 +1096,7 @@ nlm_nm_lock_3_svc(arg, rqstp)
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
-	res.stat.stat = getlock(&arg4, rqstp, 0);
+	res.stat.stat = (nlm_stats) getlock(&arg4, rqstp, 0);
 	return (&res);
 }
 

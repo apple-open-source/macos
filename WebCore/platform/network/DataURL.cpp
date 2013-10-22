@@ -27,20 +27,20 @@
 #include "config.h"
 #include "DataURL.h"
 
-#include "Base64.h"
 #include "HTTPParsers.h"
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "TextEncoding.h"
+#include <wtf/text/Base64.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
 
 void handleDataURL(ResourceHandle* handle)
 {
-    ASSERT(handle->firstRequest().url().protocolIs("data"));
+    ASSERT(handle->firstRequest().url().protocolIsData());
     String url = handle->firstRequest().url().string();
 
     int index = url.find(',');
@@ -75,7 +75,7 @@ void handleDataURL(ResourceHandle* handle)
         handle->client()->didReceiveResponse(handle, response);
 
         Vector<char> out;
-        if (base64Decode(data, out, IgnoreWhitespace) && out.size() > 0) {
+        if (base64Decode(data, out, Base64IgnoreWhitespace) && out.size() > 0) {
             response.setExpectedContentLength(out.size());
             handle->client()->didReceiveData(handle, out.data(), out.size(), 0);
         }

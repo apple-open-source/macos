@@ -30,7 +30,9 @@
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebWheelEvent.h"
 #include "NotificationPermissionRequest.h"
+#include "PluginInformation.h"
 #include "WKAPICast.h"
+#include "WebColorPickerResultListenerProxy.h"
 #include "WebNumber.h"
 #include "WebOpenPanelResultListenerProxy.h"
 #include "WebPageProxy.h"
@@ -174,20 +176,33 @@ void WebUIClient::mouseDidMoveOverElement(WebPageProxy* page, const WebHitTestRe
     m_client.mouseDidMoveOverElement(toAPI(page), toAPI(webHitTestResult.get()), toAPI(modifiers), toAPI(userData), m_client.clientInfo);
 }
 
-void WebUIClient::unavailablePluginButtonClicked(WebPageProxy* page, WKPluginUnavailabilityReason pluginUnavailabilityReason, const String& mimeType, const String& pluginBundleIdentifier, const String& pluginBundleVersion, const String& displayName, const String& pluginURLString, const String& pluginspageAttributeURLString, const String& frameURLString, const String& pageURLString)
+void WebUIClient::unavailablePluginButtonClicked(WebPageProxy* page, WKPluginUnavailabilityReason pluginUnavailabilityReason, ImmutableDictionary* pluginInformation)
 {
     if (pluginUnavailabilityReason == kWKPluginUnavailabilityReasonPluginMissing) {
         if (m_client.missingPluginButtonClicked_deprecatedForUseWithV0)
-            m_client.missingPluginButtonClicked_deprecatedForUseWithV0(toAPI(page), toAPI(mimeType.impl()), toAPI(pluginURLString.impl()), toAPI(pluginspageAttributeURLString.impl()), m_client.clientInfo);
+            m_client.missingPluginButtonClicked_deprecatedForUseWithV0(
+                toAPI(page),
+                toAPI(pluginInformation->get<WebString>(pluginInformationMIMETypeKey())),
+                toAPI(pluginInformation->get<WebString>(pluginInformationPluginURLKey())),
+                toAPI(pluginInformation->get<WebString>(pluginInformationPluginspageAttributeURLKey())),
+                m_client.clientInfo);
     }
 
     if (m_client.unavailablePluginButtonClicked_deprecatedForUseWithV1)
-        m_client.unavailablePluginButtonClicked_deprecatedForUseWithV1(toAPI(page), pluginUnavailabilityReason, toAPI(mimeType.impl()), toAPI(pluginURLString.impl()), toAPI(pluginspageAttributeURLString.impl()), m_client.clientInfo);
+        m_client.unavailablePluginButtonClicked_deprecatedForUseWithV1(
+            toAPI(page),
+            pluginUnavailabilityReason,
+            toAPI(pluginInformation->get<WebString>(pluginInformationMIMETypeKey())),
+            toAPI(pluginInformation->get<WebString>(pluginInformationPluginURLKey())),
+            toAPI(pluginInformation->get<WebString>(pluginInformationPluginspageAttributeURLKey())),
+            m_client.clientInfo);
 
-    if (m_client.unavailablePluginButtonClicked) {
-        RefPtr<ImmutableDictionary> pluginInformation = WebPageProxy::pluginInformationDictionary(pluginBundleIdentifier, pluginBundleVersion, displayName, frameURLString, mimeType, pageURLString, pluginspageAttributeURLString, pluginURLString);
-        m_client.unavailablePluginButtonClicked(toAPI(page), pluginUnavailabilityReason, toAPI(pluginInformation.get()), m_client.clientInfo);
-    }
+    if (m_client.unavailablePluginButtonClicked)
+        m_client.unavailablePluginButtonClicked(
+            toAPI(page),
+            pluginUnavailabilityReason,
+            toAPI(pluginInformation),
+            m_client.clientInfo);
 }
 
 bool WebUIClient::implementsDidNotHandleKeyEvent() const
@@ -418,5 +433,25 @@ bool WebUIClient::shouldInterruptJavaScript(WebPageProxy* page)
 
     return m_client.shouldInterruptJavaScript(toAPI(page), m_client.clientInfo);
 }
+
+#if ENABLE(INPUT_TYPE_COLOR)
+bool WebUIClient::showColorPicker(WebPageProxy* page, const String& initialColor, WebColorPickerResultListenerProxy* listener)
+{
+    if (!m_client.showColorPicker)
+        return false;
+
+    m_client.showColorPicker(toAPI(page), toAPI(initialColor.impl()), toAPI(listener), m_client.clientInfo);
+    return true;
+}
+
+bool WebUIClient::hideColorPicker(WebPageProxy* page)
+{
+    if (!m_client.hideColorPicker)
+        return false;
+
+    m_client.hideColorPicker(toAPI(page), m_client.clientInfo);
+    return true;
+}
+#endif
 
 } // namespace WebKit

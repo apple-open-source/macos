@@ -86,6 +86,7 @@ WebKitLoadStatus
 WebKitWebFrame
 webkit_web_frame_find_frame
 webkit_web_frame_get_data_source
+webkit_web_frame_get_dom_document
 webkit_web_frame_get_global_context
 webkit_web_frame_get_horizontal_scrollbar_policy
 webkit_web_frame_get_load_status
@@ -379,6 +380,7 @@ webkit_network_request_get_type
 WebKitNetworkResponse
 webkit_network_response_get_uri
 webkit_network_response_get_message
+webkit_network_response_get_suggested_filename
 webkit_network_response_set_uri
 <SUBSECTION Standard>
 WEBKIT_NETWORK_RESPONSE
@@ -474,6 +476,7 @@ webkit_web_view_unmark_text_matches
 webkit_web_view_zoom_in
 webkit_web_view_zoom_out
 webkit_web_view_get_window_features
+webkit_web_view_get_snapshot
 <SUBSECTION Standard>
 WEBKIT_WEB_VIEW
 WEBKIT_IS_WEB_VIEW
@@ -533,6 +536,10 @@ webkit_set_cache_model
 <SUBSECTION ContextMenuItem>
 WebKitContextMenuAction
 webkit_context_menu_item_get_action
+<SUBSECTION SecurityPolicy>
+WebKitSecurityPolicy
+webkit_set_security_policy_for_uri_scheme
+webkit_get_security_policy_for_uri_scheme
 <SUBSECTION Private>
 WEBKITGTK_API_VERSION
 </SECTION>
@@ -700,6 +707,30 @@ WEBKIT_IS_FAVICON_DATABASE_CLASS
 <SUBSECTION Private>
 WebKitFaviconDatabaseClass
 WebKitFaviconDatabasePrivate
+</SECTION>
+
+<SECTION>
+<FILE>webkitfilechooserrequest</FILE>
+<TITLE>WebKitFileChooserRequest</TITLE>
+WebKitFileChooserRequest
+webkit_file_chooser_request_get_select_multiple
+webkit_file_chooser_request_get_mime_types
+webkit_file_chooser_request_get_mime_types_filter
+webkit_file_chooser_request_get_selected_files
+webkit_file_chooser_request_select_files
+
+<SUBSECTION Standard>
+WEBKIT_TYPE_FILE_CHOOSER_REQUEST
+WEBKIT_FILE_CHOOSER_REQUEST
+WEBKIT_IS_FILE_CHOOSER_REQUEST
+WEBKIT_FILE_CHOOSER_REQUEST_CLASS
+WEBKIT_IS_FILE_CHOOSER_REQUEST_CLASS
+WEBKIT_FILE_CHOOSER_REQUEST_GET_CLASS
+
+<SUBSECTION Private>
+WebKitFileChooserRequestClass
+WebKitFileChooserRequestPrivate
+webkit_file_chooser_request_get_type
 </SECTION>
 
 <SECTION>

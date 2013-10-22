@@ -25,16 +25,15 @@
  * SecFramework.c - generic non API class specific functions
  */
 
-#define SEC_BUILDER
+#define SEC_BUILDER 1
 
 //#include "SecFramework.h"
 #include <strings.h>
 #include <CoreFoundation/CFBundle.h>
 #include <CoreFoundation/CFURLAccess.h>
-#include "SecRandom.h"
-#include "/usr/local/include/CommonCrypto/CommonRandomSPI.h"
+#include "SecRandomP.h"
+#include <CommonCrypto/CommonRandomSPI.h>
 #include <stdlib.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 /* Default random ref for /dev/random. */
 const SecRandomRef kSecRandomDefault = NULL;
@@ -42,7 +41,7 @@ const SecRandomRef kSecRandomDefault = NULL;
 
 int SecRandomCopyBytes(SecRandomRef rnd, size_t count, uint8_t *bytes) {
     if (rnd != kSecRandomDefault)
-        return paramErr;
+        return errSecParam;
     return CCRandomCopyBytes(kCCRandomDefault, bytes, count);
 }
 

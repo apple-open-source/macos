@@ -51,7 +51,7 @@ config_fgets(char *str, size_t len, struct fileptr *ptr)
     /* XXX this is not correct, in that they don't do the same if the
        line is longer than len */
     if(ptr->f != NULL)
-	return fgets(str, len, ptr->f);
+	return fgets(str, (int)len, ptr->f);
     else {
 	/* this is almost strsep_copy */
 	const char *p;
@@ -266,6 +266,24 @@ cfstring2cstring(CFStringRef string)
     return str;
 }
 
+struct array_ctx {
+    krb5_config_section *parent;
+    char *key;
+};
+
+static void
+convert_array(const void *value, void *context)
+{
+    struct array_ctx *ctx = context;
+    krb5_config_section *tmp;
+
+    if (CFGetTypeID(value) == CFStringGetTypeID()) {
+	tmp = _krb5_config_get_entry(&ctx->parent, ctx->key, krb5_config_string);
+	tmp->u.string = cfstring2cstring(value);
+    }
+}
+
+
 static void
 convert_content(const void *key, const void *value, void *context)
 {
@@ -285,6 +303,12 @@ convert_content(const void *key, const void *value, void *context)
     } else if (CFGetTypeID(value) == CFDictionaryGetTypeID()) {
 	tmp = _krb5_config_get_entry(parent, k, krb5_config_list);
 	CFDictionaryApplyFunction(value, convert_content, &tmp->u.list);
+    } else if (CFGetTypeID(value) == CFArrayGetTypeID()) {
+	struct array_ctx ctx;
+	ctx.parent = *parent;
+	ctx.key = k;
+	CFArrayApplyFunction(value, CFRangeMake(0, CFArrayGetCount(value)),
+			     convert_array, &ctx);
     } else {
 	/* log */
     }
@@ -416,6 +440,9 @@ krb5_config_parse_file_multi (krb5_context context,
 {
     const char *str;
     char *newfname = NULL;
+#ifdef KRB5_USE_PATH_TOKENS
+    char *exp_fname = NULL;
+#endif
     unsigned lineno = 0;
     krb5_error_code ret;
     struct fileptr f;
@@ -426,7 +453,7 @@ krb5_config_parse_file_multi (krb5_context context,
      * enabled by calling krb5_set_home_dir_access().
      */
     if (fname[0] == '~' && fname[1] == '/') {
-#ifndef KRB5_USE_PATH_TOKENS
+#ifndef _WIN32
 	const char *home = NULL;
 #endif
 	if (!krb5_homedir_access(context)) {
@@ -436,7 +463,7 @@ krb5_config_parse_file_multi (krb5_context context,
 	    goto out;
 	}
 
-#ifndef KRB5_USE_PATH_TOKENS
+#ifndef _WIN32
 	if(!issuid())
 	    home = getenv("HOME");
 
@@ -455,7 +482,7 @@ krb5_config_parse_file_multi (krb5_context context,
 	    }
 	    fname = newfname;
 	}
-#else  /* KRB5_USE_PATH_TOKENS */
+#else  /* _WIN32 */
 	if (asprintf(&newfname, "%%{USERCONFIG}%s", &fname[1]) < 0 ||
 	    newfname == NULL)
 	{
@@ -466,6 +493,17 @@ krb5_config_parse_file_multi (krb5_context context,
 	fname = newfname;
 #endif
     }
+
+#ifdef KRB5_USE_PATH_TOKENS
+    ret = _krb5_expand_path_tokens(context, fname, &exp_fname);
+    if (ret)
+	goto out;
+    
+    if (ret)
+	goto out;
+
+    fname = exp_fname;
+#endif
 
     if (is_plist_file(fname)) {
 #ifdef __APPLE__
@@ -482,24 +520,6 @@ krb5_config_parse_file_multi (krb5_context context,
 	goto out;
 #endif
     } else {
-#ifdef KRB5_USE_PATH_TOKENS
-	char * exp_fname = NULL;
-
-	ret = _krb5_expand_path_tokens(context, fname, &exp_fname);
-	if (ret)
-	    goto out;
-	
-	if (ret) {
-	    if (newfname)
-		free(newfname);
-	    return ret;
-	}
-
-	if (newfname)
-	    free(newfname);
-	fname = newfname = exp_fname;
-#endif
-
 	f.f = fopen(fname, "r");
 	f.s = NULL;
 	if(f.f == NULL) {
@@ -522,6 +542,10 @@ krb5_config_parse_file_multi (krb5_context context,
  out:
     if (newfname)
 	free(newfname);
+#ifdef KRB5_USE_PATH_TOKENS
+    if (exp_fname)
+	free(exp_fname);
+#endif
     return ret;
 }
 
@@ -1150,10 +1174,10 @@ krb5_config_get_bool (krb5_context context,
  * @ingroup krb5_support
  */
 
-KRB5_LIB_FUNCTION int KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_deltat KRB5_LIB_CALL
 krb5_config_vget_time_default (krb5_context context,
 			       const krb5_config_section *c,
-			       int def_value,
+			       krb5_deltat def_value,
 			       va_list args)
 {
     const char *str;
@@ -1164,7 +1188,7 @@ krb5_config_vget_time_default (krb5_context context,
 	return def_value;
     if (krb5_string_to_deltat(str, &t))
 	return def_value;
-    return t;
+    return (int)t;
 }
 
 /**
@@ -1179,7 +1203,7 @@ krb5_config_vget_time_default (krb5_context context,
  * @ingroup krb5_support
  */
 
-KRB5_LIB_FUNCTION int KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_deltat KRB5_LIB_CALL
 krb5_config_vget_time  (krb5_context context,
 			const krb5_config_section *c,
 			va_list args)
@@ -1201,14 +1225,14 @@ krb5_config_vget_time  (krb5_context context,
  * @ingroup krb5_support
  */
 
-KRB5_LIB_FUNCTION int KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_deltat KRB5_LIB_CALL
 krb5_config_get_time_default (krb5_context context,
 			      const krb5_config_section *c,
-			      int def_value,
+			      krb5_deltat def_value,
 			      ...)
 {
     va_list ap;
-    int ret;
+    krb5_deltat ret;
     va_start(ap, def_value);
     ret = krb5_config_vget_time_default(context, c, def_value, ap);
     va_end(ap);
@@ -1227,13 +1251,13 @@ krb5_config_get_time_default (krb5_context context,
  * @ingroup krb5_support
  */
 
-KRB5_LIB_FUNCTION int KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_deltat KRB5_LIB_CALL
 krb5_config_get_time (krb5_context context,
 		      const krb5_config_section *c,
 		      ...)
 {
     va_list ap;
-    int ret;
+    krb5_deltat ret;
     va_start(ap, c);
     ret = krb5_config_vget_time (context, c, ap);
     va_end(ap);
@@ -1258,7 +1282,7 @@ krb5_config_vget_int_default (krb5_context context,
 	if (endptr == str)
 	    return def_value;
 	else
-	    return l;
+	    return (int)l;
     }
 }
 

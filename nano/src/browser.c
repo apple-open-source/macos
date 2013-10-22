@@ -546,9 +546,9 @@ void browser_init(const char *path, DIR *dir)
     }
 
     /* If width isn't initialized yet, and we've taken up only one line,
-     * it means that width is equal to (COLS % longest). */
+     * it means that width is equal to longest. */
     if (width == 0)
-	width = COLS % longest;
+	width = longest;
 }
 
 /* Determine the shortcut key corresponding to the values of kbinput

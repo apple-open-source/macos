@@ -25,9 +25,9 @@
 #include "TestCustomNamedGetter.h"
 #include "WebDOMString.h"
 #include "WebExceptionHandler.h"
-#include "wtf/text/AtomicString.h"
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/AtomicString.h>
 
 struct WebDOMTestCustomNamedGetter::WebDOMTestCustomNamedGetterPrivate {
     WebDOMTestCustomNamedGetterPrivate(WebCore::TestCustomNamedGetter* object = 0)

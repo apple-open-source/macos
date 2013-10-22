@@ -15,7 +15,6 @@
 #include "llvm/TableGen/Error.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Config/config.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Twine.h"
 #include <cctype>
@@ -23,6 +22,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <cerrno>
+
+#include "llvm/Config/config.h" // for strtoull()/strtoll() define
+
 using namespace llvm;
 
 TGLexer::TGLexer(SourceMgr &SM) : SrcMgr(SM) {
@@ -272,6 +274,7 @@ tgtok::TokKind TGLexer::LexIdentifier() {
     .Case("dag", tgtok::Dag)
     .Case("class", tgtok::Class)
     .Case("def", tgtok::Def)
+    .Case("foreach", tgtok::Foreach)
     .Case("defm", tgtok::Defm)
     .Case("multiclass", tgtok::MultiClass)
     .Case("field", tgtok::Field)

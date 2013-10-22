@@ -47,10 +47,10 @@ OSStatus
 SecKeychainGetVersion(UInt32 *returnVers)
 {
     if (!returnVers)
-		return noErr;
+		return errSecSuccess;
 
 	*returnVers = 0x02028000;
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -92,8 +92,8 @@ SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void *passw
 	Boolean promptUser, SecAccessRef initialAccess, SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
-
-	KCThrowParamErrIf_(!pathName);
+    
+    KCThrowParamErrIf_(!pathName);
 	Keychain keychain = globals().storageManager.make(pathName);
 
 	// @@@ the call to StorageManager::make above leaves keychain the the cache.
@@ -229,7 +229,7 @@ OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Bool
 			globals().storageManager.resetKeychain(resetSearchList);
 
 			// Create the login keychain without UI
-			globals().storageManager.login(userName.length(), userName.c_str(), passwordLength, password);
+			globals().storageManager.login((UInt32)userName.length(), userName.c_str(), passwordLength, password);
 			
 			// Set it as the default
 			Keychain keychain = globals().storageManager.loginKeychain();
@@ -241,6 +241,8 @@ OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Bool
 			// (implicitly calls resetKeychain, login, and defaultKeychain)
 			globals().storageManager.makeLoginAuthUI(NULL);
 		}
+
+        SecurityServer::ClientSession().resetKeyStorePassphrase(password ? CssmData(const_cast<void *>(password), passwordLength) : CssmData());
 
 		// Post a "list changed" event after a reset, so apps can refresh their list.
 		// Make sure we are not holding mLock when we post this event.
@@ -379,7 +381,7 @@ SecKeychainGetPath(SecKeychainRef keychainRef, UInt32 *ioPathLength, char *pathN
 	RequiredParam(ioPathLength);
 
     const char *name = Keychain::optional(keychainRef)->name();
-	UInt32 nameLen = strlen(name);
+	UInt32 nameLen = (UInt32)strlen(name);
 	UInt32 callersLen = *ioPathLength;
 	*ioPathLength = nameLen;
 	if (nameLen+1 > callersLen)  // if the client's buffer is too small (including null-termination), throw
@@ -598,7 +600,7 @@ SecKeychainFindInternetPassword(CFTypeRef keychainOrArray, UInt32 serverNameLeng
 	{
 		CssmDataContainer outData;
 		item->getData(outData);
-		*passwordLength=outData.length();
+		*passwordLength=(UInt32)outData.length();
 		outData.Length=0;
 		*passwordData=outData.data();
 		outData.Data=NULL;
@@ -697,7 +699,7 @@ SecKeychainFindGenericPassword(CFTypeRef keychainOrArray, UInt32 serviceNameLeng
 	{
 		CssmDataContainer outData;
 		item->getData(outData);
-		*passwordLength=outData.length();
+		*passwordLength=(UInt32)outData.length();
 		outData.Length=0;
 		*passwordData=outData.data();
 		outData.Data=NULL;
@@ -765,7 +767,7 @@ SecKeychainCopyAccess(SecKeychainRef keychainRef, SecAccessRef *accessRef)
 {
 	BEGIN_SECAPI
 
-	MacOSError::throwMe(unimpErr);//%%%for now
+	MacOSError::throwMe(errSecUnimplemented);//%%%for now
 
 	END_SECAPI
 }
@@ -776,7 +778,7 @@ SecKeychainSetAccess(SecKeychainRef keychainRef, SecAccessRef accessRef)
 {
 	BEGIN_SECAPI
 
-	MacOSError::throwMe(unimpErr);//%%%for now
+	MacOSError::throwMe(errSecUnimplemented);//%%%for now
 
 	END_SECAPI
 }
@@ -815,7 +817,11 @@ SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, con
 
 	try
 	{
-		globals().storageManager.login(nameLength, name,  passwordLength, password);
+		if (password) {
+            globals().storageManager.login(nameLength, name,  passwordLength, password);
+        } else {
+            globals().storageManager.stashLogin();
+        }
 	}
 	catch (CommonError &e)
 	{
@@ -832,6 +838,28 @@ SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, con
     END_SECAPI
 }
 
+OSStatus SecKeychainStash()
+{
+    BEGIN_SECAPI
+    
+	try
+	{
+		globals().storageManager.stashKeychain();
+	}
+	catch (CommonError &e)
+	{
+		if (e.osStatus() == CSSMERR_DL_OPERATION_AUTH_DENIED)
+		{
+			return errSecAuthFailed;
+		}
+		else
+		{
+			return e.osStatus();
+		}
+	}
+	
+    END_SECAPI
+}
 
 OSStatus
 SecKeychainLogout()
@@ -912,7 +940,7 @@ OSStatus SecKeychainRecodeKeychain(SecKeychainRef keychainRef, CFArrayRef dbBlob
 	size_t space = sizeof(uint8) + (dbBlobArrayCount * sizeof(SecurityServer::DbHandle));
 	void *dataPtr = (void*)malloc(space);
 	if ( !dataPtr )
-		return memFullErr;
+		return errSecAllocate;
 	//
 	// Get a DbHandle(IPCDbHandle) from securityd for each blob in the array that we'll authenticate with.
 	//
@@ -939,7 +967,7 @@ OSStatus SecKeychainRecodeKeychain(SecKeychainRef keychainRef, CFArrayRef dbBlob
 	const CssmData data(const_cast<UInt8 *>((uint8*)dataPtr), space);
 	Boolean recodeFailed = false;
 	
-	int errCode=noErr;
+	int errCode=errSecSuccess;
 	
 	try
     {
@@ -1098,3 +1126,16 @@ OSStatus SecKeychainCleanupHandles()
 	END_SECAPI // which causes the handle cache cleanup routine to run
 }
 
+OSStatus SecKeychainVerifyKeyStorePassphrase(uint32_t retries)
+{
+    BEGIN_SECAPI
+    SecurityServer::ClientSession().verifyKeyStorePassphrase(retries);
+    END_SECAPI
+}
+
+OSStatus SecKeychainChangeKeyStorePassphrase()
+{
+    BEGIN_SECAPI
+    SecurityServer::ClientSession().changeKeyStorePassphrase();
+    END_SECAPI
+}

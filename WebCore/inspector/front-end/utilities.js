@@ -25,10 +25,24 @@
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * Contains diff method based on Javascript Diff Algorithm By John Resig
- * http://ejohn.org/files/jsdiff.js (released under the MIT license).
  */
+
+Object.isEmpty = function(obj)
+{
+    for (var i in obj)
+        return false;
+    return true;
+}
+
+Object.values = function(obj)
+{
+    var keys = Object.keys(obj);
+    var result = [];
+
+    for (var i = 0; i < keys.length; ++i)
+        result.push(obj[keys[i]]);
+    return result;
+}
 
 String.prototype.hasSubstring = function(string, caseInsensitive)
 {
@@ -68,7 +82,7 @@ String.prototype.escapeCharacters = function(chars)
     }
 
     if (!foundChar)
-        return this;
+        return String(this);
 
     var result = "";
     for (var i = 0; i < this.length; ++i) {
@@ -80,9 +94,14 @@ String.prototype.escapeCharacters = function(chars)
     return result;
 }
 
+String.regexSpecialCharacters = function()
+{
+    return "^[]{}()\\.$*+?|-,";
+}
+
 String.prototype.escapeForRegExp = function()
 {
-    return this.escapeCharacters("^[]{}()\\.$*+?|");
+    return this.escapeCharacters(String.regexSpecialCharacters);
 }
 
 String.prototype.escapeHTML = function()
@@ -95,10 +114,10 @@ String.prototype.collapseWhitespace = function()
     return this.replace(/[\s\xA0]+/g, " ");
 }
 
-String.prototype.trimMiddle = function(maxLength)
+String.prototype.centerEllipsizedToLength = function(maxLength)
 {
     if (this.length <= maxLength)
-        return this;
+        return String(this);
     var leftHalf = maxLength >> 1;
     var rightHalf = maxLength - leftHalf - 1;
     return this.substr(0, leftHalf) + "\u2026" + this.substr(this.length - rightHalf, rightHalf);
@@ -107,7 +126,7 @@ String.prototype.trimMiddle = function(maxLength)
 String.prototype.trimEnd = function(maxLength)
 {
     if (this.length <= maxLength)
-        return this;
+        return String(this);
     return this.substr(0, maxLength - 1) + "\u2026";
 }
 
@@ -117,6 +136,33 @@ String.prototype.trimURL = function(baseURLDomain)
     if (baseURLDomain)
         result = result.replace(new RegExp("^" + baseURLDomain.escapeForRegExp(), "i"), "");
     return result;
+}
+
+String.prototype.toTitleCase = function()
+{
+    return this.substring(0, 1).toUpperCase() + this.substring(1);
+}
+
+/**
+ * @param {string} other
+ * @return {number}
+ */
+String.prototype.compareTo = function(other)
+{
+    if (this > other)
+        return 1;
+    if (this < other)
+        return -1;
+    return 0;
+}
+
+/**
+ * @param {string} href
+ * @return {string}
+ */
+function sanitizeHref(href)
+{
+    return href && href.trim().toLowerCase().startsWith("javascript:") ? "" : href;
 }
 
 String.prototype.removeURLFragment = function()
@@ -218,11 +264,31 @@ Object.defineProperty(Array.prototype, "upperBound",
     }
 });
 
+Object.defineProperty(Array.prototype, "rotate",
+{
+    /**
+     * @this {Array.<*>}
+     * @param {number} index
+     * @return {Array.<*>}
+     */
+    value: function(index)
+    {
+        var result = [];
+        for (var i = index; i < index + this.length; ++i)
+            result.push(this[i % this.length]);
+        return result;
+    }
+});
+
+Object.defineProperty(Uint32Array.prototype, "sort", {
+   value: Array.prototype.sort
+});
+
 (function() {
 var partition = {
     /**
      * @this {Array.<number>}
-     * @param {function(number,number):boolean} comparator
+     * @param {function(number,number):number} comparator
      * @param {number} left
      * @param {number} right
      * @param {number} pivotIndex
@@ -255,7 +321,7 @@ Object.defineProperty(Uint32Array.prototype, "partition", partition);
 var sortRange = {
     /**
      * @this {Array.<number>}
-     * @param {function(number,number):boolean} comparator
+     * @param {function(number,number):number} comparator
      * @param {number} leftBound
      * @param {number} rightBound
      * @param {number} k
@@ -273,7 +339,7 @@ var sortRange = {
                 quickSortFirstK(array, comparator, pivotNewIndex + 1, right, k);
         }
 
-        if (leftBound === 0 && rightBound === (this.length - 1) && k === this.length)
+        if (leftBound === 0 && rightBound === (this.length - 1) && k >= this.length)
             this.sort(comparator);
         else
             quickSortFirstK(this, comparator, leftBound, rightBound, k);
@@ -350,6 +416,34 @@ Object.defineProperty(Array.prototype, "binaryIndexOf",
     }
 });
 
+Object.defineProperty(Array.prototype, "select",
+{
+    /**
+     * @this {Array.<*>}
+     * @param {string} field
+     * @return {Array.<*>}
+     */
+    value: function(field)
+    {
+        var result = new Array(this.length);
+        for (var i = 0; i < this.length; ++i)
+            result[i] = this[i][field];
+        return result;
+    }
+});
+
+Object.defineProperty(Array.prototype, "peekLast",
+{
+    /**
+     * @this {Array.<*>}
+     * @return {*}
+     */
+    value: function()
+    {
+        return this[this.length - 1];
+    }
+});
+
 /**
  * @param {*} anObject
  * @param {Array.<*>} aList
@@ -367,57 +461,6 @@ function insertionIndexForObjectInListSortedByFunction(anObject, aList, aFunctio
             index--;
         return index;
     }
-}
-
-Array.diff = function(left, right)
-{
-    var o = left;
-    var n = right;
-
-    var ns = {};
-    var os = {};
-
-    for (var i = 0; i < n.length; i++) {
-        if (ns[n[i]] == null)
-            ns[n[i]] = { rows: [], o: null };
-        ns[n[i]].rows.push(i);
-    }
-
-    for (var i = 0; i < o.length; i++) {
-        if (os[o[i]] == null)
-            os[o[i]] = { rows: [], n: null };
-        os[o[i]].rows.push(i);
-    }
-
-    for (var i in ns) {
-        if (ns[i].rows.length == 1 && typeof(os[i]) != "undefined" && os[i].rows.length == 1) {
-            n[ns[i].rows[0]] = { text: n[ns[i].rows[0]], row: os[i].rows[0] };
-            o[os[i].rows[0]] = { text: o[os[i].rows[0]], row: ns[i].rows[0] };
-        }
-    }
-
-    for (var i = 0; i < n.length - 1; i++) {
-        if (n[i].text != null && n[i + 1].text == null && n[i].row + 1 < o.length && o[n[i].row + 1].text == null && n[i + 1] == o[n[i].row + 1]) {
-            n[i + 1] = { text: n[i + 1], row: n[i].row + 1 };
-            o[n[i].row + 1] = { text: o[n[i].row + 1], row: i + 1 };
-        }
-    }
-
-    for (var i = n.length - 1; i > 0; i--) {
-        if (n[i].text != null && n[i - 1].text == null && n[i].row > 0 && o[n[i].row - 1].text == null &&
-            n[i - 1] == o[n[i].row - 1]) {
-            n[i - 1] = { text: n[i - 1], row: n[i].row - 1 };
-            o[n[i].row - 1] = { text: o[n[i].row - 1], row: i - 1 };
-        }
-    }
-
-    return { left: o, right: n };
-}
-
-Array.convert = function(list)
-{
-    // Cast array-like object to an array.
-    return Array.prototype.slice.call(list);
 }
 
 /**
@@ -617,12 +660,12 @@ function createSearchRegex(query, caseSensitive, isRegex)
 /**
  * @param {string} query
  * @param {string=} flags
- * @return {RegExp}
+ * @return {!RegExp}
  */
 function createPlainTextSearchRegex(query, flags)
 {
     // This should be kept the same as the one in ContentSearchUtils.cpp.
-    var regexSpecialCharacters = "[](){}+-*.,?\\^$|";
+    var regexSpecialCharacters = String.regexSpecialCharacters();
     var regex = "";
     for (var i = 0; i < query.length; ++i) {
         var c = query.charAt(i);
@@ -665,43 +708,87 @@ function numberToStringWithSpacesPadding(value, symbolsCount)
 }
 
 /**
- * @constructor
- */
-function TextDiff()
+  * @return {string}
+  */
+var createObjectIdentifier = function()
 {
-    this.added = [];
-    this.removed = [];
-    this.changed = [];
-} 
+    // It has to be string for better performance.
+    return '_' + ++createObjectIdentifier._last;
+}
+
+createObjectIdentifier._last = 0;
 
 /**
- * @param {string} baseContent
- * @param {string} newContent
- * @return {TextDiff}
+ * @constructor
  */
-TextDiff.compute = function(baseContent, newContent)
+var Set = function()
 {
-    var oldLines = baseContent.split(/\r?\n/);
-    var newLines = newContent.split(/\r?\n/);
+    /** @type !Object.<string, Object> */
+    this._set = {};
+    this._size = 0;
+}
 
-    var diff = Array.diff(oldLines, newLines);
+Set.prototype = {
+    /**
+     * @param {!Object} item
+     */
+    add: function(item)
+    {
+        var objectIdentifier = item.__identifier;
+        if (!objectIdentifier) {
+            objectIdentifier = createObjectIdentifier();
+            item.__identifier = objectIdentifier;
+        }
+        if (!this._set[objectIdentifier])
+            ++this._size;
+        this._set[objectIdentifier] = item;
+    },
+    
+    /**
+     * @param {!Object} item
+     */
+    remove: function(item)
+    {
+        if (this._set[item.__identifier]) {
+            --this._size;
+            delete this._set[item.__identifier];
+        }
+    },
 
-    var diffData = new TextDiff();
+    /**
+     * @return {!Array.<Object>}
+     */
+    items: function()
+    {
+        var result = new Array(this._size);
+        var i = 0;
+        for (var objectIdentifier in this._set)
+            result[i++] = this._set[objectIdentifier];
+        return result;
+    },
 
-    var offset = 0;
-    var right = diff.right;
-    for (var i = 0; i < right.length; ++i) {
-        if (typeof right[i] === "string") {
-            if (right.length > i + 1 && right[i + 1].row === i + 1 - offset)
-                diffData.changed.push(i);
-            else {
-                diffData.added.push(i);
-                offset++;
-            }
-        } else
-            offset = i - right[i].row;
+    /**
+     * @param {!Object} item
+     * @return {?Object}
+     */
+    hasItem: function(item)
+    {
+        return this._set[item.__identifier];
+    },
+
+    /**
+     * @return {number}
+     */
+    size: function()
+    {
+        return this._size;
+    },
+
+    clear: function()
+    {
+        this._set = {};
+        this._size = 0;
     }
-    return diffData;
 }
 
 /**
@@ -710,53 +797,211 @@ TextDiff.compute = function(baseContent, newContent)
 var Map = function()
 {
     this._map = {};
+    this._size = 0;
 }
-
-Map._lastObjectIdentifier = 0;
 
 Map.prototype = {
     /**
      * @param {Object} key
+     * @param {*=} value
      */
     put: function(key, value)
     {
         var objectIdentifier = key.__identifier;
         if (!objectIdentifier) {
-            objectIdentifier = ++Map._lastObjectIdentifier;
+            objectIdentifier = createObjectIdentifier();
             key.__identifier = objectIdentifier;
         }
-        this._map[objectIdentifier] = value;
+        if (!this._map[objectIdentifier])
+            ++this._size;
+        this._map[objectIdentifier] = [key, value];
     },
     
     /**
      * @param {Object} key
-     * @return {Object} value
      */
     remove: function(key)
     {
         var result = this._map[key.__identifier];
+        if (!result)
+            return undefined;
+        --this._size;
         delete this._map[key.__identifier];
-        return result;
+        return result[1];
     },
-    
+
+    /**
+     * @return {Array.<Object>}
+     */
+    keys: function()
+    {
+        return this._list(0);
+    },
+
     values: function()
     {
-        var result = [];
+        return this._list(1);
+    },
+
+    /**
+     * @param {number} index
+     */
+    _list: function(index)
+    {
+        var result = new Array(this._size);
+        var i = 0;
         for (var objectIdentifier in this._map)
-            result.push(this._map[objectIdentifier]);
+            result[i++] = this._map[objectIdentifier][index];
         return result;
     },
-    
+
     /**
      * @param {Object} key
      */
     get: function(key)
     {
-        return this._map[key.__identifier];
+        var entry = this._map[key.__identifier];
+        return entry ? entry[1] : undefined;
     },
-    
+
+    /**
+     * @param {Object} key
+     */
+    contains: function(key)
+    {
+        var entry = this._map[key.__identifier];
+        return !!entry;
+    },
+
+    size: function()
+    {
+        return this._size;
+    },
+
     clear: function()
     {
         this._map = {};
+        this._size = 0;
     }
 }
+/**
+ * @param {string} url
+ * @param {boolean=} async
+ * @param {function(?string)=} callback
+ * @return {?string}
+ */
+function loadXHR(url, async, callback) 
+{
+    function onReadyStateChanged() 
+    {
+        if (xhr.readyState !== XMLHttpRequest.DONE)
+            return;
+
+        if (xhr.status === 200) {
+            callback(xhr.responseText);
+            return;
+        }
+
+        callback(null); 
+   }
+
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", url, async);
+    if (async)
+        xhr.onreadystatechange = onReadyStateChanged;        
+    xhr.send(null);
+
+    if (!async) {
+        if (xhr.status === 200) 
+            return xhr.responseText;
+        return null;
+    }
+    return null;
+}
+
+/**
+ * @constructor
+ */
+function StringPool()
+{
+    this.reset();
+}
+
+StringPool.prototype = {
+    /**
+     * @param {string} string
+     * @return {string}
+     */
+    intern: function(string)
+    {
+        // Do not mess with setting __proto__ to anything but null, just handle it explicitly.
+        if (string === "__proto__")
+            return "__proto__";
+        var result = this._strings[string];
+        if (result === undefined) {
+            this._strings[string] = string;
+            result = string;
+        }
+        return result;
+    },
+
+    reset: function()
+    {
+        this._strings = Object.create(null);
+    },
+
+    /**
+     * @param {Object} obj
+     * @param {number=} depthLimit
+     */
+    internObjectStrings: function(obj, depthLimit)
+    {
+        if (typeof depthLimit !== "number")
+            depthLimit = 100;
+        else if (--depthLimit < 0)
+            throw "recursion depth limit reached in StringPool.deepIntern(), perhaps attempting to traverse cyclical references?";
+
+        for (var field in obj) {
+            switch (typeof obj[field]) {
+            case "string":
+                obj[field] = this.intern(obj[field]);
+                break;
+            case "object":
+                this.internObjectStrings(obj[field], depthLimit);
+                break;
+            }
+        }
+    }
+}
+
+var _importedScripts = {};
+
+/**
+ * This function behavior depends on the "debug_devtools" flag value.
+ * - In debug mode it loads scripts synchronously via xhr request.
+ * - In release mode every occurrence of "importScript" in the js files
+ *   that have been white listed in the build system gets replaced with
+ *   the script source code on the compilation phase.
+ *   The build system will throw an exception if it found importScript call
+ *   in other files.
+ *
+ * To load scripts lazily in release mode call "loadScript" function.
+ * @param {string} scriptName
+ */
+function importScript(scriptName)
+{
+    if (_importedScripts[scriptName])
+        return;
+    var xhr = new XMLHttpRequest();
+    _importedScripts[scriptName] = true;
+    if (window.flattenImports)
+        scriptName = scriptName.split("/").reverse()[0];
+    xhr.open("GET", scriptName, false);
+    xhr.send(null);
+    if (!xhr.responseText)
+        throw "empty response arrived for script '" + scriptName + "'";
+    var sourceURL = WebInspector.ParsedURL.completeURL(window.location.href, scriptName); 
+    window.eval(xhr.responseText + "\n//@ sourceURL=" + sourceURL);
+}
+
+var loadScript = importScript;

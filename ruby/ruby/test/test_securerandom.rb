@@ -10,6 +10,7 @@ class TestSecureRandom < Test::Unit::TestCase
 
   def test_s_random_bytes
     assert_equal(16, @it.random_bytes.size)
+    assert_equal(Encoding::ASCII_8BIT, @it.random_bytes.encoding)
     65.times do |idx|
       assert_equal(idx, @it.random_bytes(idx).size)
     end
@@ -86,7 +87,13 @@ end
           f << 'raise LoadError'
         }
         $LOAD_PATH.unshift(dir)
-        require 'securerandom'
+        v = $VERBOSE
+        begin
+          $VERBOSE = false
+          require 'securerandom'
+        ensure
+          $VERBOSE = v
+        end
         test_s_random_bytes
       end
     ensure
@@ -104,6 +111,10 @@ end
     end
   end
 
+  def test_hex_encoding
+    assert_equal(Encoding::US_ASCII, @it.hex.encoding)
+  end
+
   def test_s_base64
     assert_equal(16, @it.base64.unpack('m*')[0].size)
     17.times do |idx|
@@ -111,7 +122,6 @@ end
     end
   end
 
-if false # not in 1.8.7
   def test_s_urlsafe_base64
     safe = /[\n+\/]/
     65.times do |idx|
@@ -123,7 +133,6 @@ if false # not in 1.8.7
     end
     flunk
   end
-end
 
   def test_s_random_number_float
     101.times do
@@ -147,7 +156,6 @@ end
     end
   end
 
-if false # not in 1.8.7
   def test_uuid
     uuid = @it.uuid
     assert_equal(36, uuid.size)
@@ -155,7 +163,6 @@ if false # not in 1.8.7
       assert_match(/^[0-9a-f]+$/, e)
     end
   end
-end
 
   def protect
     begin

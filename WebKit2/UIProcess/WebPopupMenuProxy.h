@@ -55,20 +55,26 @@ public:
         virtual NativeWebMouseEvent* currentlyProcessedMouseDownEvent() = 0;
 #if PLATFORM(GTK)
         virtual void failedToShowPopupMenu() = 0;
-#endif        
+#endif
+#if PLATFORM(QT)
+        virtual void changeSelectedIndex(int32_t newSelectedIndex) = 0;
+        virtual void closePopupMenu() = 0;
+#endif
     };
 
     virtual ~WebPopupMenuProxy()
     {
     }
 
+#if !PLATFORM(EFL)
     virtual void showPopupMenu(const WebCore::IntRect& rect, WebCore::TextDirection, double pageScaleFactor, const Vector<WebPopupItem>& items, const PlatformPopupMenuData&, int32_t selectedIndex) = 0;
     virtual void hidePopupMenu() = 0;
+#endif
 
     void invalidate() { m_client = 0; }
 
 protected:
-    WebPopupMenuProxy(Client* client)
+    explicit WebPopupMenuProxy(Client* client)
         : m_client(client)
     {
     }

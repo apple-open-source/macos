@@ -14,19 +14,20 @@
 #ifndef MIPS_MACHINE_FUNCTION_INFO_H
 #define MIPS_MACHINE_FUNCTION_INFO_H
 
-#include <utility>
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/VectorExtras.h"
+#include "MipsSubtarget.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/Target/TargetFrameLowering.h"
+#include "llvm/Target/TargetMachine.h"
+#include <utility>
 
 namespace llvm {
 
 /// MipsFunctionInfo - This class is derived from MachineFunction private
 /// Mips target-specific information for each MachineFunction.
 class MipsFunctionInfo : public MachineFunctionInfo {
+  virtual void anchor();
 
-private:
   MachineFunction& MF;
   /// SRetReturnReg - Some subtargets require that sret lowering includes
   /// returning the value of the returned struct in a register. This field
@@ -44,23 +45,16 @@ private:
   // Range of frame object indices.
   // InArgFIRange: Range of indices of all frame objects created during call to
   //               LowerFormalArguments.
-  // OutArgFIRange: Range of indices of all frame objects created during call to
-  //                LowerCall except for the frame object for restoring $gp. 
-  std::pair<int, int> InArgFIRange, OutArgFIRange;
-  int GPFI; // Index of the frame object for restoring $gp 
-  mutable int DynAllocFI; // Frame index of dynamically allocated stack area.   
+  std::pair<int, int> InArgFIRange;
   unsigned MaxCallFrameSize;
 
-  // Size of area on callee's stack frame which is used to save va_arg or 
-  // byval arguments passed in registers.
-  unsigned RegSaveAreaSize;
+  bool EmitNOAT;
 
 public:
   MipsFunctionInfo(MachineFunction& MF)
   : MF(MF), SRetReturnReg(0), GlobalBaseReg(0),
     VarArgsFrameIndex(0), InArgFIRange(std::make_pair(-1, 0)),
-    OutArgFIRange(std::make_pair(-1, 0)), GPFI(0), DynAllocFI(0),
-    MaxCallFrameSize(0), RegSaveAreaSize(0)
+    MaxCallFrameSize(0), EmitNOAT(false)
   {}
 
   bool isInArgFI(int FI) const {
@@ -68,36 +62,11 @@ public:
   }
   void setLastInArgFI(int FI) { InArgFIRange.second = FI; }
 
-  bool isOutArgFI(int FI) const { 
-    return FI <= OutArgFIRange.first && FI >= OutArgFIRange.second;
-  }
-  void extendOutArgFIRange(int FirstFI, int LastFI) {
-    if (!OutArgFIRange.second)
-      // this must be the first time this function was called.
-      OutArgFIRange.first = FirstFI;
-    OutArgFIRange.second = LastFI;
-  }
-
-  int getGPFI() const { return GPFI; }
-  void setGPFI(int FI) { GPFI = FI; }
-  bool needGPSaveRestore() const { return getGPFI(); }
-  bool isGPFI(int FI) const { return GPFI && GPFI == FI; }
-
-  // The first call to this function creates a frame object for dynamically
-  // allocated stack area.
-  int getDynAllocFI() const {
-    if (!DynAllocFI)
-      DynAllocFI = MF.getFrameInfo()->CreateFixedObject(4, 0, true);
-
-    return DynAllocFI;
-  }
-  bool isDynAllocFI(int FI) const { return DynAllocFI && DynAllocFI == FI; }
-
   unsigned getSRetReturnReg() const { return SRetReturnReg; }
   void setSRetReturnReg(unsigned Reg) { SRetReturnReg = Reg; }
 
-  unsigned getGlobalBaseReg() const { return GlobalBaseReg; }
-  void setGlobalBaseReg(unsigned Reg) { GlobalBaseReg = Reg; }
+  bool globalBaseRegSet() const;
+  unsigned getGlobalBaseReg();
 
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
@@ -105,10 +74,8 @@ public:
   unsigned getMaxCallFrameSize() const { return MaxCallFrameSize; }
   void setMaxCallFrameSize(unsigned S) { MaxCallFrameSize = S; }
 
-  unsigned getRegSaveAreaSize() const { return RegSaveAreaSize; }
-  void setRegSaveAreaSize(unsigned S) {
-    if (RegSaveAreaSize < S) RegSaveAreaSize = S;
-  }
+  bool getEmitNOAT() const { return EmitNOAT; }
+  void setEmitNOAT() { EmitNOAT = true; }
 };
 
 } // end of namespace llvm

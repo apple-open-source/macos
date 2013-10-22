@@ -242,7 +242,7 @@ DLDbListCFPref::loadPropertyList(bool force)
 		void *buffer = reinterpret_cast<void *>(CFDataGetMutableBytePtr(xmlData));
 		if (!buffer)
 			break;
-		ssize_t bytesRead = read(fd, buffer, theSize);
+		ssize_t bytesRead = read(fd, buffer, (size_t)theSize);
 		if (bytesRead != theSize)
 			break;
 
@@ -678,6 +678,11 @@ static void check_app_sandbox()
 			if (status) {
 				syslog(LOG_ERR, "Keychain sandbox consume extension error: s=%d p=%s %m\n", status, path);
 			}
+            status = sandbox_release_fs_extension(xpc_string_get_string_ptr(extension));
+            if (status) {
+				syslog(LOG_ERR, "Keychain sandbox release extension error: s=%d p=%s %m\n", status, path);
+			}
+
 			return (bool)true;
 		});
 		
@@ -702,7 +707,7 @@ string DLDbListCFPref::ExpandTildesInPath(const string &inPath)
 	});
 	
 	if ((short)inPath.find("~/",0,2) == 0)
-        return getPwInfo(kHomeDir) + inPath.substr(1);
+        return getPwInfo(kHomeDir) + inPath.substr(1, inPath.length() - 1);
     else
         return inPath;
 }

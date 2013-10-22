@@ -54,6 +54,9 @@ kcm_ccache_find_cred_uuid (
 char *
 kcm_ccache_first_name (kcm_client */*client*/);
 
+const char *
+kcm_client_get_execpath(kcm_client *client);
+
 krb5_error_code
 kcm_ccache_get_uuids (
 	krb5_context /*context*/,

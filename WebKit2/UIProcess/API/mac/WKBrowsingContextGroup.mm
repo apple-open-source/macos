@@ -25,12 +25,16 @@
 
 #import "config.h"
 #import "WKBrowsingContextGroup.h"
-#import "WKBrowsingContextGroupInternal.h"
+#import "WKBrowsingContextGroupPrivate.h"
 
+#import "WKArray.h"
 #import "WKPageGroup.h"
 #import "WKPreferences.h"
 #import "WKRetainPtr.h"
 #import "WKStringCF.h"
+#import "WKURL.h"
+#import "WKURLCF.h"
+#import <wtf/Vector.h>
 
 @interface WKBrowsingContextGroupData : NSObject {
 @public
@@ -52,6 +56,12 @@
     _data = [[WKBrowsingContextGroupData alloc] init];
     _data->_pageGroupRef = adoptWK(WKPageGroupCreateWithIdentifier(adoptWK(WKStringCreateWithCFString((CFStringRef)identifier)).get()));
 
+    // Give the WKBrowsingContextGroup a identifier-less preferences, so that they
+    // don't get automatically written to the disk. The automatic writing has proven
+    // confusing to users of the API.
+    WKRetainPtr<WKPreferencesRef> preferences = adoptWK(WKPreferencesCreate());
+    WKPageGroupSetPreferences(_data->_pageGroupRef.get(), preferences.get());
+
     return self;
 }
 
@@ -71,6 +81,16 @@
     WKPreferencesSetJavaScriptEnabled(WKPageGroupGetPreferences(self._pageGroupRef), allowsJavaScript);
 }
 
+- (BOOL)allowsJavaScriptMarkup
+{
+    return WKPreferencesGetJavaScriptMarkupEnabled(WKPageGroupGetPreferences(self._pageGroupRef));
+}
+
+- (void)setAllowsJavaScriptMarkup:(BOOL)allowsJavaScriptMarkup
+{
+    WKPreferencesSetJavaScriptMarkupEnabled(WKPageGroupGetPreferences(self._pageGroupRef), allowsJavaScriptMarkup);
+}
+
 - (BOOL)allowsPlugIns
 {
     return WKPreferencesGetPluginsEnabled(WKPageGroupGetPreferences(self._pageGroupRef));
@@ -81,9 +101,65 @@
     WKPreferencesSetPluginsEnabled(WKPageGroupGetPreferences(self._pageGroupRef), allowsPlugIns);
 }
 
+static WKArrayRef createWKArray(NSArray *array)
+{
+    NSUInteger count = [array count];
+    if (count == 0)
+        return WKArrayRef();
+
+    Vector<WKTypeRef> stringVector;
+    stringVector.reserveInitialCapacity(count);
+    for (NSUInteger i = 0; i < count; ++i) {
+        id entry = [array objectAtIndex:i];
+        if ([entry isKindOfClass:[NSString class]])
+            stringVector.uncheckedAppend(WKStringCreateWithCFString((CFStringRef)entry));
+            
+    }
+
+    return WKArrayCreateAdoptingValues(stringVector.data(), stringVector.size());
+}
+
+-(void)addUserStyleSheet:(NSString *)source baseURL:(NSURL *)baseURL whitelistedURLPatterns:(NSArray *)whitelist blacklistedURLPatterns:(NSArray *)blacklist mainFrameOnly:(BOOL)mainFrameOnly
+{
+    if (!source)
+        CRASH();
+
+    WKRetainPtr<WKStringRef> wkSource = adoptWK(WKStringCreateWithCFString((CFStringRef)source));
+    WKRetainPtr<WKURLRef> wkBaseURL = adoptWK(WKURLCreateWithCFURL((CFURLRef)baseURL));
+    WKRetainPtr<WKArrayRef> wkWhitelist = adoptWK(createWKArray(whitelist));
+    WKRetainPtr<WKArrayRef> wkBlacklist = adoptWK(createWKArray(blacklist));
+    WKUserContentInjectedFrames injectedFrames = mainFrameOnly ? kWKInjectInTopFrameOnly : kWKInjectInAllFrames;
+
+    WKPageGroupAddUserStyleSheet(self._pageGroupRef, wkSource.get(), wkBaseURL.get(), wkWhitelist.get(), wkBlacklist.get(), injectedFrames);
+}
+
+- (void)removeAllUserStyleSheets
+{
+    WKPageGroupRemoveAllUserStyleSheets(self._pageGroupRef);
+}
+
+- (void)addUserScript:(NSString *)source baseURL:(NSURL *)baseURL whitelistedURLPatterns:(NSArray *)whitelist blacklistedURLPatterns:(NSArray *)blacklist injectionTime:(WKUserScriptInjectionTime)injectionTime mainFrameOnly:(BOOL)mainFrameOnly
+{
+    if (!source)
+        CRASH();
+
+    WKRetainPtr<WKStringRef> wkSource = adoptWK(WKStringCreateWithCFString((CFStringRef)source));
+    WKRetainPtr<WKURLRef> wkBaseURL = adoptWK(WKURLCreateWithCFURL((CFURLRef)baseURL));
+    WKRetainPtr<WKArrayRef> wkWhitelist = adoptWK(createWKArray(whitelist));
+    WKRetainPtr<WKArrayRef> wkBlacklist = adoptWK(createWKArray(blacklist));
+    WKUserContentInjectedFrames injectedFrames = mainFrameOnly ? kWKInjectInTopFrameOnly : kWKInjectInAllFrames;
+
+    WKPageGroupAddUserScript(self._pageGroupRef, wkSource.get(), wkBaseURL.get(), wkWhitelist.get(), wkBlacklist.get(), injectedFrames, injectionTime);
+}
+
+- (void)removeAllUserScripts
+{
+    WKPageGroupRemoveAllUserScripts(self._pageGroupRef);
+}
+
 @end
 
-@implementation WKBrowsingContextGroup (Internal)
+@implementation WKBrowsingContextGroup (Private)
 
 - (WKPageGroupRef)_pageGroupRef
 {

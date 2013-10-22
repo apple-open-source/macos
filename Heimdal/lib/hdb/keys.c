@@ -39,7 +39,7 @@
  */
 
 void
-hdb_free_keys(krb5_context context, int len, Key *keys)
+hdb_free_keys(krb5_context context, size_t len, Key *keys)
 {
     size_t i;
 
@@ -332,7 +332,7 @@ hdb_change_kvno(krb5_context context, krb5_kvno new_kvno, hdb_entry *entry)
     HDB_extension *extp;
     hdb_keyset keyset;
     HDB_Ext_KeySet *hist_keys;
-    size_t i;
+    unsigned int i;
     int found = 0;
     krb5_error_code ret;
 

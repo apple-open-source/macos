@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,6 +100,7 @@ typedef struct {
 
 	/* authorization, helper */
 	CFDataRef		authorizationData;
+	Boolean			authorizationRequired;
 	mach_port_t		helper_port;
 
 } SCPreferencesPrivate, *SCPreferencesPrivateRef;

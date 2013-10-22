@@ -1,7 +1,7 @@
 
 Archive-Name: unix-faq/shell/zsh
-Last-Modified: 2010/02/15
-Submitted-By: pws@pwstephenson.fsnet.co.uk (Peter Stephenson)
+Last-Modified: 2012/06/15
+Submitted-By: coordinator@zsh.org (Peter Stephenson)
 Posting-Frequency: Monthly
 Copyright: (C) P.W. Stephenson, 1995--2010 (see end of document)
 
@@ -231,13 +231,8 @@ Chapter 1: Introducing zsh and how to install it
 
 1.5: What's the latest version?
 
-  Zsh 4.2.7 is the latest production version.  The latest development
-  version is 4.3.11; this contains support for multibyte character strings
-  (such as UTF-8 locales).  All the main features for multibyte
-  support are now in place and this is likely soon to become the
-  stable series 4.4.
-
-  There will not be any further 4.2 releases.
+  Zsh 5.0.2 is the latest production version.  For details of all the
+  changes, see the NEWS file in the source distribution.
 
   A beta of the next version is sometimes available.  Development of zsh is
   patch by patch, with each intermediate version publicly available.  Note
@@ -267,24 +262,18 @@ Chapter 1: Introducing zsh and how to install it
   the shell.  The following list also appears on the WWW at
   http://www.zsh.org/ .
 
-    Home site ftp://ftp.zsh.org/
-              (also http://www.zsh.org/pub/zsh/)
-    Denmark   ftp://mirrors.dotsrc.org/zsh/
-              (also http://mirrors.dotsrc.org/zsh/)
-    Finland   ftp://ftp.funet.fi/pub/unix/shells/zsh/
-    France    ftp://nephtys.lip6.fr/pub/unix/shells/zsh/
-    Germany   ftp://ftp.fu-berlin.de/pub/unix/shells/zsh/
-    Hungary   ftp://ftp.cs.elte.hu/pub/zsh/
-              (also http://www.cs.elte.hu/pub/zsh/)
-              ftp://ftp.kfki.hu/pub/packages/zsh/
-    Israel    ftp://ftp.math.technion.ac.il/pub/zsh/
-              (also http://www.math.technion.ac.il/pub/zsh/)
-    Netherlands ftp://ftp.demon.nl/pub/mirrors/zsh/
-    Poland    ftp://sunsite.icm.edu.pl/pub/unix/shells/zsh/
-    Romania   ftp://ftp.kappa.ro/pub/mirrors/ftp.zsh.org/pub/zsh/
-    Sweden    ftp://ftp.lysator.liu.se/pub/unix/zsh/
-    UK        ftp://sunsite.org.uk/packages/zsh/
-    USA       http://zsh.open-mirror.com/
+Primary site: 
+ftp://ftp.zsh.org/pub/
+http://www.zsh.org/pub/
+
+Australia: 
+ftp://ftp.zsh.org/pub/
+http://www.zsh.org/pub/
+http://mirror.dejanseo.com.au/pub/zsh/
+
+Hungary: 
+ftp://ftp.cs.elte.hu/pub/zsh/
+http://www.cs.elte.hu/pub/zsh/
 
   A Windows port was created by Amol Deshpandem based on 3.0.5 (which
   is now rather old).  This has now been restored and can be found at
@@ -645,7 +634,7 @@ your shell' posted frequently to the USENET group comp.unix.shell.
      appear inside the { } the way they get appended to an alias.
 
   3) If the csh alias references its own name (alias rm "rm -i"),
-     then in a zsh function you need the "command" keyword
+     then in a zsh function you need the "command" or "builtin" keyword
      (function rm() { command rm -i "$@" }), but in a zsh alias
      you don't (alias rm="rm -i").
 
@@ -2136,8 +2125,9 @@ Wischnowsky).
 Copyright Information:
 
 This document is copyright (C) P.W. Stephenson, 1995, 1996, 1997,
-1998, 1999, 2000. This text originates in the U.K. and the author asserts
-his moral rights under the Copyrights, Designs and Patents Act, 1988.
+1998, 1999, 2000, 2012. This text originates in the U.K. and the author
+asserts his moral rights under the Copyrights, Designs and Patents Act,
+1988.
 
 Permission is hereby granted, without written agreement and without
 license or royalty fees, to use, copy, modify, and distribute this

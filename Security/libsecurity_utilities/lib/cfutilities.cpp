@@ -48,12 +48,22 @@ CFEmptyArray::CFEmptyArray()
 //
 CFURLRef makeCFURL(const char *s, bool isDirectory, CFURLRef base)
 {
+    CFStringRef ss = CFStringCreateWithCStringNoCopy(NULL, s, kCFStringEncodingUTF8, kCFAllocatorNull);
+    CFURLRef returnValue = NULL;
+
 	if (base)
-		return CFURLCreateWithFileSystemPathRelativeToBase(NULL,
-			CFTempString(s), kCFURLPOSIXPathStyle, isDirectory, base);
+    {
+		returnValue = CFURLCreateWithFileSystemPathRelativeToBase(NULL,
+			ss, kCFURLPOSIXPathStyle, isDirectory, base);
+    }
 	else
-		return CFURLCreateWithFileSystemPath(NULL,
-			CFTempString(s), kCFURLPOSIXPathStyle, isDirectory);
+    {
+		returnValue = CFURLCreateWithFileSystemPath(NULL,
+			ss, kCFURLPOSIXPathStyle, isDirectory);
+    }
+    
+    CFRelease(ss);
+    return returnValue;
 }
 
 CFURLRef makeCFURL(CFStringRef s, bool isDirectory, CFURLRef base)

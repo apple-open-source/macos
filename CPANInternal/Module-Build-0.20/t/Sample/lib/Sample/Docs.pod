@@ -1,9 +1,0 @@
-=head1 NAME
-
-Sample::Docs - Additional sample docs for manifypods action
-
-=head1 AUTHOR
-
-Sample Man <sample@example.com>
-
-=cut

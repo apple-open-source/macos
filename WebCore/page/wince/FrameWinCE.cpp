@@ -29,6 +29,7 @@
 
 #include "Document.h"
 #include "FloatRect.h"
+#include "FrameSelection.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLIFrameElement.h"
@@ -59,15 +60,10 @@ void computePageRectsForFrame(Frame* frame, const IntRect& printRect, float head
     pages.clear();
     outPageHeight = 0;
 
-    if (!frame->document() || !frame->view() || !frame->document()->renderer())
+    if (!frame->document() || !frame->view() || !frame->document()->renderView())
         return;
 
-    RenderView* root = toRenderView(frame->document()->renderer());
-
-    if (!root) {
-        LOG_ERROR("document to be printed has no renderer");
-        return;
-    }
+    RenderView* root = frame->document()->renderView();
 
     if (userScaleFactor <= 0) {
         LOG_ERROR("userScaleFactor has bad value %.2f", userScaleFactor);
@@ -76,7 +72,7 @@ void computePageRectsForFrame(Frame* frame, const IntRect& printRect, float head
 
     float ratio = (float)printRect.height() / (float)printRect.width();
 
-    float pageWidth  = (float) root->maxXLayoutOverflow();
+    float pageWidth  = (float) root->layoutOverflowRect().maxX();
     float pageHeight = pageWidth * ratio;
     outPageHeight = (int) pageHeight;   // this is the height of the page adjusted by margins
     pageHeight -= (headerHeight + footerHeight);

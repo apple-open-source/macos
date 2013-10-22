@@ -131,6 +131,8 @@ p.roffit {
 <p class="level0">&nbsp;Required actions unknown. 
 <p class="level0">axTLS 
 <p class="level0">&nbsp;Required actions unknown. 
+<p class="level0">Secure Transport 
+<p class="level0">&nbsp;The engine is fully thread-safe, and no additional steps are required. 
 <p class="level0">When using multiple threads you should set the CURLOPT_NOSIGNAL option to 1 for all handles. Everything will or might work fine except that timeouts are not honored during the DNS lookup - which you can work around by building libcurl with c-ares support. c-ares is a library that provides asynchronous name resolves. On some platforms, libcurl simply will not function properly multi-threaded unless this option is set. 
 <p class="level0">Also, note that CURLOPT_DNS_USE_GLOBAL_CACHE is not thread-safe. 
 <p class="level0"><a name="When"></a><h2 class="nroffsh">When It Doesn't Work</h2>

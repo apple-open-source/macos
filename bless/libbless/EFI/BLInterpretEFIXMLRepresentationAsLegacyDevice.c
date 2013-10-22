@@ -41,11 +41,12 @@
 #include "bless_private.h"
 
 static int findMatch(BLContextPtr context, CFStringRef legacyType,
-						 CFStringRef xmlString, char *bsdName);
+						 CFStringRef xmlString, char *bsdName, int bsdNameLen);
 
 int BLInterpretEFIXMLRepresentationAsLegacyDevice(BLContextPtr context,
                                             CFStringRef xmlString,
-                                            char *bsdName)
+                                            char *bsdName,
+                                            int bsdNameLen)
 {
 	CFArrayRef  efiArray = NULL;
     CFIndex     count, i;
@@ -117,7 +118,7 @@ int BLInterpretEFIXMLRepresentationAsLegacyDevice(BLContextPtr context,
 		contextprintf(context, kBLLogLevelVerbose, "Boot option is a legacy device\n");		
 	}
     
-	ret = findMatch(context, legacyType, xmlString, bsdName);
+	ret = findMatch(context, legacyType, xmlString, bsdName, bsdNameLen);
 	if(ret) {
 		contextprintf(context, kBLLogLevelVerbose, "Could not find device for legacy type\n");		
 		return 5;
@@ -130,7 +131,7 @@ int BLInterpretEFIXMLRepresentationAsLegacyDevice(BLContextPtr context,
 
 
 static int findMatch(BLContextPtr context, CFStringRef legacyType,
-						 CFStringRef xmlString, char *bsdName)
+						 CFStringRef xmlString, char *bsdName, int bsdNameLen)
 {
 	char			legacyCStr[256];
 	int				numfs, i;
@@ -191,7 +192,7 @@ static int findMatch(BLContextPtr context, CFStringRef legacyType,
 			if(0 == strcmp("ntfs", sb->f_fstypename)
 			   || 0 == strcmp("msdos", sb->f_fstypename)) {
 				
-				strcpy(bsdName, sb->f_mntfromname + 5);
+				strlcpy(bsdName, sb->f_mntfromname + 5, bsdNameLen);
 				CFRelease(newXML);
 				foundMatch = true;
 				break;
@@ -199,7 +200,7 @@ static int findMatch(BLContextPtr context, CFStringRef legacyType,
 			
 			if(!foundMatch) {
 				// we don't have anything else, so go for it
-				strcpy(bsdName, sb->f_mntfromname + 5);				
+				strlcpy(bsdName, sb->f_mntfromname + 5, bsdNameLen);
 				foundMatch = true;
 			} else {
 				// no better than existing match

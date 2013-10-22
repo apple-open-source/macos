@@ -35,6 +35,8 @@
 #include <libgen.h>
 #include <bsm/libbsm.h>
 #include <servers/bootstrap.h>  // bootstrap mach ports
+#include <sandbox.h>
+#include <esp.h>
 
 #include <IOKit/kext/kextmanager_types.h>
 #include <IOKit/kext/OSKext.h>
@@ -393,7 +395,7 @@ bool kextd_process_kernel_requests(void)
     if (prelinkedKernelRequested) {
         Boolean       readOnlyFS = FALSE;
         struct statfs statfsBuffer;
-        
+
        /* If the statfs() fails we will forge ahead and try kextcache.
         * Only if we know for sure it's read-only do we skip.
         */
@@ -454,7 +456,6 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
 
     CFArrayRef      loadList        = NULL;  // must release
     CFStringRef     kextIdentifier  = NULL;  // do not release
-    CFStringRef     kextPath        = NULL;  // must release
     char          * kext_id         = NULL;  // must free
     char            crashInfo[sizeof(CRASH_INFO_KERNEL_KEXT_LOAD) + KMOD_MAX_NAME + PATH_MAX];
 
@@ -508,6 +509,78 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     * xxx - if the request gets into the kernel and fails, OSKext.cpp
     * xxx - removes them, but there can be other failures on the way....
     */
+    OSStatus  sigResult = checkKextSignature(osKext, true);
+    if ( sigResult != 0 ) {
+        CFMutableDictionaryRef      myAlertInfoDict = NULL; // must release
+        OSReturn                    myResult        = kOSReturnSuccess;
+        
+        if ( isInLibraryExtensionsFolder(osKext) ||
+            sigResult == CSSMERR_TP_CERT_REVOKED ) {
+            /* Do not load if kext has invalid signature and comes from
+             *  /Library/Extensions/
+             */
+            CFStringRef     myBundleID;         // do not release
+
+            myBundleID = OSKextGetIdentifier(osKext);
+            myResult = kOSKextReturnNotLoadable; // see 13024670
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel |
+                              kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                              CFSTR("ERROR: invalid signature for %@, will not load"),
+                              myBundleID ? myBundleID : CFSTR("Unknown"));
+        }
+
+        /* Put up alert if this is the first time we've seen this
+         * kext and it is not an Apple kext.
+         */
+        addKextToAlertDict(&myAlertInfoDict, osKext);
+        if (myAlertInfoDict) {
+            CFRetain(myAlertInfoDict); // writeKextAlertPlist or sendRevokedCertAlert will release
+            if (sigResult == CSSMERR_TP_CERT_REVOKED) {
+                dispatch_async(dispatch_get_main_queue(), ^ {
+                    sendRevokedCertAlert(myAlertInfoDict);
+                });
+            }
+            else if (myResult == kOSKextReturnNotLoadable) {
+                dispatch_async(dispatch_get_main_queue(), ^ {
+                    writeKextAlertPlist(myAlertInfoDict, NO_LOAD_KEXT_ALERT);
+                });
+            }
+#if 0 // not yet
+            else if (sigResult == errSecCSUnsigned) {
+                dispatch_async(dispatch_get_main_queue(), ^ {
+                    writeKextAlertPlist(myAlertInfoDict, UNSIGNED_KEXT_ALERT);
+                });
+            }
+#endif
+            else {
+                dispatch_async(dispatch_get_main_queue(), ^ {
+                    writeKextAlertPlist(myAlertInfoDict, INVALID_SIGNATURE_KEXT_ALERT);
+                });
+            }
+            SAFE_RELEASE(myAlertInfoDict);
+        }
+        
+        if (myResult != kOSReturnSuccess) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogLoadFlag |
+                      kOSKextLogIPCFlag,
+                      "Load %s failed; removing personalities from kernel.",
+                      kext_id);
+            OSKextRemoveKextPersonalitiesFromKernel(osKext);
+            goto finish;
+        }
+        CFStringRef     myKextPath = NULL; // must release
+        myKextPath = copyKextPath(osKext);
+        if ( myKextPath ) {
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                              CFSTR("WARNING - Invalid signature %ld 0x%02lX for kext \"%@\""),
+                              (long)sigResult, (long)sigResult, myKextPath);
+            SAFE_RELEASE(myKextPath);
+        }
+    }
+
     osLoadResult = OSKextLoad(osKext);
     if (osLoadResult != kOSReturnSuccess) {
         OSKextLog(/* kext */ NULL,
@@ -537,7 +610,6 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
 
 finish:
     SAFE_RELEASE(loadList);
-    SAFE_RELEASE(kextPath);
     SAFE_FREE(kext_id);
     setCrashLogMessage(NULL);
 
@@ -796,6 +868,7 @@ const char * nameForPID(pid_t pid)
 #define SYSTEM_FOLDER "/System/"
 
 #define _kSystemExtensionsDirSlash   (kSystemExtensionsDir "/")
+#define _kLibraryExtensionsDirSlash   (kLibraryExtensionsDir "/")
 #define _kSystemFilesystemsDirSlash  ("/System/Library/Filesystems/")
 
 /*******************************************************************************
@@ -808,6 +881,7 @@ static CFURLRef createAbsOrRealURLForURL(
 {
     CFURLRef result      = NULL;
     OSReturn localError  = kOSReturnSuccess;
+    Boolean  inLE        = FALSE;
     Boolean  inSLE       = FALSE;
     Boolean  inSLF       = FALSE;
     char     urlPathCString[PATH_MAX];
@@ -833,21 +907,23 @@ static CFURLRef createAbsOrRealURLForURL(
     } else {
 
         inSLE = (0 == strncmp(urlPathCString, _kSystemExtensionsDirSlash,
-            strlen(_kSystemExtensionsDirSlash)));
+                              strlen(_kSystemExtensionsDirSlash)));
+        inLE = (0 == strncmp(urlPathCString, _kLibraryExtensionsDirSlash,
+                             strlen(_kLibraryExtensionsDirSlash)));
         inSLF = (0 == strncmp(urlPathCString, _kSystemFilesystemsDirSlash,
-            strlen(_kSystemFilesystemsDirSlash)));
+                              strlen(_kSystemFilesystemsDirSlash)));
 
        /*****
         * May want to open these checks to use OSKextGetSystemExtensionsFolderURLs().
         * For now, keep it tight and just do /System/Library/Extensions & Filesystems.
         */
-        if (!inSLE && !inSLF) {
+        if (!inSLE && !inSLF && !inLE) {
             localError = kOSKextReturnNotPrivileged;
             if (!inSLE && !inSLF) {
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                     "Request from non-root process '%s' (euid %d) to load %s - "
-                    "not in system extensions or filesystems folder.",
+                          "not in extensions dirs or filesystems folder.",
                     nameForPID(remote_pid), remote_euid, urlPathCString);
             }
             goto finish;
@@ -866,17 +942,19 @@ static CFURLRef createAbsOrRealURLForURL(
         * Check the path once more now that we've resolved it with realpath().
         */
         inSLE = (0 == strncmp(realpathCString, _kSystemExtensionsDirSlash,
-            strlen(_kSystemExtensionsDirSlash)));
+                              strlen(_kSystemExtensionsDirSlash)));
+        inLE = (0 == strncmp(urlPathCString, _kLibraryExtensionsDirSlash,
+                             strlen(_kLibraryExtensionsDirSlash)));
         inSLF = (0 == strncmp(realpathCString, _kSystemFilesystemsDirSlash,
-            strlen(_kSystemFilesystemsDirSlash)));
+                              strlen(_kSystemFilesystemsDirSlash)));
 
-        if (!inSLE && !inSLF) {
+        if (!inSLE && !inSLF && !inLE) {
 
             localError = kOSKextReturnNotPrivileged;
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                 "Request from non-root process '%s' (euid %d) to load %s - "
-                "(real path %s) - not in system extensions or filesystems folder.",
+                "(real path %s) - not in extensions dirs or filesystems folder.",
                 nameForPID(remote_pid), remote_euid, urlPathCString,
                 realpathCString);
             goto finish;
@@ -909,7 +987,6 @@ checkNonrootLoadAllowed(
     CFArrayRef  loadList     = NULL;  // must release
     CFStringRef kextPath     = NULL;  // must release
     Boolean     kextAllows   = TRUE;
-    Boolean     systemFolder = TRUE;
     char        kextPathCString[PATH_MAX];
     CFIndex     count, index;
 
@@ -962,22 +1039,13 @@ finish:
     SAFE_RELEASE(loadList);
     SAFE_RELEASE(kextPath);
 
-    if (!kextAllows || !systemFolder) {
-
+    if (!kextAllows) {
         result = kOSKextReturnNotPrivileged;
 
-        if (!kextAllows) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-                "Request from non-root process '%s' (euid %d) to load %s - not allowed.",
-                nameForPID(remote_pid), remote_euid, kextPathCString);
-        }
-        if (!systemFolder) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-                "Request from non-root process '%s' (euid %d) to load %s - not in /System/.",
-                nameForPID(remote_pid), remote_euid, kextPathCString);
-        }
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "Request from non-root process '%s' (euid %d) to load %s - not allowed.",
+            nameForPID(remote_pid), remote_euid, kextPathCString);
     }
 
     return result;
@@ -991,8 +1059,9 @@ kextdProcessUserLoadRequest(
     uid_t           remote_euid,
     pid_t           remote_pid)
 {
-    OSReturn          result                   = kOSReturnError;
+    OSReturn          result                   = kOSReturnSuccess;
     CFStringRef       kextID                   = NULL;  // do not release
+    char *            kextIDString             = NULL;  // must free
     CFStringRef       kextPath                 = NULL;  // do not release
     CFArrayRef        dependencyPaths          = NULL;  // do not release
     CFURLRef          kextURL                  = NULL;  // must release
@@ -1004,7 +1073,8 @@ kextdProcessUserLoadRequest(
     CFURLRef          dependencyAbsURL         = NULL;  // must release
     CFArrayRef        dependencyKexts          = NULL;  // must release
     CFArrayRef        loadList                 = NULL;  // must release
-    char              kextPathOrIDCString[PATH_MAX] = "unknown";
+
+    char              kextPathString[PATH_MAX] = "unknown";
     char              crashInfo[sizeof(CRASH_INFO_USER_KEXT_LOAD) +
                       KMOD_MAX_NAME + PATH_MAX];
     CFIndex           count, index;
@@ -1018,8 +1088,11 @@ kextdProcessUserLoadRequest(
             result = kOSKextReturnInvalidArgument;
             goto finish;
         }
-        CFStringGetCString(kextID, kextPathOrIDCString,
-            sizeof(kextPathOrIDCString), kCFStringEncodingUTF8);
+        kextIDString = createUTF8CStringForCFString(kextID);
+        if (!kextIDString) {
+            OSKextLogMemError();
+            goto finish;
+        }
     } else {
         kextPath = (CFStringRef)CFDictionaryGetValue(request, kKextLoadPathKey);
         if (!kextPath || CFGetTypeID(kextPath) != CFStringGetTypeID()) {
@@ -1042,13 +1115,15 @@ kextdProcessUserLoadRequest(
             result = kOSKextReturnSerialization;  // xxx - or other?
             goto finish;
         }
+        result = kOSReturnError;
         kextAbsURL = createAbsOrRealURLForURL(kextURL,
             remote_euid, remote_pid, &result);
         if (!kextAbsURL) {
             goto finish;
         }
         CFURLGetFileSystemRepresentation(kextAbsURL, /* resolveToBase */ true,
-            (UInt8 *)kextPathOrIDCString, sizeof(kextPathOrIDCString));
+                                         (UInt8 *)kextPathString,
+                                         sizeof(kextPathString));
     }
 
    /* Read the extensions if necessary (also resets the release timer).
@@ -1061,7 +1136,8 @@ kextdProcessUserLoadRequest(
         OSKextLog(/* kext */ NULL,
             kOSKextLogProgressLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                 "Request from '%s' (euid %d) to load %s.",
-                nameForPID(remote_pid), remote_euid, kextPathOrIDCString);
+                  nameForPID(remote_pid), remote_euid,
+                  kextIDString ? kextIDString : kextPathString);
     }
 
    /* Open any dependencies provided, *before* we create the kext, since
@@ -1110,6 +1186,7 @@ kextdProcessUserLoadRequest(
                 result = kOSKextReturnSerialization;  // xxx - or other?
                 goto finish;
             }
+            result = kOSReturnError;
             dependencyAbsURL = createAbsOrRealURLForURL(dependencyURL,
                 remote_euid, remote_pid, &result);
             if (!dependencyAbsURL) {
@@ -1126,7 +1203,7 @@ kextdProcessUserLoadRequest(
     }
 
     snprintf(crashInfo, sizeof(crashInfo), CRASH_INFO_USER_KEXT_LOAD,
-        kextPathOrIDCString);
+            kextIDString ? kextIDString : kextPathString);
 
     setCrashLogMessage(crashInfo);
 
@@ -1144,13 +1221,19 @@ kextdProcessUserLoadRequest(
         theKext = OSKextCreate(kCFAllocatorDefault, kextAbsURL);
         if (theKext) {
             kexts = OSKextCreateKextsFromURL(kCFAllocatorDefault, kextAbsURL);
+            kextIDString = createUTF8CStringForCFString(OSKextGetIdentifier(theKext));
+            if (!kextIDString) {
+                OSKextLogMemError();
+                goto finish;
+            }
         }
     }
 
     if (!theKext) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-            "Error: Kext %s - not found/unable to create.", kextPathOrIDCString);
+            "Error: Kext %s - not found/unable to create.",
+            kextIDString ? kextIDString : kextPathString);
         result = kOSKextReturnNotFound;
         goto finish;
     }
@@ -1162,9 +1245,133 @@ kextdProcessUserLoadRequest(
         }
     }
 
+    /* Get dictionary of all our excluded kexts */
+    if (OSKextIsInExcludeList(theKext, false)) {
+        CFMutableDictionaryRef myAlertInfoDict = NULL; // must release
+        addKextToAlertDict(&myAlertInfoDict, theKext);
+        if (myAlertInfoDict) {
+            CFRetain(myAlertInfoDict); // writeKextAlertPlist will release
+            dispatch_async(dispatch_get_main_queue(), ^ {
+                writeKextAlertPlist(myAlertInfoDict, EXCLUDED_KEXT_ALERT);
+            });
+            SAFE_RELEASE(myAlertInfoDict);
+        }
+
+        messageTraceExcludedKext(theKext);
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s is in exclude list; omitting.",
+                  kextIDString ? kextIDString : kextPathString);
+        result = kOSKextReturnNotLoadable;
+        goto finish;
+    }
+  
+    if (__esp_enabled()) {
+        xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+        if (dict == NULL) {
+            result = kOSKextReturnNotLoadable;
+            goto finish;
+        }
+        xpc_dictionary_set_int64(dict, "euid", remote_euid);
+        xpc_dictionary_set_int64(dict, "pid", remote_pid);
+        if (kextIDString != NULL) {
+            xpc_dictionary_set_string(dict, "kextID", kextIDString);
+        }
+        if (kextPathString != NULL) {
+            xpc_dictionary_set_string(dict, "kextPath", kextPathString);
+        }
+        int esp_result = __esp_check("kext-load", dict);
+        xpc_release(dict);
+        if (esp_result != 0) {
+            result = kOSKextReturnNotLoadable;
+            goto finish;
+        }
+    }
+    
+    /* consult sandboxing system to make sure this is OK
+     * <rdar://problem/11015459
+     */
+    if (sandbox_check(remote_pid, "system-kext-load",
+                      SANDBOX_FILTER_KEXT_BUNDLE_ID,
+                      kextIDString) != 0 )  {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s failed sandbox check; omitting.", kextIDString);
+        result = kOSKextReturnNotLoadable;
+        goto finish;
+    }
+
+    OSStatus  sigResult = checkKextSignature(theKext, true);
+    if ( sigResult != 0 ) {
+        if ( isInLibraryExtensionsFolder(theKext) ||
+            sigResult == CSSMERR_TP_CERT_REVOKED ) {
+            /* Do not load if kext has invalid signature and comes from
+             *  /Library/Extensions/
+             */
+            CFStringRef         myBundleID;          // do not release
+            
+            myBundleID = OSKextGetIdentifier(theKext);
+            result = kOSKextReturnNotLoadable; // see 13024670
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel |
+                              kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+                              CFSTR("ERROR: invalid signature for %@, will not load"),
+                              myBundleID ? myBundleID : CFSTR("Unknown"));
+        }
+            
+        /* Put up alert if this is the first time we've seen this 
+         * kext and it is not an Apple kext
+         */
+        CFMutableDictionaryRef myAlertInfoDict = NULL; // must release
+        
+        addKextToAlertDict(&myAlertInfoDict, theKext);
+        if (myAlertInfoDict) {
+            CFRetain(myAlertInfoDict); // writeKextAlertPlist or sendRevokedCertAlert will release
+            if (sigResult == CSSMERR_TP_CERT_REVOKED) {
+                dispatch_async(dispatch_get_main_queue(), ^ {
+                    sendRevokedCertAlert(myAlertInfoDict);
+                });
+            }
+            else if (result == kOSKextReturnNotLoadable) {
+                dispatch_async(dispatch_get_main_queue(), ^ {
+                    writeKextAlertPlist(myAlertInfoDict, NO_LOAD_KEXT_ALERT);
+                });
+            }
+#if 0 // not yet
+            else if (sigResult == errSecCSUnsigned) {
+                dispatch_async(dispatch_get_main_queue(), ^ {
+                    writeKextAlertPlist(myAlertInfoDict, UNSIGNED_KEXT_ALERT);
+                });
+            }
+#endif
+            else {
+                dispatch_async(dispatch_get_main_queue(), ^ {
+                    writeKextAlertPlist(myAlertInfoDict, INVALID_SIGNATURE_KEXT_ALERT);
+                });
+            }
+            SAFE_RELEASE(myAlertInfoDict);
+        } // myAlertInfoDict
+    }
+    if (result != kOSReturnSuccess) {
+        goto finish;
+    }
+    if (sigResult != 0) {
+        CFStringRef     myKextPath = NULL; // must release
+        myKextPath = copyKextPath(theKext);
+        if ( myKextPath ) {
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                              CFSTR("WARNING - Invalid signature %ld 0x%02lX for kext \"%@\""),
+                              (long)sigResult, (long)sigResult, myKextPath);
+            SAFE_RELEASE(myKextPath);
+        }
+    }
+
     /* <rdar://problem/12435992> Message tracing for kext loads
      */
-    logMTMessage(theKext);
+    recordKextLoadForMT(theKext);
 
    /* The codepath from this function will do any error logging
     * and cleanup needed.
@@ -1190,6 +1397,7 @@ finish:
     SAFE_RELEASE(dependencyAbsURL);
     SAFE_RELEASE(dependencyKexts);
     SAFE_RELEASE(loadList);
+    SAFE_FREE(kextIDString);
 
     setCrashLogMessage(NULL);
 

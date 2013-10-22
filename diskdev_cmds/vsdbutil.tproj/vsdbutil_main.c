@@ -367,9 +367,7 @@ AdoptVolume(const char *path) {
 		return result;
 	};
 	
-	(void)CloseVolumeStatusDB(CloseVolumeStatusDB);
-
-	sync();
+	(void)CloseVolumeStatusDB(vsdb);
 
 	if ((result = UpdateMountStatus(path, volstatus)) != 0) {
 		warnx("couldn't update mount status of '%s': %s", path, strerror(result));
@@ -422,9 +420,8 @@ DisownVolume(const char *path) {
 			return result;
 		};
 		
-		(void)CloseVolumeStatusDB(CloseVolumeStatusDB);
+		(void)CloseVolumeStatusDB(vsdb);
 
-		sync();
 	};
 	
 	if ((result = UpdateMountStatus(path, volstatus)) != 0) {
@@ -472,9 +469,7 @@ ClearVolumeUUID(const char *path) {
 			};
 		};
 		
-		(void)CloseVolumeStatusDB(CloseVolumeStatusDB);
-
-		sync();
+		(void)CloseVolumeStatusDB(vsdb);
 
 		if ((result = UpdateMountStatus(path, 0)) != 0) {
 			warnx("couldn't update mount status of '%s': %s", path, strerror(result));
@@ -535,7 +530,7 @@ DisplayVolumeStatus(const char *path) {
 	};
 
 Std_Exit:
-	(void)CloseVolumeStatusDB(CloseVolumeStatusDB);
+	(void)CloseVolumeStatusDB(vsdb);
 	
 	return result;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -464,45 +464,46 @@ static CFMutableDictionaryRef archive_scan( io_registry_entry_t service,
     // Obtain the service's children.
 
     status = IORegistryEntryGetChildIterator(service, options.plane, &children);
-    assertion(status == KERN_SUCCESS, "can't obtain children");
-
-    childUpNext = IOIteratorNext(children);
-
-    // Obtain the relevant service information.
-
-    dictionary = archive(service, options);
-
-    // Traverse over the children of this service.
-
-    if (options.depth == 0 || options.depth > serviceDepth + 1)
+    if (status == KERN_SUCCESS)
     {
-        if (childUpNext)
+        childUpNext = IOIteratorNext(children);
+
+        // Obtain the relevant service information.
+
+        dictionary = archive(service, options);
+
+        // Traverse over the children of this service.
+
+        if (options.depth == 0 || options.depth > serviceDepth + 1)
         {
-            array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-            assertion(array != NULL, "can't create array");
-
-            while (childUpNext)
+            if (childUpNext)
             {
-                child       = childUpNext;
-                childUpNext = IOIteratorNext(children);
+                array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+                assertion(array != NULL, "can't create array");
 
-                object = archive_scan( /* service      */ child,
-                                       /* serviceDepth */ serviceDepth + 1,
-                                       /* options      */ options );
-                assertion(object != NULL, "can't obtain child");
+                while (childUpNext)
+                {
+                    child       = childUpNext;
+                    childUpNext = IOIteratorNext(children);
 
-                CFArrayAppendValue(array, object);
-                CFRelease(object);
+                    object = archive_scan( /* service      */ child,
+                                           /* serviceDepth */ serviceDepth + 1,
+                                           /* options      */ options );
+                    assertion(object != NULL, "can't obtain child");
 
-                IOObjectRelease(child);
+                    CFArrayAppendValue(array, object);
+                    CFRelease(object);
+
+                    IOObjectRelease(child);
+                }
+
+                CFDictionarySetValue(dictionary, CFSTR("IORegistryEntryChildren"), array);
+                CFRelease(array);
             }
-
-            CFDictionarySetValue(dictionary, CFSTR("IORegistryEntryChildren"), array);
-            CFRelease(array);
         }
-    }
 
-    IOObjectRelease(children);
+        IOObjectRelease(children);
+    }
 
     return dictionary;
 }
@@ -580,39 +581,40 @@ static CFMutableArrayRef archive_search( io_registry_entry_t service,
     // Obtain the service's children.
 
     status = IORegistryEntryGetChildIterator(service, options.plane, &children);
-    assertion(status == KERN_SUCCESS, "can't obtain children");
-
-    childUpNext = IOIteratorNext(children);
-
-    // Traverse over the children of this service.
-
-    while (childUpNext)
+    if (status == KERN_SUCCESS)
     {
-        child       = childUpNext;
         childUpNext = IOIteratorNext(children);
 
-        array2 = archive_search( /* service                */ child,
-                                 /* serviceHasMatchedDepth */ serviceHasMatchedDepth,
-                                 /* serviceDepth           */ serviceDepth + 1,
-                                 /* stackOfObjects         */ stackOfObjects,
-                                 /* options                */ options );
-        if (array2)
+        // Traverse over the children of this service.
+
+        while (childUpNext)
         {
-            if (array)
+            child       = childUpNext;
+            childUpNext = IOIteratorNext(children);
+
+            array2 = archive_search( /* service                */ child,
+                                     /* serviceHasMatchedDepth */ serviceHasMatchedDepth,
+                                     /* serviceDepth           */ serviceDepth + 1,
+                                     /* stackOfObjects         */ stackOfObjects,
+                                     /* options                */ options );
+            if (array2)
             {
-                CFArrayAppendArray(array, array2, CFRangeMake(0, CFArrayGetCount(array2)));
-                CFRelease(array2);
+                if (array)
+                {
+                    CFArrayAppendArray(array, array2, CFRangeMake(0, CFArrayGetCount(array2)));
+                    CFRelease(array2);
+                }
+                else
+                {
+                    array = array2;
+                }
             }
-            else
-            {
-                array = array2;
-            }
+
+            IOObjectRelease(child);
         }
 
-        IOObjectRelease(child);
+        IOObjectRelease(children);
     }
-
-    IOObjectRelease(children);
 
     return array;
 }
@@ -713,51 +715,52 @@ static void scan( io_registry_entry_t service,
     // Obtain the service's children.
 
     status = IORegistryEntryGetChildIterator(service, options.plane, &children);
-    assertion(status == KERN_SUCCESS, "can't obtain children");
-
-    childUpNext = IOIteratorNext(children);
-
-    // Save has-more-siblings state into stackOfBits for this depth.
-
-    if (serviceHasMoreSiblings)
-        stackOfBits |=  (1 << serviceDepth);
-    else
-        stackOfBits &= ~(1 << serviceDepth);
-
-    // Save has-children state into stackOfBits for this depth.
-
-    if (options.depth == 0 || options.depth > serviceDepth + 1)
+    if (status == KERN_SUCCESS)
     {
-        if (childUpNext)
-            stackOfBits |=  (2 << serviceDepth);
+        childUpNext = IOIteratorNext(children);
+
+        // Save has-more-siblings state into stackOfBits for this depth.
+
+        if (serviceHasMoreSiblings)
+            stackOfBits |=  (1 << serviceDepth);
         else
-            stackOfBits &= ~(2 << serviceDepth);
-    }
+            stackOfBits &= ~(1 << serviceDepth);
 
-    // Print out the relevant service information.
+        // Save has-children state into stackOfBits for this depth.
 
-    show(service, serviceDepth, stackOfBits, options);
-
-    // Traverse over the children of this service.
-
-    if (options.depth == 0 || options.depth > serviceDepth + 1)
-    {
-        while (childUpNext)
+        if (options.depth == 0 || options.depth > serviceDepth + 1)
         {
-            child       = childUpNext;
-            childUpNext = IOIteratorNext(children);
-
-            scan( /* service                */ child,
-                  /* serviceHasMoreSiblings */ (childUpNext) ? TRUE : FALSE,
-                  /* serviceDepth           */ serviceDepth + 1,
-                  /* stackOfBits            */ stackOfBits,
-                  /* options                */ options );
-
-            IOObjectRelease(child);
+            if (childUpNext)
+                stackOfBits |=  (2 << serviceDepth);
+            else
+                stackOfBits &= ~(2 << serviceDepth);
         }
-    }
 
-    IOObjectRelease(children);
+        // Print out the relevant service information.
+
+        show(service, serviceDepth, stackOfBits, options);
+
+        // Traverse over the children of this service.
+
+        if (options.depth == 0 || options.depth > serviceDepth + 1)
+        {
+            while (childUpNext)
+            {
+                child       = childUpNext;
+                childUpNext = IOIteratorNext(children);
+
+                scan( /* service                */ child,
+                      /* serviceHasMoreSiblings */ (childUpNext) ? TRUE : FALSE,
+                      /* serviceDepth           */ serviceDepth + 1,
+                      /* stackOfBits            */ stackOfBits,
+                      /* options                */ options );
+
+                IOObjectRelease(child);
+            }
+        }
+
+        IOObjectRelease(children);
+    }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -823,27 +826,28 @@ static void search( io_registry_entry_t service,
     // Obtain the service's children.
 
     status = IORegistryEntryGetChildIterator(service, options.plane, &children);
-    assertion(status == KERN_SUCCESS, "can't obtain children");
-
-    childUpNext = IOIteratorNext(children);
-
-    // Traverse over the children of this service.
-
-    while (childUpNext)
+    if (status == KERN_SUCCESS)
     {
-        child       = childUpNext;
         childUpNext = IOIteratorNext(children);
 
-        search( /* service                */ child,
-                /* serviceHasMatchedDepth */ serviceHasMatchedDepth,
-                /* serviceDepth           */ serviceDepth + 1,
-                /* stackOfObjects         */ stackOfObjects,
-                /* options                */ options );
+        // Traverse over the children of this service.
 
-        IOObjectRelease(child);
+        while (childUpNext)
+        {
+            child       = childUpNext;
+            childUpNext = IOIteratorNext(children);
+
+            search( /* service                */ child,
+                    /* serviceHasMatchedDepth */ serviceHasMatchedDepth,
+                    /* serviceDepth           */ serviceDepth + 1,
+                    /* stackOfObjects         */ stackOfObjects,
+                    /* options                */ options );
+
+            IOObjectRelease(child);
+        }
+
+        IOObjectRelease(children);
     }
-
-    IOObjectRelease(children);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1047,7 +1051,7 @@ void usage()
      "\t-n list properties of objects with the given name\n"
      "\t-p traverse registry over the given plane (IOService is default)\n"
      "\t-r show subtrees rooted by the given criteria\n"
-     "\t-t show location of each substree\n"
+     "\t-t show location of each subtree\n"
      "\t-w clip output to the given line width (0 is unlimited)\n"
      "\t-x show data and numbers as hexadecimal\n"
      );

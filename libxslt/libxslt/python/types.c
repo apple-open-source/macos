@@ -403,7 +403,7 @@ libxml_xmlXPathObjectPtrWrap(xmlXPathObjectPtr obj)
                 for (i = 0; i < obj->nodesetval->nodeNr; i++) {
                     node = obj->nodesetval->nodeTab[i];
                     if (node->type == XML_NAMESPACE_DECL) {
-		        PyObject *ns = 
+		        PyObject *ns =
 			    PyCObject_FromVoidPtrAndDesc((void *) node,
                                      (char *) "xmlNsPtr",
 				     libxml_xmlXPathDestructNsNode);

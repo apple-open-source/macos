@@ -27,7 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2012 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_autofs.c	1.27	05/06/08 SMI"
@@ -94,7 +94,7 @@ mount_autofs(
 	}
 
 	if (trace > 2)
-		trace_prt(1, "rel_mntpnt = %s\n", rel_mntpnt);
+		trace_prt(1, "  rel_mntpnt = %s\n", rel_mntpnt);
 
 	/*
 	 * Get the mount point for this autofs mount relative to the

@@ -34,9 +34,7 @@
 #include <Security/SecKeyPriv.h>
 #include <CoreFoundation/CFData.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef struct SecRSAPublicKeyParams {
 	uint8_t             *modulus;			/* modulus */
@@ -60,8 +58,6 @@ SecKeyRef SecKeyCreateRSAPrivateKey(CFAllocatorRef allocator,
     const uint8_t *keyData, CFIndex keyDataLength,
     SecKeyEncoding encoding);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECRSAKEY_H_ */

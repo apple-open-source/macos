@@ -51,7 +51,7 @@ WrapKey::activate()
 	if (!mActive)
 	{
 		Crypt::activate();
-		if (mWrappedKeyFormat != CSSM_KEYBLOB_WRAPPED_FORMAT_NONE);
+		if (mWrappedKeyFormat != CSSM_KEYBLOB_WRAPPED_FORMAT_NONE)
 			set(CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT, mWrappedKeyFormat);
 	}
 }

@@ -1,9 +1,9 @@
 /*
- * "$Id: http-support.c 7952 2008-09-17 00:56:20Z mike $"
+ * "$Id: http-support.c 11194 2013-07-26 03:13:31Z msweet $"
  *
  *   HTTP support routines for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -20,7 +20,8 @@
  *			    components.
  *   httpAssembleURIf()   - Assemble a uniform resource identifier from its
  *			    components with a formatted resource.
- *   _httpAssembleUUID()  - Make a UUID URI conforming to RFC 4122.
+ *   httpAssembleUUID()   - Assemble a name-based UUID URN conforming to RFC
+ *                          4122.
  *   httpDecode64()	  - Base64-decode a string.
  *   httpDecode64_2()	  - Base64-decode a string.
  *   httpEncode64()	  - Base64-encode a string.
@@ -192,7 +193,7 @@ httpAssembleURI(
     if (uri)
       *uri = '\0';
 
-    return (HTTP_URI_BAD_ARGUMENTS);
+    return (HTTP_URI_STATUS_BAD_ARGUMENTS);
   }
 
  /*
@@ -238,6 +239,9 @@ httpAssembleURI(
 
   if (host)
   {
+    const char	*hostptr;		/* Pointer into hostname */
+    int		have_ipv6;		/* Do we have an IPv6 address? */
+
     if (username && *username)
     {
      /*
@@ -265,13 +269,23 @@ httpAssembleURI(
     * too...
     */
 
-    if (host[0] != '[' && strchr(host, ':') && !strstr(host, "._tcp"))
+    for (hostptr = host,
+             have_ipv6 = strchr(host, ':') && !strstr(host, "._tcp");
+         *hostptr && have_ipv6;
+         hostptr ++)
+      if (*hostptr != ':' && !isxdigit(*hostptr & 255))
+      {
+        have_ipv6 = *hostptr == '%';
+        break;
+      }
+
+    if (have_ipv6)
     {
      /*
       * We have a raw IPv6 address...
       */
 
-      if (strchr(host, '%'))
+      if (strchr(host, '%') && !(encoding & HTTP_URI_CODING_RFC6874))
       {
        /*
         * We have a link-local address, add "[v1." prefix...
@@ -290,7 +304,7 @@ httpAssembleURI(
       else
       {
        /*
-        * We have a normal address, add "[" prefix...
+        * We have a normal (or RFC 6874 link-local) address, add "[" prefix...
 	*/
 
 	if (ptr < end)
@@ -306,8 +320,23 @@ httpAssembleURI(
       while (ptr < end && *host)
       {
         if (*host == '%')
-	{
-          *ptr++ = '+';			/* Convert zone separator */
+        {
+         /*
+          * Convert/encode zone separator
+          */
+
+          if (encoding & HTTP_URI_CODING_RFC6874)
+          {
+            if (ptr >= (end - 2))
+              goto assemble_overflow;
+
+            *ptr++ = '%';
+            *ptr++ = '2';
+            *ptr++ = '5';
+          }
+          else
+	    *ptr++ = '+';
+
 	  host ++;
 	}
 	else
@@ -325,9 +354,12 @@ httpAssembleURI(
     else
     {
      /*
-      * Otherwise, just copy the host string...
+      * Otherwise, just copy the host string (the extra chars are not in the
+      * "reg-name" ABNF rule; anything <= SP or >= DEL plus % gets automatically
+      * percent-encoded.
       */
-      ptr = http_copy_encode(ptr, host, end, "<>{}|^:/?#[]@\\\"", NULL,
+
+      ptr = http_copy_encode(ptr, host, end, "\"#/:<>?@[\\]^`{|}", NULL,
                              encoding & HTTP_URI_CODING_HOSTNAME);
 
       if (!ptr)
@@ -390,7 +422,7 @@ httpAssembleURI(
 
   *ptr = '\0';
 
-  return (HTTP_URI_OK);
+  return (HTTP_URI_STATUS_OK);
 
  /*
   * Clear the URI string and return an overflow error; I don't usually
@@ -400,7 +432,7 @@ httpAssembleURI(
   assemble_overflow:
 
   *uri = '\0';
-  return (HTTP_URI_OVERFLOW);
+  return (HTTP_URI_STATUS_OVERFLOW);
 }
 
 
@@ -443,7 +475,7 @@ httpAssembleURIf(
     if (uri)
       *uri = '\0';
 
-    return (HTTP_URI_BAD_ARGUMENTS);
+    return (HTTP_URI_STATUS_BAD_ARGUMENTS);
   }
 
  /*
@@ -457,7 +489,7 @@ httpAssembleURIf(
   if (bytes >= sizeof(resource))
   {
     *uri = '\0';
-    return (HTTP_URI_OVERFLOW);
+    return (HTTP_URI_STATUS_OVERFLOW);
   }
   else
     return (httpAssembleURI(encoding,  uri, urilen, scheme, username, host,
@@ -466,18 +498,24 @@ httpAssembleURIf(
 
 
 /*
- * '_httpAssembleUUID()' - Make a UUID URI conforming to RFC 4122.
+ * 'httpAssembleUUID()' - Assemble a name-based UUID URN conforming to RFC 4122.
+ *
+ * This function creates a unique 128-bit identifying number using the server
+ * name, port number, random data, and optionally an object name and/or object
+ * number.  The result is formatted as a UUID URN as defined in RFC 4122.
  *
  * The buffer needs to be at least 46 bytes in size.
+ *
+ * @since CUPS 1.7/OS X 10.9@
  */
 
 char *					/* I - UUID string */
-_httpAssembleUUID(const char *server,	/* I - Server name */
-                  int        port,	/* I - Port number */
-		  const char *name,	/* I - Object name or NULL */
-                  int        number,	/* I - Object number or 0 */
-	          char       *buffer,	/* I - String buffer */
-	          size_t     bufsize)	/* I - Size of buffer */
+httpAssembleUUID(const char *server,	/* I - Server name */
+		 int        port,	/* I - Port number */
+		 const char *name,	/* I - Object name or NULL */
+		 int        number,	/* I - Object number or 0 */
+		 char       *buffer,	/* I - String buffer */
+		 size_t     bufsize)	/* I - Size of buffer */
 {
   char			data[1024];	/* Source string for MD5 */
   _cups_md5_state_t	md5state;	/* MD5 state */
@@ -512,6 +550,13 @@ _httpAssembleUUID(const char *server,	/* I - Server name */
 	   md5sum[14], md5sum[15]);
 
   return (buffer);
+}
+
+/* For OS X 10.8 and earlier */
+char *_httpAssembleUUID(const char *server, int port, const char *name,
+			int number, char *buffer, size_t bufsize)
+{
+  return (httpAssembleUUID(server, port, name, number, buffer, bufsize));
 }
 
 
@@ -966,16 +1011,16 @@ httpSeparateURI(
   if (!uri || !port || !scheme || schemelen <= 0 || !username ||
       usernamelen <= 0 || !host || hostlen <= 0 || !resource ||
       resourcelen <= 0)
-    return (HTTP_URI_BAD_ARGUMENTS);
+    return (HTTP_URI_STATUS_BAD_ARGUMENTS);
 
   if (!*uri)
-    return (HTTP_URI_BAD_URI);
+    return (HTTP_URI_STATUS_BAD_URI);
 
  /*
   * Grab the scheme portion of the URI...
   */
 
-  status = HTTP_URI_OK;
+  status = HTTP_URI_STATUS_OK;
 
   if (!strncmp(uri, "//", 2))
   {
@@ -984,7 +1029,7 @@ httpSeparateURI(
     */
 
     strlcpy(scheme, "ipp", schemelen);
-    status = HTTP_URI_MISSING_SCHEME;
+    status = HTTP_URI_STATUS_MISSING_SCHEME;
   }
   else if (*uri == '/')
   {
@@ -993,7 +1038,7 @@ httpSeparateURI(
     */
 
     strlcpy(scheme, "file", schemelen);
-    status = HTTP_URI_MISSING_SCHEME;
+    status = HTTP_URI_STATUS_MISSING_SCHEME;
   }
   else
   {
@@ -1015,7 +1060,7 @@ httpSeparateURI(
     if (*uri != ':')
     {
       *scheme = '\0';
-      return (HTTP_URI_BAD_SCHEME);
+      return (HTTP_URI_STATUS_BAD_SCHEME);
     }
 
     uri ++;
@@ -1036,7 +1081,7 @@ httpSeparateURI(
   else if (!strcmp(scheme, "socket"))	/* Not yet registered with IANA... */
     *port = 9100;
   else if (strcmp(scheme, "file") && strcmp(scheme, "mailto"))
-    status = HTTP_URI_UNKNOWN_SCHEME;
+    status = HTTP_URI_STATUS_UNKNOWN_SCHEME;
 
  /*
   * Now see if we have a hostname...
@@ -1066,7 +1111,7 @@ httpSeparateURI(
       if (!uri)
       {
         *username = '\0';
-        return (HTTP_URI_BAD_USERNAME);
+        return (HTTP_URI_STATUS_BAD_USERNAME);
       }
 
       uri ++;
@@ -1083,8 +1128,25 @@ httpSeparateURI(
       */
 
       uri ++;
-      if (!strncmp(uri, "v1.", 3))
-        uri += 3;			/* Skip IPvN leader... */
+      if (*uri == 'v')
+      {
+       /*
+        * Skip IPvFuture ("vXXXX.") prefix...
+        */
+
+        uri ++;
+
+        while (isxdigit(*uri & 255))
+          uri ++;
+
+        if (*uri != '.')
+        {
+	  *host = '\0';
+	  return (HTTP_URI_STATUS_BAD_HOSTNAME);
+        }
+
+        uri ++;
+      }
 
       uri = http_copy_decode(host, uri, hostlen, "]",
                              decoding & HTTP_URI_CODING_HOSTNAME);
@@ -1092,7 +1154,7 @@ httpSeparateURI(
       if (!uri)
       {
         *host = '\0';
-        return (HTTP_URI_BAD_HOSTNAME);
+        return (HTTP_URI_STATUS_BAD_HOSTNAME);
       }
 
      /*
@@ -1102,7 +1164,7 @@ httpSeparateURI(
       if (*uri != ']')
       {
         *host = '\0';
-        return (HTTP_URI_BAD_HOSTNAME);
+        return (HTTP_URI_STATUS_BAD_HOSTNAME);
       }
 
       uri ++;
@@ -1117,10 +1179,18 @@ httpSeparateURI(
 	  *ptr = '%';
 	  break;
 	}
+	else if (*ptr == '%')
+	{
+	 /*
+	  * Stop at zone separator (RFC 6874)
+	  */
+
+	  break;
+	}
 	else if (*ptr != ':' && *ptr != '.' && !isxdigit(*ptr & 255))
 	{
 	  *host = '\0';
-	  return (HTTP_URI_BAD_HOSTNAME);
+	  return (HTTP_URI_STATUS_BAD_HOSTNAME);
 	}
     }
     else
@@ -1132,15 +1202,16 @@ httpSeparateURI(
       for (ptr = (char *)uri; *ptr; ptr ++)
         if (strchr(":?/", *ptr))
 	  break;
-        else if (!strchr("abcdefghijklmnopqrstuvwxyz"
-			 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-			 "0123456789"
-	        	 "-._~"
-			 "%"
-			 "!$&'()*+,;=\\", *ptr))
+        else if (!strchr("abcdefghijklmnopqrstuvwxyz"	/* unreserved */
+			 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"	/* unreserved */
+			 "0123456789"			/* unreserved */
+	        	 "-._~"				/* unreserved */
+			 "%"				/* pct-encoded */
+			 "!$&'()*+,;="			/* sub-delims */
+			 "\\", *ptr))			/* SMB domain */
 	{
 	  *host = '\0';
-	  return (HTTP_URI_BAD_HOSTNAME);
+	  return (HTTP_URI_STATUS_BAD_HOSTNAME);
 	}
 
      /*
@@ -1153,7 +1224,7 @@ httpSeparateURI(
       if (!uri)
       {
         *host = '\0';
-        return (HTTP_URI_BAD_HOSTNAME);
+        return (HTTP_URI_STATUS_BAD_HOSTNAME);
       }
     }
 
@@ -1165,7 +1236,7 @@ httpSeparateURI(
     if (!strcmp(scheme, "file") && strcmp(host, "localhost") && host[0])
     {
       *host = '\0';
-      return (HTTP_URI_BAD_HOSTNAME);
+      return (HTTP_URI_STATUS_BAD_HOSTNAME);
     }
 
    /*
@@ -1181,7 +1252,7 @@ httpSeparateURI(
       if (!isdigit(uri[1] & 255))
       {
         *port = 0;
-        return (HTTP_URI_BAD_PORT);
+        return (HTTP_URI_STATUS_BAD_PORT);
       }
 
       *port = strtol(uri + 1, (char **)&uri, 10);
@@ -1189,7 +1260,7 @@ httpSeparateURI(
       if (*uri != '/' && *uri)
       {
         *port = 0;
-        return (HTTP_URI_BAD_PORT);
+        return (HTTP_URI_STATUS_BAD_PORT);
       }
     }
   }
@@ -1204,7 +1275,7 @@ httpSeparateURI(
     * Hostname but no path...
     */
 
-    status    = HTTP_URI_MISSING_RESOURCE;
+    status    = HTTP_URI_STATUS_MISSING_RESOURCE;
     *resource = '/';
 
    /*
@@ -1230,15 +1301,16 @@ httpSeparateURI(
 
       char *resptr = resource + strlen(resource);
 
-      uri = http_copy_decode(resptr, uri, resourcelen - (int)(resptr - resource),
-                             NULL, decoding & HTTP_URI_CODING_QUERY);
+      uri = http_copy_decode(resptr, uri,
+                             resourcelen - (int)(resptr - resource), NULL,
+                             decoding & HTTP_URI_CODING_QUERY);
     }
   }
 
   if (!uri)
   {
     *resource = '\0';
-    return (HTTP_URI_BAD_RESOURCE);
+    return (HTTP_URI_STATUS_BAD_RESOURCE);
   }
 
  /*
@@ -1268,74 +1340,77 @@ httpStatus(http_status_t status)	/* I - HTTP status code */
 
   switch (status)
   {
-    case HTTP_CONTINUE :
+    case HTTP_STATUS_ERROR :
+        s = strerror(errno);
+        break;
+    case HTTP_STATUS_CONTINUE :
         s = _("Continue");
 	break;
-    case HTTP_SWITCHING_PROTOCOLS :
+    case HTTP_STATUS_SWITCHING_PROTOCOLS :
         s = _("Switching Protocols");
 	break;
-    case HTTP_OK :
+    case HTTP_STATUS_OK :
         s = _("OK");
 	break;
-    case HTTP_CREATED :
+    case HTTP_STATUS_CREATED :
         s = _("Created");
 	break;
-    case HTTP_ACCEPTED :
+    case HTTP_STATUS_ACCEPTED :
         s = _("Accepted");
 	break;
-    case HTTP_NO_CONTENT :
+    case HTTP_STATUS_NO_CONTENT :
         s = _("No Content");
 	break;
-    case HTTP_MOVED_PERMANENTLY :
+    case HTTP_STATUS_MOVED_PERMANENTLY :
         s = _("Moved Permanently");
 	break;
-    case HTTP_SEE_OTHER :
+    case HTTP_STATUS_SEE_OTHER :
         s = _("See Other");
 	break;
-    case HTTP_NOT_MODIFIED :
+    case HTTP_STATUS_NOT_MODIFIED :
         s = _("Not Modified");
 	break;
-    case HTTP_BAD_REQUEST :
+    case HTTP_STATUS_BAD_REQUEST :
         s = _("Bad Request");
 	break;
-    case HTTP_UNAUTHORIZED :
-    case HTTP_AUTHORIZATION_CANCELED :
+    case HTTP_STATUS_UNAUTHORIZED :
+    case HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED :
         s = _("Unauthorized");
 	break;
-    case HTTP_FORBIDDEN :
+    case HTTP_STATUS_FORBIDDEN :
         s = _("Forbidden");
 	break;
-    case HTTP_NOT_FOUND :
+    case HTTP_STATUS_NOT_FOUND :
         s = _("Not Found");
 	break;
-    case HTTP_REQUEST_TOO_LARGE :
+    case HTTP_STATUS_REQUEST_TOO_LARGE :
         s = _("Request Entity Too Large");
 	break;
-    case HTTP_URI_TOO_LONG :
+    case HTTP_STATUS_URI_TOO_LONG :
         s = _("URI Too Long");
 	break;
-    case HTTP_UPGRADE_REQUIRED :
+    case HTTP_STATUS_UPGRADE_REQUIRED :
         s = _("Upgrade Required");
 	break;
-    case HTTP_NOT_IMPLEMENTED :
+    case HTTP_STATUS_NOT_IMPLEMENTED :
         s = _("Not Implemented");
 	break;
-    case HTTP_NOT_SUPPORTED :
+    case HTTP_STATUS_NOT_SUPPORTED :
         s = _("Not Supported");
 	break;
-    case HTTP_EXPECTATION_FAILED :
+    case HTTP_STATUS_EXPECTATION_FAILED :
         s = _("Expectation Failed");
 	break;
-    case HTTP_SERVICE_UNAVAILABLE :
+    case HTTP_STATUS_SERVICE_UNAVAILABLE :
         s = _("Service Unavailable");
 	break;
-    case HTTP_SERVER_ERROR :
+    case HTTP_STATUS_SERVER_ERROR :
         s = _("Internal Server Error");
 	break;
-    case HTTP_PKI_ERROR :
+    case HTTP_STATUS_CUPS_PKI_ERROR :
         s = _("SSL/TLS Negotiation Error");
 	break;
-    case HTTP_WEBIF_DISABLED :
+    case HTTP_STATUS_CUPS_WEBIF_DISABLED :
         s = _("Web Interface is Disabled");
 	break;
 
@@ -1439,12 +1514,12 @@ _httpResolveURI(
   if ((status = httpSeparateURI(HTTP_URI_CODING_ALL, uri, scheme,
                                 sizeof(scheme), userpass, sizeof(userpass),
 				hostname, sizeof(hostname), &port, resource,
-				sizeof(resource))) < HTTP_URI_OK)
+				sizeof(resource))) < HTTP_URI_STATUS_OK)
 #else
   if (httpSeparateURI(HTTP_URI_CODING_ALL, uri, scheme,
 		      sizeof(scheme), userpass, sizeof(userpass),
 		      hostname, sizeof(hostname), &port, resource,
-		      sizeof(resource)) < HTTP_URI_OK)
+		      sizeof(resource)) < HTTP_URI_STATUS_OK)
 #endif /* DEBUG */
   {
     if (options & _HTTP_RESOLVE_STDERR)
@@ -1541,10 +1616,16 @@ _httpResolveURI(
 #  ifdef HAVE_DNSSD
     if (DNSServiceCreateConnection(&ref) == kDNSServiceErr_NoError)
     {
+      int myinterface = kDNSServiceInterfaceIndexAny;
+					/* Lookup on any interface */
+
+      if (!strcmp(scheme, "ippusb"))
+        myinterface = kDNSServiceInterfaceIndexLocalOnly;
+
       localref = ref;
       if (DNSServiceResolve(&localref,
-                            kDNSServiceFlagsShareConnection, 0, hostname, regtype,
-			    "local.", http_resolve_cb,
+                            kDNSServiceFlagsShareConnection, myinterface,
+                            hostname, regtype, "local.", http_resolve_cb,
 			    &uribuf) == kDNSServiceErr_NoError)
       {
 	int	fds;			/* Number of ready descriptors */
@@ -1618,7 +1699,7 @@ _httpResolveURI(
 	      domainref = ref;
 	      if (DNSServiceResolve(&domainref,
 	                            kDNSServiceFlagsShareConnection,
-	                            0, hostname, regtype, domain,
+	                            myinterface, hostname, regtype, domain,
 				    http_resolve_cb,
 				    &uribuf) == kDNSServiceErr_NoError)
 		domainsent = 1;
@@ -1746,7 +1827,7 @@ _httpResolveURI(
 #endif /* HAVE_DNSSD || HAVE_AVAHI */
 
     if ((options & _HTTP_RESOLVE_STDERR) && !uri)
-      _cupsLangPrintFilter(stderr, "ERROR", _("Unable to find printer."));
+      _cupsLangPrintFilter(stderr, "INFO", _("Unable to find printer."));
   }
   else
   {
@@ -1850,6 +1931,11 @@ http_copy_decode(char       *dst,	/* O - Destination buffer */
 	  *ptr = '\0';
 	  return (NULL);
 	}
+      }
+      else if ((*src & 255) <= 0x20 || (*src & 255) >= 0x7f)
+      {
+        *ptr = '\0';
+        return (NULL);
       }
       else
 	*ptr++ = *src;
@@ -1970,7 +2056,8 @@ http_resolve_cb(
   */
 
   if ((uribuf->options & _HTTP_RESOLVE_FAXOUT) &&
-      (!strcmp(scheme, "ipp") || !strcmp(scheme, "ipps")))
+      (!strcmp(scheme, "ipp") || !strcmp(scheme, "ipps")) &&
+      !TXTRecordGetValuePtr(txtLen, txtRecord, "printer-type", &valueLen))
   {
     reskey     = "rfo";
     resdefault = "/ipp/faxout";
@@ -2294,5 +2381,5 @@ http_resolve_cb(
 
 
 /*
- * End of "$Id: http-support.c 7952 2008-09-17 00:56:20Z mike $".
+ * End of "$Id: http-support.c 11194 2013-07-26 03:13:31Z msweet $".
  */

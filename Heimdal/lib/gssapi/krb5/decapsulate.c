@@ -197,7 +197,7 @@ _gssapi_verify_pad(gss_buffer_t wrapped_token,
 {
     u_char *pad;
     size_t padlength;
-    int i;
+    size_t i;
 
     pad = (u_char *)wrapped_token->value + wrapped_token->length - 1;
     padlength = *pad;

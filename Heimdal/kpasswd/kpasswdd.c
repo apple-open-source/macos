@@ -529,7 +529,7 @@ process(int s,
 	struct sockaddr *client,
 	int client_size,
 	u_char *msg,
-	int len,
+	size_t len,
 	heim_idata *out_data)
 {
     krb5_error_code ret;
@@ -680,7 +680,7 @@ listen_on(krb5_address *addr, int type, int port)
 	free(data);
 	return;
     }
-
+    socket_set_nopipe(data->s, 1);
     socket_set_reuseaddr(data->s, 1);
 #ifdef HAVE_IPV6
     if (data->sa->sa_family == AF_INET6)
@@ -860,7 +860,7 @@ main (int argc, char **argv)
 	else {
 	    char *ptr;
 
-	    port = strtol (port_str, &ptr, 10);
+	    port = (int)strtol (port_str, &ptr, 10);
 	    if (port == 0 && ptr == port_str)
 		krb5_errx (context, 1, "bad port `%s'", port_str);
 	    port = htons(port);

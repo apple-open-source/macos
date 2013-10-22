@@ -28,15 +28,16 @@
 #include "WebNotificationCenter.h"
 
 #include "WebNotification.h"
+#include <WebCore/BString.h>
 #include <WebCore/COMPtr.h>
-#include <WebCore/PlatformString.h>
+#include <utility>
+#include <wchar.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashTraits.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
-#include <utility>
-#include <wchar.h>
+#include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
@@ -120,7 +121,7 @@ void WebNotificationCenter::postNotificationInternal(IWebNotification* notificat
 
     // Intentionally make a copy of the list to avoid the possibility of errors
     // from a mutation of the list in the onNotify callback.
-    ObjectObserverList list = it->second;
+    ObjectObserverList list = it->value;
 
     ObserverListIterator end = list.end();
     for (ObserverListIterator it2 = list.begin(); it2 != end; ++it2) {
@@ -149,7 +150,7 @@ HRESULT STDMETHODCALLTYPE WebNotificationCenter::addObserver(
     String name(notificationName, SysStringLen(notificationName));
     MappedObservers::iterator it = d->m_mappedObservers.find(name);
     if (it != d->m_mappedObservers.end())
-        it->second.append(ObjectObserverPair(anObject, observer));
+        it->value.append(ObjectObserverPair(anObject, observer));
     else {
         ObjectObserverList list;
         list.append(ObjectObserverPair(anObject, observer));
@@ -162,7 +163,7 @@ HRESULT STDMETHODCALLTYPE WebNotificationCenter::addObserver(
 HRESULT STDMETHODCALLTYPE WebNotificationCenter::postNotification( 
     /* [in] */ IWebNotification* notification)
 {
-    BSTR name;
+    BString name;
     HRESULT hr = notification->name(&name);
     if (FAILED(hr))
         return hr;
@@ -173,7 +174,6 @@ HRESULT STDMETHODCALLTYPE WebNotificationCenter::postNotification(
         return hr;
 
     postNotificationInternal(notification, name, obj.get());
-    SysFreeString(name);
 
     return hr;
 }
@@ -198,7 +198,7 @@ HRESULT STDMETHODCALLTYPE WebNotificationCenter::removeObserver(
     if (it == d->m_mappedObservers.end())
         return E_FAIL;
 
-    ObjectObserverList& observerList = it->second;
+    ObjectObserverList& observerList = it->value;
     ObserverListIterator end = observerList.end();
 
     int i = 0;

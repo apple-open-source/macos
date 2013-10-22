@@ -122,6 +122,22 @@ time_t heim_ntlm_time_skew = 300;
 	    goto out;							\
 	}								\
     } while(/*CONSTCOND*/0)
+#define CHECK_SIZE(f, e)						\
+    do {								\
+	ssize_t sret = f;						\
+	if (sret != (ssize_t)(e)) {					\
+	    ret = HNTLM_ERR_DECODE;					\
+	    goto out;							\
+	}								\
+    } while(/*CONSTCOND*/0)
+#define CHECK_OFFSET(f, e)						\
+    do {								\
+	off_t sret = f;							\
+	if (sret != (e)) {						\
+	    ret = HNTLM_ERR_DECODE;					\
+	    goto out;							\
+	}								\
+    } while(/*CONSTCOND*/0)
 
 
 static struct units ntlm_flag_units[] = {
@@ -275,7 +291,7 @@ out:
  * wire, but using utf8 in memory.
  */
 
-static krb5_error_code
+static size_t
 len_string(int ucs2, const char *s)
 {
     if (ucs2) {
@@ -304,7 +320,7 @@ ret_string(krb5_storage *sp, int ucs2, size_t len, char **s)
     *s = malloc(len + 1);
     if (*s == NULL)
 	return ENOMEM;
-    CHECK(krb5_storage_read(sp, *s, len), len);
+    CHECK_SIZE(krb5_storage_read(sp, *s, len), len);
 
     (*s)[len] = '\0';
 
@@ -316,6 +332,7 @@ ret_string(krb5_storage *sp, int ucs2, size_t len, char **s)
 	data = malloc(utf16len * sizeof(data[0])); 
 	if (data == NULL) {
 	    free(*s); *s = NULL;
+	    ret = ENOMEM;
 	    goto out;
 	}
 
@@ -351,7 +368,7 @@ static krb5_error_code
 ret_sec_string(krb5_storage *sp, int ucs2, struct sec_buffer *desc, char **s)
 {
     krb5_error_code ret = 0;
-    CHECK(krb5_storage_seek(sp, desc->offset, SEEK_SET), desc->offset);
+    CHECK_OFFSET(krb5_storage_seek(sp, desc->offset, SEEK_SET), desc->offset);
     CHECK(ret_string(sp, ucs2, desc->length, s), 0);
  out:
     return ret; 
@@ -372,7 +389,7 @@ put_string(krb5_storage *sp, int ucs2, const char *s)
 	buf.length = strlen(s);
     }
 
-    CHECK(krb5_storage_write(sp, buf.data, buf.length), buf.length);
+    CHECK_SIZE(krb5_storage_write(sp, buf.data, buf.length), buf.length);
     if (ucs2)
 	heim_ntlm_free_buf(&buf);
     ret = 0;
@@ -391,8 +408,8 @@ ret_buf(krb5_storage *sp, struct sec_buffer *desc, struct ntlm_buf *buf)
 
     buf->data = malloc(desc->length);
     buf->length = desc->length;
-    CHECK(krb5_storage_seek(sp, desc->offset, SEEK_SET), desc->offset);
-    CHECK(krb5_storage_read(sp, buf->data, buf->length), buf->length);
+    CHECK_OFFSET(krb5_storage_seek(sp, desc->offset, SEEK_SET), desc->offset);
+    CHECK_SIZE(krb5_storage_read(sp, buf->data, buf->length), buf->length);
     ret = 0;
 out:
     return ret;
@@ -402,7 +419,7 @@ static krb5_error_code
 put_buf(krb5_storage *sp, const struct ntlm_buf *buf)
 {
     krb5_error_code ret;
-    CHECK(krb5_storage_write(sp, buf->data, buf->length), buf->length);
+    CHECK_SIZE(krb5_storage_write(sp, buf->data, buf->length), buf->length);
     ret = 0;
 out:
     return ret;
@@ -496,11 +513,9 @@ heim_ntlm_encode_targetinfo(const struct ntlm_targetinfo *ti,
 	CHECK(encode_ti_string(out, 9, ucs2, ti->targetname), 0);
     }
     if (ti->channel_bindings.length) {
-	ssize_t sret;
 	CHECK(krb5_store_uint16(out, 10), 0);
 	CHECK(krb5_store_uint16(out, ti->channel_bindings.length), 0);
-	sret = krb5_storage_write(out, ti->channel_bindings.data, ti->channel_bindings.length);
-	CHECK(sret, ti->channel_bindings.length);
+	CHECK_SIZE(krb5_storage_write(out, ti->channel_bindings.data, ti->channel_bindings.length), ti->channel_bindings.length);
     }
 
     /* end tag */
@@ -594,7 +609,7 @@ heim_ntlm_decode_targetinfo(const struct ntlm_buf *data,
 		goto out;
 	    }
 	    ti->channel_bindings.length = len;
-	    CHECK(krb5_storage_read(in, ti->channel_bindings.data, len), len);
+	    CHECK_SIZE(krb5_storage_read(in, ti->channel_bindings.data, len), len);
 	    break;
 	default:
 	    krb5_storage_seek(in, len, SEEK_CUR);
@@ -658,7 +673,7 @@ heim_ntlm_decode_type1(const struct ntlm_buf *buf, struct ntlm_type1 *data)
     }
     krb5_storage_set_byteorder(in, KRB5_STORAGE_BYTEORDER_LE);
 
-    CHECK(krb5_storage_read(in, sig, sizeof(sig)), sizeof(sig));
+    CHECK_SIZE(krb5_storage_read(in, sig, sizeof(sig)), sizeof(sig));
     CHECK(memcmp(ntlmsigature, sig, sizeof(ntlmsigature)), 0);
     CHECK(krb5_ret_uint32(in, &type), 0);
     CHECK(type, 1);
@@ -745,7 +760,7 @@ heim_ntlm_encode_type1(const struct ntlm_type1 *type1, struct ntlm_buf *data)
 	return ENOMEM;
 
     krb5_storage_set_byteorder(out, KRB5_STORAGE_BYTEORDER_LE);
-    CHECK(krb5_storage_write(out, ntlmsigature, sizeof(ntlmsigature)),
+    CHECK_SIZE(krb5_storage_write(out, ntlmsigature, sizeof(ntlmsigature)),
 	  sizeof(ntlmsigature));
     CHECK(krb5_store_uint32(out, 1), 0);
     CHECK(krb5_store_uint32(out, flags), 0);
@@ -808,7 +823,7 @@ heim_ntlm_decode_type2(const struct ntlm_buf *buf, struct ntlm_type2 *type2)
     }
     krb5_storage_set_byteorder(in, KRB5_STORAGE_BYTEORDER_LE);
 
-    CHECK(krb5_storage_read(in, sig, sizeof(sig)), sizeof(sig));
+    CHECK_SIZE(krb5_storage_read(in, sig, sizeof(sig)), sizeof(sig));
     CHECK(memcmp(ntlmsigature, sig, sizeof(ntlmsigature)), 0);
     CHECK(krb5_ret_uint32(in, &type), 0);
     CHECK(type, 2);
@@ -817,7 +832,7 @@ heim_ntlm_decode_type2(const struct ntlm_buf *buf, struct ntlm_type2 *type2)
     CHECK(krb5_ret_uint32(in, &type2->flags), 0);
     if (type2->flags & NTLM_NEG_UNICODE)
 	ucs2 = 1;
-    CHECK(krb5_storage_read(in, type2->challenge, sizeof(type2->challenge)),
+    CHECK_SIZE(krb5_storage_read(in, type2->challenge, sizeof(type2->challenge)),
 	  sizeof(type2->challenge));
     CHECK(krb5_ret_uint32(in, &ctx[0]), 0); /* context */
     CHECK(krb5_ret_uint32(in, &ctx[1]), 0);
@@ -884,12 +899,12 @@ heim_ntlm_encode_type2(const struct ntlm_type2 *type2, struct ntlm_buf *data)
 	return ENOMEM;
 
     krb5_storage_set_byteorder(out, KRB5_STORAGE_BYTEORDER_LE);
-    CHECK(krb5_storage_write(out, ntlmsigature, sizeof(ntlmsigature)),
+    CHECK_SIZE(krb5_storage_write(out, ntlmsigature, sizeof(ntlmsigature)),
 	  sizeof(ntlmsigature));
     CHECK(krb5_store_uint32(out, 2), 0);
     CHECK(store_sec_buffer(out, &targetname), 0);
     CHECK(krb5_store_uint32(out, type2->flags), 0);
-    CHECK(krb5_storage_write(out, type2->challenge, sizeof(type2->challenge)),
+    CHECK_SIZE(krb5_storage_write(out, type2->challenge, sizeof(type2->challenge)),
 	  sizeof(type2->challenge));
     CHECK(krb5_store_uint32(out, 0), 0); /* context */
     CHECK(krb5_store_uint32(out, 0), 0);
@@ -899,7 +914,7 @@ heim_ntlm_encode_type2(const struct ntlm_type2 *type2, struct ntlm_buf *data)
 	CHECK(encode_os_version(out), 0);
     }
     CHECK(put_string(out, ucs2, type2->targetname), 0);
-    CHECK(krb5_storage_write(out, type2->targetinfo.data,
+    CHECK_SIZE(krb5_storage_write(out, type2->targetinfo.data,
 			     type2->targetinfo.length),
 	  type2->targetinfo.length);
 
@@ -965,7 +980,7 @@ heim_ntlm_decode_type3(const struct ntlm_buf *buf,
     }
     krb5_storage_set_byteorder(in, KRB5_STORAGE_BYTEORDER_LE);
 
-    CHECK(krb5_storage_read(in, sig, sizeof(sig)), sizeof(sig));
+    CHECK_SIZE(krb5_storage_read(in, sig, sizeof(sig)), sizeof(sig));
     CHECK(memcmp(ntlmsigature, sig, sizeof(ntlmsigature)), 0);
     CHECK(krb5_ret_uint32(in, &type), 0);
     CHECK(type, 3);
@@ -994,7 +1009,7 @@ heim_ntlm_decode_type3(const struct ntlm_buf *buf,
     }
     if (min_offset >= 52 + 8 + 4 + 8 + 16) {
 	type3->mic_offset = 52 + 8 + 4 + 8;
-	CHECK(krb5_storage_read(in, type3->mic, sizeof(type3->mic)), sizeof(type3->mic));
+	CHECK_SIZE(krb5_storage_read(in, type3->mic, sizeof(type3->mic)), sizeof(type3->mic));
     } else
 	type3->mic_offset = 0;
     CHECK(ret_buf(in, &lm, &type3->lm), 0);
@@ -1087,7 +1102,7 @@ heim_ntlm_encode_type3(const struct ntlm_type3 *type3, struct ntlm_buf *data, si
 	return ENOMEM;
 
     krb5_storage_set_byteorder(out, KRB5_STORAGE_BYTEORDER_LE);
-    CHECK(krb5_storage_write(out, ntlmsigature, sizeof(ntlmsigature)),
+    CHECK_SIZE(krb5_storage_write(out, ntlmsigature, sizeof(ntlmsigature)),
 	  sizeof(ntlmsigature));
     CHECK(krb5_store_uint32(out, 3), 0);
 
@@ -1106,7 +1121,7 @@ heim_ntlm_encode_type3(const struct ntlm_type3 *type3, struct ntlm_buf *data, si
 
     if (mic_offset) {
 	static const uint8_t buf[16] = { 0 };
-	CHECK(krb5_storage_write(out, buf, sizeof(buf)), sizeof(buf));
+	CHECK_SIZE(krb5_storage_write(out, buf, sizeof(buf)), sizeof(buf));
     }
 
     CHECK(put_string(out, ucs2, type3->targetname), 0);
@@ -1625,10 +1640,10 @@ heim_ntlm_calculate_ntlm2(const void *key, size_t len,
     CHECK(krb5_store_uint32(sp, t & 0xffffffff), 0);
     CHECK(krb5_store_uint32(sp, t >> 32), 0);
 
-    CHECK(krb5_storage_write(sp, clientchallenge, 8), 8);
+    CHECK_SIZE(krb5_storage_write(sp, clientchallenge, 8), 8);
 
     CHECK(krb5_store_uint32(sp, 0), 0);  /* Z(4) */
-    CHECK(krb5_storage_write(sp, infotarget->data, infotarget->length),
+    CHECK_SIZE(krb5_storage_write(sp, infotarget->data, infotarget->length),
 	  infotarget->length);
 
     /*
@@ -1651,8 +1666,8 @@ heim_ntlm_calculate_ntlm2(const void *key, size_t len,
 	return ENOMEM;
     }
 
-    CHECK(krb5_storage_write(sp, ntlmv2answer, 16), 16);
-    CHECK(krb5_storage_write(sp, data.data, data.length), data.length);
+    CHECK_SIZE(krb5_storage_write(sp, ntlmv2answer, 16), 16);
+    CHECK_SIZE(krb5_storage_write(sp, data.data, data.length), data.length);
     krb5_data_free(&data);
 
     CHECK(krb5_storage_to_data(sp, &data), 0);
@@ -1711,7 +1726,7 @@ verify_ntlm2(const void *key, size_t len,
 	return ENOMEM;
     krb5_storage_set_flags(sp, KRB5_STORAGE_BYTEORDER_LE);
 
-    CHECK(krb5_storage_read(sp, clientanswer, 16), 16);
+    CHECK_SIZE(krb5_storage_read(sp, clientanswer, 16), 16);
 
     CHECK(krb5_ret_uint32(sp, &temp), 0);
     CHECK(temp, 0x00000101);
@@ -1731,12 +1746,12 @@ verify_ntlm2(const void *key, size_t len,
     }
 
     /* client challenge */
-    CHECK(krb5_storage_read(sp, clientnonce, 8), 8);
+    CHECK_SIZE(krb5_storage_read(sp, clientnonce, 8), 8);
 
     CHECK(krb5_ret_uint32(sp, &temp), 0); /* Z(4) */
 
     /* let pick up targetinfo */
-    infotarget->length = answer->length - krb5_storage_seek(sp, 0, SEEK_CUR);
+    infotarget->length = answer->length - (size_t)krb5_storage_seek(sp, 0, SEEK_CUR);
     if (infotarget->length < 4) {
 	ret = HNTLM_ERR_INVALID_LENGTH;
 	goto out;
@@ -1746,7 +1761,7 @@ verify_ntlm2(const void *key, size_t len,
 	ret = ENOMEM;
 	goto out;
     }
-    CHECK(krb5_storage_read(sp, infotarget->data, infotarget->length),
+    CHECK_SIZE(krb5_storage_read(sp, infotarget->data, infotarget->length),
 	  infotarget->length);
 
     krb5_storage_free(sp);

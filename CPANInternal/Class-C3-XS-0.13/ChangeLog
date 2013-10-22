@@ -1,0 +1,58 @@
+Revision history for Perl extension Class::C3::XS
+
+0.13 Thu Sep 24, 2009
+        - Release 0.12_03 as a stable release, without further modifications.
+
+0.12_03 Mon Sep 21, 2009
+        - Fix compatibility with perl 5.6.x. Thanks again, Nicholas.
+
+0.12_02 Mon Sep 7, 2009
+        - Actually ship with the changes 0.12_01 claimed to have. Thanks for
+          catching this, Nicholas.
+
+0.12_01 Sat Aug 22, 2009
+        - Backport a couple of performance tweaks from bleadperl. This gives a
+          performance improvement of about 40% in calculating the linearized
+          isa for hierarchies with single parents only.
+
+0.11 Mon Mar 30, 2009
+        - Define SVfARG if the perl we're compiling for doesn't have
+          it (Florian Ragwitz).
+
+0.10 Sat Mar 28, 2009
+        - Improve error message on merge errors (Florian Ragwitz).
+
+0.09 Wed Mar 25, 2009
+        - Use I32 instead of int (Brandon L Black).
+        - Explicitly specify xs prototyping behaviour (Florian Ragwitz).
+        - Fix several compiler warnings (Florian Ragwitz).
+        - Check return values when storing values in hashes and error
+          out if it didn't work (Florian Ragwitz).
+        - Stop using auto_install in Makefile.PL (Florian Ragwitz).
+        - Remove fake Build.PL (Florian Ragwitz).
+
+0.08 Wed Jun 13, 2007
+        Fixed next::method, etc under the Perl debugger
+
+0.07 Mon Jun 4, 2007
+        Fixed "goto &next::method" and related gotos, which fixes
+        Catalyst::Plugin::C3.
+
+0.06 Wed May 16, 2007
+        Removed the "assert(HvAUX(stash))" that was failing for some
+        Now 5.6.x-compatible, thanks to some testing from dec
+
+0.05 Mon May 14, 2007
+        Backported optimizations and memory-management fixes from bleadperl
+
+0.04 Sat May 12, 2007
+        Small new private feature to help MRO::Compat
+
+0.03 Tues May 8, 2007
+        Remove Build.PL from the dist
+
+0.02 Thurs May 3, 2007
+        First non-dev release
+
+0.01_01 Sun Apr 15, 2007
+        Initial development release

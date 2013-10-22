@@ -48,17 +48,44 @@ if ! ping -c 1 idms-ad-uat.corp.apple.com > /dev/null 2>&1 ; then
       { echo "no UAT-APPLECONNECT available, skipping tests" ; exit 0; }
 fi
 
-echo "Interactive kinit for heimdalcoreos@APPLECONNECT-UAT.APPLE.COM"; > ${testdir}/messages
+echo "Interactive kinit for heimdalcoreos@APPLECONNECT-UAT.APPLE.COM"; > ${testdir}/messages.log
 kinitpty=${testdir}/foopassword.rkpty
 
 cat > ${kinitpty} <<EOF
 expect Password
 password Foobar13\n
 EOF
-   ${rkpty} ${kinitpty} ${kinit} heimdalcoreos@APPLECONNECT-UAT.APPLE.COM >/dev/null || \
-	{ cat ${testdir}/messages ; exit 1; }
+
+${rkpty} ${kinitpty} ${kinit} heimdalcoreos@APPLECONNECT-UAT.APPLE.COM >/dev/null || \
+	{ cat ${testdir}/messages.log ; exit 1; }
 ${kdestroy}
 
+mv /System/Library/KerberosPlugins/KerberosFrameworkPlugins/AppleConnectLocate.bundle{,-no}
+
+trap "/System/Library/KerberosPlugins/KerberosFrameworkPlugins/AppleConnectLocate.bundle{-no,}" SIGINT EXIT
+
+KRB5_CONFIG="${1-${confdir}/krb5-kkdcp.conf}"
+export KRB5_CONFIG
+
+echo "checking APPLECONNECT-UAT.APPLE.COM with kkdcp"; > ${testdir}/messages.log
+${rkpty} ${kinitpty} ${kinit} heimdalcoreos@APPLECONNECT-UAT.APPLE.COM >/dev/null || \
+	{ cat ${testdir}/messages.log ; exit 1; }
+${kdestroy}
+echo "logs"
+cat ${testdir}/messages.log
+echo "end logs"
+
+unset KRB5_CONFIG
+echo "checking APPLECONNECT-UAT.APPLE.COM with kkdcp (no config)"; > ${testdir}/messages.log
+${rkpty} ${kinitpty} ${kinit} \
+	--kdc-hostname=kkdcp://wdg01-uat.apple.com/kkdcp \
+	heimdalcoreos@APPLECONNECT-UAT.APPLE.COM >/dev/null || \
+	{ cat ${testdir}/messages.log ; exit 1; }
+cat ${testdir}/messages.log
+
+
+mv /System/Library/KerberosPlugins/KerberosFrameworkPlugins/AppleConnectLocate.bundle{-no,}
+trap - SIGINT EXIT
 
 exit 0
 

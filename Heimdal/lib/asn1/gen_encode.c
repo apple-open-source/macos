@@ -285,7 +285,7 @@ encode_type (const char *name, const Type *t, const char *tmpstr)
 
 	fprintf(codefile,
 		"{\n"
-		"struct heim_octet_string *val;\n"
+		"heim_octet_string *val;\n"
 		"size_t elen = 0, totallen = 0;\n"
 		"int eret = 0;\n");
 
@@ -409,6 +409,9 @@ encode_type (const char *name, const Type *t, const char *tmpstr)
 	if (asprintf (&s, "(%s)", name) < 0 || s == NULL)
 	    errx(1, "malloc");
 	fprintf(codefile, "switch(%s->element) {\n", s);
+
+	fprintf(codefile,
+		"case ASN1_CHOICE_INVALID: ret = ASN1_INVALID_CHOICE;\nbreak;\n");
 
 	ASN1_TAILQ_FOREACH_REVERSE(m, t->members, memhead, members) {
 	    char *s2 = NULL;

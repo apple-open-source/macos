@@ -247,16 +247,15 @@ default_pager_space_alert(alert_port, flags)
 		        notifications = HI_WAT_ALERT;
 
 		sprintf(subfile, "%s%d", fileroot, file_count);
+#if TARGET_OS_EMBEDDED
+		fd = open_dprotected_np(subfile, O_CREAT|O_EXCL|O_RDWR, PROTECTION_CLASS_F, 0, (mode_t)(S_IRUSR|S_IWUSR));
+#else
 		fd = open(subfile, O_CREAT|O_EXCL|O_RDWR,(mode_t)(S_IRUSR|S_IWUSR));
+#endif
 		if (fd == -1) {
 			/* force error recovery below */
 			error = -1;
 		}	
-#if TARGET_OS_EMBEDDED
-		else {
-			error = fcntl(fd, F_SETPROTECTIONCLASS, PROTECTION_CLASS_F);
-		}
-#endif
 		
 		if(!error) {	
 			error = fcntl(fd, F_SETSIZE, &filesize);
@@ -422,22 +421,17 @@ paging_setup(flags, size, priority, low, high, encrypted)
 
 	file_count = 0;
 	sprintf(subfile, "%s%d", fileroot, file_count);
+#if TARGET_OS_EMBEDDED
+	fd = open_dprotected_np(subfile, O_CREAT|O_EXCL|O_RDWR, PROTECTION_CLASS_F, 0, ((mode_t)(S_IRUSR|S_IWUSR)));
+#else
 	fd = open(subfile, O_CREAT|O_EXCL|O_RDWR, ((mode_t)(S_IRUSR|S_IWUSR)));
+#endif
 	if (fd == -1) {
 		fprintf(stderr, "dynamic_pager: cannot create paging file %s!\n",
 			subfile);
 		exit(EXIT_FAILURE);
 	}
 
-#if TARGET_OS_EMBEDDED
-	error = fcntl(fd, F_SETPROTECTIONCLASS, PROTECTION_CLASS_F);
-	if (error == -1) {
-		fprintf(stderr, "dynamic_pager: cannot set file protection class!\n");
-		unlink(subfile);
-		close(fd);
-		exit(EXIT_FAILURE);
-	}
-#endif
 
 	error = fcntl(fd, F_SETSIZE, &filesize);
 	if(error) {

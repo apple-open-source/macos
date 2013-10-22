@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include "eapolcontroller.h"
 #include "eapolcontroller_types.h"
 #include "eapolcontroller_ext.h"
+#include "EAPLog.h"
 #include "myCFUtil.h"
 #include "EAPOLControl.h"
 #include "EAPOLControlTypes.h"
@@ -61,8 +62,8 @@ get_server_port(mach_port_t * server, kern_return_t * status)
 {
     *status = eapolcontroller_server_port(server);
     if (*status != BOOTSTRAP_SUCCESS) {
-	fprintf(stderr, "eapolcontroller_server_port failed, %s\n", 
-		mach_error_string(*status));
+	EAPLOG_FL(LOG_NOTICE, "eapolcontroller_server_port failed, %s", 
+		  mach_error_string(*status));
 	return (FALSE);
     }
     return (TRUE);
@@ -83,15 +84,16 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 				MACH_PORT_RIGHT_SEND, 1);
     if (status != KERN_SUCCESS) {
 	need_deallocate = FALSE;
-	mach_error("mach_port_mod_refs failed", status);
+	EAPLOG_FL(LOG_NOTICE, "mach_port_mod_refs failed, %s (%d)",
+		  mach_error_string(status), status);
 	result = ENXIO;
 	goto done;
     }
     need_deallocate = TRUE;
     au_session = audit_session_self();
     if (au_session == MACH_PORT_NULL) {
-	perror("audit_session_port");
 	result = ENXIO;
+	EAPLOG_FL(LOG_NOTICE, "audit_session_self failed");
 	goto done;
     }
     if (get_server_port(&server, &status) == FALSE) {
@@ -116,12 +118,13 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 				   au_session,
 				   &result);
     if (status != KERN_SUCCESS) {
-	mach_error("eapolcontroller_start failed", status);
+	EAPLOG_FL(LOG_NOTICE, "eapolcontroller_start failed, %s (%d)",
+		  mach_error_string(status), status);
 	result = ENXIO;
 	goto done;
     }
     if (result != 0) {
-	fprintf(stderr, "eapolcontroller_start: result is %d\n", result);
+	EAPLOG_FL(LOG_NOTICE, "eapolcontroller_start: result is %d", result);
     }
 
  done:
@@ -139,11 +142,11 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 
 #if ! TARGET_OS_EMBEDDED
 static Boolean
-auth_info_is_valid(CFDictionaryRef * dict_p)
+EAPOLControlAuthInfoIsValid(CFDictionaryRef * dict_p)
 {
     int				count;
     CFDictionaryRef		dict;
-    const void *		keys[3];
+    const void *		keys[4];
     int				keys_count = sizeof(keys) / sizeof(keys[0]);
 
     dict = *dict_p;
@@ -166,9 +169,19 @@ auth_info_is_valid(CFDictionaryRef * dict_p)
 
 	CFDictionaryGetKeysAndValues(dict, keys, NULL);
 	for (i = 0; i < count; i++) {
-	    if (!CFEqual(keys[i], kEAPClientPropUserName)
-		&& !CFEqual(keys[i], kEAPClientPropUserPassword)
-		&& !CFEqual(keys[i], kEAPClientPropTLSIdentityHandle)) {
+	    if (CFEqual(keys[i],
+			kEAPClientPropSaveCredentialsOnSuccessfulAuthentication)) {
+		if (count == 1) {
+		    /* no credentials specified, ignore it */
+		    EAPLOG_FL(LOG_NOTICE,
+			      "Ignoring %@ since no credentials were specified",
+			      keys[i]);
+		    *dict_p = NULL;
+		}
+	    }
+	    else if (!CFEqual(keys[i], kEAPClientPropUserName)
+		     && !CFEqual(keys[i], kEAPClientPropUserPassword)
+		     && !CFEqual(keys[i], kEAPClientPropTLSIdentityHandle)) {
 		return (FALSE);
 	    }
 	}
@@ -198,7 +211,7 @@ EAPOLControlStartWithOptions(const char * if_name,
     auth_info 
 	= CFDictionaryGetValue(options, 
 			       kEAPOLControlStartOptionAuthenticationInfo);
-    if (auth_info_is_valid(&auth_info) == FALSE) {
+    if (EAPOLControlAuthInfoIsValid(&auth_info) == FALSE) {
 	return (EINVAL);
     }
     manager_name = CFDictionaryGetValue(options,
@@ -229,7 +242,9 @@ EAPOLControlStartWithOptions(const char * if_name,
 				     &kCFTypeDictionaryValueCallBacks);
     CFRelease(item_dict);
     ret = EAPOLControlStart(if_name, config_dict);
-    CFRelease(config_dict);
+    if (config_dict != NULL) {
+        CFRelease(config_dict);
+    }
     return (ret);
 }
 
@@ -245,7 +260,7 @@ EAPOLControlStartWithClientItemID(const char * if_name,
     int			ret;
     const void *	values[2];
 
-    if (auth_info_is_valid(&auth_info) == FALSE) {
+    if (EAPOLControlAuthInfoIsValid(&auth_info) == FALSE) {
 	return (EINVAL);
     }
     item_dict = EAPOLClientItemIDCopyDictionary(itemID);
@@ -266,7 +281,9 @@ EAPOLControlStartWithClientItemID(const char * if_name,
 				     &kCFTypeDictionaryValueCallBacks);
     CFRelease(item_dict);
     ret = EAPOLControlStart(if_name, config_dict);
-    CFRelease(config_dict);
+    if (config_dict != NULL) {
+        CFRelease(config_dict);
+    }
     return (ret);
 }
 
@@ -445,27 +462,7 @@ EAPOLControlCopyStateAndStatus(const char * interface_name,
 int
 EAPOLControlSetLogLevel(const char * interface_name, int32_t level)
 {
-    if_name_t			if_name;
-    mach_port_t			server;
-    int				result = 0;
-    kern_return_t		status;
-
-    if (get_server_port(&server, &status) == FALSE) {
-	result = ENXIO;
-	goto done;
-    }
-
-    strncpy(if_name, interface_name, sizeof(if_name));
-    status = eapolcontroller_set_logging(server, 
-					 if_name, 
-					 level, &result);
-    if (status != KERN_SUCCESS) {
-	mach_error("eapolcontroller_set_logging failed", status);
-	result = ENXIO;
-	goto done;
-    }
- done:
-    return (result);
+    return (EINVAL);
 }
 
 CFStringRef
@@ -518,12 +515,14 @@ EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options)
 					  xml_data, xml_data_len, 
 					  &result);
     if (status != KERN_SUCCESS) {
-	mach_error("eapolcontroller_start_system failed", status);
+	EAPLOG_FL(LOG_NOTICE, "eapolcontroller_start_system failed, %s (%d)",
+		  mach_error_string(status), status);
 	result = ENXIO;
 	goto done;
     }
     if (result != 0) {
-	fprintf(stderr, "eapolcontroller_start_system: result is %d\n", result);
+	EAPLOG_FL(LOG_NOTICE, "eapolcontroller_start_system: result is %d",
+		  result);
     }
  done:
     my_CFRelease(&data);
@@ -552,7 +551,9 @@ EAPOLControlStartSystemWithClientItemID(const char * interface_name,
 				     &kCFTypeDictionaryValueCallBacks);
     CFRelease(item_dict);
     ret = EAPOLControlStartSystem(interface_name, config_dict);
-    CFRelease(config_dict);
+    if (config_dict != NULL) {
+        CFRelease(config_dict);
+    }
     return (ret);
 }
 
@@ -579,7 +580,9 @@ S_copy_loginwindow_config(const char * interface_name,
 						     &config_len,
 						     &result);
     if (status != KERN_SUCCESS) {
-	mach_error("eapolcontroller_copy_loginwindow_config failed", status);
+	EAPLOG_FL(LOG_NOTICE,
+		  "eapolcontroller_copy_loginwindow_config failed, %s (%d)",
+		  mach_error_string(status), status);
 	result = ENXIO;
 	goto done;
     }
@@ -701,7 +704,9 @@ EAPOLControlCopyAutoDetectInformation(CFDictionaryRef * info_p)
 						  &info_data, &info_data_len,
 						  &result);
     if (status != KERN_SUCCESS) {
-	mach_error("eapolcontroller_copy_autodetect_info failed", status);
+	EAPLOG_FL(LOG_NOTICE,
+		  "eapolcontroller_copy_autodetect_info failed, %s (%d)",
+		  mach_error_string(status), status);
 	result = ENXIO;
 	goto done;
     }
@@ -744,7 +749,6 @@ EAPOLControlDidUserCancel(const char * interface_name)
 }
 
 #define kEthernetAutoConnect		CFSTR("EthernetAutoConnect")
-#define kEthernetAutoConnectIsVerbose	CFSTR("EthernetAutoConnectIsVerbose")
 #define kEthernetAuthenticatorList	CFSTR("EthernetAuthenticatorList")
 
 #define kProfileID			CFSTR("ProfileID")
@@ -766,17 +770,14 @@ settings_change_check(void)
 	status = notify_register_check(kEAPOLControlUserSettingsNotifyKey,
 				       &token);
 	if (status != NOTIFY_STATUS_OK) {
-	    syslog(LOG_NOTICE,
-		   "EAPOLControl: notify_register_check returned %d", status);
+	    EAPLOG_FL(LOG_NOTICE, "notify_register_check returned %d", status);
 	    return;
 	}
 	token_valid = TRUE;
     }
     status = notify_check(token, &check);
     if (status != NOTIFY_STATUS_OK) {
-	syslog(LOG_NOTICE,
-	       "EAPOLControl: notify_check returned %d",
-	       status);
+	EAPLOG_FL(LOG_NOTICE, "notify_check returned %d", status);
 	return;
     }
     if (check != 0) {
@@ -794,8 +795,7 @@ settings_change_notify(void)
 
     status = notify_post(kEAPOLControlUserSettingsNotifyKey);
     if (status != NOTIFY_STATUS_OK) {
-	syslog(LOG_NOTICE,
-	       "EAPOLControl: notify_post returned %d", status);
+	EAPLOG_FL(LOG_NOTICE, "notify_post returned %d", status);
     }
     return;
 }
@@ -856,20 +856,6 @@ EAPOLControlIsUserAutoConnectEnabled(void)
     return (EAPOLControlUserGetBooleanValue(kEthernetAutoConnect, TRUE));
 }
 
-void
-EAPOLControlSetUserAutoConnectVerboseEnabled(Boolean enable)
-{
-    EAPOLControlUserSetBooleanValue(kEthernetAutoConnectIsVerbose, enable);
-    return;
-}
-
-Boolean
-EAPOLControlIsUserAutoConnectVerboseEnabled(void)
-{
-    return (EAPOLControlUserGetBooleanValue(kEthernetAutoConnectIsVerbose,
-					    FALSE));
-}
-
 
 #define EA_FORMAT	"%02x:%02x:%02x:%02x:%02x:%02x"
 #define EA_CH(e, i)	((u_char)((u_char *)(e))[(i)])
@@ -924,7 +910,9 @@ EAPOLControlCopyItemIDForAuthenticator(CFDataRef authenticator)
 	    itemID = EAPOLClientItemIDCreateDefault();
 	}
     }
-    CFRelease(str);
+    if (str != NULL) {
+        CFRelease(str);
+    }
 
  done:
     my_CFRelease(&list);
@@ -1039,7 +1027,7 @@ EAPOLControlAnyInterfaceKeyCreate(void)
 }
 
 /*
- * Function: parse_component
+ * Function: copy_component
  * Purpose:
  *   Given a string 'key' and a string prefix 'prefix',
  *   return the next component in the slash '/' separated
@@ -1052,7 +1040,7 @@ EAPOLControlAnyInterfaceKeyCreate(void)
  *    returns NULL
  */
 static CFStringRef
-parse_component(CFStringRef key, CFStringRef prefix)
+copy_component(CFStringRef key, CFStringRef prefix)
 {
     CFMutableStringRef	comp;
     CFRange		range;
@@ -1090,5 +1078,5 @@ EAPOLControlKeyCopyInterface(CFStringRef key)
 					 kSCCompNetwork,
 					 kSCCompInterface);
     }
-    return (parse_component(key, prefix));
+    return (copy_component(key, prefix));
 }

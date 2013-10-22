@@ -2838,6 +2838,10 @@
 		FC8A8BC914B648EF001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"HAVE_CONFIG_H=0",
+				);
 			};
 			name = Release;
 		};
@@ -2922,6 +2926,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Werror",
+					"-Wundef",
 				);
 			};
 			name = Release;

@@ -33,9 +33,12 @@
 #include <Security/SecInternal.h>
 #include "SecBase64.h"
 #include <AssertMacros.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
+#include <utilities/SecDispatchRelease.h>
 #include <asl.h>
 #include <string.h>
+
+#include <inttypes.h>
 
 #if __LP64__
 #define PRIstatus "d"
@@ -54,23 +57,14 @@ static CFStringRef kAppOcspRequest	= CFSTR("application/ocsp-request");
 #define _kCFStreamPropertyReadTimeout   CFSTR("_kCFStreamPropertyReadTimeout")
 #define _kCFStreamPropertyWriteTimeout   CFSTR("_kCFStreamPropertyWriteTimeout")
 
-/* the timeout we set */
-#define STREAM_TIMEOUT		7.0
+/* The timeout we set - 7 seconds */
+#define STREAM_TIMEOUT		(7 * NSEC_PER_SEC)
 
 #define POST_BUFSIZE   2048
 
-static void terminate_stream(CFReadStreamRef stream)
-{
-    CFReadStreamSetClient(stream, kCFStreamEventNone, NULL, NULL);
-    CFReadStreamUnscheduleFromRunLoop(stream, CFRunLoopGetCurrent(),
-        kCFRunLoopCommonModes);
-    CFReadStreamClose(stream);
-    //CFRelease(stream);
-}
-
 /* There has got to be an easier way to do this.  For now we based this code
    on CFNetwork/Connection/URLResponse.cpp. */
-static CFStringRef parseMaxAge(CFStringRef cacheControlHeader) {
+static CFStringRef copyParseMaxAge(CFStringRef cacheControlHeader) {
     /* The format of the cache control header is a comma-separated list, but
        each list element could be a key-value pair, with the value quoted and
        possibly containing a comma. */
@@ -162,14 +156,16 @@ static CFStringRef parseMaxAge(CFStringRef cacheControlHeader) {
 
 static void asynchttp_complete(asynchttp_t *http) {
     secdebug("http", "http: %p", http);
-    /* Shutdown streams and timers, we're about to invoke our client callback. */
+    /* Shutdown streams and timer, we're about to invoke our client callback. */
     if (http->stream) {
-        terminate_stream(http->stream);
+        CFReadStreamSetClient(http->stream, kCFStreamEventNone, NULL, NULL);
+        CFReadStreamSetDispatchQueue(http->stream, NULL);
+        CFReadStreamClose(http->stream);
         CFReleaseNull(http->stream);
     }
     if (http->timer) {
-        CFRunLoopTimerInvalidate(http->timer);
-        CFReleaseNull(http->timer);
+        dispatch_source_cancel(http->timer);
+        dispatch_release_null(http->timer);
     }
 
     if (http->completed) {
@@ -179,7 +175,7 @@ static void asynchttp_complete(asynchttp_t *http) {
             CFStringRef cacheControl = CFHTTPMessageCopyHeaderFieldValue(
                 http->response, CFSTR("cache-control"));
             if (cacheControl) {
-                CFStringRef maxAgeValue = parseMaxAge(cacheControl);
+                CFStringRef maxAgeValue = copyParseMaxAge(cacheControl);
                 CFRelease(cacheControl);
                 if (maxAgeValue) {
                     secdebug("http", "http header max-age: %@", maxAgeValue);
@@ -195,6 +191,11 @@ static void asynchttp_complete(asynchttp_t *http) {
 static void handle_server_response(CFReadStreamRef stream,
     CFStreamEventType type, void *info) {
     asynchttp_t *http = (asynchttp_t *)info;
+    if (!http->stream) {
+        secerror("Avoiding crash due to CFReadStream invoking us after we called CFReadStreamSetDispatchQueue(stream, NULL) on a different block on our serial queue");
+        return;
+    }
+
     switch (type) {
     case kCFStreamEventHasBytesAvailable:
     {
@@ -231,7 +232,7 @@ static void handle_server_response(CFReadStreamRef stream,
 
         secdebug("http",
             "stream: %@ kCFStreamEventErrorOccurred domain: %ld error: %ld",
-            stream, error.domain, error.error);
+            stream, error.domain, (long) error.error);
 
         if (error.domain == kCFStreamErrorDomainPOSIX) {
             ocspdErrorLog("CFReadStream posix: %s", strerror(error.error));
@@ -382,13 +383,10 @@ errOut:
 }
 
 
-static void asynchttp_timer_proc(CFRunLoopTimerRef timer, void *info) {
-    asynchttp_t *http = (asynchttp_t *)info;
+static void asynchttp_timer_proc(asynchttp_t *http) {
     CFStringRef req_meth = http->request ? CFHTTPMessageCopyRequestMethod(http->request) : NULL;
     CFURLRef req_url = http->request ? CFHTTPMessageCopyRequestURL(http->request) : NULL;
-    secdebug("http", "Timeout during %@ %@.", req_meth, req_url);
-    /* TODO: Add logging of url that timed out. */
-    //asl_log(NULL, NULL, ASL_LEVEL_NOTICE, "Timeout during %@ %@.", req_meth, req_url);
+    secnotice("http", "Timeout during %@ %@.", req_meth, req_url);
     CFReleaseSafe(req_url);
     CFReleaseSafe(req_meth);
     asynchttp_complete(http);
@@ -401,11 +399,7 @@ void asynchttp_free(asynchttp_t *http) {
         CFReleaseNull(http->response);
         CFReleaseNull(http->data);
         CFReleaseNull(http->stream);
-        CFReleaseNull(http->source);
-        if (http->timer) {
-            CFRunLoopTimerInvalidate(http->timer);
-            CFReleaseNull(http->timer);
-        }
+        dispatch_release_null(http->timer);
     }
 }
 
@@ -422,16 +416,14 @@ bool asynchttp_request(CFHTTPMessageRef request, asynchttp_t *http) {
         kCFAllocatorDefault, http->request), errOut);
 
 	/* Set a reasonable timeout */
-    CFRunLoopTimerContext tctx = { .info = http };
-    http->timer = CFRunLoopTimerCreate(kCFAllocatorDefault,
-        CFAbsoluteTimeGetCurrent() + STREAM_TIMEOUT,
-        0, 0, 0, asynchttp_timer_proc, &tctx);
-    if (http->timer == NULL) {
-        asl_log(NULL, NULL, ASL_LEVEL_ERR, "FATAL: failed to create timer.");
-    } else {
-        CFRunLoopAddTimer(CFRunLoopGetCurrent(), http->timer,
-            kCFRunLoopDefaultMode);
-    }
+    require_quiet(http->timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, http->queue), errOut);
+    dispatch_source_set_event_handler(http->timer, ^{
+        asynchttp_timer_proc(http);
+    });
+    // Set the timer's fire time to now + STREAM_TIMEOUT seconds with a .5 second fuzz factor.
+    dispatch_source_set_timer(http->timer, dispatch_time(DISPATCH_TIME_NOW, STREAM_TIMEOUT),
+                              DISPATCH_TIME_FOREVER, (int64_t)(500 * NSEC_PER_MSEC));
+    dispatch_resume(http->timer);
 
 	/* Set up possible proxy info */
 	CFDictionaryRef proxyDict = CFNetworkCopySystemProxySettings();
@@ -448,9 +440,9 @@ bool asynchttp_request(CFHTTPMessageRef request, asynchttp_t *http) {
          | kCFStreamEventErrorOccurred
          | kCFStreamEventEndEncountered),
         handle_server_response, &stream_context);
-    CFReadStreamScheduleWithRunLoop(http->stream, CFRunLoopGetCurrent(),
-        kCFRunLoopCommonModes);
+    CFReadStreamSetDispatchQueue(http->stream, http->queue);
     CFReadStreamOpen(http->stream);
+
     return false; /* false -> something was scheduled. */
 
 errOut:

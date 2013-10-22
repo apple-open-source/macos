@@ -2,24 +2,19 @@ require 'test/unit'
 require 'drb/drb'
 require 'drb/extservm'
 require 'timeout'
-begin
-  loadpath = $:.dup
-  $:.replace($: | [File.expand_path("../ruby", File.dirname(__FILE__))])
-  require 'envutil'
-ensure
-  $:.replace(loadpath)
-end
+require 'shellwords'
+require_relative '../ruby/envutil'
 
 class DRbService
   @@manager = DRb::ExtServManager.new
-  @@ruby = EnvUtil.rubybin
+  @@ruby = Shellwords.escape(EnvUtil.rubybin)
   @@ruby += " -d" if $DEBUG
   def self.add_service_command(nm)
     dir = File.dirname(File.expand_path(__FILE__))
-    DRb::ExtServManager.command[nm] = "\"#{@@ruby}\" \"#{dir}/#{nm}\""
+    DRb::ExtServManager.command[nm] = [@@ruby, "#{dir}/#{nm}"]
   end
 
-  %w(ut_drb.rb ut_array.rb ut_port.rb ut_large.rb ut_safe1.rb ut_eval.rb).each do |nm|
+  %w(ut_drb.rb ut_array.rb ut_port.rb ut_large.rb ut_safe1.rb ut_eval.rb ut_eq.rb).each do |nm|
     add_service_command(nm)
   end
   @server = @@server = DRb::DRbServer.new('druby://localhost:0', @@manager, {})
@@ -70,12 +65,27 @@ end
 
 module DRbCore
   def setup
-    @ext = DRbService.ext_service('ut_drb.rb')
+    @service_name = 'ut_drb.rb'
+    @ext = DRbService.ext_service(@service_name)
     @there = @ext.front
   end
 
   def teardown
-    @ext.stop_service if @ext
+    @ext.stop_service if defined?(@ext) && @ext
+    DRbService.manager.unregist(@service_name)
+    while (@there&&@there.to_s rescue nil)
+      # nop
+    end
+    signal = /mswin|mingw/ =~ RUBY_PLATFORM ? :KILL : :TERM
+    Thread.list.each {|th|
+      if th.respond_to?(:pid) && th[:drb_service] == @service_name
+        begin
+          Process.kill signal, th.pid
+        rescue Errno::ESRCH
+        end
+        th.join
+      end
+    }
   end
 
   def test_00_DRbObject
@@ -98,7 +108,7 @@ module DRbCore
     assert_equal(6, @there.sample(onecky, 1, 2))
     ary = @there.to_a
     assert_kind_of(DRb::DRbObject, ary)
-    
+
     assert(@there.respond_to?(:to_a, true))
     assert(@there.respond_to?(:eval, true))
     assert(! @there.respond_to?(:eval, false))
@@ -127,23 +137,23 @@ module DRbCore
       assert_equal('DRbEx', obj.name)
     end
 
-    assert_raises(DRb::DRbUnknownError) do
+    assert_raise(DRb::DRbUnknownError) do
       @there.unknown_error
     end
 
     onecky = FailOnecky.new('3')
 
-    assert_raises(FailOnecky::OneckyError) do
+    assert_raise(FailOnecky::OneckyError) do
       @there.sample(onecky, 1, 2)
     end
   end
 
   def test_03
     assert_equal(8, @there.sum(1, 1, 1, 1, 1, 1, 1, 1))
-    assert_raises(ArgumentError) do
+    assert_raise(DRb::DRbConnError) do
       @there.sum(1, 1, 1, 1, 1, 1, 1, 1, 1)
     end
-    assert_raises(DRb::DRbConnError) do
+    assert_raise(DRb::DRbConnError) do
       @there.sum('1' * 4096)
     end
   end
@@ -168,10 +178,10 @@ module DRbCore
 
   def test_06_timeout
     ten = Onecky.new(10)
-    assert_raises(TimeoutError) do
+    assert_raise(TimeoutError) do
       @there.do_timeout(ten)
     end
-    assert_raises(TimeoutError) do
+    assert_raise(TimeoutError) do
       @there.do_timeout(ten)
     end
   end
@@ -179,7 +189,7 @@ module DRbCore
   def test_07_public_private_protected_missing
     assert_nothing_raised() {
       begin
-	@there.method_missing(:eval)
+	@there.method_missing(:eval, 'nil')
       rescue NoMethodError
 	assert_match(/^private method \`eval\'/, $!.message)
       end
@@ -208,7 +218,7 @@ module DRbCore
 	assert_match(/^undefined method \`undefined_method_test\'/, $!.message)
       end
     }
-    assert_raises(SecurityError) do
+    assert_raise(DRb::DRbConnError) do
       @there.method_missing(:__send__, :to_s)
     end
     assert_equal(true, @there.missing)
@@ -261,7 +271,7 @@ module DRbCore
   end
 
   def test_11_remote_no_method_error
-    assert_raises(DRb::DRbRemoteError) do
+    assert_raise(DRb::DRbRemoteError) do
       @there.remote_no_method_error
     end
     begin
@@ -276,12 +286,27 @@ end
 
 module DRbAry
   def setup
-    @ext = DRbService.ext_service('ut_array.rb')
+    @service_name = 'ut_array.rb'
+    @ext = DRbService.ext_service(@service_name)
     @there = @ext.front
   end
 
   def teardown
-    @ext.stop_service if @ext
+    @ext.stop_service if defined?(@ext) && @ext
+    DRbService.manager.unregist(@service_name)
+    while (@there&&@there.to_s rescue nil)
+      # nop
+    end
+    signal = /mswin|mingw/ =~ RUBY_PLATFORM ? :KILL : :TERM
+    Thread.list.each {|th|
+      if th.respond_to?(:pid) && th[:drb_service] == @service_name
+        begin
+          Process.kill signal, th.pid
+        rescue Errno::ESRCH
+        end
+        th.join
+      end
+    }
   end
 
   def test_01
@@ -305,18 +330,19 @@ module DRbAry
     assert_equal([1, 2, 'III', 'III', 4, 'five', 6], ary)
   end
 
-  def test_04_retry
-    retried = false
-    ary = []
-    @there.each do |x|
-      ary.push x
-      if x == 4 && !retried
-	retried = true
-	retry
-      end
-    end
-    assert_equal([1, 2, 'III', 4, 1, 2, 'III', 4, 'five', 6], ary)
-  end
+  # retry in block is not supported on ruby 1.9
+  #def test_04_retry
+  #  retried = false
+  #  ary = []
+  #  @there.each do |x|
+  #    ary.push x
+  #    if x == 4 && !retried
+  #	retried = true
+  #	retry
+  #    end
+  #  end
+  #  assert_equal([1, 2, 'III', 4, 1, 2, 'III', 4, 'five', 6], ary)
+  #end
 
   def test_05_break
     ary = []

@@ -193,13 +193,13 @@ enum {
  * Convert file offset to number of clusters
  */
 #define de_cluster(pmp, off) \
-	((off) >> (pmp)->pm_cnshift)
+	((uint32_t)((off) >> (pmp)->pm_cnshift))
 
 /*
  * Clusters required to hold size bytes
  */
 #define	de_clcount(pmp, size) \
-	(((off_t)(size) + (pmp)->pm_bpcluster - 1) >> (pmp)->pm_cnshift)
+	((uint32_t)(((off_t)(size) + (pmp)->pm_bpcluster - 1) >> (pmp)->pm_cnshift))
 
 /*
  * Convert file offset to first block number of cluster containing offset.

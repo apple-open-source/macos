@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="4457.6" systemVersion="13A502" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="4457.6"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="NSApplication">
+            <connections>
+                <action selector="hide:" destination="134" id="152"/>
+                <action selector="hideOtherApplications:" destination="145" id="146"/>
+                <action selector="terminate:" destination="136" id="139"/>
+                <action selector="unhideAllApplications:" destination="150" id="153"/>
+                <outlet property="delegate" destination="209" id="261"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder">
+            <connections>
+                <action selector="arrangeInFront:" destination="5" id="39"/>
+                <action selector="clearRecentDocuments:" destination="415" id="416"/>
+                <action selector="copy:" destination="200536" id="200577"/>
+                <action selector="cut:" destination="200535" id="200578"/>
+                <action selector="decreaseFSAA:" destination="201034" id="201036"/>
+                <action selector="delete:" destination="200539" id="200593"/>
+                <action selector="increaseFSAA:" destination="201032" id="201035"/>
+                <action selector="openDocument:" destination="402" id="200726"/>
+                <action selector="paste:" destination="200537" id="200583"/>
+                <action selector="performClose:" destination="200519" id="200520"/>
+                <action selector="performClose:" destination="200732" id="200735"/>
+                <action selector="performMiniaturize:" destination="23" id="37"/>
+                <action selector="performZoom:" destination="646" id="647"/>
+                <action selector="profileDraw:" destination="201038" id="201039"/>
+                <action selector="redo:" destination="200533" id="200592"/>
+                <action selector="resign:" destination="200906" id="200919"/>
+                <action selector="saveDocument:" destination="653" id="200727"/>
+                <action selector="saveDocumentAs:" destination="701" id="200728"/>
+                <action selector="selectAll:" destination="200540" id="200596"/>
+                <action selector="showAchievements:" destination="200922" id="201031"/>
+                <action selector="showHelp:" destination="111" id="122"/>
+                <action selector="showHint:" destination="397" id="200730"/>
+                <action selector="showLastMove:" destination="398" id="200731"/>
+                <action selector="showPreferences:" destination="129" id="200855"/>
+                <action selector="takeback:" destination="395" id="200729"/>
+                <action selector="toggleFullScreen:" destination="200920" id="200921"/>
+                <action selector="toggleLogView:" destination="200501" id="200847"/>
+                <action selector="undo:" destination="200532" id="200598"/>
+            </connections>
+        </customObject>
+        <customObject id="-3" userLabel="Application"/>
+        <menu title="MainMenu" systemMenu="main" id="29" userLabel="MainMenu">
+            <items>
+                <menuItem title="Chess" id="56">
+                    <menu key="submenu" title="Chess" systemMenu="apple" id="57">
+                        <items>
+                            <menuItem title="About Chess" id="58">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="645">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Preferences…" keyEquivalent="," id="129"/>
+                            <menuItem isSeparatorItem="YES" id="143">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Services" id="131">
+                                <menu key="submenu" title="Services" systemMenu="services" id="130"/>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="144">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Hide Chess" keyEquivalent="h" id="134"/>
+                            <menuItem title="Hide Others" keyEquivalent="h" id="145">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Show All" id="150"/>
+                            <menuItem isSeparatorItem="YES" id="149">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Quit Chess" keyEquivalent="q" id="136"/>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Game" id="83">
+                    <menu key="submenu" title="Game" id="81">
+                        <items>
+                            <menuItem title="New…" keyEquivalent="n" id="82"/>
+                            <menuItem title="Open…" keyEquivalent="o" id="402"/>
+                            <menuItem title="Open Recent" id="413">
+                                <menu key="submenu" title="Open Recent" systemMenu="recentDocuments" id="414">
+                                    <items>
+                                        <menuItem title="Clear Menu" id="415"/>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="79">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Close" keyEquivalent="w" id="200732" userLabel="Menu Item - Save"/>
+                            <menuItem title="Save" keyEquivalent="s" id="653"/>
+                            <menuItem title="Save As…" keyEquivalent="S" id="701"/>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Edit" id="200530">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Edit" id="200531">
+                        <items>
+                            <menuItem title="Undo" keyEquivalent="z" id="200532"/>
+                            <menuItem title="Redo" keyEquivalent="Z" id="200533"/>
+                            <menuItem isSeparatorItem="YES" id="200534"/>
+                            <menuItem title="Cut" keyEquivalent="x" id="200535"/>
+                            <menuItem title="Copy" keyEquivalent="c" id="200536"/>
+                            <menuItem title="Paste" keyEquivalent="v" id="200537"/>
+                            <menuItem title="Delete" id="200539">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                            </menuItem>
+                            <menuItem title="Select All" keyEquivalent="a" id="200540"/>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Moves" id="392">
+                    <menu key="submenu" title="Moves" id="393">
+                        <items>
+                            <menuItem title="Take Back Move" keyEquivalent="z" id="395">
+                                <string key="toolTip">Take back your last move
+and your opponent's response.</string>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="396">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                                <connections>
+                                    <binding destination="200908" name="hidden" keyPath="selection.hideRemoteProperties" id="200913"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Resign" id="200906">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="200827" name="enabled" keyPath="selection.gameDone" id="200956">
+                                        <dictionary key="options">
+                                            <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                        </dictionary>
+                                    </binding>
+                                    <binding destination="200908" name="hidden" keyPath="selection.hideRemoteProperties" previousBinding="200956" id="200957"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Offer Draw" toolTip="Offer a Draw to your opponent when you make your next move" id="200907">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="200827" name="enabled" keyPath="selection.gameDone" id="200966">
+                                        <dictionary key="options">
+                                            <string key="NSValueTransformerName">NSNegateBoolean</string>
+                                        </dictionary>
+                                    </binding>
+                                    <binding destination="200908" name="hidden" keyPath="selection.hideRemoteProperties" previousBinding="200966" id="200967"/>
+                                    <binding destination="200827" name="value" keyPath="selection.offerDraw" id="200918"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="200905"/>
+                            <menuItem title="Show Hint" keyEquivalent="]" toolTip="Suggest a move to play." id="397">
+                                <connections>
+                                    <binding destination="200908" name="enabled" keyPath="selection.engine.lastPonder" id="200937">
+                                        <dictionary key="options">
+                                            <string key="NSValueTransformerName">NSIsNotNil</string>
+                                        </dictionary>
+                                    </binding>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Show Last Move" keyEquivalent="[" toolTip="Show the last move played." id="398">
+                                <connections>
+                                    <binding destination="200908" name="enabled" keyPath="selection.board.lastMove" id="200940">
+                                        <dictionary key="options">
+                                            <string key="NSValueTransformerName">NSIsNotNil</string>
+                                        </dictionary>
+                                    </binding>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="200500">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Game Log" keyEquivalent="l" toolTip="Show a list of the moves played." id="200501"/>
+                            <menuItem title="Achievements" id="200922">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="200908" name="hidden2" keyPath="selection.self" previousBinding="200927" id="200934">
+                                        <dictionary key="options">
+                                            <string key="NSValueTransformerName">NSIsNil</string>
+                                            <integer key="NSNotApplicablePlaceholder" value="-1"/>
+                                            <integer key="NSNoSelectionPlaceholder" value="-1"/>
+                                            <integer key="NSMultipleValuesPlaceholder" value="-1"/>
+                                            <integer key="NSNullPlaceholder" value="-1"/>
+                                        </dictionary>
+                                    </binding>
+                                    <binding destination="209" name="hidden" keyPath="localPlayer" id="200927">
+                                        <dictionary key="options">
+                                            <string key="NSValueTransformerName">NSIsNil</string>
+                                        </dictionary>
+                                    </binding>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Window" id="19">
+                    <menu key="submenu" title="Window" systemMenu="window" id="24">
+                        <items>
+                            <menuItem title="Close" keyEquivalent="w" id="200519"/>
+                            <menuItem title="Minimize" keyEquivalent="m" id="23"/>
+                            <menuItem title="Zoom" id="646"/>
+                            <menuItem title="Enter Full Screen" keyEquivalent="f" id="200920">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="92">
+                                <modifierMask key="keyEquivalentModifierMask" command="YES"/>
+                            </menuItem>
+                            <menuItem title="Bring All to Front" id="5"/>
+                        </items>
+                    </menu>
+                </menuItem>
+                <menuItem title="Debug" id="200860">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Debug" id="200861">
+                        <items>
+                            <menuItem title="Log Engine" id="200862">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="-3" name="value" keyPath="mainWindow.windowController.engine.logging" id="200870"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Log Mouse Clicks" id="200968">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="209" name="value" keyPath="logMouse" id="200973"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Dump Language Models" id="200970">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <binding destination="209" name="value" keyPath="dumpLanguageModels" id="200975"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="201033"/>
+                            <menuItem title="Increase FSAA" keyEquivalent="+" id="201032">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                            </menuItem>
+                            <menuItem title="Decrease FSAA" keyEquivalent="-" id="201034">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="201037"/>
+                            <menuItem title="Profile Drawing" id="201038">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                            </menuItem>
+                        </items>
+                    </menu>
+                    <connections>
+                        <binding destination="209" name="hidden" keyPath="hideDebugMenu" id="200867"/>
+                    </connections>
+                </menuItem>
+                <menuItem title="Help" id="103">
+                    <menu key="submenu" title="Help" id="106">
+                        <items>
+                            <menuItem title="Chess Help" keyEquivalent="?" id="111"/>
+                        </items>
+                    </menu>
+                </menuItem>
+            </items>
+        </menu>
+        <customObject id="209" userLabel="MBCController" customClass="MBCController">
+            <connections>
+                <action selector="newGame:" destination="82" id="200736"/>
+                <outlet property="fCurrentDocument" destination="200827" id="200838"/>
+                <outlet property="fTakebackMenuItem" destination="395" id="460"/>
+            </connections>
+        </customObject>
+        <customObject id="649" userLabel="MBCAbout" customClass="MBCAbout">
+            <connections>
+                <action selector="showWindow:" destination="58" id="650"/>
+            </connections>
+        </customObject>
+        <objectController objectClassName="NSDocument" id="200827" userLabel="Current Document">
+            <connections>
+                <binding destination="-3" name="contentObject" keyPath="mainWindow.windowController.document" id="200828"/>
+            </connections>
+        </objectController>
+        <userDefaultsController id="200506"/>
+        <objectController objectClassName="MBCBoardWin" id="200908" userLabel="Current WindowController">
+            <connections>
+                <binding destination="-3" name="contentObject" keyPath="mainWindow.windowController" id="200911"/>
+            </connections>
+        </objectController>
+    </objects>
+    <classes>
+        <class className="GKDialogController" superclassName="NSResponder">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/GKDialogController.h"/>
+            <relationships>
+                <relationship kind="action" name="dismiss:"/>
+                <relationship kind="outlet" name="parentWindow" candidateClass="NSWindow"/>
+            </relationships>
+        </class>
+        <class className="MBCAbout" superclassName="NSWindowController">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCAbout.h"/>
+            <relationships>
+                <relationship kind="action" name="downloadSource:"/>
+                <relationship kind="outlet" name="fLicense"/>
+            </relationships>
+        </class>
+        <class className="MBCBoard" superclassName="NSObject">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCBoard.h"/>
+        </class>
+        <class className="MBCBoardView" superclassName="NSOpenGLView">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCBoardView.h"/>
+        </class>
+        <class className="MBCBoardWin" superclassName="NSWindowController">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCBoardWin.h"/>
+            <relationships>
+                <relationship kind="action" name="cancelNewGame:"/>
+                <relationship kind="action" name="profileDraw:"/>
+                <relationship kind="action" name="resign:"/>
+                <relationship kind="action" name="showAchievements:"/>
+                <relationship kind="action" name="showHint:"/>
+                <relationship kind="action" name="showLastMove:"/>
+                <relationship kind="action" name="showPreferences:"/>
+                <relationship kind="action" name="startNewGame:"/>
+                <relationship kind="action" name="takeback:"/>
+                <relationship kind="action" name="toggleLogView:"/>
+                <relationship kind="action" name="updatePlayers:"/>
+                <relationship kind="outlet" name="board" candidateClass="MBCBoard"/>
+                <relationship kind="outlet" name="dialogController" candidateClass="GKDialogController"/>
+                <relationship kind="outlet" name="engine" candidateClass="MBCEngine"/>
+                <relationship kind="outlet" name="gameInfo" candidateClass="MBCGameInfo"/>
+                <relationship kind="outlet" name="gameNewSheet" candidateClass="NSPanel"/>
+                <relationship kind="outlet" name="gameView" candidateClass="MBCBoardView"/>
+                <relationship kind="outlet" name="interactive" candidateClass="MBCInteractivePlayer"/>
+                <relationship kind="outlet" name="logContainer" candidateClass="NSBox"/>
+                <relationship kind="outlet" name="logView" candidateClass="NSView"/>
+                <relationship kind="outlet" name="logViewRightEdgeConstraint" candidateClass="NSLayoutConstraint"/>
+                <relationship kind="outlet" name="remote" candidateClass="MBCRemotePlayer"/>
+            </relationships>
+        </class>
+        <class className="MBCController" superclassName="NSObject">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCController.h"/>
+            <relationships>
+                <relationship kind="action" name="newGame:"/>
+                <relationship kind="action" name="toggleFloating:"/>
+                <relationship kind="outlet" name="fCurrentDocument" candidateClass="NSObjectController"/>
+            </relationships>
+        </class>
+        <class className="MBCEngine" superclassName="MBCPlayer">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCEngine.h"/>
+        </class>
+        <class className="MBCGameInfo" superclassName="NSObject">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCGameInfo.h"/>
+            <relationships>
+                <relationship kind="action" name="cancelProperties:"/>
+                <relationship kind="action" name="editInfo:"/>
+                <relationship kind="action" name="updateProperties:"/>
+                <relationship kind="action" name="updateStyles:"/>
+                <relationship kind="action" name="updateVoices:"/>
+                <relationship kind="outlet" name="fAlternateVoiceMenu" candidateClass="NSPopUpButton"/>
+                <relationship kind="outlet" name="fBoard" candidateClass="MBCBoard"/>
+                <relationship kind="outlet" name="fBoardStyle" candidateClass="NSPopUpButton"/>
+                <relationship kind="outlet" name="fEditSheet" candidateClass="NSPanel"/>
+                <relationship kind="outlet" name="fMoveList" candidateClass="NSTableView"/>
+                <relationship kind="outlet" name="fPieceStyle" candidateClass="NSPopUpButton"/>
+                <relationship kind="outlet" name="fPrefsSheet" candidateClass="NSPanel"/>
+                <relationship kind="outlet" name="fPrimaryVoiceMenu" candidateClass="NSPopUpButton"/>
+            </relationships>
+        </class>
+        <class className="MBCInteractivePlayer" superclassName="MBCPlayer">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCInteractivePlayer.h"/>
+            <relationships>
+                <relationship kind="outlet" name="fController" candidateClass="MBCBoardWin"/>
+            </relationships>
+        </class>
+        <class className="MBCPlayer" superclassName="NSObject">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCPlayer.h"/>
+        </class>
+        <class className="MBCRemotePlayer" superclassName="MBCPlayer">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCRemotePlayer.h"/>
+        </class>
+        <class className="NSDocumentController">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/NSDocumentController.h"/>
+            <relationships>
+                <relationship kind="action" name="_openRecentDocument:"/>
+            </relationships>
+        </class>
+        <class className="NSLayoutConstraint" superclassName="NSObject">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/NSLayoutConstraint.h"/>
+        </class>
+    </classes>
+</document>

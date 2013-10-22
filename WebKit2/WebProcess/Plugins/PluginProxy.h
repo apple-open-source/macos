@@ -30,8 +30,11 @@
 
 #include "Connection.h"
 #include "Plugin.h"
+#include "PluginProcess.h"
 #include <WebCore/AffineTransform.h>
+#include <WebCore/FindOptions.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/SecurityOrigin.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
@@ -49,24 +52,31 @@ class ShareableBitmap;
 class NPVariantData;
 class PluginProcessConnection;
 
+struct PluginCreationParameters;
+
 class PluginProxy : public Plugin {
 public:
-    static PassRefPtr<PluginProxy> create(const String& pluginPath);
+    static PassRefPtr<PluginProxy> create(uint64_t pluginProcessToken, bool isRestartedProcess);
     ~PluginProxy();
 
     uint64_t pluginInstanceID() const { return m_pluginInstanceID; }
     void pluginProcessCrashed();
 
-    void didReceivePluginProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments);
-    void didReceiveSyncPluginProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
+    void didReceivePluginProxyMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    void didReceiveSyncPluginProxyMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
+
+    bool isBeingAsynchronouslyInitialized() const { return m_waitingOnAsynchronousInitialization; }
 
 private:
-    explicit PluginProxy(const String& pluginPath);
+    explicit PluginProxy(uint64_t pluginProcessToken, bool isRestartedProcess);
 
     // Plugin
     virtual bool initialize(const Parameters&);
+    bool initializeSynchronously();
+
     virtual void destroy();
     virtual void paint(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRect);
+    virtual bool supportsSnapshotting() const;
     virtual PassRefPtr<ShareableBitmap> snapshot();
 #if PLATFORM(MAC)
     virtual PlatformLayer* pluginLayer();
@@ -94,6 +104,13 @@ private:
     virtual bool handleContextMenuEvent(const WebMouseEvent&);
     virtual bool handleKeyboardEvent(const WebKeyboardEvent&);
     virtual void setFocus(bool);
+    virtual bool handleEditingCommand(const String& commandName, const String& argument) OVERRIDE;
+    virtual bool isEditingCommandEnabled(const String& commandName) OVERRIDE;
+    virtual bool shouldAllowScripting() OVERRIDE { return true; }
+    virtual bool shouldAllowNavigationFromDrags() OVERRIDE { return false; }
+    
+    virtual bool handlesPageScaleFactor();
+    
     virtual NPObject* pluginScriptableNPObject();
 #if PLATFORM(MAC)
     virtual void windowFocusChanged(bool);
@@ -105,11 +122,22 @@ private:
 #endif
 
     virtual void contentsScaleFactorChanged(float);
+    virtual void storageBlockingStateChanged(bool);
     virtual void privateBrowsingStateChanged(bool);
     virtual bool getFormValue(String& formValue);
     virtual bool handleScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity);
     virtual WebCore::Scrollbar* horizontalScrollbar();
     virtual WebCore::Scrollbar* verticalScrollbar();
+
+    virtual unsigned countFindMatches(const String&, WebCore::FindOptions, unsigned) OVERRIDE  { return 0; }
+    virtual bool findString(const String&, WebCore::FindOptions, unsigned) OVERRIDE { return false; }
+
+    virtual WebCore::IntPoint convertToRootView(const WebCore::IntPoint&) const OVERRIDE;
+
+    virtual PassRefPtr<WebCore::SharedBuffer> liveResourceData() const OVERRIDE;
+    virtual bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) OVERRIDE { return false; }
+
+    virtual String getSelectionString() const OVERRIDE { return String(); }
 
     float contentsScaleFactor();
     bool needsBackingStore() const;
@@ -141,7 +169,15 @@ private:
     void windowedPluginGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect, uint64_t windowID);
 #endif
 
-    String m_pluginPath;
+    bool canInitializeAsynchronously() const;
+
+    void didCreatePlugin(bool wantsWheelEvents, uint32_t remoteLayerClientID);
+    void didFailToCreatePlugin();
+
+    void didCreatePluginInternal(bool wantsWheelEvents, uint32_t remoteLayerClientID);
+    void didFailToCreatePluginInternal();
+
+    uint64_t m_pluginProcessToken;
 
     RefPtr<PluginProcessConnection> m_connection;
     uint64_t m_pluginInstanceID;
@@ -174,10 +210,15 @@ private:
 
     // The client ID for the CA layer in the plug-in process. Will be 0 if the plug-in is not a CA plug-in.
     uint32_t m_remoteLayerClientID;
+    
+    OwnPtr<PluginCreationParameters> m_pendingPluginCreationParameters;
+    bool m_waitingOnAsynchronousInitialization;
 
 #if PLATFORM(MAC)
     RetainPtr<CALayer> m_pluginLayer;
 #endif
+
+    bool m_isRestartedProcess;
 };
 
 } // namespace WebKit

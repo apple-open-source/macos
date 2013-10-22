@@ -107,7 +107,7 @@ public:
 	
 	// inquiries for the Adornable itself
 	bool empty() const				{ return !mAdornments || mAdornments->empty(); }
-	unsigned int size() const		{ return mAdornments ? mAdornments->size() : 0; }
+	unsigned int size() const		{ return mAdornments ? (unsigned int)mAdornments->size() : 0; }
 	void clearAdornments();
 	
 public:

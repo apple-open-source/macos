@@ -114,6 +114,8 @@
 		4.83, January 18, 2010
 		4.84, July 29, 2010
 		4.85, September 27, 2011
+		4.86, April 10, 2012
+		4.87, ??? ??? 2012
 
 
 Dialects Supported
@@ -124,10 +126,9 @@ selected Unix systems.  Version 4 is a source reorganization of
 version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
-	AIX 5.3
-	Apple Darwin 9 and Mac OS X 10.[56]
+	Apple Darwin 9 and Mac OS X 10.[567]
 	FreeBSD 4.9 and 6.4 for x86-based systems
-	FreeBSD 8.[02] and 9.0 for AMD64-based systems
+	FreeBSD 8.2, 9.0 and 10.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	Solaris 9, 10 and 11
 
@@ -4332,7 +4333,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		and Phil Shin <pshin@xceedium.com> applied some speed
 		improvements to lsof, particularly when the files of
 		interest are /Internet files -- i.e., selected with lsof's 
-		-i" option.  Added a two new options to assist the
+		"-i" option.  Added a two new options to assist the
 		improvements: 1) "-c^<command>" to tell lsof to exclude the
 		named command(s); and 2) "-stcp|ud>:[^]state' to tell lsof
 		to include in its reporting or exclude ('^') from its
@@ -4594,5 +4595,89 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Corrected Linux UDP6-lite path.  The error was reported by
 		Masatake Yamato and he also supplied a patch.
 
+4.86		April 10, 2012
+		Lsof for AIX is no longer supported on any versions of that
+		operating system.
+
+		Added information about the clang compiler for FreeBSD to the
+		FAQ.
+
+		Corrected an arg.c bug in the accumulation of +|-e option
+		values, reported by Peter Schiffer <pschiffe@redhat.com>.
+		This correction was supplied as a patch to revision 4.85.
+
+		Enabled FreeBSD 10 support and tested it there on a system
+		provided by Larry Rosenman <ler@lerctr.org>.
+
+		Updated for latest Solaris 11 with patches supplied by
+		Carson Gaspar <carson@taltos.org>.  Carson supplied a test
+		system.
+
+		Adjusted Linux file system search method to compensate for
+		NFS mounts that have duplicate device numbers.  The problem
+		was reported by Peter Schiffer <pschiffe@redhat.com>, who
+		provided a test system.
+
+		At the request of Peter Schiffer <pschiffe@redhat.com>, added
+		support for Linux SCTP socket files.  Peter provided a test
+		system.  Applied a warning patch supplied by Peter.
+
+		Added support for Mac OS X 10.7 (Lion), provided by Allan
+		Nathanson <ajn@apple.com>.  Allan also supplied a test
+		system.
+
+		Enabled FreeBSD 8.3 support and tested it there on a system
+		provided by Larry Rosenman <ler@lerctr.org>.
+
+		Corrected the FAQ information on ZFS with Solaris 10 after
+		Steven Blackmon <stblackm@cisco.com> and Prasad Jampala
+		<jampalp@cisco.com> pointed out that it was incorrect --
+		i.e., outdated by the libctf changes at revision 4.83.
+
+		Added code to handle a Linux NFS-mounted root.  Jia He
+		<hejianet@linux.vnet.ibm.com> reported the need for this.
+
+4.87		??? ??? 2012
+		Added an entry to 00FAQ about lsof behavior when the
+		HASSECURITY and HASNOSOCKSECURITY options are defined.
+		Carson Gaspar <carson@taltos.org> pointed out the need
+		for this clarification.
+
+		Added a work-around for a missing definition of mach_port_t
+		in Darwin 9 (Mac OS/X 10.5.8).  The work-around was supplied
+		by Jim Reid <jim@rfc1035.com>.
+
+		Added support for Linux anon_inodefs, provided by Masatake
+		YAMATO <yamato@redhat.com>.
+
+		Documented a Solaris 9 and 10 portmap reporting problem
+		(+M) in 00FAQ.  The problem was reported by Clint
+		Roberts <Clint.Roberts@ttius.com>.  I have no solution
+		to the problem, but discuss a possible work-around in
+		the answer to this 00FAQ question: "Why doesn't lsof
+		report portmap registrations for some Solaris versions?"
+
+		Added FreeBSD support for the oldnfs and newnfs file system
+		types.  Daniel Braniss <danny@cs.huji.ac.il> reported the
+		need for the addition.
+
+		Added ICMP socket support for Linux with code provided by
+		Masatake YAMATO <yamato@redhat.com>.
+
+		Corrected the reporting of process group ID for libproc
+		versions of Mac OS X with a patch from Jeff Trawick
+		<trawick@gmail.com>.  The patch has not been applied to
+		Darwin kmem versions, because of little call for them
+		and inadequate test system access.  The patch has been
+		tested on Mac OS X 10.8 (Mountain Lion), courtesy of a
+		test system provided by Allan Nathanson <ajn@apple.com>.
+
+		Added thread support to those FreeBSD versions that have
+		ki_numthreads in their kinfo_proc structure.  This also
+		activates the -K option for those FreeBSD versions.  Jeff
+		Trawick reported problems with FreeBSD lsof when threads
+		are present and this addition solves those problems.
+
+
 Vic Abell <abe@purdue.edu>
-September 27, 2011
+??? ??? 2012

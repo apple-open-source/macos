@@ -798,8 +798,13 @@ doit(struct sockaddr *fromp)
 	}
 #endif
 
-	for (fd = getdtablesize(); fd > 2; fd--)
+	for (fd = getdtablesize(); fd > 2; fd--) {
+#ifdef __APPLE__
+		(void) fcntl(fd, F_SETFD, FD_CLOEXEC);
+#else
 		(void) close(fd);
+#endif
+	}
 	if (setsid() == -1)
 		syslog(LOG_ERR, "setsid() failed: %m");
 	if (setlogin(pwd->pw_name) < 0)

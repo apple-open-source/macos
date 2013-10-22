@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2012, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,6 +72,15 @@
  * | |             | |                   |                             |    resolver configurations  that will
  * | |             | |                   |                             |    be established in the "padding"
  * | |             | +-------------------+-----------------------------+
+ * | |             | | generation        | uint64_t                    | <- generation # of configuration
+ * | |             | +-------------------+---------+-------------------+
+ * | |             | | n_service_specific_resolver | int32_t           | <- # of name service-specific resolvers
+ * | |             | +-------------------+---------+-------------------+
+ * | |             | | service_specific_resolver   | dns_resolver_t ** | <- not used during creation, filled
+ * | |             | |                             |                   |    in with pointer to a list of service-specific
+ * | |             | |                             |                   |    resolver configurations that will be
+ * | |             | |                             |                   |    established in the "padding"
+ * | |             | +-------------------+---------+-------------------+
  * | |             | | ...               | ...                         |
  * | +-------------+-+-------------------+-----------------------------+
  * | | n_attribute | uint32_t                                          | <- how many bytes of "attribute"
@@ -152,6 +161,7 @@
 enum {
 	CONFIG_ATTRIBUTE_RESOLVER	= 1,
 	CONFIG_ATTRIBUTE_SCOPED_RESOLVER,
+	CONFIG_ATTRIBUTE_SERVICE_SPECIFIC_RESOLVER,
 };
 
 
@@ -161,8 +171,6 @@ enum {
 	RESOLVER_ATTRIBUTE_ADDRESS,
 	RESOLVER_ATTRIBUTE_SEARCH,
 	RESOLVER_ATTRIBUTE_SORTADDR,
-	RESOLVER_ATTRIBUTE_IF_INDEX,
-	RESOLVER_ATTRIBUTE_FLAGS,
 	RESOLVER_ATTRIBUTE_OPTIONS,
 };
 
@@ -196,19 +204,6 @@ typedef struct {
 
 
 __BEGIN_DECLS
-
-/*
- * NOTE: __private_extern__ and __OSX_AVAILABLE_STARTING() cannot be mixed
- *       due to a "visibility" conflict
- */
-
-__private_extern__
-const char *
-_dns_configuration_notify_key	()	/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
-
-__private_extern__
-mach_port_t
-_dns_configuration_server_port	()	/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
 
 __END_DECLS
 

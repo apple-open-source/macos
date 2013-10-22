@@ -147,6 +147,8 @@ class OALBuffer
 
 	void							SetInUseFlag()					{ OSAtomicIncrement32Barrier(&mInUseFlag); }
 	void							ClearInUseFlag()				{ OSAtomicDecrement32Barrier(&mInUseFlag); }
+    void							SetIsInPostRenderMessageQueue(bool state) { mIsInPostRenderMessageQueue = state; }
+	bool							IsInPostRenderMessageQueue()           { return mIsInPostRenderMessageQueue == true; }
 	bool							IsPurgable();
 	bool							HasBeenConverted(){return mDataHasBeenConverted;}
 
@@ -186,6 +188,7 @@ private:
 	CAStreamBasicDescription		mPreConvertedDataFormat;	// if data gets converted on the way in, it is necessary to remember the original format
 	bool							mDataHasBeenConverted;		// was the data converted to the mixer format when handed to the library?
 	AttachedSourceList*				mAttachedSourceList;		// all the OAL Source objects that use this buffer
+    bool							mIsInPostRenderMessageQueue;	// flag to indicate that the buffer is in the post render message list and cannot be deleted
 
 	OSStatus						ConvertDataForBuffer (void *inData, UInt32 inDataSize, UInt32	inDataFormat, UInt32 inDataSampleRate);
 };

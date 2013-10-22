@@ -31,76 +31,122 @@
 #ifndef InsertionPoint_h
 #define InsertionPoint_h
 
-#include "HTMLContentSelector.h"
+#include "ContentDistributor.h"
+#include "ElementShadow.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
+#include "ShadowRoot.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
 
 class InsertionPoint : public HTMLElement {
 public:
+    enum Type {
+        InternalType,
+        HTMLContentElementType
+    };
+
+    enum MatchType {
+        AlwaysMatches,
+        NeverMatches,
+    };
+
     virtual ~InsertionPoint();
 
-    const HTMLContentSelectionList* selections() const { return &m_selections; }
-    bool hasSelection() const { return m_selections.first(); }
+    bool hasDistribution() const { return m_hasDistribution; }
+    void setHasDistribution() { m_hasDistribution = true; }
+    void clearDistribution() { m_hasDistribution = false; }
     bool isShadowBoundary() const;
     bool isActive() const;
 
-    virtual const AtomicString& select() const = 0;
-    virtual bool isSelectValid() const = 0;
-    virtual bool doesSelectFromHostChildren() const = 0;
+    virtual MatchType matchTypeFor(Node*) const { return AlwaysMatches; }
+    virtual Type insertionPointType() const { return InternalType; }
 
-    virtual void attach();
-    virtual void detach();
+    bool resetStyleInheritance() const;
+    void setResetStyleInheritance(bool);
 
-    virtual bool isInsertionPoint() const OVERRIDE { return true; }
-    ShadowRoot* assignedFrom() const;
+    virtual void attach(const AttachContext& = AttachContext()) OVERRIDE;
+    virtual void detach(const AttachContext& = AttachContext()) OVERRIDE;
+
+    bool shouldUseFallbackElements() const;
+
+    Node* firstDistributed() const;
+    Node* lastDistributed() const;
+    Node* nextDistributedTo(const Node*) const;
+    Node* previousDistributedTo(const Node*) const;
 
 protected:
     InsertionPoint(const QualifiedName&, Document*);
     virtual bool rendererIsNeeded(const NodeRenderingContext&) OVERRIDE;
+    virtual void childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
+    virtual bool isInsertionPointNode() const OVERRIDE { return true; }
 
 private:
-    void distributeHostChildren(ShadowTree*);
-    void clearDistribution(ShadowTree*);
-    void attachDistributedNode();
 
-    void assignShadowRoot(ShadowRoot*);
-    void clearAssignment(ShadowRoot*);
-
-    HTMLContentSelectionList m_selections;
+    bool m_hasDistribution;
 };
-
-inline bool isInsertionPoint(const Node* node)
-{
-    if (!node)
-        return true;
-
-    if (node->isHTMLElement() && toHTMLElement(node)->isInsertionPoint())
-        return true;
-
-    return false;
-}
 
 inline InsertionPoint* toInsertionPoint(Node* node)
 {
-    ASSERT(isInsertionPoint(node));
+    ASSERT_WITH_SECURITY_IMPLICATION(!node || node->isInsertionPoint());
     return static_cast<InsertionPoint*>(node);
 }
 
 inline const InsertionPoint* toInsertionPoint(const Node* node)
 {
-    ASSERT(isInsertionPoint(node));
+    ASSERT_WITH_SECURITY_IMPLICATION(!node || node->isInsertionPoint());
     return static_cast<const InsertionPoint*>(node);
 }
 
-inline bool isShadowBoundary(Node* node)
+inline bool isActiveInsertionPoint(const Node* node)
 {
-    if (!isInsertionPoint(node))
+    return node->isInsertionPoint() && toInsertionPoint(node)->isActive();
+}
+
+inline bool isLowerEncapsulationBoundary(Node* node)
+{
+    if (!node || !node->isInsertionPoint())
         return false;
     return toInsertionPoint(node)->isShadowBoundary();
 }
+
+inline Node* parentNodeForDistribution(const Node* node)
+{
+    ASSERT(node);
+
+    if (Node* parent = node->parentNode()) {
+        if (parent->isInsertionPoint() && toInsertionPoint(parent)->shouldUseFallbackElements())
+            return parent->parentNode();
+        return parent;
+    }
+
+    return 0;
+}
+
+inline Element* parentElementForDistribution(const Node* node)
+{
+    if (Node* parent = parentNodeForDistribution(node)) {
+        if (parent->isElementNode())
+            return toElement(parent);
+    }
+
+    return 0;
+}
+
+inline ElementShadow* shadowOfParentForDistribution(const Node* node)
+{
+    ASSERT(node);
+    if (Element* parent = parentElementForDistribution(node))
+        return parent->shadow();
+
+    return 0;
+}
+
+InsertionPoint* resolveReprojection(const Node*);
 
 } // namespace WebCore
 

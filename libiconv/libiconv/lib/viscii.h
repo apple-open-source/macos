@@ -60,7 +60,7 @@ static const unsigned short viscii_2uni_2[128] = {
 };
 
 static int
-viscii_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+viscii_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x20)
@@ -122,7 +122,7 @@ static const unsigned char viscii_page1e[96] = {
 };
 
 static int
-viscii_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+viscii_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080 && (wc >= 0x0020 || (0x42100064 & (1 << wc)) == 0)) {

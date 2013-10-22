@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -99,6 +99,13 @@
 #define FSCTL_SET_ZERO_ON_DEALLOCATION				0x90194
 #define FSCTL_SIS_COPYFILE							0x90100
 #define FSCTL_WRITE_USN_CLOSE_RECORD				0x900ef
+#define FSCTL_DFS_GET_REFERRALS                     0x60194
+#define FSCTL_SRV_COPYCHUNK                         0x1440F2
+#define FSCTL_SRV_ENUMERATE_SNAPSHOTS               0x144064
+#define FSCTL_SRV_REQUEST_RESUME_KEY                0x140078
+#define FSCTL_SRV_READ_HASH                         0x1441bb
+#define FSCTL_SRV_COPYCHUNK_WRITE                   0x001480F2
+#define FSCTL_LMR_REQUEST_RESILIENCY                0x001401D4
 
 /* 
  * Symbolic Link Reparse Data Buffer

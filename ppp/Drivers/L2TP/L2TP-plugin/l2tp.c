@@ -240,11 +240,11 @@ static int l2tp_send(int ctrlsockfd, u_int8_t* buf, int len, u_int16_t session_i
             return EXIT_L2TP_PROTOCOLERROR;         
 
 #define SEND_PACKET(a,b,c,d,e,f) \
-    if (result = l2tp_send(a, b, c, d, e, f)) \
+    if ((result = l2tp_send(a, b, c, d, e, f))) \
         return result;
 
 #define RECV_PACKET(a,b,c,d,e,f,g) \
-    if (result = l2tp_recv(a, b, c, d, e, f, g)) \
+    if ((result = l2tp_recv(a, b, c, d, e, f, g))) \
         return result;
 
 
@@ -589,14 +589,15 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
             len -= avp_len;				
             
             /* check that reserved flags and Vendor ID are zero */
-            if ( (avp_flags & L2TP_AVP_FLAGS_RESERVED) != 0 || avp_vendor != 0)
+            if ( (avp_flags & L2TP_AVP_FLAGS_RESERVED) != 0 || avp_vendor != 0) {
                     if (avp_flags & L2TP_AVP_FLAGS_M || first_avp) {
                             error("L2TP received invalid madatory AVP... AVP type = %d\n", avp_type);
                             return -1;
                     } else {
                             continue;
                     }
-            
+            }
+        
             /* if first AVP - must be Message Type and cannot be hidden */
             if (first_avp) {
                     if (avp_type != L2TP_AVP_MSG_TYPE || avp_flags & L2TP_AVP_FLAGS_H ||
@@ -800,14 +801,12 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                                     return -1;
                             }
                             params->result_code = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf));
-							value_buf += sizeof(u_int16_t);
                             if (value_len >= sizeof(u_int32_t)) {
-                                    params->error_code = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf));
-									value_buf += sizeof(u_int16_t);
+                                    params->error_code = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf + 1));
                                     if (value_len -= sizeof(u_int32_t)) {
                                             if (value_len >= sizeof(params->error_message))
                                                     value_len = sizeof(params->error_message) - 1;
-                                            bcopy(value_buf, params->error_message, value_len);
+                                            bcopy(value_buf + sizeof(u_int32_t), params->error_message, value_len);
                                     }
                                     params->error_message[value_len] = 0;
                             }
@@ -842,12 +841,11 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                                     return -1;
                             }
                             params->cause_code = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf));
-							value_buf += sizeof(u_int16_t);
-                            params->cause_message = *value_buf++;
+                            params->cause_message = *(value_buf + sizeof(u_int16_t));
                             if (value_len -= (sizeof(u_int16_t) + sizeof(u_int8_t))) {
                                     if (value_len >= sizeof(params->advisory_message))
                                             value_len = sizeof(params->advisory_message) - 1;
-                                    bcopy(value_buf, params->advisory_message, value_len);
+                                    bcopy(value_buf + sizeof(u_int16_t) + sizeof(u_int8_t), params->advisory_message, value_len);
                             }
                             params->advisory_message[value_len] = 0;
                             break;

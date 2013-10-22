@@ -131,26 +131,18 @@ TBundle::CopyLocalizationDictionaryForTable ( CFStringRef table )
 	
 	CFDictionaryRef		stringTable				= NULL;
 	CFURLRef			localizedStringsURL		= NULL;
-	CFDataRef			tableData				= NULL;
+	CFDataRef           tableData				= NULL;
 	CFStringRef			errStr					= NULL;
-	SInt32				errCode					= 0;
-	Boolean				result					= false;
-	
+    
 	localizedStringsURL = CopyURLForResourceOfTypeInBundle (
 				table,
 				CFSTR ( kStringsTypeString ),
 				fCFBundleRef );
 
 	require ( ( localizedStringsURL != NULL ), ErrorExit );
-	
-	result = ::CFURLCreateDataAndPropertiesFromResource ( kCFAllocatorDefault,
-														  localizedStringsURL,
-														  &tableData,
-														  NULL,
-														  NULL,
-														  &errCode );
-	
-	require ( result, ReleaseURL );
+
+    tableData = TSystemUtils::ReadDataFromURL ( localizedStringsURL );
+    
 	require ( ( tableData != NULL ), ReleaseURL );
 	
 	stringTable = ( CFDictionaryRef ) ::CFPropertyListCreateFromXMLData (
@@ -158,7 +150,7 @@ TBundle::CopyLocalizationDictionaryForTable ( CFStringRef table )
 											tableData,
 											kCFPropertyListImmutable,
 											&errStr );
-	
+
 	if ( errStr != NULL )
 	{
 	
@@ -176,7 +168,7 @@ TBundle::CopyLocalizationDictionaryForTable ( CFStringRef table )
 	
 	check ( stringTable != NULL );
 	
-	
+    
 ReleaseURL:
 	
 	

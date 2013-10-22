@@ -11,6 +11,7 @@
 #include "putilimp.h"
 #include "unicode/ulocdata.h"
 #include "unicode/ucnv.h"
+
 /*
 To add a new enum type 
       (For example: UShoeSize  with values USHOE_WIDE=0, USHOE_REGULAR, USHOE_NARROW, USHOE_COUNT)
@@ -139,7 +140,7 @@ static const Field names_UDateFormatStyle[] =
     /*
      *  negative enums.. leave out for now.
         FIELD_NAME_STR( LEN_UDAT, UDAT_NONE ),
-        FIELD_NAME_STR( LEN_UDAT, UDAT_IGNORE ),
+        FIELD_NAME_STR( LEN_UDAT, UDAT_PATTERN ),
      */
 };
 
@@ -342,6 +343,20 @@ U_CAPI const char *udbg_getPlatform(void)
     return "Windows";
 #elif U_PLATFORM == U_PF_UNKNOWN
     return "unknown";
+#elif U_PLATFORM == U_PF_DARWIN
+    return "Darwin";
+#elif U_PLATFORM == U_PF_QNX
+    return "QNX";
+#elif U_PLATFORM == U_PF_LINUX
+    return "Linux";
+#elif U_PLATFORM == U_PF_ANDROID
+    return "Android";
+#elif U_PLATFORM == U_PF_CLASSIC_MACOS
+    return "MacOS (Classic)";
+#elif U_PLATFORM == U_PF_OS390
+    return "IBM z";
+#elif U_PLATFORM == U_PF_OS400
+    return "IBM i";
 #else
     return "Other (POSIX-like)";
 #endif
@@ -376,10 +391,22 @@ paramStatic(const USystemParams *param, char *target, int32_t targetCapacity, UE
   return u_terminateChars(target, targetCapacity, len, status);
 }
 
+static const char *nullString = "(null)";
+
 static int32_t stringToStringBuffer(char *target, int32_t targetCapacity, const char *str, UErrorCode *status) {
+  if(str==NULL) str=nullString; 
+
   int32_t len = uprv_strlen(str);
-  if(target!=NULL) {
-    uprv_strncpy(target,str,uprv_min(len,targetCapacity));
+  if (U_SUCCESS(*status)) {
+    if(target!=NULL) {
+      uprv_strncpy(target,str,uprv_min(len,targetCapacity));
+    }
+  } else {
+    const char *s = u_errorName(*status);
+    len = uprv_strlen(s);
+    if(target!=NULL) {
+      uprv_strncpy(target,s,uprv_min(len,targetCapacity));
+    }
   }
   return u_terminateChars(target, targetCapacity, len, status);
 }
@@ -467,7 +494,7 @@ STRING_PARAM(paramConverterDefault, ucnv_getDefaultName())
 STRING_PARAM(paramTimezoneVersion, ucal_getTZDataVersion(status))
 #endif
 
-static USystemParams systemParams[] = {
+static const USystemParams systemParams[] = {
   { "copyright",    paramStatic, U_COPYRIGHT_STRING,0 },
   { "product",      paramStatic, "icu4c",0 },
   { "product.full", paramStatic, "International Components for Unicode for C/C++",0 },
@@ -509,7 +536,9 @@ static USystemParams systemParams[] = {
 #if defined (CYGWINMSVC)
   { "build.cygwinmsvc", paramInteger, "b", 1},
 #endif
-
+  { "uconfig.internal_digitlist", paramInteger, "b", 1}, /* always 1 */
+  { "uconfig.have_parseallinput", paramInteger, "b", UCONFIG_HAVE_PARSEALLINPUT},
+  { "uconfig.format_fastpaths_49",paramInteger, "b", UCONFIG_FORMAT_FASTPATHS_49},
 
 
 };

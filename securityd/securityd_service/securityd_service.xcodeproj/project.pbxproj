@@ -1,0 +1,634 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		189D4639166AC95C001D8533 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 189D4638166AC95C001D8533 /* main.c */; };
+		189D4644166BFDCE001D8533 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4643166BFDCE001D8533 /* Security.framework */; };
+		189D4647166C03CD001D8533 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4646166C03CD001D8533 /* CoreFoundation.framework */; };
+		189D4649166C11A6001D8533 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4648166C11A6001D8533 /* IOKit.framework */; };
+		189D465E166C15C1001D8533 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 189D465D166C15C1001D8533 /* main.c */; };
+		189D4667166C1809001D8533 /* com.apple.securityd_service.plist in Copy launchd plist */ = {isa = PBXBuildFile; fileRef = 189D4666166C171B001D8533 /* com.apple.securityd_service.plist */; };
+		189D4668166C19CF001D8533 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4646166C03CD001D8533 /* CoreFoundation.framework */; };
+		18CD2B721714D48900633846 /* securityd_service_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 18CD2B711714D48300633846 /* securityd_service_client.c */; };
+		18CD2B791715CEC800633846 /* libaks.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18CD2B781715CEC800633846 /* libaks.a */; };
+		18D7BBD2171639F0008F80B3 /* com.apple.securitydservice.sb in Copy sandbox profile */ = {isa = PBXBuildFile; fileRef = 18D7BBD0171638B9008F80B3 /* com.apple.securitydservice.sb */; };
+		18F4808F17497521009724DB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4646166C03CD001D8533 /* CoreFoundation.framework */; };
+		18F4809D174976DA009724DB /* KeyStoreEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 18F4809C174976D2009724DB /* KeyStoreEvents.c */; };
+		18F4809E1749774F009724DB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4648166C11A6001D8533 /* IOKit.framework */; };
+		18F480A217498ADD009724DB /* AppleKeyStoreEvents.h in Headers */ = {isa = PBXBuildFile; fileRef = 18F4809F17498963009724DB /* AppleKeyStoreEvents.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		80C312B6169BA50700DA5DC6 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189D4643166BFDCE001D8533 /* Security.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		189D4664166C166E001D8533 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 189D462D166AC95C001D8533 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 189D465A166C15C1001D8533;
+			remoteInfo = securitydservicectrl;
+		};
+		18F4809A174975FF009724DB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 189D462D166AC95C001D8533 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18F4808D17497521009724DB;
+			remoteInfo = KeyStore;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		189D4633166AC95C001D8533 /* Copy launchd plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				189D4667166C1809001D8533 /* com.apple.securityd_service.plist in Copy launchd plist */,
+			);
+			name = "Copy launchd plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		189D4659166C15C1001D8533 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		18D7BBD1171639CE008F80B3 /* Copy sandbox profile */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Sandbox/Profiles";
+			dstSubfolderSpec = 0;
+			files = (
+				18D7BBD2171639F0008F80B3 /* com.apple.securitydservice.sb in Copy sandbox profile */,
+			);
+			name = "Copy sandbox profile";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1843240E1714797D00196B52 /* libsecuritydservice_client.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecuritydservice_client.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		189D4635166AC95C001D8533 /* securityd_service */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = securityd_service; sourceTree = BUILT_PRODUCTS_DIR; };
+		189D4638166AC95C001D8533 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		189D4641166AC9B6001D8533 /* securityd_service.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = securityd_service.h; sourceTree = "<group>"; };
+		189D4642166BD755001D8533 /* service.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = service.entitlements; sourceTree = "<group>"; };
+		189D4643166BFDCE001D8533 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		189D4646166C03CD001D8533 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		189D4648166C11A6001D8533 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		189D465B166C15C1001D8533 /* securitydservicectrl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = securitydservicectrl; sourceTree = BUILT_PRODUCTS_DIR; };
+		189D465D166C15C1001D8533 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		189D4666166C171B001D8533 /* com.apple.securityd_service.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.securityd_service.plist; sourceTree = "<group>"; };
+		18CD2B711714D48300633846 /* securityd_service_client.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = securityd_service_client.c; path = securityd_service/securityd_service_client.c; sourceTree = "<group>"; };
+		18CD2B731714D4B300633846 /* securityd_service_client.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = securityd_service_client.h; path = securityd_service/securityd_service_client.h; sourceTree = "<group>"; };
+		18CD2B781715CEC800633846 /* libaks.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libaks.a; path = /usr/local/lib/libaks.a; sourceTree = "<absolute>"; };
+		18D7BBD0171638B9008F80B3 /* com.apple.securitydservice.sb */ = {isa = PBXFileReference; lastKnownFileType = text; path = com.apple.securitydservice.sb; sourceTree = "<group>"; };
+		18F4808E17497521009724DB /* com.apple.KeyStore.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = com.apple.KeyStore.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		18F4809217497521009724DB /* KeyStore-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KeyStore-Info.plist"; sourceTree = "<group>"; };
+		18F4809C174976D2009724DB /* KeyStoreEvents.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = KeyStoreEvents.c; sourceTree = "<group>"; };
+		18F4809F17498963009724DB /* AppleKeyStoreEvents.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleKeyStoreEvents.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1843240B1714797D00196B52 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		189D4632166AC95C001D8533 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18CD2B791715CEC800633846 /* libaks.a in Frameworks */,
+				189D4649166C11A6001D8533 /* IOKit.framework in Frameworks */,
+				189D4647166C03CD001D8533 /* CoreFoundation.framework in Frameworks */,
+				189D4644166BFDCE001D8533 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		189D4658166C15C1001D8533 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				80C312B6169BA50700DA5DC6 /* Security.framework in Frameworks */,
+				189D4668166C19CF001D8533 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18F4808B17497521009724DB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18F4809E1749774F009724DB /* IOKit.framework in Frameworks */,
+				18F4808F17497521009724DB /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		189D462C166AC95C001D8533 = {
+			isa = PBXGroup;
+			children = (
+				189D4637166AC95C001D8533 /* securityd_service */,
+				18CD2B3B1714D43C00633846 /* securityd_service_client */,
+				189D465C166C15C1001D8533 /* securitydservicectrl */,
+				18F4809017497521009724DB /* KeyStore */,
+				189D4645166BFDD4001D8533 /* Frameworks */,
+				189D4636166AC95C001D8533 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		189D4636166AC95C001D8533 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				189D4635166AC95C001D8533 /* securityd_service */,
+				189D465B166C15C1001D8533 /* securitydservicectrl */,
+				1843240E1714797D00196B52 /* libsecuritydservice_client.a */,
+				18F4808E17497521009724DB /* com.apple.KeyStore.plugin */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		189D4637166AC95C001D8533 /* securityd_service */ = {
+			isa = PBXGroup;
+			children = (
+				189D4638166AC95C001D8533 /* main.c */,
+				189D4641166AC9B6001D8533 /* securityd_service.h */,
+				189D4642166BD755001D8533 /* service.entitlements */,
+				189D4666166C171B001D8533 /* com.apple.securityd_service.plist */,
+				18D7BBD0171638B9008F80B3 /* com.apple.securitydservice.sb */,
+			);
+			path = securityd_service;
+			sourceTree = "<group>";
+		};
+		189D4645166BFDD4001D8533 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				18CD2B781715CEC800633846 /* libaks.a */,
+				189D4648166C11A6001D8533 /* IOKit.framework */,
+				189D4646166C03CD001D8533 /* CoreFoundation.framework */,
+				189D4643166BFDCE001D8533 /* Security.framework */,
+			);
+			name = Frameworks;
+			path = /Volumes/Data/wade/src/projects/securityd_service;
+			sourceTree = "<absolute>";
+		};
+		189D465C166C15C1001D8533 /* securitydservicectrl */ = {
+			isa = PBXGroup;
+			children = (
+				189D465D166C15C1001D8533 /* main.c */,
+			);
+			path = securitydservicectrl;
+			sourceTree = "<group>";
+		};
+		18CD2B3B1714D43C00633846 /* securityd_service_client */ = {
+			isa = PBXGroup;
+			children = (
+				18CD2B711714D48300633846 /* securityd_service_client.c */,
+				18CD2B731714D4B300633846 /* securityd_service_client.h */,
+			);
+			name = securityd_service_client;
+			sourceTree = "<group>";
+		};
+		18F4809017497521009724DB /* KeyStore */ = {
+			isa = PBXGroup;
+			children = (
+				18F4809117497521009724DB /* Supporting Files */,
+				18F4809C174976D2009724DB /* KeyStoreEvents.c */,
+				18F4809F17498963009724DB /* AppleKeyStoreEvents.h */,
+			);
+			path = KeyStore;
+			sourceTree = "<group>";
+		};
+		18F4809117497521009724DB /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				18F4809217497521009724DB /* KeyStore-Info.plist */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		1843240C1714797D00196B52 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18F480A117498AD8009724DB /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18F480A217498ADD009724DB /* AppleKeyStoreEvents.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		1843240D1714797D00196B52 /* securitydservice_client */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 184324111714797D00196B52 /* Build configuration list for PBXNativeTarget "securitydservice_client" */;
+			buildPhases = (
+				1843240A1714797D00196B52 /* Sources */,
+				1843240B1714797D00196B52 /* Frameworks */,
+				1843240C1714797D00196B52 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = securitydservice_client;
+			productName = securitydservice_client;
+			productReference = 1843240E1714797D00196B52 /* libsecuritydservice_client.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		189D4634166AC95C001D8533 /* securityd_service */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 189D463E166AC95C001D8533 /* Build configuration list for PBXNativeTarget "securityd_service" */;
+			buildPhases = (
+				189D4631166AC95C001D8533 /* Sources */,
+				189D4632166AC95C001D8533 /* Frameworks */,
+				189D4633166AC95C001D8533 /* Copy launchd plist */,
+				18D7BBD1171639CE008F80B3 /* Copy sandbox profile */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				18F4809B174975FF009724DB /* PBXTargetDependency */,
+				189D4665166C166E001D8533 /* PBXTargetDependency */,
+			);
+			name = securityd_service;
+			productName = securityd_service;
+			productReference = 189D4635166AC95C001D8533 /* securityd_service */;
+			productType = "com.apple.product-type.tool";
+		};
+		189D465A166C15C1001D8533 /* securitydservicectrl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 189D4661166C15C1001D8533 /* Build configuration list for PBXNativeTarget "securitydservicectrl" */;
+			buildPhases = (
+				189D4657166C15C1001D8533 /* Sources */,
+				189D4658166C15C1001D8533 /* Frameworks */,
+				189D4659166C15C1001D8533 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = securitydservicectrl;
+			productName = securitydservicectrl;
+			productReference = 189D465B166C15C1001D8533 /* securitydservicectrl */;
+			productType = "com.apple.product-type.tool";
+		};
+		18F4808D17497521009724DB /* KeyStoreEvents */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18F4809917497521009724DB /* Build configuration list for PBXNativeTarget "KeyStoreEvents" */;
+			buildPhases = (
+				18F4808A17497521009724DB /* Sources */,
+				18F4808B17497521009724DB /* Frameworks */,
+				18F4808C17497521009724DB /* Resources */,
+				18F480A117498AD8009724DB /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KeyStoreEvents;
+			productName = KeyStore;
+			productReference = 18F4808E17497521009724DB /* com.apple.KeyStore.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		189D462D166AC95C001D8533 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0460;
+				ORGANIZATIONNAME = Apple;
+			};
+			buildConfigurationList = 189D4630166AC95C001D8533 /* Build configuration list for PBXProject "securityd_service" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 189D462C166AC95C001D8533;
+			productRefGroup = 189D4636166AC95C001D8533 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				189D4634166AC95C001D8533 /* securityd_service */,
+				189D465A166C15C1001D8533 /* securitydservicectrl */,
+				1843240D1714797D00196B52 /* securitydservice_client */,
+				18F4808D17497521009724DB /* KeyStoreEvents */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		18F4808C17497521009724DB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1843240A1714797D00196B52 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18CD2B721714D48900633846 /* securityd_service_client.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		189D4631166AC95C001D8533 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				189D4639166AC95C001D8533 /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		189D4657166C15C1001D8533 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				189D465E166C15C1001D8533 /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18F4808A17497521009724DB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18F4809D174976DA009724DB /* KeyStoreEvents.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		189D4665166C166E001D8533 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 189D465A166C15C1001D8533 /* securitydservicectrl */;
+			targetProxy = 189D4664166C166E001D8533 /* PBXContainerItemProxy */;
+		};
+		18F4809B174975FF009724DB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18F4808D17497521009724DB /* KeyStoreEvents */;
+			targetProxy = 18F4809A174975FF009724DB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1843240F1714797D00196B52 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		184324101714797D00196B52 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		189D463C166AC95C001D8533 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"RC_BUILDIT_$(RC_BUILDIT)=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_STRICT_ALIASING = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+			};
+			name = Debug;
+		};
+		189D463D166AC95C001D8533 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"RC_BUILDIT_$(RC_BUILDIT)=1",
+					"NDEBUG=1",
+				);
+				GCC_STRICT_ALIASING = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+			};
+			name = Release;
+		};
+		189D463F166AC95C001D8533 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = securityd_service/service.entitlements;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		189D4640166AC95C001D8533 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = securityd_service/service.entitlements;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		189D4662166C15C1001D8533 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		189D4663166C15C1001D8533 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18F4809717497521009724DB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = /usr/libexec/UserEventAgent;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				INFOPLIST_FILE = "KeyStore/KeyStore-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/UserEventPlugins";
+				PRODUCT_NAME = com.apple.KeyStore;
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Debug;
+		};
+		18F4809817497521009724DB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = /usr/libexec/UserEventAgent;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				INFOPLIST_FILE = "KeyStore/KeyStore-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/UserEventPlugins";
+				PRODUCT_NAME = com.apple.KeyStore;
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		184324111714797D00196B52 /* Build configuration list for PBXNativeTarget "securitydservice_client" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1843240F1714797D00196B52 /* Debug */,
+				184324101714797D00196B52 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		189D4630166AC95C001D8533 /* Build configuration list for PBXProject "securityd_service" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				189D463C166AC95C001D8533 /* Debug */,
+				189D463D166AC95C001D8533 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		189D463E166AC95C001D8533 /* Build configuration list for PBXNativeTarget "securityd_service" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				189D463F166AC95C001D8533 /* Debug */,
+				189D4640166AC95C001D8533 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		189D4661166C15C1001D8533 /* Build configuration list for PBXNativeTarget "securitydservicectrl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				189D4662166C15C1001D8533 /* Debug */,
+				189D4663166C15C1001D8533 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18F4809917497521009724DB /* Build configuration list for PBXNativeTarget "KeyStoreEvents" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18F4809717497521009724DB /* Debug */,
+				18F4809817497521009724DB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 189D462D166AC95C001D8533 /* Project object */;
+}

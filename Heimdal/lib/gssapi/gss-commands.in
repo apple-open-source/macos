@@ -56,6 +56,11 @@ command = {
 		argument = "domain"
 	}
 	option = {
+		long = "kdc-hostname"
+		type = "string"
+		argument = "hostname"
+	}
+	option = {
 		long = "mech"
 		type = "string"
 		argument = "gssapi mechanism"

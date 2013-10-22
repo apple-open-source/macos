@@ -44,6 +44,13 @@
 extern "C" {
 #endif
 
+typedef struct SecRSAPublicKeyParams {
+    uint8_t             *modulus;			/* modulus */
+    CFIndex             modulusLength;
+    uint8_t             *exponent;			/* public exponent */
+    CFIndex             exponentLength;
+} SecRSAPublicKeyParams;
+
 typedef uint32_t SecKeyEncoding;
 enum {
     /* Typically only used for symmetric keys. */
@@ -397,6 +404,39 @@ SecKeyRef SecKeyCreateRSAPublicKey(CFAllocatorRef allocator,
 CFDataRef SecKeyCopyModulus(SecKeyRef rsaPublicKey);
 CFDataRef SecKeyCopyExponent(SecKeyRef rsaPublicKey);
 
+/*!
+ @function SecKeyCopyPublicBytes
+ @abstract Gets the bits of a public key
+ @param key Key to retrieve the bits.
+ @param publicBytes An out parameter to receive the public key bits
+ @result Errors if any when retrieving the public key bits..
+ */
+OSStatus SecKeyCopyPublicBytes(SecKeyRef key, CFDataRef* publicBytes);
+
+/*!
+	@function SecKeyCreatePublicFromPrivate
+	@abstract Create a public SecKeyRef from a private SecKeyRef
+	@param privateKey The private SecKeyRef for which you want the public key
+	@result A public SecKeyRef, or NULL if the conversion failed
+	@discussion This is a "best attempt" function, hence the SPI nature. If the public
+    key bits are not in memory, it attempts to load from the keychain. If the public
+    key was not tracked on the keychain, it will fail.
+*/
+SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey);
+
+/*!
+	@function SecKeyCreateFromPublicData
+*/
+SecKeyRef SecKeyCreateFromPublicData(CFAllocatorRef allocator, CFIndex algorithmID, CFDataRef publicBytes);
+
+OSStatus SecKeyRawVerifyOSX(
+		 SecKeyRef           key,
+		 SecPadding          padding,
+		 const uint8_t       *signedData,
+		 size_t              signedDataLen,
+		 const uint8_t       *sig,
+		 size_t              sigLen);
+    
 #if defined(__cplusplus)
 }
 #endif

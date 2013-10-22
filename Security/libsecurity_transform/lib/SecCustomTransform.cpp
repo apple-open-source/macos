@@ -8,6 +8,7 @@
  */
 
 #include "SecCustomTransform.h"
+#include "SecTransformValidator.h"
 
 #include "TransformFactory.h"
 #include <CoreFoundation/CoreFoundation.h>
@@ -17,7 +18,6 @@
 #include "misc.h"
 
 static const CFStringRef kSecCustom = CFSTR("CustomTransform");
-static const char *kSecCustom_cstr = "CustomTransform";
 const CFStringRef kSecTransformPreviousErrorKey = CFSTR("PreviousError");
 const CFStringRef kSecTransformAbortOriginatorKey = CFSTR("Originating Transform");
 const CFStringRef kSecTransformActionCanExecute = CFSTR("CanExecute");
@@ -285,6 +285,7 @@ protected:
 	SecTransformCreateFP  createFuncPtr;
 public:
 	CustomTransformFactory(CFStringRef name, SecTransformCreateFP createFP, CFErrorRef *error);
+    virtual ~CustomTransformFactory() {};
 	virtual CFTypeRef Make();
 };
 
@@ -561,14 +562,6 @@ CFTypeRef CustomTransformFactory::Make()
 }
 
 #pragma mark MISC
-
-const void *Block_copy_a(CFAllocatorRef allocator, const void *block) {
-	return Block_copy(block);
-}
-
-void Block_release_a(CFAllocatorRef allocator, const void *block) {
-	Block_release(block);
-}
 
 extern "C" {
 	SecTransformAttributeActionBlock SecTransformCreateValidatorForCFtype(CFTypeID expected_type, Boolean null_allowed) {

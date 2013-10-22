@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2011, International Business Machines Corporation and
+ * Copyright (c) 1997-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
  *
@@ -163,7 +163,6 @@ U_NAMESPACE_BEGIN
 
 // -------------------------------------
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(MessageFormat)
-UOBJECT_DEFINE_NO_RTTI_IMPLEMENTATION(MessageFormat::DummyFormat)
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(FormatNameEnumeration)
 
 //--------------------------------------------------------------------
@@ -230,7 +229,8 @@ MessageFormat::MessageFormat(const UnicodeString& pattern,
   defaultDateFormat(NULL),
   cachedFormatters(NULL),
   customFormatArgStarts(NULL),
-  pluralProvider(&fLocale)
+  pluralProvider(&fLocale, UPLURAL_TYPE_CARDINAL),
+  ordinalProvider(&fLocale, UPLURAL_TYPE_ORDINAL)
 {
     setLocaleIDs(fLocale.getName(), fLocale.getName());
     applyPattern(pattern, success);
@@ -251,7 +251,8 @@ MessageFormat::MessageFormat(const UnicodeString& pattern,
   defaultDateFormat(NULL),
   cachedFormatters(NULL),
   customFormatArgStarts(NULL),
-  pluralProvider(&fLocale)
+  pluralProvider(&fLocale, UPLURAL_TYPE_CARDINAL),
+  ordinalProvider(&fLocale, UPLURAL_TYPE_ORDINAL)
 {
     setLocaleIDs(fLocale.getName(), fLocale.getName());
     applyPattern(pattern, success);
@@ -273,7 +274,8 @@ MessageFormat::MessageFormat(const UnicodeString& pattern,
   defaultDateFormat(NULL),
   cachedFormatters(NULL),
   customFormatArgStarts(NULL),
-  pluralProvider(&fLocale)
+  pluralProvider(&fLocale, UPLURAL_TYPE_CARDINAL),
+  ordinalProvider(&fLocale, UPLURAL_TYPE_ORDINAL)
 {
     setLocaleIDs(fLocale.getName(), fLocale.getName());
     applyPattern(pattern, parseError, success);
@@ -294,7 +296,8 @@ MessageFormat::MessageFormat(const MessageFormat& that)
   defaultDateFormat(NULL),
   cachedFormatters(NULL),
   customFormatArgStarts(NULL),
-  pluralProvider(&fLocale)
+  pluralProvider(&fLocale, UPLURAL_TYPE_CARDINAL),
+  ordinalProvider(&fLocale, UPLURAL_TYPE_ORDINAL)
 {
     // This will take care of creating the hash tables (since they are NULL).
     UErrorCode ec = U_ZERO_ERROR;
@@ -438,6 +441,7 @@ MessageFormat::setLocale(const Locale& theLocale)
         fLocale = theLocale;
         setLocaleIDs(fLocale.getName(), fLocale.getName());
         pluralProvider.reset(&fLocale);
+        ordinalProvider.reset(&fLocale);
     }
 }
 
@@ -846,7 +850,7 @@ MessageFormat::getFormatNames(UErrorCode& status) {
     fFormatNames->setDeleter(uprv_deleteUObject);
 
     for (int32_t partIndex = 0; (partIndex = nextTopLevelArgStart(partIndex)) >= 0;) {
-        fFormatNames->addElement(new UnicodeString(getArgName(partIndex)), status);
+        fFormatNames->addElement(new UnicodeString(getArgName(partIndex + 1)), status);
     }
 
     StringEnumeration* nameEnumerator = new FormatNameEnumeration(fFormatNames, status);
@@ -1057,15 +1061,17 @@ void MessageFormat::format(int32_t msgStart, double pluralNumber,
             int32_t subMsgStart = ChoiceFormat::findSubMessage(msgPattern, i, number);
             formatComplexSubMessage(subMsgStart, 0, arguments, argumentNames,
                                     cnt, appendTo, success);
-        } else if (argType == UMSGPAT_ARG_TYPE_PLURAL) {
+        } else if (UMSGPAT_ARG_TYPE_HAS_PLURAL_STYLE(argType)) {
             if (!arg->isNumeric()) {
                 success = U_ILLEGAL_ARGUMENT_ERROR;
                 return;
             }
+            const PluralFormat::PluralSelector &selector =
+                argType == UMSGPAT_ARG_TYPE_PLURAL ? pluralProvider : ordinalProvider;
             // We must use the Formattable::getDouble() variant with the UErrorCode parameter
             // because only this one converts non-double numeric types to double.
             double number = arg->getDouble(success);
-            int32_t subMsgStart = PluralFormat::findSubMessage(msgPattern, i, pluralProvider, number,
+            int32_t subMsgStart = PluralFormat::findSubMessage(msgPattern, i, selector, number,
                                                                success);
             double offset = msgPattern.getPluralOffset(i);
             formatComplexSubMessage(subMsgStart, number-offset, arguments, argumentNames,
@@ -1345,7 +1351,7 @@ MessageFormat::parse(int32_t msgStart,
             argResult.setDouble(choiceResult);
             haveArgResult = TRUE;
             sourceOffset = tempStatus.getIndex();
-        } else if(argType==UMSGPAT_ARG_TYPE_PLURAL || argType==UMSGPAT_ARG_TYPE_SELECT) {
+        } else if(UMSGPAT_ARG_TYPE_HAS_PLURAL_STYLE(argType) || argType==UMSGPAT_ARG_TYPE_SELECT) {
             // Parsing not supported.
             ec = U_UNSUPPORTED_ERROR;
             return NULL;
@@ -1483,6 +1489,7 @@ void MessageFormat::cacheExplicitFormats(UErrorCode& status) {
     }
     // Set all argTypes to kObject, as a "none" value, for lack of any better value.
     // We never use kObject for real arguments.
+    // We use it as "no argument yet" for the check for hasArgTypeConflicts.
     for (int32_t i = 0; i < argTypeCount; ++i) {
         argTypes[i] = Formattable::kObject;
     }
@@ -1524,6 +1531,7 @@ void MessageFormat::cacheExplicitFormats(UErrorCode& status) {
         }
         case UMSGPAT_ARG_TYPE_CHOICE:
         case UMSGPAT_ARG_TYPE_PLURAL:
+        case UMSGPAT_ARG_TYPE_SELECTORDINAL:
             formattableType = Formattable::kDouble;
             break;
         case UMSGPAT_ARG_TYPE_SELECT:
@@ -1728,7 +1736,26 @@ Format* MessageFormat::DummyFormat::clone() const {
 
 UnicodeString& MessageFormat::DummyFormat::format(const Formattable&,
                           UnicodeString& appendTo,
+                          UErrorCode& status) const {
+    if (U_SUCCESS(status)) {
+        status = U_UNSUPPORTED_ERROR;
+    }
+    return appendTo;
+}
+
+UnicodeString& MessageFormat::DummyFormat::format(const Formattable&,
+                          UnicodeString& appendTo,
                           FieldPosition&,
+                          UErrorCode& status) const {
+    if (U_SUCCESS(status)) {
+        status = U_UNSUPPORTED_ERROR;
+    }
+    return appendTo;
+}
+
+UnicodeString& MessageFormat::DummyFormat::format(const Formattable&,
+                          UnicodeString& appendTo,
+                          FieldPositionIterator*,
                           UErrorCode& status) const {
     if (U_SUCCESS(status)) {
         status = U_UNSUPPORTED_ERROR;
@@ -1770,8 +1797,8 @@ FormatNameEnumeration::~FormatNameEnumeration() {
 }
 
 
-MessageFormat::PluralSelectorProvider::PluralSelectorProvider(const Locale* loc)
-        : locale(loc), rules(NULL) {
+MessageFormat::PluralSelectorProvider::PluralSelectorProvider(const Locale* loc, UPluralType t)
+        : locale(loc), rules(NULL), type(t) {
 }
 
 MessageFormat::PluralSelectorProvider::~PluralSelectorProvider() {
@@ -1785,7 +1812,7 @@ UnicodeString MessageFormat::PluralSelectorProvider::select(double number, UErro
     }
     MessageFormat::PluralSelectorProvider* t = const_cast<MessageFormat::PluralSelectorProvider*>(this);
     if(rules == NULL) {
-        t->rules = PluralRules::forLocale(*locale, ec);
+        t->rules = PluralRules::forLocale(*locale, type, ec);
         if (U_FAILURE(ec)) {
             return UnicodeString(FALSE, OTHER_STRING, 5);
         }

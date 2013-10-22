@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,9 +43,9 @@ extern int			G_gather_secs;
 extern int			G_link_inactive_secs;
 extern int			G_max_retries;
 extern boolean_t 		G_must_broadcast;
-extern int			G_IPConfiguration_verbose;
-extern int			G_debug;
+extern Boolean			G_IPConfiguration_verbose;
 extern boolean_t		G_router_arp;
+extern int			G_router_arp_wifi_lease_start_threshold_secs;
 extern int			G_dhcp_defend_ip_address_interval_secs;
 extern int			G_dhcp_defend_ip_address_count;
 extern int			G_dhcp_lease_write_t1_threshold_secs;

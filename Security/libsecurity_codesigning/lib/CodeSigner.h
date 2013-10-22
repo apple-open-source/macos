@@ -64,6 +64,7 @@ public:
 protected:
 	std::string sdkPath(const std::string &path) const;
 	bool isAdhoc() const;
+	SecCSFlags signingFlags() const;
 	
 private:
 	// parsed parameter set
@@ -75,9 +76,10 @@ private:
 	CFRef<CFDataRef> mApplicationData; // contents of application slot
 	CFRef<CFDataRef> mEntitlementData; // entitlement configuration data
 	CFRef<CFURLRef> mSDKRoot;		// substitute filesystem root for sub-component lookup
-	const Requirements *mRequirements; // internal code requirements
+	CFRef<CFTypeRef> mRequirements; // internal code requirements
 	size_t mCMSSize;				// size estimate for CMS blob
 	uint32_t mCdFlags;				// CodeDirectory flags
+	uint32_t mPreserveMetadata;		// metadata preservation options
 	bool mCdFlagsGiven;				// CodeDirectory flags were specified
 	CodeDirectory::HashAlgorithm mDigestAlgorithm; // interior digest (hash) algorithm
 	std::string mIdentifier;		// unique identifier override

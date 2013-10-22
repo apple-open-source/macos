@@ -94,6 +94,7 @@ Pass *createFunctionInliningPass(int Threshold);
 /// createAlwaysInlinerPass - Return a new pass object that inlines only 
 /// functions that are marked as "always_inline".
 Pass *createAlwaysInlinerPass();
+Pass *createAlwaysInlinerPass(bool InsertLifetime);
 
 //===----------------------------------------------------------------------===//
 /// createPruneEHPass - Return a new pass object which transforms invoke
@@ -191,6 +192,11 @@ ModulePass *createMergeFunctionsPass();
 /// createPartialInliningPass - This pass inlines parts of functions.
 ///
 ModulePass *createPartialInliningPass();
+  
+//===----------------------------------------------------------------------===//
+// createMetaRenamerPass - Rename everything with metasyntatic names.
+//
+ModulePass *createMetaRenamerPass();
 
 } // End llvm namespace
 

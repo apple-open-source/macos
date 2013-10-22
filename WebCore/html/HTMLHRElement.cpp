@@ -28,6 +28,7 @@
 #include "CSSValueKeywords.h"
 #include "CSSValuePool.h"
 #include "HTMLNames.h"
+#include "StylePropertySet.h"
 
 namespace WebCore {
 
@@ -56,45 +57,45 @@ bool HTMLHRElement::isPresentationAttribute(const QualifiedName& name) const
     return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLHRElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+void HTMLHRElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStylePropertySet* style)
 {
-    if (attr->name() == alignAttr) {
-        if (equalIgnoringCase(attr->value(), "left")) {
-            addPropertyToAttributeStyle(style, CSSPropertyMarginLeft, 0, CSSPrimitiveValue::CSS_PX);
-            addPropertyToAttributeStyle(style, CSSPropertyMarginRight, CSSValueAuto);
-        } else if (equalIgnoringCase(attr->value(), "right")) {
-            addPropertyToAttributeStyle(style, CSSPropertyMarginLeft, CSSValueAuto);
-            addPropertyToAttributeStyle(style, CSSPropertyMarginRight, 0, CSSPrimitiveValue::CSS_PX);
+    if (name == alignAttr) {
+        if (equalIgnoringCase(value, "left")) {
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyMarginLeft, 0, CSSPrimitiveValue::CSS_PX);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyMarginRight, CSSValueAuto);
+        } else if (equalIgnoringCase(value, "right")) {
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyMarginLeft, CSSValueAuto);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyMarginRight, 0, CSSPrimitiveValue::CSS_PX);
         } else {
-            addPropertyToAttributeStyle(style, CSSPropertyMarginLeft, CSSValueAuto);
-            addPropertyToAttributeStyle(style, CSSPropertyMarginRight, CSSValueAuto);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyMarginLeft, CSSValueAuto);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyMarginRight, CSSValueAuto);
         }
-    } else if (attr->name() == widthAttr) {
+    } else if (name == widthAttr) {
         bool ok;
-        int v = attr->value().toInt(&ok);
+        int v = value.toInt(&ok);
         if (ok && !v)
-            addPropertyToAttributeStyle(style, CSSPropertyWidth, 1, CSSPrimitiveValue::CSS_PX);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWidth, 1, CSSPrimitiveValue::CSS_PX);
         else
-            addHTMLLengthToStyle(style, CSSPropertyWidth, attr->value());
-    } else if (attr->name() == colorAttr) {
-        addPropertyToAttributeStyle(style, CSSPropertyBorderStyle, CSSValueSolid);
-        addHTMLColorToStyle(style, CSSPropertyBorderColor, attr->value());
-        addHTMLColorToStyle(style, CSSPropertyBackgroundColor, attr->value());
-    } else if (attr->name() == noshadeAttr) {
-        addPropertyToAttributeStyle(style, CSSPropertyBorderStyle, CSSValueSolid);
+            addHTMLLengthToStyle(style, CSSPropertyWidth, value);
+    } else if (name == colorAttr) {
+        addPropertyToPresentationAttributeStyle(style, CSSPropertyBorderStyle, CSSValueSolid);
+        addHTMLColorToStyle(style, CSSPropertyBorderColor, value);
+        addHTMLColorToStyle(style, CSSPropertyBackgroundColor, value);
+    } else if (name == noshadeAttr) {
+        addPropertyToPresentationAttributeStyle(style, CSSPropertyBorderStyle, CSSValueSolid);
 
         RefPtr<CSSPrimitiveValue> darkGrayValue = cssValuePool().createColorValue(Color::darkGray);
         style->setProperty(CSSPropertyBorderColor, darkGrayValue);
         style->setProperty(CSSPropertyBackgroundColor, darkGrayValue);
-    } else if (attr->name() == sizeAttr) {
-        StringImpl* si = attr->value().impl();
+    } else if (name == sizeAttr) {
+        StringImpl* si = value.impl();
         int size = si->toInt();
         if (size <= 1)
-            addPropertyToAttributeStyle(style, CSSPropertyBorderBottomWidth, 0, CSSPrimitiveValue::CSS_PX);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyBorderBottomWidth, 0, CSSPrimitiveValue::CSS_PX);
         else
-            addPropertyToAttributeStyle(style, CSSPropertyHeight, size - 2, CSSPrimitiveValue::CSS_PX);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyHeight, size - 2, CSSPrimitiveValue::CSS_PX);
     } else
-        HTMLElement::collectStyleForAttribute(attr, style);
+        HTMLElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
 }

@@ -32,6 +32,11 @@
 #ifndef _ISAKMP_H
 #define _ISAKMP_H
 
+#include <sys/types.h>
+#include "racoon_types.h"
+#include "vmbuf.h"
+#include "isakmp_var.h"
+
 /* refer to RFC 2408 */
 
 /* must include <netinet/in.h> first. */
@@ -120,9 +125,11 @@ struct isakmp {
  */
 #define ISAKMP_NPTYPE_GSS	129	/* GSS token */
 
-#define ISAKMP_MAJOR_VERSION	1
+#define ISAKMP_MAJOR_VERSION_IKEV1	1
+#define ISAKMP_MAJOR_VERSION_IKEV2	2
 #define ISAKMP_MINOR_VERSION	0
-#define ISAKMP_VERSION_NUMBER	0x10
+#define ISAKMP_VERSION_NUMBER_IKEV1	0x10
+#define ISAKMP_VERSION_NUMBER_IKEV2	0x20
 #define ISAKMP_GETMAJORV(v)	(((v) & 0xf0) >> 4)
 #define ISAKMP_SETMAJORV(v, m)	((v) = ((v) & 0x0f) | (((m) << 4) & 0xf0))
 #define ISAKMP_GETMINORV(v)	((v) & 0x0f)
@@ -390,12 +397,16 @@ struct isakmp_pl_natoa {
 	/* IP address */
 } __attribute__((__packed__));
 
-struct payload_list {
+typedef struct payload_list {
 	struct payload_list	*next, *prev;
 	vchar_t			*payload;
 	int			payload_type;
-};
+} payload_list_t;
 
+typedef struct payload_list_head {
+  int             num_payloads;
+  payload_list_t *payloads;
+} payload_list_head_t;
 
 /* See draft-ietf-ipsec-isakmp-mode-cfg-04.txt, 3.2 */
 struct isakmp_pl_attr {
@@ -457,5 +468,8 @@ struct isakmp_pl_resp_lifetime {
     /* spi follows next */
     /* data follows next */
 } __attribute__((__packed__));
+
+extern u_char i_ck0[];
+extern u_char r_ck0[];
 
 #endif /* _ISAKMP_H */

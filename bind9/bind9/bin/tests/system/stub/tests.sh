@@ -21,24 +21,14 @@ SYSTEMTESTTOP=..
 . $SYSTEMTESTTOP/conf.sh
 
 status=0
-echo "I:check that the stub zone has been saved to disk"
-for i in 1 2 3 4 5 6 7 8 9 20
-do
-	[ -f ns3/child.example.st ] && break
-	sleep 1
-done
-[ -f ns3/child.example.st ] || { status=1;  echo "I:failed"; }
 
-for pass in 1 2
-do
-
-echo "I:trying an axfr that should be denied (NOTAUTH) (pass=$pass)"
+echo "I:trying an axfr that should be denied (NOTAUTH)"
 ret=0
-$DIG +tcp child.example. @10.53.0.3 axfr -p 5300 > dig.out.ns3 || ret=1
+$DIG +tcp data.child.example. @10.53.0.3 axfr -p 5300 > dig.out.ns3 || ret=1
 grep "; Transfer failed." dig.out.ns3 > /dev/null || ret=1
 [ $ret = 0 ] || { status=1;  echo "I:failed"; }
 
-echo "I:look for stub zone data without recursion (should not be found) (pass=$pass)"
+echo "I:look for stub zone data without recursion (should not be found)"
 for i in 1 2 3 4 5 6 7 8 9
 do
 	ret=0
@@ -51,20 +41,11 @@ done
 $PERL ../digcomp.pl knowngood.dig.out.norec dig.out.ns3 || ret=1
 [ $ret = 0 ] || { status=1;  echo "I:failed"; }
 
-echo "I:look for stub zone data with recursion (should be found) (pass=$pass)"
+echo "I:look for stub zone data with recursion (should be found)"
 ret=0
 $DIG +tcp data.child.example. @10.53.0.3 txt -p 5300 > dig.out.ns3 || ret=1
 $PERL ../digcomp.pl knowngood.dig.out.rec dig.out.ns3 || ret=1
 [ $ret = 0 ] || { status=1;  echo "I:failed"; }
-
-[ $pass = 1 ] && {
-	echo "I:stopping stub server"
-	$PERL $SYSTEMTESTTOP/stop.pl . ns3
-
-	echo "I:re-starting stub server"
-	$PERL $SYSTEMTESTTOP/start.pl --noclean --restart . ns3
-}
-done
 
 echo "I:exit status: $status"
 exit $status

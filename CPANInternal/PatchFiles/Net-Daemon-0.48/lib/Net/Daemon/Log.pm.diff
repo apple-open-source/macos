@@ -1,0 +1,12 @@
+--- Net-Daemon-0.48/lib/Net/Daemon/Log.pm
++++ Net-Daemon-0.48/lib/Net/Daemon/Log.pm
+@@ -59,7 +59,8 @@ sub OpenLog($) {
+ 	}
+ 	if ($^O ne 'solaris'  &&  $^O ne 'freebsd'  &&
+ 	    defined(&Sys::Syslog::setlogsock)  &&
+-	    eval { &Sys::Syslog::_PATH_LOG() }) {
++	    eval { &Sys::Syslog::_PATH_LOG() } &&
++	    ( -S &Sys::Syslog::_PATH_LOG() ) ) {
+ 	    &Sys::Syslog::setlogsock('unix');
+ 	}
+ 	&Sys::Syslog::openlog($self->{'logname'} || ref($self), 'pid',

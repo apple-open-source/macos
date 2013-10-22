@@ -98,7 +98,8 @@ public:
     KeychainSchema() {}
     KeychainSchema(KeychainSchemaImpl *impl) : RefPointer<KeychainSchemaImpl>(impl) {}
     KeychainSchema(const CssmClient::Db &db) : RefPointer<KeychainSchemaImpl>(new KeychainSchemaImpl(db)) {}
-
+    ~KeychainSchema();
+    
 	bool operator <(const KeychainSchema &other) const
 	{ return ptr && other.ptr ? *ptr < *other.ptr : ptr < other.ptr; }
 	bool operator ==(const KeychainSchema &other) const
@@ -127,8 +128,6 @@ protected:
 	void didUpdate(const Item &inItem, PrimaryKey &oldPK,
 		PrimaryKey &newPK);
 	void completeAdd(Item &item, PrimaryKey &key);
-	
-	void markBlobForDotMacSyncUpdate(CssmData &data);
 
 public:
     virtual ~KeychainImpl();
@@ -157,6 +156,8 @@ public:
     void unlock();
 	void unlock(const CssmData &password);
     void unlock(ConstStringPtr password); // @@@ This has a length limit, we should remove it.
+    void stash();
+    void stashCheck();
 
 	void getSettings(uint32 &outIdleTimeOut, bool &outLockOnSleep);
 	void setSettings(uint32 inIdleTimeOut, bool inLockOnSleep);
@@ -213,6 +214,8 @@ public:
 	
 	void addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl);
 
+    bool mayDelete();
+
 private:
 	void removeItem(const PrimaryKey &primaryKey, ItemImpl *inItemImpl);
 	ItemImpl *_lookupItem(const PrimaryKey &primaryKey);
@@ -244,6 +247,7 @@ class Keychain : public SecPointer<KeychainImpl>
 public:
     Keychain();
     Keychain(KeychainImpl *impl) : SecPointer<KeychainImpl>(impl) {}
+    ~Keychain();
 
 	static Keychain optional(SecKeychainRef handle); 
 

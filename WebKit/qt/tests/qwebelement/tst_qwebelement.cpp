@@ -36,11 +36,11 @@ public:
     tst_QWebElement();
     virtual ~tst_QWebElement();
 
-public slots:
+public Q_SLOTS:
     void init();
     void cleanup();
 
-private slots:
+private Q_SLOTS:
     void textHtml();
     void simpleCollection();
     void attributes();
@@ -475,7 +475,6 @@ void tst_QWebElement::style()
     p.setStyleProperty("cursor", "auto");
 
     QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("red"));
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65244", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("yellow"));
     QCOMPARE(p.styleProperty("cursor", QWebElement::InlineStyle), QLatin1String("auto"));
 
@@ -484,8 +483,8 @@ void tst_QWebElement::style()
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("green"));
 
     p.setStyleProperty("color", "blue");
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=60372", Continue);
-    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
+    // A current important InlineStyle shouldn't be overwritten by a non-important one.
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("green"));
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("green"));
 
     p.setStyleProperty("color", "blue !important");
@@ -541,7 +540,6 @@ void tst_QWebElement::style()
     p = m_mainFrame->documentElement().findAll("p").at(0);
 
     QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String(""));
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65244", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("red"));
 
     QString html6 = "<head>"
@@ -562,7 +560,6 @@ void tst_QWebElement::style()
 
     p = m_mainFrame->documentElement().findAll("p").at(0);
     QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65244", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("black"));
 
     QString html7 = "<head>"
@@ -580,7 +577,6 @@ void tst_QWebElement::style()
     waitForSignal(m_page, SIGNAL(loadFinished(bool)), 200);
 
     p = m_mainFrame->documentElement().findAll("p").at(0);
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65244", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("black"));
 
     QString html8 = "<body><p>some text</p></body>";
@@ -1062,16 +1058,9 @@ void tst_QWebElement::render()
         QPainter painter(&chunk);
         painter.fillRect(chunkRect, Qt::white);
         QRect chunkPaintRect(x, 0, chunkWidth, chunkHeight);
-#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
         tables[0].render(&painter, chunkPaintRect);
-#else
-        tables[0].render(&painter);
-#endif
         painter.end();
 
-        // The first chunk in this test is passing, but the others are failing
-        if (x > 0)
-            QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65243", Continue);
         QVERIFY(chunk == image4.copy(chunkPaintRect));
     }
 }

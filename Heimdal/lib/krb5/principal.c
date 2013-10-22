@@ -737,7 +737,7 @@ krb5_make_principal(krb5_context context,
 	realm = r;
     }
     va_start(ap, realm);
-    ret = krb5_build_principal_va(context, principal, strlen(realm), realm, ap);
+    ret = krb5_build_principal_va(context, principal, (int)strlen(realm), realm, ap);
     va_end(ap);
     if(r)
 	free(r);

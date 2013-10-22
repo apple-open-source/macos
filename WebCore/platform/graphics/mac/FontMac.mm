@@ -29,6 +29,7 @@
 #import "SimpleFontData.h"
 #import "WebCoreSystemInterface.h"
 #import <AppKit/AppKit.h>
+#import <wtf/MathExtras.h>
 
 #define SYNTHETIC_OBLIQUE_ANGLE 14
 
@@ -57,21 +58,7 @@ bool Font::canExpandAroundIdeographsInComplexText()
 // divides by unitsPerEm.
 static bool hasBrokenCTFontGetVerticalTranslationsForGlyphs()
 {
-// Chromium runs the same binary on both Leopard and Snow Leopard, so the check has to happen at runtime.
-#if PLATFORM(CHROMIUM)
-    static bool isCached = false;
-    static bool result;
-    
-    if (!isCached) {
-        SInt32 majorVersion = 0;
-        SInt32 minorVersion = 0;
-        Gestalt(gestaltSystemVersionMajor, &majorVersion);
-        Gestalt(gestaltSystemVersionMinor, &minorVersion);
-        result = majorVersion == 10 && minorVersion == 6;
-        isCached = true;
-    }
-    return result;
-#elif defined(BUILDING_ON_SNOW_LEOPARD)
+#if !PLATFORM(IOS) && __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
     return true;
 #else
     return false;
@@ -80,51 +67,14 @@ static bool hasBrokenCTFontGetVerticalTranslationsForGlyphs()
 
 static void showGlyphsWithAdvances(const FloatPoint& point, const SimpleFontData* font, CGContextRef context, const CGGlyph* glyphs, const CGSize* advances, size_t count)
 {
+    if (!count)
+        return;
+
     CGContextSetTextPosition(context, point.x(), point.y());
 
     const FontPlatformData& platformData = font->platformData();
-    if (!platformData.isColorBitmapFont()) {
-        CGAffineTransform savedMatrix;
-        bool isVertical = font->platformData().orientation() == Vertical;
-        if (isVertical) {
-            CGAffineTransform rotateLeftTransform = CGAffineTransformMake(0, -1, 1, 0, 0, 0);
-            savedMatrix = CGContextGetTextMatrix(context);
-            CGAffineTransform runMatrix = CGAffineTransformConcat(savedMatrix, rotateLeftTransform);
-            CGContextSetTextMatrix(context, runMatrix);
-            
-            CGAffineTransform translationsTransform;
-            if (hasBrokenCTFontGetVerticalTranslationsForGlyphs()) {
-                translationsTransform = CGAffineTransformMake(platformData.m_size, 0, 0, platformData.m_size, 0, 0);
-                translationsTransform = CGAffineTransformConcat(translationsTransform, rotateLeftTransform);
-                CGFloat unitsPerEm = CGFontGetUnitsPerEm(platformData.cgFont());
-                translationsTransform = CGAffineTransformConcat(translationsTransform, CGAffineTransformMakeScale(1 / unitsPerEm, 1 / unitsPerEm));
-            } else {
-                translationsTransform = rotateLeftTransform;
-            }
-            Vector<CGSize, 256> translations(count);
-            CTFontGetVerticalTranslationsForGlyphs(platformData.ctFont(), glyphs, translations.data(), count);
-            
-            CGAffineTransform transform = CGAffineTransformInvert(CGContextGetTextMatrix(context));
-
-            CGPoint position = FloatPoint(point.x(), point.y() + font->fontMetrics().floatAscent(IdeographicBaseline) - font->fontMetrics().floatAscent());
-            Vector<CGPoint, 256> positions(count);
-            for (size_t i = 0; i < count; ++i) {
-                CGSize translation = CGSizeApplyAffineTransform(translations[i], translationsTransform);
-                positions[i] = CGPointApplyAffineTransform(CGPointMake(position.x - translation.width, position.y + translation.height), transform);
-                position.x += advances[i].width;
-                position.y += advances[i].height;
-            }
-            CGContextShowGlyphsAtPositions(context, glyphs, positions.data(), count);
-            CGContextSetTextMatrix(context, savedMatrix);
-        } else
-            CGContextShowGlyphsWithAdvances(context, glyphs, advances, count);
-    }
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    else {
-        if (!count)
-            return;
-
-        Vector<CGPoint, 256> positions(count);
+    Vector<CGPoint, 256> positions(count);
+    if (platformData.isColorBitmapFont()) {
         CGAffineTransform matrix = CGAffineTransformInvert(CGContextGetTextMatrix(context));
         positions[0] = CGPointZero;
         for (size_t i = 1; i < count; ++i) {
@@ -132,13 +82,61 @@ static void showGlyphsWithAdvances(const FloatPoint& point, const SimpleFontData
             positions[i].x = positions[i - 1].x + advance.width;
             positions[i].y = positions[i - 1].y + advance.height;
         }
-        CTFontDrawGlyphs(platformData.ctFont(), glyphs, positions.data(), count, context);
     }
+    bool isVertical = font->platformData().orientation() == Vertical;
+    if (isVertical) {
+        CGAffineTransform savedMatrix;
+        CGAffineTransform rotateLeftTransform = CGAffineTransformMake(0, -1, 1, 0, 0, 0);
+        savedMatrix = CGContextGetTextMatrix(context);
+        CGAffineTransform runMatrix = CGAffineTransformConcat(savedMatrix, rotateLeftTransform);
+        CGContextSetTextMatrix(context, runMatrix);
+
+        CGAffineTransform translationsTransform;
+        if (hasBrokenCTFontGetVerticalTranslationsForGlyphs()) {
+            translationsTransform = CGAffineTransformMake(platformData.m_size, 0, 0, platformData.m_size, 0, 0);
+            translationsTransform = CGAffineTransformConcat(translationsTransform, rotateLeftTransform);
+            CGFloat unitsPerEm = CGFontGetUnitsPerEm(platformData.cgFont());
+            translationsTransform = CGAffineTransformConcat(translationsTransform, CGAffineTransformMakeScale(1 / unitsPerEm, 1 / unitsPerEm));
+        } else
+            translationsTransform = rotateLeftTransform;
+
+        Vector<CGSize, 256> translations(count);
+        CTFontGetVerticalTranslationsForGlyphs(platformData.ctFont(), glyphs, translations.data(), count);
+
+        CGAffineTransform transform = CGAffineTransformInvert(CGContextGetTextMatrix(context));
+
+        CGPoint position = FloatPoint(point.x(), point.y() + font->fontMetrics().floatAscent(IdeographicBaseline) - font->fontMetrics().floatAscent());
+        for (size_t i = 0; i < count; ++i) {
+            CGSize translation = CGSizeApplyAffineTransform(translations[i], translationsTransform);
+            positions[i] = CGPointApplyAffineTransform(CGPointMake(position.x - translation.width, position.y + translation.height), transform);
+            position.x += advances[i].width;
+            position.y += advances[i].height;
+        }
+        if (!platformData.isColorBitmapFont())
+            CGContextShowGlyphsAtPositions(context, glyphs, positions.data(), count);
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+        else
+            CTFontDrawGlyphs(platformData.ctFont(), glyphs, positions.data(), count, context);
 #endif
+        CGContextSetTextMatrix(context, savedMatrix);
+    } else {
+        if (!platformData.isColorBitmapFont())
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            CGContextShowGlyphsWithAdvances(context, glyphs, advances, count);
+#pragma clang diagnostic pop
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+        else
+            CTFontDrawGlyphs(platformData.ctFont(), glyphs, positions.data(), count, context);
+#endif
+    }
 }
 
 void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, const GlyphBuffer& glyphBuffer, int from, int numGlyphs, const FloatPoint& point) const
 {
+    if (!font->platformData().size())
+        return;
+
     CGContextRef cgContext = context->platformContext();
 
     bool shouldSmoothFonts = true;
@@ -204,11 +202,20 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
         memcpy(&matrix, [drawFont matrix], sizeof(matrix));
     matrix.b = -matrix.b;
     matrix.d = -matrix.d;
-    if (platformData.m_syntheticOblique)
-        matrix = CGAffineTransformConcat(matrix, CGAffineTransformMake(1, 0, -tanf(SYNTHETIC_OBLIQUE_ANGLE * acosf(0) / 90), 1, 0, 0)); 
+    if (platformData.m_syntheticOblique) {
+        static float obliqueSkew = tanf(SYNTHETIC_OBLIQUE_ANGLE * piFloat / 180);
+        if (font->platformData().orientation() == Vertical)
+            matrix = CGAffineTransformConcat(matrix, CGAffineTransformMake(1, obliqueSkew, 0, 1, 0, 0));
+        else
+            matrix = CGAffineTransformConcat(matrix, CGAffineTransformMake(1, 0, -obliqueSkew, 1, 0, 0));
+    }
     CGContextSetTextMatrix(cgContext, matrix);
 
+#if PLATFORM(MAC)
     wkSetCGFontRenderingMode(cgContext, drawFont, context->shouldSubpixelQuantizeFonts());
+#else
+    wkSetCGFontRenderingMode(cgContext, drawFont);
+#endif
     if (drawFont)
         CGContextSetFontSize(cgContext, 1.0f);
     else
@@ -241,15 +248,15 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
         float shadowTextX = point.x() + shadowOffset.width();
         // If shadows are ignoring transforms, then we haven't applied the Y coordinate flip yet, so down is negative.
         float shadowTextY = point.y() + shadowOffset.height() * (context->shadowsIgnoreTransforms() ? -1 : 1);
-        showGlyphsWithAdvances(FloatPoint(shadowTextX, shadowTextY), font, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
+        showGlyphsWithAdvances(FloatPoint(shadowTextX, shadowTextY), font, cgContext, glyphBuffer.glyphs(from), static_cast<const CGSize*>(glyphBuffer.advances(from)), numGlyphs);
         if (syntheticBoldOffset)
-            showGlyphsWithAdvances(FloatPoint(shadowTextX + syntheticBoldOffset, shadowTextY), font, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
+            showGlyphsWithAdvances(FloatPoint(shadowTextX + syntheticBoldOffset, shadowTextY), font, cgContext, glyphBuffer.glyphs(from), static_cast<const CGSize*>(glyphBuffer.advances(from)), numGlyphs);
         context->setFillColor(fillColor, fillColorSpace);
     }
 
-    showGlyphsWithAdvances(point, font, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
+    showGlyphsWithAdvances(point, font, cgContext, glyphBuffer.glyphs(from), static_cast<const CGSize*>(glyphBuffer.advances(from)), numGlyphs);
     if (syntheticBoldOffset)
-        showGlyphsWithAdvances(FloatPoint(point.x() + syntheticBoldOffset, point.y()), font, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
+        showGlyphsWithAdvances(FloatPoint(point.x() + syntheticBoldOffset, point.y()), font, cgContext, glyphBuffer.glyphs(from), static_cast<const CGSize*>(glyphBuffer.advances(from)), numGlyphs);
 
     if (hasSimpleShadow)
         context->setShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);

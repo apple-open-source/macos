@@ -20,69 +20,61 @@
  * Boston, MA 02110-1301, USA.
  */
 
-module svg {
+// TODO: no css::ViewCSS available!
+// TODO: Fix SVGSVGElement inheritance (css::DocumentCSS)! 
+// TODO: no events::DocumentEvent available!
+[
+    Conditional=SVG
+] interface SVGSVGElement : SVGStyledElement,
+                                            SVGTests,
+                                            SVGLangSpace,
+                                            SVGExternalResourcesRequired,
+                                            SVGTransformable,
+                                            SVGFitToViewBox,
+                                            SVGZoomAndPan {
+    readonly attribute SVGAnimatedLength x;
+    readonly attribute SVGAnimatedLength y;
+    readonly attribute SVGAnimatedLength width;
+    readonly attribute SVGAnimatedLength height;
+             attribute DOMString contentScriptType;
+             attribute DOMString contentStyleType;
+    readonly attribute SVGRect viewport;
+    readonly attribute float pixelUnitToMillimeterX;
+    readonly attribute float pixelUnitToMillimeterY;
+    readonly attribute float screenPixelToMillimeterX;
+    readonly attribute float screenPixelToMillimeterY;
+    readonly attribute boolean useCurrentView;
+    readonly attribute SVGViewSpec currentView;
+             attribute float currentScale;
+    readonly attribute SVGPoint currentTranslate;
 
-    // TODO: no css::ViewCSS available!
-    // TODO: Fix SVGSVGElement inheritance (css::DocumentCSS)! 
-    // TODO: no events::DocumentEvent available!
-    interface [
-        Conditional=SVG
-    ] SVGSVGElement : SVGElement,
-                                                SVGTests,
-                                                SVGLangSpace,
-                                                SVGExternalResourcesRequired,
-                                                SVGStylable,
-                                                SVGLocatable,
-                                                SVGFitToViewBox,
-                                                SVGZoomAndPan {
-        readonly attribute SVGAnimatedLength x;
-        readonly attribute SVGAnimatedLength y;
-        readonly attribute SVGAnimatedLength width;
-        readonly attribute SVGAnimatedLength height;
-                 attribute DOMString contentScriptType
-                     /*setter raises(DOMException)*/;
-                 attribute DOMString contentStyleType
-                     /*setter raises(DOMException)*/;
-        readonly attribute SVGRect viewport;
-        readonly attribute float pixelUnitToMillimeterX;
-        readonly attribute float pixelUnitToMillimeterY;
-        readonly attribute float screenPixelToMillimeterX;
-        readonly attribute float screenPixelToMillimeterY;
-                 attribute boolean useCurrentView
-                     /*setter raises(DOMException)*/;
-        // TODO    readonly attribute SVGViewSpec currentView;
-                 attribute float currentScale
-                     /*setter raises(DOMException)*/;
-        readonly attribute SVGPoint currentTranslate;
+    unsigned long suspendRedraw([Default=Undefined] optional unsigned long maxWaitMilliseconds);
+    void unsuspendRedraw([Default=Undefined] optional unsigned long suspendHandleId);
+    void unsuspendRedrawAll();
+    void forceRedraw();
+    void pauseAnimations();
+    void unpauseAnimations();
+    boolean animationsPaused();
+    float getCurrentTime();
+    void setCurrentTime([Default=Undefined] optional float seconds);
+    NodeList getIntersectionList([Default=Undefined] optional SVGRect rect, 
+                                 [Default=Undefined] optional SVGElement referenceElement);
+    NodeList getEnclosureList([Default=Undefined] optional SVGRect rect, 
+                              [Default=Undefined] optional SVGElement referenceElement);
+    boolean checkIntersection([Default=Undefined] optional SVGElement element, 
+                              [Default=Undefined] optional SVGRect rect);
+    boolean checkEnclosure([Default=Undefined] optional SVGElement element, 
+                           [Default=Undefined] optional SVGRect rect);
+    void deselectAll();
 
-        unsigned long suspendRedraw(in [Optional=DefaultIsUndefined] unsigned long maxWaitMilliseconds);
-        void unsuspendRedraw(in [Optional=DefaultIsUndefined] unsigned long suspendHandleId);
-        void unsuspendRedrawAll();
-        void forceRedraw();
-        void pauseAnimations();
-        void unpauseAnimations();
-        boolean animationsPaused();
-        float getCurrentTime();
-        void setCurrentTime(in [Optional=DefaultIsUndefined] float seconds);
-        NodeList getIntersectionList(in [Optional=DefaultIsUndefined] SVGRect rect, 
-                                     in [Optional=DefaultIsUndefined] SVGElement referenceElement);
-        NodeList getEnclosureList(in [Optional=DefaultIsUndefined] SVGRect rect, 
-                                  in [Optional=DefaultIsUndefined] SVGElement referenceElement);
-        boolean checkIntersection(in [Optional=DefaultIsUndefined] SVGElement element, 
-                                  in [Optional=DefaultIsUndefined] SVGRect rect);
-        boolean checkEnclosure(in [Optional=DefaultIsUndefined] SVGElement element, 
-                               in [Optional=DefaultIsUndefined] SVGRect rect);
-        void deselectAll();
+    SVGNumber createSVGNumber();
+    SVGLength createSVGLength();
+    SVGAngle createSVGAngle();
+    SVGPoint createSVGPoint();
+    SVGMatrix createSVGMatrix();
+    SVGRect createSVGRect();
+    SVGTransform createSVGTransform();
+    SVGTransform createSVGTransformFromMatrix([Default=Undefined] optional SVGMatrix matrix);
+    Element getElementById([Default=Undefined] optional DOMString elementId);
+};
 
-        SVGNumber createSVGNumber();
-        SVGLength createSVGLength();
-        SVGAngle createSVGAngle();
-        SVGPoint createSVGPoint();
-        SVGMatrix createSVGMatrix();
-        SVGRect createSVGRect();
-        SVGTransform createSVGTransform();
-        SVGTransform createSVGTransformFromMatrix(in [Optional=DefaultIsUndefined] SVGMatrix matrix);
-        Element getElementById(in [Optional=DefaultIsUndefined] DOMString elementId);
-    };
-
-}

@@ -14,5 +14,7 @@
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
+	<key>POSIXSpawnType</key>
+	<string>Background</string>
 </dict>
 </plist>

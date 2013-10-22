@@ -66,18 +66,6 @@ static DEVMODE deviceInfoForWidget(Widget* widget)
     return deviceInfo;
 }
 
-int screenHorizontalDPI(Widget* widget)
-{
-    notImplemented();
-    return 0;
-}
-
-int screenVerticalDPI(Widget* widget)
-{
-    notImplemented();
-    return 0;
-}
-
 int screenDepth(Widget* widget)
 {
     DEVMODE deviceInfo = deviceInfoForWidget(widget);
@@ -116,6 +104,11 @@ FloatRect screenAvailableRect(Widget* widget)
 {
     MONITORINFOEX monitorInfo = monitorInfoForWidget(widget);
     return monitorInfo.rcWork;
+}
+
+void screenColorProfile(ColorProfile&)
+{
+    notImplemented();
 }
 
 } // namespace WebCore

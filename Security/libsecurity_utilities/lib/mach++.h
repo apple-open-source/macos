@@ -268,14 +268,14 @@ private:
 //
 class Message {
 public:
-    Message(void *buffer, size_t size);		// use buffer with size
-    Message(size_t size);					// allocate buffer with size
-	Message();								// set buffer later
+    Message(void *buffer, mach_msg_size_t size);		// use buffer with size
+    Message(mach_msg_size_t size);					// allocate buffer with size
+    Message();								// set buffer later
     virtual ~Message();
 	
-	void setBuffer(void *buffer, size_t size); // use buffer with size
-	void setBuffer(size_t size);			// allocate buffer with size
-	void release();							// discard buffer (if any)
+    void setBuffer(void *buffer, mach_msg_size_t size); // use buffer with size
+    void setBuffer(mach_msg_size_t size);			// allocate buffer with size
+    void release();							// discard buffer (if any)
 
     operator mig_reply_error_t & () const	{ return *mBuffer; }
     operator mach_msg_header_t & () const	{ return mBuffer->Head; }
@@ -284,7 +284,7 @@ public:
     operator NDR_record_t & () const		{ return mBuffer->NDR; }
     
     void *data() const						{ return mBuffer; }
-    size_t length() const					{ return mBuffer->Head.msgh_size; }
+    mach_msg_size_t length() const			{ return mBuffer->Head.msgh_size; }
     Port localPort() const					{ return mBuffer->Head.msgh_local_port; }
     Port remotePort() const					{ return mBuffer->Head.msgh_remote_port; }
     mach_msg_id_t msgId() const				{ return mBuffer->Head.msgh_id; }
@@ -314,7 +314,7 @@ protected:
 
 private:
     mig_reply_error_t *mBuffer;
-    size_t mSize;
+    mach_msg_size_t mSize;
     bool mRelease;
 };
 

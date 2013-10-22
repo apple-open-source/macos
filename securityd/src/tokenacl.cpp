@@ -183,7 +183,8 @@ void TokenAcl::pinChange(unsigned int pin, CSSM_ACL_HANDLE handle, TokenDatabase
 	QueryNewPin query(pin, handle, database, SecurityAgent::changePassphrase);
 	query.inferHints(Server::process());
 	CssmAutoData newPin(Allocator::standard(Allocator::sensitive));
-	switch (query(newPin)) {
+    CssmAutoData oldPin(Allocator::standard(Allocator::sensitive));
+	switch (query(oldPin, newPin)) {
 	case SecurityAgent::noReason:		// worked
 		return;
 	default:

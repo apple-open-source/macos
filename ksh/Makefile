@@ -27,7 +27,7 @@ install_source::
 		patch -d $(Sources) -p0 -b < $(SRCROOT)/patches/$$p || exit 1; \
 	done
 
-PASS_CCFLAGS = $(CC_Debug) $(CC_Optimize) $(CC_Other) -DSHOPT_SPAWN=0 -D_ast_int8_t=int64_t
+PASS_CCFLAGS = $(CC_Debug) $(CC_Optimize) $(CC_Other) -DSHOPT_SPAWN=0 -D_ast_int8_t=int64_t -D_lib_memccpy
 ARCH_CCFLAGS = $(CC_Archs)
 
 build:: shadow_source
@@ -40,6 +40,7 @@ OSL      = $(DSTROOT)/usr/local/OpenSourceLicenses
 
 install::
 	$(CP) $(BuildDirectory)/arch/$(KSH_ARCH)/bin/ksh $(SYMROOT)/ksh
+	dsymutil $(SYMROOT)/ksh
 	$(MKDIR) $(DSTROOT)/bin
 	$(INSTALL_PROGRAM) $(BuildDirectory)/arch/$(KSH_ARCH)/bin/ksh \
 		$(DSTROOT)/bin/ksh

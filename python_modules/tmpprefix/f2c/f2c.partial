@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>f2c</string>
+        <key>OpenSourceVersion</key>
+        <string>20100827</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.netlib.org/f2c/</string>
+        <key>OpenSourceURL</key>
+        <string>http://netlib.sandia.gov/cgi-bin/netlib/netlibfiles.tar?filename=netlib/f2c</string>
+        <key>OpenSourceImportDate</key>
+        <string>2012-08-27</string>
+        <key>OpenSourceLicense</key>
+        <string>Public Domain</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>04ead369f2ebb3beac1d685760147f1a</string>
+</dict>

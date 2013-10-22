@@ -32,11 +32,45 @@
 #include "sslUtils.h"
 #include "sslDebug.h"
 #include "sslCrypto.h"
-
+#include "sslRand.h"
 #include "sslDigests.h"
-#include "cipherSpecs.h"
+#include "sslCipherSpecs.h"
 
 #include <string.h>
+#include <time.h>
+#include <assert.h>
+
+#include <inttypes.h>
+
+/*
+ * Given a protocol version sent by peer, determine if we accept that version
+ * and downgrade if appropriate (which can not be done for the client side).
+ */
+static
+OSStatus sslVerifyProtVersion(
+    SSLContext 			*ctx,
+    SSLProtocolVersion	peerVersion,	// sent by peer
+    SSLProtocolVersion 	*negVersion)	// final negotiated version if return success
+{
+    if ((ctx->isDTLS)
+        ? peerVersion > ctx->minProtocolVersion
+        : peerVersion < ctx->minProtocolVersion) {
+        return errSSLNegotiation;
+    }
+    if ((ctx->isDTLS)
+        ? peerVersion < ctx->maxProtocolVersion
+        : peerVersion > ctx->maxProtocolVersion) {
+        if (ctx->protocolSide == kSSLClientSide) {
+            return errSSLNegotiation;
+        }
+        *negVersion = ctx->maxProtocolVersion;
+    } else {
+        *negVersion = peerVersion;
+    }
+
+    return errSecSuccess;
+}
+
 
 /* IE treats null session id as valid; two consecutive sessions with NULL ID
  * are considered a match. Workaround: when resumable sessions are disabled,
@@ -66,16 +100,16 @@ SSLEncodeServerHello(SSLRecord *serverHello, SSLContext *ctx)
     msglen = 38 + sessionIDLen;
 
 	/* this was set to a known quantity in SSLProcessClientHello */
-	assert(ctx->negProtocolVersion != SSL_Version_Undetermined);
+	check(ctx->negProtocolVersion != SSL_Version_Undetermined);
 	/* should not be here in this case */
-	assert(ctx->negProtocolVersion != SSL_Version_2_0);
+	check(ctx->negProtocolVersion != SSL_Version_2_0);
 	sslLogNegotiateDebug("===SSL3 server: sending version %d_%d",
 		ctx->negProtocolVersion >> 8, ctx->negProtocolVersion & 0xff);
 	sslLogNegotiateDebug("...sessionIDLen = %d", sessionIDLen);
     serverHello->protocolVersion = ctx->negProtocolVersion;
     serverHello->contentType = SSL_RecordTypeHandshake;
     head = SSLHandshakeHeaderSize(serverHello);
-    if ((err = SSLAllocBuffer(&serverHello->contents, msglen + head, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&serverHello->contents, msglen + head)))
         return err;
 
     charPtr = SSLEncodeHandshakeHeader(ctx, serverHello, SSL_HdskServerHello, msglen);
@@ -109,7 +143,7 @@ SSLEncodeServerHello(SSLRecord *serverHello, SSLContext *ctx)
 		SSLBuffer rb;
 		rb.data = charPtr;
 		rb.length = SSL_NULL_ID_LEN;
-		sslRand(ctx, &rb);
+		sslRand(&rb);
 	}
 	#else
     if (sessionIDLen > 0)
@@ -120,11 +154,11 @@ SSLEncodeServerHello(SSLRecord *serverHello, SSLContext *ctx)
     *(charPtr++) = 0;      /* Null compression */
 
     sslLogNegotiateDebug("ssl3: server specifying cipherSuite 0x%lx",
-		(UInt32)ctx->selectedCipher);
+		(unsigned long)ctx->selectedCipher);
 
     assert(charPtr == serverHello->contents.data + serverHello->contents.length);
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
@@ -143,7 +177,7 @@ SSLEncodeServerHelloVerifyRequest(SSLRecord *helloVerifyRequest, SSLContext *ctx
     helloVerifyRequest->protocolVersion = DTLS_Version_1_0;
     helloVerifyRequest->contentType = SSL_RecordTypeHandshake;
     head = SSLHandshakeHeaderSize(helloVerifyRequest);
-    if ((err = SSLAllocBuffer(&helloVerifyRequest->contents, msglen + head, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&helloVerifyRequest->contents, msglen + head)))
         return err;
 
     charPtr = SSLEncodeHandshakeHeader(ctx, helloVerifyRequest, SSL_HdskHelloVerifyRequest, msglen);
@@ -156,7 +190,7 @@ SSLEncodeServerHelloVerifyRequest(SSLRecord *helloVerifyRequest, SSLContext *ctx
 
     assert(charPtr == (helloVerifyRequest->contents.data + helloVerifyRequest->contents.length));
 
-    return noErr;
+    return errSecSuccess;
 }
 
 
@@ -187,14 +221,14 @@ SSLProcessServerHelloVerifyRequest(SSLBuffer message, SSLContext *ctx)
     }
 
     cookieLen = *p++;
-    sslLogNegotiateDebug("cookieLen = %d, msglen=%d\n", cookieLen, message.length);
+    sslLogNegotiateDebug("cookieLen = %d, msglen=%d\n", (int)cookieLen, (int)message.length);
     /* TODO: hardcoded '15' again */
     if (message.length < (3 + cookieLen)) {
 	sslErrorLog("SSLProcessServerHelloVerifyRequest: msg len error 2\n");
         return errSSLProtocol;
     }
 
-    err = SSLAllocBuffer(&ctx->dtlsCookie, cookieLen, ctx);
+    err = SSLAllocBuffer(&ctx->dtlsCookie, cookieLen);
     if (err == 0)
         memcpy(ctx->dtlsCookie.data, p, cookieLen);
 
@@ -285,8 +319,10 @@ SSLProcessServerHelloExtensions(SSLContext *ctx, UInt16 extensionsLen, UInt8 *p)
         p+=extLen;
     }
 
-    return noErr;
+    return errSecSuccess;
 }
+
+
 
 OSStatus
 SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
@@ -327,6 +363,11 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
 		default:
 			return errSSLNegotiation;
 	}
+    err = ctx->recFuncs->setProtocolVersion(ctx->recCtx, negVersion);
+    if(err) {
+        return err;
+    }
+
     sslLogNegotiateDebug("===SSL3 client: negVersion is %d_%d",
 		(negVersion >> 8) & 0xff, negVersion & 0xff);
 
@@ -341,8 +382,8 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
     if (sessionIDLen > 0 && ctx->peerID.data != 0)
     {   /* Don't die on error; just treat it as an uncached session */
         if (ctx->sessionID.data)
-            SSLFreeBuffer(&ctx->sessionID, ctx);
-        err = SSLAllocBuffer(&ctx->sessionID, sessionIDLen, ctx);
+            SSLFreeBuffer(&ctx->sessionID);
+        err = SSLAllocBuffer(&ctx->sessionID, sessionIDLen);
         if (err == 0)
             memcpy(ctx->sessionID.data, p, sessionIDLen);
     }
@@ -357,7 +398,7 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
     }
 
     if (*p++ != 0)      /* Compression */
-        return unimpErr;
+        return errSecUnimplemented;
 
     /* Process ServerHello extensions */
     extensionsLen = message.length - (38 + sessionIDLen);
@@ -375,6 +416,7 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
     if(ctx->secure_renegotiation_received)
         ctx->secure_renegotiation = true;
 
+    
 	/*
 	 * Note: the server MAY send a SSL_HE_EC_PointFormats extension if
 	 * we've negotiated an ECDSA ciphersuite...but
@@ -386,7 +428,7 @@ SSLProcessServerHello(SSLBuffer message, SSLContext *ctx)
 	 * IF we ever support other point formats, we have to parse the extension
 	 * to see what the server supports.
 	 */
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
@@ -436,7 +478,10 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 
     length = 39 + 2*numCipherSuites + sessionIDLen;
 
-	err = sslGetMaxProtVersion(ctx, &clientHello->protocolVersion);
+    /* We always use the max enabled version in the ClientHello.client_version,
+       even in the renegotiation case. This value is saved in the context so it
+       can be used in the RSA key exchange */
+	err = sslGetMaxProtVersion(ctx, &ctx->clientReqProtocol);
 	if(err) {
 		/* we don't have a protocol enabled */
 		goto err_exit;
@@ -445,10 +490,19 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
     /* RFC 5746: If are starting a new handshake, so we didnt received this yet */
     ctx->secure_renegotiation_received = false;
 
-    /* If we already negotiated the protocol version previously,
-     we should just use that */
+    /* This is the protocol version used at the record layer, If we already
+     negotiated the protocol version previously, we should just use that,
+     otherwise we use the the minimum supported version.
+     We do not always use the minimum version because some TLS only servers
+     will reject an SSL 3 version in client_hello.
+    */
     if(ctx->negProtocolVersion != SSL_Version_Undetermined) {
         clientHello->protocolVersion = ctx->negProtocolVersion;
+    } else {
+        if(ctx->minProtocolVersion<TLS_Version_1_0 && ctx->maxProtocolVersion>=TLS_Version_1_0)
+            clientHello->protocolVersion = TLS_Version_1_0;
+        else
+            clientHello->protocolVersion = ctx->minProtocolVersion;
     }
 
 #if ENABLE_DTLS
@@ -471,7 +525,7 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
     }
 
     /* prepare for optional ClientHello extensions */
-	if((clientHello->protocolVersion >= TLS_Version_1_0) &&
+	if((ctx->clientReqProtocol >= TLS_Version_1_0) &&
 	   (ctx->peerDomainName != NULL) &&
 	   (ctx->peerDomainNameLen != 0)) {
 		serverNameLen = 2 +	/* extension type */
@@ -488,7 +542,7 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 						   ctx->sessionTicket.length;
 		totalExtenLen += sessionTicketLen;
 	}
-	if((clientHello->protocolVersion >= TLS_Version_1_0) &&
+	if((ctx->clientReqProtocol >= TLS_Version_1_0) &&
 	   (ctx->ecdsaEnable)) {
 		/* Two more extensions: point format, supported curves */
 		pointFormatLen = 2 +	/* extension type */
@@ -502,8 +556,8 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 		totalExtenLen += (pointFormatLen + suppCurveLen);
 	}
     if(ctx->isDTLS
-       ? clientHello->protocolVersion < DTLS_Version_1_0
-       : clientHello->protocolVersion >= TLS_Version_1_2) {
+       ? ctx->clientReqProtocol < DTLS_Version_1_0
+       : ctx->clientReqProtocol >= TLS_Version_1_2) {
         signatureAlgorithmsLen = 2 +	/* extension type */
                                  2 +	/* 2-byte vector length, extension_data */
                                  2 +    /* length of signatureAlgorithms list */
@@ -531,16 +585,16 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 
     clientHello->contentType = SSL_RecordTypeHandshake;
     head = SSLHandshakeHeaderSize(clientHello);
-    if ((err = SSLAllocBuffer(&clientHello->contents, length + head, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&clientHello->contents, length + head)))
         goto err_exit;
 
     p = SSLEncodeHandshakeHeader(ctx, clientHello, SSL_HdskClientHello, length);
 
-    p = SSLEncodeInt(p, clientHello->protocolVersion, 2);
+    p = SSLEncodeInt(p, ctx->clientReqProtocol, 2);
 
 	sslLogNegotiateDebug("===SSL3 client: proclaiming max protocol "
 		"%d_%d capable ONLY",
-		clientHello->protocolVersion >> 8, clientHello->protocolVersion & 0xff);
+		ctx->clientReqProtocol >> 8, ctx->clientReqProtocol & 0xff);
    if ((err = SSLEncodeRandom(p, ctx)) != 0)
     {   goto err_exit;
     }
@@ -552,14 +606,14 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
     }
     p += sessionIDLen;
 #if ENABLE_DTLS
-    if (clientHello->protocolVersion == DTLS_Version_1_0) {
+    if (ctx->clientReqProtocol == DTLS_Version_1_0) {
         /* TODO: Add the cookie ! Currently: size=0 -> no cookie */
         *p++ = ctx->dtlsCookie.length;
         if(ctx->dtlsCookie.length) {
             memcpy(p, ctx->dtlsCookie.data, ctx->dtlsCookie.length);
             p+=ctx->dtlsCookie.length;
         }
-        sslLogNegotiateDebug("==DTLS Hello: cookie len = %d\n",ctx->dtlsCookie.length);
+        sslLogNegotiateDebug("==DTLS Hello: cookie len = %d\n",(int)ctx->dtlsCookie.length);
     }
 #endif
 
@@ -670,7 +724,7 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
         }
     }
 
-    sslLogNegotiateDebug("Client Hello : data=%p p=%p len=%08x\n", clientHello->contents.data, p, clientHello->contents.length);
+    sslLogNegotiateDebug("Client Hello : data=%p p=%p len=%08lx\n", clientHello->contents.data, p, (unsigned long)clientHello->contents.length);
 
     assert(p == clientHello->contents.data + clientHello->contents.length);
 
@@ -679,9 +733,9 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 
 err_exit:
 	if (err != 0) {
-		SSLFreeBuffer(&clientHello->contents, ctx);
+		SSLFreeBuffer(&clientHello->contents);
 	}
-	SSLFreeBuffer(&sessionIdentifier, ctx);
+	SSLFreeBuffer(&sessionIdentifier);
 
 	return err;
 }
@@ -725,6 +779,10 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
 			return errSSLNegotiation;
 	}
 	ctx->negProtocolVersion = negVersion;
+    err = ctx->recFuncs->setProtocolVersion(ctx->recCtx, negVersion);
+    if(err) {
+        return err;
+    }
     sslLogNegotiateDebug("===SSL3 server: negVersion is %d_%d",
 		negVersion >> 8, negVersion & 0xff);
 
@@ -738,7 +796,7 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
 	/* FIXME peerID is never set on server side.... */
     if (sessionIDLen > 0 && ctx->peerID.data != 0)
     {   /* Don't die on error; just treat it as an uncacheable session */
-        err = SSLAllocBuffer(&ctx->sessionID, sessionIDLen, ctx);
+        err = SSLAllocBuffer(&ctx->sessionID, sessionIDLen);
         if (err == 0)
             memcpy(ctx->sessionID.data, charPtr, sessionIDLen);
     }
@@ -842,7 +900,7 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
 #if		SSL_PAC_SERVER_ENABLE
 
 				case SSL_HE_SessionTicket:
-					SSLFreeBuffer(&ctx->sessionTicket, NULL);
+					SSLFreeBuffer(&ctx->sessionTicket);
 					SSLCopyBufferFromData(charPtr, extenLen, &ctx->sessionTicket);
 					sslEapDebug("Saved %lu bytes of sessionTicket from ClientHello",
 						(unsigned long)extenLen);
@@ -874,7 +932,10 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
 				}
 				case SSL_HE_SignatureAlgorithms:
 				{
-					UInt8 *cp = charPtr, *end = charPtr + extenLen;
+					UInt8 *cp = charPtr;
+#ifndef NDEBUG
+                    UInt8 *end = charPtr + extenLen;
+#endif
                     UInt32 sigAlgsSize = SSLDecodeInt(cp, 2);
 					cp += 2;
 
@@ -917,7 +978,16 @@ proceed:
     if ((err = SSLInitMessageHashes(ctx)) != 0)
         return err;
 
-    return noErr;
+    return errSecSuccess;
+}
+
+static
+OSStatus sslTime(uint32_t *tim)
+{
+	time_t t;
+	time(&t);
+	*tim = (uint32_t)t;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -931,30 +1001,30 @@ SSLEncodeRandom(unsigned char *p, SSLContext *ctx)
     SSLEncodeInt(p, now, 4);
     randomData.data = p+4;
     randomData.length = 28;
-   	if((err = sslRand(ctx, &randomData)) != 0)
+	if((err = sslRand(&randomData)) != 0)
         return err;
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
 SSLInitMessageHashes(SSLContext *ctx)
 {   OSStatus          err;
 
-    if ((err = CloseHash(&SSLHashSHA1, &ctx->shaState, ctx)) != 0)
+    if ((err = CloseHash(&SSLHashSHA1, &ctx->shaState)) != 0)
         return err;
-    if ((err = CloseHash(&SSLHashMD5,  &ctx->md5State, ctx)) != 0)
+    if ((err = CloseHash(&SSLHashMD5,  &ctx->md5State)) != 0)
         return err;
-    if ((err = CloseHash(&SSLHashSHA256,  &ctx->sha256State, ctx)) != 0)
+    if ((err = CloseHash(&SSLHashSHA256,  &ctx->sha256State)) != 0)
         return err;
-    if ((err = CloseHash(&SSLHashSHA384,  &ctx->sha512State, ctx)) != 0)
+    if ((err = CloseHash(&SSLHashSHA384,  &ctx->sha512State)) != 0)
         return err;
-    if ((err = ReadyHash(&SSLHashSHA1, &ctx->shaState, ctx)) != 0)
+    if ((err = ReadyHash(&SSLHashSHA1, &ctx->shaState)) != 0)
         return err;
-    if ((err = ReadyHash(&SSLHashMD5,  &ctx->md5State, ctx)) != 0)
+    if ((err = ReadyHash(&SSLHashMD5,  &ctx->md5State)) != 0)
         return err;
-    if ((err = ReadyHash(&SSLHashSHA256,  &ctx->sha256State, ctx)) != 0)
+    if ((err = ReadyHash(&SSLHashSHA256,  &ctx->sha256State)) != 0)
         return err;
-    if ((err = ReadyHash(&SSLHashSHA384,  &ctx->sha512State, ctx)) != 0)
+    if ((err = ReadyHash(&SSLHashSHA384,  &ctx->sha512State)) != 0)
         return err;
-    return noErr;
+    return errSecSuccess;
 }

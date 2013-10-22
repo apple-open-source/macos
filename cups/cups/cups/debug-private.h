@@ -1,5 +1,5 @@
 /*
- * "$Id: debug-private.h 9276 2010-08-31 04:48:00Z mike $"
+ * "$Id: debug-private.h 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Private debugging macros for CUPS.
  *
@@ -113,5 +113,5 @@ extern int	_cups_gettimeofday(struct timeval *tv, void *tz);
 #endif /* !_CUPS_DEBUG_PRIVATE_H_ */
 
 /*
- * End of "$Id: debug-private.h 9276 2010-08-31 04:48:00Z mike $".
+ * End of "$Id: debug-private.h 11093 2013-07-03 20:48:42Z msweet $".
  */

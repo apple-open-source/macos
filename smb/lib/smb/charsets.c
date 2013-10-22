@@ -68,6 +68,7 @@ convert_wincs_to_utf8(const char *windows_string, CFStringEncoding codePage)
 
 	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(s),
 	    kCFStringEncodingUTF8) + 1;
+    
 	result = malloc(maxlen);
 	if (result == NULL) {
 		smb_log_info("Couldn't allocate buffer for UTF-8 string for \"%s\" - skipping, syserr = %s", 
@@ -75,12 +76,15 @@ convert_wincs_to_utf8(const char *windows_string, CFStringEncoding codePage)
 		CFRelease(s);
 		return NULL;
 	}
+    
 	if (!CFStringGetCString(s, result, maxlen, kCFStringEncodingUTF8)) {
 		smb_log_info("CFStringGetCString for UTF-8 failed on \"%s\" - skipping, syserr = %s",
 					ASL_LEVEL_DEBUG, windows_string, strerror(errno));
 		CFRelease(s);
+		free(result);
 		return NULL;
 	}
+    
 	CFRelease(s);
 	return result;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,9 +39,14 @@
 
 #include <EAP8021X/EAPOL.h>
 #include <stdio.h>
+#include <CoreFoundation/CFString.h>
 
 bool
 EAPOLPacketValid(EAPOLPacketRef eapol_p, unsigned int length, FILE * f);
+
+bool
+EAPOLPacketIsValid(EAPOLPacketRef eapol_p, unsigned int length,
+		   CFMutableStringRef str);
 
 #endif /* _EAP8021X_EAPOLUTIL_H */
 

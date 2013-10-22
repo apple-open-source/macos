@@ -81,7 +81,7 @@ public:
   InstrTy *operator->() const { return I.getPointer(); }
   operator bool() const { return I.getPointer(); }
 
-  /// getCalledValue - Return the pointer to function that is being called...
+  /// getCalledValue - Return the pointer to function that is being called.
   ///
   ValTy *getCalledValue() const {
     assert(getInstruction() && "Not a call or invoke instruction!");
@@ -95,7 +95,7 @@ public:
     return dyn_cast<FunTy>(getCalledValue());
   }
 
-  /// setCalledFunction - Set the callee to the specified value...
+  /// setCalledFunction - Set the callee to the specified value.
   ///
   void setCalledFunction(Value *V) {
     assert(getInstruction() && "Not a call or invoke instruction!");
@@ -130,7 +130,7 @@ public:
   }
 
   /// arg_iterator - The type of iterator to use when looping over actual
-  /// arguments at this call site...
+  /// arguments at this call site.
   typedef IterTy arg_iterator;
 
   /// arg_begin/arg_end - Return iterators corresponding to the actual argument
@@ -182,6 +182,11 @@ public:
   }
   void setAttributes(const AttrListPtr &PAL) {
     CALLSITE_DELEGATE_SETTER(setAttributes(PAL));
+  }
+
+  /// \brief Return true if this function has the given attribute.
+  bool hasFnAttr(Attributes N) const {
+    CALLSITE_DELEGATE_GETTER(hasFnAttr(N));
   }
 
   /// paramHasAttr - whether the call or the callee has the given attribute.
@@ -236,6 +241,16 @@ public:
 
 #undef CALLSITE_DELEGATE_GETTER
 #undef CALLSITE_DELEGATE_SETTER
+
+  /// @brief Determine whether this argument is not captured.
+  bool doesNotCapture(unsigned ArgNo) const {
+    return paramHasAttr(ArgNo + 1, Attribute::NoCapture);
+  }
+
+  /// @brief Determine whether this argument is passed by value.
+  bool isByValArgument(unsigned ArgNo) const {
+    return paramHasAttr(ArgNo + 1, Attribute::ByVal);
+  }
 
   /// hasArgument - Returns true if this CallSite passes the given Value* as an
   /// argument to the called function.

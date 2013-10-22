@@ -194,7 +194,7 @@ SecCertificateRef CERT_FindUserCertByUsage(SecKeychainRef keychainOrArray,
     attrs[1].data = nickname;
 #else
     attrs[1].tag = kSecSerialNumberItemAttr;
-    attrs[1].length = strlen(serialNumber)+1;
+    attrs[1].length = (UInt32)strlen(serialNumber)+1;
     attrs[1].data = (uint8 *)serialNumber;
 #endif
     SecKeychainAttributeList attrList = { 0, attrs };
@@ -765,7 +765,7 @@ loser:
 CFTypeRef
 CERT_PolicyForCertUsage(SECCertUsage certUsage)
 {
-    SecPolicySearchRef search;
+    SecPolicySearchRef search = NULL;
     SecPolicyRef policy = NULL;
     const CSSM_OID *policyOID;
     OSStatus rv;
@@ -808,6 +808,6 @@ CERT_PolicyForCertUsage(SECCertUsage certUsage)
 	goto loser;
 
 loser:
-    CFRelease(search);
+    if(search) CFRelease(search);
     return policy;
 }

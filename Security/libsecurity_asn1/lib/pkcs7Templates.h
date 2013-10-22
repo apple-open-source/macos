@@ -64,7 +64,7 @@ typedef struct {
 
 extern const SecAsn1Template NSS_P7_RawContentInfoTemplate[];
 
-#pragma mark ---- ContentInfo.content types -----
+// MARK: ---- ContentInfo.content types -----
 
 /*
  * Expand beyond ASN_ANY/CSSM_DATA as needed
@@ -115,7 +115,7 @@ extern const SecAsn1Template NSS_P7_PtrToEncryptedDataTemplate[];
 #define NSS_P7_PtrToSignEnvelDataTemplate	kSecAsn1PointerToAnyTemplate
 #define NSS_P7_PtrToDigestedDataTemplate	kSecAsn1PointerToAnyTemplate
 
-#pragma mark ---- decoded ContentInfo -----
+// MARK: ---- decoded ContentInfo -----
 
 /*
  * For convenience, out dynamic template chooser for ContentInfo.content

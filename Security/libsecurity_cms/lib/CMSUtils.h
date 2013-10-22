@@ -48,7 +48,7 @@ void cmsCopyCmsData(
  * Append a CF type, or the contents of an array, to another array.
  * destination array will be created if necessary.
  * If srcItemOrArray is not of the type specified in expectedType,
- * paramErr will be returned. 
+ * errSecParam will be returned. 
  */
 OSStatus cmsAppendToArray(
 	CFTypeRef srcItemOrArray,
@@ -65,8 +65,8 @@ OSStatus cmsRtnToOSStatus(
 
 #define CFRELEASE(cfr)	if(cfr != NULL) { CFRelease(cfr); }
 
-#define DEBUG 0
-#if		DEBUG
+#define CMS_DEBUG 0
+#if	CMS_DEBUG
 #define ASSERT(s)			assert(s)
 #define CSSM_PERROR(s, r)	cssmPerror(s, r)
 #define dprintf(args...)	printf(args)

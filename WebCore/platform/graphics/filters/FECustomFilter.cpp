@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2012 Adobe Systems Incorporated. All rights reserved.
  * Copyright (C) 2011 Adobe Systems Incorporated. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,221 +30,339 @@
 
 #include "config.h"
 
-#if ENABLE(CSS_SHADERS) && ENABLE(WEBGL)
+#if ENABLE(CSS_SHADERS) && USE(3D_GRAPHICS)
 #include "FECustomFilter.h"
 
-#include "CustomFilterMesh.h"
-#include "CustomFilterNumberParameter.h"
-#include "CustomFilterParameter.h"
-#include "CustomFilterProgram.h"
-#include "CustomFilterShader.h"
-#include "DrawingBuffer.h"
+#include "CustomFilterCompiledProgram.h"
+#include "CustomFilterRenderer.h"
+#include "CustomFilterValidatedProgram.h"
+#include "Extensions3D.h"
 #include "GraphicsContext3D.h"
-#include "ImageData.h"
 #include "RenderTreeAsText.h"
 #include "TextStream.h"
-#include "Texture.h"
-#include "TilingData.h"
-#include "TransformationMatrix.h"
 
 #include <wtf/Uint8ClampedArray.h>
 
 namespace WebCore {
 
-static void orthogonalProjectionMatrix(TransformationMatrix& matrix, float left, float right, float bottom, float top)
-{
-    ASSERT(matrix.isIdentity());
-    
-    float deltaX = right - left;
-    float deltaY = top - bottom;
-    if (!deltaX || !deltaY)
-        return;
-    matrix.setM11(2.0f / deltaX);
-    matrix.setM41(-(right + left) / deltaX);
-    matrix.setM22(2.0f / deltaY);
-    matrix.setM42(-(top + bottom) / deltaY);
-
-    // Use big enough near/far values, so that simple rotations of rather large objects will not
-    // get clipped. 10000 should cover most of the screen resolutions.
-    const float farValue = 10000;
-    const float nearValue = -10000;
-    matrix.setM33(-2.0f / (farValue - nearValue));
-    matrix.setM43(- (farValue + nearValue) / (farValue - nearValue));
-    matrix.setM44(1.0f);
-}
-
-FECustomFilter::FECustomFilter(Filter* filter, HostWindow* hostWindow, PassRefPtr<CustomFilterProgram> program, const CustomFilterParameterList& parameters,
-                               unsigned meshRows, unsigned meshColumns, CustomFilterOperation::MeshBoxType meshBoxType,
-                               CustomFilterOperation::MeshType meshType)
+FECustomFilter::FECustomFilter(Filter* filter, PassRefPtr<GraphicsContext3D> context, PassRefPtr<CustomFilterValidatedProgram> validatedProgram, const CustomFilterParameterList& parameters,
+    unsigned meshRows, unsigned meshColumns, CustomFilterMeshType meshType)
     : FilterEffect(filter)
-    , m_hostWindow(hostWindow)
-    , m_program(program)
-    , m_parameters(parameters)
-    , m_meshRows(meshRows)
-    , m_meshColumns(meshColumns)
-    , m_meshBoxType(meshBoxType)
-    , m_meshType(meshType)
+    , m_context(context)
+    , m_validatedProgram(validatedProgram)
+    , m_inputTexture(0)
+    , m_frameBuffer(0)
+    , m_depthBuffer(0)
+    , m_destTexture(0)
+    , m_triedMultisampleBuffer(false)
+    , m_multisampleFrameBuffer(0)
+    , m_multisampleRenderBuffer(0)
+    , m_multisampleDepthBuffer(0)
 {
+    // We will not pass a CustomFilterCompiledProgram here, as we only want to compile it when we actually need it in the first paint.
+    m_customFilterRenderer = CustomFilterRenderer::create(m_context, m_validatedProgram->programInfo().programType(), parameters, meshRows, meshColumns, meshType);
 }
 
-PassRefPtr<FECustomFilter> FECustomFilter::create(Filter* filter, HostWindow* hostWindow, PassRefPtr<CustomFilterProgram> program, const CustomFilterParameterList& parameters,
-                                           unsigned meshRows, unsigned meshColumns, CustomFilterOperation::MeshBoxType meshBoxType,
-                                           CustomFilterOperation::MeshType meshType)
+PassRefPtr<FECustomFilter> FECustomFilter::create(Filter* filter, PassRefPtr<GraphicsContext3D> context, PassRefPtr<CustomFilterValidatedProgram> validatedProgram, const CustomFilterParameterList& parameters,
+    unsigned meshRows, unsigned meshColumns, CustomFilterMeshType meshType)
 {
-    return adoptRef(new FECustomFilter(filter, hostWindow, program, parameters, meshRows, meshColumns, meshBoxType, meshType));
+    return adoptRef(new FECustomFilter(filter, context, validatedProgram, parameters, meshRows, meshColumns, meshType));
+}
+
+FECustomFilter::~FECustomFilter()
+{
+    deleteRenderBuffers();
+}
+
+void FECustomFilter::deleteRenderBuffers()
+{
+    ASSERT(m_context);
+    m_context->makeContextCurrent();
+    if (m_inputTexture) {
+        m_context->deleteTexture(m_inputTexture);
+        m_inputTexture = 0;
+    }
+    if (m_frameBuffer) {
+        // Make sure to unbind any framebuffer from the context first, otherwise
+        // some platforms might refuse to bind the same buffer id again.
+        m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, 0);
+        m_context->deleteFramebuffer(m_frameBuffer);
+        m_frameBuffer = 0;
+    }
+    if (m_depthBuffer) {
+        m_context->deleteRenderbuffer(m_depthBuffer);
+        m_depthBuffer = 0;
+    }
+    if (m_destTexture) {
+        m_context->deleteTexture(m_destTexture);
+        m_destTexture = 0;
+    }
+    deleteMultisampleRenderBuffers();
+}
+
+void FECustomFilter::deleteMultisampleRenderBuffers()
+{
+    if (m_multisampleFrameBuffer) {
+        // Make sure to unbind any framebuffer from the context first, otherwise
+        // some platforms might refuse to bind the same buffer id again.
+        m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, 0);
+        m_context->deleteFramebuffer(m_multisampleFrameBuffer);
+        m_multisampleFrameBuffer = 0;
+    }
+    if (m_multisampleRenderBuffer) {
+        m_context->deleteRenderbuffer(m_multisampleRenderBuffer);
+        m_multisampleRenderBuffer = 0;
+    }
+    if (m_multisampleDepthBuffer) {
+        m_context->deleteRenderbuffer(m_multisampleDepthBuffer);
+        m_multisampleDepthBuffer = 0;
+    }
 }
 
 void FECustomFilter::platformApplySoftware()
 {
-    Uint8ClampedArray* dstPixelArray = createPremultipliedImageResult();
+    if (!applyShader())
+        clearShaderResult();
+}
+
+void FECustomFilter::clearShaderResult()
+{
+    clearResult();
+    Uint8ClampedArray* dstPixelArray = createUnmultipliedImageResult();
     if (!dstPixelArray)
         return;
 
     FilterEffect* in = inputEffect(0);
+    setIsAlphaImage(in->isAlphaImage());
     IntRect effectDrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
-    RefPtr<Uint8ClampedArray> srcPixelArray = in->asPremultipliedImage(effectDrawingRect);
-    
-    IntSize newContextSize(effectDrawingRect.size());
-    bool hadContext = m_context;
-    if (!m_context)
-        initializeContext(newContextSize);
-    
-    if (!hadContext || m_contextSize != newContextSize)
-        resizeContext(newContextSize);
-    
-    // Do not draw the filter if the input image cannot fit inside a single GPU texture.
-    if (m_inputTexture->tiles().numTilesX() != 1 || m_inputTexture->tiles().numTilesY() != 1)
-        return;
-    
-    // The shader had compiler errors. We cannot draw anything.
-    if (!m_shader->isInitialized())
-        return;
-    
+    in->copyUnmultipliedImage(dstPixelArray, effectDrawingRect);
+}
+
+void FECustomFilter::drawFilterMesh(Platform3DObject inputTexture)
+{
+    bool multisample = canUseMultisampleBuffers();
+    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, multisample ? m_multisampleFrameBuffer : m_frameBuffer);
+    m_context->viewport(0, 0, m_contextSize.width(), m_contextSize.height());
+
     m_context->clearColor(0, 0, 0, 0);
     m_context->clear(GraphicsContext3D::COLOR_BUFFER_BIT | GraphicsContext3D::DEPTH_BUFFER_BIT);
-    
-    bindProgramAndBuffers(srcPixelArray.get());
-    
-    m_context->drawElements(GraphicsContext3D::TRIANGLES, m_mesh->indicesCount(), GraphicsContext3D::UNSIGNED_SHORT, 0);
-    
-    m_drawingBuffer->commit();
 
-    RefPtr<ImageData> imageData = m_context->paintRenderingResultsToImageData(m_drawingBuffer.get());
-    Uint8ClampedArray* gpuResult = imageData->data();
-    ASSERT(gpuResult->length() == dstPixelArray->length());
-    memcpy(dstPixelArray->data(), gpuResult->data(), gpuResult->length());
+    m_customFilterRenderer->draw(inputTexture, m_contextSize);
+
+    if (multisample)
+        resolveMultisampleBuffer();
 }
 
-void FECustomFilter::initializeContext(const IntSize& contextSize)
+bool FECustomFilter::prepareForDrawing()
 {
-    GraphicsContext3D::Attributes attributes;
-    attributes.preserveDrawingBuffer = true;
-    attributes.premultipliedAlpha = false;
-    
-    ASSERT(!m_context.get());
-    m_context = GraphicsContext3D::create(attributes, m_hostWindow, GraphicsContext3D::RenderOffscreen);
-    m_drawingBuffer = DrawingBuffer::create(m_context.get(), contextSize, DrawingBuffer::Discard, DrawingBuffer::Alpha);
-    
-    m_shader = m_program->createShaderWithContext(m_context.get());
-    m_mesh = CustomFilterMesh::create(m_context.get(), m_meshColumns, m_meshRows, 
-                                      FloatRect(0, 0, 1, 1),
-                                      m_meshType);
-}
+    m_context->makeContextCurrent();
 
-void FECustomFilter::resizeContext(const IntSize& newContextSize)
-{
-    m_inputTexture = 0;
-    m_drawingBuffer->reset(newContextSize);
-    m_context->reshape(newContextSize.width(), newContextSize.height());
-    m_context->viewport(0, 0, newContextSize.width(), newContextSize.height());
-    m_inputTexture = Texture::create(m_context.get(), Texture::RGBA8, newContextSize.width(), newContextSize.height());
-    m_contextSize = newContextSize;
-}
-
-void FECustomFilter::bindVertexAttribute(int attributeLocation, unsigned size, unsigned& offset)
-{
-    if (attributeLocation != -1) {
-        m_context->vertexAttribPointer(attributeLocation, size, GraphicsContext3D::FLOAT, false, m_mesh->bytesPerVertex(), offset);
-        m_context->enableVertexAttribArray(attributeLocation);
-    }
-    offset += size * sizeof(float);
-}
-
-void FECustomFilter::bindProgramNumberParameters(int uniformLocation, CustomFilterNumberParameter* numberParameter)
-{
-    switch (numberParameter->size()) {
-    case 1:
-        m_context->uniform1f(uniformLocation, numberParameter->valueAt(0));
-        break;
-    case 2:
-        m_context->uniform2f(uniformLocation, numberParameter->valueAt(0), numberParameter->valueAt(1));
-        break;
-    case 3:
-        m_context->uniform3f(uniformLocation, numberParameter->valueAt(0), numberParameter->valueAt(1), numberParameter->valueAt(2));
-        break;
-    case 4:
-        m_context->uniform4f(uniformLocation, numberParameter->valueAt(0), numberParameter->valueAt(1), numberParameter->valueAt(2), numberParameter->valueAt(3));
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-    }
-}
-
-void FECustomFilter::bindProgramParameters()
-{
-    // FIXME: Find a way to reset uniforms that are not specified in CSS. This is needed to avoid using values
-    // set by other previous rendered filters.
-    // https://bugs.webkit.org/show_bug.cgi?id=76440
-    
-    size_t parametersSize = m_parameters.size();
-    for (size_t i = 0; i < parametersSize; ++i) {
-        CustomFilterParameter* parameter = m_parameters.at(i).get();
-        int uniformLocation = m_shader->uniformLocationByName(parameter->name());
-        if (uniformLocation == -1)
-            continue;
-        switch (parameter->parameterType()) {
-        case CustomFilterParameter::NUMBER:
-            bindProgramNumberParameters(uniformLocation, static_cast<CustomFilterNumberParameter*>(parameter));
-            break;
+    if (!m_customFilterRenderer->compiledProgram()) {
+        RefPtr<CustomFilterCompiledProgram> compiledProgram = m_validatedProgram->compiledProgram();
+        if (!compiledProgram) {
+            // Lazily create a compiled program and let CustomFilterValidatedProgram hold on to it.
+            compiledProgram = CustomFilterCompiledProgram::create(m_context, m_validatedProgram->validatedVertexShader(), m_validatedProgram->validatedFragmentShader(), m_validatedProgram->programInfo().programType());
+            m_validatedProgram->setCompiledProgram(compiledProgram);
         }
+        // Lazily inject the compiled program into the CustomFilterRenderer.
+        m_customFilterRenderer->setCompiledProgram(compiledProgram.release());
     }
+
+    if (!m_customFilterRenderer->prepareForDrawing())
+        return false;
+
+    // Only allocate a texture if the program needs one and the caller doesn't allocate one by itself.
+    if ((m_customFilterRenderer->programNeedsInputTexture() && !ensureInputTexture()) || !ensureFrameBuffer())
+        return false;
+
+    return true;
 }
 
-void FECustomFilter::bindProgramAndBuffers(Uint8ClampedArray* srcPixelArray)
+bool FECustomFilter::applyShader()
 {
-    m_context->useProgram(m_shader->program());
-    
-    if (m_shader->samplerLocation() != -1) {
-        m_context->activeTexture(GraphicsContext3D::TEXTURE0);
-        m_context->uniform1i(m_shader->samplerLocation(), 0);
-        m_inputTexture->load(srcPixelArray->data());
-        m_inputTexture->bindTile(0);
-    }
-    
-    if (m_shader->projectionMatrixLocation() != -1) {
-        TransformationMatrix projectionMatrix; 
-#if PLATFORM(CHROMIUM)
-        // We flip-y the projection matrix here because Chromium will flip-y the resulting image for us.
-        orthogonalProjectionMatrix(projectionMatrix, -0.5, 0.5, 0.5, -0.5);
-#else
-        orthogonalProjectionMatrix(projectionMatrix, -0.5, 0.5, -0.5, 0.5);
-#endif
-        float glProjectionMatrix[16];
-        projectionMatrix.toColumnMajorFloatArray(glProjectionMatrix);
-        m_context->uniformMatrix4fv(m_shader->projectionMatrixLocation(), 1, false, &glProjectionMatrix[0]);
-    }
-    
-    m_context->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, m_mesh->verticesBufferObject());
-    m_context->bindBuffer(GraphicsContext3D::ELEMENT_ARRAY_BUFFER, m_mesh->elementsBufferObject());
+    Uint8ClampedArray* dstPixelArray = m_customFilterRenderer->premultipliedAlpha() ? createPremultipliedImageResult() : createUnmultipliedImageResult();
+    if (!dstPixelArray)
+        return false;
 
-    unsigned offset = 0;
-    bindVertexAttribute(m_shader->positionAttribLocation(), 4, offset);
-    bindVertexAttribute(m_shader->texAttribLocation(), 2, offset);
-    bindVertexAttribute(m_shader->meshAttribLocation(), 2, offset);
-    if (m_meshType == CustomFilterOperation::DETACHED)
-        bindVertexAttribute(m_shader->triangleAttribLocation(), 3, offset);
-    
-    bindProgramParameters();
+    if (!prepareForDrawing())
+        return false;
+
+    FilterEffect* in = inputEffect(0);
+    IntRect effectDrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
+    IntSize newContextSize(effectDrawingRect.size());
+    if (!resizeContextIfNeeded(newContextSize))
+        return false;
+
+    bool needsInputTexture = m_customFilterRenderer->programNeedsInputTexture();
+    if (needsInputTexture) {
+        RefPtr<Uint8ClampedArray> srcPixelArray = in->asUnmultipliedImage(effectDrawingRect);
+        uploadInputTexture(srcPixelArray.get());
+    }
+    drawFilterMesh(needsInputTexture ? m_inputTexture : 0);
+
+    ASSERT(static_cast<size_t>(newContextSize.width() * newContextSize.height() * 4) == dstPixelArray->length());
+    m_context->readPixels(0, 0, newContextSize.width(), newContextSize.height(), GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, dstPixelArray->data());
+
+    return true;
+}
+
+bool FECustomFilter::ensureInputTexture()
+{
+    if (!m_inputTexture)
+        m_inputTexture = m_context->createTexture();
+    return m_inputTexture;
+}
+
+void FECustomFilter::uploadInputTexture(Uint8ClampedArray* srcPixelArray)
+{
+    m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_inputTexture);
+    m_context->texImage2D(GraphicsContext3D::TEXTURE_2D, 0, GraphicsContext3D::RGBA, m_contextSize.width(), m_contextSize.height(), 0, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, srcPixelArray->data());
+}
+
+bool FECustomFilter::ensureFrameBuffer()
+{
+    if (!m_frameBuffer)
+        m_frameBuffer = m_context->createFramebuffer();
+    if (!m_depthBuffer)
+        m_depthBuffer = m_context->createRenderbuffer();
+    if (!m_destTexture)
+        m_destTexture = m_context->createTexture();
+    return m_frameBuffer && m_depthBuffer && m_destTexture;
+}
+
+bool FECustomFilter::createMultisampleBuffer()
+{
+    ASSERT(!m_triedMultisampleBuffer);
+    m_triedMultisampleBuffer = true;
+
+    Extensions3D* extensions = m_context->getExtensions();
+    if (!extensions
+        || !extensions->maySupportMultisampling()
+        || !extensions->supports("GL_ANGLE_framebuffer_multisample")
+        || !extensions->supports("GL_ANGLE_framebuffer_blit")
+        || !extensions->supports("GL_OES_rgb8_rgba8"))
+        return false;
+
+    extensions->ensureEnabled("GL_ANGLE_framebuffer_blit");
+    extensions->ensureEnabled("GL_ANGLE_framebuffer_multisample");
+    extensions->ensureEnabled("GL_OES_rgb8_rgba8");
+
+    if (!m_multisampleFrameBuffer)
+        m_multisampleFrameBuffer = m_context->createFramebuffer();
+    if (!m_multisampleRenderBuffer)
+        m_multisampleRenderBuffer = m_context->createRenderbuffer();
+    if (!m_multisampleDepthBuffer)
+        m_multisampleDepthBuffer = m_context->createRenderbuffer();
+
+    return true;
+}
+
+void FECustomFilter::resolveMultisampleBuffer()
+{
+    ASSERT(m_triedMultisampleBuffer && m_multisampleFrameBuffer && m_multisampleRenderBuffer && m_multisampleDepthBuffer);
+    m_context->bindFramebuffer(Extensions3D::READ_FRAMEBUFFER, m_multisampleFrameBuffer);
+    m_context->bindFramebuffer(Extensions3D::DRAW_FRAMEBUFFER, m_frameBuffer);
+
+    ASSERT(m_context->getExtensions());
+    m_context->getExtensions()->blitFramebuffer(0, 0, m_contextSize.width(), m_contextSize.height(), 0, 0, m_contextSize.width(), m_contextSize.height(), GraphicsContext3D::COLOR_BUFFER_BIT, GraphicsContext3D::NEAREST);
+
+    m_context->bindFramebuffer(Extensions3D::READ_FRAMEBUFFER, 0);
+    m_context->bindFramebuffer(Extensions3D::DRAW_FRAMEBUFFER, 0);
+
+    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_frameBuffer);
+}
+
+bool FECustomFilter::canUseMultisampleBuffers() const
+{
+    return m_triedMultisampleBuffer && m_multisampleFrameBuffer && m_multisampleRenderBuffer && m_multisampleDepthBuffer;
+}
+
+bool FECustomFilter::resizeMultisampleBuffers(const IntSize& newContextSize)
+{
+    if (!m_triedMultisampleBuffer && !createMultisampleBuffer())
+        return false;
+
+    if (!canUseMultisampleBuffers())
+        return false;
+
+    static const int kMaxSampleCount = 4;
+    int maxSupportedSampleCount = 0;
+    m_context->getIntegerv(Extensions3D::MAX_SAMPLES, &maxSupportedSampleCount);
+    int sampleCount = std::min(kMaxSampleCount, maxSupportedSampleCount);
+    if (!sampleCount) {
+        deleteMultisampleRenderBuffers();
+        return false;
+    }
+
+    Extensions3D* extensions = m_context->getExtensions();
+    ASSERT(extensions);
+
+    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_multisampleFrameBuffer);
+
+    m_context->bindRenderbuffer(GraphicsContext3D::RENDERBUFFER, m_multisampleRenderBuffer);
+    extensions->renderbufferStorageMultisample(GraphicsContext3D::RENDERBUFFER, sampleCount, Extensions3D::RGBA8_OES, newContextSize.width(), newContextSize.height());
+    m_context->framebufferRenderbuffer(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::RENDERBUFFER, m_multisampleRenderBuffer);
+
+    m_context->bindRenderbuffer(GraphicsContext3D::RENDERBUFFER, m_multisampleDepthBuffer);
+    extensions->renderbufferStorageMultisample(GraphicsContext3D::RENDERBUFFER, sampleCount, GraphicsContext3D::DEPTH_COMPONENT16, newContextSize.width(), newContextSize.height());
+    m_context->framebufferRenderbuffer(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::DEPTH_ATTACHMENT, GraphicsContext3D::RENDERBUFFER, m_multisampleDepthBuffer);
+
+    m_context->bindRenderbuffer(GraphicsContext3D::RENDERBUFFER, 0);
+
+    if (m_context->checkFramebufferStatus(GraphicsContext3D::FRAMEBUFFER) != GraphicsContext3D::FRAMEBUFFER_COMPLETE) {
+        deleteMultisampleRenderBuffers();
+        return false;
+    }
+
+    return true;
+}
+
+bool FECustomFilter::resizeContextIfNeeded(const IntSize& newContextSize)
+{
+    if (newContextSize.isEmpty())
+        return false;
+    if (m_contextSize == newContextSize)
+        return true;
+
+    int maxTextureSize = 0;
+    m_context->getIntegerv(GraphicsContext3D::MAX_TEXTURE_SIZE, &maxTextureSize);
+    if (newContextSize.height() > maxTextureSize || newContextSize.width() > maxTextureSize)
+        return false;
+
+    return resizeContext(newContextSize);
+}
+
+bool FECustomFilter::resizeContext(const IntSize& newContextSize)
+{
+    bool multisample = resizeMultisampleBuffers(newContextSize);
+
+    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_frameBuffer);
+    m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_destTexture);
+    // We are going to clear the output buffer anyway, so we can safely initialize the destination texture with garbage data.
+    m_context->texImage2DDirect(GraphicsContext3D::TEXTURE_2D, 0, GraphicsContext3D::RGBA, newContextSize.width(), newContextSize.height(), 0, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, 0);
+    m_context->framebufferTexture2D(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::TEXTURE_2D, m_destTexture, 0);
+
+    // We don't need the depth buffer for the texture framebuffer, if we already
+    // have a multisample buffer.
+    if (!multisample) {
+        m_context->bindRenderbuffer(GraphicsContext3D::RENDERBUFFER, m_depthBuffer);
+        m_context->renderbufferStorage(GraphicsContext3D::RENDERBUFFER, GraphicsContext3D::DEPTH_COMPONENT16, newContextSize.width(), newContextSize.height());
+        m_context->framebufferRenderbuffer(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::DEPTH_ATTACHMENT, GraphicsContext3D::RENDERBUFFER, m_depthBuffer);
+    }
+
+    if (m_context->checkFramebufferStatus(GraphicsContext3D::FRAMEBUFFER) != GraphicsContext3D::FRAMEBUFFER_COMPLETE)
+        return false;
+
+    if (multisample) {
+        // Clear the framebuffer first, otherwise the first blit will fail.
+        m_context->clearColor(0, 0, 0, 0);
+        m_context->clear(GraphicsContext3D::COLOR_BUFFER_BIT);
+    }
+
+    m_context->bindRenderbuffer(GraphicsContext3D::RENDERBUFFER, 0);
+
+    m_contextSize = newContextSize;
+    return true;
 }
 
 void FECustomFilter::dump()
@@ -262,4 +381,4 @@ TextStream& FECustomFilter::externalRepresentation(TextStream& ts, int indent) c
 
 } // namespace WebCore
 
-#endif // ENABLE(CSS_SHADERS) && ENABLE(WEBGL)
+#endif // ENABLE(CSS_SHADERS) && USE(3D_GRAPHICS)

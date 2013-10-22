@@ -35,25 +35,23 @@ using namespace WebCore;
 namespace JSC {
 namespace Bindings {
 
-const ClassInfo RuntimeObject::s_info = { "RuntimeObject", &JSNonFinalObject::s_info, 0, 0, CREATE_METHOD_TABLE(RuntimeObject) };
+const ClassInfo RuntimeObject::s_info = { "RuntimeObject", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(RuntimeObject) };
 
 RuntimeObject::RuntimeObject(ExecState*, JSGlobalObject* globalObject, Structure* structure, PassRefPtr<Instance> instance)
-    : JSNonFinalObject(globalObject->globalData(), structure)
+    : JSDestructibleObject(globalObject->vm(), structure)
     , m_instance(instance)
 {
 }
 
 void RuntimeObject::finishCreation(JSGlobalObject* globalObject)
 {
-    Base::finishCreation(globalObject->globalData());
+    Base::finishCreation(globalObject->vm());
     ASSERT(inherits(&s_info));
 }
 
 void RuntimeObject::destroy(JSCell* cell)
 {
-    RuntimeObject* thisObject = jsCast<RuntimeObject*>(cell);
-    ASSERT(!thisObject->m_instance);
-    thisObject->RuntimeObject::~RuntimeObject();
+    static_cast<RuntimeObject*>(cell)->RuntimeObject::~RuntimeObject();
 }
 
 void RuntimeObject::invalidate()
@@ -64,7 +62,7 @@ void RuntimeObject::invalidate()
     m_instance = 0;
 }
 
-JSValue RuntimeObject::fallbackObjectGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
+JSValue RuntimeObject::fallbackObjectGetter(ExecState* exec, JSValue slotBase, PropertyName propertyName)
 {
     RuntimeObject* thisObj = static_cast<RuntimeObject*>(asObject(slotBase));
     RefPtr<Instance> instance = thisObj->m_instance;
@@ -82,7 +80,7 @@ JSValue RuntimeObject::fallbackObjectGetter(ExecState* exec, JSValue slotBase, c
     return result;
 }
 
-JSValue RuntimeObject::fieldGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
+JSValue RuntimeObject::fieldGetter(ExecState* exec, JSValue slotBase, PropertyName propertyName)
 {    
     RuntimeObject* thisObj = static_cast<RuntimeObject*>(asObject(slotBase));
     RefPtr<Instance> instance = thisObj->m_instance;
@@ -101,7 +99,7 @@ JSValue RuntimeObject::fieldGetter(ExecState* exec, JSValue slotBase, const Iden
     return result;
 }
 
-JSValue RuntimeObject::methodGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
+JSValue RuntimeObject::methodGetter(ExecState* exec, JSValue slotBase, PropertyName propertyName)
 {
     RuntimeObject* thisObj = static_cast<RuntimeObject*>(asObject(slotBase));
     RefPtr<Instance> instance = thisObj->m_instance;
@@ -118,7 +116,7 @@ JSValue RuntimeObject::methodGetter(ExecState* exec, JSValue slotBase, const Ide
     return method;
 }
 
-bool RuntimeObject::getOwnPropertySlot(JSCell* cell, ExecState *exec, const Identifier& propertyName, PropertySlot& slot)
+bool RuntimeObject::getOwnPropertySlot(JSCell* cell, ExecState *exec, PropertyName propertyName, PropertySlot& slot)
 {
     RuntimeObject* thisObject = jsCast<RuntimeObject*>(cell);
     if (!thisObject->m_instance) {
@@ -142,8 +140,7 @@ bool RuntimeObject::getOwnPropertySlot(JSCell* cell, ExecState *exec, const Iden
         } else {
             // Now check if a method with specified name exists, if so return a function object for
             // that method.
-            MethodList methodList = aClass->methodsNamed(propertyName, instance.get());
-            if (methodList.size() > 0) {
+            if (aClass->methodNamed(propertyName, instance.get())) {
                 slot.setCustom(thisObject, thisObject->methodGetter);
                 
                 instance->end();
@@ -164,7 +161,7 @@ bool RuntimeObject::getOwnPropertySlot(JSCell* cell, ExecState *exec, const Iden
     return instance->getOwnPropertySlot(thisObject, exec, propertyName, slot);
 }
 
-bool RuntimeObject::getOwnPropertyDescriptor(JSObject* object, ExecState *exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+bool RuntimeObject::getOwnPropertyDescriptor(JSObject* object, ExecState *exec, PropertyName propertyName, PropertyDescriptor& descriptor)
 {
     RuntimeObject* thisObject = jsCast<RuntimeObject*>(object);
     if (!thisObject->m_instance) {
@@ -189,8 +186,7 @@ bool RuntimeObject::getOwnPropertyDescriptor(JSObject* object, ExecState *exec, 
         } else {
             // Now check if a method with specified name exists, if so return a function object for
             // that method.
-            MethodList methodList = aClass->methodsNamed(propertyName, instance.get());
-            if (methodList.size() > 0) {
+            if (aClass->methodNamed(propertyName, instance.get())) {
                 PropertySlot slot;
                 slot.setCustom(thisObject, methodGetter);
                 instance->end();
@@ -214,7 +210,7 @@ bool RuntimeObject::getOwnPropertyDescriptor(JSObject* object, ExecState *exec, 
     return instance->getOwnPropertyDescriptor(thisObject, exec, propertyName, descriptor);
 }
 
-void RuntimeObject::put(JSCell* cell, ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
+void RuntimeObject::put(JSCell* cell, ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
 {
     RuntimeObject* thisObject = jsCast<RuntimeObject*>(cell);
     if (!thisObject->m_instance) {
@@ -235,7 +231,7 @@ void RuntimeObject::put(JSCell* cell, ExecState* exec, const Identifier& propert
     instance->end();
 }
 
-bool RuntimeObject::deleteProperty(JSCell*, ExecState*, const Identifier&)
+bool RuntimeObject::deleteProperty(JSCell*, ExecState*, PropertyName)
 {
     // Can never remove a property of a RuntimeObject.
     return false;

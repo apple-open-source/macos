@@ -587,7 +587,7 @@ main(int argc, char *argv[])
 	if (!S_ISREG(sb.st_mode) || sb.st_size % bpb.bps ||
 	    sb.st_size < bpb.bps || sb.st_size > bpb.bps * MAXU16)
 	    errx(1, "%s: inappropriate file type or format", bname);
-	bss = sb.st_size / bpb.bps;
+	bss = (u_int)(sb.st_size / bpb.bps);
     }
     if (!bpb.nft)
 	bpb.nft = 2;
@@ -739,8 +739,8 @@ main(int argc, char *argv[])
     if (x1 + (u_int64_t)x * bpb.nft > bpb.bsec)
 	errx(1, "meta data exceeds file system size");
     x1 += x * bpb.nft;
-    x = (u_int64_t)(bpb.bsec - x1) * bpb.bps * NPB /
-	(bpb.spc * bpb.bps * NPB + fat / BPN * bpb.nft);
+    x = (u_int)((u_int64_t)(bpb.bsec - x1) * bpb.bps * NPB /
+	(bpb.spc * bpb.bps * NPB + fat / BPN * bpb.nft));
     x2 = howmany((RESFTE + MIN(x, maxcls(fat))) * (fat / BPN),
 		 bpb.bps * NPB);
     if (!bpb.bspf) {
@@ -758,7 +758,7 @@ main(int argc, char *argv[])
 	x1 += (bpb.bspf - 1) * bpb.nft;
     }
     cls = (bpb.bsec - x1) / bpb.spc;
-    x = (u_int64_t)bpb.bspf * bpb.bps * NPB / (fat / BPN) - RESFTE;
+    x = (u_int)((u_int64_t)bpb.bspf * bpb.bps * NPB / (fat / BPN) - RESFTE);
     if (cls > x)
     {
     	/* 
@@ -791,7 +791,7 @@ main(int argc, char *argv[])
         bpb.mid = !bpb.hid ? 0xf0 : 0xf8;
     if (fat == 32)
         bpb.rdcl = RESFTE;
-    if (bpb.hid + bpb.bsec <= MAXU16) {
+    if (bpb.bsec <= MAXU16) {
         bpb.sec = bpb.bsec;
         bpb.bsec = 0;
     }
@@ -1071,16 +1071,16 @@ getdiskinfo(int fd, const char *fname, const char *dtype, int oflag,
      * preparation for copying to a device with a different sector size.
      */
     if (bpb->bps && !bpb->bsec)
-	    bpb->bsec = (block_count * block_size) / bpb->bps;
+	    bpb->bsec = (u_int)((block_count * block_size) / bpb->bps);
 
     if (!bpb->bsec)
-	    bpb->bsec = block_count;
+	    bpb->bsec = (u_int)block_count;
 
     if (!bpb->bps)
 	    bpb->bps = block_size;
     
     if (!oflag)
-	bpb->hid = partition_offset / bpb->bps;
+	bpb->hid = (u_int)(partition_offset / bpb->bps);
     
     /*
      * Set up the INT 0x13 style drive number for BIOS.  The FAT specification
@@ -1289,7 +1289,7 @@ argtou(const char *arg, u_int lo, u_int hi, const char *msg)
     x = strtoul(arg, &s, 0);
     if (errno || !*arg || *s || x < lo || x > hi)
 	errx(1, "%s: bad %s", arg, msg);
-    return x;
+    return (u_int)x;
 }
 
 /*

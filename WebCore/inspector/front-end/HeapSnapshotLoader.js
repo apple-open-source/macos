@@ -30,40 +30,37 @@
 
 /**
  * @constructor
+ * @implements {WebInspector.OutputStream}
  */
 WebInspector.HeapSnapshotLoader = function()
 {
-    this._json = "";
-    this._state = "find-snapshot-info";
-    this._snapshot = {};
+    this._reset();
 }
 
 WebInspector.HeapSnapshotLoader.prototype = {
-    _findBalancedCurlyBrackets: function()
+    dispose: function()
     {
-        var counter = 0;
-        var openingBracket = "{".charCodeAt(0), closingBracket = "}".charCodeAt(0);
-        for (var i = 0, l = this._json.length; i < l; ++i) {
-            var character = this._json.charCodeAt(i);
-            if (character === openingBracket)
-                ++counter;
-            else if (character === closingBracket) {
-                if (--counter === 0)
-                    return i + 1;
-            }
-        }
-        return -1;
+        this._reset();
     },
 
-    finishLoading: function()
+    _reset: function()
     {
-        if (!this._json)
-            return null;
-        this._parseStringsArray();
         this._json = "";
-        var result = new WebInspector.HeapSnapshot(this._snapshot);
-        this._json = "";
+        this._state = "find-snapshot-info";
         this._snapshot = {};
+    },
+
+    close: function()
+    {
+        if (this._json)
+            this._parseStringsArray();
+    },
+
+    buildSnapshot: function(constructorName)
+    {
+        var constructor = WebInspector[constructorName];
+        var result = new constructor(this._snapshot);
+        this._reset();
         return result;
     },
 
@@ -101,7 +98,7 @@ WebInspector.HeapSnapshotLoader.prototype = {
                 this._json = this._json.slice(startIndex);
                 return true;
             }
-            this._array.push(nextNumber);
+            this._array[this._arrayIndex++] = nextNumber;
         }
     },
 
@@ -114,7 +111,10 @@ WebInspector.HeapSnapshotLoader.prototype = {
         this._snapshot.strings = JSON.parse(this._json);
     },
 
-    pushJSONChunk: function(chunk)
+    /**
+     * @param {string} chunk
+     */
+    write: function(chunk)
     {
         this._json += chunk;
         switch (this._state) {
@@ -125,18 +125,14 @@ WebInspector.HeapSnapshotLoader.prototype = {
                 throw new Error("Snapshot token not found");
             this._json = this._json.slice(snapshotTokenIndex + snapshotToken.length + 1);
             this._state = "parse-snapshot-info";
-            this.pushJSONChunk("");
-            break;
         }
         case "parse-snapshot-info": {
-            var closingBracketIndex = this._findBalancedCurlyBrackets();
+            var closingBracketIndex = WebInspector.findBalancedCurlyBrackets(this._json);
             if (closingBracketIndex === -1)
                 return;
-            this._snapshot.snapshot = /** @type {HeapSnapshotHeader} */JSON.parse(this._json.slice(0, closingBracketIndex));
+            this._snapshot.snapshot = /** @type {HeapSnapshotHeader} */ (JSON.parse(this._json.slice(0, closingBracketIndex)));
             this._json = this._json.slice(closingBracketIndex);
             this._state = "find-nodes";
-            this.pushJSONChunk("");
-            break;
         }
         case "find-nodes": {
             var nodesToken = "\"nodes\"";
@@ -147,43 +143,18 @@ WebInspector.HeapSnapshotLoader.prototype = {
             if (bracketIndex === -1)
                 return;
             this._json = this._json.slice(bracketIndex + 1);
-            if (this._snapshot.snapshot.meta) {
-                var node_fields_count = this._snapshot.snapshot.meta.node_fields.length;
-                var nodes_length = this._snapshot.snapshot.node_count * node_fields_count;
-                this._array = new WebInspector.Uint32Array(nodes_length);
-                this._snapshot.snapshot.meta.separate_edges = true;
-                this._state = "parse-nodes";
-            } else {
-                this._state = "parse-nodes-meta-info";
-            }
-            this.pushJSONChunk("");
-            break;
-        }
-        case "parse-nodes-meta-info": {
-            var closingBracketIndex = this._findBalancedCurlyBrackets();
-            if (closingBracketIndex === -1)
-                return;
-            this._snapshot.snapshot.meta = JSON.parse(this._json.slice(0, closingBracketIndex));
-            this._json = this._json.slice(closingBracketIndex);
-            this._array = new WebInspector.Uint32Array();
-            this._array.push(0);
+            var node_fields_count = this._snapshot.snapshot.meta.node_fields.length;
+            var nodes_length = this._snapshot.snapshot.node_count * node_fields_count;
+            this._array = new Uint32Array(nodes_length);
+            this._arrayIndex = 0;
             this._state = "parse-nodes";
-            this.pushJSONChunk("");
-            break;
         }
         case "parse-nodes": {
             if (this._parseUintArray())
                 return;
-            if (this._snapshot.snapshot.meta.separate_edges) {
-                this._snapshot.onlyNodes = this._array.array;
-                this._state = "find-edges";
-            } else {
-                this._snapshot.nodes = this._array.array;
-                this._state = "find-strings";
-            }
+            this._snapshot.nodes = this._array;
+            this._state = "find-edges";
             this._array = null;
-            this.pushJSONChunk("");
-            break;
         }
         case "find-edges": {
             var edgesToken = "\"edges\"";
@@ -196,19 +167,16 @@ WebInspector.HeapSnapshotLoader.prototype = {
             this._json = this._json.slice(bracketIndex + 1);
             var edge_fields_count = this._snapshot.snapshot.meta.edge_fields.length;
             var edges_length = this._snapshot.snapshot.edge_count * edge_fields_count;
-            this._array = new WebInspector.Uint32Array(edges_length);
+            this._array = new Uint32Array(edges_length);
+            this._arrayIndex = 0;
             this._state = "parse-edges";
-            this.pushJSONChunk("");
-            break;
         }
         case "parse-edges": {
             if (this._parseUintArray())
                 return;
-            this._snapshot.containmentEdges = this._array.array;
+            this._snapshot.edges = this._array;
             this._array = null;
             this._state = "find-strings";
-            this.pushJSONChunk("");
-            break;
         }
         case "find-strings": {
             var stringsToken = "\"strings\"";

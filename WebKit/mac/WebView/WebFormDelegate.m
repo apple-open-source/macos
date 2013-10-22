@@ -60,6 +60,10 @@ static WebFormDelegate *sharedDelegate = nil;
 {
 }
 
+- (void)didFocusTextField:(DOMHTMLInputElement *)element inFrame:(WebFrame *)frame
+{
+}
+
 - (BOOL)textField:(DOMHTMLInputElement *)element doCommandBySelector:(SEL)commandSelector inFrame:(WebFrame *)frame
 {
     return NO;
@@ -74,6 +78,10 @@ static WebFormDelegate *sharedDelegate = nil;
     withValues:(NSDictionary *)values submissionListener:(id <WebFormSubmissionListener>)listener
 {
     [listener continue];
+}
+
+- (void)willSendSubmitEventToForm:(DOMHTMLFormElement *)element inFrame:(WebFrame *)sourceFrame withValues:(NSDictionary *)values
+{
 }
 
 @end

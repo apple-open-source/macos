@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,7 +32,7 @@
 #include <unistd.h>
 #include <sys/queue.h>
 #include <string.h>
-
+#include <SystemConfiguration/SCPrivate.h>
 
 #include "EAPClientModule.h"
 
@@ -61,6 +61,7 @@ typedef struct {
     EAPClientPluginFuncPacketDump *		packet_dump;
     EAPClientPluginFuncUserName *		user_name;
     EAPClientPluginFuncCopyIdentity *		copy_identity;
+    EAPClientPluginFuncCopyPacketDescription *	copy_packet_description;
 } EAPClientInfo, *EAPClientInfoRef;
 
 struct EAPClientModule_s {
@@ -220,6 +221,8 @@ EAPClientModuleAddBuiltinModule(EAPClientPluginFuncIntrospect * func)
 	(*func)(kEAPClientPluginFuncNameUserName);
     info->copy_identity = (EAPClientPluginFuncCopyIdentity *)
 	(*func)(kEAPClientPluginFuncNameCopyIdentity);
+    info->copy_packet_description = (EAPClientPluginFuncCopyPacketDescription *)
+	(*func)(kEAPClientPluginFuncNameCopyPacketDescription);
     status = EAPClientModuleValidatePlugin(info);
     if (status != kEAPClientModuleStatusOK) {
 	goto failed;
@@ -373,21 +376,42 @@ EAPClientModulePluginPublishProperties(EAPClientModuleRef module,
     return (*publish_properties)(plugin);
 }
 
+static bool
+S_dump_packet_description(FILE * out_f, const EAPPacketRef pkt,
+			  EAPClientPluginFuncCopyPacketDescription * copy_descr)
+{
+    bool		packet_is_valid = FALSE;
+    CFStringRef		str;
+
+    str = (*copy_descr)(pkt, &packet_is_valid);
+    if (str != NULL) {
+	SCPrint(TRUE, out_f, CFSTR("%@"), str);
+	CFRelease(str);
+    }
+    return (packet_is_valid);
+}
+
+
 bool
 EAPClientModulePluginPacketDump(EAPClientModuleRef module,
 				FILE * out_f, const EAPPacketRef packet)
 {
-    EAPClientPluginFuncPacketDump *	packet_dump;
+    EAPClientPluginFuncCopyPacketDescription *	copy_packet_description;
+    EAPClientPluginFuncPacketDump *		packet_dump;
 
     packet_dump = module->info->packet_dump;
-    if (packet_dump == NULL) {
+    copy_packet_description = module->info->copy_packet_description;
+    if (packet_dump == NULL && copy_packet_description == NULL) {
 	return (FALSE);
     }
     if (out_f == NULL || packet == NULL) {
 	/* just testing for existence of packet dump routine */
 	return (TRUE);
     }
-    return (*packet_dump)(out_f, packet);
+    if (packet_dump != NULL) {
+	return (*packet_dump)(out_f, packet);
+    }
+    return (S_dump_packet_description(out_f, packet, copy_packet_description));
 }
 
 CFStringRef
@@ -415,3 +439,18 @@ EAPClientModulePluginCopyIdentity(EAPClientModuleRef module,
     }
     return (*identity)(plugin);
 }
+
+CFStringRef
+EAPClientModulePluginCopyPacketDescription(EAPClientModuleRef module,
+					   const EAPPacketRef packet,
+					   bool * packet_is_valid)
+{
+    EAPClientPluginFuncCopyPacketDescription *	copy_packet_description;
+
+    copy_packet_description = module->info->copy_packet_description;
+    if (copy_packet_description == NULL) {
+	return (NULL);
+    }
+    return (*copy_packet_description)(packet, packet_is_valid);
+}
+

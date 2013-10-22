@@ -412,6 +412,12 @@
 #define	SMB_COM_WRITE_BULK_DATA         0xDA
 
 /*
+ * Used internally to identify async SMB_COM_NT_TRANSACT requests
+ * Actual command gets set to SMB_COM_NT_TRANSACT
+ */
+#define	SMB_COM_NT_TRANSACT_ASYNC       0xE0
+
+/*
  * SMB_COM_TRANSACTION2 subcommands
  */
 #define	SMB_TRANS2_OPEN2			0x00
@@ -492,6 +498,12 @@
 #define FILE_ACTION_ADDED_STREAM		0x00000006
 #define FILE_ACTION_REMOVED_STREAM		0x00000007
 #define FILE_ACTION_MODIFIED_STREAM		0x00000008
+
+/*
+ * Server Message Notify actions
+ */
+#define SVRMSG_SHUTDOWN_START           FILE_ACTION_REMOVED
+#define SVRMSG_SHUTDOWN_CANCELLED       FILE_ACTION_ADDED
 
 /*
  * SMB_QFS_ATTRIBUTE_INFO bits.
@@ -1013,7 +1025,7 @@ struct ntsid {
 #define	SMB_MAXPKTLEN			0x0001FFFF
 #define	SMB_LARGE_MAXPKTLEN		0x00FFFFFF	/* Non NetBIOS connections */
 #define	SMB_MAXCHALLENGELEN		8
-#define	SMB_MAXFNAMELEN			255	/* Keep in sync with MAXNAMLEN */
+#define	SMB_MAXFNAMELEN			255	/* Max pathname component length */
 
 #define	SMB_RCNDELAY		2	/* seconds between reconnect attempts */
 /*

@@ -1410,6 +1410,9 @@ possibilities
     NEEDS_BOOLEAN_T	indicates the FreeBSD 9 and above system needs a
 			boolean_t definition for <sys/conf.h>.
 
+    NEEDS_MACH_PORT_T	is defined for Darwin versions that need the inclusion
+			of the header file <device/device_types.h>.
+
     NEVER_HASDCACHE	keeps the Customize script from offering to
 			change HASDCACHE by its presence anywhere
 			in a dialect's machine.h header file --
@@ -1446,6 +1449,12 @@ possibilities
 			indicates the HP-UX PSTAT header files require
 			this symbol to be defined for proper handling of
 			stream export data.
+
+    SAVE_MP_IN_SFILE	indicates the dialect needs to have the mounts
+			structure pointer for a file system search argument
+			recorded in the dialect's sfile structure.  This
+			definition is made in the dialect's dlsof.h header
+			file within the sfile structure.
 
     TIMEVAL_LSOF        defines the name of the timeval structure.
 			The default is timeval.  /dev/kmem-based
@@ -1822,4 +1831,4 @@ keep in mind the private, one-man nature of current lsof support.
 
 
 Vic Abell <abe@purdue.edu>
-September 27, 2011
+??? ??? 2012

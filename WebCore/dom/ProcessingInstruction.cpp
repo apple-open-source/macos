@@ -23,15 +23,18 @@
 
 #include "CSSStyleSheet.h"
 #include "CachedCSSStyleSheet.h"
+#include "CachedResourceLoader.h"
+#include "CachedResourceRequest.h"
 #include "CachedXSLStyleSheet.h"
 #include "Document.h"
-#include "CachedResourceLoader.h"
+#include "DocumentStyleSheetCollection.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "XSLStyleSheet.h"
 #include "XMLDocumentParser.h" // for parseAttributes()
 #include "MediaList.h"
+#include "StyleSheetContents.h"
 
 namespace WebCore {
 
@@ -64,7 +67,7 @@ ProcessingInstruction::~ProcessingInstruction()
         m_cachedSheet->removeClient(this);
 
     if (inDocument())
-        document()->removeStyleSheetCandidateNode(this);
+        document()->styleSheetCollection()->removeStyleSheetCandidateNode(this);
 }
 
 void ProcessingInstruction::setData(const String& data, ExceptionCode&)
@@ -116,7 +119,7 @@ void ProcessingInstruction::checkStyleSheet()
         HashMap<String, String>::const_iterator i = attrs.find("type");
         String type;
         if (i != attrs.end())
-            type = i->second;
+            type = i->value;
 
         m_isCSS = type.isEmpty() || type == "text/css";
 #if ENABLE(XSLT)
@@ -159,9 +162,9 @@ void ProcessingInstruction::checkStyleSheet()
                 return;
             
             m_loading = true;
-            document()->addPendingSheet();
+            document()->styleSheetCollection()->addPendingSheet();
             
-            ResourceRequest request(document()->completeURL(href));
+            CachedResourceRequest request(ResourceRequest(document()->completeURL(href)));
 #if ENABLE(XSLT)
             if (m_isXSL)
                 m_cachedSheet = document()->cachedResourceLoader()->requestXSLStyleSheet(request);
@@ -171,15 +174,16 @@ void ProcessingInstruction::checkStyleSheet()
                 String charset = attrs.get("charset");
                 if (charset.isEmpty())
                     charset = document()->charset();
+                request.setCharset(charset);
 
-                m_cachedSheet = document()->cachedResourceLoader()->requestCSSStyleSheet(request, charset);
+                m_cachedSheet = document()->cachedResourceLoader()->requestCSSStyleSheet(request);
             }
             if (m_cachedSheet)
                 m_cachedSheet->addClient(this);
             else {
                 // The request may have been denied if (for example) the stylesheet is local and the document is remote.
                 m_loading = false;
-                document()->removePendingSheet();
+                document()->styleSheetCollection()->removePendingSheet();
             }
         }
     }
@@ -197,7 +201,7 @@ bool ProcessingInstruction::isLoading() const
 bool ProcessingInstruction::sheetLoaded()
 {
     if (!isLoading()) {
-        document()->removePendingSheet();
+        document()->styleSheetCollection()->removePendingSheet();
         return true;
     }
     return false;
@@ -213,7 +217,7 @@ void ProcessingInstruction::setCSSStyleSheet(const String& href, const KURL& bas
     ASSERT(m_isCSS);
     CSSParserContext parserContext(document(), baseURL, charset);
 
-    RefPtr<StyleSheetInternal> newSheet = StyleSheetInternal::create(href, baseURL, parserContext);
+    RefPtr<StyleSheetContents> newSheet = StyleSheetContents::create(href, parserContext);
 
     RefPtr<CSSStyleSheet> cssSheet = CSSStyleSheet::create(newSheet, this);
     cssSheet->setDisabled(m_alternate);
@@ -240,7 +244,7 @@ void ProcessingInstruction::setXSLStyleSheet(const String& href, const KURL& bas
 void ProcessingInstruction::parseStyleSheet(const String& sheet)
 {
     if (m_isCSS)
-        static_cast<CSSStyleSheet*>(m_sheet.get())->internal()->parseString(sheet);
+        static_cast<CSSStyleSheet*>(m_sheet.get())->contents()->parseString(sheet);
 #if ENABLE(XSLT)
     else if (m_isXSL)
         static_cast<XSLStyleSheet*>(m_sheet.get())->parseString(sheet);
@@ -253,7 +257,7 @@ void ProcessingInstruction::parseStyleSheet(const String& sheet)
     m_loading = false;
 
     if (m_isCSS)
-        static_cast<CSSStyleSheet*>(m_sheet.get())->internal()->checkLoaded();
+        static_cast<CSSStyleSheet*>(m_sheet.get())->contents()->checkLoaded();
 #if ENABLE(XSLT)
     else if (m_isXSL)
         static_cast<XSLStyleSheet*>(m_sheet.get())->checkLoaded();
@@ -287,23 +291,23 @@ void ProcessingInstruction::addSubresourceAttributeURLs(ListHashSet<KURL>& urls)
     addSubresourceURL(urls, sheet()->baseURL());
 }
 
-Node::InsertionNotificationRequest ProcessingInstruction::insertedInto(Node* insertionPoint)
+Node::InsertionNotificationRequest ProcessingInstruction::insertedInto(ContainerNode* insertionPoint)
 {
     Node::insertedInto(insertionPoint);
     if (!insertionPoint->inDocument())
         return InsertionDone;
-    document()->addStyleSheetCandidateNode(this, m_createdByParser);
+    document()->styleSheetCollection()->addStyleSheetCandidateNode(this, m_createdByParser);
     checkStyleSheet();
     return InsertionDone;
 }
 
-void ProcessingInstruction::removedFrom(Node* insertionPoint)
+void ProcessingInstruction::removedFrom(ContainerNode* insertionPoint)
 {
     Node::removedFrom(insertionPoint);
     if (!insertionPoint->inDocument())
         return;
     
-    document()->removeStyleSheetCandidateNode(this);
+    document()->styleSheetCollection()->removeStyleSheetCandidateNode(this);
 
     if (m_sheet) {
         ASSERT(m_sheet->ownerNode() == this);

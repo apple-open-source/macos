@@ -62,7 +62,7 @@ tq_pop(vh)
 	    h->last->next = NULL;
 	}
     }
-    return (last);
+    return last;
 }
 
 /*
@@ -130,4 +130,34 @@ tq_append(vh, vl)
 	h->last->next = l;
     l->prev = h->last;
     h->last = tail;
+}
+
+/*
+ * Remove element from the tail_queue
+ */
+void
+tq_remove(vh, vl)
+    void *vh;
+    void *vl;
+{
+    struct list_head_proto *h = (struct list_head_proto *)vh;
+    struct list_proto *l = (struct list_proto *)vl;
+
+    if (h->first == l && h->last == l) {
+	/* Single element in the list. */
+	h->first = NULL;
+	h->last = NULL;
+    } else {
+	/* At least two elements in the list. */
+	if (h->first == l) {
+	    h->first = l->next;
+	    h->first->prev = h->first;
+	} else if (h->last == l) {
+	    h->last = l->prev;
+	    h->last->next = NULL;
+	} else {
+	    l->prev->next = l->next;
+	    l->next->prev = l->prev;
+	}
+    }
 }

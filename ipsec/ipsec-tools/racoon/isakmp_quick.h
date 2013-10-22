@@ -32,17 +32,19 @@
 #ifndef _ISAKMP_QUICK_H
 #define _ISAKMP_QUICK_H
 
-extern int quick_i1prep __P((struct ph2handle *, vchar_t *));
-extern int quick_i1send __P((struct ph2handle *, vchar_t *));
-extern int quick_i2recv __P((struct ph2handle *, vchar_t *));
-extern int quick_i2send __P((struct ph2handle *, vchar_t *));
-extern int quick_i3recv __P((struct ph2handle *, vchar_t *));
+#include "racoon_types.h"
 
-extern int quick_r1recv __P((struct ph2handle *, vchar_t *));
-extern int quick_r1prep __P((struct ph2handle *, vchar_t *));
-extern int quick_r2send __P((struct ph2handle *, vchar_t *));
-extern int quick_r3recv __P((struct ph2handle *, vchar_t *));
-extern int quick_r3send __P((struct ph2handle *, vchar_t *));
-extern int quick_r3prep __P((struct ph2handle *, vchar_t *));
+extern int quick_iprep  (phase2_handle_t *, vchar_t *);
+extern int quick_i1send (phase2_handle_t *, vchar_t *);
+extern int quick_i2recv (phase2_handle_t *, vchar_t *);
+extern int quick_i3send (phase2_handle_t *, vchar_t *);
+extern int quick_i4recv (phase2_handle_t *, vchar_t *);
+
+extern int quick_r1recv (phase2_handle_t *, vchar_t *);
+extern int quick_rprep  (phase2_handle_t *, vchar_t *);
+extern int quick_r2send (phase2_handle_t *, vchar_t *);
+extern int quick_r3recv (phase2_handle_t *, vchar_t *);
+extern int quick_r4send (phase2_handle_t *, vchar_t *);
+extern int quick_rfinalize (phase2_handle_t *, vchar_t *);
 
 #endif /* _ISAKMP_QUICK_H */

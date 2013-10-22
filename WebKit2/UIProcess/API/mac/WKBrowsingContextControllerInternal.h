@@ -30,4 +30,9 @@
 /* This should only be called from associate view. */
 - (id)_initWithPageRef:(WKPageRef)pageRef;
 
+/* Returns a WKBrowsingContextController associated with the WKPageRef. */
++ (WKBrowsingContextController *)_browsingContextControllerForPageRef:(WKPageRef)pageRef;
+
++ (NSMutableSet *)customSchemes;
+
 @end

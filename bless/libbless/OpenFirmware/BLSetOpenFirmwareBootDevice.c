@@ -86,7 +86,7 @@ int BLSetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm) {
         if(NULL != strsep(&restargs, "\t")) { // nvram must separate the name from the value with a tab
             restargs[strlen(restargs)-1] = '\0'; // remove \n
             
-            err = BLPreserveBootArgs(context, restargs, bootargs+strlen(bootargs));
+            err = BLPreserveBootArgs(context, restargs, bootargs+strlen(bootargs), sizeof bootargs - strlen(bootargs));
         }
     }
     

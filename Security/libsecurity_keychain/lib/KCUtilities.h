@@ -25,8 +25,7 @@
 #define _SECURITY_KCUTILITIES_H_
 
 #include <security_utilities/errors.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-
+#include <SecBase.h>
 namespace Security
 {
 
@@ -34,7 +33,7 @@ namespace Security
 // Helpers for memory pointer validation
 //
 template <class T>
-inline T &RequiredParam(T *ptr,OSStatus err = paramErr)
+inline T &RequiredParam(T *ptr,OSStatus err = errSecParam)
 {
     if (ptr == NULL)
         MacOSError::throwMe(err);

@@ -69,6 +69,8 @@ int template_flag;
 int rfc1510_bitstring;
 int one_code_file;
 char *option_file;
+int parse_units_flag = 1;
+char *type_file_string = "krb5-types.h";
 int version_flag;
 int help_flag;
 struct getargs args[] = {
@@ -81,6 +83,8 @@ struct getargs args[] = {
     { "sequence", 0, arg_strings, &seq },
     { "one-code-file", 0, arg_flag, &one_code_file },
     { "option-file", 0, arg_string, &option_file },
+    { "parse-units", 0, arg_negative_flag, &parse_units_flag },
+    { "type-file", 0, arg_string, &type_file_string },
     { "version", 0, arg_flag, &version_flag },
     { "help", 0, arg_flag, &help_flag }
 };
@@ -103,7 +107,7 @@ main(int argc, char **argv)
     const char *name = NULL;
     int optidx = 0;
     char **arg = NULL;
-    size_t len = 0, i;
+    int len = 0, i;
 
     setprogname(argv[0]);
     if(getarg(args, num_args, argc, argv, &optidx))

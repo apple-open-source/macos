@@ -15,6 +15,7 @@
 #define CODEGEN_ASMPRINTER_DWARFACCELTABLE_H__
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/DataTypes.h"
@@ -97,7 +98,7 @@ class DwarfAccelTable {
     TableHeader (uint32_t data_len) :
       magic (MagicHash), version (1), hash_function (eHashFunctionDJB),
       bucket_count (0), hashes_count (0), header_data_len (data_len)
-    {};
+    {}
 
 #ifndef NDEBUG
     void print(raw_ostream &O) {
@@ -149,7 +150,7 @@ public:
     AtomType type; // enum AtomType
     uint16_t form; // DWARF DW_FORM_ defines
 
-    Atom(AtomType type, uint16_t form) : type(type), form(form) {};
+    Atom(AtomType type, uint16_t form) : type(type), form(form) {}
     static const char * AtomTypeString(enum AtomType);
 #ifndef NDEBUG
     void print(raw_ostream &O) {
@@ -164,22 +165,12 @@ public:
 
  private:
   struct TableHeaderData {
-    
     uint32_t die_offset_base;
-    std::vector<Atom> Atoms;
+    SmallVector<Atom, 1> Atoms;
 
-    TableHeaderData(std::vector<DwarfAccelTable::Atom> &AtomList,
-                    uint32_t offset = 0) :
-      die_offset_base(offset) {
-      for (size_t i = 0, e = AtomList.size(); i != e; ++i)
-        Atoms.push_back(AtomList[i]);
-    }
-    
-    TableHeaderData(DwarfAccelTable::Atom Atom, uint32_t offset = 0)
-    : die_offset_base(offset) {
-      Atoms.push_back(Atom);
-    }
-    
+    TableHeaderData(ArrayRef<Atom> AtomList, uint32_t offset = 0)
+      : die_offset_base(offset), Atoms(AtomList.begin(), AtomList.end()) { }
+
 #ifndef NDEBUG
     void print (raw_ostream &O) {
       O << "die_offset_base: " << die_offset_base << "\n";
@@ -207,7 +198,7 @@ public:
 
     HashDataContents(DIE *D, char Flags) :
       Die(D),
-      Flags(Flags) { };
+      Flags(Flags) { }
     #ifndef NDEBUG
     void print(raw_ostream &O) const {
       O << "  Offset: " << Die->getOffset() << "\n";
@@ -221,11 +212,11 @@ private:
     StringRef Str;
     uint32_t HashValue;
     MCSymbol *Sym;
-    std::vector<struct HashDataContents*> Data; // offsets
-    HashData(StringRef S) : Str(S) {
+    ArrayRef<HashDataContents*> Data; // offsets
+    HashData(StringRef S, ArrayRef<HashDataContents*> Data)
+      : Str(S), Data(Data) {
       HashValue = DwarfAccelTable::HashDJB(S);
     }
-    void addData(struct HashDataContents *Datum) { Data.push_back(Datum); }
     #ifndef NDEBUG
     void print(raw_ostream &O) {
       O << "Name: " << Str << "\n";
@@ -246,8 +237,8 @@ private:
     #endif
   };
 
-  DwarfAccelTable(const DwarfAccelTable&); // DO NOT IMPLEMENT
-  void operator=(const DwarfAccelTable&);  // DO NOT IMPLEMENT
+  DwarfAccelTable(const DwarfAccelTable&) LLVM_DELETED_FUNCTION;
+  void operator=(const DwarfAccelTable&) LLVM_DELETED_FUNCTION;
 
   // Internal Functions
   void EmitHeader(AsmPrinter *);
@@ -255,15 +246,18 @@ private:
   void EmitHashes(AsmPrinter *);
   void EmitOffsets(AsmPrinter *, MCSymbol *);
   void EmitData(AsmPrinter *, DwarfDebug *D);
-  
+
+  // Allocator for HashData and HashDataContents.
+  BumpPtrAllocator Allocator;
+
   // Output Variables
   TableHeader Header;
   TableHeaderData HeaderData;
   std::vector<HashData*> Data;
 
   // String Data
-  typedef std::vector<struct HashDataContents*> DataArray;
-  typedef StringMap<DataArray> StringEntries;
+  typedef std::vector<HashDataContents*> DataArray;
+  typedef StringMap<DataArray, BumpPtrAllocator&> StringEntries;
   StringEntries Entries;
 
   // Buckets/Hashes/Offsets
@@ -274,8 +268,7 @@ private:
   
   // Public Implementation
  public:
-  DwarfAccelTable(DwarfAccelTable::Atom);
-  DwarfAccelTable(std::vector<DwarfAccelTable::Atom> &);
+  DwarfAccelTable(ArrayRef<DwarfAccelTable::Atom>);
   ~DwarfAccelTable();
   void AddName(StringRef, DIE*, char = 0);
   void FinalizeTable(AsmPrinter *, const char *);

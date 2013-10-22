@@ -6,7 +6,7 @@
 
 require "socket"
 
-gs = TCPserver.open(0)
+gs = TCPServer.open(0)
 addr = gs.addr
 addr.shift
 printf("server is on %s\n", addr.join(":"))
@@ -26,7 +26,7 @@ loop do
 	s.close
 	socks.delete(s)
       # single thread gets may block whole service
-      elsif str = s.gets   
+      elsif str = s.gets
 	  s.write(str)
       end
     end

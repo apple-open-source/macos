@@ -1,32 +1,18 @@
 export USE_APPLE_PB_SUPPORT = all
-OFLAG = -Os
 RC_OS = macos
-X_CFLAGS =
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
-endif
-
-ifeq "clang" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -Wall \
-	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
+  DSYMUTIL = $(shell xcrun -find -sdk ${SDKROOT} dsymutil)
 else
-  CFLAGS = $(OFLAG) -g -Wall $(X_CFLAGS) \
-	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
+  DSYMUTIL = dsymutil
 endif
 
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
-
+OFLAG = -Os
+CFLAGS = $(OFLAG) -g -Wall \
+	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
-
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
-else
-  MKDIRS = /bin/mkdir -p
-endif
+MKDIRS = /bin/mkdir -p
 
 SRCROOT = .
 OBJROOT = .
@@ -35,6 +21,7 @@ VPATH = $(OFILE_DIR)
 SYMROOT = .
 
 EFIBINDIR = /usr/local/efi/bin
+LOCBINDIR = /usr/local/bin
 
 CFILES = makerelocs.c mtoc.c
 
@@ -44,15 +31,8 @@ PROGS = makerelocs.NEW mtoc.NEW
 
 all:	$(OFILE_DIR) $(SYMROOT) $(PROGS)
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file \
-		$(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 makerelocs.NEW: makerelocs.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -60,6 +40,7 @@ makerelocs.NEW: makerelocs.o
 		$(OFILE_DIR)/makerelocs.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/makerelocs.NEW \
 		$(OFILE_DIR)/makerelocs.private.o
+	$(DSYMUTIL) $(SYMROOT)/makerelocs.NEW
 
 mtoc.NEW: mtoc.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -67,11 +48,13 @@ mtoc.NEW: mtoc.o
 		$(OFILE_DIR)/mtoc.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/mtoc.NEW \
 		$(OFILE_DIR)/mtoc.private.o
+	$(DSYMUTIL) $(SYMROOT)/mtoc.NEW
 
 clean: shlib_clean
 	-rm -f \
 	$(SYMROOT)/makerelocs.NEW \
 	$(SYMROOT)/mtoc.NEW
+	-rm -r -f *dSYM
 
 shlib_clean:
 	-rm -f \
@@ -79,18 +62,20 @@ shlib_clean:
 	$(OFILE_DIR)/makerelocs.private.o \
 	$(OFILE_DIR)/mtoc.o \
 	$(OFILE_DIR)/mtoc.private.o
-	-rm -f $(OFILE_DIR)/Makedep make.out
+	-rm -f make.out
 
 install: all install
 
 install:
-	$(MKDIRS) $(DSTROOT)$(EFIBINDIR)
+	$(MKDIRS) $(DSTROOT)$(EFIBINDIR) $(DSTROOT)$(LOCBINDIR)
 # For now don't overwrite the existing makerelocs program the efitools project
 # builds.
 #	install -c -s -m 555 $(SYMROOT)/makerelocs.NEW \
 #		$(DSTROOT)$(EFIBINDIR)/makerelocs
 	install -c -s -m 555 $(SYMROOT)/mtoc.NEW \
 		$(DSTROOT)$(EFIBINDIR)/mtoc
+	install -c -s -m 555 $(SYMROOT)/mtoc.NEW \
+		$(DSTROOT)$(LOCBINDIR)/mtoc
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)
@@ -100,5 +85,3 @@ installsrc:
 
 $(OFILE_DIR) $(SYMROOT):
 	$(MKDIRS) $@
-
--include $(OFILE_DIR)/Makedep

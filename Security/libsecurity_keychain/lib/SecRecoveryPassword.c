@@ -129,8 +129,6 @@ static void secNormalize(CFMutableStringRef theString, CFLocaleRef theLocale)
 #define RETURN_KEY_SIZE 16
 #define MAXANSWERBUFF 4096
 #define PBKDF_ROUNDS 100000
-static uint8_t salt[16] = { 0x0A, 0x1F, 0x0A, 0x1F, 0x0A, 0x1F, 0x0A, 0x1F, 0x0A, 0x1F, 0x0A, 0x1F, 0x0A, 0x1F, 0x0A, 0x1F };
-static int saltLen = sizeof(salt);
 
 static SecKeyRef secDeriveKeyFromAnswers(CFArrayRef answers, CFLocaleRef theLocale)
 {
@@ -235,7 +233,7 @@ digestString(CFStringRef str)
 static CFDataRef
 b64encode(CFDataRef input)
 {
-	CFDataRef retval;
+	CFDataRef retval = NULL;
     CFErrorRef error = NULL;
 	SecTransformRef encodeTrans = SecEncodeTransformCreate(kSecBase64Encoding, &error);
     if(error == NULL) SecTransformSetAttribute(encodeTrans, kSecTransformInputAttributeName, input, &error);
@@ -247,7 +245,7 @@ b64encode(CFDataRef input)
 static CFDataRef
 b64decode(CFDataRef input)
 {
-	CFDataRef retval;
+	CFDataRef retval = NULL;
     CFErrorRef error = NULL;
 	SecTransformRef decodeTrans = SecDecodeTransformCreate(kSecBase64Encoding, &error);
     if(error == NULL) SecTransformSetAttribute(decodeTrans, kSecTransformInputAttributeName, input, &error);
@@ -351,7 +349,7 @@ SecWrapRecoveryPasswordWithAnswers(CFStringRef password, CFArrayRef questions, C
 	CFLocaleRef theLocale = CFLocaleCopyCurrent();
     CFStringRef theLocaleString = CFLocaleGetIdentifier(theLocale);
     
-    int ix, limit;
+    CFIndex ix, limit;
     
     if (!password || !questions || !answers)
 		return NULL;
@@ -442,7 +440,7 @@ SecUnwrapRecoveryPasswordWithAnswers(CFDictionaryRef recref, CFArrayRef answers)
  */
  
 CFStringRef 
-SecCreateRecoveryPassword()
+SecCreateRecoveryPassword(void)
 {
 	CFStringRef result = NULL;
 	CFErrorRef error = NULL;

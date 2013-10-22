@@ -42,12 +42,16 @@
 #if TIME_WITH_SYS_TIME
 # include <time.h>
 #endif
-
+#ifdef HAVE_GETUTXID
+# include <utmpx.h>
+#endif
+#ifdef HAVE_GETUTID
+# include <utmp.h>
+#endif
 #ifdef HAVE_SYSCTL
 # include <sys/sysctl.h>
 #endif
 
-#include "compat.h"
 #include "missing.h"
 
 /*
@@ -102,7 +106,6 @@ get_boottime(tv)
 
 #elif defined(HAVE_GETUTXID)
 
-#include <utmpx.h>
 int
 get_boottime(tv)
     struct timeval *tv;
@@ -121,7 +124,6 @@ get_boottime(tv)
 
 #elif defined(HAVE_GETUTID)
 
-#include <utmp.h>
 int
 get_boottime(tv)
     struct timeval *tv;

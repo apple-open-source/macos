@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,9 +41,11 @@
 #include "pathwatch.h"
 #include "notifyd.h"
 #include "service.h"
-#include "notify_ipc.h"
 #include "pathwatch.h"
 #include "timer.h"
+
+#include "notify_ipc.h"
+#include "notify_private.h"
 
 #define forever for(;;)
 #define IndexNull -1
@@ -51,7 +53,6 @@
 /* Compile flags */
 #define RUN_TIME_CHECKS
 
-#define NOTIFYD_PROCESS_FLAG 0x00000001
 #define CONFIG_FILE_PATH "/etc/notify.conf"
 #define DEBUG_LOG_PATH "/var/log/notifyd.log"
 
@@ -63,8 +64,6 @@
 static int notifyd_token;
 
 static char *status_file = NULL;
-
-extern int __notify_78945668_info__;
 
 typedef union
 {
@@ -164,7 +163,7 @@ fprint_quick_client(FILE *f, client_t *c, int pname)
 static void
 fprint_quick_name_info(FILE *f, name_info_t *n)
 {
-	void *st;
+	list_t *sl;
 	client_t *c;
 
 	if (n == NULL) return;
@@ -178,15 +177,13 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 
 	fprintf(f, "\n");
 
-	st = _nc_table_traverse_start(n->subscription_table);
-	while (st != NULL)
+	for (sl = n->subscriptions; sl != NULL; sl = _nc_list_next(sl))
 	{
-		c = _nc_table_traverse(n->subscription_table, st);
+		c = _nc_list_data(sl);
 		if (c == NULL) break;
 
 		fprint_quick_client(f, c, 0);
 	}
-	_nc_table_traverse_end(n->subscription_table, st);
 
 	fprintf(f, "\n");
 }
@@ -194,7 +191,7 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 static void
 fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, pid_t *max_pid)
 {
-	void *st;
+	list_t *sl;
 	client_t *c;
 	uint32_t i, reg[N_NOTIFY_TYPES];
 
@@ -223,12 +220,11 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, 
 
 	for (i = 0; i < N_NOTIFY_TYPES; i++) reg[i] = 0;
 
-	st = _nc_table_traverse_start(n->subscription_table);
-	while (st != NULL)
+	for (sl = n->subscriptions; sl != NULL; sl = _nc_list_next(sl))
 	{
 		list_t *l;
 
-		c = _nc_table_traverse(n->subscription_table, st);
+		c = _nc_list_data(sl);
 		if (c == NULL) break;
 
 		if ((c->pid != (pid_t)-1) && (c->pid > *max_pid)) *max_pid = c->pid;
@@ -253,20 +249,17 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, table_t *pid_table, 
 			default: reg[0]++;
 		}
 	}
-	_nc_table_traverse_end(n->subscription_table, st);
 
 	fprintf(f, "types: none %u   memory %u   plain %u   port %u   file %u   signal %u\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]);
 
-	st = _nc_table_traverse_start(n->subscription_table);
-	while (st != NULL)
+	for (sl = n->subscriptions; sl != NULL; sl = _nc_list_next(sl))
 	{
-		c = _nc_table_traverse(n->subscription_table, st);
+		c = _nc_list_data(sl);
 		if (c == NULL) break;
 
 		fprintf(f, "\n");
 		fprint_client(f, c);
 	}
-	_nc_table_traverse_end(n->subscription_table, st);
 }
 
 static void
@@ -300,6 +293,8 @@ fprint_status(FILE *f)
 	timer_t *timer;
 	table_t *pid_table;
 	pid_t pid, max_pid;
+	uint32_t count;
+	portproc_data_t *pdata;
 
 	pid_table = _nc_table_new(0);
 	max_pid = 0;
@@ -310,54 +305,80 @@ fprint_status(FILE *f)
 	fprintf(f, "\n");
 
 	fprintf(f, "--- STATISTICS ---\n");
-	fprintf(f, "post        %llu\n", call_statistics.post);
-	fprintf(f, "    id      %llu\n", call_statistics.post_by_id);
-	fprintf(f, "    name    %llu\n", call_statistics.post_by_name);
-	fprintf(f, "    fetch   %llu\n", call_statistics.post_by_name_and_fetch_id);
-	fprintf(f, "    no_op   %llu\n", call_statistics.post_no_op);
+	fprintf(f, "post         %llu\n", call_statistics.post);
+	fprintf(f, "    id       %llu\n", call_statistics.post_by_id);
+	fprintf(f, "    name     %llu\n", call_statistics.post_by_name);
+	fprintf(f, "    fetch    %llu\n", call_statistics.post_by_name_and_fetch_id);
+	fprintf(f, "    no_op    %llu\n", call_statistics.post_no_op);
 	fprintf(f, "\n");
-	fprintf(f, "register    %llu\n", call_statistics.reg);
-	fprintf(f, "    plain   %llu\n", call_statistics.reg_plain);
-	fprintf(f, "    check   %llu\n", call_statistics.reg_check);
-	fprintf(f, "    signal  %llu\n", call_statistics.reg_signal);
-	fprintf(f, "    file    %llu\n", call_statistics.reg_file);
-	fprintf(f, "    port    %llu\n", call_statistics.reg_port);
+	fprintf(f, "register     %llu\n", call_statistics.reg);
+	fprintf(f, "    plain    %llu\n", call_statistics.reg_plain);
+	fprintf(f, "    check    %llu\n", call_statistics.reg_check);
+	fprintf(f, "    signal   %llu\n", call_statistics.reg_signal);
+	fprintf(f, "    file     %llu\n", call_statistics.reg_file);
+	fprintf(f, "    port     %llu\n", call_statistics.reg_port);
 	fprintf(f, "\n");
-	fprintf(f, "check       %llu\n", call_statistics.check);
-	fprintf(f, "cancel      %llu\n", call_statistics.cancel);
-	fprintf(f, "cleanup     %llu\n", call_statistics.cleanup);
-	fprintf(f, "regenerate  %llu\n", call_statistics.regenerate);
+	fprintf(f, "check        %llu\n", call_statistics.check);
+	fprintf(f, "cancel       %llu\n", call_statistics.cancel);
+	fprintf(f, "cleanup      %llu\n", call_statistics.cleanup);
+	fprintf(f, "regenerate   %llu\n", call_statistics.regenerate);
 	fprintf(f, "\n");
-	fprintf(f, "suspend     %llu\n", call_statistics.suspend);
-	fprintf(f, "resume      %llu\n", call_statistics.resume);
-	fprintf(f, "suspend_pid %llu\n", call_statistics.suspend_pid);
-	fprintf(f, "resume_pid  %llu\n", call_statistics.resume_pid);
+	fprintf(f, "suspend      %llu\n", call_statistics.suspend);
+	fprintf(f, "resume       %llu\n", call_statistics.resume);
+	fprintf(f, "suspend_pid  %llu\n", call_statistics.suspend_pid);
+	fprintf(f, "resume_pid   %llu\n", call_statistics.resume_pid);
 	fprintf(f, "\n");
-	fprintf(f, "get_state   %llu\n", call_statistics.get_state);
-	fprintf(f, "    id      %llu\n", call_statistics.get_state_by_id);
-	fprintf(f, "    client  %llu\n", call_statistics.get_state_by_client);
-	fprintf(f, "    fetch   %llu\n", call_statistics.get_state_by_client_and_fetch_id);
+	fprintf(f, "get_state    %llu\n", call_statistics.get_state);
+	fprintf(f, "    id       %llu\n", call_statistics.get_state_by_id);
+	fprintf(f, "    client   %llu\n", call_statistics.get_state_by_client);
+	fprintf(f, "    fetch    %llu\n", call_statistics.get_state_by_client_and_fetch_id);
 	fprintf(f, "\n");
-	fprintf(f, "set_state   %llu\n", call_statistics.set_state);
-	fprintf(f, "    id      %llu\n", call_statistics.set_state_by_id);
-	fprintf(f, "    client  %llu\n", call_statistics.set_state_by_client);
-	fprintf(f, "    fetch   %llu\n", call_statistics.set_state_by_client_and_fetch_id);
+	fprintf(f, "set_state    %llu\n", call_statistics.set_state);
+	fprintf(f, "    id       %llu\n", call_statistics.set_state_by_id);
+	fprintf(f, "    client   %llu\n", call_statistics.set_state_by_client);
+	fprintf(f, "    fetch    %llu\n", call_statistics.set_state_by_client_and_fetch_id);
 	fprintf(f, "\n");
-	fprintf(f, "get_val     %llu\n", call_statistics.get_val);
-	fprintf(f, "set_val     %llu\n", call_statistics.set_val);
+	fprintf(f, "get_owner    %llu\n", call_statistics.get_owner);
+	fprintf(f, "set_owner    %llu\n", call_statistics.set_owner);
 	fprintf(f, "\n");
-	fprintf(f, "get_owner   %llu\n", call_statistics.get_owner);
-	fprintf(f, "set_owner   %llu\n", call_statistics.set_owner);
+	fprintf(f, "get_access   %llu\n", call_statistics.get_access);
+	fprintf(f, "set_access   %llu\n", call_statistics.set_access);
 	fprintf(f, "\n");
-	fprintf(f, "get_access  %llu\n", call_statistics.get_access);
-	fprintf(f, "set_access  %llu\n", call_statistics.set_access);
+	fprintf(f, "monitor      %llu\n", call_statistics.monitor_file);
+	fprintf(f, "svc_path     %llu\n", call_statistics.service_path);
+	fprintf(f, "svc_timer    %llu\n", call_statistics.service_timer);
+
 	fprintf(f, "\n");
-	fprintf(f, "monitor     %llu\n", call_statistics.monitor_file);
-	fprintf(f, "svc_path    %llu\n", call_statistics.service_path);
-	fprintf(f, "svc_timer   %llu\n", call_statistics.service_timer);
+	fprintf(f, "name         alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_name_alloc , global.notify_state->stat_name_free, global.notify_state->stat_name_alloc - global.notify_state->stat_name_free);
+	fprintf(f, "subscription alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_client_alloc , global.notify_state->stat_client_free, global.notify_state->stat_client_alloc - global.notify_state->stat_client_free);
+	fprintf(f, "portproc     alloc %9u   free %9u   extant %9u\n", global.notify_state->stat_portproc_alloc , global.notify_state->stat_portproc_free, global.notify_state->stat_portproc_alloc - global.notify_state->stat_portproc_free);
 	fprintf(f, "\n");
 
-	fprintf(f, "--- NAMES ---\n");
+	count = 0;
+	tt = _nc_table_traverse_start(global.notify_state->port_table);
+	while (tt != NULL)
+	{
+		pdata = _nc_table_traverse(global.notify_state->port_table, tt);
+		if (pdata == NULL) break;
+		count++;
+	}
+	_nc_table_traverse_end(global.notify_state->port_table, tt);
+	fprintf(f, "port count   %u\n", count);
+
+	count = 0;
+	tt = _nc_table_traverse_start(global.notify_state->proc_table);
+	while (tt != NULL)
+	{
+		pdata = _nc_table_traverse(global.notify_state->proc_table, tt);
+		if (pdata == NULL) break;
+		count++;
+	}
+	_nc_table_traverse_end(global.notify_state->proc_table, tt);
+	fprintf(f, "proc count   %u\n", count);
+	fprintf(f, "\n");
+
+	fprintf(f, "--- NAME TABLE ---\n");
+	count = 0;
 	tt = _nc_table_traverse_start(global.notify_state->name_table);
 
 	while (tt != NULL)
@@ -366,12 +387,15 @@ fprint_status(FILE *f)
 		if (n == NULL) break;
 		fprint_name_info(f, n->name, n, pid_table, &max_pid);
 		fprintf(f, "\n");
+		count++;
 	}
 
+	fprintf(f, "--- NAME COUNT %u ---\n", count);
 	_nc_table_traverse_end(global.notify_state->name_table, tt);
 	fprintf(f, "\n");
 
 	fprintf(f, "--- SUBSCRIPTION TABLE ---\n");
+	count = 0;
 	tt = _nc_table_traverse_start(global.notify_state->client_table);
 
 	while (tt != NULL)
@@ -379,19 +403,23 @@ fprint_status(FILE *f)
 		c = _nc_table_traverse(global.notify_state->client_table, tt);
 		if (c == NULL) break;
 		fprint_quick_client(f, c, 1);
+		count++;
 	}
 
+	fprintf(f, "--- SUBSCRIPTION COUNT %u ---\n", count);
 	_nc_table_traverse_end(global.notify_state->client_table, tt);
 	fprintf(f, "\n");
 
-	fprintf(f, "--- CONTROLLED NAMES ---\n");
+	fprintf(f, "--- CONTROLLED NAME ---\n");
 	for (i = 0; i < global.notify_state->controlled_name_count; i++)
 	{
 		fprintf(f, "%s %u %u %03x\n", global.notify_state->controlled_name[i]->name, global.notify_state->controlled_name[i]->uid, global.notify_state->controlled_name[i]->gid, global.notify_state->controlled_name[i]->access);
 	}
+	fprintf(f, "--- CONTROLLED NAME COUNT %u ---\n", global.notify_state->controlled_name_count);
 	fprintf(f, "\n");
 
-	fprintf(f, "--- PUBLIC SERVICES ---\n");
+	fprintf(f, "--- PUBLIC SERVICE ---\n");
+	count = 0;
 	tt = _nc_table_traverse_start(global.notify_state->name_table);
 	while (tt != NULL)
 	{
@@ -399,6 +427,7 @@ fprint_status(FILE *f)
 		if (n == NULL) break;
 		if (n->private == NULL) continue;
 
+		count++;
 		info = (svc_info_t *)n->private;
 
 		if (info->type == 0)
@@ -438,10 +467,12 @@ fprint_status(FILE *f)
 		}
 	}
 
+	fprintf(f, "--- PUBLIC SERVICE COUNT %u ---\n", count);
 	_nc_table_traverse_end(global.notify_state->name_table, tt);
 	fprintf(f, "\n");
 
-	fprintf(f, "--- PRIVATE SERVICES ---\n");
+	fprintf(f, "--- PRIVATE SERVICE ---\n");
+	count = 0;
 	tt = _nc_table_traverse_start(global.notify_state->client_table);
 	while (tt != NULL)
 	{
@@ -449,6 +480,7 @@ fprint_status(FILE *f)
 		if (c == NULL) break;
 		if (c->private == NULL) continue;
 
+		count++;
 		info = (svc_info_t *)c->private;
 		n = c->name_info;
 
@@ -485,6 +517,7 @@ fprint_status(FILE *f)
 		}
 	}
 
+	fprintf(f, "--- PRIVATE SERVICE COUNT %u ---\n", count);
 	_nc_table_traverse_end(global.notify_state->client_table, tt);
 	fprintf(f, "\n");
 
@@ -497,14 +530,14 @@ fprint_status(FILE *f)
 		list_t *x;
 		list_t *l = _nc_table_find_n(pid_table, pid);
 		if (l == NULL) continue;
-	
+
 		mem_count = 0;
 		plain_count = 0;
 		file_count = 0;
 		port_count = 0;
 		sig_count = 0;
 		com_port_count = 0;
-	
+
 		for (x = l; x != NULL; x = _nc_list_next(x))
 		{
 			c = _nc_list_data(x);
@@ -523,28 +556,28 @@ fprint_status(FILE *f)
 				{
 					case NOTIFY_TYPE_NONE:
 						break;
-						
+
 					case NOTIFY_TYPE_PLAIN:
 						plain_count++;
 						break;
-						
+
 					case NOTIFY_TYPE_MEMORY:
 						mem_count++;
 						break;
-						
+
 					case NOTIFY_TYPE_PORT:
 						port_count++;
 						if (c->port == common_port) com_port_count++;
 						break;
-						
+
 					case NOTIFY_TYPE_FILE:
 						file_count++;
 						break;
-						
+
 					case NOTIFY_TYPE_SIGNAL:
 						sig_count++;
 						break;
-						
+
 					default: break;
 				}
 			}
@@ -670,6 +703,11 @@ daemon_post_client(uint64_t cid)
 
 	c = _nc_table_find_64(global.notify_state->client_table, cid);
 	if (c == NULL) return;
+
+	if ((c->notify_type == NOTIFY_TYPE_MEMORY) && (c->name_info != NULL) && (c->name_info->slot != (uint32_t)-1))
+	{
+		global.shared_memory_base[c->name_info->slot]++;
+	}
 
 	_notify_lib_post_client(global.notify_state, c);
 }
@@ -1086,7 +1124,7 @@ main(int argc, const char *argv[])
 	debug_log_file = fopen("/var/log/notifyd.log", "a");
 #endif
 
-	__notify_78945668_info__ = NOTIFYD_PROCESS_FLAG;
+	notify_set_options(NOTIFY_OPT_DISABLE);
 
 	/* remove limit of number of file descriptors */
 	rlim.rlim_max = RLIM_INFINITY;

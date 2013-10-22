@@ -1,0 +1,9 @@
+#include "lib.xcconfig"
+
+ARCHS[sdk=macosx*] = x86_64
+VALID_ARCHS[sdk=macosx*] = x86_64
+
+// TODO: This horrible hack makes #import <Foundation/Foundation.h> work on osx
+HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR)/SOSCircle $(PROJECT_DIR)/../utilities $(PROJECT_DIR)/ipc $(PROJECT_DIR)/../libsecurity_asn1 $(PROJECT_DIR)/../regressions $(PROJECT_DIR)/../libsecurity_keychain/libDER  $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers
+
+CLANG_ENABLE_OBJC_ARC = YES

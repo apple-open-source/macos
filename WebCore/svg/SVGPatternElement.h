@@ -40,16 +40,18 @@ namespace WebCore {
 
 struct PatternAttributes;
  
-class SVGPatternElement : public SVGStyledElement,
-                          public SVGURIReference,
-                          public SVGTests,
-                          public SVGLangSpace,
-                          public SVGExternalResourcesRequired,
-                          public SVGFitToViewBox {
+class SVGPatternElement FINAL : public SVGStyledElement,
+                                public SVGURIReference,
+                                public SVGTests,
+                                public SVGLangSpace,
+                                public SVGExternalResourcesRequired,
+                                public SVGFitToViewBox {
 public:
     static PassRefPtr<SVGPatternElement> create(const QualifiedName&, Document*);
 
     void collectPatternAttributes(PatternAttributes&) const;
+
+    virtual AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const;
 
 private:
     SVGPatternElement(const QualifiedName&, Document*);
@@ -58,7 +60,7 @@ private:
     virtual bool needsPendingResourceHandling() const { return false; }
 
     bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 

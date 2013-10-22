@@ -2,12 +2,6 @@
 
 #define __IPSEC_BUILD__ 1
 
-/* If printf doesn't support %zu. */
-#undef BROKEN_PRINTF
-
-/* Enable admin port */
-#define ENABLE_ADMINPORT 1
-
 /* Enable VPN control port */
 #define ENABLE_VPNCONTROL_PORT 1
 
@@ -68,10 +62,6 @@
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
 
-/* Enable GSS API */
-/* %%%%%%% change this back when conflict fixed */
-#undef HAVE_GSSAPI
-
 /* Have iconv using const */
 #define HAVE_ICONV_2ND_CONST 1
 
@@ -80,13 +70,6 @@
 
 /* Have ipsec_policy_t */
 #undef HAVE_IPSEC_POLICY_T
-
-/* Hybrid authentication uses PAM */
-//#define HAVE_LIBPAM 1
-#undef HAVE_LIBPAM
-
-/* Hybrid authentication uses RADIUS */
-#undef HAVE_LIBRADIUS
 
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
@@ -116,12 +99,6 @@
 #define HAVE_OPENDIR 1
 #endif
 
-#if TARGET_OS_EMBEDDED
-#undef HAVE_LIBLDAP
-#else
-#define HAVE_LIBLDAP 1
-#endif
-
 #define HAVE_NETINET6_IPSEC 1
 
 #define HAVE_GETIFADDRS 1
@@ -139,21 +116,11 @@
 
 #endif
 
-/* Define to 1 if you have the `pam_start' function. */
-#if TARGET_OS_EMBEDDED
-#undef HAVE_PAM_START
-#else
-#define HAVE_PAM_START 1
-#endif
-
 /* Are PF_KEY policy priorities supported? */
 #undef HAVE_PFKEY_POLICY_PRIORITY
 
 /* Have forward policy */
 #undef HAVE_POLICY_FWD
-
-/* Define to 1 if you have the `rad_create_request' function. */
-#undef HAVE_RAD_CREATE_REQUEST
 
 /* Is readline available? */
 #undef HAVE_READLINE
@@ -250,7 +217,7 @@
 #undef PACKAGE_VERSION
 
 /* Define as the return type of signal handlers (`int' or `void'). */
-#define RETSIGTYPE int
+#define RETSIGTYPE void
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -261,26 +228,11 @@
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #define TM_IN_SYS_TIME 1
 
-/* A 'va_copy' style function */
-#undef VA_COPY
-
-/* Version number of package */
-#undef VERSION
-
 /* SHA2 support */
 #define WITH_SHA2 1
 
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */
 #define YYTEXT_POINTER 1
-
-/* Define to empty if `const' does not conform to ANSI C. */
-#undef const
-
-/* Define to `int' if <sys/types.h> does not define. */
-#undef pid_t
-
-/* Define to `unsigned' if <sys/types.h> does not define. */
-#undef size_t
 
 #define USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS 1

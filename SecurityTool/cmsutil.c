@@ -3,25 +3,25 @@
  * License Version 1.1 (the "License"); you may not use this file
  * except in compliance with the License. You may obtain a copy of
  * the License at http://www.mozilla.org/MPL/
- * 
+ *
  * Software distributed under the License is distributed on an "AS
  * IS" basis, WITHOUT WARRANTY OF ANY KIND, either express or
  * implied. See the License for the specific language governing
  * rights and limitations under the License.
- * 
+ *
  * The Original Code is the Netscape security libraries.
- * 
+ *
  * The Initial Developer of the Original Code is Netscape
- * Communications Corporation.  Portions created by Netscape are 
+ * Communications Corporation.  Portions created by Netscape are
  * Copyright (C) 1994-2000 Netscape Communications Corporation.  All
  * Rights Reserved.
- * 
+ *
  * Contributor(s):
- * 
+ *
  * Alternatively, the contents of this file may be used under the
  * terms of the GNU General Public License Version 2 or later (the
- * "GPL"), in which case the provisions of the GPL are applicable 
- * instead of those above.  If you wish to allow use of your 
+ * "GPL"), in which case the provisions of the GPL are applicable
+ * instead of those above.  If you wish to allow use of your
  * version of this file only under the terms of the GPL and not to
  * allow others to use your version of this file under the MPL,
  * indicate your decision by deleting the provisions above and
@@ -164,11 +164,11 @@ static SecCertificateRef CERT_FindUserCertByUsage(CFTypeRef keychainOrArray, con
     SecCertificateRef cert = NULL;
     SecPolicyRef policy;
     OSStatus rv;
-    
+
     policy = CERT_PolicyForCertUsage(certUsage, emailAddress);
     if (!policy)
         goto loser;
-    
+
     SEC_CHECK2(SecKeychainSearchCreateForCertificateByEmail(keychainOrArray, emailAddress, &search),
               "create search for certificate with email: \"%s\"", emailAddress);
     for (;;)
@@ -195,7 +195,7 @@ loser:
     return cert;
 }
 
-static SecIdentityRef CERT_FindIdentityByUsage(CFTypeRef keychainOrArray, 
+static SecIdentityRef CERT_FindIdentityByUsage(CFTypeRef keychainOrArray,
                                                const char *emailAddress,
                                                SECCertUsage certUsage,
                                                Boolean validOnly)
@@ -243,7 +243,7 @@ loser:
     cert = CERT_FindUserCertByUsage(keychainOrArray, emailAddress, certUsage, validOnly);
     if (!cert)
         goto loser;
-    
+
     SEC_CHECK2(SecIdentityCreateWithCertificate(keychainOrArray, cert, &identity),
                "failed to find private key for certificate with email: \"%s\"", emailAddress);
 loser:
@@ -265,15 +265,15 @@ loser:
     return certificate;
 }
 
-static SecIdentityRef CERT_FindIdentityBySubjectKeyID(CFTypeRef keychainOrArray, 
+static SecIdentityRef CERT_FindIdentityBySubjectKeyID(CFTypeRef keychainOrArray,
                                                const char *subjectKeyIDString)
 {
 	// ss will be something like "B2ACD31AC8D0DA62E7679432ADDD3398EF66948B"
-	
+
     SecCertificateRef certificate = NULL;
 	SecIdentityRef identityRef = NULL;
 	OSStatus rv;
-	
+
 	CSSM_SIZE len = strlen(subjectKeyIDString)/2;
 	CSSM_DATA subjectKeyID =  {0,};
 	subjectKeyID.Length = len;
@@ -443,15 +443,15 @@ static SecCmsMessageRef decode(FILE *out, CSSM_DATA *output, CSSM_DATA *input,
     CSSM_DATA *item, sitem = { 0, };
     CFTypeRef policy = NULL;
     OSStatus rv;
-    
+
     pwcb     = (PK11PasswordFunc)((decodeOptions->options->password != NULL) ? ownpw : NULL);
-    pwcb_arg = (decodeOptions->options->password != NULL) ? 
+    pwcb_arg = (decodeOptions->options->password != NULL) ?
         (void *)decodeOptions->options->password : NULL;
-    
+
     if (decodeOptions->contentFile) // detached content: grab content file
         SECU_FileToItem(&sitem, decodeOptions->contentFile);
-    
-    SEC_CHECK(SecCmsDecoderCreate(NULL, 
+
+    SEC_CHECK(SecCmsDecoderCreate(NULL,
                                   NULL, NULL,         /* content callback     */
                                   pwcb, pwcb_arg,     /* password callback    */
                                   decodeOptions->dkcb, /* decrypt key callback */
@@ -530,10 +530,10 @@ static SecCmsMessageRef decode(FILE *out, CSSM_DATA *output, CSSM_DATA *input,
                     const char *px = signercn ? CFStringGetCStringPtr(signercn,kCFStringEncodingMacRoman) : "<NULL>";
                     fprintf(out, "\n\t\tsigner%d.id=\"%s\"; ", j, px);
                 }
-                SecCmsSignedDataVerifySignerInfo(sigd, j, decodeOptions->options->certDBHandle, 
+                SecCmsSignedDataVerifySignerInfo(sigd, j, decodeOptions->options->certDBHandle,
                                                  policy, NULL);
                 if (decodeOptions->headerLevel >= 0)
-                    fprintf(out, "signer%d.status=%s; ", j, 
+                    fprintf(out, "signer%d.status=%s; ", j,
                             SecCmsUtilVerificationStatusToString(SecCmsSignerInfoGetVerificationStatus(si)));
                 /* XXX what do we do if we don't print headers? */
             }
@@ -622,7 +622,7 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
 
 	if (signOptions->subjectKeyID)
 	{
-		if ((identity = CERT_FindIdentityBySubjectKeyID(signOptions->options->certDBHandle, 
+		if ((identity = CERT_FindIdentityBySubjectKeyID(signOptions->options->certDBHandle,
                                                signOptions->subjectKeyID)) == NULL)
 		{
 			sec_error("could not find signing identity for subject key ID: \"%s\"", signOptions->subjectKeyID);
@@ -634,7 +634,7 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
 	}
 	else if (signOptions->nickname)
 	{
-		if ((identity = CERT_FindIdentityByUsage(signOptions->options->certDBHandle, 
+		if ((identity = CERT_FindIdentityByUsage(signOptions->options->certDBHandle,
 											 signOptions->nickname,
 											 signOptions->options->certUsage,
 											 false)) == NULL)
@@ -659,7 +659,7 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
 		sec_error("no signing identity was specified");
 		return NULL;
 	}
-	
+
     // Get the cert from the identity
     SEC_CHECK(SecIdentityCopyCertificate(identity, &cert),
               "SecIdentityCopyCertificate");
@@ -703,7 +703,7 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
         CFErrorRef error = NULL;
         SecCmsMessageSetTSAContext(cmsg, SecCmsTSAGetDefaultContext(&error));
     }
-    
+
     if (!signOptions->encryptionKeyPreferenceNick)
     {
         /* check signing cert for fitness as encryption cert */
@@ -749,7 +749,7 @@ static SecCmsMessageRef signed_data(struct signOptionsStr *signOptions)
         /* specific email address for encryption preferred encryption cert specified.
            get the cert, add it to the message */
         if ((ekpcert = CERT_FindUserCertByUsage(
-            signOptions->options->certDBHandle, 
+            signOptions->options->certDBHandle,
             signOptions->encryptionKeyPreferenceNick,
             certUsageEmailRecipient, false)) == NULL)
         {
@@ -906,7 +906,7 @@ static OSStatus get_enc_params(struct encryptOptionsStr *encryptOptions)
         SecArenaPoolFree(tmparena, false);
     }
 
-    // get the content info for the enveloped data 
+    // get the content info for the enveloped data
     nlevels = SecCmsMessageContentLevelCount(env_cmsg);
     for (i = 0; i < nlevels; i++)
     {
@@ -948,7 +948,7 @@ static SecCmsMessageRef encrypted_data(struct encryptOptionsStr *encryptOptions)
     // create the message object on its own pool
     SEC_CHECK0(cmsg = SecCmsMessageCreate(NULL), "cannot create CMS message");
     // build chain of objects: message->encryptedData->data
-    SEC_CHECK0(encd = SecCmsEncryptedDataCreate(cmsg, encryptOptions->bulkalgtag, 
+    SEC_CHECK0(encd = SecCmsEncryptedDataCreate(cmsg, encryptOptions->bulkalgtag,
                                                 encryptOptions->keysize),
                "cannot create CMS encryptedData object");
     SEC_CHECK0(cinfo = SecCmsMessageGetContentInfo(cmsg),
@@ -1085,7 +1085,7 @@ int cms_util(int argc, char **argv)
     CSSM_DATA dummy = { 0, };
     CSSM_DATA envmsg = { 0, };
     OSStatus rv;
-    
+
     inFile = stdin;
     outFile = stdout;
     envFileName = NULL;
@@ -1109,7 +1109,7 @@ int cms_util(int argc, char **argv)
     encryptOptions.bulkalgtag = SEC_OID_UNKNOWN;
     encryptOptions.bulkkey = NULL;
     encryptOptions.keysize = -1;
-    
+
     // Parse command line arguments
     while ((ch = getopt(argc, argv, "CDEGH:N:OPSTY:Z:c:de:h:i:k:no:p:r:su:vt:")) != -1)
     {
@@ -1196,7 +1196,7 @@ int cms_util(int argc, char **argv)
             }
             signOptions.encryptionKeyPreferenceNick = strdup(optarg);
             break;
-            
+
         case 'c':
             if (mode != DECODE)
             {
@@ -1211,18 +1211,18 @@ int cms_util(int argc, char **argv)
                 goto loser;
             }
             break;
-            
+
 #ifdef HAVE_DODUMPSTATES
         case 'd':
             doDumpStates++;
             break;
 #endif /* HAVE_DODUMPSTATES */
-            
+
         case 'e':
             envFileName = strdup(optarg);
             encryptOptions.envFile = fopen(envFileName, "rb");	// PR_RDONLY, 00660);
             break;
-            
+
         case 'h':
             if (mode != DECODE) {
                 sec_error("option -h only supported with option -D");
@@ -1243,11 +1243,11 @@ int cms_util(int argc, char **argv)
                 goto loser;
             }
             break;
-            
+
         case 'k':
             keychainName = optarg;
             break;
-            
+
         case 'n':
             if (mode != DECODE)
             {
@@ -1272,10 +1272,10 @@ int cms_util(int argc, char **argv)
                 result = 2; /* Trigger usage message. */
                 goto loser;
             }
-            
+
             options.password = (PK11PasswordFunc)ownpw;//strdup(optarg);
             break;
-            
+
         case 'r':
             if (!optarg)
             {
@@ -1296,12 +1296,12 @@ int cms_util(int argc, char **argv)
             encryptOptions.recipients = envelopeOptions.recipients;
             certsonlyOptions.recipients = envelopeOptions.recipients;
             break;
-            
+
         case 's':
             cms_update_single_byte = 1;
             break;
-            
-        case 'Z':	
+
+        case 'Z':
             if (!optarg)
             {
                 sec_error("option -Z must have a value");
@@ -1309,7 +1309,7 @@ int cms_util(int argc, char **argv)
                 goto loser;
             }
             signOptions.subjectKeyID = strdup(optarg);
-			
+
             break;
 
         case 'u':
@@ -1347,7 +1347,7 @@ int cms_util(int argc, char **argv)
     }
 
     result = 0;
-    
+
     if (mode != CERTSONLY)
         SECU_FileToItem(&input, inFile);
     if (inFile != stdin)
@@ -1370,7 +1370,7 @@ int cms_util(int argc, char **argv)
 
     if (cms_verbose)
         fprintf(stderr, "Got default certdb\n");
-    
+
     switch (mode)
     {
     case DECODE:
@@ -1433,7 +1433,7 @@ int cms_util(int argc, char **argv)
         {
             SECU_FileToItem(&envmsg, encryptOptions.envFile);
             decodeOptions.options = &options;
-            encryptOptions.envmsg = decode(NULL, &dummy, &envmsg, 
+            encryptOptions.envmsg = decode(NULL, &dummy, &envmsg,
                                            &decodeOptions);
             if (encryptOptions.envmsg == NULL)
             {
@@ -1503,7 +1503,7 @@ int cms_util(int argc, char **argv)
                 fprintf(stderr, "password [NULL]\n");
         }
 
-        SEC_CHECK(SecCmsEncoderCreate(cmsg, 
+        SEC_CHECK(SecCmsEncoderCreate(cmsg,
                                       NULL, NULL,     /* DER output callback  */
                                       &output, arena, /* destination storage  */
                                       pwcb, pwcb_arg, /* password callback    */
@@ -1515,7 +1515,7 @@ int cms_util(int argc, char **argv)
         {
             fprintf(stderr, "input len [%ld]\n", input.Length);
             {
-                unsigned int j; 
+                unsigned int j;
                 for (j = 0; j < input.Length; ++j)
                     fprintf(stderr, "%2x%c", input.Data[j], (j>0&&j%35==0)?'\n':' ');
             }

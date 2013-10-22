@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
 #include "DAMount.h"
 #include "DAQueue.h"
 #include "DAStage.h"
+#include "DAThread.h"
 
 #include <sysexits.h>
 #include <unistd.h>
@@ -36,6 +37,17 @@
 #include <sys/dirent.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
+
+static int __DADiskRefreshRemoveMountPoint( void * context )
+{
+    CFURLRef mountpoint = context;
+
+    DAMountRemoveMountPoint( mountpoint );
+
+    CFRelease( mountpoint );
+
+    return 0;
+}
 
 static int __DAFileSystemSetAdoption( DAFileSystemRef filesystem, CFURLRef mountpoint, Boolean adoption )
 {
@@ -152,7 +164,9 @@ DAReturn _DADiskRefresh( DADiskRef disk )
 
             mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
 
-            DAMountRemoveMountPoint( mountpoint );
+            CFRetain( mountpoint );
+
+            DAThreadExecute( __DADiskRefreshRemoveMountPoint, ( void * ) mountpoint, NULL, NULL );
 
             DADiskSetBypath( disk, NULL );
 

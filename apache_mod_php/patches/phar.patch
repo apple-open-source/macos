@@ -1,29 +1,3 @@
-diff -aur php-5.3.3/Zend/zend_multibyte.c php/Zend/zend_multibyte.c
---- php-5.3.3/Zend/zend_multibyte.c	2010-01-05 12:46:53.000000000 -0800
-+++ php/Zend/zend_multibyte.c	2010-11-19 19:01:25.000000000 -0800
-@@ -1128,6 +1128,22 @@
- 	const unsigned char *p;
- 	int wchar_size = 2;
- 	int le = 0;
-+	const unsigned char halt[] = "__halt_compiler();";
-+	size_t len = strlen(halt);
-+
-+	p = script;
-+	while ((p-script) < script_size) {
-+		p = memchr(p, halt[0], script_size-(p-script));
-+		if (!p) {
-+			break;
-+		}
-+		if (!strncasecmp(p, halt, len)) {
-+	        /* assume it's not UTF-16, UTF-32. To be thorough, we'd have to look for __halt_compiler(); in
-+    	     * UTF-16 and 32, BE and LE and compare the offsets, but let's say this is a fair trade off */
-+			return NULL;
-+		}
-+		p++;
-+	}
-
- 	/* utf-16 or utf-32? */
- 	p = script;
 diff -aur php-5.3.6/ext/phar/Makefile.frag php/ext/phar/Makefile.frag
 --- php-5.3.6/ext/phar/Makefile.frag	2011-02-25 01:32:17.000000000 -0800 
 +++ php/ext/phar/Makefile.frag	2011-03-18 14:07:34.000000000 -0700

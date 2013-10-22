@@ -24,7 +24,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2013 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_vfsops.c	1.58	06/03/24 SMI"
@@ -184,6 +184,12 @@ autofs_zone_init(void)
 		goto fail;
 	}
 
+	fnp->fn_mnt_lock = lck_mtx_alloc_init(autofs_lck_grp, NULL);
+	if (fnp->fn_mnt_lock == NULL) {
+		IOLog("autofs_zone_init: Couldn't create autofs global fnnode mnt mutex\n");
+		goto fail;
+	}
+        
 	fngp->fng_rootfnnodep = fnp;
 	fngp->fng_fnnode_count = 1;
 	fngp->fng_printed_not_running_msg = 0;
@@ -197,6 +203,8 @@ autofs_zone_init(void)
 
 fail:
 	if (fnp != NULL) {
+		if (fnp->fn_mnt_lock != NULL)
+			lck_mtx_free(fnp->fn_mnt_lock, autofs_lck_grp);
 		if (fnp->fn_rwlock != NULL)
 			lck_rw_free(fnp->fn_rwlock, autofs_lck_grp);
 		if (fnp->fn_lock != NULL)
@@ -1935,9 +1943,20 @@ autofs_homedirmounter_dev_close(dev_t dev, __unused int flag, __unused int fmt,
 			vp = homedirmounter_process->mount_point;
 			if (vp != NULL) {
 				fnp = vntofn(vp);
+                                
+                                /* 
+                                 * <13595777> Keep from racing with
+                                 * homedirmounter 
+                                 */
+                                if (fnp->fn_flags & MF_HOMEDIRMOUNT_LOCKED) {
+                                        lck_mtx_unlock(fnp->fn_mnt_lock);
+                                }
+                                
 				lck_mtx_lock(fnp->fn_lock);
-				fnp->fn_flags &= ~MF_HOMEDIRMOUNT;
+				fnp->fn_flags &= ~(MF_HOMEDIRMOUNT |
+                                                   MF_HOMEDIRMOUNT_LOCKED);
 				lck_mtx_unlock(fnp->fn_lock);
+                                
 				vnode_rele(vp);
 			}
 			FREE(homedirmounter_process, M_AUTOFS);
@@ -1989,11 +2008,11 @@ auto_is_homedirmounter_process(vnode_t vp, int pid)
  * Otherwise, return EINVAL.
  */
 int
-auto_mark_vnode_homedirmount(vnode_t vp, int pid)
+auto_mark_vnode_homedirmount(vnode_t vp, int pid, int need_lock)
 {
 	struct homedirmounter_process *homedirmounter_process;
 	int error;
-	fnnode_t *fnp;
+	fnnode_t *fnp = NULL;
 
 	lck_rw_lock_shared(autofs_homedirmounter_processes_rwlock);
 	LIST_FOREACH(homedirmounter_process, &homedirmounter_processes,
@@ -2048,6 +2067,23 @@ auto_mark_vnode_homedirmount(vnode_t vp, int pid)
 		}
 	}
 	lck_rw_unlock_shared(autofs_homedirmounter_processes_rwlock);
+        
+        if ((fnp != NULL) && (need_lock)) {
+                /* 
+                 * <13595777> homedirmounter is getting ready to do a 
+                 * mount. To keep from racing with an autofs mount already
+                 * in progress, take the fn_mnt_lock. This lock will be freed
+                 * in autofs_homedirmounter_dev_close(). Its expected that 
+                 * homedirmounter will open the magic autofs dev, do the magic
+                 * fsctl, then close the magic autofs dev.
+                 */
+                lck_mtx_lock(fnp->fn_mnt_lock);
+
+                lck_mtx_lock(fnp->fn_lock);
+                fnp->fn_flags |= MF_HOMEDIRMOUNT_LOCKED;
+                lck_mtx_unlock(fnp->fn_lock);
+        }
+        
 	return (EINVAL);
 }
 
@@ -2210,7 +2246,7 @@ auto_control_ioctl(__unused dev_t dev, u_long cmd, caddr_t data,
 			 * fsid; that will provoke an unmount of
 			 * all triggered mounts below it.
 			 */
-			error = vfs_unmountbyfsid((fsid_t *)data, 0,
+			error = vfs_unmountbyfsid((fsid_t *)data, MNT_NOBLOCK,
 			    vfs_context_current());
 
 			/*
@@ -2558,8 +2594,16 @@ auto_module_stop(__unused kmod_info_t *ki, __unused void *data)
 		FREE(fngp->fng_rootfnnodep, M_AUTOFS);
 
 		lck_mtx_free(fngp->fng_flush_notification_lock, autofs_lck_grp);
-		FREE(fngp, M_AUTOFS);
-	}
+
+                if (fngp->fng_rootfnnodep->fn_mnt_lock != NULL)
+			lck_mtx_free(fngp->fng_rootfnnodep->fn_mnt_lock, autofs_lck_grp);
+		if (fngp->fng_rootfnnodep->fn_rwlock != NULL)
+			lck_rw_free(fngp->fng_rootfnnodep->fn_rwlock, autofs_lck_grp);
+		if (fngp->fng_rootfnnodep->fn_lock != NULL)
+			lck_mtx_free(fngp->fng_rootfnnodep->fn_lock, autofs_lck_grp);
+
+                FREE(fngp, M_AUTOFS);
+        }
 
 	lck_mtx_unlock(autofs_nodeid_lock);
 	lck_mtx_free(autofs_nodeid_lock, autofs_lck_grp);

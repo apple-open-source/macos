@@ -1,18 +1,18 @@
 Project        = mod_perl
-ProjectVersion = $(Project)-2.0.5
+ProjectVersion = $(Project)-2.0.7
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-# multi-version support
-VERSIONERDIR := /usr/local/versioner
-
 # Perl multi-version support
-PERLVERSIONS := $(VERSIONERDIR)/perl/versions
-PERLSUBDEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PERLVERSIONS))
-PERLDEFAULT := $(shell grep '^$(PERLSUBDEFAULT)' $(PERLVERSIONS))
-PERLUNORDEREDVERS := $(shell grep -v '^DEFAULT' $(PERLVERSIONS))
+
+VERSIONERDIR = /usr/local/versioner
+PERLVERSIONS = $(VERSIONERDIR)/perl/versions
+DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PERLVERSIONS))
+KNOWNVERSIONS := $(shell grep -v '^DEFAULT' $(PERLVERSIONS))
+BOOTSTRAPPERL = 5.16
+VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPERL))
 # do default version last
-PERLORDEREDVERS := $(filter-out $(PERLDEFAULT),$(PERLUNORDEREDVERS)) $(PERLDEFAULT)
+PERLORDEREDVERS = $(filter-out $(DEFAULT),$(VERSIONS)) $(DEFAULT)
 
 PERLEXTRASLIB := $(subst Perl,Perl/Extras,$(shell perl -e 'require Config; print $$Config::Config{installprivlib}'))
 PERLARCHLIB := $(shell perl -e 'require Config; print $$Config::Config{installarchlib}')

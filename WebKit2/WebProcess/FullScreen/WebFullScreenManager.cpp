@@ -28,13 +28,14 @@
 #if ENABLE(FULLSCREEN_API)
 
 #include "Connection.h"
-#include "MessageID.h"
 #include "WebCoreArgumentCoders.h"
+#include "WebFrame.h"
 #include "WebFullScreenManagerProxyMessages.h"
 #include "WebPage.h"
-#include "WebProcess.h"
 #include <WebCore/Color.h>
 #include <WebCore/Element.h>
+#include <WebCore/Frame.h>
+#include <WebCore/FrameView.h>
 #include <WebCore/Page.h>
 #include <WebCore/RenderLayer.h>
 #include <WebCore/RenderLayerBacking.h>
@@ -78,9 +79,9 @@ WebCore::Element* WebFullScreenManager::element()
     return m_element.get(); 
 }
 
-void WebFullScreenManager::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
+void WebFullScreenManager::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageDecoder& decoder)
 {
-    didReceiveWebFullScreenManagerMessage(connection, messageID, arguments);
+    didReceiveWebFullScreenManagerMessage(connection, decoder);
 }
 
 bool WebFullScreenManager::supportsFullScreen(bool withKeyboard)
@@ -108,6 +109,7 @@ void WebFullScreenManager::willEnterFullScreen()
 {
     ASSERT(m_element);
     m_element->document()->webkitWillEnterFullScreenForElement(m_element.get());
+    m_page->hidePageBanners();
     m_element->document()->updateLayout();
     m_page->forceRepaintWithoutCallback();
     m_finalFrame = screenRectOfContents(m_element.get());
@@ -125,6 +127,7 @@ void WebFullScreenManager::willExitFullScreen()
     ASSERT(m_element);
     m_finalFrame = screenRectOfContents(m_element.get());
     m_element->document()->webkitWillExitFullScreenForElement(m_element.get());
+    m_page->showPageBanners();
     m_page->injectedBundleFullScreenClient().beganExitFullScreen(m_page.get(), m_finalFrame, m_initialFrame);
 }
 
@@ -149,6 +152,16 @@ void WebFullScreenManager::requestExitFullScreen()
 void WebFullScreenManager::close()
 {
     m_page->injectedBundleFullScreenClient().closeFullScreen(m_page.get());
+}
+
+void WebFullScreenManager::saveScrollPosition()
+{
+    m_scrollPosition = m_page->corePage()->mainFrame()->view()->scrollPosition();
+}
+
+void WebFullScreenManager::restoreScrollPosition()
+{
+    m_page->corePage()->mainFrame()->view()->setScrollPosition(m_scrollPosition);
 }
 
 } // namespace WebKit

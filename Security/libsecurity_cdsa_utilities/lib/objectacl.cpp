@@ -172,7 +172,9 @@ void ObjectAcl::validateOwner(AclAuthorization authorizationHint,
 
 void ObjectAcl::validateOwner(AclValidationContext &ctx)
 {
-	instantiateAcl();
+    instantiateAcl();
+    
+    ctx.init(this, mOwner.subject);
     if (mOwner.validate(ctx))
         return;
     CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
@@ -187,7 +189,7 @@ void ObjectAcl::exportBlob(CssmData &publicBlob, CssmData &privateBlob)
 {
 	instantiateAcl();
     Writer::Counter pubSize, privSize;
-	Endian<uint32> entryCount = mEntries.size();
+	Endian<uint32> entryCount = (uint32)mEntries.size();
     mOwner.exportBlob(pubSize, privSize);
 	pubSize(entryCount);
     for (EntryMap::iterator it = begin(); it != end(); it++)
@@ -260,14 +262,14 @@ unsigned int ObjectAcl::getRange(const std::string &tag,
 {
     if (!tag.empty()) {	// tag restriction in effect
         range = mEntries.equal_range(tag);
-        uint32 count = mEntries.count(tag);
+        unsigned int count = (unsigned int)mEntries.count(tag);
         if (count == 0)
             CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_ENTRY_TAG);
         return count;
     } else {				// try all tags
         range.first = mEntries.begin();
         range.second = mEntries.end();
-        return mEntries.size();
+        return (unsigned int)mEntries.size();
     }
 }
 

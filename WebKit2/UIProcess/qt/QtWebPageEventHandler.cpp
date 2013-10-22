@@ -24,16 +24,18 @@
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebMouseEvent.h"
 #include "NativeWebWheelEvent.h"
-#include "QtViewportInteractionEngine.h"
+#include "PageViewportControllerClientQt.h"
 #include "WebPageProxy.h"
 #include "qquickwebpage_p.h"
 #include "qquickwebview_p.h"
 #include <QCursor>
 #include <QDrag>
 #include <QGuiApplication>
-#include <QInputPanel>
+#include <QInputEvent>
+#include <QInputMethod>
 #include <QMimeData>
-#include <QtQuick/QQuickCanvas>
+#include <QMouseEvent>
+#include <QQuickWindow>
 #include <QStyleHints>
 #include <QTextFormat>
 #include <QTouchEvent>
@@ -89,7 +91,7 @@ static inline WebCore::DragOperation dropActionToDragOperation(Qt::DropActions a
 
 QtWebPageEventHandler::QtWebPageEventHandler(WKPageRef pageRef, QQuickWebPage* qmlWebPage, QQuickWebView* qmlWebView)
     : m_webPageProxy(toImpl(pageRef))
-    , m_interactionEngine(0)
+    , m_viewportController(0)
     , m_panGestureRecognizer(this)
     , m_pinchGestureRecognizer(this)
     , m_tapGestureRecognizer(this)
@@ -98,13 +100,15 @@ QtWebPageEventHandler::QtWebPageEventHandler(WKPageRef pageRef, QQuickWebPage* q
     , m_previousClickButton(Qt::NoButton)
     , m_clickCount(0)
     , m_postponeTextInputStateChanged(false)
+    , m_isTapHighlightActive(false)
+    , m_isMouseButtonPressed(false)
 {
-    connect(qApp->inputPanel(), SIGNAL(visibleChanged()), this, SLOT(inputPanelVisibleChanged()));
+    connect(qApp->inputMethod(), SIGNAL(visibleChanged()), this, SLOT(inputPanelVisibleChanged()));
 }
 
 QtWebPageEventHandler::~QtWebPageEventHandler()
 {
-    disconnect(qApp->inputPanel(), SIGNAL(visibleChanged()), this, SLOT(inputPanelVisibleChanged()));
+    disconnect(qApp->inputMethod(), SIGNAL(visibleChanged()), this, SLOT(inputPanelVisibleChanged()));
 }
 
 void QtWebPageEventHandler::handleMouseMoveEvent(QMouseEvent* ev)
@@ -117,6 +121,7 @@ void QtWebPageEventHandler::handleMouseMoveEvent(QMouseEvent* ev)
     static QPointF lastPos = QPointF();
     QTransform fromItemTransform = m_webPage->transformFromItem();
     QPointF webPagePoint = fromItemTransform.map(ev->localPos());
+    ev->accept();
     if (lastPos == webPagePoint)
         return;
     lastPos = webPagePoint;
@@ -138,6 +143,7 @@ void QtWebPageEventHandler::handleMousePressEvent(QMouseEvent* ev)
         m_previousClickButton = ev->button();
     }
 
+    ev->accept();
     m_webPageProxy->handleMouseEvent(NativeWebMouseEvent(ev, fromItemTransform, m_clickCount));
 
     m_lastClick = webPagePoint;
@@ -146,6 +152,7 @@ void QtWebPageEventHandler::handleMousePressEvent(QMouseEvent* ev)
 
 void QtWebPageEventHandler::handleMouseReleaseEvent(QMouseEvent* ev)
 {
+    ev->accept();
     QTransform fromItemTransform = m_webPage->transformFromItem();
     m_webPageProxy->handleMouseEvent(NativeWebMouseEvent(ev, fromItemTransform, /*eventClickCount*/ 0));
 }
@@ -154,27 +161,24 @@ void QtWebPageEventHandler::handleWheelEvent(QWheelEvent* ev)
 {
     QTransform fromItemTransform = m_webPage->transformFromItem();
     m_webPageProxy->handleWheelEvent(NativeWebWheelEvent(ev, fromItemTransform));
-    // FIXME: Handle whether the page used the wheel event or not.
-    if (m_interactionEngine)
-        m_interactionEngine->wheelEvent(ev);
 }
 
 void QtWebPageEventHandler::handleHoverLeaveEvent(QHoverEvent* ev)
 {
     // To get the correct behavior of mouseout, we need to turn the Leave event of our webview into a mouse move
     // to a very far region.
-    QTransform fromItemTransform = m_webPage->transformFromItem();
-    QHoverEvent fakeEvent(QEvent::HoverMove, QPoint(INT_MIN, INT_MIN), fromItemTransform.map(ev->oldPosF()));
+    QHoverEvent fakeEvent(QEvent::HoverMove, QPoint(INT_MIN, INT_MIN), ev->oldPosF());
     fakeEvent.setTimestamp(ev->timestamp());
+    // This will apply the transform on the event.
     handleHoverMoveEvent(&fakeEvent);
 }
 
 void QtWebPageEventHandler::handleHoverMoveEvent(QHoverEvent* ev)
 {
-    QTransform fromItemTransform = m_webPage->transformFromItem();
-    QMouseEvent me(QEvent::MouseMove, fromItemTransform.map(ev->posF()), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
+    QMouseEvent me(QEvent::MouseMove, ev->posF(), Qt::NoButton, Qt::NoButton, Qt::NoModifier);
     me.setAccepted(ev->isAccepted());
     me.setTimestamp(ev->timestamp());
+    // This will apply the transform on the event.
     handleMouseMoveEvent(&me);
 }
 
@@ -230,23 +234,34 @@ void QtWebPageEventHandler::handleDropEvent(QDropEvent* ev)
     ev->setAccepted(accepted);
 }
 
-void QtWebPageEventHandler::handlePotentialSingleTapEvent(const QTouchEvent::TouchPoint& point)
+void QtWebPageEventHandler::activateTapHighlight(const QTouchEvent::TouchPoint& point)
 {
 #if ENABLE(TOUCH_EVENTS)
-    if (point.pos() == QPointF()) {
-        // An empty point deactivates the highlighting.
-        m_webPageProxy->handlePotentialActivation(IntPoint(), IntSize());
-    } else {
-        QTransform fromItemTransform = m_webPage->transformFromItem();
-        m_webPageProxy->handlePotentialActivation(IntPoint(fromItemTransform.map(point.pos()).toPoint()), IntSize(point.rect().size().toSize()));
-    }
+    ASSERT(!point.pos().toPoint().isNull());
+    ASSERT(!m_isTapHighlightActive);
+    m_isTapHighlightActive = true;
+    QTransform fromItemTransform = m_webPage->transformFromItem();
+    m_webPageProxy->handlePotentialActivation(IntPoint(fromItemTransform.map(point.pos()).toPoint()), IntSize(point.rect().size().toSize()));
 #else
     Q_UNUSED(point);
 #endif
 }
 
+void QtWebPageEventHandler::deactivateTapHighlight()
+{
+#if ENABLE(TOUCH_EVENTS)
+    if (!m_isTapHighlightActive)
+        return;
+
+    // An empty point deactivates the highlighting.
+    m_webPageProxy->handlePotentialActivation(IntPoint(), IntSize());
+    m_isTapHighlightActive = false;
+#endif
+}
+
 void QtWebPageEventHandler::handleSingleTapEvent(const QTouchEvent::TouchPoint& point)
 {
+    deactivateTapHighlight();
     m_postponeTextInputStateChanged = true;
 
     QTransform fromItemTransform = m_webPage->transformFromItem();
@@ -256,6 +271,10 @@ void QtWebPageEventHandler::handleSingleTapEvent(const QTouchEvent::TouchPoint& 
 
 void QtWebPageEventHandler::handleDoubleTapEvent(const QTouchEvent::TouchPoint& point)
 {
+    if (!m_webView->isInteractive())
+        return;
+
+    deactivateTapHighlight();
     QTransform fromItemTransform = m_webPage->transformFromItem();
     m_webPageProxy->findZoomableAreaForPoint(fromItemTransform.map(point.pos()).toPoint(), IntSize(point.rect().size().toSize()));
 }
@@ -284,14 +303,14 @@ void QtWebPageEventHandler::handleFocusInEvent(QFocusEvent*)
     m_webPageProxy->viewStateDidChange(WebPageProxy::ViewIsFocused | WebPageProxy::ViewWindowIsActive);
 }
 
-void QtWebPageEventHandler::handleFocusOutEvent(QFocusEvent*)
+void QtWebPageEventHandler::handleFocusLost()
 {
     m_webPageProxy->viewStateDidChange(WebPageProxy::ViewIsFocused | WebPageProxy::ViewWindowIsActive);
 }
 
-void QtWebPageEventHandler::setViewportInteractionEngine(QtViewportInteractionEngine* engine)
+void QtWebPageEventHandler::setViewportController(PageViewportControllerClientQt* controller)
 {
-    m_interactionEngine = engine;
+    m_viewportController = controller;
 }
 
 void QtWebPageEventHandler::handleInputMethodEvent(QInputMethodEvent* ev)
@@ -382,24 +401,24 @@ void QtWebPageEventHandler::resetGestureRecognizers()
 
 static void setInputPanelVisible(bool visible)
 {
-    if (qApp->inputPanel()->visible() == visible)
+    if (qApp->inputMethod()->isVisible() == visible)
         return;
 
-    qApp->inputPanel()->setVisible(visible);
+    qApp->inputMethod()->setVisible(visible);
 }
 
 void QtWebPageEventHandler::inputPanelVisibleChanged()
 {
-    if (!m_interactionEngine)
+    if (!m_viewportController)
         return;
 
     // We only respond to the input panel becoming visible.
-    if (!m_webView->hasActiveFocus() || !qApp->inputPanel()->visible())
+    if (!m_webView->hasActiveFocus() || !qApp->inputMethod()->isVisible())
         return;
 
     const EditorState& editor = m_webPageProxy->editorState();
     if (editor.isContentEditable)
-        m_interactionEngine->focusEditableArea(QRectF(editor.cursorRect), QRectF(editor.editorRect));
+        m_viewportController->focusEditableArea(QRectF(editor.cursorRect), QRectF(editor.editorRect));
 }
 
 void QtWebPageEventHandler::updateTextInputState()
@@ -414,9 +433,15 @@ void QtWebPageEventHandler::updateTextInputState()
     if (!m_webView->hasActiveFocus())
         return;
 
-    qApp->inputPanel()->update(Qt::ImQueryInput | Qt::ImEnabled);
+    qApp->inputMethod()->update(Qt::ImQueryInput | Qt::ImEnabled | Qt::ImHints);
 
     setInputPanelVisible(editor.isContentEditable);
+}
+
+void QtWebPageEventHandler::handleWillSetInputMethodState()
+{
+    if (qApp->inputMethod()->isVisible())
+        qApp->inputMethod()->commit();
 }
 
 void QtWebPageEventHandler::doneWithGestureEvent(const WebGestureEvent& event, bool wasEventHandled)
@@ -432,56 +457,91 @@ void QtWebPageEventHandler::doneWithGestureEvent(const WebGestureEvent& event, b
     updateTextInputState();
 }
 
-#if ENABLE(TOUCH_EVENTS)
-void QtWebPageEventHandler::doneWithTouchEvent(const NativeWebTouchEvent& event, bool wasEventHandled)
+void QtWebPageEventHandler::handleInputEvent(const QInputEvent* event)
 {
-    if (!m_interactionEngine)
-        return;
+    if (m_viewportController) {
+        switch (event->type()) {
+        case QEvent::MouseButtonPress:
+        case QEvent::TouchBegin:
+            m_viewportController->touchBegin();
 
-    if (wasEventHandled || event.type() == WebEvent::TouchCancel) {
-        resetGestureRecognizers();
-        return;
+            // The page viewport controller might still be animating kinetic scrolling or a scale animation
+            // such as double-tap to zoom or the bounce back effect. A touch stops the kinetic scrolling
+            // where as it does not stop the scale animation.
+            // The gesture recognizer stops the kinetic scrolling animation if needed.
+            break;
+        case QEvent::MouseMove:
+        case QEvent::TouchUpdate:
+            // The scale animation can only be interrupted by a pinch gesture, which will then take over.
+            if (m_viewportController->scaleAnimationActive() && m_pinchGestureRecognizer.isRecognized())
+                m_viewportController->interruptScaleAnimation();
+            break;
+        case QEvent::MouseButtonRelease:
+        case QEvent::TouchEnd:
+            m_viewportController->touchEnd();
+            break;
+        default:
+            break;
+        }
+
+        // If the scale animation is active we don't pass the event to the recognizers. In the future
+        // we would want to queue the event here and repost then when the animation ends.
+        if (m_viewportController->scaleAnimationActive())
+            return;
     }
 
-    const QTouchEvent* ev = event.nativeEvent();
+    bool isMouseEvent = false;
 
-    switch (ev->type()) {
-    case QEvent::TouchBegin:
-        ASSERT(!m_interactionEngine->panGestureActive());
-        ASSERT(!m_interactionEngine->pinchGestureActive());
-        m_interactionEngine->touchBegin();
-
-        // The interaction engine might still be animating kinetic scrolling or a scale animation
-        // such as double-tap to zoom or the bounce back effect. A touch stops the kinetic scrolling
-        // where as it does not stop the scale animation.
-        // The gesture recognizer stops the kinetic scrolling animation if needed.
+    switch (event->type()) {
+    case QEvent::MouseButtonPress:
+        isMouseEvent = true;
+        m_isMouseButtonPressed = true;
         break;
-    case QEvent::TouchUpdate:
-        // The scale animation can only be interrupted by a pinch gesture, which will then take over.
-        if (m_interactionEngine->scaleAnimationActive() && m_pinchGestureRecognizer.isRecognized())
-            m_interactionEngine->interruptScaleAnimation();
+    case QEvent::MouseMove:
+        if (!m_isMouseButtonPressed)
+            return;
+        isMouseEvent = true;
         break;
-    case QEvent::TouchEnd:
-        m_interactionEngine->touchEnd();
+    case QEvent::MouseButtonRelease:
+        isMouseEvent = true;
+        m_isMouseButtonPressed = false;
         break;
+    case QEvent::MouseButtonDblClick:
+        return;
     default:
         break;
     }
 
-    // If the scale animation is active we don't pass the event to the recognizers. In the future
-    // we would want to queue the event here and repost then when the animation ends.
-    if (m_interactionEngine->scaleAnimationActive())
-        return;
-
-    const QList<QTouchEvent::TouchPoint>& touchPoints = ev->touchPoints();
-    const int touchPointCount = touchPoints.size();
-    qint64 eventTimestampMillis = ev->timestamp();
     QList<QTouchEvent::TouchPoint> activeTouchPoints;
-    activeTouchPoints.reserve(touchPointCount);
+    QTouchEvent::TouchPoint currentTouchPoint;
+    qint64 eventTimestampMillis = event->timestamp();
+    int touchPointCount = 0;
 
-    for (int i = 0; i < touchPointCount; ++i) {
-        if (touchPoints[i].state() != Qt::TouchPointReleased)
-            activeTouchPoints << touchPoints[i];
+    if (!isMouseEvent) {
+        const QTouchEvent* touchEvent = static_cast<const QTouchEvent*>(event);
+        const QList<QTouchEvent::TouchPoint>& touchPoints = touchEvent->touchPoints();
+        currentTouchPoint = touchPoints.first();
+        touchPointCount = touchPoints.size();
+        activeTouchPoints.reserve(touchPointCount);
+
+        for (int i = 0; i < touchPointCount; ++i) {
+            if (touchPoints[i].state() != Qt::TouchPointReleased)
+                activeTouchPoints << touchPoints[i];
+        }
+    } else {
+        const QMouseEvent* mouseEvent = static_cast<const QMouseEvent*>(event);
+        touchPointCount = 1;
+
+        // Make a distinction between mouse events on the basis of pressed buttons.
+        currentTouchPoint.setId(mouseEvent->buttons());
+        currentTouchPoint.setScreenPos(mouseEvent->screenPos());
+        // For tap gesture hit testing the float touch rect is translated to
+        // an int rect representing the radius of the touch point (size/2),
+        // thus the touch rect has to have a size of at least 2.
+        currentTouchPoint.setRect(QRectF(mouseEvent->localPos(), QSizeF(2, 2)));
+
+        if (m_isMouseButtonPressed)
+            activeTouchPoints << currentTouchPoint;
     }
 
     const int activeTouchPointCount = activeTouchPoints.size();
@@ -489,9 +549,14 @@ void QtWebPageEventHandler::doneWithTouchEvent(const NativeWebTouchEvent& event,
     if (!activeTouchPointCount) {
         if (touchPointCount == 1) {
             // No active touch points, one finger released.
-            if (!m_panGestureRecognizer.isRecognized())
-                m_tapGestureRecognizer.update(ev->type(), touchPoints.first());
-            m_panGestureRecognizer.finish(touchPoints.first(), eventTimestampMillis);
+            if (m_panGestureRecognizer.isRecognized())
+                m_panGestureRecognizer.finish(currentTouchPoint, eventTimestampMillis);
+            else {
+                // The events did not result in a pan gesture.
+                m_panGestureRecognizer.cancel();
+                m_tapGestureRecognizer.finish(currentTouchPoint);
+            }
+
         } else
             m_pinchGestureRecognizer.finish();
 
@@ -511,18 +576,35 @@ void QtWebPageEventHandler::doneWithTouchEvent(const NativeWebTouchEvent& event,
     if (m_panGestureRecognizer.isRecognized() || m_pinchGestureRecognizer.isRecognized() || m_webView->isMoving())
         m_tapGestureRecognizer.cancel();
     else if (touchPointCount == 1)
-        m_tapGestureRecognizer.update(ev->type(), touchPoints.first());
+        m_tapGestureRecognizer.update(currentTouchPoint);
+
+}
+
+#if ENABLE(TOUCH_EVENTS)
+void QtWebPageEventHandler::doneWithTouchEvent(const NativeWebTouchEvent& event, bool wasEventHandled)
+{
+    if (wasEventHandled || event.type() == WebEvent::TouchCancel) {
+        m_panGestureRecognizer.cancel();
+        m_pinchGestureRecognizer.cancel();
+        if (event.type() != WebEvent::TouchMove)
+            m_tapGestureRecognizer.cancel();
+        return;
+    }
+
+    const QTouchEvent* ev = event.nativeEvent();
+
+    handleInputEvent(ev);
 }
 #endif
 
 void QtWebPageEventHandler::didFindZoomableArea(const IntPoint& target, const IntRect& area)
 {
-    if (!m_interactionEngine)
+    if (!m_viewportController)
         return;
 
     // FIXME: As the find method might not respond immediately during load etc,
     // we should ignore all but the latest request.
-    m_interactionEngine->zoomToAreaGestureEnded(QPointF(target), QRectF(area));
+    m_viewportController->zoomToAreaGestureEnded(QPointF(target), QRectF(area));
 }
 
 void QtWebPageEventHandler::startDrag(const WebCore::DragData& dragData, PassRefPtr<ShareableBitmap> dragImage)
@@ -541,7 +623,7 @@ void QtWebPageEventHandler::startDrag(const WebCore::DragData& dragData, PassRef
     QPoint globalPosition;
     Qt::DropAction actualDropAction = Qt::IgnoreAction;
 
-    if (QWindow* window = m_webPage->canvas()) {
+    if (QWindow* window = m_webPage->window()) {
         QDrag* drag = new QDrag(window);
         drag->setPixmap(QPixmap::fromImage(dragQImage));
         drag->setMimeData(mimeData);

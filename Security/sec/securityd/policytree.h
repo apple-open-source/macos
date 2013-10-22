@@ -35,9 +35,7 @@
 #include <stdbool.h>
 #include <Security/certextensions.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 
 #define oid_equal(oid1, oid2) DEROidCompare(&oid1, &oid2)
@@ -81,8 +79,6 @@ void policy_tree_set_expected_policy(policy_tree_t node,
 /* noop unless !defined NDEBUG */
 void policy_tree_dump(policy_tree_t node);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_POLICYTREE_H_ */

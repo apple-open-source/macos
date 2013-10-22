@@ -1590,8 +1590,6 @@ static int32_t xar_unserialize(xar_t x) {
 								
 								if( !sig ) {
 									xmlFreeTextReader(reader);
-									xmlDictCleanup();
-									xmlCleanupCharEncodingHandlers();
 									return -1;
 								}
 								
@@ -1607,8 +1605,6 @@ static int32_t xar_unserialize(xar_t x) {
 					}
 					if( ret == -1 ) {
 						xmlFreeTextReader(reader);
-						xmlDictCleanup();
-						xmlCleanupCharEncodingHandlers();
 						return -1;
 					}
 				} else {
@@ -1638,7 +1634,12 @@ static int32_t xar_unserialize(xar_t x) {
 					}
 
 					s = xar_subdoc_new(x, (const char *)name);
-					xar_subdoc_unserialize(s, reader);
+                    if(s){
+                        xar_subdoc_unserialize(s, reader);
+                    }else{
+                        xmlFreeTextReader(reader);
+                        return -1;
+                    }
 				}
 			}
 			if( (type == XML_READER_TYPE_END_ELEMENT) && (strcmp((const char *)name, "toc")==0) ) {
@@ -1647,21 +1648,15 @@ static int32_t xar_unserialize(xar_t x) {
 		}
 		if( ret == -1 ) {
 			xmlFreeTextReader(reader);
-			xmlDictCleanup();
-			xmlCleanupCharEncodingHandlers();
 			return -1;
 		}
 	}
 
 	if( ret == -1 ) {
 		xmlFreeTextReader(reader);
-		xmlDictCleanup();
-		xmlCleanupCharEncodingHandlers();
 		return -1;
 	}
 		
 	xmlFreeTextReader(reader);
-	xmlDictCleanup();
-	xmlCleanupCharEncodingHandlers();
 	return 0;
 }

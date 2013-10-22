@@ -428,7 +428,7 @@ MBR_dump(mbr_t *mbr)
 
   for (i=0; i<NDOSPART; i++) {
     part = &mbr->part[i];
-    printf("%d,%d,0x%02X,%c,%d,%d,%d,%d,%d,%d\n",
+    printf("%d,%d,0x%02X,%c,%u,%u,%u,%u,%u,%u\n",
 	   part->bs,
 	   part->ns,
 	   part->id,

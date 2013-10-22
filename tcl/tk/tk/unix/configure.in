@@ -366,7 +366,8 @@ fi
 if test $tk_aqua = yes; then
     AC_DEFINE(MAC_OSX_TK, 1, [Are we building TkAqua?])
     LIBS="$LIBS -framework Cocoa -framework Carbon -framework IOKit"
-    EXTRA_CC_SWITCHES='-std=gnu99 -x objective-c -fobjc-gc'
+    EXTRA_CC_SWITCHES='-std=gnu99 -x objective-c'
+    EXTRA_LIB_CC_SWITCHES='-fobjc-gc'
     TK_WINDOWINGSYSTEM=AQUA
     if test -n "${enable_symbols}" -a "${enable_symbols}" != no; then
         AC_DEFINE(TK_MAC_DEBUG, 1, [Are TkAqua debug messages enabled?])
@@ -759,6 +760,7 @@ AC_SUBST(PRIVATE_INCLUDE_DIR)
 AC_SUBST(HTML_DIR)
 
 AC_SUBST(EXTRA_CC_SWITCHES)
+AC_SUBST(EXTRA_LIB_CC_SWITCHES)
 AC_SUBST(EXTRA_APP_CC_SWITCHES)
 AC_SUBST(EXTRA_INSTALL)
 AC_SUBST(EXTRA_INSTALL_BINARIES)

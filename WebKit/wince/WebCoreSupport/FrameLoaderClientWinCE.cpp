@@ -35,6 +35,7 @@
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PluginDatabase.h"
+#include "PolicyChecker.h"
 #include "RenderPart.h"
 #include "SystemInfo.h"
 #include "WebKitVersion.h"
@@ -174,9 +175,9 @@ PassRefPtr<Frame> FrameLoaderClientWinCE::createFrame(const KURL& url, const Str
 
 void FrameLoaderClientWinCE::redirectDataToPlugin(Widget* pluginWidget)
 {
-    ASSERT(!m_pluginView);
-    m_pluginView = static_cast<PluginView*>(pluginWidget);
-    m_hasSentResponseToPlugin = false;
+    m_pluginView = toPluginView(pluginWidget);
+    if (pluginWidget)
+        m_hasSentResponseToPlugin = false;
 }
 
 PassRefPtr<Widget> FrameLoaderClientWinCE::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&)
@@ -376,12 +377,7 @@ void FrameLoaderClientWinCE::dispatchDidFinishDocumentLoad()
     notImplemented();
 }
 
-void FrameLoaderClientWinCE::dispatchDidFirstLayout()
-{
-    notImplemented();
-}
-
-void FrameLoaderClientWinCE::dispatchDidFirstVisuallyNonEmptyLayout()
+void FrameLoaderClientWinCE::dispatchDidLayout(LayoutMilestones)
 {
     notImplemented();
 }
@@ -419,9 +415,7 @@ bool FrameLoaderClientWinCE::canHandleRequest(const WebCore::ResourceRequest&) c
 
 bool FrameLoaderClientWinCE::canShowMIMEType(const String& type) const
 {
-    return (MIMETypeRegistry::isSupportedImageMIMEType(type)
-            || MIMETypeRegistry::isSupportedNonImageMIMEType(type)
-            || MIMETypeRegistry::isSupportedMediaMIMEType(type)
+    return (MIMETypeRegistry::canShowMIMEType(type)
             || PluginDatabase::installedPlugins()->isMIMETypeRegistered(type));
 }
 
@@ -504,7 +498,7 @@ void FrameLoaderClientWinCE::dispatchDidFailLoad(const ResourceError&)
     notImplemented();
 }
 
-void FrameLoaderClientWinCE::download(ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&)
+void FrameLoaderClientWinCE::convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&)
 {
     notImplemented();
 }

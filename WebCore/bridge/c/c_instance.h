@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef BINDINGS_C_INSTANCE_H_
@@ -31,12 +31,11 @@
 #include "BridgeJSC.h"
 #include "runtime_root.h"
 #include <wtf/PassRefPtr.h>
+#include <wtf/text/WTFString.h>
 
 typedef struct NPObject NPObject;
 
 namespace JSC {
-
-class UString;
 
 namespace Bindings {
 
@@ -49,7 +48,7 @@ public:
         return adoptRef(new CInstance(object, rootObject));
     }
 
-    static void setGlobalException(JSC::UString exception);
+    static void setGlobalException(String);
     static void moveGlobalExceptionToExecState(ExecState*);
 
     ~CInstance ();
@@ -59,7 +58,7 @@ public:
     virtual JSValue valueOf(ExecState*) const;
     virtual JSValue defaultValue(ExecState*, PreferredPrimitiveType) const;
 
-    virtual JSValue getMethod(ExecState* exec, const Identifier& propertyName);
+    virtual JSValue getMethod(ExecState*, PropertyName);
     virtual JSValue invokeMethod(ExecState*, RuntimeMethod* method);
     virtual bool supportsInvokeDefaultMethod() const;
     virtual JSValue invokeDefaultMethod(ExecState*);
@@ -79,6 +78,8 @@ private:
     CInstance(NPObject*, PassRefPtr<RootObject>);
 
     virtual RuntimeObject* newRuntimeObject(ExecState*);
+    bool toJSPrimitive(ExecState*, const char*, JSValue&) const;
+
 
     mutable CClass *_class;
     NPObject *_object;

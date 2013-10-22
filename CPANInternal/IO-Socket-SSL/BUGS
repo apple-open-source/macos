@@ -1,0 +1,94 @@
+See documentation.
+Following are some common errors to watch out for:
+
+
+It doesn't work together with Storable::fd_retrieve|fd_store, see
+https://rt.cpan.org/Ticket/Display.html?id=23419.
+You need to use freeze/nfreeze/thaw and syswrite/sysread the data
+yourself. See the bug for examples how to do it.
+
+---------------------
+
+If you get an SSL connection but not certificate you might check
+the cipher with Net::SSLeay::get_cipher( $socket->_get_ssl_object ).
+If it is something like 'ADH-AES256-SHA' you should try to disable
+ADH in your cipherlist, e.g. set SSL_cipherlist to 'ALL:!ADH'
+or just leave it empty so that it uses the openssl default
+which does not include ADH.
+
+---------------------
+
+There is a problem with openssl versions 0.9.8a and 0.9.8b, see
+http://marc.theaimsgroup.com/?l=openssl-dev&m=113550694922967&w=2
+The bug was fixed in newer releases, but if you are forced to use 
+these buggy versions you should apply a patch to Net::SSLeay 1.30,
+see http://rt.cpan.org/Public/Bug/Display.html?id=22910.
+
+---------------------
+
+IO::Socket::SSL does not currently support using both IPv4 and IPv6 in
+the same program.  For a quick workaround, copy the module 'SSL.pm' to
+another named 'SSL6.pm' and adjust the package declaration
+accordingly.  Support for this feature is planned in the next release.
+
+---------------------
+
+If you plan on having IO::Socket::SSL sockets auto-close themselves
+when they go out of scope (like LWP::UserAgent expects), you will
+need to get Scalar::Util or WeakRef from CPAN (Scalar::Util comes
+standard with Perl 5.8.0 and above).  This is because the self-tying
+mechanism that IO::Socket::SSL uses to appear simultaneously as an
+object and a glob reference only works if a circular reference is
+used.
+
+---------------------
+
+Note that a random number generator is required for the proper
+operation of this module.  Systems that have /dev/random or
+/dev/urandom are fine, but those that do not, like most versions
+of Solaris, will need to fetch one before installing IO::Socket::SSL.
+If you don't already have a favorite, try EGD (egd.sourceforge.net).
+
+---------------------
+
+Versions of perl-ldap below v0.26 do not work with this version
+of IO::Socket::SSL because they contain a workaround for old
+versions of IO::Socket::SSL that breaks new versions.
+
+---------------------
+
+Note that when writing a preforking server (a server that accepts a
+connection and then hands it off to a child for processing), it is
+best to handle SSL negotiation after the socket has been passed to
+the child (using socket_to_SSL()).  If implemented so that the server
+handles negotiation, a failed negotiation may tie up the server until
+the connection times out.
+
+---------------------
+
+One user mentioned that the following did not work as it should in
+IO::Socket::SSL, but worked in IO::Socket::INET:
+
+chomp($var = <$socket>);
+print ord(chop($var));    # Prints "10" for people using ASCII
+
+This is due to a bug in Perl that is fixed in 5.8.1.  If you need
+a workaround, try one of the following:
+
+chomp($var = $socket->getline());
+chomp($var = scalar <$socket>);
+chomp($var = $var = <$socket>);
+
+Any function that returns the value of <$socket> (in scalar context)
+unchanged will work.
+
+---------------------
+
+If you have 384-bit RSA keys you need to use Diffie Hellman Key Exchange.
+See the parameter SSL_dh_file or SSL_dh for how to use it and
+http://groups.google.de/group/mailing.openssl.users/msg/d60330cfa7a6034b
+for an explanation why you need it.
+
+-- 
+Peter Behroozi (behrooz at fas.harvard.edu)
+Steffen Ullrich (Steffen_Ullrich at genua.de)

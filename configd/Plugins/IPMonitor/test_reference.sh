@@ -11,7 +11,7 @@ cleanup()
     exit 1
 }
 
-trap cleanup 1 2 3 15 
+trap cleanup 1 2 3 15
 
 run_program()
 {

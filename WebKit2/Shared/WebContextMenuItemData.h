@@ -63,8 +63,8 @@ public:
     APIObject* userData() const;
     void setUserData(APIObject*);
     
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebContextMenuItemData&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebContextMenuItemData&);
 
 private:
     WebCore::ContextMenuItemType m_type;

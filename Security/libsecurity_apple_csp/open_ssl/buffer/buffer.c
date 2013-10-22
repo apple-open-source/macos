@@ -145,7 +145,7 @@ int BUF_MEM_grow(BUF_MEM *str, int len)
 char *BUF_strdup(const char *str)
 	{
 	char *ret;
-	int n;
+	size_t n;
 
 	if (str == NULL) return(NULL);
 

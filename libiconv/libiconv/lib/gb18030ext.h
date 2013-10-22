@@ -44,7 +44,7 @@ static const unsigned short gb18030ext_2uni_pagefe[96] = {
 };
 
 static int
-gb18030ext_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+gb18030ext_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c1 = s[0];
   if ((c1 == 0xa2) || (c1 >= 0xa4 && c1 <= 0xa9) || (c1 == 0xd7) || (c1 == 0xfe)) {
@@ -232,7 +232,7 @@ static const unsigned short gb18030ext_page4d[16] = {
 };
 
 static int
-gb18030ext_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+gb18030ext_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (n >= 2) {
     unsigned short c = 0;

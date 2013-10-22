@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -667,7 +667,16 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
         if ( disk )
         {
             __DAMediaPropertyChangedCallback( NULL, media, NULL );
+///w:start
+            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
+            {
+                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaLeafKey ) == kCFBooleanFalse )
+                {
+                    DADiskProbe( disk, NULL );
                 }
+            }
+///w:stop
+        }
         else
         {
             io_object_t busyNotification;
@@ -709,26 +718,8 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                      * Process the disappearance.
                      */
 
-///t:start
-                    DADiskRef diskRef;
-
-                    diskRef = ___CFArrayGetValue( gDADiskList, disk );
-
-                    assert( diskRef != disk );
-
-                    assert( diskRef );
-///t:stop
                     _DAMediaDisappearedCallback( ( void * ) ___CFArrayGetValue( gDADiskList, disk ), IO_OBJECT_NULL );
 
-///t:start
-                    DADiskRef diskRef2;
-
-                    diskRef2 = ___CFArrayGetValue( gDADiskList, disk );
-
-                    assert( diskRef2 != diskRef );
-
-                    assert( diskRef2 == NULL );
-///t:stop
                     assert( ___CFArrayContainsValue( gDADiskList, disk ) == FALSE );
                 }
 
@@ -890,9 +881,6 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
     if ( context )
     {
         media = DADiskGetIOMedia( context );
-///t:start
-        assert( media );
-///t:stop
     }
     else
     {
@@ -908,12 +896,6 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
          */
 
         disk = __DADiskListGetDiskWithIOMedia( media );
-///t:start
-        if ( context )
-        {
-            assert( disk );
-        }
-///t:stop
 
         /*
          * Determine whether a media object appearance and disappearance occurred.  We must do this
@@ -2035,6 +2017,8 @@ kern_return_t _DAServerSessionUnregisterCallback( mach_port_t _session, mach_vm_
 
             if ( callback )
             {
+                DAQueueUnregisterCallback( callback );
+
                 DASessionUnregisterCallback( session, callback );
 
                 DALogDebug( "  unregistered callback, id = %016llX:%016llX.", _address, _context );
@@ -2072,11 +2056,20 @@ void _DAVolumeMountedCallback( CFMachPortRef port, void * parameter, CFIndex mes
         {
             if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
             {
+///w:start
+                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanFalse )
+                {
+                    DADiskProbe( disk, NULL );
+                }
+///w:stop
                 DADiskRefresh( disk, NULL );
             }
         }
         else
         {
+///w:start
+            if ( strncmp( mountList[mountListIndex].f_mntfromname, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) )
+///w:stop
             if ( ( mountList[mountListIndex].f_flags & MNT_UNION ) == 0 )
             {
                 if ( strcmp( mountList[mountListIndex].f_fstypename, "devfs" ) )

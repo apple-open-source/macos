@@ -61,7 +61,7 @@ void (*notifyHistoryItemChanged)(HistoryItem*) = defaultNotifyHistoryItemChanged
 HistoryItem::HistoryItem()
     : m_lastVisitedTime(0)
     , m_lastVisitWasHTTPNonGet(false)
-    , m_pageScaleFactor(1)
+    , m_pageScaleFactor(0)
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
@@ -78,7 +78,7 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, double ti
     , m_title(title)
     , m_lastVisitedTime(time)
     , m_lastVisitWasHTTPNonGet(false)
-    , m_pageScaleFactor(1)
+    , m_pageScaleFactor(0)
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
@@ -97,7 +97,7 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, const Str
     , m_displayTitle(alternateTitle)
     , m_lastVisitedTime(time)
     , m_lastVisitWasHTTPNonGet(false)
-    , m_pageScaleFactor(1)
+    , m_pageScaleFactor(0)
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
@@ -117,7 +117,7 @@ HistoryItem::HistoryItem(const KURL& url, const String& target, const String& pa
     , m_title(title)
     , m_lastVisitedTime(0)
     , m_lastVisitWasHTTPNonGet(false)
-    , m_pageScaleFactor(1)
+    , m_pageScaleFactor(0)
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
@@ -230,6 +230,11 @@ const String& HistoryItem::alternateTitle() const
     return m_displayTitle;
 }
 
+bool HistoryItem::hasCachedPageExpired() const
+{
+    return m_cachedPage ? m_cachedPage->hasExpired() : false;
+}
+
 double HistoryItem::lastVisitedTime() const
 {
     return m_lastVisitedTime;
@@ -322,7 +327,7 @@ static inline int timeToDay(double time)
 void HistoryItem::padDailyCountsForNewVisit(double time)
 {
     if (m_dailyVisitCounts.isEmpty())
-        m_dailyVisitCounts.prepend(m_visitCount);
+        m_dailyVisitCounts.insert(0, m_visitCount);
 
     int daysElapsed = timeToDay(time) - timeToDay(m_lastVisitedTime);
 
@@ -331,7 +336,7 @@ void HistoryItem::padDailyCountsForNewVisit(double time)
 
     Vector<int> padding;
     padding.fill(0, daysElapsed);
-    m_dailyVisitCounts.prepend(padding);
+    m_dailyVisitCounts.insert(0, padding);
 }
 
 static const size_t daysPerWeek = 7;
@@ -345,7 +350,7 @@ void HistoryItem::collapseDailyVisitsToWeekly()
         for (size_t i = 0; i < daysPerWeek; i++)
             oldestWeekTotal += m_dailyVisitCounts[m_dailyVisitCounts.size() - daysPerWeek + i];
         m_dailyVisitCounts.shrink(m_dailyVisitCounts.size() - daysPerWeek);
-        m_weeklyVisitCounts.prepend(oldestWeekTotal);
+        m_weeklyVisitCounts.insert(0, oldestWeekTotal);
     }
 
     if (m_weeklyVisitCounts.size() > maxWeeklyCounts)
@@ -532,6 +537,18 @@ void HistoryItem::clearChildren()
     m_children.clear();
 }
 
+bool HistoryItem::isAncestorOf(const HistoryItem* item) const
+{
+    for (size_t i = 0; i < m_children.size(); ++i) {
+        HistoryItem* child = m_children[i].get();
+        if (child == item)
+            return true;
+        if (child->isAncestorOf(item))
+            return true;
+    }
+    return false;
+}
+
 // We do same-document navigation if going to a different item and if either of the following is true:
 // - The other item corresponds to the same document (for history entries created via pushState or fragment changes).
 // - The other item corresponds to the same set of documents, including frames (for history entries created via regular navigation)
@@ -691,7 +708,7 @@ void HistoryItem::encodeBackForwardTreeNode(Encoder& encoder) const
 
     encoder.encodeBool(m_formData);
     if (m_formData)
-        m_formData->encodeForBackForward(encoder);
+        m_formData->encode(encoder);
 
     encoder.encodeInt64(m_itemSequenceNumber);
 
@@ -703,13 +720,8 @@ void HistoryItem::encodeBackForwardTreeNode(Encoder& encoder) const
     encoder.encodeFloat(m_pageScaleFactor);
 
     encoder.encodeBool(m_stateObject);
-    if (m_stateObject) {
-#if !USE(V8)
+    if (m_stateObject)
         encoder.encodeBytes(m_stateObject->data().data(), m_stateObject->data().size());
-#else
-        encoder.encodeString(m_stateObject->toWireString());
-#endif
-    }
 
     encoder.encodeString(m_target);
 }
@@ -789,7 +801,7 @@ resume:
     if (!decoder.decodeBool(hasFormData))
         return 0;
     if (hasFormData) {
-        node->m_formData = FormData::decodeForBackForward(decoder);
+        node->m_formData = FormData::decode(decoder);
         if (!node->m_formData)
             return 0;
     }
@@ -815,17 +827,10 @@ resume:
     if (!decoder.decodeBool(hasStateObject))
         return 0;
     if (hasStateObject) {
-#if !USE(V8)
         Vector<uint8_t> bytes;
         if (!decoder.decodeBytes(bytes))
             return 0;
         node->m_stateObject = SerializedScriptValue::adopt(bytes);
-#else
-        String string;
-        if (!decoder.decodeString(string))
-            return 0;
-        node->m_stateObject = SerializedScriptValue::createFromWire(string);
-#endif
     }
 
     if (!decoder.decodeString(node->m_target))

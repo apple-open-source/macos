@@ -213,8 +213,8 @@ void Thread::run()
     {
         syslog(LOG_ERR, "error %d setting thread detach state", err);
     }
-    while (err = pthread_create(&self.mIdent, &ptattrs, runner, this) && 
-           --ntries)
+    while ((err = pthread_create(&self.mIdent, &ptattrs, runner, this) && 
+           --ntries))
     {
         syslog(LOG_ERR, "pthread_create() error %d", err);
         usleep(50000);          // 50 ms is arbitrary
@@ -241,6 +241,7 @@ void *Thread::runner(void *arg)
     }
     catch (...)
     {
+        return NULL;
     }
 }
 

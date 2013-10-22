@@ -89,6 +89,7 @@ This controls the same trace level that the
 option to
 .Xr automountd 8
 controls.
+The trace is logged to /var/log/system.log
 .It Dv AUTOMOUNTD_MNTOPTS
 A string containing a comma-separated list of mount options
 that will be applied, by default, to all mounts done by
@@ -98,7 +99,14 @@ This controls the same options that the
 .Fl o
 option to
 .Xr automountd 8
-controls.
+.It Dv AUTOMOUNTD_NOSUID
+.Li TRUE
+or
+.Li FALSE ;
+if
+.Li TRUE ,
+.Xr automountd 8
+will force all mounts to have the "nosuid" mount option set.
 .It Dv AUTOMOUNTD_ENV
 A string of the form
 .D1 Va name Ns = Ns Va value

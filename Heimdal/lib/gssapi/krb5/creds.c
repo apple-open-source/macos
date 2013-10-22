@@ -43,7 +43,6 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
     krb5_error_code ret;
     krb5_storage *sp;
     krb5_data data, mech;
-    const char *type;
     char *str;
 
     GSSAPI_KRB5_INIT (&context);
@@ -59,8 +58,9 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
 	return GSS_S_FAILURE;
     }
 
-    type = krb5_cc_get_type(context, handle->ccache);
     /*
+    type = krb5_cc_get_type(context, handle->ccache);
+     *
      * XXX Always use reference keys since that makes it easier to
      * transport between processing in seprate authentication domain.
      *

@@ -28,7 +28,7 @@
 #include "prerror.h"
 #include "seccomon.h"
 #include "secasn1.h"
-#include <MacErrors.h>
+#include <Security/SecBase.h>
 
 /* 
  * Default chunk size for new arena pool.
@@ -52,22 +52,23 @@ OSStatus SecAsn1CoderCreate(
 	SecAsn1CoderRef  *coder)
 {
 	if(coder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	SecAsn1CoderRef _coder = (SecAsn1CoderRef)malloc(sizeof(SecAsn1Coder_t));
 	_coder->mPool = PORT_NewArena(CHUNKSIZE_DEF);
 	if(_coder->mPool == NULL) {
-		return memFullErr;
+        free(_coder);
+		return errSecAllocate;
 	}
 	*coder = _coder;
-	return noErr;
+	return errSecSuccess;
 }
 	
 OSStatus SecAsn1CoderRelease(
 	SecAsn1CoderRef  coder)
 {
 	if(coder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(coder->mPool != NULL) {
 		/*
@@ -78,7 +79,7 @@ OSStatus SecAsn1CoderRelease(
 		coder->mPool = NULL;
 	}
 	free(coder);
-	return noErr;
+	return errSecSuccess;
 }
 	
 /*
@@ -97,14 +98,14 @@ OSStatus SecAsn1Decode(
 	void					*dest)
 {
 	if((coder == NULL) || (src == NULL) || (templ == NULL) || (dest == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	SECStatus prtn = SEC_ASN1Decode(coder->mPool, dest, templ, (const char *)src, len);
 	if(prtn) {
 		return errSecDecode;
 	}
 	else {
-		return noErr;
+		return errSecSuccess;
 	}
 }
 		
@@ -133,7 +134,7 @@ OSStatus SecAsn1EncodeItem(
 	SecAsn1Item				*dest)
 {
 	if((coder == NULL) || (src == NULL) || (templ == NULL) || (dest == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	dest->Data = NULL;
 	dest->Length = 0;
@@ -141,10 +142,10 @@ OSStatus SecAsn1EncodeItem(
 	SecAsn1Item *rtnItem = SEC_ASN1EncodeItem(coder->mPool, dest, src, templ);
 	if(rtnItem == NULL) {
 		/* FIXME what to return here? */
-		return paramErr;
+		return errSecParam;
 	}
 	else {
-		return noErr;
+		return errSecSuccess;
 	}
 }
 		
@@ -155,7 +156,7 @@ OSStatus SecAsn1EncodeItem(
  * temp allocs of memory which only needs a scope which is the
  * same as this object. 
  *
- * These return a memFullErr in the highly unlikely event of 
+ * These return a errSecAllocate in the highly unlikely event of 
  * a malloc failure.
  */
 void *SecAsn1Malloc(
@@ -175,14 +176,14 @@ OSStatus SecAsn1AllocItem(
 	size_t					len)
 {
 	if((coder == NULL) || (item == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	item->Data = (uint8_t *)PORT_ArenaAlloc(coder->mPool, len);
 	if(item->Data == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	item->Length = len;
-	return noErr;
+	return errSecSuccess;
 }
 	
 /* malloc and copy, various forms */
@@ -193,14 +194,14 @@ OSStatus SecAsn1AllocCopy(
 	SecAsn1Item				*dest)
 {
 	if(src == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	OSStatus ortn = SecAsn1AllocItem(coder, dest, len);
 	if(ortn) {
 		return ortn;
 	}
 	memmove(dest->Data, src, len);
-	return noErr;
+	return errSecSuccess;
 }
 	
 OSStatus SecAsn1AllocCopyItem(

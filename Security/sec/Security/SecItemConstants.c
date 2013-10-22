@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2008,2010 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2006-2008,2010-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -102,6 +102,8 @@ SEC_CONST_DECL (kSecAttrHasCustomIcon, "cusi");
 SEC_CONST_DECL (kSecAttrCRLType, "crlt");
 SEC_CONST_DECL (kSecAttrCRLEncoding, "crle");
 SEC_CONST_DECL (kSecAttrSynchronizable, "sync");
+SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
+SEC_CONST_DECL (kSecAttrTombstone, "tomb");
 
 /* Search Constants */
 SEC_CONST_DECL (kSecMatchPolicy, "m_Policy");
@@ -131,6 +133,7 @@ SEC_CONST_DECL (kSecValuePersistentRef, "v_PersistentRef");
 
 /* Other Constants */
 SEC_CONST_DECL (kSecUseItemList, "u_ItemList");
+SEC_CONST_DECL (kSecUseTombstones, "u_Tomb");
 #if defined(MULTIPLE_KEYCHAINS)
 /* Other Constants (Private) */
 SEC_CONST_DECL (kSecUseKeychain, "u_Keychain");
@@ -197,11 +200,17 @@ SEC_CONST_DECL (kSecAttrKeyClassPublic, "0");
 SEC_CONST_DECL (kSecAttrKeyClassPrivate, "1");
 SEC_CONST_DECL (kSecAttrKeyClassSymmetric, "2");
 
-/* kSecAttrKeyType Value Constants. */
+/* kSecAttrKeyType Value Constants.  Based on CSSM_ALGORITHMS. */
 SEC_CONST_DECL (kSecAttrKeyTypeRSA, "42");
-SEC_CONST_DECL (kSecAttrKeyTypeEC, "43");
+SEC_CONST_DECL (kSecAttrKeyTypeEC, "73");  /* rdar://10755886 */
 
 /* Constants used by SecKeyGeneratePair() - in SecKey.h.  Never used in
    any SecItem apis directly. */
 SEC_CONST_DECL (kSecPrivateKeyAttrs, "private");
 SEC_CONST_DECL (kSecPublicKeyAttrs, "public");
+
+/* Constants used by SecPassword - in SecPasswordStrength */
+SEC_CONST_DECL (kSecPasswordMaxLength, "PasswordMaxLength");
+SEC_CONST_DECL (kSecPasswordMinLength, "PasswordMaxLength");
+SEC_CONST_DECL (kSecPasswordAllowedCharacters, "PasswordAllowedCharacters");
+SEC_CONST_DECL (kSecPasswordRequiredCharacters, "PasswordRequiredCharacters");

@@ -1,0 +1,52 @@
+Revision history for Config-Std
+
+0.900  Tue Apr 12 20:41:04 2011
+    - Change of Maintainers.
+    - Reordered Changes to latest first.
+    - Module::Build::Compat creating Makefile.PL traditional
+    - LICENSE file created (in Build.PL)
+    - 21184: require v5.7.3 (Thanks Leo)
+    - Doc patches per RT queue
+	    - 18642: Dynamic loading of Config::Std breaks the interface, doc workaround.
+                      (thanks Schwern & Uri)
+	    - 16488: Philosophy is 'as simple as possible'. (thanks Steven)
+	    - 21604: read from string_ref (thanks Todd)
+
+
+0.007  Wed Nov 18 13:21:08 2009
+    - Fixed major bug in gap algorithm for new keys (thanks Jojo!)
+
+
+0.0.5  Tue Sep 22 15:17:49 2009
+    - Made spacing between key/values more intelligent
+    - Added def_sep option to control that intelligence (thanks David)
+    - Added support for standard INI-style comments:   ; like this
+      (thanks William and FSD)
+    - Fixed bug in section heading parsing (thanks Kirk)
+
+
+0.0.4  Mon Feb 20 08:03:45 2006
+    - Removed spurious dependency on Smart::Comments
+
+
+0.0.3  Fri Feb 17 15:50:09 2006
+    - Fixed bug in writing back from a hash-ref
+    - Fixed spelling bug in append_comments (thanks Torsten!)
+    - Added {def_sep => '='} option (thanks Nick)
+    - Clarified use of comments with config vars 
+    - Removed unused "" sections from read_config hash (thanks carcassonne)
+    - Added logic to decide whether new sections have spaces after them
+    - Changed write_config() behaviour for undefined hash entries: they now
+      throw an exception (thanks David)
+    - Added mechanism to allow read_config() and write_config() to be renamed
+      when exported (thanks David)
+
+
+0.0.2  Wed May 25 22:30:51 2005
+    - First public release
+
+
+0.0.1  Wed Feb 16 04:04:39 2005
+    - Initial release.
+
+

@@ -101,7 +101,7 @@ bool certificateHasField(SecCertificateRef cert, const CSSM_OID &oid)
 	assert(cert);
 	CSSM_DATA *value;
 	switch (OSStatus rc = SecCertificateCopyFirstFieldValue(cert, &oid, &value)) {
-	case noErr:
+	case errSecSuccess:
 		MacOSError::check(SecCertificateReleaseFirstFieldValue(cert, &oid, value));
 		return true;					// extension found by oid
 	case errSecUnknownTag:

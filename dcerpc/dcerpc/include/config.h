@@ -1,6 +1,8 @@
 /* include/config.h.  Generated from config.h.in by configure.  */
 /* include/config.h.in.  Generated from configure.in by autoheader.  */
 
+#include <TargetConditionals.h>
+
 /* Name of C compiler's unused attribute */
 #define ATTRIBUTE_UNUSED __attribute__((unused))
 
@@ -68,7 +70,11 @@
 #define HAVE_CATOPEN 1
 
 /* Define to 1 if you have the <CrashReporterClient.h> header file. */
+#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#define HAVE_CRASHREPORTERCLIENT_H 0
+#else
 #define HAVE_CRASHREPORTERCLIENT_H 1
+#endif
 
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
@@ -197,7 +203,11 @@
 #define HAVE_SETPGRP 1
 
 /* whether the SMBClient.framework API is available */
+#if TARGET_OS_IPHONE
+#define HAVE_SMBCLIENT_FRAMEWORK 0
+#else
 #define HAVE_SMBCLIENT_FRAMEWORK 1
+#endif
 
 /* Define to 1 if you have the `socket' function. */
 #define HAVE_SOCKET 1

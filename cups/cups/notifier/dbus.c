@@ -1,9 +1,9 @@
 /*
- * "$Id: dbus.c 3970 2012-10-24 11:44:57Z msweet $"
+ * "$Id: dbus.c 3901 2012-09-07 02:50:51Z msweet $"
  *
  *   D-Bus notifier for CUPS.
  *
- *   Copyright 2008-2011 by Apple Inc.
+ *   Copyright 2008-2012 by Apple Inc.
  *   Copyright (C) 2011 Red Hat, Inc.
  *   Copyright (C) 2007 Tim Waugh <twaugh@redhat.com>
  *   Copyright 1997-2005 by Easy Software Products.
@@ -445,7 +445,8 @@ main(int  argc,				/* I - Number of command-line args */
 	    if (i)
 	      *p++ = ',';
 
-	    strcpy(p, ippGetString(attr, i, NULL));
+	    strlcpy(p, ippGetString(attr, i, NULL),
+	            reasons_length - (p - printer_reasons));
 	    p += strlen(p);
 	  }
 	  if (!dbus_message_iter_append_string(&iter, &printer_reasons))
@@ -517,7 +518,8 @@ main(int  argc,				/* I - Number of command-line args */
 	  if (i)
 	    *p++ = ',';
 
-	  strcpy(p, ippGetString(attr, i, NULL));
+	  strlcpy(p, ippGetString(attr, i, NULL),
+	          reasons_length - (p - job_reasons));
 	  p += strlen(p);
 	}
 	if (!dbus_message_iter_append_string(&iter, &job_reasons))
@@ -623,5 +625,5 @@ main(void)
 
 
 /*
- * End of "$Id: dbus.c 3970 2012-10-24 11:44:57Z msweet $".
+ * End of "$Id: dbus.c 3901 2012-09-07 02:50:51Z msweet $".
  */

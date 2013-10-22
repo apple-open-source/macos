@@ -100,7 +100,7 @@ ldap_get_option(
 
 #if defined(__APPLE__) && defined(LDAP_R_COMPILE)
 	/* Init the global options in a nice thread-safe manner. */
-	pthread_once(&ldap_global_opts_initialized, ldap_int_init_global_opts);
+	dispatch_once_f(&ldap_global_opts_initialized, NULL, ldap_int_init_global_opts);
 #endif
 
 	/* Get pointer to global option structure */

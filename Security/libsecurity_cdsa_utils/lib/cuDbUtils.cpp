@@ -410,7 +410,7 @@ CSSM_RETURN cuAddCrlToDb(
 	}
 	recordAttrs.DataRecordType = CSSM_DL_DB_RECORD_X509_CRL;
 	recordAttrs.SemanticInformation = 0;
-	recordAttrs.NumberOfAttributes = attr - attrs;
+	recordAttrs.NumberOfAttributes = (uint32)(attr - attrs);
 	recordAttrs.AttributeData = attrs;
 	
 	crtn = CSSM_DL_DataInsert(dlDbHand,
@@ -528,10 +528,10 @@ CSSM_RETURN cuDumpCrlsCerts(
 	/* got one; print it */
 	dprintf("%s %u:\n", itemStr, numItems);
 	if(isCert) {
-		printCert(certCrl.Data, certCrl.Length, verbose);
+		printCert(certCrl.Data, (unsigned)certCrl.Length, verbose);
 	}
 	else {
-		printCrl(certCrl.Data, certCrl.Length, verbose);
+		printCrl(certCrl.Data, (unsigned)certCrl.Length, verbose);
 	}
 	CSSM_DL_FreeUniqueRecord(dlDbHand, record);
 	APP_FREE(certCrl.Data);
@@ -550,10 +550,10 @@ CSSM_RETURN cuDumpCrlsCerts(
 			case CSSM_OK:
 				dprintf("%s %u:\n", itemStr, numItems);
 				if(isCert) {
-					printCert(certCrl.Data, certCrl.Length, verbose);
+					printCert(certCrl.Data, (unsigned)certCrl.Length, verbose);
 				}
 				else {
-					printCrl(certCrl.Data, certCrl.Length, verbose);
+					printCrl(certCrl.Data, (unsigned)certCrl.Length, verbose);
 				}
 				CSSM_DL_FreeUniqueRecord(dlDbHand, record);
 				APP_FREE(certCrl.Data);

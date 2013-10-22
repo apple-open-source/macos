@@ -142,7 +142,8 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_cred_by_oid
 	    return GSS_S_FAILURE;
 	}
 	
-	if (hex_encode(uuid, sizeof(uuid), &str) < 0 || str == NULL) {
+	str = krb5_uuid_to_string(uuid);
+	if (str == NULL) {
 	    *minor_status = ENOMEM;
 	    return GSS_S_FAILURE;
 	}
@@ -160,7 +161,9 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_cred_by_oid
     } else if (gss_oid_equal(desired_object, GSS_C_CRED_DIAG)) {
 	krb5_cc_cursor cursor;
 	krb5_creds creds;
+#ifdef HAVE_KCM
 	krb5_data data;
+#endif
 	rtbl_t ct = NULL;
 	char *str = NULL;
 
@@ -243,9 +246,7 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_cred_by_oid
 	}
 	(void)krb5_cc_end_seq_get (context, cred->ccache, &cursor);
 
-	if (ret == KRB5_CC_END)
-	    ret = 0;
-	else
+	if (ret != KRB5_CC_END)
 	    goto out;
 
 
@@ -262,6 +263,7 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_cred_by_oid
 	    _gsskrb5_clear_status ();
 
 
+#ifdef HAVE_KCM
 	/*
 	 * kcm status
 	 */
@@ -269,7 +271,7 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_cred_by_oid
 	ret = krb5_cc_get_config(context, cred->ccache, NULL, "kcm-status", &data);
 	if (ret == 0) {
 	    uint32_t num;
-	    int status, kcmret;
+	    int status = -1, kcmret = -1;
 	    if (data.length >= 8) {
 		memcpy(&num, ((int8_t*)data.data) + 4, sizeof(num));
 		status = (int)ntohl(num);
@@ -291,6 +293,11 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_cred_by_oid
 	    if (ret != GSS_S_COMPLETE)
 		_gsskrb5_clear_status ();
 	}
+#else
+	buffer.value = NULL;
+	buffer.length = 0;
+	(void)gss_add_buffer_set_member(minor_status, &buffer, data_set);
+#endif
 	ret = 0;
 
     out:

@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2012, International Business Machines Corporation and
+* Copyright (C) 2007-2013, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -205,7 +205,7 @@ static const char* const CLDR_FIELD_APPEND[] = {
 };
 
 static const char* const CLDR_FIELD_NAME[] = {
-    "era", "year", "quarter", "month", "week", "*", "weekday", "day", "*", "*", "dayperiod",
+    "era", "year", "quarter", "month", "week", "*", "weekday", "*", "*", "day", "dayperiod",
     "hour", "minute", "second", "*", "zone"
 };
 
@@ -217,7 +217,7 @@ static const char* const Resource_Fields[] = {
 static const UChar UDATPG_ItemFormat[]= {0x7B, 0x30, 0x7D, 0x20, 0x251C, 0x7B, 0x32, 0x7D, 0x3A,
     0x20, 0x7B, 0x31, 0x7D, 0x2524, 0};  // {0} \u251C{2}: {1}\u2524
 
-static const UChar repeatedPatterns[6]={CAP_G, CAP_E, LOW_Z, LOW_V, CAP_Q, 0}; // "GEzvQ"
+//static const UChar repeatedPatterns[6]={CAP_G, CAP_E, LOW_Z, LOW_V, CAP_Q, 0}; // "GEzvQ"
 
 static const char DT_DateTimePatternsTag[]="DateTimePatterns";
 static const char DT_DateTimeCalendarTag[]="calendar";
@@ -589,7 +589,7 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& err) {
 
     key=NULL;
     err = U_ZERO_ERROR;
-    fBundle = ures_getByKeyWithFallback(calTypeBundle, DT_DateTimeFieldsTag, NULL, &err);
+    fBundle = ures_getByKeyWithFallback(rb, DT_DateTimeFieldsTag, NULL, &err);
     for (i=0; i<MAX_RESOURCE_FIELD; ++i) {
         err = U_ZERO_ERROR;
         patBundle = ures_getByKeyWithFallback(fBundle, Resource_Fields[i], NULL, &err);
@@ -610,6 +610,7 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& err) {
     UBool firstTimeThrough = TRUE;
     err = U_ZERO_ERROR;
     initHashtable(err);
+    UBool override = TRUE;
     while (TRUE) {
         // At the start of the loop:
         // - rb is the open resource bundle for the current locale being processed,
@@ -640,7 +641,7 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& err) {
                         setAvailableFormat(retKey, err);
                         // Add pattern with its associated skeleton. Override any duplicate derived from std patterns,
                         // but not a previous availableFormats entry:
-                        addPatternWithSkeleton(format, &retKey, TRUE, conflictingPattern, err);
+                        addPatternWithSkeleton(format, &retKey, override, conflictingPattern, err);
                     }
                 }
 #if defined(U_USE_ASCII_BUNDLE_ITERATOR)
@@ -689,6 +690,9 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& err) {
         if ( U_FAILURE(err) ) {
             curLocaleName = parentLocale;
             err = U_ZERO_ERROR;
+        }
+        if (uprv_strcmp(curLocaleName,"root")==0 || uprv_strlen(curLocaleName)==0) {
+            override = FALSE;
         }
         // Open calBundle and calTypeBundle
         calBundle = ures_getByKeyWithFallback(rb, DT_DateTimeCalendarTag, NULL, &err);
@@ -920,15 +924,26 @@ DateTimePatternGenerator::addPatternWithSkeleton(
         matcher.set(*skeletonToUse, fp, skeleton); // no longer trims skeleton fields to max len 3, per #7930
         matcher.getBasePattern(basePattern); // or perhaps instead: basePattern = *skeletonToUse;
     }
+    // We only care about base conflicts - and replacing the pattern associated with a base - if:
+    // 1. the conflicting previous base pattern did *not* have an explicit skeleton; in that case the previous
+    // base + pattern combination was derived from either (a) a canonical item, (b) a standard format, or
+    // (c) a pattern specified programmatically with a previous call to addPattern (which would only happen
+    // if we are getting here from a subsequent call to addPattern).
+    // 2. a skeleton is specified for the current pattern, but override=false; in that case we are checking
+    // availableFormats items from root, which should not override any previous entry with the same base.
     UBool entryHadSpecifiedSkeleton;
     const UnicodeString *duplicatePattern = patternMap->getPatternFromBasePattern(basePattern, entryHadSpecifiedSkeleton);
-    if (duplicatePattern != NULL ) {
+    if (duplicatePattern != NULL && (!entryHadSpecifiedSkeleton || (skeletonToUse != NULL && !override))) {
         conflictingStatus = UDATPG_BASE_CONFLICT;
         conflictingPattern = *duplicatePattern;
-        if (!override || (skeletonToUse != NULL && entryHadSpecifiedSkeleton)) {
+        if (!override) {
             return conflictingStatus;
         }
     }
+    // The only time we get here with override=true and skeletonToUse!=null is when adding availableFormats
+    // items from CLDR data. In that case, we don't want an item from a parent locale to replace an item with
+    // same skeleton from the specified locale, so skip the current item if skeletonWasSpecified is true for
+    // the previously-specified conflicting item.
     const PtnSkeleton* entrySpecifiedSkeleton = NULL;
     duplicatePattern = patternMap->getPatternFromSkeleton(skeleton, &entrySpecifiedSkeleton);
     if (duplicatePattern != NULL ) {
@@ -1076,7 +1091,7 @@ DateTimePatternGenerator::adjustFieldTypes(const UnicodeString& pattern,
                         }
                     }
                     UChar c = (typeValue!= UDATPG_HOUR_FIELD && typeValue!= UDATPG_MONTH_FIELD &&
-                               typeValue!= UDATPG_WEEKDAY_FIELD && typeValue!= UDATPG_YEAR_FIELD)?
+                               typeValue!= UDATPG_WEEKDAY_FIELD && (typeValue!= UDATPG_YEAR_FIELD || reqField.charAt(0)==CAP_Y))?
                         reqField.charAt(0): field.charAt(0);
                     field.remove();
                     for (int32_t i=adjFieldLen; i>0; --i) {
@@ -1394,6 +1409,9 @@ PatternMap::add(const UnicodeString& basePattern,
             }
             // Overwrite the value.
             curElem->pattern = value;
+            // It was a bug that we were not doing the following previously,
+            // though that bug hid other problems by making things partly work.
+            curElem->skeletonWasSpecified = skeletonWasSpecified;
         }
     }
 }  // PatternMap::add

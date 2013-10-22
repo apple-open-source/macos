@@ -75,11 +75,23 @@ KernelStaticCode::KernelStaticCode()
 SecCode *KernelCode::locateGuest(CFDictionaryRef attributes)
 {
 	if (CFTypeRef attr = CFDictionaryGetValue(attributes, kSecGuestAttributePid)) {
-		if (CFDictionaryGetCount(attributes) != 1)
-			MacOSError::throwMe(errSecCSUnsupportedGuestAttributes); // had more
-		if (CFGetTypeID(attr) == CFNumberGetTypeID())
-			return (new ProcessCode(cfNumber<pid_t>(CFNumberRef(attr))))->retain();
-		MacOSError::throwMe(errSecCSInvalidAttributeValues);
+                RefPointer<PidDiskRep> diskRep = NULL;
+                
+                if (CFGetTypeID(attr) != CFNumberGetTypeID())
+                        MacOSError::throwMe(errSecCSInvalidAttributeValues);
+                
+                pid_t pid = cfNumber<pid_t>(CFNumberRef(attr));
+
+                if (CFDictionaryGetValue(attributes, kSecGuestAttributeDynamicCode) != NULL) {
+                        CFDataRef infoPlist = (CFDataRef)CFDictionaryGetValue(attributes, kSecGuestAttributeDynamicCodeInfoPlist);
+                        if (infoPlist && CFGetTypeID(infoPlist) != CFDataGetTypeID())
+                                MacOSError::throwMe(errSecCSInvalidAttributeValues);
+
+						try {
+	                        diskRep = new PidDiskRep(pid, infoPlist);
+						} catch (...) { }
+                }
+                return (new ProcessCode(cfNumber<pid_t>(CFNumberRef(attr)), diskRep))->retain();
 	} else
 		MacOSError::throwMe(errSecCSUnsupportedGuestAttributes);
 }
@@ -93,11 +105,23 @@ SecCode *KernelCode::locateGuest(CFDictionaryRef attributes)
 SecStaticCode *KernelCode::identifyGuest(SecCode *iguest, CFDataRef *cdhash)
 {
 	if (ProcessCode *guest = dynamic_cast<ProcessCode *>(iguest)) {
+                
+                if (guest->pidBased()) {
+                       
+                        SecPointer<SecStaticCode> code = new ProcessDynamicCode(guest);
+
+                        SHA1::Digest kernelHash;
+                        MacOSError::check(::csops(guest->pid(), CS_OPS_CDHASH, kernelHash, sizeof(kernelHash)));
+                        *cdhash = makeCFData(kernelHash, sizeof(kernelHash));
+
+                        return code.yield();
+                }
+                
 		char path[2 * MAXPATHLEN];	// reasonable upper limit
 		if (::proc_pidpath(guest->pid(), path, sizeof(path))) {
 			off_t offset;
 			csops(guest, CS_OPS_PIDOFFSET, &offset, sizeof(offset));
-			SecPointer<SecStaticCode> code = new ProcessStaticCode(DiskRep::bestGuess(path, offset));
+			SecPointer<SecStaticCode> code = new ProcessStaticCode(DiskRep::bestGuess(path, (size_t)offset));
 			CODESIGN_GUEST_IDENTIFY_PROCESS(guest, guest->pid(), code);
 			if (cdhash) {
 				SHA1::Digest kernelHash;

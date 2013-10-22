@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,12 +36,19 @@
 #ifndef _IPCONFIGURATIONSERVICEINTERNAL_H
 #define _IPCONFIGURATIONSERVICEINTERNAL_H
 
+#include <CoreFoundation/CFString.h>
 #include "symbol_scope.h"
 
 #define kIPConfigurationServiceOptions	CFSTR("__IPConfigurationServiceOptions") /* dictionary */
 
-#define kIPConfigurationServiceOptionMonitorPID CFSTR("MonitorPID") /* boolean */
-#define kIPConfigurationServiceOptionNoPublish 	CFSTR("NoPublish")  /* boolean */
+#define _kIPConfigurationServiceOptionMonitorPID	\
+    CFSTR("MonitorPID") 	/* boolean */
+#define _kIPConfigurationServiceOptionNoPublish \
+    CFSTR("NoPublish")		/* boolean */
+#define _kIPConfigurationServiceOptionMTU \
+    CFSTR("MTU")		/* number */
+#define _kIPConfigurationServiceOptionPerformNUD \
+    CFSTR("PerformNUD")		/* boolean */
 
 #define IPCONFIGURATION_SERVICE_FORMAT CFSTR("Plugin:IPConfigurationService:%@")
 

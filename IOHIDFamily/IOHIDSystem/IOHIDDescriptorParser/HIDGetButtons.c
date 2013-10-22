@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -81,7 +81,7 @@ HIDGetButtons  (HIDReportType			reportType,
 				UInt32 *				piUsageListLength,
 				HIDPreparsedDataRef 	preparsedDataRef,
 				void *					psReport,
-				ByteCount				iReportLength)
+				IOByteCount             iReportLength)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
 	HIDCollection *ptCollection;
@@ -127,7 +127,7 @@ HIDGetButtons  (HIDReportType			reportType,
 			iStart = ptReportItem->startBit;
 			for (iE=0; iE<ptReportItem->globals.reportCount; iE++)
 			{
-				OSStatus status = noErr;
+				OSStatus status = 0;
 				iValue = 0;
 				
 				if ((ptReportItem->dataModes & kHIDDataArrayBit) == kHIDDataArray)

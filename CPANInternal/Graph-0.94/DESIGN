@@ -1,0 +1,87 @@
+	*** NOTE THAT THE INTERNALS OF GRAPH 0.50 ARE COMPLEX ***
+	*** AND (ALMOST INTENTIONALLY) UNDERDOCUMENTED.       ***
+	*** YOU ARE NOT SUPPOSED TO BE ABLE TO ACCESS         ***
+	*** THE INTERNALS DIRECTLY.                           ***
+
+The design goals of Graph 0.5 were flexibility and being able to
+represent even the more unusual graphs like graphs with reference-counted
+edges and vertices, multi(edge or vertex)graphs (an edge or vertex can
+"be present" more than once), hyper(edge)graphs (an edge can join more
+than two edges), and hypervertexgraphs (vertices of more than one, errm,
+vertex).
+
+As you can see (or rather, not see) being fast was not a design goal.
+
+Note that while the underlying data structures can do the above
+(and even a little bit beyond those), the common graph algorithms
+don't either (at best) understand at all the more esoteric graphs,
+or (at worst) break horribly, either by producing wrong results,
+crashing, or looping infinitely (isn't it nice to have options?).
+It is hoped that the people needing algorithms on the more esoteric
+graphs will write their own algorithms or enhance the current ones to
+cope better.
+
+While the data structures (into which we will get in a moment)
+are flexible, extra care was taken to optimize the common case
+(your usual non-counted non-hyper graphs) so that too much time
+memory isn't wasted in being overly general.  Some waste does
+happen, so in general the code is 2-4 times slower than the
+previous generation, Graph 0.2xxx.
+
+Another complicating factor not really stemming from graph theory but
+from Perl itself was that some people wanted to be able to have Perl
+objects that have stringify overload as graph vertices.  Also this is
+now possible (the "refvertexed" parameter), at least based on very
+light testing.  It is very likely, though, that in some corners of the
+code this will still not work (it requires an extra step in handling
+vertices, and I quite probably forgot some spots).
+
+The most basic data structure of Graphs is a Map.  A map consists of
+zero or more 'coordinates' and a data item that can be found by
+following the set of coordinates.  The data item can also be missing
+which means that the set of coordinates exists.  The set of
+coordinates can be ordered or unordered, and it can also be
+"uniquefying" or not on the coordinates.  For the vertices the
+coordinates are strings, but there is a mapping from those strings to
+integers, and the edge coordinates use those integers.  Maps come in
+different complexities: light, vertex, and heavy.  A 'light' map is
+used if the elements have nothing fancy like for example attributes
+(it is basically just using a hash for the vertices and a hash of
+hashes for the edges), a 'heavy' map is used if they do. A 'vertex'
+map is a simplified version of a 'heavy' map used only for 'normal'
+(non-hyper) vertices.
+
+A vertex is an AdjacencyMap of one coordinate, an edge is a AdjacencyMap
+of two coordinates.  (If we are talking about non-hyper cases.)
+
+Therefore an ordinary Graph is at its heart a tuple of AdjacencyMaps
+or in familiar terms (V, E).
+
+The rather complex design means that one is not really able (not without
+considerable and future-fragile effort) to derive from Graph and expect
+to be able to directly access and manipulate the internal data structures.
+
+Multiplicity in its most basic form is handled by having an additional
+counter for an (AdjacencyMap) item and then incrementing and
+decrementing that appropriately.  When the counter goes to zero,
+a full delete takes place: this is called countvertexed/countedged.
+To be really "multi" each vertex or edge needs to have its own
+identity and existence and to be able to store its own data: this is
+called multivertexed/multiedged.
+
+The hyperness is handled by having separate slots for each
+AdjacencyMap item arity: zero, one (for vertices), two (for edges),
+and so forth.
+
+Both the multiplicity (count/multi) and hyperness are set up on demand
+when those features are requested at Graph creation, in the normal
+case the data structures are as simple as possible.  The implementation
+is done by switching the internal implementation between ::Light,
+::Vertex, and ::Heavy classes.  This is all done automatically
+and internally AND ONE IS NOT SUPPOSED TO USE THOSE CLASSES DIRECTLY.
+
+Attributes are part of (non-'light') AdjacencyMaps, this means that
+each vertex and edge can have its own attributes.  Also Graphs can
+have attributes, but unfortunately Graph attributes do not currently
+use the AdjacencyMap abstraction for storing their attributes.
+

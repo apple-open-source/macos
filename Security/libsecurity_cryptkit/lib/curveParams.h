@@ -157,7 +157,7 @@ typedef struct {
 #define CT_MONTGOMERY	0	/* a=1, b=0 */
 #define CT_WEIERSTRASS	1	/* c=0 */
 #define CT_GENERAL		4	/* other */
-#endif 0
+#endif /* 0 */
 
 /*
  * Obtain a malloc'd curveParams for a specified feeDepth.

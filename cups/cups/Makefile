@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 9391 2010-11-30 21:53:04Z mike $"
+# "$Id: Makefile 11110 2013-07-08 21:17:10Z msweet $"
 #
 #   Top-level Makefile for CUPS.
 #
-#   Copyright 2007-2012 by Apple Inc.
+#   Copyright 2007-2013 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -242,7 +242,7 @@ debugcheck:	all unittests
 
 
 #
-# Create HTML documentation...
+# Create HTML documentation using Mini-XML's mxmldoc (http://www.msweet.org/)...
 #
 
 apihelp:
@@ -259,7 +259,7 @@ framedhelp:
 
 
 #
-# Create an Xcode docset...
+# Create an Xcode docset using Mini-XML's mxmldoc (http://www.msweet.org/)...
 #
 
 docset:	apihelp
@@ -295,7 +295,7 @@ sloc:
 
 
 #
-# Make software distributions using EPM (http://www.epmhome.org/)...
+# Make software distributions using EPM (http://www.msweet.org/)...
 #
 
 EPMFLAGS	=	-v --output-dir dist $(EPMARCH)
@@ -316,7 +316,6 @@ dist:	all
 	case `uname` in \
 		*BSD*) $(MAKE) $(MFLAGS) bsd;; \
 		Darwin*) $(MAKE) $(MFLAGS) osx;; \
-		IRIX*) $(MAKE) $(MFLAGS) tardist;; \
 		Linux*) test ! -x /usr/bin/rpm || $(MAKE) $(MFLAGS) rpm;; \
 		SunOS*) $(MAKE) $(MFLAGS) pkg;; \
 	esac
@@ -330,5 +329,5 @@ dist:	all
 
 
 #
-# End of "$Id: Makefile 9391 2010-11-30 21:53:04Z mike $".
+# End of "$Id: Makefile 11110 2013-07-08 21:17:10Z msweet $".
 #

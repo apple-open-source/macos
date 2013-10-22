@@ -39,7 +39,7 @@
 #endif
 #include <ctype.h>
 
-#include "compat.h"
+#include "missing.h"
 
 
 #define EPOCH		1970
@@ -100,7 +100,7 @@ static time_t	yyRelSeconds;
 
 static int	yyerror __P((char *s));
 static int	yylex __P((void));
-static int	yyparse __P((void));
+       int	yyparse __P((void));
 
 %}
 

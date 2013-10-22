@@ -107,6 +107,8 @@ static struct s2i syslogvals[] = {
     { NULL, -1 }
 };
 
+#undef L
+
 static int
 find_value(const char *s, struct s2i *table)
 {
@@ -207,6 +209,80 @@ open_syslog(krb5_context context,
     return krb5_addlog_func(context, facility, min, max,
 			    log_syslog, close_syslog, sd);
 }
+
+#ifdef __APPLE__
+
+#include <asl.h>
+
+#define L(X) { #X, ASL_LEVEL_ ## X }
+
+static struct s2i aslvals[] = {
+    L(EMERG),
+    L(ALERT),
+    L(CRIT),
+    L(ERR),
+    L(WARNING),
+    L(NOTICE),
+    L(INFO),
+    L(DEBUG),
+    { NULL, -1 }
+};
+
+#undef L
+
+struct _heimdal_asl_data{
+    aslclient client;
+    aslmsg msg;
+    int level;
+};
+
+static void KRB5_CALLCONV
+log_asl(const char *timestr,
+	const char *msg,
+	void *data)
+{
+    struct _heimdal_asl_data *s = data;
+    asl_log(s->client, s->msg, s->level, "%s", msg);
+}
+
+static void KRB5_CALLCONV
+close_asl(void *data)
+{
+    struct _heimdal_asl_data *s = data;
+    asl_free(s->msg);
+    asl_close(s->client);
+    free(s);
+}
+
+static krb5_error_code
+open_asl(krb5_context context,
+	 krb5_log_facility *facility, int min, int max,
+	 const char *sev, const char *fac)
+{
+    struct _heimdal_asl_data *sd = malloc(sizeof(*sd));
+    int i;
+
+    if(sd == NULL) {
+	krb5_set_error_message(context, ENOMEM,
+			       N_("malloc: out of memory", ""));
+	return ENOMEM;
+    }
+    i = find_value(sev, aslvals);
+    if(i == -1)
+	i = ASL_LEVEL_ERR;
+    sd->level = i;
+
+    sd->client = asl_open(getprogname(), fac, 0);
+
+    sd->msg = asl_new(ASL_TYPE_MSG);
+    asl_set(sd->msg, "org.h5l.asl", "krb5");
+
+    return krb5_addlog_func(context, facility, min, max,
+			    log_asl, close_asl, sd);
+}
+
+#endif /* __APPLE__ */
+
 
 struct file_data{
     const char *filename;
@@ -359,6 +435,25 @@ krb5_addlog_dest(krb5_context context, krb5_log_facility *f, const char *orig)
  	if(*facility == '\0')
 	    strlcpy(facility, "AUTH", sizeof(facility));
 	ret = open_syslog(context, f, min, max, severity, facility);
+    }else if(strncmp(p, "ASL", 3) == 0 && (p[3] == '\0' || p[3] == ':')){
+#ifdef __APPLE__
+	char severity[128] = "";
+	char facility[128] = "";
+	p += 3;
+	if(*p != '\0')
+	    p++;
+	if(strsep_copy(&p, ":", severity, sizeof(severity)) != -1)
+	    strsep_copy(&p, ":", facility, sizeof(facility));
+	if(*severity == '\0')
+	    strlcpy(severity, "ERR", sizeof(severity));
+ 	if(*facility == '\0')
+	    strlcpy(facility, "AUTH", sizeof(facility));
+	ret = open_asl(context, f, min, max, severity, facility);
+#else
+	ret = HEIM_ERR_LOG_PARSE;
+	krb5_set_error_message (context, ret,
+				N_("asl is not supported on this platform", ""), p);
+#endif /* __APPLE__ */
     }else{
 	ret = HEIM_ERR_LOG_PARSE; /* XXX */
 	krb5_set_error_message (context, ret,
@@ -418,7 +513,7 @@ krb5_vlog_msg(krb5_context context,
 	      int level,
 	      const char *fmt,
 	      va_list ap)
-     __attribute__((format (printf, 5, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 5, 0))
 {
 
     char *msg = NULL;
@@ -456,7 +551,7 @@ krb5_vlog(krb5_context context,
 	  int level,
 	  const char *fmt,
 	  va_list ap)
-     __attribute__((format (printf, 4, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 0))
 {
     return krb5_vlog_msg(context, fac, NULL, level, fmt, ap);
 }
@@ -468,7 +563,7 @@ krb5_log_msg(krb5_context context,
 	     char **reply,
 	     const char *fmt,
 	     ...)
-     __attribute__((format (printf, 5, 6)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 5, 6))
 {
     va_list ap;
     krb5_error_code ret;
@@ -486,7 +581,7 @@ krb5_log(krb5_context context,
 	 int level,
 	 const char *fmt,
 	 ...)
-     __attribute__((format (printf, 4, 5)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
 {
     va_list ap;
     krb5_error_code ret;
@@ -502,7 +597,7 @@ _krb5_debugx(krb5_context context,
 	     int level,
 	     const char *fmt,
 	     ...)
-    __attribute__((format (printf, 3, 4)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
 {
     va_list ap;
 
@@ -520,7 +615,7 @@ _krb5_debug(krb5_context context,
 	    krb5_error_code ret,
 	    const char *fmt,
 	    ...)
-    __attribute__((format (printf, 4, 5)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
 {
     va_list ap;
     char *str = NULL;

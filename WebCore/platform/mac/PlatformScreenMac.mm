@@ -32,19 +32,23 @@
 #import "Widget.h"
 #import "NotImplemented.h"
 
+@implementation NSScreen(WebCoreNSScreenUtilities)
++ (NSScreen *)screenForDislayID:(PlatformDisplayID)displayID
+{
+    for (NSScreen *screen in [NSScreen screens]) {
+        if ([screen displayID] == displayID)
+            return screen;
+    }
+    return nil;
+}
+
+- (PlatformDisplayID)displayID
+{
+    return (PlatformDisplayID)[[[self deviceDescription] objectForKey:@"NSScreenNumber"] intValue];
+}
+@end
+
 namespace WebCore {
-
-int screenHorizontalDPI(Widget*)
-{
-    notImplemented();
-    return 0;
-}
-
-int screenVerticalDPI(Widget*)
-{
-    notImplemented();
-    return 0;
-}
 
 int screenDepth(Widget*)
 {
@@ -64,16 +68,37 @@ bool screenIsMonochrome(Widget*)
 // These functions scale between screen and page coordinates because JavaScript/DOM operations 
 // assume that the screen and the page share the same coordinate system.
 
+static NSScreen *screenForWidget(Widget* widget, NSWindow *window)
+{
+    // Widget is in an NSWindow, use its screen.
+    if (window)
+        return screenForWindow(window);
+    
+    // Didn't get an NSWindow; probably WebKit2. Try using the Widget's display ID.
+    if (NSScreen *screen = widget ? [NSScreen screenForDislayID:widget->windowDisplayID()] : nil)
+        return screen;
+    
+    // Widget's window is offscreen, or no screens. Fall back to the first screen if available.
+    return screenForWindow(nil);
+}
+
 FloatRect screenRect(Widget* widget)
 {
     NSWindow *window = widget ? [widget->platformWidget() window] : nil;
-    return toUserSpace([screenForWindow(window) frame], window);
+    NSScreen *screen = screenForWidget(widget, window);
+    return toUserSpace([screen frame], window);
 }
 
 FloatRect screenAvailableRect(Widget* widget)
 {
     NSWindow *window = widget ? [widget->platformWidget() window] : nil;
-    return toUserSpace([screenForWindow(window) visibleFrame], window);
+    NSScreen *screen = screenForWidget(widget, window);
+    return toUserSpace([screen visibleFrame], window);
+}
+
+void screenColorProfile(ColorProfile&)
+{
+    notImplemented();
 }
 
 NSScreen *screenForWindow(NSWindow *window)

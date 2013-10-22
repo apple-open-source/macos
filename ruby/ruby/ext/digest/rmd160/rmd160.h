@@ -1,13 +1,13 @@
 /*	$NetBSD: rmd160.h,v 1.2 2000/07/07 10:47:06 ad Exp $	*/
 /*	$RoughId: rmd160.h,v 1.3 2002/02/24 08:14:31 knu Exp $	*/
-/*	$Id: rmd160.h 11708 2007-02-12 23:01:19Z shyouhei $	*/
+/*	$Id: rmd160.h 27437 2010-04-22 08:04:13Z nobu $	*/
 
 /********************************************************************\
  *
  *      FILE:     rmd160.h
  *
  *      CONTENTS: Header file for a sample C-implementation of the
- *                RIPEMD-160 hash-function. 
+ *                RIPEMD-160 hash-function.
  *      TARGET:   any computer with an ANSI C compiler
  *
  *      AUTHOR:   Antoon Bosselaers, ESAT-COSIC

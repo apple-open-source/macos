@@ -282,7 +282,7 @@ double_t IOHIDValueGetScaledValue(IOHIDValueRef event, IOHIDValueScaleType type)
 
            // now check the dead zone
            if (calibrationInfo->dzMin != calibrationInfo->dzMax) {
-                double_t scaledMid = (scaledMin + scaledMax) / 2.0;
+                double_t scaledMid = scaledMin + ((scaledMax - scaledMin) / 2.0);
                 if (logicalValue < calibrationInfo->dzMin) {
                     logicalMax = calibrationInfo->dzMin;
                     scaledMax = scaledMid;

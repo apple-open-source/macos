@@ -48,6 +48,7 @@
 #include <netsmb/smb_lib.h>
 #include <netsmb/rq.h>
 #include <netsmb/smbio.h>
+#include <netsmb/smbio_2.h>
 #include <netsmb/smb_converter.h>
 #include "msdfs.h"
 #include "libtest.h"
@@ -851,20 +852,20 @@ static int test_user_smb_calls(CFStringRef Domain, CFStringRef Username, CFStrin
 		goto done;
 	}
 	/* TEST CHECK DIRECTORY */
-	error =  smbio_check_directory(ref, "/UnitTest/Library/Preferences/ByHost", 0, NULL);
+	error =  smb2io_check_directory(ref, "/UnitTest/Library/Preferences/ByHost", 0, NULL);
 	if (error)
 		printf("check directory lookup of 'ByHost' failed with error = %d\n", error);
-	error =  smbio_check_directory(ref, "UnitTest/Library", 0, NULL);
+	error =  smb2io_check_directory(ref, "UnitTest/Library", 0, NULL);
 	if (error)
 		printf("check directory lookup of 'UnitTest/Library' failed with error = %d\n", error);
-	error =  smbio_check_directory(ref, "/UnitTest/Library", 0, NULL);
+	error =  smb2io_check_directory(ref, "/UnitTest/Library", 0, NULL);
 	if (error)
 		printf("check directory lookup of '/UnitTest/Library' failed with error = %d\n", error);
-	error =  smbio_check_directory(ref, "/UnitTest/Downloadsx", 0, NULL);
+	error =  smb2io_check_directory(ref, "/UnitTest/Downloadsx", 0, NULL);
 	if (error != ENOENT) {
 		printf("check directory lookup of '/UnitTest/Downloadsx' should failed with ENENT, goterror = %d?\n", error);
 	}
-	error =  smbio_check_directory(ref, "/UnitTest/myFile", 0, NULL);
+	error =  smb2io_check_directory(ref, "/UnitTest/myFile", 0, NULL);
 	if (error != ENOTDIR) {
 		printf("check directory lookup of 'myFile' should failed with ENENT, goterror = %d?\n", error);
 	}
@@ -876,9 +877,9 @@ static int test_user_smb_calls(CFStringRef Domain, CFStringRef Username, CFStrin
 		if (error)
 			printf("smbio_open_pipe of '/UnitTest/myFile' failed with error = %d\n", error);
 		else {
-			error = smbio_close_file(ref, fid);
+			error = smb2io_close_file(ref, fid);
 			if (error)
-				printf("smbio_close_file of '/UnitTest/myFile' failed with error = %d\n", error);
+				printf("smb2io_close_file of '/UnitTest/myFile' failed with error = %d\n", error);
 		}
 	}
 	/* END OF OPEN/CLOSE TEST */

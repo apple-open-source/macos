@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,15 +37,17 @@
 
 #include <CoreFoundation/CFString.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
 #include <unistd.h>
 #include "util.h"
 #include "globals.h"
-#include "dhcp_thread.h"
+#include "ipconfigd_globals.h"
 #include "cfutil.h"
+#include "HostUUID.h"
 #include "DHCPDUID.h"
 #include "DHCPDUIDIAID.h"
 
-#define DUID_IA_FILE		DHCPCLIENT_DIR "/DUID_IA.plist"
+#define DUID_IA_FILE		IPCONFIGURATION_PRIVATE_DIR "/DUID_IA.plist"
 
 #define kDUIDKey		CFSTR("DUID")		/* data */
 #define kIAIDListKey		CFSTR("IAIDList")	/* array[string] */
@@ -76,40 +78,6 @@ S_seconds_since_Jan_1_2000(void)
     return (seconds);
 }
 
-static void
-create_dhcpclient_path(void)
-{
-    static int	done = 0;
-
-    if (done != 0) {
-	return;
-    }
-    if (create_path(DHCPCLIENT_DIR, 0700) < 0) {
-	my_log(LOG_DEBUG, "failed to create " 
-	       DHCPCLIENT_DIR ", %s (%d)", strerror(errno), errno);
-	return;
-    }
-    done = 1;
-    return;
-}
-
-STATIC CFDataRef
-get_host_UUID(void)
-{
-    STATIC CFMutableDataRef	host_UUID;
-    struct timespec		ts = { 0, 0 };
-
-    if (host_UUID != NULL) {
-	return (host_UUID);
-    }
-    host_UUID = CFDataCreateMutable(NULL, sizeof(uuid_t));
-    CFDataSetLength(host_UUID, sizeof(uuid_t));
-    if (gethostuuid(CFDataGetMutableBytePtr(host_UUID), &ts) != 0) {
-	my_CFRelease(&host_UUID);
-    }
-    return (host_UUID);
-}
-
 STATIC void
 save_DUID_info(void)
 {
@@ -126,18 +94,18 @@ save_DUID_info(void)
     if (S_IAIDList != NULL) {
 	CFDictionarySetValue(duid_ia, kIAIDListKey, S_IAIDList);
     }
-    host_UUID = get_host_UUID();
+    host_UUID = HostUUIDGet();
     if (host_UUID != NULL) {
 	CFDictionarySetValue(duid_ia, kHostUUIDKey, host_UUID);
     }
-    create_dhcpclient_path();
-    if (my_CFPropertyListWriteFile(duid_ia, DUID_IA_FILE) < 0) {
+    if (my_CFPropertyListWriteFile(duid_ia, DUID_IA_FILE, 0644) < 0) {
 	/*
 	 * An ENOENT error is expected on a read-only filesystem.  All 
 	 * other errors should be reported.
 	 */
 	if (errno != ENOENT) {
-	    my_log(LOG_NOTICE, "DHCPDUID: failed to write " DUID_IA_FILE ", %s",
+	    my_log(LOG_ERR,
+		   "DHCPDUID: failed to write %s, %s", DUID_IA_FILE,
 		   strerror(errno));
 	}
     }
@@ -182,7 +150,7 @@ load_DUID_info(void)
 	&& CFDataGetLength(host_uuid) == sizeof(uuid_t)) {
 	CFDataRef	our_UUID;
 
-	our_UUID = get_host_UUID();
+	our_UUID = HostUUIDGet();
 	if (our_UUID != NULL && CFEqual(host_uuid, our_UUID) == FALSE) {
 	    syslog(LOG_NOTICE,
 		   "DHCPDUID: ignoring DUID - host UUID doesn't match");
@@ -283,14 +251,14 @@ DHCPDUIDGet(interface_list_t * interfaces)
     }
     if (if_p == NULL) {
 	if (G_dhcp_duid_type == kDHCPDUIDTypeLL || if_with_linkaddr_p == NULL) {
-	    my_log(LOG_NOTICE,
+	    my_log(LOG_ERR,
 		   "DHCPv6Client: can't determine interface for DUID");
 	    goto done;
 	}
 	if_p = if_with_linkaddr_p;
     }
     if (G_IPConfiguration_verbose) {
-	my_log(LOG_NOTICE, "DHCPv6Client: chose %s for DUID",
+	my_log(LOG_DEBUG, "DHCPv6Client: chose %s for DUID",
 	       if_name(if_p));
     }
     if (G_dhcp_duid_type == kDHCPDUIDTypeLL || G_is_netboot) {
@@ -339,28 +307,33 @@ DHCPIAIDGet(const char * ifname)
 
 #ifdef TEST_DHCPDUIDIAID
 
-int		G_IPConfiguration_verbose = 1;
+Boolean		G_IPConfiguration_verbose = 1;
 int		G_dhcp_duid_type;
 boolean_t	G_is_netboot;
 
 int
 main(int argc, char * argv[])
 {
-    int			i;
     CFDataRef		duid;
+    int			i;
     interface_list_t *	interfaces;
+    CFMutableStringRef 	str;
 
     (void) openlog("DHCPDUIDIAID", LOG_PERROR | LOG_PID, LOG_DAEMON);
     interfaces = ifl_init();
 
+    ipconfigd_create_paths();
     duid = DHCPDUIDGet(interfaces);
     if (duid == NULL) {
 	fprintf(stderr, "Couldn't determine DUID\n");
 	exit(1);
     }
-    DHCPDUIDFPrint(stdout, (const DHCPDUIDRef)CFDataGetBytePtr(duid),
-		   CFDataGetLength(duid));
-    printf("\n");
+
+    str = CFStringCreateMutable(NULL, 0);
+    DHCPDUIDPrintToString(str, (const DHCPDUIDRef)CFDataGetBytePtr(duid),
+			  CFDataGetLength(duid));
+    SCPrint(TRUE, stdout, CFSTR("%@\n"), str);
+    CFRelease(str);
     if (argc > 1) {
 	for (i = 1; i < argc; i++) {
 	    DHCPIAID	iaid;

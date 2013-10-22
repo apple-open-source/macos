@@ -103,6 +103,7 @@ cfstring_to_cstring(const CFStringRef val, char **buffer)
 		retval =  PAM_SUCCESS;
 	} else {
 		openpam_log(PAM_LOG_DEBUG, "CFStringGetCString failed.");
+		free(*buffer);
 		*buffer = NULL;
 	}
 	
@@ -220,14 +221,15 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 
 	if (current_iterations > 0) {
 		char *wt = NULL, *found = NULL;
+		int retval2;
 
 		if (*record)
 			found = "failure";
 		else
 			found = "success";
 
-		retval = asprintf(&wt, "%d", kWaitSeconds * current_iterations);
-		if (-1 == retval) {
+		retval2 = asprintf(&wt, "%d", kWaitSeconds * current_iterations);
+		if (-1 == retval2) {
 			openpam_log(PAM_LOG_DEBUG, "Failed to convert current wait time to string.");
 			retval = PAM_BUF_ERR;
 			goto cleanup;
@@ -820,15 +822,4 @@ pam_cf_cleanup(__unused pam_handle_t *pamh, void *data, __unused int pam_end_sta
 		CFStringRef *cfstring = data;
 		CFRelease(*cfstring);
 	}
-}
-
-Boolean IsServerInstall(void)
-{
-	struct stat statBuf;
-
-	if ((SIIsServerHardware() == true) && ((stat(kOSInstall_mpkg, &statBuf) == 0) || (stat(kOSInstall_collection, &statBuf) == 0))) {
-		return true;
-	}
-
-	return false;
 }

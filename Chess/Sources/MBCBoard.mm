@@ -1194,6 +1194,7 @@ bool MBCPieces::NoPieces(MBCPieceCode color)
 		[self makeMove: move];
 	}
 	[existingMoves release];
+	fPrvPos = fCurPos;
 
 	return YES;
 }

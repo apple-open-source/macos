@@ -39,14 +39,17 @@
 #import <Foundation/NSString.h>
 #import <Foundation/NSDictionary.h>
 
-#include <Admin/LoginPrefs.h>
-#include <Admin/User.h>
-#include <Admin/UserAdditions.h>
-#include <Admin/AdminConst.h>
-#include <Admin/Group.h>
-#include <Admin/Authenticator.h>
-//#include <Admin/Utilities.h>
+#if 0
+#import <Admin/LoginPrefs.h>
+#import <Admin/User.h>
+#import <Admin/UserAdditions.h>
+#import <Admin/AdminConst.h>
+#import <Admin/Group.h>
+#import <Admin/Authenticator.h>
 #import <Admin/DSAuthenticator.h>
+#else
+#import <SystemAdministration/SystemAdministration.h>
+#endif
 
 static int do_create_fv_user(const char *userShortName, const char *userFullName, const char *kcpassword);
 static BOOL verify_userFullName(const char *userFullName);
@@ -112,8 +115,6 @@ create_fv_user(int argc, char * const *argv)
 
 	result = do_create_fv_user(userShortName, userFullName, kcpassword);
 
-loser:
-
 	return result;
 }
 
@@ -127,7 +128,7 @@ static int do_create_fv_user(const char *userShortName, const char *userFullName
 		return 1;
 		
 	printf("Connecting to writeconfig...\n");
-	Authenticator *sharedAuthenticator = [Authenticator sharedAuthenticator];
+	AdminAuthenticator *sharedAuthenticator = [AdminAuthenticator sharedAuthenticator];
 	[sharedAuthenticator authenticateUsingAuthorization:mAuthorization];
 	if (![sharedAuthenticator isAuthenticated])
 	{
@@ -183,7 +184,7 @@ static BOOL authorize_me()
 	AuthorizationFlags flags = kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed; // XXX remove kAuthorizationFlagInteractionAllowed
 	AuthorizationItem myAction = { kRightName, 0, 0, 0 };
 	AuthorizationRights myRights = {1, &myAction};
-	AuthorizationEnvironment myEnvironment = {0,};
+//	AuthorizationEnvironment myEnvironment = {0,};
 
 	printf("Authorizing right %s\n", kRightName);
 	mAuthorization = [SFAuthorization authorizationWithFlags:flags
@@ -216,13 +217,13 @@ static BOOL verify_userFullName(const char *userFullName)
 	NS_ENDHANDLER
 
 	if(([mNewUserFullName caseInsensitiveCompare:@"admin"] != NSOrderedSame) && 
-		([Group findGroupByName:mNewUserFullName] != NULL))
+		([ADMGroup findGroupByName:mNewUserFullName] != NULL))
 	{
 		sec_error("User full name is not available (a group by that name exists)");	//USERNAME_IS_NOT_UNIQUE_SHORT
 		return NO;
 	}
 
-	if(![User isUserNameUnique:mNewUserFullName searchParent:NO])
+	if(![ADMUser isUserNameUnique:mNewUserFullName searchParent:NO])
 	{
 		sec_error("User full name is not unique");	//USERNAME_IS_NOT_UNIQUE_SHORT
 		return NO;
@@ -257,20 +258,20 @@ static BOOL verify_userUnixName(const char *userShortName)
 	if([mNewUserName length] == 0)
 		return NO;
 
-	if(![User isUserNameUnique:mNewUserName searchParent:NO])
+	if(![ADMUser isUserNameUnique:mNewUserName searchParent:NO])
 	{
 		sec_error("User short name is not unique");	//USERNAME_IS_NOT_UNIQUE_SHORT
 		return NO;
 	}
 
-	if(![User isUnixNameValid:mNewUserName])
+	if(![ADMUser isUnixNameValid:mNewUserName])
 	{
 		sec_error("User short name is not a valid unix name");	//UNIXNAME_IS_NOT_VALID
 		return NO;
 	}
 
 	if(([mNewUserName caseInsensitiveCompare:@"admin"] != NSOrderedSame) && 
-		([Group findGroupByName:mNewUserName] != NULL))
+		([ADMGroup findGroupByName:mNewUserName] != NULL))
 	{
 		sec_error("User short name is not available (a group by that name exists)");	//USERNAME_IS_NOT_UNIQUE_SHORT
 		return NO;
@@ -307,7 +308,7 @@ static void _createUserAccount(NSArray *inCertificates)
 	// local version of [AddRecordController _createUserAccount:]
 
 	printf("Creating new user account: %s\n", [mNewUserName UTF8String]);
-	User *		newUser = [User newUser];
+	ADMUser *		newUser = [ADMUser newUser];
 	NSDictionary *inParameters =[NSDictionary dictionaryWithObject:inCertificates 
 		forKey:kHomeDirectoryCertificates];
 

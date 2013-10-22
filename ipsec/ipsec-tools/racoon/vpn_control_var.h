@@ -55,6 +55,8 @@
 #define _VPN_CONTROL_VAR_H
 
 #include "vpn_control.h"
+#include <dispatch/dispatch.h>
+#include "localconf.h"
 
 enum {
 	VPN_STARTED_BY_API = 1,
@@ -62,20 +64,20 @@ enum {
 	VPN_RESTARTED_BY_API,
 };
 
-extern int vpncontrol_handler __P((void));
-extern int vpncontrol_comm_handler __P((struct vpnctl_socket_elem *));
-extern int vpncontrol_notify_ike_failed __P((u_int16_t, u_int16_t, u_int32_t, u_int16_t, u_int8_t*));
-extern int vpncontrol_notify_phase_change __P((int, u_int16_t, struct ph1handle*, struct ph2handle*));
-extern int vpncontrol_init __P((void));
-extern void vpncontrol_close __P((void));
-extern int vpn_control_connected __P((void));
-extern int vpn_connect __P((struct bound_addr *, int));
-extern int vpn_disconnect __P((struct bound_addr *, const char *));
-extern void vpncontrol_disconnect_all __P((struct vpnctl_socket_elem *, const char *));
-extern int vpn_start_ph2 __P((struct bound_addr *, struct vpnctl_cmd_start_ph2 *));
-extern int vpncontrol_notify_need_authinfo __P((struct ph1handle *, void*, size_t));
-extern int vpncontrol_notify_peer_resp_ph1 __P((u_int16_t, struct ph1handle*));
-extern int vpncontrol_notify_peer_resp_ph2 __P((u_int16_t, struct ph2handle*));
-extern int vpn_assert __P((struct sockaddr_storage *, struct sockaddr_storage *));
+extern void vpncontrol_handler (void *);
+extern void vpncontrol_comm_handler (struct vpnctl_socket_elem *);
+extern int vpncontrol_notify_ike_failed (u_int16_t, u_int16_t, u_int32_t, u_int16_t, u_int8_t*);
+extern int vpncontrol_notify_phase_change (int, u_int16_t, phase1_handle_t*, phase2_handle_t*);
+extern int vpncontrol_init (void);
+extern void vpncontrol_close (void);
+extern int vpn_control_connected (void);
+extern int vpn_connect (struct bound_addr *, int);
+extern int vpn_disconnect (struct bound_addr *, const char *);
+extern void vpncontrol_disconnect_all (struct vpnctl_socket_elem *, const char *);
+extern int vpn_start_ph2 (struct bound_addr *, struct vpnctl_cmd_start_ph2 *);
+extern int vpncontrol_notify_need_authinfo (phase1_handle_t *, void*, size_t);
+extern int vpncontrol_notify_peer_resp_ph1 (u_int16_t, phase1_handle_t*);
+extern int vpncontrol_notify_peer_resp_ph2 (u_int16_t, phase2_handle_t*);
+extern int vpn_assert (struct sockaddr_storage *, struct sockaddr_storage *);
 
 #endif /* _VPN_CONTROL_VAR_H */

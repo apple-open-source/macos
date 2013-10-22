@@ -63,9 +63,10 @@ do { \
 /* vfree is already defined in Apple's system libraries */
 #define vfree   vmbuf_free
 
-extern vchar_t *vmalloc __P((size_t));
-extern vchar_t *vrealloc __P((vchar_t *, size_t));
-extern void vfree __P((vchar_t *));
-extern vchar_t *vdup __P((vchar_t *));
+extern vchar_t *vmalloc (size_t);
+extern vchar_t *vrealloc (vchar_t *, size_t);
+extern void vfree (vchar_t *);
+extern vchar_t *vdup (vchar_t *);
+extern vchar_t *vnew (u_int8_t *, size_t);
 
 #endif /* _VMBUF_H */

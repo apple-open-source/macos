@@ -28,6 +28,8 @@
 #include <sys/time.h>
 #include <sys/sysctl.h>
 
+__BEGIN_DECLS
+
 /*
  * Flags for determining whether to collect memory region information on a
  * per-process basis, used byt libtop_preg().
@@ -104,9 +106,9 @@ typedef struct {
 	uint64_t		memsize;
 
 	/* VM statistics. */
-	vm_statistics_data_t	vm_stat;
-	vm_statistics_data_t	b_vm_stat;
-	vm_statistics_data_t	p_vm_stat;
+	vm_statistics64_data_t	vm_stat;
+	vm_statistics64_data_t	b_vm_stat;
+	vm_statistics64_data_t	p_vm_stat;
 
 	boolean_t		purgeable_is_valid;
 
@@ -216,6 +218,16 @@ struct libtop_psamp_s {
 	uint64_t		p_rshrd;
 	uint64_t		p_empty;
 
+	/* Anonymous/purgeable memory statistics. */
+	uint64_t anonymous;
+	uint64_t purgeable;
+	uint64_t p_anonymous;
+	uint64_t p_purgeable;
+
+	/* Compressed memory statistics. */
+	uint64_t compressed;
+	uint64_t p_compressed;
+
 	/* Number of threads. */
 	uint32_t		th;
 	uint32_t		p_th;
@@ -284,6 +296,11 @@ struct libtop_psamp_s {
 	uint32_t	p_wq_nthreads;
 	uint32_t	p_wq_run_threads;
 	uint32_t	p_wq_blocked_threads;
+
+	/* Power info. */
+	task_power_info_data_t power;
+	task_power_info_data_t b_power;
+	task_power_info_data_t p_power;
 };
 
 /*
@@ -402,3 +419,5 @@ libtop_i64_update(libtop_i64_t *i, int value);
 
 uint64_t
 libtop_i64_value(libtop_i64_t *i);
+
+__END_DECLS

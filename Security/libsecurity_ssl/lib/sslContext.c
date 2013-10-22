@@ -25,39 +25,41 @@
  * sslContext.c - SSLContext accessors
  */
 
-#include "ssl.h"
-#include "sslContext.h"
-#include "sslMemory.h"
-#include "sslDigests.h"
-#include "sslDebug.h"
-#include "sslCrypto.h"
-
 #include "SecureTransport.h"
 
+#include "SSLRecordInternal.h"
+#include "SecureTransportPriv.h"
+#include "appleSession.h"
+#include "ssl.h"
+#include "sslCipherSpecs.h"
+#include "sslContext.h"
+#include "sslCrypto.h"
+#include "sslDebug.h"
+#include "sslDigests.h"
+#include "sslKeychain.h"
+#include "sslMemory.h"
+#include "sslUtils.h"
+
+#include <AssertMacros.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFPreferences.h>
-
+#include <Security/SecCertificate.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecTrust.h>
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#include <Security/SecTrustSettingsPriv.h>
 #include <Security/oidsalg.h>
+#include "utilities/SecCFRelease.h"
+#include <pthread.h>
+#include <string.h>
+
+#if TARGET_OS_IPHONE
+#include <Security/SecCertificateInternal.h>
+#else
+#include <Security/oidsalg.h>
+#include <Security/oidscert.h>
 #include <Security/SecTrustSettingsPriv.h>
 #endif
 
-#include "sslKeychain.h"
-#include "sslUtils.h"
-#include "cipherSpecs.h"
-#include "appleSession.h"
-#include "SecureTransportPriv.h"
-#include <string.h>
-#include <pthread.h>
-#include <Security/SecCertificate.h>
-#include <Security/SecCertificatePriv.h>
-#include <Security/SecCertificateInternal.h>
-#include <Security/SecInternal.h>
-#include <Security/SecTrust.h>
-#include <Security/oidsalg.h>
-#include <Security/SecTrustSettingsPriv.h>
-#include <AssertMacros.h>
 
 static void sslFreeDnList(
 	SSLContext *ctx)
@@ -66,8 +68,8 @@ static void sslFreeDnList(
 
     dn = ctx->acceptableDNList;
     while (dn)
-    {
-    	SSLFreeBuffer(&dn->derDN, ctx);
+    {   
+	SSLFreeBuffer(&dn->derDN);
         nextDN = dn->next;
         sslFree(dn);
         dn = nextDN;
@@ -75,8 +77,21 @@ static void sslFreeDnList(
     ctx->acceptableDNList = NULL;
 }
 
-#define min(a,b)	( ((a) < (b)) ? (a) : (b) )
-#define max(a,b)	( ((a) > (b)) ? (a) : (b) )
+
+Boolean sslIsSessionActive(const SSLContext *ctx)
+{
+	assert(ctx != NULL);
+	switch(ctx->state) {
+		case SSL_HdskStateUninit:
+		case SSL_HdskStateServerUninit:
+		case SSL_HdskStateClientUninit:
+		case SSL_HdskStateGracefulClose:
+		case SSL_HdskStateErrorClose:
+			return false;
+		default:
+			return true;
+	}
+}
 
 /*
  * Minimum and maximum supported versions
@@ -108,6 +123,10 @@ static CFStringRef _sslContextDescribe(CFTypeRef arg);
 
 static void _SSLContextReadDefault()
 {
+	/* 0 = disabled, 1 = split every write, 2 = split second and subsequent writes */
+    /* Enabled by default, this make cause some interop issues, see <rdar://problem/12307662> and <rdar://problem/12323307> */
+    const int defaultSplitDefaultValue = 2;
+
 	CFTypeRef value = (CFTypeRef)CFPreferencesCopyValue(CFSTR("SSLWriteSplit"),
 							CFSTR("com.apple.security"),
 							kCFPreferencesAnyUser,
@@ -117,15 +136,15 @@ static void _SSLContextReadDefault()
 			kSplitDefaultValue = CFBooleanGetValue((CFBooleanRef)value) ? 1 : 0;
 		else if (CFGetTypeID(value) == CFNumberGetTypeID()) {
 			if (!CFNumberGetValue((CFNumberRef)value, kCFNumberIntType, &kSplitDefaultValue))
-				kSplitDefaultValue = 0;
+				kSplitDefaultValue = defaultSplitDefaultValue;
 		}
 		if (kSplitDefaultValue < 0 || kSplitDefaultValue > 2) {
-			kSplitDefaultValue = 0;
+			kSplitDefaultValue = defaultSplitDefaultValue;
 		}
 		CFRelease(value);
 	}
 	else {
-		kSplitDefaultValue = 0;
+		kSplitDefaultValue = defaultSplitDefaultValue;
 	}
 }
 
@@ -160,20 +179,38 @@ SSLNewContext				(Boolean 			isServer,
 							 SSLContextRef 		*contextPtr)	/* RETURNED */
 {
 	if(contextPtr == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 
 	*contextPtr = SSLCreateContext(kCFAllocatorDefault, isServer?kSSLServerSide:kSSLClientSide, kSSLStreamType);
 
 	if (*contextPtr == NULL)
-		return memFullErr;
+		return errSecAllocate;
 
-	return noErr;
+	return errSecSuccess;
 }
 
 SSLContextRef SSLCreateContext(CFAllocatorRef alloc, SSLProtocolSide protocolSide, SSLConnectionType connectionType)
 {
-	OSStatus	serr = noErr;
+    SSLContextRef ctx;
+    
+    ctx = SSLCreateContextWithRecordFuncs(alloc, protocolSide, connectionType, &SSLRecordLayerInternal);
+    
+    if(ctx==NULL)
+        return NULL;
+    
+    ctx->recCtx = SSLCreateInternalRecordLayer(connectionType);
+    if(ctx->recCtx==NULL) {
+    	CFRelease(ctx);
+		return NULL;
+    }
+    
+    return ctx;
+}
+
+SSLContextRef SSLCreateContextWithRecordFuncs(CFAllocatorRef alloc, SSLProtocolSide protocolSide, SSLConnectionType connectionType, const struct SSLRecordFuncs *recFuncs)
+{
+	OSStatus	serr = errSecSuccess;
 	SSLContext *ctx = (SSLContext*) _CFRuntimeCreateInstance(alloc, SSLContextGetTypeID(), sizeof(SSLContext) - sizeof(CFRuntimeBase), NULL);
 
 	if(ctx == NULL) {
@@ -204,18 +241,11 @@ SSLContextRef SSLCreateContext(CFAllocatorRef alloc, SSLProtocolSide protocolSid
 	/* Default value so we can send and receive hello msgs */
 	ctx->sslTslCalls = &Ssl3Callouts;
 
+    ctx->recFuncs = recFuncs;
+
     /* Initialize the cipher state to NULL_WITH_NULL_NULL */
-
     ctx->selectedCipher        = TLS_NULL_WITH_NULL_NULL;
-    InitCipherSpec(ctx);
-    ctx->writeCipher.macRef    = ctx->selectedCipherSpec.macAlgorithm;
-    ctx->readCipher.macRef     = ctx->selectedCipherSpec.macAlgorithm;
-    ctx->readCipher.symCipher  = ctx->selectedCipherSpec.cipher;
-    ctx->writeCipher.symCipher = ctx->selectedCipherSpec.cipher;
-
-	/* these two are invariant */
-    ctx->writeCipher.encrypting = 1;
-    ctx->writePending.encrypting = 1;
+    InitCipherSpecParams(ctx);
 
     /* this gets init'd on first call to SSLHandshake() */
     ctx->validCipherSuites = NULL;
@@ -274,21 +304,17 @@ SSLContextRef SSLCreateContext(CFAllocatorRef alloc, SSLProtocolSide protocolSid
 	ctx->ecdhPeerCurve = SSL_Curve_None;		/* until we negotiate one */
 	ctx->negAuthType = SSLClientAuthNone;		/* ditto */
 
-    ctx->recordWriteQueue = NULL;
     ctx->messageWriteQueue = NULL;
 
     if(connectionType==kSSLDatagramType) {
-	ctx->minProtocolVersion = MINIMUM_DATAGRAM_VERSION;
-	ctx->maxProtocolVersion = MAXIMUM_DATAGRAM_VERSION;
+        ctx->minProtocolVersion = MINIMUM_DATAGRAM_VERSION;
+        ctx->maxProtocolVersion = MAXIMUM_DATAGRAM_VERSION;
         ctx->isDTLS = true;
 	}
 
     ctx->secure_renegotiation = false;
 
-#ifdef USE_CDSA_CRYPTO
-errOut:
-#endif /* USE_CDSA_CRYPTO */
-	if (serr != noErr) {
+	if (serr != errSecSuccess) {
 		CFRelease(ctx);
 		ctx = NULL;
     }
@@ -300,11 +326,11 @@ SSLNewDatagramContext       (Boolean 			isServer,
 							 SSLContextRef 		*contextPtr)	/* RETURNED */
 {
 	if (contextPtr == NULL)
-		return paramErr;
+		return errSecParam;
 	*contextPtr = SSLCreateContext(kCFAllocatorDefault, isServer?kSSLServerSide:kSSLClientSide, kSSLDatagramType);
 	if (*contextPtr == NULL)
-		return memFullErr;
-    return noErr;
+		return errSecAllocate;
+    return errSecSuccess;
 }
 
 /*
@@ -316,13 +342,13 @@ OSStatus
 SSLDisposeContext				(SSLContextRef context)
 {
     if(context == NULL) {
-        return paramErr;
+        return errSecParam;
     }
 	CFRelease(context);
-	return noErr;
+	return errSecSuccess;
 }
 
-CFStringRef _sslContextDescribe(CFTypeRef arg)
+CF_RETURNS_RETAINED CFStringRef _sslContextDescribe(CFTypeRef arg)
 {
     SSLContext* ctx = (SSLContext*) arg;
 
@@ -347,7 +373,6 @@ CFHashCode _sslContextHash(CFTypeRef arg)
 void _sslContextDestroy(CFTypeRef arg)
 {
 	SSLContext* ctx = (SSLContext*) arg;
-	WaitingRecord   *waitRecord, *next;
 
 #if USE_SSLCERTIFICATE
 	sslDeleteCertificateChain(ctx->localCert, ctx);
@@ -364,33 +389,26 @@ void _sslContextDestroy(CFTypeRef arg)
     /* Free the last handshake message flight */
     SSLResetFlight(ctx);
 
-    SSLFreeBuffer(&ctx->partialReadBuffer, ctx);
-	if(ctx->peerSecTrust) {
+    if(ctx->peerSecTrust) {
 		CFRelease(ctx->peerSecTrust);
 		ctx->peerSecTrust = NULL;
 	}
-    waitRecord = ctx->recordWriteQueue;
-    while (waitRecord)
-    {   next = waitRecord->next;
-		sslFree(waitRecord);
-        waitRecord = next;
-    }
-    SSLFreeBuffer(&ctx->sessionTicket, ctx);
-
+    SSLFreeBuffer(&ctx->sessionTicket);
+    
 	#if APPLE_DH
-    SSLFreeBuffer(&ctx->dhParamsEncoded, ctx);
+    SSLFreeBuffer(&ctx->dhParamsEncoded);
 #ifdef USE_CDSA_CRYPTO
 	sslFreeKey(ctx->cspHand, &ctx->dhPrivate, NULL);
 #else
     if (ctx->secDHContext)
         SecDHDestroy(ctx->secDHContext);
 #endif /* !USE_CDSA_CRYPTO */
-    SSLFreeBuffer(&ctx->dhPeerPublic, ctx);
-    SSLFreeBuffer(&ctx->dhExchangePublic, ctx);
+    SSLFreeBuffer(&ctx->dhPeerPublic);
+    SSLFreeBuffer(&ctx->dhExchangePublic);
     #endif	/* APPLE_DH */
 
-    SSLFreeBuffer(&ctx->ecdhPeerPublic, ctx);
-    SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
+    SSLFreeBuffer(&ctx->ecdhPeerPublic);
+    SSLFreeBuffer(&ctx->ecdhExchangePublic);
 #if USE_CDSA_CRYPTO
 	if(ctx->ecdhPrivCspHand == ctx->cspHand) {
 		sslFreeKey(ctx->ecdhPrivCspHand, &ctx->ecdhPrivate, NULL);
@@ -398,28 +416,27 @@ void _sslContextDestroy(CFTypeRef arg)
 	/* else we got this key from a SecKeyRef, no free needed */
 #endif
 
-	CloseHash(&SSLHashSHA1, &ctx->shaState, ctx);
-	CloseHash(&SSLHashMD5,  &ctx->md5State, ctx);
-	CloseHash(&SSLHashSHA256,  &ctx->sha256State, ctx);
-	CloseHash(&SSLHashSHA384,  &ctx->sha512State, ctx);
+    /* Only destroy if we were using the internal record layer */
+    if(ctx->recFuncs==&SSLRecordLayerInternal)
+        SSLDestroyInternalRecordLayer(ctx->recCtx);
 
-    SSLFreeBuffer(&ctx->sessionID, ctx);
-    SSLFreeBuffer(&ctx->peerID, ctx);
-    SSLFreeBuffer(&ctx->resumableSession, ctx);
-    SSLFreeBuffer(&ctx->preMasterSecret, ctx);
-    SSLFreeBuffer(&ctx->partialReadBuffer, ctx);
-    SSLFreeBuffer(&ctx->fragmentedMessageCache, ctx);
-    SSLFreeBuffer(&ctx->receivedDataBuffer, ctx);
+	CloseHash(&SSLHashSHA1, &ctx->shaState);
+	CloseHash(&SSLHashMD5,  &ctx->md5State);
+	CloseHash(&SSLHashSHA256,  &ctx->sha256State);
+	CloseHash(&SSLHashSHA384,  &ctx->sha512State);
+
+    SSLFreeBuffer(&ctx->sessionID);
+    SSLFreeBuffer(&ctx->peerID);
+    SSLFreeBuffer(&ctx->resumableSession);
+    SSLFreeBuffer(&ctx->preMasterSecret);
+    SSLFreeBuffer(&ctx->fragmentedMessageCache);
+    SSLFreeBuffer(&ctx->receivedDataBuffer);
 
 	if(ctx->peerDomainName) {
 		sslFree(ctx->peerDomainName);
 		ctx->peerDomainName = NULL;
 		ctx->peerDomainNameLen = 0;
 	}
-    SSLDisposeCipherSuite(&ctx->readCipher, ctx);
-    SSLDisposeCipherSuite(&ctx->writeCipher, ctx);
-    SSLDisposeCipherSuite(&ctx->readPending, ctx);
-    SSLDisposeCipherSuite(&ctx->writePending, ctx);
 
 	sslFree(ctx->validCipherSuites);
 	ctx->validCipherSuites = NULL;
@@ -472,8 +489,11 @@ void _sslContextDestroy(CFTypeRef arg)
     }
 	sslFreeDnList(ctx);
 
-    SSLFreeBuffer(&ctx->ownVerifyData, ctx);
-    SSLFreeBuffer(&ctx->peerVerifyData, ctx);
+    SSLFreeBuffer(&ctx->ownVerifyData);
+    SSLFreeBuffer(&ctx->peerVerifyData);
+
+    SSLFreeBuffer(&ctx->pskIdentity);
+    SSLFreeBuffer(&ctx->pskSharedSecret);
 
     memset(((uint8_t*) ctx) + sizeof(CFRuntimeBase), 0, sizeof(SSLContext) - sizeof(CFRuntimeBase));
 
@@ -490,7 +510,7 @@ SSLGetSessionState			(SSLContextRef		context,
 	SSLSessionState rtnState = kSSLIdle;
 
 	if(context == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*state = rtnState;
 	switch(context->state) {
@@ -512,13 +532,13 @@ SSLGetSessionState			(SSLContextRef		context,
 			break;
 		default:
 			assert((context->state >= SSL_HdskStateServerHello) &&
-			        (context->state <= SSL2_HdskStateServerFinished));
+			        (context->state <= SSL_HdskStateFinished));
 			rtnState = kSSLHandshake;
 			break;
 
 	}
 	*state = rtnState;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -529,13 +549,13 @@ SSLSetSessionOption			(SSLContextRef		context,
 							 SSLSessionOption	option,
 							 Boolean			value)
 {
-	if(context == NULL) {
-		return paramErr;
-	}
-	if(sslIsSessionActive(context)) {
-		/* can't do this with an active session */
-		return badReqErr;
-	}
+    if(context == NULL) {
+	return errSecParam;
+    }
+    if(sslIsSessionActive(context)) {
+	/* can't do this with an active session */
+	return errSecBadReq;
+    }
     switch(option) {
         case kSSLSessionOptionBreakOnServerAuth:
             context->breakOnServerAuth = value;
@@ -548,14 +568,17 @@ SSLSetSessionOption			(SSLContextRef		context,
             context->breakOnClientAuth = value;
             context->enableCertVerify = !value;
             break;
-		case kSSLSessionOptionSendOneByteRecord:
-			context->oneByteRecordEnable = value;
-			break;
-        default:
-            return paramErr;
+        case kSSLSessionOptionSendOneByteRecord:
+            context->oneByteRecordEnable = value;
+            break;
+        case kSSLSessionOptionFalseStart:
+            context->falseStartEnabled = value;
+            break;
+        default: 
+            return errSecParam;
     }
 
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -566,9 +589,9 @@ SSLGetSessionOption			(SSLContextRef		context,
 							 SSLSessionOption	option,
 							 Boolean			*value)
 {
-	if(context == NULL || value == NULL) {
-		return paramErr;
-	}
+    if(context == NULL || value == NULL) {
+        return errSecParam;
+    }
     switch(option) {
         case kSSLSessionOptionBreakOnServerAuth:
             *value = context->breakOnServerAuth;
@@ -579,32 +602,99 @@ SSLGetSessionOption			(SSLContextRef		context,
         case kSSLSessionOptionBreakOnClientAuth:
             *value = context->breakOnClientAuth;
             break;
-		case kSSLSessionOptionSendOneByteRecord:
-			*value = context->oneByteRecordEnable;
-			break;
+        case kSSLSessionOptionSendOneByteRecord:
+            *value = context->oneByteRecordEnable;
+            break;
+        case kSSLSessionOptionFalseStart:
+            *value = context->falseStartEnabled;
+            break;
         default:
-            return paramErr;
+            return errSecParam;
     }
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
-SSLSetIOFuncs				(SSLContextRef		ctx,
+SSLSetRecordContext         (SSLContextRef          ctx,
+                             SSLRecordContextRef    recCtx)
+{
+	if(ctx == NULL) {
+		return errSecParam;
+	}
+	if(sslIsSessionActive(ctx)) {
+		/* can't do this with an active session */
+		return errSecBadReq;
+	}
+    ctx->recCtx = recCtx;
+    return errSecSuccess;
+}
+
+/* Those two trampolines are used to make the connetion between
+   the record layer IO callbacks and the user provided IO callbacks.
+   Those are currently necessary because the record layer read/write callbacks
+   have different prototypes that the user callbacks advertised in the API.
+   They have different prototypes because the record layer callback have to build in kernelland.
+
+   This situation is not desirable. So we should figure out a way to get rid of them.
+ */
+static int IORead(SSLIOConnectionRef 	connection,
+                  void 				*data,
+                  size_t 			*dataLength)
+{
+    OSStatus rc;
+    SSLContextRef ctx = connection;
+
+
+    rc = ctx->ioCtx.read(ctx->ioCtx.ioRef, data, dataLength);
+
+    /* We may need to translate error codes at this layer */
+    if(rc==errSSLWouldBlock) {
+        rc=errSSLRecordWouldBlock;
+    }
+
+    return rc;
+}
+
+static int IOWrite(SSLIOConnectionRef 	connection,
+                   const void 		*data,
+                   size_t 			*dataLength)
+{
+    OSStatus rc;
+    SSLContextRef ctx = connection;
+
+    rc = ctx->ioCtx.write(ctx->ioCtx.ioRef, data, dataLength);
+
+    /* We may need to translate error codes at this layer */
+    if(rc==errSSLWouldBlock) {
+        rc=errSSLRecordWouldBlock;
+    }
+    return rc;
+}
+
+
+OSStatus 
+SSLSetIOFuncs				(SSLContextRef		ctx, 
 							 SSLReadFunc 		readFunc,
 							 SSLWriteFunc		writeFunc)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
+    if(ctx->recFuncs!=&SSLRecordLayerInternal) {
+        /* Can Only do this with the internal record layer */
+        check(0);
+        return errSecBadReq;
+    }
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 
-	ctx->ioCtx.read = readFunc;
-	ctx->ioCtx.write = writeFunc;
-	return noErr;
+    ctx->ioCtx.read=readFunc;
+    ctx->ioCtx.write=writeFunc;
+
+    return SSLSetInternalRecordLayerIOFuncs(ctx->recCtx, IORead, IOWrite);
 }
 
 OSStatus
@@ -612,15 +702,22 @@ SSLSetConnection			(SSLContextRef		ctx,
 							 SSLConnectionRef	connection)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
+    if(ctx->recFuncs!=&SSLRecordLayerInternal) {
+        /* Can Only do this with the internal record layer */
+        check(0);
+        return errSecBadReq;
+    }
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 
-	ctx->ioCtx.ioRef = connection;
-    return noErr;
+    /* Need to keep a copy of it this layer for the Get function */
+    ctx->ioCtx.ioRef = connection;
+
+    return SSLSetInternalRecordLayerConnection(ctx->recCtx, ctx);
 }
 
 OSStatus
@@ -628,10 +725,10 @@ SSLGetConnection			(SSLContextRef		ctx,
 							 SSLConnectionRef	*connection)
 {
 	if((ctx == NULL) || (connection == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	*connection = ctx->ioCtx.ioRef;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -640,11 +737,11 @@ SSLSetPeerDomainName		(SSLContextRef		ctx,
 							 size_t				peerNameLen)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 
 	/* free possible existing name */
@@ -655,11 +752,11 @@ SSLSetPeerDomainName		(SSLContextRef		ctx,
 	/* copy in */
 	ctx->peerDomainName = (char *)sslMalloc(peerNameLen);
 	if(ctx->peerDomainName == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	memmove(ctx->peerDomainName, peerName, peerNameLen);
 	ctx->peerDomainNameLen = peerNameLen;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -670,10 +767,10 @@ SSLGetPeerDomainNameLength	(SSLContextRef		ctx,
 							 size_t				*peerNameLen)	// RETURNED
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*peerNameLen = ctx->peerDomainNameLen;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -682,14 +779,14 @@ SSLGetPeerDomainName		(SSLContextRef		ctx,
 							 size_t				*peerNameLen)	// IN/OUT
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(*peerNameLen < ctx->peerDomainNameLen) {
 		return errSSLBufferOverflow;
 	}
 	memmove(peerName, ctx->peerDomainName, ctx->peerDomainNameLen);
 	*peerNameLen = ctx->peerDomainNameLen;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -700,30 +797,30 @@ SSLSetDatagramHelloCookie   (SSLContextRef	ctx,
     OSStatus err;
 
     if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 
-    if(!ctx->isDTLS) return paramErr;
+    if(!ctx->isDTLS) return errSecParam;
 
 	if((ctx == NULL) || (cookieLen>32)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 
 	/* free possible existing cookie */
 	if(ctx->dtlsCookie.data) {
-        SSLFreeBuffer(&ctx->dtlsCookie, ctx);
+        SSLFreeBuffer(&ctx->dtlsCookie);
 	}
 
 	/* copy in */
-    if((err=SSLAllocBuffer(&ctx->dtlsCookie, cookieLen, ctx))!=noErr)
+    if((err=SSLAllocBuffer(&ctx->dtlsCookie, cookieLen)))
        return err;
 
 	memmove(ctx->dtlsCookie.data, cookie, cookieLen);
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
@@ -731,25 +828,25 @@ SSLSetMaxDatagramRecordSize (SSLContextRef		ctx,
                              size_t             maxSize)
 {
 
-    if(ctx == NULL) return paramErr;
-    if(!ctx->isDTLS) return paramErr;
-    if(maxSize < MIN_ALLOWED_DTLS_MTU) return paramErr;
+    if(ctx == NULL) return errSecParam;
+    if(!ctx->isDTLS) return errSecParam;
+    if(maxSize < MIN_ALLOWED_DTLS_MTU) return errSecParam;
 
     ctx->mtu = maxSize;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
 SSLGetMaxDatagramRecordSize (SSLContextRef		ctx,
                              size_t             *maxSize)
 {
-    if(ctx == NULL) return paramErr;
-    if(!ctx->isDTLS) return paramErr;
+    if(ctx == NULL) return errSecParam;
+    if(!ctx->isDTLS) return errSecParam;
 
     *maxSize = ctx->mtu;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -773,13 +870,16 @@ OSStatus
 SSLGetDatagramWriteSize		(SSLContextRef ctx,
 							 size_t *bufSize)
 {
-    if(ctx == NULL) return paramErr;
-    if(!ctx->isDTLS) return paramErr;
-    if(bufSize == NULL) return paramErr;
+    if(ctx == NULL) return errSecParam;
+    if(!ctx->isDTLS) return errSecParam;
+    if(bufSize == NULL) return errSecParam;
 
     size_t max_fragment_size = ctx->mtu-13; /* 13 = dtls record header */
 
-    UInt16 blockSize = ctx->writeCipher.symCipher->blockSize;
+    SSLCipherSpecParams *currCipher = &ctx->selectedCipherSpecParams;
+
+    size_t blockSize = currCipher->blockSize;
+    size_t macSize = currCipher->macSize;
 
     if (blockSize > 0) {
         /* max_fragment_size must be a multiple of blocksize */
@@ -789,14 +889,14 @@ SSLGetDatagramWriteSize		(SSLContextRef ctx,
     }
 
     /* less the mac size */
-    max_fragment_size -= ctx->writeCipher.macRef->hash->digestSize;
+    max_fragment_size -= macSize;
 
     /* Thats just a sanity check */
     assert(max_fragment_size<ctx->mtu);
 
     *bufSize = max_fragment_size;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 static SSLProtocolVersion SSLProtocolToProtocolVersion(SSLProtocol protocol) {
@@ -833,7 +933,7 @@ OSStatus
 SSLSetProtocolVersionMin  (SSLContextRef      ctx,
                            SSLProtocol        minVersion)
 {
-    if(ctx == NULL) return paramErr;
+    if(ctx == NULL) return errSecParam;
 
     SSLProtocolVersion version = SSLProtocolToProtocolVersion(minVersion);
     if (ctx->isDTLS) {
@@ -850,24 +950,24 @@ SSLSetProtocolVersionMin  (SSLContextRef      ctx,
     }
     ctx->minProtocolVersion = version;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
 SSLGetProtocolVersionMin  (SSLContextRef      ctx,
                            SSLProtocol        *minVersion)
 {
-    if(ctx == NULL) return paramErr;
+    if(ctx == NULL) return errSecParam;
 
     *minVersion = SSLProtocolVersionToProtocol(ctx->minProtocolVersion);
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
 SSLSetProtocolVersionMax  (SSLContextRef      ctx,
                            SSLProtocol        maxVersion)
 {
-    if(ctx == NULL) return paramErr;
+    if(ctx == NULL) return errSecParam;
 
     SSLProtocolVersion version = SSLProtocolToProtocolVersion(maxVersion);
     if (ctx->isDTLS) {
@@ -884,19 +984,20 @@ SSLSetProtocolVersionMax  (SSLContextRef      ctx,
     }
     ctx->maxProtocolVersion = version;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
 SSLGetProtocolVersionMax  (SSLContextRef      ctx,
                            SSLProtocol        *maxVersion)
 {
-    if(ctx == NULL) return paramErr;
+    if(ctx == NULL) return errSecParam;
 
     *maxVersion = SSLProtocolVersionToProtocol(ctx->maxProtocolVersion);
-    return noErr;
+    return errSecSuccess;
 }
 
+#define max(x,y) ((x)<(y)?(y):(x))
 
 OSStatus
 SSLSetProtocolVersionEnabled(SSLContextRef     ctx,
@@ -904,11 +1005,11 @@ SSLSetProtocolVersionEnabled(SSLContextRef     ctx,
 							 Boolean			enable)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx) || ctx->isDTLS) {
 		/* Can't do this with an active session, nor with a DTLS session */
-		return badReqErr;
+		return errSecBadReq;
 	}
     if (protocol == kSSLProtocolAll) {
         if (enable) {
@@ -922,7 +1023,7 @@ SSLSetProtocolVersionEnabled(SSLContextRef     ctx,
 		SSLProtocolVersion version = SSLProtocolToProtocolVersion(protocol);
         if (enable) {
 			if (version < MINIMUM_STREAM_VERSION || version > MAXIMUM_STREAM_VERSION) {
-				return paramErr;
+				return errSecParam;
 			}
             if (version > ctx->maxProtocolVersion) {
                 ctx->maxProtocolVersion = version;
@@ -934,7 +1035,7 @@ SSLSetProtocolVersionEnabled(SSLContextRef     ctx,
             }
         } else {
 			if (version < SSL_Version_2_0 || version > MAXIMUM_STREAM_VERSION) {
-				return paramErr;
+				return errSecParam;
 			}
 			/* Disabling a protocol version now resets the minimum acceptable
 			 * version to the next higher version. This means it's no longer
@@ -967,7 +1068,7 @@ SSLSetProtocolVersionEnabled(SSLContextRef     ctx,
         }
     }
 
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -976,11 +1077,11 @@ SSLGetProtocolVersionEnabled(SSLContextRef 		ctx,
 							 Boolean			*enable)		/* RETURNED */
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(ctx->isDTLS) {
 		/* Can't do this with a DTLS session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	switch(protocol) {
 		case kSSLProtocol2:
@@ -999,9 +1100,9 @@ SSLGetProtocolVersionEnabled(SSLContextRef 		ctx,
                        && ctx->maxProtocolVersion >= MAXIMUM_STREAM_VERSION);
 			break;
 		default:
-			return paramErr;
+			return errSecParam;
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* deprecated */
@@ -1010,11 +1111,11 @@ SSLSetProtocolVersion		(SSLContextRef 		ctx,
 							 SSLProtocol		version)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx) || ctx->isDTLS) {
 		/* Can't do this with an active session, nor with a DTLS session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 
 	switch(version) {
@@ -1051,10 +1152,10 @@ SSLSetProtocolVersion		(SSLContextRef 		ctx,
             ctx->maxProtocolVersion = MAXIMUM_STREAM_VERSION;
 			break;
 		default:
-			return paramErr;
+			return errSecParam;
 	}
 
-    return noErr;
+    return errSecSuccess;
 }
 
 /* deprecated */
@@ -1063,7 +1164,7 @@ SSLGetProtocolVersion		(SSLContextRef		ctx,
 							 SSLProtocol		*protocol)		/* RETURNED */
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	/* translate array of booleans to public value; not all combinations
 	 * are legal (i.e., meaningful) for this call */
@@ -1071,19 +1172,19 @@ SSLGetProtocolVersion		(SSLContextRef		ctx,
         if(ctx->minProtocolVersion == MINIMUM_STREAM_VERSION) {
             /* traditional 'all enabled' */
             *protocol = kSSLProtocolAll;
-            return noErr;
+            return errSecSuccess;
 		}
 	} else if (ctx->maxProtocolVersion == TLS_Version_1_1) {
         if(ctx->minProtocolVersion == MINIMUM_STREAM_VERSION) {
             /* traditional 'all enabled' */
             *protocol = kTLSProtocol11;
-            return noErr;
+            return errSecSuccess;
         }
 	} else if (ctx->maxProtocolVersion == TLS_Version_1_0) {
         if(ctx->minProtocolVersion == MINIMUM_STREAM_VERSION) {
             /* TLS1.1 and below enabled */
             *protocol = kTLSProtocol1;
-            return noErr;
+            return errSecSuccess;
         } else if(ctx->minProtocolVersion == TLS_Version_1_0) {
         	*protocol = kTLSProtocol1Only;
 		}
@@ -1092,11 +1193,11 @@ SSLGetProtocolVersion		(SSLContextRef		ctx,
             /* Could also return kSSLProtocol3Only since
                MINIMUM_STREAM_VERSION == SSL_Version_3_0. */
             *protocol = kSSLProtocol3;
-			return noErr;
+			return errSecSuccess;
 		}
 	}
 
-    return paramErr;
+    return errSecParam;
 }
 
 OSStatus
@@ -1104,10 +1205,10 @@ SSLGetNegotiatedProtocolVersion		(SSLContextRef		ctx,
 									 SSLProtocol		*protocol) /* RETURNED */
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*protocol = SSLProtocolVersionToProtocol(ctx->negProtocolVersion);
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1115,16 +1216,16 @@ SSLSetEnableCertVerify		(SSLContextRef		ctx,
 							 Boolean			enableVerify)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	sslCertDebug("SSLSetEnableCertVerify %s",
 		enableVerify ? "true" : "false");
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	ctx->enableCertVerify = enableVerify;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1132,10 +1233,10 @@ SSLGetEnableCertVerify		(SSLContextRef		ctx,
 							Boolean				*enableVerify)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*enableVerify = ctx->enableCertVerify;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1143,16 +1244,16 @@ SSLSetAllowsExpiredCerts(SSLContextRef		ctx,
 						 Boolean			allowExpired)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	sslCertDebug("SSLSetAllowsExpiredCerts %s",
 		allowExpired ? "true" : "false");
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	ctx->allowExpiredCerts = allowExpired;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1160,10 +1261,10 @@ SSLGetAllowsExpiredCerts	(SSLContextRef		ctx,
 							 Boolean			*allowExpired)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*allowExpired = ctx->allowExpiredCerts;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1171,16 +1272,16 @@ SSLSetAllowsExpiredRoots(SSLContextRef		ctx,
 						 Boolean			allowExpired)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	sslCertDebug("SSLSetAllowsExpiredRoots %s",
 		allowExpired ? "true" : "false");
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	ctx->allowExpiredRoots = allowExpired;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1188,10 +1289,10 @@ SSLGetAllowsExpiredRoots	(SSLContextRef		ctx,
 							 Boolean			*allowExpired)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*allowExpired = ctx->allowExpiredRoots;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus SSLSetAllowsAnyRoot(
@@ -1199,11 +1300,11 @@ OSStatus SSLSetAllowsAnyRoot(
 	Boolean			anyRoot)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	sslCertDebug("SSLSetAllowsAnyRoot %s",	anyRoot ? "true" : "false");
 	ctx->allowAnyRoot = anyRoot;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1212,13 +1313,13 @@ SSLGetAllowsAnyRoot(
 	Boolean			*anyRoot)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*anyRoot = ctx->allowAnyRoot;
-	return noErr;
+	return errSecSuccess;
 }
 
-#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
+#if !TARGET_OS_IPHONE
 /* obtain the system roots sets for this app, policy SSL */
 static OSStatus sslDefaultSystemRoots(
 	SSLContextRef ctx,
@@ -1226,9 +1327,8 @@ static OSStatus sslDefaultSystemRoots(
 
 {
 	return SecTrustSettingsCopyQualifiedCerts(&CSSMOID_APPLE_TP_SSL,
-		NULL, true,	// application - us
 		ctx->peerDomainName,
-		ctx->peerDomainNameLen,
+		(uint32_t)ctx->peerDomainNameLen,
 		(ctx->protocolSide == kSSLServerSide) ?
 			/* server verifies, client encrypts */
 			CSSM_KEYUSE_VERIFY : CSSM_KEYUSE_ENCRYPT,
@@ -1243,11 +1343,11 @@ SSLSetTrustedRoots			(SSLContextRef 		ctx,
 {
 #ifdef USE_CDSA_CRYPTO
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 
 	if(replaceExisting) {
@@ -1256,7 +1356,7 @@ SSLSetTrustedRoots			(SSLContextRef 		ctx,
             CFRetain(trustedRoots);
         CFReleaseSafe(ctx->trustedCerts);
 		ctx->trustedCerts = trustedRoots;
-		return noErr;
+		return errSecSuccess;
 	}
 
 	/* adding new trusted roots - to either our existing set, or the system set */
@@ -1281,12 +1381,12 @@ SSLSetTrustedRoots			(SSLContextRef 		ctx,
 	CFArrayAppendArray(newRoots, existingRoots, existRange);
 	CFRelease(existingRoots);
 	ctx->trustedCerts = newRoots;
-	return noErr;
+	return errSecSuccess;
 
 #else
 	if (sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	sslCertDebug("SSLSetTrustedRoot  numCerts %d  replaceExist %s",
 		(int)CFArrayGetCount(trustedRoots), replaceExisting ? "true" : "false");
@@ -1306,10 +1406,10 @@ SSLSetTrustedRoots			(SSLContextRef 		ctx,
             errOut);
     }
 
-    return noErr;
+    return errSecSuccess;
 
 errOut:
-    return memFullErr;
+    return errSecAllocate;
 #endif /* !USE_CDSA_CRYPTO */
 }
 
@@ -1318,44 +1418,20 @@ SSLCopyTrustedRoots			(SSLContextRef 		ctx,
 							 CFArrayRef 		*trustedRoots)	/* RETURNED */
 {
 	if(ctx == NULL || trustedRoots == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(ctx->trustedCerts != NULL) {
 		*trustedRoots = ctx->trustedCerts;
 		CFRetain(ctx->trustedCerts);
-		return noErr;
+		return errSecSuccess;
 	}
 #if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
 	/* use default system roots */
     return sslDefaultSystemRoots(ctx, trustedRoots);
 #else
     *trustedRoots = NULL;
-    return noErr;
+    return errSecSuccess;
 #endif
-}
-
-/* legacy version, caller must CFRelease each cert */
-OSStatus
-SSLGetTrustedRoots			(SSLContextRef 		ctx,
-							 CFArrayRef 		*trustedRoots)	/* RETURNED */
-{
-	OSStatus ortn;
-
-	if((ctx == NULL) || (trustedRoots == NULL)) {
-		return paramErr;
-	}
-
-	ortn = SSLCopyTrustedRoots(ctx, trustedRoots);
-	if(ortn) {
-		return ortn;
-	}
-	/* apply the legacy bug */
-	CFIndex numCerts = CFArrayGetCount(*trustedRoots);
-	CFIndex dex;
-	for(dex=0; dex<numCerts; dex++) {
-		CFRetain(CFArrayGetValueAtIndex(*trustedRoots, dex));
-	}
-	return noErr;
 }
 
 OSStatus
@@ -1363,11 +1439,11 @@ SSLSetTrustedLeafCertificates	(SSLContextRef 		ctx,
 								 CFArrayRef 		trustedCerts)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 
 	if(ctx->trustedLeafCerts) {
@@ -1375,7 +1451,7 @@ SSLSetTrustedLeafCertificates	(SSLContextRef 		ctx,
 	}
 	ctx->trustedLeafCerts = trustedCerts;
 	CFRetain(trustedCerts);
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1383,15 +1459,15 @@ SSLCopyTrustedLeafCertificates	(SSLContextRef 		ctx,
 								 CFArrayRef 		*trustedCerts)	/* RETURNED */
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(ctx->trustedLeafCerts != NULL) {
 		*trustedCerts = ctx->trustedLeafCerts;
 		CFRetain(ctx->trustedCerts);
-		return noErr;
+		return errSecSuccess;
 	}
 	*trustedCerts = NULL;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1399,11 +1475,11 @@ SSLSetClientSideAuthenticate 	(SSLContext			*ctx,
 								 SSLAuthenticate	auth)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	ctx->clientAuth = auth;
 	switch(auth) {
@@ -1415,7 +1491,7 @@ SSLSetClientSideAuthenticate 	(SSLContext			*ctx,
 			ctx->tryClientAuth = true;
 			break;
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1423,10 +1499,10 @@ SSLGetClientSideAuthenticate 	(SSLContext			*ctx,
 								 SSLAuthenticate	*auth)	/* RETURNED */
 {
 	if(ctx == NULL || auth == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*auth = ctx->clientAuth;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1434,10 +1510,10 @@ SSLGetClientCertificateState	(SSLContextRef				ctx,
 								 SSLClientCertificateState	*clientState)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*clientState = ctx->clientCertState;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1451,7 +1527,7 @@ SSLSetCertificate			(SSLContextRef		ctx,
 	 * -- validate cert chain
 	 */
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 
 	/* can't do this with an active session */
@@ -1459,13 +1535,13 @@ SSLSetCertificate			(SSLContextRef		ctx,
 	   /* kSSLClientCertRequested implies client side */
 	   (ctx->clientCertState != kSSLClientCertRequested))
 	{
-			return badReqErr;
+			return errSecBadReq;
 	}
     CFReleaseNull(ctx->localCertArray);
 	/* changing the client cert invalidates negotiated auth type */
 	ctx->negAuthType = SSLClientAuthNone;
 	if(certRefs == NULL) {
-		return noErr; // we have cleared the cert, as requested
+		return errSecSuccess; // we have cleared the cert, as requested
 	}
 	OSStatus ortn = parseIncomingCerts(ctx,
 		certRefs,
@@ -1473,7 +1549,7 @@ SSLSetCertificate			(SSLContextRef		ctx,
 		&ctx->signingPubKey,
 		&ctx->signingPrivKeyRef,
 		&ctx->ourSignerAlg);
-	if(ortn == noErr) {
+	if(ortn == errSecSuccess) {
 		ctx->localCertArray = certRefs;
 		CFRetain(certRefs);
 		/* client cert was changed, must update auth type */
@@ -1493,11 +1569,11 @@ SSLSetEncryptionCertificate	(SSLContextRef		ctx,
 	 * -- validate cert chain
 	 */
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
     CFReleaseNull(ctx->encryptCertArray);
 	OSStatus ortn = parseIncomingCerts(ctx,
@@ -1506,7 +1582,7 @@ SSLSetEncryptionCertificate	(SSLContextRef		ctx,
 		&ctx->encryptPubKey,
 		&ctx->encryptPrivKeyRef,
 		NULL);			/* Signer alg */
-	if(ortn == noErr) {
+	if(ortn == errSecSuccess) {
 		ctx->encryptCertArray = certRefs;
 		CFRetain(certRefs);
 	}
@@ -1517,20 +1593,20 @@ OSStatus SSLGetCertificate(SSLContextRef		ctx,
 						   CFArrayRef			*certRefs)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*certRefs = ctx->localCertArray;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus SSLGetEncryptionCertificate(SSLContextRef		ctx,
 								     CFArrayRef			*certRefs)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*certRefs = ctx->encryptCertArray;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1544,21 +1620,21 @@ SSLSetPeerID				(SSLContext 		*ctx,
 	if((ctx == NULL) ||
 	   (peerID == NULL) ||
 	   (peerIDLen == 0)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx) &&
         /* kSSLClientCertRequested implies client side */
         (ctx->clientCertState != kSSLClientCertRequested))
     {
-		return badReqErr;
+		return errSecBadReq;
 	}
-	SSLFreeBuffer(&ctx->peerID, ctx);
-	serr = SSLAllocBuffer(&ctx->peerID, peerIDLen, ctx);
+	SSLFreeBuffer(&ctx->peerID);
+	serr = SSLAllocBuffer(&ctx->peerID, peerIDLen);
 	if(serr) {
 		return serr;
 	}
 	memmove(ctx->peerID.data, peerID, peerIDLen);
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1568,7 +1644,7 @@ SSLGetPeerID				(SSLContextRef 		ctx,
 {
 	*peerID = ctx->peerID.data;			// may be NULL
 	*peerIDLen = ctx->peerID.length;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1576,13 +1652,13 @@ SSLGetNegotiatedCipher		(SSLContextRef 		ctx,
 							 SSLCipherSuite 	*cipherSuite)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(!sslIsSessionActive(ctx)) {
-		return badReqErr;
+		return errSecBadReq;
 	}
 	*cipherSuite = (SSLCipherSuite)ctx->selectedCipher;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -1598,22 +1674,22 @@ SSLAddDistinguishedName(
     OSStatus        err;
 
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
-		return badReqErr;
+		return errSecBadReq;
 	}
 
 	dn = (DNListElem *)sslMalloc(sizeof(DNListElem));
 	if(dn == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
-    if ((err = SSLAllocBuffer(&dn->derDN, derDNLen, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&dn->derDN, derDNLen)))
         return err;
     memcpy(dn->derDN.data, derDN, derDNLen);
     dn->next = ctx->acceptableDNList;
     ctx->acceptableDNList = dn;
-    return noErr;
+    return errSecSuccess;
 }
 
 /* single-cert version of SSLSetCertificateAuthorities() */
@@ -1621,26 +1697,42 @@ static OSStatus
 sslAddCA(SSLContextRef		ctx,
 		 SecCertificateRef	cert)
 {
-	OSStatus ortn = paramErr;
-	CFDataRef subjectName;
+	OSStatus ortn = errSecParam;
 
     /* Get subject from certificate. */
-    require(subjectName = SecCertificateCopySubjectSequence(cert), errOut);
+#if TARGET_OS_IPHONE
+    CFDataRef subjectName = NULL;
+    subjectName = SecCertificateCopySubjectSequence(cert);
+    require(subjectName, errOut);
+#else
+    CSSM_DATA_PTR subjectName = NULL;
+    ortn = SecCertificateCopyFirstFieldValue(cert, &CSSMOID_X509V1SubjectNameStd, &subjectName);
+    require_noerr(ortn, errOut);
+#endif
+
 	/* add to acceptableCAs as cert, creating array if necessary */
 	if(ctx->acceptableCAs == NULL) {
 		require(ctx->acceptableCAs = CFArrayCreateMutable(NULL, 0,
             &kCFTypeArrayCallBacks), errOut);
 		if(ctx->acceptableCAs == NULL) {
-			return memFullErr;
+			return errSecAllocate;
 		}
 	}
 	CFArrayAppendValue(ctx->acceptableCAs, cert);
 
 	/* then add this cert's subject name to acceptableDNList */
-	ortn = SSLAddDistinguishedName(ctx, CFDataGetBytePtr(subjectName),
-        CFDataGetLength(subjectName));
+#if TARGET_OS_IPHONE
+	ortn = SSLAddDistinguishedName(ctx,
+                                   CFDataGetBytePtr(subjectName),
+                                   CFDataGetLength(subjectName));
+#else
+    ortn = SSLAddDistinguishedName(ctx, subjectName->Data, subjectName->Length);
+#endif
+
 errOut:
+#if TARGET_OS_IPHONE
     CFReleaseSafe(subjectName);
+#endif
 	return ortn;
 }
 
@@ -1655,11 +1747,11 @@ SSLSetCertificateAuthorities(SSLContextRef		ctx,
 							 Boolean 			replaceExisting)
 {
 	CFTypeID itemType;
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 
 	if((ctx == NULL) || sslIsSessionActive(ctx) ||
 	   (ctx->protocolSide != kSSLServerSide)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(replaceExisting) {
 		sslFreeDnList(ctx);
@@ -1684,7 +1776,7 @@ SSLSetCertificateAuthorities(SSLContextRef		ctx,
 		for(dex=0; dex<numCerts; dex++) {
 			SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(cfa, dex);
 			if(CFGetTypeID(cert) != SecCertificateGetTypeID()) {
-				return paramErr;
+				return errSecParam;
 			}
 			ortn = sslAddCA(ctx, cert);
 			if(ortn) {
@@ -1693,7 +1785,7 @@ SSLSetCertificateAuthorities(SSLContextRef		ctx,
 		}
 	}
 	else {
-		ortn = paramErr;
+		ortn = errSecParam;
 	}
 	return ortn;
 }
@@ -1710,15 +1802,15 @@ SSLCopyCertificateAuthorities(SSLContextRef		ctx,
 							  CFArrayRef		*certificates)	/* RETURNED */
 {
 	if((ctx == NULL) || (certificates == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(ctx->acceptableCAs == NULL) {
 		*certificates = NULL;
-		return noErr;
+		return errSecSuccess;
 	}
 	*certificates = ctx->acceptableCAs;
 	CFRetain(ctx->acceptableCAs);
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -1736,11 +1828,11 @@ SSLCopyDistinguishedNames	(SSLContextRef		ctx,
 	DNListElem *dn;
 
 	if((ctx == NULL) || (names == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(ctx->acceptableDNList == NULL) {
 		*names = NULL;
-		return noErr;
+		return errSecSuccess;
 	}
 	outArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	dn = ctx->acceptableDNList;
@@ -1751,7 +1843,7 @@ SSLCopyDistinguishedNames	(SSLContextRef		ctx,
 		dn = dn->next;
 	}
 	*names = outArray;
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -1759,6 +1851,7 @@ SSLCopyDistinguishedNames	(SSLContextRef		ctx,
  * Request peer certificates. Valid anytime, subsequent to
  * a handshake attempt.
  * Common code for SSLGetPeerCertificates() and SSLCopyPeerCertificates().
+ * TODO: the 'legacy' argument is not used anymore.
  */
 static OSStatus
 sslCopyPeerCertificates		(SSLContextRef 		ctx,
@@ -1766,7 +1859,7 @@ sslCopyPeerCertificates		(SSLContextRef 		ctx,
 							 Boolean			legacy)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 
 #ifdef USE_SSLCERTIFICATE
@@ -1786,12 +1879,12 @@ sslCopyPeerCertificates		(SSLContextRef 		ctx,
 	 */
 	numCerts = SSLGetCertificateChainLength(ctx->peerCert);
 	if(numCerts == 0) {
-		return noErr;
+		return errSecSuccess;
 	}
 	ca = CFArrayCreateMutable(kCFAllocatorDefault,
 		(CFIndex)numCerts, &kCFTypeArrayCallBacks);
 	if(ca == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 
 	/*
@@ -1823,13 +1916,13 @@ sslCopyPeerCertificates		(SSLContextRef 		ctx,
 #else
 	if (!ctx->peerCert) {
 		*certs = NULL;
-		return badReqErr;
+		return errSecBadReq;
 	}
 
     CFArrayRef ca = CFArrayCreateCopy(kCFAllocatorDefault, ctx->peerCert);
     *certs = ca;
     if (ca == NULL) {
-        return memFullErr;
+        return errSecAllocate;
     }
 
 	if (legacy) {
@@ -1840,7 +1933,7 @@ sslCopyPeerCertificates		(SSLContextRef 		ctx,
 	}
 #endif
 
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1850,13 +1943,19 @@ SSLCopyPeerCertificates		(SSLContextRef 		ctx,
 	return sslCopyPeerCertificates(ctx, certs, false);
 }
 
+#if !TARGET_OS_IPHONE
+// Permanently removing from iOS, keep for OSX (deprecated), removed from headers.
+// <rdar://problem/14215831> Mailsmith Crashes While Getting New Mail Under Mavericks Developer Preview
 OSStatus
-SSLGetPeerCertificates		(SSLContextRef 		ctx,
-							 CFArrayRef			*certs)
- {
-	 return sslCopyPeerCertificates(ctx, certs, true);
- }
-
+SSLGetPeerCertificates (SSLContextRef ctx,
+                        CFArrayRef *certs);
+OSStatus
+SSLGetPeerCertificates (SSLContextRef ctx,
+                        CFArrayRef *certs)
+{
+    return sslCopyPeerCertificates(ctx, certs, true);
+}
+#endif
 
 /*
  * Specify Diffie-Hellman parameters. Optional; if we are configured to allow
@@ -1871,12 +1970,12 @@ OSStatus SSLSetDiffieHellmanParams(
 {
 #if APPLE_DH
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
-		return badReqErr;
+		return errSecBadReq;
 	}
-	SSLFreeBuffer(&ctx->dhParamsEncoded, ctx);
+	SSLFreeBuffer(&ctx->dhParamsEncoded);
 #if !USE_CDSA_CRYPTO
     if (ctx->secDHContext)
         SecDHDestroy(ctx->secDHContext);
@@ -1902,13 +2001,13 @@ OSStatus SSLGetDiffieHellmanParams(
 {
 #if APPLE_DH
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*dhParams = ctx->dhParamsEncoded.data;
 	*dhParamsLen = ctx->dhParamsEncoded.length;
-	return noErr;
+	return errSecSuccess;
 #else
-    return unimpErr;
+    return errSecUnimplemented;
 #endif /* APPLE_DH */
 }
 
@@ -1917,10 +2016,10 @@ OSStatus SSLSetRsaBlinding(
 	Boolean			blinding)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	ctx->rsaBlindingEnable = blinding;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus SSLGetRsaBlinding(
@@ -1928,10 +2027,10 @@ OSStatus SSLGetRsaBlinding(
 	Boolean			*blinding)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*blinding = ctx->rsaBlindingEnable;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -1939,9 +2038,9 @@ SSLCopyPeerTrust(
     SSLContextRef 		ctx,
     SecTrustRef        *trust)	/* RETURNED */
 {
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	if (ctx == NULL || trust == NULL)
-		return paramErr;
+		return errSecParam;
 
 	/* Create a SecTrustRef if this was a resumed session and we
 	   didn't have one yet. */
@@ -1961,9 +2060,9 @@ OSStatus SSLGetPeerSecTrust(
 	SSLContextRef	ctx,
 	SecTrustRef		*trust)	/* RETURNED */
 {
-    OSStatus status = noErr;
+    OSStatus status = errSecSuccess;
 	if (ctx == NULL || trust == NULL)
-		return paramErr;
+		return errSecParam;
 
 	/* Create a SecTrustRef if this was a resumed session and we
 	   didn't have one yet. */
@@ -1982,14 +2081,14 @@ OSStatus SSLInternalMasterSecret(
    size_t *secretSize)  // in/out
 {
 	if((ctx == NULL) || (secret == NULL) || (secretSize == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(*secretSize < SSL_MASTER_SECRET_SIZE) {
-		return paramErr;
+		return errSecParam;
 	}
 	memmove(secret, ctx->masterSecret, SSL_MASTER_SECRET_SIZE);
 	*secretSize = SSL_MASTER_SECRET_SIZE;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus SSLInternalServerRandom(
@@ -1998,14 +2097,14 @@ OSStatus SSLInternalServerRandom(
    size_t *randSize)	// in/out
 {
 	if((ctx == NULL) || (randBuf == NULL) || (randSize == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(*randSize < SSL_CLIENT_SRVR_RAND_SIZE) {
-		return paramErr;
+		return errSecParam;
 	}
 	memmove(randBuf, ctx->serverRandom, SSL_CLIENT_SRVR_RAND_SIZE);
 	*randSize = SSL_CLIENT_SRVR_RAND_SIZE;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus SSLInternalClientRandom(
@@ -2014,33 +2113,34 @@ OSStatus SSLInternalClientRandom(
    size_t *randSize)	// in/out
 {
 	if((ctx == NULL) || (randBuf == NULL) || (randSize == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(*randSize < SSL_CLIENT_SRVR_RAND_SIZE) {
-		return paramErr;
+		return errSecParam;
 	}
 	memmove(randBuf, ctx->clientRandom, SSL_CLIENT_SRVR_RAND_SIZE);
 	*randSize = SSL_CLIENT_SRVR_RAND_SIZE;
-	return noErr;
+	return errSecSuccess;
 }
 
+/* This is used by EAP 802.1x */
 OSStatus SSLGetCipherSizes(
 	SSLContextRef ctx,
 	size_t *digestSize,
 	size_t *symmetricKeySize,
 	size_t *ivSize)
 {
-	const SSLCipherSpec *currCipher;
-
-	if((ctx == NULL) || (digestSize == NULL) ||
+	const SSLCipherSpecParams *currCipher;
+	
+	if((ctx == NULL) || (digestSize == NULL) || 
 	   (symmetricKeySize == NULL) || (ivSize == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
-	currCipher = &ctx->selectedCipherSpec;
-	*digestSize = currCipher->macAlgorithm->hash->digestSize;
-	*symmetricKeySize = currCipher->cipher->secretKeySize;
-	*ivSize = currCipher->cipher->ivSize;
-	return noErr;
+	currCipher = &ctx->selectedCipherSpecParams;
+	*digestSize = currCipher->macSize;
+	*symmetricKeySize = currCipher->keySize;
+	*ivSize = currCipher->ivSize;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -2053,13 +2153,13 @@ SSLGetResumableSessionInfo(
 	if((ctx == NULL) || (sessionWasResumed == NULL) ||
 	   (sessionID == NULL) || (sessionIDLength == NULL) ||
 	   (*sessionIDLength < MAX_SESSION_ID_LENGTH)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(ctx->sessionMatch) {
 		*sessionWasResumed = true;
 		if(ctx->sessionID.length > *sessionIDLength) {
 			/* really should never happen - means ID > 32 */
-			return paramErr;
+			return errSecParam;
 		}
 		if(ctx->sessionID.length) {
 			/*
@@ -2074,7 +2174,7 @@ SSLGetResumableSessionInfo(
 		*sessionWasResumed = false;
 		*sessionIDLength = 0;
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2086,17 +2186,17 @@ SSLSetAllowAnonymousCiphers(
 	Boolean			enable)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
-		return badReqErr;
+		return errSecBadReq;
 	}
 	if(ctx->validCipherSuites != NULL) {
 		/* SSLSetEnabledCiphers() has already been called */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	ctx->anonCipherEnable = enable;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
@@ -2105,13 +2205,13 @@ SSLGetAllowAnonymousCiphers(
 	Boolean			*enable)
 {
 	if((ctx == NULL) || (enable == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
-		return badReqErr;
+		return errSecBadReq;
 	}
 	*enable = ctx->anonCipherEnable;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2124,10 +2224,10 @@ SSLSetSessionCacheTimeout(
 	uint32_t timeoutInSeconds)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	ctx->sessionCacheTimeout = timeoutInSeconds;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2141,11 +2241,11 @@ SSLInternalSetMasterSecretFunction(
 	const void *arg)		/* opaque to SecureTransport; app-specific */
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	ctx->masterSecretCallback = mFunc;
 	ctx->masterSecretArg = arg;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2167,17 +2267,17 @@ OSStatus SSLInternalSetSessionTicket(
    size_t ticketLength)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	if(ticketLength > 0xffff) {
 		/* extension data encoded with a 2-byte length! */
-		return paramErr;
+		return errSecParam;
 	}
-	SSLFreeBuffer(&ctx->sessionTicket, NULL);
+	SSLFreeBuffer(&ctx->sessionTicket);
 	return SSLCopyBufferFromData(ticket, ticketLength, &ctx->sessionTicket);
 }
 
@@ -2187,20 +2287,20 @@ OSStatus SSLInternalSetSessionTicket(
 
 /*
  * Obtain the SSL_ECDSA_NamedCurve negotiated during a handshake.
- * Returns paramErr if no ECDH-related ciphersuite was negotiated.
+ * Returns errSecParam if no ECDH-related ciphersuite was negotiated.
  */
 OSStatus SSLGetNegotiatedCurve(
    SSLContextRef ctx,
    SSL_ECDSA_NamedCurve *namedCurve)    /* RETURNED */
 {
 	if((ctx == NULL) || (namedCurve == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(ctx->ecdhPeerCurve == SSL_Curve_None) {
-		return paramErr;
+		return errSecParam;
 	}
 	*namedCurve = ctx->ecdhPeerCurve;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2211,10 +2311,10 @@ OSStatus SSLGetNumberOfECDSACurves(
    unsigned *numCurves)	/* RETURNED */
 {
 	if((ctx == NULL) || (numCurves == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	*numCurves = ctx->ecdhNumCurves;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2226,15 +2326,15 @@ OSStatus SSLGetECDSACurves(
    unsigned *numCurves)						/* IN/OUT */
 {
 	if((ctx == NULL) || (namedCurves == NULL) || (numCurves == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(*numCurves < ctx->ecdhNumCurves) {
-		return paramErr;
+		return errSecParam;
 	}
 	memmove(namedCurves, ctx->ecdhCurves,
 		(ctx->ecdhNumCurves * sizeof(SSL_ECDSA_NamedCurve)));
 	*numCurves = ctx->ecdhNumCurves;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2246,24 +2346,24 @@ OSStatus SSLSetECDSACurves(
    unsigned numCurves)
 {
 	if((ctx == NULL) || (namedCurves == NULL) || (numCurves == 0)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(numCurves > SSL_ECDSA_NUM_CURVES) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(sslIsSessionActive(ctx)) {
 		/* can't do this with an active session */
-		return badReqErr;
+		return errSecBadReq;
 	}
 	memmove(ctx->ecdhCurves, namedCurves, (numCurves * sizeof(SSL_ECDSA_NamedCurve)));
 	ctx->ecdhNumCurves = numCurves;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
  * Obtain the number of client authentication mechanisms specified by
  * the server in its Certificate Request message.
- * Returns paramErr if server hasn't sent a Certificate Request message
+ * Returns errSecParam if server hasn't sent a Certificate Request message
  * (i.e., client certificate state is kSSLClientCertNone).
  */
 OSStatus SSLGetNumberOfClientAuthTypes(
@@ -2271,10 +2371,10 @@ OSStatus SSLGetNumberOfClientAuthTypes(
 	unsigned *numTypes)
 {
 	if((ctx == NULL) || (ctx->clientCertState == kSSLClientCertNone)) {
-		return paramErr;
+		return errSecParam;
 	}
 	*numTypes = ctx->numAuthTypes;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2290,28 +2390,28 @@ OSStatus SSLGetClientAuthTypes(
    unsigned *numTypes)							/* IN/OUT */
 {
 	if((ctx == NULL) || (ctx->clientCertState == kSSLClientCertNone)) {
-		return paramErr;
+		return errSecParam;
 	}
 	memmove(authTypes, ctx->clientAuthTypes,
 		ctx->numAuthTypes * sizeof(SSLClientAuthenticationType));
 	*numTypes = ctx->numAuthTypes;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
  * Obtain the SSLClientAuthenticationType actually performed.
  * Only valid if client certificate state is kSSLClientCertSent
- * or kSSLClientCertRejected; returns paramErr otherwise.
+ * or kSSLClientCertRejected; returns errSecParam otherwise.
  */
 OSStatus SSLGetNegotiatedClientAuthType(
    SSLContextRef ctx,
    SSLClientAuthenticationType *authType)		/* RETURNED */
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*authType = ctx->negAuthType;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -2328,7 +2428,7 @@ OSStatus SSLUpdateNegotiatedClientAuthType(
 	SSLContextRef ctx)
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	/*
 	 * See if we have a signing cert that matches one of the
@@ -2381,7 +2481,7 @@ OSStatus SSLUpdateNegotiatedClientAuthType(
 		}	/* parsing authTypes */
 	}	/* we have a signing key */
 
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus SSLGetNumberOfSignatureAlgorithms(
@@ -2389,10 +2489,10 @@ OSStatus SSLGetNumberOfSignatureAlgorithms(
     unsigned *numSigAlgs)
 {
 	if((ctx == NULL) || (ctx->clientCertState == kSSLClientCertNone)) {
-		return paramErr;
+		return errSecParam;
 	}
 	*numSigAlgs = ctx->numServerSigAlgs;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus SSLGetSignatureAlgorithms(
@@ -2401,10 +2501,88 @@ OSStatus SSLGetSignatureAlgorithms(
     unsigned *numSigAlgs)							/* IN/OUT */
 {
 	if((ctx == NULL) || (ctx->clientCertState == kSSLClientCertNone)) {
-		return paramErr;
+		return errSecParam;
 	}
 	memmove(sigAlgs, ctx->serverSigAlgs,
             ctx->numServerSigAlgs * sizeof(SSLSignatureAndHashAlgorithm));
 	*numSigAlgs = ctx->numServerSigAlgs;
-	return noErr;
+	return errSecSuccess;
 }
+
+/* PSK SPIs */
+OSStatus SSLSetPSKSharedSecret(SSLContextRef ctx,
+                               const void *secret,
+                               size_t secretLen)
+{
+    if(ctx == NULL) return errSecParam;
+
+    if(ctx->pskSharedSecret.data)
+        SSLFreeBuffer(&ctx->pskSharedSecret);
+
+    if(SSLCopyBufferFromData(secret, secretLen, &ctx->pskSharedSecret))
+        return errSecAllocate;
+
+    return errSecSuccess;
+}
+
+OSStatus SSLSetPSKIdentity(SSLContextRef ctx,
+                           const void *pskIdentity,
+                           size_t pskIdentityLen)
+{
+    if((ctx == NULL) || (pskIdentity == NULL) || (pskIdentityLen == 0)) return errSecParam;
+
+    if(ctx->pskIdentity.data)
+        SSLFreeBuffer(&ctx->pskIdentity);
+
+    if(SSLCopyBufferFromData(pskIdentity, pskIdentityLen, &ctx->pskIdentity))
+        return errSecAllocate;
+
+    return errSecSuccess;
+
+}
+
+OSStatus SSLGetPSKIdentity(SSLContextRef ctx,
+                           const void **pskIdentity,
+                           size_t *pskIdentityLen)
+{
+    if((ctx == NULL) || (pskIdentity == NULL) || (pskIdentityLen == NULL)) return errSecParam;
+
+    *pskIdentity=ctx->pskIdentity.data;
+    *pskIdentityLen=ctx->pskIdentity.length;
+    return errSecSuccess;
+}
+
+
+#ifdef USE_SSLCERTIFICATE
+
+size_t
+SSLGetCertificateChainLength(const SSLCertificate *c)
+{
+	size_t rtn = 0;
+
+    while (c)
+    {
+	rtn++;
+        c = c->next;
+    }
+    return rtn;
+}
+
+OSStatus sslDeleteCertificateChain(
+                                   SSLCertificate		*certs,
+                                   SSLContext 			*ctx)
+{
+	SSLCertificate		*cert;
+	SSLCertificate		*nextCert;
+
+	assert(ctx != NULL);
+	cert=certs;
+	while(cert != NULL) {
+		nextCert = cert->next;
+		SSLFreeBuffer(&cert->derCert);
+		sslFree(cert);
+		cert = nextCert;
+	}
+	return errSecSuccess;
+}
+#endif /* USE_SSLCERTIFICATE */

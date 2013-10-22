@@ -456,6 +456,7 @@ kadm_connect(kadm5_client_context *ctx)
 	s = socket (a->ai_family, a->ai_socktype, a->ai_protocol);
 	if (s < 0)
 	    continue;
+	socket_set_nopipe(s, 1);
 	if (connect (s, a->ai_addr, a->ai_addrlen) < 0) {
 	    krb5_clear_error_message(context);
 	    krb5_warn (context, errno, "connect(%s)", hostname);
@@ -537,6 +538,7 @@ kadm_connect(kadm5_client_context *ctx)
 	    krb5_clear_error_message(context);
 	    return errno;
 	}
+	socket_set_nopipe(s, 1);
 	if (connect (s, a->ai_addr, a->ai_addrlen) < 0) {
 	    rk_closesocket (s);
 	    freeaddrinfo (ai);

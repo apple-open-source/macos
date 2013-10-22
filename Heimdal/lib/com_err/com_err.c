@@ -52,7 +52,7 @@ error_message (long code)
 	if (code < 0)
 	    snprintf(msg, sizeof(msg), "Unknown error %ld", code);
 	else
-	    p = strerror(code);
+	    p = strerror((int)code);
     }
     if (p != NULL && *p != '\0') {
 	strlcpy(msg, p, sizeof(msg));

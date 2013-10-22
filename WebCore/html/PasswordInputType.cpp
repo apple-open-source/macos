@@ -32,7 +32,9 @@
 #include "config.h"
 #include "PasswordInputType.h"
 
+#include "FormController.h"
 #include "HTMLInputElement.h"
+#include "InputTypeNames.h"
 #include <wtf/Assertions.h>
 #include <wtf/PassOwnPtr.h>
 
@@ -48,13 +50,19 @@ const AtomicString& PasswordInputType::formControlType() const
     return InputTypeNames::password();
 }
 
-bool PasswordInputType::saveFormControlState(String&) const
+bool PasswordInputType::shouldSaveAndRestoreFormControlState() const
 {
-    // Should never save/restore password fields.
     return false;
 }
 
-void PasswordInputType::restoreFormControlState(const String&)
+FormControlState PasswordInputType::saveFormControlState() const
+{
+    // Should never save/restore password fields.
+    ASSERT_NOT_REACHED();
+    return FormControlState();
+}
+
+void PasswordInputType::restoreFormControlState(const FormControlState&)
 {
     // Should never save/restore password fields.
     ASSERT_NOT_REACHED();
@@ -85,20 +93,6 @@ bool PasswordInputType::shouldRespectSpeechAttribute()
 bool PasswordInputType::isPasswordField() const
 {
     return true;
-}
-
-void PasswordInputType::handleFocusEvent()
-{
-    BaseTextInputType::handleFocusEvent();
-    if (element()->document()->frame())
-        element()->document()->setUseSecureKeyboardEntryWhenActive(true);
-}
-
-void PasswordInputType::handleBlurEvent()
-{
-    if (element()->document()->frame())
-        element()->document()->setUseSecureKeyboardEntryWhenActive(false);
-    BaseTextInputType::handleBlurEvent();
 }
 
 } // namespace WebCore

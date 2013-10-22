@@ -33,6 +33,9 @@
 # endif
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
+# if defined(HAVE_MEMORY_H) && !defined(STDC_HEADERS)
+#  include <memory.h>
+# endif
 # include <string.h>
 #endif /* HAVE_STRING_H */
 #ifdef HAVE_STRINGS_H
@@ -45,7 +48,9 @@
 # include <inttypes.h>
 #endif
 
-#include "sudo.h"
+#include "missing.h"
+#include "alloc.h"
+#include "error.h"
 
 /*
  * If there is no SIZE_MAX or SIZE_T_MAX we have to assume that size_t
@@ -76,7 +81,7 @@ emalloc(size)
 
     if ((ptr = malloc(size)) == NULL)
 	errorx(1, "unable to allocate memory");
-    return(ptr);
+    return ptr;
 }
 
 /*
@@ -98,7 +103,32 @@ emalloc2(nmemb, size)
     size *= nmemb;
     if ((ptr = malloc(size)) == NULL)
 	errorx(1, "unable to allocate memory");
-    return(ptr);
+    return ptr;
+}
+
+/*
+ * ecalloc() allocates nmemb * size bytes and exits with an error
+ * if overflow would occur or if the system malloc(3) fails.  
+ * On success, the allocated space is zero-filled.
+ */
+void *
+ecalloc(nmemb, size)
+    size_t nmemb;
+    size_t size;
+{
+    void *ptr;
+
+    if (nmemb == 0 || size == 0)
+	errorx(1, "internal error, tried to ecalloc(0)");
+    if (nmemb != 1) {
+	if (nmemb > SIZE_MAX / size)
+	    errorx(1, "internal error, ecalloc() overflow");
+	size *= nmemb;
+    }
+    if ((ptr = malloc(size)) == NULL)
+	errorx(1, "unable to allocate memory");
+    memset(ptr, 0, size);
+    return ptr;
 }
 
 /*
@@ -118,7 +148,7 @@ erealloc(ptr, size)
     ptr = ptr ? realloc(ptr, size) : malloc(size);
     if (ptr == NULL)
 	errorx(1, "unable to allocate memory");
-    return(ptr);
+    return ptr;
 }
 
 /*
@@ -143,7 +173,7 @@ erealloc3(ptr, nmemb, size)
     ptr = ptr ? realloc(ptr, size) : malloc(size);
     if (ptr == NULL)
 	errorx(1, "unable to allocate memory");
-    return(ptr);
+    return ptr;
 }
 
 /*
@@ -155,14 +185,39 @@ estrdup(src)
     const char *src;
 {
     char *dst = NULL;
-    size_t size;
+    size_t len;
 
     if (src != NULL) {
-	size = strlen(src) + 1;
-	dst = (char *) emalloc(size);
-	(void) memcpy(dst, src, size);
+	len = strlen(src);
+	dst = (char *) emalloc(len + 1);
+	(void) memcpy(dst, src, len);
+	dst[len] = '\0';
     }
-    return(dst);
+    return dst;
+}
+
+/*
+ * estrdup() is like strndup(3) except that it exits with an error if
+ * malloc(3) fails.  NOTE: unlike strdup(3), estrdup(NULL) is legal.
+ */
+char *
+estrndup(src, maxlen)
+    const char *src;
+    size_t maxlen;
+{
+    char *dst = NULL;
+    size_t len = 0;
+
+    if (src != NULL) {
+	while (maxlen != 0 && src[len] != '\0') {
+	    len++;
+	    maxlen--;
+	}
+	dst = (char *) emalloc(len + 1);
+	(void) memcpy(dst, src, len);
+	dst[len] = '\0';
+    }
+    return dst;
 }
 
 /*
@@ -191,7 +246,7 @@ easprintf(ret, fmt, va_alist)
 
     if (len == -1)
 	errorx(1, "unable to allocate memory");
-    return(len);
+    return len;
 }
 
 /*
@@ -208,7 +263,7 @@ evasprintf(ret, format, args)
 
     if ((len = vasprintf(ret, format, args)) == -1)
 	errorx(1, "unable to allocate memory");
-    return(len);
+    return len;
 }
 
 /*

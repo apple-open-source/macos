@@ -38,7 +38,7 @@
 # include <config.h>
 #endif
 
-#if defined STDC_HEADERS && !defined emacs
+#if defined STDC_HEADERS
 # include <stddef.h>
 #else
 /* We need this for `regex.h', and perhaps for the Emacs include files.  */
@@ -1863,7 +1863,7 @@ static int analyse_first _RE_ARGS ((re_char *p, re_char *pend,
     /* If the buffer moved, move all the pointers into it.  */		\
     if (old_buffer != bufp->buffer)					\
       {									\
-	int incr = bufp->buffer - old_buffer;				\
+	ptrdiff_t incr = bufp->buffer - old_buffer;			\
 	MOVE_BUFFER_POINTER (b);					\
 	MOVE_BUFFER_POINTER (begalt);					\
 	if (fixup_alt_jump)						\

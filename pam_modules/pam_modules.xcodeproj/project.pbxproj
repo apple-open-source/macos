@@ -98,9 +98,6 @@
 		1CFF7F1B102118740097ADA4 /* DiskImages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7F17102118710097ADA4 /* DiskImages.framework */; };
 		1CFF7F50102118980097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		1CFF7F51102118980097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
-		72603597125BDE38000B0172 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
-		72A97A9E12A45DBF007B98B5 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
-		72A97AA112A45DE9007B98B5 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
 		72B77D7E1260FA2100F47303 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B77D7D1260FA2100F47303 /* DiskArbitration.framework */; };
 		7434C8991255449C001D7F9E /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
 		7434C89D125544C7001D7F9E /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7434C88E12554434001D7F9E /* GSS.framework */; };
@@ -113,7 +110,6 @@
 		7434CA761255560B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		7434CA791255562B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
 		EB27C0B5143CA4AA003F6770 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
-		EB27C0BA143CA6C7003F6770 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -284,7 +280,6 @@
 		1CFF7F05102118410097ADA4 /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = /System/Library/Frameworks/NetFS.framework; sourceTree = "<absolute>"; };
 		1CFF7F17102118710097ADA4 /* DiskImages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskImages.framework; path = /System/Library/PrivateFrameworks/DiskImages.framework; sourceTree = "<absolute>"; };
 		1CFF7F55102118AF0097ADA4 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
-		72603596125BDE38000B0172 /* ServerInformation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServerInformation.framework; path = /System/Library/PrivateFrameworks/ServerInformation.framework; sourceTree = "<absolute>"; };
 		72B77D7D1260FA2100F47303 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		7434C88E12554434001D7F9E /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = /System/Library/Frameworks/GSS.framework; sourceTree = "<absolute>"; };
 		7434C88F12554434001D7F9E /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
@@ -320,7 +315,6 @@
 				1CFF7DFF102117810097ADA4 /* CoreFoundation.framework in Frameworks */,
 				1CFF7DDF102116FA0097ADA4 /* libpam.2.dylib in Frameworks */,
 				7434C8A912554588001D7F9E /* Heimdal.framework in Frameworks */,
-				72A97A9E12A45DBF007B98B5 /* ServerInformation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,7 +337,6 @@
 				1CFF7F15102118530097ADA4 /* CoreFoundation.framework in Frameworks */,
 				1CFF7DE1102117040097ADA4 /* libpam.2.dylib in Frameworks */,
 				72B77D7E1260FA2100F47303 /* DiskArbitration.framework in Frameworks */,
-				72A97AA112A45DE9007B98B5 /* ServerInformation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -362,7 +355,6 @@
 				1CFF7F50102118980097ADA4 /* CoreFoundation.framework in Frameworks */,
 				1CFF7F51102118980097ADA4 /* OpenDirectory.framework in Frameworks */,
 				1CFF7DE31021170D0097ADA4 /* libpam.2.dylib in Frameworks */,
-				72603597125BDE38000B0172 /* ServerInformation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -402,7 +394,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EB27C0BA143CA6C7003F6770 /* ServerInformation.framework in Frameworks */,
 				7434CA1A12554FE5001D7F9E /* OpenDirectory.framework in Frameworks */,
 				7434C9A912554FBF001D7F9E /* CoreFoundation.framework in Frameworks */,
 				7434C8991255449C001D7F9E /* libpam.2.dylib in Frameworks */,
@@ -421,8 +412,6 @@
 				C6A0FF2B0290797F04C91782 /* Documentation */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				1CFF7DDD102116DB0097ADA4 /* Linked */,
-				72B77D7D1260FA2100F47303 /* DiskArbitration.framework */,
-				72603596125BDE38000B0172 /* ServerInformation.framework */,
 			);
 			name = pam_modules;
 			sourceTree = "<group>";
@@ -477,6 +466,7 @@
 		1CFF7DDD102116DB0097ADA4 /* Linked */ = {
 			isa = PBXGroup;
 			children = (
+				72B77D7D1260FA2100F47303 /* DiskArbitration.framework */,
 				1C84D323113480B3005764CC /* AppleSystemInfo.framework */,
 				1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */,
 				1CFF7E81102118100097ADA4 /* Security.framework */,
@@ -809,6 +799,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "pam_modules" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;

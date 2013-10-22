@@ -48,7 +48,7 @@
  */
 
 static int
-cp936_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cp936_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   /* Try GBK first. */
   {
@@ -90,7 +90,7 @@ cp936_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-cp936_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+cp936_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   /* Try GBK first. */
   {

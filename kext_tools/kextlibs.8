@@ -1,4 +1,4 @@
-.Dd March 6, 2009 
+.Dd November 14, 2012 
 .Os Darwin
 .Dt KEXTLIBS 8
 .Sh NAME
@@ -42,13 +42,13 @@ to find libraries for older releases of Mac OS X
 using the
 .Fl repository
 option to specify an extensions folder to search
-other than the system extensions folder for the root volume
+other than the extensions directories for the root volume
 (although releases prior to Mac OS X 10.6 (Snow Leopard)
 don't check for architecture-specific properties,
 so be sure to check the output and edit as needed).
 If you don't explicitly specify a repository directory,
 .Nm
-searches the root volume's system extensions folder.
+searches the root volume's /System/Library/Extensions and /Library/Extensions directories.
 .Sh OPTIONS
 .Bl -tag -width -indent
 .It Fl h , help
@@ -107,7 +107,7 @@ the system extensions folders are not implicitly searched.
 See
 .Fl system-extensions .
 .It Fl e , Fl system-extensions
-Add the system extensions folders to the list of directories to search.
+Add /System/Library/Extensions and /Library/Extensions to the list of directories to search.
 If you don't specify any directories or kexts, this is used by default.
 .It Fl undef-symbols
 Print all undefined symbols from
@@ -153,6 +153,8 @@ End of options.
 .Bl -tag -width "/System/Library/Extensions/" -compact
 .It Pa /System/Library/Extensions/
 The standard system repository of kernel extensions.
+.It Pa /Library/Extensions/
+The standard repository of non Apple kernel extensions.
 .El
 .Sh DIAGNOSTICS
 The

@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>CPAN-Meta-Requirements</string>
+        <key>OpenSourceVersion</key>
+        <string>2.122</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/D/DA/DAGOLDEN/CPAN-Meta-Requirements-2.122.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2012-10-25</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>perl.txt</string>
+</dict>

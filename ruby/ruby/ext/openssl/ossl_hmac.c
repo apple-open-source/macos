@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_hmac.c 28004 2010-05-24 23:58:49Z shyouhei $
+ * $Id: ossl_hmac.c 32609 2011-07-22 04:11:38Z emboss $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -13,16 +13,16 @@
 #include "ossl.h"
 
 #define MakeHMAC(obj, klass, ctx) \
-    obj = Data_Make_Struct(klass, HMAC_CTX, 0, ossl_hmac_free, ctx)
+    (obj) = Data_Make_Struct((klass), HMAC_CTX, 0, ossl_hmac_free, (ctx))
 #define GetHMAC(obj, ctx) do { \
-    Data_Get_Struct(obj, HMAC_CTX, ctx); \
-    if (!ctx) { \
+    Data_Get_Struct((obj), HMAC_CTX, (ctx)); \
+    if (!(ctx)) { \
 	ossl_raise(rb_eRuntimeError, "HMAC wasn't initialized"); \
     } \
 } while (0)
 #define SafeGetHMAC(obj, ctx) do { \
-    OSSL_Check_Kind(obj, cHMAC); \
-    GetHMAC(obj, ctx); \
+    OSSL_Check_Kind((obj), cHMAC); \
+    GetHMAC((obj), (ctx)); \
 } while (0)
 
 /*
@@ -53,7 +53,7 @@ ossl_hmac_alloc(VALUE klass)
 
     MakeHMAC(obj, klass, ctx);
     HMAC_CTX_init(ctx);
-	
+
     return obj;
 }
 
@@ -70,8 +70,8 @@ ossl_hmac_initialize(VALUE self, VALUE key, VALUE digest)
 
     StringValue(key);
     GetHMAC(self, ctx);
-    HMAC_Init_ex(ctx, RSTRING_PTR(key), RSTRING_LEN(key),
-		 GetDigestPtr(digest), NULL);
+    HMAC_Init(ctx, RSTRING_PTR(key), RSTRING_LENINT(key),
+		 GetDigestPtr(digest));
 
     return self;
 }
@@ -80,7 +80,7 @@ static VALUE
 ossl_hmac_copy(VALUE self, VALUE other)
 {
     HMAC_CTX *ctx1, *ctx2;
-    
+
     rb_check_frozen(self);
     if (self == other) return self;
 
@@ -103,13 +103,13 @@ ossl_hmac_update(VALUE self, VALUE data)
 
     StringValue(data);
     GetHMAC(self, ctx);
-    HMAC_Update(ctx, RSTRING_PTR(data), RSTRING_LEN(data));
+    HMAC_Update(ctx, (unsigned char *)RSTRING_PTR(data), RSTRING_LEN(data));
 
     return self;
 }
 
 static void
-hmac_final(HMAC_CTX *ctx, char **buf, int *buf_len)
+hmac_final(HMAC_CTX *ctx, unsigned char **buf, unsigned int *buf_len)
 {
     HMAC_CTX final;
 
@@ -132,14 +132,14 @@ static VALUE
 ossl_hmac_digest(VALUE self)
 {
     HMAC_CTX *ctx;
-    char *buf;
-    int buf_len;
+    unsigned char *buf;
+    unsigned int buf_len;
     VALUE digest;
-	
+
     GetHMAC(self, ctx);
     hmac_final(ctx, &buf, &buf_len);
-    digest = ossl_buf2str(buf, buf_len);
-    
+    digest = ossl_buf2str((char *)buf, buf_len);
+
     return digest;
 }
 
@@ -152,13 +152,14 @@ static VALUE
 ossl_hmac_hexdigest(VALUE self)
 {
     HMAC_CTX *ctx;
-    char *buf, *hexbuf;
-    int buf_len;
+    unsigned char *buf;
+    char *hexbuf;
+    unsigned int buf_len;
     VALUE hexdigest;
-	
+
     GetHMAC(self, ctx);
     hmac_final(ctx, &buf, &buf_len);
-    if (string2hex(buf, buf_len, &hexbuf, NULL) != 2 * buf_len) {
+    if (string2hex(buf, buf_len, &hexbuf, NULL) != 2 * (int)buf_len) {
 	OPENSSL_free(buf);
 	ossl_raise(eHMACError, "Memory alloc error");
     }
@@ -179,7 +180,7 @@ ossl_hmac_reset(VALUE self)
     HMAC_CTX *ctx;
 
     GetHMAC(self, ctx);
-    HMAC_Init_ex(ctx, NULL, 0, NULL, NULL);
+    HMAC_Init(ctx, NULL, 0, NULL);
 
     return self;
 }
@@ -192,15 +193,15 @@ ossl_hmac_reset(VALUE self)
 static VALUE
 ossl_hmac_s_digest(VALUE klass, VALUE digest, VALUE key, VALUE data)
 {
-    char *buf;
-    int buf_len;
-	
+    unsigned char *buf;
+    unsigned int buf_len;
+
     StringValue(key);
     StringValue(data);
-    buf = HMAC(GetDigestPtr(digest), RSTRING_PTR(key), RSTRING_LEN(key),
-	       RSTRING_PTR(data), RSTRING_LEN(data), NULL, &buf_len);
+    buf = HMAC(GetDigestPtr(digest), RSTRING_PTR(key), RSTRING_LENINT(key),
+	       (unsigned char *)RSTRING_PTR(data), RSTRING_LEN(data), NULL, &buf_len);
 
-    return rb_str_new(buf, buf_len);
+    return rb_str_new((const char *)buf, buf_len);
 }
 
 /*
@@ -211,16 +212,17 @@ ossl_hmac_s_digest(VALUE klass, VALUE digest, VALUE key, VALUE data)
 static VALUE
 ossl_hmac_s_hexdigest(VALUE klass, VALUE digest, VALUE key, VALUE data)
 {
-    char *buf, *hexbuf;
-    int buf_len;
+    unsigned char *buf;
+    char *hexbuf;
+    unsigned int buf_len;
     VALUE hexdigest;
 
     StringValue(key);
     StringValue(data);
-	
-    buf = HMAC(GetDigestPtr(digest), RSTRING_PTR(key), RSTRING_LEN(key),
-	       RSTRING_PTR(data), RSTRING_LEN(data), NULL, &buf_len);
-    if (string2hex(buf, buf_len, &hexbuf, NULL) != 2 * buf_len) {
+
+    buf = HMAC(GetDigestPtr(digest), RSTRING_PTR(key), RSTRING_LENINT(key),
+	       (unsigned char *)RSTRING_PTR(data), RSTRING_LEN(data), NULL, &buf_len);
+    if (string2hex(buf, buf_len, &hexbuf, NULL) != 2 * (int)buf_len) {
 	ossl_raise(eHMACError, "Cannot convert buf to hexbuf");
     }
     hexdigest = ossl_buf2str(hexbuf, 2 * buf_len);
@@ -234,18 +236,18 @@ ossl_hmac_s_hexdigest(VALUE klass, VALUE digest, VALUE key, VALUE data)
 void
 Init_ossl_hmac()
 {
-#if 0 /* let rdoc know about mOSSL */
-    mOSSL = rb_define_module("OpenSSL");
+#if 0
+    mOSSL = rb_define_module("OpenSSL"); /* let rdoc know about mOSSL */
 #endif
 
     eHMACError = rb_define_class_under(mOSSL, "HMACError", eOSSLError);
-	
+
     cHMAC = rb_define_class_under(mOSSL, "HMAC", rb_cObject);
 
     rb_define_alloc_func(cHMAC, ossl_hmac_alloc);
     rb_define_singleton_method(cHMAC, "digest", ossl_hmac_s_digest, 3);
     rb_define_singleton_method(cHMAC, "hexdigest", ossl_hmac_s_hexdigest, 3);
-    
+
     rb_define_method(cHMAC, "initialize", ossl_hmac_initialize, 2);
     rb_define_copy_func(cHMAC, ossl_hmac_copy);
 

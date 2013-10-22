@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,6 +51,8 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>		// for SCLog(), SCPrint()
 
+#include "ip_plugin.h"
+
 #define	HW_MODEL_LEN		64			// Note: must be >= NETBIOS_NAME_LEN (below)
 
 #define	NETBIOS_NAME_LEN	16
@@ -98,7 +100,7 @@ boottime(void)
 		size_t		tv_len	= sizeof(tv);
 
 		if (sysctl(mib, sizeof(mib) / sizeof(mib[0]), &tv, &tv_len, NULL, 0) == -1) {
-			SCLog(TRUE, LOG_ERR, CFSTR("sysctl() CTL_KERN/KERN_BOOTTIME failed: %s"), strerror(errno));
+			my_log(LOG_ERR, "sysctl() CTL_KERN/KERN_BOOTTIME failed: %s", strerror(errno));
 			return kCFAbsoluteTimeIntervalSince1970;
 		}
 
@@ -125,7 +127,7 @@ copy_default_name(void)
 	bzero(&hwModel, sizeof(hwModel));
 	ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &hwModel, &n, NULL, 0);
 	if (ret != 0) {
-		SCLog(TRUE, LOG_ERR, CFSTR("sysctl() CTL_HW/HW_MODEL failed: %s"), strerror(errno));
+		my_log(LOG_ERR, "sysctl() CTL_HW/HW_MODEL failed: %s", strerror(errno));
 		return NULL;
 	}
 
@@ -278,17 +280,17 @@ smb_set_configuration(SCDynamicStoreRef store, CFDictionaryRef dict)
 
 	prefs = SCPreferencesCreate(NULL, CFSTR("smb-configuration"), CFSTR(kSMBPreferencesAppID));
 	if (prefs == NULL) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("smb_set_configuration: SCPreferencesCreate() failed: %s"),
-		      SCErrorString(SCError()));
+		my_log(LOG_ERR,
+		       "smb_set_configuration: SCPreferencesCreate() failed: %s",
+		       SCErrorString(SCError()));
 		return;
 	}
 
 	ok = SCPreferencesLock(prefs, TRUE);
 	if (!ok) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("smb_set_configuration: SCPreferencesLock() failed: %s"),
-		      SCErrorString(SCError()));
+		my_log(LOG_ERR,
+		       "smb_set_configuration: SCPreferencesLock() failed: %s",
+		       SCErrorString(SCError()));
 		goto done;
 	}
 
@@ -329,7 +331,8 @@ smb_set_configuration(SCDynamicStoreRef store, CFDictionaryRef dict)
 			__CFStringGetInstallationEncodingAndRegion((uint32_t *)&macEncoding, &macRegion);
 		}
 		_SC_dos_encoding_and_codepage(macEncoding, macRegion, &dosEncoding, &dosCodepage);
-		str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), dosCodepage);
+		str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), (unsigned int)dosCodepage);
+		assert(str != NULL);
 		update_pref(prefs, CFSTR(kSMBPrefDOSCodePage), str, &changed);
 		CFRelease(str);
 	}
@@ -381,17 +384,19 @@ smb_set_configuration(SCDynamicStoreRef store, CFDictionaryRef dict)
 	if (changed) {
 		ok = SCPreferencesCommitChanges(prefs);
 		if (!ok) {
-			SCLog((SCError() != EROFS), LOG_ERR,
-			      CFSTR("smb_set_configuration: SCPreferencesCommitChanges() failed: %s"),
-			      SCErrorString(SCError()));
+			if ((SCError() != EROFS)) {
+				my_log(LOG_ERR,
+				       "smb_set_configuration: SCPreferencesCommitChanges() failed: %s",
+				       SCErrorString(SCError()));
+			}
 			goto done;
 		}
 
 		ok = SCPreferencesApplyChanges(prefs);
 		if (!ok) {
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("smb_set_configuration: SCPreferencesApplyChanges() failed: %s"),
-			      SCErrorString(SCError()));
+			my_log(LOG_ERR,
+			       "smb_set_configuration: SCPreferencesApplyChanges() failed: %s",
+			       SCErrorString(SCError()));
 			goto done;
 		}
 	}
@@ -479,11 +484,13 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 
 	(void) gettimeofday(&dnsQueryComplete, NULL);
 	timersub(&dnsQueryComplete, &dnsQueryStart, &dnsQueryElapsed);
-	SCLog(_verbose, LOG_INFO,
-	      CFSTR("async DNS complete%s (query time = %d.%3.3d)"),
-	      ((status == 0) && (host != NULL)) ? "" : ", host not found",
-	      dnsQueryElapsed.tv_sec,
-	      dnsQueryElapsed.tv_usec / 1000);
+	if (_verbose) {
+		my_log(LOG_INFO,
+		       "async DNS complete%s (query time = %d.%3.3d)",
+		       ((status == 0) && (host != NULL)) ? "" : ", host not found",
+		       dnsQueryElapsed.tv_sec,
+		       dnsQueryElapsed.tv_usec / 1000);
+	}
 
 	// get network configuration
 	dict = smb_copy_global_configuration(store);
@@ -491,7 +498,7 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 	// use NetBIOS name from network configuration (if available)
 	name = CFDictionaryGetValue(dict, kSCPropNetSMBNetBIOSName);
 	if ((name != NULL) && _SC_CFStringIsValidNetBIOSName(name)) {
-		SCLog(TRUE, LOG_INFO, CFSTR("NetBIOS name (network configuration) = %@"), name);
+		my_log(LOG_INFO, "NetBIOS name (network configuration) = %@", name);
 		goto set;
 	}
 
@@ -514,7 +521,7 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 					if (_SC_CFStringIsValidNetBIOSName(name)) {
 						CFMutableDictionaryRef	newDict;
 
-						SCLog(TRUE, LOG_INFO, CFSTR("NetBIOS name (reverse DNS query) = %@"), name);
+						my_log(LOG_INFO, "NetBIOS name (reverse DNS query) = %@", name);
 						newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 						CFDictionarySetValue(newDict, kSCPropNetSMBNetBIOSName, name);
 						CFRelease(dict);
@@ -541,7 +548,7 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 			/*
 			 * Hmmmm...
 			 */
-			SCLog(TRUE, LOG_ERR, CFSTR("getnameinfo() failed: %s"), gai_strerror(status));
+			my_log(LOG_ERR,"getnameinfo() failed: %s", gai_strerror(status));
 	}
 
 	// try local (multicast DNS) name, if available
@@ -550,7 +557,7 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 		if (_SC_CFStringIsValidNetBIOSName(name)) {
 			CFMutableDictionaryRef	newDict;
 
-			SCLog(TRUE, LOG_INFO, CFSTR("NetBIOS name (multicast DNS) = %@"), name);
+			my_log(LOG_INFO, "NetBIOS name (multicast DNS) = %@", name);
 			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 			CFDictionarySetValue(newDict, kSCPropNetSMBNetBIOSName, name);
 			CFRelease(dict);
@@ -566,7 +573,7 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 	if (name != NULL) {
 		CFMutableDictionaryRef	newDict;
 
-		SCLog(TRUE, LOG_INFO, CFSTR("NetBIOS name (default) = %@"), name);
+		my_log(LOG_INFO, "NetBIOS name (default) = %@", name);
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 		CFDictionarySetValue(newDict, kSCPropNetSMBNetBIOSName, name);
 		CFRelease(dict);
@@ -609,7 +616,7 @@ getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, voi
 		// we've received a callback on the async DNS port but since the
 		// associated CFMachPort doesn't match than the request must have
 		// already been cancelled.
-		SCLog(TRUE, LOG_ERR, CFSTR("getnameinfo_async_handleCFReply(): port != dnsPort"));
+		my_log(LOG_ERR, "getnameinfo_async_handleCFReply(): port != dnsPort");
 		return;
 	}
 
@@ -656,13 +663,13 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 	Boolean				ok	= FALSE;
 
 	if (_SC_cfstring_to_cstring(address, buf, sizeof(buf), kCFStringEncodingASCII) == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("could not convert [primary] address"));
+		my_log(LOG_ERR, "could not convert [primary] address");
 		return FALSE;
 	}
 
 	if (_SC_string_to_sockaddr(buf, AF_UNSPEC, (void *)&addr, sizeof(addr)) == NULL) {
 		/* if not an IP[v6] address */
-		SCLog(TRUE, LOG_ERR, CFSTR("could not parse [primary] address"));
+		my_log(LOG_ERR, "could not parse [primary] address");
 		return FALSE;
 	}
 
@@ -730,7 +737,7 @@ smb_update_configuration(__unused CFRunLoopTimerRef _timer, void *info)
 	// use NetBIOS name from network configuration (if available)
 	name = CFDictionaryGetValue(dict, kSCPropNetSMBNetBIOSName);
 	if ((name != NULL) && _SC_CFStringIsValidNetBIOSName(name)) {
-		SCLog(TRUE, LOG_INFO, CFSTR("NetBIOS name (network configuration) = %@"), name);
+		my_log(LOG_INFO, "NetBIOS name (network configuration) = %@", name);
 		goto set;
 	}
 
@@ -763,7 +770,7 @@ smb_update_configuration(__unused CFRunLoopTimerRef _timer, void *info)
 		if (_SC_CFStringIsValidNetBIOSName(name)) {
 			CFMutableDictionaryRef	newDict;
 
-			SCLog(TRUE, LOG_INFO, CFSTR("NetBIOS name (multicast DNS) = %@"), name);
+			my_log(LOG_INFO, "NetBIOS name (multicast DNS) = %@", name);
 			newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 			CFDictionarySetValue(newDict, kSCPropNetSMBNetBIOSName, name);
 			CFRelease(dict);
@@ -779,7 +786,7 @@ smb_update_configuration(__unused CFRunLoopTimerRef _timer, void *info)
 	if (name != NULL) {
 		CFMutableDictionaryRef	newDict;
 
-		SCLog(TRUE, LOG_INFO, CFSTR("NetBIOS name (default) = %@"), name);
+		my_log(LOG_INFO, "NetBIOS name (default) = %@", name);
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 		CFDictionarySetValue(newDict, kSCPropNetSMBNetBIOSName, name);
 		CFRelease(dict);
@@ -867,9 +874,9 @@ load_smb_configuration(Boolean verbose)
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("smb-configuration"), configuration_changed, NULL);
 	if (store == NULL) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStoreCreate() failed: %s"),
-		      SCErrorString(SCError()));
+		my_log(LOG_ERR,
+		       "SCDynamicStoreCreate() failed: %s",
+		       SCErrorString(SCError()));
 		goto error;
 	}
 
@@ -911,17 +918,17 @@ load_smb_configuration(Boolean verbose)
 
 	/* register the keys/patterns */
 	if (!SCDynamicStoreSetNotificationKeys(store, keys, patterns)) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s"),
-		      SCErrorString(SCError()));
+		my_log(LOG_ERR,
+		       "SCDynamicStoreSetNotificationKeys() failed: %s",
+		       SCErrorString(SCError()));
 		goto error;
 	}
 
 	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 	if (!rls) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s"),
-		      SCErrorString(SCError()));
+		my_log(LOG_ERR,
+		       "SCDynamicStoreCreateRunLoopSource() failed: %s",
+		       SCErrorString(SCError()));
 		goto error;
 	}
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);

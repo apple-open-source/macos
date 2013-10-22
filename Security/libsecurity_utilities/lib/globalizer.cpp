@@ -46,87 +46,32 @@ GlobalNexus::Error::~Error() throw()
 {
 }
 
-
-//
-// The long (and possibly contentious) path of ModuleNexus()
-//
-// Briefly, the trick here is to go through a three-stage sequence
-// to lazily construct a unique singleton object, no matter how many
-// threads all of a sudden decide they need it.
-// State sequence:
-// State 0: pointer == 0, not initialized, idle
-// State 1: pointer == mutexp | 0x1, where mutexp points to a Mutex
-//  used to serialize construction of the singleton object
-// State 2: pointer == &singleton, and we're done
-//
-// TAKE NOTE:
-// This code is optimized with a particular issue in mind: when placed
-// into static storage (as ModuleNexi are wont to), it should not require
-// dynamic initialization. This is important because our code is, in effect,
-// linked into just about every program in the system. The price we pay
-// for this coolness is
-//  (a) This won't work *except* in static storage (not on stack or heap)
-//  (b) We slightly fracture portability (see below)
-// This has been considered Worth It, at least for now. Before you throw
-// up and throw this code out, please try to figure out whether you know
-// the Whole Story. Thank you.
-//
-// WARNING:
-// This code makes the following non-portable assumptions:
-//  (a) NULL == 0 (binary representation of NULL pointer is zero value)
-//	(b) Pointers acquired from new have at least their LSB zero (are at
-//      least two-byte aligned).
-// It seems like it's been a while since anyone made a machine/runtime that
-// violated either of those. But you have been warned.
-//
-void *ModuleNexusCommon::create(void *(*make)())
+void ModuleNexusCommon::do_create(void *(*make)())
 {
-    sync++;		// keep mutex alive if needed
-  retry:
-    void *initialPointer = Atomic<void *>::load(pointer);	// latch pointer
-    if (!initialPointer || (uintptr_t(initialPointer) & 0x1)) {
-        Mutex *mutex;
-        if (initialPointer == 0) {
-            mutex = new Mutex;
-            mutex->lock();
-			if (!Atomic<void *>::casb(0, (void *)(uintptr_t(mutex) | 0x1), pointer)) {
-                // somebody beat us to the lead - back off
-                mutex->unlock();
-                delete mutex;
-                goto retry;
-            }
-            // we have the ball
-            try {
-                void *singleton = make();
-                pointer = singleton;
-                // we need a write barrier here, but the mutex->unlock below provides it for free
-            } catch (...) {
-				secdebug("nexus", "ModuleNexus %p construction failed", this);
-                mutex->unlock();
-                if (--sync == 0) {
-                    delete mutex;
-                    pointer = 0;
-                }
-                throw;
-            }
-        } else {
-            mutex = reinterpret_cast<Mutex *>(uintptr_t(initialPointer) & ~0x1);
-            mutex->lock();	// we'll wait here
-        }
-        mutex->unlock();
-        //@@@ retry if not resolved -- or fail here (with "object can't be built")
-        if (--sync == 0)
-            delete mutex;
+    try
+    {
+        pointer = make();
     }
-    return pointer;
+    catch (...)
+    {
+        pointer = NULL;
+    }
 }
 
 
-// thread nexus static globals
-ModuleNexus<Mutex> ThreadNexusBase::mInstanceLock;
 
-// Thread nexus globals
-ModuleNexus<RetentionSet> ThreadNexusBase::mInstances;
+void *ModuleNexusCommon::create(void *(*make)())
+{
+    dispatch_once(&once, ^{do_create(make);});
+    
+    if (pointer == NULL)
+    {
+        ModuleNexusError::throwMe();
+    }
+    
+    return pointer;
+}
+
 
 //
 // Process nexus operation

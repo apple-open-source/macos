@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/root.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/root.xml
 // *
 // ***************************************************************************
 /**
@@ -12,7 +12,7 @@
 root{
     Currencies{
         AUD{
-            "AU$",
+            "A$",
             "AUD",
         }
         BRL{
@@ -99,15 +99,15 @@ root{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.0.67.6"}
+    Version{"2.0.82.45"}
     currencySpacing{
         afterCurrency{
-            currencyMatch{"[:letter:]"}
+            currencyMatch{"[:^S:]"}
             insertBetween{" "}
             surroundingMatch{"[:digit:]"}
         }
         beforeCurrency{
-            currencyMatch{"[:letter:]"}
+            currencyMatch{"[:^S:]"}
             insertBetween{" "}
             surroundingMatch{"[:digit:]"}
         }

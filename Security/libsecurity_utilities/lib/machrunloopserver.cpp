@@ -48,7 +48,7 @@ MachRunLoopServer::MachRunLoopServer(const char *name, const Bootstrap &boot)
 {
 }
 
-void MachRunLoopServer::run(size_t bufferSize, mach_msg_options_t options)
+void MachRunLoopServer::run(mach_msg_size_t bufferSize, mach_msg_options_t options)
 {
 	// allocate reply buffer
 	mReplyMessage.setBuffer(bufferSize);
@@ -73,7 +73,7 @@ MachRunLoopServer::~MachRunLoopServer()
 // Since we don't actually run our own runloop here, we can't well use standard
 // notifications to our own server port. So we use a CFMachPort facility instead.
 //
-void MachRunLoopServer::notifyIfDead(Port port) const
+void MachRunLoopServer::notifyIfDead(Port port, bool doNotify) const
 {
 	if (CFMachPortRef cfPort = CFMachPortCreateWithPort(NULL, port, NULL, NULL, NULL))
 		CFMachPortSetInvalidationCallBack(cfPort, cfInvalidate);
@@ -89,12 +89,12 @@ void MachRunLoopServer::cfInvalidate(CFMachPortRef cfPort, void *context)
 //
 // Reception callback
 //
-void MachRunLoopServer::receive(Message &request)
+void MachRunLoopServer::receive(const Message &request)
 {
 	active().oneRequest(request);
 }
 
-void MachRunLoopServer::oneRequest(Message &request)
+void MachRunLoopServer::oneRequest(const Message &request)
 {
 	if (!handle(request, mReplyMessage)) {	// MIG dispatch failed
 		secdebug("machrls", "MachRunLoopServer dispatch failed");

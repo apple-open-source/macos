@@ -31,7 +31,7 @@
 #include <usersec.h>
 #include <uinfo.h>
 
-#include "compat.h"
+#include "missing.h"
 #include "alloc.h"
 #include "error.h"
 
@@ -73,12 +73,10 @@ aix_getlimit(user, lim, valp)
 {
     int val;
 
-    if (getuserattr(user, lim, &val, SEC_INT) != 0 &&
-	getuserattr("default", lim, &val, SEC_INT) != 0) {
-	return(-1);
-    }
+    if (getuserattr(user, lim, &val, SEC_INT) != 0)
+	return -1;
     *valp = val;
-    return(0);
+    return 0;
 }
 
 static void
@@ -108,9 +106,10 @@ aix_setlimits(user)
 	    else
 		rlim.rlim_cur = rlim.rlim_max;	/* soft not specd, use hard */
 	} else {
-	    /* No hard limit set, try soft limit. */
-	    if (aix_getlimit(user, aix_limits[n].soft, &val) == 0)
-		rlim.rlim_cur = val == -1 ? RLIM64_INFINITY : val * aix_limits[n].factor;
+	    /* No hard limit set, try soft limit, if it exists. */
+	    if (aix_getlimit(user, aix_limits[n].soft, &val) == -1)
+		continue;
+	    rlim.rlim_cur = val == -1 ? RLIM64_INFINITY : val * aix_limits[n].factor;
 
 	    /* Set hard limit per AIX /etc/security/limits documentation. */
 	    switch (aix_limits[n].resource) {

@@ -24,7 +24,6 @@
 #include "OALCaptureDevice.h"
 
 #define LOG_CAPTURE         0
-#define LOG_VERBOSE         0
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -33,7 +32,10 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 OALCaptureDevice::OALCaptureDevice (const char* 	 inDeviceName, uintptr_t   inSelfToken, UInt32 inSampleRate, UInt32 inFormat, UInt32 inBufferSize)
-	: 	mSelfToken (inSelfToken),
+	:
+#if LOG_CAPTUREDEVICE_VERBOSE
+        mSelfToken (inSelfToken),
+#endif
 		mCurrentError(ALC_NO_ERROR),
 		mCaptureOn(false),
 		mStoreSampleTime(0),
@@ -95,7 +97,7 @@ OALCaptureDevice::OALCaptureDevice (const char* 	 inDeviceName, uintptr_t   inSe
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OALCaptureDevice::~OALCaptureDevice()
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessageN1("OALCaptureDevice::~OALCaptureDevice() - OALCaptureDevice = %ld", (long int) mSelfToken);
 #endif
 	if (mInputUnit)
@@ -109,7 +111,7 @@ OALCaptureDevice::~OALCaptureDevice()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALCaptureDevice::SetError(ALenum errorCode)
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessageN2("OALCaptureDevice::SetError() - OALCaptureDevice:errorCode = %ld:%d", (long int) mSelfToken, errorCode);
 #endif
 	if (mCurrentError == ALC_NO_ERROR)
@@ -121,7 +123,7 @@ void	OALCaptureDevice::SetError(ALenum errorCode)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ALenum	OALCaptureDevice::GetError()
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessageN1("OALCaptureDevice::~OALCaptureDevice() - OALCaptureDevice = %ld", (long int) mSelfToken);
 #endif
 	ALenum	latestError = mCurrentError;
@@ -133,7 +135,7 @@ ALenum	OALCaptureDevice::GetError()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALCaptureDevice::InitializeAU(const char* 	inDeviceName)
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessageN2("OALCaptureDevice::InitializeAU() - OALCaptureDevice = %ld:%s", (long int) mSelfToken, inDeviceName);
 #endif
 	// open input unit
@@ -222,7 +224,7 @@ OSStatus	OALCaptureDevice::InputProc(void *						inRefCon,
 										UInt32 						inNumberFrames,
 										AudioBufferList *			ioData)
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessage("OALCaptureDevice::InputProc() - OALCaptureDevice");
 #endif
 	OALCaptureDevice *This = static_cast<OALCaptureDevice *>(inRefCon);
@@ -278,7 +280,7 @@ OSStatus OALCaptureDevice::ACComplexInputDataProc	(	AudioConverterRef				inAudio
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALCaptureDevice::StartCapture()
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessageN1("OALCaptureDevice::StartCapture() - OALCaptureDevice = %ld", (long int) mSelfToken);
 #endif
 	OSStatus	result = AudioOutputUnitStart(mInputUnit);
@@ -293,7 +295,7 @@ void	OALCaptureDevice::StartCapture()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALCaptureDevice::StopCapture()
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessageN1("OALCaptureDevice::StopCapture() - OALCaptureDevice = %ld", (long int) mSelfToken);
 #endif
 	OSStatus	result = AudioOutputUnitStop(mInputUnit);
@@ -308,7 +310,7 @@ void	OALCaptureDevice::StopCapture()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OSStatus	OALCaptureDevice::GetFrames(UInt32 inFrameCount, UInt8*	inBuffer)
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessageN1("OALCaptureDevice::GetFrames() - OALCaptureDevice = %ld", (long int) mSelfToken);
 #endif
 	OSStatus	result = noErr;
@@ -383,7 +385,7 @@ OSStatus	OALCaptureDevice::GetFrames(UInt32 inFrameCount, UInt8*	inBuffer)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 UInt32	OALCaptureDevice::AvailableFrames()
 {
-#if LOG_VERBOSE
+#if LOG_CAPTUREDEVICE_VERBOSE
 	DebugMessageN1("OALCaptureDevice::AvailableFrames() - OALCaptureDevice = %ld", (long int) mSelfToken);
 #endif
 	SInt64	start, end;

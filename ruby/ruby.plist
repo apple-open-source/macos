@@ -1,33 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<array>
 <dict>
-    <key>OpenSourceProject</key>
-    <string>ruby</string>
-    <key>OpenSourceVersion</key>
-    <string>1.8.7-p357</string>
-    <key>OpenSourceWebsiteURL</key>
-    <string>http://www.ruby-lang.org/</string>
-    <key>OpenSourceURL</key>
-    <string>ftp://ftp.ruby-lang.org/pub/ruby/1.8/ruby-1.8.7-p357.tar.gz</string>
-    <key>OpenSourceSHA1</key>
-    <string>e2e2925e5547ab36ca4c5e40240f4f7a380fbed3</string>
-    <key>OpenSourceImportDate</key>
-    <string>2011-01-10</string>
-    <key>OpenSourceLicense</key>
-    <string>ruby</string>
-    <key>OpenSourceLicenseFile</key>
-    <string>ruby.txt</string>
-    <key>OpenSourceModifications</key>
-    <array>
-        <string>use dlsym</string>
-        <string>ruby configure test for endianness fails</string>
-        <string>disable -static in rbconfig</string>
-        <string>make [md5|sha1].bundle using CommonCrypto instead of OpenSSL</string>
-        <string>all libraries are compiled 4-way fat (i386, ppc, x86_64 and ppc64) but the tk extension, and the ruby command line binary is kept 2-way fat (i386 and ppc) for compatibility purposes</string>
-        <string>emit DTrace static probes when entering/leaving a Ruby method</string>
-        <string>reverse scheduler optimisations</string>
-        <string>revert marshal.c changes that reverted a previous thread-safety fix</string>
-    </array>
+	<key>OpenSourceImportDate</key>
+	<string>2013-06-27</string>
+	<key>OpenSourceLicense</key>
+	<string>ruby</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>ruby.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>disable -static in rbconfig</string>
+		<string>make [md5|sha1].bundle using CommonCrypto instead of OpenSSL</string>
+		<string>Use SDKROOT / xcrun to find set RbConfig::CONFIG["includedir"]</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>ruby</string>
+	<key>OpenSourceSHA256</key>
+	<string>08e3d4b85b8a1118a8e81261f59dd8b4ddcfd70b6ae554e0ec5ceb99c3185e8a</string>
+	<key>OpenSourceURL</key>
+	<string>ftp://ftp.ruby-lang.org/pub/ruby/2.0/ruby-2.0.0-p247.tar.bz2</string>
+	<key>OpenSourceVersion</key>
+	<string>2.0.0-p247</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.ruby-lang.org/</string>
 </dict>
-</array>
 </plist>

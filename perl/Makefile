@@ -2,15 +2,34 @@
 # Makefile for perl (supporting multiple versions)
 ##---------------------------------------------------------------------
 Project = perl
+
+MY_HOST := x86_64
+PWD := $(shell pwd)
+ifndef SRCROOT
+export SRCROOT = $(PWD)
+endif
+VERSIONER_C = $(SRCROOT)/versioner/versioner.c
 VERSIONERDIR = /usr/local/versioner
-DEFAULT = 5.12
-VERSIONS = 5.10 5.12
+VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(DSTROOT)$(VERSIONERDIR)/$(Project) -I$(SRCROOT)/versioner -framework CoreFoundation $(EXTRAVERSIONERFLAGS)
+
+# SrcDir is the directory of this Makefile, usually the same as SRCROOT,
+# but during installsrc, it is the source directory to be copied to SRCROOT.
+# We need to set up SrcDir, before MAKEFILE_LIST gets changed by including
+# Common.make.
+SrcDir := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
+
+ifndef RC_TARGET_CONFIG
+export RC_TARGET_CONFIG := MacOSX
+endif
+include $(SrcDir)/Platforms/$(RC_TARGET_CONFIG)/Makefile.inc
+
+VERSIONS = $(sort $(KNOWNVERSIONS) $(BOOTSTRAPPERL))
 OTHERVERSIONS = $(filter-out $(DEFAULT),$(VERSIONS))
 ORDEREDVERS := $(DEFAULT) $(OTHERVERSIONS)
-VERSIONERFLAGS = -std=gnu99 -Wall -DFORCE_TWO_NUMBER_VERSIONS -I$(DSTROOT)$(VERSIONERDIR)/$(Project) -I$(SRCROOT)/versioner -framework CoreFoundation
 
 RSYNC = rsync -rlpt
-PWD = $(shell pwd)
 ifndef DSTROOT
 ifdef DESTDIR
 export DSTROOT = $(shell mkdir -p '$(DESTDIR)' && echo '$(DESTDIR)')
@@ -22,51 +41,34 @@ ifndef OBJROOT
 export OBJROOT = $(shell mkdir -p '$(PWD)/OBJROOT' && echo '$(PWD)/OBJROOT')
 RSYNC += --exclude=OBJROOT
 endif
-ifndef SRCROOT
-export SRCROOT = $(PWD)
-endif
 ifndef SYMROOT
 export SYMROOT = $(shell mkdir -p '$(PWD)/SYMROOT' && echo '$(PWD)/SYMROOT')
 RSYNC += --exclude=SYMROOT
 endif
 ifndef RC_ARCHS
-export RC_ARCHS = $(shell arch)
-export RC_$(RC_ARCHS) = YES
-endif
-ifndef RC_CFLAGS
-export RC_CFLAGS = $(foreach A,$(RC_ARCHS),-arch $(A)) $(RC_NONARCH_CFLAGS)
+export RC_ARCHS := $(MY_ARCHS)
 endif
 ifndef RC_NONARCH_CFLAGS
 export RC_NONARCH_CFLAGS = -pipe
+endif
+MY_CFLAGS := $(foreach A,$(MY_ARCHS),-arch $(A)) $(RC_NONARCH_CFLAGS)
+ifndef RC_CFLAGS
+export RC_CFLAGS := $(MY_CFLAGS)
 endif
 ifndef RC_ProjectName
 export RC_ProjectName = $(Project)
 endif
 ##---------------------------------------------------------------------
-# 6320578 - when the default gcc compiler version changes, the recorded
-# compiler options for compiler perl was originally built with may be
-# incompatible.  So we force perl to use a version-specific name for the
-# compiler, which will be recorded, and used in all subsequent extension
-# (and other) builds.
-#
-# 7215115 - for now, we assume cc is a symbolic link to the version-specific
-# name of the compiler.  If/when this changes, this fix will have to be redone.
+# Before, we used the versioned gcc (e.g., gcc-4.2) because newer compiler
+# would occasionally be incompatible with the compiler flags that python
+# records.  With clang, it doesn't use names with versions, so we just go
+# back to using plain cc and c++.  With 11952207, we will automatically
+# get xcrun support.
 ##---------------------------------------------------------------------
-export WITH_GCC = $(shell test -L /usr/bin/cc && basename `readlink /usr/bin/cc` || gcc-`gcc -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/'`)
-
-# define environment variables for each the default and alternate versions
-# (ENV_VERSION_DEFAULT and ENV_VERSION_ALT).  Only 2 versions are currently supported.
-define VERSION_template
- export ENV_VERSION$(if $(filter $(DEFAULT),$(1)),_DEFAULT,_ALT) = $(1)
-endef
-$(foreach vers,$(VERSIONS),$(eval $(call VERSION_template,$(vers))))
-
-ARCHFLAGS := $(shell perl -e 'printf "-arch %s\n", join(" -arch ", split(" ", $$ENV{RC_ARCHS}));')
+export MY_CC = cc
 
 FIX = $(SRCROOT)/fix
 TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | sed 's/ / -a -f /g')
-
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 VERSIONVERSIONS = $(VERSIONERDIR)/$(Project)/versions
 VERSIONHEADER = $(VERSIONERDIR)/$(Project)/versions.h
@@ -89,18 +91,15 @@ build::
 		DSTROOT="$(OBJROOT)/$$vers/DSTROOT" \
 		SYMROOT="$(SYMROOT)/$$vers" \
 		ARCHFLAGS='$(ARCHFLAGS)' \
-		RC_ARCHS='$(RC_ARCHS)' \
+		RC_ARCHS='$(MY_ARCHS)' \
+		RC_CFLAGS='$(MY_CFLAGS)' \
 		PERLVERSION=$$vers >> "$(SYMROOT)/$$vers/LOG" 2>&1 && \
 		touch "$(OBJROOT)/$$vers/.ok" && \
 		echo "######## Finished $$vers:" `date` '########' >> "$(SYMROOT)/$$vers/LOG" 2>&1 \
 	    ) & \
 	done && \
 	wait && \
-	install -d $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix && \
-	(cd $(FIX) && rsync -pt $(VERSIONERFIX) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix) && \
-	echo DEFAULT = $(DEFAULT) > $(DSTROOT)$(VERSIONVERSIONS) && \
 	for vers in $(VERSIONS); do \
-	    echo $$vers >> $(DSTROOT)$(VERSIONVERSIONS) && \
 	    cat $(SYMROOT)/$$vers/LOG && \
 	    rm -f $(SYMROOT)/$$vers/LOG || exit 1; \
 	done && \
@@ -116,22 +115,22 @@ installsrc: custominstallsrc
 custominstallsrc:
 	@set -x && \
 	for vers in $(VERSIONS); do \
-	    make -C "$(SRCROOT)/$$vers" custominstallsrc SRCROOT="$(SRCROOT)/$$vers" || exit 1; \
+	    $(MAKE) -C "$(SRCROOT)/$$vers" custominstallsrc SRCROOT="$(SRCROOT)/$$vers" TOPSRCROOT='$(SRCROOT)' || exit 1; \
 	done
 
-merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman
+merge: mergebegin mergedefault mergeversions versionerdir mergebin $(EXTRAMERGE)
 
 mergebegin:
-	@echo ####### Merging #######
+	@echo '####### Merging #######'
 
+# 13896386: temporarily use "ditto" instead of "ln -f"
 MERGEBIN = /usr/bin
 TEMPWRAPPER = $(MERGEBIN)/.versioner
-mergebin: $(DSTROOT)$(VERSIONHEADER) $(OBJROOT)/wrappers
-	install $(SRCROOT)/versioner/versioner.c $(DSTROOT)$(VERSIONERDIR)
-	cc $(RC_CFLAGS) $(VERSIONERFLAGS) $(SRCROOT)/versioner/versioner.c -o $(DSTROOT)$(TEMPWRAPPER)
+mergebin: $(OBJROOT)/wrappers
+	$(MY_CC) $(MY_CFLAGS) $(VERSIONERFLAGS) $(VERSIONER_C) -o $(DSTROOT)$(TEMPWRAPPER)
 	@set -x && \
 	for w in `sort -u $(OBJROOT)/wrappers`; do \
-	    ln -f $(DSTROOT)$(TEMPWRAPPER) $(DSTROOT)$(MERGEBIN)/$$w || exit 1; \
+	    ditto $(DSTROOT)$(TEMPWRAPPER) $(DSTROOT)$(MERGEBIN)/$$w || exit 1; \
 	done
 	rm -f $(DSTROOT)$(TEMPWRAPPER)
 	cd $(DSTROOT)$(MERGEBIN) && ls | sort > $(DSTROOT)$(VERSIONBINLIST)
@@ -166,26 +165,38 @@ $(OBJROOT)/wrappers:
 	done
 	rm -f $(DSTROOT)$(MERGEBIN)/$(DUMMY)
 
-$(DSTROOT)$(VERSIONHEADER):
+versionerdir:
+	install -d $(DSTROOT)$(VERSIONERDIR)
+	install -m 0644 $(VERSIONER_C) $(DSTROOT)$(VERSIONERDIR)
+	install -d $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix
+	cd $(FIX) && rsync -pt $(VERSIONERFIX) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix
+	echo DEFAULT = $(DEFAULT) > $(DSTROOT)$(VERSIONVERSIONS)
+	for vers in $(KNOWNVERSIONS); do \
+	    echo $$vers >> $(DSTROOT)$(VERSIONVERSIONS) || exit 1; \
+	done
 	@set -x && ( \
 	    printf '#define DEFAULTVERSION "%s"\n' $(DEFAULT) && \
 	    echo '#define NVERSIONS (sizeof(versions) / sizeof(const char *))' && \
 	    echo '#define PROJECT "$(Project)"' && \
 	    printf '#define UPROJECT "%s"\n' `echo $(Project) | tr a-z A-Z` && \
 	    echo 'static const char *versions[] = {' && \
-	    touch $(OBJROOT)/versions && \
-	    for v in $(VERSIONS); do \
-		echo $$v >> $(OBJROOT)/versions || exit 1; \
-	    done && \
-	    for v in `sort -u $(OBJROOT)/versions`; do \
+	    for v in $(sort $(VERSIONS) $(ADDEDVERSIONS)); do \
 		printf '    "%s",\n' $$v || exit 1; \
 	    done && \
-	    echo '};' ) > $@
+	    echo '};' ) > $(DSTROOT)$(VERSIONHEADER)
 
-MERGEDEFAULT = \
-    usr/local/OpenSourceLicenses
+rmusrlocal:
+	rm -rf $(DSTROOT)/usr/local
+
+rmLibrary:
+	rm -rf $(DSTROOT)/Library
+
 mergedefault:
+ifneq ($(strip $(MERGEDEFAULT)),)
 	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
+else
+	@true
+endif
 
 MERGEMAN = /usr/share/man
 mergeman: domergeman customman listman
@@ -226,16 +237,20 @@ listman:
 OPENSOURCEVERSIONS = /usr/local/OpenSourceVersions
 PLIST = $(OPENSOURCEVERSIONS)/perl.plist
 mergeplist:
-	mkdir -p $(DSTROOT)/$(OPENSOURCEVERSIONS)
-	echo '<plist version="1.0">' > $(DSTROOT)/$(PLIST)
-	echo '<array>' >> $(DSTROOT)/$(PLIST)
+	mkdir -p $(DSTROOT)$(OPENSOURCEVERSIONS)
+	echo '<plist version="1.0">' > $(DSTROOT)$(PLIST)
+	echo '<array>' >> $(DSTROOT)$(PLIST)
 	@set -x && \
 	for vers in $(VERSIONS); do \
-	    sed -e '/^<\/*plist/d' -e 's/^/	/' $(OBJROOT)/$$vers/DSTROOT/$(PLIST) >> $(DSTROOT)/$(PLIST) || exit 1; \
+	    if grep -q '^<array>' $(OBJROOT)/$$vers/DSTROOT$(PLIST); then \
+		sed -e '/^<\/*plist/d' -e '/^<\/*array>/d' $(OBJROOT)/$$vers/DSTROOT$(PLIST) >> $(DSTROOT)$(PLIST); \
+	    else \
+		sed -e '/^<\/*plist/d' -e 's/^/	/' $(OBJROOT)/$$vers/DSTROOT$(PLIST) >> $(DSTROOT)$(PLIST); \
+	    fi || exit 1; \
 	done
-	echo '</array>' >> $(DSTROOT)/$(PLIST)
-	echo '</plist>' >> $(DSTROOT)/$(PLIST)
-	chmod 644 $(DSTROOT)/$(PLIST)
+	echo '</array>' >> $(DSTROOT)$(PLIST)
+	echo '</plist>' >> $(DSTROOT)$(PLIST)
+	chmod 644 $(DSTROOT)$(PLIST)
 
 MERGEVERSIONS = \
     Library \

@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2000-2004,2012-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -35,21 +35,24 @@
 #include "Globals.h"
 #include <security_cdsa_utilities/Schema.h>
 #include "KCEventNotifier.h"
+#include "KCExceptions.h"
 #include "cssmdatetime.h"
 #include <security_cdsa_client/keychainacl.h>
 #include <security_utilities/osxcode.h>
 #include <security_utilities/trackingallocator.h>
 #include <Security/SecKeychainItemPriv.h>
 #include <Security/cssmapple.h>
+#include <CommonCrypto/CommonDigest.h>
 
 #define SENDACCESSNOTIFICATIONS 1
 
 //%%% schema indexes should be defined in Schema.h
+#define _kSecAppleSharePasswordItemClass		'ashp'
 #define APPLEDB_CSSM_PRINTNAME_ATTRIBUTE        1   /* schema index for label attribute of keys or certificates */
 #define APPLEDB_GENERIC_PRINTNAME_ATTRIBUTE     7   /* schema index for label attribute of password items */
 #define IS_PASSWORD_ITEM_CLASS(X)             ( (X) == kSecInternetPasswordItemClass || \
                                                 (X) == kSecGenericPasswordItemClass || \
-                                                (X) == kSecAppleSharePasswordItemClass ) ? 1 : 0
+                                                (X) == _kSecAppleSharePasswordItemClass ) ? 1 : 0
 
 using namespace KeychainCore;
 using namespace CSSMDateTimeUtils;
@@ -62,6 +65,7 @@ using namespace CSSMDateTimeUtils;
 ItemImpl::ItemImpl(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data, bool dontDoAttributes)
 	: mDbAttributes(new DbAttributes()),
 	mKeychain(NULL),
+	secd_PersistentRef(NULL),
 	mDoNotEncrypt(false),
 	mInCache(false),
 	mMutex(Mutex::recursive)
@@ -78,6 +82,7 @@ ItemImpl::ItemImpl(SecItemClass itemClass, OSType itemCreator, UInt32 length, co
 ItemImpl::ItemImpl(SecItemClass itemClass, SecKeychainAttributeList *attrList, UInt32 length, const void* data)
 	: mDbAttributes(new DbAttributes()),
 	mKeychain(NULL),
+	secd_PersistentRef(NULL),
 	mDoNotEncrypt(false),
 	mInCache(false),
 	mMutex(Mutex::recursive)
@@ -88,7 +93,7 @@ ItemImpl::ItemImpl(SecItemClass itemClass, SecKeychainAttributeList *attrList, U
 
 	mDbAttributes->recordType(Schema::recordTypeFor(itemClass));
 
-	if(attrList) 
+	if(attrList)
 	{
 		for(UInt32 i=0; i < attrList->count; i++)
 		{
@@ -100,14 +105,14 @@ ItemImpl::ItemImpl(SecItemClass itemClass, SecKeychainAttributeList *attrList, U
 // DbItemImpl constructor
 ItemImpl::ItemImpl(const Keychain &keychain, const PrimaryKey &primaryKey, const DbUniqueRecord &uniqueId)
 	: mUniqueId(uniqueId), mKeychain(keychain), mPrimaryKey(primaryKey),
-	mDoNotEncrypt(false), mInCache(false),
+	secd_PersistentRef(NULL), mDoNotEncrypt(false), mInCache(false),
 	mMutex(Mutex::recursive)
 {
 }
 
 // PrimaryKey ItemImpl constructor
 ItemImpl::ItemImpl(const Keychain &keychain, const PrimaryKey &primaryKey)
-	: mKeychain(keychain), mPrimaryKey(primaryKey), mDoNotEncrypt(false),
+: mKeychain(keychain), mPrimaryKey(primaryKey),	secd_PersistentRef(NULL), mDoNotEncrypt(false),
 	mInCache(false),
 	mMutex(Mutex::recursive)
 {
@@ -130,13 +135,14 @@ ItemImpl* ItemImpl::make(const Keychain &keychain, const PrimaryKey &primaryKey)
 }
 
 
-	
+
 // Constructor used when copying an item to a keychain.
 
 ItemImpl::ItemImpl(ItemImpl &item) :
 	mData(item.modifiedData() ? NULL : new CssmDataContainer()),
 	mDbAttributes(new DbAttributes()),
 	mKeychain(NULL),
+	secd_PersistentRef(NULL),
 	mDoNotEncrypt(false),
 	mInCache(false),
 	mMutex(Mutex::recursive)
@@ -147,13 +153,13 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 	if (item.mKeychain) {
 		// get the entire source item from its keychain. This requires figuring
 		// out the schema for the item based on its record type.
-		
+
 		for (uint32 i = 0; i < Schema::DBInfo.NumberOfRecordTypes; i++)
 			if (item.recordType() == Schema::DBInfo.RecordAttributeNames[i].DataRecordType) {
 				schemaAttributes = &Schema::DBInfo.RecordAttributeNames[i];
 				break;
 			}
-				
+
 		if (schemaAttributes == NULL)
 			// the source item is invalid
 			MacOSError::throwMe(errSecInvalidItemRef);
@@ -165,7 +171,7 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 	}
 
     // @@@ We don't deal with modified attributes.
-	
+
 	if (item.modifiedData())
 		// the copied data comes from the source item
 		mData = new CssmDataContainer(item.modifiedData()->Data,
@@ -174,6 +180,9 @@ ItemImpl::ItemImpl(ItemImpl &item) :
 
 ItemImpl::~ItemImpl()
 {
+	if (secd_PersistentRef) {
+		CFRelease(secd_PersistentRef);
+	}
 }
 
 
@@ -185,7 +194,7 @@ ItemImpl::getMutexForObject()
 	{
 		return mKeychain->getKeychainMutex();
 	}
-	
+
 	return NULL;
 }
 
@@ -227,13 +236,13 @@ ItemImpl::defaultAttributeValue(const CSSM_DB_ATTRIBUTE_INFO &info)
 		case CSSM_DB_ATTRIBUTE_FORMAT_SINT32:
 		case CSSM_DB_ATTRIBUTE_FORMAT_UINT32:
 			return defaultFourBytes;
-			
+
 		case CSSM_DB_ATTRIBUTE_FORMAT_REAL:
 			return defaultEightBytes;
-			
+
 		case CSSM_DB_ATTRIBUTE_FORMAT_TIME_DATE:
 			return defaultTime;
-			
+
 		default:
 			return defaultZeroBytes;
 	}
@@ -272,7 +281,7 @@ PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 			setAttribute(schema->attributeInfoFor(recordType, kSecModDateItemAttr), date);
 		}
 	}
-	
+
     // If the label (PrintName) attribute isn't specified, set a default label.
     if (!mDoNotEncrypt && !mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr)))
     {
@@ -329,7 +338,7 @@ PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 			}
 		}
 	}
-	
+
 	Db db(keychain->database());
 	if (mDoNotEncrypt)
 	{
@@ -343,11 +352,11 @@ PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 		{
 			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
 		}
-		
+
 		SSDb ssDb(impl);
 
 		TrackingAllocator allocator(Allocator::standard());
-                
+
 		// hhs replaced with the new aclFactory class
 		AclFactory aclFactory;
 		const AccessCredentials *nullCred = aclFactory.nullCred();
@@ -358,7 +367,7 @@ PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 			CssmDbAttributeData *data = mDbAttributes->find(Schema::attributeInfo(kSecLabelItemAttr));
 			string printName = data ? CssmData::overlay(data->Value[0]).toString() : "keychain item";
 			access = new Access(printName);
-			
+
 			// special case for "iTools" password - allow anyone to decrypt the item
 			if (recordType == CSSM_DL_DB_RECORD_GENERIC_PASSWORD)
 			{
@@ -392,7 +401,7 @@ PrimaryKey ItemImpl::addWithCopyInfo (Keychain &keychain, bool isCopy)
 			ResourceControlContext prototype;
 			maker.initialOwner(prototype, nullCred);
 			SSGroup ssGroup(ssDb, &prototype);
-			
+
 			try
 			{
 				// Insert the record using the newly created group.
@@ -484,8 +493,8 @@ ItemImpl::update()
 {
 	StLock<Mutex>_(mMutex);
 	if (!mKeychain)
-		MacOSError::throwMe(errSecNoSuchKeychain); 
-		
+		MacOSError::throwMe(errSecNoSuchKeychain);
+
 	// Don't update if nothing changed.
 	if (!isModified())
 		return;
@@ -509,7 +518,7 @@ ItemImpl::update()
 		CSSM_DB_RECORD_ATTRIBUTE_DATA attrData;
 		memset (&attrData, 0, sizeof (attrData));
 		attrData.DataRecordType = aRecordType;
-		
+
 		mUniqueId->modifyWithoutEncryption(aRecordType,
 										   &attrData,
 										   mData.get(),
@@ -523,7 +532,7 @@ ItemImpl::update()
 		{
 			CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
 		}
-		
+
 		SSDbUniqueRecord ssUniqueId(impl);
 
 		// @@@ Share this instance
@@ -684,7 +693,7 @@ ItemImpl::setAttribute(const CssmDbAttributeInfo &info, const CssmPolyData &data
 		mDbAttributes->recordType(mPrimaryKey->recordType());
 	}
 
-	uint32 length = data.Length;
+	size_t length = data.Length;
 	const void *buf = reinterpret_cast<const void *>(data.Data);
     uint8 timeString[16];
 
@@ -736,12 +745,12 @@ ItemImpl::modifyContent(const SecKeychainAttributeList *attrList, UInt32 dataLen
 			mDbAttributes->add(Schema::attributeInfo(attrTag), CssmData(attrList->attr[ix].data,  attrList->attr[ix].length));
 		}
 	}
-	
+
 	if(inData)
 	{
 		mData = new CssmDataContainer(inData, dataLength);
 	}
-	
+
 	update();
 }
 
@@ -761,7 +770,7 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
 
     if (itemClass)
 		*itemClass = Schema::itemClassFor(recordType());
-    
+
     bool getDataFromDatabase = mKeychain && mPrimaryKey;
     if (getDataFromDatabase) // are we attached to a database?
     {
@@ -769,14 +778,14 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
 
 		// get the number of attributes requested by the caller
 		UInt32 attrCount = attrList ? attrList->count : 0;
-    
+
         // make a DBAttributes structure and populate it
         DbAttributes dbAttributes(mUniqueId->database(), attrCount);
         for (UInt32 ix = 0; ix < attrCount; ++ix)
         {
             dbAttributes.add(Schema::attributeInfo(attrList->attr[ix].tag));
         }
-        
+
         // request the data from the database (since we are a reference "item" and the data is really stored there)
         CssmDataContainer itemData;
 		getContent(&dbAttributes, outData ? &itemData : NULL);
@@ -786,16 +795,16 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
         {
             if (dbAttributes.at(ix).NumberOfValues > 0)
             {
-                attrList->attr[ix].data = dbAttributes.at(ix).Value[0].Data;	
-                attrList->attr[ix].length = dbAttributes.at(ix).Value[0].Length;
-    
+                attrList->attr[ix].data = dbAttributes.at(ix).Value[0].Data;
+                attrList->attr[ix].length = (UInt32)dbAttributes.at(ix).Value[0].Length;
+
                 // We don't want the data released, it is up the client
                 dbAttributes.at(ix).Value[0].Data = NULL;
                 dbAttributes.at(ix).Value[0].Length = 0;
             }
             else
             {
-                attrList->attr[ix].data = NULL;	
+                attrList->attr[ix].data = NULL;
                 attrList->attr[ix].length = 0;
             }
         }
@@ -805,9 +814,9 @@ ItemImpl::getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList
 		{
 			*outData=itemData.data();
 			itemData.Data = NULL;
-			
+
 			if (length)
-				*length=itemData.length();
+				*length=(UInt32)itemData.length();
 			itemData.Length = 0;
 		}
     }
@@ -873,7 +882,7 @@ ItemImpl::modifyAttributesAndData(const SecKeychainAttributeList *attrList, UInt
             }
 
             CssmDbAttributeInfo info=mKeychain->attributeInfoFor(recordType, attrTag);
-							
+
 			if (attrList->attr[ix].length || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_STRING  || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_BLOB
 			 || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_STRING  || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_BIG_NUM
 			 || info.AttributeFormat==CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32)
@@ -882,12 +891,12 @@ ItemImpl::modifyAttributesAndData(const SecKeychainAttributeList *attrList, UInt
 				mDbAttributes->add(info);
 		}
 	}
-	
+
 	if(inData)
 	{
 		mData = new CssmDataContainer(inData, dataLength);
 	}
-	
+
 	update();
 }
 
@@ -919,7 +928,7 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 		CssmDbAttributeData &record = dbAttributes.add();
 		record.Info.AttributeNameFormat=CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER;
 		record.Info.Label.AttributeID=info->tag[ix];
-    
+
         if (record.Info.Label.AttributeID == kSecLabelItemAttr)
         {
             // must remap a caller-supplied label attribute tag for password items, since it isn't in the schema
@@ -937,23 +946,23 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 		SecKeychainAttribute *attr=reinterpret_cast<SecKeychainAttribute *>(malloc(sizeof(SecKeychainAttribute)*attrCount));
 		theList->count=attrCount;
 		theList->attr=attr;
-	
+
 		for (UInt32 ix = 0; ix < attrCount; ++ix)
 		{
 			attr[ix].tag=info->tag[ix];
-        
+
 			if (dbAttributes.at(ix).NumberOfValues > 0)
 			{
-				attr[ix].data = dbAttributes.at(ix).Value[0].Data;	
-				attr[ix].length = dbAttributes.at(ix).Value[0].Length;
-	
+				attr[ix].data = dbAttributes.at(ix).Value[0].Data;
+				attr[ix].length = (UInt32)dbAttributes.at(ix).Value[0].Length;
+
 				// We don't want the data released, it is up the client
 				dbAttributes.at(ix).Value[0].Data = NULL;
 				dbAttributes.at(ix).Value[0].Length = 0;
 			}
 			else
 			{
-				attr[ix].data = NULL;	
+				attr[ix].data = NULL;
 				attr[ix].length = 0;
 			}
 		}
@@ -964,10 +973,10 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 	{
 		*outData=itemData.data();
 		itemData.Data=NULL;
-		
-		if (length) *length=itemData.length();
+
+		if (length) *length=(UInt32)itemData.length();
 		itemData.Length=0;
-				
+
 #if SENDACCESSNOTIFICATIONS
 		secdebug("kcnotify", "ItemImpl::getAttributesAndData(%p, %p, %p, %p, %p) retrieved data",
 			info, itemClass, attrList, length, outData);
@@ -975,7 +984,7 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
 		KCEventNotifier::PostKeychainEvent(kSecDataAccessEvent, mKeychain, this);
 #endif
 	}
-	
+
 }
 
 void
@@ -1016,7 +1025,7 @@ ItemImpl::getAttribute(SecKeychainAttribute& attr, UInt32 *actualLength)
 
 	if (!mKeychain)
 		MacOSError::throwMe(errSecNoSuchAttr);
-		
+
 	dbUniqueRecord();
 	DbAttributes dbAttributes(mUniqueId->database(), 1);
 	dbAttributes.add(Schema::attributeInfo(attr.tag));
@@ -1029,7 +1038,7 @@ ItemImpl::getAttributeFrom(CssmDbAttributeData *data, SecKeychainAttribute &attr
 {
 	StLock<Mutex>_(mMutex);
     static const uint32 zero = 0;
-    uint32 length;
+    UInt32 length;
     const void *buf = NULL;
 
     // Temporary storage for buf.
@@ -1057,7 +1066,7 @@ ItemImpl::getAttributeFrom(CssmDbAttributeData *data, SecKeychainAttribute &attr
 	}
     else // Get the first value
     {
-        length = data->Value[0].Length;
+        length = (UInt32)data->Value[0].Length;
         buf = data->Value[0].Data;
 
         if (data->format() == CSSM_DB_ATTRIBUTE_FORMAT_SINT32)
@@ -1173,7 +1182,7 @@ void ItemImpl::getLocalContent(SecKeychainAttributeList *attributeList, UInt32 *
 			MacOSError::throwMe(errSecDataNotAvailable);
 
 		// Copy the data out of our internal cached copy.
-		uint32 length = data->Length;
+		UInt32 length = (UInt32)data->Length;
 		*outData = allocator.malloc(length);
 		memcpy(*outData, data->Data, length);
 		if (outLength)
@@ -1193,7 +1202,7 @@ void ItemImpl::getLocalContent(SecKeychainAttributeList *attributeList, UInt32 *
 			if (data && data->NumberOfValues > 0)
 			{
 				// Copy the data out of our internal cached copy.
-				uint32 length = data->Value[0].Length;
+				UInt32 length = (UInt32)data->Value[0].Length;
 				attribute.data = allocator.malloc(length);
 				memcpy(attribute.data, data->Value[0].Data, length);
 				attribute.length = length;
@@ -1228,7 +1237,7 @@ ItemImpl::getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData)
 			{
 				CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
 			}
-			
+
 			SSDbUniqueRecord ssUniqueId(impl);
 			const AccessCredentials *autoPrompt = globals().itemCredentials();
 			ssUniqueId->get(dbAttributes, itemData, autoPrompt);
@@ -1236,7 +1245,7 @@ ItemImpl::getContent(DbAttributes *dbAttributes, CssmDataContainer *itemData)
 		}
 	}
 
-    mUniqueId->get(dbAttributes, itemData); 
+    mUniqueId->get(dbAttributes, itemData);
 }
 
 bool
@@ -1261,9 +1270,45 @@ void ItemImpl::willRead()
 {
 }
 
-
-void ItemImpl::copyPersistentReference(CFDataRef &outDataRef)
+Item ItemImpl::makeFromPersistentReference(const CFDataRef persistentRef, bool *isIdentityRef)
 {
+	CssmData dictData((void*)::CFDataGetBytePtr(persistentRef), ::CFDataGetLength(persistentRef));
+	NameValueDictionary dict(dictData);
+
+	Keychain keychain;
+	Item item = (ItemImpl *) NULL;
+
+	if (isIdentityRef) {
+		*isIdentityRef = (dict.FindByName(IDENTITY_KEY) != 0) ? true : false;
+	}
+
+	// make sure we have a database identifier
+	if (dict.FindByName(SSUID_KEY) != 0)
+	{
+		DLDbIdentifier dlDbIdentifier = NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary(dict);
+		DLDbIdentifier newDlDbIdentifier(dlDbIdentifier.ssuid(),
+				DLDbListCFPref::ExpandTildesInPath(dlDbIdentifier.dbName()).c_str(),
+				dlDbIdentifier.dbLocation());
+
+		keychain = globals().storageManager.keychain(newDlDbIdentifier);
+
+		const NameValuePair* aDictItem = dict.FindByName(ITEM_KEY);
+		if (aDictItem && keychain)
+		{
+			PrimaryKey primaryKey(aDictItem->Value());
+			item = keychain->item(primaryKey);
+		}
+	}
+	KCThrowIf_( !item, errSecItemNotFound );
+	return item;
+}
+
+void ItemImpl::copyPersistentReference(CFDataRef &outDataRef, bool isSecIdentityRef)
+{
+	if (secd_PersistentRef) {
+		outDataRef = secd_PersistentRef;
+		return;
+	}
 	StLock<Mutex>_(mMutex);
     // item must be in a keychain and have a primary key to be persistent
     if (!mKeychain || !mPrimaryKey) {
@@ -1278,6 +1323,12 @@ void ItemImpl::copyPersistentReference(CFDataRef &outDataRef)
 
     CssmData* pKey = mPrimaryKey;
     dict.Insert (new NameValuePair(ITEM_KEY, *pKey));
+
+	if (isSecIdentityRef) {
+		uint32_t value = -1;
+		CssmData valueData((void*)&value, sizeof(value));
+		dict.Insert (new NameValuePair(IDENTITY_KEY, valueData));
+	}
 
     // flatten the NameValueDictionary
     CssmData dictData;
@@ -1297,7 +1348,7 @@ void ItemImpl::copyRecordIdentifier(CSSM_DATA &data)
  * Obtain blob used to bind a keychain item to an Extended Attribute record.
  * We just use the PrimaryKey blob as the default. Note that for standard Items,
  * this can cause the loss of extended attribute bindings if a Primary Key
- * attribute changes. 
+ * attribute changes.
  */
 const CssmData &ItemImpl::itemID()
 {
@@ -1307,6 +1358,76 @@ const CssmData &ItemImpl::itemID()
 		MacOSError::throwMe(errSecNoSuchAttr);
 	}
 	return *mPrimaryKey;
+}
+
+bool ItemImpl::equal(SecCFObject &other)
+{
+	// First check to see if both items have a primary key and
+	// if the primary key is the same.  If so then these
+	// items must be equal
+    ItemImpl& other_item = (ItemImpl&)other;
+	if (mPrimaryKey != NULL && mPrimaryKey == other_item.mPrimaryKey)
+	{
+		return true;
+	}
+
+	// The primary keys do not match so do a CFHash of the
+	// data of the item and compare those for equality
+	CFHashCode this_hash = hash();
+	CFHashCode other_hash = other.hash();
+	return (this_hash == other_hash);
+}
+
+CFHashCode ItemImpl::hash()
+{
+	CFHashCode result = SecCFObject::hash();
+
+	StLock<Mutex>_(mMutex);
+	RefPointer<CssmDataContainer> data_to_hash;
+
+	// Use the item data for the hash
+	if (mData && *mData)
+	{
+		data_to_hash = mData;
+	}
+
+	// If there is no primary key AND not data ????
+	// just return the 'old' hash value which is the
+	// object pointer.
+	if (NULL != data_to_hash.get())
+	{
+		CFDataRef temp_data = NULL;
+		unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+
+		if (data_to_hash->length() < 80)
+		{
+			// If it is less than 80 bytes then CFData can be used
+			temp_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+				(const UInt8 *)data_to_hash->data(), data_to_hash->length(), kCFAllocatorNull);
+
+		}
+		// CFData truncates its hash value to 80 bytes. ????
+		// In order to do the 'right thing' a SHA 256 hash will be used to
+		// include all of the data
+		else
+		{
+			memset(digest, 0, CC_SHA256_DIGEST_LENGTH);
+
+			CC_SHA256((const void *)data_to_hash->data(), (CC_LONG)data_to_hash->length(), digest);
+
+			temp_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+				(const UInt8 *)digest, CC_SHA256_DIGEST_LENGTH, kCFAllocatorNull);
+		}
+
+		if (NULL != temp_data)
+		{
+			result = CFHash(temp_data);
+			CFRelease(temp_data);
+		}
+
+	}
+
+	return result;
 }
 
 
@@ -1339,7 +1460,7 @@ Item::Item(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void
 			|| itemClass == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
 			MacOSError::throwMe(errSecNoSuchClass); /* @@@ errSecInvalidClass */
 	}
-	
+
 	*this = new ItemImpl(itemClass, itemCreator, length, data, inhibitCheck);
 }
 
@@ -1371,7 +1492,7 @@ Item::Item(const Keychain &keychain, const PrimaryKey &primaryKey)
 		   || primaryKey->recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
 		? KeyItem::make(keychain, primaryKey)
 		: primaryKey->recordType() == CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE
-		   ? ExtendedAttribute::make(keychain, primaryKey) 
+		   ? ExtendedAttribute::make(keychain, primaryKey)
 		   : ItemImpl::make(keychain, primaryKey))
 {
 }
@@ -1386,12 +1507,42 @@ Item::Item(ItemImpl &item)
 		? new KeyItem(safer_cast<KeyItem &>(item))
 		: item.recordType() == CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE
 		  ? new ExtendedAttribute(safer_cast<ExtendedAttribute &>(item))
-		  : new ItemImpl(item)) 
+		  : new ItemImpl(item))
 {
 }
 
-CFIndex GetItemRetainCount(Item& item)
+CFIndex KeychainCore::GetItemRetainCount(Item& item)
 {
 	return CFGetRetainCount(item->handle(false));
 }
 
+void ItemImpl::setPersistentRef(CFDataRef ref)
+{
+	if (secd_PersistentRef) {
+		CFRelease(secd_PersistentRef);
+	}
+	secd_PersistentRef = ref;
+	CFRetain(ref);
+}
+
+CFDataRef ItemImpl::getPersistentRef()
+{
+	return secd_PersistentRef;
+}
+
+
+
+bool ItemImpl::mayDelete()
+{
+    ObjectImpl* uniqueIDImpl = mUniqueId.get();
+    
+    if (uniqueIDImpl != NULL)
+    {
+        bool result = mUniqueId->isIdle();
+        return result;
+    }
+    else
+    {
+        return true;
+    }
+}

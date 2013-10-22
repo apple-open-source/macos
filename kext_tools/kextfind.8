@@ -1,4 +1,4 @@
-.Dd March 26, 2010
+.Dd November 14, 2012
 .Os Darwin
 .Dt KEXTFIND 8
 .Sh NAME
@@ -21,7 +21,7 @@ matching the search criteria in
 from among those in the named directory and extension arguments.
 If no directories or extensions are specified,
 .Nm
-searches the system extensions folder.
+searches /System/Library/Extensions and /Library/Extensions.
 Searches are performed via kext management logic
 as used by
 .Xr kextload 8
@@ -110,7 +110,7 @@ While you can normally just list them
 without an option flag,
 these are provided to prevent ambiguity with the query expression.
 .It Fl e , Fl system-extensions
-Adds the system extensions folder to the list of directory to search.
+Adds /System/Library/Extensions and /Library/Extensions to the list of directories to search.
 If you don't specify any directories or kexts, this is used by default.
 .It Fl -
 End of options.

@@ -1,8 +1,5 @@
-#ifndef _S_MYLOG_H
-#define _S_MYLOG_H
-
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +26,9 @@
  * - logging related functions
  */
 
+#ifndef _S_MYLOG_H
+#define _S_MYLOG_H
+
 /* 
  * Modification History
  *
@@ -36,20 +36,8 @@
  * - split out from ipconfigd.c
  */
 
-#include <stdio.h>
-#include <unistd.h>
-#include <syslog.h>
-
-/* 
- * Function: timestamp_fprintf
- *
- * Purpose:
- *   Print a timestamped message.
- */
-void
-timestamp_fprintf(FILE * f, const char * message, ...);
-
-void
-my_log(int priority, const char * message, ...);
+#include "IPConfigurationLog.h"
+#define my_log		IPConfigLog
+#define my_log_fl	IPConfigLogFL
 
 #endif /* _S_MYLOG_H */

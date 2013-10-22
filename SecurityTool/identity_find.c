@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * identity_find.c
@@ -60,7 +60,7 @@ find_identity(CFTypeRef keychainOrArray,
 	if (status) {
 		return identityRef;
 	}
-	
+
 	// check input hash string and convert to data
 	CSSM_DATA hashData = { 0, NULL };
 	if (hash) {
@@ -69,14 +69,14 @@ find_identity(CFTypeRef keychainOrArray,
 		hashData.Data = (uint8 *)malloc(hashData.Length);
 		fromHex(hash, &hashData);
 	}
-	
+
 	// filter candidates against the hash (or the name, if no hash provided)
 	CFStringRef matchRef = (identity) ? CFStringCreateWithCString(NULL, identity, kCFStringEncodingUTF8) : NULL;
 	Boolean exactMatch = FALSE;
-	
+
 	CSSM_DATA certData = { 0, NULL };
 	SecIdentityRef candidate = NULL;
-	
+
 	while (SecIdentitySearchCopyNext(searchRef, &candidate) == noErr) {
 		SecCertificateRef cert = NULL;
 		if (SecIdentityCopyCertificate(candidate, &cert) != noErr) {
@@ -114,7 +114,7 @@ find_identity(CFTypeRef keychainOrArray,
 			char *nameBuf = (char *)malloc(bufLen);
 			if (!CFStringGetCString(nameRef, nameBuf, bufLen-1, kCFStringEncodingUTF8))
 				nameBuf[0]=0;
-			
+
 			if (!strcmp(identity, "*")) {	// special case: means "just take the first one"
 				sec_error("Using identity \"%s\"", nameBuf);
 				identityRef = candidate; // currently retained
@@ -168,13 +168,13 @@ find_identity(CFTypeRef keychainOrArray,
 		}
 		safe_CFRelease(&cert);
 	}
-	
+
 	safe_CFRelease(&searchRef);
 	safe_CFRelease(&matchRef);
 	if (hashData.Data) {
 		free(hashData.Data);
 	}
-	
+
 	return identityRef;
 }
 
@@ -183,7 +183,7 @@ void printIdentity(SecIdentityRef identity, SecPolicyRef policy, int ordinalValu
 	OSStatus status;
 	Boolean printHash = TRUE, printName = TRUE;
 	SecCertificateRef cert = NULL;
-	
+
 	status = SecIdentityCopyCertificate(identity, &cert);
 	if (!status)
 	{
@@ -222,7 +222,7 @@ void printIdentity(SecIdentityRef identity, SecPolicyRef policy, int ordinalValu
 				free(nameBuf);
 			safe_CFRelease(&nameRef);
 		}
-		
+
 		// Default to X.509 Basic if no policy was specified
 		if (!policy) {
 			SecPolicySearchRef policySearch = NULL;
@@ -233,7 +233,7 @@ void printIdentity(SecIdentityRef identity, SecPolicyRef policy, int ordinalValu
 		} else {
 			CFRetain(policy);
 		}
-		
+
 		// Create the trust reference, given policy and certificates
 		SecTrustRef trust = nil;
 		SecTrustResultType trustResult = kSecTrustResultInvalid;
@@ -280,16 +280,16 @@ do_identity_search_with_policy(CFTypeRef keychainOrArray,
 		name											// SenderEmail
 	};
 	CSSM_DATA smimeValue = { sizeof(smimeOpts), (uint8*)&smimeOpts };
-	
+
 	// set up SSL options with provided data
-	CSSM_APPLE_TP_SSL_OPTIONS sslOpts = { 
+	CSSM_APPLE_TP_SSL_OPTIONS sslOpts = {
 		CSSM_APPLE_TP_SSL_OPTS_VERSION,					// Version
 		(name && !client) ? strlen(name) : 0,			// ServerNameLen
 		(client) ? NULL : name,							// ServerName
 		(client) ? CSSM_APPLE_TP_SSL_CLIENT : 0			// Flags
 	};
 	CSSM_DATA sslValue = { sizeof(sslOpts), (uint8*)&sslOpts };
-	
+
 	// get a policy ref for the specified policy OID
 	OSStatus status = noErr;
 	SecPolicyRef policy = NULL;
@@ -297,10 +297,10 @@ do_identity_search_with_policy(CFTypeRef keychainOrArray,
 	status = SecPolicySearchCreate(CSSM_CERT_X_509v3, oidPtr, NULL, &policySearch);
 	if (!status)
 		status = SecPolicySearchCopyNext(policySearch, &policy);
-	
+
 	CSSM_DATA *policyValue = NULL;
 	const char *policyName = "<unknown>";
-	
+
 	if (compareOids(oidPtr, &CSSMOID_APPLE_TP_SMIME)) {
 		policyName = "S/MIME";
 		policyValue = &smimeValue;
@@ -333,11 +333,11 @@ do_identity_search_with_policy(CFTypeRef keychainOrArray,
 	else if (compareOids(oidPtr, &CSSMOID_APPLE_TP_APPLEID_SHARING)) {
 		policyName = "AppleID Sharing";
 	}
-	
+
 	// set the policy's value, if there is one (this is specific to certain policies)
 	if (policy && policyValue)
 		status = SecPolicySetValue(policy, policyValue);
-	
+
 	CFStringRef idStr = (name) ? CFStringCreateWithCStringNoCopy(NULL, name, kCFStringEncodingUTF8, kCFAllocatorNull) : NULL;
 	SecIdentitySearchRef searchRef = NULL;
 	int identityCount = 0;
@@ -435,11 +435,11 @@ do_find_identities(CFTypeRef keychainOrArray, const char *name, unsigned int pol
 		do_identity_search_with_policy(keychainOrArray, name, &CSSMOID_APPLE_TP_CODE_SIGNING, CSSM_KEYUSE_SIGN, TRUE, validOnly);
 	if (policyFlags & (1 << 7))
 		do_identity_search_with_policy(keychainOrArray, name, &CSSMOID_APPLE_X509_BASIC, CSSM_KEYUSE_SIGN, TRUE, validOnly);
-	
+
 	if (policyFlags & (1 << 8))
 		do_system_identity_search(kSecIdentityDomainDefault);
 	if (policyFlags & (1 << 9))
-		do_system_identity_search(kSecIdentityDomainKerberosKDC);	
+		do_system_identity_search(kSecIdentityDomainKerberosKDC);
 	if (policyFlags & (1 << 10))
 		do_identity_search_with_policy(keychainOrArray, name, &CSSMOID_APPLE_TP_APPLEID_SHARING, CSSM_KEYUSE_SIGN, FALSE, validOnly);
 	if (policyFlags & (1 << 11))
@@ -463,7 +463,7 @@ keychain_find_identity(int argc, char * const *argv)
 	 *  "        or RFC822 email address for S/MIME)\n"
 	 *	"    -v  Show valid identities only (default is to show all identities)\n"
 	 */
-	
+
 	while ((ch = getopt(argc, argv, "hp:s:v")) != -1)
 	{
 		switch  (ch)
@@ -518,12 +518,12 @@ keychain_find_identity(int argc, char * const *argv)
 
 	argc -= optind;
 	argv += optind;
-	
+
     keychainOrArray = keychain_create_array(argc, argv);
 
 	result = do_find_identities(keychainOrArray, name, policyFlags, validOnly);
 
-cleanup:	
+cleanup:
 	safe_CFRelease(&keychainOrArray);
 
 	return result;

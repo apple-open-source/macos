@@ -29,7 +29,7 @@
 #include <security_utilities/debugging.h>
 #include <typeinfo>
 #include <stdio.h>
-
+#include <Security/SecBase.h>
 
 //@@@
 // From cssmapple.h - layering break
@@ -140,13 +140,8 @@ CFError::CFError()
 const char *CFError::what() const throw ()
 { return "CoreFoundation error"; }
 
-// can't get this from CarbonCore/MacErrors, but it's too good to pass up
-enum {
-	coreFoundationUnknownErr      = -4960
-};
-
 OSStatus CFError::osStatus() const
-{ return coreFoundationUnknownErr; }
+{ return errSecCoreFoundationUnknown; }
 
 int CFError::unixError() const
 {
@@ -155,3 +150,26 @@ int CFError::unixError() const
 
 void CFError::throwMe()
 { throw CFError(); }
+
+
+
+
+void ModuleNexusError::throwMe()
+{
+    throw ModuleNexusError();
+}
+
+
+
+OSStatus ModuleNexusError::osStatus() const
+{
+    return errSecParam;
+}
+
+
+
+int ModuleNexusError::unixError() const
+{
+    return EINVAL;      
+}
+

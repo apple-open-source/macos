@@ -34,6 +34,11 @@
 #include "krb5_locl.h"
 #include <err.h>
 
+#undef HEIMDAL_PRINTF_ATTRIBUTE
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
+#undef HEIMDAL_NORETURN_ATTRIBUTE
+#define HEIMDAL_NORETURN_ATTRIBUTE
+
 static krb5_error_code _warnerr(krb5_context context, int do_errtext,
 	 krb5_error_code code, int level,
 	 void (*logfunc)(const char *fmt, ...) __attribute__((__format__(__printf__, 1, 2))),
@@ -92,9 +97,6 @@ _warnerr(krb5_context context, int do_errtext,
     ret = _warnerr(context, ETEXT, CODE, LEVEL, NULL, fmt, ap); 	\
     va_end(ap);
 
-#undef __attribute__
-#define __attribute__(X)
-
 /**
  * Log a warning to the log, default stderr, include the error from
  * the last failure.
@@ -110,7 +112,7 @@ _warnerr(krb5_context context, int do_errtext,
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_vwarn(krb5_context context, krb5_error_code code,
 	   const char *fmt, va_list ap)
-     __attribute__ ((format (printf, 3, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 0))
 {
     return _warnerr(context, 1, code, 1, NULL, fmt, ap);
 }
@@ -128,7 +130,7 @@ krb5_vwarn(krb5_context context, krb5_error_code code,
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_warn(krb5_context context, krb5_error_code code, const char *fmt, ...)
-     __attribute__ ((format (printf, 3, 4)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
 {
     FUNC(1, code, 1);
     return ret;
@@ -146,7 +148,7 @@ krb5_warn(krb5_context context, krb5_error_code code, const char *fmt, ...)
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_vwarnx(krb5_context context, const char *fmt, va_list ap)
-     __attribute__ ((format (printf, 2, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 0))
 {
     return _warnerr(context, 0, 0, 1, NULL, fmt, ap);
 }
@@ -162,7 +164,7 @@ krb5_vwarnx(krb5_context context, const char *fmt, va_list ap)
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_warnx(krb5_context context, const char *fmt, ...)
-     __attribute__ ((format (printf, 2, 3)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3))
 {
     FUNC(0, 0, 1);
     return ret;
@@ -184,7 +186,8 @@ krb5_warnx(krb5_context context, const char *fmt, ...)
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_verr(krb5_context context, int eval, krb5_error_code code,
 	  const char *fmt, va_list ap)
-     __attribute__ ((noreturn, format (printf, 4, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 0))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     _warnerr(context, 1, code, 0, NULL, fmt, ap);
     exit(eval);
@@ -206,7 +209,8 @@ krb5_verr(krb5_context context, int eval, krb5_error_code code,
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_err(krb5_context context, int eval, krb5_error_code code,
 	 const char *fmt, ...)
-     __attribute__ ((noreturn, format (printf, 4, 5)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     FUNC(1, code, 0);
     exit(eval);
@@ -226,7 +230,8 @@ krb5_err(krb5_context context, int eval, krb5_error_code code,
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_verrx(krb5_context context, int eval, const char *fmt, va_list ap)
-     __attribute__ ((noreturn, format (printf, 3, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 0))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     _warnerr(context, 0, 0, 0, NULL, fmt, ap);
     exit(eval);
@@ -245,7 +250,8 @@ krb5_verrx(krb5_context context, int eval, const char *fmt, va_list ap)
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_errx(krb5_context context, int eval, const char *fmt, ...)
-     __attribute__ ((noreturn, format (printf, 3, 4)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     FUNC(0, 0, 0);
     exit(eval);
@@ -267,7 +273,8 @@ krb5_errx(krb5_context context, int eval, const char *fmt, ...)
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_vabort(krb5_context context, krb5_error_code code,
 	    const char *fmt, va_list ap)
-     __attribute__ ((noreturn, format (printf, 3, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 0))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     _warnerr(context, 1, code, 0, NULL, fmt, ap);
     abort();
@@ -287,7 +294,8 @@ krb5_vabort(krb5_context context, krb5_error_code code,
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_abort(krb5_context context, krb5_error_code code, const char *fmt, ...)
-     __attribute__ ((noreturn, format (printf, 3, 4)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     va_list ap;
     va_start(ap, fmt);
@@ -299,7 +307,8 @@ krb5_abort(krb5_context context, krb5_error_code code, const char *fmt, ...)
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_vabortx(krb5_context context, const char *fmt, va_list ap)
-     __attribute__ ((noreturn, format (printf, 2, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 0))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     _warnerr(context, 0, 0, 0, heim_abort, fmt, ap);
     abort();
@@ -318,7 +327,8 @@ krb5_vabortx(krb5_context context, const char *fmt, va_list ap)
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_abortx(krb5_context context, const char *fmt, ...)
-     __attribute__ ((noreturn, format (printf, 2, 3)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3))
+    HEIMDAL_NORETURN_ATTRIBUTE
 {
     FUNC(0, 0, 0);
     abort();

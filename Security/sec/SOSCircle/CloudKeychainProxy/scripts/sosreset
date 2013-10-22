@@ -1,0 +1,10 @@
+#/bin/sh
+
+killall SyncTest2; killall -9 securityd; killall CloudKeychainProxy; rm /Library/Keychains/PersistedAccount.plist 
+rm /tmp/com.apple.security.cloudkeychain.keysToRegister.plist
+
+/AppleInternal/Applications/SecurityTests.app/SecurityTests sc_kvstool -v --  --clear
+
+killall SyncTest2; killall -9 securityd; killall CloudKeychainProxy; rm /Library/Keychains/PersistedAccount.plist 
+rm /tmp/com.apple.security.cloudkeychain.keysToRegister.plist
+

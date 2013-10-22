@@ -30,27 +30,18 @@ InstallHeaders /usr/include \
 	membership.subproj/membership.h \
 	membership.subproj/ntsid.h
 
-# lookup.subproj is not installed for the simulator, but its API is provided
-# by Interposition_Sim.  To be cautious, we only want to provide headers for
-# the SPI *used* by other simulator projects.  We should work to keep this
-# SPI as backwards-compatible as possible and use Interposition_Sim to
-# translate where that cannot be achieved.
-if [ "${RC_ProjectName%_Sim}" == "${RC_ProjectName}" ] ; then
-	InstallHeaders /usr/local/include \
-		lookup.subproj/ils.h \
-		lookup.subproj/kvbuf.h \
-		lookup.subproj/libinfo.h \
-		lookup.subproj/si_data.h \
-		lookup.subproj/si_module.h \
-		lookup.subproj/thread_data.h
-fi
+InstallHeaders /usr/local/include \
+	gen.subproj/configuration_profile.h \
+	lookup.subproj/ils.h \
+	lookup.subproj/kvbuf.h \
+	lookup.subproj/libinfo.h \
+	lookup.subproj/si_data.h \
+	lookup.subproj/si_module.h \
+	lookup.subproj/thread_data.h
 
 InstallHeaders /usr/local/include \
 	lookup.subproj/netdb_async.h \
 	membership.subproj/membershipPriv.h
-
-InstallHeaders /usr/include/arpa \
-	dns.subproj/inet.h
 
 InstallHeaders /usr/include/rpc \
 	rpc.subproj/auth.h \
@@ -202,7 +193,8 @@ LinkManPages getnetgrent.3 \
 
 LinkManPages getpwent.3 \
 	endpwent.3 getpwnam.3 getpwnam_r.3 getpwuid.3 \
-	getpwuid_r.3 setpassent.3 setpwent.3 setpwfile.3
+	getpwuid_r.3 setpassent.3 setpwent.3 setpwfile.3 \
+	getpwuuid.3 getpwuuid_r.3
 
 LinkManPages mbr_uid_to_uuid.3 \
 	mbr_gid_to_uuid.3 mbr_sid_to_uuid.3 mbr_uuid_to_id.3 mbr_uuid_to_sid.3 \

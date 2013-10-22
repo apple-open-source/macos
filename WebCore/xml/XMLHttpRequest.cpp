@@ -3,6 +3,7 @@
  *  Copyright (C) 2005-2007 Alexey Proskuryakov <ap@webkit.org>
  *  Copyright (C) 2007, 2008 Julien Chaffraix <jchaffraix@webkit.org>
  *  Copyright (C) 2008, 2011 Google Inc. All rights reserved.
+ *  Copyright (C) 2012 Intel Corporation
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -25,6 +26,7 @@
 #include "Blob.h"
 #include "BlobData.h"
 #include "ContentSecurityPolicy.h"
+#include "ContextFeatures.h"
 #include "CrossOriginAccessControl.h"
 #include "DOMFormData.h"
 #include "DOMImplementation.h"
@@ -36,14 +38,17 @@
 #include "File.h"
 #include "HTMLDocument.h"
 #include "HTTPParsers.h"
-#include "HTTPValidation.h"
+#include "HistogramSupport.h"
 #include "InspectorInstrumentation.h"
+#include "JSDOMBinding.h"
+#include "JSDOMWindow.h"
 #include "MemoryCache.h"
+#include "ParsedContentType.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ScriptCallStack.h"
+#include "ScriptController.h"
 #include "ScriptProfile.h"
-#include "SecurityOrigin.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
@@ -52,22 +57,29 @@
 #include "XMLHttpRequestProgressEvent.h"
 #include "XMLHttpRequestUpload.h"
 #include "markup.h"
-#include <wtf/ArrayBuffer.h>
-#include <wtf/RefCountedLeakCounter.h>
-#include <wtf/StdLibExtras.h>
-#include <wtf/UnusedParam.h>
-#include <wtf/text/CString.h>
-
-#if USE(JSC)
-#include "JSDOMBinding.h"
-#include "JSDOMWindow.h"
 #include <heap/Strong.h>
 #include <runtime/JSLock.h>
+#include <runtime/Operations.h>
+#include <wtf/ArrayBuffer.h>
+#include <wtf/ArrayBufferView.h>
+#include <wtf/RefCountedLeakCounter.h>
+#include <wtf/StdLibExtras.h>
+#include <wtf/text/CString.h>
+
+#if ENABLE(RESOURCE_TIMING)
+#include "CachedResourceRequestInitiators.h"
 #endif
 
 namespace WebCore {
 
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, xmlHttpRequestCounter, ("XMLHttpRequest"));
+
+// Histogram enum to see when we can deprecate xhr.send(ArrayBuffer).
+enum XMLHttpRequestSendArrayBufferOrView {
+    XMLHttpRequestSendArrayBuffer,
+    XMLHttpRequestSendArrayBufferView,
+    XMLHttpRequestSendArrayBufferOrViewMax,
+};
 
 struct XMLHttpRequestStaticData {
     WTF_MAKE_NONCOPYABLE(XMLHttpRequestStaticData); WTF_MAKE_FAST_ALLOCATED;
@@ -150,21 +162,24 @@ static void logConsoleError(ScriptExecutionContext* context, const String& messa
         return;
     // FIXME: It's not good to report the bad usage without indicating what source line it came from.
     // We should pass additional parameters so we can tell the console where the mistake occurred.
-    context->addConsoleMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message);
+    context->addConsoleMessage(JSMessageSource, ErrorMessageLevel, message);
 }
 
-PassRefPtr<XMLHttpRequest> XMLHttpRequest::create(ScriptExecutionContext* context, PassRefPtr<SecurityOrigin> securityOrigin)
+PassRefPtr<XMLHttpRequest> XMLHttpRequest::create(ScriptExecutionContext* context)
 {
-    RefPtr<XMLHttpRequest> xmlHttpRequest(adoptRef(new XMLHttpRequest(context, securityOrigin)));
+    RefPtr<XMLHttpRequest> xmlHttpRequest(adoptRef(new XMLHttpRequest(context)));
     xmlHttpRequest->suspendIfNeeded();
 
     return xmlHttpRequest.release();
 }
 
-XMLHttpRequest::XMLHttpRequest(ScriptExecutionContext* context, PassRefPtr<SecurityOrigin> securityOrigin)
-    : ActiveDOMObject(context, this)
+XMLHttpRequest::XMLHttpRequest(ScriptExecutionContext* context)
+    : ActiveDOMObject(context)
     , m_async(true)
     , m_includeCredentials(false)
+#if ENABLE(XHR_TIMEOUT)
+    , m_timeoutMilliseconds(0)
+#endif
     , m_state(UNSENT)
     , m_createdDocument(false)
     , m_error(false)
@@ -176,7 +191,6 @@ XMLHttpRequest::XMLHttpRequest(ScriptExecutionContext* context, PassRefPtr<Secur
     , m_exceptionCode(0)
     , m_progressEventThrottle(this)
     , m_responseTypeCode(ResponseTypeDefault)
-    , m_securityOrigin(securityOrigin)
 {
     initializeXMLHttpRequestStaticData();
 #ifndef NDEBUG
@@ -199,7 +213,7 @@ Document* XMLHttpRequest::document() const
 
 SecurityOrigin* XMLHttpRequest::securityOrigin() const
 {
-    return m_securityOrigin ? m_securityOrigin.get() : scriptExecutionContext()->securityOrigin();
+    return scriptExecutionContext()->securityOrigin();
 }
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -253,6 +267,7 @@ Document* XMLHttpRequest::responseXML(ExceptionCode& ec)
             // FIXME: Set Last-Modified.
             m_responseDocument->setContent(m_responseBuilder.toStringPreserveCapacity());
             m_responseDocument->setSecurityOrigin(securityOrigin());
+            m_responseDocument->setContextFeatures(document()->contextFeatures());
             if (!m_responseDocument->wellFormed())
                 m_responseDocument = 0;
         }
@@ -262,7 +277,6 @@ Document* XMLHttpRequest::responseXML(ExceptionCode& ec)
     return m_responseDocument.get();
 }
 
-#if ENABLE(XHR_RESPONSE_BLOB)
 Blob* XMLHttpRequest::responseBlob(ExceptionCode& ec)
 {
     if (m_responseTypeCode != ResponseTypeBlob) {
@@ -273,7 +287,7 @@ Blob* XMLHttpRequest::responseBlob(ExceptionCode& ec)
     if (m_state != DONE)
         return 0;
 
-    if (!m_responseBlob.get()) {
+    if (!m_responseBlob) {
         // FIXME: This causes two (or more) unnecessary copies of the data.
         // Chromium stores blob data in the browser process, so we're pulling the data
         // from the network only to copy it into the renderer to copy it back to the browser.
@@ -283,20 +297,21 @@ Blob* XMLHttpRequest::responseBlob(ExceptionCode& ec)
         // a SharedBuffer, even if they don't get the Blob from the network layer directly.
         OwnPtr<BlobData> blobData = BlobData::create();
         // If we errored out or got no data, we still return a blob, just an empty one.
-        if (m_binaryResponseBuilder.get()) {
+        size_t size = 0;
+        if (m_binaryResponseBuilder) {
             RefPtr<RawData> rawData = RawData::create();
-            size_t size = m_binaryResponseBuilder->size();
+            size = m_binaryResponseBuilder->size();
             rawData->mutableData()->append(m_binaryResponseBuilder->data(), size);
             blobData->appendData(rawData, 0, BlobDataItem::toEndOfFile);
-            blobData->setContentType(responseMIMEType()); // responseMIMEType defaults to text/xml which may be incorrect.
+            String normalizedContentType = Blob::normalizedContentType(responseMIMEType());
+            blobData->setContentType(normalizedContentType); // responseMIMEType defaults to text/xml which may be incorrect.
             m_binaryResponseBuilder.clear();
         }
-        m_responseBlob = Blob::create(blobData.release(), m_binaryResponseBuilder.get() ? m_binaryResponseBuilder->size() : 0);
+        m_responseBlob = Blob::create(blobData.release(), size);
     }
 
     return m_responseBlob.get();
 }
-#endif
 
 ArrayBuffer* XMLHttpRequest::responseArrayBuffer(ExceptionCode& ec)
 {
@@ -316,6 +331,20 @@ ArrayBuffer* XMLHttpRequest::responseArrayBuffer(ExceptionCode& ec)
     return m_responseArrayBuffer.get();
 }
 
+#if ENABLE(XHR_TIMEOUT)
+void XMLHttpRequest::setTimeout(unsigned long timeout, ExceptionCode& ec)
+{
+    // FIXME: Need to trigger or update the timeout Timer here, if needed. http://webkit.org/b/98156
+    // XHR2 spec, 4.7.3. "This implies that the timeout attribute can be set while fetching is in progress. If that occurs it will still be measured relative to the start of fetching."
+    if (scriptExecutionContext()->isDocument() && !m_async) {
+        logConsoleError(scriptExecutionContext(), "XMLHttpRequest.timeout cannot be set for synchronous HTTP(S) requests made from the window context.");
+        ec = INVALID_ACCESS_ERR;
+        return;
+    }
+    m_timeoutMilliseconds = timeout;
+}
+#endif
+
 void XMLHttpRequest::setResponseType(const String& responseType, ExceptionCode& ec)
 {
     if (m_state >= LOADING) {
@@ -323,7 +352,7 @@ void XMLHttpRequest::setResponseType(const String& responseType, ExceptionCode& 
         return;
     }
 
-    // Newer functionality is not available to synchronous requests in window contexts, as a spec-mandated 
+    // Newer functionality is not available to synchronous requests in window contexts, as a spec-mandated
     // attempt to discourage synchronous XHR use. responseType is one such piece of functionality.
     // We'll only disable this functionality for HTTP(S) requests since sync requests for local protocols
     // such as file: and data: still make sense to allow.
@@ -339,14 +368,12 @@ void XMLHttpRequest::setResponseType(const String& responseType, ExceptionCode& 
         m_responseTypeCode = ResponseTypeText;
     else if (responseType == "document")
         m_responseTypeCode = ResponseTypeDocument;
-    else if (responseType == "blob") {
-#if ENABLE(XHR_RESPONSE_BLOB)
+    else if (responseType == "blob")
         m_responseTypeCode = ResponseTypeBlob;
-#endif
-    } else if (responseType == "arraybuffer") {
+    else if (responseType == "arraybuffer")
         m_responseTypeCode = ResponseTypeArrayBuffer;
-    } else
-        ec = SYNTAX_ERR;
+    else
+        ASSERT_NOT_REACHED();
 }
 
 String XMLHttpRequest::responseType()
@@ -386,17 +413,16 @@ void XMLHttpRequest::callReadyStateChangeListener()
     if (!scriptExecutionContext())
         return;
 
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willChangeXHRReadyState(scriptExecutionContext(), this);
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willDispatchXHRReadyStateChangeEvent(scriptExecutionContext(), this);
 
     if (m_async || (m_state <= OPENED || m_state == DONE))
         m_progressEventThrottle.dispatchReadyStateChangeEvent(XMLHttpRequestProgressEvent::create(eventNames().readystatechangeEvent), m_state == DONE ? FlushProgressEvent : DoNotFlushProgressEvent);
 
-    InspectorInstrumentation::didChangeXHRReadyState(cookie);
-
+    InspectorInstrumentation::didDispatchXHRReadyStateChangeEvent(cookie);
     if (m_state == DONE && !m_error) {
-        InspectorInstrumentationCookie cookie = InspectorInstrumentation::willLoadXHR(scriptExecutionContext(), this);
+        InspectorInstrumentationCookie cookie = InspectorInstrumentation::willDispatchXHRLoadEvent(scriptExecutionContext(), this);
         m_progressEventThrottle.dispatchEvent(XMLHttpRequestProgressEvent::create(eventNames().loadEvent));
-        InspectorInstrumentation::didLoadXHR(cookie);
+        InspectorInstrumentation::didDispatchXHRLoadEvent(cookie);
         m_progressEventThrottle.dispatchEvent(XMLHttpRequestProgressEvent::create(eventNames().loadendEvent));
     }
 }
@@ -410,18 +436,6 @@ void XMLHttpRequest::setWithCredentials(bool value, ExceptionCode& ec)
 
     m_includeCredentials = value;
 }
-
-#if ENABLE(XHR_RESPONSE_BLOB)
-void XMLHttpRequest::setAsBlob(bool value, ExceptionCode& ec)
-{
-    if (m_state != OPENED || m_loader) {
-        ec = INVALID_STATE_ERR;
-        return;
-    }
-    
-    m_responseTypeCode = value ? ResponseTypeBlob : ResponseTypeDefault;
-}
-#endif
 
 bool XMLHttpRequest::isAllowedHTTPMethod(const String& method)
 {
@@ -478,20 +492,44 @@ void XMLHttpRequest::open(const String& method, const KURL& url, bool async, Exc
         return;
     }
 
-    if (!scriptExecutionContext()->contentSecurityPolicy()->allowConnectFromSource(url)) {
+    // FIXME: Convert this to check the isolated world's Content Security Policy once webkit.org/b/104520 is solved.
+    bool shouldBypassMainWorldContentSecurityPolicy = false;
+    if (scriptExecutionContext()->isDocument()) {
+        Document* document = static_cast<Document*>(scriptExecutionContext());
+        if (document->frame())
+            shouldBypassMainWorldContentSecurityPolicy = document->frame()->script()->shouldBypassMainWorldContentSecurityPolicy();
+    }
+    if (!shouldBypassMainWorldContentSecurityPolicy && !scriptExecutionContext()->contentSecurityPolicy()->allowConnectToSource(url)) {
         // FIXME: Should this be throwing an exception?
         ec = SECURITY_ERR;
         return;
     }
 
-    // Newer functionality is not available to synchronous requests in window contexts, as a spec-mandated 
-    // attempt to discourage synchronous XHR use. responseType is one such piece of functionality.
-    // We'll only disable this functionality for HTTP(S) requests since sync requests for local protocols
-    // such as file: and data: still make sense to allow.
-    if (!async && scriptExecutionContext()->isDocument() && url.protocolIsInHTTPFamily() && m_responseTypeCode != ResponseTypeDefault) {
-        logConsoleError(scriptExecutionContext(), "Synchronous HTTP(S) requests made from the window context cannot have XMLHttpRequest.responseType set.");
-        ec = INVALID_ACCESS_ERR;
-        return;
+    if (!async && scriptExecutionContext()->isDocument()) {
+        if (document()->settings() && !document()->settings()->syncXHRInDocumentsEnabled()) {
+            logConsoleError(scriptExecutionContext(), "Synchronous XMLHttpRequests are disabled for this page.");
+            ec = INVALID_ACCESS_ERR;
+            return;
+        }
+
+        // Newer functionality is not available to synchronous requests in window contexts, as a spec-mandated
+        // attempt to discourage synchronous XHR use. responseType is one such piece of functionality.
+        // We'll only disable this functionality for HTTP(S) requests since sync requests for local protocols
+        // such as file: and data: still make sense to allow.
+        if (url.protocolIsInHTTPFamily() && m_responseTypeCode != ResponseTypeDefault) {
+            logConsoleError(scriptExecutionContext(), "Synchronous HTTP(S) requests made from the window context cannot have XMLHttpRequest.responseType set.");
+            ec = INVALID_ACCESS_ERR;
+            return;
+        }
+
+#if ENABLE(XHR_TIMEOUT)
+        // Similarly, timeouts are disabled for synchronous requests as well.
+        if (m_timeoutMilliseconds > 0) {
+            logConsoleError(scriptExecutionContext(), "Synchronous XMLHttpRequests must not have a timeout value set.");
+            ec = INVALID_ACCESS_ERR;
+            return;
+        }
+#endif
     }
 
     m_method = uppercaseKnownHTTPMethod(method);
@@ -612,11 +650,21 @@ void XMLHttpRequest::send(Blob* body, ExceptionCode& ec)
         return;
 
     if (m_method != "GET" && m_method != "HEAD" && m_url.protocolIsInHTTPFamily()) {
-        // FIXME: Should we set a Content-Type if one is not set.
+        const String& contentType = getRequestHeader("Content-Type");
+        if (contentType.isEmpty()) {
+            const String& blobType = body->type();
+            if (!blobType.isEmpty() && isValidContentType(blobType))
+                setRequestHeaderInternal("Content-Type", blobType);
+            else {
+                // From FileAPI spec, whenever media type cannot be determined, empty string must be returned.
+                setRequestHeaderInternal("Content-Type", "");
+            }
+        }
+
         // FIXME: add support for uploading bundles.
         m_requestEntityBody = FormData::create();
         if (body->isFile())
-            m_requestEntityBody->appendFile(static_cast<File*>(body)->path());
+            m_requestEntityBody->appendFile(toFile(body)->path());
 #if ENABLE(BLOB)
         else
             m_requestEntityBody->appendBlob(body->url());
@@ -640,8 +688,7 @@ void XMLHttpRequest::send(DOMFormData* body, ExceptionCode& ec)
 
         String contentType = getRequestHeader("Content-Type");
         if (contentType.isEmpty()) {
-            contentType = "multipart/form-data; boundary=";
-            contentType += m_requestEntityBody->boundary().data();
+            contentType = makeString("multipart/form-data; boundary=", m_requestEntityBody->boundary().data());
             setRequestHeaderInternal("Content-Type", contentType);
         }
     }
@@ -651,16 +698,40 @@ void XMLHttpRequest::send(DOMFormData* body, ExceptionCode& ec)
 
 void XMLHttpRequest::send(ArrayBuffer* body, ExceptionCode& ec)
 {
+    String consoleMessage("ArrayBuffer is deprecated in XMLHttpRequest.send(). Use ArrayBufferView instead.");
+    scriptExecutionContext()->addConsoleMessage(JSMessageSource, WarningMessageLevel, consoleMessage);
+
+    HistogramSupport::histogramEnumeration("WebCore.XHR.send.ArrayBufferOrView", XMLHttpRequestSendArrayBuffer, XMLHttpRequestSendArrayBufferOrViewMax);
+
+    sendBytesData(body->data(), body->byteLength(), ec);
+}
+
+void XMLHttpRequest::send(ArrayBufferView* body, ExceptionCode& ec)
+{
+    HistogramSupport::histogramEnumeration("WebCore.XHR.send.ArrayBufferOrView", XMLHttpRequestSendArrayBufferView, XMLHttpRequestSendArrayBufferOrViewMax);
+
+    sendBytesData(body->baseAddress(), body->byteLength(), ec);
+}
+
+void XMLHttpRequest::sendBytesData(const void* data, size_t length, ExceptionCode& ec)
+{
     if (!initSend(ec))
         return;
 
     if (m_method != "GET" && m_method != "HEAD" && m_url.protocolIsInHTTPFamily()) {
-        m_requestEntityBody = FormData::create(body->data(), body->byteLength());
+        m_requestEntityBody = FormData::create(data, length);
         if (m_upload)
             m_requestEntityBody->setAlwaysStream(true);
     }
 
     createRequest(ec);
+}
+
+void XMLHttpRequest::sendFromInspector(PassRefPtr<FormData> formData, ExceptionCode& ec)
+{
+    m_requestEntityBody = formData ? formData->deepCopy() : 0;
+    createRequest(ec);
+    m_exceptionCode = ec;
 }
 
 void XMLHttpRequest::createRequest(ExceptionCode& ec)
@@ -693,9 +764,11 @@ void XMLHttpRequest::createRequest(ExceptionCode& ec)
 
     ResourceRequest request(m_url);
     request.setHTTPMethod(m_method);
-#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
+#if PLATFORM(BLACKBERRY)
     request.setTargetType(ResourceRequest::TargetIsXHR);
 #endif
+
+    InspectorInstrumentation::willLoadXHR(scriptExecutionContext(), this, m_method, m_url, m_async, m_requestEntityBody ? m_requestEntityBody->deepCopy() : 0, m_requestHeaders, m_includeCredentials);
 
     if (m_requestEntityBody) {
         ASSERT(m_method != "GET");
@@ -713,6 +786,14 @@ void XMLHttpRequest::createRequest(ExceptionCode& ec)
     options.allowCredentials = (m_sameOriginRequest || m_includeCredentials) ? AllowStoredCredentials : DoNotAllowStoredCredentials;
     options.crossOriginRequestPolicy = UseAccessControl;
     options.securityOrigin = securityOrigin();
+#if ENABLE(RESOURCE_TIMING)
+    options.initiator = cachedResourceRequestInitiators().xmlhttprequest;
+#endif
+
+#if ENABLE(XHR_TIMEOUT)
+    if (m_timeoutMilliseconds)
+        request.setTimeoutInterval(m_timeoutMilliseconds / 1000.0);
+#endif
 
     m_exceptionCode = 0;
     m_error = false;
@@ -789,6 +870,8 @@ void XMLHttpRequest::internalAbort()
 
     m_decoder = 0;
 
+    InspectorInstrumentation::didFailXHRLoading(scriptExecutionContext(), this);
+
     if (hadLoader)
         dropProtection();
 }
@@ -802,11 +885,10 @@ void XMLHttpRequest::clearResponse()
 void XMLHttpRequest::clearResponseBuffers()
 {
     m_responseBuilder.clear();
+    m_responseEncoding = String();
     m_createdDocument = false;
     m_responseDocument = 0;
-#if ENABLE(XHR_RESPONSE_BLOB)
     m_responseBlob = 0;
-#endif
     m_binaryResponseBuilder.clear();
     m_responseArrayBuffer.clear();
 }
@@ -851,17 +933,15 @@ void XMLHttpRequest::abortError()
 
 void XMLHttpRequest::dropProtection()
 {
-#if USE(JSC)
     // The XHR object itself holds on to the responseText, and
     // thus has extra cost even independent of any
     // responseText or responseXML objects it has handed
     // out. But it is protected from GC while loading, so this
     // can't be recouped until the load is done, so only
     // report the extra cost at that point.
-    JSC::JSGlobalData* globalData = scriptExecutionContext()->globalData();
-    JSC::JSLockHolder lock(globalData);
-    globalData->heap.reportExtraMemoryCost(m_responseBuilder.length() * 2);
-#endif
+    JSC::VM* vm = scriptExecutionContext()->vm();
+    JSC::JSLockHolder lock(vm);
+    vm->heap.reportExtraMemoryCost(m_responseBuilder.length() * 2);
 
     unsetPendingActivity(this);
 }
@@ -901,7 +981,7 @@ void XMLHttpRequest::setRequestHeaderInternal(const AtomicString& name, const St
 {
     HTTPHeaderMap::AddResult result = m_requestHeaders.add(name, value);
     if (!result.isNewEntry)
-        result.iterator->second += ", " + value;
+        result.iterator->value.append(", " + value);
 }
 
 String XMLHttpRequest::getRequestHeader(const AtomicString& name) const
@@ -928,16 +1008,16 @@ String XMLHttpRequest::getAllResponseHeaders(ExceptionCode& ec) const
         //     2) There's no known harm in hiding Set-Cookie header fields entirely; we don't
         //        know any widely used technique that requires access to them.
         //     3) Firefox has implemented this policy.
-        if (isSetCookieHeader(it->first) && !securityOrigin()->canLoadLocalResources())
+        if (isSetCookieHeader(it->key) && !securityOrigin()->canLoadLocalResources())
             continue;
 
-        if (!m_sameOriginRequest && !isOnAccessControlResponseHeaderWhitelist(it->first) && !accessControlExposeHeaderSet.contains(it->first))
+        if (!m_sameOriginRequest && !isOnAccessControlResponseHeaderWhitelist(it->key) && !accessControlExposeHeaderSet.contains(it->key))
             continue;
 
-        stringBuilder.append(it->first);
+        stringBuilder.append(it->key);
         stringBuilder.append(':');
         stringBuilder.append(' ');
-        stringBuilder.append(it->second);
+        stringBuilder.append(it->value);
         stringBuilder.append('\r');
         stringBuilder.append('\n');
     }
@@ -957,7 +1037,7 @@ String XMLHttpRequest::getResponseHeader(const AtomicString& name, ExceptionCode
         logConsoleError(scriptExecutionContext(), "Refused to get unsafe header \"" + name + "\"");
         return String();
     }
-    
+
     HTTPHeaderSet accessControlExposeHeaderSet;
     parseAccessControlExposeHeadersAllowList(m_response.httpHeaderField("Access-Control-Expose-Headers"), accessControlExposeHeaderSet);
 
@@ -1030,6 +1110,13 @@ void XMLHttpRequest::didFail(const ResourceError& error)
         return;
     }
 
+#if ENABLE(XHR_TIMEOUT)
+    if (error.isTimeout()) {
+        didTimeout();
+        return;
+    }
+#endif
+
     // Network failures are already reported to Web Inspector by ResourceLoader.
     if (error.domain() == errorDomainWebKitInternal)
         logConsoleError(scriptExecutionContext(), "XMLHttpRequest cannot load " + error.failingURL() + ". " + error.localizedDescription());
@@ -1056,12 +1143,13 @@ void XMLHttpRequest::didFinishLoading(unsigned long identifier, double)
 
     m_responseBuilder.shrinkToFit();
 
-    InspectorInstrumentation::resourceRetrievedByXMLHttpRequest(scriptExecutionContext(), identifier, m_responseBuilder.toStringPreserveCapacity(), m_url, m_lastSendURL, m_lastSendLineNumber);
+    InspectorInstrumentation::didFinishXHRLoading(scriptExecutionContext(), this, identifier, m_responseBuilder.toStringPreserveCapacity(), m_url, m_lastSendURL, m_lastSendLineNumber);
 
     bool hadLoader = m_loader;
     m_loader = 0;
 
     changeState(DONE);
+    m_responseEncoding = String();
     m_decoder = 0;
 
     if (hadLoader)
@@ -1088,7 +1176,11 @@ void XMLHttpRequest::didReceiveResponse(unsigned long identifier, const Resource
     InspectorInstrumentation::didReceiveXHRResponse(scriptExecutionContext(), identifier);
 
     m_response = response;
-    m_responseEncoding = extractCharsetFromMediaType(m_mimeTypeOverride);
+    if (!m_mimeTypeOverride.isEmpty()) {
+        m_response.setHTTPHeaderField("Content-Type", m_mimeTypeOverride);
+        m_responseEncoding = extractCharsetFromMediaType(m_mimeTypeOverride);
+    }
+
     if (m_responseEncoding.isEmpty())
         m_responseEncoding = response.textEncodingName();
 }
@@ -1125,11 +1217,7 @@ void XMLHttpRequest::didReceiveData(const char* data, int len)
 
     if (useDecoder)
         m_responseBuilder.append(m_decoder->decode(data, len));
-    else if (m_responseTypeCode == ResponseTypeArrayBuffer
-#if ENABLE(XHR_RESPONSE_BLOB)
-             || m_responseTypeCode == ResponseTypeBlob
-#endif
-             ) {
+    else if (m_responseTypeCode == ResponseTypeArrayBuffer || m_responseTypeCode == ResponseTypeBlob) {
         // Buffer binary data.
         if (!m_binaryResponseBuilder)
             m_binaryResponseBuilder = SharedBuffer::create();
@@ -1153,6 +1241,36 @@ void XMLHttpRequest::didReceiveData(const char* data, int len)
             callReadyStateChangeListener();
     }
 }
+
+#if ENABLE(XHR_TIMEOUT)
+void XMLHttpRequest::didTimeout()
+{
+    // internalAbort() calls dropProtection(), which may release the last reference.
+    RefPtr<XMLHttpRequest> protect(this);
+    internalAbort();
+
+    clearResponse();
+    clearRequest();
+
+    m_error = true;
+    m_exceptionCode = XMLHttpRequestException::TIMEOUT_ERR;
+
+    if (!m_async) {
+        m_state = DONE;
+        m_exceptionCode = TIMEOUT_ERR;
+        return;
+    }
+
+    changeState(DONE);
+
+    if (!m_uploadComplete) {
+        m_uploadComplete = true;
+        if (m_upload && m_uploadEventsAllowed)
+            m_upload->dispatchEventAndLoadEnd(XMLHttpRequestProgressEvent::create(eventNames().timeoutEvent));
+    }
+    m_progressEventThrottle.dispatchEventAndLoadEnd(XMLHttpRequestProgressEvent::create(eventNames().timeoutEvent));
+}
+#endif
 
 bool XMLHttpRequest::canSuspend() const
 {

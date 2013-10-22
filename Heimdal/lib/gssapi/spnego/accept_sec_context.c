@@ -328,7 +328,7 @@ select_mech(OM_uint32 *minor_status, MechType *mechType, int verify_p,
 	return GSS_S_DEFECTIVE_TOKEN;
     }
 
-    oid.length   = mech_len;
+    oid.length   = (OM_uint32)mech_len;
     oid.elements = mechbuf + sizeof(mechbuf) - mech_len;
 
     if (gss_oid_equal(&oid, GSS_SPNEGO_MECHANISM)) {
@@ -685,10 +685,10 @@ out:
     if (time_rec != NULL)
 	*time_rec = ctx->mech_time_rec;
 
-    HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
-
-    if (ret == GSS_S_COMPLETE || ret == GSS_S_CONTINUE_NEEDED)
+    if (ret == GSS_S_COMPLETE || ret == GSS_S_CONTINUE_NEEDED) {
+	HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
  	return ret;
+    }
 
     _gss_spnego_internal_delete_sec_context(&junk, context_handle,
 					    GSS_C_NO_BUFFER);

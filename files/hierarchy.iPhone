@@ -15,6 +15,7 @@
 0750	501	501	private/var/mobile/Media/DCIM
 0750	501	501	private/var/mobile/Media/PhotoData
 0750	501	501	private/var/mobile/Media/Photos
+1777	root	wheel	private/var/cores
 0777	root	wheel	private/var/logs
 0755	501	501	private/var/logs/mediaserverd
 0755	root	wheel	private/var/Managed Preferences

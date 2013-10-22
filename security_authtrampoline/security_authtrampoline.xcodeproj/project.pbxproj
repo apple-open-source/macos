@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0CB62E511640743400C8BD15 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CB62E501640743400C8BD15 /* CoreFoundation.framework */; };
 		1865FD031472732200FD79DF /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD021472732200FD79DF /* libsecurity_utilities.a */; };
 		18A25C221475393D004F59F8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 407C1B450564601C00E61071 /* Security.framework */; };
 		406F0F01072F162A0000E40A /* security_authtrampoline.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 406F0F00072F162A0000E40A /* security_authtrampoline.8 */; };
@@ -27,6 +28,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0CB62E501640743400C8BD15 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = ../../../../../../System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<group>"; };
 		1865FD021472732200FD79DF /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
 		18A25C1E147538E3004F59F8 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		18A25C1F147538E3004F59F8 /* project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = project.xcconfig; sourceTree = "<group>"; };
@@ -43,6 +45,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				18A25C221475393D004F59F8 /* Security.framework in Frameworks */,
+				0CB62E511640743400C8BD15 /* CoreFoundation.framework in Frameworks */,
 				1865FD031472732200FD79DF /* libsecurity_utilities.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -88,6 +91,7 @@
 		4CA1FEAC052A3C5800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				0CB62E501640743400C8BD15 /* CoreFoundation.framework */,
 				18A25C1D147538E3004F59F8 /* config */,
 				406F0EF2072F143A0000E40A /* doc */,
 				407C1B2705645F8E00E61071 /* src */,

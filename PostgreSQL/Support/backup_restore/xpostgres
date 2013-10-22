@@ -1,0 +1,1122 @@
+#!/usr/bin/perl
+#
+# xpostgres
+#
+# Author:: Apple Inc.
+# Documentation:: Apple Inc.
+# Copyright (c) 2013 Apple Inc. All Rights Reserved.
+#
+# IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+# computers and is subject to the terms and conditions of the Apple Software
+# License Agreement accompanying the package this file is a part of.
+# You may not port this file to another platform without Apple's written consent.
+# License:: All rights reserved.
+#
+# This tool is a wrapper for postgres.
+# Its function is to launch a postgres process and manage WAL archiving.
+# perltidy options: -pbp -l=100
+
+use strict;
+use warnings;
+use Errno qw(EAGAIN);
+use File::Basename qw(basename);
+use File::Basename qw(dirname);
+use File::Path qw(rmtree);
+use Time::Local;
+use Getopt::Std;
+use Fcntl;
+use Fcntl qw(:flock);
+use FileHandle;
+use POSIX;
+use Cwd qw();
+
+# Constants
+my $WAIT4PATH   = '/bin/wait4path';
+my $GNUTAR_PATH = '/usr/bin/gnutar';
+my $PLIST_BUDDY = '/usr/libexec/PlistBuddy';
+my $ARCHIVE_COMMAND_PATH
+    = '/Applications/Server.app/Contents/ServerRoot/usr/libexec/xpg_archive_command';
+my $PG_BASEBACKUP_PATH      = '/Applications/Server.app/Contents/ServerRoot/usr/bin/pg_basebackup';
+my $PSQL_PATH               = '/Applications/Server.app/Contents/ServerRoot/usr/bin/psql';
+my $PG_CTL_PATH             = '/Applications/Server.app/Contents/ServerRoot/usr/bin/pg_ctl';
+my $POSTGRES_PATH           = '/Applications/Server.app/Contents/ServerRoot/usr/bin/postgres_real';
+my $TMUTIL_PATH             = '/usr/bin/tmutil';
+my $DEFAULT_SOCKET_DIR      = '/var/pgsql_socket';
+my $RESTORE_ON_ABSENCE_FILE = '.NoRestoreNeeded';
+my $MY_NAME                 = 'xpostgres';
+my $BACKUP_DIRECTORY_NAME   = 'base_backup';
+my $BACKUP_ZIP_FILE_NAME    = 'base_complete.tar.gz';
+my $BACKUP_TEMP_FILE_NAME   = 'base.tar.gz';
+my $NUM_COMPLETE_BACKUPS_PER_DAY = 4;
+my $SECONDS_PER_DAY              = 86400;
+my $HEARTBEAT_SECS               = 10;      # seconds to wait between heartbeat intervals
+my $MAX_WAL_SENDERS = 2;    # for postgresql.conf, value for 'max_wal_senders' preference
+
+# Global vars
+my $g_debug_enabled             = 0;
+my $g_archived_logs_directory   = q{};    # empty string
+my $g_postgres_data_directory   = q{};
+my $g_postgres_socket_directory = q{};
+my $g_postgres_log_directory    = q{};
+my $g_kill_signal               = q{};
+my $g_apple_configuration       = q{};
+my $g_postgres_proccess_pid;
+my @g_argv;
+my $g_child_status;
+
+# Signal handlers
+$SIG{HUP}  = \&handle_signal;
+$SIG{TERM} = \&handle_signal;
+$SIG{INT}  = \&handle_signal;
+$SIG{CHLD} = \&reaper;
+
+#############################################################################
+# PostgreSQL process management
+#############################################################################
+
+#############################################################################
+sub start_postgres {
+    if ( defined $g_postgres_proccess_pid && $g_postgres_proccess_pid != 0 ) {
+        log_message( 'postgres appears to already be running with pid: '
+                . $g_postgres_proccess_pid
+                . '.  Not starting a new instance.' );
+        return 1;
+    }
+
+    if ( !-e $g_postgres_data_directory ) {
+        log_message('Waiting for data path to exit...');
+        system $WAIT4PATH, $g_postgres_data_directory;
+        if ( $g_child_status != 0 ) {
+            log_message("Wait4path returned error: $g_child_status");
+            return 1;
+        }
+    }
+
+    # Snip the shared memory block out of the lockfile if no process is running
+    # that matches the PID in the file.  Otherwise postgres will fail to start
+    # if it wasn't shut down properly and another process is now using that memory
+    # block.
+    my $postgres_pid_path = $g_postgres_data_directory . '/postmaster.pid';
+    if ( -e $postgres_pid_path ) {
+        my $FILE;
+        if ( !open $FILE, '+<', $postgres_pid_path ) {
+            log_message("Error opening lock file: $!");
+        }
+        else {
+            my @lines = <$FILE>;
+            if ( $lines[0] =~ / \A (\d+) \n* \z /xms ) {
+                my $old_pid = $1;
+                system 'kill', '-0', $old_pid;
+                if ( $g_child_status != 0 ) {
+
+                    # Process is not running
+                    log_message('Clearing shared memory block from lock file');
+                    if ( $lines[$#lines] =~ / \A \s* \d+ \s+ \d+ \s* \n* \z /xms ) {
+                        my $out = q{};
+                        for ( my $i = 0; $i < $#lines - 1; $i++ ) {
+                            $out .= $lines[$i];
+                        }
+                        if ( !seek $FILE, 0, 0 ) {
+                            log_message("Error, seek: $!");
+                            return 1;
+                        }
+                        print $FILE $out;
+                        truncate $FILE, tell($FILE);
+                    }
+                }
+            }
+            close $FILE;
+        }
+    }
+
+    # Clean up any stale socket files
+    my $SOCK_DIR;
+    if ( !opendir $SOCK_DIR, $g_postgres_socket_directory ) {
+        log_message("Cannot open socket directory: $!");
+        return 1;
+    }
+    my @files = readdir $SOCK_DIR;
+    closedir $SOCK_DIR;
+
+    foreach my $file (@files) {
+        if ( $file eq '.' || $file eq '..' ) {
+            next;
+        }
+        log_message("Found stale file in socket directory, removing it: $file");
+        if ( !unlink $g_postgres_socket_directory . "/$file" ) {
+            log_message("Failed to delete stale file: $!");
+        }
+    }
+
+FORK: {
+        my $pid;
+        if ( $pid = fork ) {
+            $g_postgres_proccess_pid = $pid;
+        }
+        elsif ( defined $pid ) {
+            exec $POSTGRES_PATH, @g_argv;
+        }
+        elsif ( $! == EAGAIN ) {
+            sleep 5;
+            redo FORK;
+        }
+        else {
+            log_message("Fork error: $!");
+            return 1;
+        }
+    }
+    my $success = 0;
+    for ( 1 .. 30 ) {
+        if ( !opendir $SOCK_DIR, $g_postgres_socket_directory ) {
+            log_message("Cannot open socket directory: $!");
+            return 1;
+        }
+        my @files = readdir $SOCK_DIR;
+        closedir $SOCK_DIR;
+
+        my $arr_size = @files;
+        if ( $arr_size > 2 ) {    # more than just '.' and '..'
+            $success = 1;
+            last;
+        }
+        if ($g_debug_enabled) {
+            log_message('Waiting for postgres socket file to be created...');
+        }
+        sleep 1;
+    }
+    if ( !$success ) {
+        log_message('Could not determine if postgres is running successfully, giving up');
+        return 1;
+    }
+
+    touch_dotfile();
+
+    return 0;
+}
+
+#############################################################################
+sub stop_postgres {
+    my $signal = shift;
+    if ( !defined $signal ) {
+        $signal = 'TERM';
+    }
+
+    # Disconnect any connected clients before sending a kill signal
+    my $sql = 'SELECT pid, (SELECT pg_terminate_backend(pid)) as killed from '
+        . "pg_stat_activity WHERE state LIKE 'idle';";
+    system $PSQL_PATH, '-q', '-h', $g_postgres_socket_directory, '-d', 'postgres', '-c', $sql;
+
+    if ( ( !defined $g_postgres_proccess_pid ) || $g_postgres_proccess_pid == 0 ) {
+        log_message('postgres appears to already be stopped.');
+        return;
+    }
+
+    if ( defined $g_postgres_proccess_pid && $g_postgres_proccess_pid != 0 ) {
+        kill $signal, $g_postgres_proccess_pid;
+    }
+
+    my $postgres_pid_path = $g_postgres_data_directory . '/postmaster.pid';
+    my $success           = 0;
+
+    # launchd is configured to wait 60 seconds before sending a SIGKILL to us,
+    # so allow up to 50 seconds for a "smart" shutdown, but send a SIGINT for
+    # a "fast" shutdown if that fails.
+    for ( 1 .. 50 ) {
+        if ( $g_postgres_proccess_pid == 0 ) {
+            last;
+        }
+
+        my $pid = waitpid $g_postgres_proccess_pid, WNOHANG;
+        if ( $pid == $g_postgres_proccess_pid ) {
+            $g_postgres_proccess_pid = 0;
+            last;
+        }
+
+        sleep 1;
+    }
+
+    if ( $g_postgres_proccess_pid > 0 ) {
+        kill 'INT', $g_postgres_proccess_pid;
+        $g_postgres_proccess_pid = 0;
+    }
+
+    return;
+}
+
+#############################################################################
+sub sighup_postgres {
+    if ( defined $g_postgres_proccess_pid && $g_postgres_proccess_pid != 0 ) {
+        kill 'HUP', $g_postgres_proccess_pid;
+    }
+}
+
+#############################################################################
+# Returns 1 if postgres is running, 0 if not running.
+sub postgres_is_running {
+    my $postgres_pid_path = $g_postgres_data_directory . '/postmaster.pid';
+    my $FILE;
+    if ( !-e $postgres_pid_path ) {
+        return 0;
+    }
+
+    if ( !open $FILE, '+<', $postgres_pid_path ) {
+        log_message("Error opening lock file: $!");
+        return -1;
+    }
+
+    my @lines = <$FILE>;
+    if ( $lines[0] =~ / \A (\d+) \n* \z /xms ) {
+        my $old_pid = $1;
+        close $FILE;
+        system 'kill', '-0', $old_pid;
+        if ( $g_child_status != 0 ) {
+            
+            # Process is not running
+            return 0;
+        }
+        else {
+            return 1;
+        }
+    }
+}
+
+#############################################################################
+# Authentication configuration file operations
+#############################################################################
+
+#############################################################################
+# Restrict postgres connections via pg_hba.conf
+sub enable_connection_restriction {
+
+    # Disable any non-replication line in pg_hba.conf
+    my $FILE;
+    if ( !open $FILE, '+<', $g_postgres_data_directory . '/pg_hba.conf' ) {
+        log_message("Error opening pg_hba.conf to restrict connections: $!");
+        return 1;
+    }
+    if ( !flock $FILE, LOCK_EX ) {
+        log_message("Error getting lock for file pg_hba.conf: $!");
+        return 1;
+    }
+    my $updated_file = 0;
+    my $out;
+    while (<$FILE>) {
+        if ( $_ =~ / \# /xms ) {
+            $out .= $_;
+        }
+        elsif ( $_ =~ / \A (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s* (\S*) \s* \n \z /xms ) {
+            my ( $type, $database, $user ) = ( $1, $2, $3 );
+            my ( $address, $method );
+            if ( $5 ne q{} ) {
+                ( $address, $method ) = ( $4, $5 );
+            }
+            else {
+                $method = $4;
+            }
+            if ( $database eq 'replication' ) {
+                $out .= $_;
+                next;
+            }
+            else {
+                my $line = $_;
+                chomp $line;
+                $out .= '#' . $line . "    # UPDATED BY xpostgres\n";
+                $updated_file = 1;
+            }
+        }
+        else {
+            $out .= $_;
+        }
+    }
+
+    if ($updated_file) {
+        if ( !seek $FILE, 0, 0 ) {
+            log_message("Error writing pg_hba.conf: $!");
+            return 1;
+        }
+        print $FILE $out;
+        truncate $FILE, tell($FILE);
+    }
+    close $FILE;
+
+    return 0;
+}
+
+#############################################################################
+sub disable_connection_restriction {
+
+    # Enable any lines in pg_hba.conf that we previously disabled
+    my $FILE;
+    if ( !open $FILE, '+<', $g_postgres_data_directory . '/pg_hba.conf' ) {
+        log_message("Error opening pg_hba.conf to allow connections: $!");
+        return 1;
+    }
+    if ( !flock $FILE, LOCK_EX ) {
+        log_message("Error getting lock for file pg_hba.conf: $!");
+        return 1;
+    }
+    my $updated_file = 0;
+    my $out;
+    while (<$FILE>) {
+        if ( $_ =~ / \A \# \s* .+ \s* \# \s UPDATED \s BY \s xpostgres \n \z /xms ) {
+            my $line = $_;
+            $line =~ s/ \A \# //xms;
+            $line =~ s/\s*# UPDATED BY xpostgres//ms;
+            $out .= $line;
+            $updated_file = 1;
+        }
+        else {
+            $out .= $_;
+        }
+    }
+    if ($updated_file) {
+        if ( !seek $FILE, 0, 0 ) {
+            log_message("Error writing pg_hba.conf: $!");
+            return 1;
+        }
+        print $FILE $out;
+        truncate $FILE, tell($FILE);
+    }
+    close $FILE;
+
+    return 0;
+}
+
+#############################################################################
+# Takes one argument: 0 to disable archiving, 1 to enable archiving.  h
+sub toggle_wal_archiving_state {
+    my $enable_wal_archiving = shift;
+    if ( !( ( $enable_wal_archiving == 0 ) || ( $enable_wal_archiving == 1 ) ) ) {
+        return 1;
+    }
+
+    if ($enable_wal_archiving) {
+
+        # Enable local connections for replication (update pg_hba.conf)
+        my $FILE;
+        if ( !open $FILE, '+<', $g_postgres_data_directory . '/pg_hba.conf' ) {
+            log_message("Error opening pg_hba.conf to enable replication connections: $!");
+            return 1;
+        }
+        if ( !flock $FILE, LOCK_EX ) {
+            log_message("Error getting lock for file pg_hba.conf: $!");
+            return 1;
+        }
+        my $replication_enabled = 0;
+        while (<$FILE>) {
+            if ( $_ =~ /^ \# /xms ) {
+                next;
+            }
+            if ( $_ =~ /\A (\S+) \s+ (\S+) \s+ (\S+) \s+ (\S+) \s* (\S*) \z/xms ) {
+                my ( $type, $database, $user ) = ( $1, $2, $3 );
+                my ( $address, $method ) = q{};    # empty string
+                if ( $5 ne q{} ) {
+                    ( $address, $method ) = ( $4, $5 );
+                }
+                else {
+                    $method = $4;
+                }
+                if (   $type eq 'local'
+                    && $database eq 'replication'
+                    && $address  eq q{}
+                    && $method   eq 'trust' )
+                {
+                    $replication_enabled = 1;
+                    next;
+                }
+            }
+        }
+        if ( !$replication_enabled ) {
+            if ( !seek $FILE, 0, 2 ) {
+                log_message("Error updating file pg_hba.conf: $!");
+                return 1;
+            }
+            print $FILE "local   replication     _postgres                                trust\n";
+        }
+        close $FILE;
+    }
+
+    # Update postgresql.conf
+    # postgres must be restarted for the changes to go into effect.
+    my $out;
+    my $FILE;
+    if ( !open $FILE, '+<', $g_postgres_data_directory . '/postgresql.conf' ) {
+        log_message("Error opening file at path $g_postgres_data_directory/postgresql.conf: $!");
+        return 1;
+    }
+    if ( !flock $FILE, LOCK_EX ) {
+        log_message("Error getting lock for file postgresql.conf: $!");
+        return 1;
+    }
+    my $archive_mode;
+    my $archive_command;
+    my $max_wal_senders;
+    my $wal_level;
+    while (<$FILE>) {
+        my $line = $_;
+        if ( $line =~ / \A \s* (\#*) archive_mode \s* = \s* (.*) (.*\n) \z /xms ) {
+            if ( defined $archive_mode ) {
+                log_message(
+                    'Warning: found multiple occurrences of "archive_mode" in postgresql.conf');
+                next;
+            }
+            $archive_mode = $2;
+            my $trailer = $3;
+            my $enabled;
+            if ( $1 =~ / \# /xms ) {
+                $enabled = 0;
+            }
+            else {
+                $enabled = 1;
+            }
+
+            if ( ( $enabled == 0 ) && $enable_wal_archiving ) {
+                $out .= 'archive_mode = on' . $trailer;
+            }
+            elsif ( ( $enabled == 1 ) && ( !$enable_wal_archiving ) ) {
+                $out .= '#archive_mode = off' . $trailer;
+            }
+            else {
+                $out .= $line;
+            }
+        }
+        elsif ( $line =~ / \A \s* (\#*) archive_command \s* = \s* ['"] (.*) ['"] (.*\n) \z /xms ) {
+            if ( defined $archive_command ) {
+                log_message( 'Warning: found multiple occurrences of '
+                        . '"archive_command" in postgresql.conf' );
+                next;
+            }
+            $archive_command = $2;
+            my $trailer = $3;
+            my $enabled;
+            if ( $1 =~ / \# /xms ) {
+                $enabled = 0;
+            }
+            else {
+                $enabled = 1;
+            }
+
+            if ( ( $enabled == 0 ) && $enable_wal_archiving ) {
+                my $postgres_data_directory = escape_string_for_shell($g_postgres_data_directory);
+                my $archived_logs_directory = escape_string_for_shell($g_archived_logs_directory);
+                my $command = "\'$ARCHIVE_COMMAND_PATH -D \"$postgres_data_directory\" "
+                    . "-w \"$archived_logs_directory\" -f %f\'";
+
+                $out .= 'archive_command = ' . $command . $trailer;
+            }
+            elsif ( ( $enabled == 1 ) && ( !$enable_wal_archiving ) ) {
+                $out .= '#archive_command = \'\'' . $trailer;
+            }
+            else {
+                $out .= $line;
+            }
+        }
+        elsif ( $line =~ / \A \s* (\#*) max_wal_senders \s* = \s* (\d+) (.*\n) \z /xms ) {
+            if ( defined $max_wal_senders ) {
+                log_message( 'Warning: found multiple occurrences of '
+                        . '"max_wal_senders" in postgresql.conf' );
+                next;
+            }
+            $max_wal_senders = $2;
+            my $trailer = $3;
+            my $enabled;
+            if ( $1 =~ / \# /xms ) {
+                $enabled = 0;
+            }
+            else {
+                $enabled = 1;
+            }
+
+            if ( ( $enabled == 0 ) && $enable_wal_archiving ) {
+                $out .= 'max_wal_senders = ' . $MAX_WAL_SENDERS . $trailer;
+            }
+            elsif ( ( $enabled == 1 ) && ( !$enable_wal_archiving ) ) {
+                $out .= '#max_wal_senders = 0' . $trailer;
+            }
+            else {
+                $out .= $line;
+            }
+        }
+        elsif ( $line =~ / \A \s* (\#*) wal_level \s* = \s* (\S+) (.*\n) \z /xms ) {
+            if ( defined $wal_level ) {
+                log_message(
+                    'Warning: found multiple occurrences of "wal_level" in postgresql.conf');
+                next;
+            }
+            $wal_level = $2;
+            my $trailer = $3;
+            my $enabled;
+            if ( $1 =~ / \# /xms ) {
+                $enabled = 0;
+            }
+            else {
+                $enabled = 1;
+            }
+
+            if ( ( $enabled == 0 ) && $enable_wal_archiving ) {
+                $out .= 'wal_level = archive' . $trailer;
+            }
+            elsif ( ( $enabled == 1 ) && ( !$enable_wal_archiving ) ) {
+                $out .= '#wal_level = minimal' . $trailer;
+            }
+            else {
+                $out .= $line;
+            }
+        }
+        else {
+            $out .= $line;
+        }
+    }
+
+    if (!(     defined $archive_command
+            && defined $max_wal_senders
+            && defined $wal_level
+            && defined $archive_mode
+        )
+        )
+    {
+        log_message( 'Error: could not successfully parse postgresql.conf '
+                . 'in order to enable WAL archiving' );
+        return 1;
+    }
+
+    if ( !seek $FILE, 0, 0 ) {
+        log_message("Error writing postgresql.conf: $!");
+        return 1;
+    }
+
+    print $FILE $out;
+    truncate $FILE, tell($FILE);
+    close $FILE;
+
+    return 0;
+}
+
+#############################################################################
+sub touch_dotfile {
+    my $dotfile = $g_postgres_data_directory . q{/} . $RESTORE_ON_ABSENCE_FILE;
+    if ( -e $dotfile ) {
+        my $now = time;
+        utime $now, $now, $dotfile;
+    }
+    else {
+        my $FILE;
+        if ( !open $FILE, '>', $dotfile ) {
+            log_message("Error opening dotfile for creation: $!");
+        }
+        else {
+            close $FILE;
+            system $TMUTIL_PATH, 'addexclusion', $dotfile;
+            if ( $g_child_status != 0 ) {
+                log_message("Warning: tmutil appears to have failed: $g_child_status");
+            }
+        }
+    }
+}
+
+#############################################################################
+sub do_backup {
+    my $backup_zip_file
+        = $g_archived_logs_directory . q{/} . $BACKUP_DIRECTORY_NAME . q{/} . $BACKUP_ZIP_FILE_NAME;
+
+    # Determine if it is time to do a new complete backup
+    if ( -e $backup_zip_file ) {
+        my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = localtime;
+        my $now = timelocal( $sec, $min, $hour, $mday, $mon, $year );
+        my ($dev,  $ino,   $mode,  $nlink, $uid,     $gid, $rdev,
+            $size, $atime, $mtime, $ctime, $blksize, $blocks
+        ) = stat $backup_zip_file;
+        my $maximum_file_age_secs = $SECONDS_PER_DAY / $NUM_COMPLETE_BACKUPS_PER_DAY;
+        if ( ( $now - $mtime ) < $maximum_file_age_secs ) {
+
+            # It's too soon for another complete backup
+            return 0;
+        }
+    }
+
+    if ( !-e $g_postgres_data_directory ) {
+        log_message('Error: missing postgres data directory for backup');
+        return 1;
+    }
+
+    # If a temp file already exists, get rid of it, or pg_basebackup will fail
+    my $temp_backup_file
+        = $g_archived_logs_directory . q{/}
+        . $BACKUP_DIRECTORY_NAME . q{/}
+        . $BACKUP_TEMP_FILE_NAME;
+    if ( -e $temp_backup_file ) {
+        if ( !unlink $temp_backup_file ) {
+            log_message("Error unlinking temporary backup zip file: $!");
+            return 1;
+        }
+    }
+
+    # Delete the outdated file, otherwise pg_basebackup will fail.
+    if ( -e $backup_zip_file ) {
+        if ( !unlink $backup_zip_file ) {
+            log_message("Error unlinking backup zip file: $!");
+            return 1;
+        }
+    }
+
+    # Make a list of WAL files to delete after backup succeeds.
+    # XXX Instead of basing the list on file creation times, it would be
+    # best to untar the base backup, check the backup_label file, and base
+    # deletion on the START WAL LOCATION.  However, this could use a lot of
+    # space.
+    my $LOG_DIR;
+    if ( !opendir $LOG_DIR, $g_archived_logs_directory ) {
+        log_message("Cannot open transaction log directory: $!");
+        return 1;
+    }
+    my @files = readdir $LOG_DIR;
+    closedir $LOG_DIR;
+
+    my %file_create_times;
+    foreach my $file (@files) {
+
+        # Ignore directories - this skips '.' and '..' as well as backup directories created
+        # by pg_basebackup
+        if ( -d "$g_archived_logs_directory/$file" ) {
+            next;
+        }
+
+        # Delete all but the past few log files.  When pg_basebackup is run,
+        # postgres may request to archive the most recent file, at least.
+        my ($dev,  $ino,   $mode,  $nlink, $uid,     $gid, $rdev,
+            $size, $atime, $mtime, $ctime, $blksize, $blocks
+        ) = stat "$g_archived_logs_directory/$file";
+        $file_create_times{$file} = $ctime;
+    }
+
+    system $PG_BASEBACKUP_PATH, '-Ft', '-z', '-h', $g_postgres_socket_directory, '-D',
+        "$g_archived_logs_directory/$BACKUP_DIRECTORY_NAME";
+    if ( !-e $temp_backup_file || $g_child_status != 0 ) {
+        log_message("Error executing pg_basebackup: $g_child_status");
+        return 1;
+    }
+
+    my $FILE;
+    if ( !open $FILE, '+<', $temp_backup_file ) {
+        log_message("Error: Can't open file to flush: $!\n");
+        return 1;
+    }
+
+    my $return_buffer = q{};
+    if ( !fcntl $FILE, 51, $return_buffer ) {    # F_FULLFSYNC
+        log_message("Error flushing pg_basebackup output file to disk: $!");
+        return 1;
+    }
+
+    close $temp_backup_file;
+
+    if ( !rename $temp_backup_file, $backup_zip_file ) {
+        log_message("Error renaming temp backup file: $!");
+    }
+
+# Clean up all of the log files that existed before backup, except for the last few in case they are
+# needed later.
+# Sort matched files by file creation time in ascending order
+    my @sorted_files
+        = sort { $file_create_times{$a} <=> $file_create_times{$b} } keys %file_create_times;
+    my $arr_size = @sorted_files;
+    for ( my $i = 0; $i < ( $arr_size - 4 ); $i++ ) {
+        if ( !unlink $g_archived_logs_directory . q{/} . $sorted_files[$i] ) {
+            log_message(
+                "Warning: failed to delete WAL file $g_archived_logs_directory/$sorted_files[$i]: $!"
+            );
+        }
+    }
+
+    return 0;
+}
+
+#############################################################################
+sub do_restore {
+    my $backup_zip_file
+        = $g_archived_logs_directory . q{/} . $BACKUP_DIRECTORY_NAME . q{/} . $BACKUP_ZIP_FILE_NAME;
+
+    if ( !-e $backup_zip_file ) {
+        if ( $g_debug_enabled ) {
+            log_message("Could not find a backup to restore at $backup_zip_file");
+        }
+        return 1;
+    }
+
+    if ( -e $g_postgres_data_directory ) {
+        log_message('Moving aside previous data directory.');
+        if ( -e $g_postgres_data_directory . '.previous' ) {
+            if ( !rmtree $g_postgres_data_directory . '.previous' ) {
+                log_message("Error deleting previous data directory: $!");
+                return 1;
+            }
+        }
+        if ( !rename $g_postgres_data_directory, $g_postgres_data_directory . '.previous' ) {
+            log_message("Error moving aside previous data directory: $!");
+            return 1;
+        }
+    }
+
+    if ( !mkdir $g_postgres_data_directory, 0700 ) {
+        log_message("Error: could not create data directory: $!");
+        return 1;
+    }
+
+    # Unpack our backup file
+    system $GNUTAR_PATH, '-xz', '-f', $backup_zip_file, '-C', $g_postgres_data_directory;
+    if ( $g_child_status != 0 ) {
+        log_message("gnutar returned error: $g_child_status");
+        return 1;
+    }
+
+    # Remove any existing recovery.done file
+    if ( -e $g_postgres_data_directory . '/recovery.done' ) {
+        if ( !unlink $g_postgres_data_directory . '/recovery.done' ) {
+            log_message("Error deleting recovery.done: $!");
+
+            # We depend on this file later so continuing causes a race condition.
+            return 1;
+        }
+    }
+
+    # Remove any existing dotfile
+    if ( -e $g_postgres_data_directory . q{/} . $RESTORE_ON_ABSENCE_FILE ) {
+        if ( !unlink $g_postgres_data_directory . q{/} . $RESTORE_ON_ABSENCE_FILE ) {
+            log_message("Error removing $RESTORE_ON_ABSENCE_FILE: $!");
+
+            # This will break future restores.
+            return 1;
+        }
+    }
+
+    # Create a recovery.conf file
+    my $archived_logs_directory = escape_string_for_shell($g_archived_logs_directory);
+    my $restore_command = "restore_command = \'/bin/cp \"$archived_logs_directory/%f\" %p\'";
+    my $FILE;
+    if ( !open $FILE, '>', $g_postgres_data_directory . '/recovery.conf' ) {
+        log_message("Error writing a recovery.conf file: $!");
+        return 1;
+    }
+    print $FILE "$restore_command\n";
+    close $FILE;
+
+    # Disallow client connections for now
+    enable_connection_restriction();
+
+    # Disable WAL archiving if it is enabled in the restored backup cluster
+    toggle_wal_archiving_state(0);
+
+    my $original_working_directory = Cwd::abs_path();
+    if ( !chdir $g_archived_logs_directory ) {
+        log_message("chdir error: $!");
+    }
+
+    log_message('Starting postgres for restore...');
+
+    if ( start_postgres() == 0 ) {
+        while (1) {
+
+            # XXX: Is there any chance that this could hang indefinitely?
+            if ( -e $g_postgres_data_directory . '/recovery.done' ) {
+                log_message('Postgres recovery completed: recovery.done found');
+                last;
+            }
+            my $output = `$PG_CTL_PATH status -D "$g_postgres_data_directory"`;
+            if ( $output !~ /server is running/ ) {
+                log_message('Postgres recovery completed: pg_ctl status shows server not running');
+                last;
+            }
+            sleep 1;
+        }
+    }
+
+    stop_postgres();
+
+    if ( !chdir $original_working_directory ) {
+        log_message("chdir error: $!");
+    }
+
+    disable_connection_restriction();
+
+    return 0;
+}
+
+#############################################################################
+# Utilities
+#############################################################################
+
+#############################################################################
+sub usage {
+    print "$MY_NAME : Apple wrapper for postgres with WAL archive management.\n";
+    print "\tThis tool is a wrapper for postgres that enables archive\n";
+    print "\tlevel WAL logging and handles backups and restores.\n";
+    print "\tIt is intended to be invoked via pg_ctl.\n";
+    print "\tThis is not intended for direct use by customers.\n";
+    print "\n";
+    print "Usage:\n";
+    print "\t$MY_NAME [args to be forwarded to the real postgres]\n";
+    print "\t$MY_NAME -a <path> [args to be forwarded to the real postgres]\n";
+    print "\tOptions:\n";
+    print "\t-a <path>: Specify a .plist containing an array of arguments\n";
+    print "\t           that will be forwarded to postgres, in lieu of or\n";
+    print "\t           in addition to other command line arguments.\n";
+    print "\n";
+}
+
+#############################################################################
+sub timestamp {
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = localtime;
+    $year += 1900;
+    $mon  += 1;
+    if ( $mday =~ / \A \d \z /xms ) { $mday = '0' . $mday; }
+    if ( $mon  =~ / \A \d \z /xms ) { $mon  = '0' . $mon; }
+    if ( $hour =~ / \A \d \z /xms ) { $hour = '0' . $hour; }
+    if ( $min  =~ / \A \d \z /xms ) { $min  = '0' . $min; }
+    if ( $sec  =~ / \A \d \z /xms ) { $sec  = '0' . $sec; }
+
+    my $ret = "$year-$mon-$mday $hour:$min:$sec";
+
+    return $ret;
+}
+
+#############################################################################
+sub log_message {
+
+    # We currently output only to STDOUT / STDERR and launchd is configured
+    # to redirect this to the postgres log.
+    print timestamp() . q{ } . $MY_NAME . ": @_\n";
+
+    return 0;
+}
+
+#############################################################################
+sub handle_signal {
+    $g_kill_signal = shift;
+}
+
+#############################################################################
+sub reaper {
+    my $pid;
+    while ( ( $pid = waitpid -1, WNOHANG ) > 0 ) {
+        if ( $pid == -1 ) {
+            next;
+        }
+        elsif ( defined $g_postgres_proccess_pid && $g_postgres_proccess_pid == $pid ) {
+            if ($g_debug_enabled) {
+                log_message('postgres child has died');
+            }
+            $g_postgres_proccess_pid = 0;
+        }
+        else {
+            $g_child_status = $? >> 8;
+        }
+    }
+    $SIG{CHLD} = \&reaper;
+}
+
+#############################################################################
+# Main
+#############################################################################
+
+if ( $< == 0 ) {
+    print "postgres will not run as root.  Try using a different user account.\n";
+    usage();
+    exit 1;
+}
+
+STDERR->autoflush(1);
+STDOUT->autoflush(1);
+
+# We want to allow for the data directory and socket directory to be specified in
+# a number of supported ways:
+# A. on the command-line as -D, -k
+# B. PGDATA may be defined in the environment
+# C. unix_socket_directory may be specified on the command-line
+# D. we support loading postgres args from a file, so they may be there
+
+@g_argv = @ARGV;
+our ( $opt_D, $opt_k );
+getopt('D:k:');
+
+# Try to find where the data directory has been specified
+if ( defined $opt_D ) {
+    $g_postgres_data_directory = $opt_D;
+}
+else {
+
+    # check environment for PGDATA and set the data directory if found
+    if ( defined $ENV{PGDATA} ) {
+        $g_postgres_data_directory = $ENV{PGDATA};
+    }
+}
+
+# Try to find where the socket directory has been specified
+$g_postgres_socket_directory = $DEFAULT_SOCKET_DIR;
+if ( defined $opt_k ) {
+    $g_postgres_socket_directory = $opt_k;
+}
+else {
+    my $arr_size = @g_argv;
+    for ( my $i = 0; $i < $arr_size; $i++ ) {
+        if ( $g_argv[$i] eq '-c' ) {
+            if ( $g_argv[ $i + 1 ] =~ /unix_socket_directory=(.+)/ ) {
+                $g_postgres_socket_directory = $1;
+            }
+            elsif ( $g_argv[ $i + 1 ] =~ /log_directory=(.+)/ ) {
+                $g_postgres_log_directory = $1;
+            }
+        }
+        elsif ( $g_argv[$i] eq '-a' ) {
+
+            # This is where the config options for "server services" cluster managed by
+            # servermgr_postgres_server are found.
+            # Note '-a' is not a currently support postgres option, so we can use it.
+            # TODO: Remove this and fix the code that uses it to pass options directly.
+            $g_apple_configuration = $g_argv[ $i + 1 ];
+
+            # We don't want to pass this on to postgres
+            splice @g_argv, $i, 2;
+            if ( ( $i - 2 ) == -2 ) {
+                $i -= 1;
+            }
+            else {
+                $i -= 2;
+            }
+            $arr_size -= 2;
+        }
+    }
+}
+
+# Load postgres arguments from file if it has been specified
+if ( defined $g_apple_configuration && $g_apple_configuration ne q{} ) {
+    if ( !-e $g_apple_configuration ) {
+        log_message('Error: received -a but could not find specified file');
+        exit 1;
+    }
+
+    # XXX: It would be better to use Foundation here.  Or not even have this option.
+    my @lines = `$PLIST_BUDDY -c 'Print :ProgramArguments' "$g_apple_configuration"`;
+
+    # Skipping the first and last lines, which specify the class type.
+    for ( my $i = 1; $i < $#lines; $i++ ) {
+
+        # Append the args to the list that we will past to postgres
+        if ( $lines[$i] =~ / \A \s* (.+?) \s* \z /xms ) {
+            push @g_argv, $1;
+        }
+
+        # Look for the specifiers that we care about
+        if ( $lines[$i] =~ /\A \s* unix_socket_directory=(.+?) \s* \z /xms ) {
+            $g_postgres_socket_directory = $1;
+        }
+        elsif (( $lines[$i] =~ / \A \s* -k \s* \z /xms )
+            && ( $lines[ $i + 1 ] =~ / \A \s* (.+?) \s* \z /xms ) )
+        {
+            $g_postgres_socket_directory = $1;
+        }
+        elsif (( $lines[$i] =~ / \A \s* -D \s* \z /xms )
+            && ( $lines[ $i + 1 ] =~ / \A \s* (.+?) \s* \z /xms ) )
+        {
+            $g_postgres_data_directory = $1;
+        }
+        elsif ( $lines[$i] =~ /\A \s* log_directory=(.+?) \s* \z /xms ) {
+            $g_postgres_log_directory = $1;
+        }
+    }
+}
+
+# Create the log directory if it has been specified
+if ( defined $g_postgres_log_directory && $g_postgres_log_directory ne q{} ) {
+    if ( !-e $g_postgres_log_directory ) {
+        if ( !mkdir $g_postgres_log_directory, 0755 ) {
+            log_message("Could not create log directory: $!");
+            return 1;
+        }
+    }
+}
+
+if ( $g_postgres_data_directory eq q{} || $g_postgres_socket_directory eq q{} ) {
+    log_message('Error: missing required argument.');
+    exit 1;
+}
+
+# Determine our WAL file directory based on the data directory path
+my $base_name     = basename($g_postgres_data_directory);
+my $data_dir_name = dirname($g_postgres_data_directory);
+
+$g_archived_logs_directory = $data_dir_name . q{/} . 'backup';
+
+if ( postgres_is_running() ) {
+    log_message('Postgres is already running using the specified socket directory, exiting.');
+    exit 1;
+}
+
+if ( !-e $g_archived_logs_directory ) {
+    if ( !mkdir $g_archived_logs_directory, 0700 ) {
+        log_message("mkdir failed for WAL file directory $g_archived_logs_directory: $!");
+        exit 1;
+    }
+}
+
+if ( !-e $g_postgres_data_directory . q{/} . $RESTORE_ON_ABSENCE_FILE ) {
+    if ( !( do_restore() == 0 ) ) {
+        if ( !-e $g_postgres_data_directory ) {
+            log_message('Error: Restore failed and we are missing the data directory');
+            exit 1;
+        }
+    }
+}
+
+# Exclude our data directory from Time Machine backups
+system $TMUTIL_PATH, 'addexclusion', $g_postgres_data_directory;
+if ( $g_child_status != 0 ) {
+    log_message("Warning: tmutil appears to have failed: $g_child_status");
+}
+
+# Ensure that WAL archiving has been enabled.
+toggle_wal_archiving_state(1);
+
+log_message('Starting up');
+if ( !( start_postgres() == 0 ) ) {
+    log_message('Could not start postgres.');
+    exit 1;
+}
+log_message('PostgreSQL started.');
+
+my $previous_heartbeat = 0;
+while (1) {
+    if ( $g_kill_signal ne q{} ) {
+        if ( ( $g_kill_signal eq 'INT' ) || ( $g_kill_signal eq 'TERM' ) ) {
+            log_message("Received signal $g_kill_signal, shutting down");
+            stop_postgres($g_kill_signal);
+            exit 0;
+        }
+        $g_kill_signal = q{};    # empty string
+    }
+
+    if ( $g_postgres_proccess_pid == 0 ) {
+
+        # postgres was seen to be shut down by SIGCHLD handler
+        exit 1;
+    }
+
+    my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = gmtime;
+    my $now = timegm( $sec, $min, $hour, $mday, $mon, $year );
+    if ( ( $now - $previous_heartbeat ) >= $HEARTBEAT_SECS ) {
+        do_backup();
+
+        ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = gmtime;
+        $previous_heartbeat = timegm( $sec, $min, $hour, $mday, $mon, $year );
+    }
+    sleep 1;
+}
+
+exit 0;
+
+#############################################################################
+# This is out of place for XCode
+sub escape_string_for_shell {
+    my $string = shift;
+    $string =~ s/([;<>\*\|`&\$!#\(\)\[\]\{\}:'"])/\\$1/g;
+    return $string;
+}

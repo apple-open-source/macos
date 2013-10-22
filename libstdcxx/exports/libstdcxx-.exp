@@ -3245,6 +3245,34 @@ ___cxa_vec_new3
 ___dynamic_cast
 ___gxx_personality_v0
 
+__ZNSt11range_errorD0Ev
+__ZNSt11range_errorD1Ev
+__ZNSt11range_errorD2Ev
+
+__ZNSt12domain_errorD0Ev
+__ZNSt12domain_errorD1Ev
+__ZNSt12domain_errorD2Ev
+
+__ZNSt12length_errorD0Ev
+__ZNSt12length_errorD1Ev
+__ZNSt12length_errorD2Ev
+
+__ZNSt12out_of_rangeD0Ev
+__ZNSt12out_of_rangeD1Ev
+__ZNSt12out_of_rangeD2Ev
+
+__ZNSt14overflow_errorD0Ev
+__ZNSt14overflow_errorD1Ev
+__ZNSt14overflow_errorD2Ev
+
+__ZNSt15underflow_errorD0Ev
+__ZNSt15underflow_errorD1Ev
+__ZNSt15underflow_errorD2Ev
+
+__ZNSt16invalid_argumentD0Ev
+__ZNSt16invalid_argumentD1Ev
+__ZNSt16invalid_argumentD2Ev
+
 
 #
 # The following symbols where exported from libstdc++.6.dylib in MacOSX 10.6

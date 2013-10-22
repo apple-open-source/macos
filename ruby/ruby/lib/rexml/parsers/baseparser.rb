@@ -25,15 +25,21 @@ module REXML
     #
     # Nat Price gave me some good ideas for the API.
     class BaseParser
-      NCNAME_STR= '[\w:][\-\w\d.]*'
+      LETTER = '[:alpha:]'
+      DIGIT = '[:digit:]'
+
+      COMBININGCHAR = '' # TODO
+      EXTENDER = ''      # TODO
+
+      NCNAME_STR= "[#{LETTER}_:][-[:alnum:]._:#{COMBININGCHAR}#{EXTENDER}]*"
       NAME_STR= "(?:(#{NCNAME_STR}):)?(#{NCNAME_STR})"
       UNAME_STR= "(?:#{NCNAME_STR}:)?#{NCNAME_STR}"
 
-      NAMECHAR = '[\-\w\d\.:]'
+      NAMECHAR = '[\-\w\.:]'
       NAME = "([\\w:]#{NAMECHAR}*)"
       NMTOKEN = "(?:#{NAMECHAR})+"
       NMTOKENS = "#{NMTOKEN}(\\s+#{NMTOKEN})*"
-      REFERENCE = "(?:&#{NAME};|&#\\d+;|&#x[0-9a-fA-F]+;)"
+      REFERENCE = "&(?:#{NAME};|#\\d+;|#x[0-9a-fA-F]+;)"
       REFERENCE_RE = /#{REFERENCE}/
 
       DOCTYPE_START = /\A\s*<!DOCTYPE\s/um
@@ -53,7 +59,7 @@ module REXML
 
       VERSION = /\bversion\s*=\s*["'](.*?)['"]/um
       ENCODING = /\bencoding\s*=\s*["'](.*?)['"]/um
-      STANDALONE = /\bstandalone\s*=\s["'](.*?)['"]/um
+      STANDALONE = /\bstandalone\s*=\s*["'](.*?)['"]/um
 
       ENTITY_START = /^\s*<!ENTITY/
       IDENTITY = /^([!\*\w\-]+)(\s+#{NCNAME_STR})?(\s+["'](.*?)['"])?(\s+['"](.*?)["'])?/u
@@ -92,11 +98,11 @@ module REXML
 
       EREFERENCE = /&(?!#{NAME};)/
 
-      DEFAULT_ENTITIES = { 
-        'gt' => [/&gt;/, '&gt;', '>', />/], 
-        'lt' => [/&lt;/, '&lt;', '<', /</], 
-        'quot' => [/&quot;/, '&quot;', '"', /"/], 
-        "apos" => [/&apos;/, "&apos;", "'", /'/] 
+      DEFAULT_ENTITIES = {
+        'gt' => [/&gt;/, '&gt;', '>', />/],
+        'lt' => [/&lt;/, '&lt;', '<', /</],
+        'quot' => [/&quot;/, '&quot;', '"', /"/],
+        "apos" => [/&apos;/, "&apos;", "'", /'/]
       }
 
 
@@ -108,22 +114,10 @@ module REXML
 
       def initialize( source )
         self.stream = source
+        @listeners = []
       end
 
       def add_listener( listener )
-        if !defined?(@listeners) or !@listeners
-          @listeners = []
-          instance_eval <<-EOL
-            alias :_old_pull :pull
-            def pull
-              event = _old_pull
-              @listeners.each do |listener|
-                listener.receive event
-              end
-              event
-            end
-          EOL
-        end
         @listeners << listener
       end
 
@@ -167,9 +161,9 @@ module REXML
       # Peek at the +depth+ event in the stack.  The first element on the stack
       # is at depth 0.  If +depth+ is -1, will parse to the end of the input
       # stream and return the last event, which is always :end_document.
-      # Be aware that this causes the stream to be parsed up to the +depth+ 
-      # event, so you can effectively pre-parse the entire document (pull the 
-      # entire thing into memory) using this method.  
+      # Be aware that this causes the stream to be parsed up to the +depth+
+      # event, so you can effectively pre-parse the entire document (pull the
+      # entire thing into memory) using this method.
       def peek depth=0
         raise %Q[Illegal argument "#{depth}"] if depth < -1
         temp = []
@@ -186,6 +180,14 @@ module REXML
 
       # Returns the next event.  This is a +PullEvent+ object.
       def pull
+        pull_event.tap do |event|
+          @listeners.each do |listener|
+            listener.receive event
+          end
+        end
+      end
+
+      def pull_event
         if @closed
           x, @closed = @closed, nil
           return [ :end_element, x ]
@@ -210,7 +212,12 @@ module REXML
             version = version[1] unless version.nil?
             encoding = ENCODING.match(results)
             encoding = encoding[1] unless encoding.nil?
-            @source.encoding = encoding
+            if need_source_encoding_update?(encoding)
+              @source.encoding = encoding
+            end
+            if encoding.nil? and /\AUTF-16(?:BE|LE)\z/i =~ @source.encoding
+              encoding = "UTF-16"
+            end
             standalone = STANDALONE.match(results)
             standalone = standalone[1] unless standalone.nil?
             return [ :xmldecl, version, encoding, standalone ]
@@ -242,12 +249,15 @@ module REXML
             @document_status = :after_doctype
             @source.read if @source.buffer.size<2
             md = @source.match(/\s*/um, true)
+            if @source.encoding == "UTF-8"
+              @source.buffer.force_encoding(::Encoding::UTF_8)
+            end
           end
         end
         if @document_status == :in_doctype
           md = @source.match(/\s*(.*?>)/um)
           case md[1]
-          when SYSTEMENTITY 
+          when SYSTEMENTITY
             match = @source.match( SYSTEMENTITY, true )[1]
             return [ :externalentity, match ]
 
@@ -326,7 +336,7 @@ module REXML
               #md = @source.match_to_consume( '>', CLOSE_MATCH)
               md = @source.match( CLOSE_MATCH, true )
               raise REXML::ParseException.new( "Missing end tag for "+
-                "'#{last_tag}' (got \"#{md[1]}\")", 
+                "'#{last_tag}' (got \"#{md[1]}\")",
                 @source) unless last_tag == md[1]
               return [ :end_element, last_tag ]
             elsif @source.buffer[1] == ?!
@@ -335,6 +345,12 @@ module REXML
               raise REXML::ParseException.new("Malformed node", @source) unless md
               if md[0][2] == ?-
                 md = @source.match( COMMENT_PATTERN, true )
+
+                case md[1]
+                when /--/, /-\z/
+                  raise REXML::ParseException.new("Malformed comment", @source)
+                end
+
                 return [ :comment, md[1] ] if md
               else
                 md = @source.match( CDATA_PATTERN, true )
@@ -353,7 +369,7 @@ module REXML
               unless md
                 # Check for missing attribute quotes
                 raise REXML::ParseException.new("missing attribute quote", @source) if @source.match(MISSING_ATTRIBUTE_QUOTES )
-                raise REXML::ParseException.new("malformed XML: missing tag start", @source) 
+                raise REXML::ParseException.new("malformed XML: missing tag start", @source)
               end
               attributes = {}
               prefixes = Set.new
@@ -362,27 +378,33 @@ module REXML
               if md[4].size > 0
                 attrs = md[4].scan( ATTRIBUTE_PATTERN )
                 raise REXML::ParseException.new( "error parsing attributes: [#{attrs.join ', '}], excess = \"#$'\"", @source) if $' and $'.strip.size > 0
-                attrs.each { |a,b,c,d,e| 
-                  if b == "xmlns"
-                    if c == "xml"
-                      if d != "http://www.w3.org/XML/1998/namespace"
+                attrs.each do |attr_name, prefix, local_part, quote, value|
+                  if prefix == "xmlns"
+                    if local_part == "xml"
+                      if value != "http://www.w3.org/XML/1998/namespace"
                         msg = "The 'xml' prefix must not be bound to any other namespace "+
                         "(http://www.w3.org/TR/REC-xml-names/#ns-decl)"
                         raise REXML::ParseException.new( msg, @source, self )
                       end
-                    elsif c == "xmlns"
+                    elsif local_part == "xmlns"
                       msg = "The 'xmlns' prefix must not be declared "+
                       "(http://www.w3.org/TR/REC-xml-names/#ns-decl)"
                       raise REXML::ParseException.new( msg, @source, self)
                     end
-                    curr_ns << c
-                  elsif b
-                    prefixes << b unless b == "xml"
+                    curr_ns << local_part
+                  elsif prefix
+                    prefixes << prefix unless prefix == "xml"
                   end
-                  attributes[a] = e 
-                }
+
+                  if attributes.has_key?(attr_name)
+                    msg = "Duplicate attribute #{attr_name.inspect}"
+                    raise REXML::ParseException.new(msg, @source, self)
+                  end
+
+                  attributes[attr_name] = value
+                end
               end
-        
+
               # Verify that all of the prefixes have been defined
               for prefix in prefixes
                 unless @nsstack.find{|k| k.member?(prefix)}
@@ -419,6 +441,7 @@ module REXML
         end
         return [ :dummy ]
       end
+      private :pull_event
 
       def entity( reference, entities )
         value = nil
@@ -436,7 +459,7 @@ module REXML
         # Doing it like this rather than in a loop improves the speed
         copy.gsub!( EREFERENCE, '&amp;' )
         entities.each do |key, value|
-          copy.gsub!( value, "&#{key};" ) unless entity_filter and 
+          copy.gsub!( value, "&#{key};" ) unless entity_filter and
                                       entity_filter.include?(entity)
         end if entities
         copy.gsub!( EREFERENCE, '&amp;' )
@@ -452,7 +475,7 @@ module REXML
         rv.gsub!( /\r\n?/, "\n" )
         matches = rv.scan( REFERENCE_RE )
         return rv if matches.size == 0
-        rv.gsub!( /&#0*((?:\d+)|(?:x[a-fA-F0-9]+));/ ) {|m|
+        rv.gsub!( /&#0*((?:\d+)|(?:x[a-fA-F0-9]+));/ ) {
           m=$1
           m = "0#{m}" if m[0] == ?x
           [Integer(m)].pack('U*')
@@ -465,18 +488,22 @@ module REXML
               if entity_value
                 re = /&#{entity_reference};/
                 rv.gsub!( re, entity_value )
+              else
+                er = DEFAULT_ENTITIES[entity_reference]
+                rv.gsub!( er[0], er[2] ) if er
               end
-            end
-          end
-          matches.each do |entity_reference|
-            unless filter and filter.include?(entity_reference)
-              er = DEFAULT_ENTITIES[entity_reference]
-              rv.gsub!( er[0], er[2] ) if er
             end
           end
           rv.gsub!( /&amp;/, '&' )
         end
         rv
+      end
+
+      private
+      def need_source_encoding_update?(xml_declaration_encoding)
+        return false if xml_declaration_encoding.nil?
+        return false if /\AUTF-16\z/i =~ xml_declaration_encoding
+        true
       end
     end
   end

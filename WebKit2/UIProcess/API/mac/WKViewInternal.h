@@ -43,6 +43,7 @@ namespace WebKit {
     class DrawingAreaProxy;
     class FindIndicator;
     class LayerTreeContext;
+    struct ColorSpaceData;
     struct EditorState;
 }
 
@@ -54,19 +55,19 @@ namespace WebKit {
 - (void)_processDidCrash;
 - (void)_pageClosed;
 - (void)_didRelaunchProcess;
+- (void)_preferencesDidChange;
 - (void)_toolTipChangedFrom:(NSString *)oldToolTip to:(NSString *)newToolTip;
 - (void)_setCursor:(NSCursor *)cursor;
 - (void)_setUserInterfaceItemState:(NSString *)commandName enabled:(BOOL)isEnabled state:(int)newState;
 - (BOOL)_interpretKeyEvent:(NSEvent *)theEvent savingCommandsTo:(Vector<WebCore::KeypressCommand>&)commands;
 - (void)_doneWithKeyEvent:(NSEvent *)event eventWasHandled:(BOOL)eventWasHandled;
 - (bool)_executeSavedCommandBySelector:(SEL)selector;
+- (void)_setIntrinsicContentSize:(NSSize)intrinsicContentSize;
 - (NSRect)_convertToDeviceSpace:(NSRect)rect;
 - (NSRect)_convertToUserSpace:(NSRect)rect;
 - (void)_setFindIndicator:(PassRefPtr<WebKit::FindIndicator>)findIndicator fadeOut:(BOOL)fadeOut animate:(BOOL)animate;
 
-- (void)_enterAcceleratedCompositingMode:(const WebKit::LayerTreeContext&)layerTreeContext;
-- (void)_exitAcceleratedCompositingMode;
-- (void)_updateAcceleratedCompositingMode:(const WebKit::LayerTreeContext&)layerTreeContext;
+- (void)_setAcceleratedCompositingModeRootLayer:(CALayer *)rootLayer;
 
 - (void)_setAccessibilityWebProcessToken:(NSData *)data;
 
@@ -82,10 +83,10 @@ namespace WebKit {
 - (void)_setDragImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag;
 - (void)_setPromisedData:(WebCore::Image *)image withFileName:(NSString *)filename withExtension:(NSString *)extension withTitle:(NSString *)title withURL:(NSString *)url withVisibleURL:(NSString *)visibleUrl withArchive:(WebCore::SharedBuffer*) archiveBuffer forPasteboard:(NSString *)pasteboardName;
 - (void)_updateSecureInputState;
-- (void)_updateTextInputStateIncludingSecureInputState:(BOOL)updateSecureInputState;
-- (void)_resetTextInputState;
+- (void)_resetSecureInputState;
+- (void)_notifyInputContextAboutDiscardedComposition;
 
-- (void)_didChangeScrollbarsForMainFrame;
+- (WebKit::ColorSpaceData)_colorSpace;
 
 #if ENABLE(FULLSCREEN_API)
 - (BOOL)hasFullScreenWindowController;
@@ -100,5 +101,7 @@ namespace WebKit {
 
 - (void)_setSuppressVisibilityUpdates:(BOOL)suppressVisibilityUpdates;
 - (BOOL)_suppressVisibilityUpdates;
+
+- (BOOL)_isWindowOccluded;
 
 @end

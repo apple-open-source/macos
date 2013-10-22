@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -36,6 +37,7 @@
 #include <arpa/inet.h>
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
+#include <bootstrap_priv.h>
 #include <netdb.h>
 #include <notify.h>
 #include <asl.h>
@@ -45,6 +47,7 @@
 #include <asl_core.h>
 #include <asl_store.h>
 #include <asl_file.h>
+#include "asl_common.h"
 
 #define MOD_CASE_FOLD 'C'
 #define MOD_REGEX     'R'
@@ -131,7 +134,7 @@ static char *last_printmsg_str = NULL;
 static int last_printmsg_count = 0;
 static const char *tfmt = NULL;
 
-#ifdef CONFIG_IPHONE
+#if TARGET_OS_EMBEDDED
 static uint32_t dbselect = DB_SELECT_SYSLOGD;
 #else
 static uint32_t dbselect = DB_SELECT_ASL;
@@ -147,10 +150,13 @@ extern int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b);
 extern time_t asl_parse_time(const char *in);
 /* END PRIVATE API */
 
-#define ASL_SERVICE_NAME "com.apple.system.logger"
 static mach_port_t asl_server_port = MACH_PORT_NULL;
 
 static const char *myname = "syslog";
+
+/* forward */
+asl_search_result_t *syslogd_query(asl_search_result_t *q, uint64_t start, int count, int dir, uint64_t *last);
+static void printmsg(FILE *f, aslmsg msg, char *fmt, int pflags);
 
 void
 usage()
@@ -173,10 +179,19 @@ usage()
 	fprintf(stderr, "   n = Notice\n");
 	fprintf(stderr, "   i = Info\n");
 	fprintf(stderr, "   d = Debug\n");
-	fprintf(stderr, "   a minus sign preceeding a single letter means \"up to\" that level\n");
+	fprintf(stderr, "   a minus sign preceding a single letter means \"up to\" that level\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "%s -config params...\n", myname);
-	fprintf(stderr, "   set or reset syslogd configuration parameters\n");
+	fprintf(stderr, "%s -config [params...]\n", myname);
+	fprintf(stderr, "   without params, fetch and print syslogd parameters and statistics\n");
+	fprintf(stderr, "   otherwise, set or reset syslogd configuration parameters\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "%s -module [name [action]]\n", myname);
+	fprintf(stderr, "   with no name, prints configuration for all ASL output modules\n");
+	fprintf(stderr, "   with name and no action, prints configuration for named ASL output module\n");
+	fprintf(stderr, "   supported actions - module name required, use '*' (with single quotes) for all modules:\n");
+	fprintf(stderr, "       enable [01]          enables (or disables with 0) named module\n");
+	fprintf(stderr, "                            does not apply to com.apple.asl when '*' is used\n");
+	fprintf(stderr, "       checkpoint [file]    checkpoints all files or specified file for named module\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "%s [-f file...] [-d path...] [-x file] [-w [N]] [-F format] [-nocompress] [-u] [-sort key1 [key2]] [-nsort key1 [key2]] [-k key [[op] val]]... [-o -k key [[op] val]] ...]...\n", myname);
 	fprintf(stderr, "   -f     read named file[s], rather than standard log message store.\n");
@@ -196,7 +211,7 @@ usage()
 	fprintf(stderr, "   -sort  sort messages using value for specified key1 (secondary sort by key2 if provided)\n");
 	fprintf(stderr, "   -nsort numeric sort messages using value for specified key1 (secondary sort by key2 if provided)\n");
 	fprintf(stderr, "   -k     key/value match\n");
-	fprintf(stderr, "          if no operator or value is given, checks for the existance of the key\n");
+	fprintf(stderr, "          if no operator or value is given, checks for the existence of the key\n");
 	fprintf(stderr, "          if no operator is given, default is \"%s\"\n", OP_EQ);
 	fprintf(stderr, "   -B     only process log messages since last system boot\n");
 	fprintf(stderr, "   -C     alias for \"-k Facility com.apple.console\"\n");
@@ -239,6 +254,171 @@ asl_level_string(int level)
 	if (level == ASL_LEVEL_INFO) return ASL_STRING_INFO;
 	if (level == ASL_LEVEL_DEBUG) return ASL_STRING_DEBUG;
 	return "Unknown";
+}
+
+int
+module_control(int argc, char *argv[])
+{
+	const char *val = NULL;
+	asl_search_result_t *q;
+	asl_msg_t *qm, *ctl;
+	uint64_t last;
+	char *str;
+
+	ctl = (asl_msg_t *)_asl_server_control_query();
+	if (ctl == NULL)
+	{
+		fprintf(stderr, "can't get status information from syslogd\n");
+		return -1;
+	}
+
+	argc -= 2;
+	argv += 2;
+
+	if (argc < 2)
+	{
+		int first = 1;
+
+		/* print config */
+		asl_out_module_t *m = asl_out_module_init();
+		asl_out_module_t *x = m;
+
+		while (x != NULL)
+		{
+			if ((argc == 0) || (!strcmp(argv[0], x->name)))
+			{
+				asl_msg_lookup(ctl, x->name, &val, NULL);
+
+				if (first == 0) printf("\n");
+				first = 0;
+
+				if (x->name == NULL) printf("ASL out module has no name\n");
+				else printf("ASL out module: %s %s[current status: %s]\n", x->name, (x->flags & MODULE_FLAG_LOCAL) ? "local " : "",  (val == NULL) ? "unknown" : val );
+
+				asl_out_module_print(stdout, x);
+			}
+
+			x = x->next;
+		}
+
+		asl_msg_release(ctl);
+		asl_out_module_free(m);
+		return 0;
+	}
+
+	/* name enable [val] */
+	/* name disable [val] */
+	if ((!strcmp(argv[1], "enable")) || (!strcmp(argv[1], "disable")))
+	{
+		int want = -1;
+		int status = -1;
+		aslmsg cm;
+		aslclient ac;
+
+		if (!strcmp(argv[1], "enable"))
+		{
+			if (argc < 3) want = 1;
+			else if (!strcmp(argv[2], "1")) want = 1;
+			else if (!strcmp(argv[2], "0")) want = 0;
+			else
+			{
+				printf("invalid value %s for %s %s - expecting 0 or 1\n", argv[2], argv[0], argv[1]);
+				exit(-1);
+			}
+		}
+		else
+		{
+			if (argc < 3) want = 0;
+			else if (!strcmp(argv[2], "1")) want = 0;
+			else if (!strcmp(argv[2], "0")) want = 1;
+			else
+			{
+				printf("invalid value %s for %s %s - expecting 0 or 1\n", argv[2], argv[0], argv[1]);
+				exit(-1);
+			}
+		}
+
+		asl_msg_lookup(ctl, argv[0], &val, NULL);
+		if (val != NULL)
+		{
+			if (!strcmp(val, "enabled")) status = 1;
+			else status = 0;
+		}
+
+		asl_msg_release(ctl);
+
+		if (want < 0)
+		{
+			printf("internal error: want = -1\n");
+			exit(-1);
+		}
+
+		if (want == status)
+		{
+			printf("module %s is already %s\n", argv[0], val);
+			return 0;
+		}
+
+		cm = asl_new(ASL_TYPE_MSG);
+		asprintf(&str, "@ %s enable %d", argv[0], want);
+
+		if ((cm == NULL) || (str == NULL))
+		{
+			fprintf(stderr, "can't allocate memory - exiting\n");
+			exit(-1);
+		}
+
+		ac = asl_open(NULL, NULL, 0);
+		asl_set_filter(ac, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
+		asl_set(cm, ASL_KEY_LEVEL, "7");
+		asl_set(cm, ASL_KEY_OPTION, "control");
+		asl_set(cm, ASL_KEY_MSG, str);
+		asl_send(ac, cm);
+
+		asl_close(ac);
+		asl_free(cm);
+		free(str);
+		asl_msg_release(ctl);
+		return 0;
+	}
+
+	asl_msg_release(ctl);
+
+	/* name checkpoint [file] */
+	if (!strcmp(argv[1], "checkpoint"))
+	{
+		q = (asl_search_result_t *)calloc(1, sizeof(q));
+		qm = asl_msg_new(ASL_TYPE_QUERY);
+
+		if ((q == NULL) || (qm == NULL))
+		{
+			fprintf(stderr, "can't allocate memory - exiting\n");
+			exit(-1);
+		}
+
+		q->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
+		if (q->msg == NULL)
+		{
+			fprintf(stderr, "can't allocate memory - exiting\n");
+			exit(-1);
+		}
+
+		q->count = 1;
+		q->msg[0] = qm;
+
+		asl_msg_set_key_val_op(qm, ASL_KEY_OPTION, "control", ASL_QUERY_OP_EQUAL);
+		asprintf(&str, "%s checkpoint%s%s", argv[0], (argc > 2) ? " " : "", (argc > 2) ? argv[2] : "");
+		asl_msg_set_key_val_op(qm, "action", str, ASL_QUERY_OP_EQUAL);
+
+		asl_search_result_t *res = syslogd_query(q, 0, 0, 1, &last);
+		asl_msg_release(qm);
+		free(q);
+		aslresponse_free((aslresponse)res);
+		return 0;
+	}
+
+	printf("unknown module control: %s\n", argv[1]);
+	exit(-1);
 }
 
 int
@@ -923,10 +1103,31 @@ int
 syslog_config(int argc, char *argv[])
 {
 	int i;
+	uint32_t x;
 	uid_t uid;
 	aslclient asl;
 	aslmsg m;
 	asl_string_t *str;
+	const char *key, *val;
+
+	if (argc == 2)
+	{
+		asl_msg_t *ctl = (asl_msg_t *)_asl_server_control_query();
+
+		if (ctl == NULL)
+		{
+			fprintf(stderr, "can't get status information from syslogd\n");
+			return -1;
+		}
+
+		for (x = asl_msg_fetch(ctl, 0, &key, &val, NULL); x != IndexNull; x = asl_msg_fetch(ctl, x, &key, &val, NULL))
+		{
+			printf("%s %s\n", key, val);
+		}
+
+		asl_msg_release(ctl);
+		return 0;
+	}
 
 	uid = geteuid();
 	if (uid != 0)
@@ -937,6 +1138,48 @@ syslog_config(int argc, char *argv[])
 
 	str = asl_string_new(0);
 	asl_string_append(str, "= ");
+
+	for (i = 2; i < argc; i++)
+	{
+		asl_string_append(str, argv[i]);
+		if ((i + 1) < argc) asl_string_append(str, " ");
+	}
+
+	asl = asl_open(myname, "syslog", 0);
+
+	m = asl_new(ASL_TYPE_MSG);
+	asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
+	asl_set(m, ASL_KEY_OPTION, ASL_OPT_CONTROL);
+	asl_set(m, ASL_KEY_SENDER, myname);
+	asl_set(m, ASL_KEY_MSG, asl_string_bytes(str));
+
+	asl_send(asl, m);
+
+	asl_string_free(str);
+	asl_free(m);
+	asl_close(asl);
+
+	return 0;
+}
+
+int
+syslog_control(int argc, char *argv[])
+{
+	int i;
+	uid_t uid;
+	aslclient asl;
+	aslmsg m;
+	asl_string_t *str;
+
+	uid = geteuid();
+	if (uid != 0)
+	{
+		fprintf(stderr, "syslog control limited to use by superuser\n");
+		return -1;
+	}
+
+	str = asl_string_new(0);
+	asl_string_append(str, "@ ");
 
 	for (i = 2; i < argc; i++)
 	{
@@ -1109,12 +1352,11 @@ syslogd_query(asl_search_result_t *q, uint64_t start, int count, int dir, uint64
 	uint32_t len, reslen, status;
 	int flags;
 	kern_return_t kstatus;
-	security_token_t sec;
 	asl_search_result_t *l;
 
 	if (asl_server_port == MACH_PORT_NULL)
 	{
-		kstatus = bootstrap_look_up(bootstrap_port, ASL_SERVICE_NAME, &asl_server_port);
+		kstatus = bootstrap_look_up2(bootstrap_port, ASL_SERVICE_NAME, &asl_server_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
 		if (kstatus != KERN_SUCCESS)
 		{
 			fprintf(stderr, "query failed: can't contact syslogd\n");
@@ -1137,13 +1379,11 @@ syslogd_query(asl_search_result_t *q, uint64_t start, int count, int dir, uint64
 
 	res = NULL;
 	reslen = 0;
-	sec.val[0] = -1;
-	sec.val[1] = -1;
 	status = 0;
 	flags = 0;
 	if (dir < 0) flags = QUERY_FLAG_SEARCH_REVERSE;
 
-	kstatus = _asl_server_query(asl_server_port, (caddr_t)vmstr, len, start, count, flags, (caddr_t *)&res, &reslen, last, (int *)&status, &sec);
+	kstatus = _asl_server_query_2(asl_server_port, (caddr_t)vmstr, len, start, count, flags, (caddr_t *)&res, &reslen, last, (int *)&status);
 
 	if (res == NULL) return NULL;
 	l = asl_list_from_string(res);
@@ -1177,7 +1417,7 @@ filter_and_print(aslmsg msg, asl_search_result_t *ql, FILE *f, char *pfmt, int p
 	if (did_match != 0) printmsg(f, msg, pfmt, pflags);
 }
 
-#ifdef CONFIG_IPHONE
+#if TARGET_OS_EMBEDDED
 void
 syslogd_direct_watch(FILE *f, char *pfmt, int pflags, asl_search_result_t *ql)
 {
@@ -1738,6 +1978,18 @@ main(int argc, char *argv[])
 			exit(0);
 		}
 
+		if ((!strcmp(argv[i], "-control")) || (!strcmp(argv[i], "--control")))
+		{
+			syslog_control(argc, argv);
+			exit(0);
+		}
+
+		if ((!strcmp(argv[i], "-module")) || (!strcmp(argv[i], "--module")))
+		{
+			module_control(argc, argv);
+			exit(0);
+		}
+
 		if (!strcmp(argv[i], "-s"))
 		{
 			syslog_send(argc, argv);
@@ -1916,6 +2168,7 @@ main(int argc, char *argv[])
 
 			if (!strcmp(argv[i], "vis")) encode = ASL_ENCODE_ASL;
 			else if (!strcmp(argv[i], "safe")) encode = ASL_ENCODE_SAFE;
+			else if (!strcmp(argv[i], "xml")) encode = ASL_ENCODE_XML;
 			else if (!strcmp(argv[i], "none")) encode = ASL_ENCODE_NONE;
 			else if ((argv[i][0] >= '0') && (argv[i][0] <= '9') && (argv[i][1] == '\0')) encode = atoi(argv[i]);
 		}
@@ -1946,6 +2199,7 @@ main(int argc, char *argv[])
 			else if (!strcmp(argv[i], "xml"))
 			{
 				pflags = FORMAT_XML;
+				encode = ASL_ENCODE_XML;
 			}
 			else 
 			{
@@ -2202,7 +2456,7 @@ main(int argc, char *argv[])
 	{
 		if (dbselect == DB_SELECT_SYSLOGD)
 		{
-#ifdef CONFIG_IPHONE
+#if TARGET_OS_EMBEDDED
 			syslogd_direct_watch(outfile, pfmt, pflags, qlist);
 #else
 			fprintf(stderr, "Warning: -w flag cannot be used when querying syslogd directly\n");

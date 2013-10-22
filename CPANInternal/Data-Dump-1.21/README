@@ -1,0 +1,41 @@
+NAME
+    Data::Dump - Pretty printing of data structures
+
+SYNOPSIS
+     use Data::Dump qw(dump ddx);
+
+     $str = dump(@list);
+     @copy_of_list = eval $str;
+
+     # or use it for easy debug printout
+     ddx localtime;
+
+DESCRIPTION
+    This module provide functions that takes a list of values as their
+    argument and produces a string as its result. The string contains Perl
+    code that, when "eval"ed, produces a deep copy of the original
+    arguments.
+
+    The main feature of the module is that it strives to produce output that
+    is easy to read. Example:
+
+        @a = (1, [2, 3], {4 => 5});
+        dump(@a);
+
+    Produces:
+
+        (1, [2, 3], { 4 => 5 })
+
+    If you dump just a little data, it is output on a single line. If you
+    dump data that is more complex or there is a lot of it, line breaks are
+    automatically added to keep it easy to read.
+
+AUTHORS
+    The "Data::Dump" module is written by Gisle Aas <gisle@aas.no>, based on
+    "Data::Dumper" by Gurusamy Sarathy <gsar@umich.edu>.
+
+     Copyright 1998-2010 Gisle Aas.
+     Copyright 1996-1998 Gurusamy Sarathy.
+
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.

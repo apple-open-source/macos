@@ -1,5 +1,5 @@
 /*
- * "$Id: listen.c 7918 2008-09-08 22:03:01Z mike $"
+ * "$Id: listen.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Server listening routines for the CUPS scheduler.
  *
@@ -151,7 +151,7 @@ cupsdStartListening(void)
        lis = (cupsd_listener_t *)cupsArrayNext(Listeners))
   {
     httpAddrString(&(lis->address), s, sizeof(s));
-    p = _httpAddrPort(&(lis->address));
+    p = httpAddrPort(&(lis->address));
 
    /*
     * If needed, create a socket for listening...
@@ -427,5 +427,5 @@ cupsdStopListening(void)
 
 
 /*
- * End of "$Id: listen.c 7918 2008-09-08 22:03:01Z mike $".
+ * End of "$Id: listen.c 11093 2013-07-03 20:48:42Z msweet $".
  */

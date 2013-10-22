@@ -1,0 +1,39 @@
+---
+abstract: 'Load and save configuration files in a standard format'
+author:
+  - 'Damian Conway <DCONWAY@cpan.org>'
+  - 'Bill Ricker <BRICKER@cpan.org>'
+  - 'Tom Metro <tmetro@cpan.org>'
+configure_requires:
+  Module::Build: 0.36
+generated_by: 'Module::Build version 0.3603'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Config-Std
+provides:
+  Config::Std:
+    file: lib/Config/Std.pm
+    version: 0.900
+  Config::Std::Block:
+    file: lib/Config/Std.pm
+  Config::Std::Comment:
+    file: lib/Config/Std.pm
+  Config::Std::Gap:
+    file: lib/Config/Std.pm
+  Config::Std::Hash:
+    file: lib/Config/Std.pm
+  Config::Std::Keyval:
+    file: lib/Config/Std.pm
+recommends:
+  Test::Distribution: 0
+  Test::Pod: 0
+requires:
+  Class::Std: 0
+  Test::More: 0
+  perl: v5.7.3
+  version: 0
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.900

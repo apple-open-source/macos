@@ -52,6 +52,8 @@ kcm_service(void *ctx, const heim_idata *req,
     peercred.uid = heim_ipc_cred_get_uid(cred);
     peercred.pid = heim_ipc_cred_get_pid(cred);
     peercred.session = heim_ipc_cred_get_session(cred);
+    peercred.execpath[0] = '\0';
+
 
     if (req->length < 4) {
 	kcm_log(1, "malformed request from process %d (too short)",

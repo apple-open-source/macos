@@ -20,7 +20,11 @@
 
 #include <sys/types.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#else
 #include <openssl/bn.h>
+#endif
 
 struct modp_group {
 	BIGNUM *p, *q, *g;

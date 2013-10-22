@@ -50,7 +50,7 @@ static const unsigned short cp860_2uni[128] = {
 };
 
 static int
-cp860_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cp860_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80)
@@ -120,7 +120,7 @@ static const unsigned char cp860_page25[168] = {
 };
 
 static int
-cp860_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+cp860_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

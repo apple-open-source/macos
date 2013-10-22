@@ -64,7 +64,7 @@ SecureTransportCore::~SecureTransportCore()
 void SecureTransportCore::open()
 {
     switch (OSStatus err = SSLHandshake(mContext)) {
-    case noErr:
+    case errSecSuccess:
     case errSSLWouldBlock:
         secdebug("ssl", "%p open, state=%d", this, state());
         return;
@@ -104,7 +104,7 @@ size_t SecureTransportCore::read(void *data, size_t length)
         return 0;
     size_t bytesRead;
     switch (OSStatus err = SSLRead(mContext, data, length, &bytesRead)) {
-    case noErr:					// full read
+    case errSecSuccess:					// full read
     case errSSLWouldBlock:		// partial read
         return bytesRead;		// (may be zero in non-blocking scenarios)
     case errSSLClosedGraceful:	// means end-of-data, but we may still return some
@@ -129,7 +129,7 @@ size_t SecureTransportCore::write(const void *data, size_t length)
         return 0;
     size_t bytesWritten;
     switch (OSStatus err = SSLWrite(mContext, data, length, &bytesWritten)) {
-    case noErr:
+    case errSecSuccess:
         return bytesWritten;
     case errSSLWouldBlock:
         return 0;	// no data, no error, no fuss
@@ -149,7 +149,7 @@ bool SecureTransportCore::continueHandshake()
         // still in handshake mode; prod it along
         secdebug("ssl", "%p continuing handshake", this);
         switch (OSStatus err = SSLHandshake(mContext)) {
-        case noErr:
+        case errSecSuccess:
         case errSSLWouldBlock:
             break;
         default:
@@ -263,7 +263,7 @@ OSStatus SecureTransportCore::sslReadFunc(SSLConnectionRef connection,
         *length = stc->ioRead(data, lengthRequested);
         secdebug("sslconio", "%p read %lu of %lu bytes", stc, *length, lengthRequested);
         if (*length == lengthRequested)	// full deck
-            return noErr;
+            return errSecSuccess;
         else if (stc->ioAtEnd()) {
             secdebug("sslconio", "%p end of source input, returning %lu bytes",
                 stc, *length);
@@ -292,7 +292,7 @@ OSStatus SecureTransportCore::sslWriteFunc(SSLConnectionRef connection,
         size_t lengthRequested = *length;
         *length = stc->ioWrite(data, lengthRequested);
         secdebug("sslconio", "%p wrote %lu of %lu bytes", stc, *length, lengthRequested);
-        return *length == lengthRequested ? OSStatus(noErr) : OSStatus(errSSLWouldBlock);
+        return *length == lengthRequested ? OSStatus(errSecSuccess) : OSStatus(errSSLWouldBlock);
     } catch (const CommonError &err) {
         *length = 0;
         return err.osStatus();

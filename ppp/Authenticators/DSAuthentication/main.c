@@ -426,9 +426,9 @@ static tDataBufferPtr dsauth_agent_authbuffer(tDirReference dirRef, const char *
 		// Generate MSCHAPv2 response for VPN agent as client of OD
 		bzero(priv, sizeof(priv));
 		bzero(&keyResponse, sizeof(keyResponse));
-		ChapMS2(challenge,  NULL,
-			keyaccessName,
-			keyaccessPassword, keyaccessPasswordSize,
+		ChapMS2((u_char *)challenge,  NULL,
+			(char *)keyaccessName,
+			(u_char *)keyaccessPassword, keyaccessPasswordSize,
 			&keyResponse, priv,
 			MS_CHAP2_AUTHENTICATEE);
 
@@ -735,7 +735,7 @@ static int dsauth_find_user_node(tDirReference dirRef, char *user_name, tDirNode
         dsResult =  dsauth_get_user_attr(dirRef, searchNodeRef, user_name, kDSNAttrMetaNodeLocation, &userNodePath);
         if (dsResult == eDSNoErr && userNodePath != 0) {
             // open the user node and return the node ref
-            if (userPathDataListPtr = dsBuildFromPath(dirRef, userNodePath->fAttributeValueData.fBufferData, "/")) {
+            if ((userPathDataListPtr = dsBuildFromPath(dirRef, userNodePath->fAttributeValueData.fBufferData, "/"))) {
                 dsResult = dsOpenDirNode(dirRef, userPathDataListPtr, user_node);
                 dsDataListDeallocate(dirRef, userPathDataListPtr);
             }

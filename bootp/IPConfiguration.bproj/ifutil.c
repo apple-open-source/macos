@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,13 +50,12 @@
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #include <sys/errno.h>
-#define KERNEL_PRIVATE
 #include <sys/ioctl.h>
-#undef KERNEL_PRIVATE
 #include "ifutil.h"
 #include "rtutil.h"
 #include "symbol_scope.h"
 #include "mylog.h"
+#include "CGA.h"
 
 PRIVATE_EXTERN int
 inet_dgram_socket()
@@ -64,8 +63,8 @@ inet_dgram_socket()
     return (socket(AF_INET, SOCK_DGRAM, 0));
 }
 
-static int
-ifflags_set(int s, const char * name, short flags)
+STATIC int
+siocsifflags(int s, const char * name, short flags)
 {
     struct ifreq	ifr;
     int 		ret;
@@ -81,6 +80,17 @@ ifflags_set(int s, const char * name, short flags)
 }
 
 STATIC int
+siocsifmtu(int s, const char * name, int mtu)
+{
+    struct ifreq	ifr;
+
+    bzero(&ifr, sizeof(ifr));
+    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+    ifr.ifr_mtu = mtu;
+    return (ioctl(s, SIOCSIFMTU, (caddr_t)&ifr));
+}
+
+STATIC int
 siocprotoattach(int s, const char * name)
 {
     struct ifreq	ifr;
@@ -88,6 +98,27 @@ siocprotoattach(int s, const char * name)
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     return (ioctl(s, SIOCPROTOATTACH, &ifr));
+}
+
+PRIVATE_EXTERN int
+interface_set_mtu(const char * ifname, int mtu)
+{
+    int ret = 0;
+    int s = inet_dgram_socket();
+
+    if (s < 0) {
+	ret = errno;
+    }
+    else {
+	if (siocsifmtu(s, ifname, mtu) < 0) {
+	    ret = errno;
+	    my_log(LOG_NOTICE, "siocsifmtu(%s, %d) failed, %s (%d)",
+		   ifname, mtu, strerror(ret), ret);
+	}
+	close(s);
+    }
+    return (ret);
+
 }
 
 PRIVATE_EXTERN int
@@ -108,7 +139,7 @@ inet_attach_interface(const char * ifname)
 		   ifname, strerror(errno), errno);
 	}
     }
-    (void)ifflags_set(s, ifname, IFF_UP);
+    (void)siocsifflags(s, ifname, IFF_UP);
     close(s);
 
  done:
@@ -224,12 +255,10 @@ inet_aifaddr(int s, const char * name, struct in_addr addr,
     return (ioctl(s, SIOCAIFADDR, &ifra));
 }
 
-#define KERNEL_PRIVATE
 #include <netinet6/in6_var.h>
-#undef KERNEL_PRIVATE
 #include <netinet6/nd6.h>
 
-static int
+STATIC int
 count_prefix_bits(void * val, int size)
 {
     int		bit;
@@ -279,7 +308,7 @@ inet6_dgram_socket()
     return (socket(AF_INET6, SOCK_DGRAM, 0));
 }
 
-static int
+STATIC int
 siocprotoattach_in6(int s, const char * name)
 {
     struct in6_aliasreq		ifra;
@@ -289,7 +318,7 @@ siocprotoattach_in6(int s, const char * name)
     return (ioctl(s, SIOCPROTOATTACH_IN6, &ifra));
 }
 
-static int
+STATIC int
 siocprotodetach_in6(int s, const char * name)
 {
     struct in6_ifreq	ifr;
@@ -299,17 +328,33 @@ siocprotodetach_in6(int s, const char * name)
     return (ioctl(s, SIOCPROTODETACH_IN6, &ifr));
 }
 
-static int
+STATIC int
 siocll_start(int s, const char * name)
 {
-   struct in6_aliasreq		ifra_in6;
+    struct in6_aliasreq		ifra_in6;
 
     bzero(&ifra_in6, sizeof(ifra_in6));
     strncpy(ifra_in6.ifra_name, name, sizeof(ifra_in6.ifra_name));
     return (ioctl(s, SIOCLL_START, &ifra_in6));
 }
 
-static int
+STATIC int
+ll_start(int s, const char * name, boolean_t use_cga)
+{
+    struct in6_llstartreq	req;
+
+    if (use_cga == FALSE || !CGAIsEnabled()) {
+	return (siocll_start(s, name));
+    }
+    bzero(&req, sizeof(req));
+    strncpy(req.llsr_name, name, sizeof(req.llsr_name));
+    CGAPrepareSetForInterface(name, &req.llsr_cgaprep);
+    req.llsr_lifetime.ia6t_vltime = -1;
+    req.llsr_lifetime.ia6t_pltime = -1;
+    return (ioctl(s, SIOCLL_CGASTART, &req));
+}
+
+STATIC int
 siocll_stop(int s, const char * name)
 {
     struct in6_ifreq		ifr;
@@ -319,7 +364,7 @@ siocll_stop(int s, const char * name)
     return (ioctl(s, SIOCLL_STOP, &ifr));
 }
 
-static void
+STATIC void
 set_sockaddr_in6(struct sockaddr_in6 * sin6_p, const struct in6_addr * addr)
 {
     sin6_p->sin6_family = AF_INET6;
@@ -364,7 +409,7 @@ inet6_attach_interface(const char * ifname)
 		   ifname, strerror(errno), errno);
 	}
     }
-    (void)ifflags_set(s, ifname, IFF_UP);
+    (void)siocsifflags(s, ifname, IFF_UP);
     close(s);
 
  done:
@@ -398,7 +443,7 @@ inet6_detach_interface(const char * ifname)
 }
 
 PRIVATE_EXTERN int
-inet6_linklocal_start(const char * ifname)
+inet6_linklocal_start(const char * ifname, boolean_t use_cga)
 {
     int ret = 0;
     int s = inet6_dgram_socket();
@@ -410,7 +455,7 @@ inet6_linklocal_start(const char * ifname)
 	       ifname, strerror(ret), ret);
 	goto done;
     }
-    if (siocll_start(s, ifname) < 0) {
+    if (ll_start(s, ifname, use_cga) < 0) {
 	ret = errno;
 	if (errno != ENXIO) {
 	    my_log(LOG_ERR, "siocll_start(%s) failed, %s (%d)",
@@ -448,7 +493,7 @@ inet6_linklocal_stop(const char * ifname)
     return (ret);
 }
 
-static int
+STATIC int
 siocautoconf_start(int s, const char * if_name)
 {
     struct in6_ifreq	ifr;
@@ -458,7 +503,7 @@ siocautoconf_start(int s, const char * if_name)
     return (ioctl(s, SIOCAUTOCONF_START, &ifr));
 }
 
-static int
+STATIC int
 siocautoconf_stop(int s, const char * if_name)
 {
     struct in6_ifreq	ifr;
@@ -534,7 +579,7 @@ inet6_difaddr(int s, const char * name, const struct in6_addr * addr)
 /*
  * from netinet6/in6.c 
  */
-static void
+STATIC void
 in6_len2mask(struct in6_addr * mask, int len)
 {
     int i;
@@ -546,7 +591,7 @@ in6_len2mask(struct in6_addr * mask, int len)
 	mask->s6_addr[i] = (0xff00 >> (len % 8)) & 0xff;
 }
 
-static void
+STATIC void
 in6_maskaddr(struct in6_addr * addr, const struct in6_addr * mask)
 {
     int i;
@@ -644,7 +689,7 @@ inet6_aifaddr(int s, const char * name, const struct in6_addr * addr,
     return (ioctl(s, SIOCAIFADDR_IN6, &ifra_in6));
 }
 
-static int
+STATIC int
 inet6_if_ioctl(const char * ifname, unsigned long request)
 {
     struct in6_ifreq	ifr;
@@ -672,18 +717,16 @@ inet6_if_ioctl(const char * ifname, unsigned long request)
 PRIVATE_EXTERN int
 inet6_flush_prefixes(const char * ifname)
 {
-    /* this currently has a global effect XXX */
     return (inet6_if_ioctl(ifname, SIOCSPFXFLUSH_IN6));
 }
 
 PRIVATE_EXTERN int
 inet6_flush_routes(const char * ifname)
 {
-    /* this currently has a global effect XXX */
     return (inet6_if_ioctl(ifname, SIOCSRTRFLUSH_IN6));
 }
 
-static boolean_t
+STATIC boolean_t
 inet6_sysctl_get_int(int code, int * ret_value_p)
 {
     int 	mib[] = { CTL_NET, PF_INET6, IPPROTO_IPV6, 0 };
@@ -693,7 +736,8 @@ inet6_sysctl_get_int(int code, int * ret_value_p)
     size = sizeof(*ret_value_p);
     if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), ret_value_p, &size, NULL, 0)
 	< 0) {
-	my_log(LOG_ERR, "inet6_sysctl_get_int(%d) failed, %m", code);
+	my_log(LOG_ERR, "inet6_sysctl_get_int(%d) failed, %s", code,
+	       strerror(errno));
 	return (FALSE);
     }
     return (TRUE);
@@ -710,7 +754,52 @@ inet6_forwarding_is_enabled(void)
     return (enabled != 0);
 }
 
-static char *
+PRIVATE_EXTERN boolean_t
+inet6_set_perform_nud(const char * if_name, boolean_t perform_nud)
+{
+    boolean_t		need_set = FALSE;
+    struct in6_ndireq 	nd;
+    int			s;
+    boolean_t		success = FALSE;
+
+    s = inet6_dgram_socket();
+    if (s < 0) {
+	my_log_fl(LOG_ERR, "socket failed, %s", strerror(errno));
+	goto done;
+    }
+    bzero(&nd, sizeof(nd));
+    strncpy(nd.ifname, if_name, sizeof(nd.ifname));
+    if (ioctl(s, SIOCGIFINFO_IN6, &nd)) {
+	my_log_fl(LOG_ERR, "SIOCGIFINFO_IN6(%s) failed, %s",
+		  if_name, strerror(errno));
+	goto done;
+    }
+    if (perform_nud) {
+	if ((nd.ndi.flags & ND6_IFF_PERFORMNUD) == 0) {
+	    nd.ndi.flags |= ND6_IFF_PERFORMNUD;
+	    need_set = TRUE;
+	}
+    }
+    else if ((nd.ndi.flags & ND6_IFF_PERFORMNUD) != 0) {
+	nd.ndi.flags &= ~ND6_IFF_PERFORMNUD;
+	need_set = TRUE;
+    }
+    if (need_set) {
+	if (ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd)) {
+	    my_log_fl(LOG_ERR, "SIOCSIFINFO_FLAGS(%s) failed, %s",
+		      if_name, strerror(errno));
+	    goto done;
+	}
+    }
+    success = TRUE;
+ done:
+    if (s >= 0) {
+	close(s);
+    }
+    return (success);
+}
+
+STATIC char *
 get_if_info(int if_index, int af, int * ret_len_p)
 {
     char *			buf = NULL;
@@ -764,6 +853,8 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
 	goto done;
     }
     buf_end = buf + buf_len;
+
+    addr_list_p->linklocal = NULL;
 
     /* figure out how many IPv6 addresses there are */
     count = 0;
@@ -866,6 +957,13 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
 				     &list[addr_index].addr,
 				     &list[addr_index].addr_flags);
 		}
+		/* Mask the v6 LL scope id */
+		if (IN6_IS_ADDR_LINKLOCAL(&list[addr_index].addr)) {
+		    list[addr_index].addr.s6_addr16[1] = 0;
+		    if (addr_list_p->linklocal == NULL) {
+			addr_list_p->linklocal = &list[addr_index];
+		    }
+		}
 		addr_index++;
 	    }
 	}
@@ -925,6 +1023,7 @@ inet6_addrlist_init(inet6_addrlist_t * addr_list_p)
 {
     addr_list_p->list = NULL;
     addr_list_p->count = 0;
+    addr_list_p->linklocal = NULL;
     return;
 }
 
@@ -947,26 +1046,42 @@ inet6_addrlist_contains_address(const inet6_addrlist_t * addr_list_p,
 PRIVATE_EXTERN inet6_addrinfo_t *
 inet6_addrlist_get_linklocal(const inet6_addrlist_t * addr_list_p)
 {
-    int			i;
-    inet6_addrinfo_t *	scan;
-
-    if (addr_list_p == NULL) {
-	return (NULL);
-    }
-    for (i = 0, scan = addr_list_p->list; 
-	 i < addr_list_p->count; i++, scan++) {
-	if (IN6_IS_ADDR_LINKLOCAL(&(scan->addr))) {
-	    return (scan);
-	}
+    if (addr_list_p != NULL) {
+	return (addr_list_p->linklocal);
     }
     return (NULL);
 }
 
-#if TEST_INET6_ADDRLIST
+#if TEST_INET6_ADDRLIST || TEST_IPV6_LL
 #include <stdio.h>
 #include <stdlib.h>
+#include "util.h"
 
-PRIVATE_EXTERN int G_IPConfiguration_verbose = 1;
+PRIVATE_EXTERN Boolean G_IPConfiguration_verbose = 1;
+
+STATIC bool S_cga_enabled;
+
+PRIVATE_EXTERN bool 
+CGAIsEnabled(void)
+{
+    return (S_cga_enabled);
+}
+
+PRIVATE_EXTERN void
+CGAPrepareSetForInterface(const char * name, struct in6_cga_prepare * cga_prep)
+{
+    if (S_cga_enabled == FALSE) {
+	return;
+    }
+    cga_prep->cga_security_level = 0;
+    fill_with_random(cga_prep->cga_modifier.octets, 
+		     sizeof(cga_prep->cga_modifier.octets));
+    return;
+}
+
+#endif /* TEST_INET6_ADDRLIST || TEST_IPV6_LL */
+
+#if TEST_INET6_ADDRLIST
 int
 main(int argc, char * argv[])
 {
@@ -989,3 +1104,50 @@ main(int argc, char * argv[])
     return(0);
 }
 #endif /* TEST_INET6_ADDRLIST */
+
+#if TEST_IPV6_LL
+STATIC void
+usage()
+{
+    fprintf(stderr, "usage: ipv6ll start | stop <ifname> [ <cga> ]\n");
+    exit(1);
+}
+
+int
+main(int argc, char * argv[])
+{
+    int			is_start = 0;
+
+    if (argc < 3) {
+	usage();
+    }
+    if (strcasecmp(argv[1], "start") == 0) {
+	is_start = 1;
+    }
+    else if (strcasecmp(argv[1], "stop") == 0) {
+    }
+    else {
+	usage();
+    }
+
+    if (is_start) {
+	S_cga_enabled = (argc > 3);
+	if (inet6_linklocal_start(argv[2], TRUE) != 0) {
+	    exit(1);
+	}
+	if (inet6_rtadv_enable(argv[2]) != 0) {
+	    exit(1);
+	}
+    }
+    else {
+	inet6_rtadv_disable(argv[2]);
+	if (inet6_linklocal_stop(argv[2]) != 0) {
+	    exit(1);
+	}
+    }
+    exit(0);
+    return (0);
+    
+}
+
+#endif /* TEST_IPV6_LL */

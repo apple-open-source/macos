@@ -94,7 +94,7 @@ int (*fat_set)(cl_t cluster, cl_t value);
 static int gFS;		/* File descriptor to read/write the volume */
 static struct bootblock *gBoot;
 static size_t gUseMapBytes;
-static int gNumCacheBlocks;
+static size_t gNumCacheBlocks;
 
 /*
  * A cached FAT sector.

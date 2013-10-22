@@ -35,6 +35,9 @@
 #if !TARGET_OS_EMBEDDED
 #include <vproc.h>
 #endif
+#include <dispatch/dispatch.h>
+#include "vmbuf.h"
+#include "ipsec_doi.h"
 
 /* local configuration */
 
@@ -43,11 +46,9 @@
 #define LC_PATHTYPE_INCLUDE	0
 #define LC_PATHTYPE_PSK		1
 #define LC_PATHTYPE_CERT	2
-#define LC_PATHTYPE_BACKUPSA	3
-#define LC_PATHTYPE_SCRIPT	4
-#define LC_PATHTYPE_PIDFILE	5
-#define LC_PATHTYPE_LOGFILE	6
-#define LC_PATHTYPE_MAX		7
+#define LC_PATHTYPE_PIDFILE	3
+#define LC_PATHTYPE_LOGFILE	4
+#define LC_PATHTYPE_MAX		5
 
 #define LC_DEFAULT_PAD_MAXSIZE		20
 #define LC_DEFAULT_PAD_RANDOM		TRUE
@@ -63,8 +64,6 @@
 
 #define LC_DEFAULT_SECRETSIZE	16	/* 128 bits */
 
-#define LC_IDENTTYPE_MAX	5	/* XXX */
-
 #define	LC_GSSENC_UTF16LE	0	/* GSS ID in UTF-16LE */
 #define	LC_GSSENC_LATIN1	1	/* GSS ID in ISO-Latin-1 */
 #define	LC_GSSENC_MAX		2
@@ -76,7 +75,8 @@
 
 struct vpnctl_socket_elem {
 	LIST_ENTRY(vpnctl_socket_elem) chain;
-	int			sock;
+	int                 sock;
+    dispatch_source_t   source;
 	LIST_HEAD(_bound_addrs, bound_addr) bound_addresses;
 };
 
@@ -106,22 +106,23 @@ struct localconf {
 
 	uid_t uid;
 	gid_t gid;
-	char *chroot;			/* chroot path */
 	u_int16_t port_isakmp;		/* port for isakmp as default */
 	u_int16_t port_isakmp_natt;	/* port for NAT-T use */
 	u_int16_t port_admin;		/* port for admin */
 	int default_af;			/* default address family */
 
-	int sock_admin;
 	int sock_vpncontrol;
 	int sock_pfkey;
 	int rtsock;			/* routing socket */
+    dispatch_source_t vpncontrol_source;
+    dispatch_source_t pfkey_source;
+    dispatch_source_t rt_source;
 
 	LIST_HEAD(_vpnctl_socket_elem_, vpnctl_socket_elem) vpnctl_comm_socks;
 	LIST_HEAD(_redirect_, redirect) redirect_addresses;
 	int auto_exit_state;		/* auto exit state */
 	int	auto_exit_delay;		/* auto exit delay until exit */
-	struct sched *auto_exit_sched;	/* auto exit schedule */
+	schedule_ref auto_exit_sched;	/* auto exit schedule */
 	
 	TAILQ_HEAD(_saved_msg_elem, saved_msg_elem) saved_msg_queue;
 	int autograbaddr;
@@ -129,7 +130,7 @@ struct localconf {
 
 	char *logfile_param;		/* from command line */
 	char *pathinfo[LC_PATHTYPE_MAX];
-	vchar_t *ident[LC_IDENTTYPE_MAX]; /* base of Identifier payload. */
+	vchar_t *ident[IDTYPE_MAX]; /* base of Identifier payload. */
 
 	int pad_random;
 	int pad_randomlen;
@@ -162,25 +163,27 @@ struct localconf {
 		 * is enable, racoon uses old format.
 		 */
 
-	int gss_id_enc;			/* GSS ID encoding to use */
 #if !TARGET_OS_EMBEDDED
 	vproc_transaction_t vt;	/* returned by vproc_transaction_begin */
 #endif
 };
 
+
 extern struct localconf *lcconf;
 
-extern void initlcconf __P((void));
-extern void flushlcconf __P((void));
-extern vchar_t *getpskbyname __P((vchar_t *));
-extern vchar_t *getpskbyaddr __P((struct sockaddr_storage *));
+extern void initlcconf(void);
+extern void flushlcconf(void);
+extern void savelcconf(void);
+extern void restorelcconf(void);
+extern vchar_t *getpskbyname(vchar_t *);
+extern vchar_t *getpskbyaddr(struct sockaddr_storage *);
 #if HAVE_KEYCHAIN
-extern vchar_t *getpskfromkeychain __P((const char *, u_int8_t, int, vchar_t *));
+extern vchar_t *getpskfromkeychain(const char *, u_int8_t, int, vchar_t *);
 #endif
-extern void getpathname __P((char *, int, int, const char *));
-extern int sittype2doi __P((int));
-extern int doitype2doi __P((int));
-extern vchar_t *getpsk __P((const char *, const int)); 
+extern void getpathname(char *, int, int, const char *);
+extern int sittype2doi(int);
+extern int doitype2doi(int);
+extern vchar_t *getpsk(const char *, const int); 
 
 
 #endif /* _LOCALCONF_H */

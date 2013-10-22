@@ -39,7 +39,6 @@
 #include <Security/oidsattr.h>
 #include <Security/oidsalg.h>
 #include <Security/cssmapple.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 /* malloc a NULL-ed array of pointers of size num+1 */
 void **p12NssNullArray(
@@ -62,7 +61,7 @@ bool p12DataToInt(
 		u = 0;
 		return true;
 	}
-	uint32 len = cdata.Length;
+	CSSM_SIZE len = cdata.Length;
 	if(len > sizeof(uint32)) {
 		return false;
 	}
@@ -824,9 +823,9 @@ void p12ImportPassPhrase(
 		inPhrase, kCFStringEncodingUTF8, 0);
 	if(cfData == NULL) {
 		p12ErrorLog("***p12ImportPassPhrase: can't convert passphrase to UTF8\n");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
-	unsigned keyLen = CFDataGetLength(cfData);
+	CFIndex keyLen = CFDataGetLength(cfData);
 	coder.allocItem(outPhrase, keyLen);
 	memmove(outPhrase.Data, CFDataGetBytePtr(cfData), keyLen);
 	CFRelease(cfData);

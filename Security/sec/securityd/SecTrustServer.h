@@ -37,23 +37,21 @@
 #include <mach/port.h>
 
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 
 /* args_in keys. */
-#define kSecTrustCertificatesKey CFSTR("certificates")
-#define kSecTrustAnchorsKey CFSTR("anchors")
-#define kSecTrustAnchorsOnlyKey CFSTR("anchorsOnly")
-#define kSecTrustPoliciesKey CFSTR("policies")
-#define kSecTrustVerifyDateKey CFSTR("verifyDate")
+#define kSecTrustCertificatesKey "certificates"
+#define kSecTrustAnchorsKey "anchors"
+#define kSecTrustAnchorsOnlyKey "anchorsOnly"
+#define kSecTrustPoliciesKey "policies"
+#define kSecTrustVerifyDateKey "verifyDate"
 
 /* args_out keys. */
-#define kSecTrustDetailsKey CFSTR("details")
-#define kSecTrustChainKey CFSTR("chain")
-#define kSecTrustResultKey CFSTR("result")
-#define kSecTrustInfoKey CFSTR("info")
+#define kSecTrustDetailsKey "details"
+#define kSecTrustChainKey "chain"
+#define kSecTrustResultKey "result"
+#define kSecTrustInfoKey "info"
 
 typedef struct SecPathBuilder *SecPathBuilderRef;
 
@@ -65,7 +63,7 @@ typedef void(*SecPathBuilderCompleted)(const void *userData,
 /* Returns a new trust path builder and policy evaluation engine instance. */
 SecPathBuilderRef SecPathBuilderCreate(CFArrayRef certificates,
     CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies,
-    CFAbsoluteTime verifyTime,
+    CFAbsoluteTime verifyTime, CFArrayRef accessGroups,
     SecPathBuilderCompleted completed, const void *userData);
 
 /* Returns true if it's ok to perform network operations for this builder. */
@@ -81,19 +79,17 @@ void SecPathBuilderSetCanAccessNetwork(SecPathBuilderRef builder, bool allow);
    network). */
 bool SecPathBuilderStep(SecPathBuilderRef builder);
 
+/* Return the dispatch queue to be used by this builder. */
+dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder);
 
-/* Returns noErr if the operation has completed synchronously.  Returns
-   errSecWaitForCallback if the operation is running in the background. Can
-   also return paramErr if one or more of the inputs aren't correct.  Upon
-   completion the completed callback is called. */
-OSStatus SecTrustServerEvaluateAsync(CFDictionaryRef args_in,
-    SecPathBuilderCompleted completed, const void *userData);
+/* Evaluate trust and call evaluated when done. */
+void SecTrustServerEvaluateBlock(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error));
 
-/* Synchronously invoke SecTrustServerEvaluateAsync. */
-OSStatus SecTrustServerEvaluate(CFDictionaryRef args_in, CFTypeRef *args_out);
+/* Synchronously invoke SecTrustServerEvaluateBlock. */
+SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *details, CFDictionaryRef *info, SecCertificatePathRef *chain, CFErrorRef *error);
 
-#if defined(__cplusplus)
-}
-#endif
+void InitializeAnchorTable(void);
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECTRUSTSERVER_H_ */

@@ -33,13 +33,18 @@
 #include "config.h"
 #include "FileSystem.h"
 
-#include "PlatformString.h"
+#include "FileMetadata.h"
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QTemporaryFile>
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
+
+#if !defined(Q_OS_WIN)
+#include <sys/statvfs.h>
+#endif
 
 namespace WebCore {
 
@@ -71,6 +76,17 @@ bool getFileModificationTime(const String& path, time_t& result)
     QFileInfo info(path);
     result = info.lastModified().toTime_t();
     return info.exists();
+}
+
+bool getFileMetadata(const String& path, FileMetadata& result)
+{
+    QFileInfo info(path);
+    if (!info.exists())
+        return false;
+    result.modificationTime = info.lastModified().toTime_t();
+    result.length = info.size();
+    result.type = info.isDir() ? FileMetadata::TypeDirectory : FileMetadata::TypeFile;
+    return true;
 }
 
 bool makeAllDirectories(const String& path)
@@ -189,6 +205,24 @@ long long seekFile(PlatformFileHandle handle, long long offset, FileSeekOrigin o
 
     return -1;
 }
+
+uint64_t getVolumeFreeSizeForPath(const char* path)
+{
+#if defined(Q_OS_WIN)
+    ULARGE_INTEGER freeBytesToCaller;
+    BOOL result = GetDiskFreeSpaceExW((LPCWSTR)path, &freeBytesToCaller, 0, 0);
+    if (!result)
+        return 0;
+    return static_cast<uint64_t>(freeBytesToCaller.QuadPart);
+#else
+    struct statvfs volumeInfo;
+    if (statvfs(path, &volumeInfo))
+        return 0;
+
+    return static_cast<uint64_t>(volumeInfo.f_bavail) * static_cast<uint64_t>(volumeInfo.f_frsize);
+#endif
+}
+
 
 int writeToFile(PlatformFileHandle handle, const char* data, int length)
 {

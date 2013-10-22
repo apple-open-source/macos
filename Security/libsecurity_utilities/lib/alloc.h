@@ -72,7 +72,7 @@ public:
 	{ return reinterpret_cast<T *>(realloc(addr, size)); }
 
 	// All right, if you *really* have to have calloc...
-	void *calloc(size_t size, unsigned int count) throw(std::bad_alloc)
+	void *calloc(size_t size, size_t count) throw(std::bad_alloc)
 	{
 		void *addr = malloc(size * count);
 		memset(addr, 0, size * count);

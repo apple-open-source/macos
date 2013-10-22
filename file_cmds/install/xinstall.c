@@ -67,6 +67,7 @@ static const char rcsid[] =
 #include <spawn.h>
 
 #ifdef __APPLE__
+#include <TargetConditionals.h>
 #include <copyfile.h>
 #endif	/* __APPLE__ */
 

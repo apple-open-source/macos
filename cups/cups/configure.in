@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: configure.in 9382 2010-11-20 01:03:46Z mike $"
+dnl "$Id: configure.in 11110 2013-07-08 21:17:10Z msweet $"
 dnl
 dnl   Configuration script for CUPS.
 dnl
@@ -70,7 +70,6 @@ AC_OUTPUT(Makedefs
 	  desktop/cups.desktop
 	  doc/help/ref-cups-files-conf.html
 	  doc/help/ref-cupsd-conf.html
-	  doc/help/standard.html
 	  doc/index.html
 	  man/client.conf.man
 	  man/cups-deviced.man
@@ -93,5 +92,5 @@ AC_OUTPUT(Makedefs
 chmod +x cups-config
 
 dnl
-dnl End of "$Id: configure.in 9382 2010-11-20 01:03:46Z mike $".
+dnl End of "$Id: configure.in 11110 2013-07-08 21:17:10Z msweet $".
 dnl

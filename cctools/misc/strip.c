@@ -2143,6 +2143,14 @@ struct object *object)
 	       object->dyst->nlocrel != 0 &&
 	       object->dyst->locreloff < offset)
 		offset = object->dyst->locreloff;
+	    if(object->func_starts_info_cmd != NULL &&
+	       object->func_starts_info_cmd->datasize != 0 &&
+	       object->func_starts_info_cmd->dataoff < offset)
+	        offset = object->func_starts_info_cmd->dataoff;
+	    if(object->data_in_code_cmd != NULL &&
+	       object->data_in_code_cmd->datasize != 0 &&
+	       object->data_in_code_cmd->dataoff < offset)
+	        offset = object->data_in_code_cmd->dataoff;
 	    if(object->st->nsyms != 0 &&
 	       object->st->symoff < offset)
 		offset = object->st->symoff;
@@ -2577,7 +2585,9 @@ uint32_t nextrefsyms)
 
 	/*
 	 * If this an object file that has DWARF debugging sections to strip
-	 * then we have to run ld -r on it.
+	 * then we have to run ld -r on it.  We also have to do this for
+	 * ARM objects because thumb symbols can't be stripped as they are
+	 * needed for proper linking in .o files.
 	 */
 	if(object->mh_filetype == MH_OBJECT && (Sflag || xflag)){
 	    has_dwarf = FALSE;
@@ -2613,7 +2623,12 @@ uint32_t nextrefsyms)
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	    }
-	    if(has_dwarf == TRUE)
+	    /*
+	     * If the file has dwarf symbols or is an ARM object then have
+	     * ld(1) do the "stripping" and make an ld -r version of the object.
+	     */
+	    if(has_dwarf == TRUE ||
+	       object->mh_cputype == CPU_TYPE_ARM)
 		make_ld_r_object(arch, member, object);
 	}
 	/*
@@ -2743,12 +2758,12 @@ uint32_t nextrefsyms)
 	    }
 	    if((n_type & N_EXT) == 0){ /* local symbol */
 		/*
-		 * For x86_64 .o files we have run ld -r on them and are stuck
-		 * keeping all resulting symbols.
+		 * For x86_64 .o or ARM files we have run ld -r on them
+		 * we keeping all resulting symbols.
 		 */
-		if(object->mh == NULL && (
-		   object->mh64->cputype == CPU_TYPE_X86_64) &&
-		   object->mh64->filetype == MH_OBJECT){
+		if((object->mh_cputype == CPU_TYPE_X86_64 ||
+		    object->mh_cputype == CPU_TYPE_ARM) &&
+		   object->mh_filetype == MH_OBJECT){
 		    if(n_strx != 0)
 			new_strsize += strlen(strings + n_strx) + 1;
 		    new_nlocalsym++;

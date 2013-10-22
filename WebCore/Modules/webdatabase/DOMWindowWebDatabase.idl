@@ -24,17 +24,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module window {
+[
+    Conditional=SQL_DATABASE,
+] partial interface DOMWindow {
+    [RaisesException] Database openDatabase(DOMString name, DOMString version, DOMString displayName, unsigned long estimatedSize, optional DatabaseCallback creationCallback);
+};
 
-    interface [
-        Conditional=SQL_DATABASE,
-        Supplemental=DOMWindow
-    ] DOMWindowWebDatabase {
-        [V8EnabledAtRuntime] Database openDatabase(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize, in [Callback, Optional] DatabaseCallback creationCallback)
-            raises(DOMException);
-#if !defined(LANGUAGE_CPP) || !LANGUAGE_CPP
-        attribute SQLExceptionConstructor SQLException;
-#endif
-    };
-
-}

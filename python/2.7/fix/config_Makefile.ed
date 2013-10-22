@@ -1,5 +1,4 @@
-g/-arch [^ ]* */s///g
-/^LINKFORSHARED=/s,$(PYTHONFRAMEWORKDIR),/System/Library/Frameworks/&,
+/^LINKFORSHARED=/s,$(PYTHONFRAMEWORKDIR),$(PYTHONFRAMEWORKINSTALLDIR),
 /^BINDIR/c
 BINDIR=		/usr/local/bin
 .

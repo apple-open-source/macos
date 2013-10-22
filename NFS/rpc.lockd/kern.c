@@ -171,7 +171,7 @@ shutdown_timer(void)
 		if (config.verbose) {
 			int mounts, servers, maxservers;
 			get_client_and_server_state(&mounts, &servers, &maxservers);
-			syslog(LOG_DEBUG, "shutdown_timer: %d %d, mounts %d servers %d %d\n",
+			syslog(LOG_DEBUG, "shutdown_timer: %ld %ld, mounts %d servers %d %d\n",
 				shutdown_time_client, shutdown_time_server,
 				mounts, servers, maxservers);
 		}
@@ -322,7 +322,7 @@ svc_lockd_shutdown(mach_port_t mp __attribute__((unused)))
 	}
 
 	if (!shutdown_time_client || !shutdown_time_server) {
-		syslog(LOG_DEBUG, "lockd_shutdown: hold on, client %d server %d", shutdown_time_client, shutdown_time_server);
+		syslog(LOG_DEBUG, "lockd_shutdown: hold on, client %ld server %ld", shutdown_time_client, shutdown_time_server);
 		/*
 		 * Either the client or server is still
 		 * running, so we don't want to shut down yet.
@@ -451,7 +451,7 @@ set_auth(cl, xucred)
                         xucred->cr_uid,
                         xucred->cr_groups[0],
                         xucred->cr_ngroups - 1,
-                        (int *)&xucred->cr_groups[1]);
+                        (gid_t *)&xucred->cr_groups[1]);
 }
 
 
@@ -475,13 +475,13 @@ test_request(LOCKD_MSG *msg)
 	if (msg->lm_flags & LOCKD_MSG_NFSV3) {
 		struct nlm4_testargs arg4;
 
-		arg4.cookie.n_bytes = (char *)&msg->lm_xid;
+		arg4.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
 		arg4.cookie.n_len = sizeof(msg->lm_xid);
 		arg4.exclusive = msg->lm_fl.l_type == F_WRLCK ? 1 : 0;
 		arg4.alock.caller_name = hostname;
-		arg4.alock.fh.n_bytes = (char *)&msg->lm_fh;
+		arg4.alock.fh.n_bytes = (uint8_t *)&msg->lm_fh;
 		arg4.alock.fh.n_len = msg->lm_fh_len;
-		arg4.alock.oh.n_bytes = (char *)&owner;
+		arg4.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg4.alock.oh.n_len = sizeof(owner);
 		arg4.alock.svid = msg->lm_fl.l_pid;
 		arg4.alock.l_offset = msg->lm_fl.l_start;
@@ -496,13 +496,13 @@ test_request(LOCKD_MSG *msg)
 	} else {
 		struct nlm_testargs arg;
 
-		arg.cookie.n_bytes = (char *)&msg->lm_xid;
+		arg.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
 		arg.cookie.n_len = sizeof(msg->lm_xid);
 		arg.exclusive = msg->lm_fl.l_type == F_WRLCK ? 1 : 0;
 		arg.alock.caller_name = hostname;
-		arg.alock.fh.n_bytes = (char *)&msg->lm_fh;
+		arg.alock.fh.n_bytes = (uint8_t *)&msg->lm_fh;
 		arg.alock.fh.n_len = msg->lm_fh_len;
-		arg.alock.oh.n_bytes = (char *)&owner;
+		arg.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg.alock.oh.n_len = sizeof(owner);
 		arg.alock.svid = msg->lm_fl.l_pid;
 		arg.alock.l_offset = msg->lm_fl.l_start;
@@ -541,14 +541,14 @@ lock_request(LOCKD_MSG *msg)
 	monitor_lock_host_by_addr((struct sockaddr *)&msg->lm_addr);
 
 	if (msg->lm_flags & LOCKD_MSG_NFSV3) {
-		arg4.cookie.n_bytes = (char *)&msg->lm_xid;
+		arg4.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
 		arg4.cookie.n_len = sizeof(msg->lm_xid);
 		arg4.block = (msg->lm_flags & LOCKD_MSG_BLOCK) ? 1 : 0;
 		arg4.exclusive = msg->lm_fl.l_type == F_WRLCK ? 1 : 0;
 		arg4.alock.caller_name = hostname;
-		arg4.alock.fh.n_bytes = (char *)&msg->lm_fh;
+		arg4.alock.fh.n_bytes = (uint8_t *)&msg->lm_fh;
 		arg4.alock.fh.n_len = msg->lm_fh_len;
-		arg4.alock.oh.n_bytes = (char *)&owner;
+		arg4.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg4.alock.oh.n_len = sizeof(owner);
 		arg4.alock.svid = msg->lm_fl.l_pid;
 		arg4.alock.l_offset = msg->lm_fl.l_start;
@@ -563,14 +563,14 @@ lock_request(LOCKD_MSG *msg)
 		(void)clnt_call(cli, NLM4_LOCK_MSG,
 		    (xdrproc_t)xdr_nlm4_lockargs, &arg4, (xdrproc_t)xdr_void, &dummy, timeout);
 	} else {
-		arg.cookie.n_bytes = (char *)&msg->lm_xid;
+		arg.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
 		arg.cookie.n_len = sizeof(msg->lm_xid);
 		arg.block = (msg->lm_flags & LOCKD_MSG_BLOCK) ? 1 : 0;
 		arg.exclusive = msg->lm_fl.l_type == F_WRLCK ? 1 : 0;
 		arg.alock.caller_name = hostname;
-		arg.alock.fh.n_bytes = (char *)&msg->lm_fh;
+		arg.alock.fh.n_bytes = (uint8_t *)&msg->lm_fh;
 		arg.alock.fh.n_len = msg->lm_fh_len;
-		arg.alock.oh.n_bytes = (char *)&owner;
+		arg.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg.alock.oh.n_len = sizeof(owner);
 		arg.alock.svid = msg->lm_fl.l_pid;
 		arg.alock.l_offset = msg->lm_fl.l_start;
@@ -608,14 +608,14 @@ cancel_request(LOCKD_MSG *msg)
 		    from_addr((struct sockaddr *)&msg->lm_addr));
 
 	if (msg->lm_flags & LOCKD_MSG_NFSV3) {
-		arg4.cookie.n_bytes = (char *)&msg->lm_xid;
+		arg4.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
 		arg4.cookie.n_len = sizeof(msg->lm_xid);
 		arg4.block = (msg->lm_flags & LOCKD_MSG_BLOCK) ? 1 : 0;
 		arg4.exclusive = msg->lm_fl.l_type == F_WRLCK ? 1 : 0;
 		arg4.alock.caller_name = hostname;
-		arg4.alock.fh.n_bytes = (char *)&msg->lm_fh;
+		arg4.alock.fh.n_bytes = (uint8_t *)&msg->lm_fh;
 		arg4.alock.fh.n_len = msg->lm_fh_len;
-		arg4.alock.oh.n_bytes = (char *)&owner;
+		arg4.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg4.alock.oh.n_len = sizeof(owner);
 		arg4.alock.svid = msg->lm_fl.l_pid;
 		arg4.alock.l_offset = msg->lm_fl.l_start;
@@ -628,14 +628,14 @@ cancel_request(LOCKD_MSG *msg)
 		(void)clnt_call(cli, NLM4_CANCEL_MSG,
 		    (xdrproc_t)xdr_nlm4_cancargs, &arg4, (xdrproc_t)xdr_void, &dummy, timeout);
 	} else {
-		arg.cookie.n_bytes = (char *)&msg->lm_xid;
+		arg.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
 		arg.cookie.n_len = sizeof(msg->lm_xid);
 		arg.block = (msg->lm_flags & LOCKD_MSG_BLOCK) ? 1 : 0;
 		arg.exclusive = msg->lm_fl.l_type == F_WRLCK ? 1 : 0;
 		arg.alock.caller_name = hostname;
-		arg.alock.fh.n_bytes = (char *)&msg->lm_fh;
+		arg.alock.fh.n_bytes = (uint8_t *)&msg->lm_fh;
 		arg.alock.fh.n_len = msg->lm_fh_len;
-		arg.alock.oh.n_bytes = (char *)&owner;
+		arg.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg.alock.oh.n_len = sizeof(owner);
 		arg.alock.svid = msg->lm_fl.l_pid;
 		arg.alock.l_offset = msg->lm_fl.l_start;
@@ -670,12 +670,12 @@ unlock_request(LOCKD_MSG *msg)
 		    from_addr((struct sockaddr *)&msg->lm_addr));
 
 	if (msg->lm_flags & LOCKD_MSG_NFSV3) {
-		arg4.cookie.n_bytes = (char *)&msg->lm_xid;
+		arg4.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
 		arg4.cookie.n_len = sizeof(msg->lm_xid);
 		arg4.alock.caller_name = hostname;
-		arg4.alock.fh.n_bytes = (char *)&msg->lm_fh;
+		arg4.alock.fh.n_bytes = (uint8_t *)&msg->lm_fh;
 		arg4.alock.fh.n_len = msg->lm_fh_len;
-		arg4.alock.oh.n_bytes = (char *)&owner;
+		arg4.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg4.alock.oh.n_len = sizeof(owner);
 		arg4.alock.svid = msg->lm_fl.l_pid;
 		arg4.alock.l_offset = msg->lm_fl.l_start;
@@ -688,12 +688,12 @@ unlock_request(LOCKD_MSG *msg)
 		(void)clnt_call(cli, NLM4_UNLOCK_MSG,
 		    (xdrproc_t)xdr_nlm4_unlockargs, &arg4, (xdrproc_t)xdr_void, &dummy, timeout);
 	} else {
-		arg.cookie.n_bytes = (char *)&msg->lm_xid;
+		arg.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
 		arg.cookie.n_len = sizeof(msg->lm_xid);
 		arg.alock.caller_name = hostname;
-		arg.alock.fh.n_bytes = (char *)&msg->lm_fh;
+		arg.alock.fh.n_bytes = (uint8_t *)&msg->lm_fh;
 		arg.alock.fh.n_len = msg->lm_fh_len;
-		arg.alock.oh.n_bytes = (char *)&owner;
+		arg.alock.oh.n_bytes = (uint8_t *)&owner;
 		arg.alock.oh.n_len = sizeof(owner);
 		arg.alock.svid = msg->lm_fl.l_pid;
 		arg.alock.l_offset = msg->lm_fl.l_start;

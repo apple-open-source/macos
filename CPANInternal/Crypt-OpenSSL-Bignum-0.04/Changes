@@ -1,0 +1,16 @@
+Revision history for Perl extension Crypt::OpenSSL::Bignum.
+
+0.04  Sun May 20 2007 13:08:23
+        - Add a LICENSE file.
+        - Add -DOPENSSL_NO_KRB5 to DEFINE to keep redhat happy.
+
+0.03  Sun Apr 27 2003 18:33:48
+        - Revert back to old declaration style so that we no longer
+          break under perl 5.005 (spotted by Rob Brown <bbb@cpan.org>).
+
+0.02  Fri Feb 21 21:55:14
+        - link against libcrypto instead of libssl
+        - more documentation
+
+0.01  Mon Feb 17 22:00 2003
+        - original version

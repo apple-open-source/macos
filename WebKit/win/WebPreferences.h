@@ -162,6 +162,18 @@ public:
     
     virtual HRESULT STDMETHODCALLTYPE setPlugInsEnabled( 
         /* [in] */ BOOL enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE isCSSRegionsEnabled(
+        /* [retval][out] */ BOOL* enabled);
+    
+    virtual HRESULT STDMETHODCALLTYPE setCSSRegionsEnabled(
+        /* [in] */ BOOL);
+    
+    virtual HRESULT STDMETHODCALLTYPE areSeamlessIFramesEnabled(
+        /* [retval][out] */ BOOL* enabled);
+    
+    virtual HRESULT STDMETHODCALLTYPE setSeamlessIFramesEnabled(
+        /* [in] */ BOOL);
     
     virtual HRESULT STDMETHODCALLTYPE allowsAnimatedImages( 
         /* [retval][out] */ BOOL* enabled);
@@ -244,11 +256,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setEditableLinkBehavior( 
         /* [in] */ WebKitEditableLinkBehavior behavior);
 
-    virtual HRESULT STDMETHODCALLTYPE editingBehavior(
-        /* [retval][out] */ WebKitEditingBehavior* behavior);
-
-    virtual HRESULT STDMETHODCALLTYPE setEditingBehavior(
-        /* [in] */ WebKitEditingBehavior behavior);
+    virtual HRESULT STDMETHODCALLTYPE unused5();
+    virtual HRESULT STDMETHODCALLTYPE unused6();
 
     virtual HRESULT STDMETHODCALLTYPE cookieStorageAcceptPolicy( 
         /* [retval][out] */ WebKitCookieStorageAcceptPolicy *acceptPolicy);
@@ -444,9 +453,6 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setDNSPrefetchingEnabled(BOOL);
     virtual HRESULT STDMETHODCALLTYPE isDNSPrefetchingEnabled(BOOL*);
 
-    virtual HRESULT STDMETHODCALLTYPE setMemoryInfoEnabled(BOOL);
-    virtual HRESULT STDMETHODCALLTYPE memoryInfoEnabled(BOOL*);
-
     virtual HRESULT STDMETHODCALLTYPE hyperlinkAuditingEnabled(BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setHyperlinkAuditingEnabled(BOOL);
 
@@ -470,6 +476,9 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE shouldInvertColors(BOOL*);
     virtual HRESULT STDMETHODCALLTYPE setShouldInvertColors(BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE requestAnimationFrameEnabled(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setRequestAnimationFrameEnabled(BOOL);
 
     // WebPreferences
 

@@ -177,10 +177,15 @@ LFound0:
 //	%ecx = buffer length remaining
 
 LZeroBuffer:
-	pushl	%ecx			// remaining buffer size
-	pushl	%edi			// ptr to 1st unstored byte
+//	The stack currently is aligned to 4 mod 16 (it was 0 mod 16 at the time of
+//	the call, and the return address, edi, and esi have been pushed).  It needs
+//	to aligned 0 mod 16 when we call bzero, so we subtract 20 from esp (not 4
+//	because we need to have 8 bytes for the arguments to bzero).
+	subl	$20,%esp
+	movl	%ecx,4(%esp)	// remaining buffer size
+	movl	%edi, (%esp)	// pointer to first unstored byte
 	call	_bzero
-	addl	$8,%esp			// pop off the arguments
+	addl	$20,%esp
 
 LDone:
 	movl	12(%esp),%eax		// original dest ptr is return value

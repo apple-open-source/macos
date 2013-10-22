@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.security.DiskUnmountWatcher</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/System/Library/PrivateFrameworks/KerberosHelper/Helpers/DiskUnmountWatcher</string>
+	</array>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.diskarbitration</key>
+		<dict>
+			<key>DiskDisappeared event</key>
+			<dict>
+				<key>DiskDisappeared</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>POSIXSpawnType</key>
+	<string>Background</string>
+	<key>LimitLoadToSessionType</key>
+	<string>Aqua</string>
+	<key>EnableTransactions</key>
+	<true/>
+</dict>
+</plist>

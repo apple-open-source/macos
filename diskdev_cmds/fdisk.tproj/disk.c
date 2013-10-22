@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -235,8 +235,9 @@ DISK_getmetrics(disk, user)
 
 		cyls = disk->label->size / (disk->bios->heads * disk->bios->sectors);
 		secs = cyls * (disk->bios->heads * disk->bios->sectors);
-		if ((disk->label->size - secs) < 0)
-			errx(1, "BIOS fixup botch (%d sectors)", disk->label->size - secs);
+		if (disk->label->size < secs) {
+			errx(1, "BIOS fixup botch (%u sectors)", disk->label->size - secs);
+		}
 		disk->bios->cylinders = cyls;
 		disk->bios->size = secs;
 	}
@@ -295,10 +296,10 @@ DISK_printmetrics(disk)
 
 	printf("Disk: %s\t", disk->name);
 	if (disk->real) {
-		printf("geometry: %d/%d/%d [%d sectors]\n", disk->real->cylinders,
+		printf("geometry: %u/%u/%u [%u sectors]\n", disk->real->cylinders,
 		    disk->real->heads, disk->real->sectors, disk->real->size);
 		if (disk->real->sector_size != 512)
-			printf("Sector size: %d bytes\n", disk->real->sector_size);
+			printf("Sector size: %u bytes\n", disk->real->sector_size);
 	} else {
 		printf("geometry: <none>\n");
 	}

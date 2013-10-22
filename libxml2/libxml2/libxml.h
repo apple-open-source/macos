@@ -29,6 +29,11 @@
 #include <win32config.h>
 #include <libxml/xmlversion.h>
 #else
+/*
+ * Currently supported platforms use either autoconf or
+ * copy to config.h own "preset" configuration file.
+ * As result ifdef HAVE_CONFIG_H is omited here.
+ */
 #include "config.h"
 #include <libxml/xmlversion.h>
 #endif
@@ -78,6 +83,17 @@ void __htmlParseContent(void *ctx);
 void __xmlGlobalInitMutexLock(void);
 void __xmlGlobalInitMutexUnlock(void);
 void __xmlGlobalInitMutexDestroy(void);
+
+int __xmlInitializeDict(void);
+
+#if defined(HAVE_RAND) && defined(HAVE_SRAND) && defined(HAVE_TIME)
+/*
+ * internal thread safe random function
+ */
+int __xmlRandom(void);
+#endif
+
+int xmlNop(void);
 
 #ifdef IN_LIBXML
 #ifdef __GNUC__

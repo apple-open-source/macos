@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -328,7 +328,7 @@ routename(sa)
 		if (gethostname(domain, MAXHOSTNAMELEN) == 0 &&
 		    (cp = index(domain, '.'))) {
 			domain[MAXHOSTNAMELEN] = '\0';
-			(void) strlcpy(domain, cp + 1, sizeof(domain));
+			(void) memmove(domain, cp + 1, strlen(cp + 1) + 1);
 		} else
 			domain[0] = 0;
 	}

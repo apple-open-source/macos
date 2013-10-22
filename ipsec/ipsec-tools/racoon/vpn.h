@@ -49,4 +49,4 @@
  * SUCH DAMAGE.
  */
 
-int vpn_connect __P((struct bound_addr *, int));
+int vpn_connect (struct bound_addr *, int);

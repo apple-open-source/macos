@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2013 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012 Serotek Corporation. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,8 +34,8 @@
 using namespace WebCore;
 
 // AccessibleDocument
-AccessibleDocument::AccessibleDocument(Document* doc)
-    : AccessibleBase(doc->axObjectCache()->rootObject())
+AccessibleDocument::AccessibleDocument(Document* doc, HWND window)
+    : AccessibleBase(doc->axObjectCache()->rootObject(), window)
 {
 }
 
@@ -48,4 +49,18 @@ Document* AccessibleDocument::document() const
     if (!m_object)
         return 0;
     return m_object->document();
+}
+
+long AccessibleDocument::state() const
+{
+    long state = AccessibleBase::state();
+
+    // The document is considered focusable on Windows.
+    state |= STATE_SYSTEM_FOCUSABLE;
+
+    // The document must expose itself as focused if no element has focus.
+    if (m_object->focusedUIElement() == m_object)
+        state |= STATE_SYSTEM_FOCUSED;
+
+    return state;
 }

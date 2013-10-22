@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-#pragma mark ----- OCSP Request -----
+// MARK: ----- OCSP Request -----
 
 /*
  * CertID          ::=     SEQUENCE {
@@ -109,7 +109,7 @@ typedef struct {
 
 extern const SecAsn1Template kSecAsn1OCSPSignedRequestTemplate[];
 
-#pragma mark ----- OCSP Response -----
+// MARK: ----- OCSP Response -----
 
 /*
  * CertStatus ::= CHOICE {

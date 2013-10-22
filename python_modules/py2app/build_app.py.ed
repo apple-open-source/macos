@@ -2,7 +2,7 @@
 /mm\.mm\.run_file(runtime)/a
                     # always copy the system runtime
                     if runtime.startswith('/System/Library/Frameworks/Python.framework'):
-                        print "*** copying runtime %s ***" % runtime
+                        print("*** copying runtime %s ***" % runtime)
                         self.copy_python_framework(macholib.dyld.framework_info(runtime), os.path.join(dst, "Contents/Frameworks"))
 .
 w

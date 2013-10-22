@@ -126,7 +126,7 @@ protected:
 	
 		// can this buffer be extended?
 		bool isExtensible() const
-		{ return !*vec || remData && !*remData; }
+		{ return !*vec || (remData && !*remData); }
 	
 		// increase size if necessary (and possible)
 		void allocate(size_t needed, Allocator &alloc);

@@ -169,7 +169,7 @@ KeyValueList_create(void * buf, int buflen)
 	goto failed;
     }
     if (count != size) {
-	elements = realloc(elements, sizeof(*elements) * count + sizeof(*ret));
+	elements = reallocf(elements, sizeof(*elements) * count + sizeof(*ret));
 	if (elements == NULL)
 	    goto failed;
     }
@@ -179,10 +179,10 @@ KeyValueList_create(void * buf, int buflen)
     ret->str = str;
     return (ret);
  failed:
-    if (elements) {
+    if (elements != NULL) {
 	free(elements);
     }
-    if (str) {
+    if (str != NULL) {
 	free(str);
     }
     return (NULL);

@@ -30,7 +30,9 @@
 #if USE(LEVELDB)
 
 #include "IDBKey.h"
+#include "IDBKeyPath.h"
 #include "LevelDBSlice.h"
+#include <wtf/ByteOrder.h>
 #include <wtf/text/StringBuilder.h>
 
 // LevelDB stores key/value pairs. Keys and values are strings of bytes, normally of type Vector<char>.
@@ -45,8 +47,9 @@
 //
 // Global meta-data have keys with prefix (0,0,0), followed by a type byte:
 //
-//     <0, 0, 0, 0>                                           => IndexedDB/LevelDB schema version (0 for now) [SchemaVersionKey]
+//     <0, 0, 0, 0>                                           => IndexedDB/LevelDB schema version [SchemaVersionKey]
 //     <0, 0, 0, 1>                                           => The maximum database id ever allocated [MaxDatabaseIdKey]
+//     <0, 0, 0, 2>                                           => SerializedScriptValue version [DataVersionKey]
 //     <0, 0, 0, 100, database id>                            => Existence implies the database id is in the free list [DatabaseFreeListKey]
 //     <0, 0, 0, 201, utf16 origin name, utf16 database name> => Database id [DatabaseNameKey]
 //
@@ -59,11 +62,12 @@
 //     <database id, 0, 0, 1> => utf16 database name [DatabaseMetaDataKey]
 //     <database id, 0, 0, 2> => utf16 user version data [DatabaseMetaDataKey]
 //     <database id, 0, 0, 3> => maximum object store id ever allocated [DatabaseMetaDataKey]
+//     <database id, 0, 0, 4> => user integer version (var int) [DatabaseMetaDataKey]
 //
 //
 // Object store meta-data:
 //
-//     The prefix is followed by a type byte, then a variable-length integer, and then another variable-length integer (FIXME: this should be a byte).
+//     The prefix is followed by a type byte, then a variable-length integer, and then another type byte.
 //
 //     <database id, 0, 0, 50, object store id, 0> => utf16 object store name [ObjectStoreMetaDataKey]
 //     <database id, 0, 0, 50, object store id, 1> => utf16 key path [ObjectStoreMetaDataKey]
@@ -72,6 +76,7 @@
 //     <database id, 0, 0, 50, object store id, 4> => last "version" number [ObjectStoreMetaDataKey]
 //     <database id, 0, 0, 50, object store id, 5> => maximum index id ever allocated [ObjectStoreMetaDataKey]
 //     <database id, 0, 0, 50, object store id, 6> => has key path (vs. null) [ObjectStoreMetaDataKey]
+//     <database id, 0, 0, 50, object store id, 7> => key generator current number [ObjectStoreMetaDataKey]
 //
 //
 // Index meta-data:
@@ -135,65 +140,84 @@ namespace IDBLevelDBCoding {
 #define INT32_MAX 0x7fffffffL
 #endif
 
-static const unsigned char kIDBKeyNullTypeByte = 0;
-static const unsigned char kIDBKeyStringTypeByte = 1;
-static const unsigned char kIDBKeyDateTypeByte = 2;
-static const unsigned char kIDBKeyNumberTypeByte = 3;
-static const unsigned char kIDBKeyArrayTypeByte = 4;
-static const unsigned char kIDBKeyMinKeyTypeByte = 5;
+static const unsigned char IDBKeyNullTypeByte = 0;
+static const unsigned char IDBKeyStringTypeByte = 1;
+static const unsigned char IDBKeyDateTypeByte = 2;
+static const unsigned char IDBKeyNumberTypeByte = 3;
+static const unsigned char IDBKeyArrayTypeByte = 4;
+static const unsigned char IDBKeyMinKeyTypeByte = 5;
 
-static const unsigned char kObjectStoreDataIndexId = 1;
-static const unsigned char kExistsEntryIndexId = 2;
+static const unsigned char IDBKeyPathTypeCodedByte1 = 0;
+static const unsigned char IDBKeyPathTypeCodedByte2 = 0;
 
-static const unsigned char kSchemaVersionTypeByte = 0;
-static const unsigned char kMaxDatabaseIdTypeByte = 1;
-static const unsigned char kDatabaseFreeListTypeByte = 100;
-static const unsigned char kDatabaseNameTypeByte = 201;
+static const unsigned char ObjectStoreDataIndexId = 1;
+static const unsigned char ExistsEntryIndexId = 2;
 
-static const unsigned char kObjectStoreMetaDataTypeByte = 50;
-static const unsigned char kIndexMetaDataTypeByte = 100;
-static const unsigned char kObjectStoreFreeListTypeByte = 150;
-static const unsigned char kIndexFreeListTypeByte = 151;
-static const unsigned char kObjectStoreNamesTypeByte = 200;
-static const unsigned char kIndexNamesKeyTypeByte = 201;
+static const unsigned char SchemaVersionTypeByte = 0;
+static const unsigned char MaxDatabaseIdTypeByte = 1;
+static const unsigned char DataVersionTypeByte = 2;
+static const unsigned char MaxSimpleGlobalMetaDataTypeByte = 3; // Insert before this and increment.
+static const unsigned char DatabaseFreeListTypeByte = 100;
+static const unsigned char DatabaseNameTypeByte = 201;
 
-static const int64_t kObjectMetaDataTypeMaximum = INT64_MAX;
-static const unsigned char kIndexMetaDataTypeMaximum = 255;
+static const unsigned char ObjectStoreMetaDataTypeByte = 50;
+static const unsigned char IndexMetaDataTypeByte = 100;
+static const unsigned char ObjectStoreFreeListTypeByte = 150;
+static const unsigned char IndexFreeListTypeByte = 151;
+static const unsigned char ObjectStoreNamesTypeByte = 200;
+static const unsigned char IndexNamesKeyTypeByte = 201;
+
+static const unsigned char ObjectMetaDataTypeMaximum = 255;
+static const unsigned char IndexMetaDataTypeMaximum = 255;
 
 Vector<char> encodeByte(unsigned char c)
 {
-    Vector<char> v;
+    Vector<char, DefaultInlineBufferSize> v;
     v.append(c);
+
+    ASSERT(v.size() <= DefaultInlineBufferSize);
     return v;
+}
+
+const char* decodeByte(const char* p, const char* limit, unsigned char& foundChar)
+{
+    if (p >= limit)
+        return 0;
+
+    foundChar = *p++;
+    return p;
 }
 
 Vector<char> maxIDBKey()
 {
-    return encodeByte(kIDBKeyNullTypeByte);
+    return encodeByte(IDBKeyNullTypeByte);
 }
 
 Vector<char> minIDBKey()
 {
-    return encodeByte(kIDBKeyMinKeyTypeByte);
+    return encodeByte(IDBKeyMinKeyTypeByte);
 }
 
 Vector<char> encodeBool(bool b)
 {
-    Vector<char> ret(1);
+    Vector<char, DefaultInlineBufferSize> ret;
     ret.append(b ? 1 : 0);
+
+    ASSERT(ret.size() <= DefaultInlineBufferSize);
     return ret;
 }
 
 bool decodeBool(const char* begin, const char* end)
 {
-    ASSERT(begin < end);
+    ASSERT_UNUSED(end, begin < end);
     return *begin;
 }
 
-Vector<char> encodeInt(int64_t n)
+Vector<char> encodeInt(int64_t nParam)
 {
-    ASSERT(n >= 0);
-    Vector<char> ret; // FIXME: Size this at creation.
+    ASSERT(nParam >= 0);
+    uint64_t n = static_cast<uint64_t>(nParam);
+    Vector<char, DefaultInlineBufferSize> ret;
 
     do {
         unsigned char c = n;
@@ -201,6 +225,7 @@ Vector<char> encodeInt(int64_t n)
         n >>= 8;
     } while (n);
 
+    ASSERT(ret.size() <= DefaultInlineBufferSize);
     return ret;
 }
 
@@ -232,9 +257,11 @@ static int compareInts(int64_t a, int64_t b)
     return 0;
 }
 
-Vector<char> encodeVarInt(int64_t n)
+Vector<char> encodeVarInt(int64_t nParam)
 {
-    Vector<char> ret; // FIXME: Size this at creation.
+    ASSERT(nParam >= 0);
+    uint64_t n = static_cast<uint64_t>(nParam);
+    Vector<char, DefaultInlineBufferSize> ret;
 
     do {
         unsigned char c = n & 0x7f;
@@ -244,10 +271,11 @@ Vector<char> encodeVarInt(int64_t n)
         ret.append(c);
     } while (n);
 
+    ASSERT(ret.size() <= DefaultInlineBufferSize);
     return ret;
 }
 
-const char* decodeVarInt(const char *p, const char* limit, int64_t& foundInt)
+const char* decodeVarInt(const char* p, const char* limit, int64_t& foundInt)
 {
     ASSERT(limit >= p);
     foundInt = 0;
@@ -266,42 +294,39 @@ const char* decodeVarInt(const char *p, const char* limit, int64_t& foundInt)
 
 Vector<char> encodeString(const String& s)
 {
-    Vector<char> ret; // FIXME: Size this at creation.
+    // Backing store is UTF-16BE, convert from host endianness.
+    size_t length = s.length();
+    Vector<char> ret(length * sizeof(UChar));
 
-    for (unsigned i = 0; i < s.length(); ++i) {
-        UChar u = s[i];
-        unsigned char hi = u >> 8;
-        unsigned char lo = u;
-        ret.append(hi);
-        ret.append(lo);
-    }
+    const UChar* src = s.characters();
+    UChar* dst = reinterpret_cast<UChar*>(ret.data());
+    for (unsigned i = 0; i < length; ++i)
+        *dst++ = htons(*src++);
 
     return ret;
 }
 
-String decodeString(const char* p, const char* end)
+String decodeString(const char* start, const char* end)
 {
-    ASSERT(end >= p);
-    ASSERT(!((end - p) % 2));
+    // Backing store is UTF-16BE, convert to host endianness.
+    ASSERT(end >= start);
+    ASSERT(!((end - start) % sizeof(UChar)));
 
-    size_t len = (end - p) / 2;
-    StringBuilder result;
-    result.reserveCapacity(len);
+    size_t length = (end - start) / sizeof(UChar);
+    Vector<UChar> buffer(length);
 
-    for (size_t i = 0; i < len; ++i) {
-        unsigned char hi = *p++;
-        unsigned char lo = *p++;
+    const UChar* src = reinterpret_cast<const UChar*>(start);
+    UChar* dst = buffer.data();
+    for (unsigned i = 0; i < length; ++i)
+        *dst++ = ntohs(*src++);
 
-        result.append(static_cast<UChar>((hi << 8) | lo));
-    }
-
-    return result.toString();
+    return String::adopt(buffer);
 }
 
 Vector<char> encodeStringWithLength(const String& s)
 {
     Vector<char> ret = encodeVarInt(s.length());
-    ret.append(encodeString(s));
+    ret.appendVector(encodeString(s));
     return ret;
 }
 
@@ -310,9 +335,7 @@ const char* decodeStringWithLength(const char* p, const char* limit, String& fou
     ASSERT(limit >= p);
     int64_t len;
     p = decodeVarInt(p, limit, len);
-    if (!p)
-        return 0;
-    if (p + len * 2 > limit)
+    if (!p || len < 0 || p + len * 2 > limit)
         return 0;
 
     foundString = decodeString(p, p + len * 2);
@@ -320,7 +343,7 @@ const char* decodeStringWithLength(const char* p, const char* limit, String& fou
     return p;
 }
 
-int compareEncodedStringsWithLength(const char*& p, const char* limitP, const char*& q, const char* limitQ)
+int compareEncodedStringsWithLength(const char*& p, const char* limitP, const char*& q, const char* limitQ, bool& ok)
 {
     ASSERT(&p != &q);
     ASSERT(limitP >= p);
@@ -328,6 +351,10 @@ int compareEncodedStringsWithLength(const char*& p, const char* limitP, const ch
     int64_t lenP, lenQ;
     p = decodeVarInt(p, limitP, lenP);
     q = decodeVarInt(q, limitQ, lenQ);
+    if (!p || !q || lenP < 0 || lenQ < 0) {
+        ok = false;
+        return 0;
+    }
     ASSERT(p && q);
     ASSERT(lenP >= 0);
     ASSERT(lenQ >= 0);
@@ -339,9 +366,12 @@ int compareEncodedStringsWithLength(const char*& p, const char* limitP, const ch
     p += lenP * 2;
     q += lenQ * 2;
 
-    if (p > limitP || q > limitQ)
+    if (p > limitP || q > limitQ) {
+        ok = false;
         return 0;
+    }
 
+    ok = true;
     const size_t lmin = static_cast<size_t>(lenP < lenQ ? lenP : lenQ);
     if (int x = memcmp(startP, startQ, lmin * 2))
         return x;
@@ -356,9 +386,10 @@ Vector<char> encodeDouble(double x)
 {
     // FIXME: It would be nice if we could be byte order independent.
     const char* p = reinterpret_cast<char*>(&x);
-    Vector<char> v;
+    Vector<char, DefaultInlineBufferSize> v;
     v.append(p, sizeof(x));
-    ASSERT(v.size() == sizeof(x));
+
+    ASSERT(v.size() <= DefaultInlineBufferSize);
     return v;
 }
 
@@ -375,42 +406,43 @@ const char* decodeDouble(const char* p, const char* limit, double* d)
 
 Vector<char> encodeIDBKey(const IDBKey& key)
 {
-    Vector<char> ret;
+    Vector<char, DefaultInlineBufferSize> ret;
     encodeIDBKey(key, ret);
     return ret;
 }
 
-void encodeIDBKey(const IDBKey& key, Vector<char>& into)
+void encodeIDBKey(const IDBKey& key, Vector<char, DefaultInlineBufferSize>& into)
 {
     size_t previousSize = into.size();
+    ASSERT(key.isValid());
     switch (key.type()) {
     case IDBKey::InvalidType:
     case IDBKey::MinType:
         ASSERT_NOT_REACHED();
-        into.append(encodeByte(kIDBKeyNullTypeByte));
+        into.appendVector(encodeByte(IDBKeyNullTypeByte));
         return;
     case IDBKey::ArrayType: {
-        into.append(encodeByte(kIDBKeyArrayTypeByte));
+        into.appendVector(encodeByte(IDBKeyArrayTypeByte));
         size_t length = key.array().size();
-        into.append(encodeVarInt(length));
+        into.appendVector(encodeVarInt(length));
         for (size_t i = 0; i < length; ++i)
             encodeIDBKey(*key.array()[i], into);
         ASSERT_UNUSED(previousSize, into.size() > previousSize);
         return;
     }
     case IDBKey::StringType:
-        into.append(encodeByte(kIDBKeyStringTypeByte));
-        into.append(encodeStringWithLength(key.string()));
+        into.appendVector(encodeByte(IDBKeyStringTypeByte));
+        into.appendVector(encodeStringWithLength(key.string()));
         ASSERT_UNUSED(previousSize, into.size() > previousSize);
         return;
     case IDBKey::DateType:
-        into.append(encodeByte(kIDBKeyDateTypeByte));
-        into.append(encodeDouble(key.date()));
+        into.appendVector(encodeByte(IDBKeyDateTypeByte));
+        into.appendVector(encodeDouble(key.date()));
         ASSERT_UNUSED(previousSize, into.size() - previousSize == 9);
         return;
     case IDBKey::NumberType:
-        into.append(encodeByte(kIDBKeyNumberTypeByte));
-        into.append(encodeDouble(key.number()));
+        into.appendVector(encodeByte(IDBKeyNumberTypeByte));
+        into.appendVector(encodeDouble(key.number()));
         ASSERT_UNUSED(previousSize, into.size() - previousSize == 9);
         return;
     }
@@ -428,16 +460,14 @@ const char* decodeIDBKey(const char* p, const char* limit, RefPtr<IDBKey>& found
     unsigned char type = *p++;
 
     switch (type) {
-    case kIDBKeyNullTypeByte:
+    case IDBKeyNullTypeByte:
         foundKey = IDBKey::createInvalid();
         return p;
 
-    case kIDBKeyArrayTypeByte: {
+    case IDBKeyArrayTypeByte: {
         int64_t length;
         p = decodeVarInt(p, limit, length);
-        if (!p)
-            return 0;
-        if (length < 0)
+        if (!p || length < 0)
             return 0;
         IDBKey::KeyArray array;
         while (length--) {
@@ -450,7 +480,7 @@ const char* decodeIDBKey(const char* p, const char* limit, RefPtr<IDBKey>& found
         foundKey = IDBKey::createArray(array);
         return p;
     }
-    case kIDBKeyStringTypeByte: {
+    case IDBKeyStringTypeByte: {
         String s;
         p = decodeStringWithLength(p, limit, s);
         if (!p)
@@ -458,7 +488,7 @@ const char* decodeIDBKey(const char* p, const char* limit, RefPtr<IDBKey>& found
         foundKey = IDBKey::createString(s);
         return p;
     }
-    case kIDBKeyDateTypeByte: {
+    case IDBKeyDateTypeByte: {
         double d;
         p = decodeDouble(p, limit, &d);
         if (!p)
@@ -466,7 +496,7 @@ const char* decodeIDBKey(const char* p, const char* limit, RefPtr<IDBKey>& found
         foundKey = IDBKey::createDate(d);
         return p;
     }
-    case kIDBKeyNumberTypeByte: {
+    case IDBKeyNumberTypeByte: {
         double d;
         p = decodeDouble(p, limit, &d);
         if (!p)
@@ -480,9 +510,8 @@ const char* decodeIDBKey(const char* p, const char* limit, RefPtr<IDBKey>& found
     return 0;
 }
 
-const char* extractEncodedIDBKey(const char* start, const char* limit, Vector<char>* result)
+const char* extractEncodedIDBKey(const char* start, const char* limit, Vector<char>* result = 0)
 {
-    ASSERT(result);
     const char* p = start;
     if (p >= limit)
         return 0;
@@ -490,65 +519,61 @@ const char* extractEncodedIDBKey(const char* start, const char* limit, Vector<ch
     unsigned char type = *p++;
 
     switch (type) {
-    case kIDBKeyNullTypeByte:
-    case kIDBKeyMinKeyTypeByte:
-        *result = encodeByte(type);
-        return p;
-    case kIDBKeyArrayTypeByte: {
+    case IDBKeyNullTypeByte:
+    case IDBKeyMinKeyTypeByte:
+        break;
+    case IDBKeyArrayTypeByte: {
         int64_t length;
         p = decodeVarInt(p, limit, length);
-        if (!p)
+        if (!p || length < 0)
             return 0;
-        if (length < 0)
-            return 0;
-        result->clear();
-        result->append(start, p - start);
         while (length--) {
-            Vector<char> subkey;
-            p = extractEncodedIDBKey(p, limit, &subkey);
+            p = extractEncodedIDBKey(p, limit);
             if (!p)
                 return 0;
-            result->append(subkey);
         }
-        return p;
+        break;
     }
-    case kIDBKeyStringTypeByte: {
+    case IDBKeyStringTypeByte: {
         int64_t length;
         p = decodeVarInt(p, limit, length);
-        if (!p)
+        if (!p || length < 0 || p + length * 2 > limit)
             return 0;
-        if (p + length * 2 > limit)
-            return 0;
-        result->clear();
-        result->append(start, p - start + length * 2);
-        return p + length * 2;
+        p += length * 2;
+        break;
     }
-    case kIDBKeyDateTypeByte:
-    case kIDBKeyNumberTypeByte:
+    case IDBKeyDateTypeByte:
+    case IDBKeyNumberTypeByte:
         if (p + sizeof(double) > limit)
             return 0;
-        result->clear();
-        result->append(start, 1 + sizeof(double));
-        return p + sizeof(double);
+        p += sizeof(double);
+        break;
     }
-    ASSERT_NOT_REACHED();
-    return 0;
+
+    if (result) {
+        ASSERT(p);
+        ASSERT(p <= limit);
+        result->clear();
+        result->append(start, p - start);
+    }
+
+    return p;
 }
 
 static IDBKey::Type keyTypeByteToKeyType(unsigned char type)
 {
     switch (type) {
-    case kIDBKeyNullTypeByte:
+    case IDBKeyNullTypeByte:
         return IDBKey::InvalidType;
-    case kIDBKeyArrayTypeByte:
+    case IDBKeyArrayTypeByte:
         return IDBKey::ArrayType;
-    case kIDBKeyStringTypeByte:
+    case IDBKeyStringTypeByte:
         return IDBKey::StringType;
-    case kIDBKeyDateTypeByte:
+    case IDBKeyDateTypeByte:
         return IDBKey::DateType;
-    case kIDBKeyNumberTypeByte:
+    case IDBKeyNumberTypeByte:
         return IDBKey::NumberType;
-    case kIDBKeyMinKeyTypeByte:
+    case IDBKeyMinKeyTypeByte:
         return IDBKey::MinType;
     }
 
@@ -556,35 +581,35 @@ static IDBKey::Type keyTypeByteToKeyType(unsigned char type)
     return IDBKey::InvalidType;
 }
 
-int compareEncodedIDBKeys(const char*& p, const char* limitA, const char*& q, const char* limitB)
+int compareEncodedIDBKeys(const char*& ptrA, const char* limitA, const char*& ptrB, const char* limitB, bool& ok)
 {
-    ASSERT(&p != &q);
-    ASSERT(p < limitA);
-    ASSERT(q < limitB);
-    unsigned char typeA = *p++;
-    unsigned char typeB = *q++;
+    ok = true;
+    ASSERT(&ptrA != &ptrB);
+    ASSERT(ptrA < limitA);
+    ASSERT(ptrB < limitB);
+    unsigned char typeA = *ptrA++;
+    unsigned char typeB = *ptrB++;
 
     if (int x = IDBKey::compareTypes(keyTypeByteToKeyType(typeA), keyTypeByteToKeyType(typeB)))
         return x;
 
     switch (typeA) {
-    case kIDBKeyNullTypeByte:
-    case kIDBKeyMinKeyTypeByte:
+    case IDBKeyNullTypeByte:
+    case IDBKeyMinKeyTypeByte:
         // Null type or max type; no payload to compare.
         return 0;
-    case kIDBKeyArrayTypeByte: {
+    case IDBKeyArrayTypeByte: {
         int64_t lengthA, lengthB;
-        p = decodeVarInt(p, limitA, lengthA);
-        if (!p)
+        ptrA = decodeVarInt(ptrA, limitA, lengthA);
+        ptrB = decodeVarInt(ptrB, limitB, lengthB);
+        if (!ptrA || !ptrB || lengthA < 0 || lengthB < 0) {
+            ok = false;
             return 0;
-        q = decodeVarInt(q, limitB, lengthB);
-        if (!q)
-            return 0;
-        if (lengthA < 0 || lengthB < 0)
-            return 0;
+        }
         for (int64_t i = 0; i < lengthA && i < lengthB; ++i) {
-            if (int cmp = compareEncodedIDBKeys(p, limitA, q, limitB))
-                return cmp;
+            int result = compareEncodedIDBKeys(ptrA, limitA, ptrB, limitB, ok);
+            if (!ok || result)
+                return result;
         }
         if (lengthA < lengthB)
             return -1;
@@ -592,15 +617,19 @@ int compareEncodedIDBKeys(const char*& p, const char* limitA, const char*& q, co
             return 1;
         return 0;
     }
-    case kIDBKeyStringTypeByte:
-        return compareEncodedStringsWithLength(p, limitA, q, limitB);
-    case kIDBKeyDateTypeByte:
-    case kIDBKeyNumberTypeByte: {
+    case IDBKeyStringTypeByte:
+        return compareEncodedStringsWithLength(ptrA, limitA, ptrB, limitB, ok);
+    case IDBKeyDateTypeByte:
+    case IDBKeyNumberTypeByte: {
         double d, e;
-        p = decodeDouble(p, limitA, &d);
-        ASSERT(p);
-        q = decodeDouble(q, limitB, &e);
-        ASSERT(q);
+        ptrA = decodeDouble(ptrA, limitA, &d);
+        ptrB = decodeDouble(ptrB, limitB, &e);
+        ASSERT(ptrA);
+        ASSERT(ptrB);
+        if (!ptrA || !ptrB) {
+            ok = false;
+            return 0;
+        }
         if (d < e)
             return -1;
         if (d > e)
@@ -613,36 +642,211 @@ int compareEncodedIDBKeys(const char*& p, const char* limitA, const char*& q, co
     return 0;
 }
 
-int compareEncodedIDBKeys(const Vector<char>& keyA, const Vector<char>& keyB)
+int compareEncodedIDBKeys(const Vector<char>& keyA, const Vector<char>& keyB, bool& ok)
 {
     ASSERT(keyA.size() >= 1);
     ASSERT(keyB.size() >= 1);
 
-    const char* p = keyA.data();
-    const char* limitA = p + keyA.size();
-    const char* q = keyB.data();
-    const char* limitB = q + keyB.size();
+    const char* ptrA = keyA.data();
+    const char* limitA = ptrA + keyA.size();
+    const char* ptrB = keyB.data();
+    const char* limitB = ptrB + keyB.size();
 
-    return compareEncodedIDBKeys(p, limitA, q, limitB);
+    return compareEncodedIDBKeys(ptrA, limitA, ptrB, limitB, ok);
+}
+
+Vector<char> encodeIDBKeyPath(const IDBKeyPath& keyPath)
+{
+    // May be typed, or may be a raw string. An invalid leading
+    // byte is used to identify typed coding. New records are
+    // always written as typed.
+    Vector<char, DefaultInlineBufferSize> ret;
+    ret.append(IDBKeyPathTypeCodedByte1);
+    ret.append(IDBKeyPathTypeCodedByte2);
+    ret.append(static_cast<char>(keyPath.type()));
+    switch (keyPath.type()) {
+    case IDBKeyPath::NullType:
+        break;
+    case IDBKeyPath::StringType:
+        ret.appendVector(encodeStringWithLength(keyPath.string()));
+        break;
+    case IDBKeyPath::ArrayType: {
+        const Vector<String>& array = keyPath.array();
+        size_t count = array.size();
+        ret.appendVector(encodeVarInt(count));
+        for (size_t i = 0; i < count; ++i)
+            ret.appendVector(encodeStringWithLength(array[i]));
+        break;
+    }
+    }
+    return ret;
+}
+
+IDBKeyPath decodeIDBKeyPath(const char* p, const char* limit)
+{
+    // May be typed, or may be a raw string. An invalid leading
+    // byte sequence is used to identify typed coding. New records are
+    // always written as typed.
+    if (p == limit || (limit - p >= 2 && (*p != IDBKeyPathTypeCodedByte1 || *(p + 1) != IDBKeyPathTypeCodedByte2)))
+        return IDBKeyPath(decodeString(p, limit));
+    p += 2;
+
+    ASSERT(p != limit);
+    IDBKeyPath::Type type = static_cast<IDBKeyPath::Type>(*p++);
+    switch (type) {
+    case IDBKeyPath::NullType:
+        ASSERT(p == limit);
+        return IDBKeyPath();
+    case IDBKeyPath::StringType: {
+        String string;
+        p = decodeStringWithLength(p, limit, string);
+        ASSERT(p == limit);
+        return IDBKeyPath(string);
+    }
+    case IDBKeyPath::ArrayType: {
+        Vector<String> array;
+        int64_t count;
+        p = decodeVarInt(p, limit, count);
+        ASSERT(p);
+        ASSERT(count >= 0);
+        while (count--) {
+            String string;
+            p = decodeStringWithLength(p, limit, string);
+            ASSERT(p);
+            array.append(string);
+        }
+        ASSERT(p == limit);
+        return IDBKeyPath(array);
+    }
+    }
+    ASSERT_NOT_REACHED();
+    return IDBKeyPath();
 }
 
 namespace {
+
 template<typename KeyType>
-int decodeAndCompare(const LevelDBSlice& a, const LevelDBSlice& b)
+int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool, bool& ok)
 {
     KeyType keyA;
     KeyType keyB;
 
     const char* ptrA = KeyType::decode(a.begin(), a.end(), &keyA);
-    ASSERT_UNUSED(ptrA, ptrA);
+    ASSERT(ptrA);
+    if (!ptrA) {
+        ok = false;
+        return 0;
+    }
     const char* ptrB = KeyType::decode(b.begin(), b.end(), &keyB);
-    ASSERT_UNUSED(ptrB, ptrB);
+    ASSERT(ptrB);
+    if (!ptrB) {
+        ok = false;
+        return 0;
+    }
 
+    ok = true;
     return keyA.compare(keyB);
 }
+
+template<>
+int compare<ExistsEntryKey>(const LevelDBSlice& a, const LevelDBSlice& b, bool, bool& ok)
+{
+    KeyPrefix prefixA;
+    KeyPrefix prefixB;
+    const char* ptrA = KeyPrefix::decode(a.begin(), a.end(), &prefixA);
+    const char* ptrB = KeyPrefix::decode(b.begin(), b.end(), &prefixB);
+    ASSERT(ptrA);
+    ASSERT(ptrB);
+    ASSERT(prefixA.m_databaseId);
+    ASSERT(prefixA.m_objectStoreId);
+    ASSERT(prefixA.m_indexId == ExistsEntryKey::SpecialIndexNumber);
+    ASSERT(prefixB.m_databaseId);
+    ASSERT(prefixB.m_objectStoreId);
+    ASSERT(prefixB.m_indexId == ExistsEntryKey::SpecialIndexNumber);
+    ASSERT(ptrA != a.end());
+    ASSERT(ptrB != b.end());
+    // Prefixes are not compared - it is assumed this was already done.
+    ASSERT(!prefixA.compare(prefixB));
+
+    return compareEncodedIDBKeys(ptrA, a.end(), ptrB, b.end(), ok);
 }
 
-int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool indexKeys)
+template<>
+int compare<ObjectStoreDataKey>(const LevelDBSlice& a, const LevelDBSlice& b, bool, bool& ok)
+{
+    KeyPrefix prefixA;
+    KeyPrefix prefixB;
+    const char* ptrA = KeyPrefix::decode(a.begin(), a.end(), &prefixA);
+    const char* ptrB = KeyPrefix::decode(b.begin(), b.end(), &prefixB);
+    ASSERT(ptrA);
+    ASSERT(ptrB);
+    ASSERT(prefixA.m_databaseId);
+    ASSERT(prefixA.m_objectStoreId);
+    ASSERT(prefixA.m_indexId == ObjectStoreDataKey::SpecialIndexNumber);
+    ASSERT(prefixB.m_databaseId);
+    ASSERT(prefixB.m_objectStoreId);
+    ASSERT(prefixB.m_indexId == ObjectStoreDataKey::SpecialIndexNumber);
+    ASSERT(ptrA != a.end());
+    ASSERT(ptrB != b.end());
+    // Prefixes are not compared - it is assumed this was already done.
+    ASSERT(!prefixA.compare(prefixB));
+
+    return compareEncodedIDBKeys(ptrA, a.end(), ptrB, b.end(), ok);
+}
+
+template<>
+int compare<IndexDataKey>(const LevelDBSlice& a, const LevelDBSlice& b, bool ignoreDuplicates, bool& ok)
+{
+    KeyPrefix prefixA;
+    KeyPrefix prefixB;
+    const char* ptrA = KeyPrefix::decode(a.begin(), a.end(), &prefixA);
+    const char* ptrB = KeyPrefix::decode(b.begin(), b.end(), &prefixB);
+    ASSERT(ptrA);
+    ASSERT(ptrB);
+    ASSERT(prefixA.m_databaseId);
+    ASSERT(prefixA.m_objectStoreId);
+    ASSERT(prefixA.m_indexId >= MinimumIndexId);
+    ASSERT(prefixB.m_databaseId);
+    ASSERT(prefixB.m_objectStoreId);
+    ASSERT(prefixB.m_indexId >= MinimumIndexId);
+    ASSERT(ptrA != a.end());
+    ASSERT(ptrB != b.end());
+    // Prefixes are not compared - it is assumed this was already done.
+    ASSERT(!prefixA.compare(prefixB));
+
+    // index key
+    int result = compareEncodedIDBKeys(ptrA, a.end(), ptrB, b.end(), ok);
+    if (!ok || result)
+        return result;
+    if (ignoreDuplicates)
+        return 0;
+
+    // sequence number [optional]
+    int64_t sequenceNumberA = -1;
+    int64_t sequenceNumberB = -1;
+    if (ptrA != a.end())
+        ptrA = decodeVarInt(ptrA, a.end(), sequenceNumberA);
+    if (ptrB != b.end())
+        ptrB = decodeVarInt(ptrB, b.end(), sequenceNumberB);
+
+    // primary key [optional]
+    if (!ptrA || !ptrB)
+        return 0;
+    if (ptrA == a.end() && ptrB == b.end())
+        return 0;
+    if (ptrA == a.end())
+        return -1;
+    if (ptrB == b.end())
+        return 1;
+
+    result = compareEncodedIDBKeys(ptrA, a.end(), ptrB, b.end(), ok);
+    if (!ok || result)
+        return result;
+
+    return compareInts(sequenceNumberA, sequenceNumberB);
+}
+
+int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool indexKeys, bool& ok)
 {
     const char* ptrA = a.begin();
     const char* ptrB = b.begin();
@@ -656,11 +860,16 @@ int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool indexKeys)
     ptrB = KeyPrefix::decode(ptrB, endB, &prefixB);
     ASSERT(ptrA);
     ASSERT(ptrB);
+    if (!ptrA || !ptrB) {
+        ok = false;
+        return 0;
+    }
 
+    ok = true;
     if (int x = prefixA.compare(prefixB))
         return x;
 
-    if (prefixA.type() == KeyPrefix::kGlobalMetaData) {
+    if (prefixA.type() == KeyPrefix::GlobalMetaData) {
         ASSERT(ptrA != endA);
         ASSERT(ptrB != endB);
 
@@ -669,16 +878,17 @@ int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool indexKeys)
 
         if (int x = typeByteA - typeByteB)
             return x;
-
-        if (typeByteA <= 1)
+        if (typeByteA < MaxSimpleGlobalMetaDataTypeByte)
             return 0;
-        if (typeByteA == kDatabaseFreeListTypeByte)
-            return decodeAndCompare<DatabaseFreeListKey>(a, b);
-        if (typeByteA == kDatabaseNameTypeByte)
-            return decodeAndCompare<DatabaseNameKey>(a, b);
+
+        const bool ignoreDuplicates = false;
+        if (typeByteA == DatabaseFreeListTypeByte)
+            return compare<DatabaseFreeListKey>(a, b, ignoreDuplicates, ok);
+        if (typeByteA == DatabaseNameTypeByte)
+            return compare<DatabaseNameKey>(a, b, ignoreDuplicates, ok);
     }
 
-    if (prefixA.type() == KeyPrefix::kDatabaseMetaData) {
+    if (prefixA.type() == KeyPrefix::DatabaseMetaData) {
         ASSERT(ptrA != endA);
         ASSERT(ptrB != endB);
 
@@ -687,28 +897,25 @@ int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool indexKeys)
 
         if (int x = typeByteA - typeByteB)
             return x;
-
-        if (typeByteA <= 3)
+        if (typeByteA < DatabaseMetaDataKey::MaxSimpleMetaDataType)
             return 0;
 
-        if (typeByteA == kObjectStoreMetaDataTypeByte)
-            return decodeAndCompare<ObjectStoreMetaDataKey>(a, b);
-        if (typeByteA == kIndexMetaDataTypeByte)
-            return decodeAndCompare<IndexMetaDataKey>(a, b);
-        if (typeByteA == kObjectStoreFreeListTypeByte)
-            return decodeAndCompare<ObjectStoreFreeListKey>(a, b);
-        if (typeByteA == kIndexFreeListTypeByte)
-            return decodeAndCompare<IndexFreeListKey>(a, b);
-        if (typeByteA == kObjectStoreNamesTypeByte)
-            return decodeAndCompare<ObjectStoreNamesKey>(a, b);
-        if (typeByteA == kIndexNamesKeyTypeByte)
-            return decodeAndCompare<IndexNamesKey>(a, b);
-
-        return 0;
-        ASSERT_NOT_REACHED();
+        const bool ignoreDuplicates = false;
+        if (typeByteA == ObjectStoreMetaDataTypeByte)
+            return compare<ObjectStoreMetaDataKey>(a, b, ignoreDuplicates, ok);
+        if (typeByteA == IndexMetaDataTypeByte)
+            return compare<IndexMetaDataKey>(a, b, ignoreDuplicates, ok);
+        if (typeByteA == ObjectStoreFreeListTypeByte)
+            return compare<ObjectStoreFreeListKey>(a, b, ignoreDuplicates, ok);
+        if (typeByteA == IndexFreeListTypeByte)
+            return compare<IndexFreeListKey>(a, b, ignoreDuplicates, ok);
+        if (typeByteA == ObjectStoreNamesTypeByte)
+            return compare<ObjectStoreNamesKey>(a, b, ignoreDuplicates, ok);
+        if (typeByteA == IndexNamesKeyTypeByte)
+            return compare<IndexNamesKey>(a, b, ignoreDuplicates, ok);
     }
 
-    if (prefixA.type() == KeyPrefix::kObjectStoreData) {
+    if (prefixA.type() == KeyPrefix::ObjectStoreData) {
         if (ptrA == endA && ptrB == endB)
             return 0;
         if (ptrA == endA)
@@ -716,9 +923,10 @@ int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool indexKeys)
         if (ptrB == endB)
             return 1; // FIXME: This case of non-existing user keys should not have to be handled this way.
 
-        return decodeAndCompare<ObjectStoreDataKey>(a, b);
+        const bool ignoreDuplicates = false;
+        return compare<ObjectStoreDataKey>(a, b, ignoreDuplicates, ok);
     }
-    if (prefixA.type() == KeyPrefix::kExistsEntry) {
+    if (prefixA.type() == KeyPrefix::ExistsEntry) {
         if (ptrA == endA && ptrB == endB)
             return 0;
         if (ptrA == endA)
@@ -726,38 +934,60 @@ int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool indexKeys)
         if (ptrB == endB)
             return 1; // FIXME: This case of non-existing user keys should not have to be handled this way.
 
-        return decodeAndCompare<ExistsEntryKey>(a, b);
+        const bool ignoreDuplicates = false;
+        return compare<ExistsEntryKey>(a, b, ignoreDuplicates, ok);
     }
-    if (prefixA.type() == KeyPrefix::kIndexData) {
+    if (prefixA.type() == KeyPrefix::IndexData) {
         if (ptrA == endA && ptrB == endB)
             return 0;
         if (ptrA == endA)
             return -1;
         if (ptrB == endB)
             return 1; // FIXME: This case of non-existing user keys should not have to be handled this way.
-
-        IndexDataKey indexDataKeyA;
-        IndexDataKey indexDataKeyB;
-
-        ptrA = IndexDataKey::decode(a.begin(), endA, &indexDataKeyA);
-        ptrB = IndexDataKey::decode(b.begin(), endB, &indexDataKeyB);
-        ASSERT(ptrA);
-        ASSERT(ptrB);
 
         bool ignoreDuplicates = indexKeys;
-        return indexDataKeyA.compare(indexDataKeyB, ignoreDuplicates);
+        return compare<IndexDataKey>(a, b, ignoreDuplicates, ok);
     }
 
     ASSERT_NOT_REACHED();
+    ok = false;
     return 0;
 }
 
+}
+
+int compare(const LevelDBSlice& a, const LevelDBSlice& b, bool indexKeys)
+{
+    bool ok;
+    int result = compare(a, b, indexKeys, ok);
+    ASSERT(ok);
+    if (!ok)
+        return 0;
+    return result;
+}
 
 KeyPrefix::KeyPrefix()
-    : m_databaseId(kInvalidType)
-    , m_objectStoreId(kInvalidType)
-    , m_indexId(kInvalidType)
+    : m_databaseId(InvalidType)
+    , m_objectStoreId(InvalidType)
+    , m_indexId(InvalidType)
 {
+}
+
+KeyPrefix::KeyPrefix(int64_t databaseId)
+    : m_databaseId(databaseId)
+    , m_objectStoreId(0)
+    , m_indexId(0)
+{
+    ASSERT(KeyPrefix::isValidDatabaseId(databaseId));
+}
+
+KeyPrefix::KeyPrefix(int64_t databaseId, int64_t objectStoreId)
+    : m_databaseId(databaseId)
+    , m_objectStoreId(objectStoreId)
+    , m_indexId(0)
+{
+    ASSERT(KeyPrefix::isValidDatabaseId(databaseId));
+    ASSERT(KeyPrefix::isValidObjectStoreId(objectStoreId));
 }
 
 KeyPrefix::KeyPrefix(int64_t databaseId, int64_t objectStoreId, int64_t indexId)
@@ -765,6 +995,44 @@ KeyPrefix::KeyPrefix(int64_t databaseId, int64_t objectStoreId, int64_t indexId)
     , m_objectStoreId(objectStoreId)
     , m_indexId(indexId)
 {
+    ASSERT(KeyPrefix::isValidDatabaseId(databaseId));
+    ASSERT(KeyPrefix::isValidObjectStoreId(objectStoreId));
+    ASSERT(KeyPrefix::isValidIndexId(indexId));
+}
+
+KeyPrefix::KeyPrefix(Type type, int64_t databaseId, int64_t objectStoreId, int64_t indexId)
+    : m_databaseId(databaseId)
+    , m_objectStoreId(objectStoreId)
+    , m_indexId(indexId)
+{
+    ASSERT_UNUSED(type, type == InvalidType);
+    ASSERT(KeyPrefix::isValidDatabaseId(databaseId));
+    ASSERT(KeyPrefix::isValidObjectStoreId(objectStoreId));
+}
+
+
+KeyPrefix KeyPrefix::createWithSpecialIndex(int64_t databaseId, int64_t objectStoreId, int64_t indexId)
+{
+    ASSERT(KeyPrefix::isValidDatabaseId(databaseId));
+    ASSERT(KeyPrefix::isValidObjectStoreId(objectStoreId));
+    ASSERT(indexId);
+    return KeyPrefix(InvalidType, databaseId, objectStoreId, indexId);
+}
+
+
+bool KeyPrefix::isValidDatabaseId(int64_t databaseId)
+{
+    return (databaseId > 0) && (databaseId < KeyPrefix::kMaxDatabaseId);
+}
+
+bool KeyPrefix::isValidObjectStoreId(int64_t objectStoreId)
+{
+    return (objectStoreId > 0) && (objectStoreId < KeyPrefix::kMaxObjectStoreId);
+}
+
+bool KeyPrefix::isValidIndexId(int64_t indexId)
+{
+    return (indexId >= MinimumIndexId) && (indexId < KeyPrefix::kMaxIndexId);
 }
 
 const char* KeyPrefix::decode(const char* start, const char* limit, KeyPrefix* result)
@@ -791,36 +1059,48 @@ const char* KeyPrefix::decode(const char* start, const char* limit, KeyPrefix* r
     return start;
 }
 
+Vector<char> KeyPrefix::encodeEmpty()
+{
+    const Vector<char, 4> result(4, 0);
+    ASSERT(encodeInternal(0, 0, 0) == Vector<char>(4, 0));
+    return result;
+}
+
 Vector<char> KeyPrefix::encode() const
 {
-    ASSERT(m_databaseId != kInvalidId);
-    ASSERT(m_objectStoreId != kInvalidId);
-    ASSERT(m_indexId != kInvalidId);
+    ASSERT(m_databaseId != InvalidId);
+    ASSERT(m_objectStoreId != InvalidId);
+    ASSERT(m_indexId != InvalidId);
+    return encodeInternal(m_databaseId, m_objectStoreId, m_indexId);
+}
 
-    Vector<char> databaseIdString = encodeInt(m_databaseId);
-    Vector<char> objectStoreIdString = encodeInt(m_objectStoreId);
-    Vector<char> indexIdString = encodeInt(m_indexId);
+Vector<char> KeyPrefix::encodeInternal(int64_t databaseId, int64_t objectStoreId, int64_t indexId)
+{
+    Vector<char> databaseIdString = encodeIntSafely(databaseId, kMaxDatabaseId);
+    Vector<char> objectStoreIdString = encodeIntSafely(objectStoreId, kMaxObjectStoreId);
+    Vector<char> indexIdString = encodeIntSafely(indexId, kMaxIndexId);
 
-    ASSERT(databaseIdString.size() <= 8);
-    ASSERT(objectStoreIdString.size() <= 8);
-    ASSERT(indexIdString.size() <= 4);
+    ASSERT(databaseIdString.size() <= kMaxDatabaseIdSizeBytes);
+    ASSERT(objectStoreIdString.size() <= kMaxObjectStoreIdSizeBytes);
+    ASSERT(indexIdString.size() <= kMaxIndexIdSizeBytes);
 
-
-    unsigned char firstByte = (databaseIdString.size() - 1) << 5 | (objectStoreIdString.size() - 1) << 2 | (indexIdString.size() - 1);
-    Vector<char> ret;
+    unsigned char firstByte = (databaseIdString.size() - 1) << (kMaxObjectStoreIdSizeBits + kMaxIndexIdSizeBits) | (objectStoreIdString.size() - 1) << kMaxIndexIdSizeBits | (indexIdString.size() - 1);
+    COMPILE_ASSERT(kMaxDatabaseIdSizeBits + kMaxObjectStoreIdSizeBits + kMaxIndexIdSizeBits == sizeof(firstByte) * 8, CANT_ENCODE_IDS);
+    Vector<char, DefaultInlineBufferSize> ret;
     ret.append(firstByte);
-    ret.append(databaseIdString);
-    ret.append(objectStoreIdString);
-    ret.append(indexIdString);
+    ret.appendVector(databaseIdString);
+    ret.appendVector(objectStoreIdString);
+    ret.appendVector(indexIdString);
 
+    ASSERT(ret.size() <= DefaultInlineBufferSize);
     return ret;
 }
 
 int KeyPrefix::compare(const KeyPrefix& other) const
 {
-    ASSERT(m_databaseId != kInvalidId);
-    ASSERT(m_objectStoreId != kInvalidId);
-    ASSERT(m_indexId != kInvalidId);
+    ASSERT(m_databaseId != InvalidId);
+    ASSERT(m_objectStoreId != InvalidId);
+    ASSERT(m_indexId != InvalidId);
 
     if (m_databaseId != other.m_databaseId)
         return compareInts(m_databaseId, other.m_databaseId);
@@ -833,38 +1113,43 @@ int KeyPrefix::compare(const KeyPrefix& other) const
 
 KeyPrefix::Type KeyPrefix::type() const
 {
-    ASSERT(m_databaseId != kInvalidId);
-    ASSERT(m_objectStoreId != kInvalidId);
-    ASSERT(m_indexId != kInvalidId);
+    ASSERT(m_databaseId != InvalidId);
+    ASSERT(m_objectStoreId != InvalidId);
+    ASSERT(m_indexId != InvalidId);
 
     if (!m_databaseId)
-        return kGlobalMetaData;
+        return GlobalMetaData;
     if (!m_objectStoreId)
-        return kDatabaseMetaData;
-    if (m_indexId == kObjectStoreDataIndexId)
-        return kObjectStoreData;
-    if (m_indexId == kExistsEntryIndexId)
-        return kExistsEntry;
-    if (m_indexId >= kMinimumIndexId)
-        return kIndexData;
+        return DatabaseMetaData;
+    if (m_indexId == ObjectStoreDataIndexId)
+        return ObjectStoreData;
+    if (m_indexId == ExistsEntryIndexId)
+        return ExistsEntry;
+    if (m_indexId >= MinimumIndexId)
+        return IndexData;
 
     ASSERT_NOT_REACHED();
-    return kInvalidType;
+    return InvalidType;
 }
 
 Vector<char> SchemaVersionKey::encode()
 {
-    KeyPrefix prefix(0, 0, 0);
-    Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kSchemaVersionTypeByte));
+    Vector<char> ret = KeyPrefix::encodeEmpty();
+    ret.appendVector(encodeByte(SchemaVersionTypeByte));
     return ret;
 }
 
 Vector<char> MaxDatabaseIdKey::encode()
 {
-    KeyPrefix prefix(0, 0, 0);
-    Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kMaxDatabaseIdTypeByte));
+    Vector<char> ret = KeyPrefix::encodeEmpty();
+    ret.appendVector(encodeByte(MaxDatabaseIdTypeByte));
+    return ret;
+}
+
+Vector<char> DataVersionKey::encode()
+{
+    Vector<char> ret = KeyPrefix::encodeEmpty();
+    ret.appendVector(encodeByte(DataVersionTypeByte));
     return ret;
 }
 
@@ -876,7 +1161,7 @@ DatabaseFreeListKey::DatabaseFreeListKey()
 const char* DatabaseFreeListKey::decode(const char* start, const char* limit, DatabaseFreeListKey* result)
 {
     KeyPrefix prefix;
-    const char *p = KeyPrefix::decode(start, limit, &prefix);
+    const char* p = KeyPrefix::decode(start, limit, &prefix);
     if (!p)
         return 0;
     ASSERT(!prefix.m_databaseId);
@@ -884,8 +1169,9 @@ const char* DatabaseFreeListKey::decode(const char* start, const char* limit, Da
     ASSERT(!prefix.m_indexId);
     if (p == limit)
         return 0;
-    unsigned char typeByte = *p++;
-    ASSERT_UNUSED(typeByte, typeByte == kDatabaseFreeListTypeByte);
+    unsigned char typeByte = 0;
+    p = decodeByte(p, limit, typeByte);
+    ASSERT_UNUSED(typeByte, typeByte == DatabaseFreeListTypeByte);
     if (p == limit)
         return 0;
     return decodeVarInt(p, limit, result->m_databaseId);
@@ -893,10 +1179,9 @@ const char* DatabaseFreeListKey::decode(const char* start, const char* limit, Da
 
 Vector<char> DatabaseFreeListKey::encode(int64_t databaseId)
 {
-    KeyPrefix prefix(0, 0, 0);
-    Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kDatabaseFreeListTypeByte));
-    ret.append(encodeVarInt(databaseId));
+    Vector<char> ret = KeyPrefix::encodeEmpty();
+    ret.appendVector(encodeByte(DatabaseFreeListTypeByte));
+    ret.appendVector(encodeVarInt(databaseId));
     return ret;
 }
 
@@ -928,8 +1213,9 @@ const char* DatabaseNameKey::decode(const char* start, const char* limit, Databa
     ASSERT(!prefix.m_indexId);
     if (p == limit)
         return 0;
-    unsigned char typeByte = *p++;
-    ASSERT_UNUSED(typeByte, typeByte == kDatabaseNameTypeByte);
+    unsigned char typeByte = 0;
+    p = decodeByte(p, limit, typeByte);
+    ASSERT_UNUSED(typeByte, typeByte == DatabaseNameTypeByte);
     if (p == limit)
         return 0;
     p = decodeStringWithLength(p, limit, result->m_origin);
@@ -940,11 +1226,10 @@ const char* DatabaseNameKey::decode(const char* start, const char* limit, Databa
 
 Vector<char> DatabaseNameKey::encode(const String& origin, const String& databaseName)
 {
-    KeyPrefix prefix(0, 0, 0);
-    Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kDatabaseNameTypeByte));
-    ret.append(encodeStringWithLength(origin));
-    ret.append(encodeStringWithLength(databaseName));
+    Vector<char> ret = KeyPrefix::encodeEmpty();
+    ret.appendVector(encodeByte(DatabaseNameTypeByte));
+    ret.appendVector(encodeStringWithLength(origin));
+    ret.appendVector(encodeStringWithLength(databaseName));
     return ret;
 }
 
@@ -968,9 +1253,9 @@ int DatabaseNameKey::compare(const DatabaseNameKey& other)
 
 Vector<char> DatabaseMetaDataKey::encode(int64_t databaseId, MetaDataType metaDataType)
 {
-    KeyPrefix prefix(databaseId, 0, 0);
+    KeyPrefix prefix(databaseId);
     Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(metaDataType));
+    ret.appendVector(encodeByte(metaDataType));
     return ret;
 }
 
@@ -991,8 +1276,9 @@ const char* ObjectStoreMetaDataKey::decode(const char* start, const char* limit,
     ASSERT(!prefix.m_indexId);
     if (p == limit)
         return 0;
-    unsigned char typeByte = *p++;
-    ASSERT_UNUSED(typeByte, typeByte == kObjectStoreMetaDataTypeByte);
+    unsigned char typeByte = 0;
+    p = decodeByte(p, limit, typeByte);
+    ASSERT_UNUSED(typeByte, typeByte == ObjectStoreMetaDataTypeByte);
     if (p == limit)
         return 0;
     p = decodeVarInt(p, limit, result->m_objectStoreId);
@@ -1001,27 +1287,27 @@ const char* ObjectStoreMetaDataKey::decode(const char* start, const char* limit,
     ASSERT(result->m_objectStoreId);
     if (p == limit)
         return 0;
-    return decodeVarInt(p, limit, result->m_metaDataType);
+    return decodeByte(p, limit, result->m_metaDataType);
 }
 
-Vector<char> ObjectStoreMetaDataKey::encode(int64_t databaseId, int64_t objectStoreId, int64_t metaDataType)
+Vector<char> ObjectStoreMetaDataKey::encode(int64_t databaseId, int64_t objectStoreId, unsigned char metaDataType)
 {
-    KeyPrefix prefix(databaseId, 0, 0);
+    KeyPrefix prefix(databaseId);
     Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kObjectStoreMetaDataTypeByte));
-    ret.append(encodeVarInt(objectStoreId));
-    ret.append(encodeVarInt(metaDataType));
+    ret.appendVector(encodeByte(ObjectStoreMetaDataTypeByte));
+    ret.appendVector(encodeVarInt(objectStoreId));
+    ret.appendVector(encodeByte(metaDataType));
     return ret;
 }
 
 Vector<char> ObjectStoreMetaDataKey::encodeMaxKey(int64_t databaseId)
 {
-    return encode(databaseId, INT64_MAX, kObjectMetaDataTypeMaximum);
+    return encode(databaseId, INT64_MAX, ObjectMetaDataTypeMaximum);
 }
 
 Vector<char> ObjectStoreMetaDataKey::encodeMaxKey(int64_t databaseId, int64_t objectStoreId)
 {
-    return encode(databaseId, objectStoreId, kObjectMetaDataTypeMaximum);
+    return encode(databaseId, objectStoreId, ObjectMetaDataTypeMaximum);
 }
 
 int64_t ObjectStoreMetaDataKey::objectStoreId() const
@@ -1029,19 +1315,20 @@ int64_t ObjectStoreMetaDataKey::objectStoreId() const
     ASSERT(m_objectStoreId >= 0);
     return m_objectStoreId;
 }
-int64_t ObjectStoreMetaDataKey::metaDataType() const
+unsigned char ObjectStoreMetaDataKey::metaDataType() const
 {
-    ASSERT(m_metaDataType >= 0);
     return m_metaDataType;
 }
 
 int ObjectStoreMetaDataKey::compare(const ObjectStoreMetaDataKey& other)
 {
     ASSERT(m_objectStoreId >= 0);
-    ASSERT(m_metaDataType >= 0);
     if (int x = compareInts(m_objectStoreId, other.m_objectStoreId))
         return x;
-    return m_metaDataType - other.m_metaDataType;
+    int64_t result = m_metaDataType - other.m_metaDataType;
+    if (result < 0)
+        return -1;
+    return (result > 0) ? 1 : result;
 }
 
 IndexMetaDataKey::IndexMetaDataKey()
@@ -1062,8 +1349,9 @@ const char* IndexMetaDataKey::decode(const char* start, const char* limit, Index
     ASSERT(!prefix.m_indexId);
     if (p == limit)
         return 0;
-    unsigned char typeByte = *p++;
-    ASSERT_UNUSED(typeByte, typeByte == kIndexMetaDataTypeByte);
+    unsigned char typeByte = 0;
+    p = decodeByte(p, limit, typeByte);
+    ASSERT_UNUSED(typeByte, typeByte == IndexMetaDataTypeByte);
     if (p == limit)
         return 0;
     p = decodeVarInt(p, limit, result->m_objectStoreId);
@@ -1074,29 +1362,28 @@ const char* IndexMetaDataKey::decode(const char* start, const char* limit, Index
         return 0;
     if (p == limit)
         return 0;
-    result->m_metaDataType = *p++;
-    return p;
+    return decodeByte(p, limit, result->m_metaDataType);
 }
 
 Vector<char> IndexMetaDataKey::encode(int64_t databaseId, int64_t objectStoreId, int64_t indexId, unsigned char metaDataType)
 {
-    KeyPrefix prefix(databaseId, 0, 0);
+    KeyPrefix prefix(databaseId);
     Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kIndexMetaDataTypeByte));
-    ret.append(encodeVarInt(objectStoreId));
-    ret.append(encodeVarInt(indexId));
-    ret.append(encodeByte(metaDataType));
+    ret.appendVector(encodeByte(IndexMetaDataTypeByte));
+    ret.appendVector(encodeVarInt(objectStoreId));
+    ret.appendVector(encodeVarInt(indexId));
+    ret.appendVector(encodeByte(metaDataType));
     return ret;
 }
 
 Vector<char> IndexMetaDataKey::encodeMaxKey(int64_t databaseId, int64_t objectStoreId)
 {
-    return encode(databaseId, objectStoreId, INT64_MAX, kIndexMetaDataTypeMaximum);
+    return encode(databaseId, objectStoreId, INT64_MAX, IndexMetaDataTypeMaximum);
 }
 
 Vector<char> IndexMetaDataKey::encodeMaxKey(int64_t databaseId, int64_t objectStoreId, int64_t indexId)
 {
-    return encode(databaseId, objectStoreId, indexId, kIndexMetaDataTypeMaximum);
+    return encode(databaseId, objectStoreId, indexId, IndexMetaDataTypeMaximum);
 }
 
 int IndexMetaDataKey::compare(const IndexMetaDataKey& other)
@@ -1125,7 +1412,7 @@ ObjectStoreFreeListKey::ObjectStoreFreeListKey()
 const char* ObjectStoreFreeListKey::decode(const char* start, const char* limit, ObjectStoreFreeListKey* result)
 {
     KeyPrefix prefix;
-    const char *p = KeyPrefix::decode(start, limit, &prefix);
+    const char* p = KeyPrefix::decode(start, limit, &prefix);
     if (!p)
         return 0;
     ASSERT(prefix.m_databaseId);
@@ -1133,8 +1420,9 @@ const char* ObjectStoreFreeListKey::decode(const char* start, const char* limit,
     ASSERT(!prefix.m_indexId);
     if (p == limit)
         return 0;
-    unsigned char typeByte = *p++;
-    ASSERT_UNUSED(typeByte, typeByte == kObjectStoreFreeListTypeByte);
+    unsigned char typeByte = 0;
+    p = decodeByte(p, limit, typeByte);
+    ASSERT_UNUSED(typeByte, typeByte == ObjectStoreFreeListTypeByte);
     if (p == limit)
         return 0;
     return decodeVarInt(p, limit, result->m_objectStoreId);
@@ -1142,10 +1430,10 @@ const char* ObjectStoreFreeListKey::decode(const char* start, const char* limit,
 
 Vector<char> ObjectStoreFreeListKey::encode(int64_t databaseId, int64_t objectStoreId)
 {
-    KeyPrefix prefix(databaseId, 0, 0);
+    KeyPrefix prefix(databaseId);
     Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kObjectStoreFreeListTypeByte));
-    ret.append(encodeVarInt(objectStoreId));
+    ret.appendVector(encodeByte(ObjectStoreFreeListTypeByte));
+    ret.appendVector(encodeVarInt(objectStoreId));
     return ret;
 }
 
@@ -1186,8 +1474,9 @@ const char* IndexFreeListKey::decode(const char* start, const char* limit, Index
     ASSERT(!prefix.m_indexId);
     if (p == limit)
         return 0;
-    unsigned char typeByte = *p++;
-    ASSERT_UNUSED(typeByte, typeByte == kIndexFreeListTypeByte);
+    unsigned char typeByte = 0;
+    p = decodeByte(p, limit, typeByte);
+    ASSERT_UNUSED(typeByte, typeByte == IndexFreeListTypeByte);
     if (p == limit)
         return 0;
     p = decodeVarInt(p, limit, result->m_objectStoreId);
@@ -1198,11 +1487,11 @@ const char* IndexFreeListKey::decode(const char* start, const char* limit, Index
 
 Vector<char> IndexFreeListKey::encode(int64_t databaseId, int64_t objectStoreId, int64_t indexId)
 {
-    KeyPrefix prefix(databaseId, 0, 0);
+    KeyPrefix prefix(databaseId);
     Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kIndexFreeListTypeByte));
-    ret.append(encodeVarInt(objectStoreId));
-    ret.append(encodeVarInt(indexId));
+    ret.appendVector(encodeByte(IndexFreeListTypeByte));
+    ret.appendVector(encodeVarInt(objectStoreId));
+    ret.appendVector(encodeVarInt(indexId));
     return ret;
 }
 
@@ -1246,17 +1535,18 @@ const char* ObjectStoreNamesKey::decode(const char* start, const char* limit, Ob
     ASSERT(!prefix.m_indexId);
     if (p == limit)
         return 0;
-    unsigned char typeByte = *p++;
-    ASSERT_UNUSED(typeByte, typeByte == kObjectStoreNamesTypeByte);
+    unsigned char typeByte = 0;
+    p = decodeByte(p, limit, typeByte);
+    ASSERT_UNUSED(typeByte, typeByte == ObjectStoreNamesTypeByte);
     return decodeStringWithLength(p, limit, result->m_objectStoreName);
 }
 
 Vector<char> ObjectStoreNamesKey::encode(int64_t databaseId, const String& objectStoreName)
 {
-    KeyPrefix prefix(databaseId, 0, 0);
+    KeyPrefix prefix(databaseId);
     Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kObjectStoreNamesTypeByte));
-    ret.append(encodeStringWithLength(objectStoreName));
+    ret.appendVector(encodeByte(ObjectStoreNamesTypeByte));
+    ret.appendVector(encodeStringWithLength(objectStoreName));
     return ret;
 }
 
@@ -1283,8 +1573,9 @@ const char* IndexNamesKey::decode(const char* start, const char* limit, IndexNam
     ASSERT(!prefix.m_indexId);
     if (p == limit)
         return 0;
-    unsigned char typeByte = *p++;
-    ASSERT_UNUSED(typeByte, typeByte == kIndexNamesKeyTypeByte);
+    unsigned char typeByte = 0;
+    p = decodeByte(p, limit, typeByte);
+    ASSERT_UNUSED(typeByte, typeByte == IndexNamesKeyTypeByte);
     if (p == limit)
         return 0;
     p = decodeVarInt(p, limit, result->m_objectStoreId);
@@ -1295,11 +1586,11 @@ const char* IndexNamesKey::decode(const char* start, const char* limit, IndexNam
 
 Vector<char> IndexNamesKey::encode(int64_t databaseId, int64_t objectStoreId, const String& indexName)
 {
-    KeyPrefix prefix(databaseId, 0, 0);
+    KeyPrefix prefix(databaseId);
     Vector<char> ret = prefix.encode();
-    ret.append(encodeByte(kIndexNamesKeyTypeByte));
-    ret.append(encodeVarInt(objectStoreId));
-    ret.append(encodeStringWithLength(indexName));
+    ret.appendVector(encodeByte(IndexNamesKeyTypeByte));
+    ret.appendVector(encodeVarInt(objectStoreId));
+    ret.appendVector(encodeStringWithLength(indexName));
     return ret;
 }
 
@@ -1319,7 +1610,7 @@ const char* ObjectStoreDataKey::decode(const char* start, const char* end, Objec
         return 0;
     ASSERT(prefix.m_databaseId);
     ASSERT(prefix.m_objectStoreId);
-    ASSERT(prefix.m_indexId == kSpecialIndexNumber);
+    ASSERT(prefix.m_indexId == SpecialIndexNumber);
     if (p == end)
         return 0;
     return extractEncodedIDBKey(p, end, &result->m_encodedUserKey);
@@ -1327,9 +1618,9 @@ const char* ObjectStoreDataKey::decode(const char* start, const char* end, Objec
 
 Vector<char> ObjectStoreDataKey::encode(int64_t databaseId, int64_t objectStoreId, const Vector<char> encodedUserKey)
 {
-    KeyPrefix prefix(databaseId, objectStoreId, kSpecialIndexNumber);
+    KeyPrefix prefix(KeyPrefix::createWithSpecialIndex(databaseId, objectStoreId, SpecialIndexNumber));
     Vector<char> ret = prefix.encode();
-    ret.append(encodedUserKey);
+    ret.appendVector(encodedUserKey);
 
     return ret;
 }
@@ -1339,9 +1630,9 @@ Vector<char> ObjectStoreDataKey::encode(int64_t databaseId, int64_t objectStoreI
     return encode(databaseId, objectStoreId, encodeIDBKey(userKey));
 }
 
-int ObjectStoreDataKey::compare(const ObjectStoreDataKey& other)
+int ObjectStoreDataKey::compare(const ObjectStoreDataKey& other, bool& ok)
 {
-    return compareEncodedIDBKeys(m_encodedUserKey, other.m_encodedUserKey);
+    return compareEncodedIDBKeys(m_encodedUserKey, other.m_encodedUserKey, ok);
 }
 
 PassRefPtr<IDBKey> ObjectStoreDataKey::userKey() const
@@ -1351,7 +1642,7 @@ PassRefPtr<IDBKey> ObjectStoreDataKey::userKey() const
     return key;
 }
 
-const int64_t ObjectStoreDataKey::kSpecialIndexNumber = kObjectStoreDataIndexId;
+const int64_t ObjectStoreDataKey::SpecialIndexNumber = ObjectStoreDataIndexId;
 
 const char* ExistsEntryKey::decode(const char* start, const char* end, ExistsEntryKey* result)
 {
@@ -1361,7 +1652,7 @@ const char* ExistsEntryKey::decode(const char* start, const char* end, ExistsEnt
         return 0;
     ASSERT(prefix.m_databaseId);
     ASSERT(prefix.m_objectStoreId);
-    ASSERT(prefix.m_indexId == kSpecialIndexNumber);
+    ASSERT(prefix.m_indexId == SpecialIndexNumber);
     if (p == end)
         return 0;
     return extractEncodedIDBKey(p, end, &result->m_encodedUserKey);
@@ -1369,9 +1660,9 @@ const char* ExistsEntryKey::decode(const char* start, const char* end, ExistsEnt
 
 Vector<char> ExistsEntryKey::encode(int64_t databaseId, int64_t objectStoreId, const Vector<char>& encodedKey)
 {
-    KeyPrefix prefix(databaseId, objectStoreId, kSpecialIndexNumber);
+    KeyPrefix prefix(KeyPrefix::createWithSpecialIndex(databaseId, objectStoreId, SpecialIndexNumber));
     Vector<char> ret = prefix.encode();
-    ret.append(encodedKey);
+    ret.appendVector(encodedKey);
     return ret;
 }
 
@@ -1380,9 +1671,9 @@ Vector<char> ExistsEntryKey::encode(int64_t databaseId, int64_t objectStoreId, c
     return encode(databaseId, objectStoreId, encodeIDBKey(userKey));
 }
 
-int ExistsEntryKey::compare(const ExistsEntryKey& other)
+int ExistsEntryKey::compare(const ExistsEntryKey& other, bool& ok)
 {
-    return compareEncodedIDBKeys(m_encodedUserKey, other.m_encodedUserKey);
+    return compareEncodedIDBKeys(m_encodedUserKey, other.m_encodedUserKey, ok);
 }
 
 PassRefPtr<IDBKey> ExistsEntryKey::userKey() const
@@ -1392,7 +1683,7 @@ PassRefPtr<IDBKey> ExistsEntryKey::userKey() const
     return key;
 }
 
-const int64_t ExistsEntryKey::kSpecialIndexNumber = kExistsEntryIndexId;
+const int64_t ExistsEntryKey::SpecialIndexNumber = ExistsEntryIndexId;
 
 IndexDataKey::IndexDataKey()
     : m_databaseId(-1)
@@ -1410,7 +1701,7 @@ const char* IndexDataKey::decode(const char* start, const char* limit, IndexData
         return 0;
     ASSERT(prefix.m_databaseId);
     ASSERT(prefix.m_objectStoreId);
-    ASSERT(prefix.m_indexId >= kMinimumIndexId);
+    ASSERT(prefix.m_indexId >= MinimumIndexId);
     result->m_databaseId = prefix.m_databaseId;
     result->m_objectStoreId = prefix.m_objectStoreId;
     result->m_indexId = prefix.m_indexId;
@@ -1442,9 +1733,9 @@ Vector<char> IndexDataKey::encode(int64_t databaseId, int64_t objectStoreId, int
 {
     KeyPrefix prefix(databaseId, objectStoreId, indexId);
     Vector<char> ret = prefix.encode();
-    ret.append(encodedUserKey);
-    ret.append(encodeVarInt(sequenceNumber));
-    ret.append(encodedPrimaryKey);
+    ret.appendVector(encodedUserKey);
+    ret.appendVector(encodeVarInt(sequenceNumber));
+    ret.appendVector(encodedPrimaryKey);
     return ret;
 }
 
@@ -1463,17 +1754,19 @@ Vector<char> IndexDataKey::encodeMaxKey(int64_t databaseId, int64_t objectStoreI
     return encode(databaseId, objectStoreId, indexId, maxIDBKey(), maxIDBKey(), INT64_MAX);
 }
 
-int IndexDataKey::compare(const IndexDataKey& other, bool ignoreDuplicates)
+int IndexDataKey::compare(const IndexDataKey& other, bool ignoreDuplicates, bool& ok)
 {
     ASSERT(m_databaseId >= 0);
     ASSERT(m_objectStoreId >= 0);
     ASSERT(m_indexId >= 0);
-    if (int x = compareEncodedIDBKeys(m_encodedUserKey, other.m_encodedUserKey))
-        return x;
+    int result = compareEncodedIDBKeys(m_encodedUserKey, other.m_encodedUserKey, ok);
+    if (!ok || result)
+        return result;
     if (ignoreDuplicates)
         return 0;
-    if (int x = compareEncodedIDBKeys(m_encodedPrimaryKey, other.m_encodedPrimaryKey))
-        return x;
+    result = compareEncodedIDBKeys(m_encodedPrimaryKey, other.m_encodedPrimaryKey, ok);
+    if (!ok || result)
+        return result;
     return compareInts(m_sequenceNumber, other.m_sequenceNumber);
 }
 

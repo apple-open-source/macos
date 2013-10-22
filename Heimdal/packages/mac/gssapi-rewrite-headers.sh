@@ -15,6 +15,8 @@ for a in \
 	${SRCROOT}/lib/gssapi/gssapi/gssapi_private.h \
 	${SRCROOT}/lib/gssapi/gssapi/gssapi_protos.h \
 	${SRCROOT}/lib/gssapi/gssapi/gssapi_apple.h \
+	${SRCROOT}/lib/gssapi/gssapi/GSS.h \
+	${SRCROOT}/lib/gssapi/gssapi/GSSPrivate.h \
      ;
 do
      perl ${SRCROOT}/packages/mac/Heimdal-ify.pl GSS "$a" ${HEIMDAL_TMPDIR}/GSS || exit 1

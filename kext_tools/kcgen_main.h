@@ -223,6 +223,9 @@ ExitStatus createPrelinkedKernelForArch(
 ExitStatus compressPrelinkedKernel(
     const char        * prelinkedKernelPath,
     Boolean             compress);
+void logUsedKexts(
+    KcgenArgs       * toolArgs,
+    CFArrayRef        prelinkKexts);
 
 void usage(UsageLevel usageLevel);
 

@@ -1,0 +1,2 @@
+? [= Facility com.apple.iokit.power] claim only
+* store_dir /var/log/powermanagement rotate=local compress ttl=14

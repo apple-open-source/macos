@@ -341,12 +341,12 @@ edit_timet (const char *prompt, krb5_timestamp *value, int *mask, int bit)
  */
 
 void
-deltat2str(unsigned t, char *str, size_t len)
+deltat2str(krb5_deltat t, char *str, size_t len)
 {
     if(t == 0 || t == INT_MAX)
 	snprintf(str, len, "unlimited");
     else
-	unparse_time(t, str, len);
+	unparse_time((unsigned)t, str, len);
 }
 
 /*
@@ -668,7 +668,7 @@ get_response(const char *prompt, const char *def, char *buf, size_t len)
     }
 
     fprintf(stderr, "%s [%s]:", prompt, def);
-    if(fgets(buf, len, stdin) == NULL) {
+    if(fgets(buf, (int)len, stdin) == NULL) {
 	int save_errno = errno;
 	if(ferror(stdin))
 	    krb5_err(context, 1, save_errno, "<stdin>");
@@ -698,7 +698,7 @@ hex2n (char c)
     if (p == NULL)
 	return -1;
     else
-	return p - hexdigits;
+	return (int)(p - hexdigits);
 }
 
 /*

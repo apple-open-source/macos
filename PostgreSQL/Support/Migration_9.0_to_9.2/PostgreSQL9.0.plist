@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2013-04-04</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>PostgreSQL.txt</string>
+	<key>OpenSourceMD5</key>
+	<string>4736620640f96369b0bb367c4e1aad75</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Support for building on Mac OS X</string>
+		<string>Patch to use POSIX shmem instead of SysV</string>
+		<string>Patch contrib/intarray extension to fix crasher</string>
+		<string>Patch to replace GPLv3 Bison parsers with GPLv2 parsers</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>PostgreSQL</string>
+	<key>OpenSourceSHA1</key>
+	<string>7797d1f537b1f109554af0f0a79fa743fd598406</string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.postgresql.org/pub/source/v9.0.13/postgresql-9.0.13.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>9.0.13</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://postgresql.org/</string>
+	</dict>
+</plist>

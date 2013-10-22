@@ -31,6 +31,7 @@
 #include <sys/param.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
+#include <bootstrap_priv.h>
 #include <syslog.h>
 #include <stdarg.h>
 
@@ -421,8 +422,11 @@ static kern_return_t get_kextd_port(mach_port_t * kextd_port)
 	
     kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
     if (kern_result == kOSReturnSuccess) {
-        kern_result = bootstrap_look_up(bootstrap_port,
-            (char *)KEXTD_SERVER_NAME, kextd_port);
+        kern_result = bootstrap_look_up2(bootstrap_port,
+                                         (char *)KEXTD_SERVER_NAME,
+                                         kextd_port,
+                                         0,
+                                         BOOTSTRAP_PRIVILEGED_SERVER);
     }
 	
     return kern_result;

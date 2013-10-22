@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012, 2013 Research In Motion Limited. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,28 +19,27 @@
 #include "config.h"
 #include "SurfacePool.h"
 
-#include "PlatformContextSkia.h"
-
-#if USE(ACCELERATED_COMPOSITING)
-#include "BackingStoreCompositingSurface.h"
-#endif
-
+#include <BlackBerryPlatformExecutableMessage.h>
+#include <BlackBerryPlatformGraphics.h>
 #include <BlackBerryPlatformLog.h>
+#include <BlackBerryPlatformMessageClient.h>
 #include <BlackBerryPlatformMisc.h>
 #include <BlackBerryPlatformScreen.h>
 #include <BlackBerryPlatformSettings.h>
+#include <BlackBerryPlatformThreading.h>
+#include <errno.h>
 
-#define SHARED_PIXMAP_GROUP "webkit_backingstore_group"
+#if BLACKBERRY_PLATFORM_GRAPHICS_EGL
+#include <EGL/eglext.h>
+#endif
 
 namespace BlackBerry {
 namespace WebKit {
 
-#if USE(ACCELERATED_COMPOSITING) && ENABLE_COMPOSITING_SURFACE
-static PassRefPtr<BackingStoreCompositingSurface> createCompositingSurface()
-{
-    BlackBerry::Platform::IntSize screenSize = BlackBerry::Platform::Graphics::Screen::primaryScreen()->size();
-    return BackingStoreCompositingSurface::create(screenSize, false /*doubleBuffered*/);
-}
+#if BLACKBERRY_PLATFORM_GRAPHICS_EGL
+static PFNEGLCREATESYNCKHRPROC eglCreateSyncKHR;
+static PFNEGLDESTROYSYNCKHRPROC eglDestroySyncKHR;
+static PFNEGLCLIENTWAITSYNCKHRPROC eglClientWaitSyncKHR;
 #endif
 
 SurfacePool* SurfacePool::globalSurfacePool()
@@ -52,151 +51,148 @@ SurfacePool* SurfacePool::globalSurfacePool()
 }
 
 SurfacePool::SurfacePool()
-    : m_visibleTileBuffer(0)
-#if USE(ACCELERATED_COMPOSITING)
-    , m_compositingSurface(0)
-#endif
-    , m_tileRenderingSurface(0)
-    , m_backBuffer(0)
+    : m_numberOfFrontBuffers(0)
     , m_initialized(false)
     , m_buffersSuspended(false)
+    , m_hasFenceExtension(false)
 {
 }
 
-void SurfacePool::initialize(const BlackBerry::Platform::IntSize& tileSize)
+int SurfacePool::numberOfBackingStoreFrontBuffers() const
+{
+    return m_numberOfFrontBuffers;
+}
+
+void SurfacePool::initialize(const Platform::IntSize& tileSize)
 {
     if (m_initialized)
         return;
     m_initialized = true;
 
-    const unsigned numberOfTiles = BlackBerry::Platform::Settings::get()->numberOfBackingStoreTiles();
-    const unsigned maxNumberOfTiles = BlackBerry::Platform::Settings::get()->maximumNumberOfBackingStoreTilesAcrossProcesses();
+    m_numberOfFrontBuffers = Platform::Settings::instance()->numberOfBackingStoreFrontBuffers();
 
-    if (numberOfTiles) { // Only allocate if we actually use a backingstore.
-        unsigned byteLimit = (maxNumberOfTiles /*pool*/ + 2 /*visible tile buffer, backbuffer*/) * tileSize.width() * tileSize.height() * 4;
-        bool success = BlackBerry::Platform::Graphics::createPixmapGroup(SHARED_PIXMAP_GROUP, byteLimit);
-        if (!success) {
-            BlackBerry::Platform::log(BlackBerry::Platform::LogLevelWarn,
-                "Shared buffer pool could not be set up, using regular memory allocation instead.");
-        }
+    if (!m_numberOfFrontBuffers)
+        return; // We completely disable tile rendering when 0 tiles are specified.
+
+    const unsigned numberOfBackBuffers = Platform::Settings::instance()->numberOfBackingStoreBackBuffers();
+    const unsigned numberOfPoolTiles = m_numberOfFrontBuffers + numberOfBackBuffers; // back buffer
+
+    for (size_t i = 0; i < numberOfPoolTiles; ++i)
+        m_tileBufferPool.append(new TileBuffer(tileSize));
+
+    // All buffers not used as front buffers are used as back buffers.
+    // Initially, that's all of them.
+    m_availableBackBufferPool = m_tileBufferPool;
+
+#if BLACKBERRY_PLATFORM_GRAPHICS_EGL
+    const char* extensions = eglQueryString(Platform::Graphics::eglDisplay(), EGL_EXTENSIONS);
+    if (strstr(extensions, "EGL_KHR_fence_sync")) {
+        // We assume GL_OES_EGL_sync is present, but we don't check for it because
+        // no GL context is current at this point.
+        // TODO: check for it
+        eglCreateSyncKHR = (PFNEGLCREATESYNCKHRPROC) eglGetProcAddress("eglCreateSyncKHR");
+        eglDestroySyncKHR = (PFNEGLDESTROYSYNCKHRPROC) eglGetProcAddress("eglDestroySyncKHR");
+        eglClientWaitSyncKHR = (PFNEGLCLIENTWAITSYNCKHRPROC) eglGetProcAddress("eglClientWaitSyncKHR");
+        m_hasFenceExtension = eglCreateSyncKHR && eglDestroySyncKHR && eglClientWaitSyncKHR;
     }
-
-    m_tileRenderingSurface = BlackBerry::Platform::Graphics::drawingSurface();
-
-#if USE(ACCELERATED_COMPOSITING) && ENABLE_COMPOSITING_SURFACE
-    m_compositingSurface = createCompositingSurface();
 #endif
 
-    if (!numberOfTiles)
-        return; // we only use direct rendering when 0 tiles are specified.
-
-    // Create the shared backbuffer.
-    m_backBuffer = reinterpret_cast<unsigned>(new TileBuffer(tileSize));
-
-    for (size_t i = 0; i < numberOfTiles; ++i)
-        m_tilePool.append(BackingStoreTile::create(tileSize, BackingStoreTile::DoubleBuffered));
+    // m_mutex must be recursive because destroyPlatformSync may be called indirectly
+    // from notifyBuffersComposited
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&m_mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
 }
 
-PlatformGraphicsContext* SurfacePool::createPlatformGraphicsContext(BlackBerry::Platform::Graphics::Drawable* drawable) const
+PlatformGraphicsContext* SurfacePool::createPlatformGraphicsContext(Platform::Graphics::Drawable* drawable) const
 {
-    return new WebCore::PlatformContextSkia(drawable);
+    return drawable;
 }
 
-PlatformGraphicsContext* SurfacePool::lockTileRenderingSurface() const
+void SurfacePool::destroyPlatformGraphicsContext(PlatformGraphicsContext*) const
 {
-    if (!m_tileRenderingSurface)
+}
+
+unsigned SurfacePool::numberOfAvailableBackBuffers() const
+{
+    return m_availableBackBufferPool.size();
+}
+
+TileBuffer* SurfacePool::takeBackBuffer()
+{
+    ASSERT(!m_availableBackBufferPool.isEmpty());
+    if (m_availableBackBufferPool.isEmpty())
         return 0;
 
-    return createPlatformGraphicsContext(BlackBerry::Platform::Graphics::lockBufferDrawable(m_tileRenderingSurface));
+    TileBuffer* buffer = m_availableBackBufferPool.first();
+
+    // Reorder so we get FIFO semantics. Should minimize fence waiting times.
+    for (unsigned i = 0; i < m_availableBackBufferPool.size() - 1; ++i)
+        m_availableBackBufferPool[i] = m_availableBackBufferPool[i + 1];
+    m_availableBackBufferPool.removeLast();
+
+    ASSERT(buffer);
+    return buffer;
 }
 
-void SurfacePool::releaseTileRenderingSurface(PlatformGraphicsContext* context) const
+void SurfacePool::addBackBuffer(TileBuffer* tileBuffer)
 {
-    if (!m_tileRenderingSurface)
-        return;
-
-    delete context;
-    BlackBerry::Platform::Graphics::releaseBufferDrawable(m_tileRenderingSurface);
-}
-
-void SurfacePool::initializeVisibleTileBuffer(const BlackBerry::Platform::IntSize& visibleSize)
-{
-    if (!m_visibleTileBuffer || m_visibleTileBuffer->size() != visibleSize) {
-        delete m_visibleTileBuffer;
-        m_visibleTileBuffer = BackingStoreTile::create(visibleSize, BackingStoreTile::SingleBuffered);
-    }
-}
-
-TileBuffer* SurfacePool::backBuffer() const
-{
-    ASSERT(m_backBuffer);
-    return reinterpret_cast<TileBuffer*>(m_backBuffer);
-}
-
-#if USE(ACCELERATED_COMPOSITING)
-BackingStoreCompositingSurface* SurfacePool::compositingSurface() const
-{
-    return m_compositingSurface.get();
-}
-#endif
-
-void SurfacePool::notifyScreenRotated()
-{
-#if USE(ACCELERATED_COMPOSITING) && ENABLE_COMPOSITING_SURFACE
-    // Recreate compositing surface at new screen resolution.
-    m_compositingSurface = createCompositingSurface();
-#endif
-}
-
-std::string SurfacePool::sharedPixmapGroup() const
-{
-    return SHARED_PIXMAP_GROUP;
+    ASSERT(tileBuffer);
+    tileBuffer->clearRenderedRegion();
+    m_availableBackBufferPool.append(tileBuffer);
 }
 
 void SurfacePool::createBuffers()
 {
-    if (!m_initialized || m_tilePool.isEmpty() || !m_buffersSuspended)
+    if (!m_initialized || m_tileBufferPool.isEmpty() || !m_buffersSuspended)
         return;
 
     // Create the tile pool.
-    for (size_t i = 0; i < m_tilePool.size(); ++i)
-        BlackBerry::Platform::Graphics::createPixmapBuffer(m_tilePool[i]->frontBuffer()->nativeBuffer());
-
-    if (m_visibleTileBuffer)
-        BlackBerry::Platform::Graphics::createPixmapBuffer(m_visibleTileBuffer->frontBuffer()->nativeBuffer());
-
-    if (backBuffer())
-        BlackBerry::Platform::Graphics::createPixmapBuffer(backBuffer()->nativeBuffer());
+    for (size_t i = 0; i < m_tileBufferPool.size(); ++i) {
+        if (m_tileBufferPool[i]->wasNativeBufferCreated())
+            Platform::Graphics::createPixmapBuffer(m_tileBufferPool[i]->nativeBuffer());
+    }
 
     m_buffersSuspended = false;
 }
 
 void SurfacePool::releaseBuffers()
 {
-    if (!m_initialized || m_tilePool.isEmpty() || m_buffersSuspended)
+    if (!m_initialized || m_tileBufferPool.isEmpty() || m_buffersSuspended)
         return;
 
     m_buffersSuspended = true;
 
     // Release the tile pool.
-    for (size_t i = 0; i < m_tilePool.size(); ++i) {
-        m_tilePool[i]->frontBuffer()->clearRenderedRegion();
+    for (size_t i = 0; i < m_tileBufferPool.size(); ++i) {
+        if (!m_tileBufferPool[i]->wasNativeBufferCreated())
+            continue;
+        m_tileBufferPool[i]->clearRenderedRegion();
         // Clear the buffer to prevent accidental leakage of (possibly sensitive) pixel data.
-        BlackBerry::Platform::Graphics::clearBuffer(m_tilePool[i]->frontBuffer()->nativeBuffer(), 0, 0, 0, 0);
-        BlackBerry::Platform::Graphics::destroyPixmapBuffer(m_tilePool[i]->frontBuffer()->nativeBuffer());
+        Platform::Graphics::clearBuffer(m_tileBufferPool[i]->nativeBuffer(), 0, 0, 0, 0);
+        Platform::Graphics::destroyPixmapBuffer(m_tileBufferPool[i]->nativeBuffer());
     }
 
-    if (m_visibleTileBuffer) {
-        m_visibleTileBuffer->frontBuffer()->clearRenderedRegion();
-        BlackBerry::Platform::Graphics::clearBuffer(m_visibleTileBuffer->frontBuffer()->nativeBuffer(), 0, 0, 0, 0);
-        BlackBerry::Platform::Graphics::destroyPixmapBuffer(m_visibleTileBuffer->frontBuffer()->nativeBuffer());
-    }
+    Platform::userInterfaceThreadMessageClient()->dispatchSyncMessage(
+        Platform::createFunctionCallMessage(&Platform::Graphics::collectThreadSpecificGarbage));
+}
 
-    if (backBuffer()) {
-        backBuffer()->clearRenderedRegion();
-        BlackBerry::Platform::Graphics::clearBuffer(backBuffer()->nativeBuffer(), 0, 0, 0, 0);
-        BlackBerry::Platform::Graphics::destroyPixmapBuffer(backBuffer()->nativeBuffer());
-    }
+void SurfacePool::waitForBuffer(TileBuffer*)
+{
+    if (!m_hasFenceExtension)
+        return;
+}
+
+void SurfacePool::notifyBuffersComposited(const TileBufferList&)
+{
+    if (!m_hasFenceExtension)
+        return;
+}
+
+void SurfacePool::destroyPlatformSync(void*)
+{
 }
 
 }

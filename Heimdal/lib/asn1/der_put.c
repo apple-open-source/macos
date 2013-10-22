@@ -267,7 +267,8 @@ der_put_heim_integer (unsigned char *p, size_t len,
     len -= data->length;
 
     if (data->negative) {
-	int i, carry;
+	ssize_t i;
+	int carry;
 	for (i = data->length - 1, carry = 1; i >= 0; i--) {
 	    *p = buf[i] ^ 0xff;
 	    if (carry)
@@ -343,7 +344,7 @@ der_put_oid (unsigned char *p, size_t len,
 	     const heim_oid *data, size_t *size)
 {
     unsigned char *base = p;
-    int n;
+    size_t n;
 
     for (n = data->length - 1; n >= 2; --n) {
 	unsigned u = data->components[n];
@@ -475,5 +476,5 @@ _heim_der_set_sort(const void *a1, const void *a2)
 		 s1->length < s2->length ? s1->length : s2->length);
     if(ret)
 	return ret;
-    return s1->length - s2->length;
+    return (int)(s1->length - s2->length);
 }

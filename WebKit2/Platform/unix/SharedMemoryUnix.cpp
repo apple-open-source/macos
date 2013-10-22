@@ -31,7 +31,6 @@
 
 #include "ArgumentDecoder.h"
 #include "ArgumentEncoder.h"
-#include "WebCoreArgumentCoders.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -63,18 +62,18 @@ bool SharedMemory::Handle::isNull() const
     return m_fileDescriptor == -1;
 }
 
-void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder* encoder) const
+void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
-    encoder->encode(releaseToAttachment());
+    encoder << releaseToAttachment();
 }
 
-bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder* decoder, Handle& handle)
+bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& handle)
 {
     ASSERT_ARG(handle, !handle.m_size);
     ASSERT_ARG(handle, handle.isNull());
 
     CoreIPC::Attachment attachment;
-    if (!decoder->decode(attachment))
+    if (!decoder.decode(attachment))
         return false;
 
     handle.adoptFromAttachment(attachment.releaseFileDescriptor(), attachment.size());
@@ -110,8 +109,10 @@ PassRefPtr<SharedMemory> SharedMemory::create(size_t size)
             fileDescriptor = shm_open(tempName.data(), O_CREAT | O_CLOEXEC | O_RDWR, S_IRUSR | S_IWUSR);
         } while (fileDescriptor == -1 && errno == EINTR);
     }
-    if (fileDescriptor == -1)
+    if (fileDescriptor == -1) {
+        WTFLogAlways("Failed to create shared memory file %s", tempName.data());
         return 0;
+    }
 
     while (ftruncate(fileDescriptor, size) == -1) {
         if (errno != EINTR) {

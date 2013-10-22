@@ -1,6 +1,6 @@
 /*	$NetBSD: rmd160.c,v 1.1.1.1 2001/03/06 11:21:05 agc Exp $	*/
 /*	$RoughId: rmd160.c,v 1.2 2001/07/13 19:49:10 knu Exp $	*/
-/*	$Id: rmd160.c 11708 2007-02-12 23:01:19Z shyouhei $	*/
+/*	$Id: rmd160.c 35554 2012-05-07 01:27:59Z nobu $	*/
 
 /********************************************************************\
  *
@@ -362,16 +362,20 @@ RMD160_Update(RMD160_CTX *context, const uint8_t *data, size_t nbytes)
 	_DIAGASSERT(data != NULL);
 
 	/* update length[] */
+#if SIZEOF_SIZE_T * CHAR_BIT > 32
+	context->length[1] += (uint32_t)((context->length[0] + nbytes) >> 32);
+#else
 	if (context->length[0] + nbytes < context->length[0])
 		context->length[1]++;		/* overflow to msb of length */
-	context->length[0] += nbytes;
+#endif
+	context->length[0] += (uint32_t)nbytes;
 
 	(void)memset(X, 0, sizeof(X));
 
         if ( context->buflen + nbytes < 64 )
         {
                 (void)memcpy(context->bbuffer + context->buflen, data, nbytes);
-                context->buflen += nbytes;
+                context->buflen += (uint32_t)nbytes;
         }
         else
         {
@@ -401,7 +405,7 @@ RMD160_Update(RMD160_CTX *context, const uint8_t *data, size_t nbytes)
                 /*
                  * Put last bytes from data into context's buffer
                  */
-                context->buflen = nbytes & 63;
+                context->buflen = (uint32_t)nbytes & 63;
                 memcpy(context->bbuffer, data + (64 * i) + ofs, context->buflen);
         }
 }

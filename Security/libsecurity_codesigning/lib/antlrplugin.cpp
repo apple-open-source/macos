@@ -83,21 +83,27 @@ const Result *parse(Source source, Result *(Parser::RequirementParser::*rule)(),
 //
 // Hook up each supported parsing action to the plugin interface
 //
+static
 const Requirement *fileRequirement(FILE *source, string &errors)
 { return parse<StdioInputStream>(source, &Parser::RequirementParser::requirement, errors); }
 
+static
 const Requirement *stringRequirement(string source, string &errors)
 { return parse<StringInputStream>(source, &Parser::RequirementParser::requirement, errors); }
 
+static
 const Requirements *fileRequirements(FILE *source, string &errors)
 { return parse<StdioInputStream>(source, &Parser::RequirementParser::requirementSet, errors); }
 
+static
 const Requirements *stringRequirements(string source, string &errors)
 { return parse<StringInputStream>(source, &Parser::RequirementParser::requirementSet, errors); }
 
+static
 const BlobCore *fileGeneric(FILE *source, string &errors)
 { return parse<StdioInputStream>(source, &Parser::RequirementParser::autosense, errors); }
 
+static
 const BlobCore *stringGeneric(string source, string &errors)
 { return parse<StringInputStream>(source, &Parser::RequirementParser::autosense, errors); }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2012 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,17 +28,16 @@
 #include <securityd/SecPolicyServer.h>
 #include <Security/SecPolicyInternal.h>
 #include <Security/SecPolicyPriv.h>
-
+#include <utilities/SecIOFormat.h>
 #include <securityd/asynchttp.h>
 #include <securityd/policytree.h>
-#include <pthread.h>
 #include <CoreFoundation/CFTimeZone.h>
 #include <wctype.h>
 #include <libDER/oids.h>
 #include <CoreFoundation/CFNumber.h>
 #include <Security/SecCertificateInternal.h>
 #include <AssertMacros.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include <security_asn1/SecAsn1Coder.h>
 #include <security_asn1/ocspTemplates.h>
 #include <security_asn1/oidsalg.h>
@@ -57,6 +56,9 @@
 #include <securityd/asynchttp.h>
 #include <securityd/SecTrustServer.h>
 #include <securityd/SecOCSPCache.h>
+#include <utilities/array_size.h>
+#include <utilities/SecCFWrappers.h>
+#include "OTATrustUtilities.h"
 
 #define ocspdErrorLog(args...)     asl_log(NULL, NULL, ASL_LEVEL_ERR, ## args)
 
@@ -78,77 +80,44 @@ static void secdumpdata(CFDataRef data, const char *name) {
 
 #endif
 
+
 /********************************************************
  ****************** SecPolicy object ********************
  ********************************************************/
 
 static CFMutableDictionaryRef gSecPolicyLeafCallbacks = NULL;
 static CFMutableDictionaryRef gSecPolicyPathCallbacks = NULL;
-static CFSetRef gBlackListedKeys = NULL;
 
-static pthread_once_t gSecEVPolicyToAnchorDigestsOnce = PTHREAD_ONCE_INIT;
-static CFDictionaryRef gSecEVPolicyToAnchorDigests = NULL;
-
-/* Helper functions. */
-
-static bool isArray(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFArrayGetTypeID();
-}
-
-static bool isData(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFDataGetTypeID();
-}
-
-static bool isDate(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFDateGetTypeID();
-}
-
-static bool isDictionary(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFDictionaryGetTypeID();
-}
-
-static bool isString(CFTypeRef cfType) {
-    return cfType && CFGetTypeID(cfType) == CFStringGetTypeID();
-}
-
-static void SecEVPolicyToAnchorDigestsInit(void) {
-	CFDataRef xmlData = SecFrameworkCopyResourceContents(
-		CFSTR("EVRoots"), CFSTR("plist"), NULL);
-	CFPropertyListRef evroots = NULL;
-    if (xmlData) {
-        evroots = CFPropertyListCreateFromXMLData(
-            kCFAllocatorDefault, xmlData, kCFPropertyListImmutable, NULL);
-        CFRelease(xmlData);
+static CFArrayRef SecPolicyAnchorDigestsForEVPolicy(const DERItem *policyOID)
+{
+	CFArrayRef result = NULL;
+	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
+	if (NULL == otapkiRef)
+	{
+		return result;
+	}
+	
+	CFDictionaryRef evToPolicyAnchorDigest = SecOTAPKICopyEVPolicyToAnchorMapping(otapkiRef);
+	CFRelease(otapkiRef);
+	
+    if (NULL == evToPolicyAnchorDigest)
+    {
+        return result;
     }
-	if (evroots) {
-		if (CFGetTypeID(evroots) == CFDictionaryGetTypeID()) {
-            /* @@@ Ensure that each dictionary key is a dotted list of digits,
-               each value is an NSArrayRef and each element in the array is a
-               20 byte digest. */
-			gSecEVPolicyToAnchorDigests = (CFDictionaryRef)evroots;
-		} else {
-			secwarning("EVRoot.plist is wrong type.");
-			CFRelease(evroots);
-		}
-    }
-}
 
-static CFArrayRef SecPolicyAnchorDigestsForEVPolicy(const DERItem *policyOID) {
-    pthread_once(&gSecEVPolicyToAnchorDigestsOnce,
-        SecEVPolicyToAnchorDigestsInit);
     CFArrayRef roots = NULL;
-    CFStringRef oid = SecDERItemCopyOIDDecimalRepresentation(
-        kCFAllocatorDefault, policyOID);
-    if (oid) {
-        roots = (CFArrayRef)CFDictionaryGetValue(gSecEVPolicyToAnchorDigests,
-            oid);
-		if (roots && CFGetTypeID(roots) != CFArrayGetTypeID()) {
+    CFStringRef oid = SecDERItemCopyOIDDecimalRepresentation(kCFAllocatorDefault, policyOID);
+    if (oid && evToPolicyAnchorDigest) 
+	{
+        result = (CFArrayRef)CFDictionaryGetValue(evToPolicyAnchorDigest, oid);
+		if (roots && CFGetTypeID(result) != CFArrayGetTypeID()) 
+		{
             ocspdErrorLog("EVRoot.plist has non array value");
-            roots = NULL;
+            result = NULL;
         }
         CFRelease(oid);
     }
-    return roots;
+    return result;
 }
 
 
@@ -898,19 +867,26 @@ static void SecPolicyCheckAnchorSHA1(SecPVCRef pvc,
     CFIndex count = SecPVCGetCertificateCount(pvc);
 	SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, count - 1);
 	SecPolicyRef policy = SecPVCGetPolicy(pvc);
-    CFDataRef sha1Digest =
-        (CFDataRef)CFDictionaryGetValue(policy->_options, key);
-    if (!isData(sha1Digest)) {
-        /* @@@ We can't return an error here and making the evaluation fail
-           won't help much either. */
-        return;
-    }
+    CFTypeRef value = CFDictionaryGetValue(policy->_options, key);
     CFDataRef anchorSHA1 = SecCertificateGetSHA1Digest(cert);
-	if (!CFEqual(anchorSHA1, sha1Digest)) {
-		/* Certificate chain is not issued by required anchor. */
-		if (!SecPVCSetResult(pvc, kSecPolicyCheckAnchorSHA1, 0, kCFBooleanFalse))
-			return;
-	}
+
+    bool foundMatch = false;
+
+    if (isData(value))
+        foundMatch = CFEqual(anchorSHA1, value);
+    else if (isArray(value))
+        foundMatch = CFArrayContainsValue((CFArrayRef) value, CFRangeMake(0, CFArrayGetCount((CFArrayRef) value)), anchorSHA1);
+    else {
+        /* @@@ We only support Data and Array but we can't return an error here so.
+               we let the evaluation fail (not much help) and assert in debug. */
+        assert(false);
+    }
+
+    if (!foundMatch)
+        if (!SecPVCSetResult(pvc, kSecPolicyCheckAnchorSHA1, 0, kCFBooleanFalse))
+            return;
+
+    return;
 }
 
 /* AUDIT[securityd](done):
@@ -935,6 +911,26 @@ static void SecPolicyCheckSubjectOrganization(SecPVCRef pvc,
 		SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
 	}
 	CFReleaseSafe(organization);
+}
+
+static void SecPolicyCheckSubjectOrganizationalUnit(SecPVCRef pvc,
+	CFStringRef key) {
+	SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 0);
+	SecPolicyRef policy = SecPVCGetPolicy(pvc);
+	CFStringRef orgUnit = (CFStringRef)CFDictionaryGetValue(policy->_options,
+		key);
+    if (!isString(orgUnit)) {
+        /* @@@ We can't return an error here and making the evaluation fail
+           won't help much either. */
+        return;
+    }
+	CFArrayRef organizationalUnit = SecCertificateCopyOrganizationalUnit(cert);
+	if (!organizationalUnit || CFArrayGetCount(organizationalUnit) != 1 ||
+		!CFEqual(orgUnit, CFArrayGetValueAtIndex(organizationalUnit, 0))) {
+		/* Leaf Subject Organizational Unit mismatch. */
+		SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+	}
+	CFReleaseSafe(organizationalUnit);
 }
 
 /* AUDIT[securityd](done):
@@ -972,6 +968,7 @@ static void SecPolicyCheckEAPTrustedServerNames(SecPVCRef pvc,
                 if (!isString(serverName)) {
                     /* @@@ We can't return an error here and making the
                        evaluation fail won't help much either. */
+                    CFReleaseSafe(dnsNames);
                     return;
                 }
                 /* we purposefully reverse the arguments here such that dns names
@@ -996,7 +993,7 @@ static void SecPolicyCheckEAPTrustedServerNames(SecPVCRef pvc,
 	}
 }
 
-static const unsigned char const UTN_USERFirst_Hardware_Serial[][16] = {
+static const unsigned char UTN_USERFirst_Hardware_Serial[][16] = {
 { 0xd8, 0xf3, 0x5f, 0x4e, 0xb7, 0x87, 0x2b, 0x2d, 0xab, 0x06, 0x92, 0xe3, 0x15, 0x38, 0x2f, 0xb0 },
 { 0x92, 0x39, 0xd5, 0x34, 0x8f, 0x40, 0xd1, 0x69, 0x5a, 0x74, 0x54, 0x70, 0xe1, 0xf2, 0x3f, 0x43 },
 { 0xb0, 0xb7, 0x13, 0x3e, 0xd0, 0x96, 0xf9, 0xb5, 0x6f, 0xae, 0x91, 0xc8, 0x74, 0xbd, 0x3a, 0xc0 },
@@ -1046,12 +1043,13 @@ static void SecPolicyCheckBlackListedLeaf(SecPVCRef pvc,
 
             if (serial_length == (CFIndex)sizeof(*UTN_USERFirst_Hardware_Serial)) {
                 unsigned int i;
-                for (i = 0; i < sizeof(UTN_USERFirst_Hardware_Serial)/sizeof(*UTN_USERFirst_Hardware_Serial); i++)
+                for (i = 0; i < array_size(UTN_USERFirst_Hardware_Serial); i++)
                 {
                     if (0 == memcmp(UTN_USERFirst_Hardware_Serial[i],
                         serial_ptr, sizeof(*UTN_USERFirst_Hardware_Serial)))
                     {
                         SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+                        CFReleaseSafe(serial);
                         return;
                     }
                 }
@@ -1059,14 +1057,62 @@ static void SecPolicyCheckBlackListedLeaf(SecPVCRef pvc,
             CFRelease(serial);
         }
     }
+
+	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
+	if (NULL != otapkiRef)
+	{
+		CFSetRef blackListedKeys = SecOTAPKICopyBlackListSet(otapkiRef);
+		CFRelease(otapkiRef);
+		if (NULL != blackListedKeys)
+		{
+			/* Check for blacklisted intermediates keys. */
+			CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
+			if (dgst) 
+			{
+				/* Check dgst against blacklist. */
+				if (CFSetContainsValue(blackListedKeys, dgst)) 
+				{
+					SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+				}
+				CFRelease(dgst);
+			}
+			CFRelease(blackListedKeys);
+		}
+	}
 }
+
+static void SecPolicyCheckGrayListedLeaf(SecPVCRef pvc, CFStringRef key)
+{
+	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
+	if (NULL != otapkiRef)
+	{
+		CFSetRef grayListedKeys = SecOTAPKICopyGrayList(otapkiRef);
+		CFRelease(otapkiRef);
+		if (NULL != grayListedKeys)
+		{
+			SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 0);
+
+			CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
+			if (dgst) 
+			{
+				/* Check dgst against gray. */
+				if (CFSetContainsValue(grayListedKeys, dgst)) 
+				{
+					SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+				}
+				CFRelease(dgst);
+			}
+			CFRelease(grayListedKeys);
+		}
+	}
+ }
 
 static void SecPolicyCheckLeafMarkerOid(SecPVCRef pvc, CFStringRef key)
 {
 	SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, 0);
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
     CFTypeRef value = CFDictionaryGetValue(policy->_options, key);
-    
+
     if (value && SecCertificateHasMarkerExtension(cert, value))
         return;
 
@@ -1086,6 +1132,8 @@ static void SecPolicyCheckIntermediateMarkerOid(SecPVCRef pvc, CFStringRef key)
     }
     SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
 }
+
+
 
 /****************************************************************************
  *********************** New rfc5280 Chain Validation ***********************
@@ -1166,7 +1214,7 @@ static bool policy_tree_add_if_any(policy_tree_t node, void *ctx) {
 /* Return true iff node has a child with a valid_policy equal to oid. */
 static bool policy_tree_has_child_with_oid(policy_tree_t node,
     const oid_t *oid) {
-    policy_tree_t child = node->children;
+    policy_tree_t child;
     for (child = node->children; child; child = child->siblings) {
         if (oid_equal(child->valid_policy, (*oid))) {
             return true;
@@ -1614,6 +1662,35 @@ certificatePolicies or extendedKeyUsage extensions.
 */
 }
 
+
+static void SecPolicyCheckCertificatePolicyOid(SecPVCRef pvc, CFStringRef key)
+{
+	CFIndex ix, count = SecPVCGetCertificateCount(pvc);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef value = CFDictionaryGetValue(policy->_options, key);
+	DERItem	key_value;
+	key_value.data = NULL;
+	key_value.length = 0;
+    
+	if (CFGetTypeID(value) == CFDataGetTypeID())
+	{
+		CFDataRef key_data = (CFDataRef)value;
+		key_value.data = (DERByte *)CFDataGetBytePtr(key_data);
+		key_value.length = (DERSize)CFDataGetLength(key_data);
+		
+		for (ix = 0; ix < count; ix++) {
+	        SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+            policy_set_t policies = policies_for_cert(cert);
+			
+			if (policy_set_contains(policies, &key_value)) {
+				return;
+			}
+		}
+		SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+	}
+}
+
+
 static void SecPolicyCheckRevocation(SecPVCRef pvc,
 	CFStringRef key) {
     SecPVCSetCheckRevocation(pvc);
@@ -1624,8 +1701,8 @@ static void SecPolicyCheckNoNetworkAccess(SecPVCRef pvc,
     SecPathBuilderSetCanAccessNetwork(pvc->builder, false);
 }
 
-#pragma mark -
-#pragma mark SecRVCRef
+// MARK: -
+// MARK: SecRVCRef
 /********************************************************
  ****************** SecRVCRef Functions *****************
  ********************************************************/
@@ -1714,7 +1791,7 @@ static bool SecOCSPSingleResponseProccess(SecOCSPSingleResponseRef this,
     bool proccessed;
 	switch (this->certStatus) {
     case CS_Good:
-        secdebug("ocsp", "CS_Good for cert %u", rvc->certIX);
+        secdebug("ocsp", "CS_Good for cert %" PRIdCFIndex, rvc->certIX);
         /* @@@ Mark cert as valid until a given date (nextUpdate if we have one)
            in the info dictionary. */
         //cert.revokeCheckGood(true);
@@ -1722,7 +1799,7 @@ static bool SecOCSPSingleResponseProccess(SecOCSPSingleResponseRef this,
         proccessed = true;
         break;
     case CS_Revoked:
-        secdebug("ocsp", "CS_Revoked for cert %u", rvc->certIX);
+        secdebug("ocsp", "CS_Revoked for cert %" PRIdCFIndex, rvc->certIX);
         /* @@@ Mark cert as revoked (with reason) at revocation date in
            the info dictionary, or perhaps we should use a different key per
            reason?   That way a client using exceptions can ignore some but
@@ -1736,11 +1813,11 @@ static bool SecOCSPSingleResponseProccess(SecOCSPSingleResponseRef this,
         break;
     case CS_Unknown:
         /* not an error, no per-cert status, nothing here */
-        secdebug("ocsp", "CS_Unknown for cert %u", rvc->certIX);
+        secdebug("ocsp", "CS_Unknown for cert %" PRIdCFIndex, rvc->certIX);
         proccessed = false;
         break;
     default:
-        secdebug("ocsp", "BAD certStatus (%d) for cert %u",
+        secdebug("ocsp", "BAD certStatus (%d) for cert %" PRIdCFIndex,
             (int)this->certStatus, rvc->certIX);
         proccessed = false;
         break;
@@ -1789,7 +1866,7 @@ static bool SecOCSPResponseVerify(SecOCSPResponseRef ocspResponse, SecRVCRef rvc
                 }
             }
             if (ospvc.result) {
-                secdebug("ocsp", "response satisfies ocspSigner policy",
+                secdebug("ocsp", "response satisfies ocspSigner policy (%@)",
                     rvc->responder);
                 trusted = true;
             } else {
@@ -1900,6 +1977,7 @@ static void SecRVCInit(SecRVCRef rvc, SecPVCRef pvc, CFIndex certIX) {
     secdebug("alloc", "%p", rvc);
     rvc->pvc = pvc;
     rvc->certIX = certIX;
+    rvc->http.queue = SecPathBuilderGetQueue(pvc->builder);
     rvc->http.completed = SecOCSPFetchCompleted;
     rvc->http.info = rvc;
     rvc->ocspRequest = NULL;
@@ -1985,7 +2063,7 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
        all the jobs. To avoid this we pretend we issued certCount async jobs,
        and decrement pvc->asyncJobCount for each cert that we don't start a
        background fetch for. */
-    pvc->asyncJobCount = certCount;
+    pvc->asyncJobCount = (unsigned int) certCount;
 
     /* Loop though certificates again and issue an ocsp fetch if the
        revocation status checking isn't done yet. */
@@ -2045,7 +2123,7 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
         bool fetch_done = true;
         if (rvc->done || !SecPathBuilderCanAccessNetwork(pvc->builder) ||
             (fetch_done = SecRVCFetchNext(rvc))) {
-            /* We got a cache hit or we aren't allowed to acces the network,
+            /* We got a cache hit or we aren't allowed to access the network,
                or the async http post failed. */
             SecRVCDelete(rvc);
             /* We didn't really start a background job for this cert. */
@@ -2064,6 +2142,7 @@ static bool SecPVCCheckRevocation(SecPVCRef pvc) {
        keep track of whether we started any jobs and return false if so. */
     return completed;
 }
+
 
 void SecPolicyServerInitalize(void) {
 	gSecPolicyLeafCallbacks = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
@@ -2117,6 +2196,9 @@ void SecPolicyServerInitalize(void) {
 		kSecPolicyCheckSubjectOrganization,
 		SecPolicyCheckSubjectOrganization);
 	CFDictionaryAddValue(gSecPolicyLeafCallbacks,
+		kSecPolicyCheckSubjectOrganizationalUnit,
+		SecPolicyCheckSubjectOrganizationalUnit);
+	CFDictionaryAddValue(gSecPolicyLeafCallbacks,
 		kSecPolicyCheckEAPTrustedServerNames,
         SecPolicyCheckEAPTrustedServerNames);
 	CFDictionaryAddValue(gSecPolicyLeafCallbacks,
@@ -2131,41 +2213,18 @@ void SecPolicyServerInitalize(void) {
     CFDictionaryAddValue(gSecPolicyLeafCallbacks,
         kSecPolicyCheckBlackListedLeaf,
         SecPolicyCheckBlackListedLeaf);
+	CFDictionaryAddValue(gSecPolicyLeafCallbacks,
+        kSecPolicyCheckGrayListedLeaf,
+        SecPolicyCheckGrayListedLeaf);
     CFDictionaryAddValue(gSecPolicyLeafCallbacks,
         kSecPolicyCheckLeafMarkerOid,
         SecPolicyCheckLeafMarkerOid);
     CFDictionaryAddValue(gSecPolicyPathCallbacks,
         kSecPolicyCheckIntermediateMarkerOid,
         SecPolicyCheckIntermediateMarkerOid);
-
-    /* Initialize gBlackListedKeys. */
-    const uint8_t blacklisted_keys[][CC_SHA1_DIGEST_LENGTH] = {
-        /* DigiNotar Root CA by DigiNotar Root CA (is also cross certified by entrust) */
-        { 0x88, 0x68, 0xBF, 0xE0, 0x8E, 0x35, 0xC4, 0x3B, 0x38, 0x6B, 0x62, 0xF7, 0x28, 0x3B, 0x84, 0x81, 0xC8, 0x0C, 0xD7, 0x4D },
-        /* DigiNotar Services 1024 CA.cer by Entrust.net Secure Server Certification Authority (revoked) */
-        { 0xFE, 0xDC, 0x94, 0x49, 0x0C, 0x6F, 0xEF, 0x5C, 0x7F, 0xC6, 0xF1, 0x12, 0x99, 0x4F, 0x16, 0x49, 0xAD, 0xFB, 0x82, 0x65 },
-        /* DigiNotar Cyber CA issued by GTE CyberTrust Global Root. (no yet revoked) */
-        { 0xAB, 0xF9, 0x68, 0xDF, 0xCF, 0x4A, 0x37, 0xD7, 0x7B, 0x45, 0x8C, 0x5F, 0x72, 0xDE, 0x40, 0x44, 0xC3, 0x65, 0xBB, 0xC2 },
-        /* DigiNotar PKIoverheid CA Overheid en Bedrijven */
-        { 0x4C, 0x08, 0xC9, 0x8D, 0x76, 0xF1, 0x98, 0xC7, 0x3E, 0xDF, 0x3C, 0xD7, 0x2F, 0x75, 0x0D, 0xB1, 0x76, 0x79, 0x97, 0xCC },
-        /* DigiNotar PKIoverheid CA Organisatie - G2 */
-        { 0xBC, 0x5D, 0x94, 0x3B, 0xD9, 0xAB, 0x7B, 0x03, 0x25, 0x73, 0x61, 0xC2, 0xDB, 0x2D, 0xEE, 0xFC, 0xAB, 0x8F, 0x65, 0xA1 },
-        /* Digisign Server ID - (Enrich) cross-certified by Entrust.net Certification Authority (2048), serial 1276011370 */
-        {   0xa1, 0x3f, 0xd3, 0x7c, 0x04, 0x5b, 0xb4, 0xa3, 0x11, 0x2b,
-            0xd8, 0x9b, 0x1a, 0x07, 0xe9, 0x04, 0xb2, 0xd2, 0x6e, 0x26 },
-        /* Digisign Server ID - (Enrich) cross-certified by GTE CyberTrust Global Root, serial 120001705 */
-        {   0xc6, 0x16, 0x93, 0x4e, 0x16, 0x17, 0xec, 0x16, 0xae, 0x8c,
-            0x94, 0x76, 0xf3, 0x86, 0x6d, 0xc5, 0x74, 0x6e, 0x84, 0x77 },
-    };
-#define NUM_BLACKLISTED_KEYS  (sizeof(blacklisted_keys) / sizeof(*blacklisted_keys))
-
-    const void *keys[NUM_BLACKLISTED_KEYS];
-    size_t ix;
-    for (ix = 0; ix < NUM_BLACKLISTED_KEYS; ++ix) {
-        keys[ix] = CFDataCreateWithBytesNoCopy(0, blacklisted_keys[ix], CC_SHA1_DIGEST_LENGTH, kCFAllocatorNull);
-    }
-    gBlackListedKeys = CFSetCreate(0, keys, NUM_BLACKLISTED_KEYS, &kCFTypeSetCallBacks);
-    CFSetApplyFunction(gBlackListedKeys, (CFSetApplierFunction)CFRelease, 0);
+	CFDictionaryAddValue(gSecPolicyLeafCallbacks,
+		kSecPolicyCheckCertificatePolicy,
+		SecPolicyCheckCertificatePolicyOid);
 }
 
 /* AUDIT[securityd](done):
@@ -2215,8 +2274,8 @@ errOut:
     return result;
 }
 
-#pragma mark -
-#pragma mark SecPVCRef
+// MARK: -
+// MARK: SecPVCRef
 /********************************************************
  ****************** SecPVCRef Functions *****************
  ********************************************************/
@@ -2317,7 +2376,7 @@ CFAbsoluteTime SecPVCGetVerifyTime(SecPVCRef pvc) {
 bool SecPVCSetResultForced(SecPVCRef pvc,
 	CFStringRef key, CFIndex ix, CFTypeRef result, bool force) {
 
-    secdebug("policy", "cert[%d]: %@ =(%s)[%s]> %@", ix, key,
+    secdebug("policy", "cert[%d]: %@ =(%s)[%s]> %@", (int) ix, key,
         (pvc->callbacks == gSecPolicyLeafCallbacks ? "leaf"
             : (pvc->callbacks == gSecPolicyPathCallbacks ? "path"
                 : "custom")),
@@ -2464,23 +2523,68 @@ errOut:
 
 bool SecPVCBlackListedKeyChecks(SecPVCRef pvc, CFIndex ix) {
     /* Check stuff common to intermediate and anchors. */
-	SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
-    bool is_anchor = (ix == SecPVCGetCertificateCount(pvc) - 1
-                      && SecPVCIsAnchored(pvc));
-    if (!is_anchor) {
-        /* Check for blacklisted intermediates keys. */
-        CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
-        if (dgst) {
-            /* Check dgst against blacklist. */
-            if (CFSetContainsValue(gBlackListedKeys, dgst)) {
-                SecPVCSetResultForced(pvc, kSecPolicyCheckBlackListedKey,
-                                      ix, kCFBooleanFalse, true);
-            }
-            CFRelease(dgst);
-        }
-    }
 
-    return pvc->result;
+	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
+	if (NULL != otapkiRef)
+	{
+		CFSetRef blackListedKeys = SecOTAPKICopyBlackListSet(otapkiRef);
+		CFRelease(otapkiRef);
+		if (NULL != blackListedKeys)
+		{
+			SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+		    bool is_anchor = (ix == SecPVCGetCertificateCount(pvc) - 1
+		                      && SecPVCIsAnchored(pvc));
+		    if (!is_anchor) {
+		        /* Check for blacklisted intermediates keys. */
+		        CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
+		        if (dgst) {
+		            /* Check dgst against blacklist. */
+		            if (CFSetContainsValue(blackListedKeys, dgst)) {
+		                SecPVCSetResultForced(pvc, kSecPolicyCheckBlackListedKey,
+		                                      ix, kCFBooleanFalse, true);
+		            }
+		            CFRelease(dgst);
+		        }
+		    }
+			CFRelease(blackListedKeys);
+		    return pvc->result;
+		}
+	}
+	// Assume OK
+	return true;
+}
+
+bool SecPVCGrayListedKeyChecks(SecPVCRef pvc, CFIndex ix)
+{
+    /* Check stuff common to intermediate and anchors. */
+	SecOTAPKIRef otapkiRef = SecOTAPKICopyCurrentOTAPKIRef();
+	if (NULL != otapkiRef)
+	{
+		CFSetRef grayListKeys = SecOTAPKICopyGrayList(otapkiRef);
+		CFRelease(otapkiRef);
+		if (NULL != grayListKeys)
+		{
+			SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
+		    bool is_anchor = (ix == SecPVCGetCertificateCount(pvc) - 1
+		                      && SecPVCIsAnchored(pvc));
+		    if (!is_anchor) {
+		        /* Check for gray listed intermediates keys. */
+		        CFDataRef dgst = SecCertificateCopyPublicKeySHA1Digest(cert);
+		        if (dgst) {
+		            /* Check dgst against gray list. */
+		            if (CFSetContainsValue(grayListKeys, dgst)) {
+		                SecPVCSetResultForced(pvc, kSecPolicyCheckGrayListedKey,
+		                                      ix, kCFBooleanFalse, true);
+		            }
+		            CFRelease(dgst);
+		        }
+		    }
+			CFRelease(grayListKeys);
+		    return pvc->result;
+		}
+	}
+	// Assume ok
+	return true;
 }
 
 /* AUDIT[securityd](done):

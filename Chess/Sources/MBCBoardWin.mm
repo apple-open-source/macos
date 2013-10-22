@@ -205,6 +205,7 @@
              [engine removeChessObservers];
              [engine shutdown];
              [gameInfo removeChessObservers];
+             [gameInfo setDocument:nil];
              [interactive removeChessObservers];
              [interactive removeController];
              [remote removeChessObservers];

@@ -21,8 +21,12 @@
 #include "WebHitTestResult.h"
 
 #include "WebCoreArgumentCoders.h"
-
+#include <WebCore/Document.h>
+#include <WebCore/Frame.h>
+#include <WebCore/FrameView.h>
+#include <WebCore/HitTestResult.h>
 #include <WebCore/KURL.h>
+#include <WebCore/Node.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
@@ -34,27 +38,71 @@ PassRefPtr<WebHitTestResult> WebHitTestResult::create(const WebHitTestResult::Da
     return adoptRef(new WebHitTestResult(hitTestResultData));
 }
 
-void WebHitTestResult::Data::encode(CoreIPC::ArgumentEncoder* encoder) const
+WebHitTestResult::Data::Data()
 {
-    encoder->encode(absoluteImageURL);
-    encoder->encode(absolutePDFURL);
-    encoder->encode(absoluteLinkURL);
-    encoder->encode(absoluteMediaURL);
-    encoder->encode(linkLabel);
-    encoder->encode(linkTitle);
 }
 
-bool WebHitTestResult::Data::decode(CoreIPC::ArgumentDecoder* decoder, WebHitTestResult::Data& hitTestResultData)
+WebHitTestResult::Data::Data(const HitTestResult& hitTestResult)
+    : absoluteImageURL(hitTestResult.absoluteImageURL().string())
+    , absolutePDFURL(hitTestResult.absolutePDFURL().string())
+    , absoluteLinkURL(hitTestResult.absoluteLinkURL().string())
+    , absoluteMediaURL(hitTestResult.absoluteMediaURL().string())
+    , linkLabel(hitTestResult.textContent())
+    , linkTitle(hitTestResult.titleDisplayString())
+    , isContentEditable(hitTestResult.isContentEditable())
+    , elementBoundingBox(elementBoundingBoxInWindowCoordinates(hitTestResult))
+    , isScrollbar(hitTestResult.scrollbar())
 {
-    if (!decoder->decode(hitTestResultData.absoluteImageURL)
-        || !decoder->decode(hitTestResultData.absolutePDFURL)
-        || !decoder->decode(hitTestResultData.absoluteLinkURL)
-        || !decoder->decode(hitTestResultData.absoluteMediaURL)
-        || !decoder->decode(hitTestResultData.linkLabel)
-        || !decoder->decode(hitTestResultData.linkTitle))
+}
+
+WebHitTestResult::Data::~Data()
+{
+}
+
+void WebHitTestResult::Data::encode(CoreIPC::ArgumentEncoder& encoder) const
+{
+    encoder << absoluteImageURL;
+    encoder << absolutePDFURL;
+    encoder << absoluteLinkURL;
+    encoder << absoluteMediaURL;
+    encoder << linkLabel;
+    encoder << linkTitle;
+    encoder << isContentEditable;
+    encoder << elementBoundingBox;
+    encoder << isScrollbar;
+}
+
+bool WebHitTestResult::Data::decode(CoreIPC::ArgumentDecoder& decoder, WebHitTestResult::Data& hitTestResultData)
+{
+    if (!decoder.decode(hitTestResultData.absoluteImageURL)
+        || !decoder.decode(hitTestResultData.absolutePDFURL)
+        || !decoder.decode(hitTestResultData.absoluteLinkURL)
+        || !decoder.decode(hitTestResultData.absoluteMediaURL)
+        || !decoder.decode(hitTestResultData.linkLabel)
+        || !decoder.decode(hitTestResultData.linkTitle)
+        || !decoder.decode(hitTestResultData.isContentEditable)
+        || !decoder.decode(hitTestResultData.elementBoundingBox)
+        || !decoder.decode(hitTestResultData.isScrollbar))
         return false;
 
     return true;
+}
+
+IntRect WebHitTestResult::Data::elementBoundingBoxInWindowCoordinates(const HitTestResult& hitTestResult)
+{
+    Node* node = hitTestResult.innerNonSharedNode();
+    if (!node)
+        return IntRect();
+
+    Frame* frame = node->document()->frame();
+    if (!frame)
+        return IntRect();
+
+    FrameView* view = frame->view();
+    if (!view)
+        return IntRect();
+
+    return view->contentsToWindow(node->pixelSnappedBoundingBox());
 }
 
 } // WebKit

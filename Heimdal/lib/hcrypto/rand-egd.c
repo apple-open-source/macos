@@ -73,6 +73,7 @@ connect_egd(const char *path)
 	return -1;
 
     rk_cloexec(fd);
+    socket_set_nopipe(fd, 1);
 
     if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
 	close(fd);

@@ -73,7 +73,7 @@ CFTypeID SecStaticCodeGetTypeID(void);
 	@param attributes A CFDictionary containing additional attributes of the code sought.
 	@param staticCode On successful return, contains a reference to the StaticCode object
 	representing the code at path. Unchanged on error.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 	
 	@constant kSecCodeAttributeArchitecture Specifies the Mach-O architecture of code desired.
@@ -85,9 +85,11 @@ CFTypeID SecStaticCodeGetTypeID(void);
 	(using the kSecCodeAttributeArchitecture key), specifies any sub-architecture by number.
 	This key is ignored if no main architecture is specified; if it is specified by name; or
 	if the code is not in Mach-O form.
+	@constant kSecCodeAttributeUniversalFileOffset The offset of a Mach-O specific slice of a universal Mach-O file.
 */
 extern const CFStringRef kSecCodeAttributeArchitecture;
 extern const CFStringRef kSecCodeAttributeSubarchitecture;
+extern const CFStringRef kSecCodeAttributeUniversalFileOffset;
 extern const CFStringRef kSecCodeAttributeBundleVersion;
 
 OSStatus SecStaticCodeCreateWithPath(CFURLRef path, SecCSFlags flags, SecStaticCodeRef *staticCode);
@@ -128,10 +130,10 @@ OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flag
 	the staticCode object must satisfy to be considered valid. If NULL, no additional
 	requirements are imposed.
 	@param errors An optional pointer to a CFErrorRef variable. If the call fails
-	(something other than noErr is returned), and this argument is non-NULL,
+	(something other than errSecSuccess is returned), and this argument is non-NULL,
 	a CFErrorRef is stored there further describing the nature and circumstances
 	of the failure. The caller must CFRelease() this error object when done with it.
-	@result If validation succeeds, noErr. If validation fails, an OSStatus value
+	@result If validation succeeds, errSecSuccess. If validation fails, an OSStatus value
 	documented in CSCommon.h or certain other Security framework headers.
 */
 enum {

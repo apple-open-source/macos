@@ -289,24 +289,28 @@ PRIVATE void rpc__np_desc_inq_addr
 
     if (np_addr->rpc_protseq_id == rpc_c_protseq_id_ncacn_np)
     {
-	/*
-	 * Assume that named pipes are unix domain sockets where the
-	 * socket name is the same as the endpoint name. Trim the
-	 * leading path components and prefix "\\PIPE\\" to make it
-	 * into a names pipe endpoint.
-	 */
-	struct sockaddr_un tmp = np_addr->sa;
-	const char * last;
+        /*
+         * Assume that named pipes are unix domain sockets where the
+         * socket name is the same as the endpoint name. Trim the
+         * leading path components and prefix "\\PIPE\\" to make it
+         * into a names pipe endpoint.
+         */
+        struct sockaddr_un tmp = np_addr->sa;
+        const char * last;
 
-	last = strrchr(tmp.sun_path, '/');
-	if (!last) {
-	    RPC_MEM_FREE (np_addr, RPC_C_MEM_RPC_ADDR);
-	    *status = rpc_s_no_addrs;
-	    return;
-	}
-
-        snprintf(np_addr->sa.sun_path, sizeof(np_addr->sa.sun_path),
-	    "\\PIPE\\%s", last + 1);
+        if (tmp.sun_path[0] != '\\') {
+            last = strrchr(tmp.sun_path, '/');
+            if (!last) {
+                RPC_MEM_FREE (np_addr, RPC_C_MEM_RPC_ADDR);
+                *status = rpc_s_no_addrs;
+                return;
+            }
+            snprintf(np_addr->sa.sun_path, sizeof(np_addr->sa.sun_path),
+                    "\\PIPE\\%s", last + 1);
+        }
+        else {
+            snprintf(np_addr->sa.sun_path, sizeof(np_addr->sa.sun_path), "%s", tmp.sun_path);
+        }
     }
 
     (*rpc_addr_vec)->len = 1;

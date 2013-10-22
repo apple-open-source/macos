@@ -32,6 +32,7 @@
 #ifndef _PFKEY_H
 #define _PFKEY_H
 
+#include <dispatch/dispatch.h>
 #include "ike_session.h"
 
 struct pfkey_satype {
@@ -42,39 +43,39 @@ struct pfkey_satype {
 extern const struct pfkey_satype pfkey_satypes[];
 extern const int pfkey_nsatypes;
 
-extern int pfkey_handler __P((void));
-extern void pfkey_post_handler __P((void));
-extern vchar_t *pfkey_dump_sadb __P((int));
-extern void pfkey_flush_sadb __P((u_int));
-extern int pfkey_init __P((void));
+extern void pfkey_handler (void *);
+extern void pfkey_post_handler (void);
+extern vchar_t *pfkey_dump_sadb (int);
+extern void pfkey_flush_sadb (u_int);
+extern int pfkey_init (void);
+void pfkey_close(void);
 
-extern struct pfkey_st *pfkey_getpst __P((caddr_t *, int, int));
+extern struct pfkey_st *pfkey_getpst (caddr_t *, int, int);
 
-extern int pk_checkalg __P((int, int, int));
+extern int pk_checkalg (int, int, int);
 
-struct ph2handle;
-extern int pk_sendgetspi __P((struct ph2handle *));
-extern int pk_sendupdate __P((struct ph2handle *));
-extern int pk_sendadd __P((struct ph2handle *));
-extern int pk_sendeacquire __P((struct ph2handle *));
-extern int pk_sendspdupdate2 __P((struct ph2handle *));
-extern int pk_sendspdadd2 __P((struct ph2handle *));
-extern int pk_sendspddelete __P((struct ph2handle *));
-extern int pk_sendget_inbound_sastats __P((ike_session_t *));
-extern int pk_sendget_outbound_sastats __P((ike_session_t *));
+extern int pk_sendgetspi (phase2_handle_t *);
+extern int pk_sendupdate (phase2_handle_t *);
+extern int pk_sendadd (phase2_handle_t *);
+extern int pk_sendeacquire (phase2_handle_t *);
+extern int pk_sendspdupdate2 (phase2_handle_t *);
+extern int pk_sendspdadd2 (phase2_handle_t *);
+extern int pk_sendspddelete (phase2_handle_t *);
+extern int pk_sendget_inbound_sastats (ike_session_t *);
+extern int pk_sendget_outbound_sastats (ike_session_t *);
 
-extern void pfkey_timeover_stub __P((void *));
-extern void pfkey_timeover __P((struct ph2handle *));
+extern void pfkey_timeover_stub (void *);
+extern void pfkey_timeover (phase2_handle_t *);
 
-extern u_int pfkey2ipsecdoi_proto __P((u_int));
-extern u_int ipsecdoi2pfkey_proto __P((u_int));
-extern u_int pfkey2ipsecdoi_mode __P((u_int));
-extern u_int ipsecdoi2pfkey_mode __P((u_int));
+extern u_int pfkey2ipsecdoi_proto (u_int);
+extern u_int ipsecdoi2pfkey_proto (u_int);
+extern u_int pfkey2ipsecdoi_mode (u_int);
+extern u_int ipsecdoi2pfkey_mode (u_int);
 
-extern int pfkey_convertfromipsecdoi __P(( u_int, u_int, u_int,
-	u_int *, u_int *, u_int *, u_int *, u_int *));
-extern u_int32_t pk_getseq __P((void));
+extern int pfkey_convertfromipsecdoi ( phase2_handle_t *, u_int, u_int, u_int,
+	u_int *, u_int *, u_int *, u_int *, u_int *);
+extern u_int32_t pk_getseq (void);
 extern const char *sadbsecas2str
-	__P((struct sockaddr_storage *, struct sockaddr_storage *, int, u_int32_t, int));
+	(struct sockaddr_storage *, struct sockaddr_storage *, int, u_int32_t, int);
 
 #endif /* _PFKEY_H */

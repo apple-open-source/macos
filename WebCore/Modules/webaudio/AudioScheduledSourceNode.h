@@ -29,13 +29,13 @@
 #ifndef AudioScheduledSourceNode_h
 #define AudioScheduledSourceNode_h
 
-#include "AudioSourceNode.h"
+#include "AudioNode.h"
 
 namespace WebCore {
 
 class AudioBus;
 
-class AudioScheduledSourceNode : public AudioSourceNode {
+class AudioScheduledSourceNode : public AudioNode {
 public:
     // These are the possible states an AudioScheduledSourceNode can be in:
     //
@@ -57,12 +57,20 @@ public:
     AudioScheduledSourceNode(AudioContext*, float sampleRate);
 
     // Scheduling.
+    void start(double when);
+    void stop(double when);
+
+#if ENABLE(LEGACY_WEB_AUDIO)
     void noteOn(double when);
     void noteOff(double when);
+#endif
 
     unsigned short playbackState() const { return static_cast<unsigned short>(m_playbackState); }
     bool isPlayingOrScheduled() const { return m_playbackState == PLAYING_STATE || m_playbackState == SCHEDULED_STATE; }
     bool hasFinished() const { return m_playbackState == FINISHED_STATE; }
+
+    EventListener* onended() { return getAttributeEventListener(eventNames().endedEvent); }
+    void setOnended(PassRefPtr<EventListener> listener);
 
 protected:
     // Get frame information for the current time quantum.
@@ -78,7 +86,10 @@ protected:
                               size_t& nonSilentFramesToProcess);
 
     // Called when we have no more sound to play or the noteOff() time has been reached.
-    void finish();
+    virtual void finish();
+
+    static void notifyEndedDispatch(void*);
+    void notifyEnded();
 
     PlaybackState m_playbackState;
 
@@ -89,6 +100,8 @@ protected:
     // If it hasn't been set explicitly, then the sound will not stop playing (if looping) or will stop when the end of the AudioBuffer
     // has been reached.
     double m_endTime; // in seconds
+
+    bool m_hasEndedListener;
 
     static const double UnknownTime;
 };

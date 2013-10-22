@@ -275,7 +275,7 @@ void __IOHIDManagerSetDeviceMatching(
         callbacks.release   = _IOObjectCFRelease;
         
         manager->iterators  = CFSetCreateMutable(
-                                            kCFAllocatorDefault, 
+                                            CFGetAllocator(manager),
                                             0, 
                                             &callbacks);
         if ( !manager->iterators )
@@ -303,19 +303,19 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
     
     while (( service = IOIteratorNext(iterator) )) {        
         
-        device = IOHIDDeviceCreate(kCFAllocatorDefault, service);
+        device = IOHIDDeviceCreate(CFGetAllocator(manager), service);
         
         if ( device ) {
             if ( !manager->devices ) {
                 manager->devices = CFSetCreateMutable(
-                                                        kCFAllocatorDefault, 
+                                                        CFGetAllocator(manager),
                                                         0, 
                                                         &kCFTypeSetCallBacks);
                 initial = TRUE;
                 
                 if ( manager->isOpen )
                     manager->initRetVals = CFDictionaryCreateMutable(
-                                            kCFAllocatorDefault, 
+                                            CFGetAllocator(manager),
                                             0,
                                             &kCFTypeDictionaryKeyCallBacks,
                                             NULL);
@@ -388,7 +388,7 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
         context.perform = __IOHIDManagerInitialEnumCallback;
         
         manager->initEnumRunLoopSource = CFRunLoopSourceCreate( 
-                                                        kCFAllocatorDefault, 
+                                                        CFGetAllocator(manager),
                                                         0, 
                                                         &context);
                                                         
@@ -511,7 +511,7 @@ void __IOHIDManagerDeviceApplier(
     if ( args->options & kDeviceApplierSetInputReportCallback ) {
         CFMutableDataRef dataRef = NULL;
         if ( !args->manager->deviceInputBuffers ) {
-            args->manager->deviceInputBuffers = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+            args->manager->deviceInputBuffers = CFDictionaryCreateMutable(CFGetAllocator(args->manager), 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         }
 
         dataRef = (CFMutableDataRef)CFDictionaryGetValue(args->manager->deviceInputBuffers, device);
@@ -523,7 +523,7 @@ void __IOHIDManagerDeviceApplier(
                 CFNumberGetValue(number, kCFNumberCFIndexType, &length);
             }
             
-            dataRef = CFDataCreateMutable(kCFAllocatorDefault, length);
+            dataRef = CFDataCreateMutable(CFGetAllocator(args->manager), length);
             if ( dataRef ) {
                 CFDataSetLength(dataRef, length);
                 CFDictionarySetValue(args->manager->deviceInputBuffers, device, dataRef);
@@ -695,7 +695,7 @@ Boolean IOHIDManagerSetProperty(
     };
     
     if (!manager->properties) {
-        manager->properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 
+        manager->properties = CFDictionaryCreateMutable(CFGetAllocator(manager),
                                                         0,
                                                         &kCFTypeDictionaryKeyCallBacks,
                                                         &kCFTypeDictionaryValueCallBacks);
@@ -721,7 +721,7 @@ void IOHIDManagerSetDeviceMatching(
     CFArrayRef multiple = NULL;     
       
     if ( matching ) 
-        multiple = CFArrayCreate(kCFAllocatorDefault,
+        multiple = CFArrayCreate(CFGetAllocator(manager),
                                 (const void **)&matching,
                                 1,
                                 &kCFTypeArrayCallBacks);
@@ -776,7 +776,7 @@ CFSetRef IOHIDManagerCopyDevices(
                                 IOHIDManagerRef                 manager)
 {
     return manager->devices ? 
-                CFSetCreateCopy(kCFAllocatorDefault, manager->devices) : NULL;
+                CFSetCreateCopy(CFGetAllocator(manager), manager->devices) : NULL;
 }
 
 //------------------------------------------------------------------------------
@@ -858,7 +858,7 @@ void IOHIDManagerSetInputValueMatching(
                                     CFDictionaryRef             matching)
 {
     if ( matching ) {
-        CFArrayRef multiple = CFArrayCreate(kCFAllocatorDefault, (const void **)&matching, 1, &kCFTypeArrayCallBacks);
+        CFArrayRef multiple = CFArrayCreate(CFGetAllocator(manager), (const void **)&matching, 1, &kCFTypeArrayCallBacks);
         
         IOHIDManagerSetInputValueMatchingMultiple(manager, multiple);
         

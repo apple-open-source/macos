@@ -28,6 +28,8 @@
 #define _H_CSPROCESS
 
 #include "csgeneric.h"
+#include "StaticCode.h"
+#include "PidDiskRep.h"
 #include <security_utilities/utilities.h>
 
 namespace Security {
@@ -43,14 +45,17 @@ namespace CodeSigning {
 //
 class ProcessCode : public GenericCode {
 public:
-	ProcessCode(pid_t pid);
+	ProcessCode(pid_t pid, PidDiskRep *pidDiskRep = NULL);
+	~ProcessCode() throw () { }
 	
 	pid_t pid() const { return mPid; }
+        PidDiskRep *pidBased() const { return mPidBased; }
 
 	mach_port_t getHostingPort();
 
 private:
 	pid_t mPid;
+	RefPointer<PidDiskRep> mPidBased;
 };
 
 
@@ -58,7 +63,20 @@ private:
 // We don't need a GenericCode variant of ProcessCode
 //
 typedef SecStaticCode ProcessStaticCode;
+        
+class ProcessDynamicCode : public SecStaticCode {
+public:
+	ProcessDynamicCode(ProcessCode *diskRep);
 
+        CFDataRef component(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
+        
+        CFDictionaryRef infoDictionary();
+        
+        void validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
+private:
+        ProcessCode *mGuest;
+
+};
 
 } // end namespace CodeSigning
 } // end namespace Security

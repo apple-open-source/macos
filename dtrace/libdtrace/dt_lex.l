@@ -113,7 +113,8 @@ RGX_STR		([^"\\\n]|\\[^"\n]|\\\")*
 RGX_CHR		([^'\\\n]|\\[^'\n]|\\')*
 RGX_INTERP	^[\f\t\v ]*#!.*
 RGX_CTL		^[\f\t\v ]*#
-RGX_ATTR        "__attribute__"[\f\n\r\t\v ]*"(("[^\n]*"));"
+RGX_START_ATTR   ^"__attribute__"[\f\n\r\t\v ]*"(("[^\n]*"));"
+RGX_ATTR          "__attribute__"[\f\n\r\t\v ]*"(("[^\n]*"))"
 
 %%
 
@@ -466,8 +467,11 @@ if (yypcb->pcb_token != 0) {
 <S0>{RGX_INTERP} |
 <S2>{RGX_INTERP}	; /* discard any #! lines */
 
-<S0>{RGX_ATTR} return (';'); /* The regex consumes the semicolon, we want to discard the __attribute__ decl and still close the statement */
-<S2>{RGX_ATTR} return (';'); /* The regex consumes the semicolon, we want to discard the __attribute__ decl and still close the statement */
+<S0>{RGX_START_ATTR} |
+<S2>{RGX_START_ATTR} ; /* discard lines beginning by __attribute__ */
+
+<S0>{RGX_ATTR} |
+<S2>{RGX_ATTR} ; /* discard the __attribute__((...)) only */
 
 <S0>{RGX_CTL}	|
 <S2>{RGX_CTL}	|

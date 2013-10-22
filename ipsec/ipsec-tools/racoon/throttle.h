@@ -43,7 +43,7 @@ TAILQ_HEAD(throttle_list, throttle_entry);
 #define THROTTLE_PENALTY 1
 #define THROTTLE_PENALTY_MAX 10
 
-struct throttle_entry *throttle_add(struct sockaddr_storage *);
-int throttle_host(struct sockaddr_storage *, int);
+struct throttle_entry *throttle_add (struct sockaddr_storage *);
+int throttle_host (struct sockaddr_storage *, int);
 
 #endif /* _THROTTLE_H */

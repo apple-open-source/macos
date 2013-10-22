@@ -391,6 +391,7 @@ _krb5_plugin_free(struct krb5_plugin *list)
 static heim_dict_t modules;
 
 struct plugin2 {
+    struct heim_base_uniq base;
     heim_string_t path;
     void *dsohandle;
     heim_dict_t names;
@@ -479,7 +480,7 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
 	    /* check if already cached */
 	    p = heim_dict_copy_value(module, spath);
 	    if (p == NULL) {
-		p = heim_alloc(sizeof(*p), "krb5-plugin", plug_dealloc);
+		p = heim_uniq_alloc(sizeof(*p), "krb5-plugin", plug_dealloc);
 		if (p)
 		    p->dsohandle = dlopen(path, RTLD_LOCAL|RTLD_LAZY);
 
@@ -520,6 +521,7 @@ struct common_plugin_method {
 };
 
 struct plug {
+    struct heim_base_uniq base;
     void *dataptr;
     void *ctx;
 };
@@ -557,7 +559,7 @@ search_modules(heim_dict_t dict, heim_object_t key, heim_object_t value, void *c
 	if (p->dsohandle == NULL)
 	    return;
 
-	pl = heim_alloc(sizeof(*pl), "struct-plug", plug_free);
+	pl = heim_uniq_alloc(sizeof(*pl), "struct-plug", plug_free);
 
 	cpm = pl->dataptr = dlsym(p->dsohandle, s->name);
 	if (cpm) {

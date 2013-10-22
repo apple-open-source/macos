@@ -1,13 +1,12 @@
 ﻿// ***************************************************************************
 // *
-// *  Copyright (C) 2004-2012, International Business Machines
+// *  Copyright (C) 2004-2013, International Business Machines
 // *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 // *
 // ***************************************************************************
 // File: root.txt
 // Generated from CLDR 
-// Plus Apple addition for SoftbankSMS, az_Upper el_Upper lt_Upper tr_Upper,
-// and Simplified-Traditional/UniqueTraditionals
+// Plus Apple addition for SoftbankSMS and Simplified-Traditional/UniqueTraditionals
 //
 root {
     RuleBasedTransliteratorIDs {
@@ -16,6 +15,12 @@ root {
         }
         Digit-Tone {
             alias {"NumericPinyin-Pinyin"}
+        }
+        Hans-Hant {
+            alias {"Simplified-Traditional"}
+        }
+        Hant-Hans {
+            alias {"Traditional-Simplified"}
         }
         Amharic-Latin/BGN {
             file {
@@ -474,12 +479,6 @@ root {
             file {
                 resource:process(transliterator) {"Han_Latin.txt"}
                 direction {"FORWARD"}
-            }
-        }
-        Latin-Han {
-            file {
-                resource:process(transliterator) {"Han_Latin.txt"}
-                direction {"REVERSE"}
             }
         }
 
@@ -1368,6 +1367,20 @@ root {
             }
         }
 
+        az-Lower {
+            file {
+                resource:process(transliterator) {"az_Lower.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        az-Title {
+            file {
+                resource:process(transliterator) {"az_Title.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
         az-Upper {
             file {
                 resource:process(transliterator) {"az_Upper.txt"}
@@ -1406,6 +1419,20 @@ root {
         cs_FONIPA-ko {
             file {
                 resource:process(transliterator) {"cs_FONIPA_ko.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        el-Lower {
+            file {
+                resource:process(transliterator) {"el_Lower.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        el-Title {
+            file {
+                resource:process(transliterator) {"el_Title.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1515,9 +1542,30 @@ root {
             }
         }
 
+        lt-Lower {
+            file {
+                resource:process(transliterator) {"lt_Lower.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        lt-Title {
+            file {
+                resource:process(transliterator) {"lt_Title.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
         lt-Upper {
             file {
                 resource:process(transliterator) {"lt_Upper.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        nl-Title {
+            file {
+                resource:process(transliterator) {"nl_Title.txt"}
                 direction {"FORWARD"}
             }
         }
@@ -1595,6 +1643,20 @@ root {
         sk_FONIPA-ja {
             file {
                 resource:process(transliterator) {"sk_FONIPA_ja.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        tr-Lower {
+            file {
+                resource:process(transliterator) {"tr_Lower.txt"}
+                direction {"FORWARD"}
+            }
+        }
+
+        tr-Title {
+            file {
+                resource:process(transliterator) {"tr_Title.txt"}
                 direction {"FORWARD"}
             }
         }

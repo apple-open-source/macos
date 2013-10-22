@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,15 +35,13 @@
 #include <mach/mach_time.h>
 #include <errno.h>
 #include <pthread.h>
+
 #include "libnotify.h"
 #include "notify.h"
+#include "notify_internal.h"
 
 #define USER_PROTECTED_UID_PREFIX "user.uid."
 #define USER_PROTECTED_UID_PREFIX_LEN 9
-
-/* Required to prevent deadlocks */
-int __notify_78945668_info__ = 0;
-static uint64_t name_id = 0;
 
 uint64_t
 make_client_id(pid_t pid, int token)
@@ -142,6 +140,8 @@ _internal_client_new(notify_state_t *ns, pid_t pid, int token)
 	c = calloc(1, sizeof(client_t));
 	if (c == NULL) return NULL;
 
+	ns->stat_client_alloc++;
+
 	c->client_id = cid;
 	c->pid = pid;
 	c->send_val = token;
@@ -190,6 +190,7 @@ _internal_client_release(notify_state_t *ns, client_t *c)
 	}
 
 	free(c);
+	ns->stat_client_free++;
 }
 
 static name_info_t *
@@ -206,17 +207,14 @@ _internal_new_name(notify_state_t *ns, const char *name)
 	n = (name_info_t *)calloc(1, sizeof(name_info_t) + namelen);
 	if (n == NULL) return NULL;
 
-	n->subscription_table = _nc_table_new(0);
-	if (n->subscription_table == NULL)
-	{
-		free(n);
-		return NULL;
-	}
+	ns->stat_name_alloc++;
 
 	n->name = (char *)n + sizeof(name_info_t);
 	memcpy(n->name, name, namelen);
 
-	n->name_id = name_id++;
+	notify_globals_t globals = _notify_globals();
+	n->name_id = globals->name_id++;
+
 	n->access = NOTIFY_ACCESS_DEFAULT;
 	n->slot = (uint32_t)-1;
 	n->val = 1;
@@ -367,6 +365,8 @@ _notify_lib_port_proc_new(notify_state_t *ns, mach_port_t port, pid_t proc, uint
 	pdata = (portproc_data_t *)calloc(1, sizeof(portproc_data_t));
 	if (pdata == NULL) return NOTIFY_STATUS_FAILED;
 
+	ns->stat_portproc_alloc++;
+
 	pdata->refcount = 1;
 	pdata->flags = state;
 	pdata->src = src;
@@ -424,6 +424,7 @@ _notify_lib_port_proc_release(notify_state_t *ns, mach_port_t port, pid_t proc)
 			dispatch_release(pdata->src);
 
 			free(pdata);
+			ns->stat_portproc_free++;
 		}
 	}
 
@@ -584,7 +585,7 @@ static uint32_t
 _internal_post_name(notify_state_t *ns, name_info_t *n, uid_t uid, gid_t gid)
 {
 	int auth;
-	void *st;
+	list_t *l;
 	client_t *c;
 
 	if (n == NULL) return NOTIFY_STATUS_INVALID_NAME;
@@ -594,15 +595,11 @@ _internal_post_name(notify_state_t *ns, name_info_t *n, uid_t uid, gid_t gid)
 
 	n->val++;
 
-	st = _nc_table_traverse_start(n->subscription_table);
-	while (st != NULL)
+	for (l = n->subscriptions; l != NULL; l = _nc_list_next(l))
 	{
-		c = _nc_table_traverse(n->subscription_table, st);
-		if (c == NULL) break;
-
-		_internal_send(ns, c);
+		c = _nc_list_data(l);
+		if (c != NULL) _internal_send(ns, c);
 	}
-	_nc_table_traverse_end(n->subscription_table, st);
 
 	return NOTIFY_STATUS_OK;
 }
@@ -668,8 +665,9 @@ _internal_release_name_info(notify_state_t *ns, name_info_t *n)
 		_internal_remove_controlled_name(ns, n);
 		_nc_table_delete(ns->name_table, n->name);
 		_nc_table_delete_64(ns->name_id_table, n->name_id);
-		_nc_table_free(n->subscription_table);
+		_nc_list_release_list(n->subscriptions);
 		free(n);
+		ns->stat_name_free++;
 	}
 }
 
@@ -693,7 +691,7 @@ _internal_cancel(notify_state_t *ns, uint64_t cid)
 	n = c->name_info;
 	if (n == NULL) return;
 
-	_nc_table_delete_64(n->subscription_table, cid);
+	n->subscriptions =_nc_list_find_release(n->subscriptions, c);
 	_internal_client_release(ns, c);
 	_internal_release_name_info(ns, n);
 }
@@ -1143,89 +1141,6 @@ _notify_lib_set_state(notify_state_t *ns, uint64_t nid, uint64_t state, uid_t ui
 	return NOTIFY_STATUS_OK;
 }
 
-/*
- * Get value for a name.
- */
-uint32_t
-_notify_lib_get_val(notify_state_t *ns, pid_t pid, int token, int *val)
-{
-	client_t *c;
-	uint64_t cid;
-
-	if (val == NULL) return NOTIFY_STATUS_FAILED;
-
-	*val = 0;
-
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-	if (val == NULL) return NOTIFY_STATUS_FAILED;
-
-	cid = make_client_id(pid, token);
-
-	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
-
-	c = _nc_table_find_64(ns->client_table, cid);
-
-	if (c == NULL)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_INVALID_TOKEN;
-	}
-
-	if (c->name_info == NULL)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_INVALID_TOKEN;
-	}
-
-	*val = c->name_info->val;
-
-	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-	return NOTIFY_STATUS_OK;
-}
-
-/*
- * Set value for a name.
- */
-uint32_t
-_notify_lib_set_val(notify_state_t *ns, pid_t pid, int token, int val, uid_t uid, gid_t gid)
-{
-	client_t *c;
-	int auth;
-	uint64_t cid;
-
-	if (ns == NULL) return NOTIFY_STATUS_FAILED;
-
-	cid = make_client_id(pid, token);
-
-	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
-
-	c = _nc_table_find_64(ns->client_table, cid);
-
-	if (c == NULL)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_INVALID_TOKEN;
-	}
-
-	if (c->name_info == NULL)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_INVALID_TOKEN;
-	}
-
-	auth = _internal_check_access(ns, c->name_info->name, uid, gid, NOTIFY_ACCESS_WRITE);
-	if (auth != 0)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_NOT_AUTHORIZED;
-	}
-
-	c->name_info->val = val;
-
-	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-	return NOTIFY_STATUS_OK;
-}
-
 static uint32_t
 _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int token, uid_t uid, gid_t gid, client_t **outc)
 {
@@ -1259,8 +1174,9 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 		if (is_new_name == 1)
 		{
 			_nc_table_delete(ns->name_table, n->name);
-			_nc_table_free(n->subscription_table);
+			_nc_list_release_list(n->subscriptions);
 			free(n);
+			ns->stat_name_free++;
 		}
 
 		return NOTIFY_STATUS_FAILED;
@@ -1269,7 +1185,7 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 	n->refcount++;
 
 	c->name_info = n;
-	_nc_table_insert_64(n->subscription_table, c->client_id, c);
+	n->subscriptions = _nc_list_prepend(n->subscriptions, _nc_list_new(c));
 
 	*outc = c;
 

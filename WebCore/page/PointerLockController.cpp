@@ -28,6 +28,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Element.h"
+#include "Event.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
 #include "VoidCallback.h"
@@ -46,67 +47,86 @@ PassOwnPtr<PointerLockController> PointerLockController::create(Page* page)
     return adoptPtr(new PointerLockController(page));
 }
 
-void PointerLockController::requestPointerLock(Element* target, PassRefPtr<VoidCallback> successCallback, PassRefPtr<VoidCallback> failureCallback)
+void PointerLockController::requestPointerLock(Element* target)
 {
-    if (isLocked()) {
-        if (m_element == target) {
-            if (successCallback)
-                successCallback->handleEvent();
-        } else {
-            didLosePointerLock();
-            m_element = target;
-            if (successCallback)
-                successCallback->handleEvent();
+    if (!target || !target->inDocument() || m_documentOfRemovedElementWhileWaitingForUnlock) {
+        enqueueEvent(eventNames().webkitpointerlockerrorEvent, target);
+        return;
+    }
+
+    if (target->document()->isSandboxed(SandboxPointerLock)) {
+        // FIXME: This message should be moved off the console once a solution to https://bugs.webkit.org/show_bug.cgi?id=103274 exists.
+        target->document()->addConsoleMessage(SecurityMessageSource, ErrorMessageLevel, "Blocked pointer lock on an element because the element's frame is sandboxed and the 'allow-pointer-lock' permission is not set.");
+        enqueueEvent(eventNames().webkitpointerlockerrorEvent, target);
+        return;
+    }
+
+    if (m_element) {
+        if (m_element->document() != target->document()) {
+            enqueueEvent(eventNames().webkitpointerlockerrorEvent, target);
+            return;
         }
-    } else if (m_page->chrome()->client()->requestPointerLock()) {
+        enqueueEvent(eventNames().webkitpointerlockchangeEvent, target);
         m_element = target;
-        m_successCallback = successCallback;
-        m_failureCallback = failureCallback;
-    } else if (failureCallback)
-        failureCallback->handleEvent();
+    } else if (m_page->chrome().client()->requestPointerLock()) {
+        m_lockPending = true;
+        m_element = target;
+    } else {
+        enqueueEvent(eventNames().webkitpointerlockerrorEvent, target);
+    }
 }
 
 void PointerLockController::requestPointerUnlock()
 {
-    return m_page->chrome()->client()->requestPointerUnlock();
+    return m_page->chrome().client()->requestPointerUnlock();
 }
 
-bool PointerLockController::isLocked()
+void PointerLockController::elementRemoved(Element* element)
 {
-    return m_page->chrome()->client()->isPointerLocked();
+    if (m_element == element) {
+        m_documentOfRemovedElementWhileWaitingForUnlock = m_element->document();
+        // Set element null immediately to block any future interaction with it
+        // including mouse events received before the unlock completes.
+        clearElement();
+        requestPointerUnlock();
+    }
+}
+
+void PointerLockController::documentDetached(Document* document)
+{
+    if (m_element && m_element->document() == document) {
+        clearElement();
+        requestPointerUnlock();
+    }
+}
+
+bool PointerLockController::lockPending() const
+{
+    return m_lockPending;
+}
+
+Element* PointerLockController::element() const
+{
+    return m_element.get();
 }
 
 void PointerLockController::didAcquirePointerLock()
 {
-    RefPtr<Element> elementToNotify(m_element);
-    RefPtr<VoidCallback> callbackToIssue(m_successCallback);
-    m_successCallback = 0;
-    m_failureCallback = 0;
-
-    if (callbackToIssue && elementToNotify && elementToNotify->document()->frame())
-        callbackToIssue->handleEvent();
+    enqueueEvent(eventNames().webkitpointerlockchangeEvent, m_element.get());
+    m_lockPending = false;
 }
 
 void PointerLockController::didNotAcquirePointerLock()
 {
-    RefPtr<Element> elementToNotify(m_element);
-    RefPtr<VoidCallback> callbackToIssue(m_failureCallback);
-    m_element = 0;
-    m_successCallback = 0;
-    m_failureCallback = 0;
-
-    if (callbackToIssue && elementToNotify && elementToNotify->document()->frame())
-        callbackToIssue->handleEvent();
+    enqueueEvent(eventNames().webkitpointerlockerrorEvent, m_element.get());
+    clearElement();
 }
 
 void PointerLockController::didLosePointerLock()
 {
-    RefPtr<Element> elementToNotify(m_element);
-    m_element = 0;
-    m_successCallback = 0;
-    m_failureCallback = 0;
-    if (elementToNotify && elementToNotify->document()->frame())
-        elementToNotify->dispatchEvent(Event::create(eventNames().webkitpointerlocklostEvent, true, false));
+    enqueueEvent(eventNames().webkitpointerlockchangeEvent, m_element ? m_element->document() : m_documentOfRemovedElementWhileWaitingForUnlock.get());
+    clearElement();
+    m_documentOfRemovedElementWhileWaitingForUnlock = 0;
 }
 
 void PointerLockController::dispatchLockedMouseEvent(const PlatformMouseEvent& event, const AtomicString& eventType)
@@ -119,6 +139,24 @@ void PointerLockController::dispatchLockedMouseEvent(const PlatformMouseEvent& e
     // Create click events
     if (eventType == eventNames().mouseupEvent)
         m_element->dispatchMouseEvent(event, eventNames().clickEvent, event.clickCount());
+}
+
+void PointerLockController::clearElement()
+{
+    m_lockPending = false;
+    m_element = 0;
+}
+
+void PointerLockController::enqueueEvent(const AtomicString& type, Element* element)
+{
+    if (element)
+        enqueueEvent(type, element->document());
+}
+
+void PointerLockController::enqueueEvent(const AtomicString& type, Document* document)
+{
+    if (document)
+        document->enqueueDocumentEvent(Event::create(type, true, false));
 }
 
 } // namespace WebCore

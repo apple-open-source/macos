@@ -64,7 +64,7 @@
 #include <sched.h>
 #include <pthread.h>
 #include <util.h>
-#include <assumes.h>
+#include <os/assumes.h>
 
 #if HAVE_LIBAUDITD
 #include <bsm/auditd_lib.h>
@@ -221,8 +221,8 @@ main(int argc, char *const *argv)
 		 * <rdar://problem/5039559&6153301>
 		 */
 		pthread_t t = NULL;
-		(void)osx_assumes_zero(pthread_create(&t, NULL, update_thread, NULL));
-		(void)osx_assumes_zero(pthread_detach(t));
+		(void)os_assumes_zero(pthread_create(&t, NULL, update_thread, NULL));
+		(void)os_assumes_zero(pthread_detach(t));
 
 		/* PID 1 doesn't have a flat namespace. */
 		launchd_flat_mach_namespace = false;
@@ -409,13 +409,15 @@ fatal_signal_handler(int sig, siginfo_t *si, void *uap __attribute__((unused)))
 {
 	const char *doom_why = "at instruction";
 	char msg[128];
+#if 0
 	char *sample_args[] = { "/usr/bin/sample", "1", "1", "-file", PID1_CRASH_LOGFILE, NULL };
 	pid_t sample_p;
 	int wstatus;
+#endif
 
 	crash_addr = si->si_addr;
 	crash_pid = si->si_pid;
-
+#if 0
 	setenv("XPC_SERVICES_UNAVAILABLE", "1", 0);
 	unlink(PID1_CRASH_LOGFILE);
 
@@ -430,7 +432,7 @@ fatal_signal_handler(int sig, siginfo_t *si, void *uap __attribute__((unused)))
 	case -1:
 		break;
 	}
-
+#endif
 	switch (sig) {
 	default:
 	case 0:
@@ -440,6 +442,7 @@ fatal_signal_handler(int sig, siginfo_t *si, void *uap __attribute__((unused)))
 		doom_why = "trying to read/write";
 	case SIGILL:
 	case SIGFPE:
+	case SIGTRAP:
 		snprintf(msg, sizeof(msg), "%s: %p (%s sent by PID %u)", doom_why, crash_addr, strsignal(sig), crash_pid);
 		sync();
 		do_pid1_crash_diagnosis_mode(msg);
@@ -534,11 +537,11 @@ launchd_shutdown(void)
 	char *term_who = pid1_magic ? "System shutdown" : "Per-user launchd termination for ";
 	launchd_syslog(LOG_INFO, "%s%s began", term_who, pid1_magic ? "" : launchd_username);
 
-	osx_assert(jobmgr_shutdown(root_jobmgr) != NULL);
+	os_assert(jobmgr_shutdown(root_jobmgr) != NULL);
 
 #if HAVE_LIBAUDITD
 	if (pid1_magic) {
-		(void)osx_assumes_zero(audit_quick_stop());
+		(void)os_assumes_zero(audit_quick_stop());
 	}
 #endif
 }
@@ -625,7 +628,7 @@ monitor_networking_state(void)
 	network_up = get_network_state();
 
 	if (pfs == -1) {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 		return;
 	}
 

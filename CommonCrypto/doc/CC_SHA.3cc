@@ -41,11 +41,11 @@
 .Fn CC_SHA1 "const void *data" "CC_LONG len" "unsigned char *md"
 .Pp
 .Ft extern int
-.Fn CC_SHA224_Init "CC_SHA224_CTX *c"
+.Fn CC_SHA224_Init "CC_SHA256_CTX *c"
 .Ft extern int
-.Fn CC_SHA224_Update "CC_SHA224_CTX *c" "const void *data" "CC_LONG len"
+.Fn CC_SHA224_Update "CC_SHA256_CTX *c" "const void *data" "CC_LONG len"
 .Ft extern int
-.Fn CC_SHA224_Final "unsigned char *md" "CC_SHA224_CTX *c"
+.Fn CC_SHA224_Final "unsigned char *md" "CC_SHA256_CTX *c"
 .Ft extern unsigned char *
 .Fn CC_SHA224 "const void *data" "CC_LONG len" "unsigned char *md"
 .Pp
@@ -59,11 +59,11 @@
 .Fn CC_SHA256 "const void *data" "CC_LONG len" "unsigned char *md"
 .Pp
 .Ft extern int
-.Fn CC_SHA384_Init "CC_SHA384_CTX *c"
+.Fn CC_SHA384_Init "CC_SHA512_CTX *c"
 .Ft extern int
-.Fn CC_SHA384_Update "CC_SHA384_CTX *c" "const void *data" "CC_LONG len"
+.Fn CC_SHA384_Update "CC_SHA512_CTX *c" "const void *data" "CC_LONG len"
 .Ft extern int
-.Fn CC_SHA384_Final "unsigned char *md" "CC_SHA384_CTX *c"
+.Fn CC_SHA384_Final "unsigned char *md" "CC_SHA512_CTX *c"
 .Ft extern unsigned char *
 .Fn CC_SHA384 "const void *data" "CC_LONG len" "unsigned char *md"
 .Pp

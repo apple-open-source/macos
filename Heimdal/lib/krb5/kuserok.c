@@ -198,47 +198,11 @@ match_local_principals(krb5_context context,
     return result;
 }
 
-/**
- * This function takes the name of a local user and checks if
- * principal is allowed to log in as that user.
- *
- * The user may have a ~/.k5login file listing principals that are
- * allowed to login as that user. If that file does not exist, all
- * principals with a first component identical to the username, and a
- * realm considered local, are allowed access.
- *
- * The .k5login file must contain one principal per line, be owned by
- * user and not be writable by group or other (but must be readable by
- * anyone).
- *
- * Note that if the file exists, no implicit access rights are given
- * to user@@LOCALREALM.
- *
- * Optionally, a set of files may be put in ~/.k5login.d (a
- * directory), in which case they will all be checked in the same
- * manner as .k5login.  The files may be called anything, but files
- * starting with a hash (#) , or ending with a tilde (~) are
- * ignored. Subdirectories are not traversed. Note that this directory
- * may not be checked by other Kerberos implementations.
- *
- * If no configuration file exists, match user against local domains,
- * ie luser@@LOCAL-REALMS-IN-CONFIGURATION-FILES.
- *
- * @param context Kerberos 5 context.
- * @param principal principal to check if allowed to login
- * @param luser local user id
- *
- * @return returns TRUE if access should be granted, FALSE otherwise.
- *
- * @ingroup krb5_support
- */
-
-KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
-krb5_kuserok (krb5_context context,
-	      krb5_principal principal,
-	      const char *luser)
+static krb5_error_code
+check_unix(krb5_context context,
+	   krb5_principal principal,
+	   const char *luser)
 {
-#ifndef _WIN32
     char *buf;
     size_t buflen;
     struct passwd *pwd = NULL;
@@ -294,10 +258,99 @@ krb5_kuserok (krb5_context context,
 	return match_local_principals(context, principal, luser);
 
     return FALSE;
+}
+
+#ifdef __APPLE__
+#include <membership.h>
+
+static krb5_error_code
+check_od(krb5_context context,
+	 krb5_principal principal,
+	 const char *luser)
+{
+    krb5_boolean match = FALSE;
+    uuid_t krb_uuid, un_uuid;
+    char *kprinc = NULL;
+    int ret = 0;
+
+    ret = krb5_unparse_name(context, principal, &kprinc);
+    if (ret)
+	goto out;
+
+    ret = mbr_identifier_to_uuid(ID_TYPE_USERNAME, luser, strlen(luser), un_uuid);
+    if (!ret)
+	goto out;
+
+    ret = mbr_identifier_to_uuid(ID_TYPE_KERBEROS, kprinc, strlen(kprinc), krb_uuid);
+    if (!ret)
+	goto out;
+
+    ret = uuid_compare(krb_uuid, un_uuid);
+    if (0 == ret)
+	match = TRUE;
+
+ out:
+    if (kprinc)
+	free(kprinc);
+
+    return match;
+}
+#endif
+
+/**
+ * This function takes the name of a local user and checks if
+ * principal is allowed to log in as that user.
+ *
+ * The user may have a ~/.k5login file listing principals that are
+ * allowed to login as that user. If that file does not exist, all
+ * principals with a first component identical to the username, and a
+ * realm considered local, are allowed access.
+ *
+ * The .k5login file must contain one principal per line, be owned by
+ * user and not be writable by group or other (but must be readable by
+ * anyone).
+ *
+ * Note that if the file exists, no implicit access rights are given
+ * to user@@LOCALREALM.
+ *
+ * Optionally, a set of files may be put in ~/.k5login.d (a
+ * directory), in which case they will all be checked in the same
+ * manner as .k5login.  The files may be called anything, but files
+ * starting with a hash (#) , or ending with a tilde (~) are
+ * ignored. Subdirectories are not traversed. Note that this directory
+ * may not be checked by other Kerberos implementations.
+ *
+ * If no configuration file exists, match user against local domains,
+ * ie luser@@LOCAL-REALMS-IN-CONFIGURATION-FILES.
+ *
+ * @param context Kerberos 5 context.
+ * @param principal principal to check if allowed to login
+ * @param luser local user id
+ *
+ * @return returns TRUE if access should be granted, FALSE otherwise.
+ *
+ * @ingroup krb5_support
+ */
+
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+krb5_kuserok (krb5_context context,
+	      krb5_principal principal,
+	      const char *luser)
+{
+    krb5_boolean match;
+
+#ifndef _WIN32
+    match = check_unix(context, principal, luser);
 #else
     /* The .k5login file may be on a remote profile and we don't have
        access to the profile until we have a token handle for the
        user's credentials. */
-    return match_local_principals(context, principal, luser);
+    match = match_local_principals(context, principal, luser);
 #endif
+
+#ifdef __APPLE__
+    if (!match)
+	match = check_od(context, principal, luser);
+#endif
+    return match;
 }

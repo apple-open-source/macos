@@ -45,9 +45,11 @@ PassRefPtr<SVGAnimateTransformElement> SVGAnimateTransformElement::create(const 
 
 bool SVGAnimateTransformElement::hasValidAttributeType()
 {
-    if (SVGElement* targetElement = this->targetElement())
-        return determineAnimatedPropertyType(targetElement) == AnimatedTransformList;
-    return false;
+    SVGElement* targetElement = this->targetElement();
+    if (!targetElement)
+        return false;
+
+    return m_animatedPropertyType == AnimatedTransformList;
 }
 
 bool SVGAnimateTransformElement::isSupportedAttribute(const QualifiedName& attrName)
@@ -58,15 +60,15 @@ bool SVGAnimateTransformElement::isSupportedAttribute(const QualifiedName& attrN
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGAnimateTransformElement::parseAttribute(Attribute* attr)
+void SVGAnimateTransformElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGAnimateElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGAnimateElement::parseAttribute(name, value);
         return;
     }
 
-    if (attr->name() == SVGNames::typeAttr) {
-        m_type = SVGTransformable::parseTransformType(attr->value());
+    if (name == SVGNames::typeAttr) {
+        m_type = SVGTransformable::parseTransformType(value);
         if (m_type == SVGTransform::SVG_TRANSFORM_MATRIX)
             m_type = SVGTransform::SVG_TRANSFORM_UNKNOWN;
         return;

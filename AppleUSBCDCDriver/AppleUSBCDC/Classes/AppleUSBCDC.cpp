@@ -38,7 +38,10 @@
 
 #include <IOKit/pwr_mgt/RootDomain.h>
 
+#if !TARGET_OS_IPHONE
 #include <IOKit/usb/IOUSBBus.h>
+#endif /* TARGET_OS_IPHONE */
+
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -59,6 +62,10 @@
 #include "AppleUSBCDC.h"
 #include "AppleUSBCDCPrivate.h"
 #include "WWANSchemaDefinitions.h"
+
+#if LDEBUG
+#include <libkern/OSDebug.h>
+#endif
 
     // Globals
 
@@ -115,6 +122,9 @@ IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
     OSNumber	*classInfo = NULL;
 	SInt32		newScore = 0;
     IOService   *res;
+    OSNumber    *probeScore = 0;
+    UInt32      probeScoreValue = 0;
+    UInt32      boostValue = 30000;
 	
 	XTRACE(this, 0, *score, "probe");
 	
@@ -124,6 +134,14 @@ IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
         XTRACE(this, 0, *score, "probe - provider doesn't want us to match");
         return NULL;
     }
+	
+    probeScore = OSDynamicCast(OSNumber, provider->getProperty("IOProbeScore"));
+    if (probeScore)
+    {
+        XTRACE(this, probeScore->unsigned32BitValue(), *score, "probe score returned");
+        probeScoreValue = probeScore->unsigned32BitValue();
+    }
+
 	
 		// Check the device class, we need to handle Miscellaneous or Composite class a little different
 	
@@ -143,6 +161,7 @@ IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
 				if (checkDevice(newDevice))
 				{
 					newScore = 1;			// We need to see the device before the Composite driver does
+                    newScore += boostValue;
 				} else {
 					XTRACE(this, 0, 0, "probe - Composite or Micsellaneous class but not CDC");
 					return NULL;			// We're not interested
@@ -152,11 +171,11 @@ IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
 	}
 
 	*score += newScore;
+	*score += probeScoreValue;
 	
     res = super::probe(provider, score);
 	
 	XTRACE(this, 0, *score, "probe - Exit");
-    
     return res;
     
 }/* end probe */
@@ -478,7 +497,7 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 {
     IOUSBFindInterfaceRequest		req;
     const IOUSBConfigurationDescriptor	*cd = NULL;		// configuration descriptor
-//	const IADDescriptor			*IAD = NULL;
+	const IADDescriptor			*IAD = NULL;
     IOUSBInterfaceDescriptor 		*intf = NULL;		// interface descriptor
     IOReturn				ior = kIOReturnSuccess;
     UInt8				cval;
@@ -506,9 +525,49 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 			configOK = false;
             break;
         } else {
-			if (fIAD)	// This doesn't work here, we need the real interface not the descriptor
+//			if (fIAD)	// This doesn't work here, we need the real interface not the descriptor
+            if (true)	// Just assume as we handle Composite devices with CDC interfaces in addition to kUSBMiscellaneousClass devices
 			{
 //				IAD = (const IADDescriptor *)cd->FindNextAssociatedDescriptor((void *)IAD, kUSBInterfaceAssociationDesc);
+                //Alas We need to manually Parse the Full USB Device Configuration!!!
+                UInt8  *configBuf;  //Pointer to the Entire Configuration Descriptor
+                UInt8   *p, *pend;  //Cursor into Config Descriptor, Pointer to End Descriptor
+                
+                configBuf = (UInt8 *)cd;                
+                p = configBuf;
+                
+                pend = p + cd->wTotalLength;
+                p += cd->bLength;   //Skip over the First Descriptor
+                XTRACE(this, cd->wTotalLength, cd->bLength, "initDevice - bLength,wTotalLength");
+
+                while (p < pend)
+                {
+                    
+                    UInt8 descLen  = p[0];
+                    UInt8 descType = p[1];
+                    
+                    if ( descLen == 0 )
+                    {
+                        XTRACE(this, descLen, 0, "initDevice - Illegal Descriptor:");
+                        break;
+                    }
+                    else
+                    {
+                        XTRACE(this, descType, 0, "initDevice - descType");
+                        //  If this is an interface descriptor, save the interface class and subclass
+                        //
+                        if ( descType == kUSBInterfaceAssociationDesc )
+                        {
+                            XTRACE(this, 0, 0, "initDevice - Found Interface Association Descriptor: ******");
+                            IAD = (const IADDescriptor *) p;
+                            XTRACE(this, IAD->bFirstInterface, IAD->bInterfaceCount, "initDevice - bFirstInterface,bInterfaceCount");
+                            fIAD = true;
+                            bFirstInterface = IAD->bFirstInterface;
+                            bInterfaceCount = IAD->bInterfaceCount;
+                        }
+                        p += descLen;
+                    }
+                }
 			}
             intf = NULL;
             do
@@ -547,6 +606,7 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 						} else {
 							if (intf->bInterfaceClass == kUSBCommunicationClass)
 							{
+                                XTRACE(this, 0, intf->bInterfaceSubClass, "initDevice: - intf->bInterfaceClass...");
 								cdc = true;
 								if (intf->bInterfaceSubClass == kUSBAbstractControlModel)
 								{
@@ -562,8 +622,13 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 										}
 									}
 								}
+                                if ( (intf->bInterfaceSubClass == kUSBMobileBroadbandInterfaceModel) || (intf->bInterfaceSubClass == kUSBNetworkControlModel) )
+								{
+                                        cdc = false;
+                                        XTRACE(this, 0, 0, "initDevice - NCM or MBIM interface. Completely get out of the way...");
+								}
 							} else {
-								XTRACE(this, intf->bInterfaceClass, intf->bInterfaceNumber, "initDevice - Ignoring interface...");
+								XTRACE(this, intf->bInterfaceClass, intf->bInterfaceNumber, "initDevice bInterfaceClass,bInterfaceNumber- Ignoring interface...");
 							}
 						}
                     }
@@ -621,6 +686,8 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 		XTRACE(this, fConfig, configOK, "initDevice - No valid configuration or preferred configuration error");
 	}
     
+    XTRACE(this, configOK, fConfig, "initDevice <<<");
+
     return configOK;
 	
 }/* end initDevice */
@@ -774,12 +841,13 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
     const FunctionalDescriptorHeader 	*funcDesc = NULL;
     UnionFunctionalDescriptor		*UNNFDesc;		// union functional descriptor
     ECMFunctionalDescriptor		*ENETFDesc;		// ethernet functional descriptor
+    MBIMFunctionalDescriptor    *MBIMFDesc;     // MBIM Functional descriptor
     IOReturn				ior;
     UInt8				addrString;
     char 				ascii_mac[14];
     int 				i;
        
-    XTRACE(this, 0, 0, "checkECM");
+    XTRACE(this, cInterfaceNumber, dataInterfaceNum, "checkECM");
         
     do
     {
@@ -790,6 +858,7 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
         } else {
             if (funcDesc->bDescriptorSubtype == Union_FunctionalDescriptor)
             {
+                XTRACE(this, 0, 0, "checkECM found Union_FunctionalDescriptor");
                 UNNFDesc = (UnionFunctionalDescriptor *)funcDesc;
                 if (UNNFDesc->bFunctionLength > sizeof(FunctionalDescriptorHeader))
                 {
@@ -801,6 +870,7 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
             } else {
                 if (funcDesc->bDescriptorSubtype == ECM_Functional_Descriptor)
                 {
+                    XTRACE(this, 0, 0, "checkECM found ECM_Functional_Descriptor");
                     ENETFDesc = (ECMFunctionalDescriptor *)funcDesc;
                 
                         // Cache the ethernet address in case it's needed early
@@ -808,6 +878,8 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
                     if (ENETFDesc->iMACAddress != 0)
                     {
                         addrString = ENETFDesc->iMACAddress;
+                        XTRACE(this, 0, 0, "checkECM have ENETFDesc->iMACAddress");
+
                     } else {
                         addrString = fpDevice->GetSerialNumberStringIndex();	// Default if none defined in the ECM functional descriptor
                     }
@@ -824,6 +896,34 @@ bool AppleUSBCDC::checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 d
                         XTRACE(this, ior, addrString, "checkECM - Error retrieving Ethernet address");
                     }
                 }
+                else if (funcDesc->bDescriptorSubtype == MBIM_Functional_Descriptor) //rcs!!! 2 /4/2013
+                {
+                    XTRACE(this, 0, 0, "checkECM found MBIM_Functional_Descriptor");
+                    MBIMFDesc = (MBIMFunctionalDescriptor *)funcDesc;
+                    
+                    if (fIAD)
+                    {
+                        if ( (bFirstInterface + bInterfaceCount - 1) == dataInterfaceNum)
+                            ecmDataInterfaceNumber = dataInterfaceNum;
+                    }
+                    
+                    addrString = fpDevice->GetSerialNumberStringIndex();	// Default if we don't find any
+                                        
+                    ior = fpDevice->GetStringDescriptor(addrString, (char *)&ascii_mac, 13);
+                    if (ior == kIOReturnSuccess)
+                    {
+                        for (i = 0; i < 6; i++)
+                        {
+                            fCacheEaddr[i] = (Asciihex_to_binary(ascii_mac[i*2]) << 4) | Asciihex_to_binary(ascii_mac[i*2+1]);
+                            // Log("AppleUSBCDC: checkECM - Ethernet address[%d] = %8x\n",(unsigned int)(i),(unsigned int)(fCacheEaddr[i]));
+                            kprintf("AppleUSBCDC: checkECM - Ethernet address[%d] = %8x\n",(unsigned int)(i),(unsigned int)(fCacheEaddr[i]));
+                        }
+                        XTRACE(this, 0, addrString, "checkECM - Ethernet address (cached)");
+                    } else {
+                        XTRACE(this, ior, addrString, "checkECM - Error retrieving Ethernet address");
+                    }
+                }
+                
             }
         }
     } while(!gotDescriptors);
@@ -903,9 +1003,10 @@ bool AppleUSBCDC::checkMBIM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 
        
     XTRACE(this, 0, 0, "checkMBIM");
 	
-		// We're just interested in the Union and ECM Functional Descriptor at this point
+    // Check for Union and ECM Functional Descriptor , if not found try IAD (Interface Association Descriptor)
         
-    return checkECM(Comm, cInterfaceNumber, dataInterfaceNum);
+ //   return checkECM(Comm, cInterfaceNumber, dataInterfaceNum); //Remove support for MBIM at this point
+    return false;
 
 }/* end checkMBIM */
 
@@ -1126,7 +1227,10 @@ IOReturn AppleUSBCDC::message(UInt32 type, IOService *provider, void *argument)
             XTRACE(this, 0, type, "message - kIOMessageServiceIsRequestingClose"); 
             break;
         case kIOMessageServiceWasClosed: 	
-            XTRACE(this, 0, type, "message - kIOMessageServiceWasClosed"); 
+            #if LDEBUG
+            OSReportWithBacktrace("AppleUSBCDC::message called with kIOMessageServiceWasClosed ");
+            #endif
+            XTRACE(provider, 0, type, "message - kIOMessageServiceWasClosed");
             break;
         case kIOMessageServiceBusyStateChange: 	
             XTRACE(this, 0, type, "message - kIOMessageServiceBusyStateChange"); 
@@ -1142,6 +1246,9 @@ IOReturn AppleUSBCDC::message(UInt32 type, IOService *provider, void *argument)
 			reInitDevice();					// What should we do if there's an error?
             break;
         default:
+        #if LDEBUG
+            OSReportWithBacktrace("AppleUSBCDC::message called with Unknown type %lx ",type);
+        #endif
             XTRACE(this, 0, type, "message - unknown message"); 
             break;
     }
@@ -1224,8 +1331,7 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 	{
 		OSCollectionIterator *propertyIterator;
 		
-#if TARGET_OS_EMBEDDED
-		
+#if TARGET_OS_IPHONE		
 		// Suspend support
 		OSBoolean *suspendDevice = OSDynamicCast(OSBoolean, propertyDict->getObject("SuspendDevice"));
 		
@@ -1298,7 +1404,7 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 			return result;			
 		}
 		
-#endif // TARGET_OS_EMBEDDED
+#endif /* TARGET_OS_IPHONE */
 		
 		if (dynamicKey = propertyDict->getObject(kWWAN_TYPE))
 			whichDictionary	= WWAN_SET_DYNAMIC_DICTIONARY;
@@ -1347,7 +1453,6 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 						goto exit;
 					}
 					*/
-					
 				}
 			propertyIterator->release();
 		}
@@ -1369,8 +1474,31 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 					break;
 				
 				case WWAN_SET_HARDWARE_DICTIONARY: 	
+                    OSDictionary *hp;
 				rc = fpDevice->setProperty(kWWAN_HardwareDictionary,propertyDict);
-//					Log("[setPropertiesWL] setting kWWAN_HardwareDictionary\n");
+                    Log("[setPropertiesWL] setting kWWAN_HardwareDictionary\n");
+                        
+                    hp = OSDynamicCast(OSDictionary,propertyDict->getObject("HiddenProperties"));
+                    if (hp == NULL)
+                        Log("[setPropertiesWL] HiddenProperties not found in kWWAN_HardwareDictionary\n");
+                    else
+                    {
+                        OSString *connectionState = OSDynamicCast(OSString, hp->getObject("CONNECT_STATE"));
+                        if (connectionState == NULL)
+                            Log("[setPropertiesWL] HiddenProperties * NOT found* in kWWAN_HardwareDictionary\n");
+                        else
+                        {
+                            Log("[setPropertiesWL] HiddenProperties *FOUND* in kWWAN_HardwareDictionary\n");
+                            Log("[setPropertiesWL] kCONNECT_STATE: %s ----------\n", connectionState->getCStringNoCopy());
+                            
+                            if (connectionState->isEqualTo(kCONNECTED))
+                            {
+                                Log("[setPropertiesWL] ---------- CONNECTED ----------\n");                                   
+                                goto exit;
+                            }
+
+                        }
+                    }
 					break;
 							
 				case WWAN_SET_MODEM_DICTIONARY: 	

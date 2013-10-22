@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@
 #include <sys/kauth.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_dev.h>
@@ -294,7 +295,18 @@ void smb_vc_reset(struct smb_vc *vcp)
 	vcp->vc_hflags2 &= (SMB_FLAGS2_EXT_SEC | SMB_FLAGS2_KNOWS_LONG_NAMES | SMB_FLAGS2_UNICODE);
 	
 	vcp->vc_mid = 0;
+
+    vcp->vc_message_id = 1;
+    
+    /* leave vc_misc_flags untouched as it has preferences flags */
+    //vcp->vc_misc_flags = 0; 
+    
+    /* Save previous sessID for reconnects SessionSetup request */
+    vcp->vc_prev_session_id = vcp->vc_session_id;
+    vcp->vc_session_id = 0;
+
 	vcp->vc_number = smb_vcnext++;
+    
 	/* Reset the smb signing */
 	smb_reset_sig(vcp);
 }
@@ -329,32 +341,83 @@ static void smb_vc_free(struct smb_connobj *cp)
 	struct smb_vc *vcp = (struct smb_vc*)cp;
 	
 	smb_gss_rel_cred(vcp);
+    
 	if (vcp->vc_iod)
 		smb_iod_destroy(vcp->vc_iod);
 	vcp->vc_iod = NULL;
-	SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
-	SMB_FREE(vcp->NativeOS, M_SMBSTR);
-	SMB_FREE(vcp->NativeLANManager, M_SMBSTR);
-	SMB_FREE(vcp->vc_username, M_SMBSTR);
-	SMB_FREE(vcp->vc_srvname, M_SMBSTR);
-	SMB_FREE(vcp->vc_localname, M_SMBSTR);
-	SMB_FREE(vcp->vc_pass, M_SMBSTR);
-	SMB_FREE(vcp->vc_domain, M_SMBSTR);
-	if (vcp->vc_mackey)
+    
+    if (vcp->negotiate_token) {
+        SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
+    }
+    
+    if (vcp->NativeOS) {
+        SMB_FREE(vcp->NativeOS, M_SMBSTR);
+    }
+    
+    if (vcp->NativeLANManager) {
+        SMB_FREE(vcp->NativeLANManager, M_SMBSTR);
+    }
+    
+    if (vcp->vc_username) {
+        SMB_FREE(vcp->vc_username, M_SMBSTR);
+    }
+    
+    if (vcp->vc_srvname) {
+        SMB_FREE(vcp->vc_srvname, M_SMBSTR);
+    }
+    
+    if (vcp->vc_localname) {
+        SMB_FREE(vcp->vc_localname, M_SMBSTR);
+    }
+    
+    if (vcp->vc_pass) {
+        SMB_FREE(vcp->vc_pass, M_SMBSTR);
+    }
+    
+    if (vcp->vc_domain) {
+        SMB_FREE(vcp->vc_domain, M_SMBSTR);
+    }
+    
+	if (vcp->vc_mackey) {
 		SMB_FREE(vcp->vc_mackey, M_SMBTEMP);
-	if (vcp->vc_saddr)
+    }
+    
+    if (vcp->vc_saddr) {
 		SMB_FREE(vcp->vc_saddr, M_SONAME);
-	if (vcp->vc_laddr)
+    }
+    
+    if (vcp->vc_laddr) {
 		SMB_FREE(vcp->vc_laddr, M_SONAME);
+    }
+    
 	smb_gss_destroy(&vcp->vc_gss);
+    
 	if (vcp->throttle_info)
 		throttle_info_release(vcp->throttle_info);
 	vcp->throttle_info = NULL;
-	smb_co_done(VCTOCP(vcp));
+    
+	if (vcp->vc_model_info) {
+		SMB_FREE(vcp->vc_model_info, M_SMBTEMP);
+    }
+	
+    smb_co_done(VCTOCP(vcp));
 	lck_mtx_destroy(&vcp->vc_stlock, vcst_lck_group);
-	SMB_FREE(vcp, M_SMBCONN);
+    if (vcp) {
+        SMB_FREE(vcp, M_SMBCONN);
+    }
 }
 
+/*
+ * Force reconnect on vc
+ */
+int smb_vc_force_reconnect(struct smb_vc *vcp)
+{
+	if (vcp->vc_iod) {
+		smb_iod_request(vcp->vc_iod, SMBIOD_EV_FORCE_RECONNECT | SMBIOD_EV_SYNC, NULL);
+    }
+
+	return (0);
+}
 
 /*
  * Destroy VC to server, invalidate shares linked with it.
@@ -402,7 +465,6 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 	vcp->vc_mackeylen = 0;
 	vcp->vc_saddr = saddr;
 	vcp->vc_laddr = laddr;
-	vcp->supportHighPID = FALSE;
 	/* Remove any user setable items */
 	vcp->vc_flags &= ~SMBV_USER_LAND_MASK;
 	/* Now add the users setable items */
@@ -422,13 +484,23 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 	/* Amount of time to wait while reconnecting */
 	vcp->reconnect_wait_time = vcspec->ioc_ssn.ioc_reconnect_wait_time;	
 	
+    lck_mtx_init(&vcp->vc_credits_lock, vc_credits_lck_group, vc_credits_lck_attr);
+
 	lck_mtx_init(&vcp->vc_stlock, vcst_lck_group, vcst_lck_attr);
+
 	vcp->vc_srvname = smb_strndup(vcspec->ioc_ssn.ioc_srvname, sizeof(vcspec->ioc_ssn.ioc_srvname));
 	if (vcp->vc_srvname)
 		vcp->vc_localname = smb_strndup(vcspec->ioc_ssn.ioc_localname,  sizeof(vcspec->ioc_ssn.ioc_localname));
 	if ((vcp->vc_srvname == NULL) || (vcp->vc_localname == NULL)) {
 		error = ENOMEM;
 	}
+
+	vcp->vc_message_id = 1;
+    vcp->vc_misc_flags = SMBV_HAS_FILEIDS;  /* assume File IDs supported */
+    vcp->vc_server_caps = 0;
+	vcp->vc_volume_caps = 0;
+	vcp->vc_model_info = NULL;
+
 	if (!error)
 		error = smb_iod_create(vcp);
 	if (error) {
@@ -436,6 +508,22 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 		return error;
 	}
 	*vcpp = vcp;
+	
+	/* is SMB1 or SMB2 only flags set? */
+	if (vcspec->ioc_extra_flags & SMB_SMB1_ONLY) {
+		vcp->vc_misc_flags |= SMBV_NEG_SMB1_ONLY;
+	}
+	else if (vcspec->ioc_extra_flags & SMB_SMB2_ONLY) {
+		vcp->vc_misc_flags |= SMBV_NEG_SMB2_ONLY;
+	}
+	
+	if (vcspec->ioc_extra_flags & SMB_SIGNING_REQUIRED) {
+		vcp->vc_misc_flags |= SMBV_CLIENT_SIGNING_REQUIRED;
+	}
+	
+	/* Save client Guid */
+	memcpy(vcp->vc_client_guid, vcspec->ioc_client_guid, sizeof(vcp->vc_client_guid));
+    
 	smb_sm_lockvclist();
 	smb_co_addchild(&smb_vclist, VCTOCP(vcp));
 	smb_sm_unlockvclist();
@@ -497,7 +585,10 @@ tryagain:
 		else if (*vcpp) {
 			/* Found a match, lock it, we are done. */
 			error = smb_vc_lock(vcp);
-			DBG_ASSERT(error == 0);	/* Don't believe this can happen */
+            if (error != 0) {
+                /* Can happen with bad servers */
+                SMBDEBUG("smb_vc_lock returned error %d\n", error);
+            }
 			break;
 		} else {
 			/* 
@@ -540,7 +631,7 @@ tryagain:
 			 */
 			if ((vcp->vc_iod->iod_state != SMBIOD_ST_VCACTIVE) || 
 				(vcp->vc_iod->iod_flags & SMBIOD_RECONNECT)) {
-				SMBWARNING("Skipping %s becasue its down or in reconnect: flags = 0x%x state = 0x%x\n", 
+				SMBWARNING("Skipping %s because its down or in reconnect: flags = 0x%x state = 0x%x\n",
 						   vcp->vc_srvname, vcp->vc_iod->iod_flags, vcp->vc_iod->iod_state);
 				smb_vc_unlock(vcp);									
 				error = ENOENT;
@@ -716,16 +807,26 @@ int smb_sm_ssnsetup(struct smb_vc *vcp, struct smbioc_setup *sspec,
 	 * Reset the username, password, domain, kerb client and service names. We
 	 * never want to use any values left over from any previous calls.
 	 */
-	SMB_FREE(vcp->vc_username, M_SMBSTR);
-	SMB_FREE(vcp->vc_pass, M_SMBSTR);
-	SMB_FREE(vcp->vc_domain, M_SMBSTR);
-	SMB_FREE(vcp->vc_gss.gss_cpn, M_SMBSTR);
+    if (vcp->vc_username != NULL) {
+        SMB_FREE(vcp->vc_username, M_SMBSTR);
+    }
+    if (vcp->vc_pass != NULL) {
+        SMB_FREE(vcp->vc_pass, M_SMBSTR);
+    }
+    if (vcp->vc_domain != NULL) {
+        SMB_FREE(vcp->vc_domain, M_SMBSTR);
+    }
+    if (vcp->vc_gss.gss_cpn != NULL) {
+        SMB_FREE(vcp->vc_gss.gss_cpn, M_SMBSTR);
+    }
 	/* 
 	 * Freeing the SPN will make sure we never use the hint. Remember that the 
 	 * gss_spn contains the hint from the negotiate. We now require user
 	 * land to send us a SPN, if we are going to use one.
 	 */
-	SMB_FREE(vcp->vc_gss.gss_spn, M_SMBSTR);
+    if (vcp->vc_gss.gss_spn != NULL) {
+        SMB_FREE(vcp->vc_gss.gss_spn, M_SMBSTR);
+    }
 	vcp->vc_username = smb_strndup(sspec->ioc_user, sizeof(sspec->ioc_user));
 	vcp->vc_pass = smb_strndup(sspec->ioc_password, sizeof(sspec->ioc_password));
 	vcp->vc_domain = smb_strndup(sspec->ioc_domain, sizeof(sspec->ioc_domain));
@@ -794,6 +895,7 @@ static void smb_share_free(struct smb_connobj *cp)
 	SMB_FREE(share->ss_name, M_SMBSTR);
 	lck_mtx_destroy(&share->ss_stlock, ssst_lck_group);
 	lck_mtx_destroy(&share->ss_shlock, ssst_lck_group);
+	lck_mtx_destroy(&share->ss_fid_lock, fid_lck_grp);
 	smb_co_done(SSTOCP(share));
 	SMB_FREE(share, M_SMBCONN);
 }
@@ -828,6 +930,7 @@ smb_share_create(struct smb_vc *vcp, struct smbioc_share *shspec,
 				 struct smb_share **outShare, vfs_context_t context)
 {
 	struct smb_share *share;
+    int i;
 	
 	/* Should never happen, but just to be safe */
 	if (context == NULL)
@@ -846,7 +949,17 @@ smb_share_create(struct smb_vc *vcp, struct smbioc_share *shspec,
 	smb_co_init(SSTOCP(share), SMBL_SHARE, "smbss", vfs_context_proc(context));
 	share->obj.co_free = smb_share_free;
 	share->obj.co_gone = smb_share_gone;
-	lck_mtx_init(&share->ss_shlock, ssst_lck_group, ssst_lck_attr);
+
+    /* alloc FID mapping stuff */
+    lck_mtx_init(&share->ss_fid_lock, fid_lck_grp, fid_lck_attr);
+    for (i = 0; i < SMB_FID_TABLE_SIZE; i++) {
+        LIST_INIT(&share->ss_fid_table[i].fid_list);
+    }
+    share->ss_fid_collisions = 0;
+    share->ss_fid_inserted = 0;
+    share->ss_fid_max_iter = 0;
+    
+    lck_mtx_init(&share->ss_shlock, ssst_lck_group, ssst_lck_attr);
 	lck_mtx_init(&share->ss_stlock, ssst_lck_group, ssst_lck_attr);
 	lck_mtx_lock(&share->ss_shlock);
 	share->ss_mount = NULL;	/* Just to be safe clear it out */
@@ -854,6 +967,7 @@ smb_share_create(struct smb_vc *vcp, struct smbioc_share *shspec,
 	share->ss_dead_timer = smbfs_deadtimer;
 	lck_mtx_unlock(&share->ss_shlock);
 	share->ss_tid = SMB_TID_UNKNOWN;
+	share->ss_tree_id = SMB2_TID_UNKNOWN;
 
     /* unlock the share we no longer need the lock */
 	smb_co_unlock(SSTOCP(share));
@@ -901,6 +1015,10 @@ int smb_sm_tcon(struct smb_vc *vcp, struct smbioc_share *shspec,
     }
 	if (*shpp && (error == 0)) {
 		shspec->ioc_optionalSupport = (*shpp)->optionalSupport;
+        /* 
+         * ioc_fstype will always be 0 at this time because ss_fstype is filled
+         * in at mount time. 
+         */
 		shspec->ioc_fstype = (*shpp)->ss_fstype;
 	}
 	

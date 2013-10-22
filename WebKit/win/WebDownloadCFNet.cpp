@@ -84,7 +84,7 @@ void WebDownload::init(ResourceHandle* handle, const ResourceRequest& request, c
         decideDestinationWithSuggestedObjectNameCallback, didCreateDestinationCallback, didFinishCallback, didFailCallback};
 
     m_request.adoptRef(WebMutableURLRequest::createInstance(request));
-    m_download.adoptCF(CFURLDownloadCreateAndStartWithLoadingConnection(0, connection, request.cfURLRequest(), response.cfURLResponse(), &client));
+    m_download = adoptCF(CFURLDownloadCreateAndStartWithLoadingConnection(0, connection, request.cfURLRequest(UpdateHTTPBody), response.cfURLResponse(), &client));
 
     // It is possible for CFURLDownloadCreateAndStartWithLoadingConnection() to fail if the passed in CFURLConnection is not in a "downloadable state"
     // However, we should never hit that case
@@ -107,13 +107,13 @@ void WebDownload::init(const KURL& url, IWebDownloadDelegate* delegate)
     LOG_ERROR("Delegate is %p", m_delegate.get());
 
     ResourceRequest request(url);
-    CFURLRequestRef cfRequest = request.cfURLRequest();
+    CFURLRequestRef cfRequest = request.cfURLRequest(UpdateHTTPBody);
 
     CFURLDownloadClient client = {0, this, 0, 0, 0, didStartCallback, willSendRequestCallback, didReceiveAuthenticationChallengeCallback, 
                                   didReceiveResponseCallback, willResumeWithResponseCallback, didReceiveDataCallback, shouldDecodeDataOfMIMETypeCallback, 
                                   decideDestinationWithSuggestedObjectNameCallback, didCreateDestinationCallback, didFinishCallback, didFailCallback};
     m_request.adoptRef(WebMutableURLRequest::createInstance(request));
-    m_download.adoptCF(CFURLDownloadCreate(0, cfRequest, &client));
+    m_download = adoptCF(CFURLDownloadCreate(0, cfRequest, &client));
 
     CFURLDownloadScheduleWithCurrentMessageQueue(m_download.get());
     CFURLDownloadScheduleDownloadWithRunLoop(m_download.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
@@ -138,13 +138,13 @@ HRESULT STDMETHODCALLTYPE WebDownload::initWithRequest(
     m_delegate = delegate;
     LOG(Download, "Delegate is %p", m_delegate.get());
 
-    RetainPtr<CFURLRequestRef> cfRequest = webRequest->resourceRequest().cfURLRequest();
+    RetainPtr<CFURLRequestRef> cfRequest = webRequest->resourceRequest().cfURLRequest(UpdateHTTPBody);
 
     CFURLDownloadClient client = {0, this, 0, 0, 0, didStartCallback, willSendRequestCallback, didReceiveAuthenticationChallengeCallback, 
                                   didReceiveResponseCallback, willResumeWithResponseCallback, didReceiveDataCallback, shouldDecodeDataOfMIMETypeCallback, 
                                   decideDestinationWithSuggestedObjectNameCallback, didCreateDestinationCallback, didFinishCallback, didFailCallback};
     m_request.adoptRef(WebMutableURLRequest::createInstance(webRequest.get()));
-    m_download.adoptCF(CFURLDownloadCreate(0, cfRequest.get(), &client));
+    m_download = adoptCF(CFURLDownloadCreate(0, cfRequest.get(), &client));
 
     // If for some reason the download failed to create, 
     // we have particular cleanup to do
@@ -166,7 +166,7 @@ HRESULT STDMETHODCALLTYPE WebDownload::initToResumeWithBundle(
 {
     LOG(Download, "Attempting resume of download bundle %s", String(bundlePath, SysStringLen(bundlePath)).ascii().data());
 
-    RetainPtr<CFDataRef> resumeData(AdoptCF, DownloadBundle::extractResumeData(String(bundlePath, SysStringLen(bundlePath))));
+    RetainPtr<CFDataRef> resumeData = adoptCF(DownloadBundle::extractResumeData(String(bundlePath, SysStringLen(bundlePath))));
 
     if (!resumeData)
         return E_FAIL;
@@ -180,10 +180,10 @@ HRESULT STDMETHODCALLTYPE WebDownload::initToResumeWithBundle(
                                   didReceiveResponseCallback, willResumeWithResponseCallback, didReceiveDataCallback, shouldDecodeDataOfMIMETypeCallback, 
                                   decideDestinationWithSuggestedObjectNameCallback, didCreateDestinationCallback, didFinishCallback, didFailCallback};
     
-    RetainPtr<CFURLRef> pathURL(AdoptCF, MarshallingHelpers::PathStringToFileCFURLRef(String(bundlePath, SysStringLen(bundlePath))));
+    RetainPtr<CFURLRef> pathURL = adoptCF(MarshallingHelpers::PathStringToFileCFURLRef(String(bundlePath, SysStringLen(bundlePath))));
     ASSERT(pathURL);
 
-    m_download.adoptCF(CFURLDownloadCreateWithResumeData(0, resumeData.get(), pathURL.get(), &client));
+    m_download = adoptCF(CFURLDownloadCreateWithResumeData(0, resumeData.get(), pathURL.get(), &client));
 
     if (!m_download) {
         LOG(Download, "Failed to create CFURLDownloadRef for resume");    
@@ -248,7 +248,7 @@ HRESULT STDMETHODCALLTYPE WebDownload::cancelForResume()
     CFURLDownloadSetDeletesUponFailure(m_download.get(), false);
     CFURLDownloadCancel(m_download.get());
 
-    resumeData.adoptCF(CFURLDownloadCopyResumeData(m_download.get()));
+    resumeData = adoptCF(CFURLDownloadCopyResumeData(m_download.get()));
     if (!resumeData) {
         LOG(Download, "WebDownload - Unable to create resume data for download (%p)", this);
         goto exit;
@@ -340,7 +340,7 @@ HRESULT STDMETHODCALLTYPE WebDownload::useCredential(
     if (!webCredential)
         return E_NOINTERFACE;
 
-    RetainPtr<CFURLCredentialRef> cfCredential(AdoptCF, createCF(webCredential->credential()));
+    RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(createCF(webCredential->credential()));
 
     if (m_download)
         CFURLDownloadUseCredential(m_download.get(), cfCredential.get(), webChallenge->authenticationChallenge().cfURLAuthChallengeRef());
@@ -373,7 +373,7 @@ CFURLRequestRef WebDownload::willSendRequest(CFURLRequestRef request, CFURLRespo
 
     COMPtr<WebMutableURLRequest> finalWebRequest(AdoptCOM, WebMutableURLRequest::createInstance(finalRequest.get()));
     m_request = finalWebRequest.get();
-    CFURLRequestRef result = finalWebRequest->resourceRequest().cfURLRequest();
+    CFURLRequestRef result = finalWebRequest->resourceRequest().cfURLRequest(UpdateHTTPBody);
     CFRetain(result);
     return result;
 }
@@ -384,7 +384,7 @@ void WebDownload::didReceiveAuthenticationChallenge(CFURLAuthChallengeRef challe
     if (!CFURLAuthChallengeGetPreviousFailureCount(challenge)) {
         Credential credential = CredentialStorage::get(core(CFURLAuthChallengeGetProtectionSpace(challenge)));
         if (!credential.isEmpty()) {
-            RetainPtr<CFURLCredentialRef> cfCredential(AdoptCF, createCF(credential));
+            RetainPtr<CFURLCredentialRef> cfCredential = adoptCF(createCF(credential));
             CFURLDownloadUseCredential(m_download.get(), cfCredential.get(), challenge);
             return;
         }

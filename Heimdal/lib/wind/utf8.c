@@ -174,6 +174,8 @@ wind_utf8ucs4_copy(const char *in, uint32_t **out, size_t *out_len)
 	return ret;
     if (*out_len > UINT_MAX / sizeof((*out)[0]))
 	return ERANGE;
+    if (*out_len == 0)
+        return 0;
 
     *out = malloc(*out_len * sizeof(*out_len));
     if (*out == NULL) {

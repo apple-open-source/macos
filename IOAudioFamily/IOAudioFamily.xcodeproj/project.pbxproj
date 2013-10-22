@@ -158,7 +158,7 @@
 		8BC08A851561C9C200CA98A1 /* IOAudioTimeIntervalFilter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOAudioTimeIntervalFilter.h; sourceTree = "<group>"; };
 		D63C4CF00B20BFAE0047FE0F /* IOAudioFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOAudioFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIOAudioFloatLib.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		D63C4D160B20BFAE0047FE0F /* InstallHeaders */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallHeaders; sourceTree = BUILT_PRODUCTS_DIR; };
+		D63C4D160B20BFAE0047FE0F /* audio */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = audio; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -237,7 +237,7 @@
 			children = (
 				D63C4CF00B20BFAE0047FE0F /* IOAudioFamily.kext */,
 				D63C4CFB0B20BFAE0047FE0F /* libIOAudioFloatLib.a */,
-				D63C4D160B20BFAE0047FE0F /* InstallHeaders */,
+				D63C4D160B20BFAE0047FE0F /* audio */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -379,7 +379,7 @@
 			name = InstallHeaders;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
 			productName = InstallHeaders;
-			productReference = D63C4D160B20BFAE0047FE0F /* InstallHeaders */;
+			productReference = D63C4D160B20BFAE0047FE0F /* audio */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -388,7 +388,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0440;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = 306FEE6E090FDD0A00D6B7FE /* Build configuration list for PBXProject "IOAudioFamily" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -537,6 +537,7 @@
 			buildSettings = {
 				SDKROOT = macosx;
 				SYMROOT = build;
+				VALID_ARCHS = "armv6 armv7 x86_64";
 			};
 			name = Development;
 		};
@@ -544,6 +545,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.4u.sdk";
+				VALID_ARCHS = "armv6 armv7 x86_64";
 			};
 			name = Deployment;
 		};
@@ -551,13 +553,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.4u.sdk";
+				VALID_ARCHS = "armv6 armv7 x86_64";
 			};
 			name = Default;
 		};
 		D63C4CEC0B20BFAE0047FE0F /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_CFLAGS = "-DDEBUG";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -579,7 +582,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.9.2fc7;
+				MODULE_VERSION = 1.9.4fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -591,7 +594,7 @@
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
-				VALID_ARCHS = "x86_64 i386";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -605,7 +608,7 @@
 		D63C4CED0B20BFAE0047FE0F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -622,7 +625,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Deployment\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.9.2fc7;
+				MODULE_VERSION = 1.9.4fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -633,7 +636,7 @@
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "x86_64 i386";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -647,7 +650,7 @@
 		D63C4CEE0B20BFAE0047FE0F /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_SSE41_EXTENSIONS = YES;
@@ -665,7 +668,7 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.9.2fc7;
+				MODULE_VERSION = 1.9.4fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -676,7 +679,7 @@
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "x86_64 i386";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -689,7 +692,6 @@
 		D63C4CF80B20BFAE0047FE0F /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_CFLAGS = "-DDEBUG";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -739,7 +741,7 @@
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
 				UNSTRIPPED_PRODUCT = YES;
-				VALID_ARCHS = "x86_64 ppc i386";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -752,7 +754,6 @@
 		D63C4CF90B20BFAE0047FE0F /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -798,7 +799,7 @@
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "x86_64 ppc i386";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -811,7 +812,6 @@
 		D63C4CFA0B20BFAE0047FE0F /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -856,7 +856,7 @@
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "x86_64 ppc i386";
+				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -874,11 +874,12 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = InstallHeaders;
+				PRODUCT_NAME = audio;
+				PUBLIC_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit;
 				REZ_EXECUTABLE = YES;
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
@@ -898,11 +899,12 @@
 				COPY_PHASE_STRIP = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = InstallHeaders;
+				PRODUCT_NAME = audio;
+				PUBLIC_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit;
 				REZ_EXECUTABLE = YES;
 				SDKROOT = macosx;
 				SECTORDER_FLAGS = "";
@@ -918,7 +920,6 @@
 		D63C4D150B20BFAE0047FE0F /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_32_BIT)";
 				DEPLOYMENT_LOCATION = NO;
 				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALLHDRS_COPY_PHASE = YES;

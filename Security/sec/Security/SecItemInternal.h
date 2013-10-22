@@ -32,20 +32,19 @@
 #include <CoreFoundation/CFData.h>
 #include <sqlite3.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
+
+#define kSecServerKeychainChangedNotification "com.apple.security.keychainchanged"
 
 CFDataRef _SecItemMakePersistentRef(CFTypeRef class, sqlite_int64 rowid);
 
 bool _SecItemParsePersistentRef(CFDataRef persistent_ref, CFStringRef *return_class,
     sqlite_int64 *return_rowid);
 
-
 OSStatus _SecRestoreKeychain(const char *path);
 
-#if defined(__cplusplus)
-}
-#endif
+OSStatus SecOSStatusWith(bool (^perform)(CFErrorRef *error));
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECITEMINTERNAL_H_ */

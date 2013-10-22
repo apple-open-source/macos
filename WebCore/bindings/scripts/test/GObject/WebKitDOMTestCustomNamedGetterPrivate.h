@@ -22,13 +22,12 @@
 #define WebKitDOMTestCustomNamedGetterPrivate_h
 
 #include "TestCustomNamedGetter.h"
-#include <glib-object.h>
-#include <webkit/WebKitDOMObject.h>
+#include <webkitdom/WebKitDOMTestCustomNamedGetter.h>
 
 namespace WebKit {
 WebKitDOMTestCustomNamedGetter* wrapTestCustomNamedGetter(WebCore::TestCustomNamedGetter*);
-WebCore::TestCustomNamedGetter* core(WebKitDOMTestCustomNamedGetter* request);
-WebKitDOMTestCustomNamedGetter* kit(WebCore::TestCustomNamedGetter* node);
+WebKitDOMTestCustomNamedGetter* kit(WebCore::TestCustomNamedGetter*);
+WebCore::TestCustomNamedGetter* core(WebKitDOMTestCustomNamedGetter*);
 } // namespace WebKit
 
 #endif /* WebKitDOMTestCustomNamedGetterPrivate_h */

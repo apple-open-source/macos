@@ -40,8 +40,8 @@ SRCS	= main.c globals.c bconfig.c config.c daemon.c \
 		backglue.c backover.c ctxcsn.c ldapsync.c frontend.c \
 		slapadd.c slapcat.c slapcommon.c slapdn.c slapindex.c \
 		slappasswd.c slaptest.c slapauth.c slapacl.c component.c \
-		aci.c alock.c psauth.c idattracl.c txn.c slapschema.c \
-		applehelpers.c \
+		aci.c alock.c idattracl.c txn.c slapschema.c \
+		applehelpers.c psauth.c \
 		$(@PLAT@_SRCS)
 
 OBJS	= main.o globals.o bconfig.o config.o daemon.o \
@@ -59,8 +59,8 @@ OBJS	= main.o globals.o bconfig.o config.o daemon.o \
 		backglue.o backover.o ctxcsn.o ldapsync.o frontend.o \
 		slapadd.o slapcat.o slapcommon.o slapdn.o slapindex.o \
 		slappasswd.o slaptest.o slapauth.o slapacl.o component.o \
-		aci.o alock.o psauth.o idattracl.o txn.o slapschema.o \
-		applehelpers.o \
+		aci.o alock.o idattracl.o txn.o slapschema.o \
+		applehelpers.o psauth.o \
 		$(@PLAT@_OBJS)
 
 LDAP_INCDIR= ../../include -I$(srcdir) -I$(srcdir)/slapi -I.

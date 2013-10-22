@@ -92,7 +92,7 @@ getsp(spidx)
 struct secpolicy *
 getsp_r(spidx, iph2)
 	struct policyindex *spidx;
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 {
 	struct secpolicy *p;
 	int mismatched_outer_addr = 0;
@@ -103,7 +103,7 @@ getsp_r(spidx, iph2)
 				struct ipsecrequest *isr;
 				for (isr = p->req; isr != NULL; isr = isr->next) {
 					if (isr->saidx.mode != IPSEC_MODE_TUNNEL) {
-						plog(LLV_DEBUG2, LOCATION, NULL, "%s, skipping policy. dir %d, mode %d\n",
+						plog(ASL_LEVEL_DEBUG, "%s, skipping policy. dir %d, mode %d\n",
 							 __FUNCTION__, spidx->dir, isr->saidx.mode);
 						continue;
 					}
@@ -113,7 +113,7 @@ getsp_r(spidx, iph2)
 						// TODO: look out for wildcards
 						if (!cmpsaddrwop(iph2->dst, &isr->saidx.src) &&
 							!cmpsaddrwop(iph2->src, &isr->saidx.dst)) {
-							plog(LLV_DEBUG2, LOCATION, NULL, "%s, inbound policy outer addresses matched phase2's addresses\n",
+							plog(ASL_LEVEL_DEBUG, "%s, inbound policy outer addresses matched Phase 2 addresses\n",
 								 __FUNCTION__);
 							return p;
 						} else {
@@ -123,7 +123,7 @@ getsp_r(spidx, iph2)
 						// TODO: look out for wildcards
 						if (!cmpsaddrwop(iph2->src, &isr->saidx.src) &&
 							!cmpsaddrwop(iph2->dst, &isr->saidx.dst)) {
-							plog(LLV_DEBUG2, LOCATION, NULL, "%s, outbound policy outer addresses matched phase2's addresses\n",
+							plog(ASL_LEVEL_DEBUG, "%s, outbound policy outer addresses matched Phase 2 addresses\n",
 								 __FUNCTION__);
 							return p;
 						} else {
@@ -133,15 +133,15 @@ getsp_r(spidx, iph2)
 						mismatched_outer_addr = 1;
 					}
 					if (mismatched_outer_addr) {
-						plog(LLV_DEBUG2, LOCATION, NULL, "%s, policy outer addresses matched phase2's addresses: dir %d\n",
+						plog(ASL_LEVEL_DEBUG, "%s, policy outer addresses matched Phase 2 addresses: dir %d\n",
 							 __FUNCTION__, spidx->dir);
-						plog(LLV_DEBUG, LOCATION, NULL, "src1: %s\n",
+						plog(ASL_LEVEL_DEBUG, "src1: %s\n",
 							 saddr2str((struct sockaddr *)iph2->src));
-						plog(LLV_DEBUG, LOCATION, NULL, "src2: %s\n",
+						plog(ASL_LEVEL_DEBUG, "src2: %s\n",
 							 saddr2str((struct sockaddr *)&isr->saidx.src));
-						plog(LLV_DEBUG, LOCATION, NULL, "dst1: %s\n",
+						plog(ASL_LEVEL_DEBUG, "dst1: %s\n",
 							 saddr2str((struct sockaddr *)iph2->dst));
-						plog(LLV_DEBUG, LOCATION, NULL, "dst2: %s\n",
+						plog(ASL_LEVEL_DEBUG, "dst2: %s\n",
 							 saddr2str((struct sockaddr *)&isr->saidx.dst));
 					}
 				}
@@ -158,15 +158,15 @@ getsp_r(spidx, iph2)
 struct secpolicy *
 getsp_r(spidx, iph2)
 	struct policyindex *spidx;
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 {
 	struct secpolicy *p;
 	u_int8_t prefixlen;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "checking for transport mode\n");
+	plog(ASL_LEVEL_DEBUG, "checking for transport mode\n");
 
 	if (spidx->src.ss_family != spidx->dst.ss_family) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"address family mismatch, src:%d dst:%d\n",
 				spidx->src.ss_family,
 				spidx->dst.ss_family);
@@ -182,29 +182,29 @@ getsp_r(spidx, iph2)
 		break;
 #endif
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid family: %d\n", spidx->src.ss_family);
 		return NULL;
 	}
 
 	/* is it transport mode SA negotiation? */
-	plog(LLV_DEBUG, LOCATION, NULL, "src1: %s\n",
+	plog(ASL_LEVEL_DEBUG, "src1: %s\n",
 		saddr2str(iph2->src));
-	plog(LLV_DEBUG, LOCATION, NULL, "src2: %s\n",
+	plog(ASL_LEVEL_DEBUG, "src2: %s\n",
 		saddr2str(&spidx->src));
 	if (cmpsaddrwop(iph2->src, &spidx->src)
 	 || spidx->prefs != prefixlen)
 		return NULL;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "dst1: %s\n",
+	plog(ASL_LEVEL_DEBUG, "dst1: %s\n",
 		saddr2str(iph2->dst));
-	plog(LLV_DEBUG, LOCATION, NULL, "dst2: %s\n",
+	plog(ASL_LEVEL_DEBUG, "dst2: %s\n",
 		saddr2str(&spidx->dst));
 	if (cmpsaddrwop(iph2->dst, &spidx->dst)
 	 || spidx->prefd != prefixlen)
 		return NULL;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "looks to be transport mode\n");
+	plog(ASL_LEVEL_DEBUG, "looks to be transport mode\n");
 
 	for (p = TAILQ_FIRST(&sptree); p; p = TAILQ_NEXT(p, chain)) {
 		if (!cmpspidx_wild(spidx, &p->spidx))
@@ -239,8 +239,6 @@ int
 cmpspidxstrict(a, b)
 	struct policyindex *a, *b;
 {
-	//plog(LLV_DEBUG, LOCATION, NULL, "sub:%p: %s\n", a, spidx2str(a));
-	//plog(LLV_DEBUG, LOCATION, NULL, "db :%p: %s\n", b, spidx2str(b));
 
 	/* XXX don't check direction now, but it's to be checked carefully. */
 	if (a->dir != b->dir
@@ -269,9 +267,6 @@ cmpspidxwild(a, b)
 {
 	struct sockaddr_storage sa1, sa2;
 
-	//plog(LLV_DEBUG, LOCATION, NULL, "sub:%p: %s\n", a, spidx2str(a));
-	//plog(LLV_DEBUG, LOCATION, NULL, "db: %p: %s\n", b, spidx2str(b));
-
 	if (!(b->dir == IPSEC_DIR_ANY || a->dir == b->dir))
 		return 1;
 
@@ -287,7 +282,7 @@ cmpspidxwild(a, b)
 
 	/* compare src address */
 	if (sizeof(sa1) < a->src.ss_len || sizeof(sa2) < b->src.ss_len) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"unexpected error: "
 			"src.ss_len:%d dst.ss_len:%d\n",
 			a->src.ss_len, b->src.ss_len);
@@ -295,23 +290,23 @@ cmpspidxwild(a, b)
 	}
 	mask_sockaddr(&sa1, &a->src, b->prefs);
 	mask_sockaddr(&sa2, &b->src, b->prefs);
-	plog(LLV_DEBUG, LOCATION, NULL, "%p masked with /%d: %s\n",
+	plog(ASL_LEVEL_DEBUG, "%p masked with /%d: %s\n",
 		a, b->prefs, saddr2str((struct sockaddr *)&sa1));
-	plog(LLV_DEBUG, LOCATION, NULL, "%p masked with /%d: %s\n",
+	plog(ASL_LEVEL_DEBUG, "%p masked with /%d: %s\n",
 		b, b->prefs, saddr2str((struct sockaddr *)&sa2));
 	if (cmpsaddrwild(&sa1, &sa2))
 		return 1;
 
 	/* compare dst address */
 	if (sizeof(sa1) < a->dst.ss_len || sizeof(sa2) < b->dst.ss_len) {
-		plog(LLV_ERROR, LOCATION, NULL, "unexpected error\n");
+		plog(ASL_LEVEL_ERR, "unexpected error\n");
 		exit(1);
 	}
 	mask_sockaddr(&sa1, &a->dst, b->prefd);
 	mask_sockaddr(&sa2, &b->dst, b->prefd);
-	plog(LLV_DEBUG, LOCATION, NULL, "%p masked with /%d: %s\n",
+	plog(ASL_LEVEL_DEBUG, "%p masked with /%d: %s\n",
 		a, b->prefd, saddr2str((struct sockaddr *)&sa1));
-	plog(LLV_DEBUG, LOCATION, NULL, "%p masked with /%d: %s\n",
+	plog(ASL_LEVEL_DEBUG, "%p masked with /%d: %s\n",
 		b, b->prefd, saddr2str((struct sockaddr *)&sa2));
 	if (cmpsaddrwild(&sa1, &sa2))
 		return 1;

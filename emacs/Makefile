@@ -12,11 +12,12 @@ GNUVersion = 22.1
 UserType = Developer
 ToolType = Commands
 #CommonNoInstallSource = YES
-GnuAfterInstall = remove-dir install-dumpemacs cleanup install-plist install-default
+GnuAfterInstall = remove-dir install-dumpemacs cleanup install-plist install-default install-dsyms
 GnuNoBuild = YES
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 DSYMUTIL?=dsymutil
+RSYNC?=rsync
 Environment+= SHELL="$(SRCROOT)"/pipefail.sh
 NJOBS=$(shell sysctl -n hw.activecpu)
 
@@ -29,13 +30,16 @@ AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = Apple.diff files.el.diff \
 	CVE-2007-6109.diff darwin.h.diff vcdiff.diff lread.c.diff \
 	fast-lock.el.diff python.el.diff src_Makefile.in.diff \
-	lisp_Makefile.in.diff xdisp.c.diff lib-src_update-game-score.c.diff
+	lisp_Makefile.in.diff xdisp.c.diff lib-src_update-game-score.c.diff \
+	src_fileio.c.diff src_search.c.diff lib-src_etags.c.diff \
+	src_regex.c.diff
 
 # Extract the source.
 install_source::
 	$(TAR) --exclude "*.elc" --exclude info -C "$(SRCROOT)" -zxf "$(SRCROOT)/$(AEP_Filename)"
 	$(RMDIR) "$(SRCROOT)/$(AEP_Project)"
 	$(MV) "$(SRCROOT)/$(AEP_ExtractDir)" "$(SRCROOT)/$(AEP_Project)"
+	$(CHMOD) -R go-w "$(SRCROOT)/$(Project)"
 	for patchfile in $(AEP_Patches); do \
 		cd "$(SRCROOT)/$(Project)" && patch -lp0 -F0 < "$(SRCROOT)/patches/$$patchfile" || exit 1; \
 	done
@@ -106,7 +110,6 @@ endif
 # Don't rebuild anything else
 	$(MV) -f $(OBJROOT)/src/lread.o+save $(OBJROOT)/src/lread.o
 	$(MV) -f $(OBJROOT)/src/temacs+save $(OBJROOT)/src/temacs
-	$(INSTALL_FILE) $(OBJROOT)/lib-src/{emacsclient,etags,cvtmail,digest-doc,fakemail,hexl,movemail,profile,sorted-doc,update-game-score} $(SYMROOT)
 
 cleanup:			# Return sources to pristine state
 	@echo "Cleaning $(Project)..."
@@ -126,3 +129,10 @@ install-plist:
 install-default:
 	$(INSTALL) -o root -g wheel -m 644 default.el "$(DSTROOT)"/usr/share/emacs/site-lisp
 	$(INSTALL) -o root -g wheel -m 644 site-start.el "$(DSTROOT)"/usr/share/emacs/site-lisp
+
+install-dsyms:
+	for f in emacsclient etags cvtmail digest-doc fakemail hexl movemail profile sorted-doc update-game-score; do \
+		$(RSYNC) -ia $(OBJROOT)/lib-src/$$f $(SYMROOT)/; \
+		$(DSYMUTIL) $(SYMROOT)/$$f; \
+	done
+

@@ -37,7 +37,7 @@ KRB5_LIB_FUNCTION krb5_ssize_t KRB5_LIB_CALL
 _krb5_put_int(void *buffer, unsigned long value, size_t size)
 {
     unsigned char *p = buffer;
-    int i;
+    ssize_t i;
     for (i = size - 1; i >= 0; i--) {
 	p[i] = value & 0xff;
 	value >>= 8;

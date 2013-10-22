@@ -35,9 +35,10 @@
 
 #include "hx_locl.h"
 
-#if defined(HAVE_FRAMEWORK_SECURITY) && defined(HAVE_CDSA)
-
+#if defined(HAVE_FRAMEWORK_SECURITY)
 #include <Security/Security.h>
+
+#if defined(HAVE_CDSA)
 
 /* Missing function decls in pre Leopard */
 #ifdef NEED_SECKEYGETCSPHANDLE_PROTO
@@ -48,6 +49,35 @@ OSStatus SecKeyGetCredentials(SecKeyRef, CSSM_ACL_AUTHORIZATION_TAG,
 #define CSSM_SIZE uint32_t
 #endif
 
+#endif /* HAVE_CDSA */
+
+struct kc_rsa {
+    SecKeyRef pkey;
+    size_t keysize;
+};
+
+
+static int
+kc_rsa_public_encrypt(int flen,
+		      const unsigned char *from,
+		      unsigned char *to,
+		      RSA *rsa,
+		      int padding)
+{
+    return -1;
+}
+
+static int
+kc_rsa_public_decrypt(int flen,
+		      const unsigned char *from,
+		      unsigned char *to,
+		      RSA *rsa,
+		      int padding)
+{
+    return -1;
+}
+
+#if defined(HAVE_CDSA)
 
 static int
 getAttribute(SecKeychainItemRef itemRef, SecItemAttr item,
@@ -74,12 +104,6 @@ getAttribute(SecKeychainItemRef itemRef, SecItemAttr item,
 /*
  *
  */
-
-struct kc_rsa {
-    SecKeyRef pkey;
-    size_t keysize;
-};
-
 
 static int
 kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
@@ -137,7 +161,7 @@ kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
 	fret = -1;
     } else {
 	fret = 1;
-	*tlen = sig.Length;
+	*tlen = (unsigned int)sig.Length;
     }
 
     if(sigHandle)
@@ -145,28 +169,6 @@ kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
 
     return fret;
 }
-
-
-static int
-kc_rsa_public_encrypt(int flen,
-		      const unsigned char *from,
-		      unsigned char *to,
-		      RSA *rsa,
-		      int padding)
-{
-    return -1;
-}
-
-static int
-kc_rsa_public_decrypt(int flen,
-		      const unsigned char *from,
-		      unsigned char *to,
-		      RSA *rsa,
-		      int padding)
-{
-    return -1;
-}
-
 
 static int
 kc_rsa_private_encrypt(int flen,
@@ -215,7 +217,7 @@ kc_rsa_private_encrypt(int flen,
 	/* cssmErrorString(cret); */
 	fret = -1;
     } else
-	fret = sig.Length;
+	fret = (int)sig.Length;
 
     if(sigHandle)
 	CSSM_DeleteContext(sigHandle);
@@ -276,13 +278,97 @@ kc_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
 	/* cssmErrorString(cret); */
 	fret = -1;
     } else
-	fret = out.Length;
+	fret = (int)out.Length;
 
     if(handle)
 	CSSM_DeleteContext(handle);
 
     return fret;
 }
+
+#else
+
+static int
+kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
+	    unsigned char *to, unsigned int *tlen, const RSA *rsa)
+{
+    struct kc_rsa *kc = RSA_get_app_data(rk_UNCONST(rsa));
+    size_t sigLen = kc->keysize;
+    SecPadding padding;
+    OSStatus status;
+
+    if (type == NID_md5) {
+	padding = kSecPaddingPKCS1MD5;
+    } else if (type == NID_sha1) {
+	padding = kSecPaddingPKCS1SHA1;
+    } else
+	return -1;
+
+    status =  SecKeyRawSign(kc->pkey, 
+			    padding,
+			    from,
+			    flen,
+			    to,
+			    &sigLen);
+    if (status)
+	return -2;
+
+    *tlen = (unsigned int)sigLen;
+
+    return 1;
+}
+
+
+static int
+kc_rsa_private_encrypt(int flen,
+		       const unsigned char *from,
+		       unsigned char *to,
+		       RSA *rsa,
+		       int padding)
+{
+    struct kc_rsa *kc = RSA_get_app_data(rsa);
+    size_t sigLen = kc->keysize;
+    OSStatus status;
+
+    if (padding != RSA_PKCS1_PADDING)
+	return -1;
+
+    status =  SecKeyRawSign(kc->pkey, 
+			    kSecPaddingPKCS1,
+			    from,
+			    flen,
+			    to,
+			    &sigLen);
+    if (status)
+	return -2;
+
+    return (int)sigLen;
+}
+
+static int
+kc_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
+		       RSA * rsa, int padding)
+{
+    struct kc_rsa *kc = RSA_get_app_data(rsa);
+    OSStatus status;
+
+    if (padding != RSA_PKCS1_PADDING)
+	return -1;
+
+    status =  SecKeyRawVerify(kc->pkey, 
+			      kSecPaddingPKCS1,
+			      from,
+			      flen,
+			      to,
+			      kc->keysize);
+    if (status)
+	return -2;
+
+    return (int)kc->keysize;
+}
+
+#endif /* HAVE_CDSA */
+
 
 static int
 kc_rsa_init(RSA *rsa)
@@ -316,6 +402,8 @@ static const RSA_METHOD kc_rsa_pkcs1_method = {
     kc_rsa_sign,
     NULL
 };
+
+
 
 static int
 set_private_key(hx509_context context, hx509_cert cert, SecKeyRef pkey)
@@ -387,7 +475,9 @@ set_private_key(hx509_context context, hx509_cert cert, SecKeyRef pkey)
 
 struct ks_keychain {
     int anchors;
+#ifndef __APPLE_TARGET_EMBEDDED__
     SecKeychainRef keychain;
+#endif
 };
 
 static int
@@ -403,7 +493,8 @@ keychain_init(hx509_context context,
 	return ENOMEM;
     }
 
-    if (residue) {
+    if (residue && residue[0]) {
+#ifndef __APPLE_TARGET_EMBEDDED__
 	if (strcasecmp(residue, "system-anchors") == 0) {
 	    ctx->anchors = 1;
 	} else if (strncasecmp(residue, "FILE:", 5) == 0) {
@@ -411,11 +502,15 @@ keychain_init(hx509_context context,
 
 	    ret = SecKeychainOpen(residue + 5, &ctx->keychain);
 	    if (ret != noErr) {
+		free(ctx);
 		hx509_set_error_string(context, 0, ENOENT,
 				       "Failed to open %s", residue);
 		return ENOENT;
 	    }
-	} else {
+	} else
+#endif
+	{
+	    free(ctx);
 	    hx509_set_error_string(context, 0, ENOENT,
 				   "Unknown subtype %s", residue);
 	    return ENOENT;
@@ -434,34 +529,15 @@ static int
 keychain_free(hx509_certs certs, void *data)
 {
     struct ks_keychain *ctx = data;
-    if (ctx->keychain)
-	CFRelease(ctx->keychain);
-    memset(ctx, 0, sizeof(*ctx));
-    free(ctx);
-    return 0;
-}
-
-/*
- *
- */
-
-
-static void
-setPersistentRef(hx509_cert cert, SecCertificateRef itemRef)
-{
-    CFDataRef persistent;
-    OSStatus ret;
-
-    ret = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)itemRef, &persistent);
-    if (ret == noErr) {
-	heim_octet_string os;
-
-	os.data = rk_UNCONST(CFDataGetBytePtr(persistent));
-	os.length = CFDataGetLength(persistent);
-
-	hx509_cert_set_persistent(cert, &os);
-	CFRelease(persistent);
+    if (ctx) {
+#ifndef __APPLE_TARGET_EMBEDDED__
+        if (ctx->keychain)
+            CFRelease(ctx->keychain);
+#endif
+        memset(ctx, 0, sizeof(*ctx));
+        free(ctx);
     }
+    return 0;
 }
 
 /*
@@ -538,6 +614,8 @@ keychain_query(hx509_context context,
     for (n = 0; n < count; n++) {
 	CFTypeRef secitem = (CFTypeRef)CFArrayGetValueAtIndex(identities, n);
 
+#ifndef __APPLE_TARGET_EMBEDDED__
+
 	if (query->match & HX509_QUERY_MATCH_PERSISTENT) {
 	    SecIdentityRef other = NULL;
 	    OSStatus osret;
@@ -553,7 +631,9 @@ keychain_query(hx509_context context,
 		if (ret)
 		    continue;
 	    }
-	} else {
+	} else
+#endif
+        {
 
 	    ret = hx509_cert_init_SecFramework(context, (void *)secitem, &cert);
 	    if (ret)
@@ -562,6 +642,7 @@ keychain_query(hx509_context context,
 
 	if (_hx509_query_match_cert(context, query, cert)) {
 
+#ifndef __APPLE_TARGET_EMBEDDED__
 	    /* certtool/keychain doesn't glue togheter the cert with keys for system keys */
 	    if (kdcLookupHack) {
 		SecIdentityRef other = NULL;
@@ -576,7 +657,7 @@ keychain_query(hx509_context context,
 			continue;
 		}
 	    }	    
-
+#endif
 	    *retcert = cert;
 	    break;
 	}
@@ -611,7 +692,9 @@ static int
 keychain_iter_start(hx509_context context,
 		    hx509_certs certs, void *data, void **cursor)
 {
+#ifndef __APPLE_TARGET_EMBEDDED__
     struct ks_keychain *ctx = data;
+#endif
     struct iter *iter;
 
     iter = calloc(1, sizeof(*iter));
@@ -620,6 +703,7 @@ keychain_iter_start(hx509_context context,
 	return ENOMEM;
     }
 
+#ifndef __APPLE_TARGET_EMBEDDED__
     if (ctx->anchors) {
         CFArrayRef anchors;
 	int ret;
@@ -677,7 +761,9 @@ keychain_iter_start(hx509_context context,
 	    free(iter);
 	    return ret;
 	}
-    } else {
+    } else
+#endif
+    {
 	OSStatus ret;
 	const void *keys[] = {
 	    kSecClass,
@@ -791,25 +877,47 @@ struct hx509_keyset_ops keyset_keychain = {
 void
 _hx509_ks_keychain_register(hx509_context context)
 {
-#if defined(HAVE_FRAMEWORK_SECURITY) && defined(HAVE_CDSA)
+#if defined(HAVE_FRAMEWORK_SECURITY)
     _hx509_ks_register(context, &keyset_keychain);
 #endif
 }
 
-#if defined(HAVE_FRAMEWORK_SECURITY) && defined(HAVE_CDSA)
 static void
 kc_cert_release(hx509_cert cert, void *ctx)
 {
     SecCertificateRef seccert = ctx;
     CFRelease(seccert);
 }
+
+/*
+ *
+ */
+
+
+static void
+setPersistentRef(hx509_cert cert, SecCertificateRef itemRef)
+{
+#if !__APPLE_TARGET_EMBEDDED__
+    CFDataRef persistent;
+    OSStatus ret;
+
+    ret = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)itemRef, &persistent);
+    if (ret == noErr) {
+	heim_octet_string os;
+
+	os.data = rk_UNCONST(CFDataGetBytePtr(persistent));
+	os.length = CFDataGetLength(persistent);
+
+	hx509_cert_set_persistent(cert, &os);
+	CFRelease(persistent);
+    }
 #endif
+}
 
 
 int
 hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert *cert)
 {
-#if defined(HAVE_FRAMEWORK_SECURITY) && defined(HAVE_CDSA)
     CFTypeID typeid = CFGetTypeID(identity);
     SecCertificateRef seccert;
     SecKeyRef pkey = NULL;
@@ -866,8 +974,4 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
     *cert = c;
 
     return 0;
-#else
-    *cert = NULL;
-    return EINVAL;
-#endif
 }

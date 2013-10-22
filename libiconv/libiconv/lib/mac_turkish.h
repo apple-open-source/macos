@@ -50,7 +50,7 @@ static const unsigned short mac_turkish_2uni[128] = {
 };
 
 static int
-mac_turkish_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+mac_turkish_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80) {
@@ -132,7 +132,7 @@ static const unsigned char mac_turkish_page22[104] = {
 };
 
 static int
-mac_turkish_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+mac_turkish_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

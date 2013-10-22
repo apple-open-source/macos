@@ -1,0 +1,68 @@
+In object oriented abstractions you often model real things as Perl classes.
+Unfortunately, the Perl classes have uglier names than the real things do.
+
+For example, I might model a customer using a Foo::Customer class.
+
+It would be useful if the Foo::Customer class knew what I would call its
+associated real thing.
+
+UNIVERSAL::moniker enables classes to make a good guess at what they would be
+called in the real world.
+
+	Foo::User->moniker eq "user";
+
+	my $a = Big::Scary::Animal->new;
+	$c->moniker eq "animal";
+
+	my $o = Cephalopod::Octopus->new;
+	$o->plural_moniker eq "octopuses";
+
+==============================================================================
+
+NAME
+    UNIVERSAL::moniker
+
+SYNOPSIS
+      use UNIVERSAL::moniker;
+
+DESCRIPTION
+    Class names in Perl often don't sound great when spoken, or look good
+    when written in prose. For this reason, we tend to say things like
+    "customer" or "basket" when we are referring to
+    "My::Site::User::Customer" or "My::Site::Shop::Basket". We thought it
+    would be nice if our classes knew what we would prefer to call them.
+
+    This module will add a "moniker" (and "plural_moniker") method to
+    "UNIVERSAL", and so to every class or module.
+
+  moniker
+      $ob->moniker;
+
+    Returns the moniker for $ob. So, if $ob->isa("Big::Scary::Animal"),
+    "moniker" will return "animal".
+
+  plural_moniker
+      $ob->plural_moniker;
+
+    Returns the plural moniker for $ob. So, if
+    $ob->isa("Cephalopod::Octopus"), "plural_moniker" will return
+    "octopuses".
+
+    (You need to install Lingua::EN::Inflect for this to work.)
+
+AUTHORS
+    Marty Pauley <marty+perl@kasei.com>, Tony Bowden <tony@kasei.com>,
+    Elizabeth Mattijsen <liz@dijkmat.nl>
+
+    (Yes, 3 authors for such a small module!)
+
+COPYRIGHT
+      Copyright (C) 2004 Kasei
+
+      This program is free software; you can redistribute it under the same terms as
+      Perl.
+
+      This program is distributed in the hope that it will be useful, but WITHOUT
+      ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+      FOR A PARTICULAR PURPOSE.
+

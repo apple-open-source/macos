@@ -27,9 +27,9 @@
 
 #include "AudioBuffer.h"
 #include "AudioBus.h"
-#include "AudioGain.h"
-#include "AudioPannerNode.h"
+#include "AudioParam.h"
 #include "AudioScheduledSourceNode.h"
+#include "PannerNode.h"
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
@@ -43,27 +43,31 @@ class AudioContext;
 // It generally will be used for short sounds which require a high degree of scheduling flexibility (can playback in rhythmically perfect ways).
 
 class AudioBufferSourceNode : public AudioScheduledSourceNode {
-public:    
+public:
     static PassRefPtr<AudioBufferSourceNode> create(AudioContext*, float sampleRate);
 
     virtual ~AudioBufferSourceNode();
-    
+
     // AudioNode
     virtual void process(size_t framesToProcess);
     virtual void reset();
-    
+
     // setBuffer() is called on the main thread.  This is the buffer we use for playback.
     // returns true on success.
     bool setBuffer(AudioBuffer*);
     AudioBuffer* buffer() { return m_buffer.get(); }
-                    
+
     // numberOfChannels() returns the number of output channels.  This value equals the number of channels from the buffer.
     // If a new buffer is set with a different number of channels, then this value will dynamically change.
     unsigned numberOfChannels();
-                    
+
     // Play-state
-    // noteOn(), noteGrainOn(), and noteOff() must all be called from the main thread.
+    void startGrain(double when, double grainOffset);
+    void startGrain(double when, double grainOffset, double grainDuration);
+
+#if ENABLE(LEGACY_WEB_AUDIO)
     void noteGrainOn(double when, double grainOffset, double grainDuration);
+#endif
 
     // Note: the attribute was originally exposed as .looping, but to be more consistent in naming with <audio>
     // and with how it's described in the specification, the proper attribute name is .loop
@@ -71,23 +75,37 @@ public:
     bool loop() const { return m_isLooping; }
     void setLoop(bool looping) { m_isLooping = looping; }
 
+    // Loop times in seconds.
+    double loopStart() const { return m_loopStart; }
+    double loopEnd() const { return m_loopEnd; }
+    void setLoopStart(double loopStart) { m_loopStart = loopStart; }
+    void setLoopEnd(double loopEnd) { m_loopEnd = loopEnd; }
+
     // Deprecated.
     bool looping();
     void setLooping(bool);
-    
-    AudioGain* gain() { return m_gain.get(); }                                        
+
+    AudioParam* gain() { return m_gain.get(); }
     AudioParam* playbackRate() { return m_playbackRate.get(); }
 
     // If a panner node is set, then we can incorporate doppler shift into the playback pitch rate.
-    void setPannerNode(PassRefPtr<AudioPannerNode> pannerNode) { m_pannerNode = pannerNode; }
+    void setPannerNode(PannerNode*);
+    void clearPannerNode();
 
     // If we are no longer playing, propogate silence ahead to downstream nodes.
     virtual bool propagatesSilence() const;
 
+    // AudioScheduledSourceNode
+    virtual void finish() OVERRIDE;
+
 private:
     AudioBufferSourceNode(AudioContext*, float sampleRate);
 
-    void renderFromBuffer(AudioBus*, unsigned destinationFrameOffset, size_t numberOfFrames);
+    virtual double tailTime() const OVERRIDE { return 0; }
+    virtual double latencyTime() const OVERRIDE { return 0; }
+
+    // Returns true on success.
+    bool renderFromBuffer(AudioBus*, unsigned destinationFrameOffset, size_t numberOfFrames);
 
     // Render silence starting from "index" frame in AudioBus.
     inline bool renderSilenceAndFinishIfNotLooping(AudioBus*, unsigned index, size_t framesToProcess);
@@ -100,12 +118,15 @@ private:
     OwnArrayPtr<float*> m_destinationChannels;
 
     // Used for the "gain" and "playbackRate" attributes.
-    RefPtr<AudioGain> m_gain;
+    RefPtr<AudioParam> m_gain;
     RefPtr<AudioParam> m_playbackRate;
 
     // If m_isLooping is false, then this node will be done playing and become inactive after it reaches the end of the sample data in the buffer.
     // If true, it will wrap around to the start of the buffer each time it reaches the end.
     bool m_isLooping;
+
+    double m_loopStart;
+    double m_loopEnd;
 
     // m_virtualReadIndex is a sample-frame index into our buffer representing the current playback position.
     // Since it's floating-point, it has sub-sample accuracy.
@@ -122,9 +143,10 @@ private:
 
     // m_lastGain provides continuity when we dynamically adjust the gain.
     float m_lastGain;
-    
-    // We optionally keep track of a panner node which has a doppler shift that is incorporated into the pitch rate.
-    RefPtr<AudioPannerNode> m_pannerNode;
+
+    // We optionally keep track of a panner node which has a doppler shift that is incorporated into
+    // the pitch rate. We manually manage ref-counting because we want to use RefTypeConnection.
+    PannerNode* m_pannerNode;
 
     // This synchronizes process() with setBuffer() which can cause dynamic channel count changes.
     mutable Mutex m_processLock;

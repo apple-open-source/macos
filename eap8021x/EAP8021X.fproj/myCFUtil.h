@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,9 @@ my_CFRelease(void * t);
 char *
 my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding);
 
+CFStringRef
+my_CFStringCreateWithCString(const char * cstr);
+
 CFPropertyListRef 
 my_CFPropertyListCreateFromFile(const char * filename);
 
@@ -63,4 +66,16 @@ my_CFStringCreateWithData(CFDataRef data);
 
 CFDataRef
 my_CFDataCreateWithString(CFStringRef str);
+
+void
+my_FieldSetRetainedCFType(void * field_p, const void * v);
+
+CFStringRef
+my_CFPropertyListCopyAsXMLString(CFPropertyListRef plist);
+
+#define STRING_APPEND(__string, __format, ...)		\
+    CFStringAppendFormat(__string, NULL,		\
+			 CFSTR(__format),		\
+			 ## __VA_ARGS__)
+
 #endif /* _S_MYCFUTIL_H */

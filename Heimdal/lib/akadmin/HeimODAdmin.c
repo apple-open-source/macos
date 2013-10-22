@@ -380,7 +380,7 @@ HeimODCreatePrincipalData(ODNodeRef node, ODRecordRef record, CFTypeRef flags, C
 	nflags |= flags2int(FlagsKeys, flags);
     
     element = CFStringCreateWithFormat(kCFAllocatorDefault,
-				       NULL, CFSTR("%lu"), nflags);
+				       NULL, CFSTR("%u"), nflags);
     if (element == NULL) {
 	createError(NULL, error, ENOMEM, CFSTR("out of memory"));
 	goto out;
@@ -629,7 +629,7 @@ HeimODClearKerberosFlags(ODNodeRef node, ODRecordRef record, CFTypeRef flags, CF
  */
 
 static CFTypeRef
-remapacl(CFTypeRef flags, CFErrorRef *error)
+CopyReMapACL(CFTypeRef flags, CFErrorRef *error)
 {
     if (CFGetTypeID(flags) == CFStringGetTypeID() && CFStringCompare(flags, kHeimODACLAll, kCFCompareCaseInsensitive) == kCFCompareEqualTo) {
 	CFMutableArrayRef nflags;
@@ -666,7 +666,7 @@ HeimODSetACL(ODNodeRef node, ODRecordRef record, CFTypeRef flags, CFErrorRef *er
     if (datarecord == NULL)
 	return 1;
     
-    flags = remapacl(flags, error);
+    flags = CopyReMapACL(flags, error);
     if (flags == NULL)
 	return 1;
 
@@ -726,7 +726,7 @@ HeimODClearACL(ODNodeRef node, ODRecordRef record, CFTypeRef flags, CFErrorRef *
     if (datarecord == NULL)
 	return 1;
 
-    flags = remapacl(flags, error);
+    flags = CopyReMapACL(flags, error);
     if (flags == NULL)
 	return 1;
     
@@ -1156,7 +1156,7 @@ out:
 }
 
 int
-HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArrayRef enctypes, CFStringRef password, unsigned long flags, CFErrorRef *error)
+HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArrayRef enctypes, CFTypeRef password, unsigned long flags, CFErrorRef *error)
 {
     krb5_context context;
     CFDataRef element = NULL;
@@ -1233,7 +1233,7 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
     }
 
     /*
-     * Covert if we have a password, otherwise we'll us a random key.
+     * Covert if we have a password, otherwise we'll use a random key.
      */
 
     if (password) {
@@ -1273,14 +1273,20 @@ HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArray
 
     if (krb5_principal_is_lkdc(context, princ)) {
 	char *realm = get_lkdc_realm();
+	if (realm == NULL) {
+	    ret = 1;
+	    goto out;
+	}
 	krb5_principal_set_realm(context, princ, realm);
 	free(realm);
     }
     
     /* build the new keyset */
     element = update_keys(context, enctypes, kvno, princ, principal != 0, passwordstr, error);
-    if (element == NULL)
+    if (element == NULL) {
+	ret = 1;
 	goto out;
+    }
 
     if ((flags & kHeimODAdminSetKeysAppendKey) == 0) {
 	CFMutableArrayRef array;
@@ -1397,8 +1403,10 @@ delete_enctypes(krb5_context context, CFArrayRef enctypes, CFMutableArrayRef key
 	    void *data;
 
 	    ASN1_MALLOC_ENCODE(hdb_keyset_aapl, data, length, &key, &sz, ret);
-	    if (ret)
+	    if (ret) {
+            free(etlist);
 		return;
+        }
 	    if (length != sz)
 		krb5_abortx(context, "internal asn1 error");
 
@@ -1420,7 +1428,7 @@ CFArrayRef
 HeimODModifyKeys(CFArrayRef prevKeyset,
 		 CFStringRef principal,
 		 CFArrayRef enctypes,
-		 CFStringRef password,
+		 CFTypeRef password,
 		 unsigned long flags,
 		 CFErrorRef *error)
 {
@@ -1467,10 +1475,30 @@ HeimODModifyKeys(CFArrayRef prevKeyset,
 	    goto out;
 	}
 	
-	passwordstr = cfstring2cstring(password);
-	if (passwordstr == NULL)
-	    goto out;
-	
+        if (password) {
+            if (CFDataGetTypeID() == CFGetTypeID(password)) {
+                CFDataRef data = (CFDataRef)password;
+                passwordstr = malloc(CFDataGetLength(data) + 1);
+                if (passwordstr == NULL) {
+                    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+                    goto out;
+                }
+
+                memcpy(passwordstr, CFDataGetBytePtr(data), CFDataGetLength(data));
+                passwordstr[CFDataGetLength(data)] = '\0';
+
+            } else if (CFStringGetTypeID() == CFGetTypeID(password)) {
+                passwordstr = cfstring2cstring(password);
+                if (passwordstr == NULL) {
+                    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
+                    goto out;
+                }
+            } else {
+                createError(NULL, error, EINVAL, CFSTR("invalid string type"));
+                goto out;
+            }
+        }
+
 	if (prevKeyset) {
 	    kvno = last_kvno_array(prevKeyset, context, NULL);
 	    kvno++;
@@ -2108,7 +2136,7 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 		CFDataRef keydata = CFDataCreate(NULL, to, len);
 		free(to);
 		free_hdb_keyset_aapl(&keyset);
-		if (key == NULL) {
+		if (keydata == NULL) {
 		    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
 		    b = false;
 		    goto out;

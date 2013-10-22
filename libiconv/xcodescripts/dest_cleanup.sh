@@ -18,8 +18,6 @@ if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
 			install_name_tool -change ${SDKROOT}/usr/lib/${lib} /usr/lib/${lib} ${DSTROOT}/usr/lib/${lib2}
 		done
 	done
-else
-	gzip -f -n ${DSTROOT}/usr/share/man/man[13]/*.[13]
 fi
 
 if [[ ${UID} -eq 0 ]]; then

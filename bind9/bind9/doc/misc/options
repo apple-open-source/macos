@@ -86,7 +86,6 @@ options {
         check-mx-cname ( fail | warn | ignore );
         check-names ( master | slave | response ) ( fail | warn | ignore );
         check-sibling <boolean>;
-        check-spf ( warn | ignore );
         check-srv-cname ( fail | warn | ignore );
         check-wildcard <boolean>;
         cleaning-interval <integer>;
@@ -197,11 +196,10 @@ options {
         request-nsid <boolean>;
         reserved-sockets <integer>;
         resolver-query-timeout <integer>;
-        response-policy { zone <quoted_string> [ policy ( given | disabled
-            | passthru | no-op | nxdomain | nodata | cname <quoted_string>
-            ) ] [ recursive-only <boolean> ] [ max-policy-ttl <integer> ];
-            ... } [ recursive-only <boolean> ] [ break-dnssec <boolean> ] [
-            max-policy-ttl <integer> ] [ min-ns-dots <integer> ];
+        response-policy {
+                zone <string> [ policy ( given | disabled | passthru |
+                    no-op | nxdomain | nodata | cname <domain> ) ];
+        };
         rfc2308-type1 <boolean>; // not yet implemented
         root-delegation-only [ exclude { <quoted_string>; ... } ];
         rrset-order { [ class <string> ] [ type <string> ] [ name
@@ -308,7 +306,6 @@ view <string> <optional_class> {
         check-mx-cname ( fail | warn | ignore );
         check-names ( master | slave | response ) ( fail | warn | ignore );
         check-sibling <boolean>;
-        check-spf ( warn | ignore );
         check-srv-cname ( fail | warn | ignore );
         check-wildcard <boolean>;
         cleaning-interval <integer>;
@@ -403,11 +400,10 @@ view <string> <optional_class> {
         request-ixfr <boolean>;
         request-nsid <boolean>;
         resolver-query-timeout <integer>;
-        response-policy { zone <quoted_string> [ policy ( given | disabled
-            | passthru | no-op | nxdomain | nodata | cname <quoted_string>
-            ) ] [ recursive-only <boolean> ] [ max-policy-ttl <integer> ];
-            ... } [ recursive-only <boolean> ] [ break-dnssec <boolean> ] [
-            max-policy-ttl <integer> ] [ min-ns-dots <integer> ];
+        response-policy {
+                zone <string> [ policy ( given | disabled | passthru |
+                    no-op | nxdomain | nodata | cname <domain> ) ];
+        };
         rfc2308-type1 <boolean>; // not yet implemented
         root-delegation-only [ exclude { <quoted_string>; ... } ];
         rrset-order { [ class <string> ] [ type <string> ] [ name
@@ -472,7 +468,6 @@ view <string> <optional_class> {
                 check-mx-cname ( fail | warn | ignore );
                 check-names ( fail | warn | ignore );
                 check-sibling <boolean>;
-                check-spf ( warn | ignore );
                 check-srv-cname ( fail | warn | ignore );
                 check-wildcard <boolean>;
                 database <string>;
@@ -561,7 +556,6 @@ zone <string> <optional_class> {
         check-mx-cname ( fail | warn | ignore );
         check-names ( fail | warn | ignore );
         check-sibling <boolean>;
-        check-spf ( warn | ignore );
         check-srv-cname ( fail | warn | ignore );
         check-wildcard <boolean>;
         database <string>;

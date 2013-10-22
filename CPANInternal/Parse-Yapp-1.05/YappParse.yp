@@ -1,0 +1,496 @@
+%{# (c) Copyright Francois Desarmenien 1998-2001, all rights reserved.
+# (see COPYRIGHT in Parse::Yapp.pm pod section for use and distribution rights)
+#
+# Parse/Yapp/Parser.yp: Parse::Yapp::Parser.pm source file
+#
+# Use: yapp -m 'Parse::Yapp::Parse' -o Parse/Yapp/Parse.pm YappParse.yp
+#
+# to generate the Parser module.
+# 
+%}
+
+%{
+require 5.004;
+
+use Carp;
+
+my($input,$lexlevel,@lineno,$nberr,$prec,$labelno);
+my($syms,$head,$tail,$token,$term,$nterm,$rules,$precterm,$start,$nullable);
+my($expect);
+
+%}
+
+%%
+
+# Main rule
+yapp:   head body tail ;
+
+#Common rules:
+
+symbol: LITERAL {
+                        exists($$syms{$_[1][0]})
+                    or  do {
+                        $$syms{$_[1][0]} = $_[1][1];
+                        $$term{$_[1][0]} = undef;
+                    };
+                    $_[1]
+                }
+    |   ident   #default action
+;
+
+ident:  IDENT   {
+                        exists($$syms{$_[1][0]})
+                    or  do {
+                        $$syms{$_[1][0]} = $_[1][1];
+                        $$term{$_[1][0]} = undef;
+                    };
+                    $_[1]
+                }
+;
+
+
+# Head section:
+head:   headsec '%%'
+;
+
+headsec:    #empty  #default action
+    |       decls   #default action
+;
+
+decls:  decls decl  #default action
+    |   decl        #default action
+;
+
+decl:  '\n'                 #default action
+    |   TOKEN typedecl symlist '\n'
+            {
+                for (@{$_[3]}) {
+                    my($symbol,$lineno)=@$_;
+
+                        exists($$token{$symbol})
+                    and do {
+                        _SyntaxError(0,
+                                "Token $symbol redefined: ".
+                                "Previously defined line $$syms{$symbol}",
+                                $lineno);
+                        next;
+                    };
+                    $$token{$symbol}=$lineno;
+                    $$term{$symbol} = [ ];
+                }
+                undef
+            }
+    |   ASSOC typedecl symlist '\n'  
+            {
+                for (@{$_[3]}) {
+                    my($symbol,$lineno)=@$_;
+
+                        defined($$term{$symbol}[0])
+                    and do {
+                        _SyntaxError(1,
+                            "Precedence for symbol $symbol redefined: ".
+                            "Previously defined line $$syms{$symbol}",
+                            $lineno);
+                        next;
+                    };
+                    $$token{$symbol}=$lineno;
+                    $$term{$symbol} = [ $_[1][0], $prec ];
+                }
+                ++$prec;
+                undef
+            }
+    |   START ident '\n'                { $start=$_[2][0]; undef }
+    |   HEADCODE '\n'                   { push(@$head,$_[1]); undef }
+    |   UNION CODE '\n'                 { undef } #ignore
+    |   TYPE typedecl identlist '\n'
+            {
+                for ( @{$_[3]} ) {
+                    my($symbol,$lineno)=@$_;
+
+                        exists($$nterm{$symbol})
+                    and do {
+                        _SyntaxError(0,
+                                "Non-terminal $symbol redefined: ".
+                                "Previously defined line $$syms{$symbol}",
+                                $lineno);
+                        next;
+                    };
+                    delete($$term{$symbol});   #not a terminal
+                    $$nterm{$symbol}=undef;    #is a non-terminal
+                }
+            }
+    |   EXPECT NUMBER '\n'             { $expect=$_[2][0]; undef }
+    |   error '\n'                     { $_[0]->YYErrok }
+;    
+
+typedecl:   #empty
+    |       '<' IDENT '>'
+;
+
+symlist:    symlist symbol  { push(@{$_[1]},$_[2]); $_[1] }
+    |       symbol          { [ $_[1] ] }
+;
+
+identlist:  identlist ident { push(@{$_[1]},$_[2]); $_[1] }
+    |       ident           { [ $_[1] ] }
+;
+
+# Rule section
+body:   rulesec '%%'
+            {
+                    $start
+                or  $start=$$rules[1][0];
+
+                    ref($$nterm{$start})
+                or  _SyntaxError(2,"Start symbol $start not found ".
+                                   "in rules section",$_[2][1]);
+
+                $$rules[0]=[ '$start', [ $start, chr(0) ], undef, undef ];
+            }
+    |   '%%'    { _SyntaxError(2,"No rules in input grammar",$_[1][1]); }
+;
+
+rulesec:  rulesec rules #default action
+    |     rules         #default action
+;
+
+rules:	IDENT ':' rhss ';'	{ _AddRules($_[1],$_[3]); undef }
+	|	error ';'           { $_[0]->YYErrok }
+;
+
+rhss:	rhss '|' rule   { push(@{$_[1]},$_[3]); $_[1] }
+	|	rule            { [ $_[1] ] }
+;
+
+rule:   rhs prec epscode    { push(@{$_[1]}, $_[2], $_[3]); $_[1] }
+    |   rhs                 {
+                                my($code)=undef;
+
+                                    defined($_[1])
+                                and $_[1][-1][0] eq 'CODE'
+                                and $code = ${pop(@{$_[1]})}[1];
+
+                                push(@{$_[1]}, undef, $code);
+
+                                $_[1]
+                            }
+;
+
+rhs:    #empty      #default action (will return undef)
+    |   rhselts     #default action
+;
+
+rhselts:    rhselts rhselt	{ push(@{$_[1]},$_[2]); $_[1] }
+		|   rhselt			{ [ $_[1] ] }
+;
+
+rhselt:     symbol  	{ [ 'SYMB', $_[1] ] }
+		|	code		{ [ 'CODE', $_[1] ] }
+		;
+
+prec:	PREC symbol
+				{
+                       	defined($$term{$_[2][0]})
+                    or  do {
+                        _SyntaxError(1,"No precedence for symbol $_[2][0]",
+                                         $_[2][1]);
+                        return undef;
+                    };
+
+                    ++$$precterm{$_[2][0]};
+                    $$term{$_[2][0]}[1];
+				}
+;
+
+epscode:				{ undef }
+		|	code		{ $_[1] }
+;
+
+code:		CODE	    { $_[1] }
+;
+
+# Tail section:
+
+tail:       /*empty*/
+        |   TAILCODE    { $tail=$_[1] }
+;
+
+%%
+sub _Error {
+    my($value)=$_[0]->YYCurval;
+
+    my($what)= $token ? "input: '$$value[0]'" : "end of input";
+
+    _SyntaxError(1,"Unexpected $what",$$value[1]);
+}
+
+sub _Lexer {
+ 
+    #At EOF
+        pos($$input) >= length($$input)
+    and return('',[ undef, -1 ]);
+
+    #In TAIL section
+        $lexlevel > 1
+    and do {
+        my($pos)=pos($$input);
+
+        $lineno[0]=$lineno[1];
+        $lineno[1]=-1;
+        pos($$input)=length($$input);
+        return('TAILCODE',[ substr($$input,$pos), $lineno[0] ]);
+    };
+
+    #Skip blanks
+            $lexlevel == 0
+        ?   $$input=~m{\G((?:
+                                [\t\ ]+    # Any white space char but \n
+                            |   \#[^\n]*  # Perl like comments
+                            |   /\*.*?\*/ # C like comments
+                            )+)}xsgc
+        :   $$input=~m{\G((?:
+                                \s+       # any white space char
+                            |   \#[^\n]*  # Perl like comments
+                            |   /\*.*?\*/ # C like comments
+                            )+)}xsgc
+    and do {
+        my($blanks)=$1;
+
+        #Maybe At EOF
+            pos($$input) >= length($$input)
+        and return('',[ undef, -1 ]);
+
+        $lineno[1]+= $blanks=~tr/\n//;
+    };
+
+    $lineno[0]=$lineno[1];
+
+        $$input=~/\G([A-Za-z_][A-Za-z0-9_]*)/gc
+    and return('IDENT',[ $1, $lineno[0] ]);
+
+        $$input=~/\G('(?:[^'\\]|\\\\|\\'|\\)+?')/gc
+    and do {
+            $1 eq "'error'"
+        and do {
+            _SyntaxError(0,"Literal 'error' ".
+                           "will be treated as error token",$lineno[0]);
+            return('IDENT',[ 'error', $lineno[0] ]);
+        };
+        return('LITERAL',[ $1, $lineno[0] ]);
+    };
+
+        $$input=~/\G(%%)/gc
+    and do {
+        ++$lexlevel;
+        return($1, [ $1, $lineno[0] ]);
+    };
+
+        $$input=~/\G{/gc
+    and do {
+        my($level,$from,$code);
+
+        $from=pos($$input);
+
+        $level=1;
+        while($$input=~/([{}])/gc) {
+                substr($$input,pos($$input)-1,1) eq '\\' #Quoted
+            and next;
+                $level += ($1 eq '{' ? 1 : -1)
+            or last;
+        }
+            $level
+        and  _SyntaxError(2,"Unmatched { opened line $lineno[0]",-1);
+        $code = substr($$input,$from,pos($$input)-$from-1);
+        $lineno[1]+= $code=~tr/\n//;
+        return('CODE',[ $code, $lineno[0] ]);
+    };
+
+    if($lexlevel == 0) {# In head section
+            $$input=~/\G%(left|right|nonassoc)/gc
+        and return('ASSOC',[ uc($1), $lineno[0] ]);
+            $$input=~/\G%(start)/gc
+        and return('START',[ undef, $lineno[0] ]);
+            $$input=~/\G%(expect)/gc
+        and return('EXPECT',[ undef, $lineno[0] ]);
+            $$input=~/\G%{/gc
+        and do {
+            my($code);
+
+                $$input=~/\G(.*?)%}/sgc
+            or  _SyntaxError(2,"Unmatched %{ opened line $lineno[0]",-1);
+
+            $code=$1;
+            $lineno[1]+= $code=~tr/\n//;
+            return('HEADCODE',[ $code, $lineno[0] ]);
+        };
+            $$input=~/\G%(token)/gc
+        and return('TOKEN',[ undef, $lineno[0] ]);
+            $$input=~/\G%(type)/gc
+        and return('TYPE',[ undef, $lineno[0] ]);
+            $$input=~/\G%(union)/gc
+        and return('UNION',[ undef, $lineno[0] ]);
+            $$input=~/\G([0-9]+)/gc
+        and return('NUMBER',[ $1, $lineno[0] ]);
+
+    }
+    else {# In rule section
+            $$input=~/\G%(prec)/gc
+        and return('PREC',[ undef, $lineno[0] ]);
+    }
+
+    #Always return something
+        $$input=~/\G(.)/sg
+    or  die "Parse::Yapp::Grammar::Parse: Match (.) failed: report as a BUG";
+
+        $1 eq "\n"
+    and ++$lineno[1];
+
+    ( $1 ,[ $1, $lineno[0] ]);
+
+}
+
+sub _SyntaxError {
+    my($level,$message,$lineno)=@_;
+
+    $message= "*".
+              [ 'Warning', 'Error', 'Fatal' ]->[$level].
+              "* $message, at ".
+              ($lineno < 0 ? "eof" : "line $lineno").
+              ".\n";
+
+        $level > 1
+    and die $message;
+
+    warn $message;
+
+        $level > 0
+    and ++$nberr;
+
+        $nberr == 20 
+    and die "*Fatal* Too many errors detected.\n"
+}
+
+sub _AddRules {
+    my($lhs,$lineno)=@{$_[0]};
+    my($rhss)=$_[1];
+
+        ref($$nterm{$lhs})
+    and do {
+        _SyntaxError(1,"Non-terminal $lhs redefined: ".
+                       "Previously declared line $$syms{$lhs}",$lineno);
+        return;
+    };
+
+        ref($$term{$lhs})
+    and do {
+        my($where) = exists($$token{$lhs}) ? $$token{$lhs} : $$syms{$lhs};
+        _SyntaxError(1,"Non-terminal $lhs previously ".
+                       "declared as token line $where",$lineno);
+        return;
+    };
+
+        ref($$nterm{$lhs})      #declared through %type
+    or  do {
+            $$syms{$lhs}=$lineno;   #Say it's declared here
+            delete($$term{$lhs});   #No more a terminal
+    };
+    $$nterm{$lhs}=[];       #It's a non-terminal now
+
+    my($epsrules)=0;        #To issue a warning if more than one epsilon rule
+
+    for my $rhs (@$rhss) {
+        my($tmprule)=[ $lhs, [ ], splice(@$rhs,-2) ]; #Init rule
+
+            @$rhs
+        or  do {
+            ++$$nullable{$lhs};
+            ++$epsrules;
+        };
+
+        for (0..$#$rhs) {
+            my($what,$value)=@{$$rhs[$_]};
+
+                $what eq 'CODE'
+            and do {
+                my($name)='@'.++$labelno."-$_";
+                push(@$rules,[ $name, [], undef, $value ]);
+                push(@{$$tmprule[1]},$name);
+                next;
+            };
+            push(@{$$tmprule[1]},$$value[0]);
+        }
+        push(@$rules,$tmprule);
+        push(@{$$nterm{$lhs}},$#$rules);
+    }
+
+        $epsrules > 1
+    and _SyntaxError(0,"More than one empty rule for symbol $lhs",$lineno);
+}
+
+sub Parse {
+    my($self)=shift;
+
+        @_ > 0
+    or  croak("No input grammar\n");
+
+    my($parsed)={};
+
+    $input=\$_[0];
+
+    $lexlevel=0;
+    @lineno=(1,1);
+    $nberr=0;
+    $prec=0;
+    $labelno=0;
+
+    $head=();
+    $tail="";
+
+    $syms={};
+    $token={};
+    $term={};
+    $nterm={};
+    $rules=[ undef ];   #reserve slot 0 for start rule
+    $precterm={};
+
+    $start="";
+    $nullable={};
+    $expect=0;
+
+    pos($$input)=0;
+
+
+    $self->YYParse(yylex => \&_Lexer, yyerror => \&_Error);
+
+        $nberr
+    and _SyntaxError(2,"Errors detected: No output",-1);
+
+    @$parsed{ 'HEAD', 'TAIL', 'RULES', 'NTERM', 'TERM',
+              'NULL', 'PREC', 'SYMS',  'START', 'EXPECT' }
+    =       (  $head,  $tail,  $rules,  $nterm,  $term,
+               $nullable, $precterm, $syms, $start, $expect);
+
+    undef($input);
+    undef($lexlevel);
+    undef(@lineno);
+    undef($nberr);
+    undef($prec);
+    undef($labelno);
+
+    undef($head);
+    undef($tail);
+
+    undef($syms);
+    undef($token);
+    undef($term);
+    undef($nterm);
+    undef($rules);
+    undef($precterm);
+
+    undef($start);
+    undef($nullable);
+    undef($expect);
+
+    $parsed
+}
+

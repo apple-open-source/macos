@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     35
+#define IOGRAPHICSTYPES_REV     37
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -722,6 +722,7 @@ enum {
     kConnectionDisplayFlags              = 'dflg',
 
     kConnectionEnableAudio               = 'aud ',
+    kConnectionAudioStreaming            = 'auds',
 };
 
 // kConnectionFlags values
@@ -1091,6 +1092,7 @@ enum {
 #define kIOFBTimingRangeKey             "IOFBTimingRange"
 #define kIOFBScalerInfoKey              "IOFBScalerInfo"
 #define kIOFBCursorInfoKey              "IOFBCursorInfo"
+#define kIOFBHDMIDongleROMKey           "IOFBHDMIDongleROM"
 
 #define kIOFBHostAccessFlagsKey         "IOFBHostAccessFlags"
 
@@ -1197,6 +1199,7 @@ enum
 // display property keys
 
 #define kIODisplayEDIDKey               "IODisplayEDID"
+#define kIODisplayEDIDOriginalKey       "IODisplayEDIDOriginal"
 #define kIODisplayLocationKey           "IODisplayLocation"             // CFString
 #define kIODisplayConnectFlagsKey       "IODisplayConnectFlags"         // CFNumber
 #define kIODisplayHasBacklightKey       "IODisplayHasBacklight"         // CFBoolean

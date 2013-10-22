@@ -38,7 +38,7 @@
 
 static void
 iter_creds_f(OM_uint32 flags,
-	     int pku2u,
+	     gss_OID type,
 	     void *userctx ,
 	     void (*cred_iter)(void *, gss_OID, gss_cred_id_t))
 {
@@ -57,23 +57,25 @@ iter_creds_f(OM_uint32 flags,
 	gsskrb5_cred handle;
 	OM_uint32 junk;
 	krb5_principal principal;
-	krb5_boolean principal_is_pku2u, use_this = TRUE;
+	krb5_data data;
+	gss_OID resolved_type = NULL;
 
 	ret = krb5_cc_get_principal(context, id, &principal);
 	if (ret) {
 	    krb5_cc_close(context, id);
 	    continue;
 	}
+	
+	if (krb5_principal_is_pku2u(context, principal))
+	    resolved_type = GSS_PKU2U_MECHANISM;
+	else if (krb5_cc_get_config(context, id, NULL, "iakerb", &data) == 0) {
+	    resolved_type = GSS_IAKERB_MECHANISM;
+	    krb5_data_free(&data);
+	} else {
+	    resolved_type = GSS_KRB5_MECHANISM;
+	}
 
-	principal_is_pku2u = krb5_principal_is_pku2u(context, principal);
-
-	/* logical xor where are you ? */
-	if (pku2u && !principal_is_pku2u)
-	    use_this = FALSE;
-	else if (!pku2u && principal_is_pku2u)
-	    use_this = FALSE;
-
-	if (!use_this) {
+	if (!gss_oid_equal(type, resolved_type)) {
 	    krb5_free_principal(context, principal);
 	    krb5_cc_close(context, id);
 	    continue;
@@ -95,7 +97,7 @@ iter_creds_f(OM_uint32 flags,
 	handle->keytab = NULL;
 	handle->ccache = id;
 
-	cred_iter(userctx, GSS_KRB5_MECHANISM, (gss_cred_id_t)handle);
+	cred_iter(userctx, type, (gss_cred_id_t)handle);
     }
 
     krb5_cccol_cursor_free(context, &cursor);
@@ -109,7 +111,7 @@ _gss_pku2u_iter_creds_f(OM_uint32 flags,
 			void *userctx ,
 			void (*cred_iter)(void *, gss_OID, gss_cred_id_t))
 {
-    iter_creds_f(flags, 1, userctx, cred_iter);
+    iter_creds_f(flags, GSS_PKU2U_MECHANISM, userctx, cred_iter);
 }
 
 void
@@ -117,7 +119,7 @@ _gss_krb5_iter_creds_f(OM_uint32 flags,
 		       void *userctx ,
 		       void (*cred_iter)(void *, gss_OID, gss_cred_id_t))
 {
-    iter_creds_f(flags, 0, userctx, cred_iter);
+    iter_creds_f(flags, GSS_KRB5_MECHANISM, userctx, cred_iter);
 }
 
 void
@@ -125,5 +127,5 @@ _gss_iakerb_iter_creds_f(OM_uint32 flags,
 		       void *userctx ,
 		       void (*cred_iter)(void *, gss_OID, gss_cred_id_t))
 {
-    cred_iter(userctx, NULL, NULL);
+    iter_creds_f(flags, GSS_IAKERB_MECHANISM, userctx, cred_iter);
 }

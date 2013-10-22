@@ -1,9 +1,9 @@
 dnl Process this file with autoconf to produce a configuration script.
 AC_PREREQ(2.59)
 AC_INIT(libxslt/xslt.c)
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS(config.h)
 AC_CANONICAL_HOST
-AC_GNU_SOURCE
+AC_USE_SYSTEM_EXTENSIONS
 
 dnl
 dnl libxslt is the main part of the package
@@ -11,11 +11,11 @@ dnl libexslt is an extension
 dnl
 LIBXSLT_MAJOR_VERSION=1
 LIBXSLT_MINOR_VERSION=1
-LIBXSLT_MICRO_VERSION=26
+LIBXSLT_MICRO_VERSION=28
 PACKAGE=libxslt
 LIBEXSLT_MAJOR_VERSION=0
 LIBEXSLT_MINOR_VERSION=8
-LIBEXSLT_MICRO_VERSION=15
+LIBEXSLT_MICRO_VERSION=17
 LIBXML_REQUIRED_VERSION=2.6.27
 
 
@@ -95,11 +95,11 @@ dnl
 dnl Specific dir for HTML output ?
 dnl
 
-AC_ARG_WITH(html-dir, AC_HELP_STRING([--with-html-dir=path],
+AC_ARG_WITH(html-dir, AS_HELP_STRING([--with-html-dir=path],
             [path to base html directory, default $datadir/doc/html]),
             [HTML_DIR=$withval], [HTML_DIR='$(datadir)/doc'])
 
-AC_ARG_WITH(html-subdir, AC_HELP_STRING([--with-html-subdir=path],
+AC_ARG_WITH(html-subdir, AS_HELP_STRING([--with-html-subdir=path],
             [directory used under html-dir, default $PACKAGE-$VERSION/html]),
             [test "x$withval" != "x" && HTML_DIR="$HTML_DIR/$withval"],
             [HTML_DIR="$HTML_DIR/\$(PACKAGE)-\$(VERSION)/html"])
@@ -110,7 +110,6 @@ dnl
 dnl Check the environment
 dnl
 
-AC_ISC_POSIX
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_CPP
@@ -120,10 +119,9 @@ AC_PATH_PROG(TAR, tar, /bin/tar)
 AC_PATH_PROG(XMLLINT, xmllint, /usr/bin/xmllint)
 AC_PATH_PROG(XSLTPROC, xsltproc, /usr/bin/xsltproc)
 
-AC_STDC_HEADERS
+AC_HEADER_STDC
 
-AC_LIBTOOL_WIN32_DLL
-AM_PROG_LIBTOOL
+LT_INIT(win32-dll)
 
 dnl #ifdef __APPLE__
 dnl Disable -Wl,-undefined -Wl,dynamic_lookup when using libtool to link.
@@ -141,13 +139,16 @@ dnl
 dnl if the system support linker version scripts for symbol versioning
 dnl then add it
 dnl
-VERSION_SCRIPT_FLAGS=
-$(/usr/bin/ld --help 2>&1 | grep -- --version-script >/dev/null) && \
+AC_MSG_CHECKING([how to pass version script to the linker ($LD)])
+VERSION_SCRIPT_FLAGS=none
+if $LD --help 2>&1 | grep "version-script" >/dev/null 2>/dev/null; then
     VERSION_SCRIPT_FLAGS=-Wl,--version-script=
-test "`uname`" == "SunOS" && \
+elif $LD --help 2>&1 | grep "M mapfile" >/dev/null 2>/dev/null; then
     VERSION_SCRIPT_FLAGS="-Wl,-M -Wl,"
+fi
+AC_MSG_RESULT([$VERSION_SCRIPT_FLAGS])
 AC_SUBST(VERSION_SCRIPT_FLAGS)
-AM_CONDITIONAL([USE_VERSION_SCRIPT], [test -n "$VERSION_SCRIPT_FLAGS"])
+AM_CONDITIONAL([USE_VERSION_SCRIPT], [test "$VERSION_SCRIPT_FLAGS" != none])
 
 dnl Look for pthread.h, needed for testThreads
 case $host in
@@ -177,7 +178,7 @@ dnl
 dnl Check for generic locale_t declaration
 dnl
 AC_MSG_CHECKING([if xlocale program link])
-AC_LINK_IFELSE(AC_LANG_PROGRAM([[
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #ifdef HAVE_LOCALE_H
 #include <locale.h>
 #endif
@@ -222,7 +223,7 @@ typedef locale_t xsltLocale;
 
     exit(0);
     return(0);
-]]),
+]])],
   [AC_MSG_RESULT(yes); XSLT_LOCALE_XLOCALE=1],
   [AC_MSG_RESULT(no)]
 )
@@ -255,7 +256,7 @@ AC_CHECK_FUNC(fabs, , AC_CHECK_LIB(m, fabs,
 
 
 AC_CHECK_FUNCS(gettimeofday)
-AC_CHECK_FUNCS(mktime localtime localtime_r asctime time gmtime_r ftime)
+AC_CHECK_FUNCS(mktime localtime localtime_r asctime time gmtime gmtime_r ftime)
 
 dnl Checking the standard string functions availability
 AC_CHECK_FUNCS(printf sprintf fprintf snprintf vfprintf vsprintf vsnprintf sscanf,,
@@ -391,6 +392,14 @@ if test "$with_crypto" = "no" ; then
     LIBGCRYPT_CFLAGS=""
     LIBGCRYPT_LIBS=""
 else
+case $host in
+  *-mingw*)
+    dnl Use only native crypto-API for mingw* hosts
+    dnl TODO: to implement --with-crypto=foo to allow switch between
+    dnl crypto libraries
+    WITH_CRYPTO=1
+    ;;
+  *)
     AC_PATH_PROG(LIBGCRYPT_CONFIG, libgcrypt-config, no)
     if test "$LIBGCRYPT_CONFIG" != "no" ; then
       LIBGCRYPT_VERSION=`$LIBGCRYPT_CONFIG --version`
@@ -411,6 +420,7 @@ else
       LIBGCRYPT_LIBS=""
       echo 'Crypto extensions will not be available. Install libgcrypt and reconfigure to make available.'
     fi
+esac
 fi
 AC_SUBST(WITH_CRYPTO)
 AC_SUBST(LIBGCRYPT_CFLAGS)
@@ -660,7 +670,6 @@ AC_SUBST(EXSLT_LIBDIR)
 AC_SUBST(EXSLT_INCLUDEDIR)
 AC_SUBST(EXSLT_LIBS)
 
-EXTRA_LIBS="$EXTRA_LIBS $LIBXML_LIBS $M_LIBS"
 AC_SUBST(EXTRA_LIBS)
 
 AC_SUBST(M_LIBS)
@@ -669,13 +678,10 @@ dnl for the spec file
 RELDATE=`date +'%a %b %e %Y'`
 AC_SUBST(RELDATE)
 
-( cd $srcdir
-rm -f COPYING.LIB COPYING
-$LN_S Copyright COPYING
-)
+rm -f COPYING.LIB COPYING 2>/dev/null && $LN_S $srcdir/Copyright COPYING
 
 
-AC_OUTPUT([
+AC_CONFIG_FILES([
 Makefile
 libxslt.pc
 libexslt.pc
@@ -717,3 +723,5 @@ doc/Makefile
 xslt-config
 libxslt.spec
 ])
+
+AC_OUTPUT

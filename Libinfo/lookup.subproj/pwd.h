@@ -44,21 +44,9 @@
 #define	_PWD_H_
 
 #include <_types.h>
-
-#ifndef _GID_T
-typedef __darwin_gid_t		gid_t;
-#define _GID_T
-#endif
-
-#ifndef _SIZE_T
-#define _SIZE_T
-typedef	__darwin_size_t		size_t;
-#endif
-
-#ifndef _UID_T
-typedef __darwin_uid_t		uid_t;
-#define _UID_T
-#endif
+#include <sys/_types/_gid_t.h>
+#include <sys/_types/_size_t.h>
+#include <sys/_types/_uid_t.h>
 
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	_PATH_PWD		"/etc"

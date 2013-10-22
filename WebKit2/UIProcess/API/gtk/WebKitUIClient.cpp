@@ -21,6 +21,7 @@
 #include "WebKitUIClient.h"
 
 #include "WebKitFileChooserRequestPrivate.h"
+#include "WebKitGeolocationPermissionRequestPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebKitWebViewPrivate.h"
@@ -33,7 +34,7 @@ using namespace WebKit;
 
 static WKPageRef createNewPage(WKPageRef page, WKURLRequestRef, WKDictionaryRef wkWindowFeatures, WKEventModifiers, WKEventMouseButton, const void* clientInfo)
 {
-    return webkitWebViewCreateNewPage(WEBKIT_WEB_VIEW(clientInfo), wkWindowFeatures);
+    return static_cast<WKPageRef>(toAPI(webkitWebViewCreateNewPage(WEBKIT_WEB_VIEW(clientInfo), toImpl(wkWindowFeatures))));
 }
 
 static void showPage(WKPageRef page, const void* clientInfo)
@@ -58,8 +59,9 @@ static bool runJavaScriptConfirm(WKPageRef page, WKStringRef message, WKFrameRef
 
 static WKStringRef runJavaScriptPrompt(WKPageRef page, WKStringRef message, WKStringRef defaultValue, WKFrameRef, const void* clientInfo)
 {
-    return webkitWebViewRunJavaScriptPrompt(WEBKIT_WEB_VIEW(clientInfo), toImpl(message)->string().utf8(),
-                                            toImpl(defaultValue)->string().utf8());
+    CString result = webkitWebViewRunJavaScriptPrompt(WEBKIT_WEB_VIEW(clientInfo), toImpl(message)->string().utf8(),
+                                                      toImpl(defaultValue)->string().utf8());
+    return WKStringCreateWithUTF8CString(result.data());
 }
 
 static bool toolbarsAreVisible(WKPageRef page, const void* clientInfo)
@@ -124,24 +126,36 @@ static WKRect getWindowFrame(WKPageRef page, const void* clientInfo)
 static void setWindowFrame(WKPageRef page, WKRect frame, const void* clientInfo)
 {
     WebKitWindowProperties* windowProperties = webkit_web_view_get_window_properties(WEBKIT_WEB_VIEW(clientInfo));
-    GdkRectangle geometry = { frame.origin.x, frame.origin.y, frame.size.width, frame.size.height };
+    GdkRectangle geometry = { static_cast<int>(frame.origin.x), static_cast<int>(frame.origin.y),
+        static_cast<int>(frame.size.width), static_cast<int>(frame.size.height) };
     webkitWindowPropertiesSetGeometry(windowProperties, &geometry);
 }
 
 static void mouseDidMoveOverElement(WKPageRef page, WKHitTestResultRef hitTestResult, WKEventModifiers modifiers, WKTypeRef userData, const void* clientInfo)
 {
-    webkitWebViewMouseTargetChanged(WEBKIT_WEB_VIEW(clientInfo), hitTestResult, wkEventModifiersToGdkModifiers(modifiers));
+    webkitWebViewMouseTargetChanged(WEBKIT_WEB_VIEW(clientInfo), toImpl(hitTestResult), wkEventModifiersToGdkModifiers(modifiers));
 }
 
 static void printFrame(WKPageRef page, WKFrameRef frame, const void*)
 {
-    webkitWebViewPrintFrame(WEBKIT_WEB_VIEW(toImpl(page)->viewWidget()), frame);
+    webkitWebViewPrintFrame(WEBKIT_WEB_VIEW(toImpl(page)->viewWidget()), toImpl(frame));
 }
 
 static void runOpenPanel(WKPageRef page, WKFrameRef frame, WKOpenPanelParametersRef parameters, WKOpenPanelResultListenerRef listener, const void *clientInfo)
 {
-    GRefPtr<WebKitFileChooserRequest> request = adoptGRef(webkitFileChooserRequestCreate(parameters, listener));
+    GRefPtr<WebKitFileChooserRequest> request = adoptGRef(webkitFileChooserRequestCreate(toImpl(parameters), toImpl(listener)));
     webkitWebViewRunFileChooserRequest(WEBKIT_WEB_VIEW(clientInfo), request.get());
+}
+
+static void decidePolicyForGeolocationPermissionRequest(WKPageRef, WKFrameRef, WKSecurityOriginRef, WKGeolocationPermissionRequestRef request, const void* clientInfo)
+{
+    GRefPtr<WebKitGeolocationPermissionRequest> geolocationPermissionRequest = adoptGRef(webkitGeolocationPermissionRequestCreate(toImpl(request)));
+    webkitWebViewMakePermissionRequest(WEBKIT_WEB_VIEW(clientInfo), WEBKIT_PERMISSION_REQUEST(geolocationPermissionRequest.get()));
+}
+
+static void runModal(WKPageRef page, const void* clientInfo)
+{
+    webkitWebViewRunAsModal(WEBKIT_WEB_VIEW(clientInfo));
 }
 
 void attachUIClientToView(WebKitWebView* webView)
@@ -178,19 +192,23 @@ void attachUIClientToView(WebKitWebView* webView)
         0, // pageDidScroll
         0, // exceededDatabaseQuota
         runOpenPanel,
-        0, // decidePolicyForGeolocationPermissionRequest
+        decidePolicyForGeolocationPermissionRequest,
         0, // headerHeight
         0, // footerHeight
         0, // drawHeader
         0, // drawFooter
         printFrame,
-        0, // runModal
+        runModal,
         0, // didCompleteRubberBandForMainFrame
         0, // saveDataToFileInDownloadsFolder
         0, // shouldInterruptJavaScript
         createNewPage,
         mouseDidMoveOverElement,
         0, // decidePolicyForNotificationPermissionRequest
+        0, // unavailablePluginButtonClicked
+        0, // showColorPicker
+        0, // hideColorPicker
+        0, // pluginLoadPolicy
     };
     WKPageRef wkPage = toAPI(webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(webView)));
     WKPageSetPageUIClient(wkPage, &wkUIClient);

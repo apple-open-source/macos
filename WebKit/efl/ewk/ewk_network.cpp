@@ -21,8 +21,9 @@
 #include "ewk_network.h"
 
 #include "NetworkStateNotifier.h"
+#include "ProxyResolverSoup.h"
 #include "ResourceHandle.h"
-#include "ewk_logging.h"
+#include "ewk_private.h"
 #include <Eina.h>
 #include <libsoup/soup.h>
 #include <wtf/text/CString.h>
@@ -33,22 +34,24 @@ void ewk_network_proxy_uri_set(const char* proxy)
 
     if (!proxy) {
         ERR("no proxy uri. remove proxy feature in soup.");
-        soup_session_remove_feature_by_type(session, SOUP_TYPE_PROXY_RESOLVER);
+        soup_session_remove_feature_by_type(session, SOUP_TYPE_PROXY_URI_RESOLVER);
         return;
     }
 
-    SoupURI* uri = soup_uri_new(proxy);
-    EINA_SAFETY_ON_NULL_RETURN(uri);
-
-    g_object_set(session, SOUP_SESSION_PROXY_URI, uri, NULL);
-    soup_uri_free(uri);
+    SoupProxyURIResolver* resolverEfl = soupProxyResolverWkNew(proxy, 0);
+    soup_session_add_feature(session, SOUP_SESSION_FEATURE(resolverEfl));
+    g_object_unref(resolverEfl);
 }
 
 const char* ewk_network_proxy_uri_get(void)
 {
     SoupURI* uri;
     SoupSession* session = WebCore::ResourceHandle::defaultSession();
-    g_object_get(session, SOUP_SESSION_PROXY_URI, &uri, NULL);
+    SoupProxyURIResolver* resolver = SOUP_PROXY_URI_RESOLVER(soup_session_get_feature(session, SOUP_TYPE_PROXY_URI_RESOLVER));
+    if (!resolver)
+        return 0;
+
+    g_object_get(resolver, SOUP_PROXY_RESOLVER_WK_PROXY_URI, &uri, NULL);
 
     if (!uri) {
         ERR("no proxy uri");
@@ -57,11 +60,6 @@ const char* ewk_network_proxy_uri_get(void)
 
     WTF::String proxy = soup_uri_to_string(uri, false);
     return eina_stringshare_add(proxy.utf8().data());
-}
-
-void ewk_network_state_notifier_online_set(Eina_Bool online)
-{
-    WebCore::networkStateNotifier().setOnLine(online);
 }
 
 Eina_Bool ewk_network_tls_certificate_check_get()

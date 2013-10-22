@@ -123,12 +123,12 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
     if (pppref) {
         s = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
         if (s < 0) {
-            if (url = CFBundleCopyBundleURL(pppref)) {
+            if ((url = CFBundleCopyBundleURL(pppref))) {
                 name[0] = 0;
                 CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                 CFRelease(url);
                 strlcat(name, "/", sizeof(name));
-                if (url = CFBundleCopyBuiltInPlugInsURL(pppref)) {
+                if ((url = CFBundleCopyBuiltInPlugInsURL(pppref))) {
                     CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                                 MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
                     CFRelease(url);
@@ -179,7 +179,7 @@ int pppoevpn_get_pppd_args(struct vpn_params *params, int reload)
         /* arguments from the preferences file */
         addstrparam(params->exec_args, &params->next_arg_index, "pppoemode", "answer");
 
-        if (string = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEDeviceName)) {
+        if ((string = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEDeviceName))) {
             if (!CFStringGetCString(string, device, sizeof(device), kCFStringEncodingUTF8)) {
                 vpnlog(LOG_ERR, "PPPoE plugin: Could not get device name\n");
                 return -1;
@@ -187,10 +187,10 @@ int pppoevpn_get_pppd_args(struct vpn_params *params, int reload)
         }
         addstrparam(params->exec_args, &params->next_arg_index, "device", device);
 
-        if (service = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEServiceName))
+        if ((service = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEServiceName)))
             CFRetain(service);
 
-        if (access_concentrator = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEAccessConcentratorName))
+        if ((access_concentrator = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEAccessConcentratorName)))
             CFRetain(access_concentrator);
     }
 
@@ -397,9 +397,7 @@ int pppoevpn_refuse(void)
 void pppoevpn_close(void)
 {
     if (listen_sockfd != -1) {
-        if (pppoe_sys_close(listen_sockfd) < 0)
-            ;  // do nothing      
-            
+        pppoe_sys_close(listen_sockfd);
         listen_sockfd = -1;
     }
 }

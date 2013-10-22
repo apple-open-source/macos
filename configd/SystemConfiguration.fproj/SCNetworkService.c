@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@
 
 #include <pthread.h>
 
+#define EXTERNAL_ID_DOMAIN_PREFIX	"_"
 
 static CFStringRef	__SCNetworkServiceCopyDescription	(CFTypeRef cf);
 static void		__SCNetworkServiceDeallocate		(CFTypeRef cf);
@@ -100,6 +101,7 @@ __SCNetworkServiceDeallocate(CFTypeRef cf)
 	if (servicePrivate->prefs != NULL) CFRelease(servicePrivate->prefs);
 	if (servicePrivate->store != NULL) CFRelease(servicePrivate->store);
 	if (servicePrivate->name != NULL) CFRelease(servicePrivate->name);
+	if (servicePrivate->externalIDs != NULL) CFRelease(servicePrivate->externalIDs);
 
 	return;
 }
@@ -332,7 +334,7 @@ __SCNetworkServiceNextName(SCNetworkServiceRef service)
 		}
 	}
 
-	name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), suffix);
+	name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), (int)suffix);
 	CFArrayAppendValue(newComponents, name);
 	CFRelease(name);
 
@@ -452,6 +454,8 @@ SCNetworkServiceAddProtocolType(SCNetworkServiceRef service, CFStringRef protoco
 	}
 
 	protocol  = SCNetworkServiceCopyProtocol(service, protocolType);
+	assert(protocol != NULL);
+
 	newEntity = _protocolTemplate(service, protocolType);
 	ok = SCNetworkProtocolSetConfiguration(protocol, newEntity);
 	CFRelease(newEntity);
@@ -519,6 +523,7 @@ SCNetworkServiceCopyAll(SCPreferencesRef prefs)
 			}
 
 			servicePrivate = __SCNetworkServiceCreatePrivate(NULL, prefs, keys[i], NULL);
+			assert(servicePrivate != NULL);
 			CFArrayAppendValue(array, (SCNetworkServiceRef)servicePrivate);
 			CFRelease(servicePrivate);
 		}
@@ -620,6 +625,7 @@ _SCNetworkServiceCopyActive(SCDynamicStoreRef store, CFStringRef serviceID)
 	}
 
 	servicePrivate = __SCNetworkServiceCreatePrivate(NULL, NULL, serviceID, NULL);
+	assert(servicePrivate != NULL);
 	if (store != NULL) {
 		servicePrivate->store = CFRetain(store);
 	}
@@ -1130,7 +1136,7 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 						CFRetain(interface_name);
 					}
 					break;
-#if	!TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_IPHONE
 				case 1 :
 					// compare the older "Built-in XXX" localized name
 					interface_name = __SCNetworkInterfaceCopyXLocalizedDisplayName(interface);
@@ -1139,7 +1145,7 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 					// compare the older "Built-in XXX" non-localized name
 					interface_name = __SCNetworkInterfaceCopyXNonLocalizedDisplayName(interface);
 					break;
-#endif	// !TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_IPHONE
 				default :
 					continue;
 			}
@@ -1709,3 +1715,130 @@ _SCNetworkServiceIsVPN(SCNetworkServiceRef service)
 	return FALSE;
 }
 
+
+Boolean
+SCNetworkServiceSetExternalID(SCNetworkServiceRef service, CFStringRef identifierDomain, CFStringRef identifier)
+{
+	CFStringRef					prefs_path;
+	CFDictionaryRef				service_dictionary;
+	SCNetworkServicePrivateRef	service_private		= (SCNetworkServicePrivateRef)service;
+	Boolean						success				= FALSE;
+	CFStringRef					prefixed_domain;
+
+	if (!isA_SCNetworkService(service) || (service_private->prefs == NULL) || !isA_CFString(identifierDomain)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (identifier != NULL && !isA_CFString(identifier)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	prefixed_domain = CFStringCreateWithFormat(kCFAllocatorDefault, 0, CFSTR("%s%@"), EXTERNAL_ID_DOMAIN_PREFIX, identifierDomain);
+
+	prefs_path = SCPreferencesPathKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+								    service_private->serviceID,
+								    NULL);
+
+	service_dictionary = SCPreferencesPathGetValue(service_private->prefs, prefs_path);
+	if (isA_CFDictionary(service_dictionary) || ((service_dictionary == NULL) && (identifier != NULL))) {
+		CFMutableDictionaryRef	new_service_dictionary;
+
+		if (service_dictionary != NULL) {
+			new_service_dictionary = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, service_dictionary);
+		} else {
+			new_service_dictionary = CFDictionaryCreateMutable(kCFAllocatorDefault,
+									   0,
+									   &kCFTypeDictionaryKeyCallBacks,
+									   &kCFTypeDictionaryValueCallBacks);
+		}
+
+		if (identifier != NULL) {
+			CFDictionarySetValue(new_service_dictionary, prefixed_domain, identifier);
+		} else {
+			CFDictionaryRemoveValue(new_service_dictionary, prefixed_domain);
+		}
+		success = SCPreferencesPathSetValue(service_private->prefs, prefs_path, new_service_dictionary);
+		CFRelease(new_service_dictionary);
+	}
+	CFRelease(prefs_path);
+
+	if (identifier != NULL) {
+	    if (service_private->externalIDs == NULL) {
+			service_private->externalIDs = CFDictionaryCreateMutable(kCFAllocatorDefault,
+										 0,
+																	 &kCFTypeDictionaryKeyCallBacks,
+																	 &kCFTypeDictionaryValueCallBacks);
+	    }
+	    CFDictionarySetValue(service_private->externalIDs, prefixed_domain, identifier);
+	} else {
+	    if (service_private->externalIDs != NULL) {
+			CFDictionaryRemoveValue(service_private->externalIDs, prefixed_domain);
+	    }
+	}
+
+	CFRelease(prefixed_domain);
+
+	if (!success) {
+		_SCErrorSet(kSCStatusFailed);
+	}
+
+	return success;
+}
+
+
+CFStringRef
+SCNetworkServiceCopyExternalID(SCNetworkServiceRef service, CFStringRef identifierDomain)
+{
+	SCNetworkServicePrivateRef	service_private		= (SCNetworkServicePrivateRef)service;
+	CFStringRef					identifier			= NULL;
+	CFStringRef					prefixed_domain;
+
+	if (!isA_SCNetworkService(service) || (service_private->prefs == NULL) || !isA_CFString(identifierDomain)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	prefixed_domain = CFStringCreateWithFormat(kCFAllocatorDefault, 0, CFSTR("%s%@"), EXTERNAL_ID_DOMAIN_PREFIX, identifierDomain);
+
+	if (service_private->externalIDs != NULL) {
+		identifier = CFDictionaryGetValue(service_private->externalIDs, prefixed_domain);
+		if (identifier != NULL) {
+			CFRetain(identifier);
+		}
+	}
+
+	if (identifier == NULL) {
+		CFStringRef			prefs_path;
+		CFDictionaryRef		service_dictionary;
+
+		prefs_path = SCPreferencesPathKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+									    service_private->serviceID,
+									    NULL);
+
+		service_dictionary = SCPreferencesPathGetValue(service_private->prefs, prefs_path);
+		if (isA_CFDictionary(service_dictionary)) {
+			identifier = CFDictionaryGetValue(service_dictionary, prefixed_domain);
+			if (identifier != NULL) {
+				CFRetain(identifier);
+				if (service_private->externalIDs == NULL) {
+					service_private->externalIDs = CFDictionaryCreateMutable(kCFAllocatorDefault,
+												 0,
+												 &kCFTypeDictionaryKeyCallBacks,
+												 &kCFTypeDictionaryValueCallBacks);
+				}
+				CFDictionarySetValue(service_private->externalIDs, prefixed_domain, identifier);
+			}
+		}
+		CFRelease(prefs_path);
+	}
+
+	CFRelease(prefixed_domain);
+
+	if (identifier == NULL) {
+		_SCErrorSet(kSCStatusNoKey);
+	}
+
+	return identifier;
+}

@@ -20,7 +20,7 @@
 #define InPageSearchManager_h
 
 #include "FindOptions.h"
-#include "WTFString.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 class Frame;
@@ -39,20 +39,20 @@ public:
     InPageSearchManager(WebPagePrivate*);
     ~InPageSearchManager();
 
-    bool findNextString(const String&, WebCore::FindOptions, bool wrap, bool highlightAllMatches);
+    bool findNextString(const String&, WebCore::FindOptions, bool wrap, bool highlightAllMatches, bool selectActiveMatchOnClear);
     void frameUnloaded(const WebCore::Frame*);
 
 private:
     class DeferredScopeStringMatches;
     friend class DeferredScopeStringMatches;
 
-    void clearTextMatches();
+    void clearTextMatches(bool selectActiveMatchOnClear = false);
     void setActiveMatchAndMarker(PassRefPtr<WebCore::Range>);
-    bool findAndMarkText(const String&, WebCore::Range*, WebCore::Frame*, const WebCore::FindOptions&, bool);
+    bool findAndMarkText(const String&, WebCore::Range*, WebCore::Frame*, const WebCore::FindOptions&, bool /* isNewSearch */, bool /* startFromSelection */);
     bool shouldSearchForText(const String&);
-    void scopeStringMatches(const String& text, bool reset, WebCore::Frame* scopingFrame = 0);
-    void scopeStringMatchesSoon(WebCore::Frame* scopingFrame, const String& text, bool reset);
-    void callScopeStringMatches(DeferredScopeStringMatches* caller, WebCore::Frame* scopingFrame, const String& text, bool reset);
+    void scopeStringMatches(const String& text, bool reset, bool locateActiveMatchOnly, WebCore::Frame* scopingFrame = 0);
+    void scopeStringMatchesSoon(WebCore::Frame* scopingFrame, const String& text, bool reset, bool locateActiveMatchOnly);
+    void callScopeStringMatches(DeferredScopeStringMatches* caller, WebCore::Frame* scopingFrame, const String& text, bool reset, bool locateActiveMatchOnly);
     void cancelPendingScopingEffort();
 
     Vector<DeferredScopeStringMatches*> m_deferredScopingWork;

@@ -663,12 +663,20 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		break;
 	    case 'L':
 		addbufspc(DIGBUFSIZE);
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+		sprintf(bv->bp, "%lld", shlvl);
+#else
 		sprintf(bv->bp, "%ld", (long)shlvl);
+#endif
 		bv->bp += strlen(bv->bp);
 		break;
 	    case '?':
 		addbufspc(DIGBUFSIZE);
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+		sprintf(bv->bp, "%lld", lastval);
+#else
 		sprintf(bv->bp, "%ld", (long)lastval);
+#endif
 		bv->bp += strlen(bv->bp);
 		break;
 	    case '%':
@@ -764,7 +772,11 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		    if (funcstack->tp == FS_EVAL)
 			lineno--;
 		    addbufspc(DIGBUFSIZE);
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+		    sprintf(bv->bp, "%lld", flineno);
+#else
 		    sprintf(bv->bp, "%ld", (long)flineno);
+#endif
 		    bv->bp += strlen(bv->bp);
 		    break;
 		}
@@ -772,7 +784,11 @@ putpromptchar(int doprint, int endchar, unsigned int *txtchangep)
 		/* FALLTHROUGH */
 	    case 'i':
 		addbufspc(DIGBUFSIZE);
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+		sprintf(bv->bp, "%lld", lineno);
+#else
 		sprintf(bv->bp, "%ld", (long)lineno);
+#endif
 		bv->bp += strlen(bv->bp);
 		break;
 	    case 'x':
@@ -1008,7 +1024,7 @@ countprompt(char *str, int *wp, int *hp, int overf)
 #endif
 
     for (; *str; str++) {
-	if (w >= columns && overf >= 0) {
+	if (w >= zterm_columns && overf >= 0) {
 	    w = 0;
 	    h++;
 	}
@@ -1092,8 +1108,8 @@ countprompt(char *str, int *wp, int *hp, int overf)
      * This isn't easy to handle generally; just assume there's no
      * output.
      */
-    if(w >= columns && overf >= 0) {
-	if (!overf || w > columns) {
+    if(w >= zterm_columns && overf >= 0) {
+	if (!overf || w > zterm_columns) {
 	    w = 0;
 	    h++;
 	}
@@ -1205,7 +1221,7 @@ prompttrunc(int arg, int truncchar, int doprint, int endchar,
 		if (truncatleft) {
 		    /*
 		     * To truncate at the left, selectively copy
-		     * maxwidth bytes from the main prompt, preceeded
+		     * maxwidth bytes from the main prompt, preceded
 		     * by the truncation string in full.
 		     *
 		     * We're overwriting the string containing the

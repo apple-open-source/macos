@@ -21,15 +21,23 @@
 
 #include "config.h"
 
+#if ENABLE(INSPECTOR_SERVER)
 #include "WebInspectorServer.h"
 
 #include "WebInspectorProxy.h"
 #include "WebPageProxy.h"
+#include <QFile>
 #include <WebCore/MIMETypeRegistry.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
+
+static String remoteInspectorPagePath()
+{
+    DEFINE_STATIC_LOCAL(String, pagePath, (ASCIILiteral("/webkit/inspector/inspector.html?page=")));
+    return pagePath;
+}
 
 bool WebInspectorServer::platformResourceForPath(const String& path, Vector<char>& data, String& contentType)
 {
@@ -56,28 +64,45 @@ bool WebInspectorServer::platformResourceForPath(const String& path, Vector<char
     return false;
 }
 
+String WebInspectorServer::inspectorUrlForPageID(int pageId)
+{
+    if (pageId <= 0 || serverState() == Closed)
+        return String();
+    StringBuilder builder;
+    builder.appendLiteral("http://");
+    builder.append(bindAddress());
+    builder.append(':');
+    builder.appendNumber(port());
+    builder.append(remoteInspectorPagePath());
+    builder.appendNumber(pageId);
+    return builder.toString();
+}
+
 void WebInspectorServer::buildPageList(Vector<char>& data, String& contentType)
 {
     StringBuilder builder;
-    builder.append("[ ");
+    builder.appendLiteral("[ ");
     ClientMap::iterator end = m_clientMap.end();
     for (ClientMap::iterator it = m_clientMap.begin(); it != end; ++it) {
-        WebPageProxy* webPage = it->second->page();
+        WebPageProxy* webPage = it->value->page();
         if (it != m_clientMap.begin())
-            builder.append(", ");
-        builder.append("{ \"id\": " + String::number(it->first));
-        builder.append(", \"title\": \"");
+            builder.appendLiteral(", ");
+        builder.appendLiteral("{ \"id\": ");
+        builder.appendNumber(it->key);
+        builder.appendLiteral(", \"title\": \"");
         builder.append(webPage->pageTitle());
-        builder.append("\", \"url\": \"");
+        builder.appendLiteral("\", \"url\": \"");
         builder.append(webPage->activeURL());
-        builder.append("\", \"inspectorUrl\": \"");
-        builder.append("/webkit/inspector/inspector.html?page=" + String::number(it->first));
-        builder.append("\" }");
+        builder.appendLiteral("\", \"inspectorUrl\": \"");
+        builder.append(remoteInspectorPagePath());
+        builder.appendNumber(it->key);
+        builder.appendLiteral("\" }");
     }
-    builder.append(" ]");
+    builder.appendLiteral(" ]");
     CString cstr = builder.toString().utf8();
     data.append(cstr.data(), cstr.length());
     contentType = "application/json; charset=utf-8";
 }
 
 }
+#endif

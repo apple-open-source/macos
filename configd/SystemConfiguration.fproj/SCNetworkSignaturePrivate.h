@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,14 +23,6 @@
 
 #ifndef _SCNETWORKSIGNATUREPRIVATE_H
 #define _SCNETWORKSIGNATUREPRIVATE_H
-
-#define NETWORK_ID_KEY		"com.apple.network.identification"
-#define kSCNetworkIdentificationPrefsKey CFSTR(NETWORK_ID_KEY ".plist")
-#define kSCNetworkIdentificationStoreKey CFSTR(NETWORK_ID_KEY)
-
-#define kStoreKeyServiceIdentifiers 	CFSTR("ServiceIdentifiers")
-#define kStoreKeyActiveIdentifiers  	CFSTR("ActiveIdentifiers")
-#define kStoreKeyPrimaryIPv4Identifier 	CFSTR("PrimaryIPv4Identifier")
 
 #define kStoreKeyNetworkSignature	CFSTR("NetworkSignature")
 

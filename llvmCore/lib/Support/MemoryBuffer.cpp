@@ -14,8 +14,10 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/Config/config.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Errno.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
@@ -34,8 +36,6 @@
 #endif
 #include <fcntl.h>
 using namespace llvm;
-
-namespace { const llvm::error_code success; }
 
 //===----------------------------------------------------------------------===//
 // MemoryBuffer implementation itself.
@@ -81,12 +81,12 @@ public:
     init(InputData.begin(), InputData.end(), RequiresNullTerminator);
   }
 
-  virtual const char *getBufferIdentifier() const {
+  virtual const char *getBufferIdentifier() const LLVM_OVERRIDE {
      // The name is stored after the class itself.
     return reinterpret_cast<const char*>(this + 1);
   }
-  
-  virtual BufferKind getBufferKind() const {
+
+  virtual BufferKind getBufferKind() const LLVM_OVERRIDE {
     return MemoryBuffer_Malloc;
   }
 };
@@ -194,11 +194,32 @@ public:
     sys::Path::UnMapFilePages(reinterpret_cast<const char*>(RealStart),
                               RealSize);
   }
-  
-  virtual BufferKind getBufferKind() const {
+
+  virtual BufferKind getBufferKind() const LLVM_OVERRIDE {
     return MemoryBuffer_MMap;
   }
 };
+}
+
+static error_code getMemoryBufferForStream(int FD, 
+                                           StringRef BufferName,
+                                           OwningPtr<MemoryBuffer> &result) {
+  const ssize_t ChunkSize = 4096*4;
+  SmallString<ChunkSize> Buffer;
+  ssize_t ReadBytes;
+  // Read into Buffer until we hit EOF.
+  do {
+    Buffer.reserve(Buffer.size() + ChunkSize);
+    ReadBytes = read(FD, Buffer.end(), ChunkSize);
+    if (ReadBytes == -1) {
+      if (errno == EINTR) continue;
+      return error_code(errno, posix_category());
+    }
+    Buffer.set_size(Buffer.size() + ReadBytes);
+  } while (ReadBytes != 0);
+
+  result.reset(MemoryBuffer::getMemBufferCopy(Buffer, BufferName));
+  return error_code::success();
 }
 
 error_code MemoryBuffer::getFile(StringRef Filename,
@@ -215,6 +236,14 @@ error_code MemoryBuffer::getFile(const char *Filename,
                                  OwningPtr<MemoryBuffer> &result,
                                  int64_t FileSize,
                                  bool RequiresNullTerminator) {
+  // First check that the "file" is not a directory
+  bool is_dir = false;
+  error_code err = sys::fs::is_directory(Filename, is_dir);
+  if (err)
+    return err;
+  if (is_dir)
+    return make_error_code(errc::is_a_directory);
+
   int OpenFlags = O_RDONLY;
 #ifdef O_BINARY
   OpenFlags |= O_BINARY;  // Open input file in binary mode on win32.
@@ -289,6 +318,13 @@ error_code MemoryBuffer::getOpenFile(int FD, const char *Filename,
       if (fstat(FD, &FileInfo) == -1) {
         return error_code(errno, posix_category());
       }
+
+      // If this is a named pipe, we can't trust the size. Create the memory
+      // buffer by copying off the stream.
+      if (FileInfo.st_mode & S_IFIFO) {
+        return getMemoryBufferForStream(FD, Filename, result);
+      }
+
       FileSize = FileInfo.st_size;
     }
     MapSize = FileSize;
@@ -305,7 +341,7 @@ error_code MemoryBuffer::getOpenFile(int FD, const char *Filename,
                                                       RealMapOffset)) {
       result.reset(GetNamedBuffer<MemoryBufferMMapFile>(
           StringRef(Pages + Delta, MapSize), Filename, RequiresNullTerminator));
-      return success;
+      return error_code::success();
     }
   }
 
@@ -320,29 +356,35 @@ error_code MemoryBuffer::getOpenFile(int FD, const char *Filename,
   char *BufPtr = const_cast<char*>(SB->getBufferStart());
 
   size_t BytesLeft = MapSize;
+#ifndef HAVE_PREAD
   if (lseek(FD, Offset, SEEK_SET) == -1)
     return error_code(errno, posix_category());
+#endif
 
   while (BytesLeft) {
+#ifdef HAVE_PREAD
+    ssize_t NumRead = ::pread(FD, BufPtr, BytesLeft, MapSize-BytesLeft+Offset);
+#else
     ssize_t NumRead = ::read(FD, BufPtr, BytesLeft);
+#endif
     if (NumRead == -1) {
       if (errno == EINTR)
         continue;
       // Error while reading.
       return error_code(errno, posix_category());
-    } else if (NumRead == 0) {
-      // We hit EOF early, truncate and terminate buffer.
-      Buf->BufferEnd = BufPtr;
-      *BufPtr = 0;
-      result.swap(SB);
-      return success;
+    }
+    if (NumRead == 0) {
+      assert(0 && "We got inaccurate FileSize value or fstat reported an "
+                   "invalid file size.");
+      *BufPtr = '\0'; // null-terminate at the actual size.
+      break;
     }
     BytesLeft -= NumRead;
     BufPtr += NumRead;
   }
 
   result.swap(SB);
-  return success;
+  return error_code::success();
 }
 
 //===----------------------------------------------------------------------===//
@@ -356,20 +398,5 @@ error_code MemoryBuffer::getSTDIN(OwningPtr<MemoryBuffer> &result) {
   // fallback if it fails.
   sys::Program::ChangeStdinToBinary();
 
-  const ssize_t ChunkSize = 4096*4;
-  SmallString<ChunkSize> Buffer;
-  ssize_t ReadBytes;
-  // Read into Buffer until we hit EOF.
-  do {
-    Buffer.reserve(Buffer.size() + ChunkSize);
-    ReadBytes = read(0, Buffer.end(), ChunkSize);
-    if (ReadBytes == -1) {
-      if (errno == EINTR) continue;
-      return error_code(errno, posix_category());
-    }
-    Buffer.set_size(Buffer.size() + ReadBytes);
-  } while (ReadBytes != 0);
-
-  result.reset(getMemBufferCopy(Buffer, "<stdin>"));
-  return success;
+  return getMemoryBufferForStream(0, "<stdin>", result);
 }

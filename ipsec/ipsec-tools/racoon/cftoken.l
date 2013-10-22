@@ -88,15 +88,16 @@
 #endif
 
 #include "y.tab.h"
+#include "eap_sim.h"
 
 int yyerrorcount = 0;
 
 #if defined(YIPS_DEBUG)
-#  define YYDB plog(LLV_DEBUG2, LOCATION, NULL,                                \
+#  define YYDB plog(ASL_LEVEL_DEBUG,                                \
 		"begin <%d>%s\n", yy_start, yytext);
 #  define YYD {                                                                \
-	plog(LLV_DEBUG2, LOCATION, NULL, "<%d>%s",                             \
-	    yy_start, loglevel >= LLV_DEBUG2 ? "\n" : "");                     \
+	plog(ASL_LEVEL_DEBUG, "<%d>%s",                             \
+	    yy_start, loglevel >= ASL_LEVEL_DEBUG ? "\n" : "");                     \
 }
 #else
 #  define YYDB
@@ -159,13 +160,6 @@ hexstring	0x{hexdigit}+
 	}
 %}
 
-	/* privsep */
-<S_INI>privsep		{ BEGIN S_PRIV; YYDB; return(PRIVSEP); }
-<S_PRIV>{bcl}		{ return(BOC); }
-<S_PRIV>user		{ YYD; return(USER); }
-<S_PRIV>group		{ YYD; return(GROUP); }
-<S_PRIV>chroot		{ YYD; return(CHROOT); }
-<S_PRIV>{ecl}		{ BEGIN S_INI; return(EOC); }
 
 	/* path */
 <S_INI>path		{ BEGIN S_PTH; YYDB; return(PATH); }
@@ -174,10 +168,6 @@ hexstring	0x{hexdigit}+
 <S_PTH>pre_shared_key	{ YYD; yylval.num = LC_PATHTYPE_PSK;
 				return(PATHTYPE); }
 <S_PTH>certificate	{ YYD; yylval.num = LC_PATHTYPE_CERT;
-				return(PATHTYPE); }
-<S_PTH>script		{ YYD; yylval.num = LC_PATHTYPE_SCRIPT;
-				return(PATHTYPE); }
-<S_PTH>backupsa		{ YYD; yylval.num = LC_PATHTYPE_BACKUPSA;
 				return(PATHTYPE); }
 <S_PTH>pidfile		{ YYD; yylval.num = LC_PATHTYPE_PIDFILE;
 				return(PATHTYPE); }
@@ -197,14 +187,14 @@ hexstring	0x{hexdigit}+
 
 	/* logging */
 <S_INI>log		{ BEGIN S_LOG; YYDB; return(LOGGING); }
-<S_LOG>error		{ YYD; yylval.num = LLV_ERROR; return(LOGLEV); }
-<S_LOG>warning		{ YYD; yylval.num = LLV_WARNING; return(LOGLEV); }
-<S_LOG>notify		{ YYD; yylval.num = LLV_NOTIFY; return(LOGLEV); }
-<S_LOG>info		{ YYD; yylval.num = LLV_INFO; return(LOGLEV); }
-<S_LOG>debug		{ YYD; yylval.num = LLV_DEBUG; return(LOGLEV); }
-<S_LOG>debug2		{ YYD; yylval.num = LLV_DEBUG2; return(LOGLEV); }
-<S_LOG>debug3		{ YYD; racoon_yywarn("it is obsoleted.  use \"debug2\""); yylval.num = LLV_DEBUG2; return(LOGLEV); }
-<S_LOG>debug4		{ YYD; racoon_yywarn("it is obsoleted.  use \"debug2\""); yylval.num = LLV_DEBUG2; return(LOGLEV); }
+<S_LOG>error		{ YYD; yylval.num = ASL_LEVEL_ERR; return(LOGLEV); }
+<S_LOG>warning		{ YYD; yylval.num = ASL_LEVEL_WARNING; return(LOGLEV); }
+<S_LOG>notify		{ YYD; yylval.num = ASL_LEVEL_NOTICE; return(LOGLEV); }
+<S_LOG>info		{ YYD; yylval.num = ASL_LEVEL_INFO; return(LOGLEV); }
+<S_LOG>debug		{ YYD; yylval.num = ASL_LEVEL_DEBUG; return(LOGLEV); }
+<S_LOG>debug2		{ YYD; yylval.num = ASL_LEVEL_DEBUG; return(LOGLEV); }
+<S_LOG>debug3		{ YYD; racoon_yywarn("it is obsoleted.  use \"debug2\""); yylval.num = ASL_LEVEL_DEBUG; return(LOGLEV); }
+<S_LOG>debug4		{ YYD; racoon_yywarn("it is obsoleted.  use \"debug2\""); yylval.num = ASL_LEVEL_DEBUG; return(LOGLEV); }
 <S_LOG>{semi}		{ BEGIN S_INI; return(EOS); }
 
 	/* padding */
@@ -302,12 +292,12 @@ hexstring	0x{hexdigit}+
 <S_RMTS>{ecl}		{ BEGIN S_INI; return(EOC); }
 <S_RMTS>exchange_mode	{ YYD; return(EXCHANGE_MODE); }
 <S_RMTS>{comma}		{ YYD; /* XXX ignored, but to be handled. */ ; }
-<S_RMTS>base		{ YYD; yylval.num = ISAKMP_ETYPE_BASE; return(EXCHANGETYPE); }
 <S_RMTS>main		{ YYD; yylval.num = ISAKMP_ETYPE_IDENT; return(EXCHANGETYPE); }
 <S_RMTS>aggressive	{ YYD; yylval.num = ISAKMP_ETYPE_AGG; return(EXCHANGETYPE); }
 <S_RMTS>doi		{ YYD; return(DOI); }
 <S_RMTS>ipsec_doi	{ YYD; yylval.num = IPSEC_DOI; return(DOITYPE); }
 <S_RMTS>situation	{ YYD; return(SITUATION); }
+<S_RMTS>ike_version	{ YYD; return(IKE_VERSION); }
 <S_RMTS>identity_only	{ YYD; yylval.num = IPSECDOI_SIT_IDENTITY_ONLY; return(SITUATIONTYPE); }
 <S_RMTS>secrecy		{ YYD; yylval.num = IPSECDOI_SIT_SECRECY; return(SITUATIONTYPE); }
 <S_RMTS>integrity	{ YYD; yylval.num = IPSECDOI_SIT_INTEGRITY; return(SITUATIONTYPE); }
@@ -383,11 +373,13 @@ hexstring	0x{hexdigit}+
 <S_RMTS>idle_direction { YYD; return(IDLE_DIRECTION); }
 <S_RMTS>ike_frag	{ YYD; return(IKE_FRAG); }
 <S_RMTS>esp_frag	{ YYD; return(ESP_FRAG); }
-<S_RMTS>script		{ YYD; return(SCRIPT); }
-<S_RMTS>phase1_up	{ YYD; return(PHASE1_UP); }
-<S_RMTS>phase1_down	{ YYD; return(PHASE1_DOWN); }
 <S_RMTS>mode_cfg	{ YYD; return(MODE_CFG); }
 <S_RMTS>weak_phase1_check { YYD; return(WEAK_PHASE1_CHECK); }
+<S_RMTS>eap_types	{ YYD; return(EAP_TYPES); }
+<S_RMTS>eap_any     { YYD; yylval.num = EAP_TYPE_NONE; return(EAP_TYPE); }
+<S_RMTS>eap_sim     { YYD; yylval.num = EAP_TYPE_SIM; return(EAP_TYPE); }
+<S_RMTS>eap_aka     { YYD; yylval.num = EAP_TYPE_AKA; return(EAP_TYPE); }
+<S_RMTS>eap_options	{ YYD; return(EAP_OPTIONS); }
 	/* remote proposal */
 <S_RMTS>proposal	{ BEGIN S_RMTP; YYDB; return(PROPOSAL); }
 <S_RMTP>{bcl}		{ return(BOC); }
@@ -398,6 +390,8 @@ hexstring	0x{hexdigit}+
 <S_RMTP>encryption_algorithm { YYD; yylval.num = algclass_isakmp_enc; return(ALGORITHM_CLASS); }
 <S_RMTP>authentication_method { YYD; yylval.num = algclass_isakmp_ameth; return(ALGORITHM_CLASS); }
 <S_RMTP>hash_algorithm	{ YYD; yylval.num = algclass_isakmp_hash; return(ALGORITHM_CLASS); }
+<S_RMTP>prf_algorithm	{ YYD; yylval.num = algclass_ikev2_prf; return(ALGORITHM_CLASS); }
+<S_RMTP>integ_algorithm	{ YYD; yylval.num = algclass_ikev2_integ; return(ALGORITHM_CLASS); }
 <S_RMTP>dh_group	{ YYD; return(DH_GROUP); }
 <S_RMTP>gss_id		{ YYD; return(GSS_ID); }
 <S_RMTP>gssapi_id	{ YYD; return(GSS_ID); } /* for back compatibility */
@@ -472,14 +466,16 @@ aes		{ YYD; yylval.num = algtype_aes;	return(ALGORITHMTYPE); }
 rijndael	{ YYD; yylval.num = algtype_aes;	return(ALGORITHMTYPE); }
 twofish		{ YYD; yylval.num = algtype_twofish;	return(ALGORITHMTYPE); }
 non_auth	{ YYD; yylval.num = algtype_non_auth;	return(ALGORITHMTYPE); }
-hmac_md5	{ YYD; yylval.num = algtype_hmac_md5;	return(ALGORITHMTYPE); }
-hmac_sha1	{ YYD; yylval.num = algtype_hmac_sha1;	return(ALGORITHMTYPE); }
+hmac_md5	{ YYD; yylval.num = algtype_hmac_md5_128;	return(ALGORITHMTYPE); }
+hmac_sha1	{ YYD; yylval.num = algtype_hmac_sha1_160;	return(ALGORITHMTYPE); }
 hmac_sha2_256	{ YYD; yylval.num = algtype_hmac_sha2_256;	return(ALGORITHMTYPE); }
 hmac_sha256	{ YYD; yylval.num = algtype_hmac_sha2_256;	return(ALGORITHMTYPE); }
 hmac_sha2_384	{ YYD; yylval.num = algtype_hmac_sha2_384;	return(ALGORITHMTYPE); }
 hmac_sha384	{ YYD; yylval.num = algtype_hmac_sha2_384;	return(ALGORITHMTYPE); }
 hmac_sha2_512	{ YYD; yylval.num = algtype_hmac_sha2_512;	return(ALGORITHMTYPE); }
 hmac_sha512	{ YYD; yylval.num = algtype_hmac_sha2_512;	return(ALGORITHMTYPE); }
+hmac_md5_96	{ YYD; yylval.num = algtype_hmac_md5_96;	return(ALGORITHMTYPE); }
+hmac_sha1_96	{ YYD; yylval.num = algtype_hmac_sha1_96;	return(ALGORITHMTYPE); }
 des_mac		{ YYD; yylval.num = algtype_des_mac;	return(ALGORITHMTYPE); }
 kpdk		{ YYD; yylval.num = algtype_kpdk;	return(ALGORITHMTYPE); }
 md5		{ YYD; yylval.num = algtype_md5;	return(ALGORITHMTYPE); }
@@ -566,6 +562,20 @@ xauth_rsa_client {
 #else
 	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
+}
+eap_psk_client {
+    #ifdef ENABLE_HYBRID
+	YYD; yylval.num = algtype_eap_psk_c; return(ALGORITHMTYPE);
+    #else
+	racoon_yyerror("racoon not configured with --enable-hybrid");
+    #endif
+}
+eap_rsa_client {
+    #ifdef ENABLE_HYBRID
+	YYD; yylval.num = algtype_eap_rsa_c; return(ALGORITHMTYPE);
+    #else
+	racoon_yyerror("racoon not configured with --enable-hybrid");
+    #endif
 }
 
 
@@ -756,14 +766,14 @@ no		{ YYD; yylval.num = FALSE; return(BOOLEAN); }
 void
 yyerror(const char *msg)
 {
-	 plog(LLV_ERROR, LOCATION, NULL, "%s:%d: %s\n", incstack[incstackp].path, incstack[incstackp].lineno, msg);
+    plog(ASL_LEVEL_ERR, "%s:%d: %s\n", incstack[incstackp].path, incstack[incstackp].lineno, msg);
 	yyerrorcount++;
 }
 
 void
 yywarn(const char *msg)
 {
-	 plog(LLV_ERROR, LOCATION, NULL, "%s:%d: %s\n", incstack[incstackp].path, incstack[incstackp].lineno, msg);
+	 plog(ASL_LEVEL_ERR, "%s:%d: %s\n", incstack[incstackp].path, incstack[incstackp].lineno, msg);
 }
 
 void
@@ -800,14 +810,14 @@ yycf_switch_buffer(path)
 
 	/* got the include file name */
 	if (incstackp >= MAX_INCLUDE_DEPTH) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"Includes nested too deeply");
 		return -1;
 	}
 
 	if (glob(path, GLOB_TILDE, NULL, &incstack[incstackp].matches) != 0 ||
 	    incstack[incstackp].matches.gl_pathc == 0) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"glob found no matches for path \"%s\"\n", path);
 		return 0;
 	}
@@ -842,7 +852,7 @@ yycf_set_buffer(path)
 	if (yyin == NULL) {
 		fprintf(stderr, "failed to open file %s (%s)\n",
 			path, strerror(errno));
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to open file %s (%s)\n",
 			path, strerror(errno));
 		return -1;
@@ -857,8 +867,8 @@ yycf_set_buffer(path)
 	incstack[incstackp].path = racoon_strdup(path);
 	STRDUP_FATAL(incstack[incstackp].path);
 	incstack[incstackp].lineno = 1;
-	plog(LLV_DEBUG, LOCATION, NULL,
-		"reading config file %s\n", path);
+	plog(ASL_LEVEL_DEBUG, 
+		"reading configuration file %s\n", path);
 
 	return 0;
 }

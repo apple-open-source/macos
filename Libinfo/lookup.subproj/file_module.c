@@ -123,6 +123,8 @@ _fsi_copy_string(char *s)
 
 	len = strlen(s) + 1;
 	t = malloc(len);
+	if (t == NULL) return NULL;
+
 	bcopy(s, t, len);
 	return t;
 }

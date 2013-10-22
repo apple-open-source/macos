@@ -44,7 +44,6 @@
 #define BEXT64	    	_MAKE_EXT(64)
 #define BEXT128	    	_MAKE_EXT(128)
 #define BEXT256	    	_MAKE_EXT(256)
-#undef _MAKE_EXT
 
 // ul - unsigned long for x86_64
 // us - unsigned long for i386

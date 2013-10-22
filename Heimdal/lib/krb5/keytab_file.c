@@ -52,6 +52,7 @@ krb5_kt_ret_data(krb5_context context,
 		 krb5_storage *sp,
 		 krb5_data *data)
 {
+    krb5_ssize_t sret;
     int ret;
     int16_t size;
     ret = krb5_ret_int16(sp, &size);
@@ -63,9 +64,9 @@ krb5_kt_ret_data(krb5_context context,
 	krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
 	return ENOMEM;
     }
-    ret = krb5_storage_read(sp, data->data, size);
-    if(ret != size)
-	return (ret < 0)? errno : KRB5_KT_END;
+    sret = krb5_storage_read(sp, data->data, size);
+    if(sret != size)
+	return (sret < 0)? errno : KRB5_KT_END;
     return 0;
 }
 
@@ -74,6 +75,7 @@ krb5_kt_ret_string(krb5_context context,
 		   krb5_storage *sp,
 		   heim_general_string *data)
 {
+    krb5_ssize_t sret;
     int ret;
     int16_t size;
     ret = krb5_ret_int16(sp, &size);
@@ -84,10 +86,10 @@ krb5_kt_ret_string(krb5_context context,
 	krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
 	return ENOMEM;
     }
-    ret = krb5_storage_read(sp, *data, size);
+    sret = krb5_storage_read(sp, *data, size);
     (*data)[size] = '\0';
-    if(ret != size)
-	return (ret < 0)? errno : KRB5_KT_END;
+    if(sret != size)
+	return (sret < 0)? errno : KRB5_KT_END;
     return 0;
 }
 
@@ -96,13 +98,14 @@ krb5_kt_store_data(krb5_context context,
 		   krb5_storage *sp,
 		   krb5_data data)
 {
+    krb5_ssize_t sret;
     int ret;
     ret = krb5_store_int16(sp, data.length);
     if(ret < 0)
 	return ret;
-    ret = krb5_storage_write(sp, data.data, data.length);
-    if(ret != (int)data.length){
-	if(ret < 0)
+    sret = krb5_storage_write(sp, data.data, data.length);
+    if(sret != (krb5_ssize_t)data.length){
+	if(sret < 0)
 	    return errno;
 	return KRB5_KT_END;
     }
@@ -113,14 +116,15 @@ static krb5_error_code
 krb5_kt_store_string(krb5_storage *sp,
 		     heim_general_string data)
 {
+    krb5_ssize_t sret;
     int ret;
     size_t len = strlen(data);
     ret = krb5_store_int16(sp, len);
     if(ret < 0)
 	return ret;
-    ret = krb5_storage_write(sp, data, len);
-    if(ret != (int)len){
-	if(ret < 0)
+    sret = krb5_storage_write(sp, data, len);
+    if(sret != (krb5_ssize_t)len){
+	if(sret < 0)
 	    return errno;
 	return KRB5_KT_END;
     }
@@ -717,12 +721,12 @@ fkt_add_entry(krb5_context context,
     while(1) {
 	ret = krb5_ret_int32(sp, &len);
 	if(ret == KRB5_KT_END) {
-	    len = keytab.length;
+	    len = (uint32_t)keytab.length;
 	    break;
 	}
 	if(len < 0) {
 	    len = -len;
-	    if(len >= (int)keytab.length) {
+	    if(len >= (uint32_t)keytab.length) {
 		krb5_storage_seek(sp, -4, SEEK_CUR);
 		break;
 	    }
@@ -764,17 +768,17 @@ fkt_remove_entry(krb5_context context,
 			     &pos_start, &pos_end) == 0) {
 	if(krb5_kt_compare(context, &e, entry->principal,
 			   entry->vno, entry->keyblock.keytype)) {
-	    int32_t len;
+	    size_t len;
 	    unsigned char buf[128];
 	    found = 1;
 	    krb5_storage_seek(cursor.sp, pos_start, SEEK_SET);
-	    len = pos_end - pos_start - 4;
-	    krb5_store_int32(cursor.sp, -len);
+	    len = (size_t)(pos_end - pos_start - 4);
+	    krb5_store_int32(cursor.sp, -(int32_t)len);
 	    memset(buf, 0, sizeof(buf));
 	    while(len > 0) {
 		krb5_storage_write(cursor.sp, buf,
 		    min((size_t)len, sizeof(buf)));
-		len -= min((size_t)len, sizeof(buf));
+		len -= min(len, sizeof(buf));
 	    }
 	}
 	krb5_kt_free_entry(context, &e);

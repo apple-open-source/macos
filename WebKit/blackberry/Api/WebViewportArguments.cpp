@@ -35,34 +35,34 @@ WebViewportArguments::~WebViewportArguments()
     d = 0;
 }
 
-float WebViewportArguments::initialScale() const
+float WebViewportArguments::zoom() const
 {
-    return d->initialScale;
+    return d->zoom;
 }
 
-void WebViewportArguments::setInitialScale(float scale)
+void WebViewportArguments::setZoom(float zoom)
 {
-    d->initialScale = scale;
+    d->zoom = zoom;
 }
 
-float WebViewportArguments::minimumScale() const
+float WebViewportArguments::minZoom() const
 {
-    return d->minimumScale;
+    return d->minZoom;
 }
 
-void WebViewportArguments::setMinimumScale(float scale)
+void WebViewportArguments::setMinZoom(float zoom)
 {
-    d->minimumScale = scale;
+    d->minZoom = zoom;
 }
 
-float WebViewportArguments::maximumScale() const
+float WebViewportArguments::maxZoom() const
 {
-    return d->maximumScale;
+    return d->maxZoom;
 }
 
-void WebViewportArguments::setMaximumScale(float scale)
+void WebViewportArguments::setMaxZoom(float zoom)
 {
-    d->maximumScale = scale;
+    d->maxZoom = zoom;
 }
 
 float WebViewportArguments::width() const
@@ -85,24 +85,23 @@ void WebViewportArguments::setHeight(float height)
     d->height = height;
 }
 
-float WebViewportArguments::targetDensityDpi() const
+float WebViewportArguments::devicePixelRatio() const
 {
-    return d->targetDensityDpi;
+    return 0;
 }
 
-void WebViewportArguments::setTargetDensityDpi(float dpi)
+void WebViewportArguments::setDevicePixelRatio(float)
 {
-    d->targetDensityDpi = dpi;
 }
 
-float WebViewportArguments::userScalable() const
+float WebViewportArguments::userZoom() const
 {
-    return d->userScalable;
+    return d->userZoom;
 }
 
-void WebViewportArguments::setUserScalable(float scalable)
+void WebViewportArguments::setUserZoom(float zoom)
 {
-    d->userScalable = scalable;
+    d->userZoom = zoom;
 }
 
 bool WebViewportArguments::operator==(const WebViewportArguments& other)
@@ -112,7 +111,7 @@ bool WebViewportArguments::operator==(const WebViewportArguments& other)
 
 bool WebViewportArguments::operator!=(const WebViewportArguments& other)
 {
-    return !(*this == other);
+    return *d != *(other.d);
 }
 
 } // namespace WebKit

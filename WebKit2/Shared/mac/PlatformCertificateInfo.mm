@@ -29,7 +29,6 @@
 #import "ArgumentCodersCF.h"
 #import "ArgumentDecoder.h"
 #import "ArgumentEncoder.h"
-#import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 
@@ -40,7 +39,7 @@ PlatformCertificateInfo::PlatformCertificateInfo()
 }
 
 PlatformCertificateInfo::PlatformCertificateInfo(const ResourceResponse& response)
-    : m_certificateChain(AdoptCF, WKCopyNSURLResponseCertificateChain(response.nsURLResponse()))
+    : m_certificateChain(response.certificateChain())
 {
 }
 
@@ -49,21 +48,21 @@ PlatformCertificateInfo::PlatformCertificateInfo(CFArrayRef certificateChain)
 {
 }
 
-void PlatformCertificateInfo::encode(CoreIPC::ArgumentEncoder* encoder) const
+void PlatformCertificateInfo::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
     if (!m_certificateChain) {
-        encoder->encodeBool(false);
+        encoder << false;
         return;
     }
 
-    encoder->encodeBool(true);
+    encoder << true;
     CoreIPC::encode(encoder, m_certificateChain.get());
 }
 
-bool PlatformCertificateInfo::decode(CoreIPC::ArgumentDecoder* decoder, PlatformCertificateInfo& c)
+bool PlatformCertificateInfo::decode(CoreIPC::ArgumentDecoder& decoder, PlatformCertificateInfo& c)
 {
     bool hasCertificateChain;
-    if (!decoder->decode(hasCertificateChain))
+    if (!decoder.decode(hasCertificateChain))
         return false;
 
     if (!hasCertificateChain)
@@ -83,7 +82,7 @@ void PlatformCertificateInfo::dump() const
     NSLog(@"PlatformCertificateInfo\n");
     NSLog(@"  Entries: %d\n", entries);
     for (unsigned i = 0; i < entries; ++i) {
-        RetainPtr<CFStringRef> summary(AdoptCF, SecCertificateCopySubjectSummary((SecCertificateRef)CFArrayGetValueAtIndex(m_certificateChain.get(), i)));
+        RetainPtr<CFStringRef> summary = adoptCF(SecCertificateCopySubjectSummary((SecCertificateRef)CFArrayGetValueAtIndex(m_certificateChain.get(), i)));
         NSLog(@"  %@", (NSString *)summary.get());
     }
 }

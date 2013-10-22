@@ -1178,7 +1178,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD2550987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_apple_csp" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1365,12 +1365,14 @@
 		053910870A37725A00B9E848 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Debug;
 		};
 		0539108A0A37725A00B9E848 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Release;
 		};
@@ -1378,6 +1380,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446066146DE98E00B12992 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/open_ssl",
@@ -1388,6 +1392,10 @@
 					"-DCRYPTKIT_CSP_ENABLE",
 					"-DASC_CSP_ENABLE",
 					"-DCK_SECURITY_BUILD",
+				);
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
 				);
 			};
 			name = Debug;
@@ -1396,6 +1404,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446068146DE98E00B12992 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/open_ssl",
@@ -1407,6 +1417,10 @@
 					"-DASC_CSP_ENABLE",
 					"-DCK_SECURITY_BUILD",
 				);
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
 			};
 			name = Release;
 		};
@@ -1414,6 +1428,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446067146DE98E00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -1421,6 +1441,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446067146DE98E00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

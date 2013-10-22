@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,6 +57,8 @@
 #include "util.h"
 #include "DNSNameList.h"
 #include "nbo.h"
+#include "cfutil.h"
+#include <SystemConfiguration/SCPrivate.h>
 
 /*
  * Module: dhcpoa (dhcp options area)
@@ -262,9 +264,6 @@ dhcptype_from_strlist(const char * * strlist, int strlist_count,
  *
  * Purpose:
  *   Give a string representation to the given type.
- *
- * Note:
- *   Warning: this routine does not guard against over-running "tmp".
  */
 boolean_t
 dhcptype_to_str(char * tmp, size_t maxtmplen,
@@ -313,41 +312,41 @@ dhcptype_to_str(char * tmp, size_t maxtmplen,
 }
 
 void
-dhcptype_fprint_simple(FILE * f, dhcptype_t type,
-		       const void * opt, int option_len)
+dhcptype_print_cfstr_simple(CFMutableStringRef str, dhcptype_t type,
+			    const void * opt, int option_len)
 {
     const uint8_t *	option = opt;
 
     switch (type) {
       case dhcptype_bool_e:
-	  fprintf(f, "%s", *option ? "TRUE" : "FALSE");
+	  STRING_APPEND(str, "%s", *option ? "TRUE" : "FALSE");
 	  break;
 	
       case dhcptype_ip_e:
-	  fprintf(f, IP_FORMAT, IP_LIST(opt));
+	  STRING_APPEND(str, IP_FORMAT, IP_LIST(opt));
 	  break;
 	
       case dhcptype_string_e: {
-	  fprintf(f, "%.*s", option_len, (char *)option);
+	  STRING_APPEND(str, "%.*s", option_len, (char *)option);
 	  break;
       }
 	
       case dhcptype_opaque_e:
-	fprintf(f, "\n");
-	fprint_data(f, option, option_len);
+	STRING_APPEND(str, "\n");
+	print_data_cfstr(str, option, option_len);
 	break;
 
       case dhcptype_uint8_e:
-	fprintf(f, "0x%x", *option);
+	STRING_APPEND(str, "0x%x", *option);
 	break;
 
       case dhcptype_uint16_e:
-	fprintf(f, "0x%x", net_uint16_get(option));
+	STRING_APPEND(str, "0x%x", net_uint16_get(option));
 	break;
 
       case dhcptype_int32_e:
       case dhcptype_uint32_e:
-	fprintf(f, "0x%x", net_uint32_get(option));
+	STRING_APPEND(str, "0x%x", net_uint32_get(option));
 	break;
 
       case dhcptype_dns_namelist_e: {
@@ -356,15 +355,15 @@ dhcptype_fprint_simple(FILE * f, dhcptype_t type,
 	  int			namelist_length = 0;
 
 	  namelist = DNSNameListCreate(option, option_len, &namelist_length);
-	  fprintf(f, "{");
+	  STRING_APPEND(str, "{");
 	  if (namelist != NULL) {
 	      for (i = 0; i < namelist_length; i++) {
-		  fprintf(f, "%s%s", (i == 0) ? "" : ", ",
+		  STRING_APPEND(str, "%s%s", (i == 0) ? "" : ", ",
 			  namelist[i]);
 	      }
 	      free(namelist);
 	  }
-	  fprintf(f, "}");
+	  STRING_APPEND(str, "}");
 	  break;
       }
 	
@@ -372,6 +371,19 @@ dhcptype_fprint_simple(FILE * f, dhcptype_t type,
       default:
 	break;
     }
+    return;
+}
+
+void
+dhcptype_fprint_simple(FILE * f, dhcptype_t type,
+		       const void * opt, int option_len)
+{
+    CFMutableStringRef		str;
+    
+    str = CFStringCreateMutable(NULL, 0);
+    dhcptype_print_cfstr_simple(str, type, opt, option_len);
+    SCPrint(TRUE, f, CFSTR("%@"), str);
+    CFRelease(str);
     return;
 }
 
@@ -388,7 +400,8 @@ dhcptype_print_simple(dhcptype_t type, const void * opt, int option_len)
 }
 
 void
-dhcptype_fprint(FILE * f, dhcptype_t type, const void * option, int option_len)
+dhcptype_print_cfstr(CFMutableStringRef str,
+		     dhcptype_t type, const void * option, int option_len)
 {
     const dhcptype_info_t * 	type_info = dhcptype_info(type);
 
@@ -404,17 +417,31 @@ dhcptype_fprint(FILE * f, dhcptype_t type, const void * option, int option_len)
 	    return;
 	size = subtype_info->size;
 	number = option_len / size;
-	fprintf(f, "{");
+	STRING_APPEND(str, "{");
 	for (i = 0, offset = option; i < number; i++) {
 	    if (i != 0)
-		fprintf(f, ", ");
-	    dhcptype_fprint_simple(f, type_info->multiple_of, offset, size);
+		STRING_APPEND(str, ", ");
+	    dhcptype_print_cfstr_simple(str, type_info->multiple_of,
+					offset, size);
 	    offset += size;
 	}
-	fprintf(f, "}");
+	STRING_APPEND(str, "}");
     }
-    else
-	dhcptype_fprint_simple(f, type, option, option_len);
+    else {
+	dhcptype_print_cfstr_simple(str, type, option, option_len);
+    }
+    return;
+}
+
+void
+dhcptype_fprint(FILE * f, dhcptype_t type, const void * option, int option_len)
+{
+    CFMutableStringRef		str;
+    
+    str = CFStringCreateMutable(NULL, 0);
+    dhcptype_print_cfstr(str, type, option, option_len);
+    SCPrint(TRUE, f, CFSTR("%@"), str);
+    CFRelease(str);
     return;
 }
 
@@ -430,8 +457,8 @@ dhcptype_print(dhcptype_t type, const void * option, int option_len)
     return;
 }
 
-boolean_t
-dhcptag_fprint(FILE * f, const void * vopt)
+static boolean_t
+dhcptag_print_cfstr(CFMutableStringRef str, const void * vopt)
 {
     const dhcptag_info_t * entry;
     const uint8_t *	opt = vopt;
@@ -446,16 +473,28 @@ dhcptag_fprint(FILE * f, const void * vopt)
 	const dhcptype_info_t * type = dhcptype_info(entry->type);
 	
 	if (type == NULL) {
-	    fprintf(f, "unknown type %d\n", entry->type);
+	    STRING_APPEND(str, "unknown type %d\n", entry->type);
 	    return (FALSE);
 	}
-	fprintf(f, "%s (%s): ", entry->name, type->name);
+	STRING_APPEND(str, "%s (%s): ", entry->name, type->name);
 	if (tag == dhcptag_dhcp_message_type_e)
-	    fprintf(f, "%s ", dhcp_msgtype_names(*option));
-	dhcptype_fprint(f, entry->type, option, option_len);
-	fprintf(f, "\n");
+	    STRING_APPEND(str, "%s ", dhcp_msgtype_names(*option));
+	dhcptype_print_cfstr(str, entry->type, option, option_len);
+	STRING_APPEND(str, "\n");
     }
     return (TRUE);
+}
+
+boolean_t
+dhcptag_fprint(FILE * f, const void * vopt)
+{
+    boolean_t			printed;
+    CFMutableStringRef		str;
+    
+    str = CFStringCreateMutable(NULL, 0);
+    printed = dhcptag_print_cfstr(str, vopt);
+    CFRelease(str);
+    return (printed);
 }
 
 /*
@@ -965,19 +1004,31 @@ dhcpol_parse_vendor(dhcpol_t * vendor, dhcpol_t * options,
 }
 
 void
-dhcpol_fprint(FILE * f, dhcpol_t * list)
+dhcpol_print_cfstr(CFMutableStringRef str, dhcpol_t * list)
 {
     int 		i;
 
-    fprintf(f, "Options count is %d\n", dhcpol_count(list));
+    STRING_APPEND(str, "Options count is %d\n", dhcpol_count(list));
     for (i = 0; i < dhcpol_count(list); i++) {
 	uint8_t * option = dhcpol_element(list, i);
 
-	if (dhcptag_fprint(f, option) == FALSE) {
-	    fprintf(f, "undefined tag %d len %d\n", option[TAG_OFFSET], 
-		   option[LEN_OFFSET]);
+	if (dhcptag_print_cfstr(str, option) == FALSE) {
+	    STRING_APPEND(str, "undefined tag %d len %d\n", option[TAG_OFFSET], 
+			  option[LEN_OFFSET]);
 	}
     }
+    return;
+}
+
+void
+dhcpol_fprint(FILE * f, dhcpol_t * list)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    dhcpol_print_cfstr(str, list);
+    SCPrint(TRUE, f, CFSTR("%@"), str);
+    CFRelease(str);
     return;
 }
 

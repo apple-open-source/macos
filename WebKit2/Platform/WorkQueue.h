@@ -47,8 +47,10 @@
 
 #if PLATFORM(QT) && !OS(DARWIN)
 #include <QSocketNotifier>
+QT_BEGIN_NAMESPACE
 class QObject;
 class QThread;
+QT_END_NAMESPACE
 #elif PLATFORM(GTK)
 #include <wtf/gobject/GRefPtr.h>
 typedef gboolean (*GSourceFunc) (gpointer data);
@@ -56,11 +58,9 @@ typedef gboolean (*GSourceFunc) (gpointer data);
 #include <Ecore.h>
 #endif
 
-class WorkQueue {
-    WTF_MAKE_NONCOPYABLE(WorkQueue);
-
+class WorkQueue : public ThreadSafeRefCounted<WorkQueue> {
 public:
-    explicit WorkQueue(const char* name);
+    static PassRefPtr<WorkQueue> create(const char* name);
     ~WorkQueue();
 
     // Will dispatch the given function to run as soon as possible.
@@ -69,30 +69,18 @@ public:
     // Will dispatch the given function after the given delay (in seconds).
     void dispatchAfterDelay(const Function<void()>&, double delay);
 
-    void invalidate();
-
 #if OS(DARWIN)
-    enum MachPortEventType {
-        // Fired when there is data on the given receive right.
-        MachPortDataAvailable,
-        
-        // Fired when the receive right for this send right has been destroyed.
-        MachPortDeadNameNotification
-    };
-    
-    // Will execute the given function whenever the given mach port event fires.
-    // Note that this will adopt the mach port and destroy it when the work queue is invalidated.
-    void registerMachPortEventHandler(mach_port_t, MachPortEventType, const Function<void()>&);
-    void unregisterMachPortEventHandler(mach_port_t);
-#elif PLATFORM(WIN)
+    dispatch_queue_t dispatchQueue() const { return m_dispatchQueue; }
+
+#elif OS(WINDOWS)
     void registerHandle(HANDLE, const Function<void()>&);
     void unregisterAndCloseHandle(HANDLE);
 #elif PLATFORM(QT)
     QSocketNotifier* registerSocketEventHandler(int, QSocketNotifier::Type, const Function<void()>&);
     void dispatchOnTermination(WebKit::PlatformProcessIdentifier, const Function<void()>&);
 #elif PLATFORM(GTK)
-    void registerEventSourceHandler(int, int, const Function<void()>&);
-    void unregisterEventSourceHandler(int);
+    void registerSocketEventHandler(int, int, const Function<void()>& function, const Function<void()>& closeFunction);
+    void unregisterSocketEventHandler(int);
     void dispatchOnTermination(WebKit::PlatformProcessIdentifier, const Function<void()>&);
 #elif PLATFORM(EFL)
     void registerSocketEventHandler(int, const Function<void()>&);
@@ -100,36 +88,29 @@ public:
 #endif
 
 private:
-    // FIXME: Use an atomic boolean here instead.
-    Mutex m_isValidMutex;
-    bool m_isValid;
+    explicit WorkQueue(const char* name);
 
     void platformInitialize(const char* name);
     void platformInvalidate();
 
 #if OS(DARWIN)
-#if HAVE(DISPATCH_H)
     static void executeFunction(void*);
-    Mutex m_eventSourcesMutex;
-    class EventSource;
-    HashMap<mach_port_t, EventSource*> m_eventSources;
     dispatch_queue_t m_dispatchQueue;
-#endif
-#elif PLATFORM(WIN)
+#elif OS(WINDOWS)
     class WorkItemWin : public ThreadSafeRefCounted<WorkItemWin> {
     public:
         static PassRefPtr<WorkItemWin> create(const Function<void()>&, WorkQueue*);
         virtual ~WorkItemWin();
 
         Function<void()>& function() { return m_function; }
-        WorkQueue* queue() const { return m_queue; }
+        WorkQueue* queue() const { return m_queue.get(); }
 
     protected:
         WorkItemWin(const Function<void()>&, WorkQueue*);
 
     private:
         Function<void()> m_function;
-        WorkQueue* m_queue;
+        RefPtr<WorkQueue> m_queue;
     };
 
     class HandleWorkItem : public WorkItemWin {
@@ -161,10 +142,10 @@ private:
     volatile LONG m_isWorkThreadRegistered;
 
     Mutex m_workItemQueueLock;
-    Vector<RefPtr<WorkItemWin> > m_workItemQueue;
+    Vector<RefPtr<WorkItemWin>> m_workItemQueue;
 
     Mutex m_handlesLock;
-    HashMap<HANDLE, RefPtr<HandleWorkItem> > m_handles;
+    HashMap<HANDLE, RefPtr<HandleWorkItem>> m_handles;
 
     HANDLE m_timerQueue;
 #elif PLATFORM(QT)
@@ -182,28 +163,50 @@ private:
     GRefPtr<GMainLoop> m_eventLoop;
     Mutex m_eventSourcesLock;
     class EventSource;
-    HashMap<int, Vector<EventSource*> > m_eventSources;
-    typedef HashMap<int, Vector<EventSource*> >::iterator EventSourceIterator; 
+    class SocketEventSource;
+    HashMap<int, Vector<SocketEventSource*>> m_eventSources;
+    typedef HashMap<int, Vector<SocketEventSource*>>::iterator SocketEventSourceIterator;
 #elif PLATFORM(EFL)
+    class TimerWorkItem {
+    public:
+        static PassOwnPtr<TimerWorkItem> create(Function<void()>, double expireTime);
+        void dispatch() { m_function(); }
+        double expireTime() const { return m_expireTime; }
+        bool expired(double currentTime) const { return currentTime >= m_expireTime; }
+
+    protected:
+        TimerWorkItem(Function<void()>, double expireTime);
+
+    private:
+        Function<void()> m_function;
+        double m_expireTime;
+    };
+
     fd_set m_fileDescriptorSet;
     int m_maxFileDescriptor;
     int m_readFromPipeDescriptor;
     int m_writeToPipeDescriptor;
+    Mutex m_writeToPipeDescriptorLock;
+
     bool m_threadLoop;
 
-    Vector<Function<void()> > m_workItemQueue;
+    Vector<Function<void()>> m_workItemQueue;
     Mutex m_workItemQueueLock;
 
     int m_socketDescriptor;
     Function<void()> m_socketEventHandler;
 
-    HashMap<int, OwnPtr<Ecore_Timer> > m_timers;
+    Vector<OwnPtr<TimerWorkItem>> m_timerWorkItems;
+    Mutex m_timerWorkItemsLock;
 
     void sendMessageToThread(const char*);
     static void* workQueueThread(WorkQueue*);
     void performWork();
     void performFileDescriptorWork();
-    static bool timerFired(void*);
+    static double getCurrentTime();
+    struct timeval* getNextTimeOut();
+    void performTimerWork();
+    void insertTimerWorkItem(PassOwnPtr<TimerWorkItem>);
 #endif
 };
 

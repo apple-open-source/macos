@@ -68,6 +68,7 @@ public:
 	void infoKey(const std::string &key, const std::string &value);
 	void ident(const std::string &identHash);
 	void cdhash(SHA1::Digest digest);
+	void cdhash(CFDataRef digest);
 	
 	void copy(const void *data, size_t length)
 		{ memcpy(this->alloc(length), data, length); }
@@ -79,7 +80,7 @@ public:
 	//
 	struct Label {
 		const Offset pos;
-		Label(const Maker &maker) : pos(maker.length()) { }
+		Label(const Maker &maker) : pos((const Offset)maker.length()) { }
 	};
 	void *insert(const Label &label, size_t length = sizeof(uint32_t));
 	
@@ -96,16 +97,15 @@ public:
 		Chain(Maker &myMaker, ExprOp op)
 			: Label(myMaker), maker(myMaker), mJoiner(op), mCount(0) { }
 
-		void add()
+		void add() const
 			{ if (mCount++) maker.insert<ExprOp>(*this) = mJoiner; }
 	
 		Maker &maker;
 		bool empty() const { return mCount == 0; }
-		unsigned count() const { return mCount; }
 
 	private:
 		ExprOp mJoiner;
-		unsigned mCount;
+		mutable unsigned mCount;
 	};
 	
 	

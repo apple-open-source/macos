@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 44;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -16,6 +16,7 @@
 				BE3E0A830AD9A3EE0054ACA0 /* PBXTargetDependency */,
 				BE3E0B7D0AD9B90A0054ACA0 /* PBXTargetDependency */,
 				BE4A17BB0AEBBAD9001371C6 /* PBXTargetDependency */,
+				4DDA8CDB150E763B00631F4D /* PBXTargetDependency */,
 			);
 			name = ntfs;
 			productName = ntfs;
@@ -41,7 +42,6 @@
 		BE3E0A920AD9A53C0054ACA0 /* ntfs.util.c in Sources */ = {isa = PBXBuildFile; fileRef = BE3E0A900AD9A53C0054ACA0 /* ntfs.util.c */; };
 		BE3E0A970AD9A5F80054ACA0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE3E0A960AD9A5F80054ACA0 /* CoreFoundation.framework */; };
 		BE3E0B540AD9B62A0054ACA0 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = BE3E0A9D0AD9A68F0054ACA0 /* InfoPlist.strings */; };
-		BE3E0B740AD9B8B30054ACA0 /* ntfs.util in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE3E0A240AD9A1700054ACA0 /* ntfs.util */; };
 		BE4A17890AEBB85E001371C6 /* mount_ntfs.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4A17870AEBB85E001371C6 /* mount_ntfs.c */; };
 		BE4A17950AEBB951001371C6 /* mount_ntfs.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE4A17860AEBB85E001371C6 /* mount_ntfs.8 */; };
 		BE63703C0A24FD6A003CD14D /* ntfs_compress.c in Sources */ = {isa = PBXBuildFile; fileRef = BE63703B0A24FD6A003CD14D /* ntfs_compress.c */; };
@@ -56,19 +56,19 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		4DDA8CDA150E763B00631F4D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 72E40F83091CC03000674539 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BE3E0A230AD9A1700054ACA0;
+			remoteInfo = ntfs.util;
+		};
 		BE3E0A820AD9A3EE0054ACA0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 72E40F83091CC03000674539 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 72E40FE6091CC3A900674539;
 			remoteInfo = ntfs.kext;
-		};
-		BE3E0B510AD9B62A0054ACA0 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 72E40F83091CC03000674539 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = BE3E0A230AD9A1700054ACA0;
-			remoteInfo = ntfs.util;
 		};
 		BE3E0B7C0AD9B90A0054ACA0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -97,16 +97,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		BE3E0B580AD9B62A0054ACA0 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 1;
-			files = (
-				BE3E0B740AD9B8B30054ACA0 /* ntfs.util in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		BE4A178B0AEBB8F6001371C6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -120,6 +110,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = ntfs.xcconfig; sourceTree = "<group>"; };
 		721548A2092409E3008BD7DA /* ntfs_debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_debug.c; sourceTree = "<group>"; };
 		721548A8092409F7008BD7DA /* ntfs_debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_debug.h; sourceTree = "<group>"; };
 		721548AD09240A10008BD7DA /* ntfs_vnops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_vnops.c; sourceTree = "<group>"; };
@@ -127,7 +118,7 @@
 		72B3866F09277DE500DC8718 /* ntfs_endian.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_endian.h; sourceTree = "<group>"; };
 		72B3867009277DE500DC8718 /* ntfs_layout.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_layout.h; sourceTree = "<group>"; };
 		72B3867109277DE500DC8718 /* ntfs_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_types.h; sourceTree = "<group>"; };
-		72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_vfsops.c; sourceTree = "<group>"; };
+		72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = ntfs_vfsops.c; sourceTree = "<group>"; usesTabs = 1; };
 		72D1E3EE097AFAA800A661AF /* ntfs_mft.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_mft.c; sourceTree = "<group>"; };
 		72D1E3EF097AFAA800A661AF /* ntfs_mft.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_mft.h; sourceTree = "<group>"; };
 		72D60B9A09766BEA00E0D450 /* ntfs_hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_hash.c; sourceTree = "<group>"; };
@@ -137,7 +128,6 @@
 		72D60B9E09766BEA00E0D450 /* ntfs_runlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_runlist.h; sourceTree = "<group>"; };
 		72D60BBE0976734E00E0D450 /* ntfs_dir.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_dir.h; sourceTree = "<group>"; };
 		72D60BC50976768E00E0D450 /* ntfs_dir.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_dir.c; sourceTree = "<group>"; };
-		72E00002092539F300F90B29 /* ntfs_version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_version.h; sourceTree = "<group>"; };
 		72E40FE7091CC3A900674539 /* ntfs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ntfs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72E410AF091CF9A100674539 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		72E4192E091CFC2500674539 /* Kernel.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
@@ -149,7 +139,7 @@
 		72E75FD90986D74A0050048E /* ntfs_attr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_attr.h; sourceTree = "<group>"; };
 		72E75FED098714850050048E /* ntfs_unistr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_unistr.c; sourceTree = "<group>"; };
 		72E75FEE098714850050048E /* ntfs_unistr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_unistr.h; sourceTree = "<group>"; };
-		72FE849209313B0D00752581 /* ntfs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs.h; sourceTree = "<group>"; };
+		72FE849209313B0D00752581 /* ntfs.h */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.h; path = ntfs.h; sourceTree = "<group>"; usesTabs = 1; };
 		72FE849709313B5100752581 /* ntfs_volume.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_volume.h; sourceTree = "<group>"; };
 		BE2956350B7B373B00E0CE44 /* ntfs_collate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ntfs_collate.c; sourceTree = "<group>"; };
 		BE2956370B7B375F00E0CE44 /* ntfs_collate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntfs_collate.h; sourceTree = "<group>"; };
@@ -216,6 +206,7 @@
 		72E40F81091CC03000674539 = {
 			isa = PBXGroup;
 			children = (
+				4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */,
 				BE4A177B0AEBB7B0001371C6 /* mount */,
 				BE3E0A890AD9A4340054ACA0 /* ntfs.fs */,
 				BE3E0A1D0AD9A0E40054ACA0 /* util */,
@@ -280,7 +271,6 @@
 				BE6370210A24EE78003CD14D /* ntfs_compress.h */,
 				72B3867009277DE500DC8718 /* ntfs_layout.h */,
 				72B3867109277DE500DC8718 /* ntfs_types.h */,
-				72E00002092539F300F90B29 /* ntfs_version.h */,
 				721548B309240A1C008BD7DA /* ntfs_vnops.h */,
 				721548AD09240A10008BD7DA /* ntfs_vnops.c */,
 				72BFC8DD0923A5940052BF8D /* ntfs_vfsops.c */,
@@ -341,7 +331,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 72E40FEA091CC3AA00674539 /* Build configuration list for PBXNativeTarget "ntfs.kext" */;
 			buildPhases = (
-				72E0FFB30925329E00F90B29 /* ShellScript */,
 				72E40FE3091CC3A900674539 /* Sources */,
 			);
 			buildRules = (
@@ -360,6 +349,7 @@
 				BE3E0A210AD9A1700054ACA0 /* Sources */,
 				BE3E0A220AD9A1700054ACA0 /* Frameworks */,
 				BE3E0A7A0AD9A2EA0054ACA0 /* CopyFiles */,
+				4DDA8CC3150E689B00631F4D /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -379,12 +369,10 @@
 				BE3E0B550AD9B62A0054ACA0 /* Sources */,
 				BE3E0B560AD9B62A0054ACA0 /* Frameworks */,
 				BE3E0B570AD9B62A0054ACA0 /* Rez */,
-				BE3E0B580AD9B62A0054ACA0 /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				BE3E0B500AD9B62A0054ACA0 /* PBXTargetDependency */,
 			);
 			name = ntfs.fs;
 			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
@@ -399,6 +387,7 @@
 				BE4A177C0AEBB809001371C6 /* Sources */,
 				BE4A177D0AEBB809001371C6 /* Frameworks */,
 				BE4A178B0AEBB8F6001371C6 /* CopyFiles */,
+				4DDA8CC4150E68D800631F4D /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -414,8 +403,11 @@
 /* Begin PBXProject section */
 		72E40F83091CC03000674539 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
 			buildConfigurationList = 72E40F84091CC03000674539 /* Build configuration list for PBXProject "ntfs" */;
-			compatibilityVersion = "Xcode 3.0";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -460,19 +452,37 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		72E0FFB30925329E00F90B29 /* ShellScript */ = {
+		4DDA8CC3150E689B00631F4D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			comments = "This script updates the VERSION compiled into the binary by taking it from the Xcode Project File.";
+			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/ntfs.util",
 			);
 			outputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_PATH)/ntfs.util",
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${ACTION}\" == \"build\" ]; then\n\n\t# Obtain the new version.\n\tNEW_VERSION=$(grep MODULE_VERSION ntfs.xcodeproj/project.pbxproj | tail -1 | cut -d'=' -f2 | cut -d';' -f1 | sed s/\"[\\ \\t]*\"//g)\n\n\t# Obtain the old version.\n\tOLD_VERSION=$(cat kext/ntfs_version.h 2> /dev/null | sed s/\".*#define.*VERSION[\\ \\t]*\"//g)\n\n\t# If the version has changed, update the ntfs_version.h include file.\n\tif [ \"${OLD_VERSION}x\" != \"${NEW_VERSION}x\" ]; then\n\t\trm -f kext/ntfs_version.h\n\t\techo \"#define VERSION \\\"${NEW_VERSION}\\\"\" > kext/ntfs_version.h\n\tfi\nfi\nexit 0";
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_DIR}/ntfs.util ${DSTROOT}${FS_BUNDLE_PATH}/ntfs.util";
+			showEnvVarsInLog = 0;
+		};
+		4DDA8CC4150E68D800631F4D /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/mount_ntfs",
+			);
+			outputPaths = (
+				"$(DSTROOT)/sbin/mount_ntfs",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/mount_ntfs ${DSTROOT}/sbin/mount_ntfs\nchgrp -h wheel ${DSTROOT}/sbin/mount_ntfs\n";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -533,15 +543,15 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		4DDA8CDB150E763B00631F4D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BE3E0A230AD9A1700054ACA0 /* ntfs.util */;
+			targetProxy = 4DDA8CDA150E763B00631F4D /* PBXContainerItemProxy */;
+		};
 		BE3E0A830AD9A3EE0054ACA0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72E40FE6091CC3A900674539 /* ntfs.kext */;
 			targetProxy = BE3E0A820AD9A3EE0054ACA0 /* PBXContainerItemProxy */;
-		};
-		BE3E0B500AD9B62A0054ACA0 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = BE3E0A230AD9A1700054ACA0 /* ntfs.util */;
-			targetProxy = BE3E0B510AD9B62A0054ACA0 /* PBXContainerItemProxy */;
 		};
 		BE3E0B7D0AD9B90A0054ACA0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -569,9 +579,9 @@
 /* Begin XCBuildConfiguration section */
 		72E40F85091CC03000674539 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DEBUGGING_SYMBOLS = full;
@@ -607,9 +617,9 @@
 		};
 		72E40F86091CC03000674539 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4DDA8CC2150E65F100631F4D /* ntfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DEBUGGING_SYMBOLS = full;
@@ -644,12 +654,12 @@
 				COPY_PHASE_STRIP = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
-				GCC_MODEL_TUNING = G4;
 				GCC_NO_COMMON_BLOCKS = NO;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					NAMEDSTREAMS,
 					DEBUG,
+					"NTFS_VERSION_STRING=\\\"$(NTFS_VERSION)\\\"",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_WARN_ABOUT_MISSING_NEWLINE = NO;
@@ -659,10 +669,8 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.10;
-				PREBINDING = NO;
+				MODULE_VERSION = $NTFS_VERSION;
 				PRODUCT_NAME = ntfs;
-				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -671,23 +679,23 @@
 		72E40FEC091CC3AA00674539 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				COPY_PHASE_STRIP = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
-				GCC_MODEL_TUNING = G4;
 				GCC_NO_COMMON_BLOCKS = NO;
 				GCC_OPTIMIZATION_LEVEL = s;
-				GCC_PREPROCESSOR_DEFINITIONS = NAMEDSTREAMS;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					NAMEDSTREAMS,
+					"NTFS_VERSION_STRING=\\\"$(NTFS_VERSION)\\\"",
+				);
 				INFOPLIST_FILE = kext/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.10;
-				PREBINDING = NO;
+				MODULE_VERSION = $NTFS_VERSION;
 				PRODUCT_NAME = ntfs;
-				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -705,11 +713,9 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = ntfs.util;
-				SKIP_INSTALL = YES;
-				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
 			};
@@ -718,7 +724,7 @@
 		BE3E0A280AD9A1910054ACA0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -726,11 +732,9 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = ntfs.util;
-				SKIP_INSTALL = YES;
-				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
 			};
@@ -753,7 +757,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = ntfs;
 				ZERO_LINK = NO;
@@ -763,7 +766,7 @@
 		BE3E0B5A0AD9B62A0054ACA0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -776,7 +779,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ntfs;
 				SECTORDER_FLAGS = "";
-				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = all;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -792,7 +794,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -803,7 +804,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ntfs;
 				SECTORDER_FLAGS = "";
-				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = all;
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -822,15 +822,12 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G4;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = NO;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = NO;
 				PRODUCT_NAME = mount_ntfs;
-				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
 			};
@@ -839,17 +836,14 @@
 		BE4A17830AEBB831001371C6 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G4;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = NO;
 				PRODUCT_NAME = mount_ntfs;
-				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
 			};

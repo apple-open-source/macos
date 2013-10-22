@@ -82,14 +82,16 @@
 #include <spawn_private.h>
 #include <time.h>
 #include <libinfo.h>
-#include <assumes.h>
+#include <os/assumes.h>
 #include <xpc/launchd.h>
+#include <asl.h>
+#include <_simple.h>
 
 #include <libproc.h>
+#include <libproc_internal.h>
 #include <System/sys/proc_info.h>
 #include <malloc/malloc.h>
 #include <pthread.h>
-#include <libproc.h>
 #if HAVE_SANDBOX
 #define __APPLE_API_PRIVATE
 #include <sandbox.h>
@@ -97,8 +99,14 @@
 #if HAVE_QUARANTINE
 #include <quarantine.h>
 #endif
+#if HAVE_RESPONSIBILITY
+#include <responsibility.h>
+#endif
 #if !TARGET_OS_EMBEDDED
 extern int gL1CacheEnabled;
+#endif
+#if HAVE_SYSTEMSTATS
+#include <systemstats/systemstats.h>
 #endif
 
 #include "launch.h"
@@ -122,6 +130,11 @@ extern int gL1CacheEnabled;
 
 #define POSIX_SPAWN_IOS_INTERACTIVE 0
 
+#if TARGET_OS_EMBEDDED
+/* Default memory highwatermark for daemons as set out in <rdar://problem/10307788>. */
+#define DEFAULT_JETSAM_DAEMON_HIGHWATERMARK 5
+#endif
+
 /* LAUNCHD_DEFAULT_EXIT_TIMEOUT
  *   If the job hasn't exited in the given number of seconds after sending
  *   it a SIGTERM, SIGKILL it. Can be overriden in the job plist.
@@ -138,10 +151,6 @@ extern int gL1CacheEnabled;
 #define TAKE_SUBSET_PERPID "TakeSubsetPerPID"
 
 #define IS_POWER_OF_TWO(v) (!(v & (v - 1)) && v)
-
-#ifndef NOTE_EXIT_REPARENTED
-#define NOTE_EXIT_REPARENTED 0x00080000
-#endif
 
 extern char **environ;
 
@@ -176,10 +185,11 @@ struct machservice {
 		drain_all_on_crash:1,
 		upfront:1,
 		event_channel:1,
+		recv_race_hack :1,
 		/* Don't let the size of this field to get too small. It has to be large
 		 * enough to represent the reasonable range of special port numbers.
 		 */
-		special_port_num:18;
+		special_port_num:17;
 	const char name[0];
 };
 
@@ -319,6 +329,7 @@ struct externalevent {
 	bool wanted_state;
 	bool internal;
 	xpc_object_t event;
+	xpc_object_t entitlements;
 
 	char name[0];
 };
@@ -328,7 +339,7 @@ struct externalevent_iter_ctx {
 	struct eventsystem *sys;
 };
 
-static bool externalevent_new(job_t j, struct eventsystem *sys, const char *evname, xpc_object_t event);
+static bool externalevent_new(job_t j, struct eventsystem *sys, const char *evname, xpc_object_t event, uint64_t flags);
 static void externalevent_delete(struct externalevent *ee);
 static void externalevent_setup(launch_data_t obj, const char *key, void *context);
 static struct externalevent *externalevent_find(const char *sysname, uint64_t id);
@@ -346,6 +357,20 @@ static void eventsystem_setup(launch_data_t obj, const char *key, void *context)
 static struct eventsystem *eventsystem_find(const char *name);
 static void eventsystem_ping(void);
 
+struct waiting4attach {
+	LIST_ENTRY(waiting4attach) le;
+	mach_port_t port;
+	pid_t dest;
+	xpc_service_type_t type;
+	char name[0];
+};
+
+static LIST_HEAD(, waiting4attach) _launchd_domain_waiters;
+
+static struct waiting4attach *waiting4attach_new(jobmgr_t jm, const char *name, mach_port_t port, pid_t dest, xpc_service_type_t type);
+static void waiting4attach_delete(jobmgr_t jm, struct waiting4attach *w4a);
+static struct waiting4attach *waiting4attach_find(jobmgr_t jm, job_t j);
+
 #define ACTIVE_JOB_HASH_SIZE 32
 #define ACTIVE_JOB_HASH(x) (IS_POWER_OF_TWO(ACTIVE_JOB_HASH_SIZE) ? (x & (ACTIVE_JOB_HASH_SIZE - 1)) : (x % ACTIVE_JOB_HASH_SIZE))
 
@@ -358,6 +383,7 @@ struct jobmgr_s {
 	SLIST_ENTRY(jobmgr_s) sle;
 	SLIST_HEAD(, jobmgr_s) submgrs;
 	LIST_HEAD(, job_s) jobs;
+	LIST_HEAD(, waiting4attach) attaches;
 
 	/* For legacy reasons, we keep all job labels that are imported in the root
 	 * job manager's label hash. If a job manager is an XPC domain, then it gets
@@ -390,6 +416,7 @@ struct jobmgr_s {
 	mach_port_t req_bsport;
 	mach_port_t req_excport;
 	mach_port_t req_asport;
+	mach_port_t req_gui_asport;
 	pid_t req_pid;
 	uid_t req_euid;
 	gid_t req_egid;
@@ -397,6 +424,7 @@ struct jobmgr_s {
 	vm_offset_t req_ctx;
 	mach_msg_type_number_t req_ctx_sz;
 	mach_port_t req_rport;
+	uint64_t req_uniqueid;
 	kern_return_t error;
 	union {
 		const char name[0];
@@ -409,8 +437,8 @@ static jobmgr_t _s_xpc_system_domain;
 static LIST_HEAD(, jobmgr_s) _s_xpc_user_domains;
 static LIST_HEAD(, jobmgr_s) _s_xpc_session_domains;
 
-#define jobmgr_assumes(jm, e) osx_assumes_ctx(jobmgr_log_bug, jm, (e))
-#define jobmgr_assumes_zero(jm, e) osx_assumes_zero_ctx(jobmgr_log_bug, jm, (e))
+#define jobmgr_assumes(jm, e) os_assumes_ctx(jobmgr_log_bug, jm, (e))
+#define jobmgr_assumes_zero(jm, e) os_assumes_zero_ctx(jobmgr_log_bug, jm, (e))
 #define jobmgr_assumes_zero_p(jm, e) posix_assumes_zero_ctx(jobmgr_log_bug, jm, (e))
 
 static jobmgr_t jobmgr_new(jobmgr_t jm, mach_port_t requestorport, mach_port_t transfer_port, bool sflag, const char *name, bool no_init, mach_port_t asport);
@@ -429,6 +457,7 @@ static void jobmgr_dispatch_all(jobmgr_t jm, bool newmounthack);
 static job_t jobmgr_init_session(jobmgr_t jm, const char *session_type, bool sflag);
 static job_t jobmgr_find_by_pid_deep(jobmgr_t jm, pid_t p, bool anon_okay);
 static job_t jobmgr_find_by_pid(jobmgr_t jm, pid_t p, bool create_anon);
+static job_t managed_job(pid_t p);
 static jobmgr_t jobmgr_find_by_name(jobmgr_t jm, const char *where);
 static job_t job_mig_intran2(jobmgr_t jm, mach_port_t mport, pid_t upid);
 static job_t jobmgr_lookup_per_user_context_internal(job_t j, uid_t which_user, mach_port_t *mp);
@@ -439,9 +468,9 @@ static void jobmgr_export_env_from_other_jobs(jobmgr_t jm, launch_data_t dict);
 static struct machservice *jobmgr_lookup_service(jobmgr_t jm, const char *name, bool check_parent, pid_t target_pid);
 static void jobmgr_logv(jobmgr_t jm, int pri, int err, const char *msg, va_list ap) __attribute__((format(printf, 4, 0)));
 static void jobmgr_log(jobmgr_t jm, int pri, const char *msg, ...) __attribute__((format(printf, 3, 4)));
-static void jobmgr_log_perf_statistics(jobmgr_t jm);
+static void jobmgr_log_perf_statistics(jobmgr_t jm, bool signal_children);
 // static void jobmgr_log_error(jobmgr_t jm, int pri, const char *msg, ...) __attribute__((format(printf, 3, 4)));
-static bool jobmgr_log_bug(aslmsg asl_message, void *ctx, const char *message);
+static bool jobmgr_log_bug(_SIMPLE_STRING asl_message, void *ctx, const char *message);
 
 #define AUTO_PICK_LEGACY_LABEL (const char *)(~0)
 #define AUTO_PICK_ANONYMOUS_LABEL (const char *)(~1)
@@ -460,6 +489,7 @@ struct job_s {
 	LIST_ENTRY(job_s) needing_session_sle;
 	LIST_ENTRY(job_s) jetsam_sle;
 	LIST_ENTRY(job_s) pid_hash_sle;
+	LIST_ENTRY(job_s) global_pid_hash_sle;
 	LIST_ENTRY(job_s) label_hash_sle;
 	LIST_ENTRY(job_s) global_env_sle;
 	SLIST_ENTRY(job_s) curious_jobs_sle;
@@ -475,8 +505,9 @@ struct job_s {
 	SLIST_HEAD(, machservice) machservices;
 	SLIST_HEAD(, semaphoreitem) semaphores;
 	SLIST_HEAD(, waiting_for_removal) removal_watchers;
+	struct waiting4attach *w4a;
+	job_t original;
 	job_t alias;
-	struct rusage ru;
 	cpu_type_t *j_binpref;
 	size_t j_binpref_cnt;
 	mach_port_t j_port;
@@ -496,22 +527,26 @@ struct job_s {
 	char *stdoutpath;
 	char *stderrpath;
 	char *alt_exc_handler;
+	char *cfbundleidentifier;
 	unsigned int nruns;
 	uint64_t trt;
 #if HAVE_SANDBOX
 	char *seatbelt_profile;
 	uint64_t seatbelt_flags;
+	char *container_identifier;
 #endif
 #if HAVE_QUARANTINE
 	void *quarantine_data;
 	size_t quarantine_data_sz;
 #endif
 	pid_t p;
+	uint64_t uniqueid;
 	int last_exit_status;
 	int stdin_fd;
 	int fork_fd;
 	int nice;
 	uint32_t pstype;
+	uint32_t psproctype;
 	int32_t jetsam_priority;
 	int32_t jetsam_memlimit;
 	int32_t main_thread_priority;
@@ -520,13 +555,12 @@ struct job_s {
 	uint64_t sent_signal_time;
 	uint64_t start_time;
 	uint32_t min_run_time;
+	bool unthrottle;
 	uint32_t start_interval;
 	uint32_t peruser_suspend_count;
 	uuid_t instance_id;
 	mode_t mask;
-	pid_t tracing_pid;
 	mach_port_t asport;
-	// Only set for per-user launchd's.
 	au_asid_t asid;
 	uuid_t expected_audit_uuid;
 	bool 	
@@ -629,12 +663,6 @@ struct job_s {
 		reaped:1,
 		// job_stop() was called.
 		stopped:1,
-		// The job is considered "frontmost" by Jetsam.
-		jetsam_frontmost:1,
-		/* The job is not frontmost, but it is considered "active" (i.e.
-		 * backgrounded) by Jetsam.
-		 */
-		jetsam_active:1,
 		/* The job is to be kept alive continuously, but it must first get an
 		 * initial kick off.
 		 */
@@ -647,6 +675,8 @@ struct job_s {
 		 * of the root user. This is SpringBoard.
 		 */
 		embedded_god:1,
+		// The job is responsible for drawing the home screen on embedded.
+		embedded_home:1,
 		// We got NOTE_EXEC for the job.
 		did_exec:1,
 		// The job is an XPC service, and XPC proxy successfully exec(3)ed.
@@ -655,6 +685,8 @@ struct job_s {
 		holds_ref:1,
 		// The job has Jetsam limits in place.
 		jetsam_properties:1,
+		// The job's Jetsam memory limits should only be applied in the background
+ 		jetsam_memory_limit_background:1,
 		/* This job was created as the result of a look up of a service provided
 		 * by a MultipleInstance job.
 		 */
@@ -690,13 +722,23 @@ struct job_s {
 		// The job is an app (on either iOS or OS X) and has different resource
 		// limitations.
 		app:1,
+		// FairPlay decryption failed on the job. This should only ever happen
+		// to apps.
+		fpfail:1,
 		// The job failed to exec(3) for reasons that may be transient, so we're
 		// waiting for UserEventAgent to tell us when it's okay to try spawning
 		// again (i.e. when the executable path appears, when the UID appears,
 		// etc.).
 		waiting4ok:1,
+		// The job exited due to memory pressure.
+		jettisoned:1,
+		// The job supports idle-exit.
+		idle_exit:1,
 		// The job was implicitly reaped by the kernel.
-		implicit_reap:1;
+		implicit_reap:1,
+		system_app :1,
+		joins_gui_session :1,
+		low_priority_background_io :1;
 
 	const char label[0];
 };
@@ -704,9 +746,10 @@ struct job_s {
 static size_t hash_label(const char *label) __attribute__((pure));
 static size_t hash_ms(const char *msstr) __attribute__((pure));
 static SLIST_HEAD(, job_s) s_curious_jobs;
+static LIST_HEAD(, job_s) managed_actives[ACTIVE_JOB_HASH_SIZE];
 
-#define job_assumes(j, e) osx_assumes_ctx(job_log_bug, j, (e))
-#define job_assumes_zero(j, e) osx_assumes_zero_ctx(job_log_bug, j, (e))
+#define job_assumes(j, e) os_assumes_ctx(job_log_bug, j, (e))
+#define job_assumes_zero(j, e) os_assumes_zero_ctx(job_log_bug, j, (e))
 #define job_assumes_zero_p(j, e) posix_assumes_zero_ctx(job_log_bug, j, (e))
 
 static void job_import_keys(launch_data_t obj, const char *key, void *context);
@@ -749,8 +792,11 @@ static void job_kill(job_t j);
 static void job_uncork_fork(job_t j);
 static void job_logv(job_t j, int pri, int err, const char *msg, va_list ap) __attribute__((format(printf, 4, 0)));
 static void job_log_error(job_t j, int pri, const char *msg, ...) __attribute__((format(printf, 3, 4)));
-static bool job_log_bug(aslmsg asl_message, void *ctx, const char *message);
-static void job_log_perf_statistics(job_t j);
+static bool job_log_bug(_SIMPLE_STRING asl_message, void *ctx, const char *message);
+static void job_log_perf_statistics(job_t j, struct rusage_info_v1 *ri, int64_t exit_status);
+#if HAVE_SYSTEMSTATS
+static void job_log_systemstats(pid_t pid, uint64_t uniqueid, uint64_t parent_uniqueid, pid_t req_pid, uint64_t req_uniqueid, const char *name, struct rusage_info_v1 *ri, int64_t exit_status);
+#endif
 static void job_set_exception_port(job_t j, mach_port_t port);
 static kern_return_t job_mig_spawn_internal(job_t j, vm_offset_t indata, mach_msg_type_number_t indataCnt, mach_port_t asport, job_t *outj);
 static void job_open_shutdown_transaction(job_t ji);
@@ -758,20 +804,44 @@ static void job_close_shutdown_transaction(job_t ji);
 static launch_data_t job_do_legacy_ipc_request(job_t j, launch_data_t request, mach_port_t asport);
 static void job_setup_per_user_directory(job_t j, uid_t uid, const char *path);
 static void job_setup_per_user_directories(job_t j, uid_t uid, const char *label);
+static void job_update_jetsam_properties(job_t j, xpc_jetsam_band_t band, uint64_t user_data);
+static void job_update_jetsam_memory_limit(job_t j, int32_t limit);
+
+#if TARGET_OS_EMBEDDED
+static bool job_import_defaults(launch_data_t pload);
+#endif
+
+static struct priority_properties_t {
+	long long band;
+	int priority;
+} _launchd_priority_map[] = {
+	{ XPC_JETSAM_BAND_SUSPENDED, JETSAM_PRIORITY_IDLE },
+	{ XPC_JETSAM_BAND_BACKGROUND_OPPORTUNISTIC, JETSAM_PRIORITY_BACKGROUND_OPPORTUNISTIC },
+	{ XPC_JETSAM_BAND_BACKGROUND, JETSAM_PRIORITY_BACKGROUND },
+	{ XPC_JETSAM_BAND_MAIL, JETSAM_PRIORITY_MAIL },
+	{ XPC_JETSAM_BAND_PHONE, JETSAM_PRIORITY_PHONE },
+	{ XPC_JETSAM_BAND_UI_SUPPORT, JETSAM_PRIORITY_UI_SUPPORT },
+	{ XPC_JETSAM_BAND_FOREGROUND_SUPPORT, JETSAM_PRIORITY_FOREGROUND_SUPPORT },
+	{ XPC_JETSAM_BAND_FOREGROUND, JETSAM_PRIORITY_FOREGROUND },
+	{ XPC_JETSAM_BAND_AUDIO, JETSAM_PRIORITY_AUDIO_AND_ACCESSORY },
+	{ XPC_JETSAM_BAND_ACCESSORY, JETSAM_PRIORITY_AUDIO_AND_ACCESSORY },
+	{ XPC_JETSAM_BAND_CRITICAL, JETSAM_PRIORITY_CRITICAL },
+	{ XPC_JETSAM_BAND_TELEPHONY, JETSAM_PRIORITY_TELEPHONY },
+};
 
 static const struct {
 	const char *key;
 	int val;
 } launchd_keys2limits[] = {
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_CORE,	RLIMIT_CORE	},
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_CPU,	RLIMIT_CPU	},
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_DATA,	RLIMIT_DATA	},
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_FSIZE,	RLIMIT_FSIZE	},
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_MEMLOCK,	RLIMIT_MEMLOCK	},
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_NOFILE,	RLIMIT_NOFILE	},
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_NPROC,	RLIMIT_NPROC	},
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_RSS,	RLIMIT_RSS	},
-	{ LAUNCH_JOBKEY_RESOURCELIMIT_STACK,	RLIMIT_STACK	},
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_CORE, RLIMIT_CORE },
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_CPU, RLIMIT_CPU },
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_DATA, RLIMIT_DATA },
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_FSIZE, RLIMIT_FSIZE },
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_MEMLOCK, RLIMIT_MEMLOCK },
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_NOFILE, RLIMIT_NOFILE },
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_NPROC, RLIMIT_NPROC },
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_RSS, RLIMIT_RSS },
+	{ LAUNCH_JOBKEY_RESOURCELIMIT_STACK, RLIMIT_STACK },
 };
 
 static time_t cronemu(int mon, int mday, int hour, int min);
@@ -802,8 +872,13 @@ static int xpc_event_channel_look_up(job_t j, xpc_object_t request, xpc_object_t
 static int xpc_event_provider_check_in(job_t j, xpc_object_t request, xpc_object_t *reply);
 static int xpc_event_provider_set_state(job_t j, xpc_object_t request, xpc_object_t *reply);
 
+#pragma mark XPC Process Forward Declarations
+static int xpc_process_set_jetsam_band(job_t j, xpc_object_t request, xpc_object_t *reply);
+static int xpc_process_set_jetsam_memory_limit(job_t j, xpc_object_t request, xpc_object_t *reply);
+
 // file local globals
 static job_t _launchd_embedded_god = NULL;
+static job_t _launchd_embedded_home = NULL;
 static size_t total_children;
 static size_t total_anon_children;
 static mach_port_t the_exception_server;
@@ -815,11 +890,14 @@ static job_t _launchd_event_monitor;
 static job_t _launchd_xpc_bootstrapper;
 static job_t _launchd_shutdown_monitor;
 
-mach_port_t launchd_audit_port = MACH_PORT_NULL;
-#if !TARGET_OS_EMBEDDED
-au_asid_t launchd_audit_session = AU_DEFAUDITSID;
-#else
+#if TARGET_OS_EMBEDDED
+static xpc_object_t _launchd_defaults_cache;
+
+mach_port_t launchd_audit_port = MACH_PORT_DEAD;
 pid_t launchd_audit_session = 0;
+#else
+mach_port_t launchd_audit_port = MACH_PORT_NULL;
+au_asid_t launchd_audit_session = AU_DEFAUDITSID;
 #endif
 
 static int s_no_hang_fd = -1;
@@ -975,9 +1053,15 @@ job_export(job_t j)
 	if ((tmp = launch_data_new_bool(j->ondemand))) {
 		launch_data_dict_insert(r, tmp, LAUNCH_JOBKEY_ONDEMAND);
 	}
-	if ((tmp = launch_data_new_integer(j->last_exit_status))) {
+
+	long long status = j->last_exit_status;
+	if (j->fpfail) {
+		status = LAUNCH_EXITSTATUS_FAIRPLAY_FAIL;
+	}
+	if ((tmp = launch_data_new_integer(status))) {
 		launch_data_dict_insert(r, tmp, LAUNCH_JOBKEY_LASTEXITSTATUS);
-	} 
+	}
+
 	if (j->p && (tmp = launch_data_new_integer(j->p))) {
 		launch_data_dict_insert(r, tmp, LAUNCH_JOBKEY_PID);
 	}
@@ -1192,7 +1276,13 @@ jobmgr_remove(jobmgr_t jm)
 			job_log(ji, LOG_ERR, "Job is still active at job manager teardown.");
 			ji->p = 0;
 		}
+
 		job_remove(ji);
+	}
+
+	struct waiting4attach *w4ai = NULL;
+	while ((w4ai = LIST_FIRST(&jm->attaches))) {
+		waiting4attach_delete(jm, w4ai);
 	}
 
 	if (jm->req_port) {
@@ -1244,6 +1334,13 @@ jobmgr_remove(jobmgr_t jm)
 	if (jm->parentmgr) {
 		runtime_del_weak_ref();
 		SLIST_REMOVE(&jm->parentmgr->submgrs, jm, jobmgr_s, sle);
+
+		// Hack for the guest user so that its stuff doesn't persist.
+		//
+		// <rdar://problem/14527875>
+		if (strcmp(jm->name, VPROCMGR_SESSION_AQUA) == 0 && getuid() == 201) {
+			raise(SIGTERM);
+		}
 	} else if (pid1_magic) {
 		eliminate_double_reboot();
 		launchd_log_vm_stats();
@@ -1419,9 +1516,15 @@ job_remove(job_t j)
 	if (j->alt_exc_handler) {
 		free(j->alt_exc_handler);
 	}
+	if (j->cfbundleidentifier) {
+		free(j->cfbundleidentifier);
+	}
 #if HAVE_SANDBOX
 	if (j->seatbelt_profile) {
 		free(j->seatbelt_profile);
+	}
+	if (j->container_identifier) {
+		free(j->container_identifier);
 	}
 #endif
 #if HAVE_QUARANTINE
@@ -1450,6 +1553,9 @@ job_remove(job_t j)
 	}
 	if (j->embedded_god) {
 		_launchd_embedded_god = NULL;
+	}
+	if (j->embedded_home) {
+		_launchd_embedded_home = NULL;
 	}
 	if (j->shutdown_monitor) {
 		_launchd_shutdown_monitor = NULL;
@@ -1714,7 +1820,7 @@ job_new_anonymous(jobmgr_t jm, pid_t anonpid)
 
 		job_log(jr, LOG_DEBUG, "Created PID %u anonymously by PPID %u%s%s", anonpid, proc.pbsi_ppid, jp ? ": " : "", jp ? jp->label : "");
 	} else {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 	}
 
 	// Undo our hack from above.
@@ -1764,6 +1870,7 @@ job_new_subjob(job_t j, uuid_t identifier)
 	job_t nj = (struct job_s *)calloc(1, sizeof(struct job_s) + label_sz + 1);
 	if (nj != NULL) {
 		nj->kqjob_callback = job_callback;
+		nj->original = j;
 		nj->mgr = j->mgr;
 		nj->min_run_time = j->min_run_time;
 		nj->timeout = j->timeout;
@@ -1789,6 +1896,9 @@ job_new_subjob(job_t j, uuid_t identifier)
 		nj->dedicated_instance = true;
 		nj->xpc_service = j->xpc_service;
 		nj->xpc_bootstrapper = j->xpc_bootstrapper;
+		nj->jetsam_priority = j->jetsam_priority;
+		nj->jetsam_memlimit = j->jetsam_memlimit;
+		nj->psproctype = j->psproctype;
 
 		nj->mask = j->mask;
 		uuid_copy(nj->instance_id, identifier);
@@ -1829,12 +1939,15 @@ job_new_subjob(job_t j, uuid_t identifier)
 			 */
 			if (msi->upfront) {
 				mach_port_t mp = MACH_PORT_NULL;
-				struct machservice *msj = machservice_new(nj, msi->name, &mp, msi->per_pid);
+				struct machservice *msj = machservice_new(nj, msi->name, &mp, false);
 				if (msj != NULL) {
 					msj->reset = msi->reset;
 					msj->delete_on_destruction = msi->delete_on_destruction;
 					msj->drain_one_on_crash = msi->drain_one_on_crash;
 					msj->drain_all_on_crash = msi->drain_all_on_crash;
+
+					kern_return_t kr = mach_port_set_attributes(mach_task_self(), msj->port, MACH_PORT_TEMPOWNER, NULL, 0);
+					(void)job_assumes_zero(j, kr);
 				} else {
 					(void)job_assumes_zero(nj, errno);
 				}
@@ -1883,9 +1996,15 @@ job_new_subjob(job_t j, uuid_t identifier)
 		if (j->alt_exc_handler) {
 			nj->alt_exc_handler = strdup(j->alt_exc_handler);
 		}
+		if (j->cfbundleidentifier) {
+			nj->cfbundleidentifier = strdup(j->cfbundleidentifier);
+		}
 #if HAVE_SANDBOX
 		if (j->seatbelt_profile) {
 			nj->seatbelt_profile = strdup(j->seatbelt_profile);
+		}
+		if (j->container_identifier) {
+			nj->container_identifier = strdup(j->container_identifier);
 		}
 #endif
 
@@ -1919,7 +2038,7 @@ job_new_subjob(job_t j, uuid_t identifier)
 		LIST_INSERT_HEAD(&where2put->label_hash[hash_label(nj->label)], nj, label_hash_sle);
 		LIST_INSERT_HEAD(&j->subjobs, nj, subjob_sle);
 	} else {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 	}
 
 	return nj;
@@ -1937,7 +2056,7 @@ job_new(jobmgr_t jm, const char *label, const char *prog, const char *const *arg
 	size_t i, cc = 0;
 	job_t j;
 
-	__OSX_COMPILETIME_ASSERT__(offsetof(struct job_s, kqjob_callback) == 0);
+	__OS_COMPILETIME_ASSERT__(offsetof(struct job_s, kqjob_callback) == 0);
 
 	if (unlikely(jm->shutting_down)) {
 		errno = EINVAL;
@@ -1981,7 +2100,7 @@ job_new(jobmgr_t jm, const char *label, const char *prog, const char *const *arg
 	j = calloc(1, sizeof(struct job_s) + minlabel_len + 1);
 
 	if (!j) {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 		return NULL;
 	}
 
@@ -2008,19 +2127,28 @@ job_new(jobmgr_t jm, const char *label, const char *prog, const char *const *arg
 	 * this priority band that its usefulness is highly questionable.
 	 * 
 	 * See <rdar://problem/9539873>.
+	 *
+	 * Also ensure that daemons have a default memory highwatermark unless
+	 * otherwise specified, as per <rdar://problem/10307814>.
 	 */
 	if (launchd_embedded_handofgod) {
-		j->pstype = POSIX_SPAWN_IOS_INTERACTIVE;
+		j->psproctype = POSIX_SPAWN_PROC_TYPE_APP_DEFAULT;
 		j->app = true;
 	} else {
-		j->pstype = POSIX_SPAWN_IOS_APPLE_DAEMON_START;
+		j->psproctype = POSIX_SPAWN_PROC_TYPE_DAEMON_BACKGROUND;
+		j->jetsam_memlimit = DEFAULT_JETSAM_DAEMON_HIGHWATERMARK;
 	}
+#else
+	/* Jobs on OS X that just come from disk are "standard" by default so that
+	 * third-party daemons/agents don't encounter unexpected throttling.
+	 */
+	j->psproctype = POSIX_SPAWN_PROC_TYPE_DAEMON_STANDARD;
 #endif
 
 	if (prog) {
 		j->prog = strdup(prog);
 		if (!j->prog) {
-			(void)osx_assumes_zero(errno);
+			(void)os_assumes_zero(errno);
 			goto out_bad;
 		}
 	}
@@ -2087,7 +2215,7 @@ job_new_alias(jobmgr_t jm, job_t src)
 
 	job_t j = calloc(1, sizeof(struct job_s) + strlen(src->label) + 1);
 	if (!j) {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 		return NULL;
 	}
 
@@ -2122,6 +2250,14 @@ job_new_alias(jobmgr_t jm, job_t src)
 job_t 
 job_import(launch_data_t pload)
 {
+#if TARGET_OS_EMBEDDED
+	/* If this is the special payload of default values, handle it here */
+	if (unlikely(launch_data_dict_lookup(pload, LAUNCH_JOBKEY_DEFAULTS))) {
+		job_import_defaults(pload);
+		return NULL;
+	}
+#endif    
+    
 	job_t j = jobmgr_import2(root_jobmgr, pload);
 
 	if (unlikely(j == NULL)) {
@@ -2136,6 +2272,82 @@ job_import(launch_data_t pload)
 	job_dispatch_curious_jobs(j);
 	return job_dispatch(j, false);
 }
+
+#if TARGET_OS_EMBEDDED
+
+bool
+job_import_defaults(launch_data_t pload)
+{
+	bool result = false;
+	xpc_object_t xd = NULL, defaults;
+   
+	if (_launchd_defaults_cache) {
+		xpc_release(_launchd_defaults_cache);
+		_launchd_defaults_cache = NULL;
+	}
+
+	xd = ld2xpc(pload);
+	if (!xd || xpc_get_type(xd) != XPC_TYPE_DICTIONARY) {
+		goto out;
+	}
+
+	defaults = xpc_dictionary_get_value(xd, LAUNCHD_JOB_DEFAULTS);
+	if (!defaults || xpc_get_type(defaults) != XPC_TYPE_DICTIONARY) {
+		goto out;
+	}
+
+	_launchd_defaults_cache = xpc_copy(defaults);
+	result = true;
+out:
+	if (xd) {
+		xpc_release(xd);
+	}
+
+	return result;
+}
+
+bool
+job_apply_defaults(job_t j) {
+	const char *test_prefix = "com.apple.test.";
+    
+	char *sb_prefix_end, *sb_suffix_start;
+	char true_job_label[strlen(j->label)];
+	const char *label;
+
+	if (((sb_prefix_end = strchr(j->label, ':')) != NULL) &&
+	    ((sb_suffix_start = strchr(sb_prefix_end + 1, '[')) != NULL)) {
+ 		/*
+ 		 * Workaround 'UIKitApplication:com.apple.foo[bar]' convention for the processes
+ 		 * we're interested in. To be removed when <rdar://problem/13066361> is addressed.
+ 		 */
+		snprintf(true_job_label, sb_suffix_start - sb_prefix_end, "%s", sb_prefix_end + 1);
+ 		label = true_job_label;
+	} else {
+		/* Just test the standard label */
+		label = j->label;
+	}
+    
+	/* Test for cache presence and apply if found */
+	if (_launchd_defaults_cache) { 
+		xpc_object_t props = xpc_dictionary_get_value(_launchd_defaults_cache, label);
+		if (props && xpc_get_type(props) == XPC_TYPE_DICTIONARY) {
+			launch_data_t lv = xpc2ld(props);
+			launch_data_dict_iterate(lv, job_import_keys, j);
+			launch_data_free(lv);
+			return true;
+		}
+	}
+    
+	/* Limit free? Disable the memory limit if this is a test job; see <rdar://problem/13180697> */
+	if (!strncmp(label, test_prefix, strlen(test_prefix))) {
+		j->jetsam_memlimit = -1;
+		return true;
+	}
+    
+	return false;
+}
+
+#endif
 
 launch_data_t
 job_import_bulk(launch_data_t pload)
@@ -2180,6 +2392,13 @@ job_import_bool(job_t j, const char *key, bool value)
 	case 'B':
 		if (strcasecmp(key, LAUNCH_JOBKEY_BEGINTRANSACTIONATSHUTDOWN) == 0) {
 			j->dirty_at_shutdown = value;
+			found_key = true;
+		}
+		break;
+	case 'j':
+	case 'J':
+		if (strcasecmp(key, LAUNCH_JOBKEY_JOINGUISESSION) == 0) {
+			j->joins_gui_session = value;
 			found_key = true;
 		}
 		break;
@@ -2247,6 +2466,9 @@ job_import_bool(job_t j, const char *key, bool value)
 		} else if (strcasecmp(key, LAUNCH_JOBKEY_LAUNCHONLYONCE) == 0) {
 			j->only_once = value;
 			found_key = true;
+		} else if (strcasecmp(key, LAUNCH_JOBKEY_LOWPRIORITYBACKGROUNDIO) == 0) {
+			j->low_priority_background_io = true;
+			found_key = true;
 		}
 		break;
 	case 'm':
@@ -2307,6 +2529,18 @@ job_import_bool(job_t j, const char *key, bool value)
 			job_log(j, LOG_ERR, "This key is not supported on this platform: %s", key);
 #endif
 			found_key = true;
+		} else if (strcasecmp(key, LAUNCH_JOBKEY_EMBEDDEDHOMESCREEN) == 0) {
+#if TARGET_OS_EMBEDDED
+			if (!_launchd_embedded_home) {
+				if ((j->embedded_home = value)) {
+					_launchd_embedded_home = j;
+				}
+			} else {
+				job_log(j, LOG_ERR, "Job tried to claim %s after it has already been claimed.", key);
+			}
+#else
+			job_log(j, LOG_ERR, "This key is not supported on this platform: %s", key);
+#endif
 		} else if (strcasecmp(key, LAUNCH_JOBKEY_EVENTMONITOR) == 0) {
 			if (!_launchd_event_monitor) {
 				j->event_monitor = value;
@@ -2357,6 +2591,12 @@ job_import_string(job_t j, const char *key, const char *value)
 	char **where2put = NULL;
 
 	switch (key[0]) {
+	case 'c':
+	case 'C':
+		if (strcasecmp(key, LAUNCH_JOBKEY_CFBUNDLEIDENTIFIER) == 0) {
+			where2put = &j->cfbundleidentifier;
+		}
+		break;
 	case 'm':
 	case 'M':
 		if (strcasecmp(key, LAUNCH_JOBKEY_MACHEXCEPTIONHANDLER) == 0) {
@@ -2367,29 +2607,24 @@ job_import_string(job_t j, const char *key, const char *value)
 	case 'P':
 		if (strcasecmp(key, LAUNCH_JOBKEY_PROGRAM) == 0) {
 			return;
-		} else if (strcasecmp(key, LAUNCH_JOBKEY_POSIXSPAWNTYPE) == 0) {
-			if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_TALAPP) == 0) {
-#if !TARGET_OS_EMBEDDED
-				j->pstype = POSIX_SPAWN_OSX_TALAPP_START;
-#endif
-			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_WIDGET) == 0) {
-#if !TARGET_OS_EMBEDDED
-				j->pstype = POSIX_SPAWN_OSX_DBCLIENT_START;
-#endif
-			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_IOSAPP) == 0) {
-#if TARGET_OS_EMBEDDED
-				j->pstype = POSIX_SPAWN_IOS_APP_START;
-#endif
-			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_INTERACTIVE) == 0) {
-#if TARGET_OS_EMBEDDED
-				j->pstype = POSIX_SPAWN_IOS_INTERACTIVE;
-#endif
+		} else if (strcasecmp(key, LAUNCH_JOBKEY_POSIXSPAWNTYPE) == 0
+				|| strcasecmp(key, LAUNCH_JOBKEY_PROCESSTYPE) == 0) {
+			if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_INTERACTIVE) == 0) {
+				j->psproctype = POSIX_SPAWN_PROC_TYPE_DAEMON_INTERACTIVE;
+			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_ADAPTIVE) == 0) {
+				j->psproctype = POSIX_SPAWN_PROC_TYPE_DAEMON_ADAPTIVE;
+			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_STANDARD) == 0) {
+				j->psproctype = POSIX_SPAWN_PROC_TYPE_DAEMON_STANDARD;
 			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_BACKGROUND) == 0) {
-#if TARGET_OS_EMBEDDED
-				j->pstype = POSIX_SPAWN_IOS_APPLE_DAEMON_START;
-#endif
-			} else if (strcasecmp(value, "Adaptive") == 0) {
-				// Hack.
+				j->psproctype = POSIX_SPAWN_PROC_TYPE_DAEMON_BACKGROUND;
+			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_TALAPP) == 0) {
+				j->psproctype = POSIX_SPAWN_PROC_TYPE_APP_TAL;
+			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_SYSTEMAPP) == 0) {
+				j->psproctype = POSIX_SPAWN_PROC_TYPE_APP_DEFAULT;
+				j->system_app = true;
+			} else if (strcasecmp(value, LAUNCH_KEY_POSIXSPAWNTYPE_APP) == 0) {
+				j->psproctype = POSIX_SPAWN_PROC_TYPE_APP_DEFAULT;
+				j->app = true;
 			} else {
 				job_log(j, LOG_ERR, "Unknown value for key %s: %s", key, value);
 			}
@@ -2468,6 +2703,8 @@ job_import_string(job_t j, const char *key, const char *value)
 #if HAVE_SANDBOX
 		} else if (strcasecmp(key, LAUNCH_JOBKEY_SANDBOXPROFILE) == 0) {
 			where2put = &j->seatbelt_profile;
+		} else if (strcasecmp(key, LAUNCH_JOBKEY_SANDBOXCONTAINER) == 0) {
+			where2put = &j->container_identifier;
 #endif
 		}
 		break;
@@ -2501,6 +2738,17 @@ void
 job_import_integer(job_t j, const char *key, long long value)
 {
 	switch (key[0]) {
+	case 'a':
+	case 'A':
+#if TARGET_OS_EMBEDDED
+		if (strcasecmp(key, LAUNCH_JOBKEY_ASID) == 0) {
+			if (launchd_embedded_handofgod) {
+				if (audit_session_port((au_asid_t)value, &j->asport) == -1 && errno != ENOSYS) {
+					(void)job_assumes_zero(j, errno);
+				}
+			}
+		}
+#endif
 	case 'e':
 	case 'E':
 		if (strcasecmp(key, LAUNCH_JOBKEY_EXITTIMEOUT) == 0) {
@@ -2979,6 +3227,9 @@ jobmgr_import2(jobmgr_t jm, launch_data_t pload)
 	jobmgr_log(jm, LOG_DEBUG, "Importing %s.", label);
 
 	if (likely(j = job_new(jm, label, prog, argv))) {
+#if TARGET_OS_EMBEDDED
+		job_apply_defaults(j);
+#endif
 		launch_data_dict_iterate(pload, job_import_keys, j);
 		if (!uuid_is_null(j->expected_audit_uuid)) {
 			uuid_string_t uuid_str;
@@ -3006,12 +3257,12 @@ jobmgr_import2(jobmgr_t jm, launch_data_t pload)
 		}
 
 #if TARGET_OS_EMBEDDED
-		/* SpringBoard runs at Interactive priority.
+		/* SpringBoard and backboardd must run at elevated priority.
 		 *
-		 * See <rdar://problem/9539873>.
+		 * See <rdar://problem/9539873> and <rdar://problem/10984383>.
 		 */
-		if (j->embedded_god) {
-			j->pstype = POSIX_SPAWN_IOS_INTERACTIVE;
+		if (j->embedded_god || j->embedded_home) {
+			j->psproctype = POSIX_SPAWN_PROC_TYPE_APP_DEFAULT;
 		}
 #endif
 	}
@@ -3102,6 +3353,20 @@ jobmgr_find_by_pid(jobmgr_t jm, pid_t p, bool create_anon)
 	}
 
 	return create_anon ? job_new_anonymous(jm, p) : NULL;
+}
+
+job_t
+managed_job(pid_t p)
+{
+	job_t ji;
+
+	LIST_FOREACH(ji, &managed_actives[ACTIVE_JOB_HASH(p)], pid_hash_sle) {
+		if (ji->p == p) {
+			return ji;
+		}
+	}
+
+	return NULL;
 }
 
 job_t 
@@ -3211,7 +3476,7 @@ job_export_all(void)
 	if (resp != NULL) {
 		job_export_all2(root_jobmgr, resp);
 	} else {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 	}
 
 	return resp;
@@ -3264,10 +3529,38 @@ out:
 	free(pids);
 }
 
+#if HAVE_SYSTEMSTATS
+static void
+systemstats_timer_callback(void)
+{
+	jobmgr_log_perf_statistics(root_jobmgr, true);
+}
+
+static bool
+systemstats_is_enabled(void)
+{
+	static bool systemstats_enabled;
+
+	if (!systemstats_enabled) {
+		char *store = launchd_copy_persistent_store(LAUNCHD_PERSISTENT_STORE_LOGS, NULL);
+		systemstats_enabled = systemstats_init(SYSTEMSTATS_WRITER_launchd, store);
+		free(store);
+
+		uint64_t interval;
+		interval = systemstats_get_log_interval(SYSTEMSTATS_WRITER_launchd);
+
+		if (pid1_magic && systemstats_enabled && interval) {
+			jobmgr_assumes_zero_p(root_jobmgr, kevent_mod((uintptr_t)systemstats_timer_callback, EVFILT_TIMER, EV_ADD, NOTE_SECONDS, interval, root_jobmgr));
+		}
+	}
+
+	return systemstats_enabled;
+}
+#endif // HAVE_SYSTEMSTATS
+
 void
 job_reap(job_t j)
 {
-	struct rusage ru;
 	bool is_system_bootstrapper = ((j->is_bootstrapper && pid1_magic) && !j->mgr->parentmgr);
 
 	job_log(j, LOG_DEBUG, "Reaping");
@@ -3282,9 +3575,39 @@ job_reap(job_t j)
 		j->fork_fd = 0;
 	}
 
+	bool was_dirty = false;
+	if (!(j->anonymous || j->implicit_reap)) {
+		uint32_t flags = 0;
+		(void)job_assumes_zero(j, proc_get_dirty(j->p, &flags));
+
+		j->idle_exit = (flags & PROC_DIRTY_ALLOWS_IDLE_EXIT);
+		was_dirty = (flags & PROC_DIRTY_IS_DIRTY);
+
+		job_log(j, LOG_DEBUG, "%sob exited %s.", j->idle_exit ? "Idle-exit j" : "J", was_dirty ? "while dirty" : "cleanly");
+	}
+
+	if (j->idle_exit && was_dirty) {
+		if (j->jettisoned) {
+			job_log(j, LOG_NOTICE, "Idle-exit job was jettisoned while dirty. Will respawn immediately.");
+			j->unthrottle = true;
+			j->start_pending = true;
+		} else {
+			job_log(j, LOG_INFO, "Idle-exit job exited while dirty.");
+		}
+	} else if (j->idle_exit && j->jettisoned) {
+		/* If an idle-exit job is jettisoned, then we shouldn't throttle its
+		 * next respawn because it could not help when it exited. If it ran for
+		 * the minimum runtime, then this doesn't really matter. If it ran for
+		 * less than the minimum runtime, it will not be throttled.
+		 *
+		 * <rdar://problem/12098667>
+		 */
+		job_log(j, LOG_NOTICE, "Idle-exit job was jettisoned. Will bypass throttle interval for next on-demand launch.");
+		j->unthrottle = true;
+	}
+
 	if (j->anonymous) {
 		j->last_exit_status = 0;
-		memset(&ru, 0, sizeof(ru));
 	} else {
 		uint64_t rt = runtime_get_nanoseconds_since(j->start_time);
 		j->trt += rt;
@@ -3320,31 +3643,32 @@ job_reap(job_t j)
 			if (j->workaround9359725) {
 				job_log(j, LOG_NOTICE, "Simulated exit: <rdar://problem/9359725>");
 				j->last_exit_status = W_EXITCODE(-1, SIGSEGV);
-				memset(&ru, 0, sizeof(ru));
-			} else if ((r = wait4(j->p, &j->last_exit_status, 0, &ru)) == -1) {
-				job_log(j, LOG_ERR, "Reap failed. Assuming job exited: %d: %s", errno, strerror(errno));
-				j->last_exit_status = W_EXITCODE(-1, SIGSEGV);
-				memset(&ru, 0, sizeof(ru));
-			}
-		}
+			} else {
+#if HAVE_SYSTEMSTATS
+				int r2;
+				struct rusage_info_v1 ri;
+				r2 = job_assumes_zero(j, proc_pid_rusage(j->p, RUSAGE_INFO_V1, (rusage_info_t)&ri));
+#endif
+				if ((r = wait4(j->p, &j->last_exit_status, 0, NULL)) == -1) {
+					job_log(j, LOG_ERR, "Reap failed. Assuming job exited: %d: %s", errno, strerror(errno));
+					j->last_exit_status = W_EXITCODE(-1, SIGSEGV);
+				}
 
-		if (launchd_log_perf && r != -1) {
-			job_log(j, LOG_PERF, "Last instance user time: %ld.%06u", ru.ru_utime.tv_sec, ru.ru_utime.tv_usec);
-			job_log(j, LOG_PERF, "Last instance system time: %ld.%06u", ru.ru_stime.tv_sec, ru.ru_stime.tv_usec);
-			job_log(j, LOG_PERF, "Last instance maximum resident size: %lu", ru.ru_maxrss);
-			job_log(j, LOG_PERF, "Last instance integral shared memory size: %lu", ru.ru_ixrss);
-			job_log(j, LOG_PERF, "Last instance integral unshared data size: %lu", ru.ru_idrss);
-			job_log(j, LOG_PERF, "Last instance integral unshared stack size: %lu", ru.ru_isrss);
-			job_log(j, LOG_PERF, "Last instance page reclaims: %lu", ru.ru_minflt);
-			job_log(j, LOG_PERF, "Last instance page faults: %lu", ru.ru_majflt);
-			job_log(j, LOG_PERF, "Last instance swaps: %lu", ru.ru_nswap);
-			job_log(j, LOG_PERF, "Last instance input ops: %lu", ru.ru_inblock);
-			job_log(j, LOG_PERF, "Last instance output ops: %lu", ru.ru_oublock);
-			job_log(j, LOG_PERF, "Last instance messages sent: %lu", ru.ru_msgsnd);
-			job_log(j, LOG_PERF, "Last instance messages received: %lu", ru.ru_msgrcv);
-			job_log(j, LOG_PERF, "Last instance signals received: %lu", ru.ru_nsignals);
-			job_log(j, LOG_PERF, "Last instance voluntary context switches: %lu", ru.ru_nvcsw);
-			job_log(j, LOG_PERF, "Last instance involuntary context switches: %lu", ru.ru_nivcsw);
+				if (j->idle_exit && j->jettisoned) {
+					// Treat idle-exit jettisons as successful exit.
+					//
+					// <rdar://problem/13338973>
+					(void)job_assumes_zero(j, WTERMSIG(j->last_exit_status));
+					j->last_exit_status = W_EXITCODE(0, 0);
+				}
+#if HAVE_SYSTEMSTATS
+				if (r2 == 0) {
+					job_log_perf_statistics(j, &ri, j->last_exit_status);
+				}
+#endif
+			}
+		} else {
+			job_log(j, LOG_INFO, "Job was implicitly reaped by the kernel.");
 		}
 	}
 
@@ -3353,6 +3677,9 @@ job_reap(job_t j)
 	}
 
 	LIST_REMOVE(j, pid_hash_sle);
+	if (!j->anonymous) {
+		LIST_REMOVE(j, global_pid_hash_sle);
+	}
 
 	if (j->sent_signal_time) {
 		uint64_t td_sec, td_usec, td = runtime_get_nanoseconds_since(j->sent_signal_time);
@@ -3362,27 +3689,6 @@ job_reap(job_t j)
 
 		job_log(j, LOG_DEBUG, "Exited %llu.%06llu seconds after the first signal was sent", td_sec, td_usec);
 	}
-
-	timeradd(&ru.ru_utime, &j->ru.ru_utime, &j->ru.ru_utime);
-	timeradd(&ru.ru_stime, &j->ru.ru_stime, &j->ru.ru_stime);
-	if (j->ru.ru_maxrss < ru.ru_maxrss) {
-		j->ru.ru_maxrss = ru.ru_maxrss;
-	}
-
-	j->ru.ru_ixrss += ru.ru_ixrss;
-	j->ru.ru_idrss += ru.ru_idrss;
-	j->ru.ru_isrss += ru.ru_isrss;
-	j->ru.ru_minflt += ru.ru_minflt;
-	j->ru.ru_majflt += ru.ru_majflt;
-	j->ru.ru_nswap += ru.ru_nswap;
-	j->ru.ru_inblock += ru.ru_inblock;
-	j->ru.ru_oublock += ru.ru_oublock;
-	j->ru.ru_msgsnd += ru.ru_msgsnd;
-	j->ru.ru_msgrcv += ru.ru_msgrcv;
-	j->ru.ru_nsignals += ru.ru_nsignals;
-	j->ru.ru_nvcsw += ru.ru_nvcsw;
-	j->ru.ru_nivcsw += ru.ru_nivcsw;
-	job_log_perf_statistics(j);
 
 	int exit_status = WEXITSTATUS(j->last_exit_status);
 	if (WIFEXITED(j->last_exit_status) && exit_status != 0) {
@@ -3405,7 +3711,7 @@ job_reap(job_t j)
 					xpc_dictionary_set_string(event, "GroupName", j->groupname);
 				}
 
-				(void)externalevent_new(j, _launchd_support_system, j->label, event);
+				(void)externalevent_new(j, _launchd_support_system, j->label, event, 0);
 				xpc_release(event);
 
 				j->waiting4ok = true;
@@ -3426,7 +3732,7 @@ job_reap(job_t j)
 		int s = WTERMSIG(j->last_exit_status);
 		if ((SIGKILL == s || SIGTERM == s) && !j->stopped) {
 			job_log(j, LOG_NOTICE, "Exited: %s", strsignal(s));
-		} else if (!j->stopped && !j->clean_kill) {			
+		} else if (!(j->stopped || j->clean_kill || j->jettisoned)) {
 			switch (s) {
 			// Signals which indicate a crash.
 			case SIGILL:
@@ -3564,6 +3870,7 @@ job_reap(job_t j)
 	j->clean_kill = false;
 	j->event_monitor_ready2signal = false;
 	j->p = 0;
+	j->uniqueid = 0;
 }
 
 void
@@ -3678,16 +3985,6 @@ job_dispatch(job_t j, bool kickstart)
 		} else {
 			job_log(j, LOG_DEBUG, "Watching job.");
 			job_watch(j);
-
-			/*
-			 * 5455720
-			 *
-			 * Path checking and monitoring is really racy right now.
-			 * We should clean this up post Leopard.
-			 */
-			if (job_keepalive(j)) {
-				job_start(j);
-			}
 		}
 	} else {
 		job_log(j, LOG_DEBUG, "Tried to dispatch an already active job: %s.", job_active(j));
@@ -3829,11 +4126,12 @@ job_callback_proc(job_t j, struct kevent *kev)
 	}
 
 	if (fflags & NOTE_EXIT) {
-		if (kev->data & NOTE_EXIT_REPARENTED) {
-			j->implicit_reap = true;
-			j->last_exit_status = (kev->data & 0xffff);
-
-			job_log(j, LOG_INFO, "Job was implicitly reaped by the kernel.");
+		if (kev->data & NOTE_EXIT_DECRYPTFAIL) {
+			j->fpfail = true;
+			job_log(j, LOG_WARNING, "FairPlay decryption failed on binary for job.");
+		} else if (kev->data & NOTE_EXIT_MEMORY) {
+			j->jettisoned = true;
+			job_log(j, LOG_INFO, "Job was killed due to memory pressure.");
 		}
 
 		job_reap(j);
@@ -3842,6 +4140,14 @@ job_callback_proc(job_t j, struct kevent *kev)
 			job_remove(j);
 			j = NULL;
 		} else {
+			struct waiting4attach *w4ai = NULL;
+			struct waiting4attach *w4ait = NULL;
+			LIST_FOREACH_SAFE(w4ai, &_launchd_domain_waiters, le, w4ait) {
+				if (w4ai->dest == (pid_t)kev->ident) {
+					waiting4attach_delete(j->mgr, w4ai);
+				}
+			}
+
 			(void)job_dispatch(j, false);
 		}
 	}
@@ -3874,31 +4180,28 @@ job_callback_timer(job_t j, void *ident)
 			job_log(j, LOG_WARNING | LOG_CONSOLE, "Job has not died after being %skilled %llu seconds ago. Simulating exit.", j->clean_kill ? "cleanly " : "", td);
 			j->workaround9359725 = true;
 
+			// This basically has to be done off the main thread. We have no
+			// mechanism for draining the main queue in our run loop (like CF
+			// does), and the kevent mechanism wants an object to be associated
+			// as the callback. So we just create a dispatch source and reap the
+			// errant PID whenever we can. Note that it is not safe for us to do
+			// any logging in this block, since logging requires exclusive
+			// access to global data structures that is only protected by the
+			// main thread.
+			dispatch_source_t hack_13570156 = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, j->p, DISPATCH_PROC_EXIT, dispatch_get_global_queue(0, 0));
+			dispatch_source_set_event_handler(hack_13570156, ^{
+				pid_t pid = (pid_t)dispatch_source_get_handle(hack_13570156);
+
+				int status = 0;
+				(void)waitpid(pid, &status, 0);
+				dispatch_release(hack_13570156);
+			});
+
+			dispatch_resume(hack_13570156);
+
 			if (launchd_trap_sigkill_bugs) {
 				job_log(j, LOG_NOTICE | LOG_CONSOLE, "Trapping into kernel debugger. You can continue the machine after it has been debugged, and shutdown will proceed normally.");
 				(void)job_assumes_zero(j, host_reboot(mach_host_self(), HOST_REBOOT_DEBUGGER));
-			}
-
-			/* We've simulated the exit, so we have to cancel the kevent for
-			 * this job, otherwise we may get a kevent later down the road that
-			 * has a stale context pointer (if we've removed the job). Or worse,
-			 * it'll corrupt our data structures if the job still exists or the
-			 * allocation was recycled.
-			 *
-			 * If the failing process had a tracer attached to it, we need to
-			 * remove out NOTE_EXIT for that tracer too, otherwise the same
-			 * thing might happen.
-			 *
-			 * Note that, if we're not shutting down, this will result in a
-			 * zombie process just hanging around forever. But if the process
-			 * didn't exit after receiving SIGKILL, odds are it would've just
-			 * stuck around forever anyway.
-			 *
-			 * See <rdar://problem/9481630>.
-			 */
-			(void)kevent_mod((uintptr_t)j->p, EVFILT_PROC, EV_DELETE, 0, 0, NULL);
-			if (j->tracing_pid) {
-				(void)kevent_mod((uintptr_t)j->tracing_pid, EVFILT_PROC, EV_DELETE, 0, 0, NULL);
 			}
 
 			struct kevent bogus_exit;
@@ -3975,7 +4278,9 @@ jobmgr_callback(void *obj, struct kevent *kev)
 			/* Hopefully /var is available by this point. If not, uh, oh well.
 			 * It's just a debugging facility.
 			 */
-			return jobmgr_log_perf_statistics(jm);
+			return jobmgr_log_perf_statistics(jm, false);
+		case SIGINFO:
+			return jobmgr_log_perf_statistics(jm, true);
 		default:
 			jobmgr_log(jm, LOG_ERR, "Unrecognized signal: %lu: %s", kev->ident, strsignal(kev->ident));
 		}
@@ -4006,6 +4311,10 @@ jobmgr_callback(void *obj, struct kevent *kev)
 			if (jobmgr_assumes_zero(jm, runtime_busy_cnt) == 0) {
 				return launchd_shutdown();
 			}
+#if HAVE_SYSTEMSTATS
+		} else if (kev->ident == (uintptr_t)systemstats_timer_callback) {
+			systemstats_timer_callback();
+#endif
 		}
 		break;
 	case EVFILT_VNODE:
@@ -4063,7 +4372,7 @@ job_start(job_t j)
 	char nbuf[64];
 	pid_t c;
 	bool sipc = false;
-	u_int proc_fflags = NOTE_EXIT|NOTE_FORK|NOTE_EXEC|NOTE_EXITSTATUS;
+	u_int proc_fflags = NOTE_EXIT|NOTE_FORK|NOTE_EXEC|NOTE_EXIT_DETAIL|NOTE_EXITSTATUS;
 
 	if (!job_assumes(j, j->mgr != NULL)) {
 		return;
@@ -4074,6 +4383,11 @@ job_start(job_t j)
 		return;
 	}
 
+	if (!LIST_EMPTY(&j->mgr->attaches)) {
+		job_log(j, LOG_DEBUG, "Looking for attachments for job: %s", j->label);
+		(void)waiting4attach_find(j->mgr, j);
+	}
+
 	/*
 	 * Some users adjust the wall-clock and then expect software to not notice.
 	 * Therefore, launchd must use an absolute clock instead of the wall clock
@@ -4082,9 +4396,8 @@ job_start(job_t j)
 	td = runtime_get_nanoseconds_since(j->start_time);
 	td /= NSEC_PER_SEC;
 
-	if (j->start_time && (td < j->min_run_time) && !j->legacy_mach_job && !j->inetcompat) {
+	if (j->start_time && (td < j->min_run_time) && !j->legacy_mach_job && !j->inetcompat && !j->unthrottle) {
 		time_t respawn_delta = j->min_run_time - (uint32_t)td;
-
 		/* We technically should ref-count throttled jobs to prevent idle exit,
 		 * but we're not directly tracking the 'throttled' state at the moment.
 		 */
@@ -4139,6 +4452,8 @@ job_start(job_t j)
 		job_log(j, LOG_DEBUG, "Started as PID: %u", c);
 
 		j->did_exec = false;
+		j->fpfail = false;
+		j->jettisoned = false;
 		j->xpcproxy_did_exec = false;
 		j->checkedin = false;
 		j->start_pending = false;
@@ -4147,6 +4462,7 @@ job_start(job_t j)
 		j->stopped = false;
 		j->workaround9359725 = false;
 		j->implicit_reap = false;
+		j->unthrottle = false;
 		if (j->needs_kickoff) {
 			j->needs_kickoff = false;
 
@@ -4163,7 +4479,14 @@ job_start(job_t j)
 		runtime_add_ref();
 		total_children++;
 		LIST_INSERT_HEAD(&j->mgr->active_jobs[ACTIVE_JOB_HASH(c)], j, pid_hash_sle);
+		LIST_INSERT_HEAD(&managed_actives[ACTIVE_JOB_HASH(c)], j, global_pid_hash_sle);
 		j->p = c;
+
+		struct proc_uniqidentifierinfo info;
+		if (proc_pidinfo(c, PROC_PIDUNIQIDENTIFIERINFO, 0, &info, PROC_PIDUNIQIDENTIFIERINFO_SIZE) != 0) {
+			// ignore errors here, kevent_mod below will catch them and clean up
+			j->uniqueid = info.p_uniqueid;
+		}
 
 		j->mgr->normal_active_cnt++;
 		j->fork_fd = _fd(execspair[0]);
@@ -4192,6 +4515,23 @@ job_start(job_t j)
 			job_watch(j);
 		}
 
+#if HAVE_SYSTEMSTATS
+		if (systemstats_is_enabled()) {
+			/* We don't really *need* to make the full rusage call -- it
+			 * will be mostly 0s and very small numbers. We only need
+			 * ri_proc_start_abstime, because that's how we disambiguiate
+			 * PIDs when they wrap around; and the UUID.
+			 * In the future we should use the 64-bit process unique ID,
+			 * so there's nothing to disambiguiate, and skip the full
+			 * rusage call here.
+			 *
+			 * Well, the future is now.
+			 */
+			if (_systemstats_get_property(SYSTEMSTATS_API_VERSION, SYSTEMSTATS_WRITER_launchd, SYSTEMSTATS_PROPERTY_LAUNCHD_SHOULD_LOG_JOB_START)) {
+				job_log_perf_statistics(j, NULL, -3);
+			}
+		}
+#endif
 		j->wait4debugger_oneshot = false;
 		if (likely(!j->stall_before_exec)) {
 			job_uncork_fork(j);
@@ -4210,6 +4550,7 @@ job_start_child(job_t j)
 	int gflags = GLOB_NOSORT|GLOB_NOCHECK|GLOB_TILDE|GLOB_DOOFFS;
 	glob_t g;
 	short spflags = POSIX_SPAWN_SETEXEC;
+	int psproctype = POSIX_SPAWN_PROC_TYPE_DAEMON_BACKGROUND;
 	size_t binpref_out_cnt = 0;
 	size_t i;
 
@@ -4217,7 +4558,23 @@ job_start_child(job_t j)
 
 	job_setup_attributes(j);
 
-	if (unlikely(j->argv && j->globargv)) {
+	bool use_xpcproxy = false;
+	struct waiting4attach *w4a = waiting4attach_find(j->mgr, j);
+	if (w4a) {
+		(void)setenv(XPC_SERVICE_ENV_ATTACHED, "1", 1);
+		if (!j->xpc_service) {
+			use_xpcproxy = true;
+		}
+	}
+
+	if (use_xpcproxy) {
+		argv = alloca(3 * sizeof(char *));
+		argv[0] = "/usr/libexec/xpcproxy";
+		argv[1] = "-debug";
+		argv[2] = NULL;
+
+		file2exec = argv[0];
+	} else if (unlikely(j->argv && j->globargv)) {
 		g.gl_offs = 1;
 		for (i = 0; i < j->argc; i++) {
 			if (i > 0) {
@@ -4244,12 +4601,12 @@ job_start_child(job_t j)
 		argv[2] = NULL;
 	}
 
-	if (likely(!j->inetcompat)) {
+	if (likely(!(j->inetcompat || use_xpcproxy))) {
 		argv++;
 	}
 
 	if (unlikely(j->wait4debugger || j->wait4debugger_oneshot)) {
-		if (!j->legacy_LS_job) {
+		if (!j->app) {
 			job_log(j, LOG_WARNING, "Spawned and waiting for the debugger to attach before continuing...");
 		}
 		spflags |= POSIX_SPAWN_START_SUSPENDED;
@@ -4268,6 +4625,9 @@ job_start_child(job_t j)
 		(void)job_assumes(j, binpref_out_cnt == j->j_binpref_cnt);
 	}
 
+	psproctype = j->psproctype;
+	(void)job_assumes_zero(j, posix_spawnattr_setprocesstype_np(&spattr, psproctype));
+
 #if TARGET_OS_EMBEDDED
 	/* Set jetsam attributes. POSIX_SPAWN_JETSAM_USE_EFFECTIVE_PRIORITY guards
 	 * against a race which arises if, during spawn, an initial jetsam property
@@ -4275,17 +4635,63 @@ job_start_child(job_t j)
 	 * ensures that the subsequent change is ignored; the explicit update should
 	 * be given priority.
 	 */
-	short flags = 0;
-	if (j->jetsam_properties) {
-		flags = POSIX_SPAWN_JETSAM_USE_EFFECTIVE_PRIORITY;
-	}
-
-	(void)job_assumes_zero(j, posix_spawnattr_setjetsam(&spattr, flags, j->jetsam_priority, j->jetsam_memlimit));
+	(void)job_assumes_zero(j, posix_spawnattr_setjetsam(&spattr,
+	        POSIX_SPAWN_JETSAM_USE_EFFECTIVE_PRIORITY | (j->jetsam_memory_limit_background ? POSIX_SPAWN_JETSAM_HIWATER_BACKGROUND : 0), 
+	        j->jetsam_priority, j->jetsam_memlimit));
 #endif
 
-	if (!j->app) {
-		(void)job_assumes_zero(j, posix_spawnattr_setcpumonitor(&spattr, 85, 5 * 60));
+	mach_port_array_t sports = NULL;
+	mach_msg_type_number_t sports_cnt = 0;
+	kern_return_t kr = vproc_mig_get_listener_port_rights(bootstrap_port, &sports, &sports_cnt);
+	if (kr == 0 && sports_cnt) {
+		/* For some reason, this SPI takes a count as a signed quantity. */
+		(void)posix_spawnattr_set_importancewatch_port_np(&spattr, (int)sports_cnt, sports);
+
+		/* All "count" parameters in MIG are counts of the array. So an array of
+		 * mach_port_t containing 10 elements will have a count of ten, but it
+		 * will occupy 40 bytes. So we must do the multiplication here to pass
+		 * the correct size.
+		 *
+		 * Note that we do NOT release the send rights. We need them to be valid
+		 * at the time they are passed to posix_spawn(2). When we exec(3) using
+		 * posix_spawn(2), they'll be cleaned up anyway.
+		 */
+		mig_deallocate((vm_address_t)sports, sports_cnt * sizeof(sports[0]));
+	} else if (kr != BOOTSTRAP_UNKNOWN_SERVICE) {
+		(void)job_assumes_zero(j, kr);
 	}
+
+#if TARGET_OS_EMBEDDED
+	if (!j->app || j->system_app) {
+		(void)job_assumes_zero(j, posix_spawnattr_setcpumonitor_default(&spattr));
+	}
+#else
+	(void)job_assumes_zero(j, posix_spawnattr_setcpumonitor_default(&spattr));
+#endif
+
+#if !TARGET_OS_EMBEDDED
+	struct task_qos_policy qosinfo = {
+		.task_latency_qos_tier = LATENCY_QOS_LAUNCH_DEFAULT_TIER,
+		.task_throughput_qos_tier = THROUGHPUT_QOS_LAUNCH_DEFAULT_TIER,
+	};
+
+	kr = task_policy_set(mach_task_self(), TASK_BASE_QOS_POLICY, (task_policy_t)&qosinfo, TASK_QOS_POLICY_COUNT);
+	(void)job_assumes_zero_p(j, kr);
+#endif
+
+#if HAVE_RESPONSIBILITY
+	/* Specify which process is responsible for the new job.  Per-app XPC
+	 * services are the responsibility of the app.  Other processes are
+	 * responsible for themselves.  This decision is final and also applies
+	 * to the process's children, so don't initialize responsibility when
+	 * starting a per-user launchd.
+	 */
+	if (j->mgr->req_pid) {
+		responsibility_init2(j->mgr->req_pid, NULL);
+	} else if (!j->per_user) {
+		responsibility_init2(getpid(), j->prog ? j->prog : j->argv[0]);
+	}
+#endif
 
 #if HAVE_QUARANTINE
 	if (j->quarantine_data) {
@@ -4300,6 +4706,19 @@ job_start_child(job_t j)
 #endif
 
 #if HAVE_SANDBOX
+#if TARGET_OS_EMBEDDED
+	struct sandbox_spawnattrs sbattrs;
+	if (j->seatbelt_profile || j->container_identifier) {
+		sandbox_spawnattrs_init(&sbattrs);
+		if (j->seatbelt_profile) {
+			sandbox_spawnattrs_setprofilename(&sbattrs, j->seatbelt_profile);
+		}
+		if (j->container_identifier) {
+			sandbox_spawnattrs_setcontainer(&sbattrs, j->container_identifier);
+		}
+		(void)job_assumes_zero(j, posix_spawnattr_setmacpolicyinfo_np(&spattr, "Sandbox", &sbattrs, sizeof(sbattrs)));
+	}
+#else
 	if (j->seatbelt_profile) {
 		char *seatbelt_err_buf = NULL;
 
@@ -4311,16 +4730,17 @@ job_start_child(job_t j)
 		}
 	}
 #endif
+#endif
 
 	psf = j->prog ? posix_spawn : posix_spawnp;
 
-	if (likely(!j->inetcompat)) {
+	if (likely(!(j->inetcompat || use_xpcproxy))) {
 		file2exec = j->prog ? j->prog : argv[0];
 	}
 
 	errno = psf(NULL, file2exec, NULL, &spattr, (char *const *)argv, environ);
 
-#if HAVE_SANDBOX
+#if HAVE_SANDBOX && !TARGET_OS_EMBEDDED
 out_bad:
 #endif
 	_exit(errno);
@@ -4737,6 +5157,9 @@ job_setup_attributes(job_t j)
 	if (unlikely(j->low_pri_io)) {
 		(void)job_assumes_zero_p(j, setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, IOPOL_THROTTLE));
 	}
+	if (j->low_priority_background_io) {
+		(void)job_assumes_zero_p(j, setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_DARWIN_BG, IOPOL_THROTTLE));
+	}
 	if (unlikely(j->rootdir)) {
 		(void)job_assumes_zero_p(j, chroot(j->rootdir));
 		(void)job_assumes_zero_p(j, chdir("."));
@@ -4874,7 +5297,7 @@ calendarinterval_setalarm(job_t j, struct calendarinterval *ci)
 }
 
 bool
-jobmgr_log_bug(aslmsg asl_message __attribute__((unused)), void *ctx, const char *message)
+jobmgr_log_bug(_SIMPLE_STRING asl_message __attribute__((unused)), void *ctx, const char *message)
 {
 	jobmgr_t jm = ctx;
 	jobmgr_log(jm, LOG_ERR, "%s", message);
@@ -4883,7 +5306,7 @@ jobmgr_log_bug(aslmsg asl_message __attribute__((unused)), void *ctx, const char
 }
 
 bool
-job_log_bug(aslmsg asl_message __attribute__((unused)), void *ctx, const char *message)
+job_log_bug(_SIMPLE_STRING asl_message __attribute__((unused)), void *ctx, const char *message)
 {
 	job_t j = ctx;
 	job_log(j, LOG_ERR, "%s", message);
@@ -4891,79 +5314,156 @@ job_log_bug(aslmsg asl_message __attribute__((unused)), void *ctx, const char *m
 	return true;
 }
 
+// ri: NULL = please sample j->p; non-NULL = use this sample
 void
-job_log_perf_statistics(job_t j)
+job_log_perf_statistics(job_t j, struct rusage_info_v1 *ri, int64_t exit_status)
 {
-	if (j->anonymous) {
+#if HAVE_SYSTEMSTATS
+	if (j->anonymous || !j->p) {
 		return;
 	}
-	if (!launchd_log_perf) {
+	if (!systemstats_is_enabled()) {
+		return;
+	}
+	const char *name;
+	if (j->cfbundleidentifier) {
+		name = j->cfbundleidentifier;
+	} else {
+		name = j->label;
+	}
+	int r = 0;
+	struct rusage_info_v1 ris;
+	if (ri == NULL) {
+		ri = &ris;
+		r = proc_pid_rusage(j->p, RUSAGE_INFO_V1, (rusage_info_t)ri);
+	}
+	if (r == -1) {
+		return;
+	}
+	job_log_systemstats(j->p, j->uniqueid, runtime_get_uniqueid(), j->mgr->req_pid, j->mgr->req_uniqueid, name, ri, exit_status);
+#else
+#pragma unused (j, ri, exit_status)
+#endif
+}
+
+#if HAVE_SYSTEMSTATS
+// ri: NULL = don't write fields from ri; non-NULL = use this sample
+static
+void
+job_log_systemstats(pid_t pid, uint64_t uniqueid, uint64_t parent_uniqueid, pid_t req_pid, uint64_t req_uniqueid, const char *name, struct rusage_info_v1 *ri, int64_t exit_status)
+{
+	if (!systemstats_is_enabled()) {
 		return;
 	}
 
-	job_log(j, LOG_PERF, "Job is currently %srunning.", j->p ? "" : "not ");
-	job_log(j, LOG_PERF, "Number of runs: %u", j->nruns);
-	if (j->nruns) {
-		job_log(j, LOG_PERF, "Total runtime: %06f.", (double)j->trt / (double)NSEC_PER_SEC);
-		job_log(j, LOG_PERF, "Total user time: %ld.%06u", j->ru.ru_utime.tv_sec, j->ru.ru_utime.tv_usec);
-		job_log(j, LOG_PERF, "Total system time: %ld.%06u", j->ru.ru_stime.tv_sec, j->ru.ru_stime.tv_usec);
-		job_log(j, LOG_PERF, "Largest maximum resident size: %lu", j->ru.ru_maxrss);
-		job_log(j, LOG_PERF, "Total integral shared memory size: %lu", j->ru.ru_ixrss);
-		job_log(j, LOG_PERF, "Total integral unshared data size: %lu", j->ru.ru_idrss);
-		job_log(j, LOG_PERF, "Total integral unshared stack size: %lu", j->ru.ru_isrss);
-		job_log(j, LOG_PERF, "Total page reclaims: %lu", j->ru.ru_minflt);
-		job_log(j, LOG_PERF, "Total page faults: %lu", j->ru.ru_majflt);
-		job_log(j, LOG_PERF, "Total swaps: %lu", j->ru.ru_nswap);
-		job_log(j, LOG_PERF, "Total input ops: %lu", j->ru.ru_inblock);
-		job_log(j, LOG_PERF, "Total output ops: %lu", j->ru.ru_oublock);
-		job_log(j, LOG_PERF, "Total messages sent: %lu", j->ru.ru_msgsnd);
-		job_log(j, LOG_PERF, "Total messages received: %lu", j->ru.ru_msgrcv);
-		job_log(j, LOG_PERF, "Total signals received: %lu", j->ru.ru_nsignals);
-		job_log(j, LOG_PERF, "Total voluntary context switches: %lu", j->ru.ru_nvcsw);
-		job_log(j, LOG_PERF, "Total involuntary context switches: %lu", j->ru.ru_nivcsw);
+	struct systemstats_process_usage_s info;
+	bzero(&info, sizeof(info));
+	info.name = name;
+	info.pid = pid;
+	info.exit_status = exit_status;
+	info.uid = getuid();
+	info.ppid = getpid();
+	info.responsible_pid = req_pid;
+
+	if (likely(ri)) {
+		info.macho_uuid = (const uint8_t *)&ri->ri_uuid;
+		info.user_time = ri->ri_user_time;
+		info.system_time = ri->ri_system_time;
+		info.pkg_idle_wkups = ri->ri_pkg_idle_wkups;
+		info.interrupt_wkups = ri->ri_interrupt_wkups;
+		info.proc_start_abstime = ri->ri_proc_start_abstime;
+		info.proc_exit_abstime = ri->ri_proc_exit_abstime;
+#if SYSTEMSTATS_API_VERSION >= 20130319
+		info.pageins = ri->ri_pageins;
+		info.wired_size = ri->ri_wired_size;
+		info.resident_size = ri->ri_resident_size;
+		info.phys_footprint = ri->ri_phys_footprint;
+		// info.purgeablesize = ???
+#endif
+#if SYSTEMSTATS_API_VERSION >= 20130328
+		info.child_user_time = ri->ri_child_user_time;
+		info.child_system_time = ri->ri_child_system_time;
+		info.child_pkg_idle_wkups = ri->ri_child_pkg_idle_wkups;
+		info.child_interrupt_wkups = ri->ri_child_interrupt_wkups;
+		info.child_pageins = ri->ri_child_pageins;
+		info.child_elapsed_abstime = ri->ri_child_elapsed_abstime;
+#endif
+	}
+#if SYSTEMSTATS_API_VERSION >= 20130410
+	info.uniqueid = uniqueid;
+	info.parent_uniqueid = parent_uniqueid;
+	info.responsible_uniqueid = req_uniqueid;
+#endif
+	systemstats_write_process_usage(&info);
+}
+#endif /* HAVE_SYSTEMSTATS */
+
+struct waiting4attach *
+waiting4attach_new(jobmgr_t jm, const char *name, mach_port_t port, pid_t dest, xpc_service_type_t type)
+{
+	size_t xtra = strlen(name) + 1;
+
+	struct waiting4attach *w4a = malloc(sizeof(*w4a) + xtra);
+	if (!w4a) {
+		return NULL;
 	}
 
-	if (j->p) {
-		uint64_t rt = runtime_get_nanoseconds_since(j->start_time);
-		job_log(j, LOG_PERF, "Current instance wall time: %06f", (double)rt / (double)NSEC_PER_SEC);
+	w4a->port = port;
+	w4a->dest = dest;
+	w4a->type = type;
+	(void)strcpy(w4a->name, name);
 
-		struct proc_taskinfo ti;
-		int r = proc_pidinfo(j->p, PROC_PIDTASKINFO, 1, &ti, PROC_PIDTASKINFO_SIZE);
-		if (r > 0) {
-			job_log(j, LOG_PERF, "Current instance virtual size: %llu", ti.pti_virtual_size);
-			job_log(j, LOG_PERF, "Current instance resident size: %llu", ti.pti_resident_size);
-			job_log(j, LOG_PERF, "Current instance user time: %06f", (double)ti.pti_total_user / (double)NSEC_PER_SEC);
-			job_log(j, LOG_PERF, "Current instance system time: %06f", (double)ti.pti_total_system / (double)NSEC_PER_SEC);
-			job_log(j, LOG_PERF, "Current instance number of user threads: %llu", ti.pti_threads_user);
-			job_log(j, LOG_PERF, "Current instance number of system threads: %llu", ti.pti_threads_system);
-			job_log(j, LOG_PERF, "Current instance default thread policy: %d", ti.pti_policy);
-			job_log(j, LOG_PERF, "Current instance number of page faults: %d", ti.pti_faults);
-			job_log(j, LOG_PERF, "Current instance number of page-ins: %d", ti.pti_pageins);
-			job_log(j, LOG_PERF, "Current instance number of COW faults: %d", ti.pti_cow_faults);
-			job_log(j, LOG_PERF, "Current instance number of Mach syscalls: %d", ti.pti_syscalls_mach);
-			job_log(j, LOG_PERF, "Current instance number of Unix syscalls: %d", ti.pti_syscalls_unix);
-			job_log(j, LOG_PERF, "Current instance number of threads: %d", ti.pti_threadnum);
-			job_log(j, LOG_PERF, "Current instance number of running threads: %d", ti.pti_numrunning);
-			job_log(j, LOG_PERF, "Current instance task priority: %d", ti.pti_priority);
-		} else {
-			job_log(j, LOG_PERF, "proc_pidinfo(%d): %d: %s", j->p, errno, strerror(errno));
+	if (dest) {
+		LIST_INSERT_HEAD(&_launchd_domain_waiters, w4a, le);
+	} else {
+		LIST_INSERT_HEAD(&jm->attaches, w4a, le);
+	}
+
+
+	(void)jobmgr_assumes_zero(jm, launchd_mport_notify_req(port, MACH_NOTIFY_DEAD_NAME));
+	return w4a;
+}
+
+void
+waiting4attach_delete(jobmgr_t jm, struct waiting4attach *w4a)
+{
+	jobmgr_log(jm, LOG_DEBUG, "Canceling dead-name notification for waiter port: 0x%x", w4a->port);
+
+	LIST_REMOVE(w4a, le);
+
+	mach_port_t previous = MACH_PORT_NULL;
+	(void)jobmgr_assumes_zero(jm, mach_port_request_notification(mach_task_self(), w4a->port, MACH_NOTIFY_DEAD_NAME, 0, MACH_PORT_NULL, MACH_MSG_TYPE_MOVE_SEND_ONCE, &previous));
+	if (previous) {
+		(void)jobmgr_assumes_zero(jm, launchd_mport_deallocate(previous));
+	}
+
+	jobmgr_assumes_zero(jm, launchd_mport_deallocate(w4a->port));
+	free(w4a);
+}
+
+struct waiting4attach *
+waiting4attach_find(jobmgr_t jm, job_t j)
+{
+	char *name2use = (char *)j->label;
+	if (j->app) {
+		struct envitem *ei = NULL;
+		SLIST_FOREACH(ei, &j->env, sle) {
+			if (strcmp(ei->key, XPC_SERVICE_RENDEZVOUS_TOKEN) == 0) {
+				name2use = ei->value;
+				break;
+			}
 		}
 	}
 
-	if (!j->ondemand) {
-		job_log(j, LOG_PERF, "Job is configured to always run.");
-	}
-
-	struct machservice *msi = NULL;
-	SLIST_FOREACH(msi, &j->machservices, sle) {
-		if (msi->upfront) {
-			job_log(j, LOG_PERF, "Job advertises service in plist: %s", msi->name);
-		} else if (!(msi->event_channel || msi->per_pid)) {
-			job_log(j, LOG_PERF, "Job has dynamically registered service: %s", msi->name);
-		} else if (msi->per_pid) {
-			job_log(j, LOG_PERF, "Job advertises per-PID service: %s", msi->name);
+	struct waiting4attach *w4ai = NULL;
+	LIST_FOREACH(w4ai, &jm->attaches, le) {
+		if (strcmp(name2use, w4ai->name) == 0) {
+			job_log(j, LOG_DEBUG, "Found attachment: %s", name2use);
+			break;
 		}
 	}
+
+	return w4ai;
 }
 
 void
@@ -5054,11 +5554,25 @@ jobmgr_log_error(jobmgr_t jm, int pri, const char *msg, ...)
 #endif
 
 void
-jobmgr_log_perf_statistics(jobmgr_t jm)
+jobmgr_log_perf_statistics(jobmgr_t jm, bool signal_children)
 {
+#if HAVE_SYSTEMSTATS
+	// Log information for kernel_task and pid 1 launchd.
+	if (systemstats_is_enabled() && pid1_magic && jm == root_jobmgr) {
+#if SYSTEMSTATS_API_VERSION >= 20130328
+		if (_systemstats_get_property(SYSTEMSTATS_API_VERSION, SYSTEMSTATS_WRITER_launchd, SYSTEMSTATS_PROPERTY_SHOULD_LOG_ENERGY_STATISTICS)) {
+			systemstats_write_intel_energy_statistics(NULL);
+		}
+#else
+		systemstats_write_intel_energy_statistics(NULL);
+#endif
+		job_log_systemstats(0, 0, 0, 0, 0, "com.apple.kernel", NULL, -1);
+		job_log_systemstats(1, 1, 0, 1, 1, "com.apple.launchd", NULL, -1);
+	}
+#endif
 	jobmgr_t jmi = NULL;
 	SLIST_FOREACH(jmi, &jm->submgrs, sle) {
-		jobmgr_log_perf_statistics(jmi);
+		jobmgr_log_perf_statistics(jmi, signal_children);
 	}
 
 	if (jm->xpc_singleton) {
@@ -5073,7 +5587,11 @@ jobmgr_log_perf_statistics(jobmgr_t jm)
 
 	job_t ji = NULL;
 	LIST_FOREACH(ji, &jm->jobs, sle) {
-		job_log_perf_statistics(ji);
+		job_log_perf_statistics(ji, NULL, -1);
+		if (unlikely(signal_children) && unlikely(strstr(ji->label, "com.apple.launchd.peruser.") == ji->label)) {
+			jobmgr_log(jm, LOG_PERF, "Sending SIGINFO to peruser launchd %d", ji->p);
+			kill(ji->p, SIGINFO);
+		}
 	}
 
 	jobmgr_log(jm, LOG_PERF, "End of job list.");
@@ -5736,7 +6254,9 @@ void
 machservice_watch(job_t j, struct machservice *ms)
 {
 	if (ms->recv) {
-		(void)job_assumes_zero(j, runtime_add_mport(ms->port, NULL));
+		if (job_assumes_zero(j, runtime_add_mport(ms->port, NULL)) == KERN_INVALID_RIGHT) {
+			ms->recv_race_hack = true;
+		}
 	}
 }
 
@@ -5925,7 +6445,7 @@ job_setup_exception_port(job_t j, task_t target_task)
 #endif
 
 	if (likely(target_task)) {
-		kern_return_t kr = task_set_exception_ports(target_task, EXC_MASK_CRASH | EXC_MASK_RESOURCE, exc_port, EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, f);
+		kern_return_t kr = task_set_exception_ports(target_task, EXC_MASK_CRASH | EXC_MASK_GUARD | EXC_MASK_RESOURCE, exc_port, EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, f);
 		if (kr) {
 			if (kr != MACH_SEND_INVALID_DEST) {
 				(void)job_assumes_zero(j, kr);
@@ -5935,7 +6455,7 @@ job_setup_exception_port(job_t j, task_t target_task)
 		}
 	} else if (pid1_magic && the_exception_server) {
 		mach_port_t mhp = mach_host_self();
-		(void)job_assumes_zero(j, host_set_exception_ports(mhp, EXC_MASK_CRASH | EXC_MASK_RESOURCE, the_exception_server, EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, f));
+		(void)job_assumes_zero(j, host_set_exception_ports(mhp, EXC_MASK_CRASH | EXC_MASK_GUARD | EXC_MASK_RESOURCE, the_exception_server, EXCEPTION_STATE_IDENTITY | MACH_EXCEPTION_CODES, f));
 		(void)job_assumes_zero(j, launchd_mport_deallocate(mhp));
 	}
 }
@@ -6016,7 +6536,9 @@ machservice_setup_options(launch_data_t obj, const char *key, void *context)
 		}
 		break;
 	case LAUNCH_DATA_DICTIONARY:
-		job_set_exception_port(ms->job, ms->port);
+		if (launch_data_dict_get_count(obj) == 0) {
+			job_set_exception_port(ms->job, ms->port);
+		}
 		break;
 	default:
 		break;
@@ -6047,6 +6569,9 @@ machservice_setup(launch_data_t obj, const char *key, void *context)
 	if (launch_data_get_type(obj) == LAUNCH_DATA_DICTIONARY) {
 		launch_data_dict_iterate(obj, machservice_setup_options, ms);
 	}
+
+	kern_return_t kr = mach_port_set_attributes(mach_task_self(), ms->port, MACH_PORT_TEMPOWNER, NULL, 0);
+	(void)job_assumes_zero(j, kr);
 }
 
 jobmgr_t
@@ -6298,7 +6823,7 @@ jobmgr_new(jobmgr_t jm, mach_port_t requestorport, mach_port_t transfer_port, bo
 	job_t bootstrapper = NULL;
 	jobmgr_t jmr;
 
-	__OSX_COMPILETIME_ASSERT__(offsetof(struct jobmgr_s, kqjobmgr_callback) == 0);
+	__OS_COMPILETIME_ASSERT__(offsetof(struct jobmgr_s, kqjobmgr_callback) == 0);
 
 	if (unlikely(jm && requestorport == MACH_PORT_NULL)) {
 		jobmgr_log(jm, LOG_ERR, "Mach sub-bootstrap create request requires a requester port");
@@ -6355,10 +6880,10 @@ jobmgr_new(jobmgr_t jm, mach_port_t requestorport, mach_port_t transfer_port, bo
 		// cut off the Libc cache, we don't want to deadlock against ourself
 		inherited_bootstrap_port = bootstrap_port;
 		bootstrap_port = MACH_PORT_NULL;
-		osx_assert_zero(launchd_mport_notify_req(inherited_bootstrap_port, MACH_NOTIFY_DEAD_NAME));
+		os_assert_zero(launchd_mport_notify_req(inherited_bootstrap_port, MACH_NOTIFY_DEAD_NAME));
 
 		// We set this explicitly as we start each child
-		osx_assert_zero(launchd_set_bport(MACH_PORT_NULL));
+		os_assert_zero(launchd_set_bport(MACH_PORT_NULL));
 	} else if (jobmgr_assumes_zero(jmr, launchd_mport_create_recv(&jmr->jm_port)) != KERN_SUCCESS) {
 		goto out_bad;
 	}
@@ -6371,6 +6896,7 @@ jobmgr_new(jobmgr_t jm, mach_port_t requestorport, mach_port_t transfer_port, bo
 		(void)jobmgr_assumes_zero_p(jmr, kevent_mod(SIGTERM, EVFILT_SIGNAL, EV_ADD, 0, 0, jmr));
 		(void)jobmgr_assumes_zero_p(jmr, kevent_mod(SIGUSR1, EVFILT_SIGNAL, EV_ADD, 0, 0, jmr));
 		(void)jobmgr_assumes_zero_p(jmr, kevent_mod(SIGUSR2, EVFILT_SIGNAL, EV_ADD, 0, 0, jmr));
+		(void)jobmgr_assumes_zero_p(jmr, kevent_mod(SIGINFO, EVFILT_SIGNAL, EV_ADD, 0, 0, jmr));
 		(void)jobmgr_assumes_zero_p(jmr, kevent_mod(0, EVFILT_FS, EV_ADD, VQ_MOUNT|VQ_UNMOUNT|VQ_UPDATE, 0, jmr));
 	}
 
@@ -6523,7 +7049,7 @@ jobmgr_init_session(jobmgr_t jm, const char *session_type, bool sflag)
 		(void)jobmgr_assumes(jm, job_setup_machport(bootstrapper));
 	} else if (bootstrapper && strncmp(session_type, VPROCMGR_SESSION_SYSTEM, sizeof(VPROCMGR_SESSION_SYSTEM)) == 0) {
 #if TARGET_OS_EMBEDDED
-		bootstrapper->pstype = POSIX_SPAWN_IOS_INTERACTIVE;
+		bootstrapper->psproctype = POSIX_SPAWN_PROC_TYPE_DAEMON_INTERACTIVE;
 #endif
 		bootstrapper->is_bootstrapper = true;
 		if (jobmgr_assumes(jm, pid1_magic)) {
@@ -6578,6 +7104,15 @@ jobmgr_delete_anything_with_port(jobmgr_t jm, mach_port_t port)
 	if (jm->req_port == port) {
 		jobmgr_log(jm, LOG_DEBUG, "Request port died: %i", MACH_PORT_INDEX(port));
 		return jobmgr_shutdown(jm);
+	}
+
+	struct waiting4attach *w4ai = NULL;
+	struct waiting4attach *w4ait = NULL;
+	LIST_FOREACH_SAFE(w4ai, &jm->attaches, le, w4ait) {
+		if (port == w4ai->port) {
+			waiting4attach_delete(jm, w4ai);
+			break;
+		}
 	}
 
 	return jm;
@@ -6811,7 +7346,7 @@ mach_cmd2argv(const char *string)
 	argv_ret = malloc((nargs + 1) * sizeof(char *) + strlen(string) + 1);
 
 	if (!argv_ret) {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 		return NULL;
 	}
 
@@ -6895,8 +7430,15 @@ job_ack_port_destruction(mach_port_t p)
 		machservice_resetport(j, ms);
 	}
 
+	kern_return_t kr = mach_port_set_attributes(mach_task_self(), ms->port, MACH_PORT_TEMPOWNER, NULL, 0);
+	(void)job_assumes_zero(j, kr);
 	machservice_stamp_port(j, ms);
 	job_dispatch(j, false);
+
+	if (ms->recv_race_hack) {
+		ms->recv_race_hack = false;
+		machservice_watch(ms->job, ms);
+	}
 
 	root_jobmgr = jobmgr_do_garbage_collection(root_jobmgr);
 
@@ -7050,7 +7592,7 @@ semaphoreitem_setup(launch_data_t obj, const char *key, void *context)
 }
 
 bool
-externalevent_new(job_t j, struct eventsystem *sys, const char *evname, xpc_object_t event)
+externalevent_new(job_t j, struct eventsystem *sys, const char *evname, xpc_object_t event, uint64_t flags)
 {
 	if (j->event_monitor) {
 		job_log(j, LOG_ERR, "The event monitor job cannot use LaunchEvents or XPC Events.");
@@ -7071,6 +7613,13 @@ externalevent_new(job_t j, struct eventsystem *sys, const char *evname, xpc_obje
 	ee->wanted_state = true;
 	sys->curid++;
 
+	if (flags & XPC_EVENT_FLAG_ENTITLEMENTS) {
+		struct ldcred *ldc = runtime_get_caller_creds();
+		if (ldc) {
+			ee->entitlements = xpc_copy_entitlements_for_pid(ldc->pid);
+		}
+	}
+
 	if (sys == _launchd_support_system) {
 		ee->internal = true;
 	}
@@ -7088,6 +7637,9 @@ void
 externalevent_delete(struct externalevent *ee)
 {
 	xpc_release(ee->event);
+	if (ee->entitlements) {
+		xpc_release(ee->entitlements);
+	}
 	LIST_REMOVE(ee, job_le);
 	LIST_REMOVE(ee, sys_le);
 
@@ -7107,7 +7659,7 @@ externalevent_setup(launch_data_t obj, const char *key, void *context)
 	xpc_object_t xobj = ld2xpc(obj);
 	if (xobj) {
 		job_log(ctx->j, LOG_DEBUG, "Importing stream/event: %s/%s", ctx->sys->name, key);
-		externalevent_new(ctx->j, ctx->sys, key, xobj);
+		externalevent_new(ctx->j, ctx->sys, key, xobj, 0);
 		xpc_release(xobj);
 	} else {
 		job_log(ctx->j, LOG_ERR, "Could not import event for job: %s", key);
@@ -7142,7 +7694,7 @@ eventsystem_new(const char *name)
 		(void)strcpy(es->name, name);
 		LIST_INSERT_HEAD(&_s_event_systems, es, global_le);
 	} else {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 	}
 
 	return es;
@@ -7817,7 +8369,7 @@ job_mig_swap_integer(job_t j, vproc_gsk_t inkey, vproc_gsk_t outkey, int64_t inv
 		}
 		break;
 	case VPROC_GSK_GLOBAL_UMASK:
-		__OSX_COMPILETIME_ASSERT__(sizeof (mode_t) == 2);
+		__OS_COMPILETIME_ASSERT__(sizeof (mode_t) == 2);
 		if (inval < 0 || inval > UINT16_MAX) {
 			kr = 1;
 		} else {
@@ -7926,16 +8478,14 @@ job_mig_swap_integer(job_t j, vproc_gsk_t inkey, vproc_gsk_t outkey, int64_t inv
 kern_return_t
 job_mig_post_fork_ping(job_t j, task_t child_task, mach_port_t *asport)
 {
-	struct machservice *ms;
-
 	if (!j) {
 		return BOOTSTRAP_NO_MEMORY;
 	}
 
 	job_log(j, LOG_DEBUG, "Post fork ping.");
 
+	struct machservice *ms;
 	job_setup_exception_port(j, child_task);
-
 	SLIST_FOREACH(ms, &special_ports, special_port_sle) {
 		if (j->per_user && (ms->special_port_num != TASK_ACCESS_PORT)) {
 			// The TASK_ACCESS_PORT funny business is to workaround 5325399.
@@ -7964,7 +8514,8 @@ job_mig_post_fork_ping(job_t j, task_t child_task, mach_port_t *asport)
 		}
 	}
 
-	/* MIG will not zero-initialize this pointer, so we must always do so. See
+	/* MIG will not zero-initialize this pointer, so we must always do so.
+	 *
 	 * <rdar://problem/8562593>.
 	 */
 	*asport = MACH_PORT_NULL;
@@ -7982,6 +8533,67 @@ job_mig_post_fork_ping(job_t j, task_t child_task, mach_port_t *asport)
 	(void)job_assumes_zero(j, launchd_mport_deallocate(child_task));
 
 	return 0;
+}
+
+kern_return_t
+job_mig_get_listener_port_rights(job_t j, mach_port_array_t *sports, mach_msg_type_number_t *sports_cnt)
+{
+	if (!j) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	size_t cnt = 0;
+	struct machservice *msi = NULL;
+	SLIST_FOREACH(msi, &j->machservices, sle) {
+		if (msi->upfront && job_assumes(j, msi->recv)) {
+			cnt++;
+		}
+	}
+
+	if (cnt == 0) {
+		return BOOTSTRAP_UNKNOWN_SERVICE;
+	}
+
+	mach_port_array_t sports2 = NULL;
+	mig_allocate((vm_address_t *)&sports2, cnt * sizeof(sports2[0]));
+	if (!sports2) {
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
+	size_t i = 0;
+	SLIST_FOREACH(msi, &j->machservices, sle) {
+		if (msi->upfront && msi->recv) {
+			sports2[i] = msi->port;
+			i++;
+		}
+	}
+
+	*sports = sports2;
+	*sports_cnt = cnt;
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+job_mig_register_gui_session(job_t j, mach_port_t asport)
+{
+	if (!j->per_user) {
+		return BOOTSTRAP_NOT_PRIVILEGED;
+	}
+
+	jobmgr_t jm = jobmgr_find_xpc_per_user_domain(root_jobmgr, j->mach_uid);
+	if (!jm) {
+		return BOOTSTRAP_UNKNOWN_SERVICE;
+	}
+
+	if (jm->req_gui_asport) {
+		// This job manager persists, so we need to allow the per-user launchd
+		// to update the GUI session as it comes and goes.
+		jobmgr_assumes_zero(jm, launchd_mport_deallocate(jm->req_gui_asport));
+	}
+
+	jm->req_gui_asport = asport;
+	return KERN_SUCCESS;
 }
 
 kern_return_t
@@ -8291,6 +8903,11 @@ job_mig_check_in2(job_t j, name_t servicename, mach_port_t *serviceportp, uuid_t
 		if (job_assumes(j, !j->dedicated_instance)) {
 			*serviceportp = MACH_PORT_NULL;
 
+#if HAVE_SANDBOX
+			if (unlikely(sandbox_check(ldc->pid, "mach-register", per_pid_service ? SANDBOX_FILTER_LOCAL_NAME : SANDBOX_FILTER_GLOBAL_NAME, servicename) > 0)) {
+				return BOOTSTRAP_NOT_PRIVILEGED;
+			}
+#endif
 			if (unlikely((ms = machservice_new(j, servicename, serviceportp, per_pid_service)) == NULL)) {
 				return BOOTSTRAP_NO_MEMORY;
 			}
@@ -8338,16 +8955,23 @@ job_mig_register2(job_t j, name_t servicename, mach_port_t serviceport, uint64_t
 {
 	struct machservice *ms;
 	struct ldcred *ldc = runtime_get_caller_creds();
+	bool per_pid_service = flags & BOOTSTRAP_PER_PID_SERVICE;
 
 	if (!j) {
 		return BOOTSTRAP_NO_MEMORY;
 	}
 
-	if (!(flags & BOOTSTRAP_PER_PID_SERVICE) && !j->legacy_LS_job) {
+	if (!per_pid_service && !j->legacy_LS_job) {
 		job_log(j, LOG_APPLEONLY, "Performance: bootstrap_register() is deprecated. Service: %s", servicename);
 	}
 
 	job_log(j, LOG_DEBUG, "%sMach service registration attempt: %s", flags & BOOTSTRAP_PER_PID_SERVICE ? "Per PID " : "", servicename);
+
+#if HAVE_SANDBOX
+	if (unlikely(sandbox_check(ldc->pid, "mach-register", per_pid_service ? SANDBOX_FILTER_LOCAL_NAME : SANDBOX_FILTER_GLOBAL_NAME, servicename) > 0)) {
+		return BOOTSTRAP_NOT_PRIVILEGED;
+	}
+#endif
 
 	// 5641783 for the embedded hack
 #if !TARGET_OS_EMBEDDED
@@ -8599,6 +9223,13 @@ job_mig_info(job_t j, name_array_t *servicenamesp,
 		return BOOTSTRAP_NO_MEMORY;
 	}
 
+#if TARGET_OS_EMBEDDED
+	struct ldcred *ldc = runtime_get_caller_creds();
+	if (ldc->euid) {
+		return EPERM;
+	}
+#endif // TARGET_OS_EMBEDDED
+
 	if (launchd_flat_mach_namespace) {
 		if ((j->mgr->properties & BOOTSTRAP_PROPERTY_EXPLICITSUBSET) || (flags & BOOTSTRAP_FORCE_LOCAL)) {
 			jm = j->mgr;
@@ -8720,20 +9351,21 @@ job_mig_lookup_children(job_t j, mach_port_array_t *child_ports,
 	}
 
 	mach_port_array_t _child_ports = NULL;
+	name_array_t _child_names = NULL;
+	bootstrap_property_array_t _child_properties = NULL;
+
 	mig_allocate((vm_address_t *)&_child_ports, cnt * sizeof(_child_ports[0]));
 	if (!job_assumes(j, _child_ports != NULL)) {
 		kr = BOOTSTRAP_NO_MEMORY;
 		goto out_bad;
 	}
 
-	name_array_t _child_names = NULL;
 	mig_allocate((vm_address_t *)&_child_names, cnt * sizeof(_child_names[0]));
 	if (!job_assumes(j, _child_names != NULL)) {
 		kr = BOOTSTRAP_NO_MEMORY;
 		goto out_bad;
 	}
 
-	bootstrap_property_array_t _child_properties = NULL;
 	mig_allocate((vm_address_t *)&_child_properties, cnt * sizeof(_child_properties[0]));
 	if (!job_assumes(j, _child_properties != NULL)) {
 		kr = BOOTSTRAP_NO_MEMORY;
@@ -8795,7 +9427,7 @@ out_bad:
 	}
 
 	if (_child_names) {
-		mig_deallocate((vm_address_t)_child_names, cnt * sizeof(_child_ports[0]));
+		mig_deallocate((vm_address_t)_child_names, cnt * sizeof(_child_names[0]));
 	}
 
 	if (_child_properties) {
@@ -8983,12 +9615,20 @@ job_mig_move_subset(job_t j, mach_port_t target_subset, name_t session_type, mac
 	}
 
 	if (launch_data_array_get_count(out_obj_array) != l2l_port_cnt) {
-		osx_assert_zero(l2l_port_cnt);
+		os_assert_zero(l2l_port_cnt);
 	}
 
 	if (!job_assumes(j, (jmr = jobmgr_new(j->mgr, reqport, rcvright, false, session_type, false, asport)) != NULL)) {
 		kr = BOOTSTRAP_NO_MEMORY;
 		goto out;
+	}
+
+	if (strcmp(session_type, VPROCMGR_SESSION_AQUA) == 0) {
+		jobmgr_log(jmr, LOG_NOTICE, "Registering new GUI session.");
+		kr = vproc_mig_register_gui_session(inherited_bootstrap_port, asport);
+		if (kr) {
+			jobmgr_log(jmr, LOG_ERR, "Failed to register GUI session with PID 1: 0x%x/0x%x", inherited_bootstrap_port, kr);
+		}
 	}
 
 	jmr->properties |= BOOTSTRAP_PROPERTY_MOVEDSUBSET;
@@ -9110,7 +9750,9 @@ job_mig_init_session(job_t j, name_t session_type, mach_port_t asport)
 				break;
 			}
 		}
-	}
+	} else if (strcmp(session_type, VPROCMGR_SESSION_AQUA) == 0) {
+		(void)job_assumes_zero(j, runtime_remove_mport(j->mgr->jm_port));
+ 	}
 
 	jobmgr_log(j->mgr, LOG_DEBUG, "Initializing as %s", session_type);
 	strcpy(j->mgr->name_init, session_type);
@@ -9633,8 +10275,8 @@ xpc_domain_set_environment(job_t j, mach_port_t rp, mach_port_t bsport, mach_por
 	}
 
 	struct ldcred *ldc = runtime_get_caller_creds();
-	struct proc_bsdshortinfo proc;
-	if (proc_pidinfo(ldc->pid, PROC_PIDT_SHORTBSDINFO, 1, &proc, PROC_PIDT_SHORTBSDINFO_SIZE) == 0) {
+	struct proc_bsdinfowithuniqid proc;
+	if (proc_pidinfo(ldc->pid, PROC_PIDT_BSDINFOWITHUNIQID, 1, &proc, PROC_PIDT_BSDINFOWITHUNIQID_SIZE) == 0) {
 		if (errno != ESRCH) {
 			(void)jobmgr_assumes_zero(jm, errno);
 		}
@@ -9655,8 +10297,19 @@ xpc_domain_set_environment(job_t j, mach_port_t rp, mach_port_t bsport, mach_por
 	jm->req_asport = MACH_PORT_DEAD;
 #endif
 
-	(void)snprintf(jm->name_init, NAME_MAX, "com.apple.xpc.domain.%s[%i]", proc.pbsi_comm, ldc->pid);
-	strlcpy(jm->owner, proc.pbsi_comm, sizeof(jm->owner));
+	struct waiting4attach *w4ai = NULL;
+	struct waiting4attach *w4ait = NULL;
+	LIST_FOREACH_SAFE(w4ai, &_launchd_domain_waiters, le, w4ait) {
+		if (w4ai->dest == ldc->pid) {
+			jobmgr_log(jm, LOG_DEBUG, "Migrating attach for: %s", w4ai->name);
+			LIST_REMOVE(w4ai, le);
+			LIST_INSERT_HEAD(&jm->attaches, w4ai, le);
+			w4ai->dest = 0;
+		}
+	}
+
+	(void)snprintf(jm->name_init, NAME_MAX, "com.apple.xpc.domain.%s.%d", proc.pbsd.pbi_comm, ldc->pid);
+	strlcpy(jm->owner, proc.pbsd.pbi_comm, sizeof(jm->owner));
 	jm->req_bsport = bsport;
 	jm->req_excport = excport;
 	jm->req_rport = rp;
@@ -9666,6 +10319,7 @@ xpc_domain_set_environment(job_t j, mach_port_t rp, mach_port_t bsport, mach_por
 	jm->req_euid = ldc->euid;
 	jm->req_egid = ldc->egid;
 	jm->req_asid = ldc->asid;
+	jm->req_uniqueid = proc.p_uniqidentifier.p_uniqueid;
 
 	return KERN_SUCCESS;
 }
@@ -9738,7 +10392,17 @@ xpc_domain_check_in(job_t j, mach_port_t *bsport, mach_port_t *sbsport,
 	*bsport = jm->req_bsport;
 	*sbsport = root_jobmgr->jm_port;
 	*excport = jm->req_excport;
-	*asport = jm->req_asport;
+	if (j->joins_gui_session) {
+		if (jm->req_gui_asport) {
+			*asport = jm->req_gui_asport;
+		} else {
+			job_log(j, LOG_NOTICE, "No GUI session set for UID of user service. This service may not act properly.");
+			*asport = jm->req_asport;
+		}
+	} else {
+		*asport = jm->req_asport;
+	}
+
 	*uid = jm->req_euid;
 	*gid = jm->req_egid;
 	*asid = jm->req_asid;
@@ -9755,18 +10419,30 @@ xpc_domain_get_service_name(job_t j, event_name_t name)
 	if (!j) {
 		return BOOTSTRAP_NO_MEMORY;
 	}
+
 	if (!j->xpc_service) {
 		jobmgr_log(j->mgr, LOG_ERR, "Attempt to get service name by non-XPC service: %s", j->label);
 		return BOOTSTRAP_NOT_PRIVILEGED;
 	}
 
-	struct machservice * ms = SLIST_FIRST(&j->machservices);
-	if (!ms) {
-		jobmgr_log(j->mgr, LOG_ERR, "Attempt to get service name of job with no MachServices: %s", j->label);
+	const char *what2find = j->label;
+	if (j->dedicated_instance) {
+		what2find = j->original->label;
+	}
+
+	struct machservice *msi = NULL;
+	SLIST_FOREACH(msi, &j->machservices, sle) {
+		if (strcmp(msi->name, what2find) == 0) {
+			break;
+		}
+	}
+
+	if (!msi) {
+		jobmgr_log(j->mgr, LOG_ERR, "Attempt to get service name that does not exist: %s", j->label);
 		return BOOTSTRAP_UNKNOWN_SERVICE;
 	}
 
-	(void)strlcpy(name, ms->name, sizeof(event_name_t));
+	(void)strlcpy(name, msi->name, sizeof(event_name_t));
 	return BOOTSTRAP_SUCCESS;
 }
 
@@ -9884,6 +10560,40 @@ xpc_event_get_event_name(job_t j, xpc_object_t request, xpc_object_t *reply)
 }
 
 int
+xpc_event_copy_entitlements(job_t j, xpc_object_t request, xpc_object_t *reply)
+{
+	const char *stream = xpc_dictionary_get_string(request, XPC_EVENT_ROUTINE_KEY_STREAM);
+	if (!stream) {
+		return EXINVAL;
+	}
+
+	uint64_t token = xpc_dictionary_get_uint64(request, XPC_EVENT_ROUTINE_KEY_TOKEN);
+	if (!token) {
+		return EXINVAL;
+	}
+
+	job_log(j, LOG_DEBUG, "Getting entitlements for stream/token: %s/0x%llu", stream, token);
+
+	int result = ESRCH;
+	struct externalevent *event = externalevent_find(stream, token);
+	if (event && j->event_monitor) {
+		xpc_object_t reply2 = xpc_dictionary_create_reply(request);
+		xpc_dictionary_set_value(reply2, XPC_EVENT_ROUTINE_KEY_ENTITLEMENTS, event->entitlements);
+		*reply = reply2;
+
+		job_log(j, LOG_DEBUG, "Found: %s", event->name);
+		result = 0;
+	}
+
+	return result;
+}
+
+// TODO - can be removed with rdar://problem/12666150
+#ifndef XPC_EVENT_FLAG_ALLOW_UNMANAGED
+#define XPC_EVENT_FLAG_ALLOW_UNMANAGED (1 << 1)
+#endif
+	
+int
 xpc_event_set_event(job_t j, xpc_object_t request, xpc_object_t *reply)
 {
 	const char *stream = xpc_dictionary_get_string(request, XPC_EVENT_ROUTINE_KEY_STREAM);
@@ -9899,6 +10609,16 @@ xpc_event_set_event(job_t j, xpc_object_t request, xpc_object_t *reply)
 	xpc_object_t event = xpc_dictionary_get_value(request, XPC_EVENT_ROUTINE_KEY_EVENT);
 	if (event && xpc_get_type(event) != XPC_TYPE_DICTIONARY) {
 		return EXINVAL;
+	}
+
+	uint64_t flags = xpc_dictionary_get_uint64(request, XPC_EVENT_ROUTINE_KEY_FLAGS);
+
+	/* Don't allow events to be set for anonymous jobs unless specifically
+	 * requested in the flags. Only permit this for internal development.
+	 */
+	if (j->anonymous && ((flags & XPC_EVENT_FLAG_ALLOW_UNMANAGED) == 0 || !launchd_apple_internal)) {
+		job_log(j, LOG_ERR, "Unmanaged jobs may not make XPC Events requests.");
+		return EPERM;
 	}
 
 	job_log(j, LOG_DEBUG, "%s event for stream/key: %s/%s", event ? "Setting" : "Removing", stream, key);
@@ -9925,7 +10645,7 @@ xpc_event_set_event(job_t j, xpc_object_t request, xpc_object_t *reply)
 
 		if (es) {
 			job_log(j, LOG_DEBUG, "Adding event.");
-			if (externalevent_new(j, es, key, event)) {
+			if (externalevent_new(j, es, key, event, flags)) {
 				job_log(j, LOG_DEBUG, "Added new event for key: %s", key);
 				result = 0;
 			} else {
@@ -10077,9 +10797,9 @@ xpc_event_provider_check_in(job_t j, xpc_object_t request, xpc_object_t *reply)
 		return EPERM;
 	}
 
-	/* This indicates that the event monitor is now safe to signal. This state is
-	 * independent of whether this operation actually succeeds; we just need it
-	 * to ignore SIGUSR1.
+	/* This indicates that the event monitor is now safe to signal. This state
+	 * is independent of whether this operation actually succeeds; we just need
+	 * it to ignore SIGUSR1.
 	 */
 	j->event_monitor_ready2signal = true;
 
@@ -10188,9 +10908,13 @@ xpc_event_demux(mach_port_t p, xpc_object_t request, xpc_object_t *reply)
 	xpc_dictionary_get_audit_token(request, &token);
 	runtime_record_caller_creds(&token);
 
-	job_t j = job_mig_intran(p);
-	if (!j || j->anonymous) {
-		op = -1;
+	struct ldcred *ldc = runtime_get_caller_creds();
+	job_t j = managed_job(ldc->pid);
+	if (!j) {
+		j = job_mig_intran(p);
+		if (!j) {
+			op = -1;
+		}
 	}
 
 	job_log(j, LOG_DEBUG, "Incoming XPC event request: %llu", op);
@@ -10218,11 +10942,11 @@ xpc_event_demux(mach_port_t p, xpc_object_t request, xpc_object_t *reply)
 	case XPC_EVENT_PROVIDER_SET_STATE:
 		error = xpc_event_provider_set_state(j, request, reply);
 		break;
+	case XPC_EVENT_COPY_ENTITLEMENTS:
+		error = xpc_event_copy_entitlements(j, request, reply);
+		break;
 	case -1:
-		if (j) {
-			job_log(j, LOG_ERR, "Unmanaged jobs may not make XPC Events requests.");
-		}
-		error = EPERM;
+		error = EINVAL;
 		break;
 	default:
 		job_log(j, LOG_ERR, "Bogus opcode.");
@@ -10232,6 +10956,447 @@ xpc_event_demux(mach_port_t p, xpc_object_t request, xpc_object_t *reply)
 	if (error) {
 		xpc_object_t reply2 = xpc_dictionary_create_reply(request);
 		xpc_dictionary_set_uint64(reply2, XPC_EVENT_ROUTINE_KEY_ERROR, error);
+		*reply = reply2;
+	}
+
+	return true;
+}
+
+uint64_t
+xpc_get_jetsam_entitlement(const char *key)
+{
+	uint64_t entitlement = 0;
+
+	audit_token_t *token = runtime_get_caller_token();
+	xpc_object_t value = xpc_copy_entitlement_for_token(key, token);
+	if (value) {
+		if (xpc_get_type(value) == XPC_TYPE_UINT64) {
+			entitlement = xpc_uint64_get_value(value);
+		}
+
+		xpc_release(value);
+	}
+	
+	return entitlement;	
+}
+
+int
+xpc_process_set_jetsam_band(job_t j, xpc_object_t request, xpc_object_t *reply)
+{	
+	if (!j) {
+		return EINVAL;
+	}
+
+	const char *label = xpc_dictionary_get_string(request, XPC_PROCESS_ROUTINE_KEY_LABEL);
+	if (!label) {
+		return EXINVAL;
+	}
+
+	xpc_jetsam_band_t entitled_band = -1;
+	xpc_jetsam_band_t requested_band = (xpc_jetsam_band_t)xpc_dictionary_get_uint64(request, XPC_PROCESS_ROUTINE_KEY_PRIORITY_BAND);
+	if (!requested_band) {
+		return EXINVAL;
+	}
+
+	if (!(requested_band >= XPC_JETSAM_BAND_SUSPENDED && requested_band < XPC_JETSAM_BAND_LAST)) {
+		return EXINVAL;
+	}
+
+	uint64_t rcdata = xpc_dictionary_get_uint64(request, XPC_PROCESS_ROUTINE_KEY_RCDATA);
+	
+	job_t tj = job_find(root_jobmgr, label);
+	if (!tj) {
+		return EXSRCH;
+	}
+
+	boolean_t allow = false;
+	if (j->embedded_god) {
+		allow = true;
+	} else {
+		entitled_band = xpc_get_jetsam_entitlement("com.apple.private.jetsam.modify-priority");
+		if (entitled_band >= requested_band) {
+			allow = true;
+		}
+	}
+
+	if (!allow) {
+		if (launchd_no_jetsam_perm_check) {
+			job_log(j, LOG_NOTICE, "Jetsam priority checks disabled; allowing job to set priority: %d", requested_band);
+		} else {		
+			job_log(j, LOG_ERR, "Job cannot decrease Jetsam priority band (requested/maximum): %d/%d", requested_band, entitled_band);
+			return EPERM;
+		}
+	}
+
+	job_log(j, LOG_INFO, "Setting Jetsam band: %d.", requested_band);
+	job_update_jetsam_properties(tj, requested_band, rcdata);
+
+	xpc_object_t reply2 = xpc_dictionary_create_reply(request);
+	*reply = reply2;
+
+	return 0;
+}
+
+int
+xpc_process_set_jetsam_memory_limit(job_t j, xpc_object_t request, xpc_object_t *reply)
+{
+	if (!j) {
+		return EINVAL;
+	}
+
+	const char *label = xpc_dictionary_get_string(request, XPC_PROCESS_ROUTINE_KEY_LABEL);
+	if (!label) {
+		return EXINVAL;
+	}
+
+	int32_t entitlement_limit = 0;
+	int32_t requested_limit = (int32_t)xpc_dictionary_get_uint64(request, XPC_PROCESS_ROUTINE_KEY_MEMORY_LIMIT);
+
+	job_t tj = job_find(root_jobmgr, label);
+	if (!tj) {
+		return EXSRCH;
+	}
+
+	boolean_t allow = false;
+	if (j->embedded_god) {
+		allow = true;
+	} else {
+		entitlement_limit = (int32_t)xpc_get_jetsam_entitlement("com.apple.private.jetsam.memory_limit");		
+		if (entitlement_limit >= requested_limit) {
+			allow = true;
+		}
+	}
+
+	if (!allow) {
+		if (launchd_no_jetsam_perm_check) {
+			job_log(j, LOG_NOTICE, "Jetsam priority checks disabled; allowing job to set memory limit: %d", requested_limit);
+		} else {		
+			job_log(j, LOG_ERR, "Job cannot set Jetsam memory limit (requested/maximum): %d/%d", requested_limit, entitlement_limit);
+			return EPERM;
+		}
+	}
+
+	job_log(j, LOG_INFO, "Setting Jetsam memory limit: %d.", requested_limit);
+	job_update_jetsam_memory_limit(tj, requested_limit);
+
+	xpc_object_t reply2 = xpc_dictionary_create_reply(request);
+	*reply = reply2;
+
+	return 0;
+}
+
+static jobmgr_t
+_xpc_process_find_target_manager(job_t j, xpc_service_type_t type, pid_t pid)
+{
+	jobmgr_t target = NULL;
+	if (type == XPC_SERVICE_TYPE_BUNDLED) {
+		job_log(j, LOG_DEBUG, "Bundled service. Searching for XPC domains for PID: %d", pid);
+
+		jobmgr_t jmi = NULL;
+		SLIST_FOREACH(jmi, &root_jobmgr->submgrs, sle) {
+			if (jmi->req_pid && jmi->req_pid == pid) {
+				jobmgr_log(jmi, LOG_DEBUG, "Found job manager for PID.");
+				target = jmi;
+				break;
+			}
+		}
+	} else if (type == XPC_SERVICE_TYPE_LAUNCHD || type == XPC_SERVICE_TYPE_APP) {
+		target = j->mgr;
+	}
+
+	return target;
+}
+
+static int
+xpc_process_attach(job_t j, xpc_object_t request, xpc_object_t *reply)
+{
+	if (!j) {
+		return EINVAL;
+	}
+
+	audit_token_t *token = runtime_get_caller_token();
+	xpc_object_t entitlement = xpc_copy_entitlement_for_token(XPC_SERVICE_ENTITLEMENT_ATTACH, token);
+	if (!entitlement) {
+		job_log(j, LOG_ERR, "Job does not have entitlement: %s", XPC_SERVICE_ENTITLEMENT_ATTACH);
+		return EPERM;
+	}
+
+	if (entitlement != XPC_BOOL_TRUE) {
+		char *desc = xpc_copy_description(entitlement);
+		job_log(j, LOG_ERR, "Job has bad value for entitlement: %s:\n%s", XPC_SERVICE_ENTITLEMENT_ATTACH, desc);
+		free(desc);
+
+		xpc_release(entitlement);
+		return EPERM;
+	}
+
+	const char *name = xpc_dictionary_get_string(request, XPC_PROCESS_ROUTINE_KEY_NAME);
+	if (!name) {
+		return EXINVAL;
+	}
+
+	xpc_service_type_t type = xpc_dictionary_get_int64(request, XPC_PROCESS_ROUTINE_KEY_TYPE);
+	if (!type) {
+		return EXINVAL;
+	}
+
+	mach_port_t port = xpc_dictionary_copy_mach_send(request, XPC_PROCESS_ROUTINE_KEY_NEW_INSTANCE_PORT);
+	if (!MACH_PORT_VALID(port)) {
+		return EXINVAL;
+	}
+
+	pid_t pid = xpc_dictionary_get_int64(request, XPC_PROCESS_ROUTINE_KEY_HANDLE);
+
+	job_log(j, LOG_DEBUG, "Attaching to service: %s", name);
+
+	xpc_object_t reply2 = xpc_dictionary_create_reply(request);
+	jobmgr_t target = _xpc_process_find_target_manager(j, type, pid);
+	if (target) {
+		jobmgr_log(target, LOG_DEBUG, "Found target job manager for service: %s", name);
+		(void)jobmgr_assumes(target, waiting4attach_new(target, name, port, 0, type));
+
+		/* HACK: This is awful. For legacy reasons, launchd job labels are all
+		 * stored in a global namespace, which is stored in the root job
+		 * manager. But XPC domains have a per-domain namespace. So if we're
+		 * looking for a legacy launchd job, we have to redirect any attachment
+		 * attempts to the root job manager to find existing instances.
+		 *
+		 * But because we store attachments on a per-job manager basis, we have
+		 * to create the new attachment in the actual target job manager, hence
+		 * why we change the target only after we've created the attachment.
+		 */
+		if (strcmp(target->name, VPROCMGR_SESSION_AQUA) == 0) {
+			target = root_jobmgr;
+		}
+
+		job_t existing = job_find(target, name);
+		if (existing && existing->p) {
+			job_log(existing, LOG_DEBUG, "Found existing instance of service.");
+			xpc_dictionary_set_int64(reply2, XPC_PROCESS_ROUTINE_KEY_PID, existing->p);
+		} else {
+			xpc_dictionary_set_uint64(reply2, XPC_PROCESS_ROUTINE_KEY_ERROR, ESRCH);
+		}
+	} else if (type == XPC_SERVICE_TYPE_BUNDLED) {
+		(void)job_assumes(j, waiting4attach_new(target, name, port, pid, type));
+		xpc_dictionary_set_uint64(reply2, XPC_PROCESS_ROUTINE_KEY_ERROR, ESRCH);
+	} else {
+		xpc_dictionary_set_uint64(reply2, XPC_PROCESS_ROUTINE_KEY_ERROR, EXSRCH);
+	}
+
+	*reply = reply2;
+	return 0;
+}
+
+static int
+xpc_process_detach(job_t j, xpc_object_t request, xpc_object_t *reply __unused)
+{
+	if (!j) {
+		return EINVAL;
+	}
+
+	const char *name = xpc_dictionary_get_string(request, XPC_PROCESS_ROUTINE_KEY_NAME);
+	if (!name) {
+		return EXINVAL;
+	}
+
+	xpc_service_type_t type = xpc_dictionary_get_int64(request, XPC_PROCESS_ROUTINE_KEY_TYPE);
+	if (!type) {
+		return EXINVAL;
+	}
+
+	job_log(j, LOG_DEBUG, "Deatching from service: %s", name);
+
+	pid_t pid = xpc_dictionary_get_int64(request, XPC_PROCESS_ROUTINE_KEY_PID);
+	jobmgr_t target = _xpc_process_find_target_manager(j, type, pid);
+	if (target) {
+		jobmgr_log(target, LOG_DEBUG, "Found target job manager for service: %s", name);
+
+		struct waiting4attach *w4ai = NULL;
+		struct waiting4attach *w4ait = NULL;
+		LIST_FOREACH_SAFE(w4ai, &target->attaches, le, w4ait) {
+			if (strcmp(name, w4ai->name) == 0) {
+				jobmgr_log(target, LOG_DEBUG, "Found attachment. Deleting.");
+				waiting4attach_delete(target, w4ai);
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int
+xpc_process_get_properties(job_t j, xpc_object_t request, xpc_object_t *reply)
+{
+	if (j->anonymous) {
+		/* Total hack. libxpc will send requests to the pipe created out of the
+		 * process' bootstrap port, so when job_mig_intran() tries to resolve
+		 * the process into a job, it'll wind up creating an anonymous job if
+		 * the requestor was an XPC service, whose job manager is an XPC domain.
+		 */
+		pid_t pid = j->p;
+		jobmgr_t jmi = NULL;
+		SLIST_FOREACH(jmi, &root_jobmgr->submgrs, sle) {
+			if ((j = jobmgr_find_by_pid(jmi, pid, false))) {
+				break;
+			}
+		}
+	}
+
+	if (!j || j->anonymous) {
+		return EXINVAL;
+	}
+
+	struct waiting4attach *w4a = waiting4attach_find(j->mgr, j);
+	if (!w4a) {
+		return EXINVAL;
+	}
+
+	xpc_object_t reply2 = xpc_dictionary_create_reply(request);
+	xpc_dictionary_set_uint64(reply2, XPC_PROCESS_ROUTINE_KEY_TYPE, w4a->type);
+	xpc_dictionary_set_mach_send(reply2, XPC_PROCESS_ROUTINE_KEY_NEW_INSTANCE_PORT, w4a->port);
+	if (j->prog) {
+		xpc_dictionary_set_string(reply2, XPC_PROCESS_ROUTINE_KEY_PATH, j->prog);
+	} else {
+		xpc_dictionary_set_string(reply2, XPC_PROCESS_ROUTINE_KEY_PATH, j->argv[0]);
+	}
+
+	if (j->argv) {
+		xpc_object_t xargv = xpc_array_create(NULL, 0);
+
+		size_t i = 0;
+		for (i = 0; i < j->argc; i++) {
+			if (j->argv[i]) {
+				xpc_array_set_string(xargv, XPC_ARRAY_APPEND, j->argv[i]);
+			}
+		}
+
+		xpc_dictionary_set_value(reply2, XPC_PROCESS_ROUTINE_KEY_ARGV, xargv);
+		xpc_release(xargv);
+	}
+
+	*reply = reply2;
+	return 0;
+}
+
+static int
+xpc_process_service_kill(job_t j, xpc_object_t request, xpc_object_t *reply)
+{
+#if XPC_LPI_VERSION >= 20130426
+	if (!j) {
+		return ESRCH;
+	}
+
+	jobmgr_t jm = _xpc_process_find_target_manager(j, XPC_SERVICE_TYPE_BUNDLED, j->p);
+	if (!jm) {
+		return ENOENT;
+	}
+
+	const char *name = xpc_dictionary_get_string(request, XPC_PROCESS_ROUTINE_KEY_NAME);
+	if (!name) {
+		return EINVAL;
+	}
+
+	int64_t whichsig = xpc_dictionary_get_int64(request, XPC_PROCESS_ROUTINE_KEY_SIGNAL);
+	if (!whichsig) {
+		return EINVAL;
+	}
+
+	job_t j2kill = job_find(jm, name);
+	if (!j2kill) {
+		return ESRCH;
+	}
+
+	if (j2kill->alias) {
+		// Only allow for private instances to be killed.
+		return EPERM;
+	}
+
+	struct proc_bsdshortinfo proc;
+	if (proc_pidinfo(j2kill->p, PROC_PIDT_SHORTBSDINFO, 1, &proc, PROC_PIDT_SHORTBSDINFO_SIZE) == 0) {
+		if (errno != ESRCH) {
+			(void)jobmgr_assumes_zero(root_jobmgr, errno);
+		}
+
+		return errno;
+	}
+
+	struct ldcred *ldc = runtime_get_caller_creds();
+	if (proc.pbsi_uid != ldc->euid) {
+		// Do not allow non-root to kill RoleAccount services running as a
+		// different user.
+		return EPERM;
+	}
+
+	if (!j2kill->p) {
+		return EALREADY;
+	}
+
+	xpc_object_t reply2 = xpc_dictionary_create_reply(request);
+	if (!reply2) {
+		return EINVAL;
+	}
+
+	int error = 0;
+	int ret = kill(j2kill->p, whichsig);
+	if (ret) {
+		error = errno;
+	}
+
+	xpc_dictionary_set_int64(reply2, XPC_PROCESS_ROUTINE_KEY_ERROR, error);
+	*reply = reply2;
+	return 0;
+#else
+	return ENOTSUP;
+#endif
+}
+
+bool
+xpc_process_demux(mach_port_t p, xpc_object_t request, xpc_object_t *reply)
+{
+	uint64_t op = xpc_dictionary_get_uint64(request, XPC_PROCESS_ROUTINE_KEY_OP);
+	if (!op) {
+		return false;
+	}
+
+	audit_token_t token;
+	xpc_dictionary_get_audit_token(request, &token);
+	runtime_record_caller_creds(&token);
+
+	job_t j = job_mig_intran(p);
+	job_log(j, LOG_DEBUG, "Incoming XPC process request: %llu", op);
+
+	int error = -1;
+	switch (op) {
+	case XPC_PROCESS_JETSAM_SET_BAND:
+		error = xpc_process_set_jetsam_band(j, request, reply);
+		break;
+	case XPC_PROCESS_JETSAM_SET_MEMORY_LIMIT:
+		error = xpc_process_set_jetsam_memory_limit(j, request, reply);
+		break;
+	case XPC_PROCESS_SERVICE_ATTACH:
+		error = xpc_process_attach(j, request, reply);
+		break;
+	case XPC_PROCESS_SERVICE_DETACH:
+		error = xpc_process_detach(j, request, reply);
+		break;
+	case XPC_PROCESS_SERVICE_GET_PROPERTIES:
+		error = xpc_process_get_properties(j, request, reply);
+		break;
+	case XPC_PROCESS_SERVICE_KILL:
+		error = xpc_process_service_kill(j, request, reply);
+		break;
+	default:
+		job_log(j, LOG_ERR, "Bogus process opcode.");
+		error = EDOM;
+	}
+
+	if (error) {
+		xpc_object_t reply2 = xpc_dictionary_create_reply(request);
+		if (reply2) {
+			xpc_dictionary_set_uint64(reply2, XPC_PROCESS_ROUTINE_KEY_ERROR, error);
+		}
+
 		*reply = reply2;
 	}
 
@@ -10592,8 +11757,8 @@ jobmgr_init(bool sflag)
 	SLIST_INIT(&s_curious_jobs);
 	LIST_INIT(&s_needing_sessions);
 
-	osx_assert((root_jobmgr = jobmgr_new(NULL, MACH_PORT_NULL, MACH_PORT_NULL, sflag, root_session_type, false, MACH_PORT_NULL)) != NULL);
-	osx_assert((_s_xpc_system_domain = jobmgr_new_xpc_singleton_domain(root_jobmgr, "com.apple.xpc.system")) != NULL);
+	os_assert((root_jobmgr = jobmgr_new(NULL, MACH_PORT_NULL, MACH_PORT_NULL, sflag, root_session_type, false, MACH_PORT_NULL)) != NULL);
+	os_assert((_s_xpc_system_domain = jobmgr_new_xpc_singleton_domain(root_jobmgr, "com.apple.xpc.system")) != NULL);
 	_s_xpc_system_domain->req_asid = launchd_audit_session;
 	_s_xpc_system_domain->req_asport = launchd_audit_port;
 	_s_xpc_system_domain->shortdesc = "system";
@@ -10737,10 +11902,20 @@ jetsam_property_setup(launch_data_t obj, const char *key, job_t j)
 	job_log(j, LOG_DEBUG, "Setting Jetsam properties for job...");
 	if (strcasecmp(key, LAUNCH_JOBKEY_JETSAMPRIORITY) == 0 && launch_data_get_type(obj) == LAUNCH_DATA_INTEGER) {
 		j->jetsam_priority = (typeof(j->jetsam_priority))launch_data_get_integer(obj);
+
+#if XPC_LPI_VERSION >= 20120810
+		if (j->jetsam_priority > XPC_JETSAM_PRIORITY_RESERVED && j->jetsam_priority < XPC_JETSAM_PRIORITY_RESERVED + XPC_JETSAM_BAND_LAST) {
+			size_t band = j->jetsam_priority - XPC_JETSAM_PRIORITY_RESERVED;
+			j->jetsam_priority = _launchd_priority_map[band - 1].priority;
+		}
+#endif
 		job_log(j, LOG_DEBUG, "Priority: %d", j->jetsam_priority);
 	} else if (strcasecmp(key, LAUNCH_JOBKEY_JETSAMMEMORYLIMIT) == 0 && launch_data_get_type(obj) == LAUNCH_DATA_INTEGER) {
 		j->jetsam_memlimit = (typeof(j->jetsam_memlimit))launch_data_get_integer(obj);
 		job_log(j, LOG_DEBUG, "Memory limit: %d", j->jetsam_memlimit);
+	} else if (strcasecmp(key, LAUNCH_JOBKEY_JETSAMMEMORYLIMITBACKGROUND) == 0) {
+		j->jetsam_memory_limit_background = true;
+		job_log(j, LOG_DEBUG, "Memory limit is for background state only");
 	} else if (strcasecmp(key, LAUNCH_KEY_JETSAMFRONTMOST) == 0) {
 		/* Ignore. We only recognize this key so we don't complain when we get SpringBoard's request. 
 		 * You can't set this in a plist.
@@ -10760,74 +11935,39 @@ jetsam_property_setup(launch_data_t obj, const char *key, job_t j)
 	}
 }
 
+void
+job_update_jetsam_properties(job_t j, xpc_jetsam_band_t band, uint64_t user_data)
+{
 #if TARGET_OS_EMBEDDED
-int
-launchd_set_jetsam_priorities(launch_data_t priorities)
-{
-	kern_return_t result =  0;
+	j->jetsam_priority = _launchd_priority_map[band - 1].priority;
+	j->jetsam_properties = true;
 
-	if (launch_data_get_type(priorities) != LAUNCH_DATA_ARRAY) {
-		return EINVAL;
+	memorystatus_priority_properties_t mjp;
+	mjp.priority = j->jetsam_priority;
+	mjp.user_data = user_data;
+
+	size_t size = sizeof(mjp);
+	int r = memorystatus_control(MEMORYSTATUS_CMD_SET_PRIORITY_PROPERTIES, j->p, 0, &mjp, size);
+	if (r == -1 && errno != ESRCH) {
+		(void)job_assumes_zero(j, errno);
 	}
-	if (!launchd_embedded_handofgod) {
-		return EPERM;
-	}
-
-	size_t npris = launch_data_array_get_count(priorities);
-
-	job_t ji = NULL;
-	size_t i = 0;
-	for (i = 0; i < npris; i++) {
-		launch_data_t ldi = launch_data_array_get_index(priorities, i);
-		if (launch_data_get_type(ldi) != LAUNCH_DATA_DICTIONARY) {
-			continue;
-		}
-
-		launch_data_t ldlabel = NULL;
-		if (!(ldlabel = launch_data_dict_lookup(ldi, LAUNCH_KEY_JETSAMLABEL))) {
-			continue;
-		}
-		const char *label = launch_data_get_string(ldlabel);
-
-		ji = job_find(root_jobmgr, label);
-		if (!ji) {
-			continue;
-		}
-
-		launch_data_dict_iterate(ldi, (void (*)(launch_data_t, const char *, void *))jetsam_property_setup, ji);
-
-		launch_data_t frontmost = NULL;
-		if ((frontmost = launch_data_dict_lookup(ldi, LAUNCH_KEY_JETSAMFRONTMOST)) && launch_data_get_type(frontmost) == LAUNCH_DATA_BOOL) {
-			ji->jetsam_frontmost = launch_data_get_bool(frontmost);
-		}
-
-		launch_data_t active = NULL;
-		if ((active = launch_data_dict_lookup(ldi, LAUNCH_KEY_JETSAMACTIVE)) && launch_data_get_type(active) == LAUNCH_DATA_BOOL) {
-			ji->jetsam_active = launch_data_get_bool(active);
-		}
-
-		launchd_update_jetsam_list(ji);
-
-		result = result != 0 ? errno : 0;	
-	}
-
-	return result;
-}
-
-int
-launchd_update_jetsam_list(job_t j)
-{
-	memorystatus_priority_entry_t mpe;
-	kern_return_t result;
-
-	mpe.pid = j->p;
-	mpe.priority = j->jetsam_priority;
-	mpe.flags = 0;
-	mpe.flags |= j->jetsam_frontmost ? kMemorystatusFlagsFrontmost : 0;
-	mpe.flags |= j->jetsam_active ? kMemorystatusFlagsActive : 0;
-
-	// ToDo - cache MIB if we keep this interface
-	(void)posix_assumes_zero(result = sysctlbyname("kern.memorystatus_jetsam_change", NULL, NULL, &mpe, sizeof(memorystatus_priority_entry_t)));
-	return result;
-}
+#else
+#pragma unused(j, band, user_data)
 #endif
+}
+
+void
+job_update_jetsam_memory_limit(job_t j, int32_t limit)
+{
+#if TARGET_OS_EMBEDDED
+	j->jetsam_memlimit = limit;
+	j->jetsam_properties = true;
+
+	int r = memorystatus_control(MEMORYSTATUS_CMD_SET_JETSAM_HIGH_WATER_MARK, j->p, limit, NULL, 0);
+	if (r == -1 && errno != ESRCH) {
+		(void)job_assumes_zero(j, errno);
+	}
+#else
+#pragma unused(j, limit)
+#endif
+}

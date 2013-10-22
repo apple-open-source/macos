@@ -1,7 +1,7 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.in by autoheader.  */
 #define PACKAGE "libxml2"
-#define VERSION "2.7.8"
+#define VERSION "2.9.0"
 #define HAVE_LIBZ 1
 /* #undef HAVE_LIBM */
 #define HAVE_ISINF 

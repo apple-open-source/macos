@@ -74,7 +74,7 @@ static const AppleDatabaseTableName kTableNames[] = {
     TABLE(MDS_CDSADIR_KR_PRIMARY_RECORDTYPE),
 	
     // marker for the end of the list
-    { ~0UL, NULL }
+    { ~0U, NULL }
 };
 
 MDSModule &

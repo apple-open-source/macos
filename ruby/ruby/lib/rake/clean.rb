@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-
 # The 'rake/clean' file defines two file lists (CLEAN and CLOBBER) and
 # two rake tasks (:clean and :clobber).
 #
@@ -15,9 +13,10 @@
 
 require 'rake'
 
+# :stopdoc:
 CLEAN = Rake::FileList["**/*~", "**/*.bak", "**/core"]
-CLEAN.clear_exclude.exclude { |fn| 
-  fn.pathmap("%f") == 'core' && File.directory?(fn) 
+CLEAN.clear_exclude.exclude { |fn|
+  fn.pathmap("%f").downcase == 'core' && File.directory?(fn)
 }
 
 desc "Remove any temporary products."

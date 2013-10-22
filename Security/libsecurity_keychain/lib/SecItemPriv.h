@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2011 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2006-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -30,11 +30,15 @@
 #ifndef _SECURITY_SECITEMPRIV_H_
 #define _SECURITY_SECITEMPRIV_H_
 
+#include <CoreFoundation/CFDictionary.h>
+#include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CFError.h>
+#include <Security/SecTask.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
-	
+
 	/*!
 	 @enum Class Value Constants (Private)
 	 @discussion Predefined item class constants used to get or set values in
@@ -43,15 +47,15 @@ extern "C" {
 	 @constant kSecClassAppleSharePassword Specifies AppleShare password items.
 	 */
 	extern const CFTypeRef kSecClassAppleSharePassword;
-	
+
 	/*!
 	 @enum Attribute Key Constants (Private)
 	 @discussion Predefined item attribute keys used to get or set values in a
 	 dictionary. Not all attributes apply to each item class. The table
 	 below lists the currently defined attributes for each item class:
-	 
+
 	 kSecClassGenericPassword item attributes:
-	 kSecAttrAccessGroup (private)
+	 kSecAttrAccessGroup
 	 kSecAttrCreationDate
 	 kSecAttrModificationDate
 	 kSecAttrDescription
@@ -68,9 +72,9 @@ extern "C" {
 	 kSecAttrAccount
 	 kSecAttrService
 	 kSecAttrGeneric
-	 
+
 	 kSecClassInternetPassword item attributes:
-	 kSecAttrAccessGroup (private)
+	 kSecAttrAccessGroup
 	 kSecAttrCreationDate
 	 kSecAttrModificationDate
 	 kSecAttrDescription
@@ -91,9 +95,9 @@ extern "C" {
 	 kSecAttrAuthenticationType
 	 kSecAttrPort
 	 kSecAttrPath
-	 
+
 	 kSecClassAppleSharePassword item attributes:
-	 kSecAttrAccessGroup (private)
+	 kSecAttrAccessGroup
 	 kSecAttrCreationDate
 	 kSecAttrModificationDate
 	 kSecAttrDescription
@@ -111,9 +115,9 @@ extern "C" {
 	 kSecAttrVolume
 	 kSecAttrAddress
 	 kSecAttrAFPServerSignature
-	 
+
 	 kSecClassCertificate item attributes:
-	 kSecAttrAccessGroup (private)
+	 kSecAttrAccessGroup
 	 kSecAttrCertificateType
 	 kSecAttrCertificateEncoding
 	 kSecAttrLabel
@@ -123,9 +127,9 @@ extern "C" {
 	 kSecAttrSerialNumber
 	 kSecAttrSubjectKeyID
 	 kSecAttrPublicKeyHash
-	 
+
 	 kSecClassKey item attributes:
-	 kSecAttrAccessGroup (private)
+	 kSecAttrAccessGroup
 	 kSecAttrKeyClass
 	 kSecAttrLabel
 	 kSecAttrAlias (private)
@@ -153,12 +157,12 @@ extern "C" {
 	 kSecAttrCanVerifyRecover (private)
 	 kSecAttrCanWrap
 	 kSecAttrCanUnwrap
-	 
+
 	 kSecClassIdentity item attributes:
 	 Since an identity is the combination of a private key and a
 	 certificate, this class shares attributes of both kSecClassKey and
 	 kSecClassCertificate.
-	 
+
 	 @constant kSecAttrScriptCode Specifies a dictionary key whose value is the
 	 item's script code attribute. You use this tag to set or get a value
 	 of type CFNumberRef that represents a script code for this item's
@@ -216,29 +220,20 @@ extern "C" {
 	 @constant kSecAttrEndDate Specifies a dictionary key whose value is a
 	 CFDateRef indicating the last date on which this key may be used.
 	 If kSecAttrEndDate is not present, the restriction does not apply.
-	 @constant kSecAttrIsSensitive Specifies a dictionary key whose value
-	 is a CFBooleanRef indicating whether the key in question must be wrapped
-	 with an algorithm other than CSSM_ALGID_NONE.
 	 @constant kSecAttrWasAlwaysSensitive Specifies a dictionary key whose value
 	 is a CFBooleanRef indicating that the key in question has always been
 	 marked as sensitive.
-	 @constant kSecAttrIsExtractable Specifies a dictionary key whose value
-	 is a CFBooleanRef indicating whether the key in question may be wrapped.
 	 @constant kSecAttrWasNeverExtractable Specifies a dictionary key whose value
 	 is a CFBooleanRef indicating that the key in question has never been
 	 marked as extractable.
-	 @constant kSecAttrCanSignRecover Specifies a dictionary key whole value is a
+	 @constant kSecAttrCanSignRecover Specifies a dictionary key whose value is a
 	 CFBooleanRef indicating whether the key in question can be used to
 	 perform sign recovery.
-	 @constant kSecAttrCanVerifyRecover Specifies a dictionary key whole value is
+	 @constant kSecAttrCanVerifyRecover Specifies a dictionary key whose value is
 	 a CFBooleanRef indicating whether the key in question can be used to
 	 perform verify recovery.
-	 @constant kSecAttrAccessGroup Specifies a dictionary key whole value is
-	 a CFStringRef indicating which access group a item is in.  The access
-	 groups that a particular application has access to are determined by
-	 an entitlement in that application.
-	 @constant kSecAttrSynchronizable Specifies a dictionary key whose value is
-	 a CFBooleanRef indicating that the item in question can be synchronized.
+	 @constant kSecAttrTombstone Specifies a dictionary key whose value is
+	 a CFBooleanRef indicating that the item in question is a tombstone.
 	 */
 	extern CFTypeRef kSecAttrScriptCode;
 	extern CFTypeRef kSecAttrAlias;
@@ -253,15 +248,12 @@ extern "C" {
 	extern CFTypeRef kSecAttrIsModifiable;
 	extern CFTypeRef kSecAttrStartDate;
 	extern CFTypeRef kSecAttrEndDate;
-	extern CFTypeRef kSecAttrIsSensitive;
 	extern CFTypeRef kSecAttrWasAlwaysSensitive;
-	extern CFTypeRef kSecAttrIsExtractable;
 	extern CFTypeRef kSecAttrWasNeverExtractable;
 	extern CFTypeRef kSecAttrCanSignRecover;
 	extern CFTypeRef kSecAttrCanVerifyRecover;
-	extern CFTypeRef kSecAttrAccessGroup;
-	extern CFTypeRef kSecAttrSynchronizable;
-	
+	extern CFTypeRef kSecAttrTombstone;
+
 	/*!
 	 @function SecItemCopyDisplayNames
 	 @abstract Returns an array containing unique display names for each of the
@@ -279,7 +271,7 @@ extern "C" {
 	 be unique across the set of provided items.
 	 */
 	OSStatus SecItemCopyDisplayNames(CFArrayRef items, CFArrayRef *displayNames);
-	
+
 	/*!
 	 @function SecItemDeleteAll
 	 @abstract Removes all items from the keychain and added root certificates
@@ -287,7 +279,16 @@ extern "C" {
 	 @result A result code. See "Security Error Codes" (SecBase.h).
 	 */
 	OSStatus SecItemDeleteAll(void);
-	
+
+/* Called by clients to push sync circle and message changes to us.
+   Requires caller to have the kSecEntitlementSyncKeychain entitlement. */
+bool _SecKeychainSyncUpdate(CFDictionaryRef updates, CFErrorRef *error);
+
+CFDataRef _SecItemGetPersistentReference(CFTypeRef raw_item);
+
+bool _SecKeychainBackupSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFDictionaryRef *backup_out);
+bool _SecKeychainRestoreSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in);
+
 #if defined(__cplusplus)
 }
 #endif

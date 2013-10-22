@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2010, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -107,6 +107,7 @@ typedef void (*SCDynamicStoreDisconnectCallBack)	(
 							 SCDynamicStoreRef	store,
 							 void			*info
 							 );
+
 
 
 __BEGIN_DECLS

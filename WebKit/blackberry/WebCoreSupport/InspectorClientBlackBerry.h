@@ -21,8 +21,11 @@
 #define InspectorClientBlackBerry_h
 
 #include "InspectorClient.h"
-#include "PlatformString.h"
+#include "InspectorFrontendChannel.h"
+#include "InspectorOverlay.h"
+#include "InspectorOverlayBlackBerry.h"
 #include <wtf/HashMap.h>
+#include <wtf/text/WTFString.h>
 
 namespace BlackBerry {
 namespace WebKit {
@@ -32,32 +35,31 @@ class WebPagePrivate;
 
 namespace WebCore {
 
-class InspectorClientBlackBerry : public InspectorClient {
+class InspectorClientBlackBerry : public InspectorClient, public InspectorFrontendChannel, public BlackBerry::WebKit::InspectorOverlay::InspectorOverlayClient {
 public:
-    InspectorClientBlackBerry(BlackBerry::WebKit::WebPagePrivate*);
+    explicit InspectorClientBlackBerry(BlackBerry::WebKit::WebPagePrivate*);
     virtual void inspectorDestroyed();
-    virtual Page* createPage();
-    virtual String localizedStringsURL();
-    virtual String hiddenPanels();
-    virtual void showWindow();
-    virtual void closeWindow();
-    virtual void attachWindow();
-    virtual void detachWindow();
-    virtual void setAttachedWindowHeight(unsigned);
+
     virtual void highlight();
     virtual void hideHighlight();
-    virtual void inspectedURLChanged(const String&);
-    virtual void populateSetting(const String& key, String* value);
-    virtual void storeSetting(const String& key, const String& value);
-    virtual void inspectorWindowObjectCleared();
-    virtual void openInspectorFrontend(InspectorController*);
+
+    virtual InspectorFrontendChannel* openInspectorFrontend(InspectorController*);
     virtual void closeInspectorFrontend();
     virtual void bringFrontendToFront();
+
     virtual bool sendMessageToFrontend(const String&);
+
     virtual void clearBrowserCache();
     virtual bool canClearBrowserCache() { return true; }
     virtual void clearBrowserCookies();
     virtual bool canClearBrowserCookies() { return true; }
+    virtual void paintInspectorOverlay(WebCore::GraphicsContext&);
+
+    virtual bool canOverrideDeviceMetrics();
+    virtual void overrideDeviceMetrics(int, int, float, bool);
+    virtual bool supportsFrameInstrumentation();
+
+    virtual void updateInspectorStateCookie(const String&);
 
 private:
     BlackBerry::WebKit::WebPagePrivate* m_webPagePrivate;

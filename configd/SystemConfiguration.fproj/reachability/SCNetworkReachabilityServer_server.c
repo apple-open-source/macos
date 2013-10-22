@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,8 +35,7 @@
 #include <dispatch/private.h>
 #include <xpc/xpc.h>
 #include <xpc/private.h>
-
-#include "rb.h"
+#include <sys/rbtree.h>
 
 
 #pragma mark -
@@ -264,18 +263,18 @@ _target_reply_add_reachability(SCNetworkReachabilityRef target,
 				  REACH_STATUS_SLEEPING,
 				  targetPrivate->info.sleeping);
 	if (targetPrivate->type == reachabilityTypeName) {
-		if (isA_CFArray(targetPrivate->resolvedAddress)) {
+		if (isA_CFArray(targetPrivate->resolvedAddresses)) {
 			xpc_object_t	addresses;
 			CFIndex		i;
 			CFIndex		n;
 
 			addresses = xpc_array_create(NULL, 0);
 
-			n = CFArrayGetCount(targetPrivate->resolvedAddress);
+			n = CFArrayGetCount(targetPrivate->resolvedAddresses);
 			for (i = 0; i < n; i++) {
 				CFDataRef	address;
 
-				address = CFArrayGetValueAtIndex(targetPrivate->resolvedAddress, i);
+				address = CFArrayGetValueAtIndex(targetPrivate->resolvedAddresses, i);
 				xpc_array_set_data(addresses,
 						   XPC_ARRAY_APPEND,
 						   CFDataGetBytePtr(address),
@@ -283,13 +282,13 @@ _target_reply_add_reachability(SCNetworkReachabilityRef target,
 			}
 
 			xpc_dictionary_set_value(reply,
-						 REACH_STATUS_RESOLVED_ADDRESS,
+						 REACH_STATUS_RESOLVED_ADDRESSES,
 						 addresses);
 			xpc_release(addresses);
 		}
 		xpc_dictionary_set_int64(reply,
-					 REACH_STATUS_RESOLVED_ADDRESS_ERROR,
-					 targetPrivate->resolvedAddressError);
+					 REACH_STATUS_RESOLVED_ERROR,
+					 targetPrivate->resolvedError);
 	}
 
 	MUTEX_UNLOCK(&targetPrivate->lock);
@@ -458,6 +457,7 @@ _target_watcher_remove(SCNetworkReachabilityRef	target,
 			      connection,
 			      target,
 			      target_id);
+			ok = FALSE;
 			return;
 		}
 
@@ -469,11 +469,11 @@ _target_watcher_remove(SCNetworkReachabilityRef	target,
 			      target,
 			      target_id);
 			CFRelease(key);
+			ok = FALSE;
 			return;
 		}
 
 		CFDictionaryRemoveValue(targetPrivate->serverWatchers, key);
-		xpc_release(connection);
 		CFRelease(key);
 
 		n = CFDictionaryGetCount(targetPrivate->serverWatchers);
@@ -502,8 +502,15 @@ _target_watcher_remove(SCNetworkReachabilityRef	target,
 			}
 
 			// no more watchers, flags are no longer valid
-			(void) _SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, TRUE, FALSE);
+			if (_SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, TRUE, FALSE)) {
+				if (S_debug) {
+					SCLog(TRUE, LOG_INFO, CFSTR("%s  flags are no longer \"valid\""),
+					      targetPrivate->log_prefix);
+				}
+			}
 		}
+
+		xpc_release(connection);
 	});
 
 	return ok;
@@ -515,7 +522,7 @@ _target_watcher_remove(SCNetworkReachabilityRef	target,
 
 
 typedef struct {
-	struct rb_node		rbn;
+	rb_node_t		rbn;
 	xpc_connection_t	connection;
 	pid_t			pid;
 	const char		*proc_name;
@@ -523,56 +530,54 @@ typedef struct {
 } reach_client_t;
 
 
-#define RBNODE_TO_REACH_CLIENT(node) \
-	((reach_client_t *)((uintptr_t)node - offsetof(reach_client_t, rbn)))
-
-
 static int
-_rbt_compare_transaction_nodes(const struct rb_node *n1, const struct rb_node *n2)
+_rbt_compare_transaction_nodes(void *context, const void *n1, const void *n2)
 {
-	uint64_t	a = (uintptr_t)RBNODE_TO_REACH_CLIENT(n1)->connection;
-	uint64_t	b = (uintptr_t)RBNODE_TO_REACH_CLIENT(n2)->connection;
+	uint64_t	a = (uintptr_t)((reach_client_t *)n1)->connection;
+	uint64_t	b = (uintptr_t)((reach_client_t *)n2)->connection;
 
 	return (a - b);
 }
 
 
 static int
-_rbt_compare_transaction_key(const struct rb_node *n1, const void *key)
+_rbt_compare_transaction_key(void *context, const void *n1, const void *key)
 {
-	uint64_t	a = (uintptr_t)RBNODE_TO_REACH_CLIENT(n1)->connection;
+	uint64_t	a = (uintptr_t)((reach_client_t *)n1)->connection;
 	uint64_t	b = *(uintptr_t *)key;
 
 	return (a - b);
 }
 
 
-static struct rb_tree *
+static rb_tree_t *
 _reach_clients_rbt()
 {
 	static dispatch_once_t		once;
-	static const struct rb_tree_ops	ops = {
+	static const rb_tree_ops_t	ops = {
 		.rbto_compare_nodes	= _rbt_compare_transaction_nodes,
 		.rbto_compare_key	= _rbt_compare_transaction_key,
+		.rbto_node_offset	= offsetof(reach_client_t, rbn),
+		.rbto_context		= NULL
 	};
-	static struct rb_tree		rbtree;
+	static rb_tree_t		rbt;
 
 	dispatch_once(&once, ^{
-		rb_tree_init(&rbtree, &ops);
+		rb_tree_init(&rbt, &ops);
 	});
 
-	return &rbtree;
+	return &rbt;
 }
 
 
 static dispatch_queue_t
-_reach_connection_queue()
+_reach_clients_rbt_queue()
 {
 	static dispatch_once_t	once;
 	static dispatch_queue_t	q;
 
 	dispatch_once(&once, ^{
-		q = dispatch_queue_create(REACH_SERVICE_NAME ".connection", NULL);
+		q = dispatch_queue_create(REACH_SERVICE_NAME ".clients.rbt", NULL);
 	});
 
 	return q;
@@ -623,13 +628,16 @@ _reach_client_remove_target(const void *key, const void *value, void *context)
 		n = CFDictionaryGetCount(targetPrivate->serverWatchers);
 		if (n > 0) {
 			CFIndex		i;
+			CFDictionaryRef	serverWatchers;
 			const void *	watchers_q[32];
 			const void **	watchers	= watchers_q;
+
+			serverWatchers = CFDictionaryCreateCopy(NULL, targetPrivate->serverWatchers);
 
 			if (n > sizeof(watchers_q)/sizeof(watchers[0])) {
 				watchers = CFAllocatorAllocate(NULL, n * sizeof(CFDataRef), 0);
 			}
-			CFDictionaryGetKeysAndValues(targetPrivate->serverWatchers, watchers, NULL);
+			CFDictionaryGetKeysAndValues(serverWatchers, watchers, NULL);
 
 			for (i = 0; i < n; i++) {
 				CFDataRef		key;
@@ -649,6 +657,8 @@ _reach_client_remove_target(const void *key, const void *value, void *context)
 			if (watchers != watchers_q) {
 				CFAllocatorDeallocate(NULL, watchers);
 			}
+
+			CFRelease(serverWatchers);
 		}
 	}
 
@@ -664,27 +674,27 @@ _reach_client_remove_target(const void *key, const void *value, void *context)
 static void
 _reach_client_remove(xpc_connection_t connection)
 {
-	struct rb_tree	*rbtree = _reach_clients_rbt();
-	struct rb_node	*rbn;
+	uint64_t	connection_id	= (uintptr_t)connection;
 
-	rbn = rb_tree_find_node(rbtree, &connection);
-	if (rbn != NULL) {
+	dispatch_sync(_reach_clients_rbt_queue(), ^{
 		reach_client_t	*client;
+		rb_tree_t	*rbt	= _reach_clients_rbt();
 
-		client = RBNODE_TO_REACH_CLIENT(rbn);
+		client = rb_tree_find_node(rbt, &connection_id);
+		if (client != NULL) {
+			// remove any remaining target references (for this client)
+			my_CFDictionaryApplyFunction(client->targets,
+						     _reach_client_remove_target,
+						     (void *)connection);
 
-		// remove any remaining target references (for this client)
-		my_CFDictionaryApplyFunction(client->targets,
-					     _reach_client_remove_target,
-					     (void *)connection);
-
-		rb_tree_remove_node(rbtree, rbn);
-		_reach_client_release(client);
-	} else {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("<%p> _reach_client_remove: unexpected client"),
-		      connection);
-	}
+			rb_tree_remove_node(rbt, client);
+			_reach_client_release(client);
+		} else {
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("<%p> _reach_client_remove: unexpected client"),
+			      connection);
+		}
+	});
 
 	return;
 }
@@ -751,6 +761,21 @@ _client_target_remove(reach_client_t *client, uint64_t target_id)
 #pragma mark -
 #pragma mark Reachability [XPC] server functions
 
+
+static dispatch_queue_t
+_reach_server_queue()
+{
+	static dispatch_once_t	once;
+	static dispatch_queue_t	q;
+
+	dispatch_once(&once, ^{
+		q = dispatch_queue_create(REACH_SERVICE_NAME, NULL);
+	});
+
+	return q;
+}
+
+
 /*
  * _reach_changed
  *
@@ -791,7 +816,8 @@ _reach_changed(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags
 	 */
 	if (_SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, FALSE, TRUE)) {
 		if (S_debug) {
-			SCLog(TRUE, LOG_INFO, CFSTR("  flags are now \"valid\""));
+			SCLog(TRUE, LOG_INFO, CFSTR("%s  flags are now \"valid\""),
+			      targetPrivate->log_prefix);
 		}
 	}
 
@@ -828,7 +854,7 @@ _reach_changed(SCNetworkReachabilityRef target, SCNetworkReachabilityFlags flags
 
 		connection = xpc_retain(watcher_key->connection);
 		target_id  = watcher_key->target_id;
-		dispatch_async(_reach_connection_queue(), ^{
+		dispatch_async(_reach_server_queue(), ^{
 			xpc_object_t	reply;
 
 			// create our [async] notification
@@ -903,12 +929,10 @@ static void
 target_add(reach_client_t *client, xpc_object_t request)
 {
 	const char				*name;
-	const char				*serv;
 	const struct sockaddr			*localAddress;
 	struct sockaddr_storage			localAddress0;
 	const struct sockaddr			*remoteAddress;
 	struct sockaddr_storage			remoteAddress0;
-	const struct addrinfo			*hints;
 	int64_t					if_index;
 	const char				*if_name	= NULL;
 	bool					onDemandBypass	= FALSE;
@@ -962,12 +986,6 @@ target_add(reach_client_t *client, xpc_object_t request)
 		CC_SHA1_Update(&ctx, name, strlen(name));
 	}
 
-	serv = xpc_dictionary_get_string(request, REACH_TARGET_SERV);
-	if (serv != NULL) {
-		CC_SHA1_Update(&ctx, REACH_TARGET_SERV, sizeof(REACH_TARGET_SERV));
-		CC_SHA1_Update(&ctx, serv, strlen(serv));
-	}
-
 	localAddress = xpc_dictionary_get_data(request, REACH_TARGET_LOCAL_ADDR, &len);
 	if (localAddress != NULL) {
 		if ((len == localAddress->sa_len) && (len <= sizeof(struct sockaddr_storage))) {
@@ -996,19 +1014,6 @@ target_add(reach_client_t *client, xpc_object_t request)
 		}
 	}
 
-	hints = xpc_dictionary_get_data(request, REACH_TARGET_HINTS, &len);
-	if (hints != NULL) {
-		if (len == sizeof(struct addrinfo)) {
-			CC_SHA1_Update(&ctx, REACH_TARGET_HINTS, sizeof(REACH_TARGET_HINTS));
-			CC_SHA1_Update(&ctx, hints, len);
-		} else {
-			xpc_dictionary_set_string(reply,
-						  REACH_REQUEST_REPLY_DETAIL,
-						  "hints: size error");
-			goto done;
-		}
-	}
-
 	if_index = xpc_dictionary_get_int64(request, REACH_TARGET_IF_INDEX);
 	if (if_index != 0) {
 		if_name = xpc_dictionary_get_string(request, REACH_TARGET_IF_NAME);
@@ -1017,6 +1022,7 @@ target_add(reach_client_t *client, xpc_object_t request)
 			CC_SHA1_Update(&ctx, if_name, strlen(if_name));
 		}
 	}
+
 
 	onDemandBypass = xpc_dictionary_get_bool(request, REACH_TARGET_ONDEMAND_BYPASS);
 	if (onDemandBypass) {
@@ -1057,11 +1063,6 @@ target_add(reach_client_t *client, xpc_object_t request)
 				CFDictionarySetValue(options, kSCNetworkReachabilityOptionNodeName, str);
 				CFRelease(str);
 			}
-			if (serv != NULL) {
-				str = CFStringCreateWithCString(NULL, serv, kCFStringEncodingUTF8);
-				CFDictionarySetValue(options, kSCNetworkReachabilityOptionServName, str);
-				CFRelease(str);
-			}
 			if (localAddress != NULL) {
 				data = CFDataCreate(NULL, (const UInt8 *)&localAddress0, localAddress0.ss_len);
 				CFDictionarySetValue(options, kSCNetworkReachabilityOptionLocalAddress, data);
@@ -1070,11 +1071,6 @@ target_add(reach_client_t *client, xpc_object_t request)
 			if (remoteAddress != NULL) {
 				data = CFDataCreate(NULL, (const UInt8 *)&remoteAddress0, remoteAddress0.ss_len);
 				CFDictionarySetValue(options, kSCNetworkReachabilityOptionRemoteAddress, data);
-				CFRelease(data);
-			}
-			if (hints != NULL) {
-				data = CFDataCreate(NULL, (const UInt8 *)hints, sizeof(struct addrinfo));
-				CFDictionarySetValue(options, kSCNetworkReachabilityOptionHints, data);
 				CFRelease(data);
 			}
 			if (onDemandBypass) {
@@ -1269,9 +1265,14 @@ target_schedule(reach_client_t *client, xpc_object_t request)
 
 	// enable monitoring
 	ok = _target_watcher_add(target, client->connection, target_id);
-	if (ok) {
-		status = REACH_REQUEST_REPLY_OK;
+	if (!ok) {
+		xpc_dictionary_set_string(reply,
+					  REACH_REQUEST_REPLY_DETAIL,
+					  "could not add watcher");
+		goto done;
 	}
+
+	status = REACH_REQUEST_REPLY_OK;
 
     done :
 
@@ -1353,19 +1354,33 @@ target_status(reach_client_t *client, xpc_object_t request)
 		if (scheduled) {
 			/*
 			 * The client "scheduled" this target.  As such, we
-			 * know that this an async query and that we only
+			 * know that this is an async query and that we only
 			 * need to return the "last known" flags.
 			 */
 			_target_reply_add_reachability(target, reply);
 //			log_xpc_object("  reply [scheduled]", reply);
+
+			/*
+			 * ... and if it's not a "name" query then we can mark the
+			 * flags as valid.
+			 */
+			if (targetPrivate->type != reachabilityTypeName) {
+				if (_SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, FALSE, TRUE)) {
+					if (S_debug) {
+						SCLog(TRUE, LOG_INFO, CFSTR("%s  flags are now \"valid\"."),
+						      targetPrivate->log_prefix);
+					}
+				}
+			}
 
 			if (S_debug) {
 				CFStringRef	str;
 
 				str = _SCNetworkReachabilityCopyTargetFlags(target);
 				SCLog(TRUE, LOG_INFO,
-				      CFSTR("<%p>   reply [scheduled], %@"),
+				      CFSTR("<%p>   reply [scheduled%s], %@"),
 				      client->connection,
+				      targetPrivate->serverInfoValid ? "/valid" : "",
 				      str);
 				CFRelease(str);
 			}
@@ -1373,7 +1388,7 @@ target_status(reach_client_t *client, xpc_object_t request)
 			/*
 			 * The client has NOT "scheduled" this target.  As
 			 * such, we know that this is a sync query and that
-			 * must return "current" flags.
+			 * we must return "current" flags.
 			 */
 			if (targetPrivate->scheduled && targetPrivate->serverInfoValid) {
 				/*
@@ -1397,7 +1412,7 @@ target_status(reach_client_t *client, xpc_object_t request)
 				dispatch_group_t	group;
 
 				/*
-				 * The server target has NOT been "scheduled" (or
+				 * The server target has NOT been "scheduled" or
 				 * we do not have "current" flags.  This means that
 				 * we must query for the current information and
 				 * return the flags to the client when they are
@@ -1407,7 +1422,7 @@ target_status(reach_client_t *client, xpc_object_t request)
 				reply_now = FALSE;
 
 				group = _target_group(target);
-				if (_SC_ATOMIC_INC(&targetPrivate->serverQueryActive) == 0) {
+				if (_SC_ATOMIC_INC(&targetPrivate->serverSyncQueryActive) == 0) {
 					CFRetain(target);
 					dispatch_group_async(group, _server_concurrent_queue(), ^{
 						SCNetworkReachabilityFlags	flags;
@@ -1426,8 +1441,24 @@ target_status(reach_client_t *client, xpc_object_t request)
 							      SCErrorString(SCError()));
 						}
 
-						// flags are now available
-						n = _SC_ATOMIC_ZERO(&targetPrivate->serverQueryActive);
+						/*
+						 * if we have current flags, if the target has since been
+						 * scheduled, and this is not a "name" query, then mark as
+						 * valid.
+						 */
+						if (ok &&
+						    targetPrivate->scheduled &&
+						    targetPrivate->type != reachabilityTypeName) {
+							if (_SC_ATOMIC_CMPXCHG(&targetPrivate->serverInfoValid, FALSE, TRUE)) {
+								if (S_debug) {
+									SCLog(TRUE, LOG_INFO, CFSTR("%s  flags are now \"valid\"!"),
+									      targetPrivate->log_prefix);
+								}
+							}
+						}
+
+						// sync query complete
+						n = _SC_ATOMIC_ZERO(&targetPrivate->serverSyncQueryActive);
 						if (S_debug) {
 							SCLog(TRUE, LOG_INFO,
 							      CFSTR("%sSCNetworkReachabilityGetFlags() [sync query] complete, n = %d"),
@@ -1504,7 +1535,6 @@ target_status(reach_client_t *client, xpc_object_t request)
 static void
 target_unschedule(reach_client_t *client, xpc_object_t request)
 {
-	Boolean				ok;
 	xpc_connection_t		remote;
 	xpc_object_t			reply;
 	uint64_t			status		= REACH_REQUEST_REPLY_FAILED;
@@ -1545,10 +1575,9 @@ target_unschedule(reach_client_t *client, xpc_object_t request)
 	}
 
 	// disable monitoring
-	ok = _target_watcher_remove(target, client->connection, target_id);
-	if (ok) {
-		status = REACH_REQUEST_REPLY_OK;
-	}
+	_target_watcher_remove(target, client->connection, target_id);
+
+	status = REACH_REQUEST_REPLY_OK;
 
     done :
 
@@ -1568,33 +1597,35 @@ target_unschedule(reach_client_t *client, xpc_object_t request)
 static void
 _snapshot_digest_watcher(const void *key, const void *value, void *context)
 {
-	FILE				*f		= (FILE *)context;
-	static reach_client_t		no_client	= {
+	__block reach_client_t	*client		= NULL;
+	FILE			*f		= (FILE *)context;
+	static reach_client_t	no_client	= {
 		.pid = 0,
 		.proc_name = "?",
 	};
-	struct rb_node			*rbn;
-	reach_client_t			*rbt_client;
-	reach_watcher_key_t		*watcher_key;
-	reach_watcher_val_t		*watcher_val;
+	reach_watcher_key_t	*watcher_key;
+	reach_watcher_val_t	*watcher_val;
 
 	/* ALIGN: CF aligns to >8 byte boundries */
 	watcher_key = (reach_watcher_key_t *)(void *)CFDataGetBytePtr(key);
 	watcher_val = (reach_watcher_val_t *)(void *)CFDataGetBytePtr(value);
 
-	rbn = rb_tree_find_node(_reach_clients_rbt(), &watcher_key->connection);
-	if (rbn == NULL) {
-		rbn = &no_client.rbn;
-	}
+	dispatch_sync(_reach_clients_rbt_queue(), ^{
+		uint64_t	connection_id	= (uintptr_t)watcher_key->connection;
+		rb_tree_t	*rbt		= _reach_clients_rbt();
 
-	rbt_client = RBNODE_TO_REACH_CLIENT(rbn);
+		client = rb_tree_find_node(rbt, &connection_id);
+		if (client == NULL) {
+			client = &no_client;
+		}
+	});
 
 	SCPrint(TRUE, f,
 		CFSTR("      connection = %p, target(c) = 0x%0llx, command = %s, pid = %d, changes = %u\n"),
 		watcher_key->connection,
 		watcher_key->target_id,
-		rbt_client->proc_name,
-		rbt_client->pid,
+		client->proc_name,
+		client->pid,
 		watcher_val->n_changes);
 
 	return;
@@ -1612,11 +1643,18 @@ _snapshot_digest(const void *key, const void *value, void *context)
 
 	q = _target_queue(target);
 	dispatch_sync(q, ^{
+		CFIndex		nWatchers	= 0;
+
+		if (targetPrivate->serverWatchers != NULL) {
+			nWatchers = CFDictionaryGetCount(targetPrivate->serverWatchers);
+		}
+
 		SCPrint(TRUE, f, CFSTR("\n  digest : %@\n"), digest);
 		SCPrint(TRUE, f, CFSTR("    %@\n"), target);
-		SCPrint(TRUE, f, CFSTR("    valid = %s, active = %u, refs = %u\n"),
+		SCPrint(TRUE, f, CFSTR("    valid = %s, async watchers = %u, sync queries = %u, refs = %u\n"),
 			targetPrivate->serverInfoValid ? "Y" : "N",
-			targetPrivate->serverQueryActive,
+			nWatchers,
+			targetPrivate->serverSyncQueryActive,
 			targetPrivate->serverReferences);
 
 		SCPrint(TRUE, f, CFSTR("    network %d.%3.3d"),
@@ -1651,7 +1689,7 @@ _snapshot_digest(const void *key, const void *value, void *context)
 		}
 		SCPrint(TRUE, f, CFSTR("\n"));
 
-		if (targetPrivate->serverWatchers != NULL) {
+		if (nWatchers > 0) {
 			CFDictionaryApplyFunction(targetPrivate->serverWatchers,
 						  _snapshot_digest_watcher,
 						  f);
@@ -1689,8 +1727,6 @@ _snapshot(reach_client_t *client, xpc_object_t request)
 	FILE			*f;
 	int			fd;
 	Boolean			ok	= FALSE;
-	struct rb_node		*rbn;
-	struct rb_tree		*rbt;
 	xpc_connection_t	remote;
 	xpc_object_t		reply;
 
@@ -1738,30 +1774,31 @@ _snapshot(reach_client_t *client, xpc_object_t request)
 
 	// provide connection/client info
 
-	SCPrint(TRUE, f, CFSTR("Clients :\n"));
-	rbt = _reach_clients_rbt();
-	rbn = rb_tree_iterate(rbt, NULL, RB_DIR_RIGHT);
-	if (rbn != NULL) {
-		while (rbn != NULL) {
-			reach_client_t	*rbt_client;
+	dispatch_sync(_reach_clients_rbt_queue(), ^{
+		rb_tree_t	*rbt	= _reach_clients_rbt();
 
-			rbt_client = RBNODE_TO_REACH_CLIENT(rbn);
-			SCPrint(TRUE, f,
-				CFSTR("\n  connection = %p, client = %p, command = %s, pid = %d\n"),
-				rbt_client->connection,
-				rbt_client,
-				rbt_client->proc_name != NULL ? rbt_client->proc_name : "?",
-				rbt_client->pid);
-			my_CFDictionaryApplyFunction(rbt_client->targets,
-						     _snapshot_target,
-						     f);
+		SCPrint(TRUE, f, CFSTR("Clients :\n"));
 
-			rbn = rb_tree_iterate(rbt, rbn, RB_DIR_LEFT);
+		if (rb_tree_count(rbt) > 0) {
+			reach_client_t	*client;
+
+			RB_TREE_FOREACH(client, rbt) {
+				SCPrint(TRUE, f,
+					CFSTR("\n  connection = %p, client = %p, command = %s, pid = %d\n"),
+					client->connection,
+					client,
+					client->proc_name != NULL ? client->proc_name : "?",
+					client->pid);
+				my_CFDictionaryApplyFunction(client->targets,
+							     _snapshot_target,
+							     f);
+			}
+		} else {
+			SCPrint(TRUE, f, CFSTR("  None.\n"));
 		}
-	} else {
-		SCPrint(TRUE, f, CFSTR("  None.\n"));
-	}
-	SCPrint(TRUE, f, CFSTR("\n"));
+
+		SCPrint(TRUE, f, CFSTR("\n"));
+	});
 
 	// provide "digest" info
 
@@ -1850,53 +1887,58 @@ process_request(reach_client_t *client, xpc_object_t request)
 static void
 process_new_connection(xpc_connection_t connection)
 {
+	reach_client_t	*client;
+
 	if (S_debug) {
 		SCLog(TRUE, LOG_INFO, CFSTR("<%p> new reach client, pid=%d"),
 		      connection,
 		      xpc_connection_get_pid(connection));
 	}
 
-	dispatch_sync(_reach_connection_queue(), ^{
-		reach_client_t	*client;
+	client = _reach_client_create(connection);
+	assert(client != NULL);
 
-		client = _reach_client_create(connection);
-		if (client == NULL || !rb_tree_insert_node(_reach_clients_rbt(), &client->rbn)) {
-			__builtin_trap();
-		}
+	dispatch_sync(_reach_clients_rbt_queue(), ^{
+		rb_tree_t	*rbt	= _reach_clients_rbt();
+
+		rb_tree_insert_node(rbt, client);
 	});
+
+	xpc_connection_set_target_queue(connection, _reach_server_queue());
 
 	xpc_connection_set_event_handler(connection, ^(xpc_object_t xobj) {
 		xpc_type_t	type;
 
 		type = xpc_get_type(xobj);
 		if (type == XPC_TYPE_DICTIONARY) {
-			dispatch_sync(_reach_connection_queue(), ^{
-				struct rb_node	*rbn;
+			__block reach_client_t	*client	= NULL;
 
-				rbn = rb_tree_find_node(_reach_clients_rbt(), &connection);
-				if (rbn != NULL) {
-					reach_client_t	*client;
+			dispatch_sync(_reach_clients_rbt_queue(), ^{
+				uint64_t	connection_id	= (uintptr_t)connection;
+				rb_tree_t	*rbt		= _reach_clients_rbt();
 
-					// process the request
-					client = RBNODE_TO_REACH_CLIENT(rbn);
-					process_request(client, xobj);
-				} else {
-					char		*desc;
-
-					SCLog(TRUE, LOG_ERR,
-					      CFSTR("<%p:%d> unexpected SCNetworkReachability request"),
-					      connection,
-					      xpc_connection_get_pid(connection));
-
-					desc = xpc_copy_description(xobj);
-					SCLog(TRUE, LOG_ERR,
-					      CFSTR("  request = %s"),
-					      desc);
-					free(desc);
-
-					xpc_connection_cancel(connection);
-				}
+				client = rb_tree_find_node(rbt, &connection_id);
 			});
+
+			if (client != NULL) {
+				// process the request
+				process_request(client, xobj);
+			} else {
+				char		*desc;
+
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("<%p:%d> unexpected SCNetworkReachability request"),
+				      connection,
+				      xpc_connection_get_pid(connection));
+
+				desc = xpc_copy_description(xobj);
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("  request = %s"),
+				      desc);
+				free(desc);
+
+				xpc_connection_cancel(connection);
+			}
 
 		} else if (type == XPC_TYPE_ERROR) {
 			const char	*desc;
@@ -1911,11 +1953,7 @@ process_new_connection(xpc_connection_t connection)
 					      desc);
 				}
 
-				xpc_retain(connection);
-				dispatch_async(_reach_connection_queue(), ^{
-					_reach_client_remove(connection);
-					xpc_release(connection);
-				});
+				_reach_client_remove(connection);
 
 			} else if (xobj == XPC_ERROR_CONNECTION_INTERRUPTED) {
 				SCLog(TRUE, LOG_ERR,
@@ -1958,7 +1996,6 @@ load_SCNetworkReachability(CFBundleRef bundle, Boolean bundleVerbose)
 {
 	xpc_connection_t	connection;
 	const char		*name;
-	dispatch_queue_t	reach_server_q;
 
 	S_debug = bundleVerbose;
 
@@ -1971,19 +2008,13 @@ load_SCNetworkReachability(CFBundleRef bundle, Boolean bundleVerbose)
 						     &kCFTypeDictionaryKeyCallBacks,
 						     &kCFTypeDictionaryValueCallBacks);
 
-	/*
-	 * create dispatch queue for processing SCNetworkReachability
-	 * service requests
-	 */
-	reach_server_q = dispatch_queue_create(REACH_SERVICE_NAME, NULL);
-
 	// create XPC listener
 	name = getenv("REACH_SERVER");
 	if (name == NULL) {
 		name = REACH_SERVICE_NAME;
 	}
 	connection = xpc_connection_create_mach_service(name,
-							reach_server_q,
+							_reach_server_queue(),
 							XPC_CONNECTION_MACH_SERVICE_LISTENER);
 
 	xpc_connection_set_event_handler(connection, ^(xpc_object_t event) {

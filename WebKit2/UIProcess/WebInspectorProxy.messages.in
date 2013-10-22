@@ -24,14 +24,21 @@
 
 messages -> WebInspectorProxy {
     CreateInspectorPage() -> (uint64_t inspectorPageID, WebKit::WebPageCreationParameters inspectorPageParameters)
-    DidLoadInspectorPage()
     DidClose()
     BringToFront()
     InspectedURLChanged(WTF::String urlString)
 
-    Attach()
+    Save(WTF::String filename, WTF::String content, bool forceSaveAs)
+    Append(WTF::String filename, WTF::String content)
+
+    AttachBottom()
+    AttachRight()
     Detach()
+    AttachAvailabilityChanged(bool available)
+
     SetAttachedWindowHeight(unsigned height)
+    SetAttachedWindowWidth(unsigned width)
+    SetToolbarHeight(unsigned height)
 
 #if ENABLE(INSPECTOR_SERVER)
     SendMessageToRemoteFrontend(WTF::String message)

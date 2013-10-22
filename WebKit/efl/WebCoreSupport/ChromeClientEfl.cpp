@@ -4,7 +4,7 @@
  * Copyright (C) 2008 Kenneth Rohde Christiansen
  * Copyright (C) 2008 Diego Gonzalez
  * Copyright (C) 2009-2010 ProFUSION embedded systems
- * Copyright (C) 2009-2010 Samsung Electronics
+ * Copyright (C) 2009-2012 Samsung Electronics
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * All rights reserved.
@@ -34,9 +34,11 @@
 #include "config.h"
 #include "ChromeClientEfl.h"
 
+#include "ApplicationCacheStorage.h"
 #include "FileChooser.h"
 #include "FileIconLoader.h"
 #include "FloatRect.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientEfl.h"
 #include "HitTestResult.h"
@@ -44,16 +46,21 @@
 #include "KURL.h"
 #include "NavigationAction.h"
 #include "NotImplemented.h"
-#include "PlatformString.h"
 #include "PopupMenuEfl.h"
 #include "SearchPopupMenuEfl.h"
 #include "SecurityOrigin.h"
 #include "ViewportArguments.h"
 #include "WindowFeatures.h"
+#include "ewk_custom_handler_private.h"
+#include "ewk_file_chooser_private.h"
+#include "ewk_frame_private.h"
 #include "ewk_private.h"
+#include "ewk_security_origin_private.h"
+#include "ewk_view_private.h"
 #include <Ecore_Evas.h>
 #include <Evas.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 #include "NotificationPresenterClientEfl.h"
@@ -61,11 +68,15 @@
 
 #if ENABLE(SQL_DATABASE)
 #include "DatabaseDetails.h"
-#include "DatabaseTracker.h"
+#include "DatabaseManager.h"
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
 #include "ColorChooserEfl.h"
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+#include "Settings.h"
 #endif
 
 using namespace WebCore;
@@ -107,25 +118,21 @@ void ChromeClientEfl::focusedFrameChanged(Frame*)
 
 FloatRect ChromeClientEfl::windowRect()
 {
-    Ecore_Evas* ee = 0;
-    int x, y, w, h;
+    int x, y, width, height;
 
-    ee = ecore_evas_ecore_evas_get(evas_object_evas_get(m_view));
-    ecore_evas_geometry_get(ee, &x, &y, &w, &h);
-    return FloatRect(x, y, w, h);
+    Ecore_Evas* ee = ecore_evas_ecore_evas_get(evas_object_evas_get(m_view));
+    ecore_evas_request_geometry_get(ee, &x, &y, &width, &height);
+
+    return FloatRect(x, y, width, height);
 }
 
 void ChromeClientEfl::setWindowRect(const FloatRect& rect)
 {
-    if (!ewk_view_setting_enable_auto_resize_window_get(m_view))
+    if (!ewk_view_setting_enable_auto_resize_window_get(m_view) || rect.isEmpty())
         return;
 
-    Ecore_Evas* ee = 0;
-    IntRect intrect = IntRect(rect);
-
-    ee = ecore_evas_ecore_evas_get(evas_object_evas_get(m_view));
-    ecore_evas_move(ee, intrect.x(), intrect.y());
-    ecore_evas_resize(ee, intrect.width(), intrect.height());
+    Ecore_Evas* ee = ecore_evas_ecore_evas_get(evas_object_evas_get(m_view));
+    ecore_evas_move_resize(ee, rect.x(), rect.y(), rect.width(), rect.height());
 }
 
 FloatRect ChromeClientEfl::pageRect()
@@ -143,13 +150,13 @@ void ChromeClientEfl::unfocus()
     evas_object_focus_set(m_view, EINA_FALSE);
 }
 
-Page* ChromeClientEfl::createWindow(Frame*, const FrameLoadRequest& frameLoadRequest, const WindowFeatures& features, const NavigationAction&)
+Page* ChromeClientEfl::createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures& features, const NavigationAction&)
 {
     Evas_Object* newView = ewk_view_window_create(m_view, EINA_TRUE, &features);
     if (!newView)
         return 0;
 
-    return ewk_view_core_page_get(newView);
+    return EWKPrivate::corePage(newView);
 }
 
 void ChromeClientEfl::show()
@@ -263,12 +270,13 @@ bool ChromeClientEfl::canRunBeforeUnloadConfirmPanel()
 
 bool ChromeClientEfl::runBeforeUnloadConfirmPanel(const String& message, Frame* frame)
 {
-    return runJavaScriptConfirm(frame, message);
+    return ewk_view_run_before_unload_confirm(m_view, kit(frame), message.utf8().data());
 }
 
-void ChromeClientEfl::addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message,
-                                          unsigned int lineNumber, const String& sourceID)
+void ChromeClientEfl::addMessageToConsole(MessageSource, MessageLevel, const String& message,
+                                          unsigned lineNumber, unsigned columnNumber, const String& sourceID)
 {
+    UNUSED_PARAM(columnNumber);
     ewk_view_add_console_message(m_view, message.utf8().data(), lineNumber, sourceID.utf8().data());
 }
 
@@ -284,11 +292,11 @@ bool ChromeClientEfl::runJavaScriptConfirm(Frame* frame, const String& message)
 
 bool ChromeClientEfl::runJavaScriptPrompt(Frame* frame, const String& message, const String& defaultValue, String& result)
 {
-    char* value = 0;
+    const char* value = 0;
     ewk_view_run_javascript_prompt(m_view, kit(frame), message.utf8().data(), defaultValue.utf8().data(), &value);
     if (value) {
         result = String::fromUTF8(value);
-        free(value);
+        eina_stringshare_del(value);
         return true;
     }
     return false;
@@ -350,7 +358,7 @@ void ChromeClientEfl::scrollbarsModeDidChange() const
 {
 }
 
-void ChromeClientEfl::mouseDidMoveOverElement(const HitTestResult& hit, unsigned modifierFlags)
+void ChromeClientEfl::mouseDidMoveOverElement(const HitTestResult& hit, unsigned /*modifierFlags*/)
 {
     // FIXME, compare with old link, look at Qt impl.
     bool isLink = hit.isLiveLink();
@@ -377,20 +385,32 @@ void ChromeClientEfl::setToolTip(const String& toolTip, TextDirection)
     ewk_view_tooltip_text_set(m_view, toolTip.utf8().data());
 }
 
-void ChromeClientEfl::print(Frame* frame)
+void ChromeClientEfl::print(Frame*)
 {
     notImplemented();
 }
 
-void ChromeClientEfl::reachedMaxAppCacheSize(int64_t spaceNeeded)
+void ChromeClientEfl::reachedMaxAppCacheSize(int64_t /*spaceNeeded*/)
 {
     // FIXME: Free some space.
     notImplemented();
 }
 
-void ChromeClientEfl::reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t)
+void ChromeClientEfl::reachedApplicationCacheOriginQuota(SecurityOrigin* origin, int64_t totalSpaceNeeded)
 {
-    notImplemented();
+    Ewk_Security_Origin* ewkOrigin = ewk_security_origin_new(origin);
+    int64_t defaultOriginQuota = WebCore::cacheStorage().defaultOriginQuota();
+
+    int64_t newQuota = ewk_view_exceeded_application_cache_quota(m_view, ewkOrigin, defaultOriginQuota, totalSpaceNeeded);
+    if (newQuota)
+        ewk_security_origin_application_cache_quota_set(ewkOrigin, newQuota);
+
+    ewk_security_origin_free(ewkOrigin);
+}
+
+void ChromeClientEfl::populateVisitedLinks()
+{
+    evas_object_smart_callback_call(m_view, "populate,visited,links", 0);
 }
 
 #if ENABLE(TOUCH_EVENTS)
@@ -401,12 +421,11 @@ void ChromeClientEfl::needTouchEvents(bool needed)
 #endif
 
 #if ENABLE(SQL_DATABASE)
-void ChromeClientEfl::exceededDatabaseQuota(Frame* frame, const String& databaseName)
+void ChromeClientEfl::exceededDatabaseQuota(Frame* frame, const String& databaseName, DatabaseDetails details)
 {
     uint64_t quota;
     SecurityOrigin* origin = frame->document()->securityOrigin();
 
-    DatabaseDetails details = DatabaseTracker::tracker().detailsForNameAndOrigin(databaseName, origin);
     quota = ewk_view_exceeded_database_quota(m_view,
                                              kit(frame), databaseName.utf8().data(),
                                              details.currentUsage(), details.expectedUsage());
@@ -414,10 +433,10 @@ void ChromeClientEfl::exceededDatabaseQuota(Frame* frame, const String& database
     /* if client did not set quota, and database is being created now, the
      * default quota is applied
      */
-    if (!quota && !DatabaseTracker::tracker().hasEntryForOrigin(origin))
+    if (!quota && !DatabaseManager::manager().hasEntryForOrigin(origin))
         quota = ewk_settings_web_database_default_quota_get();
 
-    DatabaseTracker::tracker().setQuota(origin, quota);
+    DatabaseManager::manager().setQuota(origin, quota);
 }
 #endif
 
@@ -452,17 +471,16 @@ void ChromeClientEfl::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFile
 {
     RefPtr<FileChooser> chooser = prpFileChooser;
     Eina_List* selectedFilenames = 0;
-    void* filename;
-    Vector<String> filenames;
-
-    const FileChooserSettings& settings = chooser->settings();
-    bool confirm = ewk_view_run_open_panel(m_view, kit(frame), settings.allowsMultipleFiles, settings.acceptMIMETypes, &selectedFilenames);
-
+    Ewk_File_Chooser* fileChooser = ewk_file_chooser_new(chooser.get());
+    bool confirm = ewk_view_run_open_panel(m_view, kit(frame), fileChooser, &selectedFilenames);
+    ewk_file_chooser_free(fileChooser);
     if (!confirm)
         return;
 
+    void* filename;
+    Vector<String> filenames;
     EINA_LIST_FREE(selectedFilenames, filename) {
-        filenames.append((char*)filename);
+        filenames.append(String::fromUTF8(static_cast<char*>(filename)));
         free(filename);
     }
 
@@ -477,9 +495,9 @@ void ChromeClientEfl::formStateDidChange(const Node*)
     notImplemented();
 }
 
-void ChromeClientEfl::setCursor(const Cursor&)
+void ChromeClientEfl::setCursor(const Cursor& cursor)
 {
-    notImplemented();
+    ewk_view_cursor_set(m_view, cursor);
 }
 
 void ChromeClientEfl::setCursorHiddenUntilMouseMoves(bool)
@@ -487,22 +505,39 @@ void ChromeClientEfl::setCursorHiddenUntilMouseMoves(bool)
     notImplemented();
 }
 
+#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
+void ChromeClientEfl::scheduleAnimation()
+{
+    notImplemented();
+}
+
+void ChromeClientEfl::serviceScriptedAnimations()
+{
+    notImplemented();
+}
+#endif
+
 void ChromeClientEfl::cancelGeolocationPermissionForFrame(Frame*, Geolocation*)
 {
     notImplemented();
 }
 
-void ChromeClientEfl::invalidateContents(const IntRect& updateRect, bool immediate)
+void ChromeClientEfl::invalidateContents(const IntRect& /*updateRect*/, bool /*immediate*/)
 {
     notImplemented();
 }
 
-void ChromeClientEfl::invalidateRootView(const IntRect& updateRect, bool immediate)
+void ChromeClientEfl::invalidateRootView(const IntRect& updateRect, bool /*immediate*/)
 {
+#if USE(TILED_BACKING_STORE)
+    ewk_view_tiled_backing_store_invalidate(m_view, updateRect);
+#else
+    UNUSED_PARAM(updateRect);
     notImplemented();
+#endif
 }
 
-void ChromeClientEfl::invalidateContentsAndRootView(const IntRect& updateRect, bool immediate)
+void ChromeClientEfl::invalidateContentsAndRootView(const IntRect& updateRect, bool /*immediate*/)
 {
     if (updateRect.isEmpty())
         return;
@@ -523,7 +558,7 @@ void ChromeClientEfl::invalidateContentsForSlowScroll(const IntRect& updateRect,
 
 void ChromeClientEfl::scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
-    ewk_view_scroll(m_view, scrollDelta.width(), scrollDelta.height(), rectToScroll.x(), rectToScroll.y(), rectToScroll.width(), rectToScroll.height(), clipRect.x(), clipRect.y(), clipRect.width(), clipRect.height());
+    ewk_view_scroll(m_view, scrollDelta, rectToScroll, clipRect);
 }
 
 void ChromeClientEfl::cancelGeolocationPermissionRequestForFrame(Frame*)
@@ -573,46 +608,78 @@ PassRefPtr<SearchPopupMenu> ChromeClientEfl::createSearchPopupMenu(PopupMenuClie
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-void ChromeClientEfl::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* rootLayer)
+void ChromeClientEfl::attachRootGraphicsLayer(Frame*, GraphicsLayer* rootLayer)
 {
-    notImplemented();
+    ewk_view_root_graphics_layer_set(m_view, rootLayer);
 }
 
 void ChromeClientEfl::setNeedsOneShotDrawingSynchronization()
 {
-    notImplemented();
+    ewk_view_mark_for_sync(m_view);
 }
 
-void ChromeClientEfl::scheduleCompositingLayerSync()
+void ChromeClientEfl::scheduleCompositingLayerFlush()
 {
-    notImplemented();
+    ewk_view_mark_for_sync(m_view);
 }
 
 ChromeClient::CompositingTriggerFlags ChromeClientEfl::allowedCompositingTriggers() const
 {
-    return 0;
+    return AllTriggers;
 }
 #endif
 
 #if ENABLE(FULLSCREEN_API)
 bool ChromeClientEfl::supportsFullScreenForElement(const WebCore::Element* element, bool withKeyboard)
 {
-    if (withKeyboard)
-        return false;
+    UNUSED_PARAM(withKeyboard);
 
-    return true;
+    if (!element->document()->page())
+        return false;
+    return element->document()->page()->settings()->fullScreenEnabled();
 }
 
 void ChromeClientEfl::enterFullScreenForElement(WebCore::Element* element)
 {
+    // Keep a reference to the element to use it later in
+    // exitFullScreenForElement().
+    m_fullScreenElement = element;
+
     element->document()->webkitWillEnterFullScreenForElement(element);
+    ewk_view_fullscreen_enter(m_view);
     element->document()->webkitDidEnterFullScreenForElement(element);
 }
 
-void ChromeClientEfl::exitFullScreenForElement(WebCore::Element* element)
+void ChromeClientEfl::exitFullScreenForElement(WebCore::Element*)
 {
-    element->document()->webkitWillExitFullScreenForElement(element);
-    element->document()->webkitDidExitFullScreenForElement(element);
+    // The element passed into this function is not reliable, i.e. it could
+    // be null. In addition the parameter may be disappearing in the future.
+    // So we use the reference to the element we saved above.
+    ASSERT(m_fullScreenElement);
+
+    m_fullScreenElement->document()->webkitWillExitFullScreenForElement(m_fullScreenElement.get());
+    ewk_view_fullscreen_exit(m_view);
+    m_fullScreenElement->document()->webkitDidExitFullScreenForElement(m_fullScreenElement.get());
+
+    m_fullScreenElement.clear();
 }
 #endif
+
+#if USE(TILED_BACKING_STORE)
+void ChromeClientEfl::delegatedScrollRequested(const IntPoint&)
+{
+    notImplemented();
+}
+
+IntRect ChromeClientEfl::visibleRectForTiledBackingStore() const
+{
+    WebCore::FloatRect rect = ewk_view_page_rect_get(m_view);
+    const Evas_Object* frame = ewk_view_frame_main_get(m_view);
+
+    int x, y;
+    ewk_frame_scroll_pos_get(frame, &x, &y);
+    return IntRect(x, y, rect.width(), rect.height());
+}
+#endif
+
 }

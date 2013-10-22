@@ -1,0 +1,20 @@
+---
+name: Class-Factory-Util
+version: 1.7
+author:
+  - 'Dave Rolsky, <autarch@urth.org>.'
+  - |-
+    Removed from Alzabo and packaged by Terrence Brannon,
+    <tbone@cpan.org>.
+abstract: Provide utility methods for factory classes
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+provides:
+  Class::Factory::Util:
+    file: lib/Class/Factory/Util.pm
+    version: 1.7
+generated_by: Module::Build version 0.2806
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2

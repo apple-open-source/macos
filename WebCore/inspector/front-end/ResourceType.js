@@ -91,10 +91,27 @@ WebInspector.ResourceType.prototype = {
     toString: function()
     {
         return this._name;
+    },
+
+    /**
+     * @return {string}
+     */
+    canonicalMimeType: function()
+    {
+        if (this === WebInspector.resourceTypes.Document)
+            return "text/html";
+        if (this === WebInspector.resourceTypes.Script)
+            return "text/javascript";
+        if (this === WebInspector.resourceTypes.Stylesheet)
+            return "text/css";
+        return "";
     }
 }
 
-//Keep these in sync with WebCore::InspectorPageAgent::resourceTypeJson
+/**
+ * Keep these in sync with WebCore::InspectorPageAgent::resourceTypeJson
+ * @enum {!WebInspector.ResourceType}
+ */
 WebInspector.resourceTypes = {
     Document: new WebInspector.ResourceType("document", "Document", "Documents", "rgb(47,102,236)", true),
     Stylesheet: new WebInspector.ResourceType("stylesheet", "Stylesheet", "Stylesheets", "rgb(157,231,119)", true),

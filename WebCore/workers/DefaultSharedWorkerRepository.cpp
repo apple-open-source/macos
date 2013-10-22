@@ -42,13 +42,15 @@
 #include "MessageEvent.h"
 #include "MessagePort.h"
 #include "NotImplemented.h"
-#include "PlatformString.h"
+#include "PageGroup.h"
+#include "PlatformStrategies.h"
 #include "ScriptCallStack.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginHash.h"
 #include "SharedWorker.h"
 #include "SharedWorkerContext.h"
 #include "SharedWorkerRepository.h"
+#include "SharedWorkerStrategy.h"
 #include "SharedWorkerThread.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerReportingProxy.h"
@@ -56,6 +58,7 @@
 #include "WorkerScriptLoaderClient.h"
 #include <wtf/HashSet.h>
 #include <wtf/Threading.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -80,8 +83,8 @@ public:
     virtual bool postTaskForModeToWorkerContext(PassOwnPtr<ScriptExecutionContext::Task>, const String&);
 
     // WorkerReportingProxy
-    virtual void postExceptionToWorkerObject(const String& errorMessage, int lineNumber, const String& sourceURL);
-    virtual void postConsoleMessageToWorkerObject(MessageSource, MessageType, MessageLevel, const String& message, int lineNumber, const String& sourceURL);
+    virtual void postExceptionToWorkerObject(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL);
+    virtual void postConsoleMessageToWorkerObject(MessageSource, MessageLevel, const String& message, int lineNumber, int columnNumber, const String& sourceURL);
 #if ENABLE(INSPECTOR)
     virtual void postMessageToPageInspector(const String&);
     virtual void updateInspectorStateCookie(const String&);
@@ -96,6 +99,8 @@ public:
 
     // Removes a detached document from the list of worker's documents. May set the closing flag if this is the last document in the list.
     void documentDetached(Document*);
+
+    GroupSettings* groupSettings() const; // Page GroupSettings used by worker thread.
 
 private:
     SharedWorkerProxy(const String& name, const KURL&, PassRefPtr<SecurityOrigin>);
@@ -160,28 +165,41 @@ bool SharedWorkerProxy::postTaskForModeToWorkerContext(PassOwnPtr<ScriptExecutio
     return true;
 }
 
-static void postExceptionTask(ScriptExecutionContext* context, const String& errorMessage, int lineNumber, const String& sourceURL)
+GroupSettings* SharedWorkerProxy::groupSettings() const
 {
-    context->reportException(errorMessage, lineNumber, sourceURL, 0);
+    if (isClosing())
+        return 0;
+    ASSERT(m_workerDocuments.size());
+    // Just pick the first active document, and use the groupsettings of that page.
+    Document* document = *(m_workerDocuments.begin());
+    if (document->page())
+        return document->page()->group().groupSettings();
+
+    return 0;
 }
 
-void SharedWorkerProxy::postExceptionToWorkerObject(const String& errorMessage, int lineNumber, const String& sourceURL)
+static void postExceptionTask(ScriptExecutionContext* context, const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL)
+{
+    context->reportException(errorMessage, lineNumber, columnNumber, sourceURL, 0);
+}
+
+void SharedWorkerProxy::postExceptionToWorkerObject(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL)
 {
     MutexLocker lock(m_workerDocumentsLock);
     for (HashSet<Document*>::iterator iter = m_workerDocuments.begin(); iter != m_workerDocuments.end(); ++iter)
-        (*iter)->postTask(createCallbackTask(&postExceptionTask, errorMessage, lineNumber, sourceURL));
+        (*iter)->postTask(createCallbackTask(&postExceptionTask, errorMessage, lineNumber, columnNumber, sourceURL));
 }
 
-static void postConsoleMessageTask(ScriptExecutionContext* document, MessageSource source, MessageType type, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber)
+static void postConsoleMessageTask(ScriptExecutionContext* document, MessageSource source, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber)
 {
-    document->addConsoleMessage(source, type, level, message, sourceURL, lineNumber);
+    document->addConsoleMessage(source, level, message, sourceURL, lineNumber, columnNumber);
 }
 
-void SharedWorkerProxy::postConsoleMessageToWorkerObject(MessageSource source, MessageType type, MessageLevel level, const String& message, int lineNumber, const String& sourceURL)
+void SharedWorkerProxy::postConsoleMessageToWorkerObject(MessageSource source, MessageLevel level, const String& message, int lineNumber, int columnNumber, const String& sourceURL)
 {
     MutexLocker lock(m_workerDocumentsLock);
     for (HashSet<Document*>::iterator iter = m_workerDocuments.begin(); iter != m_workerDocuments.end(); ++iter)
-        (*iter)->postTask(createCallbackTask(&postConsoleMessageTask, source, type, level, message, sourceURL, lineNumber));
+        (*iter)->postTask(createCallbackTask(&postConsoleMessageTask, source, level, message, sourceURL, lineNumber, columnNumber));
 }
 
 #if ENABLE(INSPECTOR)
@@ -212,7 +230,7 @@ void SharedWorkerProxy::workerContextDestroyed()
 void SharedWorkerProxy::addToWorkerDocuments(ScriptExecutionContext* context)
 {
     // Nested workers are not yet supported, so passed-in context should always be a Document.
-    ASSERT(context->isDocument());
+    ASSERT_WITH_SECURITY_IMPLICATION(context->isDocument());
     ASSERT(!isClosing());
     MutexLocker lock(m_workerDocumentsLock);
     Document* document = static_cast<Document*>(context);
@@ -256,11 +274,11 @@ private:
     {
         RefPtr<MessagePort> port = MessagePort::create(*scriptContext);
         port->entangle(m_channel.release());
-        ASSERT(scriptContext->isWorkerContext());
+        ASSERT_WITH_SECURITY_IMPLICATION(scriptContext->isWorkerContext());
         WorkerContext* workerContext = static_cast<WorkerContext*>(scriptContext);
         // Since close() stops the thread event loop, this should not ever get called while closing.
         ASSERT(!workerContext->isClosing());
-        ASSERT(workerContext->isSharedWorkerContext());
+        ASSERT_WITH_SECURITY_IMPLICATION(workerContext->isSharedWorkerContext());
         workerContext->dispatchEvent(createConnectEvent(port));
     }
 
@@ -299,7 +317,7 @@ void SharedWorkerScriptLoader::load(const KURL& url)
 
     // Mark this object as active for the duration of the load.
     m_scriptLoader = WorkerScriptLoader::create();
-#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
+#if PLATFORM(BLACKBERRY)
     m_scriptLoader->setTargetType(ResourceRequest::TargetIsSharedWorker);
 #endif
     m_scriptLoader->loadAsynchronously(m_worker->scriptExecutionContext(), url, DenyCrossOriginRequests, this);
@@ -322,8 +340,8 @@ void SharedWorkerScriptLoader::notifyFinished()
         InspectorInstrumentation::scriptImported(m_worker->scriptExecutionContext(), m_scriptLoader->identifier(), m_scriptLoader->script());
         DefaultSharedWorkerRepository::instance().workerScriptLoaded(*m_proxy, m_worker->scriptExecutionContext()->userAgent(m_scriptLoader->url()),
                                                                      m_scriptLoader->script(), m_port.release(),
-                                                                     m_worker->scriptExecutionContext()->contentSecurityPolicy()->header(),
-                                                                     m_worker->scriptExecutionContext()->contentSecurityPolicy()->headerType());
+                                                                     m_worker->scriptExecutionContext()->contentSecurityPolicy()->deprecatedHeader(),
+                                                                     m_worker->scriptExecutionContext()->contentSecurityPolicy()->deprecatedHeaderType());
     }
     m_worker->unsetPendingActivity(m_worker.get());
     this->deref(); // This frees this object - must be the last action in this function.
@@ -335,6 +353,11 @@ DefaultSharedWorkerRepository& DefaultSharedWorkerRepository::instance()
     return *instance;
 }
 
+bool DefaultSharedWorkerRepository::isAvailable()
+{
+    return platformStrategies()->sharedWorkerStrategy()->isAvailable();
+}
+
 void DefaultSharedWorkerRepository::workerScriptLoaded(SharedWorkerProxy& proxy, const String& userAgent, const String& workerScript, PassOwnPtr<MessagePortChannel> port, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType)
 {
     MutexLocker lock(m_lock);
@@ -343,32 +366,11 @@ void DefaultSharedWorkerRepository::workerScriptLoaded(SharedWorkerProxy& proxy,
 
     // Another loader may have already started up a thread for this proxy - if so, just send a connect to the pre-existing thread.
     if (!proxy.thread()) {
-        RefPtr<SharedWorkerThread> thread = SharedWorkerThread::create(proxy.name(), proxy.url(), userAgent, workerScript, proxy, proxy, DontPauseWorkerContextOnStart, contentSecurityPolicy, contentSecurityPolicyType);
+        RefPtr<SharedWorkerThread> thread = SharedWorkerThread::create(proxy.name(), proxy.url(), userAgent, proxy.groupSettings(), workerScript, proxy, proxy, DontPauseWorkerContextOnStart, contentSecurityPolicy, contentSecurityPolicyType);
         proxy.setThread(thread);
         thread->start();
     }
     proxy.thread()->runLoop().postTask(SharedWorkerConnectTask::create(port));
-}
-
-bool SharedWorkerRepository::isAvailable()
-{
-    // SharedWorkers are enabled on the default WebKit platform.
-    return true;
-}
-
-void SharedWorkerRepository::connect(PassRefPtr<SharedWorker> worker, PassOwnPtr<MessagePortChannel> port, const KURL& url, const String& name, ExceptionCode& ec)
-{
-    DefaultSharedWorkerRepository::instance().connectToWorker(worker, port, url, name, ec);
-}
-
-void SharedWorkerRepository::documentDetached(Document* document)
-{
-    DefaultSharedWorkerRepository::instance().documentDetached(document);
-}
-
-bool SharedWorkerRepository::hasSharedWorkers(Document* document)
-{
-    return DefaultSharedWorkerRepository::instance().hasSharedWorkers(document);
 }
 
 bool DefaultSharedWorkerRepository::hasSharedWorkers(Document* document)
@@ -405,7 +407,10 @@ void DefaultSharedWorkerRepository::connectToWorker(PassRefPtr<SharedWorker> wor
     ASSERT(worker->scriptExecutionContext()->securityOrigin()->canAccess(SecurityOrigin::create(url).get()));
     // Fetch a proxy corresponding to this SharedWorker.
     RefPtr<SharedWorkerProxy> proxy = getProxy(name, url);
+
+    // FIXME: Why is this done even if we are raising an exception below?
     proxy->addToWorkerDocuments(worker->scriptExecutionContext());
+
     if (proxy->url() != url) {
         // Proxy already existed under alternate URL - return an error.
         ec = URL_MISMATCH_ERR;

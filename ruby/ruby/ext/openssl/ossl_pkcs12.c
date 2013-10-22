@@ -1,23 +1,23 @@
 /*
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
- * $Id: ossl_pkcs12.c 12496 2007-06-08 15:02:04Z technorama $
+ * $Id: ossl_pkcs12.c 32199 2011-06-22 08:41:08Z emboss $
  */
 #include "ossl.h"
 
 #define WrapPKCS12(klass, obj, p12) do { \
-    if(!p12) ossl_raise(rb_eRuntimeError, "PKCS12 wasn't initialized."); \
-    obj = Data_Wrap_Struct(klass, 0, PKCS12_free, p12); \
+    if(!(p12)) ossl_raise(rb_eRuntimeError, "PKCS12 wasn't initialized."); \
+    (obj) = Data_Wrap_Struct((klass), 0, PKCS12_free, (p12)); \
 } while (0)
 
 #define GetPKCS12(obj, p12) do { \
-    Data_Get_Struct(obj, PKCS12, p12); \
-    if(!p12) ossl_raise(rb_eRuntimeError, "PKCS12 wasn't initialized."); \
+    Data_Get_Struct((obj), PKCS12, (p12)); \
+    if(!(p12)) ossl_raise(rb_eRuntimeError, "PKCS12 wasn't initialized."); \
 } while (0)
 
 #define SafeGetPKCS12(obj, p12) do { \
-    OSSL_Check_Kind(obj, cPKCS12); \
-    GetPKCS12(obj, p12); \
+    OSSL_Check_Kind((obj), cPKCS12); \
+    GetPKCS12((obj), (p12)); \
 } while (0)
 
 #define ossl_pkcs12_set_key(o,v)      rb_iv_set((o), "@key", (v))
@@ -81,7 +81,7 @@ ossl_pkcs12_s_create(int argc, VALUE *argv, VALUE self)
     STACK_OF(X509) *x509s;
     int nkey = 0, ncert = 0, kiter = 0, miter = 0, ktype = 0;
     PKCS12 *p12;
-    
+
     rb_scan_args(argc, argv, "46", &pass, &name, &pkey, &cert, &ca, &key_nid, &cert_nid, &key_iter, &mac_iter, &keytype);
     passphrase = NIL_P(pass) ? NULL : StringValuePtr(pass);
     friendlyname = NIL_P(name) ? NULL : StringValuePtr(name);
@@ -91,11 +91,11 @@ ossl_pkcs12_s_create(int argc, VALUE *argv, VALUE self)
 /* TODO: make a VALUE to nid function */
     if (!NIL_P(key_nid)) {
         if ((nkey = OBJ_txt2nid(StringValuePtr(key_nid))) == NID_undef)
-            rb_raise(rb_eArgError, "Unknown PBE algorithm %s", StringValuePtr(key_nid));
+            ossl_raise(rb_eArgError, "Unknown PBE algorithm %s", StringValuePtr(key_nid));
     }
     if (!NIL_P(cert_nid)) {
         if ((ncert = OBJ_txt2nid(StringValuePtr(cert_nid))) == NID_undef)
-            rb_raise(rb_eArgError, "Unknown PBE algorithm %s", StringValuePtr(cert_nid));
+            ossl_raise(rb_eArgError, "Unknown PBE algorithm %s", StringValuePtr(cert_nid));
     }
     if (!NIL_P(key_iter))
         kiter = NUM2INT(key_iter);
@@ -137,15 +137,17 @@ ossl_pkcs12_initialize(int argc, VALUE *argv, VALUE self)
     X509 *x509;
     STACK_OF(X509) *x509s = NULL;
     int st = 0;
+    PKCS12 *pkcs = DATA_PTR(self);
 
     if(rb_scan_args(argc, argv, "02", &arg, &pass) == 0) return self;
     passphrase = NIL_P(pass) ? NULL : StringValuePtr(pass);
     in = ossl_obj2bio(arg);
-    d2i_PKCS12_bio(in, (PKCS12 **)&DATA_PTR(self));
+    d2i_PKCS12_bio(in, &pkcs);
+    DATA_PTR(self) = pkcs;
     BIO_free(in);
 
     pkey = cert = ca = Qnil;
-    if(!PKCS12_parse((PKCS12*)DATA_PTR(self), passphrase, &key, &x509, &x509s))
+    if(!PKCS12_parse(pkcs, passphrase, &key, &x509, &x509s))
 	ossl_raise(ePKCS12Error, "PKCS12_parse");
     pkey = rb_protect((VALUE(*)_((VALUE)))ossl_pkey_new, (VALUE)key,
 		      &st); /* NO DUP */
@@ -181,7 +183,7 @@ ossl_pkcs12_to_der(VALUE self)
     if((len = i2d_PKCS12(p12, NULL)) <= 0)
 	ossl_raise(ePKCS12Error, NULL);
     str = rb_str_new(0, len);
-    p = RSTRING_PTR(str);
+    p = (unsigned char *)RSTRING_PTR(str);
     if(i2d_PKCS12(p12, &p) <= 0)
 	ossl_raise(ePKCS12Error, NULL);
     ossl_str_adjust(str, p);

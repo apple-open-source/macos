@@ -34,39 +34,26 @@
 extern "C" {
 #endif
 
-enum
-{   SSL_RecordTypeV2_0,
-    SSL_RecordTypeV3_Smallest = 20,
-    SSL_RecordTypeChangeCipher = 20,
-    SSL_RecordTypeAlert = 21,
-    SSL_RecordTypeHandshake = 22,
-    SSL_RecordTypeAppData = 23,
-    SSL_RecordTypeV3_Largest = 23
-};
-
-typedef struct
-{   UInt8                   contentType;
-    SSLProtocolVersion      protocolVersion;
-    SSLBuffer               contents;
-} SSLRecord;
-
-/*
- * Slightly smaller that 16384 to make room for a MAC in an SSL 2.0
- * 3-byte header record
+/* 
+ * Slightly smaller that 16384 to make room for a MAC in an SSL 2.0 
+ * 3-byte header record 
  */
 #define MAX_RECORD_LENGTH   16300
 
-#define DEFAULT_BUFFER_SIZE 4096
+OSStatus SSLWriteRecord(
+    SSLRecord 	rec,
+    SSLContext 	*ctx);
+
+OSStatus SSLFreeRecord(
+    SSLRecord 	rec,
+    SSLContext 	*ctx);
 
 OSStatus SSLReadRecord(
 	SSLRecord 	*rec,
 	SSLContext 	*ctx);
 
-OSStatus SSLVerifyMac(
-	UInt8 		type,
-	SSLBuffer 	*data,
-	UInt8 		*compareMAC,
-	SSLContext 	*ctx);
+OSStatus SSLServiceWriteQueue(
+    SSLContext  *ctx);
 
 #ifdef __cplusplus
 }

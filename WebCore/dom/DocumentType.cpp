@@ -56,7 +56,7 @@ PassRefPtr<Node> DocumentType::cloneNode(bool /*deep*/)
     return create(document(), m_name, m_publicId, m_systemId);
 }
 
-Node::InsertionNotificationRequest DocumentType::insertedInto(Node* insertionPoint)
+Node::InsertionNotificationRequest DocumentType::insertedInto(ContainerNode* insertionPoint)
 {
     Node::insertedInto(insertionPoint);
     if (!insertionPoint->inDocument())
@@ -65,7 +65,7 @@ Node::InsertionNotificationRequest DocumentType::insertedInto(Node* insertionPoi
     // Our document node can be null if we were created by a DOMImplementation.  We use the parent() instead.
     ASSERT(parentNode() && parentNode()->isDocumentNode());
     if (parentNode() && parentNode()->isDocumentNode()) {
-        Document* doc = static_cast<Document*>(parentNode());
+        Document* doc = toDocument(parentNode());
         if (!doc->doctype())
             doc->setDocType(this);
     }
@@ -73,7 +73,7 @@ Node::InsertionNotificationRequest DocumentType::insertedInto(Node* insertionPoi
     return InsertionDone;
 }
 
-void DocumentType::removedFrom(Node* insertionPoint)
+void DocumentType::removedFrom(ContainerNode* insertionPoint)
 {
     if (insertionPoint->inDocument() && document() && document()->doctype() == this)
         document()->setDocType(0);

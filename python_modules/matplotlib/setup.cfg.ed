@@ -1,0 +1,7 @@
+/^#basedirlist =/s/#//
+s,/.*,XXXXX,
+/^#macosx =/s/#//
+s/= .*/= True/
+/^#backend =/s/#//
+s/= .*/= MacOSX/
+w

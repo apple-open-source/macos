@@ -38,10 +38,16 @@
 
 #ifdef __APPLE__
 #include <pthread.h>
-#define IS_MAIN_THREAD() (pthread_is_threaded_np() && pthread_main_np())
+
+static int SHOULD_DO_LOGGING(void)
+{
+    return pthread_is_threaded_np() && pthread_main_np();
+}
 #else
-#define IS_MAIN_THREAD() (0)
+#define SHOULD_DO_LOGGING() (0)
 #endif
+
+
 
 static void
 warn_blocking(void *ptr)
@@ -52,6 +58,6 @@ warn_blocking(void *ptr)
 void
 heim_warn_blocking(const char *apiname, heim_base_once_t *once)
 {
-    if (IS_MAIN_THREAD())
+    if (SHOULD_DO_LOGGING())
 	heim_base_once_f(once, (void *)apiname, warn_blocking);
 }

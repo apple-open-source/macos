@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *                                                                            *
-* Copyright (C) 2003-2011, International Business Machines                   *
+* Copyright (C) 2003-2013, International Business Machines                   *
 *                Corporation and others. All Rights Reserved.                *
 *                                                                            *
 ******************************************************************************
@@ -16,6 +16,8 @@
 
 #include "cmemory.h"
 #include "unicode/ustring.h"
+#include "unicode/ures.h"
+#include "unicode/uloc.h"
 #include "unicode/ulocdata.h"
 #include "umutex.h"
 #include "uresimp.h"
@@ -102,7 +104,8 @@ ulocdata_getExemplarSet(ULocaleData *uld, USet *fillIn,
 
     static const char* const exemplarSetTypes[] = { "ExemplarCharacters", 
                                                     "AuxExemplarCharacters", 
-                                                    "ExemplarCharactersIndex"};
+                                                    "ExemplarCharactersIndex",
+                                                    "ExemplarCharactersPunctuation"};
     const UChar *exemplarChars = NULL;
     int32_t len = 0;
     UErrorCode localStatus = U_ZERO_ERROR;
@@ -186,6 +189,29 @@ ulocdata_getDelimiter(ULocaleData *uld, ULocaleDataDelimiterType type,
     return len;
 }
 
+static UResourceBundle * measurementDataBundleForLocale(const char *localeID, UErrorCode *status){
+    char fullLoc[ULOC_FULLNAME_CAPACITY];
+    char region[ULOC_COUNTRY_CAPACITY];
+    UResourceBundle *rb;
+    UResourceBundle *measDataBundle = NULL;
+    
+    /* The following code is basically copied from Calendar::setWeekData and
+     * Calendar::getCalendarTypeForLocale with adjustments for resource name
+     */
+    uloc_addLikelySubtags(localeID, fullLoc, ULOC_FULLNAME_CAPACITY, status);
+    uloc_getCountry(fullLoc, region, ULOC_COUNTRY_CAPACITY, status);
+    
+    rb = ures_openDirect(NULL, "supplementalData", status);
+    ures_getByKey(rb, "measurementData", rb, status);
+    measDataBundle = ures_getByKey(rb, region, NULL, status);
+    if (*status == U_MISSING_RESOURCE_ERROR && rb != NULL) {
+        *status = U_ZERO_ERROR;
+        measDataBundle = ures_getByKey(rb, "001", NULL, status);
+    }
+    ures_close(rb);
+    return measDataBundle;
+}
+
 U_CAPI UMeasurementSystem U_EXPORT2
 ulocdata_getMeasurementSystem(const char *localeID, UErrorCode *status){
 
@@ -197,7 +223,7 @@ ulocdata_getMeasurementSystem(const char *localeID, UErrorCode *status){
         return system;
     }
 
-    bundle = ures_open(NULL, localeID, status);
+    bundle = measurementDataBundleForLocale(localeID, status);
 
     measurement = ures_getByKeyWithFallback(bundle, MEASUREMENT_SYSTEM, NULL, status);
 
@@ -221,7 +247,7 @@ ulocdata_getPaperSize(const char* localeID, int32_t *height, int32_t *width, UEr
         return;
     }
 
-    bundle = ures_open(NULL, localeID, status);
+    bundle = measurementDataBundleForLocale(localeID, status);
     paperSizeBundle = ures_getByKeyWithFallback(bundle, PAPER_SIZE, NULL, status);
     paperSize = ures_getIntVector(paperSizeBundle, &len,  status);
 
@@ -239,7 +265,7 @@ ulocdata_getPaperSize(const char* localeID, int32_t *height, int32_t *width, UEr
 
 }
 
-U_DRAFT void U_EXPORT2
+U_CAPI void U_EXPORT2
 ulocdata_getCLDRVersion(UVersionInfo versionArray, UErrorCode *status) {
     UResourceBundle *rb = NULL;
     rb = ures_openDirect(NULL, "supplementalData", status);
@@ -247,7 +273,7 @@ ulocdata_getCLDRVersion(UVersionInfo versionArray, UErrorCode *status) {
     ures_close(rb);
 }
 
-U_DRAFT int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ulocdata_getLocaleDisplayPattern(ULocaleData *uld,
                                  UChar *result,
                                  int32_t resultCapacity,
@@ -295,7 +321,7 @@ ulocdata_getLocaleDisplayPattern(ULocaleData *uld,
 }
 
 
-U_DRAFT int32_t U_EXPORT2
+U_CAPI int32_t U_EXPORT2
 ulocdata_getLocaleSeparator(ULocaleData *uld,
                             UChar *result,
                             int32_t resultCapacity,

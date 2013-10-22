@@ -54,9 +54,13 @@ OSStatus SecKeychainRemoveFromSearchList(SecKeychainRef keychainRef);
 
 /* Login keychain support */
 OSStatus SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, const void* password);
+OSStatus SecKeychainStash();
 OSStatus SecKeychainLogout();
 OSStatus SecKeychainCopyLogin(SecKeychainRef *keychainRef);
 OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Boolean resetSearchList);
+
+OSStatus SecKeychainVerifyKeyStorePassphrase(uint32_t retries);
+OSStatus SecKeychainChangeKeyStorePassphrase();
 
 /* Keychain synchronization */
 enum {

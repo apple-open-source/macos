@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2011-11-16</string>
+	<string>2013-06-20</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
@@ -26,15 +26,17 @@
 		<string>Logging local IP for break in attempts.</string>
 		<string>Added cross-realm authorization mechanism.</string>
 		<string>CVE-2011-0539 patch.</string>
+		<string>Updated sandbox for privilege-separated pre-authorization sshd process</string>
+		<string>Replaced use of OpenSSL with CommonCrypto</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>OpenSSH</string>
 	<key>OpenSourceSHA1</key>
-	<string>ac4e0055421e9543f0af5da607a72cf5922dcc56</string>
+	<string>c2b4909eba6f5ec6f9f75866c202db47f3b501ba</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.OpenBSD.org/pub/OpenBSD/OpenSSH/portable</string>
+	<string> http://ftp5.usa.openbsd.org/pub/OpenBSD/OpenSSH/portable</string>
 	<key>OpenSourceVersion</key>
-	<string>5.9p1</string>
+	<string>6.2p2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.openssh.org/</string>
 </dict>

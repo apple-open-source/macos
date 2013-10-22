@@ -59,6 +59,14 @@
 #define kWWAN_SC_SETUP			"Initializing"
 #define kWWAN_UNIQUIFIER		"UniqueIdentifier"
 
+#define kCONNECT_STATE          "CONNECT_STATE"
+#define kCONNECT                "CONNECT"
+#define kCONNECTED              "CONNECTED"
+
+#define kDIS_CONNECT            "DISCONNECT"
+#define kDIS_CONNECTED          "DISCONNECTED"
+
+
 typedef enum {
 	WWAN_DICTIONARY_UNKNOWN			= 0,
 	WWAN_SET_DYNAMIC_DICTIONARY		= 1,

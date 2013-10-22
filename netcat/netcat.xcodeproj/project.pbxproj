@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		151A1C141561C645000E93F0 /* sourceroute.c in Sources */ = {isa = PBXBuildFile; fileRef = 151A1C131561C645000E93F0 /* sourceroute.c */; };
 		722CFA1A0FF4274A0065AA57 /* atomicio.c in Sources */ = {isa = PBXBuildFile; fileRef = 722504220FF4250C00D7B031 /* atomicio.c */; };
 		722CFA1B0FF4274A0065AA57 /* atomicio.h in Sources */ = {isa = PBXBuildFile; fileRef = 722504230FF4250C00D7B031 /* atomicio.h */; };
 		722CFA1C0FF4274A0065AA57 /* netcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 722504240FF4250C00D7B031 /* netcat.c */; };
@@ -29,6 +30,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		151A1C131561C645000E93F0 /* sourceroute.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sourceroute.c; sourceTree = "<group>"; };
 		722504220FF4250C00D7B031 /* atomicio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = atomicio.c; sourceTree = "<group>"; };
 		722504230FF4250C00D7B031 /* atomicio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = atomicio.h; sourceTree = "<group>"; };
 		722504240FF4250C00D7B031 /* netcat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = netcat.c; sourceTree = "<group>"; };
@@ -67,6 +69,7 @@
 				722504230FF4250C00D7B031 /* atomicio.h */,
 				722504240FF4250C00D7B031 /* netcat.c */,
 				722504250FF4250C00D7B031 /* socks.c */,
+				151A1C131561C645000E93F0 /* sourceroute.c */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -158,6 +161,7 @@
 				722CFA1A0FF4274A0065AA57 /* atomicio.c in Sources */,
 				722CFA1B0FF4274A0065AA57 /* atomicio.h in Sources */,
 				722CFA1C0FF4274A0065AA57 /* netcat.c in Sources */,
+				151A1C141561C645000E93F0 /* sourceroute.c in Sources */,
 				722CFA1D0FF4274A0065AA57 /* socks.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -187,7 +191,10 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SELECT;
-				HEADER_SEARCH_PATHS = "$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders";
+				HEADER_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"$(SDKROOT)/usr/local/include",
+				);
 				INSTALL_MODE_FLAG = "ugo-w,a+rX";
 				INSTALL_PATH = /usr/bin;
 				PREBINDING = NO;

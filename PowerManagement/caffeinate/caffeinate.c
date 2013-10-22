@@ -38,7 +38,8 @@ typedef enum {
     kIdleAssertionFlag       = (1 << 0),
     kDisplayAssertionFlag    = (1 << 1),
     kSystemAssertionFlag     = (1 << 2),
-    kUserActiveAssertionFlag = (1 << 3)
+    kUserActiveAssertionFlag = (1 << 3),
+    kDiskAssertionFlag       = (1 << 4)
 } AssertionFlag;
 
 typedef struct {
@@ -51,7 +52,8 @@ AssertionMapEntry assertionMap[] = {
     { kIdleAssertionFlag,       kIOPMAssertionTypePreventUserIdleSystemSleep },
     { kDisplayAssertionFlag,    kIOPMAssertionTypePreventUserIdleDisplaySleep },
     { kSystemAssertionFlag,     kIOPMAssertionTypePreventSystemSleep},
-    { kUserActiveAssertionFlag, kIOPMAssertionUserIsActive}};
+    { kUserActiveAssertionFlag, kIOPMAssertionUserIsActive},
+    { kDiskAssertionFlag,       kIOPMAssertPreventDiskIdle}};
 
 
 static CFStringRef        kHumanReadableReason = CFSTR("THE CAFFEINATE TOOL IS PREVENTING SLEEP.");
@@ -71,8 +73,11 @@ main(int argc, char *argv[])
     long timeout = 0;
 
     errno = 0;
-    while ((ch = getopt(argc, argv, "dhisut:")) != -1) {
+    while ((ch = getopt(argc, argv, "mdhisut:")) != -1) {
         switch((char)ch) {
+            case 'm':
+                flags |= kDiskAssertionFlag;
+                break;
             case 'd':
                 flags |= kDisplayAssertionFlag;
                 break;

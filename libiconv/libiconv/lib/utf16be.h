@@ -25,7 +25,7 @@
 /* Specification: RFC 2781 */
 
 static int
-utf16be_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+utf16be_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   int count = 0;
   if (n >= 2) {
@@ -49,7 +49,7 @@ utf16be_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-utf16be_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+utf16be_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (!(wc >= 0xd800 && wc < 0xe000)) {
     if (wc < 0x10000) {

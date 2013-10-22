@@ -32,6 +32,7 @@
 #include <libc.h>
 #include <servers/bootstrap.h>
 #include <sysexits.h>
+#include <notify.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitServer.h>
@@ -40,6 +41,7 @@
 #include <IOKit/IOCFUnserialize.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/ps/IOPSKeys.h>
+#include <IOKit/ps/IOPowerSources.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #if UPS_DEBUG
@@ -364,9 +366,10 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
                                     upsDataRef,			// refCon
                                     &(upsDataRef->notification)	// notification
                                     );
-                                    
+            notify_post(kIOPSNotifyAttach);
             goto UPSDEVICEADDED_CLEANUP;
         }
+        
 
 UPSDEVICEADDED_FAIL:
         // Failed to allocated a UPS interface.  Do some cleanup
@@ -418,6 +421,8 @@ void DeviceNotification(void *		refCon,
         
         SCDynamicStoreRemoveValue(upsDataRef->upsStore, upsDataRef->upsStoreKey);
 
+        notify_post(kIOPSNotifyAttach);
+        
         if ( upsDataRef->upsEventSource )
         {
             CFRunLoopRemoveSource(CFRunLoopGetCurrent(), upsDataRef->upsEventSource, kCFRunLoopDefaultMode);
@@ -503,6 +508,7 @@ void ProcessUPSEvent(UPSDataRef upsDataRef, CFDictionaryRef event)
         free (values);
             
         SCDynamicStoreSetValue(upsDataRef->upsStore, upsDataRef->upsStoreKey, upsDataRef->upsStoreDict);
+        notify_post(kIOPSNotifyTimeRemaining);
     }
 }
 

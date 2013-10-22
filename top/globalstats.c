@@ -427,12 +427,10 @@ static void update_memregions(struct globalstat *gs,
 static void update_physmem(struct globalstat *gs,
 			   const libtop_tsamp_t *tsamp) {
     char wired[6];
-    char active[6];
-    char inactive[6];
     char used[6];
     char physfree[6];
     uint64_t total_free, total_used, total_used_count;
-    struct top_uinteger wiredresult, activeresult, inactiveresult, usedresult,
+    struct top_uinteger wiredresult, usedresult,
 	physfreeresult;
     
     total_free = (uint64_t)tsamp->vm_stat.free_count * tsamp->pagesize;
@@ -442,16 +440,10 @@ static void update_physmem(struct globalstat *gs,
 
     wiredresult = top_init_uinteger(tsamp->vm_stat.wire_count
 				    * tsamp->pagesize, false);
-    activeresult = top_init_uinteger(tsamp->vm_stat.active_count
-				     * tsamp->pagesize, false);
-    inactiveresult = top_init_uinteger(tsamp->vm_stat.inactive_count
-				       * tsamp->pagesize, false);
     usedresult = top_init_uinteger(total_used, false);
     physfreeresult = top_init_uinteger(total_free, false);
 
     if(top_humanize_uinteger(wired, sizeof(wired), wiredresult)
-       || top_humanize_uinteger(active, sizeof(active), activeresult)
-       || top_humanize_uinteger(inactive, sizeof(inactive), inactiveresult)
        || top_humanize_uinteger(used, sizeof(used), usedresult)
        || top_humanize_uinteger(physfree, sizeof(physfree), physfreeresult)) {
 	fprintf(stderr, "top_humanize_uinteger failure in %s\n", __func__);
@@ -461,15 +453,9 @@ static void update_physmem(struct globalstat *gs,
 
     gs->length = snprintf(gs->data, sizeof(gs->data),
 			  "PhysMem: "
-			  "%s wired, "
-			  "%s active, "
-			  "%s inactive, "
-			  "%s used, "
-			  "%s free.",
-			  wired,
-			  active,
-			  inactive,
-			  used,
+			  "%s used (%s wired), "
+			  "%s unused.",
+			  used, wired,
 			  physfree);
 
     if(gs->length < 0) {
@@ -499,16 +485,16 @@ static void update_vm(struct globalstat *gs,
 			  "VM: "
 			  "%s vsize, "
 			  "%s framework vsize, "
-			  "%" PRIu64 "(%" PRIu64 ") pageins, "
-			  "%" PRIu64 "(%" PRIu64 ") pageouts.",
+			  "%" PRIu64 "(%" PRIu64 ") swapins, "
+			  "%" PRIu64 "(%" PRIu64 ") swapouts.",
 			  vsize,
 			  fwvsize,
-			  (unsigned long long)tsamp->vm_stat.pageins,
-			  (unsigned long long)(tsamp->vm_stat.pageins 
-					       - tsamp->p_vm_stat.pageins),
-			  (unsigned long long)tsamp->vm_stat.pageouts,
-			  (unsigned long long)(tsamp->vm_stat.pageouts 
-					       - tsamp->p_vm_stat.pageouts));
+			  (unsigned long long)tsamp->vm_stat.swapins,
+			  (unsigned long long)(tsamp->vm_stat.swapins 
+					       - tsamp->p_vm_stat.swapins),
+			  (unsigned long long)tsamp->vm_stat.swapouts,
+			  (unsigned long long)(tsamp->vm_stat.swapouts 
+					       - tsamp->p_vm_stat.swapouts));
 
     if(gs->length < 0) {
 	reset_globalstat(gs);

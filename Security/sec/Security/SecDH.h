@@ -55,7 +55,7 @@ typedef struct OpaqueSecDHContext *SecDHContext;
 	@discussion The recip and recip_len parameters are constant for a given p.
 	They are optional, although providing them improves performance.
     @result On success, a newly allocated SecDHContext is returned in dh and
-	noErr is returned.  On failure, NULL is returned in dh and an OSStatus error
+	errSecSuccess is returned.  On failure, NULL is returned in dh and an OSStatus error
 	code is returned.
     The caller should call SecDHDestroy once the returned context is no longer
     needed.
@@ -70,7 +70,7 @@ OSStatus SecDHCreate(uint32_t g, const uint8_t *p, size_t p_len, uint32_t l,
 	@param params_len Length of params, in bytes
 	@param dh (output) A pointer to a SecDHContext
     @result On success, a newly allocated SecDHContext is returned in dh and
-	noErr is returned.  On failure, NULL is returned in dh and an OSStatus error
+	errSecSuccess is returned.  On failure, NULL is returned in dh and an OSStatus error
 	code is returned.
     The caller should call SecDHDestroy once the returned context is no longer
     needed.
@@ -85,7 +85,7 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params, size_t params_len,
 	@param alg_len Length of alg, in bytes
 	@param dh (output) A pointer to a SecDHContext
     @result On success, a newly allocated SecDHContext is returned in dh and
-	noErr is returned.  On failure, NULL is returned in dh and an OSStatus error
+	errSecSuccess is returned.  On failure, NULL is returned in dh and an OSStatus error
 	code is returned.
     The caller should call SecDHDestroy once the returned context is no longer
     needed.
@@ -118,7 +118,7 @@ size_t SecDHGetMaxKeyLength(SecDHContext dh);
 	on output, the number of bytes actually in pub_key.  
 	@discussion Reusing a SecDHContext for multiple SecDHGenerateKeypair()
 	invocations is permitted.
-    @result noErr on success, or an OSStatus error code on failure.
+    @result errSecSuccess on success, or an OSStatus error code on failure.
  */
 OSStatus SecDHGenerateKeypair(SecDHContext dh, uint8_t *pub_key,
 	size_t *pub_key_len);
@@ -144,7 +144,7 @@ OSStatus SecDHGenerateKeypair(SecDHContext dh, uint8_t *pub_key,
 	computed key, only the first *computed_key_len bytes will be returned.
 	No leading zero bytes will be returned, and the computed_key is returned
 	as an unsigned big-endian byte array.
-    @result noErr on success, or an OSStatus error code on failure.
+    @result errSecSuccess on success, or an OSStatus error code on failure.
  */
 OSStatus SecDHComputeKey(SecDHContext dh,
 	const uint8_t *pub_key, size_t pub_key_len,

@@ -20,6 +20,10 @@
 #ifndef	_LDAP_INT_H
 #define	_LDAP_INT_H 1
 
+#ifdef __APPLE__
+#include <dispatch/dispatch.h>
+#endif
+
 #ifdef LDAP_R_COMPILE
 #define LDAP_THREAD_SAFE 1
 #endif
@@ -175,6 +179,8 @@ struct ldaptls {
 	int		lt_protocol_min;
 #ifdef __APPLE__
 	void		*lt_cert_ref;
+    void        *lt_server_ident_ref_name;
+    void        *lt_server_key_ref;
 #endif
 };
 #endif
@@ -238,7 +244,10 @@ struct ldapoptions {
 #define ldo_tls_randfile	ldo_tls_info.lt_randfile	
 #define ldo_tls_passphrase	ldo_tls_info.lt_passphrase
 #ifdef __APPLE__
-#define ldo_tls_cert_ref	ldo_tls_info.lt_cert_ref
+#define ldo_tls_cert_ref	    ldo_tls_info.lt_cert_ref
+#define ldo_tls_server_ident_ref_name	ldo_tls_info.lt_server_ident_ref_name
+#define ldo_tls_server_key_ref     ldo_tls_info.lt_server_key_ref
+    
 #endif
 	
    	int			ldo_tls_mode;
@@ -565,7 +574,7 @@ LDAP_F ( void ) ldap_int_initialize_global_options LDAP_P((
  * global options get initialized in a thread-safe manner.
  * Called by ldap_create() & ldap_get_option()
  */
-LDAP_V ( pthread_once_t) ldap_global_opts_initialized ;
+LDAP_V ( dispatch_once_t) ldap_global_opts_initialized ;
 LDAP_F ( void ) ldap_int_init_global_opts LDAP_P((void));
 #endif
 

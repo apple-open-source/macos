@@ -28,6 +28,7 @@
 
 #include "ShareableBitmap.h"
 #include <WebCore/AuthenticationChallenge.h>
+#include <WebCore/Cookie.h>
 #include <WebCore/Credential.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/DatabaseDetails.h>
@@ -41,205 +42,186 @@
 #include <WebCore/KURL.h>
 #include <WebCore/PluginData.h>
 #include <WebCore/ProtectionSpace.h>
+#include <WebCore/ResourceError.h>
+#include <WebCore/ResourceRequest.h>
+#include <WebCore/ResourceResponse.h>
 #include <WebCore/TextCheckerClient.h>
+#include <WebCore/UserScript.h>
+#include <WebCore/UserStyleSheet.h>
 #include <WebCore/ViewportArguments.h>
 #include <WebCore/WindowFeatures.h>
+#include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
-
-#if PLATFORM(QT)
-#include <WebCore/Animation.h>
-#include <WebCore/FloatPoint3D.h>
-#include <WebCore/IdentityTransformOperation.h>
-#include <WebCore/Matrix3DTransformOperation.h>
-#include <WebCore/MatrixTransformOperation.h>
-#include <WebCore/PerspectiveTransformOperation.h>
-#include <WebCore/RotateTransformOperation.h>
-#include <WebCore/ScaleTransformOperation.h>
-#include <WebCore/SkewTransformOperation.h>
-#include <WebCore/TimingFunction.h>
-#include <WebCore/TransformOperation.h>
-#include <WebCore/TransformOperations.h>
-#include <WebCore/TranslateTransformOperation.h>
-#endif
-
-#if USE(UI_SIDE_COMPOSITING) && ENABLE(CSS_FILTERS)
-#include <WebCore/FilterOperations.h>
-#endif
 
 using namespace WebCore;
 using namespace WebKit;
 
 namespace CoreIPC {
 
-void ArgumentCoder<AffineTransform>::encode(ArgumentEncoder* encoder, const AffineTransform& affineTransform)
+void ArgumentCoder<AffineTransform>::encode(ArgumentEncoder& encoder, const AffineTransform& affineTransform)
 {
     SimpleArgumentCoder<AffineTransform>::encode(encoder, affineTransform);
 }
 
-bool ArgumentCoder<AffineTransform>::decode(ArgumentDecoder* decoder, AffineTransform& affineTransform)
+bool ArgumentCoder<AffineTransform>::decode(ArgumentDecoder& decoder, AffineTransform& affineTransform)
 {
     return SimpleArgumentCoder<AffineTransform>::decode(decoder, affineTransform);
 }
 
 
-void ArgumentCoder<FloatPoint>::encode(ArgumentEncoder* encoder, const FloatPoint& floatPoint)
+void ArgumentCoder<FloatPoint>::encode(ArgumentEncoder& encoder, const FloatPoint& floatPoint)
 {
     SimpleArgumentCoder<FloatPoint>::encode(encoder, floatPoint);
 }
 
-bool ArgumentCoder<FloatPoint>::decode(ArgumentDecoder* decoder, FloatPoint& floatPoint)
+bool ArgumentCoder<FloatPoint>::decode(ArgumentDecoder& decoder, FloatPoint& floatPoint)
 {
     return SimpleArgumentCoder<FloatPoint>::decode(decoder, floatPoint);
 }
 
 
-void ArgumentCoder<FloatRect>::encode(ArgumentEncoder* encoder, const FloatRect& floatRect)
+void ArgumentCoder<FloatRect>::encode(ArgumentEncoder& encoder, const FloatRect& floatRect)
 {
     SimpleArgumentCoder<FloatRect>::encode(encoder, floatRect);
 }
 
-bool ArgumentCoder<FloatRect>::decode(ArgumentDecoder* decoder, FloatRect& floatRect)
+bool ArgumentCoder<FloatRect>::decode(ArgumentDecoder& decoder, FloatRect& floatRect)
 {
     return SimpleArgumentCoder<FloatRect>::decode(decoder, floatRect);
 }
 
 
-void ArgumentCoder<FloatSize>::encode(ArgumentEncoder* encoder, const FloatSize& floatSize)
+void ArgumentCoder<FloatSize>::encode(ArgumentEncoder& encoder, const FloatSize& floatSize)
 {
     SimpleArgumentCoder<FloatSize>::encode(encoder, floatSize);
 }
 
-bool ArgumentCoder<FloatSize>::decode(ArgumentDecoder* decoder, FloatSize& floatSize)
+bool ArgumentCoder<FloatSize>::decode(ArgumentDecoder& decoder, FloatSize& floatSize)
 {
     return SimpleArgumentCoder<FloatSize>::decode(decoder, floatSize);
 }
 
 
-void ArgumentCoder<IntPoint>::encode(ArgumentEncoder* encoder, const IntPoint& intPoint)
+void ArgumentCoder<IntPoint>::encode(ArgumentEncoder& encoder, const IntPoint& intPoint)
 {
     SimpleArgumentCoder<IntPoint>::encode(encoder, intPoint);
 }
 
-bool ArgumentCoder<IntPoint>::decode(ArgumentDecoder* decoder, IntPoint& intPoint)
+bool ArgumentCoder<IntPoint>::decode(ArgumentDecoder& decoder, IntPoint& intPoint)
 {
     return SimpleArgumentCoder<IntPoint>::decode(decoder, intPoint);
 }
 
 
-void ArgumentCoder<IntRect>::encode(ArgumentEncoder* encoder, const IntRect& intRect)
+void ArgumentCoder<IntRect>::encode(ArgumentEncoder& encoder, const IntRect& intRect)
 {
     SimpleArgumentCoder<IntRect>::encode(encoder, intRect);
 }
 
-bool ArgumentCoder<IntRect>::decode(ArgumentDecoder* decoder, IntRect& intRect)
+bool ArgumentCoder<IntRect>::decode(ArgumentDecoder& decoder, IntRect& intRect)
 {
     return SimpleArgumentCoder<IntRect>::decode(decoder, intRect);
 }
 
 
-void ArgumentCoder<IntSize>::encode(ArgumentEncoder* encoder, const IntSize& intSize)
+void ArgumentCoder<IntSize>::encode(ArgumentEncoder& encoder, const IntSize& intSize)
 {
     SimpleArgumentCoder<IntSize>::encode(encoder, intSize);
 }
 
-bool ArgumentCoder<IntSize>::decode(ArgumentDecoder* decoder, IntSize& intSize)
+bool ArgumentCoder<IntSize>::decode(ArgumentDecoder& decoder, IntSize& intSize)
 {
     return SimpleArgumentCoder<IntSize>::decode(decoder, intSize);
 }
 
-void ArgumentCoder<ViewportAttributes>::encode(ArgumentEncoder* encoder, const ViewportAttributes& viewportAttributes)
+
+void ArgumentCoder<ViewportAttributes>::encode(ArgumentEncoder& encoder, const ViewportAttributes& viewportAttributes)
 {
     SimpleArgumentCoder<ViewportAttributes>::encode(encoder, viewportAttributes);
 }
 
-bool ArgumentCoder<ViewportAttributes>::decode(ArgumentDecoder* decoder, ViewportAttributes& viewportAttributes)
+bool ArgumentCoder<ViewportAttributes>::decode(ArgumentDecoder& decoder, ViewportAttributes& viewportAttributes)
 {
     return SimpleArgumentCoder<ViewportAttributes>::decode(decoder, viewportAttributes);
 }
 
-void ArgumentCoder<MimeClassInfo>::encode(ArgumentEncoder* encoder, const MimeClassInfo& mimeClassInfo)
+
+void ArgumentCoder<MimeClassInfo>::encode(ArgumentEncoder& encoder, const MimeClassInfo& mimeClassInfo)
 {
-    encoder->encode(mimeClassInfo.type);
-    encoder->encode(mimeClassInfo.desc);
-    encoder->encode(mimeClassInfo.extensions);
+    encoder << mimeClassInfo.type << mimeClassInfo.desc << mimeClassInfo.extensions;
 }
 
-bool ArgumentCoder<MimeClassInfo>::decode(ArgumentDecoder* decoder, MimeClassInfo& mimeClassInfo)
+bool ArgumentCoder<MimeClassInfo>::decode(ArgumentDecoder& decoder, MimeClassInfo& mimeClassInfo)
 {
-    if (!decoder->decode(mimeClassInfo.type))
+    if (!decoder.decode(mimeClassInfo.type))
         return false;
-    if (!decoder->decode(mimeClassInfo.desc))
+    if (!decoder.decode(mimeClassInfo.desc))
         return false;
-    if (!decoder->decode(mimeClassInfo.extensions))
+    if (!decoder.decode(mimeClassInfo.extensions))
         return false;
 
     return true;
 }
 
 
-void ArgumentCoder<PluginInfo>::encode(ArgumentEncoder* encoder, const PluginInfo& pluginInfo)
+void ArgumentCoder<PluginInfo>::encode(ArgumentEncoder& encoder, const PluginInfo& pluginInfo)
 {
-    encoder->encode(pluginInfo.name);
-    encoder->encode(pluginInfo.file);
-    encoder->encode(pluginInfo.desc);
-    encoder->encode(pluginInfo.mimes);
+    encoder << pluginInfo.name << pluginInfo.file << pluginInfo.desc << pluginInfo.mimes << pluginInfo.isApplicationPlugin;
 }
     
-bool ArgumentCoder<PluginInfo>::decode(ArgumentDecoder* decoder, PluginInfo& pluginInfo)
+bool ArgumentCoder<PluginInfo>::decode(ArgumentDecoder& decoder, PluginInfo& pluginInfo)
 {
-    if (!decoder->decode(pluginInfo.name))
+    if (!decoder.decode(pluginInfo.name))
         return false;
-    if (!decoder->decode(pluginInfo.file))
+    if (!decoder.decode(pluginInfo.file))
         return false;
-    if (!decoder->decode(pluginInfo.desc))
+    if (!decoder.decode(pluginInfo.desc))
         return false;
-    if (!decoder->decode(pluginInfo.mimes))
+    if (!decoder.decode(pluginInfo.mimes))
+        return false;
+    if (!decoder.decode(pluginInfo.isApplicationPlugin))
         return false;
 
     return true;
 }
 
 
-void ArgumentCoder<HTTPHeaderMap>::encode(ArgumentEncoder* encoder, const HTTPHeaderMap& headerMap)
+void ArgumentCoder<HTTPHeaderMap>::encode(ArgumentEncoder& encoder, const HTTPHeaderMap& headerMap)
 {
-    encoder->encode(static_cast<const HashMap<AtomicString, String, CaseFoldingHash>&>(headerMap));
+    encoder << static_cast<const HashMap<AtomicString, String, CaseFoldingHash>&>(headerMap);
 }
 
-bool ArgumentCoder<HTTPHeaderMap>::decode(ArgumentDecoder* decoder, HTTPHeaderMap& headerMap)
+bool ArgumentCoder<HTTPHeaderMap>::decode(ArgumentDecoder& decoder, HTTPHeaderMap& headerMap)
 {
-    return decoder->decode(static_cast<HashMap<AtomicString, String, CaseFoldingHash>&>(headerMap));
+    return decoder.decode(static_cast<HashMap<AtomicString, String, CaseFoldingHash>&>(headerMap));
 }
 
 
-void ArgumentCoder<AuthenticationChallenge>::encode(ArgumentEncoder* encoder, const AuthenticationChallenge& challenge)
+void ArgumentCoder<AuthenticationChallenge>::encode(ArgumentEncoder& encoder, const AuthenticationChallenge& challenge)
 {
-    encoder->encode(challenge.protectionSpace());
-    encoder->encode(challenge.proposedCredential());
-    encoder->encode(challenge.previousFailureCount());
-    encoder->encode(challenge.failureResponse());
-    encoder->encode(challenge.error());
+    encoder << challenge.protectionSpace() << challenge.proposedCredential() << challenge.previousFailureCount() << challenge.failureResponse() << challenge.error();
 }
 
-bool ArgumentCoder<AuthenticationChallenge>::decode(ArgumentDecoder* decoder, AuthenticationChallenge& challenge)
+bool ArgumentCoder<AuthenticationChallenge>::decode(ArgumentDecoder& decoder, AuthenticationChallenge& challenge)
 {    
     ProtectionSpace protectionSpace;
-    if (!decoder->decode(protectionSpace))
+    if (!decoder.decode(protectionSpace))
         return false;
 
     Credential proposedCredential;
-    if (!decoder->decode(proposedCredential))
+    if (!decoder.decode(proposedCredential))
         return false;
 
     unsigned previousFailureCount;    
-    if (!decoder->decode(previousFailureCount))
+    if (!decoder.decode(previousFailureCount))
         return false;
 
     ResourceResponse failureResponse;
-    if (!decoder->decode(failureResponse))
+    if (!decoder.decode(failureResponse))
         return false;
 
     ResourceError error;
-    if (!decoder->decode(error))
+    if (!decoder.decode(error))
         return false;
     
     challenge = AuthenticationChallenge(protectionSpace, proposedCredential, previousFailureCount, failureResponse, error);
@@ -247,67 +229,64 @@ bool ArgumentCoder<AuthenticationChallenge>::decode(ArgumentDecoder* decoder, Au
 }
 
 
-void ArgumentCoder<ProtectionSpace>::encode(ArgumentEncoder* encoder, const ProtectionSpace& space)
+void ArgumentCoder<ProtectionSpace>::encode(ArgumentEncoder& encoder, const ProtectionSpace& space)
 {
-    encoder->encode(space.host());
-    encoder->encode(space.port());
-    encoder->encodeEnum(space.serverType());
-    encoder->encode(space.realm());
-    encoder->encodeEnum(space.authenticationScheme());
+    encoder << space.host() << space.port() << space.realm();
+    encoder.encodeEnum(space.authenticationScheme());
+    encoder.encodeEnum(space.serverType());
 }
 
-bool ArgumentCoder<ProtectionSpace>::decode(ArgumentDecoder* decoder, ProtectionSpace& space)
+bool ArgumentCoder<ProtectionSpace>::decode(ArgumentDecoder& decoder, ProtectionSpace& space)
 {
     String host;
-    if (!decoder->decode(host))
+    if (!decoder.decode(host))
         return false;
 
     int port;
-    if (!decoder->decode(port))
-        return false;
-
-    ProtectionSpaceServerType serverType;
-    if (!decoder->decodeEnum(serverType))
+    if (!decoder.decode(port))
         return false;
 
     String realm;
-    if (!decoder->decode(realm))
+    if (!decoder.decode(realm))
         return false;
     
     ProtectionSpaceAuthenticationScheme authenticationScheme;
-    if (!decoder->decodeEnum(authenticationScheme))
+    if (!decoder.decodeEnum(authenticationScheme))
+        return false;
+
+    ProtectionSpaceServerType serverType;
+    if (!decoder.decodeEnum(serverType))
         return false;
 
     space = ProtectionSpace(host, port, serverType, realm, authenticationScheme);
     return true;
 }
 
-void ArgumentCoder<Credential>::encode(ArgumentEncoder* encoder, const Credential& credential)
+void ArgumentCoder<Credential>::encode(ArgumentEncoder& encoder, const Credential& credential)
 {
-    encoder->encode(credential.user());
-    encoder->encode(credential.password());
-    encoder->encodeEnum(credential.persistence());
+    encoder << credential.user() << credential.password();
+    encoder.encodeEnum(credential.persistence());
 }
 
-bool ArgumentCoder<Credential>::decode(ArgumentDecoder* decoder, Credential& credential)
+bool ArgumentCoder<Credential>::decode(ArgumentDecoder& decoder, Credential& credential)
 {
     String user;
-    if (!decoder->decode(user))
+    if (!decoder.decode(user))
         return false;
 
     String password;
-    if (!decoder->decode(password))
+    if (!decoder.decode(password))
         return false;
 
     CredentialPersistence persistence;
-    if (!decoder->decodeEnum(persistence))
+    if (!decoder.decodeEnum(persistence))
         return false;
     
     credential = Credential(user, password, persistence);
     return true;
 }
 
-static void encodeImage(ArgumentEncoder* encoder, Image* image)
+static void encodeImage(ArgumentEncoder& encoder, Image* image)
 {
     RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(image->size(), ShareableBitmap::SupportsAlpha);
     bitmap->createGraphicsContext()->drawImage(image, ColorSpaceDeviceRGB, IntPoint());
@@ -315,13 +294,13 @@ static void encodeImage(ArgumentEncoder* encoder, Image* image)
     ShareableBitmap::Handle handle;
     bitmap->createHandle(handle);
 
-    encoder->encode(handle);
+    encoder << handle;
 }
 
-static bool decodeImage(ArgumentDecoder* decoder, RefPtr<Image>& image)
+static bool decodeImage(ArgumentDecoder& decoder, RefPtr<Image>& image)
 {
     ShareableBitmap::Handle handle;
-    if (!decoder->decode(handle))
+    if (!decoder.decode(handle))
         return false;
     
     RefPtr<ShareableBitmap> bitmap = ShareableBitmap::create(handle);
@@ -333,27 +312,27 @@ static bool decodeImage(ArgumentDecoder* decoder, RefPtr<Image>& image)
     return true;
 }
 
-void ArgumentCoder<Cursor>::encode(ArgumentEncoder* encoder, const Cursor& cursor)
+void ArgumentCoder<Cursor>::encode(ArgumentEncoder& encoder, const Cursor& cursor)
 {
-    encoder->encodeEnum(cursor.type());
+    encoder.encodeEnum(cursor.type());
         
     if (cursor.type() != Cursor::Custom)
         return;
 
     if (cursor.image()->isNull()) {
-        encoder->encodeBool(false); // There is no valid image being encoded.
+        encoder << false; // There is no valid image being encoded.
         return;
     }
 
-    encoder->encodeBool(true);
+    encoder << true;
     encodeImage(encoder, cursor.image());
-    encoder->encode(cursor.hotSpot());
+    encoder << cursor.hotSpot();
 }
 
-bool ArgumentCoder<Cursor>::decode(ArgumentDecoder* decoder, Cursor& cursor)
+bool ArgumentCoder<Cursor>::decode(ArgumentDecoder& decoder, Cursor& cursor)
 {
     Cursor::Type type;
-    if (!decoder->decodeEnum(type))
+    if (!decoder.decodeEnum(type))
         return false;
 
     if (type > Cursor::Custom)
@@ -370,7 +349,7 @@ bool ArgumentCoder<Cursor>::decode(ArgumentDecoder* decoder, Cursor& cursor)
     }
 
     bool isValidImagePresent;
-    if (!decoder->decode(isValidImagePresent))
+    if (!decoder.decode(isValidImagePresent))
         return false;
 
     if (!isValidImagePresent) {
@@ -383,7 +362,7 @@ bool ArgumentCoder<Cursor>::decode(ArgumentDecoder* decoder, Cursor& cursor)
         return false;
 
     IntPoint hotSpot;
-    if (!decoder->decode(hotSpot))
+    if (!decoder.decode(hotSpot))
         return false;
 
     if (!image->rect().contains(hotSpot))
@@ -393,80 +372,314 @@ bool ArgumentCoder<Cursor>::decode(ArgumentDecoder* decoder, Cursor& cursor)
     return true;
 }
 
-
-void ArgumentCoder<WindowFeatures>::encode(ArgumentEncoder* encoder, const WindowFeatures& windowFeatures)
+void ArgumentCoder<ResourceRequest>::encode(ArgumentEncoder& encoder, const ResourceRequest& resourceRequest)
 {
-    encoder->encode(windowFeatures.x);
-    encoder->encode(windowFeatures.y);
-    encoder->encode(windowFeatures.width);
-    encoder->encode(windowFeatures.height);
-    encoder->encode(windowFeatures.xSet);
-    encoder->encode(windowFeatures.ySet);
-    encoder->encode(windowFeatures.widthSet);
-    encoder->encode(windowFeatures.heightSet);
-    encoder->encode(windowFeatures.menuBarVisible);
-    encoder->encode(windowFeatures.statusBarVisible);
-    encoder->encode(windowFeatures.toolBarVisible);
-    encoder->encode(windowFeatures.locationBarVisible);
-    encoder->encode(windowFeatures.scrollbarsVisible);
-    encoder->encode(windowFeatures.resizable);
-    encoder->encode(windowFeatures.fullscreen);
-    encoder->encode(windowFeatures.dialog);
+    if (kShouldSerializeWebCoreData) {
+        encoder << resourceRequest.url().string();
+        encoder << resourceRequest.httpMethod();
+        encoder << resourceRequest.httpHeaderFields();
+
+        // FIXME: Do not encode HTTP message body.
+        // 1. It can be large and thus costly to send across.
+        // 2. It is misleading to provide a body with some requests, while others use body streams, which cannot be serialized at all.
+        FormData* httpBody = resourceRequest.httpBody();
+        encoder << static_cast<bool>(httpBody);
+        if (httpBody)
+            encoder << httpBody->flattenToString();
+
+        encoder << resourceRequest.firstPartyForCookies().string();
+    }
+
+#if ENABLE(CACHE_PARTITIONING)
+    encoder << resourceRequest.cachePartition();
+#endif
+
+    encodePlatformData(encoder, resourceRequest);
 }
 
-bool ArgumentCoder<WindowFeatures>::decode(ArgumentDecoder* decoder, WindowFeatures& windowFeatures)
+bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder& decoder, ResourceRequest& resourceRequest)
 {
-    if (!decoder->decode(windowFeatures.x))
+    if (kShouldSerializeWebCoreData) {
+        ResourceRequest request;
+
+        String url;
+        if (!decoder.decode(url))
+            return false;
+        request.setURL(KURL(KURL(), url));
+
+        String httpMethod;
+        if (!decoder.decode(httpMethod))
+            return false;
+        request.setHTTPMethod(httpMethod);
+
+        HTTPHeaderMap headers;
+        if (!decoder.decode(headers))
+            return false;
+        request.addHTTPHeaderFields(headers);
+
+        bool hasHTTPBody;
+        if (!decoder.decode(hasHTTPBody))
+            return false;
+        if (hasHTTPBody) {
+            String httpBody;
+            if (!decoder.decode(httpBody))
+                return false;
+            request.setHTTPBody(FormData::create(httpBody.utf8()));
+        }
+
+        String firstPartyForCookies;
+        if (!decoder.decode(firstPartyForCookies))
+            return false;
+        request.setFirstPartyForCookies(KURL(KURL(), firstPartyForCookies));
+
+        resourceRequest = request;
+    }
+
+#if ENABLE(CACHE_PARTITIONING)
+    String cachePartition;
+    if (!decoder.decode(cachePartition))
         return false;
-    if (!decoder->decode(windowFeatures.y))
+    resourceRequest.setCachePartition(cachePartition);
+#endif
+
+    return decodePlatformData(decoder, resourceRequest);
+}
+
+void ArgumentCoder<ResourceResponse>::encode(ArgumentEncoder& encoder, const ResourceResponse& resourceResponse)
+{
+#if PLATFORM(MAC)
+    bool shouldSerializeWebCoreData = !resourceResponse.platformResponseIsUpToDate();
+    encoder << shouldSerializeWebCoreData;
+#else
+    bool shouldSerializeWebCoreData = true;
+#endif
+
+    encodePlatformData(encoder, resourceResponse);
+
+    if (shouldSerializeWebCoreData) {
+        bool responseIsNull = resourceResponse.isNull();
+        encoder << responseIsNull;
+        if (responseIsNull)
+            return;
+
+        encoder << resourceResponse.url().string();
+        encoder << static_cast<int32_t>(resourceResponse.httpStatusCode());
+        encoder << resourceResponse.httpHeaderFields();
+
+        encoder << resourceResponse.mimeType();
+        encoder << resourceResponse.textEncodingName();
+        encoder << static_cast<int64_t>(resourceResponse.expectedContentLength());
+        encoder << resourceResponse.httpStatusText();
+        encoder << resourceResponse.suggestedFilename();
+    }
+}
+
+bool ArgumentCoder<ResourceResponse>::decode(ArgumentDecoder& decoder, ResourceResponse& resourceResponse)
+{
+#if PLATFORM(MAC)
+    bool hasSerializedWebCoreData;
+    if (!decoder.decode(hasSerializedWebCoreData))
         return false;
-    if (!decoder->decode(windowFeatures.width))
+#else
+    bool hasSerializedWebCoreData = true;
+#endif
+
+    ResourceResponse response;
+
+    if (!decodePlatformData(decoder, response))
         return false;
-    if (!decoder->decode(windowFeatures.height))
+
+    if (hasSerializedWebCoreData) {
+        bool responseIsNull;
+        if (!decoder.decode(responseIsNull))
+            return false;
+        if (responseIsNull) {
+            resourceResponse = ResourceResponse();
+            return true;
+        }
+
+        String url;
+        if (!decoder.decode(url))
+            return false;
+        response.setURL(KURL(KURL(), url));
+
+        int32_t httpStatusCode;
+        if (!decoder.decode(httpStatusCode))
+            return false;
+        response.setHTTPStatusCode(httpStatusCode);
+
+        HTTPHeaderMap headers;
+        if (!decoder.decode(headers))
+            return false;
+        for (HTTPHeaderMap::const_iterator it = headers.begin(), end = headers.end(); it != end; ++it)
+            response.setHTTPHeaderField(it->key, it->value);
+
+        String mimeType;
+        if (!decoder.decode(mimeType))
+            return false;
+        response.setMimeType(mimeType);
+
+        String textEncodingName;
+        if (!decoder.decode(textEncodingName))
+            return false;
+        response.setTextEncodingName(textEncodingName);
+
+        int64_t contentLength;
+        if (!decoder.decode(contentLength))
+            return false;
+        response.setExpectedContentLength(contentLength);
+
+        String httpStatusText;
+        if (!decoder.decode(httpStatusText))
+            return false;
+        response.setHTTPStatusText(httpStatusText);
+
+        String suggestedFilename;
+        if (!decoder.decode(suggestedFilename))
+            return false;
+        response.setSuggestedFilename(suggestedFilename);
+    }
+
+    resourceResponse = response;
+
+    return true;
+}
+
+void ArgumentCoder<ResourceError>::encode(ArgumentEncoder& encoder, const ResourceError& resourceError)
+{
+    if (kShouldSerializeWebCoreData) {
+        bool errorIsNull = resourceError.isNull();
+        encoder << errorIsNull;
+        if (errorIsNull)
+            return;
+
+        encoder << resourceError.domain();
+        encoder << resourceError.errorCode();
+        encoder << resourceError.failingURL();
+        encoder << resourceError.localizedDescription();
+        encoder << resourceError.isCancellation();
+        encoder << resourceError.isTimeout();
+    }
+
+    encodePlatformData(encoder, resourceError);
+}
+
+bool ArgumentCoder<ResourceError>::decode(ArgumentDecoder& decoder, ResourceError& resourceError)
+{
+    if (kShouldSerializeWebCoreData) {
+        bool errorIsNull;
+        if (!decoder.decode(errorIsNull))
+            return false;
+        if (errorIsNull) {
+            resourceError = ResourceError();
+            return true;
+        }
+
+        String domain;
+        if (!decoder.decode(domain))
+            return false;
+
+        int errorCode;
+        if (!decoder.decode(errorCode))
+            return false;
+
+        String failingURL;
+        if (!decoder.decode(failingURL))
+            return false;
+
+        String localizedDescription;
+        if (!decoder.decode(localizedDescription))
+            return false;
+
+        bool isCancellation;
+        if (!decoder.decode(isCancellation))
+            return false;
+
+        bool isTimeout;
+        if (!decoder.decode(isTimeout))
+            return false;
+
+        resourceError = ResourceError(domain, errorCode, failingURL, localizedDescription);
+        resourceError.setIsCancellation(isCancellation);
+        resourceError.setIsTimeout(isTimeout);
+    }
+
+    return decodePlatformData(decoder, resourceError);
+}
+
+void ArgumentCoder<WindowFeatures>::encode(ArgumentEncoder& encoder, const WindowFeatures& windowFeatures)
+{
+    encoder << windowFeatures.x;
+    encoder << windowFeatures.y;
+    encoder << windowFeatures.width;
+    encoder << windowFeatures.height;
+    encoder << windowFeatures.xSet;
+    encoder << windowFeatures.ySet;
+    encoder << windowFeatures.widthSet;
+    encoder << windowFeatures.heightSet;
+    encoder << windowFeatures.menuBarVisible;
+    encoder << windowFeatures.statusBarVisible;
+    encoder << windowFeatures.toolBarVisible;
+    encoder << windowFeatures.locationBarVisible;
+    encoder << windowFeatures.scrollbarsVisible;
+    encoder << windowFeatures.resizable;
+    encoder << windowFeatures.fullscreen;
+    encoder << windowFeatures.dialog;
+}
+
+bool ArgumentCoder<WindowFeatures>::decode(ArgumentDecoder& decoder, WindowFeatures& windowFeatures)
+{
+    if (!decoder.decode(windowFeatures.x))
         return false;
-    if (!decoder->decode(windowFeatures.xSet))
+    if (!decoder.decode(windowFeatures.y))
         return false;
-    if (!decoder->decode(windowFeatures.ySet))
+    if (!decoder.decode(windowFeatures.width))
         return false;
-    if (!decoder->decode(windowFeatures.widthSet))
+    if (!decoder.decode(windowFeatures.height))
         return false;
-    if (!decoder->decode(windowFeatures.heightSet))
+    if (!decoder.decode(windowFeatures.xSet))
         return false;
-    if (!decoder->decode(windowFeatures.menuBarVisible))
+    if (!decoder.decode(windowFeatures.ySet))
         return false;
-    if (!decoder->decode(windowFeatures.statusBarVisible))
+    if (!decoder.decode(windowFeatures.widthSet))
         return false;
-    if (!decoder->decode(windowFeatures.toolBarVisible))
+    if (!decoder.decode(windowFeatures.heightSet))
         return false;
-    if (!decoder->decode(windowFeatures.locationBarVisible))
+    if (!decoder.decode(windowFeatures.menuBarVisible))
         return false;
-    if (!decoder->decode(windowFeatures.scrollbarsVisible))
+    if (!decoder.decode(windowFeatures.statusBarVisible))
         return false;
-    if (!decoder->decode(windowFeatures.resizable))
+    if (!decoder.decode(windowFeatures.toolBarVisible))
         return false;
-    if (!decoder->decode(windowFeatures.fullscreen))
+    if (!decoder.decode(windowFeatures.locationBarVisible))
         return false;
-    if (!decoder->decode(windowFeatures.dialog))
+    if (!decoder.decode(windowFeatures.scrollbarsVisible))
+        return false;
+    if (!decoder.decode(windowFeatures.resizable))
+        return false;
+    if (!decoder.decode(windowFeatures.fullscreen))
+        return false;
+    if (!decoder.decode(windowFeatures.dialog))
         return false;
     return true;
 }
 
 
-void ArgumentCoder<Color>::encode(ArgumentEncoder* encoder, const Color& color)
+void ArgumentCoder<Color>::encode(ArgumentEncoder& encoder, const Color& color)
 {
     if (!color.isValid()) {
-        encoder->encodeBool(false);
+        encoder << false;
         return;
     }
 
-    encoder->encodeBool(true);
-    encoder->encode(color.rgb());
+    encoder << true;
+    encoder << color.rgb();
 }
 
-bool ArgumentCoder<Color>::decode(ArgumentDecoder* decoder, Color& color)
+bool ArgumentCoder<Color>::decode(ArgumentDecoder& decoder, Color& color)
 {
     bool isValid;
-    if (!decoder->decode(isValid))
+    if (!decoder.decode(isValid))
         return false;
 
     if (!isValid) {
@@ -475,7 +688,7 @@ bool ArgumentCoder<Color>::decode(ArgumentDecoder* decoder, Color& color)
     }
 
     RGBA32 rgba;
-    if (!decoder->decode(rgba))
+    if (!decoder.decode(rgba))
         return false;
 
     color = Color(rgba);
@@ -483,891 +696,335 @@ bool ArgumentCoder<Color>::decode(ArgumentDecoder* decoder, Color& color)
 }
 
 
-void ArgumentCoder<CompositionUnderline>::encode(ArgumentEncoder* encoder, const CompositionUnderline& underline)
+void ArgumentCoder<CompositionUnderline>::encode(ArgumentEncoder& encoder, const CompositionUnderline& underline)
 {
-    encoder->encode(underline.startOffset);
-    encoder->encode(underline.endOffset);
-    encoder->encode(underline.thick);
-    encoder->encode(underline.color);
+    encoder << underline.startOffset;
+    encoder << underline.endOffset;
+    encoder << underline.thick;
+    encoder << underline.color;
 }
 
-bool ArgumentCoder<CompositionUnderline>::decode(ArgumentDecoder* decoder, CompositionUnderline& underline)
+bool ArgumentCoder<CompositionUnderline>::decode(ArgumentDecoder& decoder, CompositionUnderline& underline)
 {
-    if (!decoder->decode(underline.startOffset))
+    if (!decoder.decode(underline.startOffset))
         return false;
-    if (!decoder->decode(underline.endOffset))
+    if (!decoder.decode(underline.endOffset))
         return false;
-    if (!decoder->decode(underline.thick))
+    if (!decoder.decode(underline.thick))
         return false;
-    if (!decoder->decode(underline.color))
+    if (!decoder.decode(underline.color))
         return false;
 
     return true;
 }
 
 
-void ArgumentCoder<DatabaseDetails>::encode(ArgumentEncoder* encoder, const DatabaseDetails& details)
+void ArgumentCoder<Cookie>::encode(ArgumentEncoder& encoder, const Cookie& cookie)
 {
-    encoder->encode(details.name());
-    encoder->encode(details.displayName());
-    encoder->encode(details.expectedUsage());
-    encoder->encode(details.currentUsage());
+    encoder << cookie.name;
+    encoder << cookie.value;
+    encoder << cookie.domain;
+    encoder << cookie.path;
+    encoder << cookie.expires;
+    encoder << cookie.httpOnly;
+    encoder << cookie.secure;
+    encoder << cookie.session;
+}
+
+bool ArgumentCoder<Cookie>::decode(ArgumentDecoder& decoder, Cookie& cookie)
+{
+    if (!decoder.decode(cookie.name))
+        return false;
+    if (!decoder.decode(cookie.value))
+        return false;
+    if (!decoder.decode(cookie.domain))
+        return false;
+    if (!decoder.decode(cookie.path))
+        return false;
+    if (!decoder.decode(cookie.expires))
+        return false;
+    if (!decoder.decode(cookie.httpOnly))
+        return false;
+    if (!decoder.decode(cookie.secure))
+        return false;
+    if (!decoder.decode(cookie.session))
+        return false;
+
+    return true;
+}
+
+
+#if ENABLE(SQL_DATABASE)
+void ArgumentCoder<DatabaseDetails>::encode(ArgumentEncoder& encoder, const DatabaseDetails& details)
+{
+    encoder << details.name();
+    encoder << details.displayName();
+    encoder << details.expectedUsage();
+    encoder << details.currentUsage();
 }
     
-bool ArgumentCoder<DatabaseDetails>::decode(ArgumentDecoder* decoder, DatabaseDetails& details)
+bool ArgumentCoder<DatabaseDetails>::decode(ArgumentDecoder& decoder, DatabaseDetails& details)
 {
     String name;
-    if (!decoder->decode(name))
+    if (!decoder.decode(name))
         return false;
 
     String displayName;
-    if (!decoder->decode(displayName))
+    if (!decoder.decode(displayName))
         return false;
 
     uint64_t expectedUsage;
-    if (!decoder->decode(expectedUsage))
+    if (!decoder.decode(expectedUsage))
         return false;
 
     uint64_t currentUsage;
-    if (!decoder->decode(currentUsage))
+    if (!decoder.decode(currentUsage))
         return false;
     
     details = DatabaseDetails(name, displayName, expectedUsage, currentUsage);
     return true;
 }
-
-void ArgumentCoder<DictationAlternative>::encode(ArgumentEncoder* encoder, const DictationAlternative& dictationAlternative)
-{
-    encoder->encode(dictationAlternative.rangeStart);
-    encoder->encode(dictationAlternative.rangeLength);
-    encoder->encode(dictationAlternative.dictationContext);
-}
-
-bool ArgumentCoder<DictationAlternative>::decode(ArgumentDecoder* decoder, DictationAlternative& dictationAlternative)
-{
-    if (!decoder->decode(dictationAlternative.rangeStart))
-        return false;
-    if (!decoder->decode(dictationAlternative.rangeLength))
-        return false;
-    if (!decoder->decode(dictationAlternative.dictationContext))
-        return false;
-    return true;
-}
-
-
-void ArgumentCoder<FileChooserSettings>::encode(ArgumentEncoder* encoder, const FileChooserSettings& settings)
-{
-    encoder->encode(settings.allowsMultipleFiles);
-#if ENABLE(DIRECTORY_UPLOAD)
-    encoder->encode(settings.allowsDirectoryUpload);
 #endif
-    encoder->encode(settings.acceptMIMETypes);
-    encoder->encode(settings.selectedFiles);
+
+void ArgumentCoder<DictationAlternative>::encode(ArgumentEncoder& encoder, const DictationAlternative& dictationAlternative)
+{
+    encoder << dictationAlternative.rangeStart;
+    encoder << dictationAlternative.rangeLength;
+    encoder << dictationAlternative.dictationContext;
 }
 
-bool ArgumentCoder<FileChooserSettings>::decode(ArgumentDecoder* decoder, FileChooserSettings& settings)
+bool ArgumentCoder<DictationAlternative>::decode(ArgumentDecoder& decoder, DictationAlternative& dictationAlternative)
 {
-    if (!decoder->decode(settings.allowsMultipleFiles))
+    if (!decoder.decode(dictationAlternative.rangeStart))
+        return false;
+    if (!decoder.decode(dictationAlternative.rangeLength))
+        return false;
+    if (!decoder.decode(dictationAlternative.dictationContext))
+        return false;
+    return true;
+}
+
+
+void ArgumentCoder<FileChooserSettings>::encode(ArgumentEncoder& encoder, const FileChooserSettings& settings)
+{
+    encoder << settings.allowsMultipleFiles;
+#if ENABLE(DIRECTORY_UPLOAD)
+    encoder << settings.allowsDirectoryUpload;
+#endif
+    encoder << settings.acceptMIMETypes;
+    encoder << settings.selectedFiles;
+#if ENABLE(MEDIA_CAPTURE)
+    encoder << settings.capture;
+#endif
+}
+
+bool ArgumentCoder<FileChooserSettings>::decode(ArgumentDecoder& decoder, FileChooserSettings& settings)
+{
+    if (!decoder.decode(settings.allowsMultipleFiles))
         return false;
 #if ENABLE(DIRECTORY_UPLOAD)
-    if (!decoder->decode(settings.allowsDirectoryUpload))
+    if (!decoder.decode(settings.allowsDirectoryUpload))
         return false;
 #endif
-    if (!decoder->decode(settings.acceptMIMETypes))
+    if (!decoder.decode(settings.acceptMIMETypes))
         return false;
-    if (!decoder->decode(settings.selectedFiles))
+    if (!decoder.decode(settings.selectedFiles))
         return false;
+#if ENABLE(MEDIA_CAPTURE)
+    if (!decoder.decode(settings.capture))
+        return false;
+#endif
 
     return true;
 }
 
 
-void ArgumentCoder<GrammarDetail>::encode(ArgumentEncoder* encoder, const GrammarDetail& detail)
+void ArgumentCoder<GrammarDetail>::encode(ArgumentEncoder& encoder, const GrammarDetail& detail)
 {
-    encoder->encode(detail.location);
-    encoder->encode(detail.length);
-    encoder->encode(detail.guesses);
-    encoder->encode(detail.userDescription);
+    encoder << detail.location;
+    encoder << detail.length;
+    encoder << detail.guesses;
+    encoder << detail.userDescription;
 }
 
-bool ArgumentCoder<GrammarDetail>::decode(ArgumentDecoder* decoder, GrammarDetail& detail)
+bool ArgumentCoder<GrammarDetail>::decode(ArgumentDecoder& decoder, GrammarDetail& detail)
 {
-    if (!decoder->decode(detail.location))
+    if (!decoder.decode(detail.location))
         return false;
-    if (!decoder->decode(detail.length))
+    if (!decoder.decode(detail.length))
         return false;
-    if (!decoder->decode(detail.guesses))
+    if (!decoder.decode(detail.guesses))
         return false;
-    if (!decoder->decode(detail.userDescription))
+    if (!decoder.decode(detail.userDescription))
         return false;
 
     return true;
 }
 
-
-void ArgumentCoder<TextCheckingResult>::encode(ArgumentEncoder* encoder, const TextCheckingResult& result)
+void ArgumentCoder<TextCheckingRequestData>::encode(ArgumentEncoder& encoder, const TextCheckingRequestData& request)
 {
-    encoder->encodeEnum(result.type);
-    encoder->encode(result.location);
-    encoder->encode(result.length);
-    encoder->encode(result.details);
-    encoder->encode(result.replacement);
+    encoder << request.sequence();
+    encoder << request.text();
+    encoder << request.mask();
+    encoder.encodeEnum(request.processType());
 }
 
-bool ArgumentCoder<TextCheckingResult>::decode(ArgumentDecoder* decoder, TextCheckingResult& result)
+bool ArgumentCoder<TextCheckingRequestData>::decode(ArgumentDecoder& decoder, TextCheckingRequestData& request)
 {
-    if (!decoder->decodeEnum(result.type))
+    int sequence;
+    if (!decoder.decode(sequence))
         return false;
-    if (!decoder->decode(result.location))
+
+    String text;
+    if (!decoder.decode(text))
         return false;
-    if (!decoder->decode(result.length))
+
+    TextCheckingTypeMask mask;
+    if (!decoder.decode(mask))
         return false;
-    if (!decoder->decode(result.details))
+
+    TextCheckingProcessType processType;
+    if (!decoder.decodeEnum(processType))
         return false;
-    if (!decoder->decode(result.replacement))
+
+    request = TextCheckingRequestData(sequence, text, mask, processType);
+    return true;
+}
+
+void ArgumentCoder<TextCheckingResult>::encode(ArgumentEncoder& encoder, const TextCheckingResult& result)
+{
+    encoder.encodeEnum(result.type);
+    encoder << result.location;
+    encoder << result.length;
+    encoder << result.details;
+    encoder << result.replacement;
+}
+
+bool ArgumentCoder<TextCheckingResult>::decode(ArgumentDecoder& decoder, TextCheckingResult& result)
+{
+    if (!decoder.decodeEnum(result.type))
+        return false;
+    if (!decoder.decode(result.location))
+        return false;
+    if (!decoder.decode(result.length))
+        return false;
+    if (!decoder.decode(result.details))
+        return false;
+    if (!decoder.decode(result.replacement))
         return false;
     return true;
 }
 
-void ArgumentCoder<DragSession>::encode(ArgumentEncoder* encoder, const DragSession& result)
+void ArgumentCoder<DragSession>::encode(ArgumentEncoder& encoder, const DragSession& result)
 {
-    encoder->encodeEnum(result.operation);
-    encoder->encode(result.mouseIsOverFileInput);
-    encoder->encode(result.numberOfItemsToBeAccepted);
+    encoder.encodeEnum(result.operation);
+    encoder << result.mouseIsOverFileInput;
+    encoder << result.numberOfItemsToBeAccepted;
 }
 
-bool ArgumentCoder<DragSession>::decode(ArgumentDecoder* decoder, DragSession& result)
+bool ArgumentCoder<DragSession>::decode(ArgumentDecoder& decoder, DragSession& result)
 {
-    if (!decoder->decodeEnum(result.operation))
+    if (!decoder.decodeEnum(result.operation))
         return false;
-    if (!decoder->decode(result.mouseIsOverFileInput))
+    if (!decoder.decode(result.mouseIsOverFileInput))
         return false;
-    if (!decoder->decode(result.numberOfItemsToBeAccepted))
+    if (!decoder.decode(result.numberOfItemsToBeAccepted))
         return false;
     return true;
 }
 
-void ArgumentCoder<KURL>::encode(ArgumentEncoder* encoder, const KURL& result)
+void ArgumentCoder<KURL>::encode(ArgumentEncoder& encoder, const KURL& result)
 {
-    encoder->encode(result.string());
+    encoder << result.string();
 }
     
-bool ArgumentCoder<KURL>::decode(ArgumentDecoder* decoder, KURL& result)
+bool ArgumentCoder<KURL>::decode(ArgumentDecoder& decoder, KURL& result)
 {
     String urlAsString;
-    if (!decoder->decode(urlAsString))
+    if (!decoder.decode(urlAsString))
         return false;
     result = KURL(WebCore::ParsedURLString, urlAsString);
     return true;
 }
 
-#if PLATFORM(QT)
-
-void ArgumentCoder<FloatPoint3D>::encode(ArgumentEncoder* encoder, const FloatPoint3D& floatPoint3D)
+void ArgumentCoder<WebCore::UserStyleSheet>::encode(ArgumentEncoder& encoder, const WebCore::UserStyleSheet& userStyleSheet)
 {
-    SimpleArgumentCoder<FloatPoint3D>::encode(encoder, floatPoint3D);
+    encoder << userStyleSheet.source();
+    encoder << userStyleSheet.url();
+    encoder << userStyleSheet.whitelist();
+    encoder << userStyleSheet.blacklist();
+    encoder.encodeEnum(userStyleSheet.injectedFrames());
+    encoder.encodeEnum(userStyleSheet.level());
 }
 
-bool ArgumentCoder<FloatPoint3D>::decode(ArgumentDecoder* decoder, FloatPoint3D& floatPoint3D)
+bool ArgumentCoder<WebCore::UserStyleSheet>::decode(ArgumentDecoder& decoder, WebCore::UserStyleSheet& userStyleSheet)
 {
-    return SimpleArgumentCoder<FloatPoint3D>::decode(decoder, floatPoint3D);
-}
-
-
-void ArgumentCoder<Length>::encode(ArgumentEncoder* encoder, const Length& length)
-{
-    SimpleArgumentCoder<Length>::encode(encoder, length);
-}
-
-bool ArgumentCoder<Length>::decode(ArgumentDecoder* decoder, Length& length)
-{
-    return SimpleArgumentCoder<Length>::decode(decoder, length);
-}
-
-void ArgumentCoder<TransformationMatrix>::encode(ArgumentEncoder* encoder, const TransformationMatrix& transformationMatrix)
-{
-    SimpleArgumentCoder<TransformationMatrix>::encode(encoder, transformationMatrix);
-}
-
-bool ArgumentCoder<TransformationMatrix>::decode(ArgumentDecoder* decoder, TransformationMatrix& transformationMatrix)
-{
-    return SimpleArgumentCoder<TransformationMatrix>::decode(decoder, transformationMatrix);
-}
-
-
-void ArgumentCoder<RefPtr<MatrixTransformOperation> >::encode(ArgumentEncoder* encoder, const MatrixTransformOperation* operation)
-{
-    ArgumentCoder<WebCore::TransformationMatrix>::encode(encoder, operation->matrix());
-}
-
-bool ArgumentCoder<RefPtr<MatrixTransformOperation> >::decode(ArgumentDecoder* decoder, RefPtr<MatrixTransformOperation>& operation)
-{
-    TransformationMatrix matrix;
-    if (!ArgumentCoder<WebCore::TransformationMatrix>::decode(decoder, matrix))
+    String source;
+    if (!decoder.decode(source))
         return false;
 
-    operation = MatrixTransformOperation::create(matrix);
+    KURL url;
+    if (!decoder.decode(url))
+        return false;
+
+    Vector<String> whitelist;
+    if (!decoder.decode(whitelist))
+        return false;
+
+    Vector<String> blacklist;
+    if (!decoder.decode(blacklist))
+        return false;
+
+    WebCore::UserContentInjectedFrames injectedFrames;
+    if (!decoder.decodeEnum(injectedFrames))
+        return false;
+
+    WebCore::UserStyleLevel level;
+    if (!decoder.decodeEnum(level))
+        return false;
+
+    userStyleSheet = WebCore::UserStyleSheet(source, url, whitelist, blacklist, injectedFrames, level);
     return true;
 }
 
-void ArgumentCoder<RefPtr<Matrix3DTransformOperation> >::encode(ArgumentEncoder* encoder, const Matrix3DTransformOperation* operation)
+void ArgumentCoder<WebCore::UserScript>::encode(ArgumentEncoder& encoder, const WebCore::UserScript& userScript)
 {
-    ArgumentCoder<TransformationMatrix>::encode(encoder, operation->matrix());
+    encoder << userScript.source();
+    encoder << userScript.url();
+    encoder << userScript.whitelist();
+    encoder << userScript.blacklist();
+    encoder.encodeEnum(userScript.injectionTime());
+    encoder.encodeEnum(userScript.injectedFrames());
 }
 
-bool ArgumentCoder<RefPtr<Matrix3DTransformOperation> >::decode(ArgumentDecoder* decoder, RefPtr<Matrix3DTransformOperation>& operation)
+bool ArgumentCoder<WebCore::UserScript>::decode(ArgumentDecoder& decoder, WebCore::UserScript& userScript)
 {
-
-    TransformationMatrix matrix;
-    if (!ArgumentCoder<WebCore::TransformationMatrix>::decode(decoder, matrix))
+    String source;
+    if (!decoder.decode(source))
         return false;
 
-    operation = Matrix3DTransformOperation::create(matrix);
+    KURL url;
+    if (!decoder.decode(url))
+        return false;
+
+    Vector<String> whitelist;
+    if (!decoder.decode(whitelist))
+        return false;
+
+    Vector<String> blacklist;
+    if (!decoder.decode(blacklist))
+        return false;
+
+    WebCore::UserScriptInjectionTime injectionTime;
+    if (!decoder.decodeEnum(injectionTime))
+        return false;
+
+    WebCore::UserContentInjectedFrames injectedFrames;
+    if (!decoder.decodeEnum(injectedFrames))
+        return false;
+
+    userScript = WebCore::UserScript(source, url, whitelist, blacklist, injectionTime, injectedFrames);
     return true;
 }
-
-void ArgumentCoder<RefPtr<PerspectiveTransformOperation> >::encode(ArgumentEncoder* encoder, const PerspectiveTransformOperation* operation)
-{
-    ArgumentCoder<Length>::encode(encoder, operation->perspective());
-}
-
-bool ArgumentCoder<RefPtr<PerspectiveTransformOperation> >::decode(ArgumentDecoder* decoder, RefPtr<PerspectiveTransformOperation>& operation)
-{
-    Length perspective;
-    if (!ArgumentCoder<Length>::decode(decoder, perspective))
-        return false;
-
-    operation = PerspectiveTransformOperation::create(perspective);
-    return true;
-}
-
-void ArgumentCoder<RefPtr<RotateTransformOperation> >::encode(ArgumentEncoder* encoder, const RotateTransformOperation* operation)
-{
-    const TransformOperation* transformOperation = operation;
-    encoder->encodeEnum(transformOperation->getOperationType());
-    encoder->encode(operation->x());
-    encoder->encode(operation->y());
-    encoder->encode(operation->z());
-    encoder->encode(operation->angle());
-}
-
-bool ArgumentCoder<RefPtr<RotateTransformOperation> >::decode(ArgumentDecoder* decoder, RefPtr<RotateTransformOperation>& operation)
-{
-    TransformOperation::OperationType operationType;
-    double x;
-    double y;
-    double z;
-    double angle;
-
-    if (!decoder->decodeEnum(operationType))
-        return false;
-    if (!decoder->decode(x))
-        return false;
-    if (!decoder->decode(y))
-        return false;
-    if (!decoder->decode(z))
-        return false;
-    if (!decoder->decode(angle))
-        return false;
-
-    operation = RotateTransformOperation::create(x, y, z, angle, operationType);
-    return true;
-}
-
-
-void ArgumentCoder<RefPtr<ScaleTransformOperation> >::encode(ArgumentEncoder* encoder, const ScaleTransformOperation* operation)
-{
-    const TransformOperation* transformOperation = operation;
-    encoder->encodeEnum(transformOperation->getOperationType());
-    encoder->encode(operation->x());
-    encoder->encode(operation->y());
-    encoder->encode(operation->z());
-}
-
-bool ArgumentCoder<RefPtr<ScaleTransformOperation> >::decode(ArgumentDecoder* decoder, RefPtr<ScaleTransformOperation>& operation)
-{
-    TransformOperation::OperationType operationType;
-    double x;
-    double y;
-    double z;
-
-    if (!decoder->decodeEnum(operationType))
-        return false;
-    if (!decoder->decode(x))
-        return false;
-    if (!decoder->decode(y))
-        return false;
-    if (!decoder->decode(z))
-        return false;
-
-    operation = ScaleTransformOperation::create(x, y, z, operationType);
-    return true;
-}
-
-void ArgumentCoder<RefPtr<SkewTransformOperation> >::encode(ArgumentEncoder* encoder, const SkewTransformOperation* operation)
-{
-    const TransformOperation* transformOperation = operation;
-    encoder->encodeEnum(transformOperation->getOperationType());
-    encoder->encode(operation->angleX());
-    encoder->encode(operation->angleY());
-}
-
-bool ArgumentCoder<RefPtr<SkewTransformOperation> >::decode(ArgumentDecoder* decoder, RefPtr<SkewTransformOperation>& operation)
-{
-    TransformOperation::OperationType operationType;
-    double angleX;
-    double angleY;
-
-    if (!decoder->decodeEnum(operationType))
-        return false;
-    if (!decoder->decode(angleX))
-        return false;
-    if (!decoder->decode(angleY))
-        return false;
-
-    operation = SkewTransformOperation::create(angleX, angleY, operationType);
-    return true;
-}
-
-void ArgumentCoder<RefPtr<TranslateTransformOperation> >::encode(ArgumentEncoder* encoder, const TranslateTransformOperation* operation)
-{
-    const TransformOperation* transformOperation = operation;
-    encoder->encodeEnum(transformOperation->getOperationType());
-    ArgumentCoder<Length>::encode(encoder, operation->x());
-    ArgumentCoder<Length>::encode(encoder, operation->y());
-    ArgumentCoder<Length>::encode(encoder, operation->z());
-}
-
-bool ArgumentCoder<RefPtr<TranslateTransformOperation> >::decode(ArgumentDecoder* decoder, RefPtr<TranslateTransformOperation>& operation)
-{
-    TransformOperation::OperationType operationType;
-    Length x;
-    Length y;
-    Length z;
-
-    if (!decoder->decodeEnum(operationType))
-        return false;
-    if (!ArgumentCoder<Length>::decode(decoder, x))
-        return false;
-    if (!ArgumentCoder<Length>::decode(decoder, y))
-        return false;
-    if (!ArgumentCoder<Length>::decode(decoder, z))
-        return false;
-
-    operation = TranslateTransformOperation::create(x, y, z, operationType);
-    return true;
-}
-
-void ArgumentCoder<RefPtr<TimingFunction> >::encode(ArgumentEncoder* encoder, const RefPtr<TimingFunction>& function)
-{
-    encode(encoder, function.get());
-}
-
-void ArgumentCoder<RefPtr<TimingFunction> >::encode(ArgumentEncoder* encoder, const WebCore::TimingFunction* function)
-{
-    if (!function) {
-        encoder->encodeEnum(WebCore::TimingFunction::LinearFunction);
-        return;
-    }
-
-    encoder->encodeEnum(function->type());
-    switch (function->type()) {
-    case TimingFunction::LinearFunction:
-        break;
-    case TimingFunction::CubicBezierFunction: {
-        const WebCore::CubicBezierTimingFunction* cubicFunction = static_cast<const WebCore::CubicBezierTimingFunction*>(function);
-        encoder->encodeDouble(cubicFunction->x1());
-        encoder->encodeDouble(cubicFunction->y1());
-        encoder->encodeDouble(cubicFunction->x2());
-        encoder->encodeDouble(cubicFunction->y2());
-        break;
-    }
-    case TimingFunction::StepsFunction: {
-        const WebCore::StepsTimingFunction* stepsFunction = static_cast<const WebCore::StepsTimingFunction*>(function);
-        encoder->encodeInt32(stepsFunction->numberOfSteps());
-        encoder->encodeBool(stepsFunction->stepAtStart());
-        break;
-    }
-    }
-}
-
-bool ArgumentCoder<RefPtr<TimingFunction> >::decode(ArgumentDecoder* decoder, RefPtr<TimingFunction>& function)
-{
-    TimingFunction::TimingFunctionType type;
-    if (!decoder->decodeEnum(type))
-        return false;
-
-    switch (type) {
-    case TimingFunction::LinearFunction:
-        function = LinearTimingFunction::create();
-        return true;
-
-    case TimingFunction::CubicBezierFunction: {
-        double x1, y1, x2, y2;
-        if (!decoder->decodeDouble(x1))
-            return false;
-        if (!decoder->decodeDouble(y1))
-            return false;
-        if (!decoder->decodeDouble(x2))
-            return false;
-        if (!decoder->decodeDouble(y2))
-            return false;
-        function = CubicBezierTimingFunction::create(x1, y1, x2, y2);
-        return true;
-    }
-
-    case TimingFunction::StepsFunction: {
-        int numSteps;
-        bool stepAtStart;
-        if (!decoder->decodeInt32(numSteps))
-            return false;
-        if (!decoder->decodeBool(stepAtStart))
-            return false;
-
-        function = StepsTimingFunction::create(numSteps, stepAtStart);
-        return true;
-    }
-
-    }
-
-    return false;
-}
-
-template<typename T>
-void encodeOperation(ArgumentEncoder* encoder, const RefPtr<TransformOperation>& operation)
-{
-    ArgumentCoder<RefPtr<T> >::encode(encoder, static_cast<const T*>(operation.get()));
-}
-
-void ArgumentCoder<RefPtr<TransformOperation> >::encode(ArgumentEncoder* encoder, const RefPtr<TransformOperation>& operation)
-{
-    // We don't want to encode null-references.
-    ASSERT(operation);
-
-    encoder->encodeEnum(operation->getOperationType());
-    switch (operation->getOperationType()) {
-    case TransformOperation::SCALE:
-    case TransformOperation::SCALE_X:
-    case TransformOperation::SCALE_Y:
-    case TransformOperation::SCALE_Z:
-    case TransformOperation::SCALE_3D:
-        encodeOperation<ScaleTransformOperation>(encoder, operation);
-        return;
-
-    case TransformOperation::TRANSLATE:
-    case TransformOperation::TRANSLATE_X:
-    case TransformOperation::TRANSLATE_Y:
-    case TransformOperation::TRANSLATE_Z:
-    case TransformOperation::TRANSLATE_3D:
-        encodeOperation<TranslateTransformOperation>(encoder, operation);
-        return;
-
-    case TransformOperation::ROTATE:
-    case TransformOperation::ROTATE_X:
-    case TransformOperation::ROTATE_Y:
-    case TransformOperation::ROTATE_3D:
-        encodeOperation<RotateTransformOperation>(encoder, operation);
-        return;
-
-    case TransformOperation::SKEW:
-    case TransformOperation::SKEW_X:
-    case TransformOperation::SKEW_Y:
-        encodeOperation<SkewTransformOperation>(encoder, operation);
-        return;
-
-    case TransformOperation::MATRIX:
-        encodeOperation<MatrixTransformOperation>(encoder, operation);
-        return;
-
-    case TransformOperation::MATRIX_3D:
-        encodeOperation<Matrix3DTransformOperation>(encoder, operation);
-        return;
-
-    case TransformOperation::PERSPECTIVE:
-        encodeOperation<PerspectiveTransformOperation>(encoder, operation);
-        return;
-
-    case TransformOperation::IDENTITY:
-    case TransformOperation::NONE:
-        return;
-    }
-}
-
-template<typename T>
-bool decodeOperation(ArgumentDecoder* decoder, RefPtr<TransformOperation>& operation)
-{
-    RefPtr<T> newOperation;
-    if (!decoder->decode(newOperation))
-        return false;
-
-    operation = newOperation;
-    return true;
-}
-
-bool ArgumentCoder<RefPtr<TransformOperation> >::decode(ArgumentDecoder* decoder, RefPtr<TransformOperation>& operation)
-{
-    TransformOperation::OperationType type;
-    if (!decoder->decodeEnum(type))
-        return false;
-
-    switch (type) {
-    case TransformOperation::SCALE:
-    case TransformOperation::SCALE_X:
-    case TransformOperation::SCALE_Y:
-    case TransformOperation::SCALE_Z:
-    case TransformOperation::SCALE_3D:
-        return decodeOperation<ScaleTransformOperation>(decoder, operation);
-
-    case TransformOperation::TRANSLATE:
-    case TransformOperation::TRANSLATE_X:
-    case TransformOperation::TRANSLATE_Y:
-    case TransformOperation::TRANSLATE_Z:
-    case TransformOperation::TRANSLATE_3D:
-        return decodeOperation<TranslateTransformOperation>(decoder, operation);
-
-    case TransformOperation::ROTATE:
-    case TransformOperation::ROTATE_X:
-    case TransformOperation::ROTATE_Y:
-    case TransformOperation::ROTATE_3D:
-        return decodeOperation<RotateTransformOperation>(decoder, operation);
-
-    case TransformOperation::SKEW:
-    case TransformOperation::SKEW_X:
-    case TransformOperation::SKEW_Y:
-        return decodeOperation<SkewTransformOperation>(decoder, operation);
-
-    case TransformOperation::MATRIX:
-        return decodeOperation<MatrixTransformOperation>(decoder, operation);
-
-    case TransformOperation::MATRIX_3D:
-        return decodeOperation<Matrix3DTransformOperation>(decoder, operation);
-
-    case TransformOperation::PERSPECTIVE:
-        return decodeOperation<PerspectiveTransformOperation>(decoder, operation);
-
-    case TransformOperation::IDENTITY:
-    case TransformOperation::NONE:
-        operation = IdentityTransformOperation::create();
-        return true;
-    }
-
-    return false;
-}
-
-void ArgumentCoder<TransformOperations>::encode(ArgumentEncoder* encoder, const TransformOperations& operations)
-{
-    Vector<RefPtr<TransformOperation> > operationsVector = operations.operations();
-    int size = operationsVector.size();
-    encoder->encodeInt32(size);
-    for (int i = 0; i < size; ++i)
-        ArgumentCoder<RefPtr<TransformOperation> >::encode(encoder, operationsVector[i]);
-}
-
-bool ArgumentCoder<TransformOperations>::decode(ArgumentDecoder* decoder, TransformOperations& operations)
-{
-    int size;
-    if (!decoder->decodeInt32(size))
-        return false;
-
-    Vector<RefPtr<TransformOperation> >& operationVector = operations.operations();
-    operationVector.clear();
-    operationVector.resize(size);
-    for (int i = 0; i < size; ++i) {
-        RefPtr<TransformOperation> operation;
-        if (!ArgumentCoder<RefPtr<TransformOperation> >::decode(decoder, operation))
-            return false;
-        operationVector[i] = operation;
-    }
-
-    return true;
-}
-
-template<typename T>
-static void encodeBoolAndValue(ArgumentEncoder* encoder, bool isSet, const T& value)
-{
-    encoder->encodeBool(isSet);
-    if (isSet)
-        encoder->encode(value);
-}
-
-template<typename T>
-static void encodeBoolAndEnumValue(ArgumentEncoder* encoder, bool isSet, T value)
-{
-    encoder->encodeBool(isSet);
-    if (isSet)
-        encoder->encodeEnum(value);
-}
-
-void ArgumentCoder<RefPtr<Animation> >::encode(ArgumentEncoder* encoder, const RefPtr<Animation>& animation)
-{
-    encodeBoolAndValue(encoder, animation->isDelaySet(), animation->delay());
-    encodeBoolAndEnumValue(encoder, animation->isDirectionSet(), animation->direction());
-    encodeBoolAndValue(encoder, animation->isDurationSet(), animation->duration());
-    encodeBoolAndValue(encoder, animation->isFillModeSet(), animation->fillMode());
-    encodeBoolAndValue(encoder, animation->isIterationCountSet(), animation->iterationCount());
-    encodeBoolAndValue(encoder, animation->isNameSet(), animation->name());
-    encodeBoolAndEnumValue(encoder, animation->isPlayStateSet(), animation->playState());
-    encodeBoolAndValue(encoder, animation->isPropertySet(), static_cast<int>(animation->property()));
-    encodeBoolAndValue<RefPtr<TimingFunction> >(encoder, animation->isTimingFunctionSet(), animation->timingFunction());
-    encoder->encodeBool(animation->isNoneAnimation());
-}
-
-
-template<typename T>
-static bool decodeBoolAndValue(ArgumentDecoder* decoder, bool& isSet, T& value)
-{
-    if (!decoder->decodeBool(isSet))
-        return false;
-    if (!isSet)
-        return true;
-
-    return decoder->decode(value);
-}
-
-template<typename T>
-static bool decodeBoolAndEnumValue(ArgumentDecoder* decoder, bool& isSet, T& value)
-{
-    if (!decoder->decodeBool(isSet))
-        return false;
-    if (!isSet)
-        return true;
-
-    return decoder->decodeEnum(value);
-}
-
-bool ArgumentCoder<RefPtr<Animation> >::decode(ArgumentDecoder* decoder, RefPtr<Animation>& animation)
-{
-    bool isDelaySet, isDirectionSet, isDurationSet, isFillModeSet, isIterationCountSet, isNameSet, isPlayStateSet, isPropertySet, isTimingFunctionSet;
-    int property, iterationCount, fillMode;
-    double duration;
-    RefPtr<TimingFunction> timingFunction;
-    String name;
-
-    double delay;
-    if (!decodeBoolAndValue(decoder, isDelaySet, delay))
-        return false;
-
-    Animation::AnimationDirection direction = Animation::AnimationDirectionNormal;
-    if (!decodeBoolAndEnumValue(decoder, isDirectionSet, direction))
-        return false;
-    if (!decodeBoolAndValue(decoder, isDurationSet, duration))
-        return false;
-    if (!decodeBoolAndValue(decoder, isFillModeSet, fillMode))
-        return false;
-    if (!decodeBoolAndValue(decoder, isIterationCountSet, iterationCount))
-        return false;
-    if (!decodeBoolAndValue(decoder, isNameSet, name))
-        return false;
-
-    EAnimPlayState playState = AnimPlayStatePlaying;
-    if (!decodeBoolAndEnumValue(decoder, isPlayStateSet, playState))
-        return false;
-    if (!decodeBoolAndValue(decoder, isPropertySet, property))
-        return false;
-    if (!decodeBoolAndValue<RefPtr<TimingFunction> >(decoder, isTimingFunctionSet, timingFunction))
-        return false;
-
-    animation = Animation::create();
-    animation->clearAll();
-
-    if (isDelaySet)
-        animation->setDelay(delay);
-    if (isDirectionSet)
-        animation->setDirection(direction);
-    if (isDurationSet)
-        animation->setDuration(duration);
-    if (isFillModeSet)
-        animation->setFillMode(fillMode);
-    if (isIterationCountSet)
-        animation->setIterationCount(iterationCount);
-    if (isNameSet)
-        animation->setName(name);
-    if (isPlayStateSet)
-        animation->setPlayState(playState);
-    if (isPropertySet)
-        animation->setProperty(static_cast<CSSPropertyID>(property));
-    if (isTimingFunctionSet)
-        animation->setTimingFunction(timingFunction);
-
-    return true;
-}
-
-#if USE(ACCELERATED_COMPOSITING)
-
-void ArgumentCoder<KeyframeValueList>::encode(ArgumentEncoder* encoder, const WebCore::KeyframeValueList& keyframes)
-{
-    encoder->encodeUInt32(keyframes.size());
-    encoder->encodeInt32(keyframes.property());
-    for (size_t i = 0; i < keyframes.size(); ++i) {
-        const WebCore::AnimationValue* value = keyframes.at(i);
-        encoder->encodeFloat(value->keyTime());
-        ArgumentCoder<RefPtr<WebCore::TimingFunction> >::encode(encoder, value->timingFunction());
-        switch (keyframes.property()) {
-        case WebCore::AnimatedPropertyOpacity: {
-            const WebCore::FloatAnimationValue* floatValue = static_cast<const WebCore::FloatAnimationValue*>(value);
-            encoder->encodeFloat(floatValue->value());
-            break;
-        }
-        case WebCore::AnimatedPropertyWebkitTransform: {
-            const WebCore::TransformAnimationValue* transformValue = static_cast<const WebCore::TransformAnimationValue*>(value);
-            ArgumentCoder<WebCore::TransformOperations>::encode(encoder, *transformValue->value());
-            break;
-        }
-        default:
-            break;
-        }
-    }
-}
-
-bool ArgumentCoder<KeyframeValueList>::decode(ArgumentDecoder* decoder, WebCore::KeyframeValueList& keyframes)
-{
-    uint32_t size;
-    int32_t property;
-    if (!decoder->decodeUInt32(size))
-        return false;
-    if (!decoder->decodeInt32(property))
-        return false;
-
-    keyframes = WebCore::KeyframeValueList(WebCore::AnimatedPropertyID(property));
-
-    for (size_t i = 0; i < size; ++i) {
-        float keyTime;
-   
-        RefPtr<WebCore::TimingFunction> timingFunction;
-        if (!decoder->decodeFloat(keyTime))
-            return false;
-        if (!ArgumentCoder<RefPtr<WebCore::TimingFunction> >::decode(decoder, timingFunction))
-            return false;
-
-        switch (property) {
-        case WebCore::AnimatedPropertyOpacity: {
-            float value;
-            if (!decoder->decodeFloat(value))
-                return false;
-            keyframes.insert(new WebCore::FloatAnimationValue(keyTime, value, timingFunction));
-            break;
-        }
-        case WebCore::AnimatedPropertyWebkitTransform: {
-            WebCore::TransformOperations value;
-            if (!ArgumentCoder<WebCore::TransformOperations>::decode(decoder, value))
-                return false;
-            keyframes.insert(new WebCore::TransformAnimationValue(keyTime, &value, timingFunction));
-            break;
-        }
-        default:
-            break;
-        }
-    }
-
-    return true;
-}
-
-#endif
-
-#if USE(UI_SIDE_COMPOSITING) && ENABLE(CSS_FILTERS)
-void ArgumentCoder<WebCore::FilterOperations>::encode(ArgumentEncoder* encoder, const WebCore::FilterOperations& filters)
-{
-    encoder->encodeUInt32(filters.size());
-    for (size_t i = 0; i < filters.size(); ++i) {
-        const FilterOperation* filter = filters.at(i);
-        FilterOperation::OperationType type = filter->getOperationType();
-        encoder->encodeEnum(type);
-        switch (type) {
-        case FilterOperation::GRAYSCALE:
-        case FilterOperation::SEPIA:
-        case FilterOperation::SATURATE:
-        case FilterOperation::HUE_ROTATE:
-            encoder->encodeDouble(static_cast<const BasicColorMatrixFilterOperation*>(filter)->amount());
-            break;
-        case FilterOperation::INVERT:
-        case FilterOperation::BRIGHTNESS:
-        case FilterOperation::CONTRAST:
-        case FilterOperation::OPACITY:
-            encoder->encodeDouble(static_cast<const BasicComponentTransferFilterOperation*>(filter)->amount());
-            break;
-        case FilterOperation::BLUR:
-            ArgumentCoder<Length>::encode(encoder, static_cast<const BlurFilterOperation*>(filter)->stdDeviation());
-            break;
-        case FilterOperation::DROP_SHADOW: {
-            const DropShadowFilterOperation* shadow = static_cast<const DropShadowFilterOperation*>(filter);
-            ArgumentCoder<IntPoint>::encode(encoder, shadow->location());
-            encoder->encodeInt32(shadow->stdDeviation());
-            ArgumentCoder<Color>::encode(encoder, shadow->color());
-            break;
-        }
-        default:
-            break;
-        }
-    }
-}
-
-bool ArgumentCoder<WebCore::FilterOperations>::decode(ArgumentDecoder* decoder, WebCore::FilterOperations& filters)
-{
-    uint32_t size;
-    if (!decoder->decodeUInt32(size))
-        return false;
-
-    Vector<RefPtr<FilterOperation> >& operations = filters.operations();
-
-    for (size_t i = 0; i < size; ++i) {
-        FilterOperation::OperationType type;
-        RefPtr<FilterOperation> filter;
-        if (!decoder->decodeEnum(type))
-            return false;
-
-        switch (type) {
-        case FilterOperation::GRAYSCALE:
-        case FilterOperation::SEPIA:
-        case FilterOperation::SATURATE:
-        case FilterOperation::HUE_ROTATE: {
-            double value;
-            if (!decoder->decodeDouble(value))
-                return false;
-            filter = BasicColorMatrixFilterOperation::create(value, type);
-            break;
-        }
-        case FilterOperation::INVERT:
-        case FilterOperation::BRIGHTNESS:
-        case FilterOperation::CONTRAST:
-        case FilterOperation::OPACITY: {
-            double value;
-            if (!decoder->decodeDouble(value))
-                return false;
-            filter = BasicComponentTransferFilterOperation::create(value, type);
-            break;
-        }
-        case FilterOperation::BLUR: {
-            Length length;
-            if (!ArgumentCoder<Length>::decode(decoder, length))
-                return false;
-            filter = BlurFilterOperation::create(length, type);
-            break;
-        }
-        case FilterOperation::DROP_SHADOW: {
-            IntPoint location;
-            int32_t stdDeviation;
-            Color color;
-            if (!ArgumentCoder<IntPoint>::decode(decoder, location))
-                return false;
-            if (!decoder->decodeInt32(stdDeviation))
-                return false;
-            if (!ArgumentCoder<Color>::decode(decoder, color))
-                return false;
-            filter = DropShadowFilterOperation::create(location, stdDeviation, color, type);
-            break;
-        }
-        default:
-            break;
-        }
-
-        if (filter)
-            operations.append(filter);
-    }
-
-    return true;
-}
-#endif
-
-#endif
 
 } // namespace CoreIPC

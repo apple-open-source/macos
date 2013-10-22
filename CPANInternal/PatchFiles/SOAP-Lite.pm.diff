@@ -1,5 +1,5 @@
---- SOAP-Lite/lib/SOAP/Lite.pm	(.../tags/CPANInternal-97)	(revision 22689)
-+++ SOAP-Lite/lib/SOAP/Lite.pm	(.../trunk)	(revision 22689)
+--- SOAP-Lite-0.69/lib/SOAP/Lite.pm	(.../tags/CPANInternal-97)	(revision 22689)
++++ SOAP-Lite-0.69/lib/SOAP/Lite.pm	(.../trunk)	(revision 22689)
 @@ -493,6 +493,7 @@
  # ======================================================================
  

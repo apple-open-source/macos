@@ -23,6 +23,9 @@
 
 #include <new>
 #include <stdlib.h>
+#include <cxxabi.h>
+
+#ifndef _LIBCPPABI_VERSION
 
 __attribute__((__weak__, __visibility__("default")))
 void
@@ -31,3 +34,5 @@ operator delete (void* ptr) throw ()
     if (ptr)
         ::free(ptr);
 }
+
+#endif  // _LIBCPPABI_VERSION

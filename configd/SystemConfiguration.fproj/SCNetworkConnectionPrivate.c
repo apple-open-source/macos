@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -399,6 +399,7 @@ processPreferences(CFStringRef			serviceID,
 		CFDictionaryRef	dict;
 
 		dict = CFArrayGetValueAtIndex(prefs, i);
+		assert(dict != NULL);
 		if (isA_CFDictionary(dict)) {
 			newDict = (*callout)(serviceID, dict, context1, context2, context3);
 			if (newDict == NULL) {
@@ -2179,6 +2180,7 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 									      &kCFTypeDictionaryKeyCallBacks,
 									      &kCFTypeDictionaryValueCallBacks);
 				}
+				assert(newConfig != NULL);
 				CFDictionarySetValue(newConfig,
 						     kSCPropNetVPNAuthPassword,
 						     unique_id);

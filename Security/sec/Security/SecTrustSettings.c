@@ -30,7 +30,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <AssertMacros.h>
 #include <pthread.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include "SecBasePriv.h"
 #include <Security/SecInternal.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -38,31 +38,8 @@
 #define trustSettingsDbg(args...)		secdebug("trustSettings", ## args)
 #define trustSettingsEvalDbg(args...)	secdebug("trustSettingsEval", ## args)
 
-#pragma mark -
-#pragma mark Static Functions
-
-#if 0
-/* Return a (hex)string representation of a CFDataRef. */
-static CFStringRef SecCopyHexStringFromData(CFDataRef data)
-{
-    CFIndex ix, length;
-	const UInt8 *bytes;
-    CFMutableStringRef string;
-
-	if (data) {
-		length = CFDataGetLength(data);
-		bytes = CFDataGetBytePtr(data);
-	} else {
-		length = 0;
-		bytes = NULL;
-	}
-	string = CFStringCreateMutable(kCFAllocatorDefault, length * 2);
-    for (ix = 0; ix < length; ++ix)
-		CFStringAppendFormat(string, NULL, CFSTR("%02X"), bytes[ix]);
-
-    return string;
-}
-#endif
+// MARK: -
+// MARK: Static Functions
 
 /* Return a CFDataRef representation of a (hex)string. */
 static CFDataRef SecCopyDataFromHexString(CFStringRef string) {
@@ -127,12 +104,12 @@ static CFStringRef SecTrustSettingsCertHashStrFromCert(
 	}
 
 	CFDataRef digest = SecCertificateGetSHA1Digest(certRef);
-	return SecCopyHexStringFromData(digest);
+	return CFDataCopyHexString(digest);
 }
 #endif
 
-#pragma mark -
-#pragma mark SecTrustSettings
+// MARK: -
+// MARK: SecTrustSettings
 /********************************************************
  ************** SecTrustSettings object *****************
  ********************************************************/
@@ -344,7 +321,7 @@ static OSStatus SecTrustSettingsValidate(SecTrustSettingsRef ts, bool trim) {
 
 	/* Convert the per-cert entries from on disk to in memory format. */
 	struct trustListContext context = {
-		ts->_trustDict, ts->_dictVersion, trim, noErr
+		ts->_trustDict, ts->_dictVersion, trim, errSecSuccess
 	};
 	CFDictionaryApplyFunction(trustList, trustListApplierFunction, &context);
 
@@ -369,12 +346,13 @@ OSStatus SecTrustSettingsCreateFromExternal(SecTrustSettingsDomain domain,
 	require(result = (SecTrustSettingsRef)_CFRuntimeCreateInstance(allocator,
 		SecTrustSettingsGetTypeID(), size - sizeof(CFRuntimeBase), 0), errOut);
 
-	CFStringRef errorString = NULL;
-	CFPropertyListRef plist = CFPropertyListCreateFromXMLData(
-		kCFAllocatorDefault, external, kCFPropertyListImmutable, &errorString);
+	CFErrorRef error = NULL;
+	CFPropertyListRef plist = CFPropertyListCreateWithData(kCFAllocatorDefault,
+        external, kCFPropertyListImmutable, NULL, &error);
 	if (!plist) {
-		secwarning("CFPropertyListCreateFromXMLData: %@", errorString);
-		CFReleaseSafe(errorString);
+		secwarning("SecTrustSettingsCreateFromExternal: %@", error);
+		CFReleaseSafe(error);
+        CFReleaseSafe(result);
 		goto errOut;
 	}
 
@@ -384,7 +362,7 @@ OSStatus SecTrustSettingsCreateFromExternal(SecTrustSettingsDomain domain,
 
 	*ts = result;
 
-	return noErr;
+	return errSecSuccess;
 
 errOut:
     return errSecInvalidTrustSettings;
@@ -421,8 +399,8 @@ void SecTrustSettingsSet(SecCertificateRef certRef,
 
 
 
-#pragma mark -
-#pragma mark SPI functions
+// MARK: -
+// MARK: SPI functions
 
 
 /*
@@ -527,17 +505,17 @@ OSStatus SecTrustSettingsEvaluateCertificate(
 			trustSettingsDbg("SecTrustSettingsEvaluateCert: found in domain %d", domain);
 			*foundAnyEntry = true;
 			*foundMatchingEntry = true;
-			return noErr;
+			return errSecSuccess;
 		}
 		foundAny |= foundAnyHere;
 	}
 	trustSettingsDbg("SecTrustSettingsEvaluateCert: NOT FOUND");
 	*foundAnyEntry = foundAny;
 	*foundMatchingEntry = false;
-	return noErr;
+	return errSecSuccess;
 	END_RCSAPI
 #endif
-	return noErr;
+	return errSecSuccess;
 }
 
 /*

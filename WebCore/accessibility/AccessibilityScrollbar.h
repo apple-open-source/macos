@@ -42,9 +42,8 @@ public:
     Scrollbar* scrollbar() const { return m_scrollbar.get(); }
     
 private:
-    AccessibilityScrollbar(Scrollbar*);
+    explicit AccessibilityScrollbar(Scrollbar*);
 
-    virtual bool accessibilityIsIgnored() const { return false; }
     virtual bool canSetValueAttribute() const { return true; }
     virtual bool canSetNumericValue() const { return true; }
 
@@ -61,7 +60,6 @@ private:
     virtual float valueForRange() const;
 
     RefPtr<Scrollbar> m_scrollbar;
-    AccessibilityOrientation m_orientation;
 };
 
 } // namespace WebCore

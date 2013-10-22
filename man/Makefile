@@ -14,6 +14,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Configure_Flags = -d -prefix="$(Install_Prefix)" \
                   -confdir="$(ETCDIR)" \
                   -compatibility_mode_for_colored_groff
+Extra_Make_Flags = LIBS=-lxcselect
 Install_Flags   = DESTDIR="$(DSTROOT)"
 Install_Target  = install
 
@@ -43,7 +44,9 @@ AEP_Patches    = Makefile.in.diff \
                  PR4302566.diff \
                  PR4670363.diff \
                  PR5291011.diff \
-                 PR5024303.diff
+                 PR5024303.diff \
+                 PR11291804-xcode.diff \
+                 PR13528825.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

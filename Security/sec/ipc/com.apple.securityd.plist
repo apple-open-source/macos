@@ -2,6 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>DEBUGSCOPE</key>
+		<string>none</string>
+		<key>WAIT4DEBUGGER</key>
+		<string>NO</string>
+	</dict>
 	<key>GroupName</key>
 	<string>_securityd</string>
 	<key>Label</key>

@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/hu.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/hu.xml
 // *
 // ***************************************************************************
 /**
@@ -29,7 +29,7 @@ hu{
         034{"Dél-Ázsia"}
         035{"Délkelet-Ázsia"}
         039{"Dél-Európa"}
-        053{"Ausztrália és Új-Zéland"}
+        053{"Ausztrálázsia"}
         054{"Melanézia"}
         057{"Mikronéziai régió"}
         061{"Polinézia"}
@@ -57,7 +57,7 @@ hu{
         AT{"Ausztria"}
         AU{"Ausztrália"}
         AW{"Aruba"}
-        AX{"Aland-szigetek"}
+        AX{"Åland-szigetek"}
         AZ{"Azerbajdzsán"}
         BA{"Bosznia-Hercegovina"}
         BB{"Barbados"}
@@ -72,6 +72,7 @@ hu{
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolívia"}
+        BQ{"Holland Karib-térség"}
         BR{"Brazília"}
         BS{"Bahama-szigetek"}
         BT{"Bhután"}
@@ -93,7 +94,6 @@ hu{
         CO{"Kolumbia"}
         CP{"Clipperton-sziget"}
         CR{"Costa Rica"}
-        CS{"Szerbia és Montenegró"}
         CU{"Kuba"}
         CV{"Zöld-foki Köztársaság"}
         CW{"Curaçao"}
@@ -256,6 +256,7 @@ hu{
         SN{"Szenegál"}
         SO{"Szomália"}
         SR{"Suriname"}
+        SS{"Dél-Szudán"}
         ST{"Sao Tomé és Príncipe"}
         SV{"Salvador"}
         SX{"Sint Maarten"}
@@ -300,5 +301,5 @@ hu{
         ZW{"Zimbabwe"}
         ZZ{"Ismeretlen vagy érvénytelen körzet"}
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.47"}
 }

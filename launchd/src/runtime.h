@@ -60,8 +60,12 @@ extern bool launchd_log_shutdown;
 extern bool launchd_log_debug;
 extern bool launchd_log_perf;
 extern bool launchd_trap_sigkill_bugs;
+extern bool launchd_no_jetsam_perm_check;
 extern bool launchd_osinstaller;
 extern bool launchd_allow_global_dyld_envvars;
+#if TARGET_OS_EMBEDDED
+extern bool launchd_appletv;
+#endif
 
 extern bool launchd_runtime_busy_time;
 extern mach_port_t inherited_bootstrap_port;
@@ -95,6 +99,7 @@ kern_return_t runtime_add_mport(mach_port_t name, mig_callback demux);
 kern_return_t runtime_remove_mport(mach_port_t name);
 void runtime_record_caller_creds(audit_token_t *token);
 struct ldcred *runtime_get_caller_creds(void);
+audit_token_t *runtime_get_caller_token(void);
 
 const char *signal_to_C_name(unsigned int sig);
 const char *reboot_flags_to_C_names(unsigned int flags);
@@ -116,12 +121,13 @@ uint64_t runtime_get_nanoseconds_since(uint64_t o) __attribute__((pure, warn_unu
 kern_return_t launchd_set_bport(mach_port_t name);
 kern_return_t launchd_get_bport(mach_port_t *name);
 kern_return_t launchd_mport_notify_req(mach_port_t name, mach_msg_id_t which);
-kern_return_t launchd_mport_notify_cancel(mach_port_t name, mach_msg_id_t which);
 kern_return_t launchd_mport_create_recv(mach_port_t *name);
 kern_return_t launchd_mport_deallocate(mach_port_t name);
 kern_return_t launchd_mport_make_send(mach_port_t name);
 kern_return_t launchd_mport_copy_send(mach_port_t name);
 kern_return_t launchd_mport_make_send_once(mach_port_t name, mach_port_t *so);
 kern_return_t launchd_mport_close_recv(mach_port_t name);
+
+uint64_t runtime_get_uniqueid(void);
 
 #endif /* __LAUNCHD_RUNTIME_H__ */

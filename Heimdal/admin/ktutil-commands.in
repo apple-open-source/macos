@@ -57,6 +57,11 @@ command = {
 		help = "encryption type"
 	}
 	option = {
+		long = "pw-file"
+		type = "string"
+		help = "path or STDIN where password is read from"
+	}
+	option = {
 		long = "password"
 		short = "w"
 		type = "string"

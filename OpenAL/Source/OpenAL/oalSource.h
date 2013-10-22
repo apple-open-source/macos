@@ -75,8 +75,8 @@ enum {
 		kMQ_SetFramePosition			= 7,
 		kMQ_ClearBuffersFromQueue		= 8,
 		kMQ_DeconstructionStop			= 9,
-		kMQ_Retrigger					= 10
-		
+		kMQ_Retrigger					= 10,
+        kMQ_AddBuffersToQueue           = 11
 };
 
 #define	OALSourceError_CallConverterAgain	'agan'
@@ -96,18 +96,18 @@ enum {
 
 class PlaybackMessage {
 public:
-	PlaybackMessage(UInt32 inMessage, OALBuffer* inDeferredAppendBuffer, UInt32	inBuffersToUnqueue) :
+	PlaybackMessage(UInt32 inMessage, OALBuffer* inBuffer, UInt32	inNumBuffers) :
 			mMessageID(inMessage),
-			mAppendBuffer(inDeferredAppendBuffer),
-			mBuffersToUnqueueInPostRender(inBuffersToUnqueue)
+			mBuffer(inBuffer),
+			mNumBuffers(inNumBuffers)
 		{ };
 		
 	~PlaybackMessage(){};
 
 	PlaybackMessage*			mNext;
 	UInt32						mMessageID;
-	OALBuffer*					mAppendBuffer;
-	UInt32						mBuffersToUnqueueInPostRender;
+	OALBuffer*					mBuffer;
+	UInt32						mNumBuffers;
 			
 	PlaybackMessage *&		next() { return mNext; }
 	void					set_next(PlaybackMessage *next) { mNext = next; }
@@ -249,47 +249,6 @@ typedef	ACMap ACMap;
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #pragma mark _____SourceNotifyInfo_____
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-class SourceNotificationDispatchMessage 
-{
-public:
-	SourceNotificationDispatchMessage()
-	:	mID(0),
-		mProc(0),
-		mUserData(0),
-		mSourceToken(0),
-		flagForDeletion(false){}
-	
-
-	ALuint						mID;
-	alSourceNotificationProc	mProc;
-	void						*mUserData;
-	ALuint						mSourceToken;
-	bool						flagForDeletion;
-};
-
-void CallSourceNotification(void* inMessage);
-
-class SourceNotificationDispatch : public std::queue<SourceNotificationDispatchMessage>
-{
-public:
-	
-	void AddSourceNotificationDispatchMessage(SourceNotificationDispatchMessage inMessage)
-	{
-		push(inMessage);
-		//use GCD to dispatch the notification
-		dispatch_async_f(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), (void*)(&back()), CallSourceNotification);
-				
-		//cleanup old messages
-		RemoveOldSourceNotificationDispatchMessages();
-	}
-	
-	void RemoveOldSourceNotificationDispatchMessages()
-	{
-		while(front().flagForDeletion)
-			pop();
-	}
-};
-
 class SourceNotifyInfo
 {
 public:
@@ -313,13 +272,11 @@ public:
 		:	mSourceToken(inSourceID)
 	{
 		mNotifyMutex = new CAMutex("Notifcation Mutex");
-		mSourceNotificationDispatch = new SourceNotificationDispatch;
 	}
 	
 	~SourceNotifications()
 	{
 		delete mNotifyMutex;
-		delete mSourceNotificationDispatch;
 	}
 	
 		
@@ -419,22 +376,16 @@ private:
 	{
 		SourceNotifications::iterator it;
 		for (it = begin(); it != end(); ++it)
-			if (it->mID == inID) {
-				//DebugMessageN3("Dispatching notification %p,%p for %x", it->mProc, it->mUserData, inID);
-				SourceNotificationDispatchMessage newMessage;
-				newMessage.mProc = it->mProc;
-				newMessage.mUserData = it->mUserData;
-				newMessage.mID = inID;
-				newMessage.mSourceToken = mSourceToken;
-				
-				//add the dispatch message to the dispatch queue
-				mSourceNotificationDispatch->AddSourceNotificationDispatchMessage(newMessage);
+			if (it->mID == inID)
+            {
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                    it->mProc(mSourceToken, inID, it->mUserData);
+                });
 			}
 	}
 
 	CAMutex*	mNotifyMutex;
 	ALuint		mSourceToken;
-	SourceNotificationDispatch*	mSourceNotificationDispatch;
 }; 
 
 #pragma mark _____OALRenderLocker_____
@@ -510,7 +461,9 @@ class OALSource
 
 		BufferQueue					*mBufferQueueActive;        // map of buffers for queueing
 		BufferQueue					*mBufferQueueInactive;      // map of buffers already queued
+        BufferQueue					*mBufferQueueTemp;          // map of buffers for temporary queueing
         volatile int32_t            mQueueLength;               // snapshot of the queue length (mBufferQueueActive + mBufferQueueInactive)
+        volatile int32_t            mTempQueueLength;           // queue length returned when source is transitioning to flush Qs
 		UInt32						mBuffersQueuedForClear;		// number of buffers pending removal from the inactive queue
 		ALuint						mCurrentBufferIndex;		// index of the current buffer being played
 		bool						mQueueIsProcessed;			// state of the entire buffer queue
@@ -636,8 +589,10 @@ class OALSource
 	UInt32		FramesToBytes(UInt32	inFrames);
 	
 	void		PostRenderSetBuffer(ALuint inBufferToken, OALBuffer	*inBuffer);
-	void		PostRenderRemoveBuffersFromQueue(UInt32	inBuffersToUnqueue);
+    void        PostRenderAddBuffersToQueue(UInt32 inNumBuffersToQueue);
+	void        PostRenderRemoveBuffersFromQueue(UInt32	inBuffersToUnqueue);
 	void		FlushBufferQueue();
+    void		FlushTempBufferQueue();
 
 	void		AdvanceQueueToFrameIndex(UInt32	inFrameOffset);
 	OSStatus	SetDistanceParams(bool	inChangeReferenceDistance, bool inChangeMaxDistance);
@@ -729,11 +684,13 @@ class OALSource
 	void	ClearInUseFlag()	{ OSAtomicDecrement32Barrier(&mInUseFlag); }
 
     // buffer queue
+    UInt32	GetQLengthPriv();
 	UInt32	GetQLength();
 	UInt32	GetBuffersProcessed();
 	void	SetBuffer (ALuint	inBufferToken, OALBuffer	*inBuffer);
 	ALuint	GetBuffer ();
 	void	AddToQueue(ALuint	inBufferToken, OALBuffer	*inBuffer);
+    void    AddToTempQueue(ALuint	inBufferToken, OALBuffer	*inBuffer);
 	void	RemoveBuffersFromQueue(UInt32	inCount, ALuint	*outBufferTokens);
 	bool	IsSourceTransitioningToFlushQ();
 	bool    IsSafeForDeletion ()  { return (mSafeForDeletion && (mInUseFlag <= 0) && mSourceLock.IsFree()); }
@@ -745,7 +702,7 @@ class OALSource
 	// notification methods
 	void		ClearMessageQueue();
 	void		SwapBufferQueues();
-	void		AddPlaybackMessage(UInt32 inMessage, OALBuffer* inDeferredAppendBuffer, UInt32	inBuffersToUnqueue);
+	void		AddPlaybackMessage(UInt32 inMessage, OALBuffer* inBuffer, UInt32	inNumBuffers);
 	void		SetPlaybackState(ALuint inState, bool sendSourceStateChangeNotification=false);
 	
 	OSStatus 	DoPreRender ();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define	DNSINFO_VERSION		20111104
+#define	DNSINFO_VERSION		20130402
 
 #define DEFAULT_SEARCH_ORDER    200000   /* search order for the "default" resolver domain name */
 
@@ -73,13 +73,19 @@ typedef struct {
 	DNS_VAR(uint32_t,		if_index);
 	DNS_VAR(uint32_t,		flags);
 	DNS_VAR(uint32_t,		reach_flags);	/* SCNetworkReachabilityFlags */
-	DNS_VAR(uint32_t,		reserved[5]);
+	DNS_VAR(uint32_t,		service_identifier);
+	DNS_VAR(uint32_t,		reserved[4]);
 } dns_resolver_t;
 #pragma pack()
 
 
-#define DNS_RESOLVER_FLAGS_SCOPED	1		/* configuration is for scoped questions */
+#define DNS_RESOLVER_FLAGS_SCOPED		1		/* configuration is for scoped questions */
+#define DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS	2		/* always requesting for A dns records in queries */
+#define DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS	4		/* always requesting for AAAA dns records in queries */
+#define DNS_RESOLVER_FLAGS_SERVICE_SPECIFIC	8		/* configuration is service-specific */
 
+#define	DNS_RESOLVER_FLAGS_REQUEST_ALL_RECORDS	\
+	(DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS | DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS)
 
 #pragma pack(4)
 typedef struct {
@@ -87,7 +93,9 @@ typedef struct {
 	DNS_PTR(dns_resolver_t **,	resolver);
 	DNS_VAR(int32_t,		n_scoped_resolver);	/* "scoped" resolver configurations */
 	DNS_PTR(dns_resolver_t **,	scoped_resolver);
-	DNS_VAR(uint32_t,		reserved[5]);
+	DNS_VAR(uint64_t,		generation);
+	DNS_VAR(int32_t,		n_service_specific_resolver);
+	DNS_PTR(dns_resolver_t **,	service_specific_resolver);
 } dns_config_t;
 #pragma pack()
 

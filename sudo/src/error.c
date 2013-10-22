@@ -14,13 +14,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <config.h>
+
+#include <sys/types.h>
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <config.h>
-#include <compat.h>
+#include "missing.h"
 #include "error.h"
 
 static void _warning	__P((int, const char *, va_list));

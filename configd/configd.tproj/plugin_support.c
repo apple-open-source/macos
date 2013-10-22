@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,19 +61,17 @@ void	_SCDPluginExecInit();
 
 
 #define PLUGIN_ALL(p)		CFSTR(p)
-#if	!TARGET_OS_EMBEDDED
+#if	!TARGET_OS_IPHONE
 #define PLUGIN_MACOSX(p)	CFSTR(p)
 #define PLUGIN_IOS(p)		NULL
-#else	// !TARGET_OS_EMBEDDED
+#else	// !TARGET_OS_IPHONE
 #define PLUGIN_MACOSX(p)	NULL
 #define PLUGIN_IOS(p)		CFSTR(p)
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// !TARGET_OS_IPHONE
 
 // white-listed (ok-to-load) bundle identifiers
 static const CFStringRef	pluginWhitelist[]	= {
-	PLUGIN_MACOSX("com.apple.SystemConfiguration.Apple80211"),
 	PLUGIN_MACOSX("com.apple.SystemConfiguration.ApplicationFirewall"),
-	PLUGIN_MACOSX("com.apple.SystemConfiguration.Bluetooth"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.EAPOLController"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPConfiguration"),
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPMonitor"),
@@ -86,7 +84,6 @@ static const CFStringRef	pluginWhitelist[]	= {
 #ifdef	HAVE_REACHABILITY_SERVER
 	PLUGIN_ALL   ("com.apple.SystemConfiguration.SCNetworkReachability"),
 #endif	// HAVE_REACHABILITY_SERVER
-	PLUGIN_MACOSX("com.apple.SystemConfiguration.wwanConfig"),
 	PLUGIN_MACOSX("com.apple.print.notification"),
 };
 #define	N_PLUGIN_WHITELIST	(sizeof(pluginWhitelist) / sizeof(pluginWhitelist[0]))
@@ -119,12 +116,14 @@ CFRunLoopRef			plugin_runLoop		= NULL;
 
 extern SCDynamicStoreBundleLoadFunction		load_IPMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_IPMonitor;
+#if	!TARGET_IPHONE_SIMULATOR
 extern SCDynamicStoreBundleLoadFunction		load_InterfaceNamer;
 extern SCDynamicStoreBundleLoadFunction		load_KernelEventMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_KernelEventMonitor;
 extern SCDynamicStoreBundleLoadFunction		load_LinkConfiguration;
 extern SCDynamicStoreBundleLoadFunction		load_PreferencesMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_PreferencesMonitor;
+#endif	// !TARGET_IPHONE_SIMULATOR
 #ifdef	HAVE_REACHABILITY_SERVER
 extern SCDynamicStoreBundleLoadFunction		load_SCNetworkReachability;
 #endif	// HAVE_REACHABILITY_SERVER
@@ -147,6 +146,7 @@ static const builtin builtin_plugins[] = {
 		&prime_IPMonitor,
 		NULL
 	},
+#if	!TARGET_IPHONE_SIMULATOR
 	{
 		CFSTR("com.apple.SystemConfiguration.InterfaceNamer"),
 		&load_InterfaceNamer,
@@ -175,6 +175,7 @@ static const builtin builtin_plugins[] = {
 		&prime_PreferencesMonitor,
 		NULL
 	},
+#endif	// !TARGET_IPHONE_SIMULATOR
 #ifdef	HAVE_REACHABILITY_SERVER
 	{
 		CFSTR("com.apple.SystemConfiguration.SCNetworkReachability"),
@@ -853,15 +854,28 @@ timerCallback(CFRunLoopTimerRef timer, void *info)
 static void
 sortBundles(CFMutableArrayRef orig)
 {
+	CFIndex			i;
+	CFIndex			n;
 	CFMutableArrayRef	new;
+	CFMutableSetRef		orig_bundleIDs;
+
+	orig_bundleIDs = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+
+	n = CFArrayGetCount(orig);
+	for (i = 0; i < n; i++) {
+		bundleInfoRef	bundleInfo	= (bundleInfoRef)CFArrayGetValueAtIndex(orig, i);
+		CFStringRef	bundleID	= CFBundleGetIdentifier(bundleInfo->bundle);
+
+		if (bundleID != NULL) {
+			CFSetAddValue(orig_bundleIDs, bundleID);
+		}
+	}
 
 	new = CFArrayCreateMutable(NULL, 0, NULL);
-	while (CFArrayGetCount(orig) > 0) {
-		int	i;
+	while (n > 0) {
 		Boolean	inserted	= FALSE;
-		int	nOrig		= CFArrayGetCount(orig);
 
-		for (i = 0; i < nOrig; i++) {
+		for (i = 0; i < n; i++) {
 			bundleInfoRef	bundleInfo1	= (bundleInfoRef)CFArrayGetValueAtIndex(orig, i);
 			CFStringRef	bundleID1	= CFBundleGetIdentifier(bundleInfo1->bundle);
 			int		count;
@@ -887,6 +901,12 @@ sortBundles(CFMutableArrayRef orig)
 				int		nNew;
 				CFStringRef	r	= CFArrayGetValueAtIndex(requires, j);
 
+				if (!CFSetContainsValue(orig_bundleIDs, r)) {
+					// if dependency not present
+					count--;
+					continue;
+				}
+
 				nNew = CFArrayGetCount(new);
 				for (k = 0; k < nNew; k++) {
 					bundleInfoRef	bundleInfo2	= (bundleInfoRef)CFArrayGetValueAtIndex(new, k);
@@ -910,6 +930,8 @@ sortBundles(CFMutableArrayRef orig)
 			SCLog(TRUE, LOG_NOTICE, CFSTR("Bundles have circular dependency!!!"));
 			break;
 		}
+
+		n = CFArrayGetCount(orig);
 	}
 	if (CFArrayGetCount(orig) > 0) {
 		/* we have a circular dependency, append remaining items on new array */
@@ -922,6 +944,7 @@ sortBundles(CFMutableArrayRef orig)
 	CFArrayRemoveAllValues(orig);
 	CFArrayAppendArray(orig, new, CFRangeMake(0, CFArrayGetCount(new)));
 	CFRelease(new);
+	CFRelease(orig_bundleIDs);
 	return;
 }
 
@@ -972,9 +995,24 @@ plugin_exec(void *arg)
 			CFArrayRef	bundles;
 			CFURLRef	url;
 
+#if	TARGET_IPHONE_SIMULATOR
+			const char	*path_sim_prefix;
+
+			path_sim_prefix = getenv("IPHONE_SIMULATOR_ROOT");
+			if ((path_sim_prefix != NULL) && (strcmp(path_sim_prefix, ".") != 0)) {
+				char	path_sim[MAXPATHLEN];
+
+				strlcpy(path_sim, path_sim_prefix, sizeof(path_sim));
+				strlcat(path_sim, path, sizeof(path_sim));
+				strlcpy(path, path_sim, sizeof(path));
+			} else {
+				path[0] = '\0';
+			}
+#endif	// TARGET_IPHONE_SIMULATOR
+
 			/* load any available bundle */
 			strlcat(path, BUNDLE_DIRECTORY, sizeof(path));
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("searching for bundles in \".\""));
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("searching for bundles in \"%s\""), path);
 			url = CFURLCreateFromFileSystemRepresentation(NULL,
 								      (UInt8 *)path,
 								      strlen(path),
@@ -1048,12 +1086,12 @@ plugin_exec(void *arg)
 	 * Since xpcd calls getpwuid_r() during its initialization, it will
 	 * block until the platform UUID is available.
 	 */
-	for (int i = 0; i < CFArrayGetCount(allBundles); i++) {
+	for (i = 0; i < CFArrayGetCount(allBundles); i++) {
 		bundleInfoRef	bi		= (bundleInfoRef)CFArrayGetValueAtIndex(allBundles, i);
 		CFStringRef	bundleID	= CFBundleGetIdentifier(bi->bundle);
 
 		if (_SC_CFEqual(bundleID,
-		                CFSTR("com.apple.SystemConfiguration.InterfaceNamer")))
+				CFSTR("com.apple.SystemConfiguration.InterfaceNamer")))
 		{
 			CFArrayRemoveValueAtIndex(allBundles, i);
 			CFArrayInsertValueAtIndex(allBundles, 0, bi);

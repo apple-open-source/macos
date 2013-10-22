@@ -214,7 +214,11 @@ class CssmDLPolyData
 {
 public:
 	CssmDLPolyData(const CSSM_DATA &data, CSSM_DB_ATTRIBUTE_FORMAT format)
-	: mData(CssmData::overlay(data)), mFormat(format) {}
+	: mData(CssmData::overlay(data))
+#ifndef NDEBUG
+    , mFormat(format)
+#endif 
+    {}
 
 	// @@@ Don't use assert, but throw an exception.
 	// @@@ Do a size check on mData as well.
@@ -260,7 +264,9 @@ public:
 
 private:
 	const CssmData &mData;
+#ifndef NDEBUG
 	CSSM_DB_ATTRIBUTE_FORMAT mFormat;
+#endif
 };
 
 

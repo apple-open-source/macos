@@ -27,8 +27,10 @@
 namespace WebCore {
 
 class CachedResourceLoader;
+class Element;
 class StyleCachedImage;
 class StyleImage;
+class RenderObject;
 
 class CSSImageValue : public CSSValue {
 public:
@@ -48,12 +50,11 @@ public:
 
     bool hasFailedOrCanceledSubresources() const;
 
-protected:
-    CSSImageValue(ClassType, const String& url);
+    bool equals(const CSSImageValue&) const;
 
-    StyleCachedImage* cachedImage(CachedResourceLoader*, const String& url);
-    String cachedImageURL();
-    void clearCachedImage();
+    bool knownToBeOpaque(const RenderObject*) const;
+
+    void setInitiator(const AtomicString& name) { m_initiatorName = name; }
 
 private:
     explicit CSSImageValue(const String& url);
@@ -62,6 +63,7 @@ private:
     String m_url;
     RefPtr<StyleImage> m_image;
     bool m_accessedImage;
+    AtomicString m_initiatorName;
 };
 
 } // namespace WebCore

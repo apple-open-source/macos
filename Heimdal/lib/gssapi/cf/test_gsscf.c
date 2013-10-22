@@ -33,7 +33,9 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "GSSItem.h"
+#include <GSS.h>
+#include <GSSPrivate.h>
+#include <GSSItem.h>
 #include <stdio.h>
 
 static void
@@ -43,6 +45,8 @@ run_tests(void)
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     CFErrorRef error = NULL;
 
+    printf("[TEST] add\n");
+
     CFMutableDictionaryRef attrs = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     CFDictionaryAddValue(attrs, kGSSAttrClass, kGSSAttrClassKerberos);
@@ -51,7 +55,7 @@ run_tests(void)
 
     GSSItemRef item = GSSItemAdd(attrs, NULL);
     if (item == NULL) {
-	printf("failed to add\n");
+	printf("[FAIL] failed to add\n");
     } else {    
 	CFShow(item);
 	CFRelease(item);
@@ -59,7 +63,7 @@ run_tests(void)
     
     CFArrayRef items = GSSItemCopyMatching(attrs, &error);
     if (items == NULL) {
-	printf("failed to find what was just added\n");
+	printf("[FAIL] failed to find what was just added\n");
 	exit(1);
     }
     
@@ -109,16 +113,24 @@ run_tests(void)
 	CFRelease(items);
     }
     
+    printf("[PASS] add\n");
+
     /* delete */
     
+    printf("[TEST] delete\n");
+
     if (!GSSItemDelete(attrs, NULL)) {
 	printf("failed to delete\n");
 	exit(1);
     }
     
+    printf("[PASS] delete\n");
+
     /*
      * Try with password in keychain
      */
+
+    printf("[TEST] keychain\n");
 
     CFDictionaryAddValue(attrs, kGSSAttrCredentialPassword, CFSTR("foobar"));
 
@@ -145,16 +157,20 @@ run_tests(void)
     
     CFRelease(item);
     
+    printf("[PASS] keychain\n");
+
     /* 
      *
      */
     
+    printf("[TEST] delete2\n");
+
     if (!GSSItemDelete(attrs, NULL)) {
 	printf("failed to delete (second try)\n");
 	exit(1);
     }
 
-    printf("done ktestuser\n");
+    printf("[PASS] delete2\n");
     
     /*
      *
@@ -162,6 +178,8 @@ run_tests(void)
     
     CFRelease(attrs);
     
+    printf("[TEST] keychain2\n");
+
     /*
      * Test entries in keychain
      */
@@ -182,7 +200,7 @@ run_tests(void)
     
     items = GSSItemCopyMatching(attrs, &error);
     if (items == NULL) {
-	printf("failed to find lha@SU.SE\n");
+	printf("[FAIL] failed to find lha@SU.SE\n");
 	exit(1);
     }
 
@@ -209,16 +227,20 @@ run_tests(void)
 	CFRelease(items);
     }
     
+    printf("[PASS] keychain2\n");
+
+    printf("[TEST] delete3\n");
+
     if (!GSSItemDelete(attrs, NULL)) {
-	printf("failed to delete (third try)\n");
+	printf("[FAIL] failed to delete (third try)\n");
 	exit(1);
     }
+
+    printf("[PASS] delete3\n");
 
     CFRelease(attrs);
 
     dispatch_release(sema);
-
-    printf("done test\n");
 }
 
 static void
@@ -241,7 +263,7 @@ change_password(const char *user, const char *oldpassword, const char *newpasswo
 
     GSSItemRef item = GSSItemAdd(attrs, NULL);
     if (item == NULL) {
-	printf("failed to add\n");
+	printf("[FAIL] failed to add\n");
     } else {    
 	CFShow(item);
 	CFRelease(item);
@@ -288,16 +310,121 @@ change_password(const char *user, const char *oldpassword, const char *newpasswo
     CFRelease(oldpw);
 }
 
+static void
+checkRules(void)
+{
+    CFMutableDictionaryRef rules;
+    CFStringRef match;
+    
+    rules = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (rules == NULL) {
+	printf("[FAIL] ENOMEM\n");
+	exit(1);
+    }
+
+    CFStringRef hostrule = CFSTR("hostrule");
+    CFStringRef domainrule = CFSTR("domainrule");
+    CFStringRef domainrule2 = CFSTR("domainrule2");
+
+    GSSRuleAddMatch(rules, CFSTR("https://host.apple.com"), hostrule);
+    GSSRuleAddMatch(rules, CFSTR("https://.apple.com"), domainrule);
+    GSSRuleAddMatch(rules, CFSTR("https://host.icloud.com/"), hostrule);
+    GSSRuleAddMatch(rules, CFSTR("https://.icloud.com/"), domainrule);
+    GSSRuleAddMatch(rules, CFSTR("https://.icloud.com/foo/"), domainrule2);
+
+    printf("[TEST] hostrule\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://HOST.apple.com"));
+    if (match == NULL || CFStringCompare(match, hostrule, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] hostrule\n");
+	exit(1);
+    }
+    printf("[PASS] hostrule\n");
+
+    printf("[TEST] hostrule2\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://host.apple.com"));
+    if (match == NULL || CFStringCompare(match, hostrule, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] hostrule2\n");
+	exit(1);
+    }
+    printf("[PASS] hostrule2\n");
+
+    printf("[TEST] domainrule\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://host2.apple.com/"));
+    if (match == NULL || CFStringCompare(match, domainrule, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] domainrule\n");
+	exit(1);
+    }
+    printf("[PASS] domainrule\n");
+    
+    printf("[TEST] hostrule3\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://HOST.icloud.com"));
+    if (match == NULL || CFStringCompare(match, hostrule, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] hostrule3\n");
+	exit(1);
+    }
+    printf("[PASS] hostrule3\n");
+
+    printf("[TEST] hostrule4\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://host.icloud.com"));
+    if (match == NULL || CFStringCompare(match, hostrule, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] hostrule4\n");
+	exit(1);
+    }
+    printf("[PASS] hostrule4\n");
+
+    printf("[TEST] domainrule2\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://host2.icloud.com"));
+    if (match == NULL || CFStringCompare(match, domainrule, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] domainrule2\n");
+	exit(1);
+    }
+    printf("[PASS] domainrule2\n");
+
+    printf("[TEST] domainrule3\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://host2.icloud.com/foo/"));
+    if (match == NULL || CFStringCompare(match, domainrule2, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] domainrule3\n");
+	exit(1);
+    }
+    printf("[PASS] domainrule2\n");
+
+    printf("[TEST] domainrule3\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://host2.icloud.com/foo"));
+    if (match == NULL || CFStringCompare(match, domainrule, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] domainrule3\n");
+	exit(1);
+    }
+    printf("[PASS] domainrule3\n");
+
+    printf("[TEST] domainrule4\n");
+    match = GSSRuleGetMatch(rules, CFSTR("https://host2.icloud.com/bar/"));
+    if (match == NULL || CFStringCompare(match, domainrule, 0) != kCFCompareEqualTo) {
+	printf("[FAIL] domainrule4\n");
+	exit(1);
+    }
+    printf("[PASS] domainrule4\n");
+
+
+    printf("[TEST] no match\n");
+    match = GSSRuleGetMatch(rules, CFSTR("host.h5l.org"));
+    if (match != NULL) {
+	printf("[FAIL] no match");
+	exit(1);
+    }
+    printf("[PASS] no match\n");
+	
+    CFRelease(rules);
+}
 
 int
 main(int argc, char **argv)
 {
-    printf("argc = %d\n", argc);
-
     if (argc > 3)
 	change_password(argv[1], argv[2], argv[3]);
-    else
+    else {
 	run_tests();
+	checkRules();
+    }
 
     return 0;
 }

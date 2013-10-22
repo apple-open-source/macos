@@ -29,10 +29,8 @@
 #include "ImageBufferDataCairo.h"
 #elif PLATFORM(QT)
 #include "ImageBufferDataQt.h"
-#elif USE(SKIA)
-#include "ImageBufferDataSkia.h"
-#elif OS(WINCE)
+#elif USE(WINGDI)
 #include "ImageBufferDataWince.h"
-#elif PLATFORM(WX)
-#include "ImageBufferDataWx.h"
+#elif PLATFORM(BLACKBERRY)
+#include "ImageBufferDataBlackBerry.h"
 #endif

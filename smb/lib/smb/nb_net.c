@@ -32,17 +32,24 @@
  * SUCH DAMAGE.
  *
 */
+#include <string.h>
+
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <net/if.h>
 #include <ifaddrs.h>
+#include <SystemConfiguration/SCNetworkConnectionPrivate.h>
 
 #include <netsmb/netbios.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
 #include "charsets.h"
+
+int getaddrinfo_ipv6(const char *hostname, const char *servname,
+                     const struct addrinfo *hints,
+                     struct addrinfo **res);
 
 static int SocketUtilsIncrementIfReqIter(UInt8** inIfReqIter, struct ifreq* ifr)
 {
@@ -184,7 +191,44 @@ int isLocalIPAddress(struct sockaddr *addr, uint16_t port, int allowLocalConn)
 	return FALSE;
 }
 
-/* 
+int getaddrinfo_ipv6(const char *hostname, const char *servname,
+                     const struct addrinfo *hints,
+                     struct addrinfo **res)
+{
+	int error;
+    size_t len;
+    char *temp_name = NULL;
+
+    len = strnlen(hostname, 1024);  /* assume hostname < 1024 */
+    if ((len > 3) && (hostname[0] == '[') && (hostname[len - 1] == ']')) {
+        /* Seems to be IPv6 with brackets */
+        temp_name = malloc(len);
+        
+        if (temp_name != NULL) {
+            /*
+             * Copy string and skip beginning '[' (&hostname[1]) and
+             * ending ']' (len - 1)
+             */
+            strlcpy(temp_name, &hostname[1], len - 1);
+            
+            /* Try without the [] and return that error */
+            error = getaddrinfo (temp_name, servname, hints, res);
+            
+            free(temp_name);
+        }
+        else {
+            error = ENOMEM;
+        }
+    }
+    else {
+        /* Not IPv6, just do getaddrinfo */
+        error = getaddrinfo (hostname, servname, hints, res);
+    }
+
+    return (error);
+}
+
+/*
  * Resolve the name and retrieve all address associated with that name.  
  */
 int resolvehost(const char *name, CFMutableArrayRef *outAddressArray, char *netbios_name, 
@@ -194,6 +238,7 @@ int resolvehost(const char *name, CFMutableArrayRef *outAddressArray, char *netb
 	struct addrinfo hints, *res0, *res;
 	CFMutableArrayRef addressArray = NULL;
 	CFMutableDataRef addressData;
+	CFStringRef hostName = NULL;
 
 	/* If we are trying both ports always put port 139 in after port 445 */
 	if (tryBothPorts && (port == NBSS_TCP_PORT_139))
@@ -203,8 +248,19 @@ int resolvehost(const char *name, CFMutableArrayRef *outAddressArray, char *netb
 	hints.ai_family = PF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
-	error = getaddrinfo (name, NULL, &hints, &res0);
+	error = getaddrinfo_ipv6 (name, NULL, &hints, &res0);
+	if (error != noErr) {
+		hostName = CFStringCreateWithCString(kCFAllocatorDefault, name, kCFStringEncodingUTF8);
+		if(hostName != NULL) {
+			if (SCNetworkConnectionTriggerOnDemandIfNeeded(hostName, TRUE, 60, 0)) {
+				error = getaddrinfo_ipv6 (name, NULL, &hints, &res0);
+			}
+		}
+	}
 	if (error) {
+		if(hostName != NULL) {
+			CFRelease(hostName);
+		}
 		return (error == EAI_SYSTEM) ? errno : EHOSTUNREACH;
 	}
 	addressArray = CFArrayCreateMutable(kCFAllocatorSystemDefault, 0, &kCFTypeArrayCallBacks);
@@ -286,6 +342,9 @@ done:
 			CFRelease(addressArray);
 		addressArray = NULL;
 	}
+    if(hostName) {
+        CFRelease(hostName);
+	}
 	*outAddressArray = addressArray;
 	return error;
 }
@@ -303,16 +362,18 @@ int isIPv6NumericName(const char *name)
 	hints.ai_family = PF_INET6;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
-	error = getaddrinfo (name, NULL, &hints, &res0);
-	if (error)
+	error = getaddrinfo_ipv6(name, NULL, &hints, &res0);
+	if (error) {
 		return FALSE;
+    }
 	
-	for (res = res0; res; res = res->ai_next) {		
+	for (res = res0; res; res = res->ai_next) {
 		if (res->ai_family == PF_INET6) {
 			freeaddrinfo(res0);
 			return TRUE;
 		}
 	}
+
 	freeaddrinfo(res0);
 	return FALSE;
 }
@@ -435,15 +496,19 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 	int32_t totalWaitTime = 0;
 	CFMutableDataRef dataRef;
 	struct connectAddress *conn;
+	struct connectAddress *conn_port139 = NULL;
+	struct connectAddress *conn_port445 = NULL;
+    in_port_t port;
 	
 	*dest = NULL;
 	FD_ZERO(&writefds);
 	
-	/* Attempt to connect to all address non blocking */
+	/* Attempt to connect to all addresses non blocking */
 	for (ii = 0; ii < numAddresses; ii++) {
 		dataRef = (CFMutableDataRef)CFArrayGetValueAtIndex(addressArray, ii);
 		if (!dataRef)
 			continue;
+        
 		conn = (struct connectAddress *)((void *)CFDataGetMutableBytePtr(dataRef));
 		if (!conn)
 			continue;
@@ -463,11 +528,15 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 			/* Socket called failed, so skip this address */
 			continue;
 		}
-		/* Connect to the addresses */
-		if (conn->addr.sa_family == AF_NETBIOS)
+        
+		/* Connect to the address */
+		if (conn->addr.sa_family == AF_NETBIOS) {
 			error = connect(conn->so, (struct sockaddr *)&conn->nb.snb_addrin, conn->nb.snb_addrin.sin_len);
-		else
+        }
+		else {
 			error = connect(conn->so, &conn->addr, conn->addr.sa_len);
+        }
+        
 		if (error < 0) {
 			/* This is a non blocking, so we expect EINPROGRESS */
 			if (errno == EINPROGRESS) {
@@ -484,9 +553,6 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 			}
 			continue;
 		}
-		/* Connection competed we are done, return this connection entry */
-		*dest = conn;
-		goto done;
 	}
 	
 	/* Wait for one or more connects to complete */
@@ -494,6 +560,7 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 		tv.tv_sec = kPollSeconds; 
 		tv.tv_usec = 0; 
 		error = select(nfds + 1, NULL, &writefds, NULL, &tv);
+        
 		if (error < 0) {
 			/* We treat EAGAIN or EINTR the same as a timeout */
 			if ((errno == EAGAIN) || (errno == EINTR)) {
@@ -506,6 +573,7 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 				goto done;
 			}
 		}
+        
 		if (error > 0) {
 			/* One or more sockets finished */
 			nfds = 0;
@@ -539,10 +607,11 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 				 */
 				dummy = sizeof(int); 
 				if (getsockopt(conn->so, SOL_SOCKET, SO_ERROR, (void*)(&error), &dummy) < 0) {
-					error = errno;	/* Hanle this below */
+					error = errno;	/* Handle this below */
 					smb_log_info("%s: getsockopt failed, syserr = %s", 
 								 ASL_LEVEL_DEBUG, __FUNCTION__, strerror(errno));
 				}
+                
 				if (error) {
 					if (error != EINPROGRESS) {
 						smb_log_info("%s: Connection failed, syserr = %s", 
@@ -559,9 +628,43 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 					error = 0;
 					continue;
 				}
-				/* Connection competed we are done, return this connection entry */
-				*dest = conn;
-				goto done;
+                
+				/* 
+                 * A connection completed. If its port 445, then we are done.
+                 * If its port 139, check the others and see if we have a port 
+                 * 445 completed yet. We prefer port 445 over 139.
+                 */
+                switch (conn->addr.sa_family) {
+                    case AF_NETBIOS:
+                        port = ntohs(conn->nb.snb_addrin.sin_port);
+                        break;
+                    case PF_INET6:
+                        port = ntohs(conn->in6.sin6_port);
+                        break;
+                        
+                    default:
+                        /* Must be IPv4 */
+                        port = ntohs(conn->in4.sin_port);
+                        break;
+                }
+                
+                if (port == SMB_TCP_PORT_445) {
+                    if (conn_port445 == NULL) {
+                        /* save the first one that connected */
+                        conn_port445 = conn;
+                    }
+                }
+                else {
+                    if (conn_port139 == NULL) {
+                        /* save the first one that connected */
+                        conn_port139 = conn;
+                    }
+                }
+
+                if (conn_port445 != NULL) {
+                    /* Found a port 445, so we are done */
+                    goto done;
+                }
 			}
 		} else {
 			/* time limit expired */
@@ -573,7 +676,18 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 				goto done;
 			}
 			
-			/* we are going to do the select call again, so setup the FD list */
+            if ((conn_port139 != NULL) && (totalWaitTime > kPollSeconds)) {
+                /* 
+                 * Found a port 139 connection, we waited one more time to see
+                 * if port 445 connection will be found and it was not found
+                 * so just use the 139 connection. I dont think this can ever 
+                 * happen as port 445 always seems to be supported and found.
+                 */
+                goto done;
+            }
+
+			
+            /* we are going to do the select call again, so setup the FD list */
 			nfds = 0;
 			for (ii = 0; ii < numAddresses; ii++) {
 				dataRef = (CFMutableDataRef)CFArrayGetValueAtIndex(addressArray, ii);
@@ -596,8 +710,20 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 	}
 	
 done:
+    if (conn_port445 != NULL) {
+        *dest = conn_port445;
+    }
+    else {
+        if (conn_port139 != NULL) {
+            smb_log_info("%s: Using port 139 family = %d",
+                         ASL_LEVEL_ERR, __FUNCTION__, conn->addr.sa_family);
+            *dest = conn_port139;
+        }
+    }
+    
 	if (!error && (*dest == NULL))
 		error = ETIMEDOUT;
+    
 	/* close all open sockets */
 	for (ii = 0; ii < numAddresses; ii++) {
 		dataRef = (CFMutableDataRef)CFArrayGetValueAtIndex(addressArray, ii);
@@ -609,6 +735,7 @@ done:
 		
 		if (conn->so != -1)
 			close (conn->so);
-	}	
+	}
+    
 	return error;
 }

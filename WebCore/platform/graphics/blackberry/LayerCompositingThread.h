@@ -35,8 +35,11 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "FilterOperations.h"
 #include "FloatQuad.h"
+#include "LayerAnimation.h"
 #include "LayerData.h"
+#include "LayerFilterRenderer.h"
 #include "LayerRendererSurface.h"
 #include "LayerTiler.h"
 
@@ -47,46 +50,121 @@ namespace BlackBerry {
 namespace Platform {
 namespace Graphics {
 class Buffer;
+class GLES2Program;
 }
 }
 }
 
 namespace WebCore {
 
+class LayerCompositingThreadClient;
 class LayerRenderer;
+
+class LayerOverride {
+public:
+    static PassOwnPtr<LayerOverride> create() { return adoptPtr(new LayerOverride()); }
+
+    bool isPositionSet() const { return m_positionSet; }
+    FloatPoint position() const { return m_position; }
+    void setPosition(const FloatPoint& position) { m_position = position; m_positionSet = true; }
+
+    bool isAnchorPointSet() const { return m_anchorPointSet; }
+    FloatPoint anchorPoint() const { return m_anchorPoint; }
+    void setAnchorPoint(const FloatPoint& anchorPoint) { m_anchorPoint = anchorPoint; m_anchorPointSet = true; }
+
+    bool isBoundsSet() const { return m_boundsSet; }
+    IntSize bounds() const { return m_bounds; }
+    void setBounds(const IntSize& bounds) { m_bounds = bounds; m_boundsSet = true; }
+
+    bool isTransformSet() const { return m_transformSet; }
+    const TransformationMatrix& transform() const { return m_transform; }
+    void setTransform(const TransformationMatrix& transform) { m_transform = transform; m_transformSet = true; }
+
+    bool isOpacitySet() const { return m_opacitySet; }
+    float opacity() const { return m_opacity; }
+    void setOpacity(float opacity) { m_opacity = opacity; m_opacitySet = true; }
+
+    const Vector<RefPtr<LayerAnimation> >& animations() const { return m_animations; }
+    void addAnimation(PassRefPtr<LayerAnimation> animation) { m_animations.append(animation); }
+    void removeAnimation(const String& name);
+
+private:
+    LayerOverride()
+        : m_opacity(1.0)
+        , m_positionSet(false)
+        , m_anchorPointSet(false)
+        , m_boundsSet(false)
+        , m_transformSet(false)
+        , m_opacitySet(false)
+    {
+    }
+
+    FloatPoint m_position;
+    FloatPoint m_anchorPoint;
+    IntSize m_bounds;
+    TransformationMatrix m_transform;
+    float m_opacity;
+
+    Vector<RefPtr<LayerAnimation> > m_animations;
+
+    unsigned m_positionSet : 1;
+    unsigned m_anchorPointSet : 1;
+    unsigned m_boundsSet : 1;
+    unsigned m_transformSet : 1;
+    unsigned m_opacitySet : 1;
+};
+
+class LayerFilterRendererAction;
 
 class LayerCompositingThread : public ThreadSafeRefCounted<LayerCompositingThread>, public LayerData, public BlackBerry::Platform::GuardedPointerBase {
 public:
-    static PassRefPtr<LayerCompositingThread> create(LayerType, PassRefPtr<LayerTiler>);
+    static PassRefPtr<LayerCompositingThread> create(LayerType, LayerCompositingThreadClient*);
+
+    LayerCompositingThreadClient* client() const { return m_client; }
+    void setClient(LayerCompositingThreadClient* client) { m_client = client; }
 
     // Thread safe
     void setPluginView(PluginView*);
 #if ENABLE(VIDEO)
     void setMediaPlayer(MediaPlayer*);
 #endif
-    void clearAnimations();
 
     // Not thread safe
+
+    // These will be overwritten on the next commit if this layer has a LayerWebKitThread counterpart.
+    // Useful for stand-alone layers that are created and managed on the compositing thread.
+    // These functions can also be used to update animated properties in LayerAnimation.
+    void setPosition(const FloatPoint& position) { m_position = position; }
+    void setAnchorPoint(const FloatPoint& anchorPoint) { m_anchorPoint = anchorPoint; }
+    void setBounds(const IntSize& bounds) { m_bounds = bounds; }
+    void setSizeIsScaleInvariant(bool invariant) { m_sizeIsScaleInvariant = invariant; }
+    void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
+    void setOpacity(float opacity) { m_opacity = opacity; }
+    void addSublayer(LayerCompositingThread*);
+    void removeFromSuperlayer();
+    void setNeedsTexture(bool needsTexture) { m_needsTexture = needsTexture; }
+
+    void commitPendingTextureUploads();
 
     // Returns true if we have an animation
     bool updateAnimations(double currentTime);
     void updateTextureContentsIfNeeded();
-    void bindContentsTexture()
-    {
-        if (m_tiler)
-            m_tiler->bindContentsTexture();
-    }
+    LayerTexture* contentsTexture();
 
     const LayerCompositingThread* rootLayer() const;
     void setSublayers(const Vector<RefPtr<LayerCompositingThread> >&);
-    const Vector<RefPtr<LayerCompositingThread> >& getSublayers() const { return m_sublayers; }
+    const Vector<RefPtr<LayerCompositingThread> >& sublayers() const { return m_sublayers; }
     void setSuperlayer(LayerCompositingThread* superlayer) { m_superlayer = superlayer; }
     LayerCompositingThread* superlayer() const { return m_superlayer; }
 
     // The layer renderer must be set if the layer has been rendered
+    LayerRenderer* layerRenderer() const { return m_layerRenderer; }
     void setLayerRenderer(LayerRenderer*);
 
-    void setDrawTransform(const TransformationMatrix&);
+    // The draw transform expects the origin to be located at the center of the layer.
+    FloatPoint origin() const { return FloatPoint(m_bounds.width() / 2.0f, m_bounds.height() / 2.0f); }
+
+    void setDrawTransform(double scale, const TransformationMatrix& modelViewMatrix, const TransformationMatrix& projectionMatrix);
     const TransformationMatrix& drawTransform() const { return m_drawTransform; }
 
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
@@ -102,17 +180,25 @@ public:
     void setReplicaLayer(LayerCompositingThread* layer) { m_replicaLayer = layer; }
     LayerCompositingThread* replicaLayer() const { return m_replicaLayer.get(); }
 
-    FloatRect getDrawRect() const { return m_drawRect; }
-    const FloatQuad& getTransformedBounds() const { return m_transformedBounds; }
-    FloatQuad getTransformedHolePunchRect() const;
+    // These use normalized device coordinates
+    FloatRect boundingBox() const { return m_boundingBox; }
+    // The bounds are processed according to http://www.w3.org/TR/css3-transforms paragraph 6.2, which can result in a polygon with more than 4 sides.
+    const Vector<FloatPoint, 4>& transformedBounds() const { return m_transformedBounds; }
+    const Vector<float, 4>& ws() const { return m_ws; }
+
+    enum TextureCoordinateOrientation {
+        RightSideUp = 0,
+        UpsideDown
+    };
+
+    const Vector<FloatPoint>& textureCoordinates(TextureCoordinateOrientation = RightSideUp) const;
+    FloatQuad transformedHolePunchRect() const;
+    float centerW() const { return m_centerW; }
 
     void deleteTextures();
 
-    void drawTextures(int positionLocation, int texCoordLocation, const FloatRect& visibleRect);
-    bool hasMissingTextures() const { return m_tiler ? m_tiler->hasMissingTextures() : false; }
-    void drawMissingTextures(int positionLocation, int texCoordLocation, const FloatRect& visibleRect);
-    void drawSurface(const TransformationMatrix&, LayerCompositingThread* mask, int positionLocation, int texCoordLocation);
-    bool isDirty() const { return m_tiler ? m_tiler->hasDirtyTiles() : false; }
+    void drawTextures(const BlackBerry::Platform::Graphics::GLES2Program&, double scale, const FloatRect& visibleRect, const FloatRect& clipRect);
+    void drawSurface(const BlackBerry::Platform::Graphics::GLES2Program&, const TransformationMatrix&, LayerCompositingThread* mask);
 
     void releaseTextureResources();
 
@@ -131,25 +217,34 @@ public:
     // this allows you to do it from the compositing thread.
     void scheduleCommit();
 
-    // These two functions are used to update animated properties in LayerAnimation.
-    void setOpacity(float opacity) { m_opacity = opacity; }
-    void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
-
     bool hasRunningAnimations() const { return !m_runningAnimations.isEmpty(); }
 
     bool hasVisibleHolePunchRect() const;
+
+    void addAnimation(LayerAnimation* animation) { m_runningAnimations.append(animation); }
+    void removeAnimation(const String& name);
+
+    void setRunningAnimations(const Vector<RefPtr<LayerAnimation> >& animations) { m_runningAnimations = animations; }
+    void setSuspendedAnimations(const Vector<RefPtr<LayerAnimation> >& animations) { m_suspendedAnimations = animations; }
+
+    LayerOverride* override();
+    void clearOverride();
+
+#if ENABLE(CSS_FILTERS)
+    bool filterOperationsChanged() const { return m_filterOperationsChanged; }
+    void setFilterOperationsChanged(bool changed) { m_filterOperationsChanged = changed; }
+
+    Vector<RefPtr<LayerFilterRendererAction> > filterActions() const { return m_filterActions; }
+    void setFilterActions(const Vector<RefPtr<LayerFilterRendererAction> >& actions) { m_filterActions = actions; }
+#endif
 
 protected:
     virtual ~LayerCompositingThread();
 
 private:
-    LayerCompositingThread(LayerType, PassRefPtr<LayerTiler>);
+    LayerCompositingThread(LayerType, LayerCompositingThreadClient*);
 
     void updateTileContents(const IntRect& tile);
-
-    void removeFromSuperlayer();
-
-    size_t numSublayers() const { return m_sublayers.size(); }
 
     // Returns the index of the sublayer or -1 if not found.
     int indexOfSublayer(const LayerCompositingThread*);
@@ -164,9 +259,11 @@ private:
     LayerCompositingThread* m_superlayer;
 
     // Vertex data for the bounds of this layer
-    FloatQuad m_transformedBounds;
-    // The bounding rectangle of the transformed layer
-    FloatRect m_drawRect;
+    Vector<FloatPoint, 4> m_transformedBounds;
+    Vector<float, 4> m_ws;
+    Vector<FloatPoint> m_textureCoordinates; // Only used when a 3D layer is clipped against z = 0
+    float m_centerW;
+    FloatRect m_boundingBox;
 
     OwnPtr<LayerRendererSurface> m_layerRendererSurface;
 
@@ -182,7 +279,16 @@ private:
     bool m_visible;
     bool m_commitScheduled;
 
-    RefPtr<LayerTiler> m_tiler;
+    Vector<RefPtr<LayerAnimation> > m_runningAnimations;
+    Vector<RefPtr<LayerAnimation> > m_suspendedAnimations;
+
+    OwnPtr<LayerOverride> m_override;
+    LayerCompositingThreadClient* m_client;
+
+#if ENABLE(CSS_FILTERS)
+    bool m_filterOperationsChanged;
+    Vector<RefPtr<LayerFilterRendererAction> > m_filterActions;
+#endif
 };
 
 } // namespace WebCore
@@ -200,8 +306,8 @@ inline void ThreadSafeRefCounted<WebCore::LayerCompositingThread>::deref()
     if (derefBase()) {
         // Delete on the compositing thread.
         BlackBerry::Platform::GuardedPointerDeleter::deleteOnThread(
-                BlackBerry::Platform::userInterfaceThreadMessageClient(),
-                static_cast<WebCore::LayerCompositingThread*>(this));
+            BlackBerry::Platform::userInterfaceThreadMessageClient(),
+            static_cast<WebCore::LayerCompositingThread*>(this));
     }
 }
 

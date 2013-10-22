@@ -65,7 +65,7 @@ void Requirement::validate(const Requirement::Context &ctx, OSStatus failure /* 
 
 bool Requirement::validates(const Requirement::Context &ctx, OSStatus failure /* = errSecCSReqFailed */) const
 {
-	CODESIGN_EVAL_REQINT_START((void*)this, this->length());
+	CODESIGN_EVAL_REQINT_START((void*)this, (int)this->length());
 	switch (kind()) {
 	case exprForm:
 		if (Requirement::Interpreter(this, &ctx).evaluate()) {
@@ -105,7 +105,7 @@ SecCertificateRef Requirement::Context::cert(int ix) const
 unsigned int Requirement::Context::certCount() const
 {
 	if (certs)
-		return CFArrayGetCount(certs);
+		return (unsigned int)CFArrayGetCount(certs);
 	else
 		return 0;
 }

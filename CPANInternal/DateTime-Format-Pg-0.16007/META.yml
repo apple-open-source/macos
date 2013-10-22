@@ -1,0 +1,28 @@
+---
+abstract: 'Parse and format PostgreSQL dates and times'
+author:
+  - 'Daisuke Maki <daisuke@endeworks.jp>'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+  Test::More: 0
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+generated_by: 'Module::Install version 1.01'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DateTime-Format-Pg
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  DateTime: 0.10
+  DateTime::Format::Builder: 0.72
+  DateTime::TimeZone: 0.05
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: git://github.com/lestrrat/DateTime-Format-Pg.git
+version: 0.16007

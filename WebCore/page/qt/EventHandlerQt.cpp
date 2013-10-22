@@ -28,7 +28,7 @@
 #include "config.h"
 #include "EventHandler.h"
 
-#include "ClipboardQt.h"
+#include "Clipboard.h"
 #include "Cursor.h"
 #include "Document.h"
 #include "EventNames.h"
@@ -50,12 +50,6 @@
 #include "RenderWidget.h"
 #include "Scrollbar.h"
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-QT_BEGIN_NAMESPACE
-Q_GUI_EXPORT extern bool qt_tab_all_widgets; // from qapplication.cpp
-QT_END_NAMESPACE
-#endif
-
 namespace WebCore {
 
 #if defined(Q_WS_MAC)
@@ -66,11 +60,7 @@ const double EventHandler::TextDragDelay = 0.0;
 
 bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
     return !isKeyboardOptionTab(event);
-#else
-    return (isKeyboardOptionTab(event) ? !qt_tab_all_widgets : qt_tab_all_widgets);
-#endif
 }
 
 void EventHandler::focusDocumentView()
@@ -101,12 +91,12 @@ bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widge
     if (!widget->isFrameView())
         return false;
 
-    return static_cast<FrameView*>(widget)->frame()->eventHandler()->handleWheelEvent(event);
+    return toFrameView(widget)->frame()->eventHandler()->handleWheelEvent(event);
 }
 
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
-    return ClipboardQt::create(ClipboardWritable, m_frame, Clipboard::DragAndDrop);
+    return Clipboard::createForDragAndDrop();
 }
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)

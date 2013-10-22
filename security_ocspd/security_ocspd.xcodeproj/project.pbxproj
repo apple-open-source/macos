@@ -9,16 +9,13 @@
 /* Begin PBXBuildFile section */
 		050CCC050A115CD5004DFCA9 /* trustSettings.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 050CCC030A115CD5004DFCA9 /* trustSettings.cpp */; };
 		051BDB89069B37F800F9D07E /* ocspdServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 051BDB88069B37F800F9D07E /* ocspdServer.cpp */; };
-		05296A40069F254C003D8DB7 /* ocspdNetwork.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05296A3F069F254C003D8DB7 /* ocspdNetwork.cpp */; };
 		0537EEC7069B74E500EFFADD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0537EEC6069B74E500EFFADD /* CoreFoundation.framework */; };
-		056980E4069B75B500E1A3BB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 056980E3069B75B500E1A3BB /* IOKit.framework */; };
 		056FCEBE069B4E3600F710C4 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 056FCEBD069B4E3600F710C4 /* main.cpp */; };
 		0586E65E069CB9C300F6FAAA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0586E65D069CB9C300F6FAAA /* Security.framework */; };
 		05A7264F09EFFA1900C4F2CB /* ocspd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 05A7264D09EFFA1000C4F2CB /* ocspd.1 */; };
 		05B8158B070C46F400F15E01 /* crlRefresh.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05B8158A070C46F400F15E01 /* crlRefresh.cpp */; };
 		05B852A50A71666800CD4F68 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05B852A40A71666800CD4F68 /* SystemConfiguration.framework */; };
 		05B904E606A05DD7008F547D /* ocspdDb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05B904E406A05DC3008F547D /* ocspdDb.cpp */; };
-		05BCD7E4069F322C00A79292 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05BCD7E3069F322C00A79292 /* CoreServices.framework */; };
 		05DC26330A49A303008EAB6F /* com.apple.ocspd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 05DC26320A49A303008EAB6F /* com.apple.ocspd.plist */; };
 		05E6693A070B38730079A61A /* LDAP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05E66939070B38730079A61A /* LDAP.framework */; };
 		05E66997070B49580079A61A /* crlDb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05E66996070B49580079A61A /* crlDb.cpp */; };
@@ -29,6 +26,8 @@
 		18A25C4C14753CC3004F59F8 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18A25C4B14753CC3004F59F8 /* libbsm.dylib */; };
 		18B9656F1472FA93005A4D2E /* libsecurity_ocspd.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B9656E1472FA93005A4D2E /* libsecurity_ocspd.a */; };
 		18B965711472FAA2005A4D2E /* libsecurity_cdsa_utils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965701472FAA2005A4D2E /* libsecurity_cdsa_utils.a */; };
+		BED2547D15F8031100DBD0D1 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05BCD7E3069F322C00A79292 /* CoreServices.framework */; };
+		BED2547F15F8036C00DBD0D1 /* ocspdNetwork.mm in Sources */ = {isa = PBXBuildFile; fileRef = BED2547E15F8036C00DBD0D1 /* ocspdNetwork.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -61,7 +60,6 @@
 		05296A3F069F254C003D8DB7 /* ocspdNetwork.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ocspdNetwork.cpp; sourceTree = "<group>"; };
 		0537EEC6069B74E500EFFADD /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		05576D6D0731653A009F4FDA /* attachCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = attachCommon.h; sourceTree = "<group>"; };
-		056980E3069B75B500E1A3BB /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		056FCEBD069B4E3600F710C4 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		056FCEBF069B4E8B00F710C4 /* ocspdServer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ocspdServer.h; sourceTree = "<group>"; };
 		056FCF71069B5C1000F710C4 /* ocspd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ocspd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -87,6 +85,7 @@
 		18B965721472FACF005A4D2E /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
 		18B965741472FAEA005A4D2E /* libsecurity_cdsa_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utilities.a; path = /usr/local/lib/libsecurity_cdsa_utilities.a; sourceTree = "<absolute>"; };
 		18B965771472FB0D005A4D2E /* libsecurity_cdsa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_client.a; path = /usr/local/lib/libsecurity_cdsa_client.a; sourceTree = "<absolute>"; };
+		BED2547E15F8036C00DBD0D1 /* ocspdNetwork.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ocspdNetwork.mm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -101,11 +100,10 @@
 				185A91751475A19C002595F6 /* libsecurity_utilities.a in Frameworks */,
 				18B9656F1472FA93005A4D2E /* libsecurity_ocspd.a in Frameworks */,
 				0537EEC7069B74E500EFFADD /* CoreFoundation.framework in Frameworks */,
-				056980E4069B75B500E1A3BB /* IOKit.framework in Frameworks */,
 				0586E65E069CB9C300F6FAAA /* Security.framework in Frameworks */,
-				05BCD7E4069F322C00A79292 /* CoreServices.framework in Frameworks */,
 				05E6693A070B38730079A61A /* LDAP.framework in Frameworks */,
 				05B852A50A71666800CD4F68 /* SystemConfiguration.framework in Frameworks */,
+				BED2547D15F8031100DBD0D1 /* CoreServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -126,6 +124,7 @@
 				05B904E406A05DC3008F547D /* ocspdDb.cpp */,
 				05296A3E069F253F003D8DB7 /* ocspdNetwork.h */,
 				05296A3F069F254C003D8DB7 /* ocspdNetwork.cpp */,
+				BED2547E15F8036C00DBD0D1 /* ocspdNetwork.mm */,
 				056FCEBF069B4E8B00F710C4 /* ocspdServer.h */,
 				051BDB88069B37F800F9D07E /* ocspdServer.cpp */,
 				050CCC030A115CD5004DFCA9 /* trustSettings.cpp */,
@@ -145,7 +144,6 @@
 				05B852A40A71666800CD4F68 /* SystemConfiguration.framework */,
 				05E66939070B38730079A61A /* LDAP.framework */,
 				05BCD7E3069F322C00A79292 /* CoreServices.framework */,
-				056980E3069B75B500E1A3BB /* IOKit.framework */,
 				0537EEC6069B74E500EFFADD /* CoreFoundation.framework */,
 				0586E65D069CB9C300F6FAAA /* Security.framework */,
 			);
@@ -248,12 +246,12 @@
 			files = (
 				051BDB89069B37F800F9D07E /* ocspdServer.cpp in Sources */,
 				056FCEBE069B4E3600F710C4 /* main.cpp in Sources */,
-				05296A40069F254C003D8DB7 /* ocspdNetwork.cpp in Sources */,
 				05B904E606A05DD7008F547D /* ocspdDb.cpp in Sources */,
 				05E66997070B49580079A61A /* crlDb.cpp in Sources */,
 				05E669A9070B4C6A0079A61A /* attachCommon.cpp in Sources */,
 				05B8158B070C46F400F15E01 /* crlRefresh.cpp in Sources */,
 				050CCC050A115CD5004DFCA9 /* trustSettings.cpp in Sources */,
+				BED2547F15F8036C00DBD0D1 /* ocspdNetwork.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -270,6 +268,7 @@
 					"$(SRCROOT)/common",
 				);
 				INSTALL_PATH = /usr/sbin;
+				RUN_CLANG_STATIC_ANALYZER = YES;
 			};
 			name = Debug;
 		};

@@ -82,8 +82,8 @@ public:
     void dispose();
 #endif
 
-    void encode(ArgumentEncoder*) const;
-    static bool decode(ArgumentDecoder*, Attachment&);
+    void encode(ArgumentEncoder&) const;
+    static bool decode(ArgumentDecoder&, Attachment&);
     
 private:
     Type m_type;

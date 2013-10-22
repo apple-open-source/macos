@@ -21,7 +21,6 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/ADT/SmallVector.h"
 
 #define GET_SUBTARGETINFO_TARGET_DESC
 #define GET_SUBTARGETINFO_CTOR
@@ -40,10 +39,10 @@ unsigned char X86Subtarget::
 ClassifyBlockAddressReference() const {
   if (isPICStyleGOT())    // 32-bit ELF targets.
     return X86II::MO_GOTOFF;
-  
+
   if (isPICStyleStubPIC())   // Darwin/32 in PIC mode.
     return X86II::MO_PIC_BASE_OFFSET;
-  
+
   // Direct static reference to label.
   return X86II::MO_NO_FLAG;
 }
@@ -70,7 +69,7 @@ ClassifyGlobalReference(const GlobalValue *GV, const TargetMachine &TM) const {
     // Large model never uses stubs.
     if (TM.getCodeModel() == CodeModel::Large)
       return X86II::MO_NO_FLAG;
-      
+
     if (isTargetDarwin()) {
       // If symbol visibility is hidden, the extra load is not needed if
       // target is x86-64 or the symbol is definitely defined in the current
@@ -88,18 +87,18 @@ ClassifyGlobalReference(const GlobalValue *GV, const TargetMachine &TM) const {
 
     return X86II::MO_NO_FLAG;
   }
-  
+
   if (isPICStyleGOT()) {   // 32-bit ELF targets.
     // Extra load is needed for all externally visible.
     if (GV->hasLocalLinkage() || GV->hasHiddenVisibility())
       return X86II::MO_GOTOFF;
     return X86II::MO_GOT;
   }
-  
+
   if (isPICStyleStubPIC()) {  // Darwin/32 in PIC mode.
     // Determine whether we have a stub reference and/or whether the reference
     // is relative to the PIC base or not.
-    
+
     // If this is a strong reference to a definition, it is definitely not
     // through a stub.
     if (!isDecl && !GV->isWeakForLinker())
@@ -109,26 +108,26 @@ ClassifyGlobalReference(const GlobalValue *GV, const TargetMachine &TM) const {
     // normal $non_lazy_ptr stub because this symbol might be resolved late.
     if (!GV->hasHiddenVisibility())  // Non-hidden $non_lazy_ptr reference.
       return X86II::MO_DARWIN_NONLAZY_PIC_BASE;
-    
+
     // If symbol visibility is hidden, we have a stub for common symbol
     // references and external declarations.
     if (isDecl || GV->hasCommonLinkage()) {
       // Hidden $non_lazy_ptr reference.
       return X86II::MO_DARWIN_HIDDEN_NONLAZY_PIC_BASE;
     }
-    
+
     // Otherwise, no stub.
     return X86II::MO_PIC_BASE_OFFSET;
   }
-  
+
   if (isPICStyleStubNoDynamic()) {  // Darwin/32 in -mdynamic-no-pic mode.
     // Determine whether we have a stub reference.
-    
+
     // If this is a strong reference to a definition, it is definitely not
     // through a stub.
     if (!isDecl && !GV->isWeakForLinker())
       return X86II::MO_NO_FLAG;
-    
+
     // Unless we have a symbol with hidden visibility, we have to go through a
     // normal $non_lazy_ptr stub because this symbol might be resolved late.
     if (!GV->hasHiddenVisibility())  // Non-hidden $non_lazy_ptr reference.
@@ -137,7 +136,7 @@ ClassifyGlobalReference(const GlobalValue *GV, const TargetMachine &TM) const {
     // Otherwise, no stub.
     return X86II::MO_NO_FLAG;
   }
-  
+
   // Direct static reference to global.
   return X86II::MO_NO_FLAG;
 }
@@ -164,17 +163,6 @@ bool X86Subtarget::IsLegalToCallImmediateAddr(const TargetMachine &TM) const {
   return isTargetELF() || TM.getRelocationModel() == Reloc::Static;
 }
 
-/// getSpecialAddressLatency - For targets where it is beneficial to
-/// backschedule instructions that compute addresses, return a value
-/// indicating the number of scheduling cycles of backscheduling that
-/// should be attempted.
-unsigned X86Subtarget::getSpecialAddressLatency() const {
-  // For x86 out-of-order targets, back-schedule address computations so
-  // that loads and stores aren't blocked.
-  // This value was chosen arbitrarily.
-  return 200;
-}
-
 void X86Subtarget::AutoDetectSubtargetFeatures() {
   unsigned EAX = 0, EBX = 0, ECX = 0, EDX = 0;
   unsigned MaxLevel;
@@ -197,24 +185,32 @@ void X86Subtarget::AutoDetectSubtargetFeatures() {
   if ((ECX >> 9)  & 1) { X86SSELevel = SSSE3; ToggleFeature(X86::FeatureSSSE3);}
   if ((ECX >> 19) & 1) { X86SSELevel = SSE41; ToggleFeature(X86::FeatureSSE41);}
   if ((ECX >> 20) & 1) { X86SSELevel = SSE42; ToggleFeature(X86::FeatureSSE42);}
-  // FIXME: AVX codegen support is not ready.
-  //if ((ECX >> 28) & 1) { HasAVX = true;  ToggleFeature(X86::FeatureAVX); }
+  if ((ECX >> 28) & 1) { X86SSELevel = AVX;   ToggleFeature(X86::FeatureAVX); }
 
   bool IsIntel = memcmp(text.c, "GenuineIntel", 12) == 0;
   bool IsAMD   = !IsIntel && memcmp(text.c, "AuthenticAMD", 12) == 0;
 
-  if (IsIntel && ((ECX >> 1) & 0x1)) {
-    HasCLMUL = true;
-    ToggleFeature(X86::FeatureCLMUL);
+  if ((ECX >> 1) & 0x1) {
+    HasPCLMUL = true;
+    ToggleFeature(X86::FeaturePCLMUL);
   }
-  if (IsIntel && ((ECX >> 23) & 0x1)) {
+  if ((ECX >> 23) & 0x1) {
     HasPOPCNT = true;
     ToggleFeature(X86::FeaturePOPCNT);
   }
-  if (IsIntel && ((ECX >> 25) & 0x1)) {
+  if ((ECX >> 25) & 0x1) {
     HasAES = true;
     ToggleFeature(X86::FeatureAES);
   }
+  if ((ECX >> 29) & 0x1) {
+    HasF16C = true;
+    ToggleFeature(X86::FeatureF16C);
+  }
+  if (IsIntel && ((ECX >> 30) & 0x1)) {
+    HasRDRAND = true;
+    ToggleFeature(X86::FeatureRDRAND);
+  }
+
   if ((ECX >> 13) & 0x1) {
     HasCmpxchg16b = true;
     ToggleFeature(X86::FeatureCMPXCHG16B);
@@ -229,11 +225,25 @@ void X86Subtarget::AutoDetectSubtargetFeatures() {
       IsBTMemSlow = true;
       ToggleFeature(X86::FeatureSlowBTMem);
     }
+
     // If it's Nehalem, unaligned memory access is fast.
-    // FIXME: Nehalem is family 6. Also include Westmere and later processors?
-    if (Family == 15 && Model == 26) {
+    // Include Westmere and Sandy Bridge as well.
+    // FIXME: add later processors.
+    if (IsIntel && ((Family == 6 && Model == 26) ||
+        (Family == 6 && Model == 44) ||
+        (Family == 6 && Model == 42))) {
       IsUAMemFast = true;
       ToggleFeature(X86::FeatureFastUAMem);
+    }
+
+    // Set processor type. Currently only Atom is detected.
+    if (Family == 6 &&
+        (Model == 28 || Model == 38 || Model == 39
+         || Model == 53 || Model == 54)) {
+      X86ProcFamily = IntelAtom;
+
+      UseLeaForSP = true;
+      ToggleFeature(X86::FeatureLeaForSP);
     }
 
     unsigned MaxExtLevel;
@@ -245,22 +255,38 @@ void X86Subtarget::AutoDetectSubtargetFeatures() {
         HasX86_64 = true;
         ToggleFeature(X86::Feature64Bit);
       }
-      if (IsAMD && ((ECX >> 6) & 0x1)) {
-        HasSSE4A = true;
-        ToggleFeature(X86::FeatureSSE4A);
+      if (IsAMD) {
+        if ((ECX >> 6) & 0x1) {
+          HasSSE4A = true;
+          ToggleFeature(X86::FeatureSSE4A);
+        }
+        if ((ECX >> 11) & 0x1) {
+          HasXOP = true;
+          ToggleFeature(X86::FeatureXOP);
+        }
+        if ((ECX >> 16) & 0x1) {
+          HasFMA4 = true;
+          ToggleFeature(X86::FeatureFMA4);
+        }
       }
-      if (IsAMD && ((ECX >> 16) & 0x1)) {
-        HasFMA4 = true;
-        ToggleFeature(X86::FeatureFMA4);
+    }
+  }
+
+  if (MaxLevel >= 7) {
+    if (!X86_MC::GetCpuIDAndInfoEx(0x7, 0x0, &EAX, &EBX, &ECX, &EDX)) {
+      if (IsIntel && (EBX & 0x1)) {
+        HasFSGSBase = true;
+        ToggleFeature(X86::FeatureFSGSBase);
       }
     }
   }
 }
 
 X86Subtarget::X86Subtarget(const std::string &TT, const std::string &CPU,
-                           const std::string &FS, 
+                           const std::string &FS,
                            unsigned StackAlignOverride, bool is64Bit)
   : X86GenSubtargetInfo(TT, CPU, FS)
+  , X86ProcFamily(Others)
   , PICStyle(PICStyles::None)
   , X86SSELevel(NoMMXSSE)
   , X863DNowLevel(NoThreeDNow)
@@ -268,12 +294,11 @@ X86Subtarget::X86Subtarget(const std::string &TT, const std::string &CPU,
   , HasX86_64(false)
   , HasPOPCNT(false)
   , HasSSE4A(false)
-  , HasAVX(false)
-  , HasAVX2(false)
   , HasAES(false)
-  , HasCLMUL(false)
-  , HasFMA3(false)
+  , HasPCLMUL(false)
+  , HasFMA(false)
   , HasFMA4(false)
+  , HasXOP(false)
   , HasMOVBE(false)
   , HasRDRAND(false)
   , HasF16C(false)
@@ -285,16 +310,20 @@ X86Subtarget::X86Subtarget(const std::string &TT, const std::string &CPU,
   , IsUAMemFast(false)
   , HasVectorUAMem(false)
   , HasCmpxchg16b(false)
-  , stackAlignment(8)
+  , UseLeaForSP(false)
+  , HasSlowDivide(false)
+  , PostRAScheduler(false)
+  , stackAlignment(4)
   // FIXME: this is a known good value for Yonah. How about others?
   , MaxInlineSizeThreshold(128)
   , TargetTriple(TT)
   , In64BitMode(is64Bit) {
   // Determine default and user specified characteristics
+  std::string CPUName = CPU;
   if (!FS.empty() || !CPU.empty()) {
-    std::string CPUName = CPU;
     if (CPUName.empty()) {
-#if defined (__x86_64__) || defined(__i386__)
+#if defined(i386) || defined(__i386__) || defined(__x86__) || defined(_M_IX86)\
+    || defined(__x86_64__) || defined(_M_AMD64) || defined (_M_X64)
       CPUName = sys::getHostCPUName();
 #else
       CPUName = "generic";
@@ -314,6 +343,13 @@ X86Subtarget::X86Subtarget(const std::string &TT, const std::string &CPU,
     // If feature string is not empty, parse features string.
     ParseSubtargetFeatures(CPUName, FullFS);
   } else {
+    if (CPUName.empty()) {
+#if defined (__x86_64__) || defined(__i386__)
+      CPUName = sys::getHostCPUName();
+#else
+      CPUName = "generic";
+#endif
+    }
     // Otherwise, use CPUID to auto-detect feature set.
     AutoDetectSubtargetFeatures();
 
@@ -322,7 +358,7 @@ X86Subtarget::X86Subtarget(const std::string &TT, const std::string &CPU,
       HasX86_64 = true; ToggleFeature(X86::Feature64Bit);
       HasCMov = true;   ToggleFeature(X86::FeatureCMOV);
 
-      if (!HasAVX && X86SSELevel < SSE2) {
+      if (X86SSELevel < SSE2) {
         X86SSELevel = SSE2;
         ToggleFeature(X86::FeatureSSE1);
         ToggleFeature(X86::FeatureSSE2);
@@ -330,22 +366,25 @@ X86Subtarget::X86Subtarget(const std::string &TT, const std::string &CPU,
     }
   }
 
+  // CPUName may have been set by the CPU detection code. Make sure the
+  // new MCSchedModel is used.
+  InitMCProcessorInfo(CPUName, FS);
+
+  if (X86ProcFamily == IntelAtom)
+    PostRAScheduler = true;
+
+  InstrItins = getInstrItineraryForCPU(CPUName);
+
   // It's important to keep the MCSubtargetInfo feature bits in sync with
   // target data structure which is shared with MC code emitter, etc.
   if (In64BitMode)
     ToggleFeature(X86::Mode64Bit);
 
-  if (HasAVX)
-    X86SSELevel = NoMMXSSE;
-    
   DEBUG(dbgs() << "Subtarget features: SSELevel " << X86SSELevel
                << ", 3DNowLevel " << X863DNowLevel
                << ", 64bit " << HasX86_64 << "\n");
   assert((!In64BitMode || HasX86_64) &&
          "64-bit code requested on a subtarget that doesn't support it!");
-
-  if(EnableSegmentedStacks && !isTargetELF())
-    report_fatal_error("Segmented stacks are only implemented on ELF.");
 
   // Stack alignment is 16 bytes on Darwin, FreeBSD, Linux and Solaris (both
   // 32 and 64 bit) and for all 64-bit targets.
@@ -354,4 +393,13 @@ X86Subtarget::X86Subtarget(const std::string &TT, const std::string &CPU,
   else if (isTargetDarwin() || isTargetFreeBSD() || isTargetLinux() ||
            isTargetSolaris() || In64BitMode)
     stackAlignment = 16;
+}
+
+bool X86Subtarget::enablePostRAScheduler(
+           CodeGenOpt::Level OptLevel,
+           TargetSubtargetInfo::AntiDepBreakMode& Mode,
+           RegClassVector& CriticalPathRCs) const {
+  Mode = TargetSubtargetInfo::ANTIDEP_CRITICAL;
+  CriticalPathRCs.clear();
+  return PostRAScheduler && OptLevel >= CodeGenOpt::Default;
 }

@@ -29,7 +29,7 @@ int main(int argc __unused, char *argv[]) {
     // a block be able to be sent a message
     void (^callSetGlobalIntCopy)(int) = [callSetGlobalInt copy];
     if (callSetGlobalIntCopy == callSetGlobalInt) {
-        testwarn("copy looks like: %s", _Block_dump(callSetGlobalIntCopy));
+        // testwarn("copy looks like: %s", _Block_dump(callSetGlobalIntCopy));
         fail("copy is identical", argv[0]);
     }
     callSetGlobalIntCopy(10);

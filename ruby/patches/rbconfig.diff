@@ -1,24 +1,19 @@
 --- rbconfig.rb.orig	2007-09-17 14:30:50.000000000 +0200
 +++ rbconfig.rb	2007-09-17 14:33:48.000000000 +0200
-@@ -8,6 +8,14 @@
- 
-   TOPDIR = File.dirname(__FILE__).chomp!("/lib/ruby/1.8/universal-darwin9.0")
-   DESTDIR = '' unless defined? DESTDIR
-+  ARCHFLAGS = 
-+    if e = ENV['ARCHFLAGS']
-+      e
-+    elsif e = ENV['RC_ARCHS']
-+      e.split.map { |a| "-arch #{a}" }.join(' ')
-+    else
-+      '-arch i386 -arch x86_64'
-+    end
-   CONFIG = {}
-   CONFIG["DESTDIR"] = DESTDIR
-   CONFIG["INSTALL"] = '/usr/bin/install -c'
-@@ -176,3 +184,6 @@
+@@ -209,7 +209,8 @@ module RbConfig
+   CONFIG["infodir"] = "$(DESTDIR)/usr/share/info"
+   CONFIG["docdir"] = "$(datarootdir)/doc/$(PACKAGE)"
+   CONFIG["oldincludedir"] = "/usr/include"
+-  CONFIG["includedir"] = "$(prefix)/include"
++  DEFAULTSDK = ENV['SDKROOT'] || %x{xcode-select --print-path >/dev/null 2>&1 && xcrun --sdk macosx --show-sdk-path 2>/dev/null}.chomp
++  CONFIG["includedir"] = DEFAULTSDK + "$(prefix)/include"
+   CONFIG["localstatedir"] = "$(prefix)/var"
+   CONFIG["sharedstatedir"] = "$(prefix)/com"
+   CONFIG["sysconfdir"] = "$(DESTDIR)/Library/Ruby/Site"
+@@ -263,3 +263,6 @@ module RbConfig
  end
  RbConfig = Config # compatibility for ruby-1.9
  CROSS_COMPILING = nil unless defined? CROSS_COMPILING
 +RUBY_FRAMEWORK = true
-+RUBY_FRAMEWORK_VERSION = Config::CONFIG['ruby_version']
-+APPLE_GEM_HOME = File.join(Config::CONFIG['libdir'], 'ruby/gems', Config::CONFIG['ruby_version'])
++RUBY_FRAMEWORK_VERSION = RbConfig::CONFIG['ruby_version']
++APPLE_GEM_HOME = File.join(RbConfig::CONFIG['libdir'], 'ruby/gems', RbConfig::CONFIG['ruby_version'])

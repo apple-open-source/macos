@@ -33,9 +33,7 @@
 #include <Security/SecAsn1Coder.h>
 #include <CoreFoundation/CFData.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*!
 	@typedef SecOCSPRequestRef
@@ -75,8 +73,6 @@ CFDataRef SecOCSPRequestGetDER(SecOCSPRequestRef ocspRequest);
 */
 void SecOCSPRequestFinalize(SecOCSPRequestRef ocspRequest);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECOCSPREQUEST_H_ */

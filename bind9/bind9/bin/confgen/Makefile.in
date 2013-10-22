@@ -1,4 +1,4 @@
-# Copyright (C) 2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2009  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -50,15 +50,19 @@ NOSYMLIBS =	${DNSLIBS} ${ISCNOSYMLIBS} @LIBS@
 
 CONFDEPLIBS =	${DNSDEPLIBS} ${ISCDEPLIBS}
 
-SRCS=		rndc-confgen.c ddns-confgen.c
+#SRCS=		rndc-confgen.c ddns-confgen.c
+SRCS=		ddns-confgen.c
 
 SUBDIRS =	unix
 
-TARGETS =	rndc-confgen@EXEEXT@ ddns-confgen@EXEEXT@
+#TARGETS =	rndc-confgen@EXEEXT@ ddns-confgen@EXEEXT@
+TARGETS =	ddns-confgen@EXEEXT@
 
-MANPAGES =	rndc-confgen.8 ddns-confgen.8
+#MANPAGES =	rndc-confgen.8 ddns-confgen.8
+MANPAGES =	ddns-confgen.8
 
-HTMLPAGES =	rndc-confgen.html ddns-confgen.html
+#HTMLPAGES =	rndc-confgen.html ddns-confgen.html
+HTMLPAGES =	ddns-confgen.html
 
 MANOBJS =	${MANPAGES} ${HTMLPAGES}
 
@@ -91,10 +95,11 @@ installdirs:
 	$(SHELL) ${top_srcdir}/mkinstalldirs ${DESTDIR}${sbindir}
 	$(SHELL) ${top_srcdir}/mkinstalldirs ${DESTDIR}${mandir}/man8
 
-install:: rndc-confgen@EXEEXT@ ddns-confgen@EXEEXT@ installdirs
-	${LIBTOOL_MODE_INSTALL} ${INSTALL_PROGRAM} rndc-confgen@EXEEXT@ ${DESTDIR}${sbindir}
+#install:: rndc-confgen@EXEEXT@ ddns-confgen@EXEEXT@ installdirs
+install:: ddns-confgen@EXEEXT@ installdirs
+#	${LIBTOOL_MODE_INSTALL} ${INSTALL_PROGRAM} rndc-confgen@EXEEXT@ ${DESTDIR}${sbindir}
 	${LIBTOOL_MODE_INSTALL} ${INSTALL_PROGRAM} ddns-confgen@EXEEXT@ ${DESTDIR}${sbindir}
-	${INSTALL_DATA} ${srcdir}/rndc-confgen.8 ${DESTDIR}${mandir}/man8
+#	${INSTALL_DATA} ${srcdir}/rndc-confgen.8 ${DESTDIR}${mandir}/man8
 	${INSTALL_DATA} ${srcdir}/ddns-confgen.8 ${DESTDIR}${mandir}/man8
 
 clean distclean maintainer-clean::

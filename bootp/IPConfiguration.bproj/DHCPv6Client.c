@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -530,7 +530,7 @@ DHCPv6ClientRemoveAddress(DHCPv6ClientRef client, const char * label)
 	return;
     }
     if (G_IPConfiguration_verbose) {
-	my_log(LOG_NOTICE, "DHCPv6 %s: %s: removing %s",
+	my_log(LOG_DEBUG, "DHCPv6 %s: %s: removing %s",
 	       if_name(if_p), label,
 	       inet_ntop(AF_INET6, &client->our_ip,
 			 ntopbuf, sizeof(ntopbuf)));
@@ -1471,7 +1471,7 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	    }
 	    else {
 		if (G_IPConfiguration_verbose) {
-		    my_log(LOG_NOTICE, "DHCPv6 %s: Bound: removing %s",
+		    my_log(LOG_DEBUG, "DHCPv6 %s: Bound: removing %s",
 			   if_name(if_p),
 			   inet_ntop(AF_INET6, &client->our_ip,
 				     ntopbuf, sizeof(ntopbuf)));
@@ -1488,7 +1488,7 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	}
 	prefix_length = S_get_prefix_length(our_ip, if_link_index(if_p));
 	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_NOTICE,
+	    my_log(LOG_DEBUG,
 		   "DHCPv6 %s: setting %s/%d valid %d preferred %d",
 		   if_name(if_p),
 		   inet_ntop(AF_INET6, our_ip, ntopbuf, sizeof(ntopbuf)),
@@ -1795,13 +1795,14 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
 	    }
 	}
 	if (G_IPConfiguration_verbose) {
-	    char *	descr;
+	    CFMutableStringRef	str;
 
-	    descr = DHCPDUIDToString(server_id, 
-				     option_data_get_length(server_id));
-	    my_log(LOG_NOTICE, "DHCPv6 %s: Saving Advertise from %s",
-		   if_name(if_p), descr);
-	    free(descr);
+	    str = CFStringCreateMutable(NULL, 0);
+	    DHCPDUIDPrintToString(str, server_id, 
+				  option_data_get_length(server_id));
+	    my_log(LOG_DEBUG, "DHCPv6 %s: Saving Advertise from %@",
+		   if_name(if_p), str);
+	    CFRelease(str);
 	}
 	DHCPv6ClientSavePacket(client, data);
 	if (pref == kDHCPv6OptionPREFERENCEMaxValue) {
@@ -1987,7 +1988,7 @@ DHCPv6ClientAddressChanged(DHCPv6ClientRef client,
 
 boolean_t G_is_netboot;
 int G_dhcp_duid_type;
-int G_IPConfiguration_verbose = 1;
+Boolean G_IPConfiguration_verbose = TRUE;
 
 bool S_allocate_address;
 
@@ -2132,7 +2133,7 @@ main(int argc, char * argv[])
 	exit(2);
     }
     (void) openlog("DHCPv6Client", LOG_PERROR | LOG_PID, LOG_DAEMON);
-    DHCPv6SocketSetLogFile(stdout);
+    DHCPv6SocketVerbose(TRUE);
     client = DHCPv6ClientCreate(if_p);
     if (client == NULL) {
 	fprintf(stderr, "DHCPv6ClientCreate(%s) failed\n", ifname);

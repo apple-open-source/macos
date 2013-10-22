@@ -1,11 +1,11 @@
-# 
+#
 # cgihandler.rb -- CGIHandler Class
-#       
+#
 # Author: IPR -- Internet Programming with Ruby -- writers
 # Copyright (c) 2001 TAKAHASHI Masayoshi, GOTOU Yuuzou
 # Copyright (c) 2002 Internet Programming with Ruby writers. All rights
 # reserved.
-#   
+#
 # $IPR: cgihandler.rb,v 1.27 2003/03/21 19:56:01 gotoyuzo Exp $
 
 require 'rbconfig'
@@ -16,26 +16,39 @@ require 'webrick/httpservlet/abstract'
 module WEBrick
   module HTTPServlet
 
+    ##
+    # Servlet for handling CGI scripts
+    #
+    # Example:
+    #
+    #  server.mount('/cgi/my_script', WEBrick::HTTPServlet::CGIHandler,
+    #               '/path/to/my_script')
+
     class CGIHandler < AbstractServlet
-      Ruby = File::join(::Config::CONFIG['bindir'],
-                        ::Config::CONFIG['ruby_install_name'])
-      Ruby << ::Config::CONFIG['EXEEXT']
-      CGIRunner = "\"#{Ruby}\" \"#{Config::LIBDIR}/httpservlet/cgi_runner.rb\""
+      Ruby = RbConfig.ruby # :nodoc:
+      CGIRunner = "\"#{Ruby}\" \"#{WEBrick::Config::LIBDIR}/httpservlet/cgi_runner.rb\"" # :nodoc:
+
+      ##
+      # Creates a new CGI script servlet for the script at +name+
 
       def initialize(server, name)
-        super
+        super(server, name)
         @script_filename = name
         @tempdir = server[:TempDir]
         @cgicmd = "#{CGIRunner} #{server[:CGIInterpreter]}"
       end
+
+      # :stopdoc:
 
       def do_GET(req, res)
         data = nil
         status = -1
 
         cgi_in = IO::popen(@cgicmd, "wb")
-        cgi_out = Tempfile.new("webrick.cgiout.", @tempdir)
-        cgi_err = Tempfile.new("webrick.cgierr.", @tempdir)
+        cgi_out = Tempfile.new("webrick.cgiout.", @tempdir, mode: IO::BINARY)
+        cgi_out.set_encoding("ASCII-8BIT")
+        cgi_err = Tempfile.new("webrick.cgierr.", @tempdir, mode: IO::BINARY)
+        cgi_err.set_encoding("ASCII-8BIT")
         begin
           cgi_in.sync = true
           meta = req.meta_vars
@@ -46,14 +59,14 @@ module WEBrick
           end
           dump = Marshal.dump(meta)
 
-          cgi_in.write("%8d" % cgi_out.path.size)
+          cgi_in.write("%8d" % cgi_out.path.bytesize)
           cgi_in.write(cgi_out.path)
-          cgi_in.write("%8d" % cgi_err.path.size)
+          cgi_in.write("%8d" % cgi_err.path.bytesize)
           cgi_in.write(cgi_err.path)
-          cgi_in.write("%8d" % dump.size)
+          cgi_in.write("%8d" % dump.bytesize)
           cgi_in.write(dump)
 
-          if req.body and req.body.size > 0
+          if req.body and req.body.bytesize > 0
             cgi_in.write(req.body)
           end
         ensure
@@ -63,19 +76,19 @@ module WEBrick
           data = cgi_out.read
           cgi_out.close(true)
           if errmsg = cgi_err.read
-            if errmsg.size > 0
+            if errmsg.bytesize > 0
               @logger.error("CGIHandler: #{@script_filename}:\n" + errmsg)
             end
-          end 
+          end
           cgi_err.close(true)
         end
-        
+
         if status != 0
           @logger.error("CGIHandler: #{@script_filename} exit with #{status}")
         end
 
         data = "" unless data
-        raw_header, body = data.split(/^[\xd\xa]+/on, 2) 
+        raw_header, body = data.split(/^[\xd\xa]+/, 2)
         raise HTTPStatus::InternalServerError,
           "Premature end of script headers: #{@script_filename}" if body.nil?
 
@@ -102,6 +115,8 @@ module WEBrick
         res.body = body
       end
       alias do_POST do_GET
+
+      # :startdoc:
     end
 
   end

@@ -35,6 +35,12 @@ routine io_pm_get_value_int(
 ServerAuditToken token  : audit_token_t;
         in  selector    : int;
         out value       : int);
+        
+routine io_pm_set_value_int(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in  selector    : int;
+        in  value       : int);
 
 // PM Settings
 routine io_pm_force_active_settings(
@@ -84,6 +90,7 @@ routine io_pm_assertion_create(
 ServerAuditToken token  : audit_token_t;
         in  props       : pointer_t;
         out assertion_id: int;
+        out disableAppSleep: int;
         out return_code : int);
         
 routine io_pm_assertion_set_properties(
@@ -91,6 +98,8 @@ routine io_pm_assertion_set_properties(
 ServerAuditToken token  : audit_token_t;
         in  assertion_id: int;
         in  props       : pointer_t;
+        out disableAppSleep: int;
+        out enableAppSleep: int;
         out return_code : int);
 
 routine io_pm_assertion_retain_release(
@@ -98,6 +107,8 @@ routine io_pm_assertion_retain_release(
 ServerAuditToken token  : audit_token_t;
         in  assertion_id: int;
         in  action      : int;
+        out disableAppSleep: int;
+        out enableAppSleep: int;
         out return_code : int);
 
 routine io_pm_assertion_copy_details(
@@ -108,19 +119,32 @@ ServerAuditToken token  : audit_token_t;
         out assertions  : pointer_t, dealloc;
         out return_val  : int);
 
+routine io_pm_declare_system_active(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            inout state : int;
+            in props    : pointer_t;
+      inout assertion_id: int;
+      out return_code   : int);
+
 routine io_pm_declare_user_active(
             server      : mach_port_t;
 ServerAuditToken token  : audit_token_t;
            in user_type : int;
         in  props       : pointer_t;
       inout assertion_id: int;
+        out disableAppSleep: int;
+        out return_code : int);
+
+routine io_pm_declare_network_client_active(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in  props       : pointer_t;
+      inout assertion_id: int;
+        out disableAppSleep: int;
         out return_code : int);
 
 // IOPMPowerHistory
-
-routine io_pm_set_power_history_bookmark(
-            server      : mach_port_t;
-            out uuid    : string_t);
 
 routine io_pm_get_uuid(
             server      : mach_port_t;
@@ -201,6 +225,20 @@ ServerAuditToken token  : audit_token_t;
             out oldInterval   : uint32_t;
             out return_val    : int);
 
+routine io_pm_set_dw_linger_interval(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            in  newInterval   : uint32_t;
+            out oldInterval   : uint32_t;
+            out return_val    : int);
+
+routine io_pm_change_sa_assertion_behavior(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            in newFlags     : uint32_t;
+            out oldFlags    : uint32_t;
+            out return_val  : int);
+
 routine io_pm_set_sleepservice_wake_time_cap(
             server      : mach_port_t;
 ServerAuditToken token  : audit_token_t;
@@ -212,4 +250,18 @@ routine io_pm_get_capability_bits(
 ServerAuditToken token  : audit_token_t;
             out capBits : uint32_t;
             out return_val : int);
+
+routine io_pm_ctl_assertion_type(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            in assertion    : string_t;
+            in  action      : int;
+            out return_code : int);
+
+routine io_pm_assertion_notify(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            in name     : string_t;
+            in  req_type: int;
+            out return_code : int);
 

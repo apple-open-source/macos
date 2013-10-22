@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,6 +87,16 @@ EAPOLClientItemIDCreateWithProfileID(CFStringRef profileID);
  */
 EAPOLClientItemIDRef
 EAPOLClientItemIDCreateWithWLANSSID(CFDataRef ssid);
+
+/*
+ * Function: EAPOLClientItemIDCreateWithWLANDomain
+ *
+ * Purpose:
+ *   Create an EAPOLClientItemID instance based on the supplied WLAN 
+ *   Hotspot 2.0 domain name.
+ */
+EAPOLClientItemIDRef
+EAPOLClientItemIDCreateWithWLANDomain(CFStringRef domain);
 
 /*
  * Function: EAPOLClientItemIDCreateWithProfile
@@ -352,6 +362,20 @@ EAPOLClientConfigurationGetProfileWithWLANSSID(EAPOLClientConfigurationRef cfg,
 					       CFDataRef ssid);
 
 /*
+ * Function: EAPOLClientConfigurationGetProfileWithWLANDomain
+ *
+ * Purpose:
+ *   Return the profile associated with the specified WLAN 
+ *   Hotspot 2.0 domain name.
+ *
+ * Returns:
+ *   NULL if no such profile exists, non-NULL profile otherwise.
+ */
+EAPOLClientProfileRef
+EAPOLClientConfigurationGetProfileWithWLANDomain(EAPOLClientConfigurationRef cfg,
+						 CFStringRef domain);
+
+/*
  * Function: EAPOLClientConfigurationRemoveProfile
  *
  * Purpose:
@@ -374,7 +398,8 @@ EAPOLClientConfigurationRemoveProfile(EAPOLClientConfigurationRef cfg,
  * Returns:
  *   FALSE if the profile could not be added, either because:
  *   - the profile is already in the configuration, or
- *   - the profile conflicts with an existing profile (profileID or WLAN SSID)
+ *   - the profile conflicts with an existing profile
+ *     (profileID, WLAN SSID, or WLAN domain)
  *   TRUE if the profile was added successfully.
  */
 Boolean
@@ -386,8 +411,8 @@ EAPOLClientConfigurationAddProfile(EAPOLClientConfigurationRef cfg,
  *
  * Purpose:
  *   Find the profile(s) matching the specified profile.
- *   A profile is matched based on the profileID and the SSID, both of which
- *   must be unique in the configuration.
+ *   A profile is matched based on the profileID, the WLAN SSID, and
+ *   the WLAN domain, all of which must be unique in the configuration.
  *
  *   Usually invoked after calling 
  *   EAPOLClientProfileCreateWithPropertyList() to instantiate a profile
@@ -553,6 +578,7 @@ EAPOLClientConfigurationSetDefaultAuthenticationProperties(EAPOLClientConfigurat
  *	EAPOLClientProfileSetUserDefinedName
  *	EAPOLClientProfileSetAuthenticationProperties
  *	EAPOLClientProfileSetWLANSSIDAndSecurityType
+ *	EAPOLClientProfileSetWLANDomain
  *	EAPOLClientProfileSetInformation
  *	
  */
@@ -645,12 +671,55 @@ EAPOLClientProfileGetWLANSSIDAndSecurityType(EAPOLClientProfileRef profile,
  *    FALSE if there's an existing profile with the same SSID, or the
  *    security_type is not one of the defined strings above, 
  *    TRUE otherwise.
+ *
+ * Note:
+ *    EAPOLClientProfileSetWLANSSIDAndSecurityType() and
+ *    EAPOLClientProfileSetWLANDomain() are mutally exclusive. 
+ *    A given profile can only be associated with a WLAN SSID *or* a
+ *    WLAN domain and not both.
  */
 Boolean
 EAPOLClientProfileSetWLANSSIDAndSecurityType(EAPOLClientProfileRef profile,
 					     CFDataRef ssid,
 					     CFStringRef security_type);
 
+/*
+ * Function: EAPOLClientProfileGetWLANDomain
+ *
+ * Purpose:
+ *   Get the WLAN Hotspot 2.0 domain name associated with the profile.
+ *
+ * Returns:
+ *   non-NULL domain name if the profile is bound to a Hotspot 2.0 WLAN 
+ *   domain name, NULL otherwise.	
+ */
+CFStringRef
+EAPOLClientProfileGetWLANDomain(EAPOLClientProfileRef profile);
+
+/*
+ * Function: EAPOLClientProfileSetWLANDomain
+ *
+ * Purpose:
+ *   Bind the profile to a Hotspot 2.0 domain name.
+ *
+ *   Only a single profile can be associated with a particular domain name.
+ *
+ *   To un-bind the profile from the domain name, set the domain
+ *   argument to NULL.
+ *
+ * Returns:
+ *    FALSE if there's an existing profile with the same domain name,
+ *    TRUE otherwise.
+ *
+ * Note:
+ *    EAPOLClientProfileSetWLANSSIDAndSecurityType() and
+ *    EAPOLClientProfileSetWLANDomain() are mutally exclusive.
+ *    A given profile can only be associated with a WLAN SSID *or* a
+ *    WLAN domain and not both.
+ */
+Boolean
+EAPOLClientProfileSetWLANDomain(EAPOLClientProfileRef profile,
+				CFStringRef domain);
 /*
  * Function: EAPOLClientProfileSetInformation
  *

@@ -529,7 +529,7 @@ option value is "1234" then CUPS will output the string "@PJL SET PASSCODE=1234"
 
 <p>The resulting dictionary sets the page device attributes that are sent to your raster driver in the page header.</p>
 
-<h3>Custom Page Size Code</a></h3>
+<h3>Custom Page Size Code</h3>
 
 <p>There are many possible implementations of the <tt>CustomPageSize</tt> code. For CUPS raster drivers, the following code is recommended:</p>
 
@@ -542,7 +542,7 @@ option value is "1234" then CUPS will output the string "@PJL SET PASSCODE=1234"
 *CustomPageSize True: "pop pop pop &lt;&lt;/PageSize[5 -2 roll]/ImagingBBox null&gt;&gt;setpagedevice"
 </pre>
 
-<h3>Supported PostScript Operators</a></h3>
+<h3>Supported PostScript Operators</h3>
 
 <p>CUPS supports the following PostScript operators in addition to the usual PostScript number, string (literal and hex-encoded), boolean, null, and name values:</p>
 
@@ -601,7 +601,7 @@ PRE B {
 
 </blockquote>
 
-<h3>Supported Page Device Attributes</a></h3>
+<h3>Supported Page Device Attributes</h3>
 
 <p>Table 2 shows the supported page device attributes along with PostScript code examples.</p>
 
@@ -1264,6 +1264,49 @@ http://www.vendor.com/help"
 *cupsIPPSupplies: False
 </pre>
 
+
+<h3><span class='info'>CUPS 1.7/OS X 10.9</span><a name='cupsJobAccountId'>cupsJobAccountId</a></h3>
+
+<p class='summary'>*cupsJobAccountId: boolean</p>
+
+<p>This keyword defines whether the printer accepts the job-account-id IPP attribute.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify the printer accepts the job-account-id IPP attribute.</em>
+*cupsJobAccountId: True
+</pre>
+
+
+<h3><span class='info'>CUPS 1.7/OS X 10.9</span><a name='cupsJobAccountingUserId'>cupsJobAccountingUserId</a></h3>
+
+<p class='summary'>*cupsJobAccountingUserId: boolean</p>
+
+<p>This keyword defines whether the printer accepts the job-accounting-user-id IPP attribute.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify the printer accepts the job-accounting-user-id IPP attribute.</em>
+*cupsJobAccountingUserId: True
+</pre>
+
+
+<h3><span class='info'>CUPS 1.7/OS X 10.9</span><a name='cupsJobPassword'>cupsJobPassword</a></h3>
+
+<p class='summary'>*cupsJobPassword: "format"</p>
+
+<p>This keyword defines the format of the job-password IPP attribute, if supported by the printer. Currently the only supported format is "1111" indicating a 4-digit PIN code.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify the printer supports 4-digit PIN codes.</em>
+*cupsJobPassword: "1111"
+</pre>
+
+
 <h3><span class='info'>CUPS 1.2/OS X 10.5</span><a name='cupsLanguages'>cupsLanguages</a></h3>
 
 <p class='summary'>*cupsLanguages: "locale list"</p>
@@ -1278,6 +1321,21 @@ list of locale names ("en", "en_US", "fr_CA", etc.)</p>
 <em>*% Specify Canadian, UK, and US English, and Canadian and French French</em>
 *cupsLanguages: "en_CA en_UK en_US fr_CA fr_FR"
 </pre>
+
+
+<h3><span class='info'>CUPS 1.7/OS X 10.9</span><a name='cupsMandatory'>cupsMandatory</a></h3>
+
+<p class='summary'>*cupsMandatory: "attribute1 attribute2 ... attributeN"</p>
+
+<p>This keyword defines a list of IPP attributes that must be provided when submitting a print job creation request.</p>
+
+<p>Example:</p>
+
+<pre class='command'>
+<em>*% Specify that the user must supply a job-password</em>
+*cupsMandatory: "job-password job-password-encryption"
+</pre>
+
 
 <h3><a name='cupsManualCopies'>cupsManualCopies</a></h3>
 
@@ -1807,11 +1865,23 @@ the device.</p>
 
 <h2 class='title'><a name='HISTORY'>Change History</a></h2>
 
+<h3>Changes in CUPS 1.7</h3>
+
+<ul>
+
+	<li>Added <a href="#cupsJobAccountId"><tt>cupsJobAccountId</tt></a>,
+	<a href="#cupsJobAccountingUserId"><tt>cupsJobAccountingUserId</tt></a>,
+	<a href="#cupsJobPassword"><tt>cupsJobPassword</tt></a>,
+	<a href="#cupsMandatory"><tt>cupsMandatory</tt></a> keywords.</li>
+
+</ul>
+
+
 <h3>Changes in CUPS 1.6</h3>
 
 <ul>
 
-    <li>Added <a href="#cupsPageSizeCategory"><tt>cupsPageSizeCategory</tt></a> keyword (originally defined in CUPS 1.4).</li>
+	<li>Added <a href="#cupsPageSizeCategory"><tt>cupsPageSizeCategory</tt></a> keyword (originally defined in CUPS 1.4).</li>
 
 	<li>Added <a href="#cupsMaxCopies"><tt>cupsMaxCopies</tt></a> keyword.</li>
 

@@ -32,20 +32,23 @@
 
 namespace WebCore {
     
-BiquadProcessor::BiquadProcessor(float sampleRate, size_t numberOfChannels, bool autoInitialize)
+BiquadProcessor::BiquadProcessor(AudioContext* context, float sampleRate, size_t numberOfChannels, bool autoInitialize)
     : AudioDSPKernelProcessor(sampleRate, numberOfChannels)
     , m_type(LowPass)
     , m_parameter1(0)
     , m_parameter2(0)
     , m_parameter3(0)
+    , m_parameter4(0)
     , m_filterCoefficientsDirty(true)
+    , m_hasSampleAccurateValues(false)
 {
     double nyquist = 0.5 * this->sampleRate();
 
     // Create parameters for BiquadFilterNode.
-    m_parameter1 = AudioParam::create("frequency", 350.0, 10.0, nyquist);
-    m_parameter2 = AudioParam::create("Q", 1, 0.0001, 1000.0);
-    m_parameter3 = AudioParam::create("gain", 0.0, -40, 40);
+    m_parameter1 = AudioParam::create(context, "frequency", 350.0, 10.0, nyquist);
+    m_parameter2 = AudioParam::create(context, "Q", 1, 0.0001, 1000.0);
+    m_parameter3 = AudioParam::create(context, "gain", 0.0, -40, 40);
+    m_parameter4 = AudioParam::create(context, "detune", 0.0, -4800, 4800);
 
     if (autoInitialize)
         initialize();
@@ -68,21 +71,29 @@ void BiquadProcessor::checkForDirtyCoefficients()
 
     // The BiquadDSPKernel objects rely on this value to see if they need to re-compute their internal filter coefficients.
     m_filterCoefficientsDirty = false;
+    m_hasSampleAccurateValues = false;
     
-    if (m_hasJustReset) {
-        // Snap to exact values first time after reset, then smooth for subsequent changes.
-        m_parameter1->resetSmoothedValue();
-        m_parameter2->resetSmoothedValue();
-        m_parameter3->resetSmoothedValue();
+    if (m_parameter1->hasSampleAccurateValues() || m_parameter2->hasSampleAccurateValues() || m_parameter3->hasSampleAccurateValues() || m_parameter4->hasSampleAccurateValues()) {
         m_filterCoefficientsDirty = true;
-        m_hasJustReset = false;
+        m_hasSampleAccurateValues = true;
     } else {
-        // Smooth all of the filter parameters. If they haven't yet converged to their target value then mark coefficients as dirty.
-        bool isStable1 = m_parameter1->smooth();
-        bool isStable2 = m_parameter2->smooth();
-        bool isStable3 = m_parameter3->smooth();
-        if (!(isStable1 && isStable2 && isStable3))
+        if (m_hasJustReset) {
+            // Snap to exact values first time after reset, then smooth for subsequent changes.
+            m_parameter1->resetSmoothedValue();
+            m_parameter2->resetSmoothedValue();
+            m_parameter3->resetSmoothedValue();
+            m_parameter4->resetSmoothedValue();
             m_filterCoefficientsDirty = true;
+            m_hasJustReset = false;
+        } else {
+            // Smooth all of the filter parameters. If they haven't yet converged to their target value then mark coefficients as dirty.
+            bool isStable1 = m_parameter1->smooth();
+            bool isStable2 = m_parameter2->smooth();
+            bool isStable3 = m_parameter3->smooth();
+            bool isStable4 = m_parameter4->smooth();
+            if (!(isStable1 && isStable2 && isStable3 && isStable4))
+                m_filterCoefficientsDirty = true;
+        }
     }
 }
 

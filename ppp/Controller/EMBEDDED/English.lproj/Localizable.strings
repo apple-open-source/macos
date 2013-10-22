@@ -183,3 +183,4 @@
 "VPN Error 24" = "The server certificate's identity is incorrect. Contact your network administrator."; /* Server Certificate ID mismatched or unexpected */
 "VPN Error 25" = "";																	/* Plugin Update */
 "VPN Error 26" = "Please launch %@ to enable the VPN connection.";			/* plugin needs to be enabled */
+"Please install an application for %@ to enable the VPN connection." = "Please install an application for %@ to enable the VPN connection."; /* plugin needs to be enabled, and app not installed */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2006 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,11 +28,15 @@
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
-#include <netsmb/smb_conn.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_rq.h>
+#include <netsmb/smb_rq_2.h>
+#include <netsmb/smb_conn.h>
+#include <netsmb/smb_conn_2.h>
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
+#include <smbfs/smbfs_subr_2.h>
 #include "smbfs_notify_change.h"
 
 extern lck_attr_t *smbfs_lock_attr;
@@ -52,6 +56,23 @@ extern lck_grp_t *smbfs_mutex_group;
 									FILE_NOTIFY_CHANGE_SECURITY | \
 									FILE_NOTIFY_CHANGE_STREAM_SIZE | \
 									FILE_NOTIFY_CHANGE_STREAM_WRITE
+
+/* For server message notify, we set everything, which is one of the
+ * ways the server can tell it's a server message notify, and not
+ * a normal notify change type.
+ */
+#define SMBFS_SVRMSG_NOTIFY_FILTERS	FILE_NOTIFY_CHANGE_FILE_NAME | \
+                                    FILE_NOTIFY_CHANGE_DIR_NAME | \
+                                    FILE_NOTIFY_CHANGE_ATTRIBUTES | \
+                                    FILE_NOTIFY_CHANGE_SIZE	| \
+                                    FILE_NOTIFY_CHANGE_LAST_WRITE | \
+                                    FILE_NOTIFY_CHANGE_LAST_ACCESS |\
+                                    FILE_NOTIFY_CHANGE_CREATION | \
+                                    FILE_NOTIFY_CHANGE_EA | \
+                                    FILE_NOTIFY_CHANGE_SECURITY | \
+                                    FILE_NOTIFY_CHANGE_STREAM_NAME | \
+                                    FILE_NOTIFY_CHANGE_STREAM_SIZE | \
+                                    FILE_NOTIFY_CHANGE_STREAM_WRITE
 
 /*
  * notify_wakeup
@@ -95,11 +116,18 @@ reset_notify_change(struct watch_item *watchItem, int RemoveRQ)
 	struct smb_ntrq *ntp = watchItem->ntp;
 	struct smb_rq *	rqp = (watchItem->ntp) ? watchItem->ntp->nt_rq : NULL;
 	
-	if (rqp) {
+    if (watchItem->flags & SMBV_SMB2) {
+        /* Using SMB 2.x */
+        rqp = watchItem->rqp;
+    }
+    
+    if (rqp) {
 		if (RemoveRQ) {
             /* Needs to be removed from the queue */
-			smb_iod_removerq(rqp);
-            watchItem->ntp->nt_rq = NULL;
+            smb_iod_removerq(rqp);
+            if (ntp) {
+                watchItem->ntp->nt_rq = NULL;
+            }
         }
 		smb_rq_done(rqp);
 	}
@@ -107,6 +135,10 @@ reset_notify_change(struct watch_item *watchItem, int RemoveRQ)
 		smb_nt_done(ntp);
     
     watchItem->ntp = NULL;
+
+    if (watchItem->flags & SMBV_SMB2) {
+        watchItem->rqp = NULL;
+    }
 }
 
 /*
@@ -271,25 +303,36 @@ rcvd_notify_change(struct watch_item *watchItem, vfs_context_t context)
 	int error = 0;
 	uint32_t events = VNODE_EVENT_ATTRIB | VNODE_EVENT_WRITE;
 	
-	if (rqp) {
-		/* 
-		 * NOTE: smb_nt_reply calls smb_rq_reply which will remove the rqp from 
-		 * the main threads queue. So when we are done here call reset_notify_change 
-		 * but tell it not to remove the request from the queue.
-		 */
-		error = smb_nt_reply(ntp);
-		if (!error)
-			events = process_notify_change(ntp);
-		if (error == ECANCELED) {
-			/*
-			 * Either we close the file descriptor or we canceled the 
-			 * operation. Nothing else to do here just get out.
-			 */
-			SMBDEBUG("Notification for %s was canceled.\n", np->n_name);
-			goto done;
-		}
-	}
+    if (watchItem->flags & SMBV_SMB2) {
+        /* Using SMB 2.x */
+        rqp = watchItem->rqp;
+
+        if (rqp) {
+            error = smb2_smb_parse_change_notify(rqp, &events);
+        }
+    }
+    else {
+        if (rqp) {
+            /* 
+             * NOTE: smb_nt_reply calls smb_rq_reply which will remove the rqp from 
+             * the main threads queue. So when we are done here call reset_notify_change 
+             * but tell it not to remove the request from the queue.
+             */
+            error = smb_nt_reply(ntp);
+            if (!error)
+                events = process_notify_change(ntp);
+        }
+    }
 	
+    if (error == ECANCELED) {
+        /*
+         * Either we close the file descriptor or we canceled the 
+         * operation. Nothing else to do here just get out.
+         */
+        SMBDEBUG("Notification for %s was canceled.\n", np->n_name);
+        goto done;
+    }
+
 	/* Always reset the cache timer and force a lookup */
 	np->attribute_cache_timer = 0;
 	np->n_symlink_cache_timer = 0;
@@ -326,6 +369,63 @@ done:
 	return 0;
 }
 
+/*
+ * Process a svrmsg notify message from the server
+ */
+static int
+rcvd_svrmsg_notify(struct smbmount	*smp, struct watch_item *watchItem)
+{
+	struct smb_rq *	rqp;
+    uint32_t action, delay;
+	int error = 0;
+	
+    /* svrmsg notify always uses SMB 2.x */
+    rqp = watchItem->rqp;
+    
+    if (rqp == NULL) {
+        /* Not good, log an error and punt */
+        SMBDEBUG("Received svrmsg, but no rqp\n");
+        error = EINVAL;
+        goto done;
+    }
+ 
+    error = smb2_smb_parse_svrmsg_notify(rqp, &action, &delay);
+    
+    if (error) {
+        SMBDEBUG("parse svrmsg error: %d\n", error);
+        goto done;
+    }
+
+    /* Here is where we make the call to the Kernel Event Agent and
+     * let it know what's going on with the server.
+     *
+     * Note: SVRMSG_GOING_DOWN and SVRMSG_SHUTDOWN_CANCELLED are mutually exclusive.
+     *       Only one can be set at any given time.
+     */
+    lck_mtx_lock(&smp->sm_svrmsg_lock);
+    if (action == SVRMSG_SHUTDOWN_START) {
+        /* Clear any pending SVRMSG_RCVD_SHUTDOWN_CANCEL status */
+        smp->sm_svrmsg_pending &= SVRMSG_RCVD_SHUTDOWN_CANCEL;
+        
+        /* Set SVRMSG_RCVD_GOING_DOWN & delay */
+        smp->sm_svrmsg_pending |= SVRMSG_RCVD_GOING_DOWN;
+        smp->sm_svrmsg_shutdown_delay = delay;
+        
+    } else if (action == SVRMSG_SHUTDOWN_CANCELLED) {
+        /* Clear any pending SVRMSG_RCVD_GOING_DOWN status */
+        smp->sm_svrmsg_pending &= ~SVRMSG_RCVD_GOING_DOWN;
+        
+        /* Set SVRMSG_RCVD_SHUTDOWN_CANCEL */
+        smp->sm_svrmsg_pending |= SVRMSG_RCVD_SHUTDOWN_CANCEL;
+    }
+    lck_mtx_unlock(&smp->sm_svrmsg_lock);
+    vfs_event_signal(NULL, VQ_SERVEREVENT, 0);
+    
+done:
+	reset_notify_change(watchItem, FALSE);
+	return error;
+}
+
 /* 
  * Send a change notify message to the server
  */
@@ -338,6 +438,7 @@ send_notify_change(struct watch_item *watchItem, vfs_context_t context)
 	struct mbchain *mbp;
 	int error;
 	uint32_t CompletionFilters;
+    uint16_t smb1_fid;
  
 	
 	share = smb_get_share_with_reference(np->n_mount);
@@ -373,11 +474,29 @@ send_notify_change(struct watch_item *watchItem, vfs_context_t context)
 		watchItem->last_notify_time.tv_sec += SMBFS_MAX_RCVD_NOTIFY_TIME;
 	}
 	
-	SMBDEBUG("Sending notify for %s with fid = %d\n", np->n_name, np->d_fid);
+	SMBDEBUG("Sending notify for %s with fid = 0x%llx\n", np->n_name, np->d_fid);
 
 	/* Items we want to be notified about. */
 	CompletionFilters = SMBFS_NOTIFY_CHANGE_FILTERS;
-	error = smb_nt_alloc(SSTOCP(share), NT_TRANSACT_NOTIFY_CHANGE, context, &ntp);
+
+    /*
+    * Let SMB2 handle this
+    */
+    if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+        /* Set max response size to 64K which should be plenty */
+        watchItem->flags |= SMBV_SMB2;
+        error = smb2fs_smb_change_notify(share, 64 * 1024, 
+                                         CompletionFilters, 
+                                         notify_callback_completion, watchItem,
+                                         context);
+        if (error) {
+            SMBWARNING("smb2fs_smb_change_notify return %d\n", error);
+            reset_notify_change(watchItem, TRUE);
+        }
+		goto done;
+    }
+    
+    error = smb_nt_alloc(SSTOCP(share), NT_TRANSACT_NOTIFY_CHANGE, context, &ntp);
 	if (error) {
 		goto done;	/* Something bad happen, try agian later */
 	}
@@ -386,7 +505,8 @@ send_notify_change(struct watch_item *watchItem, vfs_context_t context)
 	mb_init(mbp);
 	
 	mb_put_uint32le(mbp, CompletionFilters);	/* Completion Filter */
-	mb_put_uint16le(mbp, np->d_fid);
+    smb1_fid = (uint16_t) np->d_fid;
+	mb_put_uint16le(mbp, smb1_fid);
 	/* 
 	 * Decide that watch tree should be set per item instead of per mount. So
 	 * if we have to poll then watch tree will be true for the parent node or 
@@ -420,6 +540,41 @@ done:
 }
 
 static int
+send_svrmsg_notify(struct smbmount *smp,
+                   struct watch_item *svrItem,
+                   vfs_context_t context)
+{
+	struct smb_share *share;
+	int error;
+	uint32_t CompletionFilters;
+    
+	share = smb_get_share_with_reference(smp);
+	if (share->ss_flags & SMBS_RECONNECTING) {
+		/* While we are in reconnect stop sending */
+		error = EAGAIN;
+		goto done;
+	}
+    
+	/* Items we want to be notified about. */
+	CompletionFilters = SMBFS_SVRMSG_NOTIFY_FILTERS;
+    
+    /* Set max response size to 64K which should be plenty */
+    svrItem->flags |= SMBV_SMB2;
+    error = smb2fs_smb_change_notify(share, 64 * 1024,
+                                    CompletionFilters,
+                                    notify_callback_completion, svrItem,
+                                    context);
+    if (error) {
+        SMBWARNING("smb2fs_smb_change_notify returns %d\n", error);
+        reset_notify_change(svrItem, TRUE);
+    }
+    
+done:
+	smb_share_rele(share, context);
+	return error;
+}
+
+static int
 VolumeMaxNotification(struct smbmount *smp, vfs_context_t context)
 {
 	struct smb_share   *share;
@@ -428,21 +583,119 @@ VolumeMaxNotification(struct smbmount *smp, vfs_context_t context)
 
 	share = smb_get_share_with_reference(smp);
 	vc_volume_cnt = OSAddAtomic(0, &SSTOVC(share)->vc_volume_cnt);
+    
 	/* 
-	 * Did this share just get replaced for Dfs failover, try agian
+	 * Did this share just get replaced for Dfs failover, try again
 	 */ 
 	if (vc_volume_cnt == 0) {
 		smb_share_rele(share, context);
 		share = smb_get_share_with_reference(smp);
 		vc_volume_cnt = OSAddAtomic(0, &SSTOVC(share)->vc_volume_cnt);
 	}
+    
 	/* Just to be safe never let vc_volume_cnt be zero! */
 	if (!vc_volume_cnt) {
 		vc_volume_cnt = 1;
 	}
-	maxWorkingCnt = (SSTOVC(share)->vc_maxmux / 2) / vc_volume_cnt;
+    
+    if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+        /* SMB 2.x relies on crediting */
+        maxWorkingCnt = (SSTOVC(share)->vc_credits_max / 2) / vc_volume_cnt;
+    }
+    else {
+        /* SMB 1.x relies on maxmux */
+        maxWorkingCnt = (SSTOVC(share)->vc_maxmux / 2) / vc_volume_cnt;
+    }
+    
 	smb_share_rele(share, context);
+    
 	return maxWorkingCnt;
+}
+
+/*
+ * process_svrmsg_items
+ *
+ * Process server message notifications.
+ *
+ */
+static void
+process_svrmsg_items(struct smbfs_notify_change *notify, vfs_context_t context)
+{
+	struct smbmount	*smp = notify->smp;
+    struct watch_item *svrItem;
+    int error;
+    
+    svrItem = notify->svrmsg_item;
+    if (svrItem == NULL) {
+        /* extremely unlikely, but just to be sure */
+        return;
+    }
+
+    switch (svrItem->state) {
+        case kReceivedNotify:
+        {
+            error = rcvd_svrmsg_notify(smp, svrItem);
+            if (error == ENOTSUP) {
+                /* Notify not supported, turn off svrmsg notify */
+                    
+                /* This will effectively disable server messages */
+                lck_mtx_lock(&svrItem->watch_statelock);
+                SMBERROR("svrmsg notify not supported\n");
+                svrItem->state = kWaitingForRemoval;
+                lck_mtx_unlock(&svrItem->watch_statelock);
+                break;
+            } else if (error) {
+                lck_mtx_lock(&svrItem->watch_statelock);
+                svrItem->rcvd_notify_count++;
+                if (svrItem->rcvd_notify_count > SMBFS_MAX_RCVD_NOTIFY) {
+                    /* too many errors, turn off svrmsg notify */
+                    SMBERROR("disabling svrmsg notify, error: %d\n", error);
+                    svrItem->state = kWaitingForRemoval;
+                } else {
+                    svrItem->state = kSendNotify;
+                }
+                lck_mtx_unlock(&svrItem->watch_statelock);
+                break;
+            }
+            
+            lck_mtx_lock(&svrItem->watch_statelock);
+            SMBDEBUG("Receive success, sending next svrmsg notify\n");
+            svrItem->state = kSendNotify;
+            svrItem->rcvd_notify_count = 0;
+            lck_mtx_unlock(&svrItem->watch_statelock);
+            
+            /* fall through to send another svrmsg notify */
+        }
+            
+        case kSendNotify:
+        {
+            error = send_svrmsg_notify(smp, svrItem, context);
+            if (error == EAGAIN) {
+                /* Must be in reconnect, try to send later */
+                break;
+            }
+            if (!error) {
+                lck_mtx_lock(&svrItem->watch_statelock);
+                svrItem->state = kWaitingOnNotify;
+                lck_mtx_unlock(&svrItem->watch_statelock);
+            }
+
+            break;
+        }
+            
+        case kCancelNotify:
+            reset_notify_change(svrItem, TRUE);
+            
+            lck_mtx_lock(&svrItem->watch_statelock);
+            svrItem->state = kWaitingForRemoval;
+            lck_mtx_unlock(&svrItem->watch_statelock);
+            wakeup(svrItem);
+            break;
+
+        default:
+            SMBDEBUG("State %u ignored\n", svrItem->state);
+            break;
+    }
 }
 
 /*
@@ -477,6 +730,12 @@ process_notify_items(struct smbfs_notify_change *notify, vfs_context_t context)
 			SMBDEBUG("moveFromPollCnt = %d\n", moveFromPollCnt);		
 		}
 	}
+    
+    /* Process svrmsg notify messages */
+    if (notify->pollOnly != TRUE && (notify->svrmsg_item != NULL)) {
+        /* Server message notifications handled separately */
+        process_svrmsg_items(notify, context);
+    }
 	
 	STAILQ_FOREACH_SAFE(watchItem, &notify->watch_list, entries, next) {
 		switch (watchItem->state) {
@@ -548,8 +807,10 @@ process_notify_items(struct smbfs_notify_change *notify, vfs_context_t context)
 			}
 			case kUsePollingToNotify:
 				/* We can move some back to notify and turn off polling */
-				if ((!notify->pollOnly) && moveFromPollCnt && 
-					(watchItem->np->d_fid) && (!watchItem->np->d_needReopen)) {
+				if ((!notify->pollOnly) && 
+                    moveFromPollCnt &&
+                    (watchItem->np->d_fid != 0) && 
+                    (!watchItem->np->d_needReopen)) {
 					watchItem->state = kSendNotify;
 					moveFromPollCnt--;
 					notify->watchPollCnt--;
@@ -727,6 +988,37 @@ enqueue_notify_change_request(struct smbfs_notify_change *notify,
 }
 
 /*
+ * enqueue_notify_svrmsg_request
+ *
+ * Allocate an item for server messages, and place it
+ * in the notify struct.
+ */
+static void
+enqueue_notify_svrmsg_request(struct smbfs_notify_change *notify)
+{
+	struct watch_item *watchItem;
+    
+    if (notify->pollOnly) {
+        SMBERROR("Server doesn't support notify, not enabling svrmsg notify\n");
+        return;
+    }
+	
+	SMB_MALLOC(watchItem, struct watch_item *, sizeof(*watchItem), M_TEMP, M_WAITOK | M_ZERO);
+	lck_mtx_init(&watchItem->watch_statelock, smbfs_mutex_group, smbfs_lock_attr);
+
+    watchItem->isServerMsg = TRUE;
+    watchItem->state = kSendNotify;
+
+	watchItem->notify = notify;
+	nanouptime(&watchItem->last_notify_time);
+	lck_mtx_lock(&notify->watch_list_lock);
+
+    notify->svrmsg_item = watchItem;
+	lck_mtx_unlock(&notify->watch_list_lock);
+	notify_wakeup(notify);
+}
+
+/*
  * dequeue_notify_change_request
  *
  * Search the list, if we find a match set the state to cancel. Now wait for the
@@ -762,6 +1054,44 @@ dequeue_notify_change_request(struct smbfs_notify_change *notify,
 }
 
 /*
+ * dequeue_notify_svrmsg_request
+ *
+ * Set the svrmsg_item state to cancel, then wait for the
+ * watch thread to say its ok to remove the item.
+ */
+static void
+dequeue_notify_svrmsg_request(struct smbfs_notify_change *notify)
+{
+	struct watch_item *watchItem = notify->svrmsg_item;
+    
+    if (watchItem == NULL) {
+        return;
+    }
+    
+    lck_mtx_lock(&notify->watch_list_lock);
+    
+    lck_mtx_lock(&watchItem->watch_statelock);
+    watchItem->state = kCancelNotify;
+    lck_mtx_unlock(&watchItem->watch_statelock);
+    
+    notify_wakeup(notify);
+    msleep(watchItem, &notify->watch_list_lock, PWAIT,
+           "svrmsg watchItem cancel", NULL);
+    
+    if (watchItem->state != kWaitingForRemoval) {
+        SMBERROR("svrmsgItem->state: %d, expected kWaitingForRemoval\n", watchItem->state);
+    }
+
+    lck_mtx_lock(&watchItem->watch_statelock);
+    notify->svrmsg_item = NULL;
+    lck_mtx_unlock(&watchItem->watch_statelock);
+    
+    SMB_FREE(watchItem, M_TEMP);
+
+	lck_mtx_unlock(&notify->watch_list_lock);
+}
+
+/*
  * smbfs_start_change_notify
  *
  * Start the change notify process. Called from the smbfs_vnop_monitor routine.
@@ -775,7 +1105,6 @@ smbfs_start_change_notify(struct smb_share *share, struct smbnode *np,
 {
 	struct smbmount *smp = np->n_mount;
 	int error;
-	
 	
 	if (smp->notify_thread == NULL) {
 		/* This server doesn't support notify change so turn on polling */
@@ -812,6 +1141,32 @@ smbfs_start_change_notify(struct smb_share *share, struct smbnode *np,
 }
 
 /*
+ * smbfs_start_svrmsg_notify
+ *
+ * Start the change notify process. Called from the smbfs mount routine.
+ *
+ * The calling routine must hold a reference on the share
+ *
+ */
+int
+smbfs_start_svrmsg_notify(struct smbmount *smp)
+{
+	int error = 0;
+	
+	if (smp->notify_thread == NULL) {
+		/* This server doesn't support notify change, so forget srvmsg
+         * notifications
+         */
+		SMBDEBUG("Server doesn't support notify\n");
+        error = ENOTSUP;
+	} else {
+			SMBDEBUG("Monitoring server messages\n");
+			enqueue_notify_svrmsg_request(smp->notify_thread);
+	}
+	return error;
+}
+
+/*
  * smbfs_stop_change_notify
  *
  * Called from  smbfs_vnop_monitor or smb_vnop_inactive routine. If this is the 
@@ -826,7 +1181,7 @@ smbfs_stop_change_notify(struct smb_share *share, struct smbnode *np,
 						 int forceClose, vfs_context_t context, int *releaseLock)
 {	
 	struct smbmount *smp = np->n_mount;
-	uint16_t fid;
+	SMBFID	fid;
 	
 	if (forceClose)
 		np->d_kqrefcnt = 0;
@@ -847,8 +1202,9 @@ smbfs_stop_change_notify(struct smb_share *share, struct smbnode *np,
 	np->d_needReopen = FALSE; 
 	np->d_kqrefcnt = 0;
 	/* If we have it open then close it */
-	if (fid)
-		(void)smbfs_tmpclose(share, np, fid, context);		
+	if (fid != 0) {
+		(void)smbfs_tmpclose(share, np, fid, context);
+    }
 	SMBDEBUG("We are no longer monitoring  %s\n", np->n_name);
 	if (smp->notify_thread) {
 		/* 
@@ -861,6 +1217,17 @@ smbfs_stop_change_notify(struct smb_share *share, struct smbnode *np,
 		*releaseLock = FALSE;
 		smbnode_unlock(np);
 		dequeue_notify_change_request(smp->notify_thread, np);
+	}
+	return 0;
+}
+
+int
+smbfs_stop_svrmsg_notify(struct smbmount *smp)
+{		
+	SMBDEBUG("We are no longer monitoring svrmsg notify replies\n");
+    
+	if (smp->notify_thread) {
+		dequeue_notify_svrmsg_request(smp->notify_thread);
 	}
 	return 0;
 }
@@ -886,7 +1253,7 @@ smbfs_restart_change_notify(struct smb_share *share, struct smbnode *np,
 		return;
 	}
 	if (!np->d_needReopen) {
-		uint16_t		fid = np->d_fid;
+		SMBFID	fid = np->d_fid;
 		
 		if ((vnode_isvroot(np->n_vnode)) || 
 			(OSAddAtomic(0, &smp->tooManyNotifies) == 0)) {

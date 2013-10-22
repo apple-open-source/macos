@@ -108,7 +108,7 @@ change_entry (krb5_keytab keytab,
 	krb5_keytab_entry new_entry;
 
 	new_entry.principal = principal;
-	new_entry.timestamp = time (NULL);
+	new_entry.timestamp = (uint32_t)time (NULL);
 	new_entry.vno = kvno + 1;
 	new_entry.keyblock  = keys[i];
 

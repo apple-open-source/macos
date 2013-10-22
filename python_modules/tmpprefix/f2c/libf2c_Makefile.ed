@@ -1,0 +1,23 @@
+/^CFLAGS =/s/-O/$(RC_CFLAGS) -Os/
+/^\.c\.o:/+1s/ $(CFLAGS)//
+/ld -r/d
+d
+/^POW =/-1s/$/ cpu_time__.o/
+g/$(CC) -c/s//$(CC) $(CFLAGS) -c/
+/onexit=on_exit/s//onexit=atexit/
+.-1,.s/^#//
+a
+
+r_mod.o: r_mod.c
+	$(CC) $(CFLAGS) -c -Ddrem=remainder -DSkip_f2c_Undefs r_mod.c
+
+d_mod.o: d_mod.c
+	$(CC) $(CFLAGS) -c -Ddrem=remainder -DSkip_f2c_Undefs d_mod.c
+
+c_div.o: c_div.c
+	$(CC) $(CFLAGS) -c -DIEEE_COMPLEX_DIVIDE -DSkip_f2c_Undefs c_div.c
+
+z_div.o: z_div.c
+	$(CC) $(CFLAGS) -c -DIEEE_COMPLEX_DIVIDE -DSkip_f2c_Undefs z_div.c
+.
+w

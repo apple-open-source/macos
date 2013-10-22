@@ -1,3 +1,4 @@
+require 'rexml/rexml'
 require 'rexml/entity'
 require 'rexml/doctype'
 require 'rexml/child'
@@ -18,25 +19,57 @@ module REXML
     # If +raw+ is true, then REXML leaves the value alone
     attr_accessor :raw
 
-    ILLEGAL = /(<|&(?!(#{Entity::NAME})|(#0*((?:\d+)|(?:x[a-fA-F0-9]+)));))/um
-    NUMERICENTITY = /&#0*((?:\d+)|(?:x[a-fA-F0-9]+));/ 
+    NEEDS_A_SECOND_CHECK = /(<|&((#{Entity::NAME});|(#0*((?:\d+)|(?:x[a-fA-F0-9]+)));)?)/um
+    NUMERICENTITY = /&#0*((?:\d+)|(?:x[a-fA-F0-9]+));/
+    VALID_CHAR = [
+      0x9, 0xA, 0xD,
+      (0x20..0xD7FF),
+      (0xE000..0xFFFD),
+      (0x10000..0x10FFFF)
+    ]
+
+    if String.method_defined? :encode
+      VALID_XML_CHARS = Regexp.new('^['+
+        VALID_CHAR.map { |item|
+          case item
+          when Fixnum
+            [item].pack('U').force_encoding('utf-8')
+          when Range
+            [item.first, '-'.ord, item.last].pack('UUU').force_encoding('utf-8')
+          end
+        }.join +
+      ']*$')
+    else
+      VALID_XML_CHARS = /^(
+           [\x09\x0A\x0D\x20-\x7E]            # ASCII
+         | [\xC2-\xDF][\x80-\xBF]             # non-overlong 2-byte
+         |  \xE0[\xA0-\xBF][\x80-\xBF]        # excluding overlongs
+         | [\xE1-\xEC\xEE][\x80-\xBF]{2}      # straight 3-byte
+         |  \xEF[\x80-\xBE]{2}                #
+         |  \xEF\xBF[\x80-\xBD]               # excluding U+fffe and U+ffff
+         |  \xED[\x80-\x9F][\x80-\xBF]        # excluding surrogates
+         |  \xF0[\x90-\xBF][\x80-\xBF]{2}     # planes 1-3
+         | [\xF1-\xF3][\x80-\xBF]{3}          # planes 4-15
+         |  \xF4[\x80-\x8F][\x80-\xBF]{2}     # plane 16
+       )*$/nx;
+    end
 
     # Constructor
     # +arg+ if a String, the content is set to the String.  If a Text,
-    # the object is shallowly cloned.  
+    # the object is shallowly cloned.
     #
     # +respect_whitespace+ (boolean, false) if true, whitespace is
     # respected
     #
     # +parent+ (nil) if this is a Parent object, the parent
-    # will be set to this.  
+    # will be set to this.
     #
     # +raw+ (nil) This argument can be given three values.
-    # If true, then the value of used to construct this object is expected to 
-    # contain no unescaped XML markup, and REXML will not change the text. If 
+    # If true, then the value of used to construct this object is expected to
+    # contain no unescaped XML markup, and REXML will not change the text. If
     # this value is false, the string may contain any characters, and REXML will
     # escape any and all defined entities whose values are contained in the
-    # text.  If this value is nil (the default), then the raw value of the 
+    # text.  If this value is nil (the default), then the raw value of the
     # parent will be used as the raw value for this node.  If there is no raw
     # value for the parent, and no value is supplied, the default is false.
     # Use this field if you have entities defined for some text, and you don't
@@ -56,17 +89,16 @@ module REXML
     #   Text.new( "sean russell", false, nil, true, ["s"] ) #-> "sean russell"
     # In the last example, the +entity_filter+ argument is ignored.
     #
-    # +pattern+ INTERNAL USE ONLY
-    def initialize(arg, respect_whitespace=false, parent=nil, raw=nil, 
-      entity_filter=nil, illegal=ILLEGAL )
+    # +illegal+ INTERNAL USE ONLY
+    def initialize(arg, respect_whitespace=false, parent=nil, raw=nil,
+      entity_filter=nil, illegal=NEEDS_A_SECOND_CHECK )
 
       @raw = false
+      @parent = nil
 
       if parent
         super( parent )
-        @raw = parent.raw 
-      else
-        @parent = nil
+        @raw = parent.raw
       end
 
       @raw = raw unless raw.nil?
@@ -74,7 +106,7 @@ module REXML
       @normalized = @unnormalized = nil
 
       if arg.kind_of? String
-        @string = arg.clone
+        @string = arg.dup
         @string.squeeze!(" \n\t") unless respect_whitespace
       elsif arg.kind_of? Text
         @string = arg.to_s
@@ -85,10 +117,55 @@ module REXML
 
       @string.gsub!( /\r\n?/, "\n" )
 
-      # check for illegal characters
-      if @raw
-        if @string =~ illegal
-          raise "Illegal character '#{$1}' in raw string \"#{@string}\""
+      Text.check(@string, illegal, doctype) if @raw
+    end
+
+    def parent= parent
+      super(parent)
+      Text.check(@string, NEEDS_A_SECOND_CHECK, doctype) if @raw and @parent
+    end
+
+    # check for illegal characters
+    def Text.check string, pattern, doctype
+
+      # illegal anywhere
+      if string !~ VALID_XML_CHARS
+        if String.method_defined? :encode
+          string.chars.each do |c|
+            case c.ord
+            when *VALID_CHAR
+            else
+              raise "Illegal character #{c.inspect} in raw string \"#{string}\""
+            end
+          end
+        else
+          string.scan(/[\x00-\x7F]|[\x80-\xBF][\xC0-\xF0]*|[\xC0-\xF0]/n) do |c|
+            case c.unpack('U')
+            when *VALID_CHAR
+            else
+              raise "Illegal character #{c.inspect} in raw string \"#{string}\""
+            end
+          end
+        end
+      end
+
+      # context sensitive
+      string.scan(pattern) do
+        if $1[-1] != ?;
+          raise "Illegal character '#{$1}' in raw string \"#{string}\""
+        elsif $1[0] == ?&
+          if $5 and $5[0] == ?#
+            case ($5[1] == ?x ? $5[2..-1].to_i(16) : $5[1..-1].to_i)
+            when *VALID_CHAR
+            else
+              raise "Illegal character '#{$1}' in raw string \"#{string}\""
+            end
+          # FIXME: below can't work but this needs API change.
+          # elsif @parent and $3 and !SUBSTITUTES.include?($1)
+          #   if !doctype or !doctype.entities.has_key?($3)
+          #     raise "Undeclared entity '#{$1}' in raw string \"#{string}\""
+          #   end
+          end
         end
       end
     end
@@ -120,29 +197,30 @@ module REXML
       to_s() <=> other.to_s
     end
 
+    def doctype
+      if @parent
+        doc = @parent.document
+        doc.doctype if doc
+      end
+    end
+
     REFERENCE = /#{Entity::REFERENCE}/
     # Returns the string value of this text node.  This string is always
     # escaped, meaning that it is a valid XML text node string, and all
     # entities that can be escaped, have been inserted.  This method respects
     # the entity filter set in the constructor.
-    #   
-    #   # Assume that the entity "s" is defined to be "sean", and that the 
+    #
+    #   # Assume that the entity "s" is defined to be "sean", and that the
     #   # entity "r" is defined to be "russell"
-    #   t = Text.new( "< & sean russell", false, nil, false, ['s'] ) 
+    #   t = Text.new( "< & sean russell", false, nil, false, ['s'] )
     #   t.to_s   #-> "&lt; &amp; &s; russell"
-    #   t = Text.new( "< & &s; russell", false, nil, false ) 
+    #   t = Text.new( "< & &s; russell", false, nil, false )
     #   t.to_s   #-> "&lt; &amp; &s; russell"
     #   u = Text.new( "sean russell", false, nil, true )
     #   u.to_s   #-> "sean russell"
     def to_s
       return @string if @raw
       return @normalized if @normalized
-
-      doctype = nil
-      if @parent
-        doc = @parent.document
-        doctype = doc.doctype if doc
-      end
 
       @normalized = Text::normalize( @string, doctype, @entity_filter )
     end
@@ -156,25 +234,20 @@ module REXML
     # console.  This ignores the 'raw' attribute setting, and any
     # entity_filter.
     #
-    #   # Assume that the entity "s" is defined to be "sean", and that the 
+    #   # Assume that the entity "s" is defined to be "sean", and that the
     #   # entity "r" is defined to be "russell"
-    #   t = Text.new( "< & sean russell", false, nil, false, ['s'] ) 
+    #   t = Text.new( "< & sean russell", false, nil, false, ['s'] )
     #   t.value   #-> "< & sean russell"
     #   t = Text.new( "< & &s; russell", false, nil, false )
     #   t.value   #-> "< & sean russell"
     #   u = Text.new( "sean russell", false, nil, true )
     #   u.value   #-> "sean russell"
     def value
-      @unnormalized if @unnormalized
-      doctype = nil
-      if @parent
-        doc = @parent.document
-        doctype = doc.doctype if doc
-      end
+      return @unnormalized if @unnormalized
       @unnormalized = Text::unnormalize( @string, doctype )
     end
 
-    # Sets the contents of this text node.  This expects the text to be 
+    # Sets the contents of this text node.  This expects the text to be
     # unnormalized.  It returns self.
     #
     #   e = Element.new( "a" )
@@ -187,7 +260,7 @@ module REXML
       @normalized = nil
       @raw = false
     end
- 
+
      def wrap(string, width, addnewline=false)
        # Recursively wrap string at width.
        return string if string.length <= width
@@ -202,7 +275,7 @@ module REXML
     def indent_text(string, level=1, style="\t", indentfirstline=true)
       return string if level < 0
       new_string = ''
-      string.each { |line|
+      string.each_line { |line|
         indent_string = style * level
         new_line = (indent_string + line).sub(/[\s]+$/,'')
         new_string << new_line
@@ -210,11 +283,11 @@ module REXML
       new_string.strip! unless indentfirstline
       return new_string
     end
- 
+
     # == DEPRECATED
     # See REXML::Formatters
     #
-    def write( writer, indent=-1, transitive=false, ie_hack=false ) 
+    def write( writer, indent=-1, transitive=false, ie_hack=false )
       Kernel.warn("#{self.class.name}.write is deprecated.  See REXML::Formatters")
       formatter = if indent > -1
           REXML::Formatters::Pretty.new( indent )
@@ -265,7 +338,7 @@ module REXML
       if copy =~ illegal
         raise ParseException.new( "malformed text: Illegal character #$& in \"#{copy}\"" )
       end if illegal
-      
+
       copy.gsub!( /\r\n?/, "\n" )
       if copy.include? ?&
         copy.gsub!( SETUTITSBUS[0], SLAICEPS[0] )
@@ -273,7 +346,7 @@ module REXML
         copy.gsub!( SETUTITSBUS[2], SLAICEPS[2] )
         copy.gsub!( SETUTITSBUS[3], SLAICEPS[3] )
         copy.gsub!( SETUTITSBUS[4], SLAICEPS[4] )
-        copy.gsub!( /&#0*((?:\d+)|(?:x[a-f0-9]+));/ ) {|m|
+        copy.gsub!( /&#0*((?:\d+)|(?:x[a-f0-9]+));/ ) {
           m=$1
           #m='0' if m==''
           m = "0#{m}" if m[0] == ?x
@@ -293,8 +366,8 @@ module REXML
       if doctype
         # Replace all ampersands that aren't part of an entity
         doctype.entities.each_value do |entity|
-          copy = copy.gsub( entity.value, 
-            "&#{entity.name};" ) if entity.value and 
+          copy = copy.gsub( entity.value,
+            "&#{entity.name};" ) if entity.value and
               not( entity_filter and entity_filter.include?(entity) )
         end
       else
@@ -308,37 +381,35 @@ module REXML
 
     # Unescapes all possible entities
     def Text::unnormalize( string, doctype=nil, filter=nil, illegal=nil )
-      rv = string.clone
-      rv.gsub!( /\r\n?/, "\n" )
-      matches = rv.scan( REFERENCE )
-      return rv if matches.size == 0
-      rv.gsub!( NUMERICENTITY ) {|m|
-        m=$1
-        m = "0#{m}" if m[0] == ?x
-        [Integer(m)].pack('U*')
-      }
-      matches.collect!{|x|x[0]}.compact!
-      if matches.size > 0
-        if doctype
-          matches.each do |entity_reference|
-            unless filter and filter.include?(entity_reference)
-              entity_value = doctype.entity( entity_reference )
-              re = /&#{entity_reference};/
-              rv.gsub!( re, entity_value ) if entity_value
-            end
-          end
+      sum = 0
+      string.gsub( /\r\n?/, "\n" ).gsub( REFERENCE ) {
+        s = Text.expand($&, doctype, filter)
+        if sum + s.bytesize > REXML.entity_expansion_text_limit
+          raise "entity expansion has grown too large"
         else
-          matches.each do |entity_reference|
-            unless filter and filter.include?(entity_reference)
-              entity_value = DocType::DEFAULT_ENTITIES[ entity_reference ]
-              re = /&#{entity_reference};/
-              rv.gsub!( re, entity_value.value ) if entity_value
-            end
-          end
+          sum += s.bytesize
         end
-        rv.gsub!( /&amp;/, '&' )
+        s
+      }
+    end
+
+    def Text.expand(ref, doctype, filter)
+      if ref[1] == ?#
+        if ref[2] == ?x
+          [ref[3...-1].to_i(16)].pack('U*')
+        else
+          [ref[2...-1].to_i].pack('U*')
+        end
+      elsif ref == '&amp;'
+        '&'
+      elsif filter and filter.include?( ref[1...-1] )
+        ref
+      elsif doctype
+        doctype.entity( ref[1...-1] ) or ref
+      else
+        entity_value = DocType::DEFAULT_ENTITIES[ ref[1...-1] ]
+        entity_value ? entity_value.value : ref
       end
-      rv
     end
   end
 end

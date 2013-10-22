@@ -55,7 +55,7 @@ AclAuthorizationSet::AclAuthorizationSet(AclAuthorization auth0, AclAuthorizatio
 //
 AuthorizationGroup::AuthorizationGroup(const AclAuthorizationSet &auths, Allocator &alloc)
 {
-	NumberOfAuthTags = auths.size();
+	NumberOfAuthTags = (uint32)auths.size();
 	AuthTags = alloc.alloc<CSSM_ACL_AUTHORIZATION_TAG>(NumberOfAuthTags);
 	copy(auths.begin(), auths.end(), AuthTags);	// happens to be sorted
 }
@@ -112,7 +112,8 @@ void AclEntryPrototype::tag(const string &tagString)
 AclOwnerPrototype *AutoAclOwnerPrototype::make()
 {
 	if (!mAclOwnerPrototype) {
-		mAclOwnerPrototype = new AclOwnerPrototype; 
+		mAclOwnerPrototype = (AclOwnerPrototype*) mAllocator->malloc(sizeof(AclOwnerPrototype));
+        new (mAclOwnerPrototype) AclOwnerPrototype;
 		mAclOwnerPrototype->clearPod();
 	}
 	return mAclOwnerPrototype;

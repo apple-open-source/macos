@@ -19,6 +19,7 @@
 #ifndef IconDatabaseClientBlackBerry_h
 #define IconDatabaseClientBlackBerry_h
 
+#include "BlackBerryPlatformSingleton.h"
 #include "IconDatabaseClient.h"
 
 namespace BlackBerry {
@@ -29,12 +30,13 @@ class WebSettings;
 
 namespace WebCore {
 
-class IconDatabaseClientBlackBerry : public IconDatabaseClient {
+class IconDatabaseClientBlackBerry : public BlackBerry::Platform::ThreadUnsafeSingleton<IconDatabaseClientBlackBerry>
+    , public IconDatabaseClient {
+
+    SINGLETON_DEFINITION_THREADUNSAFE(IconDatabaseClientBlackBerry)
 public:
-    static IconDatabaseClientBlackBerry* getInstance();
     bool initIconDatabase(const BlackBerry::WebKit::WebSettings*);
 
-    virtual bool performImport();
     virtual void didRemoveAllIcons();
     virtual void didImportIconURLForPageURL(const String&);
     virtual void didImportIconDataForPageURL(const String&);

@@ -23,17 +23,22 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <TargetConditionals.h>
 
+#if TARGET_IPHONE_SIMULATOR
+extern pid_t (*_host_fork)(void);
+#else
 extern pid_t __fork(void);
-extern void _cthread_fork_prepare();
-extern void _cthread_fork_parent();
-extern void _cthread_fork_child();
+#endif
 
 static void (*_libSystem_atfork_prepare)(void) = 0;
 static void (*_libSystem_atfork_parent)(void) = 0;
 static void (*_libSystem_atfork_child)(void) = 0;
 
-__private_extern__ void _libc_fork_init(void (*prepare)(void), void (*parent)(void), void (*child)(void))
+#if !TARGET_IPHONE_SIMULATOR
+__private_extern__
+#endif
+void _libc_fork_init(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 {
 	_libSystem_atfork_prepare = prepare;
 	_libSystem_atfork_parent = parent;
@@ -52,7 +57,12 @@ fork(void)
 	// Reader beware: this __fork() call is yet another wrapper around the actual syscall
 	// and lives inside libsyscall. The fork syscall needs some cuddling by asm before it's
 	// allowed to see the big wide C world.
+#if TARGET_IPHONE_SIMULATOR
+	// _host_fork is yet another layer of wrapping that lives in the simulator's libSystem
+	ret = _host_fork();
+#else
 	ret = __fork();
+#endif
 	if (-1 == ret)
 	{
 		// __fork already set errno for us

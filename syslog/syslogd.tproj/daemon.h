@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,11 +35,14 @@
 #include <asl_store.h>
 #include "asl_memory.h"
 #include "asl_mini_memory.h"
+#include "asl_common.h"
 #include <notify.h>
 #include <notify_keys.h>
 #include <launch.h>
 #include <dispatch/dispatch.h>
 #include <libkern/OSAtomic.h>
+
+#include <TargetConditionals.h>
 
 #define ADDFD_FLAGS_LOCAL 0x00000001
 
@@ -52,11 +55,20 @@
 #define ASL_OPT_DB_MINI "asl_db_mini_memory"
 #define ASL_OPT_DB_MEMORY "asl_db_memory"
 
+#if TARGET_IPHONE_SIMULATOR
+/* These paths are appropriately prefixed in the simulator */
+extern const char *_path_pidfile;
+extern const char *_path_syslogd_log;
+
+#define _PATH_PIDFILE _path_pidfile
+#define _PATH_SYSLOGD_LOG _path_syslogd_log
+#else
 #define _PATH_PIDFILE		"/var/run/syslog.pid"
 #define _PATH_SYSLOG_CONF   "/etc/syslog.conf"
 #define _PATH_SYSLOG_IN		"/var/run/syslog"
 #define _PATH_KLOG			"/dev/klog"
 #define _PATH_SYSLOGD_LOG	"/var/log/syslogd.log"
+#endif
 
 #define DB_TYPE_FILE	0x00000001
 #define DB_TYPE_MEMORY	0x00000002
@@ -79,6 +91,8 @@
 
 #define FS_TTL_SEC 31622400
 
+#define SEC_PER_DAY 86400
+
 typedef struct
 {
 	const char *name;
@@ -97,12 +111,14 @@ struct global_s
 	mach_port_t server_port;
 	mach_port_t dead_session_port;
 	launch_data_t launch_dict;
-	uint32_t store_flags;
-	time_t start_time;
-	int lockdown_session_fd;
+	int *lockdown_session_fds;
+	int lockdown_session_count;
 	int watchers_active;
 	int reset;
-	uint64_t bsd_flush_time;
+	pid_t pid;
+	int32_t work_queue_count;
+	int32_t asl_queue_count;
+	int32_t bsd_queue_count;
 	pthread_mutex_t *db_lock;
 	pthread_cond_t work_queue_cond;
 	dispatch_queue_t work_queue;
@@ -114,7 +130,9 @@ struct global_s
 	asl_mini_memory_t *disaster_db;
 	int module_count;
 	int bsd_out_enabled;
+	int launchd_enabled;
 	module_t **module;
+	asl_out_module_t *asl_out_module;
 
 	/* parameters below are configurable as command-line args or in /etc/asl.conf */
 	int debug;
@@ -137,16 +155,11 @@ void init_globals(void);
 void config_debug(int enable, const char *path);
 void config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t mini_max);
 
-char **explode(const char *s, const char *delim);
-void freeList(char **l);
-
 void asl_mark(void);
 void asl_archive(void);
 
 void asl_client_count_increment();
 void asl_client_count_decrement();
-
-char *get_line_from_file(FILE *f);
 
 int asldebug(const char *, ...);
 int internal_log_message(const char *str);
@@ -155,22 +168,21 @@ asl_msg_t *asl_msg_from_string(const char *buf);
 int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b);
 time_t asl_parse_time(const char *str);
 
-int asl_check_option(aslmsg msg, const char *opt);
-
 void send_to_direct_watchers(asl_msg_t *msg);
 
+#if !TARGET_IPHONE_SIMULATOR
 void launchd_callback();
+#endif
 
 int asl_syslog_faciliy_name_to_num(const char *fac);
 const char *asl_syslog_faciliy_num_to_name(int num);
 aslmsg asl_input_parse(const char *in, int len, char *rhost, uint32_t source);
 
-const char *whatsmyhostname();
 void process_message(aslmsg m, uint32_t source);
 void asl_out_message(aslmsg msg);
-int asl_action_file_rotate(const char *path);
 void bsd_out_message(aslmsg msg);
-int control_set_param(const char *s);
+int control_set_param(const char *s, bool eval);
+int asl_action_control_set_param(const char *s);
 
 /* notify SPI */
 uint32_t notify_register_plain(const char *name, int *out_token);

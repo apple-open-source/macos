@@ -184,12 +184,12 @@ call_again:
 	if ((! XDR_PUTBYTES(xdrs, clp->mashl_callmsg, clp->mcnt)) ||
 	    (! XDR_PUTLONG(xdrs, (int *)&proc)) ||
 	    (! AUTH_MARSHALL(h->cl_auth, xdrs)) ||
-	    (! (*xargs)(xdrs, argsp))) return (RPC_CANTENCODEARGS);
+	    (! (*xargs)(xdrs, argsp, 0))) return (RPC_CANTENCODEARGS);
 #else
 	if ((! XDR_PUTBYTES(xdrs, clp->mashl_callmsg, clp->mcnt)) ||
 		(! XDR_PUTLONG(xdrs, (long *)&proc)) ||
 		(! AUTH_MARSHALL(h->cl_auth, xdrs)) ||
-		(! (*xargs)(xdrs, argsp))) return (RPC_CANTENCODEARGS);
+		(! (*xargs)(xdrs, argsp, 0))) return (RPC_CANTENCODEARGS);
 #endif
 	(void)XDR_GETPOS(xdrs);  /* called just to cause overhead */
 
@@ -257,7 +257,7 @@ clntraw_freeres(cl, xdr_res, res_ptr)
 		return (rval);
 	}
 	xdrs->x_op = XDR_FREE;
-	return ((*xdr_res)(xdrs, res_ptr));
+	return ((*xdr_res)(xdrs, res_ptr, 0));
 }
 
 static void

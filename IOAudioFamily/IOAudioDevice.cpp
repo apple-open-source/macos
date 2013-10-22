@@ -1280,7 +1280,7 @@ void IOAudioDevice::timerFired(OSObject *target, IOTimerEventSource *sender)
 
 void IOAudioDevice::dispatchTimerEvents(bool force)
 {
-	audioDebugIOLog(5, "+ IOAudioDevice::dispatchTimerEvents()\n" );
+	audioDebugIOLog(5, "+ IOAudioDevice::dispatchTimerEvents( %d )\n", force );
 	
     if (timerEvents) {
 #ifdef DEBUG

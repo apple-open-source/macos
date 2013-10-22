@@ -35,7 +35,6 @@
 #include <algorithm>
 #include <list>
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include "Globals.h"
 #include <security_keychain/SecCFTypes.h>
 #include <securityd_client/SharedMemoryCommon.h>
@@ -161,7 +160,7 @@ void CCallbackMgr::AlertClients(const list<CallbackInfo> &eventCallbacks,
                                 const Item &inItem)
 {
     secdebug("kcnotify", "dispatch event %ld pid %d keychain %p item %p",
-        inEvent, inPid, &inKeychain, !!inItem ? &*inItem : NULL);
+        (unsigned long)inEvent, inPid, &inKeychain, !!inItem ? &*inItem : NULL);
 
 	// Iterate through callbacks, looking for those registered for inEvent
 	const SecKeychainEventMask theMask = 1U << inEvent;

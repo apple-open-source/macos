@@ -114,8 +114,15 @@ OSStatus SecCodeCopyStaticCode(SecCodeRef codeRef, SecCSFlags flags, SecStaticCo
 {
 	BEGIN_CSAPI
 	
-	checkFlags(flags);
+	checkFlags(flags, kSecCSUseAllArchitectures);
 	SecPointer<SecStaticCode> staticCode = SecCode::required(codeRef)->staticCode();
+	if (flags & kSecCSUseAllArchitectures)
+		if (Universal* macho = staticCode->diskRep()->mainExecutableImage())	// Mach-O main executable
+			if (macho->narrowed()) {
+				// create a new StaticCode comprising the whole fat file
+				RefPointer<DiskRep> rep = DiskRep::bestGuess(staticCode->diskRep()->mainExecutablePath());
+				staticCode = new SecStaticCode(rep);
+			}
 	CodeSigning::Required(staticCodeRef) = staticCode ? staticCode->handle() : NULL;
 
 	END_CSAPI
@@ -144,6 +151,8 @@ const CFStringRef kSecGuestAttributeCanonical =		CFSTR("canonical");
 const CFStringRef kSecGuestAttributeHash =			CFSTR("codedirectory-hash");
 const CFStringRef kSecGuestAttributeMachPort =		CFSTR("mach-port");
 const CFStringRef kSecGuestAttributePid =			CFSTR("pid");
+const CFStringRef kSecGuestAttributeDynamicCode =               CFSTR("dynamicCode");
+const CFStringRef kSecGuestAttributeDynamicCodeInfoPlist =               CFSTR("dynamicCodeInfoPlist");
 const CFStringRef kSecGuestAttributeArchitecture =	CFSTR("architecture");
 const CFStringRef kSecGuestAttributeSubarchitecture = CFSTR("subarchitecture");
 
@@ -222,6 +231,7 @@ const CFStringRef kSecCodeInfoCMS =				CFSTR("cms");
 const CFStringRef kSecCodeInfoDesignatedRequirement = CFSTR("designated-requirement");
 const CFStringRef kSecCodeInfoEntitlements =	CFSTR("entitlements");
 const CFStringRef kSecCodeInfoEntitlementsDict =	CFSTR("entitlements-dict");
+const CFStringRef kSecCodeInfoFlags =			CFSTR("flags");
 const CFStringRef kSecCodeInfoFormat =			CFSTR("format");
 const CFStringRef kSecCodeInfoDigestAlgorithm =	CFSTR("digest-algorithm");
 const CFStringRef kSecCodeInfoIdentifier =		CFSTR("identifier");
@@ -265,4 +275,3 @@ OSStatus SecCodeCopySigningInformation(SecStaticCodeRef codeRef, SecCSFlags flag
 	
 	END_CSAPI
 }
-

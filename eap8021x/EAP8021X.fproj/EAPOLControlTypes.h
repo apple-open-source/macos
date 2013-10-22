@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +61,8 @@ typedef uint32_t EAPOLControlState;
  * Purpose:
  *   Set the log level.  If the property is not present,
  *   logging is disabled.
+ * Note:
+ *   Deprecated.
  */
 #define kEAPOLControlLogLevel		CFSTR("LogLevel") /* CFNumber */
 

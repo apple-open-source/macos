@@ -20,6 +20,10 @@
  */
 
 /*
+ * Portions copyright (c) 2011, Joyent, Inc. All rights reserved.
+ */
+
+/*
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -126,9 +130,10 @@
 #define	DT_VERS_1_5	DT_VERSION_NUMBER(1, 5, 0)
 #define	DT_VERS_1_6	DT_VERSION_NUMBER(1, 6, 0)
 #define	DT_VERS_1_6_1	DT_VERSION_NUMBER(1, 6, 1)
+#define DT_VERS_1_7 DT_VERSION_NUMBER(1, 7, 0)
 #define	DT_VERS_1_6_2	DT_VERSION_NUMBER(1, 6, 2)
-#define	DT_VERS_LATEST	DT_VERS_1_6_2
-#define	DT_VERS_STRING	"Sun D 1.6.2"
+#define	DT_VERS_LATEST	DT_VERS_1_7
+#define	DT_VERS_STRING	"Sun D 1.7"
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -143,6 +148,7 @@ const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_6,	/* D API 1.6 */
 	DT_VERS_1_6_1,	/* D API 1.6.1 */
 	DT_VERS_1_6_2,	/* D API 1.6.2 */
+    DT_VERS_1_7,    /* D API 1.7 */
 	0
 };
 
@@ -316,6 +322,9 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "stack(...)" },
 { "lltostr", DT_IDENT_FUNC, 0, DIF_SUBR_LLTOSTR, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "string(int64_t)" },
+{ "llquantize", DT_IDENT_AGGFUNC, 0, DTRACEAGG_LLQUANTIZE,
+	DT_ATTR_STABCMN, DT_VERS_1_0,
+	&dt_idops_func, "void(@, int32_t, int32_t, int32_t, int32_t, ...)" },
 { "lquantize", DT_IDENT_AGGFUNC, 0, DTRACEAGG_LQUANTIZE,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void(@, int32_t, int32_t, ...)" },
@@ -1133,9 +1142,9 @@ alloc:
 	 */
 	if (dt_cpp_add_arg(dtp, "-E") == NULL ||
 	    dt_cpp_add_arg(dtp, "-xc") == NULL ||
-	    dt_cpp_add_arg(dtp, "-U__GNUC__") == NULL || 
-	    dt_cpp_add_arg(dtp, "-include") == NULL || 
-	    dt_cpp_add_arg(dtp, "/usr/lib/dtrace/dt_cpp.h") == NULL || 
+	    dt_cpp_add_arg(dtp, "-U__GNUC__") == NULL ||
+	    dt_cpp_add_arg(dtp, "-include") == NULL ||
+	    dt_cpp_add_arg(dtp, "/usr/lib/dtrace/dt_cpp.h") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__APPLE__") == NULL ||
 	    dt_cpp_add_arg(dtp, "-D__SUNW_D=1") == NULL ||
 	    dt_cpp_add_arg(dtp, isadef) == NULL ||

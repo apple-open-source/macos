@@ -1,0 +1,79 @@
+#!/usr/local/bin/perl -w
+###########################################
+# Log4perl Benchmarks
+# Mike Schilli, 2008 (m@perlmeister.com)
+###########################################
+use strict;
+use Benchmark qw(timeit timestr);
+use Log::Log4perl qw(:easy);
+use Sysadm::Install qw(:all);
+use Data::Dumper;
+use File::Temp qw(tempfile);
+
+my($tmp_fh, $tmp_file) = tempfile( UNLINK => 1 );
+
+my $nof_tests = 100000;
+
+print "sp=suppressed w=watch sc=subcategory\n\n";
+
+for my $watch (0, 1) {
+    test_init({ level => "DEBUG", watch => $watch });
+    run("sp0 sc0 w$watch", \&debug_logger);
+
+    test_init({ level => "ERROR", watch => $watch });
+    run("sp1 sc0 w$watch", \&debug_logger);
+
+    test_init({ level => "DEBUG", watch => $watch });
+    run("sp0 sc1 w$watch", \&subcat_logger);
+
+    test_init({ level => "ERROR", watch => $watch });
+    run("sp1 sc1 w$watch", \&subcat_logger);
+}
+
+###########################################
+sub run {
+###########################################
+    my($name, $sub) = @_;
+
+    my $t = timeit(1, $sub);
+    printf "$name: %8.0f per sec\n", $nof_tests/$t->[1];
+}
+
+###########################################
+sub test_init {
+###########################################
+    my($opts) = @_;
+
+    my $conf = qq{
+        log4perl.logger = $opts->{level}, testapp
+        log4perl.appender.testapp       = Log::Log4perl::Appender::TestBuffer
+        log4perl.appender.testapp.layout= SimpleLayout
+    };
+
+    if($opts->{watch}) {
+        blurt $conf, $tmp_file;
+        Log::Log4perl->init_and_watch( $tmp_file );
+    } else {
+        Log::Log4perl->init( \$conf );
+    }
+}
+
+###########################################
+sub debug_logger {
+###########################################
+    my $logger = get_logger("");
+
+    for(1..$nof_tests) {
+        $logger->debug( "message" );
+    }
+}
+
+###########################################
+sub subcat_logger {
+###########################################
+    my $logger = get_logger("a.b.c.d.e.f.g.h.i.j.k");
+
+    for(1..$nof_tests) {
+        $logger->debug( "message" );
+    }
+}

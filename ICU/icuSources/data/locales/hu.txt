@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/hu.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/hu.xml
 // *
 // ***************************************************************************
 /**
@@ -20,7 +20,10 @@ hu{
         "[A Á B C {CS} D {DZ} {DZS} E É F G {GY} H I Í J K L {LY} M N {NY} O Ó Ö Ő P "
         "Q R S {SZ} T {TY} U Ú Ü Ű V W X Y Z {ZS}]"
     }
-    ExemplarCharactersPunctuation{"[\- – , ; \: ! ? . … ' ’ \" ” „ « » ( ) \[ \] \{ \} 〈 〉 § @ * / \& # ⸓ ~]"}
+    ExemplarCharactersPunctuation{
+        "[\\- – , ; \\: ! ? . … ' ’ \u0022 ” „ « » ( ) \\[ \\] \\{ \\} 〈 〉 § @ * / "
+        "\\& # ⸓ ~]"
+    }
     LocaleScript{
         "Latn",
     }
@@ -29,7 +32,88 @@ hu{
             patterns{
                 currencyFormat{"#,##0.00 ¤"}
                 decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
+            }
+            patternsLong{
+                decimalFormat{
+                    1000{
+                        other{"0 ezer"}
+                    }
+                    10000{
+                        other{"00 ezer"}
+                    }
+                    100000{
+                        other{"000 ezer"}
+                    }
+                    1000000{
+                        other{"0 millió"}
+                    }
+                    10000000{
+                        other{"00 millió"}
+                    }
+                    100000000{
+                        other{"000 millió"}
+                    }
+                    1000000000{
+                        other{"0 milliárd"}
+                    }
+                    10000000000{
+                        other{"00 milliárd"}
+                    }
+                    100000000000{
+                        other{"000 milliárd"}
+                    }
+                    1000000000000{
+                        other{"0 billió"}
+                    }
+                    10000000000000{
+                        other{"00 billió"}
+                    }
+                    100000000000000{
+                        other{"000 billió"}
+                    }
+                }
+            }
+            patternsShort{
+                decimalFormat{
+                    1000{
+                        other{"0 E"}
+                    }
+                    10000{
+                        other{"00 E"}
+                    }
+                    100000{
+                        other{"000 E"}
+                    }
+                    1000000{
+                        other{"0 M"}
+                    }
+                    10000000{
+                        other{"00 M"}
+                    }
+                    100000000{
+                        other{"000 M"}
+                    }
+                    1000000000{
+                        other{"0 Mrd"}
+                    }
+                    10000000000{
+                        other{"00 Mrd"}
+                    }
+                    100000000000{
+                        other{"000 Mrd"}
+                    }
+                    1000000000000{
+                        other{"0 B"}
+                    }
+                    10000000000000{
+                        other{"00 B"}
+                    }
+                    100000000000000{
+                        other{"000 B"}
+                    }
+                }
             }
             symbols{
                 decimal{","}
@@ -45,15 +129,9 @@ hu{
             }
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.47"}
     calendar{
         buddhist{
-            availableFormats{
-                Md{"M.d."}
-                h{"a h"}
-                hm{"a h:mm"}
-                hms{"a h:mm:ss"}
-            }
             eras{
                 abbreviated{
                     "BK",
@@ -260,6 +338,151 @@ hu{
                 }
             }
         }
+        generic{
+            DateTimePatterns{
+                "H:mm:ss zzzz",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "G y. MMMM d., EEEE",
+                "G y. MMMM d.",
+                "G y.MM.dd.",
+                "GGGGG y.MM.dd.",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"d., E"}
+                Gy{"G y"}
+                GyMMM{"G y. MMM"}
+                GyMMMEd{"G y. MMM d., E"}
+                GyMMMd{"G y. MMM d."}
+                H{"H"}
+                Hm{"H:mm"}
+                Hms{"H:mm:ss"}
+                M{"L"}
+                MEd{"M. d., E"}
+                MMM{"LLL"}
+                MMMEd{"MMM d., E"}
+                MMMMd{"MMMM d."}
+                MMMd{"MMM d."}
+                Md{"M. d."}
+                d{"d"}
+                h{"a h"}
+                hm{"a h:mm"}
+                hms{"a h:mm:ss"}
+                ms{"mm:ss"}
+                y{"G y"}
+                yyyy{"G y"}
+                yyyyM{"G y.M."}
+                yyyyMEd{"G y.MM.dd., E"}
+                yyyyMMM{"G y. MMM"}
+                yyyyMMMEd{"G y. MMM d., E"}
+                yyyyMMMM{"G y. MMMM"}
+                yyyyMMMd{"G y. MMM d."}
+                yyyyMd{"G y.MM.dd."}
+                yyyyQQQ{"G y. QQQ"}
+                yyyyQQQQ{"G y. QQQQ"}
+            }
+            intervalFormats{
+                H{
+                    H{"H-H"}
+                }
+                Hm{
+                    H{"H:mm-H:mm"}
+                    m{"H:mm-H:mm"}
+                }
+                Hmv{
+                    H{"H:mm-H:mm v"}
+                    m{"H:mm-H:mm v"}
+                }
+                Hv{
+                    H{"H-H v"}
+                }
+                M{
+                    M{"M-M."}
+                }
+                MEd{
+                    M{"MM.dd., E - MM.dd., E"}
+                    d{"MM.dd., E - MM.dd., E"}
+                }
+                MMM{
+                    M{"MMM-MMM"}
+                }
+                MMMEd{
+                    M{"MMM d., E - MMM d., E"}
+                    d{"MMM d., E - d., E"}
+                }
+                MMMd{
+                    M{"MMM d. - MMM d."}
+                    d{"MMM d-d."}
+                }
+                Md{
+                    M{"MM.dd. - MM.dd."}
+                    d{"MM.dd-dd."}
+                }
+                d{
+                    d{"d-d."}
+                }
+                fallback{"{0} - {1}"}
+                h{
+                    a{"a h – a h"}
+                    h{"a h–h"}
+                }
+                hm{
+                    a{"a h:mm – a h:mm"}
+                    h{"a h:mm–h:mm"}
+                    m{"a h:mm–h:mm"}
+                }
+                hmv{
+                    a{"a h:mm – a h:mm v"}
+                    h{"a h:mm–h:mm v"}
+                    m{"a h:mm–h:mm v"}
+                }
+                hv{
+                    a{"a h – a h v"}
+                    h{"a h–h v"}
+                }
+                y{
+                    y{"G y-y"}
+                }
+                yM{
+                    M{"G y.MM-MM."}
+                    y{"G y.MM. - y.MM."}
+                }
+                yMEd{
+                    M{"G y.MM.dd., E - MM.dd., E"}
+                    d{"G y.MM.dd., E - dd., E"}
+                    y{"G y.MM.dd., E - y.MM.dd., E"}
+                }
+                yMMM{
+                    M{"G y. MMM-MMM"}
+                    y{"G y. MMM - y. MMM"}
+                }
+                yMMMEd{
+                    M{"G y. MMM d., E - MMM d., E"}
+                    d{"G y. MMM d., E - d., E"}
+                    y{"G y. MMM d., E - y. MMM d., E"}
+                }
+                yMMMM{
+                    M{"G y. MMMM-MMMM"}
+                    y{"G y. MMMM - y. MMMM"}
+                }
+                yMMMd{
+                    M{"G y. MMM d. - MMM d."}
+                    d{"G y. MMM d-d."}
+                    y{"G y. MMM d. - y. MMM d."}
+                }
+                yMd{
+                    M{"G y.MM.dd. - MM.dd."}
+                    d{"G y.MM.dd-dd."}
+                    y{"G y.MM.dd. - y.MM.dd."}
+                }
+            }
+        }
         gregorian{
             AmPmMarkers{
                 "de.",
@@ -272,7 +495,7 @@ hu{
                 "H:mm",
                 "y. MMMM d., EEEE",
                 "y. MMMM d.",
-                "yyyy.MM.dd.",
+                "y.MM.dd.",
                 "yyyy.MM.dd.",
                 "{1} {0}",
                 "{1} {0}",
@@ -282,6 +505,10 @@ hu{
             }
             availableFormats{
                 Ed{"d., E"}
+                Gy{"G y"}
+                GyMMM{"G y. MMM"}
+                GyMMMEd{"G y. MMM d., E"}
+                GyMMMd{"G y. MMM d."}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
@@ -291,23 +518,22 @@ hu{
                 MMMEd{"MMM d., E"}
                 MMMMd{"MMMM d."}
                 MMMd{"MMM d."}
-                MMdd{"MM.dd."}
                 Md{"M. d."}
                 d{"d"}
                 h{"a h"}
                 hm{"a h:mm"}
                 hms{"a h:mm:ss"}
                 mmss{"mm:ss"}
+                ms{"mm:ss"}
                 yM{"y.M."}
-                yMEd{"yyyy.MM.dd., E"}
+                yMEd{"y.MM.dd., E"}
                 yMMM{"y. MMM"}
                 yMMMEd{"y. MMM d., E"}
+                yMMMM{"y. MMMM"}
                 yMMMd{"y. MMM d."}
-                yMd{"yyyy.MM.dd."}
+                yMd{"y.MM.dd."}
                 yQQQ{"y. QQQ"}
-                yyQ{"yy/Q"}
-                yyyyMM{"yyyy.MM"}
-                yyyyMMMM{"y. MMMM"}
+                yQQQQ{"y. QQQQ"}
             }
             dayNames{
                 format{
@@ -358,6 +584,15 @@ hu{
                         "P",
                         "Sz",
                     }
+                    short{
+                        "V",
+                        "H",
+                        "K",
+                        "Sze",
+                        "Cs",
+                        "P",
+                        "Szo",
+                    }
                     wide{
                         "vasárnap",
                         "hétfő",
@@ -383,81 +618,20 @@ hu{
                     "időszámításunk szerint",
                 }
             }
-            fields{
-                day{
-                    dn{"nap"}
-                    relative{
-                        "-1"{"tegnap"}
-                        "-2"{"tegnapelőtt"}
-                        "0"{"ma"}
-                        "1"{"holnap"}
-                        "2"{"holnapután"}
-                    }
-                }
-                dayperiod{
-                    dn{"napszak"}
-                }
-                era{
-                    dn{"éra"}
-                }
-                hour{
-                    dn{"óra"}
-                }
-                minute{
-                    dn{"perc"}
-                }
-                month{
-                    dn{"hónap"}
-                    relative{
-                        "-1"{"Előző hónap"}
-                        "0"{"Ez a hónap"}
-                        "1"{"Következő hónap"}
-                    }
-                }
-                second{
-                    dn{"másodperc"}
-                }
-                week{
-                    dn{"hét"}
-                    relative{
-                        "-1"{"Előző hét"}
-                        "0"{"Ez a hét"}
-                        "1"{"Következő hét"}
-                    }
-                }
-                weekday{
-                    dn{"hét napja"}
-                }
-                year{
-                    dn{"év"}
-                    relative{
-                        "-1"{"Előző év"}
-                        "0"{"Ez az év"}
-                        "1"{"Következő év"}
-                    }
-                }
-                zone{
-                    dn{"zóna"}
-                }
-            }
             intervalFormats{
                 H{
                     H{"H-H"}
-                    a{"HH-HH"}
                 }
                 Hm{
                     H{"H:mm-H:mm"}
-                    a{"HH:mm-HH:mm"}
                     m{"H:mm-H:mm"}
                 }
                 Hmv{
                     H{"H:mm-H:mm v"}
-                    a{"HH:mm-HH:mm v"}
                     m{"H:mm-H:mm v"}
                 }
                 Hv{
                     H{"H-H v"}
-                    a{"HH-HH v"}
                 }
                 M{
                     M{"M-M."}
@@ -486,34 +660,34 @@ hu{
                 }
                 fallback{"{0} - {1}"}
                 h{
-                    a{"a h - a h"}
-                    h{"h a - h a"}
+                    a{"a h – a h"}
+                    h{"a h–h"}
                 }
                 hm{
-                    a{"a h:mm - a h:mm"}
-                    h{"h:mm-h:mm a"}
-                    m{"h:mm-h:mm a"}
+                    a{"a h:mm – a h:mm"}
+                    h{"a h:mm–h:mm"}
+                    m{"a h:mm–h:mm"}
                 }
                 hmv{
-                    a{"a h:mm - a h:mm v"}
-                    h{"h:mm-h:mm a v"}
-                    m{"h:mm-h:mm a v"}
+                    a{"a h:mm – a h:mm v"}
+                    h{"a h:mm–h:mm v"}
+                    m{"a h:mm–h:mm v"}
                 }
                 hv{
-                    a{"a h - a h v"}
-                    h{"h-h a v"}
+                    a{"a h – a h v"}
+                    h{"a h–h v"}
                 }
                 y{
                     y{"y-y"}
                 }
                 yM{
-                    M{"yyyy.MM-MM."}
-                    y{"yyyy.MM. - yyyy.MM."}
+                    M{"y.MM-MM."}
+                    y{"y.MM. - y.MM."}
                 }
                 yMEd{
-                    M{"yyyy.MM.dd., E - MM.dd., E"}
-                    d{"yyyy.MM.dd., E - dd., E"}
-                    y{"yyyy.MM.dd., E - yyyy.MM.dd., E"}
+                    M{"y.MM.dd., E - MM.dd., E"}
+                    d{"y.MM.dd., E - dd., E"}
+                    y{"y.MM.dd., E - y.MM.dd., E"}
                 }
                 yMMM{
                     M{"y. MMM-MMM"}
@@ -524,15 +698,19 @@ hu{
                     d{"y. MMM d., E - d., E"}
                     y{"y. MMM d., E - y. MMM d., E"}
                 }
+                yMMMM{
+                    M{"y. MMMM-MMMM"}
+                    y{"y. MMMM - y. MMMM"}
+                }
                 yMMMd{
                     M{"y. MMM d. - MMM d."}
                     d{"y. MMM d-d."}
                     y{"y. MMM d. - y. MMM d."}
                 }
                 yMd{
-                    M{"yyyy.MM.dd. - MM.dd."}
-                    d{"yyyy.MM.dd-dd."}
-                    y{"yyyy.MM.dd. - yyyy.MM.dd."}
+                    M{"y.MM.dd. - MM.dd."}
+                    d{"y.MM.dd-dd."}
+                    y{"y.MM.dd. - y.MM.dd."}
                 }
             }
             monthNames{
@@ -652,6 +830,12 @@ hu{
                         "N2",
                         "N3",
                         "N4",
+                    }
+                    narrow{
+                        "1.",
+                        "2.",
+                        "3.",
+                        "4.",
                     }
                     wide{
                         "1. negyedév",
@@ -786,77 +970,24 @@ hu{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "Chaitra",
-                        "Vaisakha",
-                        "Jyaistha",
-                        "Asadha",
-                        "Sravana",
-                        "Bhadra",
-                        "Asvina",
-                        "Kartika",
-                        "Agrahayana",
-                        "Pausa",
-                        "Magha",
-                        "Phalguna",
-                    }
-                    wide{
-                        "Chaitra",
-                        "Vaisakha",
-                        "Jyaistha",
-                        "Asadha",
-                        "Sravana",
-                        "Bhadra",
-                        "Asvina",
-                        "Kartika",
-                        "Agrahayana",
-                        "Pausa",
-                        "Magha",
-                        "Phalguna",
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
                     }
                 }
             }
         }
         islamic{
-            DateTimePatterns{
-                "H:mm:ss zzzz",
-                "H:mm:ss z",
-                "H:mm:ss",
-                "H:mm",
-                "y. MMMM d., EEEE",
-                "y. MMMM d.",
-                "yyyy.MM.dd.",
-                "yyyy.MM.dd.",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-                "{1} {0}",
-            }
-            availableFormats{
-                Ed{"d E"}
-                H{"HH"}
-                Hm{"H:mm"}
-                Hms{"H:mm:ss"}
-                M{"L"}
-                MEd{"M. d., E"}
-                MMMEd{"MMM. d., E"}
-                MMMMd{"MMMM d."}
-                MMMd{"MMM d."}
-                Md{"M. d."}
-                d{"d"}
-                h{"a h"}
-                hm{"a h:mm"}
-                hms{"a h:mm:ss"}
-                ms{"mm:ss"}
-                y{"y"}
-                yM{"y-M"}
-                yMEd{"yyyy.MM.dd., E"}
-                yMMM{"y MMM"}
-                yMMMEd{"y. MMM d., E"}
-                yQ{"y Q"}
-                yQQQ{"y QQQ"}
-            }
             eras{
                 abbreviated{
                     "MF",
@@ -865,18 +996,18 @@ hu{
             monthNames{
                 format{
                     abbreviated{
-                        "Muh.",
+                        "Moh.",
                         "Saf.",
-                        "Rab. I",
-                        "Rab. II",
-                        "Jum. I",
-                        "Jum. II",
-                        "Raj.",
-                        "Sha.",
+                        "Rébi I",
+                        "Rébi II",
+                        "Dsem. I",
+                        "Dsem. II",
+                        "Red.",
+                        "Sab.",
                         "Ram.",
-                        "Shaw.",
-                        "Dsül-Q.",
-                        "Dsül-H.",
+                        "Sev.",
+                        "Dsül k.",
+                        "Dsül h.",
                     }
                     wide{
                         "Moharrem",
@@ -894,19 +1025,19 @@ hu{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "Muh.",
-                        "Saf.",
-                        "Rab. I",
-                        "Rab. II",
-                        "Jum. I",
-                        "Jum. II",
-                        "Raj.",
-                        "Sha.",
-                        "Ram.",
-                        "Shaw.",
-                        "Dsül-Q.",
-                        "Dsül-H.",
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
                     }
                     wide{
                         "Moharrem",
@@ -926,9 +1057,20 @@ hu{
             }
         }
         japanese{
-            availableFormats{
-                hm{"a h:mm"}
-                hms{"a h:mm:ss"}
+            DateTimePatterns{
+                "H:mm:ss zzzz",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "G y. MMMM d., EEEE",
+                "G y. MMMM d.",
+                "G y.MM.dd.",
+                "GGGGG y.MM.dd.",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
             }
         }
         persian{
@@ -948,19 +1090,19 @@ hu{
                         "Bahman",
                         "Esfand",
                     }
-                    wide{
-                        "Farvardin",
-                        "Ordibehesht",
-                        "Khordad",
-                        "Tir",
-                        "Mordad",
-                        "Shahrivar",
-                        "Mehr",
-                        "Aban",
-                        "Azar",
-                        "Dey",
-                        "Bahman",
-                        "Esfand",
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
                     }
                 }
                 stand-alone{
@@ -996,11 +1138,6 @@ hu{
             }
         }
         roc{
-            availableFormats{
-                h{"a h"}
-                hm{"a h:mm"}
-                hms{"a h:mm:ss"}
-            }
             eras{
                 abbreviated{
                     "R.O.C. előtt",
@@ -1015,10 +1152,69 @@ hu{
         quotationEnd{"”"}
         quotationStart{"„"}
     }
+    fields{
+        day{
+            dn{"nap"}
+            relative{
+                "-1"{"tegnap"}
+                "-2"{"tegnapelőtt"}
+                "0"{"ma"}
+                "1"{"holnap"}
+                "2"{"holnapután"}
+            }
+        }
+        dayperiod{
+            dn{"napszak"}
+        }
+        era{
+            dn{"éra"}
+        }
+        hour{
+            dn{"óra"}
+        }
+        minute{
+            dn{"perc"}
+        }
+        month{
+            dn{"hónap"}
+            relative{
+                "-1"{"Előző hónap"}
+                "0"{"Ez a hónap"}
+                "1"{"Következő hónap"}
+            }
+        }
+        second{
+            dn{"másodperc"}
+        }
+        week{
+            dn{"hét"}
+            relative{
+                "-1"{"Előző hét"}
+                "0"{"Ez a hét"}
+                "1"{"Következő hét"}
+            }
+        }
+        weekday{
+            dn{"hét napja"}
+        }
+        year{
+            dn{"év"}
+            relative{
+                "-1"{"Előző év"}
+                "0"{"Ez az év"}
+                "1"{"Következő év"}
+            }
+        }
+        zone{
+            dn{"időzóna"}
+        }
+    }
     listPattern{
         standard{
             2{"{0} és {1}"}
             end{"{0} és {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
         }
     }
     measurementSystemNames{
@@ -1031,91 +1227,63 @@ hu{
             other{"{0} nap"}
         }
         day-future{
-            0{"0 nap múlva"}
-            1{"1 nap múlva"}
             other{"{0} nap múlva"}
         }
         day-past{
-            0{"0 napja"}
-            1{"1 napja"}
-            other{"{0} nappal ezelőtt"}
+            other{"{0} napja"}
         }
         hour{
             other{"{0} óra"}
         }
         hour-future{
-            0{"0 óra múlva"}
-            1{"1 óra múlva"}
             other{"{0} óra múlva"}
         }
         hour-past{
-            0{"0 órája"}
-            1{"1 órája"}
             other{"{0} órával ezelőtt"}
         }
         minute{
             other{"{0} perc"}
         }
         minute-future{
-            0{"0 perc múlva"}
-            1{"1 perc múlva"}
             other{"{0} perc múlva"}
         }
         minute-past{
-            0{"0 perce"}
-            1{"1 perce"}
             other{"{0} perccel ezelőtt"}
         }
         month{
             other{"{0} hónap"}
         }
         month-future{
-            0{"0 hónap múlva"}
-            1{"1 hónap múlva"}
             other{"{0} hónap múlva"}
         }
         month-past{
-            0{"0 hónapja"}
-            1{"1 hónapja"}
             other{"{0} hónappal ezelőtt"}
         }
         second{
             other{"{0} másodperc"}
         }
         second-future{
-            0{"0 másodperc múlva"}
-            1{"1 másodperc múlva"}
             other{"{0} másodperc múlva"}
         }
         second-past{
-            0{"0 másodperce"}
-            1{"1 másodperce"}
             other{"{0} másodperccel ezelőtt"}
         }
         week{
             other{"{0} hét"}
         }
         week-future{
-            0{"0 hét múlva"}
-            1{"1 hét múlva"}
             other{"{0} hét múlva"}
         }
         week-past{
-            0{"0 hete"}
-            1{"1 hete"}
             other{"{0} héttel ezelőtt"}
         }
         year{
             other{"{0} év"}
         }
         year-future{
-            0{"0 év múlva"}
-            1{"1 év múlva"}
             other{"{0} év múlva"}
         }
         year-past{
-            0{"0 éve"}
-            1{"1 éve"}
             other{"{0} évvel ezelőtt"}
         }
     }

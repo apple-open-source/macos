@@ -35,6 +35,7 @@
 
 #include <cxxabi.h>			// for name demangling
 #include <mach-o/dyld.h>	// for _NSGetExecutablePath
+#include <limits.h>
 
 // enable kernel tracing
 #define ENABLE_SECTRACE 1
@@ -147,7 +148,7 @@ Target::Target()
 			p++;
 		else
 			p = execPath;
-		unsigned plen = strlen(p);
+		size_t plen = strlen(p);
 		if (plen > maxProgNameLength)		// too long
 			p += plen - maxProgNameLength; // take rear
 		strcpy(progName, p);
@@ -230,7 +231,7 @@ void Target::message(const char *scope, const char *format, va_list args)
 		bufp[1] = '\0';
 
 		// submit to sink (do not count newline and null in count)
-		sink->put(buffer, bufp - buffer);
+		sink->put(buffer, (unsigned int)(bufp - buffer));
 	}
 }
 
@@ -248,7 +249,7 @@ void Target::dump(const char *format, va_list args)
 	char buffer[messageConstructionSize];	// building the message here
 	vsnprintf(buffer, sizeof(buffer), format, args);
 	for (char *p = buffer; *p; p++)
-		if (!isprint(*p) && !isspace(*p) || *p == '\r')
+		if ((!isprint(*p) && !isspace(*p)) || *p == '\r')
 			*p = '?';
 	sink->dump(buffer);
 }

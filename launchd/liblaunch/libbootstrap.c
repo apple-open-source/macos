@@ -36,8 +36,6 @@
 
 #include "job.h"
 
-mach_port_t	bootstrap_port = MACH_PORT_NULL;
-
 void
 bootstrap_init(void)
 {
@@ -137,6 +135,7 @@ kern_return_t
 bootstrap_check_in(mach_port_t bp, const name_t service_name, mach_port_t *sp)
 {
 	uuid_t junk;
+	(void)bzero(junk, sizeof(junk));
 	return vproc_mig_check_in2(bp, (char *)service_name, sp, junk, 0);
 }
 
@@ -144,6 +143,7 @@ kern_return_t
 bootstrap_check_in2(mach_port_t bp, const name_t service_name, mach_port_t *sp, uint64_t flags)
 {
 	uuid_t junk;
+	(void)bzero(junk, sizeof(junk));
 	return vproc_mig_check_in2(bp, (char *)service_name, sp, junk, flags);
 }
 

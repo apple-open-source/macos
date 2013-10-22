@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -138,7 +138,7 @@ static void UsageMessage(char *message)
 {
   warnx("(usage: %s)", message);
   
-  printf("%s [-x] [-p] [-f filename] [-d name] name[=value] ...\n", gToolName);
+  printf("%s [-x] [-p] [-f filename] [-d name] [-c] name[=value] ...\n", gToolName);
   printf("\t-x         use XML format for printing or reading variables\n");
   printf("\t           (must appear before -p or -f)\n");
   printf("\t-p         print all firmware variables\n");

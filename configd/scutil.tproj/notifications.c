@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2008-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -286,7 +286,7 @@ _watcher(void *arg)
 	}
 
 	if (doDispatch) {
-		if (!SCDynamicStoreSetDispatchQueue(store, dispatch_get_current_queue())) {
+		if (!SCDynamicStoreSetDispatchQueue(store, dispatch_get_main_queue())) {
 			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 			notifyRl = NULL;
 			return NULL;

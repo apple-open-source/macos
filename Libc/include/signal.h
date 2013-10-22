@@ -61,11 +61,7 @@
 #include <sys/cdefs.h>
 #include <_types.h>
 #include <sys/signal.h>
-
-#ifndef _PTHREAD_T
-typedef __darwin_pthread_t	pthread_t;
-#define _PTHREAD_T
-#endif
+#include <sys/_types/_pthread_t.h>
 
 #if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 extern __const char *__const sys_signame[NSIG];
@@ -168,7 +164,7 @@ __END_DECLS
 /* List definitions after function declarations, or Reiser cpp gets upset. */
 #if defined(__i386__) || defined(__x86_64__)
 /* The left shift operator on intel is modulo 32 */
-static __inline int
+__header_always_inline int
 __sigbits(int __signo)
 {
     return __signo > __DARWIN_NSIG ? 0 : (1 << (__signo - 1));

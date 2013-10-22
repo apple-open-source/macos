@@ -1,9 +1,9 @@
 /*
- * "$Id: ipp-support.c 10123 2011-11-16 21:59:44Z mike $"
+ * "$Id: ipp-support.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Internet Printing Protocol support functions for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -16,19 +16,24 @@
  *
  * Contents:
  *
- *   ippAttributeString() - Convert the attribute's value to a string.
- *   ippEnumString()	  - Return a string corresponding to the enum value.
- *   ippEnumValue()	  - Return the value associated with a given enum
- *			    string.
- *   ippErrorString()	  - Return a name for the given status code.
- *   ippErrorValue()	  - Return a status code for the given name.
- *   ippOpString()	  - Return a name for the given operation id.
- *   ippOpValue()	  - Return an operation id for the given name.
- *   ippPort()		  - Return the default IPP port number.
- *   ippSetPort()	  - Set the default port number.
- *   ippTagString()	  - Return the tag name corresponding to a tag value.
- *   ippTagValue()	  - Return the tag value corresponding to a tag name.
- *   ipp_col_string()	  - Convert a collection to a string.
+ *   ippAttributeString()      - Convert the attribute's value to a string.
+ *   ippCreateRequestedArray() - Create a CUPS array of attribute names from
+ *				 the given requested-attributes attribute.
+ *   ippEnumString()	       - Return a string corresponding to the enum
+ *				 value.
+ *   ippEnumValue()	       - Return the value associated with a given enum
+ *				 string.
+ *   ippErrorString()	       - Return a name for the given status code.
+ *   ippErrorValue()	       - Return a status code for the given name.
+ *   ippOpString()	       - Return a name for the given operation id.
+ *   ippOpValue()	       - Return an operation id for the given name.
+ *   ippPort()		       - Return the default IPP port number.
+ *   ippSetPort()	       - Set the default port number.
+ *   ippTagString()	       - Return the tag name corresponding to a tag
+ *				 value.
+ *   ippTagValue()	       - Return the tag value corresponding to a tag
+ *				 name.
+ *   ipp_col_string()	       - Convert a collection to a string.
  */
 
 /*
@@ -84,6 +89,43 @@ static const char * const ipp_status_oks[] =	/* "OK" status codes */
 		  "client-error-document-security-error",
 		  "client-error-document-unprintable-error"
 		},
+		* const ipp_status_480s[] =	/* Vendor client errors */
+		{
+		  /* 0x0480 - 0x048F */
+		  "0x0480",
+		  "0x0481",
+		  "0x0482",
+		  "0x0483",
+		  "0x0484",
+		  "0x0485",
+		  "0x0486",
+		  "0x0487",
+		  "0x0488",
+		  "0x0489",
+		  "0x048A",
+		  "0x048B",
+		  "0x048C",
+		  "0x048D",
+		  "0x048E",
+		  "0x048F",
+		  /* 0x0490 - 0x049F */
+		  "0x0490",
+		  "0x0491",
+		  "0x0492",
+		  "0x0493",
+		  "0x0494",
+		  "0x0495",
+		  "0x0496",
+		  "0x0497",
+		  "0x0498",
+		  "0x0499",
+		  "0x049A",
+		  "0x049B",
+		  "cups-error-account-info-needed",
+		  "cups-error-account-closed",
+		  "cups-error-account-limit-reached",
+		  "cups-error-account-authorization-failed"
+		},
 		* const ipp_status_500s[] =		/* Server errors */
 		{
 		  "server-error-internal-error",
@@ -102,15 +144,15 @@ static const char * const ipp_status_oks[] =	/* "OK" status codes */
 		},
 		* const ipp_status_1000s[] =		/* CUPS internal */
 		{
-		  "cups-authorization-canceled",
+		  "cups-authentication-canceled",
 		  "cups-pki-error",
 		  "cups-upgrade-required"
 		};
 static const char * const ipp_std_ops[] =
 		{
 		  /* 0x0000 - 0x000f */
-		  "0x00",
-		  "0x01",
+		  "0x0000",
+		  "0x0001",
 		  "Print-Job",
 		  "Print-URI",
 		  "Validate-Job",
@@ -124,7 +166,7 @@ static const char * const ipp_std_ops[] =
 		  "Hold-Job",
 		  "Release-Job",
 		  "Restart-Job",
-		  "0x0f",
+		  "0x000f",
 
 		  /* 0x0010 - 0x001f */
 		  "Pause-Printer",
@@ -162,10 +204,10 @@ static const char * const ipp_std_ops[] =
 		  "Suspend-Current-Job",
 		  "Resume-Job",
 
-		  /* 0x0030 - 0x003d */
+		  /* 0x0030 - 0x003e */
 		  "Promote-Job",
 		  "Schedule-Job-After",
-		  "0x32",
+		  "0x0032",
 		  "Cancel-Document",
 		  "Get-Document-Attributes",
 		  "Get-Documents",
@@ -176,7 +218,8 @@ static const char * const ipp_std_ops[] =
 		  "Resubmit-Job",
 		  "Close-Job",
 		  "Identify-Printer",
-		  "Validate-Document"
+		  "Validate-Document",
+		  "Send-Hardcopy-Document"
 		},
 		* const ipp_cups_ops[] =
 		{
@@ -358,7 +401,155 @@ static const char * const ipp_document_states[] =
 		  "trim-after-pages",
 		  "trim-after-documents",
 		  "trim-after-copies",
-		  "trim-after-job"
+		  "trim-after-job",
+		  "64",
+		  "65",
+		  "66",
+		  "67",
+		  "68",
+		  "69",
+		  "punch-top-left",
+		  "punch-bottom-left",
+		  "punch-top-right",
+		  "punch-bottom-right",
+		  "punch-dual-left",
+		  "punch-dual-top",
+		  "punch-dual-right",
+		  "punch-dual-bottom",
+		  "punch-triple-left",
+		  "punch-triple-top",
+		  "punch-triple-right",
+		  "punch-triple-bottom",
+		  "punch-quad-left",
+		  "punch-quad-top",
+		  "punch-quad-right",
+		  "punch-quad-bottom",
+		  "86",
+		  "87",
+		  "88",
+		  "89",
+		  "fold-accordian",
+		  "fold-double-gate",
+		  "fold-gate",
+		  "fold-half",
+		  "fold-half-z",
+		  "fold-left-gate",
+		  "fold-letter",
+		  "fold-parallel",
+		  "fold-poster",
+		  "fold-right-gate",
+		  "fold-z"
+		},
+		* const ipp_finishings_vendor[] =
+		{
+		  /* 0x40000000 to 0x4000000F */
+		  "0x40000000",
+		  "0x40000001",
+		  "0x40000002",
+		  "0x40000003",
+		  "0x40000004",
+		  "0x40000005",
+		  "0x40000006",
+		  "0x40000007",
+		  "0x40000008",
+		  "0x40000009",
+		  "0x4000000A",
+		  "0x4000000B",
+		  "0x4000000C",
+		  "0x4000000D",
+		  "0x4000000E",
+		  "0x4000000F",
+		  /* 0x40000010 to 0x4000001F */
+		  "0x40000010",
+		  "0x40000011",
+		  "0x40000012",
+		  "0x40000013",
+		  "0x40000014",
+		  "0x40000015",
+		  "0x40000016",
+		  "0x40000017",
+		  "0x40000018",
+		  "0x40000019",
+		  "0x4000001A",
+		  "0x4000001B",
+		  "0x4000001C",
+		  "0x4000001D",
+		  "0x4000001E",
+		  "0x4000001F",
+		  /* 0x40000020 to 0x4000002F */
+		  "0x40000020",
+		  "0x40000021",
+		  "0x40000022",
+		  "0x40000023",
+		  "0x40000024",
+		  "0x40000025",
+		  "0x40000026",
+		  "0x40000027",
+		  "0x40000028",
+		  "0x40000029",
+		  "0x4000002A",
+		  "0x4000002B",
+		  "0x4000002C",
+		  "0x4000002D",
+		  "0x4000002E",
+		  "0x4000002F",
+		  /* 0x40000030 to 0x4000003F */
+		  "0x40000030",
+		  "0x40000031",
+		  "0x40000032",
+		  "0x40000033",
+		  "0x40000034",
+		  "0x40000035",
+		  "0x40000036",
+		  "0x40000037",
+		  "0x40000038",
+		  "0x40000039",
+		  "0x4000003A",
+		  "0x4000003B",
+		  "0x4000003C",
+		  "0x4000003D",
+		  "0x4000003E",
+		  "0x4000003F",
+		  /* 0x40000040 - 0x4000004F */
+		  "0x40000040",
+		  "0x40000041",
+		  "0x40000042",
+		  "0x40000043",
+		  "0x40000044",
+		  "0x40000045",
+		  "cups-punch-top-left",
+		  "cups-punch-bottom-left",
+		  "cups-punch-top-right",
+		  "cups-punch-bottom-right",
+		  "cups-punch-dual-left",
+		  "cups-punch-dual-top",
+		  "cups-punch-dual-right",
+		  "cups-punch-dual-bottom",
+		  "cups-punch-triple-left",
+		  "cups-punch-triple-top",
+		  /* 0x40000050 - 0x4000005F */
+		  "cups-punch-triple-right",
+		  "cups-punch-triple-bottom",
+		  "cups-punch-quad-left",
+		  "cups-punch-quad-top",
+		  "cups-punch-quad-right",
+		  "cups-punch-quad-bottom",
+		  "0x40000056",
+		  "0x40000057",
+		  "0x40000058",
+		  "0x40000059",
+		  "cups-fold-accordian",
+		  "cups-fold-double-gate",
+		  "cups-fold-gate",
+		  "cups-fold-half",
+		  "cups-fold-half-z",
+		  "cups-fold-left-gate",
+		  /* 0x40000060 - 0x40000064 */
+		  "cups-fold-letter",
+		  "cups-fold-parallel",
+		  "cups-fold-poster",
+		  "cups-fold-right-gate",
+		  "cups-fold-z"
 		},
 		* const ipp_job_collation_types[] =
 		{			/* job-collation-type enums */
@@ -424,7 +615,8 @@ ippAttributeString(
   char		*bufptr,		/* Pointer into buffer */
 		*bufend,		/* End of buffer */
 		temp[256];		/* Temporary string */
-  const char	*ptr;			/* Pointer into string */
+  const char	*ptr,			/* Pointer into string */
+		*end;			/* Pointer to end of string */
   _ipp_value_t	*val;			/* Current value */
 
 
@@ -452,7 +644,7 @@ ippAttributeString(
         bufptr ++;
     }
 
-    switch (attr->value_tag & ~IPP_TAG_COPY)
+    switch (attr->value_tag & ~IPP_TAG_CUPS_CONST)
     {
       case IPP_TAG_ENUM :
           ptr = ippEnumString(attr->name, val->integer);
@@ -580,7 +772,8 @@ ippAttributeString(
           break;
 
       case IPP_TAG_STRING :
-          for (ptr = val->string.text; *ptr; ptr ++)
+          for (ptr = val->unknown.data, end = ptr + val->unknown.length;
+               ptr < end; ptr ++)
           {
             if (*ptr == '\\' || _cups_isspace(*ptr))
             {
@@ -629,6 +822,947 @@ ippAttributeString(
 
 
 /*
+ * 'ippCreateRequestedArray()' - Create a CUPS array of attribute names from the
+ *                               given requested-attributes attribute.
+ *
+ * This function creates a (sorted) CUPS array of attribute names matching the
+ * list of "requested-attribute" values supplied in an IPP request.  All IANA-
+ * registered values are supported in addition to the CUPS IPP extension
+ * attributes.
+ *
+ * The @code request@ parameter specifies the request message that was read from
+ * the client.
+ *
+ * @code NULL@ is returned if all attributes should be returned.  Otherwise, the
+ * result is a sorted array of attribute names, where @code cupsArrayFind(array,
+ * "attribute-name")@ will return a non-NULL pointer.  The array must be freed
+ * using the @code cupsArrayDelete@ function.
+ *
+ * @since CUPS 1.7/OS X 10.9@
+ */
+
+cups_array_t *				/* O - CUPS array or @code NULL@ if all */
+ippCreateRequestedArray(ipp_t *request)	/* I - IPP request */
+{
+  int			i, j,		/* Looping vars */
+			count,		/* Number of values */
+			added;		/* Was name added? */
+  ipp_attribute_t	*requested;	/* requested-attributes attribute */
+  cups_array_t		*ra;		/* Requested attributes array */
+  const char		*value;		/* Current value */
+  /* The following lists come from the current IANA IPP registry of attributes */
+  static const char * const document_description[] =
+  {					/* document-description group */
+    "compression",
+    "copies-actual",
+    "cover-back-actual",
+    "cover-front-actual",
+    "current-page-order",
+    "date-time-at-completed",
+    "date-time-at-creation",
+    "date-time-at-processing",
+    "detailed-status-messages",
+    "document-access-errors",
+    "document-charset",
+    "document-digital-signature",
+    "document-format",
+    "document-format-details",
+    "document-format-detected",
+    "document-format-version",
+    "document-format-version-detected",
+    "document-job-id",
+    "document-job-uri",
+    "document-message",
+    "document-metadata",
+    "document-name",
+    "document-natural-language",
+    "document-number",
+    "document-printer-uri",
+    "document-state",
+    "document-state-message",
+    "document-state-reasons",
+    "document-uri",
+    "document-uuid",
+    "errors-count",
+    "finishings-actual",
+    "finishings-col-actual",
+    "force-front-side-actual",
+    "imposition-template-actual",
+    "impressions",
+    "impressions-completed",
+    "impressions-completed-current-copy",
+    "insert-sheet-actual",
+    "k-octets",
+    "k-octets-processed",
+    "last-document",
+    "media-actual",
+    "media-col-actual",
+    "media-input-tray-check-actual",
+    "media-sheets",
+    "media-sheets-completed",
+    "more-info",
+    "number-up-actual",
+    "orientation-requested-actual",
+    "output-bin-actual",
+    "output-device-assigned",
+    "overrides-actual",
+    "page-delivery-actual",
+    "page-order-received-actual",
+    "page-ranges-actual",
+    "pages",
+    "pages-completed",
+    "pages-completed-current-copy",
+    "presentation-direction-number-up-actual",
+    "print-color-mode-actual",
+    "print-content-optimize-actual",
+    "print-quality-actual",
+    "print-rendering-intent-actual",
+    "print-scaling-actual",		/* IPP Paid Printing */
+    "printer-resolution-actual",
+    "printer-up-time",
+    "separator-sheets-actual",
+    "sheet-completed-copy-number",
+    "sides-actual",
+    "time-at-completed",
+    "time-at-creation",
+    "time-at-processing",
+    "x-image-position-actual",
+    "x-image-shift-actual",
+    "x-side1-image-shift-actual",
+    "x-side2-image-shift-actual",
+    "y-image-position-actual",
+    "y-image-shift-actual",
+    "y-side1-image-shift-actual",
+    "y-side2-image-shift-actual"
+  };
+  static const char * const document_template[] =
+  {					/* document-template group */
+    "copies",
+    "copies-default",
+    "copies-supported",
+    "cover-back",
+    "cover-back-default",
+    "cover-back-supported",
+    "cover-front",
+    "cover-front-default",
+    "cover-front-supported",
+    "feed-orientation",
+    "feed-orientation-default",
+    "feed-orientation-supported",
+    "finishings",
+    "finishings-col",
+    "finishings-col-default",
+    "finishings-col-supported",
+    "finishings-default",
+    "finishings-supported",
+    "font-name-requested",
+    "font-name-requested-default",
+    "font-name-requested-supported",
+    "font-size-requested",
+    "font-size-requested-default",
+    "font-size-requested-supported",
+    "force-front-side",
+    "force-front-side-default",
+    "force-front-side-supported",
+    "imposition-template",
+    "imposition-template-default",
+    "imposition-template-supported",
+    "insert-after-page-number-supported",
+    "insert-count-supported",
+    "insert-sheet",
+    "insert-sheet-default",
+    "insert-sheet-supported",
+    "max-stitching-locations-supported",
+    "media",
+    "media-back-coating-supported",
+    "media-bottom-margin-supported",
+    "media-col",
+    "media-col-default",
+    "media-col-supported",
+    "media-color-supported",
+    "media-default",
+    "media-front-coating-supported",
+    "media-grain-supported",
+    "media-hole-count-supported",
+    "media-info-supported",
+    "media-input-tray-check",
+    "media-input-tray-check-default",
+    "media-input-tray-check-supported",
+    "media-key-supported",
+    "media-left-margin-supported",
+    "media-order-count-supported",
+    "media-pre-printed-supported",
+    "media-recycled-supported",
+    "media-right-margin-supported",
+    "media-size-supported",
+    "media-source-supported",
+    "media-supported",
+    "media-thickness-supported",
+    "media-top-margin-supported",
+    "media-type-supported",
+    "media-weight-metric-supported",
+    "multiple-document-handling",
+    "multiple-document-handling-default",
+    "multiple-document-handling-supported",
+    "number-up",
+    "number-up-default",
+    "number-up-supported",
+    "orientation-requested",
+    "orientation-requested-default",
+    "orientation-requested-supported",
+    "output-mode",			/* CUPS extension */
+    "output-mode-default",		/* CUPS extension */
+    "output-mode-supported",		/* CUPS extension */
+    "overrides",
+    "overrides-supported",
+    "page-delivery",
+    "page-delivery-default",
+    "page-delivery-supported",
+    "page-order-received",
+    "page-order-received-default",
+    "page-order-received-supported",
+    "page-ranges",
+    "page-ranges-supported",
+    "pages-per-subset",
+    "pages-per-subset-supported",
+    "pdl-init-file",
+    "pdl-init-file-default",
+    "pdl-init-file-entry-supported",
+    "pdl-init-file-location-supported",
+    "pdl-init-file-name-subdirectory-supported",
+    "pdl-init-file-name-supported",
+    "pdl-init-file-supported",
+    "presentation-direction-number-up",
+    "presentation-direction-number-up-default",
+    "presentation-direction-number-up-supported",
+    "print-color-mode",
+    "print-color-mode-default",
+    "print-color-mode-supported",
+    "print-content-optimize",
+    "print-content-optimize-default",
+    "print-content-optimize-supported",
+    "print-quality",
+    "print-quality-default",
+    "print-quality-supported",
+    "print-rendering-intent",
+    "print-rendering-intent-default",
+    "print-rendering-intent-supported",
+    "print-scaling",			/* IPP Paid Printing */
+    "print-scaling-default",		/* IPP Paid Printing */
+    "print-scaling-supported",		/* IPP Paid Printing */
+    "printer-resolution",
+    "printer-resolution-default",
+    "printer-resolution-supported",
+    "separator-sheets",
+    "separator-sheets-default",
+    "separator-sheets-supported",
+    "sheet-collate",
+    "sheet-collate-default",
+    "sheet-collate-supported",
+    "sides",
+    "sides-default",
+    "sides-supported",
+    "stitching-locations-supported",
+    "stitching-offset-supported",
+    "x-image-position",
+    "x-image-position-default",
+    "x-image-position-supported",
+    "x-image-shift",
+    "x-image-shift-default",
+    "x-image-shift-supported",
+    "x-side1-image-shift",
+    "x-side1-image-shift-default",
+    "x-side1-image-shift-supported",
+    "x-side2-image-shift",
+    "x-side2-image-shift-default",
+    "x-side2-image-shift-supported",
+    "y-image-position",
+    "y-image-position-default",
+    "y-image-position-supported",
+    "y-image-shift",
+    "y-image-shift-default",
+    "y-image-shift-supported",
+    "y-side1-image-shift",
+    "y-side1-image-shift-default",
+    "y-side1-image-shift-supported",
+    "y-side2-image-shift",
+    "y-side2-image-shift-default",
+    "y-side2-image-shift-supported"
+  };
+  static const char * const job_description[] =
+  {					/* job-description group */
+    "compression-supplied",
+    "copies-actual",
+    "cover-back-actual",
+    "cover-front-actual",
+    "current-page-order",
+    "date-time-at-completed",
+    "date-time-at-creation",
+    "date-time-at-processing",
+    "destination-statuses",
+    "document-charset-supplied",
+    "document-digital-signature-supplied",
+    "document-format-details-supplied",
+    "document-format-supplied",
+    "document-message-supplied",
+    "document-metadata",
+    "document-name-supplied",
+    "document-natural-language-supplied",
+    "document-overrides-actual",
+    "errors-count",
+    "finishings-actual",
+    "finishings-col-actual",
+    "force-front-side-actual",
+    "imposition-template-actual",
+    "impressions-completed-current-copy",
+    "insert-sheet-actual",
+    "job-account-id-actual",
+    "job-accounting-sheets-actual",
+    "job-accounting-user-id-actual",
+    "job-attribute-fidelity",
+    "job-charge-info",			/* CUPS extension */
+    "job-collation-type",
+    "job-collation-type-actual",
+    "job-copies-actual",
+    "job-cover-back-actual",
+    "job-cover-front-actual",
+    "job-detailed-status-message",
+    "job-document-access-errors",
+    "job-error-sheet-actual",
+    "job-finishings-actual",
+    "job-finishings-col-actual",
+    "job-hold-until-actual",
+    "job-id",
+    "job-impressions",
+    "job-impressions-completed",
+    "job-k-octets",
+    "job-k-octets-processed",
+    "job-mandatory-attributes",
+    "job-media-progress",		/* CUPS extension */
+    "job-media-sheets",
+    "job-media-sheets-completed",
+    "job-message-from-operator",
+    "job-more-info",
+    "job-name",
+    "job-originating-host-name",	/* CUPS extension */
+    "job-originating-user-name",
+    "job-originating-user-uri",
+    "job-pages",
+    "job-pages-completed",
+    "job-pages-completed-current-copy",
+    "job-printer-state-message",	/* CUPS extension */
+    "job-printer-state-reasons",	/* CUPS extension */
+    "job-printer-up-time",
+    "job-printer-uri",
+    "job-priority-actual",
+    "job-save-printer-make-and-model",
+    "job-sheet-message-actual",
+    "job-sheets-actual",
+    "job-sheets-col-actual",
+    "job-state",
+    "job-state-message",
+    "job-state-reasons",
+    "job-uri",
+    "job-uuid",
+    "media-actual",
+    "media-col-actual",
+    "media-check-input-tray-actual",
+    "multiple-document-handling-actual",
+    "number-of-documents",
+    "number-of-intervening-jobs",
+    "number-up-actual",
+    "orientation-requested-actual",
+    "original-requesting-user-name",
+    "output-bin-actual",
+    "output-device-assigned",
+    "overrides-actual",
+    "page-delivery-actual",
+    "page-order-received-actual",
+    "page-ranges-actual",
+    "presentation-direction-number-up-actual",
+    "print-color-mode-actual",
+    "print-content-optimize-actual",
+    "print-quality-actual",
+    "print-rendering-intent-actual",
+    "print-scaling-actual",		/* IPP Paid Printing */
+    "printer-resolution-actual",
+    "separator-sheets-actual",
+    "sheet-collate-actual",
+    "sheet-completed-copy-number",
+    "sheet-completed-document-number",
+    "sides-actual",
+    "time-at-completed",
+    "time-at-creation",
+    "time-at-processing",
+    "warnings-count",
+    "x-image-position-actual",
+    "x-image-shift-actual",
+    "x-side1-image-shift-actual",
+    "x-side2-image-shift-actual",
+    "y-image-position-actual",
+    "y-image-shift-actual",
+    "y-side1-image-shift-actual",
+    "y-side2-image-shift-actual"
+  };
+  static const char * const job_template[] =
+  {					/* job-template group */
+    "confirmation-sheet-print",		/* IPP FaxOut */
+    "confirmation-sheet-print-default",
+    "copies",
+    "copies-default",
+    "copies-supported",
+    "cover-back",
+    "cover-back-default",
+    "cover-back-supported",
+    "cover-front",
+    "cover-front-default",
+    "cover-front-supported",
+    "cover-sheet-info",			/* IPP FaxOut */
+    "cover-sheet-info-default",
+    "cover-sheet-info-supported",
+    "destination-uri-schemes-supported",/* IPP FaxOut */
+    "destination-uris",			/* IPP FaxOut */
+    "destination-uris-supported",
+    "feed-orientation",
+    "feed-orientation-default",
+    "feed-orientation-supported",
+    "finishings",
+    "finishings-col",
+    "finishings-col-default",
+    "finishings-col-supported",
+    "finishings-default",
+    "finishings-supported",
+    "font-name-requested",
+    "font-name-requested-default",
+    "font-name-requested-supported",
+    "font-size-requested",
+    "font-size-requested-default",
+    "font-size-requested-supported",
+    "force-front-side",
+    "force-front-side-default",
+    "force-front-side-supported",
+    "imposition-template",
+    "imposition-template-default",
+    "imposition-template-supported",
+    "insert-after-page-number-supported",
+    "insert-count-supported",
+    "insert-sheet",
+    "insert-sheet-default",
+    "insert-sheet-supported",
+    "job-account-id",
+    "job-account-id-default",
+    "job-account-id-supported",
+    "job-accounting-sheets"
+    "job-accounting-sheets-default"
+    "job-accounting-sheets-supported"
+    "job-accounting-user-id",
+    "job-accounting-user-id-default",
+    "job-accounting-user-id-supported",
+    "job-copies",
+    "job-copies-default",
+    "job-copies-supported",
+    "job-cover-back",
+    "job-cover-back-default",
+    "job-cover-back-supported",
+    "job-cover-front",
+    "job-cover-front-default",
+    "job-cover-front-supported",
+    "job-delay-output-until",
+    "job-delay-output-until-default",
+    "job-delay-output-until-supported",
+    "job-delay-output-until-time",
+    "job-delay-output-until-time-default",
+    "job-delay-output-until-time-supported",
+    "job-error-action",
+    "job-error-action-default",
+    "job-error-action-supported",
+    "job-error-sheet",
+    "job-error-sheet-default",
+    "job-error-sheet-supported",
+    "job-finishings",
+    "job-finishings-col",
+    "job-finishings-col-default",
+    "job-finishings-col-supported",
+    "job-finishings-default",
+    "job-finishings-supported",
+    "job-hold-until",
+    "job-hold-until-default",
+    "job-hold-until-supported",
+    "job-hold-until-time",
+    "job-hold-until-time-default",
+    "job-hold-until-time-supported",
+    "job-message-to-operator",
+    "job-message-to-operator-default",
+    "job-message-to-operator-supported",
+    "job-phone-number",
+    "job-phone-number-default",
+    "job-phone-number-supported",
+    "job-priority",
+    "job-priority-default",
+    "job-priority-supported",
+    "job-recipient-name",
+    "job-recipient-name-default",
+    "job-recipient-name-supported",
+    "job-save-disposition",
+    "job-save-disposition-default",
+    "job-save-disposition-supported",
+    "job-sheets",
+    "job-sheets-col",
+    "job-sheets-col-default",
+    "job-sheets-col-supported",
+    "job-sheets-default",
+    "job-sheets-supported",
+    "logo-uri-schemes-supported",
+    "max-save-info-supported",
+    "max-stitching-locations-supported",
+    "media",
+    "media-back-coating-supported",
+    "media-bottom-margin-supported",
+    "media-col",
+    "media-col-default",
+    "media-col-supported",
+    "media-color-supported",
+    "media-default",
+    "media-front-coating-supported",
+    "media-grain-supported",
+    "media-hole-count-supported",
+    "media-info-supported",
+    "media-input-tray-check",
+    "media-input-tray-check-default",
+    "media-input-tray-check-supported",
+    "media-key-supported",
+    "media-left-margin-supported",
+    "media-order-count-supported",
+    "media-pre-printed-supported",
+    "media-recycled-supported",
+    "media-right-margin-supported",
+    "media-size-supported",
+    "media-source-supported",
+    "media-supported",
+    "media-thickness-supported",
+    "media-top-margin-supported",
+    "media-type-supported",
+    "media-weight-metric-supported",
+    "multiple-document-handling",
+    "multiple-document-handling-default",
+    "multiple-document-handling-supported",
+    "number-of-retries",		/* IPP FaxOut */
+    "number-of-retries-default",
+    "number-of-retries-supported",
+    "number-up",
+    "number-up-default",
+    "number-up-supported",
+    "orientation-requested",
+    "orientation-requested-default",
+    "orientation-requested-supported",
+    "output-bin",
+    "output-bin-default",
+    "output-bin-supported",
+    "output-device",
+    "output-device-default",
+    "output-device-supported",
+    "output-mode",			/* CUPS extension */
+    "output-mode-default",		/* CUPS extension */
+    "output-mode-supported",		/* CUPS extension */
+    "overrides",
+    "overrides-supported",
+    "page-delivery",
+    "page-delivery-default",
+    "page-delivery-supported",
+    "page-order-received",
+    "page-order-received-default",
+    "page-order-received-supported",
+    "page-ranges",
+    "page-ranges-supported",
+    "pages-per-subset",
+    "pages-per-subset-supported",
+    "pdl-init-file",
+    "pdl-init-file-default",
+    "pdl-init-file-entry-supported",
+    "pdl-init-file-location-supported",
+    "pdl-init-file-name-subdirectory-supported",
+    "pdl-init-file-name-supported",
+    "pdl-init-file-supported",
+    "presentation-direction-number-up",
+    "presentation-direction-number-up-default",
+    "presentation-direction-number-up-supported",
+    "print-color-mode",
+    "print-color-mode-default",
+    "print-color-mode-supported",
+    "print-content-optimize",
+    "print-content-optimize-default",
+    "print-content-optimize-supported",
+    "print-quality",
+    "print-quality-default",
+    "print-quality-supported",
+    "print-rendering-intent",
+    "print-rendering-intent-default",
+    "print-rendering-intent-supported",
+    "print-scaling",			/* IPP Paid Printing */
+    "print-scaling-default",		/* IPP Paid Printing */
+    "print-scaling-supported",		/* IPP Paid Printing */
+    "printer-resolution",
+    "printer-resolution-default",
+    "printer-resolution-supported",
+    "proof-print",
+    "proof-print-default",
+    "proof-print-supported",
+    "retry-interval",			/* IPP FaxOut */
+    "retry-interval-default",
+    "retry-interval-supported",
+    "retry-timeout",			/* IPP FaxOut */
+    "retry-timeout-default",
+    "retry-timeout-supported",
+    "save-disposition-supported",
+    "save-document-format-default",
+    "save-document-format-supported",
+    "save-location-default",
+    "save-location-supported",
+    "save-name-subdirectory-supported",
+    "save-name-supported",
+    "separator-sheets",
+    "separator-sheets-default",
+    "separator-sheets-supported",
+    "sheet-collate",
+    "sheet-collate-default",
+    "sheet-collate-supported",
+    "sides",
+    "sides-default",
+    "sides-supported",
+    "stitching-locations-supported",
+    "stitching-offset-supported",
+    "x-image-position",
+    "x-image-position-default",
+    "x-image-position-supported",
+    "x-image-shift",
+    "x-image-shift-default",
+    "x-image-shift-supported",
+    "x-side1-image-shift",
+    "x-side1-image-shift-default",
+    "x-side1-image-shift-supported",
+    "x-side2-image-shift",
+    "x-side2-image-shift-default",
+    "x-side2-image-shift-supported",
+    "y-image-position",
+    "y-image-position-default",
+    "y-image-position-supported",
+    "y-image-shift",
+    "y-image-shift-default",
+    "y-image-shift-supported",
+    "y-side1-image-shift",
+    "y-side1-image-shift-default",
+    "y-side1-image-shift-supported",
+    "y-side2-image-shift",
+    "y-side2-image-shift-default",
+    "y-side2-image-shift-supported"
+  };
+  static const char * const printer_description[] =
+  {					/* printer-description group */
+    "auth-info-required",		/* CUPS extension */
+    "charset-configured",
+    "charset-supported",
+    "color-supported",
+    "compression-supported",
+    "device-service-count",
+    "device-uri",			/* CUPS extension */
+    "device-uuid",
+    "document-charset-default",
+    "document-charset-supported",
+    "document-creation-attributes-supported",
+    "document-digital-signature-default",
+    "document-digital-signature-supported",
+    "document-format-default",
+    "document-format-details-default",
+    "document-format-details-supported",
+    "document-format-supported",
+    "document-format-varying-attributes",
+    "document-format-version-default",
+    "document-format-version-supported",
+    "document-natural-language-default",
+    "document-natural-language-supported",
+    "document-password-supported",
+    "generated-natural-language-supported",
+    "identify-actions-default",
+    "identify-actions-supported",
+    "input-source-supported",
+    "ipp-features-supported",
+    "ipp-versions-supported",
+    "ippget-event-life",
+    "job-authorization-uri-supported",	/* CUPS extension */
+    "job-constraints-supported",
+    "job-creation-attributes-supported",
+    "job-finishings-col-ready",
+    "job-finishings-ready",
+    "job-ids-supported",
+    "job-impressions-supported",
+    "job-k-limit",			/* CUPS extension */
+    "job-k-octets-supported",
+    "job-media-sheets-supported",
+    "job-page-limit",			/* CUPS extension */
+    "job-password-encryption-supported",
+    "job-password-supported",
+    "job-quota-period",			/* CUPS extension */
+    "job-resolvers-supported",
+    "job-settable-attributes-supported",
+    "job-spooling-supported",
+    "jpeg-k-octets-supported",		/* CUPS extension */
+    "jpeg-x-dimension-supported",	/* CUPS extension */
+    "jpeg-y-dimension-supported",	/* CUPS extension */
+    "landscape-orientation-requested-preferred",
+					/* CUPS extension */
+    "marker-change-time",		/* CUPS extension */
+    "marker-colors",			/* CUPS extension */
+    "marker-high-levels",		/* CUPS extension */
+    "marker-levels",			/* CUPS extension */
+    "marker-low-levels",		/* CUPS extension */
+    "marker-message",			/* CUPS extension */
+    "marker-names",			/* CUPS extension */
+    "marker-types",			/* CUPS extension */
+    "media-col-ready",
+    "media-ready",
+    "member-names",			/* CUPS extension */
+    "member-uris",			/* CUPS extension */
+    "multiple-destination-uris-supported",/* IPP FaxOut */
+    "multiple-document-jobs-supported",
+    "multiple-operation-time-out",
+    "multiple-operation-time-out-action",
+    "natural-language-configured",
+    "operations-supported",
+    "pages-per-minute",
+    "pages-per-minute-color",
+    "pdf-k-octets-supported",		/* CUPS extension */
+    "pdf-versions-supported",		/* CUPS extension */
+    "pdl-override-supported",
+    "port-monitor",			/* CUPS extension */
+    "port-monitor-supported",		/* CUPS extension */
+    "preferred-attributes-supported",
+    "printer-alert",
+    "printer-alert-description",
+    "printer-charge-info",
+    "printer-charge-info-uri",
+    "printer-commands",			/* CUPS extension */
+    "printer-current-time",
+    "printer-detailed-status-messages",
+    "printer-device-id",
+    "printer-dns-sd-name",		/* CUPS extension */
+    "printer-driver-installer",
+    "printer-fax-log-uri",		/* IPP FaxOut */
+    "printer-fax-modem-info",		/* IPP FaxOut */
+    "printer-fax-modem-name",		/* IPP FaxOut */
+    "printer-fax-modem-number",		/* IPP FaxOut */
+    "printer-geo-location",
+    "printer-get-attributes-supported",
+    "printer-icc-profiles",
+    "printer-icons",
+    "printer-info",
+    "printer-is-accepting-jobs",
+    "printer-is-shared",		/* CUPS extension */
+    "printer-kind",			/* IPP Paid Printing */
+    "printer-location",
+    "printer-make-and-model",
+    "printer-mandatory-job-attributes",
+    "printer-message-date-time",
+    "printer-message-from-operator",
+    "printer-message-time",
+    "printer-more-info",
+    "printer-more-info-manufacturer",
+    "printer-name",
+    "printer-native-formats",
+    "printer-organization",
+    "printer-organizational-unit",
+    "printer-settable-attributes-supported",
+    "printer-state",
+    "printer-state-change-date-time",
+    "printer-state-change-time",
+    "printer-state-message",
+    "printer-state-reasons",
+    "printer-supply",
+    "printer-supply-description",
+    "printer-supply-info-uri",
+    "printer-type",			/* CUPS extension */
+    "printer-up-time",
+    "printer-uri-supported",
+    "printer-uuid",
+    "printer-xri-supported",
+    "pwg-raster-document-resolution-supported",
+    "pwg-raster-document-sheet-back",
+    "pwg-raster-document-type-supported",
+    "queued-job-count",
+    "reference-uri-schemes-supported",
+    "repertoire-supported",
+    "requesting-user-name-allowed",	/* CUPS extension */
+    "requesting-user-name-denied",	/* CUPS extension */
+    "requesting-user-uri-supported",
+    "subordinate-printers-supported",
+    "urf-supported",			/* CUPS extension */
+    "uri-authentication-supported",
+    "uri-security-supported",
+    "user-defined-value-supported",
+    "which-jobs-supported",
+    "xri-authentication-supported",
+    "xri-security-supported",
+    "xri-uri-scheme-supported"
+  };
+  static const char * const subscription_description[] =
+  {					/* subscription-description group */
+    "notify-job-id",
+    "notify-lease-expiration-time",
+    "notify-printer-up-time",
+    "notify-printer-uri",
+    "notify-sequence-number",
+    "notify-subscriber-user-name",
+    "notify-subscriber-user-uri",
+    "notify-subscription-id",
+    "subscriptions-uuid"
+  };
+  static const char * const subscription_template[] =
+  {					/* subscription-template group */
+    "notify-attributes",
+    "notify-attributes-supported",
+    "notify-charset",
+    "notify-events",
+    "notify-events-default",
+    "notify-events-supported",
+    "notify-lease-duration",
+    "notify-lease-duration-default",
+    "notify-lease-duration-supported",
+    "notify-max-events-supported",
+    "notify-natural-language",
+    "notify-pull-method",
+    "notify-pull-method-supported",
+    "notify-recipient-uri",
+    "notify-schemes-supported",
+    "notify-time-interval",
+    "notify-user-data"
+  };
+
+
+ /*
+  * Get the requested-attributes attribute...
+  */
+
+  if ((requested = ippFindAttribute(request, "requested-attributes",
+                                    IPP_TAG_KEYWORD)) == NULL)
+  {
+   /*
+    * The Get-Jobs operation defaults to "job-id" and "job-uri", all others
+    * default to "all"...
+    */
+
+    if (ippGetOperation(request) == IPP_OP_GET_JOBS)
+    {
+      ra = cupsArrayNew((cups_array_func_t)strcmp, NULL);
+      cupsArrayAdd(ra, "job-id");
+      cupsArrayAdd(ra, "job-uri");
+
+      return (ra);
+    }
+    else
+      return (NULL);
+  }
+
+ /*
+  * If the attribute contains a single "all" keyword, return NULL...
+  */
+
+  count = ippGetCount(requested);
+  if (count == 1 && !strcmp(ippGetString(requested, 0, NULL), "all"))
+    return (NULL);
+
+ /*
+  * Create an array using "strcmp" as the comparison function...
+  */
+
+  ra = cupsArrayNew((cups_array_func_t)strcmp, NULL);
+
+  for (i = 0; i < count; i ++)
+  {
+    added = 0;
+    value = ippGetString(requested, i, NULL);
+
+    if (!strcmp(value, "document-description") || !strcmp(value, "all"))
+    {
+      for (j = 0;
+           j < (int)(sizeof(document_description) /
+                     sizeof(document_description[0]));
+           j ++)
+        cupsArrayAdd(ra, (void *)document_description[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "document-template") || !strcmp(value, "all"))
+    {
+      for (j = 0;
+           j < (int)(sizeof(document_template) / sizeof(document_template[0]));
+           j ++)
+        cupsArrayAdd(ra, (void *)document_template[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "job-description") || !strcmp(value, "all"))
+    {
+      for (j = 0;
+           j < (int)(sizeof(job_description) / sizeof(job_description[0]));
+           j ++)
+        cupsArrayAdd(ra, (void *)job_description[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "job-template") || !strcmp(value, "all"))
+    {
+      for (j = 0;
+           j < (int)(sizeof(job_template) / sizeof(job_template[0]));
+           j ++)
+        cupsArrayAdd(ra, (void *)job_template[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "printer-description") || !strcmp(value, "all"))
+    {
+      for (j = 0;
+           j < (int)(sizeof(printer_description) /
+                     sizeof(printer_description[0]));
+           j ++)
+        cupsArrayAdd(ra, (void *)printer_description[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "subscription-description") || !strcmp(value, "all"))
+    {
+      for (j = 0;
+           j < (int)(sizeof(subscription_description) /
+                     sizeof(subscription_description[0]));
+           j ++)
+        cupsArrayAdd(ra, (void *)subscription_description[j]);
+
+      added = 1;
+    }
+
+    if (!strcmp(value, "subscription-template") || !strcmp(value, "all"))
+    {
+      for (j = 0;
+           j < (int)(sizeof(subscription_template) /
+                     sizeof(subscription_template[0]));
+           j ++)
+        cupsArrayAdd(ra, (void *)subscription_template[j]);
+
+      added = 1;
+    }
+
+    if (!added)
+      cupsArrayAdd(ra, (void *)value);
+  }
+
+  return (ra);
+}
+
+
+/*
  * 'ippEnumString()' - Return a string corresponding to the enum value.
  */
 
@@ -648,14 +1782,24 @@ ippEnumString(const char *attrname,	/* I - Attribute name */
       enumvalue < (3 + (int)(sizeof(ipp_document_states) /
 			     sizeof(ipp_document_states[0]))))
     return (ipp_document_states[enumvalue - 3]);
-  else if ((!strcmp(attrname, "finishings") ||
-            !strcmp(attrname, "finishings-actual") ||
-            !strcmp(attrname, "finishings-default") ||
-            !strcmp(attrname, "finishings-ready") ||
-            !strcmp(attrname, "finishings-supported")) &&
-           enumvalue >= 3 &&
-           enumvalue < (3 + (int)(sizeof(ipp_finishings) / sizeof(ipp_finishings[0]))))
-    return (ipp_finishings[enumvalue - 3]);
+  else if (!strcmp(attrname, "finishings") ||
+	   !strcmp(attrname, "finishings-actual") ||
+	   !strcmp(attrname, "finishings-default") ||
+	   !strcmp(attrname, "finishings-ready") ||
+	   !strcmp(attrname, "finishings-supported") ||
+	   !strcmp(attrname, "job-finishings") ||
+	   !strcmp(attrname, "job-finishings-default") ||
+	   !strcmp(attrname, "job-finishings-supported"))
+  {
+    if (enumvalue >= 3 &&
+        enumvalue < (3 + (int)(sizeof(ipp_finishings) /
+			       sizeof(ipp_finishings[0]))))
+      return (ipp_finishings[enumvalue - 3]);
+    else if (enumvalue >= 0x40000000 &&
+             enumvalue <= (0x40000000 + (int)(sizeof(ipp_finishings_vendor) /
+                                              sizeof(ipp_finishings_vendor[0]))))
+      return (ipp_finishings_vendor[enumvalue - 0x40000000]);
+  }
   else if ((!strcmp(attrname, "job-collation-type") ||
             !strcmp(attrname, "job-collation-type-actual")) &&
            enumvalue >= 3 &&
@@ -663,8 +1807,8 @@ ippEnumString(const char *attrname,	/* I - Attribute name */
 				  sizeof(ipp_job_collation_types[0]))))
     return (ipp_job_collation_types[enumvalue - 3]);
   else if (!strcmp(attrname, "job-state") &&
-	   enumvalue >= IPP_JOB_PENDING && enumvalue <= IPP_JOB_COMPLETED)
-    return (ipp_job_states[enumvalue - IPP_JOB_PENDING]);
+	   enumvalue >= IPP_JSTATE_PENDING && enumvalue <= IPP_JSTATE_COMPLETED)
+    return (ipp_job_states[enumvalue - IPP_JSTATE_PENDING]);
   else if (!strcmp(attrname, "operations-supported"))
     return (ippOpString((ipp_op_t)enumvalue));
   else if ((!strcmp(attrname, "orientation-requested") ||
@@ -684,8 +1828,8 @@ ippEnumString(const char *attrname,	/* I - Attribute name */
 				  sizeof(ipp_print_qualities[0]))))
     return (ipp_print_qualities[enumvalue - 3]);
   else if (!strcmp(attrname, "printer-state") &&
-           enumvalue >= IPP_PRINTER_IDLE && enumvalue <= IPP_PRINTER_STOPPED)
-    return (ipp_printer_states[enumvalue - IPP_PRINTER_IDLE]);
+           enumvalue >= IPP_PSTATE_IDLE && enumvalue <= IPP_PSTATE_STOPPED)
+    return (ipp_printer_states[enumvalue - IPP_PSTATE_IDLE]);
 
  /*
   * Not a standard enum value, just return the decimal equivalent...
@@ -731,6 +1875,13 @@ ippEnumValue(const char *attrname,	/* I - Attribute name */
 	   !strcmp(attrname, "finishings-ready") ||
 	   !strcmp(attrname, "finishings-supported"))
   {
+    for (i = 0;
+         i < (int)(sizeof(ipp_finishings_vendor) /
+                   sizeof(ipp_finishings_vendor[0]));
+         i ++)
+      if (!strcmp(enumstring, ipp_finishings_vendor[i]))
+	return (i + 0x40000000);
+
     num_strings = (int)(sizeof(ipp_finishings) / sizeof(ipp_finishings[0]));
     strings     = ipp_finishings;
   }
@@ -795,18 +1946,25 @@ ippErrorString(ipp_status_t error)	/* I - Error status */
   * See if the error code is a known value...
   */
 
-  if (error >= IPP_OK && error <= IPP_OK_EVENTS_COMPLETE)
+  if (error >= IPP_STATUS_OK && error <= IPP_STATUS_OK_EVENTS_COMPLETE)
     return (ipp_status_oks[error]);
-  else if (error == IPP_REDIRECTION_OTHER_SITE)
+  else if (error == IPP_STATUS_REDIRECTION_OTHER_SITE)
     return ("redirection-other-site");
-  else if (error == CUPS_SEE_OTHER)
+  else if (error == IPP_STATUS_CUPS_SEE_OTHER)
     return ("cups-see-other");
-  else if (error >= IPP_BAD_REQUEST && error <= IPP_PRINT_SUPPORT_FILE_NOT_FOUND)
-    return (ipp_status_400s[error - IPP_BAD_REQUEST]);
-  else if (error >= IPP_INTERNAL_ERROR && error <= IPP_PRINTER_IS_DEACTIVATED)
-    return (ipp_status_500s[error - IPP_INTERNAL_ERROR]);
-  else if (error >= IPP_AUTHENTICATION_CANCELED && error <= IPP_UPGRADE_REQUIRED)
-    return (ipp_status_1000s[error - IPP_AUTHENTICATION_CANCELED]);
+  else if (error >= IPP_STATUS_ERROR_BAD_REQUEST &&
+           error <= IPP_STATUS_ERROR_DOCUMENT_UNPRINTABLE)
+    return (ipp_status_400s[error - IPP_STATUS_ERROR_BAD_REQUEST]);
+  else if (error >= 0x480 &&
+           error <= IPP_STATUS_ERROR_CUPS_ACCOUNT_AUTHORIZATION_FAILED)
+    return (ipp_status_480s[error - 0x0480]);
+  else if (error >= IPP_STATUS_ERROR_INTERNAL &&
+           error <= IPP_STATUS_ERROR_TOO_MANY_DOCUMENTS)
+    return (ipp_status_500s[error - IPP_STATUS_ERROR_INTERNAL]);
+  else if (error >= IPP_STATUS_ERROR_CUPS_AUTHENTICATION_CANCELED &&
+           error <= IPP_STATUS_ERROR_CUPS_UPGRADE_REQUIRED)
+    return (ipp_status_1000s[error -
+                             IPP_STATUS_ERROR_CUPS_AUTHENTICATION_CANCELED]);
 
  /*
   * No, build an "0xxxxx" error string...
@@ -835,14 +1993,18 @@ ippErrorValue(const char *name)		/* I - Name */
       return ((ipp_status_t)i);
 
   if (!_cups_strcasecmp(name, "redirection-other-site"))
-    return (IPP_REDIRECTION_OTHER_SITE);
+    return (IPP_STATUS_REDIRECTION_OTHER_SITE);
 
   if (!_cups_strcasecmp(name, "cups-see-other"))
-    return (CUPS_SEE_OTHER);
+    return (IPP_STATUS_CUPS_SEE_OTHER);
 
   for (i = 0; i < (sizeof(ipp_status_400s) / sizeof(ipp_status_400s[0])); i ++)
     if (!_cups_strcasecmp(name, ipp_status_400s[i]))
       return ((ipp_status_t)(i + 0x400));
+
+  for (i = 0; i < (sizeof(ipp_status_480s) / sizeof(ipp_status_480s[0])); i ++)
+    if (!_cups_strcasecmp(name, ipp_status_480s[i]))
+      return ((ipp_status_t)(i + 0x480));
 
   for (i = 0; i < (sizeof(ipp_status_500s) / sizeof(ipp_status_500s[0])); i ++)
     if (!_cups_strcasecmp(name, ipp_status_500s[i]))
@@ -872,13 +2034,13 @@ ippOpString(ipp_op_t op)		/* I - Operation ID */
   * See if the operation ID is a known value...
   */
 
-  if (op >= IPP_PRINT_JOB && op <= IPP_CLOSE_JOB)
+  if (op >= IPP_OP_PRINT_JOB && op <= IPP_OP_VALIDATE_DOCUMENT)
     return (ipp_std_ops[op]);
-  else if (op == IPP_PRIVATE)
+  else if (op == IPP_OP_PRIVATE)
     return ("windows-ext");
-  else if (op >= CUPS_GET_DEFAULT && op <= CUPS_GET_PPD)
-    return (ipp_cups_ops[op - CUPS_GET_DEFAULT]);
-  else if (op == CUPS_GET_DOCUMENT)
+  else if (op >= IPP_OP_CUPS_GET_DEFAULT && op <= IPP_OP_CUPS_GET_PPD)
+    return (ipp_cups_ops[op - IPP_OP_CUPS_GET_DEFAULT]);
+  else if (op == IPP_OP_CUPS_GET_DOCUMENT)
     return (ipp_cups_ops2[0]);
 
  /*
@@ -911,7 +2073,7 @@ ippOpValue(const char *name)		/* I - Textual name */
       return ((ipp_op_t)i);
 
   if (!_cups_strcasecmp(name, "windows-ext"))
-    return (IPP_PRIVATE);
+    return (IPP_OP_PRIVATE);
 
   for (i = 0; i < (sizeof(ipp_cups_ops) / sizeof(ipp_cups_ops[0])); i ++)
     if (!_cups_strcasecmp(name, ipp_cups_ops[i]))
@@ -922,12 +2084,12 @@ ippOpValue(const char *name)		/* I - Textual name */
       return ((ipp_op_t)(i + 0x4027));
 
   if (!_cups_strcasecmp(name, "CUPS-Add-Class"))
-    return (CUPS_ADD_MODIFY_CLASS);
+    return (IPP_OP_CUPS_ADD_MODIFY_CLASS);
 
   if (!_cups_strcasecmp(name, "CUPS-Add-Printer"))
-    return (CUPS_ADD_MODIFY_PRINTER);
+    return (IPP_OP_CUPS_ADD_MODIFY_PRINTER);
 
-  return ((ipp_op_t)-1);
+  return (IPP_OP_CUPS_INVALID);
 }
 
 
@@ -976,7 +2138,7 @@ ippSetPort(int p)			/* I - Port number to use */
 const char *				/* O - Tag name */
 ippTagString(ipp_tag_t tag)		/* I - Tag value */
 {
-  tag &= IPP_TAG_MASK;
+  tag &= IPP_TAG_CUPS_MASK;
 
   if (tag < (ipp_tag_t)(sizeof(ipp_tag_names) / sizeof(ipp_tag_names[0])))
     return (ipp_tag_names[tag]);
@@ -1086,5 +2248,5 @@ ipp_col_string(ipp_t  *col,		/* I - Collection attribute */
 
 
 /*
- * End of "$Id: ipp-support.c 10123 2011-11-16 21:59:44Z mike $".
+ * End of "$Id: ipp-support.c 11093 2013-07-03 20:48:42Z msweet $".
  */

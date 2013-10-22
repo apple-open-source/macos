@@ -127,7 +127,7 @@ static int pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **datap);
  * relevant information from the header.
  */
 int
-pcap_check_header(pcap_t *p, bpf_u_int32 magic, FILE *fp, char *errbuf)
+pcap_check_header(pcap_t *p, bpf_u_int32 magic, FILE *fp, char *errbuf, int isng)
 {
 	struct pcap_file_header hdr;
 	size_t amt_read;
@@ -271,8 +271,12 @@ pcap_check_header(pcap_t *p, bpf_u_int32 magic, FILE *fp, char *errbuf)
 	 * Allocate a buffer for the packet data.
 	 */
 	p->bufsize = p->snapshot;
-	if (p->bufsize <= 0)
-		p->bufsize = BPF_MAXBUFSIZE;
+	if (p->bufsize <= 0) {
+		/*
+		 * Bogus snapshot length; use 64KiB as a fallback.
+		 */
+		p->bufsize = 65536;
+	}
 	p->buffer = malloc(p->bufsize);
 	if (p->buffer == NULL) {
 		snprintf(errbuf, PCAP_ERRBUF_SIZE, "out of memory");

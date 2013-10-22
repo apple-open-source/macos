@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,15 +37,17 @@
 #include <mach/boolean.h>
 #include <string.h>
 #include <ctype.h>
-
+#include <SystemConfiguration/SCPrivate.h>
 #include "util.h"
+#include "cfutil.h"
+#include "symbol_scope.h"
 
 /* 
  * Function: nbits_host
  * Purpose:
  *   Return the number of bits of host address 
  */
-int
+PRIVATE_EXTERN int
 nbits_host(struct in_addr mask)
 {
     u_long l = iptohl(mask);
@@ -65,7 +67,7 @@ nbits_host(struct in_addr mask)
  *   into a string e.g. 17.202.40.0 and mask 255.255.252.0 yields
  *   the string  "17.202.40/22".
  */
-char *
+PRIVATE_EXTERN char *
 inet_nettoa(struct in_addr addr, struct in_addr mask)
 {
     uint8_t *		addr_p;
@@ -96,7 +98,7 @@ inet_nettoa(struct in_addr addr, struct in_addr mask)
  * Purpose:
  *   Return a random number in the given range.
  */
-long
+PRIVATE_EXTERN long
 random_range(long bottom, long top)
 {
     long ret;
@@ -114,7 +116,7 @@ random_range(long bottom, long top)
  * Purpose:
  *   Computes result = tv1 - tv2.
  */
-void
+PRIVATE_EXTERN void
 timeval_subtract(struct timeval tv1, struct timeval tv2, 
 		 struct timeval * result)
 {
@@ -133,7 +135,7 @@ timeval_subtract(struct timeval tv1, struct timeval tv2,
  * Purpose:
  *   Computes result = tv1 + tv2.
  */
-void
+PRIVATE_EXTERN void
 timeval_add(struct timeval tv1, struct timeval tv2,
 	    struct timeval * result)
 {
@@ -157,7 +159,7 @@ timeval_add(struct timeval tv1, struct timeval tv2,
  *   0 		if tv1 is equal to tv2
  *   1 		if tv1 is greater than tv2
  */
-int
+PRIVATE_EXTERN int
 timeval_compare(struct timeval tv1, struct timeval tv2)
 {
     struct timeval result;
@@ -171,13 +173,14 @@ timeval_compare(struct timeval tv1, struct timeval tv2)
 }
 
 /*
- * Function: fprint_data
+ * Function: print_data_cfstr
  * Purpose:
  *   Displays the buffer as a series of 8-bit hex numbers with an ASCII
  *   representation off to the side.
  */
-__private_extern__ void
-fprint_data(FILE * f, const uint8_t * data_p, int n_bytes)
+PRIVATE_EXTERN void
+print_data_cfstr(CFMutableStringRef str, const uint8_t * data_p,
+		 int n_bytes)
 {
 #define CHARS_PER_LINE 	16
     char		line_buf[CHARS_PER_LINE + 1];
@@ -185,44 +188,62 @@ fprint_data(FILE * f, const uint8_t * data_p, int n_bytes)
     int			offset;
 
     for (line_pos = 0, offset = 0; offset < n_bytes; offset++, data_p++) {
-	if (line_pos == 0)
-	    fprintf(f, "%04x ", offset);
+	if (line_pos == 0) {
+	    STRING_APPEND(str, "%04x ", offset);
+	}
 
 	line_buf[line_pos] = isprint(*data_p) ? *data_p : '.';
-	printf(" %02x", *data_p);
+	STRING_APPEND(str, " %02x", *data_p);
 	line_pos++;
 	if (line_pos == CHARS_PER_LINE) {
 	    line_buf[CHARS_PER_LINE] = '\0';
-	    printf("  %s\n", line_buf);
+	    STRING_APPEND(str, "  %s\n", line_buf);
 	    line_pos = 0;
 	}
 	else if (line_pos == (CHARS_PER_LINE / 2))
-	    printf(" ");
+	    STRING_APPEND(str, " ");
     }
     if (line_pos) { /* need to finish up the line */
+	char * extra_space = "";
+	if (line_pos < (CHARS_PER_LINE / 2)) {
+	    extra_space = " ";
+	}
 	for (; line_pos < CHARS_PER_LINE; line_pos++) {
-	    printf("   ");
+	    STRING_APPEND(str, "   ");
 	    line_buf[line_pos] = ' ';
 	}
 	line_buf[CHARS_PER_LINE] = '\0';
-	printf("  %s\n", line_buf);
+	STRING_APPEND(str, "  %s%s\n", extra_space, line_buf);
     }
+    return;
 }
 
-__private_extern__ void
+PRIVATE_EXTERN void
+fprint_data(FILE * out_f, const uint8_t * data_p, int n_bytes)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    print_data_cfstr(str, data_p, n_bytes);
+    SCPrint(TRUE, out_f, CFSTR("%@"), str);
+    CFRelease(str);
+    fflush(out_f);
+    return;
+}
+
+PRIVATE_EXTERN void
 print_data(const uint8_t * data_p, int n_bytes)
 {
     fprint_data(stdout, data_p, n_bytes);
+    return;
 }
 
-__private_extern__ void
-fprint_bytes_sep(FILE * out_f, u_char * data_p, int n_bytes, char separator)
+PRIVATE_EXTERN void
+print_bytes_sep_cfstr(CFMutableStringRef str, uint8_t * data_p, int n_bytes,
+		      char separator)
 {
     int i;
 
-    if (out_f == NULL) {
-	out_f = stdout;
-    }
     for (i = 0; i < n_bytes; i++) {
 	char  	sep[3];
 
@@ -239,32 +260,46 @@ fprint_bytes_sep(FILE * out_f, u_char * data_p, int n_bytes, char separator)
 		sep[1] = '\0';
 	    }
 	}
-	fprintf(out_f, "%s%02x", sep, data_p[i]);
+	STRING_APPEND(str, "%s%02x", sep, data_p[i]);
     }
+    return;
+}
+
+PRIVATE_EXTERN void
+print_bytes_cfstr(CFMutableStringRef str, uint8_t * data, int len)
+{
+    print_bytes_sep_cfstr(str, data, len, ' ');
+    return;
+}
+
+
+PRIVATE_EXTERN void
+fprint_bytes_sep(FILE * out_f, uint8_t * data_p, int n_bytes, char separator)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    print_bytes_sep_cfstr(str, data_p, n_bytes, separator);
+    SCPrint(TRUE, out_f, CFSTR("%@"), str);
+    CFRelease(str);
     fflush(out_f);
     return;
 }
 
-__private_extern__ void
-fprint_bytes(FILE * out_f, u_char * data_p, int n_bytes)
+PRIVATE_EXTERN void
+print_bytes(uint8_t * data, int len)
 {
-    fprint_bytes_sep(out_f, data_p, n_bytes, ' ');
+    fprint_bytes_sep(stdout, data, len, ' ');
     return;
 }
 
-__private_extern__ void
-print_bytes(u_char * data, int len)
+PRIVATE_EXTERN void
+print_bytes_sep(uint8_t * data, int len, char separator)
 {
-    fprint_bytes(NULL, data, len);
+    fprint_bytes_sep(stdout, data, len, separator);
     return;
 }
 
-__private_extern__ void
-print_bytes_sep(u_char * data, int len, char separator)
-{
-    fprint_bytes_sep(NULL, data, len, separator);
-    return;
-}
 
 /*
  * Function: create_path
@@ -273,7 +308,7 @@ print_bytes_sep(u_char * data, int len, char separator)
  *   Create the given directory hierarchy.  Return -1 if anything
  *   went wrong, 0 if successful.
  */
-int
+PRIVATE_EXTERN int
 create_path(const char * dirname, mode_t mode)
 {
     boolean_t		done = FALSE;
@@ -311,12 +346,12 @@ create_path(const char * dirname, mode_t mode)
     return (0);
 }
 
-int
+PRIVATE_EXTERN int
 ether_cmp(struct ether_addr * e1, struct ether_addr * e2)
 {
     int i;
-    u_char * c1 = e1->octet;
-    u_char * c2 = e2->octet;
+    uint8_t * c1 = e1->octet;
+    uint8_t * c2 = e2->octet;
 
     for (i = 0; i < sizeof(e1->octet); i++, c1++, c2++) {
 	if (*c1 == *c2)
@@ -326,7 +361,7 @@ ether_cmp(struct ether_addr * e1, struct ether_addr * e2)
     return (0);
 }
 
-void
+PRIVATE_EXTERN void
 link_addr_to_string(char * string_buffer, int string_buffer_length,
 		    const uint8_t * hwaddr, int hwaddr_len)
 {
@@ -357,6 +392,20 @@ link_addr_to_string(char * string_buffer, int string_buffer_length,
 	    }
 	}
 	break;
+    }
+    return;
+}
+
+PRIVATE_EXTERN void
+fill_with_random(void * buf, uint32_t len)
+{
+    int			i;
+    int			n;
+    uint32_t * 		p = (uint32_t *)buf;
+    
+    n = len / sizeof(*p);
+    for (i = 0; i < n; i++, p++) {
+	*p = arc4random();
     }
     return;
 }

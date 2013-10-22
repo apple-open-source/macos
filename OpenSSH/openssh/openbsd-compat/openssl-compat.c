@@ -22,12 +22,20 @@
 #include <string.h>
 
 #ifdef USE_OPENSSL_ENGINE
-# include <openssl/engine.h>
-# include <openssl/conf.h>
+# ifdef __APPLE_CRYPTO__
+#  include "ossl-engine.h"
+# else
+#  include <openssl/engine.h>
+#  include <openssl/conf.h>
+# endif /* __APPLE_CRYPTO__ */
 #endif
 
 #ifndef HAVE_RSA_GET_DEFAULT_METHOD
-# include <openssl/rsa.h>
+# ifdef __APPLE_CRYPTO__
+#  include "ossl-rsa.h"
+# else
+#  include <openssl/rsa.h>
+# endif /* __APPLE_CRYPTO__ */
 #endif
 
 #include "log.h"

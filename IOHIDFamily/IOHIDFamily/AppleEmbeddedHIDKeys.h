@@ -36,9 +36,9 @@ __BEGIN_DECLS
 
 
 #define kIOHIDAccelerometerShakeKey             "Shake"
-#define kIOHIDGyroShakeKey						"Shake"
+#define kIOHIDGyroShakeKey                      "Shake"
 
-#define kIOHIDOrientationKey					"Orientation"
+#define kIOHIDOrientationKey                    "Orientation"
 
 /*!
  @typedef IOHIDOrientationType
@@ -67,7 +67,7 @@ enum {
 };
 typedef uint32_t IOHIDOrientationType;
 
-#define kIOHIDPlacementKey						"Placement"
+#define kIOHIDPlacementKey                        "Placement"
 /*!
  @typedef IOHIDPlacementType
  @abstract Placement of event triggered.

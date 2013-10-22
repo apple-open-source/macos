@@ -28,10 +28,10 @@
 #include "config.h"
 #include "WebEventFactory.h"
 
-#include "GtkVersioning.h"
 #include "PlatformKeyboardEvent.h"
 #include "Scrollbar.h"
 #include "WindowsKeyboardCodes.h"
+#include <WebCore/GtkVersioning.h>
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
 #include <wtf/ASCIICType.h>
@@ -153,6 +153,14 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(const GdkEvent* event)
     case GDK_SCROLL_RIGHT:
         wheelTicks = FloatSize(-1, 0);
         break;
+#if GTK_CHECK_VERSION(3, 3, 18)
+    case GDK_SCROLL_SMOOTH: {
+            double deltaX, deltaY;
+            gdk_event_get_scroll_deltas(event, &deltaX, &deltaY);
+            wheelTicks = FloatSize(-deltaX, -deltaY);
+        }
+        break;
+#endif
     default:
         ASSERT_NOT_REACHED();
     }
@@ -172,17 +180,24 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(const GdkEvent* event)
                          gdk_event_get_time(event));
 }
 
-WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(const GdkEvent* event)
+WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(const GdkEvent* event, const WebCore::CompositionResults& compositionResults)
 {
+    unsigned int keyValue = event->key.keyval;
+    String text = compositionResults.simpleString.length() ?
+         compositionResults.simpleString : PlatformKeyboardEvent::singleCharacterString(keyValue);
+
+    int windowsVirtualKeyCode = compositionResults.compositionUpdated() ?
+         VK_PROCESSKEY : PlatformKeyboardEvent::windowsKeyCodeForGdkKeyCode(event->key.keyval);
+
     return WebKeyboardEvent((event->type == GDK_KEY_RELEASE) ? WebEvent::KeyUp : WebEvent::KeyDown,
-                            PlatformKeyboardEvent::singleCharacterString(event->key.keyval),
-                            PlatformKeyboardEvent::singleCharacterString(event->key.keyval),
-                            PlatformKeyboardEvent::keyIdentifierForGdkKeyCode(event->key.keyval),
-                            PlatformKeyboardEvent::windowsKeyCodeForGdkKeyCode(event->key.keyval),
-                            static_cast<int>(event->key.keyval),
+                            text,
+                            text,
+                            PlatformKeyboardEvent::keyIdentifierForGdkKeyCode(keyValue),
+                            windowsVirtualKeyCode,
+                            static_cast<int>(keyValue),
                             0 /* macCharCode */,
                             false /* isAutoRepeat */,
-                            isGdkKeyCodeFromKeyPad(event->key.keyval),
+                            isGdkKeyCodeFromKeyPad(keyValue),
                             false /* isSystemKey */,
                             modifiersForEvent(event),
                             gdk_event_get_time(event));

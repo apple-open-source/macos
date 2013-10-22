@@ -48,6 +48,8 @@
 #include <gssapi_spi.h>
 #include <assert.h>
 
+#include <heimbase.h>
+
 #include <pku2u_asn1.h>
 #include <gssapi_asn1.h>
 
@@ -124,7 +126,7 @@ struct gsskrb5_ctx {
     krb5_creds *kcred;
     krb5_ccache ccache;
     struct krb5_ticket *ticket;
-    OM_uint32 endtime;
+    time_t endtime;
     HEIMDAL_MUTEX ctx_id_mutex;
     krb5_keyblock *service_keyblock;
     krb5_data fwd_data;
@@ -150,6 +152,7 @@ struct gsskrb5_cred {
     int cred_flags;
 #define GSS_CF_DESTROY_CRED_ON_RELEASE	1
 #define GSS_CF_NO_CI_FLAGS		2
+#define GSS_CF_IAKERB_RESOLVED		4
     struct krb5_keytab_data *keytab;
     time_t endtime;
     gss_cred_usage_t usage;
@@ -208,5 +211,12 @@ extern HEIMDAL_MUTEX gssapi_keytab_mutex;
 
 /* type to signal that that dns canon maybe should be done */
 #define MAGIC_HOSTBASED_NAME_TYPE 4711
+
+extern heim_string_t _gsskrb5_kGSSICPassword;
+extern heim_string_t _gsskrb5_kGSSICKerberosCacheName;
+extern heim_string_t _gsskrb5_kGSSICCertificate;
+extern heim_string_t _gsskrb5_kGSSICLKDCHostname;
+extern heim_string_t _gsskrb5_kGSSICAppIdentifierACL;
+
 
 #endif

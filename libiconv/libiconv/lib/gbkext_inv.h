@@ -2300,7 +2300,7 @@ static const Summary16 gbkext_inv_uni2indx_pagefe[31] = {
 };
 
 static int
-gbkext_inv_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+gbkext_inv_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;

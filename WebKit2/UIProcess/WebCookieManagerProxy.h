@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,16 +29,16 @@
 #include "APIObject.h"
 #include "GenericCallback.h"
 #include "ImmutableArray.h"
+#include "MessageReceiver.h"
+#include "WebContextSupplement.h"
 #include "WebCookieManagerProxyClient.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
-namespace CoreIPC {
-    class ArgumentDecoder;
-    class Connection;
-    class MessageID;
-}
+#if USE(SOUP)
+#include "SoupCookiePersistentStorageType.h"
+#endif
 
 namespace WebKit {
 
@@ -48,15 +48,12 @@ class WebProcessProxy;
 typedef GenericCallback<WKArrayRef> ArrayCallback;
 typedef GenericCallback<WKHTTPCookieAcceptPolicy, HTTPCookieAcceptPolicy> HTTPCookieAcceptPolicyCallback;
 
-class WebCookieManagerProxy : public APIObject {
+class WebCookieManagerProxy : public TypedAPIObject<APIObject::TypeCookieManager>, public WebContextSupplement, private CoreIPC::MessageReceiver {
 public:
-    static const Type APIType = TypeCookieManager;
+    static const char* supplementName();
 
     static PassRefPtr<WebCookieManagerProxy> create(WebContext*);
     virtual ~WebCookieManagerProxy();
-
-    void invalidate();
-    void clearContext() { m_webContext = 0; }
 
     void initializeClient(const WKCookieManagerClient*);
     
@@ -70,31 +67,46 @@ public:
     void startObservingCookieChanges();
     void stopObservingCookieChanges();
 
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+#if USE(SOUP)
+    void setCookiePersistentStorage(const String& storagePath, uint32_t storageType);
+    void getCookiePersistentStorage(String& storagePath, uint32_t& storageType) const;
+#endif
 
-    bool shouldTerminate(WebProcessProxy*) const;
+    using APIObject::ref;
+    using APIObject::deref;
 
 private:
     WebCookieManagerProxy(WebContext*);
-
-    virtual Type type() const { return APIType; }
 
     void didGetHostnamesWithCookies(const Vector<String>&, uint64_t callbackID);
     void didGetHTTPCookieAcceptPolicy(uint32_t policy, uint64_t callbackID);
 
     void cookiesDidChange();
-    
-    void didReceiveWebCookieManagerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+
+    // WebContextSupplement
+    virtual void contextDestroyed() OVERRIDE;
+    virtual void processDidClose(WebProcessProxy*) OVERRIDE;
+    virtual void processDidClose(NetworkProcessProxy*) OVERRIDE;
+    virtual bool shouldTerminate(WebProcessProxy*) const OVERRIDE;
+    virtual void refWebContextSupplement() OVERRIDE;
+    virtual void derefWebContextSupplement() OVERRIDE;
+
+    // CoreIPC::MessageReceiver
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
 
 #if PLATFORM(MAC)
     void persistHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy);
 #endif
 
-    WebContext* m_webContext;
-    HashMap<uint64_t, RefPtr<ArrayCallback> > m_arrayCallbacks;
-    HashMap<uint64_t, RefPtr<HTTPCookieAcceptPolicyCallback> > m_httpCookieAcceptPolicyCallbacks;
+    HashMap<uint64_t, RefPtr<ArrayCallback>> m_arrayCallbacks;
+    HashMap<uint64_t, RefPtr<HTTPCookieAcceptPolicyCallback>> m_httpCookieAcceptPolicyCallbacks;
 
     WebCookieManagerProxyClient m_client;
+
+#if USE(SOUP)
+    String m_cookiePersistentStoragePath;
+    SoupCookiePersistentStorageType m_cookiePersistentStorageType;
+#endif
 };
 
 } // namespace WebKit

@@ -29,7 +29,7 @@
 #include <WebCore/DataObjectGtk.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/PasteboardHelper.h>
-#include <WebCore/NotImplemented.h>
+#include <WebCore/WindowsKeyboardCodes.h>
 
 using namespace WebCore;
 
@@ -41,7 +41,7 @@ void WebEditorClient::getEditorCommandsForKeyEvent(const KeyboardEvent* event, V
 
     /* First try to interpret the command in the UI and get the commands.
        UI needs to receive event type because only knows current NativeWebKeyboardEvent.*/
-    WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::GetEditorCommandsForKeyEvent(event->type()),
+    WebProcess::shared().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetEditorCommandsForKeyEvent(event->type()),
                                                 Messages::WebPageProxy::GetEditorCommandsForKeyEvent::Reply(pendingEditorCommands),
                                                 m_page->pageID(), CoreIPC::Connection::NoTimeout);
 }
@@ -50,7 +50,7 @@ bool WebEditorClient::executePendingEditorCommands(Frame* frame, Vector<WTF::Str
 {
     Vector<Editor::Command> commands;
     for (size_t i = 0; i < pendingEditorCommands.size(); i++) {
-        Editor::Command command = frame->editor()->command(pendingEditorCommands.at(i).utf8().data());
+        Editor::Command command = frame->editor().command(pendingEditorCommands.at(i).utf8().data());
         if (command.isTextInsertion() && !allowTextInsertion)
             return false;
 
@@ -76,6 +76,10 @@ void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
     if (!platformEvent)
         return;
 
+    // If this was an IME event don't do anything.
+    if (platformEvent->windowsVirtualKeyCode() == VK_PROCESSKEY)
+        return;
+
     Vector<WTF::String> pendingEditorCommands;
     getEditorCommandsForKeyEvent(event, pendingEditorCommands);
     if (!pendingEditorCommands.isEmpty()) {
@@ -91,43 +95,39 @@ void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
         }
 
         // Only allow text insertion commands if the current node is editable.
-        if (executePendingEditorCommands(frame, pendingEditorCommands, frame->editor()->canEdit())) {
+        if (executePendingEditorCommands(frame, pendingEditorCommands, frame->editor().canEdit())) {
             event->setDefaultHandled();
             return;
         }
     }
 
     // Don't allow text insertion for nodes that cannot edit.
-    if (!frame->editor()->canEdit())
+    if (!frame->editor().canEdit())
         return;
 
     // This is just a normal text insertion, so wait to execute the insertion
     // until a keypress event happens. This will ensure that the insertion will not
     // be reflected in the contents of the field until the keyup DOM event.
-    if (event->type() == eventNames().keypressEvent) {
+    if (event->type() != eventNames().keypressEvent)
+        return;
 
-        // FIXME: Add IM support
-        // https://bugs.webkit.org/show_bug.cgi?id=55946
-        frame->editor()->insertText(platformEvent->text(), event);
+    // Don't insert null or control characters as they can result in unexpected behaviour
+    if (event->charCode() < ' ')
+        return;
+
+    // Don't insert anything if a modifier is pressed
+    if (platformEvent->ctrlKey() || platformEvent->altKey())
+        return;
+
+    if (frame->editor().insertText(platformEvent->text(), event))
         event->setDefaultHandled();
-
-    } else {
-        // Don't insert null or control characters as they can result in unexpected behaviour
-        if (event->charCode() < ' ')
-            return;
-
-        // Don't insert anything if a modifier is pressed
-        if (platformEvent->ctrlKey() || platformEvent->altKey())
-            return;
-
-        if (frame->editor()->insertText(platformEvent->text(), event))
-            event->setDefaultHandled();
-    }
 }
 
-void WebEditorClient::handleInputMethodKeydown(KeyboardEvent*)
+void WebEditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
-    notImplemented();
+    const PlatformKeyboardEvent* platformEvent = event->keyEvent();
+    if (platformEvent && platformEvent->windowsVirtualKeyCode() == VK_PROCESSKEY)
+        event->preventDefault();
 }
 
 #if PLATFORM(X11)
@@ -170,7 +170,7 @@ static void collapseSelection(GtkClipboard* clipboard, Frame* frame)
 }
 #endif
 
-void WebEditorClient::setSelectionPrimaryClipboardIfNeeded(Frame* frame)
+void WebEditorClient::updateGlobalSelection(Frame* frame)
 {
 #if PLATFORM(X11)
     GtkClipboard* clipboard = PasteboardHelper::defaultPasteboardHelper()->getPrimarySelectionClipboard(frame);

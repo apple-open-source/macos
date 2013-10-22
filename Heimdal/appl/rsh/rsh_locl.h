@@ -108,6 +108,7 @@ struct _krb5_krb_auth_data;
 struct krb5_dh_moduli;
 struct _krb5_key_data;
 struct _krb5_encryption_type;
+struct _krb5_srv_query_ctx;
 struct _krb5_key_type;
 #include "crypto-headers.h"
 #include <krb5-private.h> /* for _krb5_{get,put}_int */

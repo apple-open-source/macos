@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,33 +26,31 @@
 #ifndef WebMediaCacheManager_h
 #define WebMediaCacheManager_h
 
+#include "MessageReceiver.h"
+#include "WebProcessSupplement.h"
+#include <stdint.h>
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/text/WTFString.h>
-
-namespace CoreIPC {
-    class ArgumentDecoder;
-    class Connection;
-    class MessageID;
-}
 
 namespace WebKit {
 
-class WebMediaCacheManager {
+class WebProcess;
+
+class WebMediaCacheManager : public WebProcessSupplement, public CoreIPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebMediaCacheManager);
-
 public:
-    static WebMediaCacheManager& shared();
+    explicit WebMediaCacheManager(WebProcess*);
 
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    static const char* supplementName();
 
 private:
-    WebMediaCacheManager();
-    
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+
     void getHostnamesWithMediaCache(uint64_t callbackID);
     void clearCacheForHostname(const String&);
     void clearCacheForAllHostnames();
 
-    void didReceiveWebMediaCacheManagerMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    WebProcess* m_process;
 };
 
 } // namespace WebKit

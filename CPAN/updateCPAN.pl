@@ -8,7 +8,7 @@ use Getopt::Long ();
 use IO::File;
 use Proc::Reliable;
 
-my $FileCurrent = '5.14.inc';
+my $FileCurrent = '5.16.inc';
 my @FilePreviousList = qw(5.12.inc 5.10.inc);
 my $URLprefix = 'http://search.cpan.org/CPAN/authors/id';
 
@@ -218,6 +218,7 @@ for my $proj (sort(keys(%projectsCurrent))) {
 	if(system(@sedcmd, @args, 'Makefile') != 0) {
 	    warn "***\"@sedcmd @args Makefile\" failed\n";
 	}
+	unlink('Makefile.bak');
 	print "    Editing oss.partial\n";
 	updatePlist('oss.partial', $vers, $url, $importDate);
 	$downloaded{$new} = 1;
@@ -252,3 +253,4 @@ while(<$F>) {
 }
 undef($T);
 undef($F);
+unlink($old);

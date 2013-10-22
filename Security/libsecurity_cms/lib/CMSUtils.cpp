@@ -29,7 +29,6 @@
 #include "CMSUtils.h"
 #include <stdlib.h>
 #include <string.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_asn1/secerr.h>
 #include <security_asn1/seccomon.h>
 #include <Security/SecBase.h>
@@ -50,7 +49,7 @@ void cmsCopyCmsData(
  * Append a CF type, or the contents of an array, to another array.
  * destination array will be created if necessary.
  * If srcItemOrArray is not of the type specified in expectedType,
- * paramErr will be returned. 
+ * errSecParam will be returned. 
  */
 OSStatus cmsAppendToArray(
 	CFTypeRef srcItemOrArray,
@@ -58,7 +57,7 @@ OSStatus cmsAppendToArray(
 	CFTypeID expectedType)	
 {
 	if(srcItemOrArray == NULL) {
-		return noErr;
+		return errSecSuccess;
 	}
 	if(*dstArray == NULL) {
 		*dstArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -73,9 +72,9 @@ OSStatus cmsAppendToArray(
 		CFArrayAppendValue(*dstArray, srcItemOrArray);
 	}
 	else {
-		return paramErr;
+		return errSecParam;
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -92,7 +91,7 @@ OSStatus cmsRtnToOSStatus(
 		if(smimeRtn == 0) {
 			/* S/MIME just gave us generic error; no further info available; punt. */
 			dprintf("cmsRtnToOSStatus: SECFailure, no status avilable\n");
-			return defaultRtn ? defaultRtn : internalComponentErr;
+			return defaultRtn ? defaultRtn : errSecInternalComponent;
 		}
 		/* else proceed to map smimeRtn to OSStatus */
 	}
@@ -107,16 +106,16 @@ OSStatus cmsRtnToOSStatus(
 		case SEC_ERROR_BAD_DATA:
 			return errSecUnknownFormat;
 		case SEC_ERROR_NO_MEMORY:
-			return memFullErr;
+			return errSecAllocate;
 		case SEC_ERROR_IO:
-			return ioErr;
+			return errSecIO;
 		case SEC_ERROR_OUTPUT_LEN:
 		case SEC_ERROR_INPUT_LEN:
 		case SEC_ERROR_INVALID_ARGS:
 		case SEC_ERROR_INVALID_ALGORITHM:
 		case SEC_ERROR_INVALID_AVA:
 		case SEC_ERROR_INVALID_TIME:
-			return paramErr;
+			return errSecParam;
 		case SEC_ERROR_PKCS7_BAD_SIGNATURE:
 		case SEC_ERROR_BAD_SIGNATURE:
 			return CSSMERR_CSP_VERIFY_FAILED;
@@ -133,13 +132,13 @@ OSStatus cmsRtnToOSStatus(
 		case SEC_ERROR_INADEQUATE_KEY_USAGE:
 			return CSSMERR_CSP_KEY_USAGE_INCORRECT;
 		case SEC_INTERNAL_ONLY:
-			return internalComponentErr;
+			return errSecInternalComponent;
 		case SEC_ERROR_NO_USER_INTERACTION:
 			return errSecInteractionNotAllowed;
 		case SEC_ERROR_USER_CANCELLED:
-			return userCanceledErr;
+			return errSecUserCanceled;
 		default:
 			dprintf("cmsRtnToOSStatus: smimeRtn 0x%x\n", smimeRtn);
-			return defaultRtn ? defaultRtn : internalComponentErr;
+			return defaultRtn ? defaultRtn : errSecInternalComponent;
 	}
 }

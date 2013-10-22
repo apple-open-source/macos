@@ -1227,6 +1227,7 @@ loser:
     return rtn;
 }
 
+#if 0
 SECStatus
 SECOID_AddEntry(SECItem *oid, char *description, CSSM_ALGORITHMS cssmAlgorithm) {
     SECOidData *oiddp;
@@ -1284,6 +1285,7 @@ loser:
     pthread_mutex_unlock(&oid_hash_mutex);    
     return srtn;
 }
+#endif
 	
 
 /* normal static table processing */

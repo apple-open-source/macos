@@ -31,10 +31,13 @@
 #include <QtCore/QObject>
 #include <wtf/OwnPtr.h>
 
-class QDeclarativeComponent;
-class QDeclarativeContext;
-class QQuickWebView;
+QT_BEGIN_NAMESPACE
+class QQmlComponent;
+class QQmlContext;
 class QQuickItem;
+QT_END_NAMESPACE
+
+class QQuickWebView;
 
 namespace WebKit {
 
@@ -42,6 +45,11 @@ class WebPopupMenuProxyQt : public QObject, public WebPopupMenuProxy {
     Q_OBJECT
 
 public:
+    enum SelectionType {
+        SingleSelection,
+        MultipleSelection
+    };
+
     static PassRefPtr<WebPopupMenuProxyQt> create(WebPopupMenuProxy::Client* client, QQuickWebView* webView)
     {
         return adoptRef(new WebPopupMenuProxyQt(client, webView));
@@ -59,15 +67,13 @@ private Q_SLOTS:
 private:
     WebPopupMenuProxyQt(WebPopupMenuProxy::Client*, QQuickWebView*);
     void createItem(QObject*);
-    void createContext(QDeclarativeComponent*, QObject*);
+    void createContext(QQmlComponent*, QObject*);
 
-    void notifyValueChanged();
-
-    OwnPtr<QDeclarativeContext> m_context;
+    OwnPtr<QQmlContext> m_context;
     OwnPtr<QQuickItem> m_itemSelector;
 
     QQuickWebView* m_webView;
-    int32_t m_selectedIndex;
+    SelectionType m_selectionType;
 };
 
 } // namespace WebKit

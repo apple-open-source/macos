@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -405,15 +405,13 @@ cfg_parser_create(isc_mem_t *mctx, isc_log_t *lctx, cfg_parser_t **ret) {
 	if (pctx == NULL)
 		return (ISC_R_NOMEMORY);
 
-	pctx->mctx = NULL;
-	isc_mem_attach(mctx, &pctx->mctx);
-
 	result = isc_refcount_init(&pctx->references, 1);
 	if (result != ISC_R_SUCCESS) {
-		isc_mem_putanddetach(&pctx->mctx, pctx, sizeof(*pctx));
+		isc_mem_put(mctx, pctx, sizeof(*pctx));
 		return (result);
 	}
 
+	pctx->mctx = mctx;
 	pctx->lctx = lctx;
 	pctx->lexer = NULL;
 	pctx->seen_eof = ISC_FALSE;
@@ -454,7 +452,7 @@ cfg_parser_create(isc_mem_t *mctx, isc_log_t *lctx, cfg_parser_t **ret) {
 		isc_lex_destroy(&pctx->lexer);
 	CLEANUP_OBJ(pctx->open_files);
 	CLEANUP_OBJ(pctx->closed_files);
-	isc_mem_putanddetach(&pctx->mctx, pctx, sizeof(*pctx));
+	isc_mem_put(mctx, pctx, sizeof(*pctx));
 	return (result);
 }
 
@@ -575,7 +573,7 @@ cfg_parser_destroy(cfg_parser_t **pctxp) {
 		 */
 		CLEANUP_OBJ(pctx->open_files);
 		CLEANUP_OBJ(pctx->closed_files);
-		isc_mem_putanddetach(&pctx->mctx, pctx, sizeof(*pctx));
+		isc_mem_put(pctx->mctx, pctx, sizeof(*pctx));
 	}
 	*pctxp = NULL;
 }
@@ -2599,13 +2597,8 @@ cfg_obj_istype(const cfg_obj_t *obj, const cfg_type_t *type) {
  */
 void
 cfg_obj_destroy(cfg_parser_t *pctx, cfg_obj_t **objp) {
-	cfg_obj_t *obj;
+	cfg_obj_t *obj = *objp;
 	unsigned int refs;
-
-	REQUIRE(objp != NULL && *objp != NULL);
-	REQUIRE(pctx != NULL);
-
-	obj = *objp;
 
 	isc_refcount_decrement(&obj->references, &refs);
 	if (refs == 0) {

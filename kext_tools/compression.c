@@ -131,7 +131,7 @@ int decompress_lzss(
         }
     }
     
-    return dst - dststart;
+    return (int)(dst - dststart);
 }
 
 /*

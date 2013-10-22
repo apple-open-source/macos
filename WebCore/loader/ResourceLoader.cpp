@@ -32,13 +32,17 @@
 
 #include "ApplicationCacheHost.h"
 #include "AsyncFileStream.h"
+#include "AuthenticationChallenge.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "InspectorInstrumentation.h"
+#include "LoaderStrategy.h"
 #include "Page.h"
+#include "PlatformStrategies.h"
 #include "ProgressTracker.h"
+#include "ResourceBuffer.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceLoadScheduler.h"
@@ -48,19 +52,13 @@
 
 namespace WebCore {
 
-PassRefPtr<SharedBuffer> ResourceLoader::resourceData()
-{
-    return m_resourceData;
-}
-
 ResourceLoader::ResourceLoader(Frame* frame, ResourceLoaderOptions options)
     : m_frame(frame)
     , m_documentLoader(frame->loader()->activeDocumentLoader())
     , m_identifier(0)
     , m_reachedTerminalState(false)
-    , m_calledWillCancel(false)
-    , m_cancelled(false)
     , m_notifiedLoadComplete(false)
+    , m_cancellationStatus(NotCancelled)
     , m_defersLoading(frame->page()->defersLoading())
     , m_options(options)
 {
@@ -88,9 +86,8 @@ void ResourceLoader::releaseResources()
     // the resources to prevent a double dealloc of WebView <rdar://problem/4372628>
     m_reachedTerminalState = true;
 
+    platformStrategies()->loaderStrategy()->resourceLoadScheduler()->remove(this);
     m_identifier = 0;
-
-    resourceLoadScheduler()->remove(this);
 
     if (m_handle) {
         // Clear out the ResourceHandle's client so that it doesn't try to call
@@ -147,7 +144,7 @@ void ResourceLoader::start()
     ASSERT(m_deferredRequest.isNull());
 
 #if ENABLE(WEB_ARCHIVE) || ENABLE(MHTML)
-    if (m_documentLoader->scheduleArchiveLoad(this, m_request, m_request.url()))
+    if (m_documentLoader->scheduleArchiveLoad(this, m_request))
         return;
 #endif
 
@@ -182,36 +179,45 @@ FrameLoader* ResourceLoader::frameLoader() const
     return m_frame->loader();
 }
 
-void ResourceLoader::setShouldBufferData(DataBufferingPolicy shouldBufferData)
+void ResourceLoader::setDataBufferingPolicy(DataBufferingPolicy dataBufferingPolicy)
 { 
-    m_options.shouldBufferData = shouldBufferData; 
+    m_options.dataBufferingPolicy = dataBufferingPolicy; 
 
     // Reset any already buffered data
-    if (!shouldBufferData)
+    if (dataBufferingPolicy == DoNotBufferData)
         m_resourceData = 0;
 }
     
 
-void ResourceLoader::addData(const char* data, int length, bool allAtOnce)
+void ResourceLoader::addDataOrBuffer(const char* data, int length, SharedBuffer* buffer, DataPayloadType dataPayloadType)
 {
-    if (m_options.shouldBufferData == DoNotBufferData)
+    if (m_options.dataBufferingPolicy == DoNotBufferData)
         return;
 
-    if (allAtOnce) {
-        m_resourceData = SharedBuffer::create(data, length);
+    if (dataPayloadType == DataPayloadWholeResource) {
+        m_resourceData = buffer ? ResourceBuffer::adoptSharedBuffer(buffer) : ResourceBuffer::create(data, length);
         return;
     }
         
     if (!m_resourceData)
-        m_resourceData = SharedBuffer::create(data, length);
-    else
-        m_resourceData->append(data, length);
+        m_resourceData = buffer ? ResourceBuffer::adoptSharedBuffer(buffer) : ResourceBuffer::create(data, length);
+    else {
+        if (buffer)
+            m_resourceData->append(buffer);
+        else
+            m_resourceData->append(data, length);
+    }
 }
 
 void ResourceLoader::clearResourceData()
 {
     if (m_resourceData)
         m_resourceData->clear();
+}
+
+bool ResourceLoader::isSubresourceLoader()
+{
+    return false;
 }
 
 void ResourceLoader::willSendRequest(ResourceRequest& request, const ResourceResponse& redirectResponse)
@@ -222,18 +228,31 @@ void ResourceLoader::willSendRequest(ResourceRequest& request, const ResourceRes
 
     ASSERT(!m_reachedTerminalState);
 
+    // We need a resource identifier for all requests, even if FrameLoader is never going to see it (such as with CORS preflight requests).
+    bool createdResourceIdentifier = false;
+    if (!m_identifier) {
+        m_identifier = m_frame->page()->progress()->createUniqueIdentifier();
+        createdResourceIdentifier = true;
+    }
+
     if (m_options.sendLoadCallbacks == SendCallbacks) {
-        if (!m_identifier) {
-            m_identifier = m_frame->page()->progress()->createUniqueIdentifier();
+        if (createdResourceIdentifier)
             frameLoader()->notifier()->assignIdentifierToInitialRequest(m_identifier, documentLoader(), request);
-        }
 
         frameLoader()->notifier()->willSendRequest(this, request, redirectResponse);
     }
+#if ENABLE(INSPECTOR)
+    else
+        InspectorInstrumentation::willSendRequest(m_frame.get(), m_identifier, m_frame->loader()->documentLoader(), request, redirectResponse);
+#endif
 
     if (!redirectResponse.isNull())
-        resourceLoadScheduler()->crossOriginRedirectReceived(this, request.url());
+        platformStrategies()->loaderStrategy()->resourceLoadScheduler()->crossOriginRedirectReceived(this, request.url());
+
     m_request = request;
+
+    if (!redirectResponse.isNull() && !m_documentLoader->isCommitted())
+        frameLoader()->client()->dispatchDidReceiveServerRedirectForProvisionalLoad();
 }
 
 void ResourceLoader::didSendData(unsigned long long, unsigned long long)
@@ -257,7 +276,7 @@ void ResourceLoader::didReceiveResponse(const ResourceResponse& r)
         frameLoader()->notifier()->didReceiveResponse(this, m_response);
 }
 
-void ResourceLoader::didReceiveData(const char* data, int length, long long encodedDataLength, bool allAtOnce)
+void ResourceLoader::didReceiveData(const char* data, int length, long long encodedDataLength, DataPayloadType dataPayloadType)
 {
     // The following assertions are not quite valid here, since a subclass
     // might override didReceiveData in a way that invalidates them. This
@@ -265,25 +284,40 @@ void ResourceLoader::didReceiveData(const char* data, int length, long long enco
     // ASSERT(con == connection);
     // ASSERT(!m_reachedTerminalState);
 
+    didReceiveDataOrBuffer(data, length, 0, encodedDataLength, dataPayloadType);
+}
+
+void ResourceLoader::didReceiveBuffer(PassRefPtr<SharedBuffer> buffer, long long encodedDataLength, DataPayloadType dataPayloadType)
+{
+    didReceiveDataOrBuffer(0, 0, buffer, encodedDataLength, dataPayloadType);
+}
+
+void ResourceLoader::didReceiveDataOrBuffer(const char* data, int length, PassRefPtr<SharedBuffer> prpBuffer, long long encodedDataLength, DataPayloadType dataPayloadType)
+{
+    // This method should only get data+length *OR* a SharedBuffer.
+    ASSERT(!prpBuffer || (!data && !length));
+
     // Protect this in this delegate method since the additional processing can do
     // anything including possibly derefing this; one example of this is Radar 3266216.
     RefPtr<ResourceLoader> protector(this);
+    RefPtr<SharedBuffer> buffer = prpBuffer;
 
-    addData(data, length, allAtOnce);
+    addDataOrBuffer(data, length, buffer.get(), dataPayloadType);
+    
     // FIXME: If we get a resource with more than 2B bytes, this code won't do the right thing.
     // However, with today's computers and networking speeds, this won't happen in practice.
     // Could be an issue with a giant local file.
     if (m_options.sendLoadCallbacks == SendCallbacks && m_frame)
-        frameLoader()->notifier()->didReceiveData(this, data, length, static_cast<int>(encodedDataLength));
+        frameLoader()->notifier()->didReceiveData(this, buffer ? buffer->data() : data, buffer ? buffer->size() : length, static_cast<int>(encodedDataLength));
 }
 
 void ResourceLoader::willStopBufferingData(const char* data, int length)
 {
-    if (m_options.shouldBufferData == DoNotBufferData)
+    if (m_options.dataBufferingPolicy == DoNotBufferData)
         return;
 
     ASSERT(!m_resourceData);
-    m_resourceData = SharedBuffer::create(data, length);
+    m_resourceData = ResourceBuffer::create(data, length);
 }
 
 void ResourceLoader::didFinishLoading(double finishTime)
@@ -292,7 +326,7 @@ void ResourceLoader::didFinishLoading(double finishTime)
 
     // If the load has been cancelled by a delegate in response to didFinishLoad(), do not release
     // the resources a second time, they have been released by cancel.
-    if (m_cancelled)
+    if (wasCancelled())
         return;
     releaseResources();
 }
@@ -301,7 +335,7 @@ void ResourceLoader::didFinishLoadingOnePart(double finishTime)
 {
     // If load has been cancelled after finishing (which could happen with a
     // JavaScript that changes the window location), do nothing.
-    if (m_cancelled)
+    if (wasCancelled())
         return;
     ASSERT(!m_reachedTerminalState);
 
@@ -314,7 +348,7 @@ void ResourceLoader::didFinishLoadingOnePart(double finishTime)
 
 void ResourceLoader::didFail(const ResourceError& error)
 {
-    if (m_cancelled)
+    if (wasCancelled())
         return;
     ASSERT(!m_reachedTerminalState);
 
@@ -322,16 +356,28 @@ void ResourceLoader::didFail(const ResourceError& error)
     // anything including possibly derefing this; one example of this is Radar 3266216.
     RefPtr<ResourceLoader> protector(this);
 
+    cleanupForError(error);
+    releaseResources();
+}
+
+void ResourceLoader::cleanupForError(const ResourceError& error)
+{
     if (FormData* data = m_request.httpBody())
         data->removeGeneratedFilesIfNeeded();
 
-    if (!m_notifiedLoadComplete) {
-        m_notifiedLoadComplete = true;
-        if (m_options.sendLoadCallbacks == SendCallbacks)
-            frameLoader()->notifier()->didFailToLoad(this, error);
-    }
+    if (m_notifiedLoadComplete)
+        return;
+    m_notifiedLoadComplete = true;
+    if (m_options.sendLoadCallbacks == SendCallbacks && m_identifier)
+        frameLoader()->notifier()->didFailToLoad(this, error);
+}
 
-    releaseResources();
+void ResourceLoader::didChangePriority(ResourceLoadPriority loadPriority)
+{
+    if (handle()) {
+        frameLoader()->client()->dispatchDidChangeResourcePriority(identifier(), loadPriority);
+        handle()->didChangePriority(loadPriority);
+    }
 }
 
 void ResourceLoader::cancel()
@@ -353,19 +399,16 @@ void ResourceLoader::cancel(const ResourceError& error)
     
     // If we re-enter cancel() from inside willCancel(), we want to pick up from where we left 
     // off without re-running willCancel()
-    if (!m_calledWillCancel) {
-        m_calledWillCancel = true;
+    if (m_cancellationStatus == NotCancelled) {
+        m_cancellationStatus = CalledWillCancel;
         
         willCancel(nonNullError);
     }
 
     // If we re-enter cancel() from inside didFailToLoad(), we want to pick up from where we 
     // left off without redoing any of this work.
-    if (!m_cancelled) {
-        m_cancelled = true;
-        
-        if (FormData* data = m_request.httpBody())
-            data->removeGeneratedFilesIfNeeded();
+    if (m_cancellationStatus == CalledWillCancel) {
+        m_cancellationStatus = Cancelled;
 
         if (m_handle)
             m_handle->clearAuthentication();
@@ -375,9 +418,7 @@ void ResourceLoader::cancel(const ResourceError& error)
             m_handle->cancel();
             m_handle = 0;
         }
-
-        if (m_options.sendLoadCallbacks == SendCallbacks && m_identifier && !m_notifiedLoadComplete)
-            frameLoader()->notifier()->didFailToLoad(this, nonNullError);
+        cleanupForError(nonNullError);
     }
 
     // If cancel() completed from within the call to willCancel() or didFailToLoad(),
@@ -386,7 +427,11 @@ void ResourceLoader::cancel(const ResourceError& error)
         return;
 
     didCancel(nonNullError);
-            
+
+    if (m_cancellationStatus == FinishedCancel)
+        return;
+    m_cancellationStatus = FinishedCancel;
+
     releaseResources();
 }
 
@@ -426,8 +471,15 @@ void ResourceLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse&
 
 void ResourceLoader::didReceiveData(ResourceHandle*, const char* data, int length, int encodedDataLength)
 {
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(m_frame.get(), identifier());
-    didReceiveData(data, length, encodedDataLength, false);
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(m_frame.get(), identifier(), encodedDataLength);
+    didReceiveData(data, length, encodedDataLength, DataPayloadBytes);
+    InspectorInstrumentation::didReceiveResourceData(cookie);
+}
+
+void ResourceLoader::didReceiveBuffer(ResourceHandle*, PassRefPtr<SharedBuffer> buffer, int encodedDataLength)
+{
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(m_frame.get(), identifier(), encodedDataLength);
+    didReceiveBuffer(buffer, encodedDataLength, DataPayloadBytes);
     InspectorInstrumentation::didReceiveResourceData(cookie);
 }
 
@@ -465,21 +517,22 @@ bool ResourceLoader::shouldUseCredentialStorage()
 void ResourceLoader::didReceiveAuthenticationChallenge(const AuthenticationChallenge& challenge)
 {
     ASSERT(handle()->hasAuthenticationChallenge());
+
     // Protect this in this delegate method since the additional processing can do
     // anything including possibly derefing this; one example of this is Radar 3266216.
     RefPtr<ResourceLoader> protector(this);
 
     if (m_options.allowCredentials == AllowStoredCredentials) {
-        if (m_options.crossOriginCredentialPolicy == AskClientForCrossOriginCredentials || m_frame->document()->securityOrigin()->canRequest(originalRequest().url())) {
+        if (m_options.clientCredentialPolicy == AskClientForAllCredentials || (m_options.clientCredentialPolicy == DoNotAskClientForCrossOriginCredentials && m_frame->document()->securityOrigin()->canRequest(originalRequest().url()))) {
             frameLoader()->notifier()->didReceiveAuthenticationChallenge(this, challenge);
             return;
         }
     }
     // Only these platforms provide a way to continue without credentials.
     // If we can't continue with credentials, we need to cancel the load altogether.
-#if PLATFORM(MAC) || USE(CFNETWORK) || USE(CURL)
-    handle()->receivedRequestToContinueWithoutCredential(challenge);
-    ASSERT(!handle()->hasAuthenticationChallenge());
+#if PLATFORM(MAC) || USE(CFNETWORK) || USE(CURL) || PLATFORM(GTK) || PLATFORM(EFL)
+    challenge.authenticationClient()->receivedRequestToContinueWithoutCredential(challenge);
+    ASSERT(!handle() || !handle()->hasAuthenticationChallenge());
 #else
     didFail(blockedError());
 #endif
@@ -505,27 +558,5 @@ void ResourceLoader::receivedCancellation(const AuthenticationChallenge&)
 {
     cancel();
 }
-
-void ResourceLoader::willCacheResponse(ResourceHandle*, CacheStoragePolicy& policy)
-{
-    // <rdar://problem/7249553> - There are reports of crashes with this method being called
-    // with a null m_frame->settings(), which can only happen if the frame doesn't have a page.
-    // Sadly we have no reproducible cases of this.
-    // We think that any frame without a page shouldn't have any loads happening in it, yet
-    // there is at least one code path where that is not true.
-    ASSERT(m_frame->settings());
-    
-    // When in private browsing mode, prevent caching to disk
-    if (policy == StorageAllowed && m_frame->settings() && m_frame->settings()->privateBrowsingEnabled())
-        policy = StorageAllowedInMemoryOnly;    
-}
-
-#if ENABLE(BLOB)
-AsyncFileStream* ResourceLoader::createAsyncFileStream(FileStreamClient* client)
-{
-    // It is OK to simply return a pointer since AsyncFileStream::create adds an extra ref.
-    return AsyncFileStream::create(m_frame->document()->scriptExecutionContext(), client).get();
-}
-#endif
 
 }

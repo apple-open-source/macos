@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Igalia S.L.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,8 +24,14 @@
 #include "WebContext.h"
 #include "WebData.h"
 #include "WebSoupRequestManagerMessages.h"
+#include "WebSoupRequestManagerProxyMessages.h"
 
 namespace WebKit {
+
+const char* WebSoupRequestManagerProxy::supplementName()
+{
+    return "WebSoupRequestManagerProxy";
+}
 
 PassRefPtr<WebSoupRequestManagerProxy> WebSoupRequestManagerProxy::create(WebContext* context)
 {
@@ -32,15 +39,13 @@ PassRefPtr<WebSoupRequestManagerProxy> WebSoupRequestManagerProxy::create(WebCon
 }
 
 WebSoupRequestManagerProxy::WebSoupRequestManagerProxy(WebContext* context)
-    : m_webContext(context)
+    : WebContextSupplement(context)
+    , m_loadFailed(false)
 {
+    WebContextSupplement::context()->addMessageReceiver(Messages::WebSoupRequestManagerProxy::messageReceiverName(), this);
 }
 
 WebSoupRequestManagerProxy::~WebSoupRequestManagerProxy()
-{
-}
-
-void WebSoupRequestManagerProxy::invalidate()
 {
 }
 
@@ -49,27 +54,75 @@ void WebSoupRequestManagerProxy::initializeClient(const WKSoupRequestManagerClie
     m_client.initialize(client);
 }
 
-void WebSoupRequestManagerProxy::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
+// WebContextSupplement
+
+void WebSoupRequestManagerProxy::contextDestroyed()
 {
-    didReceiveWebSoupRequestManagerProxyMessage(connection, messageID, arguments);
+}
+
+void WebSoupRequestManagerProxy::processDidClose(WebProcessProxy*)
+{
+}
+
+void WebSoupRequestManagerProxy::refWebContextSupplement()
+{
+    APIObject::ref();
+}
+
+void WebSoupRequestManagerProxy::derefWebContextSupplement()
+{
+    APIObject::deref();
 }
 
 void WebSoupRequestManagerProxy::registerURIScheme(const String& scheme)
 {
-    ASSERT(m_webContext);
-    m_webContext->sendToAllProcessesRelaunchingThemIfNecessary(Messages::WebSoupRequestManager::RegisterURIScheme(scheme));
+    if (!context())
+        return;
+
+    context()->sendToAllProcessesRelaunchingThemIfNecessary(Messages::WebSoupRequestManager::RegisterURIScheme(scheme));
+
+    ASSERT(!m_registeredURISchemes.contains(scheme));
+    m_registeredURISchemes.append(scheme);
 }
 
-void WebSoupRequestManagerProxy::handleURIRequest(const WebData* requestData, const String& mimeType, uint64_t requestID)
+void WebSoupRequestManagerProxy::didHandleURIRequest(const WebData* requestData, uint64_t contentLength, const String& mimeType, uint64_t requestID)
 {
-    ASSERT(m_webContext);
-    m_webContext->sendToAllProcesses(Messages::WebSoupRequestManager::HandleURIRequest(requestData->dataReference(), mimeType, requestID));
+    if (!context())
+        return;
+
+    context()->sendToAllProcesses(Messages::WebSoupRequestManager::DidHandleURIRequest(requestData->dataReference(), contentLength, mimeType, requestID));
 }
 
-void WebSoupRequestManagerProxy::didReceiveURIRequest(const String& uriString, uint64_t requestID)
+void WebSoupRequestManagerProxy::didReceiveURIRequestData(const WebData* requestData, uint64_t requestID)
 {
-    if (!m_client.didReceiveURIRequest(this, WebURL::create(uriString).get(), requestID))
-        handleURIRequest(WebData::create(0, 0).get(), String(), requestID);
+    if (!context())
+        return;
+
+    if (m_loadFailed)
+        return;
+
+    context()->sendToAllProcesses(Messages::WebSoupRequestManager::DidReceiveURIRequestData(requestData->dataReference(), requestID));
+}
+
+void WebSoupRequestManagerProxy::didReceiveURIRequest(const String& uriString, WebPageProxy* initiaingPage, uint64_t requestID)
+{
+    if (!m_client.didReceiveURIRequest(this, WebURL::create(uriString).get(), initiaingPage, requestID))
+        didHandleURIRequest(WebData::create(0, 0).get(), 0, String(), requestID);
+}
+
+void WebSoupRequestManagerProxy::didFailToLoadURIRequest(uint64_t requestID)
+{
+    m_loadFailed = true;
+    m_client.didFailToLoadURIRequest(this, requestID);
+}
+
+void WebSoupRequestManagerProxy::didFailURIRequest(const WebCore::ResourceError& error, uint64_t requestID)
+{
+    if (!context())
+        return;
+
+    m_loadFailed = true;
+    context()->sendToAllProcesses(Messages::WebSoupRequestManager::DidFailURIRequest(error, requestID));
 }
 
 } // namespace WebKit

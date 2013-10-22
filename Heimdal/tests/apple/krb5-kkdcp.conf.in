@@ -1,0 +1,17 @@
+[libdefaults]
+	default_realm = TEST.H5L.SE
+
+[realms]
+	APPLECONNECT-UAT.APPLE.COM = {
+		kdc = kkdcp://wdg01-uat.apple.com/kkdcp
+	}
+
+[logging]
+	kdc = 0-/FILE:@testdir@/messages.log
+	default = 0-/FILE:@testdir@/messages.log
+	krb5 = 0-/FILE:@testdir@/messages.log
+
+[kdc]
+	enable-pkinit = true
+	pkinit_anchors = FILE:@certdir@/ca.crt
+

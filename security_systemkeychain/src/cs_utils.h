@@ -156,6 +156,7 @@ SecStaticCodeRef staticCodePath(const char *target, const Architecture &arch, co
 extern unsigned verbose;				// verbosity level
 extern bool force;						// force overwrite flag
 extern bool continueOnError;			// continue processing targets on error(s)
+extern bool numericErrors;				// display errors as numbers (for mechanized callers)
 
 extern int exitcode;					// cumulative exit code
 

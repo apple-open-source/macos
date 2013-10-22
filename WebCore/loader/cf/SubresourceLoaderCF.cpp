@@ -27,7 +27,7 @@
 
 namespace WebCore {
 
-#if HAVE(NETWORK_CFDATA_ARRAY_CALLBACK)
+#if USE(NETWORK_CFDATA_ARRAY_CALLBACK)
 void SubresourceLoader::didReceiveDataArray(CFArrayRef dataArray)
 {
     // Reference the object in this method since the additional processing can do
@@ -36,7 +36,7 @@ void SubresourceLoader::didReceiveDataArray(CFArrayRef dataArray)
 
     ResourceLoader::didReceiveDataArray(dataArray);
 
-    if (errorLoadingResource())
+    if (checkForHTTPStatusCodeError())
         return;
 
     // A subresource loader does not load multipart sections progressively.

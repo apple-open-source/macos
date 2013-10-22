@@ -82,6 +82,7 @@
 #include <comnaf.h>
 #include <comp.h>
 #include <comsoc_smb.h>
+#include <cnassm.h>
 #include <fcntl.h>
 #include <sys/un.h>
 #include <sys/types.h>
@@ -131,6 +132,14 @@ rpc_socket_error_t rpc_smb_ntstatus_to_rpc_error(NTSTATUS status);
 
 #define SMB_SOCKET_LOCK(sock) (rpc__smb_socket_lock(sock))
 #define SMB_SOCKET_UNLOCK(sock) (rpc__smb_socket_unlock(sock))
+
+#ifndef RPC_C_SOCKET_MAX_RCVBUF
+#  define RPC_C_SOCKET_MAX_RCVBUF (64 * 1024)
+#endif
+
+#ifndef RPC_C_SOCKET_MAX_SNDBUF
+#  define RPC_C_SOCKET_MAX_SNDBUF (64 * 1024)
+#endif
 
 typedef struct rpc_smb_transport_info_s
 {
@@ -2155,12 +2164,15 @@ rpc__smb_socket_set_bufs(
     unsigned32 *nrxsize ATTRIBUTE_UNUSED
 )
 {
-    rpc_socket_error_t serr = RPC_C_SOCKET_ENOTSUP;
+    rpc_socket_error_t serr = RPC_C_SOCKET_OK;
 
     RPC_DBG_PRINTF(rpc_e_dbg_general, 7, ("rpc__smb_socket_set_bufs called\n"));
 
 #if HAVE_SMBCLIENT_FRAMEWORK && HAVE_SMBCLIENT_SMBGETSERVERPROPERTIES
     serr = rpc__smbclient_set_bufs(sock, ntxsize, nrxsize);
+#else
+    *ntxsize = MIN(RPC_C_CN_LARGE_FRAG_SIZE, RPC_C_SOCKET_MAX_SNDBUF);
+    *nrxsize = MIN(RPC_C_CN_LARGE_FRAG_SIZE, RPC_C_SOCKET_MAX_RCVBUF);
 #endif
 
     return serr;

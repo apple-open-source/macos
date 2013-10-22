@@ -62,6 +62,32 @@ window.getComputedStyle = function(element) {}
 /** @param {*} message */
 function postMessage(message) {}
 
+/** @type {*} */
+window.testRunner = null;
+
+/**
+ * @constructor
+ */
+function WebKitMutation(callback)
+{
+    this.type = "";
+    /** @type {Node} */ this.target = null;
+    /** @type {Array.<Node>} */ this.addedNodes = [];
+    /** @type {Array.<Node>} */ this.removedNodes = [];
+}
+
+/**
+ * @constructor
+ * @param {function(Array.<WebKitMutation>)} callback
+ */
+function WebKitMutationObserver(callback) {}
+/** 
+ * @param {Node} container
+ * @param {Object} options
+ */
+WebKitMutationObserver.prototype.observe = function(container, options) {}
+WebKitMutationObserver.prototype.disconnect = function() {}
+
 /**
  * @param {string} eventName
  * @param {Function} listener
@@ -96,6 +122,19 @@ Array.prototype.partition = function(comparator, left, right, pivotIndex) {}
  */
 Array.prototype.qselect = function(k, comparator) {}
 
+/**
+ * @this {Array.<*>}
+ * @param {string} field
+ * @return {Array.<*>}
+ */
+Array.prototype.select = function(field) {}
+
+/**
+ * @this {Array.<*>}
+ * @return {*}
+ */
+Array.prototype.peekLast = function() {}
+
 DOMApplicationCache.prototype.UNCACHED = 0;
 DOMApplicationCache.prototype.IDLE = 1;
 DOMApplicationCache.prototype.CHECKING = 2;
@@ -103,37 +142,97 @@ DOMApplicationCache.prototype.DOWNLOADING = 3;
 DOMApplicationCache.prototype.UPDATEREADY = 4;
 DOMApplicationCache.prototype.OBSOLETE = 5;
 
+// File System API
+/**
+ * @constructor
+ */
+function DOMFileSystem() {}
 
+/**
+ * @type {DirectoryEntry}
+ */
+DOMFileSystem.prototype.root = null;
+
+/** @type {Node} */
+Range.prototype.startContainer;
 
 // Inspector Backend
 var InspectorBackend = {}
 InspectorBackend.runAfterPendingDispatches = function(message) {}
 
+/** @interface */
+function InspectorFrontendHostAPI() {}
+InspectorFrontendHostAPI.prototype.platform = function() {}
+InspectorFrontendHostAPI.prototype.port = function() {}
+InspectorFrontendHostAPI.prototype.bringToFront = function() {}
+InspectorFrontendHostAPI.prototype.closeWindow = function() {}
+InspectorFrontendHostAPI.prototype.requestSetDockSide = function(dockSide) {}
+InspectorFrontendHostAPI.prototype.setAttachedWindowHeight = function(height) {}
+InspectorFrontendHostAPI.prototype.setAttachedWindowWidth = function(width) {}
+InspectorFrontendHostAPI.prototype.moveWindowBy = function(x, y) {}
+InspectorFrontendHostAPI.prototype.setInjectedScriptForOrigin = function(origin, script) {}
+InspectorFrontendHostAPI.prototype.loaded = function() {}
+InspectorFrontendHostAPI.prototype.localizedStringsURL = function() {}
+InspectorFrontendHostAPI.prototype.inspectedURLChanged = function(url) {}
+InspectorFrontendHostAPI.prototype.documentCopy = function(event) {}
+InspectorFrontendHostAPI.prototype.copyText = function(text) {}
+InspectorFrontendHostAPI.prototype.openInNewTab = function(url) {}
+InspectorFrontendHostAPI.prototype.canSave = function() {}
+InspectorFrontendHostAPI.prototype.save = function(url, content, forceSaveAs) {}
+InspectorFrontendHostAPI.prototype.close = function(url) {}
+InspectorFrontendHostAPI.prototype.append = function(url, content) {}
+InspectorFrontendHostAPI.prototype.sendMessageToBackend = function(message) {}
+InspectorFrontendHostAPI.prototype.recordActionTaken = function(actionCode) {}
+InspectorFrontendHostAPI.prototype.recordPanelShown = function(panelCode) {}
+InspectorFrontendHostAPI.prototype.recordSettingChanged = function(settingCode) {}
+InspectorFrontendHostAPI.prototype.loadResourceSynchronously = function(url) {}
+InspectorFrontendHostAPI.prototype.supportsFileSystems = function() {}
+InspectorFrontendHostAPI.prototype.requestFileSystems = function() {}
+InspectorFrontendHostAPI.prototype.addFileSystem = function() {}
+InspectorFrontendHostAPI.prototype.removeFileSystem = function(fileSystemPath) {}
+InspectorFrontendHostAPI.prototype.isolatedFileSystem = function(fileSystemId, registeredName) {}
+InspectorFrontendHostAPI.prototype.setZoomFactor = function(zoom) {}
+/** @type {InspectorFrontendHostAPI} */
+var InspectorFrontendHost;
+
+/** @constructor */
+function SourceMapV3()
+{
+    /** @type {number} */ this.version;
+    /** @type {string} */ this.file;
+    /** @type {Array.<string>} */ this.sources;
+    /** @type {Array.<SourceMapV3.Section>} */ this.sections;
+    /** @type {string} */ this.mappings
+}
+
+/** @constructor */
+SourceMapV3.Section = function()
+{
+    /** @type {SourceMapV3} */ this.map;
+    /** @type {SourceMapV3.Offset} */ this.offset;
+}
+
+/** @constructor */
+SourceMapV3.Offset = function()
+{
+    /** @type {number} */ this.line;
+    /** @type {number} */ this.column;
+}
 
 // FIXME: remove everything below.
 var WebInspector = {}
 
-/**
- * @param {NetworkAgent.RequestId} requestId
- * @return {?WebInspector.NetworkRequest}
- */
-WebInspector.networkRequestById = function(requestId)
-{
-}
-  
+WebInspector.queryParamsObject = {}
+WebInspector.toggleSearchingForNode = function() {}
 WebInspector.panels = {};
 
 /**
- * @type {WebInspector.InspectorView}
+ * @param {Element} element
+ * @param {function()=} onclose
  */
-WebInspector.inspectorView;
+WebInspector.showViewInDrawer = function(element, view, onclose) {}
 
-/**
- * @param {WebInspector.View} view
- */
-WebInspector.showViewInDrawer = function(view) {}
-
-WebInspector.closeDrawerView = function() {}
+WebInspector.closeViewInDrawer = function() {}
 
 /**
  * @param {string=} messageLevel
@@ -141,14 +240,13 @@ WebInspector.closeDrawerView = function() {}
  */
 WebInspector.log = function(message, messageLevel, showConsole) {}
 
+WebInspector.showErrorMessage = function(error) {}
+
 WebInspector.addMainEventListeners = function(doc) {}
 
 WebInspector.openResource = function(url, external) {}
 
-/** @param {WebInspector.NetworkRequest} request */
-WebInspector.openRequestInNetworkPanel = function(request) {}
-
-WebInspector.populateResourceContextMenu = function(contextMenu, url, preferredLineNumber) {}
+WebInspector.showConsole = function() {}
 
 /**
  * @param {string} expression
@@ -156,13 +254,10 @@ WebInspector.populateResourceContextMenu = function(contextMenu, url, preferredL
  */
 WebInspector.evaluateInConsole = function(expression, showResultOnly) {}
 
-WebInspector.isURLSaved = function(url) {}
-
-var InjectedFakeWorker = function() {}
-
 WebInspector.queryParamsObject = {}
 
 WebInspector.Events = {
+    InspectorLoaded: "InspectorLoaded",
     InspectorClosing: "InspectorClosing"
 }
 
@@ -187,6 +282,8 @@ function Resource() {}
 /** @constructor */
 function Timeline() {}
 
+var extensionServer;
+
 /** @type {string} */
 Location.prototype.origin = "";
 
@@ -207,18 +304,6 @@ function ExtensionReloadOptions() {
     this.userAgent = "";
 }
 
-/**
- * @type {WebInspector.HandlerRegistry}
- */
-WebInspector.openAnchorLocationRegistry = null;
-
-/**
- * @param {WebInspector.Panel} panel
- */
-WebInspector.showPanelForAnchorNavigation = function(panel)
-{
-}
-
 WebInspector.showPanel = function(panel)
 {
 }
@@ -228,9 +313,41 @@ WebInspector.showPanel = function(panel)
  */
 WebInspector.inspectedPageDomain;
 
-WebInspector.isCompactMode = function() { return false; }
-
 WebInspector.SourceJavaScriptTokenizer = {}
 WebInspector.SourceJavaScriptTokenizer.Keywords = {}
 
 var InspectorTest = {}
+
+/* jsdifflib API */
+var difflib = {};
+difflib.stringAsLines = function(text) { return []; }
+/** @constructor */
+difflib.SequenceMatcher = function(baseText, newText) { }
+difflib.SequenceMatcher.prototype.get_opcodes = function() { return []; }
+
+/** @constructor */
+WebInspector.CodeMirrorTextEditor = function(url, delegate) { }
+
+/** @constructor */
+WebInspector.AceTextEditor = function(url, delegate) { }
+
+/** @constructor */
+var CodeMirror = function() { }
+CodeMirror.prototype.replaceSelection = function(str1, str2, str3) { }
+/** @return {Element} */
+CodeMirror.prototype.getInputField = function() { }
+CodeMirror.prototype.getCursor = function() { }
+CodeMirror.prototype.setCursor = function(arg) { }
+CodeMirror.prototype.getLine = function() { }
+CodeMirror.prototype.getValue = function() { }
+CodeMirror.prototype.setValue = function(arg) { }
+CodeMirror.prototype.clearGutter = function(arg) { }
+CodeMirror.prototype.setGutterMarker = function(arg1, arg2, arg3) { }
+CodeMirror.prototype.clearHistory = function() { }
+CodeMirror.prototype.markText = function(arg1, arg2, arg3) { }
+
+WebInspector.suggestReload = function() { }
+WebInspector.reload = function() { }
+
+/** @type {boolean} */
+window.dispatchStandaloneTestRunnerMessages;

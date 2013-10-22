@@ -198,10 +198,8 @@ main(void)
      */
     printf("Pass 1\n");
     for (repeat = 0;repeat < 500;repeat++) {
-	for (i = 0; i < num_threads; i++) {
-	    results[i] = NULL;
-	    tid[i] = (pthread_t) -1;
-	}
+        memset(results, 0, sizeof(*results)*num_threads);
+        memset(tid, 0xff, sizeof(*tid)*num_threads);
 
 	for (i = 0; i < num_threads; i++) {
 	    ret = pthread_create(&tid[i], NULL, threadRoutine1,
@@ -240,10 +238,8 @@ main(void)
             fprintf(stderr, "Main failed to compile stylesheet\n");
             exit(1);
         }
-	for (i = 0; i < num_threads; i++) {
-	    results[i] = NULL;
-	    tid[i] = (pthread_t) -1;
-	}
+        memset(results, 0, sizeof(*results)*num_threads);
+        memset(tid, 0xff, sizeof(*tid)*num_threads);
 
 	for (i = 0; i < num_threads; i++) {
 	    ret = pthread_create(&tid[i], NULL, threadRoutine2, (void *) cur);

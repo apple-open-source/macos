@@ -67,6 +67,7 @@ CFErrorRef fancy_error(CFStringRef domain, CFIndex code, CFStringRef description
 	return err;
 }
 
+static
 void add_t2ca(CFMutableDictionaryRef t2ca, CFStringRef t, CFStringRef a) {
 	CFMutableSetRef ca = (CFMutableSetRef)CFDictionaryGetValue(t2ca, t);
 	if (!ca) {

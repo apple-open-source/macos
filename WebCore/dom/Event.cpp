@@ -121,7 +121,17 @@ bool Event::isMouseEvent() const
     return false;
 }
 
+bool Event::isFocusEvent() const
+{
+    return false;
+}
+
 bool Event::isKeyboardEvent() const
+{
+    return false;
+}
+
+bool Event::isTouchEvent() const
 {
     return false;
 }
@@ -148,6 +158,11 @@ bool Event::isBeforeTextInsertedEvent() const
 
 void Event::storeResult(const String&)
 {
+}
+
+PassRefPtr<Event> Event::cloneFor(HTMLIFrameElement*) const
+{
+    return Event::create(type(), bubbles(), cancelable());
 }
 
 void Event::setTarget(PassRefPtr<EventTarget> target)

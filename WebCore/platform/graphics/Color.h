@@ -50,10 +50,6 @@ typedef struct _GdkRGBA GdkRGBA;
 #endif
 #endif
 
-#if PLATFORM(WX)
-class wxColour;
-#endif
-
 namespace WebCore {
 
 class Color;
@@ -88,6 +84,17 @@ public:
     Color(float c, float m, float y, float k, float a) : m_color(makeRGBAFromCMYKA(c, m, y, k, a)), m_valid(true) { }
     explicit Color(const String&);
     explicit Color(const char*);
+
+    static Color createUnchecked(int r, int g, int b)
+    {
+        RGBA32 color = 0xFF000000 | r << 16 | g << 8 | b;
+        return Color(color);
+    }
+    static Color createUnchecked(int r, int g, int b, int a)
+    {
+        RGBA32 color = a << 24 | r << 16 | g << 8 | b;
+        return Color(color);
+    }
 
     // Returns the color serialized according to HTML5
     // - http://www.whatwg.org/specs/web-apps/current-work/#serialization-of-a-color
@@ -136,17 +143,13 @@ public:
 #endif
 #endif
 
-#if PLATFORM(WX)
-    Color(const wxColour&);
-    operator wxColour() const;
-#endif
-
 #if USE(CG)
     Color(CGColorRef);
 #endif
 
-    static bool parseHexColor(const String& name, RGBA32& rgb);
-    static bool parseHexColor(const UChar* name, unsigned length, RGBA32& rgb);
+    static bool parseHexColor(const String&, RGBA32&);
+    static bool parseHexColor(const LChar*, unsigned, RGBA32&);
+    static bool parseHexColor(const UChar*, unsigned, RGBA32&);
 
     static const RGBA32 black = 0xFF000000;
     static const RGBA32 white = 0xFFFFFFFF;
@@ -170,8 +173,8 @@ inline bool operator!=(const Color& a, const Color& b)
     return !(a == b);
 }
 
-Color colorFromPremultipliedARGB(unsigned);
-unsigned premultipliedARGBFromColor(const Color&);
+Color colorFromPremultipliedARGB(RGBA32);
+RGBA32 premultipliedARGBFromColor(const Color&);
 
 inline Color blend(const Color& from, const Color& to, double progress, bool blendPremultiplied = true)
 {
@@ -197,6 +200,14 @@ inline Color blend(const Color& from, const Color& to, double progress, bool ble
                  blend(from.green(), to.green(), progress),
                  blend(from.blue(), to.blue(), progress),
                  blend(from.alpha(), to.alpha(), progress));
+}
+
+inline uint16_t fastDivideBy255(uint16_t value)
+{
+    // This is an approximate algorithm for division by 255, but it gives accurate results for 16bit values.
+    uint16_t approximation = value >> 8;
+    uint16_t remainder = value - (approximation * 255) + 1;
+    return approximation + (remainder >> 8);
 }
 
 #if USE(CG)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2010, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -121,7 +121,15 @@ __getCapabilities(CFStringRef	interfaceName,
 
 	if (ioctl(sock, SIOCGIFCAP, (caddr_t)&ifr) == -1) {
 		_SCErrorSet(errno);
-		SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCGIFCAP) failed: %s"), strerror(errno));
+		switch (errno) {
+			case EBUSY :
+			case ENXIO :
+				break;
+			default :
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("ioctl(SIOCGIFCAP) failed: %s"),
+				      strerror(errno));
+		}
 		goto done;
 	}
 
@@ -867,6 +875,15 @@ _SCNetworkInterfaceIsPhysicalEthernet(SCNetworkInterfaceRef interface)
 
 	ifm = __copyMediaList(interfaceName);
 	if (ifm == NULL) {
+		CFStringRef interfaceType;
+
+		interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+		if (CFEqual(interfaceType, kSCNetworkInterfaceTypeEthernet) &&
+		    !_SCNetworkInterfaceIsTethered(interface) &&
+		    !_SCNetworkInterfaceIsBluetoothPAN(interface)) {
+		    // if likely physical ethernet interface
+		    return TRUE;
+		}
 		return FALSE;
 	}
 	_SCErrorSet(kSCStatusOK);
@@ -1233,73 +1250,5 @@ SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 	}
 
 	if (newConfiguration != NULL) CFRelease(newConfiguration);
-	return ok;
-}
-
-
-// XXXXX
-// XXXXX Remove the following SPIs as soon as we have migrated all
-// XXXXX internal users
-// XXXXX
-
-/* DEPRECATED */ Boolean
-NetworkInterfaceCopyMediaOptions(CFStringRef		interfaceName,
-				 CFDictionaryRef	*current,
-				 CFDictionaryRef	*active,
-				 CFArrayRef		*available,
-				 Boolean		filter)
-{
-	SCNetworkInterfacePrivateRef	interfacePrivate;
-	Boolean				ok;
-
-	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL);
-	if (interfacePrivate == NULL) {
-		return FALSE;
-	}
-	interfacePrivate->entity_device = CFRetain(interfaceName);
-	ok = SCNetworkInterfaceCopyMediaOptions((SCNetworkInterfaceRef)interfacePrivate,
-						current,
-						active,
-						available,
-						filter);
-	CFRelease(interfacePrivate);
-	return ok;
-}
-
-
-/* DEPRECATED */ CFArrayRef
-NetworkInterfaceCopyMediaSubTypes(CFArrayRef	available)
-{
-	return SCNetworkInterfaceCopyMediaSubTypes(available);
-}
-
-
-/* DEPRECATED */ CFArrayRef
-NetworkInterfaceCopyMediaSubTypeOptions(CFArrayRef	available,
-					CFStringRef	subType)
-{
-	return SCNetworkInterfaceCopyMediaSubTypeOptions(available, subType);
-}
-
-
-/* DEPRECATED */ Boolean
-NetworkInterfaceCopyMTU(CFStringRef	interfaceName,
-			int		*mtu_cur,
-			int		*mtu_min,
-			int		*mtu_max)
-{
-	SCNetworkInterfacePrivateRef	interfacePrivate;
-	Boolean				ok;
-
-	interfacePrivate = __SCNetworkInterfaceCreatePrivate(NULL, NULL, NULL, NULL);
-	if (interfacePrivate == NULL) {
-		return FALSE;
-	}
-	interfacePrivate->entity_device = CFRetain(interfaceName);
-	ok = SCNetworkInterfaceCopyMTU((SCNetworkInterfaceRef)interfacePrivate,
-				       mtu_cur,
-				       mtu_min,
-				       mtu_max);
-	CFRelease(interfacePrivate);
 	return ok;
 }

@@ -1,0 +1,6 @@
+The underlying IO::Socket::INET does not support non-blocking sockets on
+Win32, thus non-blocking IO::Socket::SSL is not supported on Win32, which
+means also, that timeouts don't work (because they are based on
+non-blocking).
+See also http://www.perlmonks.org/?node_id=378675
+

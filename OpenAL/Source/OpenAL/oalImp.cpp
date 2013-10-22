@@ -439,7 +439,7 @@ OALBuffer*	ProtectBufferObject(ALuint	inBID)
 
 	oalBuffer = gOALBufferMap->Get(inBID);
 	if (oalBuffer == NULL)
-		throw ((OSStatus) AL_INVALID_NAME);
+		throw ((OSStatus) AL_INVALID_VALUE);
 	
 	// we need to signal the buffer is being used, and cannot be deleted yet
 	oalBuffer->SetInUseFlag();
@@ -1140,8 +1140,6 @@ ALC_API ALCvoid	ALC_APIENTRY alcDestroyContext (ALCcontext *context)
 		if (!gOALContextMap->Remove((uintptr_t) context))	// remove from the map
 			throw ((OSStatus) ALC_INVALID_CONTEXT);
 
-		delete(deleteThisContext);		
-
 		// if there are no other contexts that use the same device, the device graph can be stopped now
 		for (UInt32 i = 0; i < gOALContextMap->Size(); i++)
 		{
@@ -1167,6 +1165,10 @@ ALC_API ALCvoid	ALC_APIENTRY alcDestroyContext (ALCcontext *context)
 				ReleaseDeviceObject(owningDevice);
 			}
 		}
+        
+        //only delete the context after the graph has been stopped.
+        delete(deleteThisContext);
+        deleteThisContext = NULL;
 		
 	}
 	catch (OSStatus     result) {
@@ -1760,6 +1762,8 @@ AL_API void	AL_APIENTRY alBufferData(	ALuint			bid,
             throw ((OSStatus) AL_INVALID_OPERATION);   
 		
 		oalBuffer = ProtectBufferObject(bid);
+        if (data==NULL) throw ((OSStatus) AL_INVALID_VALUE);
+        if (size<=0) throw ((OSStatus) AL_INVALID_VALUE);
 				
 		oalBuffer->AddAudioData((char*)data, size, format, freq, gConvertBufferNow); // should also check for a valid format IsFormatSupported()
     }
@@ -3197,42 +3201,59 @@ AL_API void	AL_APIENTRY alSourceQueueBuffers( ALuint sid, ALsizei numEntries, co
 
 		oalSource = ProtectSourceObjectInCurrentContext(sid);
                  
-        //If the source is transitioning to flush Q, wait a render cycle and then proceed
+        //If the source is transitioning to flush Q, add the buffers to the temporary queue for now
         if(oalSource->IsSourceTransitioningToFlushQ())
         {
-            WaitOneRenderCycle();
-            DebugMessage("WAITING: alSourceQueueBuffers ---> WaitOneRenderCycle");
-        }
-        
-        // The source type must now be checked for static or streaming
-        // It is illegal to append buffers to a Q, because a static designation means it only can use 1 buffer 
-        if (oalSource->GetSourceType() == AL_STATIC)
-        {
-            DebugMessage("ERROR: alSourceQueueBuffers FAILED oalSource->GetSourceType() == AL_STATIC");
-            throw ((OSStatus) AL_INVALID_OPERATION);
-        }
-	
-		CAGuard::Locker locked(*gBufferMapLock);
-
-        // verify that buffers provided are valid before queueing them.
-        for (UInt32	i = 0; i < (UInt32) numEntries; i++)
-        {
-            if (bids[i] != AL_NONE)
+            // verify that buffers provided are valid before queueing them.
+            for (UInt32	i = 0; i < (UInt32) numEntries; i++)
             {
-                // verify that this is a valid buffer
-                OALBuffer *oalBuffer = gOALBufferMap->Get(bids[i]);
-                if (oalBuffer == NULL)
+                if (bids[i] != AL_NONE)
                 {
-					DebugMessage("ERROR: alSourceQueueBuffers FAILED oalBuffer == NULL");
-					throw ((OSStatus) AL_INVALID_VALUE);				// an invalid buffer id has been provided
-				}
+                    // verify that this is a valid buffer
+                    OALBuffer *oalBuffer = gOALBufferMap->Get(bids[i]);
+                    if (oalBuffer == NULL)
+                        throw ((OSStatus) AL_INVALID_VALUE); 
+                }
+            }
+            
+            // all valid buffers, so add them to the queue in Post Render
+            for (UInt32	i = 0; i < (UInt32) numEntries; i++)
+            {
+                oalSource->AddToTempQueue(bids[i], gOALBufferMap->Get(bids[i]));
             }
         }
-
-        // all valid buffers, so append them to the queue
-        for (UInt32	i = 0; i < (UInt32) numEntries; i++)
+        else
         {
-			oalSource->AddToQueue(bids[i], gOALBufferMap->Get(bids[i]));
+            // The source type must now be checked for static or streaming
+            // It is illegal to append buffers to a Q, because a static designation means it only can use 1 buffer
+            if (oalSource->GetSourceType() == AL_STATIC)
+            {
+                DebugMessage("ERROR: alSourceQueueBuffers FAILED oalSource->GetSourceType() == AL_STATIC");
+                throw ((OSStatus) AL_INVALID_OPERATION);
+            }
+            
+            CAGuard::Locker locked(*gBufferMapLock);
+            
+            // verify that buffers provided are valid before queueing them.
+            for (UInt32	i = 0; i < (UInt32) numEntries; i++)
+            {
+                if (bids[i] != AL_NONE)
+                {
+                    // verify that this is a valid buffer
+                    OALBuffer *oalBuffer = gOALBufferMap->Get(bids[i]);
+                    if (oalBuffer == NULL)
+                    {
+                        DebugMessage("ERROR: alSourceQueueBuffers FAILED oalBuffer == NULL");
+                        throw ((OSStatus) AL_INVALID_VALUE);				// an invalid buffer id has been provided
+                    }
+                }
+            }
+            
+            // all valid buffers, so append them to the queue
+            for (UInt32	i = 0; i < (UInt32) numEntries; i++)
+            {
+                oalSource->AddToQueue(bids[i], gOALBufferMap->Get(bids[i]));
+            }
         }
 	}
 	catch (OSStatus		result) {
@@ -4691,6 +4712,9 @@ AL_API ALvoid	AL_APIENTRY	alBufferDataStatic (ALint bid, ALenum format, const AL
 	
 	try {
 		oalBuffer = ProtectBufferObject(bid);
+        if (data==NULL) throw ((OSStatus) AL_INVALID_VALUE);
+        if (size<=0) throw ((OSStatus) AL_INVALID_VALUE);
+        
 		oalBuffer->AddAudioDataStatic((char*)data, size, format, freq);
     }
     catch (OSStatus     result) {

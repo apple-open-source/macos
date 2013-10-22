@@ -43,8 +43,8 @@ class UpdateInfo {
 public:
     UpdateInfo() { }
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, UpdateInfo&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, UpdateInfo&);
 
     // The size of the web view.
     WebCore::IntSize viewSize;

@@ -23,6 +23,7 @@
 #include <security_cdsa_client/aclclient.h>
 #include <Security/cssmapple.h>
 #include <Security/cssmapplePriv.h>
+#include <Security/SecBase.h>
 
 using namespace CssmClient;
 
@@ -106,7 +107,6 @@ DbImpl::open()
 {
     {
         StLock<Mutex> _(mActivateMutex);
-
         if (!mActive)
         {
             assert(mDbInfo == nil);
@@ -114,10 +114,11 @@ DbImpl::open()
             check(CSSM_DL_DbOpen(mHandle.DLHandle, mDbName.canonicalName(), dbLocation(),
                                     mAccessRequest, mAccessCredentials,
                                     mOpenParameters, &mHandle.DBHandle));
+
             mActive = true;
         }
-    }
-    
+	}
+
     if (!mAccessCredentials && mDefaultCredentials)
         if (const AccessCredentials *creds = mDefaultCredentials->makeCredentials())
             CSSM_DL_Authenticate(handle(), mAccessRequest, creds);	// ignore error
@@ -368,6 +369,18 @@ DbImpl::unlock(const CSSM_DATA &password)
 }
 
 void
+DbImpl::stash()
+{
+    check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_STASH, NULL, NULL));
+}
+
+void
+DbImpl::stashCheck()
+{
+    check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_STASH_CHECK, NULL, NULL));
+}
+
+void
 DbImpl::getSettings(uint32 &outIdleTimeout, bool &outLockOnSleep)
 {
 	CSSM_APPLECSPDL_DB_SETTINGS_PARAMETERS_PTR settings;
@@ -437,7 +450,7 @@ void DbImpl::setBatchMode(Boolean mode, Boolean rollback)
 	//
 	// Now, toggle the autocommit...
 	//
-	if ( result == noErr )
+	if ( result == errSecSuccess )
 	{
 		CSSM_BOOL modeToUse = !mode;
 		if (rollback)
@@ -448,7 +461,7 @@ void DbImpl::setBatchMode(Boolean mode, Boolean rollback)
 
 		result = CSSM_DL_PassThrough(dldbHandleOfUnderlyingDL,
 									 CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT,
-									 (void *)(modeToUse),
+									 (void *)((size_t) modeToUse),
 									 NULL);
 		if (!rollback && modeToUse)
 			result = CSSM_DL_PassThrough(dldbHandleOfUnderlyingDL,

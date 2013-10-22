@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="4457.9" systemVersion="13A514" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="4457.9"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="MBCAbout">
+            <connections>
+                <action selector="downloadSource:" destination="9" id="16"/>
+                <outlet property="fLicense" destination="11" id="14"/>
+                <outlet property="window" destination="5" id="17"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application"/>
+        <window allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" showsToolbarButton="NO" wantsToBeColor="NO" visibleAtLaunch="NO" frameAutosaveName="MBCAboutWindowFrame" animationBehavior="default" id="5" userLabel="About" customClass="NSPanel">
+            <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
+            <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
+            <rect key="contentRect" x="538" y="186" width="522" height="405"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1440" height="878"/>
+            <value key="minSize" type="size" width="520" height="400"/>
+            <view key="contentView" id="8">
+                <rect key="frame" x="0.0" y="0.0" width="522" height="405"/>
+                <autoresizingMask key="autoresizingMask"/>
+                <subviews>
+                    <imageView translatesAutoresizingMaskIntoConstraints="NO" id="12">
+                        <rect key="frame" x="228" y="341" width="64" height="64"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <constraints>
+                            <constraint firstAttribute="width" constant="64" id="200028"/>
+                            <constraint firstAttribute="height" constant="64" id="200029"/>
+                        </constraints>
+                        <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="chess" id="100012"/>
+                    </imageView>
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="6">
+                        <rect key="frame" x="117" y="314" width="286" height="19"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                        <constraints>
+                            <constraint firstAttribute="width" constant="280" id="200024"/>
+                            <constraint firstAttribute="height" constant="19" id="200025"/>
+                        </constraints>
+                        <textFieldCell key="cell" alignment="center" title="Chess" id="100006">
+                            <font key="font" metaFont="systemBold" size="14"/>
+                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                    </textField>
+                    <scrollView horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasHorizontalScroller="NO" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="10">
+                        <rect key="frame" x="19" y="65" width="483" height="209"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <clipView key="contentView" id="rcq-D6-aSJ">
+                            <rect key="frame" x="1" y="1" width="481" height="207"/>
+                            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                            <subviews>
+                                <textView importsGraphics="NO" richText="NO" usesRuler="YES" usesFontPanel="YES" verticallyResizable="YES" spellingCorrection="YES" smartInsertDelete="YES" id="11">
+                                    <rect key="frame" x="0.0" y="0.0" width="481" height="207"/>
+                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                    <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                                    <size key="minSize" width="481" height="207"/>
+                                    <size key="maxSize" width="953" height="10000000"/>
+                                    <color key="insertionPointColor" white="0.0" alpha="1" colorSpace="calibratedWhite"/>
+                                    <size key="minSize" width="481" height="207"/>
+                                    <size key="maxSize" width="953" height="10000000"/>
+                                    <connections>
+                                        <binding destination="-2" name="font" keyPath="licenseFont" id="200013"/>
+                                    </connections>
+                                </textView>
+                            </subviews>
+                            <color key="backgroundColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                        </clipView>
+                        <scroller key="horizontalScroller" hidden="YES" verticalHuggingPriority="750" doubleValue="1" controlSize="small" id="200010">
+                            <rect key="frame" x="-100" y="-100" width="87" height="18"/>
+                            <autoresizingMask key="autoresizingMask"/>
+                        </scroller>
+                        <scroller key="verticalScroller" verticalHuggingPriority="750" doubleValue="1" controlSize="small" id="100010">
+                            <rect key="frame" x="468" y="1" width="14" height="207"/>
+                            <autoresizingMask key="autoresizingMask"/>
+                        </scroller>
+                    </scrollView>
+                    <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="9">
+                        <rect key="frame" x="307" y="17" width="199" height="32"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxY="YES"/>
+                        <string key="toolTip">Open web location to download 
+the source code for this application.</string>
+                        <buttonCell key="cell" type="push" title="Download Source Code…" bezelStyle="rounded" alignment="center" borderStyle="border" inset="2" id="100009">
+                            <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                            <font key="font" metaFont="system"/>
+                        </buttonCell>
+                    </button>
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="13">
+                        <rect key="frame" x="17" y="15" width="154" height="42"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                        <constraints>
+                            <constraint firstAttribute="height" constant="42" id="200052"/>
+                            <constraint firstAttribute="width" constant="148" id="200053"/>
+                        </constraints>
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="100013">
+                            <font key="font" metaFont="label"/>
+                            <string key="title">© 2003-2013
+© 2000
+© 2002</string>
+                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                    </textField>
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="7">
+                        <rect key="frame" x="179" y="294" width="165" height="16"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <constraints>
+                            <constraint firstAttribute="height" constant="16" id="200050"/>
+                            <constraint firstAttribute="width" constant="159" id="200051"/>
+                        </constraints>
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="100007">
+                            <font key="font" metaFont="label"/>
+                            <string key="title">Version %@
+
+</string>
+                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                        <connections>
+                            <binding destination="-2" name="displayPatternValue1" keyPath="version" id="200020">
+                                <dictionary key="options">
+                                    <string key="NSDisplayPattern">Version %{value1}@</string>
+                                </dictionary>
+                            </binding>
+                        </connections>
+                    </textField>
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="200014">
+                        <rect key="frame" x="324" y="5" width="165" height="16"/>
+                        <autoresizingMask key="autoresizingMask"/>
+                        <constraints>
+                            <constraint firstAttribute="height" constant="16" id="200026"/>
+                            <constraint firstAttribute="width" constant="159" id="200027"/>
+                        </constraints>
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="200015">
+                            <font key="font" metaFont="label"/>
+                            <string key="title">Version %@
+
+</string>
+                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                        <connections>
+                            <binding destination="-2" name="displayPatternValue1" keyPath="buildTag" id="200022">
+                                <dictionary key="options">
+                                    <string key="NSDisplayPattern">Build %{value1}@</string>
+                                </dictionary>
+                            </binding>
+                        </connections>
+                    </textField>
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" translatesAutoresizingMaskIntoConstraints="NO" id="200011">
+                        <rect key="frame" x="92" y="15" width="154" height="42"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+                        <constraints>
+                            <constraint firstAttribute="width" constant="148" id="200023"/>
+                        </constraints>
+                        <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="200012">
+                            <font key="font" metaFont="label"/>
+                            <string key="title">Apple Inc.
+Gian-Carlo Pascutto
+R. Ancell &amp; M. Duelli</string>
+                            <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                            <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                        </textFieldCell>
+                    </textField>
+                </subviews>
+                <constraints>
+                    <constraint firstItem="10" firstAttribute="leading" secondItem="8" secondAttribute="leading" constant="19" id="200032"/>
+                    <constraint firstItem="200011" firstAttribute="baseline" secondItem="13" secondAttribute="baseline" id="200033"/>
+                    <constraint firstItem="13" firstAttribute="top" secondItem="10" secondAttribute="bottom" constant="8" symbolic="YES" id="200034"/>
+                    <constraint firstItem="9" firstAttribute="top" secondItem="10" secondAttribute="bottom" constant="20" symbolic="YES" id="200035"/>
+                    <constraint firstItem="6" firstAttribute="top" secondItem="12" secondAttribute="bottom" constant="8" symbolic="YES" id="200036"/>
+                    <constraint firstItem="13" firstAttribute="leading" secondItem="8" secondAttribute="leading" constant="20" symbolic="YES" id="200037"/>
+                    <constraint firstAttribute="bottom" secondItem="200014" secondAttribute="bottom" constant="5" id="200038"/>
+                    <constraint firstItem="7" firstAttribute="top" secondItem="8" secondAttribute="top" constant="95" id="200039"/>
+                    <constraint firstItem="200011" firstAttribute="leading" secondItem="8" secondAttribute="leading" constant="95" id="200040"/>
+                    <constraint firstItem="10" firstAttribute="top" secondItem="8" secondAttribute="top" constant="131" id="200041"/>
+                    <constraint firstAttribute="bottom" secondItem="13" secondAttribute="bottom" constant="15" id="200042"/>
+                    <constraint firstAttribute="trailing" secondItem="9" secondAttribute="trailing" constant="22" id="200043"/>
+                    <constraint firstItem="200011" firstAttribute="top" secondItem="10" secondAttribute="bottom" constant="8" symbolic="YES" id="200044"/>
+                    <constraint firstItem="6" firstAttribute="centerX" secondItem="12" secondAttribute="centerX" id="200045"/>
+                    <constraint firstItem="12" firstAttribute="top" secondItem="8" secondAttribute="top" id="200046"/>
+                    <constraint firstItem="7" firstAttribute="centerX" secondItem="8" secondAttribute="centerX" id="200047"/>
+                    <constraint firstItem="10" firstAttribute="centerX" secondItem="6" secondAttribute="centerX" id="200048"/>
+                    <constraint firstAttribute="trailing" secondItem="10" secondAttribute="trailing" constant="20" symbolic="YES" id="200049"/>
+                    <constraint firstItem="200014" firstAttribute="centerX" secondItem="9" secondAttribute="centerX" id="200054"/>
+                </constraints>
+            </view>
+        </window>
+        <userDefaultsController id="200016"/>
+    </objects>
+    <resources>
+        <image name="chess" width="512" height="512"/>
+    </resources>
+    <classes>
+        <class className="MBCAbout" superclassName="NSWindowController">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/MBCAbout.h"/>
+            <relationships>
+                <relationship kind="action" name="downloadSource:"/>
+                <relationship kind="outlet" name="fLicense"/>
+            </relationships>
+        </class>
+        <class className="NSLayoutConstraint" superclassName="NSObject">
+            <source key="sourceIdentifier" type="project" relativePath="./Classes/NSLayoutConstraint.h"/>
+        </class>
+    </classes>
+</document>

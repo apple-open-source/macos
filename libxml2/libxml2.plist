@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>libxml2</string>
 	<key>OpenSourceVersion</key>
-	<string>2.7.8</string>
+	<string>2.9.0</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://xmlsoft.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://xmlsoft.org/sources/libxml2-2.7.8.tar.gz</string>
+	<string>http://xmlsoft.org/sources/libxml2-2.9.0.tar.gz</string>
 	<key>OpenSourceMD5</key>
-	<string>8127a65e8c3b08856093099b52599c86</string>
+	<string>5b9bebf4f5d2200ae2c4efe8fa6103f7</string>
 	<key>OpenSourceImportDate</key>
-	<string>2012-01-20</string>
+	<string>2012-12-11</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
@@ -34,6 +34,8 @@
 		<string>rdar://problem/10734584</string>
 		<string>rdar://problem/10734593</string>
 		<string>rdar://problem/10772343</string>
+		<string>rdar://problem/12751928</string>
+		<string>rdar://problem/12938958</string>
 	</array>
 </dict>
 </plist>

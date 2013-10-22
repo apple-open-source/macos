@@ -535,14 +535,14 @@ CSSM_RETURN TPCrlInfo::isCertRevoked(
 			 */
 			CSSM_X509_TIME_PTR xTime = &entry->revocationDate;
 			int rtn;
-			rtn = timeStringToCfDate((char *)xTime->time.Data, xTime->time.Length, 
+			rtn = timeStringToCfDate((char *)xTime->time.Data, (unsigned)xTime->time.Length,
 				&cfRevokedTime);
 			if(rtn) {
 				tpErrorLog("fetchNotBeforeAfter: malformed revocationDate\n");
 			}
 			else {
 				if(verifyTime != NULL) {
-					rtn = timeStringToCfDate((char *)verifyTime, strlen(verifyTime), 
+					rtn = timeStringToCfDate((char *)verifyTime, (unsigned)strlen(verifyTime),
 											 &cfVerifyTime);
 				}
 				else {

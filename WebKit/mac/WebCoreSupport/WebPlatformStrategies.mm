@@ -25,20 +25,26 @@
 
 #import "WebPlatformStrategies.h"
 
+#import "WebFrameNetworkingContext.h"
 #import "WebPluginDatabase.h"
 #import "WebPluginPackage.h"
 #import <WebCore/BlockExceptions.h>
 #import <WebCore/Color.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageGroup.h>
+#import <WebCore/PlatformCookieJar.h>
 #import <WebCore/PlatformPasteboard.h>
+#import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 
-void WebPlatformStrategies::initialize()
+void WebPlatformStrategies::initializeIfNecessary()
 {
-    DEFINE_STATIC_LOCAL(WebPlatformStrategies, platformStrategies, ());
-    setPlatformStrategies(&platformStrategies);
+    static WebPlatformStrategies* platformStrategies;
+    if (!platformStrategies) {
+        platformStrategies = new WebPlatformStrategies;
+        setPlatformStrategies(platformStrategies);
+    }
 }
 
 WebPlatformStrategies::WebPlatformStrategies()
@@ -50,12 +56,12 @@ CookiesStrategy* WebPlatformStrategies::createCookiesStrategy()
     return this;
 }
 
-PluginStrategy* WebPlatformStrategies::createPluginStrategy()
+DatabaseStrategy* WebPlatformStrategies::createDatabaseStrategy()
 {
     return this;
 }
 
-VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
+LoaderStrategy* WebPlatformStrategies::createLoaderStrategy()
 {
     return this;
 }
@@ -65,8 +71,54 @@ PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
     return this;
 }
 
-void WebPlatformStrategies::notifyCookiesChanged()
+PluginStrategy* WebPlatformStrategies::createPluginStrategy()
 {
+    return this;
+}
+
+SharedWorkerStrategy* WebPlatformStrategies::createSharedWorkerStrategy()
+{
+    return this;
+}
+
+StorageStrategy* WebPlatformStrategies::createStorageStrategy()
+{
+    return this;
+}
+
+VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
+{
+    return this;
+}
+
+String WebPlatformStrategies::cookiesForDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookiesForDOM(session, firstParty, url);
+}
+
+void WebPlatformStrategies::setCookiesFromDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, const String& cookieString)
+{
+    WebCore::setCookiesFromDOM(session, firstParty, url, cookieString);
+}
+
+bool WebPlatformStrategies::cookiesEnabled(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookiesEnabled(session, firstParty, url);
+}
+
+String WebPlatformStrategies::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
+}
+
+bool WebPlatformStrategies::getRawCookies(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, Vector<Cookie>& rawCookies)
+{
+    return WebCore::getRawCookies(session, firstParty, url, rawCookies);
+}
+
+void WebPlatformStrategies::deleteCookie(const NetworkStorageSession& session, const KURL& url, const String& cookieName)
+{
+    WebCore::deleteCookie(session, url, cookieName);
 }
 
 void WebPlatformStrategies::refreshPlugins()
@@ -74,7 +126,7 @@ void WebPlatformStrategies::refreshPlugins()
     [[WebPluginDatabase sharedDatabase] refresh];
 }
 
-void WebPlatformStrategies::getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>& plugins)
+void WebPlatformStrategies::getPluginInfo(const Page*, Vector<PluginInfo>& plugins)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
@@ -103,7 +155,7 @@ void WebPlatformStrategies::getTypes(Vector<String>& types, const String& pasteb
     PlatformPasteboard(pasteboardName).getTypes(types);
 }
 
-PassRefPtr<WebCore::SharedBuffer> WebPlatformStrategies::bufferForType(const String& pasteboardType, const String& pasteboardName)
+PassRefPtr<SharedBuffer> WebPlatformStrategies::bufferForType(const String& pasteboardType, const String& pasteboardName)
 {
     return PlatformPasteboard(pasteboardName).bufferForType(pasteboardType);
 }

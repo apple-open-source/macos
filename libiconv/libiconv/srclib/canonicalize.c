@@ -239,7 +239,7 @@ __realpath (const char *name, char *resolved)
 	    {
 	      char *buf;
 	      size_t len;
-	      int n;
+	      ssize_t n;
 
 	      if (++num_links > MAXSYMLINKS)
 		{

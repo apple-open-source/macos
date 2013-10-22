@@ -1,0 +1,68 @@
+/^#if defined(__LP64__) || /a
+.
+.,/^#endif/c
+#ifdef __LP64__
+#define SIZEOF_LONG 8
+#else
+#define SIZEOF_LONG 4
+#endif
+.
+/SIZEOF_VOIDP /c
+#ifdef __LP64__
+#define SIZEOF_VOIDP 8
+#else
+#define SIZEOF_VOIDP 4
+#endif
+.
+/SIZEOF_TIME_T /c
+#ifdef __LP64__
+#define SIZEOF_TIME_T 8
+#else
+#define SIZEOF_TIME_T 4
+#endif
+.
+/SIZEOF_SIZE_T /c
+#ifdef __LP64__
+#define SIZEOF_SIZE_T 8
+#else
+#define SIZEOF_SIZE_T 4
+#endif
+.
+/SIZEOF_PTRDIFF_T /c
+#ifdef __LP64__
+#define SIZEOF_PTRDIFF_T 8
+#else
+#define SIZEOF_PTRDIFF_T 4
+#endif
+.
+/SIZEOF_STRUCT_STAT_ST_SIZE /c
+#define SIZEOF_STRUCT_STAT_ST_SIZE SIZEOF_OFF_T
+.
+/SIZEOF_STRUCT_STAT_ST_BLOCKS /c
+#define SIZEOF_STRUCT_STAT_ST_BLOCKS SIZEOF_INT64_T
+.
+/SIZEOF_INTPTR_T /c
+#ifdef __LP64__
+#define SIZEOF_INTPTR_T 8
+#else
+#define SIZEOF_INTPTR_T 4
+#endif
+.
+/SIZEOF_UINTPTR_T /c
+#ifdef __LP64__
+#define SIZEOF_UINTPTR_T 8
+#else
+#define SIZEOF_UINTPTR_T 4
+#endif
+.
+/SIZEOF_SSIZE_T /c
+#ifdef __LP64__
+#define SIZEOF_SSIZE_T 8
+#else
+#define SIZEOF_SSIZE_T 4
+#endif
+.
+/SIZEOF_STRUCT_STAT_ST_INO /c
+#define SIZEOF_STRUCT_STAT_ST_INO SIZEOF_UINT64_T
+.
+w

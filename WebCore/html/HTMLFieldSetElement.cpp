@@ -24,9 +24,12 @@
 
 #include "config.h"
 #include "HTMLFieldSetElement.h"
-#include "HTMLLegendElement.h"
 
+#include "HTMLCollection.h"
+#include "HTMLLegendElement.h"
 #include "HTMLNames.h"
+#include "HTMLObjectElement.h"
+#include "NodeTraversal.h"
 #include "RenderFieldset.h"
 #include <wtf/StdLibExtras.h>
 
@@ -36,6 +39,7 @@ using namespace HTMLNames;
 
 inline HTMLFieldSetElement::HTMLFieldSetElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
     : HTMLFormControlElement(tagName, document, form)
+    , m_documentVersion(0)
 {
     ASSERT(hasTagName(fieldsetTag));
 }
@@ -47,9 +51,9 @@ PassRefPtr<HTMLFieldSetElement> HTMLFieldSetElement::create(const QualifiedName&
 
 void HTMLFieldSetElement::invalidateDisabledStateUnder(Element* base)
 {
-    for (Node* currentNode = base->traverseNextNode(base); currentNode; currentNode = currentNode->traverseNextNode(base)) {
-        if (currentNode && currentNode->isElementNode() && toElement(currentNode)->isFormControlElement())
-            static_cast<HTMLFormControlElement*>(currentNode)->ancestorDisabledStateWasChanged();
+    for (Element* element = ElementTraversal::firstWithin(base); element; element = ElementTraversal::next(element, base)) {
+        if (element->isFormControlElement())
+            static_cast<HTMLFormControlElement*>(element)->ancestorDisabledStateWasChanged();
     }
 }
 
@@ -63,7 +67,7 @@ void HTMLFieldSetElement::disabledAttributeChanged()
 void HTMLFieldSetElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     HTMLFormControlElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-    for (Element* element = firstElementChild(); element; element = element->nextElementSibling()) {
+    for (Element* element = ElementTraversal::firstWithin(this); element; element = ElementTraversal::nextSkippingChildren(element, this)) {
         if (element->hasTagName(legendTag))
             invalidateDisabledStateUnder(element);
     }
@@ -76,7 +80,7 @@ bool HTMLFieldSetElement::supportsFocus() const
 
 const AtomicString& HTMLFieldSetElement::formControlType() const
 {
-    DEFINE_STATIC_LOCAL(const AtomicString, fieldset, ("fieldset"));
+    DEFINE_STATIC_LOCAL(const AtomicString, fieldset, ("fieldset", AtomicString::ConstructFromLiteral));
     return fieldset;
 }
 
@@ -87,11 +91,55 @@ RenderObject* HTMLFieldSetElement::createRenderer(RenderArena* arena, RenderStyl
 
 HTMLLegendElement* HTMLFieldSetElement::legend() const
 {
-    for (Element* node = firstElementChild(); node; node = node->nextElementSibling()) {
-        if (node->hasTagName(legendTag))
-            return static_cast<HTMLLegendElement*>(node);
+    for (Element* child = ElementTraversal::firstWithin(this); child; child = ElementTraversal::nextSkippingChildren(child, this)) {
+        if (child->hasTagName(legendTag))
+            return static_cast<HTMLLegendElement*>(child);
     }
     return 0;
+}
+
+PassRefPtr<HTMLCollection> HTMLFieldSetElement::elements()
+{
+    return ensureCachedHTMLCollection(FormControls);
+}
+
+void HTMLFieldSetElement::refreshElementsIfNeeded() const
+{
+    uint64_t docVersion = document()->domTreeVersion();
+    if (m_documentVersion == docVersion)
+        return;
+
+    m_documentVersion = docVersion;
+
+    m_associatedElements.clear();
+
+    for (Element* element = ElementTraversal::firstWithin(this); element; element = ElementTraversal::next(element, this)) {
+        if (element->hasTagName(objectTag)) {
+            m_associatedElements.append(static_cast<HTMLObjectElement*>(element));
+            continue;
+        }
+
+        if (!element->isFormControlElement())
+            continue;
+
+        m_associatedElements.append(static_cast<HTMLFormControlElement*>(element));
+    }
+}
+
+const Vector<FormAssociatedElement*>& HTMLFieldSetElement::associatedElements() const
+{
+    refreshElementsIfNeeded();
+    return m_associatedElements;
+}
+
+unsigned HTMLFieldSetElement::length() const
+{
+    refreshElementsIfNeeded();
+    unsigned len = 0;
+    for (unsigned i = 0; i < m_associatedElements.size(); ++i)
+        if (m_associatedElements[i]->isEnumeratable())
+            ++len;
+    return len;
 }
 
 } // namespace

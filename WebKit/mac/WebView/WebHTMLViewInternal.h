@@ -66,8 +66,4 @@ namespace WebCore {
 - (BOOL)_web_isDrawingIntoLayer;
 #endif
 
-#if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)
-- (void)_updateLayerHostingViewPosition;
-#endif
-
 @end

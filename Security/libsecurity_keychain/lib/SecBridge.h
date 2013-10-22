@@ -45,13 +45,13 @@ using namespace KeychainCore;
 //	END_API3(name, bad) // like END_API1, with API name as debug scope for printing function result
 //
 #define BEGIN_SECAPI \
-    OSStatus __secapiresult = noErr; \
+    OSStatus __secapiresult = errSecSuccess; \
 	try {
 #define END_SECAPI }\
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); } \
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); } \
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; } \
-	catch (...) { __secapiresult=internalComponentErr; } \
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; } \
+	catch (...) { __secapiresult=errSecInternalComponent; } \
     return __secapiresult;
 #define END_SECAPI1(BAD_RETURN_VAL) \
 	} \

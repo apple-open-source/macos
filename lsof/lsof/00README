@@ -304,9 +304,6 @@ see the presence of all open files.  This may allow the lsof user
 to observe open files -- e.g., log files used to track intrusions
 -- whose presence you would rather not disclose.
 
-All pre-compiled binaries on lsof.itap.purdue.edu and mirrored from
-it were constructed without the HASSECURITY definition.
-
 As distributed, lsof writes a user-readable and user-writable device
 cache file in the home directory of the real user ID executing
 lsof.  There are other options for constructing the device cache file
@@ -695,11 +692,6 @@ will forward the bug report to me.
 
 PLEASE DON'T SEND BUG REPORTS ABOUT LSOF BINARIES BUILT OR DISTRIBUTED
 BY SOMEONE ELSE, BECAUSE I CAN'T SUPPORT THEM.
-
-I do support binaries I built, obtained ONLY from lsof.itap.purdue.edu.
-Before reporting a problem with a lsof.itap.purdue.edu binary, please
-verify the correctness of the signatures found in its associated
-CHECKSUMS file.
 
 Before you send me a bug report, please do these things:
 
@@ -1362,8 +1354,6 @@ are no longer supported by lsof:
 Remnants of the support lsof once provided for these dialects may
 be found in:
 
-	ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/OLD/binaries
-and
 	ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/OLD/dialects
 
 
@@ -1532,4 +1522,4 @@ you are trying to configure.
 
 
 Vic Abell <abe@purdue.edu>
-April 24, 2007
+April 10, 2012

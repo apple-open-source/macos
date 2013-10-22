@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (C) 2003, 2013 Apple Computer, Inc. All rights reserved.
  *
  * This file is part of the GNU LIBICONV Library.
  *
@@ -1037,13 +1037,13 @@ __CFUniCharCombiningBitmap[] = {
 
 /* Surrogate Pair Constants */
 #define SP_HALF_SHIFT	10
-#define SP_HALF_BASE	0x0010000UL
-#define SP_HALF_MASK	0x3FFUL
+#define SP_HALF_BASE	0x0010000U
+#define SP_HALF_MASK	0x3FFU
 
-#define SP_HIGH_FIRST	0xD800UL
-#define SP_HIGH_LAST	0xDBFFUL
-#define SP_LOW_FIRST	0xDC00UL
-#define SP_LOW_LAST	0xDFFFUL
+#define SP_HIGH_FIRST	0xD800U
+#define SP_HIGH_LAST	0xDBFFU
+#define SP_LOW_FIRST	0xDC00U
+#define SP_LOW_LAST	0xDFFFU
 
 /*
  * Test for a combining character.
@@ -1130,7 +1130,7 @@ utf8_encodestr(const u_int16_t * ucsp, size_t ucslen, u_int8_t * utf8p,
 	u_int16_t * chp = NULL;
 	u_int16_t sequence[8];
 	int extra = 0;
-	int charcnt;
+	size_t charcnt;
 	int swapbytes = (flags & UTF_REVERSE_ENDIAN);
 	int nullterm  = ((flags & UTF_NO_NULL_TERM) == 0);
 	int decompose = (flags & UTF_DECOMPOSED);
@@ -1276,7 +1276,7 @@ utf8_decodestr(const u_int8_t* utf8p, size_t utf8len, u_int16_t* ucsp,
 				if ((byte >> 6) != 2)
 					goto invalid;
 				ch += byte;
-				ch -= 0x00003080UL;
+				ch -= 0x00003080U;
 				if (ch < 0x0080)
 					goto invalid;
 				ucs_ch = ch;
@@ -1291,7 +1291,7 @@ utf8_decodestr(const u_int8_t* utf8p, size_t utf8len, u_int16_t* ucsp,
 				if ((byte >> 6) != 2)
 					goto invalid;
 				ch += byte;
-				ch -= 0x000E2080UL;
+				ch -= 0x000E2080U;
 				if (ch < 0x0800)
 					goto invalid;
 				if (ch >= 0xD800) {
@@ -1316,7 +1316,7 @@ utf8_decodestr(const u_int8_t* utf8p, size_t utf8len, u_int16_t* ucsp,
 				if ((byte >> 6) != 2)
 					goto invalid;
 			        ch += byte;
-				ch -= 0x03C82080UL + SP_HALF_BASE;
+				ch -= 0x03C82080U + SP_HALF_BASE;
 				ucs_ch = (ch >> SP_HALF_SHIFT) + SP_HIGH_FIRST;
 				if (ucs_ch < SP_HIGH_FIRST || ucs_ch > SP_HIGH_LAST)
 					goto invalid;
@@ -1557,7 +1557,7 @@ unicode_combine(u_int16_t base, u_int16_t combining)
 }
 
 static int
-utf8mac_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+utf8mac_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
     u_int16_t ucsp[13];
     size_t ucslen = 0, consumed = 0;
@@ -1583,11 +1583,11 @@ utf8mac_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
     if((ret = ucs2_mbtowc(conv, pwc, (const unsigned char *) ucsp, ucslen)) < 0)
 	return ret;
 
-    return consumed;
+    return (int)consumed;
 }
 
 static int
-utf8mac_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n) /* n == 0 is acceptable */
+utf8mac_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n) /* n == 0 is acceptable */
 {
     int ret;
     size_t len;
@@ -1603,5 +1603,5 @@ utf8mac_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n) /* n == 0 is ac
 #endif
     utf8_encodestr(ucs_string, ret, r, &len, n, 0, flags);
 
-    return len;
+    return (int)len;
 }

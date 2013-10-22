@@ -1,0 +1,5 @@
+[% META name = 'my file' -%]
+recursion count: [% counter %]
+[% counter = counter + 1 -%]
+[% RETURN IF counter > 3 -%]
+[% PROCESS recurse %]

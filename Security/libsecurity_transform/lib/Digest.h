@@ -12,7 +12,7 @@ class Digest
 {
 protected:
 	CFStringRef mDigestType;
-	int mDigestLength;
+	size_t mDigestLength;
 
 public:
 	Digest(CFStringRef digestType, size_t digestLength);

@@ -54,7 +54,7 @@ public:
     virtual void recompileAllJSFunctions(Timer<ScriptDebugServer>*);
 
 private:
-    typedef HashMap<Page*, ListenerSet*> PageListenersMap;
+    typedef HashMap<Page*, OwnPtr<ListenerSet> > PageListenersMap;
 
     PageScriptDebugServer();
     virtual ~PageScriptDebugServer();
@@ -62,6 +62,8 @@ private:
     virtual ListenerSet* getListenersForGlobalObject(JSC::JSGlobalObject*);
     virtual void didPause(JSC::JSGlobalObject*);
     virtual void didContinue(JSC::JSGlobalObject*);
+
+    virtual void runEventLoopWhilePaused();
 
     void didRemoveLastListener(Page*);
 

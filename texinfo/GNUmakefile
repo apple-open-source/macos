@@ -11,7 +11,7 @@ Name_Vers      = $(Name)-$(Version)
 Compress_Type  = bz2
 Tarball        = $(Name_Vers).tar.$(Compress_Type)
 Extract_Dir    = $(Name_Vers)
-Patch_List     = 4832842-html.c.patch 4808658-texindex.c.patch texindex.patch
+Patch_List     = 4832842-html.c.patch 4808658-texindex.c.patch texindex.patch sed-with-c-locale.patch utf8-locale-alias.patch
 
 ## Don't modify below here ##
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,37 +37,22 @@
 
 #include <CoreFoundation/CFString.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
 #include "DHCPLease.h"
 #include "util.h"
 #include "host_identifier.h"
 #include "globals.h"
 #include "cfutil.h"
 #include "dhcp_thread.h"
+#include "cfutil.h"
 
-#define DHCPCLIENT_LEASES_DIR		DHCPCLIENT_DIR "/leases"
 #define DHCPCLIENT_LEASE_FILE_FMT	DHCPCLIENT_LEASES_DIR "/%s-%s"
-
-static void
-dhcp_lease_init()
-{
-    static int	done = 0;
-
-    if (done != 0) {
-	return;
-    }
-    if (create_path(DHCPCLIENT_LEASES_DIR, 0700) < 0) {
-	my_log(LOG_DEBUG, "failed to create " 
-	       DHCPCLIENT_LEASES_DIR ", %s (%d)", strerror(errno), errno);
-	return;
-    }
-    done = 1;
-    return;
-}
 
 /* required properties: */
 #define kLeaseStartDate			CFSTR("LeaseStartDate")
 #define kPacketData			CFSTR("PacketData")
 #define kRouterHardwareAddress		CFSTR("RouterHardwareAddress")
+#define kSSID				CFSTR("SSID") /* wi-fi only */
 
 /* informative properties: */
 #define kLeaseLength			CFSTR("LeaseLength")
@@ -82,14 +67,15 @@ dhcp_lease_init()
  *   returns NULL if those checks fail.
  */
 static DHCPLeaseRef
-DHCPLeaseCreateWithDictionary(CFDictionaryRef dict)
+DHCPLeaseCreateWithDictionary(CFDictionaryRef dict, bool is_wifi)
 {
     CFDataRef			hwaddr_data;
     dhcp_lease_time_t		lease_time;
-    DHCPLeaseRef		lease_p = NULL;
+    DHCPLeaseRef		lease_p;
     CFDataRef			pkt_data;
     CFRange			pkt_data_range;
     struct in_addr *		router_p;
+    CFStringRef			ssid = NULL;
     CFDateRef			start_date;
     dhcp_lease_time_t		t1_time;
     dhcp_lease_time_t		t2_time;
@@ -104,14 +90,22 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict)
     if (isA_CFData(pkt_data) == NULL) {
 	goto failed;
     }
+    /* if Wi-Fi, get the SSID */
+    if (is_wifi) {
+	ssid = CFDictionaryGetValue(dict, kSSID);
+	if (isA_CFString(ssid) == NULL) {
+	    goto failed;
+	}
+    }
+
     pkt_data_range.location = 0;
     pkt_data_range.length = CFDataGetLength(pkt_data);
     if (pkt_data_range.length < sizeof(struct dhcp)) {
 	goto failed;
     }
-    lease_p = (DHCPLeaseRef)malloc(sizeof(*lease_p) - 1
-				   + pkt_data_range.length);
-    bzero(lease_p, sizeof(*lease_p) - 1);
+    lease_p = (DHCPLeaseRef)
+	malloc(offsetof(DHCPLease, pkt) + pkt_data_range.length);
+    bzero(lease_p, offsetof(DHCPLease, pkt));
 
     /* copy the packet data */
     CFDataGetBytes(pkt_data, pkt_data_range, lease_p->pkt);
@@ -154,13 +148,26 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict)
 	    CFDataGetBytes(hwaddr_data, hwaddr_range, lease_p->router_hwaddr);
 	}
     }
+    if (ssid != NULL) {
+	CFRetain(ssid);
+	lease_p->ssid = ssid;
+    }
     return (lease_p);
 
  failed:
-    if (lease_p != NULL) {
-	free(lease_p);
-    }
     return (NULL);
+}
+
+static void
+DHCPLeaseDeallocate(void * arg)
+{
+    DHCPLeaseRef lease_p = (DHCPLeaseRef)arg;
+
+    if (lease_p->ssid != NULL) {
+	CFRelease(lease_p->ssid);
+    }
+    free(lease_p);
+    return;
 }
 
 void
@@ -181,14 +188,14 @@ DHCPLeaseCreate(struct in_addr our_ip, struct in_addr router_ip,
 		const uint8_t * router_hwaddr, int router_hwaddr_length,
 		absolute_time_t lease_start, 
 		dhcp_lease_time_t lease_length,
-		const uint8_t * pkt, int pkt_size)
+		const uint8_t * pkt, int pkt_size,
+		CFStringRef ssid)
 {
     DHCPLeaseRef		lease_p = NULL;
-    int				lease_data_length;
 
-    lease_data_length = offsetof(DHCPLease, pkt) + pkt_size;
-    lease_p = (DHCPLeaseRef)malloc(lease_data_length);
-    bzero(lease_p, lease_data_length);
+    lease_p = (DHCPLeaseRef)
+	malloc(offsetof(DHCPLease, pkt) + pkt_size);
+    bzero(lease_p, offsetof(DHCPLease, pkt));
     lease_p->our_ip = our_ip;
     lease_p->router_ip = router_ip;
     lease_p->lease_start = lease_start;
@@ -201,6 +208,10 @@ DHCPLeaseCreate(struct in_addr our_ip, struct in_addr router_ip,
 	}
 	lease_p->router_hwaddr_length = router_hwaddr_length;
 	bcopy(router_hwaddr, lease_p->router_hwaddr, router_hwaddr_length);
+    }
+    if (ssid != NULL) {
+	CFRetain(ssid);
+	lease_p->ssid = ssid;
     }
     return (lease_p);
 }
@@ -223,7 +234,6 @@ DHCPLeaseCopyDictionary(DHCPLeaseRef lease_p)
     CFDictionarySetValue(dict, kIPAddress, str);
     CFRelease(str);
 
-
     /* set the lease start date */
     date = CFDateCreate(NULL, lease_p->lease_start);
     CFDictionarySetValue(dict, kLeaseStartDate, date);
@@ -233,6 +243,11 @@ DHCPLeaseCopyDictionary(DHCPLeaseRef lease_p)
     num = CFNumberCreate(NULL, kCFNumberSInt32Type, &lease_p->lease_length);
     CFDictionarySetValue(dict, kLeaseLength, num);
     CFRelease(num);
+
+    /* set the SSID */
+    if (lease_p->ssid != NULL) {
+	CFDictionarySetValue(dict, kSSID, lease_p->ssid);
+    }
 
     /* set the packet data */
     data = CFDataCreateWithBytesNoCopy(NULL, lease_p->pkt, lease_p->pkt_length,
@@ -260,44 +275,52 @@ DHCPLeaseCopyDictionary(DHCPLeaseRef lease_p)
 }
 
 static void
-DHCPLeasePrint(DHCPLeaseRef lease_p)
+DHCPLeasePrintToString(CFMutableStringRef str, DHCPLeaseRef lease_p)
 {
-    printf("IP " IP_FORMAT " Start %d Length", 
-	   IP_LIST(&lease_p->our_ip), (int)lease_p->lease_start);
+    STRING_APPEND(str, "IP " IP_FORMAT " Start %d Length", 
+		  IP_LIST(&lease_p->our_ip), (int)lease_p->lease_start);
     if (lease_p->lease_length == DHCP_INFINITE_LEASE) {
-	printf(" infinite");
+	STRING_APPEND(str, " infinite");
     }
     else {
-	printf(" %d", (int)lease_p->lease_length);
+	STRING_APPEND(str, " %d", (int)lease_p->lease_length);
     }
-
+    
     if (lease_p->router_ip.s_addr != 0) {
-	printf(" Router IP " IP_FORMAT, IP_LIST(&lease_p->router_ip));
+	STRING_APPEND(str, " Router IP " IP_FORMAT,
+		      IP_LIST(&lease_p->router_ip));
 	if (lease_p->router_hwaddr_length > 0) {
 	    char	link_string[MAX_LINK_ADDR_LEN * 3];
 
 	    link_addr_to_string(link_string, sizeof(link_string),
 				lease_p->router_hwaddr,
 				lease_p->router_hwaddr_length);
-	    printf(" MAC %s", link_string);
+	    STRING_APPEND(str, " MAC %s", link_string);
 	}
     }
-    printf("\n");
+    if (lease_p->ssid != NULL) {
+	STRING_APPEND(str, " SSID '%@'", lease_p->ssid);
+    }
+    return;
 }
 
 static void
-DHCPLeaseListPrint(DHCPLeaseListRef list_p)
+DHCPLeaseListLog(DHCPLeaseListRef list_p)
 {
-    int		count;
-    int		i;
-    
+    int			count;
+    int			i;
+    CFMutableStringRef	str;
+	
+    str = CFStringCreateMutable(NULL, 0);
     count = dynarray_count(list_p);
-    printf("There are %d leases\n", count);
     for (i = 0; i < count; i++) {
 	DHCPLeaseRef	lease_p = dynarray_element(list_p, i);
-	printf("%d. ", i + 1);
-	DHCPLeasePrint(lease_p);
+
+	STRING_APPEND(str, "\n%d. ", i + 1);
+	DHCPLeasePrintToString(str, lease_p);
     }
+    my_log(-LOG_DEBUG, "DHCPLeaseList has %d element(s)%@", count, str);
+    CFRelease(str);
     return;
 }
 
@@ -325,7 +348,7 @@ DHCPLeaseListGetPath(const char * ifname,
 void
 DHCPLeaseListInit(DHCPLeaseListRef list_p)
 {
-    dynarray_init(list_p, free, NULL);
+    dynarray_init(list_p, DHCPLeaseDeallocate, NULL);
     return;
 }
 
@@ -361,7 +384,7 @@ DHCPLeaseListRemoveStaleLeases(DHCPLeaseListRef list_p)
 	    && current_time >= (lease_p->lease_start + lease_p->lease_length)) {
 	    /* lease is expired */
 	    if (G_IPConfiguration_verbose) {
-		my_log(LOG_NOTICE, "Removing Stale Lease "
+		my_log(LOG_DEBUG, "Removing Stale Lease "
 		       IP_FORMAT " Router " IP_FORMAT,
 		       IP_LIST(&lease_p->our_ip),
 		       IP_LIST(&lease_p->router_ip));
@@ -386,11 +409,11 @@ DHCPLeaseListRemoveStaleLeases(DHCPLeaseListRef list_p)
  *   version of the OS (or another OS) could have had additional communication
  *   with the DHCP server, invalidating our notion of the lease.  It also
  *   affords a simple, self-cleansing mechanism to clear out the set of
- *   leases we keep track.
+ *   leases we keep track of.
  */
 void
 DHCPLeaseListRead(DHCPLeaseListRef list_p,
-		  const char * ifname,
+		  const char * ifname, bool is_wifi,
 		  uint8_t cid_type, const void * cid, int cid_length)
 {
     char			filename[PATH_MAX];
@@ -407,14 +430,14 @@ DHCPLeaseListRead(DHCPLeaseListRef list_p,
     if (isA_CFDictionary(lease_dict) == NULL) {
 	goto done;
     }
-    lease_p = DHCPLeaseCreateWithDictionary(lease_dict);
+    lease_p = DHCPLeaseCreateWithDictionary(lease_dict, is_wifi);
     if (lease_p == NULL) {
 	goto done;
     }
     lease_p->tentative = TRUE;
     dynarray_add(list_p, lease_p);
-    if (G_debug) {
-	DHCPLeaseListPrint(list_p);
+    if (G_IPConfiguration_verbose) {
+	DHCPLeaseListLog(list_p);
     }
     lease_ip = lease_p->our_ip;
     DHCPLeaseListRemoveStaleLeases(list_p);
@@ -457,14 +480,13 @@ DHCPLeaseListWrite(DHCPLeaseListRef list_p,
     }
     lease_p = dynarray_element(list_p, count - 1);
     lease_dict = DHCPLeaseCopyDictionary(lease_p);
-    dhcp_lease_init();
-    if (my_CFPropertyListWriteFile(lease_dict, filename) < 0) {
+    if (my_CFPropertyListWriteFile(lease_dict, filename, 0644) < 0) {
 	/*
 	 * An ENOENT error is expected on a read-only filesystem.  All 
 	 * other errors should be reported.
 	 */
 	if (errno != ENOENT) {
-	    my_log(LOG_NOTICE, "my_CFPropertyListWriteFile(%s) failed, %s", 
+	    my_log(LOG_ERR, "my_CFPropertyListWriteFile(%s) failed, %s", 
 		   filename, strerror(errno));
 	}
     }
@@ -479,7 +501,10 @@ DHCPLeaseListWrite(DHCPLeaseListRef list_p,
  *   discoverable lease.
  */
 arp_address_info_t *
-DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p, bool tentative_ok,
+DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p,
+				CFStringRef ssid,
+				absolute_time_t * start_time_threshold_p,
+				bool tentative_ok,
 				int * ret_count)
 {
     int				arp_info_count;
@@ -500,17 +525,38 @@ DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p, bool tentative_ok,
     for (i = 0; i < count; i++) {
 	DHCPLeaseRef	lease_p = dynarray_element(list_p, i);
 
+	if (ssid != NULL) {
+	    if (lease_p->ssid == NULL || !CFEqual(lease_p->ssid, ssid)) {
+		if (G_IPConfiguration_verbose) {
+		    my_log(LOG_DEBUG,
+			   "ignoring lease with SSID %@",
+			   lease_p->ssid);
+		    continue;
+		}
+	    }
+	    
+	}
 	if (lease_p->router_ip.s_addr == 0
 	    || lease_p->router_hwaddr_length == 0) {
 	    /* can't use this with ARP discovery */
 	    if (G_IPConfiguration_verbose) {
-		my_log(LOG_NOTICE, "ignoring lease for " IP_FORMAT,
+		my_log(LOG_DEBUG, "ignoring lease for " IP_FORMAT,
 		       IP_LIST(&lease_p->our_ip));
 	    }
 	    continue;
 	}
 	if (lease_p->tentative && tentative_ok == FALSE) {
 	    /* ignore tentative lease */
+	    continue;
+	}
+	if (start_time_threshold_p != NULL
+	    && lease_p->lease_start < *start_time_threshold_p) {
+	    if (G_IPConfiguration_verbose) {
+		my_log(LOG_DEBUG, 
+		       "start time on lease " IP_FORMAT " too old (%ld < %ld)",
+		       IP_LIST(&lease_p->our_ip),
+		       lease_p->lease_start, *start_time_threshold_p);
+	    }
 	    continue;
 	}
 	info_p->sender_ip = lease_p->our_ip;
@@ -604,7 +650,7 @@ DHCPLeaseShouldBeRemoved(DHCPLeaseRef existing_p, DHCPLeaseRef new_p,
     if (existing_p->router_ip.s_addr == 0
 	|| existing_p->router_hwaddr_length == 0) {
 	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_NOTICE,
+	    my_log(LOG_DEBUG,
 		   "Removing lease with no router for IP address "
 		   IP_FORMAT, IP_LIST(&existing_p->our_ip));
 	}
@@ -626,13 +672,13 @@ DHCPLeaseShouldBeRemoved(DHCPLeaseRef existing_p, DHCPLeaseRef new_p,
 	}
 	if (ignore) {
 	    if (G_IPConfiguration_verbose) {
-		my_log(LOG_NOTICE, "Ignoring NAK on IP address "
+		my_log(LOG_DEBUG, "Ignoring NAK on IP address "
 		       IP_FORMAT, IP_LIST(&existing_p->our_ip));
 	    }
 	}
 	else {
 	    if (G_IPConfiguration_verbose) {
-		my_log(LOG_NOTICE, "Removing NAK'd lease for IP address "
+		my_log(LOG_DEBUG, "Removing NAK'd lease for IP address "
 		       IP_FORMAT, IP_LIST(&existing_p->our_ip));
 	    }
 	    return (TRUE);
@@ -642,7 +688,7 @@ DHCPLeaseShouldBeRemoved(DHCPLeaseRef existing_p, DHCPLeaseRef new_p,
 	&& new_p->our_ip.s_addr == existing_p->our_ip.s_addr) {
 	/* public IP's are the same, remove it */
 	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_NOTICE, "Removing lease for public IP address "
+	    my_log(LOG_DEBUG, "Removing lease for public IP address "
 		   IP_FORMAT, IP_LIST(&existing_p->our_ip));
 	}
 	return (TRUE);
@@ -656,12 +702,12 @@ DHCPLeaseShouldBeRemoved(DHCPLeaseRef existing_p, DHCPLeaseRef new_p,
 	     new_p->router_hwaddr_length) == 0) {
 	if (G_IPConfiguration_verbose) {
 	    if (new_p->our_ip.s_addr == existing_p->our_ip.s_addr) {
-		my_log(LOG_NOTICE,
+		my_log(LOG_DEBUG,
 		       "Removing lease with same router for IP address "
 		       IP_FORMAT, IP_LIST(&existing_p->our_ip));
 	    }
 	    else {
-		my_log(LOG_NOTICE,
+		my_log(LOG_DEBUG,
 		       "Removing lease with same router, old IP "
 		       IP_FORMAT " new IP " IP_FORMAT,
 		       IP_LIST(&existing_p->our_ip),
@@ -686,7 +732,8 @@ DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 			 int router_hwaddr_length,
 			 absolute_time_t lease_start,
 			 dhcp_lease_time_t lease_length,
-			 const uint8_t * pkt, int pkt_size)
+			 const uint8_t * pkt, int pkt_size,
+			 CFStringRef ssid)
 {
     int			count;
     int			i;
@@ -695,7 +742,8 @@ DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 
     lease_p = DHCPLeaseCreate(our_ip, router_ip,
 			      router_hwaddr, router_hwaddr_length,
-			      lease_start, lease_length, pkt, pkt_size);
+			      lease_start, lease_length, pkt, pkt_size,
+			      ssid);
     /* scan lease list to eliminate NAK'd, incomplete, and duplicate leases */
     count = dynarray_count(list_p);
     for (i = 0; i < count; i++) {
@@ -707,11 +755,14 @@ DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
 	    count--;
 	}
     }
-    if (G_IPConfiguration_verbose) {
-	my_log(LOG_NOTICE, "Saving lease for " IP_FORMAT,
-	       IP_LIST(&lease_p->our_ip));
-    }
     dynarray_add(list_p, lease_p);
+    if (G_IPConfiguration_verbose) {
+	my_log(LOG_DEBUG, "Saved lease for " IP_FORMAT,
+	       IP_LIST(&lease_p->our_ip));
+	if (G_IPConfiguration_verbose) {
+	    DHCPLeaseListLog(list_p);
+	}
+    }
     return;
 }
 
@@ -737,7 +788,7 @@ DHCPLeaseListRemoveLease(DHCPLeaseListRef list_p,
 	if (G_IPConfiguration_verbose) {
 	    DHCPLeaseRef lease_p = DHCPLeaseListElement(list_p, where);
 
-	    my_log(LOG_NOTICE, "Removing lease for " IP_FORMAT,
+	    my_log(LOG_DEBUG, "Removing lease for " IP_FORMAT,
 		   IP_LIST(&lease_p->our_ip));
 	}
 	dynarray_free_element(list_p, where);
@@ -765,7 +816,7 @@ DHCPLeaseListRemoveAllButLastLease(DHCPLeaseListRef list_p)
     for (i = 0; i < (count - 1); i++) {
 	if (G_IPConfiguration_verbose) {
 	    lease_p = DHCPLeaseListElement(list_p, 0);	    
-	    my_log(LOG_NOTICE, "Removing lease #%d for IP address "
+	    my_log(LOG_DEBUG, "Removing lease #%d for IP address "
 		   IP_FORMAT, i + 1, IP_LIST(&lease_p->our_ip));
 	}
 	dynarray_free_element(list_p, 0);

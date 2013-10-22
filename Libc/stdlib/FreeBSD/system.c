@@ -54,9 +54,6 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/system.c,v 1.11 2007/01/09 00:28:10 imp 
 
 static pthread_mutex_t __systemfn_mutex = PTHREAD_MUTEX_INITIALIZER;
 extern int __unix_conforming;
-#ifdef VARIANT_CANCELABLE
-extern void _pthread_testcancel(pthread_t thread, int isconforming);
-#endif /* VARIANT_CANCELABLE */
 #endif /* __DARWIN_UNIX03 */
 
 int
@@ -75,7 +72,7 @@ __system(command)
 	if (__unix_conforming == 0)
 		__unix_conforming = 1;
 #ifdef VARIANT_CANCELABLE
-	_pthread_testcancel(pthread_self(), 1);
+	pthread_testcancel();
 #endif /* VARIANT_CANCELABLE */
 #endif /* __DARWIN_UNIX03 */
 

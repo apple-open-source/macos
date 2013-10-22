@@ -1,21 +1,21 @@
 #
-#   history.rb - 
-#   	$Release Version: 0.9.5$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   history.rb -
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38515 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
+#
 #
 
-module IRB
+module IRB # :nodoc:
 
   class Context
 
     NOPRINTING_IVARS.push "@eval_history_values"
 
+    # See #set_last_value
     alias _set_last_value set_last_value
 
     def set_last_value(value)
@@ -30,7 +30,17 @@ module IRB
       @last_value
     end
 
+    # The command result history limit.
     attr_reader :eval_history
+    # Sets command result history limit.
+    #
+    # +no+ is an Integer or +nil+.
+    #
+    # Returns +no+ of history items if greater than 0.
+    #
+    # If +no+ is 0, the number of history items is unlimited.
+    #
+    # If +no+ is +nil+, execution result history isn't used (default).
     def eval_history=(no)
       if no
 	if defined?(@eval_history) && @eval_history
@@ -48,8 +58,8 @@ module IRB
     end
   end
 
-  class History
-    @RCS_ID='-$Id: history.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
+  class History # :nodoc:
+    @RCS_ID='-$Id: history.rb 38515 2012-12-21 05:45:50Z zzak $-'
 
     def initialize(size = 16)
       @size = size
@@ -57,7 +67,7 @@ module IRB
     end
 
     def size(size)
-      if size != 0 && size < @size 
+      if size != 0 && size < @size
 	@contents = @contents[@size - size .. @size]
       end
       @size = size
@@ -79,7 +89,7 @@ module IRB
       @contents.push [no, val]
       @contents.shift if @size != 0 && @contents.size > @size
     end
-    
+
     alias real_inspect inspect
 
     def inspect

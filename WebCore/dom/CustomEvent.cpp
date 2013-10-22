@@ -34,7 +34,6 @@ CustomEventInit::CustomEventInit()
 {
 }
 
-
 CustomEvent::CustomEvent()
 {
 }
@@ -49,8 +48,9 @@ CustomEvent::~CustomEvent()
 {
 }
 
-void CustomEvent::initCustomEvent(const AtomicString& type, bool canBubble, bool cancelable, ScriptValue detail)
+void CustomEvent::initCustomEvent(const AtomicString& type, bool canBubble, bool cancelable, const ScriptValue& detail)
 {
+    ASSERT(!m_serializedScriptValue.get());
     if (dispatched())
         return;
 

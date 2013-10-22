@@ -176,7 +176,7 @@ static int MS_CALLBACK file_read(BIO *b, char *out, int outl)
 
 	if (b->init && (out != NULL))
 		{
-		ret=fread(out,1,(int)outl,(FILE *)b->ptr);
+		ret=(int)fread(out,1,outl,(FILE *)b->ptr);
 		}
 	return(ret);
 	}
@@ -308,7 +308,7 @@ static int MS_CALLBACK file_gets(BIO *bp, char *buf, int size)
 	buf[0]='\0';
 	fgets(buf,size,(FILE *)bp->ptr);
 	if (buf[0] != '\0')
-		ret=strlen(buf);
+		ret=(int)strlen(buf);
 	return(ret);
 	}
 
@@ -316,7 +316,7 @@ static int MS_CALLBACK file_puts(BIO *bp, char *str)
 	{
 	int n,ret;
 
-	n=strlen(str);
+	n=(int)strlen(str);
 	ret=file_write(bp,str,n);
 	return(ret);
 	}

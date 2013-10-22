@@ -175,23 +175,9 @@ routine _notify_server_set_state
 	ServerAuditToken audit : audit_token_t
 );
 
-routine _notify_server_get_val
-(
-	server : mach_port_t;
-	token : int;
-	out val : int;
-	out status : int;
-	ServerAuditToken audit : audit_token_t
-);
+skip; /* formerly _notify_server_get_val */
 
-routine _notify_server_set_val
-(
-	server : mach_port_t;
-	token : int;
-	val : int;
-	out status : int;
-	ServerAuditToken audit : audit_token_t
-);
+skip; /* formerly _notify_server_set_val */
 
 routine _notify_server_monitor_file
 (

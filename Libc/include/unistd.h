@@ -71,52 +71,17 @@
 #include <_types.h>
 #include <sys/unistd.h>
 #include <Availability.h>
-
-#ifndef _GID_T
-#define	_GID_T
-typedef __darwin_gid_t		gid_t;
-#endif
-
-#ifndef _INTPTR_T
-#define	_INTPTR_T
-typedef __darwin_intptr_t	intptr_t;
-#endif
-
-#ifndef _OFF_T
-#define	_OFF_T
-typedef __darwin_off_t		off_t;
-#endif
-
-#ifndef _PID_T
-#define	_PID_T
-typedef __darwin_pid_t		pid_t;
-#endif
-
-#ifndef _SIZE_T
-#define	_SIZE_T
+#include <sys/_types/_gid_t.h>
+#include <sys/_types/_intptr_t.h>
+#include <sys/_types/_off_t.h>
+#include <sys/_types/_pid_t.h>
 /* DO NOT REMOVE THIS COMMENT: fixincludes needs to see:
  * _GCC_SIZE_T */
-typedef __darwin_size_t		size_t;
-#endif
-
-#ifndef	_SSIZE_T
-#define	_SSIZE_T
-typedef	__darwin_ssize_t	ssize_t;
-#endif
-
-#ifndef _UID_T
-#define	_UID_T
-typedef __darwin_uid_t		uid_t;	/* user id 	*/
-#endif
-
-#ifndef _USECONDS_T
-#define	_USECONDS_T
-typedef __darwin_useconds_t	useconds_t;
-#endif
-
-#ifndef NULL
-#define	NULL __DARWIN_NULL
-#endif /* ! NULL */
+#include <sys/_types/_size_t.h>
+#include <sys/_types/_ssize_t.h>
+#include <sys/_types/_uid_t.h>
+#include <sys/_types/_useconds_t.h>
+#include <sys/_types/_null.h>
 
 #define	 STDIN_FILENO	0	/* standard input file descriptor */
 #define	STDOUT_FILENO	1	/* standard output file descriptor */
@@ -627,6 +592,9 @@ __END_DECLS
 /* Begin XSI */
 /* Removed in Issue 6 */
 #if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200112L
+#if !defined(_POSIX_C_SOURCE)
+__deprecated
+#endif
 void	*brk(const void *);
 int	 chroot(const char *) __POSIX_C_DEPRECATED(199506L);
 #endif
@@ -721,6 +689,9 @@ ssize_t	 pwrite(int, const void *, size_t, off_t) LIBC_ALIAS_C(pwrite);
 #if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200112L
 /* Note that Issue 5 changed the argument as intprt_t,
  * but we keep it as int for binary compatability. */
+#if !defined(_POSIX_C_SOURCE)
+__deprecated
+#endif
 void	*sbrk(int);
 #endif
 
@@ -814,20 +785,9 @@ __END_DECLS
 #if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
 #include <sys/select.h>
 
-#ifndef _DEV_T
-#define	_DEV_T
-typedef __darwin_dev_t		dev_t;
-#endif
-
-#ifndef _MODE_T
-#define	_MODE_T
-typedef __darwin_mode_t		mode_t;
-#endif
-
-#ifndef _UUID_T
-#define	_UUID_T
-typedef __darwin_uuid_t		uuid_t;
-#endif /* _UUID_T */
+#include <sys/_types/_dev_t.h>
+#include <sys/_types/_mode_t.h>
+#include <sys/_types/_uuid_t.h>
 
 __BEGIN_DECLS
 void	 _Exit(int) __dead2;
@@ -839,7 +799,15 @@ int	 execvP(const char *, const char *, char * const *);
 char	*fflagstostr(unsigned long);
 int	 getdomainname(char *, int);
 int	 getgrouplist(const char *, int, int *, int *);
-int	 gethostuuid(uuid_t, const struct timespec *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+#if defined(__has_include)
+#if __has_include(<gethostuuid_private.h>)
+#include <gethostuuid_private.h>
+#else
+#include <gethostuuid.h>
+#endif
+#else
+#include <gethostuuid.h>
+#endif
 mode_t	 getmode(const void *, mode_t);
 int	 getpeereid(int, uid_t *, gid_t *);
 int	 getsgroups_np(int *, uuid_t);

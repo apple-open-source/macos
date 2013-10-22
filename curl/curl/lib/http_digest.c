@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,7 @@
  *
  ***************************************************************************/
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_CRYPTO_AUTH)
 
@@ -34,6 +34,7 @@
 #include "url.h" /* for Curl_safefree() */
 #include "curl_memory.h"
 #include "non-ascii.h" /* included for Curl_convert_... prototypes */
+#include "warnless.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -279,13 +280,14 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   unsigned char *md5this;
   unsigned char *ha1;
   unsigned char ha2[33];/* 32 digits and 1 zero byte */
-  char cnoncebuf[7];
+  char cnoncebuf[33];
   char *cnonce = NULL;
   size_t cnonce_sz = 0;
   char *tmp = NULL;
   struct timeval now;
 
   char **allocuserpwd;
+  size_t userlen;
   const char *userp;
   const char *passwdp;
   struct auth *authp;
@@ -343,7 +345,8 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   if(!d->cnonce) {
     /* Generate a cnonce */
     now = Curl_tvnow();
-    snprintf(cnoncebuf, sizeof(cnoncebuf), "%06ld", (long)now.tv_sec);
+    snprintf(cnoncebuf, sizeof(cnoncebuf), "%32ld",
+             (long)now.tv_sec + now.tv_usec);
 
     rc = Curl_base64_encode(data, cnoncebuf, strlen(cnoncebuf),
                             &cnonce, &cnonce_sz);
@@ -416,7 +419,8 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   */
   if(authp->iestyle && ((tmp = strchr((char *)uripath, '?')) != NULL)) {
     md5this = (unsigned char *)aprintf("%s:%.*s", request,
-                                       (int)(tmp - (char *)uripath), uripath);
+                                       curlx_sztosi(tmp - (char *)uripath),
+                                       uripath);
   }
   else
     md5this = (unsigned char *)aprintf("%s:%s", request, uripath);
@@ -475,7 +479,7 @@ CURLcode Curl_output_digest(struct connectdata *conn,
                "uri=\"%s\", "
                "cnonce=\"%s\", "
                "nc=%08x, "
-               "qop=\"%s\", "
+               "qop=%s, "
                "response=\"%s\"",
                proxy?"Proxy-":"",
                userp,
@@ -530,10 +534,11 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   }
 
   /* append CRLF + zero (3 bytes) to the userpwd header */
-  tmp = realloc(*allocuserpwd, strlen(*allocuserpwd) + 3);
+  userlen = strlen(*allocuserpwd);
+  tmp = realloc(*allocuserpwd, userlen + 3);
   if(!tmp)
     return CURLE_OUT_OF_MEMORY;
-  strcat(tmp, "\r\n");
+  strcpy(&tmp[userlen], "\r\n"); /* append the data */
   *allocuserpwd = tmp;
 
   return CURLE_OK;

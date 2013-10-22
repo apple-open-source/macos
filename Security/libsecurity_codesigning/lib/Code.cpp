@@ -261,7 +261,7 @@ SecCode *SecCode::autoLocateGuest(CFDictionaryRef attributes, SecCSFlags flags)
 	if (!cfscan(attributes, "{%O=%d}", kSecGuestAttributePid, &pid))
 		CSError::throwMe(errSecCSUnsupportedGuestAttributes, kSecCFErrorGuestAttributes, attributes);
 	if (SecCode *process =
-			KernelCode::active()->locateGuest(CFTemp<CFDictionaryRef>("{%O=%d}", kSecGuestAttributePid, pid))) {
+			KernelCode::active()->locateGuest(attributes)) {
 		SecPointer<SecCode> code;
 		code.take(process);		// locateGuest gave us a retained object
 		if (code->staticCode()->flag(kSecCodeSignatureHost)) {

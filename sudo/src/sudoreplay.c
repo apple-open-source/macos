@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2009-2012 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,6 +18,10 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/uio.h>
+#ifdef HAVE_SYS_SYSMACROS_H
+# include <sys/sysmacros.h>
+#endif
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -49,8 +53,8 @@
 #if TIME_WITH_SYS_TIME
 # include <time.h>
 #endif
-#ifndef HAVE_TIMESPEC
-# include <emul/timespec.h>
+#ifndef HAVE_STRUCT_TIMESPEC
+# include "emul/timespec.h"
 #endif
 #include <ctype.h>
 #include <errno.h>
@@ -85,10 +89,9 @@
 
 #include <pathnames.h>
 
-#include "compat.h"
+#include "missing.h"
 #include "alloc.h"
 #include "error.h"
-#include "missing.h"
 
 #ifndef LINE_MAX
 # define LINE_MAX 2048
@@ -133,6 +136,8 @@ struct log_info {
     char *tty;
     char *cmd;
     time_t tstamp;
+    int rows;
+    int cols;
 };
 
 /*
@@ -190,16 +195,20 @@ extern time_t get_date __P((char *));
 extern char *get_timestr __P((time_t, int));
 extern int term_raw __P((int, int));
 extern int term_restore __P((int, int));
-extern void zero_bytes __P((volatile void *, size_t));
-void cleanup __P((int));
+extern void get_ttysize __P((int *rowp, int *colp));
+RETSIGTYPE cleanup __P((int));
 
 static int list_sessions __P((int, char **, const char *, const char *, const char *));
 static int parse_expr __P((struct search_node **, char **));
 static void check_input __P((int, double *));
 static void delay __P((double));
-static void usage __P((void));
-static void *open_io_fd __P((char *pathbuf, int len, const char *suffix));
+static void help __P((void)) __attribute__((__noreturn__));
+static void usage __P((int));
+static int open_io_fd __P((char *pathbuf, int len, const char *suffix, union io_fd *fdp));
 static int parse_timing __P((const char *buf, const char *decimal, int *idx, double *seconds, size_t *nbytes));
+static struct log_info *parse_logfile __P((char *logfile));
+static void free_log_info __P((struct log_info *li));
+static size_t atomic_writev __P((int fd, struct iovec *iov, int iovcnt));
 
 #ifdef HAVE_REGCOMP
 # define REGEX_T	regex_t
@@ -212,20 +221,30 @@ static int parse_timing __P((const char *buf, const char *decimal, int *idx, dou
     isalnum((unsigned char)(s)[3]) && isalnum((unsigned char)(s)[4]) && \
     isalnum((unsigned char)(s)[5]) && (s)[6] == '\0')
 
+#define IS_IDLOG(s) ( \
+    isalnum((unsigned char)(s)[0]) && isalnum((unsigned char)(s)[1]) && \
+    (s)[2] == '/' && \
+    isalnum((unsigned char)(s)[3]) && isalnum((unsigned char)(s)[4]) && \
+    (s)[5] == '/' && \
+    isalnum((unsigned char)(s)[6]) && isalnum((unsigned char)(s)[7]) && \
+    (s)[8] == '/' && (s)[9] == 'l' && (s)[10] == 'o' && (s)[11] == 'g' && \
+    (s)[12] == '\0')
+
 int
 main(argc, argv)
     int argc;
     char *argv[];
 {
-    int ch, idx, plen, nready, interactive = 0, listonly = 0;
+    int ch, idx, plen, interactive = 0, listonly = 0, need_nlcr = 0;
+    int rows = 0, cols = 0;
     const char *id, *user = NULL, *pattern = NULL, *tty = NULL, *decimal = ".";
     char path[PATH_MAX], buf[LINE_MAX], *cp, *ep;
     double seconds, to_wait, speed = 1.0, max_wait = 0;
-    FILE *lfile;
-    fd_set *fdsw;
     sigaction_t sa;
-    size_t len, nbytes, nread, off;
-    ssize_t nwritten;
+    size_t len, nbytes, nread;
+    struct log_info *li;
+    struct iovec *iov = NULL;
+    int iovcnt = 0, iovmax = 0;
 
     Argc = argc;
     Argv = argv;
@@ -235,7 +254,7 @@ main(argc, argv)
     decimal = localeconv()->decimal_point;
 #endif
 
-    while ((ch = getopt(argc, argv, "d:f:lm:s:V")) != -1) {
+    while ((ch = getopt(argc, argv, "d:f:hlm:s:V")) != -1) {
 	switch(ch) {
 	case 'd':
 	    session_dir = optarg;
@@ -254,6 +273,9 @@ main(argc, argv)
 		    errorx(1, "invalid filter option: %s", optarg);
 	    }
 	    break;
+	case 'h':
+	    help();
+	    /* NOTREACHED */
 	case 'l':
 	    listonly = 1;
 	    break;
@@ -273,7 +295,7 @@ main(argc, argv)
 	    (void) printf("%s version %s\n", getprogname(), PACKAGE_VERSION);
 	    exit(0);
 	default:
-	    usage();
+	    usage(1);
 	    /* NOTREACHED */
 	}
 
@@ -285,46 +307,55 @@ main(argc, argv)
 	exit(list_sessions(argc, argv, pattern, user, tty));
 
     if (argc != 1)
-	usage();
+	usage(1);
 
-    /* 6 digit ID in base 36, e.g. 01G712AB */
+    /* 6 digit ID in base 36, e.g. 01G712AB or free-form name */
     id = argv[0];
-    if (!VALID_ID(id))
-	errorx(1, "invalid ID %s", id);
-
-    plen = snprintf(path, sizeof(path), "%s/%.2s/%.2s/%.2s/timing",
-	session_dir, id, &id[2], &id[4]);
-    if (plen <= 0 || plen >= sizeof(path))
-	errorx(1, "%s/%.2s/%.2s/%.2s/%.2s/timing: %s", session_dir,
-	    id, &id[2], &id[4], strerror(ENAMETOOLONG));
+    if (VALID_ID(id)) {
+	plen = snprintf(path, sizeof(path), "%s/%.2s/%.2s/%.2s/timing",
+	    session_dir, id, &id[2], &id[4]);
+	if (plen <= 0 || plen >= sizeof(path))
+	    errorx(1, "%s/%.2s/%.2s/%.2s/timing: %s", session_dir,
+		id, &id[2], &id[4], strerror(ENAMETOOLONG));
+    } else {
+	plen = snprintf(path, sizeof(path), "%s/%s/timing",
+	    session_dir, id);
+	if (plen <= 0 || plen >= sizeof(path))
+	    errorx(1, "%s/%s/timing: %s", session_dir,
+		id, strerror(ENAMETOOLONG));
+    }
     plen -= 7;
 
     /* Open files for replay, applying replay filter for the -f flag. */
     for (idx = 0; idx < IOFD_MAX; idx++) {
 	if (ISSET(replay_filter, 1 << idx) || idx == IOFD_TIMING) {
-	    io_fds[idx].v = open_io_fd(path, plen, io_fnames[idx]);
-	    if (io_fds[idx].v == NULL)
+	    if (open_io_fd(path, plen, io_fnames[idx], &io_fds[idx]) == -1)
 		error(1, "unable to open %s", path);
 	}
     }
 
-    /* Read log file. */
+    /* Parse log file. */
     path[plen] = '\0';
     strlcat(path, "/log", sizeof(path));
-    lfile = fopen(path, "r");
-    if (lfile == NULL)
-	error(1, "unable to open %s", path);
-    cp = NULL;
-    len = 0;
-    getline(&cp, &len, lfile); /* log */
-    getline(&cp, &len, lfile); /* cwd */
-    getline(&cp, &len, lfile); /* command */
-    printf("Replaying sudo session: %s", cp);
-    free(cp);
-    fclose(lfile);
+    if ((li = parse_logfile(path)) == NULL)
+	exit(1);
+    printf("Replaying sudo session: %s\n", li->cmd);
+
+    /* Make sure the terminal is large enough. */
+    get_ttysize(&rows, &cols);
+    if (li->rows != 0 && li->cols != 0) {
+	if (li->rows > rows) {
+	    printf("Warning: your terminal is too small to properly replay the log.\n");
+	    printf("Log geometry is %d x %d, your terminal's geometry is %d x %d.", li->rows, li->cols, rows, cols);
+	}
+    }
+
+    /* Done with parsed log file. */
+    free_log_info(li);
+    li = NULL;
 
     fflush(stdout);
-    zero_bytes(&sa, sizeof(sa));
+    memset(&sa, 0, sizeof(sa));
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESETHAND;
     sa.sa_handler = cleanup;
@@ -346,9 +377,10 @@ main(argc, argv)
 	    (void) fcntl(STDIN_FILENO, F_SETFL, ch | O_NONBLOCK);
 	if (!term_raw(STDIN_FILENO, 1))
 	    error(1, "cannot set tty to raw mode");
+	iovcnt = 0;
+	iovmax = 32;
+	iov = ecalloc(iovmax, sizeof(*iov));
     }
-    fdsw = (fd_set *)emalloc2(howmany(STDOUT_FILENO + 1, NFDBITS),
-	sizeof(fd_mask));
 
     /*
      * Timing file consists of line of the format: "%f %d\n"
@@ -358,6 +390,8 @@ main(argc, argv)
 #else
     while (fgets(buf, sizeof(buf), io_fds[IOFD_TIMING].f) != NULL) {
 #endif
+	char last_char = '\0';
+
 	if (!parse_timing(buf, decimal, &idx, &seconds, &nbytes))
 	    errorx(1, "invalid timing file line: %s", buf);
 
@@ -374,6 +408,10 @@ main(argc, argv)
 	if (io_fds[idx].v == NULL)
 	    continue;
 
+	/* Check whether we need to convert newline to CR LF pairs. */
+	if (interactive) 
+	    need_nlcr = (idx == IOFD_STDOUT || idx == IOFD_STDERR);
+
 	/* All output is sent to stdout. */
 	while (nbytes != 0) {
 	    if (nbytes > sizeof(buf))
@@ -386,25 +424,59 @@ main(argc, argv)
 	    nread = fread(buf, 1, len, io_fds[idx].f);
 #endif
 	    nbytes -= nread;
-	    off = 0;
-	    do {
-		/* no stdio, must be unbuffered */
-		nwritten = write(STDOUT_FILENO, buf + off, nread - off);
-		if (nwritten == -1) {
-		    if (errno == EINTR)
-			continue;
-		    if (errno == EAGAIN) {
-			FD_SET(STDOUT_FILENO, fdsw);
-			do {
-			    nready = select(STDOUT_FILENO + 1, NULL, fdsw, NULL, NULL);
-			} while (nready == -1 && errno == EINTR);
-			if (nready == 1)
-			    continue;
-		    }
-		    error(1, "writing to standard output");
+
+	    /* Convert newline to carriage return + linefeed if needed. */
+	    if (need_nlcr) {
+		size_t remainder = nread;
+		size_t linelen;
+		iovcnt = 0;
+		cp = buf;
+		ep = cp - 1;
+		/* Handle a "\r\n" pair that spans a buffer. */
+		if (last_char == '\r' && buf[0] == '\n') {
+		    ep++;
+		    remainder--;
 		}
-		off += nwritten;
-	    } while (nread > off);
+		while ((ep = memchr(ep + 1, '\n', remainder)) != NULL) {
+		    /* Is there already a carriage return? */
+		    if (cp != ep && ep[-1] == '\r') {
+			remainder = (size_t)(&buf[nread - 1] - ep);
+		    	continue;
+		    }
+
+		    /* Store the line in iov followed by \r\n pair. */
+		    if (iovcnt + 3 > iovmax) {
+			iovmax <<= 1;
+			iov = erealloc3(iov, iovmax, sizeof(*iov));
+		    }
+		    linelen = (size_t)(ep - cp) + 1;
+		    iov[iovcnt].iov_base = cp;
+		    iov[iovcnt].iov_len = linelen - 1; /* not including \n */
+		    iovcnt++;
+		    iov[iovcnt].iov_base = "\r\n";
+		    iov[iovcnt].iov_len = 2;
+		    iovcnt++;
+		    cp = ep + 1;
+		    remainder -= linelen;
+		}
+		if (cp - buf != nread) {
+		    /*
+		     * Partial line without a linefeed or multiple lines
+		     * with \r\n pairs.
+		     */
+		    iov[iovcnt].iov_base = cp;
+		    iov[iovcnt].iov_len = nread - (cp - buf);
+		    iovcnt++;
+		}
+		last_char = buf[nread - 1]; /* stash last char of old buffer */
+	    } else {
+		/* No conversion needed. */
+		iov[0].iov_base = buf;
+		iov[0].iov_len = nread;
+		iovcnt = 1;
+	    }
+	    if (atomic_writev(STDOUT_FILENO, iov, iovcnt) == -1)
+		error(1, "writing to standard output");
 	}
     }
     term_restore(STDIN_FILENO, 1);
@@ -431,24 +503,94 @@ delay(secs)
       memcpy(&ts, &rts, sizeof(ts));
       rval = nanosleep(&ts, &rts);
     } while (rval == -1 && errno == EINTR);
-    if (rval == -1)
-	error(1, "nanosleep: tv_sec %ld, tv_nsec %ld", ts.tv_sec, ts.tv_nsec);
+    if (rval == -1) {
+	error(1, "nanosleep: tv_sec %ld, tv_nsec %ld",
+	    (long)ts.tv_sec, (long)ts.tv_nsec);
+    }
 }
 
-static void *
-open_io_fd(path, len, suffix)
+static int
+open_io_fd(path, len, suffix, fdp)
     char *path;
     int len;
     const char *suffix;
+    union io_fd *fdp;
 {
     path[len] = '\0';
     strlcat(path, suffix, PATH_MAX);
 
 #ifdef HAVE_ZLIB_H
-    return gzopen(path, "r");
+    fdp->g = gzopen(path, "r");
+    return fdp->g ? 0 : -1;
 #else
-    return fopen(path, "r");
+    fdp->f = fopen(path, "r");
+    return fdp->f ? 0 : -1;
 #endif
+}
+
+/*
+ * Call writev(), restarting as needed and handling EAGAIN since
+ * fd may be in non-blocking mode.
+ */
+static size_t
+atomic_writev(fd, iov, iovcnt)
+    int fd;
+    struct iovec *iov;
+    int iovcnt;
+{
+    ssize_t n, nwritten = 0;
+    size_t count, remainder, nbytes = 0;
+    int i;
+
+    for (i = 0; i < iovcnt; i++)
+	nbytes += iov[i].iov_len;
+
+    for (;;) {
+	n = writev(STDOUT_FILENO, iov, iovcnt);
+	if (n > 0) {
+	    nwritten += n;
+	    remainder = nbytes - nwritten;
+	    if (remainder == 0)
+		break;
+	    /* short writev, adjust iov and do the rest. */
+	    count = 0;
+	    i = iovcnt;
+	    while (i--) {
+		count += iov[i].iov_len;
+		if (count == remainder) {
+		    iov += i;
+		    iovcnt -= i;
+		    break;
+		}
+		if (count > remainder) {
+		    size_t off = (count - remainder);
+		    /* XXX - side effect prevents iov from being const */
+		    iov[i].iov_base = (char *)iov[i].iov_base + off;
+		    iov[i].iov_len -= off;
+		    iov += i;
+		    iovcnt -= i;
+		    break;
+		}
+	    }
+	    continue;
+	}
+	if (n == 0 || errno == EAGAIN) {
+	    int nready;
+	    fd_set fdsw;
+	    FD_ZERO(&fdsw);
+	    FD_SET(STDOUT_FILENO, &fdsw);
+	    do {
+		nready = select(STDOUT_FILENO + 1, NULL, &fdsw, NULL, NULL);
+	    } while (nready == -1 && errno == EINTR);
+	    if (nready == 1)
+		continue;
+	}
+	if (errno == EINTR)
+	    continue;
+	nwritten = -1;
+	break;
+    }
+    return nwritten;
 }
 
 /*
@@ -537,7 +679,7 @@ parse_expr(headp, argv)
 		errorx(1, "unmatched ')' in expression");
 	    if (node_stack[stack_top])
 		sn->next = node_stack[stack_top]->next;
-	    return(av - argv + 1);
+	    return av - argv + 1;
 	bad:
 	default:
 	    errorx(1, "unknown search term \"%s\"", *av);
@@ -545,11 +687,11 @@ parse_expr(headp, argv)
 	}
 
 	/* Allocate new search node */
-	newsn = emalloc(sizeof(*newsn));
-	newsn->next = NULL;
+	newsn = ecalloc(1, sizeof(*newsn));
 	newsn->type = type;
 	newsn->or = or;
 	newsn->negated = not;
+	/* newsn->next = NULL; */
 	if (type == ST_EXPR) {
 	    av += parse_expr(&newsn->u.expr, av + 1);
 	} else {
@@ -583,7 +725,7 @@ parse_expr(headp, argv)
     if (not)
 	errorx(1, "illegal trailing \"!\"");
 
-    return(av - argv);
+    return av - argv;
 }
 
 static int
@@ -641,113 +783,253 @@ match_expr(head, log)
 	if (sn->negated)
 	    matched = !matched;
     }
-    return(matched);
+    return matched;
+}
+
+static struct log_info *
+parse_logfile(logfile)
+    char *logfile;
+{
+    FILE *fp;
+    char *buf = NULL, *cp, *ep;
+    size_t bufsize = 0, cwdsize = 0, cmdsize = 0;
+    struct log_info *li = NULL;
+
+    fp = fopen(logfile, "r");
+    if (fp == NULL) {
+	warning("unable to open %s", logfile);
+	goto bad;
+    }
+
+    /*
+     * ID file has three lines:
+     *  1) a log info line
+     *  2) cwd
+     *  3) command with args
+     */
+    li = ecalloc(1, sizeof(*li));
+    if (getline(&buf, &bufsize, fp) == -1 ||
+	getline(&li->cwd, &cwdsize, fp) == -1 ||
+	getline(&li->cmd, &cmdsize, fp) == -1) {
+	goto bad;
+    }
+
+    /* Strip the newline from the cwd and command. */
+    li->cwd[strcspn(li->cwd, "\n")] = '\0';
+    li->cmd[strcspn(li->cmd, "\n")] = '\0';
+
+    /*
+     * Crack the log line (rows and cols not present in old versions).
+     * timestamp:user:runas_user:runas_group:tty:rows:cols
+     */
+    buf[strcspn(buf, "\n")] = '\0';
+
+    /* timestamp */
+    if ((ep = strchr(buf, ':')) == NULL)
+	goto bad;
+    if ((li->tstamp = atoi(buf)) == 0)
+	goto bad;
+
+    /* user */
+    cp = ep + 1;
+    if ((ep = strchr(cp, ':')) == NULL)
+	goto bad;
+    li->user = estrndup(cp, (size_t)(ep - cp));
+
+    /* runas user */
+    cp = ep + 1;
+    if ((ep = strchr(cp, ':')) == NULL)
+	goto bad;
+    li->runas_user = estrndup(cp, (size_t)(ep - cp));
+
+    /* runas group */
+    cp = ep + 1;
+    if ((ep = strchr(cp, ':')) == NULL)
+	goto bad;
+    if (cp != ep)
+	li->runas_group = estrndup(cp, (size_t)(ep - cp));
+
+    /* tty, followed by optional rows + columns */
+    cp = ep + 1;
+    if ((ep = strchr(cp, ':')) == NULL) {
+	li->tty = estrdup(cp);
+    } else {
+	li->tty = estrndup(cp, (size_t)(ep - cp));
+	cp = ep + 1;
+	li->rows = atoi(cp);
+	if ((ep = strchr(cp, ':')) != NULL) {
+	    cp = ep + 1;
+	    li->cols = atoi(cp);
+	}
+    }
+    fclose(fp);
+    efree(buf);
+    return li;
+
+bad:
+    if (fp != NULL)
+	fclose(fp);
+    efree(buf);
+    free_log_info(li);
+    return NULL;
+}
+
+static void
+free_log_info(li)
+    struct log_info *li;
+{
+    if (li != NULL) {
+	efree(li->cwd);
+	efree(li->user);
+	efree(li->runas_user);
+	efree(li->runas_group);
+	efree(li->tty);
+	efree(li->cmd);
+	efree(li);
+    }
 }
 
 static int
-list_session_dir(pathbuf, re, user, tty)
-    char *pathbuf;
+list_session(logfile, re, user, tty)
+    char *logfile;
     REGEX_T *re;
     const char *user;
     const char *tty;
 {
-    FILE *fp;
+    char idbuf[7], *idstr, *cp;
+    struct log_info *li;
+    int rval = -1;
+
+    if ((li = parse_logfile(logfile)) == NULL)
+	goto done;
+
+    /* Match on search expression if there is one. */
+    if (search_expr && !match_expr(search_expr, li))
+	goto done;
+
+    /* Convert from /var/log/sudo-sessions/00/00/01/log to 000001 */
+    cp = logfile + strlen(session_dir) + 1;
+    if (IS_IDLOG(cp)) {
+	idbuf[0] = cp[0];
+	idbuf[1] = cp[1];
+	idbuf[2] = cp[3];
+	idbuf[3] = cp[4];
+	idbuf[4] = cp[6];
+	idbuf[5] = cp[7];
+	idbuf[6] = '\0';
+	idstr = idbuf;
+    } else {
+	/* Not an id, just use the iolog_file portion. */
+	cp[strlen(cp) - 4] = '\0';
+	idstr = cp;
+    }
+    /* XXX - print rows + cols? */
+    printf("%s : %s : TTY=%s ; CWD=%s ; USER=%s ; ",
+	get_timestr(li->tstamp, 1), li->user, li->tty, li->cwd, li->runas_user);
+    if (li->runas_group)
+	printf("GROUP=%s ; ", li->runas_group);
+    printf("TSID=%s ; COMMAND=%s\n", idstr, li->cmd);
+
+    rval = 0;
+
+done:
+    free_log_info(li);
+    return rval;
+}
+
+static int
+session_compare(v1, v2)
+    const void *v1;
+    const void *v2;
+{
+    const char *s1 = *(const char **)v1;
+    const char *s2 = *(const char **)v2;
+    return strcmp(s1, s2);
+}
+
+static int
+find_sessions(dir, re, user, tty)
+    const char *dir;
+    REGEX_T *re;
+    const char *user;
+    const char *tty;
+{
     DIR *d;
     struct dirent *dp;
-    char *buf = NULL, *cmd = NULL, *cwd = NULL, idstr[7], *cp;
-    struct log_info li;
-    size_t bufsize = 0, cwdsize = 0, cmdsize = 0, plen;
+    struct stat sb;
+    size_t sdlen, sessions_len = 0, sessions_size = 36*36;
+    int i, len;
+#ifdef HAVE_STRUCT_DIRENT_D_TYPE
+    int checked_type = 1;
+#else
+    const int checked_type = 0;
+#endif
+    char pathbuf[PATH_MAX], **sessions = NULL;
 
-    plen = strlen(pathbuf);
-    d = opendir(pathbuf);
-    if (d == NULL && errno != ENOTDIR) {
-	warning("cannot opendir %s", pathbuf);
-	return(-1);
+    d = opendir(dir);
+    if (d == NULL)
+	error(1, "unable to open %s", dir);
+
+    /* XXX - would be faster to chdir and use relative names */
+    sdlen = strlcpy(pathbuf, dir, sizeof(pathbuf));
+    if (sdlen + 1 >= sizeof(pathbuf)) {
+	errno = ENAMETOOLONG;
+	error(1, "%s/", dir);
     }
+    pathbuf[sdlen++] = '/';
+    pathbuf[sdlen] = '\0';
+
+    /* Store potential session dirs for sorting. */
+    sessions = emalloc2(sessions_size, sizeof(char *));
     while ((dp = readdir(d)) != NULL) {
-	if (NAMLEN(dp) != 2 || !isalnum((unsigned char)dp->d_name[0]) ||
-	    !isalnum((unsigned char)dp->d_name[1]))
+	/* Skip "." and ".." */
+	if (dp->d_name[0] == '.' && (dp->d_name[1] == '\0' ||
+	    (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
 	    continue;
-
-	/* open log file, print id and command */
-	pathbuf[plen + 0] = '/';
-	pathbuf[plen + 1] = dp->d_name[0];
-	pathbuf[plen + 2] = dp->d_name[1];
-	pathbuf[plen + 3] = '/';
-	pathbuf[plen + 4] = 'l';
-	pathbuf[plen + 5] = 'o';
-	pathbuf[plen + 6] = 'g';
-	pathbuf[plen + 7] = '\0';
-	fp = fopen(pathbuf, "r");
-	if (fp == NULL) {
-	    warning("unable to open %s", pathbuf);
-	    continue;
+#ifdef HAVE_STRUCT_DIRENT_D_TYPE
+	if (checked_type) {
+	    if (dp->d_type != DT_DIR) {
+		/* Not all file systems support d_type. */
+		if (dp->d_type != DT_UNKNOWN)
+		    continue;
+		checked_type = 0;
+	    }
 	}
+#endif
 
-	/*
-	 * ID file has three lines:
-	 *  1) a log info line
-	 *  2) cwd
-	 *  3) command with args
-	 */
-	if (getline(&buf, &bufsize, fp) == -1 ||
-	    getline(&cwd, &cwdsize, fp) == -1 ||
-	    getline(&cmd, &cmdsize, fp) == -1) {
-	    fclose(fp);
-	    continue;
+	/* Add name to session list. */
+	if (sessions_len + 1 > sessions_size) {
+	    sessions_size <<= 1;
+	    sessions = erealloc3(sessions, sessions_size, sizeof(char *));
 	}
-	fclose(fp);
-
-	/* crack the log line: timestamp:user:runas_user:runas_group:tty */
-	buf[strcspn(buf, "\n")] = '\0';
-	if ((li.tstamp = atoi(buf)) == 0)
-	    continue;
-
-	if ((cp = strchr(buf, ':')) == NULL)
-	    continue;
-	*cp++ = '\0';
-	li.user = cp;
-
-	if ((cp = strchr(cp, ':')) == NULL)
-	    continue;
-	*cp++ = '\0';
-	li.runas_user = cp;
-
-	if ((cp = strchr(cp, ':')) == NULL)
-	    continue;
-	*cp++ = '\0';
-	li.runas_group = cp;
-
-	if ((cp = strchr(cp, ':')) == NULL)
-	    continue;
-	*cp++ = '\0';
-	li.tty = cp;
-
-	cwd[strcspn(cwd, "\n")] = '\0';
-	li.cwd = cwd;
-
-	cmd[strcspn(cmd, "\n")] = '\0';
-	li.cmd = cmd;
-
-	/* Match on search expression if there is one. */
-	if (search_expr && !match_expr(search_expr, &li))
-	    continue;
-
-	/* Convert from /var/log/sudo-sessions/00/00/01 to 000001 */
-	idstr[0] = pathbuf[plen - 5];
-	idstr[1] = pathbuf[plen - 4];
-	idstr[2] = pathbuf[plen - 2];
-	idstr[3] = pathbuf[plen - 1];
-	idstr[4] = pathbuf[plen + 1];
-	idstr[5] = pathbuf[plen + 2];
-	idstr[6] = '\0';
-	printf("%s : %s : TTY=%s ; CWD=%s ; USER=%s ; ",
-	    get_timestr(li.tstamp, 1), li.user, li.tty, li.cwd, li.runas_user);
-	if (*li.runas_group)
-	    printf("GROUP=%s ; ", li.runas_group);
-	printf("TSID=%s ; COMMAND=%s\n", idstr, li.cmd);
+	sessions[sessions_len++] = estrdup(dp->d_name);
     }
-    return(0);
+    closedir(d);
+
+    /* Sort and list the sessions. */
+    qsort(sessions, sessions_len, sizeof(char *), session_compare);
+    for (i = 0; i < sessions_len; i++) {
+	len = snprintf(&pathbuf[sdlen], sizeof(pathbuf) - sdlen,
+	    "%s/log", sessions[i]);
+	if (len <= 0 || len >= sizeof(pathbuf) - sdlen) {
+	    errno = ENAMETOOLONG;
+	    error(1, "%s/%s/log", dir, sessions[i]);
+	}
+	efree(sessions[i]);
+
+	/* Check for dir with a log file. */
+	if (lstat(pathbuf, &sb) == 0 && S_ISREG(sb.st_mode)) {
+	    list_session(pathbuf, re, user, tty);
+	} else {
+	    /* Strip off "/log" and recurse if a dir. */
+	    pathbuf[sdlen + len - 4] = '\0';
+	    if (checked_type || (lstat(pathbuf, &sb) == 0 && S_ISDIR(sb.st_mode)))
+		find_sessions(pathbuf, re, user, tty);
+	}
+    }
+    efree(sessions);
+
+    return 0;
 }
 
 static int
@@ -758,18 +1040,10 @@ list_sessions(argc, argv, pattern, user, tty)
     const char *user;
     const char *tty;
 {
-    DIR *d1, *d2;
-    struct dirent *dp1, *dp2;
     REGEX_T rebuf, *re = NULL;
-    size_t sdlen;
-    char pathbuf[PATH_MAX];
 
     /* Parse search expression if present */
     parse_expr(&search_expr, argv);
-
-    d1 = opendir(session_dir);
-    if (d1 == NULL)
-	error(1, "unable to open %s", session_dir);
 
 #ifdef HAVE_REGCOMP
     /* optional regex */
@@ -782,44 +1056,7 @@ list_sessions(argc, argv, pattern, user, tty)
     re = (char *) pattern;
 #endif /* HAVE_REGCOMP */
 
-    sdlen = strlcpy(pathbuf, session_dir, sizeof(pathbuf));
-    if (sdlen + sizeof("/00/00/00/log") >= sizeof(pathbuf)) {
-	errno = ENAMETOOLONG;
-	error(1, "%s/00/00/00/log", session_dir);
-    }
-
-    /*
-     * Three levels of directory, e.g. 00/00/00 .. ZZ/ZZ/ZZ
-     * We do a depth-first traversal.
-     */
-    while ((dp1 = readdir(d1)) != NULL) {
-	if (NAMLEN(dp1) != 2 || !isalnum((unsigned char)dp1->d_name[0]) ||
-	    !isalnum((unsigned char)dp1->d_name[1]))
-	    continue;
-
-	pathbuf[sdlen + 0] = '/';
-	pathbuf[sdlen + 1] = dp1->d_name[0];
-	pathbuf[sdlen + 2] = dp1->d_name[1];
-	pathbuf[sdlen + 3] = '\0';
-	d2 = opendir(pathbuf);
-	if (d2 == NULL)
-	    continue;
-
-	while ((dp2 = readdir(d2)) != NULL) {
-	    if (NAMLEN(dp2) != 2 || !isalnum((unsigned char)dp2->d_name[0]) ||
-		!isalnum((unsigned char)dp2->d_name[1]))
-		continue;
-
-	    pathbuf[sdlen + 3] = '/';
-	    pathbuf[sdlen + 4] = dp2->d_name[0];
-	    pathbuf[sdlen + 5] = dp2->d_name[1];
-	    pathbuf[sdlen + 6] = '\0';
-	    list_session_dir(pathbuf, re, user, tty);
-	}
-	closedir(d2);
-    }
-    closedir(d1);
-    return(0);
+    return find_sessions(session_dir, re, user, tty);
 }
 
 /*
@@ -837,7 +1074,7 @@ check_input(ttyfd, speed)
     char ch;
     ssize_t n;
 
-    fdsr = (fd_set *)emalloc2(howmany(ttyfd + 1, NFDBITS), sizeof(fd_mask));
+    fdsr = ecalloc(howmany(ttyfd + 1, NFDBITS), sizeof(fd_mask));
 
     for (;;) {
 	FD_SET(ttyfd, fdsr);
@@ -934,21 +1171,39 @@ bad:
 }
 
 static void
-usage()
+usage(fatal)
+    int fatal;
 {
-    fprintf(stderr,
-	"usage: %s [-d directory] [-m max_wait] [-s speed_factor] ID\n",
+    fprintf(fatal ? stderr : stdout,
+	"usage: %s [-h] [-d directory] [-f filter] [-m max_wait] [-s speed_factor] ID\n",
 	getprogname());
-    fprintf(stderr,
-	"usage: %s [-d directory] -l [search expression]\n",
+    fprintf(fatal ? stderr : stdout,
+	"usage: %s [-h] [-d directory] -l [search expression]\n",
 	getprogname());
-    exit(1);
+    if (fatal)
+	exit(1);
+}
+
+static void
+help()
+{
+    (void) printf("%s - replay sudo session logs\n\n", getprogname());
+    usage(0);
+    (void) puts("\nOptions:");
+    (void) puts("  -d directory     specify directory for session logs");
+    (void) puts("  -f filter        specify which I/O type to display");
+    (void) puts("  -h               display help message and exit");
+    (void) puts("  -l [expression]  list available session IDs that match expression");
+    (void) puts("  -m max_wait      max number of seconds to wait between events");
+    (void) puts("  -s speed_factor  speed up or slow down output");
+    (void) puts("  -V               display version information and exit");
+    exit(0);
 }
 
 /*
  * Cleanup hook for error()/errorx()
   */
-void
+RETSIGTYPE
 cleanup(signo)
     int signo;
 {

@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * keychain_utilities.c
@@ -85,7 +85,7 @@ keychain_open(const char *name)
 			kSecPreferencesDomainDynamic, &dynamic);
 		if (result)
 		{
-			sec_error("SecKeychainCopyDomainSearchList %s: %s", 
+			sec_error("SecKeychainCopyDomainSearchList %s: %s",
 				name, sec_errstr(result));
 			return NULL;
 		}
@@ -103,7 +103,7 @@ keychain_open(const char *name)
 				result = SecKeychainGetPath(keychain, &ioPathLength, pathName);
 				if (result)
 				{
-					sec_error("SecKeychainGetPath %s: %s", 
+					sec_error("SecKeychainGetPath %s: %s",
 						name, sec_errstr(result));
 					return NULL;
 				}
@@ -157,7 +157,7 @@ parse_fourcharcode(const char *name, UInt32 *code)
 {
 	UInt32 cc = 0;
 	int len = (name) ? strlen(name) : 0;
-	
+
 	// error check the name
 	if (len != 4)
 	{
@@ -167,15 +167,15 @@ parse_fourcharcode(const char *name, UInt32 *code)
 		}
 		return 1;
 	}
-	
+
 	int i;
 	for (i = 0; i < 4; ++i)
 	{
 		cc = (cc << 8) | name[i];
 	}
-	
+
 	*code = cc; // note: this is in host byte order, suitable for passing to APIs
-	
+
 	return 0;
 }
 
@@ -275,7 +275,7 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 			goto loser;
 		}
 
-		fprintf(stream, "    entry %lu:\n        authorizations (%lu):", aclix, 
+		fprintf(stream, "    entry %lu:\n        authorizations (%lu):", aclix,
 			(unsigned long)tagCount);
 		for (tagix = 0; tagix < tagCount; ++tagix)
 		{
@@ -483,7 +483,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 	buffer[2] = (itemClass >> 8) & 0xFF;
 	buffer[1] = (itemClass >> 16) & 0xFF;
 	buffer[0] = (itemClass >> 24) & 0xFF;
-	
+
 	print_buffer(stream, 4, buffer);
 	fputs("\nattributes:\n", stream);
 
@@ -495,7 +495,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
     case kSecGenericPasswordItemClass:
 		itemID = CSSM_DL_DB_RECORD_GENERIC_PASSWORD;
 		break;
-    case kSecAppleSharePasswordItemClass:
+    case 'ashp': /* kSecAppleSharePasswordItemClass */
 		itemID = CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD;
 		break;
 	default:
@@ -548,28 +548,28 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		case CSSM_DB_ATTRIBUTE_FORMAT_STRING:
 			fputs("<string>", stream);
 			break;
-		case CSSM_DB_ATTRIBUTE_FORMAT_SINT32: 
+		case CSSM_DB_ATTRIBUTE_FORMAT_SINT32:
 			fputs("<sint32>", stream);
 			break;
-		case CSSM_DB_ATTRIBUTE_FORMAT_UINT32: 
+		case CSSM_DB_ATTRIBUTE_FORMAT_UINT32:
 			fputs("<uint32>", stream);
 			break;
-		case CSSM_DB_ATTRIBUTE_FORMAT_BIG_NUM: 
+		case CSSM_DB_ATTRIBUTE_FORMAT_BIG_NUM:
 			fputs("<bignum>", stream);
 			break;
-		case CSSM_DB_ATTRIBUTE_FORMAT_REAL: 
+		case CSSM_DB_ATTRIBUTE_FORMAT_REAL:
 			fputs("<real>", stream);
 			break;
-		case CSSM_DB_ATTRIBUTE_FORMAT_TIME_DATE: 
+		case CSSM_DB_ATTRIBUTE_FORMAT_TIME_DATE:
 			fputs("<timedate>", stream);
 			break;
-		case CSSM_DB_ATTRIBUTE_FORMAT_BLOB: 
+		case CSSM_DB_ATTRIBUTE_FORMAT_BLOB:
 			fputs("<blob>", stream);
 			break;
-		case CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32: 
+		case CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32:
 			fputs("<uint32>", stream);
 			break;
-		case CSSM_DB_ATTRIBUTE_FORMAT_COMPLEX: 
+		case CSSM_DB_ATTRIBUTE_FORMAT_COMPLEX:
 			fputs("<complex>", stream);
 			break;
 		default:
@@ -582,25 +582,25 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		else
 		{	switch (format)
 			{
-				case CSSM_DB_ATTRIBUTE_FORMAT_SINT32: 
+				case CSSM_DB_ATTRIBUTE_FORMAT_SINT32:
 				case CSSM_DB_ATTRIBUTE_FORMAT_UINT32:
 				{
 					print_uint32(stream, *(UInt32*) attribute->data);
 					break;
 				}
-				
+
 				case CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32:
 				{
 					int n = attribute->length / sizeof(UInt32);
 					UInt32* ptr = (UInt32*) attribute->data;
-					
+
 					while (n--)
 					{
 						print_uint32(stream, *ptr++);
 					}
 				}
 				break;
-				
+
 				default:
 				{
 					print_buffer(stream, attribute->length, attribute->data);
@@ -668,7 +668,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 				result = 1;
 				goto loser;
 			}
-	
+
 			result = print_access(stream, access, interactive);
 			if (result)
 				goto loser;
@@ -900,7 +900,7 @@ malloc_enc64_with_lines(const unsigned char *inbuf,
 
 	/*
 	 * Total output size = encoded text size plus one newline per
-	 * line of output, plus trailing NULL. We always generate newlines 
+	 * line of output, plus trailing NULL. We always generate newlines
 	 * as \n; when decoding, we tolerate \r\n (Microsoft) or \n.
 	 */
 	len = outTextLen + (2 * numLines) + 1;

@@ -27,13 +27,12 @@
 #define HTMLSourceElement_h
 
 #if ENABLE(VIDEO)
-
 #include "HTMLElement.h"
 #include "Timer.h"
 
 namespace WebCore {
 
-class HTMLSourceElement : public HTMLElement {
+class HTMLSourceElement FINAL : public HTMLElement {
 public:
     static PassRefPtr<HTMLSourceElement> create(const QualifiedName&, Document*);
 
@@ -49,9 +48,9 @@ public:
 private:
     HTMLSourceElement(const QualifiedName&, Document*);
     
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void removedFrom(Node*) OVERRIDE;
-    virtual bool isURLAttribute(Attribute*) const;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
 
     void errorEventTimerFired(Timer<HTMLSourceElement>*);
 

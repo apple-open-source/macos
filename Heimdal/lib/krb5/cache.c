@@ -518,9 +518,20 @@ krb5_cc_set_default_name(krb5_context context, const char *name)
 		krb5_principal client;
 		krb5_ccache id;
 
-		ret = krb5_parse_name(context, e, &client);
-		if (ret)
-		    return ret;
+		if (e[0] == '@') {
+		    client = calloc(1, sizeof(*client));
+		    if (client == NULL)
+			return krb5_enomem(context);
+		    client->realm = strdup(&e[1]);
+		    if (client->realm == NULL) {
+			free(client);
+			return krb5_enomem(context);
+		    }
+		} else {
+		    ret = krb5_parse_name(context, e, &client);
+		    if (ret)
+			return ret;
+		}
 
 		ret = krb5_cc_cache_match(context, client, &id);
 		if (ret == 0) {
@@ -965,7 +976,7 @@ krb5_cc_copy_match_f(krb5_context context,
     }
 
     while ((ret = krb5_cc_next_cred(context, from, &cursor, &cred)) == 0) {
-	   if (match == NULL || (*match)(context, matchctx, &cred) == 0) {
+	   if (match == NULL || (*match)(context, matchctx, &cred)) {
 	       if (matched)
 		   (*matched)++;
 	       ret = krb5_cc_store_cred(context, to, &cred);
@@ -1178,6 +1189,10 @@ krb5_cc_cache_end_seq_get (krb5_context context,
  * `principal' as the default principal. On success, `id' needs to be
  * freed with krb5_cc_close() or krb5_cc_destroy().
  *
+ * If the input principal have 0 name_string, the code will only
+ * compare the realm (and ignore the name_strings of the pricipal in
+ * the cache).
+ *
  * @param context A Kerberos 5 context
  * @param client The principal to search for
  * @param id the returned credential cache
@@ -1196,6 +1211,7 @@ krb5_cc_cache_match (krb5_context context,
     krb5_cccol_cursor cursor;
     krb5_error_code ret;
     krb5_ccache cache = NULL;
+    krb5_ccache expired_match = NULL;
 
     *id = NULL;
 
@@ -1203,26 +1219,46 @@ krb5_cc_cache_match (krb5_context context,
     if (ret)
 	return ret;
 
-    while (krb5_cccol_cursor_next (context, cursor, &cache) == 0 && cache != NULL) {
+    while (krb5_cccol_cursor_next(context, cursor, &cache) == 0 && cache != NULL) {
 	krb5_principal principal;
+	krb5_boolean match;
+	time_t lifetime;
 
 	ret = krb5_cc_get_principal(context, cache, &principal);
-	if (ret == 0) {
-	    krb5_boolean match;
+	if (ret)
+	    goto next;
 
+	if (client->name.name_string.len == 0)
+	    match = (strcmp(client->realm, principal->realm) == 0);
+	else
 	    match = krb5_principal_compare(context, principal, client);
-	    krb5_free_principal(context, principal);
-	    if (match)
-		break;
-	}
+	krb5_free_principal(context, principal);
+	
+	if (!match)
+	    goto next;
 
-	krb5_cc_close(context, cache);
+	if (expired_match == NULL &&
+	    (krb5_cc_get_lifetime(context, cache, &lifetime) != 0 || lifetime == 0)) {
+	    expired_match = cache;
+	    cache = NULL;
+	    goto next;
+	}
+	break;
+
+    next:
+        if (cache)
+	    krb5_cc_close(context, cache);
 	cache = NULL;
     }
 
     krb5_cccol_cursor_free(context, &cursor);
 
-    if (cache == NULL) {
+    if (cache == NULL && expired_match) {
+	cache = expired_match;
+	expired_match = NULL;
+    } else if (expired_match) {
+	krb5_cc_close(context, expired_match);
+    } else if (cache == NULL) {
 	char *str;
 
 	krb5_unparse_name(context, client, &str);
@@ -1235,6 +1271,7 @@ krb5_cc_cache_match (krb5_context context,
 	    free(str);
 	return KRB5_CC_NOTFOUND;
     }
+
     *id = cache;
 
     return 0;
@@ -1368,9 +1405,9 @@ krb5_cc_set_config(krb5_context context, krb5_ccache id,
         goto out;
 
     if (data) {
-	/* not that anyone care when this expire */
-	cred.times.authtime = time(NULL);
-	cred.times.endtime = cred.times.authtime + 3600 * 24 * 30;
+	/* make sure expiration time is not past now */
+	cred.times.authtime = time(NULL) - 10;
+	cred.times.endtime = cred.times.authtime;
 
 	ret = krb5_data_copy(&cred.ticket, data->data, data->length);
 	if (ret)
@@ -1697,6 +1734,8 @@ krb5_cc_set_friendly_name(krb5_context context,
 /**
  * Get the aproximate lifetime of credential cache
  *
+ * Time t is always set to a known value, in case of an error, its set to 0.
+ *
  * @param context A Kerberos 5 context.
  * @param id a credential cache.
  * @param t the relative lifetime of cache.
@@ -1725,11 +1764,18 @@ krb5_cc_get_lifetime(krb5_context context, krb5_ccache id, time_t *t)
 	/**
 	 * If we find a krbtgt in the cache, use that as the lifespan.
 	 */
-	if (krb5_principal_is_root_krbtgt(context, cred.client)) {
+	if (krb5_principal_is_root_krbtgt(context, cred.server)) {
 	    if (now < cred.times.endtime)
 		endtime = cred.times.endtime;
 	    krb5_free_cred_contents(context, &cred);
 	    break;
+	}
+	/*
+	 * Skip config entries
+	 */
+	if (krb5_is_config_principal(context, cred.server)) {
+	    krb5_free_cred_contents(context, &cred);
+	    continue;
 	}
 	/**
 	 * If there was no krbtgt, use the shortest lifetime of
@@ -1770,7 +1816,7 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_set_kdc_offset(krb5_context context, krb5_ccache id, krb5_deltat offset)
 {
     if (id->ops->set_kdc_offset == NULL) {
-	context->kdc_sec_offset = offset;
+	context->kdc_sec_offset = (int)offset;
 	context->kdc_usec_offset = 0;
 	return 0;
     }
@@ -1863,6 +1909,14 @@ krb5_cc_resolve_by_uuid(krb5_context context, const char *type,
 	*id = NULL;
     }
     return ret;
+}
+
+krb5_error_code
+krb5_cc_set_acl(krb5_context context, krb5_ccache id, const char *type, void *ptr)
+{
+    if (id->ops->set_acl)
+	return id->ops->set_acl(context, id, type, ptr);
+    return 0;
 }
 
 #ifdef _WIN32

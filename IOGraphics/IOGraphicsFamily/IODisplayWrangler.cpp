@@ -476,6 +476,7 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
 			if (annoyedInterval > kMaxAnnoyanceInterval) annoyedInterval = kMaxAnnoyanceInterval;
 			if (annoyedInterval < (fMinutesToDim * 60))  annoyedInterval = (fMinutesToDim * 60);
 			clock_interval_to_absolutetime_interval(annoyedInterval, kSecondScale, &fOffInterval[1]);
+			AbsoluteTime_to_scalar(&fSettingsChanged) = mach_absolute_time();
 
 			DEBG2("W", " fMinutesToDim %ld, annoyed %d\n", newLevel, annoyedInterval);
         }
@@ -580,6 +581,8 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
         enum { kWindowServerStartTime = 24 * 60 * 60 };
         return (kWindowServerStartTime);
     }
+
+	if (CMP_ABSOLUTETIME(&fSettingsChanged, &lastActivity) > 0) lastActivity = fSettingsChanged;
 
     switch (fPendingPowerState) 
     {

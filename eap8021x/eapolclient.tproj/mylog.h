@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,18 +32,9 @@
 #define _S_MYLOG_H
 
 #include <stdio.h>
-#include <syslog.h>
 #include <sys/types.h>
 #include <stdbool.h>
-
-void
-my_log(int priority, const char *message, ...);
-
-void
-my_log_set_verbose(bool verbose);
-
-void
-timestamp_fprintf(FILE * f, const char * message, ...);
+#include "EAPLog.h"
 
 /**
  ** eapolclient logging
@@ -55,23 +45,22 @@ enum {
     kLogFlagStatus		= 0x00000004,
     kLogFlagTunables		= 0x00000008,
     kLogFlagPacketDetails 	= 0x00000010,
-    kLogFlagIncludeStdoutStderr	= 0x80000000
+    kLogFlagDisableInnerDetails	= 0x00001000, /* e.g. LogFlags 0xffffefff */
+
 };
 
-void
-eapolclient_log_set(FILE * log_file, uint32_t log_flags);
+uint32_t
+eapolclient_log_flags(void);
 
-FILE *
-eapolclient_log_file(void);
+void
+eapolclient_log_set_flags(uint32_t log_flags, bool log_it);
 
 bool
 eapolclient_should_log(uint32_t flags);
 
-void
-eapolclient_log(uint32_t flags, const char * message, ...);
-
-void
-eapolclient_log_plist(uint32_t flags, CFPropertyListRef plist);
+#define eapolclient_log(__flags, __format, ...)			\
+    if (eapolclient_should_log(__flags))			\
+	EAPLog(LOG_DEBUG, CFSTR(__format), ## __VA_ARGS__)
 
 #endif /* _S_MYLOG_H */
 

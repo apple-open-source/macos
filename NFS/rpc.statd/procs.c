@@ -74,6 +74,8 @@ static const char rcsid[] = "$FreeBSD$";
 
 #include "statd.h"
 
+#define AOK	(void *)	// assert alignment is OK
+
 static char *
 addrstr(struct sockaddr *saddr)
 {
@@ -451,11 +453,11 @@ sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 			struct hostent *he;
 
 			if (claddr->sa_family == AF_INET) {
-				sinaddr = &((struct sockaddr_in*)claddr)->sin_addr;
-				sinlen = sizeof(((struct sockaddr_in*)claddr)->sin_addr);
+				sinaddr = &((struct sockaddr_in*) AOK claddr)->sin_addr;
+				sinlen = sizeof(((struct sockaddr_in*) AOK claddr)->sin_addr);
 			} else {
-				sinaddr = &((struct sockaddr_in6*)claddr)->sin6_addr;
-				sinlen = sizeof(((struct sockaddr_in6*)claddr)->sin6_addr);
+				sinaddr = &((struct sockaddr_in6*) AOK claddr)->sin6_addr;
+				sinlen = sizeof(((struct sockaddr_in6*) AOK claddr)->sin6_addr);
 			}
 			he = gethostbyaddr(sinaddr, sinlen, claddr->sa_family);
 			if (he) {

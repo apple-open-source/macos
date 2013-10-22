@@ -112,9 +112,11 @@ int
 CDDA_Mount ( mount_t					mountPtr,
 			 vnode_t					blockDeviceVNodePtr,
 			 user_addr_t				data,
-			 __unused vfs_context_t		context )
+			 vfs_context_t              context )
 {
-	
+
+#pragma unused ( context )
+    
 	AppleCDDAMountPtr		cddaMountPtr	= NULL;
 	AppleCDDANodePtr		cddaNodePtr		= NULL;
 	void *					xmlData			= NULL;

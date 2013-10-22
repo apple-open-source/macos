@@ -37,23 +37,24 @@
 
 namespace WebCore {
 class HTTPHeaderMap;
-class HTTPRequest;
 class SocketStreamHandle;
 }
 
 namespace WebKit {
 
+class HTTPRequest;
 class WebSocketServer;
 class WebSocketServerClient;
 
 class WebSocketServerConnection : public WebCore::SocketStreamHandleClient {
 public:
     enum WebSocketServerMode { HTTP, WebSocket };
-    WebSocketServerConnection(PassRefPtr<WebCore::SocketStreamHandle>, WebSocketServerClient*, WebSocketServer*);
+    WebSocketServerConnection(WebSocketServerClient*, WebSocketServer*);
     virtual ~WebSocketServerConnection();
 
     unsigned identifier() const { return m_identifier; }
     void setIdentifier(unsigned id) { m_identifier = id; }
+    void setSocketHandle(PassRefPtr<WebCore::SocketStreamHandle>);
 
     // Sending data over the connection.
     void sendWebSocketMessage(const String& message);
@@ -67,6 +68,7 @@ public:
     // SocketStreamHandleClient implementation.
     virtual void didCloseSocketStream(WebCore::SocketStreamHandle*);
     virtual void didReceiveSocketStreamData(WebCore::SocketStreamHandle*, const char* data, int length);
+    virtual void didUpdateBufferedAmount(WebCore::SocketStreamHandle*, size_t bufferedAmount);
     virtual void didFailSocketStream(WebCore::SocketStreamHandle*, const WebCore::SocketStreamError&);
 
 private:
@@ -74,7 +76,7 @@ private:
     void readHTTPMessage();
 
     // WebSocket Mode.
-    void upgradeToWebSocketServerConnection(PassRefPtr<WebCore::HTTPRequest>);
+    void upgradeToWebSocketServerConnection(PassRefPtr<HTTPRequest>);
     void readWebSocketFrames();
     bool readWebSocketFrame();
 
@@ -85,6 +87,7 @@ protected:
     RefPtr<WebCore::SocketStreamHandle> m_socket;
     WebSocketServer* m_server;
     WebSocketServerClient* m_client;
+    bool m_shutdownAfterSend;
 };
 
 }

@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,22 +46,30 @@
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_dev.h>
 #include <netsmb/md4.h>
+#include <netsmb/smb_packets_2.h>
 
 #include <smbfs/smbfs_subr.h>
 #include <netsmb/smb_converter.h>
 
 #include <crypto/des.h>
+#include <corecrypto/cchmac.h>
+#include <corecrypto/ccsha2.h>
 
 
 #define SMBSIGLEN (8)
 #define SMBSIGOFF (14)
 #define SMBPASTSIG (SMBSIGOFF + SMBSIGLEN)
 #define SMBFUDGESIGN 4
+
+/* SMB2 Signing defines */
+#define SMB2SIGLEN (16)
+#define SMB2SIGOFF (48)
 
 #ifdef SMB_DEBUG
 /* Need to build with SMB_DEBUG if you what to turn this on */
@@ -345,4 +353,305 @@ smb_rq_verify(struct smb_rq *rqp)
 	}
 	
 	return (EAUTH);
+}
+
+/*
+ * SMB2 Sign a single request with HMCA-SHA256
+ */
+static void smb2_sign(struct smb_rq *rqp)
+{
+    struct smb_vc *vcp = rqp->sr_vc;
+    struct mbchain *mbp;
+    mbuf_t mb;
+    const struct ccdigest_info *di = ccsha256_di();
+    u_char *mac;
+    
+    if (rqp->sr_rqsig == NULL) {
+        SMBDEBUG("sr_rqsig was never allocated.\n");
+        return;
+    }
+    
+    if (di == NULL) {
+        SMBERROR("ccsha256_di returned NULL digest_info\n");
+        return;
+    }
+    
+    /* make sure ccdigest_info size is reasonable (sha256 output len is 32 bytes) */
+    if (di->output_size > 64) {
+        SMBERROR("Unreasonable output size %lu\n", di->output_size);
+        return;
+    }
+    
+    SMB_MALLOC(mac, u_char *, di->output_size, M_SMBTEMP, M_WAITOK);
+    if (mac == NULL) {
+        SMBERROR("Out of memory\n");
+        return;
+    }
+    
+    bzero(mac, di->output_size);
+    
+    /* Initialize 16-byte security signature field to all zeros. */
+    bzero(rqp->sr_rqsig, SMB2SIGLEN);
+    
+    /* Set flag to indicate this PDU is signed */
+    *rqp->sr_flagsp |= htolel(SMB2_FLAGS_SIGNED);
+    
+    smb_rq_getrequest(rqp, &mbp);
+    cchmac_di_decl(di, hc);
+    cchmac_init(di, hc, vcp->vc_mackeylen, vcp->vc_mackey);
+    
+    for (mb = mbp->mb_top; mb != NULL; mb = mbuf_next(mb))
+        cchmac_update(di, hc, mbuf_len(mb), mbuf_data(mb));
+    cchmac_final(di, hc, mac);
+    
+    // Copy first 16 bytes of the HMAC hash into the signature field
+    bcopy(mac, rqp->sr_rqsig, SMB2SIGLEN);
+    
+    SMB_FREE(mac, M_SMBTEMP);
+}
+
+/*
+ * SMB2 Sign request or compound chain with HMAC-SHA256
+ */
+int
+smb2_rq_sign(struct smb_rq *rqp)
+{
+	struct smb_vc *vcp;
+    struct smb_rq *this_rqp;
+    
+    if (rqp == NULL) {
+        SMBDEBUG("Called with NULL rqp\n");
+        return (EINVAL);
+    }
+
+    vcp = rqp->sr_vc;
+    
+    if (vcp == NULL) {
+        SMBERROR("vcp is NULL\n");
+        return  (EINVAL);
+    }
+    
+    /* Is signing required for the command? */
+    if ((rqp->sr_command == SMB2_SESSION_SETUP) || (rqp->sr_command == SMB2_OPLOCK_BREAK)) {
+        return (0);
+    }
+
+    /* Do we have a session key? */
+    if (vcp->vc_mackey == NULL) {
+        SMBDEBUG("No session key for signing.\n");
+        return (0);
+    }
+
+    this_rqp = rqp;
+    while (this_rqp != NULL) {
+        smb2_sign(this_rqp);
+        this_rqp = this_rqp->sr_next_rqp;
+    }
+     
+    return (0);
+}
+
+/*
+ * SMB2 Verify a reply with HMCA-SHA256
+ */
+static int smb2_verify(struct smb_rq *rqp, struct mdchain *mdp, uint32_t nextCmdOffset, uint8_t *signature)
+{
+    struct smb_vc *vcp = rqp->sr_vc;
+    mbuf_t mb, mb_temp;
+    size_t mb_off, remaining, mb_len, sign_len, mb_total_len;
+    u_char zero_buf[SMB2SIGLEN];
+    int result;
+    const struct ccdigest_info *di = ccsha256_di();
+    u_char *mac;
+    
+    if (vcp == NULL) {
+        SMBERROR("vcp is NULL\n");
+        return  (EINVAL);
+    }
+    
+    if (di == NULL) {
+        SMBERROR("NULL digest from sha256_di\n");
+        return (EINVAL);
+    }
+    
+    /* make sure ccdigest_info size is reasonable (sha256 output len is 32 bytes) */
+    if (di->output_size > 64) {
+        SMBERROR("Unreasonable output size %lu\n", di->output_size);
+        return (EINVAL);
+    }
+    
+    SMB_MALLOC(mac, u_char *, di->output_size, M_SMBTEMP, M_WAITOK);
+    if (mac == NULL) {
+        SMBERROR("Out of memory\n");
+        return (ENOMEM);
+    }
+    
+    mb = mdp->md_cur;
+    mb_len = (size_t)mbuf_data(mb) + mbuf_len(mb) - (size_t)mdp->md_pos;
+    mb_total_len = mbuf_len(mb);
+    mb_off = mbuf_len(mb) - mb_len;
+    
+    /* sanity checks */
+    if (mb_len < SMB2_HDRLEN) {
+        SMBDEBUG("mbuf not pulled up for SMB2 header, mbuf_len: %lu\n", mbuf_len(mb));
+        SMB_FREE(mac, M_SMBTEMP);
+        return (EBADRPC);
+    }
+    if (mb_off > mb_total_len) {
+        SMBDEBUG("mb_off: %lu past end of mbuf, mbuf_len: %lu\n", mb_off, mb_total_len);
+        SMB_FREE(mac, M_SMBTEMP);
+        return (EBADRPC);
+    }
+    
+    remaining = nextCmdOffset;
+    if (!remaining) {
+        /*
+         * We don't know the length of the reply because it's
+         * not a compound reply, or the end of a compound reply.
+         * So calculate total length of this reply.
+         */
+        remaining = mb_len; /* length in first mbuf */
+        mb_temp = mbuf_next(mb);
+        while (mb_temp) {
+            remaining += mbuf_len(mb_temp);
+            mb_temp = mbuf_next(mb_temp);
+        }
+    }
+    
+    /* sanity check */
+    if (remaining < SMB2_HDRLEN) {
+        /* should never happen, but we have to be very careful */
+        SMBDEBUG("reply length: %lu too short\n", remaining);
+        SMB_FREE(mac, M_SMBTEMP);
+        return (EBADRPC);
+    }
+    
+    bzero(zero_buf, SMB2SIGLEN);
+    bzero(mac, di->output_size);
+    cchmac_di_decl(di, hc);
+    cchmac_init(di, hc, vcp->vc_mackeylen, vcp->vc_mackey);
+    
+    /* sanity check */
+    if (mb_len < SMB2SIGOFF) {
+        /* mb_len would go negative when decremented below */
+        SMBDEBUG("mb_len exhausted: mb_len: %lu SMB2SIGOFF: %u\n", mb_len, (uint32_t)SMB2SIGOFF);
+        SMB_FREE(mac, M_SMBTEMP);
+        return (EBADRPC);
+    }
+    
+    /* Sign the first 48 bytes of the reply (up to the signature field) */
+    cchmac_update(di, hc, SMB2SIGOFF, (uint8_t *)mbuf_data(mb) + mb_off);
+    mb_off += SMB2SIGOFF;
+    mb_len -= SMB2SIGOFF;
+    remaining -= SMB2SIGOFF;
+    
+    /* sanity check */
+    if (mb_off > mb_total_len) {
+        // mb_offset would go past the end of current mbuf, when incremented below */
+        SMBDEBUG("mb_off past end, mb_off: %lu mbub_len: %lu\n", mb_off, mb_total_len);
+        SMB_FREE(mac, M_SMBTEMP);
+        return (EBADRPC);
+    }
+    /* sanity check */
+    if (mb_len < SMB2SIGLEN) {
+        /* mb_len would go negative when decremented below */
+        SMBDEBUG("mb_len exhausted: mb_len: %lu SMB2SIGLEN: %u\n", mb_len, (uint32_t)SMB2SIGLEN);
+        SMB_FREE(mac, M_SMBTEMP);
+        return (EBADRPC);
+    }
+    
+    // Sign 16 zeros
+    cchmac_update(di, hc, SMB2SIGLEN, zero_buf);
+    mb_off += SMB2SIGLEN;
+    mb_len -= SMB2SIGLEN;
+    remaining -= SMB2SIGLEN;
+    
+    /* Sign remainder of this reply */
+    while (remaining) {
+        if (!mb_len) {
+            mb = mbuf_next(mb);
+            if (!mb) {
+                SMBDEBUG("mbuf_next didn't return an mbuf\n");
+                SMB_FREE(mac, M_SMBTEMP);
+                return EBADRPC;
+            }
+            mb_len = mbuf_len(mb);
+            mb_off = 0;
+        }
+        
+        /* Calculate length to sign for this pass */
+        sign_len = remaining;
+        if (sign_len > mb_len) {
+            sign_len = mb_len;
+        }
+        
+        /* Sign it */
+        cchmac_update(di, hc, sign_len, (uint8_t *)mbuf_data(mb) + mb_off);
+
+        mb_off += sign_len;
+        mb_len -= sign_len;
+        remaining -= sign_len;
+    }
+    
+    cchmac_final(di, hc, mac);
+    
+	/*
+	 * Finally, verify the signature.
+	 */
+    result = bcmp(signature, mac, SMB2SIGLEN);
+    SMB_FREE(mac, M_SMBTEMP);
+	return (result);
+}
+
+/*
+ * SMB2 Verify reply signature with HMAC-SHA256
+ */
+int
+smb2_rq_verify(struct smb_rq *rqp, struct mdchain *mdp, uint8_t *signature)
+{
+    struct smb_vc *vcp;
+    uint32_t nextCmdOffset;
+    int err;
+    
+    if (rqp == NULL) {
+        SMBDEBUG("Called with NULL rqp\n");
+        return (EINVAL);
+    }
+    
+    vcp = rqp->sr_vc;
+    
+    if (vcp == NULL) {
+        SMBERROR("NULL vcp\n");
+        return  (0);
+    }
+    nextCmdOffset = rqp->sr_rspnextcmd;
+    
+    if (!(vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE)) {
+		SMBWARNING("signatures not enabled!\n");
+		return (0);
+	}
+    
+    if ((vcp->vc_mackey == NULL) ||
+        ( (rqp->sr_command == SMB2_SESSION_SETUP) && !(rqp->sr_rspflags & SMB2_FLAGS_SIGNED))) {
+        /*
+         * Don't verify signature if we don't have a session key from gssd yet.
+         * Don't verify signature if a SessionSetup reply that hasn't
+         * been signed yet (server only signs the final SessionSetup reply).
+         */
+		return (0);
+    }
+    
+    /* Its an anonymous login, signing is not supported */
+	if ((vcp->vc_flags & SMBV_ANONYMOUS_ACCESS) == SMBV_ANONYMOUS_ACCESS) {
+		return (0);
+    }
+    
+    err = smb2_verify(rqp, mdp, nextCmdOffset, signature);
+    
+    if (err) {
+        SMBDEBUG("Could not verify signature for sr_command %x, msgid: %llu\n", rqp->sr_command, rqp->sr_messageid);
+        err = EAUTH;
+    }
+    
+    return (err);
 }

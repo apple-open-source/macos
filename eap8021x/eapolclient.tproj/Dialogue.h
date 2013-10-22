@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +41,7 @@
 typedef struct {
     CFStringRef		username;
     CFStringRef		password;
+    CFStringRef		new_password;
     Boolean		user_cancelled;
     Boolean		remember_information;
     SecIdentityRef	chosen_identity;
@@ -49,8 +49,8 @@ typedef struct {
 
 typedef void 
 (*CredentialsDialogueResponseCallBack)(const void * arg1, 
-					const void * arg2, 
-					CredentialsDialogueResponseRef data);
+				       const void * arg2, 
+				       CredentialsDialogueResponseRef data);
 
 typedef struct CredentialsDialogue_s CredentialsDialogue, 
     *CredentialsDialogueRef;
@@ -60,6 +60,7 @@ extern const CFStringRef	kCredentialsDialogueAccountName;
 extern const CFStringRef	kCredentialsDialoguePassword;
 extern const CFStringRef	kCredentialsDialogueCertificates;
 extern const CFStringRef	kCredentialsDialogueRememberInformation;
+extern const CFStringRef	kCredentialsDialoguePasswordChangeRequired;
 
 CredentialsDialogueRef
 CredentialsDialogue_create(CredentialsDialogueResponseCallBack func,
@@ -106,8 +107,8 @@ typedef struct AlertDialogue_s AlertDialogue, *AlertDialogueRef;
 
 AlertDialogueRef
 AlertDialogue_create(AlertDialogueResponseCallBack func,
-		     const void * arg1, const void * arg2, 
-		     CFStringRef message);
+		     const void * arg1, const void * arg2,
+		     CFStringRef message, CFStringRef ssid);
 void
 AlertDialogue_free(AlertDialogueRef * dialogue_p_p);
 

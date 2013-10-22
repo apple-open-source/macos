@@ -35,6 +35,7 @@
 #include <sys/param.h>
 
 #include <stdlib.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -57,156 +58,97 @@
 #include <err.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <asl.h>
+#include <syslog.h>
+#include <asl_private.h>
 
 #include "var.h"
 #include "misc.h"
 #include "plog.h"
-#include "logger.h"
 #include "debug.h"
 #include "gcmalloc.h"
+#include "preferences.h"
 
 #ifndef VA_COPY
 # define VA_COPY(dst,src) memcpy(&(dst), (src), sizeof(va_list))
 #endif
 
+const char *plog_facility = "com.apple.racoon";
+const char *plog_session_id = "com.apple.racoon.sessionid";
+const char *plog_session_type = "com.apple.racoon.sessiontype";
+const char *plog_session_ver = "com.apple.racoon.sessionversion";
+
 extern int print_pid;
 
 char *pname = NULL;
-u_int32_t loglevel = LLV_BASE;
+u_int32_t loglevel = ASL_LEVEL_NOTICE;
+//u_int32_t loglevel = ASL_LEVEL_DEBUG;
 int f_foreground = 0;
 
 int print_location = 0;
 
-static struct log *logp = NULL;
-static pthread_mutex_t logp_mtx = {0};
-static char *logfile = NULL;
-
-static char *plog_common __P((int, const char *, const char *));
-
-static struct plogtags {
-	char *name;
-	int priority;
-} ptab[] = {
-	{ "(not defined)",	0, },
-	{ "INFO",		LOG_INFO, },
-	{ "NOTIFY",		LOG_INFO, },
-	{ "WARNING",	LOG_INFO, },
-	{ "ERROR",		LOG_INFO, },
-	{ "ERROR",		LOG_ERR, },
-	{ "DEBUG",		LOG_DEBUG, },
-	{ "DEBUG2",		LOG_DEBUG, },
-};
-
-static char *
-plog_common(pri, fmt, func)
-int pri;
-const char *fmt, *func;
-{
-	static char buf[800];	/* XXX shoule be allocated every time ? */
-	char *p;
-	int reslen, len;
-	
-	p = buf;
-	reslen = sizeof(buf);
-	
-	if (logfile || f_foreground) {
-		time_t t;
-		struct tm *tm;
-		
-		t = time(0);
-		tm = localtime(&t);
-		len = strftime(p, reslen, "%Y-%m-%d %T: ", tm);
-		p += len;
-		reslen -= len;
-	}
-	
-	if (pri < ARRAYLEN(ptab)) {
-		if (print_pid)
-			len = snprintf(p, reslen, "[%d] %s: ", getpid(), ptab[pri].name);
-		else
-			len = snprintf(p, reslen, "%s: ", ptab[pri].name);			
-		if (len >= 0 && len < reslen) {
-			p += len;
-			reslen -= len;
-		} else
-			*p = '\0';
-	}
-	
-	if (print_location)
-		snprintf(p, reslen, "%s: %s", func, fmt);
-	else
-		snprintf(p, reslen, "%s", fmt);
-#ifdef BROKEN_PRINTF
-    while ((p = strstr(buf,"%z")) != NULL)
-		p[1] = 'l';
-#endif
-	
-	return buf;
-}
+char *logfile = NULL;
+int logfile_fd = -1;
+char  logFileStr[MAXPATHLEN+1];
+char *gSessId = NULL;
+char *gSessType = NULL;
+char *gSessVer = NULL;
+aslclient logRef = NULL;
 
 void
-plogmtxinit (void)
+plogdump_asl (aslmsg msg, int pri, const char *fmt, ...)
 {
-	pthread_mutexattr_t attrs;
-	pthread_mutexattr_init(&attrs);
-	pthread_mutexattr_settype(&attrs, PTHREAD_MUTEX_RECURSIVE);
-	pthread_mutex_init(&logp_mtx, &attrs);
-	pthread_mutexattr_destroy(&attrs);
-}
+	caddr_t buf;
+	size_t buflen = 512;
+    va_list	args;
+	char   *level;
 
-void
-plog_func(int pri, const char *func, struct sockaddr_storage *sa, const char *fmt, ...)
-{
-	va_list ap;
+	switch (pri) {
+	case ASL_LEVEL_INFO:
+		level = ASL_STRING_INFO;
+		break;
 
-	va_start(ap, fmt);
-	plogv(pri, func, sa, fmt, &ap);
-	va_end(ap);
-}
+	case ASL_LEVEL_NOTICE:
+		level = ASL_STRING_NOTICE;
+		break;
 
-void
-plogv(int pri, const char *func, struct sockaddr_storage *sa,
-	  const char *fmt, va_list *ap)
-{
-	char *newfmt;
-	va_list ap_bak;
-	
-	if (pri > loglevel)
+	case ASL_LEVEL_WARNING:
+		level = ASL_STRING_WARNING;
+		break;
+
+	case ASL_LEVEL_ERR:
+		level = ASL_STRING_ERR;
+		break;
+
+	case ASL_LEVEL_DEBUG:
+		level = ASL_STRING_DEBUG;
+		break;
+
+	default:
 		return;
-
-	pthread_mutex_lock(&logp_mtx);
-
-	newfmt = plog_common(pri, fmt, func);
-	
-	VA_COPY(ap_bak, ap);
-	
-	if (f_foreground)
-		vprintf(newfmt, *ap);
-	
-	
-	if (logfile) {
-		log_vaprint(logp, newfmt, ap_bak);
-	} else {
-		if (pri < ARRAYLEN(ptab))
-			vsyslog(ptab[pri].priority, newfmt, ap_bak);
-		else
-			vsyslog(LOG_ALERT, newfmt, ap_bak);
 	}
-	pthread_mutex_unlock(&logp_mtx);
+
+	asl_set(msg, ASL_KEY_LEVEL, level);
+
+	buf = racoon_malloc(buflen);
+	if (buf) {
+		buf[0] = '\0';
+		va_start(args, fmt);
+		vsnprintf(buf, buflen, fmt, args);
+//		asl_set(msg, ASL_KEY_MESSAGE, buf);
+		va_end(args);
+		racoon_free(buf);
+	}
 }
 
 void
-plogdump(pri, data, len)
-	int pri;
-	void *data;
-	size_t len;
+plogdump_func(int pri, void *data, size_t len, const char *fmt, ...)
 {
 	caddr_t buf;
 	size_t buflen;
 	int i, j;
-
-	if (pri > loglevel)
-		return;
+    va_list	args;
+	char fmt_buf[512];
 
 	/*
 	 * 2 words a bytes + 1 space 4 bytes + 1 newline 32 bytes
@@ -232,94 +174,301 @@ plogdump(pri, data, len)
 		buf[i++] = '\n';
 		buf[i] = '\0';
 	}
-	plog_func(pri, LOCATION, NULL, "%s", buf);
+
+	fmt_buf[0] = '\n';
+	va_start(args, fmt);
+	vsnprintf(fmt_buf, sizeof(fmt_buf), fmt, args);
+	va_end(args);
+
+	plog(pri, "%s %s", fmt_buf, buf);
 
 	racoon_free(buf);
 }
 
 void
-ploginit()
+clog_func (clog_err_t *cerr, clog_err_op_t cerr_op, int pri, const char *function, const char *line, const char *fmt, ...)
 {
-	pthread_mutex_lock(&logp_mtx);
+	clog_err_t *new, *p;
+    va_list	args;
 
-	if (logfile) {
-		logp = log_open(250, logfile);
-		if (logp == NULL)
-			errx(1, "ERROR: failed to open log file %s.", logfile);
-		pthread_mutex_unlock(&logp_mtx);
+	if (!cerr) {
 		return;
 	}
-			
-	openlog(pname, LOG_NDELAY, LOG_DAEMON);
 
-	pthread_mutex_unlock(&logp_mtx);
+	if (!(new = racoon_calloc(1, sizeof(*cerr)))) {
+		return;
+	}
+	// fill in new
+	cerr->clog_err_level = pri; /* will be used for filtering */
+	/* TODO */
+	//cerr->clog_err_code;
+	//cerr->client_id;
+	//cerr->client_type;
+	va_start(args, fmt);
+	cerr->description_len = vasprintf(&cerr->description, fmt, args);
+	va_end(args);
+	cerr->function = function;
+	cerr->line = line;
+	
+	// add new to the tail
+	TAILQ_FOREACH(p, &cerr->chain_head, chain) {
+		if (TAILQ_NEXT(p, chain) == NULL) {
+			TAILQ_NEXT(p, chain) = new;
+			new->chain.tqe_prev = &TAILQ_NEXT(p, chain);
+			break;
+		}
+	}
+
+	if (cerr_op == CLOG_ERR_DUMP) {
+		char *prev = NULL, *backtrace = NULL;
+
+		TAILQ_FOREACH(p, &cerr->chain_head, chain) {
+			// collapse list into backtrace
+			if (cerr->description) {
+				if (backtrace) {
+					prev = backtrace;
+					backtrace = NULL;
+					asprintf(&backtrace, "%s\n\t\t-> %s", prev, cerr->description);
+					free(prev);
+				} else {
+					asprintf(&backtrace, "%s", cerr->description);
+				}
+			}
+		}
+
+		if (backtrace) {
+			// use plog to dump event.
+			plog(pri, "%s", backtrace);
+		}
+	}
 }
 
 void
-plogset(file)
+plogsetfile(file)
 	char *file;
 {
-	pthread_mutex_lock(&logp_mtx);
-	if (logfile != NULL)
+	syslog(LOG_NOTICE, "%s: about to add racoon log file: %s\n", __FUNCTION__, file? file:"bad file path");
+	if (logfile != NULL) {
 		racoon_free(logfile);
+		if (logfile_fd != -1) {
+			asl_remove_log_file(logRef, logfile_fd);
+			asl_close_auxiliary_file(logfile_fd);
+			logfile_fd = -1;
+		}
+	}
 	logfile = racoon_strdup(file);
 	STRDUP_FATAL(logfile);
-	pthread_mutex_unlock(&logp_mtx);
+	if ((logfile_fd = open(logfile, O_CREAT | O_WRONLY | O_APPEND | O_NOFOLLOW, 0)) >= 0) {
+		asl_add_log_file(logRef, logfile_fd);
+	} else {
+		syslog(LOG_NOTICE, "%s: failed to add racoon log file: %s. error %d\n", __FUNCTION__, file? file:"bad file path", errno);
+	}
 }
 
 void
-plogreset(file)
+plogresetfile(file)
 	char *file;
 {
-	pthread_mutex_lock(&logp_mtx);
-
 	/* if log paths equal - do nothing */
 	if (logfile == NULL && file == NULL) {
-		pthread_mutex_unlock(&logp_mtx);
 		return;
 	}
-	if (logfile != NULL && file != NULL)
+	if (logfile != NULL && file != NULL) {
 		if (!strcmp(logfile, file)) {
-			pthread_mutex_unlock(&logp_mtx);
 			return;
 		}
-	
-	if (logfile == NULL)	/* no logfile was specified  - daemon was used */
-		closelog();	/* close it */
-	else {
-		log_close(logp);
-		logp = NULL;
-		racoon_free(logfile);
-		logfile = NULL;
-	}
-	
-	if (file)
-		plogset(file);
-	ploginit();
-
-	pthread_mutex_unlock(&logp_mtx);
-}		
-
-/*
-   Returns a printable string from (possibly) binary data ;
-   concatenates all unprintable chars to one space.
-   XXX Maybe the printable chars range is too large...
- */
-char*
-binsanitize(binstr, n)
-	char *binstr;
-	size_t n;
-{
-	int p,q;
-	for (p = 0, q = 0; p < n; p++) {
-                 if (isgraph((int)binstr[p])) {
-			binstr[q++] = binstr[p];
-		} else {
-			if (q && binstr[q - 1] != ' ')
-				 binstr[q++] = ' ';
+		if (logfile_fd != -1) {
+			asl_remove_log_file(logRef, logfile_fd);
+			close(logfile_fd);
+			logfile_fd = -1;
 		}
 	}
-	binstr[q++] = '\0';
-	return binstr;
+
+	if (logfile) {
+			racoon_free(logfile);
+			logfile = NULL;
+	}
+
+	if (file)
+		plogsetfile(file);
 }
-	
+
+int
+ploggetlevel(void)
+{
+    return loglevel;
+}
+
+void
+plogsetlevel(int level)
+{
+	int mask;
+
+	if (level && level >= ASL_LEVEL_EMERG && level <= ASL_LEVEL_DEBUG) {
+		loglevel = level;
+	}
+	if (loglevel >= ASL_LEVEL_INFO) {
+		mask = ASL_FILTER_MASK_TUNNEL;
+	} else {
+		mask = 0;
+	}
+	mask |= ASL_FILTER_MASK_UPTO(loglevel);
+	syslog(LOG_DEBUG, "%s: about to set racoon's log level %d, mask %x\n", __FUNCTION__, level, mask);
+	asl_set_filter(NULL, mask);
+}
+
+void
+plogsetlevelstr(char *levelstr)
+{
+	if (!levelstr) {
+		return;
+	}
+
+	if (strncmp(levelstr, ASL_STRING_EMERG, sizeof(ASL_STRING_EMERG) - 1) == 0) {
+		plogsetlevel(ASL_LEVEL_EMERG);
+	} else if (strncmp(levelstr, ASL_STRING_ALERT, sizeof(ASL_STRING_ALERT) - 1) == 0) {
+		plogsetlevel(ASL_LEVEL_ALERT);
+	} else if (strncmp(levelstr, ASL_STRING_CRIT, sizeof(ASL_STRING_CRIT) - 1) == 0) {
+		plogsetlevel(ASL_LEVEL_CRIT);
+	} else if (strncmp(levelstr, ASL_STRING_ERR, sizeof(ASL_STRING_ERR) - 1) == 0) {
+		plogsetlevel(ASL_LEVEL_ERR);
+	} else if (strncmp(levelstr, ASL_STRING_WARNING, sizeof(ASL_STRING_NOTICE) - 1) == 0) {
+		plogsetlevel(ASL_LEVEL_WARNING);
+	} else if (strncmp(levelstr, ASL_STRING_NOTICE, sizeof(ASL_STRING_NOTICE) - 1) == 0) {
+		plogsetlevel(ASL_LEVEL_NOTICE);
+	} else if (strncmp(levelstr, ASL_STRING_INFO, sizeof(ASL_STRING_INFO) - 1) == 0) {
+		plogsetlevel(ASL_LEVEL_INFO);
+	} else if (strncmp(levelstr, ASL_STRING_DEBUG, sizeof(ASL_STRING_DEBUG) - 1) == 0) {
+		plogsetlevel(ASL_LEVEL_DEBUG);
+	}
+}
+
+void
+plogsetlevelquotedstr (char *levelquotedstr)
+{
+	int len;
+
+	if (!levelquotedstr) {
+		plog(ASL_LEVEL_ERR, "Null log level (quoted string)");
+		return;
+	}
+
+	len = strlen(levelquotedstr);
+	if (len < 3 ||
+		levelquotedstr[0] != '"' ||
+		levelquotedstr[len - 1] != '"') {
+		plog(ASL_LEVEL_ERR, "Invalid log level (quoted string): %s", levelquotedstr);
+		return;
+	}
+	// skip quotes
+	levelquotedstr[len - 1] = '\0';
+	plogsetlevelstr(&levelquotedstr[1]);
+}
+
+void
+plogreadprefs (void)
+{
+	CFPropertyListRef	globals;
+	CFStringRef			logFileRef;
+	CFNumberRef			debugLevelRef;
+	CFStringRef			debugLevelStringRef;
+	char                logLevelStr[16];
+	int					level = 0;
+
+	logLevelStr[0] = 0;
+
+    SCPreferencesSynchronize(gPrefs);
+
+    globals = SCPreferencesGetValue(gPrefs, CFSTR("Global"));
+    if (!globals || (CFGetTypeID(globals) != CFDictionaryGetTypeID())) {
+        return;
+    }
+    debugLevelRef = CFDictionaryGetValue(globals, CFSTR("DebugLevel"));
+    if (debugLevelRef && (CFGetTypeID(debugLevelRef) == CFNumberGetTypeID())) {
+        CFNumberGetValue(debugLevelRef, kCFNumberSInt32Type, &level);
+        plogsetlevel(level);
+    } else {
+        debugLevelStringRef = CFDictionaryGetValue(globals, CFSTR("DebugLevelString"));
+        if (debugLevelStringRef && (CFGetTypeID(debugLevelStringRef) == CFStringGetTypeID())) {
+            CFStringGetCString(debugLevelStringRef, logLevelStr, sizeof(logLevelStr), kCFStringEncodingMacRoman);
+            plogsetlevelstr(logLevelStr);
+        }
+    }
+    
+    logFileRef = CFDictionaryGetValue(globals, CFSTR("DebugLogfile"));
+    if (!logFileRef	|| (CFGetTypeID(logFileRef) != CFStringGetTypeID())) {	
+        return;
+    }
+    CFStringGetCString(logFileRef, logFileStr, MAXPATHLEN, kCFStringEncodingMacRoman);
+    plogsetfile(logFileStr);
+}
+
+void
+ploginit(void)
+{
+	logFileStr[0] = 0;
+	logRef = NULL;//asl_open(NULL, plog_facility, 0);
+	plogsetlevel(ASL_LEVEL_NOTICE);
+	//plogsetlevel(ASL_LEVEL_DEBUG);
+	plogreadprefs();
+}
+
+void
+plogsetsessioninfo (const char *session_id,
+					const char *session_type,
+					const char *session_ver)
+{
+	if (gSessId) {
+		free(gSessId);
+	}
+	if (!session_id) {
+		gSessId = NULL;
+	} else {
+		gSessId = strdup(session_id);
+	}
+	if (gSessId) {
+		free(gSessId);
+	}
+	if (!session_type) {
+		gSessType = NULL;
+	} else {
+		gSessType = strdup(session_id);
+	}
+	if (gSessVer) {
+		free(gSessVer);
+	}
+	if (!session_ver) {
+		gSessVer = NULL;
+	} else {
+		gSessVer = strdup(session_ver);
+	}
+}
+
+char *
+createCStringFromCFString(CFAllocatorRef allocator, CFStringRef cfstr)
+{
+    CFIndex cstr_len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr), kCFStringEncodingUTF8) + 1;
+    char *cstr = (char *)CFAllocatorAllocate(allocator, cstr_len, 0);
+    CFStringGetCString(cfstr, cstr, cstr_len, kCFStringEncodingUTF8);
+    return cstr;
+}
+
+void
+plogcf(int priority, CFStringRef fmt, ...)
+{
+    va_list         args;
+    CFStringRef     cfstr;
+    char            *cstr;
+    
+    va_start(args, fmt);
+    cfstr = CFStringCreateWithFormatAndArguments(kCFAllocatorDefault, NULL, fmt, args);
+    va_end(args);
+    
+    cstr = createCStringFromCFString(kCFAllocatorDefault, cfstr);
+    plog(priority, "%s", cstr);
+    
+    CFAllocatorDeallocate(kCFAllocatorDefault, cstr);
+    CFRelease(cfstr);
+}
+
+

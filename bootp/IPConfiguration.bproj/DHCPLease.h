@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,6 +58,7 @@ typedef struct {
     struct in_addr		router_ip;
     uint8_t			router_hwaddr[MAX_LINK_ADDR_LEN];
     int				router_hwaddr_length;
+    CFStringRef			ssid;
     int				pkt_length;
     uint8_t			pkt[1];
 } DHCPLease, * DHCPLeaseRef;
@@ -85,15 +86,20 @@ DHCPLeaseListRemoveLease(DHCPLeaseListRef list_p,
 			 const uint8_t * router_hwaddr,
 			 int router_hwaddr_length);
 void
-DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
+DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p,
+			 struct in_addr our_ip,
 			 struct in_addr router_ip,
 			 const uint8_t * router_hwaddr,
 			 int router_hwaddr_length,
 			 absolute_time_t lease_start,
 			 dhcp_lease_time_t lease_length,
-			 const uint8_t * pkt, int pkt_length);
+			 const uint8_t * pkt, int pkt_length,
+			 CFStringRef ssid);
 arp_address_info_t *
-DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p, bool tentative_ok,
+DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p,
+				CFStringRef ssid,
+				absolute_time_t * start_threshold_p,
+				bool tentative_ok,
 				int * ret_count);
 
 
@@ -103,7 +109,7 @@ DHCPLeaseListWrite(DHCPLeaseListRef list_p,
 		   uint8_t cid_type, const void * cid, int cid_length);
 void
 DHCPLeaseListRead(DHCPLeaseListRef list_p,
-		  const char * ifname,
+		  const char * ifname, bool is_wifi,
 		  uint8_t cid_type, const void * cid, int cid_length);
 
 int

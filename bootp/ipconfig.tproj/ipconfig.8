@@ -1,7 +1,7 @@
 .\"
 .\"     @(#)ipconfig.8
 .\"
-.Dd June 2, 2010
+.Dd March 27, 2013
 .Dt IPCONFIG 8
 .Os "Mac OS X"
 .Sh NAME
@@ -176,21 +176,19 @@ created only remain until the next network configuration change occurs. See
 .Xr scselect 8 .
 .Pp
 .It Cm setverbose Ar level
-Sets verbose mode logging in the IPConfiguration agent. Specify a
+Enables or disables verbose mode logging in the IPConfiguration agent. Specify a
 .Ar level
 value of
 .Cm 0
 to disable verbose logging, the default.  Specify a value of
 .Cm 1
-to enable verbose logging.
+to enable verbose logging. This setting is persistent across boots of the
+operating system.
 .Pp
-When enabled, useful debugging information is logged using
-.Xr syslog 3
-with level LOG_NOTICE.
-In addition, the packet trace file
-\fB/var/log/com.apple.IPConfiguration.bootp\fR
-is opened and BOOTP/DHCP packets that are sent and received are printed to the
-file.
+When enabled, verbose log files are generated in the directory
+\fB/Library/Logs/CrashReporter\fR.
+The filenames follow the naming convention
+\fBcom.apple.networking.IPConfiguration.log.<timestamp>\fR.
 .Pp
 The \fBsetverbose\fR command requires root privileges.
 .El

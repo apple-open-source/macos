@@ -68,31 +68,16 @@
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #endif /* !_ANSI_SOURCE */
 
-#ifndef	_SIZE_T
-#define	_SIZE_T
 /* DO NOT REMOVE THIS COMMENT: fixincludes needs to see:
  * _GCC_SIZE_T */
-typedef	__darwin_size_t		size_t;
-#endif
+#include <sys/_types/_size_t.h>
 
 #if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
-#ifndef _CT_RUNE_T
-#define _CT_RUNE_T
-typedef	__darwin_ct_rune_t	ct_rune_t;
-#endif
-
-#ifndef _RUNE_T
-#define _RUNE_T
-typedef __darwin_rune_t   	rune_t;
-#endif
+#include <sys/_types/_ct_rune_t.h>
+#include <sys/_types/_rune_t.h>
 #endif	/* !_ANSI_SOURCE && (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
-#ifndef	__cplusplus
-#ifndef	_WCHAR_T
-#define	_WCHAR_T
-typedef	__darwin_wchar_t	wchar_t;
-#endif	/* _WCHAR_T */
-#endif	/* __cplusplus */
+#include <sys/_types/_wchar_t.h>
 
 typedef struct {
 	int quot;		/* quotient */
@@ -111,9 +96,7 @@ typedef struct {
 } lldiv_t;
 #endif /* !__DARWIN_NO_LONG_LONG */
 
-#ifndef NULL
-#define NULL __DARWIN_NULL
-#endif /* ! NULL */
+#include <sys/_types/_null.h>
 
 #define	EXIT_FAILURE	1
 #define	EXIT_SUCCESS	0
@@ -318,18 +301,10 @@ void	 unsetenv(const char *);
 #if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #include <machine/types.h>
 
-#ifndef _DEV_T
-typedef	__darwin_dev_t	dev_t;
-#define _DEV_T
-#endif
+#include <sys/_types/_dev_t.h>
+#include <sys/_types/_mode_t.h>
 
-#ifndef	_MODE_T
-typedef	__darwin_mode_t	mode_t;
-#define _MODE_T
-#endif
-
-u_int32_t
-	 arc4random(void);
+u_int32_t	arc4random(void);
 void	 arc4random_addrandom(unsigned char * /*dat*/, int /*datlen*/);
 void	 arc4random_buf(void * /*buf*/, size_t /*nbytes*/) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 void	 arc4random_stir(void);

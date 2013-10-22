@@ -26,7 +26,7 @@
    in the stream, not just at the beginning. The default is big-endian. */
 /* The state is 0 if big-endian, 1 if little-endian. */
 static int
-ucs4_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+ucs4_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   state_t state = conv->istate;
   int count = 0;
@@ -51,7 +51,7 @@ ucs4_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 
 /* But we output UCS-4 in big-endian order, without byte-order mark. */
 static int
-ucs4_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+ucs4_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (wc <= 0x7fffffff) {
     if (n >= 4) {

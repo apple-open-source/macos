@@ -22,69 +22,81 @@
 #include "MIMETypeRegistry.h"
 #include "WebSettings_p.h"
 
-#include "WebString.h"
-#include <Base64.h>
+#include <BlackBerryPlatformDeviceInfo.h>
+#include <BlackBerryPlatformFontInfo.h>
+#include <BlackBerryPlatformScreen.h>
+#include <BlackBerryPlatformString.h>
 #include <Color.h>
+#include <FloatSize.h>
 #include <PageCache.h>
+#include <ViewportArguments.h>
 #include <wtf/HashSet.h>
-#include <wtf/Vector.h>
 
 namespace BlackBerry {
 namespace WebKit {
 
-DEFINE_STATIC_LOCAL(String, BlackBerryAllowCrossSiteRequests, ("BlackBerryAllowCrossSiteRequests"));
-DEFINE_STATIC_LOCAL(String, BlackBerryBackgroundColor, ("BlackBerryBackgroundColor"));
-DEFINE_STATIC_LOCAL(String, BlackBerryCookiesEnabled, ("BlackBerryCookiesEnabled"));
-DEFINE_STATIC_LOCAL(String, BlackBerryDirectRenderingToWindowEnabled, ("BlackBerryDirectRenderingToWindowEnabled"));
-DEFINE_STATIC_LOCAL(String, BlackBerryDrawBorderWhileLoadingImages, ("BlackBerryDrawBorderWhileLoadingImages"));
-DEFINE_STATIC_LOCAL(String, BlackBerryEmailModeEnabled, ("BlackBerryEmailModeEnabled"));
-DEFINE_STATIC_LOCAL(String, BlackBerryGetFocusNodeContextEnabled, ("BlackBerryGetFocusNodeContextEnabled"));
-DEFINE_STATIC_LOCAL(String, BlackBerryHandlePatternURLs, ("BlackBerryHandlePatternURLs"));
-DEFINE_STATIC_LOCAL(String, BlackBerryInitialScale, ("BlackBerryInitialScale"));
-DEFINE_STATIC_LOCAL(String, BlackBerryLinksHandledExternallyEnabled, ("BlackBerryLinksHandledExternallyEnabled"));
-DEFINE_STATIC_LOCAL(String, BlackBerryMaxPluginInstances, ("BlackBerryMaxPluginInstances"));
-DEFINE_STATIC_LOCAL(String, BlackBerryOverZoomColor, ("BlackBerryOverZoomColor"));
-DEFINE_STATIC_LOCAL(String, BlackBerryOverScrollImagePath, ("BlackBerryOverScrollImagePath"));
-DEFINE_STATIC_LOCAL(String, BlackBerryRenderAnimationsOnScrollOrZoomEnabled, ("BlackBerryRenderAnimationsOnScrollOrZoomEnabled"));
-DEFINE_STATIC_LOCAL(String, BlackBerryScrollbarsEnabled, ("BlackBerryScrollbarsEnabled"));
-DEFINE_STATIC_LOCAL(String, BlackBerryTextReflowMode, ("BlackBerryTextReflowMode"));
-DEFINE_STATIC_LOCAL(String, BlackBerryUseRTLWritingDirection, ("BlackBerryUseRTLWritingDirection"));
-DEFINE_STATIC_LOCAL(String, BlackBerryUseWebKitCache, ("BlackBerryUseWebKitCache"));
-DEFINE_STATIC_LOCAL(String, BlackBerryUserAgentString, ("BlackBerryUserAgentString"));
-DEFINE_STATIC_LOCAL(String, BlackBerryUserScalableEnabled, ("BlackBerryUserScalableEnabled"));
-DEFINE_STATIC_LOCAL(String, BlackBerryViewportWidth, ("BlackBerryViewportWidth"));
-DEFINE_STATIC_LOCAL(String, BlackBerryZoomToFitOnLoadEnabled, ("BlackBerryZoomToFitOnLoadEnabled"));
-DEFINE_STATIC_LOCAL(String, SpatialNavigationEnabled, ("SpatialNavigationEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitDatabasePath, ("WebKitDatabasePath"));
-DEFINE_STATIC_LOCAL(String, WebKitDatabasesEnabled, ("WebKitDatabasesEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitDefaultFixedFontSize, ("WebKitDefaultFixedFontSize"));
-DEFINE_STATIC_LOCAL(String, WebKitDefaultFontSize, ("WebKitDefaultFontSize"));
-DEFINE_STATIC_LOCAL(String, WebKitDefaultTextEncodingName, ("WebKitDefaultTextEncodingName"));
-DEFINE_STATIC_LOCAL(String, WebKitDownloadableBinaryFontsEnabled, ("WebKitDownloadableBinaryFontsEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitFirstScheduledLayoutDelay, ("WebKitFirstScheduledLayoutDelay"));
-DEFINE_STATIC_LOCAL(String, WebKitFixedFontFamily, ("WebKitFixedFontFamily"));
-DEFINE_STATIC_LOCAL(String, WebKitFrameFlatteningEnabled, ("WebKitFrameFlatteningEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitGeolocationEnabled, ("WebKitGeolocationEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitJavaScriptCanOpenWindowsAutomaticallyEnabled, ("WebKitJavaScriptCanOpenWindowsAutomaticallyEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitJavaScriptEnabled, ("WebKitJavaScriptEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitLoadsImagesAutomatically, ("WebKitLoadsImagesAutomatically"));
-DEFINE_STATIC_LOCAL(String, WebKitLocalStorageEnabled, ("WebKitLocalStorageEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitLocalStoragePath, ("WebKitLocalStoragePath"));
-DEFINE_STATIC_LOCAL(String, WebKitLocalStorageQuota, ("WebKitLocalStorageQuota"));
-DEFINE_STATIC_LOCAL(String, WebKitMaximumPagesInCache, ("WebKitMaximumPagesInCache"));
-DEFINE_STATIC_LOCAL(String, WebKitMinimumFontSize, ("WebKitMinimumFontSize"));
-DEFINE_STATIC_LOCAL(String, WebKitOfflineWebApplicationCacheEnabled, ("WebKitOfflineWebApplicationCacheEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitOfflineWebApplicationCachePath, ("WebKitOfflineWebApplicationCachePath"));
-DEFINE_STATIC_LOCAL(String, WebKitPageGroupName, ("WebKitPageGroupName"));
-DEFINE_STATIC_LOCAL(String, WebKitPluginsEnabled, ("WebKitPluginsEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitPrivateBrowsingEnabled, ("WebKitPrivateBrowsingEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitSansSeriffFontFamily, ("WebKitSansSeriffFontFamily"));
-DEFINE_STATIC_LOCAL(String, WebKitSeriffFontFamily, ("WebKitSeriffFontFamily"));
-DEFINE_STATIC_LOCAL(String, WebKitStandardFontFamily, ("WebKitStandardFontFamily"));
-DEFINE_STATIC_LOCAL(String, WebKitUserStyleSheet, ("WebKitUserStyleSheet"));
-DEFINE_STATIC_LOCAL(String, WebKitUserStyleSheetLocation, ("WebKitUserStyleSheetLocation"));
-DEFINE_STATIC_LOCAL(String, WebKitWebSocketsEnabled, ("WebKitWebSocketsEnabled"));
-DEFINE_STATIC_LOCAL(String, WebKitXSSAuditorEnabled, ("WebKitXSSAuditorEnabled"));
+DEFINE_STATIC_LOCAL(String, BlackBerryAllowCrossSiteRequests, (ASCIILiteral("BlackBerryAllowCrossSiteRequests")));
+DEFINE_STATIC_LOCAL(String, BlackBerryApplyDeviceScaleFactorInCompositor, (ASCIILiteral("BlackBerryApplyDeviceScaleFactorInCompositor")));
+DEFINE_STATIC_LOCAL(String, BlackBerryAsynchronousSpellChecking, (ASCIILiteral("BlackBerryAsynchronousSpellChecking")));
+DEFINE_STATIC_LOCAL(String, BlackBerryBackgroundColor, (ASCIILiteral("BlackBerryBackgroundColor")));
+DEFINE_STATIC_LOCAL(String, BlackBerryCookiesEnabled, (ASCIILiteral("BlackBerryCookiesEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryDrawBorderWhileLoadingImages, (ASCIILiteral("BlackBerryDrawBorderWhileLoadingImages")));
+DEFINE_STATIC_LOCAL(String, BlackBerryEmailModeEnabled, (ASCIIliteral("BlackBerryEmailModeEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryGetFocusNodeContextEnabled, (ASCIILiteral("BlackBerryGetFocusNodeContextEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryHandlePatternURLs, (ASCIILiteral("BlackBerryHandlePatternURLs")));
+DEFINE_STATIC_LOCAL(String, BlackBerryInitialScale, (ASCIILiteral("BlackBerryInitialScale")));
+DEFINE_STATIC_LOCAL(String, BlackBerryLinksHandledExternallyEnabled, (ASCIILiteral("BlackBerryLinksHandledExternallyEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryMaxPluginInstances, (ASCIILiteral("BlackBerryMaxPluginInstances")));
+DEFINE_STATIC_LOCAL(String, BlackBerryOverScrollColor, (ASCIILiteral("BlackBerryOverScrollColor")));
+DEFINE_STATIC_LOCAL(String, BlackBerryEnableDefaultOverScrollBackground, (ASCIILiteral("BlackBerryEnableDefaultOverScrollBackground")));
+DEFINE_STATIC_LOCAL(String, BlackBerryRenderAnimationsOnScrollOrZoomEnabled, (ASCIILiteral("BlackBerryRenderAnimationsOnScrollOrZoomEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryScrollbarsEnabled, (ASCIILiteral("BlackBerryScrollbarsEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryTextReflowMode, (ASCIILiteral("BlackBerryTextReflowMode")));
+DEFINE_STATIC_LOCAL(String, BlackBerryUseRTLWritingDirection, (ASCIILiteral("BlackBerryUseRTLWritingDirection")));
+DEFINE_STATIC_LOCAL(String, BlackBerryUseWebKitCache, (ASCIILiteral("BlackBerryUseWebKitCache")));
+DEFINE_STATIC_LOCAL(String, BlackBerryUserAgentString, (ASCIILiteral("BlackBerryUserAgentString")));
+DEFINE_STATIC_LOCAL(String, BlackBerryUserScalableEnabled, (ASCIILiteral("BlackBerryUserScalableEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryViewportWidth, (ASCIILiteral("BlackBerryViewportWidth")));
+DEFINE_STATIC_LOCAL(String, BlackBerryZoomToFitOnLoadEnabled, (ASCIILiteral("BlackBerryZoomToFitOnLoadEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryFullScreenVideoCapable, (ASCIILiteral("BlackBerryFullScreenVideoCapable")));
+DEFINE_STATIC_LOCAL(String, BlackBerryCredentialAutofillEnabled, (ASCIILiteral("BlackBerryCredentialAutofillEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryFormAutofillEnabled, (ASCIILiteral("BlackBerryFormAutofillEnabled")));
+DEFINE_STATIC_LOCAL(String, BlackBerryDevicePixelRatio, (ASCIILiteral("BlackBerryDevicePixelRatio")));
+DEFINE_STATIC_LOCAL(String, BlackBerryBackingStoreEnabled, (ASCIILiteral("BlackBerryBackingStoreEnabled")));
+DEFINE_STATIC_LOCAL(String, SpatialNavigationEnabled, (ASCIILiteral("SpatialNavigationEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitDatabasePath, (ASCIILiteral("WebKitDatabasePath")));
+DEFINE_STATIC_LOCAL(String, WebKitDatabasesEnabled, (ASCIILiteral("WebKitDatabasesEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitDefaultFixedFontSize, (ASCIILiteral("WebKitDefaultFixedFontSize")));
+DEFINE_STATIC_LOCAL(String, WebKitDefaultFontSize, (ASCIILiteral("WebKitDefaultFontSize")));
+DEFINE_STATIC_LOCAL(String, WebKitDefaultTextEncodingName, (ASCIILiteral("WebKitDefaultTextEncodingName")));
+DEFINE_STATIC_LOCAL(String, WebKitDownloadableBinaryFontsEnabled, (ASCIILiteral("WebKitDownloadableBinaryFontsEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitFirstScheduledLayoutDelay, (ASCIILiteral("WebKitFirstScheduledLayoutDelay")));
+DEFINE_STATIC_LOCAL(String, WebKitFixedFontFamily, (ASCIILiteral("WebKitFixedFontFamily")));
+DEFINE_STATIC_LOCAL(String, WebKitFrameFlatteningEnabled, (ASCIILiteral("WebKitFrameFlatteningEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitGeolocationEnabled, (ASCIILiteral("WebKitGeolocationEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitIndexedDataBasePath, (ASCIILiteral("WebKitIndexedDataBasePath")));
+DEFINE_STATIC_LOCAL(String, WebKitJavaScriptCanOpenWindowsAutomaticallyEnabled, (ASCIILiteral("WebKitJavaScriptCanOpenWindowsAutomaticallyEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitJavaScriptEnabled, (ASCIILiteral("WebKitJavaScriptEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitLoadsImagesAutomatically, (ASCIILiteral("WebKitLoadsImagesAutomatically")));
+DEFINE_STATIC_LOCAL(String, WebKitLocalStorageEnabled, (ASCIILiteral("WebKitLocalStorageEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitLocalStoragePath, (ASCIILiteral("WebKitLocalStoragePath")));
+DEFINE_STATIC_LOCAL(String, WebKitLocalStorageQuota, (ASCIILiteral("WebKitLocalStorageQuota")));
+DEFINE_STATIC_LOCAL(String, WebKitSessionStorageQuota, (ASCIILiteral("WebKitSessionStorageQuota")));
+DEFINE_STATIC_LOCAL(String, WebKitMaximumPagesInCache, (ASCIILiteral("WebKitMaximumPagesInCache")));
+DEFINE_STATIC_LOCAL(String, WebKitMinimumFontSize, (ASCIILiteral("WebKitMinimumFontSize")));
+DEFINE_STATIC_LOCAL(String, WebKitOfflineWebApplicationCacheEnabled, (ASCIILiteral("WebKitOfflineWebApplicationCacheEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitOfflineWebApplicationCachePath, (ASCIILiteral("WebKitOfflineWebApplicationCachePath")));
+DEFINE_STATIC_LOCAL(String, WebKitPageGroupName, (ASCIILiteral("WebKitPageGroupName")));
+DEFINE_STATIC_LOCAL(String, WebKitPluginsEnabled, (ASCIILiteral("WebKitPluginsEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitPrivateBrowsingEnabled, (ASCIILiteral("WebKitPrivateBrowsingEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitDeviceSupportsMouse, (ASCIILiteral("WebKitDeviceSupportsMouse")));
+DEFINE_STATIC_LOCAL(String, WebKitSansSeriffFontFamily, (ASCIILiteral("WebKitSansSeriffFontFamily")));
+DEFINE_STATIC_LOCAL(String, WebKitSeriffFontFamily, (ASCIILiteral("WebKitSeriffFontFamily")));
+DEFINE_STATIC_LOCAL(String, WebKitStandardFontFamily, (ASCIILiteral("WebKitStandardFontFamily")));
+DEFINE_STATIC_LOCAL(String, WebKitUserStyleSheetLocation, (ASCIILiteral("WebKitUserStyleSheetLocation")));
+DEFINE_STATIC_LOCAL(String, WebKitWebSocketsEnabled, (ASCIILiteral("WebKitWebSocketsEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitXSSAuditorEnabled, (ASCIILiteral("WebKitXSSAuditorEnabled")));
+DEFINE_STATIC_LOCAL(String, WebKitTextAutosizingEnabled, (ASCIILiteral("WebKitTextAutosizingEnabled")));
 
 static HashSet<String>* s_supportedObjectMIMETypes;
 
@@ -148,12 +160,14 @@ WebSettings* WebSettings::standardSettings()
     settings = new WebSettings;
     settings->m_private->impl = new WebSettingsPrivate::WebSettingsPrivateImpl();
     settings->m_private->copyOnWrite = false;
+    settings->m_private->setBoolean(BlackBerryAllowCrossSiteRequests, false);
     settings->m_private->setUnsigned(BlackBerryBackgroundColor, WebCore::Color::white);
     settings->m_private->setBoolean(BlackBerryCookiesEnabled, true);
+    settings->m_private->setBoolean(BlackBerryBackingStoreEnabled, true);
     settings->m_private->setDouble(BlackBerryInitialScale, -1);
     settings->m_private->setUnsigned(BlackBerryMaxPluginInstances, 1);
-    settings->m_private->setUnsigned(BlackBerryOverZoomColor, WebCore::Color::white);
-    settings->m_private->setString(BlackBerryOverScrollImagePath, "");
+    settings->m_private->setUnsigned(BlackBerryOverScrollColor, WebCore::Color::white);
+    settings->m_private->setBoolean(BlackBerryEnableDefaultOverScrollBackground, true);
     settings->m_private->setBoolean(BlackBerryScrollbarsEnabled, true);
 
     // FIXME: We should detect whether we are embedded in a browser or an email client and default to TextReflowEnabledOnlyForBlockZoom and TextReflowEnabled, respectively.
@@ -162,27 +176,42 @@ WebSettings* WebSettings::standardSettings()
     settings->m_private->setBoolean(BlackBerryUseWebKitCache, true);
     settings->m_private->setBoolean(BlackBerryUserScalableEnabled, true);
     settings->m_private->setBoolean(BlackBerryZoomToFitOnLoadEnabled, true);
+    settings->m_private->setBoolean(BlackBerryFullScreenVideoCapable, false);
+    settings->m_private->setBoolean(BlackBerryCredentialAutofillEnabled, false);
+    settings->m_private->setBoolean(BlackBerryFormAutofillEnabled, false);
+    settings->m_private->setBoolean(BlackBerryAsynchronousSpellChecking, true);
+    settings->m_private->setBoolean(BlackBerryApplyDeviceScaleFactorInCompositor, false);
+
+    if (BlackBerry::Platform::DeviceInfo::instance()->isMobile()) {
+        WebCore::FloatSize currentPPI = Platform::Graphics::Screen::primaryScreen()->pixelsPerInch(-1);
+        int deviceDPI = int(roundf((currentPPI.width() + currentPPI.height()) / 2));
+        settings->m_private->setDouble(BlackBerryDevicePixelRatio, deviceDPI / WebCore::ViewportArguments::deprecatedTargetDPI);
+    } else
+        settings->m_private->setDouble(BlackBerryDevicePixelRatio, 1);
 
     settings->m_private->setInteger(WebKitDefaultFontSize, 16);
     settings->m_private->setInteger(WebKitDefaultFixedFontSize, 13);
     settings->m_private->setString(WebKitDefaultTextEncodingName, "iso-8859-1");
     settings->m_private->setBoolean(WebKitDownloadableBinaryFontsEnabled, true);
     settings->m_private->setInteger(WebKitFirstScheduledLayoutDelay, 250); // Match Document::cLayoutScheduleThreshold.
-    settings->m_private->setString(WebKitFixedFontFamily, "Courier New");
     settings->m_private->setBoolean(WebKitJavaScriptEnabled, true);
     settings->m_private->setBoolean(WebKitLoadsImagesAutomatically, true);
     settings->m_private->setUnsignedLongLong(WebKitLocalStorageQuota, 5 * 1024 * 1024);
+    settings->m_private->setUnsignedLongLong(WebKitSessionStorageQuota, 5 * 1024 * 1024);
     settings->m_private->setInteger(WebKitMaximumPagesInCache, 0);
     settings->m_private->setInteger(WebKitMinimumFontSize, 8);
-    settings->m_private->setString(WebKitSansSeriffFontFamily, "Arial");
-    settings->m_private->setString(WebKitSeriffFontFamily, "Times New Roman");
-    settings->m_private->setString(WebKitStandardFontFamily, "Times New Roman");
     settings->m_private->setBoolean(WebKitWebSocketsEnabled, true);
+    settings->m_private->setBoolean(WebKitTextAutosizingEnabled, false);
+
+    settings->m_private->setString(WebKitFixedFontFamily, BlackBerry::Platform::FontInfo::instance()->fontFamily(BlackBerry::Platform::String::fromAscii("-webkit-monospace"), BlackBerry::Platform::String::emptyString()));
+    settings->m_private->setString(WebKitSansSeriffFontFamily, BlackBerry::Platform::FontInfo::instance()->fontFamily(BlackBerry::Platform::String::fromAscii("-webkit-sans-serif"), BlackBerry::Platform::String::emptyString()));
+    settings->m_private->setString(WebKitSeriffFontFamily, BlackBerry::Platform::FontInfo::instance()->fontFamily(BlackBerry::Platform::String::fromAscii("-webkit-serif"), BlackBerry::Platform::String::emptyString()));
+    settings->m_private->setString(WebKitStandardFontFamily, BlackBerry::Platform::FontInfo::instance()->fontFamily(BlackBerry::Platform::String::fromAscii("-webkit-standard"), BlackBerry::Platform::String::emptyString()));
 
     return settings;
 }
 
-void WebSettings::addSupportedObjectPluginMIMEType(const char* type)
+void WebSettings::addSupportedObjectPluginMIMEType(const BlackBerry::Platform::String& type)
 {
     if (!s_supportedObjectMIMETypes)
         s_supportedObjectMIMETypes = new HashSet<String>;
@@ -190,9 +219,9 @@ void WebSettings::addSupportedObjectPluginMIMEType(const char* type)
     s_supportedObjectMIMETypes->add(type);
 }
 
-bool WebSettings::isSupportedObjectMIMEType(const WebString& mimeType)
+bool WebSettings::isSupportedObjectMIMEType(const BlackBerry::Platform::String& mimeType)
 {
-    if (mimeType.isEmpty())
+    if (mimeType.empty())
         return false;
 
     if (!s_supportedObjectMIMETypes)
@@ -261,6 +290,16 @@ void WebSettings::setPrivateBrowsingEnabled(bool enabled)
     m_private->setBoolean(WebKitPrivateBrowsingEnabled, enabled);
 }
 
+bool WebSettings::deviceSupportsMouse() const
+{
+    return m_private->getBoolean(WebKitDeviceSupportsMouse);
+}
+
+void WebSettings::setDeviceSupportsMouse(bool enabled)
+{
+    m_private->setBoolean(WebKitDeviceSupportsMouse, enabled);
+}
+
 int WebSettings::defaultFixedFontSize() const
 {
     return m_private->getInteger(WebKitDefaultFixedFontSize);
@@ -291,62 +330,62 @@ void WebSettings::setMinimumFontSize(int minimumFontSize)
     m_private->setInteger(WebKitMinimumFontSize, minimumFontSize);
 }
 
-WebString WebSettings::serifFontFamily() const
+BlackBerry::Platform::String WebSettings::serifFontFamily() const
 {
     return m_private->getString(WebKitSeriffFontFamily);
 }
 
-void WebSettings::setSerifFontFamily(const char* seriffFontFamily)
+void WebSettings::setSerifFontFamily(const BlackBerry::Platform::String& seriffFontFamily)
 {
     m_private->setString(WebKitSeriffFontFamily, seriffFontFamily);
 }
 
-WebString WebSettings::fixedFontFamily() const
+BlackBerry::Platform::String WebSettings::fixedFontFamily() const
 {
     return m_private->getString(WebKitFixedFontFamily);
 }
 
-void WebSettings::setFixedFontFamily(const char* fixedFontFamily)
+void WebSettings::setFixedFontFamily(const BlackBerry::Platform::String& fixedFontFamily)
 {
     m_private->setString(WebKitFixedFontFamily, fixedFontFamily);
 }
 
-WebString WebSettings::sansSerifFontFamily() const
+BlackBerry::Platform::String WebSettings::sansSerifFontFamily() const
 {
     return m_private->getString(WebKitSansSeriffFontFamily);
 }
 
-void WebSettings::setSansSerifFontFamily(const char* sansSeriffFontFamily)
+void WebSettings::setSansSerifFontFamily(const BlackBerry::Platform::String& sansSeriffFontFamily)
 {
     m_private->setString(WebKitSansSeriffFontFamily, sansSeriffFontFamily);
 }
 
-WebString WebSettings::standardFontFamily() const
+BlackBerry::Platform::String WebSettings::standardFontFamily() const
 {
     return m_private->getString(WebKitStandardFontFamily);
 }
 
-void WebSettings::setStandardFontFamily(const char* standardFontFamily)
+void WebSettings::setStandardFontFamily(const BlackBerry::Platform::String& standardFontFamily)
 {
     m_private->setString(WebKitStandardFontFamily, standardFontFamily);
 }
 
-WebString WebSettings::userAgentString() const
+BlackBerry::Platform::String WebSettings::userAgentString() const
 {
     return m_private->getString(BlackBerryUserAgentString);
 }
 
-void WebSettings::setUserAgentString(const WebString& userAgentString)
+void WebSettings::setUserAgentString(const BlackBerry::Platform::String& userAgentString)
 {
     m_private->setString(BlackBerryUserAgentString, userAgentString);
 }
 
-WebString WebSettings::defaultTextEncodingName() const
+BlackBerry::Platform::String WebSettings::defaultTextEncodingName() const
 {
     return m_private->getString(WebKitDefaultTextEncodingName);
 }
 
-void WebSettings::setDefaultTextEncodingName(const char* defaultTextEncodingName)
+void WebSettings::setDefaultTextEncodingName(const BlackBerry::Platform::String& defaultTextEncodingName)
 {
     m_private->setString(WebKitDefaultTextEncodingName, defaultTextEncodingName);
 }
@@ -421,39 +460,12 @@ void WebSettings::setGetFocusNodeContext(bool enabled)
     m_private->setBoolean(BlackBerryGetFocusNodeContextEnabled, enabled);
 }
 
-WebString WebSettings::userStyleSheetString() const
-{
-    return m_private->getString(WebKitUserStyleSheet);
-}
-
-void WebSettings::setUserStyleSheetString(const char* userStyleSheetString)
-{
-    // FIXME: This doesn't seem like the appropriate place to do this as WebSettings should ideally be a state store.
-    // Either the caller of this function should do this conversion or caller of the getter corresponding to this function
-    // should do this conversion.
-
-    size_t length = strlen(userStyleSheetString);
-    Vector<char> data;
-    data.append(userStyleSheetString, length);
-
-    Vector<char> encodedData;
-    WebCore::base64Encode(data, encodedData);
-
-    const char prefix[] = "data:text/css;charset=utf-8;base64,";
-    size_t prefixLength = sizeof(prefix) - 1;
-    Vector<char> dataURL;
-    dataURL.reserveCapacity(prefixLength + encodedData.size());
-    dataURL.append(prefix, prefixLength);
-    dataURL.append(encodedData);
-    m_private->setString(WebKitUserStyleSheet, String(dataURL.data(), dataURL.size()));
-}
-
-WebString WebSettings::userStyleSheetLocation()
+BlackBerry::Platform::String WebSettings::userStyleSheetLocation()
 {
     return m_private->getString(WebKitUserStyleSheetLocation);
 }
 
-void WebSettings::setUserStyleSheetLocation(const char* userStyleSheetLocation)
+void WebSettings::setUserStyleSheetLocation(const BlackBerry::Platform::String& userStyleSheetLocation)
 {
     m_private->setString(WebKitUserStyleSheetLocation, userStyleSheetLocation);
 }
@@ -579,6 +591,16 @@ void WebSettings::setLocalStorageQuota(unsigned long long quota)
     m_private->setUnsignedLongLong(WebKitLocalStorageQuota, quota);
 }
 
+unsigned long long WebSettings::sessionStorageQuota() const
+{
+    return m_private->getUnsignedLongLong(WebKitSessionStorageQuota);
+}
+
+void WebSettings::setSessionStorageQuota(unsigned long long quota)
+{
+    m_private->setUnsignedLongLong(WebKitSessionStorageQuota, quota);
+}
+
 int WebSettings::maximumPagesInCache() const
 {
     // FIXME: We shouldn't be calling into WebCore from here. This class should just be a state store.
@@ -593,42 +615,52 @@ void WebSettings::setMaximumPagesInCache(int pages)
     m_private->setUnsigned(WebKitMaximumPagesInCache, realPages);
 }
 
-WebString WebSettings::localStoragePath() const
+BlackBerry::Platform::String WebSettings::localStoragePath() const
 {
     return m_private->getString(WebKitLocalStoragePath);
 }
 
-void WebSettings::setLocalStoragePath(const WebString& path)
+void WebSettings::setLocalStoragePath(const BlackBerry::Platform::String& path)
 {
     m_private->setString(WebKitLocalStoragePath, path);
 }
 
-WebString WebSettings::databasePath() const
+BlackBerry::Platform::String WebSettings::indexedDataBasePath() const
+{
+    return m_private->getString(WebKitIndexedDataBasePath);
+}
+
+void WebSettings::setIndexedDataBasePath(const BlackBerry::Platform::String& path)
+{
+    m_private->setString(WebKitIndexedDataBasePath, path);
+}
+
+BlackBerry::Platform::String WebSettings::databasePath() const
 {
     return m_private->getString(WebKitDatabasePath);
 }
 
-void WebSettings::setDatabasePath(const WebString& path)
+void WebSettings::setDatabasePath(const BlackBerry::Platform::String& path)
 {
     m_private->setString(WebKitDatabasePath, path);
 }
 
-WebString WebSettings::appCachePath() const
+BlackBerry::Platform::String WebSettings::appCachePath() const
 {
     return m_private->getString(WebKitOfflineWebApplicationCachePath);
 }
 
-void WebSettings::setAppCachePath(const WebString& path)
+void WebSettings::setAppCachePath(const BlackBerry::Platform::String& path)
 {
     m_private->setString(WebKitOfflineWebApplicationCachePath, path);
 }
 
-WebString WebSettings::pageGroupName() const
+BlackBerry::Platform::String WebSettings::pageGroupName() const
 {
     return m_private->getString(WebKitPageGroupName);
 }
 
-void WebSettings::setPageGroupName(const WebString& pageGroupName)
+void WebSettings::setPageGroupName(const BlackBerry::Platform::String& pageGroupName)
 {
     m_private->setString(WebKitPageGroupName, pageGroupName);
 }
@@ -653,24 +685,24 @@ void WebSettings::setShouldRenderAnimationsOnScrollOrZoom(bool enable)
     m_private->setBoolean(BlackBerryRenderAnimationsOnScrollOrZoomEnabled, enable);
 }
 
-unsigned WebSettings::overZoomColor() const
+unsigned WebSettings::overScrollColor() const
 {
-    return m_private->getUnsigned(BlackBerryOverZoomColor);
+    return m_private->getUnsigned(BlackBerryOverScrollColor);
 }
 
-void WebSettings::setOverZoomColor(unsigned color)
+void WebSettings::setOverScrollColor(unsigned color)
 {
-    m_private->setUnsigned(BlackBerryOverZoomColor, color);
+    m_private->setUnsigned(BlackBerryOverScrollColor, color);
 }
 
-WebString WebSettings::overScrollImagePath() const
+bool WebSettings::isEnableDefaultOverScrollBackground() const
 {
-    return m_private->getString(BlackBerryOverScrollImagePath);
+    return m_private->getBoolean(BlackBerryEnableDefaultOverScrollBackground);
 }
 
-void WebSettings::setOverScrollImagePath(const char* path)
+void WebSettings::setEnableDefaultOverScrollBackground(bool enabled)
 {
-    m_private->setString(BlackBerryOverScrollImagePath, path);
+    m_private->setBoolean(BlackBerryEnableDefaultOverScrollBackground, enabled);
 }
 
 unsigned WebSettings::backgroundColor() const
@@ -713,14 +745,14 @@ void WebSettings::setFrameFlatteningEnabled(bool enable)
     m_private->setBoolean(WebKitFrameFlatteningEnabled, enable);
 }
 
-bool WebSettings::isDirectRenderingToWindowEnabled() const
+bool WebSettings::isBackingStoreEnabled() const
 {
-    return m_private->getBoolean(BlackBerryDirectRenderingToWindowEnabled);
+    return m_private->getBoolean(BlackBerryBackingStoreEnabled);
 }
 
-void WebSettings::setDirectRenderingToWindowEnabled(bool enable)
+void WebSettings::setBackingStoreEnabled(bool enable)
 {
-    m_private->setBoolean(BlackBerryDirectRenderingToWindowEnabled, enable);
+    m_private->setBoolean(BlackBerryBackingStoreEnabled, enable);
 }
 
 unsigned WebSettings::maxPluginInstances() const
@@ -751,6 +783,76 @@ bool WebSettings::isSpatialNavigationEnabled() const
 void WebSettings::setSpatialNavigationEnabled(bool enable)
 {
     m_private->setBoolean(SpatialNavigationEnabled, enable);
+}
+
+bool WebSettings::isAsynchronousSpellCheckingEnabled() const
+{
+    return m_private->getBoolean(BlackBerryAsynchronousSpellChecking);
+}
+
+void WebSettings::setAsynchronousSpellCheckingEnabled(bool enable) const
+{
+    return m_private->setBoolean(BlackBerryAsynchronousSpellChecking, enable);
+}
+
+bool WebSettings::fullScreenVideoCapable() const
+{
+    return m_private->getBoolean(BlackBerryFullScreenVideoCapable);
+}
+
+void WebSettings::setFullScreenVideoCapable(bool enable)
+{
+    m_private->setBoolean(BlackBerryFullScreenVideoCapable, enable);
+}
+
+bool WebSettings::isCredentialAutofillEnabled() const
+{
+    return m_private->getBoolean(BlackBerryCredentialAutofillEnabled);
+}
+
+void WebSettings::setCredentialAutofillEnabled(bool enable)
+{
+    return m_private->setBoolean(BlackBerryCredentialAutofillEnabled, enable);
+}
+
+bool WebSettings::isFormAutofillEnabled() const
+{
+    return m_private->getBoolean(BlackBerryFormAutofillEnabled);
+}
+
+void WebSettings::setFormAutofillEnabled(bool enable)
+{
+    return m_private->setBoolean(BlackBerryFormAutofillEnabled, enable);
+}
+
+double WebSettings::devicePixelRatio() const
+{
+    return m_private->getDouble(BlackBerryDevicePixelRatio);
+}
+
+void WebSettings::setDevicePixelRatio(double ratio)
+{
+    m_private->setDouble(BlackBerryDevicePixelRatio, ratio);
+}
+
+bool WebSettings::applyDeviceScaleFactorInCompositor() const
+{
+    return m_private->getBoolean(BlackBerryApplyDeviceScaleFactorInCompositor);
+}
+
+void WebSettings::setApplyDeviceScaleFactorInCompositor(bool applyDeviceScaleFactorInCompositor)
+{
+    m_private->setBoolean(BlackBerryApplyDeviceScaleFactorInCompositor, applyDeviceScaleFactorInCompositor);
+}
+
+bool WebSettings::isTextAutosizingEnabled() const
+{
+    return m_private->getBoolean(WebKitTextAutosizingEnabled);
+}
+
+void WebSettings::setTextAutosizingEnabled(bool textAutosizingEnabled)
+{
+    m_private->setBoolean(WebKitTextAutosizingEnabled, textAutosizingEnabled);
 }
 
 } // namespace WebKit

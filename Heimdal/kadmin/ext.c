@@ -78,7 +78,7 @@ do_ext_keytab(krb5_principal principal, void *data)
 	    keys[i].keyblock.keytype = kd->key_data_type[0];
 	    keys[i].keyblock.keyvalue.length = kd->key_data_length[0];
 	    keys[i].keyblock.keyvalue.data = kd->key_data_contents[0];
-	    keys[i].timestamp = time(NULL);
+	    keys[i].timestamp = (uint32_t)time(NULL);
 	}
 
 	n_k = princ.n_key_data;
@@ -98,7 +98,7 @@ do_ext_keytab(krb5_principal principal, void *data)
 	    keys[i].principal = principal;
 	    keys[i].vno = princ.kvno + 1; /* XXX get entry again */
 	    keys[i].keyblock = k[i];
-	    keys[i].timestamp = time(NULL);
+	    keys[i].timestamp = (uint32_t)time(NULL);
 	}
     }
 

@@ -84,11 +84,23 @@ boolean_t IOPMSleepEnabled ( void ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 IOReturn IOPMSleepSystem ( io_connect_t fb ) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
 
 /*! @function IOPMCopyBatteryInfo
-    @abstract Request raw battery data from the system. 
-    @discussion WARNING! IOPMCoyBatteryInfo is unsupported on ALL Intel CPU based systems. For PPC CPU based systems, it remains not recommended. For almost all purposes, developers should use the richer IOPowerSources API (with change notifications) instead of using IOPMCopyBatteryInfo. Keys to decipher IOPMCopyBatteryInfo's return CFArray exist in IOPM.h.
-    @param masterPort The master port obtained from IOMasterPort(). Just pass MACH_PORT_NULL.
-    @param info A CFArray of CFDictionaries containing raw battery data. 
-    @result Returns kIOReturnSuccess or an error condition if request failed.
+     @abstract Request battery data from the system.
+     @discussion This API is supported, but not recommended. Developers should prefer to use
+     the IOPowerSources API. IOPowerSources provides more battery data, and notifications
+     when battery state changes)
+     @param masterPort The master port obtained from IOMasterPort(). Just pass MACH_PORT_NULL.
+     @param info A CFArray of CFDictionaries containing raw battery data. Use these keys, defined in IOPM.h
+            to read from the dictionary:
+         <pre>
+         <code>@link kIOBatteryInfoKey @/link</code>
+         <code>@link kIOBatteryCurrentChargeKey @/link</code>
+         <code>@link kIOBatteryCapacityKey @/link</code>
+         <code>@link kIOBatteryFlagsKey @/link</code>
+         <code>@link kIOBatteryVoltageKey @/link</code>
+         <code>@link kIOBatteryAmperageKey @/link</code>
+         <code>@link kIOBatteryCycleCountKey @/link</code>
+         </pre>
+     @result Returns kIOReturnSuccess or an error condition if request failed.
  */
 IOReturn IOPMCopyBatteryInfo( mach_port_t masterPort, CFArrayRef * info )
                             AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
@@ -101,47 +113,42 @@ IOReturn IOPMCopyBatteryInfo( mach_port_t masterPort, CFArrayRef * info )
 
 
 /*! @function IORegisterApp
-    @abstract Connects the caller to an IOService for the purpose of receiving power state change notifications for the device controlled by the IOService.
-    @discussion IORegisterApp requires that the IOService of interest implement an IOUserClient. In addition, that IOUserClient must implement the allowPowerChange and cancelPowerChange methods defined in IOPMLibDefs.h. If you're interested in receiving power state notifications from a device without an IOUserClient, try using IOServiceAddInterestNotification with interest type gIOGeneralInterest instead.
-    @param refcon Data returned on power state change notifications and not used by the kernel.
-    @param theDriver  Representation of the IOService, probably from IOServiceGetMatchingService.
-    @param thePortRef Pointer to a port on which the caller will receive power state change notifications. The port is allocated by the calling application.
-    @param callback  A c-function which is called during the notification.
-    @param notifier  Pointer to a notifier which caller must keep and pass to subsequent call to IODeregisterApp.
-    @result Returns a io_connect_t session for the IOService or MACH_PORT_NULL if request failed. Caller must close return value via IOServiceClose() after calling IODeregisterApp on the notifier argument.
-*/
+    @abstract DEPRECATED - An obsolete method for interacting with driver power state changes.
+    @discussion This function is obsolete and deprecated. To receive notifications of driver power state changes,
+        			Please use IOServiceAddInterestNotification with interest type gIOGeneralInterest instead.
+ */
 io_connect_t IORegisterApp( void * refcon,
                             io_service_t theDriver,
                             IONotificationPortRef * thePortRef,
                             IOServiceInterestCallback callback,
                             io_object_t * notifier )
-                            AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER;
-
+                            __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_9, __IPHONE_NA, __IPHONE_NA);
+    
 /*! @function       IORegisterForSystemPower
     @abstract       Connects the caller to the Root Power Domain IOService for the purpose of receiving sleep & wake notifications for the system.
 				    Does not provide system shutdown and restart notifications.
     @discussion     Provides sleep/wake notifications to applications. Requires that applications acknowledge
                     some, but not all notifications. Register for sleep/wake notifications will deliver these messages
                     over the sleep/wake lifecycle:
-
-            - kIOMessageSystemWillSleep is delivered at the point the system is initiating a 
+            <ul>
+            <li>kIOMessageSystemWillSleep is delivered at the point the system is initiating a 
                 non-abortable sleep.
                 Callers MUST acknowledge this event by calling @link IOAllowPowerChange @/link.
                 If a caller does not acknowledge the sleep notification, the sleep will continue anyway after
                 a 30 second timeout (resulting in bad user experience). 
                 Delivered before any hardware is powered off.
 
-            - kIOMessageSystemWillPowerOn is delivered at early wakeup time, before most hardware has been
+            <li>kIOMessageSystemWillPowerOn is delivered at early wakeup time, before most hardware has been
                 powered on. Be aware that any attempts to access disk, network, the display, etc. may result
                 in errors or blocking your process until those resources become available.
                 Caller must NOT acknowledge kIOMessageSystemWillPowerOn; the caller must simply return from its handler.
             
-            - kIOMessageSystemHasPoweredOn is delivered at wakeup completion time, after all device drivers and
+            <li>kIOMessageSystemHasPoweredOn is delivered at wakeup completion time, after all device drivers and
                 hardware have handled the wakeup event. Expect this event 1-5 or more seconds after initiating
                 system wakeup.
                 Caller must NOT acknowledge kIOMessageSystemHasPoweredOn; the caller must simply return from its handler.
 
-            - kIOMessageCanSystemSleep indicates the system is pondering an idle sleep, but gives apps the
+            <li>kIOMessageCanSystemSleep indicates the system is pondering an idle sleep, but gives apps the
                 chance to veto that sleep attempt. 
                 Caller must acknowledge kIOMessageCanSystemSleep by calling @link IOAllowPowerChange @/link
                 or @link IOCancelPowerChange @/link. Calling IOAllowPowerChange will not veto the sleep; any
@@ -149,17 +156,17 @@ io_connect_t IORegisterApp( void * refcon,
                 notification will be followed up to 30 seconds later by a kIOMessageSystemWillSleep message.
                 or a kIOMessageSystemWillNotSleep message.
 
-            - kIOMessageSystemWillNotSleep is delivered when some app client has vetoed an idle sleep
+            <li>kIOMessageSystemWillNotSleep is delivered when some app client has vetoed an idle sleep
                 request. kIOMessageSystemWillNotSleep may follow a kIOMessageCanSystemSleep notification,
                 but will not otherwise be sent.
                 Caller must NOT acknowledge kIOMessageSystemWillNotSleep; the caller must simply return from its handler.
-                
+            </ul>
         To deregister for sleep/wake notifications, the caller must make two calls, in this order:
-            - Call IODeregisterForSystemPower with the 'notifier' argument returned here.
-            - Then call IONotificationPortDestroy passing the 'thePortRef' argument
+            <ol><li> Call IODeregisterForSystemPower with the 'notifier' argument returned here.
+            <li> Then call IONotificationPortDestroy passing the 'thePortRef' argument
                 returned here.
-  
-    @param refcon       Caller may provide data to receive s an argument to 'callback' on power state changes.
+            </ol>  
+    @param refcon       Caller may provide data to receive as an argument to 'callback' on power state changes.
     @param thePortRef   On return, thePortRef is a pointer to an IONotificationPortRef, which will deliver the power notifications. 
                         The port is allocated by this function and must be later released by the caller (after calling <code>@link IODeregisterForSystemPower @/link</code>). 
                         The caller should also enable IONotificationPortRef by calling <code>@link IONotificationPortGetRunLoopSource @/link</code>, or 
@@ -226,12 +233,14 @@ IOReturn IOCancelPowerChange ( io_connect_t kernelPort, long notificationID )
     @param time_to_wake Date and time that the system will power on/off.
     @param my_id A CFStringRef identifying the calling app by CFBundleIdentifier. May be NULL.
     @param type The type of power on you desire, either wake from sleep or power on. Choose from:
-                CFSTR(kIOPMAutoWake) == wake machine, 
-                CFSTR(kIOPMAutoPowerOn) == power on machine, 
-                CFSTR(kIOPMAutoWakeOrPowerOn) == wake or power on,
-                CFSTR(kIOPMAutoSleep) == sleep machine, 
-                CFSTR(kIOPMAutoShutdown) == power off machine,
-                CFSTR(kIOPMAutoRestart) == restart the machine.
+        <ul>
+                <li>CFSTR(<code>kIOPMAutoWake</code>) == wake machine, 
+                <li>CFSTR(<code>kIOPMAutoPowerOn</code>) == power on machine, 
+                <li>CFSTR(<code>kIOPMAutoWakeOrPowerOn</code>) == wake or power on,
+                <li>CFSTR(<code>kIOPMAutoSleep</code>) == sleep machine, 
+                <li>CFSTR(<code>kIOPMAutoShutdown</code>) == power off machine,
+                <li>CFSTR(<code>kIOPMAutoRestart</code>) == restart the machine.
+        </ul>
     @result kIOReturnSuccess on success, otherwise on failure
 */
 IOReturn IOPMSchedulePowerEvent(CFDateRef time_to_wake, CFStringRef my_id, CFStringRef type);
@@ -253,333 +262,134 @@ IOReturn IOPMCancelScheduledPowerEvent(CFDateRef time_to_wake, CFStringRef my_id
 */
 CFArrayRef IOPMCopyScheduledPowerEvents(void); 
 
-
-
-/*! 
- * @defineblock    IOPMAssertionDictionaryKeys
- *
- * @discussion      Keys into dictionaries describing assertions.
- */
-
-/*!
- * @define          kIOPMAssertionTimeoutKey
- * @abstract        kIOPMAssertionTimeoutKey specifies an outer bound, in seconds, that this assertion should be asserted.
- *
- * @discussion      If your application hangs, or is unable to complete its assertion task in a reasonable amount of time,
- *                  specifying a timeout allows PM to disable your assertion so the system can resume normal activity.
- *                  Once a timeout with the <code>@link kIOPMAssertionTimeoutActionTurnOff@/link</code> assertion fires, the level
- *                  will be set to <code>@link kIOPMAssertionTimeoutActionTurnOff@/link</code>. The assertion may be re-armed by calling
- *                  <code>@link IOPMAssertionSetLevel@/link</code>.
- *
- * 
- *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
- *
- *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
- */
-#define kIOPMAssertionTimeoutKey                CFSTR("TimeoutSeconds")
-
-
-/*!
- * @define          kIOPMAssertionTimeoutActionKey
- *
- * @abstract        Specifies the action to take upon timeout expiration.
- *
- * @discussion      Specifying the timeout action only has meaning if you also specify an <code>@link kIOPMAssertionTimeoutKey@/link</code>
- *                  If the caller does not specify a timeout action, the default action is <code>@link kIOPMAssertionTimeoutActionTurnOff@/link</code>
- *
- *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
- *
- *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
- */
-#define kIOPMAssertionTimeoutActionKey          CFSTR("TimeoutAction")
-
-/*!
- * @define          kIOPMAssertionTimeoutActionLog
- * 
- * @abstract        A potential value for <code>@link kIOPMAssertionTimeoutActionKey@/link</code>
- *
- * @discussion      When this timeout action is specified, PM will log the timeout event
- *                  but will not turn off or affect the setting of the assertion in any way.
- *
- */
-#define kIOPMAssertionTimeoutActionLog          CFSTR("TimeoutActionLog")
-
-/*! 
- * @define          kIOPMAssertionTimeoutActionTurnOff
- *
- * @discussion      When a timeout expires with this action, Power Management will log the timeout event,
- *                  and will set the assertion's level to <code>@link kIOPMAssertionLevelOff@/link</code>.
- */
-#define kIOPMAssertionTimeoutActionTurnOff      CFSTR("TimeoutActionTurnOff")
-
-/*! 
- * @define          kIOPMAssertionTimeoutActionRelease
- *
- * @discussion      When a timeout expires with this action, Power Management will log the timeout event,
- *                  and will release the assertion.
- */
-#define kIOPMAssertionTimeoutActionRelease      CFSTR("TimeoutActionRelease")
     
+#pragma mark IOKit Power Assertions
 /*!
- * @define          kIOPMAssertionRetainCountKey
  *
- * @discussion      kIOPMAssertionRetainCountKey reflects the CoreFoundation-style retain count on this assertion.
- *                  Creating or retaining an assertion increments its retain count.
- *                  Release an assertion decrements its retain count.
- *                  When the retain count decrements to zero, the OS will destroy the object. 
+ * @functiongroup   IOPMAssertions
  *
- * This key can be found in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
  */
-#define kIOPMAssertionRetainCountKey            CFSTR("RetainCount")
-
-/*!
- * @define          kIOPMAssertionNameKey
- *
- * @abstract        The CFDictionary key for assertion name. Setting this key is required when you're creating an assertion.
- *
- * @discussion      <code>kIOPMAssertionNameKey</code> describes the the activity the assertion is protecting. The creator should
- *                  specify a CFString value for this key in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>
- *
- *                  The assertion name is separate from the assertion type's behavior - specify a CFString 
- *                  like "Checking mail" or "Compiling" that describes the task that this assertion protects.
- *
- *                  The CFString you associate with this key does not have to be localizable (OS X will not attempt to localize it.)
- *
- *                  Describe your assertion as thoroughly as possible. See these other keys that can you can also set to add explanation
- *                  to an assertion:
- *                   OPTIONAL <code>@link kIOPMAssertionDetailsKey@/link</code>
- *                   OPTIONAL <code>@link kIOPMAssertionHumanReadableReasonKey @/link</code>
- *                   OPTIONAL <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>
- */
-#define kIOPMAssertionNameKey                  CFSTR("AssertName")
-
-/*!
- * @define          kIOPMAssertionDetailsKey
- *
- * @abstract        You may provide extra, contextual information about an assertion for admins and for debugging
- *                  in this key. Setting this key in an assertion dictionary is optional.
- *
- @discussion        Please name your assertion something unique with <code>@link kIOPMAssertionNameKey@/link</code> first.
- *                  If you have more data to describe this assertion, put it here as a CFString.
- *                  
- *  '               EXAMPLE: OS X creates an assertion named <code>com.apple.powermanagement.tty</code> to prevent sleep for 
- *                  remote-logged in users. To identify the cause for these assertions, OS X sets <code>kIOPMAssertionDetailsKey</code>
- *                  to the CFString device path of the active remote session(s), e.g. "/dev/ttys000 /dev/ttys004"
- *
- *                  The CFString you associate with this key does not have to be localizable (OS X will not attempt to localize it.)
- *
- *                  Describe your assertion as thoroughly as possible. See these other keys that can you can set to add explanation
- *                  to an assertion:
- *                   REQUIRED <code>@link kIOPMAssertionNameKey@/link</code>
- *                   OPTIONAL <code>@link kIOPMAssertionHumanReadableReasonKey @/link</code>
- *                   OPTIONAL <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>
- */
-#define kIOPMAssertionDetailsKey             CFSTR("Details")
     
+        
 /*!
- * @define          kIOPMAssertionHumanReadableReasonKey
- *
- * @abstract        Optional key that provides a localizable string for OS X to display PM Assertions in the GUI.
- *
- * @discussion      The caller should specify this string in <code>@link IOPMAssertionCreateWithProperties@/link</code>.
- *                  If present, OS X may display this string, localized to the user's language, to explain changes in system
- *                  behavior caused by the assertion.
- *                   
- *                  If set, the caller must also specify a bundle path for the key 
- *                      <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>
- *                  The bundle at that path should contain localization info for the specified string.
- *
- *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
- *
- *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
- *
- *                  Describe your assertion as thoroughly as possible. See these other keys that can you can set to add explanation
- *                  to an assertion:
- *                   REQUIRED <code>@link kIOPMAssertionNameKey@/link</code>
- *                   OPTIONAL <code>@link kIOPMAssertionDetailsKey @/link</code>
- */
-#define kIOPMAssertionHumanReadableReasonKey    CFSTR("HumanReadableReason")
-
-/*!
- * @define          kIOPMAssertionLocalizationBundlePathKey
- *
- * @abstract        Refers to a CFURL, as a CFString, identifying the path to the caller's 
- *                  bundle, which contains localization info. 
- *
- * @discussion      The bundle must contain localizations for
- *                  <code>@link kIOPMAssertionHumanReadableReasonKey@/link</code>
- *
- *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
- *
- *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
- */
-#define kIOPMAssertionLocalizationBundlePathKey   CFSTR("BundlePath")
-
-/*!
- * @define          kIOPMAssertionFrameworkIDKey
- *
- * @abstract        Specify if the assertion creator is a framework. 
- *
- * @discussion      If the code that creates the assertion resides in a framework or library, the caller
- *                  should specify a CFBundleIdentifier, as a CFString, identifying that bundle here.
- *                  This info helps developers and administrators determine the source of an assertion.
- *
- *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
- *
- *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
- */
-#define kIOPMAssertionFrameworkIDKey            CFSTR("FrameworkBundleID")
-
-/*!
- * @define          kIOPMAssertionPlugInIDKey
- *
- * @abstract        Specify if the assertion creator is a plugin.
- *
- * @discussion      If the code that creates the assertion resides in a plugin, the caller
- *                  should specify a CFBundleIdentifier, as a CFString, identifying the plugin's bundle here.
- *                  This info helps developers and administrators determine the source of an assertion.
- *
- *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
- *
- *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
- */
-#define kIOPMAssertionPlugInIDKey               CFSTR("PlugInBundleID")
-
-/*!
- * @define          kIOPMAssertionTypeKey
- *
- * @abstract        The CFDictionary key for assertion type in an assertion info dictionary.
- *
- * @discussion      The value for this key will be a CFStringRef, with the value of the assertion
- *                  type specified at creation time.
- *                  Note that OS X may substitute a support assertion type string if the caller
- *                  specifies a deprecated assertion type; in that case the value for this key could
- *                  differ from the caller-provided assertion type.
- */
-#define kIOPMAssertionTypeKey                   CFSTR("AssertType")
-
-/*!
- * @define          kIOPMAssertionLevelKey
- *
- * @abstract        The CFDictionary key for assertion level in an assertion info dictionary.
- *
- * @discussion      The value for this key will be a CFNumber, kCFNumberIntType with value
- *                  <code>kIOPMAssertionLevelOff</code> or <code>kIOPMAssertionLevelOn</code>.
- *                  The level reflects the assertion's level set at creation, or adjusted via
- *                  <code>@link IOPMAssertionSetLevel@/link</code>
- */
-#define kIOPMAssertionLevelKey                  CFSTR("AssertLevel")
-
-/*! @/defineblock   IOPMAssertionDictionary Keys*/
-
-/*!
- * @typedef         IOPMAssertionID
- *
- * @abstract        Type for AssertionID arguments to <code>@link IOPMAssertionCreateWithProperties@/link</code> 
- *                  and <code>@link IOPMAssertionRelease@/link</code>
- */
-typedef uint32_t IOPMAssertionID;
-
-    
-
-/*! 
- * @defineblock     IOPMAssertionTypes 
- */
-     
-    
-/*!
- * @define          kIOPMAssertionTypePreventUserIdleSystemSleep
+ * @define          kIOPMAssertPreventUserIdleSystemSleep
  *
  * @abstract        Prevents the system from sleeping automatically due to a lack of user activity.
  *
  * @discussion      When asserted and set to level <code>@link kIOPMAssertionLevelOn@/link</code>,
  *                  will prevent the system from sleeping due to a period of idle user activity.
+ *                  Create this assertion with
+ *                      <code>@link IOPMAssertionCreateWithName @/link</code>
+ *                      or <code>@link IOPMAssertionCreateWithDescription @/link</code>
  *
- *                  The display may dim and idle sleep while kIOPMAssertionTypePreventUserIdleSystemSleep is
- *                  enabled, but the system may not idle sleep.
+ *                  The display may dim and idle sleep while <code>kIOPMAssertPreventUserIdleSystemSleep</code> is
+ *                  enabled, but the system may not idle sleep. The system may still sleep for lid close, 
+ *                  Apple menu, low battery, or other sleep reasons.
  *
- *                  The system may still sleep for lid close, Apple menu, low battery, or other sleep reasons.
+ *                  This assertion has no effect if the system is in Dark Wake.
  *
- *                  This assertion does not put the system into Dark Wake.
- *
- *                  A caller publish the AssertionType in its assertion properties dictionary.
- *                  The AssertionType should be a key in the properties dictionary, with a value
- *                  of a CFNumber containing the kCFNumberIntegerType value 
- *                  <code>@link kIOPMAssertionLevelOff@/link</code> or <code>@link kIOPMAssertionLevelOn@/link</code>.
  */
-
-#define kIOPMAssertionTypePreventUserIdleSystemSleep    CFSTR("PreventUserIdleSystemSleep")
-
+#define kIOPMAssertPreventUserIdleSystemSleep               CFSTR("PreventUserIdleSystemSleep")
 
 /*!
- * @define          kIOPMAssertionTypePreventUserIdleDisplaySleep
+ * @define          kIOPMAssertPreventUserIdleDisplaySleep
  *
  * @abstract        Prevents the display from dimming automatically.
  *
- * @discussion      When asserted and set to level <code>@link kIOPMAssertionLevelOn@/link</code>,
+ * @discussion      Create this assertion with
+ *                      <code>@link IOPMAssertionCreateWithName @/link</code>
+ *                      or <code>@link IOPMAssertionCreateWithDescription @/link</code>.
+ * 
+ *                  When asserted and set to level <code>@link kIOPMAssertionLevelOn@/link</code>,
  *                  will prevent the display from turning off due to a period of idle user activity.
- *                  Note that the display may still sleep from other reasons, like a user closing a
+ *                  Note that the display may still sleep for other reasons, like a user closing a
  *                  portable's lid or the machine sleeping. If the display is already off, this
- *                  assertion does not light up the display. If display needs to be turned on, then 
+ *                  assertion does not light up the display. If display needs to be turned on, then
  *                  consider calling function <code>@link IOPMAssertionDeclareUserActivity@/link</code>.
  *
  *                  While the display is prevented from dimming, the system cannot go into idle sleep.
  *
- *                  This assertion does not put the system into Dark Wake.
- *
- *                  A caller publish the AssertionType in its assertion properties dictionary.
- *                  The AssertionType should be a key in the properties dictionary, with a value
- *                  of a CFNumber containing the kCFNumberIntegerType value 
- *                  <code>@link kIOPMAssertionLevelOff@/link</code> or <code>@link kIOPMAssertionLevelOn@/link</code>.
+ *                  This assertion has no effect if the system is in Dark Wake.
  */
-
-#define kIOPMAssertionTypePreventUserIdleDisplaySleep    CFSTR("PreventUserIdleDisplaySleep")
-
+#define kIOPMAssertPreventUserIdleDisplaySleep              CFSTR("PreventUserIdleDisplaySleep")
 
 /*!
- * @define          kIOPMAssertionTypePreventSystemSleep
+ * @define          kIOPMAssertPreventDiskIdle
  *
- * @abstract        Prevents the system from sleeping and allows the system to reside in Dark Wake
- *                  for an arbitrary length of time.
+ * @abstract        Prevent attached disks from idling into lower power states.
  *
  * @discussion      When asserted and set to level <code>@link kIOPMAssertionLevelOn@/link</code>,
- *                  the system will prefer to enter the Dark Wake state, or remain in Dark Wake if
- *                  already there, rather than go to sleep.
+ *                  will prevent attached disks and optical media from idling into lower power states.
+ *                  Create this assertion with
+ *                      <code>@link IOPMAssertionCreateWithName @/link</code>
+ *                      or <code>@link IOPMAssertionCreateWithDescription @/link</code>.
  *
- *                  Assertions are just suggestions to the OS, and the OS can only honor them
- *                  to the best of its ability. In the case of low power or a thermal emergency,
- *                  the system may sleep anyway despite the assertion.
+ *                  Apps who rely on real-time access to disks should create this assertion to avoid
+ *                  latencies caused by disks changing power states. For example, audio and video performance
+ *                  or recording apps may benefit from this assertion. Most Apps should not take this assertion;
+ *                  preventing disk idle consumes battery life, and most apps don't require the low latency
+ *                  disk access that this provides.
  *
- *                  An assertion must publish the AssertionType in its assertion properties dictionary.
- *                  The AssertionType should be a key in the properties dictionary, with a value
- *                  of a CFNumber containing the kCFNumberIntegerType value 
- *                  <code>@link kIOPMAssertionLevelOff@/link</code> or <code>@link kIOPMAssertionLevelOn@/link</code>.
+ *                  This assertion doesn't increase a disk's power state (it just prevents that device from idling).
+ *                  After creating this assertion, the caller should perform disk I/O on the necessary drives to
+ *                  ensure that they're in a usable power state.
+ *
+ *                  The system may still sleep while this assertion is active.
+ *                  Callers should also take <code>@link kIOPMAssertPreventUserIdleSystemSleep@/link</code>
+ *                  if necessary, to prevent idle system sleep.
  */
-
-#define kIOPMAssertionTypePreventSystemSleep            CFSTR("PreventSystemSleep")
-
+#define kIOPMAssertPreventDiskIdle                          CFSTR("PreventDiskIdle")
 
 /*!
- * @define          kIOPMAssertionTypeNoIdleSleep
+ * @define          kIOPMAssertNetworkClientActive
  *
- * @deprecated      Deprecated in 10.7; Please use assertion type <code>@link kIOPMAssertionTypePreventUserIdleSystemSleep@/link</code> instead.
+ * @abstract        Keeps the system awake while OS X serves active network clients.
  *
- * @abstract        Pass as the AssertionType argument to <code>@link IOPMAssertionCreate@/link</code>. 
- *                  The system will not idle sleep when enabled (display may sleep). Note that the system may sleep
- *                  for other reasons.
+ * @discussion      When asserted and set to level <code>@link kIOPMAssertionLevelOn@/link</code>,
+ *                  will keep the computer awake. Create this assertion with 
+ *                      <code>@link IOPMAssertionCreateWithName @/link</code>
+ *                      or <code>@link IOPMAssertionCreateWithDescription @/link</code>.
  *
+ *                  Instead of taking this assertion, most callers should instead use: 
+ *                  <code>@link IOPMDeclareNetworkClientActivity @/link</code>
+ *                  it takes the assertion, but with a built-in timeout.
+ *
+ *                  This assertion keeps the system awake in dark or full wake,
+ *                  as long as the system is on AC power. On battery, this assertion can 
+ *                  prevent system from going into idle sleep.
+ *                  IOKit power assertions are suggestions and OS X may not honor them under
+ *                  battery, thermal, or user  circumstances.
+ *
+ *                  This assertion provides CPU, disk, and network connectivity. 
+ *                  If the network is no longer available, this assertion may stop working 
+ *                  and allow the system to go to sleep.
+ *
+ *                  Callers should take this assertion when they have remote clients connected and active.
+ *                  Please <code>@link IOPMAssertionRelease @/link></code> this assertion if remote clients become 
+ *                  inactive, idle, or disconnected. 
+ *                  If your process already manages user timeouts and tracks activity,
+ *                  you can take this assertion directly with 
+ *                  <code>@link IOPMAssertionCreateWithProperties @/link</code>. 
+ *
+ *                  IOKit can manage remote client idleness for you if you call 
+ *                  <code>@link IOPMDeclareNetworkClientActivity @/link</code> upon every remote access,
+ *
+ *                  This assertion is a suggestion; Mac OS X may need to sleep the system even if
+ *                  this assertion is active.
  */
-#define kIOPMAssertionTypeNoIdleSleep                 CFSTR("NoIdleSleepAssertion")
+#define kIOPMAssertNetworkClientActive                             CFSTR("NetworkClientActive")
+    
+
+    
+/*! @/defineblock   IOPMAssertionDictionary Keys*/
 
 /*!
- * @define          kIOPMAssertionTypeNoDisplaySleep
+ * @typedef         IOPMAssertionID
  *
- * @deprecated      Deprecated in 10.7; Please use assertion type <code>@link kIOPMAssertionTypePreventUserIdleDisplaySleep@/link</code>.
- *
- * @abstract        Use as AssertionType argument to <code>@link IOPMAssertionCreate@/link</code>. 
- *                  The idle display will not sleep when enabled, and consequently the system will not idle sleep.
+ * @abstract        Type for AssertionID arguments to <code>@link IOPMAssertionCreateWithProperties@/link</code>
+ *                  and <code>@link IOPMAssertionRelease@/link</code>
  */
-#define kIOPMAssertionTypeNoDisplaySleep              CFSTR("NoDisplaySleepAssertion")
+typedef uint32_t IOPMAssertionID;
 
 
 /*!
@@ -629,17 +439,15 @@ typedef enum {
     kIOPMUserActiveRemote   /* Remote User connected to the system */
 } IOPMUserActiveType;
 
-/*!
- * @functiongroup   Assertions
- */    
-
     
 /*! @function           IOPMAssertionCreateWithDescription
+ *
+ * @abstract            The preferred API to create a power assertion.
  *
  * @description         Creates an IOPMAssertion. This is the preferred API to call to create an assertion.
  *                      It allows the caller to specify the Name, Details, and HumanReadableReason at creation time.
  *                      There are other keys that can further describe an assertion, but most developers don't need
- *                      to use them. Use <code>@link IOPMAssertionSetProperties @/link</code> or 
+ *                      to use them. Use <code>@link IOPMAssertionSetProperty @/link</code> or
  *                      <code>@link IOPMAssertionCreateWithProperties @/link</code> if you need to specify properties
  *                      that aren't available here.
  * 
@@ -729,6 +537,101 @@ IOReturn IOPMAssertionCreateWithProperties(
                             __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_3_2);
 
 /*!
+ * @function            IOPMAssertionDeclareUserActivity
+ *
+ * @abstract            Declares that the user is active on the system. 
+ *
+ * @discussion          This causes the display to power on and postpone display sleep, 
+ *                      up to the user's display sleep Energy Saver settings. 
+ *
+ *                      If you need to hold the display awake for a longer period and you know
+ *                      how long you'd like to hold it, consider taking assertion 
+ *                      <code>@link kIOPMAssertPreventUserIdleDisplaySleep @/link</code> using
+ *                      <code>@link IOPMAssertionCreateWithDescription @/link</code> API instead.
+ *
+ *                      No special privileges are necessary to make this call - any process may
+ *                      call this API. Caller must specify an AssertionName - NULL is not
+ *                      a valid input.
+ *
+ * @param AssertionName     A string that describes the name of the caller and the activity being
+ *                          handled by this assertion (e.g. "Mail Compacting Mailboxes"). Name may be no longer
+ *                          than 128 characters.
+ *
+ * @param   userType        This parameter specifies if the active user is located locally in front of the
+ *                          system or connected to the system over the network. Various components of the system
+ *                          are maintained at different power levels depending on user location.
+ *
+ * @param AssertionID       On Success, unique id will be returned in this parameter. Caller
+ *                          may call this function again with the unique id retured previously to report continous
+ *                          user activity. The unique id returned by this function may change on each call depending
+ *                          on how frequently this function call is repeated and the current display sleep timer value.
+ *                          If you make this call more than once, track the returned value for
+ *                          assertionID, and pass it in as an argument on each call.
+ *
+ * @result                  Returns kIOReturnSuccess on success, any other return indicates
+ *                          PM could not successfully activate the specified assertion.
+ */
+IOReturn IOPMAssertionDeclareUserActivity(
+                                          CFStringRef          AssertionName,
+                                          IOPMUserActiveType   userType,
+                                          IOPMAssertionID      *AssertionID)
+AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;   /* This API is introduced in 10.7.3 */
+    
+
+/*!
+ * @function            IOPMDeclareNetworkClientActivity
+ *
+ * @abstract            A convenience function for handling remote network clients; this is a wrapper for
+ *                      holding <code>@link kIOPMAssertNetworkClientActive @/link </code>
+ *
+ * @discussion          Call this whenever you detect activity from your remote network clients.
+ *                      This call generates an IPC call, and may block.
+ *
+ *                      On the first invocation, this will populate parameter
+ *                      <code>AssertionID</code> with a new assertion ID.
+ *                      You should pass in this returned assertion ID on every access.
+ *                      
+ *                      When system is on AC power, every call to <code>IOPMDeclareNetworkClientActivity</code> 
+ *                      prevents system from idle sleeping and from demand sleeping for the duration of
+ *                      system sleep timer. When system is on Battery power, every call to 
+ *                      <code>IOPMDeclareNetworkClientActivity</code> prevents system from idle sleeping for the 
+ *                      duration of system sleep timer.
+ *
+ *                      Assertion created by this interface is valid only for the duration of system sleep timer
+ *                      from the last call. IOKit will disable <code>AssertionID</code> after that duration.
+ *
+ *                      If you detect that your remote client is no longer active, please immediately call
+ *                      <code>@link IOPMAssertionRelease@/link</code. Do not wait for the timeout.
+ *
+ *                      If your process can detect when remote clients are active and idle, you can skip
+ *                      this API and directly create <code>@link kIOPMAssertNetworkClientActive @/link</code> yourself.
+ *
+ *                      If your remote clients require access to the framebuffer or the GPU, then this
+ *                      isn't the appropriate call for you. Please see 
+ *                      <code>@link IOPMAssertionDeclareUserActivity @/link</code> and pass in argument
+ *                      <code>@link kIOPMUserActiveRemote @/link</code>.
+ *
+ * @param AssertionName     A string that describes the name of the caller and the activity being
+ *                          handled by this assertion (e.g. "Serving a podcast"). The name must be less than
+ *                          128 characters.
+ * *
+ * @param AssertionID       On Success, unique id will be returned in this parameter. Caller
+ *                          may call this function again with the unique id retured previously to report additional
+ *                          user activity. The unique id returned by this function may change on each call depending
+ *                          on how frequently this function call is repeated and the current system sleep timer value.
+ *                          If you make this call more than once, track the returned value for
+ *                          assertionID, and pass it in as an argument on each call.
+ *
+ * @result                  Returns kIOReturnSuccess on success, any other return indicates
+ *                          PM could not successfully activate the specified assertion.
+ */
+IOReturn IOPMDeclareNetworkClientActivity(
+                                          CFStringRef          AssertionName,
+                                          IOPMAssertionID      *AssertionID)
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
+
+    
+/*!
  * @function            IOPMAssertionRetain
  *
  * @abstract            Increments the assertion's retain count.
@@ -748,7 +651,7 @@ void IOPMAssertionRetain(IOPMAssertionID theAssertion)
  * @discussion          If the retain count becomes zero, then this also frees and deactivates
  *                      the assertion referred to by <code>assertionID</code>
  *
- *                      Calls to <code>@link IOPMAssertionCreate@/link</code> and <code>@link IOPMAssertionRelease@/link</code> 
+ *                      Calls to <code>@link IOPMAssertionCreate@/link</code> and <code>@link IOPMAssertionRetain@/link</code>
  *                      must each be paired with calls to IOPMAssertionRelease.
  *
  * @param               AssertionID The assertion_id, returned from IOPMAssertionCreate, to cancel.
@@ -761,7 +664,7 @@ IOReturn IOPMAssertionRelease(IOPMAssertionID AssertionID)
 
 /*!
  * @function            IOPMAssertionCopyProperties
- * @abstract            Copies details about an <code>IOPMAssertion</code.
+ * @abstract            Copies details about an <code>IOPMAssertion</code>.
  * @discussion          Returns a dictionary describing an IOPMAssertion's specifications and current state.
  * @param theAssertion  The assertion ID to copy info about.
  * @result              A dictionary describing the assertion with keys specified in See @link IOPMAssertionDictionaryKeys@/link. 
@@ -828,7 +731,7 @@ IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *AssertionsStatus)
 /*!
  * @function            IOPMAssertionCreate
  *
- * @abstract            Dynamically requests a system behavior from the power management system.
+ * @abstract            This is a deprecated call to create a power assertion.
  *
  * @deprecated          IOPMAssertionCreate is deprecated in favor of <code>@link IOPMAssertionCreateWithProperties@/link</code>.
  *                      Please use that version of this API instead.
@@ -852,7 +755,7 @@ IOReturn IOPMAssertionCreate(CFStringRef        AssertionType,
 /*!
  * @function            IOPMAssertionCreateWithName
  *
- * @abstract            Dynamically requests a system behavior from the power management system.
+ * @abstract            The simplest API to create a power assertion.
  *
  * @deprecated          IOPMAssertionCreate is deprecated in favor of <code>@link IOPMAssertionCreateWithProperties@/link</code>.
  *                      Please use that version of this API instead.
@@ -880,44 +783,263 @@ IOReturn IOPMAssertionCreateWithName(
                         AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;                           
                            
 /*!
- * @function            IOPMAssertionDeclareUserActivity
+ * @define          kIOPMAssertionTimeoutKey
+ * @abstract        kIOPMAssertionTimeoutKey specifies an outer bound, in seconds, that this assertion should be asserted.
  *
- * @abstract            Declares that the user is active on the system. This causes the display to 
- *                      power on and postpone display sleep up to the user's display sleep Energy 
- *                      Saver settings. If you prefer to hold the display awake for a longer period and you know 
- *                      how long you'd like to hold it, consider taking assertion <code>@link 
- *                      kIOPMAssertionTypePreventUserIdleDisplaySleep@/link</code> using 
- *                      <code>@link IOPMAssertionCreateWithDescription@/link</code> API instead.
+ * @discussion      If your application hangs, or is unable to complete its assertion task in a reasonable amount of time,
+ *                  specifying a timeout allows PM to disable your assertion so the system can resume normal activity.
+ *                  Once a timeout with the <code>@link kIOPMAssertionTimeoutActionTurnOff@/link</code> assertion fires, the level
+ *                  will be set to <code>@link kIOPMAssertionTimeoutActionTurnOff@/link</code>. The assertion may be re-armed by calling
+ *                  <code>@link IOPMAssertionSetProperty@/link</code> and setting a new value for for 
+ *                  <code>kIOPMAssertionTimeoutKey</code>.
  *
+ *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
  *
- * @discussion          No special privileges are necessary to make this call - any process may
- *                      call this API. Caller must specify an AssertionName - NULL is not
- *                      a valid input.
- *
- * @param AssertionName     A string that describes the name of the caller and the activity being
- *                          handled by this assertion (e.g. "Mail Compacting Mailboxes"). Name may be no longer 
- *                          than 128 characters.
- *
- * @param   userType        This parameter specifies if the active user is located locally in front of the
- *                          system or connected to the system over the network. Various components of the system
- *                          are maintained at different power levels depending on user location.
- *
- * @param AssertionID       On Success, unique id will be returned in this parameter. Caller
- *                          may call this function again with the unique id retured previously to report continous
- *                          user activity. The unique id returned by this function may change on each call depending
- *                          on how frequently this function call is repeated and the current display sleep timer value.
- *                          If you make this call more than once, track the returned value for 
- *                          assertionID, and pass it in as an argument on each call.
- *
- * @result                  Returns kIOReturnSuccess on success, any other return indicates
- *                          PM could not successfully activate the specified assertion.
+ *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
  */
-IOReturn IOPMAssertionDeclareUserActivity(
-                        CFStringRef          AssertionName,
-                        IOPMUserActiveType   userType,
-                        IOPMAssertionID      *AssertionID)
-                        AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;   /* This API is introduced in 10.7.3 */
+#define kIOPMAssertionTimeoutKey                CFSTR("TimeoutSeconds")
 
+
+/*!
+ * @define          kIOPMAssertionTimeoutActionKey
+ *
+ * @abstract        Specifies the action to take upon timeout expiration.
+ *
+ * @discussion      Specifying the timeout action only has meaning if you also specify an <code>@link kIOPMAssertionTimeoutKey@/link</code>
+ *                  If the caller does not specify a timeout action, the default action is <code>@link kIOPMAssertionTimeoutActionTurnOff@/link</code>
+ *
+ *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
+ *
+ *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
+ */
+#define kIOPMAssertionTimeoutActionKey          CFSTR("TimeoutAction")
+
+/*!
+ * @define          kIOPMAssertionTimeoutActionLog
+ *
+ * @abstract        A potential value for <code>@link kIOPMAssertionTimeoutActionKey@/link</code>
+ *
+ * @discussion      When this timeout action is specified, PM will log the timeout event
+ *                  but will not turn off or affect the setting of the assertion in any way.
+ *
+ */
+#define kIOPMAssertionTimeoutActionLog          CFSTR("TimeoutActionLog")
+
+/*!
+ * @define          kIOPMAssertionTimeoutActionTurnOff
+ *
+ * @discussion      When a timeout expires with this action, Power Management will log the timeout event,
+ *                  and will set the assertion's level to <code>@link kIOPMAssertionLevelOff@/link</code>.
+ */
+#define kIOPMAssertionTimeoutActionTurnOff      CFSTR("TimeoutActionTurnOff")
+
+/*!
+ * @define          kIOPMAssertionTimeoutActionRelease
+ *
+ * @discussion      When a timeout expires with this action, Power Management will log the timeout event,
+ *                  and will release the assertion.
+ */
+#define kIOPMAssertionTimeoutActionRelease      CFSTR("TimeoutActionRelease")
+
+/*!
+ * @define          kIOPMAssertionRetainCountKey
+ *
+ * @discussion      kIOPMAssertionRetainCountKey reflects the CoreFoundation-style retain count on this assertion.
+ *                  Creating or retaining an assertion increments its retain count.
+ *                  Release an assertion decrements its retain count.
+ *                  When the retain count decrements to zero, the OS will destroy the object.
+ *
+ *                  This key can be found in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
+ */
+#define kIOPMAssertionRetainCountKey            CFSTR("RetainCount")
+
+/*!
+ * @define          kIOPMAssertionNameKey
+ *
+ * @abstract        The CFDictionary key for assertion name. Setting this key is required when you're creating an assertion.
+ *
+ * @discussion      <code>kIOPMAssertionNameKey</code> describes the the activity the assertion is protecting. The creator should
+ *                  specify a CFString value for this key in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>
+ *
+ *                  The assertion name is separate from the assertion type's behavior - specify a CFString
+ *                  like "Checking mail" or "Compiling" that describes the task that this assertion protects.
+ *
+ *                  The CFString you associate with this key does not have to be localizable (OS X will not attempt to localize it.)
+ *
+ *                  Describe your assertion as thoroughly as possible. See these other keys that can you can also set to add explanation
+ *                  to an assertion:
+ *                  <ul>
+ *                      <li> OPTIONAL <code>@link kIOPMAssertionDetailsKey@/link</code>
+ *                      <li> OPTIONAL <code>@link kIOPMAssertionHumanReadableReasonKey @/link</code>
+ *                      <li> OPTIONAL <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>
+ *                  </ul>
+ */
+#define kIOPMAssertionNameKey                  CFSTR("AssertName")
+
+/*!
+ * @define          kIOPMAssertionDetailsKey
+ *
+ * @abstract        You may provide extra, contextual information about an assertion for admins and for debugging
+ *                  in this key. Setting this key in an assertion dictionary is optional.
+ *
+ * @discussion      Please name your assertion something unique with <code>@link kIOPMAssertionNameKey@/link</code> first.
+ *                  If you have more data to describe this assertion, put it here as a CFString.
+ *
+ *  '               EXAMPLE: OS X creates an assertion named <code>com.apple.powermanagement.tty</code> to prevent sleep for
+ *                  remote-logged in users. To identify the cause for these assertions, OS X sets <code>kIOPMAssertionDetailsKey</code>
+ *                  to the CFString device path of the active remote session(s), e.g. "/dev/ttys000 /dev/ttys004"
+ *
+ *                  The CFString you associate with this key does not have to be localizable (OS X will not attempt to localize it.)
+ *
+ *                  Describe your assertion as thoroughly as possible. See these other keys that can you can set to add explanation
+ *                  to an assertion:
+ *                  <ul>
+ *                      <li>REQUIRED <code>@link kIOPMAssertionNameKey@/link</code>
+ *                      <li>OPTIONAL <code>@link kIOPMAssertionHumanReadableReasonKey @/link</code>
+ *                      <li>OPTIONAL <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>
+ *                  </ul>
+ */
+#define kIOPMAssertionDetailsKey             CFSTR("Details")
+
+/*!
+ * @define          kIOPMAssertionHumanReadableReasonKey
+ *
+ * @abstract        Optional key that provides a localizable string for OS X to display PM Assertions in the GUI.
+ *
+ * @discussion      The caller should specify this string in <code>@link IOPMAssertionCreateWithProperties@/link</code>.
+ *                  If present, OS X may display this string, localized to the user's language, to explain changes in system
+ *                  behavior caused by the assertion.
+ *
+ *                  If set, the caller must also specify a bundle path for the key
+ *                      <code>@link kIOPMAssertionLocalizationBundlePathKey@/link</code>
+ *                  The bundle at that path should contain localization info for the specified string.
+ *
+ *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
+ *
+ *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
+ *
+ *                  Describe your assertion as thoroughly as possible. See these other keys that can you can set to add explanation
+ *                  to an assertion:
+ *                  <ul>
+ *                      <li>REQUIRED <code>@link kIOPMAssertionNameKey@/link</code>
+ *                      <li>OPTIONAL <code>@link kIOPMAssertionDetailsKey @/link</code>
+ *                  </ul>
+ */
+#define kIOPMAssertionHumanReadableReasonKey    CFSTR("HumanReadableReason")
+
+/*!
+ * @define          kIOPMAssertionLocalizationBundlePathKey
+ *
+ * @abstract        Refers to a CFURL, as a CFString, identifying the path to the caller's
+ *                  bundle, which contains localization info.
+ *
+ * @discussion      The bundle must contain localizations for
+ *                  <code>@link kIOPMAssertionHumanReadableReasonKey@/link</code>
+ *
+ *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
+ *
+ *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
+ */
+#define kIOPMAssertionLocalizationBundlePathKey   CFSTR("BundlePath")
+
+/*!
+ * @define          kIOPMAssertionFrameworkIDKey
+ *
+ * @abstract        Specify if the assertion creator is a framework.
+ *
+ * @discussion      If the code that creates the assertion resides in a framework or library, the caller
+ *                  should specify a CFBundleIdentifier, as a CFString, identifying that bundle here.
+ *                  This info helps developers and administrators determine the source of an assertion.
+ *
+ *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
+ *
+ *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
+ */
+#define kIOPMAssertionFrameworkIDKey            CFSTR("FrameworkBundleID")
+
+/*!
+ * @define          kIOPMAssertionPlugInIDKey
+ *
+ * @abstract        Specify if the assertion creator is a plugin.
+ *
+ * @discussion      If the code that creates the assertion resides in a plugin, the caller
+ *                  should specify a CFBundleIdentifier, as a CFString, identifying the plugin's bundle here.
+ *                  This info helps developers and administrators determine the source of an assertion.
+ *
+ *                  This key may be specified in the dictionary passed to <code>@link IOPMAssertionCreateWithProperties@/link</code>.
+ *
+ *                  This key may be present in the dictionary returned from <code>@link IOPMAssertionCopyProperties@/link</code>.
+ */
+#define kIOPMAssertionPlugInIDKey               CFSTR("PlugInBundleID")
+
+/*!
+ * @define          kIOPMAssertionTypeKey
+ *
+ * @abstract        The CFDictionary key for assertion type in an assertion info dictionary.
+ *
+ * @discussion      The value for this key will be a CFStringRef, with the value of the assertion
+ *                  type specified at creation time.
+ *                  Note that OS X may substitute a support assertion type string if the caller
+ *                  specifies a deprecated assertion type; in that case the value for this key could
+ *                  differ from the caller-provided assertion type.
+ */
+#define kIOPMAssertionTypeKey                   CFSTR("AssertType")
+
+/*!
+ * @define          kIOPMAssertionLevelKey
+ *
+ * @abstract        The CFDictionary key for assertion level in an assertion info dictionary.
+ *
+ * @discussion      The value for this key will be a CFNumber, kCFNumberIntType with value
+ *                  <code>kIOPMAssertionLevelOff</code> or <code>kIOPMAssertionLevelOn</code>.
+ *                  The level reflects the assertion's level set at creation, or adjusted via
+ *                  <code>@link IOPMAssertionSetProperty@/link</code>
+ */
+#define kIOPMAssertionLevelKey                  CFSTR("AssertLevel")
+
+
+/*!
+ * @define          kIOPMAssertionTypePreventUserIdleSystemSleep
+ * @abstract        This assertion type is identical to <code>@link kIOPMAssertPreventUserIdleSystemSleep @/link</code>
+ *                  Please use that instead.
+ */
+#define kIOPMAssertionTypePreventUserIdleSystemSleep        kIOPMAssertPreventUserIdleSystemSleep
+    
+/*!
+ * @define          kIOPMAssertionTypePreventUserIdleDisplaySleep
+ * @abstract        This assertion type is identical to <code>@link kIOPMAssertPreventUserIdleDisplaySleep @/link</code>
+ *                  Please use that instead.
+ */
+#define kIOPMAssertionTypePreventUserIdleDisplaySleep       kIOPMAssertPreventUserIdleDisplaySleep
+    
+/*!
+ * @define          kIOPMAssertionTypePreventSystemSleep
+ * @deprecated      Deprecated in 10.9. This assertion is not supported in any OS X releases.
+ * @abstract        This assertion is deprecated. Do not use it.
+ * @discussion      Please consider using either assertion type for system activities:
+ *                      <ul>
+ *                          <li><code>@link kIOPMAssertRemoteAccess @/link</code></li>
+ *                          <li><code>@link kIOPMAssertPreventUserIdleSystemSleep @/link</code></li>
+ *                      </ul>
+ */
+#define kIOPMAssertionTypePreventSystemSleep                CFSTR("PreventSystemSleep")
+
+/*!
+ * @define          kIOPMAssertionTypeNoIdleSleep
+ * @deprecated      Deprecated in 10.7.
+ * @abstract        Please use assertion type <code>@link kIOPMAssertPreventUserIdleSystemSleep@/link</code> instead.
+ */
+#define kIOPMAssertionTypeNoIdleSleep                       CFSTR("NoIdleSleepAssertion")
+
+/*!
+ * @define          kIOPMAssertionTypeNoDisplaySleep
+ * @deprecated      Deprecated in 10.7.
+ * @abstract        Please use assertion type <code>@link kIOPMAssertPreventUserIdleDisplaySleep@/link</code> instead.
+ */
+#define kIOPMAssertionTypeNoDisplaySleep                    CFSTR("NoDisplaySleepAssertion")
+
+    
+#pragma mark IOSystemLoadAdvisory
 /*!
  * @functiongroup IOSystemLoadAdvisory
  */
@@ -990,9 +1112,11 @@ enum {
         pass the token argument received by registering for SystemLoadAdvisory notifications.
    
    @return IOSystemLoadAdvisoryLevel - one of:
-        kIOSystemLoadAdvisoryLevelGreat - A Good time to perform time-insensitive work.
-        kIOSystemLoadAdvisoryLevelOK - An OK time to perform time-insensitive work.
-        kIOSystemLoadAdvisoryLevelBad - A Bad time to perform time-insensitive work.
+   <ul>
+        <li>kIOSystemLoadAdvisoryLevelGreat - A Good time to perform time-insensitive work.
+        <li>kIOSystemLoadAdvisoryLevelOK - An OK time to perform time-insensitive work.
+        <li>kIOSystemLoadAdvisoryLevelBad - A Bad time to perform time-insensitive work.
+    </ul>
  */
    
 IOSystemLoadAdvisoryLevel IOGetSystemLoadAdvisory( void );
@@ -1028,9 +1152,11 @@ CFDictionaryRef IOCopySystemLoadAdvisoryDetailed(void);
  * @abstract    Copy status of all current CPU power levels.
  * @discussion  The returned dictionary may define some of these keys, 
  *              as defined in IOPM.h:
- *                  - kIOPMCPUPowerLimitProcessorSpeedKey
- *                  - kIOPMCPUPowerLimitProcessorCountKey
- *                  - kIOPMCPUPowerLimitSchedulerTimeKey        
+ *              <ul>   
+ *                  <li>kIOPMCPUPowerLimitProcessorSpeedKey
+ *                  <li>kIOPMCPUPowerLimitProcessorCountKey
+ *                  <li>kIOPMCPUPowerLimitSchedulerTimeKey        
+ *              </ul>
  * @param       cpuPowerStatus Upon success, a pointer to a dictionary defining CPU power; 
  *              otherwise NULL. Pointer will be populated with a newly created dictionary 
  *              upon successful return. Caller must release dictionary.
@@ -1044,9 +1170,11 @@ IOReturn IOPMCopyCPUPowerStatus(CFDictionaryRef *cpuPowerStatus);
  * @abstract    Get thermal warning level of the system.
  * @result      An integer pointer declaring the power warning level of the system. 
  *              The value of the integer is one of (defined in IOPM.h):
- *                  kIOPMThermalWarningLevelNormal
- *                  kIOPMThermalWarningLevelDanger
- *                  kIOPMThermalWarningLevelCrisis
+ *              <ul>
+ *                  <li>kIOPMThermalWarningLevelNormal
+ *                  <li>kIOPMThermalWarningLevelDanger
+ *                  <li>kIOPMThermalWarningLevelCrisis
+ *              </ul>
  *              Upon success the thermal level value will be found at the 
  *              pointer argument.
  * @result      kIOReturnSuccess, or other error report. Returns kIOReturnNotFound if 

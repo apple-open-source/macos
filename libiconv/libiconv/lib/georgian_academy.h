@@ -32,7 +32,7 @@ static const unsigned short georgian_academy_2uni[32] = {
 };
 
 static int
-georgian_academy_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+georgian_academy_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c >= 0x80 && c < 0xa0)
@@ -77,7 +77,7 @@ static const unsigned char georgian_academy_page20[48] = {
 };
 
 static int
-georgian_academy_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+georgian_academy_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

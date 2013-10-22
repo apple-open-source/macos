@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,8 +55,9 @@
 #define kProfileKeyAuthenticationProperties CFSTR("AuthenticationProperties")
 #define kProfileKeyInformation	 	CFSTR("Information")
 #define kProfileKeyWLAN 		CFSTR("WLAN")
-#define kProfileKeySSID 		CFSTR("SSID")
-#define kProfileKeySecurityType 	CFSTR("SecurityType")
+#define kProfileKeyWLANSSID 		CFSTR("SSID")
+#define kProfileKeyWLANSecurityType 	CFSTR("SecurityType")
+#define kProfileKeyWLANDomain 		CFSTR("Domain")
 
 /**
  ** Utility Functions
@@ -273,6 +274,7 @@ EAPOLClientProfileGetTypeID(void)
  *	EAPOLClientProfileSetUserDefinedName
  *	EAPOLClientProfileSetAuthenticationProperties
  *	EAPOLClientProfileSetWLANSSIDAndSecurityType
+ *	EAPOLClientProfileSetWLANDomain
  *	EAPOLClientProfileSetInformation
  *	
  */
@@ -431,6 +433,10 @@ EAPOLClientProfileSetWLANSSIDAndSecurityType(EAPOLClientProfileRef profile,
     EAPOLClientProfileRef	existing_profile;
 
     if (ssid != NULL) {
+	if (profile->WLAN.domain != NULL) {
+	    /* can't specify an SSID when domain is already specified */
+	    return (FALSE);
+	}
 	if (security_type == NULL) {
 	    /* both SSID and security_type must be specified */
 	    return (FALSE);
@@ -478,6 +484,89 @@ EAPOLClientProfileSetWLANSSIDAndSecurityType(EAPOLClientProfileRef profile,
     }
     profile->WLAN.ssid = ssid;
     profile->WLAN.security_type = security_type;
+    return (TRUE);
+}
+
+/*
+ * Function: EAPOLClientProfileGetWLANDomain
+ *
+ * Purpose:
+ *   Get the WLAN Hotspot 2.0 domain name associated with the profile.
+ *
+ * Returns:
+ *   non-NULL domain name if the profile is bound to a Hotspot 2.0 WLAN 
+ *   domain name, NULL otherwise.	
+ */
+CFStringRef
+EAPOLClientProfileGetWLANDomain(EAPOLClientProfileRef profile)
+{
+    return (profile->WLAN.domain);
+}
+
+/*
+ * Function: EAPOLClientProfileSetWLANDomain
+ *
+ * Purpose:
+ *   Bind the profile to a Hotspot 2.0 domain name.
+ *
+ *   Only a single profile can be associated with a particular domain name.
+ *
+ *   To un-bind the profile from the domain name, set the domain
+ *   argument to NULL.
+ *
+ * Returns:
+ *    FALSE if there's an existing profile with the same domain name,
+ *    TRUE otherwise.
+ *
+ * Note:
+ *    EAPOLClientProfileSetWLANSSIDAndSecurityType() and
+ *    EAPOLClientProfileSetWLANDomain() are mutally exclusive.
+ *    A given profile can only be associated with a WLAN SSID *or* a
+ *    WLAN domain and not both.
+ */
+Boolean
+EAPOLClientProfileSetWLANDomain(EAPOLClientProfileRef profile,
+				CFStringRef domain)
+{
+    EAPOLClientProfileRef	existing_profile;
+
+    if (domain != NULL) {
+	if (profile->WLAN.ssid != NULL) {
+	    /* can't specify a domain when ssid is already specified */
+	    return (FALSE);
+	}
+	if (profile->cfg != NULL) {
+	    existing_profile
+		= EAPOLClientConfigurationGetProfileWithWLANDomain(profile->cfg,
+								   domain);
+	    if (existing_profile != NULL && existing_profile != profile) {
+		/* some other profile has this domain already */
+		return (FALSE);
+	    }
+	}
+    }
+
+    /* give up the existing domain */
+    if (profile->WLAN.domain != NULL && profile->cfg != NULL) {
+	/* clear the old binding */
+	EAPOLClientConfigurationSetProfileForWLANDomain(profile->cfg,
+							profile->WLAN.domain,
+							NULL);
+    }
+
+    /* claim the domain */
+    if (domain != NULL) {
+	CFRetain(domain);
+	if (profile->cfg != NULL) {
+	    EAPOLClientConfigurationSetProfileForWLANDomain(profile->cfg,
+							    domain,
+							    profile);
+	}
+    }
+    if (profile->WLAN.domain != NULL) {
+	CFRelease(profile->WLAN.domain);
+    }
+    profile->WLAN.domain = domain;
     return (TRUE);
 }
 
@@ -646,18 +735,27 @@ EAPOLClientProfileCreateDictAndProfileID(EAPOLClientProfileRef profile,
 			     kProfileKeyInformation,
 			     profile->information);
     }
-    if (profile->WLAN.ssid != NULL) {
+    if (profile->WLAN.ssid != NULL || profile->WLAN.domain != NULL) {
+	int			count;
 	const void *		keys[2];
 	CFDictionaryRef		WLAN;
 	const void *		values[2];
-	
-	keys[0] = kProfileKeySSID;
-	values[0] = profile->WLAN.ssid;
-	keys[1] = kProfileKeySecurityType;
-	values[1] = profile->WLAN.security_type;
-	WLAN = CFDictionaryCreate(NULL, keys, values, 2, 
-				   &kCFTypeDictionaryKeyCallBacks,
-				   &kCFTypeDictionaryValueCallBacks);
+
+	if (profile->WLAN.ssid != NULL) {
+	    keys[0] = kProfileKeyWLANSSID;
+	    values[0] = profile->WLAN.ssid;
+	    keys[1] = kProfileKeyWLANSecurityType;
+	    values[1] = profile->WLAN.security_type;
+	    count = 2;
+	}
+	else {
+	    keys[0] = kProfileKeyWLANDomain;
+	    values[0] = profile->WLAN.domain;
+	    count = 1;
+	}
+	WLAN = CFDictionaryCreate(NULL, keys, values, count, 
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
 	CFDictionarySetValue(dict, kProfileKeyWLAN, WLAN);
 	CFRelease(WLAN);
     }
@@ -671,6 +769,7 @@ EAPOLClientProfileCreateWithDictAndProfileID(CFDictionaryRef dict,
     CFAllocatorRef		alloc = CFGetAllocator(dict);
     CFArrayRef			accept_types;
     CFDictionaryRef		information;
+    CFStringRef			domain = NULL;
     CFDictionaryRef		eap_config;
     EAPOLClientProfileRef	profile;
     CFStringRef			security_type = NULL;
@@ -707,21 +806,26 @@ EAPOLClientProfileCreateWithDictAndProfileID(CFDictionaryRef dict,
 		  profileID, kProfileKeyWLAN);
 	    return (NULL);
 	}
-	ssid = CFDictionaryGetValue(wlan, kProfileKeySSID);
-	if (isA_CFData(ssid) == NULL) {
+	ssid = CFDictionaryGetValue(wlan, kProfileKeyWLANSSID);
+	domain = CFDictionaryGetValue(wlan, kProfileKeyWLANDomain);
+	if (isA_CFData(ssid) == NULL && isA_CFString(domain) == NULL) {
 	    SCLog(TRUE, LOG_NOTICE, 
 		  CFSTR("EAPOLClientConfiguration: profile %@"
-			" invalid/missing %@ property in %@"),
-		  profileID, kProfileKeySSID, kProfileKeyWLAN);
+			" invalid/missing property (%@ or %@) in %@"),
+		  profileID, kProfileKeyWLANSSID, kProfileKeyWLANDomain,
+		  kProfileKeyWLAN);
 	    return (NULL);
 	}
-	security_type = CFDictionaryGetValue(wlan, kProfileKeySecurityType);
-	if (isA_CFString(security_type) == NULL) {
-	    SCLog(TRUE, LOG_NOTICE, 
-		  CFSTR("EAPOLClientConfiguration: profile %@"
-			" invalid/missing %@ property in %@"),
-		  profileID, kProfileKeySecurityType, kProfileKeyWLAN);
-	    return (NULL);
+	if (ssid != NULL) {
+	    security_type = CFDictionaryGetValue(wlan,
+						 kProfileKeyWLANSecurityType);
+	    if (isA_CFString(security_type) == NULL) {
+		SCLog(TRUE, LOG_NOTICE, 
+		      CFSTR("EAPOLClientConfiguration: profile %@"
+			    " invalid/missing %@ property in %@"),
+		      profileID, kProfileKeyWLANSecurityType, kProfileKeyWLAN);
+		return (NULL);
+	    }
 	}
     }
     user_defined_name = CFDictionaryGetValue(dict, kProfileKeyUserDefinedName);
@@ -752,6 +856,9 @@ EAPOLClientProfileCreateWithDictAndProfileID(CFDictionaryRef dict,
     if (ssid != NULL) {
 	EAPOLClientProfileSetWLANSSIDAndSecurityType(profile, ssid,
 						     security_type);
+    }
+    else if (domain != NULL) {
+	EAPOLClientProfileSetWLANDomain(profile, domain);
     }
     if (information != NULL) {
 	profile->information

@@ -106,6 +106,8 @@ do_LKDCGetLocalRealm (__unused mach_port_t port, realmNameOut_t realm, int *err,
 	
 	LKDCLogEnter ();
 
+	realm[0] = '\0';
+
 	if (NULL == cachedLocalRealmString) {
 		error = DSCopyLocalKDC (&realmTmp);
 	
@@ -119,8 +121,6 @@ do_LKDCGetLocalRealm (__unused mach_port_t port, realmNameOut_t realm, int *err,
 	if (NULL != cachedLocalRealmString) {
 		LKDCLog ("LocalKDCRealm = %s", cachedLocalRealmString);
 		strlcpy (realm, cachedLocalRealmString, sizeof(realmNameOut_t));
-	} else {
-		*realm = '\0';
 	}
 
 fin:
@@ -143,6 +143,8 @@ do_LKDCDiscoverRealm (__unused mach_port_t port,
 	int				error = 0;
 
 	LKDCLogEnter ();
+
+	realm[0] = '\0';
 
 	if (!authorized(token)) {
 		error = kLKDCHelperNotAuthorized;
@@ -180,6 +182,9 @@ do_LKDCFindKDCForRealm (__unused mach_port_t port,
 	int				error = 0;
 
 	LKDCLogEnter ();
+
+	*kdcport = 0;
+	hostname[0] = '\0';
 
 	if (!authorized(token)) {
 		error = kLKDCHelperNotAuthorized;

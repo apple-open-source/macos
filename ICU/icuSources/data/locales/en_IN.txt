@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/en_IN.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/en_IN.xml
 // *
 // ***************************************************************************
 en_IN{
@@ -17,8 +17,29 @@ en_IN{
             }
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     calendar{
+        generic{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y G",
+                "d MMMM y G",
+                "dd-MMM-y G",
+                "dd/MM/y GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                MEd{"E, dd/MM"}
+                MMMEd{"E, d MMM"}
+            }
+        }
         gregorian{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
@@ -36,13 +57,8 @@ en_IN{
                 "{1} {0}",
             }
             availableFormats{
-                MEd{"E, d/M"}
+                MEd{"E, dd/MM"}
                 MMMEd{"E, d MMM"}
-                MMMd{"d MMM"}
-                yMEd{"E, d/M/y"}
-                yMMMEd{"E, d MMM, y"}
-                yMMMd{"d MMM y"}
-                yMd{"d/M/y"}
             }
         }
     }

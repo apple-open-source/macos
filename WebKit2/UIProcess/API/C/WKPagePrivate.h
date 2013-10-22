@@ -54,8 +54,10 @@ WK_EXPORT WKStringRef WKPageCopyStandardUserAgentWithApplicationName(WKStringRef
 
 enum {
     kWKPaginationModeUnpaginated,
-    kWKPaginationModeHorizontal,
-    kWKPaginationModeVertical,
+    kWKPaginationModeLeftToRight,
+    kWKPaginationModeRightToLeft,
+    kWKPaginationModeTopToBottom,
+    kWKPaginationModeBottomToTop,
 };
 typedef uint32_t WKPaginationMode;
 
@@ -63,7 +65,7 @@ WK_EXPORT void WKPageSetPaginationMode(WKPageRef page, WKPaginationMode paginati
 WK_EXPORT WKPaginationMode WKPageGetPaginationMode(WKPageRef page);
 WK_EXPORT void WKPageSetPaginationBehavesLikeColumns(WKPageRef page, bool behavesLikeColumns);
 WK_EXPORT bool WKPageGetPaginationBehavesLikeColumns(WKPageRef page);
-WK_EXPORT void WKPageSetPageLength(WKPageRef page, double pagesPerView);
+WK_EXPORT void WKPageSetPageLength(WKPageRef page, double pageLength);
 WK_EXPORT double WKPageGetPageLength(WKPageRef page);
 WK_EXPORT void WKPageSetGapBetweenPages(WKPageRef page, double gap);
 WK_EXPORT double WKPageGetGapBetweenPages(WKPageRef page);
@@ -91,9 +93,22 @@ WK_EXPORT WKImageRef WKPageCreateSnapshotOfVisibleContent(WKPageRef page);
 WK_EXPORT void WKPageSetShouldSendEventsSynchronously(WKPageRef page, bool sync);
 
 WK_EXPORT void WKPageSetMediaVolume(WKPageRef page, float volume);
+WK_EXPORT void WKPageSetMayStartMediaWhenInWindow(WKPageRef page, bool mayStartMedia);
 
-typedef void (*WKPageInvalidMessageFunction)(uint32_t messageID, uint32_t lastSentSyncMessageID);
+WK_EXPORT WKArrayRef WKPageCopyRelatedPages(WKPageRef page);
+
+typedef void (*WKPageInvalidMessageFunction)(uint32_t messageID);
 WK_EXPORT void WKPageSetInvalidMessageFunction(WKPageInvalidMessageFunction function);
+
+enum {
+    kWKScrollPinningBehaviorDoNotPin,
+    kWKScrollPinningBehaviorPinToTop,
+    kWKScrollPinningBehaviorPinToBottom
+};
+typedef uint32_t WKScrollPinningBehavior;
+
+WK_EXPORT WKScrollPinningBehavior WKPageGetScrollPinningBehavior(WKPageRef page);
+WK_EXPORT void WKPageSetScrollPinningBehavior(WKPageRef page, WKScrollPinningBehavior pinning);
 
 #ifdef __cplusplus
 }

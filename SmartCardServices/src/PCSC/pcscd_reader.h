@@ -29,7 +29,7 @@
 #ifndef _H_PCSCD_READER
 #define _H_PCSCD_READER
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <MacTypes.h>
 #include "wintypes.h"
 #include "pcsclite.h"
 #include "readerfactory.h"

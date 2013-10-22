@@ -324,7 +324,7 @@ get_checksum_key(krb5_context context,
     if (ct->flags & F_DERIVED) {
 	ret = _get_derived_key(context, crypto, usage, key);
 	if (ret)
-	    goto out;
+	    return ret;
     } else if (ct->flags & F_VARIANT) {
 	size_t i;
 
@@ -1367,6 +1367,7 @@ krb5_encrypt_iov_ivec(krb5_context context,
 	memset(q, 0, piv->data.length);
 
 
+    HEIMDAL_MUTEX_lock(&crypto->mutex);
     ret = _get_derived_key(context, crypto, ENCRYPTION_USAGE(usage), &dkey);
     if(ret) {
 	free(p);
@@ -1491,6 +1492,7 @@ krb5_decrypt_iov_ivec(krb5_context context,
 	q += data[i].data.length;
     }
 
+    HEIMDAL_MUTEX_lock(&crypto->mutex);
     ret = _get_derived_key(context, crypto, ENCRYPTION_USAGE(usage), &dkey);
     if(ret) {
 	free(p);
@@ -1871,7 +1873,7 @@ _krb5_derive_key(krb5_context context,
 		 size_t len)
 {
     unsigned char *k = NULL;
-    unsigned int nblocks = 0, i;
+    unsigned long nblocks = 0, i;
     krb5_error_code ret = 0;
     struct _krb5_key_type *kt = et->keytype;
 
@@ -2011,7 +2013,8 @@ krb5_derive_key(krb5_context context,
 }
 
 /*
- * Return's locked key on success
+ * Assume locked on entry, returns locked key on success, unlock on
+ * failure.
  */
 
 static krb5_error_code

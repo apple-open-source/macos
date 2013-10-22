@@ -5,7 +5,7 @@ $(top_builddir)/xsltproc/xsltproc:
 
 EXTRA_DIST = dates.xml month.xml month.xsl month.out
 
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'

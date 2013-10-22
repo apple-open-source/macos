@@ -158,7 +158,7 @@ static const unsigned short isoir165ext_2uni_page7a[470] = {
 };
 
 static int
-isoir165ext_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+isoir165ext_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c1 = s[0];
   if ((c1 >= 0x2b && c1 <= 0x2f) || (c1 >= 0x7a && c1 <= 0x7e)) {
@@ -753,7 +753,7 @@ static const Summary16 isoir165ext_uni2indx_pageff[5] = {
 };
 
 static int
-isoir165ext_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+isoir165ext_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;

@@ -59,7 +59,6 @@ Declarations
 void pptp_init();
 int pptp_ctloutput(struct socket *so, struct sockopt *sopt);
 int pptp_usrreq();
-void pptp_slowtimo();
 
 int pptp_attach(struct socket *, int, struct proc *);
 int pptp_detach(struct socket *);
@@ -86,6 +85,37 @@ extern lck_mtx_t	*ppp_domain_mutex;
 --------------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 
+/* -----------------------------------------------------------------------------
+ PPTP Timer, at 500 ms. Replaces pptp_slowtimo, which is deprecated.
+ ----------------------------------------------------------------------------- */
+static uint8_t pptp_timer_thread_is_dying = 0; /* > 0 if dying */
+static uint8_t pptp_timer_thread_is_dead = 0; /* > 0 if dead */
+
+static void pptp_timer()
+{
+    struct timespec ts = {0};
+    
+    /* timeout of 500 ms */
+    ts.tv_nsec = 500 * 1000 * 1000;
+    ts.tv_sec = 0;
+    
+    lck_mtx_lock(ppp_domain_mutex);
+    while (TRUE) {
+        if (pptp_timer_thread_is_dying > 0) {
+            break;
+        }
+        
+        pptp_rfc_slowtimer();
+        
+        msleep(&pptp_timer_thread_is_dying, ppp_domain_mutex, PSOCK, "pptp_timer_sleep", &ts);
+    }
+    
+    pptp_timer_thread_is_dead++;
+    wakeup(&pptp_timer_thread_is_dead);
+    lck_mtx_unlock(ppp_domain_mutex);
+    
+    thread_terminate(current_thread());
+}
 
 /* -----------------------------------------------------------------------------
 Called when we need to add the PPTP protocol to the domain
@@ -94,7 +124,8 @@ but we can add the protocol anytime later, if the domain is present
 ----------------------------------------------------------------------------- */
 int pptp_add(struct domain *domain)
 {
-    int 	err;
+    int 	 err;
+    thread_t pptp_timer_thread = NULL;
 
     bzero(&pptp_usr, sizeof(struct pr_usrreqs));
     pptp_usr.pru_abort 	= pru_abort_notsupp;
@@ -126,9 +157,13 @@ int pptp_add(struct domain *domain)
     pptp.pr_flags		= PR_ATOMIC | PR_PROTOLOCK;
     pptp.pr_ctloutput 	= pptp_ctloutput;
     pptp.pr_init		= pptp_init;
-    pptp.pr_slowtimo  	= pptp_slowtimo;
     pptp.pr_usrreqs 	= &pptp_usr;
-
+    
+    pptp_timer_thread_is_dying = 0;
+    if (kernel_thread_start((thread_continue_t)pptp_timer, NULL, &pptp_timer_thread) == KERN_SUCCESS) {
+        thread_deallocate(pptp_timer_thread);
+    }
+    
     err = net_add_proto(&pptp, domain);
     if (err)
         return err;
@@ -143,10 +178,19 @@ int pptp_remove(struct domain *domain)
 {
     int err;
 
+    lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+    
+    /* Cleanup timer thread */
+    if (pptp_timer_thread_is_dead == 0) {
+        pptp_timer_thread_is_dying++;           /* Tell thread to die */
+        wakeup(&pptp_timer_thread_is_dying);    /* Wake thread */
+        msleep(&pptp_timer_thread_is_dying, ppp_domain_mutex, PSOCK, "pptp_timer_sleep", 0);
+    }
+    
     err = net_del_proto(pptp.pr_type, pptp.pr_protocol, domain);
     if (err)
         return err;
-
+    
     // shall we test that all the pcbs have been freed ?
 
     return KERN_SUCCESS;
@@ -236,16 +280,6 @@ int pptp_ctloutput(struct socket *so, struct sockopt *sopt)
 
     }
     return error;
-}
-
-/* -----------------------------------------------------------------------------
-slow timer function, called every 500ms
------------------------------------------------------------------------------ */
-void pptp_slowtimo()
-{
-	lck_mtx_lock(ppp_domain_mutex);
-    pptp_rfc_slowtimer();
-	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------

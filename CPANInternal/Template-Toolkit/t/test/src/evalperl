@@ -1,0 +1,1 @@
+This file includes a [% PERL %]print "perl"[% END %] block.

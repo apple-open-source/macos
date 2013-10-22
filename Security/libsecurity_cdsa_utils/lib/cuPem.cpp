@@ -105,11 +105,11 @@ int pemEncode(
 	}
 		
 	/* estimate outsize - just be sloppy, way conservative */
-	unsigned outSize = encLen + (2 * strlen(headerString)) + 200;
+	size_t outSize = encLen + (2 * strlen(headerString)) + 200;
 	*outData = (unsigned char *)malloc(outSize);
 	sprintf((char *)*outData, "-----BEGIN %s-----\n%s-----END %s-----\n",
 		headerString, (char *)enc, headerString);
-	*outDataLen = strlen((char *)*outData);
+	*outDataLen = (unsigned int)strlen((char *)*outData);
 
 	if((*outData)[*outDataLen - 1] == '\0') {
 		(*outDataLen)--;
@@ -181,7 +181,7 @@ int pemDecode(
 	endPem = curr1;
 	/* endPem points to last PEM data plus one */
 	
-	out = cuDec64((unsigned char *)startPem, endPem-startPem, &outLen);
+	out = cuDec64((unsigned char *)startPem, (unsigned int)(endPem-startPem), &outLen);
 	if(out == NULL) {
 		printf("Bad PEM format (3)\n");
 		ourRtn = -1;

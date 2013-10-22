@@ -110,7 +110,7 @@ extern const SecAsn1Template kSecAsn1DigestInfoTemplate[];
  * Key structs and templates, placed here due to their ubiquitous use.
  */
 
-#pragma mark *** RSA ***
+// MARK: *** RSA ***
 
 /*
  * RSA public key, PKCS1 format
@@ -154,7 +154,7 @@ extern const SecAsn1Template kSecAsn1RSAPrivateKeyPKCS1Template[];
  * value is a DER-encoded NSS_RSAPrivateKeyPKCS1.
  */
 
-#pragma mark *** Diffie-Hellman ***
+// MARK: *** Diffie-Hellman ***
 
 /*** from PKCS3 ***/
 
@@ -253,7 +253,7 @@ typedef struct {
 extern const SecAsn1Template kSecAsn1DHPrivateKeyPKCS8Template[];
 extern const SecAsn1Template kSecAsn1DHPublicKeyX509Template[];
  
-#pragma mark *** ECDSA ***
+// MARK: *** ECDSA ***
 
 /* 
  * ECDSA Private key as defined in section C.4 of Certicom SEC1.

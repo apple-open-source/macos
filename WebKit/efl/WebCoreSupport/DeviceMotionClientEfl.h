@@ -20,6 +20,8 @@
 #ifndef DeviceMotionClientEfl_h
 #define DeviceMotionClientEfl_h
 
+#if ENABLE(DEVICE_ORIENTATION)
+
 #include "DeviceMotionClient.h"
 #include "DeviceMotionData.h"
 
@@ -33,7 +35,7 @@ public:
     virtual void setController(DeviceMotionController*);
     virtual void startUpdating();
     virtual void stopUpdating();
-    virtual DeviceMotionData* currentDeviceMotion() const;
+    virtual DeviceMotionData* lastMotion() const;
     virtual void deviceMotionControllerDestroyed();
 
 private:
@@ -42,4 +44,5 @@ private:
 
 } // namespece WebCore
 
+#endif
 #endif // DeviceMotionClientEfl_h

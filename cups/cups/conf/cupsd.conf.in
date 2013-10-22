@@ -1,5 +1,5 @@
 #
-# "$Id: cupsd.conf.in 9077 2010-04-05 00:59:30Z mike $"
+# "$Id: cupsd.conf.in 11093 2013-07-03 20:48:42Z msweet $"
 #
 # Sample configuration file for the CUPS scheduler.  See "man cupsd.conf" for a
 # complete description of this file.
@@ -176,5 +176,5 @@ WebInterface @CUPS_WEBIF@
 </Policy>
 
 #
-# End of "$Id: cupsd.conf.in 9077 2010-04-05 00:59:30Z mike $".
+# End of "$Id: cupsd.conf.in 11093 2013-07-03 20:48:42Z msweet $".
 #

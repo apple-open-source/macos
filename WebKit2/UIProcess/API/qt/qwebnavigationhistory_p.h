@@ -33,11 +33,13 @@
 #include <QVariant>
 #include <QtQml/qqml.h>
 
+QT_BEGIN_NAMESPACE
 class QAbstractListModel;
+class QString;
+class QUrl;
+QT_END_NAMESPACE
 class QWebNavigationHistoryPrivate;
 class QWebNavigationListModelPrivate;
-class QUrl;
-class QString;
 
 class QWEBKIT_EXPORT QWebNavigationListModel : public QAbstractListModel {
     Q_OBJECT
@@ -46,9 +48,14 @@ public:
 
     int rowCount(const QModelIndex& parent = QModelIndex()) const;
     QVariant data(const QModelIndex& index, int role) const;
+    QHash<int, QByteArray> roleNames() const;
+    void reset();
 
 private:
-    QWebNavigationListModel();
+    QWebNavigationListModel()
+        : QAbstractListModel()
+    { }
+
     QWebNavigationListModelPrivate* d;
     friend class QWebNavigationListModelPrivate;
     friend class QWebNavigationHistory;

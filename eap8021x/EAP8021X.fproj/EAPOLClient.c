@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 #include "eapolcontroller_ext.h"
 #include "myCFUtil.h"
 #include "EAPOLClient.h"
+#include "EAPLog.h"
 
 struct EAPOLClient_s {
     CFMachPortRef		notify_cfport;
@@ -87,8 +88,7 @@ EAPOLClientHandleMessage(CFMachPortRef port, void * msg,
     Boolean			server_died = FALSE;
 
     if (msgid == MACH_NOTIFY_NO_SENDERS) {
-	syslog(LOG_NOTICE, 
-	       "EAPOLClientHandleMessage: EAPOLController server died");
+	EAPLOG_FL(LOG_NOTICE, "EAPOLController server died");
 	server_died = TRUE;
 	EAPOLClientInvalidate(client, FALSE);
     }
@@ -152,8 +152,8 @@ EAPOLClientAttach(const char * interface_name,
     }
     status = eapolcontroller_server_port(&server);
     if (status != BOOTSTRAP_SUCCESS) {
-	fprintf(stderr, "EAPOLClient: eapolcontroller_server_port(): %s", 
-		mach_error_string(status));
+	EAPLOG_FL(LOG_NOTICE, "eapolcontroller_server_port(): %s", 
+		  mach_error_string(status));
 	result = ENXIO;
 	goto failed;
     }
@@ -165,7 +165,7 @@ EAPOLClientAttach(const char * interface_name,
     client->notify_cfport 
 	= _EAPOLClientCFMachPortCreate(EAPOLClientHandleMessage, &context);
     if (client->notify_cfport == NULL) {
-	fprintf(stderr, "EAPOLClient: _EAPOLClientCFMachPortCreate failed");
+	EAPLOG_FL(LOG_NOTICE, "_EAPOLClientCFMachPortCreate failed");
 	result = errno;
 	goto failed;
     }
@@ -178,8 +178,8 @@ EAPOLClientAttach(const char * interface_name,
 					    MACH_MSG_TYPE_MAKE_SEND_ONCE,
 					    &port_old);
     if (status != KERN_SUCCESS) {
-	fprintf(stderr, "EAPOLClient: mach_port_request_notification(): %s", 
-		mach_error_string(status));
+	EAPLOG_FL(LOG_NOTICE, "mach_port_request_notification(): %s", 
+		  mach_error_string(status));
 	goto failed;
     }
     status = eapolcontroller_client_attach(server, mach_task_self(),
@@ -188,9 +188,9 @@ EAPOLClientAttach(const char * interface_name,
 					   &control, &control_len,
 					   &bootstrap, &au_session, &result);
     if (status != KERN_SUCCESS) {
-	fprintf(stderr, 
-		"EAPOLClient: eapolcontroller_client_attach(%s): %s\n",
-		client->if_name, mach_error_string(status));
+	EAPLOG_FL(LOG_NOTICE, 
+		  "eapolcontroller_client_attach(%s): %s",
+		  client->if_name, mach_error_string(status));
 	result = ENXIO;
 	goto failed;
     }
@@ -199,8 +199,8 @@ EAPOLClientAttach(const char * interface_name,
     }
     if (au_session != MACH_PORT_NULL) {
 	if (audit_session_join(au_session) == AU_DEFAUDITSID) {
-	    fprintf(stderr,
-		    "EAPOLClient: audit_session_join returned AU_DEFAULTSID\n");
+	    EAPLOG_FL(LOG_NOTICE,
+		      "audit_session_join returned AU_DEFAULTSID");
 	}
     }
     if (control != NULL) {
@@ -254,9 +254,9 @@ EAPOLClientDetach(EAPOLClientRef * client_p)
 	status = eapolcontroller_client_detach(client->session_port, 
 					       &result);
 	if (status != KERN_SUCCESS) {
-	    fprintf(stderr, 
-		    "EAPOLClient: eapolcontroller_client_detach(%s): %s\n",
-		    client->if_name, mach_error_string(status));
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "eapolcontroller_client_detach(%s): %s",
+		      client->if_name, mach_error_string(status));
 	    result = ENXIO;
 	}
     }
@@ -279,9 +279,9 @@ EAPOLClientGetConfig(EAPOLClientRef client, CFDictionaryRef * control_dict)
 					      &control, &control_len,
 					      &result);
     if (status != KERN_SUCCESS) {
-	fprintf(stderr, 
-		"EAPOLClient: eapolcontroller_client_getconfig(%s): %s\n",
-		client->if_name, mach_error_string(status));
+	EAPLOG_FL(LOG_NOTICE, 
+		  "eapolcontroller_client_getconfig(%s): %s",
+		  client->if_name, mach_error_string(status));
 	result = ENXIO;
 	goto done;
     }

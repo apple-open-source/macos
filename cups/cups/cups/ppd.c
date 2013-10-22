@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd.c 9900 2011-08-17 20:59:46Z mike $"
+ * "$Id: ppd.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   PPD file routines for CUPS.
  *
@@ -1264,7 +1264,7 @@ _ppdOpen(
 
         ppd->patches = temp;
 
-        strcpy(ppd->patches + strlen(ppd->patches), string);
+        memcpy(ppd->patches + strlen(ppd->patches), string, strlen(string) + 1);
       }
     }
     else if (!strcmp(keyword, "OpenUI"))
@@ -1378,7 +1378,7 @@ _ppdOpen(
       */
 
       if (!_cups_strcasecmp(name, "PageRegion"))
-        strcpy(custom_name, "CustomPageSize");
+        strlcpy(custom_name, "CustomPageSize", sizeof(custom_name));
       else
         snprintf(custom_name, sizeof(custom_name), "Custom%s", name);
 
@@ -1944,9 +1944,9 @@ _ppdOpen(
         cupsCharsetToUTF8((cups_utf8_t *)choice->text, text,
 	                   sizeof(choice->text), encoding);
       else if (!strcmp(name, "True"))
-        strcpy(choice->text, _("Yes"));
+        strlcpy(choice->text, _("Yes"), sizeof(choice->text));
       else if (!strcmp(name, "False"))
-        strcpy(choice->text, _("No"));
+        strlcpy(choice->text, _("No"), sizeof(choice->text));
       else
         strlcpy(choice->text, name, sizeof(choice->text));
 
@@ -3394,5 +3394,5 @@ ppd_update_filters(ppd_file_t      *ppd,/* I - PPD file */
 
 
 /*
- * End of "$Id: ppd.c 9900 2011-08-17 20:59:46Z mike $".
+ * End of "$Id: ppd.c 11093 2013-07-03 20:48:42Z msweet $".
  */

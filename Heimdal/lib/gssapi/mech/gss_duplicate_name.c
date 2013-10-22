@@ -38,6 +38,8 @@ gss_duplicate_name(OM_uint32 *minor_status,
 	struct _gss_name	*new_name;
 	struct _gss_mechanism_name *mn;
 
+	_gss_mg_check_name(src_name);
+
 	*minor_status = 0;
 	*dest_name = GSS_C_NO_NAME;
 

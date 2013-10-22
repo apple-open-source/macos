@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2011-2012, International Business Machines Corporation and
+* Copyright (C) 2011-2013, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 */
@@ -267,6 +267,8 @@ GNameSearchHandler::getMatches(int32_t& maxMatchLen) {
     return results;
 }
 
+static UMutex gLock = U_MUTEX_INITIALIZER;
+
 class TZGNCore : public UMemory {
 public:
     TZGNCore(const Locale& locale, UErrorCode& status);
@@ -282,13 +284,11 @@ public:
 
 private:
     Locale fLocale;
-    UMTX fLock;
     const TimeZoneNames* fTimeZoneNames;
     UHashtable* fLocationNamesMap;
     UHashtable* fPartialLocationNamesMap;
 
     MessageFormat* fRegionFormat;
-    MessageFormat* fFallbackRegionFormat;
     MessageFormat* fFallbackFormat;
 
     LocaleDisplayNames* fLocaleDisplayNames;
@@ -331,12 +331,10 @@ private:
 // ---------------------------------------------------
 TZGNCore::TZGNCore(const Locale& locale, UErrorCode& status)
 : fLocale(locale),
-  fLock(NULL),
   fTimeZoneNames(NULL),
   fLocationNamesMap(NULL),
   fPartialLocationNamesMap(NULL),
   fRegionFormat(NULL),
-  fFallbackRegionFormat(NULL),
   fFallbackFormat(NULL),
   fLocaleDisplayNames(NULL),
   fStringPool(status),
@@ -347,7 +345,6 @@ TZGNCore::TZGNCore(const Locale& locale, UErrorCode& status)
 
 TZGNCore::~TZGNCore() {
     cleanup();
-    umtx_destroy(&fLock);
 }
 
 void
@@ -391,10 +388,6 @@ TZGNCore::initialize(const Locale& locale, UErrorCode& status) {
 
     fRegionFormat = new MessageFormat(rpat, status);
     if (fRegionFormat == NULL) {
-        status = U_MEMORY_ALLOCATION_ERROR;
-    }
-    fFallbackRegionFormat = new MessageFormat(frpat, status);
-    if (fFallbackRegionFormat == NULL) {
         status = U_MEMORY_ALLOCATION_ERROR;
     }
     fFallbackFormat = new MessageFormat(fpat, status);
@@ -458,9 +451,6 @@ TZGNCore::cleanup() {
     if (fRegionFormat != NULL) {
         delete fRegionFormat;
     }
-    if (fFallbackRegionFormat != NULL) {
-        delete fFallbackRegionFormat;
-    }
     if (fFallbackFormat != NULL) {
         delete fFallbackFormat;
     }
@@ -513,11 +503,11 @@ TZGNCore::getGenericLocationName(const UnicodeString& tzCanonicalID, UnicodeStri
 
     const UChar *locname = NULL;
     TZGNCore *nonConstThis = const_cast<TZGNCore *>(this);
-    umtx_lock(&nonConstThis->fLock);
+    umtx_lock(&gLock);
     {
         locname = nonConstThis->getGenericLocationName(tzCanonicalID);
     }
-    umtx_unlock(&nonConstThis->fLock);
+    umtx_unlock(&gLock);
 
     if (locname == NULL) {
         name.setToBogus();
@@ -556,43 +546,44 @@ TZGNCore::getGenericLocationName(const UnicodeString& tzCanonicalID) {
 
     // Construct location name
     UnicodeString name;
-    UBool isSingleCountry = FALSE;
     UnicodeString usCountryCode;
-    ZoneMeta::getSingleCountry(tzCanonicalID, usCountryCode);
-    if (!usCountryCode.isEmpty()) {
-        isSingleCountry = TRUE;
-    } else {
-        ZoneMeta::getCanonicalCountry(tzCanonicalID, usCountryCode);
-    }
+    UBool isPrimary = FALSE;
+
+    ZoneMeta::getCanonicalCountry(tzCanonicalID, usCountryCode, &isPrimary);
 
     if (!usCountryCode.isEmpty()) {
-        char countryCode[ULOC_COUNTRY_CAPACITY];
-        U_ASSERT(usCountryCode.length() < ULOC_COUNTRY_CAPACITY);
-        int32_t ccLen = usCountryCode.extract(0, usCountryCode.length(), countryCode, sizeof(countryCode), US_INV);
-        countryCode[ccLen] = 0;
-
-        UnicodeString country;
-        fLocaleDisplayNames->regionDisplayName(countryCode, country);
-
-        // Format
         FieldPosition fpos;
-        if (isSingleCountry) {
-            // If the zone is only one zone in the country, do not add city
+
+        if (isPrimary) {
+            // If this is the primary zone in the country, use the country name.
+            char countryCode[ULOC_COUNTRY_CAPACITY];
+            U_ASSERT(usCountryCode.length() < ULOC_COUNTRY_CAPACITY);
+            int32_t ccLen = usCountryCode.extract(0, usCountryCode.length(), countryCode, sizeof(countryCode), US_INV);
+            countryCode[ccLen] = 0;
+
+            UnicodeString country;
+            fLocaleDisplayNames->regionDisplayName(countryCode, country);
+
             Formattable param[] = {
                 Formattable(country)
             };
+
             fRegionFormat->format(param, 1, name, fpos, status);
         } else {
+            // If this is not the primary zone in the country,
+            // use the exemplar city name.
+
             // getExemplarLocationName should retur non-empty string
             // if the time zone is associated with a region
+
             UnicodeString city;
             fTimeZoneNames->getExemplarLocationName(tzCanonicalID, city);
 
-            Formattable params[] = {
+            Formattable param[] = {
                 Formattable(city),
-                Formattable(country)
             };
-            fFallbackRegionFormat->format(params, 2, name, fpos, status);
+
+            fRegionFormat->format(param, 1, name, fpos, status);
         }
         if (U_FAILURE(status)) {
             return NULL;
@@ -775,11 +766,11 @@ TZGNCore::getPartialLocationName(const UnicodeString& tzCanonicalID,
 
     const UChar *uplname = NULL;
     TZGNCore *nonConstThis = const_cast<TZGNCore *>(this);
-    umtx_lock(&nonConstThis->fLock);
+    umtx_lock(&gLock);
     {
         uplname = nonConstThis->getPartialLocationName(tzCanonicalID, mzID, isLong, mzDisplayName);
     }
-    umtx_unlock(&nonConstThis->fLock);
+    umtx_unlock(&gLock);
 
     if (uplname == NULL) {
         name.setToBogus();
@@ -1048,11 +1039,11 @@ TZGNCore::findLocal(const UnicodeString& text, int32_t start, uint32_t types, UE
 
     TZGNCore *nonConstThis = const_cast<TZGNCore *>(this);
 
-    umtx_lock(&nonConstThis->fLock);
+    umtx_lock(&gLock);
     {
         fGNamesTrie.search(text, start, (TextTrieMapSearchResultHandler *)&handler, status);
     }
-    umtx_unlock(&nonConstThis->fLock);
+    umtx_unlock(&gLock);
 
     if (U_FAILURE(status)) {
         return NULL;
@@ -1079,7 +1070,7 @@ TZGNCore::findLocal(const UnicodeString& text, int32_t start, uint32_t types, UE
 
     // All names are not yet loaded into the local trie.
     // Load all available names into the trie. This could be very heavy.
-    umtx_lock(&nonConstThis->fLock);
+    umtx_lock(&gLock);
     {
         if (!fGNamesTrieFullyLoaded) {
             StringEnumeration *tzIDs = TimeZone::createTimeZoneIDEnumeration(UCAL_ZONE_TYPE_CANONICAL, NULL, NULL, status);
@@ -1101,18 +1092,18 @@ TZGNCore::findLocal(const UnicodeString& text, int32_t start, uint32_t types, UE
             }
         }
     }
-    umtx_unlock(&nonConstThis->fLock);
+    umtx_unlock(&gLock);
 
     if (U_FAILURE(status)) {
         return NULL;
     }
 
-    umtx_lock(&nonConstThis->fLock);
+    umtx_lock(&gLock);
     {
         // now try it again
         fGNamesTrie.search(text, start, (TextTrieMapSearchResultHandler *)&handler, status);
     }
-    umtx_unlock(&nonConstThis->fLock);
+    umtx_unlock(&gLock);
 
     results = handler.getMatches(maxLen);
     if (results != NULL && maxLen > 0) {
@@ -1153,7 +1144,7 @@ typedef struct TZGNCoreRef {
 } TZGNCoreRef;
 
 // TZGNCore object cache handling
-static UMTX gTZGNLock = NULL;
+static UMutex gTZGNLock = U_MUTEX_INITIALIZER;
 static UHashtable *gTZGNCoreCache = NULL;
 static UBool gTZGNCoreCacheInitialized = FALSE;
 
@@ -1176,8 +1167,6 @@ U_CDECL_BEGIN
  */
 static UBool U_CALLCONV tzgnCore_cleanup(void)
 {
-    umtx_destroy(&gTZGNLock);
-
     if (gTZGNCoreCache != NULL) {
         uhash_close(gTZGNCoreCache);
         gTZGNCoreCache = NULL;

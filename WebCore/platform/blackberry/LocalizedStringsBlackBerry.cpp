@@ -21,10 +21,12 @@
 
 #include "IntSize.h"
 #include "NotImplemented.h"
-#include "PlatformString.h"
-#include <BlackBerryPlatformClient.h>
+#include <BlackBerryPlatformString.h>
+#include <LocaleHandler.h>
 #include <LocalizeResource.h>
 #include <wtf/Vector.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -62,11 +64,11 @@ String inputElementAltText()
 
 static String platformLanguage()
 {
-    String lang = BlackBerry::Platform::Client::get()->getLocale().c_str();
+    String lang = BlackBerry::Platform::LocaleHandler::instance()->language().c_str();
     // getLocale() returns a POSIX locale which uses '_' to separate language and country.
     // However, we use '-' instead of '_' in WebCore (e.g. en_us should read en-us)
     size_t underscorePosition = lang.find('_');
-    String replaceWith = "-";
+    String replaceWith = ASCIILiteral("-");
     if (underscorePosition != notFound)
         return lang.replace(underscorePosition, replaceWith.length(), replaceWith);
     return lang;
@@ -78,273 +80,6 @@ Vector<String> platformUserPreferredLanguages()
     userPreferredLanguages.append(platformLanguage());
     return userPreferredLanguages;
 }
-
-#if ENABLE(CONTEXT_MENUS)
-String contextMenuItemTagBold()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagCheckGrammarWithSpelling()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagCheckSpelling()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagCheckSpellingWhileTyping()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagCopyImageToClipboard()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagCopyLinkToClipboard()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagDefaultDirection()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagDownloadImageToDisk()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagDownloadLinkToDisk()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagFontMenu()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagIgnoreGrammar()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagIgnoreSpelling()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagInspectElement()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagItalic()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagLearnSpelling()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagLeftToRight()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagNoGuessesFound()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagOpenFrameInNewWindow()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagOpenImageInNewWindow()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagOpenLinkInNewWindow()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagOpenLink()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagOutline()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagReload()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagRightToLeft()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagSearchWeb()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagShowSpellingPanel(bool)
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagSpellingMenu()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagTextDirectionMenu()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagUnderline()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagWritingDirectionMenu()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagCopyVideoLinkToClipboard()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagOpenVideoInNewWindow()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagToggleMediaControls()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_MEDIA_TOGGLE_CONTROLS));
-}
-
-String contextMenuItemTagToggleMediaLoop()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_MEDIA_TOGGLE_LOOP));
-}
-
-String contextMenuItemTagEnterVideoFullscreen()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_VIDEO_FULLSCREEN));
-}
-
-String contextMenuItemTagMediaPlay()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_MEDIA_PLAY));
-}
-
-String contextMenuItemTagMediaPause()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_MEDIA_PAUSE));
-}
-
-String contextMenuItemTagMediaMute()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_MEDIA_MUTE));
-}
-
-String contextMenuItemTagCopyAudioLinkToClipboard()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagOpenAudioInNewWindow()
-{
-    notImplemented();
-    return String();
-}
-
-String contextMenuItemTagGoBack()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_GOBACK));
-}
-
-String contextMenuItemTagGoForward()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_GOFORWARD));
-}
-
-String contextMenuItemTagStop()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_STOP));
-}
-
-String contextMenuItemTagCopy()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_COPY));
-}
-
-String contextMenuItemTagCut()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_CUT));
-}
-
-String contextMenuItemTagPaste()
-{
-    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::CONTEXT_PASTE));
-}
-
-#endif
 
 String searchableIndexIntroduction()
 {
@@ -386,13 +121,25 @@ String AXCheckedCheckBoxActionVerb()
     return String();
 }
 
-String AXDefinitionListDefinitionText()
+String AXDefinitionText()
 {
     notImplemented();
     return String();
 }
 
-String AXDefinitionListTermText()
+String AXDescriptionListText()
+{
+    notImplemented();
+    return String();
+}
+
+String AXDescriptionListDetailText()
+{
+    notImplemented();
+    return String();
+}
+
+String AXDescriptionListTermText()
 {
     notImplemented();
     return String();
@@ -440,6 +187,12 @@ String AXMenuListActionVerb()
     return String();
 }
 
+String AXListItemActionVerb()
+{
+    notImplemented();
+    return String();
+}
+
 String unknownFileSizeText()
 {
     notImplemented();
@@ -457,16 +210,14 @@ String validationMessageTooLongText(int, int)
     return String();
 }
 
-String validationMessageRangeUnderflowText(const String&)
+String validationMessageRangeUnderflowText(const String& text)
 {
-    notImplemented();
-    return String();
+    return String::format(s_resource.getString(BlackBerry::Platform::VALIDATION_RANGE_UNDERFLOW), text.utf8().data());
 }
 
-String validationMessageRangeOverflowText(const String&)
+String validationMessageRangeOverflowText(const String& text)
 {
-    notImplemented();
-    return String();
+    return String::format(s_resource.getString(BlackBerry::Platform::VALIDATION_RANGE_OVERFLOW), text.utf8().data());
 }
 
 String validationMessageStepMismatchText(const String&, const String&)
@@ -481,17 +232,17 @@ String validationMessageTypeMismatchText()
 
 String validationMessageTypeMismatchForEmailText()
 {
-    return validationMessageTypeMismatchText();
+    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::VALIDATION_TYPE_MISMATCH_EMAIL));
 }
 
 String validationMessageTypeMismatchForMultipleEmailText()
 {
-    return validationMessageTypeMismatchText();
+    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::VALIDATION_TYPE_MISMATCH_MULTIPLE_EMAIL));
 }
 
 String validationMessageTypeMismatchForURLText()
 {
-    return validationMessageTypeMismatchText();
+    return String::fromUTF8(s_resource.getString(BlackBerry::Platform::VALIDATION_TYPE_MISMATCH_URL));
 }
 
 String validationMessageValueMissingText()
@@ -522,6 +273,12 @@ String validationMessageValueMissingForRadioText()
 String validationMessageValueMissingForSelectText()
 {
     return validationMessageValueMissingText();
+}
+
+String validationMessageBadInputForNumberText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
 }
 
 String localizedMediaControlElementString(const String&)
@@ -572,6 +329,24 @@ String crashedPluginText()
     return String();
 }
 
+String blockedPluginByContentSecurityPolicyText()
+{
+    notImplemented();
+    return String();
+}
+
+String insecurePluginVersionText()
+{
+    notImplemented();
+    return String();
+}
+
+String inactivePluginText()
+{
+    notImplemented();
+    return String();
+}
+
 String multipleFileUploadText(unsigned)
 {
     return String(", ...");
@@ -586,5 +361,49 @@ String fileButtonNoFilesSelectedLabel()
 {
     return String::fromUTF8(s_resource.getString(BlackBerry::Platform::FILE_BUTTON_NO_FILE_SELECTED_LABEL));
 }
+
+String snapshottedPlugInLabelTitle()
+{
+    notImplemented();
+    return String();
+}
+
+String snapshottedPlugInLabelSubtitle()
+{
+    notImplemented();
+    return String();
+}
+
+String weekFormatInLDML()
+{
+    notImplemented();
+    return String();
+}
+
+#if ENABLE(VIDEO_TRACK)
+String textTrackClosedCaptionsText()
+{
+    notImplemented();
+    return String();
+}
+
+String textTrackSubtitlesText()
+{
+    notImplemented();
+    return String();
+}
+
+String textTrackOffText()
+{
+    notImplemented();
+    return String();
+}
+
+String textTrackNoLabelText()
+{
+    notImplemented();
+    return String();
+}
+#endif
 
 } // namespace WebCore

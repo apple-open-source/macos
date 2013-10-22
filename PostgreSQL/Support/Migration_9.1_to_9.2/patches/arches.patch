@@ -1,0 +1,77 @@
+--- postgresql-9.0.1/src/include/pg_config.h.in	2010-10-01 07:25:44.000000000 -0700
++++ postgresql/src/include/pg_config.h.in	2010-12-14 18:48:08.000000000 -0800
+@@ -803,12 +803,9 @@
+ /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+    significant byte first (like Motorola and SPARC, unlike Intel). */
+ #if defined AC_APPLE_UNIVERSAL_BUILD
++#/* This symbol must be allowed to be cleared. */ undef WORDS_BIGENDIAN
+ # if defined __BIG_ENDIAN__
+-#  define WORDS_BIGENDIAN 1
+-# endif
+-#else
+-# ifndef WORDS_BIGENDIAN
+-#  undef WORDS_BIGENDIAN
++#/* This symbol should not be modified by configure. */  define WORDS_BIGENDIAN 1
+ # endif
+ #endif
+ 
+@@ -856,3 +853,59 @@
+ /* Define to empty if the keyword `volatile' does not work. Warning: valid
+    code using `volatile' can become incorrect without. Disable with care. */
+ #undef volatile
++
++/*
++ * Darwin's GCC can generate multiple architectures in a single pass so the size and
++ * byte order will only be accurate for the one architecture that happened to invoke
++ * configure.
++ */
++#ifdef AC_APPLE_UNIVERSAL_BUILD
++#/* This symbol must be allowed to be cleared. */ undef ALIGNOF_DOUBLE
++#/* This symbol must be allowed to be cleared. */ undef ALIGNOF_LONG
++#/* This symbol must be allowed to be cleared. */ undef ALIGNOF_LONG_LONG_INT
++#/* This symbol must be allowed to be cleared. */ undef FLOAT8PASSBYVAL
++#/* This symbol must be allowed to be cleared. */ undef HAVE_LL_CONSTANTS
++#/* This symbol must be allowed to be cleared. */ undef HAVE_LONG_INT_64
++#/* This symbol must be allowed to be cleared. */ undef HAVE_LONG_LONG_INT_64
++#/* This symbol must be allowed to be cleared. */ undef INT64_FORMAT
++#/* This symbol must be allowed to be cleared. */ undef MAXIMUM_ALIGNOF
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_LONG
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_SIZE_T
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_VOID_P
++#/* This symbol must be allowed to be cleared. */ undef UINT64_FORMAT
++#/* This symbol must be allowed to be cleared. */ undef USE_FLOAT8_BYVAL
++# ifdef __LP64__
++#/* This symbol should not be modified by configure. */  define ALIGNOF_DOUBLE 8
++#/* This symbol should not be modified by configure. */  define ALIGNOF_LONG 8
++#/* This symbol should not be modified by configure. */  define FLOAT8PASSBYVAL true
++#/* This symbol should not be modified by configure. */  define HAVE_LONG_INT_64 1
++#/* This symbol should not be modified by configure. */  define INT64_FORMAT "%ld"
++#/* This symbol should not be modified by configure. */  define MAXIMUM_ALIGNOF 8
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 8
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 8
++#/* This symbol should not be modified by configure. */  define SIZEOF_VOID_P 8
++#/* This symbol should not be modified by configure. */  define UINT64_FORMAT "%lu"
++#/* This symbol should not be modified by configure. */  define USE_FLOAT8_BYVAL 1
++# else
++#/* This symbol should not be modified by configure. */  define ALIGNOF_DOUBLE 4
++#/* This symbol should not be modified by configure. */  define ALIGNOF_LONG 4
++#/* This symbol should not be modified by configure. */  define ALIGNOF_LONG_LONG_INT 4
++#/* This symbol should not be modified by configure. */  define FLOAT8PASSBYVAL false
++#/* This symbol should not be modified by configure. */  define HAVE_LL_CONSTANTS 1
++#/* This symbol should not be modified by configure. */  define HAVE_LONG_LONG_INT_64 1
++#/* This symbol should not be modified by configure. */  define INT64_FORMAT "%lld"
++#/* This symbol should not be modified by configure. */  define MAXIMUM_ALIGNOF 4
++#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 4
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 4
++#/* This symbol should not be modified by configure. */  define SIZEOF_VOID_P 4
++#/* This symbol should not be modified by configure. */  define UINT64_FORMAT "%llu"
++# endif
++#endif
++
++/*
++ * Local variables:
++ * tab-width: 4
++ * c-basic-offset: 4
++ * indent-tabs-mode: t
++ * End:
++ */

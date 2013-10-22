@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>MooseX-Role-Parameterized</string>
+        <key>OpenSourceVersion</key>
+        <string>1.00</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/S/SA/SARTAK/MooseX-Role-Parameterized-1.00.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2012-10-25</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -33,9 +33,9 @@
 #include "BlobURL.h"
 
 #include "KURL.h"
-#include "PlatformString.h"
 #include "SecurityOrigin.h"
 #include "UUID.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -52,6 +52,15 @@ KURL BlobURL::createInternalURL()
     return createBlobURL("blobinternal://");
 }
 
+String BlobURL::getOrigin(const KURL& url)
+{
+    ASSERT(url.protocolIs(kBlobProtocol));
+
+    unsigned startIndex = url.pathStart();
+    unsigned endIndex = url.pathAfterLastSlash();
+    return url.string().substring(startIndex, endIndex - startIndex - 1);
+}
+
 String BlobURL::getIdentifier(const KURL& url)
 {
     ASSERT(url.protocolIs(kBlobProtocol));
@@ -63,13 +72,7 @@ String BlobURL::getIdentifier(const KURL& url)
 KURL BlobURL::createBlobURL(const String& originString)
 {
     ASSERT(!originString.isEmpty());
-    if (originString == "null")
-        return KURL();
-    String urlString = kBlobProtocol;
-    urlString += ":";
-    urlString += encodeWithURLEscapeSequences(originString);
-    urlString += "/";
-    urlString += createCanonicalUUIDString();
+    String urlString = "blob:" + encodeWithURLEscapeSequences(originString) + '/' + createCanonicalUUIDString();
     return KURL(ParsedURLString, urlString);
 }
 

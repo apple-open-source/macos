@@ -38,16 +38,20 @@
 #include <CoreFoundation/CFString.h>
 #include <Security/SecKey.h>
 #include <Security/SecKeyPriv.h>
-#include <Security/SecKeyInternal.h>
 #include <corecrypto/ccdh.h>
 #include <corecrypto/ccec.h>
 #include <corecrypto/ccrng.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecPolicy.h>
-#include <Security/SecRSAKey.h>
 #include <Security/SecTrust.h>
 #include <AssertMacros.h>
-#include <Security/SecInternal.h>
+#include "utilities/SecCFRelease.h"
+
+#if TARGET_OS_IPHONE
+#include <Security/SecKeyInternal.h>
+#include <Security/SecRSAKey.h>
+#include <Security/SecECKey.h>
+#endif
 
 #ifndef	_SSL_KEYCHAIN_H_
 #include "sslKeychain.h"
@@ -60,13 +64,12 @@
 #include <libDER/asn1Types.h>
 #include <Security/SecRandom.h>
 #endif
-#include <Security/SecECKey.h>
 
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE
 #define CCRNGSTATE ccrng_seckey
 #else
 /* extern struct ccrng_state *ccDRBGGetRngState(); */
@@ -83,7 +86,7 @@ extern OSStatus sslFreePubKey(SSLPubKey **pubKey)
 	if (pubKey && *pubKey) {
 		CFReleaseNull(SECKEYREF(*pubKey));
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -94,7 +97,7 @@ extern OSStatus sslFreePrivKey(SSLPrivKey **privKey)
 	if (privKey && *privKey) {
 		CFReleaseNull(SECKEYREF(*privKey));
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -102,7 +105,7 @@ extern OSStatus sslFreePrivKey(SSLPrivKey **privKey)
  */
 CFIndex sslPubKeyGetAlgorithmID(SSLPubKey *pubKey)
 {
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE
 	return SecKeyGetAlgorithmID(SECKEYREF(pubKey));
 #else
 	return SecKeyGetAlgorithmId(SECKEYREF(pubKey));
@@ -114,7 +117,7 @@ CFIndex sslPubKeyGetAlgorithmID(SSLPubKey *pubKey)
  */
 CFIndex sslPrivKeyGetAlgorithmID(SSLPrivKey *privKey)
 {
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE
 	return SecKeyGetAlgorithmID(SECKEYREF(privKey));
 #else
 	return SecKeyGetAlgorithmId(SECKEYREF(privKey));
@@ -156,7 +159,7 @@ OSStatus sslRawSign(
 		&giSigLen);
 	*actualBytes = giSigLen;
 
-	return rsaStatus ? rsaStatusToSSL(rsaStatus) : noErr;
+	return rsaStatus ? rsaStatusToSSL(rsaStatus) : errSecSuccess;
 #else
 
 	size_t inOutSigLen = sigLen;
@@ -167,7 +170,7 @@ OSStatus sslRawSign(
         plainText, plainTextLen, sig, &inOutSigLen);
 
 	if (status) {
-		sslErrorLog("sslRawSign: SecKeyRawSign failed (error %d)\n", status);
+		sslErrorLog("sslRawSign: SecKeyRawSign failed (error %d)\n", (int)status);
 	}
 
     /* Since the KeyExchange already allocated modulus size bytes we'll
@@ -205,7 +208,7 @@ OSStatus sslRsaSign(
                                     plainText, plainTextLen, sig, &inOutSigLen);
 
 	if (status) {
-		sslErrorLog("sslRsaSign: SecKeySignDigest failed (error %d)\n", status);
+		sslErrorLog("sslRsaSign: SecKeySignDigest failed (error %d)\n", (int) status);
 	}
 
     /* Since the KeyExchange already allocated modulus size bytes we'll
@@ -240,13 +243,13 @@ OSStatus sslRawVerify(
 		sig,
 		sigLen);
 
-	return rsaStatus ? rsaStatusToSSL(rsaStatus) : noErr;
+	return rsaStatus ? rsaStatusToSSL(rsaStatus) : errSecSuccess;
 #else
 	OSStatus status = SecKeyRawVerify(SECKEYREF(pubKey), kSecPaddingPKCS1,
         plainText, plainTextLen, sig, sigLen);
 
 	if (status) {
-		sslErrorLog("sslRawVerify: SecKeyRawVerify failed (error %d)\n", status);
+		sslErrorLog("sslRawVerify: SecKeyRawVerify failed (error %d)\n", (int) status);
 	}
 
 	return status;
@@ -267,7 +270,7 @@ OSStatus sslRsaVerify(
                            plainText, plainTextLen, sig, sigLen);
 
 	if (status) {
-		sslErrorLog("sslRsaVerify: SecKeyVerifyDigest failed (error %d)\n", status);
+		sslErrorLog("sslRsaVerify: SecKeyVerifyDigest failed (error %d)\n", (int) status);
 	}
 
 	return status;
@@ -301,7 +304,7 @@ OSStatus sslRsaEncrypt(
 		&giCipherTextLen);
 	*actualBytes = giCipherTextLen;
 
-	return rsaStatus ? rsaStatusToSSL(rsaStatus) : noErr;
+	return rsaStatus ? rsaStatusToSSL(rsaStatus) : errSecSuccess;
 #else
     size_t ctlen = cipherTextLen;
 
@@ -310,8 +313,8 @@ OSStatus sslRsaEncrypt(
 #if RSA_PUB_KEY_USAGE_HACK
 	/* Force key usage to allow encryption with public key */
 	#if (TARGET_OS_MAC && !(TARGET_OS_EMBEDDED || TARGET_OS_IPHONE))
-	const CSSM_KEY_PTR cssmKey = NULL;
-	if (SecKeyGetCSSMKey(SECKEYREF(pubKey), &cssmKey)==noErr && cssmKey)
+	CSSM_KEY *cssmKey = NULL;
+	if (SecKeyGetCSSMKey(SECKEYREF(pubKey), (const CSSM_KEY **)&cssmKey)==errSecSuccess && cssmKey)
 		cssmKey->KeyHeader.KeyUsage |= CSSM_KEYUSE_ENCRYPT;
 	#endif
 #endif
@@ -320,7 +323,7 @@ OSStatus sslRsaEncrypt(
         plainText, plainTextLen, cipherText, &ctlen);
 
 	if (status) {
-		sslErrorLog("sslRsaEncrypt: SecKeyEncrypt failed (error %d)\n", status);
+		sslErrorLog("sslRsaEncrypt: SecKeyEncrypt failed (error %d)\n", (int)status);
 	}
 
     /* Since the KeyExchange already allocated modulus size bytes we'll
@@ -336,9 +339,9 @@ OSStatus sslRsaEncrypt(
     if (actualBytes)
         *actualBytes = ctlen;
 
-    if (status)
-        sslErrorLog("***sslRsaEncrypt: error %d\n", status);
-
+    if (status) {
+        sslErrorLog("***sslRsaEncrypt: error %d\n", (int)status);
+    }
     return status;
 #endif
 }
@@ -367,7 +370,7 @@ OSStatus sslRsaDecrypt(
 		&giPlainTextLen);
 	*actualBytes = giPlainTextLen;
 
-	return rsaStatus ? rsaStatusToSSL(rsaStatus) : noErr;
+	return rsaStatus ? rsaStatusToSSL(rsaStatus) : errSecSuccess;
 #else
 	size_t ptlen = plainTextLen;
 
@@ -378,7 +381,7 @@ OSStatus sslRsaDecrypt(
 	*actualBytes = ptlen;
 
     if (status) {
-        sslErrorLog("sslRsaDecrypt: SecKeyDecrypt failed (error %d)\n", status);
+        sslErrorLog("sslRsaDecrypt: SecKeyDecrypt failed (error %d)\n", (int)status);
 	}
 
 	return status;
@@ -435,7 +438,7 @@ OSStatus sslGetMaxSigSize(
     *maxSigSize = SecKeyGetBlockSize(SECKEYREF(privKey));
 #endif
 
-	return noErr;
+	return errSecSuccess;
 }
 
 #if 0
@@ -451,7 +454,7 @@ static OSStatus sslGiantToBuffer(
 	OSStatus status;
 
 	ioLen = serializeGiantBytes(g);
-	status = SSLAllocBuffer(buffer, ioLen, ctx);
+	status = SSLAllocBuffer(buffer, ioLen);
 	if (status)
 		return status;
 	chars = buffer->data;
@@ -459,7 +462,7 @@ static OSStatus sslGiantToBuffer(
 	/* Serialize the giant g into chars. */
 	giReturn = serializeGiant(g, chars, &ioLen);
 	if(giReturn) {
-		SSLFreeBuffer(buffer, ctx);
+		SSLFreeBuffer(buffer);
 		return giReturnToSSL(giReturn);
 	}
 
@@ -493,7 +496,7 @@ OSStatus sslGetPubKeyBits(
 
 	status = sslGiantToBuffer(ctx, &pubKey->rsaKey.e.g, exponent);
 	if(status) {
-		SSLFreeBuffer(modulus, ctx);
+		SSLFreeBuffer(modulus);
 		return status;
 	}
 
@@ -512,7 +515,7 @@ OSStatus sslGetPubKeyFromBits(
 	SSLPubKey           **pubKey)        // mallocd and RETURNED
 {
 	if (!pubKey)
-		return paramErr;
+		return errSecParam;
 #if 0
 	SSLPubKey *key;
 	RSAStatus rsaStatus;
@@ -530,7 +533,7 @@ OSStatus sslGetPubKeyFromBits(
 	}
 
 	*pubKey = key;
-	return noErr;
+	return errSecSuccess;
 #else
 	check(pubKey);
 	SecRSAPublicKeyParams params = {
@@ -539,8 +542,8 @@ OSStatus sslGetPubKeyFromBits(
 	};
 #if SSL_DEBUG
 	sslDebugLog("Creating RSA pub key from modulus=%p len=%lu exponent=%p len=%lu\n",
-			(uintptr_t)modulus->data, modulus->length,
-			(uintptr_t)exponent->data, exponent->length);
+			modulus->data, modulus->length,
+			exponent->data, exponent->length);
 #endif
 	SecKeyRef key = SecKeyCreateRSAPublicKey(NULL, (const uint8_t *)&params,
 			sizeof(params), kSecKeyEncodingRSAPublicParams);
@@ -549,16 +552,15 @@ OSStatus sslGetPubKeyFromBits(
 		return errSSLCrypto;
 	}
 #if SSL_DEBUG
-	size_t blocksize = SecKeyGetBlockSize(key);
-	sslDebugLog("sslGetPubKeyFromBits: RSA pub key block size=%lu\n", blocksize);
+	sslDebugLog("sslGetPubKeyFromBits: RSA pub key block size=%lu\n", SecKeyGetBlockSize(key));
 #endif
 	*pubKey = (SSLPubKey*)key;
-	return noErr;
+	return errSecSuccess;
 #endif
 }
 
-#pragma mark -
-#pragma mark Public Certificate Functions
+// MARK: -
+// MARK: Public Certificate Functions
 
 #ifdef USE_SSLCERTIFICATE
 
@@ -617,7 +619,7 @@ OSStatus sslPubKeyFromCert(
 	if(drtn)
 		return errSSLBadCert;
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE
     /* Now we have the public key in pkcs1 format.  Let's make a public key
        object out of it. */
     key = sslMalloc(sizeof(*key));
@@ -638,7 +640,7 @@ OSStatus sslPubKeyFromCert(
 	}
 
 	*pubKey = key;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -656,13 +658,13 @@ OSStatus sslPubKeyFromCert(
 	const SSLCertificate	*certChain,
 	bool					arePeerCerts)
 {
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 
     assert(certChain);
 
     /* No point checking our own certs, our clients can do that. */
     if (!arePeerCerts)
-        return noErr;
+        return errSecSuccess;
 
     CertVerifyReturn cvrtn;
     /* @@@ Add real cert checking. */
@@ -693,7 +695,7 @@ sslCreateSecTrust(
 	bool					arePeerCerts,
     SecTrustRef             *pTrust)	/* RETURNED */
 {
-	OSStatus status = memFullErr;
+	OSStatus status = errSecAllocate;
 	CFStringRef peerDomainName = NULL;
 	CFTypeRef policies = NULL;
 	SecTrustRef trust = NULL;
@@ -732,7 +734,7 @@ sslCreateSecTrust(
             ctx->trustedCertsOnly), errOut);
     }
 
-    status = noErr;
+    status = errSecSuccess;
 
 errOut:
 	CFReleaseSafe(peerDomainName);
@@ -746,6 +748,7 @@ errOut:
 /* Return the first certificate reference from the supplied array
  * whose data matches the given certificate, or NULL if none match.
  */
+static
 SecCertificateRef
 sslGetMatchingCertInArray(
 	SecCertificateRef	certRef,
@@ -805,7 +808,7 @@ extern OSStatus sslVerifyCertChain(
 
 	if (!ctx->enableCertVerify) {
 		/* trivial case, this is caller's responsibility */
-		status = noErr;
+		status = errSecSuccess;
 		goto errOut;
 	}
 
@@ -816,7 +819,7 @@ extern OSStatus sslVerifyCertChain(
             /* cert chain valid, no special UserTrust assignments */
         case kSecTrustResultProceed:
             /* cert chain valid AND user explicitly trusts this */
-            status = noErr;
+            status = errSecSuccess;
             break;
         case kSecTrustResultDeny:
         case kSecTrustResultConfirm:
@@ -824,7 +827,7 @@ extern OSStatus sslVerifyCertChain(
         default:
             if(ctx->allowAnyRoot) {
                 sslErrorLog("***Warning: accepting unverified cert chain\n");
-                status = noErr;
+                status = errSecSuccess;
             }
             else {
 				/*
@@ -833,7 +836,7 @@ extern OSStatus sslVerifyCertChain(
 				if(ctx->trustedLeafCerts) {
 					if (sslGetMatchingCertInArray((SecCertificateRef)CFArrayGetValueAtIndex(certChain, 0),
 								ctx->trustedLeafCerts)) {
-						status = noErr;
+						status = errSecSuccess;
 						goto errOut;
 					}
 				}
@@ -869,30 +872,28 @@ extern OSStatus sslCopyPeerPubKey(
 	SSLContext 				*ctx,
 	SSLPubKey               **pubKey)
 {
-    OSStatus status = noErr;
-
     check(pubKey);
     check(ctx->peerSecTrust);
 
+#if !TARGET_OS_IPHONE
+    /* This is not required on iOS, but still required on osx */
     if (!ctx->enableCertVerify) {
+        OSStatus status;
         SecTrustResultType result;
-        require_noerr(status = SecTrustEvaluate(ctx->peerSecTrust, &result),
-            errOut);
+        verify_noerr_action(status = SecTrustEvaluate(ctx->peerSecTrust, &result),
+            return status);
 	}
+#endif
 
     SecKeyRef key = SecTrustCopyPublicKey(ctx->peerSecTrust);
     if (!key) {
 		sslErrorLog("sslCopyPeerPubKey: %s, ctx->peerSecTrust=%p\n",
-			"SecTrustCopyPublicKey failed", (uintptr_t)ctx->peerSecTrust);
+			"SecTrustCopyPublicKey failed", ctx->peerSecTrust);
 		return errSSLBadCert;
 	}
     *pubKey = (SSLPubKey*)key;
 
-errOut:
-	if (status) {
-		sslErrorLog("sslCopyPeerPubKey: error %d\n", status);
-	}
-	return status;
+    return errSecSuccess;
 }
 
 #endif /* !USE_SSLCERTIFICATE */
@@ -915,84 +916,79 @@ void stPrintCdsaError(const char *op, OSStatus crtn)
  * ctx->selectedCipherSpec to a (supposedly) valid value, and from
  * sslBuildCipherSpecArray(), in server mode (pre-negotiation) only.
  */
-OSStatus sslVerifySelectedCipher(
-	SSLContext *ctx,
-	const SSLCipherSpec *selectedCipherSpec)
+OSStatus sslVerifySelectedCipher(SSLContext *ctx)
 {
-	if(ctx->protocolSide == kSSLClientSide) {
-		return noErr;
-	}
-	#if 	SSL_PAC_SERVER_ENABLE
-	if((ctx->masterSecretCallback != NULL) &&
-	   (ctx->sessionTicket.data != NULL)) {
-		/* EAP via PAC resumption; we can do it */
-		return noErr;
-	}
-	#endif	/* SSL_PAC_SERVER_ENABLE */
-
-	CFIndex requireAlg;
-    if(selectedCipherSpec == NULL) {
-		sslErrorLog("sslVerifySelectedCipher: no selected cipher\n");
-        return errSSLInternal;
+    if(ctx->protocolSide == kSSLClientSide) {
+        return errSecSuccess;
     }
-    switch (selectedCipherSpec->keyExchangeMethod) {
-		case SSL_RSA:
+#if SSL_PAC_SERVER_ENABLE
+    if((ctx->masterSecretCallback != NULL) &&
+       (ctx->sessionTicket.data != NULL)) {
+            /* EAP via PAC resumption; we can do it */
+	return errSecSuccess;
+    }
+#endif	/* SSL_PAC_SERVER_ENABLE */
+
+    CFIndex requireAlg;
+    switch (ctx->selectedCipherSpecParams.keyExchangeMethod) {
+        case SSL_RSA:
         case SSL_RSA_EXPORT:
-		case SSL_DH_RSA:
-		case SSL_DH_RSA_EXPORT:
-		case SSL_DHE_RSA:
-		case SSL_DHE_RSA_EXPORT:
-			requireAlg = kSecRSAAlgorithmID;
-			break;
- 		case SSL_DHE_DSS:
-		case SSL_DHE_DSS_EXPORT:
- 		case SSL_DH_DSS:
-		case SSL_DH_DSS_EXPORT:
-			requireAlg = kSecDSAAlgorithmID;
-			break;
-		case SSL_DH_anon:
-		case SSL_DH_anon_EXPORT:
-			requireAlg = kSecNullAlgorithmID; /* no signing key */
-			break;
-		/*
-		 * When SSL_ECDSA_SERVER is true and we support ECDSA on the server side,
-		 * we'll need to add some logic here...
-		 */
-		#if SSL_ECDSA_SERVER
+	case SSL_DH_RSA:
+	case SSL_DH_RSA_EXPORT:
+	case SSL_DHE_RSA:
+	case SSL_DHE_RSA_EXPORT:
+            requireAlg = kSecRSAAlgorithmID;
+            break;
+ 	case SSL_DHE_DSS:
+	case SSL_DHE_DSS_EXPORT:
+ 	case SSL_DH_DSS:
+	case SSL_DH_DSS_EXPORT:
+            requireAlg = kSecDSAAlgorithmID;
+            break;
+	case SSL_DH_anon:
+	case SSL_DH_anon_EXPORT:
+        case TLS_PSK:
+            requireAlg = kSecNullAlgorithmID; /* no signing key */
+            break;
+        /*
+         * When SSL_ECDSA_SERVER is true and we support ECDSA on the server side,
+         * we'll need to add some logic here...
+         */
+#if SSL_ECDSA_SERVER
         case SSL_ECDHE_ECDSA:
         case SSL_ECDHE_RSA:
         case SSL_ECDH_ECDSA:
         case SSL_ECDH_RSA:
         case SSL_ECDH_anon:
-			requireAlg = kSecECDSAAlgorithmID;
+            requireAlg = kSecECDSAAlgorithmID;
             break;
-		#endif
+#endif
 
-		default:
-			/* needs update per cipherSpecs.c */
-			assert(0);
-			sslErrorLog("sslVerifySelectedCipher: unknown key exchange method\n");
-			return errSSLInternal;
+	default:
+            /* needs update per cipherSpecs.c */
+            assert(0);
+            sslErrorLog("sslVerifySelectedCipher: unknown key exchange method\n");
+            return errSSLInternal;
     }
 
-	if(requireAlg == kSecNullAlgorithmID) {
-		return noErr;
-	}
+    if(requireAlg == kSecNullAlgorithmID) {
+	return errSecSuccess;
+    }
 
-	/* private signing key required */
-	if(ctx->signingPrivKeyRef == NULL) {
-		sslErrorLog("sslVerifySelectedCipher: no signing key\n");
-		return errSSLBadConfiguration;
-	}
+    /* private signing key required */
+    if(ctx->signingPrivKeyRef == NULL) {
+	sslErrorLog("sslVerifySelectedCipher: no signing key\n");
+	return errSSLBadConfiguration;
+    }
 
     /* Check the alg of our signing key. */
     CFIndex keyAlg = sslPrivKeyGetAlgorithmID(ctx->signingPrivKeyRef);
     if (requireAlg != keyAlg) {
-			sslErrorLog("sslVerifySelectedCipher: signing key alg mismatch\n");
-			return errSSLBadConfiguration;
+	sslErrorLog("sslVerifySelectedCipher: signing key alg mismatch\n");
+	return errSSLBadConfiguration;
     }
 
-	return noErr;
+    return errSecSuccess;
 }
 
 #if APPLE_DH
@@ -1032,7 +1028,7 @@ OSStatus sslDecodeDhParams(
 	SSLBuffer		*prime,			/* Output - wire format */
 	SSLBuffer		*generator)     /* Output - wire format */
 {
-    OSStatus ortn = noErr;
+    OSStatus ortn = errSecSuccess;
     DERReturn drtn;
 	DERItem paramItem = {(DERByte *)blob->data, blob->length};
 	DER_DHParams decodedParams;
@@ -1057,7 +1053,7 @@ OSStatus sslEncodeDhParams(SSLBuffer        *blob,			/* data mallocd and RETURNE
                            const SSLBuffer	*prime,			/* Wire format */
                            const SSLBuffer	*generator)     /* Wire format */
 {
-    OSStatus ortn = noErr;
+    OSStatus ortn = errSecSuccess;
     DER_DHParams derParams =
     {
         .p = {
@@ -1106,16 +1102,16 @@ OSStatus sslDhCreateKey(SSLContext *ctx)
         ctx->dhParamsEncoded.length, &ctx->secDHContext))
             return errSSLCrypto;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus sslDhGenerateKeyPair(SSLContext *ctx)
 {
-    OSStatus ortn = noErr;
-
-    require_noerr(ortn = SSLAllocBuffer(&ctx->dhExchangePublic,
-        SecDHGetMaxKeyLength(ctx->secDHContext), ctx), out);
-    require_noerr(ortn = SecDHGenerateKeypair(ctx->secDHContext,
+    OSStatus ortn = errSecSuccess;
+    
+    require_noerr(ortn = SSLAllocBuffer(&ctx->dhExchangePublic, 
+        SecDHGetMaxKeyLength(ctx->secDHContext)), out);
+    require_noerr(ortn = SecDHGenerateKeypair(ctx->secDHContext, 
         ctx->dhExchangePublic.data, &ctx->dhExchangePublic.length), out);
 
 out:
@@ -1125,7 +1121,7 @@ out:
 
 OSStatus sslDhKeyExchange(SSLContext *ctx)
 {
-    OSStatus ortn = noErr;
+    OSStatus ortn = errSecSuccess;
 
 	if (ctx == NULL ||
         ctx->secDHContext == NULL ||
@@ -1135,15 +1131,15 @@ OSStatus sslDhKeyExchange(SSLContext *ctx)
 		return errSSLProtocol;
 	}
 
-    require_noerr(ortn = SSLAllocBuffer(&ctx->preMasterSecret,
-        SecDHGetMaxKeyLength(ctx->secDHContext), ctx), out);
-    require_noerr(ortn = SecDHComputeKey(ctx->secDHContext,
-        ctx->dhPeerPublic.data, ctx->dhPeerPublic.length,
+    require_noerr(ortn = SSLAllocBuffer(&ctx->preMasterSecret, 
+        SecDHGetMaxKeyLength(ctx->secDHContext)), out);
+    require_noerr(ortn = SecDHComputeKey(ctx->secDHContext, 
+        ctx->dhPeerPublic.data, ctx->dhPeerPublic.length, 
         ctx->preMasterSecret.data, &ctx->preMasterSecret.length), out);
 
 	return ortn;
 out:
-	sslErrorLog("sslDhKeyExchange: failed to compute key (error %d)\n", ortn);
+	sslErrorLog("sslDhKeyExchange: failed to compute key (error %d)\n", (int)ortn);
 	return ortn;
 }
 
@@ -1163,7 +1159,7 @@ OSStatus sslEcdsaPeerCurve(
         sslErrorLog("sslEcdsaPeerCurve: no named curve for public key\n");
         return errSSLProtocol;
     }
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -1176,7 +1172,7 @@ OSStatus sslEcdhGenerateKeyPair(
 	SSLContext *ctx,
 	SSL_ECDSA_NamedCurve namedCurve)
 {
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 
     ccec_const_cp_t cp;
 	switch (namedCurve) {
@@ -1198,13 +1194,13 @@ OSStatus sslEcdhGenerateKeyPair(
 
     ccec_generate_key(cp, CCRNGSTATE, ctx->ecdhContext);
     size_t pub_size = ccec_export_pub_size(ctx->ecdhContext);
-    SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
+    SSLFreeBuffer(&ctx->ecdhExchangePublic);
     require_noerr(ortn = SSLAllocBuffer(&ctx->ecdhExchangePublic,
-                                        pub_size, ctx), errOut);
+                                        pub_size), errOut);
     ccec_export_pub(ctx->ecdhContext, ctx->ecdhExchangePublic.data);
 
 	sslDebugLog("sslEcdhGenerateKeyPair: pub key size=%ld, data=%p\n",
-		pub_size, (uintptr_t)ctx->ecdhExchangePublic.data);
+		pub_size, ctx->ecdhExchangePublic.data);
 
 errOut:
 	return ortn;
@@ -1222,12 +1218,12 @@ OSStatus sslEcdhKeyExchange(
 	SSLContext		*ctx,
 	SSLBuffer		*exchanged)
 {
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
     CFDataRef pubKeyData = NULL;
     const unsigned char *pubKeyBits;
     unsigned long pubKeyLen;
 
-	switch(ctx->selectedCipherSpec.keyExchangeMethod) {
+	switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
 		case SSL_ECDHE_ECDSA:
 		case SSL_ECDHE_RSA:
 			/* public key passed in as CSSM_DATA *Param */
@@ -1261,7 +1257,7 @@ OSStatus sslEcdhKeyExchange(
 		default:
 			/* shouldn't be here */
 			sslErrorLog("sslEcdhKeyExchange: unknown keyExchangeMethod (%d)\n",
-				ctx->selectedCipherSpec.keyExchangeMethod);
+				ctx->selectedCipherSpecParams.keyExchangeMethod);
 			assert(0);
 			ortn = errSSLInternal;
 			goto errOut;
@@ -1271,11 +1267,11 @@ OSStatus sslEcdhKeyExchange(
     ccec_pub_ctx_decl(ccn_sizeof(521), pubKey);
     ccec_import_pub(cp, pubKeyLen, pubKeyBits, pubKey);
     size_t len = 1 + 2 * ccec_ccn_size(cp);
-    require_noerr(ortn = SSLAllocBuffer(exchanged, len, NULL), errOut);
+    require_noerr(ortn = SSLAllocBuffer(exchanged, len), errOut);
     require_noerr(ccec_compute_key(ctx->ecdhContext, pubKey,  &exchanged->length, exchanged->data), errOut);
 
 	sslDebugLog("sslEcdhKeyExchange: exchanged key length=%ld, data=%p\n",
-		exchanged->length, (uintptr_t)exchanged->data);
+		exchanged->length, exchanged->data);
 
 errOut:
     CFReleaseSafe(pubKeyData);

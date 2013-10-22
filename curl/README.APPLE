@@ -1,8 +1,8 @@
-The 'curl' subdirectory is based on ^/curl/vendor/curl-7.24.0
+The 'curl' subdirectory is based on ^/curl/vendor/curl-7.30.0
 
 == Updating ==
 
-Confirm/update versions in xcconfigs/libcurl.xcconfig
+Confirm/update versions in xcconfigs/libcurl-version.xcconfig
  - This will probably require building the regular open source version and running otool on the resulting library.
 
 Update CURL_SUPPORT_* in xcconfigs/common.xcconfig
@@ -16,15 +16,19 @@ libcurl: CSOURCES in curl/lib/Makefile.inc
 The Xcode targets list the files in the same order.
 Might be able to process the Makefile.inc files into Xcode file lists at some point.
 
+Make sure all man pages and headers are being installed.
+
+Update xcscripts/install_libtest.sh (see comment at top)
+
 == Configuration ==
 
-./configure --with-gssapi --enable-hidden-symbols --disable-static --enable-threaded-resolver
+./configure --with-gssapi --enable-hidden-symbols --disable-static --enable-threaded-resolver --with-darwinssl --without-libssh2
 
 Changes to include/curl/curlbuild.h post-configure:
   (1) Add #ifdef __LP64__ for CURL_SIZEOF_LONG.
   (2) Change CURL_TYPEOF_CURL_OFF_T and associated defines to int64_t (configure gets it wrong for 32-bit).
 		(requires CURL_PULL_STDINT_H, CURL_PULL_INTTYPES_H)
 
-Changes to (lib|src)/curl_config.h post-configure:
+Changes to lib/curl_config.h post-configure:
   (1) Add #ifdef __LP64__ for SIZEOF_LONG, SIZEOF_SIZE_T, SIZEOF_TIME_T, SIZEOF_VOIDP
-  (2) #undef HAVE_GSSAPI, USE_OPENSSL, USE_SSLEAY, OS - conditionally defined in common.xcconfig
+  (2) #undef HAVE_GSSAPI, OS - conditionally defined in common.xcconfig

@@ -1,5 +1,3 @@
-#!/usr/bin/env ruby
-
 require 'rake'
 
 module Rake
@@ -7,6 +5,7 @@ module Rake
   # Base class for Task Libraries.
   class TaskLib
     include Cloneable
+    include Rake::DSL
 
     # Make a symbol by pasting two strings together.
     #

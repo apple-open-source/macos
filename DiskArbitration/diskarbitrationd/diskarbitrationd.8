@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+.\" Copyright (c) 1998-2013 Apple Inc. All rights reserved.
 .\"
 .\" This file contains Original Code and/or Modifications of Original Code
 .\" as defined in and that are subject to the Apple Public Source License
@@ -33,15 +33,13 @@ filesystems and the claiming of disks amongst clients.
 .Pp
 .Nm
 is accessed via the Disk Arbitration framework.
+This command is not intended to be invoked directly.
 .Pp
 Options:
 .Bl -tag -width -indent
 .It Fl d
 Report detailed information in
 .Pa /var/log/diskarbitrationd.log .
-This option forces
-.Nm
-to run in the foreground.
 .El
 .Pp
 The file

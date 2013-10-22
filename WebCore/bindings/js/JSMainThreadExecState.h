@@ -58,23 +58,23 @@ public:
 
     static inline InspectorInstrumentationCookie instrumentFunctionCall(ScriptExecutionContext* context, JSC::CallType callType, const JSC::CallData& callData)
     {
-        if (!InspectorInstrumentation::hasFrontends())
+        if (!InspectorInstrumentation::timelineAgentEnabled(context))
             return InspectorInstrumentationCookie();
         String resourceName;
         int lineNumber = 1;
         if (callType == JSC::CallTypeJS) {
-            resourceName = ustringToString(callData.js.functionExecutable->sourceURL());
+            resourceName = callData.js.functionExecutable->sourceURL();
             lineNumber = callData.js.functionExecutable->lineNo();
         } else
             resourceName = "undefined";
         return InspectorInstrumentation::willCallFunction(context, resourceName, lineNumber);
     }
 
-    static JSC::JSValue evaluate(JSC::ExecState* exec, JSC::ScopeChainNode* chain, const JSC::SourceCode& source, JSC::JSValue thisValue, JSC::JSValue* exception)
+    static JSC::JSValue evaluate(JSC::ExecState* exec, const JSC::SourceCode& source, JSC::JSValue thisValue, JSC::JSValue* exception)
     {
         JSMainThreadExecState currentState(exec);
         JSC::JSLockHolder lock(exec);
-        return JSC::evaluate(exec, chain, source, thisValue, exception);
+        return JSC::evaluate(exec, source, thisValue, exception);
     };
 
 protected:
@@ -89,25 +89,19 @@ protected:
     {
         ASSERT(isMainThread());
 
-#if ENABLE(MUTATION_OBSERVERS)
         bool didExitJavaScript = s_mainThreadState && !m_previousState;
-#endif
 
         s_mainThreadState = m_previousState;
 
-#if ENABLE(MUTATION_OBSERVERS)
         if (didExitJavaScript)
             didLeaveScriptContext();
-#endif
     }
 
 private:
     static JSC::ExecState* s_mainThreadState;
     JSC::ExecState* m_previousState;
 
-#if ENABLE(MUTATION_OBSERVERS)
     static void didLeaveScriptContext();
-#endif
 };
 
 // Null state prevents origin security checks.

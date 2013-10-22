@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,6 @@
 #include <sys/stat.h>
 #include <sys/errno.h>
 #include <net/if_types.h>
-#include <syslog.h>
 #include <sysexits.h>
 #include <sys/types.h>
 #include <paths.h>
@@ -55,11 +54,13 @@
 #include <EAP8021X/EAPClientModule.h>
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
 #include "EAPOLSocketPrivate.h"
 #include "EAPOLSocket.h"
 #include "Supplicant.h"
 #include "myCFUtil.h"
 #include "mylog.h"
+#include "EAPOLControlPrefs.h"
 
 extern EAPClientPluginFuncRef
 md5_introspect(EAPClientPluginFuncName name);
@@ -85,107 +86,47 @@ eapfast_introspect(EAPClientPluginFuncName name);
 extern EAPClientPluginFuncRef
 eapsim_introspect(EAPClientPluginFuncName name);
 
+extern EAPClientPluginFuncRef
+eapaka_introspect(EAPClientPluginFuncName name);
+
+typedef struct {
+    EAPClientPluginFuncIntrospect *	introspect_func;
+    const char *			name;
+} BuiltinEAPModule;
+
+typedef BuiltinEAPModule const * BuiltinEAPModuleRef;
+
+static const BuiltinEAPModule	S_builtin_modules[] = {
+    { md5_introspect, "md5" },
+    { eaptls_introspect, "eaptls" },
+    { eapttls_introspect, "eapttls" },
+    { peap_introspect, "peap" },
+    { eapmschapv2_introspect, "eapmschapv2" },
+    { eapgtc_introspect, "eapgtc" },
+    { eapfast_introspect, "eapfast" },
+    { eapsim_introspect, "eapsim" },
+    { eapaka_introspect, "eapaka" }
+};
+	
 EAPClientModuleStatus
 S_load_modules()
 {
-    EAPClientModuleStatus status;
+    int				i;
+    BuiltinEAPModuleRef		scan;
 
-    status = EAPClientModuleAddBuiltinModule(md5_introspect);
-    if (status != kEAPClientModuleStatusOK) {
-	fprintf(stderr, "EAPClientAddBuiltinModule(md5) failed %d\n",
-		status);
-	return (status);
-    }
-    status = EAPClientModuleAddBuiltinModule(eaptls_introspect);
-    if (status != kEAPClientModuleStatusOK) {
-	fprintf(stderr, "EAPClientAddBuiltinModule(eaptls) failed %d\n",
-		status);
-	return (status);
-    }
-    status = EAPClientModuleAddBuiltinModule(eapttls_introspect);
-    if (status != kEAPClientModuleStatusOK) {
-	fprintf(stderr, "EAPClientAddBuiltinModule(eapttls) failed %d\n",
-		status);
-	return (status);
-    }
-    status = EAPClientModuleAddBuiltinModule(peap_introspect);
-    if (status != kEAPClientModuleStatusOK) {
-	fprintf(stderr, "EAPClientAddBuiltinModule(peap) failed %d\n",
-		status);
-	return (status);
-    }
-    status = EAPClientModuleAddBuiltinModule(eapfast_introspect);
-    if (status != kEAPClientModuleStatusOK) {
-	fprintf(stderr, "EAPClientAddBuiltinModule(eapfast) failed %d\n",
-		status);
-	return (status);
-    }
-    status = EAPClientModuleAddBuiltinModule(eapmschapv2_introspect);
-    if (status != kEAPClientModuleStatusOK) {
-	fprintf(stderr, "EAPClientAddBuiltinModule(mschapv2) failed %d\n",
-		status);
-	return (status);
-    }
-    status = EAPClientModuleAddBuiltinModule(eapgtc_introspect);
-    if (status != kEAPClientModuleStatusOK) {
-	fprintf(stderr, "EAPClientAddBuiltinModule(eapgtc) failed %d\n",
-		status);
-	return (status);
-    }
-    status = EAPClientModuleAddBuiltinModule(eapsim_introspect);
-    if (status != kEAPClientModuleStatusOK) {
-	fprintf(stderr, "EAPClientAddBuiltinModule(eapsim) failed %d\n",
-		status);
-	return (status);
+    for (i = 0, scan = S_builtin_modules;
+	 i < (sizeof(S_builtin_modules) / sizeof(S_builtin_modules[0]));
+	 i++, scan++) {
+	EAPClientModuleStatus	status;
+
+	status = EAPClientModuleAddBuiltinModule(scan->introspect_func);
+	if (status != kEAPClientModuleStatusOK) {
+	    EAPLOG_FL(LOG_NOTICE, "EAPClientAddBuiltinModule(%s) failed %d",
+		      scan->name, status);
+	    return (status);
+	}
     }
     return (kEAPClientModuleStatusOK);
-}
-
-static FILE *
-setup_log_file(SCPreferencesRef prefs, 
-	       const char * if_name, uint32_t * ret_log_flags)
-{
-    FILE *		log_file = NULL;
-    CFNumberRef		log_flags;
-
-    *ret_log_flags = 0;
-    if (prefs == NULL) {
-	return (NULL);
-    }
-    log_flags = SCPreferencesGetValue(prefs, CFSTR("LogFlags"));
-    if (log_flags != NULL) {
-	if (isA_CFNumber(log_flags) == NULL
-	    || CFNumberGetValue(log_flags, kCFNumberIntType, 
-				ret_log_flags) == FALSE) {
-	    my_log(LOG_NOTICE, "com.apple.eapolclient.LogFlags invalid");
-	}
-	else {
-	    char 		filename[512];
-
-	    snprintf(filename, sizeof(filename), 
-		     "/var/log/eapolclient.%s.log", if_name);
-	    log_file = fopen(filename, "a+");
-	    if (log_file == NULL) {
-		my_log(LOG_NOTICE, "could not open '%s', %s\n",
-		       filename, strerror(errno));
-	    }
-	    else {
-		my_log(LOG_NOTICE, "opened log file '%s'",
-		       filename);
-	    }
-	    if ((*ret_log_flags & kLogFlagIncludeStdoutStderr) != 0) {
-		int		log_fd;
-
-		fflush(stdout);
-		fflush(stderr);
-
-		log_fd = fileno(log_file);
-		dup2(log_fd, STDOUT_FILENO);
-		dup2(log_fd, STDERR_FILENO);
-	    }
-	}
-    }
-    return (log_file);
 }
 
 static void
@@ -200,23 +141,32 @@ usage(char * progname)
 static void
 log_then_exit(int exit_code)
 {
-    eapolclient_log(kLogFlagBasic, "exit\n");
+    eapolclient_log(kLogFlagBasic, "exit");
     exit(exit_code);
     return;
 }
 
-static SCPreferencesRef
-open_prefs(void)
+static uint32_t
+check_prefs_common(SCPreferencesRef prefs, bool log_it)
 {
-    SCPreferencesRef	prefs;
+    uint32_t	log_flags;
 
-    prefs = SCPreferencesCreate(NULL, CFSTR("eapolclient"),
-				CFSTR("com.apple.eapolclient.plist"));
+    log_flags = EAPOLControlPrefsGetLogFlags();
+    eapolclient_log_set_flags(log_flags, log_it);
     if (prefs == NULL) {
-	my_log(LOG_NOTICE, "SCPreferencesCreate failed");
-	return (NULL);
+	return (log_flags);
     }
-    return (prefs);
+    EAPOLSocketSetGlobals(prefs);
+    Supplicant_set_globals(prefs);
+    EAPOLControlPrefsSynchronize();
+    return (log_flags);
+}
+
+static void
+check_prefs(SCPreferencesRef prefs)
+{
+    check_prefs_common(prefs, TRUE);
+    return;
 }
 
 int
@@ -231,7 +181,6 @@ main(int argc, char * argv[1])
     char *			if_name = NULL;
     LinkAddressesRef		link_addrs = NULL;
     struct sockaddr_dl *	link = NULL;
-    FILE *			log_file;
     uint32_t			log_flags = 0;
     SCPreferencesRef		prefs;
     EAPOLSocketSourceRef	source;
@@ -239,11 +188,6 @@ main(int argc, char * argv[1])
     bool			u_flag = FALSE;
     uid_t			uid = -1;
 
-    link_addrs = LinkAddresses_create();
-    if (link_addrs == NULL) {
-	printf("Could not build interface list\n");
-	exit(EX_OSERR);
-    }
     while ((ch = getopt(argc, argv, "c:g:i:lu:")) != EOF) {
 	switch ((char) ch) {
 	case 'c':
@@ -283,45 +227,49 @@ main(int argc, char * argv[1])
     if (gid == -1) {
 	gid = getgid();
     }
+    openlog("eapolclient", LOG_CONS | LOG_PID, LOG_DAEMON);
+    prefs = EAPOLControlPrefsInit(CFRunLoopGetCurrent(), check_prefs);
+    log_flags = check_prefs_common(prefs, FALSE);
+    if (log_flags == 0) {
+	EAPLOG(LOG_NOTICE, "%s START uid %d gid %d", if_name, uid, gid);
+    }
+    else {
+	EAPLOG(LOG_NOTICE, "%s START uid %d gid %d", if_name, uid, gid);
+	EAPLOG(LOG_NOTICE, "Verbose mode enabled (LogFlags 0x%x)", log_flags);
+    }
+    link_addrs = LinkAddresses_create();
+    if (link_addrs == NULL) {
+	EAPLOG_FL(LOG_NOTICE, "Could not build interface list");
+	exit(EX_OSERR);
+    }
     link = LinkAddresses_lookup(link_addrs, if_name);
     if (link == NULL) {
-	printf("interface '%s' does not exist\n", if_name);
+	EAPLOG(LOG_NOTICE, "interface '%s' does not exist", if_name);
 	exit(EX_CONFIG);
     }
     if (link->sdl_type != IFT_ETHER) {
-	printf("interface '%s' is not ethernet\n", if_name);
+	EAPLOG(LOG_NOTICE, "interface '%s' is not ethernet", if_name);
 	exit(EX_CONFIG);
     }
-    openlog("eapolclient", LOG_CONS | LOG_PID, LOG_DAEMON);
-
-    prefs = open_prefs();
-    log_file = setup_log_file(prefs, if_name, &log_flags);
-    if (log_file != NULL) {
-	eapolclient_log_set(log_file, log_flags);
-    }
-    eapolclient_log(kLogFlagBasic,
-		    "start pid %d uid %d gid %d log_flags 0x%x\n",
-		    getpid(), uid, gid, log_flags);
-    EAPOLSocketSetGlobals(prefs);
-    Supplicant_set_globals(prefs);
-    my_CFRelease(&prefs);
     source = EAPOLSocketSourceCreate(if_name,
 				     (const struct ether_addr *)
 				     (link->sdl_data + link->sdl_nlen),
 				     &control_dict);
     if (source == NULL) {
-	my_log(LOG_NOTICE, "EAPOLSocketSourceCreate(%s) failed", if_name);
+	EAPLOG_FL(LOG_NOTICE, "EAPOLSocketSourceCreate(%s) failed", if_name);
 	log_then_exit(EX_UNAVAILABLE);
     }
     if (g_flag) {
 	if (setgid(gid) < 0) {
-	    syslog(LOG_NOTICE, "setgid(%d) failed, %m", gid);
+	    EAPLOG_FL(LOG_NOTICE, "setgid(%d) failed, %s", gid,
+		      strerror(errno));
 	    log_then_exit(EX_NOPERM);
 	}
     }
     if (u_flag) {
 	if (setuid(uid) < 0) {
-	    syslog(LOG_NOTICE, "setuid(%d) failed, %m", uid);
+	    EAPLOG_FL(LOG_NOTICE, "setuid(%d) failed, %s", uid,
+		      strerror(errno));
 	    log_then_exit(EX_NOPERM);
 	}
     }
@@ -333,14 +281,15 @@ main(int argc, char * argv[1])
 	    config_dict = (CFDictionaryRef)
 		my_CFPropertyListCreateFromFile(config_file);
 	    if (isA_CFDictionary(config_dict) == NULL) {
-		fprintf(stderr, "contents of file %s invalid\n", config_file);
+		fprintf(stderr,
+			"contents of file %s invalid\n", config_file);
 		my_CFRelease(&config_dict);
 		log_then_exit(EX_CONFIG);
 	    }
 	}
     }
     if (config_dict == NULL && control_dict == NULL) {
-	my_log(LOG_NOTICE, "%s: config/control dictionary missing", if_name);
+	EAPLOG_FL(LOG_NOTICE, "%s: config/control dictionary missing", if_name);
 	log_then_exit(EX_SOFTWARE);
     }
     if (S_load_modules() != kEAPClientModuleStatusOK) {
@@ -348,7 +297,7 @@ main(int argc, char * argv[1])
     }
     supp = EAPOLSocketSourceCreateSupplicant(source, control_dict);
     if (supp == NULL) {
-	syslog(LOG_NOTICE, "EAPOLSocketSourceCreateSupplicant failed");
+	EAPLOG_FL(LOG_NOTICE, "EAPOLSocketSourceCreateSupplicant failed");
 	EAPOLSocketSourceFree(&source);
 	log_then_exit(EX_UNAVAILABLE);
     }
@@ -360,13 +309,12 @@ main(int argc, char * argv[1])
 	bool	should_stop = FALSE;
 
 	(void)Supplicant_update_configuration(supp, config_dict, &should_stop);
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "Supplicant_update_configuration says we should stop - exiting");
 	exit(EX_UNAVAILABLE);
     }
     my_CFRelease(&control_dict);
     my_CFRelease(&config_dict);
-    my_log(LOG_NOTICE, "%s START", if_name);
     Supplicant_start(supp);
     
     LinkAddresses_free(&link_addrs);

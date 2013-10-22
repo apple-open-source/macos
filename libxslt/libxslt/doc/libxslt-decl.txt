@@ -238,6 +238,10 @@ extern const xmlChar *xsltExtMarker;
 extern int xsltMaxDepth;
 </VARIABLE>
 <VARIABLE>
+<NAME>xsltMaxVars</NAME>
+extern int xsltMaxVars;
+</VARIABLE>
+<VARIABLE>
 <NAME>xsltEngineVersion</NAME>
 extern const char *xsltEngineVersion;
 </VARIABLE>

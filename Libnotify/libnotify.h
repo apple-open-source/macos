@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -116,7 +116,7 @@ typedef struct
 	uint64_t state;
 	uint64_t state_time;
 	void *private;
-	table_t *subscription_table;
+	list_t *subscriptions;
 } name_info_t;
 
 typedef struct
@@ -154,6 +154,12 @@ typedef struct
 	uint32_t controlled_name_count;
 	pthread_mutex_t *lock;
 	int sock;
+	uint32_t stat_name_alloc;
+	uint32_t stat_name_free;
+	uint32_t stat_client_alloc;
+	uint32_t stat_client_free;
+	uint32_t stat_portproc_alloc;
+	uint32_t stat_portproc_free;
 } notify_state_t;
 
 notify_state_t *_notify_lib_notify_state_new(uint32_t flags, uint32_t table_size);
@@ -166,8 +172,6 @@ uint32_t _notify_lib_post_client(notify_state_t *ns, client_t *c);
 uint32_t _notify_lib_check(notify_state_t *ns, pid_t pid, int token, int *check);
 uint32_t _notify_lib_get_state(notify_state_t *ns, uint64_t nid, uint64_t *state, uint32_t uid, uint32_t gid);
 uint32_t _notify_lib_set_state(notify_state_t *ns, uint64_t nid, uint64_t state, uint32_t uid, uint32_t gid);
-uint32_t _notify_lib_get_val(notify_state_t *ns, pid_t pid, int token, int *val);
-uint32_t _notify_lib_set_val(notify_state_t *ns, pid_t pid, int token, int val, uint32_t uid, uint32_t gid);
 
 uint32_t _notify_lib_register_plain(notify_state_t *ns, const char *name, pid_t pid, int token, uint32_t slot, uint32_t uid, uint32_t gid, uint64_t *out_nid);
 uint32_t _notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t pid, int token, uint32_t sig, uint32_t uid, uint32_t gid, uint64_t *out_nid);

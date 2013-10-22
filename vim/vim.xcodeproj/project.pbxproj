@@ -74,7 +74,7 @@
 		4CD04E99103A0215001C87D5 /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CD04E98103A0215001C87D5 /* libncurses.dylib */; settings = {ATTRIBUTES = (Required, ); }; };
 		4CD04EBA103CB215001C87D5 /* xxd.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04D5710361A31001C87D5 /* xxd.c */; };
 		C9DF38421489D54D001ADB39 /* if_python.c in Sources */ = {isa = PBXBuildFile; fileRef = C9DF38411489D54D001ADB39 /* if_python.c */; };
-		C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */ = {isa = PBXBuildFile; fileRef = C9DF38431489D5CD001ADB39 /* if_ruby.c */; };
+		C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */ = {isa = PBXBuildFile; fileRef = C9DF38431489D5CD001ADB39 /* if_ruby.c */; settings = {COMPILER_FLAGS = "-I$(SDKROOT)/System/Library/Frameworks/Ruby.framework/Versions/1.8/Headers"; }; };
 		FCEA259912357FDB00430E38 /* blowfish.c in Sources */ = {isa = PBXBuildFile; fileRef = FCEA259812357FDB00430E38 /* blowfish.c */; };
 		FCEA25A21235809000430E38 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = FCEA25A11235809000430E38 /* sha256.c */; };
 /* End PBXBuildFile section */
@@ -4724,7 +4724,7 @@
 					"DYNAMIC_PYTHON_DLL=\"\\\"/System/Library/Frameworks/Python.framework/Python\\\"\"",
 					FEAT_RUBY,
 					DYNAMIC_RUBY,
-					"DYNAMIC_RUBY_DLL=\"\\\"/System/Library/Frameworks/Ruby.framework/Ruby\\\"\"",
+					"DYNAMIC_RUBY_DLL=\"\\\"/System/Library/Frameworks/Ruby.framework/Versions/1.8/Ruby\\\"\"",
 					"DYNAMIC_RUBY_VER=18",
 				);
 				INSTALL_PATH = /usr/bin;

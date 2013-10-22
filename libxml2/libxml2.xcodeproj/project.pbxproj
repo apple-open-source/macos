@@ -23,6 +23,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		5D0359B91677F7FC00B6692E /* buf.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D0359B81677F7FC00B6692E /* buf.c */; };
 		5D58B01614F81A8D00BE69D8 /* c14n.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCE14F81A8D00BE69D8 /* c14n.c */; };
 		5D58B01714F81A8D00BE69D8 /* catalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCF14F81A8D00BE69D8 /* catalog.c */; };
 		5D58B01814F81A8D00BE69D8 /* chvalid.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD014F81A8D00BE69D8 /* chvalid.c */; };
@@ -234,6 +235,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5D0359B81677F7FC00B6692E /* buf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = buf.c; sourceTree = "<group>"; };
 		5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D58AF6A14F816DF00BE69D8 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		5D58AF6B14F816DF00BE69D8 /* libxml2.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libxml2.xcconfig; sourceTree = "<group>"; };
@@ -434,6 +436,7 @@
 		5D58AF6D14F819EA00BE69D8 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				5D0359B81677F7FC00B6692E /* buf.c */,
 				5DB38B1614F881090060A507 /* xmlcatalog.c */,
 				5DB38AF714F87C740060A507 /* xmllint.c */,
 				5D58AFCE14F81A8D00BE69D8 /* c14n.c */,
@@ -796,6 +799,7 @@
 				5D58B05B14F81A8D00BE69D8 /* xmlwriter.c in Sources */,
 				5D58B05C14F81A8D00BE69D8 /* xpath.c in Sources */,
 				5D58B05D14F81A8D00BE69D8 /* xpointer.c in Sources */,
+				5D0359B91677F7FC00B6692E /* buf.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

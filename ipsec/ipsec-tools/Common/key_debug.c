@@ -70,26 +70,26 @@
 #include "var.h"
 #include "libpfkey.h"
 
-static void kdebug_sadb_prop __P((struct sadb_ext *));
-static void kdebug_sadb_identity __P((struct sadb_ext *));
-static void kdebug_sadb_supported __P((struct sadb_ext *));
-static void kdebug_sadb_lifetime __P((struct sadb_ext *));
-static void kdebug_sadb_sa __P((struct sadb_ext *));
-static void kdebug_sadb_address __P((struct sadb_ext *));
-static void kdebug_sadb_key __P((struct sadb_ext *));
-static void kdebug_sadb_x_sa2 __P((struct sadb_ext *));
-static void kdebug_sadb_session_id __P((struct sadb_ext *));
-static void kdebug_sadb_sastat __P((struct sadb_ext *));
-static void kdebug_sadb_x_policy __P((struct sadb_ext *ext));
-static void kdebug_sockaddr __P((struct sockaddr_storage *addr));
+static void kdebug_sadb_prop (struct sadb_ext *);
+static void kdebug_sadb_identity (struct sadb_ext *);
+static void kdebug_sadb_supported (struct sadb_ext *);
+static void kdebug_sadb_lifetime (struct sadb_ext *);
+static void kdebug_sadb_sa (struct sadb_ext *);
+static void kdebug_sadb_address (struct sadb_ext *);
+static void kdebug_sadb_key (struct sadb_ext *);
+static void kdebug_sadb_x_sa2 (struct sadb_ext *);
+static void kdebug_sadb_session_id (struct sadb_ext *);
+static void kdebug_sadb_sastat (struct sadb_ext *);
+static void kdebug_sadb_x_policy (struct sadb_ext *ext);
+static void kdebug_sockaddr (struct sockaddr_storage *addr);
 
 #ifdef SADB_X_EXT_NAT_T_TYPE
-static void kdebug_sadb_x_nat_t_type __P((struct sadb_ext *ext));
-static void kdebug_sadb_x_nat_t_port __P((struct sadb_ext *ext));
+static void kdebug_sadb_x_nat_t_type (struct sadb_ext *ext);
+static void kdebug_sadb_x_nat_t_port (struct sadb_ext *ext);
 #endif
 
 #ifdef _KERNEL
-static void kdebug_secreplay __P((struct secreplay *));
+static void kdebug_secreplay (struct secreplay *);
 #endif
 
 #ifndef _KERNEL
@@ -146,6 +146,10 @@ kdebug_sadb(base)
 		case SADB_EXT_ADDRESS_SRC:
 		case SADB_EXT_ADDRESS_DST:
 		case SADB_EXT_ADDRESS_PROXY:
+        case SADB_X_EXT_ADDR_RANGE_SRC_START:
+        case SADB_X_EXT_ADDR_RANGE_SRC_END:
+        case SADB_X_EXT_ADDR_RANGE_DST_START:
+        case SADB_X_EXT_ADDR_RANGE_DST_END:
 			kdebug_sadb_address(ext);
 			break;
 		case SADB_EXT_KEY_AUTH:
@@ -179,6 +183,8 @@ kdebug_sadb(base)
             break;
         case SADB_EXT_SASTAT:
             kdebug_sadb_sastat(ext);
+            break;
+        case SADB_X_EXT_IPSECIF:
             break;
 #ifdef SADB_X_EXT_NAT_T_TYPE
 		case SADB_X_EXT_NAT_T_TYPE:

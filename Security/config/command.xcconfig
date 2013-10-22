@@ -1,0 +1,13 @@
+//
+//  command.xcconfig
+//  Security
+//
+//  Created by J Osborne on 1/10/13.
+//
+//
+
+HEADER_SEARCH_PATHS = $(PROJECT_DIR) $(PROJECT_DIR)/security2 $(PROJECT_DIR)/sec/SOSCircle $(PROJECT_DIR)/utilities $(PROJECT_DIR)/sec
+
+STRIP_STYLE = all
+STRIP_INSTALLED_PRODUCT = YES
+DEPLOYMENT_POSTPROCESSING = YES

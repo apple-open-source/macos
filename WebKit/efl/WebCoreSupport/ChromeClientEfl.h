@@ -36,8 +36,6 @@
 #include "NotificationClient.h"
 #endif
 
-typedef struct _Evas_Object Evas_Object;
-
 namespace WebCore {
 
 class ChromeClientEfl : public ChromeClient {
@@ -47,7 +45,6 @@ public:
 
     virtual void chromeDestroyed();
 
-    virtual void* webView() const { return 0; }
     virtual void setWindowRect(const FloatRect&);
     virtual FloatRect windowRect();
 
@@ -85,8 +82,8 @@ public:
 
     virtual void setResizable(bool);
 
-    virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message,
-                                     unsigned int lineNumber, const String& sourceID);
+    virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message,
+                                     unsigned lineNumber, unsigned columnNumber, const String& sourceID);
 
     virtual bool canRunBeforeUnloadConfirmPanel();
     virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame*);
@@ -115,7 +112,7 @@ public:
     virtual void print(Frame*);
 
 #if ENABLE(SQL_DATABASE)
-    virtual void exceededDatabaseQuota(Frame*, const String&);
+    virtual void exceededDatabaseQuota(Frame*, const String&, DatabaseDetails);
 #endif
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
@@ -125,6 +122,8 @@ public:
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
     virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t totalSpaceNeeded);
 
+    virtual void populateVisitedLinks();
+
 #if ENABLE(TOUCH_EVENTS)
     virtual void needTouchEvents(bool);
 #endif
@@ -132,7 +131,7 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*);
     virtual void setNeedsOneShotDrawingSynchronization();
-    virtual void scheduleCompositingLayerSync();
+    virtual void scheduleCompositingLayerFlush();
     virtual CompositingTriggerFlags allowedCompositingTriggers() const;
 #endif
 
@@ -154,6 +153,11 @@ public:
 
     virtual void setCursor(const Cursor&);
     virtual void setCursorHiddenUntilMouseMoves(bool);
+
+#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
+    virtual void scheduleAnimation();
+    virtual void serviceScriptedAnimations();
+#endif
 
     virtual void scrollRectIntoView(const IntRect&) const { }
 
@@ -177,10 +181,17 @@ public:
 
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
     virtual void numWheelEventHandlersChanged(unsigned) { }
-    virtual void numTouchEventHandlersChanged(unsigned) { }
+
+#if USE(TILED_BACKING_STORE)
+    virtual void delegatedScrollRequested(const IntPoint& scrollPoint);
+    virtual IntRect visibleRectForTiledBackingStore() const;
+#endif
 
     Evas_Object* m_view;
     KURL m_hoveredLinkURL;
+#if ENABLE(FULLSCREEN_API)
+    RefPtr<Element> m_fullScreenElement;
+#endif
 };
 }
 

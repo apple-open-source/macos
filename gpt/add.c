@@ -54,7 +54,7 @@ usage_add(void)
 }
 
 map_t *
-gpt_add_part(int fd, uuid_t type, off_t start, off_t size, unsigned int *entry)
+gpt_add_part(int fd, uuid_t *type, off_t start, off_t size, unsigned int *entry)
 {
 	uuid_t uuid;
 	map_t *gpt, *tpg;
@@ -128,11 +128,7 @@ gpt_add_part(int fd, uuid_t type, off_t start, off_t size, unsigned int *entry)
 		uuid_create(&uuid, NULL);
 	}
 
-#ifdef __APPLE__
 	le_uuid_enc(&ent->ent_type, type);
-#else
-	le_uuid_enc(&ent->ent_type, &type);
-#endif
 	le_uuid_enc(&ent->ent_uuid, &uuid);
 	ent->ent_lba_start = htole64(map->map_start);
 	ent->ent_lba_end = htole64(map->map_start + map->map_size - 1LL);
@@ -148,11 +144,7 @@ gpt_add_part(int fd, uuid_t type, off_t start, off_t size, unsigned int *entry)
 	hdr = tpg->map_data;
 	ent = (void*)((char*)lbt->map_data + i * le32toh(hdr->hdr_entsz));
 
-#ifdef __APPLE__
 	le_uuid_enc(&ent->ent_type, type);
-#else
-	le_uuid_enc(&ent->ent_type, &type);
-#endif
 	le_uuid_enc(&ent->ent_uuid, &uuid);
 	ent->ent_lba_start = htole64(map->map_start);
 	ent->ent_lba_end = htole64(map->map_start + map->map_size - 1LL);
@@ -174,7 +166,7 @@ static void
 add(int fd)
 {
 
-	if (!gpt_add_part(fd, add_type, add_block, add_size, &add_entry))
+	if (!gpt_add_part(fd, &add_type, add_block, add_size, &add_entry))
 		return;
 
 #ifdef __APPLE__

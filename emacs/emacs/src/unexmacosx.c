@@ -211,7 +211,7 @@ unexec_write (off_t dest, const void *src, size_t count)
   if (lseek (outfd, dest, SEEK_SET) != dest)
     return 0;
 
-  return write (outfd, src, count) == count;
+  return (count == write(outfd, src, count));
 }
 
 /* Write COUNT bytes of zeros to outfd starting at offset DEST.
@@ -440,19 +440,12 @@ static void
 unexec_regions_recorder (task_t task, void *rr, unsigned type,
 			 vm_range_t *ranges, unsigned num)
 {
-  vm_address_t p;
-  vm_size_t filesize;
-
   while (num && num_unexec_regions < MAX_UNEXEC_REGIONS)
     {
-	  /* Page align the start of each enumerated region, notably MALLOC_ADMIN_REGION_RANGE_TYPE */
-	  ranges->address &= ~(pagesize-1L);
-	  ranges->size += (ranges->address & (pagesize-1L));
-
       unexec_regions[num_unexec_regions].filesize = ranges->size;
       unexec_regions[num_unexec_regions++].range = *ranges;
-      printf ("%#10lx (sz: %#8lx/%#8lx)\n", (long) (ranges->address),
-	      (long) filesize, (long) (ranges->size));
+      printf ("%#10lx (sz: %#8lx)\n", (long) (ranges->address),
+	      (long) (ranges->size));
       ranges++; num--;
     }
 }
@@ -470,8 +463,7 @@ find_emacs_zone_regions ()
   num_unexec_regions = 0;
 
   emacs_zone->introspect->enumerator (mach_task_self(), 0,
-				      MALLOC_PTR_REGION_RANGE_TYPE
-				      | MALLOC_ADMIN_REGION_RANGE_TYPE,
+				      MALLOC_PTR_REGION_RANGE_TYPE,
 				      (vm_address_t) emacs_zone,
 				      unexec_reader,
 				      unexec_regions_recorder);
@@ -498,35 +490,61 @@ static void
 unexec_regions_merge ()
 {
   int i, n;
-  vm_address_t end;
+  vm_address_t begin, end;
   unexec_region_info r;
+  long total = 0;
+  void *zeropage = calloc(1, pagesize);
 
   qsort (unexec_regions, num_unexec_regions, sizeof (unexec_regions[0]),
 	 &unexec_regions_sort_compare);
   n = 0;
   r = unexec_regions[0];
-  for (i = 1; i < num_unexec_regions; i++)
-    {
-      if (r.range.address + r.range.size >= unexec_regions[i].range.address
-	  && r.range.size - r.filesize < 2 * pagesize)
-	{
-	  r.filesize = r.range.size + unexec_regions[i].filesize;
+  if (r.range.address & (pagesize-1L)) {
+	  begin = r.range.address;
+	  r.range.address = r.range.address & ~(pagesize-1L);
+	  r.range.size += begin - r.range.address;
+	  r.filesize += begin - r.range.address;
+  }
+  for (i = 1; i < num_unexec_regions; i++) {
+    if ((r.range.address + r.range.size) == unexec_regions[i].range.address) {
+	  r.filesize += unexec_regions[i].filesize;
 	  r.range.size += unexec_regions[i].range.size;
-	}
-      else
-	{	/* All segments must be a multiple of pagesize */
-	  end = r.range.address + r.range.size;
-	  if (end & (pagesize-1L)) {
-	    end = ROUNDUP_TO_PAGE_BOUNDARY(end);
-	    printf("Page (%#8lx) aligning region @%#8lx size from %#8lx to %#8lx\n",
-		   (long)pagesize, (long)r.range.address, (long)r.range.size, (long)(end - r.range.address));
-	    r.range.size = end - r.range.address;
-	    r.filesize = r.range.size;
-	  }
-	  unexec_regions[n++] = r;
-	  r = unexec_regions[i];
-	}
+    } else {	/* All segments must be a multiple of pagesize */
+	    end = r.range.address + r.range.size;
+	    if (end & (pagesize-1L)) {
+		    end = ROUNDUP_TO_PAGE_BOUNDARY(end);
+		    printf("Page (%#8lx) aligning region @%#8lx size from %#8lx to %#8lx\n",
+			   (long)pagesize, (long)r.range.address, (long)r.range.size, (long)(end - r.range.address));
+		    r.range.size = end - r.range.address;
+		    r.filesize = r.range.size;
+		    if (end == unexec_regions[i].range.address) {
+			    r.filesize += unexec_regions[i].filesize;
+			    r.range.size += unexec_regions[i].range.size;
+			    continue;
+		    }
+	    }
+	    /* Truncate zerod pages */
+	    while (r.filesize > 0) {
+		    vm_address_t p = r.range.address + r.filesize - pagesize;
+		    if (memcmp(p, zeropage, pagesize) == 0) {
+			    r.filesize -= pagesize;
+		    } else {
+			    break;
+		    }
+	    }
+	    if (r.filesize != r.range.size) {
+		    printf("Removed %lx zerod bytes from filesize\n", r.range.size - r.filesize);
+	    }
+	    unexec_regions[n++] = r;
+	    r = unexec_regions[i];
+	    if (r.range.address & (pagesize-1L)) { /* Align beginning of unmerged region */
+		    begin = r.range.address;
+		    r.range.address = r.range.address & ~(pagesize-1L);
+		    r.range.size += begin - r.range.address;
+		    r.filesize += begin - r.range.address;
+	    }
     }
+  }
   end = r.range.address + r.range.size;
   if (end & (pagesize-1L)) {
      end = ROUNDUP_TO_PAGE_BOUNDARY(end);
@@ -534,6 +552,19 @@ unexec_regions_merge ()
 	    pagesize, (long)r.range.address, (long)r.range.size, (long)(end - r.range.address));
      r.range.size = end - r.range.address;
      r.filesize = r.range.size;
+  }
+  /* Truncate zerod pages */
+  while (r.filesize > 0) {
+	  vm_address_t p = r.range.address + r.filesize - pagesize;
+	  if (memcmp(p, zeropage, pagesize) == 0) {
+		  r.filesize -= pagesize;
+	  } else {
+		  break;
+	  }
+  }
+  free(zeropage);
+  if (r.filesize != r.range.size) {
+	  printf("Removed %lx zerod bytes from filesize\n", r.range.size - r.filesize);
   }
   unexec_regions[n++] = r;
   num_unexec_regions = n;
@@ -652,9 +683,14 @@ print_load_command_name (int lc)
     case LC_DYLIB_CODE_SIGN_DRS:
       printf("LC_DYLIB_CODE_SIGN_DRS ");
       break;
-
+    case LC_MAIN:
+      printf("LC_MAIN                ");
+      break;
+    case LC_DATA_IN_CODE:
+      printf("LC_DATA_IN_CODE        ");
+      break;
     default:
-      printf("unknown(%2d)            ", lc);
+      printf("unknown(%08x)", lc);
       break;
     }
 }
@@ -926,6 +962,7 @@ copy_data_segment (struct load_command *lc)
      list that do not corresponding to any segment load commands in
      the input file.
   */
+  long total = 0;
   for (j = 0; j < num_unexec_regions; j++)
     {
       struct segment_command sc;
@@ -941,7 +978,7 @@ copy_data_segment (struct load_command *lc)
       sc.initprot = VM_PROT_READ | VM_PROT_WRITE;
       sc.nsects = 0;
       sc.flags = 0;
-
+      total += sc.filesize;
       printf ("Writing segment %-16.16s @ %#8lx (%#8lx/%#8lx @ %#10lx)\n",
 	      sc.segname, (long) (sc.fileoff), (long) (sc.filesize),
 	      (long) (sc.vmsize), (long) (sc.vmaddr));
@@ -955,6 +992,7 @@ copy_data_segment (struct load_command *lc)
       curr_header_offset += sc.cmdsize;
       mh.ncmds++;
     }
+  printf("Total written: %ld\n", total);
 }
 
 /* Copy a LC_SYMTAB load command from the input file to the output

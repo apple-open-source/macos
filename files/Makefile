@@ -10,20 +10,22 @@ Destination = $(DSTROOT)
 # Common Makefile
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
-
 ##
 # Read the hierarchy file and create the directories.
 # If the corresponding directory exists in the SRCROOT
 # and contains a Makefile, execute that makefile.
 ##
-Product=$(shell tconf --product)
+ifdef RC_TARGET_CONFIG
+Product=$(RC_TARGET_CONFIG)
+else
+Product=MacOSX
+endif
 SRC_HIERARCHY=hierarchy hierarchy.$(Product)
 
 install::
 	@echo "Installing for $(Product)"
 	$(_v) install -d -m 1775 -o root -g admin "$(Destination)"
-	$(_v) cat $(SRC_HIERARCHY) | \
+	$(_v) set -o pipefail && cat $(SRC_HIERARCHY) | \
 	awk -F '\t'  ' \
 	{	print sprintf("install -d -m %s -o %s -g %s \"$(Destination)/%s\";", $$1, $$2, $$3, $$4); \
 		print sprintf("[ ! -f \"%s/Makefile\" ] || make -C \"%s\" Destination=\"$(Destination)/%s\" $@ ;", $$4, $$4, $$4); \
@@ -32,12 +34,10 @@ install::
 install::
 	$(_v) $(LN) -fs private/etc "$(Destination)/etc"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/etc"
-ifeq "$(Embedded)" "YES"
+ifeq "$(Product)" "iPhone"
 	$(_v) $(LN) -fs private/var/tmp "$(Destination)/tmp"
 	$(_v) $(LN) -fs ../private/var/logs "$(Destination)/Library/Logs"
-ifeq "$(Product)" "iPhone"
 	$(_v) $(LN) -fs "../../private/var/Managed Preferences/mobile" "$(Destination)/Library/Managed Preferences/mobile"
-endif
 	$(_v) $(LN) -fs ../private/var/preferences "$(Destination)/Library/Preferences"
 	$(_v) $(LN) -fs ../private/var/Keychains "$(Destination)/Library/Keychains"
 	$(_v) $(LN) -fs ../private/var/MobileDevice "$(Destination)/Library/MobileDevice"
@@ -60,3 +60,12 @@ endif
 	$(TOUCH) "$(Destination)/.file"
 	$(_v) $(CHOWN) root:nogroup "$(Destination)/.file"
 	$(_v) $(CHMOD) 0 "$(Destination)/.file"
+
+	# $(SYMROOT)/bsd.sb is created by usr/share/sandbox/Makefile
+	# rdar://problem/8207011
+	$(_v) $(INSTALL_DIRECTORY) "$(Destination)/usr/local/share/sandbox/profiles/embedded/imports"
+	$(_v) $(INSTALL_FILE) $(SYMROOT)/bsd.sb "$(Destination)/usr/local/share/sandbox/profiles/embedded/imports/bsd.sb"
+ifeq "$(Product)" "MacOSX"
+	# rdar://problem/11108634
+	$(_v) $(INSTALL_FILE) $(SYMROOT)/bsd.sb "$(Destination)/System/Library/Sandbox/Profiles/bsd.sb"
+endif

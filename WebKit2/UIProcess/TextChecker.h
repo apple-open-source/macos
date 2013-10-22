@@ -26,6 +26,7 @@
 #ifndef TextChecker_h
 #define TextChecker_h
 
+#include "TextCheckerCompletion.h"
 #include <WebCore/EditorClient.h>
 #include <WebCore/TextCheckerClient.h>
 
@@ -48,6 +49,11 @@ public:
     static void setAutomaticDashSubstitutionEnabled(bool);
     static void setAutomaticLinkDetectionEnabled(bool);
     static void setAutomaticTextReplacementEnabled(bool);
+
+    static void didChangeAutomaticTextReplacementEnabled();
+    static void didChangeAutomaticSpellingCorrectionEnabled();
+    static void didChangeAutomaticQuoteSubstitutionEnabled();
+    static void didChangeAutomaticDashSubstitutionEnabled();
 
     static bool isSmartInsertDeleteEnabled();
     static void setSmartInsertDeleteEnabled(bool);
@@ -72,6 +78,7 @@ public:
     static void getGuessesForWord(int64_t spellDocumentTag, const String& word, const String& context, Vector<String>& guesses);
     static void learnWord(int64_t spellDocumentTag, const String& word);
     static void ignoreWord(int64_t spellDocumentTag, const String& word);
+    static void requestCheckingOfString(PassRefPtr<TextCheckerCompletion>);
 };
 
 } // namespace WebKit

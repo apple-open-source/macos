@@ -18,8 +18,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#include "ossl-md5.h"
+#else
 #include <openssl/bn.h>
 #include <openssl/md5.h>
+#endif
 
 #include <stdarg.h>
 #include <stdio.h>

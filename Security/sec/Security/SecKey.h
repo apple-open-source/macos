@@ -37,9 +37,7 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <sys/types.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /* Padding Types (iPhone OS 2.0 and later only). */
 typedef uint32_t SecPadding;
@@ -63,6 +61,26 @@ enum
        hash; standard ASN.1 padding will be done, as well as PKCS1 padding
        of the underlying RSA operation. */
     kSecPaddingPKCS1SHA1 = 0x8002,
+
+    /* For SecKeyRawSign/SecKeyRawVerify only, data to be signed is a SHA224
+     hash; standard ASN.1 padding will be done, as well as PKCS1 padding
+     of the underlying RSA operation. */
+    kSecPaddingPKCS1SHA224 = 0x8003,
+
+    /* For SecKeyRawSign/SecKeyRawVerify only, data to be signed is a SHA256
+     hash; standard ASN.1 padding will be done, as well as PKCS1 padding
+     of the underlying RSA operation. */
+    kSecPaddingPKCS1SHA256 = 0x8004,
+
+    /* For SecKeyRawSign/SecKeyRawVerify only, data to be signed is a SHA384
+     hash; standard ASN.1 padding will be done, as well as PKCS1 padding
+     of the underlying RSA operation. */
+    kSecPaddingPKCS1SHA384 = 0x8005,
+
+    /* For SecKeyRawSign/SecKeyRawVerify only, data to be signed is a SHA512
+     hash; standard ASN.1 padding will be done, as well as PKCS1 padding
+     of the underlying RSA operation. */
+    kSecPaddingPKCS1SHA512 = 0x8006,
 };
 
 
@@ -273,8 +291,6 @@ size_t SecKeyGetBlockSize(SecKeyRef key)
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
     
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECKEY_H_ */

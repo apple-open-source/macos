@@ -104,7 +104,9 @@ CommentAclSubject *CommentAclSubject::Maker::make(Version, Reader &pub, Reader &
 	// Phew. I'd rather be lucky than good...
 	//
 	// So let's get started:
+#ifndef NDEBUG
 	static const size_t minCssmList = 12;	// min(sizeof(CSSM_LIST)) of all architectures
+#endif
 	pub.get<void>(4);			// skip first 4 bytes
 	uint32_t lop; pub(lop);		// read L4n-or-(bottom of)P8h
 	uint32_t tol; pub(tol);		// read T4h-or-L4n

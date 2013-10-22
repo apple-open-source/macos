@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>pytz</string>
+        <key>OpenSourceVersion</key>
+        <string>2012d</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://pytz.sourceforge.net/</string>
+        <key>OpenSourceURL</key>
+        <string>http://pypi.python.org/packages/source/p/pytz/pytz-2012d.tar.gz#md5=bf01c4fc9b64b164c3e2bb9c5477a544</string>
+        <key>OpenSourceImportDate</key>
+        <string>2012-09-07</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>bf01c4fc9b64b164c3e2bb9c5477a544</string>
+</dict>

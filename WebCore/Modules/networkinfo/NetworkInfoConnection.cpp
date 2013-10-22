@@ -30,6 +30,7 @@
 #include "NetworkInfoConnection.h"
 
 #if ENABLE(NETWORK_INFO)
+#include "Document.h"
 #include "Event.h"
 #include "Frame.h"
 #include "NetworkInfoClient.h"
@@ -44,7 +45,7 @@ PassRefPtr<NetworkInfoConnection> NetworkInfoConnection::create(Navigator* navig
 }
 
 NetworkInfoConnection::NetworkInfoConnection(Navigator* navigator)
-    : ActiveDOMObject(navigator->frame()->document(), this)
+    : ActiveDOMObject(navigator->frame()->document())
     , m_controller(NetworkInfoController::from(navigator->frame()->page()))
     , m_networkInfo(0)
 {
@@ -55,19 +56,13 @@ NetworkInfoConnection::~NetworkInfoConnection()
 {
 }
 
-unsigned int NetworkInfoConnection::bandwidth() const
+double NetworkInfoConnection::bandwidth() const
 {
-    if (m_networkInfo)
-        return m_networkInfo->bandwidth();
-    
     return m_controller->client()->bandwidth();
 }
 
 bool NetworkInfoConnection::metered() const
 {
-    if (m_networkInfo)
-        return m_networkInfo->metered();
-    
     return m_controller->client()->metered();
 }
 

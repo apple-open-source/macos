@@ -1862,18 +1862,27 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 			goto out;
 		}
 
-		if(odusers_isdisabled(poldict)) {
+		int disableReason = odusers_isdisabled(poldict);
+		if(disableReason) {
 			Debug(LDAP_DEBUG_ANY, "%s: User is disabled: %s\n", __PRETTY_FUNCTION__, op->o_conn->c_sasl_dn.bv_val, 0);
 			CFRelease(poldict);
 			BER_BVZERO( &op->o_conn->c_sasl_dn );
-			rs->sr_text = "Policy violation";
+			switch(disableReason) {
+			case kDisabledByAdmin: rs->sr_text = "1 Disabled by admin"; break;
+			case kDisabledExpired: rs->sr_text = "2 Account expired"; break;
+			case kDisabledInactive: rs->sr_text = "3 Account inactive"; break;
+			case kDisabledTooManyFailedLogins: rs->sr_text = "4 Too many failed logins"; break;
+			case kDisabledNewPasswordRequired: rs->sr_text = "5 New password required"; break;
+			default: rs->sr_text = "99 Policy violation"; break;
+			};
 			rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
 			send_ldap_result( op, rs );
 			goto out;
 		}
 
-		odusers_successful_auth(&op->o_conn->c_sasl_dn, poldict);
-
+		if ( !bvmatch( &gssapi_bv, &op->o_conn->c_sasl_bind_mech )) {  /* kdc update loginFailedAttempts for gss/krb5 */
+			odusers_successful_auth(&op->o_conn->c_sasl_dn, poldict);
+		}
 		CFRelease(poldict);
 
 		ber_dupbv_x( &op->orb_edn, &op->o_conn->c_sasl_dn, op->o_tmpmemctx );
@@ -1951,10 +1960,13 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 		// The dn won't exist if the user is authenticating
 		// over GSSAPI with a principal that doesn't exist.
 		if(!BER_BVISEMPTY(&dn)) {
-			if(odusers_increment_failedlogin(&dn) != 0) { 
-				Debug(LDAP_DEBUG_ANY, "%s: Error to increment failed login count for %s", __PRETTY_FUNCTION__, dn.bv_val, 0);
+			if ( !bvmatch( &gssapi_bv, &op->o_conn->c_sasl_bind_mech )) { /* kdc update loginFailedAttempts for gss/krb5 */
+				if(odusers_increment_failedlogin(&dn) != 0) { 
+					Debug(LDAP_DEBUG_ANY, "%s: Error to increment failed login count for %s", __PRETTY_FUNCTION__, dn.bv_val, 0);
+				}
 			}
 		}
+
 		BER_BVZERO( &op->o_conn->c_sasl_dn );
 		rs->sr_text = sasl_errdetail( ctx );
 		rs->sr_err = slap_sasl_err2ldap( sc ),

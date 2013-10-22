@@ -257,7 +257,7 @@ typedef struct {
 
     CFMutableSetRef    kextIDs;          // -b; must release
     CFMutableArrayRef  argURLs;          // directories & kexts in order
-    CFMutableArrayRef  repositoryURLs;   // just non-kext directories
+    CFMutableArrayRef  repositoryURLs;  // array of CFURLRefs for extensions dirs
     CFMutableArrayRef  namedKextURLs;
     CFMutableArrayRef  targetArchs;
     Boolean            explicitArch;  // user-provided instead of inferred host arches
@@ -267,10 +267,8 @@ typedef struct {
     CFArrayRef         namedKexts;
     CFArrayRef         loadedKexts;
     
-    struct stat kernelStatBuffer;
-    struct stat firstFolderStatBuffer;
-    Boolean     haveFolderMtime;
-    Boolean     haveKernelMtime;
+    struct timeval     kernelTimes[2];          // access and mod times of kernel file
+    struct timeval     extensionsDirTimes[2];   // access and mod times of extensions directory with most recent change
     Boolean     compress;
     Boolean     uncompress;
 } KextcacheArgs;
@@ -284,6 +282,9 @@ ExitStatus readArgs(
     char * const  ** argv,
     KextcacheArgs  * toolArgs);
 void setDefaultArchesIfNeeded(KextcacheArgs * toolArgs);
+void addArch(
+    KextcacheArgs * toolArgs,
+    const NXArchInfo  * arch);
 const NXArchInfo * addArchForName(
     KextcacheArgs * toolArgs,
     const char    * archname);
@@ -302,8 +303,6 @@ ExitStatus doUpdateVolume(KextcacheArgs *toolArgs);
 
 void checkKextdSpawnedFilter(Boolean kernelFlag);
 ExitStatus checkArgs(KextcacheArgs * toolArgs);
-ExitStatus statURL(CFURLRef anURL, struct stat * statBuffer);
-ExitStatus statPath(const char *path, struct stat *statBuffer);
 
 ExitStatus getLoadedKextInfo(KextcacheArgs *toolArgs);
 ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs);
@@ -328,21 +327,13 @@ Boolean kextMatchesFilter(
     KextcacheArgs             * toolArgs,
     OSKextRef                   theKext,
     OSKextRequiredFlags         requiredFlags);
-ExitStatus getFilePathTimes(
-    const char        * filePath,
-    struct timeval      cacheFileTimes[2]);
 ExitStatus getFileURLModTimePlusOne(
     CFURLRef            fileURL,
-    struct stat       * origStatBuffer,
+    struct timeval    * origModTime,
     struct timeval      cacheFileTimes[2]);
 ExitStatus getFilePathModTimePlusOne(
     const char        * filePath,
-    struct stat       * origStatBuffer,
-    struct timeval      cacheFileTimes[2]);
-ExitStatus getModTimePlusOne(
-    const char        * path,
-    struct stat       * origStatBuffer,
-    struct stat       * newStatBuffer,
+    struct timeval    * origModTime,
     struct timeval      cacheFileTimes[2]);
 Boolean kextMatchesLoadedKextInfo(
     KextcacheArgs     * toolArgs,

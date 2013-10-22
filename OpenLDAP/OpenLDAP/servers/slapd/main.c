@@ -862,93 +862,64 @@ unhandled_option:;
 
 #ifdef HAVE_TLS
 
-#ifdef __APPLE__    
-    char *error_string;
-    rc = ldap_pvt_test_tls_settings(slap_tls_ld);
-    if( rc != 0)
-    {
-        switch(rc) {
-            case (-30): 
-                error_string = "CA certificate file not found";
-                break;
-            case (-31):
-                error_string = "Certificate file not found";
-                break;
-            case (-32):
-                error_string = "Certificate keyfile not found";      
-                break;
-            case (-33):
-                error_string = "Passphrase not found in System keychain";
-                break;
-            default:
-                error_string = "Unknown error";
-        }
-
-        Debug( LDAP_DEBUG_ANY,
-              "main: Enabling TLS settings failed: %d - %s\n",
-              rc, error_string, 0 );
-        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_CACERTFILE, NULL );
-        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_DHFILE, NULL );        
-        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_CACERTDIR, NULL );
-        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_KEYFILE, NULL );
-        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_CERTFILE, NULL );
-        ldap_pvt_tls_set_option( NULL, LDAP_OPT_X_TLS_RANDOM_FILE, NULL );        
-        ldap_pvt_tls_set_option( NULL, LDAP_OPT_X_TLS_PASSPHRASE, NULL );
-    }
-    else {
-#endif
-     
         rc = ldap_pvt_tls_init();
         if( rc != 0) {
             Debug( LDAP_DEBUG_ANY,
                 "main: TLS init failed: %d\n",
                 rc, 0, 0 );
+#ifndef __APPLE__
             rc = 1;
             SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
             goto destroy;
+#endif
         }
 
-        {
+#ifdef __APPLE__
+        else {
+#endif
             int opt = 1;
-
-        
             /* Force new ctx to be created */
             rc = ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_NEWCTX, &opt );
             if( rc == 0 ) {
                 /* The ctx's refcount is bumped up here */
                 ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CTX, &slap_tls_ctx );
                 load_extop( &slap_EXOP_START_TLS, 0, starttls_extop );
-            } else if ( rc != LDAP_NOT_SUPPORTED ) {
-                Debug( LDAP_DEBUG_ANY,
-                    "main: TLS init def ctx failed: %d\n",
-                    rc, 0, 0 );
-                rc = 1;
-                SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
-                goto destroy;
+            } else if ( rc != LDAP_NOT_SUPPORTED) {
+                    Debug( LDAP_DEBUG_ANY,
+                        "main: TLS init def ctx failed: %d\n",
+                        rc, 0, 0 );
+#ifndef __APPLE__
+                    rc = 1;
+                    SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
+                    goto destroy;
+#endif
             }
-        }
-#ifdef __APPLE__        
-	}
+
 #ifdef __APPLE__
+        }
+
+	if ( rc != 0 )
 	{
-	    /* If TLS is configured try to add a new listener for ldaps:/// to
-	     * support legacy clients.	If this doesn't succeed, it's not fatal
-	     * since clients really should be running start_tls on ldap:///
-	     */
-	    char* tls_certfile = NULL;
-	    char* tls_cacertfile = NULL;
-	    char* tls_keyfile = NULL;
-	    ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CERTFILE, &tls_certfile );
-	    ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CACERTFILE, &tls_cacertfile );
-	    ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_KEYFILE, &tls_keyfile );
-	    if ( (tls_certfile || tls_cacertfile) && tls_keyfile ) {
-		    if ( slap_add_listener("ldaps:///") != 0 ) {
-			    Debug( LDAP_DEBUG_ANY, "main: unable to add 'ldaps:///' listener\n", 0, 0, 0);
-		    }
+	    Debug( LDAP_DEBUG_ANY,
+		  "main: Enabling TLS failed; continuing with TLS disabled.\n",
+		  rc, 0, 0 );
+
+	    ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_CERT_IDENTITY, NULL );
+            rc = 0;
+	}
+
+	/* If TLS is configured try to add a new listener for ldaps:/// to
+	 * support legacy clients.	If this doesn't succeed, it's not fatal
+	 * since clients really should be running start_tls on ldap:///
+	 */
+	if (slap_tls_ctx != NULL)
+	{
+	    if ( slap_add_listener("ldaps:///") != 0 ) {
+		Debug( LDAP_DEBUG_ANY, "main: unable to add 'ldaps:///' listener\n", 0, 0, 0);
 	    }
 	}
 #endif /* __APPLE__ */
-#endif
+
 #endif
 
 #ifdef HAVE_CYRUS_SASL

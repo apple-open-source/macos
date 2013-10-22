@@ -106,7 +106,7 @@ if [ ! -e /private/etc/postfix/submit.cred ] ; then
 		hostname=`hostname`
 	fi
 	if [ -s /private/etc/dovecot/submit.passdb ] ; then
-		pw=`grep "^submit:" /private/etc/dovecot/submit.passdb | sed 's,.*},,'`
+		pw=`grep "^submit:" /private/etc/dovecot/submit.passdb | sed -e 's,.*},,' -e 's,:.*,,'`
 	fi
 	if [ ! "$pw" ] ; then
 		pw=`dd if=/dev/urandom bs=256 count=1 | env LANG=C tr -dc a-zA-Z0-9 | cut -b 1-22`

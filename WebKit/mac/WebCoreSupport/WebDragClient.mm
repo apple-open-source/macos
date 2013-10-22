@@ -25,6 +25,8 @@
 
 #import "WebDragClient.h"
 
+#if ENABLE(DRAG_SUPPORT)
+
 #import "WebArchive.h"
 #import "WebDOMOperations.h"
 #import "WebFrame.h"
@@ -39,7 +41,7 @@
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
-#import <WebCore/ClipboardMac.h>
+#import <WebCore/Clipboard.h>
 #import <WebCore/DragData.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EditorClient.h>
@@ -48,6 +50,7 @@
 #import <WebCore/FrameView.h>
 #import <WebCore/Image.h>
 #import <WebCore/Page.h>
+#import <WebCore/Pasteboard.h>
 
 using namespace WebCore;
 
@@ -83,7 +86,7 @@ WebCore::DragSourceAction WebDragClient::dragSourceActionMaskForPoint(const IntP
 void WebDragClient::willPerformDragSourceAction(WebCore::DragSourceAction action, const WebCore::IntPoint& mouseDownPoint, WebCore::Clipboard* clipboard)
 {
     ASSERT(clipboard);
-    [[m_webView _UIDelegateForwarder] webView:m_webView willPerformDragSourceAction:(WebDragSourceAction)action fromPoint:mouseDownPoint withPasteboard:[NSPasteboard pasteboardWithName:static_cast<WebCore::ClipboardMac*>(clipboard)->pasteboardName()]];
+    [[m_webView _UIDelegateForwarder] webView:m_webView willPerformDragSourceAction:(WebDragSourceAction)action fromPoint:mouseDownPoint withPasteboard:[NSPasteboard pasteboardWithName:clipboard->pasteboard().name()]];
 }
 
 void WebDragClient::startDrag(DragImageRef dragImage, const IntPoint& at, const IntPoint& eventPos, Clipboard* clipboard, Frame* frame, bool linkDrag)
@@ -100,7 +103,7 @@ void WebDragClient::startDrag(DragImageRef dragImage, const IntPoint& at, const 
     RetainPtr<WebHTMLView> topViewProtector = topHTMLView;
     
     [topHTMLView _stopAutoscrollTimer];
-    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:static_cast<ClipboardMac*>(clipboard)->pasteboardName()];
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:clipboard->pasteboard().name()];
 
     NSImage *dragNSImage = dragImage.get();
     WebHTMLView *sourceHTMLView = htmlView.get();
@@ -108,14 +111,11 @@ void WebDragClient::startDrag(DragImageRef dragImage, const IntPoint& at, const 
     id delegate = [m_webView UIDelegate];
     SEL selector = @selector(webView:dragImage:at:offset:event:pasteboard:source:slideBack:forView:);
     if ([delegate respondsToSelector:selector]) {
-        if ([m_webView _catchesDelegateExceptions]) {
-            @try {
-                [delegate webView:m_webView dragImage:dragNSImage at:at offset:NSZeroSize event:event pasteboard:pasteboard source:sourceHTMLView slideBack:YES forView:topHTMLView];
-            } @catch (id exception) {
-                ReportDiscardedDelegateException(selector, exception);
-            }
-        } else
+        @try {
             [delegate webView:m_webView dragImage:dragNSImage at:at offset:NSZeroSize event:event pasteboard:pasteboard source:sourceHTMLView slideBack:YES forView:topHTMLView];
+        } @catch (id exception) {
+            ReportDiscardedDelegateException(selector, exception);
+        }
     } else
         [topHTMLView dragImage:dragNSImage at:at offset:NSZeroSize event:event pasteboard:pasteboard source:sourceHTMLView slideBack:YES];
 }
@@ -134,3 +134,5 @@ void WebDragClient::dragControllerDestroyed()
 {
     delete this;
 }
+
+#endif // ENABLE(DRAG_SUPPORT)

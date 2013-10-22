@@ -37,8 +37,26 @@ extern "C" {
 
 
 /*
- * Currently empty
+	@function SecCodeSetCallback
+	For a given Code or StaticCode object, specify a block that is invoked at certain
+	stages of a validation operation. The block is only invoked for validations of this
+	particular object. Note that validation outcomes are cached in the API object, and
+	repeated validations will not generally result in the same set of callbacks.
+	Only one callback can be active for each API object. A new call to SecCodeSetCallback
+	replaces the previous callback.
+	
+	@param code A Code or StaticCode object whose validation should be monitored.
+	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
+	@param old A pointer to a block pointer that receives any previously registered callback.
+		Pass NULL if you are not interested in any previous value.
+	@param callback A block to be synchronously invoked at certain stages of API operation.
+		Pass NULL to disable callbacks for this code object. The block must be available to
+		be invoked, possibly repeatedly, for as long as the code object exists or it is superseded
+		by another call to this API, whichever happens earlier.
+		From your block, return NULL to continue normal operation. Return a CFTypeRef object of
+		suitable value for the reported stage to intervene.
  */
+OSStatus SecStaticCodeSetCallback(SecStaticCodeRef code, SecCSFlags flag, SecCodeCallback *olds, SecCodeCallback callback);
 
 
 #ifdef __cplusplus

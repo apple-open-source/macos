@@ -35,7 +35,7 @@
 #define STATE_JISX0212       3
 
 static int
-iso2022_jp1_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+iso2022_jp1_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   state_t state = conv->istate;
   int count = 0;
@@ -142,7 +142,7 @@ none:
 }
 
 static int
-iso2022_jp1_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+iso2022_jp1_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   state_t state = conv->ostate;
   unsigned char buf[2];
@@ -239,7 +239,7 @@ iso2022_jp1_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 }
 
 static int
-iso2022_jp1_reset (conv_t conv, unsigned char *r, int n)
+iso2022_jp1_reset (conv_t conv, unsigned char *r, size_t n)
 {
   state_t state = conv->ostate;
   if (state != STATE_ASCII) {

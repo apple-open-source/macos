@@ -3,7 +3,7 @@
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -15,7 +15,7 @@
  * 3. Neither the name of the project nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE PROJECT AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -42,7 +42,9 @@ enum {
 	algclass_isakmp_hash,
 	algclass_isakmp_dh,
 	algclass_isakmp_ameth,	/* authentication method. */
-#define MAXALGCLASS	7
+    algclass_ikev2_prf,
+    algclass_ikev2_integ,
+#define MAXALGCLASS 9
 };
 
 #define ALG_DEFAULT_KEYLEN	64
@@ -52,7 +54,7 @@ enum {
 /* algorithm type */
 enum algtype {
 	algtype_nothing = 0,
-
+    
 	/* enc */
 	algtype_des_iv64,
 	algtype_des,
@@ -67,7 +69,7 @@ enum algtype {
 	algtype_null_enc,
 	algtype_aes,
 	algtype_twofish,
-
+    
 	/* ipsec auth */
 	algtype_hmac_md5,
 	algtype_hmac_sha1,
@@ -77,12 +79,14 @@ enum algtype {
 	algtype_hmac_sha2_256,
 	algtype_hmac_sha2_384,
 	algtype_hmac_sha2_512,
-
+    algtype_hmac_md5_96,
+    algtype_hmac_sha1_96,
+    
 	/* ipcomp */
 	algtype_oui,
 	algtype_deflate,
 	algtype_lzs,
-
+    
 	/* hash */
 	algtype_md5,
 	algtype_sha1,
@@ -90,7 +94,7 @@ enum algtype {
 	algtype_sha2_256,
 	algtype_sha2_384,
 	algtype_sha2_512,
-
+    
 	/* dh_group */
 	algtype_modp768,
 	algtype_modp1024,
@@ -102,7 +106,7 @@ enum algtype {
 	algtype_modp4096,
 	algtype_modp6144,
 	algtype_modp8192,
-
+    
 	/* authentication method. */
 	algtype_psk,
 	algtype_dsssig,
@@ -119,6 +123,8 @@ enum algtype {
 	algtype_xauth_psk_c,
 	algtype_xauth_rsa_s,
 	algtype_xauth_rsa_c,
+    algtype_eap_psk_c,
+    algtype_eap_rsa_c,
 #endif
 };
 

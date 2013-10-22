@@ -284,7 +284,7 @@ feeReturn feePubKeyVerifySignature(feePubKey pubKey,
 	unsigned signatureLen);
 	
 #if CRYPTKIT_ECDSA_ENABLE
-
+    
 /*
  * The following two routines are implemented using primitives in the
  * feeHash and feeECDSA objects.

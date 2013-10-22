@@ -47,7 +47,7 @@ static int unicode_transliterate (conv_t cd, ucs4_t wc,
         if (!(sub_outcount <= outleft)) abort();
         outptr += sub_outcount; outleft -= sub_outcount;
       }
-      return outptr-backup_outptr;
+      return (int)(outptr-backup_outptr);
     johab_hangul_failed:
       cd->ostate = backup_state;
       outptr = backup_outptr;
@@ -91,7 +91,7 @@ static int unicode_transliterate (conv_t cd, ucs4_t wc,
             if (!(sub_outcount <= outleft)) abort();
             outptr += sub_outcount; outleft -= sub_outcount;
           }
-          return outptr-backup_outptr;
+          return (int)(outptr-backup_outptr);
         variant_failed:
           cd->ostate = backup_state;
           outptr = backup_outptr;
@@ -142,7 +142,7 @@ static int unicode_transliterate (conv_t cd, ucs4_t wc,
         if (!(sub_outcount <= outleft)) abort();
         outptr += sub_outcount; outleft -= sub_outcount;
       }
-      return outptr-backup_outptr;
+      return (int)(outptr-backup_outptr);
     translit_failed:
       cd->ostate = backup_state;
       outptr = backup_outptr;

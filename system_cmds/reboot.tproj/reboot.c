@@ -66,6 +66,7 @@ static const char rcsid[] =
 #include <mach/mach_port.h>		// allocate
 #include <mach/mach.h>			// task_self, etc
 #include <servers/bootstrap.h>	// bootstrap
+#include <bootstrap_priv.h>
 #include <reboot2.h>
 #include <utmpx.h>
 #include <sys/time.h>
@@ -194,7 +195,7 @@ main(int argc, char *argv[])
 	{
 		struct utmpx utx;
 		bzero(&utx, sizeof(utx));
-		utx.ut_type = BOOT_TIME;
+		utx.ut_type = SHUTDOWN_TIME;
 		gettimeofday(&utx.ut_tv, NULL);
 		pututxline(&utx);
 
@@ -317,7 +318,7 @@ reserve_reboot()
 	int busyStatus = ELAST + 1;
 	mountpoint_t busyVol;
 
-	macherr = bootstrap_look_up(bootstrap_port, KEXTD_SERVER_NAME, &kxport);
+	macherr = bootstrap_look_up2(bootstrap_port, KEXTD_SERVER_NAME, &kxport, 0, BOOTSTRAP_PRIVILEGED_SERVER);
 	if (macherr)  goto finish;
 
 	// allocate a port to pass to kextd (in case we die)

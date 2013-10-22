@@ -23,8 +23,9 @@
 #ifndef ImageLoader_h
 #define ImageLoader_h
 
-#include "CachedImage.h"
+#include "CachedImageClient.h"
 #include "CachedResourceHandle.h"
+#include "Timer.h"
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -38,7 +39,7 @@ typedef EventSender<ImageLoader> ImageEventSender;
 
 class ImageLoader : public CachedImageClient {
 public:
-    ImageLoader(Element*);
+    explicit ImageLoader(Element*);
     virtual ~ImageLoader();
 
     // This function should be called when the element is attached to a document; starts
@@ -60,7 +61,7 @@ public:
     void setLoadManually(bool loadManually) { m_loadManually = loadManually; }
 
     bool hasPendingBeforeLoadEvent() const { return m_hasPendingBeforeLoadEvent; }
-    bool hasPendingLoadEvent() const { return m_hasPendingLoadEvent; }
+    bool hasPendingActivity() const { return m_hasPendingLoadEvent || m_hasPendingErrorEvent; }
 
     void dispatchPendingEvent(ImageEventSender*);
 
@@ -84,10 +85,14 @@ private:
     RenderImageResource* renderImageResource();
     void updateRenderer();
 
-    Element* m_element;
     void setImageWithoutConsideringPendingLoadEvent(CachedImage*);
+    void clearFailedLoadURL();
 
+    void timerFired(Timer<ImageLoader>*);
+
+    Element* m_element;
     CachedResourceHandle<CachedImage> m_image;
+    Timer<ImageLoader> m_derefElementTimer;
     AtomicString m_failedLoadURL;
     bool m_hasPendingBeforeLoadEvent : 1;
     bool m_hasPendingLoadEvent : 1;

@@ -2,12 +2,12 @@
 
   bubblebabble.c - BubbleBabble encoding support
 
-  $Author: shyouhei $
+  $Author: nobu $
   created at: Fri Oct 13 18:31:42 JST 2006
 
   Copyright (C) 2006 Akinori MUSHA
 
-  $Id: bubblebabble.c 11708 2007-02-12 23:01:19Z shyouhei $
+  $Id: bubblebabble.c 27437 2010-04-22 08:04:13Z nobu $
 
 ************************************************/
 
@@ -23,7 +23,7 @@ bubblebabble_str_new(VALUE str_digest)
     size_t digest_len;
     VALUE str;
     char *p;
-    int i, j, seed = 1;
+    size_t i, j, seed = 1;
     static const char vowels[] = {
         'a', 'e', 'i', 'o', 'u', 'y'
     };
@@ -54,7 +54,7 @@ bubblebabble_str_new(VALUE str_digest)
             p[j++] = consonants[16];
             p[j++] = vowels[seed / 6];
             break;
-        } 
+        }
 
         byte1 = digest[i++];
         p[j++] = vowels[(((byte1 >> 6) & 3) + seed) % 6];

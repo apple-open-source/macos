@@ -29,6 +29,7 @@
 #define _SECURITY_REFCOUNT_H_
 
 #include <security_utilities/threading.h>
+#include <libkern/OSAtomic.h>
 
 namespace Security {
 
@@ -70,14 +71,23 @@ public:
 protected:
 	template <class T> friend class RefPointer;
 
-	void ref() const			{ ++mRefCount; RCDEBUG(UP, mRefCount); }
-	unsigned int unref() const	{ RCDEBUG(DOWN, mRefCount - 1); return --mRefCount; }
+	void ref() const
+    {
+        OSAtomicIncrement32(&mRefCount);
+        RCDEBUG(UP, mRefCount);
+    }
+	
+    unsigned int unref() const
+    {
+        RCDEBUG(DOWN, mRefCount - 1);
+        return OSAtomicDecrement32(&mRefCount);
+    }
 	
 	// if you call this for anything but debug output, you will go to hell (free handbasket included)
 	unsigned int refCountForDebuggingOnly() const { return mRefCount; }
 
 private:
-    mutable AtomicCounter<unsigned int> mRefCount;
+    volatile mutable int32_t mRefCount;
 };
 
 
@@ -111,7 +121,7 @@ public:
 	T & operator * () const		{ _check(); return *ptr; }
 
 protected:
-	void release()
+	void release_internal()
     {
         if (ptr && ptr->unref() == 0)
         {
@@ -120,11 +130,28 @@ protected:
         }
     }
 	
-    void setPointer(T *p) { if (p) p->ref(); release(); ptr = p; }
+    void release()
+    {
+        StLock<Mutex> mutexLock(mMutex);
+        release_internal();
+    }
+    
+    void setPointer(T *p)
+    {
+        StLock<Mutex> mutexLock(mMutex);
+        if (p)
+        {
+            p->ref();
+        }
+        
+        release_internal();
+        ptr = p;
+    }
 	
 	void _check() const { }
 
 	T *ptr;
+    Mutex mMutex;
 };
 
 template <class T>

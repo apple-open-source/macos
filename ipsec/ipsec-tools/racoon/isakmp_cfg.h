@@ -30,17 +30,14 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#ifndef _ISAKMP_CFG_H
+#define _ISAKMP_CFG_H
 
-#ifdef HAVE_LIBPAM
-#include <security/pam_appl.h>
-#endif
+
+#include "racoon_types.h"
 #include <resolv.h>
 
-/* 
- * XXX don't forget to update 
- * src/racoon/handler.c:exclude_cfg_addr()
- * if you add IPv6 capability
- */
+
 
 /* Attribute types */
 #define INTERNAL_IP4_ADDRESS        1
@@ -71,9 +68,6 @@
  */
 struct isakmp_cfg_port {
 	char	used;
-#ifdef HAVE_LIBPAM
-	pam_handle_t *pam;
-#endif
 };
 
 struct isakmp_cfg_config {
@@ -186,40 +180,27 @@ struct isakmp_cfg_state {
 #define ISAKMP_CFG_GOT_REPLY		0x8000	/* got config data from reply - don't process again */
 
 struct isakmp_pl_attr;
-struct ph1handle;
 struct isakmp_ivm;
-void isakmp_cfg_r(struct ph1handle *, vchar_t *);
-int isakmp_cfg_attr_r(struct ph1handle *, u_int32_t, struct isakmp_pl_attr *, vchar_t *);
-int isakmp_cfg_reply(struct ph1handle *, struct isakmp_pl_attr *);
-int isakmp_cfg_request(struct ph1handle *, struct isakmp_pl_attr *, vchar_t *);
-int isakmp_cfg_set(struct ph1handle *, struct isakmp_pl_attr *, vchar_t *);
-int isakmp_cfg_send(struct ph1handle *, vchar_t *, u_int32_t, int, int, int, vchar_t *);
-struct isakmp_ivm *isakmp_cfg_newiv(struct ph1handle *, u_int32_t);
-void isakmp_cfg_rmstate(struct ph1handle *);
-struct isakmp_cfg_state *isakmp_cfg_mkstate(void);
-vchar_t *isakmp_cfg_copy(struct ph1handle *, struct isakmp_data *);
-vchar_t *isakmp_cfg_short(struct ph1handle *, struct isakmp_data *, int);
-vchar_t *isakmp_cfg_varlen(struct ph1handle *, struct isakmp_data *, char *, size_t);
-vchar_t *isakmp_cfg_string(struct ph1handle *, struct isakmp_data *, char *);
-int isakmp_cfg_getconfig(struct ph1handle *);
-int isakmp_cfg_setenv(struct ph1handle *, char ***, int *);
+void isakmp_cfg_r (phase1_handle_t *, vchar_t *);
+int isakmp_cfg_attr_r (phase1_handle_t *, u_int32_t, struct isakmp_pl_attr *, vchar_t *);
+int isakmp_cfg_reply (phase1_handle_t *, struct isakmp_pl_attr *);
+int isakmp_cfg_request (phase1_handle_t *, struct isakmp_pl_attr *, vchar_t *);
+int isakmp_cfg_set (phase1_handle_t *, struct isakmp_pl_attr *, vchar_t *);
+int isakmp_cfg_send (phase1_handle_t *, vchar_t *, u_int32_t, int, int, int, vchar_t *);
+struct isakmp_ivm *isakmp_cfg_newiv (phase1_handle_t *, u_int32_t);
+void isakmp_cfg_rmstate (phase1_handle_t *);
+struct isakmp_cfg_state *isakmp_cfg_mkstate (void);
+vchar_t *isakmp_cfg_copy (phase1_handle_t *, struct isakmp_data *);
+vchar_t *isakmp_cfg_short (phase1_handle_t *, struct isakmp_data *, int);
+vchar_t *isakmp_cfg_varlen (phase1_handle_t *, struct isakmp_data *, char *, size_t);
+vchar_t *isakmp_cfg_string (phase1_handle_t *, struct isakmp_data *, char *);
+int isakmp_cfg_getconfig (phase1_handle_t *);
 
-int isakmp_cfg_resize_pool(int);
-int isakmp_cfg_getport(struct ph1handle *);
-int isakmp_cfg_putport(struct ph1handle *, unsigned int);
-int isakmp_cfg_init(int);
+int isakmp_cfg_resize_pool (int);
+int isakmp_cfg_getport (phase1_handle_t *);
+int isakmp_cfg_putport (phase1_handle_t *, unsigned int);
+int isakmp_cfg_init (int);
 #define ISAKMP_CFG_INIT_COLD	1
 #define ISAKMP_CFG_INIT_WARM	0
 
-#ifdef HAVE_LIBRADIUS
-struct rad_handle;
-extern struct rad_handle *radius_acct_state;
-int isakmp_cfg_radius_common(struct rad_handle *, int); 
-#endif
-
-#ifdef HAVE_LIBPAM
-int isakmp_cfg_accounting_pam(int, int);
-void cleanup_pam(int);
-#endif
-
-int isakmp_cfg_accounting_system(int, struct sockaddr_storage *, char *, int);
+#endif /* _ISAKMP_CFG_H */

@@ -29,14 +29,12 @@
 #include "NetworkInfoClientEfl.h"
 
 #if ENABLE(NETWORK_INFO)
-#include "NetworkInfo.h"
+
 #include "NotImplemented.h"
-#include <wtf/text/CString.h>
-#include <wtf/text/WTFString.h>
 
 namespace WebCore {
+
 NetworkInfoClientEfl::NetworkInfoClientEfl()
-    : m_controller(0)
 {
 }
 
@@ -44,27 +42,33 @@ NetworkInfoClientEfl::~NetworkInfoClientEfl()
 {
 }
 
+void NetworkInfoClientEfl::networkInfoControllerDestroyed()
+{
+    delete this;
+}
+
 void NetworkInfoClientEfl::startUpdating()
 {
-    notImplemented();
+    m_provider.startUpdating();
 }
 
 void NetworkInfoClientEfl::stopUpdating()
 {
-    notImplemented();
+    m_provider.stopUpdating();
 }
 
-unsigned int NetworkInfoClientEfl::bandwidth() const
+double NetworkInfoClientEfl::bandwidth() const
 {
-    notImplemented();
-    return 10; // MB/s
+    return m_provider.bandwidth();
 }
 
 bool NetworkInfoClientEfl::metered() const
 {
     notImplemented();
+
     return false;
 }
 
-}
+} // namespace WebCore
+
 #endif

@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -44,7 +40,7 @@ static char sccsid[] = "@(#)column.c	8.4 (Berkeley) 5/4/95";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/column/column.c,v 1.16 2006/09/19 22:11:43 iedowse Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/column/column.c,v 1.19 2011/11/06 08:14:34 ed Exp $");
 
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -62,21 +58,21 @@ __FBSDID("$FreeBSD: src/usr.bin/column/column.c,v 1.16 2006/09/19 22:11:43 iedow
 
 #define	TAB	8
 
-void  c_columnate(void);
-void  input(FILE *);
-void  maketbl(void);
-void  print(void);
-void  r_columnate(void);
-void  usage(void);
-int   width(const wchar_t *);
+static void	c_columnate(void);
+static void	input(FILE *);
+static void	maketbl(void);
+static void	print(void);
+static void	r_columnate(void);
+static void	usage(void);
+static int	width(const wchar_t *);
 
-int termwidth = 80;		/* default terminal width */
+static int	termwidth = 80;		/* default terminal width */
 
-int entries;			/* number of records */
-int eval;			/* exit value */
-int maxlength;			/* longest record */
-wchar_t **list;			/* array of pointers to records */
-const wchar_t *separator = L"\t ";	/* field separator for table option */
+static int	entries;		/* number of records */
+static int	eval;			/* exit value */
+static int	maxlength;		/* longest record */
+static wchar_t	**list;			/* array of pointers to records */
+static const wchar_t *separator = L"\t "; /* field separator for table option */
 
 int
 main(int argc, char **argv)
@@ -141,7 +137,7 @@ main(int argc, char **argv)
 	if (!entries)
 		exit(eval);
 
-	maxlength = roundup(maxlength + TAB, TAB);
+	maxlength = roundup(maxlength + 1, TAB);
 	if (tflag)
 		maketbl();
 	else if (maxlength >= termwidth)
@@ -153,7 +149,7 @@ main(int argc, char **argv)
 	exit(eval);
 }
 
-void
+static void
 c_columnate(void)
 {
 	int chcnt, col, cnt, endcol, numcols;
@@ -171,7 +167,7 @@ c_columnate(void)
 			endcol = maxlength;
 			putwchar('\n');
 		} else {
-			while ((cnt = roundup(chcnt + TAB, TAB)) <= endcol) {
+			while ((cnt = roundup(chcnt + 1, TAB)) <= endcol) {
 				(void)putwchar('\t');
 				chcnt = cnt;
 			}
@@ -182,7 +178,7 @@ c_columnate(void)
 		putwchar('\n');
 }
 
-void
+static void
 r_columnate(void)
 {
 	int base, chcnt, cnt, col, endcol, numcols, numrows, row;
@@ -199,7 +195,7 @@ r_columnate(void)
 			chcnt += width(list[base]);
 			if ((base += numrows) >= entries)
 				break;
-			while ((cnt = roundup(chcnt + TAB, TAB)) <= endcol) {
+			while ((cnt = roundup(chcnt + 1, TAB)) <= endcol) {
 				(void)putwchar('\t');
 				chcnt = cnt;
 			}
@@ -209,7 +205,7 @@ r_columnate(void)
 	}
 }
 
-void
+static void
 print(void)
 {
 	int cnt;
@@ -225,7 +221,7 @@ typedef struct _tbl {
 } TBL;
 #define	DEFCOLS	25
 
-void
+static void
 maketbl(void)
 {
 	TBL *t;
@@ -278,7 +274,7 @@ maketbl(void)
 #define	DEFNUM		1000
 #define	MAXLINELEN	(LINE_MAX + 1)
 
-void
+static void
 input(FILE *fp)
 {
 	static int maxentry;
@@ -317,7 +313,7 @@ input(FILE *fp)
 }
 
 /* Like wcswidth(), but ignores non-printing characters. */
-int
+static int
 width(const wchar_t *wcs)
 {
 	int w, cw;
@@ -328,7 +324,7 @@ width(const wchar_t *wcs)
 	return (w);
 }
 
-void
+static void
 usage(void)
 {
 

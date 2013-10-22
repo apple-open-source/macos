@@ -40,6 +40,7 @@
 #endif
 	
 #define LOG_BUS_CONNECTIONS  	0
+#define LOG_CONTEXT_VERBOSE     0
 
 #define kDefaultReferenceDistance   1.0
 #define kDefaultMaximumDistance     1000000.0
@@ -201,8 +202,10 @@ class OALContext
 	void			ConfigureMixerFormat();
 		
 	private:
+#if LOG_CONTEXT_VERBOSE
 		uintptr_t			mSelfToken;
-		bool				mProcessingActive;
+#endif
+//		bool				mProcessingActive;
 		OALDevice			*mOwningDevice;
         AUNode				mMixerNode;
         AudioUnit			mMixerUnit;
@@ -223,7 +226,6 @@ class OALContext
 		ALCint*				mAttributeList;
         bool				mDistanceScalingRequired;
 		bool				mCalculateDistance;				// true except: for 1.3 mixer Inverse curve, OR pre 2.2 mixer and either Exponential or Linear curves
-		Float64				mStoredInverseAttenuation;
 		UInt32				mRenderQuality;                 // Hi or Lo for now
         UInt32				mSpatialSetting;
         UInt32				mBusCount;

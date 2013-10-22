@@ -123,6 +123,60 @@ static Heap heaps;
 
 static Heap fheap;
 
+/**/
+#ifdef ZSH_HEAP_DEBUG
+/*
+ * The heap ID we'll allocate next.
+ *
+ * We'll avoid using 0 as that means zero-initialised memory
+ * containing a heap ID is (correctly) marked as invalid.
+ */
+static Heapid next_heap_id = (Heapid)1;
+
+/*
+ * The ID of the heap from which we last allocated heap memory.
+ * In theory, since we carefully avoid allocating heap memory during
+ * interrupts, after any call to zhalloc() or wrappers this should
+ * be the ID of the heap containing the memory just returned.
+ */
+/**/
+mod_export Heapid last_heap_id;
+
+/*
+ * Stack of heaps saved by new_heaps().
+ * Assumes old_heaps() will come along and restore it later
+ * (outputs an error if old_heaps() is called out of sequence).
+ */
+LinkList heaps_saved;
+
+/*
+ * Debugging verbosity.  This must be set from a debugger.
+ * An 'or' of bits from the enum heap_debug_verbosity.
+ */
+volatile int heap_debug_verbosity;
+
+/*
+ * Generate a heap identifier that's unique up to unsigned integer wrap.
+ *
+ * For the purposes of debugging we won't bother trying to make a
+ * heap_id globally unique, which would require checking all existing
+ * heaps every time we create an ID and still wouldn't do what we
+ * ideally want, which is to make sure the IDs of valid heaps are
+ * different from the IDs of no-longer-valid heaps.  Given that,
+ * we'll just assume that if we haven't tracked the problem when the
+ * ID wraps we're out of luck.  We could change the type to a long long
+ * if we wanted more room
+ */
+
+static Heapid
+new_heap_id(void)
+{
+    return next_heap_id++;
+}
+
+/**/
+#endif
+
 /* Use new heaps from now on. This returns the old heap-list. */
 
 /**/
@@ -137,6 +191,15 @@ new_heaps(void)
     fheap = heaps = NULL;
     unqueue_signals();
 
+#ifdef ZSH_HEAP_DEBUG
+    if (heap_debug_verbosity & HDV_NEW) {
+	fprintf(stderr, "HEAP DEBUG: heap " HEAPID_FMT
+		" saved, new heaps created.\n", h->heap_id);
+    }
+    if (!heaps_saved)
+	heaps_saved = znewlinklist();
+    zpushnode(heaps_saved, h);
+#endif
     return h;
 }
 
@@ -152,6 +215,12 @@ old_heaps(Heap old)
     for (h = heaps; h; h = n) {
 	n = h->next;
 	DPUTS(h->sp, "BUG: old_heaps() with pushed heaps");
+#ifdef ZSH_HEAP_DEBUG
+	if (heap_debug_verbosity & HDV_FREE) {
+	    fprintf(stderr, "HEAP DEBUG: heap " HEAPID_FMT
+		    "freed in old_heaps().\n", h->heap_id);
+	}
+#endif
 #ifdef USE_MMAP
 	munmap((void *) h, h->size);
 #else
@@ -159,6 +228,21 @@ old_heaps(Heap old)
 #endif
     }
     heaps = old;
+#ifdef ZSH_HEAP_DEBUG
+    if (heap_debug_verbosity & HDV_OLD) {
+	fprintf(stderr, "HEAP DEBUG: heap " HEAPID_FMT
+		"restored.\n", heaps->heap_id);
+    }
+    {
+	Heap myold = heaps_saved ? getlinknode(heaps_saved) : NULL;
+	if (old != myold)
+	{
+	    fprintf(stderr, "HEAP DEBUG: invalid old heap " HEAPID_FMT
+		    ", expecting " HEAPID_FMT ".\n", old->heap_id,
+		    myold->heap_id);
+	}
+    }
+#endif
     fheap = NULL;
     unqueue_signals();
 }
@@ -174,6 +258,12 @@ switch_heaps(Heap new)
     queue_signals();
     h = heaps;
 
+#ifdef ZSH_HEAP_DEBUG
+    if (heap_debug_verbosity & HDV_SWITCH) {
+	fprintf(stderr, "HEAP DEBUG: heap temporarily switched from "
+		HEAPID_FMT " to " HEAPID_FMT ".\n", h->heap_id, new->heap_id);
+    }
+#endif
     heaps = new;
     fheap = NULL;
     unqueue_signals();
@@ -202,6 +292,15 @@ pushheap(void)
 	hs->next = h->sp;
 	h->sp = hs;
 	hs->used = h->used;
+#ifdef ZSH_HEAP_DEBUG
+	hs->heap_id = h->heap_id;
+	h->heap_id = new_heap_id();
+	if (heap_debug_verbosity & HDV_PUSH) {
+	    fprintf(stderr, "HEAP DEBUG: heap " HEAPID_FMT " pushed, new id is "
+		    HEAPID_FMT ".\n",
+		    hs->heap_id, h->heap_id);
+	}
+#endif
     }
     unqueue_signals();
 }
@@ -220,8 +319,28 @@ freeheap(void)
     h_free++;
 #endif
 
+    /* At this point we used to do:
     fheap = NULL;
-    for (h = heaps; h; h = hn) {
+     *
+     * When pushheap() is called, it sweeps over the entire heaps list of
+     * arenas and marks every one of them with the amount of free space in
+     * that arena at that moment.  zhalloc() is then allowed to grab bits
+     * out of any of those arenas that have free space.
+     *
+     * With the above reset of fheap, the loop below sweeps back over the
+     * entire heap list again, resetting the free space in every arena to
+     * the amount stashed by pushheap() and finding the first arena with
+     * free space to optimize zhalloc()'s next search.  When there's a lot
+     * of stuff already on the heap, this is an enormous amount of work,
+     * and performance goes to hell.
+     *
+     * However, there doesn't seem to be any reason to reset fheap before
+     * beginning this loop.  Either it's already correct, or it has never
+     * been set and this loop will do it, or it'll be reset from scratch
+     * on the next popheap().  So all that's needed here is to pick up
+     * the scan wherever the last pass [or the last popheap()] left off.
+     */
+    for (h = (fheap ? fheap : heaps); h; h = hn) {
 	hn = h->next;
 	if (h->sp) {
 #ifdef ZSH_MEM_DEBUG
@@ -231,6 +350,22 @@ freeheap(void)
 	    if (!fheap && h->used < ARENA_SIZEOF(h))
 		fheap = h;
 	    hl = h;
+#ifdef ZSH_HEAP_DEBUG
+	    /*
+	     * As the free makes the heap invalid, give it a new
+	     * identifier.  We're not popping it, so don't use
+	     * the one in the heap stack.
+	     */
+	    {
+		Heapid new_id = new_heap_id();
+		if (heap_debug_verbosity & HDV_FREE) {
+		    fprintf(stderr, "HEAP DEBUG: heap " HEAPID_FMT
+			    " freed, new id is " HEAPID_FMT ".\n",
+			    h->heap_id, new_id);
+		}
+		h->heap_id = new_id;
+	    }
+#endif
 	} else {
 #ifdef USE_MMAP
 	    munmap((void *) h, h->size);
@@ -242,7 +377,7 @@ freeheap(void)
     if (hl)
 	hl->next = NULL;
     else
-	heaps = NULL;
+	heaps = fheap = NULL;
 
     unqueue_signals();
 }
@@ -271,6 +406,14 @@ popheap(void)
 	    memset(arena(h) + hs->used, 0xff, h->used - hs->used);
 #endif
 	    h->used = hs->used;
+#ifdef ZSH_HEAP_DEBUG
+	    if (heap_debug_verbosity & HDV_POP) {
+		fprintf(stderr, "HEAP DEBUG: heap " HEAPID_FMT
+			" popped, old heap was " HEAPID_FMT ".\n",
+			h->heap_id, hs->heap_id);
+	    }
+	    h->heap_id = hs->heap_id;
+#endif
 	    if (!fheap && h->used < ARENA_SIZEOF(h))
 		fheap = h;
 	    zfree(hs, sizeof(*hs));
@@ -373,6 +516,13 @@ zhalloc(size_t size)
 	    h->used = n;
 	    ret = arena(h) + n - size;
 	    unqueue_signals();
+#ifdef ZSH_HEAP_DEBUG
+	    last_heap_id = h->heap_id;
+	    if (heap_debug_verbosity & HDV_ALLOC) {
+		fprintf(stderr, "HEAP DEBUG: allocated memory from heap "
+			HEAPID_FMT ".\n", h->heap_id);
+	    }
+#endif
 	    return ret;
 	}
     }
@@ -404,6 +554,13 @@ zhalloc(size_t size)
 	h->used = size;
 	h->next = NULL;
 	h->sp = NULL;
+#ifdef ZSH_HEAP_DEBUG
+	h->heap_id = new_heap_id();
+	if (heap_debug_verbosity & HDV_CREATE) {
+	    fprintf(stderr, "HEAP DEBUG: create new heap " HEAPID_FMT ".\n",
+		    h->heap_id);
+	}
+#endif
 
 	if (hp)
 	    hp->next = h;
@@ -412,6 +569,13 @@ zhalloc(size_t size)
 	fheap = h;
 
 	unqueue_signals();
+#ifdef ZSH_HEAP_DEBUG
+	last_heap_id = h->heap_id;
+	if (heap_debug_verbosity & HDV_ALLOC) {
+	    fprintf(stderr, "HEAP DEBUG: allocated memory from heap "
+		    HEAPID_FMT ".\n", h->heap_id);
+	}
+#endif
 	return arena(h);
     }
 }
@@ -475,6 +639,9 @@ hrealloc(char *p, size_t old, size_t new)
      * don't use the heap for anything else.)
      */
     if (p == arena(h)) {
+#ifdef ZSH_HEAP_DEBUG
+	Heapid heap_id = h->heap_id;
+#endif
 	/*
 	 * Zero new seems to be a special case saying we've finished
 	 * with the specially reallocated memory, see scanner() in glob.c.
@@ -534,6 +701,9 @@ hrealloc(char *p, size_t old, size_t new)
 		heaps = h;
 	}
 	h->used = new;
+#ifdef ZSH_HEAP_DEBUG
+	h->heap_id = heap_id;
+#endif
 	unqueue_signals();
 	return arena(h);
     }
@@ -555,6 +725,55 @@ hrealloc(char *p, size_t old, size_t new)
 	return t;
     }
 }
+
+/**/
+#ifdef ZSH_HEAP_DEBUG
+/*
+ * Check if heap_id is the identifier of a currently valid heap,
+ * including any heap buried on the stack, or of permanent memory.
+ * Return 0 if so, else 1.
+ *
+ * This gets confused by use of switch_heaps().  That's because so do I.
+ */
+
+/**/
+mod_export int
+memory_validate(Heapid heap_id)
+{
+    Heap h;
+    Heapstack hs;
+    LinkNode node;
+
+    if (heap_id == HEAPID_PERMANENT)
+	return 0;
+
+    queue_signals();
+    for (h = heaps; h; h = h->next) {
+	if (h->heap_id == heap_id)
+	    return 0;
+	for (hs = heaps->sp; hs; hs = hs->next) {
+	    if (hs->heap_id == heap_id)
+		return 0;
+	}
+    }
+
+    if (heaps_saved) {
+	for (node = firstnode(heaps_saved); node; incnode(node)) {
+	    for (h = (Heap)getdata(node); h; h = h->next) {
+		if (h->heap_id == heap_id)
+		    return 0;
+		for (hs = heaps->sp; hs; hs = hs->next) {
+		    if (hs->heap_id == heap_id)
+			return 0;
+		}
+	    }
+	}
+    }
+
+    return 1;
+}
+/**/
+#endif
 
 /* allocate memory from the current memory pool and clear it */
 

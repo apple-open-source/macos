@@ -1,0 +1,36 @@
+Perltidy TODO List
+  This is a partial "wish-list" of features to add and things to do.
+
+  Provide an option to ignore side comments when checking line length.  
+    That is, side comments would be allowed to be arbitrarily long without
+    influencing line breaks. 
+
+  Improved Vertical Alignment
+    There are still many opportunities for improving vertical alignment.
+
+  Minimize the instances in which formatting changes on a second iteration.  
+
+  Add a convergence test when -it=n is used
+
+  Documentation
+    A FAQ is needed to explain some of the more subtle formatting issues,
+    and to give examples of different styles.
+
+    The -formatter callback object documentation is incomplete.
+
+  HTML writer
+    The HTML writer does not colorize interpolated identifiers in here
+    documents or quoted strings. The tokenizer outputs interpolation
+    information for here docs; it still needs to be updated to do this for
+    multi-line quotes. Then code needs to be written to scan for and markup
+    identifiers.
+
+Things which have been suggested but will not be done
+  Recursive file processing
+    A -r flag might be nice, but this is best handled by an exterior shell
+    script.
+
+  Make perltidy support the syntax of some module XXX.
+    This generally won't be done unless the module is part of the core perl
+    distribution.  But in some cases it might be possible to use the prefilter 
+    and postfilter capabilities of the Tidy.pm module to help.

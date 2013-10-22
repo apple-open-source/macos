@@ -27,15 +27,16 @@
 
 #import "WebFrameInternal.h"
 #import <WebCore/Frame.h>
+#import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderClient.h>
-#import <WebCore/PlatformString.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderLayerBacking.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/StyledElement.h>
+#import <wtf/text/StringBuilder.h>
+#import <wtf/text/WTFString.h>
 
 using namespace WebCore;
-
 
 @interface WebRenderLayer(Private)
 
@@ -51,21 +52,19 @@ using namespace WebCore;
     RenderObject* renderer = layer->renderer();
     NSString *name = [NSString stringWithUTF8String:renderer->renderName()];
 
-    if (Node* node = renderer->node()) {
-        if (node->isElementNode())
-            name = [name stringByAppendingFormat:@" %@", (NSString *)static_cast<Element*>(node)->tagName()];
-        if (node->hasID())
-            name = [name stringByAppendingFormat:@" id=\"%@\"", (NSString *)static_cast<Element*>(node)->getIdAttribute()];
+    if (Element* element = renderer->node() && renderer->node()->isElementNode() ? toElement(renderer->node()) : 0) {
+        name = [name stringByAppendingFormat:@" %@", (NSString *)element->tagName()];
+        if (element->hasID())
+            name = [name stringByAppendingFormat:@" id=\"%@\"", (NSString *)element->getIdAttribute()];
 
-        if (node->hasClass()) {
-            StyledElement* styledElement = static_cast<StyledElement*>(node);
-            String classes;
-            for (size_t i = 0; i < styledElement->classNames().size(); ++i) {
+        if (element->hasClass()) {
+            StringBuilder classes;
+            for (size_t i = 0; i < element->classNames().size(); ++i) {
                 if (i > 0)
-                    classes += " ";
-                classes += styledElement->classNames()[i];
+                    classes.append(' ');
+                classes.append(element->classNames()[i]);
             }
-            name = [name stringByAppendingFormat:@" class=\"%@\"", (NSString *)classes];
+            name = [name stringByAppendingFormat:@" class=\"%@\"", (NSString *)classes.toString()];
         }
     }
 

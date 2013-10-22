@@ -51,6 +51,18 @@ if ! ping -c 1 dc03.ads.apple.com > /dev/null 2>&1 ; then
       { echo "no dc03 available, skipping tests" ; exit 0; }
 fi
 
+echo "checking for ADS"
+if odutil show nodenames | grep '/Active Directory/ADS' > /dev/null ; then
+    echo "already joined to ADS"
+    needed_unjoin=no
+else
+    echo "joining ads.apple.com"
+    dsconfigad -add $R -force -user bind -password apple || { echo "join failed" ; exit 1; }
+    killall -9 digest-service
+    needed_unjoin=yes
+fi
+
+
 echo "running http tests"
 echo "	destroy all cred"
 ${gsstool} destroy --all
@@ -60,13 +72,22 @@ expect Password:
 send foobar\n
 EOF
 
+echo "	removing all creds"
+${gsstool} destroy --all || exit 1
+
 echo "	acquire ntlm creds"
 ${rkpty} ${testdir}/acquire.tmp \
 	${gsstool} acquire-cred --mech=ntlm ktestuser@ADS >/dev/null || exit 1
 
+echo "	check ntlm creds"
+${gsstool} list --mech=ntlm | grep ktestuser@ADS >/dev/null || exit 1
+
 echo "	acquire krb5 creds"
 ${rkpty} ${testdir}/acquire.tmp \
 	${gsstool} acquire-cred --mech=krb5 ktestuser@ADS.APPLE.COM  > /dev/null || exit 1
+
+echo "	check krb5 creds"
+${gsstool} list --mech=krb5 | grep ktestuser@ADS >/dev/null || exit 1
 
 echo "	spnego/krb5"
 ${http_client} --mech=spnego --cred-mech=krb5 --client=ktestuser@ADS.APPLE.COM \
@@ -86,6 +107,8 @@ ${http_client} --mech=ntlm --cred-mech=ntlm --client=ktestuser@ADS \
 
 echo "	destroy all cred"
 ${gsstool} destroy --all
+
+# ------------------------------------------------------------------------------------
 
 echo "test change password"
 echo admin > ${testdir}/foopassword
@@ -147,48 +170,61 @@ ${rkpty} cpw.tmp env ${kpasswd} -c ${cache} --admin-principal=da3admin@${R} ktes
 
 ${kdestroy}
 
-echo "checking mounting with NTLM"
-host=$(hostname)
-if expr "$host" : '.*\.apple\.com' > /dev/null ; then
-    launchctl load -F /System/Library/LaunchDaemons/com.apple.smbd.plist
-    killall smbd
-    sleep 3
-    ${winmount} ${testbase}/apple/coswin7-ads.plist ${host} || exit 1
-    ${winmount} ${testbase}/apple/coswin7-ads-specific.plist ${host} || exit 1
-else
-    echo "not running windows mount test since you are no on apple network"
-fi
+# ------------------------------------------------------------------------------------
 
-echo "checking for ADS"
-if odutil show nodenames | grep '/Active Directory/ADS' > /dev/null ; then
-    
-    echo "checking ktestuser in ADS"
-    ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS | grep 'done:' > /dev/null || \
-        { echo "test failed";  exit 1; }
-    
-    ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null | grep 'done:' > /dev/null && \
-        { echo "test failed";  exit 1; }
-    
-    sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS | grep 'done:' > /dev/null || \
-        { echo "test failed";  exit 1; }
-    
-    sudo ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null | grep 'done:' > /dev/null && \
-        { echo "test failed";  exit 1; }
+#echo "checking ldap"
+#echo foobar > ${testdir}/foopassword
+#    
+#${kinit} --password-file=${testdir}/foopassword ktestuser@ADS.APPLE.COM || exit 1
+#    
+#env KRB5CCNAME=${cache} \
+#    ldapsearch -h dc02.ads.apple.com -b "DC=ads,DC=apple,DC=com" -s base \+ || \
+#        { echo "ldap test failed"; exit 1; }
+#    
+#${kdestroy}
 
+# ------------------------------------------------------------------------------------
 
-    echo "checking ldap"
-    echo foobar > ${testdir}/foopassword
-    
-    ${kinit} --password-file=${testdir}/foopassword ktestuser@ADS.APPLE.COM || exit 1
-    
-    env KRB5CCNAME=${cache} \
-    ldapsearch -h dc02.ads.apple.com -b "DC=ads,DC=apple,DC=com" -s base \+ || \
-        { echo "ldap test failed"; exit 1; }
-    
-    ${kdestroy}
+#echo "checking mounting with NTLM"
+#host=$(hostname)
+#if expr "$host" : '.*\.apple\.com' > /dev/null ; then
+#    launchctl load -F /System/Library/LaunchDaemons/com.apple.smbd.plist
+#    killall smbd
+#    sleep 3
+#    ${winmount} ${testbase}/apple/coswin7-ads.plist ${host} || exit 1
+#    ${winmount} ${testbase}/apple/coswin7-ads-specific.plist ${host} || exit 1
+#else
+#    echo "not running windows mount test since you are no on apple network"
+#fi
 
-else
-      echo "no ADS, skipping NETR/NETLOGON tests"
+# ------------------------------------------------------------------------------------
+
+echo "checking ktestuser in ADS (no domain)"
+${test_gssntlm} --user=ktestuser --password=foobar --domain='' --session-key-broken > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+echo "checking ktestuser in ADS (domain)"
+${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS --session-key-broken > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+echo "checking ktestuser in ADS (no domain)"
+sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain='' --session-key-broken > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+echo "checking ktestuser in ADS (domain)"
+sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS --session-key-broken > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+echo "checking ktestuser in ADS (failure, wrong password)"
+sudo ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null --session-key-broken > /dev/null && \
+    { echo "test failed";  exit 1; }
+
+# ------------------------------------------------------------------------------------
+
+if [ ${needed_unjoin} = yes ] ; then
+    echo "unjoin"
+    dsconfigad -remove $R -force -user bind -password apple
+    killall -9 digest-service
 fi
 
 

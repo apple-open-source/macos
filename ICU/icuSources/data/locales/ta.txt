@@ -1,20 +1,20 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/ta.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/ta.xml
 // *
 // ***************************************************************************
 /**
  *  ICU <specials> source: <path>/xml/main/ta.xml
  */
 ta{
+    AuxExemplarCharacters{"[\u200C\u200D]"}
     ExemplarCharacters{
         "[அ ஆ இ ஈ உ ஊ எ ஏ ஐ ஒ ஓ ஔ ஃ க ங ச ஞ ட ண த ந ப ம ய ர ல வ ழ ள ற ன ஜ ஷ ஸ ஹ ா ி "
         "\u0BC0 ு ூ ெ ே ை ொ ோ ௌ \u0BCD]"
     }
-    ExemplarCharactersCurrency{"[a b c d e f g h i j k l m n o p q r s t u v w x y z]"}
     ExemplarCharactersIndex{
         "[அ ஆ இ ஈ உ ஊ எ ஏ ஐ ஒ ஓ ஔ க ங ச ஞ ட ண த ந ப ம ய ர ல வ ழ ள ற ன ஜ ஶ ஷ ஸ ஹ {க"
         "\u0BCDஷ}]"
@@ -29,22 +29,276 @@ ta{
                 currencyFormat{"¤ #,##,##0.00"}
                 decimalFormat{"#,##,##0.###"}
                 percentFormat{"#,##,##0%"}
+                scientificFormat{"#E0"}
+            }
+            patternsLong{
+                decimalFormat{
+                    1000{
+                        one{"0 ஆயிரம்"}
+                        other{"0 ஆயிரம்"}
+                    }
+                    10000{
+                        one{"00 ஆயிரம்"}
+                        other{"00 ஆயிரம்"}
+                    }
+                    100000{
+                        one{"000 ஆயிரம்"}
+                        other{"000 ஆயிரம்"}
+                    }
+                    1000000{
+                        one{"0 மில்லியன்"}
+                        other{"0 மில்லியன்"}
+                    }
+                    10000000{
+                        one{"00 மில்லியன்"}
+                        other{"00 மில்லியன்"}
+                    }
+                    100000000{
+                        one{"000 மில்லியன்"}
+                        other{"000 மில்லியன்"}
+                    }
+                    1000000000{
+                        one{"0 பில்லியன்"}
+                        other{"0 பில்லியன்"}
+                    }
+                    10000000000{
+                        one{"00 பில்லியன்"}
+                        other{"00 பில்லியன்"}
+                    }
+                    100000000000{
+                        one{"000 பில்லியன்"}
+                        other{"000 பில்லியன்"}
+                    }
+                    1000000000000{
+                        one{"0 டிரில்லியன்"}
+                        other{"0 டிரில்லியன்"}
+                    }
+                    10000000000000{
+                        one{"00 டிரில்லியன்"}
+                        other{"00 டிரில்லியன்"}
+                    }
+                    100000000000000{
+                        one{"000 டிரில்லியன்"}
+                        other{"000 டிரில்லியன்"}
+                    }
+                }
+            }
+            patternsShort{
+                decimalFormat{
+                    1000{
+                        one{"0K"}
+                        other{"0K"}
+                    }
+                    10000{
+                        one{"00K"}
+                        other{"00K"}
+                    }
+                    100000{
+                        one{"000K"}
+                        other{"000K"}
+                    }
+                    1000000{
+                        one{"0M"}
+                        other{"0M"}
+                    }
+                    10000000{
+                        one{"00M"}
+                        other{"00M"}
+                    }
+                    100000000{
+                        one{"000M"}
+                        other{"000M"}
+                    }
+                    1000000000{
+                        one{"0B"}
+                        other{"0B"}
+                    }
+                    10000000000{
+                        one{"00B"}
+                        other{"00B"}
+                    }
+                    100000000000{
+                        one{"000B"}
+                        other{"000B"}
+                    }
+                    1000000000000{
+                        one{"0T"}
+                        other{"0T"}
+                    }
+                    10000000000000{
+                        one{"00T"}
+                        other{"00T"}
+                    }
+                    100000000000000{
+                        one{"000T"}
+                        other{"000T"}
+                    }
+                }
             }
             symbols{
                 decimal{"."}
+                exponential{"E"}
                 group{","}
-                nan{"எண் இல்லை"}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"-"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
             }
         }
         native{"tamldec"}
         traditional{"taml"}
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     calendar{
+        generic{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM, y G",
+                "d MMMM, y G",
+                "d MMM, y G",
+                "d-M-yy GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"d E"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, d/M"}
+                MMM{"LLL"}
+                MMMEd{"E, d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                MMdd{"dd-MM"}
+                Md{"d/M"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"M/y"}
+                yMEd{"E, d/M/y"}
+                yMM{"MM-y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, d MMM, y"}
+                yMMMM{"MMMM y"}
+                yMMMd{"d MMM, y"}
+                yMd{"d/M/y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+            intervalFormats{
+                H{
+                    H{"HH–HH"}
+                }
+                Hm{
+                    H{"HH:mm–HH:mm"}
+                    m{"HH:mm–HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm–HH:mm v"}
+                    m{"HH:mm–HH:mm v"}
+                }
+                Hv{
+                    H{"HH–HH v"}
+                }
+                M{
+                    M{"M–M"}
+                }
+                MEd{
+                    M{"E, d/M – E, d/M"}
+                    d{"E, d/M – E, d/M"}
+                }
+                MMM{
+                    M{"MMM–MMM"}
+                }
+                MMMEd{
+                    M{"E, d MMM – E, d MMM"}
+                    d{"E, d MMM – E, d MMM"}
+                }
+                MMMd{
+                    M{"d MMM – d MMM"}
+                    d{"d–d MMM"}
+                }
+                Md{
+                    M{"d/M – d/M"}
+                    d{"d/M – d/M"}
+                }
+                d{
+                    d{"d–d"}
+                }
+                fallback{"{0} – {1}"}
+                h{
+                    a{"h a – h a"}
+                    h{"h–h a"}
+                }
+                hm{
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
+                }
+                hmv{
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hv{
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                y{
+                    y{"y–y"}
+                }
+                yM{
+                    M{"M/y – M/y"}
+                    y{"M/y – M/y"}
+                }
+                yMEd{
+                    M{"E, d/M/y – E, d/M/y"}
+                    d{"E, d/M/y – E, d/M/y"}
+                    y{"E, d/M/y – E, d/M/y"}
+                }
+                yMMM{
+                    M{"MMM–MMM y"}
+                    y{"MMM y – MMM y"}
+                }
+                yMMMEd{
+                    M{"E, d MMM – E, d MMM, y"}
+                    d{"E, d MMM – E, d MMM, y"}
+                    y{"E, d MMM, y – E, d MMM, y"}
+                }
+                yMMMM{
+                    M{"MMMM–MMMM y"}
+                    y{"MMMM y – MMMM y"}
+                }
+                yMMMd{
+                    M{"d MMM – d MMM, y"}
+                    d{"d–d MMM, y"}
+                    y{"d MMM, y – d MMM, y"}
+                }
+                yMd{
+                    M{"d/M/y – d/M/y"}
+                    d{"d/M/y – d/M/y"}
+                    y{"d/M/y – d/M/y"}
+                }
+            }
+        }
         gregorian{
             AmPmMarkers{
-                "முற்பகல்",
-                "பிற்பகல்",
+                "AM",
+                "PM",
             }
             DateTimePatterns{
                 "h:mm:ss a zzzz",
@@ -62,25 +316,47 @@ ta{
                 "{1} {0}",
             }
             availableFormats{
+                Ed{"d E"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
                 MEd{"E, d/M"}
+                MMM{"LLL"}
                 MMMEd{"E, d MMM"}
                 MMMMd{"d MMMM"}
                 MMMd{"d MMM"}
                 MMdd{"dd-MM"}
                 Md{"d/M"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y"}
                 yM{"M/y"}
                 yMEd{"E, d/M/y"}
+                yMM{"MM-y"}
                 yMMM{"MMM y"}
                 yMMMEd{"E, d MMM, y"}
+                yMMMM{"MMMM y"}
                 yMMMd{"d MMM, y"}
                 yMd{"d/M/y"}
-                yyQ{"Q yy"}
-                yyyyMM{"MM-yyyy"}
-                yyyyMMMM{"MMMM y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
             }
             dayNames{
                 format{
                     abbreviated{
+                        "ஞா",
+                        "தி",
+                        "செ",
+                        "பு",
+                        "வி",
+                        "வெ",
+                        "ச",
+                    }
+                    short{
                         "ஞா",
                         "தி",
                         "செ",
@@ -101,6 +377,15 @@ ta{
                 }
                 stand-alone{
                     narrow{
+                        "ஞா",
+                        "தி",
+                        "செ",
+                        "பு",
+                        "வி",
+                        "வெ",
+                        "ச",
+                    }
+                    short{
                         "ஞா",
                         "தி",
                         "செ",
@@ -130,64 +415,24 @@ ta{
                     "அனோ டோமினி",
                 }
             }
-            fields{
-                day{
-                    dn{"நாள்"}
-                    relative{
-                        "-1"{"நேற்று"}
-                        "-2"{"முந்தா நாள்"}
-                        "0"{"இன்று"}
-                        "1"{"நாளை"}
-                        "2"{"நாளை மறுநாள்"}
-                    }
-                }
-                dayperiod{
-                    dn{"முற்பகல்/பிற்பகல்"}
-                }
-                era{
-                    dn{"காலம்"}
-                }
-                hour{
-                    dn{"மணி"}
-                }
-                minute{
-                    dn{"நிமிடம்"}
-                }
-                month{
-                    dn{"மாதம்"}
-                    relative{
-                        "-1"{"சென்ற மாதம்"}
-                        "0"{"இந்த மாதம்"}
-                        "1"{"அடுத்த மாதம்"}
-                    }
-                }
-                second{
-                    dn{"வினாடி"}
-                }
-                week{
-                    dn{"வாரம்"}
-                    relative{
-                        "-1"{"கடந்த வாரம்"}
-                        "0"{"இந்த வாரம்"}
-                        "1"{"அடுத்த வாரம்"}
-                    }
-                }
-                weekday{
-                    dn{"வார நாள்"}
-                }
-                year{
-                    dn{"வருடம்"}
-                    relative{
-                        "-1"{"கடந்த வருடம்"}
-                        "0"{"இந்த ஆண்டு"}
-                        "1"{"அடுத்த வருடம்"}
-                    }
-                }
-                zone{
-                    dn{"மண்டலம்"}
-                }
-            }
             intervalFormats{
+                H{
+                    H{"HH–HH"}
+                }
+                Hm{
+                    H{"HH:mm–HH:mm"}
+                    m{"HH:mm–HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm–HH:mm v"}
+                    m{"HH:mm–HH:mm v"}
+                }
+                Hv{
+                    H{"HH–HH v"}
+                }
+                M{
+                    M{"M–M"}
+                }
                 MEd{
                     M{"E, d/M – E, d/M"}
                     d{"E, d/M – E, d/M"}
@@ -207,14 +452,39 @@ ta{
                     M{"d/M – d/M"}
                     d{"d/M – d/M"}
                 }
+                d{
+                    d{"d–d"}
+                }
+                fallback{"{0} – {1}"}
+                h{
+                    a{"h a – h a"}
+                    h{"h–h a"}
+                }
+                hm{
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
+                }
+                hmv{
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hv{
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                y{
+                    y{"y–y"}
+                }
                 yM{
-                    M{"M/yy – M/yy"}
-                    y{"M/yy – M/yy"}
+                    M{"M/y – M/y"}
+                    y{"M/y – M/y"}
                 }
                 yMEd{
-                    M{"E, d/M/yy – E, d/M/yy"}
-                    d{"E, d/M/yy – E, d/M/yy"}
-                    y{"E, d/M/yy – E, d/M/yy"}
+                    M{"E, d/M/y – E, d/M/y"}
+                    d{"E, d/M/y – E, d/M/y"}
+                    y{"E, d/M/y – E, d/M/y"}
                 }
                 yMMM{
                     M{"MMM–MMM y"}
@@ -235,9 +505,9 @@ ta{
                     y{"d MMM, y – d MMM, y"}
                 }
                 yMd{
-                    M{"d/M/yy – d/M/yy"}
-                    d{"d/M/yy – d/M/yy"}
-                    y{"d/M/yy – d/M/yy"}
+                    M{"d/M/y – d/M/y"}
+                    d{"d/M/y – d/M/y"}
+                    y{"d/M/y – d/M/y"}
                 }
             }
             monthNames{
@@ -358,6 +628,12 @@ ta{
                         "காலாண்டு3",
                         "காலாண்டு4",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
                     wide{
                         "முதல் காலாண்டு",
                         "இரண்டாம் காலாண்டு",
@@ -374,10 +650,69 @@ ta{
         quotationEnd{"”"}
         quotationStart{"“"}
     }
+    fields{
+        day{
+            dn{"நாள்"}
+            relative{
+                "-1"{"நேற்று"}
+                "-2"{"முந்தா நாள்"}
+                "0"{"இன்று"}
+                "1"{"நாளை"}
+                "2"{"நாளை மறுநாள்"}
+            }
+        }
+        dayperiod{
+            dn{"முற்பகல்/பிற்பகல்"}
+        }
+        era{
+            dn{"காலம்"}
+        }
+        hour{
+            dn{"மணி"}
+        }
+        minute{
+            dn{"நிமிடம்"}
+        }
+        month{
+            dn{"மாதம்"}
+            relative{
+                "-1"{"சென்ற மாதம்"}
+                "0"{"இந்த மாதம்"}
+                "1"{"அடுத்த மாதம்"}
+            }
+        }
+        second{
+            dn{"வினாடி"}
+        }
+        week{
+            dn{"வாரம்"}
+            relative{
+                "-1"{"கடந்த வாரம்"}
+                "0"{"இந்த வாரம்"}
+                "1"{"அடுத்த வாரம்"}
+            }
+        }
+        weekday{
+            dn{"வார நாள்"}
+        }
+        year{
+            dn{"வருடம்"}
+            relative{
+                "-1"{"கடந்த வருடம்"}
+                "0"{"இந்த ஆண்டு"}
+                "1"{"அடுத்த வருடம்"}
+            }
+        }
+        zone{
+            dn{"மண்டலம்"}
+        }
+    }
     listPattern{
         standard{
             2{"{0} மற்றும் {1}"}
             end{"{0} மற்றும் {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
         }
     }
     measurementSystemNames{
@@ -387,145 +722,117 @@ ta{
     }
     units{
         day{
-            0{"0 நாட்கள்"}
-            1{"1 நாள்"}
+            one{"{0} நாள்"}
             other{"{0} நாட்கள்"}
         }
         day-future{
-            0{"0 நாட்களில்"}
-            1{"1 நாளில்"}
+            one{"{0} நாளில்"}
             other{"{0} நாட்களில்"}
         }
         day-past{
-            0{"0 நாட்களுக்கு முன்"}
-            1{"1 நாளுக்கு முன்"}
+            one{"{0} நாளுக்கு முன்"}
             other{"{0} நாட்களுக்கு முன்"}
         }
         hour{
-            0{"0 மணிநேரம்"}
-            1{"1 மணிநேரம்"}
+            one{"{0} மணிநேரம்"}
             other{"{0} மணிநேரம்"}
         }
         hour-future{
-            0{"0 மணிநேரத்தில்"}
-            1{"1 மணிநேரத்தில்"}
+            one{"{0} மணிநேரத்தில்"}
             other{"{0} மணிநேரத்தில்"}
         }
         hour-past{
-            0{"0 மணிநேரம் முன்"}
-            1{"1 மணிநேரம் முன்"}
+            one{"{0} மணிநேரம் முன்"}
             other{"{0} மணிநேரம் முன்"}
         }
         minute{
-            0{"0 நிமிடங்கள்"}
-            1{"1 நிமிடம்"}
+            one{"{0} நிமிடம்"}
             other{"{0} நிமிடங்கள்"}
         }
         minute-future{
-            0{"0 நிமிடங்களில்"}
-            1{"1 நிமிடத்தில்"}
+            one{"{0} நிமிடத்தில்"}
             other{"{0} நிமிடங்களில்"}
         }
         minute-past{
-            0{"0 நிமிடங்களுக்கு முன்"}
-            1{"1 நிமிடத்திற்கு முன்"}
+            one{"{0} நிமிடத்திற்கு முன்"}
             other{"{0} நிமிடங்களுக்கு முன்"}
         }
         month{
-            0{"0 மாதங்கள்"}
-            1{"1 மாதம்"}
+            one{"{0} மாதம்"}
             other{"{0} மாதங்கள்"}
         }
         month-future{
-            0{"0 மாதத்தில்"}
-            1{"1 மாதத்தில்"}
+            one{"{0} மாதத்தில்"}
             other{"{0} மாதங்களில்"}
         }
         month-past{
-            0{"0 மாதங்களுக்கு முன்"}
-            1{"1 மாதத்துக்கு முன்"}
+            one{"{0} மாதத்துக்கு முன்"}
             other{"{0} மாதங்களுக்கு முன்"}
         }
         second{
-            0{"0 வினாடிகள்"}
-            1{"1 வினாடி"}
+            one{"{0} வினாடி"}
             other{"{0} வினாடிகள்"}
         }
         second-future{
-            0{"0 வினாடிகளில்"}
-            1{"1 வினாடியில்"}
+            one{"{0} வினாடியில்"}
             other{"{0} வினாடிகள்"}
         }
         second-past{
-            0{"0 வினாடிக்கு முன்"}
-            1{"1 வினாடிக்கு முன்"}
+            one{"{0} வினாடிக்கு முன்"}
             other{"{0} வினாடிக்கு முன்"}
         }
         week{
-            0{"0 வாரங்கள்"}
-            1{"1 வாரம்"}
+            one{"{0} வாரம்"}
             other{"{0} வாரங்கள்"}
         }
         week-future{
-            0{"0 வாரத்தில்"}
-            1{"1 வாரத்தில்"}
+            one{"{0} வாரத்தில்"}
             other{"{0} வாரங்களில்"}
         }
         week-past{
-            0{"0 வாரங்களுக்கு முன்"}
-            1{"1 வாரத்திற்கு முன்பு"}
+            one{"{0} வாரத்திற்கு முன்பு"}
             other{"{0} வாரத்திற்கு முன்"}
         }
         year{
-            0{"0 வருடங்கள்"}
-            1{"1 வருடம்"}
+            one{"{0} வருடம்"}
             other{"{0} வருடங்கள்"}
         }
         year-future{
-            0{"0 வருடங்களில்"}
-            1{"1 வருடத்தில்"}
+            one{"{0} வருடத்தில்"}
             other{"{0} வருடங்களில்"}
         }
         year-past{
-            0{"0 வருடங்களுக்கு முன்"}
-            1{"1 வருடத்திற்கு முன்"}
+            one{"{0} வருடத்திற்கு முன்"}
             other{"{0} வருடங்களுக்கு முன்"}
         }
     }
     unitsShort{
         day{
-            0{"0 நாட்கள்"}
-            1{"1 நாள்"}
+            one{"{0} நாள்"}
             other{"{0} நாட்கள்"}
         }
         hour{
-            0{"0 மணிநேரம்"}
-            1{"1 மணிநேரம்"}
+            one{"{0} மணிநேரம்"}
             other{"{0} மணிநேரம்"}
         }
         minute{
-            0{"0 நிமிடங்கள்"}
-            1{"1 நிமிடம்"}
+            one{"{0} நிமிடம்"}
             other{"{0} நிமிடங்கள்"}
         }
         month{
-            0{"0 மாதம்"}
-            1{"1 மாதம்"}
+            one{"{0} மாதம்"}
             other{"{0} மாதங்கள்"}
         }
         second{
-            0{"0 வினாடிகள்"}
-            1{"1 வினாடி"}
+            one{"{0} வினாடி"}
             other{"{0} வினாடிகள்"}
         }
         week{
-            0{"0 வாரங்கள்"}
-            1{"1 வாரம்"}
+            one{"{0} வாரம்"}
             other{"{0} வாரங்கள்"}
         }
         year{
-            0{"0 வருடங்கள்"}
-            1{"1 வருடம்"}
+            one{"{0} வருடம்"}
             other{"{0} வருடங்கள்"}
         }
     }

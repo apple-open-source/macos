@@ -40,7 +40,7 @@
 #include "flushwc.h"
 
 static int
-shift_jisx0213_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+shift_jisx0213_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   ucs4_t last_wc = conv->istate;
   if (last_wc) {
@@ -158,7 +158,7 @@ static const struct { unsigned short base; unsigned short composed; } shift_jisx
 };
 
 static int
-shift_jisx0213_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+shift_jisx0213_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   int count = 0;
   unsigned short lasttwo = conv->ostate;
@@ -294,7 +294,7 @@ shift_jisx0213_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 }
 
 static int
-shift_jisx0213_reset (conv_t conv, unsigned char *r, int n)
+shift_jisx0213_reset (conv_t conv, unsigned char *r, size_t n)
 {
   state_t lasttwo = conv->ostate;
 

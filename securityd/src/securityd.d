@@ -15,7 +15,7 @@
 typedef const void *DTHandle;
 typedef uint32_t DTPort;
 typedef uint32_t DTGuest;
-
+typedef uint8_t bool;
 
 /*
  * The main static provider for securityd

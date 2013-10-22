@@ -306,7 +306,7 @@
     static NSUInteger sPrevOurTurn = 0;
     unsigned ourTurn = 0;
     for (MBCDocument * doc in [[NSDocumentController sharedDocumentController] documents])
-        if ([doc humanTurn])
+        if ([doc nontrivialHumanTurn])
             ++ourTurn;
     NSDockTile * tile = [NSApp dockTile];
     if (ourTurn)

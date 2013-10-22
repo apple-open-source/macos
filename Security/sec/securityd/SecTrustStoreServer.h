@@ -31,29 +31,26 @@
 
 #include <Security/SecTrustStore.h>
 #include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFError.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
-SecTrustStoreRef SecTrustStoreForDomainName(CFStringRef domain);
+SecTrustStoreRef SecTrustStoreForDomainName(CFStringRef domainName, CFErrorRef *error);
 
-OSStatus _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
+bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
 	SecCertificateRef certificate,
-    CFTypeRef trustSettingsDictOrArray);
+    CFTypeRef trustSettingsDictOrArray, CFErrorRef *error);
 
-OSStatus SecTrustStoreRemoveCertificateWithDigest(SecTrustStoreRef ts, CFDataRef digest);
+bool SecTrustStoreRemoveCertificateWithDigest(SecTrustStoreRef ts, CFDataRef digest, CFErrorRef *error);
 
-bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts);
+bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error);
 
 CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts,
-    SecCertificateRef certificate);
+    SecCertificateRef certificate, CFErrorRef *error);
 
-bool SecTrustStoreContainsCertificateWithDigest(SecTrustStoreRef source, CFDataRef digest);
+bool SecTrustStoreContainsCertificateWithDigest(SecTrustStoreRef source, CFDataRef digest, bool *contains, CFErrorRef *error);
 
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECTRUSTSTORESERVER_H_ */

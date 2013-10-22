@@ -1,19 +1,19 @@
 #
-#   nop.rb - 
-#   	$Release Version: 0.9.5$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   nop.rb -
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38358 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
 #
+#
+# :stopdoc:
 module IRB
   module ExtendCommand
     class Nop
-      
-      @RCS_ID='-$Id: nop.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
+
+      @RCS_ID='-$Id: nop.rb 38358 2012-12-13 05:22:30Z zzak $-'
 
       def self.execute(conf, *opts)
 	command = new(conf)
@@ -36,4 +36,4 @@ module IRB
     end
   end
 end
-
+# :startdoc:

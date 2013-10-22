@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2002-2007,2012 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -65,7 +65,7 @@ public:
 	static Certificate* make(const Keychain &keychain, const PrimaryKey &primaryKey);
 
 	Certificate(Certificate &certificate);
-    virtual ~Certificate() throw();
+    virtual ~Certificate();
 
 	virtual void update();
 	virtual Item copyTo(const Keychain &keychain, Access *newAccess = NULL);
@@ -74,6 +74,7 @@ public:
     const CssmData &data();
     CSSM_CERT_TYPE type();
 	CSSM_CERT_ENCODING encoding();
+	CFDataRef sha1Hash();
 	CFStringRef commonName();
 	CFStringRef distinguishedName(const CSSM_OID *sourceOid, const CSSM_OID *componentOid);
 	CFStringRef copyFirstEmailAddress();
@@ -102,8 +103,8 @@ public:
 
 	bool operator < (Certificate &other);
 	bool operator == (Certificate &other);
-
-	bool equal(SecCFObject &other);
+	
+	virtual CFHashCode hash();
 
 public:
 	CSSM_DATA_PTR copyFirstFieldValue(const CSSM_OID &field);
@@ -137,6 +138,7 @@ private:
 	CSSM_DATA_PTR mV1SubjectPublicKeyCStructValue; // Hack to prevent algorithmID() from leaking.
     CSSM_DATA_PTR mV1SubjectNameCStructValue;
     CSSM_DATA_PTR mV1IssuerNameCStructValue;
+	CFDataRef mSha1Hash;
 };
 
 } // end namespace KeychainCore

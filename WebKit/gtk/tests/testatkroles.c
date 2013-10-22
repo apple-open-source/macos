@@ -18,12 +18,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "autotoolsconfig.h"
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
-
-#if GTK_CHECK_VERSION(2, 14, 0)
 
 /* Non form roles */
 #define HTML_DOCUMENT_FRAME "<html><body>This is a test.</body></html>"
@@ -425,12 +424,3 @@ int main(int argc, char** argv)
 
     return g_test_run();
 }
-
-#else
-int main(int argc, char** argv)
-{
-    g_critical("You will need gtk-2.14.0 to run the unit tests. Doing nothing now.");
-    return 0;
-}
-
-#endif

@@ -26,9 +26,9 @@
 #ifndef SchemeRegistry_h
 #define SchemeRegistry_h
 
-#include "PlatformString.h"
 #include <wtf/HashSet.h>
 #include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -82,6 +82,15 @@ public:
     // Allow non-HTTP schemes to be registered to allow CORS requests.
     static void registerURLSchemeAsCORSEnabled(const String& scheme);
     static bool shouldTreatURLSchemeAsCORSEnabled(const String& scheme);
+
+    // Allow resources from some schemes to load on a page, regardless of its
+    // Content Security Policy.
+    static void registerURLSchemeAsBypassingContentSecurityPolicy(const String& scheme);
+    static void removeURLSchemeRegisteredAsBypassingContentSecurityPolicy(const String& scheme);
+    static bool schemeShouldBypassContentSecurityPolicy(const String& scheme);
+    
+    // Schemes whose responses can be cached indefinitely.
+    static bool shouldCacheResponsesFromURLSchemeIndefinitely(const String& scheme);
 };
 
 } // namespace WebCore

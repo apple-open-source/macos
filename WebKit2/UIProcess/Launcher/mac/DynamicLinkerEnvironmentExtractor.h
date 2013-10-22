@@ -26,8 +26,6 @@
 #ifndef DynamicLinkerEnvironmentExtractor_h
 #define DynamicLinkerEnvironmentExtractor_h
 
-#ifndef BUILDING_ON_SNOW_LEOPARD
-
 #include <mach/machine.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
@@ -56,11 +54,9 @@ private:
     RetainPtr<NSString> m_executablePath;
     cpu_type_t m_architecture;
 
-    Vector<std::pair<CString, CString> > m_extractedVariables;
+    Vector<std::pair<CString, CString>> m_extractedVariables;
 };
 
 } // namespace WebKit
-
-#endif // BUILDING_ON_SNOW_LEOPARD
 
 #endif // DynamicLinkerEnvironmentExtractor_h

@@ -147,7 +147,6 @@ SDKey::SDKey(SDDLSession &session, CssmKey &ioKey, KeyHandle hKey, CSSM_DB_HANDL
 			 CssmData &keyBlob)
 : ReferencedKey(session.mSDCSPDLSession),
 mAllocator(session.allocator()), mKeyHandle(hKey), mRecord(record),
-mRecordType(recordType),
 mClientSession(session.clientSession())
 {
 	CssmKey::Header &header = ioKey.header();

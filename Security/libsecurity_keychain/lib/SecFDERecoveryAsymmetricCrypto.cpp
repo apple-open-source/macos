@@ -55,7 +55,7 @@ int SecFDERecoveryWrapCRSKWithPubKey(const uint8_t *crsk, size_t crskLen,
 CFDataRef SecFDERecoveryUnwrapCRSKWithPrivKey(SecKeychainRef keychain, const FVPrivateKeyHeader *inHeader)
 {
 	CFDataRef result = NULL;
-	OSStatus __secapiresult;
+	OSStatus __secapiresult = 0;
 
 	try
 	{
@@ -63,9 +63,9 @@ CFDataRef SecFDERecoveryUnwrapCRSKWithPrivKey(SecKeychainRef keychain, const FVP
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
-	catch (...) { __secapiresult=internalComponentErr; }
-	secdebug("FDERecovery", "SecFDERecoveryUnwrapCRSKWithPrivKey: %ld", __secapiresult);
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
+	secdebug("FDERecovery", "SecFDERecoveryUnwrapCRSKWithPrivKey: %d", (int)__secapiresult);
 	return result;
 }
 
@@ -101,7 +101,7 @@ static void encodePrivateKeyHeader(const CssmData &inBlob, CFDataRef certificate
 	CssmData *cssmData = reinterpret_cast<CssmData *>(outData);
 	
 	assert(cssmData->Length <= sizeof(outHeader.publicKeyHash));
-	outHeader.publicKeyHashSize = cssmData->Length;
+	outHeader.publicKeyHashSize = (uint32_t)cssmData->Length;
 	memcpy(outHeader.publicKeyHash, cssmData->Data, cssmData->Length);
 	fCSP.allocator().free(cssmData->Data);
 	fCSP.allocator().free(cssmData);
@@ -113,7 +113,7 @@ static void encodePrivateKeyHeader(const CssmData &inBlob, CFDataRef certificate
 	CssmAutoData remData(fCSP.allocator());
 	encrypt.padding(CSSM_PADDING_PKCS1);
 	
-	outHeader.encryptedBlobSize = encrypt.encrypt(inBlob, clearBuf, remData.get());
+	outHeader.encryptedBlobSize = (uint32_t)encrypt.encrypt(inBlob, clearBuf, remData.get());
 	if (outHeader.encryptedBlobSize > sizeof(outHeader.encryptedBlob))
 		secdebug("FDERecovery", "encodePrivateKeyHeader: encrypted blob too big: %d", outHeader.encryptedBlobSize);
 }

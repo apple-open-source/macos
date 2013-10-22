@@ -21,7 +21,10 @@
 #include "webkitwebdatabase.h"
 
 #include "DatabaseDetails.h"
-#include "DatabaseTracker.h"
+#include "DatabaseManager.h"
+#include "FileSystem.h"
+#include "GroupSettings.h"
+#include "PageGroup.h"
 #include "webkitglobalsprivate.h"
 #include "webkitsecurityoriginprivate.h"
 #include <glib/gi18n-lib.h>
@@ -38,16 +41,16 @@
  * To get access to all databases defined by a security origin, use
  * #webkit_security_origin_get_databases. Each database has a canonical
  * name, as well as a user-friendly display name.
- * 
+ *
  * WebKit uses SQLite to create and access the local SQL databases. The location
  * of a #WebKitWebDatabase can be accessed wth #webkit_web_database_get_filename.
  * You can configure the location of all databases with
  * #webkit_set_database_directory_path.
- * 
+ *
  * For each database the web site can define an estimated size which can be
  * accessed with #webkit_web_database_get_expected_size. The current size of the
  * database in bytes is returned by #webkit_web_database_get_size.
- * 
+ *
  * For more information refer to the Web Database specification proposal at
  * http://dev.w3.org/html5/webdatabase
  */
@@ -74,7 +77,7 @@ struct _WebKitWebDatabasePrivate {
     gchar* filename;
 };
 
-static gchar* webkit_database_directory_path = NULL;
+static CString gWebKitWebDatabasePath;
 static guint64 webkit_default_database_quota = 5 * 1024 * 1024;
 
 static void webkit_web_database_set_security_origin(WebKitWebDatabase* webDatabase, WebKitSecurityOrigin* security_origin);
@@ -327,7 +330,7 @@ const gchar* webkit_web_database_get_display_name(WebKitWebDatabase* webDatabase
 
 #if ENABLE(SQL_DATABASE)
     WebKitWebDatabasePrivate* priv = webDatabase->priv;
-    WebCore::DatabaseDetails details = WebCore::DatabaseTracker::tracker().detailsForNameAndOrigin(priv->name, core(priv->origin));
+    WebCore::DatabaseDetails details = WebCore::DatabaseManager::manager().detailsForNameAndOrigin(priv->name, core(priv->origin));
     WTF::String displayName =  details.displayName();
 
     if (displayName.isEmpty())
@@ -359,7 +362,7 @@ guint64 webkit_web_database_get_expected_size(WebKitWebDatabase* webDatabase)
 
 #if ENABLE(SQL_DATABASE)
     WebKitWebDatabasePrivate* priv = webDatabase->priv;
-    WebCore::DatabaseDetails details = WebCore::DatabaseTracker::tracker().detailsForNameAndOrigin(priv->name, core(priv->origin));
+    WebCore::DatabaseDetails details = WebCore::DatabaseManager::manager().detailsForNameAndOrigin(priv->name, core(priv->origin));
     return details.expectedUsage();
 #else
     return 0;
@@ -382,7 +385,7 @@ guint64 webkit_web_database_get_size(WebKitWebDatabase* webDatabase)
 
 #if ENABLE(SQL_DATABASE)
     WebKitWebDatabasePrivate* priv = webDatabase->priv;
-    WebCore::DatabaseDetails details = WebCore::DatabaseTracker::tracker().detailsForNameAndOrigin(priv->name, core(priv->origin));
+    WebCore::DatabaseDetails details = WebCore::DatabaseManager::manager().detailsForNameAndOrigin(priv->name, core(priv->origin));
     return details.currentUsage();
 #else
     return 0;
@@ -406,7 +409,7 @@ const gchar* webkit_web_database_get_filename(WebKitWebDatabase* webDatabase)
 #if ENABLE(SQL_DATABASE)
     WebKitWebDatabasePrivate* priv = webDatabase->priv;
     WTF::String coreName = WTF::String::fromUTF8(priv->name);
-    WTF::String corePath = WebCore::DatabaseTracker::tracker().fullPathForDatabase(core(priv->origin), coreName);
+    WTF::String corePath = WebCore::DatabaseManager::manager().fullPathForDatabase(core(priv->origin), coreName);
 
     if (corePath.isEmpty())
         return"";
@@ -435,7 +438,7 @@ void webkit_web_database_remove(WebKitWebDatabase* webDatabase)
 
 #if ENABLE(SQL_DATABASE)
     WebKitWebDatabasePrivate* priv = webDatabase->priv;
-    WebCore::DatabaseTracker::tracker().deleteDatabase(core(priv->origin), priv->name);
+    WebCore::DatabaseManager::manager().deleteDatabase(core(priv->origin), priv->name);
 #endif
 }
 
@@ -449,55 +452,48 @@ void webkit_web_database_remove(WebKitWebDatabase* webDatabase)
 void webkit_remove_all_web_databases()
 {
 #if ENABLE(SQL_DATABASE)
-    WebCore::DatabaseTracker::tracker().deleteAllDatabases();
+    WebCore::DatabaseManager::manager().deleteAllDatabases();
 #endif
 }
 
 /**
  * webkit_get_web_database_directory_path:
  *
- * Returns the current path to the directory WebKit will write Web 
- * Database databases. By default this path will be in the user data
- * directory.
+ * Returns the current path to the directory WebKit will write Web
+ * Database and Indexed Database databases. By default this path will
+ * be in the user data directory.
  *
- * Returns: the current database directory path
+ * Returns: the current database directory path in the filesystem encoding
  *
  * Since: 1.1.14
  **/
 const gchar* webkit_get_web_database_directory_path()
 {
-#if ENABLE(SQL_DATABASE)
-    WTF::String path = WebCore::DatabaseTracker::tracker().databaseDirectoryPath();
-
-    if (path.isEmpty())
-        return "";
-
-    g_free(webkit_database_directory_path);
-    webkit_database_directory_path = g_strdup(path.utf8().data());
-    return webkit_database_directory_path;
-#else
-    return "";
-#endif
+    return gWebKitWebDatabasePath.data();
 }
 
 /**
  * webkit_set_web_database_directory_path:
- * @path: the new database directory path
+ * @path: the new database directory path in the filesystem encoding
  *
- * Sets the current path to the directory WebKit will write Web 
- * Database databases. 
+ * Sets the current path to the directory WebKit will write Web
+ * Database and Indexed Database databases.
  *
  * Since: 1.1.14
  **/
 void webkit_set_web_database_directory_path(const gchar* path)
 {
-#if ENABLE(SQL_DATABASE)
-    WTF::String corePath = WTF::String::fromUTF8(path);
-    WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(corePath);
+    gWebKitWebDatabasePath = path;
 
-    g_free(webkit_database_directory_path);
-    webkit_database_directory_path = g_strdup(corePath.utf8().data());
+    String pathString = WebCore::filenameToString(path);
+#if ENABLE(SQL_DATABASE)
+    WebCore::DatabaseManager::manager().setDatabaseDirectoryPath(pathString);
 #endif
+
+#if ENABLE(INDEXED_DATABASE)
+    WebCore::PageGroup::pageGroup(webkitPageGroupName())->groupSettings()->setIndexedDBDatabasePath(pathString);
+#endif
+
 }
 
 /**
@@ -505,7 +501,7 @@ void webkit_set_web_database_directory_path(const gchar* path)
  *
  * Returns the default quota for Web Database databases. By default
  * this value is 5MB.
- 
+ *
  * Returns: the current default database quota in bytes
  *
  * Since: 1.1.14
@@ -519,8 +515,7 @@ guint64 webkit_get_default_web_database_quota()
  * webkit_set_default_web_database_quota:
  * @defaultQuota: the new default database quota
  *
- * Sets the current path to the directory WebKit will write Web 
- * Database databases. 
+ * Sets the default quota for Web Database databases.
  *
  * Since: 1.1.14
  **/

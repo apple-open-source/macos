@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2005-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2005-2007, 2012, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,9 @@ Boolean	_prefs_changed;
 
 __BEGIN_DECLS
 
+AuthorizationRef	_prefs_AuthorizationCreate	(void);
+void			_prefs_AuthorizationFree	(AuthorizationRef authorization);
+
 Boolean	_prefs_open		(CFStringRef name, CFStringRef prefsID);
 void	_prefs_save		(void);
 void	_prefs_close		(void);
@@ -65,6 +68,7 @@ void	do_prefs_get		(int argc, char **argv);
 void	do_prefs_set		(int argc, char **argv);
 void	do_prefs_remove		(int argc, char **argv);
 
+void	do_log			(char *pref, int argc, char **argv);
 __END_DECLS
 
 #endif /* !_PREFS_H */

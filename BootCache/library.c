@@ -902,11 +902,7 @@ BC_playlist_for_filename(int fd, const char *fname, off_t maxsize, struct BC_pla
 			.l2p_contigbytes = remaining, //As an IN parameter to F_LOG2PHYS_EXT, this is the number of bytes to be queried
 		};
 		
-#if __LP64__
-		int ret = syscall(SYS_fcntl, fd, F_LOG2PHYS_EXT, &block_range);
-#else
 		int ret = fcntl(fd, F_LOG2PHYS_EXT, &block_range);
-#endif
 		if (ret != 0) {
 			//RLOG(NOTICE, "fcntl(%d, F_LOG2PHYS_EXT, &{.offset: %"PRIdoff", .bytes: %"PRIdoff"}) => %d (errno: %d %s)", fd, block_range.l2p_devoffset, block_range.l2p_contigbytes, ret, errno, strerror(errno));
 			break;
@@ -922,7 +918,7 @@ BC_playlist_for_filename(int fd, const char *fname, off_t maxsize, struct BC_pla
 		
 		//RLOG(DEBUG, "%"PRIdoff":%"PRIdoff" is %"PRIdoff":%"PRIdoff" on disk\n", ra_off, remaining, block_range.l2p_devoffset, block_range.l2p_contigbytes);
 				
-		if (block_range.l2p_contigbytes == 0) {
+		if (block_range.l2p_contigbytes <= 0) {
 			//RLOG(INFO, "%"PRIdoff":%"PRIdoff" returned %"PRIdoff":%"PRIdoff"\n", ra_off, remaining, block_range.l2p_devoffset, block_range.l2p_contigbytes);
 			break;
 		}

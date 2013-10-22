@@ -21,6 +21,7 @@
 #ifndef QtPageClient_h
 #define QtPageClient_h
 
+#include "FindIndicator.h"
 #include "PageClient.h"
 
 class QQuickWebView;
@@ -30,7 +31,7 @@ namespace WebKit {
 class DrawingAreaProxy;
 class LayerTreeContext;
 class QtWebPageEventHandler;
-class QtWebUndoController;
+class DefaultUndoController;
 class ShareableBitmap;
 
 class QtPageClient : public PageClient {
@@ -38,14 +39,14 @@ public:
     QtPageClient();
     ~QtPageClient();
 
-    void initialize(QQuickWebView*, QtWebPageEventHandler*, WebKit::QtWebUndoController*);
+    void initialize(QQuickWebView*, QtWebPageEventHandler*, WebKit::DefaultUndoController*);
 
     // QQuickWebView.
     virtual void setViewNeedsDisplay(const WebCore::IntRect&);
+    virtual void didRenderFrame(const WebCore::IntSize& contentsSize, const WebCore::IntRect& coveredRect);
     virtual WebCore::IntSize viewSize();
     virtual bool isViewFocused();
     virtual bool isViewVisible();
-    virtual void didReceiveMessageFromNavigatorQtObject(const String&);
     virtual void pageDidRequestScroll(const WebCore::IntPoint&);
     virtual void didChangeContentsSize(const WebCore::IntSize&);
     virtual void didChangeViewportProperties(const WebCore::ViewportAttributes&);
@@ -59,6 +60,7 @@ public:
     virtual void handleProxyAuthenticationRequiredRequest(const String& hostname, uint16_t port, const String& prefilledUsername, String& username, String& password);
 
     virtual void displayView();
+    virtual bool canScrollView() { return false; }
     virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
     virtual bool isViewWindowActive();
     virtual bool isViewInWindow();
@@ -68,12 +70,13 @@ public:
     virtual void updateAcceleratedCompositingMode(const LayerTreeContext&);
 #endif // USE(ACCELERATED_COMPOSITING)
     virtual void pageClosed() { }
+    virtual void preferencesDidChange() { }
     virtual void startDrag(const WebCore::DragData&, PassRefPtr<ShareableBitmap> dragImage);
     virtual void setCursor(const WebCore::Cursor&);
     virtual void setCursorHiddenUntilMouseMoves(bool);
     virtual void toolTipChanged(const String&, const String&);
 
-    // QtWebUndoController
+    // DefaultUndoController
     virtual void registerEditCommand(PassRefPtr<WebEditCommandProxy>, WebPageProxy::UndoOrRedo);
     virtual void clearAllEditCommands();
     virtual bool canUndoRedo(WebPageProxy::UndoOrRedo);
@@ -86,17 +89,21 @@ public:
     virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) { }
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*);
     virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*);
+#if ENABLE(INPUT_TYPE_COLOR)
+    virtual PassRefPtr<WebColorChooserProxy> createColorChooserProxy(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&);
+#endif
     virtual void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut, bool animate) { }
     virtual void didCommitLoadForMainFrame(bool useCustomRepresentation) { }
     virtual void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&) { }
     virtual double customRepresentationZoomFactor() { return 1; }
     virtual void setCustomRepresentationZoomFactor(double) { }
-    virtual void didChangeScrollbarsForMainFrame() const { }
     virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
     virtual void findStringInCustomRepresentation(const String&, WebKit::FindOptions, unsigned maxMatchCount) { }
     virtual void countStringMatchesInCustomRepresentation(const String&, WebKit::FindOptions, unsigned maxMatchCount) { }
+    virtual void pageTransitionViewportReady();
     virtual void didFindZoomableArea(const WebCore::IntPoint&, const WebCore::IntRect&);
     virtual void updateTextInputState();
+    virtual void handleWillSetInputMethodState();
     virtual void doneWithGestureEvent(const WebGestureEvent&, bool wasEventHandled);
 #if ENABLE(TOUCH_EVENTS)
     virtual void doneWithTouchEvent(const NativeWebTouchEvent&, bool wasEventHandled);
@@ -105,7 +112,7 @@ public:
 private:
     QQuickWebView* m_webView;
     QtWebPageEventHandler* m_eventHandler;
-    QtWebUndoController* m_undoController;
+    DefaultUndoController* m_undoController;
 };
 
 } // namespace WebKit

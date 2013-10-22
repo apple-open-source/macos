@@ -20,6 +20,12 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
+    #include <bless.h>
+#endif  // !TARGET_OS_EMBEDDED
+
 #include <libc.h>
 #include <sysexits.h>
 #include <asl.h>
@@ -27,7 +33,6 @@
 #include <sys/resource.h>
 #include <IOKit/kext/OSKext.h>
 #include <IOKit/kext/OSKextPrivate.h>
-#include <IOKit/IOKitLib.h>
 
 #include "kext_tools_util.h"
 
@@ -123,6 +128,284 @@ void addToArrayIfAbsent(CFMutableArrayRef array, const void * value)
     }
     return;
 }
+
+/*******************************************************************************
+ * createCFDataFromFile()
+ *******************************************************************************/
+Boolean createCFDataFromFile(CFDataRef  *dataRefOut,
+                             const char *filePath)
+{
+    int             fd = -1;
+    Boolean         result = false;
+    struct stat     statBuf;
+    void            *buffer;
+    CFIndex         length;
+    
+    *dataRefOut = NULL;
+    fd = open(filePath, O_RDONLY, 0);
+    if (fd < 0) {
+        goto finish;
+    }
+    if (fstat(fd, &statBuf) != 0) {
+        goto finish;
+    }
+    if ((statBuf.st_mode & S_IFMT) != S_IFREG) {
+        goto finish;
+    }
+    if (statBuf.st_size == 0) {
+        goto finish;
+    }
+    
+    // fill buffer used for CFData passed to caller
+    length = (CFIndex) statBuf.st_size;
+    buffer = CFAllocatorAllocate(kCFAllocatorDefault, length, 0);
+    if (read(fd, buffer, length) < 0) {
+        goto finish;
+    }
+    
+    *dataRefOut = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+                                (const UInt8 *)buffer,
+                                length,
+                                kCFAllocatorDefault);
+    if (*dataRefOut == NULL) {
+        CFAllocatorDeallocate(kCFAllocatorDefault, buffer);
+        goto finish;
+    }
+    result = true;
+finish:
+    if (fd != -1) {
+        close(fd);
+    }
+    if (result == false) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel,
+                  "%s: failed for '%s'", __func__, filePath);
+    }
+    return result;
+}
+
+
+/*******************************************************************************
+ *******************************************************************************/
+ExitStatus writeToFile(
+                       int           fileDescriptor,
+                       const UInt8 * data,
+                       CFIndex       length)
+{
+    ExitStatus result = EX_OSERR;
+    ssize_t bytesWritten = 0;
+    ssize_t totalBytesWritten = 0;
+    
+    while (totalBytesWritten < length) {
+        bytesWritten = write(fileDescriptor, data + totalBytesWritten,
+                             length - totalBytesWritten);
+        if (bytesWritten < 0) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                      "Write failed - %s", strerror(errno));
+            goto finish;
+        }
+        totalBytesWritten += bytesWritten;
+    }
+    
+    result = EX_OK;
+finish:
+    return result;
+}
+
+#if !TARGET_OS_EMBEDDED
+/******************************************************************************
+ ******************************************************************************/
+
+void postNoteAboutKexts( CFStringRef theNotificationCenterName,
+                         CFMutableDictionaryRef theDict )
+{    
+    CFNotificationCenterRef     myCenter    = NULL;
+    
+    if (theDict == NULL || theNotificationCenterName == NULL)
+        return;
+    
+    myCenter = CFNotificationCenterGetDistributedCenter();
+    CFRetain(theDict);
+
+    CFNotificationCenterPostNotificationWithOptions(
+        myCenter,
+        theNotificationCenterName,
+        NULL,
+        theDict,
+        kCFNotificationDeliverImmediately | kCFNotificationPostToAllSessions );
+    
+    SAFE_RELEASE(theDict);
+    
+    return;
+}
+
+/******************************************************************************
+ * postNoteAboutKextLoadsMT will use CFNotificationCenter to post a notification.
+ * The notification center is named by theNotificationCenterName.  This routine
+ * is used to notify kextd about a kext that is getting loaded for message 
+ * tracing.
+ ******************************************************************************/
+
+void postNoteAboutKextLoadsMT(CFStringRef theNotificationCenterName,
+                              CFMutableArrayRef theKextPathArray)
+{
+    CFMutableDictionaryRef      myInfoDict  = NULL; // must release
+    CFNotificationCenterRef     myCenter    = NULL;
+    
+    if (theKextPathArray == NULL || theNotificationCenterName == NULL)
+        return;
+    
+    myCenter = CFNotificationCenterGetDistributedCenter();
+    myInfoDict = CFDictionaryCreateMutable(
+                                           kCFAllocatorDefault, 0,
+                                           &kCFCopyStringDictionaryKeyCallBacks,
+                                           &kCFTypeDictionaryValueCallBacks);
+    
+    if (myInfoDict && myCenter) {
+        CFDictionaryAddValue(myInfoDict,
+                             CFSTR("KextArrayKey"),
+                             theKextPathArray);
+        
+        CFNotificationCenterPostNotificationWithOptions(
+                                                        myCenter,
+                                                        theNotificationCenterName,
+                                                        NULL,
+                                                        myInfoDict,
+                                                        kCFNotificationDeliverImmediately |
+                                                        kCFNotificationPostToAllSessions );
+    }
+    
+    SAFE_RELEASE(myInfoDict);
+    
+    return;
+}
+
+/*******************************************************************************
+ ******************************************************************************/
+void addKextToAlertDict( CFMutableDictionaryRef *theDictPtr, OSKextRef theKext )
+{
+    CFStringRef         myBundleID;                 // do NOT release
+    CFStringRef         myBundleVersion;            // do NOT release
+    CFMutableArrayRef   myKextArray;                // do NOT release
+    CFURLRef            myKextURL = NULL;           // must release
+    CFStringRef         myKextPath = NULL;          // must release
+    CFMutableDictionaryRef  myKextInfoDict = NULL;  // must release
+    CFMutableDictionaryRef  myAlertInfoDict = NULL; // do NOT release
+    CFIndex                myCount, i;
+    
+    if ( theDictPtr == NULL || theKext == NULL ) {
+        return;
+    }
+    
+    myAlertInfoDict = *theDictPtr;
+    if (myAlertInfoDict == NULL) {
+        /* caller wants us to create Alert Info Dictionary */
+        myAlertInfoDict = CFDictionaryCreateMutable(
+                                        kCFAllocatorDefault, 0,
+                                        &kCFCopyStringDictionaryKeyCallBacks,
+                                        &kCFTypeDictionaryValueCallBacks );
+        if (myAlertInfoDict == NULL) {
+            return;
+        }
+        *theDictPtr = myAlertInfoDict;
+    }
+        
+    myBundleID = OSKextGetIdentifier(theKext);
+    if ( myBundleID == NULL ) {
+        goto finish;
+    }
+    
+    /* We never alert about Apple Kexts */
+    if ( CFStringHasPrefix(myBundleID, __kOSKextApplePrefix) == true) {
+        goto finish;
+    }
+    
+    myBundleVersion = OSKextGetValueForInfoDictionaryKey(theKext,
+                                                         kCFBundleVersionKey);
+    if (myBundleVersion == NULL) {
+        goto finish;
+    }
+    
+    myKextURL = CFURLCopyAbsoluteURL(OSKextGetURL(theKext));
+    if (myKextURL == NULL) {
+        goto finish;
+    }
+    
+    myKextPath = CFURLCopyFileSystemPath(myKextURL, kCFURLPOSIXPathStyle);
+    if (myKextPath == NULL) {
+        goto finish;
+    }
+    
+    /* add kext info to the Alert Dictionary.
+     * We want BundleID, Version and full path to the kext
+     */
+    myKextArray = (CFMutableArrayRef)
+        CFDictionaryGetValue(myAlertInfoDict, CFSTR("KextInfoArrayKey"));
+    if (myKextArray == NULL) {
+        /* first kext info so create the kext info array */
+        myKextArray = CFArrayCreateMutable(kCFAllocatorDefault,
+                                           0,
+                                           &kCFTypeArrayCallBacks);
+        if (myKextArray == NULL) {
+            goto finish;
+        }
+        CFDictionarySetValue(myAlertInfoDict,
+                             CFSTR("KextInfoArrayKey"),
+                             myKextArray);
+    }
+    
+    /* check for dup of this kext */
+    myCount = CFArrayGetCount(myKextArray);
+    if (myCount > 0) {
+        for (i = 0; i < myCount; i++) {
+            CFMutableDictionaryRef myDict;
+            myDict = (CFMutableDictionaryRef)
+            CFArrayGetValueAtIndex(myKextArray, i);
+            if (myDict == NULL)   continue;
+            
+            if ( !CFDictionaryContainsValue(myDict, myBundleID) ) {
+                continue;
+            }
+            if ( !CFDictionaryContainsValue(myDict,
+                                            myBundleVersion) ) {
+                continue;
+            }
+            /* already have this one so bail */
+            goto finish;
+        }
+    }
+    
+    /* new kext info to add */
+    myKextInfoDict = CFDictionaryCreateMutable(
+                                        kCFAllocatorDefault, 0,
+                                        &kCFCopyStringDictionaryKeyCallBacks,
+                                        &kCFTypeDictionaryValueCallBacks);
+    if (myKextInfoDict == NULL) {
+        goto finish;
+    }
+    CFDictionaryAddValue(myKextInfoDict,
+                         kCFBundleIdentifierKey,
+                         myBundleID);
+    CFDictionaryAddValue(myKextInfoDict,
+                         kCFBundleVersionKey,
+                         myBundleVersion);
+    CFDictionaryAddValue(myKextInfoDict,
+                         CFSTR("KextPathKey"),
+                         myKextPath);
+    
+    CFArrayAppendValue(myKextArray,
+                       myKextInfoDict);
+        
+finish:
+    SAFE_RELEASE(myKextURL);
+    SAFE_RELEASE(myKextPath);
+    SAFE_RELEASE(myKextInfoDict);
+    
+    return;
+}
+
+#endif  // !TARGET_OS_EMBEDDED
 
 #if PRAGMA_MARK
 #pragma mark Path & File
@@ -232,10 +515,13 @@ saveFile(const void * vKey, const void * vValue, void * vContext)
     CFDataRef         fileData = (CFDataRef)vValue;
     SaveFileContext * context  = (SaveFileContext *)vContext;
 
+    long              length;
+    int               fd = -1;
+    mode_t            mode = 0666;
+    struct  stat      statBuf;
     CFURLRef          saveURL = NULL;     // must release
-    CFBooleanRef      fileExists = NULL;  // must release
+    Boolean           fileExists = false;
     char              savePath[PATH_MAX];
-    SInt32   error;
     
     if (context->fatal) {
         goto finish;
@@ -248,23 +534,16 @@ saveFile(const void * vKey, const void * vValue, void * vContext)
         goto finish;
     }
 
-    if (!CFURLGetFileSystemRepresentation(saveURL, /* resolveToBase */ false,
+    if (!CFURLGetFileSystemRepresentation(saveURL, /* resolveToBase */ true,
         (u_char *)savePath, sizeof(savePath))) {
-        
-        // qlog
         context->fatal = true;
         goto finish;
     }
     
     if (!context->overwrite) {
-        fileExists = CFURLCreatePropertyFromResource(kCFAllocatorDefault, saveURL,
-            kCFURLFileExists, &error);
-        if (!fileExists || CFBooleanGetTypeID() != CFGetTypeID(fileExists)) {
-            OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel,
-                "Error checking file: CFError %d.", (int)error);
-        }
-        if (CFBooleanGetValue(fileExists)) {
-            switch (user_approve(/* ask_all */ TRUE, /* default_answer */ REPLY_YES,
+        fileExists = CFURLResourceIsReachable(saveURL, NULL);
+        if (fileExists) {
+           switch (user_approve(/* ask_all */ TRUE, /* default_answer */ REPLY_YES,
                 "%s exists, overwrite", savePath)) {
 
                 case REPLY_YES:
@@ -285,22 +564,43 @@ saveFile(const void * vKey, const void * vValue, void * vContext)
                     break;
             }
         }
+        else {
+            OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel,
+                      "%s missing '%s'", __func__, savePath);
+            context->fatal = true;
+            goto finish;
+        }
     }
 
-    if (!CFURLWriteDataAndPropertiesToResource(saveURL, fileData,
-        /* properties */ NULL, &error)) {
-        
-       /* Is this fatal to the whole program? I'd rather soldier on.
-        */
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Failed to save %s.", savePath);
+    /* Write data.
+     */
+    length = CFDataGetLength(fileData);
+    if (0 == stat(savePath, &statBuf)) {
+        mode = statBuf.st_mode;
     }
-        
+    fd = open(savePath, O_WRONLY|O_CREAT|O_TRUNC, mode);
+    if (fd != -1 && length) {
+        ExitStatus result;
+        result = writeToFile(fd, CFDataGetBytePtr(fileData), length);
+        if (result != EX_OK) {
+            OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel,
+                      "%s write failed for '%s'", __func__, savePath);
+        }
+    }
+    else {
+        /* Is this fatal to the whole program? I'd rather soldier on.
+         */
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "%s Failed to save '%s'", __func__, savePath);
+    }
 
 finish:
+    if (fd != -1) {
+        fsync(fd);
+        close(fd);
+    }
     SAFE_RELEASE(saveURL);
-    SAFE_RELEASE(fileExists);
     return;
 }
 
@@ -322,6 +622,127 @@ CFStringRef copyKextPath(OSKextRef aKext)
     result = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle);
 finish:
     SAFE_RELEASE(absURL);
+    return result;
+}
+
+
+/*******************************************************************************
+ * Returns the access and mod times from the file in the given array of
+ * fileURLs with the latest mod time.
+ * 11860417 - support multiple extensions directories
+ *******************************************************************************/
+ExitStatus
+getLatestTimesFromCFURLArray(
+                             CFArrayRef       dirURLArray,
+                             struct timeval   dirTimeVals[2])
+{
+    ExitStatus      result     = EX_SOFTWARE;
+    int             i;
+    CFURLRef        myURL;
+    struct stat     myStatBuf;
+    struct timeval  myTempModTime;
+    struct timeval  myTempAccessTime;
+    
+    if (dirURLArray == NULL) {
+        goto finish;
+    }
+    bzero(dirTimeVals, (sizeof(struct timeval) * 2));
+ 
+    for (i = 0; i < CFArrayGetCount(dirURLArray); i++) {
+        myURL = (CFURLRef) CFArrayGetValueAtIndex(dirURLArray, i);
+        if (myURL == NULL) {
+            OSKextLog(NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "%s: NO fileURL at index %d!!!! ", __FUNCTION__, i);
+            goto finish;
+        }
+ 
+        result = statURL(myURL, &myStatBuf);
+        if (result != EX_OK) {
+            goto finish;
+        }
+        TIMESPEC_TO_TIMEVAL(&myTempAccessTime, &myStatBuf.st_atimespec);
+        TIMESPEC_TO_TIMEVAL(&myTempModTime, &myStatBuf.st_mtimespec);
+        
+        if (timercmp(&myTempModTime, &dirTimeVals[1], >)) {
+            dirTimeVals[0].tv_sec = myTempAccessTime.tv_sec;
+            dirTimeVals[0].tv_usec = myTempAccessTime.tv_usec;
+            dirTimeVals[1].tv_sec = myTempModTime.tv_sec;
+            dirTimeVals[1].tv_usec = myTempModTime.tv_usec;
+        }
+    }
+    
+    result = EX_OK;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+ *******************************************************************************/
+ExitStatus
+getFilePathTimes(
+                 const char        * filePath,
+                 struct timeval      cacheFileTimes[2])
+{
+    struct stat         statBuffer;
+    ExitStatus          result          = EX_SOFTWARE;
+    
+    result = statPath(filePath, &statBuffer);
+    if (result != EX_OK) {
+        goto finish;
+    }
+    
+    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &statBuffer.st_atimespec);
+    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &statBuffer.st_mtimespec);
+    
+    result = EX_OK;
+finish:
+    return result;
+}
+
+
+/*******************************************************************************
+ *******************************************************************************/
+ExitStatus
+statURL(CFURLRef anURL, struct stat * statBuffer)
+{
+    ExitStatus result = EX_OSERR;
+    char path[PATH_MAX];
+    
+    if (!CFURLGetFileSystemRepresentation(anURL, /* resolveToBase */ true,
+                                          (UInt8 *)path, sizeof(path)))
+    {
+        OSKextLogStringError(/* kext */ NULL);
+        goto finish;
+    }
+    
+    result = statPath(path, statBuffer);
+    if (!result) {
+        goto finish;
+    }
+    
+    result = EX_OK;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+ *******************************************************************************/
+ExitStatus
+statPath(const char *path, struct stat *statBuffer)
+{
+    ExitStatus result = EX_OSERR;
+    
+    if (stat(path, statBuffer)) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
+                  "Can't stat %s - %s.", path, strerror(errno));
+        goto finish;
+    }
+    
+    result = EX_OK;
+    
+finish:
     return result;
 }
 
@@ -395,7 +816,7 @@ ExitStatus setLogFilterForOpt(
                 localOptarg);
             goto finish;
         }
-
+        
        /* Look for '-v0x####' with no space and advance to the 0x part.
         */
         if (localOptarg[0] == '-' && localOptarg[1] == kOptVerbose &&
@@ -428,7 +849,6 @@ ExitStatus setLogFilterForOpt(
             (localOptarg[1] == '\0')) {
 
             logFilter = _sLogSpecsForVerboseLevels[localOptarg[0] - '0'];
-
             if (!optarg) {
                 optind++;
             }
@@ -441,7 +861,7 @@ ExitStatus setLogFilterForOpt(
     }
 
     logFilter = logFilter | forceOnFlags;
-
+    
     OSKextSetLogFilter(logFilter, /* kernel? */ false);
     OSKextSetLogFilter(logFilter, /* kernel? */ true);
 
@@ -482,7 +902,7 @@ void tool_openlog(const char * name)
 
 /*******************************************************************************
 * Basic log function. If any log flags are set, log the message
-* to syslog/stderr.
+* to syslog/stderr.  Note: exported as SPI in bootroot.h.
 *******************************************************************************/
 
 void tool_log(
@@ -568,6 +988,27 @@ void log_CFError(
     
     return;
 }
+
+#if !TARGET_OS_EMBEDDED
+// log helper for libbless, exported as SPI via bootroot.h
+int32_t
+BRBLLogFunc(void *refcon __unused, int32_t level, const char *string)
+{
+    OSKextLogSpec logSpec = kOSKextLogGeneralFlag;
+    switch (level) {
+    case kBLLogLevelVerbose:
+        logSpec |= kOSKextLogDebugLevel;
+        break;
+    case kBLLogLevelError:
+        logSpec |= kOSKextLogErrorLevel;
+        break;
+    default:
+        logSpec |= kOSKextLogWarningLevel;
+    }
+    OSKextLog(NULL, logSpec, "%s", string);
+    return 0;
+}
+#endif   // !TARGET_OS_EMBEDDED
 
 /*******************************************************************************
 * safe_mach_error_string()
@@ -699,6 +1140,7 @@ const char * user_input(Boolean * eof, const char * format, ...)
 
     output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
+        if (result) free(result);
         result = NULL;
         goto finish;
     }
@@ -873,3 +1315,4 @@ finish:
 
     return result;
 }
+

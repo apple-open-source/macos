@@ -26,10 +26,19 @@
 #include <string.h>
 #include <paths.h>
 #include <err.h>
+#include <stdarg.h>
+#include <inttypes.h>
 
 #include <libutil.h>
 
+#ifndef KERNEL_PRIVATE
+#define KERNEL_PRIVATE
 #include <sys/kdebug.h>
+#undef KERNEL_PRIVATE
+#else
+#include <sys/kdebug.h>
+#endif /*KERNEL_PRIVATE*/
+#include <sys/param.h>
 
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -47,22 +56,25 @@ int kval_flag=0;
 int remove_flag=0;
 int bufset_flag=0;
 int bufget_flag=0;
-int class_flag=0;
-int subclass_flag=0;
+int filter_flag=0;
+int filter_file_flag=0;
+int filter_alloced=0;
 int trace_flag=0;
 int nowrap_flag=0;
 int freerun_flag=0;
 int verbose_flag=0;
+int usage_flag=0;
 int pid_flag=0;
 int pid_exflag=0;
 int ppt_flag=0;
-unsigned int class=0;
-unsigned int class2=0;
-unsigned int subclass=0;
+int done_with_args=0;
+int no_default_codes_flag=0;
+
 unsigned int value1=0;
 unsigned int value2=0;
 unsigned int value3=0;
 unsigned int value4=0;
+
 pid_t pid=0;
 int reenable=0;
 
@@ -78,6 +90,8 @@ FILE *output_file;
 int   output_fd;
 
 extern char **environ;
+
+uint8_t* type_filter_bitmap;
 
 
 #define DBG_FUNC_ALL		(DBG_FUNC_START | DBG_FUNC_END)
@@ -107,6 +121,9 @@ int total_threads = 0;
 int nthreads = 0;
 kd_threadmap *mapptr = 0;
 
+kd_cpumap_header* cpumap_header = NULL;
+kd_cpumap* cpumap = NULL;
+
 /* 
    If NUMPARMS changes from the kernel, 
    then PATHLENGTH will also reflect the change
@@ -128,7 +145,9 @@ typedef struct {
 	char	*debug_string;
 } code_type_t;
 
-code_type_t * codesc = 0;
+code_type_t*	codesc = 0;
+size_t			codesc_idx = 0; // Index into first empty codesc entry
+
 
 
 typedef struct event *event_t;
@@ -188,16 +207,15 @@ kbufinfo_t bufinfo = {0, 0, 0, 0};
 
 int   codenum = 0;
 int   codeindx_cache = 0;
-char  codefile[] = "codes";
-char *cfile = (char *)0;
-
 
 static void quit(char *);
 static int match_debugid(unsigned int, char *, int *);
 static void usage(int short_help);
 static int argtoi(int flag, char *req, char *str, int base);
-static int parse_codefile(char *filename);
-static int read_command_map(int, int);
+static int parse_codefile(const char *filename);
+static void codesc_find_dupes(void);
+static int read_command_map(int, uint32_t);
+static void read_cpu_map(int);
 static void find_thread_command(kd_buf *, char **);
 static void create_map_entry(uintptr_t, char *);
 static void getdivisor();
@@ -212,9 +230,7 @@ static void set_numbufs(int);
 static void set_freerun();
 static void get_bufinfo(kbufinfo_t *);
 static void set_init();
-static void set_class();
 static void set_kval_list();
-static void set_subclass();
 static void readtrace(char *);
 static void log_trace();
 static void Log_trace();
@@ -232,7 +248,19 @@ static int  debugid_compar(code_type_t *, code_type_t *);
 
 static threadmap_t find_thread_entry(uintptr_t);
 
+static void saw_filter_class(uint8_t class);
+static void saw_filter_end_range(uint8_t end_class);
+static void saw_filter_subclass(uint8_t subclass);
+static void filter_done_parsing(void);
 
+static void set_filter(void);
+static void set_filter_class(uint8_t class);
+static void set_filter_range(uint8_t class, uint8_t end);
+static void set_filter_subclass(uint8_t class, uint8_t subclass);
+
+static void parse_filter_file(char *filename);
+
+static void quit_args(const char *fmt, ...)  __printflike(1, 2);
 
 #ifndef	KERN_KDWRITETR
 #define KERN_KDWRITETR	17
@@ -258,6 +286,13 @@ typedef struct {
 #define RAW_VERSION1    0x55aa0101
 #endif
 
+#define ARRAYSIZE(x) ((int)(sizeof(x) / sizeof(*x)))
+
+#define EXTRACT_CLASS_LOW(debugid)     ( (uint8_t) ( ((debugid) & 0xFF00   ) >> 8 ) )
+#define EXTRACT_SUBCLASS_LOW(debugid)  ( (uint8_t) ( ((debugid) & 0xFF     )      ) )
+
+#define ENCODE_CSC_LOW(class, subclass) \
+  ( (uint16_t) ( ((class) & 0xff) << 8 ) | ((subclass) & 0xff) )
 
 RAW_header	raw_header;
 
@@ -280,7 +315,7 @@ void set_enable(int val)
 	mib[4] = 0;
 	mib[5] = 0;
 	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
-		quit("trace facility failure, KERN_KDENABLE\n");
+		quit_args("trace facility failure, KERN_KDENABLE: %s\n", strerror(errno));
 }
 
 void set_remove()
@@ -300,7 +335,7 @@ void set_remove()
 		if (errno == EBUSY)
 			quit("the trace facility is currently in use...\n          fs_usage, sc_usage, trace, and latency use this feature.\n\n");
 		else
-			quit("trace facility failure, KERN_KDREMOVE\n");
+			quit_args("trace facility failure, KERN_KDREMOVE: %s\n", strerror(errno));
 	}
 }
 
@@ -313,7 +348,7 @@ void set_numbufs(int nbufs)
 	mib[4] = 0;
 	mib[5] = 0;
 	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
-		quit("trace facility failure, KERN_KDSETBUF\n");
+		quit_args("trace facility failure, KERN_KDSETBUF: %s\n", strerror(errno));
     
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
@@ -322,7 +357,7 @@ void set_numbufs(int nbufs)
 	mib[4] = 0;
 	mib[5] = 0;
 	if (sysctl(mib, 3, NULL, &needed, NULL, 0) < 0)
-		quit("trace facility failure, KERN_KDSETUP\n");
+		quit_args("trace facility failure, KERN_KDSETUP: %s\n", strerror(errno));
 }
 
 void set_nowrap()
@@ -334,7 +369,7 @@ void set_nowrap()
         mib[4] = 0;
         mib[5] = 0;		/* no flags */
         if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
-		quit("trace facility failure, KDBG_NOWRAP\n");
+		quit_args("trace facility failure, KDBG_NOWRAP: %s\n", strerror(errno));
 
 }
 
@@ -397,7 +432,7 @@ void set_freerun()
         mib[4] = 0;
         mib[5] = 0;
         if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
-		quit("trace facility failure, KDBG_FREERUN\n");
+		quit_args("trace facility failure, KDBG_FREERUN: %s\n", strerror(errno));
 }
 
 void get_bufinfo(kbufinfo_t *val)
@@ -410,7 +445,7 @@ void get_bufinfo(kbufinfo_t *val)
 	mib[4] = 0;
 	mib[5] = 0;
 	if (sysctl(mib, 3, val, &needed, 0, 0) < 0)
-		quit("trace facility failure, KERN_KDGETBUF\n");
+		quit_args("trace facility failure, KERN_KDGETBUF: %s\n", strerror(errno));
 }
 
 void set_init()
@@ -428,7 +463,7 @@ void set_init()
         mib[4] = 0;
 	mib[5] = 0;
         if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0)
-            quit("trace facility failure, KERN_KDSETREG (rangetype)\n");
+            quit_args("trace facility failure, KERN_KDSETREG (rangetype): %s\n", strerror(errno));
     
         mib[0] = CTL_KERN;
         mib[1] = KERN_KDEBUG;
@@ -437,26 +472,20 @@ void set_init()
         mib[4] = 0;
         mib[5] = 0;
         if (sysctl(mib, 3, NULL, &needed, NULL, 0) < 0)
-            quit("trace facility failure, KERN_KDSETUP\n");
+            quit_args("trace facility failure, KERN_KDSETUP: %s\n", strerror(errno));
 }
 
 
-void set_class()
+static void
+set_filter(void)
 {
-        kd_regtype kr;
-    
-        kr.type = KDBG_CLASSTYPE;
-        kr.value1 = class;
-        kr.value2 = class2;
-        needed = sizeof(kd_regtype);
-        mib[0] = CTL_KERN;
-        mib[1] = KERN_KDEBUG;
-        mib[2] = KERN_KDSETREG;
-        mib[3] = 0;
-        mib[4] = 0;
-        mib[5] = 0;
-        if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0)
-            quit("trace facility failure, KERN_KDSETREG (classtype)\n");
+	errno = 0;
+	int mib[] = { CTL_KERN, KERN_KDEBUG, KERN_KDSET_TYPEFILTER };
+	size_t needed = KDBG_TYPEFILTER_BITMAP_SIZE;
+
+	if(sysctl(mib, ARRAYSIZE(mib), type_filter_bitmap, &needed, NULL, 0)) {
+		quit_args("trace facility failure, KERN_KDSET_TYPEFILTER: %s\n", strerror(errno));
+	}
 }
 
 void set_kval_list()
@@ -476,25 +505,7 @@ void set_kval_list()
         mib[4] = 0;
         mib[5] = 0;
         if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0)
-            quit("trace facility failure, KERN_KDSETREG (valcheck)\n");
-}
-
-void set_subclass()
-{
-        kd_regtype kr;
-    
-        kr.type = KDBG_SUBCLSTYPE;
-        kr.value1 = class;
-        kr.value2 = subclass;
-        needed = sizeof(kd_regtype);
-        mib[0] = CTL_KERN;
-        mib[1] = KERN_KDEBUG;
-        mib[2] = KERN_KDSETREG;
-        mib[3] = 0;
-        mib[4] = 0;
-        mib[5] = 0;
-        if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0)
-            quit("trace facility failure, KERN_KDSETREG (subclstype)\n");
+            quit_args("trace facility failure, KERN_KDSETREG (valcheck): %s\n", strerror(errno));
 }
 
 
@@ -508,7 +519,7 @@ void readtrace(char *buffer)
 	mib[5] = 0;
 
 	if (sysctl(mib, 3, buffer, &needed, NULL, 0) < 0)
-		quit("trace facility failure, KERN_KDREADTR\n");
+		quit_args("trace facility failure, KERN_KDREADTR: %s\n", strerror(errno));
 }
 
 
@@ -724,6 +735,7 @@ log_trace()
 		quit("can't allocate memory for tracing info\n");
 
 	read_command_map(0, 0);
+	read_cpu_map(0);
 
 	raw_header.version_no = RAW_VERSION1;
 	raw_header.thread_count = total_threads;
@@ -736,8 +748,16 @@ log_trace()
 	write(fd, (char *)mapptr, size);
 
 	pad_size = 4096 - ((sizeof(RAW_header) + size) & 4095);
+
+	if (cpumap_header) {
+		size_t cpumap_size = sizeof(kd_cpumap_header) + cpumap_header->cpu_count * sizeof(kd_cpumap);
+		if (pad_size >= cpumap_size) {
+			write(fd, (char *)cpumap_header, cpumap_size);
+			pad_size -= cpumap_size;
+		}
+	}
+
 	memset(pad_buf, 0, pad_size);
-			
 	write(fd, pad_buf, pad_size);
 
 	for (;;) {
@@ -797,11 +817,8 @@ Log_trace()
 		set_numbufs(nbufs);
 		set_init();
 
-		if (class_flag)
-			set_class();
-
-		if (subclass_flag)
-			set_subclass();
+		if (filter_flag)
+			set_filter();
 
 		if (kval_flag)
 			set_kval_list();
@@ -822,6 +839,7 @@ Log_trace()
 		char pad_buf[4096];
 
 		read_command_map(0, 0);
+		read_cpu_map(0);
 
 		raw_header.version_no = RAW_VERSION1;
 		raw_header.thread_count = total_threads;
@@ -834,8 +852,16 @@ Log_trace()
 		write(fd, (char *)mapptr, size);
 
 		pad_size = 4096 - ((sizeof(RAW_header) + size) & 4095);
-		memset(pad_buf, 0, pad_size);
-			
+
+		if (cpumap_header) {
+			size_t cpumap_size = sizeof(kd_cpumap_header) + cpumap_header->cpu_count * sizeof(kd_cpumap);
+			if (pad_size >= cpumap_size) {
+				write(fd, (char *)cpumap_header, cpumap_size);
+				pad_size -= cpumap_size;
+			}
+		}
+
+		memset(pad_buf, 0, pad_size);			
 		write(fd, pad_buf, pad_size);
 	}
 	sample_window_abs = (uint64_t)((double)US_TO_SLEEP * divisor);
@@ -980,7 +1006,7 @@ void read_trace()
 			}
 		}
 		count_of_names = raw_header.thread_count;
-		trace_time = raw_header.TOD_secs;
+		trace_time = (time_t) (raw_header.TOD_secs);
 
 		printf("%s\n", ctime(&trace_time));
 	}
@@ -993,6 +1019,7 @@ void read_trace()
 	kd = (kd_buf *)buffer;
 
 	read_command_map(fd, count_of_names);
+	read_cpu_map(fd);
 
 	for (;;) {
 		uint32_t count;
@@ -1025,7 +1052,7 @@ void read_trace()
 			mib[4] = 0;
 			mib[5] = 0;
 			if (sysctl(mib, 3, buffer, &needed, NULL, 0) < 0)
-				quit("trace facility failure, KERN_KDREADTR\n");
+				quit_args("trace facility failure, KERN_KDREADTR: %s\n", strerror(errno));
 
 			if (needed == 0)
 				break;
@@ -1110,7 +1137,15 @@ void read_trace()
 			last_event_time = x;
 			ending_event = FALSE;
 
-			find_thread_command(kdp, &command);
+			/*
+			 * Is this event from an IOP? If so, there will be no
+			 * thread command, label it with the symbolic IOP name
+			 */
+			if (cpumap && (cpunum < cpumap_header->cpu_count) && (cpumap[cpunum].flags & KDBG_CPUMAP_IS_IOP)) {
+				command = cpumap[cpunum].name;
+			} else {
+				find_thread_command(kdp, &command);
+			}
 
 			/*
 			 * The internal use TRACE points clutter the output.
@@ -1263,6 +1298,8 @@ char **env;
 	int ch;
 	int i;
 	char *output_filename = NULL;
+	char *filter_filename = NULL;
+	unsigned int parsed_arg;
 
 	for (i = 1; i < argc; i++) {
 		if (strcmp("-X", argv[i]) == 0) {
@@ -1288,12 +1325,12 @@ char **env;
 	output_file = stdout;
 	output_fd = 1;
 
-	while ((ch = getopt(argc, argv, "hedEk:irb:gc:p:s:tR:L:l:S:F:a:x:Xnfvo:P")) != EOF)
+	while ((ch = getopt(argc, argv, "hedEk:irb:gc:p:s:tR:L:l:S:F:a:x:Xnfvo:PT:N")) != EOF)
 	{
 		switch(ch)
 		{
 		case 'h': /* help */
-			usage(LONG_HELP);
+			usage_flag=1;
 			break;
 		case 'S':
 			secs_to_run = argtoi('S', "decimal number", optarg, 10);
@@ -1332,13 +1369,13 @@ char **env;
 			break;
 		case 'k':
 			if (kval_flag == 0)
-				value1 = argtoul('k', "hex number", optarg, 16);
+				value1 = (unsigned int) argtoul('k', "hex number", optarg, 16);
 			else if (kval_flag == 1)
-				value2 = argtoul('k', "hex number", optarg, 16);
+				value2 = (unsigned int) argtoul('k', "hex number", optarg, 16);
 			else if (kval_flag == 2)
-				value3 = argtoul('k', "hex number", optarg, 16);
+				value3 = (unsigned int) argtoul('k', "hex number", optarg, 16);
 			else if (kval_flag == 3)
-				value4 = argtoul('k', "hex number", optarg, 16);
+				value4 = (unsigned int) argtoul('k', "hex number", optarg, 16);
 			else
 			{
 				fprintf(stderr, "A maximum of four values can be specified with -k\n");
@@ -1370,20 +1407,28 @@ char **env;
 			nbufs = argtoi('b', "decimal number", optarg, 10);
 			break;
 		case 'c':
-			class_flag = 1;
-			class = argtoi('c', "decimal number", optarg, 10);
-			class2 = class+1;
+			filter_flag = 1;
+			parsed_arg = argtoi('c', "decimal, hex, or octal number", optarg, 0);
+			if (parsed_arg > 0xFF)
+				quit_args("argument '-c %s' parsed as %u, "
+				          "class value must be 0-255\n", optarg, parsed_arg);
+			saw_filter_class(parsed_arg);
 			break;
 		case 's':
-			subclass_flag = 1;
-			subclass = argtoi('s', "decimal number", optarg, 10);
+			filter_flag = 1;
+			parsed_arg = argtoi('s', "decimal, hex, or octal number", optarg, 0);
+			if (parsed_arg > 0xFF)
+				quit_args("argument '-s %s' parsed as %u, "
+				          "subclass value must be 0-255\n", optarg, parsed_arg);
+			saw_filter_subclass(parsed_arg);
 			break;
 		case 'p':
-			if (class_flag != 1)
-			{	fprintf(stderr, "-p must follow -c\n");
-				exit(1);
-			}
-			class2 = argtoi('p', "decimal number", optarg, 10);
+			filter_flag = 1;
+			parsed_arg = argtoi('p', "decimal, hex, or octal number", optarg, 0);
+			if (parsed_arg > 0xFF) 
+				quit_args("argument '-p %s' parsed as %u, "
+				          "end range value must be 0-255\n", optarg, parsed_arg);
+			saw_filter_end_range(parsed_arg);
 			break;
 		case 'P':
 			ppt_flag = 1;
@@ -1396,55 +1441,65 @@ char **env;
 			break;
 		case 'X':
 			break;
+		case 'N':
+			no_default_codes_flag = 1;
+			break;
+		case 'T':
+			filter_flag = 1;
+
+			// Flush out any unclosed -c argument
+			filter_done_parsing();
+
+			parse_filter_file(optarg);
+			break;
 		default:
 			usage(SHORT_HELP);
 		}
 	}
 	argc -= optind;
 
+	if (!no_default_codes_flag)
+	{
+		if (verbose_flag)
+			printf("Adding default code file /usr/share/misc/trace.codes. Use '-N' to skip this.\n");
+		parse_codefile("/usr/share/misc/trace.codes");
+	}
+
 	if (argc)
 	{
 		if (!execute_flag)
 		{
-			cfile = argv[optind];
-			if (verbose_flag)
-				printf("Code file is %s \n", cfile);
-			if (parse_codefile(cfile) == -1)
-				cfile = (char *)0;
+			while (argc--)
+			{
+				const char *cfile = argv[optind++];
+				if (verbose_flag) printf("Adding code file %s \n", cfile);
+				parse_codefile(cfile);
+			}
 		}
 	}
 	else
 	{
 		if (execute_flag)
-		{
-			printf("-E flag needs an executable to launch\n");
-			exit(1);
-		}
+			quit_args("-E flag needs an executable to launch\n");
 	}
+
+	if (usage_flag)
+		usage(LONG_HELP);
+
 	getdivisor();
 
 	if (pid_flag && pid_exflag)
-	{
-		fprintf(stderr, "Can't use both -a and -x flag together\n");
-		exit(1);
-	}
+		quit_args("Can't use both -a and -x flag together\n");
 
-	if (subclass_flag && !class_flag) {
-		fprintf(stderr,"Must define a class ('c') with the subclass ('s') option\n");
-		usage(SHORT_HELP);
-	}
-
-	if (kval_flag && (subclass_flag || class_flag))
-	{
-		fprintf(stderr,"Don't use class or subclass with the 'k' code options.\n");
-		usage(SHORT_HELP);
-	}
+	if (kval_flag && filter_flag)
+		quit_args("Cannot use -k flag with -c, -s, or -p\n");
 
 	if (output_filename && !trace_flag && !readRAW_flag)
-	{
-		fprintf(stderr, "When using 'o' option, must use the 't' or 'R' option too\n");
-		usage(SHORT_HELP);
-	}
+		quit_args("When using 'o' option, must use the 't' or 'R' option too\n");
+
+	filter_done_parsing();
+
+	done_with_args = 1;
 
 	if (LogRAW_flag) {
 		get_bufinfo(&bufinfo);
@@ -1533,9 +1588,14 @@ char **env;
 
 		if (bufinfo.flags & KDBG_VALCHECK)
 			printf("\tCollecting specific code values is enabled\n");
-		else	
+		else
 			printf("\tCollecting specific code values is disabled\n");
-		
+        
+		if (bufinfo.flags & KDBG_TYPEFILTER_CHECK)
+			printf("\tCollection based on a filter is enabled\n");
+		else
+			printf("\tCollection based on a filter is disabled\n");
+
 		if (bufinfo.flags & KDBG_PIDCHECK)
 			printf("\tCollection based on pid is enabled\n");
 		else
@@ -1555,11 +1615,8 @@ char **env;
 	if (init_flag)
 		set_init();
 
-	if (class_flag)
-		set_class();
-
-	if (subclass_flag)
-		set_subclass();
+	if (filter_flag)
+		set_filter();
 
 	if (kval_flag)
 		set_kval_list();
@@ -1631,6 +1688,32 @@ char **env;
 
 } /* end main */
 
+static void
+quit_args(const char *fmt, ...) 
+{
+	char buffer[1024];
+
+	if (reenable == 1)
+	{
+		reenable = 0;
+		set_enable(1);  /* re-enable kernel logging */
+	}
+
+	va_list args;
+
+	va_start (args, fmt);
+	vsnprintf(buffer, sizeof(buffer), fmt, args);
+
+	fprintf(stderr, "trace error: %s", buffer);
+
+	va_end(args);
+
+	if (!done_with_args)
+		usage(SHORT_HELP);
+
+	exit(1);
+}
+
 
 void
 quit(char *s)
@@ -1653,7 +1736,7 @@ usage(int short_help)
 
 	if (short_help)
 	{
-		(void)fprintf(stderr, "  usage: trace -h\n");
+		(void)fprintf(stderr, "  usage: trace -h [-v]\n");
 		(void)fprintf(stderr, "  usage: trace -i [-b numbufs]\n");
 		(void)fprintf(stderr, "  usage: trace -g\n");
 		(void)fprintf(stderr, "  usage: trace -d [-a pid | -x pid ]\n");
@@ -1661,14 +1744,16 @@ usage(int short_help)
 		(void)fprintf(stderr, "  usage: trace -n\n");
 
 		(void)fprintf(stderr,
-			      "  usage: trace -e [ -c class [-p class] [-s subclass] ] [-a pid | -x pid] |\n");
+			      "  usage: trace -e [ -c class [[-s subclass]... | -p class ]]... | \n");
 		(void)fprintf(stderr,
-			      "                  [-k code | -k code | -k code | -k code] [-P] \n\n");
+			      "                  [-k code | -k code | -k code | -k code] [-P] [-T tracefilter] \n");
+		(void)fprintf(stderr,
+			      "                  [-a pid | -x pid] \n\n");
 
 		(void)fprintf(stderr,
-			      "  usage: trace -E [ -c class [-p class] [-s subclass] ] |\n");
+			      "  usage: trace -E [ -c class [[-s subclass]... | -p class ]]... | \n");
 		(void)fprintf(stderr,
-			      "                  [-k code | -k code | -k code | -k code] [-P]\n");
+			      "                  [-k code | -k code | -k code | -k code] [-P] [-T tracefilter] \n");
 		(void)fprintf(stderr,
 			      "                  executable_path [optional args to executable] \n\n");
 
@@ -1677,16 +1762,19 @@ usage(int short_help)
 		(void)fprintf(stderr,
 			      "  usage: trace -l RawFilename\n");
 		(void)fprintf(stderr,
-			      "  usage: trace -R RawFilename [-X] [-F frequency] [-o OutputFilename] [CodeFilename]\n");
+			      "  usage: trace -R RawFilename [-X] [-F frequency] [-o OutputFilename] [-N] [ExtraCodeFilename1 ExtraCodeFilename2 ...]\n");
 		(void)fprintf(stderr,
-			      "  usage: trace -t [-o OutputFilename] [CodeFilename]\n");
+			      "  usage: trace -t [-o OutputFilename] [-N] [ExtraCodeFilename1 ExtraCodeFilename2 ...]\n");
+		(void)fprintf(stderr,
+				  "  Trace will import /usr/share/misc/trace.codes as a default codefile unless -N is specified. Extra codefiles specified are used in addition to the default codefile.\n");
 		exit(1);
 	}
 
 
-	/* Only get here of printing long usage list */
-	(void)fprintf(stderr, "usage: trace -h\n");
+	/* Only get here if printing long usage info */
+	(void)fprintf(stderr, "usage: trace -h [-v]\n");
 	(void)fprintf(stderr, "\tPrint this long command help.\n\n");
+	(void)fprintf(stderr, "\t -v Print extra information about tracefilter and code files.\n\n");
 
 	(void)fprintf(stderr, "usage: trace -i [-b numbufs]\n");
 	(void)fprintf(stderr, "\tInitialize the kernel trace buffer.\n\n");
@@ -1709,52 +1797,113 @@ usage(int short_help)
 	(void)fprintf(stderr, "\tDisables kernel buffer wrap around.\n\n");
 
 	(void)fprintf(stderr,
-		      "usage: trace -e [ -c class [-p class] [-s subclass] ] [-a pid | -x pid] |\n");
+	              "usage: trace -e [ -c class [[-s subclass]... | -p class ]]...  |\n");
 	(void)fprintf(stderr,
-		      "             [-k code | -k code | -k code | -k code] \n\n");
-	(void)fprintf(stderr, "\tEnable/start collection of kernel trace elements.\n");
-	(void)fprintf(stderr, "\tEnter values in decimal notation unless otherwise noted..\n\n");
-	(void)fprintf(stderr, "\t -c class    Restrict trace collection to given class.\n\n");
-	(void)fprintf(stderr, "\t -p class    Restrict trace collection to given class range.\n");
-	(void)fprintf(stderr, "\t             Must provide class with -c first.\n\n");
-	(void)fprintf(stderr, "\t -s subclass    Restrict trace collection to given subclass.\n");
-	(void)fprintf(stderr, "\t                Must provide class with -c.\n\n");
+	              "             [-k code | -k code | -k code | -k code] [-P] [-T tracefilter]\n");
+	(void) fprintf(stderr,
+	              "             [-a pid | -x pid]\n\n");
+	(void)fprintf(stderr, "\t Enable/start collection of kernel trace elements. \n\n");
+	(void)fprintf(stderr, "\t By default, trace collects all tracepoints. \n");
+	(void)fprintf(stderr, "\t The following arguments may be used to restrict collection \n");
+	(void)fprintf(stderr, "\t to a limited set of tracepoints. \n\n");
+	(void)fprintf(stderr, "\t Multiple classes can be specified by repeating -c. \n");
+	(void)fprintf(stderr, "\t Multiple subclasses can be specified by repeating -s after -c. \n");
+	(void)fprintf(stderr, "\t Classes, subclasses, and class ranges can be entered \n");
+	(void)fprintf(stderr, "\t in hex (0xXX), decimal (XX), or octal (0XX). \n\n");
+	(void)fprintf(stderr, "\t -c class    Restrict trace collection to given class. \n\n");
+	(void)fprintf(stderr, "\t -p class    Restrict trace collection to given class range. \n");
+	(void)fprintf(stderr, "\t             Must provide class with -c first. \n\n");
+	(void)fprintf(stderr, "\t -s subclass    Restrict trace collection to given subclass. \n");
+	(void)fprintf(stderr, "\t                Must provide class with -c first. \n\n");
 	(void)fprintf(stderr, "\t -a pid     Restrict trace collection to the given process.\n\n");
 	(void)fprintf(stderr, "\t -x pid     Exclude the given process from trace collection.\n\n");
 	(void)fprintf(stderr, "\t -k code    Restrict trace collection up to four specific codes.\n");
-	(void)fprintf(stderr, "\t            Enter codes in hex values.\n\n");
+	(void)fprintf(stderr, "\t            Enter codes in hex (0xXXXXXXXX). \n\n");
 	(void)fprintf(stderr, "\t -P         Enable restricted PPT trace points only.\n\n");
+	(void)fprintf(stderr, "\t -T tracefilter     Read class and subclass restrictions from a \n");
+	(void)fprintf(stderr, "\t                    tracefilter description file. \n");
+	(void)fprintf(stderr, "\t                    Run trace -h -v for more info on this file. \n\n");
 
 	(void)fprintf(stderr,
-		      "usage: trace -E [ -c class [-p class] [-s subclass] ] |\n");
+		      "usage: trace -E [ -c class [[-s subclass]... | -p class ]]... |\n");
 	(void)fprintf(stderr,
-		      "             [-k code | -k code | -k code | -k code] \n");
+		      "             [-k code | -k code | -k code | -k code] [-P] [-T tracefilter]\n");
 	(void)fprintf(stderr,
 		      "             executable_path [optional args to executable] \n\n");
 	(void)fprintf(stderr, "\tLaunch the given executable and enable/start\n");
 	(void)fprintf(stderr, "\tcollection of kernel trace elements for that process.\n");
 	(void)fprintf(stderr, "\tSee -e(enable) flag for option descriptions.\n\n");
 
-	(void)fprintf(stderr,
-		      "usage: trace -t [-o OutputFilename] [CodeFilename] \n");
+    (void)fprintf(stderr, "usage: trace -t [-o OutputFilename] [-N] [ExtraCodeFilename1 ExtraCodeFilename2 ...] \n"); 
 	(void)fprintf(stderr, "\tCollect the kernel buffer trace data and print it.\n\n");
+	(void)fprintf(stderr, "\t -N                 Do not import /usr/share/misc/trace.codes (for raw hex tracing or supplying an alternate set of codefiles)\n"); 
 	(void)fprintf(stderr, "\t -o OutputFilename  Print trace output to OutputFilename. Default is stdout.\n\n");
 
 	(void)fprintf(stderr,
-		      "usage: trace -R RawFilename [-X] [-F frequency] [-o OutputFilename] [CodeFilename] \n");
+		      "usage: trace -R RawFilename [-X] [-F frequency] [-o OutputFilename] [-N] [ExtraCodeFilename1 ExtraCodeFilename2 ...] \n");
 	(void)fprintf(stderr, "\tRead raw trace file and print it.\n\n");
-	(void)fprintf(stderr, "\t -X                 Force trace to interpret trace data as 32 bit.  Default is to match the current systems bit width.\n");
-	(void)fprintf(stderr, "\t -F frequency       Specify the frequency of the clock used to timestamp entries in RawFilename\n");
+	(void)fprintf(stderr, "\t -X                 Force trace to interpret trace data as 32 bit. \n");
+	(void)fprintf(stderr, "\t                          Default is to match the bit width of the current system. \n");
+	(void)fprintf(stderr, "\t -N                 Do not import /usr/share/misc/trace.codes (for raw hex tracing or supplying an alternate set of codefiles)\n"); 
+	(void)fprintf(stderr, "\t -F frequency       Specify the frequency of the clock used to timestamp entries in RawFilename.\n\t                    Use command \"sysctl hw.tbfrequency\" on the target device, to get target frequency.\n");
 	(void)fprintf(stderr, "\t -o OutputFilename  Print trace output to OutputFilename. Default is stdout.\n\n");
 
 	(void)fprintf(stderr,
 		      "usage: trace -L RawFilename [-S SecsToRun]\n");
-	(void)fprintf(stderr, "\tContinuously collect the kernel buffer trace data in the raw format and write it to RawFilename.\n\n");
+	(void)fprintf(stderr, "\tContinuously collect the kernel buffer trace data in the raw format \n");
+	(void)fprintf(stderr, "\tand write it to RawFilename. \n");
+
+	(void)fprintf(stderr, "\t-L implies -r -i if tracing isn't currently enabled.\n");
+	(void)fprintf(stderr, "\tOptions passed to -e(enable) are also accepted by -L. (except -a -x -P)\n\n");
 	(void)fprintf(stderr, "\t -S SecsToRun       Specify the number of seconds to collect trace data.\n\n");
 
 	(void)fprintf(stderr,
 		      "usage: trace -l RawFilename\n");
 	(void)fprintf(stderr, "\tCollect the existing kernel buffer trace data in the raw format.\n\n");
+
+	if (verbose_flag) {
+		(void)fprintf(stderr,
+		              "Code file: \n"
+		              "\t A code file consists of a list of tracepoints, one per line, \n"
+		              "\t with one tracepoint code in hex, followed by a tab, \n"
+		              "\t followed by the tracepoint's name. \n\n"
+
+		              "\t Example tracepoint: \n"
+		              "\t 0x010c007c\tMSC_mach_msg_trap \n"
+		              "\t This describes the tracepoint with the following info: \n"
+		              "\t Name:          MSC_mach_msg_trap \n"
+		              "\t Class:         0x01   (Mach events) \n"
+		              "\t Subclass:      0x0c   (Mach system calls) \n"
+		              "\t Code:          0x007c (Mach syscall number 31) \n\n"
+
+		              "\t See /usr/include/sys/kdebug.h for the currently defined \n"
+		              "\t class and subclass values. \n"
+		              "\t See /usr/share/misc/trace.codes for the currently allocated \n"
+		              "\t system tracepoints in trace code file format. \n"
+		              "\t This codefile is useful with the -R argument to trace. \n"
+		              "\n");
+
+		(void)fprintf(stderr,
+		              "Tracefilter description file: \n"
+		              "\t A tracefilter description file consists of a list of \n"
+		              "\t class and subclass filters in hex, one per line,  \n"
+		              "\t which are applied as if they were passed with -c and -s. \n"
+		              "\t Pass -v to see what classes and subclasses are being set. \n\n"
+
+		              "\t File syntax: \n"
+		              "\t  Class filter: \n"
+		              "\t  C 0xXX \n"
+		              "\t  Subclass filter (includes class): \n"
+		              "\t  S 0xXXXX \n"
+		              "\t  Comment: \n"
+		              "\t  # This is a comment \n\n"
+
+		              "\t For example, to trace Mach events (class 1):\n"
+		              "\t C 0x01 \n"
+		              "\t or to trace Mach system calls (class 1 subclass 13): \n"
+		              "\t S 0x010C \n"
+		              "\n");
+	}
 
 	exit(1);
 }
@@ -1810,6 +1959,279 @@ int debugid_compar(p1, p2)
 
 
 /*
+ * Filter args parsing state machine:
+ *
+ * Allowed args:
+ * -c -p
+ * -c -s (-s)*
+ * -c (-c)*
+ * every -c goes back to start
+ *
+ * Valid transitions:
+ * start -> class (first -c)
+ * class -> range (-c -p)
+ * class -> sub   (-c -s)
+ * class -> class (-c -c)
+ * range -> class (-c -p -c)
+ * sub   -> class (-c -s -c)
+ * *     -> start (on filter_done_parsing)
+ *
+ * Need to call filter_done_parsing after
+ * calling saw_filter_*
+ * to flush out any class flag waiting to see if
+ * there is a -s flag coming up
+ */
+
+
+// What type of flag did I last see?
+enum {
+	FILTER_MODE_START,
+	FILTER_MODE_CLASS,
+	FILTER_MODE_CLASS_RANGE,
+	FILTER_MODE_SUBCLASS
+} filter_mode = FILTER_MODE_START;
+
+uint8_t filter_current_class        = 0;
+uint8_t filter_current_subclass     = 0;
+uint8_t filter_current_class_range  = 0;
+
+static void
+saw_filter_class(uint8_t class)
+{
+	switch(filter_mode) {
+	case FILTER_MODE_START:
+	case FILTER_MODE_CLASS_RANGE:
+	case FILTER_MODE_SUBCLASS:
+		filter_mode = FILTER_MODE_CLASS;
+		filter_current_class       = class;
+		filter_current_subclass    = 0;
+		filter_current_class_range = 0;
+		// the case of a lone -c is taken care of
+		// by filter_done_parsing
+		break;
+	case FILTER_MODE_CLASS:
+		filter_mode = FILTER_MODE_CLASS;
+		// set old class, remember new one 
+		set_filter_class(filter_current_class);
+		filter_current_class       = class;
+		filter_current_subclass    = 0;
+		filter_current_class_range = 0;
+		break;
+	default:
+		quit_args("invalid case in saw_filter_class\n");
+	}
+}
+
+static void
+saw_filter_end_range(uint8_t end_class)
+{
+	switch(filter_mode) {
+	case FILTER_MODE_CLASS:
+		filter_mode = FILTER_MODE_CLASS_RANGE;
+		filter_current_class_range = end_class;
+		set_filter_range(filter_current_class, filter_current_class_range);
+		break;
+	case FILTER_MODE_START:
+		quit_args("must provide '-c class' before '-p 0x%x'\n",
+		          end_class);
+	case FILTER_MODE_CLASS_RANGE:
+		quit_args("extra range end '-p 0x%x'"
+		          " for class '-c 0x%x'\n",
+		          end_class, filter_current_class);
+	case FILTER_MODE_SUBCLASS:
+		quit_args("cannot provide both range end '-p 0x%x'"
+		          " and subclass '-s 0x%x'"
+		          " for class '-c 0x%x'\n",
+		          end_class, filter_current_subclass,
+		          filter_current_class);
+	default:
+		quit_args("invalid case in saw_filter_end_range\n");
+	}
+}
+
+static void
+saw_filter_subclass(uint8_t subclass)
+{
+	switch(filter_mode) {
+	case FILTER_MODE_CLASS:
+	case FILTER_MODE_SUBCLASS:
+		filter_mode = FILTER_MODE_SUBCLASS;
+		filter_current_subclass = subclass;
+		set_filter_subclass(filter_current_class, filter_current_subclass);
+		break;
+	case FILTER_MODE_START:
+		quit_args("must provide '-c class'"
+		          " before subclass '-s 0x%x'\n", subclass);
+	case FILTER_MODE_CLASS_RANGE:
+		quit_args("cannot provide both range end '-p 0x%x'"
+		          " and subclass '-s 0x%x'"
+		          " for the same class '-c 0x%x'\n",
+		          filter_current_class_range,
+		          subclass, filter_current_class);
+	default:
+		quit_args("invalid case in saw_filter_subclass\n");
+	}
+}
+
+static void
+filter_done_parsing(void)
+{
+	switch(filter_mode) {
+	case FILTER_MODE_CLASS:
+		// flush out the current class
+		set_filter_class(filter_current_class);
+		filter_mode = FILTER_MODE_START;
+		filter_current_class       = 0;
+		filter_current_subclass    = 0;
+		filter_current_class_range = 0;
+		break;
+	case FILTER_MODE_SUBCLASS:
+	case FILTER_MODE_START:
+	case FILTER_MODE_CLASS_RANGE:
+		filter_mode = FILTER_MODE_START;
+		filter_current_class       = 0;
+		filter_current_subclass    = 0;
+		filter_current_class_range = 0;
+		break;
+	default:
+		quit_args("invalid case in filter_done_parsing\n");
+	}
+}
+
+/* Tell set_filter_subclass not to print every. single. subclass. */
+static boolean_t setting_class = FALSE;
+static boolean_t setting_range = FALSE;
+
+static void
+set_filter_subclass(uint8_t class, uint8_t subclass)
+{
+	if (!filter_alloced) {
+		type_filter_bitmap = (uint8_t *) calloc(1, KDBG_TYPEFILTER_BITMAP_SIZE);
+		if (type_filter_bitmap == NULL)
+			quit_args("Could not allocate type_filter_bitmap.\n");
+		filter_alloced = 1;
+	}
+
+	uint16_t csc = ENCODE_CSC_LOW(class, subclass);
+
+	if (verbose_flag && !setting_class) 
+		printf("tracing subclass: 0x%4.4x\n", csc);
+
+	if (verbose_flag && isset(type_filter_bitmap, csc))
+		printf("class %u (0x%2.2x), subclass %u (0x%2.2x) set twice.\n",
+		       class, class, subclass, subclass);
+
+	setbit(type_filter_bitmap, csc);
+}
+
+static void
+set_filter_class(uint8_t class)
+{
+	if (verbose_flag && !setting_range)
+		printf("tracing class:    0x%2.2x\n", class);
+
+	setting_class = TRUE;
+
+	for (int i = 0; i < 256; i++)
+		set_filter_subclass(class, i);
+
+	setting_class = FALSE;
+}
+
+static void
+set_filter_range(uint8_t class, uint8_t end)
+{
+	if (verbose_flag)
+		printf("tracing range:    0x%2.2x - 0x%2.2x\n", class, end);
+
+	setting_range = TRUE;
+
+	for (int i = class; i <= end; i++)
+		set_filter_class(i);
+
+	setting_range = FALSE;
+}
+
+/*
+ * Syntax of filter file:
+ * Hexadecimal numbers only
+ * Class:
+ * C 0xXX
+ * Subclass (includes class):
+ * S 0xXXXX
+ * Comment:
+ * # <string>
+ * TBD: Class ranges?
+ * TBD: K for -k flag?
+ */
+
+static void
+parse_filter_file(char *filename) {
+	FILE* file;
+	uint32_t current_line = 0;
+	uint32_t parsed_arg   = 0;
+	int rval;
+
+	char line[256];
+
+	if ( (file = fopen(filename, "r")) == NULL ) {
+		quit_args("Failed to open filter description file %s: %s\n",
+		          filename, strerror(errno));
+	}
+
+	if (verbose_flag)
+		printf("Parsing typefilter file: %s\n", filename);
+
+	while( fgets(line, sizeof(line), file) != NULL ) {
+		current_line++;
+		
+		switch (line[0]) {
+		case 'C':
+			rval = sscanf(line, "C 0x%x\n", &parsed_arg);
+			if (rval != 1)
+				quit_args("invalid line %d of file %s: %s\n",
+				         current_line, filename, line);
+			if (parsed_arg > 0xFF)
+				quit_args("line %d of file %s: %s\n"
+				          "parsed as 0x%x, "
+				          "class value must be 0x0-0xFF\n",
+				          current_line, filename, line, parsed_arg);
+			set_filter_class((uint8_t)parsed_arg);
+			break;
+		case 'S':
+			rval = sscanf(line, "S 0x%x\n", &parsed_arg);
+			if (rval != 1)
+				quit_args("invalid line %d of file %s: %s\n",
+				          current_line, filename, line);
+			if (parsed_arg > 0xFFFF)
+				quit_args("line %d of file %s: %s\n"
+				          "parsed as 0x%x, "
+				          "value must be 0x0-0xFFFF\n",
+				          current_line, filename, line, parsed_arg);
+			set_filter_subclass(EXTRACT_CLASS_LOW(parsed_arg),
+			                    EXTRACT_SUBCLASS_LOW(parsed_arg));
+			break;
+		case '#':
+			// comment
+			break;
+		case '\n':
+			// empty line
+			break;
+		case '\0':
+			// end of file
+			break;
+		default:
+			quit_args("Invalid filter description file: %s\n"
+			          "could not parse line %d: %s\n",
+			          filename, current_line, line);
+		}
+	}
+
+	fclose(file);
+}
+
+
+/*
  *  Find the debugid code in the list and return its index
  */
 static int binary_search(list, lowbound, highbound, code)
@@ -1850,10 +2272,11 @@ static int binary_search(list, lowbound, highbound, code)
 
 
 static int
-parse_codefile(char *filename)
+parse_codefile(const char *filename)
 {
 	int fd;
-	int i, j, count, line;
+	int i, j, line;
+	size_t count;
 	struct stat stat_buf;
 	unsigned long file_size;
 	char *file_addr, *endp; 
@@ -1875,7 +2298,7 @@ parse_codefile(char *filename)
 	 * so it has to be handled specially.
 	 */
 	file_size = stat_buf.st_size;
-    
+
 	if (stat_buf.st_size != 0)
 	{
 		if ((file_addr = mmap(0, stat_buf.st_size, PROT_READ|PROT_WRITE, 
@@ -1888,9 +2311,9 @@ parse_codefile(char *filename)
 	}
 	else
 	{
-		printf("Error: Zero sized file: %s\n", filename);
+		// Skip empty files
 		close(fd);
-		return(-1);
+		return(0);
 	}
 	close(fd);
 
@@ -1919,15 +2342,18 @@ parse_codefile(char *filename)
 	 */
 	count++;
 
-	if ((codesc = (code_type_t *)malloc(count * sizeof(code_type_t))) == 0 ) {
-		printf("Failed to allocate buffer for code descriptions\n");
-		return(-1);
+	// Grow the size of codesc to store new entries.
+	size_t total_count = codesc_idx + count;
+	code_type_t *new_codesc = (code_type_t *)realloc(codesc, (total_count) * sizeof(code_type_t));
+
+	if (new_codesc == NULL) {
+		printf("Failed to grow/allocate buffer. Skipping file %s\n", filename);
+		return (-1);
 	}
+	codesc = new_codesc;
+	bzero((char *)(codesc + codesc_idx), count * sizeof(code_type_t));
 
-	bzero((char *)codesc, count * sizeof(code_type_t));
-	codenum = 0;
-
-	for (line = 1, i = 0, j = 0; j < file_size && i < count ; i++)
+	for (line = 1, j = 0; j < file_size && codesc_idx < total_count; codesc_idx++)
 	{
 		/* Skip blank lines */
 		while (file_addr[j] == '\n')
@@ -1941,17 +2367,17 @@ parse_codefile(char *filename)
 			j++;
 
 		/* Get the debugid code */
-		codesc[i].debugid = strtoul(file_addr + j, &endp, 16);
+		codesc[codesc_idx].debugid = strtoul(file_addr + j, &endp, 16); 
 		j = endp - file_addr;
 
-		if (codesc[i].debugid == 0)
+		if (codesc[codesc_idx].debugid == 0) 
 		{
 			/* We didn't find a debugid code - skip this line */
 			if (verbose_flag)
 				printf("Error: while parsing line %d, skip\n", line);
 			while (file_addr[j] != '\n' && j < file_size)
 				j++;
-			i--;
+			codesc_idx--; 
 			line++;
 			continue;
 		}
@@ -1965,16 +2391,16 @@ parse_codefile(char *filename)
 		{
 			/* missing debugid string - skip */
 			if (verbose_flag)
-				printf("Error: while parsing line %d, (0x%x) skip\n", line, codesc[i].debugid);
-	    
+				printf("Error: while parsing line %d, (0x%x) skip\n", line, codesc[codesc_idx].debugid);
+
 			j++;
-			i--;
+			codesc_idx--; 
 			line++;
 			continue;
 		}
 
 		/* Next is the debugid string terminated by a newline */
-		codesc[i].debug_string = &file_addr[j];
+		codesc[codesc_idx].debug_string = &file_addr[j]; 
 
 		/* Null out the newline terminator */
 		while ((j < file_size) && (file_addr[j] != '\n'))
@@ -1993,23 +2419,48 @@ parse_codefile(char *filename)
 	}
 
 	/* sort */
-	qsort((void *)codesc, codenum, sizeof(code_type_t), debugid_compar);
+	qsort((void *)codesc, codesc_idx, sizeof(code_type_t), debugid_compar); 
 
 	if (verbose_flag)
 	{
-		printf("Sorted %d codes in %s\n", codenum, filename);
+		printf("Sorted %zd codes in %s\n", codesc_idx, filename); 
 		printf("lowbound  [%6d]: 0x%8x %s\n", 0, codesc[0].debugid, codesc[0].debug_string);
-		printf("highbound [%6d]: 0x%8x %s\n\n", codenum-1, codesc[codenum-1].debugid, codesc[codenum-1].debug_string);
+		printf("highbound [%6zd]: 0x%8x %s\n\n", codesc_idx - 1, codesc[codesc_idx - 1].debugid, codesc[codesc_idx - 1].debug_string); 
 	}
+	codesc_find_dupes();
 
 #if 0
 	/* Dump the codefile */
-	for (i = 0; i < codenum; i++)
+	for (i = 0; i < codesc_idx; i++)
 		printf("[%d]  0x%x   %s\n",i+1, codesc[i].debugid, codesc[i].debug_string);
 #endif
 	return(0);
 }
 
+static void codesc_find_dupes(void)
+{
+	boolean_t found_dupes = FALSE;
+	if (codesc_idx == 0)
+	{
+		return;
+	}
+	uint32_t last_debugid = codesc[0].debugid;
+	for(int i = 1; i < codesc_idx; i++)
+	{
+		if(codesc[i].debugid == last_debugid)
+		{
+			found_dupes = TRUE;
+			if (verbose_flag) {
+				fprintf(stderr, "WARNING: The debugid 0x%"PRIx32" (%s) has already been defined as '%s'.\n", codesc[i].debugid, codesc[i].debug_string, codesc[i - 1].debug_string);
+			}
+		}
+		last_debugid = codesc[i].debugid;
+	}
+	if (found_dupes)
+	{
+		fprintf(stderr, "WARNING: One or more duplicate entries found in your codefiles, which will lead to unpredictable decoding behavior. Re-run with -v for more info\n");
+	}
+}
 
 
 int match_debugid(unsigned int xx, char * debugstr, int * yy)
@@ -2034,9 +2485,70 @@ int match_debugid(unsigned int xx, char * debugstr, int * yy)
 	}
 }
 
+void
+read_cpu_map(int fd)
+{
+	if (cpumap_header) {
+		free(cpumap_header);
+		cpumap_header = NULL;
+		cpumap = NULL;
+	}
+
+	/*
+	 * To fit in the padding space of a VERSION1 file, the max possible
+	 * cpumap size is one page.
+	 */
+	cpumap_header = malloc(PAGE_SIZE);
+	
+	if (readRAW_flag) {
+		/*
+		 * cpu maps exist in a RAW_VERSION1+ header only
+		 */
+		if (raw_header.version_no == RAW_VERSION1) {
+			off_t base_offset = lseek(fd, (off_t)0, SEEK_CUR);
+			off_t aligned_offset = (base_offset + (4095)) & ~4095; /* <rdar://problem/13500105> */
+			
+			size_t padding_bytes = (size_t)(aligned_offset - base_offset);
+			
+			if (read(fd, cpumap_header, padding_bytes) == padding_bytes) {
+				if (cpumap_header->version_no == RAW_VERSION1) {
+					cpumap = (kd_cpumap*)&cpumap_header[1];
+				}
+			}
+		}
+	} else {
+		int mib[3];
+		
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_KDEBUG;
+		mib[2] = KERN_KDCPUMAP;
+		
+		size_t temp = PAGE_SIZE;
+		if (sysctl(mib, 3, cpumap_header, &temp, NULL, 0) == 0) {
+			if (PAGE_SIZE >= temp) {
+				if (cpumap_header->version_no == RAW_VERSION1) {
+					cpumap = (kd_cpumap*)&cpumap_header[1];
+				}
+			}
+		}
+	}
+
+	if (!cpumap) {
+		printf("Can't read the cpu map -- this is not fatal\n");
+		free(cpumap_header);
+		cpumap_header = NULL;
+	} else if (verbose_flag) {
+		/* Dump the initial cpumap */
+		printf("\nCPU\tName\n");
+		for (int i = 0; i < cpumap_header->cpu_count; i++) {
+			printf ("%2d\t%s\n", cpumap[i].cpu_id, cpumap[i].name);
+		}
+		printf("\n");
+	}
+}
 
 int
-read_command_map(int fd, int count)
+read_command_map(int fd, uint32_t count)
 {
 	int i;
 	size_t size;
@@ -2068,21 +2580,13 @@ read_command_map(int fd, int count)
 		}
 	}
 	if (readRAW_flag) {
-		off_t	offset;
-		
 		if (read(fd, mapptr, size) != size) {
 			if (verbose_flag)
 				printf("Can't read the thread map -- this is not fatal\n");
 			free(mapptr);
 			mapptr = 0;
 
-			return(size);
-		}
-		if (raw_header.version_no != RAW_VERSION0) {
-			offset = lseek(fd, (off_t)0, SEEK_CUR);
-			offset = (offset + (4095)) & ~4095;
-		
-			lseek(fd, offset, SEEK_SET);
+			return (int)size;
 		}
 	} else {
 		/* Now read the threadmap */
@@ -2102,8 +2606,10 @@ read_command_map(int fd, int count)
 			return(0);
 		}
 	}
-	for (i = 0; i < total_threads; i++)
-		create_map_entry(mapptr[i].thread, &mapptr[i].command[0]);
+	for (i = 0; i < total_threads; i++) {
+		if (mapptr[i].thread)
+			create_map_entry(mapptr[i].thread, &mapptr[i].command[0]);
+	}
 
 	if (verbose_flag) {
 		/* Dump the initial map */
@@ -2111,14 +2617,13 @@ read_command_map(int fd, int count)
 		printf("Size of maptable returned is %ld, thus %ld entries\n", size, (size/sizeof(kd_threadmap)));
 
 		printf("Thread    Command\n");
-		for (i = 0; i < total_threads; i++)
-		{
+		for (i = 0; i < total_threads; i++) {
 			printf ("0x%lx    %s\n",
 				mapptr[i].thread,
 				mapptr[i].command);
 		}
 	}
-	return(size);
+	return (int)size;
 }
 
 

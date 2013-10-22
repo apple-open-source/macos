@@ -20,9 +20,11 @@
 
 #include "checkpw.h"
 #include <syslog.h>
+#include <unistd.h>
 
 #define PAM_STACK_NAME "checkpw"
 
+static
 int checkpw_internal_pam( const char* uname, const char* password )
 {
 	int checkpwret = CHECKPW_FAILURE;
@@ -76,6 +78,8 @@ pamerr_no_end:
 
 }
 
+#warning TODO: this should be declared in some header.
+int checkpw_internal( const struct passwd* pw, const char* password );
 int checkpw_internal( const struct passwd* pw, const char* password )
 {
 	return checkpw(pw->pw_name, password);

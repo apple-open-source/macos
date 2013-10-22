@@ -41,11 +41,11 @@
 #include <time.h>
 #include <string>
 #include <unistd.h>
+#include <syslog.h>
 
 using namespace CssmClient;
 
-
-/* 
+/*
  * The layout of the various MDS DB files on disk is as follows:
  *
  * /var/db/mds				-- owner = root, mode = 01777, world writable, sticky
@@ -142,7 +142,14 @@ static std::string GetMDSBaseDBDir(bool isRoot)
 	else
 	{
 		char strBuffer[PATH_MAX + 1];
-		confstr(_CS_DARWIN_USER_CACHE_DIR, strBuffer, sizeof(strBuffer));
+		size_t result = confstr(_CS_DARWIN_USER_CACHE_DIR, strBuffer, sizeof(strBuffer));
+		if (result == 0)
+		{
+			// we have an error, log it
+			syslog(LOG_CRIT, "confstr on _CS_DARWIN_USER_CACHE_DIR returned an error.");
+			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
+		}
+			
 		retValue = strBuffer;
 	}
 	
@@ -582,7 +589,6 @@ MDSSession::install ()
 	//
 	mModule.setServerMode();
 	
-	int sysFdLock = -1;
 	try {
 		/* ensure MDS base directory exists with correct permissions */
 		if(createDir(MDS_BASE_DB_DIR, MDS_SYSTEM_UID, MDS_BASE_DB_DIR_MODE)) {
@@ -596,7 +602,9 @@ MDSSession::install ()
 			CssmError::throwMe(CSSMERR_DL_OS_ACCESS_DENIED);
 		}
 
-		if(!obtainLock(MDS_INSTALL_LOCK_PATH, sysFdLock, DB_LOCK_TIMEOUT)) {
+        LockHelper lh;
+        
+		if(!lh.obtainLock(MDS_INSTALL_LOCK_PATH, DB_LOCK_TIMEOUT)) {
 			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
 		}
 
@@ -625,12 +633,8 @@ MDSSession::install ()
 		dbFiles.updateSystemDbInfo(MDS_SYSTEM_PATH, MDS_BUNDLE_PATH);
 	}
 	catch(...) {
-		if(sysFdLock != -1) {
-			releaseLock(sysFdLock);
-		}
 		throw;
 	}
-	releaseLock(sysFdLock);
 }
 
 //
@@ -756,16 +760,15 @@ void MDSSession::GetDbNameFromHandle(CSSM_DB_HANDLE DBHandle,
 // right away if the lock cannot be obtained.
 //
 bool
-MDSSession::obtainLock(
+MDSSession::LockHelper::obtainLock(
 	const char *lockFile,	// e.g. MDS_INSTALL_LOCK_PATH
-	int &fd,				// IN/OUT
 	int timeout)			// default 0
 {
-	fd = -1;
+	mFD = -1;
 	for(;;) {
 		secdebug("mdslock", "obtainLock: calling open(%s)", lockFile);
-		fd = open(lockFile, O_EXLOCK | O_CREAT | O_RDWR, 0644);
-		if(fd == -1) {
+		mFD = open(lockFile, O_EXLOCK | O_CREAT | O_RDWR, 0644);
+		if(mFD == -1) {
 			int err = errno;
 			secdebug("mdslock", "obtainLock: open error %d", errno);
 			if(err == EINTR) {
@@ -792,14 +795,17 @@ MDSSession::obtainLock(
 // does not hold the lock, this method does nothing.
 //
 
-void
-MDSSession::releaseLock(int &fd)
+MDSSession::LockHelper::~LockHelper()
 {
 	secdebug("mdslock", "releaseLock");
-	assert(fd != -1);
-	flock(fd, LOCK_UN);
-	close(fd);
-	fd = -1;
+    if (mFD == -1)
+    {
+        return;
+    }
+    
+	flock(mFD, LOCK_UN);
+	close(mFD);
+	mFD = -1;
 }
 
 /* given DB file name, fill in fully specified path */
@@ -832,7 +838,7 @@ static bool isBundle(
 			return false;
 	}
 	int suffixLen = strlen(MDS_BUNDLE_EXTEN);
-	int len = strlen(dp->d_name);
+	size_t len = strlen(dp->d_name);
 	
 	return (len >= suffixLen) && 
 	       !strcmp(dp->d_name + len - suffixLen, MDS_BUNDLE_EXTEN);
@@ -944,7 +950,7 @@ static void safeCopyFile(
 		/* copy */
 		char buf[COPY_BUF_SIZE];
 		while(1) {
-			int bytesRead = read(srcFd, buf, COPY_BUF_SIZE);
+			ssize_t bytesRead = read(srcFd, buf, COPY_BUF_SIZE);
 			if(bytesRead == 0) {
 				break;
 			}
@@ -953,7 +959,7 @@ static void safeCopyFile(
 				MSDebug("Error %d reading system DB file %s\n", error, fromPath);
 				UnixError::throwMe(error);
 			}
-			int bytesWritten = write(destFd, buf, bytesRead);
+			ssize_t bytesWritten = write(destFd, buf, bytesRead);
 			if(bytesWritten < 0) {
 				error = errno;
 				MSDebug("Error %d writing user DB file %s\n", error, tmpToPath);
@@ -1084,8 +1090,9 @@ void MDSSession::updateDataBases()
 	}
 
 	/* always release userLockFd no matter what happens */
-	int userLockFd = -1;
-	if(!obtainLock(userDbLockPath.c_str(), userLockFd, DB_LOCK_TIMEOUT)) {
+    LockHelper lh;
+
+	if(!lh.obtainLock(userDbLockPath.c_str(), DB_LOCK_TIMEOUT)) {
 		CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
 	}
 	try {
@@ -1138,7 +1145,6 @@ void MDSSession::updateDataBases()
 				 */
 				MSDebug("doFilesExist(purge) error; using system DBs");
 				mModule.setDbPath(MDS_SYSTEM_DB_DIR);
-				releaseLock(userLockFd);
 				return;
 			}
 		}
@@ -1162,11 +1168,9 @@ void MDSSession::updateDataBases()
 		mModule.setDbPath(userDBFileDir.c_str());
 	}	/* main block protected by mLockFd */
 	catch(...) {
-		releaseLock(userLockFd);
 		throw;
 	}
 	mModule.lastScanIsNow();
-	releaseLock(userLockFd);
 }
 
 /*
@@ -1647,13 +1651,13 @@ void MDSSession::DbFilesInfo::removeOutdatedPlugins()
 	 * We have a vector of plugins to be deleted. Remove all records from both
 	 * DBs associated with the plugins, as specified by guid.
 	 */
-	unsigned numRecords = tbdRecords.size();
-	for(unsigned i=0; i<numRecords; i++) {
+	size_t numRecords = tbdRecords.size();
+	for(size_t i=0; i<numRecords; i++) {
 		TbdRecord *tbdRecord = tbdRecords[i];
 		mSession.removeRecordsForGuid(tbdRecord->guid(), objDbHand());
 		mSession.removeRecordsForGuid(tbdRecord->guid(), directDbHand());
 	}
-	for(unsigned i=0; i<numRecords; i++) {
+	for(size_t i=0; i<numRecords; i++) {
 		delete tbdRecords[i];
 	}
 }

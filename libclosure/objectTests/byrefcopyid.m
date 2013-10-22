@@ -32,7 +32,7 @@ int CalledDealloc = 0;
 @end
 
 @implementation DumbObject
-- retain {
+- (id)retain {
     CalledRetain = 1;
     return [super retain];
 }
@@ -40,7 +40,7 @@ int CalledDealloc = 0;
     CalledRelease = 1;
     [super release];
 }
-- self {
+- (id)self {
     CalledSelf = 1;
     return self;
 }

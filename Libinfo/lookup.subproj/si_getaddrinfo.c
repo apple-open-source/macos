@@ -120,9 +120,9 @@ si_inet_config(uint32_t *inet4, uint32_t *inet6)
 					net_v6_count++;
 				}
 			}
+            freeifaddrs(ifa);
 		}
 
-		freeifaddrs(ifa);
 	}
 
 	if (inet4 != NULL) *inet4 = net_v4_count;

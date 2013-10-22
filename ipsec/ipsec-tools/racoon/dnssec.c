@@ -72,7 +72,7 @@ dnssec_getcert(id)
 	namelen = id->l - sizeof(*id_b);
 	name = racoon_malloc(namelen + 1);
 	if (!name) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get buffer.\n");
 		return NULL;
 	}
@@ -83,7 +83,7 @@ dnssec_getcert(id)
 	case IPSECDOI_ID_FQDN:
 		error = getcertsbyname(name, &res);
 		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"getcertsbyname(\"%s\") failed.\n", name);
 			goto err;
 		}
@@ -92,7 +92,7 @@ dnssec_getcert(id)
 	case IPSECDOI_ID_IPV6_ADDR:
 		/* XXX should be processed to query PTR ? */
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"impropper ID type passed %s "
 			"though getcert method is dnssec.\n",
 			s_ipsecdoi_ident(id_b->type));
@@ -101,7 +101,7 @@ dnssec_getcert(id)
 
 	/* check response */
 	if (res->ci_next != NULL) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"not supported multiple CERT RR.\n");
 	}
 	switch (res->ci_type) {
@@ -110,7 +110,7 @@ dnssec_getcert(id)
 		type = ISAKMP_CERT_X509SIGN;
 		break;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"not supported CERT RR type %d.\n", res->ci_type);
 		goto err;
 	}
@@ -118,13 +118,13 @@ dnssec_getcert(id)
 	/* create cert holder */
 	cert = oakley_newcert();
 	if (cert == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get cert buffer.\n");
 		goto err;
 	}
 	cert->pl = vmalloc(res->ci_certlen + 1);
 	if (cert->pl == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get cert buffer.\n");
 		goto err;
 	}
@@ -133,8 +133,7 @@ dnssec_getcert(id)
 	cert->cert.v = cert->pl->v + 1;
 	cert->cert.l = cert->pl->l - 1;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "created CERT payload:\n");
-	plogdump(LLV_DEBUG, cert->pl->v, cert->pl->l);
+	plog(ASL_LEVEL_DEBUG, "created CERT payload:\n");
 
 end:
 	if (res)

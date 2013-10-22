@@ -55,31 +55,31 @@ public:
     }
     
     static PutByIdAccess transition(
-        JSGlobalData& globalData,
+        VM& vm,
         JSCell* owner,
         Structure* oldStructure,
         Structure* newStructure,
         StructureChain* chain,
-        MacroAssemblerCodeRef stubRoutine)
+        PassRefPtr<JITStubRoutine> stubRoutine)
     {
         PutByIdAccess result;
         result.m_type = Transition;
-        result.m_oldStructure.set(globalData, owner, oldStructure);
-        result.m_newStructure.set(globalData, owner, newStructure);
-        result.m_chain.set(globalData, owner, chain);
+        result.m_oldStructure.set(vm, owner, oldStructure);
+        result.m_newStructure.set(vm, owner, newStructure);
+        result.m_chain.set(vm, owner, chain);
         result.m_stubRoutine = stubRoutine;
         return result;
     }
     
     static PutByIdAccess replace(
-        JSGlobalData& globalData,
+        VM& vm,
         JSCell* owner,
         Structure* structure,
-        MacroAssemblerCodeRef stubRoutine)
+        PassRefPtr<JITStubRoutine> stubRoutine)
     {
         PutByIdAccess result;
         result.m_type = Replace;
-        result.m_oldStructure.set(globalData, owner, structure);
+        result.m_oldStructure.set(vm, owner, structure);
         result.m_stubRoutine = stubRoutine;
         return result;
     }
@@ -123,7 +123,7 @@ public:
         return m_chain.get();
     }
     
-    MacroAssemblerCodeRef stubRoutine() const
+    PassRefPtr<JITStubRoutine> stubRoutine() const
     {
         ASSERT(isTransition() || isReplace());
         return m_stubRoutine;
@@ -136,7 +136,7 @@ private:
     WriteBarrier<Structure> m_oldStructure;
     WriteBarrier<Structure> m_newStructure;
     WriteBarrier<StructureChain> m_chain;
-    MacroAssemblerCodeRef m_stubRoutine;
+    RefPtr<JITStubRoutine> m_stubRoutine;
 };
 
 class PolymorphicPutByIdList {
@@ -161,7 +161,7 @@ public:
     
     MacroAssemblerCodePtr currentSlowPathTarget() const
     {
-        return m_list.last().stubRoutine().code();
+        return m_list.last().stubRoutine()->code().code();
     }
     
     void addAccess(const PutByIdAccess&);

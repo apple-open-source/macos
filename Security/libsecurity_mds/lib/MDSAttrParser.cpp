@@ -48,7 +48,7 @@ MDSAttrParser::MDSAttrParser(
 		mDefaults(NULL)
 {
 	/* Only task here is to cook up a CFBundle for the specified path */
-	unsigned pathLen = strlen(bundlePath);
+	size_t pathLen = strlen(bundlePath);
 	CFURLRef url = CFURLCreateFromFileSystemRepresentation(NULL,
 		(unsigned char *)bundlePath,
 		pathLen,
@@ -218,19 +218,47 @@ void MDSAttrParser::logFileError(
 	CFStringRef errStr,		// optional if you have it
 	SInt32 *errNo)			// optional if you have it
 {
-	const char *cerrStr = NULL;
 	CFStringRef urlStr = CFURLGetString(fileUrl);
 	const char *cUrlStr = CFStringGetCStringPtr(urlStr, kCFStringEncodingUTF8);
-	
+	char* stringBuffer = NULL;
+    
+    if (cUrlStr == NULL)
+    {
+        CFIndex maxLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(urlStr), kCFStringEncodingUTF8) + 1;
+        stringBuffer = (char*) malloc(maxLen);
+        CFStringGetCString(urlStr, stringBuffer, maxLen, kCFStringEncodingUTF8);
+        cUrlStr = stringBuffer;
+    }
+    
 	if(errStr) {
-		cerrStr = CFStringGetCStringPtr(errStr, kCFStringEncodingUTF8);
+        const char *cerrStr = CFStringGetCStringPtr(errStr, kCFStringEncodingUTF8);
+        char* sbuf2 = NULL;
+        
+        if (cerrStr == NULL)
+        {
+            CFIndex maxLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(errStr), kCFStringEncodingUTF8) + 1;
+            sbuf2 = (char*) malloc(maxLen);
+            CFStringGetCString(urlStr, sbuf2, maxLen, kCFStringEncodingUTF8);
+            cUrlStr = sbuf2;
+        }
+    
 		Syslog::alert("MDS: %s: bundle %s url %s: error %s",
 			op, mPath, cUrlStr, cerrStr);
+        
+        if (sbuf2 != NULL)
+        {
+            free(sbuf2);
+        }
 	}
 	else {
 		Syslog::alert("MDS: %s: bundle %s url %s: error %d",
-			op, mPath, cUrlStr, errNo ? *errNo : 0);
+			op, mPath, cUrlStr, (int)(errNo ? *errNo : 0));
 	}
+    
+    if (stringBuffer != NULL)
+    {
+        free(stringBuffer);
+    }
 }
 	 
 /*

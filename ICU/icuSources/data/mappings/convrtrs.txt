@@ -1,6 +1,6 @@
 # ******************************************************************************
 # *
-# *   Copyright (C) 1995-2012, International Business Machines
+# *   Copyright (C) 1995-2013, International Business Machines
 # *   Corporation and others.  All Rights Reserved.
 # *
 # ******************************************************************************
@@ -619,13 +619,9 @@ ibm-943_P130-1999 { UTR22* }
                         ibm-943_VASCII_VSUB_VPUA
                         x-IBM943 { JAVA }
                         # japanese. Unicode name is \u30b7\u30d5\u30c8\u7b26\u53f7\u5316\u8868\u73fe
-ibm-33722_P12A_P12A-2004_U2 { UTR22* }
+ibm-33722_P12A_P12A-2009_U2 { UTR22* }
                         ibm-33722   # Leave untagged because this isn't the default
                         ibm-5050    # Leave untagged because this isn't the default, and yes this alias is correct
-                        EUC-JP { IANA MIME* WINDOWS }
-                        Extended_UNIX_Code_Packed_Format_for_Japanese { IANA* WINDOWS* }
-                        csEUCPkdFmtJapanese { IANA WINDOWS }
-                        X-EUC-JP { WINDOWS }   # Japan EUC. x-euc-jp is a MIME name
                         ibm-33722_VPUA
                         IBM-eucJP
 windows-51932-2006 { UTR22* }
@@ -646,16 +642,17 @@ ibm-33722_P120-1999 { UTR22* }  # Japan EUC with \ <-> Yen mapping
 # ibm-954 contains more PUA characters than the others.
 ibm-954_P101-2007 { UTR22* }
                         ibm-954 { IBM* }
-                        EUC-JP { JAVA* } # Matches more closely with ibm-1350
-                        Extended_UNIX_Code_Packed_Format_for_Japanese { JAVA }
-                        csEUCPkdFmtJapanese { JAVA }
-                        X-EUC-JP { JAVA }   # Japan EUC. x-euc-jp is a MIME name
-                        eucjis { JAVA }
-                        ujis # Linux sometimes uses this name. This is an unfortunate generic and rarely used name. Its use is discouraged.
-                        x-IBM954 { JAVA }
+                        x-IBM954 { JAVA* }
                         x-IBM954C { JAVA }
                         # eucJP # This is closest to Solaris EUC-JP.
-                        
+euc-jp-2007 { UTR22* }
+                        EUC-JP { MIME* IANA JAVA* WINDOWS* }
+                        Extended_UNIX_Code_Packed_Format_for_Japanese { IANA* JAVA WINDOWS }
+                        csEUCPkdFmtJapanese { IANA JAVA WINDOWS }
+                        X-EUC-JP { MIME JAVA WINDOWS }   # Japan EUC. x-euc-jp is a MIME name
+                        eucjis {JAVA}
+                        ujis # Linux sometimes uses this name. This is an unfortunate generic and rarely used name. Its use is discouraged.
+
 aix-IBM_udcJP-4.3.6 { UTR22* }
                         x-IBM-udcJP { JAVA* }
 
@@ -676,6 +673,7 @@ windows-950-2000 { UTR22* }
                         windows-950 { WINDOWS* }
                         x-windows-950 { JAVA }
                         x-big5
+                        ms950
 ibm-950_P110-1999 { UTR22* }                # Taiwan Big-5 (w/o euro update)
                         ibm-950 { IBM* JAVA }
                         cp950 { JAVA* }
@@ -933,7 +931,7 @@ macos-38_2-10.2 { UTR22* }      x-mac-romania { MIME* } x-MacRomania { JAVA* } M
 macos-518-10.2 { UTR22* }       x-mac-arabic { MIME* } x-MacArabic { JAVA* } MacArabic { JAVA }
 macos-1285-10.2 { UTR22* }      x-mac-hebrew { MIME* } x-MacHebrew { JAVA* } MacHebrew { JAVA }
 
-ibm-1051_P100-1995 { UTR22* }   ibm-1051 { IBM* } hp-roman8 { IANA* } roman8 { IANA } r8 { IANA } csHPRoman8 { IANA } x-roman8 { JAVA}   # HP Latin1
+ibm-1051_P100-1995 { UTR22* }   ibm-1051 { IBM* } hp-roman8 { IANA* } roman8 { IANA } r8 { IANA } csHPRoman8 { IANA } x-roman8 { JAVA* }   # HP Latin1
 ibm-1276_P100-1995 { UTR22* }   ibm-1276 { IBM* } Adobe-Standard-Encoding { IANA* } csAdobeStandardEncoding { IANA } # Different from ISO-Unicode-IBM-1276 (GCSGID: 1276)
 
 ibm-1006_P100-1995 { UTR22* }   ibm-1006 { IBM* } IBM1006 { JAVA } cp1006 { JAVA* } 1006 { JAVA } x-IBM1006 { JAVA }  # Urdu
@@ -1229,13 +1227,14 @@ ibm-5048_P100-1995 { UTR22* }   ibm-5048 { IBM* } # Japanese (DBCS subset of ibm
 ibm-5049_P100-1995 { UTR22* }   ibm-5049 { IBM* } # Japanese (DBCS subset of ibm-1350, JIS X212)
 ibm-5067_P100-1995 { UTR22* }   ibm-5067 { IBM* } # Korean (DBCS subset of ibm-21450)
 ibm-5104_X110-1999 { UTR22* }   ibm-5104 { IBM* } # cp1008, 8-bit Arabic (w/ euro update)
+ibm-5233_P100-2011 { UTR22* }   ibm-5233 { IBM* } # Devanagari EBCDIC, including Indian Rupee
 ibm-806_P100-1998 { UTR22* }    ibm-806 { IBM* } # Hindi (ISCII variant)
 ibm-808_P100-1999 { UTR22* }    ibm-808 { IBM* } x-IBM808 { JAVA* } # Cyrillic
 ibm-833_P100-1995 { UTR22* }    ibm-833 { IBM* } x-IBM833 { JAVA* }
 ibm-834_P100-1995 { UTR22* }    ibm-834 { IBM* } x-IBM834 { JAVA* } # Korean (DBCS subset of ibm-933)
 ibm-835_P100-1995 { UTR22* }    ibm-835 { IBM* } x-IBM835 { JAVA* } # Traditional Chinese (DBCS subset of ibm-5033)
 ibm-836_P100-1995 { UTR22* }    ibm-836 { IBM* } x-IBM836 { JAVA* }
-ibm-837_P100-1995 { UTR22* }    ibm-837 { IBM* } x-IBM837 { JAVA* } # Simplified Chinese (DBCS subset of ibm-5031)
+ibm-837_P100-2011 { UTR22* }    ibm-837 { IBM* } x-IBM837 { JAVA* } # Simplified Chinese (DBCS subset of ibm-5031)
 ibm-848_P100-1999 { UTR22* }    ibm-848 { IBM* } # Cyrillic (euro update of ibm-1125)
 ibm-849_P100-1999 { UTR22* }    ibm-849 { IBM* } # Cyrillic Belarus (euro update of ibm-1131)
 ibm-859_P100-1999 { UTR22* }    ibm-859 { IBM* } x-IBM859 { JAVA* } # PC Latin 9 (w/ euro update)

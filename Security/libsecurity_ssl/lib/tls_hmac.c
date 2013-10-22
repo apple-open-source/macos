@@ -25,175 +25,30 @@
  * tls_hmac.c - HMAC routines used by TLS
  */
 
+/* THIS FILE CONTAINS KERNEL CODE */
+
 #include "tls_hmac.h"
-
-
+#include "tls_digest.h"
 #include "sslMemory.h"
-#include "cryptType.h"
-#include "sslDigests.h"
 #include "sslDebug.h"
-#include <strings.h>
-#include <assert.h>
+#include <string.h>
+#include <AssertMacros.h>
 
-#ifdef USE_CDSA_CRYPTO
-#include "sslCrypto.h"
-#include <CommonCrypto/CommonHMAC.h>
 
 /* Per-session state, opaque to callers; all fields set at alloc time */
 struct HMACContext {
-	SSLContext					*ctx;
-
- 	/* this one is set once with the key, and it then cloned
- 	 * for each init() */
- 	CCHmacContext				ccHmacTemplate;
-
- 	/* the one we actually feed data to */
- 	CCHmacContext				ccHmac;
- 	size_t						macSize;
-
- 	/* FIXME not sure if we need this */
-	const struct HMACReference	*hmac;
-};
-
-#pragma mark -
-#pragma mark CommonCryptor HMAC routines
-
-/* Create an HMAC session */
-static OSStatus HMAC_Alloc(
-	const struct HMACReference	*hmac,
-	SSLContext 					*ctx,
-	const void					*keyPtr,
-	unsigned					keyLen,
-	HMACContextRef				*hmacCtxOut)		// RETURNED
-{
-	CCHmacAlgorithm	ccAlg;
-
-	HMACContextRef hmacCtx = (HMACContextRef)sslMalloc(sizeof(struct HMACContext));
-
-	if(hmacCtx == NULL) {
-		return memFullErr;
-	}
-	hmacCtx->ctx = ctx;
-	hmacCtx->hmac = hmac;
-
-	switch(hmac->alg) {
-		case HA_SHA384:
-			ccAlg = kCCHmacAlgSHA384;
-			hmacCtx->macSize = CC_SHA384_DIGEST_LENGTH;
-			break;
-		case HA_SHA256:
-			ccAlg = kCCHmacAlgSHA256;
-			hmacCtx->macSize = CC_SHA256_DIGEST_LENGTH;
-			break;
-		case HA_SHA1:
-			ccAlg = kCCHmacAlgSHA1;
-			hmacCtx->macSize = CC_SHA1_DIGEST_LENGTH;
-			break;
-		case HA_MD5:
-			ccAlg = kCCHmacAlgMD5;
-			hmacCtx->macSize = CC_MD5_DIGEST_LENGTH;
-			break;
-		default:
-			ASSERT(0);
-			return errSSLInternal;
-	}
-
-	/* create the template from which individual record MAC-ers are cloned */
-	CCHmacInit(&hmacCtx->ccHmacTemplate, ccAlg, keyPtr, keyLen);
-	*hmacCtxOut = hmacCtx;
-	return noErr;
-}
-
-/* free a session */
-static OSStatus HMAC_Free(
-	HMACContextRef	hmacCtx)
-{
-	if(hmacCtx != NULL) {
-		memset(hmacCtx, 0, sizeof(*hmacCtx));
-		sslFree(hmacCtx);
-	}
-	return noErr;
-}
-
-/* Reusable init - clone from template */
-static OSStatus HMAC_Init(
-	HMACContextRef	hmacCtx)
-{
-	if(hmacCtx == NULL) {
-		return errSSLInternal;
-	}
-	hmacCtx->ccHmac = hmacCtx->ccHmacTemplate;
-	return noErr;
-}
-
-/* normal crypt ops */
-static OSStatus HMAC_Update(
-	HMACContextRef	hmacCtx,
-	const void		*data,
-	unsigned		dataLen)
-{
-	CCHmacUpdate(&hmacCtx->ccHmac, data, dataLen);
-	return noErr;
-}
-
-static OSStatus HMAC_Final(
-	HMACContextRef	hmacCtx,
-	void			*hmac,			// mallocd by caller
-	unsigned		*hmacLen)		// IN/OUT
-{
-	if(*hmacLen < hmacCtx->macSize) {
-		return errSSLInternal;
-	}
-	CCHmacFinal(&hmacCtx->ccHmac, hmac);
-	*hmacLen = hmacCtx->macSize;
-	return noErr;
-}
-
-/* one-shot */
-static OSStatus HMAC_Hmac (
-	HMACContextRef	hmacCtx,
-	const void		*data,
-	unsigned		dataLen,
-	void			*hmac,			// mallocd by caller
-	unsigned		*hmacLen)		// IN/OUT
-{
-	OSStatus serr;
-	const HMACReference	*hmacRef;
-
-	if(hmacCtx == NULL) {
-		return errSSLInternal;
-	}
-	hmacRef = hmacCtx->hmac;
-	assert(hmacRef != NULL);
-	serr = hmacRef->init(hmacCtx);
-	if(serr) {
-		return serr;
-	}
-	serr = hmacRef->update(hmacCtx, data, dataLen);
-	if(serr) {
-		return serr;
-	}
-	return hmacRef->final(hmacCtx, hmac, hmacLen);
-}
-
-#else
-
-/* Per-session state, opaque to callers; all fields set at alloc time */
-struct HMACContext {
-	SSLContext                  *ctx;
 	const HashReference         *digest;
 	SSLBuffer				    outerHashCtx;
 	SSLBuffer				    innerHashCtx;
 	SSLBuffer				    currentHashCtx;
 };
 
-#pragma mark -
-#pragma mark Common HMAC routines
+// MARK: -
+// MARK: Common HMAC routines
 
 /* Create an HMAC session */
-static OSStatus HMAC_Alloc(
+static int HMAC_Alloc(
 	const struct HMACReference	*hmac,
-	SSLContext 					*ctx,
 	const void					*keyPtr,
 	size_t                      keyLen,
 	HMACContextRef				*hmacCtx)			// RETURNED
@@ -223,16 +78,17 @@ static OSStatus HMAC_Alloc(
             digest_block_size = 64;
 			break;
 		default:
-			assert(0);
-			return errSSLInternal;
+			check(0);
+			return -1;
 	}
 
 	context = (uint8_t *)sslMalloc(sizeof(struct HMACContext) +
                                    3 * digest->contextSize);
-	if(context == NULL)
-		return memFullErr;
+	if(context == NULL) {
+        check(0);
+		return -1;
+    }
 	href = (HMACContextRef)context;
-	href->ctx = ctx;
     href->digest = digest;
 	href->outerHashCtx.data = context + sizeof(*href);
 	href->outerHashCtx.length = digest->contextSize;
@@ -241,8 +97,8 @@ static OSStatus HMAC_Alloc(
 	href->currentHashCtx.data = href->innerHashCtx.data + digest->contextSize;
 	href->currentHashCtx.length = digest->contextSize;
 
-	digest->init(&href->outerHashCtx, ctx);
-	digest->init(&href->innerHashCtx, ctx);
+	digest->init(&href->outerHashCtx);
+	digest->init(&href->innerHashCtx);
 
     uint8_t tmpkey[digest->digestSize];
 	uint8_t pad[digest_block_size];
@@ -259,7 +115,7 @@ static OSStatus HMAC_Alloc(
         key = outBuffer.data;
         keyLen = outBuffer.length;
         /* Re-initialize the inner context. */
-        digest->init(&href->innerHashCtx, ctx);
+        digest->init(&href->innerHashCtx);
 	}
 
 	/* Copy the key into k_opad while doing the XOR. */
@@ -283,17 +139,17 @@ static OSStatus HMAC_Alloc(
 
 	/* success */
 	*hmacCtx = href;
-	return noErr;
+	return 0;
 }
 
 /* free a session */
-static OSStatus HMAC_Free(
+static int HMAC_Free(
 	HMACContextRef	hmacCtx)
 {
 	if(hmacCtx != NULL) {
-		hmacCtx->digest->close(&hmacCtx->outerHashCtx, hmacCtx->ctx);
-		hmacCtx->digest->close(&hmacCtx->innerHashCtx, hmacCtx->ctx);
-		hmacCtx->digest->close(&hmacCtx->currentHashCtx, hmacCtx->ctx);
+		hmacCtx->digest->close(&hmacCtx->outerHashCtx);
+		hmacCtx->digest->close(&hmacCtx->innerHashCtx);
+		hmacCtx->digest->close(&hmacCtx->currentHashCtx);
 
 		/* Clear out any key material left in the digest contexts. */
 		bzero(hmacCtx->outerHashCtx.data, hmacCtx->outerHashCtx.length);
@@ -302,42 +158,46 @@ static OSStatus HMAC_Free(
 
 		sslFree(hmacCtx);
 	}
-	return noErr;
+	return 0;
 }
 
 /* Reusable init */
-static OSStatus HMAC_Init(
+static int HMAC_Init(
 	HMACContextRef	hmacCtx)
 {
-	if(hmacCtx == NULL)
-		return errSSLInternal;
+	if(hmacCtx == NULL) {
+        check(0);
+		return -1;
+    }
 
-	assert(hmacCtx->digest != NULL);
+	check(hmacCtx->digest != NULL);
 
-	hmacCtx->digest->close(&hmacCtx->currentHashCtx, hmacCtx->ctx);
+	hmacCtx->digest->close(&hmacCtx->currentHashCtx);
 	hmacCtx->digest->clone(&hmacCtx->innerHashCtx, &hmacCtx->currentHashCtx);
 
-	return noErr;
+	return 0;
 }
 
 /* normal crypt ops */
-static OSStatus HMAC_Update(
+static int HMAC_Update(
 	HMACContextRef	hmacCtx,
 	const void		*data,
 	size_t          dataLen)
 {
 	SSLBuffer       cdata = { dataLen, (uint8_t *)data };
-	if(hmacCtx == NULL)
-		return errSSLInternal;
+	if(hmacCtx == NULL) {
+        check(0);
+		return -1;
+    }
 
-	assert(hmacCtx->digest != NULL);
+	check(hmacCtx->digest != NULL);
 
 	hmacCtx->digest->update(&hmacCtx->currentHashCtx, &cdata);
 
-	return noErr;
+	return 0;
 }
-
-static OSStatus HMAC_Final(
+	
+static int HMAC_Final(
 	HMACContextRef	hmacCtx,
 	void			*hmac,			// mallocd by caller
 	size_t          *hmacLen)		// IN/OUT
@@ -347,13 +207,15 @@ static OSStatus HMAC_Final(
 	SSLBuffer       cdata;
 
 	if(hmacCtx == NULL) {
-		return errSSLInternal;
+        check(0);
+		return -1;
 	}
 	if((hmac == NULL) || (hmacLen == NULL)) {
-		return errSSLInternal;
+        check(0);
+		return -1;
 	}
-	assert(hmacCtx->digest != NULL);
-	assert(*hmacLen >= hmacCtx->digest->digestSize);
+	check(hmacCtx->digest != NULL);
+	check(*hmacLen >= hmacCtx->digest->digestSize);
 
 	cdata.length = *hmacLen;
 	cdata.data = (uint8_t *)hmac;
@@ -365,21 +227,22 @@ static OSStatus HMAC_Final(
 	hmacCtx->digest->final(&hmacCtx->currentHashCtx, &cdata);
 	*hmacLen = hmacCtx->digest->digestSize;
 
-	return noErr;
+	return 0;
 }
 
 /* one-shot */
-static OSStatus HMAC_Hmac (
+static int HMAC_Hmac (
 	HMACContextRef	hmacCtx,
 	const void		*data,
 	size_t          dataLen,
 	void			*hmac,			// mallocd by caller
 	size_t          *hmacLen)		// IN/OUT
 {
-	OSStatus serr;
-
+	int serr;
+	
 	if(hmacCtx == NULL) {
-		return errSSLInternal;
+        check(0);
+		return -1;
 	}
 	serr = HMAC_Init(hmacCtx);
 	if(serr) {
@@ -392,63 +255,61 @@ static OSStatus HMAC_Hmac (
 	return HMAC_Final(hmacCtx, hmac, hmacLen);
 }
 
-#endif /* !USE_CDSA_CRYPTO */
 
-#pragma mark -
-#pragma mark Null HMAC
+// MARK: -
+// MARK: Null HMAC
 
-static OSStatus HMAC_AllocNull(
+static int HMAC_AllocNull(
 	const struct HMACReference	*hmac,
-	SSLContext 					*ctx,
 	const void					*keyPtr,
 	size_t                      keyLen,
 	HMACContextRef				*hmacCtx)			// RETURNED
 {
 	*hmacCtx = NULL;
-	return noErr;
+	return 0;
 }
 
-static OSStatus HMAC_FreeNull(
+static int HMAC_FreeNull(
 	HMACContextRef	hmacCtx)
 {
-	return noErr;
+	return 0;
 }
 
-static OSStatus HMAC_InitNull(
+static int HMAC_InitNull(
 	HMACContextRef	hmacCtx)
 	{
-	return noErr;
+	return 0;
 }
 
-static OSStatus HMAC_UpdateNull(
+static int HMAC_UpdateNull(
 	HMACContextRef	hmacCtx,
 	const void		*data,
 	size_t          dataLen)
 {
-	return noErr;
+	return 0;
 }
 
-static OSStatus HMAC_FinalNull(
+static int HMAC_FinalNull(
 	HMACContextRef	hmacCtx,
 	void			*hmac,			// mallocd by caller
 	size_t          *hmacLen)		// IN/OUT
 {
-	return noErr;
+	return 0;
 }
 
-static OSStatus HMAC_HmacNull (
+static int HMAC_HmacNull (
 	HMACContextRef	hmacCtx,
 	const void		*data,
 	size_t          dataLen,
 	void			*hmac,			// mallocd by caller
 	size_t          *hmacLen)
 {
-	return noErr;
+	return 0;
 }
 
 const HMACReference TlsHmacNull = {
-	0,
-	HA_Null,
+    0,
+    HA_Null,
 	HMAC_AllocNull,
 	HMAC_FreeNull,
 	HMAC_InitNull,
@@ -458,8 +319,8 @@ const HMACReference TlsHmacNull = {
 };
 
 const HMACReference TlsHmacMD5 = {
-	16,
-	HA_MD5,
+    16,
+    HA_MD5,
 	HMAC_Alloc,
 	HMAC_Free,
 	HMAC_Init,
@@ -469,8 +330,8 @@ const HMACReference TlsHmacMD5 = {
 };
 
 const HMACReference TlsHmacSHA1 = {
-	20,
-	HA_SHA1,
+    20,
+    HA_SHA1,
 	HMAC_Alloc,
 	HMAC_Free,
 	HMAC_Init,
@@ -480,8 +341,8 @@ const HMACReference TlsHmacSHA1 = {
 };
 
 const HMACReference TlsHmacSHA256 = {
-	32,
-	HA_SHA256,
+    32,
+    HA_SHA256,
 	HMAC_Alloc,
 	HMAC_Free,
 	HMAC_Init,
@@ -491,37 +352,12 @@ const HMACReference TlsHmacSHA256 = {
 };
 
 const HMACReference TlsHmacSHA384 = {
-	48,
-	HA_SHA384,
+    48,
+    HA_SHA384,
 	HMAC_Alloc,
 	HMAC_Free,
 	HMAC_Init,
 	HMAC_Update,
 	HMAC_Final,
 	HMAC_Hmac
-};
-
-const HashHmacReference HashHmacNull = {
-	&SSLHashNull,
-	&TlsHmacNull
-};
-
-const HashHmacReference HashHmacMD5 = {
-	&SSLHashMD5,
-	&TlsHmacMD5
-};
-
-const HashHmacReference HashHmacSHA1 = {
-	&SSLHashSHA1,
-	&TlsHmacSHA1
-};
-
-const HashHmacReference HashHmacSHA256 = {
-	&SSLHashSHA256,
-	&TlsHmacSHA256
-};
-
-const HashHmacReference HashHmacSHA384 = {
-	&SSLHashSHA384,
-	&TlsHmacSHA384
 };

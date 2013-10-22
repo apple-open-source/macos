@@ -1,10 +1,31 @@
+require 'prettyprint'
+
+module Kernel
+  # returns a pretty printed object as a string.
+  def pretty_inspect
+    PP.pp(self, '')
+  end
+
+  private
+  # prints arguments in pretty form.
+  #
+  # pp returns argument(s).
+  def pp(*objs) # :doc:
+    objs.each {|obj|
+      PP.pp(obj)
+    }
+    objs.size <= 1 ? objs.first : objs
+  end
+  module_function :pp
+end
+
 # == Pretty-printer for Ruby objects.
-# 
+#
 # = Which seems better?
-# 
+#
 # non-pretty-printed output by #p is:
 #   #<PP:0x81fedf0 @genspace=#<Proc:0x81feda0>, @group_queue=#<PrettyPrint::GroupQueue:0x81fed3c @queue=[[#<PrettyPrint::Group:0x81fed78 @breakables=[], @depth=0, @break=false>], []]>, @buffer=[], @newline="\n", @group_stack=[#<PrettyPrint::Group:0x81fed78 @breakables=[], @depth=0, @break=false>], @buffer_width=0, @indent=0, @maxwidth=79, @output_width=2, @output=#<IO:0x8114ee4>>
-# 
+#
 # pretty-printed output by #pp is:
 #   #<PP:0x81fedf0
 #    @buffer=[],
@@ -22,17 +43,19 @@
 #    @newline="\n",
 #    @output=#<IO:0x8114ee4>,
 #    @output_width=2>
-# 
-# I like the latter.  If you do too, this library is for you.
-# 
-# = Usage
-# 
-#   pp(obj)
 #
-# output +obj+ to +$>+ in pretty printed format.
-# 
-# It returns +nil+.
-# 
+# I like the latter.  If you do too, this library is for you.
+#
+# = Usage
+#
+#   pp(obj)             #=> obj
+#   pp(obj1, obj2, ...) #=> [obj1, obj2, ...]
+#   pp()                #=> nil
+#
+# output +obj(s)+ to +$>+ in pretty printed format.
+#
+# It returns +obj(s)+.
+#
 # = Output Customization
 # To define your customized pretty printing function for your classes,
 # redefine a method #pretty_print(+pp+) in the class.
@@ -42,35 +65,13 @@
 #
 # = Author
 # Tanaka Akira <akr@m17n.org>
-
-require 'prettyprint'
-
-module Kernel
-  # returns a pretty printed object as a string.
-  def pretty_inspect
-    PP.pp(self, '')
-  end
-
-  private
-  # prints arguments in pretty form.
-  #
-  # pp returns nil.
-  def pp(*objs) # :doc:
-    objs.each {|obj|
-      PP.pp(obj)
-    }
-    nil
-  end
-  module_function :pp
-end
-
 class PP < PrettyPrint
   # Outputs +obj+ to +out+ in pretty printed format of
   # +width+ columns in width.
-  # 
+  #
   # If +out+ is omitted, +$>+ is assumed.
   # If +width+ is omitted, 79 is assumed.
-  # 
+  #
   # PP.pp returns +out+.
   def PP.pp(obj, out=$>, width=79)
     q = PP.new(out, width)
@@ -82,7 +83,7 @@ class PP < PrettyPrint
 
   # Outputs +obj+ to +out+ like PP.pp but with no indent and
   # newline.
-  # 
+  #
   # PP.singleline_pp returns +out+.
   def PP.singleline_pp(obj, out=$>)
     q = SingleLine.new(out)
@@ -105,59 +106,81 @@ class PP < PrettyPrint
   end
 
   module PPMethods
-    InspectKey = :__inspect_key__
-
     def guard_inspect_key
-      if Thread.current[InspectKey] == nil
-        Thread.current[InspectKey] = []
+      if Thread.current[:__recursive_key__] == nil
+        Thread.current[:__recursive_key__] = {}.untrust
       end
 
-      save = Thread.current[InspectKey]
+      if Thread.current[:__recursive_key__][:inspect] == nil
+        Thread.current[:__recursive_key__][:inspect] = {}.untrust
+      end
+
+      save = Thread.current[:__recursive_key__][:inspect]
 
       begin
-        Thread.current[InspectKey] = []
+        Thread.current[:__recursive_key__][:inspect] = {}.untrust
         yield
       ensure
-        Thread.current[InspectKey] = save
+        Thread.current[:__recursive_key__][:inspect] = save
       end
+    end
+
+    def check_inspect_key(id)
+      Thread.current[:__recursive_key__] &&
+      Thread.current[:__recursive_key__][:inspect] &&
+      Thread.current[:__recursive_key__][:inspect].include?(id)
+    end
+    def push_inspect_key(id)
+      Thread.current[:__recursive_key__][:inspect][id] = true
+    end
+    def pop_inspect_key(id)
+      Thread.current[:__recursive_key__][:inspect].delete id
     end
 
     # Adds +obj+ to the pretty printing buffer
     # using Object#pretty_print or Object#pretty_print_cycle.
-    # 
+    #
     # Object#pretty_print_cycle is used when +obj+ is already
     # printed, a.k.a the object reference chain has a cycle.
     def pp(obj)
-      id = obj.__id__
+      id = obj.object_id
 
-      if Thread.current[InspectKey].include? id
+      if check_inspect_key(id)
         group {obj.pretty_print_cycle self}
         return
       end
 
       begin
-        Thread.current[InspectKey] << id
+        push_inspect_key(id)
         group {obj.pretty_print self}
       ensure
-        Thread.current[InspectKey].pop unless PP.sharing_detection
+        pop_inspect_key(id) unless PP.sharing_detection
       end
     end
 
     # A convenience method which is same as follows:
-    # 
+    #
     #   group(1, '#<' + obj.class.name, '>') { ... }
     def object_group(obj, &block) # :yield:
       group(1, '#<' + obj.class.name, '>', &block)
     end
 
+    PointerMask = (1 << ([""].pack("p").size * 8)) - 1
+
+    case Object.new.inspect
+    when /\A\#<Object:0x([0-9a-f]+)>\z/
+      PointerFormat = "%0#{$1.length}x"
+    else
+      PointerFormat = "%x"
+    end
+
     def object_address_group(obj, &block)
-      id = "%x" % (obj.__id__ * 2)
-      id.sub!(/\Af(?=[[:xdigit:]]{2}+\z)/, '') if id.sub!(/\A\.\./, '')
+      id = PointerFormat % (obj.object_id * 2 & PointerMask)
       group(1, "\#<#{obj.class}:0x#{id}", '>', &block)
     end
 
     # A convenience method which is same as follows:
-    # 
+    #
     #   text ','
     #   breakable
     def comma_breakable
@@ -167,23 +190,23 @@ class PP < PrettyPrint
 
     # Adds a separated list.
     # The list is separated by comma with breakable space, by default.
-    # 
+    #
     # #seplist iterates the +list+ using +iter_method+.
     # It yields each object to the block given for #seplist.
     # The procedure +separator_proc+ is called between each yields.
-    # 
+    #
     # If the iteration is zero times, +separator_proc+ is not called at all.
-    # 
+    #
     # If +separator_proc+ is nil or not given,
     # +lambda { comma_breakable }+ is used.
     # If +iter_method+ is not given, :each is used.
-    # 
+    #
     # For example, following 3 code fragments has similar effect.
-    # 
+    #
     #   q.seplist([1,2,3]) {|v| xxx v }
-    # 
-    #   q.seplist([1,2,3], lambda { comma_breakable }, :each) {|v| xxx v }
-    # 
+    #
+    #   q.seplist([1,2,3], lambda { q.comma_breakable }, :each) {|v| xxx v }
+    #
     #   xxx 1
     #   q.comma_breakable
     #   xxx 2
@@ -242,23 +265,27 @@ class PP < PrettyPrint
   module ObjectMixin
     # 1. specific pretty_print
     # 2. specific inspect
-    # 3. specific to_s if instance variable is empty
-    # 4. generic pretty_print
+    # 3. generic pretty_print
 
     # A default pretty printing method for general objects.
     # It calls #pretty_print_instance_variables to list instance variables.
-    # 
+    #
     # If +self+ has a customized (redefined) #inspect method,
     # the result of self.inspect is used but it obviously has no
     # line break hints.
-    # 
+    #
     # This module provides predefined #pretty_print methods for some of
     # the most commonly used built-in classes for convenience.
     def pretty_print(q)
-      if /\(Kernel\)#/ !~ Object.instance_method(:method).bind(self).call(:inspect).inspect
+      method_method = Object.instance_method(:method).bind(self)
+      begin
+        inspect_method = method_method.call(:inspect)
+      rescue NameError
+      end
+      if inspect_method && /\(Kernel\)#/ !~ inspect_method.inspect
         q.text self.inspect
-      elsif /\(Kernel\)#/ !~ Object.instance_method(:method).bind(self).call(:to_s).inspect && instance_variables.empty?
-        q.text self.to_s
+      elsif !inspect_method && self.respond_to?(:inspect)
+        q.text self.inspect
       else
         q.pp_object(self)
       end
@@ -274,7 +301,7 @@ class PP < PrettyPrint
     end
 
     # Returns a sorted array of instance variable names.
-    # 
+    #
     # This method should return an array of names of instance variables as symbols or strings as:
     # +[:@a, :@b]+.
     def pretty_print_instance_variables
@@ -283,7 +310,7 @@ class PP < PrettyPrint
 
     # Is #inspect implementation using #pretty_print.
     # If you implement #pretty_print, it can be used as follows.
-    # 
+    #
     #   alias inspect pretty_print_inspect
     #
     # However, doing this requires that every class that #inspect is called on
@@ -323,13 +350,17 @@ end
 
 class << ENV
   def pretty_print(q)
-    q.pp_hash self
+    h = {}
+    ENV.keys.sort.each {|k|
+      h[k] = ENV[k]
+    }
+    q.pp_hash h
   end
 end
 
 class Struct
   def pretty_print(q)
-    q.group(1, '#<struct ' + PP.mcall(self, Kernel, :class).name, '>') {
+    q.group(1, sprintf("#<struct %s", PP.mcall(self, Kernel, :class).name), '>') {
       q.seplist(PP.mcall(self, Struct, :members), lambda { q.text "," }) {|member|
         q.breakable
         q.text member.to_s
@@ -357,7 +388,7 @@ class Range
   end
 end
 
-class File
+class File < IO
   class Stat
     def pretty_print(q)
       require 'etc.so'
@@ -441,16 +472,30 @@ end
 
 class MatchData
   def pretty_print(q)
+    nc = []
+    self.regexp.named_captures.each {|name, indexes|
+      indexes.each {|i| nc[i] = name }
+    }
     q.object_group(self) {
       q.breakable
-      q.seplist(1..self.size, lambda { q.breakable }) {|i|
-        q.pp self[i-1]
+      q.seplist(0...self.size, lambda { q.breakable }) {|i|
+        if i == 0
+          q.pp self[i]
+        else
+          if nc[i]
+            q.text nc[i]
+          else
+            q.pp i
+          end
+          q.text ':'
+          q.pp self[i]
+        end
       }
     }
   end
 end
 
-class Object
+class Object < BasicObject
   include PP::ObjectMixin
 end
 
@@ -469,186 +514,3 @@ end
     end
   }
 }
-
-# :enddoc:
-if __FILE__ == $0
-  require 'test/unit'
-
-  class PPTest < Test::Unit::TestCase
-    def test_list0123_12
-      assert_equal("[0, 1, 2, 3]\n", PP.pp([0,1,2,3], '', 12))
-    end
-
-    def test_list0123_11
-      assert_equal("[0,\n 1,\n 2,\n 3]\n", PP.pp([0,1,2,3], '', 11))
-    end
-
-    OverriddenStruct = Struct.new("OverriddenStruct", :members, :class)
-    def test_struct_override_members # [ruby-core:7865]
-      a = OverriddenStruct.new(1,2)
-      assert_equal("#<struct Struct::OverriddenStruct members=1, class=2>\n", PP.pp(a, ''))
-    end
-
-    def test_redefined_method
-      o = ""
-      def o.method
-      end
-      assert_equal(%(""\n), PP.pp(o, ""))
-    end
-  end
-
-  class HasInspect
-    def initialize(a)
-      @a = a
-    end
-
-    def inspect
-      return "<inspect:#{@a.inspect}>"
-    end
-  end
-
-  class HasPrettyPrint
-    def initialize(a)
-      @a = a
-    end
-
-    def pretty_print(q)
-      q.text "<pretty_print:"
-      q.pp @a
-      q.text ">"
-    end
-  end
-
-  class HasBoth
-    def initialize(a)
-      @a = a
-    end
-
-    def inspect
-      return "<inspect:#{@a.inspect}>"
-    end
-
-    def pretty_print(q)
-      q.text "<pretty_print:"
-      q.pp @a
-      q.text ">"
-    end
-  end
-
-  class PrettyPrintInspect < HasPrettyPrint
-    alias inspect pretty_print_inspect
-  end
-
-  class PrettyPrintInspectWithoutPrettyPrint
-    alias inspect pretty_print_inspect
-  end
-
-  class PPInspectTest < Test::Unit::TestCase
-    def test_hasinspect
-      a = HasInspect.new(1)
-      assert_equal("<inspect:1>\n", PP.pp(a, ''))
-    end
-
-    def test_hasprettyprint
-      a = HasPrettyPrint.new(1)
-      assert_equal("<pretty_print:1>\n", PP.pp(a, ''))
-    end
-
-    def test_hasboth
-      a = HasBoth.new(1)
-      assert_equal("<pretty_print:1>\n", PP.pp(a, ''))
-    end
-
-    def test_pretty_print_inspect
-      a = PrettyPrintInspect.new(1)
-      assert_equal("<pretty_print:1>", a.inspect)
-      a = PrettyPrintInspectWithoutPrettyPrint.new
-      assert_raise(RuntimeError) { a.inspect }
-    end
-
-    def test_proc
-      a = proc {1}
-      assert_equal("#{a.inspect}\n", PP.pp(a, ''))
-    end
-
-    def test_to_s_with_iv
-      a = Object.new
-      def a.to_s() "aaa" end
-      a.instance_eval { @a = nil }
-      result = PP.pp(a, '')
-      assert_equal("#{a.inspect}\n", result)
-      assert_match(/\A#<Object.*>\n\z/m, result)
-      a = 1.0
-      a.instance_eval { @a = nil }
-      result = PP.pp(a, '')
-      assert_equal("#{a.inspect}\n", result)
-    end
-    
-    def test_to_s_without_iv
-      a = Object.new
-      def a.to_s() "aaa" end
-      result = PP.pp(a, '')
-      assert_equal("#{a.inspect}\n", result)
-      assert_equal("aaa\n", result)
-    end
-  end
-
-  class PPCycleTest < Test::Unit::TestCase
-    def test_array
-      a = []
-      a << a
-      assert_equal("[[...]]\n", PP.pp(a, ''))
-      assert_equal("#{a.inspect}\n", PP.pp(a, ''))
-    end
-
-    def test_hash
-      a = {}
-      a[0] = a
-      assert_equal("{0=>{...}}\n", PP.pp(a, ''))
-      assert_equal("#{a.inspect}\n", PP.pp(a, ''))
-    end
-
-    S = Struct.new("S", :a, :b)
-    def test_struct
-      a = S.new(1,2)
-      a.b = a
-      assert_equal("#<struct Struct::S a=1, b=#<struct Struct::S:...>>\n", PP.pp(a, ''))
-      assert_equal("#{a.inspect}\n", PP.pp(a, ''))
-    end
-
-    def test_object
-      a = Object.new
-      a.instance_eval {@a = a}
-      assert_equal(a.inspect + "\n", PP.pp(a, ''))
-    end
-
-    def test_anonymous
-      a = Class.new.new
-      assert_equal(a.inspect + "\n", PP.pp(a, ''))
-    end
-
-    def test_withinspect
-      a = []
-      a << HasInspect.new(a)
-      assert_equal("[<inspect:[...]>]\n", PP.pp(a, ''))
-      assert_equal("#{a.inspect}\n", PP.pp(a, ''))
-    end
-
-    def test_share_nil
-      begin
-        PP.sharing_detection = true
-        a = [nil, nil]
-        assert_equal("[nil, nil]\n", PP.pp(a, ''))
-      ensure
-        PP.sharing_detection = false
-      end
-    end
-  end
-
-  class PPSingleLineTest < Test::Unit::TestCase
-    def test_hash
-      assert_equal("{1=>1}", PP.singleline_pp({ 1 => 1}, '')) # [ruby-core:02699]
-      assert_equal("[1#{', 1'*99}]", PP.singleline_pp([1]*100, ''))
-    end
-  end
-end

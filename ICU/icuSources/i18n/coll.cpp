@@ -37,6 +37,8 @@
  * 01/29/01     synwee      Modified into a C++ wrapper calling C APIs (ucol.h)
  */
 
+#include "utypeinfo.h"  // for 'typeid' to work
+
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_COLLATION
@@ -423,12 +425,17 @@ Collator::createInstance(const Locale &loc,
 }
 #endif
 
+Collator *
+Collator::safeClone() const {
+    return clone();
+}
+
 // implement deprecated, previously abstract method
 Collator::EComparisonResult Collator::compare(const UnicodeString& source, 
                                     const UnicodeString& target) const
 {
     UErrorCode ec = U_ZERO_ERROR;
-    return (Collator::EComparisonResult)compare(source, target, ec);
+    return (EComparisonResult)compare(source, target, ec);
 }
 
 // implement deprecated, previously abstract method
@@ -437,7 +444,7 @@ Collator::EComparisonResult Collator::compare(const UnicodeString& source,
                                     int32_t length) const
 {
     UErrorCode ec = U_ZERO_ERROR;
-    return (Collator::EComparisonResult)compare(source, target, length, ec);
+    return (EComparisonResult)compare(source, target, length, ec);
 }
 
 // implement deprecated, previously abstract method
@@ -446,7 +453,7 @@ Collator::EComparisonResult Collator::compare(const UChar* source, int32_t sourc
                                     const
 {
     UErrorCode ec = U_ZERO_ERROR;
-    return (Collator::EComparisonResult)compare(source, sourceLength, target, targetLength, ec);
+    return (EComparisonResult)compare(source, sourceLength, target, targetLength, ec);
 }
 
 UCollationResult Collator::compare(UCharIterator &/*sIter*/,
@@ -574,7 +581,8 @@ Collator::Collator(const Collator &other)
 
 UBool Collator::operator==(const Collator& other) const
 {
-    return (UBool)(this == &other);
+    // Subclasses: Call this method and then add more specific checks.
+    return typeid(*this) == typeid(other);
 }
 
 UBool Collator::operator!=(const Collator& other) const
@@ -855,7 +863,19 @@ Collator::getFunctionalEquivalent(const char* keyword, const Locale& locale,
     return Locale::createFromName(loc);
 }
 
-int32_t U_EXPORT2 
+Collator::ECollationStrength
+Collator::getStrength(void) const {
+    UErrorCode intStatus = U_ZERO_ERROR;
+    return (ECollationStrength)getAttribute(UCOL_STRENGTH, intStatus);
+}
+
+void
+Collator::setStrength(ECollationStrength newStrength) {
+    UErrorCode intStatus = U_ZERO_ERROR;
+    setAttribute(UCOL_STRENGTH, (UColAttributeValue)newStrength, intStatus);
+}
+
+int32_t
 Collator::getReorderCodes(int32_t* /* dest*/,
                           int32_t /* destCapacity*/,
                           UErrorCode& status) const
@@ -866,7 +886,7 @@ Collator::getReorderCodes(int32_t* /* dest*/,
     return 0;
 }
 
-void U_EXPORT2 
+void
 Collator::setReorderCodes(const int32_t* /* reorderCodes */,
                           int32_t /* reorderCodesLength */,
                           UErrorCode& status)

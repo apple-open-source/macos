@@ -1609,6 +1609,8 @@
 /* Begin PBXProject section */
 		77F5D69C0236D69405DD284B /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = AAD4EA2E09856D170066F8B3 /* Build configuration list for PBXProject "sasl" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;
@@ -1726,7 +1728,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p \"${DSTROOT}/usr/lib\"\ncd \"${DSTROOT}/usr/lib\"\nrm -f \"libsasl2.2.0.22.dylib\" \"libsasl2.2.0.21.dylib\" \"libsasl2.2.0.15.dylib\" \"libsasl2.dylib\" \"libsasl2.2.0.1.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.22.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.21.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.15.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.1.dylib\"\nmkdir -p \"${DSTROOT}/usr/local/OpenSourceLicenses\"\ncp \"${SRCROOT}/cyrus_sasl/COPYING\" \"${DSTROOT}/usr/local/OpenSourceLicenses/passwordserver_sasl.txt\"\n";
+			shellScript = "mkdir -p \"${DSTROOT}/usr/lib\"\ncd \"${DSTROOT}/usr/lib\"\nrm -f \"libsasl2.2.0.22.dylib\" \"libsasl2.2.0.21.dylib\" \"libsasl2.2.0.15.dylib\" \"libsasl2.dylib\" \"libsasl2.2.0.1.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.22.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.21.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.15.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.1.dylib\"\nmkdir -p \"${DSTROOT}/usr/local/OpenSourceLicenses\"\ncp \"${SRCROOT}/cyrus_sasl/COPYING\" \"${DSTROOT}/usr/local/OpenSourceLicenses/passwordserver_sasl.txt\"\nchmod 0644 \"${DSTROOT}/usr/local/OpenSourceLicenses/passwordserver_sasl.txt\"\n";
 		};
 		B062B4B20D9C55E200C883E4 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -2668,7 +2670,10 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/lib/sasl2;
-				OTHER_CFLAGS = "-DAUTHDATA=1";
+				OTHER_CFLAGS = (
+					"-DAUTHDATA=1",
+					"-DK5_MAX_SSF=112",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = gssapiv2.2.0.18;
 				ZERO_LINK = NO;
@@ -2688,7 +2693,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/lib/sasl2;
-				OTHER_CFLAGS = "-DAUTHDATA=1";
+				OTHER_CFLAGS = (
+					"-DAUTHDATA=1",
+					"-DK5_MAX_SSF=112",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = gssapiv2.2.0.18;
 				ZERO_LINK = NO;
@@ -2706,7 +2714,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/lib/sasl2;
-				OTHER_CFLAGS = "-DAUTHDATA=1";
+				OTHER_CFLAGS = (
+					"-DAUTHDATA=1",
+					"-DK5_MAX_SSF=112",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = gssapiv2.2.0.18;
 				ZERO_LINK = NO;

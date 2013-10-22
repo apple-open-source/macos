@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,56 +26,87 @@
 #ifndef SelectorQuery_h
 #define SelectorQuery_h
 
-#include "SelectorChecker.h"
+#include "CSSSelectorList.h"
+#include "NodeList.h"
+#include <wtf/HashMap.h>
+#include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicStringHash.h>
 
 namespace WebCore {
+
+typedef int ExceptionCode;
     
+class CSSSelector;
+class Document;
+class Element;
 class Node;
 class NodeList;
-class Element;
-class CSSSelector;
-class CSSSelectorList;
 
 class SelectorDataList {
 public:
-    SelectorDataList();
-    explicit SelectorDataList(const CSSSelectorList&);
-
     void initialize(const CSSSelectorList&);
-
-    int size() const { return m_selectors.size(); }
-
-    bool matches(const SelectorChecker&, Element*) const;
-    PassRefPtr<NodeList> queryAll(const SelectorChecker&, Node* rootNode) const;
-    PassRefPtr<Element> queryFirst(const SelectorChecker&, Node* rootNode) const;
+    bool matches(Element*) const;
+    PassRefPtr<NodeList> queryAll(Node* rootNode) const;
+    PassRefPtr<Element> queryFirst(Node* rootNode) const;
 
 private:
     struct SelectorData {
-        SelectorData(CSSSelector* selector, bool isFastCheckable) : selector(selector), isFastCheckable(isFastCheckable) { }
-        CSSSelector* selector;
+        SelectorData(const CSSSelector* selector, bool isFastCheckable) : selector(selector), isFastCheckable(isFastCheckable) { }
+        const CSSSelector* selector;
         bool isFastCheckable;
     };
 
-    bool canUseIdLookup(Node* rootNode) const;
+    bool selectorMatches(const SelectorData&, Element*, const Node*) const;
     template <bool firstMatchOnly>
-    void execute(const SelectorChecker&, Node* rootNode, Vector<RefPtr<Node> >&) const;
+    void execute(Node* rootNode, Vector<RefPtr<Node> >&) const;
+
+    template <bool firstMatchOnly> void executeFastPathForIdSelector(const Node* rootNode, const SelectorData&, const CSSSelector* idSelector, Vector<RefPtr<Node> >&) const;
+    template <bool firstMatchOnly> void executeSingleTagNameSelectorData(const Node* rootNode, const SelectorData&, Vector<RefPtr<Node> >&) const;
+    template <bool firstMatchOnly> void executeSingleClassNameSelectorData(const Node* rootNode, const SelectorData&, Vector<RefPtr<Node> >&) const;
+    template <bool firstMatchOnly> void executeSingleSelectorData(const Node* rootNode, const SelectorData&, Vector<RefPtr<Node> >&) const;
+    template <bool firstMatchOnly> void executeSingleMultiSelectorData(const Node* rootNode, Vector<RefPtr<Node> >&) const;
 
     Vector<SelectorData> m_selectors;
 };
 
 class SelectorQuery {
     WTF_MAKE_NONCOPYABLE(SelectorQuery);
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    SelectorQuery(Node* rootNode, const CSSSelectorList&);
-
-    PassRefPtr<NodeList> queryAll() const;
-    PassRefPtr<Element> queryFirst() const;
+    explicit SelectorQuery(const CSSSelectorList&);
+    bool matches(Element*) const;
+    PassRefPtr<NodeList> queryAll(Node* rootNode) const;
+    PassRefPtr<Element> queryFirst(Node* rootNode) const;
 private:
-    Node* m_rootNode;
-    SelectorChecker m_selectorChecker;
     SelectorDataList m_selectors;
+    CSSSelectorList m_selectorList;
 };
+
+class SelectorQueryCache {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    SelectorQuery* add(const AtomicString&, Document*, ExceptionCode&);
+    void invalidate();
+
+private:
+    HashMap<AtomicString, OwnPtr<SelectorQuery> > m_entries;
+};
+
+inline bool SelectorQuery::matches(Element* element) const
+{
+    return m_selectors.matches(element);
+}
+
+inline PassRefPtr<NodeList> SelectorQuery::queryAll(Node* rootNode) const
+{
+    return m_selectors.queryAll(rootNode);
+}
+
+inline PassRefPtr<Element> SelectorQuery::queryFirst(Node* rootNode) const
+{
+    return m_selectors.queryFirst(rootNode);
+}
 
 }
 

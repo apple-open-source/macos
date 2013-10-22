@@ -43,7 +43,7 @@ struct launchd_syslog_attr {
 __attribute__((visibility("default")))
 __attribute__((used))
 extern bool
-_launchd_osx_redirect(const char *message);
+_launchd_os_redirect(const char *message);
 
 int
 runtime_setlogmask(int maskpri);

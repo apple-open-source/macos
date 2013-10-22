@@ -326,7 +326,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0440;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -512,6 +512,7 @@
 		72B84539126FE81F009E3486 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
@@ -521,6 +522,7 @@
 		72B8453A126FE81F009E3486 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_REZFLAGS = "";
@@ -531,6 +533,7 @@
 		89F255720DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = BootCache;
@@ -542,6 +545,7 @@
 		89F255770DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = BootCache;
 				SECTORDER_FLAGS = "";
@@ -551,6 +555,7 @@
 		89F255890DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -566,6 +571,7 @@
 		89F2558E0DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;

@@ -41,11 +41,17 @@ WebInspector.NetworkItemView = function(request)
     var headersView = new WebInspector.RequestHeadersView(request);
     this.appendTab("headers", WebInspector.UIString("Headers"), headersView);
 
-    var responseView = new WebInspector.RequestResponseView(request);
-    var previewView = new WebInspector.RequestPreviewView(request, responseView);
+    this.addEventListener(WebInspector.TabbedPane.EventTypes.TabSelected, this._tabSelected, this);
 
-    this.appendTab("preview", WebInspector.UIString("Preview"), previewView);
-    this.appendTab("response", WebInspector.UIString("Response"), responseView);
+    if (request.type === WebInspector.resourceTypes.WebSocket) {
+        var frameView = new WebInspector.ResourceWebSocketFrameView(request);
+        this.appendTab("webSocketFrames", WebInspector.UIString("Frames"), frameView);
+    } else {
+        var responseView = new WebInspector.RequestResponseView(request);
+        var previewView = new WebInspector.RequestPreviewView(request, responseView);
+        this.appendTab("preview", WebInspector.UIString("Preview"), previewView);
+        this.appendTab("response", WebInspector.UIString("Response"), responseView);
+    }
 
     if (request.requestCookies || request.responseCookies) {
         this._cookiesView = new WebInspector.RequestCookiesView(request);
@@ -56,13 +62,7 @@ WebInspector.NetworkItemView = function(request)
         var timingView = new WebInspector.RequestTimingView(request);
         this.appendTab("timing", WebInspector.UIString("Timing"), timingView);
     }
-
-    if (request.frames().length > 0) {
-        var frameView = new WebInspector.ResourceWebSocketFrameView(request);
-        this.appendTab("webSocketFrames", WebInspector.UIString("WebSocket Frames"), frameView);
-    }
-
-    this.addEventListener(WebInspector.TabbedPane.EventTypes.TabSelected, this._tabSelected, this);
+    this._request = request;
 }
 
 WebInspector.NetworkItemView.prototype = {
@@ -89,12 +89,28 @@ WebInspector.NetworkItemView.prototype = {
 
     _tabSelected: function(event)
     {
-        if (event.data.isUserGesture)
-            WebInspector.settings.resourceViewTab.set(event.data.tabId);
-    }
-}
+        if (!event.data.isUserGesture)
+            return;
 
-WebInspector.NetworkItemView.prototype.__proto__ = WebInspector.TabbedPane.prototype;
+        WebInspector.settings.resourceViewTab.set(event.data.tabId);
+
+        WebInspector.notifications.dispatchEventToListeners(WebInspector.UserMetrics.UserAction, {
+            action: WebInspector.UserMetrics.UserActionNames.NetworkRequestTabSelected,
+            tab: event.data.tabId,
+            url: this._request.url
+        });
+    },
+
+    /**
+      * @return {WebInspector.NetworkRequest}
+      */
+    request: function()
+    {
+        return this._request;
+    },
+
+    __proto__: WebInspector.TabbedPane.prototype
+}
 
 /**
  * @constructor
@@ -161,7 +177,7 @@ WebInspector.RequestContentView.prototype = {
     {
         if (this.canHighlightLine())
             this._innerView.highlightLine(line);
-    }
-}
+    },
 
-WebInspector.RequestContentView.prototype.__proto__ = WebInspector.RequestView.prototype;
+    __proto__: WebInspector.RequestView.prototype
+}

@@ -64,21 +64,21 @@ and watch syslog for logging information.
 First turn up syslog debugging
 .Dl sudo syslog -c 0 -d
 then you can see the syslog output in Console.app or by running
-.Dl syslog -w
-To enable debugging for each subsystem, use the following commands:
+.Dl syslog -w -k org.h5l.asl
+To enable more extensive debugging logging for each subsystem, use the following commands:
 .Bl -tag -width "XXX" -offset indent
 .It Kerberos Library
-sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add krb5 '0-/SYSLOG:'
+sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add krb5 '0-/ASL:'
 .It digest-server
-sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add digest-service '0-/SYSLOG:'
+sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add digest-service '0-/ASL:'
 .It kcm
-sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kcm '0-/SYSLOG:'
+sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kcm '0-/ASL:'
 .It kdc
-sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kdc '0-/SYSLOG:'
+sudo defaults write /Library/Preferences/com.apple.Kerberos logging -dict-add kdc '0-/ASL:'
 .It MIT Kerberos Shim
 defaults write com.apple.MITKerberosShim EnableDebugging -bool true
 .It GSS-API framework logging
-defaults write com.apple.GSS DebugLevel -int 10
+sudo defaults write /Library/Preferences/com.apple.GSS DebugLevel -int 10
 .El
 .Sh Other options on Mac OS X
 .Bl -tag -width "XXX" -offset ident

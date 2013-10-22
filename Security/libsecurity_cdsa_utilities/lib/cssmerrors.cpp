@@ -28,7 +28,7 @@
 #include <security_cdsa_utilities/cssmerrors.h>
 #include <security_utilities/mach++.h>
 #include <Security/cssmapple.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/SecBase.h>
 
 namespace Security {
 
@@ -49,7 +49,7 @@ OSStatus CssmError::osStatus() const
 {
 	if (error == CSSM_ERRCODE_INVALID_POINTER)
 	{
-		return paramErr;
+		return errSecParam;
 	}
 	
 	return error;

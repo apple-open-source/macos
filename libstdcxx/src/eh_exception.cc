@@ -33,7 +33,15 @@
 #include <exception>
 #include <cxxabi.h>
 
+using namespace __cxxabiv1;
+#ifndef _LIBCPPABI_VERSION
+    using namespace __cxxabiapple;
+#endif
+
+
 namespace std {
+
+#ifndef _LIBCPPABI_VERSION
 
 exception::~exception() throw() { }
 
@@ -54,10 +62,11 @@ bad_exception::what() const throw()
   return "std::bad_exception";
 }
 
+#endif  // _LIBCPPABI_VERSION
 
 bool uncaught_exception() throw()
 {
-	return __cxxabiapple::__cxa_uncaught_exception();
+	return __cxa_uncaught_exception();
 }
 
 } // std

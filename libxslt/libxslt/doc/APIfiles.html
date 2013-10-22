@@ -109,7 +109,8 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-namespaces.html#xsltGetPlainNamespace">xsltGetPlainNamespace</a><br />
 <a href="html/libxslt-namespaces.html#xsltGetSpecialNamespace">xsltGetSpecialNamespace</a><br />
 <a href="html/libxslt-namespaces.html#xsltNamespaceAlias">xsltNamespaceAlias</a><br />
-</p><h2><a name="numbersInternals" id="numbersInternals">Module numbersInternals</a>:</h2><p><a href="html/libxslt-numbersInternals.html#_xsltFormatNumberInfo">_xsltFormatNumberInfo</a><br />
+</p><h2><a name="numbersInternals" id="numbersInternals">Module numbersInternals</a>:</h2><p><a href="html/libxslt-numbersInternals.html#_xsltCompMatch">_xsltCompMatch</a><br />
+<a href="html/libxslt-numbersInternals.html#_xsltFormatNumberInfo">_xsltFormatNumberInfo</a><br />
 <a href="html/libxslt-numbersInternals.html#_xsltNumberData">_xsltNumberData</a><br />
 <a href="html/libxslt-numbersInternals.html#xsltFormatNumberInfo">xsltFormatNumberInfo</a><br />
 <a href="html/libxslt-numbersInternals.html#xsltFormatNumberInfoPtr">xsltFormatNumberInfoPtr</a><br />
@@ -221,6 +222,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xslt.html#xsltLibxmlVersion">xsltLibxmlVersion</a><br />
 <a href="html/libxslt-xslt.html#xsltLibxsltVersion">xsltLibxsltVersion</a><br />
 <a href="html/libxslt-xslt.html#xsltMaxDepth">xsltMaxDepth</a><br />
+<a href="html/libxslt-xslt.html#xsltMaxVars">xsltMaxVars</a><br />
 </p><h2><a name="xsltInternals" id="xsltInternals">Module xsltInternals</a>:</h2><p><a href="html/libxslt-xsltInternals.html#CHECK_STOPPED">CHECK_STOPPED</a><br />
 <a href="html/libxslt-xsltInternals.html#CHECK_STOPPED0">CHECK_STOPPED0</a><br />
 <a href="html/libxslt-xsltInternals.html#CHECK_STOPPEDE">CHECK_STOPPEDE</a><br />
@@ -470,8 +472,6 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xsltInternals.html#xsltStylesheetPtr">xsltStylesheetPtr</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltTemplate">xsltTemplate</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltTemplatePtr">xsltTemplatePtr</a><br />
-<a href="html/libxslt-xsltInternals.html#xsltTransStorageAdd">xsltTransStorageAdd</a><br />
-<a href="html/libxslt-xsltInternals.html#xsltTransStorageRemove">xsltTransStorageRemove</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltTransformCache">xsltTransformCache</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltTransformCachePtr">xsltTransformCachePtr</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltTransformContext">xsltTransformContext</a><br />
@@ -489,6 +489,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xsltexports.html#_REENTRANT">_REENTRANT</a><br />
 </p><h2><a name="xsltlocale" id="xsltlocale">Module xsltlocale</a>:</h2><p><a href="html/libxslt-xsltlocale.html#XSLT_LOCALE_NONE">XSLT_LOCALE_NONE</a><br />
 <a href="html/libxslt-xsltlocale.html#xsltFreeLocale">xsltFreeLocale</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltFreeLocales">xsltFreeLocales</a><br />
 <a href="html/libxslt-xsltlocale.html#xsltLocale">xsltLocale</a><br />
 <a href="html/libxslt-xsltlocale.html#xsltLocaleChar">xsltLocaleChar</a><br />
 <a href="html/libxslt-xsltlocale.html#xsltLocaleStrcmp">xsltLocaleStrcmp</a><br />
@@ -576,4 +577,5 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xsltutils.html#xsltTimestamp">xsltTimestamp</a><br />
 <a href="html/libxslt-xsltutils.html#xsltTransformError">xsltTransformError</a><br />
 <a href="html/libxslt-xsltutils.html#xsltXPathCompile">xsltXPathCompile</a><br />
+<a href="html/libxslt-xsltutils.html#xsltXPathCompileFlags">xsltXPathCompileFlags</a><br />
 </p><p><a href="bugs.html">Daniel Veillard</a></p></td></tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></body></html>

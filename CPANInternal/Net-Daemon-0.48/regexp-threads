@@ -1,0 +1,85 @@
+#!/usr/bin/perl
+#
+#   To the best of my knowledge, regular expressions aren't thread
+#   safe in Perl. That's why the variable $Net::Daemon::RegExpLock
+#   exists. If you want to check your Perl, try this script.
+#
+#   On my Perl, 5.005_03 (i386-linux-thread) this produces a
+#   Segfault almost reproducible.
+#
+#   Please let me know if you are having better luck.
+#
+#   Jochen Wiedmann, joe@ispsoft.de, 24-Jul-1999
+#
+#
+
+my $this_is_510 = $^V ge v5.10.0;
+
+use Thread ();
+
+if ($this_is_510) {
+    eval {require threads::shared};
+}
+
+my $numChilds;
+if ($this_is_510) {
+    eval { threads::shared::share($numChilds) };
+}
+
+my $regExpLock = @ARGV ? 1 : 0;
+
+# Repeat generating a random number and check if it contains the
+# substring '35'.
+sub Loop {
+    my $myNum = shift;
+    my $num1 = 0;
+    my $num2 = 0;
+    for (my $i = 1;  $i <= 100000;  $i++) {
+  	if (($myNum == 1) and ($i % 10000) == 0) {
+  	    my $lck = lock $numChilds;
+  	    print $i, "\n";
+  	}
+	my $r = int(rand(100000));
+	++$num1 if index($r, '35') >= 0;
+	{
+	    my $lck = lock $regExpLock if $regExpLock;
+	++$num2 if $r =~ /(.*)35(.*)/;
+    }
+    }
+    return ($num1, $num2);
+}
+
+sub Run {
+    my $myNum = shift;
+    {
+	my $lck = lock $numChilds;
+	++$numChilds;
+	print "Thread $myNum starting\n";
+    }
+    my($num1, $num2) = eval { Loop($myNum) };
+    my $err = $@;
+    $num1 ||= 0;
+    $num2 ||= 0;
+    {
+	my $lck = lock $numChilds;
+	--$numChilds;
+	print "Thread $myNum: Fatal error ($@)\n" if $err;
+	print "Thread $myNum, error: index = $num1, regexp = $num2\n"
+	    if $num1 != $num2;
+	print "Thread $myNum leaving\n";
+    }
+    return 1;
+}
+
+
+my @childs;
+for (my $i = 0;  $i < 10;  ++$i) {
+    print "Creating thread $i, TID = ", Thread->self->tid(), "\n";
+    my $tid = Thread->new(\&Run, $i);
+    die "Failed to create thread: $!" unless $tid;
+    push(@childs, $tid);
+}
+
+foreach my $tid (@childs) {
+    $tid->join();
+}

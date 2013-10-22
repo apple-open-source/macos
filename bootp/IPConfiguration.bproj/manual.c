@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -318,7 +318,7 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  manual->arp = arp_client_init(G_arp_session, if_p);
 	  if (manual->arp == NULL) {
-	      my_log(LOG_INFO, "MANUAL %s: arp_client_init failed", 
+	      my_log(LOG_NOTICE, "MANUAL %s: arp_client_init failed", 
 		     if_name(if_p));
 	  }
 	  my_log(LOG_DEBUG, "MANUAL %s: starting", 

@@ -26,11 +26,9 @@ zone=secure.example.
 infile=secure.example.db.in
 zonefile=secure.example.db
 
-cnameandkey=`$KEYGEN -T KEY -q -r $RANDFILE -a RSASHA1 -b 768 -n host cnameandkey.$zone`
-dnameandkey=`$KEYGEN -T KEY -q -r $RANDFILE -a RSASHA1 -b 768 -n host dnameandkey.$zone`
 keyname=`$KEYGEN -q -r $RANDFILE -a RSASHA1 -b 768 -n zone $zone`
 
-cat $infile $cnameandkey.key $dnameandkey.key $keyname.key >$zonefile
+cat $infile $keyname.key >$zonefile
 
 $SIGNER -P -r $RANDFILE -o $zone $zonefile > /dev/null 2>&1
 
@@ -352,33 +350,4 @@ kskname=`$KEYGEN -q -r $RANDFILE $zone`
 zskname=`$KEYGEN -q -r $RANDFILE -f KSK $zone`
 cp $infile $zonefile
 $SIGNER -S -r $RANDFILE -e now+1mi -o $zone $zonefile > /dev/null 2>&1
-mv -f ${zskname}.private ${zskname}.private.moved
-mv -f ${kskname}.private ${kskname}.private.moved
-
-#
-# A zone where the signer's name has been forced to uppercase.
-#
-zone="upper.example."
-infile="upper.example.db.in"
-zonefile="upper.example.db"
-lower="upper.example.db.lower"
-signedfile="upper.example.db.signed"
-kskname=`$KEYGEN -q -r $RANDFILE $zone`
-zskname=`$KEYGEN -q -r $RANDFILE -f KSK $zone`
-cp $infile $zonefile
-$SIGNER -P -S -r $RANDFILE -o $zone -f $lower $zonefile > /dev/null 2>&1
-$CHECKZONE -D upper.example $lower 2>&- | \
-	sed '/RRSIG/s/ upper.example. / UPPER.EXAMPLE. /' > $signedfile
-
-#
-# Check that the signer's name is in lower case when zone name is in
-# upper case.
-#
-zone="LOWER.EXAMPLE."
-infile="lower.example.db.in"
-zonefile="lower.example.db"
-signedfile="lower.example.db.signed"
-kskname=`$KEYGEN -q -r $RANDFILE $zone`
-zskname=`$KEYGEN -q -r $RANDFILE -f KSK $zone`
-cp $infile $zonefile
-$SIGNER -P -S -r $RANDFILE -o $zone $zonefile > /dev/null 2>&1
+rm -f ${zskname}.private ${kskname}.private

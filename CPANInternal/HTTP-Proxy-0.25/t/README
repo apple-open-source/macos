@@ -1,0 +1,84 @@
+README file for the HTTP::Proxy tests
+
+* Helper modules
+
+HTTP::Proxy can test itself without using the network,
+thanks to the HTTP::Daemon module.
+
+But since I want to test the proxy against "real" servers,
+I also need to test it with an internet connection.
+
+localhost tests work as follows:
+ - a HTTP::Daemon is created and forked, that will serve
+   a certain number of simple requests
+ - a HTTP::Proxy is created and forked
+ - a LWP::UserAgent is created and connects to the proxy
+ - each of those process can run its own tests independantly,
+   thanks to Test::More
+
+The t/Utils.pm files (use t::Utils in some test files) exports
+several functions:
+ - server_start()
+   starts a new HTTP::Daemon
+ - server_next( [ \&answer ] )
+   returns the next response from the server (accepts a coderef)
+ - fork_proxy( $proxy, [ \&end ] )
+   fork a proxy server passed as an argument, with an optionnel
+   subroutine to run at the end
+ - web_ok()
+   test if the actual WWW is available for testing
+ - bare_request( $url, $headers, $proxy )
+   send a simple request through the proxy without LWP::UA
+   return a string containing the full response
+
+* Test categories
+
+The tests are prefixed with a number, which indicates several categories:
+
+0x - Basic tests
+     t/00basic.t        - use HTTP::Proxy works
+     t/01pod.t          - the POD is correct
+     t/05new.t          - the HTTP::Proxy constructor
+
+1x - Minimal functionnality tests
+     t/10init.t         - the proxy initialisation
+     t/11log.t          - the log() and logmask() methods
+     t/15accessors.t    - the proxy accessors
+     t/17fstack.t       - the internal HTTP::Proxy::FilterStack object
+
+2x - Network protocols test
+     t/20dummy.t        - tests against a dummy web server
+     t/20keepalive.t    - test the keep-alive connections
+     t/22http.t         - test actual HTTP servers
+     t/22transparent.t  - test transparent proxying
+     t/23connect.t      - test CONNECT to a ssh server
+     t/23https.t        - test CONNECT for SSL
+
+3x - (Reserved for future use)
+
+4x - Filter-related functions
+     t/40push_filters.t - the push_filter method
+
+5x - Internal header filters
+     t/50hopbyhop.t     - check hop-by-hop headers removal
+     t/50standard.t     - check other headers removal
+     t/50via.t          - check the Via: headers
+     t/51simple.t       - HTTP::Proxy::HeaderFilter::simple
+     t/51simple2.t      - HTTP::Proxy::HeaderFilter::simple with a real proxy
+
+6x - Internal body filters
+     t/61simple.t       - HTTP::Proxy::BodyFilter::simple
+     t/61simple2.t      - HTTP::Proxy::BodyFilter::simple with a real proxy
+     t/64htmltext.t     - HTTP::Proxy::BodyFilter::htmltext
+     t/64lines.t        - HTTP::Proxy::BodyFilter::lines
+     t/64tags.t         - HTTP::Proxy::BodyFilter::tags
+     t/66htmlparser.t   - HTTP::Proxy::BodyFilter::htmlparser
+
+7x - Complex filter chains
+     t/71rot13.t        - a simple ROT13 filter set
+
+8x - (Reserved for future use)
+
+9x - miscellaneous tests
+     t/90diveintomark.t - test the proxy against a lot of status codes
+

@@ -12,10 +12,10 @@
 # found at http://www.sra.co.jp/people/m-kasahr/ruby/getoptlong/
 
 # The GetoptLong class allows you to parse command line options similarly to
-# the GNU getopt_long() C library call. Note, however, that GetoptLong is a 
+# the GNU getopt_long() C library call. Note, however, that GetoptLong is a
 # pure Ruby implementation.
 #
-# GetoptLong allows for POSIX-style options like <tt>--file</tt> as well 
+# GetoptLong allows for POSIX-style options like <tt>--file</tt> as well
 # as single letter options like <tt>-f</tt>
 #
 # The empty option <tt>--</tt> (two minus symbols) is used to end option
@@ -24,41 +24,34 @@
 #
 # Here is a simple example of usage:
 #
-#     # == Synopsis
-#     #
-#     # hello: greets user, demonstrates command line parsing
-#     #
-#     # == Usage
-#     #
-#     # hello [OPTION] ... DIR
-#     #
-#     # -h, --help:
-#     #    show help
-#     #
-#     # --repeat x, -n x:
-#     #    repeat x times
-#     #
-#     # --name [name]:
-#     #    greet user by name, if name not supplied default is John
-#     #
-#     # DIR: The directory in which to issue the greeting.
-#     
 #     require 'getoptlong'
-#     require 'rdoc/usage'
-#     
+#
 #     opts = GetoptLong.new(
 #       [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
 #       [ '--repeat', '-n', GetoptLong::REQUIRED_ARGUMENT ],
 #       [ '--name', GetoptLong::OPTIONAL_ARGUMENT ]
 #     )
-#     
+#
 #     dir = nil
 #     name = nil
 #     repetitions = 1
 #     opts.each do |opt, arg|
 #       case opt
 #         when '--help'
-#           RDoc::usage
+#           puts <<-EOF
+#     hello [OPTION] ... DIR
+#
+#     -h, --help:
+#        show help
+#
+#     --repeat x, -n x:
+#        repeat x times
+#
+#     --name [name]:
+#        greet user by name, if name not supplied default is John
+#
+#     DIR: The directory in which to issue the greeting.
+#           EOF
 #         when '--repeat'
 #           repetitions = arg.to_i
 #         when '--name'
@@ -69,14 +62,14 @@
 #           end
 #       end
 #     end
-#     
+#
 #     if ARGV.length != 1
 #       puts "Missing dir argument (try --help)"
 #       exit 0
 #     end
-#     
+#
 #     dir = ARGV.shift
-#     
+#
 #     Dir.chdir(dir)
 #     for i in (1..repetitions)
 #       print "Hello"
@@ -111,7 +104,7 @@ class GetoptLong
   # Error types.
   #
   class Error  < StandardError; end
-  class AmbigousOption   < Error; end
+  class AmbiguousOption   < Error; end
   class NeedlessArgument < Error; end
   class MissingArgument  < Error; end
   class InvalidOption    < Error; end
@@ -120,7 +113,7 @@ class GetoptLong
   # Set up option processing.
   #
   # The options to support are passed to new() as an array of arrays.
-  # Each sub-array contains any number of String option names which carry 
+  # Each sub-array contains any number of String option names which carry
   # the same meaning, and one of the following flags:
   #
   # GetoptLong::NO_ARGUMENT :: Option does not take an argument.
@@ -157,7 +150,7 @@ class GetoptLong
     @argument_flags = Hash.new
 
     #
-    # Whether error messages are output to $deferr.
+    # Whether error messages are output to $stderr.
     #
     @quiet = FALSE
 
@@ -200,23 +193,23 @@ class GetoptLong
   # the processing of options as follows:
   #
   # <b>REQUIRE_ORDER</b> :
-  # 
+  #
   # Options are required to occur before non-options.
   #
   # Processing of options ends as soon as a word is encountered that has not
   # been preceded by an appropriate option flag.
   #
   # For example, if -a and -b are options which do not take arguments,
-  # parsing command line arguments of '-a one -b two' would result in 
-  # 'one', '-b', 'two' being left in ARGV, and only ('-a', '') being 
+  # parsing command line arguments of '-a one -b two' would result in
+  # 'one', '-b', 'two' being left in ARGV, and only ('-a', '') being
   # processed as an option/arg pair.
   #
   # This is the default ordering, if the environment variable
   # POSIXLY_CORRECT is set. (This is for compatibility with GNU getopt_long.)
   #
   # <b>PERMUTE</b> :
-  #  
-  # Options can occur anywhere in the command line parsed. This is the 
+  #
+  # Options can occur anywhere in the command line parsed. This is the
   # default behavior.
   #
   # Every sequence of words which can be interpreted as an option (with or
@@ -233,7 +226,7 @@ class GetoptLong
   #
   # <b>RETURN_IN_ORDER</b> :
   #
-  # All words on the command line are processed as options. Words not 
+  # All words on the command line are processed as options. Words not
   # preceded by a short or long option flag are passed as arguments
   # with an option of '' (empty string).
   #
@@ -248,7 +241,7 @@ class GetoptLong
     if @status != STATUS_YET
       set_error(ArgumentError, "argument error")
       raise RuntimeError,
-	"invoke ordering=, but option processing has already started"
+        "invoke ordering=, but option processing has already started"
     end
 
     #
@@ -279,8 +272,8 @@ class GetoptLong
     # The method is failed if option processing has already started.
     #
     if @status != STATUS_YET
-      raise RuntimeError, 
-	"invoke set_options, but option processing has already started"
+      raise RuntimeError,
+        "invoke set_options, but option processing has already started"
     end
 
     #
@@ -290,11 +283,8 @@ class GetoptLong
     @argument_flags.clear
 
     arguments.each do |arg|
-      #
-      # Each argument must be an Array.
-      #
       if !arg.is_a?(Array)
-	raise ArgumentError, "the option list contains non-Array argument"
+       raise ArgumentError, "the option list contains non-Array argument"
       end
 
       #
@@ -302,43 +292,44 @@ class GetoptLong
       #
       argument_flag = nil
       arg.each do |i|
-	if ARGUMENT_FLAGS.include?(i)
-	  if argument_flag != nil
-	    raise ArgumentError, "too many argument-flags"
-	  end
-	  argument_flag = i
-	end
+        if ARGUMENT_FLAGS.include?(i)
+          if argument_flag != nil
+            raise ArgumentError, "too many argument-flags"
+          end
+          argument_flag = i
+        end
       end
+
       raise ArgumentError, "no argument-flag" if argument_flag == nil
 
       canonical_name = nil
       arg.each do |i|
-	#
-	# Check an option name.
-	#
-	next if i == argument_flag
-	begin
-	  if !i.is_a?(String) || i !~ /^-([^-]|-.+)$/
-	    raise ArgumentError, "an invalid option `#{i}'"
-	  end
-	  if (@canonical_names.include?(i))
-	    raise ArgumentError, "option redefined `#{i}'"
-	  end
-	rescue
-	  @canonical_names.clear
-	  @argument_flags.clear
-	  raise
-	end
+        #
+        # Check an option name.
+        #
+        next if i == argument_flag
+        begin
+          if !i.is_a?(String) || i !~ /^-([^-]|-.+)$/
+            raise ArgumentError, "an invalid option `#{i}'"
+          end
+          if (@canonical_names.include?(i))
+            raise ArgumentError, "option redefined `#{i}'"
+          end
+        rescue
+          @canonical_names.clear
+          @argument_flags.clear
+          raise
+        end
 
-	#
-	# Register the option (`i') to the `@canonical_names' and 
-	# `@canonical_names' Hashes.
-	#
-	if canonical_name == nil
-	  canonical_name = i
-	end
-	@canonical_names[i] = canonical_name
-	@argument_flags[i] = argument_flag
+        #
+        # Register the option (`i') to the `@canonical_names' and
+        # `@canonical_names' Hashes.
+        #
+        if canonical_name == nil
+          canonical_name = i
+        end
+        @canonical_names[i] = canonical_name
+        @argument_flags[i] = argument_flag
       end
       raise ArgumentError, "no option name" if canonical_name == nil
     end
@@ -388,10 +379,10 @@ class GetoptLong
   end
 
   #
-  # Set an error (protected).
+  # Set an error (a protected method).
   #
   def set_error(type, message)
-    $deferr.print("#{$0}: #{message}\n") if !@quiet
+    $stderr.print("#{$0}: #{message}\n") if !@quiet
 
     @error = type
     @error_message = message
@@ -456,17 +447,17 @@ class GetoptLong
       return nil
     elsif @ordering == PERMUTE
       while 0 < ARGV.length && ARGV[0] !~ /^-./
-	@non_option_arguments.push(ARGV.shift)
+        @non_option_arguments.push(ARGV.shift)
       end
       if ARGV.length == 0
-	terminate
-	return nil
+        terminate
+        return nil
       end
       argument = ARGV.shift
-    elsif @ordering == REQUIRE_ORDER 
+    elsif @ordering == REQUIRE_ORDER
       if (ARGV[0] !~ /^-./)
-	terminate
-	return nil
+        terminate
+        return nil
       end
       argument = ARGV.shift
     else
@@ -491,49 +482,49 @@ class GetoptLong
       #
       pattern = $1
       if @canonical_names.include?(pattern)
-	option_name = pattern
+        option_name = pattern
       else
-	#
-	# The option `option_name' is not registered in `@canonical_names'.
-	# It may be an abbreviated.
-	#
-	match_count = 0
-	@canonical_names.each_key do |key|
-	  if key.index(pattern) == 0
-	    option_name = key
-	    match_count += 1
-	  end
-	end
-	if 2 <= match_count
-	  set_error(AmbigousOption, "option `#{argument}' is ambiguous")
-	elsif match_count == 0
-	  set_error(InvalidOption, "unrecognized option `#{argument}'")
-	end
+        #
+        # The option `option_name' is not registered in `@canonical_names'.
+        # It may be an abbreviated.
+        #
+        matches = []
+        @canonical_names.each_key do |key|
+          if key.index(pattern) == 0
+            option_name = key
+            matches << key
+          end
+        end
+        if 2 <= matches.length
+          set_error(AmbiguousOption, "option `#{argument}' is ambiguous between #{matches.join(', ')}")
+        elsif matches.length == 0
+          set_error(InvalidOption, "unrecognized option `#{argument}'")
+        end
       end
 
       #
       # Check an argument to the option.
       #
       if @argument_flags[option_name] == REQUIRED_ARGUMENT
-	if argument =~ /=(.*)$/
-	  option_argument = $1
-	elsif 0 < ARGV.length
-	  option_argument = ARGV.shift
-	else
-	  set_error(MissingArgument,
-	            "option `#{argument}' requires an argument")
-	end
+        if argument =~ /=(.*)$/
+          option_argument = $1
+        elsif 0 < ARGV.length
+          option_argument = ARGV.shift
+        else
+          set_error(MissingArgument,
+                    "option `#{argument}' requires an argument")
+        end
       elsif @argument_flags[option_name] == OPTIONAL_ARGUMENT
-	if argument =~ /=(.*)$/
-	  option_argument = $1
-	elsif 0 < ARGV.length && ARGV[0] !~ /^-./
-	  option_argument = ARGV.shift
-	else
-	  option_argument = ''
-	end
+        if argument =~ /=(.*)$/
+          option_argument = $1
+        elsif 0 < ARGV.length && ARGV[0] !~ /^-./
+          option_argument = ARGV.shift
+        else
+          option_argument = ''
+        end
       elsif argument =~ /=(.*)$/
-	set_error(NeedlessArgument,
-		  "option `#{option_name}' doesn't allow an argument")
+        set_error(NeedlessArgument,
+                  "option `#{option_name}' doesn't allow an argument")
       end
 
     elsif argument =~ /^(-(.))(.*)/
@@ -545,40 +536,40 @@ class GetoptLong
       option_name, ch, @rest_singles = $1, $2, $3
 
       if @canonical_names.include?(option_name)
-	#
-	# The option `option_name' is found in `@canonical_names'.
-	# Check its argument.
-	#
-	if @argument_flags[option_name] == REQUIRED_ARGUMENT
-	  if 0 < @rest_singles.length
-	    option_argument = @rest_singles
-	    @rest_singles = ''
-	  elsif 0 < ARGV.length
-	    option_argument = ARGV.shift
-	  else
-	    # 1003.2 specifies the format of this message.
-	    set_error(MissingArgument, "option requires an argument -- #{ch}")
-	  end
-	elsif @argument_flags[option_name] == OPTIONAL_ARGUMENT
-	  if 0 < @rest_singles.length
-	    option_argument = @rest_singles
-	    @rest_singles = ''
-	  elsif 0 < ARGV.length && ARGV[0] !~ /^-./
-	    option_argument = ARGV.shift
-	  else
-	    option_argument = ''
-	  end
-	end
+        #
+        # The option `option_name' is found in `@canonical_names'.
+        # Check its argument.
+        #
+        if @argument_flags[option_name] == REQUIRED_ARGUMENT
+          if 0 < @rest_singles.length
+            option_argument = @rest_singles
+            @rest_singles = ''
+          elsif 0 < ARGV.length
+            option_argument = ARGV.shift
+          else
+            # 1003.2 specifies the format of this message.
+            set_error(MissingArgument, "option requires an argument -- #{ch}")
+          end
+        elsif @argument_flags[option_name] == OPTIONAL_ARGUMENT
+          if 0 < @rest_singles.length
+            option_argument = @rest_singles
+            @rest_singles = ''
+          elsif 0 < ARGV.length && ARGV[0] !~ /^-./
+            option_argument = ARGV.shift
+          else
+            option_argument = ''
+          end
+        end
       else
-	#
-	# This is an invalid option.
-	# 1003.2 specifies the format of this message.
-	#
-	if ENV.include?('POSIXLY_CORRECT')
-	  set_error(InvalidOption, "illegal option -- #{ch}")
-	else
-	  set_error(InvalidOption, "invalid option -- #{ch}")
-	end
+        #
+        # This is an invalid option.
+        # 1003.2 specifies the format of this message.
+        #
+        if ENV.include?('POSIXLY_CORRECT')
+          set_error(InvalidOption, "invalid option -- #{ch}")
+        else
+          set_error(InvalidOption, "invalid option -- #{ch}")
+        end
       end
     else
       #
@@ -600,7 +591,7 @@ class GetoptLong
   #
   # The block is called repeatedly with two arguments:
   # The first is the option name.
-  # The second is the argument which followed it (if any). 
+  # The second is the argument which followed it (if any).
   # Example: ('--opt', 'value')
   #
   # The option name is always converted to the first (preferred)

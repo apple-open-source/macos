@@ -47,6 +47,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		FD7846531537B5F3003C8F36 /* liblzma.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD7846521537B5F3003C8F36 /* liblzma.dylib */; };
 		FD9B899E104DC7F10096D791 /* archive_check_magic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8969104DC7F00096D791 /* archive_check_magic.c */; };
 		FD9B899F104DC7F10096D791 /* archive_entry_copy_stat.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B896A104DC7F00096D791 /* archive_entry_copy_stat.c */; };
 		FD9B89A0104DC7F10096D791 /* archive_entry_link_resolver.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B896B104DC7F00096D791 /* archive_entry_link_resolver.c */; };
@@ -209,6 +210,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		FD7846521537B5F3003C8F36 /* liblzma.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = liblzma.dylib; path = /usr/lib/liblzma.dylib; sourceTree = "<absolute>"; };
 		FD9B8961104D9F050096D791 /* libarchive.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libarchive.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD9B8969104DC7F00096D791 /* archive_check_magic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_check_magic.c; path = libarchive/libarchive/archive_check_magic.c; sourceTree = "<group>"; };
 		FD9B896A104DC7F00096D791 /* archive_entry_copy_stat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_entry_copy_stat.c; path = libarchive/libarchive/archive_entry_copy_stat.c; sourceTree = "<group>"; };
@@ -310,6 +312,7 @@
 				FD9B8A14104DCA400096D791 /* libbz2.dylib in Frameworks */,
 				FD9B8A18104DCA4C0096D791 /* libz.dylib in Frameworks */,
 				FDE953981148801D0033A30A /* libxml2.dylib in Frameworks */,
+				FD7846531537B5F3003C8F36 /* liblzma.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -354,6 +357,7 @@
 				FD9B8A13104DCA400096D791 /* libbz2.dylib */,
 				FD9B8A17104DCA4C0096D791 /* libz.dylib */,
 				FDE953971148801D0033A30A /* libxml2.dylib */,
+				FD7846521537B5F3003C8F36 /* liblzma.dylib */,
 			);
 			sourceTree = "<group>";
 		};
@@ -921,6 +925,7 @@
 				FD033C9F1484562E00AD35B6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		FD033CA91484564700AD35B6 /* Build configuration list for PBXAggregateTarget "libarchive_libs" */ = {
 			isa = XCConfigurationList;
@@ -928,6 +933,7 @@
 				FD033CAA1484564700AD35B6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		FD9B8951104D9EED0096D791 /* Build configuration list for PBXProject "libarchive" */ = {
 			isa = XCConfigurationList;

@@ -312,6 +312,8 @@ public:
 	virtual void lock();
 	virtual void unlock();
 	virtual void unlock(const CSSM_DATA &password);
+    virtual void stash();
+    virtual void stashCheck();
 	virtual void getSettings(uint32 &outIdleTimeout, bool &outLockOnSleep);
 	virtual void setSettings(uint32 inIdleTimeout, bool inLockOnSleep);
 	virtual bool isLocked();

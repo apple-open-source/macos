@@ -1,6 +1,8 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* APPLE: based on ./configure --with-pam --with-tcp-wrappers=no --with-audit=bsm --with-kerberos5=/usr --with-4in6 */
+
 /* Define if building universal (internal helper macro) */
 /* #undef AC_APPLE_UNIVERSAL_BUILD */
 
@@ -15,7 +17,11 @@
 #define AU_IPv4 0
 
 /* Define if your resolver libs need this for getrrsetbyname */
+/* <rdar://problem/6345666> */
 /* #undef BIND_8_COMPAT */
+
+/* The system has incomplete BSM API */
+/* #undef BROKEN_BSM_API */
 
 /* Define if cmsg_type is not passed correctly */
 /* #undef BROKEN_CMSG_TYPE */
@@ -27,7 +33,7 @@
 /* #undef BROKEN_GETGROUPS */
 
 /* FreeBSD glob does not do what we need */
-/* #undef BROKEN_GLOB */
+#define BROKEN_GLOB 1
 
 /* Define if you system's inet_ntoa is busted (e.g. Irix gcc issue) */
 /* #undef BROKEN_INET_NTOA */
@@ -72,8 +78,8 @@
 /* Define if your snprintf is busted */
 /* #undef BROKEN_SNPRINTF */
 
-/* platform uses an in-memory credentials cache */
-/* #undef USE_CCAPI */
+/* FreeBSD strnvis does not do what we need */
+/* #undef BROKEN_STRNVIS */
 
 /* platform has a Security Authorization Session API */
 /* #undef USE_SECURITY_SESSION_API */
@@ -136,7 +142,7 @@
 #define DISABLE_WTMPX 1
 
 /* Enable for PKCS#11 support */
-/* #undef ENABLE_PKCS11 */
+#define ENABLE_PKCS11 1
 
 /* File names may not contain backslash characters */
 /* #undef FILESYSTEM_NO_BACKSLASH */
@@ -187,10 +193,10 @@
 #define HAVE_ARC4RANDOM 1
 
 /* Define to 1 if you have the `arc4random_buf' function. */
-/* #undef HAVE_ARC4RANDOM_BUF */
+#define HAVE_ARC4RANDOM_BUF 1
 
 /* Define to 1 if you have the `arc4random_uniform' function. */
-/* #undef HAVE_ARC4RANDOM_UNIFORM */
+#define HAVE_ARC4RANDOM_UNIFORM 1
 
 /* Define to 1 if you have the `asprintf' function. */
 #define HAVE_ASPRINTF 1
@@ -224,6 +230,9 @@
 
 /* Define to 1 if you have the `BN_is_prime_ex' function. */
 #define HAVE_BN_IS_PRIME_EX 1
+
+/* Define to 1 if you have the <bsd/libutil.h> header file. */
+/* #undef HAVE_BSD_LIBUTIL_H */
 
 /* Define to 1 if you have the <bsm/audit.h> header file. */
 #define HAVE_BSM_AUDIT_H 1
@@ -265,6 +274,10 @@
 /* Define to 1 if you have the declaration of `GLOB_NOMATCH', and to 0 if you
    don't. */
 #define HAVE_DECL_GLOB_NOMATCH 1
+
+/* Define to 1 if you have the declaration of `GSS_C_NT_HOSTBASED_SERVICE',
+   and to 0 if you don't. */
+#define HAVE_DECL_GSS_C_NT_HOSTBASED_SERVICE 1
 
 /* Define to 1 if you have the declaration of `h_errno', and to 0 if you
    don't. */
@@ -328,13 +341,16 @@
 #define HAVE_DIRENT_H 1
 
 /* Define to 1 if you have the `dirfd' function. */
-/* #undef HAVE_DIRFD */
+#define HAVE_DIRFD 1
 
 /* Define to 1 if you have the `dirname' function. */
 #define HAVE_DIRNAME 1
 
 /* Define to 1 if you have the `DSA_generate_parameters_ex' function. */
 #define HAVE_DSA_GENERATE_PARAMETERS_EX 1
+
+/* Define to 1 if you have the <elf.h> header file. */
+/* #undef HAVE_ELF_H */
 
 /* Define to 1 if you have the <endian.h> header file. */
 /* #undef HAVE_ENDIAN_H */
@@ -347,6 +363,9 @@
 
 /* Define if your system has /etc/default/login */
 /* #undef HAVE_ETC_DEFAULT_LOGIN */
+
+/* Define if libcrypto has EVP_CIPHER_CTX_ctrl */
+#define HAVE_EVP_CIPHER_CTX_CTRL 1
 
 /* Define to 1 if you have the `EVP_sha256' function. */
 #define HAVE_EVP_SHA256 1
@@ -438,6 +457,12 @@
 /* Define to 1 if you have the `getpeerucred' function. */
 /* #undef HAVE_GETPEERUCRED */
 
+/* Define to 1 if you have the `getpgid' function. */
+#define HAVE_GETPGID 1
+
+/* Define to 1 if you have the `getpgrp' function. */
+#define HAVE_GETPGRP 1
+
 /* Define to 1 if you have the `getpwanam' function. */
 /* #undef HAVE_GETPWANAM */
 
@@ -490,7 +515,7 @@
 #define HAVE_GLOB_H 1
 
 /* Define to 1 if you have the `group_from_gid' function. */
-/* #undef HAVE_GROUP_FROM_GID */
+#define HAVE_GROUP_FROM_GID 1
 
 /* Define to 1 if you have the <gssapi_generic.h> header file. */
 /* #undef HAVE_GSSAPI_GENERIC_H */
@@ -512,6 +537,9 @@
 
 /* Define if HEADER.ad exists in arpa/nameser.h */
 #define HAVE_HEADER_AD 1
+
+/* Define to 1 if you have the `HMAC_CTX_init' function. */
+#define HAVE_HMAC_CTX_INIT 1
 
 /* Define if you have ut_host in utmp.h */
 #define HAVE_HOST_IN_UTMP 1
@@ -556,13 +584,16 @@
 #define HAVE_IN_ADDR_T 1
 
 /* Define to 1 if the system has the type `in_port_t'. */
-/* #undef HAVE_IN_PORT_T */
+#define HAVE_IN_PORT_T 1
 
 /* Define if you have isblank(3C). */
 #define HAVE_ISBLANK 1
 
 /* Define to 1 if you have the <lastlog.h> header file. */
 /* #undef HAVE_LASTLOG_H */
+
+/* Define if you want ldns support */
+/* #undef HAVE_LDNS */
 
 /* Define to 1 if you have the <libaudit.h> header file. */
 /* #undef HAVE_LIBAUDIT_H */
@@ -606,10 +637,19 @@
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
 
+/* Define to 1 if you have the <linux/audit.h> header file. */
+/* #undef HAVE_LINUX_AUDIT_H */
+
+/* Define to 1 if you have the <linux/filter.h> header file. */
+/* #undef HAVE_LINUX_FILTER_H */
+
 /* Define to 1 if you have the <linux/if_tun.h> header file. */
 /* #undef HAVE_LINUX_IF_TUN_H */
 
-/* Define if your libraries define login() */
+/* Define to 1 if you have the <linux/seccomp.h> header file. */
+/* #undef HAVE_LINUX_SECCOMP_H */
+
+/* Define to 1 if you have the `login' function. */
 #define HAVE_LOGIN 1
 
 /* Define to 1 if you have the <login_cap.h> header file. */
@@ -764,7 +804,7 @@
 #define HAVE_RECVMSG 1
 
 /* sys/resource.h has RLIMIT_NPROC */
-/* #undef HAVE_RLIMIT_NPROC */
+#define HAVE_RLIMIT_NPROC /**/
 
 /* Define to 1 if you have the <rpc/types.h> header file. */
 #define HAVE_RPC_TYPES_H 1
@@ -811,14 +851,23 @@
 /* Define to 1 if you have the `seteuid' function. */
 #define HAVE_SETEUID 1
 
+/* Define to 1 if you have the `setgroupent' function. */
+#define HAVE_SETGROUPENT 1
+
 /* Define to 1 if you have the `setgroups' function. */
 #define HAVE_SETGROUPS 1
+
+/* Define to 1 if you have the `setlinebuf' function. */
+#define HAVE_SETLINEBUF 1
 
 /* Define to 1 if you have the `setlogin' function. */
 #define HAVE_SETLOGIN 1
 
 /* Define to 1 if you have the `setluid' function. */
 /* #undef HAVE_SETLUID */
+
+/* Define to 1 if you have the `setpassent' function. */
+#define HAVE_SETPASSENT 1
 
 /* Define to 1 if you have the `setpcred' function. */
 /* #undef HAVE_SETPCRED */
@@ -937,11 +986,14 @@
 /* Define to 1 if you have the `strmode' function. */
 #define HAVE_STRMODE 1
 
+/* Define to 1 if you have the `strnlen' function. */
+#define HAVE_STRNLEN 1
+
 /* Define to 1 if you have the `strnvis' function. */
 /* #undef HAVE_STRNVIS */
 
 /* Define to 1 if you have the `strptime' function. */
-/* #undef HAVE_STRPTIME */
+#define HAVE_STRPTIME 1
 
 /* Define to 1 if you have the `strsep' function. */
 #define HAVE_STRSEP 1
@@ -954,6 +1006,9 @@
 
 /* Define to 1 if you have the `strtoul' function. */
 #define HAVE_STRTOUL 1
+
+/* Define to 1 if you have the `strtoull' function. */
+#define HAVE_STRTOULL 1
 
 /* define if you have struct addrinfo data type */
 #define HAVE_STRUCT_ADDRINFO 1
@@ -1133,7 +1188,10 @@
 /* #undef HAVE_USERSEC_H */
 
 /* Define to 1 if you have the `user_from_uid' function. */
-/* #undef HAVE_USER_FROM_UID */
+#define HAVE_USER_FROM_UID 1
+
+/* Define to 1 if you have the `usleep' function. */
+#define HAVE_USLEEP 1
 
 /* Define to 1 if you have the <util.h> header file. */
 #define HAVE_UTIL_H 1
@@ -1290,6 +1348,9 @@
 /* Need setpgrp to acquire controlling tty */
 /* #undef NEED_SETPGRP */
 
+/* compiler does not accept __attribute__ on return types */
+/* #undef NO_ATTRIBUTE_ON_RETURN_TYPE */
+
 /* Define if the concept of ports only accessible to superusers isn't known */
 /* #undef NO_IPPORT_RESERVED_CONCEPT */
 
@@ -1303,7 +1364,14 @@
 /* #undef OPENSSL_EVP_DIGESTUPDATE_VOID */
 
 /* libcrypto includes complete ECC support */
+/* I dont' think our OSSL Shim supports ECC */
 /* #undef OPENSSL_HAS_ECC */
+
+/* libcrypto has EVP AES CTR */
+/* #undef OPENSSL_HAVE_EVPCTR */
+
+/* libcrypto has EVP AES GCM */
+/* #undef OPENSSL_HAVE_EVPGCM */
 
 /* libcrypto is missing AES 192 and 256 bit functions */
 /* #undef OPENSSL_LOBOTOMISED_AES */
@@ -1339,6 +1407,9 @@
 /* must supply username to passwd */
 /* #undef PASSWD_NEEDS_USERNAME */
 
+/* System dirs owned by bin (uid 2) */
+/* #undef PLATFORM_SYS_DIR_UID */
+
 /* Port number of PRNGD/EGD random number socket */
 /* #undef PRNGD_PORT */
 
@@ -1357,14 +1428,20 @@
 /* Sandbox using setrlimit(2) */
 /* #undef SANDBOX_RLIMIT */
 
+/* Sandbox using seccomp filter */
+/* #undef SANDBOX_SECCOMP_FILTER */
+
+/* setrlimit RLIMIT_FSIZE works */
+/* #undef SANDBOX_SKIP_RLIMIT_FSIZE */
+
 /* Sandbox using systrace(4) */
 /* #undef SANDBOX_SYSTRACE */
 
+/* Specify the system call convention in use */
+/* #undef SECCOMP_AUDIT_ARCH */
+
 /* Define if your platform breaks doing a seteuid before a setuid */
 #define SETEUID_BREAKS_SETUID 1
-
-/* The size of `char', as computed by sizeof. */
-#define SIZEOF_CHAR 1
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
@@ -1389,7 +1466,7 @@
 
 /* Define to a Set Process Title type if your system is supported by
    bsd-setproctitle.c */
-/* #undef SPT_TYPE */
+#define SPT_TYPE SPT_REUSEARGV
 
 /* Define if sshd somehow reacquires a controlling TTY after setsid() */
 /* #undef SSHD_ACQUIRES_CTTY */
@@ -1404,6 +1481,7 @@
 /* #undef SSH_IOBUFSZ */
 
 /* non-privileged user for privilege separation */
+/* OS X sshd user */
 #define SSH_PRIVSEP_USER "_sshd"
 
 /* Use tunnel device compatibility to OpenBSD */
@@ -1499,11 +1577,12 @@
 # endif
 #else
 # ifndef WORDS_BIGENDIAN
-#  undef WORDS_BIGENDIAN
+/* #  undef WORDS_BIGENDIAN */
 # endif
 #endif
 
 /* Define if xauth is found in your path */
+/* <rdar://problem/10870775> */
 #define XAUTH_PATH "xauth"
 
 /* Number of bits in a file offset, on hosts where this is settable. */

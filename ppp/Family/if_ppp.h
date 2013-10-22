@@ -153,6 +153,10 @@ struct ifpppcstatsreq {
     struct ppp_comp_stats stats;
 };
 
+struct ifpppdelegate {
+    char ifr_delegate_name[IFNAMSIZ];
+};
+
 #if __DARWIN_ALIGN_POWER
 #pragma options align=reset
 #endif
@@ -201,6 +205,7 @@ struct ifpppcstatsreq {
 #define PPPIOCGCHAN	_IOR('t', 55, int)	/* get ppp channel number */
 #define PPPIOCGNPAFMODE	_IOWR('t', 54, struct npafioctl) /* get NPAF mode */
 #define PPPIOCSNPAFMODE	_IOW('t', 53, struct npafioctl)  /* set NPAF mode */
+#define PPPIOCSDELEGATE _IOW('t', 52, struct ifpppdelegate)   /* set the delegate interface */
 
 /*
  * These two are interface ioctls so that pppstats can do them on

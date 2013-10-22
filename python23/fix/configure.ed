@@ -28,7 +28,7 @@ s,@LIBTOOL@,$LIBTOOL,;t t
     LIBTOOL="libtool"
 .
 /Darwin\/\*/+1c
-    LIBTOOL='gcc -dynamiclib -all_load $(CFLAGS)'
+    LIBTOOL='$(CC) -dynamiclib -all_load $(CFLAGS)'
     LIBTOOL_CRUFT=""
 .
 g/-O3/s//-Os/g

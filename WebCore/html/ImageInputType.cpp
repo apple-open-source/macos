@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2012 Samsung Electronics. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,15 +23,21 @@
 #include "config.h"
 #include "ImageInputType.h"
 
+#include "CachedImage.h"
 #include "FormDataList.h"
 #include "HTMLFormElement.h"
 #include "HTMLImageLoader.h"
 #include "HTMLInputElement.h"
+#include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
+#include "InputTypeNames.h"
 #include "MouseEvent.h"
 #include "RenderImage.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
+
+using namespace HTMLNames;
 
 inline ImageInputType::ImageInputType(HTMLInputElement* element)
     : BaseButtonInputType(element)
@@ -63,8 +70,8 @@ bool ImageInputType::appendFormData(FormDataList& encoding, bool) const
         return true;
     }
 
-    DEFINE_STATIC_LOCAL(String, dotXString, (".x"));
-    DEFINE_STATIC_LOCAL(String, dotYString, (".y"));
+    DEFINE_STATIC_LOCAL(String, dotXString, (ASCIILiteral(".x")));
+    DEFINE_STATIC_LOCAL(String, dotYString, (ASCIILiteral(".y")));
     encoding.appendData(name + dotXString, m_clickLocation.x());
     encoding.appendData(name + dotYString, m_clickLocation.y());
 
@@ -81,7 +88,7 @@ bool ImageInputType::supportsValidation() const
 void ImageInputType::handleDOMActivateEvent(Event* event)
 {
     RefPtr<HTMLInputElement> element = this->element();
-    if (element->disabled() || !element->form())
+    if (element->isDisabledFormControl() || !element->form())
         return;
     element->setActivatedSubmit(true);
     if (event->underlyingEvent() && event->underlyingEvent()->isMouseEvent()) {
@@ -113,40 +120,30 @@ void ImageInputType::srcAttributeChanged()
 {
     if (!element()->renderer())
         return;
-    if (!m_imageLoader)
-        m_imageLoader = adoptPtr(new HTMLImageLoader(element()));
-    m_imageLoader->updateFromElementIgnoringPreviousError();
+    element()->imageLoader()->updateFromElementIgnoringPreviousError();
 }
 
 void ImageInputType::attach()
 {
     BaseButtonInputType::attach();
 
-    if (!m_imageLoader)
-        m_imageLoader = adoptPtr(new HTMLImageLoader(element()));
-    m_imageLoader->updateFromElement();
+    HTMLImageLoader* imageLoader = element()->imageLoader();
+    imageLoader->updateFromElement();
 
     RenderImage* renderer = toRenderImage(element()->renderer());
     if (!renderer)
         return;
 
-    if (m_imageLoader->hasPendingBeforeLoadEvent())
+    if (imageLoader->hasPendingBeforeLoadEvent())
         return;
 
     RenderImageResource* imageResource = renderer->imageResource();
-    imageResource->setCachedImage(m_imageLoader->image()); 
+    imageResource->setCachedImage(imageLoader->image()); 
 
     // If we have no image at all because we have no src attribute, set
     // image height and width for the alt text instead.
-    if (!m_imageLoader->image() && !imageResource->cachedImage())
+    if (!imageLoader->image() && !imageResource->cachedImage())
         renderer->setImageSizeForAltText();
-}
-
-void ImageInputType::willMoveToNewOwnerDocument()
-{
-    BaseButtonInputType::willMoveToNewOwnerDocument();
-    if (m_imageLoader)
-        m_imageLoader->elementDidMoveToNewDocument();
 }
 
 bool ImageInputType::shouldRespectAlignAttribute()
@@ -172,6 +169,54 @@ bool ImageInputType::isEnumeratable()
 bool ImageInputType::shouldRespectHeightAndWidthAttributes()
 {
     return true;
+}
+
+unsigned ImageInputType::height() const
+{
+    RefPtr<HTMLInputElement> element = this->element();
+
+    if (!element->renderer()) {
+        // Check the attribute first for an explicit pixel value.
+        unsigned height;
+        if (parseHTMLNonNegativeInteger(element->fastGetAttribute(heightAttr), height))
+            return height;
+
+        // If the image is available, use its height.
+        if (element->hasImageLoader()) {
+            HTMLImageLoader* imageLoader = element->imageLoader();
+            if (imageLoader->image())
+                return imageLoader->image()->imageSizeForRenderer(element->renderer(), 1).height();
+        }
+    }
+
+    element->document()->updateLayout();
+
+    RenderBox* box = element->renderBox();
+    return box ? adjustForAbsoluteZoom(box->contentHeight(), box) : 0;
+}
+
+unsigned ImageInputType::width() const
+{
+    RefPtr<HTMLInputElement> element = this->element();
+
+    if (!element->renderer()) {
+        // Check the attribute first for an explicit pixel value.
+        unsigned width;
+        if (parseHTMLNonNegativeInteger(element->fastGetAttribute(widthAttr), width))
+            return width;
+
+        // If the image is available, use its width.
+        if (element->hasImageLoader()) {
+            HTMLImageLoader* imageLoader = element->imageLoader();
+            if (imageLoader->image())
+                return imageLoader->image()->imageSizeForRenderer(element->renderer(), 1).width();
+        }
+    }
+
+    element->document()->updateLayout();
+
+    RenderBox* box = element->renderBox();
+    return box ? adjustForAbsoluteZoom(box->contentWidth(), box) : 0;
 }
 
 } // namespace WebCore

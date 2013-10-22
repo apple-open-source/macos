@@ -22,26 +22,52 @@
 
 #if ENABLE(FILE_SYSTEM)
 #include "AsyncFileSystem.h"
+#include "FileSystemType.h"
+#include "KURL.h"
+
+#include <BlackBerryPlatformWebFileSystem.h>
+#include <wtf/OwnPtr.h>
+#include <wtf/text/WTFString.h>
+
+namespace WTF {
+
+template <> inline void deleteOwnedPtr<BlackBerry::Platform::WebFileSystem>(BlackBerry::Platform::WebFileSystem* ptr)
+{
+    BlackBerry::Platform::deleteGuardedObject(ptr);
+}
+
+}
 
 namespace WebCore {
 
 class AsyncFileSystemBlackBerry : public AsyncFileSystem {
 public:
-    AsyncFileSystemBlackBerry(AsyncFileSystem::Type);
+    AsyncFileSystemBlackBerry();
+    static PassOwnPtr<AsyncFileSystemBlackBerry> create(PassOwnPtr<BlackBerry::Platform::WebFileSystem> platformFileSystem)
+    {
+        return adoptPtr(new AsyncFileSystemBlackBerry(platformFileSystem));
+    }
+
+    static void openFileSystem(const KURL& rootURL, const String& basePath, const String& storageIdentifier, FileSystemType, long long size, bool create, int playerId, PassOwnPtr<AsyncFileSystemCallbacks>);
     virtual ~AsyncFileSystemBlackBerry();
-    virtual String toURL(const String& originString, const String& fullPath);
-    virtual void move(const String& sourcePath, const String& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void copy(const String& sourcePath, const String& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void remove(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void removeRecursively(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void readMetadata(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void createFile(const String& path, bool exclusive, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void createDirectory(const String& path, bool exclusive, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void fileExists(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void directoryExists(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void readDirectory(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void createWriter(AsyncFileWriterClient*, const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
-    virtual void createSnapshotFileAndReadMetadata(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void move(const KURL& sourcePath, const KURL& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void copy(const KURL& sourcePath, const KURL& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void remove(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void removeRecursively(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void readMetadata(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void createFile(const KURL& path, bool exclusive, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void createDirectory(const KURL& path, bool exclusive, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void fileExists(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void directoryExists(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void readDirectory(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void createWriter(AsyncFileWriterClient*, const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void createSnapshotFileAndReadMetadata(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+
+protected:
+    AsyncFileSystemBlackBerry(PassOwnPtr<BlackBerry::Platform::WebFileSystem> platformFileSystem);
+    static String fileSystemURLToPath(const KURL&);
+
+    OwnPtr<BlackBerry::Platform::WebFileSystem> m_platformFileSystem;
 };
 
 } // namespace WebCore

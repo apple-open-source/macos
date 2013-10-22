@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2012 Apple Inc. All rights reserved.
+.\" Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -19,17 +19,28 @@
 .\" limitations under the License.
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
-.Dd 11 January 2012
-.Dt PCAP_NG 3
+.Dd 20 March 2013
+.Dt PCAP_NG 3PCAP
 .Os
+.
 .Sh NAME
+.
 .Nm pcap_ng
-.Nd Apple Internal pcap-ng SPIs for the new pcap file format
+.Nd pcap library extensions for the new pcap-ng file format
+.
 .Sh SYNOPSIS
-.Bd -literal
-#define __APPLE_PCAP_NG_API
-.Ed
-.In pcap/pcap.h
+.
+.In pcap/pcap-ng.h
+.Ft pcap_t *
+.Fo pcap_ng_fopen_offline
+.Fa "FILE *fp"
+.Fa "char *errbuf"
+.Fc
+.Ft pcap_t *
+.Fo pcap_ng_open_offline
+.Fa "const char *fname"
+.Fa "char *errbuf"
+.Fc
 .Ft pcap_dumper_t *
 .Fo pcap_ng_dump_open
 .Fa "pcap_t *p"
@@ -50,17 +61,541 @@
 .Fo pcap_ng_dump_close
 .Fa "pcap_dumper_t *p"
 .Fc
+.Ft pcapng_block_t
+.Fo pcap_ng_block_alloc
+.Fa "size_t len"
+.Fc
+.Ft int
+.Fo pcap_ng_block_reset
+.Fa "pcapng_block_t block"
+.Fc
+.Ft int
+.Fo pcap_ng_free_block
+.Fa "pcapng_block_t block"
+.Fc
+.Ft bpf_u_int32
+.Fo pcap_ng_dump_block
+.Fa "FILE *stream"
+.Fa "pcapng_block_t block"
+.Fc
+.Ft bpf_u_int32
+.Fo pcap_ng_externalize_block
+.Fa "int fd"
+.Fa "pcapng_block_t block"
+.Fc
+.Ft pcapng_block_t
+.Fo pcap_ng_block_alloc_with_raw_block
+.Fa "pcap_t *p"
+.Fa "u_char *rawblock"
+.Fc
+.Ft int
+.Fo pcap_ng_block_init_with_raw_block
+.Fa "pcapng_block_t block"
+.Fa "pcap_t *p"
+.Fa "u_char *rawblock"
+.Fc
+.Ft bpf_u_int32
+.Fo pcap_ng_block_get_type
+.Fa "pcapng_block_t block"
+.Fc
+.Ft bpf_u_int32
+.Fo pcap_ng_block_get_len
+.Fa "pcapng_block_t block"
+.Fc
+.Ft int
+.Fo pcap_ng_block_is_swapped
+.Fa "pcapng_block_t block"
+.Fc
+.Ft struct pcapng_section_header_fields *
+.Fo pcap_ng_get_section_header_fields
+.Fa "pcapng_block_t block"
+.Fc
+.Ft struct pcapng_interface_description_fields *
+.Fo pcap_ng_get_interface_description_fields
+.Fa "pcapng_block_t block"
+.Fc
+.Ft struct pcapng_enhanced_packet_fields *
+.Fo pcap_ng_get_enhanced_packet_fields
+.Fa "pcapng_block_t block"
+.Fc
+.Ft struct pcapng_simple_packet_fields *
+.Fo pcap_ng_get_simple_packet_fields
+.Fa "pcapng_block_t block"
+.Fc
+.Ft struct pcapng_packet_fields *
+.Fo pcap_ng_get_packet_fields
+.Fa "pcapng_block_t block"
+.Fc
+.Ft struct pcapng_process_information_fields *
+.Fo pcap_ng_get_process_information_fields
+.Fa "pcapng_block_t block"
+.Fc
+.Ft bpf_u_int32
+.Fo pcap_ng_block_packet_copy_data
+.Fa "pcapng_block_t block"
+.Fa "const void * data"
+.Fa "bpf_u_int32 caplen"
+.Fc
+.Ft bpf_u_int32
+.Fo pcap_ng_block_packet_set_data
+.Fa "pcapng_block_t block"
+.Fa "const void * data"
+.Fa "bpf_u_int32 caplen"
+.Fc
+.Ft void *
+.Fo pcap_ng_block_packet_get_data_ptr
+.Fa "pcapng_block_t block"
+.Fc
+.Ft bpf_u_int32
+.Fo pcap_ng_block_packet_get_data_len
+.Fa "pcapng_block_t block"
+.Fc
+.Ft int
+.Fo pcap_ng_block_does_support_data
+.Fa "pcapng_block_t block"
+.Fc
+.Ft int
+.Fo pcap_ng_block_add_option_with_value
+.Fa "pcapng_block_t block"
+.Fa "u_short code"
+.Fa "const void *buffer"
+.Fa "u_short length"
+.Fc
+.Ft int
+.Fo pcap_ng_block_add_option_with_value_string
+.Fa "pcapng_block_t block"
+.Fa "u_short code"
+.Fa "const char *string"
+.Fc
+.Ft pcapng_option_t 
+.Fo pcap_ng_block_get_option
+.Fa "pcapng_option_t option"
+.Fa "u_short code"
+.Fc
+.Ft void
+.Fo pcap_ng_block_iterate_options
+.Fa "pcapng_block_t block"
+.Fa "void * context"
+.Fa "pcap_ng_block_option_iterator_func opt_iterator_func"
+.Fc
+.Ft pcapng_name_record_t
+.Fo pcap_ng_block_add_name_record_with_ip4
+.Fa "pcapng_block_t block"
+.Fa "struct in_addr * in4"
+.Fa "const void ** names"
+.Fc
+.Ft pcapng_name_record_t
+.Fo pcap_ng_block_add_name_record_with_ip6
+.Fa "pcapng_block_t block"
+.Fa "struct in6_addr * in6"
+.Fa "const void ** names"
+.Fc
+.Ft void
+.Fo pcap_ng_block_iterate_name_records
+.Fa "pcapng_name_record_t record"
+.Fa "pcapng_name_record_iterator_func fn"
+.Fc
+.Ft int
+.Fo dlt_to_linktype
+.Fa "int dlt"
+.Fc
+.Ft int
+.Fo linktype_to_dlt
+.Fa "int linktype"
+.Fc
+.
 .Sh DESCRIPTION
-libpcap already supports reading pcap-ng files to some extent.
-These Apple private SPIs allow you to write pcap-ng files.
-They work exactly like the regular pcap APIs, but they will write a packet
-capture a more extensible file format (pcap-ng).
-For more information on how to use them, please consult the corresponding
-libpcap man pages.
+.
+The 
+.Nm
+collection of functions and data structure is an extension to the 
+.Xr pcap 3PCAP
+library to read and write capture files in the Pcap-ng file 
+format. 
 .Pp
-tcpdump and Wireshark are able to read pcap-ng files, but tcpdump will print
-more information, namely the comment field of each packet header block.
+While the traditional
+.Xr pcap 3PCAP
+API is packet oriented, the
+.Nm
+API uses pcap-ng blocks as the fundamental type of object.
+The following standard pcap-ng block types are supported:
+.Bl -bullet -offset indent -compact
+.It
+section header
+.It
+interface description
+.It
+the three types of packet blocks
+.It
+interface statistic
+.It
+name resolution
+.El
+as well a custom block type for process information.
+.Pp
+While it's possible to access the raw content of a block, the bulk of the 
+API provides accessor functions to facilitate the parsing and the creation of 
+blocks and options.
+.Pp
+The purpose of this API is to provide sequential access to capture files using the
+Pcap-ng file format and it does not offer any facility for random access or 
+direct edition of pcan-ng file (no addition, removal or modification of pcap-ng blocks 
+that are present in a capture file).
+.
+.Ss "Opening a pcap-ng file"
+.
+To open a handle for a pcap-ng capture file from which to read pcap-ng 
+blocks use either 
+.Fn pcap_ng_fopen_offline
+or 
+.Fn pcap_ng_open_offline .
+As these functions return a NULL value if the file is not in the pcap-ng 
+format, one should then try opening the file using 
+.Fn pcap_fopen_offline 3PCAP
+or
+.Fn pcap_open_offline 3PCAP .
+.Pp
+To open a new pcap-ng capture file to save pcap-ng blocks use either 
+.Fn pcap_ng_dump_open
+or 
+.Fn pcap_ng_dump_fopen .
+.Pp
+The above functions return a 
+.Vt pcap_t
+that may be used with most of the 
+.Xr pcap 3PCAP
+functions that accept a capture handle. 
+.Pp
+When used with a 
+.Vt pcap_t
+handle of file in the pcap-ng format,
+.Fn pcap_datalink 3PCAP
+return the pseudo data link type
+.Vt DLT_PCAPNG
+as a pcap-ng file may contain packets with different data link type.
+.Pp
+Call 
+.Fn pcap_ng_dump_close
+to close the handle of a pcap-ng file.
+.
+.Ss "Reading pcap-ng blocks"
+.
+To read blocks from a pcap-ng file opened by 
+.Fn pcap_ng_fopen_offline
+or 
+.Fn pcap_ng_open_offline
+simply call the traditional functions 
+.Fn pcap_dispatch
+or 
+.Fn pcap_loop
+or
+.Fn pcap_next
+or
+.Fn pcap_next_ex .
+The difference is that instead of getting a pointer to a packet, the function or
+the callback gets a buffer to a raw pcap-ng block.
+.Pp
+The raw pcap-ng may be parsed manually or it may be passed to the function 
+.Fn pcap_ng_create_with_raw_block
+to create an internalized representation of the block and used with other 
+.Nm
+accessor functions.
+.
+.Ss "Writing pcap-ng blocks"
+.
+The function 
+.Fn pcap_ng_dump_block
+takes a 
+.Vt pcapng_block_t
+object, and writes it to the capture file in the pcap-ng file format.
+.
+.Ss "Creating a pcap-ng block internalized object"
+.
+Internalized pcap-ng block objects are represented by the opaque data type 
+.Vt pcapng_block_t
+and accessor functions may be used to read and write the content of a 
+.Vt pcapng_block_t
+object (header and options). A 
+.Vt pcapng_block_t 
+object may be re-used to mimimize memory allocations.
+.Pp
+The function 
+.Fn pcap_ng_block_alloc
+allocates a
+.Vt pcapng_block_t
+object to hold an pcap-ng block data structure.
+This allocate a work buffer to hold the raw data block content 
+so the given size should be large enough to hold the largest expected 
+raw block size. 
+.Pp
+To reuse an existing internalized
+.Vt pcapng_block_t
+object, use the function 
+.Fn pcap_ng_block_reset
+as it is more efficient to reuse than to allocate a new data structure 
+of each pcap-ng block being read or written.
+.Pp
+The function 
+.Fn pcap_ng_free_block
+deletes the memory used by the 
+.Vt pcapng_block_t
+object.
+.Pp
+The function 
+.Fn pcap_ng_block_init_with_raw_block
+parses a raw pcap-ng block buffer into an internalized form using 
+an existing 
+.Vt pcapng_block_t
+object. This is typically used when reading from a 
+pcap-ng capture file.
+.Pp
+The function
+.Fn pcap_ng_block_alloc_with_raw_block
+creates a 
+.Vt pcapng_block_t
+object from a raw pcap-ng buffer buffer. 
+.
+.Ss "Getting information about a pcap-ng block"
+.
+The function 
+.Fn pcap_ng_block_get_type
+returns the type of a 
+.Vt pcapng_block_t
+object.
+.Pp
+The function 
+.Fn pcap_ng_block_is_swapped
+returns the byte order of a 
+.Vt pcapng_block_t
+object. This is useful when reading pcap-ng blocks and options from a 
+pcap-ng capture file. This actually reflects the byte order magic of the 
+section header block.
+.Pp
+The function 
+.Fn pcap_ng_block_get_len
+returns the length of the externalized form of a 
+.Vt pcapng_block_t
+object.
+.Pp
+The following functions return the fixed header size corresponding to the 
+supported block types:
+.Bl -bullet -offset indent -compact
+.It
+.Fn pcapng_section_header_fields
+.It
+.Fn pcapng_interface_description_fields
+.It
+.Fn pcapng_enhanced_packet_fields
+.It
+.Fn pcapng_simple_packet_fields
+.It
+.Fn pcapng_packet_fields
+.It
+.Fn pcapng_process_information_fields
+.El
+.
+.Ss "Accessing the data of packet blocks"
+.
+The same functions may be used to access the data portion of the three 
+types of packet blocks:
+.Bl -item -offset indent -compact
+.It
+enhanced packet block
+.It
+simple packet block
+.It
+packet block
+.El
+.Pp
+The function 
+.Fn pcap_ng_block_packet_copy_data
+copies the content of the passed data buffer into the 
+.Vt pcapng_block_t
+packet object. This may involve memory allocation to hold the data. 
+.Pp
+The function 
+.Nm pcap_ng_block_packet_set_data
+uses the passed data buffer as a pointer reference to an external 
+buffer. Using 
+.Fn pcap_ng_block_packet_set_data
+is more efficient than 
+.Fn pcap_ng_block_packet_copy_data
+as this does not involve data movement or memory allocation, 
+but the caller must make sure the passed data buffer is kept intact for 
+the lifetime of the 
+.Vt pcapng_block_t
+packet object.
+.Pp
+The function 
+.Fn pcap_ng_block_delete_data
+empties the 
+.Vt pcapng_block_t
+packet object from any data so its length becomes zero.
+.Pp
+The function 
+.Fn pcap_ng_block_packet_get_data_ptr
+returns a pointer on the beginning of the data portion of the 
+.Vt pcapng_block_t
+packet object.
+.Pp
+The function 
+.Fn pcap_ng_block_packet_get_data_len
+returns the length of the data referred to by the 
+.Vt pcapng_block_t
+packet object.
+.Pp
+The function 
+.Fn pcap_ng_block_does_support_data
+returns a non-zero value when the passed
+.Vt pcapng_block_t
+in a pcap-ng packet block.
+.
+.Ss "Accessing pcap-ng options"
+.
+To add an option to a 
+.Vt pcapng_block_t
+packet object use the function 
+.Fn pcap_ng_block_add_option_with_value .
+.Pp
+When the option value is a null terminated string, one may use the 
+function 
+.Fn pcap_ng_block_add_option_with_string
+that includes the terminating null byte in the option value.
+.Pp
+To get a single option value one may use the function 
+.Fn pcap_ng_block_get_option
+when an option may appear at most once in a pcap-ng block.
+.Pp
+The function 
+.sFn pcap_ng_block_iterate_options
+walks the list of options 
+.Vt pcapng_block_t
+and calls the given callback function of each option.
+.
+.Ss "Keeping track of interface information"
+.
+.Nm
+provides utility functions to help keep track of 
+interface information associated with a 
+.Vt pcap_t 
+handle using the data structure 
+.Vt struct pcap_if_info .
+The interface IDs being specific to a given section, the list 
+of interface information should be cleared whenever a new section is being 
+processed.
+.Pp
+The function
+.Fn pcap_add_if_info
+add an interface information. The interface ID is assigned sequentially so
+the corresponding interface block needs to be written to the save file
+to avoid reference to missing interfaces caused by filtering.
+.Pp
+The function
+.Fn pcap_find_if_info_by_name
+returns the
+.Vt struct pcap_if_info 
+that matches the given name.
+.Pp
+The function
+.Fn pcap_find_if_info_by_id
+returns the
+.Vt struct pcap_if_info 
+that matches the given interface id.
+.Pp
+The function
+.Fn pcap_free_if_info
+frees
+.Vt struct pcap_if_info 
+and removes it from the pcap_t handle. Removing a single
+.Vt struct pcap_if_info 
+is not a common usage.
+.Pp
+The function 
+.Fn pcap_clear_if_infos
+removes all the 
+.Vt struct pcap_if_info 
+structures from a 
+.Vt pcap_t *
+handle. This is useful when processing a new section header block as the 
+interface IDs are valid with a section.
+.Pp
+Use the function
+.Fn pcap_ng_init_section_info
+to reinitialize the section specific data like interface information and 
+process information. This should be used when adding a new section 
+header. This is also useful when saving to a new packet capture files, 
+for example when "rotating" files.
+.
+.Ss "Keeping track of process information"
+.
+.Nm
+provide utility functions to help keep track of 
+process information associated with a 
+.Vt pcap_t 
+handle using the data structure 
+.Vt struct pcap_proc_info .
+The process information indexes being specific to a given section, 
+the list of process information should be cleared whenever a new section 
+is being processed.
+.Pp
+The function
+.Fn pcap_add_proc_info
+adds a process information.
+.Pp
+The function
+.Fn pcap_find_proc_info
+returns the
+.Vt struct pcap_proc_info 
+that matches the given process name and ID.
+.Pp
+The function
+.Fn pcap_find_proc_info_by_index
+returns the
+.Vt struct pcap_proc_info 
+that matches the given process information index.
+.Pp
+The function
+.Fn pcap_free_proc_info
+frees
+.Vt struct pcap_proc_info 
+and removes it from the pcap_t handle. Removing a single
+.Vt struct pcap_proc_info 
+is not a common usage.
+.Pp
+The function 
+.Fn pcap_clear_proc_infos
+removes all the 
+.Vt struct pcap_proc_info 
+structures from a 
+.Vt pcap_t *
+handle. This is useful when processing a new section header block as the 
+process information indexes are valid within a section.
+.
+.Ss "Handling special pktap and iptap interfaces"
+.
+.Pp
+The function 
+.Fn pcap_setup_pktap_interface
+creates a cloned pktap or iptap interface to be used as a capture device.
+.Pp
+The function 
+.Fn pcap_cleanup_pktap_interface
+destroys a cloned pktap or iptap interface that was used as a capture device.
+.
+.Ss "Dumping packet with ptkap header"
+.
+The function
+.Fn pcap_ng_dump_pktap
+saves a packet with a 
+.Vt struct pcap_pkthdr
+header as a pcap-ng enhanced data block. It handles the packet metadata 
+information from the 
+.Vt struct pcap_pkthdr
+and creates process information blocks and interface information blocks as 
+needed. It returns 1 if the packet passes the filter, 0 otherwise.
+.
 .Sh SEE ALSO
+.
 .Xr pcap_dump_open 3PCAP ,
 .Xr pcap_dump_fopen 3PCAP ,
 .Xr pcap_dump 3PCAP ,

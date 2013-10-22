@@ -25,7 +25,7 @@
 #include "strmatch.h"
 
 extern int xstrmatch __P((char *, char *, int));
-#if defined (HAVE_MULTIBYTE)
+#if defined (HAVE_MULTIBYTE) || defined(HANDLE_MULTIBYTE)
 extern int internal_wstrmatch __P((wchar_t *, wchar_t *, int));
 #endif
 

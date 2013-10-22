@@ -33,7 +33,7 @@
 
 #include "krb5_locl.h"
 
-static u_long table[256];
+static uint32_t table[256];
 
 #define CRC_GEN 0xEDB88320L
 
@@ -41,7 +41,7 @@ void
 _krb5_crc_init_table(void)
 {
     static int flag = 0;
-    unsigned long crc, poly;
+    uint32_t crc, poly;
     unsigned int i, j;
 
     if(flag) return;

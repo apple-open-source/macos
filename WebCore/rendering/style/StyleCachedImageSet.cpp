@@ -69,9 +69,9 @@ bool StyleCachedImageSet::errorOccurred() const
     return m_bestFitImage->errorOccurred();
 }
 
-IntSize StyleCachedImageSet::imageSize(const RenderObject* renderer, float multiplier) const
+LayoutSize StyleCachedImageSet::imageSize(const RenderObject* renderer, float multiplier) const
 {
-    IntSize scaledImageSize = m_bestFitImage->imageSizeForRenderer(renderer, multiplier);
+    LayoutSize scaledImageSize = m_bestFitImage->imageSizeForRenderer(renderer, multiplier);
     scaledImageSize.scale(1 / m_imageScaleFactor);
     return scaledImageSize;
 }
@@ -108,12 +108,17 @@ void StyleCachedImageSet::addClient(RenderObject* renderer)
 
 void StyleCachedImageSet::removeClient(RenderObject* renderer)
 {
-    m_bestFitImage->removeClientForRenderer(renderer);
+    m_bestFitImage->removeClient(renderer);
 }
 
 PassRefPtr<Image> StyleCachedImageSet::image(RenderObject* renderer, const IntSize&) const
 {
     return m_bestFitImage->imageForRenderer(renderer);
+}
+
+bool StyleCachedImageSet::knownToBeOpaque(const RenderObject* renderer) const
+{
+    return m_bestFitImage->currentFrameKnownToBeOpaque(renderer);
 }
 
 } // namespace WebCore

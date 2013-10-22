@@ -46,6 +46,8 @@ struct _krb5_key_data;
 struct _krb5_key_type;
 struct _krb5_checksum_type;
 struct _krb5_encryption_type;
+struct _krb5_srv_query_ctx;
+
 #include <heimbase.h>
 #include <hx509.h>
 #include <krb5-private.h>
@@ -54,6 +56,7 @@ int forwardable_flag	= -1;
 int proxiable_flag	= -1;
 int renewable_flag	= -1;
 int renew_flag		= 0;
+int home_directory_flag	= 1;
 int pac_flag		= -1;
 int validate_flag	= 0;
 int version_flag	= 0;
@@ -86,6 +89,10 @@ static char *fast_armor_cache_string = NULL;
 static int use_referrals_flag = 0;
 static int verbose_flag = 0;
 static int windows_flag = 0;
+#ifdef __APPLE__
+static int keychain_flag = 0;
+static SecKeychainItemRef passwordItem = NULL;
+#endif
 
 
 static struct getargs args[] = {
@@ -208,6 +215,12 @@ static struct getargs args[] = {
     { "verbose",	'V',arg_flag, &verbose_flag,
       NP_("verbose output", "") },
 
+    { "home-directory",	0,  arg_negative_flag, &home_directory_flag,
+      NP_("don't touch home directory", ""), NULL },
+#ifdef __APPLE__
+    { "keychain",	0,  arg_flag, &keychain_flag,
+      NP_("save password in keychain if successful", ""), NULL },
+#endif
     { "windows",	0,  arg_flag, &windows_flag,
       NP_("get windows behavior", ""), NULL },
 
@@ -356,6 +369,7 @@ get_new_tickets(krb5_context context,
     krb5_init_creds_context icc;
     krb5_keytab kt = NULL;
     int need_prompt;
+    int will_use_keytab =  (use_keytab || keytab_str);
 
     passwd[0] = '\0';
 
@@ -380,7 +394,7 @@ get_new_tickets(krb5_context context,
     }
 
 #if defined(__APPLE__) && !defined(__APPLE_TARGET_EMBEDDED__)
-    if (passwd[0] == '\0') {
+    if (passwd[0] == '\0' && !will_use_keytab && home_directory_flag) {
 	const char *realm;
 	OSStatus osret;
 	UInt32 length;
@@ -396,7 +410,7 @@ get_new_tickets(krb5_context context,
 
 	osret = SecKeychainFindGenericPassword(NULL, (UInt32)strlen(realm), realm,
 					       (UInt32)strlen(name), name,
-					       &length, &buffer, NULL);
+					       &length, &buffer, &passwordItem);
 	free(name);
 	if (osret != noErr)
 	    goto nopassword;
@@ -524,7 +538,7 @@ get_new_tickets(krb5_context context,
 	    krb5_err(context, 1, ret, "krb5_init_creds_set_fast_ccache");
     }
 
-    if(use_keytab || keytab_str) {
+    if(will_use_keytab) {
 	if(keytab_str)
 	    ret = krb5_kt_resolve(context, keytab_str, &kt);
 	else
@@ -561,6 +575,28 @@ get_new_tickets(krb5_context context,
 
     ret = krb5_init_creds_get(context, icc);
 
+#ifdef __APPLE__
+    /*
+     * Save password in Keychain
+     */
+    if (ret == 0 && keychain_flag && passwordItem == NULL) {
+	krb5_error_code ret2;
+	const char *realm;
+	char *name;
+
+	realm = krb5_principal_get_realm(context, principal);
+	ret2 = krb5_unparse_name_flags(context, principal, KRB5_PRINCIPAL_UNPARSE_NO_REALM, &name);
+	if (ret2 == 0) {
+	    (void)SecKeychainAddGenericPassword(NULL,
+						(UInt32)strlen(realm), realm,
+						(UInt32)strlen(name), name,
+						(UInt32)strlen(passwd), passwd,
+						NULL);
+	    free(name);
+	}
+    }
+#endif
+
     memset(passwd, 0, sizeof(passwd));
 
     switch(ret){
@@ -572,6 +608,10 @@ get_new_tickets(krb5_context context,
     case KRB5KRB_AP_ERR_MODIFIED:
     case KRB5KDC_ERR_PREAUTH_FAILED:
     case KRB5_GET_IN_TKT_LOOP:
+#ifdef __APPLE__
+	if (passwordItem)
+	    SecKeychainItemDelete(passwordItem);
+#endif
 	krb5_errx(context, 1, N_("Password incorrect", ""));
 	break;
     case KRB5KRB_AP_ERR_V4_REPLY:
@@ -608,8 +648,10 @@ get_new_tickets(krb5_context context,
 	krb5_warn(context, ret, "krb5_init_creds_warn_user");
 
     ret = krb5_cc_move(context, tempccache, ccache);
-    if (ret)
+    if (ret) {
+	(void)krb5_cc_destroy(context, tempccache);
 	krb5_err (context, 1, ret, "krb5_cc_move");
+    }
 
     if (switch_cache_flags)
 	krb5_cc_switch(context, ccache);
@@ -637,6 +679,11 @@ get_new_tickets(krb5_context context,
 
     if (kt)
 	krb5_kt_close(context, kt);
+
+#ifdef __APPLE__
+    if (passwordItem)
+	CFRelease(passwordItem);
+#endif
 
     return 0;
 }
@@ -751,6 +798,9 @@ main (int argc, char **argv)
 
     argc -= optidx;
     argv += optidx;
+
+    if (!home_directory_flag)
+	krb5_set_home_dir_access(NULL, FALSE);
 
     if (enterprise_flag)
 	parseflags |= KRB5_PRINCIPAL_PARSE_ENTERPRISE;

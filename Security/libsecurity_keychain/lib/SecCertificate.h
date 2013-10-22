@@ -158,7 +158,7 @@ OSStatus SecCertificateGetType(SecCertificateRef certificate, CSSM_CERT_TYPE *ce
         For example:
         const CSSM_X509_NAME *subject = NULL;
         OSStatus status = SecCertificateGetSubject(certificate, &subject);
-        if ( (status == noErr) && (subject != NULL) ) {
+        if ( (status == errSecSuccess) && (subject != NULL) ) {
             // subject is valid
         }
 	   This API is deprecated in 10.7. Please use the SecCertificateCopyValues API instead. 
@@ -176,7 +176,7 @@ OSStatus SecCertificateGetSubject(SecCertificateRef certificate, const CSSM_X509
         For example:
         const CSSM_X509_NAME *issuer = NULL;
         OSStatus status = SecCertificateGetIssuer(certificate, &issuer);
-        if ( (status == noErr) && (issuer != NULL) ) {
+        if ( (status == errSecSuccess) && (issuer != NULL) ) {
             // issuer is valid
         }
 		This API is deprecated in 10.7. Please use the SecCertificateCopyValues API instead. 

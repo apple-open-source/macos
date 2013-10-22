@@ -78,7 +78,8 @@ class AclValidationContext {
 public:
     AclValidationContext(const AccessCredentials *cred,
         AclAuthorization auth, AclValidationEnvironment *env = NULL)
-    : mCred(cred), mAuth(auth), mEnv(env), mEntryTag(NULL) { }
+    : mAcl((ObjectAcl*) 0xDEADDEADDEADDEAD), mSubject((AclSubject*) 0xDEADDEADDEADDEAD), mCred(cred),
+        mAuth(auth), mEnv(env), mEntryTag(NULL) { }
     AclValidationContext(const AclValidationContext &ctx)
     : mAcl(ctx.mAcl), mSubject(ctx.mSubject), mCred(ctx.mCred),
 	  mAuth(ctx.mAuth), mEnv(ctx.mEnv), mEntryTag(NULL) { }

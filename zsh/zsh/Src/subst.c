@@ -44,7 +44,7 @@ char nulstring[] = {Nularg, '\0'};
  *  - Brace expansion
  *  - Tilde and equals substitution
  *
- * PF_* flags are defined in zsh.h
+ * PREFORK_* flags are defined in zsh.h
  */
 
 /**/
@@ -52,7 +52,7 @@ mod_export void
 prefork(LinkList list, int flags)
 {
     LinkNode node, stop = 0;
-    int keep = 0, asssub = (flags & PF_TYPESET) && isset(KSHTYPESET);
+    int keep = 0, asssub = (flags & PREFORK_TYPESET) && isset(KSHTYPESET);
 
     queue_signals();
     for (node = firstnode(list); node; incnode(node)) {
@@ -67,14 +67,18 @@ prefork(LinkList list, int flags)
 	     * templates...
 	     */
 	    char *cptr = (char *)getdata(node);
-	    filesub(&cptr, flags & (PF_TYPESET|PF_ASSIGN));
+	    filesub(&cptr, flags & (PREFORK_TYPESET|PREFORK_ASSIGN));
 	    /*
 	     * The assignment is so simple it's not worth
 	     * testing if cptr changed...
 	     */
 	    setdata(node, cptr);
 	}
-	if (!(node = stringsubst(list, node, flags & PF_SINGLE, asssub))) {
+	if (!(node = stringsubst(list, node,
+				 flags & (PREFORK_SINGLE|PREFORK_SPLIT|
+					  PREFORK_SHWORDSPLIT|
+					  PREFORK_NOSHWORDSPLIT),
+				 asssub))) {
 	    unqueue_signals();
 	    return;
 	}
@@ -84,7 +88,7 @@ prefork(LinkList list, int flags)
 	    keep = 0;
 	if (*(char *)getdata(node)) {
 	    remnulargs(getdata(node));
-	    if (unset(IGNOREBRACES) && !(flags & PF_SINGLE)) {
+	    if (unset(IGNOREBRACES) && !(flags & PREFORK_SINGLE)) {
 		if (!keep)
 		    stop = nextnode(node);
 		while (hasbraces(getdata(node))) {
@@ -94,10 +98,10 @@ prefork(LinkList list, int flags)
 	    }
 	    if (unset(SHFILEEXPANSION)) {
 		char *cptr = (char *)getdata(node);
-		filesub(&cptr, flags & (PF_TYPESET|PF_ASSIGN));
+		filesub(&cptr, flags & (PREFORK_TYPESET|PREFORK_ASSIGN));
 		setdata(node, cptr);
 	    }
-	} else if (!(flags & PF_SINGLE) && !keep)
+	} else if (!(flags & PREFORK_SINGLE) && !keep)
 	    uremnode(list, node);
 	if (errflag) {
 	    unqueue_signals();
@@ -145,7 +149,7 @@ stringsubstquote(char *strstart, char **pstrdpos)
 
 /**/
 static LinkNode
-stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
+stringsubst(LinkList list, LinkNode node, int pf_flags, int asssub)
 {
     int qt;
     char *str3 = (char *)getdata(node);
@@ -162,6 +166,8 @@ stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
 		subst = getproc(str, &rest);	/* <(...) or >(...) */
 	    else
 		subst = getoutputfile(str, &rest);	/* =(...) */
+	    if (errflag)
+		return NULL;
 	    if (!subst)
 		subst = "";
 
@@ -211,7 +217,25 @@ stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
 		setdata(node, (void *) str3);
 		continue;
 	    } else {
-		node = paramsubst(list, node, &str, qt, ssub);
+		/*
+		 * To avoid setting and unsetting the SHWORDSPLIT
+		 * option, we pass flags if we need to control it for
+		 * recursive expansion via multsub()
+		 * If PREFORK_NOSHWORDSPLIT is set, the option is
+		 * disregarded; otherwise, use it if set.
+		 * If PREFORK_SPLIT is set, splitting is forced,
+		 * regardless of the option
+		 * If PREFORK_SHWORDSPLIT is already set, or used by the
+		 * previous two to signal paramsubst(), we'll do
+		 * sh-style wordsplitting on parameters.
+		 */
+		if ((isset(SHWORDSPLIT) &&
+		     !(pf_flags & PREFORK_NOSHWORDSPLIT)) ||
+		    (pf_flags & PREFORK_SPLIT))
+		    pf_flags |= PREFORK_SHWORDSPLIT;
+		node = paramsubst(
+		    list, node, &str, qt,
+		    pf_flags & (PREFORK_SINGLE|PREFORK_SHWORDSPLIT));
 		if (errflag || !node)
 		    return NULL;
 		str3 = (char *)getdata(node);
@@ -245,7 +269,10 @@ stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
 	    if (endchar == Outpar && str2[1] == '(' && str[-2] == ')') {
 		/* Math substitution of the form $((...)) */
 		str[-2] = '\0';
-		str = arithsubst(str2 + 2, &str3, str);
+		if (isset(EXECOPT))
+		    str = arithsubst(str2 + 2, &str3, str);
+		else
+		    strncpy(str3, str2, 1);
 		setdata(node, (void *) str3);
 		continue;
 	    }
@@ -263,7 +290,8 @@ stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
 		       (qt && str[1] == '"'))))
 		    *str = ztokens[c - Pound];
 	    str++;
-	    if (!(pl = getoutput(str2 + 1, qt || ssub))) {
+	    if (!(pl = getoutput(str2 + 1, qt ||
+				 (pf_flags & PREFORK_SINGLE)))) {
 		zerr("parse error in command substitution");
 		return NULL;
 	    }
@@ -273,7 +301,7 @@ stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
 		str = strcpy(str2, str);
 		continue;
 	    }
-	    if (!qt && ssub && isset(GLOBSUBST))
+	    if (!qt && (pf_flags & PREFORK_SINGLE) && isset(GLOBSUBST))
 		shtokenize(s);
 	    l1 = str2 - str3;
 	    l2 = strlen(s);
@@ -301,7 +329,7 @@ stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
 	     * We are in a normal argument which looks like an assignment
 	     * and is to be treated like one, with no word splitting.
 	     */
-	    ssub = 1;
+	    pf_flags |= PREFORK_SINGLE;
 	}
 	str++;
     }
@@ -366,7 +394,7 @@ singsub(char **s)
 
     init_list1(foo, *s);
 
-    prefork(&foo, PF_SINGLE);
+    prefork(&foo, PREFORK_SINGLE);
     if (errflag)
 	return;
     *s = (char *) ugetnode(&foo);
@@ -387,13 +415,13 @@ singsub(char **s)
 
 /**/
 static int
-multsub(char **s, int split, char ***a, int *isarr, char *sep)
+multsub(char **s, int pf_flags, char ***a, int *isarr, char *sep)
 {
     int l;
     char **r, **p, *x = *s;
     local_list1(foo);
 
-    if (split) {
+    if (pf_flags & PREFORK_SPLIT) {
 	/*
 	 * This doesn't handle multibyte characters, but we're
 	 * looking for whitespace separators which must be ASCII.
@@ -408,7 +436,7 @@ multsub(char **s, int split, char ***a, int *isarr, char *sep)
 
     init_list1(foo, x);
 
-    if (split) {
+    if (pf_flags & PREFORK_SPLIT) {
 	LinkNode n = firstnode(&foo);
 	int inq = 0, inp = 0;
 	MB_METACHARINIT();
@@ -462,7 +490,7 @@ multsub(char **s, int split, char ***a, int *isarr, char *sep)
 	}
     }
 
-    prefork(&foo, 0);
+    prefork(&foo, pf_flags);
     if (errflag) {
 	if (isarr)
 	    *isarr = 0;
@@ -498,8 +526,8 @@ multsub(char **s, int split, char ***a, int *isarr, char *sep)
 }
 
 /*
- * ~, = subs: assign & PF_TYPESET => typeset or magic equals
- *            assign & PF_ASSIGN => normal assignment
+ * ~, = subs: assign & PREFORK_TYPESET => typeset or magic equals
+ *            assign & PREFORK_ASSIGN => normal assignment
  */
 
 /**/
@@ -514,7 +542,7 @@ filesub(char **namptr, int assign)
     if (!assign)
 	return;
 
-    if (assign & PF_TYPESET) {
+    if (assign & PREFORK_TYPESET) {
 	if ((*namptr)[1] && (eql = sub = strchr(*namptr + 1, Equals))) {
 	    str = sub + 1;
 	    if ((sub[1] == Tilde || sub[1] == Equals) && filesubstr(&str, assign)) {
@@ -579,7 +607,6 @@ filesubstr(char **namptr, int assign)
     char *str = *namptr;
 
     if (*str == Tilde && str[1] != '=' && str[1] != Equals) {
-	Shfunc dirfunc;
 	char *ptr, *tmp, *res, *ptr2;
 	int val;
 
@@ -594,12 +621,11 @@ filesubstr(char **namptr, int assign)
 	    *namptr = dyncat((tmp = oldpwd) ? tmp : pwd, str + 2);
 	    return 1;
 	} else if (str[1] == Inbrack &&
-		   (dirfunc = getshfunc("zsh_directory_name")) &&
 		   (ptr2 = strchr(str+2, Outbrack))) {
 	    char **arr;
 	    untokenize(tmp = dupstrpfx(str+2, ptr2 - (str+2)));
 	    remnulargs(tmp);
-	    arr = subst_string_by_func(dirfunc, "n", tmp);
+	    arr = subst_string_by_hook("zsh_directory_name", "n", tmp);
 	    res = arr ? *arr : NULL;
 	    if (res) {
 		*namptr = dyncat(res, ptr2+1);
@@ -1189,7 +1215,7 @@ get_strarg(char *s, int *lenp)
 {
     convchar_t del;
     int len;
-    char tok = 0;
+    char ctok = 0;
 
     MB_METACHARINIT();
     len = MB_METACHARLENCONV(s, &del);
@@ -1217,25 +1243,25 @@ get_strarg(char *s, int *lenp)
 	del = ZWC('>');
 	break;
     case Inpar:
-	tok = Outpar;
+	ctok = Outpar;
 	break;
     case Inang:
-	tok = Outang;
+	ctok = Outang;
 	break;
     case Inbrace:
-	tok = Outbrace;
+	ctok = Outbrace;
 	break;
     case Inbrack:
-	tok = Outbrack;
+	ctok = Outbrack;
 	break;
     }
 
-    if (tok) {
+    if (ctok) {
 	/*
 	 * Looking for a matching token; we want the literal byte,
 	 * not a decoded multibyte character, so search specially.
 	 */
-	while (*s && *s != tok)
+	while (*s && *s != ctok)
 	    s++;
     } else {
 	convchar_t del2;
@@ -1434,7 +1460,7 @@ check_colon_subscript(char *str, char **endp)
 
 /**/
 static LinkNode
-paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
+paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags)
 {
     char *aptr = *str, c, cc;
     char *s = aptr, *fstr, *idbeg, *idend, *ostr = (char *) getdata(n);
@@ -1511,7 +1537,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      * where we shouldn't, in particular on the multsubs for
      * handling embedded values for ${...=...} and the like.
      */
-    int spbreak = isset(SHWORDSPLIT) && !ssub && !qt;
+    int spbreak = (pf_flags & PREFORK_SHWORDSPLIT) &&
+	!(pf_flags & PREFORK_SINGLE) && !qt;
     /* Scalar and array value, see isarr above */
     char *val = NULL, **aval = NULL;
     /*
@@ -1561,6 +1588,11 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      */
     int shsplit = 0;
     /*
+     * "ssub" is true when we are called from singsub (via prefork):
+     * it means that we must join arrays and should not split words.
+     */
+    int ssub = (pf_flags & PREFORK_SINGLE);
+    /*
      * The separator from (j) and (s) respectively, or (F) and (f)
      * respectively (hardwired to "\n" in that case).  Slightly
      * confusingly also used for ${#pm}, thought that's at least
@@ -1596,7 +1628,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
     int arrasg = 0;
     /*
      * The (e) flag.  As we need to do extra work not quite
-     * at the end, the effect of this is kludged in in several places.
+     * at the end, the effect of this is kludged in several places.
      */
     int eval = 0;
     /*
@@ -1609,11 +1641,15 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      */	
     int presc = 0;
     /*
+     * The (g) flag.  Process escape sequences with various GETKEY_ flags.
+     */
+    int getkeys = -1;
+    /*
      * The (@) flag; interacts obscurely with qt and isarr.
      * This is one of the things that decides whether multsub
      * will produce an array, but in an extremely indirect fashion.
      */
-    int nojoin = 0;
+    int nojoin = (pf_flags & PREFORK_SHWORDSPLIT) ? !(ifs && *ifs) && !qt : 0;
     /*
      * != 0 means ${...}, otherwise $...  What works without braces
      * is largely a historical artefact (everything works with braces,
@@ -1719,7 +1755,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    ++arrasg;
 		    break;
 		case '@':
-		    nojoin = 1;
+		    nojoin = 2;	/* nojoin = 2 means force */
 		    break;
 		case 'M':
 		    flags |= SUB_MATCH;
@@ -1792,6 +1828,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 			quotemod = 1;
 			quotetype = QT_SINGLE_OPTIONAL;
 		    } else {
+			if (quotetype == QT_SINGLE_OPTIONAL) {
+			    /* extra q's after '-' not allowed */
+			    goto flagerr;
+			}
 			quotemod++, quotetype++;
 		    }
 		    break;
@@ -1934,6 +1974,36 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    presc++;
 		    break;
 
+		case 'g':
+		    t = get_strarg(++s, &arglen);
+		    if (getkeys < 0)
+			getkeys = 0;
+		    if (*t) {
+			sav = *t;
+			*t = 0;
+			while (*++s) {
+			    switch (*s) {
+			    case 'e':
+				getkeys |= GETKEY_EMACS;
+				break;
+			    case 'o':
+				getkeys |= GETKEY_OCTAL_ESC;
+				break;
+			    case 'c':
+				getkeys |= GETKEY_CTRL;
+				break;
+
+			    default:
+				*t = sav;
+				goto flagerr;
+			    }
+			}
+			*t = sav;
+			s = t + arglen - 1;
+		    } else
+			goto flagerr;
+		    break;
+
 		case 'z':
 		    shsplit = LEXFLAGS_ACTIVE;
 		    break;
@@ -2035,12 +2105,29 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    /* SH_WORD_SPLIT on or off (doubled). spbreak = 2 means force */
 	    if ((c = *++s) == '=' || c == Equals) {
 		spbreak = 0;
+		if (nojoin < 2)
+		    nojoin = 0;
 		s++;
-	    } else
+	    } else {
 		spbreak = 2;
+		if (nojoin < 2)
+		    nojoin = !(ifs && *ifs);
+	    }
 	} else if ((c == '#' || c == Pound) &&
 		   (itype_end(s+1, IIDENT, 0) != s + 1
 		    || (cc = s[1]) == '*' || cc == Star || cc == '@'
+		    || cc == '?' || cc == Quest
+		    || cc == '$' || cc == String || cc == Qstring
+		    /*
+		     * Me And My Squiggle:
+		     * ${##} is the length of $#, but ${##foo}
+		     * is $# with a "foo" removed from the start.
+		     * If someone had defined the *@!@! language
+		     * properly in the first place we wouldn't
+		     * have this nonsense.
+		     */
+		    || ((cc == '#' || cc == Pound) &&
+			s[2] == Outbrace)
 		    || cc == '-' || (cc == ':' && s[2] == '-')
 		    || (isstring(cc) && (s[2] == Inbrace || s[2] == Inpar)))) {
 	    getlen = 1 + whichlen, s++;
@@ -2227,6 +2314,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    val = dyncat(val, "-readonly");
 		if (f & PM_TAGGED)
 		    val = dyncat(val, "-tag");
+		if (f & PM_TAGGED_LOCAL)
+		    val = dyncat(val, "-tag_local");
 		if (f & PM_EXPORTED)
 		    val = dyncat(val, "-export");
 		if (f & PM_UNIQUE)
@@ -2564,7 +2653,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	/* Fall Through! */
 	case '-':
 	    if (vunset) {
-		int ws = opts[SHWORDSPLIT];
+		int split_flags;
 		val = dupstring(s);
 		/* If word-splitting is enabled, we ask multsub() to split
 		 * the substituted string at unquoted whitespace.  Then, we
@@ -2573,9 +2662,20 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		 * keep its array splits, and weird constructs such as
 		 * ${str+"one two" "3 2 1" foo "$str"} to only be split
 		 * at the unquoted spaces. */
-		opts[SHWORDSPLIT] = spbreak;
-		multsub(&val, spbreak && !aspar, (aspar ? NULL : &aval), &isarr, NULL);
-		opts[SHWORDSPLIT] = ws;
+		if (spbreak) {
+		    split_flags = PREFORK_SHWORDSPLIT;
+		    if (!aspar)
+			split_flags |= PREFORK_SPLIT;
+		} else {
+		    /*
+		     * It's not good enough not passing the flag to use
+		     * SHWORDSPLIT, because when we get to a nested
+		     * paramsubst we need to ignore isset(SHWORDSPLIT).
+		     */
+		    split_flags = PREFORK_NOSHWORDSPLIT;
+		}
+		multsub(&val, split_flags, (aspar ? NULL : &aval),
+			&isarr, NULL);
 		copied = 1;
 		spbreak = 0;
 		/* Leave globsubst on if forced */
@@ -2593,21 +2693,26 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	case '=':
 	case Equals:
 	    if (vunset) {
-		int ws = opts[SHWORDSPLIT];
 		char sav = *idend;
-		int l;
+		int l, split_flags;
 
 		*idend = '\0';
 		val = dupstring(s);
 		if (spsep || !arrasg) {
-		    opts[SHWORDSPLIT] = 0;
-		    multsub(&val, 0, NULL, &isarr, NULL);
+		    /* POSIX requires PREFORK_SINGLE semantics here, but
+		     * traditional zsh used PREFORK_NOSHWORDSPLIT.  Base
+		     * behavior on caller choice of PREFORK_SHWORDSPLIT. */
+		    multsub(&val,
+			    spbreak ? PREFORK_SINGLE : PREFORK_NOSHWORDSPLIT,
+			    NULL, &isarr, NULL);
 		} else {
-		    opts[SHWORDSPLIT] = spbreak;
-		    multsub(&val, spbreak, &aval, &isarr, NULL);
+		    if (spbreak)
+			split_flags = PREFORK_SPLIT|PREFORK_SHWORDSPLIT;
+		    else
+			split_flags = PREFORK_NOSHWORDSPLIT;
+		    multsub(&val, split_flags, &aval, &isarr, NULL);
 		    spbreak = 0;
 		}
-		opts[SHWORDSPLIT] = ws;
 		if (arrasg) {
 		    /* This is an array assignment. */
 		    char *arr[2], **t, **a, **p;
@@ -2652,33 +2757,35 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		*idend = sav;
 		copied = 1;
 		if (isarr) {
-		  if (nojoin)
-		    isarr = -1;
-		  if (qt && !getlen && isarr > 0 && !spsep && spbreak < 2) {
-		    val = sepjoin(aval, sep, 1);
-		    isarr = 0;
-		  }
-		  sep = spsep = NULL;
-		  spbreak = 0;
+		    if (nojoin)
+			isarr = -1;
+		    if (qt && !getlen && isarr > 0 && !spsep && spbreak < 2) {
+			val = sepjoin(aval, sep, 1);
+			isarr = 0;
+		    }
+		    sep = spsep = NULL;
+		    spbreak = 0;
 		}
 	    }
 	    break;
 	case '?':
 	case Quest:
 	    if (vunset) {
-		*idend = '\0';
-		zerr("%s: %s", idbeg, *s ? s : "parameter not set");
-		if (!interact) {
-		    if (mypid == getpid()) {
-			/*
-			 * paranoia: don't check for jobs, but there shouldn't
-			 * be any if not interactive.
-			 */
-			stopmsg = 1;
-			zexit(1, 0);
-		    } else
-			_exit(1);
-		}
+                if (isset(EXECOPT)) {
+                    *idend = '\0';
+                    zerr("%s: %s", idbeg, *s ? s : "parameter not set");
+                    if (!interact) {
+                        if (mypid == getpid()) {
+                            /*
+                             * paranoia: don't check for jobs, but there
+                             * shouldn't be any if not interactive.
+                             */
+                            stopmsg = 1;
+                            zexit(1, 0);
+                        } else
+                            _exit(1);
+                    }
+                }
 		return NULL;
 	    }
 	    break;
@@ -2771,6 +2878,69 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    }
 	    break;
 	}
+    } else if (inbrace && (*s == '|' || *s == Bar ||
+			   *s == '*' || *s == Star)) {
+	int intersect = (*s == '*' || *s == Star);
+	char **compare, **ap, **apsrc;
+	++s;
+	if (*itype_end(s, IIDENT, 0)) {
+	    untokenize(s);
+	    zerr("not an identifier: %s", s);
+	    return NULL;
+	}
+	compare = getaparam(s);
+	if (compare) {
+	    HashTable ht = newuniqtable(arrlen(compare)+1);
+	    int present;
+	    for (ap = compare; *ap; ap++)
+		(void)addhashnode2(ht, *ap, (HashNode)
+				   zhalloc(sizeof(struct hashnode)));
+	    if (!vunset && isarr) {
+		if (!copied) {
+		    aval = arrdup(aval);
+		    copied = 1;
+		}
+		for (ap = apsrc = aval; *apsrc; apsrc++) {
+		    untokenize(*apsrc);
+		    present = (gethashnode2(ht, *apsrc) != NULL);
+		    if (intersect ? present : !present) {
+			if (ap != apsrc) {
+			    *ap = *apsrc;
+			}
+			ap++;
+		    }
+		}
+		*ap = NULL;
+	    } else {
+		if (vunset) {
+		    if (unset(UNSET)) {
+			*idend = '\0';
+			zerr("%s: parameter not set", idbeg);
+			deletehashtable(ht);
+			return NULL;
+		    }
+		    val = dupstring("");
+		} else {
+		    present = (gethashnode2(ht, val) != NULL);
+		    if (intersect ? !present : present)
+			val = dupstring("");
+		}
+	    }
+	    deletehashtable(ht);
+	} else if (intersect) {
+	    /*
+	     * The intersection with nothing is nothing...
+	     * Seems a bit pointless complaining that the first
+	     * expression is unset here if the second is, too.
+	     */
+	    if (!vunset) {
+		if (isarr) {
+		    aval = mkarray(NULL);
+		} else {
+		    val = dupstring("");
+		}
+	    }
+	}
     } else {			/* no ${...=...} or anything, but possible modifiers. */
 	/*
 	 * Handler ${+...}.  TODO: strange, why do we handle this only
@@ -2799,7 +2969,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    char *check_offset = check_colon_subscript(s, &check_offset2);
 	    if (check_offset) {
 		zlong offset = mathevali(check_offset);
-		zlong length = (zlong)-1;
+		zlong length = 0;
+		int length_set = 0;
 		int offset_hack_argzero = 0;
 		if (errflag)
 		    return NULL;
@@ -2814,32 +2985,33 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 			zerr("invalid length: %s", check_offset);
 			return NULL;
 		    }
-		    length = mathevali(check_offset);
-		    if (errflag)
-			return NULL;
-		    if (length < (zlong)0) {
-			zerr("invalid length: %s", check_offset);
-			return NULL;
-		    }
-		}
-		if (horrible_offset_hack) {
-		    /*
-		     * As part of the 'orrible hoffset 'ack,
-		     * (what hare you? Han 'orrible hoffset 'ack,
-		     * sergeant major), if we are given a ksh/bash/POSIX
-		     * style positional parameter array which includes
-		     * offset 0, we use $0.
-		     */
-		    if (offset == 0 && isarr) {
-			offset_hack_argzero = 1;
-		    } else if (offset > 0) {
-			offset--;
+		    if (check_offset) {
+			length = mathevali(check_offset);
+			length_set = 1;
+			if (errflag)
+			    return NULL;
 		    }
 		}
 		if (isarr) {
-		    int alen = arrlen(aval), count;
+		    int alen, count;
 		    char **srcptr, **dstptr, **newarr;
 
+		    if (horrible_offset_hack) {
+			/*
+			 * As part of the 'orrible hoffset 'ack,
+			 * (what hare you? Han 'orrible hoffset 'ack,
+			 * sergeant major), if we are given a ksh/bash/POSIX
+			 * style positional parameter array which includes
+			 * offset 0, we use $0.
+			 */
+			if (offset == 0) {
+			    offset_hack_argzero = 1;
+			} else if (offset > 0) {
+			    offset--;
+			}
+		    }
+
+		    alen = arrlen(aval);
 		    if (offset < 0) {
 			offset += alen;
 			if (offset < 0)
@@ -2847,8 +3019,16 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    }
 		    if (offset_hack_argzero)
 			alen++;
-		    if (length < 0)
-		      length = alen;
+		    if (length_set) {
+			if (length < 0)
+			    length += alen - offset;
+			if (length < 0) {
+			    zerr("substring expression: %d < %d",
+			         (int)(length + offset), (int)offset);
+			    return NULL;
+			}
+		    } else
+			length = alen;
 		    if (offset > alen)
 			offset = alen;
 		    if (offset + length > alen)
@@ -2867,6 +3047,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    aval = newarr;
 		} else {
 		    char *sptr, *eptr;
+		    int given_offset;
 		    if (offset < 0) {
 			MB_METACHARINIT();
 			for (sptr = val; *sptr; ) {
@@ -2876,12 +3057,28 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 			if (offset < 0)
 			    offset = 0;
 		    }
+		    given_offset = offset;
 		    MB_METACHARINIT();
+		    if (length_set && length < 0)
+			length -= offset;
 		    for (sptr = val; *sptr && offset; ) {
 			sptr += MB_METACHARLEN(sptr);
 			offset--;
 		    }
-		    if (length >= 0) {
+		    if (length_set) {
+			if (length < 0) {
+			    MB_METACHARINIT();
+			    for (eptr = val; *eptr; ) {
+				eptr += MB_METACHARLEN(eptr);
+				length++;
+			    }
+			    if (length < 0) {
+				zerr("substring expression: %d < %d",
+				     (int)(length + given_offset),
+				     (int)given_offset);
+				return NULL;
+			    }
+			}
 			for (eptr = sptr; *eptr && length; ) {
 			    eptr += MB_METACHARLEN(eptr);
 			    length--;
@@ -2979,7 +3176,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      * TODO: again. one might naively have thought this had the
      * same sort of effect as the ${(t)...} flag and the ${+...}
      * test, although in this case we do need the value rather
-     * the the parameter, so maybe it's a bit different.
+     * the parameter, so maybe it's a bit different.
      */
     if (getlen) {
 	long len = 0;
@@ -3015,7 +3212,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
     /* At this point we make sure that our arrayness has affected the
      * arrayness of the linked list.  Then, we can turn our value into
      * a scalar for convenience sake without affecting the arrayness
-     * of the resulting value. */
+     * of the resulting value.  ## This is the YUK chunk. ## */
     if (isarr)
 	l->list.flags |= LF_ARRAY;
     else
@@ -3035,9 +3232,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      * (afterward) may split the joined value (e.g. (s:-:) sets "spsep").  One
      * exception is that ${name:-word} and ${name:+word} will have already
      * done any requested splitting of the word value with quoting preserved.
-     * "ssub" is true when we are called from singsub (via prefork):
-     * it means that we must join arrays and should not split words. */
-    if (ssub || spbreak || spsep || sep) {
+     */
+    if (ssub || (spbreak && isarr >= 0) || spsep || sep) {
 	if (isarr) {
 	    val = sepjoin(aval, sep, 1);
 	    isarr = 0;
@@ -3072,6 +3268,28 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    *ap2++ = NULL;
 	} else {
 	    val = casemodify(val, casmod);
+	}
+    }
+    /*
+     * Process echo- and print-style escape sequences.
+     */
+    if (getkeys >= 0) {
+	int len;
+
+	copied = 1;		/* string is always copied */
+	if (isarr) {
+	    char **ap, **ap2;
+
+	    ap = aval;
+	    aval = (char **) zhalloc(sizeof(char *) * (arrlen(aval)+1));
+	    for (ap2 = aval; *ap; ap++, ap2++) {
+		*ap2 = getkeystring(*ap, &len, getkeys, NULL);
+		*ap2 = metafy(*ap2, len, META_USEHEAP);
+	    }
+	    *ap2++ = NULL;
+	} else {
+	    val = getkeystring(val, &len, getkeys, NULL);
+	    val = metafy(val, len, META_USEHEAP);
 	}
     }
     /*

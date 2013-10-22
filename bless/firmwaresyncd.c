@@ -95,7 +95,6 @@ int main(int argc, char *argv[]) {
     unsigned int sleepleft;
     
     signal(SIGTERM, catch_sigterm);
-	setpriority(PRIO_PROCESS, 0, PRIO_DARWIN_BG);
     
     while ((ch = getopt(argc, argv, "di")) != -1) {
         switch (ch) {

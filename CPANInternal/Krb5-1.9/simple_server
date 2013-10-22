@@ -1,0 +1,80 @@
+#!/usr/local/bin/perl
+
+# simple_server
+# uses rd_req & rd_priv to decrypt an authentic encrypted message
+
+use blib; # remove if not in module build directory
+use IO::Socket;
+use Sys::Hostname;
+use Authen::Krb5 (ADDRTYPE_INET,ADDRTYPE_IPPORT,KRB5_NT_SRV_HST);
+
+# replace with your own stuff
+$SERVICE = "sample";
+$KEYTAB_FILE = "/etc/krb5.keytab";
+
+chomp($SERVER = hostname());
+
+Authen::Krb5::init_context();
+
+$ac = new Authen::Krb5::AuthContext;
+
+$s = new IO::Socket::INET(
+	LocalAddr => $SERVER,
+	LocalPort => 12345,
+	Proto => 'tcp',
+	Reuse => 1,
+	Listen => 5
+);
+defined $s or die $!;
+
+$ns = $s->accept();
+
+# grab the client's address
+$addr = new Authen::Krb5::Address(ADDRTYPE_INET,pack("N",$ns->peeraddr()));
+$ports = new Authen::Krb5::Address(ADDRTYPE_IPPORT,pack("n",$ns->peerport()));
+
+# get authentication info
+while (defined($line = <$ns>)) {
+	$d .= $line;
+	if ($line =~ /__END$/) {
+		chomp $d;
+		$d =~ s/__END$//;
+		last;
+	}
+}
+
+# get encrypted message
+while (defined($line = <$ns>)) {
+	$enc .= $line;
+	if ($line =~ /__END$/) {
+		chomp $enc;
+		$enc =~ s/__END$//;
+		last;
+	}
+}
+
+$sprinc = Authen::Krb5::sname_to_principal($SERVER,$SERVICE,KRB5_NT_SRV_HST);
+$kt = Authen::Krb5::kt_resolve("FILE:$KEYTAB_FILE");
+$t = Authen::Krb5::rd_req($ac,$d,$sprinc,$kt);
+unless ($t) {
+	print "rd_req error: ",Authen::Krb5::error(),"\n";
+	exit(1);
+}
+
+$client = $t->enc_part2->client;
+print "Hello, ",$client->data,"\n";
+
+# set the remote address
+$ac->setaddrs(undef,$addr);
+$ac->setports(undef,$ports);
+
+# decrypt the message
+$dec = Authen::Krb5::rd_priv($ac,$enc);
+unless ($dec) {
+	print "rd_priv error: ",Authen::Krb5::error(),"\n";
+	exit(1);
+}
+
+print "Decrypted message is: '$dec'\n";
+
+Authen::Krb5::free_context();

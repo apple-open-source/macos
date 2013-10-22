@@ -37,6 +37,8 @@
 #include <security_cdsa_utilities/acl_password.h>
 #include <security_cdsa_utilities/acl_threshold.h>
 
+#include <sys/sysctl.h>
+#include <security_utilities/logging.h>
 
 //
 // SecurityServerAcl is virtual
@@ -87,18 +89,6 @@ void SecurityServerAcl::changeOwner(const AclOwnerPrototype &newOwner,
 void SecurityServerAcl::validate(AclAuthorization auth, const AccessCredentials *cred, Database *db)
 {
     SecurityServerEnvironment env(*this, db);
-
-	{
-		// Migrator gets a free ride
-		Process &thisProcess = Server::process();
-		StLock<Mutex> _(thisProcess);
-		SecCodeRef clientRef = thisProcess.currentGuest();
-		if (clientRef) {
-			std::string clientPath = codePath(clientRef);
-			if (clientPath == std::string("/usr/libexec/KeychainMigrator"))
-				return;
-		}
-	}
 	
 	StLock<Mutex> objectSequence(aclSequence);
 	StLock<Mutex> processSequence(Server::process().aclSequence);

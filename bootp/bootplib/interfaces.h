@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,7 @@
 typedef struct {
     boolean_t			valid;
     boolean_t			active;
+    boolean_t			wake_on_same_network;
 } link_status_t;
 
 /*
@@ -75,15 +76,18 @@ typedef struct {
 typedef struct {
     uint8_t		addr[MAX_LINK_ADDR_LEN];
     uint16_t		index;
-    uint8_t		alen;
+    uint8_t		length;
     uint8_t		type;
 } link_addr_t;
 
+#define kInterfaceTypeFlagIsWireless	0x01
+#define kInterfaceTypeFlagIsAWDL	0x02
+
 typedef struct {
     char 		name[IFNAMSIZ]; /* eg. en0 */
-    uint16_t		flags;
+    uint16_t		flags;	/* IFF flags */
     uint8_t		type;	/* e.g. IFT_ETHER */
-    uint8_t		is_wireless;
+    uint8_t		type_flags; /* kInterfaceTypeFlag* bits */
     dynarray_t		inet;
     link_addr_t		link_address;
     uint32_t		user_defined;
@@ -145,13 +149,14 @@ int			if_link_dhcptype(interface_t * if_p);
 int			if_link_arptype(interface_t * if_p);
 void *			if_link_address(interface_t * if_p);
 int			if_link_length(interface_t * if_p);
-void			if_link_update(interface_t * if_p);
+boolean_t		if_link_update(interface_t * if_p);
 void			if_link_copy(interface_t * dest, 
 				     const interface_t * source);
 boolean_t		if_is_wireless(interface_t * if_p);
 int			if_link_index(interface_t * if_p);
 link_status_t		if_link_status_update(interface_t * if_p);
 link_status_t		if_get_link_status(interface_t * if_p);
+boolean_t		if_is_awdl(interface_t * if_p);
 
 static __inline__ int
 dl_to_arp_hwtype(int dltype)

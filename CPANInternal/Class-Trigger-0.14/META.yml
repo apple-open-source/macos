@@ -1,0 +1,28 @@
+---
+abstract: 'Mixin to add / call inheritable triggers'
+author:
+  - 'Original idea by Tony Bowden <tony@kasei.com> in Class::DBI.'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+  IO::Scalar: 0
+  IO::WrapTie: 0
+  Test::More: 0.32
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+generated_by: 'Module::Install version 0.910'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Class-Trigger
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  Filter::Util::Call: 0
+  perl: 5.8.1
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.14

@@ -35,7 +35,6 @@
 #include <Security/SecRequirementPriv.h>
 #include <Security/SecCodeSigner.h>
 #include <Security/SecBasePriv.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_utilities/globalizer.h>
 #include <security_utilities/seccfobject.h>
 #include <security_utilities/cfclass.h>
@@ -94,9 +93,9 @@ OSStatus dbError(const SQLite3::Error &err);
     catch (const MacOSError &err) { return err.osStatus(); } \
     catch (const SQLite3::Error &err) { return dbError(err); } \
     catch (const CommonError &err) { return SecKeychainErrFromOSStatus(err.osStatus()); } \
-    catch (const std::bad_alloc &) { return memFullErr; } \
+    catch (const std::bad_alloc &) { return errSecAllocate; } \
     catch (...) { return errSecCSInternalError; } \
-	return noErr;
+	return errSecSuccess;
 	
 #define END_CSAPI_ERRORS \
 	} \
@@ -109,9 +108,9 @@ OSStatus dbError(const SQLite3::Error &err);
     catch (const MacOSError &err) { return CSError::cfError(errors, err.osStatus()); } \
     catch (const SQLite3::Error &err) { return CSError::cfError(errors, dbError(err)); } \
     catch (const CommonError &err) { return CSError::cfError(errors, SecKeychainErrFromOSStatus(err.osStatus())); } \
-    catch (const std::bad_alloc &) { return CSError::cfError(errors, memFullErr); } \
+    catch (const std::bad_alloc &) { return CSError::cfError(errors, errSecAllocate); } \
     catch (...) { return CSError::cfError(errors, errSecCSInternalError); } \
-	return noErr;
+	return errSecSuccess;
 	
 #define END_CSAPI1(bad)    } catch (...) { return bad; }
 
@@ -127,7 +126,7 @@ OSStatus dbError(const SQLite3::Error &err);
     catch (const MacOSError &err) { CSError::cfError(errors, err.osStatus()); } \
     catch (const SQLite3::Error &err) { CSError::cfError(errors, dbError(err)); } \
     catch (const CommonError &err) { CSError::cfError(errors, SecKeychainErrFromOSStatus(err.osStatus())); } \
-    catch (const std::bad_alloc &) { CSError::cfError(errors, memFullErr); } \
+    catch (const std::bad_alloc &) { CSError::cfError(errors, errSecAllocate); } \
     catch (...) { CSError::cfError(errors, errSecCSInternalError); } \
 	return bad;
 

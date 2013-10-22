@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,7 +26,7 @@
 #ifndef _S_DHCP_TYPE
 #define _S_DHCP_TYPE
 
-typedef enum {
+enum {
     dhcptype_first_e    	 = 0,
     dhcptype_none_e     	 = dhcptype_first_e,
     dhcptype_opaque_e   	 = 1,
@@ -43,7 +43,9 @@ typedef enum {
     dhcptype_ip_pairs_e 	 = 12,
     dhcptype_dns_namelist_e	 = 13,
     dhcptype_last_e     	 = dhcptype_dns_namelist_e,
-} dhcptype_t;
+};
+
+typedef uint32_t dhcptype_t;
 
 typedef struct {
     dhcptype_t	type;

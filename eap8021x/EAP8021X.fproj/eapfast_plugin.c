@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <syslog.h>
+#include "EAPLog.h"
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonHMAC.h>
@@ -63,6 +63,12 @@
 #include "myCFUtil.h"
 #include "printdata.h"
 #include "nbo.h"
+
+#define STRLOG(__string, __level, __format, ...)			\
+    { if (__string != NULL)						\
+	    CFStringAppendFormat(__string, NULL, CFSTR(__format),	\
+				 ## __VA_ARGS__);			\
+	else EAPLog(__level, CFSTR(__format), ## __VA_ARGS__); }
 
 #define EAP_FAST_NAME		"EAP-FAST"
 #define EAP_FAST_NAME_LENGTH	(sizeof(EAP_FAST_NAME) - 1)
@@ -534,8 +540,8 @@ STATIC EAPClientPluginFuncFreePacket eapfast_free_packet;
 STATIC EAPClientPluginFuncSessionKey eapfast_session_key;
 STATIC EAPClientPluginFuncServerKey eapfast_server_key;
 STATIC EAPClientPluginFuncRequireProperties eapfast_require_props;
-STATIC EAPClientPluginFuncPublishProperties eapfast_publish_props;
-STATIC EAPClientPluginFuncPacketDump eapfast_packet_dump;
+STATIC EAPClientPluginFuncPublishProperties eapfast_publish_props_copy;
+STATIC EAPClientPluginFuncCopyPacketDescription eapfast_copy_packet_description;
 
 typedef enum {
     kRequestTypeStart,
@@ -581,6 +587,7 @@ typedef struct {
     int				previous_identifier;
     memoryIO			mem_io;
     EAPClientState		plugin_state;
+    bool			cert_is_required;
     CFArrayRef			certs;
     int				mtu;
     bool			eapfast_version_set;
@@ -601,6 +608,7 @@ typedef struct {
     bool			master_key_valid;
     uint8_t			master_key[MASTER_KEY_LENGTH];
     uint8_t			extended_master_key[EXTENDED_MASTER_KEY_LENGTH];
+    bool			server_auth_completed;
     CFArrayRef			server_certs;
     bool			resume_sessions;
     bool			use_pac;
@@ -676,7 +684,7 @@ INLINE bool
 BufferAdvanceWritePtr(BufferRef buf, int size)
 {
     if (size > BufferGetSpace(buf)) {
-	syslog(LOG_NOTICE, "EAP-FAST: BufferAdvanceWritePtr failed: %d > %d",
+	EAPLOG(LOG_NOTICE, "EAP-FAST: BufferAdvanceWritePtr failed: %d > %d",
 	       size, BufferGetSpace(buf));
 	return (FALSE);
     }
@@ -778,7 +786,7 @@ pac_list_find_pac(CFArrayRef pac_list,
     return (ret);
 }
 
-STATIC CFDictionaryRef
+CF_RETURNS_RETAINED STATIC CFDictionaryRef
 pac_dict_insert_key(CFDictionaryRef orig_pac_dict)
 {
     CFMutableDictionaryRef	dict;
@@ -800,7 +808,7 @@ pac_dict_insert_key(CFDictionaryRef orig_pac_dict)
     }
     status = EAPSecKeychainPasswordItemCopy(NULL, unique_id_str, &pac_key);
     if (status != noErr) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: EAPSecKeychainPasswordItemCopy failed, %s (%d)\n",
 	       EAPSSLErrorString(status), (int)status);
 	goto done;
@@ -895,7 +903,7 @@ pac_keychain_init_items(bool system_mode,
 	if (*access_p == NULL) {
 	    status = errSecAllocate;
 	    if (error != NULL) {
-		syslog(LOG_NOTICE,
+		EAPLOG(LOG_NOTICE,
 		       "EAP-FAST: mySecAccessCreateWithUid failed, %d",
 		       (int)CFErrorGetCode(error));
 		CFRelease(error);
@@ -907,7 +915,7 @@ pac_keychain_init_items(bool system_mode,
 	status = SecAccessCreate(CFSTR("802.1X EAP-FAST Plug-in"),
 				 NULL, access_p);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, "EAP-FAST: SecAccessCreate failed, %s (%d)",
+	    EAPLOG(LOG_NOTICE, "EAP-FAST: SecAccessCreate failed, %s (%d)",
 		   EAPSecurityErrorString(status), (int)status);
 	    goto done;
 	}
@@ -967,7 +975,8 @@ pac_keychain_item_create(bool system_mode,
 							   password_cf,
 							   &unique_id_str);
     if (status != noErr) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
+	       "EAP-FAST: "
 	       "EAPSecKeychainPasswordItemCreateUniqueWithAccess failed,"
 	       "%s (%d)", EAPSecurityErrorString(status), (int)status);
     }
@@ -1018,7 +1027,8 @@ pac_keychain_item_recreate(bool system_mode,
 							initiator_cf,
 							password_cf);
     if (status != noErr) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
+	       "EAP-FAST: "
 	       "EAPSecKeychainPasswordItemCreateWithAccess failed,"
 	       "%s (%d)", EAPSecurityErrorString(status), (int)status);
     }
@@ -1052,7 +1062,7 @@ pac_keychain_item_update(bool system_mode, CFStringRef unique_id_str,
 					    initiator, initiator_length);
 	break;
     default:
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: EAPSecKeychainPasswordItemSet failed, %s (%d)",
 	       EAPSecurityErrorString(status), (int)status);
 	break;
@@ -1088,7 +1098,7 @@ remove_pac(CFDictionaryRef pac_dict,
     CFArrayRemoveValueAtIndex(new_pac_list, i);
     status = EAPSecKeychainPasswordItemRemove(NULL, unique_id_str);
     if (status != noErr) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: EAPSecKeychainPasswordItemRemove failed, %s (%d)",
 	       EAPSecurityErrorString(status), (int)status);
     }
@@ -1226,11 +1236,10 @@ T_PRF(const void * key, int key_length,
     int			i;
     int			left;
     void *		output;
-    uint16_t		outputlength = htons(key_material_length);
     uint8_t		t_buf[CC_SHA1_DIGEST_LENGTH];
 
     if (key_material_length == 0) {
-	fprintf(stderr, "T_PRF: key_material_length is 0");
+	EAPLOG_FL(LOG_NOTICE, "key_material_length is 0");
 	return;
     }
     data_length	
@@ -1238,7 +1247,7 @@ T_PRF(const void * key, int key_length,
 	+ 1			/* 0x00 */
 	+ seed_length 		/* seed */
 	+ sizeof(t_buf)		/* Ti */
-	+ sizeof(outputlength)	/* outputlength */
+	+ sizeof(uint16_t)	/* outputlength */
 	+ 1;			/* 0xNN */
     /* allocate a buffer to store the intermediate data */
     if (data_length > sizeof(data_buf)) {
@@ -1264,8 +1273,8 @@ T_PRF(const void * key, int key_length,
 	    memcpy(offset, seed, seed_length);
 	    offset += seed_length;
 	}
-    net_uint16_set((void *)offset, key_material_length);
-    offset += sizeof(uint16_t);
+	net_uint16_set((void *)offset, key_material_length); /* outputlength */
+	offset += sizeof(uint16_t);
 	*offset++ = i + 1;
 
 	/* Ti = HMAC-SHA1 (key, [T(i-1) +] S + outputlength + i) */
@@ -1374,7 +1383,7 @@ eap_client_init(EAPClientPluginDataRef plugin, EAPType type)
     context->eap.last_type_name = NULL;
 
     if (context->eap.module != NULL) {
-	printf("eap_client_init: already initialized\n");
+	EAPLOG_FL(LOG_NOTICE, "already initialized");
 	return (TRUE);
     }
     module = EAPClientModuleLookup(type);
@@ -1466,25 +1475,6 @@ eap_client_session_key(EAPFASTPluginDataRef context, int * key_length)
  ** eap_client end
  **/
  
-STATIC bool
-module_packet_dump(FILE * out_f, const EAPRequestPacketRef req_p)
-{
-    bool			logged = FALSE;
-    EAPClientModuleRef		module;
-
-    switch (req_p->code) {
-    case kEAPCodeRequest:
-    case kEAPCodeResponse:
-	module = EAPClientModuleLookup(req_p->type);
-	if (module != NULL) {
-	    logged = EAPClientModulePluginPacketDump(module, out_f, 
-						     (EAPPacketRef)req_p);
-	}
-	break;
-    }
-    return (logged);
-}
-
 STATIC OSStatus
 ssl_get_server_client_random(SSLContextRef ssl_context,
 			     void * random, int * random_size)
@@ -1497,14 +1487,14 @@ ssl_get_server_client_random(SSLContextRef ssl_context,
     size = *random_size;
     status = SSLInternalServerRandom(ssl_context, random, &size);
     if (status != noErr) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: ssl_get_server_client_random:"
 	       " SSLInternalServerRandom failed, %s (%d)\n",
 	       EAPSSLErrorString(status), (int)status);
 	goto done;
     }
     if ((size + SSL_CLIENT_SRVR_RAND_SIZE) > *random_size) {
-	syslog(LOG_NOTICE, 
+	EAPLOG(LOG_NOTICE, 
 	       "EAP-FAST: ssl_get_server_client_random:"
 	       " SSLInternalServerRandom %ld > %d\n",
 	       size + SSL_CLIENT_SRVR_RAND_SIZE, *random_size);
@@ -1516,10 +1506,10 @@ ssl_get_server_client_random(SSLContextRef ssl_context,
     status = SSLInternalClientRandom(ssl_context,
 				     random + offset, &size);
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
+	EAPLOG(LOG_NOTICE, 
 	       "EAP-FAST: ssl_get_server_client_random:"
-		" SSLInternalClientRandom failed, %s\n",
-		EAPSSLErrorString(status));
+	       " SSLInternalClientRandom failed, %s\n",
+	       EAPSSLErrorString(status));
 	goto done;
     }
     *random_size = offset + size;
@@ -1586,19 +1576,18 @@ eapfast_generate_key_material(EAPFASTPluginDataRef context,
     status = SSLInternalMasterSecret(context->ssl_context, master_secret,
 				     &master_secret_length);
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "eapfast_generate_key_material:"
-	       " SSLInternalMasterSecret failed, %s (%d)\n",
-	       EAPSSLErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SSLInternalMasterSecret failed, %s (%d)",
+		  EAPSSLErrorString(status), (int)status);
 	goto done;
     }
     /* figure out how large the key_block needs to be */
     status = SSLGetCipherSizes(context->ssl_context, &digest_size,
 			       &symmetric_key_size, &iv_size);
     if (status != noErr) {
-	syslog(LOG_NOTICE,
-	       "eapfast_generate_key_material: SSLGetCipherSizes failed, "
-	       " %s (%d)", EAPSSLErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE,
+		  "SSLGetCipherSizes failed, %s (%d)",
+		  EAPSSLErrorString(status), (int)status);
 	goto done;
     }
     key_block_offset = (digest_size + symmetric_key_size + iv_size) * 2;
@@ -1620,10 +1609,9 @@ eapfast_generate_key_material(EAPFASTPluginDataRef context,
 			     key_block,
 			     key_block_length);
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "eapfast_generate_key_material:"
-	       " SSLInternal_PRF failed, %s (%d)\n",
-	       EAPSSLErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE,
+		  "SSLInternal_PRF failed, %s (%d)\n",
+		  EAPSSLErrorString(status), (int)status);
 	goto done;
     }
     /* session key seed */
@@ -1674,7 +1662,7 @@ eapfast_free_context(EAPClientPluginDataRef plugin)
     }
     eap_client_free(plugin);
     if (context->ssl_context != NULL) {
-	SSLDisposeContext(context->ssl_context);
+	CFRelease(context->ssl_context);
 	context->ssl_context = NULL;
     }
     if (context->tls_peer_id != NULL
@@ -1709,7 +1697,7 @@ GetAuthorityID(const void * tls_data, int tls_data_length,
 	goto done;
     }
     if (auid_length > (tls_data_length - offsetof(AuthorityIDData, auid_id))) {
-	syslog(LOG_NOTICE, "EAP-FAST: GetAuthorityID %d > %ld, ignoring",
+	EAPLOG(LOG_NOTICE, "EAP-FAST: GetAuthorityID %d > %ld, ignoring",
 	       auid_length,
 	       tls_data_length - offsetof(AuthorityIDData, auid_id));
 	goto done;
@@ -1730,6 +1718,7 @@ eapfast_context_clear(EAPFASTPluginDataRef context)
     context->last_client_status = kEAPClientStatusOK;
     context->handshake_complete = FALSE;
     context->trust_proceed = FALSE;
+    context->server_auth_completed = FALSE;
     context->in_message_size = 0;
     context->inner_auth_state = kEAPFASTInnerAuthStateUnknown;
     context->master_key_valid = FALSE;
@@ -1756,17 +1745,17 @@ eapfast_compute_master_secret(SSLContextRef ctx, const void * arg,
     OSStatus			status;
 
     if (context->pac_dict == NULL) {
-	syslog(LOG_NOTICE, "eapfast_compute_master_secret: pac_dict is NULL");
+	EAPLOG_FL(LOG_NOTICE, "pac_dict is NULL");
 	goto failed;
     }
     pac_key = CFDictionaryGetValue(context->pac_dict, kPACKey);
     if (pac_key == NULL) {
-	syslog(LOG_NOTICE, "eapfast_compute_master_secret: pac_key is NULL");
+	EAPLOG_FL(LOG_NOTICE, "pac_key is NULL");
 	goto failed;
     }
     if (*secret_length < MASTER_SECRET_LENGTH) {
-	syslog(LOG_NOTICE, "eapfast_compute_master_secret: %lu < %d",
-	       *secret_length, MASTER_SECRET_LENGTH);
+	EAPLOG_FL(LOG_NOTICE, "%lu < %d",
+		  *secret_length, MASTER_SECRET_LENGTH);
 	goto failed;
     }
     random_size = sizeof(random);
@@ -1802,7 +1791,7 @@ eapfast_start(EAPClientPluginDataRef plugin,
 
     context->last_eap_type_index = 0;
     if (context->ssl_context != NULL) {
-	SSLDisposeContext(context->ssl_context);
+	CFRelease(context->ssl_context);
 	context->ssl_context = NULL;
     }
     my_CFRelease(&context->server_certs);
@@ -1811,22 +1800,27 @@ eapfast_start(EAPClientPluginDataRef plugin,
     ssl_context = EAPTLSMemIOContextCreate(FALSE, &context->mem_io, NULL, 
 					   &status);
     if (ssl_context == NULL) {
-	syslog(LOG_NOTICE, "eapfast_start: EAPTLSMemIOContextCreate failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s",
+		  EAPSSLErrorString(status));
 	goto failed;
     }
-    status = SSLSetEnableCertVerify(ssl_context, FALSE);
-    if (status != noErr) {
-	syslog(LOG_NOTICE, "eapfast_start: SSLSetEnableCertVerify failed, %s",
-	       EAPSSLErrorString(status));
-	goto failed;
-    }
-    if (context->certs != NULL) {
+    if (context->cert_is_required) {
+	if (context->certs == NULL) {
+	    status = EAPTLSCopyIdentityTrustChain(plugin->sec_identity,
+						  plugin->properties,
+						  &context->certs);
+	    if (status != noErr) {
+		EAPLOG_FL(LOG_NOTICE, 
+			  "failed to find client cert/identity, %s (%ld)",
+			  EAPSSLErrorString(status), (long)status);
+		goto failed;
+	    }
+	}
 	status = SSLSetCertificate(ssl_context, context->certs);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "eapfast_start: SSLSetCertificate failed, %s",
-		   EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SSLSetCertificate failed, %s",
+		      EAPSSLErrorString(status));
 	    goto failed;
 	}
     }
@@ -1845,9 +1839,9 @@ eapfast_start(EAPClientPluginDataRef plugin,
 					      CFDataGetLength(pac_opaque));
 	    if (status != noErr) {
 		my_CFRelease(&pac_dict);
-		syslog(LOG_NOTICE, 
-		       "eapfast_start: SSLInternalSetSessionTicket failed, %s",
-		       EAPSSLErrorString(status));
+		EAPLOG_FL(LOG_NOTICE, 
+			  "SSLInternalSetSessionTicket failed, %s",
+			  EAPSSLErrorString(status));
 		goto failed;
 	    }
 	    status
@@ -1856,9 +1850,9 @@ eapfast_start(EAPClientPluginDataRef plugin,
 						     context);
 	    if (status != noErr) {
 		my_CFRelease(&pac_dict);
-		syslog(LOG_NOTICE, "eapfast_start: "
-		       "SSLInternalSetMasterSecretFunction failed, %s",
-		       EAPSSLErrorString(status));
+		EAPLOG_FL(LOG_NOTICE,
+			  "SSLInternalSetMasterSecretFunction failed, %s",
+			  EAPSSLErrorString(status));
 		goto failed;
 	    }
 	    context->pac_dict = pac_dict;
@@ -1868,8 +1862,9 @@ eapfast_start(EAPClientPluginDataRef plugin,
 
 	    status = SSLSetEnabledCiphers(ssl_context, &cipher, 1);
 	    if (status != noErr) {
-		syslog(LOG_NOTICE, "EAP-FAST: SSLSetEnabledCiphers failed, %s",
-		       EAPSSLErrorString(status));
+		EAPLOG_FL(LOG_NOTICE,
+			  "SSLSetEnabledCiphers failed, %s",
+			  EAPSSLErrorString(status));
 		goto failed;
 	    }
 	}
@@ -1879,8 +1874,8 @@ eapfast_start(EAPClientPluginDataRef plugin,
 	status = SSLSetPeerID(ssl_context, context->tls_peer_id,
 			      context->tls_peer_id_length);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
 	    goto failed;
 	}
     }
@@ -1889,7 +1884,7 @@ eapfast_start(EAPClientPluginDataRef plugin,
     return (status);
  failed:
     if (ssl_context != NULL) {
-	SSLDisposeContext(ssl_context);
+	CFRelease(ssl_context);
     }
     return (status);
 }
@@ -1902,10 +1897,11 @@ eapfast_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 
     *error = 0;
     context = malloc(sizeof(*context));
-    if (context == NULL) {
-	return (kEAPClientStatusAllocationFailed);
-    }
     bzero(context, sizeof(*context));
+    context->cert_is_required 
+	= my_CFDictionaryGetBooleanValue(plugin->properties,
+					 kEAPClientPropTLSCertificateIsRequired,
+					 FALSE);
     context->mtu = plugin->mtu;
     context->resume_sessions
 	= my_CFDictionaryGetBooleanValue(plugin->properties, 
@@ -2051,9 +2047,9 @@ eapfast_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 	    if (eap_client_init(plugin, in_pkt_p->type) == FALSE) {
 		if (context->eap.last_status 
 		    != kEAPClientStatusUserInputRequired) {
-		    syslog(LOG_NOTICE, "eapfast_eap_process: "
-			   "eap_client_init type %d failed",
-			   in_pkt_p->type);
+		    EAPLOG_FL(LOG_NOTICE,
+			      "eap_client_init type %d failed",
+			      in_pkt_p->type);
 		    *client_status = context->eap.last_status;
 		    context->plugin_state = kEAPClientStateFailure;
 		    goto done;
@@ -2110,7 +2106,7 @@ eapfast_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 	/* authentication method failed */
 	context->inner_auth_state = kEAPFASTInnerAuthStateFailure;
 	*client_status = context->eap.last_status;
-	context->plugin_state = kEAPClientStateFailure;
+	//context->plugin_state = kEAPClientStateFailure;
 	break;
     }
 
@@ -2120,7 +2116,8 @@ eapfast_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 
 STATIC bool
 PACTLVAttributeListParse(PACTLVAttributeListRef tlvlist_p,
-			 const void * buf, int buf_size, bool debug)
+			 const void * buf, int buf_size,
+			 CFMutableStringRef str)
 {
     int			left;
     bool		ret = FALSE;
@@ -2136,25 +2133,27 @@ PACTLVAttributeListParse(PACTLVAttributeListRef tlvlist_p,
 	    break; /* we're done */
 	}
 	if (left < TLV_HEADER_LENGTH) {
-	    syslog(LOG_NOTICE,
-		   "EAP-FAST: TLV attribute is too short (%d < %ld)",
-		   left, TLV_HEADER_LENGTH);
+	    STRLOG(str, LOG_NOTICE,
+		   "EAP-FAST: TLV attribute is too short (%d < %d)",
+		   left, (int)TLV_HEADER_LENGTH);
 	    goto done;
 	}
 	tlv_type = TLVGetType(scan);
 	tlv_length = TLVGetLength(scan);
 	if (left < (TLV_HEADER_LENGTH + tlv_length)) {
-	    syslog(LOG_NOTICE,
-		   "EAP-FAST: TLV attribute is too short (%d < %ld)",
-		   left, TLV_HEADER_LENGTH);
+	    STRLOG(str, LOG_NOTICE,
+		   "EAP-FAST: TLV attribute is too short (%d < %d)",
+		   left, (int)TLV_HEADER_LENGTH);
 	    goto done;
 	}
-	if (debug) {
+	if (str != NULL) {
 	    TLVType t = TLVTypeGetType(tlv_type);
-	    printf("%s PACTLV Attribute (type=%d) Length=%d%s\n", 
-		   PACTLVAttributeTypeName(t), t, tlv_length,
-		   TLVTypeIsMandatory(tlv_type) ? " [mandatory]" : "");
-	    print_data(scan->tlv_value, tlv_length);
+
+	    STRING_APPEND(str, 
+			  "%s PACTLV Attribute (type=%d) Length=%d%s\n", 
+			  PACTLVAttributeTypeName(t), t, tlv_length,
+			  TLVTypeIsMandatory(tlv_type) ? " [mandatory]" : "");
+	    print_data_cfstr(str, scan->tlv_value, tlv_length);
 	}
 	switch (TLVTypeGetType(tlv_type)) {
 	case kPACTLVAttributeTypePAC_Key:
@@ -2174,7 +2173,7 @@ PACTLVAttributeListParse(PACTLVAttributeListRef tlvlist_p,
 		/* recurse */
 		if (PACTLVAttributeListParse(tlvlist_p,
 					     scan->tlv_value, tlv_length,
-					     debug)
+					     str)
 		    && tlv_length > 0 && tlvlist_p != NULL) {
 		    tlvlist_p->info = scan;
 		}
@@ -2226,7 +2225,8 @@ PACTLVAttributeListParse(PACTLVAttributeListRef tlvlist_p,
 
 STATIC bool
 TLVListParse(TLVListRef tlvlist_p,
-	     const void * buf, int buf_size, bool debug)
+	     const void * buf, int buf_size,
+	     CFMutableStringRef str)
 {
     int			left;
     PACTLVAttributeListRef pac_tlvs = NULL;
@@ -2247,28 +2247,31 @@ TLVListParse(TLVListRef tlvlist_p,
 	    break; /* we're done */
 	}
 	if (left < TLV_HEADER_LENGTH) {
-	    syslog(LOG_NOTICE, "EAP-FAST: TLV is too short (%d < %ld)",
-		   left, TLV_HEADER_LENGTH);
+	    STRLOG(str, LOG_NOTICE,
+		   "EAP-FAST: TLV is too short (%d < %d)",
+		   left, (int)TLV_HEADER_LENGTH);
 	    goto done;
 	}
 	tlv_type = TLVGetType(scan);
 	tlv_length = TLVGetLength(scan);
 	if (left < (TLV_HEADER_LENGTH + tlv_length)) {
-	    syslog(LOG_NOTICE, "EAP-FAST: TLV is too short (%d < %ld)",
-		   left, TLV_HEADER_LENGTH);
+	    STRLOG(str, LOG_NOTICE,
+		   "EAP-FAST: TLV is too short (%d < %d)",
+		   left, (int)TLV_HEADER_LENGTH);
 	    goto done;
 	}
-	if (debug) {
+	if (str != NULL) {
 	    TLVType t = TLVTypeGetType(tlv_type);
-	    printf("%s TLV (type=%d) Length=%d%s\n", 
-		   TLVTypeName(t), t, tlv_length,
-		   TLVTypeIsMandatory(tlv_type) ? " [mandatory]" : "");
-	    print_data(scan->tlv_value, tlv_length);
+
+	    STRING_APPEND(str, "%s TLV (type=%d) Length=%d%s\n", 
+			  TLVTypeName(t), t, tlv_length,
+			  TLVTypeIsMandatory(tlv_type) ? " [mandatory]" : "");
+	    print_data_cfstr(str, scan->tlv_value, tlv_length);
 	}
 	switch (TLVTypeGetType(tlv_type)) {
 	case kTLVTypeResult:
 	    if (tlv_length < RESULT_TLV_LENGTH) {
-		syslog(LOG_NOTICE,
+		STRLOG(str, LOG_NOTICE,
 		       "EAP-FAST: Result TLV is too short (%d < %d)",
 		       tlv_length, RESULT_TLV_LENGTH);
 		goto done;
@@ -2276,24 +2279,24 @@ TLVListParse(TLVListRef tlvlist_p,
 	    result_status = ResultTLVGetStatus((const ResultTLVRef)scan);
 	    switch (result_status) {
 	    case kTLVStatusSuccess:
-		if (debug) {
-		    printf("Success\n");
+		if (str != NULL) {
+		    STRING_APPEND(str, "Success\n");
 		}
 		break;
 	    case kTLVStatusFailure:
-		if (debug) {
-		    printf("Failure\n");
+		if (str != NULL) {
+		    STRING_APPEND(str, "Failure\n");
 		}
 		break;
 	    default:
-		syslog(LOG_NOTICE,
+		STRLOG(str, LOG_NOTICE,
 		       "EAP-FAST: Result TLV unrecognized status = %d",
 		       result_status);
 		goto done;
 	    }
 	    if (tlvlist_p != NULL) {
 		if (tlvlist_p->result != NULL) {
-		    syslog(LOG_NOTICE,
+		    STRLOG(str, LOG_NOTICE,
 			   "EAP-FAST: multiple Result TLV's defined");
 		    goto done;
 		}
@@ -2303,7 +2306,7 @@ TLVListParse(TLVListRef tlvlist_p,
 	    break;
 	case kTLVTypeNAK:
 	    if (tlv_length < NAK_TLV_MIN_LENGTH) {
-		syslog(LOG_NOTICE,
+		STRLOG(str, LOG_NOTICE,
 		       "EAP-FAST: NAK TLV is too short (%d < %d)",
 		       tlv_length, NAK_TLV_MIN_LENGTH);
 		goto done;
@@ -2314,14 +2317,14 @@ TLVListParse(TLVListRef tlvlist_p,
 	    break;
 	case kTLVTypeError:
 	    if (tlv_length < ERROR_TLV_LENGTH) {
-		syslog(LOG_NOTICE,
+		STRLOG(str, LOG_NOTICE,
 		       "EAP-FAST: Error TLV is too short (%d < %d)",
 		       tlv_length, ERROR_TLV_LENGTH);
 		goto done;
 	    }
-	    if (debug) {
-		printf("ErrorCode = %d\n",
-		       ErrorTLVGetErrorCode((ErrorTLVRef)scan));
+	    if (str) {
+		STRING_APPEND(str, "ErrorCode = %d\n",
+			      ErrorTLVGetErrorCode((ErrorTLVRef)scan));
 	    }
 	    if (tlvlist_p != NULL && tlvlist_p->error == NULL) {
 		tlvlist_p->error = (ErrorTLVRef)scan;
@@ -2332,33 +2335,33 @@ TLVListParse(TLVListRef tlvlist_p,
 	case kTLVTypeEAPPayload:
 	    if (tlvlist_p != NULL) {
 		if (tlvlist_p->eap != NULL) {
-		    syslog(LOG_NOTICE,
+		    STRLOG(str, LOG_NOTICE,
 			   "EAP-FAST: EAP Payload TLV appears multiple times");
 		    goto done;
 		}
 		tlvlist_p->eap = (EAPPayloadTLVRef)scan;
 	    }
-	    if (EAPPacketValid((EAPPacketRef)scan->tlv_value, tlv_length, 
-			       NULL) == FALSE) {
-		syslog(LOG_NOTICE, 
+	    if (EAPPacketIsValid((EAPPacketRef)scan->tlv_value, tlv_length, 
+				 NULL) == FALSE) {
+		STRLOG(str, LOG_NOTICE, 
 		       "EAP-FAST: EAP Payload TLV invalid");
-		if (debug) {
-		    (void)EAPPacketValid((EAPPacketRef)scan->tlv_value,
-					 tlv_length, stdout);
+		if (str != NULL) {
+		    (void)EAPPacketIsValid((EAPPacketRef)scan->tlv_value,
+					   tlv_length, str);
 		}
 		goto done;
 	    }
 	    break;
 	case kTLVTypeIntermediateResult:
 	    if (tlv_length < INTERMEDIATE_RESULT_TLV_MIN_LENGTH) {
-		syslog(LOG_NOTICE,
+		STRLOG(str, LOG_NOTICE,
 		       "EAP-FAST: Intermediate Result TLV too short (%d < %d)",
 		       tlv_length, INTERMEDIATE_RESULT_TLV_MIN_LENGTH);
 		goto done;
 	    }
 	    if (tlvlist_p != NULL) {
 		if (tlvlist_p->intermediate != NULL) {
-		    syslog(LOG_NOTICE,
+		    STRLOG(str, LOG_NOTICE,
 			   "EAP-FAST: multiple Intermediate Result TLV's");
 		    goto done;
 		}
@@ -2367,14 +2370,14 @@ TLVListParse(TLVListRef tlvlist_p,
 	    break;
 	case kTLVTypeCryptoBinding:
 	    if (tlv_length < CRYPTO_BINDING_TLV_LENGTH) {
-		syslog(LOG_NOTICE,
+		STRLOG(str, LOG_NOTICE,
 		       "EAP-FAST: Crypto Binding TLV too short (%d < %ld)",
 		       tlv_length, CRYPTO_BINDING_TLV_LENGTH);
 		goto done;
 	    }
 	    if (tlvlist_p != NULL) {
 		if (tlvlist_p->crypto != NULL) {
-		    syslog(LOG_NOTICE,
+		    STRLOG(str, LOG_NOTICE,
 			   "EAP-FAST: multiple Crypto Binding TLV's defined");
 		    goto done;
 		}
@@ -2386,9 +2389,9 @@ TLVListParse(TLVListRef tlvlist_p,
 		pac_tlvs = &tlvlist_p->pac_tlvs;
 	    }
 	    if (PACTLVAttributeListParse(pac_tlvs,
-					 scan->tlv_value, tlv_length, debug)
-		== FALSE) {
-		syslog(LOG_NOTICE, "EAP-FAST: PAC TLV parse failed");
+					 scan->tlv_value, tlv_length,
+					 str) == FALSE) {
+		STRLOG(str, LOG_NOTICE, "EAP-FAST: PAC TLV parse failed");
 		goto done;
 	    }
 	    if (pac_tlvs != NULL) {
@@ -2397,7 +2400,7 @@ TLVListParse(TLVListRef tlvlist_p,
 	    break;
 	case kTLVTypeVendorSpecific:
 	    if (tlv_length < VENDOR_SPECIFIC_TLV_MIN_LENGTH) {
-		syslog(LOG_NOTICE,
+		STRLOG(str, LOG_NOTICE,
 		       "EAP-FAST: Vendor Specific TLV too short (%d < %d)",
 		       tlv_length, VENDOR_SPECIFIC_TLV_MIN_LENGTH);
 		goto done;
@@ -2430,7 +2433,7 @@ make_result(BufferRef buf, TLVStatus result_status)
     res = (ResultTLVRef)BufferGetWritePtr(buf);
     if (BufferAdvanceWritePtr(buf, TLV_HEADER_LENGTH + RESULT_TLV_LENGTH)
 	== FALSE) {
-	syslog(LOG_NOTICE, "EAP-FAST: make_result(): buffer too small");
+	EAPLOG(LOG_NOTICE, "EAP-FAST: make_result(): buffer too small");
 	return (FALSE);
     }
     TLVSetLength((TLVRef)res, RESULT_TLV_LENGTH);
@@ -2449,7 +2452,7 @@ make_intermediate_result(BufferRef buf, TLVStatus result_status)
 			      (TLV_HEADER_LENGTH
 			       + INTERMEDIATE_RESULT_TLV_MIN_LENGTH))
 	== FALSE) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: make_intermediate_result(): buffer too small");
 	return (FALSE);
     }
@@ -2467,7 +2470,7 @@ make_error(BufferRef buf, ErrorTLVErrorCode code)
     err = (ErrorTLVRef)BufferGetWritePtr(buf);
     if (BufferAdvanceWritePtr(buf, TLV_HEADER_LENGTH + ERROR_TLV_LENGTH)
 	== FALSE) {
-	syslog(LOG_NOTICE, "EAP-FAST: make_error(): buffer too small");
+	EAPLOG(LOG_NOTICE, "EAP-FAST: make_error(): buffer too small");
 	return (FALSE);
     }
     TLVSetLength((TLVRef)err, ERROR_TLV_LENGTH);
@@ -2484,7 +2487,7 @@ make_nak(BufferRef buf, const TLVRef tlv)
     nak = (NAKTLVRef)BufferGetWritePtr(buf);
     if (BufferAdvanceWritePtr(buf, TLV_HEADER_LENGTH + NAK_TLV_MIN_LENGTH)
 	== FALSE) {
-	syslog(LOG_NOTICE, "EAP-FAST: make_nak(): buffer too small");
+	EAPLOG(LOG_NOTICE, "EAP-FAST: make_nak(): buffer too small");
 	return (FALSE);
     }
     TLVSetLength((TLVRef)nak, NAK_TLV_MIN_LENGTH);
@@ -2501,7 +2504,7 @@ make_eap(BufferRef buf, const EAPPacketRef out_pkt_p, int out_pkt_size)
 
     eap = (EAPPayloadTLVRef)BufferGetWritePtr(buf);
     if (BufferAdvanceWritePtr(buf, out_pkt_size + TLV_HEADER_LENGTH) == FALSE) {
-	syslog(LOG_NOTICE, "EAP-FAST: make_eap(): buffer too small");
+	EAPLOG(LOG_NOTICE, "EAP-FAST: make_eap(): buffer too small");
 	return (FALSE);
     }
     TLVSetLength((TLVRef)eap, out_pkt_size);
@@ -2519,7 +2522,7 @@ make_pac_request(BufferRef buf)
     pac = (PACTLVRef)BufferGetWritePtr(buf);
     if (BufferAdvanceWritePtr(buf, TLV_HEADER_LENGTH * 2 + PAC_TYPE_TLV_LENGTH)
 	== FALSE) {
-	syslog(LOG_NOTICE, "EAP-FAST: make_pac_request(): buffer too small");
+	EAPLOG(LOG_NOTICE, "EAP-FAST: make_pac_request(): buffer too small");
 	return (FALSE);
     }
     /* set the PAC TLV header to encapsulate the PAC-Type TLV */
@@ -2543,7 +2546,7 @@ make_pac_ack(BufferRef buf, TLVStatus result_status)
     pac = (PACTLVRef)BufferGetWritePtr(buf);
     if (BufferAdvanceWritePtr(buf, TLV_HEADER_LENGTH * 2 + RESULT_TLV_LENGTH)
 	== FALSE) {
-	syslog(LOG_NOTICE, "EAP-FAST: make_pac_ack(): buffer too small");
+	EAPLOG(LOG_NOTICE, "EAP-FAST: make_pac_ack(): buffer too small");
 	return (FALSE);
     }
     /* set the PAC TLV header to encapsulate the PAC-Acknowledgement TLV */
@@ -2572,7 +2575,7 @@ process_crypto_binding(EAPFASTPluginDataRef context,
 
     /* make sure there's room for a Crypto Binding TLV */
     if (BufferGetSpace(buf) < (CRYPTO_BINDING_TLV_LENGTH + TLV_HEADER_LENGTH)) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: process_crypto_binding: buffer too small %d < %ld",
 	       BufferGetSpace(buf),
 	       CRYPTO_BINDING_TLV_LENGTH + TLV_HEADER_LENGTH);
@@ -2580,19 +2583,19 @@ process_crypto_binding(EAPFASTPluginDataRef context,
     }
 
     if (crypto->cb_version != kEAPFASTVersion1) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: process_crypto_binding version is %d != %d",
 	       crypto->cb_version, kEAPFASTVersion1);
 	goto done;
     }
     if (crypto->cb_received_version != context->eapfast_version) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: process_crypto_binding received_version is %d != %d",
 	       crypto->cb_received_version, context->eapfast_version);
 	goto done;
     }
     if (crypto->cb_sub_type != kCryptoBindingSubTypeBindingRequest) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: process_crypto_binding sub_type %d != %d",
 	       crypto->cb_sub_type, kCryptoBindingSubTypeBindingRequest);
 	goto done;
@@ -2611,7 +2614,7 @@ process_crypto_binding(EAPFASTPluginDataRef context,
     }
     else {
 	if (context->must_use_mschapv2) {
-	    syslog(LOG_NOTICE, "EAP-FAST: anonymous PAC provisioning "
+	    EAPLOG(LOG_NOTICE, "EAP-FAST: anonymous PAC provisioning "
 		   "requires MSCHAPv2 - possible malicious server");
 	    goto done;
 	}
@@ -2635,7 +2638,7 @@ process_crypto_binding(EAPFASTPluginDataRef context,
 	   (unsigned char *)cb_p, sizeof(*cb_p), compound_mac);
     if (bcmp(crypto->cb_compound_mac, compound_mac,
 	     sizeof(compound_mac)) != 0) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAP-FAST: process_crypto_binding Compound MAC is incorrect");
 	goto done;
     }
@@ -2678,6 +2681,8 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 
     BufferInit(&out_tlvs_buf, out_tlvs, sizeof(out_tlvs));
     if (context->in_message_size == 0) {
+	bool			parse_ok;
+
 	do_log = TRUE;
 	status = SSLRead(context->ssl_context, context->in_message_buf,
 			 sizeof(context->in_message_buf),
@@ -2688,27 +2693,37 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	    goto done;
 	}
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, "eapfast_eap: SSLRead failed, %s (%d)",
-		   EAPSSLErrorString(status), (int)status);
+	    EAPLOG_FL(LOG_NOTICE, "SSLRead failed, %s (%d)",
+		      EAPSSLErrorString(status), (int)status);
 	    context->plugin_state = kEAPClientStateFailure;
 	    context->last_ssl_error = status;
 	    goto done;
 	}
 	if (context->in_message_size == 0) {
-	    syslog(LOG_NOTICE, "eapfast_eap: zero-length TLV");
+	    EAPLOG_FL(LOG_NOTICE, "zero-length TLV");
 	    context->plugin_state = kEAPClientStateFailure;
 	    make_result(&out_tlvs_buf, kTLVStatusFailure);
 	    make_error(&out_tlvs_buf,
 		       kErrorTLVErrorCodeUnexpectedTLVsExchanged);
 	    goto send_message;
 	}
-	if (plugin->log_enabled) {
-	    printf("-------- Receive TLVs: ----------\n");
+	{
+	    CFMutableStringRef	str = NULL;
+
+	    if (plugin->log_enabled) {
+		str = CFStringCreateMutable(NULL, 0);
+	    }
+	    parse_ok = TLVListParse(tlvlist_p,
+				    context->in_message_buf,
+				    context->in_message_size,
+				    str);
+	    if (str != NULL) {
+		EAPLOG(-LOG_DEBUG, "-------- Receive TLVs: ----------\n%@",
+		       str);
+		CFRelease(str);
+	    }
 	}
-	if (TLVListParse(tlvlist_p,
-			 context->in_message_buf,
-			 context->in_message_size,
-			 plugin->log_enabled) == FALSE) {
+	if (parse_ok == FALSE) {
 	    context->plugin_state = kEAPClientStateFailure;
 	    make_result(&out_tlvs_buf, kTLVStatusFailure);
 	    make_error(&out_tlvs_buf,
@@ -2735,9 +2750,9 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	    TLVStatus	result_status;
 
 	    if (eap_client_type(context) == kEAPTypeInvalid) {
-		syslog(LOG_NOTICE,
-		       "eapfast_eap: Intermediate Result TLV supplied"
-		       " but no inner EAP method negotiated");
+		EAPLOG_FL(LOG_NOTICE,
+			  "Intermediate Result TLV supplied"
+			  " but no inner EAP method negotiated");
 		context->plugin_state = kEAPClientStateFailure;
 		make_result(&out_tlvs_buf, kTLVStatusFailure);
 		make_error(&out_tlvs_buf,
@@ -2754,8 +2769,7 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 		    break;
 		}
 		/* intermediate status success requires crypto binding TLV */
-		syslog(LOG_NOTICE, 
-		       "eapfast_eap: Crypto Binding TLV is missing");
+		EAPLOG_FL(LOG_NOTICE, "Crypto Binding TLV is missing");
 		context->plugin_state = kEAPClientStateFailure;
 		make_result(&out_tlvs_buf, kTLVStatusFailure);
 		make_error(&out_tlvs_buf,
@@ -2765,13 +2779,12 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	    default:
 	    case kTLVStatusFailure:
 		if (result_status == kTLVStatusFailure) {
-		    syslog(LOG_NOTICE, 
-			   "eapfast_eap: Intermediate Result TLV Failure");
+		    EAPLOG_FL(LOG_NOTICE, "Intermediate Result TLV Failure");
 		}
 		else {
-		    syslog(LOG_NOTICE, "eapfast_eap: Intermediate Result TLV:"
-			   " unrecognized status = %d",
-			   result_status);
+		    EAPLOG_FL(LOG_NOTICE, "Intermediate Result TLV:"
+			      " unrecognized status = %d",
+			      result_status);
 		}
 		context->plugin_state = kEAPClientStateFailure;
 		make_result(&out_tlvs_buf, kTLVStatusFailure);
@@ -2788,13 +2801,13 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	    case kTLVStatusFailure:
 		context->inner_auth_state = kEAPFASTInnerAuthStateFailure;
 		if (tlvlist_p->error != NULL) {
-		    syslog(LOG_NOTICE,
-			   "EAP-FAST: Result TLV Failure, Error %d",
-			   tlvlist_p->error_code);
+		    EAPLOG_FL(LOG_NOTICE,
+			      "Result TLV Failure, Error %d",
+			      tlvlist_p->error_code);
 		}
 		else {
-		    syslog(LOG_NOTICE,
-			   "EAP-FAST: Result TLV Failure");
+		    EAPLOG_FL(LOG_NOTICE,
+			      "Result TLV Failure");
 		}
 		break;
 	    case kTLVStatusSuccess:
@@ -2810,8 +2823,7 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	if (tlvlist_p->crypto != NULL) {
 	    if (process_crypto_binding(context, tlvlist_p->crypto,
 				       &out_tlvs_buf) == FALSE) {
-		syslog(LOG_NOTICE, 
-		       "eapfast_eap: Crypto Binding TLV validation failed");
+		EAPLOG_FL(LOG_NOTICE, "Crypto Binding TLV validation failed");
 		context->plugin_state = kEAPClientStateFailure;
 		if (tlvlist_p->result != NULL) {
 		    out_tlvs_buf = out_tlvs_buf_saved;
@@ -2834,7 +2846,7 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 		&& save_pac(plugin->system_mode, &tlvlist_p->pac_tlvs)) {
 		make_pac_ack(&out_tlvs_buf, kTLVStatusSuccess);
 		context->pac_was_provisioned = TRUE;
-		syslog(LOG_NOTICE, "EAP-FAST: PAC was provisioned");
+		EAPLOG(LOG_NOTICE, "EAP-FAST: PAC was provisioned");
 	    }
 	    else {
 		make_pac_ack(&out_tlvs_buf, kTLVStatusFailure);
@@ -2866,14 +2878,15 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 
 	in_pkt_p = (EAPRequestPacketRef)tlvlist_p->eap->ep_eap_packet;
 	if (plugin->log_enabled && do_log) {
+	    CFMutableStringRef	log_msg;
+
 	    /* we haven't seen it before, so log it */
-	    printf("Receive EAP Payload:\n");
-	    if (module_packet_dump(stdout, in_pkt_p)
-		== FALSE) {
-		EAPPacketValid((const EAPPacketRef)in_pkt_p,
-			       EAPPacketGetLength((const EAPPacketRef)in_pkt_p),
-			       stdout);
-	    }
+	    log_msg = CFStringCreateMutable(NULL, 0);
+	    EAPPacketIsValid((const EAPPacketRef)in_pkt_p,
+			     EAPPacketGetLength((const EAPPacketRef)in_pkt_p),
+			     log_msg);
+	    EAPLOG(-LOG_DEBUG, "EAP-FAST Receive EAP Payload:\n%@", log_msg);
+	    CFRelease(log_msg);
 	}
 	switch (in_pkt_p->code) {
 	case kEAPCodeRequest:
@@ -2916,18 +2929,18 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	    goto done;
 	}
 	if (plugin->log_enabled) {
-	    printf("\nSend EAP Payload:\n");
-	    if (module_packet_dump(stdout, out_pkt_p)
-		== FALSE) {
-		EAPPacketValid((const EAPPacketRef)out_pkt_p,
-			       EAPPacketGetLength((const EAPPacketRef)
-						  out_pkt_p),
-			       stdout);
-	    }
+	    CFMutableStringRef		log_msg;
+
+	    log_msg = CFStringCreateMutable(NULL, 0);
+	    EAPPacketIsValid((const EAPPacketRef)out_pkt_p,
+			     EAPPacketGetLength((const EAPPacketRef)out_pkt_p),
+			     log_msg);
+	    EAPLOG(-LOG_DEBUG, "EAP-FAST Send EAP Payload:\n%@", log_msg);
+	    CFRelease(log_msg);
 	}
 	if (make_eap(&out_tlvs_buf, (void *)out_pkt_p, out_pkt_size)
 	    == FALSE) {
-	    syslog(LOG_NOTICE, "eapfast_eap: failed to insert EAP Payload TLV");
+	    EAPLOG_FL(LOG_NOTICE, "failed to insert EAP Payload TLV");
 	    context->plugin_state = kEAPClientStateFailure;
 	    goto done;
 	}
@@ -2944,21 +2957,26 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
  send_message:
     out_tlvs_size = BufferGetUsed(&out_tlvs_buf);
     if (out_tlvs_size == 0) {
-	syslog(LOG_NOTICE, "eapfast_eap: nothing to send?");
+	EAPLOG_FL(LOG_NOTICE, "nothing to send?");
 	goto done;
     }
     context->in_message_size = 0;
     if (plugin->log_enabled) {
-	printf("======== Send TLVs: ========\n");
+	CFMutableStringRef	str;
+
+	str = CFStringCreateMutable(NULL, 0);
+	STRING_APPEND(str, "======== Send TLVs: ========\n");
 	(void)TLVListParse(NULL, BufferGetPtr(&out_tlvs_buf),
-			   out_tlvs_size, TRUE);
+			   out_tlvs_size, str);
+	EAPLOG(-LOG_DEBUG, "%@", str);
+	my_CFRelease(&str);
     }
     status = SSLWrite(context->ssl_context, BufferGetPtr(&out_tlvs_buf),
 		      out_tlvs_size, &out_tlvs_size);
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "eapfast_eap: SSLWrite failed, %s (%d)",
-	       EAPSSLErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SSLWrite failed, %s (%d)",
+		  EAPSSLErrorString(status), (int)status);
     }
     else {
 	ret = TRUE;
@@ -2970,6 +2988,7 @@ eapfast_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
     }
 
  done:
+
     return (ret);
 }
 
@@ -3003,10 +3022,9 @@ eapfast_verify_server(EAPClientPluginDataRef plugin,
 					     context->server_certs,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
-	syslog(LOG_NOTICE, 
-	       "eapfast_verify_server: server certificate not trusted"
-	       ", status %d %d", context->trust_status,
-	       (int)context->trust_ssl_error);
+	EAPLOG_FL(LOG_NOTICE, "server certificate not trusted, status %d %d",
+		  context->trust_status,
+		  (int)context->trust_ssl_error);
     }
     switch (context->trust_status) {
     case kEAPClientStatusOK:
@@ -3041,13 +3059,6 @@ eapfast_tunnel(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
     EAPPacketRef	pkt = NULL;
     memoryBufferRef	write_buf = &context->write_buffer; 
 
-    if (context->trust_proceed == FALSE) {
-	pkt = eapfast_verify_server(plugin, eaptls_in->identifier, 
-				    client_status);
-	if (context->trust_proceed == FALSE) {
-	    return (pkt);
-	}
-    }
     if (eapfast_eap(plugin, eaptls_in, client_status)) {
 	pkt = EAPTLSPacketCreate2(kEAPCodeResponse,
 				  kEAPTypeEAPFAST,
@@ -3080,35 +3091,63 @@ STATIC EAPPacketRef
 eapfast_handshake(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 		  EAPClientStatus * client_status)
 {
-    EAPFASTPluginDataRef 	context = (EAPFASTPluginDataRef)plugin->private;
+    EAPFASTPluginDataRef context = (EAPFASTPluginDataRef)plugin->private;
     EAPPacketRef	eaptls_out = NULL;
     OSStatus		status = noErr;
-    memoryBufferRef	write_buf = &context->write_buffer; 
+    memoryBufferRef	write_buf = &context->write_buffer;
 
-    status = SSLHandshake(context->ssl_context);
-    switch (status) {
-    case noErr:
-	/* handshake complete, tunnel established */
-	context->handshake_complete = TRUE;
-	status
-	    = eapfast_generate_key_material(context,
-					    context->last_s_imck,
-					    context->mschap_server_challenge,
-					    context->mschap_client_challenge);
-					       
-	if (status != noErr) {
-	    goto close_up_shop;
+    if (context->server_auth_completed && context->trust_proceed == FALSE) {
+	eaptls_out = eapfast_verify_server(plugin, eaptls_in->identifier, 
+					   client_status);
+	if (context->trust_proceed == FALSE) {
+	    goto done;
 	}
-	eapfast_set_session_was_resumed(context);
-
+    }
+    status = SSLHandshake(context->ssl_context);
+    if (status == errSSLServerAuthCompleted) {
+	if (context->server_auth_completed) {
+	    /* this should not happen */
+	    EAPLOG_FL(LOG_NOTICE, "AuthCompleted again?");
+	    goto done;
+	}
+	context->server_auth_completed = TRUE;
 	my_CFRelease(&context->server_certs);
 	(void)EAPSSLCopyPeerCertificates(context->ssl_context,
 					 &context->server_certs);
 	eaptls_out = eapfast_verify_server(plugin, eaptls_in->identifier,
 					   client_status);
 	if (context->trust_proceed == FALSE) {
-	    break;
+	    goto done;
 	}
+	/* handshake again to get past the AuthCompleted status */
+	status = SSLHandshake(context->ssl_context);
+    }
+    switch (status) {
+    case noErr:
+	/* handshake complete, tunnel established */
+	if (context->trust_proceed == FALSE) {
+	    my_CFRelease(&context->server_certs);
+	    (void)EAPSSLCopyPeerCertificates(context->ssl_context,
+					     &context->server_certs);
+	    eaptls_out = eapfast_verify_server(plugin, eaptls_in->identifier,
+					       client_status);
+	    if (context->trust_proceed == FALSE) {
+		/* this should not happen */
+		EAPLOG_FL(LOG_NOTICE, "trust_proceed is FALSE?");
+		break;
+	    }
+	}
+	status
+	    = eapfast_generate_key_material(context,
+					    context->last_s_imck,
+					    context->mschap_server_challenge,
+					    context->mschap_client_challenge);
+	if (status != noErr) {
+	    goto close_up_shop;
+	}
+	context->handshake_complete = TRUE;
+	eapfast_set_session_was_resumed(context);
+
 	/* kick off authentication */
 	if (eapfast_eap(plugin, eaptls_in, client_status)) {
 	    eaptls_out = EAPTLSPacketCreate2(kEAPCodeResponse,
@@ -3121,8 +3160,8 @@ eapfast_handshake(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	}
 	break;
     default:
-	syslog(LOG_NOTICE, "eapfast_handshake: SSLHandshake failed, %s (%d)",
-	       EAPSSLErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s (%d)",
+		  EAPSSLErrorString(status), (int)status);
     close_up_shop:
 	context->last_ssl_error = status;
 	my_CFRelease(&context->server_certs);
@@ -3152,12 +3191,14 @@ eapfast_handshake(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	}
 	break;
     }
+
+ done:
     return (eaptls_out);
 }
 
 
 STATIC EAPPacketRef
-eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
+eapfast_request(EAPClientPluginDataRef plugin,
 		const EAPPacketRef in_pkt, EAPClientStatus * client_status)
 {
     EAPFASTPluginDataRef context = (EAPFASTPluginDataRef)plugin->private;
@@ -3168,6 +3209,7 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     void *		in_data_ptr = NULL;
     u_int16_t		in_length = EAPPacketGetLength(in_pkt);
     memoryBufferRef	read_buf = &context->read_buffer;
+    SSLSessionState	ssl_state = kSSLIdle;
     OSStatus		status = noErr;
     u_int32_t		tls_message_length = 0;
     RequestType		type;
@@ -3175,11 +3217,19 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 
     /* ALIGN: void * cast OK, we don't expect proper alignment */
     eaptls_in_l = (EAPTLSLengthIncludedPacketRef)(void *)in_pkt;
-    
     if (in_length < sizeof(*eaptls_in)) {
-	syslog(LOG_NOTICE, "eapfast_request: length %d < %ld",
-	       in_length, sizeof(*eaptls_in));
-	goto ignore;
+	EAPLOG_FL(LOG_NOTICE, "length %d < %ld", in_length, sizeof(*eaptls_in));
+	goto done;
+    }
+    if (context->ssl_context != NULL) {
+	status = SSLGetSessionState(context->ssl_context, &ssl_state);
+	if (status != noErr) {
+	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s",
+		      EAPSSLErrorString(status));
+	    context->plugin_state = kEAPClientStateFailure;
+	    context->last_ssl_error = status;
+	    goto done;
+	}
     }
     in_data_ptr = eaptls_in->tls_data;
     tls_message_length = in_data_length = in_length - sizeof(EAPTLSPacket);
@@ -3199,18 +3249,18 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     }
     else if ((eaptls_in->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
 	if (in_length < sizeof(EAPTLSLengthIncludedPacket)) {
-	    syslog(LOG_NOTICE, 
-		   "eapfast_request: packet too short %d < %ld",
-		   in_length, sizeof(EAPTLSLengthIncludedPacket));
-	    goto ignore;
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "packet too short %d < %ld",
+		      in_length, sizeof(EAPTLSLengthIncludedPacket));
+	    goto done;
 	}
 	tls_message_length 
 	    = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_in_l);
 	if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
-	    syslog(LOG_NOTICE, 
-		   "eapfast_request: received message too large, %d > %d",
-		   tls_message_length, (int)kEAPTLSAvoidDenialOfServiceSize);
-	    goto ignore;
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "received message too large, %d > %d",
+		      tls_message_length, (int)kEAPTLSAvoidDenialOfServiceSize);
+	    goto done;
 	}
 	in_data_ptr = eaptls_in_l->tls_data;
 	in_data_length = in_length - sizeof(EAPTLSLengthIncludedPacket);
@@ -3227,24 +3277,22 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     case kSSLIdle:
 	if (type != kRequestTypeStart) {
 	    /* ignore it: XXX should this be an error? */
-	    syslog(LOG_NOTICE, 
-		   "eapfast_request: ignoring non EAP-FAST start frame");
-	    goto ignore;
+	    EAPLOG_FL(LOG_NOTICE, "ignoring non EAP-FAST start frame");
+	    goto done;
 	}
 	status = eapfast_start(plugin, in_data_ptr, in_data_length);
 	if (status != noErr) {
 	    context->last_ssl_error = status;
 	    context->plugin_state = kEAPClientStateFailure;
-	    goto ignore;
+	    goto done;
 	}
 	status = SSLHandshake(context->ssl_context);
 	if (status != errSSLWouldBlock) {
-	    syslog(LOG_NOTICE, 
-		   "eapfast_request: SSLHandshake failed, %s (%d)",
-		   EAPSSLErrorString(status), (int)status);
+	    EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s (%d)",
+		      EAPSSLErrorString(status), (int)status);
 	    context->last_ssl_error = status;
 	    context->plugin_state = kEAPClientStateFailure;
-	    goto ignore;
+	    goto done;
 	}
 	eaptls_out = EAPTLSPacketCreate(kEAPCodeResponse,
 					kEAPTypeEAPFAST,
@@ -3284,9 +3332,9 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 	    context->last_write_size = 0;
 	}
 	if (type != kRequestTypeData) {
-	    syslog(LOG_NOTICE, "eapfast_request: unexpected %s frame",
-		   type == kRequestTypeAck ? "Ack" : "Start");
-	    goto ignore;
+	    EAPLOG_FL(LOG_NOTICE, "unexpected %s frame",
+		      type == kRequestTypeAck ? "Ack" : "Start");
+	    goto done;
 	}
 	if (in_pkt->identifier == context->previous_identifier) {
 	    if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
@@ -3297,36 +3345,24 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 	}
 	else {
 	    if (read_buf->data == NULL) {
-		read_buf->data = malloc(tls_message_length);
-		read_buf->length = tls_message_length;
-		read_buf->offset = 0;
+		memoryBufferAllocate(read_buf, tls_message_length);
 	    }
-	    if ((read_buf->offset + in_data_length) > read_buf->length) {
-		syslog(LOG_NOTICE, 
-		       "eapfast_request: fragment too large %ld + %d > %ld",
-		       read_buf->offset, in_data_length, read_buf->length);
-		goto ignore;
+	    if (memoryBufferAddData(read_buf, in_data_ptr, in_data_length)
+		== FALSE) {
+		EAPLOG_FL(LOG_NOTICE, 
+			  "fragment too large %d",
+			  in_data_length);
+		goto done;
 	    }
-	    else if ((read_buf->offset + in_data_length) < read_buf->length
-		     && ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments)
-			 == 0)) {
-		syslog(LOG_NOTICE, 
-		       "eapfast_request: expecting more data but "
-		       "more fragments bit is not set %ld + %d < %lu",
-		       read_buf->offset, in_data_length, read_buf->length);
-		goto ignore;
-	    }
-	    else {
-		bcopy(in_data_ptr,
-		      read_buf->data + read_buf->offset, in_data_length);
-		read_buf->offset += in_data_length;
-		context->last_read_size = in_data_length;
-		if (read_buf->offset < read_buf->length) {
-		    /* we haven't received the entire TLS message */
-		    eaptls_out = EAPFASTPacketCreateAck(eaptls_in->identifier);
-		    break;
+	    if (memoryBufferIsComplete(read_buf) == FALSE) {
+		if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) == 0) {
+		    EAPLOG_FL(LOG_NOTICE, 
+			      "expecting more data but "
+			      "more fragments bit is not set, ignoring");
 		}
-		read_buf->offset = 0;
+		/* we haven't received the entire TLS message */
+		eaptls_out = EAPFASTPacketCreateAck(eaptls_in->identifier);
+		break;
 	    }
 	}
 	/* we've got the whole TLS message, process it */
@@ -3360,7 +3396,7 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 				     context->eapfast_version);
     }
 
- ignore:
+ done:
     return (eaptls_out);
 }
 
@@ -3372,27 +3408,13 @@ eapfast_process(EAPClientPluginDataRef plugin,
 		EAPClientDomainSpecificError * error)
 {
     EAPFASTPluginDataRef context = (EAPFASTPluginDataRef)plugin->private;
-    SSLSessionState	ssl_state = kSSLIdle;
-    OSStatus		status = noErr;
 
     *client_status = kEAPClientStatusOK;
     *error = 0;
-
-    if (context->ssl_context != NULL) {
-	status = SSLGetSessionState(context->ssl_context, &ssl_state);
-	if (status != noErr) {
-	    syslog(LOG_NOTICE, "eapfast_process: SSLGetSessionState failed, %s",
-		   EAPSSLErrorString(status));
-	    context->plugin_state = kEAPClientStateFailure;
-	    context->last_ssl_error = status;
-	    goto done;
-	}
-    }
-
     *out_pkt_p = NULL;
     switch (in_pkt->code) {
     case kEAPCodeRequest:
-	*out_pkt_p = eapfast_request(plugin, ssl_state, in_pkt, client_status);
+	*out_pkt_p = eapfast_request(plugin, in_pkt, client_status);
 	break;
     case kEAPCodeSuccess:
 	if (context->inner_auth_state == kEAPFASTInnerAuthStateSuccess) {
@@ -3409,7 +3431,6 @@ eapfast_process(EAPClientPluginDataRef plugin,
     default:
 	break;
     }
- done:
     if (context->plugin_state == kEAPClientStateFailure) {
 	if (context->last_ssl_error == noErr) {
 	    switch (context->last_client_status) {
@@ -3492,7 +3513,7 @@ dictInsertEAPTypeInfo(CFMutableDictionaryRef dict, EAPType type,
 }
 
 STATIC CFDictionaryRef
-eapfast_publish_props(EAPClientPluginDataRef plugin)
+eapfast_publish_props_copy(EAPClientPluginDataRef plugin)
 {
     CFArrayRef			cert_list = NULL;
     SSLCipherSuite		cipher = SSL_NULL_WITH_NULL_NULL;
@@ -3524,8 +3545,9 @@ eapfast_publish_props(EAPClientPluginDataRef plugin)
 	(void)SSLGetNegotiatedCipher(context->ssl_context, &cipher);
 	if (cipher != SSL_NULL_WITH_NULL_NULL) {
 	    CFNumberRef	c;
+	    int		tmp = cipher;
 	    
-	    c = CFNumberCreate(NULL, kCFNumberIntType, &cipher);
+	    c = CFNumberCreate(NULL, kCFNumberIntType, &tmp);
 	    CFDictionarySetValue(dict, kEAPClientPropTLSNegotiatedCipher, c);
 	    CFRelease(c);
 	}
@@ -3576,36 +3598,38 @@ eapfast_require_props(EAPClientPluginDataRef plugin)
     return (array);
 }
 
-STATIC bool
-eapfast_packet_dump(FILE * out_f, const EAPPacketRef pkt)
+STATIC CFStringRef
+eapfast_copy_packet_description(const EAPPacketRef pkt, bool * packet_is_valid)
 {
     EAPTLSPacketRef 	eaptls_pkt = (EAPTLSPacketRef)pkt;
     EAPTLSLengthIncludedPacketRef eaptls_pkt_l;
     int			data_length;
     void *		data_ptr = NULL;
     u_int16_t		length = EAPPacketGetLength(pkt);
+    CFMutableStringRef	str;
     u_int32_t		tls_message_length = 0;
 
+    *packet_is_valid = FALSE;
     switch (pkt->code) {
     case kEAPCodeRequest:
     case kEAPCodeResponse:
 	break;
     default:
-	/* just return */
-	return (FALSE);
-	break;
+	return (NULL);
     }
+    str = CFStringCreateMutable(NULL, 0);
     if (length < sizeof(*eaptls_pkt)) {
-	fprintf(out_f, "invalid packet: length %d < min length %ld",
-		length, sizeof(*eaptls_pkt));
+	STRING_APPEND(str, "EAPTLSPacket header truncated %d < %d\n",
+		      length, (int)sizeof(*eaptls_pkt));
 	goto done;
     }
-    fprintf(out_f,
-	    "EAP-FAST Version %d %s: Identifier %d Length %d Flags 0x%x%s",
-	    EAPFASTPacketFlagsVersion(eaptls_pkt->flags),
-	    pkt->code == kEAPCodeRequest ? "Request" : "Response",
-	    pkt->identifier, length, eaptls_pkt->flags,
-	    (EAPFASTPacketFlagsFlags(eaptls_pkt->flags) != 0) ? " [" : "");
+    STRING_APPEND(str, "EAP-FAST Version %d %s: "
+		  "Identifier %d Length %d Flags 0x%x%s",
+		  EAPFASTPacketFlagsVersion(eaptls_pkt->flags),
+		  pkt->code == kEAPCodeRequest ? "Request" : "Response",
+		  pkt->identifier, length, eaptls_pkt->flags,
+		  (EAPFASTPacketFlagsFlags(eaptls_pkt->flags) != 0)
+		  ? " [" : "");
 
     /* ALIGN: void * cast OK, we don't expect proper alignment */ 
     eaptls_pkt_l = (EAPTLSLengthIncludedPacketRef)(void *)pkt;
@@ -3614,29 +3638,28 @@ eapfast_packet_dump(FILE * out_f, const EAPPacketRef pkt)
     tls_message_length = data_length = length - sizeof(EAPTLSPacket);
 
     if ((eaptls_pkt->flags & kEAPTLSPacketFlagsStart) != 0) {
-	fprintf(out_f, " start");
+	STRING_APPEND(str, " start");
     }
     if ((eaptls_pkt->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
 	if (length >= sizeof(EAPTLSLengthIncludedPacket)) {
 	    data_ptr = eaptls_pkt_l->tls_data;
 	    data_length = length - sizeof(EAPTLSLengthIncludedPacket);
 	    tls_message_length 
-            = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_pkt_l);
-	    fprintf(out_f, " length=%u", tls_message_length);
-	
+		= EAPTLSLengthIncludedPacketGetMessageLength(eaptls_pkt_l);
+	    STRING_APPEND(str, " length=%u", tls_message_length);
 	}
     }
     if ((eaptls_pkt->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
-	fprintf(out_f, " more");
+	STRING_APPEND(str, " more");
     }
-    fprintf(out_f, "%s Data Length %d\n", 
-	    EAPFASTPacketFlagsFlags(eaptls_pkt->flags) != 0 ? " ]" : "",
-	    data_length);
+    STRING_APPEND(str, "%s Data Length %d\n", 
+		  EAPFASTPacketFlagsFlags(eaptls_pkt->flags) != 0 ? " ]" : "",
+		  data_length);
     if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
-	fprintf(out_f, "potential DOS attack %u > %d\n",
-		tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
-	fprintf(out_f, "bogus EAP Packet:\n");
-	fprint_data(out_f, (void *)pkt, length);
+	STRING_APPEND(str, "potential DOS attack %u > %d\n",
+		      tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
+	STRING_APPEND(str, "bogus EAP Packet:\n");
+	print_data_cfstr(str, (void *)pkt, length);
 	goto done;
     }
     if ((eaptls_pkt->flags & kEAPTLSPacketFlagsStart) != 0
@@ -3647,20 +3670,21 @@ eapfast_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	uint16_t		auid_length;
 	
 	auid_length = AuthorityIDDataGetLength(auid);
-	fprintf(out_f, "Authority ID Data Length %d ID ", auid_length);
+	STRING_APPEND(str, "Authority ID Data Length %d ID ", auid_length);
 	if (auid_length > (data_length - offsetof(AuthorityIDData, auid_id))) {
 	    auid_length = data_length - offsetof(AuthorityIDData, auid_id);
-	    fprintf(out_f, "> available %d! ", auid_length);
+	    STRING_APPEND(str, "> available %d! ", auid_length);
 	}
-	fprint_bytes(out_f, auid->auid_id, auid_length);
-	fprintf(out_f, "\n");
+	print_bytes_cfstr(str, auid->auid_id, auid_length);
+	STRING_APPEND(str, "\n");
     }
     else {
-	fprint_data(out_f, data_ptr, data_length);
+	print_data_cfstr(str, data_ptr, data_length);
     }
+    *packet_is_valid = TRUE;
 
  done:
-    return (TRUE);
+    return (str);
 }
 
 STATIC EAPType 
@@ -3701,8 +3725,9 @@ STATIC struct func_table_ent {
     { kEAPClientPluginFuncNameSessionKey, eapfast_session_key },
     { kEAPClientPluginFuncNameServerKey, eapfast_server_key },
     { kEAPClientPluginFuncNameRequireProperties, eapfast_require_props },
-    { kEAPClientPluginFuncNamePublishProperties, eapfast_publish_props },
-    { kEAPClientPluginFuncNamePacketDump, eapfast_packet_dump },
+    { kEAPClientPluginFuncNamePublishProperties, eapfast_publish_props_copy },
+    { kEAPClientPluginFuncNameCopyPacketDescription,
+      eapfast_copy_packet_description },
     { NULL, NULL},
 };
 

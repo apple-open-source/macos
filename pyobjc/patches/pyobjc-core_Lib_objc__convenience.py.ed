@@ -1,0 +1,28 @@
+/^CONVENIENCE_METHODS =/i
+# 12041508: NSDictionary now defines both objectForKey: and containsObject:,
+# so that the defining of __contains__ is order dependent (and often wrong).
+# So we define an OVERRIDE dict, whose keys are pipe-separated, triple strings:
+#
+# 1) the python method in question
+# 2) the first selector
+# 3) the overriding selector
+#
+# So "__contains__|containsObject:|objectForKey:" means that if containsObject:
+# was first, and has already defined __contains__, the objectForKey: can
+# later override the definition of __contains__ (but not in the reverse order).
+OVERRIDE = {'__contains__|containsObject:|objectForKey:': 1}
+def _canOverride(meth, owner, sel):
+    if not meth in owner:
+        return False
+    k = meth + '|' + owner[meth] + '|' + sel
+    return k in OVERRIDE
+
+.
+/for k, sel in type_dict\.items():/i
+    owner = {}
+.
+/elif nm not in type_dict:/s//elif nm not in type_dict or _canOverride(nm, owner, sel):/
+/type_dict\[nm] = value/a
+                    owner[nm] = sel
+.
+w

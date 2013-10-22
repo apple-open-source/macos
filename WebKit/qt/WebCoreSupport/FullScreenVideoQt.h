@@ -38,12 +38,9 @@ class Node;
 #if USE(QT_MULTIMEDIA)
 class MediaPlayerPrivateQt;
 #endif
-#if USE(QTKIT)
-class QTKitFullScreenVideoHandler;
-#endif
 
 // We do not use ENABLE or USE because moc does not expand these macros.
-#if defined(WTF_USE_GSTREAMER) && WTF_USE_GSTREAMER && !defined(GST_API_VERSION_1)
+#if defined(WTF_USE_GSTREAMER) && WTF_USE_GSTREAMER && defined(WTF_USE_NATIVE_FULLSCREEN_VIDEO) && WTF_USE_NATIVE_FULLSCREEN_VIDEO
 class FullScreenVideoWindow;
 
 class GStreamerFullScreenVideoHandler : public QObject {
@@ -65,25 +62,6 @@ private:
 };
 #endif
 
-// We do not use ENABLE or USE because moc does not expand these macros.
-#if defined(WTF_USE_QT_MULTIMEDIA) && WTF_USE_QT_MULTIMEDIA
-class DefaultFullScreenVideoHandler : public QWebFullScreenVideoHandler {
-    Q_OBJECT
-public:
-    DefaultFullScreenVideoHandler();
-    virtual ~DefaultFullScreenVideoHandler();
-    bool requiresFullScreenForVideoPlayback() const;
-
-public Q_SLOTS:
-    void enterFullScreen(QMediaPlayer*);
-    void exitFullScreen();
-
-private:
-    static bool s_shouldForceFullScreenVideoPlayback;
-    FullScreenVideoWidget *m_fullScreenWidget;
-};
-#endif
-
 class FullScreenVideoQt : public QObject {
     Q_OBJECT
 public:
@@ -100,7 +78,7 @@ private:
     MediaPlayerPrivateQt* mediaPlayer();
 #endif
 
-private slots:
+private Q_SLOTS:
     void aboutToClose();
 
 private:
@@ -109,11 +87,8 @@ private:
 #if USE(QT_MULTIMEDIA)
     QWebFullScreenVideoHandler* m_FullScreenVideoHandler;
 #endif
-#if USE(GSTREAMER)
+#if USE(GSTREAMER) && USE(NATIVE_FULLSCREEN_VIDEO)
     GStreamerFullScreenVideoHandler* m_FullScreenVideoHandlerGStreamer;
-#endif
-#if USE(QTKIT)
-    QTKitFullScreenVideoHandler* m_FullScreenVideoHandlerQTKit;
 #endif
 };
 

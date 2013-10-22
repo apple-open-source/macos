@@ -35,7 +35,7 @@
 #endif /* HAVE_STRINGS_H */
 #include <limits.h>
 
-#include "compat.h"
+#include "missing.h"
 #include "alloc.h"
 
 #ifndef LINE_MAX
@@ -56,7 +56,7 @@ getline(bufp, bufsizep, fp)
     buf = fgetln(fp, &len);
     if (buf) {
 	bufsize = *bufp ? *bufsizep : 0;
-	if (bufsize < len + 1) {
+	if (bufsize == 0 || bufsize < len + 1) {
 	    bufsize = len + 1;
 	    *bufp = erealloc(*bufp, bufsize);
 	    *bufsizep = bufsize;
@@ -64,7 +64,7 @@ getline(bufp, bufsizep, fp)
 	memcpy(*bufp, buf, len);
 	(*bufp)[len] = '\0';
     }
-    return(buf ? len : -1);
+    return buf ? len : -1;
 }
 #else
 ssize_t
@@ -97,6 +97,6 @@ getline(bufp, bufsizep, fp)
     }
     *bufp = buf;
     *bufsizep = bufsize;
-    return(len);
+    return len;
 }
 #endif

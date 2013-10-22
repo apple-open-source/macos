@@ -20,9 +20,10 @@
 #include "config.h"
 #include "WebKitPolicyDecision.h"
 
+#include "WebFramePolicyListenerProxy.h"
 #include "WebKitPolicyDecisionPrivate.h"
-#include "WebKitPrivate.h"
 
+using namespace WebKit;
 
 /**
  * SECTION: WebKitPolicyDecision
@@ -40,33 +41,21 @@
  * completes. To make a policy decision asynchronously, simply increment
  * the reference count of the #WebKitPolicyDecision object.
  */
-G_DEFINE_ABSTRACT_TYPE(WebKitPolicyDecision, webkit_policy_decision, G_TYPE_OBJECT)
 
 struct _WebKitPolicyDecisionPrivate {
-    WKRetainPtr<WKFramePolicyListenerRef> listener;
+    RefPtr<WebFramePolicyListenerProxy> listener;
     bool madePolicyDecision;
 };
 
-static void webkit_policy_decision_init(WebKitPolicyDecision* decision)
+WEBKIT_DEFINE_ABSTRACT_TYPE(WebKitPolicyDecision, webkit_policy_decision, G_TYPE_OBJECT)
+
+static void webkitPolicyDecisionDispose(GObject* object)
 {
-    decision->priv = G_TYPE_INSTANCE_GET_PRIVATE(decision, WEBKIT_TYPE_POLICY_DECISION, WebKitPolicyDecisionPrivate);
-    new (decision->priv) WebKitPolicyDecisionPrivate();
-    decision->priv->madePolicyDecision = false;
+    webkit_policy_decision_use(WEBKIT_POLICY_DECISION(object));
+    G_OBJECT_CLASS(webkit_policy_decision_parent_class)->dispose(object);
 }
 
-static void webkitPolicyDecisionFinalize(GObject* object)
-{
-     WebKitPolicyDecisionPrivate* priv = WEBKIT_POLICY_DECISION(object)->priv;
-
-    // This is the default choice for all policy decisions in WebPageProxy.cpp.
-    if (!priv->madePolicyDecision)
-        WKFramePolicyListenerUse(priv->listener.get());
-
-    priv->~WebKitPolicyDecisionPrivate();
-    G_OBJECT_CLASS(webkit_policy_decision_parent_class)->finalize(object);
-}
-
-void webkitPolicyDecisionSetListener(WebKitPolicyDecision* decision, WKFramePolicyListenerRef listener)
+void webkitPolicyDecisionSetListener(WebKitPolicyDecision* decision, WebFramePolicyListenerProxy* listener)
 {
      decision->priv->listener = listener;
 }
@@ -74,8 +63,7 @@ void webkitPolicyDecisionSetListener(WebKitPolicyDecision* decision, WKFramePoli
 static void webkit_policy_decision_class_init(WebKitPolicyDecisionClass* decisionClass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(decisionClass);
-    objectClass->finalize = webkitPolicyDecisionFinalize;
-    g_type_class_add_private(decisionClass, sizeof(WebKitPolicyDecisionPrivate));
+    objectClass->dispose = webkitPolicyDecisionDispose;
 }
 
 /**
@@ -87,7 +75,11 @@ static void webkit_policy_decision_class_init(WebKitPolicyDecisionClass* decisio
 void webkit_policy_decision_use(WebKitPolicyDecision* decision)
 {
     g_return_if_fail(WEBKIT_IS_POLICY_DECISION(decision));
-    WKFramePolicyListenerUse(decision->priv->listener.get());
+
+    if (decision->priv->madePolicyDecision)
+        return;
+
+    decision->priv->listener->use();
     decision->priv->madePolicyDecision = true;
 }
 
@@ -101,7 +93,11 @@ void webkit_policy_decision_use(WebKitPolicyDecision* decision)
 void webkit_policy_decision_ignore(WebKitPolicyDecision* decision)
 {
     g_return_if_fail(WEBKIT_IS_POLICY_DECISION(decision));
-    WKFramePolicyListenerIgnore(decision->priv->listener.get());
+
+    if (decision->priv->madePolicyDecision)
+        return;
+
+    decision->priv->listener->ignore();
     decision->priv->madePolicyDecision = true;
 }
 
@@ -114,6 +110,10 @@ void webkit_policy_decision_ignore(WebKitPolicyDecision* decision)
 void webkit_policy_decision_download(WebKitPolicyDecision* decision)
 {
     g_return_if_fail(WEBKIT_IS_POLICY_DECISION(decision));
-    WKFramePolicyListenerDownload(decision->priv->listener.get());
+
+    if (decision->priv->madePolicyDecision)
+        return;
+
+    decision->priv->listener->download();
     decision->priv->madePolicyDecision = true;
 }

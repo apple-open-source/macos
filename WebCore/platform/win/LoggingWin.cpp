@@ -24,11 +24,14 @@
  */
 
 #include "config.h"
+#include "InitializeLogging.h"
 #include "Logging.h"
 
-#include "PlatformString.h"
+#if !LOG_DISABLED
+
 #include <windows.h>
 #include <wtf/OwnArrayPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -90,6 +93,7 @@ void initializeLoggingChannelsIfNecessary()
     initializeWithUserDefault(LogPageCache);
     initializeWithUserDefault(LogPlatformLeaks);
     initializeWithUserDefault(LogResourceLoading);
+    initializeWithUserDefault(LogAnimations);
     initializeWithUserDefault(LogNetwork);
     initializeWithUserDefault(LogFTP);
     initializeWithUserDefault(LogThreading);
@@ -102,3 +106,5 @@ void initializeLoggingChannelsIfNecessary()
 }
 
 } // namespace WebCore
+
+#endif // !LOG_DISABLED

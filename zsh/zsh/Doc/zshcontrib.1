@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "December 20, 2010" "zsh 4\&.3\&.11"
+.TH "ZSHCONTRIB" "1" "December 21, 2012" "zsh 5\&.0\&.2"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -44,7 +44,7 @@ distribution in your home directory, you would use the commands:
 \fBmkdir ~/zsh_help
 cd ~/zsh_help
 man zshall | colcrt \- | \e 
-perl ~/zsh\-4\&.3\&.11/Util/helpfiles\fP
+perl ~/zsh\-5\&.0\&.2/Util/helpfiles\fP
 .fi
 .RE
 .PP
@@ -179,7 +179,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-4\&.3\&.11/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-5\&.0\&.2/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -235,7 +235,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-4\&.3\&.11/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-5\&.0\&.2/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -326,10 +326,13 @@ The shell function \fBadd\-zsh\-hook\fP provides a simple way of adding or
 removing functions from the array\&.
 .RS
 .PP
-\fIhook\fP is one of \fBchpwd\fP, \fBperiodic\fP, \fBprecmd\fP or \fBpreexec\fP,
-the special functions in question\&.
+\fIhook\fP is one of \fBchpwd\fP, \fBperiodic\fP, \fBprecmd\fP, \fBpreexec\fP,
+\fBzshaddhistory\fP, \fBzshexit\fP, or \fBzsh_directory_name\fP,
+the special functions in question\&.  Note that \fBzsh_directory_name\fP
+is called in a different way from the other functions, but may
+still be manipulated as a hook\&.
 .PP
-\fIfunctions\fP is name of an ordinary shell function\&.  If no options
+\fIfunction\fP is name of an ordinary shell function\&.  If no options
 are given this will be added to the array of functions to be executed
 in the given context\&.
 .PP
@@ -339,6 +342,10 @@ the array of functions to be executed\&.
 If the option \fB\-D\fP is given, the \fIfunction\fP is treated as a pattern
 and any matching names of functions are removed from the array of
 functions to be executed\&.
+.PP
+The options \fB\-U\fP, \fB\-z\fP and \fB\-k\fP are passed as arguments to
+\fBautoload\fP for \fIfunction\fP\&.  For functions contributed with zsh, the
+options \fB\-Uz\fP are appropriate\&.
 .RE
 .RE
 .PP
@@ -375,7 +382,7 @@ in most\-recent\-first order\&.
 All direct user interaction is via the \fBcdr\fP function\&.
 .PP
 The argument to cdr is a number \fIN\fP corresponding to the \fIN\fPth most
-recently changed\-to directory\&.  1 is the immediately preceeding directory;
+recently changed\-to directory\&.  1 is the immediately preceding directory;
 the current directory is remembered but is not offered as a destination\&.
 Note that if you have multiple windows open 1 may refer to a directory
 changed to in another window; you can avoid this by having per\-terminal
@@ -585,39 +592,19 @@ this\&.
 .SS "Use with dynamic directory naming"
 .PP
 It is possible to refer to recent directories using the dynamic directory
-name syntax that appeared in zsh version 4\&.3\&.7\&.  If you create and
-autoload a function \fBzsh_directory_name\fP containing the following code,
-\fB~[1]\fP will refer to the most recent directory other than $PWD, and so on\&.
-This also includes completion\&.
+name syntax by using the supplied function \fBzsh_directory_name_cdr\fP
+a hook:
 .PP
 .RS
 .nf
-\fBif [[ $1 = n ]]; then
-  if [[ $2 = <\-> ]]; then
-    # Recent directory
-    typeset \-ga reply
-    autoload \-Uz cdr
-    cdr \-r
-    if [[ \-n ${reply[$2]} ]]; then
-      reply=(${reply[$2]})
-      return 0
-    else
-      reply=()
-      return 1
-    fi
-  fi
-elif [[ $1 = c ]]; then
-  if [[ $PREFIX = <\-> || \-z $PREFIX ]]; then
-    typeset \-a keys values
-    values=(${${(f)"$(cdr \-l)"}/ ##/:})
-    keys=(${values%%:*})
-    _describe \-t dir\-index \&'recent directory index' values keys \-V unsorted \-S']'
-    return
-  fi
-fi
-return 1\fP
+\fBautoload \-Uz add\-zsh\-hook
+add\-zsh\-hook \-Uz zsh_directory_name zsh_directory_name_cdr\fP
 .fi
 .RE
+.PP
+When this is done, \fB~[1]\fP will refer to the most recent
+directory other than $PWD, and so on\&.  Completion after \fB~[\fP\fI\&.\&.\&.\fP
+also works\&.
 .PP
 .SS "Details of directory handling"
 .PP
@@ -665,6 +652,9 @@ http://www\&.nongnu\&.org/cvs/
 Darcs (\fBdarcs\fP)
 http://darcs\&.net/
 .TP
+Fossil (\fBfossil\fP)
+http://fossil\-scm\&.org/
+.TP
 Git (\fBgit\fP)
 http://git\-scm\&.com/
 .TP
@@ -691,7 +681,7 @@ There is also support for the patch management system \fBquilt\fP
 (http://savannah\&.nongnu\&.org/projects/quilt)\&. See \fBQuilt Support\fP
 below for details\&.
 .PP
-To load \fIvcs_info\fP:
+To load \fBvcs_info\fP:
 .PP
 .RS
 .nf
@@ -705,12 +695,14 @@ It can be used in any existing prompt, because it does not require any
 .SS "Quickstart"
 .PP
 To get this feature working quickly (including colors), you can do the
-following (assuming, you loaded \fIvcs_info\fP properly \- see above):
+following (assuming, you loaded \fBvcs_info\fP properly \- see above):
 .PP
 .RS
 .nf
-\fBzstyle \&':vcs_info:*' actionformats '%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{3}|%F{1}%a%F{5}]%f '
-zstyle \&':vcs_info:*' formats       '%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{5}]%f '
+\fBzstyle \&':vcs_info:*' actionformats \e 
+    \&'%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{3}|%F{1}%a%F{5}]%f '
+zstyle \&':vcs_info:*' formats       \e 
+    \&'%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{5}]%f '
 zstyle \&':vcs_info:(sv[nk]|bzr):*' branchformat '%b%F{1}:%F{3}%r'
 precmd () { vcs_info }
 PS1=\&'%F{5}[%F{2}%n%F{5}] %F{3}%3~ ${vcs_info_msg_0_}%f%# '\fP
@@ -718,10 +710,10 @@ PS1=\&'%F{5}[%F{2}%n%F{5}] %F{3}%3~ ${vcs_info_msg_0_}%f%# '\fP
 .RE
 .PP
 Obviously, the last two lines are there for demonstration\&. You need to
-call \fIvcs_info\fP from your \fIprecmd\fP function\&. Once that is done you need
-a \fBsingle quoted\fP \fI\&'${vcs_info_msg_0_}'\fP in your prompt\&.
+call \fBvcs_info\fP from your \fBprecmd\fP function\&. Once that is done you need
+a \fBsingle quoted\fP \fB\&'${vcs_info_msg_0_}'\fP in your prompt\&.
 .PP
-To be able to use \fI\&'${vcs_info_msg_0_}'\fP directly in your prompt like
+To be able to use \fB\&'${vcs_info_msg_0_}'\fP directly in your prompt like
 this, you will need to have the \fBPROMPT_SUBST\fP option enabled\&.
 .PP
 Now call the \fBvcs_info_printsys\fP utility from the command line:
@@ -735,6 +727,7 @@ bzr
 cdv
 cvs
 darcs
+fossil
 git
 hg
 mtn
@@ -772,56 +765,58 @@ You may also pick a few from that list and enable only those:
 .RE
 .PP
 If you rerun \fBvcs_info_printsys\fP after one of these commands, you will
-see the backends listed in the \fIdisable\fP style (or backends not in the
-\fIenable\fP style \- if you used that) marked as disabled by a hash sign\&.
-That means the detection of these systems is skipped \fBcompletely\fP\&. No
+see the backends listed in the \fBdisable\fP style (or backends not in the
+\fBenable\fP style \- if you used that) marked as disabled by a hash sign\&.
+That means the detection of these systems is skipped \fIcompletely\fP\&. No
 wasted time there\&.
 .PP
 .SS "Configuration"
 .PP
-The \fIvcs_info\fP feature can be configured via \fIzstyle\fP\&.
+The \fBvcs_info\fP feature can be configured via \fBzstyle\fP\&.
 .PP
 First, the context in which we are working:
 .RS
 .nf
-\fB:vcs_info:<vcs\-string>:<user\-context>:<repo\-root\-name>\fP
+\fB:vcs_info:\fIvcs\-string\fP:\fIuser\-context\fP:\fIrepo\-root\-name\fP\fP
 .fi
 .RE
 .PP
 .PD 0
 .TP
 .PD
-\fB<vcs\-string>\fP
-is one of: git, git\-svn, git\-p4, hg, hg\-git, hg\-hgsubversion, hg\-hgsvn,
-darcs, bzr, cdv, mtn, svn, cvs, svk, tla or p4\&. When hooks are active the
-hooks name is added after a `+\&'\&. (See \fBHooks in vcs_info\fP below\&.)
+\fIvcs\-string\fP
+is one of: \fBgit\fP, \fBgit\-svn\fP, \fBgit\-p4\fP, \fBhg\fP, \fBhg\-git\fP,
+\fBhg\-hgsubversion\fP, \fBhg\-hgsvn\fP, \fBdarcs\fP, \fBbzr\fP, \fBcdv\fP, \fBmtn\fP,
+\fBsvn\fP, \fBcvs\fP, \fBsvk\fP, \fBtla\fP, \fBp4\fP or \fBfossil\fP\&. When hooks are
+active the hooks name is added after a `+\&'\&. (See \fBHooks in vcs_info\fP
+below\&.)
 .TP
-\fB<user\-context>\fP
+\fIuser\-context\fP
 is a freely configurable string, assignable by
-the user as the first argument to \fIvcs_info\fP (see its description
+the user as the first argument to \fBvcs_info\fP (see its description
 below)\&.
 .TP
-\fB<repo\-root\-name>\fP
+\fIrepo\-root\-name\fP
 is the name of a repository in which you want a
-style to match\&. So, if you want a setting specific to \fI/usr/src/zsh\fP,
-with that being a CVS checkout, you can set \fB<repo\-root\-name>\fP to
-\fIzsh\fP to make it so\&.
+style to match\&. So, if you want a setting specific to \fB/usr/src/zsh\fP,
+with that being a CVS checkout, you can set \fIrepo\-root\-name\fP to
+\fBzsh\fP to make it so\&.
 .PP
-There are three special values for \fB<vcs\-string>\fP: The first is named
-\fI\-init\-\fP, that is in effect as long as there was no decision what VCS
-backend to use\&. The second is \fI\-preinit\-\fP; it is used \fBbefore\fP
-\fIvcs_info\fP is run, when initializing the data exporting variables\&. The
-third special value is \fIformats\fP and is used by the \fBvcs_info_lastmsg\fP
+There are three special values for \fIvcs\-string\fP: The first is named
+\fB\-init\-\fP, that is in effect as long as there was no decision what VCS
+backend to use\&. The second is \fB\-preinit\-\fP; it is used \fIbefore\fP
+\fBvcs_info\fP is run, when initializing the data exporting variables\&. The
+third special value is \fBformats\fP and is used by the \fBvcs_info_lastmsg\fP
 for looking up its styles\&.
 .PP
-The initial value of \fB<repo\-root\-name>\fP is \fI\-all\-\fP and it is replaced
+The initial value of \fIrepo\-root\-name\fP is \fB\-all\-\fP and it is replaced
 with the actual name, as soon as it is known\&. Only use this part of the
-context for defining the \fIformats\fP, \fIactionformats\fP or
-\fIbranchformat\fP styles, as it is guaranteed that \fB<repo\-root\-name>\fP is
+context for defining the \fBformats\fP, \fBactionformats\fP or
+\fBbranchformat\fP styles, as it is guaranteed that \fIrepo\-root\-name\fP is
 set up correctly for these only\&. For all other styles, just use \fB\&'*'\fP
 instead\&.
 .PP
-There are two pre\-defined values for \fB<user\-context>\fP:
+There are two pre\-defined values for \fIuser\-context\fP:
 .PD 0
 .TP
 \fBdefault\fP
@@ -849,47 +844,50 @@ action going on in your current repository; like an interactive rebase or
 a merge conflict\&.
 .TP
 \fBbranchformat\fP
-Some backends replace \fI%b\fP in the formats and
+Some backends replace \fB%b\fP in the formats and
 actionformats styles above, not only by a branch name but also by a
 revision number\&. This style lets you modify how that string should look\&.
 .TP
 \fBnvcsformats\fP
-These "formats" are exported when we didn\&'t detect
-a version control system for the current directory\&. This is useful if you
-want \fIvcs_info\fP to completely take over the generation of your prompt\&.
-You would do something like \fBPS1=\&'${vcs_info_msg_0_}'\fP to accomplish
-that\&.
+These "formats" are exported when we didn\&'t detect a version control system
+for the current directory or \fBvcs_info\fP was disabled\&. This is useful if
+you want \fBvcs_info\fP to completely take over the generation of your
+prompt\&. You would do something like \fBPS1=\&'${vcs_info_msg_0_}'\fP to
+accomplish that\&.
 .TP
 \fBhgrevformat\fP
 \fBhg\fP uses both a hash and a revision number to reference a specific
 changeset in a repository\&. With this style you can format the revision
-string (see \fIbranchformat\fP) to include either or both\&. It\&'s only
-useful when \fIget\-revision\fP is true\&.
+string (see \fBbranchformat\fP) to include either or both\&. It\&'s only
+useful when \fBget\-revision\fP is true\&. Note, the full 40\-character revision id
+is not available (except when using the \fBuse\-simple\fP option) because
+executing hg more than once per prompt is too slow; you may customize this
+behavior using hooks\&.
 .TP
 \fBmax\-exports\fP
 Defines the maximum number of
-\fIvcs_info_msg_*_\fP variables \fIvcs_info\fP will export\&.
+\fBvcs_info_msg_*_\fP variables \fBvcs_info\fP will export\&.
 .TP
 \fBenable\fP
-A list of backends you want to use\&. Checked in the \fI\-init\-\fP context\&. If
+A list of backends you want to use\&. Checked in the \fB\-init\-\fP context\&. If
 this list contains an item called \fBNONE\fP no backend is used at all and
-\fIvcs_info\fP will do nothing\&. If this list contains \fBALL\fP \fIvcs_info\fP
+\fBvcs_info\fP will do nothing\&. If this list contains \fBALL\fP, \fBvcs_info\fP
 will use all known backends\&. Only with \fBALL\fP in \fBenable\fP will the
 \fBdisable\fP style have any effect\&. \fBALL\fP and \fBNONE\fP are case insensitive\&.
 .TP
 \fBdisable\fP
-A list of VCSs you don\&'t want \fIvcs_info\fP to test for
-repositories (checked in the \fI\-init\-\fP context, too)\&. Only used if
+A list of VCSs you don\&'t want \fBvcs_info\fP to test for
+repositories (checked in the \fB\-init\-\fP context, too)\&. Only used if
 \fBenable\fP contains \fBALL\fP\&.
 .TP
 \fBdisable\-patterns\fP
 A list of patterns that are checked against \fB$PWD\fP\&. If a pattern
-matches, \fIvcs_info\fP will be disabled\&. This style is checked in the
-\fI:vcs_info:\-init\-:*:\-all\-\fP context\&.
+matches, \fBvcs_info\fP will be disabled\&. This style is checked in the
+\fB:vcs_info:\-init\-:*:\-all\-\fP context\&.
 .RS
 .PP
 Say, \fB~/\&.zsh\fP is a directory under version control, in which you do
-not want \fIvcs_info\fP to be active, do:
+not want \fBvcs_info\fP to be active, do:
 .RS
 .nf
 \fBzstyle \&':vcs_info:*' disable\-patterns "$HOME/\&.zsh(|/*)"\fP
@@ -906,7 +904,7 @@ If enabled, `standalone\&' mode detection is attempted if no VCS is active
 in a given directory\&. See \fBQuilt Support\fP for details\&.
 .TP
 \fBquilt\-patch\-dir\fP
-Overwrite the value of the \fI$QUILT_PATCHES\fP environment variable\&. See
+Overwrite the value of the \fB$QUILT_PATCHES\fP environment variable\&. See
 \fBQuilt Support\fP for details\&.
 .TP
 \fBquiltcommand\fP
@@ -916,10 +914,14 @@ is used as the command name\&.
 \fBcheck\-for\-changes\fP
 If enabled, this style causes the \fB%c\fP and \fB%u\fP format escapes to show
 when the working directory has uncommitted changes\&. The strings displayed by
-these escapes can be controlled via the \fIstagedstr\fP and \fIunstagedstr\fP
+these escapes can be controlled via the \fBstagedstr\fP and \fBunstagedstr\fP
 styles\&. The only backends that currently support this option are \fBgit\fP and
 \fBhg\fP (\fBhg\fP only supports unstaged)\&.
 .RS
+.PP
+For this style to be evaluated with the \fBhg\fP backend, the \fBget\-revision\fP
+style needs to be set and the \fBuse\-simple\fP style needs to be unset\&. The
+latter is the default; the former is not\&.
 .PP
 Note, the actions taken if this style is enabled are potentially expensive
 (read: they may be slow, depending on how big the current repository is)\&.
@@ -935,20 +937,20 @@ This string will be used in the \fB%u\fP escape if there are unstaged changes
 in the repository\&.
 .TP
 \fBcommand\fP
-This style causes \fIvcs_info\fP to use the supplied string as the command
+This style causes \fBvcs_info\fP to use the supplied string as the command
 to use as the VCS\&'s binary\&. Note, that setting this in ':vcs_info:*' is
 not a good idea\&.
 .RS
 .PP
 If the value of this style is empty (which is the default), the used binary
-name is the name of the backend in use (e\&.g\&. \fIsvn\fP is used in an \fIsvn\fP
+name is the name of the backend in use (e\&.g\&. \fBsvn\fP is used in an \fBsvn\fP
 repository)\&.
 .PP
-The \fIrepo\-root\-name\fP part in the context is always the default \fB\-all\-\fP
+The \fBrepo\-root\-name\fP part in the context is always the default \fB\-all\-\fP
 when this style is looked up\&.
 .PP
 For example, this style can be used to use binaries from non\-default
-installation directories\&. Assume, \fIgit\fP is installed in /usr/bin but
+installation directories\&. Assume, \fBgit\fP is installed in /usr/bin but
 your sysadmin installed a newer version in /usr/bin/local\&. Instead of
 changing the order of your \fB$PATH\fP parameter, you can do this:
 .RS
@@ -963,7 +965,7 @@ This is used by the Perforce backend (\fBp4\fP) to decide if it should
 contact the Perforce server to find out if a directory is managed
 by Perforce\&.  This is the only reliable way of doing this, but runs
 the risk of a delay if the server name cannot be found\&.  If the
-server (more specifically, the \fIhost\fP\fB:\fP\fIport\fP pair describing the
+server (more specifically, the \fBhost\fP\fB:\fP\fBport\fP pair describing the
 server) cannot be contacted, its name is put into the associative array
 \fBvcs_info_p4_dead_servers\fP and is not contacted again during the session
 until it is removed by hand\&.  If you do not set this style, the \fBp4\fP
@@ -999,12 +1001,12 @@ bookmarks\&. They will be available via the `\fB%m\fP\&' replacement\&.
 .TP
 \fBuse\-prompt\-escapes\fP
 Determines if we assume that the assembled
-string from \fIvcs_info\fP includes prompt escapes\&. (Used by
+string from \fBvcs_info\fP includes prompt escapes\&. (Used by
 \fBvcs_info_lastmsg\fP\&.)
 .TP
 \fBdebug\fP
 Enable debugging output to track possible problems\&. Currently this style
-is only used by \fIvcs_info\fP\&'s hooks system\&.
+is only used by \fBvcs_info\fP\&'s hooks system\&.
 .TP
 \fBhooks\fP
 A list style that defines hook\-function names\&. See \fBHooks in vcs_info\fP
@@ -1084,7 +1086,7 @@ false
 false
 .TP
 \fBquilt\-patch\-dir\fP
-empty \- use \fI$QUILT_PATCHES\fP
+empty \- use \fB$QUILT_PATCHES\fP
 .TP
 \fBquiltcommand\fP
 quilt
@@ -1103,30 +1105,30 @@ Information about the current branch\&.
 .TP
 \fB%a\fP
 An identifier that describes the action\&. Only makes sense in
-\fIactionformats\fP\&.
+\fBactionformats\fP\&.
 .TP
 \fB%i\fP
 The current revision number or identifier\&. For \fBhg\fP
-the \fIhgrevformat\fP style may be used to customize the output\&.
+the \fBhgrevformat\fP style may be used to customize the output\&.
 .TP
 \fB%c\fP
-The string from the \fIstagedstr\fP style if there are staged
+The string from the \fBstagedstr\fP style if there are staged
 changes in the repository\&.
 .TP
 \fB%u\fP
-The string from the \fIunstagedstr\fP style if there are
+The string from the \fBunstagedstr\fP style if there are
 unstaged changes in the repository\&.
 .TP
 \fB%R\fP
 The base directory of the repository\&.
 .TP
 \fB%r\fP
-The repository name\&. If \fB%R\fP is \fI/foo/bar/repoXY\fP, \fB%r\fP
-is \fIrepoXY\fP\&.
+The repository name\&. If \fB%R\fP is \fB/foo/bar/repoXY\fP, \fB%r\fP
+is \fBrepoXY\fP\&.
 .TP
 \fB%S\fP
 A subdirectory within a repository\&. If \fB$PWD\fP is
-\fI/foo/bar/repoXY/beer/tasty\fP, \fB%S\fP is \fIbeer/tasty\fP\&.
+\fB/foo/bar/repoXY/beer/tasty\fP, \fB%S\fP is \fBbeer/tasty\fP\&.
 .TP
 \fB%m\fP
 A "misc" replacement\&. It is at the discretion of the backend to
@@ -1143,7 +1145,7 @@ In \fBbranchformat\fP these replacements are done:
 The branch name\&.
 .TP
 \fB%r\fP
-The current revision number or the \fIhgrevformat\fP style for
+The current revision number or the \fBhgrevformat\fP style for
 \fBhg\fP\&.
 .PD
 .PP
@@ -1155,7 +1157,7 @@ In \fBhgrevformat\fP these replacements are done:
 The current local revision number\&.
 .TP
 \fB%h\fP
-The current 40\-character changeset ID hash identifier\&.
+The current global revision identifier\&.
 .PD
 .PP
 In \fBpatch\-format\fP and \fBnopatch\-format\fP these replacements are done:
@@ -1163,16 +1165,19 @@ In \fBpatch\-format\fP and \fBnopatch\-format\fP these replacements are done:
 .PD 0
 .TP
 \fB%p\fP
-The name of the top\-most applied patch\&.
+The name of the top\-most applied patch (\fBapplied\-string\fP)\&.
 .TP
 \fB%u\fP
-The number of unapplied patches\&.
+The number of unapplied patches (\fBunapplied\-string\fP)\&.
 .TP
 \fB%n\fP
 The number of applied patches\&.
 .TP
 \fB%c\fP
 The number of unapplied patches\&.
+.TP
+\fB%a\fP
+The number of all patches\&.
 .TP
 \fB%g\fP
 The names of active \fBmq\fP guards (\fBhg\fP backend)\&.
@@ -1186,11 +1191,11 @@ no replacements are performed at all, it is just a string\&.
 .PP
 .SS "Oddities"
 .PP
-If you want to use the \fB%b\fP (bold off) prompt expansion in \fIformats\fP,
-which expands \fB%b\fP itself, use \fB%%b\fP\&. That will cause the \fIvcs_info\fP
+If you want to use the \fB%b\fP (bold off) prompt expansion in \fBformats\fP,
+which expands \fB%b\fP itself, use \fB%%b\fP\&. That will cause the \fBvcs_info\fP
 expansion to replace \fB%%b\fP with \fB%b\fP, so that zsh\&'s prompt expansion
 mechanism can handle it\&. Similarly, to hand down \fB%b\fP from
-\fIbranchformat\fP, use \fB%%%%b\fP\&. Sorry for this inconvenience, but it
+\fBbranchformat\fP, use \fB%%%%b\fP\&. Sorry for this inconvenience, but it
 cannot be easily avoided\&. Luckily we do not clash with a lot of prompt
 expansions and this only needs to be done for those\&.
 .PP
@@ -1204,30 +1209,30 @@ does this for a large number of packages)\&. Quilt can also help individual
 developers keep track of their own patches on top of real version control
 systems\&.
 .PP
-The \fIvcs_info\fP integration tries to support both ways of using quilt by
+The \fBvcs_info\fP integration tries to support both ways of using quilt by
 having two slightly different modes of operation: `addon\&' mode and
 `standalone\&' mode)\&.
 .PP
-For `addon\&' mode to become active \fIvcs_info\fP must have already detected a
+For `addon\&' mode to become active \fBvcs_info\fP must have already detected a
 real version control system controlling the directory\&. If that is the case,
 a directory that holds quilt\&'s patches needs to be found\&. That directory is
-configurable via the \fI`QUILT_PATCHES\&'\fP environment variable\&. If that
-variable exists its value is used, otherwise the value \fB`patches\&'\fP is
-assumed\&. The value from \fI$QUILT_PATCHES\fP can be overwritten using the
-\fB`quilt\-patches\&'\fP style\&. (Note: you can use \fIvcs_info\fP to keep the value
-of \fI$QUILT_PATCHES\fP correct all the time via the \fBpost\-quilt\fP hook)\&.
+configurable via the `\fBQUILT_PATCHES\fP\&' environment variable\&. If that
+variable exists its value is used, otherwise the value `\fBpatches\fP\&' is
+assumed\&. The value from \fB$QUILT_PATCHES\fP can be overwritten using the
+\fB`quilt\-patches\&'\fP style\&. (Note: you can use \fBvcs_info\fP to keep the value
+of \fB$QUILT_PATCHES\fP correct all the time via the \fBpost\-quilt\fP hook)\&.
 .PP
 When the directory in question is found, quilt is assumed to be active\&. To
-gather more information, \fIvcs_info\fP looks for a directory called `\&.pc\&';
+gather more information, \fBvcs_info\fP looks for a directory called `\&.pc\&';
 Quilt uses that directory to track its current state\&. If this directory does
 not exist we know that quilt has not done anything to the working directory
 (read: no patches have been applied yet)\&.
 .PP
-If patches are applied, \fIvcs_info\fP will try to find out which\&. If you want
+If patches are applied, \fBvcs_info\fP will try to find out which\&. If you want
 to know which patches of a series are not yet applied, you need to activate
 the \fBget\-unapplied\fP style in the appropriate context\&.
 .PP
-\fIvcs_info\fP allows for very detailed control over how the gathered
+\fBvcs_info\fP allows for very detailed control over how the gathered
 information is presented (see the below sections, \fBStyles\fP and \fBHooks in
 vcs_info\fP), all of which are documented below\&. Note there are a number of
 other patch tracking systems that work on top of a certain version control
@@ -1236,31 +1241,31 @@ for systems like that are generally configured the same way as the \fBquilt\fP
 support\&.
 .PP
 If the \fBquilt\fP support is working in `addon\&' mode, the produced string is
-available as a simple format replacement (\fI%Q\fP to be precise), which can
+available as a simple format replacement (\fB%Q\fP to be precise), which can
 be used in \fBformats\fP and \fBactionformats\fP; see below for details)\&.
 .PP
 If, on the other hand, the support code is working in `standalone\&' mode,
-\fIvcs_info\fP will pretend as if \fBquilt\fP were an actual version control
+\fBvcs_info\fP will pretend as if \fBquilt\fP were an actual version control
 system\&. That means that the version control system identifier (which
 otherwise would be something like `svn\&' or `cvs') will be set to
 `\fB\-quilt\-\fP\&'\&. This has implications on the used style context where this
-identifier is the second element\&. \fIvcs_info\fP will have filled in a proper
+identifier is the second element\&. \fBvcs_info\fP will have filled in a proper
 value for the "repository\&'s" root directory and the string containing the
 information about quilt\&'s state will be available as the `misc' replacement
-(and \fI%Q\fP for compatibility with `addon\&' mode\&.
+(and \fB%Q\fP for compatibility with `addon\&' mode\&.
 .PP
 What is left to discuss is how `standalone\&' mode is detected\&. The detection
 itself is a series of searches for directories\&. You can have this detection
 enabled all the time in every directory that is not otherwise under version
 control\&. If you know there is only a limited set of trees where you would
-like \fIvcs_info\fP to try and look for Quilt in `standalone\&' mode to minimise
-the amount of searching on every call to \fIvcs_info\fP, there are a number of
+like \fBvcs_info\fP to try and look for Quilt in `standalone\&' mode to minimise
+the amount of searching on every call to \fBvcs_info\fP, there are a number of
 ways to do that:
 .PP
 Essentially, `standalone\&' mode detection is controlled by a style called
 `\fBquilt\-standalone\fP\&'\&. It is a string style and its value can have different
 effects\&. The simplest values are: `\fBalways\fP\&' to run detection every time
-\fIvcs_info\fP is run, and `\fBnever\fP\&' to turn the detection off entirely\&.
+\fBvcs_info\fP is run, and `\fBnever\fP\&' to turn the detection off entirely\&.
 .PP
 If the value of \fBquilt\-standalone\fP is something else, it is interpreted
 differently\&. If the value is the name of a scalar variable the value of that
@@ -1289,25 +1294,40 @@ Note, if there is both a function and a variable by the name of
 .PD
 \fBvcs_info\fP [\fIuser\-context\fP]
 The main function, that runs all backends and assembles all data into
-\fI${vcs_info_msg_*_}\fP\&. This is the function you want to call from
+\fB${vcs_info_msg_*_}\fP\&. This is the function you want to call from
 \fBprecmd\fP if you want to include up\-to\-date information in your prompt (see
 \fBVariable description\fP below)\&. If an argument is given, that string will be
-used instead of \fBdefault\fP in the \fBuser\-context\fP field of the style
+used instead of \fBdefault\fP in the \fIuser\-context\fP field of the style
 context\&.
 .TP
+\fBvcs_info_hookadd\fP
+Statically registers a number of functions to a given hook\&. The hook needs
+to be given as the first argument; what follows is a list of hook\-function
+names to register to the hook\&. The `\fB+vi\-\fP\&' prefix needs to be left out
+here\&. See \fBHooks in vcs_info\fP below for details\&.
+.TP
+\fBvcs_info_hookdel\fP
+Remove hook\-functions from a given hook\&. The hook needs to be given as the
+first non\-option argument; what follows is a list of hook\-function
+names to un\-register from the hook\&. If `\fB\-a\fP\&' is used as the first
+argument, \fBall\fP occurances of the functions are unregistered\&. Otherwise
+only the last occurance is removed (if a function was registered to a hook
+more than once) \&. The `\fB+vi\-\fP\&' prefix needs to be left out here\&. See
+\fBHooks in vcs_info\fP below for details\&.
+.TP
 \fBvcs_info_lastmsg\fP
-Outputs the last \fI${vcs_info_msg_*_}\fP value\&.
+Outputs the last \fB${vcs_info_msg_*_}\fP value\&.
 Takes into account the value of the \fBuse\-prompt\-escapes\fP style in
-\fI\&':vcs_info:formats:command:\-all\-'\fP\&. It also only prints \fBmax\-exports\fP
+\fB\&':vcs_info:formats:command:\-all\-'\fP\&. It also only prints \fBmax\-exports\fP
 values\&.
 .TP
 \fBvcs_info_printsys\fP [\fIuser\-context\fP]
 Prints a list of all
 supported version control systems\&. Useful to find out possible contexts
-(and which of them are enabled) or values for the \fIdisable\fP style\&.
+(and which of them are enabled) or values for the \fBdisable\fP style\&.
 .TP
 \fBvcs_info_setsys\fP
-Initializes \fIvcs_info\fP\&'s internal list of
+Initializes \fBvcs_info\fP\&'s internal list of
 available backends\&. With this function, you can add support for new VCSs
 without restarting the shell\&.
 .PP
@@ -1318,28 +1338,28 @@ All functions named VCS_INFO_* are for internal use only\&.
 .PD 0
 .TP
 .PD
-\fB${vcs_info_msg_N_}\fP (Note the trailing underscore)
-Where \fIN\fP is an integer, e\&.g\&., \fIvcs_info_msg_0_\fP\&. These variables
-are the storage for the informational message the last \fIvcs_info\fP call
+\fB${vcs_info_msg_\fP\fIN\fP\fB_}\fP (Note the trailing underscore)
+Where \fIN\fP is an integer, e\&.g\&., \fBvcs_info_msg_0_\fP\&. These variables
+are the storage for the informational message the last \fBvcs_info\fP call
 has assembled\&. These are strongly connected to the \fBformats\fP,
 \fBactionformats\fP and \fBnvcsformats\fP styles described above\&. Those styles
 are lists\&. The first member of that list gets expanded into
-\fI${vcs_info_msg_0_}\fP, the second into \fI${vcs_info_msg_1_}\fP
-and the Nth into \fI${vcs_info_msg_N\-1_}\fP\&. These parameters are
+\fB${vcs_info_msg_0_}\fP, the second into \fB${vcs_info_msg_1_}\fP
+and the Nth into \fB${vcs_info_msg_N\-1_}\fP\&. These parameters are
 exported into the environment\&. (See the \fBmax\-exports\fP style above\&.)
 .PP
 All variables named VCS_INFO_* are for internal use only\&.
 .PP
 .SS "Hooks in vcs_info"
 .PP
-Hooks are places in \fIvcs_info\fP where you can run your own code\&. That
+Hooks are places in \fBvcs_info\fP where you can run your own code\&. That
 code can communicate with the code that called it and through that,
 change the system\&'s behaviour\&.
 .PP
 For configuration, hooks change the style context:
 .RS
 .nf
-\fB:vcs_info:<vcs\-string>+<hook\-name>:<user\-context>:<repo\-root\-name>\fP
+\fB:vcs_info:\fIvcs\-string\fP+\fIhook\-name\fP:\fIuser\-context\fP:\fIrepo\-root\-name\fP\fP
 .fi
 .RE
 .PP
@@ -1358,13 +1378,20 @@ avoid namespace problems, all registered function names are prepended by
 a `+vi\-\&', so the actual functions called for the `foo' hook are
 `\fB+vi\-bar\fP\&' and `\fB+vi\-baz\fP'\&.
 .PP
+If you would like to register a function to a hook regardless of the
+current context, you may use the \fBvcs_info_hookadd\fP function\&. To remove
+a function that was added like that, the \fBvcs_info_hookdel\fP function
+can be used\&.
+.PP
 If something seems weird, you can enable the `debug\&' boolean style in
 the proper context and the hook\-calling code will print what it tried
 to execute and whether the function in question existed\&.
 .PP
 When you register more than one function to a hook, all functions are
 executed one after another until one function returns non\-zero or until
-all functions have been called\&.
+all functions have been called\&. Context\-sensitive hook functions are
+executed \fBbefore\fP statically registered ones (the ones added by
+\fBvcs_info_hookadd\fP)\&.
 .PP
 You may pass data between functions via an associative array, \fBuser_data\fP\&.
 For example:
@@ -1409,10 +1436,10 @@ Finally, the full list of currently available hooks:
 .TP
 .PD
 \fBstart\-up\fP
-Called after starting \fIvcs_info\fP but before the VCS in this directory is
-determined\&. It can be used to deactivate \fIvcs_info\fP temporarily if
-necessary\&. When \fBret\fP is set to \fI1\fP, \fIvcs_info\fP aborts and does
-nothing; when set to \fI2\fP, \fIvcs_info\fP sets up everything as if no
+Called after starting \fBvcs_info\fP but before the VCS in this directory is
+determined\&. It can be used to deactivate \fBvcs_info\fP temporarily if
+necessary\&. When \fBret\fP is set to \fB1\fP, \fBvcs_info\fP aborts and does
+nothing; when set to \fB2\fP, \fBvcs_info\fP sets up everything as if no
 version control were active and exits\&.
 .TP
 \fBpre\-get\-data\fP
@@ -1424,44 +1451,44 @@ Called in the Mercurial backend when a bookmark string is generated; the
 .RS
 .PP
 This hook gets the names of the Mercurial bookmarks that
-\fIvcs_info\fP collected from `hg\&'\&.
+\fBvcs_info\fP collected from `hg\&'\&.
 .PP
 When setting \fBret\fP to non\-zero, the string in
-\fB${hook_com[hg\-bookmark\-string]}\fP will be used in the \fI%m\fP escape in
+\fB${hook_com[hg\-bookmark\-string]}\fP will be used in the \fB%m\fP escape in
 \fBformats\fP and \fBactionformats\fP and will be availabe in the global
-\fIbackend_misc\fP array as \fB${backend_misc[bookmarks]}\fP\&.
+\fBbackend_misc\fP array as \fB${backend_misc[bookmarks]}\fP\&.
 .RE
 .TP
 \fBgen\-applied\-string\fP
 Called in the \fBgit\fP (with \fBstgit\fP), and \fBhg\fP (with \fBmq\fP) backends
-and in \fBquilt\fP support when the \fIapplied\-string\fP is generated; the
+and in \fBquilt\fP support when the \fBapplied\-string\fP is generated; the
 \fBuse\-quilt\fP zstyle must be true for \fBquilt\fP (the \fBmq\fP and \fBstgit\fP
 backends are active by default)\&.
 .RS
 .PP
-This hook gets the names of all applied patches which \fIvcs_info\fP collected
+This hook gets the names of all applied patches which \fBvcs_info\fP collected
 so far in the opposite order, which means that the first argument is the
 top\-most patch and so forth\&.
 .PP
 When setting \fBret\fP to non\-zero, the string in
-\fB${hook_com[applied\-string]}\fP will be used in the \fI%m\fP escape in
+\fB${hook_com[applied\-string]}\fP will be used in the \fB%m\fP escape in
 \fBformats\fP and \fBactionformats\fP; it will be available in the global
-\fIbackend_misc\fP array as \fB$backend_misc[patches]}\fP; and it will be
-available as \fI%p\fP in the \fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
+\fBbackend_misc\fP array as \fB$backend_misc[patches]}\fP; and it will be
+available as \fB%p\fP in the \fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
 .RE
 .TP
 \fBgen\-unapplied\-string\fP
 Called in the \fBgit\fP (with \fBstgit\fP), and \fBhg\fP (with \fBmq\fP) backend
-and in \fBquilt\fP support when the \fIunapplied\-string\fP is generated; the
+and in \fBquilt\fP support when the \fBunapplied\-string\fP is generated; the
 \fBget\-unapplied\fP style must be true\&.
 .RS
 .PP
-This hook gets the names of all unapplied patches which \fIvcs_info\fP
+This hook gets the names of all unapplied patches which \fBvcs_info\fP
 collected so far in the opposite order, which mean that the first argument is
 the patch next\-in\-line to be applied and so forth\&.
 .PP
 When setting \fBret\fP to non\-zero, the string in
-\fB${hook_com[unapplied\-string]}\fP will be available as \fI%u\fP in the
+\fB${hook_com[unapplied\-string]}\fP will be available as \fB%u\fP in the
 \fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
 .RE
 .TP
@@ -1473,8 +1500,15 @@ Called in the \fBhg\fP backend when \fBguards\-string\fP is generated; the
 This hook gets the names of any active \fBmq\fP guards\&.
 .PP
 When setting \fBret\fP to non\-zero, the string in
-\fB${hook_com[guards\-string]}\fP will be used in the \fI%g\fP escape in the
+\fB${hook_com[guards\-string]}\fP will be used in the \fB%g\fP escape in the
 \fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
+.RE
+.TP
+\fBno\-vcs\fP
+This hooks is called when no version control system was detected\&.
+.RS
+.PP
+The `hook_com\&' parameter is not used\&.
 .RE
 .TP
 \fBpost\-quilt\fP
@@ -1494,12 +1528,12 @@ hook is the format that is configured at this point\&.
 .RS
 .PP
 The `\fBhook_com\fP\&' keys considered are `\fBbranch\fP' and `\fBrevision\fP'\&.
-They are set to the values figured out so far by \fIvcs_info\fP and any
+They are set to the values figured out so far by \fBvcs_info\fP and any
 change will be used directly when the actual replacement is done\&.
 .PP
-If \fBret\fP is set to to non\-zero, the string in
+If \fBret\fP is set to non\-zero, the string in
 \fB${hook_com[branch\-replace]}\fP will be used unchanged as the
-`\fB%b\fP\&' replacement in the variables set by \fIvcs_info\fP\&.
+`\fB%b\fP\&' replacement in the variables set by \fBvcs_info\fP\&.
 .RE
 .TP
 \fBset\-hgrev\-format\fP
@@ -1508,12 +1542,12 @@ hook is the format that is configured at this point\&.
 .RS
 .PP
 The `\fBhook_com\fP\&' keys considered are `\fBhash\fP' and `\fBlocalrev\fP'\&.
-They are set to the values figured out so far by \fIvcs_info\fP and any
+They are set to the values figured out so far by \fBvcs_info\fP and any
 change will be used directly when the actual replacement is done\&.
 .PP
-If \fBret\fP is set to to non\-zero, the string in
+If \fBret\fP is set to non\-zero, the string in
 \fB${hook_com[rev\-replace]}\fP will be used unchanged as the
-`\fB%i\fP\&' replacement in the variables set by \fIvcs_info\fP\&.
+`\fB%i\fP\&' replacement in the variables set by \fBvcs_info\fP\&.
 .RE
 .TP
 \fBset\-message\fP
@@ -1528,7 +1562,7 @@ There are a number of `\fBhook_com\fP\&' keys, that are used here:
 `\fBstaged\fP\&', `\fBunstaged\fP', `\fBrevision\fP', `\fBmisc\fP', `\fBvcs\fP'
 and one `\fBmiscN\fP\&' entry for each backend\-specific data field (\fBN\fP
 starting at zero)\&. They are set to the values figured out so far by
-\fIvcs_info\fP and any change will be used directly when the actual
+\fBvcs_info\fP and any change will be used directly when the actual
 replacement is done\&.
 .PP
 Since this hook is triggered multiple times (once for each configured
@@ -1538,9 +1572,9 @@ so even if you changed a value to your liking you can still get the
 original value in the next run\&. Changing the `\fB_orig\fP\&' values is
 probably not a good idea\&.
 .PP
-If \fBret\fP is set to to non\-zero, the string in
+If \fBret\fP is set to non\-zero, the string in
 \fB${hook_com[message]}\fP will be used unchanged as the message by
-\fIvcs_info\fP\&.
+\fBvcs_info\fP\&.
 .RE
 .RE
 .PP
@@ -1550,7 +1584,7 @@ They contain some explanatory code\&.
 .PP
 .SS "Examples"
 .PP
-Don\&'t use \fIvcs_info\fP at all (even though it's in your prompt):
+Don\&'t use \fBvcs_info\fP at all (even though it's in your prompt):
 .RS
 .nf
 \fBzstyle \&':vcs_info:*' enable NONE\fP
@@ -1606,7 +1640,7 @@ Display the revision number in yellow for \fBbzr\fP and \fBsvn\fP:
 .RE
 .PP
 If you want colors, make sure you enclose the color codes in \fB%{\&.\&.\&.%}\fP
-if you want to use the string provided by \fIvcs_info\fP in prompts\&.
+if you want to use the string provided by \fBvcs_info\fP in prompts\&.
 .PP
 Here is how to print the VCS information as a command (not in a prompt):
 .RS
@@ -1620,9 +1654,9 @@ This way, you can even define different formats for output via
 .PP
 Now as promised, some code that uses hooks:
 say, you\&'d like to replace the string `svn' by `subversion' in
-\fIvcs_info\fP\&'s \fB%s\fP \fBformats\fP replacement\&.
+\fBvcs_info\fP\&'s \fB%s\fP \fBformats\fP replacement\&.
 .PP
-First, we will tell \fIvcs_info\fP to call a function when populating
+First, we will tell \fBvcs_info\fP to call a function when populating
 the message variables with the gathered information:
 .RS
 .nf
@@ -1730,7 +1764,7 @@ Some longer examples and code snippets which might be useful are available in
 the examples file located at Misc/vcs_info\-examples in the Zsh source
 directory\&.
 .PP
-This concludes our guided tour through zsh\&'s \fIvcs_info\fP\&.
+This concludes our guided tour through zsh\&'s \fBvcs_info\fP\&.
 .PP
 .SH "PROMPT THEMES"
 .PP
@@ -1989,6 +2023,16 @@ context is examined and if it contains the string \fBback\fP, the word before
 the cursor is considered, else the word after cursor is considered\&. Some
 examples are given below\&.
 .PP
+The style \fBskip\-whitespace\-first\fP is only used with the
+\fBforward\-word\fP widget\&.  If it is set to true, then \fBforward\-word\fP
+skips any non\-word\-characters, followed by any non\-word\-characters:
+this is similar to the behaviour of other word\-orientated widgets,
+and also that used by other editors, however it differs from the
+standard zsh behaviour\&.  When using \fBselect\-word\-style\fP the widget
+is set in the context \fB:zle:*\fP to \fBtrue\fP if the word style is
+\fBbash\fP and \fBfalse\fP otherwise\&.  It may be overridden by setting it in
+the more specific context \fB:zle:forward\-word*\fP\&.
+.PP
 Here are some examples of use of the styles, actually taken from the
 simplified interface in \fBselect\-word\-style\fP:
 .PP
@@ -2074,27 +2118,6 @@ The \fBword\-context\fP style is implemented by the function
 directly\&.
 .RE
 .TP
-\fBdelete\-whole\-word\-match\fP
-This is another function which works like the \fB\-match\fP functions
-described immediately above, i\&.e\&. using styles to decide the word
-boundaries\&.  However, it is not a replacement for any existing function\&.
-.RS
-.PP
-The basic behaviour is to delete the word around the cursor\&.  There is no
-numeric prefix handling; only the single word around the cursor is
-considered\&.  If the widget contains the string \fBkill\fP, the removed text
-will be placed in the cutbuffer for future yanking\&.  This can be obtained
-by defining \fBkill\-whole\-word\-match\fP as follows:
-.PP
-.RS
-.nf
-\fBzle \-N kill\-whole\-word\-match delete\-whole\-word\-match\fP
-.fi
-.RE
-.PP
-and then binding the widget \fBkill\-whole\-word\-match\fP\&.
-.RE
-.TP
 \fBcopy\-earlier\-word\fP
 This widget works like a combination of \fBinsert\-last\-word\fP and
 \fBcopy\-prev\-shell\-word\fP\&.  Repeated invocations of the widget retrieve
@@ -2127,6 +2150,36 @@ This widget allows the cursor to be easily moved to the other interesting
 spots\&.  It can be invoked repeatedly to cycle between all positions
 reported by the completion system\&.
 .RE
+.TP
+\fBdelete\-whole\-word\-match\fP
+This is another function which works like the \fB\-match\fP functions
+described immediately above, i\&.e\&. using styles to decide the word
+boundaries\&.  However, it is not a replacement for any existing function\&.
+.RS
+.PP
+The basic behaviour is to delete the word around the cursor\&.  There is no
+numeric prefix handling; only the single word around the cursor is
+considered\&.  If the widget contains the string \fBkill\fP, the removed text
+will be placed in the cutbuffer for future yanking\&.  This can be obtained
+by defining \fBkill\-whole\-word\-match\fP as follows:
+.PP
+.RS
+.nf
+\fBzle \-N kill\-whole\-word\-match delete\-whole\-word\-match\fP
+.fi
+.RE
+.PP
+and then binding the widget \fBkill\-whole\-word\-match\fP\&.
+.RE
+.TP
+\fBup\-line\-or\-beginning\-search\fP, \fBdown\-line\-or\-beginning\-search\fP
+These widgets are similar to the builtin functions \fBup\-line\-or\-search\fP
+and \fBdown\-line\-or\-search\fP:  if in a multiline buffer they move up or
+down within the buffer, otherwise they search for a history line matching
+the start of the current line\&.  In this case, however, they search for
+a line which matches the current line up to the current cursor position, in
+the manner of \fBhistory\-beginning\-search\-backward\fP and \fB\-forward\fP, rather
+than the first word on the line\&.
 .TP
 \fBedit\-command\-line\fP
 Edit the command line using your visual editor, as in \fBksh\fP\&.
@@ -2215,15 +2268,6 @@ zle \-N history\-pattern\-search\-forward history\-pattern\-search\fP
 .RE
 .RE
 .TP
-\fBup\-line\-or\-beginning\-search\fP, \fBdown\-line\-or\-beginning\-search\fP
-These widgets are similar to the builtin functions \fBup\-line\-or\-search\fP
-and \fBdown\-line\-or\-search\fP:  if in a multiline buffer they move up or
-down within the buffer, otherwise they search for a history line matching
-the start of the current line\&.  In this case, however, they search for
-a line which matches the current line up to the current cursor position, in
-the manner of \fBhistory\-beginning\-search\-backward\fP and \fB\-forward\fP, rather
-than the first word on the line\&.
-.TP
 \fBincarg\fP
 Typing the keystrokes for this widget with the cursor placed on or to the
 left of an integer causes that integer to be incremented by one\&.  With a
@@ -2296,7 +2340,7 @@ See \fBinsert\-unicode\-char\fP for an alternative way of inserting Unicode
 characters using their hexadecimal character number\&.
 .PP
 The set of accented characters is reasonably complete up to Unicode
-character U+0180, the set of special characters less so\&.  However, it it
+character U+0180, the set of special characters less so\&.  However, it
 is very sporadic from that point\&.  Adding new characters is easy,
 however; see the function \fBdefine\-composed\-chars\fP\&.  Please send any
 additions to \fBzsh\-workers@zsh\&.org\fP\&.
@@ -2660,6 +2704,18 @@ into the command line\&.
 .RE
 .RE
 .TP
+\fBinsert\-unicode\-char\fP
+When first executed, the user inputs a set of hexadecimal digits\&.
+This is terminated with another call to \fBinsert\-unicode\-char\fP\&.
+The digits are then turned into the corresponding Unicode character\&.
+For example, if the widget is bound to \fB^XU\fP, the character sequence
+`\fB^XU 4 c ^XU\fP\&' inserts \fBL\fP (Unicode U+004c)\&.
+.RS
+.PP
+See \fBinsert\-composed\-char\fP for a way of inserting characters
+using a two\-character mnemonic\&.
+.RE
+.TP
 .PD 0
 \fBnarrow\-to\-region [ \-p\fP \fIpre\fP \fB] [ \-P\fP \fIpost\fP \fB]\fP
 .TP
@@ -2724,18 +2780,6 @@ zle recursive\-edit
 narrow\-to\-region \-R state\fP
 .fi
 .RE
-.RE
-.TP
-\fBinsert\-unicode\-char\fP
-When first executed, the user inputs a set of hexadecimal digits\&.
-This is terminated with another call to \fBinsert\-unicode\-char\fP\&.
-The digits are then turned into the corresponding Unicode character\&.
-For example, if the widget is bound to \fB^XU\fP, the character sequence
-`\fB^XU 4 c ^XU\fP\&' inserts \fBL\fP (Unicode U+004c)\&.
-.RS
-.PP
-See \fBinsert\-composed\-char\fP for a way of inserting characters
-using a two\-character mnemonic\&.
 .RE
 .TP
 \fBpredict\-on\fP
@@ -2862,6 +2906,11 @@ regular expression matching is performed, else a literal string
 replacement\&.  Note that the previous source and replacement text are the
 same whether pattern, regular expression or string matching is used\&.
 .PP
+In addition, \fBreplace\-string\fP shows the previous replacement above
+the prompt, so long as there was one during the current session; if the
+source string is empty, that replacement will be repeated without
+the widget prompting for a replacement string\&.
+.PP
 For example, starting from the line:
 .PP
 .RS
@@ -2884,6 +2933,26 @@ The range of the replacement string can be limited by using the
 \fBnarrow\-to\-region\-invisible\fP widget\&.  One limitation of the current
 version is that \fBundo\fP will cycle through changes to the replacement
 and source strings before undoing the replacement itself\&.
+.RE
+.TP
+\fBsend\-invisible\fP
+This is similar to read\-from\-minibuffer in that it may be called as a
+function from a widget or as a widget of its own, and interactively reads
+input from the keyboard\&.  However, the input being typed is concealed and
+a string of asterisks (`\fB*\fP\&') is shown instead\&.  The value is saved in
+the parameter \fB$INVISIBLE\fP to which a reference is inserted into the
+editing buffer at the restored cursor position\&.  If the read was aborted
+by a keyboard break (typically \fB^G\fP) or another escape from editing such
+as \fBpush\-line\fP, \fB$INVISIBLE\fP is set to empty and the original buffer
+is restored unchanged\&.
+.RS
+.PP
+If one argument is supplied to the function it is taken as a prompt,
+otherwise `\fBNon\-echoed text: \fP\&' is used (as in emacs)\&.  If a second and
+third argument are supplied they are used to begin and end the reference
+to \fB$INVISIBLE\fP that is inserted into the buffer\&.  The default is to
+open with \fB${\fP, then \fBINVISIBLE\fP, and close with \fB}\fP, but many
+other effects are possible\&.
 .RE
 .TP
 \fBsmart\-insert\-last\-word\fP
@@ -3363,6 +3432,27 @@ start with \fB:mime:\fP, with additional components in some cases\&.
 It is recommended that a trailing \fB*\fP (suitably quoted) be appended
 to style patterns in case the system is extended in future\&.  Some
 examples are given below\&.
+.PP
+For files that have multiple suffixes, e\&.g\&. \fB\&.pdf\&.gz\fP, where the
+context includes the suffix it will be looked up starting with the
+longest possible suffix until a match for the style is found\&.
+For example, if \fB\&.pdf\&.gz\fP produces a match for the handler, that
+will be used; otherwise the handler for \fB\&.gz\fP will be used\&.  Note
+that, owing to the way suffix aliases work, it is always required that
+there be a handler for the shortest possible suffix, so in this example
+\fB\&.pdf\&.gz\fP can only be handled if \fB\&.gz\fP is also handled (though
+not necessarily in the same way)\&.  Alternatively, if no handling
+for \fB\&.gz\fP on its own is needed, simply adding the command
+.PP
+.RS
+.nf
+\fBalias \-s gz=zsh\-mime\-handler\fP
+.fi
+.RE
+.PP
+to the initialisation code is sufficient; \fB\&.gz\fP will not be handled
+on its own, but may be in combination with other suffixes\&.
+.PP
 .PD 0
 .TP
 .PD
@@ -3621,7 +3711,7 @@ fails to find any should attempt to start Opera\&.  The default is
 .TP
 \fBtty\-browsers\fP
 An array similar to \fBx\-browsers\fP, except that it gives browsers to
-use use when no X Window display is available\&.  The default is
+use when no X Window display is available\&.  The default is
 \fBelinks links lynx\fP\&.
 .TP
 \fBcommand\fP
@@ -4053,11 +4143,11 @@ game\&.
 .RE
 .TP
 \fBzargs\fP [ \fIoption\fP \&.\&.\&. \fB\-\fP\fB\-\fP ] [ \fIinput\fP \&.\&.\&. ] [ \fB\-\fP\fB\-\fP \fIcommand\fP [ \fIarg\fP \&.\&.\&. ] ]
-This function works like GNU xargs, except that instead of reading lines
-of arguments from the standard input, it takes them from the command line\&.
-This is useful because zsh, especially with recursive glob operators,
-often can construct a command line for a shell function that is longer
-than can be accepted by an external command\&.
+This function has a similar purpose to GNU xargs\&.  Instead of
+reading lines of arguments from the standard input, it takes them from
+the command line\&.  This is useful because zsh, especially with recursive
+glob operators, often can construct a command line for a shell function
+that is longer than can be accepted by an external command\&.
 .RS
 .PP
 The \fIoption\fP list represents options of the \fBzargs\fP command itself,
@@ -4100,7 +4190,15 @@ this does \fInot\fP change the end\-of\-options marker\&.  For example, to use
 This is a good choice in that example because no plain file can be named
 `\fB\&.\&.\fP\&', but the best end\-marker depends on the circumstances\&.
 .PP
-For details of the other \fBzargs\fP options, see \fIxargs\fP(1) or run
+The options \fB\-i\fP, \fB\-I\fP, \fB\-l\fP, \fB\-L\fP, and \fB\-n\fP differ slightly
+from their usage in \fBxargs\fP\&.  There are no input lines for \fBzargs\fP to
+count, so \fB\-l\fP and \fB\-L\fP count through the \fIinput\fP list, and \fB\-n\fP
+counts the number of arguments passed to each execution of \fIcommand\fP,
+\fIincluding\fP any \fIarg\fP list\&.  Also, any time \fB\-i\fP or \fB\-I\fP is used,
+each \fIinput\fP is processed separately as if by `\fB\-L\fP \fB1\fP\&'\&.
+.PP
+For details of the other \fBzargs\fP options, see \fIxargs\fP(1) (but note
+the difference in function between \fBzargs\fP and \fBxargs\fP) or run
 \fBzargs\fP with the \fB\-\fP\fB\-help\fP option\&.
 .RE
 .TP

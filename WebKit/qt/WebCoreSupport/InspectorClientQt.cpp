@@ -38,62 +38,21 @@
 #include "InspectorServerQt.h"
 #include "NotImplemented.h"
 #include "Page.h"
-#include "PlatformString.h"
+#include "QWebFrameAdapter.h"
+#include "QWebPageAdapter.h"
 #include "ScriptDebugServer.h"
-#include "qwebinspector.h"
-#include "qwebinspector_p.h"
-#include "qwebpage.h"
-#include "qwebpage_p.h"
-#include "qwebview.h"
+#include <QCoreApplication>
+#include <QFile>
+#include <QNetworkRequest>
+#include <QSettings>
+#include <QUrl>
+#include <QVariant>
 #include <wtf/text/CString.h>
-#include <QtCore/QCoreApplication>
-#include <QtCore/QFile>
-#include <QtCore/QSettings>
-#include <QtCore/QVariant>
 
 namespace WebCore {
 
 static const QLatin1String settingStoragePrefix("Qt/QtWebKit/QWebInspector/");
 static const QLatin1String settingStorageTypeSuffix(".type");
-
-class InspectorClientWebPage : public QWebPage {
-    Q_OBJECT
-    friend class InspectorClientQt;
-public:
-    InspectorClientWebPage(QObject* parent = 0)
-        : QWebPage(parent)
-    {
-        connect(mainFrame(), SIGNAL(javaScriptWindowObjectCleared()), SLOT(javaScriptWindowObjectCleared()));
-    }
-
-    QWebPage* createWindow(QWebPage::WebWindowType)
-    {
-        QWebView* view = new QWebView;
-        QWebPage* page = new QWebPage;
-        view->setPage(page);
-        view->setAttribute(Qt::WA_DeleteOnClose);
-        return page;
-    }
-
-public slots:
-    void javaScriptWindowObjectCleared() 
-    {
-#ifndef QT_NO_PROPERTIES
-        QVariant inspectorJavaScriptWindowObjects = property("_q_inspectorJavaScriptWindowObjects");
-        if (!inspectorJavaScriptWindowObjects.isValid())
-            return;
-        QMap<QString, QVariant> javaScriptNameObjectMap = inspectorJavaScriptWindowObjects.toMap();
-        QWebFrame* frame = mainFrame();
-        QMap<QString, QVariant>::const_iterator it = javaScriptNameObjectMap.constBegin();
-        for ( ; it != javaScriptNameObjectMap.constEnd(); ++it) {
-            QString name = it.key();
-            QVariant value = it.value();
-            QObject* obj = value.value<QObject*>();
-            frame->addToJavaScriptWindowObject(name, obj);
-        }
-#endif
-    }
-};
 
 namespace {
 
@@ -113,14 +72,14 @@ public:
         if (qsettings.status() == QSettings::AccessError) {
             // QCoreApplication::setOrganizationName and QCoreApplication::setApplicationName haven't been called
             qWarning("QWebInspector: QSettings couldn't read configuration setting [%s].",
-                     qPrintable(static_cast<QString>(name)));
+                qPrintable(static_cast<QString>(name)));
             return String();
         }
 
         QString settingKey(settingStoragePrefix + QString(name));
         QString storedValueType = qsettings.value(settingKey + settingStorageTypeSuffix).toString();
         QVariant storedValue = qsettings.value(settingKey);
-        storedValue.convert(QVariant::nameToType(storedValueType.toAscii().data()));
+        storedValue.convert(QVariant::nameToType(storedValueType.toLatin1().data()));
         return variantToSetting(storedValue);
 #endif // QT_NO_SETTINGS
     }
@@ -135,7 +94,7 @@ public:
         QSettings qsettings;
         if (qsettings.status() == QSettings::AccessError) {
             qWarning("QWebInspector: QSettings couldn't persist configuration setting [%s].",
-                     qPrintable(static_cast<QString>(name)));
+                qPrintable(static_cast<QString>(name)));
             return;
         }
 
@@ -176,7 +135,7 @@ private:
 
 }
 
-InspectorClientQt::InspectorClientQt(QWebPage* page)
+InspectorClientQt::InspectorClientQt(QWebPageAdapter* page)
     : m_inspectedWebPage(page)
     , m_frontendWebPage(0)
     , m_frontendClient(0)
@@ -201,18 +160,19 @@ void InspectorClientQt::inspectorDestroyed()
 }
 
     
-void InspectorClientQt::openInspectorFrontend(WebCore::InspectorController* inspectorController)
+WebCore::InspectorFrontendChannel* InspectorClientQt::openInspectorFrontend(WebCore::InspectorController* inspectorController)
 {
+    WebCore::InspectorFrontendChannel* frontendChannel = 0;
 #if ENABLE(INSPECTOR)
-    OwnPtr<QWebView> inspectorView = adoptPtr(new QWebView);
-    // FIXME: Where does inspectorPage get deleted?
-    InspectorClientWebPage* inspectorPage = new InspectorClientWebPage(inspectorView.get());
-    inspectorView->setPage(inspectorPage);
+    QObject* view = 0;
+    QWebPageAdapter* inspectorPage = 0;
+    m_inspectedWebPage->createWebInspector(&view, &inspectorPage);
+    OwnPtr<QObject> inspectorView = adoptPtr(view);
 
-    QWebInspector* inspector = m_inspectedWebPage->d->getOrCreateInspector();
+    QObject* inspector = m_inspectedWebPage->inspectorHandle();
     // Remote frontend was attached.
     if (m_remoteFrontEndChannel)
-        return;
+        return 0;
 
     // This is a known hook that allows changing the default URL for the
     // Web inspector. This is used for SDK purposes. Please keep this hook
@@ -228,19 +188,23 @@ void InspectorClientQt::openInspectorFrontend(WebCore::InspectorController* insp
 #ifndef QT_NO_PROPERTIES
     QVariant inspectorJavaScriptWindowObjects = inspector->property("_q_inspectorJavaScriptWindowObjects");
     if (inspectorJavaScriptWindowObjects.isValid())
-        inspectorPage->setProperty("_q_inspectorJavaScriptWindowObjects", inspectorJavaScriptWindowObjects);
+        inspectorPage->handle()->setProperty("_q_inspectorJavaScriptWindowObjects", inspectorJavaScriptWindowObjects);
 #endif
-    inspectorView->page()->mainFrame()->load(inspectorUrl);
-    m_inspectedWebPage->d->inspectorFrontend = inspectorView.get();
-    inspector->d->setFrontend(inspectorView.get());
+    inspectorPage->mainFrameAdapter()->load(QNetworkRequest(inspectorUrl));
+    m_inspectedWebPage->setInspectorFrontend(inspectorView.get());
 
     // Is 'controller' the same object as 'inspectorController' (which appears to be unused)?
-    InspectorController* controller = inspectorView->page()->d->page->inspectorController();
-    OwnPtr<InspectorFrontendClientQt> frontendClient = adoptPtr(new InspectorFrontendClientQt(m_inspectedWebPage, inspectorView.release(), this));
+    InspectorController* controller = inspectorPage->page->inspectorController();
+    OwnPtr<InspectorFrontendClientQt> frontendClient = adoptPtr(new InspectorFrontendClientQt(m_inspectedWebPage, inspectorView.release(), inspectorPage->page, this));
     m_frontendClient = frontendClient.get();
     controller->setInspectorFrontendClient(frontendClient.release());
     m_frontendWebPage = inspectorPage;
+
+    // Web Inspector should not belong to any other page groups since it is a specialized debugger window.
+    m_frontendWebPage->page->setGroupName("__WebInspectorPageGroup__");
+    frontendChannel = this;
 #endif
+    return frontendChannel;
 }
 
 void InspectorClientQt::closeInspectorFrontend()
@@ -268,7 +232,7 @@ void InspectorClientQt::attachAndReplaceRemoteFrontend(InspectorServerRequestHan
 {
 #if ENABLE(INSPECTOR)
     m_remoteFrontEndChannel = channel;
-    m_inspectedWebPage->d->inspectorController()->connectFrontend();
+    m_inspectedWebPage->page->inspectorController()->connectFrontend(this);
 #endif
 }
 
@@ -276,7 +240,7 @@ void InspectorClientQt::detachRemoteFrontend()
 {
 #if ENABLE(INSPECTOR)
     m_remoteFrontEndChannel = 0;
-    m_inspectedWebPage->d->inspectorController()->disconnectFrontend();
+    m_inspectedWebPage->page->inspectorController()->disconnectFrontend();
 #endif
 }
 
@@ -287,9 +251,9 @@ void InspectorClientQt::highlight()
 
 void InspectorClientQt::hideHighlight()
 {
-    WebCore::Frame* frame = m_inspectedWebPage->d->page->mainFrame();
+    WebCore::Frame* frame = m_inspectedWebPage->page->mainFrame();
     if (frame) {
-        QRect rect = m_inspectedWebPage->mainFrame()->geometry();
+        QRect rect = m_inspectedWebPage->mainFrameAdapter()->frameRect();
         if (!rect.isEmpty())
             frame->view()->invalidateRect(rect);
     }
@@ -306,7 +270,7 @@ bool InspectorClientQt::sendMessageToFrontend(const String& message)
     if (!m_frontendWebPage)
         return false;
 
-    Page* frontendPage = QWebPagePrivate::core(m_frontendWebPage);
+    Page* frontendPage = m_frontendWebPage->page;
     return doDispatchMessageOnFrontendPage(frontendPage, message);
 #else
     return false;
@@ -314,8 +278,8 @@ bool InspectorClientQt::sendMessageToFrontend(const String& message)
 }
 
 #if ENABLE(INSPECTOR)
-InspectorFrontendClientQt::InspectorFrontendClientQt(QWebPage* inspectedWebPage, PassOwnPtr<QWebView> inspectorView, InspectorClientQt* inspectorClient)
-    : InspectorFrontendClientLocal(inspectedWebPage->d->page->inspectorController(), inspectorView->page()->d->page, adoptPtr(new InspectorFrontendSettingsQt()))
+InspectorFrontendClientQt::InspectorFrontendClientQt(QWebPageAdapter* inspectedWebPage, PassOwnPtr<QObject> inspectorView, WebCore::Page* inspectorPage, InspectorClientQt* inspectorClient)
+    : InspectorFrontendClientLocal(inspectedWebPage->page->inspectorController(), inspectorPage, adoptPtr(new InspectorFrontendSettingsQt()))
     , m_inspectedWebPage(inspectedWebPage)
     , m_inspectorView(inspectorView)
     , m_destroyingInspectorView(false)
@@ -333,16 +297,10 @@ InspectorFrontendClientQt::~InspectorFrontendClientQt()
 void InspectorFrontendClientQt::frontendLoaded()
 {
     InspectorFrontendClientLocal::frontendLoaded();
-    setAttachedWindow(true);
+    setAttachedWindow(DOCKED_TO_BOTTOM);
 }
 
 String InspectorFrontendClientQt::localizedStringsURL()
-{
-    notImplemented();
-    return String();
-}
-
-String InspectorFrontendClientQt::hiddenPanels()
 {
     notImplemented();
     return String();
@@ -358,7 +316,7 @@ void InspectorFrontendClientQt::closeWindow()
     destroyInspectorView(true);
 }
 
-void InspectorFrontendClientQt::attachWindow()
+void InspectorFrontendClientQt::attachWindow(DockSide)
 {
     notImplemented();
 }
@@ -373,6 +331,16 @@ void InspectorFrontendClientQt::setAttachedWindowHeight(unsigned)
     notImplemented();
 }
 
+void InspectorFrontendClientQt::setAttachedWindowWidth(unsigned)
+{
+    notImplemented();
+}
+
+void InspectorFrontendClientQt::setToolbarHeight(unsigned)
+{
+    notImplemented();
+}
+
 void InspectorFrontendClientQt::inspectedURLChanged(const String& newURL)
 {
     m_inspectedURL = newURL;
@@ -381,10 +349,8 @@ void InspectorFrontendClientQt::inspectedURLChanged(const String& newURL)
 
 void InspectorFrontendClientQt::updateWindowTitle()
 {
-    if (m_inspectedWebPage->d->inspector) {
-        QString caption = QCoreApplication::translate("QWebPage", "Web Inspector - %2").arg(m_inspectedURL);
-        m_inspectedWebPage->d->inspector->setWindowTitle(caption);
-    }
+    QString caption = QCoreApplication::translate("QWebPage", "Web Inspector - %2").arg(m_inspectedURL);
+    m_inspectedWebPage->setInspectorWindowTitle(caption);
 }
 
 void InspectorFrontendClientQt::destroyInspectorView(bool notifyInspectorController)
@@ -396,18 +362,18 @@ void InspectorFrontendClientQt::destroyInspectorView(bool notifyInspectorControl
     // Inspected page may have already been destroyed.
     if (m_inspectedWebPage) {
         // Clear reference from QWebInspector to the frontend view.
-        m_inspectedWebPage->d->getOrCreateInspector()->d->setFrontend(0);
+        m_inspectedWebPage->setInspectorFrontend(0);
     }
 
 #if ENABLE(INSPECTOR)
     if (notifyInspectorController)
-        m_inspectedWebPage->d->inspectorController()->disconnectFrontend();
+        m_inspectedWebPage->page->inspectorController()->disconnectFrontend();
 #endif
     if (m_inspectorClient)
         m_inspectorClient->releaseFrontendPage();
 
     // Clear pointer before deleting WebView to avoid recursive calls to its destructor.
-    OwnPtr<QWebView> inspectorView = m_inspectorView.release();
+    OwnPtr<QObject> inspectorView = m_inspectorView.release();
 }
 
 void InspectorFrontendClientQt::inspectorClientDestroyed()
@@ -419,4 +385,3 @@ void InspectorFrontendClientQt::inspectorClientDestroyed()
 #endif
 }
 
-#include "InspectorClientQt.moc"

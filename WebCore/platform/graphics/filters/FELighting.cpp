@@ -284,7 +284,7 @@ inline void FELighting::platformApplyGeneric(LightingData& data, LightSource::Pa
 inline void FELighting::platformApply(LightingData& data, LightSource::PaintingData& paintingData)
 {
     // The selection here eventually should happen dynamically on some platforms.
-#if CPU(ARM_NEON) && COMPILER(GCC)
+#if CPU(ARM_NEON) && CPU(ARM_TRADITIONAL) && COMPILER(GCC)
     platformApplyNeon(data, paintingData);
 #else
     platformApplyGeneric(data, paintingData);
@@ -389,14 +389,14 @@ void FELighting::platformApplySoftware()
 {
     FilterEffect* in = inputEffect(0);
 
-    Uint8ClampedArray* srcPixelArray = createUnmultipliedImageResult();
+    Uint8ClampedArray* srcPixelArray = createPremultipliedImageResult();
     if (!srcPixelArray)
         return;
 
     setIsAlphaImage(false);
 
     IntRect effectDrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
-    in->copyUnmultipliedImage(srcPixelArray, effectDrawingRect);
+    in->copyPremultipliedImage(srcPixelArray, effectDrawingRect);
 
     // FIXME: support kernelUnitLengths other than (1,1). The issue here is that the W3
     // standard has no test case for them, and other browsers (like Firefox) has strange

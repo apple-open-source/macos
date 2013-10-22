@@ -120,8 +120,8 @@ string CssmData::toOid() const
 	// first byte is composite (q1,q2)
 	char buffer[10];
 	unsigned long oid1 = getOid(*this, pos);
-	unsigned int q1 = min(oid1 / 40, 2ul);
-	snprintf(buffer, sizeof(buffer), "%u.%lu", q1, oid1 - q1 * 40);
+	unsigned long q1 = min(oid1 / 40, 2ul);
+	snprintf(buffer, sizeof(buffer), "%lu.%lu", q1, oid1 - q1 * 40);
 	string s = buffer;
 
 	// now for the rest

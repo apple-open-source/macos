@@ -1,0 +1,7 @@
+# Guest logs are admin readable and copied to limited-duration Guest.log
+# This module is only enabled when user "Guest" is logged in.
+= enable 0
+= [= ut_user Guest] [= ut_type 7] enable 1
+= [= ut_user Guest] [= ut_type 8] enable 0
+? [= UID 201] access 0 80
+? [= UID 201] file /Users/Guest/Library/Logs/Guest.log soft

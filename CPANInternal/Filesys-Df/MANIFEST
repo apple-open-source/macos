@@ -1,0 +1,10 @@
+Makefile.PL
+MANIFEST
+README
+Df.pm
+XS_statvfs
+XS_statfs
+test.pl
+typemap
+Changes
+META.yml                                 Module meta-data (added by MakeMaker)

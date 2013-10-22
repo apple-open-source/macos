@@ -25,21 +25,24 @@
 #include "config.h"
 #include "HTMLParserIdioms.h"
 
+#include "Decimal.h"
+#include "HTMLIdentifier.h"
+#include "QualifiedName.h"
 #include <limits>
 #include <wtf/MathExtras.h>
-#include <wtf/dtoa.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-String stripLeadingAndTrailingHTMLSpaces(const String& string)
+template <typename CharType>
+static String stripLeadingAndTrailingHTMLSpaces(String string, CharType characters, unsigned length)
 {
-    const UChar* characters = string.characters();
-    unsigned length = string.length();
+    unsigned numLeadingSpaces = 0;
+    unsigned numTrailingSpaces = 0;
 
-    unsigned numLeadingSpaces;
-    for (numLeadingSpaces = 0; numLeadingSpaces < length; ++numLeadingSpaces) {
+    for (; numLeadingSpaces < length; ++numLeadingSpaces) {
         if (isNotHTMLSpace(characters[numLeadingSpaces]))
             break;
     }
@@ -47,136 +50,112 @@ String stripLeadingAndTrailingHTMLSpaces(const String& string)
     if (numLeadingSpaces == length)
         return string.isNull() ? string : emptyAtom.string();
 
-    unsigned numTrailingSpaces;
-    for (numTrailingSpaces = 0; numTrailingSpaces < length; ++numTrailingSpaces) {
+    for (; numTrailingSpaces < length; ++numTrailingSpaces) {
         if (isNotHTMLSpace(characters[length - numTrailingSpaces - 1]))
             break;
     }
 
     ASSERT(numLeadingSpaces + numTrailingSpaces < length);
 
+    if (!(numLeadingSpaces | numTrailingSpaces))
+        return string;
+
     return string.substring(numLeadingSpaces, length - (numLeadingSpaces + numTrailingSpaces));
+}
+
+String stripLeadingAndTrailingHTMLSpaces(const String& string)
+{
+    unsigned length = string.length();
+
+    if (!length)
+        return string.isNull() ? string : emptyAtom.string();
+
+    if (string.is8Bit())
+        return stripLeadingAndTrailingHTMLSpaces(string, string.characters8(), length);
+
+    return stripLeadingAndTrailingHTMLSpaces(string, string.characters(), length);
+}
+
+String serializeForNumberType(const Decimal& number)
+{
+    if (number.isZero()) {
+        // Decimal::toString appends exponent, e.g. "0e-18"
+        return number.isNegative() ? "-0" : "0";
+    }
+    return number.toString();
 }
 
 String serializeForNumberType(double number)
 {
     // According to HTML5, "the best representation of the number n as a floating
     // point number" is a string produced by applying ToString() to n.
-    NumberToStringBuffer buffer;
-    return String(numberToString(number, buffer));
+    return String::numberToStringECMAScript(number);
 }
 
-bool parseToDoubleForNumberType(const String& string, double* result)
+Decimal parseToDecimalForNumberType(const String& string, const Decimal& fallbackValue)
+{
+    // See HTML5 2.5.4.3 `Real numbers.' and parseToDoubleForNumberType
+
+    // String::toDouble() accepts leading + and whitespace characters, which are not valid here.
+    const UChar firstCharacter = string[0];
+    if (firstCharacter != '-' && firstCharacter != '.' && !isASCIIDigit(firstCharacter))
+        return fallbackValue;
+
+    const Decimal value = Decimal::fromString(string);
+    if (!value.isFinite())
+        return fallbackValue;
+
+    // Numbers are considered finite IEEE 754 single-precision floating point values.
+    // See HTML5 2.5.4.3 `Real numbers.'
+    // FIXME: We should use numeric_limits<double>::max for number input type.
+    const Decimal floatMax = Decimal::fromDouble(std::numeric_limits<float>::max());
+    if (value < -floatMax || value > floatMax)
+        return fallbackValue;
+
+    // We return +0 for -0 case.
+    return value.isZero() ? Decimal(0) : value;
+}
+
+Decimal parseToDecimalForNumberType(const String& string)
+{
+    return parseToDecimalForNumberType(string, Decimal::nan());
+}
+
+double parseToDoubleForNumberType(const String& string, double fallbackValue)
 {
     // See HTML5 2.5.4.3 `Real numbers.'
 
     // String::toDouble() accepts leading + and whitespace characters, which are not valid here.
     UChar firstCharacter = string[0];
     if (firstCharacter != '-' && firstCharacter != '.' && !isASCIIDigit(firstCharacter))
-        return false;
+        return fallbackValue;
 
     bool valid = false;
     double value = string.toDouble(&valid);
     if (!valid)
-        return false;
+        return fallbackValue;
 
     // NaN and infinity are considered valid by String::toDouble, but not valid here.
-    if (!isfinite(value))
-        return false;
+    if (!std::isfinite(value))
+        return fallbackValue;
 
     // Numbers are considered finite IEEE 754 single-precision floating point values.
     // See HTML5 2.5.4.3 `Real numbers.'
     if (-std::numeric_limits<float>::max() > value || value > std::numeric_limits<float>::max())
-        return false;
+        return fallbackValue;
 
-    if (result) {
-        // The following expression converts -0 to +0.
-        *result = value ? value : 0;
-    }
-
-    return true;
+    // The following expression converts -0 to +0.
+    return value ? value : 0;
 }
 
-bool parseToDoubleForNumberTypeWithDecimalPlaces(const String& string, double *result, unsigned *decimalPlaces)
+double parseToDoubleForNumberType(const String& string)
 {
-    if (decimalPlaces)
-        *decimalPlaces = 0;
-
-    if (!parseToDoubleForNumberType(string, result))
-        return false;
-
-    if (!decimalPlaces)
-        return true;
-
-    size_t dotIndex = string.find('.');
-    size_t eIndex = string.find('e');
-    if (eIndex == notFound) 
-        eIndex = string.find('E');
-
-    unsigned baseDecimalPlaces = 0;
-    if (dotIndex != notFound) {
-        if (eIndex == notFound)
-            baseDecimalPlaces = string.length() - dotIndex - 1;
-        else
-            baseDecimalPlaces = eIndex - dotIndex - 1;
-    }
-
-    int exponent = 0;
-    if (eIndex != notFound) {
-        unsigned cursor = eIndex + 1, cursorSaved;
-        int digit, exponentSign;
-        int32_t exponent32;
-        size_t length = string.length();
-
-        // Not using String.toInt() in order to perform the same computation as dtoa() does.
-        exponentSign = 0;
-        switch (digit = string[cursor]) {
-        case '-':
-            exponentSign = 1;
-        case '+':
-            digit = string[++cursor];
-        }
-        if (digit >= '0' && digit <= '9') {
-            while (cursor < length && digit == '0')
-                digit = string[++cursor];
-            if (digit > '0' && digit <= '9') {
-                exponent32 = digit - '0';
-                cursorSaved = cursor;
-                while (cursor < length && (digit = string[++cursor]) >= '0' && digit <= '9')
-                    exponent32 = (10 * exponent32) + digit - '0';
-                if (cursor - cursorSaved > 8 || exponent32 > 19999)
-                    /* Avoid confusion from exponents
-                     * so large that e might overflow.
-                     */
-                    exponent = 19999; /* safe for 16 bit ints */
-                else
-                    exponent = static_cast<int>(exponent32);
-                if (exponentSign)
-                    exponent = -exponent;
-            } else
-                exponent = 0;
-        }
-    }
-
-    int intDecimalPlaces = baseDecimalPlaces - exponent;
-    if (intDecimalPlaces < 0)
-        *decimalPlaces = 0;
-    else if (intDecimalPlaces > 19999)
-        *decimalPlaces = 19999;
-    else
-        *decimalPlaces = static_cast<unsigned>(intDecimalPlaces);
-
-    return true;
+    return parseToDoubleForNumberType(string, std::numeric_limits<double>::quiet_NaN());
 }
 
-// http://www.whatwg.org/specs/web-apps/current-work/#rules-for-parsing-integers
-bool parseHTMLInteger(const String& input, int& value)
+template <typename CharacterType>
+static bool parseHTMLIntegerInternal(const CharacterType* position, const CharacterType* end, int& value)
 {
-    // Step 1
-    // Step 2
-    const UChar* position = input.characters();
-    const UChar* end = position + input.length();
-
     // Step 3
     int sign = 1;
 
@@ -216,18 +195,31 @@ bool parseHTMLInteger(const String& input, int& value)
 
     // Step 9
     bool ok;
-    value = sign * charactersToIntStrict(digits.characters(), digits.length(), &ok);
+    if (digits.is8Bit())
+        value = sign * charactersToIntStrict(digits.characters8(), digits.length(), &ok);
+    else
+        value = sign * charactersToIntStrict(digits.characters16(), digits.length(), &ok);
     return ok;
 }
 
-// http://www.whatwg.org/specs/web-apps/current-work/#rules-for-parsing-non-negative-integers
-bool parseHTMLNonNegativeInteger(const String& input, unsigned int& value)
+// http://www.whatwg.org/specs/web-apps/current-work/#rules-for-parsing-integers
+bool parseHTMLInteger(const String& input, int& value)
 {
     // Step 1
     // Step 2
-    const UChar* position = input.characters();
-    const UChar* end = position + input.length();
+    unsigned length = input.length();
+    if (length && input.is8Bit()) {
+        const LChar* start = input.characters8();
+        return parseHTMLIntegerInternal(start, start + length, value);
+    }
 
+    const UChar* start = input.characters();
+    return parseHTMLIntegerInternal(start, start + length, value);
+}
+
+template <typename CharacterType>
+static bool parseHTMLNonNegativeIntegerInternal(const CharacterType* position, const CharacterType* end, unsigned& value)
+{
     // Step 3
     while (position < end) {
         if (!isHTMLSpace(*position))
@@ -263,8 +255,48 @@ bool parseHTMLNonNegativeInteger(const String& input, unsigned int& value)
 
     // Step 9
     bool ok;
-    value = charactersToUIntStrict(digits.characters(), digits.length(), &ok);
+    if (digits.is8Bit())
+        value = charactersToUIntStrict(digits.characters8(), digits.length(), &ok);
+    else
+        value = charactersToUIntStrict(digits.characters16(), digits.length(), &ok);
     return ok;
 }
+
+
+// http://www.whatwg.org/specs/web-apps/current-work/#rules-for-parsing-non-negative-integers
+bool parseHTMLNonNegativeInteger(const String& input, unsigned& value)
+{
+    // Step 1
+    // Step 2
+    unsigned length = input.length();
+    if (length && input.is8Bit()) {
+        const LChar* start = input.characters8();
+        return parseHTMLNonNegativeIntegerInternal(start, start + length, value);
+    }
+    
+    const UChar* start = input.characters();
+    return parseHTMLNonNegativeIntegerInternal(start, start + length, value);
+}
+
+static bool threadSafeEqual(const StringImpl* a, const StringImpl* b)
+{
+    if (a == b)
+        return true;
+    if (a->hash() != b->hash())
+        return false;
+    return equalNonNull(a, b);
+}
+
+bool threadSafeMatch(const QualifiedName& a, const QualifiedName& b)
+{
+    return threadSafeEqual(a.localName().impl(), b.localName().impl());
+}
+
+#if ENABLE(THREADED_HTML_PARSER)
+bool threadSafeMatch(const HTMLIdentifier& localName, const QualifiedName& qName)
+{
+    return threadSafeEqual(localName.asStringImpl(), qName.localName().impl());
+}
+#endif
 
 }

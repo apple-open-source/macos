@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/sl.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/sl.xml
 // *
 // ***************************************************************************
 /**
@@ -72,7 +72,7 @@ sl{
             "avstrijski šiling",
         }
         AUD{
-            "AU$",
+            "A$",
             "avstralski dolar",
         }
         AWG{
@@ -839,6 +839,10 @@ sl{
             "SRG",
             "surinamski gulden",
         }
+        SSP{
+            "SSP",
+            "južnosudanski funt",
+        }
         STD{
             "STD",
             "saotomejska dobra",
@@ -953,11 +957,11 @@ sl{
         }
         VEB{
             "VEB",
-            "venezuelski bolivar",
+            "venezuelski bolivar (1871-2008)",
         }
         VEF{
             "VEF",
-            "venezuelski bolivar fuerte",
+            "venezuelski bolivar",
         }
         VND{
             "₫",
@@ -1073,6 +1077,10 @@ sl{
         }
         ZMK{
             "ZMK",
+            "zambijska kvača (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "zambijska kvača",
         }
         ZRN{
@@ -1092,5 +1100,55 @@ sl{
             "zimbabvejski dolar (2009)",
         }
     }
-    Version{"2.0.65.46"}
+    CurrencyPlurals{
+        AUD{
+            few{"avstralski dolarji"}
+            one{"avstralski dolar"}
+            other{"avstralskih dolarjev"}
+            two{"avstralska dolarja"}
+        }
+        BAM{
+            few{"bosansko-hercegovske konvertibilne marke"}
+            one{"bosansko-hercegovska konvertibilna marka"}
+            other{"bosansko-hercegovskih konvertibilnih mark"}
+            two{"bosansko-hercegovski konvertibilni marki"}
+        }
+        DKK{
+            few{"danske krone"}
+            one{"danska krona"}
+            other{"danskih kron"}
+            two{"danski kroni"}
+        }
+        EUR{
+            few{"evri"}
+            one{"evro"}
+            other{"evrov"}
+            two{"evra"}
+        }
+        GBP{
+            few{"britanski funti"}
+            one{"britanski funt"}
+            other{"britanskih funtov"}
+            two{"britanskih funtov"}
+        }
+        SSP{
+            few{"južnosudanski funti"}
+            one{"južnosudanski funt"}
+            other{"južnosudanskih funtov"}
+            two{"južnosudanska funta"}
+        }
+        USD{
+            few{"ameriški dolarji"}
+            one{"ameriški dolar"}
+            other{"ameriških dolarjev"}
+            two{"ameriška dolarja"}
+        }
+    }
+    CurrencyUnitPatterns{
+        few{"{0} {1}"}
+        one{"{0} {1}"}
+        other{"{0} {1}"}
+        two{"{0} {1}"}
+    }
+    Version{"2.0.82.45"}
 }

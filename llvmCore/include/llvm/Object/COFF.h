@@ -19,6 +19,9 @@
 #include "llvm/Support/Endian.h"
 
 namespace llvm {
+  template <typename T>
+  class ArrayRef;
+
 namespace object {
 
 struct coff_file_header {
@@ -105,15 +108,12 @@ private:
 protected:
   virtual error_code getSymbolNext(DataRefImpl Symb, SymbolRef &Res) const;
   virtual error_code getSymbolName(DataRefImpl Symb, StringRef &Res) const;
-  virtual error_code getSymbolOffset(DataRefImpl Symb, uint64_t &Res) const;
+  virtual error_code getSymbolFileOffset(DataRefImpl Symb, uint64_t &Res) const;
   virtual error_code getSymbolAddress(DataRefImpl Symb, uint64_t &Res) const;
   virtual error_code getSymbolSize(DataRefImpl Symb, uint64_t &Res) const;
   virtual error_code getSymbolNMTypeChar(DataRefImpl Symb, char &Res) const;
-  virtual error_code isSymbolInternal(DataRefImpl Symb, bool &Res) const;
-  virtual error_code isSymbolGlobal(DataRefImpl Symb, bool &Res) const;
-  virtual error_code isSymbolWeak(DataRefImpl Symb, bool &Res) const;
+  virtual error_code getSymbolFlags(DataRefImpl Symb, uint32_t &Res) const;
   virtual error_code getSymbolType(DataRefImpl Symb, SymbolRef::Type &Res) const;
-  virtual error_code isSymbolAbsolute(DataRefImpl Symb, bool &Res) const;
   virtual error_code getSymbolSection(DataRefImpl Symb,
                                       section_iterator &Res) const;
 
@@ -126,6 +126,10 @@ protected:
   virtual error_code isSectionText(DataRefImpl Sec, bool &Res) const;
   virtual error_code isSectionData(DataRefImpl Sec, bool &Res) const;
   virtual error_code isSectionBSS(DataRefImpl Sec, bool &Res) const;
+  virtual error_code isSectionVirtual(DataRefImpl Sec, bool &Res) const;
+  virtual error_code isSectionZeroInit(DataRefImpl Sec, bool &Res) const;
+  virtual error_code isSectionRequiredForExecution(DataRefImpl Sec,
+                                                   bool &Res) const;
   virtual error_code sectionContainsSymbol(DataRefImpl Sec, DataRefImpl Symb,
                                            bool &Result) const;
   virtual relocation_iterator getSectionRelBegin(DataRefImpl Sec) const;
@@ -135,6 +139,8 @@ protected:
                                        RelocationRef &Res) const;
   virtual error_code getRelocationAddress(DataRefImpl Rel,
                                           uint64_t &Res) const;
+  virtual error_code getRelocationOffset(DataRefImpl Rel,
+                                         uint64_t &Res) const;
   virtual error_code getRelocationSymbol(DataRefImpl Rel,
                                          SymbolRef &Res) const;
   virtual error_code getRelocationType(DataRefImpl Rel,
@@ -146,16 +152,30 @@ protected:
   virtual error_code getRelocationValueString(DataRefImpl Rel,
                                            SmallVectorImpl<char> &Result) const;
 
+  virtual error_code getLibraryNext(DataRefImpl LibData,
+                                    LibraryRef &Result) const;
+  virtual error_code getLibraryPath(DataRefImpl LibData,
+                                    StringRef &Result) const;
+
 public:
   COFFObjectFile(MemoryBuffer *Object, error_code &ec);
   virtual symbol_iterator begin_symbols() const;
   virtual symbol_iterator end_symbols() const;
+  virtual symbol_iterator begin_dynamic_symbols() const;
+  virtual symbol_iterator end_dynamic_symbols() const;
+  virtual library_iterator begin_libraries_needed() const;
+  virtual library_iterator end_libraries_needed() const;
   virtual section_iterator begin_sections() const;
   virtual section_iterator end_sections() const;
 
+  const coff_section *getCOFFSection(section_iterator &It) const;
+  const coff_symbol *getCOFFSymbol(symbol_iterator &It) const;
+  const coff_relocation *getCOFFRelocation(relocation_iterator &It) const;
+  
   virtual uint8_t getBytesInAddress() const;
   virtual StringRef getFileFormatName() const;
   virtual unsigned getArch() const;
+  virtual StringRef getLoadName() const;
 
   error_code getHeader(const coff_file_header *&Res) const;
   error_code getSection(int32_t index, const coff_section *&Res) const;
@@ -168,9 +188,14 @@ public:
     return ec;
   }
   error_code getSymbolName(const coff_symbol *symbol, StringRef &Res) const;
+  ArrayRef<uint8_t> getSymbolAuxData(const coff_symbol *symbol) const;
+
+  error_code getSectionName(const coff_section *Sec, StringRef &Res) const;
+  error_code getSectionContents(const coff_section *Sec,
+                                ArrayRef<uint8_t> &Res) const;
 
   static inline bool classof(const Binary *v) {
-    return v->getType() == isCOFF;
+    return v->isCOFF();
   }
   static inline bool classof(const COFFObjectFile *v) { return true; }
 };

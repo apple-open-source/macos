@@ -33,7 +33,9 @@
 #include <AudioUnit/AudioUnit.h>
 #include <map>
 #include <libkern/OSAtomic.h>
-     
+
+#define LOG_CAPTUREDEVICE_VERBOSE         0
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // OALCaptureDevices
@@ -65,7 +67,9 @@ class OALCaptureDevice
 #pragma mark __________ Private_Class_Members
 
 	private:
+#if LOG_CAPTUREDEVICE_VERBOSE
 		uintptr_t						mSelfToken;
+#endif
 		ALenum							mCurrentError;
 		bool							mCaptureOn;
 		SInt64							mStoreSampleTime;				// increment on each read in the input proc, and pass to the ring buffer class when writing, reset on each stop

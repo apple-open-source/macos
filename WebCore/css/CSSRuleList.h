@@ -80,7 +80,7 @@ public:
     
     virtual void ref() { m_rule->ref(); }
     virtual void deref() { m_rule->deref(); }
-    
+
 private:
     virtual unsigned length() const { return m_rule->length(); }
     virtual CSSRule* item(unsigned index) const  { return m_rule->item(index); }

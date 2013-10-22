@@ -39,7 +39,7 @@
 #include <IOKit/kext/kextmanager_types.h>   // uuid_string_t
 #include <mach-o/arch.h>
 
-#include "bootroot.h"
+#include "bootroot_internal.h"      // includes bootroot.h
 
 // cache directories that we create (we also create kCSFDEPropertyCacheDir)
 #define kTSCacheDir         "/System/Library/Caches/com.apple.bootstamps"
@@ -60,9 +60,10 @@
 #define kBCMKext2Key                CFSTR("MKext2")          // dict
 #define kBCKernelcacheV1Key         CFSTR("Kernelcache v1.1")// dict
 #define kBCKernelcacheV2Key         CFSTR("Kernelcache v1.2")// dict
+#define kBCKernelcacheV3Key         CFSTR("Kernelcache v1.3")// dict
 #define kBCKernelPathKey            CFSTR("KernelPath")      // path string
 #define kBCArchsKey                 CFSTR("Archs")           //   ar: ppc, i386
-#define kBCExtensionsDirKey         CFSTR("ExtensionsDir")   //   /S/L/E
+#define kBCExtensionsDirKey         CFSTR("ExtensionsDir")   //   ar: /S/L/E & /L/E
 #define kBCPathKey                  CFSTR("Path")            //   path to cache
 // AdditionalPaths are optional w/PreBootPaths, required w/PostBootPaths
 #define kBCAdditionalPathsKey       CFSTR("AdditionalPaths") // array
@@ -83,10 +84,10 @@ typedef enum {
 } MkextCRCResult;
 
 // 6486172 points out that kextd ends up with a lot of these buffers
-// (especially w/multiple OS volumes).  8163405 adds BCPATH_MAX, etc.
+// (especially w/multiple OS vols).  BCPATH_MAX (8163405) reduces the impact.
+#define NCHARSUUID      (2*sizeof(uuid_t) + 5)  // hex with 4 -'s and one NUL
 #define BCPATH_MAX      128
 #define TSPATH_MAX      (BCPATH_MAX + 1 + NCHARSUUID + 1 + BCPATH_MAX)
-#define NCHARSUUID      (2*sizeof(uuid_t) + 5)  // hex with 4 -'s and one NUL
 #define DEVMAXPATHSIZE  128                     // xnu/devfs/devfsdefs.h:
 #define ROOTPATH_MAX    (sizeof("/Volumes/") + NAME_MAX)
 
@@ -99,15 +100,16 @@ typedef struct {
 struct bootCaches {
     int cachefd;                // Sec: file descriptor to validate data
     char bsdname[DEVMAXPATHSIZE]; // for passing to bless to get helpers
-    char fsys_uuid[NCHARSUUID]; // optimized for cachedPaths (cf. 5114411, XX?)
+    uuid_string_t fsys_uuid;    // optimized for cachedPaths (cf. 5114411, XX?)
     CFStringRef csfde_uuid;     // encrypted volumes's LVF UUID
-    char volname[NAME_MAX];     // for label generation
+    char defLabel[NAME_MAX];    // defaults to volume name
     char root[ROOTPATH_MAX];    // struct's paths relative to this root
     CFDictionaryRef cacheinfo;  // raw BootCaches.plist data (for archs, etc)
     struct timespec bcTime;     // cache the timestamp of bootcaches.plist
 
     char kernel[BCPATH_MAX];    // /Volumes/foo/mach_kernel (watch only)
-    char exts[BCPATH_MAX];      // /S/L/Extensions (only a source)
+    int  nexts;                 // number of extensions directory paths
+    char *exts;                 // null terminated extensions dir paths 
     char locSource[BCPATH_MAX]; // only EFILogin.framework/Resources for now
     char locPref[BCPATH_MAX];   // /L/P/.GlabalPreferences
     unsigned nrps;              // number of RPS paths in Apple_Boot
@@ -140,7 +142,8 @@ Boolean hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
 // If no CoreStorage is detected and cslvf_uuid is non-NULL,
 // *cslvf_uuid will be set to NULL.
 int copyVolumeInfo(const char *vol_path, uuid_t *vol_uuid,
-                   CFStringRef *cslvf_uuid, char **vol_bsd, char **vol_name);
+                   CFStringRef *cslvf_uuid, char vol_bsd[DEVMAXPATHSIZE],
+                   char vol_name[NAME_MAX]);
 // no CSFDE data => encContext = NULL, timeStamp = 0LL;
 int copyCSFDEInfo(CFStringRef uuidStr, CFDictionaryRef *encContext,
                    time_t *timeStamp);

@@ -26,6 +26,8 @@
 #import "config.h"
 #import "WebContextMenuClient.h"
 
+#if ENABLE(CONTEXT_MENUS)
+
 #import "DictionaryPopupInfo.h"
 #import "WebCoreArgumentCoders.h"
 #import "WebPage.h"
@@ -41,7 +43,7 @@ namespace WebKit {
 
 void WebContextMenuClient::lookUpInDictionary(Frame* frame)
 {
-    m_page->performDictionaryLookupForSelection(DictionaryPopupInfo::ContextMenu, frame, frame->selection()->selection());
+    m_page->performDictionaryLookupForSelection(frame, frame->selection()->selection());
 }
 
 bool WebContextMenuClient::isSpeaking()
@@ -57,6 +59,14 @@ void WebContextMenuClient::speak(const String& string)
 void WebContextMenuClient::stopSpeaking()
 {
     m_page->stopSpeaking();
+}
+
+void WebContextMenuClient::searchWithGoogle(const Frame* frame)
+{
+    String searchString = frame->editor().selectedText();
+    searchString.stripWhiteSpace();
+    
+    m_page->send(Messages::WebPageProxy::SearchTheWeb(searchString));
 }
 
 void WebContextMenuClient::searchWithSpotlight()
@@ -75,7 +85,7 @@ void WebContextMenuClient::searchWithSpotlight()
     if (!selectionFrame)
         selectionFrame = mainFrame;
 
-    String selectedString = selectionFrame->displayStringModifiedByEncoding(selectionFrame->editor()->selectedText());
+    String selectedString = selectionFrame->displayStringModifiedByEncoding(selectionFrame->editor().selectedText());
     
     if (selectedString.isEmpty())
         return;
@@ -84,3 +94,5 @@ void WebContextMenuClient::searchWithSpotlight()
 }
 
 } // namespace WebKit
+
+#endif // ENABLE(CONTEXT_MENUS)

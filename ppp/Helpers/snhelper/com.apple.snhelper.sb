@@ -1,0 +1,22 @@
+(version 1)
+(deny default)
+(import "system.sb")
+
+; System is read only
+(allow file-read*
+	(subpath "/var/mobile/Library/Caches"))
+
+(allow mach-register
+	(global-name "com.apple.snhelper"))
+
+(allow iokit-open
+	(iokit-user-client-class "AppleMobileFileIntegrityUserClient"))
+
+(allow ipc-posix-shm
+	(ipc-posix-name "apple.shm.notification_center"))
+
+(allow mach-lookup
+	(global-name "com.apple.system.logger")
+	(global-name "com.apple.system.notification_center"))
+
+(allow sysctl-read)

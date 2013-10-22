@@ -16,7 +16,7 @@ DIE=0
 	DIE=1
 }
 
-(libtool --version) < /dev/null > /dev/null 2>&1 || {
+(libtoolize --version) < /dev/null > /dev/null 2>&1 || {
 	echo
 	echo "You must have libtool installed to compile libxslt."
 	echo "Download the appropriate package for your distribution,"
@@ -41,9 +41,9 @@ test -f libxslt/xslt.h  || {
 	exit 1
 }
 
-if test -z "$*"; then
-	echo "I am going to run ./configure with no arguments - if you wish "
-        echo "to pass any to it, please specify them on the $0 command line."
+if test -z "$NOCONFIGURE" -a -z "$*"; then
+	echo "I am going to run $srcdir/configure with no arguments - if you wish "
+	echo "to pass any to it, please specify them on the $0 command line."
 fi
 
 echo "Running libtoolize..."
@@ -51,9 +51,9 @@ libtoolize --copy --force
 echo "Running aclocal..."
 aclocal $ACLOCAL_FLAGS
 echo "Running automake..."
-automake --add-missing
+automake --add-missing --warnings=all
 echo "Running autoconf..."
-autoconf
+autoconf --warnings=all
 
 cd $THEDIR
 
@@ -62,9 +62,22 @@ if test x$OBJ_DIR != x; then
     cd "$OBJ_DIR"
 fi
 
+EXTRA_ARGS=
+if test "x$1" = "x--system"; then
+    shift
+    prefix=/usr
+    libdir=$prefix/lib
+    sysconfdir=/etc
+    localstatedir=/var
+    if [ -d /usr/lib64 ]; then
+      libdir=$prefix/lib64
+    fi
+    EXTRA_ARGS="--prefix=$prefix --sysconfdir=$sysconfdir --localstatedir=$localstatedir --libdir=$libdir"
+fi
+
 if test -z "$NOCONFIGURE"; then
-    echo Running configure "$@" ...
-    $srcdir/configure "$@"
+    echo "Running configure $EXTRA_ARGS $*" ...
+    $srcdir/configure $EXTRA_ARGS "$@"
     echo 
     echo "Now type 'make' to compile libxslt."
 fi

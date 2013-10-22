@@ -26,9 +26,9 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
 #include <Security/Authorization.h>
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_IPHONE */
 
 #include <sys/cdefs.h>
 

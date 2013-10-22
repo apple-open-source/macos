@@ -222,8 +222,8 @@ copyhostent (const struct hostent *);
 
 ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL
 getnameinfo_verified(const struct sockaddr *, socklen_t,
-		     char *, size_t,
-		     char *, size_t,
+		     char *, socklen_t,
+		     char *, socklen_t,
 		     int);
 
 ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL
@@ -252,7 +252,7 @@ roken_gethostby_setup(const char*, const char*);
 ROKEN_LIB_FUNCTION struct hostent* ROKEN_LIB_CALL
 roken_gethostbyname(const char*);
 ROKEN_LIB_FUNCTION struct hostent* ROKEN_LIB_CALL 
-roken_gethostbyaddr(const void*, size_t, int);
+roken_gethostbyaddr(const void*, socklen_t, int);
 
 #define roken_getservbyname(x,y) getservbyname(x,y)
 

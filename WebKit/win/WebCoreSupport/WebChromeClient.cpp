@@ -334,13 +334,15 @@ void WebChromeClient::setResizable(bool resizable)
     }
 }
 
-void WebChromeClient::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned line, const String& url)
+void WebChromeClient::addMessageToConsole(MessageSource source, MessageLevel level, const String& message, unsigned lineNumber, unsigned columnNumber, const String& url)
 {
+    UNUSED_PARAM(columnNumber);
+
     COMPtr<IWebUIDelegate> uiDelegate;
     if (SUCCEEDED(m_webView->uiDelegate(&uiDelegate))) {
         COMPtr<IWebUIDelegatePrivate> uiPrivate;
         if (SUCCEEDED(uiDelegate->QueryInterface(IID_IWebUIDelegatePrivate, (void**)&uiPrivate)))
-            uiPrivate->webViewAddMessageToConsole(m_webView, BString(message), line, BString(url), true);
+            uiPrivate->webViewAddMessageToConsole(m_webView, BString(message), lineNumber, BString(url), true);
     }
 }
 
@@ -410,17 +412,15 @@ bool WebChromeClient::runJavaScriptPrompt(Frame*, const String& message, const S
 
     TimerBase::fireTimersInNestedEventLoop();
 
-    BSTR resultBSTR = 0;
+    BString resultBSTR;
     if (FAILED(ui->runJavaScriptTextInputPanelWithPrompt(m_webView, BString(message), BString(defaultValue), &resultBSTR)))
         return false;
 
-    if (resultBSTR) {
-        result = String(resultBSTR, SysStringLen(resultBSTR));
-        SysFreeString(resultBSTR);
-        return true;
-    }
+    if (!resultBSTR)
+        return false;
 
-    return false;
+    result = String(resultBSTR, SysStringLen(resultBSTR));
+    return true;
 }
 
 void WebChromeClient::setStatusbarText(const String& statusText)
@@ -583,7 +583,7 @@ void WebChromeClient::print(Frame* frame)
 }
 
 #if ENABLE(SQL_DATABASE)
-void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseIdentifier)
+void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseIdentifier, DatabaseDetails)
 {
     COMPtr<WebSecurityOrigin> origin(AdoptCOM, WebSecurityOrigin::createInstance(frame->document()->securityOrigin()));
     COMPtr<IWebUIDelegate> uiDelegate;
@@ -748,7 +748,7 @@ void WebChromeClient::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graph
     m_webView->setRootChildLayer(graphicsLayer);
 }
 
-void WebChromeClient::scheduleCompositingLayerSync()
+void WebChromeClient::scheduleCompositingLayerFlush()
 {
     m_webView->flushPendingGraphicsLayerChangesSoon();
 }
@@ -855,6 +855,22 @@ void WebChromeClient::exitFullScreenForElement(Element* element)
 
     ASSERT(element == m_webView->fullScreenElement());
     m_webView->fullScreenController()->exitFullScreen();
+}
+
+void WebChromeClient::AXStartFrameLoad()
+{
+    COMPtr<IAccessibilityDelegate> delegate;
+    m_webView->accessibilityDelegate(&delegate);
+    if (delegate)
+        delegate->fireFrameLoadStartedEvents();
+}
+
+void WebChromeClient::AXFinishFrameLoad()
+{
+    COMPtr<IAccessibilityDelegate> delegate;
+    m_webView->accessibilityDelegate(&delegate);
+    if (delegate)
+        delegate->fireFrameLoadFinishedEvents();
 }
 
 #endif

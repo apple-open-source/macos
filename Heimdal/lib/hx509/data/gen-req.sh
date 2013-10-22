@@ -75,6 +75,7 @@ rm -f *.0
 gen_cert "/CN=hx509 Test Root CA/C=SE" "root" "ca" "v3_ca"
 gen_cert "/CN=OCSP responder/C=SE" "ca" "ocsp-responder" "ocsp"
 gen_cert "/CN=Test cert/C=SE" "ca" "test" "usr"
+gen_cert "/CN=localhost/C=SE" "ca" "localhost" "https"
 gen_cert "/CN=Revoke cert/C=SE" "ca" "revoke" "usr"
 gen_cert "/CN=Test cert KeyEncipherment/C=SE" "ca" "test-ke-only" "usr_ke"
 gen_cert "/CN=Test cert DigitalSignature/C=SE" "ca" "test-ds-only" "usr_ds"
@@ -103,13 +104,14 @@ cat pkinit-proxy.crt pkinit.crt > pkinit-proxy-chain.crt
 ${openssl} rsa -in test.key -aes256 -passout pass:foobar -out test-pw.key
 ${openssl} rsa -in pkinit.key -aes256 -passout pass:foo -out pkinit-pw.key
 
-
 ${openssl} ca \
     -name usr \
     -cert ca.crt \
     -keyfile ca.key \
     -revoke revoke.crt \
     -config openssl.cnf 
+
+echo "pkcs12"
 
 ${openssl} pkcs12 \
     -export \
@@ -143,6 +145,8 @@ ${openssl} pkcs12 \
     -name "friendlyname-cert" \
     -certfile ca.crt \
     -caname ca
+
+echo "smime"
 
 ${openssl} smime \
     -sign \

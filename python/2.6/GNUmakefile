@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.6.7
+VERSION = 2.6.8
 
 PWD := $(shell pwd)
 
@@ -65,13 +65,12 @@ EXTRAS = $(VERSIONSVERS)/Extras
 LIBRARYPYTHON = /Library/Python/$(VERS)
 SITEPACKAGES = $(LIBRARYPYTHON)/site-packages
 
-EXTRASOBJROOT = '$(OBJROOT)/Extras-objroot'
 EXTRASPYTHON = '$(DSTROOT)$(EXTRAS)/lib/python'
 PYTHON = '$(OBJROOT)/$(PROJECT)/$(PROJECT).exe'
 PYTHONENV = DYLD_FRAMEWORK_PATH='$(DSTROOT)$(FRAMEWORKS)' DYLD_NEW_LOCAL_SHARED_REGIONS=1 PYTHONPATH='$(DSTROOT)$(LIBPYTHONVERS)':$(EXTRASPYTHON)
 PYDTRACE_H = $(OBJROOT)/$(PROJECT)/Python/pydtrace.h
 
-no_target: extras
+no_target: python
 
 python: $(OBJROOT)/$(PROJECT)
 	DSTROOT='$(DSTROOT)' OBJROOT='$(OBJROOT)/$(PROJECT)' \
@@ -82,23 +81,10 @@ python: $(OBJROOT)/$(PROJECT)
 	    SRCROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)' \
 	    VERS=$(VERS)
 
-extras: python
-	mkdir -p $(EXTRASOBJROOT)
-	DSTROOT='$(DSTROOT)' OBJROOT=$(EXTRASOBJROOT) \
-	    SRCROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)' \
-	    $(MAKE) -C Extras EXTRAS='$(DSTROOT)$(EXTRAS)' \
-	    EXTRASPYTHON=$(EXTRASPYTHON) LIBPYTHON='$(DSTROOT)$(LIBPYTHONVERS)' \
-	    PYTHON=$(PYTHON) PYTHONENV="$(PYTHONENV)" \
-	    LIBRARYPYTHON='$(DSTROOT)$(LIBRARYPYTHON)' \
-	    DSTROOT='$(DSTROOT)' OBJROOT=$(EXTRASOBJROOT) \
-	    SRCROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)'
-
 ##---------------------------------------------------------------------
 # We patch configure to remove the "-arch_only ppc" option, since we
 # build fat.  We also set DYLD_NEW_LOCAL_SHARED_REGIONS or else python.exe
 # will crash.  And patch unixccompiler for wxWidgets (submit back to python).
-# The default ARCHFLAGS is the union of RC_ARCHS and tconf --archs (without
-# RC_ARCHS set).
 #
 # autoconf is now (normally) unavailable.  So we save the output of autoconf
 # in fix/autoconf and use it to overwrite the original files.  If we need
@@ -112,9 +98,7 @@ extras: python
 #
 # Copy the difference files to fix/autoconf.
 ##---------------------------------------------------------------------
-archs = $(shell export -n RC_ARCHS && tconf --archs)
-union = $(foreach a,$(archs),$(findstring $(a),$(RC_ARCHS)))
-defarchflags = $(foreach u,$(union),-arch $(u))
+defarchflags = $(foreach u,$(RC_ARCHS),-arch $(u))
 
 $(OBJROOT)/$(PROJECT):
 	@set -x && \
@@ -127,6 +111,7 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/ctypes/__init__.py < $(FIX)/Lib_ctypes___init__.py.ed && \
 	ed - $(PROJECT)/Lib/xml/__init__.py < $(FIX)/Lib_xml___init__.py.ed && \
 	ed - $(PROJECT)/Lib/distutils/command/install.py < $(FIX)/install.py.ed && \
+	ed - $(PROJECT)/Lib/distutils/config.py < $(FIX)/Lib_distutils_config.py.ed && \
 	sed 's/@DEFARCHFLAGS@/$(defarchflags)/' $(FIX)/sysconfig.py.ed | ed - $(PROJECT)/Lib/distutils/sysconfig.py && \
 	ed - $(PROJECT)/Lib/distutils/unixccompiler.py < $(FIX)/unixccompiler.py.ed && \
 	ed - $(PROJECT)/Lib/locale.py < $(FIX)/locale.py.ed && \
@@ -155,12 +140,14 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Modules/_localemodule.c < $(FIX)/_localemodule.c.ed && \
 	ed - $(PROJECT)/Modules/posixmodule.c < $(FIX)/posixmodule.c.ed && \
 	ed - $(PROJECT)/Modules/pwdmodule.c < $(FIX)/pwdmodule.c.ed && \
+	ed - $(PROJECT)/Modules/pyexpat.c < $(FIX)/Modules_pyexpat.c.ed && \
 	sed 's/@VERSION@/$(VERS)/' $(FIX)/python.c.ed | ed - $(PROJECT)/Modules/python.c && \
 	ed - $(PROJECT)/Modules/readline.c < $(FIX)/readline.c.ed && \
 	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
 	ed - $(PROJECT)/pyconfig.h.in < $(FIX)/pyconfig.h.in.ed && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
+	ed - $(PROJECT)/Python/import.c < $(FIX)/import.c.ed && \
 	ed - $(PROJECT)/Python/mactoolboxglue.c < $(FIX)/mactoolboxglue.c.ed && \
 	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
@@ -182,7 +169,7 @@ else # !PYTHON_AUTOCONF
 endif
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 
-install: installpython installextras
+install: installpython
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/test/audiotest.au
 
@@ -208,27 +195,6 @@ installpython: $(OBJROOT)/$(PROJECT)
 	ln -sf $(DYLIB) '$(DSTROOT)$(USRLIB)/lib$(PROJECT)$(VERS).dylib'
 	ln -sf $(DYLIB) '$(DSTROOT)$(USRLIB)/lib$(PROJECT).dylib'
 	install -d '$(DSTROOT)$(SITEPACKAGES)'
-
-installextras:
-	mkdir -p $(EXTRASOBJROOT)
-	DSTROOT='$(DSTROOT)' OBJROOT=$(EXTRASOBJROOT) \
-	    SRCROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)' \
-	    $(MAKE) -C Extras install EXTRAS='$(DSTROOT)$(EXTRAS)' \
-	    EXTRASPYTHON=$(EXTRASPYTHON) LIBPYTHON='$(DSTROOT)$(LIBPYTHONVERS)' \
-	    PYTHON=$(PYTHON) PYTHONENV="$(PYTHONENV)" \
-	    LIBRARYPYTHON='$(DSTROOT)$(LIBRARYPYTHON)' \
-	    DSTROOT='$(DSTROOT)' OBJROOT=$(EXTRASOBJROOT) \
-	    SRCROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)'
-	@set -x && \
-	if [ -d $(EXTRASPYTHON) ]; then \
-	    find $(EXTRASPYTHON) -name \*.so -exec strip -x {} \; && \
-	    for i in `find $(EXTRASPYTHON) -name __init__.py -size 0c`; do \
-		echo '#' > $$i && \
-		j=`echo "$$i" | sed 's,^$(DSTROOT),,'` && \
-		$(PYTHONENV) $(PYTHON) -c "from py_compile import compile;compile('$$i', dfile='$$j', doraise=True)" && \
-		$(PYTHONENV) $(PYTHON) -O -c "from py_compile import compile;compile('$$i', dfile='$$j', doraise=True)"; \
-	    done; \
-	fi
 
 .DEFAULT:
 	@$(MAKE) -f Makefile $@

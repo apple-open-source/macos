@@ -10,5 +10,9 @@
 		<string>apple</string>
 		<string>com.apple.certificates</string>
 	</array>
+	<key>com.apple.private.SecureNetworking.ipsec_ike</key>
+	<true/>
+	<key>com.apple.private.SecureNetworking.ipsec_db</key>
+	<true/>
 </dict>
 </plist>

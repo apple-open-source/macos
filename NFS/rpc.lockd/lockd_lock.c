@@ -77,6 +77,7 @@
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
+#include <arpa/inet.h>
 #include "sm_inter.h"
 #include "nlm_prot.h"
 
@@ -89,6 +90,8 @@
 
 #define MAXOBJECTSIZE 64
 #define MAXBUFFERSIZE 1024
+
+#define AOK	(void *)	// assert alignment is OK
 
 /*
  * A set of utilities for managing file locking
@@ -264,6 +267,9 @@ enum nlm4_stats	do_lock(struct file_lock *fl);
 void	do_clear(const char *hostname);
 
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+
 void
 debuglog(char const *fmt, ...)
 {
@@ -279,6 +285,7 @@ debuglog(char const *fmt, ...)
 	vsyslog(LOG_DEBUG, fmt, ap);
 	va_end(ap);
 }
+#pragma clang diagnostic pop
 
 void
 dump_static_object(object, size_object, hbuff, size_hbuff, cbuff, size_cbuff)
@@ -1926,7 +1933,7 @@ do_test(struct file_lock *fl, struct file_lock **conflicting_fl)
 		debuglog("PFL test lock granted\n");
 		dump_filelock(fl);
 		dump_filelock(*conflicting_fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		retval = (fl->flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 		break;
 	case PFL_GRANTED_DUPLICATE:
 		debuglog("PFL test lock granted--duplicate id detected\n");
@@ -1934,27 +1941,27 @@ do_test(struct file_lock *fl, struct file_lock **conflicting_fl)
 		dump_filelock(*conflicting_fl);
 		debuglog("Clearing conflicting_fl for call semantics\n");
 		*conflicting_fl = NULL;
-		retval = (fl->flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		retval = (fl->flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 		break;
 	case PFL_NFSDENIED:
 	case PFL_HWDENIED:
 		debuglog("PFL test lock denied\n");
 		dump_filelock(fl);
 		dump_filelock(*conflicting_fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_denied : nlm_denied;
+		retval = (fl->flags & LOCK_V4) ? nlm4_denied : (nlm4_stats) nlm_denied;
 		break;
 	case PFL_NFSRESERR:
 	case PFL_HWRESERR:
 		debuglog("PFL test lock resource fail\n");
 		dump_filelock(fl);
 		dump_filelock(*conflicting_fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_denied_nolocks : nlm_denied_nolocks;
+		retval = (fl->flags & LOCK_V4) ? nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 		break;
 	default:
 		debuglog("PFL test lock *FAILED*\n");
 		dump_filelock(fl);
 		dump_filelock(*conflicting_fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_failed : nlm_denied;
+		retval = (fl->flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 		break;
 	}
 
@@ -1984,24 +1991,24 @@ do_lock(struct file_lock *fl)
 	case PFL_GRANTED:
 		debuglog("PFL lock granted");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		retval = (fl->flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 		break;
 	case PFL_GRANTED_DUPLICATE:
 		debuglog("PFL lock granted--duplicate id detected");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		retval = (fl->flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 		break;
 	case PFL_NFSDENIED:
 	case PFL_HWDENIED:
 		debuglog("PFL_NFS lock denied");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_denied : nlm_denied;
+		retval = (fl->flags & LOCK_V4) ? nlm4_denied : (nlm4_stats) nlm_denied;
 		break;
 	case PFL_NFSBLOCKED:
 	case PFL_HWBLOCKED:
 		debuglog("PFL_NFS blocking lock denied.  Queued.\n");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_blocked : nlm_blocked;
+		retval = (fl->flags & LOCK_V4) ? nlm4_blocked : (nlm4_stats) nlm_blocked;
 		break;
 	case PFL_NFSRESERR:
 	case PFL_HWRESERR:
@@ -2009,22 +2016,22 @@ do_lock(struct file_lock *fl)
 	case PFL_HWDENIED_NOLOCK:
 		debuglog("PFL lock resource alocation fail\n");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_denied_nolocks : nlm_denied_nolocks;
+		retval = (fl->flags & LOCK_V4) ? nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 		break;
 	case PFL_HWDENIED_STALEFH:
 		debuglog("PFL_NFS lock denied STALEFH");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_stale_fh : nlm_denied;
+		retval = (fl->flags & LOCK_V4) ? nlm4_stale_fh : (nlm4_stats) nlm_denied;
 		break;
 	case PFL_HWDENIED_READONLY:
 		debuglog("PFL_NFS lock denied READONLY");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_rofs : nlm_denied;
+		retval = (fl->flags & LOCK_V4) ? nlm4_rofs : (nlm4_stats) nlm_denied;
 		break;
 	default:
 		debuglog("PFL lock *FAILED*");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_failed : nlm_denied;
+		retval = (fl->flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 		break;
 	}
 
@@ -2046,29 +2053,29 @@ do_unlock(struct file_lock *fl)
 	case PFL_GRANTED:
 		debuglog("PFL unlock granted");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		retval = (fl->flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 		break;
 	case PFL_NFSDENIED:
 	case PFL_HWDENIED:
 		debuglog("PFL_NFS unlock denied");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_denied : nlm_denied;
+		retval = (fl->flags & LOCK_V4) ? nlm4_denied : (nlm4_stats) nlm_denied;
 		break;
 	case PFL_NFSDENIED_NOLOCK:
 	case PFL_HWDENIED_NOLOCK:
 		debuglog("PFL_NFS no lock found\n");
-		retval = (fl->flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		retval = (fl->flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 		break;
 	case PFL_NFSRESERR:
 	case PFL_HWRESERR:
 		debuglog("PFL unlock resource failure");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_denied_nolocks : nlm_denied_nolocks;
+		retval = (fl->flags & LOCK_V4) ? nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 		break;
 	default:
 		debuglog("PFL unlock *FAILED*");
 		dump_filelock(fl);
-		retval = (fl->flags & LOCK_V4) ? nlm4_failed : nlm_denied;
+		retval = (fl->flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 		break;
 	}
 
@@ -2137,8 +2144,8 @@ do_notify_mounts(const char *hostname)
 			if (config.verbose > 1) {
 				char addrbuf[NI_MAXHOST], *addr = NULL;
 				void *sinaddr = (ai->ai_family == AF_INET) ?
-					(void*)&((struct sockaddr_in*)ai->ai_addr)->sin_addr :
-					(void*)&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+					(void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
+					(void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
 				if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
 					addr = addrbuf;
 				debuglog("do_notify_mounts for %s, addr %d ai fam %d len %d %s",
@@ -2217,12 +2224,12 @@ getlock(nlm4_lockargs *lckarg, struct svc_req *rqstp, const int flags)
 
 	if (grace_expired == 0 && lckarg->reclaim == 0)
 		return (flags & LOCK_V4) ?
-		    nlm4_denied_grace_period : nlm_denied_grace_period;
+		    nlm4_denied_grace_period : (nlm4_stats) nlm_denied_grace_period;
 
 	if (lckarg->alock.fh.n_len > NFSV3_MAX_FH_SIZE) {
 		debuglog("received fhandle size %d, max size %d",
 		    lckarg->alock.fh.n_len, NFSV3_MAX_FH_SIZE);
-		return (flags & LOCK_V4) ? nlm4_failed : nlm_denied;
+		return (flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 	}
 
 	/* allocate new file_lock for this request */
@@ -2233,7 +2240,7 @@ getlock(nlm4_lockargs *lckarg, struct svc_req *rqstp, const int flags)
 		syslog(LOG_NOTICE, "lock allocate failed: %s", strerror(errno));
 		/* failed */
 		return (flags & LOCK_V4) ?
-		    nlm4_denied_nolocks : nlm_denied_nolocks;
+		    nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 	}
 
 	fill_file_lock(newfl,
@@ -2287,7 +2294,7 @@ unlock(nlm4_lock *lock, const int flags)
 	if (lock->fh.n_len > NFSV3_MAX_FH_SIZE) {
 		debuglog("received fhandle size %d, max size %d",
 		    lock->fh.n_len, NFSV3_MAX_FH_SIZE);
-		return (flags & LOCK_V4) ? nlm4_failed : nlm_denied;
+		return (flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 	}
 	
 	siglock();
@@ -2319,12 +2326,12 @@ cancellock(nlm4_cancargs *args, const int flags)
 	if (args->alock.fh.n_len > NFSV3_MAX_FH_SIZE) {
 		debuglog("received fhandle size %d, max size %d",
 		    args->alock.fh.n_len, NFSV3_MAX_FH_SIZE);
-		return (flags & LOCK_V4) ? nlm4_failed : nlm_denied;
+		return (flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 	}
 
 	siglock();
 
-	err = (flags & LOCK_V4) ? nlm4_denied : nlm_denied;
+	err = (flags & LOCK_V4) ? nlm4_denied : (nlm4_stats) nlm_denied;
 
 	/*
 	 * scan blocked lock list for matching request and remove/destroy
@@ -2368,7 +2375,7 @@ cancellock(nlm4_cancargs *args, const int flags)
 		/* got it */
 		remove_blockingfilelock(ifl);
 		deallocate_file_lock(ifl);
-		err = (flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		err = (flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 		break;
 	}
 
@@ -2527,14 +2534,14 @@ monitor_lock_host(const char *hostname, const struct sockaddr *saddr)
 	bzero(&smon,sizeof(smon));
 
 	smon.mon_id.mon_name = nhp->name;
-	smon.mon_id.my_id.my_name = "localhost\0";
+	smon.mon_id.my_id.my_name = (char *) "localhost\0";
 
 	smon.mon_id.my_id.my_prog = NLM_PROG;
 	smon.mon_id.my_id.my_vers = NLM_SM;
 	smon.mon_id.my_id.my_proc = NLM_SM_NOTIFY;
 
 retry:
-	rpcret = callrpc("localhost", SM_PROG, SM_VERS, SM_MON, (xdrproc_t)xdr_mon,
+	rpcret = callrpc((char *) "localhost", SM_PROG, SM_VERS, SM_MON, (xdrproc_t)xdr_mon,
 	    &smon, (xdrproc_t)xdr_sm_stat_res, &sres);
 
 	if (rpcret == 0) {
@@ -2632,12 +2639,12 @@ destroy_lock_host(struct host *ihp)
 
 	bzero(&smon_id,sizeof(smon_id));
 	smon_id.mon_name = name;
-	smon_id.my_id.my_name = "localhost";
+	smon_id.my_id.my_name = (char *) "localhost";
 	smon_id.my_id.my_prog = NLM_PROG;
 	smon_id.my_id.my_vers = NLM_SM;
 	smon_id.my_id.my_proc = NLM_SM_NOTIFY;
 			  
-	rpcret = callrpc("localhost", SM_PROG, SM_VERS, SM_UNMON, (xdrproc_t)xdr_mon_id,
+	rpcret = callrpc((char *) "localhost", SM_PROG, SM_VERS, SM_UNMON, (xdrproc_t)xdr_mon_id,
 	    &smon_id, (xdrproc_t)xdr_sm_stat, &smstat);
 			  
 	if (rpcret != 0) {
@@ -2742,7 +2749,7 @@ send_granted(fl, opcode)
 	if (fl->flags & LOCK_V4) {
 		static nlm4_testargs res;
 		res.cookie.n_len = sizeof(fl->granted_cookie);
-		res.cookie.n_bytes = (char*)&fl->granted_cookie;
+		res.cookie.n_bytes = (uint8_t*)&fl->granted_cookie;
 		res.exclusive = fl->client.exclusive;
 		res.alock.caller_name = fl->client_name;
 		res.alock.fh.n_len = fl->filehandle.n_len;
@@ -2765,7 +2772,7 @@ send_granted(fl, opcode)
 		static nlm_testargs res;
 
 		res.cookie.n_len = sizeof(fl->granted_cookie);
-		res.cookie.n_bytes = (char*)&fl->granted_cookie;
+		res.cookie.n_bytes = (uint8_t*)&fl->granted_cookie;
 		res.exclusive = fl->client.exclusive;
 		res.alock.caller_name = fl->client_name;
 		res.alock.fh.n_len = fl->filehandle.n_len;
@@ -2854,13 +2861,13 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 		debuglog("getshare denied - grace period\n");
 		return (flags & LOCK_V4) ?
 			nlm4_denied_grace_period :
-			nlm_denied_grace_period;
+			(nlm4_stats) nlm_denied_grace_period;
 	}
 
 	if (shrarg->share.fh.n_len > NFSV3_MAX_FH_SIZE) {
 		debuglog("received fhandle size %d, max size %d",
 		    shrarg->share.fh.n_len, NFSV3_MAX_FH_SIZE);
-		return (flags & LOCK_V4) ? nlm4_failed : nlm_denied;
+		return (flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 	}
 
 	/* find file in list of share files */
@@ -2884,7 +2891,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 			debuglog("fhopen failed (from %16s): %32s\n",
 			    shrarg->share.caller_name, strerror(errno));
 			if ((flags & LOCK_V4) == 0)
-				return nlm_denied;
+				return (nlm4_stats) nlm_denied;
 			switch (errno) {
 			case ESTALE:
 				return nlm4_stale_fh;
@@ -2896,7 +2903,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 		if (!shrfile) {
 			debuglog("getshare failed: can't allocate sharefile\n");
 			close(fd);
-			return (flags & LOCK_V4) ? nlm4_denied_nolocks : nlm_denied_nolocks;
+			return (flags & LOCK_V4) ? nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 		}
 		shrfile->filehandle.n_len = shrarg->share.fh.n_len;
 		shrfile->filehandle.n_bytes = malloc(shrarg->share.fh.n_len);
@@ -2904,7 +2911,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 			debuglog("getshare failed: can't allocate sharefile filehandle\n");
 			free(shrfile);
 			close(fd);
-			return (flags & LOCK_V4) ? nlm4_denied_nolocks : nlm_denied_nolocks;
+			return (flags & LOCK_V4) ? nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 		}
 		bcopy(shrarg->share.fh.n_bytes, shrfile->filehandle.n_bytes,
 			shrarg->share.fh.n_len);
@@ -2923,13 +2930,13 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 			sh->mode = shrarg->share.mode;
 			sh->access = shrarg->share.access;
 			debuglog("getshare: updated existing share\n");
-			return (flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+			return (flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 		}
 		if (((shrarg->share.mode & sh->access) != 0) ||
 		    ((shrarg->share.access & sh->mode) != 0)) {
 			/* share request conflicts with existing share */
 			debuglog("getshare: conflicts with existing share\n");
-			return (flags & LOCK_V4) ? nlm4_denied : nlm_denied;
+			return (flags & LOCK_V4) ? nlm4_denied : (nlm4_stats) nlm_denied;
 		}
 	}
 
@@ -2949,7 +2956,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 			free(shrfile->filehandle.n_bytes);
 			free(shrfile);
 		}
-		return (flags & LOCK_V4) ? nlm4_denied_nolocks : nlm_denied_nolocks;
+		return (flags & LOCK_V4) ? nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 	}
 	bzero(sh, sizeof(*sh) - sizeof(sh->client_name));
 	sh->oh.n_len = shrarg->share.oh.n_len;
@@ -2963,7 +2970,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 			free(shrfile->filehandle.n_bytes);
 			free(shrfile);
 		}
-		return (flags & LOCK_V4) ? nlm4_denied_nolocks : nlm_denied_nolocks;
+		return (flags & LOCK_V4) ? nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 	}
 	memcpy(sh->client_name, shrarg->share.caller_name, n);
 	sh->client_name[n] = 0;
@@ -2976,7 +2983,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 
 	debuglog("Exiting getshare...\n");
 
-	return (flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+	return (flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 }
 
 
@@ -2992,7 +2999,7 @@ unshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 	if (shrarg->share.fh.n_len > NFSV3_MAX_FH_SIZE) {
 		debuglog("received fhandle size %d, max size %d",
 		    shrarg->share.fh.n_len, NFSV3_MAX_FH_SIZE);
-		return (flags & LOCK_V4) ? nlm4_failed : nlm_denied;
+		return (flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 	}
 
 	/* find file in list of share files */
@@ -3008,7 +3015,7 @@ unshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 	/* if share file not found, return success (per spec) */
 	if (!shrfile) {
 		debuglog("unshare: no such share file\n");
-		return (flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		return (flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 	}
 
 	/* find share */
@@ -3022,7 +3029,7 @@ unshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 	/* if share not found, return success (per spec) */
 	if (!sh) {
 		debuglog("unshare: no such share\n");
-		return (flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+		return (flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 	}
 
 	/* remove share from file and deallocate */
@@ -3042,7 +3049,7 @@ unshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 
 	debuglog("Exiting unshare...\n");
 
-	return (flags & LOCK_V4) ? nlm4_granted : nlm_granted;
+	return (flags & LOCK_V4) ? nlm4_granted : (nlm4_stats) nlm_granted;
 }
 
 /*

@@ -28,8 +28,7 @@
 
 #if ENABLE(PLUGIN_PROCESS)
 
-#include <runtime/JSObject.h>
-#include <runtime/ScopeChain.h>
+#include "NPObjectMessageReceiverMessages.h"
 #include "NPRemoteObjectMap.h"
 #include "NPRuntimeObjectMap.h"
 #include "PluginProcessConnectionManager.h"
@@ -37,16 +36,18 @@
 #include "WebProcess.h"
 #include "WebProcessProxyMessages.h"
 #include <WebCore/FileSystem.h>
+#include <runtime/JSObject.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-PluginProcessConnection::PluginProcessConnection(PluginProcessConnectionManager* pluginProcessConnectionManager, const String& pluginPath, CoreIPC::Connection::Identifier connectionIdentifier)
+PluginProcessConnection::PluginProcessConnection(PluginProcessConnectionManager* pluginProcessConnectionManager, uint64_t pluginProcessToken, CoreIPC::Connection::Identifier connectionIdentifier, bool supportsAsynchronousPluginInitialization)
     : m_pluginProcessConnectionManager(pluginProcessConnectionManager)
-    , m_pluginPath(pluginPath)
+    , m_pluginProcessToken(pluginProcessToken)
+    , m_supportsAsynchronousPluginInitialization(supportsAsynchronousPluginInitialization)
 {
-    m_connection = CoreIPC::Connection::createClientConnection(connectionIdentifier, this, WebProcess::shared().runLoop());
+    m_connection = CoreIPC::Connection::createClientConnection(connectionIdentifier, this, RunLoop::main());
 
     m_npRemoteObjectMap = NPRemoteObjectMap::create(m_connection.get());
 
@@ -87,28 +88,28 @@ void PluginProcessConnection::removePluginProxy(PluginProxy* plugin)
     m_pluginProcessConnectionManager->removePluginProcessConnection(this);
 }
 
-void PluginProcessConnection::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
+void PluginProcessConnection::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageDecoder& decoder)
 {
-    ASSERT(arguments->destinationID());
+    ASSERT(decoder.destinationID());
 
-    PluginProxy* pluginProxy = m_plugins.get(arguments->destinationID());
+    PluginProxy* pluginProxy = m_plugins.get(decoder.destinationID());
     if (!pluginProxy)
         return;
 
-    pluginProxy->didReceivePluginProxyMessage(connection, messageID, arguments);
+    pluginProxy->didReceivePluginProxyMessage(connection, decoder);
 }
 
-void PluginProcessConnection::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
+void PluginProcessConnection::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageDecoder& decoder, OwnPtr<CoreIPC::MessageEncoder>& replyEncoder)
 {
-    if (messageID.is<CoreIPC::MessageClassNPObjectMessageReceiver>()) {
-        m_npRemoteObjectMap->didReceiveSyncMessage(connection, messageID, arguments, reply);
+    if (decoder.messageReceiverName() == Messages::NPObjectMessageReceiver::messageReceiverName()) {
+        m_npRemoteObjectMap->didReceiveSyncMessage(connection, decoder, replyEncoder);
         return;
     }
 
-    uint64_t destinationID = arguments->destinationID();
+    uint64_t destinationID = decoder.destinationID();
 
     if (!destinationID) {
-        didReceiveSyncPluginProcessConnectionMessage(connection, messageID, arguments, reply);
+        didReceiveSyncPluginProcessConnectionMessage(connection, decoder, replyEncoder);
         return;
     }
 
@@ -116,7 +117,7 @@ void PluginProcessConnection::didReceiveSyncMessage(CoreIPC::Connection* connect
     if (!pluginProxy)
         return;
 
-    pluginProxy->didReceiveSyncPluginProxyMessage(connection, messageID, arguments, reply);
+    pluginProxy->didReceiveSyncPluginProxyMessage(connection, decoder, replyEncoder);
 }
 
 void PluginProcessConnection::didClose(CoreIPC::Connection*)
@@ -129,7 +130,7 @@ void PluginProcessConnection::didClose(CoreIPC::Connection*)
     }
 }
 
-void PluginProcessConnection::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID)
+void PluginProcessConnection::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::StringReference, CoreIPC::StringReference)
 {
 }
 

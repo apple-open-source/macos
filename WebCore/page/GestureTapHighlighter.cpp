@@ -39,6 +39,7 @@
 #include "Page.h"
 #include "RenderBoxModelObject.h"
 #include "RenderInline.h"
+#include "RenderLayer.h"
 #include "RenderObject.h"
 
 namespace WebCore {
@@ -92,20 +93,24 @@ inline bool strikes(const LayoutRect& a, const LayoutRect& b)
         && a.y() <= b.maxY() && b.y() <= a.maxY();
 }
 
-inline void shiftXEdgesToContainIfStrikes(LayoutRect& rect, const LayoutRect& other)
+inline void shiftXEdgesToContainIfStrikes(LayoutRect& rect, LayoutRect& other, bool isFirst)
 {
     if (rect.isEmpty())
         return;
-    LayoutUnit leftSide = rect.x();
-    LayoutUnit rightSide = rect.maxX();
 
-    if (!other.isEmpty() && strikes(rect, other)) {
-        leftSide = std::min(leftSide, other.x());
-        rightSide = std::max(rightSide, other.maxX());
-    }
+    if (other.isEmpty() || !strikes(rect, other))
+        return;
 
-    rect.setX(leftSide);
-    rect.setWidth(rightSide - leftSide);
+    LayoutUnit leftSide = std::min(rect.x(), other.x());
+    LayoutUnit rightSide = std::max(rect.maxX(), other.maxX());
+
+    rect.shiftXEdgeTo(leftSide);
+    rect.shiftMaxXEdgeTo(rightSide);
+
+    if (isFirst)
+        other.shiftMaxXEdgeTo(rightSide);
+    else
+        other.shiftXEdgeTo(leftSide);
 }
 
 inline void addHighlightRect(Path& path, const LayoutRect& rect, const LayoutRect& prev, const LayoutRect& next)
@@ -134,16 +139,16 @@ inline void addHighlightRect(Path& path, const LayoutRect& rect, const LayoutRec
             contains(next, rect.maxX()) ? squared : rounded);
 }
 
-Path pathForRenderer(RenderObject* o)
+Path absolutePathForRenderer(RenderObject* const o)
 {
     ASSERT(o);
-    Path path;
 
     Vector<IntRect> rects;
-    o->addFocusRingRects(rects, /* acc. offset */ ownerFrameToMainFrameOffset(o));
+    LayoutPoint frameOffset = ownerFrameToMainFrameOffset(o);
+    o->addFocusRingRects(rects, frameOffset);
 
     if (rects.isEmpty())
-        return path;
+        return Path();
 
     // The basic idea is to allow up to three different boxes in order to highlight
     // text with line breaks more nicer than using a bounding box.
@@ -157,39 +162,91 @@ Path pathForRenderer(RenderObject* o)
     for (int i = 1; i < end; ++i)
         mid.uniteIfNonZero(rects.at(i));
 
-    Vector<LayoutRect> drawableRects;
+    LayoutRect first;
+    LayoutRect last;
 
-    if (!mid.isEmpty())
-        drawableRects.append(mid);
-
-    // Add the first box, but merge it with the center boxes if it intersects.
+    // Add the first box, but merge it with the center boxes if it intersects or if the center box is empty.
     if (rects.size() && !rects.first().isEmpty()) {
-        // Adjust center boxes to boundary of first
-        if (drawableRects.size())
-            shiftXEdgesToContainIfStrikes(drawableRects.last(), rects.first());
-        if (drawableRects.size() && drawableRects.last().intersects(rects.first()))
-            drawableRects.last().unite(rects.first());
-        else
-            drawableRects.prepend(rects.first());
+        // If the mid box is empty at this point, unite it with the first box. This allows the first box to be
+        // united with the last box if they intersect in the following check for last. Not uniting them would
+        // trigger in assert in addHighlighRect due to the first and the last box intersecting, but being passed
+        // as two separate boxes.
+        if (mid.isEmpty() || mid.intersects(rects.first()))
+            mid.unite(rects.first());
+        else {
+            first = rects.first();
+            shiftXEdgesToContainIfStrikes(mid, first, /* isFirst */ true);
+        }
     }
 
     // Add the last box, but merge it with the center boxes if it intersects.
     if (rects.size() > 1 && !rects.last().isEmpty()) {
         // Adjust center boxes to boundary of last
-        if (drawableRects.size())
-            shiftXEdgesToContainIfStrikes(drawableRects.last(), rects.last());
-        if (drawableRects.size() && drawableRects.last().intersects(rects.last()))
-            drawableRects.last().unite(rects.last());
-        else
-            drawableRects.append(rects.last());
+        if (mid.intersects(rects.last()))
+            mid.unite(rects.last());
+        else {
+            last = rects.last();
+            shiftXEdgesToContainIfStrikes(mid, last, /* isFirst */ false);
+        }
     }
 
+    Vector<LayoutRect> drawableRects;
+    if (!first.isEmpty())
+        drawableRects.append(first);
+    if (!mid.isEmpty())
+        drawableRects.append(mid);
+    if (!last.isEmpty())
+        drawableRects.append(last);
+
+    // Clip the overflow rects if needed, before the ring path is formed to
+    // ensure rounded highlight rects. This clipping has the problem with nested
+    // divs with transforms, which could be resolved by proper Path::intersecting.
+    for (int i = drawableRects.size() - 1; i >= 0; --i) {
+        LayoutRect& ringRect = drawableRects.at(i);
+        LayoutPoint ringRectLocation = ringRect.location();
+
+        ringRect.moveBy(-frameOffset);
+
+        RenderLayer* layer = o->enclosingLayer();
+        RenderObject* currentRenderer = o;
+
+        // Check ancestor layers for overflow clip and intersect them.
+        for (; layer; layer = layer->parent()) {
+            RenderLayerModelObject* layerRenderer = layer->renderer();
+
+            if (layerRenderer->hasOverflowClip() && layerRenderer != currentRenderer) {
+                bool containerSkipped = false;
+                // Skip ancestor layers that are not containers for the current renderer.
+                currentRenderer->container(layerRenderer, &containerSkipped);
+                if (containerSkipped)
+                    continue;
+                ringRect.move(currentRenderer->offsetFromAncestorContainer(layerRenderer));
+                currentRenderer = layerRenderer;
+
+                ASSERT(layerRenderer->isBox());
+                ringRect.intersect(toRenderBox(layerRenderer)->borderBoxRect());
+
+                if (ringRect.isEmpty())
+                    break;
+            }
+        }
+
+        if (ringRect.isEmpty()) {
+            drawableRects.remove(i);
+            continue;
+        }
+        // After clipping, reset the original position so that parents' transforms apply correctly.
+        ringRect.setLocation(ringRectLocation);
+    }
+
+    Path path;
     for (size_t i = 0; i < drawableRects.size(); ++i) {
         LayoutRect prev = i ? drawableRects.at(i - 1) : LayoutRect();
         LayoutRect next = i < (drawableRects.size() - 1) ? drawableRects.at(i + 1) : LayoutRect();
         addHighlightRect(path, drawableRects.at(i), prev, next);
     }
 
+    path.transform(localToAbsoluteTransform(o));
     return path;
 }
 
@@ -201,14 +258,10 @@ Path pathForNodeHighlight(const Node* node)
 {
     RenderObject* renderer = node->renderer();
 
-    Path path;
     if (!renderer || (!renderer->isBox() && !renderer->isRenderInline()))
-        return path;
+        return Path();
 
-    path = pathForRenderer(renderer);
-    path.transform(localToAbsoluteTransform(renderer));
-
-    return path;
+    return absolutePathForRenderer(renderer);
 }
 
 } // namespace GestureTapHighlighter

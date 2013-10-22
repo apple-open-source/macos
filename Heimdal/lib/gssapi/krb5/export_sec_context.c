@@ -204,7 +204,7 @@ _gsskrb5_export_sec_context (
 	*minor_status = kret;
 	goto failure;
     }
-    kret = krb5_store_int32 (sp, ctx->endtime);
+    kret = krb5_store_int32 (sp, (int32_t)ctx->endtime);
     if (kret) {
 	*minor_status = kret;
 	goto failure;

@@ -37,6 +37,10 @@
 # define SPINAME(s) s
 #endif
 
+SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleLoad) (const CSSM_GUID *CssmGuid,
+                                                    const CSSM_GUID *ModuleGuid,
+                                                    CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
+                                                    void *CssmNotifyCallbackCtx);
 
 SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleLoad) (const CSSM_GUID *CssmGuid,
     const CSSM_GUID *ModuleGuid,
@@ -51,6 +55,11 @@ SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleLoad) (const CSSM_GUID *CssmGuid,
 }
 
 SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleUnload) (const CSSM_GUID *CssmGuid,
+                                                      const CSSM_GUID *ModuleGuid,
+                                                      CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
+                                                      void *CssmNotifyCallbackCtx);
+
+SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleUnload) (const CSSM_GUID *CssmGuid,
     const CSSM_GUID *ModuleGuid,
     CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
     void *CssmNotifyCallbackCtx)
@@ -61,6 +70,19 @@ SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleUnload) (const CSSM_GUID *CssmGuid,
         ModuleCallback(CssmNotifyCallback, CssmNotifyCallbackCtx));
     END_API(CSSM)
 }
+
+SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleAttach) (const CSSM_GUID *ModuleGuid,
+                                                      const CSSM_VERSION *Version,
+                                                      uint32 SubserviceID,
+                                                      CSSM_SERVICE_TYPE SubServiceType,
+                                                      CSSM_ATTACH_FLAGS AttachFlags,
+                                                      CSSM_MODULE_HANDLE ModuleHandle,
+                                                      CSSM_KEY_HIERARCHY KeyHierarchy,
+                                                      const CSSM_GUID *CssmGuid,
+                                                      const CSSM_GUID *ModuleManagerGuid,
+                                                      const CSSM_GUID *CallerGuid,
+                                                      const CSSM_UPCALLS *Upcalls,
+                                                      CSSM_MODULE_FUNCS_PTR *FuncTbl);
 
 SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleAttach) (const CSSM_GUID *ModuleGuid,
     const CSSM_VERSION *Version,
@@ -90,6 +112,8 @@ SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleAttach) (const CSSM_GUID *ModuleGui
         Required(FuncTbl));
     END_API(CSSM)
 }
+
+SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleDetach) (CSSM_MODULE_HANDLE ModuleHandle);
 
 SPIPREFIX CSSM_RETURN SPINAME(CSSM_SPI_ModuleDetach) (CSSM_MODULE_HANDLE ModuleHandle)
 {

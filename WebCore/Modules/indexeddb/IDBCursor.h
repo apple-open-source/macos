@@ -30,66 +30,78 @@
 
 #include "IDBKey.h"
 #include "IDBTransaction.h"
+#include "IndexedDB.h"
+#include "ScriptValue.h"
+#include "ScriptWrappable.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+class DOMRequestState;
 class IDBAny;
 class IDBCallbacks;
 class IDBCursorBackendInterface;
 class IDBRequest;
 class ScriptExecutionContext;
-class SerializedScriptValue;
 
 typedef int ExceptionCode;
 
-class IDBCursor : public RefCounted<IDBCursor> {
+class IDBCursor : public ScriptWrappable, public RefCounted<IDBCursor> {
 public:
-    enum Direction {
-        NEXT = 0,
-        NEXT_NO_DUPLICATE = 1,
-        PREV = 2,
-        PREV_NO_DUPLICATE = 3,
-    };
-    static PassRefPtr<IDBCursor> create(PassRefPtr<IDBCursorBackendInterface>, IDBRequest*, IDBAny* source, IDBTransaction*);
+    static const AtomicString& directionNext();
+    static const AtomicString& directionNextUnique();
+    static const AtomicString& directionPrev();
+    static const AtomicString& directionPrevUnique();
+
+    static IndexedDB::CursorDirection stringToDirection(const String& modeString, ExceptionCode&);
+    static const AtomicString& directionToString(unsigned short mode);
+
+    static PassRefPtr<IDBCursor> create(PassRefPtr<IDBCursorBackendInterface>, IndexedDB::CursorDirection, IDBRequest*, IDBAny* source, IDBTransaction*);
     virtual ~IDBCursor();
 
-    // FIXME: Try to modify the code generator so this is unneeded.
-    void continueFunction(ExceptionCode& ec) { continueFunction(0, ec); }
-
     // Implement the IDL
-    unsigned short direction() const;
-    PassRefPtr<IDBKey> key() const;
-    PassRefPtr<IDBKey> primaryKey() const;
-    PassRefPtr<IDBAny> value() const;
+    const String& direction() const;
+    const ScriptValue& key() const;
+    const ScriptValue& primaryKey() const;
+    const ScriptValue& value() const;
     IDBAny* source() const;
 
-    PassRefPtr<IDBRequest> update(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue>, ExceptionCode&);
+    PassRefPtr<IDBRequest> update(ScriptState*, ScriptValue&, ExceptionCode&);
     void advance(unsigned long, ExceptionCode&);
-    void continueFunction(PassRefPtr<IDBKey>, ExceptionCode&);
+    // FIXME: Try to modify the code generator so this overload is unneeded.
+    void continueFunction(ScriptExecutionContext*, ExceptionCode& ec) { continueFunction(static_cast<IDBKey*>(0), ec); }
+    void continueFunction(ScriptExecutionContext*, const ScriptValue& key, ExceptionCode&);
     PassRefPtr<IDBRequest> deleteFunction(ScriptExecutionContext*, ExceptionCode&);
 
+    void continueFunction(PassRefPtr<IDBKey>, ExceptionCode&);
     void postSuccessHandlerCallback();
     void close();
-    void setValueReady();
+    void setValueReady(DOMRequestState*, PassRefPtr<IDBKey>, PassRefPtr<IDBKey> primaryKey, ScriptValue&);
+    PassRefPtr<IDBKey> idbPrimaryKey() { return m_currentPrimaryKey; }
 
 protected:
-    IDBCursor(PassRefPtr<IDBCursorBackendInterface>, IDBRequest*, IDBAny* source, IDBTransaction*);
+    IDBCursor(PassRefPtr<IDBCursorBackendInterface>, IndexedDB::CursorDirection, IDBRequest*, IDBAny* source, IDBTransaction*);
+    virtual bool isKeyCursor() const { return true; }
 
 private:
+    PassRefPtr<IDBObjectStore> effectiveObjectStore();
+
     RefPtr<IDBCursorBackendInterface> m_backend;
     RefPtr<IDBRequest> m_request;
+    const IndexedDB::CursorDirection m_direction;
     RefPtr<IDBAny> m_source;
     RefPtr<IDBTransaction> m_transaction;
     IDBTransaction::OpenCursorNotifier m_transactionNotifier;
     bool m_gotValue;
     // These values are held because m_backend may advance while they
     // are still valid for the current success handlers.
+    ScriptValue m_currentKeyValue;
+    ScriptValue m_currentPrimaryKeyValue;
     RefPtr<IDBKey> m_currentKey;
     RefPtr<IDBKey> m_currentPrimaryKey;
-    RefPtr<IDBAny> m_currentValue;
+    ScriptValue m_currentValue;
 };
 
 } // namespace WebCore

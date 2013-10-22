@@ -55,7 +55,6 @@ WebInspector.NetworkRequest = function(requestId, url, documentURL, frameId, loa
     this.receiveHeadersEnd = 0;
 
     this._type = WebInspector.resourceTypes.Other;
-    this._content = undefined;
     this._contentEncoded = false;
     this._pendingContentCallbacks = [];
     this._frames = [];
@@ -67,6 +66,17 @@ WebInspector.NetworkRequest.Events = {
     RequestHeadersChanged: "RequestHeadersChanged",
     ResponseHeadersChanged: "ResponseHeadersChanged",
 }
+
+/** @enum {string} */
+WebInspector.NetworkRequest.InitiatorType = {
+    Other: "other",
+    Parser: "parser",
+    Redirect: "redirect",
+    Script: "script"
+}
+
+/** @typedef {{name: string, value: string}} */
+WebInspector.NetworkRequest.NameValue;
 
 WebInspector.NetworkRequest.prototype = {
     /**
@@ -98,6 +108,8 @@ WebInspector.NetworkRequest.prototype = {
         this._url = x;
         this._parsedURL = new WebInspector.ParsedURL(x);
         delete this._parsedQueryParameters;
+        delete this._name;
+        delete this._path;
     },
 
     /**
@@ -240,7 +252,7 @@ WebInspector.NetworkRequest.prototype = {
         // resourceSize when we don't have Content-Length. This still won't
         // work for chunks with non-trivial encodings. We need a way to
         // get actual transfer size from the network stack.
-        var bodySize = Number(this.responseHeaders["Content-Length"] || this.resourceSize);
+        var bodySize = Number(this.responseHeaderValue("Content-Length") || this.resourceSize);
         return this.responseHeadersSize + bodySize;
     },
 
@@ -357,6 +369,45 @@ WebInspector.NetworkRequest.prototype = {
         return this._parsedURL.displayName;
     },
 
+    name: function()
+    {
+        if (this._name)
+            return this._name;
+        this._parseNameAndPathFromURL();
+        return this._name;
+    },
+
+    path: function()
+    {
+        if (this._path)
+            return this._path;
+        this._parseNameAndPathFromURL();
+        return this._path;
+    },
+
+    _parseNameAndPathFromURL: function()
+    {
+        if (this._parsedURL.isDataURL()) {
+            this._name = this._parsedURL.dataURLDisplayName();
+            this._path = "";
+        } else if (this._parsedURL.isAboutBlank()) {
+            this._name = this._parsedURL.url;
+            this._path = "";
+        } else {
+            this._path = this._parsedURL.host + this._parsedURL.folderPathComponents;
+            this._path = this._path.trimURL(WebInspector.inspectedPageDomain ? WebInspector.inspectedPageDomain : "");
+            if (this._parsedURL.lastPathComponent || this._parsedURL.queryParams)
+                this._name = this._parsedURL.lastPathComponent + (this._parsedURL.queryParams ? "?" + this._parsedURL.queryParams : "");
+            else if (this._parsedURL.folderPathComponents) {
+                this._name = this._parsedURL.folderPathComponents.substring(this._parsedURL.folderPathComponents.lastIndexOf("/") + 1) + "/";
+                this._path = this._path.substring(0, this._path.lastIndexOf("/"));
+            } else {
+                this._name = this._parsedURL.host;
+                this._path = "";
+            }
+        }
+    },
+
     /**
      * @return {string}
      */
@@ -384,7 +435,15 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {WebInspector.Resource|undefined}
+     * @return {string}
+     */
+    get domain()
+    {
+        return this._parsedURL.host;
+    },
+
+    /**
+     * @return {?WebInspector.NetworkRequest}
      */
     get redirectSource()
     {
@@ -396,14 +455,15 @@ WebInspector.NetworkRequest.prototype = {
     set redirectSource(x)
     {
         this._redirectSource = x;
+        delete this._initiatorInfo;
     },
 
     /**
-     * @return {Object}
+     * @return {!Array.<!WebInspector.NetworkRequest.NameValue>}
      */
     get requestHeaders()
     {
-        return this._requestHeaders || {};
+        return this._requestHeaders || [];
     },
 
     set requestHeaders(x)
@@ -420,10 +480,10 @@ WebInspector.NetworkRequest.prototype = {
      */
     get requestHeadersText()
     {
-        if (this._requestHeadersText === undefined) {
+        if (typeof this._requestHeadersText === "undefined") {
             this._requestHeadersText = this.requestMethod + " " + this.url + " HTTP/1.1\r\n";
-            for (var key in this.requestHeaders)
-                this._requestHeadersText += key + ": " + this.requestHeaders[key] + "\r\n";
+            for (var i = 0; i < this.requestHeaders.length; ++i)
+                this._requestHeadersText += this.requestHeaders[i].name + ": " + this.requestHeaders[i].value + "\r\n";
         }
         return this._requestHeadersText;
     },
@@ -444,7 +504,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {Array.<Object>}
+     * @return {!Array.<!WebInspector.NetworkRequest.NameValue>}
      */
     get sortedRequestHeaders()
     {
@@ -452,10 +512,8 @@ WebInspector.NetworkRequest.prototype = {
             return this._sortedRequestHeaders;
 
         this._sortedRequestHeaders = [];
-        for (var key in this.requestHeaders)
-            this._sortedRequestHeaders.push({header: key, value: this.requestHeaders[key]});
-        this._sortedRequestHeaders.sort(function(a,b) { return a.header.localeCompare(b.header) });
-
+        this._sortedRequestHeaders = this.requestHeaders.slice();
+        this._sortedRequestHeaders.sort(function(a,b) { return a.name.toLowerCase().compareTo(b.name.toLowerCase()) });
         return this._sortedRequestHeaders;
     },
 
@@ -503,11 +561,11 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {Object}
+     * @return {!Array.<!WebInspector.NetworkRequest.NameValue>}
      */
     get responseHeaders()
     {
-        return this._responseHeaders || {};
+        return this._responseHeaders || [];
     },
 
     set responseHeaders(x)
@@ -524,10 +582,10 @@ WebInspector.NetworkRequest.prototype = {
      */
     get responseHeadersText()
     {
-        if (this._responseHeadersText === undefined) {
+        if (typeof this._responseHeadersText === "undefined") {
             this._responseHeadersText = "HTTP/1.1 " + this.statusCode + " " + this.statusText + "\r\n";
-            for (var key in this.responseHeaders)
-                this._responseHeadersText += key + ": " + this.responseHeaders[key] + "\r\n";
+            for (var i = 0; i < this.responseHeaders.length; ++i)
+                this._responseHeadersText += this.responseHeaders[i].name + ": " + this.responseHeaders[i].value + "\r\n";
         }
         return this._responseHeadersText;
     },
@@ -548,7 +606,7 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {Array.<Object>}
+     * @return {!Array.<!WebInspector.NetworkRequest.NameValue>}
      */
     get sortedResponseHeaders()
     {
@@ -556,10 +614,8 @@ WebInspector.NetworkRequest.prototype = {
             return this._sortedResponseHeaders;
 
         this._sortedResponseHeaders = [];
-        for (var key in this.responseHeaders)
-            this._sortedResponseHeaders.push({header: key, value: this.responseHeaders[key]});
-        this._sortedResponseHeaders.sort(function(a,b) { return a.header.localeCompare(b.header) });
-
+        this._sortedResponseHeaders = this.responseHeaders.slice();
+        this._sortedResponseHeaders.sort(function(a, b) { return a.name.toLowerCase().compareTo(b.name.toLowerCase()); });
         return this._sortedResponseHeaders;
     },
 
@@ -583,22 +639,35 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {?Array.<Object>}
+     * @return {?string}
+     */
+    queryString: function()
+    {
+        if (this._queryString)
+            return this._queryString;
+        var queryString = this.url.split("?", 2)[1];
+        if (!queryString)
+            return null;
+        this._queryString = queryString.split("#", 2)[0];
+        return this._queryString;
+    },
+
+    /**
+     * @return {?Array.<!WebInspector.NetworkRequest.NameValue>}
      */
     get queryParameters()
     {
         if (this._parsedQueryParameters)
             return this._parsedQueryParameters;
-        var queryString = this.url.split("?", 2)[1];
+        var queryString = this.queryString();
         if (!queryString)
             return null;
-        queryString = queryString.split("#", 2)[0];
         this._parsedQueryParameters = this._parseParameters(queryString);
         return this._parsedQueryParameters;
     },
 
     /**
-     * @return {?Array.<Object>}
+     * @return {?Array.<!WebInspector.NetworkRequest.NameValue>}
      */
     get formParameters()
     {
@@ -624,37 +693,38 @@ WebInspector.NetworkRequest.prototype = {
 
     /**
      * @param {string} queryString
-     * @return {Array.<Object>}
+     * @return {!Array.<!WebInspector.NetworkRequest.NameValue>}
      */
     _parseParameters: function(queryString)
     {
         function parseNameValue(pair)
         {
-            var parameter = {};
             var splitPair = pair.split("=", 2);
-
-            parameter.name = splitPair[0];
-            if (splitPair.length === 1)
-                parameter.value = "";
-            else
-                parameter.value = splitPair[1];
-            return parameter;
+            return {name: splitPair[0], value: splitPair[1] || ""};
         }
         return queryString.split("&").map(parseNameValue);
     },
 
     /**
-     * @param {Object} headers
+     * @param {!Array.<!WebInspector.NetworkRequest.NameValue>} headers
      * @param {string} headerName
      * @return {string|undefined}
      */
     _headerValue: function(headers, headerName)
     {
         headerName = headerName.toLowerCase();
-        for (var header in headers) {
-            if (header.toLowerCase() === headerName)
-                return headers[header];
+
+        var values = [];
+        for (var i = 0; i < headers.length; ++i) {
+            if (headers[i].name.toLowerCase() === headerName)
+                values.push(headers[i].value);
         }
+        if (!values.length)
+            return undefined;
+        // Set-Cookie values should be separated by '\n', not comma, otherwise cookies could not be parsed.
+        if (headerName === "set-cookie")
+            return values.join("\n");
+        return values.join(", ");
     },
 
     /**
@@ -674,11 +744,19 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @return {?string}
+     * @return {string}
      */
     contentURL: function()
     {
         return this._url;
+    },
+
+    /**
+     * @return {WebInspector.ResourceType}
+     */
+    contentType: function()
+    {
+        return this._type;
     },
 
     /**
@@ -694,7 +772,7 @@ WebInspector.NetworkRequest.prototype = {
             return;
         }
         if (typeof this._content !== "undefined") {
-            callback(this.content || null, this._contentEncoded, this._mimeType);
+            callback(this.content || null, this._contentEncoded, this.type.canonicalMimeType());
             return;
         }
         this._pendingContentCallbacks.push(callback);
@@ -751,20 +829,28 @@ WebInspector.NetworkRequest.prototype = {
     populateImageSource: function(image)
     {
         /**
+         * @this {WebInspector.NetworkRequest}
          * @param {?string} content
          * @param {boolean} contentEncoded
          * @param {string} mimeType
          */
         function onResourceContent(content, contentEncoded, mimeType)
         {
-            const maxDataUrlSize = 1024 * 1024;
-            // If resource content is not available or won't fit a data URL, fall back to using original URL.
-            if (this._content == null || this._content.length > maxDataUrlSize)
-                return this.url;
-            image.src = "data:" + this.mimeType + (this._contentEncoded ? ";base64," : ",") + this._content;
+            var imageSrc = this.asDataURL();
+            if (imageSrc === null)
+                imageSrc = this.url;
+            image.src = imageSrc;
         }
 
         this.requestContent(onResourceContent.bind(this));
+    },
+
+    /**
+     * @return {?string}
+     */
+    asDataURL: function()
+    {
+        return WebInspector.contentAsDataURL(this._content, this.mimeType, this._contentEncoded);
     },
 
     _innerRequestContent: function()
@@ -792,23 +878,41 @@ WebInspector.NetworkRequest.prototype = {
     },
 
     /**
-     * @param {WebInspector.Resource} resource
+     * @return {{type: WebInspector.NetworkRequest.InitiatorType, url: string, source: string, lineNumber: number}}
      */
-    setResource: function(resource)
+    initiatorInfo: function()
     {
-        this._resource = resource;
+        if (this._initiatorInfo)
+            return this._initiatorInfo;
+
+        var type = WebInspector.NetworkRequest.InitiatorType.Other;
+        var url = "";
+        var lineNumber = -Infinity;
+
+        if (this.redirectSource) {
+            type = WebInspector.NetworkRequest.InitiatorType.Redirect;
+            url = this.redirectSource.url;
+        } else if (this.initiator) {
+            if (this.initiator.type === NetworkAgent.InitiatorType.Parser) {
+                type = WebInspector.NetworkRequest.InitiatorType.Parser;
+                url = this.initiator.url;
+                lineNumber = this.initiator.lineNumber;
+            } else if (this.initiator.type === NetworkAgent.InitiatorType.Script) {
+                var topFrame = this.initiator.stackTrace[0];
+                if (topFrame.url) {
+                    type = WebInspector.NetworkRequest.InitiatorType.Script;
+                    url = topFrame.url;
+                    lineNumber = topFrame.lineNumber;
+                }
+            }
+        }
+
+        this._initiatorInfo = {type: type, url: url, source: WebInspector.displayNameForURL(url), lineNumber: lineNumber};
+        return this._initiatorInfo;
     },
 
     /**
-     * @return {WebInspector.Resource}
-     */
-    resource: function()
-    {
-        return this._resource;
-    },
-
-    /**
-     * @return {Object}
+     * @return {!Array.<!Object>}
      */
     frames: function()
     {
@@ -817,7 +921,7 @@ WebInspector.NetworkRequest.prototype = {
 
     /**
      * @param {number} position
-     * @return {Object}
+     * @return {Object|undefined}
      */
     frame: function(position)
     {
@@ -830,14 +934,11 @@ WebInspector.NetworkRequest.prototype = {
      */
     addFrameError: function(errorMessage, time)
     {
-        var errorObject = {};
-        errorObject.errorMessage = errorMessage;
-        errorObject.time = time;
-        this._pushFrame(errorObject);
+        this._pushFrame({errorMessage: errorMessage, time: time});
     },
 
     /**
-     * @param {Object} response
+     * @param {!NetworkAgent.WebSocketFrame} response
      * @param {number} time
      * @param {boolean} sent
      */
@@ -845,17 +946,19 @@ WebInspector.NetworkRequest.prototype = {
     {
         response.time = time;
         if (sent)
-            response.sent = true;
+            response.sent = sent;
         this._pushFrame(response);
     },
 
-    _pushFrame: function(object)
+    /**
+     * @param {!Object} frameOrError
+     */
+    _pushFrame: function(frameOrError)
     {
-        if (this._frames.length >= 100) {
+        if (this._frames.length >= 100)
             this._frames.splice(0, 10);
-        }
-        this._frames.push(object);
-    }
-}
+        this._frames.push(frameOrError);
+    },
 
-WebInspector.NetworkRequest.prototype.__proto__ = WebInspector.Object.prototype;
+    __proto__: WebInspector.Object.prototype
+}

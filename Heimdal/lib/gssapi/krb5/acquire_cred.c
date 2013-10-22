@@ -357,6 +357,60 @@ static OM_uint32 acquire_acceptor_cred
     return GSS_S_COMPLETE;
 }
 
+static OM_uint32
+_acquire_uuid_name(OM_uint32 *minor_status,
+		   krb5_context context,
+		   krb5_const_principal princ,
+		   int *iakerb,
+		   gsskrb5_cred handle)
+{
+    krb5_error_code ret;
+    krb5_uuid uuid;
+    
+    *iakerb = 0;
+
+    if (princ->name.name_type != KRB5_NT_CACHE_UUID)
+	return GSS_S_BAD_NAMETYPE;
+    
+    if (princ->name.name_string.len != 1 || strcmp(princ->realm, "UUID") != 0)
+	return GSS_S_BAD_NAME;
+
+    if (krb5_string_to_uuid(princ->name.name_string.val[0], uuid))
+	return GSS_S_BAD_NAME;
+
+    ret = krb5_cc_resolve_by_uuid(context, NULL,
+				  &handle->ccache, uuid);
+    if (ret) {
+	*minor_status = ret;
+	return GSS_S_FAILURE;
+    }
+    
+    ret = krb5_cc_get_principal(context, handle->ccache, &handle->principal);
+    if (ret) {
+	*minor_status = ret;
+	return GSS_S_FAILURE;
+    }
+    
+    {
+	krb5_data data;
+
+	ret = krb5_cc_get_config(context, handle->ccache, NULL, "iakerb", &data);
+	if (ret == 0) {
+	    *iakerb = 1;
+	    handle->endtime = INT_MAX;
+	    krb5_data_free(&data);
+	    return 0;
+	}
+    }
+
+    return __gsskrb5_ccache_lifetime(minor_status,
+				     context,
+				     handle->ccache,
+				     handle->principal,
+				     &handle->endtime);
+}
+
+
 OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_acquire_cred(OM_uint32 * minor_status,
 		      const gss_name_t desired_name,
@@ -367,6 +421,7 @@ _gsskrb5_acquire_cred(OM_uint32 * minor_status,
 		      gss_OID_set * actual_mechs,
 		      OM_uint32 * time_rec)
 {
+    krb5_const_principal principal = (krb5_const_principal)desired_name;
     krb5_context context;
     gsskrb5_cred handle;
     OM_uint32 ret, junk;
@@ -390,12 +445,25 @@ _gsskrb5_acquire_cred(OM_uint32 * minor_status,
 
     HEIMDAL_MUTEX_init(&handle->cred_id_mutex);
 
-    if (desired_name != GSS_C_NO_NAME) {
+    if (principal && principal->name.name_type == KRB5_NT_CACHE_UUID) {
+	int iakerb = 0;
+
+	ret = _acquire_uuid_name(minor_status, context, principal, &iakerb, handle);
+	if (iakerb) {
+	    *minor_status = 0;
+	    ret = GSS_S_BAD_NAME;
+	}
+	if (ret) {
+	    _gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
+	    return ret;
+	}
+	goto out;
+    }
+
+    if (principal) {
 	krb5_error_code kret;
-	
-	kret = krb5_copy_principal(context,
-				   (krb5_const_principal)desired_name,
-				   &handle->principal);
+
+	kret = krb5_copy_principal(context, principal, &handle->principal);
 	if (kret) {
 	    _gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
 	    *minor_status = kret;
@@ -425,6 +493,8 @@ _gsskrb5_acquire_cred(OM_uint32 * minor_status,
 	}
     }
 
+ out:
+
     handle->usage = cred_usage;
     *minor_status = 0;
     *output_cred_handle = (gss_cred_id_t)handle;
@@ -450,11 +520,12 @@ _gssiakerb_acquire_cred(OM_uint32 * minor_status,
 			OM_uint32 * time_rec)
 {
     krb5_principal princ = (krb5_principal)desired_name;
+    OM_uint32 major_status, junk;
     krb5_context context;
     krb5_error_code ret;
     gsskrb5_cred handle;
-    krb5_data pw;
-    krb5_uuid uuid;
+    krb5_data data;
+    int iakerb = 0;
     
     GSSAPI_KRB5_INIT(&context);
 
@@ -465,101 +536,77 @@ _gssiakerb_acquire_cred(OM_uint32 * minor_status,
 	return GSS_S_FAILURE;
     if (princ == NULL)
 	return GSS_S_FAILURE;
-    
-    if (krb5_principal_get_type(context, princ) != KRB5_NT_CACHE_UUID)
-	return GSS_S_BAD_NAMETYPE;
-    
-    if (princ->name.name_string.len != 1 || strcmp(princ->realm, "UUID") != 0)
-	return GSS_S_BAD_NAME;
 
-    if (strlen(princ->name.name_string.val[0]) != 32)
-	return GSS_S_BAD_NAME;
-    
-    if (hex_decode(princ->name.name_string.val[0], uuid, sizeof(uuid)) != 16)
-	return GSS_S_BAD_NAME;
-    
     handle = calloc(1, sizeof(*handle));
     if (handle == NULL)
-        return (GSS_S_FAILURE);
-    
-    ret = krb5_cc_resolve_by_uuid(context, krb5_cc_type_api, &handle->ccache, uuid);
-    if (ret) {
-	free(handle);
-	*minor_status = ret;
-	return GSS_S_FAILURE;
-    }
-    
-    if ((ret = krb5_cc_get_config(context, handle->ccache, NULL, "password", &pw)) == 0) {
+        return GSS_S_FAILURE;
 
-	ret = asprintf(&handle->password, "%.*s", (int)pw.length, (char *)pw.data);
-	memset(pw.data, 0, pw.length);
-	krb5_data_free(&pw);
+    HEIMDAL_MUTEX_init(&handle->cred_id_mutex);
+
+    major_status = _acquire_uuid_name(minor_status, context, princ, &iakerb, handle);
+    if (major_status)
+	return major_status;
+    if (!iakerb)
+	return GSS_S_BAD_NAME;
+
+    if ((ret = krb5_cc_get_config(context, handle->ccache, NULL, "password", &data)) == 0) {
+
+	ret = asprintf(&handle->password, "%.*s", (int)data.length, (char *)data.data);
+	memset(data.data, 0, data.length);
+	krb5_data_free(&data);
 	if (ret <= 0 || handle->password == NULL) {
-	    krb5_cc_close(context, handle->ccache);
-	    free(handle);
+	    _gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
 	    *minor_status = ENOMEM;
 	    return GSS_S_FAILURE;
 	}
 
 #ifdef PKINIT
-    } else if ((ret = krb5_cc_get_config(context, handle->ccache, NULL, "certificate-ref", &pw)) == 0) {
+    } else if ((ret = krb5_cc_get_config(context, handle->ccache, NULL, "certificate-ref", &data)) == 0) {
 	hx509_certs certs;
 	hx509_query *q;
 	
 	ret = hx509_certs_init(context->hx509ctx, "KEYCHAIN:", 0, NULL, &certs);
 	if (ret) {
-	    krb5_data_free(&pw);
+	    krb5_data_free(&data);
 	    hx509_certs_free(&certs);
-	    krb5_cc_close(context, handle->ccache);
-	    free(handle);
+	    _gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
 	    *minor_status = ret;
 	    return GSS_S_FAILURE;
 	}
 
 	ret = hx509_query_alloc(context->hx509ctx, &q);
 	if (ret) {
-	    krb5_data_free(&pw);
+	    krb5_data_free(&data);
 	    hx509_certs_free(&certs);
-	    krb5_cc_close(context, handle->ccache);
-	    free(handle);
+	    _gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
 	    *minor_status = ret;
 	    return GSS_S_FAILURE;
 	}
 	
 	hx509_query_match_option(q, HX509_QUERY_OPTION_PRIVATE_KEY);
 	hx509_query_match_option(q, HX509_QUERY_OPTION_KU_DIGITALSIGNATURE);
-	hx509_query_match_persistent(q, &pw);
+	hx509_query_match_persistent(q, &data);
 
 	ret = _krb5_pk_find_cert(context, 1, certs, q, &handle->cert);
-	krb5_data_free(&pw);
+	krb5_data_free(&data);
 	hx509_certs_free(&certs);
 	hx509_query_free(context->hx509ctx, q);
 	if (ret != 0) {
 	    _gss_mg_log(1, "gss-krb5: failed to find certificate ref %d", ret);
-	    krb5_cc_close(context, handle->ccache);
-	    free(handle);
+	    _gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
 	    *minor_status = ret;
 	    return GSS_S_FAILURE;
 	}
 #endif
+    } else if ((ret = krb5_cc_get_config(context, handle->ccache, NULL, "iakerb", &data)) == 0) {
+	handle->cred_flags |= GSS_CF_IAKERB_RESOLVED;
+	krb5_data_free(&data);
     } else {
-	krb5_cc_close(context, handle->ccache);
-	free(handle);
+	_gsskrb5_release_cred(&junk, (gss_cred_id_t *)&handle);
 	*minor_status = 0;
 	return GSS_S_FAILURE;
     }
     
-    HEIMDAL_MUTEX_init(&handle->cred_id_mutex);
-    
-    ret = krb5_cc_get_principal(context, handle->ccache, &handle->principal);
-    if (ret) {
-	gss_cred_id_t h = (gss_cred_id_t)handle;
-	OM_uint32 junk;
-	gss_release_cred(&junk, &h);
-	*minor_status = ret;
-	return GSS_S_FAILURE;
-    }
-
     handle->usage = GSS_C_INITIATE;
     handle->endtime = INT_MAX;
     
@@ -594,7 +641,6 @@ _gss_iakerb_acquire_cred_ext(OM_uint32 * minor_status,
 	return GSS_S_FAILURE;
 
     GSSAPI_KRB5_INIT_STATUS(&context, status);
-
 
     /* pick up the credential */
 
@@ -684,6 +730,12 @@ _gss_iakerb_acquire_cred_ext(OM_uint32 * minor_status,
     if (ret)
 	goto out;
 
+    {
+	krb5_data data;
+	krb5_data_zero(&data);
+	krb5_cc_set_config(context, handle->ccache, NULL, "iakerb", &data);
+    }
+
     if (handle->password) {
 	krb5_data pw;
 	pw.data = handle->password;
@@ -744,17 +796,21 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 			   gss_cred_usage_t cred_usage,
 			   gss_cred_id_t * output_cred_handle)
 {
-    krb5_get_init_creds_opt *opt;
+    krb5_init_creds_context ctx = NULL;
+    krb5_get_init_creds_opt *opt = NULL;
     krb5_principal principal;
-    gss_buffer_t password;
     krb5_context context;
     krb5_error_code kret;
-    gsskrb5_cred handle;
-    krb5_ccache ccache = NULL, ccacheold = NULL;
-    krb5_creds cred;
-    char *str;
+    gsskrb5_cred handle = NULL;
+    krb5_ccache ccache = NULL, ccachereplace = NULL;
+    char *passwordstr = NULL;
+    char *cache_name = NULL;
+    char *lkdc_hostname = NULL;
+    hx509_cert hxcert = NULL;
+    heim_array_t bundleacl = NULL;
+    krb5_principal new_name = NULL;
 
-    memset(&cred, 0, sizeof(cred));
+    GSSAPI_KRB5_INIT(&context);
 
     cred_usage &= GSS_C_OPTION_MASK;
 
@@ -762,15 +818,79 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	*minor_status = GSS_KRB5_S_G_BAD_USAGE;
 	return GSS_S_FAILURE;
     }
-
-    if (!gss_oid_equal(credential_type, GSS_C_CRED_PASSWORD)) {
-	*minor_status = KRB5_NOCREDS_SUPPLIED; /* XXX */
-	return GSS_S_FAILURE;
-    }
+    
     if (desired_name == GSS_C_NO_NAME)
 	return GSS_S_FAILURE;
 
-    GSSAPI_KRB5_INIT(&context);
+    if (gss_oid_equal(credential_type, GSS_C_CRED_HEIMBASE)) {
+	heim_object_t pw, cname, cert, lkdc;
+	heim_dict_t dict = (heim_dict_t)credential_data;
+
+	pw = heim_dict_copy_value(dict, _gsskrb5_kGSSICPassword);
+	if (pw) {
+	    if (heim_get_tid(pw) == heim_string_get_type_id()) {
+		passwordstr = heim_string_copy_utf8(pw);
+		if (passwordstr == NULL) {
+		    kret = ENOMEM;
+		    goto out;
+		}
+	    } else if (heim_get_tid(pw) == heim_data_get_type_id()) {
+		passwordstr = malloc(heim_data_get_length(pw) + 1);
+		if (passwordstr == NULL) {
+		    kret = ENOMEM;
+		    goto out;
+		}
+		memcpy(passwordstr, heim_data_get_bytes(pw), heim_data_get_length(pw));
+		passwordstr[heim_data_get_length(pw)] = '\0';
+	    }
+	    heim_release(pw);
+	}
+
+	cname = heim_dict_copy_value(dict, _gsskrb5_kGSSICKerberosCacheName);
+	if (cname) {
+	    cache_name = heim_string_copy_utf8(cname);
+	    heim_release(cname);
+	}
+	
+	bundleacl = heim_dict_copy_value(dict, _gsskrb5_kGSSICAppIdentifierACL);
+
+#ifdef PKINIT
+	cert = heim_dict_copy_value(dict, _gsskrb5_kGSSICCertificate);
+	if (cert) {
+	    kret = hx509_cert_init_SecFramework(context->hx509ctx, cert, &hxcert);
+	    if (kret)
+		goto out;
+	    heim_release(cert);
+	}
+#endif
+
+	lkdc = heim_dict_copy_value(dict, _gsskrb5_kGSSICLKDCHostname);
+	if (lkdc) {
+	    lkdc_hostname = heim_string_copy_utf8(lkdc);
+	    heim_release(lkdc);
+	}
+
+    } else if (gss_oid_equal(credential_type, GSS_C_CRED_PASSWORD)) {
+	gss_buffer_t password = (gss_buffer_t)credential_data;
+	
+	passwordstr = malloc(password->length + 1);
+	if (passwordstr == NULL) {
+	    kret = ENOMEM;
+	    goto out;
+	}
+	
+	memcpy(passwordstr, password->value, password->length);
+	passwordstr[password->length] = '\0';
+
+    } else {
+	*minor_status = KRB5_NOCREDS_SUPPLIED; /* XXX */
+	return GSS_S_FAILURE;
+    }
+
+    if (passwordstr == NULL && hxcert == NULL) {
+	*minor_status = KRB5_NOCREDS_SUPPLIED; /* XXX */
+	return GSS_S_FAILURE;
+    }
 
     *output_cred_handle = NULL;
 
@@ -781,12 +901,6 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     }
 
     principal = (krb5_principal)desired_name;
-
-    /*
-     * check if there an existing cache to overwrite before we lay
-     * down the new cache
-     */
-    (void)krb5_cc_cache_match(context, principal, &ccacheold);
 
     HEIMDAL_MUTEX_init(&handle->cred_id_mutex);
 
@@ -801,59 +915,114 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     kret = krb5_get_init_creds_opt_alloc(context, &opt);
     if (kret)
 	goto out;
+    
+    krb5_get_init_creds_opt_set_default_flags(context, "gss", krb5_principal_get_realm(context, principal), opt);
 
     krb5_get_init_creds_opt_set_forwardable(opt, 1);
     krb5_get_init_creds_opt_set_proxiable(opt, 1);
     krb5_get_init_creds_opt_set_renew_life(opt, 3600 * 24 * 30); /* 1 month */
 
-    password = (gss_buffer_t)credential_data;
 
-    str = malloc(password->length + 1);
-    if (str == NULL) {
-	kret = ENOMEM;
-	goto out;
+    if (hxcert) {
+	char *cert_pool[2] = { "KEYCHAIN:", NULL };
+	kret = krb5_get_init_creds_opt_set_pkinit(context, opt, principal,
+						 NULL, "KEYCHAIN:", 
+						 cert_pool, NULL, 8,
+						 NULL, NULL, NULL);
+	if (kret)
+	    goto out;
     }
 
-    memcpy(str, password->value, password->length);
-    str[password->length] = '\0';
-
-    kret = krb5_get_init_creds_password(context, &cred,
-					handle->principal,
-					str,
-					NULL, NULL, 0, NULL, opt);
-    memset(str, 0, strlen(str));
-    free(str);
-
-    krb5_get_init_creds_opt_free(context, opt);
-    if (kret) {
-	krb5_free_cred_contents(context, &cred);
-	goto out;
-    }
-
-    (void)krb5_cc_cache_match(context, cred.client, &ccacheold);
-
-    kret = krb5_cc_initialize(context, ccache, cred.client);
-    if (kret) {
-	krb5_free_cred_contents(context, &cred);
-	goto out;
-    }
-    kret = krb5_cc_store_cred(context, ccache, &cred);
-    if (kret == 0)
-	handle->endtime = cred.times.endtime;
-    krb5_free_cred_contents(context, &cred);
+    kret = krb5_init_creds_init(context, handle->principal, NULL, NULL, NULL, opt, &ctx);
     if (kret)
 	goto out;
-    
+
+    if (passwordstr) {
+	kret = krb5_init_creds_set_password(context, ctx, passwordstr);
+
+	memset(passwordstr, 0, strlen(passwordstr));
+	free(passwordstr);
+	passwordstr = NULL;
+
+	if (kret)
+	    goto out;
+    }
+
+    if (hxcert) {
+	kret = krb5_init_creds_set_pkinit_client_cert(context, ctx, hxcert);
+	if (kret)
+	    goto out;
+    }
+
+    if (lkdc_hostname) {
+	kret = krb5_init_creds_set_kdc_hostname(context, ctx, lkdc_hostname);
+	free(lkdc_hostname);
+	lkdc_hostname = NULL;
+	if (kret)
+	    goto out;
+    }
+
+    kret = krb5_init_creds_get(context, ctx);
+    if (kret)
+	goto out;
+
+    handle->endtime = _krb5_init_creds_get_cred_endtime(context, ctx);
+
+    /*
+     * If we where subjected to a referral, update the name of the credential
+     */
+    new_name = _krb5_init_creds_get_cred_client(context, ctx);
+    if (new_name && !krb5_principal_compare(context, new_name, handle->principal)) {
+	krb5_free_principal(context, handle->principal);
+	kret = krb5_copy_principal(context, new_name, &handle->principal);
+	if (kret)
+	    goto out;
+    }
+
+    /*
+     * Now store the credential
+     */
+
+    if (cache_name) {
+	/* check if caller told us to use a specific cache */
+	kret = krb5_cc_resolve(context, cache_name, &ccachereplace);
+	if (kret)
+	    goto out;
+
+    } else {
+	/*
+	 * check if there an existing cache to overwrite before we lay
+	 * down the new cache
+	 */
+	(void)krb5_cc_cache_match(context, principal, &ccachereplace);
+    }
+
+
+    kret = krb5_init_creds_store(context, ctx, ccache);
+    if (kret == 0)
+	kret = krb5_init_creds_store_config(context, ctx, ccache);
+
+    if (bundleacl)
+	krb5_cc_set_acl(context, ccache, "kHEIMAttrBundleIdentifierACL", bundleacl);
+
+    krb5_init_creds_free(context, ctx);
+    ctx = NULL;
+    if (kret)
+	goto out;
+
+    krb5_get_init_creds_opt_free(context, opt);
+    opt = NULL;
+
     /*
      * If we have a credential with the same naame, lets overwrite it
      */
-
-    if (ccacheold) {
-	kret = krb5_cc_move(context, ccache, ccacheold);
+    
+    if (ccachereplace) {
+	kret = krb5_cc_move(context, ccache, ccachereplace);
 	if (kret)
 	    goto out;
-	handle->ccache = ccacheold;
-	ccacheold = NULL;
+	handle->ccache = ccachereplace;
+	ccachereplace = NULL;
     } else {
 	handle->ccache = ccache;
     }
@@ -862,18 +1031,39 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     *minor_status = 0;
     *output_cred_handle = (gss_cred_id_t)handle;
 
+    if (cache_name)
+	free(cache_name);
+
+    heim_release(bundleacl);
+
     return GSS_S_COMPLETE;
 
  out:
-    if (ccacheold)
-	krb5_cc_close(context, ccacheold);
+    if (bundleacl)
+	heim_release(bundleacl);
+    if (opt)
+	krb5_get_init_creds_opt_free(context, opt);
+    if (ctx)
+	krb5_init_creds_free(context, ctx);
+    if (lkdc_hostname)
+	free(lkdc_hostname);
+    if (cache_name)
+	free(cache_name);
+    if (passwordstr) {
+	memset(passwordstr, 0, strlen(passwordstr));
+	free(passwordstr);
+    }
+    if (ccachereplace)
+	krb5_cc_close(context, ccachereplace);
     if (ccache)
 	krb5_cc_destroy(context, ccache);
-    if (handle->principal)
-	krb5_free_principal(context, handle->principal);
+    if (handle) {
+	if (handle->principal)
+	    krb5_free_principal(context, handle->principal);
 
-    HEIMDAL_MUTEX_destroy(&handle->cred_id_mutex);
-    free(handle);
+	HEIMDAL_MUTEX_destroy(&handle->cred_id_mutex);
+	free(handle);
+    }
 
     *minor_status = kret;
     return GSS_S_FAILURE;

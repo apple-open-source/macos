@@ -5,11 +5,9 @@ THE Z SHELL (ZSH)
 Version
 -------
 
-This is version 4.3.11 of the shell.  This is a development release,
-but is believed to be reasonably stable.  Sites where the users need to
-edit command lines with multibyte characters (in particular UTF-8)
-will probably want to upgrade.  The previous widely released version
-of the shell was 4.3.10.
+This is version 5.0.2 of the shell.  This is a stable release.
+There are minor new features as well as bug fixes since 5.0.0 and
+one bug fix since the short-lived 5.0.1.
 
 Installing Zsh
 --------------
@@ -30,19 +28,41 @@ Zsh is a shell with lots of features.  For a list of some of these, see the
 file FEATURES, and for the latest changes see NEWS.  For more
 details, see the documentation.
 
-Possible incompatibilities
----------------------------
+Incompatibilities between 5.0.0 and 5.0.2
+-----------------------------------------
 
-In some 4.3.X releases of zsh, the completion system added a ".."  as a
-trial completion whenever completing directories.  This was a bug: as
-documented in the zshcompsys manual, this feature needs to be turned on by
-a style:
+In 5.0.0, the new "sticky" emulation feature was applied to functions
+explicitly declared within an expression following `emulate ... -c', but
+did not apply to functions marked for autoload in that expression.  This
+was not documented and experience suggests it was inconvenient, so in
+5.0.2 autoloads also have the sticky property.
 
-  zstyle ':completion:*' special-dirs true
+In other words,
 
+  emulate zsh -c 'func() { ... }'
 
-The rest of this section documents incompatibilities in the shell since the
-4.2 series of releases.
+behaves the same way in 5.0.0 and 5.0.2, with the function func always being
+run in native zsh emulation regardless of the current option settings.
+However,
+
+  emulate zsh -c 'autoload -Uz func'
+
+behaves differently: in 5.0.0, func was loaded with the options in
+effect at the point where it was first run, and subsequently run with
+whatever options were in effect at that point; in 5.0.2, func is loaded
+with native zsh emulation options and run with those same options.  This
+is now the recommended way of ensuring a function is loaded and run with
+a consistent set of options.
+
+Note that the command `autoload -z' has never affected the options
+applied when the function is loaded or run, only the effect of the
+KSH_AUTOLOAD option at the point the function is loaded.
+
+Possible incompatibilities between 4.2 and 5.0
+----------------------------------------------
+
+Here are some incompatibilities in the shell since the 4.2 series of
+releases.  It is hoped most users will not be adversely affected by these.
 
 In previous releases of the shell, builtin commands and precommand
 modifiers that did not accept options also did not recognize the

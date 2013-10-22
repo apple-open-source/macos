@@ -107,7 +107,7 @@ out:
  * Create the target name using the host name. Note we will use the 
  * GSS_C_NT_HOSTBASE name type of cifs@<server> and will return a CFString
  */
-CFStringRef TargetNameCreatedWithHostName(struct smb_ctx *ctx)
+CFStringRef TargetNameCreateWithHostName(struct smb_ctx *ctx)
 {
 	CFStringRef hostName;
 	CFMutableStringRef kerbHintsHostname;
@@ -140,7 +140,7 @@ CFStringRef TargetNameCreatedWithHostName(struct smb_ctx *ctx)
  */
 void GetTargetNameUsingHostName(struct smb_ctx *ctx)
 {
-	CFStringRef targetNameRef = TargetNameCreatedWithHostName(ctx);
+	CFStringRef targetNameRef = TargetNameCreateWithHostName(ctx);
 	char		targetName[MAX_GSS_HOSTBASE_NAME];
 	
 	if (targetNameRef == NULL) {

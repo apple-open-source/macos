@@ -33,15 +33,15 @@ namespace CoreIPC {
 
 typedef HashMap<String , Vector<uint8_t> > MIMEDataHashMap;
 
-void ArgumentCoder<WebCore::DragData>::encode(ArgumentEncoder* encoder, const DragData& dragData)
+void ArgumentCoder<WebCore::DragData>::encode(ArgumentEncoder& encoder, const DragData& dragData)
 {
-    encoder->encode(dragData.clientPosition());
-    encoder->encode(dragData.globalPosition());
-    encoder->encode((uint64_t)dragData.draggingSourceOperationMask());
-    encoder->encode((uint64_t)dragData.flags());
+    encoder << dragData.clientPosition();
+    encoder << dragData.globalPosition();
+    encoder << (uint64_t)dragData.draggingSourceOperationMask();
+    encoder << (uint64_t)dragData.flags();
 
     bool hasPlatformData = dragData.platformData();
-    encoder->encodeBool(hasPlatformData);
+    encoder << hasPlatformData;
     if (!hasPlatformData)
         return;
 
@@ -54,40 +54,40 @@ void ArgumentCoder<WebCore::DragData>::encode(ArgumentEncoder* encoder, const Dr
         vdata.append((uint8_t*)(bytes.data()), bytes.size());
         map.add(String(formats[i]), vdata);
     }
-    encoder->encode(map);
+    encoder << map;
 }
 
-bool ArgumentCoder<WebCore::DragData>::decode(ArgumentDecoder* decoder, DragData& dragData)
+bool ArgumentCoder<WebCore::DragData>::decode(ArgumentDecoder& decoder, DragData& dragData)
 {
     IntPoint clientPosition;
     IntPoint globalPosition;
     uint64_t sourceOperationMask;
     uint64_t flags;
-    if (!decoder->decode(clientPosition))
+    if (!decoder.decode(clientPosition))
         return false;
-    if (!decoder->decode(globalPosition))
+    if (!decoder.decode(globalPosition))
         return false;
-    if (!decoder->decode(sourceOperationMask))
+    if (!decoder.decode(sourceOperationMask))
         return false;
-    if (!decoder->decode(flags))
+    if (!decoder.decode(flags))
         return false;
 
     bool hasPlatformData;
-    if (!decoder->decodeBool(hasPlatformData))
+    if (!decoder.decode(hasPlatformData))
         return false;
 
     QMimeData* mimeData = 0;
     if (hasPlatformData) {
         MIMEDataHashMap map;
-        if (!decoder->decode(map))
+        if (!decoder.decode(map))
             return false;
 
         mimeData = new QMimeData;
         MIMEDataHashMap::iterator it = map.begin();
         MIMEDataHashMap::iterator end = map.end();
         for (; it != end; ++it) {
-            QByteArray bytes((char*)it->second.data(), it->second.size());
-            mimeData->setData(it->first, bytes);
+            QByteArray bytes((char*)it->value.data(), it->value.size());
+            mimeData->setData(it->key, bytes);
         }
     }
 

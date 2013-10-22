@@ -77,7 +77,7 @@
 #import <WebCore/npruntime_impl.h>
 #import <WebKit/DOMPrivate.h>
 #import <WebKit/WebUIDelegate.h>
-#import <objc/objc-runtime.h>
+#import <objc/runtime.h>
 #import <runtime/InitializeThreading.h>
 #import <runtime/JSLock.h>
 #import <wtf/Assertions.h>
@@ -91,7 +91,6 @@ static const int WKNVSilverlightFullscreenPerformanceIssueFixed = 7288546; /* TR
 
 using namespace WebCore;
 using namespace WebKit;
-using namespace std;
 
 static inline bool isDrawingModelQuickDraw(NPDrawingModel drawingModel)
 {
@@ -136,7 +135,7 @@ public:
         double timeInterval = m_interval / 1000.0;
         
         if (throttle)
-            timeInterval = max(timeInterval, ThrottledTimerInterval);
+            timeInterval = std::max(timeInterval, ThrottledTimerInterval);
         
         if (m_repeat)
             startRepeating(timeInterval);
@@ -669,8 +668,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     // Set the pluginAllowPopup flag.
     ASSERT(_eventHandler);
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
-        UserGestureIndicator gestureIndicator(_eventHandler->currentEventIsUserGesture() ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
+        UserGestureIndicator gestureIndicator(_eventHandler->currentEventIsUserGesture() ? DefinitelyProcessingNewUserGesture : PossiblyProcessingUserGesture);
         acceptedEvent = [_pluginPackage.get() pluginFuncs]->event(plugin, event);
     }
     [self didCallPlugInFunction];
@@ -710,7 +709,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
     HashMap<uint32_t, PluginTimer*>::const_iterator end = timers->end();
     for (HashMap<uint32_t, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
-        PluginTimer* timer = it->second;
+        PluginTimer* timer = it->value;
         timer->stop();
     }    
 }
@@ -728,7 +727,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     
     HashMap<uint32_t, PluginTimer*>::const_iterator end = timers->end();
     for (HashMap<uint32_t, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
-        PluginTimer* timer = it->second;
+        PluginTimer* timer = it->value;
         ASSERT(!timer->isActive());
         timer->start(_isCompletelyObscured);
     }    
@@ -850,7 +849,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         if ([_pluginPackage.get() pluginFuncs]->setvalue)
             [_pluginPackage.get() pluginFuncs]->setvalue(plugin, NPNVprivateModeBool, &value);
     }
@@ -991,7 +990,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         inSetWindow = YES;        
         [self willCallPlugInFunction];
         {
-            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
             npErr = [_pluginPackage.get() pluginFuncs]->setwindow(plugin, &window);
         }
         [self didCallPlugInFunction];
@@ -1091,7 +1090,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         if ([_pluginPackage.get() pluginFuncs]->getvalue(plugin, NPPVpluginCoreAnimationLayer, &value) == NPERR_NO_ERROR && value) {
 
             // The plug-in gives us a retained layer.
-            _pluginLayer.adoptNS((CALayer *)value);
+            _pluginLayer = adoptNS((CALayer *)value);
 
             BOOL accleratedCompositingEnabled = false;
 #if USE(ACCELERATED_COMPOSITING)
@@ -1099,18 +1098,17 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 #endif
             if (accleratedCompositingEnabled) {
                 // FIXME: This code can be shared between WebHostedNetscapePluginView and WebNetscapePluginView.
-#ifndef BUILDING_ON_LEOPARD
                 // Since this layer isn't going to be inserted into a view, we need to create another layer and flip its geometry
                 // in order to get the coordinate system right.
-                RetainPtr<CALayer> realPluginLayer(AdoptNS, _pluginLayer.leakRef());
+                RetainPtr<CALayer> realPluginLayer = adoptNS(_pluginLayer.leakRef());
                 
-                _pluginLayer.adoptNS([[CALayer alloc] init]);
+                _pluginLayer = adoptNS([[CALayer alloc] init]);
                 _pluginLayer.get().bounds = realPluginLayer.get().bounds;
                 _pluginLayer.get().geometryFlipped = YES;
 
                 realPluginLayer.get().autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
                 [_pluginLayer.get() addSublayer:realPluginLayer.get()];
-#endif
+
                 // Eagerly enter compositing mode, since we know we'll need it. This avoids firing setNeedsStyleRecalc()
                 // for iframes that contain composited plugins at bad times. https://bugs.webkit.org/show_bug.cgi?id=39033
                 core([self webFrame])->view()->enterCompositingMode();
@@ -1189,8 +1187,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     copyToVector(streams, streamsCopy);
     for (size_t i = 0; i < streamsCopy.size(); i++)
         streamsCopy[i]->stop();
-    
-    [[_pendingFrameLoads.get() allKeys] makeObjectsPerformSelector:@selector(_setInternalLoadDelegate:) withObject:nil];
+
+    for (WebFrame *frame in [_pendingFrameLoads keyEnumerator])
+        [frame _setInternalLoadDelegate:nil];
     [NSObject cancelPreviousPerformRequestsWithTarget:self];
 
     // Setting the window type to 0 ensures that NPP_SetWindow will be called if the plug-in is restarted.
@@ -1336,9 +1335,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     self = [super initWithFrame:frame pluginPackage:pluginPackage URL:URL baseURL:baseURL MIMEType:MIME attributeKeys:keys attributeValues:values loadManually:loadManually element:element];
     if (!self)
         return nil;
- 
-    _pendingFrameLoads.adoptNS([[NSMutableDictionary alloc] init]);
-    
+
+    _pendingFrameLoads = adoptNS([[NSMapTable alloc] initWithKeyOptions:NSPointerFunctionsStrongMemory valueOptions:NSPointerFunctionsStrongMemory capacity:0]);
+
     // load the plug-in if it is not already loaded
     if (![pluginPackage load]) {
         [self release];
@@ -1444,7 +1443,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     NPError error;
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         error = [_pluginPackage.get() pluginFuncs]->getvalue(plugin, NPPVpluginScriptableNPObject, &value);
     }
     [self didCallPlugInFunction];
@@ -1463,7 +1462,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     NPError error;
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         error = [_pluginPackage.get() pluginFuncs]->getvalue(plugin, NPPVformValue, &buffer);
     }
     [self didCallPlugInFunction];
@@ -1595,7 +1594,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         if ([JSPluginRequest sendNotification]) {
             [self willCallPlugInFunction];
             {
-                JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+                JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
                 [_pluginPackage.get() pluginFuncs]->urlnotify(plugin, [URL _web_URLCString], NPRES_DONE, [JSPluginRequest notifyData]);
             }
             [self didCallPlugInFunction];
@@ -1606,7 +1605,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         
         RefPtr<WebNetscapePluginStream> stream = WebNetscapePluginStream::create([NSURLRequest requestWithURL:URL], plugin, [JSPluginRequest sendNotification], [JSPluginRequest notifyData]);
         
-        RetainPtr<NSURLResponse> response(AdoptNS, [[NSURLResponse alloc] initWithURL:URL 
+        RetainPtr<NSURLResponse> response = adoptNS([[NSURLResponse alloc] initWithURL:URL 
                                                                              MIMEType:@"text/plain" 
                                                                 expectedContentLength:[JSData length]
                                                                      textEncodingName:nil]);
@@ -1621,18 +1620,18 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 {
     ASSERT(_isStarted);
     
-    WebPluginRequest *pluginRequest = [_pendingFrameLoads.get() objectForKey:webFrame];
+    WebPluginRequest *pluginRequest = [_pendingFrameLoads objectForKey:webFrame];
     ASSERT(pluginRequest != nil);
     ASSERT([pluginRequest sendNotification]);
         
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         [_pluginPackage.get() pluginFuncs]->urlnotify(plugin, [[[pluginRequest request] URL] _web_URLCString], reason, [pluginRequest notifyData]);
     }
     [self didCallPlugInFunction];
     
-    [_pendingFrameLoads.get() removeObjectForKey:webFrame];
+    [_pendingFrameLoads removeObjectForKey:webFrame];
     [webFrame _setInternalLoadDelegate:nil];
 }
 
@@ -1671,7 +1670,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 if ([pluginRequest sendNotification]) {
                     [self willCallPlugInFunction];
                     {
-                        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+                        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
                         [_pluginPackage.get() pluginFuncs]->urlnotify(plugin, [[[pluginRequest request] URL] _web_URLCString], NPERR_GENERIC_ERROR, [pluginRequest notifyData]);
                     }
                     [self didCallPlugInFunction];
@@ -1698,7 +1697,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 ASSERT([view isKindOfClass:[WebNetscapePluginView class]]);
                 [view webFrame:frame didFinishLoadWithReason:NPRES_USER_BREAK];
             }
-            [_pendingFrameLoads.get() _webkit_setObject:pluginRequest forUncopiedKey:frame];
+            [_pendingFrameLoads setObject:pluginRequest forKey:frame];
             [frame _setInternalLoadDelegate:self];
         }
     }
@@ -1851,7 +1850,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 NSString *contentLength = [header objectForKey:@"Content-Length"];
 
                 if (contentLength != nil)
-                    dataLength = min<unsigned>([contentLength intValue], dataLength);
+                    dataLength = std::min<unsigned>([contentLength intValue], dataLength);
                 [header removeObjectForKey:@"Content-Length"];
 
                 if ([header count] > 0) {
@@ -2231,7 +2230,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             break;
         }
         case NPNURLVProxy: {
-#ifndef BUILDING_ON_LEOPARD
             if (!value)
                 break;
             
@@ -2249,9 +2247,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                *length = proxiesUTF8.length();
             
             return NPERR_NO_ERROR;
-#else
-            break;
-#endif
         }
     }
     return NPERR_GENERIC_ERROR;
@@ -2341,7 +2336,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 // For now, we'll distinguish older broken versions of Silverlight by asking the plug-in if it resolved its full screen badness.
 - (void)_workaroundSilverlightFullscreenBug:(BOOL)initializedPlugin
 {
-#ifndef BUILDING_ON_LEOPARD
     ASSERT(_isSilverlight);
     NPBool isFullscreenPerformanceIssueFixed = 0;
     NPPluginFuncs *pluginFuncs = [_pluginPackage.get() pluginFuncs];
@@ -2364,7 +2358,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         if (!refCount) 
             CGLReleasePixelFormat(pixelFormatObject);
     }
-#endif
 }
 
 - (NPError)_createPlugin
@@ -2471,7 +2464,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     // Tell the plugin to print into the GWorld
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         [_pluginPackage.get() pluginFuncs]->print(plugin, &npPrint);
     }
     [self didCallPlugInFunction];

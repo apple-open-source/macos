@@ -137,6 +137,12 @@
 
 #endif
 
+#if !defined (LIBUSB_NO_SEIZE_DEVICE)
+
+#define LIBUSB_NO_SEIZE_DEVICE
+
+#endif
+
 typedef IOReturn io_return_t;
 typedef IOCFPlugInInterface *io_cf_plugin_ref_t;
 typedef SInt32 s_int32_t;

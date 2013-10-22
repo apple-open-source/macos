@@ -22,13 +22,27 @@
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/Verifier.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/ManagedStatic.h"
 
 using namespace llvm;
+
+static cl::opt<bool>
+RunVectorization("vectorize", cl::desc("Run vectorization passes"));
+
+static cl::opt<bool>
+UseGVNAfterVectorization("use-gvn-after-vectorization",
+  cl::init(false), cl::Hidden,
+  cl::desc("Run GVN instead of Early CSE after vectorization passes"));
+
+static cl::opt<bool> UseNewSROA("use-new-sroa",
+  cl::init(false), cl::Hidden,
+  cl::desc("Enable the new, experimental SROA pass"));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -38,6 +52,7 @@ PassManagerBuilder::PassManagerBuilder() {
     DisableSimplifyLibCalls = false;
     DisableUnitAtATime = false;
     DisableUnrollLoops = false;
+    Vectorize = RunVectorization;
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
@@ -89,7 +104,10 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
   addInitialAliasAnalysisPasses(FPM);
 
   FPM.add(createCFGSimplificationPass());
-  FPM.add(createScalarReplAggregatesPass());
+  if (UseNewSROA)
+    FPM.add(createSROAPass());
+  else
+    FPM.add(createScalarReplAggregatesPass());
   FPM.add(createEarlyCSEPass());
   FPM.add(createLowerExpectIntrinsicPass());
 }
@@ -101,6 +119,7 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
       MPM.add(Inliner);
       Inliner = 0;
     }
+    addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
     return;
   }
 
@@ -110,6 +129,8 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   addInitialAliasAnalysisPasses(MPM);
 
   if (!DisableUnitAtATime) {
+    addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
+
     MPM.add(createGlobalOptimizerPass());     // Optimize out global vars
 
     MPM.add(createIPSCCPPass());              // IP SCCP
@@ -133,7 +154,10 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 
   // Start of function pass.
   // Break up aggregate allocas, using SSAUpdater.
-  MPM.add(createScalarReplAggregatesPass(-1, false));
+  if (UseNewSROA)
+    MPM.add(createSROAPass(/*RequiresDomTree*/ false));
+  else
+    MPM.add(createScalarReplAggregatesPass(-1, false));
   MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
   if (!DisableSimplifyLibCalls)
     MPM.add(createSimplifyLibCallsPass());    // Library Call Optimizations
@@ -170,6 +194,15 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
+  if (Vectorize) {
+    MPM.add(createBBVectorizePass());
+    MPM.add(createInstructionCombiningPass());
+    if (OptLevel > 1 && UseGVNAfterVectorization)
+      MPM.add(createGVNPass());                   // Remove redundancies
+    else
+      MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
+  }
+
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
   MPM.add(createInstructionCombiningPass());  // Clean up after everything.
@@ -178,19 +211,20 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
     // FIXME: We shouldn't bother with this anymore.
     MPM.add(createStripDeadPrototypesPass()); // Get rid of dead prototypes
 
-    // GlobalOpt already deletes dead functions and globals, at -O3 try a
+    // GlobalOpt already deletes dead functions and globals, at -O2 try a
     // late pass of GlobalDCE.  It is capable of deleting dead cycles.
-    if (OptLevel > 2)
+    if (OptLevel > 1) {
       MPM.add(createGlobalDCEPass());         // Remove dead fns and globals.
-
-    if (OptLevel > 1)
       MPM.add(createConstantMergePass());     // Merge dup global constants
+    }
   }
+  addExtensionsToPM(EP_OptimizerLast, MPM);
 }
 
 void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
                                                 bool Internalize,
-                                                bool RunInliner) {
+                                                bool RunInliner,
+                                                bool DisableGVNLoadPRE) {
   // Provide AliasAnalysis services for optimizations.
   addInitialAliasAnalysisPasses(PM);
 
@@ -240,15 +274,18 @@ void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
   PM.add(createInstructionCombiningPass());
   PM.add(createJumpThreadingPass());
   // Break up allocas
-  PM.add(createScalarReplAggregatesPass());
+  if (UseNewSROA)
+    PM.add(createSROAPass());
+  else
+    PM.add(createScalarReplAggregatesPass());
 
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createFunctionAttrsPass()); // Add nocapture.
   PM.add(createGlobalsModRefPass()); // IP alias analysis.
 
-  PM.add(createLICMPass());      // Hoist loop invariants.
-  PM.add(createGVNPass());       // Remove redundancies.
-  PM.add(createMemCpyOptPass()); // Remove dead memcpys.
+  PM.add(createLICMPass());                 // Hoist loop invariants.
+  PM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies.
+  PM.add(createMemCpyOptPass());            // Remove dead memcpys.
   // Nuke dead stores.
   PM.add(createDeadStoreEliminationPass());
 
@@ -340,4 +377,3 @@ void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
   PassManagerBase *LPM = unwrap(PM);
   Builder->populateLTOPassManager(*LPM, Internalize, RunInliner);
 }
-

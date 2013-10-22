@@ -52,7 +52,7 @@ int __removefile_tree_walker(char ** trees, removefile_state_t state);
 int __removefile_sunlink(const char * path, removefile_state_t state);
 void __removefile_init_random(const unsigned int seed, removefile_state_t state);
 char __removefile_random_char(removefile_state_t state);
-void __removefile_randomize_buffer(unsigned char *buffer, unsigned int length, removefile_state_t state);
+void __removefile_randomize_buffer(unsigned char *buffer, size_t length, removefile_state_t state);
 
 #define __removefile_state_test_cancel(s) ((s)->cancelled != 0)
 

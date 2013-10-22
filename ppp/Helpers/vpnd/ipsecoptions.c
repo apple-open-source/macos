@@ -96,7 +96,7 @@ void *ipsec_resolver_thread(void *arg)
     if (pthread_detach(pthread_self()) == 0) {
         
         // try to resolve the name
-        if (host = gethostbyname(remoteaddress)) {
+        if ((host = gethostbyname(remoteaddress))) {
 
 			for (count = 0; host->h_addr_list[count]; count++);
 		

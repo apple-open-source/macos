@@ -1,72 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-<dict>
-        <key>OpenSourceProject</key>
-        <string>racoon</string>
-	<key>OpenSourceImportDate</key>
-	<string>2002-04-01</string>
-        <key>OpenSourceVersion</key>
-        <string>Original version number unavailable, but later based on 0.6.7</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src</string>
-        <key>OpenSourceSCM</key>
-        <string>cvs -d anoncvs@anoncvs.NetBSD.org:/cvsroot checkout -A -P src/crypto/dist/ipsec-tools/src</string>
-        <key>OpenSourceModifications</key>
-        <array>
-                <string>Several select security updates, memory leak fixes from 0.7.2 </string>
-        </array>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>ipsec.txt</string>
-</dict>
-<dict>
-        <key>OpenSourceProject</key>
-        <string>libipsec</string>
-	<key>OpenSourceImportDate</key>
-	<string>2002-04-01</string>
-        <key>OpenSourceVersion</key>
-        <string>Original version number unavailable, but later based on 0.6.5</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src</string>
-        <key>OpenSourceSCM</key>
-        <string>cvs -d anoncvs@anoncvs.NetBSD.org:/cvsroot checkout -A -P src/crypto/dist/ipsec-tools/src</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>ipsec.txt</string>
-</dict>
-<dict>
-        <key>OpenSourceProject</key>
-        <string>setkey</string>
-	<key>OpenSourceImportDate</key>
-	<string>2002-04-01</string>
-        <key>OpenSourceVersion</key>
-        <string>Original version number unavailable, but later based on 0.6.5</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src</string>
-        <key>OpenSourceSCM</key>
-        <string>cvs -d anoncvs@anoncvs.NetBSD.org:/cvsroot checkout -A -P src/crypto/dist/ipsec-tools/src</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>ipsec.txt</string>
-</dict>
-<dict>
-        <key>OpenSourceProject</key>
-        <string>racoonctl</string>
-	<key>OpenSourceImportDate</key>
-	<string>2002-04-01</string>
-        <key>OpenSourceVersion</key>
-        <string>Original version number unavailable, but later based on 0.6.5</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src</string>
-        <key>OpenSourceSCM</key>
-        <string>cvs -d anoncvs@anoncvs.NetBSD.org:/cvsroot checkout -A -P src/crypto/dist/ipsec-tools/src</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>ipsec.txt</string>
-</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>racoon</string>
+		<key>OpenSourceImportDate</key>
+		<string>2002-04-01</string>
+		<key>OpenSourceVersion</key>
+		<string>Original version number unavailable, but later based on 0.6.7</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src</string>
+		<key>OpenSourceSCM</key>
+		<string>cvs -d anoncvs@anoncvs.NetBSD.org:/cvsroot checkout -A -P src/crypto/dist/ipsec-tools/src</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Several select security updates, memory leak fixes from 0.7.2 </string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>ipsec.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>libipsec</string>
+		<key>OpenSourceImportDate</key>
+		<string>2002-04-01</string>
+		<key>OpenSourceVersion</key>
+		<string>Original version number unavailable, but later based on 0.6.5</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src</string>
+		<key>OpenSourceSCM</key>
+		<string>cvs -d anoncvs@anoncvs.NetBSD.org:/cvsroot checkout -A -P src/crypto/dist/ipsec-tools/src</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>ipsec.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>setkey</string>
+		<key>OpenSourceImportDate</key>
+		<string>2002-04-01</string>
+		<key>OpenSourceVersion</key>
+		<string>Original version number unavailable, but later based on 0.6.5</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/src/crypto/dist/ipsec-tools/src</string>
+		<key>OpenSourceSCM</key>
+		<string>cvs -d anoncvs@anoncvs.NetBSD.org:/cvsroot checkout -A -P src/crypto/dist/ipsec-tools/src</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>ipsec.txt</string>
+	</dict>
 </array>
 </plist>

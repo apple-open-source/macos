@@ -57,6 +57,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vis.h>
+#include <sys/sysctl.h>
 #include <libproc.h>
 
 void
@@ -67,13 +68,24 @@ usage() {
 
 int
 main(int argc, char **argv) {
-	char msgbuf[16*1024], *visbuf;
+	char *msgbuf, *visbuf;
+	int msgbufsize;
+	size_t sysctlsize = sizeof(msgbufsize);
 	long data_size;
 
 	if (argc > 1)
 		usage();
-	
-	if ((data_size = proc_kmsgbuf(msgbuf, sizeof(msgbuf))) == 0){
+
+	if (sysctlbyname("kern.msgbuf", &msgbufsize, &sysctlsize, NULL, 0)) {
+		perror("Unable to size kernel buffer");
+	}
+
+	msgbuf = malloc(msgbufsize);
+	if (msgbuf == NULL) {
+		perror("Unable to allocate a message buffer");
+	}
+
+	if ((data_size = proc_kmsgbuf(msgbuf, msgbufsize)) == 0){
 		perror("Unable to obtain kernel buffer");
 		usage();
 	}
@@ -82,6 +94,7 @@ main(int argc, char **argv) {
 	strvis(visbuf, msgbuf, 0);
 	printf("%s", visbuf);
 	free(visbuf);
+	free(msgbuf);
 	exit(0);
 }
 

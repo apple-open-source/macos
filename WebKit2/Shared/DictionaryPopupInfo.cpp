@@ -34,31 +34,25 @@
 
 namespace WebKit {
 
-void DictionaryPopupInfo::encode(CoreIPC::ArgumentEncoder* encoder) const
+void DictionaryPopupInfo::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
-    encoder->encode(origin);
-    encoder->encode(fontInfo);
-    encoder->encodeEnum(type);
+    encoder << origin;
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if PLATFORM(MAC)
     bool hadOptions = options;
-    encoder->encodeBool(hadOptions);
+    encoder << hadOptions;
     if (hadOptions)
         CoreIPC::encode(encoder, options.get());
 #endif
 }
 
-bool DictionaryPopupInfo::decode(CoreIPC::ArgumentDecoder* decoder, DictionaryPopupInfo& result)
+bool DictionaryPopupInfo::decode(CoreIPC::ArgumentDecoder& decoder, DictionaryPopupInfo& result)
 {
-    if (!decoder->decode(result.origin))
+    if (!decoder.decode(result.origin))
         return false;
-    if (!decoder->decode(result.fontInfo))
-        return false;
-    if (!decoder->decodeEnum(result.type))
-        return false;
-#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if PLATFORM(MAC)
     bool hadOptions;
-    if (!decoder->decodeBool(hadOptions))
+    if (!decoder.decode(hadOptions))
         return false;
     if (hadOptions) {
         if (!CoreIPC::decode(decoder, result.options))

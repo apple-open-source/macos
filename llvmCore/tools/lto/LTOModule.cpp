@@ -13,39 +13,157 @@
 //===----------------------------------------------------------------------===//
 
 #include "LTOModule.h"
-
 #include "llvm/Constants.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
-#include "llvm/ADT/OwningPtr.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Support/SystemUtils.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/MathExtras.h"
+#include "llvm/MC/MCExpr.h"
+#include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/MC/MCSymbol.h"
+#include "llvm/MC/MCTargetAsmParser.h"
+#include "llvm/MC/SubtargetFeature.h"
+#include "llvm/MC/MCParser/MCAsmParser.h"
+#include "llvm/Target/TargetRegisterInfo.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Process.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/system_error.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCParser/MCAsmParser.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCSymbol.h"
-#include "llvm/MC/SubtargetFeature.h"
-#include "llvm/MC/MCTargetAsmParser.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetRegisterInfo.h"
-
+#include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/Triple.h"
 using namespace llvm;
 
+static cl::opt<bool>
+EnableFPMAD("enable-fp-mad",
+  cl::desc("Enable less precise MAD instructions to be generated"),
+  cl::init(false));
+
+static cl::opt<bool>
+DisableFPElim("disable-fp-elim",
+  cl::desc("Disable frame pointer elimination optimization"),
+  cl::init(false));
+
+static cl::opt<bool>
+DisableFPElimNonLeaf("disable-non-leaf-fp-elim",
+  cl::desc("Disable frame pointer elimination optimization for non-leaf funcs"),
+  cl::init(false));
+
+static cl::opt<bool>
+EnableUnsafeFPMath("enable-unsafe-fp-math",
+  cl::desc("Enable optimizations that may decrease FP precision"),
+  cl::init(false));
+
+static cl::opt<bool>
+EnableNoInfsFPMath("enable-no-infs-fp-math",
+  cl::desc("Enable FP math optimizations that assume no +-Infs"),
+  cl::init(false));
+
+static cl::opt<bool>
+EnableNoNaNsFPMath("enable-no-nans-fp-math",
+  cl::desc("Enable FP math optimizations that assume no NaNs"),
+  cl::init(false));
+
+static cl::opt<bool>
+EnableHonorSignDependentRoundingFPMath("enable-sign-dependent-rounding-fp-math",
+  cl::Hidden,
+  cl::desc("Force codegen to assume rounding mode can change dynamically"),
+  cl::init(false));
+
+static cl::opt<bool>
+GenerateSoftFloatCalls("soft-float",
+  cl::desc("Generate software floating point library calls"),
+  cl::init(false));
+
+static cl::opt<llvm::FloatABI::ABIType>
+FloatABIForCalls("float-abi",
+  cl::desc("Choose float ABI type"),
+  cl::init(FloatABI::Default),
+  cl::values(
+    clEnumValN(FloatABI::Default, "default",
+               "Target default float ABI type"),
+    clEnumValN(FloatABI::Soft, "soft",
+               "Soft float ABI (implied by -soft-float)"),
+    clEnumValN(FloatABI::Hard, "hard",
+               "Hard float ABI (uses FP registers)"),
+    clEnumValEnd));
+
+static cl::opt<llvm::FPOpFusion::FPOpFusionMode>
+FuseFPOps("fp-contract",
+  cl::desc("Enable aggresive formation of fused FP ops"),
+  cl::init(FPOpFusion::Standard),
+  cl::values(
+    clEnumValN(FPOpFusion::Fast, "fast",
+               "Fuse FP ops whenever profitable"),
+    clEnumValN(FPOpFusion::Standard, "on",
+               "Only fuse 'blessed' FP ops."),
+    clEnumValN(FPOpFusion::Strict, "off",
+               "Only fuse FP ops when the result won't be effected."),
+    clEnumValEnd));
+
+static cl::opt<bool>
+DontPlaceZerosInBSS("nozero-initialized-in-bss",
+  cl::desc("Don't place zero-initialized symbols into bss section"),
+  cl::init(false));
+
+static cl::opt<bool>
+EnableGuaranteedTailCallOpt("tailcallopt",
+  cl::desc("Turn fastcc calls into tail calls by (potentially) changing ABI."),
+  cl::init(false));
+
+static cl::opt<bool>
+DisableTailCalls("disable-tail-calls",
+  cl::desc("Never emit tail calls"),
+  cl::init(false));
+
+static cl::opt<unsigned>
+OverrideStackAlignment("stack-alignment",
+  cl::desc("Override default stack alignment"),
+  cl::init(0));
+
+static cl::opt<bool>
+EnableRealignStack("realign-stack",
+  cl::desc("Realign stack if needed"),
+  cl::init(true));
+
+static cl::opt<std::string>
+TrapFuncName("trap-func", cl::Hidden,
+  cl::desc("Emit a call to trap function rather than a trap instruction"),
+  cl::init(""));
+
+static cl::opt<bool>
+EnablePIE("enable-pie",
+  cl::desc("Assume the creation of a position independent executable."),
+  cl::init(false));
+
+static cl::opt<bool>
+SegmentedStacks("segmented-stacks",
+  cl::desc("Use segmented stacks if possible."),
+  cl::init(false));
+
+static cl::opt<bool>
+UseInitArray("use-init-array",
+  cl::desc("Use .init_array instead of .ctors."),
+  cl::init(false));
+
+static cl::opt<unsigned>
+SSPBufferSize("stack-protector-buffer-size", cl::init(8),
+              cl::desc("Lower bound for a buffer to be considered for "
+                       "stack protection"));
+
+LTOModule::LTOModule(llvm::Module *m, llvm::TargetMachine *t)
+  : _module(m), _target(t),
+    _context(*_target->getMCAsmInfo(), *_target->getRegisterInfo(), NULL),
+    _mangler(_context, *_target->getTargetData()) {}
+
+/// isBitcodeFile - Returns 'true' if the file (or memory contents) is LLVM
+/// bitcode.
 bool LTOModule::isBitcodeFile(const void *mem, size_t length) {
-  return llvm::sys::IdentifyFileType((char*)mem, length)
+  return llvm::sys::IdentifyFileType((const char*)mem, length)
     == llvm::sys::Bitcode_FileType;
 }
 
@@ -53,6 +171,8 @@ bool LTOModule::isBitcodeFile(const char *path) {
   return llvm::sys::Path(path).isBitcodeFile();
 }
 
+/// isBitcodeFileForTarget - Returns 'true' if the file (or memory contents) is
+/// LLVM bitcode for the specified triple.
 bool LTOModule::isBitcodeFileForTarget(const void *mem, size_t length,
                                        const char *triplePrefix) {
   MemoryBuffer *buffer = makeBuffer(mem, length);
@@ -69,23 +189,17 @@ bool LTOModule::isBitcodeFileForTarget(const char *path,
   return isTargetMatch(buffer.take(), triplePrefix);
 }
 
-// Takes ownership of buffer.
+/// isTargetMatch - Returns 'true' if the memory buffer is for the specified
+/// target triple.
 bool LTOModule::isTargetMatch(MemoryBuffer *buffer, const char *triplePrefix) {
   std::string Triple = getBitcodeTargetTriple(buffer, getGlobalContext());
   delete buffer;
   return strncmp(Triple.c_str(), triplePrefix, strlen(triplePrefix)) == 0;
 }
 
-
-LTOModule::LTOModule(Module *m, TargetMachine *t)
-  : _module(m), _target(t),
-    _context(*_target->getMCAsmInfo(), *_target->getRegisterInfo(), NULL),
-    _mangler(_context, *_target->getTargetData())
-{
-}
-
-LTOModule *LTOModule::makeLTOModule(const char *path,
-                                    std::string &errMsg) {
+/// makeLTOModule - Create an LTOModule. N.B. These methods take ownership of
+/// the buffer.
+LTOModule *LTOModule::makeLTOModule(const char *path, std::string &errMsg) {
   OwningPtr<MemoryBuffer> buffer;
   if (error_code ec = MemoryBuffer::getFile(path, buffer)) {
     errMsg = ec.message();
@@ -113,18 +227,37 @@ LTOModule *LTOModule::makeLTOModule(int fd, const char *path,
   return makeLTOModule(buffer.take(), errMsg);
 }
 
-/// makeBuffer - Create a MemoryBuffer from a memory range.
-MemoryBuffer *LTOModule::makeBuffer(const void *mem, size_t length) {
-  const char *startPtr = (char*)mem;
-  return MemoryBuffer::getMemBuffer(StringRef(startPtr, length), "", false);
-}
-
 LTOModule *LTOModule::makeLTOModule(const void *mem, size_t length,
                                     std::string &errMsg) {
   OwningPtr<MemoryBuffer> buffer(makeBuffer(mem, length));
   if (!buffer)
     return NULL;
   return makeLTOModule(buffer.take(), errMsg);
+}
+
+void LTOModule::getTargetOptions(TargetOptions &Options) {
+  Options.LessPreciseFPMADOption = EnableFPMAD;
+  Options.NoFramePointerElim = DisableFPElim;
+  Options.NoFramePointerElimNonLeaf = DisableFPElimNonLeaf;
+  Options.AllowFPOpFusion = FuseFPOps;
+  Options.UnsafeFPMath = EnableUnsafeFPMath;
+  Options.NoInfsFPMath = EnableNoInfsFPMath;
+  Options.NoNaNsFPMath = EnableNoNaNsFPMath;
+  Options.HonorSignDependentRoundingFPMathOption =
+    EnableHonorSignDependentRoundingFPMath;
+  Options.UseSoftFloat = GenerateSoftFloatCalls;
+  if (FloatABIForCalls != FloatABI::Default)
+    Options.FloatABIType = FloatABIForCalls;
+  Options.NoZerosInBSS = DontPlaceZerosInBSS;
+  Options.GuaranteedTailCallOpt = EnableGuaranteedTailCallOpt;
+  Options.DisableTailCalls = DisableTailCalls;
+  Options.StackAlignmentOverride = OverrideStackAlignment;
+  Options.RealignStack = EnableRealignStack;
+  Options.TrapFuncName = TrapFuncName;
+  Options.PositionIndependentExecutable = EnablePIE;
+  Options.EnableSegmentedStacks = SegmentedStacks;
+  Options.UseInitArray = UseInitArray;
+  Options.SSPBufferSize = SSPBufferSize;
 }
 
 LTOModule *LTOModule::makeLTOModule(MemoryBuffer *buffer,
@@ -145,23 +278,34 @@ LTOModule *LTOModule::makeLTOModule(MemoryBuffer *buffer,
     return NULL;
   }
 
-  std::string Triple = m->getTargetTriple();
-  if (Triple.empty())
-    Triple = sys::getDefaultTargetTriple();
+  std::string TripleStr = m->getTargetTriple();
+  if (TripleStr.empty())
+    TripleStr = sys::getDefaultTargetTriple();
+  llvm::Triple Triple(TripleStr);
 
   // find machine architecture for this module
-  const Target *march = TargetRegistry::lookupTarget(Triple, errMsg);
+  const Target *march = TargetRegistry::lookupTarget(TripleStr, errMsg);
   if (!march)
     return NULL;
 
   // construct LTOModule, hand over ownership of module and target
   SubtargetFeatures Features;
-  Features.getDefaultSubtargetFeatures(llvm::Triple(Triple));
+  Features.getDefaultSubtargetFeatures(Triple);
   std::string FeatureStr = Features.getString();
+  // Set a default CPU for Darwin triples.
   std::string CPU;
-  TargetMachine *target = march->createTargetMachine(Triple, CPU, FeatureStr);
+  if (Triple.isOSDarwin()) {
+    if (Triple.getArch() == llvm::Triple::x86_64)
+      CPU = "core2";
+    else if (Triple.getArch() == llvm::Triple::x86)
+      CPU = "yonah";
+  }
+  TargetOptions Options;
+  getTargetOptions(Options);
+  TargetMachine *target = march->createTargetMachine(TripleStr, CPU, FeatureStr,
+                                                     Options);
   LTOModule *Ret = new LTOModule(m.take(), target);
-  if (Ret->ParseSymbols(errMsg)) {
+  if (Ret->parseSymbols(errMsg)) {
     delete Ret;
     return NULL;
   }
@@ -169,28 +313,21 @@ LTOModule *LTOModule::makeLTOModule(MemoryBuffer *buffer,
   return Ret;
 }
 
-const char *LTOModule::getTargetTriple() {
-  return _module->getTargetTriple().c_str();
+/// makeBuffer - Create a MemoryBuffer from a memory range.
+MemoryBuffer *LTOModule::makeBuffer(const void *mem, size_t length) {
+  const char *startPtr = (const char*)mem;
+  return MemoryBuffer::getMemBuffer(StringRef(startPtr, length), "", false);
 }
 
-void LTOModule::setTargetTriple(const char *triple) {
-  _module->setTargetTriple(triple);
-}
-
-void LTOModule::addDefinedFunctionSymbol(Function *f) {
-  // add to list of defined symbols
-  addDefinedSymbol(f, true);
-}
-
-// Get string that data pointer points to.
+/// objcClassNameFromExpression - Get string that the data pointer points to.
 bool LTOModule::objcClassNameFromExpression(Constant *c, std::string &name) {
   if (ConstantExpr *ce = dyn_cast<ConstantExpr>(c)) {
     Constant *op = ce->getOperand(0);
     if (GlobalVariable *gvn = dyn_cast<GlobalVariable>(op)) {
       Constant *cn = gvn->getInitializer();
-      if (ConstantArray *ca = dyn_cast<ConstantArray>(cn)) {
+      if (ConstantDataArray *ca = dyn_cast<ConstantDataArray>(cn)) {
         if (ca->isCString()) {
-          name = ".objc_class_name_" + ca->getAsCString();
+          name = ".objc_class_name_" + ca->getAsCString().str();
           return true;
         }
       }
@@ -199,7 +336,7 @@ bool LTOModule::objcClassNameFromExpression(Constant *c, std::string &name) {
   return false;
 }
 
-// Parse i386/ppc ObjC class data structure.
+/// addObjCClass - Parse i386/ppc ObjC class data structure.
 void LTOModule::addObjCClass(GlobalVariable *clgv) {
   ConstantStruct *c = dyn_cast<ConstantStruct>(clgv->getInitializer());
   if (!c) return;
@@ -214,6 +351,8 @@ void LTOModule::addObjCClass(GlobalVariable *clgv) {
       const char *symbolName = entry.getKey().data();
       info.name = symbolName;
       info.attributes = LTO_SYMBOL_DEFINITION_UNDEFINED;
+      info.isFunction = false;
+      info.symbol = clgv;
       entry.setValue(info);
     }
   }
@@ -223,17 +362,18 @@ void LTOModule::addObjCClass(GlobalVariable *clgv) {
   if (objcClassNameFromExpression(c->getOperand(2), className)) {
     StringSet::value_type &entry = _defines.GetOrCreateValue(className);
     entry.setValue(1);
+
     NameAndAttributes info;
     info.name = entry.getKey().data();
-    info.attributes = lto_symbol_attributes(LTO_SYMBOL_PERMISSIONS_DATA |
-                                            LTO_SYMBOL_DEFINITION_REGULAR |
-                                            LTO_SYMBOL_SCOPE_DEFAULT);
+    info.attributes = LTO_SYMBOL_PERMISSIONS_DATA |
+      LTO_SYMBOL_DEFINITION_REGULAR | LTO_SYMBOL_SCOPE_DEFAULT;
+    info.isFunction = false;
+    info.symbol = clgv;
     _symbols.push_back(info);
   }
 }
 
-
-// Parse i386/ppc ObjC category data structure.
+/// addObjCCategory - Parse i386/ppc ObjC category data structure.
 void LTOModule::addObjCCategory(GlobalVariable *clgv) {
   ConstantStruct *c = dyn_cast<ConstantStruct>(clgv->getInitializer());
   if (!c) return;
@@ -253,11 +393,12 @@ void LTOModule::addObjCCategory(GlobalVariable *clgv) {
   const char *symbolName = entry.getKey().data();
   info.name = symbolName;
   info.attributes = LTO_SYMBOL_DEFINITION_UNDEFINED;
+  info.isFunction = false;
+  info.symbol = clgv;
   entry.setValue(info);
 }
 
-
-// Parse i386/ppc ObjC class list data structure.
+/// addObjCClassRef - Parse i386/ppc ObjC class list data structure.
 void LTOModule::addObjCClassRef(GlobalVariable *clgv) {
   std::string targetclassName;
   if (!objcClassNameFromExpression(clgv->getInitializer(), targetclassName))
@@ -272,13 +413,18 @@ void LTOModule::addObjCClassRef(GlobalVariable *clgv) {
   const char *symbolName = entry.getKey().data();
   info.name = symbolName;
   info.attributes = LTO_SYMBOL_DEFINITION_UNDEFINED;
+  info.isFunction = false;
+  info.symbol = clgv;
   entry.setValue(info);
 }
 
-
+/// addDefinedDataSymbol - Add a data symbol as defined to the list.
 void LTOModule::addDefinedDataSymbol(GlobalValue *v) {
   // Add to list of defined symbols.
   addDefinedSymbol(v, false);
+
+  if (!v->hasSection() /* || !isTargetDarwin */)
+    return;
 
   // Special case i386/ppc ObjC data structures in magic sections:
   // The issue is that the old ObjC object format did some strange
@@ -299,30 +445,36 @@ void LTOModule::addDefinedDataSymbol(GlobalValue *v) {
   // a class was missing.
   // The following synthesizes the implicit .objc_* symbols for the linker
   // from the ObjC data structures generated by the front end.
-  if (v->hasSection() /* && isTargetDarwin */) {
-    // special case if this data blob is an ObjC class definition
-    if (v->getSection().compare(0, 15, "__OBJC,__class,") == 0) {
-      if (GlobalVariable *gv = dyn_cast<GlobalVariable>(v)) {
-        addObjCClass(gv);
-      }
-    }
 
-    // special case if this data blob is an ObjC category definition
-    else if (v->getSection().compare(0, 18, "__OBJC,__category,") == 0) {
-      if (GlobalVariable *gv = dyn_cast<GlobalVariable>(v)) {
-        addObjCCategory(gv);
-      }
+  // special case if this data blob is an ObjC class definition
+  if (v->getSection().compare(0, 15, "__OBJC,__class,") == 0) {
+    if (GlobalVariable *gv = dyn_cast<GlobalVariable>(v)) {
+      addObjCClass(gv);
     }
+  }
 
-    // special case if this data blob is the list of referenced classes
-    else if (v->getSection().compare(0, 18, "__OBJC,__cls_refs,") == 0) {
-      if (GlobalVariable *gv = dyn_cast<GlobalVariable>(v)) {
-        addObjCClassRef(gv);
-      }
+  // special case if this data blob is an ObjC category definition
+  else if (v->getSection().compare(0, 18, "__OBJC,__category,") == 0) {
+    if (GlobalVariable *gv = dyn_cast<GlobalVariable>(v)) {
+      addObjCCategory(gv);
+    }
+  }
+
+  // special case if this data blob is the list of referenced classes
+  else if (v->getSection().compare(0, 18, "__OBJC,__cls_refs,") == 0) {
+    if (GlobalVariable *gv = dyn_cast<GlobalVariable>(v)) {
+      addObjCClassRef(gv);
     }
   }
 }
 
+/// addDefinedFunctionSymbol - Add a function symbol as defined to the list.
+void LTOModule::addDefinedFunctionSymbol(Function *f) {
+  // add to list of defined symbols
+  addDefinedSymbol(f, true);
+}
+
+/// addDefinedSymbol - Add a defined symbol to the list.
 void LTOModule::addDefinedSymbol(GlobalValue *def, bool isFunction) {
   // ignore all llvm.* symbols
   if (def->getName().startswith("llvm."))
@@ -337,9 +489,9 @@ void LTOModule::addDefinedSymbol(GlobalValue *def, bool isFunction) {
   uint32_t attr = align ? CountTrailingZeros_32(def->getAlignment()) : 0;
 
   // set permissions part
-  if (isFunction)
+  if (isFunction) {
     attr |= LTO_SYMBOL_PERMISSIONS_CODE;
-  else {
+  } else {
     GlobalVariable *gv = dyn_cast<GlobalVariable>(def);
     if (gv && gv->isConstant())
       attr |= LTO_SYMBOL_PERMISSIONS_RODATA;
@@ -349,8 +501,7 @@ void LTOModule::addDefinedSymbol(GlobalValue *def, bool isFunction) {
 
   // set definition part
   if (def->hasWeakLinkage() || def->hasLinkOnceLinkage() ||
-      def->hasLinkerPrivateWeakLinkage() ||
-      def->hasLinkerPrivateWeakDefAutoLinkage())
+      def->hasLinkerPrivateWeakLinkage())
     attr |= LTO_SYMBOL_DEFINITION_WEAK;
   else if (def->hasCommonLinkage())
     attr |= LTO_SYMBOL_DEFINITION_TENTATIVE;
@@ -366,23 +517,29 @@ void LTOModule::addDefinedSymbol(GlobalValue *def, bool isFunction) {
            def->hasLinkOnceLinkage() || def->hasCommonLinkage() ||
            def->hasLinkerPrivateWeakLinkage())
     attr |= LTO_SYMBOL_SCOPE_DEFAULT;
-  else if (def->hasLinkerPrivateWeakDefAutoLinkage())
+  else if (def->hasLinkOnceODRAutoHideLinkage())
     attr |= LTO_SYMBOL_SCOPE_DEFAULT_CAN_BE_HIDDEN;
   else
     attr |= LTO_SYMBOL_SCOPE_INTERNAL;
 
-  // add to table of symbols
-  NameAndAttributes info;
   StringSet::value_type &entry = _defines.GetOrCreateValue(Buffer);
   entry.setValue(1);
 
+  // fill information structure
+  NameAndAttributes info;
   StringRef Name = entry.getKey();
   info.name = Name.data();
   assert(info.name[Name.size()] == '\0');
-  info.attributes = (lto_symbol_attributes)attr;
+  info.attributes = attr;
+  info.isFunction = isFunction;
+  info.symbol = def;
+
+  // add to table of symbols
   _symbols.push_back(info);
 }
 
+/// addAsmGlobalSymbol - Add a global symbol from module-level ASM to the
+/// defined list.
 void LTOModule::addAsmGlobalSymbol(const char *name,
                                    lto_symbol_attributes scope) {
   StringSet::value_type &entry = _defines.GetOrCreateValue(name);
@@ -392,15 +549,41 @@ void LTOModule::addAsmGlobalSymbol(const char *name,
     return;
 
   entry.setValue(1);
-  const char *symbolName = entry.getKey().data();
-  uint32_t attr = LTO_SYMBOL_DEFINITION_REGULAR;
-  attr |= scope;
-  NameAndAttributes info;
-  info.name = symbolName;
-  info.attributes = (lto_symbol_attributes)attr;
-  _symbols.push_back(info);
+
+  NameAndAttributes &info = _undefines[entry.getKey().data()];
+
+  if (info.symbol == 0) {
+    // FIXME: This is trying to take care of module ASM like this:
+    //
+    //   module asm ".zerofill __FOO, __foo, _bar_baz_qux, 0"
+    //
+    // but is gross and its mother dresses it funny. Have the ASM parser give us
+    // more details for this type of situation so that we're not guessing so
+    // much.
+
+    // fill information structure
+    info.name = entry.getKey().data();
+    info.attributes =
+      LTO_SYMBOL_PERMISSIONS_DATA | LTO_SYMBOL_DEFINITION_REGULAR | scope;
+    info.isFunction = false;
+    info.symbol = 0;
+
+    // add to table of symbols
+    _symbols.push_back(info);
+    return;
+  }
+
+  if (info.isFunction)
+    addDefinedFunctionSymbol(cast<Function>(info.symbol));
+  else
+    addDefinedDataSymbol(info.symbol);
+
+  _symbols.back().attributes &= ~LTO_SYMBOL_SCOPE_MASK;
+  _symbols.back().attributes |= scope;
 }
 
+/// addAsmGlobalSymbolUndef - Add a global symbol from module-level ASM to the
+/// undefined list.
 void LTOModule::addAsmGlobalSymbolUndef(const char *name) {
   StringMap<NameAndAttributes>::value_type &entry =
     _undefines.GetOrCreateValue(name);
@@ -415,12 +598,16 @@ void LTOModule::addAsmGlobalSymbolUndef(const char *name) {
   attr |= LTO_SYMBOL_SCOPE_DEFAULT;
   NameAndAttributes info;
   info.name = entry.getKey().data();
-  info.attributes = (lto_symbol_attributes)attr;
+  info.attributes = attr;
+  info.isFunction = false;
+  info.symbol = 0;
 
   entry.setValue(info);
 }
 
-void LTOModule::addPotentialUndefinedSymbol(GlobalValue *decl) {
+/// addPotentialUndefinedSymbol - Add a symbol which isn't defined just yet to a
+/// list to be resolved later.
+void LTOModule::addPotentialUndefinedSymbol(GlobalValue *decl, bool isFunc) {
   // ignore all llvm.* symbols
   if (decl->getName().startswith("llvm."))
     return;
@@ -442,10 +629,14 @@ void LTOModule::addPotentialUndefinedSymbol(GlobalValue *decl) {
   NameAndAttributes info;
 
   info.name = entry.getKey().data();
+
   if (decl->hasExternalWeakLinkage())
     info.attributes = LTO_SYMBOL_DEFINITION_WEAKUNDEF;
   else
     info.attributes = LTO_SYMBOL_DEFINITION_UNDEFINED;
+
+  info.isFunction = isFunc;
+  info.symbol = decl;
 
   entry.setValue(info);
 }
@@ -453,7 +644,7 @@ void LTOModule::addPotentialUndefinedSymbol(GlobalValue *decl) {
 namespace {
   class RecordStreamer : public MCStreamer {
   public:
-    enum State { NeverSeen, Global, Defined, DefinedGlobal, Used};
+    enum State { NeverSeen, Global, Defined, DefinedGlobal, Used };
 
   private:
     StringMap<State> Symbols;
@@ -542,14 +733,16 @@ namespace {
 
     RecordStreamer(MCContext &Context) : MCStreamer(Context) {}
 
-    virtual void ChangeSection(const MCSection *Section) {}
-    virtual void InitSections() {}
+    virtual void EmitInstruction(const MCInst &Inst) {
+      // Scan for values.
+      for (unsigned i = Inst.getNumOperands(); i--; )
+        if (Inst.getOperand(i).isExpr())
+          AddValueSymbols(Inst.getOperand(i).getExpr());
+    }
     virtual void EmitLabel(MCSymbol *Symbol) {
       Symbol->setSection(*getCurrentSection());
       markDefined(*Symbol);
     }
-    virtual void EmitAssemblerFlag(MCAssemblerFlag Flag) {}
-    virtual void EmitThumbFunc(MCSymbol *Func) {}
     virtual void EmitAssignment(MCSymbol *Symbol, const MCExpr *Value) {
       // FIXME: should we handle aliases?
       markDefined(*Symbol);
@@ -558,20 +751,26 @@ namespace {
       if (Attribute == MCSA_Global)
         markGlobal(*Symbol);
     }
-    virtual void EmitSymbolDesc(MCSymbol *Symbol, unsigned DescValue) {}
-    virtual void EmitWeakReference(MCSymbol *Alias, const MCSymbol *Symbol) {}
-    virtual void BeginCOFFSymbolDef(const MCSymbol *Symbol) {}
-    virtual void EmitCOFFSymbolStorageClass(int StorageClass) {}
     virtual void EmitZerofill(const MCSection *Section, MCSymbol *Symbol,
-                              unsigned Size , unsigned ByteAlignment) {
+                              uint64_t Size , unsigned ByteAlignment) {
       markDefined(*Symbol);
     }
-    virtual void EmitCOFFSymbolType(int Type) {}
-    virtual void EndCOFFSymbolDef() {}
     virtual void EmitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
                                   unsigned ByteAlignment) {
       markDefined(*Symbol);
     }
+
+    // Noop calls.
+    virtual void ChangeSection(const MCSection *Section) {}
+    virtual void InitSections() {}
+    virtual void EmitAssemblerFlag(MCAssemblerFlag Flag) {}
+    virtual void EmitThumbFunc(MCSymbol *Func) {}
+    virtual void EmitSymbolDesc(MCSymbol *Symbol, unsigned DescValue) {}
+    virtual void EmitWeakReference(MCSymbol *Alias, const MCSymbol *Symbol) {}
+    virtual void BeginCOFFSymbolDef(const MCSymbol *Symbol) {}
+    virtual void EmitCOFFSymbolStorageClass(int StorageClass) {}
+    virtual void EmitCOFFSymbolType(int Type) {}
+    virtual void EndCOFFSymbolDef() {}
     virtual void EmitELFSize(MCSymbol *Symbol, const MCExpr *Value) {}
     virtual void EmitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
                                        unsigned ByteAlignment) {}
@@ -587,24 +786,19 @@ namespace {
                                       unsigned MaxBytesToEmit) {}
     virtual void EmitCodeAlignment(unsigned ByteAlignment,
                                    unsigned MaxBytesToEmit) {}
-    virtual void EmitValueToOffset(const MCExpr *Offset,
-                                   unsigned char Value ) {}
+    virtual bool EmitValueToOffset(const MCExpr *Offset,
+                                   unsigned char Value ) { return false; }
     virtual void EmitFileDirective(StringRef Filename) {}
     virtual void EmitDwarfAdvanceLineAddr(int64_t LineDelta,
                                           const MCSymbol *LastLabel,
                                           const MCSymbol *Label,
                                           unsigned PointerSize) {}
-
-    virtual void EmitInstruction(const MCInst &Inst) {
-      // Scan for values.
-      for (unsigned i = Inst.getNumOperands(); i--; )
-        if (Inst.getOperand(i).isExpr())
-          AddValueSymbols(Inst.getOperand(i).getExpr());
-    }
-    virtual void Finish() {}
+    virtual void FinishImpl() {}
   };
-}
+} // end anonymous namespace
 
+/// addAsmGlobalSymbols - Add global symbols from module-level ASM to the
+/// defined or undefined lists.
 bool LTOModule::addAsmGlobalSymbols(std::string &errMsg) {
   const std::string &inlineAsm = _module->getModuleInlineAsm();
   if (inlineAsm.empty())
@@ -617,21 +811,20 @@ bool LTOModule::addAsmGlobalSymbols(std::string &errMsg) {
   OwningPtr<MCAsmParser> Parser(createMCAsmParser(SrcMgr,
                                                   _context, *Streamer,
                                                   *_target->getMCAsmInfo()));
-  OwningPtr<MCSubtargetInfo> STI(_target->getTarget().
-                      createMCSubtargetInfo(_target->getTargetTriple(),
-                                            _target->getTargetCPU(),
-                                            _target->getTargetFeatureString()));
-  OwningPtr<MCTargetAsmParser>
-    TAP(_target->getTarget().createMCAsmParser(*STI, *Parser.get()));
+  const Target &T = _target->getTarget();
+  OwningPtr<MCSubtargetInfo>
+    STI(T.createMCSubtargetInfo(_target->getTargetTriple(),
+                                _target->getTargetCPU(),
+                                _target->getTargetFeatureString()));
+  OwningPtr<MCTargetAsmParser> TAP(T.createMCAsmParser(*STI, *Parser.get()));
   if (!TAP) {
-    errMsg = "target " + std::string(_target->getTarget().getName()) +
-        " does not define AsmParser.";
+    errMsg = "target " + std::string(T.getName()) +
+      " does not define AsmParser.";
     return true;
   }
 
   Parser->setTargetParser(*TAP);
-  int Res = Parser->Run(false);
-  if (Res)
+  if (Parser->Run(false))
     return true;
 
   for (RecordStreamer::const_iterator i = Streamer->begin(),
@@ -646,26 +839,28 @@ bool LTOModule::addAsmGlobalSymbols(std::string &errMsg) {
              Value == RecordStreamer::Used)
       addAsmGlobalSymbolUndef(Key.data());
   }
+
   return false;
 }
 
+/// isDeclaration - Return 'true' if the global value is a declaration.
 static bool isDeclaration(const GlobalValue &V) {
   if (V.hasAvailableExternallyLinkage())
     return true;
+
   if (V.isMaterializable())
     return false;
+
   return V.isDeclaration();
 }
 
-static bool isAliasToDeclaration(const GlobalAlias &V) {
-  return isDeclaration(*V.getAliasedGlobal());
-}
-
-bool LTOModule::ParseSymbols(std::string &errMsg) {
+/// parseSymbols - Parse the symbols from the module and model-level ASM and add
+/// them to either the defined or undefined lists.
+bool LTOModule::parseSymbols(std::string &errMsg) {
   // add functions
-  for (Module::iterator f = _module->begin(); f != _module->end(); ++f) {
+  for (Module::iterator f = _module->begin(), e = _module->end(); f != e; ++f) {
     if (isDeclaration(*f))
-      addPotentialUndefinedSymbol(f);
+      addPotentialUndefinedSymbol(f, true);
     else
       addDefinedFunctionSymbol(f);
   }
@@ -674,7 +869,7 @@ bool LTOModule::ParseSymbols(std::string &errMsg) {
   for (Module::global_iterator v = _module->global_begin(),
          e = _module->global_end(); v !=  e; ++v) {
     if (isDeclaration(*v))
-      addPotentialUndefinedSymbol(v);
+      addPotentialUndefinedSymbol(v, false);
     else
       addDefinedDataSymbol(v);
   }
@@ -684,41 +879,24 @@ bool LTOModule::ParseSymbols(std::string &errMsg) {
     return true;
 
   // add aliases
-  for (Module::alias_iterator i = _module->alias_begin(),
-         e = _module->alias_end(); i != e; ++i) {
-    if (isAliasToDeclaration(*i))
-      addPotentialUndefinedSymbol(i);
+  for (Module::alias_iterator a = _module->alias_begin(),
+         e = _module->alias_end(); a != e; ++a) {
+    if (isDeclaration(*a->getAliasedGlobal()))
+      // Is an alias to a declaration.
+      addPotentialUndefinedSymbol(a, false);
     else
-      addDefinedDataSymbol(i);
+      addDefinedDataSymbol(a);
   }
 
   // make symbols for all undefines
-  for (StringMap<NameAndAttributes>::iterator it=_undefines.begin();
-       it != _undefines.end(); ++it) {
-    // if this symbol also has a definition, then don't make an undefine
-    // because it is a tentative definition
-    if (_defines.count(it->getKey()) == 0) {
-      NameAndAttributes info = it->getValue();
-      _symbols.push_back(info);
-    }
+  for (StringMap<NameAndAttributes>::iterator u =_undefines.begin(),
+         e = _undefines.end(); u != e; ++u) {
+    // If this symbol also has a definition, then don't make an undefine because
+    // it is a tentative definition.
+    if (_defines.count(u->getKey())) continue;
+    NameAndAttributes info = u->getValue();
+    _symbols.push_back(info);
   }
+
   return false;
-}
-
-uint32_t LTOModule::getSymbolCount() {
-  return _symbols.size();
-}
-
-lto_symbol_attributes LTOModule::getSymbolAttributes(uint32_t index) {
-  if (index < _symbols.size())
-    return _symbols[index].attributes;
-  else
-    return lto_symbol_attributes(0);
-}
-
-const char *LTOModule::getSymbolName(uint32_t index) {
-  if (index < _symbols.size())
-    return _symbols[index].name;
-  else
-    return NULL;
 }

@@ -25,11 +25,12 @@
 #define ValidityState_h
 
 #include "FormAssociatedElement.h"
+#include "ScriptWrappable.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
-class ValidityState {
+class ValidityState : public ScriptWrappable {
     WTF_MAKE_NONCOPYABLE(ValidityState); WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassOwnPtr<ValidityState> create(FormAssociatedElement* control)
@@ -51,17 +52,14 @@ public:
     bool rangeUnderflow() const;
     bool rangeOverflow() const;
     bool stepMismatch() const;
+    bool badInput() const;
     bool customError() const;
     bool valid() const;
 
 private:
     ValidityState(FormAssociatedElement* control) : m_control(control) { }
 
-    static bool isValidColorString(const String&);
-    static bool isValidEmailAddress(const String&);
-
     FormAssociatedElement* m_control;
-    String m_customErrorMessage;
 };
 
 } // namespace WebCore

@@ -1,0 +1,11 @@
+ $Id: MANIFEST,v 1.4 2005/05/03 10:53:33 roderick Exp $
+
+Changes
+MANIFEST
+MANIFEST.SKIP
+META.yml
+Makefile.PL
+README
+ShellQuote.pm
+shell-quote
+test.t

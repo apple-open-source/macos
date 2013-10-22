@@ -21,7 +21,6 @@
 #include <ac/unistd.h>
 
 #include "back-bdb.h"
-#include "psauth.h"
 #define __COREFOUNDATION_CFFILESECURITY__
 #include <CoreFoundation/CoreFoundation.h>
 #include "applehelpers.h"
@@ -130,58 +129,36 @@ dn2entry_retry:
 
 	switch ( op->oq_bind.rb_method ) {
 	case LDAP_AUTH_SIMPLE:
-		rs->sr_err = access_allowed( op, e,
-			authAuthority, NULL, ACL_AUTH, NULL );
-		if ( ! rs->sr_err ) {
+#ifdef __APPLE__
+		if( odusers_krb_auth(op, op->oq_bind.rb_cred.bv_val) ) {
 			rs->sr_err = LDAP_INSUFFICIENT_ACCESS;
+			if(odusers_increment_failedlogin(&op->o_req_ndn) != 0) {
+				Debug(LDAP_DEBUG_ANY, "%s: Error to increment failed login count for %s", __func__, op->o_req_ndn.bv_val, 0);
+			}
+			goto done;
+		} else {
+			CFDictionaryRef poldict = odusers_copy_effectiveuserpoldict(&op->o_req_ndn);
+			if(!poldict) {
+				Debug(LDAP_DEBUG_ANY, "%s: could not retrieve effective policy for: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
+				rs->sr_text = "Could not verify policy";
+				rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
+				goto done;
+			}
+
+			if(odusers_isdisabled(poldict)) {
+				Debug(LDAP_DEBUG_ANY, "%s: User is disabled: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
+				CFRelease(poldict);
+				rs->sr_text = "Policy violation";
+				rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
+				goto done;
+			}
+
+			odusers_successful_auth(&op->o_req_ndn, poldict);
+			CFRelease(poldict);
+			rs->sr_err = LDAP_SUCCESS;
 			goto done;
 		}
-
- 		if ( (a = attr_find( e->e_attrs, authAuthority )) != NULL ) {
- 			/* check authentication authority */
-			if ( a->a_vals[0].bv_val != NULL ) {
- 				if ( CheckAuthType(a->a_vals[0].bv_val, PASSWORD_SERVER_AUTH_TYPE) ) {
-					Attribute *a2;
-					AttributeDescription *uid = slap_schema.si_ad_uid;
-
-					a2 = attr_find(e->e_attrs, uid);
-					if(!a2 || !a2->a_vals) {
-						rs->sr_text = "Could not locate uid attribute";
-						rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
-						goto done;
-					}
-					op->o_conn->c_sasl_bindop = op;
- 					rs->sr_err = (DoPSAuth(a2->a_vals[0].bv_val, op->oq_bind.rb_cred.bv_val, a->a_vals[0].bv_val, op->o_conn, op->o_req_ndn.bv_val) == kAuthNoError) ? 0 : LDAP_INVALID_CREDENTIALS;
-					op->o_conn->c_sasl_bindop = NULL;
-					if(!rs->sr_err) {
-						CFDictionaryRef poldict = odusers_copy_effectiveuserpoldict(&op->o_req_ndn);
-						if(!poldict) {
-							Debug(LDAP_DEBUG_ANY, "%s: could not retrieve effective policy for: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
-							rs->sr_text = "Could not verify policy";
-							rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
-							goto done;
-						}
-
-						if(odusers_isdisabled(poldict)) {
-							Debug(LDAP_DEBUG_ANY, "%s: User is disabled: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
-							CFRelease(poldict);
-							rs->sr_text = "Policy violation";
-							rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
-							goto done;
-						}
-
-						odusers_successful_auth(&op->o_req_ndn, poldict);
-						CFRelease(poldict);
-					} else {
-						if(odusers_increment_failedlogin(&op->o_req_ndn) != 0) {
-							Debug(LDAP_DEBUG_ANY, "%s: Error to increment failed login count for %s", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
-						}
-					}
- 
- 					goto done;
- 				}
- 			}
-  		}
+#endif
 		a = attr_find( e->e_attrs, password );
 		if ( a == NULL ) {
 			rs->sr_err = LDAP_INVALID_CREDENTIALS;

@@ -41,6 +41,10 @@ DLImpl(module)
 }
 
 CSPDLImpl::~CSPDLImpl()
+try
+{
+}
+catch (...)
 {
 }
 
@@ -231,7 +235,7 @@ SSGroupImpl::SSGroupImpl(const SSDb &ssDb,
 
 	// Generate a kLabelSize byte random number that will be the label of
 	// the key which we store in the dataBlob.
-	random.generate(mLabel, mLabel.Length);
+	random.generate(mLabel, (uint32)mLabel.Length);
 
 	// Overwrite the first 4 bytes with the magic cookie for a group.
 	reinterpret_cast<uint32 *>(mLabel.Data)[0] = h2n(uint32(kGroupMagic));
@@ -325,8 +329,8 @@ SSGroupImpl::decodeDataBlob(const CSSM_DATA &dataBlob,
 	decrypt.final(plainText2);
 
 	// Use DL allocator for allocating memory for data.
-	uint32 length = plainText1.Length + plainText2.Length;
-	data.Data = allocator.alloc<uint8>(length);
+	CSSM_SIZE length = plainText1.Length + plainText2.Length;
+	data.Data = allocator.alloc<uint8>((UInt32)length);
 	data.Length = length;
 	memcpy(data.Data, plainText1.Data, plainText1.Length);
 	memcpy(&data.Data[plainText1.Length], plainText2.Data, plainText2.Length);
@@ -367,9 +371,9 @@ SSGroupImpl::encodeDataBlob(const CSSM_DATA *data,
 
 	// Create a dataBlob containing the label followed by the IV followed
 	// by the cipherText.
-	uint32 length = (kLabelSize + kIVSize
+	CSSM_SIZE length = (kLabelSize + kIVSize
 					 + cipherText1.Length + cipherText2.Length);
-	dataBlob.Data = dataBlob.mAllocator.alloc<uint8>(length);
+	dataBlob.Data = dataBlob.mAllocator.alloc<uint8>((UInt32)length);
 	dataBlob.Length = length;
 	memcpy(dataBlob.Data, mLabel.Data, kLabelSize);
 	memcpy(&dataBlob.Data[kLabelSize], iv.Data, kIVSize);

@@ -1,0 +1,24 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Pod-ProjectDocs
+version:      0.30
+version_from: lib/Pod/ProjectDocs.pm
+installdirs:  site
+requires:
+    Class::Accessor::Fast:         0
+    Class::Data::Inheritable:      0
+    File::Basename:                0
+    File::Copy:                    0
+    File::Find:                    0
+    File::Spec:                    0
+    JSON:                          0.991
+    MIME::Base64:                  0
+    Pod::Parser:                   1.32
+    Pod::ParseUtils:               0
+    Readonly:                      0
+    Syntax::Highlight::Universal:  0
+    Template:                      0
+    URI::Escape:                   0
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

@@ -20,6 +20,8 @@
 #include "config.h"
 #include "WebKitWebResource.h"
 
+#include "WebData.h"
+#include "WebFrameProxy.h"
 #include "WebKitMarshal.h"
 #include "WebKitURIRequest.h"
 #include "WebKitWebResourcePrivate.h"
@@ -28,6 +30,23 @@
 #include <wtf/text/CString.h>
 
 using namespace WebKit;
+
+/**
+ * SECTION: WebKitWebResource
+ * @Short_description: Represents a resource at the end of a URI
+ * @Title: WebKitWebResource
+ *
+ * A #WebKitWebResource encapsulates content for each resource at the
+ * end of a particular URI. For example, one #WebKitWebResource will
+ * be created for each separate image and stylesheet when a page is
+ * loaded.
+ *
+ * You can access the response and the URI for a given
+ * #WebKitWebResource, using webkit_web_resource_get_uri() and
+ * webkit_web_resource_get_response(), as well as the raw data, using
+ * webkit_web_resource_get_data().
+ *
+ */
 
 enum {
     SENT_REQUEST,
@@ -47,21 +66,15 @@ enum {
 
 
 struct _WebKitWebResourcePrivate {
-    WKRetainPtr<WKFrameRef> wkFrame;
+    RefPtr<WebFrameProxy> frame;
     CString uri;
     GRefPtr<WebKitURIResponse> response;
     bool isMainResource;
 };
 
+WEBKIT_DEFINE_TYPE(WebKitWebResource, webkit_web_resource, G_TYPE_OBJECT)
+
 static guint signals[LAST_SIGNAL] = { 0, };
-
-G_DEFINE_TYPE(WebKitWebResource, webkit_web_resource, G_TYPE_OBJECT)
-
-static void webkitWebResourceFinalize(GObject* object)
-{
-    WEBKIT_WEB_RESOURCE(object)->priv->~WebKitWebResourcePrivate();
-    G_OBJECT_CLASS(webkit_web_resource_parent_class)->finalize(object);
-}
 
 static void webkitWebResourceGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -79,18 +92,10 @@ static void webkitWebResourceGetProperty(GObject* object, guint propId, GValue* 
     }
 }
 
-static void webkit_web_resource_init(WebKitWebResource* resource)
-{
-    WebKitWebResourcePrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(resource, WEBKIT_TYPE_WEB_RESOURCE, WebKitWebResourcePrivate);
-    resource->priv = priv;
-    new (priv) WebKitWebResourcePrivate();
-}
-
 static void webkit_web_resource_class_init(WebKitWebResourceClass* resourceClass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(resourceClass);
     objectClass->get_property = webkitWebResourceGetProperty;
-    objectClass->finalize = webkitWebResourceFinalize;
 
     /**
      * WebKitWebResource:uri:
@@ -102,7 +107,7 @@ static void webkit_web_resource_class_init(WebKitWebResourceClass* resourceClass
                                     PROP_URI,
                                     g_param_spec_string("uri",
                                                         _("URI"),
-                                                        _("The current active URI of the result"),
+                                                        _("The current active URI of the resource"),
                                                         0,
                                                         WEBKIT_PARAM_READABLE));
 
@@ -192,8 +197,6 @@ static void webkit_web_resource_class_init(WebKitWebResourceClass* resourceClass
                      g_cclosure_marshal_VOID__POINTER,
                      G_TYPE_NONE, 1,
                      G_TYPE_POINTER);
-
-    g_type_class_add_private(resourceClass, sizeof(WebKitWebResourcePrivate));
 }
 
 static void webkitWebResourceUpdateURI(WebKitWebResource* resource, const CString& requestURI)
@@ -205,11 +208,11 @@ static void webkitWebResourceUpdateURI(WebKitWebResource* resource, const CStrin
     g_object_notify(G_OBJECT(resource), "uri");
 }
 
-WebKitWebResource* webkitWebResourceCreate(WKFrameRef wkFrame, WebKitURIRequest* request, bool isMainResource)
+WebKitWebResource* webkitWebResourceCreate(WebFrameProxy* frame, WebKitURIRequest* request, bool isMainResource)
 {
-    ASSERT(wkFrame);
+    ASSERT(frame);
     WebKitWebResource* resource = WEBKIT_WEB_RESOURCE(g_object_new(WEBKIT_TYPE_WEB_RESOURCE, NULL));
-    resource->priv->wkFrame = wkFrame;
+    resource->priv->frame = frame;
     resource->priv->uri = webkit_uri_request_get_uri(request);
     resource->priv->isMainResource = isMainResource;
     return resource;
@@ -243,11 +246,16 @@ void webkitWebResourceFailed(WebKitWebResource* resource, GError* error)
     g_signal_emit(resource, signals[FINISHED], 0, NULL);
 }
 
+WebFrameProxy* webkitWebResourceGetFrame(WebKitWebResource* resource)
+{
+    return resource->priv->frame.get();
+}
+
 /**
  * webkit_web_resource_get_uri:
  * @resource: a #WebKitWebResource
  *
- * Returns the current active URI of @web_view. The active URI might change during
+ * Returns the current active URI of @resource. The active URI might change during
  * a load operation:
  *
  * <orderedlist>
@@ -301,16 +309,28 @@ WebKitURIResponse* webkit_web_resource_get_response(WebKitWebResource* resource)
     return resource->priv->response.get();
 }
 
-static void resourceDataCallback(WKDataRef data, WKErrorRef, void* context)
+struct ResourceGetDataAsyncData {
+    RefPtr<WebData> webData;
+    GRefPtr<GCancellable> cancellable;
+};
+WEBKIT_DEFINE_ASYNC_DATA_STRUCT(ResourceGetDataAsyncData)
+
+static void resourceDataCallback(WKDataRef wkData, WKErrorRef, void* context)
 {
     GRefPtr<GSimpleAsyncResult> result = adoptGRef(G_SIMPLE_ASYNC_RESULT(context));
-    g_simple_async_result_set_op_res_gpointer(result.get(), const_cast<OpaqueWKData*>(data), 0);
+    ResourceGetDataAsyncData* data = static_cast<ResourceGetDataAsyncData*>(g_simple_async_result_get_op_res_gpointer(result.get()));
+    GError* error = 0;
+    if (g_cancellable_set_error_if_cancelled(data->cancellable.get(), &error))
+        g_simple_async_result_take_error(result.get(), error);
+    else
+        data->webData = toImpl(wkData);
     g_simple_async_result_complete(result.get());
 }
 
 /**
  * webkit_web_resource_get_data:
  * @resource: a #WebKitWebResource
+ * @cancellable: (allow-none): a #GCancellable or %NULL to ignore
  * @callback: (scope async): a #GAsyncReadyCallback to call when the request is satisfied
  * @user_data: (closure): the data to pass to callback function
  *
@@ -319,17 +339,20 @@ static void resourceDataCallback(WKDataRef data, WKErrorRef, void* context)
  * When the operation is finished, @callback will be called. You can then call
  * webkit_web_resource_get_data_finish() to get the result of the operation.
  */
-void webkit_web_resource_get_data(WebKitWebResource* resource, GAsyncReadyCallback callback, gpointer userData)
+void webkit_web_resource_get_data(WebKitWebResource* resource, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData)
 {
     g_return_if_fail(WEBKIT_IS_WEB_RESOURCE(resource));
 
     GSimpleAsyncResult* result = g_simple_async_result_new(G_OBJECT(resource), callback, userData,
                                                            reinterpret_cast<gpointer>(webkit_web_resource_get_data));
+    ResourceGetDataAsyncData* data = createResourceGetDataAsyncData();
+    data->cancellable = cancellable;
+    g_simple_async_result_set_op_res_gpointer(result, data, reinterpret_cast<GDestroyNotify>(destroyResourceGetDataAsyncData));
     if (resource->priv->isMainResource)
-        WKFrameGetMainResourceData(resource->priv->wkFrame.get(), resourceDataCallback, result);
+        resource->priv->frame->getMainResourceData(DataCallback::create(result, resourceDataCallback));
     else {
-        WKRetainPtr<WKURLRef> url(AdoptWK, WKURLCreateWithUTF8CString(resource->priv->uri.data()));
-        WKFrameGetResourceData(resource->priv->wkFrame.get(), url.get(), resourceDataCallback, result);
+        String url = String::fromUTF8(resource->priv->uri.data());
+        resource->priv->frame->getResourceData(WebURL::create(url).get(), DataCallback::create(result, resourceDataCallback));
     }
 }
 
@@ -356,8 +379,8 @@ guchar* webkit_web_resource_get_data_finish(WebKitWebResource* resource, GAsyncR
     if (g_simple_async_result_propagate_error(simple, error))
         return 0;
 
-    WKDataRef wkData = static_cast<WKDataRef>(g_simple_async_result_get_op_res_gpointer(simple));
+    ResourceGetDataAsyncData* data = static_cast<ResourceGetDataAsyncData*>(g_simple_async_result_get_op_res_gpointer(simple));
     if (length)
-        *length = WKDataGetSize(wkData);
-    return static_cast<guchar*>(g_memdup(WKDataGetBytes(wkData), WKDataGetSize(wkData)));
+        *length = data->webData->size();
+    return static_cast<guchar*>(g_memdup(data->webData->bytes(), data->webData->size()));
 }

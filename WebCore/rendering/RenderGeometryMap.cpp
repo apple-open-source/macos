@@ -33,11 +33,12 @@
 
 namespace WebCore {
 
-RenderGeometryMap::RenderGeometryMap()
+RenderGeometryMap::RenderGeometryMap(MapCoordinatesFlags flags)
     : m_insertionPosition(notFound)
     , m_nonUniformStepsCount(0)
     , m_transformedStepsCount(0)
     , m_fixedStepsCount(0)
+    , m_mapCoordinatesFlags(flags)
 {
 }
 
@@ -45,11 +46,12 @@ RenderGeometryMap::~RenderGeometryMap()
 {
 }
 
-void RenderGeometryMap::mapToContainer(TransformState& transformState, const RenderBoxModelObject* container) const
+void RenderGeometryMap::mapToContainer(TransformState& transformState, const RenderLayerModelObject* container) const
 {
     // If the mapping includes something like columns, we have to go via renderers.
     if (hasNonUniformStep()) {
-        m_mapping.last().m_renderer->mapLocalToContainer(const_cast<RenderBoxModelObject*>(container), false, true, transformState);
+        m_mapping.last().m_renderer->mapLocalToContainer(container, transformState, ApplyContainerFlip | m_mapCoordinatesFlags);
+        transformState.flatten();
         return;
     }
     
@@ -98,12 +100,12 @@ void RenderGeometryMap::mapToContainer(TransformState& transformState, const Ren
     transformState.flatten();    
 }
 
-FloatPoint RenderGeometryMap::mapToContainer(const FloatPoint& p, const RenderBoxModelObject* container) const
+FloatPoint RenderGeometryMap::mapToContainer(const FloatPoint& p, const RenderLayerModelObject* container) const
 {
     FloatPoint result;
     
     if (!hasFixedPositionStep() && !hasTransformStep() && !hasNonUniformStep() && (!container || (m_mapping.size() && container == m_mapping[0].m_renderer)))
-        result = p + m_accumulatedOffset;
+        result = p + roundedIntSize(m_accumulatedOffset);
     else {
         TransformState transformState(TransformState::ApplyTransformDirection, p);
         mapToContainer(transformState, container);
@@ -111,7 +113,7 @@ FloatPoint RenderGeometryMap::mapToContainer(const FloatPoint& p, const RenderBo
     }
 
 #if !ASSERT_DISABLED
-    FloatPoint rendererMappedResult = m_mapping.last().m_renderer->localToAbsolute(p, false, true);
+    FloatPoint rendererMappedResult = m_mapping.last().m_renderer->localToAbsolute(p, m_mapCoordinatesFlags);
     ASSERT(roundedIntPoint(rendererMappedResult) == roundedIntPoint(result));
 //    if (roundedIntPoint(rendererMappedResult) != roundedIntPoint(result))
 //        fprintf(stderr, "Mismatched point\n");
@@ -120,7 +122,7 @@ FloatPoint RenderGeometryMap::mapToContainer(const FloatPoint& p, const RenderBo
     return result;
 }
 
-FloatQuad RenderGeometryMap::mapToContainer(const FloatRect& rect, const RenderBoxModelObject* container) const
+FloatQuad RenderGeometryMap::mapToContainer(const FloatRect& rect, const RenderLayerModelObject* container) const
 {
     FloatRect result;
     
@@ -134,7 +136,7 @@ FloatQuad RenderGeometryMap::mapToContainer(const FloatRect& rect, const RenderB
     }
 
 #if !ASSERT_DISABLED
-    FloatRect rendererMappedResult = m_mapping.last().m_renderer->localToContainerQuad(rect, const_cast<RenderBoxModelObject*>(container)).boundingBox();
+    FloatRect rendererMappedResult = m_mapping.last().m_renderer->localToContainerQuad(rect, container, m_mapCoordinatesFlags).boundingBox();
     // Inspector creates renderers with negative width <https://bugs.webkit.org/show_bug.cgi?id=87194>.
     // Taking FloatQuad bounds avoids spurious assertions because of that.
     ASSERT(enclosingIntRect(rendererMappedResult) == enclosingIntRect(FloatQuad(result).boundingBox()));
@@ -145,7 +147,7 @@ FloatQuad RenderGeometryMap::mapToContainer(const FloatRect& rect, const RenderB
     return result;
 }
 
-void RenderGeometryMap::pushMappingsToAncestor(const RenderObject* renderer, const RenderBoxModelObject* ancestorRenderer)
+void RenderGeometryMap::pushMappingsToAncestor(const RenderObject* renderer, const RenderLayerModelObject* ancestorRenderer)
 {
     // We need to push mappings in reverse order here, so do insertions rather than appends.
     TemporaryChange<size_t> positionChange(m_insertionPosition, m_mapping.size());
@@ -198,14 +200,14 @@ void RenderGeometryMap::pushMappingsToAncestor(const RenderLayer* layer, const R
         }
 
         TemporaryChange<size_t> positionChange(m_insertionPosition, m_mapping.size());
-        push(renderer, toSize(layerOffset), /*accumulatingTransform*/ true, /*isNonUniform*/ false, /*isFixedPosition*/ false, /*hasTransform*/ false);
+        push(renderer, toLayoutSize(layerOffset), /*accumulatingTransform*/ true, /*isNonUniform*/ false, /*isFixedPosition*/ false, /*hasTransform*/ false);
         return;
     }
-    const RenderBoxModelObject* ancestorRenderer = ancestorLayer ? ancestorLayer->renderer() : 0;
+    const RenderLayerModelObject* ancestorRenderer = ancestorLayer ? ancestorLayer->renderer() : 0;
     pushMappingsToAncestor(renderer, ancestorRenderer);
 }
 
-void RenderGeometryMap::push(const RenderObject* renderer, const IntSize& offsetFromContainer, bool accumulatingTransform, bool isNonUniform, bool isFixedPosition, bool hasTransform)
+void RenderGeometryMap::push(const RenderObject* renderer, const LayoutSize& offsetFromContainer, bool accumulatingTransform, bool isNonUniform, bool isFixedPosition, bool hasTransform)
 {
 //    fprintf(stderr, "RenderGeometryMap::push %p %d,%d isNonUniform=%d\n", renderer, offsetFromContainer.width().toInt(), offsetFromContainer.height().toInt(), isNonUniform);
 
@@ -229,12 +231,12 @@ void RenderGeometryMap::push(const RenderObject* renderer, const TransformationM
     if (!t.isIntegerTranslation())
         step.m_transform = adoptPtr(new TransformationMatrix(t));
     else
-        step.m_offset = IntSize(t.e(), t.f());
+        step.m_offset = LayoutSize(t.e(), t.f());
 
     stepInserted(step);
 }
 
-void RenderGeometryMap::pushView(const RenderView* view, const IntSize& scrollOffset, const TransformationMatrix* t)
+void RenderGeometryMap::pushView(const RenderView* view, const LayoutSize& scrollOffset, const TransformationMatrix* t)
 {
     ASSERT(m_insertionPosition != notFound);
     ASSERT(!m_insertionPosition); // The view should always be the first step.
@@ -249,7 +251,7 @@ void RenderGeometryMap::pushView(const RenderView* view, const IntSize& scrollOf
     stepInserted(step);
 }
 
-void RenderGeometryMap::popMappingsToAncestor(const RenderBoxModelObject* ancestorRenderer)
+void RenderGeometryMap::popMappingsToAncestor(const RenderLayerModelObject* ancestorRenderer)
 {
     ASSERT(m_mapping.size());
 
@@ -261,7 +263,7 @@ void RenderGeometryMap::popMappingsToAncestor(const RenderBoxModelObject* ancest
 
 void RenderGeometryMap::popMappingsToAncestor(const RenderLayer* ancestorLayer)
 {
-    const RenderBoxModelObject* ancestorRenderer = ancestorLayer ? ancestorLayer->renderer() : 0;
+    const RenderLayerModelObject* ancestorRenderer = ancestorLayer ? ancestorLayer->renderer() : 0;
     popMappingsToAncestor(ancestorRenderer);
 }
 

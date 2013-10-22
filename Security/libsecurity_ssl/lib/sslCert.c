@@ -40,8 +40,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecInternal.h>
 #include <Security/oidsalg.h>
+#include "utilities/SecCFRelease.h"
 
 
 OSStatus
@@ -89,7 +89,7 @@ SSLEncodeCertificate(SSLRecord *certificate, SSLContext *ctx)
     certificate->contentType = SSL_RecordTypeHandshake;
     certificate->protocolVersion = ctx->negProtocolVersion;
     head = SSLHandshakeHeaderSize(certificate);
-    if ((err = SSLAllocBuffer(&certificate->contents, totalLength + head + 3, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&certificate->contents, totalLength + head + 3)))
         return err;
 
     charPtr = SSLEncodeHandshakeHeader(ctx, certificate, SSL_HdskCert, totalLength+3);
@@ -134,7 +134,7 @@ SSLEncodeCertificate(SSLRecord *certificate, SSLContext *ctx)
 	if(certCount == 0) {
 		sslCertDebug("...sending empty cert msg");
 	}
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
@@ -168,9 +168,9 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 #ifdef USE_SSLCERTIFICATE
 		cert = (SSLCertificate *)sslMalloc(sizeof(SSLCertificate));
 		if(cert == NULL) {
-			return memFullErr;
+			return errSecAllocate;
 		}
-        if ((err = SSLAllocBuffer(&cert->derCert, certLen, ctx)) != 0)
+        if ((err = SSLAllocBuffer(&cert->derCert, certLen)
         {   sslFree(cert);
             return err;
         }
@@ -184,7 +184,7 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 			certChain = CFArrayCreateMutable(kCFAllocatorDefault, 0,
 				&kCFTypeArrayCallBacks);
 			if (certChain == NULL) {
-				return memFullErr;
+				return errSecAllocate;
 			}
 			if (ctx->peerCert) {
 				sslDebugLog("SSLProcessCertificate: releasing existing cert chain\n");
@@ -193,20 +193,20 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 			ctx->peerCert = certChain;
 		}
  		cert = SecCertificateCreateWithBytes(NULL, p, certLen);
-		#if SSL_DEBUG
+		#if SSL_DEBUG && !TARGET_OS_IPHONE
 		{
 			/* print cert name when debugging; leave disabled otherwise */
 			CFStringRef certName = NULL;
 			OSStatus status = SecCertificateInferLabel(cert, &certName);
 			char buf[1024];
-			if (!certName || !CFStringGetCString(certName, buf, 1024-1, kCFStringEncodingUTF8)) { buf[0]=0; }
-			sslDebugLog("SSLProcessCertificate: received \"%s\" (%ld bytes)\n", buf, certLen);
+			if (status || !certName || !CFStringGetCString(certName, buf, 1024-1, kCFStringEncodingUTF8)) { buf[0]=0; }
+			sslDebugLog("SSLProcessCertificate: err=%d, received \"%s\" (%ld bytes)\n",(int) status, buf, certLen);
 			CFReleaseSafe(certName);
 		}
 		#endif
 		if (cert == NULL) {
 			sslErrorLog("SSLProcessCertificate: unable to create cert ref from data\n");
-			return memFullErr;
+			return errSecAllocate;
 		}
         p += certLen;
 		/* Insert forwards; root cert will be last in linked list */
@@ -225,7 +225,7 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 			 * we tried to authenticate, client doesn't have a cert, and
 			 * app doesn't require it. OK.
 			 */
-			return noErr;
+			return errSecSuccess;
 		}
 		else {
 			AlertDescription desc;
@@ -260,7 +260,7 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
         SSLFatalSessionAlert(desc, ctx);
     }
 
-    if (err == noErr) {
+    if (err == errSecSuccess) {
         if(ctx->peerPubKey != NULL) {
             /* renegotiating - free old key first */
             sslFreePubKey(&ctx->peerPubKey);
@@ -343,7 +343,7 @@ SSLEncodeCertificateRequest(SSLRecord *request, SSLContext *ctx)
 
     request->protocolVersion = ctx->negProtocolVersion;
     head = SSLHandshakeHeaderSize(request);
-    if ((err = SSLAllocBuffer(&request->contents, msgLen + head, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&request->contents, msgLen + head)))
         return err;
 
     charPtr = SSLEncodeHandshakeHeader(ctx, request, SSL_HdskCertRequest, msgLen);
@@ -392,7 +392,7 @@ SSLEncodeCertificateRequest(SSLRecord *request, SSLContext *ctx)
     }
 
     assert(charPtr == request->contents.data + request->contents.length);
-    return noErr;
+    return errSecSuccess;
 }
 
 #define SSL_ENABLE_ECDSA_SIGN_AUTH			0
@@ -492,11 +492,11 @@ SSLProcessCertificateRequest(SSLBuffer message, SSLContext *ctx)
      		sslErrorLog("SSLProcessCertificateRequest: dnListLen error 2\n");
            	return errSSLProtocol;
     	}
-        if ((err = SSLAllocBuffer(&dnBuf, sizeof(DNListElem), ctx)) != 0)
+        if ((err = SSLAllocBuffer(&dnBuf, sizeof(DNListElem))))
             return err;
         dn = (DNListElem*)dnBuf.data;
-        if ((err = SSLAllocBuffer(&dn->derDN, dnLen, ctx)) != 0)
-        {   SSLFreeBuffer(&dnBuf, ctx);
+        if ((err = SSLAllocBuffer(&dn->derDN, dnLen)))
+        {   SSLFreeBuffer(&dnBuf);
             return err;
         }
         memcpy(dn->derDN.data, charPtr, dnLen);
@@ -508,7 +508,7 @@ SSLProcessCertificateRequest(SSLBuffer message, SSLContext *ctx)
 
     assert(charPtr == message.data + message.length);
 
-    return noErr;
+    return errSecSuccess;
 }
 
 
@@ -536,7 +536,7 @@ OSStatus FindCertSigAlg(SSLContext *ctx,
         //Let's only support SHA1 and SHA256. SHA384 does not work with 512 bits RSA keys
         // We should actually test against what the client cert can do.
         if((alg->hash==SSL_HashAlgorithmSHA1) || (alg->hash==SSL_HashAlgorithmSHA256)) {
-            return noErr;
+            return errSecSuccess;
         }
     }
     // We could not find a supported signature and hash algorithm
@@ -600,7 +600,7 @@ SSLEncodeCertificateVerify(SSLRecord *certVerify, SSLContext *ctx)
     if ((err = ctx->sslTslCalls->computeCertVfyMac(ctx, &hashDataBuf, sigAlg.hash)) != 0)
         goto fail;
 
-    if ((err = SSLAllocBuffer(&certVerify->contents, outputLen, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&certVerify->contents, outputLen)) != 0)
         goto fail;
 
     /* Sign now to get the actual length */
@@ -652,7 +652,7 @@ SSLEncodeCertificateVerify(SSLRecord *certVerify, SSLContext *ctx)
         len = outputLen+2;
     }
 	if(err) {
-		sslErrorLog("SSLEncodeCertificateVerify: unable to sign data (error %d)\n", err);
+		sslErrorLog("SSLEncodeCertificateVerify: unable to sign data (error %d)\n", (int)err);
 		goto fail;
 	}
     // At this point:
@@ -666,7 +666,7 @@ SSLEncodeCertificateVerify(SSLRecord *certVerify, SSLContext *ctx)
 
     assert(charPtr==(certVerify->contents.data+head));
 
-    err = noErr;
+    err = errSecSuccess;
 
 fail:
 
@@ -700,15 +700,15 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
         switch (sigAlg.hash) {
             case SSL_HashAlgorithmSHA256:
                 algId.algorithm = CSSMOID_SHA256WithRSA;
-                if(ctx->selectedCipherSpec.macAlgorithm->hmac->alg == HA_SHA384) {
+                if(ctx->selectedCipherSpecParams.macAlg == HA_SHA384) {
                     sslErrorLog("SSLProcessCertificateVerify: inconsistent hash, HA_SHA384\n");
                     return errSSLInternal;
                 }
                 break;
             case SSL_HashAlgorithmSHA384:
                 algId.algorithm = CSSMOID_SHA384WithRSA;
-                if(ctx->selectedCipherSpec.macAlgorithm->hmac->alg != HA_SHA384) {
-                    sslErrorLog("SSLProcessCertificateVerify: inconsistent hash, %d not HA_SHA384\n", ctx->selectedCipherSpec.macAlgorithm->hmac->alg);
+                if(ctx->selectedCipherSpecParams.macAlg != HA_SHA384) {
+                    sslErrorLog("SSLProcessCertificateVerify: inconsistent hash, %d not HA_SHA384\n", ctx->selectedCipherSpecParams.macAlg);
                     return errSSLInternal;
                 }
                 break;
@@ -781,7 +781,7 @@ SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx)
 		SSLFatalSessionAlert(SSL_AlertDecryptError, ctx);
 		goto fail;
 	}
-    err = noErr;
+    err = errSecSuccess;
 
 fail:
     return err;

@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/de.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/de.xml
 // *
 // ***************************************************************************
 /**
@@ -72,6 +72,7 @@ de{
         BM{"Bermuda"}
         BN{"Brunei Darussalam"}
         BO{"Bolivien"}
+        BQ{"Karibische Niederlande"}
         BR{"Brasilien"}
         BS{"Bahamas"}
         BT{"Bhutan"}
@@ -93,7 +94,6 @@ de{
         CO{"Kolumbien"}
         CP{"Clipperton-Insel"}
         CR{"Costa Rica"}
-        CS{"Serbien und Montenegro"}
         CU{"Kuba"}
         CV{"Kap Verde"}
         CW{"Curaçao"}
@@ -228,7 +228,7 @@ de{
         PK{"Pakistan"}
         PL{"Polen"}
         PM{"St. Pierre und Miquelon"}
-        PN{"Pitcairn"}
+        PN{"Pitcairninseln"}
         PR{"Puerto Rico"}
         PS{"Palästinensische Autonomiegebiete"}
         PT{"Portugal"}
@@ -256,6 +256,7 @@ de{
         SN{"Senegal"}
         SO{"Somalia"}
         SR{"Suriname"}
+        SS{"Südsudan"}
         ST{"São Tomé und Príncipe"}
         SV{"El Salvador"}
         SX{"Sint Maarten"}
@@ -300,5 +301,5 @@ de{
         ZW{"Simbabwe"}
         ZZ{"Unbekannte Region"}
     }
-    Version{"2.0.67.6"}
+    Version{"2.0.82.45"}
 }

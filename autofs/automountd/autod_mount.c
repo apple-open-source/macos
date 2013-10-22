@@ -27,7 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2012 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_mount.c	1.71	05/06/08 SMI"
@@ -147,17 +147,16 @@ retry:
 		struct mapfs *mfs;
 		trace_prt(1, "  do_mount1:\n");
 		for (me = mapents; me; me = me->map_next) {
-			trace_prt(1, "  (%s,%s)\t%s%s%s\n",
-			me->map_fstype ? me->map_fstype : "",
-			me->map_mounter ? me->map_mounter : "",
-			path ? path : "",
-			me->map_root  ? me->map_root : "",
-			me->map_mntpnt ? me->map_mntpnt : "");
-			trace_prt(0, "\t\t-%s\n",
-			me->map_mntopts ? me->map_mntopts : "");
+			trace_prt(1, "  (%s,%s)\t%s%s%s -%s\n",
+				me->map_fstype ? me->map_fstype : "",
+				me->map_mounter ? me->map_mounter : "",
+				path ? path : "",
+				me->map_root  ? me->map_root : "",
+				me->map_mntpnt ? me->map_mntpnt : "",
+				me->map_mntopts ? me->map_mntopts : "");
 
 			for (mfs = me->map_fs; mfs; mfs = mfs->mfs_next)
-				trace_prt(0, "\t\t%s:%s\tpenalty=%d\n",
+				trace_prt(1, "\t\t%s:%s\tpenalty=%d\n",
 					mfs->mfs_host ? mfs->mfs_host: "",
 					mfs->mfs_dir ? mfs->mfs_dir : "",
 					mfs->mfs_penalty);
@@ -273,8 +272,7 @@ retry:
 				"%s%s", subdir, me->map_mntpnt);
 
 			if (trace > 2)
-				trace_prt(1, "  root=%s\t next_subdir=%s\n",
-						root, next_subdir);
+				trace_prt(1, "  root=%s\t next_subdir=%s\n", root, next_subdir);
 			if (len < 0) {
 				err = EINVAL;
 			} else if ((size_t)len < sizeof (next_subdir)) {
@@ -419,8 +417,7 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	char *optp;
 
 	if (trace > 1) {
-		trace_prt(1, "  mount: %s %s %s %s\n",
-			special, mntpnt, fstype, opts);
+		trace_prt(1, "  mount: %s %s %s %s\n", special, mntpnt, fstype, opts);
 	}
 
 	/*
@@ -573,6 +570,8 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 			if (strcmp(p, MNTOPT_HIDEFROMFINDER) == 0 ||
 				strcmp(p, "grpid") == 0)
 				continue;
+			if (automountd_nosuid && strcmp(p, "suid") == 0)
+				continue;
 			/*
 			 * Now handle mappings
 			 */
@@ -610,6 +609,14 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	 */
 	newargv[i++] = "-o";
 	newargv[i++] = "automounted";
+
+	/*
+	 * If forcing "nosuid" then append it too
+	 */
+	if (automountd_nosuid) {
+		newargv[i++] = "-o";
+		newargv[i++] = "nosuid";
+	}
 
 	/*
 	 * XXX - not all our mount commands support "--" as an
@@ -775,10 +782,21 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 	}
 
 	if (trace > 1) {
-		trace_prt(1, "  fork_exec: %s ", path);
-		for (i = 1; newargv[i]; i++)
-			trace_prt(0, "%s ", newargv[i]);
-		trace_prt(0, "\n");
+		char *bufp;
+		int c = 0;
+
+		for (i = 1; newargv[i]; i++) // sum arg length + space
+			c += strlen(newargv[i]) + 1;
+		bufp = malloc(c + 1);
+		if (bufp) {
+			char *p = bufp;
+			for (i = 1; newargv[i]; i++) {
+				c -= snprintf(p, c, "%s ", newargv[i]);
+				p += strlen(newargv[i]) + 1;
+			}
+			trace_prt(1, "  fork_exec: %s %s\n", path, bufp);
+			free(bufp);
+		}
 	}
 
 	newargv[0] = path;

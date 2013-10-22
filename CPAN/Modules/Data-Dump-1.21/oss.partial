@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Data-Dump</string>
+        <key>OpenSourceVersion</key>
+        <string>1.21</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/G/GA/GAAS/Data-Dump-1.21.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2012-11-18</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -65,7 +65,7 @@ bool IOHIDUserDevice::initWithProperties(OSDictionary * properties)
     if ( !properties )
         return false;
         
-    if ( !super::init() )
+    if ( !super::init(properties) )
         return false;
         
     _properties = properties;

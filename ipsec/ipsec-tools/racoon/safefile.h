@@ -34,6 +34,6 @@
 #ifndef _SAFEFILE_H
 #define _SAFEFILE_H
 
-extern int safefile __P((const char *, int));
+extern int safefile (const char *, int);
 
 #endif /* _SAFEFILE_H */

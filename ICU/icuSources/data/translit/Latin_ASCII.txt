@@ -1,6 +1,6 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2012, International Business Machines
+# *  Copyright (C) 2004-2013, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
@@ -158,6 +158,13 @@
 ʦ → ts ; # 02A6;LATIN SMALL LETTER TS DIGRAPH
 ʪ → ls ; # 02AA;LATIN SMALL LETTER LS DIGRAPH
 ʫ → lz ; # 02AB;LATIN SMALL LETTER LZ DIGRAPH
+ʹ → \' ; # 02B9;MODIFIER LETTER PRIME
+ʺ → \" ; # 02BA;MODIFIER LETTER DOUBLE PRIME
+ʻ → \' ; # 02BB;MODIFIER LETTER TURNED COMMA
+ʼ → \' ; # 02BC;MODIFIER LETTER APOSTROPHE
+ʽ → \' ; # 02BD;MODIFIER LETTER REVERSED COMMA
+ʾ → 2 ; # 02BE;MODIFIER LETTER RIGHT HALF RING (transliteration for Arabic hamza)
+ʿ → 3 ; # 02BF;MODIFIER LETTER LEFT HALF RING (transliteration for Arabic ain)
 ᴀ → A ; # 1D00;LATIN LETTER SMALL CAPITAL A
 ᴁ → AE ; # 1D01;LATIN LETTER SMALL CAPITAL AE
 ᴃ → B ; # 1D03;LATIN LETTER SMALL CAPITAL BARRED B

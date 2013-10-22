@@ -1,4 +1,4 @@
-.TH "ZSHOPTIONS" "1" "December 20, 2010" "zsh 4\&.3\&.11"
+.TH "ZSHOPTIONS" "1" "December 21, 2012" "zsh 5\&.0\&.2"
 .SH "NAME"
 zshoptions \- zsh options
 .\" Yodl file: Zsh/options.yo
@@ -201,8 +201,9 @@ on the \fBGLOB_COMPLETE\fP option does not have this effect\&.
 .RE
 .TP
 \fBHASH_LIST_ALL\fP <D>
-Whenever a command completion is attempted, make sure the entire
-command path is hashed first\&.  This makes the first completion slower\&.
+Whenever a command completion or spelling correction is attempted, make
+sure the entire command path is hashed first\&.  This makes the first
+completion slower but avoids false reports of spelling errors\&.
 .TP
 \fBLIST_AMBIGUOUS\fP <D>
 This option works when \fBAUTO_LIST\fP or \fBBASH_AUTO_LIST\fP is also
@@ -323,7 +324,38 @@ See
 the section Modifiers in \fIzshexpn\fP(1)\&.
 .TP
 \fBIGNORE_BRACES\fP (\fB\-I\fP) <S>
-Do not perform brace expansion\&.
+Do not perform brace expansion\&.  For historical reasons this
+also includes the effect of the \fBIGNORE_CLOSE_BRACES\fP option\&.
+.TP
+\fBIGNORE_CLOSE_BRACES\fP
+When neither this option nor \fBIGNORE_BRACES\fP is set, a sole
+close brace character `\fB}\fP\&' is syntactically significant at any
+point on a command line\&.  This has the effect that no semicolon
+or newline is necessary before the brace terminating a function
+or current shell construct\&.  When either option is set, a closing brace
+is syntactically significant only in command position\&.  Unlike
+\fBIGNORE_BRACES\fP, this option does not disable brace expansion\&.
+.RS
+.PP
+For example, with both options unset a function may be defined
+in the following fashion:
+.PP
+.RS
+.nf
+\fBargs() { echo $# }\fP
+.fi
+.RE
+.PP
+while if either option is set, this does not work and something
+equivalent to the following is required:
+.PP
+.RS
+.nf
+\fBargs() { echo $#; }\fP
+.fi
+.RE
+.PP
+.RE
 .TP
 \fBKSH_GLOB\fP <K>
 In pattern matching, the interpretation of parentheses is affected by
@@ -411,8 +443,12 @@ provided by the system libraries\&.
 Disables the special meaning of `\fB(\fP\&', `\fB|\fP', `\fB)\fP'
 and \&'\fB<\fP' for globbing the result of parameter and command substitutions,
 and in some other places where
-the shell accepts patterns\&.  This option is set by default if zsh is
-invoked as \fBsh\fP or \fBksh\fP\&.
+the shell accepts patterns\&.  If \fBSH_GLOB\fP is set but \fBKSH_GLOB\fP is
+not, the shell allows the interpretation of
+subshell expressions enclosed in parentheses in some cases where there
+is no space before the opening parenthesis, e\&.g\&. \fB!(true)\fP
+is interpreted as if there were a space after the \fB!\fP\&.  This option is
+set by default if zsh is invoked as \fBsh\fP or \fBksh\fP\&.
 .TP
 \fBUNSET\fP (\fB+u\fP, ksh: \fB+u\fP) <K> <S> <Z>
 Treat unset parameters as if they were empty when substituting\&.
@@ -692,6 +728,14 @@ reporting them as spelling errors\&.
 Whenever a command name is hashed, hash the directory containing it,
 as well as all directories that occur earlier in the path\&.
 Has no effect if neither \fBHASH_CMDS\fP nor \fBCORRECT\fP is set\&.
+.TP
+\fBHASH_EXECUTABLES_ONLY\fP
+When hashing commands because of \fBHASH_COMMANDS\fP, check that the
+file to be hashed is actually an executable\&.  This option
+is unset by default as if the path contains a large number of commands,
+or consists of many remote files, the additional tests can take
+a long time\&.  Trial and error is needed to show if this option is
+beneficial\&.
 .TP
 \fBMAIL_WARNING\fP (\fB\-U\fP)
 Print a warning message if a mail file has been
@@ -1043,6 +1087,16 @@ Make the \fBecho\fP builtin compatible with the BSD \fIecho\fP(1) command\&.
 This disables backslashed escape sequences in echo strings unless the
 \fB\-e\fP option is specified\&.
 .TP
+\fBCONTINUE_ON_ERROR\fP
+If a fatal error is encountered (see 
+the section ERRORS in \fIzshmisc\fP(1)), and the code is running
+in a script, the shell will resume execution at the next statement
+in the script at the top level, in other words outside all functions
+or shell constructs such as loops and conditions\&.  This mimics the
+behaviour of interactive shells, where the shell returns to the
+line editor to read a new command; it was the normal behaviour in versions
+of zsh before 5\&.0\&.1\&.
+.TP
 \fBCSH_JUNKIE_HISTORY\fP <C>
 A history reference without an event specifier will always refer to the
 previous command\&.  Without this option, such a history reference refers
@@ -1168,6 +1222,12 @@ builtins are
 \fBtimes\fP,
 \fBtrap\fP and
 \fBunset\fP\&.
+.RS
+.PP
+In addition, various error conditions associated with the above builtins
+or \fBexec\fP cause a non\-interactive shell to exit and an interactive
+shell to return to its top\-level processing\&.
+.RE
 .TP
 \fBPOSIX_IDENTIFIERS\fP <K> <S>
 When this option is set, only the ASCII characters \fBa\fP to \fBz\fP, \fBA\fP to
@@ -1262,7 +1322,7 @@ It cannot be changed once zsh is running\&.
 .TP
 \fBLOGIN\fP (\fB\-l\fP, ksh: \fB\-l\fP)
 This is a login shell\&.
-If this option is not explicitly set, the shell is a login shell if
+If this option is not explicitly set, the shell becomes a login shell if
 the first character of the \fBargv[0]\fP passed to the shell is a `\fB\-\fP\&'\&.
 .TP
 \fBPRIVILEGED\fP (\fB\-p\fP, ksh: \fB\-p\fP)

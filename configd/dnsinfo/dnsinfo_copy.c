@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2008-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,42 +33,14 @@
 #include <pthread.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#include <dispatch/dispatch.h>
+#include <xpc/xpc.h>
 
+#include "libSystemConfiguration_client.h"
 #include "dnsinfo.h"
 #include "dnsinfo_private.h"
-#include "shared_dns_info.h"
-#include "network_information_priv.h"
-
-
-static pthread_once_t	_dns_initialized	= PTHREAD_ONCE_INIT;
-static pthread_mutex_t	_dns_lock		= PTHREAD_MUTEX_INITIALIZER;
-static mach_port_t	_dns_server		= MACH_PORT_NULL;
-
-enum {
-	get_dns_info	= 1,
-	get_nwi_state	= 2,
-};
 
 typedef uint32_t getflags;
-
-static void
-__dns_fork_handler()
-{
-	// the process has forked (and we are the child process)
-	_dns_server = MACH_PORT_NULL;
-	return;
-}
-
-
-static void
-__dns_initialize(void)
-{
-	// add handler to cleanup after fork()
-	(void) pthread_atfork(NULL, NULL, __dns_fork_handler);
-
-	return;
-}
-
 
 static boolean_t
 add_list(void **padding, uint32_t *n_padding, int32_t count, int32_t size, void **list)
@@ -88,138 +60,6 @@ add_list(void **padding, uint32_t *n_padding, int32_t count, int32_t size, void 
 
 
 #define	DNS_CONFIG_BUF_MAX	1024*1024
-
-
-static kern_return_t
-_dns_server_copy(void* dataRef, mach_msg_type_number_t* dataLen, getflags flags){
-	mach_port_t	server;
-	kern_return_t	status	= KERN_FAILURE;
-
-	// initialize runtime
-	pthread_once(&_dns_initialized, __dns_initialize);
-
-	// open a new session with the DNS configuration server
-	server = _dns_server;
-	while (TRUE) {
-		if (server != MACH_PORT_NULL) {
-			if (flags == get_dns_info) {
-				status = shared_dns_infoGet(server, dataRef, dataLen);
-			} else {
-				status = shared_nwi_stateGet(server, dataRef, dataLen);
-			}
-			if (status == KERN_SUCCESS) {
-				break;
-			}
-
-			// our [cached] server port is not valid
-			if ((status != MACH_SEND_INVALID_DEST) && (status != MIG_SERVER_DIED)) {
-				// if we got an unexpected error, don't retry
-				fprintf(stderr,
-					"dns_configuration_copy shared_dns_infoGet(): %s\n",
-					mach_error_string(status));
-				break;
-			}
-		}
-
-		pthread_mutex_lock(&_dns_lock);
-		if (_dns_server != MACH_PORT_NULL) {
-			if (server == _dns_server) {
-				// if the server we tried returned the error
-				(void)mach_port_deallocate(mach_task_self(), server);
-				_dns_server = _dns_configuration_server_port();
-			} else {
-				// another thread has refreshed the DNS server port
-			}
-		} else {
-			_dns_server = _dns_configuration_server_port();
-		}
-		server = _dns_server;
-		pthread_mutex_unlock(&_dns_lock);
-
-		if (server == MACH_PORT_NULL) {
-			// if server not available
-			break;
-		}
-	}
-
-	return status;
-}
-
-
-__private_extern__
-nwi_state*
-_nwi_state_copy() {
-	dnsDataOut_t		dataRef		= NULL;
-	mach_msg_type_number_t	dataLen		= 0;
-	kern_return_t		status;
-	nwi_state*		state		= NULL;
-
-	status = _dns_server_copy(&dataRef, &dataLen, get_nwi_state);
-	if (status != KERN_SUCCESS) {
-		return NULL;
-	}
-
-	if (dataRef != NULL) {
-		state = malloc(dataLen);
-		if (state == NULL) {
-			vm_deallocate(mach_task_self(), (vm_address_t)dataRef,
-				      dataLen);
-			return NULL;
-		}
-		memcpy((void*) state, (void*) dataRef, dataLen);
-		state->ref = 0;
-		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
-		if (status != KERN_SUCCESS) {
-			mach_error("vm_deallocate():", status);
-			free(state);
-			return NULL;
-		}
-	}
-
-	return state;
-}
-
-
-static _dns_config_buf_t *
-copy_dns_info()
-{
-	uint8_t			*buf	= NULL;
-	dnsDataOut_t		dataRef	= NULL;
-	mach_msg_type_number_t	dataLen	= 0;
-	kern_return_t		status;
-
-	status = _dns_server_copy(&dataRef, &dataLen, get_dns_info);
-	if (status != KERN_SUCCESS) {
-		return NULL;
-	}
-
-	if (dataRef != NULL) {
-		if ((dataLen >= sizeof(_dns_config_buf_t)) && (dataLen <= DNS_CONFIG_BUF_MAX)) {
-			/* ALIGN: cast okay since _dns_config_buf_t is int aligned */
-			_dns_config_buf_t	*config		= (_dns_config_buf_t *)(void *)dataRef;
-			uint32_t		n_padding	= ntohl(config->n_padding);
-
-			if (n_padding <= (DNS_CONFIG_BUF_MAX - dataLen)) {
-				uint32_t	len;
-
-				len = dataLen + n_padding;
-				buf = malloc(len);
-				bcopy((void *)dataRef, buf, dataLen);
-				bzero(&buf[dataLen], n_padding);
-			}
-		}
-
-		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
-		if (status != KERN_SUCCESS) {
-			mach_error("vm_deallocate():", status);
-			free(buf);
-			return NULL;
-		}
-	}
-
-	/* ALIGN: buf malloc'ed, should be aligned >8 bytes */
-	return (_dns_config_buf_t *)(void *)buf;
-}
 
 
 static dns_resolver_t *
@@ -293,6 +133,10 @@ expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, void **padding, uint32
 
 	resolver->if_index = ntohl(resolver->if_index);
 
+	// initialize service_identifier
+
+	resolver->service_identifier = ntohl(resolver->service_identifier);
+
 	// initialize flags
 
 	resolver->flags = ntohl(resolver->flags);
@@ -311,7 +155,7 @@ expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, void **padding, uint32
 	}
 
 	while (n_attribute >= sizeof(dns_attribute_t)) {
-		int32_t	attribute_length	= ntohl(attribute->length);
+		uint32_t	attribute_length	= ntohl(attribute->length);
 
 		switch (ntohl(attribute->type)) {
 			case RESOLVER_ATTRIBUTE_DOMAIN :
@@ -365,6 +209,7 @@ expand_config(_dns_config_buf_t *buf)
 	uint32_t		n_padding;
 	int32_t			n_resolver		= 0;
 	int32_t			n_scoped_resolver	= 0;
+	int32_t			n_service_specific_resolver	= 0;
 	void			*padding;
 
 	// establish padding
@@ -392,6 +237,15 @@ expand_config(_dns_config_buf_t *buf)
 		goto error;
 	}
 
+	config->n_service_specific_resolver = ntohl(config->n_service_specific_resolver);
+	if (!add_list(&padding,
+		      &n_padding,
+		      config->n_service_specific_resolver,
+		      sizeof(DNS_PTR(dns_resolver_t *, x)),
+		      (void **)&config->service_specific_resolver)) {
+		goto error;
+	}
+
 	// process configuration buffer "attribute" data
 
 	n_attribute = ntohl(buf->n_attribute);
@@ -403,7 +257,8 @@ expand_config(_dns_config_buf_t *buf)
 
 		switch (attribute_type) {
 			case CONFIG_ATTRIBUTE_RESOLVER :
-			case CONFIG_ATTRIBUTE_SCOPED_RESOLVER   : {
+			case CONFIG_ATTRIBUTE_SCOPED_RESOLVER   :
+			case CONFIG_ATTRIBUTE_SERVICE_SPECIFIC_RESOLVER : {
 				dns_resolver_t	*resolver;
 
 				// expand resolver buffer
@@ -420,8 +275,10 @@ expand_config(_dns_config_buf_t *buf)
 
 				if (attribute_type == CONFIG_ATTRIBUTE_RESOLVER) {
 					config->resolver[n_resolver++] = resolver;
-				} else {
+				} else if (attribute_type == CONFIG_ATTRIBUTE_SCOPED_RESOLVER) {
 					config->scoped_resolver[n_scoped_resolver++] = resolver;
+				} else if (attribute_type == CONFIG_ATTRIBUTE_SERVICE_SPECIFIC_RESOLVER) {
+					config->service_specific_resolver[n_service_specific_resolver++] = resolver;
 				}
 
 				break;
@@ -443,6 +300,10 @@ expand_config(_dns_config_buf_t *buf)
 		goto error;
 	}
 
+	if (n_service_specific_resolver != config->n_service_specific_resolver) {
+		goto error;
+	}
+
 	return config;
 
     error :
@@ -456,29 +317,124 @@ dns_configuration_notify_key()
 {
 	const char	*key;
 
-	// initialize runtime
-	pthread_once(&_dns_initialized, __dns_initialize);
-
-	key = _dns_configuration_notify_key();
+#if	!TARGET_IPHONE_SIMULATOR
+	key = "com.apple.system.SystemConfiguration.dns_configuration";
+#else	// !TARGET_IPHONE_SIMULATOR
+	key = "com.apple.iOS_Simulator.SystemConfiguration.dns_configuration";
+#endif	// !TARGET_IPHONE_SIMULATOR
 	return key;
+}
+
+
+#pragma mark -
+#pragma mark DNS configuration [dnsinfo] client support
+
+
+// Note: protected by __dns_configuration_queue()
+static int			dnsinfo_active	= 0;
+static libSC_info_client_t	*dnsinfo_client	= NULL;
+
+
+static dispatch_queue_t
+__dns_configuration_queue()
+{
+	static dispatch_once_t  once;
+	static dispatch_queue_t q;
+
+	dispatch_once(&once, ^{
+		q = dispatch_queue_create(DNSINFO_SERVICE_NAME, NULL);
+	});
+
+	return q;
 }
 
 
 dns_config_t *
 dns_configuration_copy()
 {
-	_dns_config_buf_t	*buf;
-	dns_config_t		*config;
+	uint8_t			*buf		= NULL;
+	dns_config_t		*config		= NULL;
+	static const char	*proc_name	= NULL;
+	xpc_object_t		reqdict;
+	xpc_object_t		reply;
 
-	buf = copy_dns_info();
-	if (buf == NULL) {
+	dispatch_sync(__dns_configuration_queue(), ^{
+		if ((dnsinfo_active++ == 0) || (dnsinfo_client == NULL)) {
+			static dispatch_once_t	once;
+			static const char	*service_name	= DNSINFO_SERVICE_NAME;
+
+			dispatch_once(&once, ^{
+				const char	*name;
+
+				// get [XPC] service name
+				name = getenv(service_name);
+				if ((name != NULL) && (issetugid() == 0)) {
+					service_name = strdup(name);
+				}
+
+				// get process name
+				proc_name = getprogname();
+			});
+
+			dnsinfo_client =
+				libSC_info_client_create(__dns_configuration_queue(),	// dispatch queue
+							 service_name,			// XPC service name
+							 "DNS configuration");		// service description
+			if (dnsinfo_client == NULL) {
+				--dnsinfo_active;
+			}
+		}
+	});
+
+	if ((dnsinfo_client == NULL) || !dnsinfo_client->active) {
+		// if DNS configuration server not available
 		return NULL;
 	}
 
-	config = expand_config(buf);
-	if (config == NULL) {
-		free(buf);
-		return NULL;
+	// create message
+	reqdict = xpc_dictionary_create(NULL, NULL, 0);
+
+	// set process name
+	if (proc_name != NULL) {
+		xpc_dictionary_set_string(reqdict, DNSINFO_PROC_NAME, proc_name);
+	}
+
+	// set request
+	xpc_dictionary_set_int64(reqdict, DNSINFO_REQUEST, DNSINFO_REQUEST_COPY);
+
+	// send request to the DNS configuration server
+	reply = libSC_send_message_with_reply_sync(dnsinfo_client, reqdict);
+	xpc_release(reqdict);
+
+	if (reply != NULL) {
+		const void	*dataRef;
+		size_t		dataLen	= 0;
+
+		dataRef = xpc_dictionary_get_data(reply, DNSINFO_CONFIGURATION, &dataLen);
+		if ((dataRef != NULL) &&
+		    ((dataLen >= sizeof(_dns_config_buf_t)) && (dataLen <= DNS_CONFIG_BUF_MAX))) {
+			_dns_config_buf_t       *config         = (_dns_config_buf_t *)(void *)dataRef;
+			uint32_t                n_padding       = ntohl(config->n_padding);
+
+			if (n_padding <= (DNS_CONFIG_BUF_MAX - dataLen)) {
+				uint32_t        len;
+
+				len = dataLen + n_padding;
+				buf = malloc(len);
+				bcopy((void *)dataRef, buf, dataLen);
+				bzero(&buf[dataLen], n_padding);
+			}
+		}
+
+		xpc_release(reply);
+	}
+
+	if (buf != NULL) {
+		/* ALIGN: cast okay since _dns_config_buf_t is int aligned */
+		config = expand_config((_dns_config_buf_t *)(void *)buf);
+		if (config == NULL) {
+			free(buf);
+		}
 	}
 
 	return config;
@@ -489,8 +445,16 @@ void
 dns_configuration_free(dns_config_t *config)
 {
 	if (config == NULL) {
-		return;
+		return;	// ASSERT
 	}
+
+	dispatch_sync(__dns_configuration_queue(), ^{
+		if (--dnsinfo_active == 0) {
+			// if last reference, drop connection
+			libSC_info_client_release(dnsinfo_client);
+			dnsinfo_client = NULL;
+		}
+	});
 
 	free((void *)config);
 	return;
@@ -500,6 +464,34 @@ dns_configuration_free(dns_config_t *config)
 void
 _dns_configuration_ack(dns_config_t *config, const char *bundle_id)
 {
+	xpc_object_t	reqdict;
+
+	if (config == NULL) {
+		return;	// ASSERT
+	}
+
+	if ((dnsinfo_client == NULL) || !dnsinfo_client->active) {
+		// if DNS configuration server not available
+		return;
+	}
+
+	dispatch_sync(__dns_configuration_queue(), ^{
+		dnsinfo_active++;	// keep connection active (for the life of the process)
+	});
+
+	// create message
+	reqdict = xpc_dictionary_create(NULL, NULL, 0);
+
+	// set request
+	xpc_dictionary_set_int64(reqdict, DNSINFO_REQUEST, DNSINFO_REQUEST_ACKNOWLEDGE);
+
+	// set generation
+	xpc_dictionary_set_uint64(reqdict, DNSINFO_GENERATION, config->generation);
+
+	// send acknowledgement to the DNS configuration server
+	xpc_connection_send_message(dnsinfo_client->connection, reqdict);
+
+	xpc_release(reqdict);
 	return;
 }
 
@@ -512,7 +504,7 @@ main(int argc, char **argv)
 
 	config = dns_configuration_copy();
 	if (config != NULL) {
-		dns_configuration_free(&config);
+		dns_configuration_free(config);
 	}
 
 	exit(0);

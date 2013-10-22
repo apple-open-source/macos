@@ -371,8 +371,7 @@ void *cookie)
 	    if(ofile->mh != NULL){
 		if(symbols[i].n_un.n_strx == 0)
 		    syms[i].name = "";
-		else if(symbols[i].n_un.n_strx < 0 ||
-			(uint32_t)symbols[i].n_un.n_strx > st->strsize)
+		else if((uint32_t)symbols[i].n_un.n_strx > st->strsize)
 		    syms[i].name = "bad string index";
 		else
 		    syms[i].name = symbols[i].n_un.n_strx + strings;

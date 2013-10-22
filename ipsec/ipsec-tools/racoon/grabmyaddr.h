@@ -32,27 +32,32 @@
 #ifndef _GRABMYADDR_H
 #define _GRABMYADDR_H
 
+#include <dispatch/dispatch.h>
+
 struct myaddrs {
 	struct myaddrs *next;
 	struct sockaddr_storage *addr;
 	int sock;
+    dispatch_source_t source;
 	int udp_encap;
 	int	in_use;
 	char *ifname;
 };
 
-extern void clear_myaddr __P((void));
-extern void grab_myaddrs __P((void));
-extern int update_myaddrs __P((void));
-extern int autoconf_myaddrsport __P((void));
-extern u_short getmyaddrsport __P((struct sockaddr_storage *));
-extern struct myaddrs *newmyaddr __P((void));
-extern struct myaddrs *dupmyaddr __P((struct myaddrs *));
-extern void insmyaddr __P((struct myaddrs *, struct myaddrs **));
-extern void delmyaddr __P((struct myaddrs *));
-extern int initmyaddr __P((void));
-extern int getsockmyaddr __P((struct sockaddr *));
-extern struct myaddrs *find_myaddr __P((struct sockaddr *, int));
+extern void clear_myaddr (void);
+extern void grab_myaddrs (void);
+extern void update_myaddrs (void*);
+extern int autoconf_myaddrsport (void);
+extern u_short getmyaddrsport (struct sockaddr_storage *);
+extern struct myaddrs *newmyaddr (void);
+extern struct myaddrs *dupmyaddr (struct myaddrs *);
+extern void insmyaddr (struct myaddrs *, struct myaddrs **);
+extern void delmyaddr (struct myaddrs *);
+extern int initmyaddr (void);
+extern int getsockmyaddr (struct sockaddr *);
+extern struct myaddrs *find_myaddr (struct sockaddr *, int);
+extern int pfroute_init(void);
+extern void pfroute_close(void);
 
 
 #endif /* _GRABMYADDR_H */

@@ -37,19 +37,18 @@
 		4C615953104F157800BF0A10 /* chared.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615923104F157800BF0A10 /* chared.h */; };
 		4C615954104F157800BF0A10 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615924104F157800BF0A10 /* common.c */; };
 		4C615955104F157800BF0A10 /* readline.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615926104F157800BF0A10 /* readline.h */; };
-		4C615956104F157800BF0A10 /* el_term.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615927104F157800BF0A10 /* el_term.h */; };
+		4C615956104F157800BF0A10 /* terminal.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615927104F157800BF0A10 /* terminal.h */; };
 		4C615957104F157800BF0A10 /* el.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615928104F157800BF0A10 /* el.c */; };
 		4C615958104F157800BF0A10 /* el.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615929104F157800BF0A10 /* el.h */; };
 		4C615959104F157800BF0A10 /* emacs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61592A104F157800BF0A10 /* emacs.c */; };
-		4C61595A104F157800BF0A10 /* fgetln.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61592B104F157800BF0A10 /* fgetln.c */; };
 		4C61595B104F157800BF0A10 /* filecomplete.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61592C104F157800BF0A10 /* filecomplete.c */; };
 		4C61595C104F157800BF0A10 /* filecomplete.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C61592D104F157800BF0A10 /* filecomplete.h */; };
 		4C61595D104F157800BF0A10 /* hist.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61592E104F157800BF0A10 /* hist.c */; };
 		4C61595E104F157800BF0A10 /* hist.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C61592F104F157800BF0A10 /* hist.h */; };
 		4C61595F104F157800BF0A10 /* histedit.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615930104F157800BF0A10 /* histedit.h */; };
 		4C615960104F157800BF0A10 /* history.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615931104F157800BF0A10 /* history.c */; };
-		4C615961104F157800BF0A10 /* key.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615932104F157800BF0A10 /* key.c */; };
-		4C615962104F157800BF0A10 /* key.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615933104F157800BF0A10 /* key.h */; };
+		4C615961104F157800BF0A10 /* keymacro.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615932104F157800BF0A10 /* keymacro.c */; };
+		4C615962104F157800BF0A10 /* keymacro.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615933104F157800BF0A10 /* keymacro.h */; };
 		4C615963104F157800BF0A10 /* map.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615937104F157800BF0A10 /* map.c */; };
 		4C615964104F157800BF0A10 /* map.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615938104F157800BF0A10 /* map.h */; };
 		4C615965104F157800BF0A10 /* parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615939104F157800BF0A10 /* parse.c */; };
@@ -65,10 +64,8 @@
 		4C61596F104F157800BF0A10 /* search.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615943104F157800BF0A10 /* search.h */; };
 		4C615970104F157800BF0A10 /* sig.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615945104F157800BF0A10 /* sig.c */; };
 		4C615971104F157800BF0A10 /* sig.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615946104F157800BF0A10 /* sig.h */; };
-		4C615972104F157800BF0A10 /* strlcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615947104F157800BF0A10 /* strlcat.c */; };
-		4C615973104F157800BF0A10 /* strlcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615948104F157800BF0A10 /* strlcpy.c */; };
 		4C615974104F157800BF0A10 /* sys.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615949104F157800BF0A10 /* sys.h */; };
-		4C615975104F157800BF0A10 /* term.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594A104F157800BF0A10 /* term.c */; };
+		4C615975104F157800BF0A10 /* terminal.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594A104F157800BF0A10 /* terminal.c */; };
 		4C615976104F157800BF0A10 /* tokenizer.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594B104F157800BF0A10 /* tokenizer.c */; };
 		4C615977104F157800BF0A10 /* tty.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594C104F157800BF0A10 /* tty.c */; };
 		4C615978104F157800BF0A10 /* tty.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C61594D104F157800BF0A10 /* tty.h */; };
@@ -89,11 +86,10 @@
 		4C6159D51050615B00BF0A10 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615924104F157800BF0A10 /* common.c */; };
 		4C6159D61050615B00BF0A10 /* el.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615928104F157800BF0A10 /* el.c */; };
 		4C6159D71050615B00BF0A10 /* emacs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61592A104F157800BF0A10 /* emacs.c */; };
-		4C6159D81050615B00BF0A10 /* fgetln.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61592B104F157800BF0A10 /* fgetln.c */; };
 		4C6159D91050615B00BF0A10 /* filecomplete.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61592C104F157800BF0A10 /* filecomplete.c */; };
 		4C6159DA1050615B00BF0A10 /* hist.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61592E104F157800BF0A10 /* hist.c */; };
 		4C6159DB1050615B00BF0A10 /* history.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615931104F157800BF0A10 /* history.c */; };
-		4C6159DC1050615B00BF0A10 /* key.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615932104F157800BF0A10 /* key.c */; };
+		4C6159DC1050615B00BF0A10 /* keymacro.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615932104F157800BF0A10 /* keymacro.c */; };
 		4C6159DD1050615B00BF0A10 /* map.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615937104F157800BF0A10 /* map.c */; };
 		4C6159DE1050615B00BF0A10 /* parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615939104F157800BF0A10 /* parse.c */; };
 		4C6159DF1050615B00BF0A10 /* prompt.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61593B104F157800BF0A10 /* prompt.c */; };
@@ -102,9 +98,7 @@
 		4C6159E21050615B00BF0A10 /* refresh.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615940104F157800BF0A10 /* refresh.c */; };
 		4C6159E31050615B00BF0A10 /* search.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615942104F157800BF0A10 /* search.c */; };
 		4C6159E41050615B00BF0A10 /* sig.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615945104F157800BF0A10 /* sig.c */; };
-		4C6159E51050615B00BF0A10 /* strlcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615947104F157800BF0A10 /* strlcat.c */; };
-		4C6159E61050615B00BF0A10 /* strlcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C615948104F157800BF0A10 /* strlcpy.c */; };
-		4C6159E71050615B00BF0A10 /* term.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594A104F157800BF0A10 /* term.c */; };
+		4C6159E71050615B00BF0A10 /* terminal.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594A104F157800BF0A10 /* terminal.c */; };
 		4C6159E81050615B00BF0A10 /* tokenizer.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594B104F157800BF0A10 /* tokenizer.c */; };
 		4C6159E91050615B00BF0A10 /* tty.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594C104F157800BF0A10 /* tty.c */; };
 		4C6159EA1050615B00BF0A10 /* unvis.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C61594E104F157800BF0A10 /* unvis.c */; };
@@ -114,12 +108,12 @@
 		4C6159EE1050615B00BF0A10 /* help.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6159A2104F203600BF0A10 /* help.c */; };
 		4C6159FD105061E200BF0A10 /* chared.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615923104F157800BF0A10 /* chared.h */; };
 		4C6159FE105061E200BF0A10 /* readline.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615926104F157800BF0A10 /* readline.h */; };
-		4C6159FF105061E200BF0A10 /* el_term.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615927104F157800BF0A10 /* el_term.h */; };
+		4C6159FF105061E200BF0A10 /* terminal.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615927104F157800BF0A10 /* terminal.h */; };
 		4C615A00105061E200BF0A10 /* el.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615929104F157800BF0A10 /* el.h */; };
 		4C615A01105061E200BF0A10 /* filecomplete.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C61592D104F157800BF0A10 /* filecomplete.h */; };
 		4C615A02105061E200BF0A10 /* hist.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C61592F104F157800BF0A10 /* hist.h */; };
 		4C615A03105061E200BF0A10 /* histedit.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615930104F157800BF0A10 /* histedit.h */; };
-		4C615A04105061E200BF0A10 /* key.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615933104F157800BF0A10 /* key.h */; };
+		4C615A04105061E200BF0A10 /* keymacro.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615933104F157800BF0A10 /* keymacro.h */; };
 		4C615A05105061E200BF0A10 /* map.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C615938104F157800BF0A10 /* map.h */; };
 		4C615A06105061E200BF0A10 /* parse.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C61593A104F157800BF0A10 /* parse.h */; };
 		4C615A07105061E200BF0A10 /* prompt.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C61593C104F157800BF0A10 /* prompt.h */; };
@@ -165,19 +159,18 @@
 		4C615923104F157800BF0A10 /* chared.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = chared.h; path = src/chared.h; sourceTree = "<group>"; };
 		4C615924104F157800BF0A10 /* common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = common.c; path = src/common.c; sourceTree = "<group>"; };
 		4C615926104F157800BF0A10 /* readline.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = readline.h; sourceTree = "<group>"; };
-		4C615927104F157800BF0A10 /* el_term.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = el_term.h; path = src/el_term.h; sourceTree = "<group>"; };
+		4C615927104F157800BF0A10 /* terminal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = terminal.h; path = src/terminal.h; sourceTree = "<group>"; };
 		4C615928104F157800BF0A10 /* el.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = el.c; path = src/el.c; sourceTree = "<group>"; };
 		4C615929104F157800BF0A10 /* el.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = el.h; path = src/el.h; sourceTree = "<group>"; };
 		4C61592A104F157800BF0A10 /* emacs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = emacs.c; path = src/emacs.c; sourceTree = "<group>"; };
-		4C61592B104F157800BF0A10 /* fgetln.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = fgetln.c; path = src/fgetln.c; sourceTree = "<group>"; };
 		4C61592C104F157800BF0A10 /* filecomplete.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = filecomplete.c; path = src/filecomplete.c; sourceTree = "<group>"; };
 		4C61592D104F157800BF0A10 /* filecomplete.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = filecomplete.h; path = src/filecomplete.h; sourceTree = "<group>"; };
 		4C61592E104F157800BF0A10 /* hist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hist.c; path = src/hist.c; sourceTree = "<group>"; };
 		4C61592F104F157800BF0A10 /* hist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hist.h; path = src/hist.h; sourceTree = "<group>"; };
 		4C615930104F157800BF0A10 /* histedit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = histedit.h; path = src/histedit.h; sourceTree = "<group>"; };
 		4C615931104F157800BF0A10 /* history.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = history.c; path = src/history.c; sourceTree = "<group>"; };
-		4C615932104F157800BF0A10 /* key.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = key.c; path = src/key.c; sourceTree = "<group>"; };
-		4C615933104F157800BF0A10 /* key.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = key.h; path = src/key.h; sourceTree = "<group>"; };
+		4C615932104F157800BF0A10 /* keymacro.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = keymacro.c; path = src/keymacro.c; sourceTree = "<group>"; };
+		4C615933104F157800BF0A10 /* keymacro.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = keymacro.h; path = src/keymacro.h; sourceTree = "<group>"; };
 		4C615934104F157800BF0A10 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = Makefile.am; path = src/Makefile.am; sourceTree = "<group>"; };
 		4C615935104F157800BF0A10 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = Makefile.in; path = src/Makefile.in; sourceTree = "<group>"; };
 		4C615936104F157800BF0A10 /* makelist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = makelist; path = src/makelist; sourceTree = "<group>"; };
@@ -197,10 +190,8 @@
 		4C615944104F157800BF0A10 /* shlib_version */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = shlib_version; path = src/shlib_version; sourceTree = "<group>"; };
 		4C615945104F157800BF0A10 /* sig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sig.c; path = src/sig.c; sourceTree = "<group>"; };
 		4C615946104F157800BF0A10 /* sig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sig.h; path = src/sig.h; sourceTree = "<group>"; };
-		4C615947104F157800BF0A10 /* strlcat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = strlcat.c; path = src/strlcat.c; sourceTree = "<group>"; };
-		4C615948104F157800BF0A10 /* strlcpy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = strlcpy.c; path = src/strlcpy.c; sourceTree = "<group>"; };
 		4C615949104F157800BF0A10 /* sys.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sys.h; path = src/sys.h; sourceTree = "<group>"; };
-		4C61594A104F157800BF0A10 /* term.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = term.c; path = src/term.c; sourceTree = "<group>"; };
+		4C61594A104F157800BF0A10 /* terminal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = terminal.c; path = src/terminal.c; sourceTree = "<group>"; };
 		4C61594B104F157800BF0A10 /* tokenizer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tokenizer.c; path = src/tokenizer.c; sourceTree = "<group>"; };
 		4C61594C104F157800BF0A10 /* tty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tty.c; path = src/tty.c; sourceTree = "<group>"; };
 		4C61594D104F157800BF0A10 /* tty.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tty.h; path = src/tty.h; sourceTree = "<group>"; };
@@ -269,20 +260,19 @@
 				B18111951188D65A00EC8250 /* chartype.h */,
 				4C615924104F157800BF0A10 /* common.c */,
 				4C615925104F157800BF0A10 /* editline */,
-				4C615927104F157800BF0A10 /* el_term.h */,
+				4C615927104F157800BF0A10 /* terminal.h */,
 				4C615928104F157800BF0A10 /* el.c */,
 				4C615929104F157800BF0A10 /* el.h */,
 				B18111961188D65A00EC8250 /* eln.c */,
 				4C61592A104F157800BF0A10 /* emacs.c */,
-				4C61592B104F157800BF0A10 /* fgetln.c */,
 				4C61592C104F157800BF0A10 /* filecomplete.c */,
 				4C61592D104F157800BF0A10 /* filecomplete.h */,
 				4C61592E104F157800BF0A10 /* hist.c */,
 				4C61592F104F157800BF0A10 /* hist.h */,
 				4C615930104F157800BF0A10 /* histedit.h */,
 				4C615931104F157800BF0A10 /* history.c */,
-				4C615932104F157800BF0A10 /* key.c */,
-				4C615933104F157800BF0A10 /* key.h */,
+				4C615932104F157800BF0A10 /* keymacro.c */,
+				4C615933104F157800BF0A10 /* keymacro.h */,
 				4C615934104F157800BF0A10 /* Makefile.am */,
 				4C615935104F157800BF0A10 /* Makefile.in */,
 				4C615936104F157800BF0A10 /* makelist */,
@@ -302,10 +292,8 @@
 				4C615944104F157800BF0A10 /* shlib_version */,
 				4C615945104F157800BF0A10 /* sig.c */,
 				4C615946104F157800BF0A10 /* sig.h */,
-				4C615947104F157800BF0A10 /* strlcat.c */,
-				4C615948104F157800BF0A10 /* strlcpy.c */,
 				4C615949104F157800BF0A10 /* sys.h */,
-				4C61594A104F157800BF0A10 /* term.c */,
+				4C61594A104F157800BF0A10 /* terminal.c */,
 				4C61594B104F157800BF0A10 /* tokenizer.c */,
 				4C61594C104F157800BF0A10 /* tty.c */,
 				4C61594D104F157800BF0A10 /* tty.h */,
@@ -371,12 +359,12 @@
 			files = (
 				4C6159FD105061E200BF0A10 /* chared.h in Headers */,
 				4C6159FE105061E200BF0A10 /* readline.h in Headers */,
-				4C6159FF105061E200BF0A10 /* el_term.h in Headers */,
+				4C6159FF105061E200BF0A10 /* terminal.h in Headers */,
 				4C615A00105061E200BF0A10 /* el.h in Headers */,
 				4C615A01105061E200BF0A10 /* filecomplete.h in Headers */,
 				4C615A02105061E200BF0A10 /* hist.h in Headers */,
 				4C615A03105061E200BF0A10 /* histedit.h in Headers */,
-				4C615A04105061E200BF0A10 /* key.h in Headers */,
+				4C615A04105061E200BF0A10 /* keymacro.h in Headers */,
 				4C615A05105061E200BF0A10 /* map.h in Headers */,
 				4C615A06105061E200BF0A10 /* parse.h in Headers */,
 				4C615A07105061E200BF0A10 /* prompt.h in Headers */,
@@ -403,12 +391,12 @@
 			files = (
 				4C615953104F157800BF0A10 /* chared.h in Headers */,
 				4C615955104F157800BF0A10 /* readline.h in Headers */,
-				4C615956104F157800BF0A10 /* el_term.h in Headers */,
+				4C615956104F157800BF0A10 /* terminal.h in Headers */,
 				4C615958104F157800BF0A10 /* el.h in Headers */,
 				4C61595C104F157800BF0A10 /* filecomplete.h in Headers */,
 				4C61595E104F157800BF0A10 /* hist.h in Headers */,
 				4C61595F104F157800BF0A10 /* histedit.h in Headers */,
-				4C615962104F157800BF0A10 /* key.h in Headers */,
+				4C615962104F157800BF0A10 /* keymacro.h in Headers */,
 				4C615964104F157800BF0A10 /* map.h in Headers */,
 				4C615966104F157800BF0A10 /* parse.h in Headers */,
 				4C615968104F157800BF0A10 /* prompt.h in Headers */,
@@ -532,11 +520,10 @@
 				4C6159D51050615B00BF0A10 /* common.c in Sources */,
 				4C6159D61050615B00BF0A10 /* el.c in Sources */,
 				4C6159D71050615B00BF0A10 /* emacs.c in Sources */,
-				4C6159D81050615B00BF0A10 /* fgetln.c in Sources */,
 				4C6159D91050615B00BF0A10 /* filecomplete.c in Sources */,
 				4C6159DA1050615B00BF0A10 /* hist.c in Sources */,
 				4C6159DB1050615B00BF0A10 /* history.c in Sources */,
-				4C6159DC1050615B00BF0A10 /* key.c in Sources */,
+				4C6159DC1050615B00BF0A10 /* keymacro.c in Sources */,
 				4C6159DD1050615B00BF0A10 /* map.c in Sources */,
 				4C6159DE1050615B00BF0A10 /* parse.c in Sources */,
 				4C6159DF1050615B00BF0A10 /* prompt.c in Sources */,
@@ -545,9 +532,7 @@
 				4C6159E21050615B00BF0A10 /* refresh.c in Sources */,
 				4C6159E31050615B00BF0A10 /* search.c in Sources */,
 				4C6159E41050615B00BF0A10 /* sig.c in Sources */,
-				4C6159E51050615B00BF0A10 /* strlcat.c in Sources */,
-				4C6159E61050615B00BF0A10 /* strlcpy.c in Sources */,
-				4C6159E71050615B00BF0A10 /* term.c in Sources */,
+				4C6159E71050615B00BF0A10 /* terminal.c in Sources */,
 				4C6159E81050615B00BF0A10 /* tokenizer.c in Sources */,
 				4C6159E91050615B00BF0A10 /* tty.c in Sources */,
 				4C6159EA1050615B00BF0A10 /* unvis.c in Sources */,
@@ -571,11 +556,10 @@
 				4C615954104F157800BF0A10 /* common.c in Sources */,
 				4C615957104F157800BF0A10 /* el.c in Sources */,
 				4C615959104F157800BF0A10 /* emacs.c in Sources */,
-				4C61595A104F157800BF0A10 /* fgetln.c in Sources */,
 				4C61595B104F157800BF0A10 /* filecomplete.c in Sources */,
 				4C61595D104F157800BF0A10 /* hist.c in Sources */,
 				4C615960104F157800BF0A10 /* history.c in Sources */,
-				4C615961104F157800BF0A10 /* key.c in Sources */,
+				4C615961104F157800BF0A10 /* keymacro.c in Sources */,
 				4C615963104F157800BF0A10 /* map.c in Sources */,
 				4C615965104F157800BF0A10 /* parse.c in Sources */,
 				4C615967104F157800BF0A10 /* prompt.c in Sources */,
@@ -584,9 +568,7 @@
 				4C61596C104F157800BF0A10 /* refresh.c in Sources */,
 				4C61596E104F157800BF0A10 /* search.c in Sources */,
 				4C615970104F157800BF0A10 /* sig.c in Sources */,
-				4C615972104F157800BF0A10 /* strlcat.c in Sources */,
-				4C615973104F157800BF0A10 /* strlcpy.c in Sources */,
-				4C615975104F157800BF0A10 /* term.c in Sources */,
+				4C615975104F157800BF0A10 /* terminal.c in Sources */,
 				4C615976104F157800BF0A10 /* tokenizer.c in Sources */,
 				4C615977104F157800BF0A10 /* tty.c in Sources */,
 				4C615979104F157800BF0A10 /* unvis.c in Sources */,

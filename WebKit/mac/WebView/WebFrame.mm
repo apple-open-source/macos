@@ -40,6 +40,7 @@
 #import "WebDataSourceInternal.h"
 #import "WebDocumentLoaderMac.h"
 #import "WebDynamicScrollBarsView.h"
+#import "WebElementDictionary.h"
 #import "WebFrameLoaderClient.h"
 #import "WebFrameViewInternal.h"
 #import "WebHTMLView.h"
@@ -52,6 +53,7 @@
 #import "WebScriptWorldInternal.h"
 #import "WebViewInternal.h"
 #import <JavaScriptCore/APICast.h>
+#import <JavaScriptCore/JSContextInternal.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/AccessibilityObject.h>
 #import <WebCore/AnimationController.h>
@@ -60,13 +62,15 @@
 #import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/DOMImplementation.h>
-#import <WebCore/DatabaseContext.h>
+#import <WebCore/DatabaseManager.h>
 #import <WebCore/DocumentFragment.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/DocumentMarkerController.h>
+#import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/Frame.h>
+#import <WebCore/FrameLoadRequest.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderStateMachine.h>
 #import <WebCore/FrameTree.h>
@@ -75,6 +79,7 @@
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/HitTestResult.h>
+#import <WebCore/JSNode.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformEventFactoryMac.h>
@@ -83,27 +88,27 @@
 #import <WebCore/RenderPart.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RuntimeApplicationChecks.h>
+#import <WebCore/ScriptController.h>
 #import <WebCore/ScriptValue.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SmartReplace.h>
+#import <WebCore/StylePropertySet.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/ThreadCheck.h>
+#import <WebCore/VisibleUnits.h>
 #import <WebCore/htmlediting.h>
 #import <WebCore/markup.h>
-#import <WebCore/visible_units.h>
 #import <WebKitSystemInterface.h>
 #import <runtime/JSLock.h>
 #import <runtime/JSObject.h>
-#import <runtime/JSValue.h>
+#import <runtime/JSCJSValue.h>
 #import <wtf/CurrentTime.h>
 
-using namespace std;
 using namespace WebCore;
 using namespace HTMLNames;
 
 using JSC::JSGlobalObject;
 using JSC::JSLock;
-using JSC::JSValue;
 
 /*
 Here is the current behavior matrix for four types of navigations:
@@ -197,20 +202,6 @@ EditableLinkBehavior core(WebKitEditableLinkBehavior editableLinkBehavior)
     return EditableLinkDefaultBehavior;
 }
 
-WebCore::EditingBehaviorType core(WebKitEditingBehavior behavior)
-{
-    switch (behavior) {
-        case WebKitEditingMacBehavior:
-            return WebCore::EditingMacBehavior;
-        case WebKitEditingWinBehavior:
-            return WebCore::EditingWindowsBehavior;
-        case WebKitEditingUnixBehavior:
-            return WebCore::EditingUnixBehavior;
-    }
-    ASSERT_NOT_REACHED();
-    return WebCore::EditingMacBehavior;
-}
-
 TextDirectionSubmenuInclusionBehavior core(WebTextDirectionSubmenuInclusionBehavior behavior)
 {
     switch (behavior) {
@@ -234,7 +225,14 @@ Frame* core(WebFrame *frame)
 
 WebFrame *kit(Frame* frame)
 {
-    return frame ? static_cast<WebFrameLoaderClient*>(frame->loader()->client())->webFrame() : nil;
+    if (!frame)
+        return nil;
+
+    FrameLoaderClient* frameLoaderClient = frame->loader()->client();
+    if (frameLoaderClient->isEmptyFrameLoaderClient())
+        return nil;
+
+    return static_cast<WebFrameLoaderClient*>(frameLoaderClient)->webFrame();
 }
 
 Page* core(WebView *webView)
@@ -244,7 +242,14 @@ Page* core(WebView *webView)
 
 WebView *kit(Page* page)
 {
-    return page ? static_cast<WebView*>(page->chrome()->client()->webView()) : nil;
+    if (!page)
+        return nil;
+
+    ChromeClient* chromeClient = page->chrome().client();
+    if (chromeClient->isEmptyChromeClient())
+        return nil;
+
+    return static_cast<WebChromeClient*>(chromeClient)->webView();
 }
 
 WebView *getWebView(WebFrame *webFrame)
@@ -365,11 +370,6 @@ WebView *getWebView(WebFrame *webFrame)
         if (!drawsBackground)
             [[[webFrame frameView] _scrollView] setDrawsBackground:NO];
         [[[webFrame frameView] _scrollView] setBackgroundColor:backgroundColor];
-        id documentView = [[webFrame frameView] documentView];
-        if ([documentView respondsToSelector:@selector(setDrawsBackground:)])
-            [documentView setDrawsBackground:drawsBackground];
-        if ([documentView respondsToSelector:@selector(setBackgroundColor:)])
-            [documentView setBackgroundColor:backgroundColor];
 
         if (FrameView* view = frame->view()) {
             view->setTransparent(!drawsBackground);
@@ -506,20 +506,12 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (NSString *)_selectedString
 {
-    return _private->coreFrame->displayStringModifiedByEncoding(_private->coreFrame->editor()->selectedText());
+    return _private->coreFrame->displayStringModifiedByEncoding(_private->coreFrame->editor().selectedText());
 }
 
 - (NSString *)_stringForRange:(DOMRange *)range
 {
-    // This will give a system malloc'd buffer that can be turned directly into an NSString
-    unsigned length;
-    UChar* buf = plainTextToMallocAllocatedBuffer(core(range), length, true);
-    
-    if (!buf)
-        return [NSString string];
-
-    // Transfer buffer ownership to NSString
-    return [[[NSString alloc] initWithCharactersNoCopy:buf length:length freeWhenDone:YES] autorelease];
+    return plainText(core(range), TextIteratorDefaultBehavior, true);
 }
 
 - (BOOL)_shouldFlattenCompositingLayers:(CGContextRef)context
@@ -599,7 +591,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     ASSERT(_private->coreFrame->document());
     RetainPtr<WebFrame> protect(self); // Executing arbitrary JavaScript can destroy the frame.
     
-    JSValue result = _private->coreFrame->script()->executeScript(string, forceUserGesture).jsValue();
+    JSC::JSValue result = _private->coreFrame->script()->executeScript(string, forceUserGesture).jsValue();
 
     if (!_private->coreFrame) // In case the script removed our frame from the page.
         return @"";
@@ -612,7 +604,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
     JSC::ExecState* exec = _private->coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec();
     JSC::JSLockHolder lock(exec);
-    return ustringToString(result.toString(exec)->value(exec));
+    return result.toWTFString(exec);
 }
 
 - (NSRect)_caretRectAtPosition:(const Position&)pos affinity:(NSSelectionAffinity)affinity
@@ -623,7 +615,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (NSRect)_firstRectForDOMRange:(DOMRange *)range
 {
-   return _private->coreFrame->editor()->firstRectForRange(core(range));
+   return _private->coreFrame->editor().firstRectForRange(core(range));
 }
 
 - (void)_scrollDOMRangeToVisible:(DOMRange *)range
@@ -697,7 +689,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (DOMRange *)_markDOMRange
 {
-    return kit(_private->coreFrame->editor()->mark().toNormalizedRange().get());
+    return kit(_private->coreFrame->editor().mark().toNormalizedRange().get());
 }
 
 // Given proposedRange, returns an extended range that includes adjacent whitespace that should
@@ -738,7 +730,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!_private->coreFrame || !_private->coreFrame->document())
         return nil;
 
-    return kit(createFragmentFromMarkup(_private->coreFrame->document(), markupString, baseURLString, FragmentScriptingNotAllowed).get());
+    return kit(createFragmentFromMarkup(_private->coreFrame->document(), markupString, baseURLString, DisallowScriptingContent).get());
 }
 
 - (DOMDocumentFragment *)_documentFragmentWithNodesAsParagraphs:(NSArray *)nodes
@@ -767,7 +759,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (_private->coreFrame->selection()->isNone())
         return;
 
-    _private->coreFrame->editor()->insertParagraphSeparatorInQuotedContent();
+    _private->coreFrame->editor().insertParagraphSeparatorInQuotedContent();
 }
 
 - (VisiblePosition)_visiblePositionForPoint:(NSPoint)point
@@ -785,7 +777,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     if (!_private->coreFrame)
         return nil;
-    RefPtr<StylePropertySet> typingStyle = _private->coreFrame->selection()->copyTypingStyle();
+    RefPtr<MutableStylePropertySet> typingStyle = _private->coreFrame->selection()->copyTypingStyle();
     if (!typingStyle)
         return nil;
     return kit(typingStyle->ensureCSSStyleDeclaration());
@@ -796,9 +788,10 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!_private->coreFrame || !style)
         return;
     // FIXME: We shouldn't have to create a copy here.
-    _private->coreFrame->editor()->computeAndSetTypingStyle(core(style)->copy().get(), undoAction);
+    _private->coreFrame->editor().computeAndSetTypingStyle(core(style)->copyProperties().get(), undoAction);
 }
 
+#if ENABLE(DRAG_SUPPORT)
 - (void)_dragSourceEndedAt:(NSPoint)windowLoc operation:(NSDragOperation)operation
 {
     if (!_private->coreFrame)
@@ -811,6 +804,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         LeftButton, PlatformEvent::MouseMoved, 0, false, false, false, false, currentTime());
     _private->coreFrame->eventHandler()->dragSourceEndedAt(event, (DragOperation)operation);
 }
+#endif
 
 - (BOOL)_canProvideDocumentSource
 {
@@ -818,9 +812,10 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     String mimeType = frame->document()->loader()->writer()->mimeType();
     PluginData* pluginData = frame->page() ? frame->page()->pluginData() : 0;
 
-    if (WebCore::DOMImplementation::isTextMIMEType(mimeType) ||
-        Image::supportsType(mimeType) ||
-        (pluginData && pluginData->supportsMimeType(mimeType)))
+    if (WebCore::DOMImplementation::isTextMIMEType(mimeType)
+        || Image::supportsType(mimeType)
+        || (pluginData && pluginData->supportsMimeType(mimeType, PluginData::AllPlugins) && frame->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin))
+        || (pluginData && pluginData->supportsMimeType(mimeType, PluginData::OnlyApplicationPlugins)))
         return NO;
 
     return YES;
@@ -918,17 +913,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (unsigned)_pendingFrameUnloadEventCount
 {
-    return _private->coreFrame->domWindow()->pendingUnloadEventListeners();
-}
-
-- (void)_setIsDisconnected:(bool)isDisconnected
-{
-    _private->coreFrame->setIsDisconnected(isDisconnected);
-}
-
-- (void)_setExcludeFromTextSearch:(bool)exclude
-{
-    _private->coreFrame->setExcludeFromTextSearch(exclude);
+    return _private->coreFrame->document()->domWindow()->pendingUnloadEventListeners();
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -953,76 +938,11 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 }
 #endif
 
-- (BOOL)_pauseAnimation:(NSString*)name onNode:(DOMNode *)node atTime:(NSTimeInterval)time
-{
-    Frame* frame = core(self);
-    if (!frame)
-        return false;
-
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return false;
-
-    Node* coreNode = core(node);
-    if (!coreNode || !coreNode->renderer())
-        return false;
-
-    return controller->pauseAnimationAtTime(coreNode->renderer(), name, time);
-}
-
-- (BOOL)_pauseTransitionOfProperty:(NSString*)name onNode:(DOMNode*)node atTime:(NSTimeInterval)time
-{
-    Frame* frame = core(self);
-    if (!frame)
-        return false;
-
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return false;
-
-    Node* coreNode = core(node);
-    if (!coreNode || !coreNode->renderer())
-        return false;
-
-    return controller->pauseTransitionAtTime(coreNode->renderer(), name, time);
-}
-
-- (unsigned) _numberOfActiveAnimations
-{
-    Frame* frame = core(self);
-    if (!frame)
-        return false;
-
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return false;
-
-    return controller->numberOfActiveAnimations(frame->document());
-}
-
-- (void) _suspendAnimations
-{
-    Frame* frame = core(self);
-    if (!frame)
-        return;
-        
-    frame->animation()->suspendAnimations();
-}
-
-- (void) _resumeAnimations
-{
-    Frame* frame = core(self);
-    if (!frame)
-        return;
-
-    frame->animation()->resumeAnimations();
-}
-
 - (void)_replaceSelectionWithFragment:(DOMDocumentFragment *)fragment selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle
 {
     if (_private->coreFrame->selection()->isNone() || !fragment)
         return;
-    _private->coreFrame->editor()->replaceSelectionWithFragment(core(fragment), selectReplacement, smartReplace, matchStyle);
+    _private->coreFrame->editor().replaceSelectionWithFragment(core(fragment), selectReplacement, smartReplace, matchStyle);
 }
 
 - (void)_replaceSelectionWithText:(NSString *)text selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace
@@ -1107,7 +1027,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (frameLoader->subframeLoader()->containsPlugins())
         [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameHasPlugins];
     
-    if (DOMWindow* domWindow = _private->coreFrame->domWindow()) {
+    if (DOMWindow* domWindow = _private->coreFrame->document()->domWindow()) {
         if (domWindow->hasEventListeners(eventNames().unloadEvent))
             [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameHasUnloadListener];
         if (domWindow->optionalApplicationCache())
@@ -1116,7 +1036,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     
     if (Document* document = _private->coreFrame->document()) {
 #if ENABLE(SQL_DATABASE)
-        if (DatabaseContext::hasOpenDatabases(document))
+        if (DatabaseManager::manager().hasOpenDatabases(document))
             [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameUsesDatabases];
 #endif
         if (!document->canSuspendActiveDOMObjects())
@@ -1151,7 +1071,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     ASSERT(frame->document());
     RetainPtr<WebFrame> webFrame(kit(frame)); // Running arbitrary JavaScript can destroy the frame.
 
-    JSValue result = frame->script()->executeScriptInWorld(core(world), string, true).jsValue();
+    JSC::JSValue result = frame->script()->executeScriptInWorld(core(world), string, true).jsValue();
 
     if (!webFrame->_private->coreFrame) // In case the script removed our frame from the page.
         return @"";
@@ -1164,7 +1084,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
     JSC::ExecState* exec = anyWorldGlobalObject->globalExec();
     JSC::JSLockHolder lock(exec);
-    return ustringToString(result.toString(exec)->value(exec));
+    return result.toWTFString(exec);
 }
 
 - (JSGlobalContextRef)_globalContextForScriptWorld:(WebScriptWorld *)world
@@ -1177,6 +1097,16 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return 0;
     return toGlobalRef(coreFrame->script()->globalObject(coreWorld)->globalExec());
 }
+
+#if JSC_OBJC_API_ENABLED
+- (JSContext *)_javaScriptContextForScriptWorld:(WebScriptWorld *)world
+{
+    JSGlobalContextRef globalContextRef = [self _globalContextForScriptWorld:world];
+    if (!globalContextRef)
+        return 0;
+    return [JSContext contextWithJSGlobalContextRef:globalContextRef];
+}
+#endif
 
 - (void)setAllowsScrollersToOverlapContent:(BOOL)flag
 {
@@ -1288,6 +1218,27 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     for (size_t i = 0; i < size; ++i)
         [pages addObject:[NSValue valueWithRect:NSRect(pageRects[i])]];
     return pages;
+}
+
+- (JSValueRef)jsWrapperForNode:(DOMNode *)node inScriptWorld:(WebScriptWorld *)world
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return 0;
+
+    JSDOMWindow* globalObject = coreFrame->script()->globalObject(core(world));
+    JSC::ExecState* exec = globalObject->globalExec();
+
+    JSC::JSLockHolder lock(exec);
+    return toRef(exec, toJS(exec, globalObject, core(node)));
+}
+
+- (NSDictionary *)elementAtPoint:(NSPoint)point
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return nil;
+    return [[[WebElementDictionary alloc] initWithHitTestResult:coreFrame->eventHandler()->hitTestResultAtPoint(IntPoint(point), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowShadowContent)] autorelease];
 }
 
 @end
@@ -1409,7 +1360,7 @@ static bool needsMicrosoftMessengerDOMDocumentWorkaround()
     if (!resourceRequest.url().isValid() && !resourceRequest.url().isEmpty())
         resourceRequest.setURL([NSURL URLWithString:[@"file:" stringByAppendingString:[[request URL] absoluteString]]]);
 
-    coreFrame->loader()->load(resourceRequest, false);
+    coreFrame->loader()->load(FrameLoadRequest(coreFrame, resourceRequest));
 }
 
 static NSURL *createUniqueWebDataURL()
@@ -1436,11 +1387,11 @@ static NSURL *createUniqueWebDataURL()
     ResourceRequest request([baseURL absoluteURL]);
 
     // hack because Mail checks for this property to detect data / archive loads
-    [NSURLProtocol setProperty:@"" forKey:@"WebDataRequest" inRequest:(NSMutableURLRequest *)request.nsURLRequest()];
+    [NSURLProtocol setProperty:@"" forKey:@"WebDataRequest" inRequest:(NSMutableURLRequest *)request.nsURLRequest(UpdateHTTPBody)];
 
     SubstituteData substituteData(WebCore::SharedBuffer::wrapNSData(data), MIMEType, encodingName, [unreachableURL absoluteURL], responseURL);
 
-    _private->coreFrame->loader()->load(request, substituteData, false);
+    _private->coreFrame->loader()->load(FrameLoadRequest(_private->coreFrame, request, substituteData));
 }
 
 
@@ -1541,5 +1492,15 @@ static NSURL *createUniqueWebDataURL()
         return 0;
     return toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
 }
+
+#if JSC_OBJC_API_ENABLED
+- (JSContext *)javaScriptContext
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return 0;
+    return coreFrame->script()->javaScriptContext();
+}
+#endif
 
 @end

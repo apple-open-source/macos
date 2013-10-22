@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2013 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_nfs.c	1.126	05/06/08 SMI"
@@ -411,7 +411,7 @@ dump_mfs(struct mapfs *mfs, char *message, int level)
 		return;
 	}
 	for (m1 = mfs; m1; m1 = m1->mfs_next)
-		trace_prt(0, "%s[%s] ", m1->mfs_host, dump_distance(m1));
+		trace_prt(0, "\t%s[%s] ", m1->mfs_host, dump_distance(m1));
 	trace_prt(0, "\n");
 }
 
@@ -577,6 +577,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 				/* and mount version with mountd */
 	rpcvers_t nfsvers;	/* version in map options, 0 if not there */
 	long optval;
+	static time_t prevmsg = 0;
 
 	int i;
 	char *nfs_proto = NULL;
@@ -690,11 +691,34 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 
 	entries = 0;
 	for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
-		if (!mfs->mfs_ignore)
+		if (!mfs->mfs_ignore) {
 			entries++;
+			host = mfs->mfs_host;
+		}
 	}
 
-	if (entries > 1) {
+	if (entries == 1) {
+		/*
+		 * Make sure the server is responding before attempting a mount.
+		 * This up-front check can potentially avoid a hang if a mount
+		 * from this server is hierarchical and in the process of being
+		 * force unmounted.
+		 */
+		i = pingnfs(host, &vers, versmin, 0, NULL, nfs_proto);
+		if (i != RPC_SUCCESS) {
+			if (prevmsg < time((time_t) NULL)) {
+				prevmsg = time((time_t) NULL) + 5; // throttle these msgs
+				if (i == RPC_PROGVERSMISMATCH) {
+					syslog(LOG_ERR, "NFS server %s protocol version mismatch", host);
+				} else {
+					syslog(LOG_ERR, "NFS server %s not responding", host);
+				}
+			}
+			last_error = ENOENT;
+			goto out;
+		}
+
+	} else if (entries > 1) {
 		/*
 		 * We have more than one resource.
 		 * Walk the whole list of resources, pinging and

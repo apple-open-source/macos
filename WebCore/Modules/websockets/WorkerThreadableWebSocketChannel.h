@@ -33,7 +33,6 @@
 
 #if ENABLE(WEB_SOCKETS) && ENABLE(WORKERS)
 
-#include "PlatformString.h"
 #include "ThreadableWebSocketChannel.h"
 #include "WebSocketChannelClient.h"
 #include "WorkerContext.h"
@@ -42,6 +41,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Threading.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -62,12 +62,11 @@ public:
     virtual ~WorkerThreadableWebSocketChannel();
 
     // ThreadableWebSocketChannel functions.
-    virtual bool useHixie76Protocol() OVERRIDE;
     virtual void connect(const KURL&, const String& protocol) OVERRIDE;
     virtual String subprotocol() OVERRIDE;
     virtual String extensions() OVERRIDE;
     virtual ThreadableWebSocketChannel::SendResult send(const String& message) OVERRIDE;
-    virtual ThreadableWebSocketChannel::SendResult send(const ArrayBuffer&) OVERRIDE;
+    virtual ThreadableWebSocketChannel::SendResult send(const ArrayBuffer&, unsigned byteOffset, unsigned byteLength) OVERRIDE;
     virtual ThreadableWebSocketChannel::SendResult send(const Blob&) OVERRIDE;
     virtual unsigned long bufferedAmount() const OVERRIDE;
     virtual void close(int code, const String& reason) OVERRIDE;
@@ -87,7 +86,6 @@ public:
         }
         ~Peer();
 
-        bool useHixie76Protocol();
         void connect(const KURL&, const String& protocol);
         void send(const String& message);
         void send(const ArrayBuffer&);
@@ -106,6 +104,7 @@ public:
         virtual void didUpdateBufferedAmount(unsigned long bufferedAmount) OVERRIDE;
         virtual void didStartClosingHandshake() OVERRIDE;
         virtual void didClose(unsigned long unhandledBufferedAmount, ClosingHandshakeCompletionStatus, unsigned short code, const String& reason) OVERRIDE;
+        virtual void didReceiveMessageError() OVERRIDE;
 
     private:
         Peer(PassRefPtr<ThreadableWebSocketChannelClientWrapper>, WorkerLoaderProxy&, ScriptExecutionContext*, const String& taskMode);
@@ -135,7 +134,7 @@ private:
         void initialize();
         void connect(const KURL&, const String& protocol);
         ThreadableWebSocketChannel::SendResult send(const String& message);
-        ThreadableWebSocketChannel::SendResult send(const ArrayBuffer&);
+        ThreadableWebSocketChannel::SendResult send(const ArrayBuffer&, unsigned byteOffset, unsigned byteLength);
         ThreadableWebSocketChannel::SendResult send(const Blob&);
         unsigned long bufferedAmount();
         void close(int code, const String& reason);
@@ -150,7 +149,7 @@ private:
     private:
         Bridge(PassRefPtr<ThreadableWebSocketChannelClientWrapper>, PassRefPtr<WorkerContext>, const String& taskMode);
 
-        static void setWebSocketChannel(ScriptExecutionContext*, Bridge* thisPtr, Peer*, PassRefPtr<ThreadableWebSocketChannelClientWrapper>, bool useHixie76Protocol);
+        static void setWebSocketChannel(ScriptExecutionContext*, Bridge* thisPtr, Peer*, PassRefPtr<ThreadableWebSocketChannelClientWrapper>);
 
         // Executed on the main thread to create a Peer for this bridge.
         static void mainThreadInitialize(ScriptExecutionContext*, WorkerLoaderProxy*, PassRefPtr<ThreadableWebSocketChannelClientWrapper>, const String& taskMode);

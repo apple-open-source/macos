@@ -207,7 +207,7 @@
 		0867D690FE84028FC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD39A0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_manifest" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -276,6 +276,15 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB31E146F0F07000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				WARNING_CFLAGS = (
+					"-Wno-error=#warnings",
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"$(inherited)",
+				);
 			};
 			name = Debug;
 		};
@@ -283,6 +292,15 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB320146F0F07000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				WARNING_CFLAGS = (
+					"-Wno-error=#warnings",
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"$(inherited)",
+				);
 			};
 			name = Release;
 		};
@@ -290,6 +308,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB31F146F0F07000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -297,6 +321,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB31F146F0F07000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

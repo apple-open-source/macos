@@ -24,6 +24,7 @@ sub clean_API {
 
 	$api_new = $DO_SPLIT ? $api : clean_INC($api);
 	$api_new =~ s/(__MAC)_\w+\/\*SPI\*\//\1_NA/g;
+	$api_new =~ s/#define\t__AVAILABILITY_INTERNAL__.*FUTURE.*\/\*SPI\*\/\n//;
 	$api_new =~ s/(__IPHONE)_\w+\/\*SPI\*\//\1_NA/g;
 
 	return $api_new;
@@ -35,6 +36,7 @@ sub clean_SPI {
 
 	$spi_new = clean_INC($spi);
 	$spi_new =~ s/(__MAC_\w+)\/\*SPI\*\//\1/g;
+	$spi_new =~ s/(#define\t__AVAILABILITY_INTERNAL__.*FUTURE.*)\/\*SPI\*\//\1/;
 	$spi_new =~ s/(__IPHONE_\w+)\/\*SPI\*\//\1/g;
 
 	return $spi_new;

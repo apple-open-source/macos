@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,6 +60,13 @@ __SCPreferencesCommitChanges_helper(SCPreferencesRef prefs)
 		ok = _SCSerialize(prefsPrivate->prefs, &data, NULL, NULL);
 		if (!ok) {
 			status = kSCStatusFailed;
+			if (_sc_verbose) {
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("SCPreferencesCommitChanges(-->helper) CFPropertyListCreateData() failed"));
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("  prefs = %s"),
+				      prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+			}
 			goto error;
 		}
 	}

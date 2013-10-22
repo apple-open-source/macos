@@ -23,11 +23,14 @@
 #include "WebKitDownload.h"
 #include "WebKitPrivate.h"
 #include <WebCore/ResourceError.h>
+#include <WebCore/ResourceRequest.h>
 #include <wtf/text/CString.h>
 
-WebKitDownload* webkitDownloadCreate(WKDownloadRef);
+WebKitDownload* webkitDownloadCreate(WebKit::DownloadProxy*);
+WebKitDownload* webkitDownloadCreateForRequest(WebKit::DownloadProxy*, const WebCore::ResourceRequest&);
 bool webkitDownloadIsCancelled(WebKitDownload*);
 void webkitDownloadSetResponse(WebKitDownload*, WebKitURIResponse*);
+void webkitDownloadSetWebView(WebKitDownload*, WebKitWebView*);
 void webkitDownloadNotifyProgress(WebKitDownload*, guint64 bytesReceived);
 void webkitDownloadFailed(WebKitDownload*, const WebCore::ResourceError&);
 void webkitDownloadCancelled(WebKitDownload*);

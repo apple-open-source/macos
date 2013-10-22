@@ -23,7 +23,7 @@ int writeFile(
 	if(fd <= 0) {
 		return errno;
 	}
-	rtn = write(fd, bytes, (size_t)numBytes);
+	rtn = (int)write(fd, bytes, (size_t)numBytes);
 	if(rtn != (int)numBytes) {
 		if(rtn >= 0) {
 			fprintf(stderr, "writeFile: short write\n");
@@ -49,7 +49,7 @@ int readFile(
 	int fd;
 	char *buf;
 	struct stat	sb;
-	size_t size;
+	unsigned size;
 	
 	*numBytes = 0;
 	*bytes = NULL;
@@ -61,14 +61,14 @@ int readFile(
 	if(rtn) {
 		goto errOut;
 	}
-	size = (size_t) sb.st_size;
+	size = (unsigned) sb.st_size;
 	buf = (char *)malloc(size);
 	if(buf == NULL) {
 		rtn = ENOMEM;
 		goto errOut;
 	}
-	rtn = read(fd, buf, (size_t)size);
-	if(rtn != (int)size) {
+	rtn = (int)read(fd, buf, size);
+	if(rtn != size) {
 		if(rtn >= 0) {
 			fprintf(stderr, "readFile: short read\n");
 		}

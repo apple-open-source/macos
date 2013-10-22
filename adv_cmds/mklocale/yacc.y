@@ -688,6 +688,9 @@ dump_tables()
 	re.min = htonl(list->min);
 	re.max = htonl(list->max);
 	re.map = htonl(list->map);
+#ifdef __APPLE__
+	re.__types_fake = 0;
+#endif
 
 	if (fwrite((char *)&re, sizeof(re), 1, fp) != 1) {
 	    err(1, "%s: runetype_ext structures", locale_file);
@@ -706,6 +709,9 @@ dump_tables()
 	re.min = htonl(list->min);
 	re.max = htonl(list->max);
 	re.map = htonl(list->map);
+#ifdef __APPLE__
+	re.__types_fake = 0;
+#endif
 
 	if (fwrite((char *)&re, sizeof(re), 1, fp) != 1) {
 	    err(1, "%s: maplower_ext structures", locale_file);
@@ -724,6 +730,9 @@ dump_tables()
 	re.min = htonl(list->min);
 	re.max = htonl(list->max);
 	re.map = htonl(list->map);
+#ifdef __APPLE__
+	re.__types_fake = 0;
+#endif
 
 	if (fwrite((char *)&re, sizeof(re), 1, fp) != 1) {
 	    err(1, "%s: mapupper_ext structures", locale_file);

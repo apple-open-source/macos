@@ -26,6 +26,8 @@
 #include "config.h"
 #include "JSNPMethod.h"
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #include "JSNPObject.h"
 #include <JavaScriptCore/Error.h>
 #include <JavaScriptCore/FunctionPrototype.h>
@@ -49,9 +51,9 @@ JSNPMethod::JSNPMethod(JSGlobalObject* globalObject, Structure* structure, NPIde
 {
 }
 
-void JSNPMethod::finishCreation(JSGlobalData& globalData, const Identifier& name)
+void JSNPMethod::finishCreation(VM& vm, const String& name)
 {
-    Base::finishCreation(globalData, name);
+    Base::finishCreation(vm, name);
     ASSERT(inherits(&s_info));
 }
 
@@ -86,3 +88,5 @@ CallType JSNPMethod::getCallData(JSCell*, CallData& callData)
 }
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

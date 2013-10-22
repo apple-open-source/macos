@@ -29,6 +29,7 @@
 #import <AppKit/AppKit.h>
 
 @class DOMElement;
+@class DOMHTMLFormElement;
 @class DOMHTMLInputElement;
 @class DOMHTMLTextAreaElement;
 @class WebFrame;
@@ -53,6 +54,7 @@
 - (void)textFieldDidEndEditing:(DOMHTMLInputElement *)element inFrame:(WebFrame *)frame;
 - (void)textDidChangeInTextField:(DOMHTMLInputElement *)element inFrame:(WebFrame *)frame;
 - (void)textDidChangeInTextArea:(DOMHTMLTextAreaElement *)element inFrame:(WebFrame *)frame;
+- (void)didFocusTextField:(DOMHTMLInputElement *)element inFrame:(WebFrame *)frame;
 
 - (BOOL)textField:(DOMHTMLInputElement *)element doCommandBySelector:(SEL)commandSelector inFrame:(WebFrame *)frame;
 - (BOOL)textField:(DOMHTMLInputElement *)element shouldHandleEvent:(NSEvent *)event inFrame:(WebFrame *)frame;
@@ -61,6 +63,8 @@
 // listener must be sent continue when the delegate is done.
 - (void)frame:(WebFrame *)frame sourceFrame:(WebFrame *)sourceFrame willSubmitForm:(DOMElement *)form
     withValues:(NSDictionary *)values submissionListener:(id <WebFormSubmissionListener>)listener;
+
+- (void)willSendSubmitEventToForm:(DOMHTMLFormElement *)element inFrame:(WebFrame *)sourceFrame withValues:(NSDictionary *)values;
 
 @end
 

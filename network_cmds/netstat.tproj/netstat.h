@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,7 @@ extern int	aflag;	/* show all sockets (including servers) */
 extern int	bflag;	/* show i/f total bytes in/out */
 extern int	cflag;	/* show specific classq */
 extern int	dflag;	/* show i/f dropped packets */
+extern int	Fflag;	/* show i/f forwarded packets */
 #if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 extern int	gflag;	/* show group (multicast) routing or stats */
 #endif
@@ -98,15 +99,19 @@ extern int	unit;	/* unit number for above */
 
 extern int	af;	/* address family */
 
-extern char	*plural (int);
-extern char	*plurales (int);
+extern char	*plural(int);
+extern char	*plurales(int);
+extern char	*pluralies(int);
 
 extern void	protopr(uint32_t, char *, int);
+extern void	mptcppr(uint32_t, char *, int);
 extern void	tcp_stats(uint32_t, char *, int);
+extern void	mptcp_stats(uint32_t, char *, int);
 extern void	udp_stats(uint32_t, char *, int);
 extern void	ip_stats(uint32_t, char *, int);
 extern void	icmp_stats(uint32_t, char *, int);
 extern void	igmp_stats(uint32_t, char *, int);
+extern void	arp_stats(uint32_t, char *, int);
 #ifdef IPSEC
 extern void	ipsec_stats(uint32_t, char *, int);
 #endif
@@ -151,7 +156,7 @@ extern void	rt_stats(void);
 extern void	upHex(char *);
 extern char	*routename(uint32_t);
 extern char	*netname(uint32_t, uint32_t);
-extern void	routepr(uint32_t);
+extern void	routepr(void);
 
 extern void	unixpr(void);
 extern void	aqstatpr(void);
@@ -163,3 +168,5 @@ extern void	mrt_stats(void);
 #endif
 
 extern void	ifmalist_dump(void);
+
+extern int print_time(void);

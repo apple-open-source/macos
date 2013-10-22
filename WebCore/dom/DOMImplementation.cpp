@@ -27,10 +27,12 @@
 
 #include "ContentType.h"
 #include "CSSStyleSheet.h"
+#include "ContextFeatures.h"
 #include "DocumentType.h"
 #include "Element.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
+#include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FTPDirectoryDocument.h"
 #include "HTMLDocument.h"
@@ -45,9 +47,9 @@
 #include "Page.h"
 #include "PluginData.h"
 #include "PluginDocument.h"
-#include "RegularExpression.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#include "StyleSheetContents.h"
 #include "TextDocument.h"
 #include "ThreadGlobalData.h"
 #include "XMLNames.h"
@@ -146,7 +148,7 @@ static bool isSVG11Feature(const String &feature, const String &version)
         addString(svgFeatures, "Style");
         addString(svgFeatures, "ViewportAttribute");
         addString(svgFeatures, "Shape");
-//      addString(svgFeatures, "Text"); // requires altGlyph, bug 6426
+        addString(svgFeatures, "Text");
         addString(svgFeatures, "BasicText");
         addString(svgFeatures, "PaintAttribute");
         addString(svgFeatures, "BasicPaintAttribute");
@@ -161,7 +163,7 @@ static bool isSVG11Feature(const String &feature, const String &version)
         addString(svgFeatures, "BasicClip");
         addString(svgFeatures, "Mask");
 #if ENABLE(FILTERS)
-//      addString(svgFeatures, "Filter");
+        addString(svgFeatures, "Filter");
         addString(svgFeatures, "BasicFilter");
 #endif
         addString(svgFeatures, "DocumentEventsAttribute");
@@ -171,7 +173,7 @@ static bool isSVG11Feature(const String &feature, const String &version)
         addString(svgFeatures, "Hyperlinking");
         addString(svgFeatures, "XlinkAttribute");
         addString(svgFeatures, "ExternalResourcesRequired");
-//      addString(svgFeatures, "View"); // buggy <view> support, bug 16962
+        addString(svgFeatures, "View");
         addString(svgFeatures, "Script");
         addString(svgFeatures, "Animation"); 
 #if ENABLE(SVG_FONTS)
@@ -294,6 +296,7 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& namespaceUR
         doc = Document::create(0, KURL());
 
     doc->setSecurityOrigin(m_document->securityOrigin());
+    doc->setContextFeatures(m_document->contextFeatures());
 
     RefPtr<Node> documentElement;
     if (!qualifiedName.isEmpty()) {
@@ -312,11 +315,10 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& namespaceUR
         return 0;
     }
 
-    // FIXME: Shouldn't this call appendChild instead?
     if (doctype)
-        doc->parserAddChild(doctype);
+        doc->appendChild(doctype);
     if (documentElement)
-        doc->parserAddChild(documentElement.release());
+        doc->appendChild(documentElement.release());
 
     return doc.release();
 }
@@ -325,32 +327,39 @@ PassRefPtr<CSSStyleSheet> DOMImplementation::createCSSStyleSheet(const String&, 
 {
     // FIXME: Title should be set.
     // FIXME: Media could have wrong syntax, in which case we should generate an exception.
-    RefPtr<CSSStyleSheet> sheet = CSSStyleSheet::create(StyleSheetInternal::create());
+    RefPtr<CSSStyleSheet> sheet = CSSStyleSheet::create(StyleSheetContents::create());
     sheet->setMediaQueries(MediaQuerySet::createAllowingDescriptionSyntax(media));
     return sheet;
 }
 
-static const char* const validXMLMIMETypeChars = "[0-9a-zA-Z_\\-+~!$\\^{}|.%'`#&*]"; // per RFCs: 3023, 2045
-
-XMLMIMETypeRegExp::XMLMIMETypeRegExp() :
-    m_regex(adoptPtr(new RegularExpression(WTF::makeString("^", validXMLMIMETypeChars, "+/", validXMLMIMETypeChars, "+\\+xml$"), TextCaseSensitive)))
+static inline bool isValidXMLMIMETypeChar(UChar c)
 {
-}
-
-XMLMIMETypeRegExp::~XMLMIMETypeRegExp()
-{
-}
-
-bool XMLMIMETypeRegExp::isXMLMIMEType(const String& mimeType)
-{
-    return m_regex->match(mimeType) > -1;
+    // Valid characters per RFCs 3023 and 2045:
+    // 0-9a-zA-Z_-+~!$^{}|.%'`#&*
+    return isASCIIAlphanumeric(c) || c == '!' || c == '#' || c == '$' || c == '%' || c == '&' || c == '\'' || c == '*' || c == '+'
+        || c == '-' || c == '.' || c == '^' || c == '_' || c == '`' || c == '{' || c == '|' || c == '}' || c == '~';
 }
 
 bool DOMImplementation::isXMLMIMEType(const String& mimeType)
 {
     if (mimeType == "text/xml" || mimeType == "application/xml" || mimeType == "text/xsl")
         return true;
-    return threadGlobalData().xmlTypeRegExp().isXMLMIMEType(mimeType);
+
+    if (!mimeType.endsWith("+xml"))
+        return false;
+
+    size_t slashPosition = mimeType.find('/');
+    // Take into account the '+xml' ending of mimeType.
+    if (slashPosition == notFound || !slashPosition || slashPosition == mimeType.length() - 5)
+        return false;
+
+    // Again, mimeType ends with '+xml', no need to check the validity of that substring.
+    for (size_t i = 0; i < mimeType.length() - 4; ++i) {
+        if (!isValidXMLMIMETypeChar(mimeType[i]) && i != slashPosition)
+            return false;
+    }
+
+    return true;
 }
 
 bool DOMImplementation::isTextMIMEType(const String& mimeType)
@@ -369,8 +378,10 @@ PassRefPtr<HTMLDocument> DOMImplementation::createHTMLDocument(const String& tit
     RefPtr<HTMLDocument> d = HTMLDocument::create(0, KURL());
     d->open();
     d->write("<!doctype html><html><body></body></html>");
-    d->setTitle(title);
+    if (!title.isNull())
+        d->setTitle(title);
     d->setSecurityOrigin(m_document->securityOrigin());
+    d->setContextFeatures(m_document->contextFeatures());
     return d.release();
 }
 
@@ -392,12 +403,17 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& type, Frame
 #endif
 
     PluginData* pluginData = 0;
-    if (frame && frame->page() && frame->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin))
+    PluginData::AllowedPluginTypes allowedPluginTypes = PluginData::OnlyApplicationPlugins;
+    if (frame && frame->page()) {
+        if (frame->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin))
+            allowedPluginTypes = PluginData::AllPlugins;
+
         pluginData = frame->page()->pluginData();
+    }
 
     // PDF is one image type for which a plugin can override built-in support.
     // We do not want QuickTime to take over all image types, obviously.
-    if ((type == "application/pdf" || type == "text/pdf") && pluginData && pluginData->supportsMimeType(type))
+    if ((MIMETypeRegistry::isPDFOrPostScriptMIMEType(type)) && pluginData && pluginData->supportsMimeType(type, allowedPluginTypes))
         return PluginDocument::create(frame, url);
     if (Image::supportsType(type))
         return ImageDocument::create(frame, url);
@@ -406,14 +422,14 @@ PassRefPtr<Document> DOMImplementation::createDocument(const String& type, Frame
      // Check to see if the type can be played by our MediaPlayer, if so create a MediaDocument
     // Key system is not applicable here.
     DOMImplementationSupportsTypeClient client(frame && frame->settings() && frame->settings()->needsSiteSpecificQuirks(), url.host());
-    if (MediaPlayer::supportsType(ContentType(type), String(), &client))
+    if (MediaPlayer::supportsType(ContentType(type), String(), url, &client))
          return MediaDocument::create(frame, url);
 #endif
 
     // Everything else except text/plain can be overridden by plugins. In particular, Adobe SVG Viewer should be used for SVG, if installed.
     // Disallowing plug-ins to use text/plain prevents plug-ins from hijacking a fundamental type that the browser is expected to handle,
     // and also serves as an optimization to prevent loading the plug-in database in the common case.
-    if (type != "text/plain" && pluginData && pluginData->supportsMimeType(type)) 
+    if (type != "text/plain" && ((pluginData && pluginData->supportsMimeType(type, allowedPluginTypes)) || (frame && frame->loader()->client()->shouldAlwaysUsePluginDocument(type))))
         return PluginDocument::create(frame, url);
     if (isTextMIMEType(type))
         return TextDocument::create(frame, url);

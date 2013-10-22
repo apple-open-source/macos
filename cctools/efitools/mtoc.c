@@ -1337,8 +1337,10 @@ struct ofile *ofile)
 	    else
 		filehdr.f_magic = IMAGE_FILE_MACHINE_ARM;
 	}
-	else
-	    filehdr.f_magic = IMAGE_FILE_MACHINE_AMD64;
+	else{
+	    if(ofile->mh64->cputype == CPU_TYPE_X86_64)
+		filehdr.f_magic = IMAGE_FILE_MACHINE_AMD64;
+	}
 	filehdr.f_nscns = nscns;
 #ifdef HACK_TO_MATCH_TEST_CASE
 	if(ofile->mh != NULL){
@@ -2118,9 +2120,11 @@ struct arch *arch)
 		sg64 = (struct segment_command_64 *)lc;
 		if(arch->object->mh_cputype == CPU_TYPE_X86_64) {
 		    /*
-		     * X86_64 relocations are relative to the first writable segment
+		     * X86_64 relocations are relative to the first writable
+		     * segment.
 		     */
-		    if((first_addr == 0) && ((sg64->initprot & VM_PROT_WRITE) != 0)) {
+		    if((first_addr == 0) &&
+		       ((sg64->initprot & VM_PROT_WRITE) != 0)) {
 		      first_addr = sg64->vmaddr;
 		    }
 		} else { 

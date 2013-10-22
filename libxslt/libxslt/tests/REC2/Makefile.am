@@ -5,7 +5,7 @@ $(top_builddir)/xsltproc/xsltproc:
 
 EXTRA_DIST = data.xml vrml.xsl vrml.xml svg.xsl svg.xml	html.xsl html.xml
 
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'

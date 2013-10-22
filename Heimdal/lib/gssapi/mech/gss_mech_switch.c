@@ -143,7 +143,7 @@ _gss_string_to_oid(const char* s, gss_OID oid)
 			res = malloc(byte_count);
 			if (!res)
 				return (ENOMEM);
-			oid->length = byte_count;
+			oid->length = (OM_uint32)byte_count;
 			oid->elements = res;
 		}
 	}

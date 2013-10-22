@@ -21,8 +21,10 @@
 
 #include "WebKitTestServer.h"
 #include "WebViewTest.h"
+#include <glib/gstdio.h>
 
 static WebKitTestServer* kServer;
+static char* kTempDirectory;
 
 static const char* kFirstPartyDomain = "127.0.0.1";
 static const char* kThirdPartyDomain = "localhost";
@@ -58,6 +60,30 @@ public:
     {
         g_strfreev(m_domains);
         g_signal_handlers_disconnect_matched(m_cookieManager, G_SIGNAL_MATCH_DATA, 0, 0, 0, 0, this);
+        if (m_cookiesTextFile)
+            g_unlink(m_cookiesTextFile.get());
+        if (m_cookiesSQLiteFile)
+            g_unlink(m_cookiesSQLiteFile.get());
+    }
+
+    void setPersistentStorage(WebKitCookiePersistentStorage storage)
+    {
+        const char* filename = 0;
+        switch (storage) {
+        case WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT:
+            if (!m_cookiesTextFile)
+                m_cookiesTextFile.set(g_build_filename(kTempDirectory, "cookies.txt", NULL));
+            filename = m_cookiesTextFile.get();
+            break;
+        case WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE:
+            if (!m_cookiesSQLiteFile)
+                m_cookiesSQLiteFile.set(g_build_filename(kTempDirectory, "cookies.db", NULL));
+            filename = m_cookiesSQLiteFile.get();
+            break;
+        default:
+            g_assert_not_reached();
+        }
+        webkit_cookie_manager_set_persistent_storage(m_cookieManager, filename, storage);
     }
 
     static void getAcceptPolicyReadyCallback(GObject* object, GAsyncResult* result, gpointer userData)
@@ -74,7 +100,7 @@ public:
     WebKitCookieAcceptPolicy getAcceptPolicy()
     {
         m_acceptPolicy = WEBKIT_COOKIE_POLICY_ACCEPT_NO_THIRD_PARTY;
-        webkit_cookie_manager_get_accept_policy(m_cookieManager, getAcceptPolicyReadyCallback, this);
+        webkit_cookie_manager_get_accept_policy(m_cookieManager, 0, getAcceptPolicyReadyCallback, this);
         g_main_loop_run(m_mainLoop);
 
         return m_acceptPolicy;
@@ -100,10 +126,21 @@ public:
     {
         g_strfreev(m_domains);
         m_domains = 0;
-        webkit_cookie_manager_get_domains_with_cookies(m_cookieManager, getDomainsReadyCallback, this);
+        webkit_cookie_manager_get_domains_with_cookies(m_cookieManager, 0, getDomainsReadyCallback, this);
         g_main_loop_run(m_mainLoop);
 
         return m_domains;
+    }
+
+    bool hasDomain(const char* domain)
+    {
+        if (!m_domains)
+            return false;
+
+        for (size_t i = 0; m_domains[i]; ++i)
+            if (g_str_equal(m_domains[i], domain))
+                return true;
+        return false;
     }
 
     void deleteCookiesForDomain(const char* domain)
@@ -129,6 +166,8 @@ public:
     char** m_domains;
     bool m_cookiesChanged;
     bool m_finishLoopWhenCookiesChange;
+    GOwnPtr<char> m_cookiesTextFile;
+    GOwnPtr<char> m_cookiesSQLiteFile;
 };
 
 static void testCookieManagerAcceptPolicy(CookieManagerTest* test, gconstpointer)
@@ -150,8 +189,8 @@ static void testCookieManagerAcceptPolicy(CookieManagerTest* test, gconstpointer
     domains = test->getDomains();
     g_assert(domains);
     g_assert_cmpint(g_strv_length(domains), ==, 2);
-    g_assert_cmpstr(domains[0], ==, kFirstPartyDomain);
-    g_assert_cmpstr(domains[1], ==, kThirdPartyDomain);
+    g_assert(test->hasDomain(kFirstPartyDomain));
+    g_assert(test->hasDomain(kThirdPartyDomain));
     test->deleteAllCookies();
 
     test->setAcceptPolicy(WEBKIT_COOKIE_POLICY_ACCEPT_NEVER);
@@ -204,6 +243,54 @@ static void testCookieManagerCookiesChanged(CookieManagerTest* test, gconstpoint
     g_assert(test->m_cookiesChanged);
 }
 
+static void testCookieManagerPersistentStorage(CookieManagerTest* test, gconstpointer)
+{
+    test->setAcceptPolicy(WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS);
+
+    // Text storage using a new file.
+    test->setPersistentStorage(WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT);
+    char** domains = test->getDomains();
+    g_assert(domains);
+    g_assert_cmpint(g_strv_length(domains), ==, 0);
+
+    test->loadURI(kServer->getURIForPath("/index.html").data());
+    test->waitUntilLoadFinished();
+    g_assert(test->m_cookiesChanged);
+    domains = test->getDomains();
+    g_assert(domains);
+    g_assert_cmpint(g_strv_length(domains), ==, 2);
+
+
+    // SQLite storage using a new file.
+    test->setPersistentStorage(WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE);
+    domains = test->getDomains();
+    g_assert(domains);
+    g_assert_cmpint(g_strv_length(domains), ==, 0);
+
+    test->loadURI(kServer->getURIForPath("/index.html").data());
+    test->waitUntilLoadFinished();
+    g_assert(test->m_cookiesChanged);
+    domains = test->getDomains();
+    g_assert(domains);
+    g_assert_cmpint(g_strv_length(domains), ==, 2);
+
+    // Text storage using an existing file.
+    test->setPersistentStorage(WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT);
+    domains = test->getDomains();
+    g_assert(domains);
+    g_assert_cmpint(g_strv_length(domains), ==, 2);
+    test->deleteAllCookies();
+    g_assert_cmpint(g_strv_length(test->getDomains()), ==, 0);
+
+    // SQLite storage with an existing file.
+    test->setPersistentStorage(WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE);
+    domains = test->getDomains();
+    g_assert(domains);
+    g_assert_cmpint(g_strv_length(domains), ==, 2);
+    test->deleteAllCookies();
+    g_assert_cmpint(g_strv_length(test->getDomains()), ==, 0);
+}
+
 static void serverCallback(SoupServer* server, SoupMessage* message, const char* path, GHashTable*, SoupClientContext*, gpointer)
 {
     if (message->method != SOUP_METHOD_GET) {
@@ -214,12 +301,12 @@ static void serverCallback(SoupServer* server, SoupMessage* message, const char*
     soup_message_set_status(message, SOUP_STATUS_OK);
     if (g_str_equal(path, "/index.html")) {
         char* indexHtml = g_strdup_printf(kIndexHtmlFormat, soup_server_get_port(server));
-        soup_message_headers_replace(message->response_headers, "Set-Cookie", "foo=bar");
+        soup_message_headers_replace(message->response_headers, "Set-Cookie", "foo=bar; Max-Age=60");
         soup_message_body_append(message->response_body, SOUP_MEMORY_TAKE, indexHtml, strlen(indexHtml));
     } else if (g_str_equal(path, "/image.png"))
-        soup_message_headers_replace(message->response_headers, "Set-Cookie", "baz=qux");
+        soup_message_headers_replace(message->response_headers, "Set-Cookie", "baz=qux; Max-Age=60");
     else
-        g_assert_not_reached();
+        soup_message_set_status(message, SOUP_STATUS_NOT_FOUND);
     soup_message_body_complete(message->response_body);
 }
 
@@ -228,12 +315,17 @@ void beforeAll()
     kServer = new WebKitTestServer();
     kServer->run(serverCallback);
 
+    kTempDirectory = g_dir_make_tmp("WebKit2Tests-XXXXXX", 0);
+    g_assert(kTempDirectory);
+
     CookieManagerTest::add("WebKitCookieManager", "accept-policy", testCookieManagerAcceptPolicy);
     CookieManagerTest::add("WebKitCookieManager", "delete-cookies", testCookieManagerDeleteCookies);
     CookieManagerTest::add("WebKitCookieManager", "cookies-changed", testCookieManagerCookiesChanged);
+    CookieManagerTest::add("WebKitCookieManager", "persistent-storage", testCookieManagerPersistentStorage);
 }
 
 void afterAll()
 {
     delete kServer;
+    g_rmdir(kTempDirectory);
 }

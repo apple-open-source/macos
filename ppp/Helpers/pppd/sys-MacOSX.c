@@ -67,6 +67,7 @@
 #include <sys/wait.h>
 #include <sys/un.h>
 #include <sys/ucred.h>
+#import "acsp.h"
 #ifdef PPP_FILTER
 #include <net/bpf.h>
 #endif
@@ -117,6 +118,8 @@
 #include "lcp.h"
 #include "eap.h"
 #include "../vpnd/RASSchemaDefinitions.h"
+
+#include "acscp.h"
 
 /* -----------------------------------------------------------------------------
  Definitions
@@ -175,6 +178,7 @@ int route_interface(int cmd, struct in_addr host, struct in_addr mask, char ifty
 int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag);
 static void ppp_ip_probe_timeout (void *arg);
 static void republish_dict();
+static int commit_publish_dict();
 
 /* -----------------------------------------------------------------------------
  Globals
@@ -222,6 +226,7 @@ static char 	*network_signature = NULL; 	/* network signature */
 bool	 		noload = 0;		/* don't load the kernel extension */
 bool                    looplocal = 0;  /* Don't loop local traffic destined to the local address some applications rely on this default behavior */
 bool            addifroute = 0;  /* install route for the netmask of the interface */
+bool            noipv6override = 0;  /* don't override IPv6 traffic if IPv4 is primary */
 
 static struct in_addr		ifroute_address;
 static struct in_addr		ifroute_mask;
@@ -250,6 +255,8 @@ option_t sys_options[] = {
       "Install route for the interface", 1},
     { "nolooplocal", o_bool, &looplocal,
       "Don't loop local traffic destined to the local address", 0},
+    { "noipv6override", o_bool, &noipv6override,
+      "Don't override other IPv6 interfaces if ppp is default for IPv4", 1},
     { NULL }
 };
 
@@ -263,6 +270,11 @@ static int override_primary = 0;
 static int wait_port_mapping_changed = 0;
 
 extern int kill_link;
+
+extern bool	acsp_use_dhcp; // To check if we need to wait for DHCP information
+/* These booleans are meant to be set when the notifiers respond. */
+static bool protocols_ready = false;
+static bool acspdhcp_ready = false;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -345,7 +357,7 @@ int sys_check_controller()
 	audit_token_t		audit_token;
 	uid_t               euid;
 
-	status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER, &server);
+	status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER_PRIV, &server);
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			/* service currently registered, "a good thing" (tm) */
@@ -405,7 +417,7 @@ void CopyControllerData()
 	audit_token_t		audit_token;
 	uid_t               euid;
 
-	status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER, &server);
+	status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER_PRIV, &server);
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			/* service currently registered, "a good thing" (tm) */
@@ -500,16 +512,85 @@ void CopyServerData()
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
-static int setstorevalue(CFStringRef key, CFMutableDictionaryRef dict)
+void sys_protocolsreadynotify(void *param, uintptr_t info)
 {
-	int result = 1;
-	
-	if (SCDynamicStoreSetValue(cfgCache, key, dict) == 0)
-		result = 0;
-	
-	if (publish_dict){
-		CFDictionarySetValue(publish_dict, key, dict);
+    protocols_ready = true;
+    dbglog("Received protocol dictionaries\n");
+    commit_publish_dict();
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+void sys_acspdhcpreadynotify(void *param, uintptr_t info)
+{
+    acspdhcp_ready = true;
+    dbglog("Received acsp/dhcp dictionaries\n");
+    commit_publish_dict();
+}
+
+/**************************************************************************
+ To be called whenever we are potentially ready to update system config.
+ Particularly, these times are:
+ - Move into RUNNING state
+ - Receive DHCP or ACSP info
+ - Republish dictionary
+*************************************************************************/
+static int commit_publish_dict()
+{
+	/* Only publish one-at-a-time for demand mode */
+	if (demand) {
+		goto fail;
 	}
+	
+    /* Check if we are RUNNING, there are NO WAITING protocols, and NO WAITING DHCP info */
+    int result = 1;
+    
+    /* Make sure we're RUNNING */
+    if (phase != PHASE_RUNNING) {
+        goto fail;
+    }
+ 
+    /* Make sure all protocols ready */
+    if (!protocols_ready) {
+        goto fail;
+    }
+    
+    /* Make sure all DHCP info acquired */
+    if ((acsp_use_dhcp || acscp_protent.enabled_flag) && !acspdhcp_ready) {
+        goto fail;
+    }
+    
+    /* Publish! */
+    if (publish_dict) {
+        notice("Committed PPP store\n");
+        if (!SCDynamicStoreSetMultiple(cfgCache, publish_dict, NULL, NULL))
+            result = 0;
+    }
+    
+    return result;
+    
+fail:
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+ Change dictionary to be published
+ ----------------------------------------------------------------------------- */
+static int update_publish_dict(CFStringRef key, CFMutableDictionaryRef dict)
+{    
+    int result = 1;
+	
+	if (demand) {
+		if (SCDynamicStoreSetValue(cfgCache, key, dict) == 0)
+			result = 0;
+	}
+	
+	if (publish_dict) {
+		CFDictionarySetValue(publish_dict, key, dict);
+	} else {
+        result = 0;
+    }
+    
 	return result;
 }
 
@@ -591,19 +672,16 @@ void sys_init()
     	publish_dictstrentry(kSCEntNetInterface, CFSTR("ServerID"), serverid, kCFStringEncodingMacRoman);
 	}
 	
-	if (!controlled){
-		
-		publish_dict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		if (publish_dict){
-			rls = SCDynamicStoreCreateRunLoopSource(kCFAllocatorDefault, cfgCache, 0);
-			if ( rls == NULL ){
-				notice("SCDynamicStoreCreateRunLoopSource FAILED %s", SCErrorString(SCError()));
-			}else {
-				CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-			}
-			SCDynamicStoreSetDisconnectCallBack(cfgCache, republish_dict);
-		}
-	}
+	publish_dict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!controlled && publish_dict){
+        rls = SCDynamicStoreCreateRunLoopSource(kCFAllocatorDefault, cfgCache, 0);
+        if ( rls == NULL ){
+            notice("SCDynamicStoreCreateRunLoopSource FAILED %s", SCErrorString(SCError()));
+        } else {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+        }
+        SCDynamicStoreSetDisconnectCallBack(cfgCache, republish_dict);
+    }
 	
 	
     //add_notifier(&pidchange, sys_pidchange, 0);
@@ -637,6 +715,9 @@ void sys_init()
 
     add_notifier(&lcp_timeremaining_notify, sys_timeremaining, 0);
     add_notifier(&auth_peer_success_notify, sys_authpeersuccessnotify, 0);
+    
+    add_notifier(&protocolsready_notifier, sys_protocolsreadynotify, 0);
+    add_notifier(&acspdhcpready_notifier, sys_acspdhcpreadynotify, 0);
 
     if (mach_timebase_info(&timebaseInfo) == KERN_SUCCESS) {	// returns scale factor for ns
         timeScaleMicroSeconds = ((double) timebaseInfo.numer / (double) timebaseInfo.denom) / 1000;
@@ -997,10 +1078,7 @@ int tty_establish_ppp (int tty_fd)
     // First, turn the device into ppp link
 
     /* Ensure that the tty device is in exclusive mode.  */
-    if (ioctl(tty_fd, TIOCEXCL, 0) < 0) {
-        if ( ! ok_error ( errno ))
-	  ;//warning("Couldn't make tty exclusive: %m");
-    }
+    ioctl(tty_fd, TIOCEXCL, 0);
     
     // Set the current tty to the PPP discpline
     pppdisc = sync_serial ? N_SYNC_PPP: PPPDISC;
@@ -1013,7 +1091,7 @@ int tty_establish_ppp (int tty_fd)
 
     // Then, then do the generic link work, and get a generic fd back
 
-    new_fd = generic_establish_ppp(tty_fd);
+    new_fd = generic_establish_ppp(tty_fd, NULL);
     if (new_fd == -1) {
         // Restore the previous line discipline
         if (ioctl(tty_fd, TIOCSETD, &ttydisc) < 0)
@@ -1066,7 +1144,7 @@ void tty_disestablish_ppp(int tty_fd)
 /* ----------------------------------------------------------------------------- 
 generic code to establish ppp interface
 ----------------------------------------------------------------------------- */
-int generic_establish_ppp (int fd)
+int generic_establish_ppp (int fd, UInt8 *delegate)
 {
     int flags, s = -1, link = 0;
             
@@ -1103,6 +1181,14 @@ int generic_establish_ppp (int fd)
         // Create a new PPP unit.
         if (make_ppp_unit() < 0)
             goto err_close;
+    }
+    
+    // set the delegate interface
+    if (delegate) {
+        if (ioctl(ppp_sockfd, PPPIOCSDELEGATE, delegate) < 0) {
+            error("Couldn't set the delegate interface: %m");
+            goto err_close;
+        }
     }
 
     if (looped) {
@@ -2305,7 +2391,7 @@ static kern_return_t GetPrimaryMACAddress(UInt8 *MACAddress)
     bzero(MACAddress, kIOEthernetAddressSize);
     
     // IOIteratorNext retains the returned object, so release it when we're done with it.
-    while (intfService = IOIteratorNext(intfIterator)) {
+    while ((intfService = IOIteratorNext(intfIterator))) {
     
         CFTypeRef MACAddressAsCFData;        
 
@@ -2382,12 +2468,72 @@ ether_to_eui64(eui64_t *p_eui64)
 
 #endif
 
+/* ----------------------------------------------------------------------------
+ Create a "NULL Service" primary IPv6 dictionary for the dynamic store. This
+ prevents any other service from becoming primary on IPv6.
+ ----------------------------------------------------------------------------- */
+#ifndef kIsNULL
+#define kIsNULL		CFSTR("IsNULL") /* CFBoolean */
+#endif
+void ppp_create_ipv6_dummy_primary(Boolean uninstall)
+{
+    CFMutableArrayRef		array;
+    CFMutableDictionaryRef	ipv6_dict;
+    int						isprimary = 1;
+    CFStringRef				key;
+    CFNumberRef				num;
+    CFStringRef				str;
+
+    if (noipv6override || cfgCache == NULL || serviceidRef == NULL)
+        return;
+
+    if ((key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv6))) {
+        if (uninstall) {
+            unpublish_dict(key);
+        } else {		
+            /* create the IPv6 dictionnary */
+            if ((ipv6_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks))) {
+                if ((array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks))) {
+                    CFArrayAppendValue(array, CFSTR("::1"));
+                    CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Addresses, array);
+                    CFRelease(array);
+                }
+                
+                CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Router, CFSTR("::1"));
+                
+                num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &isprimary);
+                if (num) {
+                    CFDictionarySetValue(ipv6_dict, kSCPropNetOverridePrimary, num);
+                    CFRelease(num);
+                }
+                
+                CFDictionarySetValue(ipv6_dict, kIsNULL, kCFBooleanTrue);
+                
+                if (ifname) {
+                    if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname))) {
+                        CFDictionarySetValue(ipv6_dict, kSCPropInterfaceName, str);
+                        CFRelease(str);
+                    }
+                }
+                
+                update_publish_dict(key, ipv6_dict);
+                CFRelease(ipv6_dict);
+            }
+        }
+        
+        CFRelease(key);
+    }
+
+    return;
+}
+
 /* -----------------------------------------------------------------------------
 assign a default route through the address given 
 ----------------------------------------------------------------------------- */
 int sifdefaultroute(int u, u_int32_t l, u_int32_t g)
 {
     override_primary = 1;
+    ppp_create_ipv6_dummy_primary(FALSE);
     return publish_dictnumentry(kSCEntNetIPv4, kSCPropNetOverridePrimary, 1);
 }
 
@@ -2397,6 +2543,7 @@ delete a default route through the address given
 int cifdefaultroute(int u, u_int32_t l, u_int32_t g)
 {
     override_primary = 0;
+    ppp_create_ipv6_dummy_primary(TRUE);
     return unpublish_dictentry(kSCEntNetIPv4, kSCPropNetOverridePrimary);
 }
 
@@ -2417,7 +2564,7 @@ static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
         return 0;
 
     /* update the store now */
-    if (key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4)) {
+    if ((key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4))) {
         CFPropertyListRef ref;
         if ((ref = SCDynamicStoreCopyValue(cfgCache, key)) == NULL ||
             CFGetTypeID(ref) != CFDictionaryGetTypeID()) {
@@ -2443,9 +2590,9 @@ static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
     }
 
     /* set the ip address src and dest arrays */
-    if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
+    if ((array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks))) {
         addr.s_addr = o;
-        if (str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+        if ((str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
             CFArrayAppendValue(array, str);
             CFRelease(str);
             CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Addresses, array); 
@@ -2453,9 +2600,9 @@ static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
         CFRelease(array);
     }
        
-    if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
+    if ((array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks))) {
         addr.s_addr = h;
-        if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+        if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
             CFArrayAppendValue(array, str);
             CFRelease(str);
             CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4DestAddresses, array);
@@ -2465,20 +2612,20 @@ static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
        
     /* set the router */
     addr.s_addr = h;
-    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+    if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
         CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
         CFRelease(str);
     }
        
     /* add the interface name */
-    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname)) {
+    if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname))) {
         CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, str);
         CFRelease(str);
     }
        
     /* add the network signature */
     if (network_signature) {
-               if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), network_signature)) {
+               if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), network_signature))) {
                        CFDictionarySetValue(ipv4_dict, CFSTR("NetworkSignature"), str);
                        CFRelease(str);
                }
@@ -2490,7 +2637,7 @@ static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
     }
 
 
-	if (setstorevalue(key, ipv4_dict) == 0)
+	if (update_publish_dict(key, ipv4_dict) == 0)
         warning("SCDynamicStoreSetValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
 
     CFRelease(ipv4_dict);
@@ -2518,9 +2665,9 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
         return 0;
 
    /* set the ip address src and dest arrays */
-    if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
+    if ((array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks))) {
         addr.s_addr = o;
-        if (str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+        if ((str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
             CFArrayAppendValue(array, str);
             CFRelease(str);
             CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Addresses, array); 
@@ -2528,9 +2675,9 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
         CFRelease(array);
     }
 
-    if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
+    if ((array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks))) {
         addr.s_addr = h;
-        if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+        if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
             CFArrayAppendValue(array, str);
             CFRelease(str);
             CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4DestAddresses, array);
@@ -2540,20 +2687,20 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 
     /* set the router */
     addr.s_addr = h;
-    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+    if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
         CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
         CFRelease(str);
     }
 
     /* add the interface name */
-    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname)) {
+    if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname))) {
         CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, str);
         CFRelease(str);
     }
 
     /* add the network signature */
     if (network_signature) {
-		if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), network_signature)) {
+		if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), network_signature))) {
 			CFDictionarySetValue(ipv4_dict, CFSTR("NetworkSignature"), str);
 			CFRelease(str);
 		}
@@ -2565,9 +2712,9 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
     }
 	
     /* update the store now */
-    if (str = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4)) {
+    if ((str = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4))) {
         
-		if (setstorevalue(str, ipv4_dict) == 0)
+		if (update_publish_dict(str, ipv4_dict) == 0)
             warning("SCDynamicStoreSetValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
 
         CFRelease(str);
@@ -2591,14 +2738,21 @@ int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef 
     CFPropertyListRef		ref;
     int				ret = 0;
 
-    if (cfgCache == NULL)
+    if (publish_dict == NULL && cfgCache == NULL)
         return 0;
 
     key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, entity);
     if (!key) 
         goto end;
         
-    if (ref = SCDynamicStoreCopyValue(cfgCache, key)) {
+    if (publish_dict) {
+        if ((ref = CFDictionaryGetValue(publish_dict, key))) {
+            dict = CFDictionaryCreateMutableCopy(0, 0, ref);
+        }
+        else
+            dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    }
+    else if ((ref = SCDynamicStoreCopyValue(cfgCache, key))) {
         dict = CFDictionaryCreateMutableCopy(0, 0, ref);
         CFRelease(ref);
     } else
@@ -2655,7 +2809,7 @@ int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef 
 		CFRelease(mutable_array);
     }
 	    
-	if (setstorevalue(key,dict))
+	if (update_publish_dict(key,dict))
         ret = 1;
     else
         warning("SCDynamicStoreSetValue DNS/WINS %s failed: %s\n", ifname, SCErrorString(SCError()));
@@ -3197,19 +3351,17 @@ int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value)
     if (cfgCache == NULL)
         return 0;
             
-    if (ref = SCDynamicStoreCopyValue(cfgCache, key)) {
+    if (publish_dict && key && CFDictionaryContainsKey(publish_dict, key) && (ref = CFDictionaryGetValue(publish_dict, key))) {
         dict = CFDictionaryCreateMutableCopy(0, 0, ref);
-        CFRelease(ref);
+    } else {
+        dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     }
-    else
-        dict = CFDictionaryCreateMutable(0, 0, 
-                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     
     if (dict == 0)
         return 0;
     
     CFDictionarySetValue(dict,  entry, value);
-	if (setstorevalue(key,dict) == 0)
+	if (update_publish_dict(key,dict) == 0)
         warning("publish_entry SCDSet() failed: %s\n", SCErrorString(SCError()));
     CFRelease(dict);
     
@@ -3267,9 +3419,7 @@ int publish_dictstrentry(CFStringRef dict, CFStringRef entry, char *str, int enc
 static void
 republish_dict(SCDynamicStoreRef store __unused, void *info  __unused)
 {
-	int i,count;
-	const void	**keys = NULL;
-	const void	**values = NULL;
+	int count;
 	
     dbglog("DynamicStore Server has reconnected, republish keys");
 	if (publish_dict == NULL)
@@ -3283,29 +3433,16 @@ republish_dict(SCDynamicStoreRef store __unused, void *info  __unused)
 			fatal("republish_dict SCDynamicStoreCreate failed: %s", SCErrorString(SCError()));
 			return;
 		}
-		
-		keys = (const void * *)malloc(sizeof(keys) * count);
-		values = (const void * *)malloc(sizeof(values) * count);
-		
-		if ((keys == NULL) || (values == NULL))
-			goto done;
-		
-		CFDictionaryGetKeysAndValues(publish_dict, keys, values);
-		dbglog("republish_dict: processing %d keys", count);
-		for (i=0 ; i<count; i++){
-			if (!SCDynamicStoreSetValue(cfgCache, keys[i], values[i])){
-				warning("republish_dict SCDynamicStoreSetValue failed key %s: %s\n", CFStringGetCStringPtr(keys[i], kCFStringEncodingMacRoman), SCErrorString(SCError()));
-			}
-			
-		}
+        
+        dbglog("republish_dict: processing %d keys", count);
+        if (demand) { /* Republish directly for demand mode */
+            if (publish_dict) {
+                SCDynamicStoreSetMultiple(cfgCache, publish_dict, NULL, NULL);
+            }
+        } else if (!commit_publish_dict()) {
+            warning("republish_dict SCDynamicStoreSetMultiple failed key: %s\n", SCErrorString(SCError()));
+        }
 	}
-	
-done:
-	if (keys)
-		free(keys);
-	if (values)
-		free(values);
-	
 }
 
 /* -----------------------------------------------------------------------------
@@ -3320,15 +3457,15 @@ int unpublish_keyentry(CFStringRef key, CFStringRef entry)
     if (cfgCache == NULL)
         return 0;
         
-    if (ref = SCDynamicStoreCopyValue(cfgCache, key)) {
-        if (dict = CFDictionaryCreateMutableCopy(0, 0, ref)) {
+    if (publish_dict && key && CFDictionaryContainsKey(publish_dict, key) && (ref = CFDictionaryGetValue(publish_dict, key))) {
+        if ((dict = CFDictionaryCreateMutableCopy(0, 0, ref))) {
             CFDictionaryRemoveValue(dict, entry);
-			if (setstorevalue(key, dict) == 0)
+            if (update_publish_dict(key, dict) == 0)
                 warning("unpublish_keyentry SCDSet() failed: %s\n", SCErrorString(SCError()));
             CFRelease(dict);
         }
-        CFRelease(ref);
     }
+    
     return 0;
 }
 
@@ -3431,7 +3568,7 @@ void sys_phasechange(void *arg, uintptr_t p)
 
     /* send phase notification to the controller */
     if (phase != PHASE_DEAD)
-		sys_notify(PPPD_PHASE, phase, 0);
+		sys_notify(PPPD_PHASE, phase, ifunit);
 }
 
 

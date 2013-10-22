@@ -11,27 +11,23 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 
+RUBYHOSTUSR = /System/Library/Frameworks/Ruby.framework/Versions/1.8/usr
 RUBYUSR = $(DSTROOT)/System/Library/Frameworks/Ruby.framework/Versions/1.8/usr
 DSTRUBYDIR = $(RUBYUSR)/lib/ruby
-DSTGEMSDIR = $(DSTRUBYDIR)/gems/1.8
-
-GEM = /usr/bin/gem
-GEM_INSTALL = $(GEM) install --install-dir $(DSTGEMSDIR) --local --include-dependencies --rdoc
-
-DEV_USR_BIN = $(DSTROOT)/Developer/usr/bin
-SAMPLES = $(DSTROOT)/Developer/Examples/Ruby/RubyCocoa
 
 RUN_TESTS = 0
 
 build::
 	(cd $(SRCROOT)/$(Project) \
-	&& /usr/bin/ruby install.rb config --prefix=$(RUBYUSR) --site-ruby=$(DSTRUBYDIR)/1.8 --so-dir=$(DSTRUBYDIR)/1.8/universal-darwin`uname -r | cut -d. -f1-2` --frameworks="$(DSTROOT)/System/Library/Frameworks" --xcode-extras="$(DSTROOT)/unmaintained_templates" --examples="$(DSTROOT)/Developer/Examples/Ruby" --documentation="$(DSTROOT)/Developer/Documentation" --gen-bridge-support=false --build-as-embeddable=false \
-	&& /usr/bin/ruby install.rb setup \
+	&& $(RUBYHOSTUSR)/bin/ruby install.rb config --sdkroot=$(SDKROOT) --prefix=$(RUBYUSR) --site-ruby=$(DSTRUBYDIR)/1.8 --so-dir=$(DSTRUBYDIR)/1.8/universal-darwin`uname -r | cut -d. -f1-2` --frameworks="$(DSTROOT)/System/Library/Frameworks" --xcode-extras="$(DSTROOT)/unmaintained_templates" --examples="$(DSTROOT)/Developer/Examples/Ruby" --documentation="$(DSTROOT)/Developer/Documentation" --gen-bridge-support=false --build-as-embeddable=false \
+	&& $(RUBYHOSTUSR)/bin/ruby install.rb setup \
 	&& (if [ $(RUN_TESTS)"" = "1" ]; then (cd tests && (DYLD_FRAMEWORK_PATH=../framework/build /usr/bin/ruby -I../lib -I../ext/rubycocoa testall.rb || exit 1)); fi) \
-	&& /usr/bin/ruby install.rb install \
-	&& /usr/bin/ruby install.rb clean)
+	&& $(RUBYHOSTUSR)/bin/ruby install.rb install)
 	rm -rf $(DSTROOT)/unmaintained_templates
 	rm -rf $(DSTROOT)/Developer
+	find $(RUBYUSR)/lib -name "*.bundle" -exec cp '{}' $(SYMROOT) \;
+	cp $(DSTROOT)/System/Library/Frameworks/RubyCocoa.framework/RubyCocoa $(SYMROOT)
+	for f in $(SYMROOT)/*; do dsymutil $$f; done
 	$(STRIP) -x `find $(RUBYUSR)/lib -name "*.bundle"` 
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
@@ -67,5 +63,6 @@ install_source::
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
 		echo $$patchfile; \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
+		patch -d $(SRCROOT)/$(Project) -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
+	sed -i -e 's:-I/usr/include/:-I$(SDKROOT)/usr/include/:' $(SRCROOT)/$(Project)/pre-config.rb

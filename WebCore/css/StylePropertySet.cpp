@@ -1,6 +1,6 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2012, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Research In Motion Limited. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -22,84 +22,109 @@
 #include "config.h"
 #include "StylePropertySet.h"
 
+#include "CSSComputedStyleDeclaration.h"
 #include "CSSParser.h"
-#include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
 #include "Document.h"
 #include "PropertySetCSSStyleDeclaration.h"
 #include "StylePropertyShorthand.h"
-#include <wtf/BitVector.h>
+#include "StyleSheetContents.h"
+#include <wtf/BitArray.h>
 #include <wtf/text/StringBuilder.h>
+
+#if ENABLE(CSS_VARIABLES)
+#include "CSSVariableValue.h"
+#endif
+
+#ifndef NDEBUG
+#include <stdio.h>
+#include <wtf/ASCIICType.h>
+#include <wtf/text/CString.h>
+#endif
 
 using namespace std;
 
 namespace WebCore {
 
-typedef HashMap<const StylePropertySet*, OwnPtr<PropertySetCSSStyleDeclaration> > PropertySetCSSOMWrapperMap;
+typedef HashMap<MutableStylePropertySet*, OwnPtr<PropertySetCSSStyleDeclaration> > PropertySetCSSOMWrapperMap;
 static PropertySetCSSOMWrapperMap& propertySetCSSOMWrapperMap()
 {
     DEFINE_STATIC_LOCAL(PropertySetCSSOMWrapperMap, propertySetCSSOMWrapperMapInstance, ());
     return propertySetCSSOMWrapperMapInstance;
 }
 
-StylePropertySet::StylePropertySet(CSSParserMode cssParserMode)
-    : m_cssParserMode(cssParserMode)
-    , m_ownsCSSOMWrapper(false)
+static size_t sizeForImmutableStylePropertySetWithPropertyCount(unsigned count)
 {
+    return sizeof(ImmutableStylePropertySet) - sizeof(void*) + sizeof(CSSValue*) * count + sizeof(StylePropertyMetadata) * count;
 }
 
-StylePropertySet::StylePropertySet(const Vector<CSSProperty>& properties)
-    : m_properties(properties)
-    , m_cssParserMode(CSSStrictMode)
-    , m_ownsCSSOMWrapper(false)
+static bool isInitialOrInherit(const String& value)
 {
-    m_properties.shrinkToFit();
+    DEFINE_STATIC_LOCAL(String, initial, ("initial"));
+    DEFINE_STATIC_LOCAL(String, inherit, ("inherit"));
+    return value.length() == 7 && (value == initial || value == inherit);
 }
 
-StylePropertySet::StylePropertySet(const CSSProperty* properties, int numProperties, CSSParserMode cssParserMode)
-    : m_cssParserMode(cssParserMode)
-    , m_ownsCSSOMWrapper(false)
+PassRefPtr<ImmutableStylePropertySet> ImmutableStylePropertySet::create(const CSSProperty* properties, unsigned count, CSSParserMode cssParserMode)
 {
-    // FIXME: This logic belongs in CSSParser.
+    void* slot = WTF::fastMalloc(sizeForImmutableStylePropertySetWithPropertyCount(count));
+    return adoptRef(new (NotNull, slot) ImmutableStylePropertySet(properties, count, cssParserMode));
+}
 
-    m_properties.reserveInitialCapacity(numProperties);
-    HashMap<int, bool> candidates;
-    for (int i = 0; i < numProperties; ++i) {
-        const CSSProperty& property = properties[i];
-        bool important = property.isImportant();
+PassRefPtr<ImmutableStylePropertySet> StylePropertySet::immutableCopyIfNeeded() const
+{
+    if (!isMutable())
+        return static_cast<ImmutableStylePropertySet*>(const_cast<StylePropertySet*>(this));
+    const MutableStylePropertySet* mutableThis = static_cast<const MutableStylePropertySet*>(this);
+    return ImmutableStylePropertySet::create(mutableThis->m_propertyVector.data(), mutableThis->m_propertyVector.size(), cssParserMode());
+}
 
-        HashMap<int, bool>::iterator it = candidates.find(property.id());
-        if (it != candidates.end()) {
-            if (!important && it->second)
-                continue;
-            removeProperty(property.id());
-        }
+MutableStylePropertySet::MutableStylePropertySet(const CSSProperty* properties, unsigned length)
+    : StylePropertySet(CSSStrictMode)
+{
+    m_propertyVector.reserveInitialCapacity(length);
+    for (unsigned i = 0; i < length; ++i)
+        m_propertyVector.uncheckedAppend(properties[i]);
+}
 
-        m_properties.append(property);
-        candidates.set(property.id(), important);
+ImmutableStylePropertySet::ImmutableStylePropertySet(const CSSProperty* properties, unsigned length, CSSParserMode cssParserMode)
+    : StylePropertySet(cssParserMode, length)
+{
+    StylePropertyMetadata* metadataArray = const_cast<StylePropertyMetadata*>(this->metadataArray());
+    CSSValue** valueArray = const_cast<CSSValue**>(this->valueArray());
+    for (unsigned i = 0; i < length; ++i) {
+        metadataArray[i] = properties[i].metadata();
+        valueArray[i] = properties[i].value();
+        valueArray[i]->ref();
     }
 }
 
-StylePropertySet::StylePropertySet(const StylePropertySet& o)
-    : RefCounted<StylePropertySet>()
-    , m_properties(o.m_properties)
-    , m_cssParserMode(o.m_cssParserMode)
-    , m_ownsCSSOMWrapper(false)
+ImmutableStylePropertySet::~ImmutableStylePropertySet()
 {
+    CSSValue** valueArray = const_cast<CSSValue**>(this->valueArray());
+    for (unsigned i = 0; i < m_arraySize; ++i)
+        valueArray[i]->deref();
 }
 
-StylePropertySet::~StylePropertySet()
+MutableStylePropertySet::MutableStylePropertySet(const StylePropertySet& other)
+    : StylePropertySet(other.cssParserMode())
+{
+    if (other.isMutable())
+        m_propertyVector = static_cast<const MutableStylePropertySet&>(other).m_propertyVector;
+    else {
+        m_propertyVector.reserveInitialCapacity(other.propertyCount());
+        for (unsigned i = 0; i < other.propertyCount(); ++i)
+            m_propertyVector.uncheckedAppend(other.propertyAt(i).toCSSProperty());
+    }
+}
+
+MutableStylePropertySet::~MutableStylePropertySet()
 {
     ASSERT(!m_ownsCSSOMWrapper || propertySetCSSOMWrapperMap().contains(this));
     if (m_ownsCSSOMWrapper)
         propertySetCSSOMWrapperMap().remove(this);
-}
-
-void StylePropertySet::copyPropertiesFrom(const StylePropertySet& other)
-{
-    m_properties = other.m_properties;
 }
 
 String StylePropertySet::getPropertyValue(CSSPropertyID propertyID) const
@@ -136,36 +161,50 @@ String StylePropertySet::getPropertyValue(CSSPropertyID propertyID) const
         return get4Values(borderWidthShorthand());
     case CSSPropertyBorderStyle:
         return get4Values(borderStyleShorthand());
-#if ENABLE(CSS3_FLEXBOX)
+    case CSSPropertyWebkitColumnRule:
+        return getShorthandValue(webkitColumnRuleShorthand());
+    case CSSPropertyWebkitColumns:
+        return getShorthandValue(webkitColumnsShorthand());
+    case CSSPropertyWebkitFlex:
+        return getShorthandValue(webkitFlexShorthand());
     case CSSPropertyWebkitFlexFlow:
         return getShorthandValue(webkitFlexFlowShorthand());
-#endif
+    case CSSPropertyWebkitGridColumn:
+        return getShorthandValue(webkitGridColumnShorthand());
+    case CSSPropertyWebkitGridRow:
+        return getShorthandValue(webkitGridRowShorthand());
     case CSSPropertyFont:
         return fontValue();
     case CSSPropertyMargin:
         return get4Values(marginShorthand());
+    case CSSPropertyWebkitMarginCollapse:
+        return getShorthandValue(webkitMarginCollapseShorthand());
     case CSSPropertyOverflow:
         return getCommonValue(overflowShorthand());
     case CSSPropertyPadding:
         return get4Values(paddingShorthand());
+    case CSSPropertyTransition:
+        return getLayeredShorthandValue(transitionShorthand());
     case CSSPropertyListStyle:
         return getShorthandValue(listStyleShorthand());
+    case CSSPropertyWebkitMarquee:
+        return getShorthandValue(webkitMarqueeShorthand());
     case CSSPropertyWebkitMaskPosition:
         return getLayeredShorthandValue(webkitMaskPositionShorthand());
     case CSSPropertyWebkitMaskRepeat:
         return getLayeredShorthandValue(webkitMaskRepeatShorthand());
     case CSSPropertyWebkitMask:
         return getLayeredShorthandValue(webkitMaskShorthand());
+    case CSSPropertyWebkitTextEmphasis:
+        return getShorthandValue(webkitTextEmphasisShorthand());
+    case CSSPropertyWebkitTextStroke:
+        return getShorthandValue(webkitTextStrokeShorthand());
     case CSSPropertyWebkitTransformOrigin:
         return getShorthandValue(webkitTransformOriginShorthand());
     case CSSPropertyWebkitTransition:
         return getLayeredShorthandValue(webkitTransitionShorthand());
     case CSSPropertyWebkitAnimation:
         return getLayeredShorthandValue(webkitAnimationShorthand());
-#if ENABLE(CSS_EXCLUSIONS)
-    case CSSPropertyWebkitWrap:
-        return getShorthandValue(webkitWrapShorthand());
-#endif
 #if ENABLE(SVG)
     case CSSPropertyMarker: {
         RefPtr<CSSValue> value = getPropertyCSSValue(CSSPropertyMarkerStart);
@@ -199,16 +238,19 @@ String StylePropertySet::borderSpacingValue(const StylePropertyShorthand& shorth
     return horizontalValueCSSText + ' ' + verticalValueCSSText;
 }
 
-bool StylePropertySet::appendFontLonghandValueIfExplicit(CSSPropertyID propertyId, StringBuilder& result) const
+void StylePropertySet::appendFontLonghandValueIfExplicit(CSSPropertyID propertyID, StringBuilder& result, String& commonValue) const
 {
-    const CSSProperty* property = findPropertyWithId(propertyId);
-    if (!property)
-        return false; // All longhands must have at least implicit values if "font" is specified.
-    if (property->isImplicit())
-        return true;
+    int foundPropertyIndex = findPropertyIndex(propertyID);
+    if (foundPropertyIndex == -1)
+        return; // All longhands must have at least implicit values if "font" is specified.
+
+    if (propertyAt(foundPropertyIndex).isImplicit()) {
+        commonValue = String();
+        return;
+    }
 
     char prefix = '\0';
-    switch (propertyId) {
+    switch (propertyID) {
     case CSSPropertyFontStyle:
         break; // No prefix.
     case CSSPropertyFontFamily:
@@ -225,70 +267,98 @@ bool StylePropertySet::appendFontLonghandValueIfExplicit(CSSPropertyID propertyI
 
     if (prefix && !result.isEmpty())
         result.append(prefix);
-    result.append(property->value()->cssText());
-
-    return true;
+    String value = propertyAt(foundPropertyIndex).value()->cssText();
+    result.append(value);
+    if (!commonValue.isNull() && commonValue != value)
+        commonValue = String();
 }
 
 String StylePropertySet::fontValue() const
 {
-    const CSSProperty* fontSizeProperty = findPropertyWithId(CSSPropertyFontSize);
-    if (!fontSizeProperty || fontSizeProperty->isImplicit())
+    int fontSizePropertyIndex = findPropertyIndex(CSSPropertyFontSize);
+    int fontFamilyPropertyIndex = findPropertyIndex(CSSPropertyFontFamily);
+    if (fontSizePropertyIndex == -1 || fontFamilyPropertyIndex == -1)
         return emptyString();
 
+    PropertyReference fontSizeProperty = propertyAt(fontSizePropertyIndex);
+    PropertyReference fontFamilyProperty = propertyAt(fontFamilyPropertyIndex);
+    if (fontSizeProperty.isImplicit() || fontFamilyProperty.isImplicit())
+        return emptyString();
+
+    String commonValue = fontSizeProperty.value()->cssText();
     StringBuilder result;
-    bool success = true;
-    success &= appendFontLonghandValueIfExplicit(CSSPropertyFontStyle, result);
-    success &= appendFontLonghandValueIfExplicit(CSSPropertyFontVariant, result);
-    success &= appendFontLonghandValueIfExplicit(CSSPropertyFontWeight, result);
+    appendFontLonghandValueIfExplicit(CSSPropertyFontStyle, result, commonValue);
+    appendFontLonghandValueIfExplicit(CSSPropertyFontVariant, result, commonValue);
+    appendFontLonghandValueIfExplicit(CSSPropertyFontWeight, result, commonValue);
     if (!result.isEmpty())
         result.append(' ');
-    result.append(fontSizeProperty->value()->cssText());
-    success &= appendFontLonghandValueIfExplicit(CSSPropertyLineHeight, result);
-    success &= appendFontLonghandValueIfExplicit(CSSPropertyFontFamily, result);
-    if (!success) {
-        // An invalid "font" value has been built (should never happen, as at least implicit values
-        // for mandatory longhands are always found in the style), report empty value instead.
-        ASSERT_NOT_REACHED();
-        return emptyString();
-    }
+    result.append(fontSizeProperty.value()->cssText());
+    appendFontLonghandValueIfExplicit(CSSPropertyLineHeight, result, commonValue);
+    if (!result.isEmpty())
+        result.append(' ');
+    result.append(fontFamilyProperty.value()->cssText());
+    if (isInitialOrInherit(commonValue))
+        return commonValue;
     return result.toString();
 }
 
 String StylePropertySet::get4Values(const StylePropertyShorthand& shorthand) const
 {
     // Assume the properties are in the usual order top, right, bottom, left.
-    const CSSProperty* top = findPropertyWithId(shorthand.properties()[0]);
-    const CSSProperty* right = findPropertyWithId(shorthand.properties()[1]);
-    const CSSProperty* bottom = findPropertyWithId(shorthand.properties()[2]);
-    const CSSProperty* left = findPropertyWithId(shorthand.properties()[3]);
+    int topValueIndex = findPropertyIndex(shorthand.properties()[0]);
+    int rightValueIndex = findPropertyIndex(shorthand.properties()[1]);
+    int bottomValueIndex = findPropertyIndex(shorthand.properties()[2]);
+    int leftValueIndex = findPropertyIndex(shorthand.properties()[3]);
+
+    if (topValueIndex == -1 || rightValueIndex == -1 || bottomValueIndex == -1 || leftValueIndex == -1)
+        return String();
+
+    PropertyReference top = propertyAt(topValueIndex);
+    PropertyReference right = propertyAt(rightValueIndex);
+    PropertyReference bottom = propertyAt(bottomValueIndex);
+    PropertyReference left = propertyAt(leftValueIndex);
 
     // All 4 properties must be specified.
-    if (!top || !top->value() || !right || !right->value() || !bottom || !bottom->value() || !left || !left->value())
-        return String();
-    if (top->value()->isInitialValue() || right->value()->isInitialValue() || bottom->value()->isInitialValue() || left->value()->isInitialValue())
-        return String();
-    if (top->isImportant() != right->isImportant() || right->isImportant() != bottom->isImportant() || bottom->isImportant() != left->isImportant())
+    if (!top.value() || !right.value() || !bottom.value() || !left.value())
         return String();
 
-    bool showLeft = right->value()->cssText() != left->value()->cssText();
-    bool showBottom = (top->value()->cssText() != bottom->value()->cssText()) || showLeft;
-    bool showRight = (top->value()->cssText() != right->value()->cssText()) || showBottom;
+    if (top.isInherited() && right.isInherited() && bottom.isInherited() && left.isInherited())
+        return getValueName(CSSValueInherit);
 
-    String res = top->value()->cssText();
-    if (showRight)
-        res += " " + right->value()->cssText();
-    if (showBottom)
-        res += " " + bottom->value()->cssText();
-    if (showLeft)
-        res += " " + left->value()->cssText();
+    if (top.value()->isInitialValue() || right.value()->isInitialValue() || bottom.value()->isInitialValue() || left.value()->isInitialValue()) {
+        if (top.value()->isInitialValue() && right.value()->isInitialValue() && bottom.value()->isInitialValue() && left.value()->isInitialValue() && !top.isImplicit()) {
+            // All components are "initial" and "top" is not implicit.
+            return getValueName(CSSValueInitial);
+        }
+        return String();
+    }
+    if (top.isImportant() != right.isImportant() || right.isImportant() != bottom.isImportant() || bottom.isImportant() != left.isImportant())
+        return String();
 
-    return res;
+    bool showLeft = !right.value()->equals(*left.value());
+    bool showBottom = !top.value()->equals(*bottom.value()) || showLeft;
+    bool showRight = !top.value()->equals(*right.value()) || showBottom;
+
+    StringBuilder result;
+    result.append(top.value()->cssText());
+    if (showRight) {
+        result.append(' ');
+        result.append(right.value()->cssText());
+    }
+    if (showBottom) {
+        result.append(' ');
+        result.append(bottom.value()->cssText());
+    }
+    if (showLeft) {
+        result.append(' ');
+        result.append(left.value()->cssText());
+    }
+    return result.toString();
 }
 
 String StylePropertySet::getLayeredShorthandValue(const StylePropertyShorthand& shorthand) const
 {
-    String res;
+    StringBuilder result;
 
     const unsigned size = shorthand.length();
     // Begin by collecting the properties into an array.
@@ -298,7 +368,7 @@ String StylePropertySet::getLayeredShorthandValue(const StylePropertyShorthand& 
     for (unsigned i = 0; i < size; ++i) {
         values[i] = getPropertyCSSValue(shorthand.properties()[i]);
         if (values[i]) {
-            if (values[i]->isValueList()) {
+            if (values[i]->isBaseValueList()) {
                 CSSValueList* valueList = static_cast<CSSValueList*>(values[i].get());
                 numLayers = max(valueList->length(), numLayers);
             } else
@@ -306,17 +376,21 @@ String StylePropertySet::getLayeredShorthandValue(const StylePropertyShorthand& 
         }
     }
 
+    String commonValue;
+    bool commonValueInitialized = false;
+
     // Now stitch the properties together.  Implicit initial values are flagged as such and
     // can safely be omitted.
     for (size_t i = 0; i < numLayers; i++) {
-        String layerRes;
+        StringBuilder layerResult;
         bool useRepeatXShorthand = false;
         bool useRepeatYShorthand = false;
         bool useSingleWordShorthand = false;
+        bool foundPositionYCSSProperty = false;
         for (unsigned j = 0; j < size; j++) {
             RefPtr<CSSValue> value;
             if (values[j]) {
-                if (values[j]->isValueList())
+                if (values[j]->isBaseValueList())
                     value = static_cast<CSSValueList*>(values[j].get())->item(i);
                 else {
                     value = values[j];
@@ -333,10 +407,12 @@ String StylePropertySet::getLayeredShorthandValue(const StylePropertyShorthand& 
             // We need to report background-repeat as it was written in the CSS. If the property is implicit,
             // then it was written with only one value. Here we figure out which value that was so we can
             // report back correctly.
-            if (shorthand.properties()[j] == CSSPropertyBackgroundRepeatX && isPropertyImplicit(shorthand.properties()[j])) {
+            if ((shorthand.properties()[j] == CSSPropertyBackgroundRepeatX && isPropertyImplicit(shorthand.properties()[j]))
+                || (shorthand.properties()[j] == CSSPropertyWebkitMaskRepeatX && isPropertyImplicit(shorthand.properties()[j]))) {
 
                 // BUG 49055: make sure the value was not reset in the layer check just above.
-                if (j < size - 1 && shorthand.properties()[j + 1] == CSSPropertyBackgroundRepeatY && value) {
+                if ((j < size - 1 && shorthand.properties()[j + 1] == CSSPropertyBackgroundRepeatY && value)
+                    || (j < size - 1 && shorthand.properties()[j + 1] == CSSPropertyWebkitMaskRepeatY && value)) {
                     RefPtr<CSSValue> yValue;
                     RefPtr<CSSValue> nextValue = values[j + 1];
                     if (nextValue->isValueList())
@@ -361,48 +437,90 @@ String StylePropertySet::getLayeredShorthandValue(const StylePropertyShorthand& 
                 }
             }
 
+            String valueText;
             if (value && !value->isImplicitInitialValue()) {
-                if (!layerRes.isNull())
-                    layerRes += " ";
+                if (!layerResult.isEmpty())
+                    layerResult.append(' ');
+                if (foundPositionYCSSProperty
+                    && (shorthand.properties()[j] == CSSPropertyBackgroundSize || shorthand.properties()[j] == CSSPropertyWebkitMaskSize))
+                    layerResult.appendLiteral("/ ");
+                if (!foundPositionYCSSProperty
+                    && (shorthand.properties()[j] == CSSPropertyBackgroundSize || shorthand.properties()[j] == CSSPropertyWebkitMaskSize))
+                    continue;
+
                 if (useRepeatXShorthand) {
                     useRepeatXShorthand = false;
-                    layerRes += getValueName(CSSValueRepeatX);
+                    layerResult.append(getValueName(CSSValueRepeatX));
                 } else if (useRepeatYShorthand) {
                     useRepeatYShorthand = false;
-                    layerRes += getValueName(CSSValueRepeatY);
-                } else if (useSingleWordShorthand) {
-                    useSingleWordShorthand = false;
-                    layerRes += value->cssText();
-                } else
-                    layerRes += value->cssText();
+                    layerResult.append(getValueName(CSSValueRepeatY));
+                } else {
+                    if (useSingleWordShorthand)
+                        useSingleWordShorthand = false;
+                    valueText = value->cssText();
+                    layerResult.append(valueText);
+                }
+
+                if (shorthand.properties()[j] == CSSPropertyBackgroundPositionY
+                    || shorthand.properties()[j] == CSSPropertyWebkitMaskPositionY) {
+                    foundPositionYCSSProperty = true;
+
+                    // background-position is a special case: if only the first offset is specified,
+                    // the second one defaults to "center", not the same value.
+                    if (commonValueInitialized && commonValue != "initial" && commonValue != "inherit")
+                        commonValue = String();
+                }
             }
+
+            if (!commonValueInitialized) {
+                commonValue = valueText;
+                commonValueInitialized = true;
+            } else if (!commonValue.isNull() && commonValue != valueText)
+                commonValue = String();
         }
 
-        if (!layerRes.isNull()) {
-            if (!res.isNull())
-                res += ", ";
-            res += layerRes;
+        if (!layerResult.isEmpty()) {
+            if (!result.isEmpty())
+                result.appendLiteral(", ");
+            result.append(layerResult);
         }
     }
-    return res;
+
+    if (isInitialOrInherit(commonValue))
+        return commonValue;
+
+    if (result.isEmpty())
+        return String();
+    return result.toString();
 }
 
 String StylePropertySet::getShorthandValue(const StylePropertyShorthand& shorthand) const
 {
-    String res;
+    String commonValue;
+    StringBuilder result;
     for (unsigned i = 0; i < shorthand.length(); ++i) {
         if (!isPropertyImplicit(shorthand.properties()[i])) {
             RefPtr<CSSValue> value = getPropertyCSSValue(shorthand.properties()[i]);
             if (!value)
                 return String();
+            String valueText = value->cssText();
+            if (!i)
+                commonValue = valueText;
+            else if (!commonValue.isNull() && commonValue != valueText)
+                commonValue = String();
             if (value->isInitialValue())
                 continue;
-            if (!res.isNull())
-                res += " ";
-            res += value->cssText();
-        }
+            if (!result.isEmpty())
+                result.append(' ');
+            result.append(valueText);
+        } else
+            commonValue = String();
     }
-    return res;
+    if (isInitialOrInherit(commonValue))
+        return commonValue;
+    if (result.isEmpty())
+        return String();
+    return result.toString();
 }
 
 // only returns a non-null value if all properties have the same, non-null value
@@ -434,6 +552,7 @@ String StylePropertySet::getCommonValue(const StylePropertyShorthand& shorthand)
 String StylePropertySet::borderPropertyValue(CommonValueMode valueMode) const
 {
     const StylePropertyShorthand properties[3] = { borderWidthShorthand(), borderStyleShorthand(), borderColorShorthand() };
+    String commonValue;
     StringBuilder result;
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(properties); ++i) {
         String value = getCommonValue(properties[i]);
@@ -443,30 +562,46 @@ String StylePropertySet::borderPropertyValue(CommonValueMode valueMode) const
             ASSERT(valueMode == OmitUncommonValues);
             continue;
         }
+        if (!i)
+            commonValue = value;
+        else if (!commonValue.isNull() && commonValue != value)
+            commonValue = String();
         if (value == "initial")
             continue;
         if (!result.isEmpty())
             result.append(' ');
         result.append(value);
     }
+    if (isInitialOrInherit(commonValue))
+        return commonValue;
     return result.isEmpty() ? String() : result.toString();
 }
 
 PassRefPtr<CSSValue> StylePropertySet::getPropertyCSSValue(CSSPropertyID propertyID) const
 {
-    const CSSProperty* property = findPropertyWithId(propertyID);
-    return property ? property->value() : 0;
+    int foundPropertyIndex = findPropertyIndex(propertyID);
+    if (foundPropertyIndex == -1)
+        return 0;
+    return propertyAt(foundPropertyIndex).value();
 }
 
-bool StylePropertySet::removeShorthandProperty(CSSPropertyID propertyID)
+bool MutableStylePropertySet::removeShorthandProperty(CSSPropertyID propertyID)
 {
     StylePropertyShorthand shorthand = shorthandForProperty(propertyID);
     if (!shorthand.length())
         return false;
-    return removePropertiesInSet(shorthand.properties(), shorthand.length());
+
+    bool ret = removePropertiesInSet(shorthand.properties(), shorthand.length());
+
+    CSSPropertyID prefixingVariant = prefixingVariantForPropertyId(propertyID);
+    if (prefixingVariant == propertyID)
+        return ret;
+
+    StylePropertyShorthand shorthandPrefixingVariant = shorthandForProperty(prefixingVariant);
+    return removePropertiesInSet(shorthandPrefixingVariant.properties(), shorthandPrefixingVariant.length());
 }
 
-bool StylePropertySet::removeProperty(CSSPropertyID propertyID, String* returnText)
+bool MutableStylePropertySet::removeProperty(CSSPropertyID propertyID, String* returnText)
 {
     if (removeShorthandProperty(propertyID)) {
         // FIXME: Return an equivalent shorthand when possible.
@@ -475,28 +610,38 @@ bool StylePropertySet::removeProperty(CSSPropertyID propertyID, String* returnTe
         return true;
     }
 
-    CSSProperty* foundProperty = findPropertyWithId(propertyID);
-    if (!foundProperty) {
+    int foundPropertyIndex = findPropertyIndex(propertyID);
+    if (foundPropertyIndex == -1) {
         if (returnText)
             *returnText = "";
         return false;
     }
 
     if (returnText)
-        *returnText = foundProperty->value()->cssText();
+        *returnText = propertyAt(foundPropertyIndex).value()->cssText();
 
     // A more efficient removal strategy would involve marking entries as empty
     // and sweeping them when the vector grows too big.
-    m_properties.remove(foundProperty - m_properties.data());
-    
+    m_propertyVector.remove(foundPropertyIndex);
+
+    removePrefixedOrUnprefixedProperty(propertyID);
+
     return true;
+}
+
+void MutableStylePropertySet::removePrefixedOrUnprefixedProperty(CSSPropertyID propertyID)
+{
+    int foundPropertyIndex = findPropertyIndex(prefixingVariantForPropertyId(propertyID));
+    if (foundPropertyIndex == -1)
+        return;
+    m_propertyVector.remove(foundPropertyIndex);
 }
 
 bool StylePropertySet::propertyIsImportant(CSSPropertyID propertyID) const
 {
-    const CSSProperty* property = findPropertyWithId(propertyID);
-    if (property)
-        return property->isImportant();
+    int foundPropertyIndex = findPropertyIndex(propertyID);
+    if (foundPropertyIndex != -1)
+        return propertyAt(foundPropertyIndex).isImportant();
 
     StylePropertyShorthand shorthand = shorthandForProperty(propertyID);
     if (!shorthand.length())
@@ -509,33 +654,35 @@ bool StylePropertySet::propertyIsImportant(CSSPropertyID propertyID) const
     return true;
 }
 
-CSSPropertyID StylePropertySet::getPropertyShorthand(CSSPropertyID propertyID) const
+String StylePropertySet::getPropertyShorthand(CSSPropertyID propertyID) const
 {
-    const CSSProperty* property = findPropertyWithId(propertyID);
-    return property ? property->shorthandID() : CSSPropertyInvalid;
+    int foundPropertyIndex = findPropertyIndex(propertyID);
+    if (foundPropertyIndex == -1)
+        return String();
+    return getPropertyNameString(propertyAt(foundPropertyIndex).shorthandID());
 }
 
 bool StylePropertySet::isPropertyImplicit(CSSPropertyID propertyID) const
 {
-    const CSSProperty* property = findPropertyWithId(propertyID);
-    return property ? property->isImplicit() : false;
+    int foundPropertyIndex = findPropertyIndex(propertyID);
+    if (foundPropertyIndex == -1)
+        return false;
+    return propertyAt(foundPropertyIndex).isImplicit();
 }
 
-bool StylePropertySet::setProperty(CSSPropertyID propertyID, const String& value, bool important, StyleSheetInternal* contextStyleSheet)
+bool MutableStylePropertySet::setProperty(CSSPropertyID propertyID, const String& value, bool important, StyleSheetContents* contextStyleSheet)
 {
     // Setting the value to an empty string just removes the property in both IE and Gecko.
     // Setting it to null seems to produce less consistent results, but we treat it just the same.
-    if (value.isEmpty()) {
-        removeProperty(propertyID);
-        return true;
-    }
+    if (value.isEmpty())
+        return removeProperty(propertyID);
 
     // When replacing an existing property value, this moves the property to the end of the list.
     // Firefox preserves the position, and MSIE moves the property to the beginning.
     return CSSParser::parseValue(this, propertyID, value, important, cssParserMode(), contextStyleSheet);
 }
 
-void StylePropertySet::setProperty(CSSPropertyID propertyID, PassRefPtr<CSSValue> prpValue, bool important)
+void MutableStylePropertySet::setProperty(CSSPropertyID propertyID, PassRefPtr<CSSValue> prpValue, bool important)
 {
     StylePropertyShorthand shorthand = shorthandForProperty(propertyID);
     if (!shorthand.length()) {
@@ -547,30 +694,48 @@ void StylePropertySet::setProperty(CSSPropertyID propertyID, PassRefPtr<CSSValue
 
     RefPtr<CSSValue> value = prpValue;
     for (unsigned i = 0; i < shorthand.length(); ++i)
-        m_properties.append(CSSProperty(shorthand.properties()[i], value, important));
+        m_propertyVector.append(CSSProperty(shorthand.properties()[i], value, important));
 }
 
-void StylePropertySet::setProperty(const CSSProperty& property, CSSProperty* slot)
+void MutableStylePropertySet::setProperty(const CSSProperty& property, CSSProperty* slot)
 {
     if (!removeShorthandProperty(property.id())) {
-        CSSProperty* toReplace = slot ? slot : findPropertyWithId(property.id());
+        CSSProperty* toReplace = slot ? slot : findCSSPropertyWithID(property.id());
         if (toReplace) {
             *toReplace = property;
+            setPrefixingVariantProperty(property);
             return;
         }
     }
-    m_properties.append(property);
+    appendPrefixingVariantProperty(property);
 }
 
-bool StylePropertySet::setProperty(CSSPropertyID propertyID, int identifier, bool important)
+void MutableStylePropertySet::appendPrefixingVariantProperty(const CSSProperty& property)
+{
+    m_propertyVector.append(property);
+    CSSPropertyID prefixingVariant = prefixingVariantForPropertyId(property.id());
+    if (prefixingVariant == property.id())
+        return;
+    m_propertyVector.append(CSSProperty(prefixingVariant, property.value(), property.isImportant(), property.shorthandID(), property.metadata().m_implicit));
+}
+
+void MutableStylePropertySet::setPrefixingVariantProperty(const CSSProperty& property)
+{
+    CSSPropertyID prefixingVariant = prefixingVariantForPropertyId(property.id());
+    CSSProperty* toReplace = findCSSPropertyWithID(prefixingVariant);
+    if (toReplace)
+        *toReplace = CSSProperty(prefixingVariant, property.value(), property.isImportant(), property.shorthandID(), property.metadata().m_implicit);
+}
+
+bool MutableStylePropertySet::setProperty(CSSPropertyID propertyID, int identifier, bool important)
 {
     setProperty(CSSProperty(propertyID, cssValuePool().createIdentifierValue(identifier), important));
     return true;
 }
 
-void StylePropertySet::parseDeclaration(const String& styleDeclaration, StyleSheetInternal* contextStyleSheet)
+void MutableStylePropertySet::parseDeclaration(const String& styleDeclaration, StyleSheetContents* contextStyleSheet)
 {
-    m_properties.clear();
+    m_propertyVector.clear();
 
     CSSParserContext context(cssParserMode());
     if (contextStyleSheet) {
@@ -581,14 +746,14 @@ void StylePropertySet::parseDeclaration(const String& styleDeclaration, StyleShe
     parser.parseDeclaration(this, styleDeclaration, 0, contextStyleSheet);
 }
 
-void StylePropertySet::addParsedProperties(const CSSProperty* properties, int numProperties)
+void MutableStylePropertySet::addParsedProperties(const Vector<CSSProperty>& properties)
 {
-    m_properties.reserveCapacity(numProperties);
-    for (int i = 0; i < numProperties; ++i)
+    m_propertyVector.reserveCapacity(m_propertyVector.size() + properties.size());
+    for (unsigned i = 0; i < properties.size(); ++i)
         addParsedProperty(properties[i]);
 }
 
-void StylePropertySet::addParsedProperty(const CSSProperty& property)
+void MutableStylePropertySet::addParsedProperty(const CSSProperty& property)
 {
     // Only add properties that have no !important counterpart present
     if (!propertyIsImportant(property.id()) || property.isImportant())
@@ -599,35 +764,42 @@ String StylePropertySet::asText() const
 {
     StringBuilder result;
 
-    const CSSProperty* positionXProp = 0;
-    const CSSProperty* positionYProp = 0;
-    const CSSProperty* repeatXProp = 0;
-    const CSSProperty* repeatYProp = 0;
+    int positionXPropertyIndex = -1;
+    int positionYPropertyIndex = -1;
+    int repeatXPropertyIndex = -1;
+    int repeatYPropertyIndex = -1;
 
-    // FIXME: Stack-allocate the buffer for these BitVectors.
-    BitVector shorthandPropertyUsed;
-    BitVector shorthandPropertyAppeared;
+    BitArray<numCSSProperties> shorthandPropertyUsed;
+    BitArray<numCSSProperties> shorthandPropertyAppeared;
 
-    unsigned size = m_properties.size();
+    unsigned size = propertyCount();
+    unsigned numDecls = 0;
     for (unsigned n = 0; n < size; ++n) {
-        const CSSProperty& prop = m_properties[n];
-        CSSPropertyID propertyID = prop.id();
+        PropertyReference property = propertyAt(n);
+        CSSPropertyID propertyID = property.id();
         CSSPropertyID shorthandPropertyID = CSSPropertyInvalid;
         CSSPropertyID borderFallbackShorthandProperty = CSSPropertyInvalid;
         String value;
 
         switch (propertyID) {
+#if ENABLE(CSS_VARIABLES)
+        case CSSPropertyVariable:
+            if (numDecls++)
+                result.append(' ');
+            result.append(property.cssText());
+            continue;
+#endif
         case CSSPropertyBackgroundPositionX:
-            positionXProp = &prop;
+            positionXPropertyIndex = n;
             continue;
         case CSSPropertyBackgroundPositionY:
-            positionYProp = &prop;
+            positionYPropertyIndex = n;
             continue;
         case CSSPropertyBackgroundRepeatX:
-            repeatXProp = &prop;
+            repeatXPropertyIndex = n;
             continue;
         case CSSPropertyBackgroundRepeatY:
-            repeatYProp = &prop;
+            repeatYPropertyIndex = n;
             continue;
         case CSSPropertyBorderTopWidth:
         case CSSPropertyBorderRightWidth:
@@ -652,7 +824,7 @@ String StylePropertySet::asText() const
             if (!shorthandPropertyAppeared.get(CSSPropertyBorder - firstCSSProperty)) {
                 value = borderPropertyValue(ReturnNullOnUncommonValues);
                 if (value.isNull())
-                    shorthandPropertyAppeared.ensureSizeAndSet(CSSPropertyBorder - firstCSSProperty, numCSSProperties);
+                    shorthandPropertyAppeared.set(CSSPropertyBorder - firstCSSProperty);
                 else
                     shorthandPropertyID = CSSPropertyBorder;
             } else if (shorthandPropertyUsed.get(CSSPropertyBorder - firstCSSProperty))
@@ -698,6 +870,12 @@ String StylePropertySet::asText() const
         case CSSPropertyPaddingLeft:
             shorthandPropertyID = CSSPropertyPadding;
             break;
+        case CSSPropertyTransitionProperty:
+        case CSSPropertyTransitionDuration:
+        case CSSPropertyTransitionTimingFunction:
+        case CSSPropertyTransitionDelay:
+            shorthandPropertyID = CSSPropertyTransition;
+            break;
         case CSSPropertyWebkitAnimationName:
         case CSSPropertyWebkitAnimationDuration:
         case CSSPropertyWebkitAnimationTimingFunction:
@@ -707,19 +885,21 @@ String StylePropertySet::asText() const
         case CSSPropertyWebkitAnimationFillMode:
             shorthandPropertyID = CSSPropertyWebkitAnimation;
             break;
-#if ENABLE(CSS3_FLEXBOX)
         case CSSPropertyWebkitFlexDirection:
         case CSSPropertyWebkitFlexWrap:
             shorthandPropertyID = CSSPropertyWebkitFlexFlow;
             break;
-#endif
+        case CSSPropertyWebkitFlexBasis:
+        case CSSPropertyWebkitFlexGrow:
+        case CSSPropertyWebkitFlexShrink:
+            shorthandPropertyID = CSSPropertyWebkitFlex;
+            break;
         case CSSPropertyWebkitMaskPositionX:
         case CSSPropertyWebkitMaskPositionY:
         case CSSPropertyWebkitMaskRepeatX:
         case CSSPropertyWebkitMaskRepeatY:
         case CSSPropertyWebkitMaskImage:
         case CSSPropertyWebkitMaskRepeat:
-        case CSSPropertyWebkitMaskAttachment:
         case CSSPropertyWebkitMaskPosition:
         case CSSPropertyWebkitMaskClip:
         case CSSPropertyWebkitMaskOrigin:
@@ -736,13 +916,6 @@ String StylePropertySet::asText() const
         case CSSPropertyWebkitTransitionDelay:
             shorthandPropertyID = CSSPropertyWebkitTransition;
             break;
-#if ENABLE(CSS_EXCLUSIONS)
-        case CSSPropertyWebkitWrapFlow:
-        case CSSPropertyWebkitWrapMargin:
-        case CSSPropertyWebkitWrapPadding:
-            shorthandPropertyID = CSSPropertyWebkitWrap;
-            break;
-#endif
         default:
             break;
         }
@@ -753,91 +926,109 @@ String StylePropertySet::asText() const
                 continue;
             if (!shorthandPropertyAppeared.get(shortPropertyIndex) && value.isNull())
                 value = getPropertyValue(shorthandPropertyID);
-            shorthandPropertyAppeared.ensureSizeAndSet(shortPropertyIndex, numCSSProperties);
+            shorthandPropertyAppeared.set(shortPropertyIndex);
         }
 
         if (!value.isNull()) {
             propertyID = shorthandPropertyID;
-            shorthandPropertyUsed.ensureSizeAndSet(shortPropertyIndex, numCSSProperties);
+            shorthandPropertyUsed.set(shortPropertyIndex);
         } else
-            value = prop.value()->cssText();
+            value = property.value()->cssText();
 
         if (value == "initial" && !CSSProperty::isInheritedProperty(propertyID))
             continue;
 
+        if (numDecls++)
+            result.append(' ');
         result.append(getPropertyName(propertyID));
-        result.append(": ");
+        result.appendLiteral(": ");
         result.append(value);
-        result.append(prop.isImportant() ? " !important" : "");
-        result.append("; ");
+        if (property.isImportant())
+            result.appendLiteral(" !important");
+        result.append(';');
     }
 
     // FIXME: This is a not-so-nice way to turn x/y positions into single background-position in output.
     // It is required because background-position-x/y are non-standard properties and WebKit generated output
     // would not work in Firefox (<rdar://problem/5143183>)
     // It would be a better solution if background-position was CSS_PAIR.
-    if (positionXProp && positionYProp && positionXProp->isImportant() == positionYProp->isImportant()) {
-        result.append("background-position: ");
-        if (positionXProp->value()->isValueList() || positionYProp->value()->isValueList())
+    if (positionXPropertyIndex != -1 && positionYPropertyIndex != -1 && propertyAt(positionXPropertyIndex).isImportant() == propertyAt(positionYPropertyIndex).isImportant()) {
+        PropertyReference positionXProperty = propertyAt(positionXPropertyIndex);
+        PropertyReference positionYProperty = propertyAt(positionYPropertyIndex);
+
+        if (numDecls++)
+            result.append(' ');
+        result.appendLiteral("background-position: ");
+        if (positionXProperty.value()->isValueList() || positionYProperty.value()->isValueList())
             result.append(getLayeredShorthandValue(backgroundPositionShorthand()));
         else {
-            result.append(positionXProp->value()->cssText());
-            result.append(" ");
-            result.append(positionYProp->value()->cssText());
+            result.append(positionXProperty.value()->cssText());
+            result.append(' ');
+            result.append(positionYProperty.value()->cssText());
         }
-        if (positionXProp->isImportant())
-            result.append(" !important");
-        result.append("; ");
+        if (positionXProperty.isImportant())
+            result.appendLiteral(" !important");
+        result.append(';');
     } else {
-        if (positionXProp)
-            result.append(positionXProp->cssText());
-        if (positionYProp)
-            result.append(positionYProp->cssText());
+        if (positionXPropertyIndex != -1) {
+            if (numDecls++)
+                result.append(' ');
+            result.append(propertyAt(positionXPropertyIndex).cssText());
+        }
+        if (positionYPropertyIndex != -1) {
+            if (numDecls++)
+                result.append(' ');
+            result.append(propertyAt(positionYPropertyIndex).cssText());
+        }
     }
 
     // FIXME: We need to do the same for background-repeat.
-    if (repeatXProp && repeatYProp && repeatXProp->isImportant() == repeatYProp->isImportant()) {
-        result.append("background-repeat: ");
-        if (repeatXProp->value()->isValueList() || repeatYProp->value()->isValueList())
+    if (repeatXPropertyIndex != -1 && repeatYPropertyIndex != -1 && propertyAt(repeatXPropertyIndex).isImportant() == propertyAt(repeatYPropertyIndex).isImportant()) {
+        PropertyReference repeatXProperty = propertyAt(repeatXPropertyIndex);
+        PropertyReference repeatYProperty = propertyAt(repeatYPropertyIndex);
+
+        if (numDecls++)
+            result.append(' ');
+        result.appendLiteral("background-repeat: ");
+        if (repeatXProperty.value()->isValueList() || repeatYProperty.value()->isValueList())
             result.append(getLayeredShorthandValue(backgroundRepeatShorthand()));
         else {
-            result.append(repeatXProp->value()->cssText());
-            result.append(" ");
-            result.append(repeatYProp->value()->cssText());
+            result.append(repeatXProperty.value()->cssText());
+            result.append(' ');
+            result.append(repeatYProperty.value()->cssText());
         }
-        if (repeatXProp->isImportant())
-            result.append(" !important");
-        result.append("; ");
+        if (repeatXProperty.isImportant())
+            result.appendLiteral(" !important");
+        result.append(';');
     } else {
-        if (repeatXProp)
-            result.append(repeatXProp->cssText());
-        if (repeatYProp)
-            result.append(repeatYProp->cssText());
+        if (repeatXPropertyIndex != -1) {
+            if (numDecls++)
+                result.append(' ');
+            result.append(propertyAt(repeatXPropertyIndex).cssText());
+        }
+        if (repeatYPropertyIndex != -1) {
+            if (numDecls++)
+                result.append(' ');
+            result.append(propertyAt(repeatYPropertyIndex).cssText());
+        }
     }
 
+    ASSERT(!numDecls ^ !result.isEmpty());
     return result.toString();
 }
 
-void StylePropertySet::merge(const StylePropertySet* other, bool argOverridesOnConflict)
+void MutableStylePropertySet::mergeAndOverrideOnConflict(const StylePropertySet* other)
 {
-    unsigned size = other->m_properties.size();
-    for (unsigned n = 0; n < size; ++n) {
-        const CSSProperty& toMerge = other->m_properties[n];
-        CSSProperty* old = findPropertyWithId(toMerge.id());
-        if (old) {
-            if (!argOverridesOnConflict && old->value())
-                continue;
-            setProperty(toMerge, old);
-        } else
-            m_properties.append(toMerge);
-    }
+    unsigned size = other->propertyCount();
+    for (unsigned i = 0; i < size; ++i)
+        addParsedProperty(other->propertyAt(i).toCSSProperty());
 }
 
-void StylePropertySet::addSubresourceStyleURLs(ListHashSet<KURL>& urls, StyleSheetInternal* contextStyleSheet)
+void StylePropertySet::addSubresourceStyleURLs(ListHashSet<KURL>& urls, StyleSheetContents* contextStyleSheet) const
 {
-    size_t size = m_properties.size();
-    for (size_t i = 0; i < size; ++i)
-        m_properties[i].value()->addSubresourceStyleURLs(urls, contextStyleSheet);
+    unsigned size = propertyCount();
+    for (unsigned i = 0; i < size; ++i)
+        propertyAt(i).value()->addSubresourceStyleURLs(urls, contextStyleSheet);
 }
 
 bool StylePropertySet::hasFailedOrCanceledSubresources() const
@@ -874,25 +1065,34 @@ static const CSSPropertyID blockProperties[] = {
     CSSPropertyWebkitRegionBreakInside,
 #endif
     CSSPropertyTextAlign,
+#if ENABLE(CSS3_TEXT)
+    CSSPropertyWebkitTextAlignLast,
+    CSSPropertyWebkitTextJustify,
+#endif // CSS3_TEXT
     CSSPropertyTextIndent,
     CSSPropertyWidows
 };
 
+void MutableStylePropertySet::clear()
+{
+    m_propertyVector.clear();
+}
+
 const unsigned numBlockProperties = WTF_ARRAY_LENGTH(blockProperties);
 
-PassRefPtr<StylePropertySet> StylePropertySet::copyBlockProperties() const
+PassRefPtr<MutableStylePropertySet> StylePropertySet::copyBlockProperties() const
 {
     return copyPropertiesInSet(blockProperties, numBlockProperties);
 }
 
-void StylePropertySet::removeBlockProperties()
+void MutableStylePropertySet::removeBlockProperties()
 {
     removePropertiesInSet(blockProperties, numBlockProperties);
 }
 
-bool StylePropertySet::removePropertiesInSet(const CSSPropertyID* set, unsigned length)
+bool MutableStylePropertySet::removePropertiesInSet(const CSSPropertyID* set, unsigned length)
 {
-    if (m_properties.isEmpty())
+    if (m_propertyVector.isEmpty())
         return false;
 
     // FIXME: This is always used with static sets and in that case constructing the hash repeatedly is pretty pointless.
@@ -900,12 +1100,12 @@ bool StylePropertySet::removePropertiesInSet(const CSSPropertyID* set, unsigned 
     for (unsigned i = 0; i < length; ++i)
         toRemove.add(set[i]);
 
-    Vector<CSSProperty, 4> newProperties;
-    newProperties.reserveInitialCapacity(m_properties.size());
+    Vector<CSSProperty> newProperties;
+    newProperties.reserveInitialCapacity(m_propertyVector.size());
 
-    unsigned size = m_properties.size();
+    unsigned size = m_propertyVector.size();
     for (unsigned n = 0; n < size; ++n) {
-        const CSSProperty& property = m_properties[n];
+        const CSSProperty& property = m_propertyVector.at(n);
         // Not quite sure if the isImportant test is needed but it matches the existing behavior.
         if (!property.isImportant()) {
             if (toRemove.contains(property.id()))
@@ -914,42 +1114,43 @@ bool StylePropertySet::removePropertiesInSet(const CSSPropertyID* set, unsigned 
         newProperties.append(property);
     }
 
-    bool changed = newProperties.size() != m_properties.size();
-    m_properties = newProperties;
+    bool changed = newProperties.size() != m_propertyVector.size();
+    m_propertyVector = newProperties;
     return changed;
 }
 
-const CSSProperty* StylePropertySet::findPropertyWithId(CSSPropertyID propertyID) const
+int StylePropertySet::findPropertyIndex(CSSPropertyID propertyID) const
 {
-    for (int n = m_properties.size() - 1 ; n >= 0; --n) {
-        if (propertyID == m_properties[n].id())
-            return &m_properties[n];
+    for (int n = propertyCount() - 1 ; n >= 0; --n) {
+        if (propertyID == propertyAt(n).id())
+            return n;
     }
-    return 0;
+    return -1;
 }
 
-CSSProperty* StylePropertySet::findPropertyWithId(CSSPropertyID propertyID)
+CSSProperty* MutableStylePropertySet::findCSSPropertyWithID(CSSPropertyID propertyID)
 {
-    for (int n = m_properties.size() - 1 ; n >= 0; --n) {
-        if (propertyID == m_properties[n].id())
-            return &m_properties[n];
-    }
-    return 0;
+    int foundPropertyIndex = findPropertyIndex(propertyID);
+    if (foundPropertyIndex == -1)
+        return 0;
+    return &m_propertyVector.at(foundPropertyIndex);
 }
-    
-bool StylePropertySet::propertyMatches(const CSSProperty* property) const
+
+bool StylePropertySet::propertyMatches(CSSPropertyID propertyID, const CSSValue* propertyValue) const
 {
-    RefPtr<CSSValue> value = getPropertyCSSValue(property->id());
-    return value && value->cssText() == property->value()->cssText();
+    int foundPropertyIndex = findPropertyIndex(propertyID);
+    if (foundPropertyIndex == -1)
+        return false;
+    return propertyAt(foundPropertyIndex).value()->equals(*propertyValue);
 }
-    
-void StylePropertySet::removeEquivalentProperties(const StylePropertySet* style)
+
+void MutableStylePropertySet::removeEquivalentProperties(const StylePropertySet* style)
 {
     Vector<CSSPropertyID> propertiesToRemove;
-    size_t size = m_properties.size();
-    for (size_t i = 0; i < size; ++i) {
-        const CSSProperty& property = m_properties[i];
-        if (style->propertyMatches(&property))
+    unsigned size = m_propertyVector.size();
+    for (unsigned i = 0; i < size; ++i) {
+        PropertyReference property = propertyAt(i);
+        if (style->propertyMatches(property.id(), property.value()))
             propertiesToRemove.append(property.id());
     }    
     // FIXME: This should use mass removal.
@@ -957,13 +1158,13 @@ void StylePropertySet::removeEquivalentProperties(const StylePropertySet* style)
         removeProperty(propertiesToRemove[i]);
 }
 
-void StylePropertySet::removeEquivalentProperties(const CSSStyleDeclaration* style)
+void MutableStylePropertySet::removeEquivalentProperties(const ComputedStyleExtractor* computedStyle)
 {
     Vector<CSSPropertyID> propertiesToRemove;
-    size_t size = m_properties.size();
-    for (size_t i = 0; i < size; ++i) {
-        const CSSProperty& property = m_properties[i];
-        if (style->cssPropertyMatches(&property))
+    unsigned size = m_propertyVector.size();
+    for (unsigned i = 0; i < size; ++i) {
+        PropertyReference property = propertyAt(i);
+        if (computedStyle->propertyMatches(property.id(), property.value()))
             propertiesToRemove.append(property.id());
     }    
     // FIXME: This should use mass removal.
@@ -971,24 +1172,31 @@ void StylePropertySet::removeEquivalentProperties(const CSSStyleDeclaration* sty
         removeProperty(propertiesToRemove[i]);
 }
 
-PassRefPtr<StylePropertySet> StylePropertySet::copy() const
+PassRefPtr<MutableStylePropertySet> StylePropertySet::mutableCopy() const
 {
-    return adoptRef(new StylePropertySet(*this));
+    return adoptRef(new MutableStylePropertySet(*this));
 }
 
-PassRefPtr<StylePropertySet> StylePropertySet::copyPropertiesInSet(const CSSPropertyID* set, unsigned length) const
+PassRefPtr<MutableStylePropertySet> StylePropertySet::copyPropertiesInSet(const CSSPropertyID* set, unsigned length) const
 {
-    Vector<CSSProperty> list;
+    Vector<CSSProperty, 256> list;
     list.reserveInitialCapacity(length);
     for (unsigned i = 0; i < length; ++i) {
         RefPtr<CSSValue> value = getPropertyCSSValue(set[i]);
         if (value)
             list.append(CSSProperty(set[i], value.release(), false));
     }
-    return StylePropertySet::create(list);
+    return MutableStylePropertySet::create(list.data(), list.size());
 }
 
-CSSStyleDeclaration* StylePropertySet::ensureCSSStyleDeclaration() const
+PropertySetCSSStyleDeclaration* MutableStylePropertySet::cssStyleDeclaration()
+{
+    if (!m_ownsCSSOMWrapper)
+        return 0;
+    return propertySetCSSOMWrapperMap().get(this);
+}
+
+CSSStyleDeclaration* MutableStylePropertySet::ensureCSSStyleDeclaration()
 {
     if (m_ownsCSSOMWrapper) {
         ASSERT(!static_cast<CSSStyleDeclaration*>(propertySetCSSOMWrapperMap().get(this))->parentRule());
@@ -996,42 +1204,76 @@ CSSStyleDeclaration* StylePropertySet::ensureCSSStyleDeclaration() const
         return propertySetCSSOMWrapperMap().get(this);
     }
     m_ownsCSSOMWrapper = true;
-    PropertySetCSSStyleDeclaration* cssomWrapper = new PropertySetCSSStyleDeclaration(const_cast<StylePropertySet*>(this));
+    PropertySetCSSStyleDeclaration* cssomWrapper = new PropertySetCSSStyleDeclaration(this);
     propertySetCSSOMWrapperMap().add(this, adoptPtr(cssomWrapper));
     return cssomWrapper;
 }
 
-CSSStyleDeclaration* StylePropertySet::ensureInlineCSSStyleDeclaration(const StyledElement* parentElement) const
+CSSStyleDeclaration* MutableStylePropertySet::ensureInlineCSSStyleDeclaration(StyledElement* parentElement)
 {
     if (m_ownsCSSOMWrapper) {
         ASSERT(propertySetCSSOMWrapperMap().get(this)->parentElement() == parentElement);
         return propertySetCSSOMWrapperMap().get(this);
     }
     m_ownsCSSOMWrapper = true;
-    PropertySetCSSStyleDeclaration* cssomWrapper = new InlineCSSStyleDeclaration(const_cast<StylePropertySet*>(this), const_cast<StyledElement*>(parentElement));
+    PropertySetCSSStyleDeclaration* cssomWrapper = new InlineCSSStyleDeclaration(this, parentElement);
     propertySetCSSOMWrapperMap().add(this, adoptPtr(cssomWrapper));
     return cssomWrapper;
-}
-
-void StylePropertySet::clearParentElement(StyledElement* element)
-{
-    if (!m_ownsCSSOMWrapper)
-        return;
-    ASSERT_UNUSED(element, propertySetCSSOMWrapperMap().get(this)->parentElement() == element);
-    propertySetCSSOMWrapperMap().get(this)->clearParentElement();
 }
 
 unsigned StylePropertySet::averageSizeInBytes()
 {
     // Please update this if the storage scheme changes so that this longer reflects the actual size.
-    return sizeof(StylePropertySet);
+    return sizeForImmutableStylePropertySetWithPropertyCount(4);
 }
 
 // See the function above if you need to update this.
-class SameSizeAsStylePropertySet : public RefCounted<SameSizeAsStylePropertySet> {
-    Vector<CSSProperty, 4> properties;
+struct SameSizeAsStylePropertySet : public RefCounted<SameSizeAsStylePropertySet> {
     unsigned bitfield;
 };
 COMPILE_ASSERT(sizeof(StylePropertySet) == sizeof(SameSizeAsStylePropertySet), style_property_set_should_stay_small);
+
+#ifndef NDEBUG
+void StylePropertySet::showStyle()
+{
+    fprintf(stderr, "%s\n", asText().ascii().data());
+}
+#endif
+
+PassRefPtr<MutableStylePropertySet> MutableStylePropertySet::create(CSSParserMode cssParserMode)
+{
+    return adoptRef(new MutableStylePropertySet(cssParserMode));
+}
+
+PassRefPtr<MutableStylePropertySet> MutableStylePropertySet::create(const CSSProperty* properties, unsigned count)
+{
+    return adoptRef(new MutableStylePropertySet(properties, count));
+}
+
+String StylePropertySet::PropertyReference::cssName() const
+{
+#if ENABLE(CSS_VARIABLES)
+    if (id() == CSSPropertyVariable) {
+        ASSERT(propertyValue()->isVariableValue());
+        if (!propertyValue()->isVariableValue())
+            return emptyString(); // Should not happen, but if it does, avoid a bad cast.
+        return "-webkit-var-" + static_cast<const CSSVariableValue*>(propertyValue())->name();
+    }
+#endif
+    return getPropertyNameString(id());
+}
+
+String StylePropertySet::PropertyReference::cssText() const
+{
+    StringBuilder result;
+    result.append(cssName());
+    result.appendLiteral(": ");
+    result.append(propertyValue()->cssText());
+    if (isImportant())
+        result.appendLiteral(" !important");
+    result.append(';');
+    return result.toString();
+}
+
 
 } // namespace WebCore

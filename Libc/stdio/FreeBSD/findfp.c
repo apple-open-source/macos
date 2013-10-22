@@ -130,9 +130,9 @@ moreglue(n)
 	int n;
 {
 	struct glue *g;
-	static FILE empty;
+	static const FILE empty;
 	FILE *p;
-	static struct __sFILEX emptyx = __sFXInit;
+	static const struct __sFILEX emptyx = __sFXInit;
 	struct __sFILEX *fx;
 
 	g = (struct glue *)malloc(sizeof(*g) + ALIGNBYTES + n * sizeof(FILE) +

@@ -91,7 +91,7 @@ typedef void *comcryptObj;
  * Call once at startup. The resulting comcryptObj can be reused multiple
  * times.
  */
-comcryptObj comcryptAlloc();
+comcryptObj comcryptAlloc(void);
 
 /*
  * Use this before starting every stream process

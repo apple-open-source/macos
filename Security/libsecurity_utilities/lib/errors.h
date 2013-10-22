@@ -30,9 +30,8 @@
 
 #include <AvailabilityMacros.h>
 #include <exception>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <errno.h>
-
+#include <Security/SecBase.h>
 #undef check
 
 
@@ -92,7 +91,7 @@ public:
 	virtual int unixError() const;
     virtual const char *what () const throw ();
     
-    static void check(OSStatus status)	{ if (status != noErr) throwMe(status); }
+    static void check(OSStatus status)	{ if (status != errSecSuccess) throwMe(status); }
     static void throwMe(int err) __attribute__((noreturn));
 };
 
@@ -117,6 +116,17 @@ public:
 	static void throwMe() __attribute__((noreturn));
 };
 
+
+// Something that gets thrown when ModuleNexus creation fails
+class ModuleNexusError : public CommonError {
+protected:
+    ModuleNexusError() {}
+
+public:
+    virtual OSStatus osStatus() const;
+	virtual int unixError() const;
+    static void throwMe() __attribute__((noreturn));
+};
 
 } // end namespace Security
 

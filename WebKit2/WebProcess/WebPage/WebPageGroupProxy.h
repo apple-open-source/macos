@@ -30,12 +30,19 @@
 #include "WebPageGroupData.h"
 #include <wtf/PassRefPtr.h>
 
+namespace CoreIPC {
+class Connection;
+class MessageDecoder;
+}
+
+namespace WebCore {
+class PageGroup;
+}
+
 namespace WebKit {
 
-class WebPageGroupProxy : public APIObject {
+class WebPageGroupProxy : public TypedAPIObject<APIObject::TypeBundlePageGroup> {
 public:
-    static const Type APIType = TypeBundlePageGroup;
-
     static PassRefPtr<WebPageGroupProxy> create(const WebPageGroupData&);
     virtual ~WebPageGroupProxy();
 
@@ -43,16 +50,21 @@ public:
     uint64_t pageGroupID() const { return m_data.pageGroupID; }
     bool isVisibleToInjectedBundle() const { return m_data.visibleToInjectedBundle; }
     bool isVisibleToHistoryClient() const { return m_data.visibleToHistoryClient; }
+    WebCore::PageGroup* corePageGroup() const { return m_pageGroup; }
+
+    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
 
 private:
-    WebPageGroupProxy(const WebPageGroupData& data)
-        : m_data(data)
-    {
-    }
+    WebPageGroupProxy(const WebPageGroupData&);
 
-    virtual Type type() const { return APIType; }
+    void addUserStyleSheet(const WebCore::UserStyleSheet&);
+    void addUserScript(const WebCore::UserScript&);
+    void removeAllUserStyleSheets();
+    void removeAllUserScripts();
+    void removeAllUserContent();
 
     WebPageGroupData m_data;
+    WebCore::PageGroup* m_pageGroup;
 };
 
 } // namespace WebKit

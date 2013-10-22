@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2013 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -26,6 +26,7 @@
 #include "IOHIDInterface.h"
 #include "IOHIDDevice.h"
 #include "IOHIDElementPrivate.h"
+#include "OSStackRetain.h"
 
 //===========================================================================
 // IOHIDInterface class
@@ -186,6 +187,7 @@ bool IOHIDInterface::matchPropertyTable(
 {
     IOService * provider;
     bool        ret;
+    RETAIN_ON_STACK(this);
     
     if ( !super::matchPropertyTable(table, score) || !(provider = OSDynamicCast(IOService, copyParentEntry(gIOServicePlane))) )
         return false;

@@ -1,11 +1,5 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.in by autoheader.  */
-/* #undef HAVE_ISINF */
-/* #undef HAVE_ISNAN */
-/* #undef HAVE_POW */
-/* #undef HAVE_FLOOR */
-/* #undef HAVE_FABS */
-#define WITH_DEBUGGER 
 
 /* Define to 1 if you have the <ansidecl.h> header file. */
 /* #undef HAVE_ANSIDECL_H */
@@ -19,8 +13,14 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #define HAVE_DLFCN_H 1
 
+/* Define if fabs is there */
+#define HAVE_FABS 1
+
 /* Define to 1 if you have the <float.h> header file. */
 #define HAVE_FLOAT_H 1
+
+/* Define if floor is there */
+#define HAVE_FLOOR 1
 
 /* Define to 1 if you have the `fprintf' function. */
 #define HAVE_FPRINTF 1
@@ -36,6 +36,9 @@
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
+
+/* Define to 1 if you have the `gmtime' function. */
+#define HAVE_GMTIME 1
 
 /* Define to 1 if you have the `gmtime_r' function. */
 #define HAVE_GMTIME_R 1
@@ -69,6 +72,9 @@
 
 /* Define to 1 if you have the <nan.h> header file. */
 /* #undef HAVE_NAN_H */
+
+/* Define if pow is there */
+#define HAVE_POW 1
 
 /* Define to 1 if you have the `printf' function. */
 #define HAVE_PRINTF 1
@@ -161,6 +167,9 @@
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME ""
 
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
 /* Define to the version of this package. */
 #define PACKAGE_VERSION ""
 
@@ -190,7 +199,10 @@
 
 
 /* Version number of package */
-#define VERSION "1.1.26"
+#define VERSION "1.1.28"
+
+/* Define if debugging support is enabled */
+#define WITH_DEBUGGER 1
 
 /* Define to 1 if on MINIX. */
 /* #undef _MINIX */

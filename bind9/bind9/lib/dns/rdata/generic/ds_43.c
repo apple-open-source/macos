@@ -84,9 +84,6 @@ fromtext_ds(ARGS_FROMTEXT) {
 	case DNS_DSDIGEST_GOST:
 		length = ISC_GOST_DIGESTLENGTH;
 		break;
-	case DNS_DSDIGEST_SHA384:
-		length = ISC_SHA384_DIGESTLENGTH;
-		break;
 	default:
 		length = -1;
 		break;
@@ -165,9 +162,7 @@ fromwire_ds(ARGS_FROMWIRE) {
 	    (sr.base[3] == DNS_DSDIGEST_SHA256 &&
 	     sr.length < 4 + ISC_SHA256_DIGESTLENGTH) ||
 	    (sr.base[3] == DNS_DSDIGEST_GOST &&
-	     sr.length < 4 + ISC_GOST_DIGESTLENGTH) ||
-	    (sr.base[3] == DNS_DSDIGEST_SHA384 &&
-	     sr.length < 4 + ISC_SHA384_DIGESTLENGTH))
+	     sr.length < 4 + ISC_GOST_DIGESTLENGTH))
 		return (ISC_R_UNEXPECTEDEND);
 
 	/*
@@ -181,8 +176,6 @@ fromwire_ds(ARGS_FROMWIRE) {
 		sr.length = 4 + ISC_SHA256_DIGESTLENGTH;
 	else if (sr.base[3] == DNS_DSDIGEST_GOST)
 		sr.length = 4 + ISC_GOST_DIGESTLENGTH;
-	else if (sr.base[3] == DNS_DSDIGEST_SHA384)
-		sr.length = 4 + ISC_SHA384_DIGESTLENGTH;
 
 	isc_buffer_forward(source, sr.length);
 	return (mem_tobuffer(target, sr.base, sr.length));
@@ -234,9 +227,6 @@ fromstruct_ds(ARGS_FROMSTRUCT) {
 		break;
 	case DNS_DSDIGEST_GOST:
 		REQUIRE(ds->length == ISC_GOST_DIGESTLENGTH);
-		break;
-	case DNS_DSDIGEST_SHA384:
-		REQUIRE(ds->length == ISC_SHA384_DIGESTLENGTH);
 		break;
 	}
 

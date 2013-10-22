@@ -153,21 +153,23 @@ void EntropyManager::collectEntropy()
 	
 	int result;
 	
-	size_t size = sizeof(mach_timespec_t) * timingsToCollect;
-	
     double bytesRemaining = kBytesOfEntropyToCollect;
     
     int loopCount = 0;
     
     while (bytesRemaining >= 0)
     {
+        size_t size = sizeof(mach_timespec_t) * timingsToCollect;
+        
         result = sysctl(mib,4, buffer, &size, NULL, 0);
         if (result == -1) {
             Syslog::alert("entropy measurement returned no entropy (errno=%d)", errno);
+            sleep(1);
         }
         else if (size == 0)
         {
             Syslog::alert("entropy measurement returned no entropy.");
+            sleep(1);
         }
 
         // remove the non-entropic pieces from the buffer

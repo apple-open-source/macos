@@ -34,24 +34,24 @@
 #if ENABLE(WEB_SOCKETS)
 
 #include "KURL.h"
-#include "PlatformString.h"
+#include "ResourceResponse.h"
 #include "WebSocketExtensionDispatcher.h"
 #include "WebSocketExtensionProcessor.h"
-#include "WebSocketHandshakeRequest.h"
-#include "WebSocketHandshakeResponse.h"
 #include <wtf/PassOwnPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+class ResourceRequest;
 class ScriptExecutionContext;
 
 class WebSocketHandshake {
-    WTF_MAKE_NONCOPYABLE(WebSocketHandshake);
+    WTF_MAKE_NONCOPYABLE(WebSocketHandshake); WTF_MAKE_FAST_ALLOCATED;
 public:
     enum Mode {
         Incomplete, Normal, Failed, Connected
     };
-    WebSocketHandshake(const KURL&, const String& protocol, ScriptExecutionContext*, bool useHixie76Protocol);
+    WebSocketHandshake(const KURL&, const String& protocol, ScriptExecutionContext*);
     ~WebSocketHandshake();
 
     const KURL& url() const;
@@ -67,7 +67,7 @@ public:
     String clientLocation() const;
 
     CString clientHandshakeMessage() const;
-    PassRefPtr<WebSocketHandshakeRequest> clientHandshakeRequest() const;
+    ResourceRequest clientHandshakeRequest() const;
 
     void reset();
     void clearScriptExecutionContext();
@@ -76,17 +76,15 @@ public:
     Mode mode() const;
     String failureReason() const; // Returns a string indicating the reason of failure if mode() == Failed.
 
-    String serverWebSocketOrigin() const; // Only for hixie-76 handshake.
-    String serverWebSocketLocation() const; // Only for hixie-76 handshake.
     String serverWebSocketProtocol() const;
     String serverSetCookie() const;
     String serverSetCookie2() const;
     String serverUpgrade() const;
     String serverConnection() const;
-    String serverWebSocketAccept() const; // Only for hybi-10 handshake.
+    String serverWebSocketAccept() const;
     String acceptedExtensions() const;
 
-    const WebSocketHandshakeResponse& serverHandshakeResponse() const;
+    const ResourceResponse& serverHandshakeResponse() const;
 
     void addExtensionProcessor(PassOwnPtr<WebSocketExtensionProcessor>);
 
@@ -106,21 +104,13 @@ private:
     String m_clientProtocol;
     bool m_secure;
     ScriptExecutionContext* m_context;
-    bool m_useHixie76Protocol;
 
     Mode m_mode;
 
-    WebSocketHandshakeResponse m_response;
+    ResourceResponse m_serverHandshakeResponse;
 
     String m_failureReason;
 
-    // For hixie-76 handshake.
-    String m_hixie76SecWebSocketKey1;
-    String m_hixie76SecWebSocketKey2;
-    unsigned char m_hixie76Key3[8];
-    unsigned char m_hixie76ExpectedChallengeResponse[16];
-
-    // For hybi-10 handshake.
     String m_secWebSocketKey;
     String m_expectedAccept;
 

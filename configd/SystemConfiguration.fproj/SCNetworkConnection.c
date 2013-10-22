@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,8 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/VPNAppLayerPrivate.h>
+#include <SystemConfiguration/VPNTunnel.h>
 
 #if	!TARGET_OS_IPHONE
 #include <Security/Security.h>
@@ -64,17 +66,25 @@
 #include <net/if.h>
 #include <mach/mach.h>
 #include <bsm/audit.h>
+#include <bsm/libbsm.h>
+#include <sandbox.h>
 
 #include <ppp/ppp_msg.h>
 #include "pppcontroller.h"
 #include <ppp/pppcontroller_types.h>
 
+#ifndef	PPPCONTROLLER_SERVER_PRIV
+#define	PPPCONTROLLER_SERVER_PRIV	PPPCONTROLLER_SERVER
+#endif	// !PPPCONTROLLER_SERVER_PRIV
 
+
+#include "SCNetworkConnectionInternal.h"
 
 static int		debug			= 0;
 static pthread_once_t	initialized		= PTHREAD_ONCE_INIT;
 static pthread_mutex_t	scnc_lock		= PTHREAD_MUTEX_INITIALIZER;
 static mach_port_t	scnc_server		= MACH_PORT_NULL;
+static char		*scnc_server_name	= NULL;
 
 
 typedef struct {
@@ -90,9 +100,13 @@ typedef struct {
 
 	/* client info (if we are proxying for another process */
 	mach_port_t			client_audit_session;
+	audit_token_t			client_audit_token;
+	mach_port_t			client_bootstrap_port;
 	uid_t				client_uid;
 	gid_t				client_gid;
 	pid_t				client_pid;
+	uuid_t				client_uuid;
+	CFStringRef			client_bundle_id;
 
 	/* ref to PPP controller for control messages */
 	mach_port_t			session_port;
@@ -115,6 +129,14 @@ typedef struct {
 	dispatch_queue_t		dispatchQueue;
 	dispatch_source_t		dispatchSource;
 
+	SCNetworkConnectionType		type;
+	Boolean				on_demand;
+	CFDictionaryRef			on_demand_info;
+	CFDictionaryRef			on_demand_user_options;
+	CFStringRef			on_demand_required_probe;
+
+	/* Flow Divert support info */
+	CFDictionaryRef			flow_divert_token_params;
 } SCNetworkConnectionPrivate, *SCNetworkConnectionPrivateRef;
 
 
@@ -136,7 +158,7 @@ __SCNetworkConnectionCopyDescription(CFTypeRef cf)
 	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkConnection, %p [%p]> {"), cf, allocator);
 	CFStringAppendFormat(result, NULL, CFSTR("service = %p"), connectionPrivate->service);
 	if (connectionPrivate->session_port != MACH_PORT_NULL) {
-		CFStringAppendFormat(result, NULL, CFSTR(", server port = %p"), connectionPrivate->session_port);
+		CFStringAppendFormat(result, NULL, CFSTR(", server port = 0x%x"), connectionPrivate->session_port);
 	}
 	CFStringAppendFormat(result, NULL, CFSTR("}"));
 
@@ -157,6 +179,17 @@ __SCNetworkConnectionDeallocate(CFTypeRef cf)
 				   connectionPrivate->client_audit_session,
 				   MACH_PORT_RIGHT_SEND,
 				   -1);
+	}
+
+	if (connectionPrivate->client_bootstrap_port != MACH_PORT_NULL) {
+		mach_port_mod_refs(mach_task_self(),
+				   connectionPrivate->client_bootstrap_port,
+				   MACH_PORT_RIGHT_SEND,
+				   -1);
+	}
+
+	if (connectionPrivate->client_bundle_id != NULL) {
+		CFRelease(connectionPrivate->client_bundle_id);
 	}
 
 	if (connectionPrivate->rls != NULL) {
@@ -185,7 +218,25 @@ __SCNetworkConnectionDeallocate(CFTypeRef cf)
 	if (connectionPrivate->rlsContext.release != NULL)
 		(*connectionPrivate->rlsContext.release)(connectionPrivate->rlsContext.info);
 
-	CFRelease(connectionPrivate->service);
+	if (connectionPrivate->service != NULL) {
+		CFRelease(connectionPrivate->service);
+	}
+
+	if (connectionPrivate->on_demand_info != NULL) {
+		CFRelease(connectionPrivate->on_demand_info);
+	}
+
+	if (connectionPrivate->on_demand_user_options != NULL) {
+		CFRelease(connectionPrivate->on_demand_user_options);
+	}
+
+	if (connectionPrivate->on_demand_required_probe != NULL) {
+		CFRelease(connectionPrivate->on_demand_required_probe);
+	}
+
+	if (connectionPrivate->flow_divert_token_params != NULL) {
+		CFRelease(connectionPrivate->flow_divert_token_params);
+	}
 
 	return;
 }
@@ -212,6 +263,7 @@ childForkHandler()
 	/* the process has forked (and we are the child process) */
 
 	scnc_server = MACH_PORT_NULL;
+	scnc_server_name = NULL;
 	return;
 }
 
@@ -243,18 +295,84 @@ __SCNetworkConnectionInitialize(void)
 static Boolean
 __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection);
 
+#define SC_NETWORK_CONNECTION_QUEUE "SCNetworkConnectionQueue"
+
+static dispatch_queue_t
+__SCNetworkConnectionQueue()
+{
+	static dispatch_once_t	once;
+	static dispatch_queue_t	q;
+
+	dispatch_once(&once, ^{
+		q = dispatch_queue_create(SC_NETWORK_CONNECTION_QUEUE, NULL);
+	});
+
+	return q;
+}
+
+
+static void
+__SCNetworkConnectionCallBackRunLoopPerform(SCNetworkConnectionRef connection,
+					    CFRunLoopRef rl,
+					    CFStringRef rl_mode,
+					    SCNetworkConnectionCallBack rlsFunction,
+					    void (*context_release)(const void *),
+					    void *context_info)
+{
+	SCNetworkConnectionStatus	nc_status	= kSCNetworkConnectionInvalid;
+
+	nc_status = SCNetworkConnectionGetStatus(connection);
+	CFRunLoopPerformBlock(rl, rl_mode,
+			      ^{
+				      (*rlsFunction)(connection, nc_status, context_info);
+				      if ((context_release != NULL) && (context_info != NULL)) {
+					      (*context_release)(context_info);
+				      }
+				      CFRelease(rl);
+				      CFRelease(rl_mode);
+				      CFRelease(connection);
+			      });
+	CFRunLoopWakeUp(rl);
+	return;
+}
+
+static void
+__SCNetworkConnectionCallBackDispatchPerform(SCNetworkConnectionRef connection,
+					     dispatch_queue_t q,
+					     SCNetworkConnectionCallBack rlsFunction,
+					     void (*context_release)(const void *),
+					     void *context_info)
+{
+	SCNetworkConnectionStatus	nc_status	= kSCNetworkConnectionInvalid;
+
+	nc_status = SCNetworkConnectionGetStatus(connection);
+	dispatch_async(q,
+		       ^{
+			       (*rlsFunction)(connection, nc_status, context_info);
+			       if ((context_release != NULL) && (context_info != NULL)) {
+				       (*context_release)(context_info);
+			       }
+			       dispatch_release(q);
+			       CFRelease(connection);
+		       });
+	return;
+}
+
 
 static void
 __SCNetworkConnectionCallBack(CFMachPortRef port, void * msg, CFIndex size, void * info)
 {
 	mach_no_senders_notification_t	*buf			= msg;
 	mach_msg_id_t			msgid			= buf->not_header.msgh_id;
-
+	boolean_t			exec_async		= FALSE;
 	SCNetworkConnectionRef		connection		= (SCNetworkConnectionRef)info;
 	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
 	void				*context_info;
 	void				(*context_release)(const void *);
+	CFRunLoopRef			rl			= NULL;
+	CFStringRef			rl_mode;
 	SCNetworkConnectionCallBack	rlsFunction		= NULL;
+	dispatch_queue_t		q			= NULL;
 	SCNetworkConnectionStatus	nc_status		= kSCNetworkConnectionInvalid;
 
 	if (msgid == MACH_NOTIFY_NO_SENDERS) {
@@ -267,12 +385,14 @@ __SCNetworkConnectionCallBack(CFMachPortRef port, void * msg, CFIndex size, void
 
 	if (!connectionPrivate->scheduled) {
 		// if not currently scheduled
-		goto doit;
+		pthread_mutex_unlock(&connectionPrivate->lock);
+		return;
 	}
 
 	rlsFunction = connectionPrivate->rlsFunction;
 	if (rlsFunction == NULL) {
-		goto doit;
+		pthread_mutex_unlock(&connectionPrivate->lock);
+		return;
 	}
 
 	if ((connectionPrivate->rlsContext.retain != NULL) && (connectionPrivate->rlsContext.info != NULL)) {
@@ -283,18 +403,54 @@ __SCNetworkConnectionCallBack(CFMachPortRef port, void * msg, CFIndex size, void
 		context_release	= NULL;
 	}
 
-    doit :
+	// Do we need to spin a new thread? (either we are running on the main
+	// dispatch queue or main runloop)
+	if (connectionPrivate->rlList == NULL) {
+		// this is the case if we are performing a callback on a dispatch queue
+		q = connectionPrivate->dispatchQueue;
+		if (q == dispatch_get_main_queue()) {
+			exec_async = TRUE;
+		}
+	} else {
+		rl = CFRunLoopGetCurrent();
+		if (rl == CFRunLoopGetMain()) {
+			exec_async = TRUE;
+		}
+	}
 
+	CFRetain(connection);
 	pthread_mutex_unlock(&connectionPrivate->lock);
 
-	if (rlsFunction == NULL) {
+	if (exec_async == FALSE) {
+		nc_status = SCNetworkConnectionGetStatus(connection);
+		(*rlsFunction)(connection, nc_status, context_info);
+		if ((context_release != NULL) && (context_info != NULL)) {
+			(*context_release)(context_info);
+		}
+		CFRelease(connection);
 		return;
 	}
 
-	nc_status = SCNetworkConnectionGetStatus(connection);
-	(*rlsFunction)(connection, nc_status, context_info);
-	if ((context_release != NULL) && (context_info != NULL)) {
-		(*context_release)(context_info);
+	if (connectionPrivate->rlList == NULL) {
+		assert(q != NULL);
+		dispatch_retain(q);
+		dispatch_async(__SCNetworkConnectionQueue(),
+			       ^{__SCNetworkConnectionCallBackDispatchPerform(connection,
+									      q,
+									      rlsFunction,
+									      context_release,
+									      context_info);});
+	} else {
+		assert(rl != NULL);
+		CFRetain(rl);
+		rl_mode = CFRunLoopCopyCurrentMode(rl);
+		dispatch_async(__SCNetworkConnectionQueue(),
+			       ^{__SCNetworkConnectionCallBackRunLoopPerform(connection,
+									     rl,
+									     rl_mode,
+									     rlsFunction,
+									     context_release,
+									     context_info);});
 	}
 
 	return;
@@ -345,12 +501,17 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 	pthread_mutex_init(&connectionPrivate->lock, NULL);
 
 	/* save the service */
-	connectionPrivate->service = CFRetain(service);
+	if (service != NULL) {
+		connectionPrivate->service = CFRetain(service);
+	}
 
 	connectionPrivate->client_audit_session = MACH_PORT_NULL;
+	connectionPrivate->client_bootstrap_port = MACH_PORT_NULL;
 	connectionPrivate->client_uid = geteuid();
 	connectionPrivate->client_gid = getegid();
 	connectionPrivate->client_pid = getpid();
+	connectionPrivate->client_bundle_id = NULL;
+	uuid_clear(connectionPrivate->client_uuid);
 
 	connectionPrivate->rlsFunction = callout;
 
@@ -360,6 +521,8 @@ __SCNetworkConnectionCreatePrivate(CFAllocatorRef		allocator,
 			connectionPrivate->rlsContext.info = (void *)(*context->retain)(context->info);
 		}
 	}
+
+	connectionPrivate->type = kSCNetworkConnectionTypeUnknown;
 
 	/* success, return the connection reference */
 	return connectionPrivate;
@@ -383,12 +546,12 @@ __SCNetworkConnectionServerPort(kern_return_t *status)
 
 #ifdef	BOOTSTRAP_PRIVILEGED_SERVER
 	*status = bootstrap_look_up2(bootstrap_port,
-				     PPPCONTROLLER_SERVER,
+				     __SCNetworkConnectionGetControllerPortName(),
 				     &server,
 				     0,
 				     BOOTSTRAP_PRIVILEGED_SERVER);
 #else	// BOOTSTRAP_PRIVILEGED_SERVER
-	*status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER, &server);
+	*status = bootstrap_look_up(bootstrap_port, __SCNetworkConnectionGetControllerPortName(), &server);
 #endif	// BOOTSTRAP_PRIVILEGED_SERVER
 
 	switch (*status) {
@@ -410,11 +573,41 @@ __SCNetworkConnectionServerPort(kern_return_t *status)
 			break;
 	}
 
+	scnc_server_name = NULL;		/* reset pppcontroller server */
 	return MACH_PORT_NULL;
 }
 
+static mach_port_t
+__SCNetworkConnectionGetCurrentServerPort(void)
+{
+	return scnc_server;
+}
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && !TARGET_IPHONE_SIMULATOR
+static mach_port_t
+__SCNetworkConnectionRefreshServerPort(mach_port_t current_server, int *mach_result)
+{
+	mach_port_t new_server;
+
+	pthread_mutex_lock(&scnc_lock);
+	if (scnc_server != MACH_PORT_NULL) {
+		if (current_server == scnc_server) {
+			scnc_server_name = NULL;
+			// if the server we tried returned the error
+			(void)mach_port_deallocate(mach_task_self(), scnc_server);
+			scnc_server = __SCNetworkConnectionServerPort(mach_result);
+		} else {
+			// another thread has refreshed the server port
+		}
+	} else {
+		scnc_server = __SCNetworkConnectionServerPort(mach_result);
+	}
+	new_server = scnc_server;
+	pthread_mutex_unlock(&scnc_lock);
+
+	return new_server;
+}
+
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && (!TARGET_IPHONE_SIMULATOR || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 70000))
 #define	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
 #endif
 
@@ -422,7 +615,6 @@ __SCNetworkConnectionServerPort(kern_return_t *status)
 #if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && !TARGET_IPHONE_SIMULATOR
 #define	HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 #endif
-
 
 static mach_port_t
 __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate)
@@ -434,7 +626,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 	mach_port_t	oldNotify	= MACH_PORT_NULL;
 	int		retry		= 0;
 	int		sc_status	= kSCStatusFailed;
-	mach_port_t	server		= scnc_server;
+	mach_port_t	server		= __SCNetworkConnectionGetCurrentServerPort();
 	kern_return_t	status		= KERN_SUCCESS;
 
 #ifdef	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
@@ -443,6 +635,11 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 
 	if (connectionPrivate->session_port != MACH_PORT_NULL) {
 		return connectionPrivate->session_port;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		sc_status = kSCStatusConnectionNoService;
+		goto done;
 	}
 
 	if (!_SCSerializeString(SCNetworkServiceGetServiceID(connectionPrivate->service), &dataRef, &data, &dataLen)) {
@@ -490,6 +687,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 		if (server != MACH_PORT_NULL) {
 #ifdef	HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 			if ((connectionPrivate->client_audit_session == MACH_PORT_NULL) &&
+			    (connectionPrivate->client_bootstrap_port == MACH_PORT_NULL) &&
 			    (connectionPrivate->client_uid == geteuid()) &&
 			    (connectionPrivate->client_gid == getegid()) &&
 			    (connectionPrivate->client_pid == getpid())
@@ -508,6 +706,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 #ifdef	HAVE_PPPCONTROLLER_ATTACHWITHPROXY
 			} else {
 				mach_port_t	client_au_session;
+				mach_port_t	client_bootstrap_port;
 
 				if (connectionPrivate->client_audit_session == MACH_PORT_NULL) {
 					client_au_session = au_session;
@@ -515,10 +714,16 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 					client_au_session = connectionPrivate->client_audit_session;
 				}
 
+				if (connectionPrivate->client_bootstrap_port == MACH_PORT_NULL) {
+					client_bootstrap_port = bootstrap_port;
+				} else {
+					client_bootstrap_port = connectionPrivate->client_bootstrap_port;
+				}
+
 				status = pppcontroller_attach_proxy(server,
 								    data,
 								    dataLen,
-								    bootstrap_port,
+								    client_bootstrap_port,
 								    notify_port,
 								    client_au_session,
 								    connectionPrivate->client_uid,
@@ -571,21 +776,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 			}
 		}
 
-		pthread_mutex_lock(&scnc_lock);
-		if (scnc_server != MACH_PORT_NULL) {
-			if (server == scnc_server) {
-				// if the server we tried returned the error
-				(void)mach_port_deallocate(mach_task_self(), scnc_server);
-				scnc_server = __SCNetworkConnectionServerPort(&sc_status);
-			} else {
-				// another thread has refreshed the server port
-			}
-		} else {
-			scnc_server = __SCNetworkConnectionServerPort(&sc_status);
-		}
-		server = scnc_server;
-		pthread_mutex_unlock(&scnc_lock);
-
+		server = __SCNetworkConnectionRefreshServerPort(server, &sc_status);
 		if (server == MACH_PORT_NULL) {
 			// if server not available
 			if (sc_status == BOOTSTRAP_UNKNOWN_SERVICE) {
@@ -665,7 +856,7 @@ __SCNetworkConnectionSessionPort(SCNetworkConnectionPrivateRef connectionPrivate
 	// clean up
 
 #ifdef	HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
-	if (au_session != MACH_PORT_NULL){
+	if (au_session != MACH_PORT_NULL) {
 		(void)mach_port_deallocate(mach_task_self(), au_session);
 	}
 #endif	// HAVE_PPPCONTROLLER_ATTACHWITHAUDITSESSION
@@ -731,17 +922,6 @@ __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection)
 	if (connectionPrivate->rlList != NULL) {
 		rlList = CFArrayCreateCopy(NULL, connectionPrivate->rlList);
 	}
-	if (connectionPrivate->dispatchQueue != NULL) {
-		// save dispatchQueue, release reference when we've queue'd blocks
-		// complete, allow re-scheduling
-		dispatchGroup = connectionPrivate->dispatchGroup;
-		connectionPrivate->dispatchGroup = NULL;
-		dispatchQueue = connectionPrivate->dispatchQueue;
-		connectionPrivate->dispatchQueue = NULL;
-
-		// and take an extra reference for rescheduling
-		dispatch_retain(dispatchQueue);
-	}
 
 	// cancel [old] notifications
 	if (connectionPrivate->rlList != NULL) {
@@ -756,6 +936,19 @@ __SCNetworkConnectionReconnectNotifications(SCNetworkConnectionRef connection)
 	if (connectionPrivate->dispatchSource != NULL) {
 		dispatch_source_cancel(connectionPrivate->dispatchSource);
 		connectionPrivate->dispatchSource = NULL;
+	}
+
+	/* Make sure dispatchSource is cancelled before removing group/queue */
+	if (connectionPrivate->dispatchQueue != NULL) {
+		// save dispatchQueue, release reference when we've queue'd blocks
+		// complete, allow re-scheduling
+		dispatchGroup = connectionPrivate->dispatchGroup;
+		connectionPrivate->dispatchGroup = NULL;
+		dispatchQueue = connectionPrivate->dispatchQueue;
+		connectionPrivate->dispatchQueue = NULL;
+
+		// and take an extra reference for rescheduling
+		dispatch_retain(dispatchQueue);
 	}
 
 	connectionPrivate->scheduled = FALSE;
@@ -960,6 +1153,16 @@ SCNetworkConnectionCreateWithServiceID(CFAllocatorRef			allocator,
 }
 
 
+SCNetworkConnectionRef
+SCNetworkConnectionCreate(CFAllocatorRef		allocator,
+			  SCNetworkConnectionCallBack	callout,
+			  SCNetworkConnectionContext	*context)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate = __SCNetworkConnectionCreatePrivate(allocator, NULL, callout, context);
+	return (SCNetworkConnectionRef)connectionPrivate;
+}
+
+
 CFStringRef
 SCNetworkConnectionCopyServiceID(SCNetworkConnectionRef connection)
 {
@@ -968,6 +1171,11 @@ SCNetworkConnectionCopyServiceID(SCNetworkConnectionRef connection)
 
 	if (!isA_SCNetworkConnection(connection)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
 		return NULL;
 	}
 
@@ -990,7 +1198,7 @@ SCNetworkConnectionSetClientInfo(SCNetworkConnectionRef	connection,
 		return FALSE;
 	}
 
-	// save client bootstrap port
+	// save client audit session port
 	if (connectionPrivate->client_audit_session != MACH_PORT_NULL) {
 		mach_port_mod_refs(mach_task_self(),
 				   connectionPrivate->client_audit_session,
@@ -1010,6 +1218,72 @@ SCNetworkConnectionSetClientInfo(SCNetworkConnectionRef	connection,
 	connectionPrivate->client_uid = client_uid;
 	connectionPrivate->client_gid = client_gid;
 	connectionPrivate->client_pid = client_pid;
+
+	return TRUE;
+}
+
+
+Boolean
+SCNetworkConnectionSetClientAuditInfo(SCNetworkConnectionRef	connection,
+				      audit_token_t		client_audit_token,
+				      mach_port_t		audit_session,
+				      mach_port_t		bootstrap_port,
+				      pid_t			client_pid,
+				      const uuid_t		uuid,
+				      const char		*bundle_id)
+{
+	const audit_token_t		null_audit		= KERNEL_AUDIT_TOKEN_VALUE;
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	gid_t				gid			= 0;
+	pid_t				pid			= 0;
+	uid_t				uid			= 0;
+
+	if (memcmp(&client_audit_token, &null_audit, sizeof(client_audit_token))) {
+#if	TARGET_OS_IPHONE
+	    audit_token_to_au32(client_audit_token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
+#else	// TARGET_OS_IPHONE
+	    uid = audit_token_to_euid(client_audit_token);
+	    gid = audit_token_to_egid(client_audit_token);
+	    pid = audit_token_to_pid(client_audit_token);
+#endif	// TARGET_OS_IPHONE
+	} else {
+	    pid = client_pid;
+	}
+
+	if (!SCNetworkConnectionSetClientInfo(connection, audit_session, uid, gid, pid)) {
+		return FALSE;
+	}
+
+	if (connectionPrivate->client_bootstrap_port != MACH_PORT_NULL) {
+		mach_port_mod_refs(mach_task_self(),
+				   connectionPrivate->client_bootstrap_port,
+				   MACH_PORT_RIGHT_SEND,
+				   -1);
+		connectionPrivate->client_bootstrap_port = MACH_PORT_NULL;
+	}
+
+	connectionPrivate->client_bootstrap_port = bootstrap_port;
+	if (connectionPrivate->client_bootstrap_port != MACH_PORT_NULL) {
+		mach_port_mod_refs(mach_task_self(),
+				   connectionPrivate->client_bootstrap_port,
+				   MACH_PORT_RIGHT_SEND,
+				   1);
+	}
+
+	memcpy(&connectionPrivate->client_audit_token, &client_audit_token, sizeof(connectionPrivate->client_audit_token));
+
+	if (uuid != NULL && !uuid_is_null(uuid)) {
+		uuid_copy(connectionPrivate->client_uuid, uuid);
+	}
+
+	if (connectionPrivate->client_bundle_id != NULL) {
+		CFRelease(connectionPrivate->client_bundle_id);
+		connectionPrivate->client_bundle_id = NULL;
+	}
+
+	if (bundle_id != NULL) {
+		connectionPrivate->client_bundle_id = CFStringCreateWithCString(kCFAllocatorDefault, bundle_id, kCFStringEncodingUTF8);
+	}
 
 	return TRUE;
 }
@@ -1095,9 +1369,22 @@ SCNetworkConnectionGetStatus(SCNetworkConnectionRef connection)
 	int				sc_status		= kSCStatusFailed;
 	mach_port_t			session_port;
 	kern_return_t			status;
+	CFStringRef			serviceID;
 
 	if (!isA_SCNetworkConnection(connection)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
+		return kSCNetworkConnectionInvalid;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
+		return kSCNetworkConnectionInvalid;
+	}
+
+	// skip retry and return immediately if we know no service is to be found.
+	serviceID = SCNetworkServiceGetServiceID(connectionPrivate->service);
+	if (CFStringGetLength(serviceID) == 0) {
+		_SCErrorSet(kSCStatusConnectionNoService);
 		return kSCNetworkConnectionInvalid;
 	}
 
@@ -1152,9 +1439,22 @@ SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 	int				sc_status		= kSCStatusFailed;
 	mach_port_t			session_port;
 	kern_return_t			status;
+	CFStringRef			serviceID;
 
 	if (!isA_SCNetworkConnection(connection)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
+		return NULL;
+	}
+
+	// skip retry and return immediately if we know no service is to be found.
+	serviceID = SCNetworkServiceGetServiceID(connectionPrivate->service);
+	if (CFStringGetLength(serviceID) == 0) {
+		_SCErrorSet(kSCStatusConnectionNoService);
 		return NULL;
 	}
 
@@ -1209,6 +1509,14 @@ SCNetworkConnectionCopyExtendedStatus(SCNetworkConnectionRef connection)
 }
 
 
+static void
+_SCNetworkConnectionMergeDictionaries (const void *key, const void *value, void *context)
+{
+	/* Add value only if not present */
+	CFDictionaryAddValue((CFMutableDictionaryRef)context, (CFStringRef)key, (CFTypeRef)value);
+}
+
+
 Boolean
 SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 			 CFDictionaryRef	userOptions,
@@ -1231,6 +1539,21 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	if ((userOptions != NULL) && !isA_CFDictionary(userOptions)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
+	}
+
+	if (userOptions == NULL) {
+		userOptions = connectionPrivate->on_demand_user_options;
+	} else if (connectionPrivate->on_demand_user_options != NULL) {
+		CFDictionaryRef	localUserOptions	= NULL;
+
+		localUserOptions = CFDictionaryCreateMutableCopy(NULL, 0, userOptions);
+		if (localUserOptions) {
+			CFDictionaryApplyFunction(connectionPrivate->on_demand_user_options,
+						  _SCNetworkConnectionMergeDictionaries,
+						  (void *)localUserOptions);
+			CFRelease(connectionPrivate->on_demand_user_options);
+			userOptions = connectionPrivate->on_demand_user_options = localUserOptions;
+		}
 	}
 
 	if (debug > 0) {
@@ -1292,6 +1615,12 @@ SCNetworkConnectionStart(SCNetworkConnectionRef	connection,
 	}
 
 	pthread_mutex_lock(&connectionPrivate->lock);
+
+	/* Clear out any cached flow divert token parameters */
+	if (connectionPrivate->flow_divert_token_params != NULL) {
+	    CFRelease(connectionPrivate->flow_divert_token_params);
+	    connectionPrivate->flow_divert_token_params = NULL;
+	}
 
     retry :
 
@@ -1492,6 +1821,81 @@ SCNetworkConnectionResume(SCNetworkConnectionRef connection)
 }
 
 
+#if	!TARGET_IPHONE_SIMULATOR
+Boolean
+SCNetworkConnectionRefreshOnDemandState(SCNetworkConnectionRef connection)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	Boolean				ok			= FALSE;
+	uint32_t			retry			= 0;
+	int				sc_status		= kSCStatusFailed;
+	mach_port_t			server_port		= __SCNetworkConnectionGetCurrentServerPort();
+	kern_return_t			status			= KERN_SUCCESS;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (debug > 0) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionRefreshOnDemandState (0x%x)"), connectionPrivate);
+	}
+
+	pthread_mutex_lock(&connectionPrivate->lock);
+
+	while (TRUE) {
+		if (server_port == MACH_PORT_NULL) {
+			server_port = __SCNetworkConnectionRefreshServerPort(server_port, &sc_status);
+			if (server_port == MACH_PORT_NULL) {
+				// if server not available
+				if (sc_status == BOOTSTRAP_UNKNOWN_SERVICE) {
+					// wait up to 2.5 seconds for the [SCNetworkConnection] server
+					// to startup
+					if ((retry += 50) < 2500) {
+						usleep(50 * 1000);	// sleep 50ms between attempts
+						continue;
+					}
+				}
+				break;
+			}
+		}
+
+		status = pppcontroller_ondemand_refresh_state(server_port, &sc_status);
+		if (status == KERN_SUCCESS)
+			break;
+
+		if (status == MACH_SEND_INVALID_DEST) {
+			// the server is not yet available
+			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnectionRefreshOnDemandState (!dest) (0x%x)"), connectionPrivate);
+		} else if (status == MIG_SERVER_DIED) {
+			// the server we were using is gone
+			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnectionRefreshOnDemandState (!mig) (0x%x)"), connectionPrivate);
+		} else {
+			// if we got an unexpected error, don't retry
+			sc_status = status;
+			break;
+		}
+	}
+
+	if (debug > 0) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionRefreshOnDemandState (0x%x), return: %d/%d"), connectionPrivate, status, sc_status);
+	}
+
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		goto done;
+	}
+
+	ok = TRUE;
+
+    done :
+
+	pthread_mutex_unlock(&connectionPrivate->lock);
+	return ok;
+}
+#endif	/* !TARGET_IPHONE_SIMULATOR */
+
+
 CFDictionaryRef
 SCNetworkConnectionCopyUserOptions(SCNetworkConnectionRef connection)
 {
@@ -1615,6 +2019,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 	}
 
 	if (queue != NULL) {
+		dispatch_group_t	group	= NULL;
 		mach_port_t		mp;
 		dispatch_source_t	source;
 
@@ -1644,7 +2049,8 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 		// the group to empty and use the group's finalizer to release
 		// our reference to the SCNetworkConnection.
 		//
-		connectionPrivate->dispatchGroup = dispatch_group_create();
+		group = dispatch_group_create();
+		connectionPrivate->dispatchGroup = group;
 		CFRetain(connection);
 		dispatch_set_context(connectionPrivate->dispatchGroup, (void *)connection);
 		dispatch_set_finalizer_f(connectionPrivate->dispatchGroup, (dispatch_function_t)CFRelease);
@@ -1674,7 +2080,8 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 
 			CFRetain(connection);
 			notify_port = dispatch_get_context(source);
-			dispatch_group_async(connectionPrivate->dispatchGroup, connectionPrivate->dispatchQueue, ^{
+
+			dispatch_group_async(group, queue, ^{
 				__SCNetworkConnectionCallBack(notify_port,
 							      (void *)&notify_msg.msg,
 							      sizeof(notify_msg),
@@ -1874,6 +2281,405 @@ SCNetworkConnectionSetDispatchQueue(SCNetworkConnectionRef	connection,
 }
 
 
+/* Requires having called SCNetworkConnectionSelectServiceWithOptions previously */
+Boolean
+SCNetworkConnectionIsOnDemandSuspended(SCNetworkConnectionRef connection)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (connectionPrivate->on_demand_info != NULL) {
+		uint32_t	isSuspended	= 0;
+		CFNumberRef	num		= NULL;
+
+		num = CFDictionaryGetValue(connectionPrivate->on_demand_info, kSCPropNetVPNOnDemandSuspended);
+		if (isA_CFNumber(num) &&
+		    CFNumberGetValue(num, kCFNumberSInt32Type, &isSuspended) &&
+		    (isSuspended != 0)) {
+			return TRUE;
+		}
+	}
+
+	_SCErrorSet(kSCStatusOK);
+	return FALSE;
+}
+
+static void
+SCNetworkConnectionTriggerOnDemandCallback (SCNetworkConnectionRef          connection,
+					    SCNetworkConnectionStatus       status,
+					    void                            *info)
+{
+	dispatch_group_t group = (dispatch_group_t)info;
+	if (status != kSCNetworkConnectionConnecting) {
+		dispatch_group_leave(group);
+	}
+}
+
+Boolean
+SCNetworkConnectionTriggerOnDemandIfNeeded	(CFStringRef			hostName,
+						 Boolean			afterDNSFail,
+						 int				timeout,
+						 int				trafficClass)
+{
+	SCNetworkConnectionRef		connection = NULL;
+	dispatch_group_t		group = NULL;
+	CFMutableDictionaryRef		options_dict = NULL;
+	Boolean				connectedIfNeeded = FALSE;
+
+	/* Require hostName, require non-root user */
+	if (hostName == NULL || geteuid() == 0) {
+		goto done;
+	}
+
+	group = dispatch_group_create();
+	if (group == NULL) {
+		goto done;
+	}
+
+	SCNetworkConnectionContext context = { 0, (void*)group, NULL, NULL, NULL };
+	connection = SCNetworkConnectionCreate(kCFAllocatorDefault, SCNetworkConnectionTriggerOnDemandCallback, &context);
+	if (connection == NULL) {
+		goto done;
+	}
+
+	options_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (options_dict == NULL) {
+		goto done;
+	}
+
+	CFDictionaryAddValue(options_dict, kSCNetworkConnectionSelectionOptionOnDemandHostName, hostName);
+	CFDictionaryAddValue(options_dict, kSCNetworkConnectionSelectionOptionOnDemandRetry, (afterDNSFail ? kCFBooleanTrue : kCFBooleanFalse));
+
+	if (trafficClass) {
+		CFNumberRef trafficClassRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &trafficClass);
+		if (trafficClassRef) {
+			CFDictionaryAddValue(options_dict, kSCNetworkConnectionSelectionOptionOnDemandTrafficClass, trafficClassRef);
+			CFRelease(trafficClassRef);
+		}
+	}
+
+	if (SCNetworkConnectionSelectServiceWithOptions(connection, options_dict)) {
+		SCNetworkConnectionStatus status = SCNetworkConnectionGetStatus(connection);
+
+		if (status == kSCNetworkConnectionConnected) {
+			/* If already connected, done */
+			connectedIfNeeded = TRUE;
+		} else if (status == kSCNetworkConnectionDisconnected || status == kSCNetworkConnectionConnecting) {
+			dispatch_queue_t callback_queue = dispatch_queue_create("SCNetworkConnectionTrigger queue", NULL);
+			if (callback_queue) {
+				SCNetworkConnectionSetDispatchQueue(connection, callback_queue);
+
+				dispatch_group_enter(group);
+
+				/* If the connection is already connecting, we don't need to start.
+				 If disconnected, do call start. */
+				if (status == kSCNetworkConnectionDisconnected) {
+					SCNetworkConnectionStart(connection, NULL, TRUE);
+				}
+
+				dispatch_group_wait(group, (timeout == 0) ? DISPATCH_TIME_FOREVER : dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * timeout));
+
+				SCNetworkConnectionSetDispatchQueue(connection, NULL);
+
+				status = SCNetworkConnectionGetStatus(connection);
+				if (status == kSCNetworkConnectionConnected) {
+					connectedIfNeeded = TRUE;
+				}
+
+				dispatch_release(callback_queue);
+			}
+		}
+	} else {
+		/* Not needed, so we can return true */
+		connectedIfNeeded = TRUE;
+	}
+
+done:
+	if (options_dict) {
+		CFRelease(options_dict);
+	}
+
+	if (connection) {
+		CFRelease(connection);
+	}
+
+	if (group) {
+		dispatch_release(group);
+	}
+
+	return connectedIfNeeded;
+}
+
+
+Boolean
+SCNetworkConnectionCopyOnDemandInfo(SCNetworkConnectionRef	connection,
+				    CFStringRef			*onDemandRemoteAddress,
+				    SCNetworkConnectionStatus	*onDemandConnectionStatus)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
+		return FALSE;
+	}
+
+	if (onDemandRemoteAddress != NULL) {
+		*onDemandRemoteAddress = NULL;
+	}
+
+	if (onDemandConnectionStatus != NULL) {
+		*onDemandConnectionStatus = kSCNetworkConnectionInvalid;
+	}
+
+	if (connectionPrivate->on_demand_info != NULL) {
+		if (onDemandRemoteAddress != NULL) {
+			CFStringRef address =
+			    CFDictionaryGetValue(connectionPrivate->on_demand_info, kSCNetworkConnectionOnDemandRemoteAddress);
+			if (isA_CFString(address)) {
+				*onDemandRemoteAddress = address;
+				CFRetain(*onDemandRemoteAddress);
+			}
+		}
+
+		if (onDemandConnectionStatus != NULL) {
+			int num;
+			CFNumberRef status_num =
+			    CFDictionaryGetValue(connectionPrivate->on_demand_info, kSCNetworkConnectionOnDemandStatus);
+			if (isA_CFNumber(status_num) && CFNumberGetValue(status_num, kCFNumberIntType, &num)) {
+				*onDemandConnectionStatus = num;
+			}
+		}
+	}
+
+	return connectionPrivate->on_demand;
+}
+
+
+Boolean
+SCNetworkConnectionGetReachabilityInfo(SCNetworkConnectionRef		connection,
+				       SCNetworkReachabilityFlags	*reach_flags,
+				       unsigned int			*reach_if_index)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
+		return FALSE;
+	}
+
+	if (reach_flags != NULL) {
+		*reach_flags = 0;
+	}
+
+	if (reach_if_index != NULL) {
+		*reach_if_index = 0;
+	}
+
+	if (connectionPrivate->on_demand_info != NULL) {
+		if (reach_flags != NULL) {
+			int num;
+			CFNumberRef flags_num =
+			    CFDictionaryGetValue(connectionPrivate->on_demand_info, kSCNetworkConnectionOnDemandReachFlags);
+			if (isA_CFNumber(flags_num) && CFNumberGetValue(flags_num, kCFNumberIntType, &num)) {
+				*reach_flags = num;
+			}
+		}
+
+		if (reach_if_index != NULL) {
+			int num;
+			CFNumberRef if_index_num =
+			    CFDictionaryGetValue(connectionPrivate->on_demand_info, kSCNetworkConnectionOnDemandReachInterfaceIndex);
+			if (isA_CFNumber(if_index_num) && CFNumberGetValue(if_index_num, kCFNumberIntType, &num)) {
+				*reach_if_index = num;
+			}
+		}
+	}
+
+	return TRUE;
+}
+
+
+SCNetworkConnectionType
+SCNetworkConnectionGetType(SCNetworkConnectionRef connection)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return kSCNetworkConnectionTypeUnknown;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
+		return kSCNetworkConnectionTypeUnknown;
+	}
+
+	_SCErrorSet(kSCStatusOK);
+
+	return connectionPrivate->type;
+}
+
+
+static Boolean
+validate_flow_properties(CFDictionaryRef flowProperties)
+{
+	CFStringRef			host_name_str;
+	CFDataRef			host_address_data;
+	CFNumberRef			host_port_num;
+
+	if (!isA_CFDictionary(flowProperties)) {
+		return FALSE;
+	}
+
+	/* Validate the host name if one was given */
+	host_name_str = CFDictionaryGetValue(flowProperties, kSCNetworkConnectionFlowPropertyHostName);
+	if (host_name_str != NULL && (!isA_CFString(host_name_str) || CFStringGetLength(host_name_str) == 0)) {
+		return FALSE;
+	}
+
+	/* Validate the address if one was given */
+	host_address_data = CFDictionaryGetValue(flowProperties, kSCNetworkConnectionFlowPropertyHostAddress);
+	if (host_address_data != NULL) {
+		struct sockaddr *sock_addr;
+
+		if (!isA_CFData(host_address_data) || CFDataGetLength(host_address_data) < sizeof(struct sockaddr)) {
+			return FALSE;
+		}
+
+		sock_addr = (struct sockaddr *)CFDataGetBytePtr(host_address_data);
+		if (CFDataGetLength(host_address_data) < sock_addr->sa_len) {
+			return FALSE;
+		}
+
+		if (sock_addr->sa_family == AF_INET) {
+			if (sock_addr->sa_len >= sizeof(struct sockaddr_in)) {
+				struct sockaddr_in *sa_in = (struct sockaddr_in *)(void *)sock_addr;
+				in_addr_t any = { INADDR_ANY };
+				if (memcmp(&sa_in->sin_addr, &any, sizeof(any)) == 0) {
+					return FALSE;
+				}
+			} else {
+				return FALSE;
+			}
+		} else if (sock_addr->sa_family == AF_INET6) {
+			if (sock_addr->sa_len >= sizeof(struct sockaddr_in6)) {
+				struct sockaddr_in6 *sa_in6 = (struct sockaddr_in6 *)(void *)sock_addr;
+				struct in6_addr any = IN6ADDR_ANY_INIT;
+				if (memcmp(&sa_in6->sin6_addr, &any, sizeof(any)) == 0) {
+					return FALSE;
+				}
+			}
+		}
+	}
+
+	/* We must have either a host name or an address */
+	if (host_name_str == NULL && host_address_data == NULL) {
+		return FALSE;
+	}
+
+	/* Validate the port */
+	host_port_num = CFDictionaryGetValue(flowProperties, kSCNetworkConnectionFlowPropertyHostPort);
+	if (host_port_num != NULL) {
+		int num;
+		if (!isA_CFNumber(host_port_num) || !CFNumberGetValue(host_port_num, kCFNumberIntType, &num)) {
+			return FALSE;
+		}
+
+		if (num == 0) {
+			return FALSE;
+		}
+	} else {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+CFDataRef
+SCNetworkConnectionCopyFlowDivertToken(SCNetworkConnectionRef	connection,
+				       CFDictionaryRef		flowProperties)
+{
+	CFDictionaryRef			app_properties		= NULL;
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	CFDataRef			token			= NULL;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
+		goto done;
+	}
+
+	if (connectionPrivate->type != kSCNetworkConnectionTypeAppLayerVPN) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+
+	if (!validate_flow_properties(flowProperties)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+
+	app_properties = VPNAppLayerCopyCachedAppProperties(connectionPrivate->client_audit_token,
+							    connectionPrivate->client_pid,
+							    connectionPrivate->client_uuid,
+							    connectionPrivate->client_bundle_id);
+	if (app_properties == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnectionCopyFlowDivertToken: no cached app properties available"));
+		_SCErrorSet(kSCStatusFailed);
+		goto done;
+	}
+
+	token = VPNAppLayerCreateFlowDivertToken(connection, app_properties, flowProperties);
+
+done:
+	if (app_properties != NULL) {
+		CFRelease(app_properties);
+	}
+
+	return token;
+}
+
+
+int
+SCNetworkConnectionGetServiceIdentifier		(SCNetworkConnectionRef		connection)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	int				service_identifier	= -1;
+
+	if (connectionPrivate->service != NULL) {
+		service_identifier = 0;
+		if (connectionPrivate->on_demand_info != NULL) {
+			CFNumberRef id_num = CFDictionaryGetValue(connectionPrivate->on_demand_info, kSCPropNetDNSServiceIdentifier);
+
+			if (isA_CFNumber(id_num)) {
+				CFNumberGetValue(id_num, kCFNumberIntType, &service_identifier);
+			}
+		}
+	}
+
+	return service_identifier;
+}
+
+
 #pragma mark -
 #pragma mark User level "dial" API
 
@@ -1888,22 +2694,25 @@ SCNetworkConnectionSetDispatchQueue(SCNetworkConnectionRef	connection,
 
 
 /* Private Prototypes */
-static Boolean SCNetworkConnectionPrivateCopyDefaultServiceIDForDial	(SCDynamicStoreRef session, CFStringRef *serviceID);
-static Boolean SCNetworkConnectionPrivateGetPPPServiceFromDynamicStore	(SCDynamicStoreRef session, CFStringRef *serviceID);
+static Boolean SCNetworkConnectionPrivateCopyDefaultServiceIDForDial	(CFStringRef *serviceID);
+static Boolean SCNetworkConnectionPrivateGetPPPServiceFromDynamicStore	(CFStringRef *serviceID);
 static Boolean SCNetworkConnectionPrivateCopyDefaultUserOptionsFromArray(CFArrayRef userOptionsArray, CFDictionaryRef *userOptions);
-static Boolean SCNetworkConnectionPrivateIsPPPService			(SCDynamicStoreRef session, CFStringRef serviceID, CFStringRef subType1, CFStringRef subType2);
-static void addPasswordFromKeychain					(SCDynamicStoreRef session, CFStringRef serviceID, CFDictionaryRef *userOptions);
+static Boolean SCNetworkConnectionPrivateIsPPPService			(CFStringRef serviceID, CFStringRef subType1, CFStringRef subType2);
+static void addPasswordFromKeychain					(CFStringRef serviceID, CFDictionaryRef *userOptions);
 static CFStringRef copyPasswordFromKeychain				(CFStringRef uniqueID);
 
 static int		notify_userprefs_token	= -1;
 
 static CFDictionaryRef	onDemand_configuration	= NULL;
+static Boolean		onDemand_force_refresh	= FALSE;
 static pthread_mutex_t	onDemand_notify_lock	= PTHREAD_MUTEX_INITIALIZER;
 static int		onDemand_notify_token	= -1;
+
 
 /*
  *	return TRUE if domain1 ends with domain2, and will check for trailing "."
  */
+#define WILD_CARD_MATCH_STR CFSTR("*")
 Boolean
 _SC_domainEndsWithDomain(CFStringRef compare_domain, CFStringRef match_domain)
 {
@@ -1914,6 +2723,10 @@ _SC_domainEndsWithDomain(CFStringRef compare_domain, CFStringRef match_domain)
 	CFStringRef	s2		= NULL;
 	Boolean		s2_created	= FALSE;
 	CFStringRef	s3		= NULL;
+
+	if (CFEqual(match_domain, WILD_CARD_MATCH_STR)) {
+		return TRUE;
+	}
 
 	if (CFStringHasSuffix(compare_domain, CFSTR("."))) {
 		range.location = 0;
@@ -1964,22 +2777,13 @@ _SC_domainEndsWithDomain(CFStringRef compare_domain, CFStringRef match_domain)
 
 /* VPN On Demand */
 
-Boolean
-__SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
-					      CFStringRef		hostName,
-					      Boolean			onDemandRetry,
-					      CFStringRef		*connectionServiceID,
-					      SCNetworkConnectionStatus	*connectionStatus,
-					      CFStringRef		*vpnRemoteAddress)	/*  CFDictionaryRef *info */
+static CFDictionaryRef
+__SCNetworkConnectionCopyOnDemandConfiguration(void)
 {
 	int			changed		= 1;
-	CFDictionaryRef		configuration;
-	Boolean			ok		= FALSE;
 	int			status;
-	SCDynamicStoreRef	store		= *storeP;
-	CFArrayRef		triggers;
 	uint64_t		triggersCount	= 0;
-	int			triggersIndex;
+	CFDictionaryRef		configuration;
 
 	pthread_mutex_lock(&onDemand_notify_lock);
 	if (onDemand_notify_token == -1) {
@@ -1989,6 +2793,7 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 			onDemand_notify_token = -1;
 		}
 	}
+
 	if (onDemand_notify_token != -1) {
 		status = notify_check(onDemand_notify_token, &changed);
 		if (status != NOTIFY_STATUS_OK) {
@@ -2007,7 +2812,7 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 		}
 	}
 
-	if (changed) {
+	if (changed || onDemand_force_refresh) {
 		CFStringRef	key;
 
 		if (_sc_debug || (debug > 0)) {
@@ -2021,49 +2826,237 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 			onDemand_configuration = NULL;
 		}
 
-		if (triggersCount > 0) {
-			if (store == NULL) {
-				store = SCDynamicStoreCreate(NULL, CFSTR("__SCNetworkConnectionCopyOnDemandInfoWithName"), NULL, NULL);
-				if (store == NULL) {
-					SCLog(TRUE, LOG_ERR, CFSTR("__SCNetworkConnectionCopyOnDemandInfoWithName SCDynamicStoreCreate() failed"));
-
-					// force retry on next check
-					if (onDemand_notify_token != -1) {
-						(void)notify_cancel(onDemand_notify_token);
-						onDemand_notify_token = -1;
-					}
-					pthread_mutex_unlock(&onDemand_notify_lock);
-					return FALSE;
-				}
-				*storeP = store;
-			}
-
+		if ((triggersCount > 0) || onDemand_force_refresh) {
 			key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetOnDemand);
-			onDemand_configuration = SCDynamicStoreCopyValue(store, key);
+			onDemand_configuration = SCDynamicStoreCopyValue(NULL, key);
 			CFRelease(key);
 			if ((onDemand_configuration != NULL) && !isA_CFDictionary(onDemand_configuration)) {
 				CFRelease(onDemand_configuration);
 				onDemand_configuration = NULL;
 			}
 		}
+
+		onDemand_force_refresh = FALSE;
 	}
 
 	configuration = (onDemand_configuration != NULL) ? CFRetain(onDemand_configuration) : NULL;
 	pthread_mutex_unlock(&onDemand_notify_lock);
 
-	if (configuration == NULL) {
-		// if no "OnDemand" configurations
-		return FALSE;
+	return configuration;
+}
+
+
+__private_extern__
+void
+__SCNetworkConnectionForceOnDemandConfigurationRefresh(void)
+{
+	pthread_mutex_lock(&onDemand_notify_lock);
+	onDemand_force_refresh = TRUE;
+	pthread_mutex_unlock(&onDemand_notify_lock);
+
+	return;
+}
+
+
+static Boolean
+__SCNetworkConnectionShouldNeverMatch(CFDictionaryRef trigger, CFStringRef hostName, pid_t client_pid)
+{
+	CFArrayRef	exceptedProcesses;
+	int		exceptedProcessesCount;
+	int		exceptedProcessesIndex;
+	CFArrayRef	exceptions;
+	int		exceptionsCount;
+	int		exceptionsIndex;
+
+	// we have a matching domain, check against exception list
+	exceptions = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandMatchDomainsNever);
+	exceptionsCount = isA_CFArray(exceptions) ? CFArrayGetCount(exceptions) : 0;
+	for (exceptionsIndex = 0; exceptionsIndex < exceptionsCount; exceptionsIndex++) {
+		CFStringRef	exception;
+
+		exception = CFArrayGetValueAtIndex(exceptions, exceptionsIndex);
+		if (isA_CFString(exception) && _SC_domainEndsWithDomain(hostName, exception)) {
+			// found matching exception
+			if (_sc_debug || (debug > 0)) {
+				SCLog(TRUE, LOG_INFO, CFSTR("OnDemand match exception"));
+			}
+			return TRUE;
+		}
+	}
+
+	if (client_pid != 0) {
+		exceptedProcesses = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandPluginPIDs);
+		exceptedProcessesCount = isA_CFArray(exceptedProcesses) ? CFArrayGetCount(exceptedProcesses) : 0;
+		for (exceptedProcessesIndex = 0; exceptedProcessesIndex < exceptedProcessesCount; exceptedProcessesIndex++) {
+			int		pid;
+			CFNumberRef	pidRef;
+
+			pidRef = CFArrayGetValueAtIndex(exceptedProcesses, exceptedProcessesIndex);
+			if (isA_CFNumber(pidRef) && CFNumberGetValue(pidRef, kCFNumberIntType, &pid)) {
+				if (pid == client_pid) {
+					return TRUE;
+				}
+			}
+		}
+	}
+
+	return FALSE;
+}
+
+static CFStringRef
+__SCNetworkConnectionDomainGetMatchWithParameters(CFStringRef action, CFPropertyListRef actionParameters, CFStringRef hostName, CFStringRef *probeString)
+{
+	CFArrayRef	actionArray = NULL;
+	CFIndex		actionArraySize = 0;
+	CFIndex		i;
+	CFStringRef	matchDomain	= NULL;
+
+	/* For now, only support EvaluateConnection, which takes a CFArray */
+	if (!CFEqual(action, kSCValNetVPNOnDemandRuleActionEvaluateConnection) || !isA_CFArray(actionParameters)) {
+		return NULL;
+	}
+
+	actionArray = (CFArrayRef)actionParameters;
+	actionArraySize = CFArrayGetCount(actionArray);
+
+	/* Process domain rules, with actions of ConnectIfNeeded and NeverConnect */
+	for (i = 0; i < actionArraySize; i++) {
+		CFStringRef	domainAction = NULL;
+		CFDictionaryRef	domainRule = CFArrayGetValueAtIndex(actionArray, i);
+		CFArrayRef	domains = NULL;
+		CFIndex		domainsCount = 0;
+		CFIndex		domainsIndex;
+
+		if (!isA_CFDictionary(domainRule)) {
+			continue;
+		}
+
+		domains = CFDictionaryGetValue(domainRule, kSCPropNetVPNOnDemandRuleActionParametersDomains);
+		if (!isA_CFArray(domains)) {
+			continue;
+		}
+
+		domainsCount = CFArrayGetCount(domains);
+		for (domainsIndex = 0; domainsIndex < domainsCount; domainsIndex++) {
+			CFStringRef	domain;
+			domain = CFArrayGetValueAtIndex(domains, domainsIndex);
+			if (isA_CFString(domain) && _SC_domainEndsWithDomain(hostName, domain)) {
+				matchDomain = domain;
+				break;
+			}
+		}
+
+		if (matchDomain) {
+			domainAction = CFDictionaryGetValue(domainRule, kSCPropNetVPNOnDemandRuleActionParametersDomainAction);
+			if (isA_CFString(domainAction) && CFEqual(domainAction, kSCValNetVPNOnDemandRuleActionParametersDomainActionNeverConnect)) {
+				return NULL;
+			} else {
+				/* If we found a match, save the optional probe string as well */
+				if (probeString) {
+					*probeString = CFDictionaryGetValue(domainRule, kSCPropNetVPNOnDemandRuleActionParametersRequiredURLStringProbe);
+				}
+				break;
+			}
+		}
+	}
+
+	return matchDomain;
+}
+
+static CFStringRef
+__SCNetworkConnectionDomainGetMatch(CFDictionaryRef trigger, CFStringRef hostName, Boolean onDemandRetry)
+{
+	CFArrayRef	domains;
+	int		domainsCount;
+	int		domainsIndex;
+	CFStringRef	key;
+	CFStringRef	match_domain	= NULL;
+
+	/* Old configuration: always, never, on retry lists */
+	key = onDemandRetry ? kSCNetworkConnectionOnDemandMatchDomainsOnRetry : kSCNetworkConnectionOnDemandMatchDomainsAlways;
+
+	domains = CFDictionaryGetValue(trigger, key);
+	domainsCount = isA_CFArray(domains) ? CFArrayGetCount(domains) : 0;
+	for (domainsIndex = 0; domainsIndex < domainsCount; domainsIndex++) {
+		CFStringRef	domain;
+
+		domain = CFArrayGetValueAtIndex(domains, domainsIndex);
+		if (isA_CFString(domain) && _SC_domainEndsWithDomain(hostName, domain)) {
+			match_domain = domain;
+			break;
+		}
+	}
+
+	return match_domain;
+}
+
+
+static Boolean
+__SCNetworkConnectionShouldAlwaysConnect(CFDictionaryRef trigger)
+{
+	CFStringRef action = CFDictionaryGetValue(trigger, kSCPropNetVPNOnDemandRuleAction);
+	return (isA_CFString(action) && CFEqual(action, kSCValNetVPNOnDemandRuleActionConnect));
+}
+
+
+static Boolean
+__SCNetworkConnectionShouldIgnoreTrigger(CFDictionaryRef trigger)
+{
+	CFStringRef	action		= CFDictionaryGetValue(trigger, kSCPropNetVPNOnDemandRuleAction);
+	int		flags;
+	CFNumberRef	reachFlags;
+
+	if (isA_CFString(action) &&
+	    (CFEqual(action, kSCValNetVPNOnDemandRuleActionIgnore) ||
+	     CFEqual(action, kSCValNetVPNOnDemandRuleActionDisconnect))) {
+		    return TRUE;
+	}
+
+	/* If the VPN server is not reachable immediately, ignore this trigger */
+	reachFlags = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandReachFlags);
+	if (isA_CFNumber(reachFlags) && CFNumberGetValue(reachFlags, kCFNumberIntType, &flags)) {
+		if (!(flags & kSCNetworkReachabilityFlagsReachable) || (flags & kSCNetworkReachabilityFlagsConnectionRequired)) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+
+static CFDictionaryRef
+__SCNetworkConnectionCopyMatchingTriggerWithName(CFDictionaryRef	configuration,
+						 CFStringRef		hostName,
+						 pid_t			client_pid,
+						 Boolean		onDemandRetry,
+						 CFDictionaryRef	*match_info,
+						 Boolean		*triggerNow,
+						 CFStringRef		*probe_string)
+{
+	CFDictionaryRef	result		= NULL;
+	int		sc_status	= kSCStatusOK;
+	CFArrayRef	triggers;
+	uint64_t	triggersCount	= 0;
+	int		triggersIndex;
+	Boolean		usedOnDemandRetry = FALSE;
+
+	if (triggerNow != NULL) {
+		*triggerNow = FALSE;
+	}
+
+	if (match_info != NULL) {
+		*match_info = NULL;
 	}
 
 	triggers = CFDictionaryGetValue(configuration, kSCNetworkConnectionOnDemandTriggers);
 	triggersCount = isA_CFArray(triggers) ? CFArrayGetCount(triggers) : 0;
 	for (triggersIndex = 0; triggersIndex < triggersCount; triggersIndex++) {
-		CFArrayRef	domains;
-		int		domainsCount;
-		int		domainsIndex;
-		CFStringRef	key;
+		CFStringRef	matched_domain	= NULL;
+		CFStringRef	matched_probe_string = NULL;
 		CFDictionaryRef	trigger;
+		Boolean		trigger_matched	= FALSE;
+
+		usedOnDemandRetry = FALSE;
 
 		trigger = CFArrayGetValueAtIndex(triggers, triggersIndex);
 		if (!isA_CFDictionary(trigger)) {
@@ -2071,202 +3064,312 @@ __SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
 			continue;
 		}
 
-		/*
-		 * If we haven't tried a resulution yet, we only want to check for a name
-		 * match for domains that require to always connect.
-		 */
-		key = onDemandRetry ? kSCNetworkConnectionOnDemandMatchDomainsOnRetry
-				    : kSCNetworkConnectionOnDemandMatchDomainsAlways;
-		domains = CFDictionaryGetValue(trigger, key);
-		domainsCount = isA_CFArray(domains) ? CFArrayGetCount(domains) : 0;
-		for (domainsIndex = 0; domainsIndex < domainsCount; domainsIndex++) {
-			CFStringRef	domain;
-
-			domain = CFArrayGetValueAtIndex(domains, domainsIndex);
-			if (!isA_CFString(domain)) {
-				// if not a valid match domain
+		if (__SCNetworkConnectionShouldAlwaysConnect(trigger)) {
+			/* If the trigger action is 'Connect', always match this trigger */
+			/* First check the never match list */
+			if (__SCNetworkConnectionShouldNeverMatch(trigger, hostName, client_pid)) {
 				continue;
 			}
-
-			if (_SC_domainEndsWithDomain(hostName, domain)) {
-				CFArrayRef			exceptions;
-				int				exceptionsCount;
-				int				exceptionsIndex;
-				CFNumberRef			num;
-				SCNetworkConnectionStatus	onDemandStatus	= kSCNetworkConnectionDisconnected;
-
-				// we have a matching domain, check against exception list
-				exceptions = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandMatchDomainsNever);
-				exceptionsCount = isA_CFArray(exceptions) ? CFArrayGetCount(exceptions) : 0;
-				for (exceptionsIndex = 0; exceptionsIndex < exceptionsCount; exceptionsIndex++) {
-					CFStringRef	exception;
-
-					exception = CFArrayGetValueAtIndex(exceptions, exceptionsIndex);
-					if (!isA_CFString(exception)) {
-						// if not a valid match exception
-						continue;
-					}
-
-					if (_SC_domainEndsWithDomain(hostName, exception)) {
-						// found matching exception
-						if (_sc_debug || (debug > 0)) {
-							SCLog(TRUE, LOG_INFO, CFSTR("OnDemand match exception"));
-						}
-						goto done;
+			trigger_matched = TRUE;
+		} else if (__SCNetworkConnectionShouldIgnoreTrigger(trigger)) {
+			/* If the trigger action is 'Ignore' or 'Disconnect', skip this trigger */
+			sc_status = kSCStatusConnectionIgnore;
+			continue;
+		} else {
+			CFStringRef action = CFDictionaryGetValue(trigger, kSCPropNetVPNOnDemandRuleAction);
+			CFArrayRef actionParameters = CFDictionaryGetValue(trigger, kSCPropNetVPNOnDemandRuleActionParameters);
+			if (action && actionParameters) {
+				matched_domain = __SCNetworkConnectionDomainGetMatchWithParameters(action, actionParameters, hostName, &matched_probe_string);
+				usedOnDemandRetry = TRUE;
+			} else {
+				if (onDemandRetry) {
+					matched_domain = __SCNetworkConnectionDomainGetMatch(trigger, hostName, TRUE);
+					usedOnDemandRetry = TRUE;
+				} else {
+					matched_domain = __SCNetworkConnectionDomainGetMatch(trigger, hostName, FALSE);
+					if (matched_domain == NULL && result == NULL) {
+						/* Check the retry list if Always failed */
+						matched_domain = __SCNetworkConnectionDomainGetMatch(trigger, hostName, TRUE);
+						usedOnDemandRetry = TRUE;
 					}
 				}
+			}
 
-				// if we have a matching domain and there were no exceptions
-				// then we pass back the OnDemand info
-
-				ok = TRUE;
-
-				if (!CFDictionaryGetValueIfPresent(trigger,
-								   kSCNetworkConnectionOnDemandStatus,
-								   (const void **)&num) ||
-				    !isA_CFNumber(num) ||
-				    !CFNumberGetValue(num, kCFNumberSInt32Type, &onDemandStatus)) {
-					onDemandStatus = kSCNetworkConnectionDisconnected;
-				}
-				if (connectionStatus != NULL) {
-					*connectionStatus = onDemandStatus;
-				}
-
-				if (connectionServiceID != NULL) {
-					*connectionServiceID = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandServiceID);
-					*connectionServiceID = isA_CFString(*connectionServiceID);
-					if ((*connectionServiceID != NULL) && (CFStringGetLength(*connectionServiceID) > 0)) {
-						CFRetain(*connectionServiceID);
-					} else {
-						SCLog(TRUE, LOG_INFO,
-						      CFSTR("OnDemand%s configuration error, no serviceID"),
-						      onDemandRetry ? " (on retry)" : "");
-
-						*connectionServiceID = NULL;
-						ok = FALSE;
-					}
-				}
-
-				if (vpnRemoteAddress != NULL) {
-					*vpnRemoteAddress = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandRemoteAddress);
-					*vpnRemoteAddress = isA_CFString(*vpnRemoteAddress);
-					if ((*vpnRemoteAddress != NULL) && (CFStringGetLength(*vpnRemoteAddress) > 0)) {
-						CFRetain(*vpnRemoteAddress);
-					} else {
-						SCLog(TRUE, LOG_INFO,
-						      CFSTR("OnDemand%s configuration error, no server address"),
-						      onDemandRetry ? " (on retry)" : "");
-
-						*vpnRemoteAddress = NULL;
-						ok = FALSE;
-					}
-				}
-
-				if (!ok) {
-					if ((connectionServiceID != NULL) && (*connectionServiceID != NULL)) {
-						CFRelease(*connectionServiceID);
-						*connectionServiceID = NULL;
-					}
-					if ((vpnRemoteAddress != NULL) && (*vpnRemoteAddress != NULL)) {
-						CFRelease(*vpnRemoteAddress);
-						*vpnRemoteAddress = NULL;
-					}
+			if (matched_domain) {
+				if (__SCNetworkConnectionShouldNeverMatch(trigger, hostName, client_pid)) {
+					matched_domain = NULL;
 					continue;
+				} else {
+					trigger_matched = TRUE;
 				}
-
-				if (_sc_debug || (debug > 0)) {
-					SCLog(TRUE, LOG_INFO,
-					      CFSTR("OnDemand%s match, connection status = %d"),
-					      onDemandRetry ? " (on retry)" : "",
-					      onDemandStatus);
-				}
-
-				goto done;
 			}
 		}
+
+		if (trigger_matched) {
+			// if we have a matching domain and there were no exceptions
+			// then we pass back the OnDemand info
+			if (match_info != NULL) {
+				CFMutableDictionaryRef	minfo;
+				SCNetworkConnectionType	type	= kSCNetworkConnectionTypeIPLayerVPN;
+				CFNumberRef		type_num;
+
+				if (*match_info != NULL) {
+					CFRelease(*match_info);
+					*match_info = NULL;
+				}
+
+				minfo = CFDictionaryCreateMutable(kCFAllocatorDefault,
+								  0,
+								  &kCFTypeDictionaryKeyCallBacks,
+								  &kCFTypeDictionaryValueCallBacks);
+
+				type_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &type);
+				CFDictionarySetValue(minfo, kSCNetworkConnectionOnDemandMatchInfoVPNType, type_num);
+				CFRelease(type_num);
+				if (matched_domain) {
+					CFDictionarySetValue(minfo, kSCNetworkConnectionOnDemandMatchInfoDomain, matched_domain);
+				}
+				CFDictionarySetValue(minfo,
+						     kSCNetworkConnectionOnDemandMatchInfoOnRetry,
+						     (usedOnDemandRetry ? kCFBooleanTrue : kCFBooleanFalse));
+
+				*match_info = minfo;
+			}
+
+			if (probe_string != NULL) {
+				if (*probe_string != NULL) {
+					CFRelease(*probe_string);
+					*probe_string = NULL;
+				}
+
+				if (matched_probe_string) {
+					*probe_string = CFRetain(matched_probe_string);
+				}
+			}
+
+			result = trigger;
+
+			/* If retry was requested, or we found Always match, trigger now */
+			if (onDemandRetry || !usedOnDemandRetry) {
+				if (triggerNow != NULL) {
+					*triggerNow = TRUE;
+				}
+				break;
+			}
+
+			/* If we matched the Retry list, but Always was requested,
+			 keep going through triggers in case one matches an Always */
+		}
+	}
+
+	if (result) {
+		CFRetain(result);
+	}
+
+	_SCErrorSet(sc_status);
+	return result;
+}
+
+
+static CFDictionaryRef
+__SCNetworkConnectionCopyTriggerWithService(CFDictionaryRef	configuration,
+					    CFStringRef		service_id)
+{
+	CFArrayRef	triggers;
+	uint64_t	triggersCount	= 0;
+	int		triggersIndex;
+
+	triggers = CFDictionaryGetValue(configuration, kSCNetworkConnectionOnDemandTriggers);
+	triggersCount = isA_CFArray(triggers) ? CFArrayGetCount(triggers) : 0;
+	for (triggersIndex = 0; triggersIndex < triggersCount; triggersIndex++) {
+		CFDictionaryRef	trigger;
+		CFStringRef	trigger_service_id;
+
+		trigger = CFArrayGetValueAtIndex(triggers, triggersIndex);
+		if (!isA_CFDictionary(trigger)) {
+			// if not a valid "OnDemand" configuration
+			continue;
+		}
+
+		trigger_service_id = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandServiceID);
+		if (isA_CFString(trigger_service_id) && CFEqual(trigger_service_id, service_id)) {
+			CFRetain(trigger);
+			return trigger;
+		}
+	}
+
+	return NULL;
+}
+
+
+__private_extern__ CFDictionaryRef
+__SCNetworkConnectionCopyTokenParameters(SCNetworkConnectionRef connection)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	CFDictionaryRef			parameters		= NULL;
+	uint8_t     			params_buffer[PPP_MACH_MAX_INLINE_DATA];
+	uint32_t    			params_buffer_len	= sizeof(params_buffer);
+	int				sc_status		= kSCStatusOK;
+	mach_port_t			session_port;
+	kern_return_t			status;
+
+	pthread_mutex_lock(&connectionPrivate->lock);
+
+	parameters = connectionPrivate->flow_divert_token_params;
+	if (parameters != NULL) {
+	    CFRetain(parameters);
+	    goto done;
+	}
+
+retry:
+	if (parameters != NULL) {
+		CFRelease(parameters);
+		parameters = NULL;
+	}
+
+	session_port = __SCNetworkConnectionSessionPort(connectionPrivate);
+	if (session_port == MACH_PORT_NULL) {
+		goto done;
+	}
+
+	status = pppcontroller_flow_divert_copy_token_parameters(session_port, params_buffer, &params_buffer_len);
+	if (status == KERN_SUCCESS) {
+		if (params_buffer_len > 0) {
+			CFDataRef params_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+									    params_buffer,
+									    params_buffer_len,
+									    kCFAllocatorNull);
+			parameters = CFPropertyListCreateWithData(kCFAllocatorDefault,
+								  params_data,
+								  kCFPropertyListImmutable,
+								  NULL,
+								  NULL);
+			CFRelease(params_data);
+		}
+	}
+
+	if (__SCNetworkConnectionNeedsRetry(connection, "__SCNetworkConnectionCopyTokenParameters()", status, &sc_status)) {
+		goto retry;
+	}
+
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+	}
+
+done:
+	if (parameters != NULL && connectionPrivate->flow_divert_token_params == NULL) {
+	    connectionPrivate->flow_divert_token_params = (CFDictionaryRef)CFRetain(parameters);
+	}
+
+	pthread_mutex_unlock(&connectionPrivate->lock);
+
+	return parameters;
+}
+
+Boolean
+__SCNetworkConnectionCopyOnDemandInfoWithName(SCDynamicStoreRef		*storeP,
+					      CFStringRef		hostName,
+					      Boolean			onDemandRetry,
+					      CFStringRef		*connectionServiceID,
+					      SCNetworkConnectionStatus	*connectionStatus,
+					      CFStringRef		*vpnRemoteAddress)	/*  CFDictionaryRef *info */
+{
+	CFDictionaryRef		configuration;
+	Boolean			ok		= FALSE;
+	int			sc_status	= kSCStatusOK;
+	CFDictionaryRef		trigger;
+	Boolean			trigger_now	= FALSE;
+
+	configuration = __SCNetworkConnectionCopyOnDemandConfiguration();
+	if (configuration == NULL) {
+		_SCErrorSet(sc_status);
+		return ok;
+	}
+
+	trigger = __SCNetworkConnectionCopyMatchingTriggerWithName(configuration, hostName, 0, onDemandRetry, NULL, &trigger_now, NULL);
+	if (trigger != NULL && trigger_now) {
+		CFNumberRef			num;
+		SCNetworkConnectionStatus	onDemandStatus	= kSCNetworkConnectionDisconnected;
+
+		ok = TRUE;
+
+		if (!CFDictionaryGetValueIfPresent(trigger, kSCNetworkConnectionOnDemandStatus, (const void **)&num) ||
+		    !isA_CFNumber(num) ||
+		    !CFNumberGetValue(num, kCFNumberSInt32Type, &onDemandStatus)) {
+			onDemandStatus = kSCNetworkConnectionDisconnected;
+		}
+		if (connectionStatus != NULL) {
+			*connectionStatus = onDemandStatus;
+		}
+
+		if (connectionServiceID != NULL) {
+			*connectionServiceID = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandServiceID);
+			*connectionServiceID = isA_CFString(*connectionServiceID);
+			if ((*connectionServiceID != NULL) && (CFStringGetLength(*connectionServiceID) > 0)) {
+				CFRetain(*connectionServiceID);
+			} else {
+				SCLog(TRUE, LOG_INFO, CFSTR("OnDemand%s configuration error, no serviceID"),
+				      onDemandRetry ? " (on retry)" : "");
+				*connectionServiceID = NULL;
+				ok = FALSE;
+			}
+		}
+
+		if (vpnRemoteAddress != NULL) {
+			*vpnRemoteAddress = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandRemoteAddress);
+			*vpnRemoteAddress = isA_CFString(*vpnRemoteAddress);
+			if ((*vpnRemoteAddress != NULL) && (CFStringGetLength(*vpnRemoteAddress) > 0)) {
+				CFRetain(*vpnRemoteAddress);
+			} else {
+				SCLog(TRUE, LOG_INFO, CFSTR("OnDemand%s configuration error, no server address"),
+				      onDemandRetry ? " (on retry)" : "");
+				*vpnRemoteAddress = NULL;
+				ok = FALSE;
+			}
+		}
+
+		if (!ok) {
+			if ((connectionServiceID != NULL) && (*connectionServiceID != NULL)) {
+				CFRelease(*connectionServiceID);
+				*connectionServiceID = NULL;
+			}
+			if ((vpnRemoteAddress != NULL) && (*vpnRemoteAddress != NULL)) {
+				CFRelease(*vpnRemoteAddress);
+				*vpnRemoteAddress = NULL;
+			}
+			sc_status = kSCStatusFailed;
+		} else {
+			if (_sc_debug || (debug > 0)) {
+				SCLog(TRUE, LOG_INFO, CFSTR("OnDemand%s match, connection status = %d"),
+				      onDemandRetry ? " (on retry)" : "",
+				      onDemandStatus);
+			}
+		}
+	}
+
+	if (trigger) {
+		CFRelease(trigger);
 	}
 
 //	if (_sc_debug || (debug > 0)) {
 //		SCLog(TRUE, LOG_INFO, CFSTR("OnDemand domain name(s) not matched"));
 //	}
 
-    done :
-
 	if (configuration != NULL) CFRelease(configuration);
+	if (!ok) {
+		_SCErrorSet(sc_status);
+	}
 	return ok;
 }
 
-
-Boolean
-SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
-				       CFStringRef	*serviceID,
-				       CFDictionaryRef	*userOptions)
+static Boolean
+__SCNetworkConnectionCopyUserPreferencesInternal(CFDictionaryRef	selectionOptions,
+						 CFStringRef		*serviceID,
+						 CFDictionaryRef	*userOptions)
 {
-	int			prefsChanged	= 1;
-	SCDynamicStoreRef	session		= NULL;
-	Boolean			success		= FALSE;
-	int			status;
-
-
-	/* initialize runtime */
-	pthread_once(&initialized, __SCNetworkConnectionInitialize);
-
-	/* first check for new VPN OnDemand style */
-	if (selectionOptions != NULL) {
-		CFStringRef	hostName;
-
-		hostName = CFDictionaryGetValue(selectionOptions, kSCNetworkConnectionSelectionOptionOnDemandHostName);
-		if (isA_CFString(hostName)) {
-			CFStringRef			connectionServiceID	= NULL;
-			SCNetworkConnectionStatus	connectionStatus;
-			Boolean				onDemandRetry;
-			CFTypeRef			val;
-
-			val = CFDictionaryGetValue(selectionOptions, kSCNetworkConnectionSelectionOptionOnDemandRetry);
-			onDemandRetry = isA_CFBoolean(val) ? CFBooleanGetValue(val) : TRUE;
-
-			success = __SCNetworkConnectionCopyOnDemandInfoWithName(&session,
-										hostName,
-										onDemandRetry,
-										&connectionServiceID,
-										&connectionStatus,
-										NULL);
-			if (debug > 1) {
-				SCLog(TRUE, LOG_DEBUG,
-				      CFSTR("SCNetworkConnectionCopyUserPreferences __SCNetworkConnectionCopyOnDemandInfoWithName returns %d w/status %d"),
-				      success,
-				      connectionStatus);
-			}
-
-			if (success) {
-				// if the hostname matches an OnDemand domain
-				if (session != NULL) {
-					CFRelease(session);
-				}
-				if (connectionStatus == kSCNetworkConnectionConnected) {
-					// if we are already connected
-					if (connectionServiceID != NULL) {
-						CFRelease(connectionServiceID);
-					}
-					return FALSE;
-				}
-
-				*serviceID   = connectionServiceID;
-				*userOptions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-				CFDictionarySetValue((CFMutableDictionaryRef)*userOptions, kSCNetworkConnectionSelectionOptionOnDemandHostName, hostName);
-				return TRUE;
-			} else if (!onDemandRetry) {
-				// if the hostname does not match an OnDemand domain and we have
-				// not yet issued an initial DNS query (i.e. it's not a query
-				// being retried after the VPN has been established) than we're
-				// done
-				if (session != NULL) {
-					CFRelease(session);
-				}
-				return FALSE;
-			}
-		}
-	}
+	int		prefsChanged	= 1;
+	int		status;
+	Boolean		success		= FALSE;
 
 	if (notify_userprefs_token == -1) {
 		status = notify_register_check(k_NetworkConnect_Notification, &notify_userprefs_token);
@@ -2292,14 +3395,6 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 
 	*serviceID = NULL;
 	*userOptions = NULL;
-
-	if (session == NULL) {
-		session	= SCDynamicStoreCreate(NULL, CFSTR("SCNetworkConnection"), NULL, NULL);
-	}
-	if (session == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("Error,  SCNetworkConnectionCopyUserPreferences, SCDynamicStoreCreate() returned NULL!"));
-		return FALSE;
-	}
 
 	if (selectionOptions != NULL) {
 		Boolean		catchAllFound	= FALSE;
@@ -2329,8 +3424,9 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 			goto done_selection;
 
 
-		if (!isA_CFDictionary(services))
+		if (!isA_CFDictionary(services)) {
 			goto done_selection;
+		}
 
 		servicesCount = CFArrayGetCount(serviceNames);
 		for (serviceIndex = 0; serviceIndex < servicesCount; serviceIndex++) {
@@ -2341,12 +3437,14 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 			int		val;
 
 			serviceName = CFArrayGetValueAtIndex(serviceNames, serviceIndex);
-			if (!isA_CFString(serviceName))
+			if (!isA_CFString(serviceName)) {
 				continue;
+			}
 
 			serviceConfigs = CFDictionaryGetValue(services, serviceName);
-			if (!isA_CFArray(serviceConfigs))
+			if (!isA_CFArray(serviceConfigs)) {
 				continue;
+			}
 
 			configsCount = CFArrayGetCount(serviceConfigs);
 			for (configIndex = 0; configIndex < configsCount; configIndex++) {
@@ -2355,16 +3453,19 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 				CFDictionaryRef pppConfig;
 
 				config = CFArrayGetValueAtIndex(serviceConfigs, configIndex);
-				if (!isA_CFDictionary(config))
+				if (!isA_CFDictionary(config)) {
 					continue;
+				}
 
 				pppConfig = CFDictionaryGetValue(config, kSCEntNetPPP);
-				if (!isA_CFDictionary(pppConfig))
+				if (!isA_CFDictionary(pppConfig)) {
 					continue;
+				}
 
 				autodial = CFDictionaryGetValue(pppConfig, kSCPropNetPPPOnDemandEnabled);
-				if (!isA_CFNumber(autodial))
+				if (!isA_CFNumber(autodial)) {
 					continue;
+				}
 
 				CFNumberGetValue(autodial, kCFNumberIntType, &val);
 				if (val) {
@@ -2376,20 +3477,23 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 
 					/* check domain */
 					domains = CFDictionaryGetValue(pppConfig, kSCPropNetPPPOnDemandDomains);
-					if (!isA_CFArray(domains))
+					if (!isA_CFArray(domains)) {
 						continue;
+					}
 
 					domainsCount = CFArrayGetCount(domains);
 					for (domainsIndex = 0; domainsIndex < domainsCount; domainsIndex++) {
 						CFStringRef	domain;
 
 						domain = CFArrayGetValueAtIndex(domains, domainsIndex);
-						if (!isA_CFString(domain))
+						if (!isA_CFString(domain)) {
 							continue;
+						}
 
 						if (!catchAllFound &&
 						    (CFStringCompare(domain, CFSTR(""), 0) == kCFCompareEqualTo
-							|| CFStringCompare(domain, CFSTR("."), 0) == kCFCompareEqualTo)) {
+							|| CFStringCompare(domain, CFSTR("."), 0) == kCFCompareEqualTo))
+						{
 							// found a catch all
 							catchAllFound = TRUE;
 							catchAllService = serviceIndex;
@@ -2403,7 +3507,7 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 							*userOptions = CFDictionaryCreateMutableCopy(NULL, 0, config);
 							CFDictionarySetValue((CFMutableDictionaryRef)*userOptions, kSCNetworkConnectionSelectionOptionOnDemandHostName, hostName);
 							CFDictionarySetValue((CFMutableDictionaryRef)*userOptions, kSCPropNetPPPOnDemandPriority, priority);
-							addPasswordFromKeychain(session, *serviceID, userOptions);
+							addPasswordFromKeychain(*serviceID, userOptions);
 							success = TRUE;
 							goto done_selection;
 						}
@@ -2427,18 +3531,19 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 			*userOptions = CFDictionaryCreateMutableCopy(NULL, 0, config);
 			CFDictionarySetValue((CFMutableDictionaryRef)*userOptions, kSCNetworkConnectionSelectionOptionOnDemandHostName, hostName);
 			CFDictionarySetValue((CFMutableDictionaryRef)*userOptions, kSCPropNetPPPOnDemandPriority, priority);
-			addPasswordFromKeychain(session, *serviceID, userOptions);
+			addPasswordFromKeychain(*serviceID, userOptions);
 			success = TRUE;
 			goto done_selection;
 		}
 
 	    done_selection:
 
-		if (serviceNames)
+		if (serviceNames) {
 			CFRelease(serviceNames);
-		if (services)
+		}
+		if (services) {
 			CFRelease(services);
-		CFRelease(session);
+		}
 
 		if (debug > 1) {
 			SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionCopyUserPreferences %@"), success ? CFSTR("succeeded") : CFSTR("failed"));
@@ -2451,7 +3556,7 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 	/* we don't have selection options */
 
 	// (1) Figure out which service ID we care about, allocate it into passed "serviceID"
-	success = SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(session, serviceID);
+	success = SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(serviceID);
 
 	if (success && (*serviceID != NULL)) {
 		// (2) Get the list of user data for this service ID
@@ -2465,7 +3570,7 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 				success = SCNetworkConnectionPrivateCopyDefaultUserOptionsFromArray((CFArrayRef)userServices,
 												    userOptions);
 				if(success && (userOptions != NULL)) {
-					addPasswordFromKeychain(session, *serviceID, userOptions);
+					addPasswordFromKeychain(*serviceID, userOptions);
 				}
 			} else {
 				SCLog(TRUE, LOG_DEBUG, CFSTR("Error, userServices are not of type CFArray!"));
@@ -2479,10 +3584,638 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 		SCLog(TRUE, LOG_DEBUG, CFSTR("SCNetworkConnectionCopyUserPreferences %@, no selection options"), success ? CFSTR("succeeded") : CFSTR("failed"));
 	}
 
-	CFRelease(session);
 	return success;
 }
 
+
+Boolean
+SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
+				       CFStringRef	*serviceID,
+				       CFDictionaryRef	*userOptions)
+{
+	Boolean	success	= FALSE;
+
+
+	/* initialize runtime */
+	pthread_once(&initialized, __SCNetworkConnectionInitialize);
+
+	/* first check for new VPN OnDemand style */
+	if (selectionOptions != NULL) {
+		CFStringRef	hostName;
+
+		hostName = CFDictionaryGetValue(selectionOptions, kSCNetworkConnectionSelectionOptionOnDemandHostName);
+		if (isA_CFString(hostName)) {
+			CFStringRef			connectionServiceID	= NULL;
+			SCNetworkConnectionStatus	connectionStatus	= kSCNetworkConnectionInvalid;
+			Boolean				onDemandRetry;
+			CFTypeRef			val;
+
+			val = CFDictionaryGetValue(selectionOptions, kSCNetworkConnectionSelectionOptionOnDemandRetry);
+			onDemandRetry = isA_CFBoolean(val) ? CFBooleanGetValue(val) : TRUE;
+
+			success = __SCNetworkConnectionCopyOnDemandInfoWithName(NULL,
+										hostName,
+										onDemandRetry,
+										&connectionServiceID,
+										&connectionStatus,
+										NULL);
+			if (debug > 1) {
+				SCLog(TRUE, LOG_DEBUG,
+				      CFSTR("SCNetworkConnectionCopyUserPreferences __SCNetworkConnectionCopyOnDemandInfoWithName returns %d w/status %d"),
+				      success,
+				      connectionStatus);
+			}
+
+			if (success) {
+				// if the hostname matches an OnDemand domain
+				if (connectionStatus == kSCNetworkConnectionConnected) {
+					// if we are already connected
+					if (connectionServiceID != NULL) {
+						CFRelease(connectionServiceID);
+					}
+					return FALSE;
+				}
+
+				*serviceID   = connectionServiceID;
+				*userOptions = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+				CFDictionarySetValue((CFMutableDictionaryRef)*userOptions, kSCNetworkConnectionSelectionOptionOnDemandHostName, hostName);
+				return TRUE;
+			} else if (!onDemandRetry) {
+				// if the hostname does not match an OnDemand domain and we have
+				// not yet issued an initial DNS query (i.e. it's not a query
+				// being retried after the VPN has been established) then we're
+				// done
+				return FALSE;
+			}
+		}
+	}
+
+	return __SCNetworkConnectionCopyUserPreferencesInternal(selectionOptions, serviceID, userOptions);
+}
+
+
+Boolean
+SCNetworkConnectionOnDemandShouldRetryOnFailure (SCNetworkConnectionRef connection)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	CFDictionaryRef			match_info		= NULL;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto fail;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
+		goto fail;
+	}
+
+	if (isA_CFDictionary(connectionPrivate->on_demand_user_options)) {
+		match_info = CFDictionaryGetValue(connectionPrivate->on_demand_user_options, kSCNetworkConnectionSelectionOptionOnDemandMatchInfo);
+		if (isA_CFDictionary(match_info)) {
+			CFBooleanRef onRetry = CFDictionaryGetValue(match_info, kSCNetworkConnectionOnDemandMatchInfoOnRetry);
+			if (isA_CFBoolean(onRetry)) {
+				return CFBooleanGetValue(onRetry);
+			}
+		}
+	}
+
+    fail:
+	return FALSE;
+}
+
+
+// Mask is optional in routes dictionary; if not present, whole addresses are matched
+Boolean
+__SCNetworkConnectionIPv4AddressMatchesRoutes (struct sockaddr_in *addr_in, CFDictionaryRef routes)
+{
+	int		count;
+	int		i;
+	CFDataRef	maskData	= NULL;
+	struct in_addr	*maskDataArray;
+	CFDataRef	routeaddrData	= NULL;
+	struct in_addr	*routeaddrDataArray;
+
+	if (!isA_CFDictionary(routes)) {
+		return FALSE;
+	}
+
+	routeaddrData = CFDictionaryGetValue(routes, kSCNetworkConnectionNetworkInfoAddresses);
+	maskData = CFDictionaryGetValue(routes, kSCNetworkConnectionNetworkInfoMasks);
+
+	/* routeaddrData and maskData are packed arrays of addresses; make sure they have the same length */
+	if (!isA_CFData(routeaddrData) || (maskData && (!isA_CFData(maskData) || CFDataGetLength(routeaddrData) != CFDataGetLength(maskData)))) {
+		return FALSE;
+	}
+
+	routeaddrDataArray = (struct in_addr*)(void*)CFDataGetBytePtr(routeaddrData);
+	if (maskData) {
+		maskDataArray = (struct in_addr*)(void*)CFDataGetBytePtr(maskData);
+	}
+
+	count = CFDataGetLength(routeaddrData) / sizeof(struct in_addr);
+
+	for (i=0; i<count; i++) {
+		struct in_addr	routeAddr	= *routeaddrDataArray;
+
+		if (maskData) {
+			struct in_addr	mask	= *maskDataArray;
+
+			if ((addr_in->sin_addr.s_addr & mask.s_addr) == (routeAddr.s_addr & mask.s_addr)) {
+				return TRUE;
+			}
+			maskDataArray++;
+		} else {
+			if (addr_in->sin_addr.s_addr == routeAddr.s_addr) {
+				return TRUE;
+			}
+		}
+		routeaddrDataArray++;
+	}
+	return FALSE;
+}
+
+
+void
+__SCNetworkConnectionMaskIPv6Address(struct in6_addr *addr, struct in6_addr *mask)
+{
+	int	i;
+
+	for (i = 0; i < sizeof(struct in6_addr); i++)
+		addr->s6_addr[i] &= mask->s6_addr[i];
+}
+
+
+// Mask is optional in routes dictionary; if not present, whole addresses are matched
+Boolean
+__SCNetworkConnectionIPv6AddressMatchesRoutes (struct sockaddr_in6 *addr_in6, CFDictionaryRef routes)
+{
+	int		count;
+	int		i;
+	CFDataRef	maskData	= NULL;
+	struct in6_addr	*maskDataArray;
+	CFDataRef	routeaddrData	= NULL;
+	struct in6_addr	*routeaddrDataArray;
+
+	if (!isA_CFDictionary(routes)) {
+		return FALSE;
+	}
+
+	routeaddrData = CFDictionaryGetValue(routes, kSCNetworkConnectionNetworkInfoAddresses);
+	maskData = CFDictionaryGetValue(routes, kSCNetworkConnectionNetworkInfoMasks);
+
+	/* routeaddrData and maskData are packed arrays of addresses; make sure they have the same length */
+	if (!isA_CFData(routeaddrData) || (maskData && (!isA_CFData(maskData) || CFDataGetLength(routeaddrData) != CFDataGetLength(maskData)))) {
+		return FALSE;
+	}
+
+	routeaddrDataArray = (struct in6_addr*)(void*)CFDataGetBytePtr(routeaddrData);
+	if (maskData) {
+		maskDataArray = (struct in6_addr*)(void*)CFDataGetBytePtr(maskData);
+	}
+
+	count = CFDataGetLength(routeaddrData) / sizeof(struct in6_addr);
+
+	for (i=0; i<count; i++) {
+		if (maskData) {
+			struct in6_addr	cmpAddr;
+			struct in6_addr	*mask = maskDataArray;
+			struct in6_addr	routeAddr;
+
+			memcpy(&routeAddr, routeaddrDataArray, sizeof(routeAddr));
+			memcpy(&cmpAddr, &addr_in6->sin6_addr, sizeof(cmpAddr));
+			__SCNetworkConnectionMaskIPv6Address(&routeAddr, mask);
+			__SCNetworkConnectionMaskIPv6Address(&cmpAddr, mask);
+			maskDataArray++;
+			if (!memcmp(&routeAddr, &cmpAddr, sizeof(routeAddr))) {
+				return TRUE;
+			}
+		} else {
+			if (!memcmp(routeaddrDataArray, &addr_in6->sin6_addr, sizeof(struct in6_addr))) {
+				return TRUE;
+			}
+		}
+
+		routeaddrDataArray++;
+	}
+	return FALSE;
+}
+
+
+static Boolean
+__SCNetworkConnectionAddressMatchesRedirectedDNS(CFDictionaryRef trigger, const struct sockaddr *input_addr)
+{
+	CFBooleanRef redirectedRef = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandDNSRedirectDetected);
+
+	if (isA_CFBoolean(redirectedRef) && CFBooleanGetValue(redirectedRef)) {
+		/* DNS is redirected. Look for address list. */
+		CFDictionaryRef redirectedAddressesRef = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandDNSRedirectedAddresses);
+
+		if (isA_CFDictionary(redirectedAddressesRef)) {
+			if (input_addr->sa_family == AF_INET) {
+				return __SCNetworkConnectionIPv4AddressMatchesRoutes((struct sockaddr_in*)(void*)input_addr, CFDictionaryGetValue(redirectedAddressesRef, kSCNetworkConnectionNetworkInfoIPv4));
+			} else if (input_addr->sa_family == AF_INET6) {
+				return __SCNetworkConnectionIPv6AddressMatchesRoutes((struct sockaddr_in6*)(void*)input_addr, CFDictionaryGetValue(redirectedAddressesRef, kSCNetworkConnectionNetworkInfoIPv6));
+			}
+		}
+	}
+
+	return FALSE;
+}
+
+/* If the required probe has failed, we need to tunnel the address. Equivalent to redirected DNS. */
+static Boolean
+__SCNetworkConnectionRequiredProbeFailed (CFDictionaryRef trigger, CFStringRef probeString)
+{
+	CFDictionaryRef probeResults = NULL;
+
+	if (!isA_CFString(probeString)) {
+		return FALSE;
+	}
+
+	probeResults = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandProbeResults);
+	if (!isA_CFDictionary(probeResults)) {
+		return TRUE;
+	}
+
+	CFBooleanRef result = CFDictionaryGetValue(probeResults, probeString);
+
+	/* Only a value of kCFBooleanFalse marks the probe as failed  */
+	return (isA_CFBoolean(result) && !CFBooleanGetValue(result));
+}
+
+Boolean
+SCNetworkConnectionCanTunnelAddress (SCNetworkConnectionRef connection, const struct sockaddr *address, Boolean *startImmediately)
+{
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	CFStringRef			serviceID		= NULL;
+	CFDictionaryRef			configuration		= NULL;
+	CFDictionaryRef			trigger			= NULL;
+	CFDictionaryRef			tunneledNetworks	= NULL;
+	sa_family_t			address_family		= AF_UNSPEC;
+	Boolean				success			= FALSE;
+
+	if (startImmediately) {
+		*startImmediately = FALSE;
+	}
+
+	if (address == NULL) {
+		goto done;
+	}
+
+	address_family = address->sa_family;
+	if (address_family != AF_INET && address_family != AF_INET6) {
+		goto done;
+	}
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusConnectionNoService);
+		goto done;
+	}
+
+	serviceID = SCNetworkServiceGetServiceID(connectionPrivate->service);
+	if (!isA_CFString(serviceID)) {
+		goto done;
+	}
+
+	configuration = __SCNetworkConnectionCopyOnDemandConfiguration();
+	if (configuration == NULL) {
+		goto done;
+	}
+
+	trigger = __SCNetworkConnectionCopyTriggerWithService(configuration, serviceID);
+	if (trigger == NULL) {
+		goto done;
+	}
+
+	if (__SCNetworkConnectionRequiredProbeFailed(trigger, connectionPrivate->on_demand_required_probe)) {
+		/* If probe failed, we can't trust DNS - connect now */
+		if (startImmediately) {
+			*startImmediately = TRUE;
+		}
+		success = TRUE;
+		goto done;
+	}
+
+	if (__SCNetworkConnectionAddressMatchesRedirectedDNS(trigger, address)) {
+		if (startImmediately) {
+			*startImmediately = TRUE;
+		}
+		success = TRUE;
+		goto done;
+	}
+
+	tunneledNetworks = CFDictionaryGetValue(trigger, kSCNetworkConnectionOnDemandTunneledNetworks);
+	if (!isA_CFDictionary(tunneledNetworks)) {
+		goto done;
+	}
+
+	if (address_family == AF_INET) {
+		CFDictionaryRef ip_dict;
+		Boolean matches = FALSE;
+		struct sockaddr_in *addr_in = (struct sockaddr_in *)(void*)address;
+
+		ip_dict = CFDictionaryGetValue(tunneledNetworks, kSCNetworkConnectionNetworkInfoIPv4);
+		if (!isA_CFDictionary(ip_dict)) {
+			goto done;
+		}
+
+		matches = __SCNetworkConnectionIPv4AddressMatchesRoutes(addr_in, CFDictionaryGetValue(ip_dict, kSCNetworkConnectionNetworkInfoIncludedRoutes));
+
+		if (matches) {
+			if (!__SCNetworkConnectionIPv4AddressMatchesRoutes(addr_in, CFDictionaryGetValue(ip_dict, kSCNetworkConnectionNetworkInfoExcludedRoutes))) {
+				success = TRUE;
+				goto done;
+			}
+		}
+	} else {
+		CFDictionaryRef ip6_dict;
+		Boolean matches = FALSE;
+		struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)(void*)address;
+
+		ip6_dict = CFDictionaryGetValue(tunneledNetworks, kSCNetworkConnectionNetworkInfoIPv6);
+		if (!isA_CFDictionary(ip6_dict)) {
+			goto done;
+		}
+
+		matches = __SCNetworkConnectionIPv6AddressMatchesRoutes(addr_in6, CFDictionaryGetValue(ip6_dict, kSCNetworkConnectionNetworkInfoIncludedRoutes));
+
+		if (matches) {
+			if (!__SCNetworkConnectionIPv6AddressMatchesRoutes(addr_in6, CFDictionaryGetValue(ip6_dict, kSCNetworkConnectionNetworkInfoExcludedRoutes))) {
+				success = TRUE;
+				goto done;
+			}
+		}
+	}
+done:
+	if (configuration) {
+		CFRelease(configuration);
+	}
+	if (trigger) {
+		CFRelease(trigger);
+	}
+	return success;
+}
+
+Boolean
+SCNetworkConnectionSelectServiceWithOptions(SCNetworkConnectionRef connection, CFDictionaryRef selectionOptions)
+{
+	CFStringRef			account_identifier	= NULL;
+	CFDictionaryRef			configuration		= NULL;
+	SCNetworkConnectionPrivateRef	connectionPrivate	= (SCNetworkConnectionPrivateRef)connection;
+	CFDictionaryRef			found_trigger		= NULL;
+	CFStringRef			host_name		= NULL;
+	Boolean				is_retry		= TRUE;
+	CFDictionaryRef			match_info		= NULL;
+	CFMutableDictionaryRef		new_user_options	= NULL;
+	SCNetworkConnectionStatus	on_demand_status	= kSCNetworkConnectionInvalid;
+	CFStringRef			requiredProbe		= NULL;
+	CFStringRef			service_id		= NULL;
+	Boolean				skip_prefs		= FALSE;
+	Boolean				success			= TRUE;
+	CFDictionaryRef			user_options		= NULL;
+
+	if (!isA_SCNetworkConnection(connection)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		success = FALSE;
+		goto done;
+	}
+
+	/* Can't call this on a connection that is already associated with a service */
+	if (connectionPrivate->service != NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		success = FALSE;
+		goto done;
+	}
+
+	if (isA_CFDictionary(selectionOptions)) {
+		CFBooleanRef no_user_prefs = CFDictionaryGetValue(selectionOptions, kSCNetworkConnectionSelectionOptionNoUserPrefs);
+		CFBooleanRef retry = CFDictionaryGetValue(selectionOptions, kSCNetworkConnectionSelectionOptionOnDemandRetry);
+
+		account_identifier = CFDictionaryGetValue(selectionOptions, kSCNetworkConnectionSelectionOptionOnDemandAccountIdentifier);
+		host_name = CFDictionaryGetValue(selectionOptions, kSCNetworkConnectionSelectionOptionOnDemandHostName);
+		skip_prefs = (isA_CFBoolean(no_user_prefs) && CFBooleanGetValue(no_user_prefs));
+
+		if (isA_CFBoolean(retry)) {
+			is_retry = CFBooleanGetValue(retry);
+		}
+	}
+
+	configuration = __SCNetworkConnectionCopyOnDemandConfiguration();
+
+	/* First, check for a match with the App Layer rules */
+	service_id = VPNAppLayerCopyMatchingService(connectionPrivate->client_audit_token,
+						    connectionPrivate->client_pid,
+						    connectionPrivate->client_uuid,
+						    connectionPrivate->client_bundle_id,
+						    host_name,
+						    account_identifier,
+						    &match_info);
+	if (service_id != NULL) {
+		Boolean	use_app_layer	= TRUE;
+
+		if (isA_CFDictionary(configuration)) {
+			found_trigger = __SCNetworkConnectionCopyTriggerWithService(configuration, service_id);
+			if (found_trigger != NULL) {
+				CFNumberRef status_num = CFDictionaryGetValue(found_trigger, kSCNetworkConnectionOnDemandStatus);
+				if (isA_CFNumber(status_num)) {
+					CFNumberGetValue(status_num, kCFNumberIntType, &on_demand_status);
+				}
+				/*
+				 * If the trigger should be ignored, still use App Layer VPN if it is already connected or
+				 * is in the process of connecting.
+				 */
+				if (__SCNetworkConnectionShouldIgnoreTrigger(found_trigger) &&
+				    on_demand_status != kSCNetworkConnectionConnecting &&
+				    on_demand_status != kSCNetworkConnectionConnected)
+				{
+					use_app_layer = FALSE;
+				}
+			}
+		}
+
+		if (use_app_layer) {
+			/* If this is not the 'OnRetry' call, and the service has not yet started, the match may need to return false */
+			if (!is_retry &&
+			    match_info != NULL &&
+			    on_demand_status != kSCNetworkConnectionConnecting &&
+			    on_demand_status != kSCNetworkConnectionConnected) {
+				CFBooleanRef matchedOnRetry = CFDictionaryGetValue(match_info, kSCNetworkConnectionOnDemandMatchInfoOnRetry);
+				if (matchedOnRetry && CFBooleanGetValue(matchedOnRetry)) {
+					/* Don't return that we matched always; wait for SCNetworkConnectionOnDemandShouldRetryOnFailure */
+					success = FALSE;
+				}
+			}
+			connectionPrivate->type = kSCNetworkConnectionTypeAppLayerVPN;
+			goto search_done;
+		} else {
+			CFRelease(service_id);
+			service_id = NULL;
+			if (match_info != NULL) {
+				CFRelease(match_info);
+				match_info = NULL;
+			}
+			if (found_trigger != NULL) {
+				CFRelease(found_trigger);
+				found_trigger = NULL;
+			}
+		}
+	}
+
+	/* Next, check the IP layer rules */
+	if (isA_CFDictionary(configuration) && host_name != NULL) {
+		Boolean	triggerNow	= FALSE;
+
+		found_trigger = __SCNetworkConnectionCopyMatchingTriggerWithName(configuration, host_name, connectionPrivate->client_pid, is_retry, &match_info, &triggerNow, &requiredProbe);
+		if (found_trigger != NULL) {
+			service_id = CFDictionaryGetValue(found_trigger, kSCNetworkConnectionOnDemandServiceID);
+			if (isA_CFString(service_id)) {
+				CFRetain(service_id);
+				connectionPrivate->type = kSCNetworkConnectionTypeIPLayerVPN;
+			} else {
+				service_id = NULL;
+			}
+			if (!triggerNow) {
+				success = FALSE;
+			}
+			goto search_done;
+		} else if (!is_retry) {
+			goto search_done;
+		}
+
+		if (match_info != NULL) {
+			CFRelease(match_info);
+			match_info = NULL;
+		}
+	}
+
+	/* Next, check the user preferences */
+	if (!skip_prefs && __SCNetworkConnectionCopyUserPreferencesInternal(selectionOptions, &service_id, &user_options)) {
+		CFMutableDictionaryRef	minfo;
+		CFNumberRef		type_num;
+
+		if (isA_CFDictionary(configuration)) {
+			found_trigger = __SCNetworkConnectionCopyTriggerWithService(configuration, service_id);
+		}
+		connectionPrivate->type = kSCNetworkConnectionTypePPP;
+
+		minfo = CFDictionaryCreateMutable(NULL,
+						  0,
+						  &kCFTypeDictionaryKeyCallBacks,
+						  &kCFTypeDictionaryValueCallBacks);
+		type_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &connectionPrivate->type);
+		CFDictionarySetValue(minfo, kSCNetworkConnectionOnDemandMatchInfoVPNType, type_num);
+		CFRelease(type_num);
+		match_info = minfo;
+		goto search_done;
+	}
+
+search_done:
+	if (service_id == NULL) {
+		_SCErrorSet(kSCStatusOK);
+		success = FALSE;
+		goto done;
+	}
+
+	connectionPrivate->service = _SCNetworkServiceCopyActive(NULL, service_id);
+	if (connectionPrivate->service == NULL) {
+		_SCErrorSet(kSCStatusOK);
+		success = FALSE;
+		goto done;
+	}
+
+	if (found_trigger != NULL) {
+		if (connectionPrivate->on_demand_info) {
+		      CFRelease(connectionPrivate->on_demand_info);
+		}
+		connectionPrivate->on_demand_info = found_trigger;
+		CFRetain(connectionPrivate->on_demand_info);
+
+		if (on_demand_status == kSCNetworkConnectionInvalid) {
+			CFNumberRef status_num = CFDictionaryGetValue(found_trigger, kSCNetworkConnectionOnDemandStatus);
+			if (isA_CFNumber(status_num)) {
+				CFNumberGetValue(status_num, kCFNumberIntType, &on_demand_status);
+			}
+		}
+
+		if (on_demand_status != kSCNetworkConnectionConnected) {
+			if (connectionPrivate->type == kSCNetworkConnectionTypeAppLayerVPN) {
+				/* Check App Layer on demand flag */
+				CFBooleanRef app_on_demand_enabled =
+					CFDictionaryGetValue(found_trigger, kSCNetworkConnectionOnDemandMatchAppEnabled);
+				if (isA_CFBoolean(app_on_demand_enabled) && CFBooleanGetValue(app_on_demand_enabled)) {
+					connectionPrivate->on_demand = TRUE;
+				}
+			} else {
+				connectionPrivate->on_demand = TRUE;
+			}
+		}
+	} else if (connectionPrivate->type == kSCNetworkConnectionTypePPP) {
+		/* If we got the service from __SCNetworkConnectionCopyUserPreferencesInternal, then it's on demand */
+		connectionPrivate->on_demand = TRUE;
+	}
+
+	if (user_options == NULL) {
+		new_user_options = CFDictionaryCreateMutable(kCFAllocatorDefault,
+							     0,
+							     &kCFTypeDictionaryKeyCallBacks,
+							     &kCFTypeDictionaryValueCallBacks);
+	} else {
+		new_user_options = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, user_options);
+	}
+
+	if (host_name != NULL) {
+		CFDictionarySetValue(new_user_options, kSCNetworkConnectionSelectionOptionOnDemandHostName, host_name);
+	}
+
+	if (connectionPrivate->on_demand && match_info != NULL) {
+		CFDictionarySetValue(new_user_options, kSCNetworkConnectionSelectionOptionOnDemandMatchInfo, match_info);
+	}
+
+	connectionPrivate->on_demand_user_options = new_user_options;
+	CFRetain(connectionPrivate->on_demand_user_options);
+
+	if (requiredProbe) {
+		connectionPrivate->on_demand_required_probe = requiredProbe;
+		CFRetain(connectionPrivate->on_demand_required_probe);
+	}
+
+done:
+	if (service_id != NULL) {
+		CFRelease(service_id);
+	}
+
+	if (configuration != NULL) {
+		CFRelease(configuration);
+	}
+
+	if (found_trigger != NULL) {
+		CFRelease(found_trigger);
+	}
+
+	if (user_options != NULL) {
+		CFRelease(user_options);
+	}
+
+	if (new_user_options != NULL) {
+		CFRelease(new_user_options);
+	}
+
+	if (match_info != NULL) {
+		CFRelease(match_info);
+	}
+
+	if (requiredProbe != NULL) {
+		CFRelease(requiredProbe);
+	}
+
+	return success;
+}
 
 //*******************************************************************************************
 // SCNetworkConnectionPrivateCopyDefaultServiceIDForDial
@@ -2493,7 +4226,7 @@ SCNetworkConnectionCopyUserPreferences(CFDictionaryRef	selectionOptions,
 //     with the highest ordering
 //********************************************************************************************
 static Boolean
-SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(SCDynamicStoreRef session, CFStringRef *serviceID)
+SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(CFStringRef *serviceID)
 {
 	Boolean			foundService		= FALSE;
 	CFPropertyListRef	lastServiceSelectedInIC = NULL;
@@ -2503,7 +4236,7 @@ SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(SCDynamicStoreRef session,
 	// we found the service the user last had open in IC
 	if (lastServiceSelectedInIC != NULL) {
 		// make sure its a PPP service
-		if (SCNetworkConnectionPrivateIsPPPService(session, lastServiceSelectedInIC, kSCValNetInterfaceSubTypePPPSerial, kSCValNetInterfaceSubTypePPPoE)) {
+		if (SCNetworkConnectionPrivateIsPPPService(lastServiceSelectedInIC, kSCValNetInterfaceSubTypePPPSerial, kSCValNetInterfaceSubTypePPPoE)) {
 			// make sure the service that we found is valid
 			CFDictionaryRef	dict;
 			CFStringRef	key;
@@ -2512,7 +4245,7 @@ SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(SCDynamicStoreRef session,
 									  kSCDynamicStoreDomainSetup,
 									  lastServiceSelectedInIC,
 									  kSCEntNetInterface);
-			dict = SCDynamicStoreCopyValue(session, key);
+			dict = SCDynamicStoreCopyValue(NULL, key);
 			CFRelease(key);
 			if (dict != NULL) {
 				CFRelease(dict);
@@ -2524,7 +4257,7 @@ SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(SCDynamicStoreRef session,
 	}
 
 	if (!foundService) {
-		foundService = SCNetworkConnectionPrivateGetPPPServiceFromDynamicStore(session, serviceID);
+		foundService = SCNetworkConnectionPrivateGetPPPServiceFromDynamicStore(serviceID);
 	}
 
 	return foundService;
@@ -2536,7 +4269,7 @@ SCNetworkConnectionPrivateCopyDefaultServiceIDForDial(SCDynamicStoreRef session,
 // Find the highest ordered PPP service in the dynamic store
 //********************************************************************************
 static Boolean
-SCNetworkConnectionPrivateGetPPPServiceFromDynamicStore(SCDynamicStoreRef session, CFStringRef *serviceID)
+SCNetworkConnectionPrivateGetPPPServiceFromDynamicStore(CFStringRef *serviceID)
 {
 	CFDictionaryRef	dict		= NULL;
 	CFStringRef	key		= NULL;
@@ -2555,7 +4288,7 @@ SCNetworkConnectionPrivateGetPPPServiceFromDynamicStore(SCDynamicStoreRef sessio
 			break;
 		}
 
-		dict = SCDynamicStoreCopyValue(session, key);
+		dict = SCDynamicStoreCopyValue(NULL, key);
 		if (!isA_CFDictionary(dict)) {
 			fprintf(stderr, "no global IPv4 entity\n");
 			break;
@@ -2571,7 +4304,7 @@ SCNetworkConnectionPrivateGetPPPServiceFromDynamicStore(SCDynamicStoreRef sessio
 		for (i = 0; i < count; i++) {
 			CFStringRef service = CFArrayGetValueAtIndex(serviceIDs, i);
 
-			if (SCNetworkConnectionPrivateIsPPPService(session, service, kSCValNetInterfaceSubTypePPPSerial, kSCValNetInterfaceSubTypePPPoE)) {
+			if (SCNetworkConnectionPrivateIsPPPService(service, kSCValNetInterfaceSubTypePPPSerial, kSCValNetInterfaceSubTypePPPoE)) {
 				*serviceID = CFRetain(service);
 				success = TRUE;
 				break;
@@ -2625,7 +4358,7 @@ SCNetworkConnectionPrivateCopyDefaultUserOptionsFromArray(CFArrayRef userOptions
 // Check and see if the service is a PPP service of the given types
 //********************************************************************************
 static Boolean
-SCNetworkConnectionPrivateIsPPPService(SCDynamicStoreRef session, CFStringRef serviceID, CFStringRef subType1, CFStringRef subType2)
+SCNetworkConnectionPrivateIsPPPService(CFStringRef serviceID, CFStringRef subType1, CFStringRef subType2)
 {
 	CFStringRef	entityKey;
 	Boolean		isPPPService		= FALSE;
@@ -2640,7 +4373,7 @@ SCNetworkConnectionPrivateIsPPPService(SCDynamicStoreRef session, CFStringRef se
 		return FALSE;
 	}
 
-	serviceDict = SCDynamicStoreCopyValue(session, entityKey);
+	serviceDict = SCDynamicStoreCopyValue(NULL, entityKey);
 	if (serviceDict != NULL) {
 		if (isA_CFDictionary(serviceDict)) {
 			CFStringRef	type;
@@ -2672,7 +4405,7 @@ SCNetworkConnectionPrivateIsPPPService(SCDynamicStoreRef session, CFStringRef se
 // them to the PPP and IPSec dictionaries
 //********************************************************************************
 static void
-addPasswordFromKeychain(SCDynamicStoreRef session, CFStringRef serviceID, CFDictionaryRef *userOptions)
+addPasswordFromKeychain(CFStringRef serviceID, CFDictionaryRef *userOptions)
 {
 	CFPropertyListRef	uniqueID;
 	CFStringRef		password;
@@ -2691,7 +4424,7 @@ addPasswordFromKeychain(SCDynamicStoreRef session, CFStringRef serviceID, CFDict
 	password = copyPasswordFromKeychain(uniqueID);
 
 	/* then, if necessary, get the IPSec Shared Secret */
-	if (SCNetworkConnectionPrivateIsPPPService(session, serviceID, kSCValNetInterfaceSubTypeL2TP, 0)) {
+	if (SCNetworkConnectionPrivateIsPPPService(serviceID, kSCValNetInterfaceSubTypeL2TP, 0)) {
 		CFMutableStringRef	uniqueIDSS;
 
 		uniqueIDSS = CFStringCreateMutableCopy(NULL, 0, uniqueID);
@@ -2839,3 +4572,25 @@ copyPasswordFromKeychain(CFStringRef uniqueID)
 	return NULL;
 #endif	// !TARGET_OS_IPHONE
 }
+
+
+__private_extern__
+char *
+__SCNetworkConnectionGetControllerPortName()
+{
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1090) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 70000)) && !TARGET_IPHONE_SIMULATOR
+	if (scnc_server_name == NULL){
+		if (!(sandbox_check(getpid(), "mach-lookup", SANDBOX_FILTER_GLOBAL_NAME | SANDBOX_CHECK_NO_REPORT, PPPCONTROLLER_SERVER_PRIV))){
+			scnc_server_name = PPPCONTROLLER_SERVER_PRIV;
+		}
+		else{
+			scnc_server_name = PPPCONTROLLER_SERVER;
+		}
+		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCNetworkConnectionGetControllerPortName() returns port: %s"), scnc_server_name);
+	}
+#else
+	scnc_server_name = PPPCONTROLLER_SERVER;
+#endif
+	return scnc_server_name;
+}
+

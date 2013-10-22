@@ -94,7 +94,7 @@ private:
 
 inline HandleContext &enterContext(CSSM_CC_HANDLE h)
 {
-    return HandleObject::findAndLock<HandleContext>(h, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+    return HandleObject::findAndLock<HandleContext>((CSSM_HANDLE)h, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
 }
 
 

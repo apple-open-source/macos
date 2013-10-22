@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -201,6 +201,7 @@ _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 	} else {
 		newOrder = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
+	assert(newOrder != NULL);
 	n = CFArrayGetCount(newOrder);
 
 	serviceID = SCNetworkServiceGetServiceID(service);
@@ -450,6 +451,7 @@ SCNetworkSetCopy(SCPreferencesRef prefs, CFStringRef setID)
 	}
 
 	setPrivate = __SCNetworkSetCreatePrivate(NULL, prefs, setID);
+	assert(setPrivate != NULL);
 
 	// mark set as "old" (already established)
 	setPrivate->established = TRUE;
@@ -517,6 +519,7 @@ SCNetworkSetCopyAll(SCPreferencesRef prefs)
 			}
 
 			setPrivate = __SCNetworkSetCreatePrivate(NULL, prefs, keys[i]);
+			assert(setPrivate != NULL);
 
 			// mark set as "old" (already established)
 			setPrivate->established = TRUE;
@@ -531,6 +534,80 @@ SCNetworkSetCopyAll(SCPreferencesRef prefs)
 	}
 
 	return array;
+}
+
+
+CFArrayRef /* of SCNetworkInterfaceRef's */
+SCNetworkSetCopyAvailableInterfaces(SCNetworkSetRef set)
+{
+	CFMutableArrayRef	available;
+	CFMutableSetRef		excluded	= NULL;
+	int			i;
+	CFArrayRef		interfaces;
+	int			n_interfaces;
+	int			n_exclusions	= 0;
+	SCPreferencesRef	prefs;
+	SCNetworkSetPrivateRef	setPrivate;
+
+	setPrivate = (SCNetworkSetPrivateRef)set;
+	prefs = setPrivate->prefs;
+
+	interfaces = _SCNetworkInterfaceCopyAllWithPreferences(prefs);
+	n_interfaces = CFArrayGetCount(interfaces);
+	if (n_interfaces == 0) {
+		return interfaces;
+	}
+
+	if (prefs != NULL) {
+		CFArrayRef	bridges	= NULL;
+
+		excluded = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+
+#if	!TARGET_OS_IPHONE
+		CFArrayRef	bonds	= NULL;
+
+		bonds = SCBondInterfaceCopyAll(prefs);
+		if (bonds != NULL) {
+			__SCBondInterfaceListCollectMembers(bonds, excluded);
+			CFRelease(bonds);
+		}
+#endif	/* !TARGET_OS_IPHONE */
+
+		bridges = SCBridgeInterfaceCopyAll(prefs);
+		if (bridges != NULL) {
+			__SCBridgeInterfaceListCollectMembers(bridges, excluded);
+			CFRelease(bridges);
+		}
+
+		n_exclusions = CFSetGetCount(excluded);
+	}
+
+	if (n_exclusions == 0) {
+		if (excluded != NULL) {
+			CFRelease(excluded);
+		}
+
+		return interfaces;
+	}
+
+	available = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	for (i = 0; i < n_interfaces; i++) {
+		SCNetworkInterfaceRef	interface;
+
+		interface = CFArrayGetValueAtIndex(interfaces, i);
+		if (CFSetContainsValue(excluded, interface)) {
+			// if excluded
+			continue;
+		}
+
+		CFArrayAppendValue(available, interface);
+	}
+
+	CFRelease(interfaces);
+	CFRelease(excluded);
+
+	return available;
 }
 
 
@@ -555,6 +632,7 @@ SCNetworkSetCopyCurrent(SCPreferencesRef prefs)
 		path = SCPreferencesPathKeyCreateSet(NULL, setID);
 		if (CFEqual(path, currentID)) {
 			setPrivate = __SCNetworkSetCreatePrivate(NULL, prefs, setID);
+			assert(setPrivate != NULL);
 
 			// mark set as "old" (already established)
 			setPrivate->established = TRUE;
@@ -674,6 +752,7 @@ SCNetworkSetCreate(SCPreferencesRef prefs)
 	components = CFStringCreateArrayBySeparatingStrings(NULL, path, CFSTR("/"));
 	setID = CFArrayGetValueAtIndex(components, 2);
 	setPrivate = __SCNetworkSetCreatePrivate(NULL, prefs, setID);
+	assert(setPrivate != NULL);
 	CFRelease(components);
 
 	// mark set as "new" (not yet established)
@@ -1130,6 +1209,7 @@ add_supported_interfaces(CFMutableArrayRef interface_list, SCNetworkInterfaceRef
 	return;
 }
 
+
 static CFSetRef	/* of SCNetworkInterfaceRef's */
 copyExcludedInterfaces(SCPreferencesRef prefs)
 {
@@ -1158,6 +1238,137 @@ copyExcludedInterfaces(SCPreferencesRef prefs)
 }
 
 
+#if	!TARGET_OS_IPHONE
+static SCBridgeInterfaceRef
+copyAutoBridgeInterface(SCPreferencesRef prefs, CFStringRef bridgeName)
+{
+	SCBridgeInterfaceRef	bridge		= NULL;
+	CFArrayRef		interfaces;
+
+	// exclude Bridge [member] interfaces
+	interfaces = SCBridgeInterfaceCopyAll(prefs);
+	if (interfaces != NULL) {
+		CFIndex		i;
+		CFIndex		n;
+
+		n = CFArrayGetCount(interfaces);
+		for (i = 0; i < n; i++) {
+			SCBridgeInterfaceRef	interface;
+			CFStringRef		name	= NULL;
+			CFDictionaryRef		options;
+
+			interface = CFArrayGetValueAtIndex(interfaces, i);
+			options = SCBridgeInterfaceGetOptions(interface);
+			if ((options != NULL) &&
+			    CFDictionaryGetValueIfPresent(options,
+							  CFSTR("__AUTO__"),
+							  (const void **)&name) &&
+			    _SC_CFEqual(name, bridgeName)) {
+				bridge = interface;
+				CFRetain(bridge);
+				break;
+			}
+		}
+
+		CFRelease(interfaces);
+	}
+
+	if (bridge == NULL) {
+		bridge = SCBridgeInterfaceCreate(prefs);
+		if (bridge != NULL) {
+			CFMutableDictionaryRef	newOptions;
+			Boolean			ok;
+
+			newOptions = CFDictionaryCreateMutable(NULL, 0,
+							       &kCFTypeDictionaryKeyCallBacks,
+							       &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(newOptions, CFSTR("__AUTO__"), bridgeName);
+			ok = SCBridgeInterfaceSetOptions(bridge, newOptions);
+			CFRelease(newOptions);
+			if (!ok) {
+				CFRelease(bridge);
+				bridge = NULL;
+			}
+		}
+	}
+
+	return bridge;
+}
+#endif	// !TARGET_OS_IPHONE
+
+
+static CFArrayRef
+copyServices(SCNetworkSetRef set)
+{
+	CFArrayRef		services;
+	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
+
+	// first, assume that we only want to add new services
+	// for those interfaces that are not represented in the
+	// current set.
+	services = SCNetworkSetCopyServices(set);
+	if ((services != NULL) && setPrivate->established) {
+		// but, if we are given an existing (or "established") set
+		// than we only want to add new services for those interfaces
+		// that are not represented in *any* set.
+		CFRelease(services);
+		services = SCNetworkServiceCopyAll(setPrivate->prefs);
+	}
+
+	return services;
+}
+
+
+#if	!TARGET_OS_IPHONE
+static CFArrayRef
+updateServices(CFArrayRef services, SCNetworkInterfaceRef interface)
+{
+	CFStringRef		bsdName;
+	CFIndex			i;
+	CFIndex			n;
+	CFMutableArrayRef	newServices;
+
+	if (services == NULL) {
+		return NULL;
+	}
+
+	bsdName = SCNetworkInterfaceGetBSDName(interface);
+
+	newServices = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	n = CFArrayGetCount(services);
+	for (i = 0; i < n; i++) {
+		SCNetworkInterfaceRef		interface;
+		CFStringRef			interfaceName;
+		SCNetworkServiceRef		newService;
+		SCNetworkServiceRef		service;
+		CFStringRef			serviceID;
+		SCNetworkServicePrivateRef	servicePrivate;
+
+		service = CFArrayGetValueAtIndex(services, i);
+		interface = SCNetworkServiceGetInterface(service);
+		interfaceName = SCNetworkInterfaceGetBSDName(interface);
+		if (!_SC_CFEqual(interfaceName, bsdName)) {
+			// if not a match, retain
+			CFArrayAppendValue(newServices, service);
+			continue;
+		}
+
+		// if a match, update
+		serviceID = SCNetworkServiceGetServiceID(service);
+		servicePrivate = (SCNetworkServicePrivateRef)service;
+		newService = SCNetworkServiceCopy(servicePrivate->prefs, serviceID);
+		if (newService != NULL) {
+			CFArrayAppendValue(newServices, newService);
+			CFRelease(newService);
+		}
+	}
+
+	return newServices;
+}
+#endif	// !TARGET_OS_IPHONE
+
+
 static Boolean
 __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CFArrayRef interfaces)
 {
@@ -1168,6 +1379,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 	CFArrayRef		services;
 	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
 	Boolean			updated		= FALSE;
+	Boolean			updatedIFs	= FALSE;
 
 #if	TARGET_OS_IPHONE
 	CFArrayRef		orphans		= NULL;
@@ -1193,19 +1405,102 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 	}
 #endif	// TARGET_OS_IPHONE
 
-	// first, assume that we only want to add new services
-	// for those interfaces that are not represented in the
-	// current set.
-	services = SCNetworkSetCopyServices(set);
-	if ((services != NULL) && setPrivate->established) {
-		// but, if we are given an existing (or "established") set
-		// than we only want to add new services for those interfaces
-		// that are not represented in *any* set.
-		CFRelease(services);
-		services = SCNetworkServiceCopyAll(setPrivate->prefs);
-	}
+	// copy network services
+	services = copyServices(set);
 
+	// copy network interfaces to be excluded
 	excluded = copyExcludedInterfaces(setPrivate->prefs);
+
+#if	!TARGET_OS_IPHONE
+	// look for interfaces that should auto-magically be added
+	// to an Ethernet bridge
+	n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
+	for (i = 0; i < n; i++) {
+		SCBridgeInterfaceRef	bridge		= NULL;
+		SCNetworkInterfaceRef	interface;
+
+		interface = CFArrayGetValueAtIndex(interfaces, i);
+		if ((excluded != NULL)
+		    && CFSetContainsValue(excluded, interface)) {
+			// if this interface is a member of a Bond or Bridge
+			continue;
+		}
+
+		if (__SCNetworkServiceExistsForInterface(services, interface)) {
+			// if this is not a new interface
+			continue;
+		}
+
+		if (_SCNetworkInterfaceIsBuiltin(interface) &&
+		    _SCNetworkInterfaceIsThunderbolt(interface) &&
+		    !isA_SCBridgeInterface(interface)) {
+			// add built-in Thunderbolt interfaces to bridge
+			bridge = copyAutoBridgeInterface(setPrivate->prefs, CFSTR("thunderbolt-bridge"));
+		}
+
+		if (bridge != NULL) {
+			CFIndex			bridgeIndex;
+			CFArrayRef		members;
+			CFMutableArrayRef	newMembers;
+			CFMutableSetRef		newExcluded;
+			CFMutableArrayRef	newInterfaces;
+			CFArrayRef		newServices;
+
+			// track the bridge interface (if it's in our list)
+			bridgeIndex = CFArrayGetFirstIndexOfValue(interfaces,
+								  CFRangeMake(0, CFArrayGetCount(interfaces)),
+								  bridge);
+
+			// add new member interface
+			members = SCBridgeInterfaceGetMemberInterfaces(bridge);
+			if ((members != NULL) && (CFArrayGetCount(members) > 0)) {
+				newMembers = CFArrayCreateMutableCopy(NULL, 0, members);
+				updated = TRUE;		// if we're updating an existing bridge
+			} else {
+				newMembers = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			}
+			CFArrayAppendValue(newMembers, interface);
+			ok = SCBridgeInterfaceSetMemberInterfaces(bridge, newMembers);
+			CFRelease(newMembers);
+			if (!ok) {
+				SCLog(TRUE, LOG_DEBUG,
+				      CFSTR("could not update bridge with \"%@\": %s\n"),
+				      SCNetworkInterfaceGetLocalizedDisplayName(interface),
+				      SCErrorString(SCError()));
+				CFRelease(bridge);
+				continue;
+			}
+
+			// exclude the new member interface
+			newExcluded = CFSetCreateMutableCopy(NULL, 0, excluded);
+			CFRelease(excluded);
+			CFSetAddValue(newExcluded, interface);
+			excluded = newExcluded;
+
+			// update the list of interfaces to include the [new or updated] bridge
+			newInterfaces = CFArrayCreateMutableCopy(NULL, 0, interfaces);
+			if (bridgeIndex != kCFNotFound) {
+				CFArraySetValueAtIndex(newInterfaces, bridgeIndex, bridge);
+			} else {
+				CFArrayAppendValue(newInterfaces, bridge);
+			}
+			if (updatedIFs) {
+				CFRelease(interfaces);
+			}
+			interfaces = newInterfaces;
+			updatedIFs = TRUE;
+
+			// refresh [existing] services
+			newServices = updateServices(services, bridge);
+			if (newServices != NULL) {
+				CFRelease(services);
+				services = newServices;
+			}
+
+			CFRelease(bridge);
+		}
+	}
+#endif	// !TARGET_OS_IPHONE
 
 	n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
 	for (i = 0; i < n; i++) {
@@ -1318,6 +1613,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 		}
 		CFRelease(interface_list);
 	}
+	if (updatedIFs)		CFRelease(interfaces);
 	if (services != NULL)	CFRelease(services);
 	if (excluded != NULL)	CFRelease(excluded);
 
@@ -1392,6 +1688,7 @@ SCNetworkSetEstablishDefaultInterfaceConfiguration(SCNetworkSetRef set, SCNetwor
 	}
 
 	interfaces = CFArrayCreate(NULL, (const void **)&interface, 1, &kCFTypeArrayCallBacks);
+	assert(interfaces != NULL);
 	updated = __SCNetworkSetEstablishDefaultConfigurationForInterfaces(set, interfaces);
 	CFRelease(interfaces);
 

@@ -1,0 +1,106 @@
+# -*- perl -*-
+#
+#   $Id: server,v 1.2 1999/08/12 14:28:59 joe Exp $
+#
+#   This example implements a very simple server, let's call it
+#   multiplier. When a client connects, it waits for decimal numbers
+#   as input. These numbers are written back, multiplied by 2.
+#
+
+require 5.004;
+use strict;
+
+use lib qw(blib/arch blib/lib);
+
+
+$| = 1;
+
+use Net::Daemon::Test ();
+use IO::Socket ();
+
+package Multiplier;
+
+use vars qw($VERSION @ISA);
+
+$VERSION = '0.01';
+@ISA = qw(Net::Daemon::Test);
+
+
+sub Version ($) {
+    return "Multiplier - A simple network calculator; 1998, Jochen Wiedmann";
+}
+
+sub GetLine {
+    my $sock = shift;
+    $sock->getline();
+}
+
+sub Print {
+    my $sock = shift;
+    $sock->print(@_) && $sock->flush();
+}
+
+sub Loop {
+    my $self = shift;
+    if ($self->{'loop-timeout'}) {
+	my $count = $self->{'loop-count'} || 0;
+	if (($self->{'loop-count'} = ++$count) == 10) {
+	    $self->Done();
+	    open(COUNT, ">ndtest.cnt");
+	    print COUNT "10\n";
+	    close(COUNT);
+	}
+    }
+}
+
+sub Run ($) {
+    my $self = shift;
+    sleep 1 if $self->{'mode'} eq "fork";
+      # Waiting one second sometimes helps the parent to catch
+      # children nicely, if they die immediately
+    my($line, $sock);
+    $sock = $self->{'socket'};
+    eval {
+	while (1) {
+	    if (!defined($line = GetLine($sock))) {
+		if ($sock->error()) {
+		    die "Client connection error " . $sock->error() . " ($!)";
+		}
+		last;
+	    }
+	    my $num;
+	    {
+		my $lock = lock($Net::Daemon::RegExpLock)
+		    if ($self->{'mode'} eq 'threads');
+		if ($line =~ /(\d+)/) {
+		    $num = $1;
+		}
+	    }
+	    if (defined($num)) {
+		if (!Print($sock, $num*2, "\n")) {
+		    die "Client connection error " . $sock->error() .
+			" ($!) while writing.";
+		}
+	    } else {
+		die "Server cannot parse input: $line";
+	    }
+	}
+    };
+    if ($@) {
+	print STDERR "$@\n";
+	$self->Error($@);
+    }
+    $sock->close();
+}
+
+
+package main;
+
+my $server = Multiplier->new({ 'pidfile' => 'none'
+			       }, \@ARGV);
+
+eval { $server->Bind() };
+print STDERR "Unexpected return from Bind().\n"
+    if (!$server->Done());
+
+print STDERR "Server died: $@\n" if $@;

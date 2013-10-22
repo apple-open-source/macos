@@ -36,6 +36,8 @@
 #ifndef _S_IPV6SOCKCOMPAT_H
 #define _S_IPV6SOCKCOMPAT_H
 
+#include <netinet/in.h>
+
 #ifdef IPV6_RECVPKTINFO
 #define IPCONFIG_SOCKOPT_PKTINFO IPV6_RECVPKTINFO
 #else

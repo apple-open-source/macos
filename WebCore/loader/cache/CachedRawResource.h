@@ -24,57 +24,64 @@
 #define CachedRawResource_h
 
 #include "CachedResource.h"
-#include "CachedResourceClient.h"
 
 namespace WebCore {
-class CachedRawResourceCallback;
-class CachedRawResourceClient;
 
-class CachedRawResource : public CachedResource {
+class CachedResourceClient;
+class SubresourceLoader;
+
+class CachedRawResource FINAL : public CachedResource {
 public:
-    CachedRawResource(ResourceRequest&);
+    CachedRawResource(ResourceRequest&, Type);
 
     // FIXME: AssociatedURLLoader shouldn't be a DocumentThreadableLoader and therefore shouldn't
     // use CachedRawResource. However, it is, and it needs to be able to defer loading.
     // This can be fixed by splitting CORS preflighting out of DocumentThreacableLoader.
     virtual void setDefersLoading(bool);
+
+    virtual void setDataBufferingPolicy(DataBufferingPolicy);
     
     // FIXME: This is exposed for the InpsectorInstrumentation for preflights in DocumentThreadableLoader. It's also really lame.
     unsigned long identifier() const { return m_identifier; }
 
-    bool canReuse(const ResourceRequest&) const;
+    void clear();
 
 private:
-    virtual void didAddClient(CachedResourceClient*);
-    virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived);
+    virtual void didAddClient(CachedResourceClient*) OVERRIDE;
+    virtual void addDataBuffer(ResourceBuffer*) OVERRIDE;
+    virtual void addData(const char* data, unsigned length) OVERRIDE;
+    virtual void finishLoading(ResourceBuffer*) OVERRIDE;
 
-    virtual bool shouldIgnoreHTTPStatusCodeErrors() const { return true; }
-    virtual void allClientsRemoved();
+    virtual bool shouldIgnoreHTTPStatusCodeErrors() const OVERRIDE { return true; }
+    virtual void allClientsRemoved() OVERRIDE;
 
-    virtual void willSendRequest(ResourceRequest&, const ResourceResponse&);
-    virtual void setResponse(const ResourceResponse&);
-    virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
-#if PLATFORM(CHROMIUM)
-    virtual void didDownloadData(int);
-#endif
+    virtual void willSendRequest(ResourceRequest&, const ResourceResponse&) OVERRIDE;
+    virtual void responseReceived(const ResourceResponse&) OVERRIDE;
+    virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) OVERRIDE;
+
+    virtual void switchClientsToRevalidatedResource() OVERRIDE;
+    virtual bool mayTryReplaceEncodedData() const OVERRIDE { return true; }
+
+    virtual bool canReuse(const ResourceRequest&) const OVERRIDE;
+
+    const char* calculateIncrementalDataChunk(ResourceBuffer*, unsigned& incrementalDataLength);
+    void notifyClientsDataWasReceived(const char* data, unsigned length);
 
     unsigned long m_identifier;
-};
 
+    struct RedirectPair {
+    public:
+        explicit RedirectPair(const ResourceRequest& request, const ResourceResponse& redirectResponse)
+            : m_request(request)
+            , m_redirectResponse(redirectResponse)
+        {
+        }
 
-class CachedRawResourceClient : public CachedResourceClient {
-public:
-    virtual ~CachedRawResourceClient() { }
-    static CachedResourceClientType expectedType() { return RawResourceType; }
-    virtual CachedResourceClientType resourceClientType() { return expectedType(); }
+        const ResourceRequest m_request;
+        const ResourceResponse m_redirectResponse;
+    };
 
-    virtual void dataSent(CachedResource*, unsigned long long /* bytesSent */, unsigned long long /* totalBytesToBeSent */) { }
-    virtual void responseReceived(CachedResource*, const ResourceResponse&) { }
-    virtual void dataReceived(CachedResource*, const char* /* data */, int /* length */) { }
-    virtual void redirectReceived(CachedResource*, ResourceRequest&, const ResourceResponse&) { }
-#if PLATFORM(CHROMIUM)
-    virtual void dataDownloaded(CachedResource*, int) { }
-#endif
+    Vector<RedirectPair> m_redirectChain;
 };
 
 }

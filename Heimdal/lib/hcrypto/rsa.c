@@ -532,8 +532,9 @@ RSA_null_method(void)
 #ifdef HAVE_CDSA
 extern const RSA_METHOD _hc_rsa_cdsa_method;
 static const RSA_METHOD *default_rsa_method = &_hc_rsa_cdsa_method;
-#elif defined(__APPLE_TARGET_EMBEDDED__)
-static const RSA_METHOD *default_rsa_method = &rsa_null_method;
+#elif defined(HEIM_HC_SF)
+extern const RSA_METHOD _hc_rsa_sf_method;
+static const RSA_METHOD *default_rsa_method = &_hc_rsa_sf_method;
 #elif defined(HAVE_GMP)
 extern const RSA_METHOD _hc_rsa_gmp_method;
 static const RSA_METHOD *default_rsa_method = &_hc_rsa_gmp_method;

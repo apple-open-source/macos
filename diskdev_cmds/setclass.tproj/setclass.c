@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  */
 #include <errno.h>
 #include <fcntl.h>
@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 
 /* from sys/cprotect.h */
+
 #define PROTECTION_CLASS_A 1
 #define PROTECTION_CLASS_B 2
 #define PROTECTION_CLASS_C 3
@@ -31,6 +32,9 @@ int
 chartoclass(char c)
 {
 	switch (c) {
+		/* directory 'unset' operation */
+	case '0':
+		return 0;
 	case 'A':
 	case 'a':
 		return PROTECTION_CLASS_A;
@@ -59,6 +63,16 @@ chartoclass(char c)
 char
 classtochar(int class)
 {
+	if (class < 0) {
+		/* negative classes are invalid */
+		return -1;
+	}
+
+	/* otherwise, it must be >= 0... */
+	if (class == 0) {
+		/* Directories are allowed to be "unset" */
+		return 0;
+	}
 	return 'A' + (class - 1);
 }
 
@@ -127,9 +141,14 @@ main(int argc, char **argv)
 	if (do_set) {
 		error = fcntl(fd, F_SETPROTECTIONCLASS, class);
 		if (error) {
-			printf("could not set protection class %c: %s\n", classtochar(class), strerror(errno));
+			char new_class = classtochar(class);
+			if (new_class == 0) {
+				printf("could not set protection class (directory none):  %s\n", strerror(errno));
+			}
+			else {
+				printf("could not set protection class %c: %s\n", new_class, strerror(errno));
+			}
 		}
-
 	} 
 	else {
 		class = fcntl(fd, F_GETPROTECTIONCLASS);
@@ -144,7 +163,13 @@ main(int argc, char **argv)
 			}
 		} 
 		else {
-			printf("%s is in protection class %c\n", argv[1], classtochar(class));
+			char new_class = classtochar(class);
+			if (new_class == 0) {
+				printf("%s is in protection class (directory none) \n", argv[1]);
+			}
+			else {
+				printf("%s is in protection class %c\n", argv[1], new_class);
+			}
 		}
 	}
 	

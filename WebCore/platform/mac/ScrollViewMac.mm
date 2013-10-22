@@ -28,11 +28,11 @@
 
 #import "BlockExceptions.h"
 #import "FloatRect.h"
+#import "FloatSize.h"
 #import "IntRect.h"
 #import "Logging.h"
 #import "NotImplemented.h"
 #import "WebCoreFrameView.h"
-#import <wtf/UnusedParam.h>
 
 using namespace std;
 
@@ -117,14 +117,24 @@ IntRect ScrollView::platformVisibleContentRect(bool includeScrollbars) const
     return IntRect();
 }
 
+IntSize ScrollView::platformVisibleContentSize(bool includeScrollbars) const
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    if (includeScrollbars)
+        return IntSize([scrollView() frame].size);
+
+    return expandedIntSize(FloatSize([scrollView() documentVisibleRect].size));
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return IntSize();
+}
+
 void ScrollView::platformSetContentsSize()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     int w = m_contentsSize.width();
     int h = m_contentsSize.height();
     LOG(Frames, "%p %@ at w %d h %d\n", documentView(), [(id)[documentView() class] className], w, h);            
-    NSSize tempSize = { max(0, w), max(0, h) }; // workaround for 4213314
-    [documentView() setFrameSize:tempSize];
+    [documentView() setFrameSize:NSMakeSize(max(0, w), max(0, h))];
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 

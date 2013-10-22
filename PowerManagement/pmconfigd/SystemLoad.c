@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <notify.h>
+#include <IOKit/hidsystem/IOHIDLib.h>
 
 #include "PrivateLib.h"
 #include "SystemLoad.h"
@@ -32,7 +33,12 @@
 #include "PMSettings.h"
 #include "PMConnection.h"
 
-#define kDefaultUserIdleTimer    (10*60) // 10 mins
+#ifndef  kIOHIDSystemUserHidActivity
+#define kIOHIDSystemUserHidActivity    iokit_family_msg(sub_iokit_hidsystem, 6)
+#endif
+
+#define IDLE_HID_ACTIVITY_SECS ((uint64_t)(5*60))
+
 // Forwards
 const bool  kNoNotify  = false;
 const bool  kYesNotify = true;
@@ -55,10 +61,15 @@ static bool   thermalWarningLevel       = FALSE;
 
 static bool   loggedInUser              = FALSE;
 
-static bool   userIsIdle                = FALSE;
+static bool   displayIsOff                = FALSE;
 static bool   displaySleepEnabled       = FALSE;
 
 static int    gNotifyToken              = 0;
+
+static int    gUserActivityNotifyToken  = 0;
+static bool   userActiveAssertions      = FALSE;
+dispatch_source_t  ua_AssertionTimer    = NULL;
+static bool   hidActivityIdle           = FALSE;
 
 static int minOfThree(int a, int b, int c)
 {
@@ -70,6 +81,31 @@ static int minOfThree(int a, int b, int c)
     return result;
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+static void shareUserIdleness( )
+{
+#if !TARGET_OS_EMBEDDED
+   static bool userIsIdle_saved = false;
+   bool userIsIdle = false;
+
+    if  ((userActiveAssertions == false) && ((!loggedInUser) ||  (hidActivityIdle) || (displayIsOff)) )
+       userIsIdle = true;
+
+    if (userIsIdle != userIsIdle_saved) {
+       if (userIsIdle) {
+          notify_set_state(gUserActivityNotifyToken, (uint64_t)kIOUserIsIdle);        
+       }
+       else  {
+          notify_set_state(gUserActivityNotifyToken, (uint64_t)kIOUserIsActive);        
+       }
+
+       notify_post(kIOUserActivityNotifyName);
+
+       userIsIdle_saved = userIsIdle;
+    }
+#endif
+
+}
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static void shareTheSystemLoad(bool shouldNotify)
@@ -107,7 +143,7 @@ static void shareTheSystemLoad(bool shouldNotify)
     // userLevel. Basing this data on display dimming is a crutch,
     // and may be invalid on systems with display dimming disabled.
     if (loggedInUser) {
-        if (userIsIdle)
+        if (displayIsOff)
         {
             if (_DWBT_enabled()) {
                // System allows DWBT & user has opted in
@@ -214,9 +250,60 @@ static void shareTheSystemLoad(bool shouldNotify)
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+static void 
+hidActivityStateChange(void *ref, io_service_t service, natural_t messageType, void *arg)
+{
+
+   if (messageType != kIOHIDSystemUserHidActivity)
+      return;
+
+
+   hidActivityIdle = ((uint64_t)arg) ? true : false;
+
+    shareUserIdleness();
+}
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+static void hidSystemMatched(
+    void *note_port_in, 
+    io_iterator_t iter)
+{
+    IONotificationPortRef       note_port = (IONotificationPortRef)note_port_in;
+    io_service_t                hidSystem  = MACH_PORT_NULL;
+    io_object_t                 notification_object = MACH_PORT_NULL;
+    mach_port_t                 connect = MACH_PORT_NULL;
+    
+    if((hidSystem = (io_registry_entry_t)IOIteratorNext(iter))) 
+    {        
+        IOServiceAddInterestNotification(
+                    note_port, 
+                    hidSystem, 
+                    kIOGeneralInterest, 
+                    hidActivityStateChange,
+                    NULL, 
+                    &notification_object);
+
+        IOServiceOpen(hidSystem, mach_task_self(), kIOHIDParamConnectType, &connect);
+        if (connect) {
+            IOHIDGetActivityState(connect, &hidActivityIdle);
+            IOServiceClose(connect);
+            shareUserIdleness();
+        }
+
+        IOObjectRelease(hidSystem);
+    }
+
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 __private_extern__ void SystemLoad_prime(void)
 {
+    IONotificationPortRef       notify_port = 0;
+    io_iterator_t               hid_iter = 0;
+    kern_return_t               kr;
+    CFRunLoopSourceRef          rlser = 0;
+
     systemLoadKey = SCDynamicStoreKeyCreate(
                     kCFAllocatorDefault, 
                     CFSTR("%@%@"),
@@ -231,6 +318,9 @@ __private_extern__ void SystemLoad_prime(void)
 
     notify_register_check(kIOSystemLoadAdvisoryNotifyName, &gNotifyToken);
 
+    notify_register_check(kIOUserActivityNotifyName, &gUserActivityNotifyToken);
+    notify_set_state(gUserActivityNotifyToken, (uint64_t)kIOUserIsActive);        
+
     // If this is a desktop, then we won't get any battery notifications.
     // Let's prime the battery pump right here with an initial coll.
     SystemLoadBatteriesHaveChanged(_batteries());
@@ -242,6 +332,31 @@ __private_extern__ void SystemLoad_prime(void)
 #endif
     
     SystemLoadCPUPowerHasChanged(NULL);
+
+    notify_port = IONotificationPortCreate(0);
+    rlser = IONotificationPortGetRunLoopSource(notify_port);
+    if(rlser) 
+       CFRunLoopAddSource(CFRunLoopGetCurrent(), rlser, kCFRunLoopDefaultMode);
+
+    kr = IOServiceAddMatchingNotification(
+                                notify_port,
+                                kIOFirstMatchNotification,
+                                IOServiceMatching("IOHIDSystem"),
+                                hidSystemMatched,
+                                (void *)notify_port,
+                                &hid_iter);
+    if(KERN_SUCCESS == kr) 
+    {
+        // Install notifications on existing instances.
+        hidSystemMatched((void *)notify_port, hid_iter);
+    }
+    else {
+        asl_log(NULL, NULL, ASL_LEVEL_ERR, 
+                "Failed to match HIDSystem(0x%x)\n", kr);
+    }
+    
+
+
 }
 
 
@@ -250,17 +365,18 @@ __private_extern__ void SystemLoad_prime(void)
 /* @function SystemLoadDisplayPowerStateHasChanged
  * @param displayIsOn is true if the backlight is powered
  * Populates:
- *      userIsIdle
+ *      displayIsOff
  */
-__private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool displayIsOff)
+__private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff)
 {
-    if (displayIsOff == userIsIdle) {
+    if (displayIsOff == _displayIsOff) {
         return;
     }
 
-    userIsIdle = displayIsOff;
+    displayIsOff = _displayIsOff;
     
     shareTheSystemLoad(kYesNotify);
+    shareUserIdleness();
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -490,6 +606,7 @@ __private_extern__ void SystemLoadUserStateHasChanged(void)
     }
 
     shareTheSystemLoad(kYesNotify);
+    shareUserIdleness( );
 }
 
 __private_extern__ void SystemLoadSystemPowerStateHasChanged(void)
@@ -497,3 +614,56 @@ __private_extern__ void SystemLoadSystemPowerStateHasChanged(void)
     shareTheSystemLoad(kYesNotify);
 }
 #endif /* !TARGET_OS_EMBEDDED */
+
+
+__private_extern__ void SystemLoadUserActiveAssertions(bool _userActiveAssertions)
+{
+#if !TARGET_OS_EMBEDDED
+    static uint64_t    userActive_ts = 0;
+
+    if (ua_AssertionTimer == 0) {
+        ua_AssertionTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0,
+                            0, dispatch_get_main_queue());
+
+        dispatch_source_set_event_handler(ua_AssertionTimer, ^{
+                SystemLoadUserActiveAssertions(false);
+                });
+
+        dispatch_source_set_cancel_handler(ua_AssertionTimer, ^{
+            dispatch_release(ua_AssertionTimer);
+            ua_AssertionTimer = 0;
+        });
+    }
+
+    if (_userActiveAssertions == false) {
+        uint64_t curTime = getMonotonicTime();
+        dispatch_suspend(ua_AssertionTimer);
+        if ( (curTime - userActive_ts) < IDLE_HID_ACTIVITY_SECS) {
+            dispatch_source_set_timer(ua_AssertionTimer,
+                    dispatch_time(DISPATCH_TIME_NOW, 
+                        (IDLE_HID_ACTIVITY_SECS+userActive_ts-curTime)*NSEC_PER_SEC), 
+                    DISPATCH_TIME_FOREVER, 0);
+            dispatch_resume(ua_AssertionTimer);
+            return;
+        }
+    }
+    else {
+        userActive_ts = getMonotonicTime();
+    }
+
+    if (userActiveAssertions == _userActiveAssertions)
+       return;
+
+    userActiveAssertions = _userActiveAssertions;
+
+    if (userActiveAssertions == true) {
+        dispatch_source_set_timer(ua_AssertionTimer,
+                dispatch_time(DISPATCH_TIME_NOW, IDLE_HID_ACTIVITY_SECS * NSEC_PER_SEC),
+                DISPATCH_TIME_FOREVER, 0);
+        dispatch_resume(ua_AssertionTimer);
+    }
+
+
+    shareUserIdleness();
+#endif /* !TARGET_OS_EMBEDDED */
+}

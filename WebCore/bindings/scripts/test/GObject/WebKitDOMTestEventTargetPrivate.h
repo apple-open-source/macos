@@ -22,13 +22,12 @@
 #define WebKitDOMTestEventTargetPrivate_h
 
 #include "TestEventTarget.h"
-#include <glib-object.h>
-#include <webkit/WebKitDOMObject.h>
+#include <webkitdom/WebKitDOMTestEventTarget.h>
 
 namespace WebKit {
 WebKitDOMTestEventTarget* wrapTestEventTarget(WebCore::TestEventTarget*);
-WebCore::TestEventTarget* core(WebKitDOMTestEventTarget* request);
-WebKitDOMTestEventTarget* kit(WebCore::TestEventTarget* node);
+WebKitDOMTestEventTarget* kit(WebCore::TestEventTarget*);
+WebCore::TestEventTarget* core(WebKitDOMTestEventTarget*);
 } // namespace WebKit
 
 #endif /* WebKitDOMTestEventTargetPrivate_h */

@@ -433,12 +433,14 @@ int BLLookupFileIDOnMount(BLContextPtr context,
  * @param path path to file
  * @param extents array to hold start/length pairs for disk extents
  * @param device filled in with the device the extent information applies to
+ * @param length of buffer provided for device parameter
  */
 
 int BLGetDiskSectorsForFile(BLContextPtr context,
                         const char * path,
                         off_t extents[8][2],
-                        char * device);
+                        char * device,
+                        int deviceLen);
 
 /***** Misc *****/
 
@@ -801,6 +803,8 @@ int BLCreateEFIXMLRepresentationForNetworkPath(BLContextPtr context,
                                                const char *optionalData,
                                                CFStringRef *xmlString);
 
+// interface must point to a buffer at least IF_NAMESIZE chars long.
+// host must point to a buffer at least NS_MAXDNAME chars long.
 int BLInterpretEFIXMLRepresentationAsNetworkPath(BLContextPtr context,
                                                  CFStringRef xmlString,
                                                  BLNetBootProtocolType *protocol,
@@ -810,11 +814,13 @@ int BLInterpretEFIXMLRepresentationAsNetworkPath(BLContextPtr context,
 
 int BLInterpretEFIXMLRepresentationAsDevice(BLContextPtr context,
                                             CFStringRef xmlString,
-                                            char *bsdName);
+                                            char *bsdName,
+                                            int bsdNameLen);
 
 int BLInterpretEFIXMLRepresentationAsLegacyDevice(BLContextPtr context,
                                             CFStringRef xmlString,
-                                            char *bsdName);
+                                            char *bsdName,
+                                            int bsdNameLen);
 
 int BLCopyEFINVRAMVariableAsString(BLContextPtr context,
                                    CFStringRef  name,
@@ -836,7 +842,8 @@ bool BLIsEFIRecoveryAccessibleDevice(BLContextPtr context, CFStringRef bsdName);
 // filter out bad boot-args
 int BLPreserveBootArgs(BLContextPtr context,
                        const char *input,
-                       char *output);
+                       char *output,
+                       int outputLen);
 
 #define kBLDataPartitionsKey        CFSTR("Data Partitions")
 #define kBLAuxiliaryPartitionsKey   CFSTR("Auxiliary Partitions")

@@ -32,6 +32,9 @@
 .Br
 .Nm
 .Fl -proxy
+.Br
+.Nm
+.Fl -nc Ar nc-arguments
 .\".Br
 .\".Nm
 .\".Fl -net
@@ -85,7 +88,7 @@ The
 .Fl -dns
 option reports the current DNS configuration.
 The first listed
-.Xr resolver 5 
+.Xr resolver 5
 configuration is considered to be the
 .Qq default
 configuration.
@@ -101,6 +104,14 @@ configuration in addition to the first listed.
 The
 .Fl -proxy
 option reports the current system proxy configuration.
+.Pp
+The
+.Fl -nc
+option provides a set of commands for monitoring and interacting with VPN connections.
+Use
+.Fl -nc
+.Ar help
+for a full list of commands.
 .\".Pp
 .\"Lastly, the
 .\".Fl -net
@@ -178,7 +189,7 @@ The user-friendly name for the system.
 The local (Bonjour) host name.
 .It HostName
 The name associated with
-.Xr hostname 1 
+.Xr hostname 1
 and
 .Xr gethostname 3 .
 .El
@@ -198,6 +209,11 @@ option requires super-user access.
 Reports the current DNS configuration.
 .It Fl -proxy
 Reports the current proxy configuration.
+.It Fl -nc Ar nc-arguments
+Provides a set of commands for monitoring and interacting with VPN connections. Use
+.Fl -nc
+.Ar help
+for a full list of commands.
 .\".It Fl -net
 .\"Provides a command line interface to the
 .\".Qq network configuration .

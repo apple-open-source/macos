@@ -1,5 +1,5 @@
 /*
- * "$Id: auth.h 7317 2008-02-15 22:29:27Z mike $"
+ * "$Id: auth.h 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Authorization definitions for the CUPS scheduler.
  *
@@ -147,5 +147,5 @@ extern cupsd_location_t	*cupsdNewLocation(const char *location);
 
 
 /*
- * End of "$Id: auth.h 7317 2008-02-15 22:29:27Z mike $".
+ * End of "$Id: auth.h 11093 2013-07-03 20:48:42Z msweet $".
  */

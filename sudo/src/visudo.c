@@ -90,7 +90,7 @@ struct sudoersfile {
     int modified;
     int doedit;
 };
-TQ_DECLARE(sudoersfile);
+TQ_DECLARE(sudoersfile)
 
 /*
  * Function prototypes
@@ -107,10 +107,9 @@ static int install_sudoers	__P((struct sudoersfile *, int));
 static int print_unused		__P((void *, void *));
 static int reparse_sudoers	__P((char *, char *, int, int));
 static int run_command		__P((char *, char **));
-static void print_selfref	__P((char *, int, int, int));
-static void print_undefined	__P((char *, int, int, int));
 static void setup_signals	__P((void));
-static void usage		__P((void)) __attribute__((__noreturn__));
+static void help		__P((void)) __attribute__((__noreturn__));
+static void usage		__P((int));
 
 extern void yyerror		__P((const char *));
 extern void yyrestart		__P((FILE *));
@@ -137,6 +136,7 @@ struct sudo_user sudo_user;
 struct passwd *list_pw;
 static struct sudoersfile_list sudoerslist;
 static struct rbtree *alias_freelist;
+static int checkonly;
 
 int
 main(argc, argv)
@@ -145,7 +145,7 @@ main(argc, argv)
 {
     struct sudoersfile *sp;
     char *args, *editor, *sudoers_path;
-    int ch, checkonly, quiet, strict, oldperms;
+    int ch, quiet, strict, oldperms;
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
     extern char *malloc_options;
     malloc_options = "AFGJPR";
@@ -153,14 +153,14 @@ main(argc, argv)
 
     Argv = argv;
     if ((Argc = argc) < 1)
-	usage();
+	usage(1);
 
     /*
      * Arg handling.
      */
     checkonly = oldperms = quiet = strict = FALSE;
     sudoers_path = _PATH_SUDOERS;
-    while ((ch = getopt(argc, argv, "Vcf:sq")) != -1) {
+    while ((ch = getopt(argc, argv, "Vcf:hsq")) != -1) {
 	switch (ch) {
 	    case 'V':
 		(void) printf("%s version %s\n", getprogname(), PACKAGE_VERSION);
@@ -172,6 +172,9 @@ main(argc, argv)
 		sudoers_path = optarg;	/* sudoers file path */
 		oldperms = TRUE;
 		break;
+	    case 'h':
+		help();
+		break;
 	    case 's':
 		strict++;		/* strict mode */
 		break;
@@ -179,13 +182,12 @@ main(argc, argv)
 		quiet++;		/* quiet mode */
 		break;
 	    default:
-		usage();
+		usage(1);
 	}
     }
-    argc -= optind;
-    argv += optind;
-    if (argc)
-	usage();
+    /* There should be no other command line arguments. */
+    if (argc - optind != 0)
+	usage(1);
 
     sudo_setpwent();
     sudo_setgrent();
@@ -233,16 +235,37 @@ main(argc, argv)
     /* Check edited files for a parse error and re-edit any that fail. */
     reparse_sudoers(editor, args, strict, quiet);
 
-    /* Install the sudoers temp files. */
+    /* Install the sudoers temp files as needed. */
     tq_foreach_fwd(&sudoerslist, sp) {
-	if (!sp->modified)
-	    (void) unlink(sp->tpath);
-	else
-	    (void) install_sudoers(sp, oldperms);
+	(void) install_sudoers(sp, oldperms);
     }
 
     exit(0);
 }
+
+/*
+ * List of editors that support the "+lineno" command line syntax.
+ * If an entry starts with '*' the tail end of the string is matched.
+ * No other wild cards are supported.
+ */
+static char *lineno_editors[] = {
+    "ex",
+    "nex",
+    "vi",
+    "nvi",
+    "vim",
+    "elvis",
+    "*macs",
+    "mg",
+    "vile",
+    "jove",
+    "pico",
+    "nano",
+    "ee",
+    "joe",
+    "zile",
+    NULL
+};
 
 /*
  * Edit each sudoers file.
@@ -293,12 +316,41 @@ edit_sudoers(sp, editor, args, lineno)
 	    /* Add missing newline at EOF if needed. */
 	    if (nread > 0 && buf[nread - 1] != '\n') {
 		buf[0] = '\n';
-		write(tfd, buf, 1);
+		if (write(tfd, buf, 1) != 1)
+		    error(1, "write error");
 	    }
 	}
 	(void) close(tfd);
     }
     (void) touch(-1, sp->tpath, &orig_mtim);
+
+    /* Does the editor support +lineno? */
+    if (lineno > 0)
+    {
+	char *editor_base = strrchr(editor, '/');
+	if (editor_base != NULL)
+	    editor_base++;
+	else
+	    editor_base = editor;
+	if (*editor_base == 'r')
+	    editor_base++;
+
+	for (av = lineno_editors; (cp = *av) != NULL; av++) {
+	    /* We only handle a leading '*' wildcard. */
+	    if (*cp == '*') {
+		size_t blen = strlen(editor_base);
+		size_t clen = strlen(++cp);
+		if (blen >= clen) {
+		    if (strcmp(cp, editor_base + blen - clen) == 0)
+			break;
+		}
+	    } else if (strcmp(cp, editor_base) == 0)
+		break;
+	}
+	/* Disable +lineno if editor doesn't support it. */
+	if (cp == NULL)
+	    lineno = -1;
+    }
 
     /* Find the length of the argument vector */
     ac = 3 + (lineno > 0);
@@ -349,17 +401,17 @@ edit_sudoers(sp, editor, args, lineno)
 	if (stat(sp->tpath, &sb) < 0) {
 	    warningx("cannot stat temporary file (%s), %s unchanged",
 		sp->tpath, sp->path);
-	    return(FALSE);
+	    return FALSE;
 	}
 	if (sb.st_size == 0 && orig_size != 0) {
 	    warningx("zero length temporary file (%s), %s unchanged",
 		sp->tpath, sp->path);
 	    sp->modified = TRUE;
-	    return(FALSE);
+	    return FALSE;
 	}
     } else {
 	warningx("editor (%s) failed, %s unchanged", editor, sp->path);
-	return(FALSE);
+	return FALSE;
     }
 
     /* Set modified bit if use changed the file. */
@@ -383,7 +435,7 @@ edit_sudoers(sp, editor, args, lineno)
     else
 	warningx("%s unchanged", sp->tpath);
 
-    return(TRUE);
+    return TRUE;
 }
 
 /*
@@ -398,6 +450,9 @@ reparse_sudoers(editor, args, strict, quiet)
     struct sudoersfile *sp, *last;
     FILE *fp;
     int ch;
+
+    if (tq_empty(&sudoerslist))
+	return TRUE;
 
     /*
      * Parse the edited sudoers files and do sanity checking
@@ -424,10 +479,10 @@ reparse_sudoers(editor, args, strict, quiet)
 	}
 	fclose(yyin);
 	if (!parse_error) {
-	    if (!update_defaults(SETDEF_GENERIC|SETDEF_HOST|SETDEF_USER) ||
+	    if (!check_defaults(SETDEF_ALL, quiet) ||
 		check_aliases(strict, quiet) != 0) {
 		parse_error = TRUE;
-		errorfile = sp->path;
+		errorfile = NULL;
 	    }
 	}
 
@@ -448,10 +503,11 @@ reparse_sudoers(editor, args, strict, quiet)
 	    tq_foreach_fwd(&sudoerslist, sp) {
 		if (errorfile == NULL || strcmp(sp->path, errorfile) == 0) {
 		    edit_sudoers(sp, editor, args, errorlineno);
-		    break;
+		    if (errorfile != NULL)
+			break;
 		}
 	    }
-	    if (sp == NULL)
+	    if (errorfile != NULL && sp == NULL)
 		errorx(1, "internal error, can't find %s in list!", sudoers);
 	}
 
@@ -464,7 +520,7 @@ reparse_sudoers(editor, args, strict, quiet)
 	}
     } while (parse_error);
 
-    return(TRUE);
+    return TRUE;
 }
 
 /*
@@ -478,6 +534,20 @@ install_sudoers(sp, oldperms)
 {
     struct stat sb;
 
+    if (!sp->modified) {
+	/*
+	 * No changes but fix owner/mode if needed.
+	 */
+	(void) unlink(sp->tpath);
+	if (!oldperms && fstat(sp->fd, &sb) != -1) {
+	    if (sb.st_uid != SUDOERS_UID || sb.st_gid != SUDOERS_GID)
+		ignore_result(chown(sp->path, SUDOERS_UID, SUDOERS_GID));
+	    if ((sb.st_mode & 0777) != SUDOERS_MODE)
+		ignore_result(chmod(sp->path, SUDOERS_MODE));
+	}
+	return TRUE;
+    }
+
     /*
      * Change mode and ownership of temp file so when
      * we move it to sp->path things are kosher.
@@ -490,18 +560,24 @@ install_sudoers(sp, oldperms)
 	if (stat(sp->path, &sb) == -1)
 #endif
 	    error(1, "can't stat %s", sp->path);
-	(void) chown(sp->tpath, sb.st_uid, sb.st_gid);
-	(void) chmod(sp->tpath, sb.st_mode & 0777);
+	if (chown(sp->tpath, sb.st_uid, sb.st_gid) != 0) {
+	    warning("unable to set (uid, gid) of %s to (%d, %d)",
+		sp->tpath, sb.st_uid, sb.st_gid);
+	}
+	if (chmod(sp->tpath, sb.st_mode & 0777) != 0) {
+	    warning("unable to change mode of %s to 0%o", sp->tpath,
+		(sb.st_mode & 0777));
+	}
     } else {
 	if (chown(sp->tpath, SUDOERS_UID, SUDOERS_GID) != 0) {
 	    warning("unable to set (uid, gid) of %s to (%d, %d)",
 		sp->tpath, SUDOERS_UID, SUDOERS_GID);
-	    return(FALSE);
+	    return FALSE;
 	}
 	if (chmod(sp->tpath, SUDOERS_MODE) != 0) {
 	    warning("unable to change mode of %s to 0%o", sp->tpath,
 		SUDOERS_MODE);
-	    return(FALSE);
+	    return FALSE;
 	}
     }
 
@@ -535,17 +611,17 @@ install_sudoers(sp, oldperms)
 		(void) unlink(sp->tpath);
 		efree(sp->tpath);
 		sp->tpath = NULL;
-		return(FALSE);
+		return FALSE;
 	    }
 	    efree(sp->tpath);
 	    sp->tpath = NULL;
 	} else {
 	    warning("error renaming %s, %s unchanged", sp->tpath, sp->path);
 	    (void) unlink(sp->tpath);
-	    return(FALSE);
+	    return FALSE;
 	}
     }
-    return(TRUE);
+    return TRUE;
 }
 
 /* STUB */
@@ -566,7 +642,7 @@ init_envtables()
 int
 user_is_exempt()
 {
-    return(FALSE);
+    return FALSE;
 }
 
 /* STUB */
@@ -587,7 +663,7 @@ char *
 sudo_getepw(pw)
     const struct passwd *pw;
 {
-    return (pw->pw_passwd);
+    return pw->pw_passwd;
 }
 
 /*
@@ -612,7 +688,7 @@ whatnow()
 	    case 'e':
 	    case 'x':
 	    case 'Q':
-		return(choice);
+		return choice;
 	    default:
 		(void) puts("Options are:");
 		(void) puts("  (e)dit sudoers file again");
@@ -674,8 +750,8 @@ run_command(path, argv)
     } while (rv == -1 && errno == EINTR);
 
     if (rv == -1 || !WIFEXITED(status))
-	return(-1);
-    return(WEXITSTATUS(status));
+	return -1;
+    return WEXITSTATUS(status);
 }
 
 static int
@@ -687,7 +763,10 @@ check_syntax(sudoers_path, quiet, strict)
     struct stat sb;
     int error;
 
-    if ((yyin = fopen(sudoers_path, "r")) == NULL) {
+    if (strcmp(sudoers_path, "-") == 0) {
+	yyin = stdin;
+	sudoers_path = "stdin";
+    } else if ((yyin = fopen(sudoers_path, "r")) == NULL) {
 	if (!quiet)
 	    warning("unable to open %s", sudoers_path);
 	exit(1);
@@ -699,9 +778,12 @@ check_syntax(sudoers_path, quiet, strict)
 	parse_error = TRUE;
 	errorfile = sudoers_path;
     }
-    if (!parse_error && check_aliases(strict, quiet) != 0) {
-	parse_error = TRUE;
-	errorfile = sudoers_path;
+    if (!parse_error) {
+	if (!check_defaults(SETDEF_ALL, quiet) ||
+	    check_aliases(strict, quiet) != 0) {
+	    parse_error = TRUE;
+	    errorfile = NULL;
+	}
     }
     error = parse_error;
     if (!quiet) {
@@ -709,17 +791,21 @@ check_syntax(sudoers_path, quiet, strict)
 	    if (errorlineno != -1)
 		(void) printf("parse error in %s near line %d\n", errorfile,
 		    errorlineno);
-	    else
+	    else if (errorfile != NULL)
 		(void) printf("parse error in %s\n", errorfile);
 	} else {
+	    struct sudoersfile *sp;
 	    (void) printf("%s: parsed OK\n", sudoers_path);
+	    tq_foreach_fwd(&sudoerslist, sp) {
+		(void) printf("%s: parsed OK\n", sp->path);
+	    }
 	}
     }
     /* Check mode and owner in strict mode. */
 #ifdef HAVE_FSTAT
-    if (strict && fstat(fileno(yyin), &sb) == 0)
+    if (strict && yyin != stdin && fstat(fileno(yyin), &sb) == 0)
 #else
-    if (strict && stat(sudoers_path, &sb) == 0)
+    if (strict && yyin != stdin && stat(sudoers_path, &sb) == 0)
 #endif
     {
 	if (sb.st_uid != SUDOERS_UID || sb.st_gid != SUDOERS_GID) {
@@ -738,7 +824,7 @@ check_syntax(sudoers_path, quiet, strict)
 	}
     }
 
-    return(error);
+    return error;
 }
 
 /*
@@ -753,6 +839,12 @@ open_sudoers(path, doedit, keepopen)
 {
     struct sudoersfile *entry;
     FILE *fp;
+    int open_flags;
+
+    if (checkonly)
+	open_flags = O_RDONLY;
+    else
+	open_flags = O_RDWR | O_CREAT;
 
     /* Check for existing entry */
     tq_foreach_fwd(&sudoerslist, entry) {
@@ -760,20 +852,20 @@ open_sudoers(path, doedit, keepopen)
 	    break;
     }
     if (entry == NULL) {
-	entry = emalloc(sizeof(*entry));
+	entry = ecalloc(1, sizeof(*entry));
 	entry->path = estrdup(path);
-	entry->modified = 0;
+	/* entry->modified = 0; */
 	entry->prev = entry;
-	entry->next = NULL;
-	entry->fd = open(entry->path, O_RDWR | O_CREAT, SUDOERS_MODE);
-	entry->tpath = NULL;
+	/* entry->next = NULL; */
+	entry->fd = open(entry->path, open_flags, SUDOERS_MODE);
+	/* entry->tpath = NULL; */
 	entry->doedit = doedit;
 	if (entry->fd == -1) {
 	    warning("%s", entry->path);
 	    efree(entry);
-	    return(NULL);
+	    return NULL;
 	}
-	if (!lock_file(entry->fd, SUDO_TLOCK))
+	if (!checkonly && !lock_file(entry->fd, SUDO_TLOCK))
 	    errorx(1, "%s busy, try again later", entry->path);
 	if ((fp = fdopen(entry->fd, "r")) == NULL)
 	    error(1, "%s", entry->path);
@@ -791,7 +883,7 @@ open_sudoers(path, doedit, keepopen)
     }
     if (keepopen != NULL)
 	*keepopen = TRUE;
-    return(fp);
+    return fp;
 }
 
 static char *
@@ -892,7 +984,7 @@ get_editor(args)
 	    errorx(1, "no editor found (editor path = %s)", def_editor);
     }
     *args = EditorArgs;
-    return(Editor);
+    return Editor;
 }
 
 /*
@@ -912,7 +1004,7 @@ get_args(cmnd)
 	while (*args && isblank((unsigned char) *args))
 	    args++;
     }
-    return(*args ? args : NULL);
+    return *args ? args : NULL;
 }
 
 /*
@@ -940,7 +1032,29 @@ get_hostname()
 }
 
 static int
-alias_remove_recursive(name, type, strict, quiet)
+alias_remove_recursive(name, type)
+    char *name;
+    int type;
+{
+    struct member *m;
+    struct alias *a;
+    int rval = TRUE;
+
+    if ((a = alias_remove(name, type)) != NULL) {
+	tq_foreach_fwd(&a->members, m) {
+	    if (m->type == ALIAS) {
+		if (!alias_remove_recursive(m->name, type))
+		    rval = FALSE;
+	    }
+	}
+	rbinsert(alias_freelist, a);
+    }
+    alias_seqno++;
+    return rval;
+}
+
+static int
+check_alias(name, type, strict, quiet)
     char *name;
     int type;
     int strict;
@@ -951,23 +1065,32 @@ alias_remove_recursive(name, type, strict, quiet)
     int error = 0;
 
     if ((a = alias_find(name, type)) != NULL) {
+	/* check alias contents */
 	tq_foreach_fwd(&a->members, m) {
-	    if (m->type == ALIAS) {
-		if (strcmp(name, m->name) == 0) {
-		    print_selfref(m->name, type, strict, quiet);
-		    error = 1;
-		} else {
-		    if (!alias_remove_recursive(m->name, type, strict, quiet))
-			error = 1;
-		}
-	    }
+	    if (m->type == ALIAS)
+		error += check_alias(m->name, type, strict, quiet);
 	}
+    } else {
+	if (!quiet) {
+	    char *fmt;
+	    if (errno == ELOOP) {
+		fmt = strict ?
+		    "Error: cycle in %s_Alias `%s'" :
+		    "Warning: cycle in %s_Alias `%s'";
+	    } else {
+		fmt = strict ?
+		    "Error: %s_Alias `%s' referenced but not defined" :
+		    "Warning: %s_Alias `%s' referenced but not defined";
+	    }
+	    warningx(fmt,
+		type == HOSTALIAS ? "Host" : type == CMNDALIAS ? "Cmnd" :
+		type == USERALIAS ? "User" : type == RUNASALIAS ? "Runas" :
+		"Unknown", name);
+	}
+	error++;
     }
-    alias_seqno++;
-    a = alias_remove(name, type);
-    if (a)
-	rbinsert(alias_freelist, a);
-    return(error);
+
+    return error;
 }
 
 /*
@@ -993,38 +1116,26 @@ check_aliases(strict, quiet)
 	tq_foreach_fwd(&us->users, m) {
 	    if (m->type == ALIAS) {
 		alias_seqno++;
-		if (alias_find(m->name, USERALIAS) == NULL) {
-		    print_undefined(m->name, USERALIAS, strict, quiet);
-		    error++;
-		}
+		error += check_alias(m->name, USERALIAS, strict, quiet);
 	    }
 	}
 	tq_foreach_fwd(&us->privileges, priv) {
 	    tq_foreach_fwd(&priv->hostlist, m) {
 		if (m->type == ALIAS) {
 		    alias_seqno++;
-		    if (alias_find(m->name, HOSTALIAS) == NULL) {
-			print_undefined(m->name, HOSTALIAS, strict, quiet);
-			error++;
-		    }
+		    error += check_alias(m->name, HOSTALIAS, strict, quiet);
 		}
 	    }
 	    tq_foreach_fwd(&priv->cmndlist, cs) {
 		tq_foreach_fwd(&cs->runasuserlist, m) {
 		    if (m->type == ALIAS) {
 			alias_seqno++;
-			if (alias_find(m->name, RUNASALIAS) == NULL) {
-			    print_undefined(m->name, RUNASALIAS, strict, quiet);
-			    error++;
-			}
+			error += check_alias(m->name, RUNASALIAS, strict, quiet);
 		    }
 		}
 		if ((m = cs->cmnd)->type == ALIAS) {
 		    alias_seqno++;
-		    if (alias_find(m->name, CMNDALIAS) == NULL) {
-			print_undefined(m->name, CMNDALIAS, strict, quiet);
-			error++;
-		    }
+		    error += check_alias(m->name, CMNDALIAS, strict, quiet);
 		}
 	    }
 	}
@@ -1034,28 +1145,32 @@ check_aliases(strict, quiet)
     tq_foreach_fwd(&userspecs, us) {
 	tq_foreach_fwd(&us->users, m) {
 	    if (m->type == ALIAS) {
-		if (!alias_remove_recursive(m->name, USERALIAS, strict, quiet))
+		alias_seqno++;
+		if (!alias_remove_recursive(m->name, USERALIAS))
 		    error++;
 	    }
 	}
 	tq_foreach_fwd(&us->privileges, priv) {
 	    tq_foreach_fwd(&priv->hostlist, m) {
-		if (m->type == ALIAS)
-		    if (!alias_remove_recursive(m->name, HOSTALIAS, strict, 
-			quiet))
+		if (m->type == ALIAS) {
+		    alias_seqno++;
+		    if (!alias_remove_recursive(m->name, HOSTALIAS))
 			error++;
+		}
 	    }
 	    tq_foreach_fwd(&priv->cmndlist, cs) {
 		tq_foreach_fwd(&cs->runasuserlist, m) {
-		    if (m->type == ALIAS)
-			if (!alias_remove_recursive(m->name, RUNASALIAS,
-			    strict, quiet))
+		    if (m->type == ALIAS) {
+			alias_seqno++;
+			if (!alias_remove_recursive(m->name, RUNASALIAS))
 			    error++;
+		    }
 		}
-		if ((m = cs->cmnd)->type == ALIAS)
-		    if (!alias_remove_recursive(m->name, CMNDALIAS, strict,
-			quiet))
+		if ((m = cs->cmnd)->type == ALIAS) {
+		    alias_seqno++;
+		    if (!alias_remove_recursive(m->name, CMNDALIAS))
 			error++;
+		}
 	    }
 	}
     }
@@ -1078,9 +1193,11 @@ check_aliases(strict, quiet)
 	}
 	tq_foreach_fwd(&d->binding, binding) {
 	    for (m = binding; m != NULL; m = m->next) {
-		if (m->type == ALIAS)
-		    if (!alias_remove_recursive(m->name, atype, strict, quiet))
+		if (m->type == ALIAS) {
+		    alias_seqno++;
+		    if (!alias_remove_recursive(m->name, atype))
 			error++;
+		}
 	    }
 	}
     }
@@ -1090,39 +1207,7 @@ check_aliases(strict, quiet)
     if (!no_aliases() && !quiet)
 	alias_apply(print_unused, strict ? "Error" : "Warning");
 
-    return (strict ? error : 0);
-}
-
-static void
-print_undefined(name, type, strict, quiet)
-    char *name;
-    int type;
-    int strict;
-    int quiet;
-{
-    if (!quiet) {
-	warningx("%s: %s_Alias `%s' referenced but not defined",
-	    strict ? "Error" : "Warning",
-	    type == HOSTALIAS ? "Host" : type == CMNDALIAS ? "Cmnd" :
-	    type == USERALIAS ? "User" : type == RUNASALIAS ? "Runas" :
-	    "Unknown", name);
-    }
-}
-
-static void
-print_selfref(name, type, strict, quiet)
-    char *name;
-    int type;
-    int strict;
-    int quiet;
-{
-    if (!quiet) {
-	warningx("%s: %s_Alias `%s' references self",
-	    strict ? "Error" : "Warning",
-	    type == HOSTALIAS ? "Host" : type == CMNDALIAS ? "Cmnd" :
-	    type == USERALIAS ? "User" : type == RUNASALIAS ? "Runas" :
-	    "Unknown", name);
-    }
+    return strict ? error : 0;
 }
 
 static int
@@ -1137,7 +1222,7 @@ print_unused(v1, v2)
 	a->type == HOSTALIAS ? "Host" : a->type == CMNDALIAS ? "Cmnd" :
 	a->type == USERALIAS ? "User" : a->type == RUNASALIAS ? "Runas" :
 	"Unknown", a->name);
-    return(0);
+    return 0;
 }
 
 /*
@@ -1168,15 +1253,32 @@ quit(signo)
 {
     cleanup(signo);
 #define	emsg	 " exiting due to signal.\n"
-    write(STDERR_FILENO, getprogname(), strlen(getprogname()));
-    write(STDERR_FILENO, emsg, sizeof(emsg) - 1);
+    ignore_result(write(STDERR_FILENO, getprogname(), strlen(getprogname())));
+    ignore_result(write(STDERR_FILENO, emsg, sizeof(emsg) - 1));
     _exit(signo);
 }
 
 static void
-usage()
+usage(fatal)
+    int fatal;
 {
-    (void) fprintf(stderr, "usage: %s [-c] [-q] [-s] [-V] [-f sudoers]\n",
-	getprogname());
-    exit(1);
+    (void) fprintf(fatal ? stderr : stdout,
+	"usage: %s [-chqsV] [-f sudoers]\n", getprogname());
+    if (fatal)
+	exit(1);
+}
+
+static void
+help()
+{
+    (void) printf("%s - safely edit the sudoers file\n\n", getprogname());
+    usage(0);
+    (void) puts("\nOptions:");
+    (void) puts("  -c          check-only mode");
+    (void) puts("  -f sudoers  specify sudoers file location");
+    (void) puts("  -h          display help message and exit");
+    (void) puts("  -q          less verbose (quiet) syntax error messages");
+    (void) puts("  -s          strict syntax checking");
+    (void) puts("  -V          display version information and exit");
+    exit(0);
 }

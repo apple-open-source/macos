@@ -16,12 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <config.h>
+
 #include <sys/types.h>
 #include <string.h>
 
-#include <config.h>
-#include <compat.h>
-
+#include "missing.h"
 
 /*
  * Appends src to string dst of size siz (unlike strncat, siz is the
@@ -48,7 +48,7 @@ strlcat(dst, src, siz)
 	n = siz - dlen;
 
 	if (n == 0)
-		return(dlen + strlen(s));
+		return dlen + strlen(s);
 	while (*s != '\0') {
 		if (n != 1) {
 			*d++ = *s;
@@ -58,5 +58,5 @@ strlcat(dst, src, siz)
 	}
 	*d = '\0';
 
-	return(dlen + (s - src));	/* count does not include NUL */
+	return dlen + (s - src);	/* count does not include NUL */
 }

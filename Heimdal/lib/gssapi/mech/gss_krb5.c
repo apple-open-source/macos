@@ -243,7 +243,7 @@ static krb5_error_code
 set_key(krb5_keyblock *keyblock, gss_krb5_lucid_key_t *key)
 {
     key->type = keyblock->keytype;
-    key->length = keyblock->keyvalue.length;
+    key->length = (OM_uint32)keyblock->keyvalue.length;
     key->data = malloc(key->length);
     if (key->data == NULL && key->length != 0)
 	return ENOMEM;
@@ -648,7 +648,7 @@ gsskrb5_extract_authz_data_from_sec_context(OM_uint32 *minor_status,
 
     oid.components[oid.length - 1] = ad_type;
 
-    oid_flat.length = der_length_oid(&oid);
+    oid_flat.length = (OM_uint32)der_length_oid(&oid);
     oid_flat.elements = malloc(oid_flat.length);
     if (oid_flat.elements == NULL) {
 	free(oid.components);

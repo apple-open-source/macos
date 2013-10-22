@@ -143,7 +143,7 @@ SSCSPDLSession::didChangeKeyAcl(SecurityServer::ClientSession &clientSession,
 	else
 	{
 		// @@@ Should we really throw here or just continue without updating the ACL?  In reality this should never happen, so let's at least log it and throw.
-		secdebug("keyacl", "SSCSPDLSession::didChangeKeyAcl() keyHandle: %lu not found in map", keyHandle);
+		secdebug("keyacl", "SSCSPDLSession::didChangeKeyAcl() keyHandle: %lu not found in map", (unsigned long)keyHandle);
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
 	}
 }

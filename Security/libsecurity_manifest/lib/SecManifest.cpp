@@ -3,8 +3,7 @@
 #include "Manifest.h"
 #include <security_utilities/seccfobject.h>
 #include <security_cdsa_utilities/cssmbridge.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-
+#include <../sec/Security/SecBase.h>
 /*
  * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
  * 
@@ -34,9 +33,9 @@
 #define API_END \
 	} \
 	catch (const MacOSError &err) { return err.osStatus(); } \
-	catch (const std::bad_alloc &) { return memFullErr; } \
-	catch (...) { return internalComponentErr; } \
-    return noErr;
+	catch (const std::bad_alloc &) { return errSecAllocate; } \
+	catch (...) { return errSecInternalComponent; } \
+    return errSecSuccess;
 
 #define API_END_GENERIC_CATCH		} catch (...) { return; }
 
@@ -48,7 +47,7 @@ OSStatus SecManifestGetVersion (UInt32 *version)
 {
 	secdebug ("manifest", "SecManifestGetVersion");
 	*version = 0x01000000;
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -149,7 +148,7 @@ OSStatus SecManifestCreateSignature(SecManifestRef manifest, UInt32 options, CFD
 	
 	if (options != 0)
 	{
-		return unimpErr;
+		return errSecUnimplemented;
 	}
 	
 	// check to see if there is a serializer present

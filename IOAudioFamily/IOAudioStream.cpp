@@ -516,14 +516,14 @@ void IOAudioStream::setSampleLatency(UInt32 numSamples)
 UInt32 IOAudioStream::getNumSampleFramesRead()
 {
 	assert(reserved);
-    audioDebugIOLog(3, "+-IOAudioStream[%p]::getNumSampleFramesRead() returns %ld\n", this, (long unsigned int)reserved->mSampleFramesReadByEngine);
+    audioDebugIOLog(4, "+-IOAudioStream[%p]::getNumSampleFramesRead() returns %ld\n", this, (long unsigned int)reserved->mSampleFramesReadByEngine);
 	return reserved->mSampleFramesReadByEngine;
 }
 
 void IOAudioStream::setDefaultNumSampleFramesRead(UInt32 inDefaultNumFramesRead)
 {
 	assert(reserved);
-    audioDebugIOLog(3, "+-IOAudioStream[%p]::setDefaultNumSampleFramesRead(%ld)\n", this, (long unsigned int)inDefaultNumFramesRead);
+    audioDebugIOLog(4, "+-IOAudioStream[%p]::setDefaultNumSampleFramesRead(%ld)\n", this, (long unsigned int)inDefaultNumFramesRead);
 	reserved->mSampleFramesReadByEngine = inDefaultNumFramesRead;
 }
 

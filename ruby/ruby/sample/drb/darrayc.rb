@@ -1,6 +1,6 @@
 =begin
  distributed Ruby --- Array client
- 	Copyright (c) 1999-2001 Masatoshi SEKI 
+ 	Copyright (c) 1999-2001 Masatoshi SEKI
 =end
 
 require 'drb/drb'
@@ -19,7 +19,7 @@ p a
 
 puts "# find"
 p ro.find { |x| x.kind_of? String }
-  
+
 puts "# each, break"
 ro.each do |x|
   next if x == "five"
@@ -45,15 +45,3 @@ ro.each do |x|
   puts count
   redo if count == 3
 end
-
-puts "# each, retry"
-retried = false
-ro.each do |x|
-  puts x
-  if x == 4 && !retried
-    puts 'retry'
-    retried = true
-    retry
-  end
-end
-

@@ -26,20 +26,31 @@ static void loadChangedCallback(WebKitWebView* webView, WebKitLoadEvent loadEven
 {
     switch (loadEvent) {
     case WEBKIT_LOAD_STARTED:
+        g_assert(webkit_web_view_is_loading(webView));
         g_assert_cmpstr(test->m_activeURI.data(), ==, webkit_web_view_get_uri(webView));
         test->provisionalLoadStarted();
         break;
     case WEBKIT_LOAD_REDIRECTED:
+        g_assert(webkit_web_view_is_loading(webView));
         test->m_activeURI = webkit_web_view_get_uri(webView);
         if (!test->m_redirectURI.isNull())
             g_assert_cmpstr(test->m_redirectURI.data(), ==, test->m_activeURI.data());
         test->provisionalLoadReceivedServerRedirect();
         break;
-    case WEBKIT_LOAD_COMMITTED:
+    case WEBKIT_LOAD_COMMITTED: {
+        g_assert(webkit_web_view_is_loading(webView));
         g_assert_cmpstr(test->m_activeURI.data(), ==, webkit_web_view_get_uri(webView));
+
+        // Check that on committed we always have a main resource with a response.
+        WebKitWebResource* resource = webkit_web_view_get_main_resource(webView);
+        g_assert(resource);
+        g_assert(webkit_web_resource_get_response(resource));
+
         test->loadCommitted();
         break;
+    }
     case WEBKIT_LOAD_FINISHED:
+        g_assert(!webkit_web_view_is_loading(webView));
         if (!test->m_loadFailed)
             g_assert_cmpstr(test->m_activeURI.data(), ==, webkit_web_view_get_uri(webView));
         test->loadFinished();
@@ -52,14 +63,17 @@ static void loadChangedCallback(WebKitWebView* webView, WebKitLoadEvent loadEven
 static void loadFailedCallback(WebKitWebView* webView, WebKitLoadEvent loadEvent, const char* failingURI, GError* error, LoadTrackingTest* test)
 {
     test->m_loadFailed = true;
+    test->m_error.set(g_error_copy(error));
 
     switch (loadEvent) {
     case WEBKIT_LOAD_STARTED:
+        g_assert(!webkit_web_view_is_loading(webView));
         g_assert_cmpstr(test->m_activeURI.data(), ==, webkit_web_view_get_uri(webView));
         g_assert(error);
         test->provisionalLoadFailed(failingURI, error);
         break;
     case WEBKIT_LOAD_COMMITTED:
+        g_assert(!webkit_web_view_is_loading(webView));
         g_assert_cmpstr(test->m_activeURI.data(), ==, webkit_web_view_get_uri(webView));
         g_assert(error);
         test->loadFailed(failingURI, error);
@@ -140,6 +154,7 @@ void LoadTrackingTest::loadURI(const char* uri)
 {
     m_loadEvents.clear();
     m_estimatedProgress = 0;
+    m_error.clear();
     WebViewTest::loadURI(uri);
 }
 
@@ -147,6 +162,7 @@ void LoadTrackingTest::loadHtml(const char* html, const char* baseURI)
 {
     m_loadEvents.clear();
     m_estimatedProgress = 0;
+    m_error.clear();
     WebViewTest::loadHtml(html, baseURI);
 }
 
@@ -154,6 +170,7 @@ void LoadTrackingTest::loadPlainText(const char* plainText)
 {
     m_loadEvents.clear();
     m_estimatedProgress = 0;
+    m_error.clear();
     WebViewTest::loadPlainText(plainText);
 }
 
@@ -161,6 +178,7 @@ void LoadTrackingTest::loadRequest(WebKitURIRequest* request)
 {
     m_loadEvents.clear();
     m_estimatedProgress = 0;
+    m_error.clear();
     WebViewTest::loadRequest(request);
 }
 
@@ -168,5 +186,22 @@ void LoadTrackingTest::reload()
 {
     m_loadEvents.clear();
     m_estimatedProgress = 0;
+    m_error.clear();
     webkit_web_view_reload(m_webView);
+}
+
+void LoadTrackingTest::goBack()
+{
+    m_loadEvents.clear();
+    m_estimatedProgress = 0;
+    m_error.clear();
+    WebViewTest::goBack();
+}
+
+void LoadTrackingTest::goForward()
+{
+    m_loadEvents.clear();
+    m_estimatedProgress = 0;
+    m_error.clear();
+    WebViewTest::goForward();
 }

@@ -58,7 +58,7 @@ void AudioParam::setValue(float value)
 {
     // Check against JavaScript giving us bogus floating-point values.
     // Don't ASSERT, since this can happen if somebody writes bad JS.
-    if (!isnan(value) && !isinf(value))
+    if (!std::isnan(value) && !std::isinf(value))
         m_value = value;
 }
 
@@ -94,6 +94,13 @@ bool AudioParam::smooth()
     return false;
 }
 
+float AudioParam::finalValue()
+{
+    float value;
+    calculateFinalValues(&value, 1, false);
+    return value;
+}
+
 void AudioParam::calculateSampleAccurateValues(float* values, unsigned numberOfValues)
 {
     bool isSafe = context() && context()->isAudioThread() && values && numberOfValues;
@@ -101,76 +108,91 @@ void AudioParam::calculateSampleAccurateValues(float* values, unsigned numberOfV
     if (!isSafe)
         return;
 
-    if (m_audioRateSignal)
-        calculateAudioRateSignalValues(values, numberOfValues);
-    else
-        calculateTimelineValues(values, numberOfValues);
+    calculateFinalValues(values, numberOfValues, true);
 }
 
-void AudioParam::calculateAudioRateSignalValues(float* values, unsigned numberOfValues)
+void AudioParam::calculateFinalValues(float* values, unsigned numberOfValues, bool sampleAccurate)
 {
-    // FIXME: support fan-in (multiple audio connections to this parameter with unity-gain summing).
-    // https://bugs.webkit.org/show_bug.cgi?id=83610
-    ASSERT(m_audioRateSignal);
-
-    AudioBus* bus = m_audioRateSignal->pull(0, numberOfValues);
-    bool isBusGood = bus && bus->numberOfChannels() && bus->length() >= numberOfValues;
-    ASSERT(isBusGood);
-    if (!isBusGood)
+    bool isGood = context() && context()->isAudioThread() && values && numberOfValues;
+    ASSERT(isGood);
+    if (!isGood)
         return;
 
-    if (bus->numberOfChannels() == 1) {
-        // The normal case is to deal with a mono audio-rate signal.
-        memcpy(values, bus->channel(0)->data(), sizeof(float) * numberOfValues);
+    // The calculated result will be the "intrinsic" value summed with all audio-rate connections.
+
+    if (sampleAccurate) {
+        // Calculate sample-accurate (a-rate) intrinsic values.
+        calculateTimelineValues(values, numberOfValues);
     } else {
-        // Do a standard mixdown to one channel if necessary.
-        AudioBus wrapperBus(1, numberOfValues, false);
-        wrapperBus.setChannelMemory(0, values, numberOfValues);
-        wrapperBus.copyFrom(*bus); // Mixdown.
+        // Calculate control-rate (k-rate) intrinsic value.
+        bool hasValue;
+        float timelineValue = m_timeline.valueForContextTime(context(), narrowPrecisionToFloat(m_value), hasValue);
+
+        if (hasValue)
+            m_value = timelineValue;
+
+        values[0] = narrowPrecisionToFloat(m_value);
     }
-    m_value = values[0]; // Update to first value.
+
+    // Now sum all of the audio-rate connections together (unity-gain summing junction).
+    // Note that connections would normally be mono, but we mix down to mono if necessary.
+    RefPtr<AudioBus> summingBus = AudioBus::create(1, numberOfValues, false);
+    summingBus->setChannelMemory(0, values, numberOfValues);
+
+    for (unsigned i = 0; i < numberOfRenderingConnections(); ++i) {
+        AudioNodeOutput* output = renderingOutput(i);
+        ASSERT(output);
+
+        // Render audio from this output.
+        AudioBus* connectionBus = output->pull(0, AudioNode::ProcessingSizeInFrames);
+
+        // Sum, with unity-gain.
+        summingBus->sumFrom(*connectionBus);
+    }
 }
 
 void AudioParam::calculateTimelineValues(float* values, unsigned numberOfValues)
 {
     // Calculate values for this render quantum.
     // Normally numberOfValues will equal AudioNode::ProcessingSizeInFrames (the render quantum size).
-    float sampleRate = context()->sampleRate();
-    float startTime = narrowPrecisionToFloat(context()->currentTime());
-    float endTime = startTime + numberOfValues / sampleRate;
+    double sampleRate = context()->sampleRate();
+    double startTime = context()->currentTime();
+    double endTime = startTime + numberOfValues / sampleRate;
 
     // Note we're running control rate at the sample-rate.
     // Pass in the current value as default value.
     m_value = m_timeline.valuesForTimeRange(startTime, endTime, narrowPrecisionToFloat(m_value), values, numberOfValues, sampleRate, sampleRate);
 }
 
-void AudioParam::connect(AudioNodeOutput* audioRateSignal)
+void AudioParam::connect(AudioNodeOutput* output)
 {
     ASSERT(context()->isGraphOwner());
-    ASSERT(audioRateSignal);
-    if (!audioRateSignal)
+
+    ASSERT(output);
+    if (!output)
         return;
 
-    if (m_audioRateSignal && m_audioRateSignal != audioRateSignal) {
-        // Because we don't currently support fan-in we must explicitly disconnect from an old output.
-        m_audioRateSignal->removeParam(this);
-    }
+    if (m_outputs.contains(output))
+        return;
 
-    audioRateSignal->addParam(this);
-    m_audioRateSignal = audioRateSignal;
+    output->addParam(this);
+    m_outputs.add(output);
+    changedOutputs();
 }
 
-void AudioParam::disconnect(AudioNodeOutput* audioRateSignal)
+void AudioParam::disconnect(AudioNodeOutput* output)
 {
     ASSERT(context()->isGraphOwner());
-    ASSERT(audioRateSignal);
-    if (!audioRateSignal)
+
+    ASSERT(output);
+    if (!output)
         return;
 
-    // FIXME: support fan-in (multiple audio connections to this parameter with unity-gain summing).
-    // https://bugs.webkit.org/show_bug.cgi?id=83610
-    if (m_audioRateSignal == audioRateSignal)
-        m_audioRateSignal = 0;
+    if (m_outputs.contains(output)) {
+        m_outputs.remove(output);
+        changedOutputs();
+        output->removeParam(this);
+    }
 }
 
 } // namespace WebCore

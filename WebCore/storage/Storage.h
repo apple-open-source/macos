@@ -27,37 +27,40 @@
 #define Storage_h
 
 #include "DOMWindowProperty.h"
+#include "ScriptWrappable.h"
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-    class Frame;
-    class StorageArea;
-    typedef int ExceptionCode;
+class Frame;
+class StorageArea;
 
-    class Storage : public RefCounted<Storage>, public DOMWindowProperty {
-    public:
-        static PassRefPtr<Storage> create(Frame*, PassRefPtr<StorageArea>);
-        ~Storage();
+typedef int ExceptionCode;
 
-        unsigned length() const;
-        String key(unsigned index) const;
-        String getItem(const String&) const;
-        void setItem(const String& key, const String& value, ExceptionCode&);
-        void removeItem(const String&);
-        void clear();
+class Storage : public ScriptWrappable, public RefCounted<Storage>, public DOMWindowProperty {
+public:
+    static PassRefPtr<Storage> create(Frame*, PassRefPtr<StorageArea>);
+    ~Storage();
 
-        bool contains(const String& key) const;
+    unsigned length(ExceptionCode&) const;
+    String key(unsigned index, ExceptionCode&) const;
+    String getItem(const String& key, ExceptionCode&) const;
+    void setItem(const String& key, const String& value, ExceptionCode&);
+    void removeItem(const String& key, ExceptionCode&);
+    void clear(ExceptionCode&);
+    bool contains(const String& key, ExceptionCode&) const;
 
-        StorageArea* area() const { return m_storageArea.get(); }
+    StorageArea& area() const { return *m_storageArea; }
 
-    private:
-        Storage(Frame*, PassRefPtr<StorageArea>);
+private:
+    Storage(Frame*, PassRefPtr<StorageArea>);
 
-        RefPtr<StorageArea> m_storageArea;
-    };
+    bool isDisabledByPrivateBrowsing() const;
+
+    const RefPtr<StorageArea> m_storageArea;
+};
 
 } // namespace WebCore
 

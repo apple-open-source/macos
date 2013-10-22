@@ -960,8 +960,7 @@ mysql_create(const char *dlzname, unsigned int argc, char *argv[],
 
  full_cleanup:
 
-	if (dbi != NULL)
-		destroy_sqldbinstance(dbi);
+	destroy_sqldbinstance(dbi);
 
  cleanup:
 

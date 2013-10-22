@@ -21,6 +21,7 @@
 #define WebSoupRequestManagerClient_h
 
 #include "APIClient.h"
+#include "WKAPICast.h"
 #include "WKSoupRequestManager.h"
 
 namespace WebKit {
@@ -30,7 +31,8 @@ class WebURL;
 
 class WebSoupRequestManagerClient : public APIClient<WKSoupRequestManagerClient, kWKSoupRequestManagerClientCurrentVersion> {
 public:
-    bool didReceiveURIRequest(WebSoupRequestManagerProxy*, WebURL*, uint64_t requestID);
+    bool didReceiveURIRequest(WebSoupRequestManagerProxy*, WebURL*, WebPageProxy*, uint64_t requestID);
+    void didFailToLoadURIRequest(WebSoupRequestManagerProxy*, uint64_t requestID);
 };
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-private.h 10188 2012-01-19 16:50:36Z mike $"
+ * "$Id: cups-private.h 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Private definitions for CUPS.
  *
@@ -24,6 +24,7 @@
 
 #  include "string-private.h"
 #  include "debug-private.h"
+#  include "array-private.h"
 #  include "ipp-private.h"
 #  include "http-private.h"
 #  include "language-private.h"
@@ -86,6 +87,11 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   char			resolved_uri[1024];
 					/* Buffer for cupsBackendDeviceURI */
 
+  /* debug.c */
+#  ifdef DEBUG
+  int			thread_id;	/* Friendly thread ID */
+#  endif /* DEBUG */
+
   /* file.c */
   cups_file_t		*stdio_files[3];/* stdin, stdout, stderr */
 
@@ -125,7 +131,7 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   cups_array_t		*leg_size_lut,	/* Lookup table for legacy names */
 			*ppd_size_lut,	/* Lookup table for PPD names */
 			*pwg_size_lut;	/* Lookup table for PWG names */
-  _pwg_media_t		pwg_media;	/* PWG media data for custom size */
+  pwg_media_t		pwg_media;	/* PWG media data for custom size */
   char			pwg_name[65];	/* PWG media name for custom size */
 
   /* request.c */
@@ -145,6 +151,7 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
   /* usersys.c */
   http_encryption_t	encryption;	/* Encryption setting */
   char			user[65],	/* User name */
+			user_agent[256],/* User-Agent string */
 			server[256],	/* Server address */
 			servername[256],/* Server hostname */
 			password[128];	/* Password for default callback */
@@ -200,6 +207,7 @@ typedef struct _cups_dconstres_s	/* Constraint/resolver */
 struct _cups_dinfo_s			/* Destination capability and status
 					 * information */
 {
+  int			version;	/* IPP version */
   const char		*uri;		/* Printer URI */
   char			*resource;	/* Resource path */
   ipp_t			*attrs;		/* Printer attributes */
@@ -211,6 +219,11 @@ struct _cups_dinfo_s			/* Destination capability and status
   cups_array_t		*media_db;	/* Media database */
   _cups_media_db_t	min_size,	/* Minimum size */
 			max_size;	/* Maximum size */
+  unsigned		cached_flags;	/* Flags used for cached media */
+  cups_array_t		*cached_db;	/* Cache of media from last index/default */
+  time_t		ready_time;	/* When xxx-ready attributes were last queried */
+  ipp_t			*ready_attrs;	/* xxx-ready attributes */
+  cups_array_t		*ready_db;	/* media[-col]-ready media database */
 };
 
 
@@ -268,5 +281,5 @@ extern char		*_cupsUserDefault(char *name, size_t namesize);
 #endif /* !_CUPS_CUPS_PRIVATE_H_ */
 
 /*
- * End of "$Id: cups-private.h 10188 2012-01-19 16:50:36Z mike $".
+ * End of "$Id: cups-private.h 11093 2013-07-03 20:48:42Z msweet $".
  */

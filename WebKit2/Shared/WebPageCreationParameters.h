@@ -33,6 +33,10 @@
 #include <WebCore/IntSize.h>
 #include <wtf/text/WTFString.h>
 
+#if PLATFORM(MAC)
+#include "ColorSpaceData.h"
+#endif
+
 namespace CoreIPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
@@ -41,8 +45,8 @@ namespace CoreIPC {
 namespace WebKit {
 
 struct WebPageCreationParameters {
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebPageCreationParameters&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebPageCreationParameters&);
 
     WebCore::IntSize viewSize;
 
@@ -58,12 +62,16 @@ struct WebPageCreationParameters {
     bool drawsBackground;
     bool drawsTransparentBackground;
 
+    WebCore::Color underlayColor;
+
     bool areMemoryCacheClientCallsEnabled;
 
     bool useFixedLayout;
     WebCore::IntSize fixedLayoutSize;
 
-    WebCore::Page::Pagination::Mode paginationMode;
+    bool suppressScrollbarAnimations;
+
+    WebCore::Pagination::Mode paginationMode;
     bool paginationBehavesLikeColumns;
     double pageLength;
     double gapBetweenPages;
@@ -79,14 +87,16 @@ struct WebPageCreationParameters {
     float deviceScaleFactor;
     
     float mediaVolume;
+    bool mayStartMediaWhenInWindow;
+
+    WebCore::IntSize minimumLayoutSize;
+    bool autoSizingShouldExpandToViewHeight;
+    
+    WebCore::ScrollPinningBehavior scrollPinningBehavior;
 
 #if PLATFORM(MAC)
-    bool isSmartInsertDeleteEnabled;
     LayerHostingMode layerHostingMode;
-#endif
-
-#if PLATFORM(WIN)
-    HWND nativeWindow;
+    ColorSpaceData colorSpace;
 #endif
 };
 

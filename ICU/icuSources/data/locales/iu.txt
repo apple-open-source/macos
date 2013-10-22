@@ -1,0 +1,164 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/iu.xml
+// *
+// ***************************************************************************
+/**
+ *  ICU <specials> source: <path>/xml/main/iu.xml
+ */
+iu{
+    ExemplarCharacters{
+        "[ᐃ-ᐆ ᐊ ᐋ ᐱ-ᐴ ᐸ ᐹ ᑉ ᑎ-ᑑ ᑕ ᑖ ᑦ ᑭ-ᑰ ᑲ ᑳ ᒃ ᒋ-ᒎ ᒐ ᒑ ᒡ ᒥ-ᒨ ᒪ ᒫ ᒻ ᓂ-ᓅ ᓇ ᓈ ᓐ ᓕ-ᓘ ᓚ ᓛ"
+        " ᓪ ᓯ-ᓲ ᓴ ᓵ ᔅ ᔨ-ᔫ ᔭ ᔮ ᔾ ᕆ-ᕉ ᕋ ᕌ ᕐ ᕕ-ᕚ ᕝ ᕿ-ᖃ ᖅ ᖏ ᖑ-ᖕ ᙱ-ᙶ ᖖ ᖠ-ᖦ]"
+    }
+    ExemplarCharactersIndex{
+        "[ᐃ ᐄ ᐅ ᐆ ᐊ ᐋ ᐱ ᐲ ᐳ ᐴ ᐸ ᐹ ᑎ ᑏ ᑐ ᑑ ᑕ ᑖ ᑦ ᑭ ᑮ ᑯ ᑰ ᑳ ᒃ ᒋ ᒌ ᒍ ᒎ ᒐ ᒑ ᒡ ᒥ ᒦ ᒨ ᒪ ᒫ ᒻ"
+        " ᓂ ᓃ ᓄ ᓅ ᓇ ᓈ ᓐ ᓖ ᓗ ᓘ ᓚ ᓛ ᓪ ᓯ ᓰ ᓱ ᓲ ᓴ ᔅ ᔨ ᔩ ᔪ ᔫ ᔭ ᔮ ᔾ ᕆ ᕇ ᕈ ᕋ ᕌ ᕐ ᕕ ᕖ ᕗ ᕘ ᕙ ᕚ"
+        " ᕝ ᕿ ᖁ ᖂ ᖃ ᖅ ᖏ ᖑ ᖒ ᖓ ᖔ ᖕ ᙱ ᙳ ᙴ ᙵ ᙶ ᖖ ᖠ ᖡ ᖢ ᖣ ᖤ ᖥ]"
+    }
+    LocaleScript{
+        "Cans",
+    }
+    Version{"2.0.82.15"}
+    calendar{
+        generic{
+            AmPmMarkers{
+                "am",
+                "pm",
+            }
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, MMMM d, y G",
+                "MMMM d, y G",
+                "MMMM d, y G",
+                "MM/dd/y GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E, d"}
+                Gy{"y G"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, MM/dd"}
+                MMM{"LLL"}
+                MMMEd{"E, MMM d"}
+                MMMd{"MMM d"}
+                Md{"MM/dd"}
+                d{"d"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"MM/y"}
+                yMEd{"E, MM/dd/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, MMM d, y"}
+                yMMMd{"MMM d, y"}
+                yMd{"MM/dd/y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+            dayNames{
+                format{
+                    wide{
+                        "ᓈᑦᑏᖑᔭᖅ",
+                        "ᓇᒡᒐᔾᔭᐅ",
+                        "ᓇᒡᒐᔾᔭᐅᓕᖅᑭ",
+                        "ᐱᖓᑦᓯᖅ",
+                        "ᓯᑕᒻᒥᖅ",
+                        "ᑕᓪᓕᒻᒥᐅᑦ",
+                        "ᓈᑦᓰᖑᔭᓛᕐᓂᐊᖅ",
+                    }
+                }
+            }
+        }
+        gregorian{
+            AmPmMarkers{
+                "am",
+                "pm",
+            }
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, MMMM d, y",
+                "MMMM d, y",
+                "MMMM d, y",
+                "MM/dd/y",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E, d"}
+                Gy{"y G"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, MM/dd"}
+                MMM{"LLL"}
+                MMMEd{"E, MMM d"}
+                MMMd{"MMM d"}
+                Md{"MM/dd"}
+                d{"d"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"MM/y"}
+                yMEd{"E, MM/dd/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, MMM d, y"}
+                yMMMd{"MMM d, y"}
+                yMd{"MM/dd/y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+            dayNames{
+                format{
+                    wide{
+                        "ᓈᑦᑏᖑᔭᖅ",
+                        "ᓇᒡᒐᔾᔭᐅ",
+                        "ᓇᒡᒐᔾᔭᐅᓕᖅᑭ",
+                        "ᐱᖓᑦᓯᖅ",
+                        "ᓯᑕᒻᒥᖅ",
+                        "ᑕᓪᓕᒻᒥᐅᑦ",
+                        "ᓈᑦᓰᖑᔭᓛᕐᓂᐊᖅ",
+                    }
+                }
+            }
+            monthNames{
+                format{
+                    wide{
+                        "ᔭᓐᓄᐊᓕ",
+                        "ᕕᕝᕗᐊᓕ",
+                        "ᒫᑦᓯ",
+                        "ᐊᐃᑉᐳᓗ",
+                        "ᒪᐃ",
+                        "ᔫᓂ",
+                        "ᔪᓚᐃ",
+                        "ᐊᐅᒡᒍᓯ",
+                        "ᓯᑎᐱᕆ",
+                        "ᐆᑦᑑᕝᕙ",
+                        "ᓄᕕᐱᕆ",
+                        "ᑎᓯᐱᕆ",
+                    }
+                }
+            }
+        }
+    }
+}

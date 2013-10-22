@@ -828,7 +828,7 @@ krb5_kt_add_entry(krb5_context context,
 			       id->prefix);
 	return KRB5_KT_NOWRITE;
     }
-    entry->timestamp = time(NULL);
+    entry->timestamp = (uint32_t)time(NULL);
     return (*id->add)(context, id,entry);
 }
 

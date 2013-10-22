@@ -27,6 +27,7 @@
 #include "Node.h"
 #include "Page.h"
 #include "Range.h"
+#include "ShadowRoot.h"
 #include "TextIterator.h"
 #include "Timer.h"
 #include "WebPage_p.h"
@@ -40,26 +41,29 @@ namespace WebKit {
 
 class InPageSearchManager::DeferredScopeStringMatches {
 public:
-    DeferredScopeStringMatches(InPageSearchManager* ipsm, Frame* scopingFrame, const String& text, bool reset)
+    DeferredScopeStringMatches(InPageSearchManager* ipsm, Frame* scopingFrame, const String& text, bool reset, bool locateActiveMatchOnly)
     : m_searchManager(ipsm)
     , m_scopingFrame(scopingFrame)
     , m_timer(this, &DeferredScopeStringMatches::doTimeout)
     , m_searchText(text)
     , m_reset(reset)
+    , m_locateActiveMatchOnly(locateActiveMatchOnly)
     {
         m_timer.startOneShot(0.0);
     }
 
 private:
+    friend class InPageSearchManager;
     void doTimeout(Timer<DeferredScopeStringMatches>*)
     {
-        m_searchManager->callScopeStringMatches(this, m_scopingFrame, m_searchText, m_reset);
+        m_searchManager->callScopeStringMatches(this, m_scopingFrame, m_searchText, m_reset, m_locateActiveMatchOnly);
     }
     InPageSearchManager* m_searchManager;
     Frame* m_scopingFrame;
     Timer<DeferredScopeStringMatches> m_timer;
     String m_searchText;
     bool m_reset;
+    bool m_locateActiveMatchOnly;
 };
 
 InPageSearchManager::InPageSearchManager(WebPagePrivate* page)
@@ -80,19 +84,22 @@ InPageSearchManager::~InPageSearchManager()
     cancelPendingScopingEffort();
 }
 
-bool InPageSearchManager::findNextString(const String& text, FindOptions findOptions, bool wrap, bool highlightAllMatches)
+bool InPageSearchManager::findNextString(const String& text, FindOptions findOptions, bool wrap, bool highlightAllMatches, bool selectActiveMatchOnClear)
 {
+    bool highlightAllMatchesStateChanged = m_highlightAllMatches != highlightAllMatches;
     m_highlightAllMatches = highlightAllMatches;
 
     if (!text.length()) {
-        clearTextMatches();
+        clearTextMatches(selectActiveMatchOnClear);
         cancelPendingScopingEffort();
         m_activeSearchString = String();
+        m_webPage->m_client->updateFindStringResult(m_activeMatchCount, m_activeMatchIndex);
         return false;
     }
 
     if (!shouldSearchForText(text)) {
         m_activeSearchString = text;
+        m_webPage->m_client->updateFindStringResult(m_activeMatchCount, m_activeMatchIndex);
         return false;
     }
 
@@ -102,7 +109,7 @@ bool InPageSearchManager::findNextString(const String& text, FindOptions findOpt
 
     ExceptionCode ec = 0;
     RefPtr<Range> searchStartingPoint = m_activeMatch ? m_activeMatch->cloneRange(ec) : 0;
-    bool newSearch = m_activeSearchString != text;
+    bool newSearch = highlightAllMatchesStateChanged || (m_activeSearchString != text);
     bool forward = !(findOptions & WebCore::Backwards);
     if (newSearch) { // Start a new search.
         m_activeSearchString = text;
@@ -120,15 +127,17 @@ bool InPageSearchManager::findNextString(const String& text, FindOptions findOpt
     }
 
     // If there is any active selection, new search should start from the beginning of it.
+    bool startFromSelection = false;
     VisibleSelection selection = m_webPage->focusedOrMainFrame()->selection()->selection();
     if (!selection.isNone()) {
         searchStartingPoint = selection.firstRange().get();
         m_webPage->focusedOrMainFrame()->selection()->clear();
+        startFromSelection = true;
     }
 
     Frame* currentActiveMatchFrame = selection.isNone() && m_activeMatch ? m_activeMatch->ownerDocument()->frame() : m_webPage->focusedOrMainFrame();
 
-    if (findAndMarkText(text, searchStartingPoint.get(), currentActiveMatchFrame, findOptions, newSearch))
+    if (findAndMarkText(text, searchStartingPoint.get(), currentActiveMatchFrame, findOptions, newSearch, startFromSelection))
         return true;
 
     Frame* startFrame = currentActiveMatchFrame;
@@ -139,16 +148,17 @@ bool InPageSearchManager::findNextString(const String& text, FindOptions findOpt
             // We should only ever have a null frame if we haven't found any
             // matches and we're not wrapping. We have searched every frame.
             ASSERT(!wrap);
+            m_webPage->m_client->updateFindStringResult(m_activeMatchCount, m_activeMatchIndex);
             return false;
         }
 
-        if (findAndMarkText(text, 0, currentActiveMatchFrame, findOptions, newSearch))
+        if (findAndMarkText(text, 0, currentActiveMatchFrame, findOptions, newSearch, startFromSelection))
             return true;
     } while (startFrame != currentActiveMatchFrame);
 
     clearTextMatches();
 
-    // FIXME: We need to notify client here.
+    m_webPage->m_client->updateFindStringResult(m_activeMatchCount, m_activeMatchIndex);
     return false;
 }
 
@@ -168,25 +178,52 @@ bool InPageSearchManager::shouldSearchForText(const String& text)
     return true;
 }
 
-bool InPageSearchManager::findAndMarkText(const String& text, Range* range, Frame* frame, const FindOptions& options, bool isNewSearch)
+bool InPageSearchManager::findAndMarkText(const String& text, Range* range, Frame* frame, const FindOptions& options, bool isNewSearch, bool startFromSelection)
 {
-    if (RefPtr<Range> match = frame->editor()->findStringAndScrollToVisible(text, range, options)) {
+    if (RefPtr<Range> match = frame->editor().findStringAndScrollToVisible(text, range, options)) {
         // Move the highlight to the new match.
         setActiveMatchAndMarker(match);
-
-        if (m_highlightAllMatches) {
-            // FIXME: If it is a not new search, we need to calculate activeMatchIndex and notify client.
-            if (isNewSearch)
-                scopeStringMatches(text, true /* reset */);
+        if (isNewSearch) {
+            scopeStringMatches(text, true /* reset */, false /* locateActiveMatchOnly */);
+            if (!m_highlightAllMatches) {
+                // Not highlighting all matches, we need to add the marker here,
+                // because scopeStringMatches does not add any markers, it only counts the number.
+                // No need to unmarkAllTextMatches, it is already done from the caller because of newSearch
+                m_activeMatch->ownerDocument()->markers()->addTextMatchMarker(m_activeMatch.get(), true);
+                frame->editor().setMarkedTextMatchesAreHighlighted(true /* highlight */);
+            }
+            return true;
+        }
+        if (startFromSelection || m_locatingActiveMatch) {
+            // We are finding next, but
+            // - starting from a new node, or
+            // - last locating active match effort is not done yet
+            if (!m_scopingComplete) {
+                // Last scoping is not done yet, let's restart it.
+                scopeStringMatches(text, true /* reset */, false /* locateActiveMatchOnly */);
+            } else {
+                // Last scoping is done, but we are jumping to somewhere instead of
+                // searching one by one, or there is another locating active match effort,
+                // let's start a scoping effort to locate active match only.
+                scopeStringMatches(text, true /* reset */, true /* locateActiveMatchOnly */);
+            }
         } else {
-            // When only showing single matches, cancel any scoping effort and ensure
-            // only the single active match is marked.
-            cancelPendingScopingEffort();
+            // We are finding next one by one, let's calculate active match index
+            // There is at least one match, because otherwise we won't get into this block,
+            // so m_activeMatchIndex is at least one.
+            ASSERT(m_activeMatchCount);
+            if (!(options & WebCore::Backwards))
+                m_activeMatchIndex = m_activeMatchIndex + 1 > m_activeMatchCount ? 1 : m_activeMatchIndex + 1;
+            else
+                m_activeMatchIndex = m_activeMatchIndex - 1 < 1 ? m_activeMatchCount : m_activeMatchIndex - 1;
+            m_webPage->m_client->updateFindStringResult(m_activeMatchCount, m_activeMatchIndex);
+        }
+        if (!m_highlightAllMatches) {
+            // When only showing single matches, the scoping effort won't highlight
+            // all matches but count them.
             m_webPage->m_page->unmarkAllTextMatches();
             m_activeMatch->ownerDocument()->markers()->addTextMatchMarker(m_activeMatch.get(), true);
-            frame->editor()->setMarkedTextMatchesAreHighlighted(true /* highlight */);
-            m_activeMatchCount = 1;
-            m_activeMatchIndex = 1;
+            frame->editor().setMarkedTextMatchesAreHighlighted(true /* highlight */);
         }
 
         return true;
@@ -194,8 +231,12 @@ bool InPageSearchManager::findAndMarkText(const String& text, Range* range, Fram
     return false;
 }
 
-void InPageSearchManager::clearTextMatches()
+void InPageSearchManager::clearTextMatches(bool selectActiveMatchOnClear)
 {
+    if (selectActiveMatchOnClear && m_activeMatch.get()) {
+        VisibleSelection selection(m_activeMatch.get());
+        m_activeMatch->ownerDocument()->frame()->selection()->setSelection(selection);
+    }
     m_webPage->m_page->unmarkAllTextMatches();
     m_activeMatch = 0;
     m_activeMatchCount = 0;
@@ -219,6 +260,13 @@ void InPageSearchManager::setActiveMatchAndMarker(PassRefPtr<Range> range)
 
 void InPageSearchManager::frameUnloaded(const Frame* frame)
 {
+    for (size_t i = 0; i < m_deferredScopingWork.size(); i++) {
+        if (m_deferredScopingWork[i]->m_scopingFrame == frame) {
+            // Clear pending scoping efforts in case of dangling pointer.
+            cancelPendingScopingEffort();
+            break;
+        }
+    }
     if (!m_activeMatch) {
         if (m_webPage->mainFrame() == frame && m_activeSearchString.length())
             m_activeSearchString = String();
@@ -239,15 +287,18 @@ void InPageSearchManager::frameUnloaded(const Frame* frame)
     }
 }
 
-void InPageSearchManager::scopeStringMatches(const String& text, bool reset, Frame* scopingFrame)
+void InPageSearchManager::scopeStringMatches(const String& text, bool reset, bool locateActiveMatchOnly, Frame* scopingFrame)
 {
     if (reset) {
-        m_activeMatchCount = 0;
+        if (!locateActiveMatchOnly) {
+            m_activeMatchCount = 0;
+            m_scopingComplete = false;
+        }
         m_resumeScopingFromRange = 0;
-        m_scopingComplete = false;
         m_locatingActiveMatch = true;
+        m_activeMatchIndex = 0;
         // New search should always start from mainFrame.
-        scopeStringMatchesSoon(m_webPage->mainFrame(), text, false /* reset */);
+        scopeStringMatchesSoon(m_webPage->mainFrame(), text, false /* reset */, locateActiveMatchOnly);
         return;
     }
 
@@ -274,24 +325,28 @@ void InPageSearchManager::scopeStringMatches(const String& text, bool reset, Fra
         if (resultRange->collapsed(ec)) {
             if (!resultRange->startContainer()->isInShadowTree())
                 break;
-            searchRange->setStartAfter(resultRange->startContainer()->shadowAncestorNode(), ec);
+            searchRange->setStartAfter(resultRange->startContainer()->deprecatedShadowAncestorNode(), ec);
             searchRange->setEnd(originalEndContainer, originalEndOffset, ec);
             continue;
         }
 
-        if (scopingFrame->editor()->insideVisibleArea(resultRange.get())) {
-            ++matchCount;
-            bool foundActiveMatch = false;
-            if (m_locatingActiveMatch && areRangesEqual(resultRange.get(), m_activeMatch.get())) {
-                foundActiveMatch = true;
-                m_locatingActiveMatch = false;
-                m_activeMatchIndex = m_activeMatchCount + matchCount;
-                // FIXME: We need to notify client with m_activeMatchIndex.
+        ++matchCount;
+        bool foundActiveMatch = false;
+        if (m_locatingActiveMatch && areRangesEqual(resultRange.get(), m_activeMatch.get())) {
+            foundActiveMatch = true;
+            m_locatingActiveMatch = false;
+            if (locateActiveMatchOnly) {
+                m_activeMatchIndex += matchCount;
+                m_webPage->m_client->updateFindStringResult(m_activeMatchCount, m_activeMatchIndex);
+                return;
             }
-            resultRange->ownerDocument()->markers()->addTextMatchMarker(resultRange.get(), foundActiveMatch);
+            m_activeMatchIndex = m_activeMatchCount + matchCount;
         }
+        if (!locateActiveMatchOnly && m_highlightAllMatches)
+            resultRange->ownerDocument()->markers()->addTextMatchMarker(resultRange.get(), foundActiveMatch);
+
         searchRange->setStart(resultRange->endContainer(ec), resultRange->endOffset(ec), ec);
-        Node* shadowTreeRoot = searchRange->shadowTreeRootNode();
+        ShadowRoot* shadowTreeRoot = searchRange->shadowRoot();
         if (searchRange->collapsed(ec) && shadowTreeRoot)
             searchRange->setEnd(shadowTreeRoot, shadowTreeRoot->childNodeCount(), ec);
         m_resumeScopingFromRange = resultRange;
@@ -299,12 +354,20 @@ void InPageSearchManager::scopeStringMatches(const String& text, bool reset, Fra
     } while (!timeout);
 
     if (matchCount > 0) {
-        scopingFrame->editor()->setMarkedTextMatchesAreHighlighted(true /* highlight */);
-        m_activeMatchCount += matchCount;
+        if (locateActiveMatchOnly) {
+            // We have not found it yet.
+            // m_activeMatchIndex now temporarily remember where we left over in this time slot.
+            m_activeMatchIndex += matchCount;
+        } else {
+            if (m_highlightAllMatches)
+                scopingFrame->editor().setMarkedTextMatchesAreHighlighted(true /* highlight */);
+            m_activeMatchCount += matchCount;
+            m_webPage->m_client->updateFindStringResult(m_activeMatchCount, m_activeMatchIndex);
+        }
     }
 
     if (timeout)
-        scopeStringMatchesSoon(scopingFrame, text, false /* reset */);
+        scopeStringMatchesSoon(scopingFrame, text, false /* reset */, locateActiveMatchOnly);
     else {
         // Scoping is done for this frame.
         Frame* nextFrame = DOMSupport::incrementFrame(scopingFrame, true /* forward */, false /* wrapFlag */);
@@ -312,19 +375,19 @@ void InPageSearchManager::scopeStringMatches(const String& text, bool reset, Fra
             m_scopingComplete = true;
             return; // Scoping is done for all frames;
         }
-        scopeStringMatchesSoon(nextFrame, text, false /* reset */);
+        scopeStringMatchesSoon(nextFrame, text, false /* reset */, locateActiveMatchOnly);
     }
 }
 
-void InPageSearchManager::scopeStringMatchesSoon(Frame* scopingFrame, const String& text, bool reset)
+void InPageSearchManager::scopeStringMatchesSoon(Frame* scopingFrame, const String& text, bool reset, bool locateActiveMatchOnly)
 {
-    m_deferredScopingWork.append(new DeferredScopeStringMatches(this, scopingFrame, text, reset));
+    m_deferredScopingWork.append(new DeferredScopeStringMatches(this, scopingFrame, text, reset, locateActiveMatchOnly));
 }
 
-void InPageSearchManager::callScopeStringMatches(DeferredScopeStringMatches* caller, Frame* scopingFrame, const String& text, bool reset)
+void InPageSearchManager::callScopeStringMatches(DeferredScopeStringMatches* caller, Frame* scopingFrame, const String& text, bool reset, bool locateActiveMatchOnly)
 {
     m_deferredScopingWork.remove(m_deferredScopingWork.find(caller));
-    scopeStringMatches(text, reset, scopingFrame);
+    scopeStringMatches(text, reset, locateActiveMatchOnly, scopingFrame);
     delete caller;
 }
 

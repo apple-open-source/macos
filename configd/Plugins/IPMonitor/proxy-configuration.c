@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -323,8 +323,8 @@ copy_supplemental_proxies(CFArrayRef proxies, Boolean skip)
 }
 
 
-static CFDictionaryRef
-copy_scoped_proxies(CFDictionaryRef services, CFArrayRef service_order)
+static CFArrayRef
+service_order_copy_all(CFDictionaryRef services, CFArrayRef service_order)
 {
 	const void *		keys_q[N_QUICK];
 	const void **		keys	= keys_q;
@@ -332,11 +332,12 @@ copy_scoped_proxies(CFDictionaryRef services, CFArrayRef service_order)
 	CFIndex			n_order;
 	CFIndex			n_services;
 	CFMutableArrayRef	order;
-	CFMutableDictionaryRef	scoped	= NULL;
 
+	// ensure that we process all services in order
 	n_services = isA_CFDictionary(services) ? CFDictionaryGetCount(services) : 0;
 	if (n_services == 0) {
-		return NULL;		// if no services
+		// if no services
+		return NULL;
 	}
 
 	// ensure that we process all services in order
@@ -344,7 +345,7 @@ copy_scoped_proxies(CFDictionaryRef services, CFArrayRef service_order)
 	n_order = isA_CFArray(service_order) ? CFArrayGetCount(service_order) : 0;
 	if (n_order > 0) {
 		order = CFArrayCreateMutableCopy(NULL, 0, service_order);
-	} else{
+	} else {
 		order = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
 
@@ -353,7 +354,7 @@ copy_scoped_proxies(CFDictionaryRef services, CFArrayRef service_order)
 	}
 	CFDictionaryGetKeysAndValues(services, keys, NULL);
 	for (i = 0; i < n_services; i++) {
-		CFStringRef	serviceID = (CFStringRef)keys[i];
+		CFStringRef	serviceID	= (CFStringRef)keys[i];
 
 		if (!CFArrayContainsValue(order, CFRangeMake(0, n_order), serviceID)) {
 			CFArrayAppendValue(order, serviceID);
@@ -364,13 +365,96 @@ copy_scoped_proxies(CFDictionaryRef services, CFArrayRef service_order)
 		CFAllocatorDeallocate(NULL, keys);
 	}
 
+	return order;
+}
+
+
+static CFDictionaryRef
+copy_app_layer_vpn_proxies(CFDictionaryRef services, CFArrayRef order, CFDictionaryRef services_info)
+{
+	CFMutableDictionaryRef	app_layer_proxies	= NULL;
+	CFIndex			i;
+	CFIndex			n_order;
+
+	if (!isA_CFDictionary(services_info)) {
+		return NULL;
+	}
+
 	// iterate over services
 
+	n_order = isA_CFArray(order) ? CFArrayGetCount(order) : 0;
 	for (i = 0; i < n_order; i++) {
+		CFMutableDictionaryRef	newProxy;
 		CFDictionaryRef		proxy;
+		CFDictionaryRef		service;
+		CFStringRef		serviceID;
+		CFDictionaryRef		vpn;
+		CFStringRef		vpn_key;
+
+		serviceID = CFArrayGetValueAtIndex(order, i);
+		service = CFDictionaryGetValue(services, serviceID);
+		if (!isA_CFDictionary(service)) {
+			// if no service
+			continue;
+		}
+
+		proxy = CFDictionaryGetValue(service, kSCEntNetProxies);
+		if (!isA_CFDictionary(proxy)) {
+			// if no proxy
+			continue;
+		}
+
+		vpn_key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+								      kSCDynamicStoreDomainSetup,
+								      serviceID,
+								      kSCEntNetVPN);
+		vpn = CFDictionaryGetValue(services_info, vpn_key);
+		CFRelease(vpn_key);
+
+		if (!isA_CFDictionary(vpn) || !CFDictionaryContainsKey(vpn, kSCPropNetVPNAppRules)) {
+			// if not app-layer vpn
+			continue;
+		}
+
+		if ((app_layer_proxies != NULL) &&
+		    CFDictionaryContainsKey(app_layer_proxies, serviceID)) {
+			// if we've already processed this [app_layer_proxies] interface
+			continue;
+		}
+
+		// add [app_layer_proxies] proxy entry
+		newProxy = CFDictionaryCreateMutableCopy(NULL, 0, proxy);
+		CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesSupplementalMatchDomains);
+		CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesSupplementalMatchOrders);
+		if (app_layer_proxies == NULL) {
+			app_layer_proxies = CFDictionaryCreateMutable(NULL,
+								      0,
+								      &kCFTypeDictionaryKeyCallBacks,
+								      &kCFTypeDictionaryValueCallBacks);
+		}
+		CFDictionarySetValue(app_layer_proxies, serviceID, newProxy);
+		CFRelease(newProxy);
+	}
+
+	return app_layer_proxies;
+}
+
+
+static CFDictionaryRef
+copy_scoped_proxies(CFDictionaryRef services, CFArrayRef order)
+{
+	CFIndex			i;
+	CFIndex			n_order;
+	CFMutableDictionaryRef	scoped	= NULL;
+
+	// iterate over services
+
+	n_order = isA_CFArray(order) ? CFArrayGetCount(order) : 0;
+	for (i = 0; i < n_order; i++) {
 		char			if_name[IF_NAMESIZE];
 		CFStringRef		interface;
 		CFMutableDictionaryRef	newProxy;
+		CFDictionaryRef		proxy;
 		CFDictionaryRef		service;
 		CFStringRef		serviceID;
 
@@ -425,7 +509,6 @@ copy_scoped_proxies(CFDictionaryRef services, CFArrayRef service_order)
 		CFRelease(interface);
 	}
 
-	CFRelease(order);
 	return scoped;
 }
 
@@ -548,7 +631,8 @@ __private_extern__
 CF_RETURNS_RETAINED CFDictionaryRef
 proxy_configuration_update(CFDictionaryRef	defaultProxy,
 			   CFDictionaryRef	services,
-			   CFArrayRef		serviceOrder)
+			   CFArrayRef		serviceOrder,
+			   CFDictionaryRef	servicesInfo)
 {
 	CFIndex			i;
 	CFMutableDictionaryRef	myDefault;
@@ -618,8 +702,10 @@ proxy_configuration_update(CFDictionaryRef	defaultProxy,
 	// establish proxy configuration
 
 	if (n_proxies > 0) {
+		CFDictionaryRef		app_layer;
 		CFDictionaryRef		scoped;
-		Boolean			skip	= FALSE;
+		CFArrayRef		serviceOrderAll;
+		Boolean			skip		= FALSE;
 		CFArrayRef		supplemental;
 
 		proxy = CFArrayGetValueAtIndex(proxies, 0);
@@ -636,6 +722,8 @@ proxy_configuration_update(CFDictionaryRef	defaultProxy,
 							     &kCFTypeDictionaryValueCallBacks);
 		}
 
+		serviceOrderAll = service_order_copy_all(services, serviceOrder);
+
 		// collect (and add) any "supplemental" proxy configurations
 
 		supplemental = copy_supplemental_proxies(proxies, skip);
@@ -646,10 +734,22 @@ proxy_configuration_update(CFDictionaryRef	defaultProxy,
 
 		// collect (and add) any "scoped" proxy configurations
 
-		scoped = copy_scoped_proxies(services, serviceOrder);
+		scoped = copy_scoped_proxies(services, serviceOrderAll);
 		if (scoped != NULL) {
 			CFDictionarySetValue(newProxy, kSCPropNetProxiesScoped, scoped);
 			CFRelease(scoped);
+		}
+
+		// collect (and add) any "services" based proxy configurations
+
+		app_layer = copy_app_layer_vpn_proxies(services, serviceOrderAll, servicesInfo);
+		if (app_layer != NULL) {
+			CFDictionarySetValue(newProxy, kSCPropNetProxiesServices, app_layer);
+			CFRelease(app_layer);
+		}
+
+		if (serviceOrderAll != NULL) {
+			CFRelease(serviceOrderAll);
 		}
 	} else {
 		newProxy = NULL;
@@ -866,7 +966,8 @@ main(int argc, char **argv)
 	proxy_configuration_init(CFBundleGetMainBundle());
 	newProxy = proxy_configuration_update(primary_proxy,
 					      service_state_dict,
-					      service_order);
+					      service_order,
+					      NULL);
 	if (newProxy != NULL) {
 		SCPrint(TRUE, stdout, CFSTR("%@\n"), newProxy);
 		CFRelease(newProxy);

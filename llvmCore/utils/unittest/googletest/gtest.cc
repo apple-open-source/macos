@@ -1465,7 +1465,7 @@ char* CodePointToUtf8(UInt32 code_point, char* str) {
   return str;
 }
 
-// The following two functions only make sense if the the system
+// The following two functions only make sense if the system
 // uses UTF-16 for wide string encoding. All supported systems
 // with 16 bit wchar_t (Windows, Cygwin, Symbian OS) do use UTF-16.
 
@@ -2480,9 +2480,10 @@ static const char * TestPartResultTypeToString(TestPartResult::Type type) {
 #else
       return "Failure\n";
 #endif
-    default:
-      return "Unknown result type";
   }
+
+  // All cases return, so this is unreachable but GCC doesn't know it
+  abort();
 }
 
 // Prints a TestPartResult to a String.

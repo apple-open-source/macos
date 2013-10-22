@@ -65,6 +65,7 @@ enum Reason {
     noLongerNeeded,                 // the queried item is no longer needed
     keychainAddFailed,              // the requested itemed couldn't be added to the keychain
     generalErrorCancel,              // something went wrong so we have to give up now
+    resettingPassword,              // The user has indicated that they wish to reset their password
 	
 	worldChanged = 101
 };

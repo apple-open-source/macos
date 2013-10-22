@@ -98,11 +98,17 @@ int Error::unixError() const
 //
 // Database objects
 //
-Database::Database(const char *path, int flags)
+Database::Database(const char *path, int flags, bool lenient /* = false */)
 	: mMutex(Mutex::recursive)
 {
 	try {
-		check(::sqlite3_open_v2(path, &mDb, flags, NULL));
+		int rc = ::sqlite3_open_v2(path, &mDb, flags, NULL);
+		if (rc != SQLITE_OK && lenient) {	// silent open failure
+			sqlite3_close(mDb); // ditch useless Db object
+			mDb = NULL;			// indicate failure
+			return;
+		}
+		check(rc);
 		check(::sqlite3_extended_result_codes(mDb, true));
 		mOpenFlags = flags;
 	} catch (...) {
@@ -378,11 +384,11 @@ void Statement::Binding::blob(const void *data, size_t length, bool shared /* = 
 	if (data == NULL)
 		this->null();
 	else if (shared) {
-		statement.check(::sqlite3_bind_blob(statement.sql(), index, data, length, NULL));
+		statement.check(::sqlite3_bind_blob(statement.sql(), index, data, (int)length, NULL));
 	} else if (void *copy = ::malloc(length)) {
 		::memcpy(copy, data, length);
 		statement.check(::sqlite3_bind_blob(statement.sql(), index,
-		copy, length, ::free));
+		copy, (int)length, ::free));
 	} else
 		throw std::bad_alloc();
 }

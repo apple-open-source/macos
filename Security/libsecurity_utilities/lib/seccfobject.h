@@ -108,6 +108,7 @@ public:
 	virtual CFStringRef copyDebugDesc();
 	virtual void aboutToDestruct();
 	virtual Mutex* getMutexForObject();
+    virtual bool mayDelete();
 };
 
 //

@@ -13,6 +13,7 @@ _SMBDeviceIoControl
 _SMBFrameworkVersion
 _SMBGetNodeStatus
 _SMBGetServerProperties
+_SMBGetShareAttributes
 _SMBLogInfo
 _SMBGetDfsReferral
 _SMBMountShare

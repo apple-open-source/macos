@@ -25,8 +25,6 @@
 #include "GLContext.h"
 
 typedef struct __GLXcontextRec* GLXContext;
-typedef struct _XDisplay Display;
-typedef struct __GLXcontextRec *GLXContext;
 typedef unsigned long GLXPbuffer;
 typedef unsigned long GLXPixmap;
 typedef unsigned char GLubyte;
@@ -39,35 +37,34 @@ namespace WebCore {
 class GLContextGLX : public GLContext {
     WTF_MAKE_NONCOPYABLE(GLContextGLX);
 public:
-    static GLContextGLX* createContext(XID, GLXContext sharingContext = 0);
-    static GLContextGLX* createWindowContext(XID window, GLXContext sharingContext);
-    static GLContextGLX* createPbufferContext(GLXContext sharingContext);
-    static GLContextGLX* createPixmapContext(GLXContext sharingContext);
-    static void removeActiveContext(GLContext*);
+    static PassOwnPtr<GLContextGLX> createContext(XID window, GLContext* sharingContext);
+    static PassOwnPtr<GLContextGLX> createWindowContext(XID window, GLContext* sharingContext);
 
     virtual ~GLContextGLX();
-    virtual GLContext* createOffscreenSharingContext();
     virtual bool makeContextCurrent();
     virtual void swapBuffers();
+    virtual void waitNative();
     virtual bool canRenderToDefaultFramebuffer();
+    virtual IntSize defaultFrameBufferSize();
+    virtual cairo_device_t* cairoDevice();
 
-#if ENABLE(WEBGL)
+#if USE(3D_GRAPHICS)
     virtual PlatformGraphicsContext3D platformContext();
 #endif
 
 private:
-    static void addActiveContext(GLContextGLX*);
-    static void cleanupActiveContextsAtExit();
+    static PassOwnPtr<GLContextGLX> createPbufferContext(GLXContext sharingContext);
+    static PassOwnPtr<GLContextGLX> createPixmapContext(GLXContext sharingContext);
 
     GLContextGLX(GLXContext);
     GLContextGLX(GLXContext, Pixmap, GLXPixmap);
 
     GLXContext m_context;
-    Display* m_display;
     XID m_window;
     GLXPbuffer m_pbuffer;
     Pixmap m_pixmap;
     GLXPixmap m_glxPixmap;
+    cairo_device_t* m_cairoDevice;
 };
 
 } // namespace WebCore

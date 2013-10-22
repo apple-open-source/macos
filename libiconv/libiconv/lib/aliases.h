@@ -1699,9 +1699,6 @@ static const struct alias aliases[] =
     {(int)(long)&((struct stringpool_t *)0)->stringpool_str1033, ei_euc_jp}
   };
 
-#ifdef __GNUC__
-__inline
-#endif
 const struct alias *
 aliases_lookup (register const char *str, register unsigned int len)
 {

@@ -122,6 +122,7 @@ typedef struct kcm_client {
     pid_t pid;
     uid_t uid;
     pid_t session;
+    char execpath[MAXPATHLEN];
 } kcm_client;
 
 #define CLIENT_IS_ROOT(client) ((client)->uid == 0)
@@ -143,7 +144,6 @@ extern char *socket_path;
 extern char *door_path;
 extern size_t max_request;
 extern sig_atomic_t exit_flag;
-extern int name_constraints;
 extern int max_num_requests;
 extern int kcm_timeout;
 #ifdef SUPPORT_DETACH

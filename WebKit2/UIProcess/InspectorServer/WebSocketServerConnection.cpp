@@ -30,9 +30,9 @@
 
 #include "WebSocketServerConnection.h"
 
+#include "HTTPRequest.h"
 #include "WebSocketServer.h"
 #include "WebSocketServerClient.h"
-#include <WebCore/HTTPRequest.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/SocketStreamError.h>
 #include <WebCore/SocketStreamHandle.h>
@@ -45,19 +45,24 @@ using namespace WebCore;
 
 namespace WebKit {
 
-WebSocketServerConnection::WebSocketServerConnection(PassRefPtr<SocketStreamHandle> socket, WebSocketServerClient* client, WebSocketServer* server)
+WebSocketServerConnection::WebSocketServerConnection(WebSocketServerClient* client, WebSocketServer* server)
     : m_identifier(0)
     , m_mode(HTTP)
-    , m_socket(socket)
     , m_server(server)
     , m_client(client)
+    , m_shutdownAfterSend(false)
 {
-    m_socket->setClient(this);
 }
 
 WebSocketServerConnection::~WebSocketServerConnection()
 {
     shutdownNow();
+}
+
+void WebSocketServerConnection::setSocketHandle(PassRefPtr<WebCore::SocketStreamHandle> socket)
+{
+    ASSERT(!m_socket);
+    m_socket = socket;
 }
 
 void WebSocketServerConnection::shutdownNow()
@@ -66,16 +71,15 @@ void WebSocketServerConnection::shutdownNow()
         return;
     RefPtr<SocketStreamHandle> socket = m_socket.release();
     socket->close();
+    m_shutdownAfterSend = false;
 }
 
 void WebSocketServerConnection::shutdownAfterSendOrNow()
 {
-    // If this ASSERT happens on any platform then their SocketStreamHandle::send
-    // followed by a SocketStreamHandle::close is not guarenteed to have sent all
-    // data. If this happens, we need to slightly change the design to include a
-    // SocketStreamHandleClient::didSend, handle it here, and add an m_shutdownAfterSend
-    // state on this WebSocketServerConnection.
-    ASSERT(!m_socket->bufferedAmount());
+    if (m_socket->bufferedAmount()) {
+        m_shutdownAfterSend = true;
+        return;
+    }
 
     shutdownNow();
 }
@@ -95,18 +99,19 @@ void WebSocketServerConnection::sendWebSocketMessage(const String& message)
 void WebSocketServerConnection::sendHTTPResponseHeader(int statusCode, const String& statusText, const HTTPHeaderMap& headerFields)
 {
     StringBuilder builder;
-    builder.append("HTTP/1.1 ");
-    builder.append(String::number(statusCode));
-    builder.append(" ");
+    builder.appendLiteral("HTTP/1.1 ");
+    builder.appendNumber(statusCode);
+    builder.append(' ');
     builder.append(statusText);
-    builder.append("\r\n");
+    builder.appendLiteral("\r\n");
     HTTPHeaderMap::const_iterator end = headerFields.end();
     for (HTTPHeaderMap::const_iterator it = headerFields.begin(); it != end; ++it) {
-        builder.append(it->first);
-        builder.append(": ");
-        builder.append(it->second + "\r\n");
+        builder.append(it->key);
+        builder.appendLiteral(": ");
+        builder.append(it->value);
+        builder.appendLiteral("\r\n");
     }
-    builder.append("\r\n");
+    builder.appendLiteral("\r\n");
 
     CString header = builder.toString().latin1();
     m_socket->send(header.data(), header.length());
@@ -119,6 +124,9 @@ void WebSocketServerConnection::sendRawData(const char* data, size_t length)
 
 void WebSocketServerConnection::didCloseSocketStream(SocketStreamHandle*)
 {
+    // Destroy the SocketStreamHandle now to prevent closing an already closed socket later.
+    m_socket.clear();
+
     // Web Socket Mode.
     if (m_mode == WebSocket)
         m_client->didCloseWebSocketConnection(this);
@@ -144,6 +152,12 @@ void WebSocketServerConnection::didReceiveSocketStreamData(SocketStreamHandle*, 
         // For any new modes added in the future.
         ASSERT_NOT_REACHED();
     }
+}
+
+void WebSocketServerConnection::didUpdateBufferedAmount(WebCore::SocketStreamHandle*, size_t)
+{
+    if (m_shutdownAfterSend && !m_socket->bufferedAmount())
+        shutdownNow();
 }
 
 void WebSocketServerConnection::didFailSocketStream(SocketStreamHandle*, const SocketStreamError&)

@@ -35,7 +35,7 @@ static const unsigned short cp936ext_2uni_pagea8[128-122] = {
 };
 
 static int
-cp936ext_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cp936ext_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c1 = s[0];
   if ((c1 == 0xa6) || (c1 == 0xa8)) {
@@ -79,7 +79,7 @@ static const unsigned short cp936ext_pagefe[24] = {
 };
 
 static int
-cp936ext_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+cp936ext_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (n >= 2) {
     unsigned short c = 0;

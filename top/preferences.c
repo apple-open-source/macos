@@ -107,9 +107,19 @@ static struct {
     /*alias*/
     {"mregs", STATISTIC_MREGION},
     {"reg", STATISTIC_MREGION},
+#ifdef TOP_ANONYMOUS_MEMORY
+    {"mem", STATISTIC_RMEM},
+    {"rsize", STATISTIC_RMEM}, /* alias */
+    {"rprvt", STATISTIC_RPRVT},
+    {"purg", STATISTIC_PURG},
+    {"compress", STATISTIC_COMPRESSED},
+    {"cmprs", STATISTIC_COMPRESSED}, /* alias */
+    {"compressed", STATISTIC_COMPRESSED}, /* alias */
+#else
     {"rprvt", STATISTIC_RPRVT},
     {"rshrd", STATISTIC_RSHRD},
     {"rsize", STATISTIC_RSIZE},
+#endif
     {"vsize", STATISTIC_VSIZE},
     {"vprvt", STATISTIC_VPRVT},
     {"pgrp", STATISTIC_PGRP},
@@ -137,6 +147,8 @@ static struct {
     {"pageins", STATISTIC_PAGEINS},
     {"kprvt", STATISTIC_KPRVT},
     {"kshrd", STATISTIC_KSHRD},
+    {"idlew", STATISTIC_IDLEWAKE},
+    {"power", STATISTIC_POWERSCORE},
     {NULL, 0}
 };
 
@@ -200,9 +212,16 @@ void top_prefs_init(void) {
 #endif
     SPREF(STATISTIC_PORTS);
     SPREF(STATISTIC_MREGION);
+#ifdef TOP_ANONYMOUS_MEMORY
+    SPREF(STATISTIC_RMEM);
+    SPREF(STATISTIC_RPRVT);
+    SPREF(STATISTIC_PURG);
+    SPREF(STATISTIC_COMPRESSED);
+#else
     SPREF(STATISTIC_RPRVT);
     SPREF(STATISTIC_RSHRD);
     SPREF(STATISTIC_RSIZE);
+#endif
     SPREF(STATISTIC_VPRVT);
     SPREF(STATISTIC_VSIZE);
     SPREF(STATISTIC_PGRP);
@@ -219,6 +238,8 @@ void top_prefs_init(void) {
     SPREF(STATISTIC_PAGEINS);
     SPREF(STATISTIC_KPRVT);
     SPREF(STATISTIC_KSHRD);
+    SPREF(STATISTIC_IDLEWAKE);
+    SPREF(STATISTIC_POWERSCORE);
     SPREF(STATISTIC_USER);
 
 #undef SPREF

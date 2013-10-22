@@ -17,19 +17,12 @@
     Boston, MA 02110-1301, USA.
 */
 
+#include "config.h"
+
 #include "qglobal.h"
 
-#if defined(HAVE_QQUICK1)
-#include "qdeclarativewebview_p.h"
-#endif
-
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 0, 0))
 #include <QtQml/qqml.h>
 #include <QtQml/qqmlextensionplugin.h>
-#else
-#include <QtDeclarative/qdeclarative.h>
-#include <QtDeclarative/qdeclarativeextensionplugin.h>
-#endif
 
 #if defined(HAVE_WEBKIT2)
 #include "private/qquickwebpage_p.h"
@@ -44,7 +37,8 @@
 
 QT_BEGIN_NAMESPACE
 
-class WebKitQmlPlugin : public QDeclarativeExtensionPlugin {
+class WebKitQmlPlugin : public QQmlExtensionPlugin {
+    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QQmlExtensionInterface" FILE "plugin.json")
     Q_OBJECT
 public:
 #if defined(HAVE_WEBKIT2)
@@ -58,15 +52,6 @@ public:
     virtual void registerTypes(const char* uri)
     {
         Q_ASSERT(QLatin1String(uri) == QLatin1String("QtWebKit"));
-#if defined(HAVE_QQUICK1)
-        qmlRegisterType<QDeclarativeWebSettings>();
-        qmlRegisterType<QDeclarativeWebView>(uri, 1, 0, "WebView");
-#ifdef Q_REVISION
-        qmlRegisterType<QDeclarativeWebView>(uri, 1, 1, "WebView");
-        qmlRegisterRevision<QDeclarativeWebView, 0>("QtWebKit", 1, 0);
-        qmlRegisterRevision<QDeclarativeWebView, 1>("QtWebKit", 1, 1);
-#endif
-#endif
 
 #if defined(HAVE_WEBKIT2)
         qmlRegisterType<QQuickWebView>(uri, 3, 0, "WebView");
@@ -81,5 +66,3 @@ public:
 QT_END_NAMESPACE
 
 #include "plugin.moc"
-
-Q_EXPORT_PLUGIN2(qmlwebkitplugin, QT_PREPEND_NAMESPACE(WebKitQmlPlugin));

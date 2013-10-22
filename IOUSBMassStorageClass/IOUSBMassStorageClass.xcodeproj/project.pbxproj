@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		2A7E56EF0DB97ECC002B74AA /* IOUSBMassStorageClassTimestamps.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2A77099A0D4FE006004E6380 /* IOUSBMassStorageClassTimestamps.h */; };
+		5264193615BE3644002E63BC /* USBMassStorageClassCBI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0160FD7AFFE08B5011CE15B4 /* USBMassStorageClassCBI.cpp */; };
 		52DEDA600D57A5B800F6FF83 /* IOUSBMassStorageClass.h in Headers */ = {isa = PBXBuildFile; fileRef = 0160FD76FFE08B1E11CE15B4 /* IOUSBMassStorageClass.h */; };
 		52DEDA610D57A5B800F6FF83 /* IOUSBMassStorageUFISubclass.h in Headers */ = {isa = PBXBuildFile; fileRef = 014FCB6400351BCC11CE15B4 /* IOUSBMassStorageUFISubclass.h */; };
 		52DEDA620D57A5B800F6FF83 /* IOUFIStorageServices.h in Headers */ = {isa = PBXBuildFile; fileRef = 44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */; };
@@ -370,6 +371,7 @@
 			files = (
 				F3476D5F0F54778B00C7C673 /* IOUSBMassStorageClass.cpp in Sources */,
 				F3476D600F54778B00C7C673 /* USBMassStorageClassBulkOnly.cpp in Sources */,
+				5264193615BE3644002E63BC /* USBMassStorageClassCBI.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

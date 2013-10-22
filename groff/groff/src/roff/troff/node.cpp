@@ -4935,7 +4935,7 @@ node *make_node(charinfo *ci, environment *env)
   case charinfo::TRANSLATE_DUMMY:
     return new dummy_node;
   case charinfo::TRANSLATE_HYPHEN_INDICATOR:
-    error("translation to \\% ignored in this context");
+    error("translation to \\%% ignored in this context");
     break;
   }
   charinfo *tem = ci->get_translation();

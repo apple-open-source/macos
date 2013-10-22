@@ -21,32 +21,33 @@
 #include "config.h"
 #include "QtWebContext.h"
 
-#include "MutableArray.h"
 #include "QtDownloadManager.h"
 #include "QtWebIconDatabaseClient.h"
-#include "WKAPICast.h"
-#include "WebContext.h"
 #include "WebInspectorServer.h"
-#include "WebPageProxy.h"
+#include "qquickwebview_p_p.h"
+#include <QDir>
+#include <QStandardPaths>
+#include <QStringBuilder>
+#include <WKAPICast.h>
 #include <WKArray.h>
+#include <WKContextPrivate.h>
 #include <WKPage.h>
 #include <WKString.h>
+#include <WKStringQt.h>
 #include <WKType.h>
 
 namespace WebKit {
 
-static uint64_t generateContextID()
-{
-    static uint64_t uniqueContextID = 1;
-    return uniqueContextID++;
-}
-
-static HashMap<uint64_t, QtWebContext*> contextMap;
-
-QtWebContext* QtWebContext::s_defaultContext = 0;
+// Prevent the destruction of the WKContext for two reasons:
+// - An internal reference is kept to the WebContext waiting until the web process shut down, which
+// does so 60 seconds after the last page closed. We want to reuse that web process if possible and
+// avoid creating a second parallel WKContext + web process.
+// - The IconDatabase wasn't designed to have more than one instance, or to be quickly opened/closed.
+static QtWebContext* s_defaultQtWebContext = 0;
 
 static void initInspectorServer()
 {
+#if ENABLE(INSPECTOR_SERVER)
     QString inspectorEnv = QString::fromUtf8(qgetenv("QTWEBKIT_INSPECTOR_SERVER"));
     if (!inspectorEnv.isEmpty()) {
         QString bindAddress = QLatin1String("127.0.0.1");
@@ -73,6 +74,7 @@ static void initInspectorServer()
         } else
             qWarning("Couldn't start the inspector server on bind address \"%s\" and port \"%d\". In case of invalid input, try something like: \"12345\" or \"192.168.2.14:12345\" (with the address of one of this host's interface).", qPrintable(bindAddress), port);
     }
+#endif
 }
 
 static void globalInitialization()
@@ -85,95 +87,7 @@ static void globalInitialization()
     initialized = true;
 }
 
-QtWebContext::QtWebContext(WebContext* context)
-    : m_contextID(generateContextID())
-    , m_context(context)
-    , m_downloadManager(adoptPtr(new QtDownloadManager(context)))
-    , m_iconDatabase(adoptPtr(new QtWebIconDatabaseClient(this)))
-{
-    contextMap.set(m_contextID, this);
-}
-
-QtWebContext::~QtWebContext()
-{
-    if (s_defaultContext == this)
-        s_defaultContext = 0;
-    contextMap.remove(m_contextID);
-}
-
-// Used only by WebKitTestRunner. It avoids calling initialize(), so that we don't register any clients.
-PassRefPtr<QtWebContext> QtWebContext::create(WebContext* context)
-{
-    globalInitialization();
-    return adoptRef(new QtWebContext(context));
-}
-
-PassRefPtr<QtWebContext> QtWebContext::defaultContext()
-{
-    if (s_defaultContext)
-        return PassRefPtr<QtWebContext>(s_defaultContext);
-
-    RefPtr<WebContext> context = WebContext::sharedProcessContext();
-    RefPtr<QtWebContext> defaultContext = QtWebContext::create(context.get());
-    s_defaultContext = defaultContext.get();
-    // Make sure that this doesn't get called in WebKitTestRunner (defaultContext isn't used there).
-    defaultContext->initializeContextInjectedBundleClient();
-
-    return defaultContext.release();
-}
-
-PassRefPtr<WebPageProxy> QtWebContext::createWebPage(PageClient* client, WebPageGroup* pageGroup)
-{
-    return m_context->createWebPage(client, pageGroup);
-}
-
-void QtWebContext::setNavigatorQtObjectEnabled(WebPageProxy* webPageProxy, bool enabled)
-{
-    static String messageName("SetNavigatorQtObjectEnabled");
-    RefPtr<MutableArray> body = MutableArray::create();
-    body->append(webPageProxy);
-    RefPtr<WebBoolean> webEnabled = WebBoolean::create(enabled);
-    body->append(webEnabled.get());
-    m_context->postMessageToInjectedBundle(messageName, body.get());
-}
-
-void QtWebContext::postMessageToNavigatorQtObject(WebPageProxy* webPageProxy, const QString& message)
-{
-    static String messageName("MessageToNavigatorQtObject");
-    RefPtr<MutableArray> body = MutableArray::create();
-    body->append(webPageProxy);
-    RefPtr<WebString> contents = WebString::create(String(message));
-    body->append(contents.get());
-    m_context->postMessageToInjectedBundle(messageName, body.get());
-}
-
-QtWebContext* QtWebContext::contextByID(uint64_t id)
-{
-    return contextMap.get(id);
-}
-
-void QtWebContext::initializeContextInjectedBundleClient()
-{
-    WKContextInjectedBundleClient injectedBundleClient;
-    memset(&injectedBundleClient, 0, sizeof(WKContextInjectedBundleClient));
-    injectedBundleClient.version = kWKContextInjectedBundleClientCurrentVersion;
-    injectedBundleClient.clientInfo = this;
-    injectedBundleClient.didReceiveMessageFromInjectedBundle = didReceiveMessageFromInjectedBundle;
-    WKContextSetInjectedBundleClient(toAPI(m_context.get()), &injectedBundleClient);
-}
-
-static QtWebContext* toQtWebContext(const void* clientInfo)
-{
-    ASSERT(clientInfo);
-    return reinterpret_cast<QtWebContext*>(const_cast<void*>(clientInfo));
-}
-
-void QtWebContext::didReceiveMessageFromInjectedBundle(WKContextRef, WKStringRef messageName, WKTypeRef messageBody, const void* clientInfo)
-{
-    toQtWebContext(clientInfo)->didReceiveMessageFromInjectedBundle(messageName, messageBody);
-}
-
-void QtWebContext::didReceiveMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody)
+static void didReceiveMessageFromInjectedBundle(WKContextRef, WKStringRef messageName, WKTypeRef messageBody, const void*)
 {
     if (!WKStringIsEqualToUTF8CString(messageName, "MessageFromNavigatorQtObject"))
         return;
@@ -189,7 +103,95 @@ void QtWebContext::didReceiveMessageFromInjectedBundle(WKStringRef messageName, 
     WKPageRef page = static_cast<WKPageRef>(WKArrayGetItemAtIndex(body, 0));
     WKStringRef str = static_cast<WKStringRef>(WKArrayGetItemAtIndex(body, 1));
 
-    toImpl(page)->didReceiveMessageFromNavigatorQtObject(toImpl(str)->string());
+    QQuickWebViewPrivate::get(page)->didReceiveMessageFromNavigatorQtObject(str);
+}
+
+static void initializeContextInjectedBundleClient(WKContextRef context)
+{
+    WKContextInjectedBundleClient injectedBundleClient;
+    memset(&injectedBundleClient, 0, sizeof(WKContextInjectedBundleClient));
+    injectedBundleClient.version = kWKContextInjectedBundleClientCurrentVersion;
+    injectedBundleClient.didReceiveMessageFromInjectedBundle = didReceiveMessageFromInjectedBundle;
+    WKContextSetInjectedBundleClient(context, &injectedBundleClient);
+}
+
+QtWebContext::QtWebContext(WKContextRef context)
+    : m_context(context)
+    , m_downloadManager(new QtDownloadManager(context))
+    , m_iconDatabase(new QtWebIconDatabaseClient(context))
+{
+}
+
+QtWebContext::~QtWebContext()
+{
+}
+
+// Used directly only by WebKitTestRunner.
+QtWebContext* QtWebContext::create(WKContextRef context)
+{
+    globalInitialization();
+    return new QtWebContext(context);
+}
+
+QtWebContext* QtWebContext::defaultContext()
+{
+    if (!s_defaultQtWebContext) {
+        WKRetainPtr<WKContextRef> wkContext = adoptWK(WKContextCreate());
+        // Make sure for WebKitTestRunner that the injected bundle client isn't initialized
+        // and that the page cache isn't enabled (defaultContext() isn't used there).
+        initializeContextInjectedBundleClient(wkContext.get());
+        // A good all-around default.
+        WKContextSetCacheModel(wkContext.get(), kWKCacheModelDocumentBrowser);
+
+        // Those paths have to be set before the first web process is spawned.
+        WKContextSetDatabaseDirectory(wkContext.get(), adoptWK(WKStringCreateWithQString(preparedStoragePath(DatabaseStorage))).get());
+        WKContextSetLocalStorageDirectory(wkContext.get(), adoptWK(WKStringCreateWithQString(preparedStoragePath(LocalStorage))).get());
+        WKContextSetCookieStorageDirectory(wkContext.get(), adoptWK(WKStringCreateWithQString(preparedStoragePath(CookieStorage))).get());
+        WKContextSetDiskCacheDirectory(wkContext.get(), adoptWK(WKStringCreateWithQString(preparedStoragePath(DiskCacheStorage))).get());
+
+        s_defaultQtWebContext = QtWebContext::create(wkContext.get());
+    }
+
+    return s_defaultQtWebContext;
+}
+
+static QString defaultLocation(QStandardPaths::StandardLocation type)
+{
+    QString path = QStandardPaths::writableLocation(type);
+    Q_ASSERT(!path.isEmpty());
+    return path % QDir::separator() % QStringLiteral(".QtWebKit") % QDir::separator();
+}
+
+QString QtWebContext::preparedStoragePath(StorageType type)
+{
+    QString path;
+    switch (type) {
+    case DatabaseStorage:
+        path = defaultLocation(QStandardPaths::DataLocation) % QStringLiteral("Databases");
+        QDir::root().mkpath(path);
+        break;
+    case LocalStorage:
+        path = defaultLocation(QStandardPaths::DataLocation) % QStringLiteral("LocalStorage");
+        QDir::root().mkpath(path);
+        break;
+    case CookieStorage:
+        path = defaultLocation(QStandardPaths::DataLocation);
+        QDir::root().mkpath(path);
+        break;
+    case DiskCacheStorage:
+        path = defaultLocation(QStandardPaths::CacheLocation) % QStringLiteral("DiskCache");
+        QDir::root().mkpath(path);
+        break;
+    case IconDatabaseStorage:
+        path = defaultLocation(QStandardPaths::DataLocation);
+        QDir::root().mkpath(path);
+        path += QStringLiteral("WebpageIcons.db");
+        break;
+    default:
+        Q_ASSERT(false);
+    }
+
+    return path;
 }
 
 } // namespace WebKit

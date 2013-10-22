@@ -1,5 +1,18 @@
-require "openssl"
+begin
+  require "openssl"
+
+  # Disable FIPS mode for tests for installations
+  # where FIPS mode would be enabled by default.
+  # Has no effect on all other installations.
+  OpenSSL.fips_mode=false
+rescue LoadError
+end
 require "test/unit"
+require "digest/md5"
+require 'tempfile'
+require "rbconfig"
+require "socket"
+require_relative '../ruby/envutil'
 
 module OpenSSL::TestUtils
   TEST_KEY_RSA1024 = OpenSSL::PKey::RSA.new <<-_end_of_pem_
@@ -72,6 +85,39 @@ Q1VB8qkJN7rA7/2HrCR3gTsWNb1YhAsnFsoeRscC+LxXoXi9OAIUBG98h4tilg6S
 -----END DSA PRIVATE KEY-----
   _end_of_pem_
 
+if defined?(OpenSSL::PKey::EC)
+
+  TEST_KEY_EC_P256V1 = OpenSSL::PKey::EC.new <<-_end_of_pem_
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIID49FDqcf1O1eO8saTgG70UbXQw9Fqwseliit2aWhH1oAoGCCqGSM49
+AwEHoUQDQgAEFglk2c+oVUIKQ64eZG9bhLNPWB7lSZ/ArK41eGy5wAzU/0G51Xtt
+CeBUl+MahZtn9fO1JKdF4qJmS39dXnpENg==
+-----END EC PRIVATE KEY-----
+  _end_of_pem_
+
+end
+
+  TEST_KEY_DH512_PUB = OpenSSL::PKey::DH.new <<-_end_of_pem_
+-----BEGIN DH PARAMETERS-----
+MEYCQQDmWXGPqk76sKw/edIOdhAQD4XzjJ+AR/PTk2qzaGs+u4oND2yU5D2NN4wr
+aPgwHyJBiK1/ebK3tYcrSKrOoRyrAgEC
+-----END DH PARAMETERS-----
+  _end_of_pem_
+
+  TEST_KEY_DH1024 = OpenSSL::PKey::DH.new <<-_end_of_pem_
+-----BEGIN DH PARAMETERS-----
+MIGHAoGBAKnKQ8MNK6nYZzLrrcuTsLxuiJGXoOO5gT+tljOTbHBuiktdMTITzIY0
+pFxIvjG05D7HoBZQfrR0c92NGWPkAiCkhQKB8JCbPVzwNLDy6DZ0pmofDKrEsYHG
+AQjjxMXhwULlmuR/K+WwlaZPiLIBYalLAZQ7ZbOPeVkJ8ePao0eLAgEC
+-----END DH PARAMETERS-----
+  _end_of_pem_
+
+  TEST_KEY_DH1024.priv_key = OpenSSL::BN.new("48561834C67E65FFD2A9B47F41E5E78FDC95C387428FDB1E4B0188B64D1643C3A8D3455B945B7E8C4D166010C7C2CE23BFB9BEF43D0348FE7FA5284B0225E7FE1537546D114E3D8A4411B9B9351AB451E1A358F50ED61B1F00DA29336EEBBD649980AC86D76AF8BBB065298C2052672EEF3EF13AB47A15275FC2836F3AC74CEA", 16)
+
+  DSA_SIGNATURE_DIGEST = OpenSSL::OPENSSL_VERSION_NUMBER > 0x10000000 ?
+                         OpenSSL::Digest::SHA1 :
+                         OpenSSL::Digest::DSS1
+
   module_function
 
   def issue_cert(dn, key, serial, not_before, not_after, extensions,
@@ -96,16 +142,16 @@ Q1VB8qkJN7rA7/2HrCR3gTsWNb1YhAsnFsoeRscC+LxXoXi9OAIUBG98h4tilg6S
     cert
   end
 
-  def issue_crl(revoke_info, serial, lastup, nextup, extensions, 
+  def issue_crl(revoke_info, serial, lastup, nextup, extensions,
                 issuer, issuer_key, digest)
     crl = OpenSSL::X509::CRL.new
     crl.issuer = issuer.subject
     crl.version = 1
     crl.last_update = lastup
     crl.next_update = nextup
-    revoke_info.each{|serial, time, reason_code|
+    revoke_info.each{|rserial, time, reason_code|
       revoked = OpenSSL::X509::Revoked.new
-      revoked.serial = serial
+      revoked.serial = rserial
       revoked.time = time
       enum = OpenSSL::ASN1::Enumerated(reason_code)
       ext = OpenSSL::X509::Extension.new("CRLReason", enum)
@@ -138,7 +184,148 @@ Q1VB8qkJN7rA7/2HrCR3gTsWNb1YhAsnFsoeRscC+LxXoXi9OAIUBG98h4tilg6S
       back, $VERBOSE = $VERBOSE, nil
       yield
     ensure
-      $VERBOSE = back if back
+      $VERBOSE = back
     end
   end
-end
+
+  class OpenSSL::SSLTestCase < Test::Unit::TestCase
+    RUBY = EnvUtil.rubybin
+    SSL_SERVER = File.join(File.dirname(__FILE__), "ssl_server.rb")
+    PORT = 20443
+    ITERATIONS = ($0 == __FILE__) ? 100 : 10
+
+    def setup
+      @ca_key  = OpenSSL::TestUtils::TEST_KEY_RSA2048
+      @svr_key = OpenSSL::TestUtils::TEST_KEY_RSA1024
+      @cli_key = OpenSSL::TestUtils::TEST_KEY_DSA256
+      @ca  = OpenSSL::X509::Name.parse("/DC=org/DC=ruby-lang/CN=CA")
+      @svr = OpenSSL::X509::Name.parse("/DC=org/DC=ruby-lang/CN=localhost")
+      @cli = OpenSSL::X509::Name.parse("/DC=org/DC=ruby-lang/CN=localhost")
+      now = Time.at(Time.now.to_i)
+      ca_exts = [
+        ["basicConstraints","CA:TRUE",true],
+        ["keyUsage","cRLSign,keyCertSign",true],
+      ]
+      ee_exts = [
+        ["keyUsage","keyEncipherment,digitalSignature",true],
+      ]
+      @ca_cert  = issue_cert(@ca, @ca_key, 1, now, now+3600, ca_exts, nil, nil, OpenSSL::Digest::SHA1.new)
+      @svr_cert = issue_cert(@svr, @svr_key, 2, now, now+1800, ee_exts, @ca_cert, @ca_key, OpenSSL::Digest::SHA1.new)
+      @cli_cert = issue_cert(@cli, @cli_key, 3, now, now+1800, ee_exts, @ca_cert, @ca_key, OpenSSL::Digest::SHA1.new)
+      @server = nil
+    end
+
+    def teardown
+    end
+
+    def issue_cert(*arg)
+      OpenSSL::TestUtils.issue_cert(*arg)
+    end
+
+    def issue_crl(*arg)
+      OpenSSL::TestUtils.issue_crl(*arg)
+    end
+
+    def readwrite_loop(ctx, ssl)
+      while line = ssl.gets
+        if line =~ /^STARTTLS$/
+          ssl.accept
+          next
+        end
+        ssl.write(line)
+      end
+    rescue OpenSSL::SSL::SSLError
+    rescue IOError
+    ensure
+      ssl.close rescue nil
+    end
+
+    def server_loop(ctx, ssls, server_proc)
+      loop do
+        ssl = nil
+        begin
+          ssl = ssls.accept
+        rescue OpenSSL::SSL::SSLError
+          retry
+        end
+
+        Thread.start do
+          Thread.current.abort_on_exception = true
+          server_proc.call(ctx, ssl)
+        end
+      end
+    rescue Errno::EBADF, IOError, Errno::EINVAL, Errno::ECONNABORTED, Errno::ENOTSOCK, Errno::ECONNRESET
+    end
+
+    def start_server(port0, verify_mode, start_immediately, args = {}, &block)
+      ctx_proc = args[:ctx_proc]
+      server_proc = args[:server_proc]
+      server_proc ||= method(:readwrite_loop)
+
+      store = OpenSSL::X509::Store.new
+      store.add_cert(@ca_cert)
+      store.purpose = OpenSSL::X509::PURPOSE_SSL_CLIENT
+      ctx = OpenSSL::SSL::SSLContext.new
+      ctx.cert_store = store
+      #ctx.extra_chain_cert = [ ca_cert ]
+      ctx.cert = @svr_cert
+      ctx.key = @svr_key
+      ctx.tmp_dh_callback = proc { OpenSSL::TestUtils::TEST_KEY_DH1024 }
+      ctx.verify_mode = verify_mode
+      ctx_proc.call(ctx) if ctx_proc
+
+      Socket.do_not_reverse_lookup = true
+      tcps = nil
+      port = port0
+      begin
+        tcps = TCPServer.new("127.0.0.1", port)
+      rescue Errno::EADDRINUSE
+        port += 1
+        retry
+      end
+
+      ssls = OpenSSL::SSL::SSLServer.new(tcps, ctx)
+      ssls.start_immediately = start_immediately
+
+      begin
+        server = Thread.new do
+          Thread.current.abort_on_exception = true
+          server_loop(ctx, ssls, server_proc)
+        end
+
+        $stderr.printf("%s started: pid=%d port=%d\n", SSL_SERVER, $$, port) if $DEBUG
+
+        block.call(server, port.to_i)
+      ensure
+        begin
+          begin
+            tcps.shutdown
+          rescue Errno::ENOTCONN
+            # when `Errno::ENOTCONN: Socket is not connected' on some platforms,
+            # call #close instead of #shutdown.
+            tcps.close
+            tcps = nil
+          end if (tcps)
+          if (server)
+            server.join(5)
+            if server.alive?
+              server.kill
+              server.join
+              flunk("TCPServer was closed and SSLServer is still alive") unless $!
+            end
+          end
+        ensure
+          tcps.close if (tcps)
+        end
+      end
+    end
+
+    def starttls(ssl)
+      ssl.puts("STARTTLS")
+      sleep 1   # When this line is eliminated, process on Cygwin blocks
+                # forever at ssl.connect. But I don't know why it does.
+      ssl.connect
+    end
+  end
+
+end if defined?(OpenSSL)

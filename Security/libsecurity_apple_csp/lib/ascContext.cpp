@@ -177,7 +177,7 @@ void ASCContext::init(
 		}
 	}
 	 
-	crtn = comcryptInit(mCcObj, keyData, keyLen, optimize);
+	crtn = comcryptInit(mCcObj, keyData, (unsigned)keyLen, optimize);
 	if(crtn) {
 		throwComcrypt(crtn, "comcryptInit");
 	}
@@ -198,10 +198,10 @@ void ASCContext::update(
 	unsigned char *outText = (unsigned char *)outp;
 	
 	if(encoding()) {
-		outLen = outSize;
+		outLen = (unsigned)outSize;
 		crtn = comcryptData(mCcObj, 
 			inText, 
-			inSize,
+			(unsigned)inSize,
 			outText,
 			&outLen,
 			CCE_MORE_TO_COME);		// not used on encrypt
@@ -219,7 +219,7 @@ void ASCContext::update(
 		unsigned thisOutLen;
 		unsigned partialOutLen = 0;
 		if(mDecryptBufValid) {
-			thisOutLen = outSize;
+			thisOutLen = (unsigned)outSize;
 			crtn = deComcryptData(mCcObj,
 				&mDecryptBuf,
 				1,
@@ -238,10 +238,10 @@ void ASCContext::update(
 		 * Now decrypt remaining, less one byte (which is stored in the 
 		 * buffer).
 		 */
-		thisOutLen = outSize - partialOutLen;
+		thisOutLen = (unsigned)(outSize - partialOutLen);
 		crtn = deComcryptData(mCcObj,
 			inText, 
-			inSize - 1,
+			(unsigned)(inSize - 1),
 			outText,
 			&thisOutLen,
 			CCE_MORE_TO_COME);
@@ -269,7 +269,7 @@ void ASCContext::final(
 			CssmError::throwMe(CSSMERR_CSP_INPUT_LENGTH_ERROR);
 		}
 		comcryptReturn crtn;
-		unsigned outLen = out.Length;
+		unsigned outLen = (unsigned)out.Length;
 		crtn = deComcryptData(mCcObj,
 			&mDecryptBuf,
 			1,
@@ -290,7 +290,7 @@ size_t ASCContext::inputSize(
 	size_t 			outSize)			// input for given output size
 {
 	size_t rtn = comcryptMaxInBufSize(mCcObj,
-		outSize,
+		(unsigned)outSize,
 		encoding() ? CCOP_COMCRYPT : CCOP_DECOMCRYPT);
 	abprintf("--- ASCContext::inputSize  inSize %ld outSize %ld",
 		rtn, outSize);
@@ -310,7 +310,7 @@ size_t ASCContext::outputSize(
 	bool 			final, 
 	size_t 			inSize) 			// output for given input size
 {
-	unsigned effectiveInSize = inSize;
+	unsigned effectiveInSize = (unsigned)inSize;
 	size_t rtn;
 	if(encoding()) {
 		rtn = comcryptMaxOutBufSize(mCcObj,
@@ -363,7 +363,7 @@ void ASCContext::minimumProgress(
 			in = 0;
 		}
 		out = comcryptMaxOutBufSize(mCcObj,
-			in,
+			(unsigned)in,
 			CCOP_DECOMCRYPT,
 			0);
 	}

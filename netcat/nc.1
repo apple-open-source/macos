@@ -113,6 +113,14 @@ help.
 .It Fl i Ar interval
 Specifies a delay time interval between lines of text sent and received.
 Also causes a delay time between connections to multiple ports.
+.It Fl G Ar conntimeout
+TCP connection timeout in seconds.
+.It Fl H Ar keepidle
+Initial TCP keep alive timeout in seconds.
+.It Fl I Ar keepintvl
+Interval for repeating TCP keep alive timeouts in seconds.
+.It Fl J Ar keepcnt
+Number of times to repeat TCP keep alive packets.
 .It Fl k
 Forces
 .Nm
@@ -135,6 +143,8 @@ options.
 Additionally, any timeouts specified with the
 .Fl w
 option are ignored.
+.It Fl L Ar num_probes
+Number of probes to send to the peer before declaring that the peer is not reachable and generating an adpative timeout read/write event.
 .It Fl n
 Do not do any DNS or service lookups on any specified addresses,
 hostnames or ports.

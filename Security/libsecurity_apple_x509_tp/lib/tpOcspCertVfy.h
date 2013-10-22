@@ -33,7 +33,7 @@
 #include <security_asn1/SecNssCoder.h>
 #include <security_ocspd/ocspResponse.h>
 
-#ifdef __cplusplus>
+#ifdef __cplusplus
 
 extern "C" {
 #endif

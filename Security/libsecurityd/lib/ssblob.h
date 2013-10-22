@@ -55,11 +55,11 @@ public:
 protected:
     template <class T>
     T *at(off_t offset)		{ return LowLevelMemoryUtilities::increment<T>(this, offset); }
-    void *at(off_t offset)	{ return LowLevelMemoryUtilities::increment(this, offset); }
+    void *at(off_t offset)	{ return LowLevelMemoryUtilities::increment(this, (ptrdiff_t)offset); }
 	
     template <class T>
     const T *at(off_t offset) const { return LowLevelMemoryUtilities::increment<T>(this, offset); }
-    const void *at(off_t offset) const { return LowLevelMemoryUtilities::increment(this, offset); }
+    const void *at(off_t offset) const { return LowLevelMemoryUtilities::increment(this, (ptrdiff_t)offset); }
 };
 
 

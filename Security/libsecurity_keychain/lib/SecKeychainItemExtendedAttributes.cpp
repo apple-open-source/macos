@@ -68,7 +68,7 @@ static void cfStringToData(
 		kCFStringEncodingUTF8, 0);
 	if(cfData == NULL) {
 		/* can't convert to UTF8!? */
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	dst.copy(CFDataGetBytePtr(cfData), CFDataGetLength(cfData)); 
 	CFRelease(cfData);
@@ -110,10 +110,10 @@ static bool lookupExtendedAttr(
 	attrs[0].length = sizeof(UInt32);
 	attrs[0].data   = (void *)&recType;
 	attrs[1].tag    = kExtendedAttrItemIDAttr;
-	attrs[1].length = itemID.Length;
+	attrs[1].length = (UInt32)itemID.Length;
 	attrs[1].data   = itemID.Data;
 	attrs[2].tag    = kExtendedAttrAttributeNameAttr;
-	attrs[2].length = nameCData.Length;
+	attrs[2].length = (UInt32)nameCData.Length;
 	attrs[2].data   = nameCData.Data;
 	SecKeychainAttributeList attrList = {3, attrs};
 	
@@ -143,7 +143,7 @@ OSStatus SecKeychainItemSetExtendedAttribute(
     BEGIN_SECAPI
 	
 	if((itemRef == NULL) || (attrName == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	/* is there already a matching ExtendedAttribute item? */
@@ -155,7 +155,7 @@ OSStatus SecKeychainItemSetExtendedAttribute(
 			return errSecNoSuchAttr;
 		}
 		foundItem->keychain()->deleteItem(foundItem);
-		return noErr;
+		return errSecSuccess;
 	}
 
 	CSSM_DATA attrCValue = {CFDataGetLength(attrValue), (uint8 *)CFDataGetBytePtr(attrValue)};
@@ -190,7 +190,7 @@ OSStatus SecKeychainItemCopyExtendedAttribute(
     BEGIN_SECAPI
 	
 	if((itemRef == NULL) || (attrName == NULL) || (attrValue == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	Item foundItem;
@@ -228,7 +228,7 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
     BEGIN_SECAPI
 	
 	if((itemRef == NULL) || (attrNames == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 
 	isItemRefCapable(itemRef);
@@ -252,7 +252,7 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
 	attrs[0].length = sizeof(UInt32);
 	attrs[0].data   = (void *)&recType;
 	attrs[1].tag    = kExtendedAttrItemIDAttr;
-	attrs[1].length = itemID.Length;
+	attrs[1].length = (UInt32)itemID.Length;
 	attrs[1].data   = itemID.Data;
 	SecKeychainAttributeList attrList = {2, attrs};
 	
@@ -261,7 +261,7 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
 	
 	CFMutableArrayRef outNames = NULL;
 	CFMutableArrayRef outValues = NULL;
-	OSStatus ourRtn = noErr;
+	OSStatus ourRtn = errSecSuccess;
 	
 	KCCursor cursor(kcList, CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE, &attrList);
 	for(;;) {
@@ -329,7 +329,7 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
 					break;
 				default:
 					/* should never happen, right? */
-					MacOSError::throwMe(internalComponentErr);
+					MacOSError::throwMe(errSecInternalComponent);
 			}
 		}
 		ItemImpl::freeAttributesAndData(attrList, NULL);

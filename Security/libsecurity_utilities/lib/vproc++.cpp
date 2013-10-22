@@ -27,7 +27,7 @@
 //
 #include "vproc++.h"
 #include <security_utilities/debugging.h>
-#include </usr/local/include/vproc_priv.h>
+#include <vproc_priv.h>
 
 
 namespace Security {

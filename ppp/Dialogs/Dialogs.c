@@ -286,7 +286,7 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 		
 		/* if there is a message, set it first, so it is not overriden by other text */
 		if (message) {
-			if (str = CFStringCreateWithCString(NULL, message, kCFStringEncodingUTF8)) {
+			if ((str = CFStringCreateWithCString(NULL, message, kCFStringEncodingUTF8))) {
 				CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, str);
 				CFRelease(str);
 			}			
@@ -334,7 +334,7 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 				case DIALOG_PASSWORD_RETRY:
 				case DIALOG_PASSWORD_ASK:
 				default:
-					if (str = CFStringCreateWithCString(NULL, user, kCFStringEncodingUTF8)) {
+					if ((str = CFStringCreateWithCString(NULL, user, kCFStringEncodingUTF8))) {
 						CFArrayAppendValue(array, str);
 						CFRelease(str);
 					}			

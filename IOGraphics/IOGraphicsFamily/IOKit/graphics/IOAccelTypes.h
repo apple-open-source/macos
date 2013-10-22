@@ -50,8 +50,7 @@ typedef struct
 /* Surface information */
 
 enum {
-    kIOAccelVolatileSurface     = 0x00000001,
-    kIOAccelKeycolorSurface     = 0x00000002
+    kIOAccelVolatileSurface     = 0x00000001
 };
 
 typedef struct

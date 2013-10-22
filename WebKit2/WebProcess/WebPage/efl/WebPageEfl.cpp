@@ -28,15 +28,24 @@
 #include "config.h"
 #include "WebPage.h"
 
+#include "EditorState.h"
+#include "EventHandler.h"
 #include "NotImplemented.h"
 #include "WebEvent.h"
 #include "WindowsKeyboardCodes.h"
+#include <WebCore/EflKeyboardUtilities.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Frame.h>
+#include <WebCore/FrameView.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformKeyboardEvent.h>
+#include <WebCore/RenderThemeEfl.h>
 #include <WebCore/Settings.h>
+
+#if HAVE(ACCESSIBILITY)
+#include "WebPageAccessibilityObject.h"
+#endif
 
 using namespace WebCore;
 
@@ -44,8 +53,22 @@ namespace WebKit {
 
 void WebPage::platformInitialize()
 {
+#if HAVE(ACCESSIBILITY)
+    m_accessibilityObject = adoptGRef(webPageAccessibilityObjectNew(this));
+#else
     notImplemented();
+#endif
 }
+
+#if HAVE(ACCESSIBILITY)
+void WebPage::updateAccessibilityTree()
+{
+    if (!m_accessibilityObject)
+        return;
+
+    webPageAccessibilityObjectRefresh(m_accessibilityObject.get());
+}
+#endif
 
 void WebPage::platformPreferencesDidChange(const WebPreferencesStore&)
 {
@@ -59,8 +82,48 @@ static inline void scroll(Page* page, ScrollDirection direction, ScrollGranulari
 
 bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
 {
-    notImplemented();
-    return false;
+    if (keyboardEvent.type() != WebEvent::KeyDown && keyboardEvent.type() != WebEvent::RawKeyDown)
+        return false;
+
+    switch (keyboardEvent.windowsVirtualKeyCode()) {
+    case VK_BACK:
+        if (keyboardEvent.shiftKey())
+            m_page->goForward();
+        else
+            m_page->goBack();
+        break;
+    case VK_SPACE:
+        scroll(m_page.get(), keyboardEvent.shiftKey() ? ScrollUp : ScrollDown, ScrollByPage);
+        break;
+    case VK_LEFT:
+        scroll(m_page.get(), ScrollLeft, ScrollByLine);
+        break;
+    case VK_RIGHT:
+        scroll(m_page.get(), ScrollRight, ScrollByLine);
+        break;
+    case VK_UP:
+        scroll(m_page.get(), ScrollUp, ScrollByLine);
+        break;
+    case VK_DOWN:
+        scroll(m_page.get(), ScrollDown, ScrollByLine);
+        break;
+    case VK_HOME:
+        scroll(m_page.get(), ScrollUp, ScrollByDocument);
+        break;
+    case VK_END:
+        scroll(m_page.get(), ScrollDown, ScrollByDocument);
+        break;
+    case VK_PRIOR:
+        scroll(m_page.get(), ScrollUp, ScrollByPage);
+        break;
+    case VK_NEXT:
+        scroll(m_page.get(), ScrollDown, ScrollByPage);
+        break;
+    default:
+        return false;
+    }
+
+    return true;
 }
 
 bool WebPage::platformHasLocalDataForURL(const KURL&)
@@ -93,10 +156,72 @@ PassRefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const KURL&)
     return 0;
 }
 
-const char* WebPage::interpretKeyEvent(const KeyboardEvent* evt)
+const char* WebPage::interpretKeyEvent(const KeyboardEvent* event)
 {
-    notImplemented();
-    return 0;
+    ASSERT(event->type() == eventNames().keydownEvent || event->type() == eventNames().keypressEvent);
+
+    if (event->type() == eventNames().keydownEvent)
+        return getKeyDownCommandName(event);
+
+    return getKeyPressCommandName(event);
+}
+
+void WebPage::setThemePath(const String& themePath)
+{
+    WebCore::RenderThemeEfl* theme = static_cast<WebCore::RenderThemeEfl*>(m_page->theme());
+    theme->setThemePath(themePath);
+}
+
+static Frame* targetFrameForEditing(WebPage* page)
+{
+    Frame* frame = page->corePage()->focusController()->focusedOrMainFrame();
+    if (!frame)
+        return 0;
+
+    Editor& editor = frame->editor();
+    if (!editor.canEdit())
+        return 0;
+
+    if (editor.hasComposition()) {
+        // We should verify the parent node of this IME composition node are
+        // editable because JavaScript may delete a parent node of the composition
+        // node. In this case, WebKit crashes while deleting texts from the parent
+        // node, which doesn't exist any longer.
+        if (PassRefPtr<Range> range = editor.compositionRange()) {
+            Node* node = range->startContainer();
+            if (!node || !node->isContentEditable())
+                return 0;
+        }
+    }
+
+    return frame;
+}
+
+void WebPage::confirmComposition(const String& compositionString)
+{
+    Frame* targetFrame = targetFrameForEditing(this);
+    if (!targetFrame)
+        return;
+
+    targetFrame->editor().confirmComposition(compositionString);
+}
+
+void WebPage::setComposition(const String& compositionString, const Vector<WebCore::CompositionUnderline>& underlines, uint64_t cursorPosition)
+{
+    Frame* targetFrame = targetFrameForEditing(this);
+    if (!targetFrame)
+        return;
+
+    targetFrame->editor().setComposition(compositionString, underlines, cursorPosition, 0);
+}
+
+void WebPage::cancelComposition()
+{
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (!frame)
+        return;
+
+    frame->editor().cancelComposition();
 }
 
 } // namespace WebKit

@@ -59,7 +59,6 @@
  * securid_init - Initialises communications with ACE server
  * Arguments in:
  *     pw - UNUSED
- *     promptp - UNUSED
  *     auth - sudo authentication structure
  *
  * Results out:
@@ -68,9 +67,8 @@
  *                   success.
  */
 int
-securid_init(pw, promptp, auth)
+securid_init(pw, auth)
     struct passwd *pw;
-    char **promptp;
     sudo_auth *auth;
 {
     static SDI_HANDLE sd_dat;			/* SecurID handle */
@@ -79,10 +77,10 @@ securid_init(pw, promptp, auth)
 
     /* Start communications */
     if (AceInitialize() != SD_FALSE)
-	return(AUTH_SUCCESS);
+	return AUTH_SUCCESS;
 
     warningx("failed to initialise the ACE API library");
-    return(AUTH_FATAL);
+    return AUTH_FATAL;
 }
 
 /*
@@ -110,7 +108,7 @@ securid_setup(pw, promptp, auth)
     /* Re-initialize SecurID every time. */
     if (SD_Init(sd) != ACM_OK) {
 	warningx("unable to contact the SecurID server");
-	return(AUTH_FATAL);
+	return AUTH_FATAL;
     }
 
     /* Lock new PIN code */
@@ -119,23 +117,23 @@ securid_setup(pw, promptp, auth)
     switch (retval) {
 	case ACM_OK:
 		warningx("User ID locked for SecurID Authentication");
-		return(AUTH_SUCCESS);
+		return AUTH_SUCCESS;
 
         case ACE_UNDEFINED_USERNAME:
 		warningx("invalid username length for SecurID");
-		return(AUTH_FATAL);
+		return AUTH_FATAL;
 
 	case ACE_ERR_INVALID_HANDLE:
 		warningx("invalid Authentication Handle for SecurID");
-		return(AUTH_FATAL);
+		return AUTH_FATAL;
 
 	case ACM_ACCESS_DENIED:
 		warningx("SecurID communication failed");
-		return(AUTH_FATAL);
+		return AUTH_FATAL;
 
 	default:
 		warningx("unknown SecurID error");
-		return(AUTH_FATAL);
+		return AUTH_FATAL;
 	}
 }
 
@@ -228,5 +226,5 @@ then enter the new token code.\n", \
     SD_Close(*sd);
 
     /* Return stored state to calling process */
-    return(rval);
+    return rval;
 }

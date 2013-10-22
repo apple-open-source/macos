@@ -1,0 +1,32 @@
+Lingua::EN::Inflect version 1.895
+
+The exportable subroutines of Lingua::EN::Inflect provide plural
+inflections and "a"/"an" selection for English words.
+
+Plural forms of all nouns, most verbs, and some adjectives are
+provided. Where appropriate, "classical" variants (for example:
+"brother" -> "brethren", "dogma" -> "dogmata", etc.) are also
+provided.
+
+Pronunciation-based "a"/"an" selection is provided for all English
+words, and most initialisms.
+
+Lingua::EN::Inflect also provides facilities for comparing 
+words in a "number-insensitive" manner (that is, an eq-like
+comparison in which "ox" and "oxen" compare equal).
+
+In generating these inflections, Lingua::EN::Inflect follows the
+Oxford English Dictionary and the guidelines in Fowler's Modern
+English Usage, preferring the former where the two disagree.
+
+The module is built around standard British spelling, but is
+designed to cope with common American variants as well. Slang,
+jargon, and other English dialects are *not* explicitly catered
+for. However, the module does provide the ability to define new
+plural forms (or redefine existing ones).
+
+Where two or more inflected forms exist for a single word
+(typically a "classical" form and a "modern" form), by default
+Lingua::EN::Inflect returns the more common form (typically the
+"modern" one). The programmer can, however, specify that
+"classical" plurals should be preferred.

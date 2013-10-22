@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -67,7 +67,19 @@ typedef uint32_t NTSTATUS;
 struct smb_server_handle;
 typedef struct smb_server_handle * SMBHANDLE;
 
-typedef uint64_t SMBFID;
+#if !defined(_SMBFID)
+#define _SMBFID
+    typedef uint64_t SMBFID;
+#endif
+
+#if !defined(_SMB2FID)
+#define _SMB2FID
+typedef struct _SMB2FID
+{
+    uint64_t fid_persistent;
+    uint64_t fid_volatile;
+} SMB2FID;
+#endif
 
 typedef enum SMBAuthType
 {
@@ -256,6 +268,39 @@ SMBGetServerProperties(
 		uint32_t	inVersion,
 		size_t		inPropertiesSize)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
+;
+
+typedef struct SMBShareAttributes
+{
+    uint32_t    vc_uid;
+    uint32_t    vc_flags;
+    uint64_t    vc_misc_flags;
+    uint32_t    vc_hflags;
+    uint32_t    vc_hflags2;
+    uint32_t    vc_smb1_caps;
+    uint32_t    vc_smb2_caps;
+    uint32_t    ss_flags;
+    uint32_t    ss_type;
+    uint32_t    ss_caps;
+    uint32_t    ss_attrs;
+    uint16_t	ss_fstype;
+    char		server_name[kMaxSrvNameLen];
+} SMBShareAttributes;
+
+/*!
+ * @function SMBGetShareAttributes
+ * @abstract Return attributes from smb_vc and smb_share.
+ * @param inConnection A SMBHANDLE created by SMBOpenServerEx.
+ * @param outAttrs is of the type SMBShareAttributes and contains
+ * smb_vc and smb_share attributes for a particular share
+ * @result Returns an NTSTATUS error code.
+ */
+SMBCLIENT_EXPORT
+NTSTATUS
+SMBGetShareAttributes(
+        SMBHANDLE	inConnection,
+        void *outAttrs)
+__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA)
 ;
 
 /*!

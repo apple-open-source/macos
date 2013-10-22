@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,8 @@
 #include <netsmb/smb_conn.h>
 #include <smbfs/smbfs.h>
 #include <parse_url.h>
+#include <netsmb/upi_mbuf.h>
+#include <sys/mchain.h>
 #include "msdfs.h"
 #include <smbclient/smbclient.h>
 #include <smbclient/smbclient_internal.h>
@@ -227,7 +229,7 @@ done:
  */
 int smb_remount_with_fsid(fsid_t fsid)
 {
-	int error;
+	int error, error2;
 	struct smb_ctx *ctx = NULL;
 	struct smb_remount_info remountInfo;
 	uid_t rootUID = geteuid();
@@ -251,14 +253,26 @@ int smb_remount_with_fsid(fsid_t fsid)
 				 remountInfo.mntOwner);
 	
 	/* Switch to the user that owns the mount */
-	seteuid(remountInfo.mntOwner);
+	error2 = seteuid(remountInfo.mntOwner);
+    if (error2) {
+		smb_log_info("%s: seteuid failed %d for mntOwner", ASL_LEVEL_ERR,
+                     __FUNCTION__, error2);
+        goto done;
+    }
+    
 	error = create_smb_ctx_with_url(&ctx, remountInfo.mntURL);
 	if (error) {
 		smb_log_info("%s: Could create ctx from url smb:%s", ASL_LEVEL_ERR, 
 					 __FUNCTION__, remountInfo.mntURL);
-		seteuid(rootUID);
+		error2 = seteuid(rootUID);
+        if (error2) {
+            smb_log_info("%s: seteuid failed %d for rootUID", ASL_LEVEL_ERR,
+                         __FUNCTION__, error2);
+        }
+        
 		goto done;
 	}
+
 	error = GetRootShareConnection(ctx, remountInfo.mntURL, 
 								   remountInfo.mntAuthFlags, 
 								   remountInfo.mntClientPrincipalName, 
@@ -268,20 +282,34 @@ int smb_remount_with_fsid(fsid_t fsid)
 		struct smb_ctx *dfs_ctx = NULL;
 		
 		/*
-		 * XXX - Need to hanlde the DfsRoot remount case, we should check to 
+		 * XXX - Need to handle the DfsRoot remount case, we should check to 
 		 * see if this is just a DfsRoot, if so then continue with the remount
 		 * because we found a different domain control to access.
 		 */
-		error = checkForDfsReferral(ctx, &dfs_ctx, NULL);
-		if (error || ctx == dfs_ctx) {
-			seteuid(rootUID);
+		error = checkForDfsReferral(ctx, &dfs_ctx, NULL, NULL);
+		if (error ||
+            (ctx == dfs_ctx) ||
+            (dfs_ctx == NULL)) {
+			error2 = seteuid(rootUID);
+            if (error2) {
+                smb_log_info("%s: seteuid failed %d for rootUID", ASL_LEVEL_ERR,
+                             __FUNCTION__, error2);
+            }
+            
 			goto done;
 		}
+        
 		smb_ctx_done(ctx);
 		ctx = dfs_ctx;
 	}
 
-	seteuid(rootUID);
+	error2 = seteuid(rootUID);
+    if (error2) {
+        smb_log_info("%s: seteuid failed %d for rootUID", ASL_LEVEL_ERR,
+                     __FUNCTION__, error2);
+		goto done;
+    }
+
 	if (error) {
 		goto done;
 	}
@@ -292,19 +320,32 @@ int smb_remount_with_fsid(fsid_t fsid)
 		error = ENOTSUP;
 		goto done;
 	}
+    
 	if (!error) {
 		error = SysctlRemountFS(fsid, ctx->ct_fd);
 	}
 
 done:
 	if (ctx) {
-		seteuid(remountInfo.mntOwner);
-		smb_ctx_done(ctx);
-		seteuid(rootUID);
+		error2 = seteuid(remountInfo.mntOwner);
+        if (error2) {
+            smb_log_info("%s: seteuid failed %d for mntOwner", ASL_LEVEL_ERR,
+                         __FUNCTION__, error2);
+        }
+        
+        smb_ctx_done(ctx);
+        
+		error2 = seteuid(rootUID);
+        if (error2) {
+            smb_log_info("%s: seteuid failed %d for rootUID", ASL_LEVEL_ERR,
+                         __FUNCTION__, error2);
+        }
 	}
+    
 	if (error) {
 		smb_log_info("%s: remount failed for url %s with error = %d", 
 					 ASL_LEVEL_ERR, __FUNCTION__, remountInfo.mntURL, error);
 	}
+    
 	return error;
 }

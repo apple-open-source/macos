@@ -29,6 +29,8 @@
 #if USE(DICTATION_ALTERNATIVES)
 #import <AppKit/NSTextAlternatives.h>
 #endif
+#import "AttributedString.h"
+#import "ColorSpaceData.h"
 #import "DataReference.h"
 #import "DictionaryPopupInfo.h"
 #import "FindIndicator.h"
@@ -125,7 +127,7 @@ PassOwnPtr<PageClientImpl> PageClientImpl::create(WKView* wkView)
 
 PageClientImpl::PageClientImpl(WKView* wkView)
     : m_wkView(wkView)
-    , m_undoTarget(AdoptNS, [[WKEditorUndoTargetObjC alloc] init])
+    , m_undoTarget(adoptNS([[WKEditorUndoTargetObjC alloc] init]))
 #if USE(DICTATION_ALTERNATIVES)
     , m_alternativeTextUIController(adoptPtr(new AlternativeTextUIController))
 #endif
@@ -149,6 +151,12 @@ void PageClientImpl::setViewNeedsDisplay(const WebCore::IntRect& rect)
 void PageClientImpl::displayView()
 {
     [m_wkView displayIfNeeded];
+}
+
+bool PageClientImpl::canScrollView()
+{
+    // -scrollRect:by: does nothing in layer-backed views <rdar://problem/12961719>.
+    return ![m_wkView layer];
 }
 
 void PageClientImpl::scrollView(const IntRect& scrollRect, const IntSize& scrollOffset)
@@ -189,7 +197,17 @@ bool PageClientImpl::isViewVisible()
     if (![[m_wkView window] isVisible])
         return false;
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 1080
+    // Mountain Lion and previous do not support occlusion notifications, and as such will
+    // continue to report as "visible" when not on the active space.
+    if (![[m_wkView window] isOnActiveSpace])
+        return false;
+#endif
+
     if ([m_wkView isHiddenOrHasHiddenAncestor])
+        return false;
+
+    if ([m_wkView _isWindowOccluded])
         return false;
 
     return true;
@@ -217,6 +235,11 @@ LayerHostingMode PageClientImpl::viewLayerHostingMode()
 #endif
 }
 
+ColorSpaceData PageClientImpl::colorSpace()
+{
+    return [m_wkView _colorSpace];
+}
+
 void PageClientImpl::processDidCrash()
 {
     [m_wkView _processDidCrash];
@@ -233,6 +256,11 @@ void PageClientImpl::pageClosed()
 void PageClientImpl::didRelaunchProcess()
 {
     [m_wkView _didRelaunchProcess];
+}
+
+void PageClientImpl::preferencesDidChange()
+{
+    [m_wkView _preferencesDidChange];
 }
 
 void PageClientImpl::toolTipChanged(const String& oldToolTip, const String& newToolTip)
@@ -259,7 +287,7 @@ void PageClientImpl::registerEditCommand(PassRefPtr<WebEditCommandProxy> prpComm
 {
     RefPtr<WebEditCommandProxy> command = prpCommand;
 
-    RetainPtr<WKEditCommandObjC> commandObjC(AdoptNS, [[WKEditCommandObjC alloc] initWithWebEditCommandProxy:command]);
+    RetainPtr<WKEditCommandObjC> commandObjC = adoptNS([[WKEditCommandObjC alloc] initWithWebEditCommandProxy:command]);
     String actionName = WebEditCommandProxy::nameForEditAction(command->editAction());
 
     NSUndoManager *undoManager = [m_wkView undoManager];
@@ -291,7 +319,7 @@ bool PageClientImpl::interpretKeyEvent(const NativeWebKeyboardEvent& event, Vect
 void PageClientImpl::setDragImage(const IntPoint& clientPosition, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag)
 {
     RetainPtr<CGImageRef> dragCGImage = dragImage->makeCGImage();
-    RetainPtr<NSImage> dragNSImage(AdoptNS, [[NSImage alloc] initWithCGImage:dragCGImage.get() size:dragImage->size()]);
+    RetainPtr<NSImage> dragNSImage = adoptNS([[NSImage alloc] initWithCGImage:dragCGImage.get() size:dragImage->size()]);
 
     [m_wkView _setDragImage:dragNSImage.get() at:clientPosition linkDrag:isLinkDrag];
 }
@@ -303,14 +331,19 @@ void PageClientImpl::setPromisedData(const String& pasteboardName, PassRefPtr<Sh
     [m_wkView _setPromisedData:image.get() withFileName:filename withExtension:extension withTitle:title withURL:url withVisibleURL:visibleUrl withArchive:archiveBuffer.get() forPasteboard:pasteboardName];
 }
 
-void PageClientImpl::updateTextInputState(bool updateSecureInputState)
+void PageClientImpl::updateSecureInputState()
 {
-    [m_wkView _updateTextInputStateIncludingSecureInputState:updateSecureInputState];
+    [m_wkView _updateSecureInputState];
 }
 
-void PageClientImpl::resetTextInputState()
+void PageClientImpl::resetSecureInputState()
 {
-    [m_wkView _resetTextInputState];
+    [m_wkView _resetSecureInputState];
+}
+
+void PageClientImpl::notifyInputContextAboutDiscardedComposition()
+{
+    [m_wkView _notifyInputContextAboutDiscardedComposition];
 }
 
 FloatRect PageClientImpl::convertToDeviceSpace(const FloatRect& rect)
@@ -359,6 +392,14 @@ PassRefPtr<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPagePr
     return WebContextMenuProxyMac::create(m_wkView, page);
 }
 
+#if ENABLE(INPUT_TYPE_COLOR)
+PassRefPtr<WebColorChooserProxy> PageClientImpl::createColorChooserProxy(WebPageProxy*, const WebCore::Color&,  const WebCore::IntRect&)
+{
+    notImplemented();
+    return 0;
+}
+#endif
+
 void PageClientImpl::setFindIndicator(PassRefPtr<FindIndicator> findIndicator, bool fadeOut, bool animate)
 {
     [m_wkView _setFindIndicator:findIndicator fadeOut:fadeOut animate:animate];
@@ -370,22 +411,31 @@ void PageClientImpl::accessibilityWebProcessTokenReceived(const CoreIPC::DataRef
     [m_wkView _setAccessibilityWebProcessToken:remoteToken];
 }
     
-#if USE(ACCELERATED_COMPOSITING)
 void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
 {
-    [m_wkView _enterAcceleratedCompositingMode:layerTreeContext];
+    ASSERT(!layerTreeContext.isEmpty());
+
+    CALayer *renderLayer = WKMakeRenderLayer(layerTreeContext.contextID);
+    [m_wkView _setAcceleratedCompositingModeRootLayer:renderLayer];
 }
 
 void PageClientImpl::exitAcceleratedCompositingMode()
 {
-    [m_wkView _exitAcceleratedCompositingMode];
+    [m_wkView _setAcceleratedCompositingModeRootLayer:nil];
 }
 
 void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
 {
-    [m_wkView _updateAcceleratedCompositingMode:layerTreeContext];
+    ASSERT(!layerTreeContext.isEmpty());
+
+    CALayer *renderLayer = WKMakeRenderLayer(layerTreeContext.contextID);
+    [m_wkView _setAcceleratedCompositingModeRootLayer:renderLayer];
 }
-#endif // USE(ACCELERATED_COMPOSITING)
+
+void PageClientImpl::setAcceleratedCompositingRootLayer(CALayer *rootLayer)
+{
+    [m_wkView _setAcceleratedCompositingModeRootLayer:rootLayer];
+}
 
 void PageClientImpl::pluginFocusOrWindowFocusChanged(uint64_t pluginComplexTextInputIdentifier, bool pluginHasFocusAndWindowHasFocus)
 {
@@ -406,11 +456,6 @@ CGContextRef PageClientImpl::containingWindowGraphicsContext()
         return 0;
 
     return static_cast<CGContextRef>([[window graphicsContext] graphicsPort]);
-}
-
-void PageClientImpl::didChangeScrollbarsForMainFrame() const
-{
-    [m_wkView _didChangeScrollbarsForMainFrame];
 }
 
 void PageClientImpl::didCommitLoadForMainFrame(bool useCustomRepresentation)
@@ -448,39 +493,27 @@ void PageClientImpl::flashBackingStoreUpdates(const Vector<IntRect>&)
     notImplemented();
 }
 
-void PageClientImpl::didPerformDictionaryLookup(const String& text, double scaleFactor, const DictionaryPopupInfo& dictionaryPopupInfo)
+void PageClientImpl::didPerformDictionaryLookup(const AttributedString& text, const DictionaryPopupInfo& dictionaryPopupInfo)
 {
-    NSFontDescriptor *fontDescriptor = [NSFontDescriptor fontDescriptorWithFontAttributes:(NSDictionary *)dictionaryPopupInfo.fontInfo.fontAttributeDictionary.get()];
-    NSFont *font = [NSFont fontWithDescriptor:fontDescriptor size:((scaleFactor != 1) ? [fontDescriptor pointSize] * scaleFactor : 0)];
-
-    RetainPtr<NSMutableAttributedString> attributedString(AdoptNS, [[NSMutableAttributedString alloc] initWithString:nsStringFromWebCoreString(text)]);
-    [attributedString.get() addAttribute:NSFontAttributeName value:font range:NSMakeRange(0, [attributedString.get() length])];
-
+    RetainPtr<NSAttributedString> attributedString = text.string;
     NSPoint textBaselineOrigin = dictionaryPopupInfo.origin;
 
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
     // Convert to screen coordinates.
     textBaselineOrigin = [m_wkView convertPoint:textBaselineOrigin toView:nil];
     textBaselineOrigin = [m_wkView.window convertRectToScreen:NSMakeRect(textBaselineOrigin.x, textBaselineOrigin.y, 0, 0)].origin;
 
     WKShowWordDefinitionWindow(attributedString.get(), textBaselineOrigin, (NSDictionary *)dictionaryPopupInfo.options.get());
-#else
-    // If the dictionary lookup is being triggered by a hot key, force the overlay style.
-    NSDictionary *options = (dictionaryPopupInfo.type == DictionaryPopupInfo::HotKey) ? [NSDictionary dictionaryWithObject:NSDefinitionPresentationTypeOverlay forKey:NSDefinitionPresentationTypeKey] : 0;
-    [m_wkView showDefinitionForAttributedString:attributedString.get() range:NSMakeRange(0, [attributedString.get() length]) options:options baselineOriginProvider:^(NSRange adjustedRange) { return (NSPoint)textBaselineOrigin; }];
-#endif
 }
 
 void PageClientImpl::dismissDictionaryLookupPanel()
 {
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    // FIXME: We don't know which panel we are dismissing, it may not even be in the current page (see <rdar://problem/13875766>).
     WKHideWordDefinitionWindow();
-#endif
 }
 
 void PageClientImpl::showCorrectionPanel(AlternativeTextType type, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
 {
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
+#if USE(AUTOCORRECTION_PANEL)
     if (!isViewVisible() || !isViewInWindow())
         return;
     m_correctionPanel.show(m_wkView, type, boundingBoxOfReplacedString, replacedString, replacementString, alternativeReplacementStrings);
@@ -489,14 +522,14 @@ void PageClientImpl::showCorrectionPanel(AlternativeTextType type, const FloatRe
 
 void PageClientImpl::dismissCorrectionPanel(ReasonForDismissingAlternativeText reason)
 {
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
+#if USE(AUTOCORRECTION_PANEL)
     m_correctionPanel.dismiss(reason);
 #endif
 }
 
 String PageClientImpl::dismissCorrectionPanelSoon(WebCore::ReasonForDismissingAlternativeText reason)
 {
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
+#if USE(AUTOCORRECTION_PANEL)
     return m_correctionPanel.dismiss(reason);
 #else
     return String();
@@ -505,15 +538,12 @@ String PageClientImpl::dismissCorrectionPanelSoon(WebCore::ReasonForDismissingAl
 
 void PageClientImpl::recordAutocorrectionResponse(AutocorrectionResponseType responseType, const String& replacedString, const String& replacementString)
 {
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
     NSCorrectionResponse response = responseType == AutocorrectionReverted ? NSCorrectionResponseReverted : NSCorrectionResponseEdited;
     CorrectionPanel::recordAutocorrectionResponse(m_wkView, response, replacedString, replacementString);
-#endif
 }
 
 void PageClientImpl::recommendedScrollbarStyleDidChange(int32_t newStyle)
 {
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
     NSArray *trackingAreas = [m_wkView trackingAreas];
     NSUInteger count = [trackingAreas count];
     ASSERT(count == 1);
@@ -534,9 +564,11 @@ void PageClientImpl::recommendedScrollbarStyleDidChange(int32_t newStyle)
                                                                userInfo:nil];
     [m_wkView addTrackingArea:trackingArea];
     [trackingArea release];
-#else
-    UNUSED_PARAM(newStyle);
-#endif
+}
+
+void PageClientImpl::intrinsicContentSizeDidChange(const IntSize& intrinsicContentSize)
+{
+    [m_wkView _setIntrinsicContentSize:intrinsicContentSize];
 }
 
 bool PageClientImpl::executeSavedCommandBySelector(const String& selectorString)
@@ -567,11 +599,6 @@ void PageClientImpl::showDictationAlternativeUI(const WebCore::FloatRect& boundi
 Vector<String> PageClientImpl::dictationAlternatives(uint64_t dictationContext)
 {
     return m_alternativeTextUIController->alternativesForContext(dictationContext);
-}
-
-void PageClientImpl::dismissDictationAlternativeUI()
-{
-    m_alternativeTextUIController->dismissAlternatives();
 }
 #endif
 

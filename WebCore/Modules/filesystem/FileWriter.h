@@ -70,7 +70,6 @@ public:
 
     // ActiveDOMObject
     virtual bool canSuspend() const;
-    virtual bool hasPendingActivity() const;
     virtual void stop();
 
     // EventTarget
@@ -125,6 +124,7 @@ private:
     long long m_truncateLength;
     long long m_numAborts;
     long long m_recursionDepth;
+    double m_lastProgressNotificationTimeMS;
     RefPtr<Blob> m_blobBeingWritten;
 };
 

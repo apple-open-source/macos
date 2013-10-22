@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,17 +26,19 @@
 #ifndef WebPlatformStrategies_h
 #define WebPlatformStrategies_h
 
-#if USE(PLATFORM_STRATEGIES)
-
 #include <WebCore/CookiesStrategy.h>
+#include <WebCore/DatabaseStrategy.h>
+#include <WebCore/LoaderStrategy.h>
 #include <WebCore/PasteboardStrategy.h>
 #include <WebCore/PlatformStrategies.h>
 #include <WebCore/PluginStrategy.h>
+#include <WebCore/SharedWorkerStrategy.h>
+#include <WebCore/StorageStrategy.h>
 #include <WebCore/VisitedLinkStrategy.h>
 
 namespace WebKit {
 
-class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::PluginStrategy, private WebCore::VisitedLinkStrategy, private WebCore::PasteboardStrategy {
+class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::DatabaseStrategy, private WebCore::LoaderStrategy, private WebCore::PasteboardStrategy, private WebCore::PluginStrategy, private WebCore::SharedWorkerStrategy, private WebCore::StorageStrategy, private WebCore::VisitedLinkStrategy {
 public:
     static void initialize();
     
@@ -45,17 +47,47 @@ private:
     
     // WebCore::PlatformStrategies
     virtual WebCore::CookiesStrategy* createCookiesStrategy() OVERRIDE;
-    virtual WebCore::PluginStrategy* createPluginStrategy() OVERRIDE;
-    virtual WebCore::VisitedLinkStrategy* createVisitedLinkStrategy() OVERRIDE;
+    virtual WebCore::DatabaseStrategy* createDatabaseStrategy() OVERRIDE;
+    virtual WebCore::LoaderStrategy* createLoaderStrategy() OVERRIDE;
     virtual WebCore::PasteboardStrategy* createPasteboardStrategy() OVERRIDE;
+    virtual WebCore::PluginStrategy* createPluginStrategy() OVERRIDE;
+    virtual WebCore::SharedWorkerStrategy* createSharedWorkerStrategy() OVERRIDE;
+    virtual WebCore::StorageStrategy* createStorageStrategy() OVERRIDE;
+    virtual WebCore::VisitedLinkStrategy* createVisitedLinkStrategy() OVERRIDE;
 
     // WebCore::CookiesStrategy
-    virtual void notifyCookiesChanged() OVERRIDE;
+    virtual String cookiesForDOM(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&) OVERRIDE;
+    virtual void setCookiesFromDOM(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&, const String&) OVERRIDE;
+    virtual bool cookiesEnabled(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&) OVERRIDE;
+    virtual String cookieRequestHeaderFieldValue(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&) OVERRIDE;
+    virtual bool getRawCookies(const WebCore::NetworkStorageSession&, const WebCore::KURL& firstParty, const WebCore::KURL&, Vector<WebCore::Cookie>&) OVERRIDE;
+    virtual void deleteCookie(const WebCore::NetworkStorageSession&, const WebCore::KURL&, const String&) OVERRIDE;
+
+    // WebCore::DatabaseStrategy
+#if ENABLE(SQL_DATABASE)
+    virtual WebCore::AbstractDatabaseServer* getDatabaseServer() OVERRIDE;
+#endif
+
+    // WebCore::LoaderStrategy
+#if ENABLE(NETWORK_PROCESS)
+    virtual WebCore::ResourceLoadScheduler* resourceLoadScheduler() OVERRIDE;
+    virtual void loadResourceSynchronously(WebCore::NetworkingContext*, unsigned long resourceLoadIdentifier, const WebCore::ResourceRequest&, WebCore::StoredCredentials, WebCore::ClientCredentialPolicy, WebCore::ResourceError&, WebCore::ResourceResponse&, Vector<char>& data) OVERRIDE;
+#if ENABLE(BLOB)
+    virtual WebCore::BlobRegistry* createBlobRegistry() OVERRIDE;
+#endif
+#endif
 
     // WebCore::PluginStrategy
     virtual void refreshPlugins() OVERRIDE;
     virtual void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&) OVERRIDE;
-    void populatePluginCache();
+
+    // WebCore::SharedWorkerStrategy.
+    virtual bool isAvailable() const OVERRIDE;
+
+    // WebCore::StorageStrategy.
+    virtual PassRefPtr<WebCore::StorageNamespace> localStorageNamespace(WebCore::PageGroup*) OVERRIDE;
+    virtual PassRefPtr<WebCore::StorageNamespace> transientLocalStorageNamespace(WebCore::PageGroup*, WebCore::SecurityOrigin*) OVERRIDE;
+    virtual PassRefPtr<WebCore::StorageNamespace> sessionStorageNamespace(WebCore::Page*) OVERRIDE;
 
     // WebCore::VisitedLinkStrategy
     virtual bool isLinkVisited(WebCore::Page*, WebCore::LinkHash, const WebCore::KURL& baseURL, const WTF::AtomicString& attributeURL) OVERRIDE;
@@ -80,15 +112,19 @@ private:
     virtual void setStringForType(const String&, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
 #endif
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    // WebCore::PluginStrategy implementation.
+    void populatePluginCache();
     bool m_pluginCacheIsPopulated;
     bool m_shouldRefreshPlugins;
     Vector<WebCore::PluginInfo> m_cachedPlugins;
+#endif // ENABLE(PLUGIN_PROCESS)
 };
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
 void handleDidGetPlugins(uint64_t requestID, const Vector<WebCore::PluginInfo>&);
+#endif // ENABLE(PLUGIN_PROCESS)
 
 } // namespace WebKit
-
-#endif // USE(PLATFORM_STRATEGIES)
 
 #endif // WebPlatformStrategies_h

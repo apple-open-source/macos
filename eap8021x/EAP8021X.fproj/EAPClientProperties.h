@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,8 +50,19 @@
 #define kEAPClientPropInnerAcceptEAPTypes	CFSTR("InnerAcceptEAPTypes") /* array[integer] */
 
 /**
- ** Properties for TLS-based authentication (EAP/TLS, EAP/TTLS, PEAP, EAP-FAST)
+ ** Properties for TLS-based authentication (EAP-TLS, EAP-TTLS, PEAP, EAP-FAST)
  **/
+
+/*
+ * kEAPClientPropTLSCertificateIsRequired
+ * - TLS-based authentication protocol requires a certificate to authenticate
+ * - the default value is TRUE for EAP-TLS, FALSE otherwise
+ * - allows for two-factor authentication (certificate + name/password)  
+ *   when set to TRUE for EAP-TTLS, PEAP, EAP-FAST
+ * - allows for zero-factor authentication when set to FALSE for EAP-TLS
+ */
+#define kEAPClientPropTLSCertificateIsRequired \
+	CFSTR("TLSCertificateIsRequired") 		/* boolean */
 /*
  * kEAPClientPropTLSTrustedCertificates
  * - which certificates we should trust for this authentication session
@@ -125,6 +136,15 @@
 #define kEAPTLSTrustExceptionsDomainNetworkInterfaceName \
     	CFSTR("NetworkInterfaceName")
 #else /* TARGET_OS_EMBEDDED */
+
+/*
+ * kEAPClientPropSaveCredentialsOnSuccessfulAuthentication
+ * - when set to TRUE and the authentication is successful,
+ *   the credentials/identity preference are saved in the keychain
+ */
+#define kEAPClientPropSaveCredentialsOnSuccessfulAuthentication \
+    CFSTR("SaveCredentialsOnSuccessfulAuthentication")
+
 /*
  * kEAPClientPropTLSAllowTrustDecisions
  * - enables trust decisions by the user
@@ -144,12 +164,30 @@
 	CFSTR("TLSUserTrustProceedCertificateChain")	/* array[data] */
 
 /*
+ * kEAPClientPropSystemModeUseOpenDirectoryCredentials 
+ * - when true, tells the EAP client to use OpenDirectory machine credentials
+ *   when running in System mode
+ * - supercedes kEAPClientPropSystemModeCredentialsSource
+ */
+#define kEAPClientPropSystemModeUseOpenDirectoryCredentials \
+    CFSTR("SystemModeUseOpenDirectoryCredentials") /* boolean (false) */ 
+
+/*
+ * kEAPClientPropSystemModeOpenDirectoryNodeName
+ * - if kEAPClientPropSystemModeUseOpenDirectoryCredentials is true,
+ *   tells the EAP client to specify a particular node name to retrieve
+ *   OpenDirectory machine credentials
+ */ 
+#define kEAPClientPropSystemModeOpenDirectoryNodeName \
+    CFSTR("SystemModeOpenDirectoryNodeName")
+/*
  * kEAPClientPropSystemModeCredentialsSource
  * - tells the EAP client to use an alternate source for credentials when
  *   running in System mode
  * - when set to kEAPClientCredentialsSourceActiveDirectory, the EAP client
  *   will attempt to use the machine name/password used by Active Directory;
  *   if those credentials are missing, the authentication will fail
+ * - superceded by kEAPClientPropSystemModeUseOpenDirectoryCredentials
  */ 
 #define kEAPClientPropSystemModeCredentialsSource	CFSTR("SystemModeCredentialsSource")
 #define kEAPClientCredentialsSourceActiveDirectory	CFSTR("ActiveDirectory")

@@ -30,7 +30,7 @@
 #include "zle.mdh"
 #include "zle_move.pro"
 
-static int vimarkcs[27], vimarkline[27];
+static int vimarkcs[26], vimarkline[26];
 
 #ifdef MULTIBYTE_SUPPORT
 /*
@@ -536,6 +536,9 @@ vimatchbracket(UNUSED(char **args))
     int ocs = zlecs, dir, ct;
     unsigned char oth, me;
 
+    if ((zlecs == zlell || zleline[zlecs] == '\n') && zlecs > 0)
+	DECCS();
+
   otog:
     if (zlecs == zlell || zleline[zlecs] == '\n') {
 	zlecs = ocs;
@@ -676,7 +679,7 @@ vifindnextchar(char **args)
     if ((vfindchar = vigetkey()) != ZLEEOF) {
 	vfinddir = 1;
 	tailadd = 0;
-	return virepeatfind(args);
+	return vifindchar(0, args);
     }
     return 1;
 }
@@ -688,7 +691,7 @@ vifindprevchar(char **args)
     if ((vfindchar = vigetkey()) != ZLEEOF) {
 	vfinddir = -1;
 	tailadd = 0;
-	return virepeatfind(args);
+	return vifindchar(0, args);
     }
     return 1;
 }
@@ -700,7 +703,7 @@ vifindnextcharskip(char **args)
     if ((vfindchar = vigetkey()) != ZLEEOF) {
 	vfinddir = 1;
 	tailadd = -1;
-	return virepeatfind(args);
+	return vifindchar(0, args);
     }
     return 1;
 }
@@ -712,14 +715,14 @@ vifindprevcharskip(char **args)
     if ((vfindchar = vigetkey()) != ZLEEOF) {
 	vfinddir = -1;
 	tailadd = 1;
-	return virepeatfind(args);
+	return vifindchar(0, args);
     }
     return 1;
 }
 
 /**/
 int
-virepeatfind(char **args)
+vifindchar(int repeat, char **args)
 {
     int ocs = zlecs, n = zmult;
 
@@ -731,6 +734,16 @@ virepeatfind(char **args)
 	ret = virevrepeatfind(args);
 	zmult = n;
 	return ret;
+    }
+    if (repeat && tailadd != 0) {
+	if (vfinddir > 0) {
+	    if(zlecs < zlell && (ZLE_INT_T)zleline[zlecs+1] == vfindchar)
+		INCCS();
+	}
+	else {
+	    if(zlecs > 0 && (ZLE_INT_T)zleline[zlecs-1] == vfindchar)
+		DECCS();
+	}
     }
     while (n--) {
 	do {
@@ -757,19 +770,28 @@ virepeatfind(char **args)
 
 /**/
 int
+virepeatfind(char **args)
+{
+    return vifindchar(1, args);
+}
+
+/**/
+int
 virevrepeatfind(char **args)
 {
     int ret;
 
     if (zmult < 0) {
 	zmult = -zmult;
-	ret = virepeatfind(args);
+	ret = vifindchar(1, args);
 	zmult = -zmult;
 	return ret;
     }
+    tailadd = -tailadd;
     vfinddir = -vfinddir;
-    ret = virepeatfind(args);
+    ret = vifindchar(1, args);
     vfinddir = -vfinddir;
+    tailadd = -tailadd;
     return ret;
 }
 
@@ -803,16 +825,11 @@ int
 vigotomark(UNUSED(char **args))
 {
     ZLE_INT_T ch;
-    LASTFULLCHAR_T lfc = LASTFULLCHAR;
 
     ch = getfullchar(0);
-    if (ch == lfc)
-	ch = 26;
-    else {
-	if (ch < ZWC('a') || ch > ZWC('z'))
-	    return 1;
-	ch -= ZWC('a');
-    }
+    if (ch < ZWC('a') || ch > ZWC('z'))
+	return 1;
+    ch -= ZWC('a');
     if (!vimarkline[ch])
 	return 1;
     if (curhist != vimarkline[ch] && !zle_goto_hist(vimarkline[ch], 0, 0)) {

@@ -121,9 +121,11 @@ _hdb_fetch_kvno(krb5_context context, HDB *db, krb5_const_principal principal,
 	principal = enterprise_principal;
     }
 
-    hdb_principal2key(context, principal, &key);
+    ret = hdb_principal2key(context, principal, &key);
     if (enterprise_principal)
 	krb5_free_principal(context, enterprise_principal);
+    if (ret)
+        return ret;
     ret = db->hdb__get(context, db, key, &value);
     krb5_data_free(&key);
     if(ret)
@@ -222,7 +224,11 @@ hdb_remove_aliases(krb5_context context, HDB *db, krb5_data *key)
     for (i = 0; i < aliases->aliases.len; i++) {
 	krb5_data akey;
 
-	hdb_principal2key(context, &aliases->aliases.val[i], &akey);
+	code = hdb_principal2key(context, &aliases->aliases.val[i], &akey);
+        if (code) {
+            free_hdb_entry(&oldentry);
+            return code;
+        }
 	code = db->hdb__del(context, db, akey);
 	krb5_data_free(&akey);
 	if (code) {
@@ -251,7 +257,9 @@ hdb_add_aliases(krb5_context context, HDB *db,
 	hdb_entry_alias entryalias;
 	entryalias.principal = entry->entry.principal;
 
-	hdb_principal2key(context, &aliases->aliases.val[i], &key);
+	code = hdb_principal2key(context, &aliases->aliases.val[i], &key);
+    if (code)
+        return code;
 	code = hdb_entry_alias2value(context, &entryalias, &value);
 	if (code) {
 	    krb5_data_free(&key);
@@ -283,7 +291,9 @@ hdb_check_aliases(krb5_context context, HDB *db, hdb_entry_ex *entry)
 	hdb_entry_alias alias;
 	krb5_data akey, value;
 
-	hdb_principal2key(context, &aliases->aliases.val[i], &akey);
+	code = hdb_principal2key(context, &aliases->aliases.val[i], &akey);
+    if (code)
+        return code;
 	code = db->hdb__get(context, db, akey, &value);
 	krb5_data_free(&akey);
 	if (code == HDB_ERR_NOENTRY)

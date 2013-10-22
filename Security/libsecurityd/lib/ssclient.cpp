@@ -180,7 +180,7 @@ Port ClientSession::findSecurityd()
 	}
 
     secdebug("SSclnt", "Locating %s", mContactName);
-    Port serverPort = Bootstrap().lookup(mContactName);
+    Port serverPort = Bootstrap().lookup2(mContactName);
 	secdebug("SSclnt", "contacting %s at port %d (version %d)",
 		mContactName, serverPort.port(), SSPROTOVERSION);
 	return serverPort;

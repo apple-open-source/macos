@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/pa.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/pa.xml
 // *
 // ***************************************************************************
 /**
@@ -31,8 +31,32 @@ pa{
         }
         native{"guru"}
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     calendar{
+        generic{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, dd MMMM y G",
+                "d MMMM y G",
+                "d MMM y G",
+                "dd/MM/y GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                HHmmss{"HH:mm:ss"}
+                Md{"d/M"}
+                mmss{"mm:ss"}
+                yMMM{"MMM y"}
+                yQQQ{"QQQ y"}
+            }
+        }
         gregorian{
             AmPmMarkers{
                 "ਪੂਰਵ ਦੁਪਹਿਰ",
@@ -46,7 +70,7 @@ pa{
                 "EEEE, dd MMMM y",
                 "d MMMM y",
                 "d MMM y",
-                "dd/MM/yyyy",
+                "dd/MM/y",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -57,8 +81,8 @@ pa{
                 HHmmss{"HH:mm:ss"}
                 Md{"d/M"}
                 mmss{"mm:ss"}
-                yyMMM{"MMM yy"}
-                yyQ{"Q yy"}
+                yMMM{"MMM y"}
+                yQQQ{"QQQ y"}
             }
             dayNames{
                 format{
@@ -108,61 +132,8 @@ pa{
                     "ਸਾਲ",
                 }
             }
-            fields{
-                day{
-                    dn{"ਦਿਨ"}
-                    relative{
-                        "-1"{"ਲੰਘਿਆਂ ਕੱਲ"}
-                        "-2"{"ਪਰਸੋਂ"}
-                        "0"{"ਅੱਜ"}
-                        "1"{"ਭਲਕੇ"}
-                        "2"{"ਪਰਸੋਂ"}
-                    }
-                }
-                era{
-                    dn{"ਯੁੱਗ"}
-                }
-                hour{
-                    dn{"ਘੰਟਾ"}
-                }
-                minute{
-                    dn{"ਮਿੰਟ"}
-                }
-                month{
-                    dn{"ਮਹੀਨਾ"}
-                }
-                second{
-                    dn{"ਸਕਿੰਡ"}
-                }
-                week{
-                    dn{"ਹਫ਼ਤਾ"}
-                }
-                weekday{
-                    dn{"ਹਫ਼ਤੇ ਦਾ ਦਿਨ"}
-                }
-                year{
-                    dn{"ਸਾਲ"}
-                }
-                zone{
-                    dn{"ਖੇਤਰ"}
-                }
-            }
             monthNames{
                 format{
-                    abbreviated{
-                        "ਜਨਵਰੀ",
-                        "ਫ਼ਰਵਰੀ",
-                        "ਮਾਰਚ",
-                        "ਅਪ੍ਰੈਲ",
-                        "ਮਈ",
-                        "ਜੂਨ",
-                        "ਜੁਲਾਈ",
-                        "ਅਗਸਤ",
-                        "ਸਤੰਬਰ",
-                        "ਅਕਤੂਬਰ",
-                        "ਨਵੰਬਰ",
-                        "ਦਸੰਬਰ",
-                    }
                     wide{
                         "ਜਨਵਰੀ",
                         "ਫ਼ਰਵਰੀ",
@@ -179,20 +150,6 @@ pa{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "ਜਨਵਰੀ",
-                        "ਫ਼ਰਵਰੀ",
-                        "ਮਾਰਚ",
-                        "ਅਪ੍ਰੈਲ",
-                        "ਮਈ",
-                        "ਜੂਨ",
-                        "ਜੁਲਾਈ",
-                        "ਅਗਸਤ",
-                        "ਸਤੰਬਰ",
-                        "ਅਕਤੂਬਰ",
-                        "ਨਵੰਬਰ",
-                        "ਦਸੰਬਰ",
-                    }
                     narrow{
                         "ਜ",
                         "ਫ",
@@ -241,6 +198,43 @@ pa{
                     }
                 }
             }
+        }
+    }
+    fields{
+        day{
+            dn{"ਦਿਨ"}
+            relative{
+                "-1"{"ਲੰਘਿਆਂ ਕੱਲ"}
+                "0"{"ਅੱਜ"}
+                "1"{"ਭਲਕੇ"}
+            }
+        }
+        era{
+            dn{"ਯੁੱਗ"}
+        }
+        hour{
+            dn{"ਘੰਟਾ"}
+        }
+        minute{
+            dn{"ਮਿੰਟ"}
+        }
+        month{
+            dn{"ਮਹੀਨਾ"}
+        }
+        second{
+            dn{"ਸਕਿੰਡ"}
+        }
+        week{
+            dn{"ਹਫ਼ਤਾ"}
+        }
+        weekday{
+            dn{"ਹਫ਼ਤੇ ਦਾ ਦਿਨ"}
+        }
+        year{
+            dn{"ਸਾਲ"}
+        }
+        zone{
+            dn{"ਖੇਤਰ"}
         }
     }
     measurementSystemNames{

@@ -214,15 +214,15 @@ int pptp_outgoing_call(int fd,
     ctl_req.proto_vers = htons(PPTP_VERSION);
     ctl_req.framing_caps = htonl(PPTP_ASYNC_FRAMING);
     ctl_req.bearer_caps = htonl(PPTP_ANALOG_ACCESS);
-    if (err = pptp_send(fd, PPTP_START_CONTROL_CONNECTION_REQUEST, &ctl_req, sizeof(ctl_req), "start_control_connection_request")) {
+    if ((err = pptp_send(fd, PPTP_START_CONTROL_CONNECTION_REQUEST, &ctl_req, sizeof(ctl_req), "start_control_connection_request"))) {
         if (err == -2)
             return -2;
         return -1;
     }
 
     /* read the start reply */
-    if (err = pptp_recv(fd, PPTP_START_CONTROL_CONNECTION_REPLY, 
-            &ctl_reply, sizeof(ctl_reply), "start_control_connection_reply")) {
+    if ((err = pptp_recv(fd, PPTP_START_CONTROL_CONNECTION_REPLY, 
+            &ctl_reply, sizeof(ctl_reply), "start_control_connection_reply"))) {
         if (err == -2)
             return -2;
         if (err == -3)
@@ -243,15 +243,15 @@ int pptp_outgoing_call(int fd,
     out_req.framing_type = htonl(PPTP_ASYNC_FRAMING + PPTP_SYNC_FRAMING);
     out_req.recv_window = htons(ourwindow);
     out_req.processing_delay = htons(ourppd);
-    if (err = pptp_send(fd, PPTP_OUTGOING_CALL_REQUEST, &out_req, sizeof(out_req), "outgoing_call_request")) {
+    if ((err = pptp_send(fd, PPTP_OUTGOING_CALL_REQUEST, &out_req, sizeof(out_req), "outgoing_call_request"))) {
         if (err == -2)
             return -2;
         return -1;
     }
 
     /* read the out reply */
-    if (err = pptp_recv(fd, PPTP_OUTGOING_CALL_REPLY, 
-            &out_reply, sizeof(out_reply), "outgoing_call_reply")) {
+    if ((err = pptp_recv(fd, PPTP_OUTGOING_CALL_REPLY, 
+            &out_reply, sizeof(out_reply), "outgoing_call_reply"))) {
         if (err == -2)
             return -2;
         if (err == -3)
@@ -273,7 +273,7 @@ int pptp_outgoing_call(int fd,
     link_info.peer_call_id = htons(*peercallid);
     link_info.send_accm = htonl(0xFFFFFFFF);
     link_info.recv_accm = htonl(0xFFFFFFFF);
-    if (err = pptp_send(fd, PPTP_SET_LINK_INFO, &link_info, sizeof(link_info), "set_link_info_request")) {
+    if ((err = pptp_send(fd, PPTP_SET_LINK_INFO, &link_info, sizeof(link_info), "set_link_info_request"))) {
         if (err == -2)
             return -2;
         return -1;
@@ -347,7 +347,7 @@ int pptp_echo(int fd, u_int32_t identifier)
         
     /* send the echo request */
     echo_req.identifier = htonl(identifier);
-    if (err = pptp_send(fd, PPTP_ECHO_REQUEST, &echo_req, sizeof(echo_req), "echo_request")) {
+    if ((err = pptp_send(fd, PPTP_ECHO_REQUEST, &echo_req, sizeof(echo_req), "echo_request"))) {
         if (err == -2)
             return -2;
         return -1;

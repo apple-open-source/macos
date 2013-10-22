@@ -128,7 +128,7 @@ MetaRecord::createAttribute(const string *inAttributeName,
 							CSSM_DB_ATTRIBUTE_FORMAT inAttributeFormat)
 {
 	// Index of new element is current size of vector
-    uint32 anAttributeIndex = mAttributeVector.size();
+    uint32 anAttributeIndex = (uint32)mAttributeVector.size();
     bool aInsertedAttributeName = false;
     bool aInsertedAttributeOID = false;
     bool aInsertedAttributeID = false;
@@ -180,12 +180,12 @@ MetaRecord::packRecord(WriteSection &inWriteSection,
 {
     uint32 aDataSize;
     if (inData)
-        aDataSize = inData->Length;
+        aDataSize = (uint32)inData->Length;
     else
         aDataSize = 0;
 
     inWriteSection.put(OffsetDataSize, aDataSize);
-    uint32 anOffset = OffsetAttributeOffsets + AtomSize * mAttributeVector.size();
+    uint32 anOffset = (uint32)(OffsetAttributeOffsets + AtomSize * mAttributeVector.size());
     if (aDataSize)
         anOffset = inWriteSection.put(anOffset, aDataSize, inData->Data);
 
@@ -451,7 +451,7 @@ MetaRecord::updateRecord(const ReadSection &inReadSection,
 	if (inData)
 	{
 		// prepare to write new data
-        aDataSize = inData->Length;
+        aDataSize = (uint32)inData->Length;
 		aDataData = inData->Data;
 	}
     else
@@ -464,7 +464,7 @@ MetaRecord::updateRecord(const ReadSection &inReadSection,
 	}
 
 	// compute the data offset; this will keep a running total of the record size
-    uint32 anOffset = OffsetAttributeOffsets + AtomSize * mAttributeVector.size();
+        uint32 anOffset = (uint32)(OffsetAttributeOffsets + AtomSize * mAttributeVector.size());
 	
 	// write the appropriate data to the new record
 	inWriteSection.put(OffsetDataSize, aDataSize);
@@ -475,7 +475,7 @@ MetaRecord::updateRecord(const ReadSection &inReadSection,
 	
 	auto_array<CssmDbAttributeData> attributeData(mAttributeVector.size());
 
-	for (uint32 anAttributeIndex = mAttributeVector.size(); anAttributeIndex-- > 0; )
+	for (size_t anAttributeIndex = mAttributeVector.size(); anAttributeIndex-- > 0; )
 	{
 		// unpack the old attribute data for this attribute index
 		const MetaAttribute &attribute = *mAttributeVector[anAttributeIndex];

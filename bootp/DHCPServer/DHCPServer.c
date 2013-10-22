@@ -59,6 +59,18 @@ const CFStringRef	kDHCPSPropNetBootImageIndex = CFSTR(NIPROP_NETBOOT_IMAGE_INDEX
 const CFStringRef	kDHCPSPropNetBootImageKind = CFSTR(NIPROP_NETBOOT_IMAGE_KIND);
 const CFStringRef	kDHCPSPropNetBootImageIsInstall = CFSTR(NIPROP_NETBOOT_IMAGE_IS_INSTALL);
 
+static CFStringRef
+create_cfstring(const char * name)
+{
+    CFStringRef		str;
+
+    str = CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
+    if (str == NULL) {
+	str = CFStringCreateWithCString(NULL, name, kCFStringEncodingMacRoman);
+    }
+    return (str);
+}
+
 static CFMutableArrayRef
 read_host_list(const char * filename)
 {
@@ -96,14 +108,17 @@ read_host_list(const char * filename)
 						 &kCFTypeDictionaryKeyCallBacks,
 						 &kCFTypeDictionaryValueCallBacks);
 	    }
-	    name = CFStringCreateWithCString(NULL, prop->nip_name,
-					     kCFStringEncodingUTF8);
-	    val = CFStringCreateWithCString(NULL,
-					    prop->nip_val.ninl_val[0],
-					     kCFStringEncodingUTF8);
-	    CFDictionarySetValue(dict, name, val);
-	    CFRelease(name);
-	    CFRelease(val);
+	    name = create_cfstring(prop->nip_name);
+	    val = create_cfstring(prop->nip_val.ninl_val[0]);
+	    if (name != NULL && val != NULL) {
+		CFDictionarySetValue(dict, name, val);
+	    }
+	    if (name != NULL) {
+		CFRelease(name);
+	    }
+	    if (val != NULL) {
+		CFRelease(val);
+	    }
 	}
 	if (dict != NULL) {
 	    CFArrayAppendValue(arr, dict);

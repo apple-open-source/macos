@@ -2,10 +2,12 @@
  * sdbm - ndbm work-alike hashed database library
  * based on Per-Ake Larson's Dynamic Hashing algorithms. BIT 18 (1978).
  * author: oz@nexus.yorku.ca
- * status: public domain. 
+ * status: public domain.
  */
 #ifndef	_SDBM_H_
 #define	_SDBM_H_
+
+#include <stdio.h>
 
 #define DBLKSIZ 4096
 #define PBLKSIZ 1024
@@ -19,11 +21,11 @@ typedef struct {
 	int dirf;		       /* directory file descriptor */
 	int pagf;		       /* page file descriptor */
 	int flags;		       /* status/error flags, see below */
-	long maxbno;		       /* size of dirfile in bits */
+	int keyptr;		       /* current key for nextkey */
+	off_t maxbno;		       /* size of dirfile in bits */
 	long curbit;		       /* current bit number */
 	long hmask;		       /* current hash mask */
 	long blkptr;		       /* current block for nextkey */
-	int keyptr;		       /* current key for nextkey */
 	long blkno;		       /* current page to read/write */
 	long pagbno;		       /* current page in pagbuf */
 	char pagbuf[PBLKSIZ];	       /* page file block buffer */
@@ -52,7 +54,7 @@ typedef struct {
 
 extern datum nullitem;
 
-#if defined(__STDC__) || defined(MSDOS)
+#if defined(__STDC__)
 #define proto(p) p
 #else
 #define proto(p) ()

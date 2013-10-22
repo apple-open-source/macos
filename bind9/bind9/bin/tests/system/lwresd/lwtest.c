@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2008, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -400,7 +400,7 @@ test_gethostbyaddr(const char *address, int af, const char *name) {
 			return;
 		}
 	} else {
-		if (name != NULL && strcmp(hp->h_name, name) != 0) {
+		if (strcmp(hp->h_name, name) != 0) {
 			printf("I:gethostbyname(%s) returned %s, "
 			       "expected %s\n", address, hp->h_name, name);
 			fails++;
@@ -440,7 +440,7 @@ test_getipnodebyaddr(const char *address, int af, const char *name) {
 			return;
 		}
 	} else {
-		if (name != NULL && strcmp(hp->h_name, name) != 0) {
+		if (strcmp(hp->h_name, name) != 0) {
 			printf("I:getipnodebyaddr(%s) returned %s, "
 			       "expected %s\n", address, hp->h_name, name);
 			freehostent(hp);

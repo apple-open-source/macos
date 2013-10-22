@@ -1,6 +1,5 @@
-diff -Naurp groff-1.19.2.orig/tmac/doc-common groff-1.19.2/tmac/doc-common
---- tmac/doc-common	2005-03-17 23:53:17.000000000 -0800
-+++ tmac/doc-common	2009-11-05 10:53:27.000000000 -0800
+--- tmac/doc-common.orig	2005-03-17 23:53:17.000000000 -0800
++++ tmac/doc-common	2012-10-13 22:10:42.000000000 -0700
 @@ -418,8 +418,12 @@
  .ds doc-operating-system-NetBSD-1.2c  1.2C
  .ds doc-operating-system-NetBSD-1.2d  1.2D
@@ -14,7 +13,7 @@ diff -Naurp groff-1.19.2.orig/tmac/doc-common groff-1.19.2/tmac/doc-common
  .ds doc-operating-system-NetBSD-1.4   1.4
  .ds doc-operating-system-NetBSD-1.4.1 1.4.1
  .ds doc-operating-system-NetBSD-1.4.2 1.4.2
-@@ -431,10 +435,22 @@
+@@ -431,10 +435,27 @@
  .ds doc-operating-system-NetBSD-1.6   1.6
  .ds doc-operating-system-NetBSD-1.6.1 1.6.1
  .ds doc-operating-system-NetBSD-1.6.2 1.6.2
@@ -34,10 +33,15 @@ diff -Naurp groff-1.19.2.orig/tmac/doc-common groff-1.19.2/tmac/doc-common
 +.ds doc-operating-system-NetBSD-4.0.1 4.0.1
 +.ds doc-operating-system-NetBSD-5.0   5.0
 +.ds doc-operating-system-NetBSD-5.0.1 5.0.1
++.ds doc-operating-system-NetBSD-5.0.2 5.0.2
++.ds doc-operating-system-NetBSD-5.1   5.1
++.ds doc-operating-system-NetBSD-5.1.1 5.1.1
++.ds doc-operating-system-NetBSD-5.1.2 5.1.2
++.ds doc-operating-system-NetBSD-6.0   6.0
  .
  .ds doc-operating-system-FreeBSD-1.0     1.0
  .ds doc-operating-system-FreeBSD-1.1     1.1
-@@ -472,11 +488,76 @@
+@@ -472,11 +493,100 @@
  .ds doc-operating-system-FreeBSD-4.8     4.8
  .ds doc-operating-system-FreeBSD-4.9     4.9
  .ds doc-operating-system-FreeBSD-4.10    4.10
@@ -57,8 +61,14 @@ diff -Naurp groff-1.19.2.orig/tmac/doc-common groff-1.19.2/tmac/doc-common
 +.ds doc-operating-system-FreeBSD-7.0     7.0
 +.ds doc-operating-system-FreeBSD-7.1     7.1
 +.ds doc-operating-system-FreeBSD-7.2     7.2
++.ds doc-operating-system-FreeBSD-7.3     7.3
++.ds doc-operating-system-FreeBSD-7.4     7.4
 +.ds doc-operating-system-FreeBSD-8.0     8.0
++.ds doc-operating-system-FreeBSD-8.1     8.1
++.ds doc-operating-system-FreeBSD-8.2     8.2
++.ds doc-operating-system-FreeBSD-8.3     8.3
 +.ds doc-operating-system-FreeBSD-9.0     9.0
++.ds doc-operating-system-FreeBSD-9.1     9.1
 +.
 +.ds doc-operating-system-Darwin-8.0.0 8.0.0
 +.ds doc-operating-system-Darwin-8.1.0 8.1.0
@@ -85,7 +95,21 @@ diff -Naurp groff-1.19.2.orig/tmac/doc-common groff-1.19.2/tmac/doc-common
 +.ds doc-operating-system-Darwin-10.1.0 10.1.0
 +.ds doc-operating-system-Darwin-10.2.0 10.2.0
 +.ds doc-operating-system-Darwin-10.3.0 10.3.0
++.ds doc-operating-system-Darwin-10.4.0 10.4.0
++.ds doc-operating-system-Darwin-10.5.0 10.5.0
++.ds doc-operating-system-Darwin-10.6.0 10.6.0
++.ds doc-operating-system-Darwin-10.7.0 10.7.0
++.ds doc-operating-system-Darwin-10.8.0 10.8.0
 +.ds doc-operating-system-Darwin-11.0.0 11.0.0
++.ds doc-operating-system-Darwin-11.1.0 11.1.0
++.ds doc-operating-system-Darwin-11.2.0 11.2.0
++.ds doc-operating-system-Darwin-11.3.0 11.3.0
++.ds doc-operating-system-Darwin-11.4.0 11.4.0
++.ds doc-operating-system-Darwin-11.5.0 11.5.0
++.ds doc-operating-system-Darwin-12.0.0 12.0.0
++.ds doc-operating-system-Darwin-12.1.0 12.1.0
++.ds doc-operating-system-Darwin-12.2.0 12.2.0
++.ds doc-operating-system-Darwin-13.0.0 13.0.0
 +.
 +.ds doc-operating-system-DragonFly-1.0 1.0
 +.ds doc-operating-system-DragonFly-1.1 1.1
@@ -111,10 +135,14 @@ diff -Naurp groff-1.19.2.orig/tmac/doc-common groff-1.19.2/tmac/doc-common
 +.ds doc-operating-system-DragonFly-2.2.1 2.2.1
 +.ds doc-operating-system-DragonFly-2.4 2.4
 +.ds doc-operating-system-DragonFly-2.4.1 2.4.1
++.ds doc-operating-system-DragonFly-3.0 3.0
++.ds doc-operating-system-DragonFly-3.0.1 3.0.1
++.ds doc-operating-system-DragonFly-3.0.2 3.0.2
++.ds doc-operating-system-DragonFly-3.0.3 3.0.3
  .
  .de Os
  .  ie "\$1"" \
-@@ -512,11 +593,19 @@
+@@ -512,11 +614,19 @@
  .      el \
  .        tm mdoc warning: .Os: Unknown NetBSD version `\$2' (#\n[.c])
  .  \}\}

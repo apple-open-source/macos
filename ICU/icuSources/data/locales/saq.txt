@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/saq.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/saq.xml
 // *
 // ***************************************************************************
 /**
@@ -23,22 +23,18 @@ saq{
             }
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     calendar{
-        gregorian{
-            AmPmMarkers{
-                "Tesiran",
-                "Teipa",
-            }
+        generic{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, d MMMM y",
-                "d MMMM y",
-                "d MMM y",
-                "dd/MM/yyyy",
+                "EEEE, d MMMM y G",
+                "d MMMM y G",
+                "d MMM y G",
+                "dd/MM/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -65,8 +61,52 @@ saq{
                 yMMM{"MMM y"}
                 yMMMEd{"E, MMM d, y"}
                 yMMMM{"MMMM y"}
-                yQ{"Q y"}
                 yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+        }
+        gregorian{
+            AmPmMarkers{
+                "Tesiran",
+                "Teipa",
+            }
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "dd/MM/y",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, M/d"}
+                MMM{"LLL"}
+                MMMEd{"E, MMM d"}
+                MMMMEd{"E, MMMM d"}
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"M/d"}
+                d{"d"}
+                hm{"h:mm a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"M/y"}
+                yMEd{"E, M/d/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, MMM d, y"}
+                yMMMM{"MMMM y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
             }
             dayNames{
                 format{
@@ -109,46 +149,6 @@ saq{
                 wide{
                     "Kabla ya Christo",
                     "Baada ya Christo",
-                }
-            }
-            fields{
-                day{
-                    dn{"Mpari"}
-                    relative{
-                        "-1"{"Ng'ole"}
-                        "0"{"Duo"}
-                        "1"{"Taisere"}
-                    }
-                }
-                dayperiod{
-                    dn{"TS/TP"}
-                }
-                era{
-                    dn{"Nyamata"}
-                }
-                hour{
-                    dn{"Saai"}
-                }
-                minute{
-                    dn{"Idakika"}
-                }
-                month{
-                    dn{"Lapa"}
-                }
-                second{
-                    dn{"Isekondi"}
-                }
-                week{
-                    dn{"Saipa napo"}
-                }
-                weekday{
-                    dn{"Mpari"}
-                }
-                year{
-                    dn{"Lari"}
-                }
-                zone{
-                    dn{"Majira ya saa"}
                 }
             }
             monthNames{
@@ -222,5 +222,42 @@ saq{
         alternateQuotationStart{"‘"}
         quotationEnd{"”"}
         quotationStart{"“"}
+    }
+    fields{
+        day{
+            dn{"Mpari"}
+            relative{
+                "-1"{"Ng'ole"}
+                "0"{"Duo"}
+                "1"{"Taisere"}
+            }
+        }
+        dayperiod{
+            dn{"TS/TP"}
+        }
+        era{
+            dn{"Nyamata"}
+        }
+        hour{
+            dn{"Saai"}
+        }
+        minute{
+            dn{"Idakika"}
+        }
+        month{
+            dn{"Lapa"}
+        }
+        second{
+            dn{"Isekondi"}
+        }
+        week{
+            dn{"Saipa napo"}
+        }
+        year{
+            dn{"Lari"}
+        }
+        zone{
+            dn{"Majira ya saa"}
+        }
     }
 }

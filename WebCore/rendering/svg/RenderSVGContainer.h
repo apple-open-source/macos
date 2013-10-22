@@ -36,6 +36,9 @@ public:
     explicit RenderSVGContainer(SVGStyledElement*);
     virtual ~RenderSVGContainer();
 
+    RenderObject* firstChild() const { ASSERT(children() == virtualChildren()); return children()->firstChild(); }
+    RenderObject* lastChild() const { ASSERT(children() == virtualChildren()); return children()->lastChild(); }
+
     const RenderObjectChildList* children() const { return &m_children; }
     RenderObjectChildList* children() { return &m_children; }
 
@@ -54,6 +57,8 @@ protected:
 
     virtual void layout();
 
+    virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0) OVERRIDE;
+    virtual void removeChild(RenderObject*) OVERRIDE;
     virtual void addFocusRingRects(Vector<IntRect>&, const LayoutPoint&);
 
     virtual FloatRect objectBoundingBox() const { return m_objectBoundingBox; }
@@ -86,13 +91,13 @@ private:
   
 inline RenderSVGContainer* toRenderSVGContainer(RenderObject* object)
 {
-    ASSERT(!object || object->isSVGContainer());
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isSVGContainer());
     return static_cast<RenderSVGContainer*>(object);
 }
 
 inline const RenderSVGContainer* toRenderSVGContainer(const RenderObject* object)
 {
-    ASSERT(!object || object->isSVGContainer());
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isSVGContainer());
     return static_cast<const RenderSVGContainer*>(object);
 }
 

@@ -1,34 +1,9 @@
-/define[ 	]PRINTF_FORMAT_NULL_OK/c
-#ifdef __LP64__
-/*#define PRINTF_FORMAT_NULL_OK	/ **/
-#else /* !__LP64__ */
-#define PRINTF_FORMAT_NULL_OK	/**/
-#endif /* __LP64__ */
-.
 /define[ 	]LONGSIZE/c
 #ifdef __LP64__
 #define LONGSIZE 8		/**/
 #else /* !__LP64__ */
 #define LONGSIZE 4		/**/
 #endif /* __LP64__ */
-.
-/define[ 	]CASTI32/c
-#ifdef __ppc__
-#define CASTI32		/**/
-#else /* !__ppc__ */
-/*#define CASTI32		/ **/
-#endif /* __ppc__ */
-.
-/define[ 	]CASTNEGFLOAT/a
-.
-.,.+1c
-#ifdef __i386__
-/*#define CASTNEGFLOAT		/ **/
-#define CASTFLAGS 1		/**/
-#else
-#define CASTNEGFLOAT		/**/
-#define CASTFLAGS 0		/**/
-#endif
 .
 /define[ 	]Quad_t/a
 .
@@ -43,6 +18,27 @@
 #   define QUADKIND 3	/**/
 #endif /* __LP64__ */
 .
+/define[ 	]Gid_t_f/c
+#ifdef __LP64__
+#define	Gid_t_f		"u"		/**/
+#else /* !__LP64__ */
+#define	Gid_t_f		"lu"		/**/
+#endif /* __LP64__ */
+.
+/define[ 	]Size_t_size/c
+#ifdef __LP64__
+#define Size_t_size 8		/* */
+#else /* !__LP64__ */
+#define Size_t_size 4		/* */
+#endif /* __LP64__ */
+.
+/define[ 	]Uid_t_f/c
+#ifdef __LP64__
+#define	Uid_t_f		"u"		/**/
+#else /* !__LP64__ */
+#define	Uid_t_f		"lu"		/**/
+#endif /* __LP64__ */
+.
 /define[ 	]PTRSIZE/c
 #ifdef __LP64__
 #define PTRSIZE 8		/**/
@@ -50,12 +46,12 @@
 #define PTRSIZE 4		/**/
 #endif /* __LP64__ */
 .
-/define[ 	]USE_BSD_SETPGRP/c
-#if __DARWIN_UNIX03
-/*#define USE_BSD_SETPGRP	/ **/
-#else /* !__DARWIN_UNIX03 */
-#define USE_BSD_SETPGRP	/**/
-#endif /* __DARWIN_UNIX03 */
+/define[ 	]NEED_VA_COPY/c
+#ifdef __LP64__
+#define	NEED_VA_COPY		/**/
+#else /* !__LP64__ */
+/*#define	NEED_VA_COPY		/ **/
+#endif /* __LP64__ */
 .
 /define[ 	]I32TYPE/a
 .
@@ -128,34 +124,6 @@
 #define	USE_64_BIT_ALL		/**/
 #else /* !__LP64__ */
 /*#define	USE_64_BIT_ALL		/ **/
-#endif /* __LP64__ */
-.
-/define[ 	]Gid_t_f/c
-#ifdef __LP64__
-#define	Gid_t_f		"u"		/**/
-#else /* !__LP64__ */
-#define	Gid_t_f		"lu"		/**/
-#endif /* __LP64__ */
-.
-/define[ 	]Size_t_size/c
-#ifdef __LP64__
-#define Size_t_size 8		/* */
-#else /* !__LP64__ */
-#define Size_t_size 4		/* */
-#endif /* __LP64__ */
-.
-/define[ 	]Uid_t_f/c
-#ifdef __LP64__
-#define	Uid_t_f		"u"		/**/
-#else /* !__LP64__ */
-#define	Uid_t_f		"lu"		/**/
-#endif /* __LP64__ */
-.
-/define[ 	]NEED_VA_COPY/c
-#ifdef __LP64__
-#define	NEED_VA_COPY		/**/
-#else /* !__LP64__ */
-/*#define	NEED_VA_COPY		/ **/
 #endif /* __LP64__ */
 .
 $i

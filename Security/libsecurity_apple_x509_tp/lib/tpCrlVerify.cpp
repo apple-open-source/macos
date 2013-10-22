@@ -285,6 +285,7 @@ static bool tpCertHasCrlDistPt(
  * Note that ocspdCRLStatus does NOT wait for the CRL to be downloaded before
  * returning, nor does it initiate a CRL download.
  */
+static
 CSSM_RETURN tpGetCrlStatusForCert(
 	TPCertInfo						&subject,
 	const CSSM_DATA					&issuers)

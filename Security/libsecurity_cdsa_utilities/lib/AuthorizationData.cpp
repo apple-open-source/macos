@@ -108,7 +108,7 @@ void
 AuthValueVector::copy(AuthorizationValueVector **data, size_t *length) const
 {
     AuthorizationValueVector valueVector;
-    valueVector.count = size();
+    valueVector.count = (UInt32)size();
     valueVector.values = new AuthorizationValue[valueVector.count];
     int i = 0;
 	for (const_iterator it = begin(); it != end(); ++it, ++i)
@@ -323,7 +323,7 @@ void
 AuthItemSet::copy(AuthorizationItemSet *&data, size_t &length, Allocator &alloc) const
 {
     AuthorizationItemSet itemSet;
-    itemSet.count = size();
+    itemSet.count = (UInt32)size();
     itemSet.items = new AuthorizationItem[itemSet.count];
     int i = 0;
     for (const_iterator it = begin(); it != end(); ++it, ++i)

@@ -31,9 +31,7 @@
 
 #include <Security/SecCertificate.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef struct __SecTrustStore *SecTrustStoreRef;
 
@@ -42,6 +40,8 @@ enum {
 	kSecTrustStoreDomainUser = 2,
 };
 typedef uint32_t SecTrustStoreDomain;
+
+typedef int32_t SecTrustSettingsVersionNumber;
 
 SecTrustStoreRef SecTrustStoreForDomain(SecTrustStoreDomain domain);
 
@@ -56,8 +56,8 @@ OSStatus SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
 OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
 	SecCertificateRef certificate);
 
-#if defined(__cplusplus)
-}
-#endif
+OSStatus SecTrustStoreGetSettingsVersionNumber(SecTrustSettingsVersionNumber* p_settings_version_number);
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECTRUSTSTORE_H_ */

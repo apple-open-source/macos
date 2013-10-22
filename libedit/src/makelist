@@ -1,5 +1,5 @@
 #!/bin/sh -
-#	$NetBSD: makelist,v 1.16 2010/04/18 21:17:05 christos Exp $
+#	$NetBSD: makelist,v 1.18 2012/03/21 05:34:54 matt Exp $
 #
 # Copyright (c) 1992, 1993
 #	The Regents of the University of California.  All rights reserved.
@@ -35,7 +35,6 @@
 
 # makelist.sh: Automatically generate header files...
 
-AWK=awk
 USAGE="Usage: $0 -n|-h|-e|-fc|-fh|-bc|-bh|-m <filenames>"
 
 if [ "x$1" = "x" ]
@@ -129,7 +128,7 @@ _EOF
 	}
 	END {
 	    printf("};\n");
-	    printf("\nprotected const el_bindings_t* help__get()");
+	    printf("\nprotected const el_bindings_t* help__get(void)");
 	    printf("{ return el_func_help; }\n");
 	}'
 	;;
@@ -150,7 +149,7 @@ _EOF
 #
 -fh)
     cat $FILES | $AWK '/el_action_t/ { print $3 }' | \
-    sort | tr '[:lower:]' '[:upper:]' | $AWK '
+    sort | tr '[a-z]' '[A-Z]' | $AWK '
 	BEGIN {
 	    printf("/* Automatically generated file, do not edit */\n");
 	    printf("#ifndef _h_fcns_c\n#define _h_fcns_c\n");
@@ -195,7 +194,7 @@ _EOF
 	}
 	END {
 	    printf("\n};\n");
-	    printf("\nprotected const el_func_t* func__get() { return el_func; }\n");
+	    printf("\nprotected const el_func_t* func__get(void) { return el_func; }\n");
 	}'
 	;;
 

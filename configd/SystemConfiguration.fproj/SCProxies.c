@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include <SystemConfiguration/VPNAppLayerPrivate.h>
 
 #include <netdb.h>
 
@@ -62,8 +63,7 @@ validate_proxy_content(CFMutableDictionaryRef	proxies,
 	if (num != NULL) {
 		if (!isA_CFNumber(num) ||
 		    !CFNumberGetValue(num, kCFNumberIntType, &enabled)) {
-			// if we don't like the enabled key/value
-			goto disable;
+			goto disable;		// if we don't like the enabled key/value
 		}
 	}
 
@@ -71,26 +71,38 @@ validate_proxy_content(CFMutableDictionaryRef	proxies,
 		CFStringRef	host;
 
 		host = CFDictionaryGetValue(proxies, proxy_host);
-		if (((enabled == 0) && (host != NULL)) ||
-		    ((enabled != 0) && !isA_CFString(host))) {
-			// pass only valid proxy hosts and only when enabled
-			goto disable;
+		if ((enabled == 0) && (host != NULL)) {
+			goto disable;		// if not enabled, remove provided key/value
+		}
+
+		if ((enabled != 0) && !isA_CFString(host)) {
+			goto disable;		// if enabled, not provided (or not valid)
 		}
 	}
 
 	if (proxy_port != NULL) {
 		CFNumberRef	port;
+		int		s_port	= 0;
 
 		port = CFDictionaryGetValue(proxies, proxy_port);
-		if (((enabled == 0) && (port != NULL)) ||
-		    ((enabled != 0) && (port != NULL) && !isA_CFNumber(port))) {
-			// pass only provided/valid proxy ports and only when enabled
-			goto disable;
+		if ((enabled == 0) && (port != NULL)) {
+			goto disable;		// if not enabled, remove provided key/value
+		}
+
+		if ((enabled != 0) && (port != NULL)) {
+			if (!isA_CFNumber(port) ||
+			    !CFNumberGetValue(port, kCFNumberIntType, &s_port) ||
+			    (s_port > UINT16_MAX)) {
+				goto disable;	// if enabled, not provided (or not valid)
+			}
+
+			if (s_port == 0) {
+				port = NULL;	// if no port # provided, use default
+			}
 		}
 
 		if ((enabled != 0) && (port == NULL)) {
 			struct servent	*service;
-			int		s_port;
 
 			service = getservbyname(proxy_service, "tcp");
 			if (service != NULL) {
@@ -128,6 +140,10 @@ normalize_scoped_proxy(const void *key, const void *value, void *context);
 
 
 static void
+normalize_services_proxy(const void *key, const void *value, void *context);
+
+
+static void
 normalize_supplemental_proxy(const void *value, void *context);
 
 
@@ -138,6 +154,7 @@ __SCNetworkProxiesCopyNormalized(CFDictionaryRef proxy)
 	CFMutableDictionaryRef	newProxy;
 	CFNumberRef		num;
 	CFDictionaryRef		scoped;
+	CFDictionaryRef		services;
 	CFArrayRef		supplemental;
 
 	if (!isA_CFDictionary(proxy)) {
@@ -208,6 +225,13 @@ __SCNetworkProxiesCopyNormalized(CFDictionaryRef proxy)
 	}
 	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesProxyAutoDiscoveryEnable,
+			       NULL,
+			       NULL,
+			       NULL,
+			       0);
+
+	validate_proxy_content(newProxy,
+			       kSCPropNetProxiesFallBackAllowed,
 			       NULL,
 			       NULL,
 			       NULL,
@@ -286,6 +310,22 @@ __SCNetworkProxiesCopyNormalized(CFDictionaryRef proxy)
 		CFRelease(newScoped);
 	}
 
+	// cleanup services proxies
+	services = CFDictionaryGetValue(newProxy, kSCPropNetProxiesServices);
+	if (isA_CFDictionary(services)) {
+		CFMutableDictionaryRef	newServices;
+
+		newServices = CFDictionaryCreateMutable(NULL,
+						      0,
+						      &kCFTypeDictionaryKeyCallBacks,
+						      &kCFTypeDictionaryValueCallBacks);
+		CFDictionaryApplyFunction(services,
+					  normalize_services_proxy,
+					  newServices);
+		CFDictionarySetValue(newProxy, kSCPropNetProxiesServices, newServices);
+		CFRelease(newServices);
+	}
+
 	// cleanup split/supplemental proxies
 	supplemental = CFDictionaryGetValue(newProxy, kSCPropNetProxiesSupplemental);
 	if (isA_CFArray(supplemental)) {
@@ -323,6 +363,19 @@ normalize_scoped_proxy(const void *key, const void *value, void *context)
 	return;
 }
 
+static void
+normalize_services_proxy(const void *key, const void *value, void *context)
+{
+	CFStringRef		serviceID	= (CFStringRef)key;
+	CFDictionaryRef		proxy		= (CFDictionaryRef)value;
+	CFMutableDictionaryRef	newServices	= (CFMutableDictionaryRef)context;
+
+	proxy = __SCNetworkProxiesCopyNormalized(proxy);
+	CFDictionarySetValue(newServices, serviceID, proxy);
+	CFRelease(proxy);
+
+	return;
+}
 
 static void
 normalize_supplemental_proxy(const void *value, void *context)
@@ -337,12 +390,34 @@ normalize_supplemental_proxy(const void *value, void *context)
 	return;
 }
 
-
 CFDictionaryRef
 SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 {
+	return SCDynamicStoreCopyProxiesWithOptions(store, NULL);
+}
+
+const CFStringRef	kSCProxiesNoGlobal	= CFSTR("NO_GLOBAL");
+
+CFDictionaryRef
+SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef options)
+{
+	Boolean			bypass	= FALSE;
 	CFStringRef		key;
 	CFDictionaryRef		proxies;
+
+	if (options != NULL) {
+		CFBooleanRef	bypassGlobalOption;
+
+		if (isA_CFDictionary(options) == NULL) {
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return NULL;
+		}
+
+		bypassGlobalOption = CFDictionaryGetValue(options, kSCProxiesNoGlobal);
+		if (isA_CFBoolean(bypassGlobalOption) && CFBooleanGetValue(bypassGlobalOption)) {
+			bypass = TRUE;
+		}
+	}
 
 
 	/* copy proxy information from dynamic store */
@@ -376,11 +451,14 @@ SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
 			     CFStringRef	server,
 			     CFStringRef	interface)
 {
-	CFMutableDictionaryRef	newProxy;
-	CFArrayRef		proxies		= NULL;
-	CFDictionaryRef		proxy;
-	int			sc_status	= kSCStatusOK;
-	CFStringRef		trimmed		= NULL;
+	CFMutableDictionaryRef		newProxy;
+	static const audit_token_t	null_audit	= KERNEL_AUDIT_TOKEN_VALUE;
+	UUID_DEFINE(null_uuid, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+	CFArrayRef			proxies		= NULL;
+	CFDictionaryRef			proxy;
+	int				sc_status	= kSCStatusOK;
+	CFStringRef			serviceID;
+	CFStringRef			trimmed		= NULL;
 
 	if (!isA_CFDictionary(globalConfiguration)) {
 		// if no proxy configuration
@@ -425,6 +503,49 @@ SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
 
 		// return per-interface proxy configuration
 		proxies = CFArrayCreate(NULL, (const void **)&proxy, 1, &kCFTypeArrayCallBacks);
+		return proxies;
+	}
+
+	// Check for app-layer VPN proxy results (with or without server)
+	serviceID = VPNAppLayerCopyMatchingService(null_audit, 0, null_uuid, NULL, server, NULL, NULL);
+	if (serviceID != NULL) {
+		CFDictionaryRef	serviceProxies	= NULL;
+
+		serviceProxies = CFDictionaryGetValue(globalConfiguration, kSCPropNetProxiesServices);
+		if (serviceProxies == NULL) {
+			_SCErrorSet(kSCStatusOK);
+			CFRelease(serviceID);
+			goto app_layer_no_proxies;
+		}
+		if (!isA_CFDictionary(serviceProxies)) {
+			_SCErrorSet(kSCStatusFailed);
+			CFRelease(serviceID);
+			goto app_layer_no_proxies;
+		}
+
+		proxy = CFDictionaryGetValue(serviceProxies, serviceID);
+		CFRelease(serviceID);
+		if (proxy == NULL) {
+			_SCErrorSet(kSCStatusOK);
+			goto app_layer_no_proxies;
+		}
+		if (!isA_CFDictionary(proxy)) {
+			_SCErrorSet(kSCStatusFailed);
+			goto app_layer_no_proxies;
+		}
+
+		proxies = CFArrayCreate(NULL, (const void **)&proxy, 1, &kCFTypeArrayCallBacks);
+		return proxies;
+
+	    app_layer_no_proxies:
+
+		/*
+		 * Rather than returning NULL, return an empty proxy configuration.
+		 * This ensures that the global proxy configuration will not be used.
+		 */
+		proxy = CFDictionaryCreate(NULL, NULL, NULL, 0, NULL, NULL);
+		proxies = CFArrayCreate(NULL, (const void **)&proxy, 1, &kCFTypeArrayCallBacks);
+		CFRelease(proxy);
 		return proxies;
 	}
 
@@ -523,6 +644,7 @@ SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
 
 	newProxy = CFDictionaryCreateMutableCopy(NULL, 0, globalConfiguration);
 	CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesScoped);
+	CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesServices);
 	CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesSupplemental);
 	proxies = CFArrayCreate(NULL, (const void **)&newProxy, 1, &kCFTypeArrayCallBacks);
 	CFRelease(newProxy);

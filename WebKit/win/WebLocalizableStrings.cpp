@@ -28,9 +28,9 @@
 
 #include "WebLocalizableStrings.h"
 
-#include <WebCore/PlatformString.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
 #include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
@@ -39,8 +39,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 class LocalizedString;
-
-using namespace WebCore;
 
 WebLocalizableStringsBundle WebKitLocalizableStringsBundle = { "com.apple.WebKit", 0 };
 
@@ -134,12 +132,10 @@ static CFBundleRef createWebKitBundle()
         return 0;
 
     String bundlePathString(pathStr);
-    CFStringRef bundlePathCFString = bundlePathString.createCFString();
-    if (!bundlePathCFString)
+    if (!bundlePathString)
         return 0;
 
-    CFURLRef bundleURLRef = CFURLCreateWithFileSystemPath(0, bundlePathCFString, kCFURLWindowsPathStyle, true);
-    CFRelease(bundlePathCFString);
+    CFURLRef bundleURLRef = CFURLCreateWithFileSystemPath(0, bundlePathString.createCFString().get(), kCFURLWindowsPathStyle, true);
     if (!bundleURLRef)
         return 0;
 
@@ -158,7 +154,7 @@ static CFBundleRef cfBundleForStringsBundle(WebLocalizableStringsBundle* strings
     createWebKitBundle();
 
     if (!stringsBundle->bundle)
-        stringsBundle->bundle = CFBundleGetBundleWithIdentifier(RetainPtr<CFStringRef>(AdoptCF, CFStringCreateWithCString(0, stringsBundle->identifier, kCFStringEncodingASCII)).get());
+        stringsBundle->bundle = CFBundleGetBundleWithIdentifier(adoptCF(CFStringCreateWithCString(0, stringsBundle->identifier, kCFStringEncodingASCII)).get());
     return stringsBundle->bundle;
 }
 
@@ -170,8 +166,7 @@ static CFStringRef copyLocalizedStringFromBundle(WebLocalizableStringsBundle* st
     if (!bundle)
         return notFound;
 
-    RetainPtr<CFStringRef> keyString(AdoptCF, key.createCFString());
-    CFStringRef result = CFCopyLocalizedStringWithDefaultValue(keyString.get(), 0, bundle, notFound, 0);
+    CFStringRef result = CFCopyLocalizedStringWithDefaultValue(key.createCFString().get(), 0, bundle, notFound, 0);
 
     ASSERT_WITH_MESSAGE(result != notFound, "could not find localizable string %s in bundle", key);
     return result;

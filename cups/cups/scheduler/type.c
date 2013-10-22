@@ -1,9 +1,9 @@
 /*
- * "$Id: type.c 7720 2008-07-11 22:46:21Z mike $"
+ * "$Id: type.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   MIME typing routines for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -515,7 +515,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
         case MIME_MAGIC_MATCH :
 	    if (length[0] > (sizeof(temp->value.matchv) - 1))
 	      return (-1);
-	    strcpy(temp->value.matchv, value[0]);
+	    strlcpy(temp->value.matchv, value[0], sizeof(temp->value.matchv));
 	    break;
 	case MIME_MAGIC_ASCII :
 	case MIME_MAGIC_PRINTABLE :
@@ -554,7 +554,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	    if (length[0] > (sizeof(temp->value.localev) - 1))
 	      return (-1);
 
-	    strcpy(temp->value.localev, value[0]);
+	    strlcpy(temp->value.localev, value[0], sizeof(temp->value.localev));
 	    break;
 	case MIME_MAGIC_CONTAINS :
 	    temp->offset = strtol(value[0], NULL, 0);
@@ -1212,5 +1212,5 @@ mime_patmatch(const char *s,		/* I - String to match against */
 
 
 /*
- * End of "$Id: type.c 7720 2008-07-11 22:46:21Z mike $".
+ * End of "$Id: type.c 11093 2013-07-03 20:48:42Z msweet $".
  */

@@ -32,7 +32,7 @@
 #include <security_utilities/globalizer.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <algorithm>
-
+#include <Security/SecBase.h>
 #undef check
 
 
@@ -276,7 +276,7 @@ Number cfNumber(CFNumberRef number)
 {
 	typename CFNumberTraits<Number>::ValueType value;
 	if (CFNumberGetValue(number, CFNumberTraits<Number>::cfnType, &value))
-		return value;
+		return (Number)value;
 	else
 		CFError::throwMe();
 }
@@ -479,14 +479,14 @@ public:
 	CFTypeRef get(const char *key)		{ return CFDictionaryGetValue(*this, CFTempString(key)); }
 	
 	template <class CFType>
-	CFType get(CFStringRef key, OSStatus err = noErr) const
+	CFType get(CFStringRef key, OSStatus err = errSecSuccess) const
 	{
 		CFTypeRef elem = CFDictionaryGetValue(*this, key);
 		return CFRef<CFType>::check(elem, err ? err : mDefaultError);
 	}
 	
 	template <class CFType>
-	CFType get(const char *key, OSStatus err = noErr) const
+	CFType get(const char *key, OSStatus err = errSecSuccess) const
 	{ return get<CFType>(CFTempString(key), err); }
 	
 	void apply(CFDictionaryApplierFunction func, void *context)
@@ -568,7 +568,7 @@ CFToVector<VectorBase, CFRefType, convert>::CFToVector(CFArrayRef arrayRef)
         mCount = 0;
         mVector = NULL;
     } else {
-        mCount = CFArrayGetCount(arrayRef);
+        mCount = (UInt32)CFArrayGetCount(arrayRef);
         mVector = new VectorBase[mCount];
         for (UInt32 n = 0; n < mCount; n++)
             mVector[n] = convert(CFRefType(CFArrayGetValueAtIndex(arrayRef, n)));

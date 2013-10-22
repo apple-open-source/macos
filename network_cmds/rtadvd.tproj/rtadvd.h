@@ -54,7 +54,7 @@
 
 #define MAX_INITIAL_RTR_ADVERT_INTERVAL  16
 #define MAX_INITIAL_RTR_ADVERTISEMENTS    3
-#define MAX_FINAL_RTR_ADVERTISEMENTS      3
+#define MAX_FINAL_RTR_ADVERTISEMENTS      1
 #define MIN_DELAY_BETWEEN_RAS             3
 #define MAX_RA_DELAY_TIME                 500000 /* usec */
 

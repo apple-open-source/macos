@@ -74,18 +74,35 @@ struct pff_tab Pff_tab[] = {
 
 struct pff_tab Pof_tab[] = {
 
-# if	defined(UF_CLOSING)
-	{ (long)UF_CLOSING,	POF_CLOSING	},
-# endif	/* defined(UF_CLOSING) */
+# if	defined(PROC_FP_SHARED)
+	{ (long)PROC_FP_SHARED,	"SH"		},
+# endif	/* defined(PROC_FP_SHARED) */
 
-# if	defined(UF_EXCLOSE)
-	{ (long)UF_EXCLOSE,	POF_CLOEXEC	},
-# endif	/* defined(UF_EXCLOSE) */
+# if	defined(PROC_FP_CLEXEC)
+	{ (long)PROC_FP_CLEXEC,	POF_CLOEXEC	},
+# endif	/* defined(PROC_FP_CLEXEC) */
 
-# if	defined(UF_RESERVED)
-	{ (long)UF_RESERVED,	POF_RESERVED	},
-# endif	/* defined(UF_RESERVED) */
+# if	defined(PROC_FP_GUARDED)
+	{ (long)PROC_FP_GUARDED,"GRD"		},
+# endif	/* defined(PROC_FP_GUARDED) */
 
 	{ (long)0,		NULL		}
 };
+
+
+/*
+ * Pgf_tab[] - table for print process open file guard flags
+ */
+
+# if	defined(PROC_FP_GUARDED)
+struct pff_tab Pgf_tab[] = {
+	{ (long)PROC_FI_GUARD_CLOSE,		"CLOSE"		},
+	{ (long)PROC_FI_GUARD_DUP,		"DUP"		},
+	{ (long)PROC_FI_GUARD_SOCKET_IPC,	"SOCKET"	},
+	{ (long)PROC_FI_GUARD_FILEPORT,		"FILEPORT"	},
+
+	{ (long)0,				NULL		}
+};
+# endif	/* defined(PROC_FP_GUARDED) */
+
 #endif	/* defined(HASFSTRUCT) */

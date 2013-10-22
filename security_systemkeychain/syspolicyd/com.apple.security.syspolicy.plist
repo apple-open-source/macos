@@ -17,5 +17,7 @@
 	<array>
 		<string>/usr/libexec/syspolicyd</string>
 	</array>
+	<key>POSIXSpawnType</key>
+	<string>Adaptive</string>
 </dict>
 </plist>

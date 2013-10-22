@@ -42,7 +42,9 @@ enum {
 	algclass_isakmp_hash,
 	algclass_isakmp_dh,
 	algclass_isakmp_ameth,	/* authentication method. */
-#define MAXALGCLASS	7
+    algclass_ikev2_prf,
+    algclass_ikev2_integ,
+#define MAXALGCLASS 9
 };
 
 #define ALG_DEFAULT_KEYLEN	64
@@ -69,14 +71,16 @@ enum algtype {
 	algtype_twofish,
 
 	/* ipsec auth */
-	algtype_hmac_md5,
-	algtype_hmac_sha1,
+	algtype_hmac_md5_128,
+	algtype_hmac_sha1_160,
 	algtype_des_mac,
 	algtype_kpdk,
 	algtype_non_auth,
 	algtype_hmac_sha2_256,
 	algtype_hmac_sha2_384,
 	algtype_hmac_sha2_512,
+    algtype_hmac_md5_96,
+    algtype_hmac_sha1_96,
 
 	/* ipcomp */
 	algtype_oui,
@@ -119,6 +123,8 @@ enum algtype {
 	algtype_xauth_psk_c,
 	algtype_xauth_rsa_s,
 	algtype_xauth_rsa_c,
+    algtype_eap_psk_c,
+    algtype_eap_rsa_c,
 #endif
 };
 

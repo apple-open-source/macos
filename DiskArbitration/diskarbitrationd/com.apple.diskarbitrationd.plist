@@ -13,7 +13,9 @@
 		<key>com.apple.DiskArbitration.diskarbitrationd</key>
 		<true/>
 	</dict>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
 	<key>Program</key>
-	<string>/usr/sbin/diskarbitrationd</string>
+	<string>/usr/libexec/diskarbitrationd</string>
 </dict>
 </plist>

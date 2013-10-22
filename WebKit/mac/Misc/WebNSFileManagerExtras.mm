@@ -36,7 +36,7 @@
 #import <sys/stat.h>
 #import <wtf/RetainPtr.h>
 
-#ifdef BUILDING_ON_SNOW_LEOPARD
+#if __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
 extern "C" DADiskRef DADiskCreateFromVolumePath(CFAllocatorRef allocator, DASessionRef session, CFURLRef path);
 #endif
 
@@ -98,9 +98,9 @@ static void *setMetaData(void* context)
 
 - (NSString *)_webkit_startupVolumeName
 {
-    RetainPtr<DASessionRef> session(AdoptCF, DASessionCreate(kCFAllocatorDefault));
-    RetainPtr<DADiskRef> disk(AdoptCF, DADiskCreateFromVolumePath(kCFAllocatorDefault, session.get(), (CFURLRef)[NSURL fileURLWithPath:@"/"]));
-    RetainPtr<CFDictionaryRef> diskDescription(AdoptCF, DADiskCopyDescription(disk.get()));
+    RetainPtr<DASessionRef> session = adoptCF(DASessionCreate(kCFAllocatorDefault));
+    RetainPtr<DADiskRef> disk = adoptCF(DADiskCreateFromVolumePath(kCFAllocatorDefault, session.get(), (CFURLRef)[NSURL fileURLWithPath:@"/"]));
+    RetainPtr<CFDictionaryRef> diskDescription = adoptCF(DADiskCopyDescription(disk.get()));
     RetainPtr<NSString> diskName = (NSString *)CFDictionaryGetValue(diskDescription.get(), kDADiskDescriptionVolumeNameKey);
     return WebCFAutorelease(diskName.leakRef());
 }

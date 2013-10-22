@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999 - 2008, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1595,7 +1595,7 @@ sendreply(interface_t * if_p, struct bootp * bp, int n,
     if (debug && verbose) {
 	printf("\n=================== Server Reply ===="
 	       "=================\n");
-	dhcp_print_packet((struct dhcp *)bp, n);
+	dhcp_packet_print((struct dhcp *)bp, n);
     }
     return (TRUE);
 }
@@ -1824,7 +1824,7 @@ S_relay_packet(struct bootp * bp, int n, interface_t * if_p)
 		printed = TRUE;
 		printf("\n=================== Relayed Request ===="
 		       "=================\n");
-		dhcp_print_packet((struct dhcp *)bp, n);
+		dhcp_packet_print((struct dhcp *)bp, n);
 	    }
 
 	    if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
@@ -1868,7 +1868,7 @@ S_relay_packet(struct bootp * bp, int n, interface_t * if_p)
 	    if (debug) {
 		printf("\n=================== Relayed Reply ===="
 		       "=================\n");
-		dhcp_print_packet((struct dhcp *)bp, n);
+		dhcp_packet_print((struct dhcp *)bp, n);
 	    }
 	}
 	if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
@@ -1925,7 +1925,7 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
 	
 	if (debug && verbose) {
 	    printf("\n---------------- Client Request --------------------\n");
-	    dhcp_print_packet((struct dhcp *)bp, n);
+	    dhcp_packet_print((struct dhcp *)bp, n);
 	}
 
 	if (bp->bp_sname[0] != '\0' 

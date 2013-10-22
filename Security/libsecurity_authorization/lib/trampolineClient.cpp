@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <Security/Authorization.h>
+#include <Security/AuthorizationPriv.h>
+#include <Security/SecBase.h>
 #include <security_utilities/endian.h>
 #include <security_utilities/debugging.h>
 
@@ -61,15 +63,32 @@ static const char **argVector(const char *trampoline,
 	char *const *arguments);
 
 
+OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
+                                            const char *pathToTool,
+                                            AuthorizationFlags flags,
+                                            char *const *arguments,
+                                            FILE **communicationsPipe)
+{
+	// externalize the authorization
+	AuthorizationExternalForm extForm;
+	if (OSStatus err = AuthorizationMakeExternalForm(authorization, &extForm))
+		return err;
+    
+    return AuthorizationExecuteWithPrivilegesExternalForm(&extForm, pathToTool, flags, arguments, communicationsPipe);
+}
+
 //
 // The public client API function.
 //
-OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
+OSStatus AuthorizationExecuteWithPrivilegesExternalForm(const AuthorizationExternalForm * extForm,
 	const char *pathToTool,
 	AuthorizationFlags flags,
 	char *const *arguments,
 	FILE **communicationsPipe)
 {
+	if (extForm == NULL)
+        return errAuthorizationInvalidPointer;
+    
 	// report the caller to the authorities
 	aslmsg m = asl_new(ASL_TYPE_MSG);
 	asl_set(m, "com.apple.message.domain", "com.apple.libsecurity_authorization.AuthorizationExecuteWithPrivileges");
@@ -81,25 +100,33 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 	if (flags != 0)
 		return errAuthorizationInvalidFlags;
 
-	// externalize the authorization
-	AuthorizationExternalForm extForm;
-	if (OSStatus err = AuthorizationMakeExternalForm(authorization, &extForm))
-		return err;
-
     // create the mailbox file
     FILE *mbox = tmpfile();
     if (!mbox)
         return errAuthorizationInternal;
-    if (fwrite(&extForm, sizeof(extForm), 1, mbox) != 1) {
+    if (fwrite(extForm, sizeof(*extForm), 1, mbox) != 1) {
         fclose(mbox);
         return errAuthorizationInternal;
     }
     fflush(mbox);
     
+	// compute the argument vector here because we can't allocate memory once we fork.
+
     // make text representation of the temp-file descriptor
     char mboxFdText[20];
     snprintf(mboxFdText, sizeof(mboxFdText), "auth %d", fileno(mbox));
-    
+
+	// where is the trampoline?
+#if defined(NDEBUG)
+	const char *trampoline = TRAMPOLINE;
+#else //!NDEBUG
+	const char *trampoline = getenv("AUTHORIZATIONTRAMPOLINE");
+	if (!trampoline)
+		trampoline = TRAMPOLINE;
+#endif //NDEBUG
+
+	const char **argv = argVector(trampoline, pathToTool, mboxFdText, arguments);
+	
 	// make a notifier pipe
 	int notify[2];
 	if (pipe(notify)) {
@@ -114,6 +141,8 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
         fclose(mbox);
 		return errAuthorizationToolExecuteFailure;
 	}
+
+	OSStatus status = errSecSuccess;
 
 	// do the standard forking tango...
 	int delay = 1;
@@ -142,7 +171,6 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
             fclose(mbox);
 			
 			// get status notification from child
-			OSStatus status;
 			secdebug("authexec", "parent waiting for status");
 			ssize_t rc = read(notify[READ], &status, sizeof(status));
 			status = n2h(status);
@@ -155,16 +183,18 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 				secdebug("authexec", "parent received status=%d", (int)status);
 				close(notify[READ]);
 				if (communicationsPipe) { close(comm[READ]); close(comm[WRITE]); }
-				return status;
+				goto exit_point;
 			case 0:					// end of file: exec succeeded
 				close(notify[READ]);
 				if (communicationsPipe)
 					*communicationsPipe = fdopen(comm[READ], "r+");
 				secdebug("authexec", "parent resumes (no error)");
-				return noErr;
+				status = errSecSuccess;
+				goto exit_point;
 			}
         }
-
+		break;
+		
 		case 0:		// child
 			// close foreign side of pipes
 			close(notify[READ]);
@@ -184,21 +214,9 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 				open("/dev/null", O_RDWR);
 			}
 			
-			// where is the trampoline?
-#if defined(NDEBUG)
-			const char *trampoline = TRAMPOLINE;
-#else //!NDEBUG
-			const char *trampoline = getenv("AUTHORIZATIONTRAMPOLINE");
-			if (!trampoline)
-				trampoline = TRAMPOLINE;
-#endif //NDEBUG
-
 			// okay, execute the trampoline
-			secdebug("authexec", "child exec(%s:%s)",
-				trampoline, pathToTool);
-			if (const char **argv = argVector(trampoline, pathToTool, mboxFdText, arguments))
+			if (argv)
 				execv(trampoline, (char *const*)argv);
-			secdebug("authexec", "trampoline exec failed (errno=%d)", errno);
 
 			// execute failed - tell the parent
 			{
@@ -209,6 +227,10 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 			}
 		}
 	}
+
+exit_point:
+	free(argv);
+	return status;
 }
 
 

@@ -6,6 +6,8 @@
 
 (allow system-socket sysctl-read sysctl-write)
 
+(allow system-info (info-type "net.link.addr"))
+
 (allow ipc-posix* (ipc-posix-name "com.apple.securityd"))
 (allow ipc-posix-shm
     (ipc-posix-name "apple.shm.notification_center")
@@ -47,6 +49,7 @@
 
 (allow mach-lookup
     (global-name "com.apple.SecurityServer")
+    (global-name "com.apple.SystemConfiguration.configd")
     (global-name "com.apple.ocspd"))
 
 ;;;;;; Common system sandbox rules
@@ -75,7 +78,8 @@
 ;;; Allow access to standard special files.
 
 (allow file-read*
-       (literal "/private/var/db/timezone/localtime")
+       (subpath "/usr/share")
+       (subpath "/private/var/db/timezone")
        (literal "/dev/random")
        (literal "/dev/urandom"))
 
@@ -102,3 +106,11 @@
        (global-name "com.apple.bsd.dirhelper")
        (global-name "com.apple.system.logger")
        (global-name "com.apple.system.notification_center"))
+       
+;;; Allow creating an ipsec interface
+       (allow network-outbound
+       (control-name "com.apple.net.ipsec_control"))
+
+;;; Allow racoon to check entitlements
+       (allow iokit-open
+       (iokit-user-client-class "AppleMobileFileIntegrityUserClient"))

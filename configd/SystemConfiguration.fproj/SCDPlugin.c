@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2006, 2013 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -278,10 +278,21 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 		       void			*setupContext
 		       )
 {
-	pid_t	pid;
+	char		buf[1024];
+	pid_t		pid;
+	struct passwd	pwd;
+	struct passwd	*result	= NULL;
+	char		*username = NULL;
 
 	// grab the activeChildren mutex
 	pthread_mutex_lock(&lock);
+
+	// cache the getpwuid_r result here to avoid spinning that can happen
+	// when calling it between fork and execv.
+	if ((getpwuid_r(uid, &pwd, buf, sizeof(buf), &result) == 0) &&
+	    (result != NULL)) {
+		username = result->pw_name;
+	}
 
 	// if needed, initialize
 	if (childReaped == NULL) {
@@ -325,15 +336,8 @@ _SCDPluginExecCommand2(SCDPluginExecCallBack	callout,
 				(void) setgid(gid);
 			}
 
-			if ((euid != uid) || (egid != gid)) {
-				char		buf[1024];
-				struct passwd	pwd;
-				struct passwd	*result	= NULL;
-
-				if ((getpwuid_r(uid, &pwd, buf, sizeof(buf), &result) == 0) &&
-				    (result != NULL)) {
-					initgroups(result->pw_name, gid);
-				}
+			if (((euid != uid) || (egid != gid)) && username) {
+				initgroups(username, gid);
 			}
 
 			if (euid != uid) {

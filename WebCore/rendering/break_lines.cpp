@@ -38,7 +38,8 @@
 
 namespace WebCore {
 
-static inline bool isBreakableSpace(UChar ch, bool treatNoBreakSpaceAsBreak)
+template<bool treatNoBreakSpaceAsBreak>
+static inline bool isBreakableSpace(UChar ch)
 {
     switch (ch) {
     case ' ':
@@ -121,60 +122,59 @@ COMPILE_ASSERT(WTF_ARRAY_LENGTH(asciiLineBreakTable) == asciiLineBreakTableLastC
 
 static inline bool shouldBreakAfter(UChar lastCh, UChar ch, UChar nextCh)
 {
-    switch (ch) {
-    case ideographicComma:
-    case ideographicFullStop:
-        // FIXME: cases for ideographicComma and ideographicFullStop are a workaround for an issue in Unicode 5.0
-        // which is likely to be resolved in Unicode 5.1 <http://bugs.webkit.org/show_bug.cgi?id=17411>.
-        // We may want to remove or conditionalize this workaround at some point.
-        return true;
-    case '-':
-        if (isASCIIDigit(nextCh)) {
-            // Don't allow line breaking between '-' and a digit if the '-' may mean a minus sign in the context,
-            // while allow breaking in 'ABCD-1234' and '1234-5678' which may be in long URLs.
-            return isASCIIAlphanumeric(lastCh);
-        }
-        // Fall through
-    default:
-        // If both ch and nextCh are ASCII characters, use a lookup table for enhanced speed and for compatibility
-        // with other browsers (see comments for asciiLineBreakTable for details).
-        if (ch >= asciiLineBreakTableFirstChar && ch <= asciiLineBreakTableLastChar
-                && nextCh >= asciiLineBreakTableFirstChar && nextCh <= asciiLineBreakTableLastChar) {
-            const unsigned char* tableRow = asciiLineBreakTable[ch - asciiLineBreakTableFirstChar];
-            int nextChIndex = nextCh - asciiLineBreakTableFirstChar;
-            return tableRow[nextChIndex / 8] & (1 << (nextChIndex % 8));
-        }
-        // Otherwise defer to the Unicode algorithm by returning false.
-        return false;
+    // Don't allow line breaking between '-' and a digit if the '-' may mean a minus sign in the context,
+    // while allow breaking in 'ABCD-1234' and '1234-5678' which may be in long URLs.
+    if (ch == '-' && isASCIIDigit(nextCh))
+        return isASCIIAlphanumeric(lastCh);
+
+    // If both ch and nextCh are ASCII characters, use a lookup table for enhanced speed and for compatibility
+    // with other browsers (see comments for asciiLineBreakTable for details).
+    if (ch >= asciiLineBreakTableFirstChar && ch <= asciiLineBreakTableLastChar
+            && nextCh >= asciiLineBreakTableFirstChar && nextCh <= asciiLineBreakTableLastChar) {
+        const unsigned char* tableRow = asciiLineBreakTable[ch - asciiLineBreakTableFirstChar];
+        int nextChIndex = nextCh - asciiLineBreakTableFirstChar;
+        return tableRow[nextChIndex / 8] & (1 << (nextChIndex % 8));
     }
+    // Otherwise defer to the Unicode algorithm by returning false.
+    return false;
 }
 
-static inline bool needsLineBreakIterator(UChar ch)
+template<bool treatNoBreakSpaceAsBreak>
+inline bool needsLineBreakIterator(UChar ch)
 {
+    if (treatNoBreakSpaceAsBreak)
+        return ch > asciiLineBreakTableLastChar;
     return ch > asciiLineBreakTableLastChar && ch != noBreakSpace;
 }
 
-int nextBreakablePosition(LazyLineBreakIterator& lazyBreakIterator, int pos, bool treatNoBreakSpaceAsBreak)
+template<typename CharacterType, bool treatNoBreakSpaceAsBreak>
+static inline int nextBreakablePosition(LazyLineBreakIterator& lazyBreakIterator, const CharacterType* str, unsigned length, int pos)
 {
-    const UChar* str = lazyBreakIterator.string();
-    int len = lazyBreakIterator.length();
+    int len = static_cast<int>(length);
     int nextBreak = -1;
 
-    UChar lastLastCh = pos > 1 ? str[pos - 2] : 0;
-    UChar lastCh = pos > 0 ? str[pos - 1] : 0;
+    CharacterType lastLastCh = pos > 1 ? str[pos - 2] : static_cast<CharacterType>(lazyBreakIterator.secondToLastCharacter());
+    CharacterType lastCh = pos > 0 ? str[pos - 1] : static_cast<CharacterType>(lazyBreakIterator.lastCharacter());
+    unsigned priorContextLength = lazyBreakIterator.priorContextLength();
     for (int i = pos; i < len; i++) {
-        UChar ch = str[i];
+        CharacterType ch = str[i];
 
-        if (isBreakableSpace(ch, treatNoBreakSpaceAsBreak) || shouldBreakAfter(lastLastCh, lastCh, ch))
+        if (isBreakableSpace<treatNoBreakSpaceAsBreak>(ch) || shouldBreakAfter(lastLastCh, lastCh, ch))
             return i;
 
-        if (needsLineBreakIterator(ch) || needsLineBreakIterator(lastCh)) {
-            if (nextBreak < i && i) {
-                TextBreakIterator* breakIterator = lazyBreakIterator.get();
-                if (breakIterator)
-                    nextBreak = textBreakFollowing(breakIterator, i - 1);
+        if (needsLineBreakIterator<treatNoBreakSpaceAsBreak>(ch) || needsLineBreakIterator<treatNoBreakSpaceAsBreak>(lastCh)) {
+            if (nextBreak < i) {
+                // Don't break if positioned at start of primary context and there is no prior context.
+                if (i || priorContextLength) {
+                    TextBreakIterator* breakIterator = lazyBreakIterator.get(priorContextLength);
+                    if (breakIterator) {
+                        nextBreak = textBreakFollowing(breakIterator, i - 1 + priorContextLength);
+                        if (nextBreak >= 0)
+                            nextBreak -= priorContextLength;
+                    }
+                }
             }
-            if (i == nextBreak && !isBreakableSpace(lastCh, treatNoBreakSpaceAsBreak))
+            if (i == nextBreak && !isBreakableSpace<treatNoBreakSpaceAsBreak>(lastCh))
                 return i;
         }
 
@@ -183,6 +183,22 @@ int nextBreakablePosition(LazyLineBreakIterator& lazyBreakIterator, int pos, boo
     }
 
     return len;
+}
+
+int nextBreakablePositionIgnoringNBSP(LazyLineBreakIterator& lazyBreakIterator, int pos)
+{
+    String string = lazyBreakIterator.string();
+    if (string.is8Bit())
+        return nextBreakablePosition<LChar, false>(lazyBreakIterator, string.characters8(), string.length(), pos);
+    return nextBreakablePosition<UChar, false>(lazyBreakIterator, string.characters16(), string.length(), pos);
+}
+
+int nextBreakablePosition(LazyLineBreakIterator& lazyBreakIterator, int pos)
+{
+    String string = lazyBreakIterator.string();
+    if (string.is8Bit())
+        return nextBreakablePosition<LChar, true>(lazyBreakIterator, string.characters8(), string.length(), pos);
+    return nextBreakablePosition<UChar, true>(lazyBreakIterator, string.characters16(), string.length(), pos);
 }
 
 } // namespace WebCore

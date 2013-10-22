@@ -23,29 +23,44 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FragmentScriptingPermission_h
-#define FragmentScriptingPermission_h
+// FIXME: Move this file to ParserContentPolicy.h.
+
+#ifndef ParserContentPolicy_h
+#define ParserContentPolicy_h
 
 namespace WebCore {
 
-// FIXME: This enum is poorly named.  It is used to remove script contents when
-// generating DocumentFragments for paste in platform/*/Pasteboard.*.
-enum FragmentScriptingPermission {
-    FragmentScriptingAndPluginContentNotAllowed,
-    FragmentScriptingAllowed,
-    FragmentScriptingNotAllowed,
+enum ParserContentPolicy {
+    DisallowScriptingAndPluginContent,
+    DisallowScriptingContent,
+    AllowScriptingContent,
+    AllowScriptingContentAndDoNotMarkAlreadyStarted,
 };
 
-static inline bool scriptingContentIsAllowed(FragmentScriptingPermission scriptingPermission) 
+static inline bool scriptingContentIsAllowed(ParserContentPolicy parserContentPolicy) 
 {
-    return scriptingPermission == FragmentScriptingAllowed;
+    return parserContentPolicy == AllowScriptingContent || parserContentPolicy == AllowScriptingContentAndDoNotMarkAlreadyStarted;
 }
 
-static inline bool pluginContentIsAllowed(FragmentScriptingPermission scriptingPermission)
+static inline ParserContentPolicy disallowScriptingContent(ParserContentPolicy parserContentPolicy)
 {
-    return scriptingPermission != FragmentScriptingAndPluginContentNotAllowed;
+    if (!scriptingContentIsAllowed(parserContentPolicy))
+        return parserContentPolicy;
+    return DisallowScriptingContent;
+}
+
+static inline bool pluginContentIsAllowed(ParserContentPolicy parserContentPolicy)
+{
+    return parserContentPolicy != DisallowScriptingAndPluginContent;
+}
+
+static inline ParserContentPolicy allowPluginContent(ParserContentPolicy parserContentPolicy)
+{
+    if (pluginContentIsAllowed(parserContentPolicy))
+        return parserContentPolicy;
+    return DisallowScriptingContent;
 }
 
 } // namespace WebCore
 
-#endif // FragmentScriptingPermission_h
+#endif // ParserContentPolicy_h

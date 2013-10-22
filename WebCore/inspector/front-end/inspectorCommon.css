@@ -11,16 +11,17 @@ body {
     right: 0;
     overflow: hidden;
     font-family: Lucida Grande, sans-serif;
-    font-size: 10px;
+    font-size: 11px;
     margin: 0;
+    tab-size: 4;
     -webkit-user-select: none;
 }
 
-body.dock-to-right {
+body.dock-to-right:not(.undocked) {
     border-left: 1px solid rgb(80, 80, 80);
 }
 
-body.dock-to-right.inactive {
+body.dock-to-right.inactive:not(.undocked) {
     border-left: 1px solid rgb(64%, 64%, 64%);
 }
 
@@ -71,7 +72,7 @@ iframe.view {
 .resources-event-dividers {
     position: absolute;
     left: 0;
-    right: 5px;
+    right: 0;
     height: 100%;
     top: 0;
     z-index: 300;
@@ -89,6 +90,8 @@ iframe.view {
     height: 20px;
     z-index: 200;
     pointer-events: none;
+    cursor: move;
+    overflow: hidden;
 }
 
 .resources-divider {
@@ -115,31 +118,66 @@ iframe.view {
     z-index: 300;
 }
 
-.resources-red-divider {
-    background-color: rgba(255, 0, 0, 0.5);
-}
-
-.resources-blue-divider {
-    background-color: rgba(0, 0, 255, 0.5);
-}
-
-.resources-orange-divider {
-    background-color: rgba(255, 178, 23, 0.5);
-}
-
-.resources-divider.last {
-    background-color: transparent;
-}
-
 .resources-divider-label {
     position: absolute;
     top: 4px;
     right: 3px;
-    font-size: 9px;
-    color: rgb(50%, 50%, 50%);
+    font-size: 80%;
     white-space: nowrap;
+    pointer-events: none;
 }
 
+.overview-grid-window-selector {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(125, 173, 217, 0.5);
+    z-index: 250;
+}
+
+.overview-grid-window {
+    background-color: white;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 60px;
+    z-index: 150;
+}
+
+.overview-grid-dividers-background {
+    left: 0%;
+    right: 0%;
+    top: 0px;
+    bottom: 60px;
+    background-color: black;
+    position: absolute;
+}
+
+.overview-grid-window-rulers {
+    top: 0;
+    bottom: 0;
+    position: absolute;
+    opacity: 0.2;
+    border-right: 1px solid black;
+    border-left: 1px solid black;
+    z-index: 150;
+    pointer-events: none;
+}
+
+.overview-grid-window-resizer {
+    position: absolute;
+    top: 0px;
+    bottom: 60px;
+    width: 5px;
+    margin-left: -3px;
+    margin-right: -2px;
+    background-color: rgb(153, 153, 153);
+    z-index: 500;
+    cursor: ew-resize;
+    -webkit-border-radius: 2px;
+    -webkit-box-shadow: white 1px 0 0, white -1px 0 0, white 0 1px 0, white 0 -1px 0;
+}
 
 /* Network timing is shared between popover and network item view pane */
 

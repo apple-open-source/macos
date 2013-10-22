@@ -75,7 +75,7 @@ event_cmp_fn(const void *aptr, const void *bptr)
 {
     const struct heim_event_data *a = aptr;
     const struct heim_event_data *b = bptr;
-    return a->t - b->t;
+    return (int)(a->t - b->t);
 }
 
 /*

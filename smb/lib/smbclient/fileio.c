@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -32,6 +32,45 @@
 #include <sys/mchain.h>
 #include <netsmb/rq.h>
 #include <netsmb/smb_converter.h>
+#include <netsmb/smbio_2.h>
+
+/*
+ * Note: These are the user space APIs into the SMB client.  They take in
+ * args and calls the coresponding function smbio_ to do the ioctl call 
+ * into the kernel and parse out the results.
+ */
+
+
+static NTSTATUS
+SMBMapError (int error)
+{
+    /* Is it a Posix error? If so, map it to a NT status */
+    if ((error >= EPERM) && (error <= ELAST)) {
+        /* remap it to NT status */
+        switch (error) {
+            case EOVERFLOW:
+                return STATUS_BUFFER_OVERFLOW;
+            case ENOMEM:
+                return STATUS_NO_MEMORY;
+            case EINVAL:
+                return STATUS_INVALID_PARAMETER;
+            case ENOTSUP:
+                return STATUS_NOT_IMPLEMENTED;
+            case ENOENT:
+                return STATUS_OBJECT_NAME_NOT_FOUND;
+            default:
+                smb_log_info("%s: unmapped syserr = %s", 
+                             ASL_LEVEL_DEBUG, 
+                             __FUNCTION__, 
+                             strerror(error));
+                return STATUS_UNSUCCESSFUL;
+        }
+    }
+    
+    /* Must already be a NT Status */
+    return (error);
+}
+
 
 NTSTATUS
 SMBCreateFile(
@@ -47,7 +86,7 @@ SMBCreateFile(
 #pragma unused(lpSecurityAttributes)
 	struct open_inparms inparms;
  	void *          hContext;
-	int				fid;
+	SMBFID			fid;
 	int             err;
 	NTSTATUS        status;
 	
@@ -55,22 +94,18 @@ SMBCreateFile(
 	if (!NT_SUCCESS(status)) {
         return status;
     }
-	memset(&inparms, 0,sizeof(inparms));
+	memset(&inparms, 0, sizeof(inparms));
 	inparms.rights = dwDesiredAccess;
 	inparms.attrs = SMB_EFA_NORMAL;
 	inparms.shareMode = dwShareMode;
 	inparms.disp = dwCreateDisposition;
 	inparms.createOptions = dwFlagsAndAttributes;
-	/* 
-	 * Currently smbio_ntcreatex only returns errno, we need return NTStatusErr 
-	 * in the future. For now handle the basic errors here.
-	 */ 
-	err = smbio_ntcreatex(hContext, lpFileName, NULL, &inparms, NULL, &fid);
-	if (err == ENOMEM) {
-		return STATUS_NO_MEMORY;
-	} else if (err) {
-		return STATUS_UNSUCCESSFUL;
-	}
+
+	err = smb2io_ntcreatex(hContext, lpFileName, NULL, &inparms, NULL, &fid);
+    status = SMBMapError(err);
+	if (!NT_SUCCESS(status)) {
+		return status;
+    }
 
    *phFile = fid;
     return STATUS_SUCCESS;
@@ -92,7 +127,7 @@ SMBCreateNamedStreamFile(
 #pragma unused(lpSecurityAttributes)
 	struct open_inparms inparms;
  	void *          hContext;
-	int             fid;
+	SMBFID          fid;
 	int             err;
 	NTSTATUS        status;
 	
@@ -100,24 +135,19 @@ SMBCreateNamedStreamFile(
 	if (!NT_SUCCESS(status)) {
 		return status;
 	}
-	memset(&inparms, 0,sizeof(inparms));
+	memset(&inparms, 0, sizeof(inparms));
 	inparms.rights = dwDesiredAccess;
 	inparms.attrs = SMB_EFA_NORMAL;
 	inparms.shareMode = dwShareMode;
 	inparms.disp = dwCreateDisposition;
 	inparms.createOptions = dwFlagsAndAttributes;
-	/* 
-	 * XXX -  map real NTSTATUS code
-	 * Currently smbio_ntcreatex only returns errno, we need return NTStatusErr 
-	 * in the future. For now handle the basic errors here.
-	 */ 
-	err = smbio_ntcreatex(hContext, lpFileName, lpFileStreamName, &inparms, 
-						  NULL, &fid);
-	if (err == ENOMEM) {
-		return STATUS_NO_MEMORY;
-	} else if (err) {
-		return STATUS_UNSUCCESSFUL;
-	}
+
+	err = smb2io_ntcreatex(hContext, lpFileName, lpFileStreamName, &inparms, 
+                           NULL, &fid);
+    status = SMBMapError(err);
+	if (!NT_SUCCESS(status)) {
+		return status;
+    }
 	
 	*phFile = fid;
     return STATUS_SUCCESS;
@@ -171,22 +201,21 @@ SMBTransactNamedPipe(
     NTSTATUS status;
     void * hContext;
  	const char	*namePipe = "\\PIPE\\"; /* Always just pipe for us */
-    uint16_t    setup[2];
+    uint64_t    setup[2];
 
     status = SMBServerContext(inConnection, &hContext);
 	if (!NT_SUCCESS(status)) {
         return status;
     }	
     setup[0] = TRANS_TRANSACT_NAMED_PIPE;
-    setup[1] = (uint16_t)hNamedPipe;
+    setup[1] = hNamedPipe;
 	
-    error = smbio_transact(hContext, setup, 2, namePipe, NULL, 0,
-						 inBuffer, inBufferSize, NULL, NULL,
-						 outBuffer, &outBufferSize);
-    if (error) {
-		errno = error;
-        /* XXX map real NTSTATUS code */
-        return (error == EOVERFLOW) ? STATUS_BUFFER_OVERFLOW : STATUS_UNEXPECTED_IO_ERROR;
+    error = smb2io_transact(hContext, setup, 2, namePipe, NULL, 0,
+                            inBuffer, inBufferSize, NULL, NULL,
+                            outBuffer, &outBufferSize);
+    status = SMBMapError(error);
+	if (!NT_SUCCESS(status) && (status != STATUS_BUFFER_OVERFLOW)) {
+		return status;
     }
 
     *bytesRead = outBufferSize;
@@ -205,20 +234,22 @@ SMBReadFile(
     void * hContext;
     NTSTATUS status;
     int err;
+    uint32_t bytes_read = 0;
 
     status = SMBServerContext(inConnection, &hContext);
 	if (!NT_SUCCESS(status)) {
         return status;
     }
 
-    err = smb_read(hContext, (smbfh)hFile, nOffset,
-        (uint32_t)nNumberOfBytesToRead, (char *)lpBuffer);
-    if (err == -1) {
-        /* XXX map real NTSTATUS code */
-        return STATUS_UNSUCCESSFUL;
+    err = smb2io_read(hContext, hFile, nOffset,
+                      (uint32_t) nNumberOfBytesToRead, (char *) lpBuffer,
+                      &bytes_read);
+    status = SMBMapError(err);
+	if (!NT_SUCCESS(status)) {
+		return status;
     }
 
-    *lpNumberOfBytesRead = err;
+    *lpNumberOfBytesRead = bytes_read;
     return STATUS_SUCCESS;
 }
 
@@ -291,20 +322,22 @@ SMBWriteFile(
     void * hContext;
     NTSTATUS status;
     int err;
+    uint32_t bytes_written = 0;
 
     status = SMBServerContext(inConnection, &hContext);
 	if (!NT_SUCCESS(status)) {
         return status;
     }
 
-    err = smb_write(hContext, (smbfh)hFile, nOffset,
-        (uint32_t)nNumberOfBytesToWrite, (char *)lpBuffer);
-    if (err == -1) {
-        /* XXX map real NTSTATUS code */
-        return STATUS_UNSUCCESSFUL;
+    err = smb2io_write(hContext, hFile, nOffset,
+                       (uint32_t) nNumberOfBytesToWrite, (char *) lpBuffer,
+                       &bytes_written);
+    status = SMBMapError(err);
+	if (!NT_SUCCESS(status)) {
+		return status;
     }
 
-    *lpNumberOfBytesWritten = err;
+    *lpNumberOfBytesWritten = bytes_written;
     return STATUS_SUCCESS;
 }
 
@@ -321,17 +354,13 @@ SMBCloseFile(
 	if (!NT_SUCCESS(status)) {
         return status;
     }
-	/* 
-	 * XXX -  map real NTSTATUS code
-	* Currently smbio_close_file only returns errno, we need return NTStatusErr 
-	* in the future. For now handle the basic errors here.
-	*/ 
-	err = smbio_close_file(hContext, (uint16_t)hFile);
-	if (err == ENOMEM) {
-		return STATUS_NO_MEMORY;
-	} else if (err) {
-		return STATUS_UNSUCCESSFUL;
-	}
+
+	err = smb2io_close_file(hContext, hFile);
+    status = SMBMapError(err);
+	if (!NT_SUCCESS(status)) {
+		return status;
+    }
+
     return STATUS_SUCCESS;
 }
 

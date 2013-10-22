@@ -36,6 +36,10 @@
 #include <wtf/Atomics.h>
 #include <wtf/MainThread.h>
 
+#if DEBUG_AUDIONODE_REFERENCES
+#include <stdio.h>
+#endif
+
 namespace WebCore {
 
 AudioNode::AudioNode(AudioContext* context, float sampleRate)
@@ -47,9 +51,11 @@ AudioNode::AudioNode(AudioContext* context, float sampleRate)
     , m_lastNonSilentTime(-1)
     , m_normalRefCount(1) // start out with normal refCount == 1 (like WTF::RefCounted class)
     , m_connectionRefCount(0)
-    , m_disabledRefCount(0)
     , m_isMarkedForDeletion(false)
     , m_isDisabled(false)
+    , m_channelCount(2)
+    , m_channelCountMode(Max)
+    , m_channelInterpretation(AudioBus::Speakers)
 {
 #if DEBUG_AUDIONODE_REFERENCES
     if (!s_isNodeCountInitialized) {
@@ -63,7 +69,7 @@ AudioNode::~AudioNode()
 {
 #if DEBUG_AUDIONODE_REFERENCES
     --s_nodeCount[nodeType()];
-    printf("%p: %d: AudioNode::~AudioNode() %d %d %d\n", this, nodeType(), m_normalRefCount, m_connectionRefCount, m_disabledRefCount);
+    fprintf(stderr, "%p: %d: AudioNode::~AudioNode() %d %d\n", this, nodeType(), m_normalRefCount, m_connectionRefCount);
 #endif
 }
 
@@ -189,10 +195,105 @@ void AudioNode::disconnect(unsigned outputIndex, ExceptionCode& ec)
     output->disconnectAll();
 }
 
+unsigned long AudioNode::channelCount()
+{
+    return m_channelCount;
+}
+
+void AudioNode::setChannelCount(unsigned long channelCount, ExceptionCode& ec)
+{
+    ASSERT(isMainThread());
+    AudioContext::AutoLocker locker(context());
+
+    if (channelCount > 0 && channelCount <= AudioContext::maxNumberOfChannels()) {
+        if (m_channelCount != channelCount) {
+            m_channelCount = channelCount;
+            if (m_channelCountMode != Max)
+                updateChannelsForInputs();
+        }
+    } else
+        ec = INVALID_STATE_ERR;
+}
+
+String AudioNode::channelCountMode()
+{
+    switch (m_channelCountMode) {
+    case Max:
+        return "max";
+    case ClampedMax:
+        return "clamped-max";
+    case Explicit:
+        return "explicit";
+    }
+    ASSERT_NOT_REACHED();
+    return "";
+}
+
+void AudioNode::setChannelCountMode(const String& mode, ExceptionCode& ec)
+{
+    ASSERT(isMainThread());
+    AudioContext::AutoLocker locker(context());
+
+    ChannelCountMode oldMode = m_channelCountMode;
+
+    if (mode == "max")
+        m_channelCountMode = Max;
+    else if (mode == "clamped-max")
+        m_channelCountMode = ClampedMax;
+    else if (mode == "explicit")
+        m_channelCountMode = Explicit;
+    else
+        ec = INVALID_STATE_ERR;
+
+    if (m_channelCountMode != oldMode)
+        updateChannelsForInputs();
+}
+
+String AudioNode::channelInterpretation()
+{
+    switch (m_channelInterpretation) {
+    case AudioBus::Speakers:
+        return "speakers";
+    case AudioBus::Discrete:
+        return "discrete";
+    }
+    ASSERT_NOT_REACHED();
+    return "";
+}
+
+void AudioNode::setChannelInterpretation(const String& interpretation, ExceptionCode& ec)
+{
+    ASSERT(isMainThread());
+    AudioContext::AutoLocker locker(context());
+
+    if (interpretation == "speakers")
+        m_channelInterpretation = AudioBus::Speakers;
+    else if (interpretation == "discrete")
+        m_channelInterpretation = AudioBus::Discrete;
+    else
+        ec = INVALID_STATE_ERR;
+}
+
+void AudioNode::updateChannelsForInputs()
+{
+    for (unsigned i = 0; i < m_inputs.size(); ++i)
+        input(i)->changedOutputs();
+}
+
+const AtomicString& AudioNode::interfaceName() const
+{
+    return eventNames().interfaceForAudioNode;
+}
+
+ScriptExecutionContext* AudioNode::scriptExecutionContext() const
+{
+    return const_cast<AudioNode*>(this)->context()->scriptExecutionContext();
+}
+
 void AudioNode::processIfNecessary(size_t framesToProcess)
 {
     ASSERT(context()->isAudioThread());
-    
+
     if (!isInitialized())
         return;
 
@@ -265,6 +366,44 @@ void AudioNode::unsilenceOutputs()
         output(i)->bus()->clearSilentFlag();
 }
 
+void AudioNode::enableOutputsIfNecessary()
+{
+    if (m_isDisabled && m_connectionRefCount > 0) {
+        ASSERT(isMainThread());
+        AudioContext::AutoLocker locker(context());
+
+        m_isDisabled = false;
+        for (unsigned i = 0; i < m_outputs.size(); ++i)
+            output(i)->enable();
+    }
+}
+
+void AudioNode::disableOutputsIfNecessary()
+{
+    // Disable outputs if appropriate. We do this if the number of connections is 0 or 1. The case
+    // of 0 is from finishDeref() where there are no connections left. The case of 1 is from
+    // AudioNodeInput::disable() where we want to disable outputs when there's only one connection
+    // left because we're ready to go away, but can't quite yet.
+    if (m_connectionRefCount <= 1 && !m_isDisabled) {
+        // Still may have JavaScript references, but no more "active" connection references, so put all of our outputs in a "dormant" disabled state.
+        // Garbage collection may take a very long time after this time, so the "dormant" disabled nodes should not bog down the rendering...
+
+        // As far as JavaScript is concerned, our outputs must still appear to be connected.
+        // But internally our outputs should be disabled from the inputs they're connected to.
+        // disable() can recursively deref connections (and call disable()) down a whole chain of connected nodes.
+
+        // FIXME: we special case the convolver and delay since they have a significant tail-time and shouldn't be disconnected simply
+        // because they no longer have any input connections. This needs to be handled more generally where AudioNodes have
+        // a tailTime attribute. Then the AudioNode only needs to remain "active" for tailTime seconds after there are no
+        // longer any active connections.
+        if (nodeType() != NodeTypeConvolver && nodeType() != NodeTypeDelay) {
+            m_isDisabled = true;
+            for (unsigned i = 0; i < m_outputs.size(); ++i)
+                output(i)->disable();
+        }
+    }
+}
+
 void AudioNode::ref(RefType refType)
 {
     switch (refType) {
@@ -274,28 +413,19 @@ void AudioNode::ref(RefType refType)
     case RefTypeConnection:
         atomicIncrement(&m_connectionRefCount);
         break;
-    case RefTypeDisabled:
-        atomicIncrement(&m_disabledRefCount);
-        break;
     default:
         ASSERT_NOT_REACHED();
     }
 
 #if DEBUG_AUDIONODE_REFERENCES
-    printf("%p: %d: AudioNode::ref(%d) %d %d %d\n", this, nodeType(), refType, m_normalRefCount, m_connectionRefCount, m_disabledRefCount);
+    fprintf(stderr, "%p: %d: AudioNode::ref(%d) %d %d\n", this, nodeType(), refType, m_normalRefCount, m_connectionRefCount);
 #endif
 
     // See the disabling code in finishDeref() below. This handles the case where a node
     // is being re-connected after being used at least once and disconnected.
     // In this case, we need to re-enable.
-    if (m_isDisabled && m_connectionRefCount > 0 && refType == RefTypeConnection) {
-        ASSERT(isMainThread());
-        AudioContext::AutoLocker locker(context());
-
-        m_isDisabled = false;
-        for (unsigned i = 0; i < m_outputs.size(); ++i)
-            output(i)->enable();
-    }
+    if (refType == RefTypeConnection)
+        enableOutputsIfNecessary();
 }
 
 void AudioNode::deref(RefType refType)
@@ -322,7 +452,8 @@ void AudioNode::deref(RefType refType)
     } else {
         // We were unable to get the lock, so put this in a list to finish up later.
         ASSERT(context()->isAudioThread());
-        context()->addDeferredFinishDeref(this, refType);
+        ASSERT(refType == RefTypeConnection);
+        context()->addDeferredFinishDeref(this);
     }
 
     // Once AudioContext::uninitialize() is called there's no more chances for deleteMarkedNodes() to get called, so we call here.
@@ -345,20 +476,16 @@ void AudioNode::finishDeref(RefType refType)
         ASSERT(m_connectionRefCount > 0);
         atomicDecrement(&m_connectionRefCount);
         break;
-    case RefTypeDisabled:
-        ASSERT(m_disabledRefCount > 0);
-        atomicDecrement(&m_disabledRefCount);
-        break;
     default:
         ASSERT_NOT_REACHED();
     }
     
 #if DEBUG_AUDIONODE_REFERENCES
-    printf("%p: %d: AudioNode::deref(%d) %d %d %d\n", this, nodeType(), refType, m_normalRefCount, m_connectionRefCount, m_disabledRefCount);
+    fprintf(stderr, "%p: %d: AudioNode::deref(%d) %d %d\n", this, nodeType(), refType, m_normalRefCount, m_connectionRefCount);
 #endif
 
     if (!m_connectionRefCount) {
-        if (!m_normalRefCount && !m_disabledRefCount) {
+        if (!m_normalRefCount) {
             if (!m_isMarkedForDeletion) {
                 // All references are gone - we need to go away.
                 for (unsigned i = 0; i < m_outputs.size(); ++i)
@@ -368,26 +495,8 @@ void AudioNode::finishDeref(RefType refType)
                 context()->markForDeletion(this);
                 m_isMarkedForDeletion = true;
             }
-        } else if (refType == RefTypeConnection) {
-            if (!m_isDisabled) {
-                // Still may have JavaScript references, but no more "active" connection references, so put all of our outputs in a "dormant" disabled state.
-                // Garbage collection may take a very long time after this time, so the "dormant" disabled nodes should not bog down the rendering...
-
-                // As far as JavaScript is concerned, our outputs must still appear to be connected.
-                // But internally our outputs should be disabled from the inputs they're connected to.
-                // disable() can recursively deref connections (and call disable()) down a whole chain of connected nodes.
-
-                // FIXME: we special case the convolver and delay since they have a significant tail-time and shouldn't be disconnected simply
-                // because they no longer have any input connections.  This needs to be handled more generally where AudioNodes have
-                // a tailTime attribute.  Then the AudioNode only needs to remain "active" for tailTime seconds after there are no
-                // longer any active connections.
-                if (nodeType() != NodeTypeConvolver && nodeType() != NodeTypeDelay) {
-                    m_isDisabled = true;
-                    for (unsigned i = 0; i < m_outputs.size(); ++i)
-                        output(i)->disable();
-                }
-            }
-        }
+        } else if (refType == RefTypeConnection)
+            disableOutputsIfNecessary();
     }
 }
 
@@ -398,15 +507,15 @@ int AudioNode::s_nodeCount[NodeTypeEnd];
 
 void AudioNode::printNodeCounts()
 {
-    printf("\n\n");
-    printf("===========================\n");
-    printf("AudioNode: reference counts\n");
-    printf("===========================\n");
+    fprintf(stderr, "\n\n");
+    fprintf(stderr, "===========================\n");
+    fprintf(stderr, "AudioNode: reference counts\n");
+    fprintf(stderr, "===========================\n");
 
     for (unsigned i = 0; i < NodeTypeEnd; ++i)
-        printf("%d: %d\n", i, s_nodeCount[i]);
+        fprintf(stderr, "%d: %d\n", i, s_nodeCount[i]);
 
-    printf("===========================\n\n\n");
+    fprintf(stderr, "===========================\n\n\n");
 }
 
 #endif // DEBUG_AUDIONODE_REFERENCES

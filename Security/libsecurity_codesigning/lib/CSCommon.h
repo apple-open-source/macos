@@ -93,6 +93,12 @@ enum {
 	errSecCSFileHardQuarantined =		-67026,	/* File created by an AppSandbox, exec/open not allowed */
 	errSecCSOutdated =					-67025,	/* presented data is out of date */
 	errSecCSDbCorrupt =					-67024,	/* a system database or file is corrupt */
+	errSecCSResourceDirectoryFailed =	-67023,	/* invalid resource directory (directory or signature have been modified) */
+	errSecCSUnsignedNestedCode =		-67022,	/* nested code is unsigned */
+	errSecCSBadNestedCode =				-67021,	/* nested code is modified or invalid */
+	errSecCSBadCallbackValue =			-67020,	/* monitor callback returned invalid value */
+	errSecCSHelperFailed =				-67019,	/* the codesign_allocate helper tool cannot be found or used */
+	errSecCSVetoed =					-67018,
 };
 
 
@@ -223,6 +229,8 @@ enum {
 	kSecCodeSignatureForceHard = 0x0100,	/* always set HARD mode on launch */
 	kSecCodeSignatureForceKill = 0x0200,	/* always set KILL mode on launch */
 	kSecCodeSignatureForceExpiration = 0x0400, /* force certificate expiration checks */
+	kSecCodeSignatureRestrict = 0x0800, /* restrict dyld loading */
+	kSecCodeSignatureEnforcement = 0x1000, /* enforce code signing */
 };
 
 

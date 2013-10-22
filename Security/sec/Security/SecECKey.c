@@ -39,20 +39,20 @@
 #include <CoreFoundation/CFNumber.h>
 #include <Security/SecFramework.h>
 #include <Security/SecRandom.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include "SecItemPriv.h"
 #include <Security/SecInternal.h>
 #include <corecrypto/ccec.h>
 #include <corecrypto/ccsha1.h>
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccrng.h>
+#include <corecrypto/ccder_decode_eckey.h>
 
 #define kMaximumECKeySize 521
 
 static CFIndex SecECKeyGetAlgorithmID(SecKeyRef key) {
     return kSecECDSAAlgorithmID;
 }
-
 
 
 /*
@@ -70,80 +70,48 @@ static void SecECPublicKeyDestroy(SecKeyRef key) {
         cc_zero(ccec_pub_ctx_size(ccn_sizeof_n(ccec_ctx_n(pubkey))), pubkey.pub);
 }
 
-static ccec_const_cp_t getCPForBits(size_t bits)
+static ccec_const_cp_t getCPForPublicSize(CFIndex encoded_length)
 {
-    switch (bits) {
-        case 192:
-            return ccec_cp_192();
-        case 224:
-            return ccec_cp_224();
-        case 256:
-            return ccec_cp_256();
-        case 384:
-            return ccec_cp_384();
-        case 521:
-            return ccec_cp_521();
-        default:
-        {
-            ccec_const_cp_t nullCP = { .zp = NULL };
-            return nullCP;
-        }
+    size_t keysize = ccec_x963_import_pub_size(encoded_length);
+    if(ccec_keysize_is_supported(keysize)) {
+        return ccec_get_cp(keysize);
     }
-}
-static ccec_const_cp_t getCPForPublicSize(CFIndex publicLength)
-{
-    ccec_const_cp_t cp;
-    switch (publicLength) {
-        case 49:
-            cp = ccec_cp_192();
-            break;
-        case 57:
-            cp = ccec_cp_224();
-            break;
-        case 65:
-            cp = ccec_cp_256();
-            break;
-        case 97:
-            cp = ccec_cp_384();
-            break;
-        case 133:
-            cp = ccec_cp_521();
-            break;
-        default:
-        {
-            ccec_const_cp_t nullCP = { .zp = NULL };
-            return nullCP;
-        }
-    }
-    return cp;
+    ccec_const_cp_t nullCP = { .zp = NULL };
+    return nullCP;
 }
 
-static ccec_const_cp_t getCPForPrivateSize(CFIndex publicLength)
+static ccec_const_cp_t getCPForPrivateSize(CFIndex encoded_length)
 {
-    ccec_const_cp_t cp;
-    switch (publicLength) {
-        case 49 + 24:
-            cp = ccec_cp_192();
-            break;
-        case 57 + 28:
-            cp = ccec_cp_224();
-            break;
-        case 65 + 32:
-            cp = ccec_cp_256();
-            break;
-        case 97 + 48:
-            cp = ccec_cp_384();
-            break;
-        case 133 + 66:
-            cp = ccec_cp_521();
-            break;
-        default:
-        {
-            ccec_const_cp_t nullCP = { .zp = NULL };
-            return nullCP;
+    size_t keysize = ccec_x963_import_priv_size(encoded_length);
+    if(ccec_keysize_is_supported(keysize)) {
+        return ccec_get_cp(keysize);
+    }
+    ccec_const_cp_t nullCP = { .zp = NULL };
+    return nullCP;
+}
+
+static ccoid_t ccoid_secp192r1 = CC_EC_OID_SECP192R1;
+static ccoid_t ccoid_secp256r1 = CC_EC_OID_SECP256R1;
+static ccoid_t ccoid_secp224r1 = CC_EC_OID_SECP224R1;
+static ccoid_t ccoid_secp384r1 = CC_EC_OID_SECP384R1;
+static ccoid_t ccoid_secp521r1 = CC_EC_OID_SECP521R1;
+
+static ccec_const_cp_t ccec_cp_for_oid(ccoid_t oid)
+{
+    if (oid.oid) {
+        if (ccoid_equal(oid, ccoid_secp192r1)) {
+            return ccec_cp_192();
+        } else if (ccoid_equal(oid, ccoid_secp256r1)) {
+            return ccec_cp_256();
+        } else if (ccoid_equal(oid, ccoid_secp224r1)) {
+            return ccec_cp_224();
+        } else if (ccoid_equal(oid, ccoid_secp384r1)) {
+            return ccec_cp_384();
+        } else if (ccoid_equal(oid, ccoid_secp521r1)) {
+            return ccec_cp_521();
         }
     }
-    return cp;
+    return (ccec_const_cp_t){NULL};
 }
 
 static OSStatus SecECPublicKeyInit(SecKeyRef key,
@@ -232,7 +200,7 @@ static size_t SecECPublicKeyBlockSize(SecKeyRef key) {
     /* Get key size in octets */
     ccec_pub_ctx_t pubkey;
     pubkey.pub = key->key;
-    return ccec_ccn_size(ccec_ctx_cp(pubkey));
+    return ccec_ctx_size(pubkey);
 }
 
 /* Encode the public key and return it in a newly allocated CFDataRef. */
@@ -266,6 +234,75 @@ static CFDictionaryRef SecECPublicKeyCopyAttributeDictionary(SecKeyRef key) {
     return SecKeyGeneratePublicAttributeDictionary(key, kSecAttrKeyTypeEC);
 }
 
+static CFStringRef SecECPublicKeyCopyKeyDescription(SecKeyRef key)
+{
+    ccec_pub_ctx_t ecPubkey;
+    CFStringRef keyDescription = NULL;
+    size_t xlen, ylen, ix;
+    CFMutableStringRef xString = NULL;
+    CFMutableStringRef yString = NULL;
+
+    ecPubkey.pub = key->key;
+    
+    //curve
+    long curveType = (long)SecECKeyGetNamedCurve(key);
+    char* curve= NULL;
+    
+    switch (curveType)
+ 	{
+        case 23:
+            curve = "kSecECCurveSecp256r1";
+            break;
+        case 24:
+            curve = "kSecECCurveSecp384r1";
+            break;
+        case 25:
+            curve = "kSecECCurveSecp521r1";
+            break;
+        case -1:
+            curve = "kSecECCurveNone";
+            break;
+        default:
+            curve = "kSecECCurveNone";
+            break;
+    }
+
+    uint8_t *xunit = (uint8_t*)ccec_ctx_x(ecPubkey);
+    require_quiet( NULL != xunit, fail);
+    xlen = (size_t)strlen((char*)xunit);
+
+    	
+    xString = CFStringCreateMutable(kCFAllocatorDefault, xlen * 2);
+    require_quiet( NULL != xString, fail);
+    
+    for (ix = 0; ix < xlen; ++ix)
+    {
+		CFStringAppendFormat(xString, NULL, CFSTR("%02X"), xunit[ix]);
+    }
+
+    uint8_t *yunit = (uint8_t*)ccec_ctx_y(ecPubkey);
+    require_quiet( NULL != yunit, fail);
+    ylen = (size_t)strlen((char*)yunit);
+    
+    yString = CFStringCreateMutable(kCFAllocatorDefault, ylen*2);
+    require_quiet( NULL != yString, fail);
+
+    for(ix = 0; ix < ylen; ++ix)
+    {
+        CFStringAppendFormat(yString, NULL, CFSTR("%02X"), yunit[ix]);
+    }
+    
+    keyDescription = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef curve type: %s, algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, y: %@, x: %@, addr: %p>"), curve, (long)SecKeyGetAlgorithmID(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), yString, xString, key);
+    
+fail:
+	CFReleaseSafe(xString);
+	CFReleaseSafe(yString);
+	if(!keyDescription)
+		keyDescription = CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR("<SecKeyRef curve type: %s, algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, addr: %p>"), curve,(long)SecKeyGetAlgorithmID(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), key);
+    
+	return keyDescription;
+}
+
 SecKeyDescriptor kSecECPublicKeyDescriptor = {
     kSecKeyDescriptorVersion,
     "ECPublicKey",
@@ -279,6 +316,7 @@ SecKeyDescriptor kSecECPublicKeyDescriptor = {
     NULL, /* SecKeyComputeMethod */
     SecECPublicKeyBlockSize,
 	SecECPublicKeyCopyAttributeDictionary,
+    SecECPublicKeyCopyKeyDescription,
     SecECKeyGetAlgorithmID,
     SecECPublicKeyCopyPublicOctets,
 };
@@ -317,9 +355,28 @@ static OSStatus SecECPrivateKeyInit(SecKeyRef key,
 
     switch (encoding) {
     case kSecKeyEncodingPkcs1:
+    {
         /* TODO: DER import size (and thus cp), pub.x, pub.y and k. */
         //err = ecc_import(keyData, keyDataLength, fullkey);
+
+        /* DER != PKCS#1, but we'll go along with it */
+        ccoid_t oid;
+        size_t n;
+        ccec_const_cp_t cp;
+
+        require_noerr(ccec_der_import_priv_keytype(keyDataLength, keyData, &oid, &n), abort);
+        cp = ccec_cp_for_oid(oid);
+        if (cp.zp == NULL) {
+            cp = ccec_curve_for_length_lookup(n * 8 /* bytes -> bits */,
+                ccec_cp_192(), ccec_cp_224(), ccec_cp_256(), ccec_cp_384(), ccec_cp_521(), NULL);
+        }
+        require_action(cp.zp != NULL, abort, err = errSecDecode);
+        ccec_ctx_init(cp, fullkey);
+
+        require_noerr(ccec_der_import_priv(cp, keyDataLength, keyData, fullkey), abort);
+        err = errSecSuccess;
         break;
+    }
     case kSecKeyEncodingBytes:
     {
         ccec_const_cp_t cp = getCPForPrivateSize(keyDataLength);
@@ -353,7 +410,7 @@ static OSStatus SecECPrivateKeyInit(SecKeyRef key,
         CFTypeRef ksize = CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits);
         CFIndex keyLengthInBits = getIntValue(ksize);
 
-        ccec_const_cp_t cp = getCPForBits(keyLengthInBits);
+        ccec_const_cp_t cp = ccec_get_cp(keyLengthInBits);
 
         if (!cp.zp) {
             secwarning("Invalid or missing key size in: %@", parameters);
@@ -398,7 +455,7 @@ ccdigest_lookup_by_oid(unsigned long oid_size, const void *oid) {
         &ccsha512_di
     };
     size_t i;
-    for (i = 0; i < sizeof(dis) / sizeof(*dis); ++i) {
+    for (i = 0; i < array_size(dis); ++i) {
         if (oid_size == dis[i]->oid_size && !memcmp(dis[i]->oid, oid, oid_size))
             return dis[i];
     }
@@ -425,7 +482,7 @@ static size_t SecECPrivateKeyBlockSize(SecKeyRef key) {
     ccec_full_ctx_t fullkey;
     fullkey.hdr = key->key;
     /* Get key size in octets */
-    return ccec_ccn_size(ccec_ctx_cp(fullkey));
+    return ccec_ctx_size(fullkey);
 }
 
 static OSStatus SecECPrivateKeyCopyPublicOctets(SecKeyRef key, CFDataRef *serailziation)
@@ -478,6 +535,34 @@ errOut:
 
 	return dict;
 }
+static CFStringRef SecECPrivateKeyCopyKeyDescription(SecKeyRef key) {
+    
+    //curve
+    long curveType = (long)SecECKeyGetNamedCurve(key);
+    char* curve= NULL;
+    
+    switch (curveType)
+ 	{
+        case 23:
+            curve = "kSecECCurveSecp256r1";
+            break;
+        case 24:
+            curve = "kSecECCurveSecp384r1";
+            break;
+        case 25:
+            curve = "kSecECCurveSecp521r1";
+            break;
+        case -1:
+            curve = "kSecECCurveNone";
+            break;
+        default:
+            curve = "kSecECCurveNone";
+            break;
+    }
+    
+	return CFStringCreateWithFormat(kCFAllocatorDefault,NULL,CFSTR( "<SecKeyRef curve type: %s, algorithm id: %lu, key type: %s, version: %d, block size: %zu bits, addr: %p>"), curve, (long)SecKeyGetAlgorithmID(key), key->key_class->name, key->key_class->version, (8*SecKeyGetBlockSize(key)), key);
+
+}
 
 SecKeyDescriptor kSecECPrivateKeyDescriptor = {
     kSecKeyDescriptorVersion,
@@ -492,6 +577,7 @@ SecKeyDescriptor kSecECPrivateKeyDescriptor = {
     NULL, /* SecKeyComputeMethod */
     SecECPrivateKeyBlockSize,
 	SecECPrivateKeyCopyAttributeDictionary,
+    SecECPrivateKeyCopyKeyDescription,
     SecECKeyGetAlgorithmID,
     SecECPrivateKeyCopyPublicOctets,
 };
@@ -551,7 +637,7 @@ SecECNamedCurve SecECKeyGetNamedCurve(SecKeyRef key) {
 
     ccec_pub_ctx_t pubkey;
     pubkey.pub = key->key;
-    switch (ccec_cp_prime_size(ccec_ctx_cp(pubkey))) {
+    switch (ccec_ctx_size(pubkey)) {
 #if 0
     case 24:
         return kSecECCurveSecp192r1;

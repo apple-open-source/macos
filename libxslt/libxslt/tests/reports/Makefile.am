@@ -11,8 +11,7 @@ EXTRA_DIST = \
 	recglobparam.xsl recglobvar.xsl reclocparam.xsl reclocvar.xsl \
 	recglobparam.xml recglobvar.xml reclocparam.xml reclocvar.xml 
 
-
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
@@ -51,7 +50,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`;\
 	  if [ -n "$$log" ] ; then \
 	  	echo $$name result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	  fi ; \
 	  rm -f result.$$name err.$$name; \
 	  done ; done)

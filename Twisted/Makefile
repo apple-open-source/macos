@@ -12,7 +12,7 @@ ToolType    = Library
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 PYTHON_VERSIONS = $(shell \
-  for python in /usr/bin/python2.*[0-9]; do \
+  for python in /usr/bin/python2.*[6-9]; do \
     "$${python}" -c 'import sys; print "%d.%d" % tuple(sys.version_info[0:2])'; \
   done; \
 )
@@ -54,7 +54,7 @@ install::
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-12.0.0
+AEP_ProjVers   = $(Project)-12.2.0
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = 

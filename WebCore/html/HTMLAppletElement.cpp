@@ -26,6 +26,7 @@
 
 #include "Attribute.h"
 #include "Frame.h"
+#include "FrameLoader.h"
 #include "HTMLDocument.h"
 #include "HTMLNames.h"
 #include "HTMLParamElement.h"
@@ -51,19 +52,19 @@ PassRefPtr<HTMLAppletElement> HTMLAppletElement::create(const QualifiedName& tag
     return adoptRef(new HTMLAppletElement(tagName, document, createdByParser));
 }
 
-void HTMLAppletElement::parseAttribute(Attribute* attr)
+void HTMLAppletElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attr->name() == altAttr ||
-        attr->name() == archiveAttr ||
-        attr->name() == codeAttr ||
-        attr->name() == codebaseAttr ||
-        attr->name() == mayscriptAttr ||
-        attr->name() == objectAttr) {
+    if (name == altAttr
+        || name == archiveAttr
+        || name == codeAttr
+        || name == codebaseAttr
+        || name == mayscriptAttr
+        || name == objectAttr) {
         // Do nothing.
         return;
     }
 
-    HTMLPlugInImageElement::parseAttribute(attr);
+    HTMLPlugInImageElement::parseAttribute(name, value);
 }
 
 bool HTMLAppletElement::rendererIsNeeded(const NodeRenderingContext& context)
@@ -81,7 +82,7 @@ RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style
     return new (document()->renderArena()) RenderApplet(this);
 }
 
-RenderWidget* HTMLAppletElement::renderWidgetForJSBindings()
+RenderWidget* HTMLAppletElement::renderWidgetForJSBindings() const
 {
     if (!canEmbedJava())
         return 0;
@@ -90,12 +91,21 @@ RenderWidget* HTMLAppletElement::renderWidgetForJSBindings()
     return renderPart();
 }
 
-void HTMLAppletElement::updateWidget(PluginCreationOption)
+void HTMLAppletElement::updateWidget(PluginCreationOption pluginCreationOption)
 {
     setNeedsWidgetUpdate(false);
     // FIXME: This should ASSERT isFinishedParsingChildren() instead.
     if (!isFinishedParsingChildren())
         return;
+
+    // FIXME: It's sadness that we have this special case here.
+    //        See http://trac.webkit.org/changeset/25128 and
+    //        plugins/netscape-plugin-setwindow-size.html
+    if (pluginCreationOption == CreateOnlyNonNetscapePlugins) {
+        // Ensure updateWidget() is called again during layout to create the Netscape plug-in.
+        setNeedsWidgetUpdate(true);
+        return;
+    }
 
     RenderEmbeddedObject* renderer = renderEmbeddedObject();
 
@@ -113,19 +123,19 @@ void HTMLAppletElement::updateWidget(PluginCreationOption)
     const AtomicString& codeBase = getAttribute(codebaseAttr);
     if (!codeBase.isNull()) {
         paramNames.append("codeBase");
-        paramValues.append(codeBase);
+        paramValues.append(codeBase.string());
     }
 
     const AtomicString& name = document()->isHTMLDocument() ? getNameAttribute() : getIdAttribute();
     if (!name.isNull()) {
         paramNames.append("name");
-        paramValues.append(name);
+        paramValues.append(name.string());
     }
 
     const AtomicString& archive = getAttribute(archiveAttr);
     if (!archive.isNull()) {
         paramNames.append("archive");
-        paramValues.append(archive);
+        paramValues.append(archive.string());
     }
 
     paramNames.append("baseURL");
@@ -134,7 +144,7 @@ void HTMLAppletElement::updateWidget(PluginCreationOption)
     const AtomicString& mayScript = getAttribute(mayscriptAttr);
     if (!mayScript.isNull()) {
         paramNames.append("mayScript");
-        paramValues.append(mayScript);
+        paramValues.append(mayScript.string());
     }
 
     for (Node* child = firstChild(); child; child = child->nextSibling()) {

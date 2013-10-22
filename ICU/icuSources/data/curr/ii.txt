@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/ii.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/ii.xml
 // *
 // ***************************************************************************
 /**
@@ -11,10 +11,14 @@
  */
 ii{
     Currencies{
+        CNY{
+            "¥",
+            "CNY",
+        }
         XXX{
             "XXX",
             "ꅉꀋꐚꌠꌋꆀꎆꃀꀋꈁꀐꌠ",
         }
     }
-    Version{"2.0.64.43"}
+    Version{"2.0.82.45"}
 }

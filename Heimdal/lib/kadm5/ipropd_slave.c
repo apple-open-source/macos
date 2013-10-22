@@ -78,6 +78,7 @@ connect_to_master (krb5_context context, const char *master,
 	s = socket (a->ai_family, a->ai_socktype, a->ai_protocol);
 	if (s < 0)
 	    continue;
+	socket_set_nopipe(s, 1);
 	if (connect (s, a->ai_addr, a->ai_addrlen) < 0) {
 	    krb5_warn(context, errno, "connection failed to %s[%s]",
 		      master, node);

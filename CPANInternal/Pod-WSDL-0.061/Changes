@@ -1,0 +1,54 @@
+Revision history for Perl extension Pod::WSDL.
+
+0.01  Mon May 23 20:36:37 2005
+	- original version; created by h2xs 1.23 with options
+		-A -X Pod::WSDL
+
+0.03  Tue Jul 20 00:06:00 2005  
+	- Packed everything in one distribution
+
+0.04  
+	- Fixed bug: warnings issued by XML::Writer, when using Pod for methods
+      without parameters
+	- Fixed unnecessary requirement for Perl version 5.8.5
+	- Fixed bug in the generated WSDL for certain cases where complex types were
+      used
+	- Fixed error in documentation
+	- Fixed error which led to failure if wrong parameters were being used
+   
+0.05
+	- AHICOX: Fixed Bug: definitions for arrays of standard types not generated
+	  when included in complex type class as an ATTR.
+	- TAREKA: Changed email address
+	- TAREKA: Added arguments "pretty" and "withDocumentation" to method WSDL 
+	  in WSDL.pm (Fixed rt.cpan.org, bug/wish id 21137)
+	- TAREKA: Fixed Bug: calling method WSDL on WSDL.pm twice doubled output
+	- TAREKA: Fixed Bug: <wsdl:documentation> in schema part of wsdl must be 
+	  wrapped in <annotation> (thanks to Thomas Walloschke for the hint)
+	- TAREKA: Fixed Bug: <wsdlsoap:fault> must have name attribute  (thanks to 
+	  Thomas Walloschke for the hint)
+	  
+0.051	Thu Oct 12 17:06:58 GMT 2006
+	- AHICOX: baseName is auto-set based on the package name of the sourced file.
+	          
+			  NOTE: the '::' separator is removed so My::Great::Module gets the
+			  automatic baseName of MyGreatModule.
+			  
+			  OTHER NOTE: should the user be able to override the auto-generated
+			  base name with a POD directive like this?
+			  =begin WSDL
+			  _baseName OtherNameToUse
+			  =cut
+			  or perhaps at instatiation with a 'baseName' option?
+	
+0.06  Fri Dec 17 12:16:00 GMT 2010
+    - BMAVT BUG fix: https://rt.cpan.org/Public/Bug/Display.html?id=28931
+            Fix anyUri to anyURI
+    - JCOP BUG fix: https://rt.cpan.org/Ticket/Display.html?id=51447
+            Spelling mistakes
+    - JCOP BUG fix: https://rt.cpan.org/Ticket/Display.html?id=25161
+            Ommit parameterOrder if method has no params as parameterOrder is optional:
+                http://www.w3.org/TR/wsdl#_parameter
+
+0.061  Fri Dec 17 15:45:00 GMT 2010
+    - JCOP Minor cleanup of development classes

@@ -47,7 +47,7 @@ pos(char c)
     const char *p;
     for (p = base64_chars; *p; p++)
 	if (*p == c)
-	    return p - base64_chars;
+	    return (int)(p - base64_chars);
     return -1;
 }
 
@@ -138,5 +138,5 @@ base64_decode(const char *str, void *data)
 	if (marker < 1)
 	    *q++ = val & 0xff;
     }
-    return q - (unsigned char *) data;
+    return (int)(q - (unsigned char *) data);
 }

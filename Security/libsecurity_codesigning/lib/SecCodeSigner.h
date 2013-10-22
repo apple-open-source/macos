@@ -154,12 +154,15 @@ extern const CFStringRef kSecCodeSignerTimestampAuthentication;
 extern const CFStringRef kSecCodeSignerRequireTimestamp;
 extern const CFStringRef kSecCodeSignerTimestampServer;
 extern const CFStringRef kSecCodeSignerTimestampOmitCertificates;
+extern const CFStringRef kSecCodeSignerPreserveMetadata;
 
-// temporary add-back to bridge B&I build dependencies -- remove soon
-extern const CFStringRef kSecCodeSignerTSAUse;
-extern const CFStringRef kSecCodeSignerTSAURL;
-extern const CFStringRef kSecCodeSignerTSAClientAuth;
-extern const CFStringRef kSecCodeSignerTSANoCerts;
+enum {
+    kSecCodeSignerPreserveIdentifier = 1 << 0,		// preserve signing identifier
+    kSecCodeSignerPreserveRequirements = 1 << 1,	// preserve internal requirements (including DR)
+    kSecCodeSignerPreserveEntitlements = 1 << 2,	// preserve entitlements
+    kSecCodeSignerPreserveResourceRules = 1 << 3,	// preserve resource rules (and thus resources)
+    kSecCodeSignerPreserveFlags = 1 << 4,			// preserve signing flags
+};
 
 
 /*!
@@ -175,11 +178,16 @@ extern const CFStringRef kSecCodeSignerTSANoCerts;
 		from the target code instead of signing.
 	@param staticCode On successful return, a SecStaticCode object reference representing
 	the file system origin of the given SecCode. On error, unchanged.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 enum {
 	kSecCSRemoveSignature = 1 << 0,		// strip existing signature
+	kSecCSSignPreserveSignature = 1 << 1, // do not (re)sign if an embedded signature is already present
+	kSecCSSignNestedCode = 1 << 2,		// recursive (deep) signing
+	kSecCSSignOpaque = 1 << 3,			// treat all files as resources (no nest scan, no flexibility)
+	kSecCSSignV1 = 1 << 4,				// sign ONLY in V1 form
+	kSecCSSignNoV1 = 1 << 5,			// do not include V1 form
 };
 
 
@@ -198,10 +206,10 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 	the resulting signature data.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param errors An optional pointer to a CFErrorRef variable. If the call fails
-	(and something other than noErr is returned), and this argument is non-NULL,
+	(and something other than errSecSuccess is returned), and this argument is non-NULL,
 	a CFErrorRef is stored there further describing the nature and circumstances
 	of the failure. The caller must CFRelease() this error object when done with it.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeSignerAddSignature(SecCodeSignerRef signer,

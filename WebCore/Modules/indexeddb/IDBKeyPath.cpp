@@ -30,6 +30,7 @@
 
 #include <wtf/ASCIICType.h>
 #include <wtf/dtoa.h>
+#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
@@ -83,25 +84,39 @@ IDBKeyPathLexer::TokenType IDBKeyPathLexer::lex(String& element)
     return lexIdentifier(element);
 }
 
-static inline bool isSafeIdentifierStartCharacter(UChar c)
+namespace {
+
+using namespace WTF::Unicode;
+
+// The following correspond to grammar in ECMA-262.
+const uint32_t unicodeLetter = Letter_Uppercase | Letter_Lowercase | Letter_Titlecase | Letter_Modifier | Letter_Other | Number_Letter;
+const uint32_t unicodeCombiningMark = Mark_NonSpacing | Mark_SpacingCombining;
+const uint32_t unicodeDigit = Number_DecimalDigit;
+const uint32_t unicodeConnectorPunctuation = Punctuation_Connector;
+const UChar ZWNJ = 0x200C;
+const UChar ZWJ = 0x200D;
+
+static inline bool isIdentifierStartCharacter(UChar c)
 {
-    return isASCIIAlpha(c) || (c == '_') || (c == '$');
+    return (category(c) & unicodeLetter) || (c == '$') || (c == '_');
 }
 
-static inline bool isSafeIdentifierCharacter(UChar c)
+static inline bool isIdentifierCharacter(UChar c)
 {
-    return isASCIIAlphanumeric(c) || (c == '_') || (c == '$');
+    return (category(c) & (unicodeLetter | unicodeCombiningMark | unicodeDigit | unicodeConnectorPunctuation)) || (c == '$') || (c == '_') || (c == ZWNJ) || (c == ZWJ);
 }
+
+} // namespace
 
 IDBKeyPathLexer::TokenType IDBKeyPathLexer::lexIdentifier(String& element)
 {
     const UChar* start = m_ptr;
-    if (m_ptr < m_end && isSafeIdentifierStartCharacter(*m_ptr))
+    if (m_ptr < m_end && isIdentifierStartCharacter(*m_ptr))
         ++m_ptr;
     else
         return TokenError;
 
-    while (m_ptr < m_end && isSafeIdentifierCharacter(*m_ptr))
+    while (m_ptr < m_end && isIdentifierCharacter(*m_ptr))
         ++m_ptr;
 
     element = String(start, m_ptr - start);
@@ -178,6 +193,63 @@ void IDBParseKeyPath(const String& keyPath, Vector<String>& elements, IDBKeyPath
         }
     }
 }
+
+IDBKeyPath::IDBKeyPath(const String& string)
+    : m_type(StringType)
+    , m_string(string)
+{
+    ASSERT(!m_string.isNull());
+}
+
+IDBKeyPath::IDBKeyPath(const Vector<String>& array)
+    : m_type(ArrayType)
+    , m_array(array)
+{
+#ifndef NDEBUG
+    for (size_t i = 0; i < m_array.size(); ++i)
+        ASSERT(!m_array[i].isNull());
+#endif
+}
+
+bool IDBKeyPath::isValid() const
+{
+    switch (m_type) {
+    case NullType:
+        return false;
+
+    case StringType:
+        return IDBIsValidKeyPath(m_string);
+
+    case ArrayType:
+        if (m_array.isEmpty())
+            return false;
+        for (size_t i = 0; i < m_array.size(); ++i) {
+            if (!IDBIsValidKeyPath(m_array[i]))
+                return false;
+        }
+        return true;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool IDBKeyPath::operator==(const IDBKeyPath& other) const
+{
+    if (m_type != other.m_type)
+        return false;
+
+    switch (m_type) {
+    case NullType:
+        return true;
+    case StringType:
+        return m_string == other.m_string;
+    case ArrayType:
+        return m_array == other.m_array;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
 
 } // namespace WebCore
 

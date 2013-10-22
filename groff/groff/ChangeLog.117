@@ -1459,9 +1459,9 @@ Version 1.17 released
 
 	* man/groff_char.man: Use table header traps only conditionally.
 
-2001-01-09  Bjarni Ingi GÌslason  <bjarniig@hi.is>
+2001-01-09  Bjarni Ingi G√≠slason  <bjarniig@hi.is>
 
-	* man/groff_char.man: Add `˝' and `›' to the `acute' group.
+	* man/groff_char.man: Add `√Ω' and `√ù' to the `acute' group.
 
 2001-01-08  Werner LEMBERG  <wl@gnu.org>
 
@@ -1972,7 +1972,7 @@ Version 1.17 released
 
 	* src/roff/troff/troff.man, NEWS, man/groff.man: Updated.
 
-2000-09-22  Ricardo Soares Guimar„es  <ricardo@conectiva.com.br>
+2000-09-22  Ricardo Soares Guimar√£es  <ricardo@conectiva.com.br>
 
 	Adding a new option -P and new environment variable GROPS_PROLOGUE
 	to grops, selecting a different prologue file (minor modifications

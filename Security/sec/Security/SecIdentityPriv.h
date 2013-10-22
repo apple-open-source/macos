@@ -33,9 +33,7 @@
 #include <Security/SecBase.h>
 #include <CoreFoundation/CFBase.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*!	@function SecIdentityCreate.
 	@abstract create a new identity object from the passed-in certificate
@@ -45,8 +43,6 @@ extern "C" {
 SecIdentityRef SecIdentityCreate(CFAllocatorRef allocator,
 	SecCertificateRef certificate, SecKeyRef privateKey);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECIDENTITYPRIV_H_ */

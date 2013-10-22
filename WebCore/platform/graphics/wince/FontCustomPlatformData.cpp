@@ -22,11 +22,11 @@
 #include "config.h"
 #include "FontCustomPlatformData.h"
 
-#include "Base64.h"
 #include "CachedFont.h"
 #include "FontPlatformData.h"
 #include "SharedBuffer.h"
 #include <wtf/RandomNumber.h>
+#include <wtf/text/Base64.h>
 
 namespace WebCore {
 
@@ -45,7 +45,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
         g_customFontCache->unregisterFont(m_name);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, TextOrientation, FontWidthVariant, FontRenderingMode renderingMode)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, FontWidthVariant, FontRenderingMode renderingMode)
 {
     FontDescription fontDesc;
     fontDesc.setComputedSize(size);

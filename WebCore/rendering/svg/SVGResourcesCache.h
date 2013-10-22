@@ -23,6 +23,7 @@
 #if ENABLE(SVG)
 #include "RenderStyleConstants.h"
 #include <wtf/HashMap.h>
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
@@ -37,9 +38,13 @@ public:
     SVGResourcesCache();
     ~SVGResourcesCache();
 
-    void addResourcesFromRenderObject(RenderObject*, const RenderStyle*);
-    void removeResourcesFromRenderObject(RenderObject*);
     static SVGResources* cachedResourcesForRenderObject(const RenderObject*);
+
+    // Called from all SVG renderers addChild() methods.
+    static void clientWasAddedToTree(RenderObject*, const RenderStyle* newStyle);
+
+    // Called from all SVG renderers removeChild() methods.
+    static void clientWillBeRemovedFromTree(RenderObject*);
 
     // Called from all SVG renderers destroy() methods - except for RenderSVGResourceContainer.
     static void clientDestroyed(RenderObject*);
@@ -50,14 +55,15 @@ public:
     // Called from all SVG renderers styleDidChange() methods.
     static void clientStyleChanged(RenderObject*, StyleDifference, const RenderStyle* newStyle);
 
-    // Called from all SVG renderers updateFromElement() methods.
-    static void clientUpdatedFromElement(RenderObject*, const RenderStyle* newStyle);
-
     // Called from RenderSVGResourceContainer::willBeDestroyed().
     static void resourceDestroyed(RenderSVGResourceContainer*);
 
 private:
-    HashMap<const RenderObject*, SVGResources*> m_cache;
+    void addResourcesFromRenderObject(RenderObject*, const RenderStyle*);
+    void removeResourcesFromRenderObject(RenderObject*);
+
+    typedef HashMap<const RenderObject*, OwnPtr<SVGResources> > CacheMap;
+    CacheMap m_cache;
 };
 
 }

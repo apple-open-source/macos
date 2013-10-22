@@ -71,12 +71,16 @@ rk_undumpdata(const char *filename, void **buf, size_t *size)
 	ret = errno;
 	goto out;
     }
-    *buf = malloc(sb.st_size);
+    if (sb.st_size > SIZE_T_MAX) {
+	ret = ERANGE;
+	goto out;
+    }
+    *buf = malloc((size_t)sb.st_size);
     if (*buf == NULL) {
 	ret = ENOMEM;
 	goto out;
     }
-    *size = sb.st_size;
+    *size = (size_t)sb.st_size;
 
     sret = net_read(fd, *buf, *size);
     if (sret < 0)

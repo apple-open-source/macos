@@ -157,6 +157,8 @@ FILE *log_fp = NULL;
 uint64_t sample_TOD_secs;
 uint32_t sample_TOD_usecs;
 
+uint64_t cpu_mask;
+
 int	sample_generation = 0;
 int	num_i_latency_cpus = 1;
 int	num_cpus;
@@ -912,6 +914,8 @@ exit_usage(void)
 int
 main(int argc, char *argv[])
 {
+	int i;
+
 	if (0 != reexec_to_match_kernel()) {
 		fprintf(stderr, "Could not re-execute: %d\n", errno);
 		exit(1);
@@ -1054,6 +1058,9 @@ main(int argc, char *argv[])
 		num_entries = 50000;
 		num_cpus    = 128;
 	}
+
+	for (cpu_mask = 0, i = 0; i < num_cpus; i++)
+		cpu_mask |= ((uint64_t)1 << i);
 
 	if ((my_buffer = malloc(num_entries * sizeof(kd_buf))) == NULL) {
 		quit("can't allocate memory for tracing info\n");
@@ -1930,18 +1937,18 @@ enter_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_
 
 				pc_to_string(&pcstring[0], kd->arg2, 58, mode);
 
-				fprintf(fp, "%9.1f %8.1f\t\tINTERRUPT[%2lx] @ %-58.58s %-8x  %d  %s\n",
+				fprintf(fp, "%9.1f %8.1f\t\tINTERRUPT[%2lx] @ %-58.58s                       %8x   %2d  %s\n",
 					timestamp, delta, kd->arg1, &pcstring[0], thread, cpunum, command);
 			} else if (type == MACH_vmfault) {
-				fprintf(fp, "%9.1f %8.1f\t\t%-28.28s                                               %-8x  %d  %s\n",
+				fprintf(fp, "%9.1f %8.1f\t\t%-28.28s                                                                     %8x   %2d  %s\n",
 					timestamp, delta, p, thread, cpunum, command);
 			} else {
-				fprintf(fp, "%9.1f %8.1f\t\t%-28.28s %-8lx   %-8lx   %-8lx  %-8lx      %-8x  %d  %s\n",
+				fprintf(fp, "%9.1f %8.1f\t\t%-28.28s %-16lx %-16lx %-16lx %-16lx %8x   %2d  %s\n",
 					timestamp, delta, p, kd->arg1, kd->arg2, kd->arg3, kd->arg4, 
 					thread, cpunum, command);
 			}
 		} else {
-			fprintf(fp, "%9.1f %8.1f\t\t%-8x                     %-8lx   %-8lx   %-8lx  %-8lx      %-8x  %d  %s\n",
+			fprintf(fp, "%9.1f %8.1f\t\t%-8x                     %-16lx %-16lx %-16lx %-16lx %8x   %2d  %s\n",
 				timestamp, delta, type, kd->arg1, kd->arg2, kd->arg3, kd->arg4, 
 				thread, cpunum, command);
 	       }
@@ -1973,20 +1980,20 @@ exit_syscall(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t
 
 		if ((p = find_code(type))) {
 			if (type == INTERRUPT) {
-				fprintf(fp, "INTERRUPT                                                                  %-8x  %d  %s\n", thread, cpunum, command);
+				fprintf(fp, "INTERRUPT                                                                                        %8x   %2d  %s\n", thread, cpunum, command);
 			} else if (type == MACH_vmfault && kd->arg4 <= DBG_PAGEIND_FAULT) {
 				user_addr = ((uint64_t)kd->arg1 << 32) | (uint32_t)kd->arg2;
 
-				fprintf(fp, "%-28.28s %-10.10s   %-16qx                 %-8x  %d  %s\n",
+			    fprintf(fp, "%-28.28s %-10.10s   %-16qx                                       %8x   %2d  %s\n",
 					p, fault_name[kd->arg4], user_addr,
 					thread, cpunum, command);
 		       } else {
-				fprintf(fp, "%-28.28s %-8lx   %-8lx                           %-8x  %d  %s\n",
+				fprintf(fp, "%-28.28s %-16lx %-16lx                                   %8x   %2d  %s\n",
 					p, kd->arg1, kd->arg2,
 					thread, cpunum, command);
 		       }
 		} else {
-			fprintf(fp, "%-8x                     %-8lx   %-8lx                           %-8x  %d  %s\n",
+			fprintf(fp, "%-8x                     %-16lx %-16lx                                   %8x   %2d  %s\n",
 				type, kd->arg1, kd->arg2,
 				thread, cpunum, command);
 		}
@@ -2014,10 +2021,10 @@ print_entry(FILE *fp, kd_buf *kd, int thread, int type, char *command, uint64_t 
 		} else {
 			fprintf(fp, "%9.1f %8.1f\t\t", timestamp, delta);
 		}
-		fprintf(fp, "%-28.28s %-8lx   %-8lx   %-8lx  %-8lx      %-8x  %d  %s\n",
+		fprintf(fp, "%-28.28s %-16lx %-16lx %-16lx %-16lx %8x   %2d  %s\n",
 			p, kd->arg1, kd->arg2, kd->arg3, kd->arg4, thread, cpunum, command);
 	} else {
-		fprintf(fp, "%9.1f %8.1f\t\t%-8x                     %-8lx   %-8lx   %-8lx  %-8lx   %-8x  %d  %s\n",
+		fprintf(fp, "%9.1f %8.1f\t\t%-8x                     %-16lx %-16lx %-16lx %-16lx %8x   %2d  %s\n",
 			timestamp, delta, type, kd->arg1, kd->arg2, kd->arg3, kd->arg4, 
 			thread, cpunum, command);
 	}
@@ -2086,30 +2093,30 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 	switch (type) {
 
 		case CQ_action:
-			pc_to_string(&pcstring[0], kd->arg1, 62, KERNEL_MODE);
+			pc_to_string(&pcstring[0], kd->arg1, 84, KERNEL_MODE);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\tCQ_action @ %-62.62s %-8x  %d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\tCQ_action @ %-84.84s %8x   %2d  %s\n",
 				timestamp, delta, &pcstring[0], thread, cpunum, command);
 			break;
 
 		case TES_action:
-			pc_to_string(&pcstring[0], kd->arg1, 61, KERNEL_MODE);
+			pc_to_string(&pcstring[0], kd->arg1, 83, KERNEL_MODE);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\tTES_action @ %-61.61s %-8x  %d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\tTES_action @ %-83.83s %8x   %2d  %s\n",
 				timestamp, delta, &pcstring[0], thread, cpunum, command);
 			break;
 
 		case IES_action:
-			pc_to_string(&pcstring[0], kd->arg1, 61, KERNEL_MODE);
+			pc_to_string(&pcstring[0], kd->arg1, 83, KERNEL_MODE);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\tIES_action @ %-61.61s %-8x  %d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\tIES_action @ %-83.83s %8x   %2d  %s\n",
 				timestamp, delta, &pcstring[0], thread, cpunum, command);
 			break;
 
 		case IES_filter:
-			pc_to_string(&pcstring[0], kd->arg1, 61, KERNEL_MODE);
+			pc_to_string(&pcstring[0], kd->arg1, 83, KERNEL_MODE);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\tIES_filter @ %-61.61s %-8x  %d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\tIES_filter @ %-83.83s %8x   %2d  %s\n",
 				timestamp, delta, &pcstring[0], thread, cpunum, command);
 			break;
 
@@ -2132,14 +2139,14 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 				mode = KERNEL_MODE;
 			}
 
-			pc_to_string(&pcstring[0], kd->arg2, 62, mode);
+			pc_to_string(&pcstring[0], kd->arg2, 84, mode);
 
-			fprintf(log_fp, "%9.1f %8.1f[%.1f]%s\tDECR_TRAP @ %-62.62s %-8x  %d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f[%.1f]%s\tDECR_TRAP @ %-84.84s %8x   %2d  %s\n",
 					timestamp, delta, i_latency, p, &pcstring[0], thread, cpunum, command);
 			break;
 
 		case DECR_SET:
-			fprintf(log_fp, "%9.1f %8.1f[%.1f]  \t%-28.28s                                               %-8x  %d  %s\n",
+			fprintf(log_fp, "%9.1f %8.1f[%.1f]  \t%-28.28s                                                                     %8x   %2d  %s\n",
 					timestamp, delta, (double)kd->arg1/divisor, "DECR_SET", thread, cpunum, command);
 			break;
 
@@ -2170,9 +2177,9 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 				sprintf(joe, "%x", reason);
 				sched_reason = joe;
 			}
-			sprintf(sched_info, "%14.14s @ pri %3lu  -->  %14.14s @ pri %3lu%s", command, kd->arg3, command1, kd->arg4, p);
+			sprintf(sched_info, "%16.16s @ pri %3lu  -->  %16.16s @ pri %3lu%s", command, kd->arg3, command1, kd->arg4, p);
 
-			fprintf(log_fp, "%9.1f %8.1f\t\t%-10.10s[%s]  %s    %-8x  %d\n",
+			fprintf(log_fp, "%9.1f %8.1f\t\t%-10.10s[%s]     %s                   %8x   %2d\n",
 				timestamp, delta, "MACH_SCHED", sched_reason, sched_info, thread, cpunum);
 			break;
 
@@ -2190,7 +2197,7 @@ log_info(uint64_t now, uint64_t idelta, uint64_t start_bias, kd_buf *kd, kd_buf 
 					clen = 0;
 				}
 				
-				fprintf(log_fp, "%9.1f %8.1f\t\t%-14.14s %-45s    %-8lx   %-8x  %d  %s\n",
+				fprintf(log_fp, "%9.1f %8.1f\t\t%-14.14s %-59s    %-16lx   %8x   %2d  %s\n",
 					timestamp, delta, "VFS_LOOKUP", 
 					&p[clen], lkp->lk_dvp, thread, cpunum, command);
 
@@ -2229,7 +2236,7 @@ log_range(kd_buf *kd_buffer, kd_buf *kd_start, kd_buf *kd_stop, kd_buf *kd_note,
 	fprintf(log_fp, "\n\n%s\n", buf2);
 	fprintf(log_fp, "%s\n\n", buf1);
 
-	fprintf(log_fp, "RelTime(Us)  Delta              debugid                      arg1       arg2       arg3      arg4       thread   cpu   command\n\n");
+	fprintf(log_fp, "RelTime(Us)  Delta              debugid                      arg1             arg2             arg3             arg4               thread  cpu  command\n\n");
 
 	reset_thread_names();
 
@@ -2349,14 +2356,20 @@ log_scheduler(kd_buf *kd_beg, kd_buf *kd_end, kd_buf *end_of_sample, double s_la
 {
 	kd_buf *kd_start, *kd_stop;
 	uint64_t now;
+	int      count;
+	int	 cpunum;
+	uint64_t cmask = 0;
 	double sample_timestamp;
 	char buf1[128];
 
-	int cpunum = CPU_NUMBER(kd_end);
-
-	for (kd_start = kd_beg; (kd_start >= (kd_buf *)my_buffer); kd_start--) {
-		if (CPU_NUMBER(kd_start) == cpunum) {
-			break;
+	for (count = 0, kd_start = kd_beg; (kd_start >= (kd_buf *)my_buffer); kd_start--) {
+		cpunum = CPU_NUMBER(kd_start);
+		
+		cmask |= ((uint64_t)1 << cpunum);
+		
+		if (cmask == cpu_mask) {
+			if (count++ > 100)
+				break;
 		}
 	}
 	if (kd_start < (kd_buf *)my_buffer) {

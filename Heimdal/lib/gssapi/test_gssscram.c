@@ -209,6 +209,14 @@ test_scram(const char *test_name, const char *user, const char *password)
     if (client_cred == GSS_C_NO_CREDENTIAL)
 	errx(1, "gss_acquire_cred_ex_f");
 
+    cn.value = rk_UNCONST("host@localhost");
+    cn.length = strlen((char *)cn.value);
+
+    maj_stat = gss_import_name(&min_stat, &cn,
+			       GSS_C_NT_HOSTBASED_SERVICE, &target);
+    if (maj_stat)
+	errx(1, "gss_import_name: %d", (int)maj_stat);
+
     maj_stat = gss_init_sec_context(&min_stat, client_cred, &ctx, 
 				    target, GSS_SCRAM_MECHANISM, 
 				    0, 0, NULL,

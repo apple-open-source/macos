@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,17 @@
 #ifndef _FS_SMBFS_NODE_H_
 #define _FS_SMBFS_NODE_H_
 
+/*
+ * OS X semantics expect that node id of 2 is the root of the share.
+ * If File IDs are supported by the SMB 2.x server, then we need to return 2
+ * for the root vnode File ID . If some other item on the server has the 
+ * File ID of 2, then we return the actual root File ID instead.
+ * When vget is supported, then if they ask for File ID of 2, we return the 
+ * root vnode.  If they ask for File ID that matches the actual root File ID,
+ * then we return the vnode that has the File ID of 2 on the server.
+ */
 #define	SMBFS_ROOT_INO		2	/* just like in UFS */
+#define	SMBFS_ROOT_PAR_INO	1	/* Maps to root vnode just like SMBFS_ROOT_INO */
 
 /* Bits for smbnode.n_flag */
 #define	NREFPARENT		0x00001	/* node holds parent from recycling */
@@ -55,7 +65,7 @@
 #define NWINDOWSYMLNK	0x04000 /* This is a Conrad/Steve Window's symbolic links */
 #define N_POLLNOTIFY	0x08000 /* Change notify is not support, poll */
 #define NO_EXTENDEDOPEN 0x10000 /* The server doesn't support the extended open reply */
-#define NHAS_POSIXMODES 0x20000 /* This node has a Windows NFS ACE that contains posix modes */ 
+#define NHAS_POSIXMODES 0x20000 /* This node has a Windows NFS ACE that contains posix modes */
 
 #define UNKNOWNUID ((uid_t)99)
 #define UNKNOWNGID ((gid_t)99)
@@ -67,11 +77,13 @@ enum smbfslocktype {SMBFS_SHARED_LOCK = 1, SMBFS_EXCLUSIVE_LOCK = 2, SMBFS_RECLA
 /* Used in reconnect for open files. Look at openState. */
 #define kNeedRevoke	0x01
 #define kNeedReopen	0x02
+#define kInReopen   0x04  // Reopen in progress, don't update metadata
 
 enum {
     kAnyMatch = 1,
     kCheckDenyOrLocks = 2,
-    kExactMatch = 3
+    kExactMatch = 3,
+    kPreflightOpen = 4
 };
 
 /* Carbon Read/Write and Deny bits */
@@ -94,21 +106,22 @@ struct ByteRangeLockEntry {
 
 /* Used for Open Deny */
 struct fileRefEntry {
-	uint32_t		refcnt;		/* open file reference count */
-	uint32_t		mmapped;	/* This entry has been mmaped */
-	pid_t			p_pid;		/* proc that did the open */
-	uint16_t		fid;		/* file handle */
-	uint16_t		accessMode;	/* access mode for this open */
-	uint32_t		rights;		/* nt granted rights */
-	struct proc		*proc;		/* used in cluster IO strategy function */
-	struct ByteRangeLockEntry *lockList;
-	struct fileRefEntry	*next;
+    uint32_t        refcnt;     /* open file reference count */
+    uint32_t        mmapped;    /* This entry has been mmaped */
+    pid_t           p_pid;      /* proc that did the open */
+    SMBFID          fid;        /* file handle, smb1 fid in volatile */
+    uint16_t        accessMode; /* access mode for this open */
+    uint32_t        rights;     /* nt granted rights */
+    struct proc     *proc;      /* used in cluster IO strategy function */
+    struct ByteRangeLockEntry *lockList;
+    struct smb2_durable_handle dur_handle;
+    struct fileRefEntry	*next;
 };
 
 struct smb_open_dir {
 	uint32_t		refcnt;
 	uint32_t		kq_refcnt;
-	uint16_t		fid;			/* directory handle */
+	SMBFID          fid;			/* directory handle, smb1 fid in volatile */
 	struct smbfs_fctx *fctx;		/* ff context */
 	void			*nextEntry;		/* directory entry that didn't fit */
 	int32_t			nextEntryLen;	/* size of directory entry that didn't fit */
@@ -116,11 +129,12 @@ struct smb_open_dir {
 	off_t			offset;			/* last ff offset */
 	uint32_t		needReopen;		/* Need to reopen the notification */
 	uint32_t		needsUpdate;
+    u_int32_t       dirchangecnt;	/* changes each insert/delete. used by readdirattr */
 };
 
 struct smb_open_file {
 	uint32_t		refcnt;		/* open file reference count */
-	uint16_t		fid;		/* file handle */
+	SMBFID         fid;		/* file handle, smb1 fid in volatile */
 	uint32_t		rights;		/* nt granted rights */
 	uint16_t		accessMode;	/* access mode used when opening  */
 	uint32_t		mmapMode;	/* The mode we used when opening from mmap */
@@ -153,7 +167,8 @@ struct smbnode {
 	struct timespec		n_atime;	/* last access time */
 	struct timespec		n_chtime;	/* change time */
 	struct timespec		n_sizetime;
-	u_quad_t			n_size;		/*  stream size */
+	struct timespec		n_rename_time;  /* last rename time */
+	u_quad_t			n_size;         /* stream size */
 	uint8_t				waitOnClusterWrite;
 	u_quad_t			n_data_alloc;	/* stream allocation size */
 	int					n_dosattr;
@@ -169,6 +184,7 @@ struct smbnode {
 	uint8_t				finfo[FINDERINFOSIZE];	/* finder info , only used by the data node */
 	time_t				rfrk_cache_timer;		/* resource stream size cache timer, only used by the data node */
 	u_quad_t			rfrk_size;		/* resource stream size, only used by the data node */
+	u_quad_t			rfrk_alloc_size;/* resource stream alloc size */
 	lck_mtx_t			rfrkMetaLock;	/* Locks the resource size and resource cache timer */
 	uint64_t			n_ino;
 	uint64_t			n_nlinks;		/* Currently only supported when using the new UNIX Extensions */
@@ -195,6 +211,7 @@ struct smbnode {
 	char				*n_symlink_target;
 	size_t				n_symlink_target_len;
 	time_t				n_symlink_cache_timer;
+	struct timespec		n_last_write_time;
 };
 
 /* Directory items */
@@ -208,6 +225,7 @@ struct smbnode {
 #define d_needReopen open_type.dir.needReopen
 #define d_fid open_type.dir.fid
 #define d_needsUpdate open_type.dir.needsUpdate
+#define d_changecnt open_type.dir.dirchangecnt
 
 /* File items */
 #define f_refcnt open_type.file.refcnt
@@ -275,6 +293,21 @@ struct smbnode {
 #define VTOSMB(vp)	((struct smbnode *)vnode_fsnode(vp))
 #define SMBTOV(np)	((vnode_t )(np)->n_vnode)
 
+/* smbfs_nget flags */
+typedef enum _SMBFS_NGET_FLAGS
+{
+    SMBFS_NGET_CREATE_VNODE = 0x0001,
+    SMBFS_NGET_LOOKUP_ONLY = 0x0002,
+    SMBFS_NGET_NO_CACHE_UPDATE = 0x0004
+} _SMBFS_NGET_FLAGS;
+
+/* smb_get_uid_gid_mode flags */
+typedef enum _SMBFS_GET_UGM_FLAGS
+{
+    SMBFS_GET_UGM_IS_DIR = 0x0001,
+    SMBFS_GET_UGM_REMOVE_POSIX_MODES = 0x0002
+} _SMBFS_GET_UGM_FLAGS;
+
 extern lck_attr_t *smbfs_lock_attr;
 extern lck_grp_t *smbfs_mutex_group;
 extern lck_grp_t *smbfs_rwlock_group;
@@ -285,12 +318,15 @@ int smbnode_lock(struct smbnode *np, enum smbfslocktype);
 int smbnode_lockpair(struct smbnode *np1, struct smbnode *np2, enum smbfslocktype);
 void smbnode_unlock(struct smbnode *np);
 void smbnode_unlockpair(struct smbnode *np1, struct smbnode *np2);
-uint32_t smbfs_hash(const char *name, size_t nmlen);
+uint64_t smbfs_hash(struct smb_share *share, uint64_t ino,
+                    const char *name, size_t nmlen);
 void smb_vhashrem (struct smbnode *np);
-void smb_vhashadd(struct smbnode *np, uint32_t hashval);
-int smbfs_nget(struct smb_share *share, struct mount *mp, vnode_t dvp, const char *name,
-			   size_t nmlen,  struct smbfattr *fap, vnode_t *vpp, uint32_t cnflags, 
-			   vfs_context_t context);
+void smb_vhashadd(struct smbnode *np, uint64_t hashval);
+int smbfs_nget(struct smb_share *share, struct mount *mp,
+               vnode_t dvp, const char *name, size_t nmlen,
+               struct smbfattr *fap, vnode_t *vpp,
+               uint32_t cnflags, uint32_t flags,
+               vfs_context_t context);
 vnode_t smbfs_find_vgetstrm(struct smbmount *smp, struct smbnode *np, const char *sname, 
 							size_t maxfilenamelen);
 int smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp, 
@@ -309,34 +345,42 @@ void smbfs_attr_touchdir(struct smbnode *dnp, int fatShare);
 int smbfsIsCacheable(vnode_t vp);
 void smbfs_setsize(vnode_t vp, off_t size);
 int smbfs_update_size(struct smbnode *np, struct timespec * reqtime, u_quad_t new_size);
+int smbfs_update_name_par(struct smb_share *share, vnode_t dvp, vnode_t vp,
+                          struct timespec *reqtime,
+                          const char *new_name, size_t name_len);
 
 int FindByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset, 
 						int64_t length, uint32_t lck_pid);
 void AddRemoveByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset, 
 							  int64_t length, int8_t unLock, uint32_t lck_pid);
-void AddFileRef(vnode_t vp, struct proc *p, uint16_t accessMode, 
-                uint32_t rights, uint16_t fid, struct fileRefEntry **fndEntry);
-int32_t FindFileEntryByFID(vnode_t vp, uint16_t fid, struct fileRefEntry **fndEntry);
-int32_t FindMappedFileRef(vnode_t vp, struct fileRefEntry **fndEntry, uint16_t *fid);
+void AddFileRef(vnode_t vp, struct proc *p, uint16_t accessMode, uint32_t rights,
+                SMBFID fid, struct smb2_durable_handle dur_handle, struct fileRefEntry **fndEntry);
+int32_t FindFileEntryByFID(vnode_t vp, SMBFID fid, struct fileRefEntry **fndEntry);
+int32_t FindFileEntryByLeaseKey(vnode_t vp, uint64_t lease_key_hi, uint64_t lease_key_low, struct fileRefEntry **fndEntry);
+int32_t FindMappedFileRef(vnode_t vp, struct fileRefEntry **fndEntry, SMBFID *fid);
 int32_t FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode, int32_t flags,
                     int64_t offset, int64_t length, 
                     struct fileRefEntry **fndEntry, 
-                    uint16_t *fid);
+                    SMBFID *fid);
 void RemoveFileRef(vnode_t vp, struct fileRefEntry *inEntry);
+void smb_get_uid_gid_mode(struct smb_share *share, struct smbmount *smp,
+                          struct smbfattr *fap, uint32_t flags,
+                          uid_t *uid, gid_t *gid, mode_t *mode);
 
 /* smbfs_io.c prototypes */
 int smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t context, int flags, 
 				   int32_t *numdirent);
-int smbfs_0extend(struct smb_share *share, uint16_t fid, u_quad_t from, 
+int smbfs_0extend(struct smb_share *share, SMBFID fid, u_quad_t from,
                   u_quad_t to, int ioflag, vfs_context_t context);
 int smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
-                 uint16_t fid, vfs_context_t context);
+                 SMBFID fid, vfs_context_t context);
 int smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop, 
-				  uint16_t fid, int ioflag, vfs_context_t context);
+				  SMBFID fid, int ioflag, vfs_context_t context);
 void smbfs_reconnect(struct smbmount *smp);
 int32_t smbfs_IObusy(struct smbmount *smp);
 void smbfs_ClearChildren(struct smbmount *smp, struct smbnode * parent);
-
+int smbfs_handle_lease_break(struct smbmount *smp, uint64_t lease_key_hi,
+                             uint64_t lease_key_low, uint32_t new_lease_state);
 
 #define smb_ubc_getsize(v) (vnode_vtype(v) == VREG ? ubc_getsize(v) : (off_t)0)
 

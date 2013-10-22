@@ -106,8 +106,6 @@ typedef struct isc_taskmgrmethods {
 	isc_result_t	(*taskcreate)(isc_taskmgr_t *manager,
 				      unsigned int quantum,
 				      isc_task_t **taskp);
-	void (*setexcltask)(isc_taskmgr_t *mgr, isc_task_t *task);
-	isc_result_t (*excltask)(isc_taskmgr_t *mgr, isc_task_t **taskp);
 } isc_taskmgrmethods_t;
 
 typedef struct isc_taskmethods {
@@ -699,34 +697,9 @@ isc_taskmgr_destroy(isc_taskmgr_t **managerp);
  *	have been freed.
  */
 
-void
-isc_taskmgr_setexcltask(isc_taskmgr_t *mgr, isc_task_t *task);
-/*%<
- * Set a task which will be used for all task-exclusive operations.
- *
- * Requires:
- *\li	'manager' is a valid task manager.
- *
- *\li	'task' is a valid task.
- */
-
-isc_result_t
-isc_taskmgr_excltask(isc_taskmgr_t *mgr, isc_task_t **taskp);
-/*%<
- * Attach '*taskp' to the task set by isc_taskmgr_getexcltask().
- * This task should be used whenever running in task-exclusive mode,
- * so as to prevent deadlock between two exclusive tasks.
- *
- * Requires:
- *\li	'manager' is a valid task manager.
-
- *\li	taskp != NULL && *taskp == NULL
- */
-
-
 #ifdef HAVE_LIBXML2
 
-int
+void
 isc_taskmgr_renderxml(isc_taskmgr_t *mgr, xmlTextWriterPtr writer);
 
 #endif

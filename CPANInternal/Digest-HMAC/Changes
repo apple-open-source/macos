@@ -1,6 +1,0 @@
-2000-03-13   Gisle Aas <gisle@ActiveState.com>
-
-   Release 1.01
-
-   Broken out of the Digest-MD5-2.12 distribution and made into
-   a separate dist.

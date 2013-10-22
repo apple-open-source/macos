@@ -36,9 +36,7 @@ enum {
     kIOPCIRangeFlagNoCollapse    = 0x00000002,
     kIOPCIRangeFlagSplay         = 0x00000004,
     kIOPCIRangeFlagRelocatable   = 0x00000008,
-	//
-    kIOPCIRangeFlagForceReloc    = 0x00000100,
-    kIOPCIRangeFlagRelocHalf     = 0x00000200,
+    kIOPCIRangeFlagReserve       = 0x00000010,
 	//
 	kIOPCIRangeFlagMaximizeFlags = kIOPCIRangeFlagMaximizeSize
 								  | kIOPCIRangeFlagNoCollapse
@@ -66,6 +64,9 @@ struct IOPCIRange
     struct IOPCIRange * next;
     struct IOPCIRange * nextSubRange;
     struct IOPCIRange * allocations;
+
+    struct IOPCIRange *  nextToAllocate;
+    struct IOPCIConfigEntry * device; 			// debug
 };
 
 IOPCIScalar IOPCIScalarAlign(IOPCIScalar num, IOPCIScalar alignment);
@@ -77,6 +78,8 @@ void IOPCIRangeFree(IOPCIRange * range);
 
 void IOPCIRangeInit(IOPCIRange * range, uint32_t type,
                   IOPCIScalar start, IOPCIScalar size, IOPCIScalar alignment = 0);
+void IOPCIRangeInitAlloc(IOPCIRange * range, uint32_t type,
+                         IOPCIScalar start, IOPCIScalar size, IOPCIScalar alignment = 0);
 
 void IOPCIRangeDump(IOPCIRange * head);
 
@@ -185,9 +188,11 @@ enum {
 
     kPCIDeviceStateScanned          = 0x00000010,
     kPCIDeviceStateAllocatedBus     = 0x00000020,
-    kPCIDeviceStateAllocated        = 0x00000040,
-    kPCIDeviceStateChildChanged     = 0x00000080,
-    kPCIDeviceStateNoLink           = 0x00000100,
+    kPCIDeviceStateTotalled         = 0x00000040,
+    kPCIDeviceStateAllocated        = 0x00000080,
+    kPCIDeviceStateChildChanged     = 0x00000100,
+	kPCIDeviceStateChildAdded       = 0x00000200,
+    kPCIDeviceStateNoLink           = 0x00000400,
 
 	kPCIDeviceStateConfigProtectShift = 15,
 	kPCIDeviceStateConfigRProtect	= (VM_PROT_READ  << kPCIDeviceStateConfigProtectShift),
@@ -198,7 +203,6 @@ enum {
     kPCIDeviceStateToKill           = 0x20000000,
     kPCIDeviceStatePaused           = 0x10000000,
     kPCIDeviceStateRequestPause     = 0x08000000,
-    kPCIDeviceStateSwizzled         = 0x04000000,
 };
 
 enum {
@@ -257,6 +261,7 @@ struct IOPCIConfigEntry
     IOPCIConfigEntry *  parent;
     IOPCIConfigEntry *  child;
     IOPCIConfigEntry *  peer;
+    uint32_t			id;
     uint32_t            classCode;
     IOPCIAddressSpace   space;
     uint32_t            vendorProduct;
@@ -322,6 +327,7 @@ class IOPCIConfigurator : public IOService
 
     uint32_t                fBridgeCount;
     uint32_t                fDeviceCount;
+    uint32_t				fNextID;
 
 protected:
 
@@ -357,9 +363,9 @@ protected:
 
     void    doConfigure(uint32_t options);
 
-    void    applyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask);
-    void    deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask);
-    void    bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMask);
+    void    applyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask, bool dolog);
+    void    deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask, bool dolog);
+    void    bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMask, bool dolog);
     uint16_t disableAccess(IOPCIConfigEntry * device, bool disable);
     void    restoreAccess(IOPCIConfigEntry * device, UInt16 command);
     void    bridgeAddChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * child);
@@ -380,6 +386,7 @@ protected:
     void    checkCacheLineSize(IOPCIConfigEntry * device);
     void    writeLatencyTimer(IOPCIConfigEntry * device);
 
+	bool    treeInState(IOPCIConfigEntry * entry, uint32_t state, uint32_t mask);
     void    markChanged(IOPCIConfigEntry * entry);
     void    bridgeConnectDeviceTree(IOPCIConfigEntry * bridge);
     bool    bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge);

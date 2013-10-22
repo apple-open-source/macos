@@ -23,7 +23,7 @@
  */
 
 static int
-cp1163_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cp1163_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0xa0)
@@ -40,7 +40,7 @@ static const unsigned char cp1163_page20[8] = {
 };
 
 static int
-cp1163_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+cp1163_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x00a0 || (wc < 0x00a8 && wc != 0x00a4) || wc == 0x00d0) {

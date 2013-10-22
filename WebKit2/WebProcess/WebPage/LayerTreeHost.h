@@ -27,34 +27,29 @@
 #define LayerTreeHost_h
 
 #include "LayerTreeContext.h"
+#include <WebCore/Color.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace CoreIPC {
-class ArgumentDecoder;
 class Connection;
-class MessageID;
+class MessageDecoder;
 }
 
 namespace WebCore {
 class FloatPoint;
+class FloatRect;
 class IntRect;
 class IntSize;
 class GraphicsLayer;
-
-#if PLATFORM(WIN) && USE(AVFOUNDATION)
-struct GraphicsDeviceAdapter;
-#endif
+class GraphicsLayerFactory;
 }
 
 namespace WebKit {
 
+class PageOverlay;
 class UpdateInfo;
 class WebPage;
-
-#if PLATFORM(WIN)
-struct WindowGeometry;
-#endif
 
 class LayerTreeHost : public RefCounted<LayerTreeHost> {
 public:
@@ -70,39 +65,40 @@ public:
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
     virtual void invalidate() = 0;
 
-    virtual void setNonCompositedContentsNeedDisplay(const WebCore::IntRect&) = 0;
-    virtual void scrollNonCompositedContents(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset) = 0;
+    virtual void setNonCompositedContentsNeedDisplay() = 0;
+    virtual void setNonCompositedContentsNeedDisplayInRect(const WebCore::IntRect&) = 0;
+    virtual void scrollNonCompositedContents(const WebCore::IntRect& scrollRect) = 0;
     virtual void forceRepaint() = 0;
+    virtual bool forceRepaintAsync(uint64_t /*callbackID*/) { return false; }
     virtual void sizeDidChange(const WebCore::IntSize& newSize) = 0;
-    virtual void deviceScaleFactorDidChange() = 0;
+    virtual void deviceOrPageScaleFactorChanged() = 0;
+    virtual void pageBackgroundTransparencyChanged() = 0;
 
-    virtual void didInstallPageOverlay() = 0;
-    virtual void didUninstallPageOverlay() = 0;
-    virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&) = 0;
-    virtual void setPageOverlayOpacity(float) { }
+    virtual void didInstallPageOverlay(PageOverlay*) = 0;
+    virtual void didUninstallPageOverlay(PageOverlay*) = 0;
+    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&) = 0;
+    virtual void setPageOverlayOpacity(PageOverlay*, float) { }
     virtual bool pageOverlayShouldApplyFadeWhenPainting() const { return true; }
 
     virtual void pauseRendering() { }
     virtual void resumeRendering() { }
 
-#if USE(UI_SIDE_COMPOSITING)
-    virtual void setVisibleContentsRect(const WebCore::IntRect&, float scale, const WebCore::FloatPoint&) { }
-    virtual void setVisibleContentsRectForLayer(int layerID, const WebCore::IntRect&) { }
+    virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return 0; }
+    virtual void setBackgroundColor(const WebCore::Color&) { }
+
+#if USE(COORDINATED_GRAPHICS)
+    virtual void setVisibleContentsRect(const WebCore::FloatRect&, float /* scale */, const WebCore::FloatPoint&) { }
     virtual void renderNextFrame() { }
     virtual void purgeBackingStores() { }
-    virtual void didReceiveLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-#endif
-
-#if PLATFORM(WIN)
-    virtual void scheduleChildWindowGeometryUpdate(const WindowGeometry&) = 0;
+    virtual void didReceiveCoordinatedLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) = 0;
 #endif
 
 #if PLATFORM(MAC)
     virtual void setLayerHostingMode(LayerHostingMode) { }
 #endif
 
-#if PLATFORM(WIN) && USE(AVFOUNDATION)
-    virtual WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const { return 0; }
+#if USE(COORDINATED_GRAPHICS) && ENABLE(REQUEST_ANIMATION_FRAME)
+    virtual void scheduleAnimation() = 0;
 #endif
 
 protected:
@@ -110,12 +106,12 @@ protected:
 
     WebPage* m_webPage;
 
-#if USE(UI_SIDE_COMPOSITING)
+#if USE(COORDINATED_GRAPHICS)
     bool m_waitingForUIProcess;
 #endif
 };
 
-#if !PLATFORM(WIN) && !PLATFORM(QT)
+#if !USE(COORDINATED_GRAPHICS)
 inline bool LayerTreeHost::supportsAcceleratedCompositing()
 {
     return true;

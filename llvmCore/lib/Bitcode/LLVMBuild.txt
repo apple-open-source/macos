@@ -15,8 +15,10 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = Reader Writer
+
 [component_0]
 type = Group
 name = Bitcode
 parent = Libraries
-

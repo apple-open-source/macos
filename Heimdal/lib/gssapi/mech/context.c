@@ -47,6 +47,8 @@ struct mg_thread_ctx {
     gss_OID mech;
     OM_uint32 min_stat;
     gss_buffer_desc min_error;
+    aslclient asl;
+    aslmsg msg;
 };
 
 static HEIMDAL_MUTEX context_mutex = HEIMDAL_MUTEX_INITIALIZER;
@@ -64,6 +66,12 @@ destroy_context(void *ptr)
 	return;
 
     gss_release_buffer(&junk, &mg->min_error);
+
+    if (mg->msg)
+	asl_free(mg->msg);
+    if (mg->asl)
+	asl_close(mg->asl);
+
     free(mg);
 }
 
@@ -97,6 +105,10 @@ _gss_mechglue_thread(void)
 	    free(ctx);
 	    return NULL;
 	}
+
+	ctx->asl = asl_open(getprogname(), NULL, 0);
+	ctx->msg = asl_new(ASL_TYPE_MSG);
+	asl_set(ctx->msg, "org.h5l.asl", "gssapi");
     }
     return ctx;
 }
@@ -128,7 +140,7 @@ void
 _gss_mg_error(gssapi_mech_interface m, OM_uint32 min)
 {
     OM_uint32 major_status, minor_status;
-    OM_uint32 message_content;
+    OM_uint32 message_content = 0;
     struct mg_thread_ctx *mg;
 
     /*
@@ -153,9 +165,12 @@ _gss_mg_error(gssapi_mech_interface m, OM_uint32 min)
 					&m->gm_mech_oid,
 					&message_content,
 					&mg->min_error);
-    if (GSS_ERROR(major_status)) {
-	mg->min_error.value = NULL;
-	mg->min_error.length = 0;
+    if (major_status != GSS_S_COMPLETE) {
+	_mg_buffer_zero(&mg->min_error);
+    } else {
+	_gss_mg_log(5, "_gss_mg_error: captured %.*s (%d) from underlaying mech %s",
+		    (int)mg->min_error.length, (const char *)mg->min_error.value,
+		    (int)min, m->gm_name);
     }
 }
 
@@ -195,6 +210,10 @@ gss_mg_set_error_string(gss_OID mech,
 
 	mg->min_error.value = str;
 	mg->min_error.length = strlen(str);
+
+	_gss_mg_log(5, "gss_mg_set_error_string: %.*s (%d/%d)",
+		    (int)mg->min_error.length, (const char *)mg->min_error.value,
+		    (int)maj, (int)min);
     }
     return maj;
 }
@@ -210,32 +229,53 @@ _gss_mg_cferror(OM_uint32 major_status,
 {
     struct mg_thread_ctx *mg;
     CFErrorRef e;
+#define NUM_ERROR_DESC 5
+    void const *keys[NUM_ERROR_DESC] = { 
+	CFSTR("kGSSMajorErrorCode"),
+	CFSTR("kGSSMinorErrorCode"),
+	CFSTR("kGSSMechanismOID"),
+	CFSTR("kGSSMechanism"),
+	kCFErrorDescriptionKey
+    };
+    void const *values[NUM_ERROR_DESC] = { 0 };
+    gss_buffer_desc oid;
+    const char *name;
+    OM_uint32 junk;
     size_t n;
-#define MAX_ERROR_DESC 1
-    void const *keys[MAX_ERROR_DESC];
-    void const *values[MAX_ERROR_DESC];
 
-    n = 0;
+    values[0] = CFNumberCreate(NULL, kCFNumberSInt32Type, &major_status);
+    values[1] = CFNumberCreate(NULL, kCFNumberSInt32Type, &minor_status);
+
+    if (mech && gss_oid_to_str(&junk, (gss_OID)mech, &oid) == GSS_S_COMPLETE) {
+	values[2] = CFStringCreateWithFormat(NULL, NULL, CFSTR("%.*s"), (int)oid.length, (char *)oid.value);
+	gss_release_buffer(&junk, &oid);
+    } else {
+	values[2] = CFStringCreateWithFormat(NULL, NULL, CFSTR("no-mech"));
+    }
+
+    if (mech && (name = gss_oid_to_name(mech)) != NULL) {
+	values[3] = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), name);;
+    }  else {
+	values[3] = CFStringCreateWithFormat(NULL, NULL, CFSTR("no mech given"));
+    }
 
     mg = _gss_mechglue_thread();
     if (mg && minor_status == mg->min_stat && mg->min_error.length != 0) {
-	values[n] = CFStringCreateWithFormat(NULL, NULL, CFSTR("%.*s"),
-					     (int)mg->min_error.length,
-					     mg->min_error.value);
-	keys[n] = kCFErrorDescriptionKey;
-	n++;
+	values[4] = CFStringCreateWithFormat(NULL, NULL, CFSTR("%.*s"),
+					       (int)mg->min_error.length,
+					       mg->min_error.value);
+    } else {
+	values[4] = CFStringCreateWithFormat(NULL, NULL, CFSTR("Unknown minor status: %d"), (int)minor_status);
     }
-
-    heim_assert(n <= MAX_ERROR_DESC, "too many error descriptors");
 
     e = CFErrorCreateWithUserInfoKeysAndValues(NULL,
 					       CFSTR("org.h5l.GSS"),
 					       (CFIndex)major_status,
 					       keys,
 					       values,
-					       n);
-    while(n)
-	CFRelease(values[--n]);
+					       NUM_ERROR_DESC);
+    for (n = 0; n < sizeof(values) / sizeof(values[0]); n++)
+	CFRelease(values[n]);
     
     return e;
 }
@@ -311,8 +351,8 @@ _gss_mg_copy_key(CFStringRef domain, CFStringRef key)
 
 #endif
 
-static int log_level = 0;
-static aslclient asl = NULL;
+static int log_level = 1;
+static int asl_level = ASL_LEVEL_DEBUG;
 
 static void
 init_log(void *ptr)
@@ -332,8 +372,8 @@ init_log(void *ptr)
 
     CFRelease(val);
 
-    if (log_level)
-	asl = asl_open("gssapi", NULL, 0);
+    if (log_level > 0)
+	asl_level = ASL_LEVEL_NOTICE;
 }
 
 int
@@ -350,13 +390,18 @@ void
 _gss_mg_log(int level, const char *fmt, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3))
 {
+    struct mg_thread_ctx *mg;
     va_list ap;
 
     if (!_gss_mg_log_level(level))
 	return;
 
+    mg = _gss_mechglue_thread();
+    if (mg == NULL)
+	return;
+
     va_start(ap, fmt);
-    asl_vlog(asl, NULL, LOG_NOTICE, fmt, ap);
+    asl_vlog(mg->asl, mg->msg, asl_level, fmt, ap);
     va_end(ap);
 }
 

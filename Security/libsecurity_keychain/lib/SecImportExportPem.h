@@ -47,7 +47,7 @@ extern "C" {
 /*
  * PEM decode incoming data, appending SecImportRep's to specified array.
  * Returned SecImportReps may or may not have a known type and format. 
- * IF incoming data is not PEM or base64, we return noErr with *isPem false.
+ * IF incoming data is not PEM or base64, we return errSecSuccess with *isPem false.
  */
 OSStatus impExpParsePemToImportRefs(
 	CFDataRef			importedData,

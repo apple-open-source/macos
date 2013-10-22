@@ -476,3 +476,6 @@ RefreshRateFromDetailedTiming( IODetailedTimingInformationV2 * detailed );
 
 __private_extern__ Boolean
 IODisplayEDIDName( EDID * edid, char * name );
+
+extern CFMutableDictionaryRef gIOGraphicsProperties;
+

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2011, International Business Machines Corporation and
+ * Copyright (c) 1997-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
  * File TMSGFMT.CPP
@@ -21,6 +21,7 @@
 
 #include "unicode/format.h"
 #include "unicode/decimfmt.h"
+#include "unicode/localpointer.h"
 #include "unicode/locid.h"
 #include "unicode/msgfmt.h"
 #include "unicode/numfmt.h"
@@ -63,7 +64,9 @@ TestMessageFormat::runIndexedTest(int32_t index, UBool exec,
     TESTCASE_AUTO(TestApostropheMode);
     TESTCASE_AUTO(TestCompatibleApostrophe);
     TESTCASE_AUTO(testCoverage);
+    TESTCASE_AUTO(testGetFormatNames);
     TESTCASE_AUTO(TestTrimArgumentName);
+    TESTCASE_AUTO(TestSelectOrdinal);
     TESTCASE_AUTO_END;
 }
 
@@ -277,7 +280,7 @@ void TestMessageFormat::PatternTest()
         "Quotes ', {, 'a' 1 {0}",
         "Quotes ', {, 'a' 1 {0}",
         "{1,number,'#',##} #34,56",
-        "There are 3,456 files on Disk at 1/12/70 5:46 AM.",
+        "There are 3,456 files on Disk at 1/12/70, 5:46 AM.",
         "On Disk, there are 3,456 files, with $1.00.",
         "{1,number,percent}, 345,600%,",
         "{1,date,full}, Wednesday, December 31, 1969,",
@@ -442,7 +445,7 @@ void TestMessageFormat::TestTurkishCasing()
     }
 
     const UnicodeString expected(
-            "At 12:20:00 on 08.08.1997, there was a disturbance in the Force on planet 7.", "");
+            "At 12:20:00 on 8.08.1997, there was a disturbance in the Force on planet 7.", "");
     if (result != expected) {
         errln("TestTurkishCasing failed on test");
         errln( UnicodeString("     Result: ") + result );
@@ -1791,6 +1794,51 @@ void TestMessageFormat::testCoverage(void) {
     delete msgfmt;
 }
 
+void TestMessageFormat::testGetFormatNames() {
+    IcuTestErrorCode errorCode(*this, "testGetFormatNames");
+    MessageFormat msgfmt("Hello, {alice,number} {oops,date,full}  {zip,spellout} World.", Locale::getRoot(), errorCode);
+    if(errorCode.logDataIfFailureAndReset("MessageFormat() failed")) {
+        return;
+    }
+    LocalPointer<StringEnumeration> names(msgfmt.getFormatNames(errorCode));
+    if(errorCode.logIfFailureAndReset("msgfmt.getFormatNames() failed")) {
+        return;
+    }
+    const UnicodeString *name;
+    name = names->snext(errorCode);
+    if (name == NULL || errorCode.isFailure()) {
+        errln("msgfmt.getFormatNames()[0] failed: %s", errorCode.errorName());
+        errorCode.reset();
+        return;
+    }
+    if (!assertEquals("msgfmt.getFormatNames()[0]", UNICODE_STRING_SIMPLE("alice"), *name)) {
+        return;
+    }
+    name = names->snext(errorCode);
+    if (name == NULL || errorCode.isFailure()) {
+        errln("msgfmt.getFormatNames()[1] failed: %s", errorCode.errorName());
+        errorCode.reset();
+        return;
+    }
+    if (!assertEquals("msgfmt.getFormatNames()[1]", UNICODE_STRING_SIMPLE("oops"), *name)) {
+        return;
+    }
+    name = names->snext(errorCode);
+    if (name == NULL || errorCode.isFailure()) {
+        errln("msgfmt.getFormatNames()[2] failed: %s", errorCode.errorName());
+        errorCode.reset();
+        return;
+    }
+    if (!assertEquals("msgfmt.getFormatNames()[2]", UNICODE_STRING_SIMPLE("zip"), *name)) {
+        return;
+    }
+    name = names->snext(errorCode);
+    if (name != NULL) {
+        errln(UnicodeString("msgfmt.getFormatNames()[3] should be NULL but is: ") + *name);
+        return;
+    }
+}
+
 void TestMessageFormat::TestTrimArgumentName() {
     // ICU 4.8 allows and ignores white space around argument names and numbers.
     IcuTestErrorCode errorCode(*this, "TestTrimArgumentName");
@@ -1810,6 +1858,38 @@ void TestMessageFormat::TestTrimArgumentName() {
     result.remove();
     assertEquals("trim-named-arg format() failed", "x 3 y",
                   m.format(&argName, args, 1, result, errorCode));
+}
+
+void TestMessageFormat::TestSelectOrdinal() {
+    IcuTestErrorCode errorCode(*this, "TestSelectOrdinal");
+    // Test plural & ordinal together,
+    // to make sure that we get the correct cached PluralSelector for each.
+    MessageFormat m(
+        "{0,plural,one{1 file}other{# files}}, "
+        "{0,selectordinal,one{#st file}two{#nd file}few{#rd file}other{#th file}}",
+        Locale::getEnglish(), errorCode);
+    if (errorCode.logDataIfFailureAndReset("Unable to instantiate MessageFormat")) {
+        return;
+    }
+    Formattable args[1] = { (int32_t)21 };
+    FieldPosition ignore(0);
+    UnicodeString result;
+    assertEquals("plural-and-ordinal format(21) failed", "21 files, 21st file",
+                 m.format(args, 1, result, ignore, errorCode), TRUE);
+
+    args[0].setLong(2);
+    assertEquals("plural-and-ordinal format(2) failed", "2 files, 2nd file",
+                 m.format(args, 1, result.remove(), ignore, errorCode), TRUE);
+
+    args[0].setLong(1);
+    assertEquals("plural-and-ordinal format(1) failed", "1 file, 1st file",
+                 m.format(args, 1, result.remove(), ignore, errorCode), TRUE);
+
+    args[0].setLong(3);
+    assertEquals("plural-and-ordinal format(3) failed", "3 files, 3rd file",
+                 m.format(args, 1, result.remove(), ignore, errorCode), TRUE);
+
+    errorCode.logDataIfFailureAndReset("");
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

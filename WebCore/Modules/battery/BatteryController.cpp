@@ -33,7 +33,6 @@ BatteryController::BatteryController(BatteryClient* client)
     : m_client(client)
 {
     ASSERT(m_client);
-    m_client->setController(this);
 }
 
 BatteryController::~BatteryController()
@@ -52,6 +51,9 @@ void BatteryController::addListener(BatteryManager* batteryManager)
 {
     m_listeners.append(batteryManager);
     m_client->startUpdating();
+
+    if (m_batteryStatus)
+        batteryManager->updateBatteryStatus(m_batteryStatus);
 }
 
 void BatteryController::removeListener(BatteryManager* batteryManager)
@@ -77,6 +79,9 @@ void BatteryController::updateBatteryStatus(PassRefPtr<BatteryStatus> batterySta
 
         if (m_batteryStatus->level() != status->level())
             didChangeBatteryStatus(WebCore::eventNames().levelchangeEvent, status);
+    } else {
+        for (ListenerVector::iterator it = m_listeners.begin(); it != m_listeners.end(); ++it)
+            (*it)->updateBatteryStatus(status);
     }
 
     m_batteryStatus = status.release();
@@ -90,10 +95,9 @@ void BatteryController::didChangeBatteryStatus(const AtomicString& eventType, Pa
         (*it)->didChangeBatteryStatus(event, battery);
 }
 
-const AtomicString& BatteryController::supplementName()
+const char* BatteryController::supplementName()
 {
-    DEFINE_STATIC_LOCAL(AtomicString, name, ("BatteryController"));
-    return name;
+    return "BatteryController";
 }
 
 bool BatteryController::isActive(Page* page)

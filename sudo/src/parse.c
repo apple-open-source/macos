@@ -83,9 +83,9 @@ sudo_file_open(nss)
     struct sudo_nss *nss;
 {
     if (def_ignore_local_sudoers)
-	return(-1);
+	return -1;
     nss->handle = open_sudoers(_PATH_SUDOERS, FALSE, NULL);
-    return(nss->handle ? 0 : -1);
+    return nss->handle ? 0 : -1;
 }
 
 int
@@ -99,7 +99,7 @@ sudo_file_close(nss)
 	nss->handle = NULL;
 	yyin = NULL;
     }
-    return(0);
+    return 0;
 }
 
 /*
@@ -110,16 +110,20 @@ sudo_file_parse(nss)
     struct sudo_nss *nss;
 {
     if (nss->handle == NULL)
-	return(-1);
+	return -1;
 
     init_parser(_PATH_SUDOERS, 0);
     yyin = nss->handle;
     if (yyparse() != 0 || parse_error) {
-	log_error(NO_EXIT, "parse error in %s near line %d",
-	    errorfile, errorlineno);
-	return(-1);
+	if (errorlineno != -1) {
+	    log_error(0, "parse error in %s near line %d",
+		errorfile, errorlineno);
+	} else {
+	    log_error(0, "parse error in %s", errorfile);
+	}
+	return -1;
     }
-    return(0);
+    return 0;
 }
 
 /*
@@ -130,11 +134,11 @@ sudo_file_setdefs(nss)
     struct sudo_nss *nss;
 {
     if (nss->handle == NULL)
-	return(-1);
+	return -1;
 
     if (!update_defaults(SETDEF_GENERIC|SETDEF_HOST|SETDEF_USER))
-	return(-1);
-    return(0);
+	return -1;
+    return 0;
 }
 
 /*
@@ -154,7 +158,7 @@ sudo_file_lookup(nss, validated, pwflag)
     struct userspec *us;
 
     if (nss->handle == NULL)
-	return(validated);
+	return validated;
 
     /*
      * Only check the actual command if pwflag is not set.
@@ -200,7 +204,7 @@ sudo_file_lookup(nss, validated, pwflag)
 	    SET(validated, FLAG_CHECK_USER);
 	else if (pwcheck == never || nopass == TRUE)
 	    def_authenticate = FALSE;
-	return(validated);
+	return validated;
     }
 
     /* Need to be runas user while stat'ing things. */
@@ -257,9 +261,11 @@ sudo_file_lookup(nss, validated, pwflag)
     } else if (match == DENY) {
 	SET(validated, VALIDATE_NOT_OK);
 	CLR(validated, VALIDATE_OK);
+	if (tags != NULL && tags->nopasswd != UNSPEC)
+	    def_authenticate = !tags->nopasswd;
     }
     set_perms(PERM_ROOT);
-    return(validated);
+    return validated;
 }
 
 #define	TAG_CHANGED(t) \
@@ -275,33 +281,28 @@ sudo_file_append_cmnd(cs, tags, lbuf)
 
 #ifdef HAVE_SELINUX
     if (cs->role)
-	lbuf_append(lbuf, "ROLE=", cs->role, " ", NULL);
+	lbuf_append(lbuf, "ROLE=%s ", cs->role);
     if (cs->type)
-	lbuf_append(lbuf, "TYPE=", cs->type, " ", NULL);
+	lbuf_append(lbuf, "TYPE=%s ", cs->type);
 #endif /* HAVE_SELINUX */
     if (TAG_CHANGED(setenv)) {
-	lbuf_append(lbuf, cs->tags.setenv ? "SETENV: " :
-	    "NOSETENV: ", NULL);
+	lbuf_append(lbuf, cs->tags.setenv ? "SETENV: " : "NOSETENV: ");
 	tags->setenv = cs->tags.setenv;
     }
     if (TAG_CHANGED(noexec)) {
-	lbuf_append(lbuf, cs->tags.noexec ? "NOEXEC: " :
-	    "EXEC: ", NULL);
+	lbuf_append(lbuf, cs->tags.noexec ? "NOEXEC: " : "EXEC: ");
 	tags->noexec = cs->tags.noexec;
     }
     if (TAG_CHANGED(nopasswd)) {
-	lbuf_append(lbuf, cs->tags.nopasswd ? "NOPASSWD: " :
-	    "PASSWD: ", NULL);
+	lbuf_append(lbuf, cs->tags.nopasswd ? "NOPASSWD: " : "PASSWD: ");
 	tags->nopasswd = cs->tags.nopasswd;
     }
     if (TAG_CHANGED(log_input)) {
-	lbuf_append(lbuf, cs->tags.log_input ? "LOG_INPUT: " :
-	    "NOLOG_INPUT: ", NULL);
+	lbuf_append(lbuf, cs->tags.log_input ? "LOG_INPUT: " : "NOLOG_INPUT: ");
 	tags->log_input = cs->tags.log_input;
     }
     if (TAG_CHANGED(log_output)) {
-	lbuf_append(lbuf, cs->tags.log_output ? "LOG_OUTPUT: " :
-	    "NOLOG_OUTPUT: ", NULL);
+	lbuf_append(lbuf, cs->tags.log_output ? "LOG_OUTPUT: " : "NOLOG_OUTPUT: ");
 	tags->log_output = cs->tags.log_output;
     }
     m = cs->cmnd;
@@ -329,39 +330,39 @@ sudo_file_display_priv_short(pw, us, lbuf)
 	tags.nopasswd = UNSPEC;
 	tags.log_input = UNSPEC;
 	tags.log_output = UNSPEC;
-	lbuf_append(lbuf, "    ", NULL);
+	lbuf_append(lbuf, "    ");
 	tq_foreach_fwd(&priv->cmndlist, cs) {
 	    if (cs != tq_first(&priv->cmndlist))
-		lbuf_append(lbuf, ", ", NULL);
-	    lbuf_append(lbuf, "(", NULL);
+		lbuf_append(lbuf, ", ");
+	    lbuf_append(lbuf, "(");
 	    if (!tq_empty(&cs->runasuserlist)) {
 		tq_foreach_fwd(&cs->runasuserlist, m) {
 		    if (m != tq_first(&cs->runasuserlist))
-			lbuf_append(lbuf, ", ", NULL);
+			lbuf_append(lbuf, ", ");
 		    print_member(lbuf, m->name, m->type, m->negated,
 			RUNASALIAS);
 		}
 	    } else if (tq_empty(&cs->runasgrouplist)) {
-		lbuf_append(lbuf, def_runas_default, NULL);
+		lbuf_append(lbuf, "%s", def_runas_default);
 	    } else {
-		lbuf_append(lbuf, pw->pw_name, NULL);
+		lbuf_append(lbuf, "%s", pw->pw_name);
 	    }
 	    if (!tq_empty(&cs->runasgrouplist)) {
-		lbuf_append(lbuf, " : ", NULL);
+		lbuf_append(lbuf, " : ");
 		tq_foreach_fwd(&cs->runasgrouplist, m) {
 		    if (m != tq_first(&cs->runasgrouplist))
-			lbuf_append(lbuf, ", ", NULL);
+			lbuf_append(lbuf, ", ");
 		    print_member(lbuf, m->name, m->type, m->negated,
 			RUNASALIAS);
 		}
 	    }
-	    lbuf_append(lbuf, ") ", NULL);
+	    lbuf_append(lbuf, ") ");
 	    sudo_file_append_cmnd(cs, &tags, lbuf);
 	    nfound++;
 	}
-	lbuf_append(lbuf, "\n", NULL);
+	lbuf_append(lbuf, "\n");
     }
-    return(nfound);
+    return nfound;
 }
 
 static int
@@ -384,39 +385,39 @@ sudo_file_display_priv_long(pw, us, lbuf)
 	tags.nopasswd = UNSPEC;
 	tags.log_input = UNSPEC;
 	tags.log_output = UNSPEC;
-	lbuf_append(lbuf, "\nSudoers entry:\n", NULL);
+	lbuf_append(lbuf, "\nSudoers entry:\n");
 	tq_foreach_fwd(&priv->cmndlist, cs) {
-	    lbuf_append(lbuf, "    RunAsUsers: ", NULL);
+	    lbuf_append(lbuf, "    RunAsUsers: ");
 	    if (!tq_empty(&cs->runasuserlist)) {
 		tq_foreach_fwd(&cs->runasuserlist, m) {
 		    if (m != tq_first(&cs->runasuserlist))
-			lbuf_append(lbuf, ", ", NULL);
+			lbuf_append(lbuf, ", ");
 		    print_member(lbuf, m->name, m->type, m->negated,
 			RUNASALIAS);
 		}
 	    } else if (tq_empty(&cs->runasgrouplist)) {
-		lbuf_append(lbuf, def_runas_default, NULL);
+		lbuf_append(lbuf, "%s", def_runas_default);
 	    } else {
-		lbuf_append(lbuf, pw->pw_name, NULL);
+		lbuf_append(lbuf, "%s", pw->pw_name);
 	    }
-	    lbuf_append(lbuf, "\n", NULL);
+	    lbuf_append(lbuf, "\n");
 	    if (!tq_empty(&cs->runasgrouplist)) {
-		lbuf_append(lbuf, "    RunAsGroups: ", NULL);
+		lbuf_append(lbuf, "    RunAsGroups: ");
 		tq_foreach_fwd(&cs->runasgrouplist, m) {
 		    if (m != tq_first(&cs->runasgrouplist))
-			lbuf_append(lbuf, ", ", NULL);
+			lbuf_append(lbuf, ", ");
 		    print_member(lbuf, m->name, m->type, m->negated,
 			RUNASALIAS);
 		}
-		lbuf_append(lbuf, "\n", NULL);
+		lbuf_append(lbuf, "\n");
 	    }
-	    lbuf_append(lbuf, "    Commands:\n\t", NULL);
+	    lbuf_append(lbuf, "    Commands:\n\t");
 	    sudo_file_append_cmnd(cs, &tags, lbuf);
-	    lbuf_append(lbuf, "\n", NULL);
+	    lbuf_append(lbuf, "\n");
 	    nfound++;
 	}
     }
-    return(nfound);
+    return nfound;
 }
 
 int
@@ -441,7 +442,7 @@ sudo_file_display_privs(nss, pw, lbuf)
 	    nfound += sudo_file_display_priv_short(pw, us, lbuf);
     }
 done:
-    return(nfound);
+    return nfound;
 }
 
 /*
@@ -479,23 +480,23 @@ sudo_file_display_defaults(nss, pw, lbuf)
 	    case DEFAULTS_CMND:
 		continue;
 	}
-	lbuf_append(lbuf, prefix, NULL);
 	if (d->val != NULL) {
-	    lbuf_append(lbuf, d->var, d->op == '+' ? "+=" :
-		d->op == '-' ? "-=" : "=", NULL);
+	    lbuf_append(lbuf, "%s%s%s", prefix, d->var,
+		d->op == '+' ? "+=" : d->op == '-' ? "-=" : "=");
 	    if (strpbrk(d->val, " \t") != NULL) {
-		lbuf_append(lbuf, "\"", NULL);
-		lbuf_append_quoted(lbuf, "\"", d->val, NULL);
-		lbuf_append(lbuf, "\"", NULL);
+		lbuf_append(lbuf, "\"");
+		lbuf_append_quoted(lbuf, "\"", "%s", d->val);
+		lbuf_append(lbuf, "\"");
 	    } else
-		lbuf_append_quoted(lbuf, SUDOERS_QUOTED, d->val, NULL);
+		lbuf_append_quoted(lbuf, SUDOERS_QUOTED, "%s", d->val);
 	} else
-	    lbuf_append(lbuf, d->op == FALSE ? "!" : "", d->var, NULL);
+	    lbuf_append(lbuf, "%s%s%s", prefix,
+		d->op == FALSE ? "!" : "", d->var);
 	prefix = ", ";
 	nfound++;
     }
 done:
-    return(nfound);
+    return nfound;
 }
 
 /*
@@ -513,7 +514,7 @@ sudo_file_display_bound_defaults(nss, pw, lbuf)
     nfound += display_bound_defaults(DEFAULTS_RUNAS, lbuf);
     nfound += display_bound_defaults(DEFAULTS_CMND, lbuf);
 
-    return(nfound);
+    return nfound;
 }
 
 /*
@@ -526,34 +527,29 @@ display_bound_defaults(dtype, lbuf)
 {
     struct defaults *d;
     struct member *m, *binding = NULL;
-    char *dname, *dsep;
+    char *dsep;
     int atype, nfound = 0;
 
     switch (dtype) {
 	case DEFAULTS_HOST:
 	    atype = HOSTALIAS;
-	    dname = "host";
 	    dsep = "@";
 	    break;
 	case DEFAULTS_USER:
 	    atype = USERALIAS;
-	    dname = "user";
 	    dsep = ":";
 	    break;
 	case DEFAULTS_RUNAS:
 	    atype = RUNASALIAS;
-	    dname = "runas";
 	    dsep = ">";
 	    break;
 	case DEFAULTS_CMND:
 	    atype = CMNDALIAS;
-	    dname = "cmnd";
 	    dsep = "!";
 	    break;
 	default:
-	    return(-1);
+	    return -1;
     }
-    /* printf("Per-%s Defaults entries:\n", dname); */
     tq_foreach_fwd(&defaults, d) {
 	if (d->type != dtype)
 	    continue;
@@ -562,24 +558,24 @@ display_bound_defaults(dtype, lbuf)
 	if (binding != tq_first(&d->binding)) {
 	    binding = tq_first(&d->binding);
 	    if (nfound != 1)
-		lbuf_append(lbuf, "\n", NULL);
-	    lbuf_append(lbuf, "    Defaults", dsep, NULL);
+		lbuf_append(lbuf, "\n");
+	    lbuf_append(lbuf, "    Defaults%s", dsep);
 	    for (m = binding; m != NULL; m = m->next) {
 		if (m != binding)
-		    lbuf_append(lbuf, ",", NULL);
+		    lbuf_append(lbuf, ",");
 		print_member(lbuf, m->name, m->type, m->negated, atype);
-		lbuf_append(lbuf, " ", NULL);
+		lbuf_append(lbuf, " ");
 	    }
 	} else
-	    lbuf_append(lbuf, ", ", NULL);
+	    lbuf_append(lbuf, ", ");
 	if (d->val != NULL) {
-	    lbuf_append(lbuf, d->var, d->op == '+' ? "+=" :
-		d->op == '-' ? "-=" : "=", d->val, NULL);
+	    lbuf_append(lbuf, "%s%s%s", d->var, d->op == '+' ? "+=" :
+		d->op == '-' ? "-=" : "=", d->val);
 	} else
-	    lbuf_append(lbuf, d->op == FALSE ? "!" : "", d->var, NULL);
+	    lbuf_append(lbuf, "%s%s", d->op == FALSE ? "!" : "", d->var);
     }
 
-    return(nfound);
+    return nfound;
 }
 
 int
@@ -612,8 +608,7 @@ sudo_file_display_cmnd(nss, pw)
 		if (runas_match == ALLOW) {
 		    cmnd_match = cmnd_matches(cs->cmnd);
 		    if (cmnd_match != UNSPEC) {
-			match = host_match && runas_match ?
-			    cs->cmnd : NULL;
+			match = host_match && runas_match ? cs->cmnd : NULL;
 			goto matched;
 		    }
 		}
@@ -627,7 +622,7 @@ sudo_file_display_cmnd(nss, pw)
 	rval = 0;
     }
 done:
-    return(rval);
+    return rval;
 }
 
 /*
@@ -645,23 +640,23 @@ _print_member(lbuf, name, type, negated, alias_type)
 
     switch (type) {
 	case ALL:
-	    lbuf_append(lbuf, negated ? "!ALL" : "ALL", NULL);
+	    lbuf_append(lbuf, "%sALL", negated ? "!" : "");
 	    break;
 	case COMMAND:
 	    c = (struct sudo_command *) name;
 	    if (negated)
-		lbuf_append(lbuf, "!", NULL);
-	    lbuf_append_quoted(lbuf, SUDOERS_QUOTED, c->cmnd, NULL);
+		lbuf_append(lbuf, "!");
+	    lbuf_append_quoted(lbuf, SUDOERS_QUOTED, "%s", c->cmnd);
 	    if (c->args) {
-		lbuf_append(lbuf, " ", NULL);
-		lbuf_append_quoted(lbuf, SUDOERS_QUOTED, c->args, NULL);
+		lbuf_append(lbuf, " ");
+		lbuf_append_quoted(lbuf, SUDOERS_QUOTED, "%s", c->args);
 	    }
 	    break;
 	case ALIAS:
 	    if ((a = alias_find(name, alias_type)) != NULL) {
 		tq_foreach_fwd(&a->members, m) {
 		    if (m != tq_first(&a->members))
-			lbuf_append(lbuf, ", ", NULL);
+			lbuf_append(lbuf, ", ");
 		    _print_member(lbuf, m->name, m->type,
 			negated ? !m->negated : m->negated, alias_type);
 		}
@@ -669,7 +664,7 @@ _print_member(lbuf, name, type, negated, alias_type)
 	    }
 	    /* FALLTHROUGH */
 	default:
-	    lbuf_append(lbuf, negated ? "!" : "", name, NULL);
+	    lbuf_append(lbuf, "%s%s", negated ? "!" : "", name);
 	    break;
     }
 }

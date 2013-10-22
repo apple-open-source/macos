@@ -1,21 +1,35 @@
-# Makefile for Windows build of zlib for Safari
+# Makefile for Windows build of zlib
+
+!if "$(PLATFORM)" == "x86_amd64"
+bits=64
+!else
+bits=32
+!endif
 
 name=zlib
 project=$(name)-1.2.5
+bin_dir=bin$(bits)
+lib_dir=lib$(bits)
+sym_dir=public$(bits)\sym
+
 
 install:
 	xcopy $(name) "$(SRCROOT)\$(project)" /s/v/i/h/y
 	cd "$(SRCROOT)\$(project)"
-	nmake -f win32\Makefile.msc	
-	xcopy "$(SRCROOT)\$(project)\*.dll" "$(DSTROOT)\AppleInternal\bin" /s/v/i/h/y
-	copy "$(SRCROOT)\$(project)\zlib1.pdb" "$(DSTROOT)\AppleInternal\bin" /v/y
+	nmake -f win32\Makefile.msc clean
+	nmake -f win32\Makefile.msc	PLATFORM=$(PLATFORM)
+	xcopy "$(SRCROOT)\$(project)\*.dll" "$(DSTROOT)\AppleInternal\$(bin_dir)" /s/v/i/h/y
+	-mkdir "$(DSTROOT)\AppleInternal\$(sym_dir)"
+	copy "$(SRCROOT)\$(project)\zlib1.pdb" "$(DSTROOT)\AppleInternal\$(sym_dir)\" /v/y
 	xcopy "$(SRCROOT)\$(project)\*.h" "$(DSTROOT)\AppleInternal\include\zlib" /s/v/i/h/y
-	xcopy "$(SRCROOT)\$(project)\*.lib" "$(DSTROOT)\AppleInternal\lib" /s/v/i/h/y
+	xcopy "$(SRCROOT)\$(project)\*.lib" "$(DSTROOT)\AppleInternal\$(lib_dir)" /s/v/i/h/y
 
 install_DEBUG:
 	xcopy $(name) "$(SRCROOT)\$(project)" /s/v/i/h/y
 	cd "$(SRCROOT)\$(project)"
-	nmake -f win32\Makefile.msc DEBUG=1
-	xcopy "$(SRCROOT)\$(project)\*.dll" "$(DSTROOT)\AppleInternal\bin" /s/v/i/h/y	
-	xcopy "$(SRCROOT)\$(project)\*.lib" "$(DSTROOT)\AppleInternal\lib" /s/v/i/h/y
-	copy "$(SRCROOT)\$(project)\zlib1_debug.pdb" "$(DSTROOT)\AppleInternal\bin\zlib1_debug.pdb" /v/y
+	nmake -f win32\Makefile.msc clean
+	nmake -f win32\Makefile.msc DEBUG=1	PLATFORM=$(PLATFORM)
+	xcopy "$(SRCROOT)\$(project)\*.dll" "$(DSTROOT)\AppleInternal\$(bin_dir)" /s/v/i/h/y	
+	xcopy "$(SRCROOT)\$(project)\*.lib" "$(DSTROOT)\AppleInternal\$(lib_dir)" /s/v/i/h/y
+	-mkdir "$(DSTROOT)\AppleInternal\$(sym_dir)"
+	copy "$(SRCROOT)\$(project)\zlib1_debug.pdb" "$(DSTROOT)\AppleInternal\$(sym_dir)\" /v/y

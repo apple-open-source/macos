@@ -30,11 +30,8 @@
 #define _SECURITY_SECBASEPRIV_H_
 
 #include <Security/SecBase.h>
-#include <MacErrors.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*******************************************************
  *** Private OSStatus values unique to Security APIs ***
@@ -106,6 +103,7 @@ enum
     errSecReturnDataUnsupported  = errSecParam, // -34008,  /* The caller passed in a kSecReturnData key to a function which does not support it. */
     errSecReturnAttributesUnsupported = errSecParam, // -34009,  /* The caller passed in a kSecReturnAttributes key to a function which does not support it. */
     errSecReturnRefUnsupported   = errSecParam, // -34010,  /* The caller passed in a kSecReturnRef key to a function which does not support it. */
+    errSecReturnPersitentRefUnsupported   = errSecParam, // -34010,  /* The caller passed in a kSecReturnPersistentRef key to a function which does not support it. */
     errSecValueRefUnsupported    = errSecParam, // -34012,  /* The caller passed in a kSecValueRef key to a function which does not support it. */
     errSecValuePersistentRefUnsupported = errSecParam, // -34013,  /* The caller passed in a kSecValuePersistentRef key to a function which does not support it. */
     errSecReturnMissingPointer   = errSecParam, // -34014,  /* The caller passed asked for something to be returned but did not pass in a result pointer. */
@@ -122,8 +120,6 @@ enum
 };
 
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECBASEPRIV_H_ */

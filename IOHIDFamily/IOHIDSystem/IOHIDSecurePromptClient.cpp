@@ -33,7 +33,7 @@
 #include <sys/proc.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/hidsystem/IOHIKeyboardMapper.h>
-#include <IOKit/crypto/AppleKeyStore.h>
+#include <IOKit/crypto/AppleFDEKeyStore.h>
 #include <uuid/uuid.h>
 #include "IOHIDSecurePromptClient.h"
 
@@ -926,7 +926,7 @@ IOHIDSecurePromptClient::compareClientMethod(void * p1, void *, void *, void *, 
     uint32_t        selfBufferSize;
     
     require(valid(), uninitialized_data);
-    require(AppleKeyStore::instance, uninitialized_data);
+    require(AppleFDEKeyStore::instance, uninitialized_data);
 
     // find the target
     parent = getParentEntry(gIOServicePlane);
@@ -966,10 +966,10 @@ IOHIDSecurePromptClient::compareClientMethod(void * p1, void *, void *, void *, 
     
     // check the buffers
     targetBufferSize = AKS_MAX_PASSPHRASE_SIZE;
-    result = AppleKeyStore::instance->getPassphrase(targetUUID, targetBuffer, targetBufferSize, &targetBufferSize);
+    result = AppleFDEKeyStore::instance->getPassphrase(targetUUID, targetBuffer, targetBufferSize, &targetBufferSize);
     require(result == kIOReturnSuccess, keystore_error);
     selfBufferSize = AKS_MAX_PASSPHRASE_SIZE;
-    result = AppleKeyStore::instance->getPassphrase(selfUUID, selfBuffer, selfBufferSize, &selfBufferSize);
+    result = AppleFDEKeyStore::instance->getPassphrase(selfUUID, selfBuffer, selfBufferSize, &selfBufferSize);
     require(result == kIOReturnSuccess, keystore_error);
     
     if ((targetBufferSize == selfBufferSize) && (0 == memcmp(targetBuffer, selfBuffer, targetBufferSize))) {
@@ -1088,7 +1088,7 @@ IOHIDSecurePromptClient::setUUID(UInt8* bytes_in)
     
     // check the UUIDs
     bufferSize = AKS_MAX_PASSPHRASE_SIZE;
-    result = AppleKeyStore::instance->getPassphrase(_reserved->uuid, buffer, bufferSize, &bufferSize);
+    result = AppleFDEKeyStore::instance->getPassphrase(_reserved->uuid, buffer, bufferSize, &bufferSize);
     require(result == kIOReturnSuccess, bad_uuid);
         
 bad_uuid:
@@ -1236,18 +1236,18 @@ IOHIDSecurePromptClient::syncGated(void * p1 __unused, void * p2 __unused, void 
         IOReturn result;
         
         // this will return an error if the passphrase does not exist. don't care.
-        AppleKeyStore::instance->deletePassphrase(_reserved->uuid);
+        AppleFDEKeyStore::instance->deletePassphrase(_reserved->uuid);
         
         if (_reserved->stringLength > 0) {
-            result = AppleKeyStore::instance->setPassphrase(_reserved->uuid, 
-                                                            _reserved->unicode, 
-                                                            _reserved->stringLength * sizeof(UTF32Char));
+            result = AppleFDEKeyStore::instance->setPassphrase(_reserved->uuid,
+                                                               _reserved->unicode,
+                                                               _reserved->stringLength * sizeof(UTF32Char));
             if (result != kIOReturnSuccess)
                 IOLog("%s failed to setPassphrase for code: %08x\n", __func__, result);
         }
         
         _reserved->uuidState = kUUIDStateIsClean;
-
+        
 #if DEBUG_SECURE_PROMPT
 #warning remove
         uuid_string_t string;

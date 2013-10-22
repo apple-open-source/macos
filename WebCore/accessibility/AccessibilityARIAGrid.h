@@ -40,23 +40,23 @@ class AccessibilityTableHeaderContainer;
 class AccessibilityARIAGrid : public AccessibilityTable {
     
 private:
-    AccessibilityARIAGrid(RenderObject*);
+    explicit AccessibilityARIAGrid(RenderObject*);
 public:
     static PassRefPtr<AccessibilityARIAGrid> create(RenderObject*);
     virtual ~AccessibilityARIAGrid();
-    
+
     virtual bool isAriaTable() const { return true; }    
     
     virtual void addChildren();
     
-    virtual AccessibilityTableCell* cellForColumnAndRow(unsigned column, unsigned row);
-
 private:
     // ARIA treegrids and grids support selected rows.
     virtual bool supportsSelectedRows() { return true; }    
     virtual bool isMultiSelectable() const { return true; }
+    virtual bool isTableExposableThroughAccessibility() const { return true; }
     
-    bool addChild(AccessibilityObject*, HashSet<AccessibilityObject*>& appendedRows, unsigned& columnCount);
+    void addRowDescendant(AccessibilityObject*, HashSet<AccessibilityObject*>& appendedRows, unsigned& columnCount);
+    bool addTableCellChild(AccessibilityObject*, HashSet<AccessibilityObject*>& appendedRows, unsigned& columnCount);
 };
 
 } // namespace WebCore 

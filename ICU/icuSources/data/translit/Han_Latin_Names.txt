@@ -1,20 +1,57 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2012, International Business Machines
+# *  Copyright (C) 2004-2013, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
 # File: Han_Latin_Names.txt
 # Generated from CLDR 
 #
+
+$startOfHan = [^[:Han:]] \u0020?; # pre-context for surname-only readings
 ::Han-Spacedhan();
-长→cháng;
-葛→gě;
-贾→jǐa;
-賈→jǐa;
-筠→jūn;
-沈→shěn;
-峙→shì;
-莘→xīn;
-曾→zēng;
+# After the above, Hanzi are separated by space from each other and from letters;
+# take this into account when specifying context.
+# First specify mappings that depend on specific adjacent hanzi:
+令 } \u0020? 狐 →líng;
+万 } \u0020? 俟 →mò;
+澹 } \u0020? 台 →tán;
+# The following maps 长 to the standard reading zhǎng for this case,
+# to override the normal name reading 长 →cháng below.
+$startOfHan { 长 } \u0020? 孙 →zhǎng;
+# Now mappings that depend on no context or $startOfHan only
+$startOfHan { 秘 →bì;
+$startOfHan { 卜 →bǔ;
+长 →cháng;
+$startOfHan { 种 →chóng;
+$startOfHan { 重 →chóng;
+$startOfHan { 刀 →diāo;
+干 →gān;
+葛 →gě;
+$startOfHan { 盖 →gě;
+$startOfHan { 过 →guō;
+$startOfHan { 华 →huà;
+$startOfHan { 纪 →jǐ;
+筠 →jūn;
+$startOfHan { 牟 →mù;
+$startOfHan { 区 →ōu;
+$startOfHan { 繁 →pó;
+仇 →qiú;
+$startOfHan { 任 →rén;
+$startOfHan { 单 →shàn;
+$startOfHan { 召 →shào;
+$startOfHan { 折 →shé;
+$startOfHan { 舍 →shè;
+$startOfHan { 沈 →shěn;
+峙 →shì;
+隗 →wěi;
+$startOfHan { 解 →xiè;
+莘 →xīn;
+$startOfHan { 燕 →yān;
+$startOfHan { 尉 →yù;
+$startOfHan { 乐 →yuè;
+$startOfHan { 员 →yùn;
+$startOfHan { 查 →zhā;
+翟 →zhái;
+曾 →zēng;
 ::Han-Latin();

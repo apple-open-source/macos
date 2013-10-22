@@ -48,6 +48,7 @@
  */
 #define kNotifyVFSMount "com.apple.system.kernel.mount"
 #define kNotifyVFSUnmount "com.apple.system.kernel.unmount"
+#define kNotifyVFSUpdate "com.apple.system.kernel.mountupdate"
 #define kNotifyVFSLowDiskSpace "com.apple.system.lowdiskspace"
 #define kNotifyVFSLowDiskSpaceRootFS "com.apple.system.lowdiskspace.system"
 #define kNotifyVFSLowDiskSpaceOtherFS "com.apple.system.lowdiskspace.user"

@@ -1,5 +1,5 @@
 /* $RoughId: rmd160init.c,v 1.3 2001/07/13 20:00:43 knu Exp $ */
-/* $Id: rmd160init.c 11708 2007-02-12 23:01:19Z shyouhei $ */
+/* $Id: rmd160init.c 34816 2012-02-25 20:37:12Z naruse $ */
 
 #include "digest.h"
 #if defined(HAVE_OPENSSL_RIPEMD_H)
@@ -8,7 +8,7 @@
 #include "rmd160.h"
 #endif
 
-static rb_digest_metadata_t rmd160 = {
+static const rb_digest_metadata_t rmd160 = {
     RUBY_DIGEST_API_VERSION,
     RMD160_DIGEST_LENGTH,
     RMD160_BLOCK_LENGTH,
@@ -30,11 +30,14 @@ Init_rmd160()
 
     rb_require("digest");
 
+#if 0
+    mDigest = rb_define_module("Digest"); /* let rdoc know */
+#endif
     mDigest = rb_path2class("Digest");
     cDigest_Base = rb_path2class("Digest::Base");
 
     cDigest_RMD160 = rb_define_class_under(mDigest, "RMD160", cDigest_Base);
 
     rb_ivar_set(cDigest_RMD160, rb_intern("metadata"),
-      Data_Wrap_Struct(rb_cObject, 0, 0, &rmd160));
+      Data_Wrap_Struct(rb_cObject, 0, 0, (void *)&rmd160));
 }

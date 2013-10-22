@@ -1,9 +1,7 @@
 #!/bin/sh
 set -e -x
 
-if [ "$PLATFORM_NAME" != "macosx" ]; then
-	SDK="-sdk macosx"
-fi
+SDK="-sdk macosx"
 
 export -n SDKROOT
 export -n ARCHS CURRENT_ARCH RC_ARCHS RC_CFLAGS

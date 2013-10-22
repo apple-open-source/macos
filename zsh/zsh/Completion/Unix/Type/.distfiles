@@ -36,12 +36,13 @@ _pids
 _ports
 _printers
 _ps
+_ps1234
 _pspdf
+_remote_files
 _services
 _signals
 _tar_archive
 _terminals
-_tex
 _texi
 _tilde_files
 _time_zone
@@ -50,5 +51,6 @@ _user_at_host
 _users
 _users_on
 _zfs_dataset
+_zfs_keysource_props
 _zfs_pool
 '

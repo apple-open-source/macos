@@ -55,12 +55,4 @@ enum {
     kIOPMAssertionMIGDoRelease                      = -1
 };
 
-/*
- * Arguments to powermanagement.defs MIG call io_pm_get_value_int
- */
-enum {
-    kIOPMGetSilentRunningInfo                        = 1,
-    kIOPMMT2Bookmark
-};
-
 #endif

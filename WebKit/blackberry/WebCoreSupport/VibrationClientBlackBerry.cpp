@@ -29,17 +29,19 @@ VibrationClientBlackBerry::VibrationClientBlackBerry()
 {
 }
 
-void VibrationClientBlackBerry::vibrate(const unsigned long& time)
+void VibrationClientBlackBerry::vibrate(const unsigned& time)
 {
     BlackBerryPlatformVibrate::vibrate(time, 1.);
 }
 
 void VibrationClientBlackBerry::cancelVibration()
 {
+    BlackBerryPlatformVibrate::vibrate(0, 0.);
 }
 
 void VibrationClientBlackBerry::vibrationDestroyed()
 {
+    cancelVibration();
     delete this;
 }
 

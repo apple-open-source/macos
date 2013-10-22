@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
  * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Samsung Electronics. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,7 +33,9 @@
 #ifndef InputType_h
 #define InputType_h
 
+#include "FeatureObserver.h"
 #include "HTMLTextFormControlElement.h"
+#include "StepRange.h"
 #include <wtf/Forward.h>
 #include <wtf/FastAllocBase.h>
 #include <wtf/Noncopyable.h>
@@ -45,6 +48,7 @@ class BeforeTextInsertedEvent;
 class Chrome;
 class Color;
 class DateComponents;
+class DragData;
 class Event;
 class FileList;
 class FormDataList;
@@ -58,12 +62,13 @@ class Node;
 class RenderArena;
 class RenderObject;
 class RenderStyle;
-class WheelEvent;
+class TouchEvent;
 
 typedef int ExceptionCode;
 
 struct ClickHandlingState {
     WTF_MAKE_FAST_ALLOCATED;
+  
 public:
     bool checked;
     bool indeterminate;
@@ -74,9 +79,11 @@ public:
 // Do not expose instances of InputType and classes derived from it to classes
 // other than HTMLInputElement.
 class InputType {
-    WTF_MAKE_NONCOPYABLE(InputType); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(InputType);
+    WTF_MAKE_FAST_ALLOCATED;
+
 public:
-    static PassOwnPtr<InputType> create(HTMLInputElement*, const String&);
+    static PassOwnPtr<InputType> create(HTMLInputElement*, const AtomicString&);
     static PassOwnPtr<InputType> createText(HTMLInputElement*);
     virtual ~InputType();
 
@@ -98,11 +105,15 @@ public:
     virtual bool isColorControl() const;
 #endif
     virtual bool isCheckbox() const;
+    virtual bool isDateField() const;
+    virtual bool isDateTimeField() const;
+    virtual bool isDateTimeLocalField() const;
     virtual bool isEmailField() const;
     virtual bool isFileUpload() const;
     virtual bool isHiddenType() const;
     virtual bool isImageButton() const;
     virtual bool supportLabels() const;
+    virtual bool isMonthField() const;
     virtual bool isNumberField() const;
     virtual bool isPasswordField() const;
     virtual bool isRadioButton() const;
@@ -113,12 +124,15 @@ public:
     virtual bool isTextButton() const;
     virtual bool isTextField() const;
     virtual bool isTextType() const;
+    virtual bool isTimeField() const;
     virtual bool isURLField() const;
+    virtual bool isWeekField() const;
 
     // Form value functions
 
-    virtual bool saveFormControlState(String&) const;
-    virtual void restoreFormControlState(const String&);
+    virtual bool shouldSaveAndRestoreFormControlState() const;
+    virtual FormControlState saveFormControlState() const;
+    virtual void restoreFormControlState(const FormControlState&);
     virtual bool isFormDataAppendable() const;
     virtual bool appendFormData(FormDataList&, bool multipart) const;
 
@@ -129,11 +143,12 @@ public:
     virtual String defaultValue() const; // Checked after even fallbackValue, only when the valueWithDefault function is called.
     virtual double valueAsDate() const;
     virtual void setValueAsDate(double, ExceptionCode&) const;
-    virtual double valueAsNumber() const;
-    virtual void setValueAsNumber(double, TextFieldEventBehavior, ExceptionCode&) const;
+    virtual double valueAsDouble() const;
+    virtual void setValueAsDouble(double, TextFieldEventBehavior, ExceptionCode&) const;
+    virtual void setValueAsDecimal(const Decimal&, TextFieldEventBehavior, ExceptionCode&) const;
 
     // Validation functions
-
+    virtual String validationMessage() const;
     virtual bool supportsValidation() const;
     virtual bool typeMismatchFor(const String&) const;
     // Type check for the current input value. We do nothing for some types
@@ -142,32 +157,30 @@ public:
     virtual bool typeMismatch() const;
     virtual bool supportsRequired() const;
     virtual bool valueMissing(const String&) const;
+    virtual bool hasBadInput() const;
     virtual bool patternMismatch(const String&) const;
-    virtual bool rangeUnderflow(const String&) const;
-    virtual bool rangeOverflow(const String&) const;
-    virtual bool supportsRangeLimitation() const;
-    virtual double defaultValueForStepUp() const;
-    virtual double minimum() const;
-    virtual double maximum() const;
+    bool rangeUnderflow(const String&) const;
+    bool rangeOverflow(const String&) const;
+    bool isInRange(const String&) const;
+    bool isOutOfRange(const String&) const;
+    virtual Decimal defaultValueForStepUp() const;
+    double minimum() const;
+    double maximum() const;
     virtual bool sizeShouldIncludeDecoration(int defaultSize, int& preferredSize) const;
-    virtual bool stepMismatch(const String&, double step) const;
-    virtual double stepBase() const;
-    virtual double stepBaseWithDecimalPlaces(unsigned*) const;
-    virtual double defaultStep() const;
-    virtual double stepScaleFactor() const;
-    virtual bool parsedStepValueShouldBeInteger() const;
-    virtual bool scaledStepValueShouldBeInteger() const;
-    virtual double acceptableError(double) const;
+    bool stepMismatch(const String&) const;
+    virtual bool getAllowedValueStep(Decimal*) const;
+    virtual StepRange createStepRange(AnyStepHandling) const;
+    virtual void stepUp(int, ExceptionCode&);
+    virtual void stepUpFromRenderer(int);
+    virtual String badInputText() const;
     virtual String typeMismatchText() const;
     virtual String valueMissingText() const;
     virtual bool canSetStringValue() const;
+    virtual String localizeValue(const String&) const;
     virtual String visibleValue() const;
-    virtual String convertFromVisibleValue(const String&) const;
-    virtual bool isAcceptableValue(const String&);
     // Returing the null string means "use the default value."
     // This function must be called only by HTMLInputElement::sanitizeValue().
     virtual String sanitizeValue(const String&) const;
-    virtual bool hasUnacceptableValue();
 
     // Event handlers
 
@@ -180,18 +193,27 @@ public:
     virtual void handleKeypressEvent(KeyboardEvent*);
     virtual void handleKeyupEvent(KeyboardEvent*);
     virtual void handleBeforeTextInsertedEvent(BeforeTextInsertedEvent*);
-    virtual void handleWheelEvent(WheelEvent*);
+#if ENABLE(TOUCH_EVENTS)
+    virtual void handleTouchEvent(TouchEvent*);
+#endif
     virtual void forwardEvent(Event*);
     // Helpers for event handlers.
     virtual bool shouldSubmitImplicitly(Event*);
     virtual PassRefPtr<HTMLFormElement> formForSubmission() const;
-    virtual bool isKeyboardFocusable() const;
+    virtual bool hasCustomFocusLogic() const;
+    virtual bool isKeyboardFocusable(KeyboardEvent*) const;
+    virtual bool isMouseFocusable() const;
     virtual bool shouldUseInputMethod() const;
-    virtual void handleFocusEvent();
+    virtual void handleFocusEvent(Node* oldFocusedNode, FocusDirection);
     virtual void handleBlurEvent();
     virtual void accessKeyAction(bool sendMouseEvents);
     virtual bool canBeSuccessfulSubmitButton();
+    virtual void subtreeHasChanged();
+#if ENABLE(TOUCH_EVENTS)
+    virtual bool hasTouchEventHandler() const;
+#endif
 
+    virtual void blur();
 
     // Shadow tree handling
 
@@ -207,22 +229,29 @@ public:
 #if ENABLE(INPUT_SPEECH)
     virtual HTMLElement* speechButtonElement() const { return 0; }
 #endif
+    virtual HTMLElement* sliderThumbElement() const { return 0; }
+    virtual HTMLElement* sliderTrackElement() const { return 0; }
     virtual HTMLElement* placeholderElement() const;
 
     // Miscellaneous functions
 
     virtual bool rendererIsNeeded();
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*) const;
+    virtual void addSearchResult();
     virtual void attach();
     virtual void detach();
     virtual void minOrMaxAttributeChanged();
     virtual void stepAttributeChanged();
     virtual void altAttributeChanged();
     virtual void srcAttributeChanged();
-    virtual void willMoveToNewOwnerDocument();
     virtual bool shouldRespectAlignAttribute();
     virtual FileList* files();
-    virtual void receiveDroppedFiles(const Vector<String>&);
+    virtual void setFiles(PassRefPtr<FileList>);
+    // Should return true if the given DragData has more than one dropped files.
+    virtual bool receiveDroppedFiles(const DragData*);
+#if ENABLE(FILE_SYSTEM)
+    virtual String droppedFileSystemId();
+#endif
     virtual Icon* icon() const;
     // Should return true if the corresponding renderer for a type can display a suggested value.
     virtual bool canSetSuggestedValue();
@@ -237,30 +266,28 @@ public:
     virtual bool isCheckable();
     virtual bool isSteppable() const;
     virtual bool shouldRespectHeightAndWidthAttributes();
-    // If supportsPlaceholder() && !usesFixedPlaceholder(), it means a type
-    // supports the 'placeholder' attribute.
-    // If supportsPlaceholder() && usesFixedPlaceholder(), it means a type
-    // doesn't support the 'placeholder' attribute, but shows
-    // fixedPlaceholder() string as a placeholder.
     virtual bool supportsPlaceholder() const;
-    virtual bool usesFixedPlaceholder() const;
-    virtual String fixedPlaceholder();
+    virtual bool supportsReadOnly() const;
+    virtual void updateInnerTextValue();
     virtual void updatePlaceholderText();
+    virtual void attributeChanged();
     virtual void multipleAttributeChanged();
     virtual void disabledAttributeChanged();
     virtual void readonlyAttributeChanged();
+    virtual void requiredAttributeChanged();
+    virtual void valueAttributeChanged();
     virtual String defaultToolTip() const;
+#if ENABLE(DATALIST_ELEMENT)
+    virtual void listAttributeTargetChanged();
+    virtual Decimal findClosestTickMarkValue(const Decimal&);
+#endif
+    virtual void updateClearButtonVisibility();
 
     // Parses the specified string for the type, and return
-    // the double value for the parsing result if the parsing
+    // the Decimal value for the parsing result if the parsing
     // succeeds; Returns defaultValue otherwise. This function can
     // return NaN or Infinity only if defaultValue is NaN or Infinity.
-    virtual double parseToDouble(const String&, double defaultValue) const;
-
-    // Parses the specified string for the type as parseToDouble() does.
-    // In addition, it stores the number of digits after the decimal point
-    // into *decimalPlaces.
-    virtual double parseToDoubleWithDecimalPlaces(const String&, double defaultValue, unsigned* decimalPlaces) const;
+    virtual Decimal parseToNumber(const String&, const Decimal& defaultValue) const;
 
     // Parses the specified string for this InputType, and returns true if it
     // is successfully parsed. An instance pointed by the DateComponents*
@@ -268,56 +295,36 @@ public:
     // fails. The DateComponents* parameter may be 0.
     virtual bool parseToDateComponents(const String&, DateComponents*) const;
 
-    // Create a string representation of the specified double value for the
+    // Create a string representation of the specified Decimal value for the
     // input type. If NaN or Infinity is specified, this returns an empty
     // string. This should not be called for types without valueAsNumber.
-    virtual String serialize(double) const;
+    virtual String serialize(const Decimal&) const;
 
     virtual bool supportsIndeterminateAppearance() const;
+
+    virtual bool supportsSelectionAPI() const;
+
+    // Gets width and height of the input element if the type of the
+    // element is image. It returns 0 if the element is not image type.
+    virtual unsigned height() const;
+    virtual unsigned width() const;
+
+    void dispatchSimulatedClickIfActive(KeyboardEvent*) const;
 
 protected:
     InputType(HTMLInputElement* element) : m_element(element) { }
     HTMLInputElement* element() const { return m_element; }
-    void dispatchSimulatedClickIfActive(KeyboardEvent*) const;
-    // We can't make this a static const data member because VC++ doesn't like it.
-    static double defaultStepBase() { return 0.0; }
     Chrome* chrome() const;
+    Decimal parseToNumberOrNaN(const String&) const;
+    void observeFeatureIfVisible(FeatureObserver::Feature) const;
 
 private:
+    // Helper for stepUp()/stepDown(). Adds step value * count to the current value.
+    void applyStep(int count, AnyStepHandling, TextFieldEventBehavior, ExceptionCode&);
+
     // Raw pointer because the HTMLInputElement object owns this InputType object.
     HTMLInputElement* m_element;
 };
 
-namespace InputTypeNames {
-
-const AtomicString& button();
-const AtomicString& checkbox();
-#if ENABLE(INPUT_TYPE_COLOR)
-const AtomicString& color();
-#endif
-const AtomicString& date();
-const AtomicString& datetime();
-const AtomicString& datetimelocal();
-const AtomicString& email();
-const AtomicString& file();
-const AtomicString& hidden();
-const AtomicString& image();
-const AtomicString& month();
-const AtomicString& number();
-const AtomicString& password();
-const AtomicString& radio();
-const AtomicString& range();
-const AtomicString& reset();
-const AtomicString& search();
-const AtomicString& submit();
-const AtomicString& telephone();
-const AtomicString& text();
-const AtomicString& time();
-const AtomicString& url();
-const AtomicString& week();
-
-} // namespace WebCore::InputTypeNames
-
 } // namespace WebCore
-
 #endif

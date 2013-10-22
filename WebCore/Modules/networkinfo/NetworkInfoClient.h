@@ -36,15 +36,17 @@ namespace WebCore {
 class NetworkInfoController;
 class Page;
 
-class NetworkInfoClient : public RefCounted<NetworkInfoClient> {
+class NetworkInfoClient {
 public:
     virtual ~NetworkInfoClient() { }
 
-    virtual unsigned int bandwidth() const = 0;
+    virtual double bandwidth() const = 0;
     virtual bool metered() const = 0;
-   
+
     virtual void startUpdating() = 0;
     virtual void stopUpdating() = 0;
+
+    virtual void networkInfoControllerDestroyed() = 0;
 };
 
 void provideNetworkInfoTo(Page*, NetworkInfoClient*);

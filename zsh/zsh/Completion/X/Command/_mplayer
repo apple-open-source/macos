@@ -77,7 +77,7 @@ _x_arguments -C -s \
   '-sid[turn on DVD subtitles]:language id' \
   '-speed[set playback speed rate]:playback speed rate' \
   '-srate[specify frequency of audio playback]:frequency (Hz)' \
-  '-ss[seek to given time position]:position (hh:mm\[\:ss\])' \
+  '-ss[seek to given time position]:position ([[hh\:]mm\:]ss[.sss])' \
   '-sstep[specify time between displayed frames]:time (seconds)' \
   -ssf:mode -stop_xscreensaver \
   '-stereo:mode:((0\:stereo 1\:left\ channel 2\:right\ channel))' \
@@ -108,19 +108,19 @@ _x_arguments -C -s \
   '-z[specify compression level for png output]:compression-level:((0\:no\ compression 1 2 3 4 5 6\:default\ compression 7 8 9\:max\ compression))' \
   '-zoom[use software scaling, where available (use with -nofs)]' \
   -zrbw -zrcrop -zrdev -zrfd -zrhelp -zrnorm -zrquality -zr{h,v}dec -zr{x,y}doff \
-  '(-use-stdin)*:video file:->mfiles'
+  '(-use-stdin)*:video file:->mfiles' && ret=0
 
 case "$state" in
   mfiles)
     _tags files urls
     while _tags; do
       _requested files expl 'video file' _files -g \
-	  "*.(#i)(asf|asx|avi|flac|flv|m1v|m2p|m2v|mjpg|mka|mkv|mov|mp3|mp4|mpe|mpeg|mpg|ogg|ogm|qt|rm|vob|wav|wma|wmv)(-.)" && ret=0
+         "*.(#i)(asf|asx|avi|flac|flv|m1v|m2p|m2v|m4v|mjpg|mka|mkv|mov|mp3|mp4|mpe|mpeg|mpg|ogg|ogm|qt|rm|vob|wav|webm|wma|wmv)(-.)" && ret=0
       if _requested urls; then
         while _next_label urls expl URL; do
           _urls "$expl[@]" && ret=0
-	  compadd -S '' "$expl[@]" {dvd,vcd,cdda,cddb,tv}:// && ret=0
-	done
+          compadd -S '' "$expl[@]" {dvd,vcd,cdda,cddb,tv}:// && ret=0
+        done
       fi
       (( ret )) || return 0
     done

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,15 +40,14 @@
 #include <CoreFoundation/CFString.h>
 #include "util.h"
 #include "cfutil.h"
+#include "symbol_scope.h"
 
-STATIC CFStringRef
-DHCPDUIDCopyDescription(const DHCPDUIDRef duid, int duid_len)
+PRIVATE_EXTERN void
+DHCPDUIDPrintToString(CFMutableStringRef str,
+		      const DHCPDUIDRef duid, int duid_len)
 {
     int			required_len;
-    CFMutableStringRef	str;
     DHCPDUIDType	type;
-
-    str = CFStringCreateMutable(NULL, 0);
 
     required_len = offsetof(DHCPDUID_LLT, hardware_type);
     if (duid_len < required_len) {
@@ -96,7 +95,7 @@ DHCPDUIDCopyDescription(const DHCPDUIDRef duid, int duid_len)
 	my_CFStringAppendBytesAsHex(str, (const uint8_t *)duid, duid_len, ' ');
 	break;
     }
-    return (str);
+    return;
 
  too_short:
     CFStringAppendFormat(str, NULL,
@@ -104,38 +103,10 @@ DHCPDUIDCopyDescription(const DHCPDUIDRef duid, int duid_len)
 			 duid_len, required_len);
     my_CFStringAppendBytesAsHex(str, (const uint8_t *)duid, duid_len, ' ');
     CFStringAppendCString(str, " }", kCFStringEncodingASCII);
-    return (str);
-}
-
-char *
-DHCPDUIDToString(const DHCPDUIDRef duid, int duid_len)
-{
-    char *		cstr;
-    CFStringRef		str;
-
-    str = DHCPDUIDCopyDescription(duid, duid_len);
-    if (str == NULL) {
-	return (NULL);
-    }
-    cstr = my_CFStringToCString(str, kCFStringEncodingASCII);
-    CFRelease(str);
-    return (cstr);
-}
-
-void
-DHCPDUIDFPrint(FILE * file, const DHCPDUIDRef duid, int duid_len)
-{
-    char *		descr;
-
-    descr = DHCPDUIDToString(duid, duid_len);
-    if (descr != NULL) {
-	fprintf(file, "%s", descr);
-	free(descr);
-    }
     return;
 }
 
-bool
+PRIVATE_EXTERN bool
 DHCPDUIDIsValid(const DHCPDUIDRef duid, int duid_len)
 {
     int			required_len;

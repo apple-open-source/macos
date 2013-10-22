@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@
 
 #include <stdio.h>
 #include <mach/boolean.h>
+#include <CoreFoundation/CFString.h>
 #include "ptrlist.h"
 #include "dhcp.h"
 #include "gen_dhcp_tags.h"
@@ -179,7 +180,8 @@ boolean_t		dhcpol_parse_vendor(dhcpol_t * vendor,
 					    dhcpol_t * options,
 					    dhcpo_err_str_t * err);
 void			dhcpol_print(dhcpol_t * list);
-void			dhcpol_fprint(FILE * f, dhcpol_t * list);
+void			dhcpol_print_cfstr(CFMutableStringRef str,
+					   dhcpol_t * list);
 int			dhcpol_count_params(dhcpol_t * options, 
 					    const uint8_t * tags, int size);
 

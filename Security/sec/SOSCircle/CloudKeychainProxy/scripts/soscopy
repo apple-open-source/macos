@@ -1,0 +1,13 @@
+#!/bin/zsh
+
+echo "10873 12873 15873"
+
+for port in "$@"
+do
+	echo "Copying roots to port: $item"
+	RSYNC_PASSWORD=alpine rsync -av /tmp/security.roots.tgz rsync://root@localhost:$port/root/var/mobile/
+	RSYNC_PASSWORD=alpine rsync -av /tmp/security.syms.tgz rsync://root@localhost:$port/root/var/mobile/
+	RSYNC_PASSWORD=alpine rsync -av ~/bin/sosinstallroot rsync://root@localhost:$port/root/usr/local/bin/sosinstallroot
+	RSYNC_PASSWORD=alpine rsync -av /tmp/SyncedDefaults.roots.tgz rsync://root@localhost:$port/root/var/mobile/
+done
+

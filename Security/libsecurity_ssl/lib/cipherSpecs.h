@@ -31,9 +31,6 @@
 #include <stdint.h>
 #include "CipherSuite.h"
 
-#include "sslContext.h"
-#include "cryptType.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -51,25 +48,53 @@ typedef enum {
     SSL_CipherAlgorithmAES_256_GCM,
 } SSL_CipherAlgorithm;
 
+/* The HMAC algorithms we support */
+typedef enum {
+    HA_Null = 0,		// i.e., uninitialized
+    HA_SHA1,
+    HA_MD5,
+    HA_SHA256,
+    HA_SHA384
+} HMAC_Algs;
+
+typedef enum
+{   SSL_NULL_auth,
+    SSL_RSA,
+    SSL_RSA_EXPORT,
+    SSL_DH_DSS,
+    SSL_DH_DSS_EXPORT,
+    SSL_DH_RSA,
+    SSL_DH_RSA_EXPORT,
+    SSL_DHE_DSS,
+    SSL_DHE_DSS_EXPORT,
+    SSL_DHE_RSA,
+    SSL_DHE_RSA_EXPORT,
+    SSL_DH_anon,
+    SSL_DH_anon_EXPORT,
+    SSL_Fortezza,
+
+    /* ECDSA addenda, RFC 4492 */
+    SSL_ECDH_ECDSA,
+    SSL_ECDHE_ECDSA,
+    SSL_ECDH_RSA,
+    SSL_ECDHE_RSA,
+    SSL_ECDH_anon,
+
+    /* PSK, RFC 4279 */
+    TLS_PSK,
+    TLS_DHE_PSK,
+    TLS_RSA_PSK,
+    
+} KeyExchangeMethod;
+
+
+HMAC_Algs sslCipherSuiteGetMacAlgorithm(SSLCipherSuite cipherSuite);
 SSL_CipherAlgorithm sslCipherSuiteGetSymmetricCipherAlgorithm(SSLCipherSuite cipherSuite);
+KeyExchangeMethod sslCipherSuiteGetKeyExchangeMethod(SSLCipherSuite cipherSuite);
 
-/*
- * Build ctx->validCipherSuites as a copy of all known CipherSpecs.
- */
-extern OSStatus sslBuildCipherSuiteArray(SSLContext *ctx);
-
-/*
- * Initialize ctx->selectedCipherSpec based on ctx->selectedCipher.
- * ctx->selectedCipher MUST be a valid supported cipherSuite.
- */
-void InitCipherSpec(SSLContext *ctx);
-
-/*
- * Given a valid ctx->selectedCipher and ctx->validCipherSuites, set
- * ctx->selectedCipherSpec as appropriate. Return an error if
- * ctx->selectedCipher could not be set as the current ctx->selectedCipherSpec.
- */
-OSStatus FindCipherSpec(SSLContext *ctx);
+uint8_t sslCipherSuiteGetMacSize(SSLCipherSuite cipherSuite);
+uint8_t sslCipherSuiteGetSymmetricCipherKeySize(SSLCipherSuite cipherSuite);
+uint8_t sslCipherSuiteGetSymmetricCipherBlockIvSize(SSLCipherSuite cipherSuite);
 
 /*
  * Determine if an SSLCipherSuite is SSLv2 only.

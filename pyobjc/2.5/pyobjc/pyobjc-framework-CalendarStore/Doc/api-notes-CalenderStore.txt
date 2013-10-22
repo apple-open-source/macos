@@ -1,4 +1,0 @@
-API Notes for the CalendarStore framework
-=========================================
-
-The CalendarStore framework is completely wrapped by PyObjC.

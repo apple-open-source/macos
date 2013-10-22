@@ -30,13 +30,14 @@
 #include "TextTrackLoader.h"
 
 #include "CachedResourceLoader.h"
+#include "CachedResourceRequest.h"
 #include "CachedTextTrack.h"
 #include "CrossOriginAccessControl.h"
 #include "Document.h"
 #include "Logging.h"
-#include "ResourceHandle.h"
+#include "ResourceBuffer.h"
+#include "ScriptCallStack.h"
 #include "SecurityOrigin.h"
-#include "SharedBuffer.h"
 #include "WebVTTParser.h"
 
 namespace WebCore {
@@ -82,10 +83,10 @@ void TextTrackLoader::processNewCueData(CachedResource* resource)
 {
     ASSERT(m_cachedCueData == resource);
     
-    if (m_state == Failed || !resource->data())
+    if (m_state == Failed || !resource->resourceBuffer())
         return;
     
-    SharedBuffer* buffer = resource->data();
+    ResourceBuffer* buffer = resource->resourceBuffer();
     if (m_parseOffset == buffer->size())
         return;
 
@@ -101,11 +102,12 @@ void TextTrackLoader::processNewCueData(CachedResource* resource)
     }
 }
 
-void TextTrackLoader::didReceiveData(CachedResource* resource)
+// FIXME: This is a very unusual pattern, no other CachedResourceClient does this. Refactor to use notifyFinished() instead.
+void TextTrackLoader::deprecatedDidReceiveCachedResource(CachedResource* resource)
 {
     ASSERT(m_cachedCueData == resource);
     
-    if (!resource->data())
+    if (!resource->resourceBuffer())
         return;
     
     processNewCueData(resource);
@@ -113,9 +115,9 @@ void TextTrackLoader::didReceiveData(CachedResource* resource)
 
 void TextTrackLoader::corsPolicyPreventedLoad()
 {
-    DEFINE_STATIC_LOCAL(String, consoleMessage, ("Cross-origin text track load denied by Cross-Origin Resource Sharing policy."));
-    Document* document = static_cast<Document*>(m_scriptExecutionContext);
-    document->addConsoleMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, consoleMessage);
+    DEFINE_STATIC_LOCAL(String, consoleMessage, (ASCIILiteral("Cross-origin text track load denied by Cross-Origin Resource Sharing policy.")));
+    Document* document = toDocument(m_scriptExecutionContext);
+    document->addConsoleMessage(SecurityMessageSource, ErrorMessageLevel, consoleMessage);
     m_state = Failed;
 }
 
@@ -123,7 +125,7 @@ void TextTrackLoader::notifyFinished(CachedResource* resource)
 {
     ASSERT(m_cachedCueData == resource);
 
-    Document* document = static_cast<Document*>(m_scriptExecutionContext);
+    Document* document = toDocument(m_scriptExecutionContext);
     if (!m_crossOriginMode.isNull()
         && !document->securityOrigin()->canRequest(resource->response().url())
         && !resource->passesAccessControlCheck(document->securityOrigin())) {
@@ -151,13 +153,13 @@ bool TextTrackLoader::load(const KURL& url, const String& crossOriginMode)
         return false;
 
     ASSERT(m_scriptExecutionContext->isDocument());
-    Document* document = static_cast<Document*>(m_scriptExecutionContext);
-    ResourceRequest cueRequest(document->completeURL(url));
+    Document* document = toDocument(m_scriptExecutionContext);
+    CachedResourceRequest cueRequest(ResourceRequest(document->completeURL(url)));
 
     if (!crossOriginMode.isNull()) {
         m_crossOriginMode = crossOriginMode;
         StoredCredentials allowCredentials = equalIgnoringCase(crossOriginMode, "use-credentials") ? AllowStoredCredentials : DoNotAllowStoredCredentials;
-        updateRequestForAccessControl(cueRequest, document->securityOrigin(), allowCredentials);
+        updateRequestForAccessControl(cueRequest.mutableResourceRequest(), document->securityOrigin(), allowCredentials);
     } else {
         // Cross-origin resources that are not suitably CORS-enabled may not load.
         if (!document->securityOrigin()->canRequest(url)) {
@@ -167,7 +169,7 @@ bool TextTrackLoader::load(const KURL& url, const String& crossOriginMode)
     }
 
     CachedResourceLoader* cachedResourceLoader = document->cachedResourceLoader();
-    m_cachedCueData = static_cast<CachedTextTrack*>(cachedResourceLoader->requestTextTrack(cueRequest));
+    m_cachedCueData = cachedResourceLoader->requestTextTrack(cueRequest);
     if (m_cachedCueData)
         m_cachedCueData->addClient(this);
     
@@ -184,6 +186,13 @@ void TextTrackLoader::newCuesParsed()
     m_newCuesAvailable = true;
     m_cueLoadTimer.startOneShot(0);
 }
+
+#if ENABLE(WEBVTT_REGIONS)
+void TextTrackLoader::newRegionsParsed()
+{
+    m_client->newRegionsAvailable(this); 
+}
+#endif
 
 void TextTrackLoader::fileFailedToParse()
 {
@@ -204,6 +213,14 @@ void TextTrackLoader::getNewCues(Vector<RefPtr<TextTrackCue> >& outputCues)
         m_cueParser->getNewCues(outputCues);
 }
 
+#if ENABLE(WEBVTT_REGIONS)
+void TextTrackLoader::getNewRegions(Vector<RefPtr<TextTrackRegion> >& outputRegions)
+{
+    ASSERT(m_cueParser);
+    if (m_cueParser)
+        m_cueParser->getNewRegions(outputRegions);
+}
+#endif
 }
 
 #endif

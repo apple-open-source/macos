@@ -35,13 +35,14 @@
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
-#include "PlatformString.h"
+#include "NativeImageQt.h"
 #include "StrokeStyleApplier.h"
 #include <QPainterPath>
-#include <QTransform>
 #include <QString>
+#include <QTransform>
 #include <wtf/MathExtras.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -118,7 +119,7 @@ bool Path::contains(const FloatPoint& point, WindRule rule) const
 
 static GraphicsContext* scratchContext()
 {
-    static QImage image(1, 1, QImage::Format_ARGB32_Premultiplied);
+    static QImage image(1, 1, NativeImageQt::defaultFormatForAlphaEnabledImages());
     static QPainter painter(&image);
     static GraphicsContext* context = new GraphicsContext(&painter);
     return context;
@@ -148,9 +149,14 @@ void Path::translate(const FloatSize& size)
     m_path.translate(size.width(), size.height());
 }
 
-FloatRect Path::boundingRect() const
+FloatRect Path::fastBoundingRect() const
 {
     return m_path.controlPointRect();
+}
+
+FloatRect Path::boundingRect() const
+{
+    return m_path.boundingRect();
 }
 
 FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const

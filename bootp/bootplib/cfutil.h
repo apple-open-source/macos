@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFArray.h>
 #include <netinet/in.h>
+#include <sys/types.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -40,7 +41,8 @@ CFPropertyListRef
 my_CFPropertyListCreateFromFile(const char * filename);
 
 int
-my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename);
+my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename,
+			   mode_t perms);
 
 Boolean
 my_CFStringArrayToCStringArray(CFArrayRef arr, void * buffer, int * buffer_size,
@@ -93,5 +95,10 @@ my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding);
 
 Boolean
 my_CFEqual(CFTypeRef val1, CFTypeRef val2);
+
+#define STRING_APPEND(__string, __format, ...)		\
+    CFStringAppendFormat(__string, NULL,		\
+			 CFSTR(__format),		\
+			 ## __VA_ARGS__)
 
 #endif /* _S_CFUTIL_H */

@@ -57,7 +57,7 @@
 
 static volatile sig_atomic_t signo[NSIG];
 
-static void handler __P((int));
+static RETSIGTYPE handler __P((int));
 static char *getln __P((int, char *, size_t, int));
 static char *sudo_askpass __P((const char *));
 
@@ -80,7 +80,7 @@ tgetpass(prompt, timeout, flags)
 
     /* If using a helper program to get the password, run it instead. */
     if (ISSET(flags, TGP_ASKPASS) && user_askpass)
-	return(sudo_askpass(prompt));
+	return sudo_askpass(prompt);
 
 restart:
     for (i = 0; i < NSIG; i++)
@@ -127,8 +127,10 @@ restart:
     sa.sa_handler = SIG_IGN;
     (void) sigaction(SIGPIPE, &sa, &savepipe);
 
-    if (prompt)
-	(void) write(output, prompt, strlen(prompt));
+    if (prompt) {
+	if (write(output, prompt, strlen(prompt)) == -1)
+	    goto restore;
+    }
 
     if (timeout > 0)
 	alarm(timeout);
@@ -136,9 +138,12 @@ restart:
     alarm(0);
     save_errno = errno;
 
-    if (neednl || pass == NULL)
-	(void) write(output, "\n", 1);
+    if (neednl || pass == NULL) {
+	if (write(output, "\n", 1) == -1)
+	    goto restore;
+    }
 
+restore:
     /* Restore old tty settings and signals. */
     if (!ISSET(flags, TGP_ECHO))
 	term_restore(input, 1);
@@ -175,7 +180,7 @@ restart:
 
     if (save_errno)
 	errno = save_errno;
-    return(pass);
+    return pass;
 }
 
 /*
@@ -223,7 +228,10 @@ sudo_askpass(prompt)
     (void) close(pfd[0]);
     (void) sigaction(SIGPIPE, &saved_sa_pipe, NULL);
 
-    return(pass);
+    if (pass == NULL)
+	errno = EINTR;	/* make cancel button simulate ^C */
+
+    return pass;
 }
 
 extern int term_erase, term_kill;
@@ -242,7 +250,7 @@ getln(fd, buf, bufsiz, feedback)
 
     if (left == 0) {
 	errno = EINVAL;
-	return(NULL);			/* sanity */
+	return NULL;			/* sanity */
     }
 
     while (--left) {
@@ -252,20 +260,22 @@ getln(fd, buf, bufsiz, feedback)
 	if (feedback) {
 	    if (c == term_kill) {
 		while (cp > buf) {
-		    (void) write(fd, "\b \b", 3);
+		    if (write(fd, "\b \b", 3) == -1)
+			break;
 		    --cp;
 		}
 		left = bufsiz;
 		continue;
 	    } else if (c == term_erase) {
 		if (cp > buf) {
-		    (void) write(fd, "\b \b", 3);
+		    if (write(fd, "\b \b", 3) == -1)
+			break;
 		    --cp;
 		    left++;
 		}
 		continue;
 	    }
-	    (void) write(fd, "*", 1);
+	    ignore_result(write(fd, "*", 1));
 	}
 	*cp++ = c;
     }
@@ -273,15 +283,16 @@ getln(fd, buf, bufsiz, feedback)
     if (feedback) {
 	/* erase stars */
 	while (cp > buf) {
-	    (void) write(fd, "\b \b", 3);
+	    if (write(fd, "\b \b", 3) == -1)
+		break;
 	    --cp;
 	}
     }
 
-    return(nr == 1 ? buf : NULL);
+    return nr == 1 ? buf : NULL;
 }
 
-static void
+static RETSIGTYPE
 handler(s)
     int s;
 {
@@ -296,5 +307,5 @@ tty_present()
 
     if ((fd = open(_PATH_TTY, O_RDWR|O_NOCTTY)) != -1)
 	close(fd);
-    return(fd != -1);
+    return fd != -1;
 }

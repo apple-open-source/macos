@@ -1,9 +1,7 @@
 #
-# Marshalling of XML-RPC methodCall and methodResponse
-# 
 # Copyright (C) 2001, 2002, 2003 by Michael Neumann (mneumann@ntecs.de)
 #
-# $Id: marshal.rb 11708 2007-02-12 23:01:19Z shyouhei $
+# $Id: marshal.rb 36958 2012-09-13 02:22:10Z zzak $
 #
 
 require "xmlrpc/parser"
@@ -11,13 +9,12 @@ require "xmlrpc/create"
 require "xmlrpc/config"
 require "xmlrpc/utils"
 
-module XMLRPC
+module XMLRPC # :nodoc:
 
+  # Marshalling of XMLRPC::Create#methodCall and XMLRPC::Create#methodResponse
   class Marshal
     include ParserWriterChooseMixin
 
-    # class methods -------------------------------
-   
     class << self
 
       def dump_call( methodName, *params )
@@ -41,8 +38,6 @@ module XMLRPC
 
     end # class self
 
-    # instance methods ----------------------------
-
     def initialize( parser = nil, writer = nil )
       set_parser( parser )
       set_writer( writer )
@@ -52,20 +47,16 @@ module XMLRPC
       create.methodCall( methodName, *params )
     end
 
-    def dump_response( param ) 
+    def dump_response( param )
       create.methodResponse( ! param.kind_of?( XMLRPC::FaultException ) , param )
     end
 
-    ##
-    # returns [ methodname, params ]
-    #
+    # Returns <code>[ methodname, params ]</code>
     def load_call( stringOrReadable )
       parser.parseMethodCall( stringOrReadable )
     end
 
-    ##
-    # returns paramOrFault
-    #
+    # Returns +paramOrFault+
     def load_response( stringOrReadable )
       parser.parseMethodResponse( stringOrReadable )[1]
     end
@@ -73,4 +64,3 @@ module XMLRPC
   end # class Marshal
 
 end
-

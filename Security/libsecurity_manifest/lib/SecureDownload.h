@@ -42,7 +42,7 @@ extern "C" {
 				2:  Pass the ticket to SecureDownloadCreateWithTicket.  On error, call
 					SecureDownloadGetTrustRef to return data that will help you figure
 					out why the ticket was bad.
-				3:  If SecureDownloadCreateWithTicket returns noErr, call SecureDownloadCopyURLs
+				3:  If SecureDownloadCreateWithTicket returns errSecSuccess, call SecureDownloadCopyURLs
 					to return a list of data download locations.  Begin downloading data from
 					the first URL in the list.  If that download fails, try downloading from
 					the second URL, and so forth.

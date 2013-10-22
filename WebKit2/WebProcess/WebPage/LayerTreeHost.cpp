@@ -26,16 +26,16 @@
 #include "config.h"
 #include "LayerTreeHost.h"
 
-#if USE(CA)
 #if PLATFORM(MAC)
-#include "LayerTreeHostCAMac.h"
-#elif PLATFORM(WIN)
-#include "LayerTreeHostCAWin.h"
-#endif
+#include "LayerTreeHostMac.h"
 #endif
 
-#if PLATFORM(QT)
-#include "qt/LayerTreeHostQt.h"
+#if USE(COORDINATED_GRAPHICS)
+#include "CoordinatedLayerTreeHost.h"
+#endif
+
+#if PLATFORM(GTK) && USE(TEXTURE_MAPPER_GL)
+#include "LayerTreeHostGtk.h"
 #endif
 
 using namespace WebCore;
@@ -45,12 +45,13 @@ namespace WebKit {
 PassRefPtr<LayerTreeHost> LayerTreeHost::create(WebPage* webPage)
 {
 #if PLATFORM(MAC)
-    return LayerTreeHostCAMac::create(webPage);
-#elif PLATFORM(WIN) && HAVE(WKQCA)
-    return LayerTreeHostCAWin::create(webPage);
-#elif PLATFORM(QT)
-    return LayerTreeHostQt::create(webPage);
+    return LayerTreeHostMac::create(webPage);
+#elif USE(COORDINATED_GRAPHICS)
+    return CoordinatedLayerTreeHost::create(webPage);
+#elif PLATFORM(GTK) && USE(TEXTURE_MAPPER_GL)
+    return LayerTreeHostGtk::create(webPage);
 #else
+    UNUSED_PARAM(webPage);
     return 0;
 #endif
 }

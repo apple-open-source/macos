@@ -183,6 +183,11 @@ TEST_F(FileSystemTest, TempFiles) {
   ASSERT_NO_ERROR(fs::unique_file("%%-%%-%%-%%.temp", FD2, TempPath2));
   ASSERT_NE(TempPath.str(), TempPath2.str());
 
+  fs::file_status A, B;
+  ASSERT_NO_ERROR(fs::status(Twine(TempPath), A));
+  ASSERT_NO_ERROR(fs::status(Twine(TempPath2), B));
+  EXPECT_FALSE(fs::equivalent(A, B));
+
   // Try to copy the first to the second.
   EXPECT_EQ(
     fs::copy_file(Twine(TempPath), Twine(TempPath2)), errc::file_exists);
@@ -204,6 +209,9 @@ TEST_F(FileSystemTest, TempFiles) {
   bool equal;
   ASSERT_NO_ERROR(fs::equivalent(Twine(TempPath), Twine(TempPath2), equal));
   EXPECT_TRUE(equal);
+  ASSERT_NO_ERROR(fs::status(Twine(TempPath), A));
+  ASSERT_NO_ERROR(fs::status(Twine(TempPath2), B));
+  EXPECT_TRUE(fs::equivalent(A, B));
 
   // Remove Temp1.
   ::close(FileDescriptor);
@@ -223,6 +231,60 @@ TEST_F(FileSystemTest, DirectoryIteration) {
   error_code ec;
   for (fs::directory_iterator i(".", ec), e; i != e; i.increment(ec))
     ASSERT_NO_ERROR(ec);
+
+  // Create a known hierarchy to recurse over.
+  bool existed;
+  ASSERT_NO_ERROR(fs::create_directories(Twine(TestDirectory)
+                  + "/recursive/a0/aa1", existed));
+  ASSERT_NO_ERROR(fs::create_directories(Twine(TestDirectory)
+                  + "/recursive/a0/ab1", existed));
+  ASSERT_NO_ERROR(fs::create_directories(Twine(TestDirectory)
+                  + "/recursive/dontlookhere/da1", existed));
+  ASSERT_NO_ERROR(fs::create_directories(Twine(TestDirectory)
+                  + "/recursive/z0/za1", existed));
+  ASSERT_NO_ERROR(fs::create_directories(Twine(TestDirectory)
+                  + "/recursive/pop/p1", existed));
+  typedef std::vector<std::string> v_t;
+  v_t visited;
+  for (fs::recursive_directory_iterator i(Twine(TestDirectory)
+         + "/recursive", ec), e; i != e; i.increment(ec)){
+    ASSERT_NO_ERROR(ec);
+    if (path::filename(i->path()) == "p1") {
+      i.pop();
+      // FIXME: recursive_directory_iterator should be more robust.
+      if (i == e) break;
+    }
+    if (path::filename(i->path()) == "dontlookhere")
+      i.no_push();
+    visited.push_back(path::filename(i->path()));
+  }
+  v_t::const_iterator a0 = std::find(visited.begin(), visited.end(), "a0");
+  v_t::const_iterator aa1 = std::find(visited.begin(), visited.end(), "aa1");
+  v_t::const_iterator ab1 = std::find(visited.begin(), visited.end(), "ab1");
+  v_t::const_iterator dontlookhere = std::find(visited.begin(), visited.end(),
+                                               "dontlookhere");
+  v_t::const_iterator da1 = std::find(visited.begin(), visited.end(), "da1");
+  v_t::const_iterator z0 = std::find(visited.begin(), visited.end(), "z0");
+  v_t::const_iterator za1 = std::find(visited.begin(), visited.end(), "za1");
+  v_t::const_iterator pop = std::find(visited.begin(), visited.end(), "pop");
+  v_t::const_iterator p1 = std::find(visited.begin(), visited.end(), "p1");
+
+  // Make sure that each path was visited correctly.
+  ASSERT_NE(a0, visited.end());
+  ASSERT_NE(aa1, visited.end());
+  ASSERT_NE(ab1, visited.end());
+  ASSERT_NE(dontlookhere, visited.end());
+  ASSERT_EQ(da1, visited.end()); // Not visited.
+  ASSERT_NE(z0, visited.end());
+  ASSERT_NE(za1, visited.end());
+  ASSERT_NE(pop, visited.end());
+  ASSERT_EQ(p1, visited.end()); // Not visited.
+
+  // Make sure that parents were visited before children. No other ordering
+  // guarantees can be made across siblings.
+  ASSERT_LT(a0, aa1);
+  ASSERT_LT(a0, ab1);
+  ASSERT_LT(z0, za1);
 }
 
 TEST_F(FileSystemTest, Magic) {
@@ -250,4 +312,79 @@ TEST_F(FileSystemTest, Magic) {
   }
 }
 
+#if !defined(_WIN32) // FIXME: Win32 has different permission schema.
+TEST_F(FileSystemTest, Permissions) {
+  // Create a temp file.
+  int FileDescriptor;
+  SmallString<64> TempPath;
+  ASSERT_NO_ERROR(
+    fs::unique_file("%%-%%-%%-%%.temp", FileDescriptor, TempPath));
+
+  // Mark file as read-only
+  const fs::perms AllWrite = fs::owner_write|fs::group_write|fs::others_write;
+  ASSERT_NO_ERROR(fs::permissions(Twine(TempPath), fs::remove_perms|AllWrite));
+ 
+  // Verify file is read-only
+  fs::file_status Status;
+  ASSERT_NO_ERROR(fs::status(Twine(TempPath), Status));
+  bool AnyWriteBits = (Status.permissions() & AllWrite);
+  EXPECT_FALSE(AnyWriteBits);
+  
+  // Mark file as read-write
+  ASSERT_NO_ERROR(fs::permissions(Twine(TempPath), fs::add_perms|AllWrite));
+  
+  // Verify file is read-write
+  ASSERT_NO_ERROR(fs::status(Twine(TempPath), Status));
+  AnyWriteBits = (Status.permissions() & AllWrite);
+  EXPECT_TRUE(AnyWriteBits);
+}
+#endif
+
+TEST_F(FileSystemTest, FileMapping) {
+  // Create a temp file.
+  int FileDescriptor;
+  SmallString<64> TempPath;
+  ASSERT_NO_ERROR(
+    fs::unique_file("%%-%%-%%-%%.temp", FileDescriptor, TempPath));
+  // Map in temp file and add some content
+  error_code EC;
+  StringRef Val("hello there");
+  {
+    fs::mapped_file_region mfr(FileDescriptor,
+                               fs::mapped_file_region::readwrite,
+                               4096,
+                               0,
+                               EC);
+    ASSERT_NO_ERROR(EC);
+    std::copy(Val.begin(), Val.end(), mfr.data());
+    // Explicitly add a 0.
+    mfr.data()[Val.size()] = 0;
+    // Unmap temp file
+  }
+  
+  // Map it back in read-only
+  fs::mapped_file_region mfr(Twine(TempPath),
+                             fs::mapped_file_region::readonly,
+                             0,
+                             0,
+                             EC);
+  ASSERT_NO_ERROR(EC);
+  
+  // Verify content
+  EXPECT_EQ(StringRef(mfr.const_data()), Val);
+  
+  // Unmap temp file
+
+#if LLVM_USE_RVALUE_REFERENCES
+  fs::mapped_file_region m(Twine(TempPath),
+                             fs::mapped_file_region::readonly,
+                             0,
+                             0,
+                             EC);
+  ASSERT_NO_ERROR(EC);
+  const char *Data = m.const_data();
+  fs::mapped_file_region mfrrv(llvm_move(m));
+  EXPECT_EQ(mfrrv.const_data(), Data);
+#endif
+}
 } // anonymous namespace

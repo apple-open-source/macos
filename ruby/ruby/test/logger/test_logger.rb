@@ -1,3 +1,4 @@
+# coding: US-ASCII
 require 'test/unit'
 require 'logger'
 require 'tempfile'
@@ -8,7 +9,7 @@ class TestLoggerSeverity < Test::Unit::TestCase
     logger_levels = Logger.constants
     levels = ["WARN", "UNKNOWN", "INFO", "FATAL", "DEBUG", "ERROR"]
     Logger::Severity.constants.each do |level|
-      assert(levels.include?(level))
+      assert(levels.include?(level.to_s))
       assert(logger_levels.include?(level))
     end
     assert_equal(levels.size, Logger::Severity.constants.size)
@@ -21,10 +22,6 @@ class TestLogger < Test::Unit::TestCase
 
   def setup
     @logger = Logger.new(nil)
-  end
-
-  def test_const_progname
-    assert %r!\Alogger\.rb/\S+\z! === Logger::ProgName
   end
 
   class Log
@@ -49,7 +46,7 @@ class TestLogger < Test::Unit::TestCase
     logger.__send__(msg_id, *arg, &block)
     logdev.open
     msg = logdev.read
-    logdev.close
+    logdev.close(true)
     msg
   end
 
@@ -129,7 +126,7 @@ class TestLogger < Test::Unit::TestCase
     end
     logger.formatter = o
     line = log_raw(logger, :info, "foo")
-    assert_equal("<<INFO-foo>>\n", line)
+    assert_equal("<""<INFO-foo>>\n", line)
   end
 
   def test_initialize
@@ -262,8 +259,32 @@ class TestLogger < Test::Unit::TestCase
 end
 
 class TestLogDevice < Test::Unit::TestCase
-  def d(log)
-    Logger::LogDevice.new(log)
+  class LogExcnRaiser
+    def write(*arg)
+      raise 'disk is full'
+    end
+
+    def close
+    end
+
+    def stat
+      Object.new
+    end
+  end
+
+  def setup
+    @tempfile = Tempfile.new("logger")
+    @tempfile.close
+    @filename = @tempfile.path
+    File.unlink(@filename)
+  end
+
+  def teardown
+    @tempfile.close(true)
+  end
+
+  def d(log, opt = {})
+    Logger::LogDevice.new(log, opt)
   end
 
   def test_initialize
@@ -274,15 +295,24 @@ class TestLogDevice < Test::Unit::TestCase
       d(nil)
     end
     #
-    filename = __FILE__ + ".#{$$}"
+    logdev = d(@filename)
     begin
-      logdev = d(filename)
-      assert(File.exist?(filename))
+      assert(File.exist?(@filename))
       assert(logdev.dev.sync)
-      assert_equal(filename, logdev.filename)
+      assert_equal(@filename, logdev.filename)
+      logdev.write('hello')
     ensure
       logdev.close
-      File.unlink(filename)
+    end
+    # create logfile whitch is already exist.
+    logdev = d(@filename)
+    begin
+      logdev.write('world')
+      logfile = File.read(@filename)
+      assert_equal(2, logfile.split(/\n/).size)
+      assert_match(/^helloworld$/, logfile)
+    ensure
+      logdev.close
     end
   end
 
@@ -295,6 +325,21 @@ class TestLogDevice < Test::Unit::TestCase
     msg = r.read
     r.close
     assert_equal("msg2\n\n", msg)
+    #
+    logdev = d(LogExcnRaiser.new)
+    class << (stderr = '')
+      alias write <<
+    end
+    $stderr, stderr = stderr, $stderr
+    begin
+      assert_nothing_raised do
+        logdev.write('hello')
+      end
+    ensure
+      logdev.close
+      $stderr, stderr = stderr, $stderr
+    end
+    assert_equal "log writing failed. disk is full\n", stderr
   end
 
   def test_close
@@ -309,11 +354,13 @@ class TestLogDevice < Test::Unit::TestCase
   end
 
   def test_shifting_size
-    logfile = File.basename(__FILE__) + '_1.log'
+    tmpfile = Tempfile.new([File.basename(__FILE__, '.*'), '_1.log'])
+    logfile = tmpfile.path
     logfile0 = logfile + '.0'
     logfile1 = logfile + '.1'
     logfile2 = logfile + '.2'
     logfile3 = logfile + '.3'
+    tmpfile.close(true)
     File.unlink(logfile) if File.exist?(logfile)
     File.unlink(logfile0) if File.exist?(logfile0)
     File.unlink(logfile1) if File.exist?(logfile1)
@@ -341,11 +388,13 @@ class TestLogDevice < Test::Unit::TestCase
     File.unlink(logfile1)
     File.unlink(logfile2)
 
-    logfile = File.basename(__FILE__) + '_2.log'
+    tmpfile = Tempfile.new([File.basename(__FILE__, '.*'), '_2.log'])
+    logfile = tmpfile.path
     logfile0 = logfile + '.0'
     logfile1 = logfile + '.1'
     logfile2 = logfile + '.2'
     logfile3 = logfile + '.3'
+    tmpfile.close(true)
     logger = Logger.new(logfile, 4, 150)
     logger.error("0" * 15)
     assert(File.exist?(logfile))
@@ -376,5 +425,103 @@ class TestLogDevice < Test::Unit::TestCase
     File.unlink(logfile0)
     File.unlink(logfile1)
     File.unlink(logfile2)
+  end
+
+  def test_shifting_age_variants
+    logger = Logger.new(@filename, 'daily')
+    logger.info('daily')
+    logger.close
+    logger = Logger.new(@filename, 'weekly')
+    logger.info('weekly')
+    logger.close
+    logger = Logger.new(@filename, 'monthly')
+    logger.info('monthly')
+    logger.close
+  end
+
+  def test_shifting_age
+    # shift_age other than 'daily', 'weekly', and 'monthly' means 'everytime'
+    yyyymmdd = Time.now.strftime("%Y%m%d")
+    filename1 = @filename + ".#{yyyymmdd}"
+    filename2 = @filename + ".#{yyyymmdd}.1"
+    filename3 = @filename + ".#{yyyymmdd}.2"
+    begin
+      logger = Logger.new(@filename, 'now')
+      assert(File.exist?(@filename))
+      assert(!File.exist?(filename1))
+      assert(!File.exist?(filename2))
+      assert(!File.exist?(filename3))
+      logger.info("0" * 15)
+      assert(File.exist?(@filename))
+      assert(File.exist?(filename1))
+      assert(!File.exist?(filename2))
+      assert(!File.exist?(filename3))
+      logger.warn("0" * 15)
+      assert(File.exist?(@filename))
+      assert(File.exist?(filename1))
+      assert(File.exist?(filename2))
+      assert(!File.exist?(filename3))
+      logger.error("0" * 15)
+      assert(File.exist?(@filename))
+      assert(File.exist?(filename1))
+      assert(File.exist?(filename2))
+      assert(File.exist?(filename3))
+    ensure
+      logger.close if logger
+      [filename1, filename2, filename3].each do |filename|
+        File.unlink(filename) if File.exist?(filename)
+      end
+    end
+  end
+end
+
+
+class TestLoggerApplication < Test::Unit::TestCase
+  def setup
+    @app = Logger::Application.new('appname')
+    @tempfile = Tempfile.new("logger")
+    @tempfile.close
+    @filename = @tempfile.path
+    File.unlink(@filename)
+  end
+
+  def teardown
+    @tempfile.close(true)
+  end
+
+  def test_initialize
+    app = Logger::Application.new('appname')
+    assert_equal('appname', app.appname)
+  end
+
+  def test_start
+    @app.set_log(@filename)
+    begin
+      @app.level = Logger::UNKNOWN
+      @app.start # logs FATAL log
+      assert_equal(1, File.read(@filename).split(/\n/).size)
+    ensure
+      @app.logger.close
+    end
+  end
+
+  def test_logger
+    @app.level = Logger::WARN
+    @app.set_log(@filename)
+    begin
+      assert_equal(Logger::WARN, @app.logger.level)
+    ensure
+      @app.logger.close
+    end
+    @app.logger = logger = Logger.new(STDOUT)
+    assert_equal(logger, @app.logger)
+    assert_equal(Logger::WARN, @app.logger.level)
+    @app.log = @filename
+    begin
+      assert(logger != @app.logger)
+      assert_equal(Logger::WARN, @app.logger.level)
+    ensure
+      @app.logger.close
+    end
   end
 end

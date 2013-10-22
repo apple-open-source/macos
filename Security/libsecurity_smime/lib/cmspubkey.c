@@ -763,7 +763,7 @@ static OSStatus cmsNullWrapKey(
 /*
  * Free memory via specified plugin's app-level allocator
  */
-void cmsFreeCssmMemory(
+static void cmsFreeCssmMemory(
     CSSM_HANDLE	hand,
     void	*p)
 {
@@ -1276,7 +1276,7 @@ SecCmsUtilDecryptSymKeyECDH(
      * Decode keyEncAlg.params to get KEK algorithm and IV
      */ 
     pool = PORT_NewArena(1024);
-    if(pool = NULL) {
+    if(pool == NULL) {
 	goto loser;
     }
     memset(&keyAlgParam, 0, sizeof(keyAlgParam));

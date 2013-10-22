@@ -23,14 +23,13 @@
 #if ENABLE(BLACKBERRY_CREDENTIAL_PERSIST)
 #include "CredentialBackingStore.h"
 #endif
-#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
 Credential CredentialStorage::getFromPersistentStorage(const ProtectionSpace& protectionSpace)
 {
 #if ENABLE(BLACKBERRY_CREDENTIAL_PERSIST)
-    return CredentialBackingStore::instance()->getLogin(protectionSpace);
+    return credentialBackingStore().getLogin(protectionSpace);
 #else
     UNUSED_PARAM(protectionSpace);
     return Credential();

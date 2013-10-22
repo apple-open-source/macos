@@ -18,7 +18,7 @@ except ImportError:
 
 import os
 if os.uname()[2] >= '9.':
-    CFLAGS=['-isysroot','/']
+    CFLAGS=[]
 else:
     CFLAGS=[]
 

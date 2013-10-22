@@ -31,14 +31,19 @@
 #include "config.h"
 #include "InsertionPoint.h"
 
+#include "ElementShadow.h"
+#include "HTMLNames.h"
+#include "QualifiedName.h"
 #include "ShadowRoot.h"
-#include "ShadowTree.h"
+#include "StaticNodeList.h"
 
 namespace WebCore {
 
+using namespace HTMLNames;
+
 InsertionPoint::InsertionPoint(const QualifiedName& tagName, Document* document)
-    : HTMLElement(tagName, document)
-    , m_selections()
+    : HTMLElement(tagName, document, CreateInsertionPoint)
+    , m_hasDistribution(false)
 {
 }
 
@@ -46,53 +51,32 @@ InsertionPoint::~InsertionPoint()
 {
 }
 
-void InsertionPoint::attach()
+void InsertionPoint::attach(const AttachContext& context)
 {
-    if (isShadowBoundary()) {
-        ShadowRoot* root = toShadowRoot(treeScope()->rootNode());
-        if (doesSelectFromHostChildren()) {
-            distributeHostChildren(root->tree());
-            attachDistributedNode();
-        } else if (!root->olderShadowRoot()->assignedTo()) {
-            ASSERT(!root->olderShadowRoot()->attached());
-            assignShadowRoot(root->olderShadowRoot());
-            root->olderShadowRoot()->attach();
-        }
+    if (ShadowRoot* shadowRoot = containingShadowRoot())
+        ContentDistributor::ensureDistribution(shadowRoot);
+    for (Node* current = firstDistributed(); current; current = nextDistributedTo(current)) {
+        if (!current->attached())
+            current->attach(context);
     }
 
-    HTMLElement::attach();
+    HTMLElement::attach(context);
 }
 
-void InsertionPoint::detach()
+void InsertionPoint::detach(const AttachContext& context)
 {
-    ShadowRoot* root = toShadowRoot(shadowTreeRootNode());
-    if (root && isActive()) {
-        ShadowTree* tree = root->tree();
+    if (ShadowRoot* shadowRoot = containingShadowRoot())
+        ContentDistributor::ensureDistribution(shadowRoot);
 
-        if (doesSelectFromHostChildren())
-            clearDistribution(tree);
-        else if (ShadowRoot* assignedShadowRoot = assignedFrom())
-            clearAssignment(assignedShadowRoot);
+    for (Node* current = firstDistributed(); current; current = nextDistributedTo(current))
+        current->detach(context);
 
-        // When shadow element is detached, shadow tree should be recreated to re-calculate selector for
-        // other insertion points.
-        tree->setNeedsReattachHostChildrenAndShadow();
-    }
-
-    ASSERT(m_selections.isEmpty());
-    HTMLElement::detach();
+    HTMLElement::detach(context);
 }
 
-ShadowRoot* InsertionPoint::assignedFrom() const
+bool InsertionPoint::shouldUseFallbackElements() const
 {
-    Node* treeScopeRoot = treeScope()->rootNode();
-    if (!treeScopeRoot->isShadowRoot())
-        return 0;
-
-    ShadowRoot* olderShadowRoot = toShadowRoot(treeScopeRoot)->olderShadowRoot();
-    if (olderShadowRoot && olderShadowRoot->assignedTo() == this)
-        return olderShadowRoot;
-    return 0;
+    return isActive() && !hasDistribution();
 }
 
 bool InsertionPoint::isShadowBoundary() const
@@ -102,9 +86,11 @@ bool InsertionPoint::isShadowBoundary() const
 
 bool InsertionPoint::isActive() const
 {
+    if (!containingShadowRoot())
+        return false;
     const Node* node = parentNode();
     while (node) {
-        if (WebCore::isInsertionPoint(node))
+        if (node->isInsertionPoint())
             return false;
 
         node = node->parentNode();
@@ -117,43 +103,115 @@ bool InsertionPoint::rendererIsNeeded(const NodeRenderingContext& context)
     return !isShadowBoundary() && HTMLElement::rendererIsNeeded(context);
 }
 
-inline void InsertionPoint::distributeHostChildren(ShadowTree* tree)
+void InsertionPoint::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    if (!tree->selector().isSelecting()) {
-        // If HTMLContentSelector is not int selecting phase, it means InsertionPoint is attached from
-        // non-ShadowTree node. To run distribute algorithm, we have to reattach ShadowTree.
-        tree->setNeedsReattachHostChildrenAndShadow();
-        return;
+    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    if (ShadowRoot* root = containingShadowRoot())
+        if (ElementShadow* rootOwner = root->owner())
+            rootOwner->invalidateDistribution();
+}
+
+Node::InsertionNotificationRequest InsertionPoint::insertedInto(ContainerNode* insertionPoint)
+{
+    HTMLElement::insertedInto(insertionPoint);
+
+    if (ShadowRoot* root = containingShadowRoot()) {
+        if (ElementShadow* rootOwner = root->owner()) {
+            rootOwner->distributor().didShadowBoundaryChange(root->host());
+            rootOwner->distributor().invalidateInsertionPointList();
+        }
     }
 
-    tree->selector().populateIfNecessary(tree->host());
-    tree->selector().unselect(&m_selections);
-    tree->selector().select(this, &m_selections);
+    return InsertionDone;
 }
 
-inline void InsertionPoint::clearDistribution(ShadowTree* tree)
+void InsertionPoint::removedFrom(ContainerNode* insertionPoint)
 {
-    tree->selector().unselect(&m_selections);
+    ShadowRoot* root = containingShadowRoot();
+    if (!root)
+        root = insertionPoint->containingShadowRoot();
+
+    // host can be null when removedFrom() is called from ElementShadow destructor.
+    ElementShadow* rootOwner = root ? root->owner() : 0;
+    if (rootOwner) {
+        rootOwner->invalidateDistribution();
+        rootOwner->distributor().invalidateInsertionPointList();
+    }
+
+    // Since this insertion point is no longer visible from the shadow subtree, it need to clean itself up.
+    clearDistribution();
+
+    HTMLElement::removedFrom(insertionPoint);
 }
 
-inline void InsertionPoint::attachDistributedNode()
+void InsertionPoint::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    for (HTMLContentSelection* selection = m_selections.first(); selection; selection = selection->next())
-        selection->node()->attach();
+    if (name == reset_style_inheritanceAttr) {
+        if (!inDocument() || !attached() || !isActive())
+            return;
+        containingShadowRoot()->host()->setNeedsStyleRecalc();
+    } else
+        HTMLElement::parseAttribute(name, value);
 }
 
-inline void InsertionPoint::assignShadowRoot(ShadowRoot* shadowRoot)
+bool InsertionPoint::resetStyleInheritance() const
 {
-    shadowRoot->setAssignedTo(this);
-    m_selections.clear();
-    for (Node* node = shadowRoot->firstChild(); node; node = node->nextSibling())
-        m_selections.append(HTMLContentSelection::create(this, node));
+    return fastHasAttribute(reset_style_inheritanceAttr);
 }
 
-inline void InsertionPoint::clearAssignment(ShadowRoot* shadowRoot)
+void InsertionPoint::setResetStyleInheritance(bool value)
 {
-    shadowRoot->setAssignedTo(0);
-    m_selections.clear();
+    setBooleanAttribute(reset_style_inheritanceAttr, value);
+}
+    
+Node* InsertionPoint::firstDistributed() const
+{
+    if (!m_hasDistribution)
+        return 0;
+    for (Node* current = shadowHost()->firstChild(); current; current = current->nextSibling()) {
+        if (matchTypeFor(current) == InsertionPoint::AlwaysMatches)
+            return current;
+    }
+    return 0;
+}
+
+Node* InsertionPoint::lastDistributed() const
+{
+    if (!m_hasDistribution)
+        return 0;
+    for (Node* current = shadowHost()->lastChild(); current; current = current->previousSibling()) {
+        if (matchTypeFor(current) == InsertionPoint::AlwaysMatches)
+            return current;
+    }
+    return 0;
+}
+
+Node* InsertionPoint::nextDistributedTo(const Node* node) const
+{
+    for (Node* current = node->nextSibling(); current; current = current->nextSibling()) {
+        if (matchTypeFor(current) == InsertionPoint::AlwaysMatches)
+            return current;
+    }
+    return 0;
+}
+
+Node* InsertionPoint::previousDistributedTo(const Node* node) const
+{
+    for (Node* current = node->previousSibling(); current; current = current->previousSibling()) {
+        if (matchTypeFor(current) == InsertionPoint::AlwaysMatches)
+            return current;
+    }
+    return 0;
+}
+
+InsertionPoint* resolveReprojection(const Node* projectedNode)
+{
+    if (ElementShadow* shadow = shadowOfParentForDistribution(projectedNode)) {
+        if (ShadowRoot* root = projectedNode->containingShadowRoot())
+            ContentDistributor::ensureDistribution(root);
+        return shadow->distributor().findInsertionPointFor(projectedNode);
+    }
+    return 0;
 }
 
 } // namespace WebCore

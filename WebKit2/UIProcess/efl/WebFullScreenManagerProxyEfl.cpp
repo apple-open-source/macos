@@ -25,9 +25,11 @@
 
 #include "config.h"
 #include "WebFullScreenManagerProxy.h"
+#include "WebFullScreenManagerProxyMessages.h"
 
 #if ENABLE(FULLSCREEN_API)
 
+#include "EwkView.h"
 #include <WebCore/NotImplemented.h>
 
 using namespace WebCore;
@@ -36,6 +38,7 @@ namespace WebKit {
 
 void WebFullScreenManagerProxy::invalidate()
 {
+    m_page->process()->removeMessageReceiver(Messages::WebFullScreenManagerProxy::messageReceiverName(), m_page->pageID());
     m_webView = 0;
 }
 
@@ -46,26 +49,39 @@ void WebFullScreenManagerProxy::close()
 
 bool WebFullScreenManagerProxy::isFullScreen()
 {
-    notImplemented();
-    return false;
+    return m_hasRequestedFullScreen;
 }
 
 void WebFullScreenManagerProxy::enterFullScreen()
 {
-    notImplemented();
+    if (!m_webView || m_hasRequestedFullScreen)
+        return;
+
+    m_hasRequestedFullScreen = true;
+
+    willEnterFullScreen();
+    toEwkView(m_webView)->enterFullScreen();
+    didEnterFullScreen();
 }
 
 void WebFullScreenManagerProxy::exitFullScreen()
 {
-    notImplemented();
+    if (!m_webView || !m_hasRequestedFullScreen)
+        return;
+
+    m_hasRequestedFullScreen = false;
+
+    willExitFullScreen();
+    toEwkView(m_webView)->exitFullScreen();
+    didExitFullScreen();
 }
 
-void WebFullScreenManagerProxy::beganEnterFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
+void WebFullScreenManagerProxy::beganEnterFullScreen(const IntRect& /*initialFrame*/, const IntRect& /*finalFrame*/)
 {
     notImplemented();
 }
 
-void WebFullScreenManagerProxy::beganExitFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
+void WebFullScreenManagerProxy::beganExitFullScreen(const IntRect& /*initialFrame*/, const IntRect& /*finalFrame*/)
 {
     notImplemented();
 }

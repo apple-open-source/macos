@@ -94,7 +94,7 @@ bool_t sec_xdr_charp(XDR *xdrs, char **cpp, u_int maxsize)
         *cpp = NULL;
         return (TRUE);
     case XDR_ENCODE:
-        if (sp) size = strlen(sp) + 1;
+        if (sp) size = (u_int)(strlen(sp) + 1);
         /* FALLTHROUGH */
     case XDR_DECODE:
         return sec_xdr_bytes(xdrs, (uint8_t**)cpp, &size, maxsize);
@@ -223,7 +223,7 @@ bool_t copyin(void *data, xdrproc_t proc, void** copy, u_int *size)
     sec_xdrmem_create(&xdr, (char *)xdr_data, length, XDR_ENCODE);
 
     // cast to void* - function can go both ways (xdr->x_op) 
-    if (proc(&xdr, data)) {
+    if (proc(&xdr, data, 0)) {
         *copy = xdr_data;
         if (size) *size = length;
         return (TRUE);
@@ -261,7 +261,7 @@ bool_t copyout(const void *copy, u_int size, xdrproc_t proc, void **data, u_int 
     if (!sec_xdr_arena_init(&arena, &xdr, length_out ? length_out : length_required, length_out ? *data : NULL))
         return (FALSE);
 
-    if (proc(&xdr, data))
+    if (proc(&xdr, data, 0))
     {
         *length = length_required;
         return (TRUE);
@@ -284,7 +284,7 @@ bool_t copyout_chunked(const void *copy, u_int size, xdrproc_t proc, void **data
 
     void *data_out = NULL;
 
-    if (proc(&xdr, &data_out))
+    if (proc(&xdr, &data_out, 0))
     {
         *data = data_out;
         return (TRUE);

@@ -22,9 +22,8 @@
 #include "Color.h"
 #include "DocumentFragment.h"
 #include "NotImplemented.h"
-#include "PlatformString.h"
-
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -92,5 +91,13 @@ PassRefPtr<DocumentFragment> DragData::asFragment(Frame*, PassRefPtr<Range>, boo
     notImplemented();
     return 0;
 }
+
+#if ENABLE(FILE_SYSTEM)
+String DragData::droppedFileSystemId() const
+{
+    notImplemented();
+    return String();
+}
+#endif
 
 } // namespace WebCore

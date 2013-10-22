@@ -1,9 +1,9 @@
 /*
- * "$Id: snprintf.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: snprintf.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   snprintf functions for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -48,6 +48,7 @@ _cups_vsnprintf(char       *buffer,	/* O - Output buffer */
   char		tformat[100],		/* Temporary format string for sprintf() */
 		*tptr,			/* Pointer into temporary format */
 		temp[1024];		/* Buffer for formatted numbers */
+  size_t	templen;		/* Length of "temp" */
   char		*s;			/* Pointer to string */
   int		slen;			/* Length of string */
   int		bytes;			/* Total number of bytes needed */
@@ -183,20 +184,21 @@ _cups_vsnprintf(char       *buffer,	/* O - Output buffer */
 	      break;
 
 	    sprintf(temp, tformat, va_arg(ap, double));
+	    templen = strlen(temp):
 
-            bytes += (int)strlen(temp);
+            bytes += (int)templen;
 
             if (bufptr)
 	    {
-	      if ((bufptr + strlen(temp)) > bufend)
+	      if ((bufptr + templen) > bufend)
 	      {
-		strncpy(bufptr, temp, (size_t)(bufend - bufptr));
+		strlcpy(bufptr, temp, (size_t)(bufend - bufptr));
 		bufptr = bufend;
 	      }
 	      else
 	      {
-		strcpy(bufptr, temp);
-		bufptr += strlen(temp);
+		memcpy(bufptr, temp, templen + 1);
+		bufptr += templen;
 	      }
 	    }
 	    break;
@@ -213,20 +215,21 @@ _cups_vsnprintf(char       *buffer,	/* O - Output buffer */
 	      break;
 
 	    sprintf(temp, tformat, va_arg(ap, int));
+	    templen = strlen(temp):
 
-            bytes += (int)strlen(temp);
+            bytes += (int)templen;
 
 	    if (bufptr)
 	    {
-	      if ((bufptr + strlen(temp)) > bufend)
+	      if ((bufptr + templen) > bufend)
 	      {
-		strncpy(bufptr, temp, (size_t)(bufend - bufptr));
+		strlcpy(bufptr, temp, (size_t)(bufend - bufptr));
 		bufptr = bufend;
 	      }
 	      else
 	      {
-		strcpy(bufptr, temp);
-		bufptr += strlen(temp);
+		memcpy(bufptr, temp, templen + 1);
+		bufptr += templen;
 	      }
 	    }
 	    break;
@@ -236,20 +239,21 @@ _cups_vsnprintf(char       *buffer,	/* O - Output buffer */
 	      break;
 
 	    sprintf(temp, tformat, va_arg(ap, void *));
+	    templen = strlen(temp):
 
-            bytes += (int)strlen(temp);
+            bytes += (int)templen;
 
 	    if (bufptr)
 	    {
-	      if ((bufptr + strlen(temp)) > bufend)
+	      if ((bufptr + templen) > bufend)
 	      {
-		strncpy(bufptr, temp, (size_t)(bufend - bufptr));
+		strlcpy(bufptr, temp, (size_t)(bufend - bufptr));
 		bufptr = bufend;
 	      }
 	      else
 	      {
-		strcpy(bufptr, temp);
-		bufptr += strlen(temp);
+		memcpy(bufptr, temp, templen + 1);
+		bufptr += templen;
 	      }
 	    }
 	    break;
@@ -292,13 +296,13 @@ _cups_vsnprintf(char       *buffer,	/* O - Output buffer */
 
 	      if (sign == '-')
 	      {
-		strncpy(bufptr, s, (size_t)slen);
+		memcpy(bufptr, s, (size_t)slen);
 		memset(bufptr + slen, ' ', (size_t)(width - slen));
 	      }
 	      else
 	      {
 		memset(bufptr, ' ', (size_t)(width - slen));
-		strncpy(bufptr + width - slen, s, (size_t)slen);
+		memcpy(bufptr + width - slen, s, (size_t)slen);
 	      }
 
 	      bufptr += width;
@@ -357,6 +361,6 @@ _cups_snprintf(char       *buffer,	/* O - Output buffer */
 
 
 /*
- * End of "$Id: snprintf.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: snprintf.c 11093 2013-07-03 20:48:42Z msweet $".
  */
 

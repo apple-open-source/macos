@@ -100,7 +100,7 @@ check_rsa(const unsigned char *in, size_t len, RSA *rsa, int padding)
 
     /* signing */
 
-    keylen = RSA_private_encrypt(len, in, res, rsa, padding);
+    keylen = RSA_private_encrypt((int)len, in, res, rsa, padding);
     if (keylen <= 0)
 	errx(1, "failed to private encrypt: %d %d", (int)len, (int)keylen);
 
@@ -119,7 +119,7 @@ check_rsa(const unsigned char *in, size_t len, RSA *rsa, int padding)
 
     /* encryption */
 
-    keylen = RSA_public_encrypt(len, in, res, rsa, padding);
+    keylen = RSA_public_encrypt((int)len, in, res, rsa, padding);
     if (keylen <= 0)
 	errx(1, "failed to public encrypt: %d", (int)keylen);
 
@@ -138,10 +138,10 @@ check_rsa(const unsigned char *in, size_t len, RSA *rsa, int padding)
 
     len2 = keylen;
 
-    if (RSA_sign(NID_sha1, in, len, res, &len2, rsa) != 1)
+    if (RSA_sign(NID_sha1, in, (int)len, res, &len2, rsa) != 1)
 	errx(1, "RSA_sign failed");
 
-    if (RSA_verify(NID_sha1, in, len, res, len2, rsa) != 1)
+    if (RSA_verify(NID_sha1, in, (int)len, res, len2, rsa) != 1)
 	errx(1, "RSA_verify failed");
 
     free(res);

@@ -20,6 +20,10 @@
  */
 
 /*
+ * Portions copyright (c) 2011, Joyent, Inc. All rights reserved.
+ */
+
+/*
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -202,6 +206,84 @@ dt_aggregate_lquantizedcmp(int64_t *lhs, int64_t *rhs)
 		return (DT_GREATERTHAN);
 
 	return (0);
+}
+
+/*ARGSUSED*/
+static void
+dt_aggregate_llquantize(int64_t *existing, int64_t *new, size_t size)
+{
+    int i;
+    for (i = 1; i < size / sizeof(uint64_t); ++i)
+        existing[i] = existing[i] + new[i];
+}
+
+static long double
+dt_aggregate_llquantizedsum(int64_t *llquanta)
+{
+		int64_t arg = *llquanta++;
+		int16_t factor  = DTRACE_LLQUANTIZE_FACTOR(arg);
+		int16_t low     = DTRACE_LLQUANTIZE_LOW(arg);
+		int16_t high    = DTRACE_LLQUANTIZE_HIGH(arg);
+		int16_t nsteps  = DTRACE_LLQUANTIZE_NSTEPS(arg);
+		int64_t value = 1, next, step;
+		int bin = 0, order;
+		long double total;
+
+		assert(nsteps >= factor);
+		assert(nsteps % factor == 0);
+
+		/* Looks for the first value of the serie */
+		for (order = 0; order < low; order++)
+				value *= factor;
+
+		total = (long double)llquanta[bin++] * (long double)(value - 1);
+		next = value * factor;
+		step = next > nsteps ? next / nsteps : 1;
+
+		/* Go through all the bins of each order of magnitudes */
+		while (order <= high)
+		{
+				assert(value < next);
+				total += (long double)(llquanta[bin++]) * (long double)(value);
+
+				if ((value += step) != next)
+						continue;
+
+				next = value * factor;
+				step = next > nsteps ? next / nsteps : 1;
+				++order;
+		}
+
+		return (total + (long double)llquanta[bin] * (long double)value);
+}
+
+static int
+dt_aggregate_llquantizedcmp(int64_t *lhs, int64_t *rhs)
+{
+		long double lsum = dt_aggregate_llquantizedsum(lhs);
+		long double rsum = dt_aggregate_llquantizedsum(rhs);
+		int64_t lzero, rzero;
+
+		if (lsum < rsum)
+				return (DT_LESSTHAN);
+		if (lsum > rsum)
+				return (DT_GREATERTHAN);
+
+		/*
+		 * If they're both equal, then we will compare based on the weights at
+		 * zero.  If the weights at zero are equal (or if zero is not within
+		 * the range of the linear quantization), then this will be judged a
+		 * tie and will be resolved based on the key comparison.
+		 */
+		lzero = lhs[1];
+		rzero = rhs[1];
+
+		if (lzero < rzero)
+				return (DT_LESSTHAN);
+		if (lzero > rzero)
+				return (DT_GREATERTHAN);
+
+		return (0);
 }
 
 static int
@@ -615,6 +697,10 @@ hashnext:
 			h->dtahe_aggregate = dt_aggregate_lquantize;
 			break;
 
+		case DTRACEAGG_LLQUANTIZE:
+		  h->dtahe_aggregate = dt_aggregate_llquantize;
+		  break;
+
 		case DTRACEAGG_COUNT:
 		case DTRACEAGG_SUM:
 		case DTRACEAGG_AVG:
@@ -954,6 +1040,10 @@ hashnext:
 			h->dtahe_aggregate = dt_aggregate_lquantize;
 			break;
 
+		case DTRACEAGG_LLQUANTIZE:
+		  h->dtahe_aggregate = dt_aggregate_llquantize;
+		  break;
+
 		case DTRACEAGG_COUNT:
 		case DTRACEAGG_SUM:
 		case DTRACEAGG_AVG:
@@ -1219,6 +1309,10 @@ dt_aggregate_valcmp(const void *lhs, const void *rhs)
 
 	case DTRACEAGG_LQUANTIZE:
 		rval = dt_aggregate_lquantizedcmp(laddr, raddr);
+		break;
+
+  case DTRACEAGG_LLQUANTIZE:
+		rval = dt_aggregate_llquantizedcmp(laddr, raddr);
 		break;
 
 	case DTRACEAGG_COUNT:

@@ -124,6 +124,12 @@ IOHIDGetModifierLockState( io_connect_t handle, int selector, bool *state );
 extern kern_return_t
 IOHIDSetModifierLockState( io_connect_t handle, int selector, bool state );
 
+extern kern_return_t
+IOHIDGetStateForSelector( io_connect_t handle, int selector, UInt32 *state );
+
+extern kern_return_t
+IOHIDSetStateForSelector( io_connect_t handle, int selector, UInt32 state );
+
 // Used by Window Server only
 extern kern_return_t
 IOHIDRegisterVirtualDisplay( io_connect_t handle, UInt32 *display_token );
@@ -134,6 +140,8 @@ IOHIDUnregisterVirtualDisplay( io_connect_t handle, UInt32 display_token );
 extern kern_return_t
 IOHIDSetVirtualDisplayBounds( io_connect_t handle, UInt32 display_token, const IOGBounds * bounds );
 
+extern kern_return_t
+IOHIDGetActivityState( io_connect_t handle, bool *hidActivityIdle );
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

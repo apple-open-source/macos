@@ -56,9 +56,11 @@ includes
 #include <netinet/in_var.h>
 #include <netinet6/in6_var.h>
 #include <netinet6/nd6.h>
+#include <network_information.h>
 
 #include "ppp_msg.h"
 #include "../Family/if_ppplink.h"
+#include "scnc_main.h"
 #include "scnc_client.h"
 #include "scnc_utils.h"
 #include "ppp_option.h"
@@ -321,7 +323,7 @@ int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int1
 {
     CFStringRef		string;
     CFDataRef		ref;
-    UInt8          *dataptr;
+    const UInt8    *dataptr;
     int            len;
 
     str[0] = 0;
@@ -375,7 +377,7 @@ int getNumberFromEntity(SCDynamicStoreRef store, CFStringRef domain, CFStringRef
     CFTypeRef		data;
     int 		ok = 0;
 
-    if (data = copyEntity(store, domain, serviceID, entity)) {
+    if ((data = copyEntity(store, domain, serviceID, entity))) {
         ok = getNumber(data, property, outval);
         CFRelease(data);
     }
@@ -584,7 +586,7 @@ void AddStringFromState(SCDynamicStoreRef store, CFStringRef serviceID, CFString
 {
     CFStringRef	string;
     
-    if (string = copyCFStringFromEntity(store, kSCDynamicStoreDomainState, serviceID, entity, property)) {
+    if ((string = copyCFStringFromEntity(store, kSCDynamicStoreDomainState, serviceID, entity, property))) {
         CFDictionaryAddValue(dict, property, string);
         CFRelease(string);
     }
@@ -729,7 +731,7 @@ int publish_keyentry(SCDynamicStoreRef store, CFStringRef key, CFStringRef entry
     CFMutableDictionaryRef	dict;
     CFPropertyListRef		ref;
 
-    if (ref = SCDynamicStoreCopyValue(store, key)) {
+    if ((ref = SCDynamicStoreCopyValue(store, key))) {
         dict = CFDictionaryCreateMutableCopy(0, 0, ref);
         CFRelease(ref);
     }
@@ -741,8 +743,7 @@ int publish_keyentry(SCDynamicStoreRef store, CFStringRef key, CFStringRef entry
         return 0;
     
     CFDictionarySetValue(dict,  entry, value);
-    if (SCDynamicStoreSetValue(store, key, dict) == 0)
-		;//SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: publish_entry SCDSet() failed: %s."), SCErrorString(SCError()));
+    SCDynamicStoreSetValue(store, key, dict);
     CFRelease(dict);
     
     return 1;
@@ -755,11 +756,10 @@ int unpublish_keyentry(SCDynamicStoreRef store, CFStringRef key, CFStringRef ent
     CFMutableDictionaryRef	dict;
     CFPropertyListRef		ref;
 
-    if (ref = SCDynamicStoreCopyValue(store, key)) {
-        if (dict = CFDictionaryCreateMutableCopy(0, 0, ref)) {
+    if ((ref = SCDynamicStoreCopyValue(store, key))) {
+        if ((dict = CFDictionaryCreateMutableCopy(0, 0, ref))) {
             CFDictionaryRemoveValue(dict, entry);
-            if (SCDynamicStoreSetValue(store, key, dict) == 0)
-				;//SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: unpublish_keyentry SCDSet() failed: %s."), SCErrorString(SCError()));
+            SCDynamicStoreSetValue(store, key, dict);
             CFRelease(dict);
         }
         CFRelease(ref);
@@ -809,6 +809,52 @@ int unpublish_dictentry(SCDynamicStoreRef store, CFStringRef serviceID, CFString
 }
 
 /* -----------------------------------------------------------------------------
+ publishes multiple dictionaries to the cache, given the dict names and the dicts. Indices must match up exactly
+ ----------------------------------------------------------------------------- */
+int publish_multiple_dicts(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dictNames, CFArrayRef dicts)
+{
+    CFDictionaryRef     dict = NULL;
+    CFStringRef         dictName = NULL;
+    int                 i;
+    CFStringRef         key;
+    CFMutableDictionaryRef   keys_to_add;
+    int                 numDicts;
+    int                 ret = ENOMEM;
+    
+	if (!store)
+		return -1;
+    
+    /* Check arrays */
+    if (!dictNames || !dicts)
+        return -1;
+    
+    /* Verify sizes */
+    numDicts = CFArrayGetCount(dictNames);
+    if (numDicts != CFArrayGetCount(dicts))
+        return -1;
+    
+    keys_to_add = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    
+    for (i = 0; i < numDicts; i++) {
+        dictName = CFArrayGetValueAtIndex(dictNames, i);
+        dict = CFArrayGetValueAtIndex(dicts, i);
+        if (isA_CFString(dictName) && isA_CFDictionary(dict)) {
+            key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceID, dictName);
+            if (key) {
+                CFDictionaryAddValue(keys_to_add, key, dict);
+                CFRelease(key);
+            }
+        }
+    }
+    
+    SCDynamicStoreSetMultiple(store, keys_to_add, NULL, NULL);
+    
+    my_CFRelease(&keys_to_add);
+    
+    return ret;
+}
+
+/* -----------------------------------------------------------------------------
  unpublish a dictionnary entry from the cache, given the dict name
  ----------------------------------------------------------------------------- */
 int unpublish_dict(SCDynamicStoreRef store, CFStringRef serviceID, CFStringRef dict)
@@ -829,6 +875,52 @@ int unpublish_dict(SCDynamicStoreRef store, CFStringRef serviceID, CFStringRef d
 		ret = 0;
     }
 
+    return ret;
+}
+
+/* -----------------------------------------------------------------------------
+ unpublish multiple dictionary entries from the cache, given an array of dict names
+ ----------------------------------------------------------------------------- */
+int unpublish_multiple_dicts(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dictNames, Boolean removeService)
+{
+    CFStringRef         dictName = NULL;
+    int                 i;
+    CFStringRef         key;
+    CFMutableArrayRef   keys_to_remove;
+    int                 numDictNames;
+    int                 ret = ENOMEM;
+    
+	if (!store)
+		return -1;
+    
+    keys_to_remove = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    
+    if (dictNames) {
+        numDictNames = CFArrayGetCount(dictNames);
+        for (i = 0; i < numDictNames; i++) {
+            dictName = CFArrayGetValueAtIndex(dictNames, i);
+            if (isA_CFString(dictName)) {
+                key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceID, dictName);
+                if (key) {
+                    CFArrayAppendValue(keys_to_remove, key);
+                    CFRelease(key);
+                }
+            }
+        }
+    }
+    
+    if (removeService) {
+        key = SCDynamicStoreKeyCreate(0, CFSTR("%@/%@/%@/%@"), kSCDynamicStoreDomainState, kSCCompNetwork, kSCCompService, serviceID);
+        if (key) {
+            CFArrayAppendValue(keys_to_remove, key);
+            CFRelease(key);
+        }
+    }
+    
+    SCDynamicStoreSetMultiple(store, NULL, keys_to_remove, NULL);
+    
+    my_CFRelease(&keys_to_remove);
+    
     return ret;
 }
 
@@ -1103,32 +1195,26 @@ Clear the interface IP addresses, and delete routes
  ----------------------------------------------------------------------------- */
 int clear_ifaddr(char *ifname, u_int32_t o, u_int32_t h)
 {
-    //struct ifreq ifr;
-    struct ifaliasreq ifra __attribute__ ((aligned (4)));       // Wcast-align fix - force alignment
+	struct ifreq ifr __attribute__ ((aligned (4)));       // Wcast-align fix - force alignment
 	int ip_sockfd;
 	
-    ip_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (ip_sockfd < 0) {
+	ip_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (ip_sockfd < 0) {
 		syslog(LOG_INFO, "cifaddr: cannot create ip socket, %s",
-	       strerror(errno));
+		   strerror(errno));
 		return 0;
 	}
 
-    strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
-    SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
-    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
-    SET_SA_FAMILY(ifra.ifra_broadaddr, AF_INET);
-    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
-    bzero(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
-    if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifra) < 0) {
-		if (errno != EADDRNOTAVAIL)
-			;//warning("Couldn't delete interface address: %m");
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	SET_SA_FAMILY(ifr.ifr_ifru.ifru_addr, AF_INET);
+	(ALIGNED_CAST(struct sockaddr_in *) &ifr.ifr_ifru.ifru_addr)->sin_addr.s_addr = o;
+	if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifr) < 0) {
 		close(ip_sockfd);
 		return 0;
-    }
-	
+	}
+
 	close(ip_sockfd);
-    return 1;
+	return 1;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1178,44 +1264,53 @@ ll_addr must be a 64 bits address.
 ----------------------------------------------------------------------------- */
 int set_ifaddr6 (char *ifname, struct in6_addr *addr, int prefix)
 {
-    int s;
-    struct in6_aliasreq addreq6;
+	int s;
+	struct in6_aliasreq addreq6;
 	struct in6_addr		mask;
 
-   s = socket(AF_INET6, SOCK_DGRAM, 0);
-    if (s < 0) {
-        syslog(LOG_ERR, "set_ifaddr6: can't create IPv6 socket, %s",
-	       strerror(errno));
-        return 0;
-    }
+	s = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (s < 0) {
+		syslog(LOG_ERR, "set_ifaddr6: can't create IPv6 socket, %s",
+			   strerror(errno));
+		return 0;
+	}
 
-    memset(&addreq6, 0, sizeof(addreq6));
-    strlcpy(addreq6.ifra_name, ifname, sizeof(addreq6.ifra_name));
+	memset(&addreq6, 0, sizeof(addreq6));
+	strlcpy(addreq6.ifra_name, ifname, sizeof(addreq6.ifra_name));
 
-    /* my addr */
-    addreq6.ifra_addr.sin6_family = AF_INET6;
-    addreq6.ifra_addr.sin6_len = sizeof(struct sockaddr_in6);
-    memcpy(&addreq6.ifra_addr.sin6_addr, addr, sizeof(struct in6_addr));
+	/* my addr */
+	addreq6.ifra_addr.sin6_family = AF_INET6;
+	addreq6.ifra_addr.sin6_len = sizeof(struct sockaddr_in6);
+	memcpy(&addreq6.ifra_addr.sin6_addr, addr, sizeof(struct in6_addr));
 
-    /* prefix mask: 128bit */
-    addreq6.ifra_prefixmask.sin6_family = AF_INET6;
-    addreq6.ifra_prefixmask.sin6_len = sizeof(struct sockaddr_in6);
-	 in6_len2mask(&mask, prefix);
+	/* prefix mask: 128bit */
+	addreq6.ifra_prefixmask.sin6_family = AF_INET6;
+	addreq6.ifra_prefixmask.sin6_len = sizeof(struct sockaddr_in6);
+	in6_len2mask(&mask, prefix);
     memcpy(&addreq6.ifra_prefixmask.sin6_addr, &mask, sizeof(struct in6_addr));
 
-    /* address lifetime (infty) */
-    addreq6.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-    addreq6.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
+	/* address lifetime (infty) */
+	addreq6.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
+	addreq6.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
 
-    if (ioctl(s, SIOCAIFADDR_IN6, &addreq6) < 0) {
-        syslog(LOG_ERR, "set_ifaddr6: can't set IPv6 address, %s",
-	       strerror(errno));
-        close(s);
-        return 0;
-    }
+	if (IN6_IS_ADDR_LINKLOCAL(addr)) {
+		if (ioctl(s, SIOCLL_START, &addreq6) < 0) {
+			syslog(LOG_ERR, "set_ifaddr6: can't set link-local IPv6 address, %s",
+				   strerror(errno));
+			close(s);
+			return 0;
+		}
+	} else {
+		if (ioctl(s, SIOCAIFADDR_IN6, &addreq6) < 0) {
+			syslog(LOG_ERR, "set_ifaddr6: can't set IPv6 address, %s",
+				   strerror(errno));
+			close(s);
+			return 0;
+		}
+	}
 
-    close(s);
-    return 1;
+	close(s);
+	return 1;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1224,7 +1319,7 @@ Clear the interface IPv6 addresses
 int clear_ifaddr6 (char *ifname, struct in6_addr *addr)
 {
     int s;
-    struct in6_aliasreq addreq6;
+    struct in6_ifreq ifreq6;
 
    s = socket(AF_INET6, SOCK_DGRAM, 0);
     if (s < 0) {
@@ -1233,15 +1328,15 @@ int clear_ifaddr6 (char *ifname, struct in6_addr *addr)
         return 0;
     }
 
-    memset(&addreq6, 0, sizeof(addreq6));
-    strlcpy(addreq6.ifra_name, ifname, sizeof(addreq6.ifra_name));
+    memset(&ifreq6, 0, sizeof(ifreq6));
+    strlcpy(ifreq6.ifr_name, ifname, sizeof(ifreq6.ifr_name));
 
     /* my addr */
-    addreq6.ifra_addr.sin6_family = AF_INET6;
-    addreq6.ifra_addr.sin6_len = sizeof(struct sockaddr_in6);
-    memcpy(&addreq6.ifra_addr.sin6_addr, addr, sizeof(struct in6_addr));
+    ifreq6.ifr_ifru.ifru_addr.sin6_family = AF_INET6;
+    ifreq6.ifr_ifru.ifru_addr.sin6_len = sizeof(struct sockaddr_in6);
+    memcpy(&ifreq6.ifr_ifru.ifru_addr.sin6_addr, addr, sizeof(struct in6_addr));
 
-    if (ioctl(s, SIOCDIFADDR_IN6, &addreq6) < 0) {
+    if (ioctl(s, SIOCDIFADDR_IN6, &ifreq6) < 0) {
         syslog(LOG_ERR, "set_ifaddr6: can't set IPv6 address, %s",
 	       strerror(errno));
         close(s);
@@ -1324,12 +1419,12 @@ Boolean copyGateway(SCDynamicStoreRef store, u_int8_t family, char *ifname, int 
 		CFRelease(key);
         if (dict) {
 		
-			if (string = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)) {
+			if ((string = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface))) {
 				found_interface = TRUE;
 				if (ifname) 
 					CFStringGetCString(string, ifname, ifnamesize, kCFStringEncodingUTF8);
 			}
-			if (string = CFDictionaryGetValue(dict, (family == AF_INET) ? kSCPropNetIPv4Router : kSCPropNetIPv6Router)) {
+			if ((string = CFDictionaryGetValue(dict, (family == AF_INET) ? kSCPropNetIPv4Router : kSCPropNetIPv6Router))) {
 				char routeraddress[256];
 				routeraddress[0] = 0;
 				CFStringGetCString(string, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
@@ -1358,10 +1453,55 @@ Boolean hasGateway(SCDynamicStoreRef store, u_int8_t family)
 }
 
 /* ----------------------------------------------------------------------------
-publish ip addresses using configd cache mechanism
+ Create a "NULL Service" primary IPv6 dictionary for the dynamic store. This
+ prevents any other service from becoming primary on IPv6.
+ ----------------------------------------------------------------------------- */
+#ifndef kIsNULL
+#define kIsNULL		CFSTR("IsNULL") /* CFBoolean */
+#endif
+CFDictionaryRef create_ipv6_dummy_primary(char *if_name)
+{
+	CFMutableArrayRef		array;
+	CFMutableDictionaryRef	ipv6_dict;
+	int						isprimary = 1;
+	CFNumberRef				num;
+	CFStringRef				str;
+	
+	/* create the IPv6 dictionnary */
+	if ((ipv6_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0)
+		return NULL;
+	
+	if ((array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks))) {
+		CFArrayAppendValue(array, CFSTR("::1"));
+		CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Addresses, array);
+		CFRelease(array);
+	}
+	
+	CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Router, CFSTR("::1"));
+	
+	num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &isprimary);
+	if (num) {
+		CFDictionarySetValue(ipv6_dict, kSCPropNetOverridePrimary, num);
+		CFRelease(num);
+	}
+	
+	CFDictionarySetValue(ipv6_dict, kIsNULL, kCFBooleanTrue);
+	
+	if (if_name) {
+		if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), if_name))) {
+			CFDictionarySetValue(ipv6_dict, kSCPropInterfaceName, str);
+			CFRelease(str);
+		}
+	}
+	
+	return ipv6_dict;
+}
+
+/* ----------------------------------------------------------------------------
+get dictionary for ip addresses to publish later to configd
 use new state information model
 ----------------------------------------------------------------------------- */
-int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_name, u_int32_t server, u_int32_t o, 
+CFDictionaryRef create_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_name, u_int32_t server, u_int32_t o,
 			u_int32_t h, u_int32_t m, int isprimary)
 {
     struct in_addr		addr;
@@ -1373,12 +1513,12 @@ int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_n
 	
     /* create the IPV4 dictionnary */
     if ((ipv4_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0)
-        return 0;
-	
+        return NULL;
+
 	/* set the ip address src and dest arrays */
-    if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
+    if ((array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks))) {
         addr.s_addr = o;
-        if (str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+        if ((str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
             CFArrayAppendValue(array, str);
             CFRelease(str);
             CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Addresses, array); 
@@ -1388,7 +1528,7 @@ int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_n
 	
     /* set the router */
     addr.s_addr = h;
-    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+    if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
         CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
         CFRelease(str);
     }
@@ -1400,7 +1540,7 @@ int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_n
 	}
 	
 	if (if_name) {
-		if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), if_name)) {
+		if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), if_name))) {
 			CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, str);
 			CFRelease(str);
 		}
@@ -1408,7 +1548,7 @@ int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_n
 	
     /* set the server */
     addr.s_addr = server;
-    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+    if ((str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr)))) {
 		CFDictionarySetValue(ipv4_dict, CFSTR("ServerAddress"), str);
         CFRelease(str);
     }
@@ -1423,16 +1563,6 @@ int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_n
 	}
 #endif
 	
-    /* update the store now */
-    if (str = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceID, kSCEntNetIPv4)) {
-        
-        if (SCDynamicStoreSetValue(store, str, ipv4_dict) == 0)
-            ;//warning("SCDynamicStoreSetValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
-		
-        CFRelease(str);
-    }
-    
-    CFRelease(ipv4_dict);
 	
 	/* rank service, to prevent it from becoming primary */
 	if (!isprimary) {
@@ -1442,28 +1572,27 @@ int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_n
 			CFRelease(netservRef);
 		}
 	}
-	
-    return 1;
+
+    return ipv4_dict;
 }
 
 /* -----------------------------------------------------------------------------
- set dns information
+ get dns information
  ----------------------------------------------------------------------------- */
-int publish_dns(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dns, CFStringRef domain, CFArrayRef supp_domains)
+CFDictionaryRef create_dns(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dns, CFStringRef domain, CFArrayRef supp_domains, Boolean neverSearchDomains)
 {    
-    int				ret = 0;
     CFMutableDictionaryRef	dict = NULL;
     CFStringRef			key = NULL;
     CFPropertyListRef		ref;
 	
     if (store == NULL)
-        return 0;
+        return NULL;
 	
     key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceID, kSCEntNetDNS);
     if (!key) 
         goto end;
 	
-    if (ref = SCDynamicStoreCopyValue(store, key)) {
+    if ((ref = SCDynamicStoreCopyValue(store, key))) {
         dict = CFDictionaryCreateMutableCopy(0, 0, ref);
         CFRelease(ref);
     } else
@@ -1479,21 +1608,21 @@ int publish_dns(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dns, 
 	
     if (supp_domains)
 		CFDictionarySetValue(dict, kSCPropNetDNSSupplementalMatchDomains, supp_domains);
+    
+#ifndef kSCPropNetDNSSupplementalMatchDomainsNoSearch
+#define kSCPropNetDNSSupplementalMatchDomainsNoSearch CFSTR("SupplementalMatchDomainsNoSearch")
+#endif
+    
+    if (neverSearchDomains) {
+        AddNumber(dict, kSCPropNetDNSSupplementalMatchDomainsNoSearch, 1);
+    }
 	
 	/* warn lookupd of upcoming change */
 	notify_post("com.apple.system.dns.delay");
-	
-    if (SCDynamicStoreSetValue(store, key, dict))
-        ret = 1;
-    else
-		;// warning("SCDynamicStoreSetValue DNS/WINS %s failed: %s\n", ifname, SCErrorString(SCError()));
-	
+
 end:
-    if (key)  
-        CFRelease(key);
-    if (dict)  
-        CFRelease(dict);
-    return ret;
+    my_CFRelease(&key);
+    return dict;
 	
 }
 
@@ -1668,8 +1797,8 @@ set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char 
 	bzero(&ip6_zeros, sizeof(ip6_zeros));
     bzero(&ip4_zeros, sizeof(ip4_zeros));
     // Wcast-align fix - use memcmp for unaligned comparison
-    if (gateway && ((gateway->sa_family == AF_INET && memcmp(&((struct sockaddr_in *)(void*)gateway)->sin_addr.s_addr, &ip4_zeros, sizeof(struct in_addr)))) ||
-		(gateway->sa_family == AF_INET6 && memcmp(&((struct sockaddr_in6 *)(void*)gateway)->sin6_addr, &ip6_zeros, sizeof(struct in6_addr)))) {
+    if (gateway && (((gateway->sa_family == AF_INET && memcmp(&((struct sockaddr_in *)(void*)gateway)->sin_addr.s_addr, &ip4_zeros, sizeof(struct in_addr)))) ||
+		(gateway->sa_family == AF_INET6 && memcmp(&((struct sockaddr_in6 *)(void*)gateway)->sin6_addr, &ip6_zeros, sizeof(struct in6_addr))))) {
         rtmsg.hdr.rtm_flags |= RTF_GATEWAY;
 	}
     
@@ -1750,9 +1879,9 @@ set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char 
 }
 
 /* ----------------------------------------------------------------------------
- publish proxies using configd cache mechanism
+ get proxies using to publish to configd
  ----------------------------------------------------------------------------- */
-int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal, 
+CFDictionaryRef create_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal, 
 		CFStringRef exceptionlist, CFArrayRef supp_domains)
 {
 	int				val, ret = -1;
@@ -1813,27 +1942,13 @@ int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodete
     if (supp_domains)
 		CFDictionarySetValue(proxies_dict, kSCPropNetProxiesSupplementalMatchDomains, supp_domains);
 		
-	if (CFDictionaryGetCount(proxies_dict)) {
-	
-		/* update the store now */
-		cfstr = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceID, kSCEntNetProxies);
-		if (cfstr == NULL)
-			goto fail;
-
-		if (SCDynamicStoreSetValue(store, cfstr, proxies_dict) == 0) {
-			//warning("SCDynamicStoreSetValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
-			goto fail;
-		}
-	}
-	
 	ret = 0;	
 		
 fail:
 	
     my_CFRelease(&cfone);
 	my_CFRelease(&cfstr);
-    my_CFRelease(&proxies_dict);
-    return ret;
+    return proxies_dict;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1911,60 +2026,17 @@ fail:
 	
 }
 
+/* -----------------------------------------------------------------------------
+ Set the delegate interface for the tun interface
+ ----------------------------------------------------------------------------- */
+int set_tun_delegate(int tunsock, char *delegate_ifname)
+{
+    int result = 0;
+    
+    if ((result = setsockopt(tunsock, SYSPROTO_CONTROL, UTUN_OPT_SET_DELEGATE_INTERFACE, delegate_ifname, strlen(delegate_ifname))))
+        SCLog(TRUE, LOG_ERR, CFSTR("set_tun_delegate: setsockopt delegate interface failed on kernel control socket (errno = %s)"), strerror(errno));
 
-/* ----------------------------------------------------------------------------- 
------------------------------------------------------------------------------ */
-int setup_bootstrap_port()
-{    
-	mach_port_t			server, bootstrap = 0;
-	int					result;
-	kern_return_t		status;
-	audit_token_t		audit_token;
-	uid_t               euid;
-
-	status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER, &server);
-	switch (status) {
-		case BOOTSTRAP_SUCCESS :
-			/* service currently registered, "a good thing" (tm) */
-			break;
-		case BOOTSTRAP_UNKNOWN_SERVICE :
-			/* service not currently registered, try again later */
-			return -1;
-		default :
-			return -1;
-	}
-
-	/* open a new session with the server */
-	status = pppcontroller_bootstrap(server, &bootstrap, &result, &audit_token);
-	mach_port_deallocate(mach_task_self(), server);
-
-	if (status != KERN_SUCCESS) {
-		printf("setup_bootstrap_port error: %s\n", mach_error_string(status));
-		if (status != MACH_SEND_INVALID_DEST)
-			printf("setup_bootstrap_port error NOT MACH_SEND_INVALID_DEST: %s\n", mach_error_string(status));
-		return -1;
-	}
-
-	audit_token_to_au32(audit_token,
-				NULL,			// auidp
-				&euid,			// euid
-				NULL,			// egid
-				NULL,			// ruid
-				NULL,			// rgid
-				NULL,			// pid
-				NULL,			// asid
-				NULL);			// tid
-	if (euid != 0) {
-		printf("setup_bootstrap_port cannot authenticate bootstrap port from controller\n");
-		return -1;
-	}
-
-	if (bootstrap) {
-		task_set_bootstrap_port(mach_task_self(), bootstrap);
-		mach_port_deallocate(mach_task_self(), bootstrap);
-	}
-
-    return 0;
+    return result;
 }
 
 /* -----------------------------------------------------------------------------
@@ -2153,6 +2225,73 @@ SCNCPluginExecCommand2 (CFRunLoopRef           runloop,
 	return rc;
 }
 
+#define SBSLAUNCHER_NAME "sbslauncher"
+#define MAX_SBSLAUNCHER_ARGS 16
+
+/* Variable arguments are of type char*, and the last argument must be NULL */
+pid_t
+SCNCExecSBSLauncherCommandWithArguments (char *command,
+										 SCDPluginExecSetup setup,
+										 SCDPluginExecCallBack callback,
+										 void *callbackContext,
+										 ...)
+{
+	va_list			arguments;
+	CFStringRef 	resourceDir = NULL;
+	CFURLRef 		resourceURL = NULL, absoluteURL = NULL;
+	char			thepath[MAXPATHLEN];
+	pid_t			pid = 0;
+	char 			*cmdarg[MAX_SBSLAUNCHER_ARGS];
+    
+	resourceURL = CFBundleCopyResourcesDirectoryURL(gBundleRef);
+	
+	if (resourceURL == NULL)
+		goto done;
+	
+	absoluteURL = CFURLCopyAbsoluteURL(resourceURL);
+	if (absoluteURL == NULL)
+		goto done;
+	
+	resourceDir = CFURLCopyPath(absoluteURL);
+	if (resourceDir == NULL)
+		goto done;
+    
+	if (!CFStringGetCString(resourceDir, thepath, sizeof(thepath), kCFStringEncodingMacRoman))
+		goto done;
+	
+	strlcat(thepath, SBSLAUNCHER_NAME, sizeof(thepath));
+	
+	cmdarg[0] = SBSLAUNCHER_NAME;
+	cmdarg[1] = command;
+	
+	va_start(arguments, callbackContext);
+	int i = 2;
+	
+	char *arg_i = va_arg(arguments, char *);
+	while (arg_i != NULL && i < (MAX_SBSLAUNCHER_ARGS - 1)) {
+		cmdarg[i++] = arg_i;
+		arg_i = va_arg(arguments, char *);
+	}
+	cmdarg[i] = NULL;
+	va_end(arguments);
+	
+	if (setup) {
+		pid = SCNCPluginExecCommand2(NULL, callback, callbackContext, 0, 0, thepath, cmdarg, setup, callbackContext);
+	} else {
+		pid = SCNCPluginExecCommand(NULL, callback, callbackContext, 0, 0, thepath, cmdarg);
+	}
+
+done:
+	if (resourceDir)
+		CFRelease(resourceDir);
+	if (absoluteURL)
+		CFRelease(absoluteURL);
+	if (resourceURL)
+		CFRelease(resourceURL);
+    
+	return pid;
+}
+
 void
 applyEnvironmentVariablesApplierFunction (const void *key, const void *value, void *context)
 {
@@ -2230,7 +2369,8 @@ applyEnvironmentVariables (CFDictionaryRef envVarDict)
 			   CFDictionaryGetCount(envVarDict) > 0) {
 		CFDictionaryApplyFunction(envVarDict, applyEnvironmentVariablesApplierFunction, NULL);
 	} else {
-		SCLog(TRUE, LOG_ERR, CFSTR("empty or invalid EnvironmentVariables dictionary"));
+		/* don't call SCLog() as it's unsafe in a post-fork handler that requires async-signal safe. */
+		// SCLog(TRUE, LOG_ERR, CFSTR("empty or invalid EnvironmentVariables dictionary"));
 	}
 }
 
@@ -2550,4 +2690,292 @@ fail:
     my_CFRelease((void *)&pattern);
     my_CFRelease((void *)&patterns);
     my_CFRelease((void *)&entities);
+}
+
+/* -----------------------------------------------------------------------------
+ Pass in the optional exceptionServiceID to find the primary interface excluding
+ the specified service; if the exceptionServiceID is primary, find the next active
+ service interface based on NWI order.
+ 
+ If NULL is passed for exceptionServiceID, find the true primary interface.
+ ----------------------------------------------------------------------------- */
+CFStringRef copy_primary_interface_name(CFStringRef exceptionServiceID)
+{
+    CFStringRef		interfaceName = NULL, string = NULL, key = NULL, serviceID = NULL;
+    CFDictionaryRef dict = NULL;
+    Boolean			mustSearchNWIOrder = FALSE;
+	
+    key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
+    if (key) {
+        dict = SCDynamicStoreCopyValue(gDynamicStore, key);
+        CFRelease(key);
+        if (isDictionary(dict)) {
+            string = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface);
+            if (isString(string)) {
+                serviceID = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryService);
+                if (serviceID && my_CFEqual(serviceID, exceptionServiceID)) {
+                    mustSearchNWIOrder = TRUE;
+                } else {
+                    // The interface is not the exception, so allow
+                    interfaceName = CFStringCreateCopy(NULL, string);
+                }
+            }
+            CFRelease(dict);
+        }
+    }
+    
+    if (interfaceName == NULL && mustSearchNWIOrder && exceptionServiceID != NULL) {
+        CFStringRef exceptionInterfaceName = copy_interface_name(exceptionServiceID);
+        nwi_state_t nwi_state = nwi_state_copy();
+        if (exceptionInterfaceName && nwi_state) {
+            for (nwi_ifstate_t interface = nwi_state_get_first_ifstate(nwi_state, AF_INET); interface != NULL; interface = nwi_ifstate_get_next(interface, AF_INET)) {
+                char *nwi_interface_name = nwi_ifstate_get_ifname(interface);
+                CFStringRef nwiInterfaceName = CFStringCreateWithCString(kCFAllocatorDefault, nwi_interface_name, kCFStringEncodingASCII);
+                if (nwiInterfaceName && !my_CFEqual(nwiInterfaceName, exceptionInterfaceName)) {
+                    nwi_ifstate_flags flags = nwi_ifstate_get_flags(interface);
+                    if ((flags & NWI_IFSTATE_FLAGS_HAS_IPV4) && (flags & NWI_IFSTATE_FLAGS_HAS_DNS)) {
+                        interfaceName = my_CFRetain(nwiInterfaceName);
+                    }
+                }
+                my_CFRelease(&nwiInterfaceName);
+                
+                // If we found the desired interface, exit now
+                if (interfaceName != NULL) {
+                    break;
+                }
+            }
+        }
+        my_CFRelease(&exceptionInterfaceName);
+        nwi_state_release(nwi_state);
+    }
+    
+    return interfaceName;
+}
+
+/* -----------------------------------------------------------------------------
+ copy the string separatedy by / at index
+ ----------------------------------------------------------------------------- */
+static
+CFStringRef copy_str_at_index(CFStringRef key, int index)
+{
+    
+    CFArrayRef	components;
+    CFStringRef foundstr = NULL;
+    
+    components = CFStringCreateArrayBySeparatingStrings(NULL, key, CFSTR("/"));
+    if (CFArrayGetCount(components) == 5) {
+        if ((foundstr = CFArrayGetValueAtIndex(components, index))){
+            CFRetain(foundstr);
+        }
+    }
+    CFRelease(components);
+    return foundstr;
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+CFStringRef copy_service_id_for_interface(CFStringRef interfaceName)
+{
+    CFDictionaryRef     dict = NULL;
+    CFStringRef         pattern = NULL;
+    CFMutableArrayRef   patterns = NULL;
+    CFStringRef         *keys = NULL;
+    CFDictionaryRef     *values = NULL;
+    CFIndex             count = 0;
+    CFIndex             i = 0;
+    CFStringRef         serviceID = NULL;
+    
+    if (!isString(interfaceName)) {
+        goto done;
+    }
+    
+    patterns = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                          kSCDynamicStoreDomainState,
+                                                          kSCCompAnyRegex,
+                                                          kSCEntNetIPv4);
+    
+    if (patterns == NULL || pattern == NULL)
+        goto done;
+    CFArrayAppendValue(patterns, pattern);
+    
+    dict = SCDynamicStoreCopyMultiple(gDynamicStore, NULL, patterns);
+    count = CFDictionaryGetCount(dict);
+    
+    keys = calloc(count, sizeof(CFStringRef));
+    values = calloc(count, sizeof(CFDictionaryRef));
+    if (keys == NULL || values == NULL)
+        goto done;
+    CFDictionaryGetKeysAndValues(dict, (const void**)keys, (const void**)values);
+    
+    for (i=0; i < count; i++) {
+        CFDictionaryRef ipv4Dict = NULL;
+        CFStringRef     ipv4Key = NULL;
+        
+        ipv4Key  = keys[i];
+        ipv4Dict = values[i];
+        
+        if (!isString(ipv4Key) || !isDictionary(ipv4Dict)) {
+            continue;
+        }
+        
+        /* Match interface name here */
+        if (my_CFEqual(CFDictionaryGetValue(ipv4Dict, kSCPropInterfaceName), interfaceName)) {
+            if ((CFStringHasPrefix(ipv4Key, kSCDynamicStoreDomainState)) && (CFStringHasSuffix(ipv4Key, kSCEntNetIPv4))) {
+                /* Copy Service ID */
+                serviceID = copy_str_at_index(ipv4Key, 3);
+            }
+            break;
+        }
+    }
+    
+done:
+    my_CFRelease(&pattern);
+    my_CFRelease(&patterns);
+    my_CFRelease(&dict);
+    if (keys) {
+        free(keys);
+    }
+    if (values) {
+        free(values);
+    }
+    
+    return serviceID;
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+CFStringRef copy_interface_type(CFStringRef serviceID)
+{
+	CFDictionaryRef interface_dict = NULL;
+	CFStringRef interface_key = NULL;
+	CFStringRef hardware = NULL;
+	CFStringRef interface_type = NULL;
+	
+	if (!isString(serviceID)) {
+		goto done;
+	}
+	
+	interface_key = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                                kSCDynamicStoreDomainSetup,
+                                                                serviceID,
+                                                                kSCEntNetInterface);
+	
+	interface_dict = SCDynamicStoreCopyValue(gDynamicStore, interface_key);
+	if (!isDictionary(interface_dict)) {
+		goto done;
+	}
+	
+	hardware = CFDictionaryGetValue(interface_dict, kSCPropNetInterfaceHardware);
+    
+	if (isString(hardware)) {
+        if (my_CFEqual(hardware, kSCEntNetAirPort)) {
+            interface_type = CFRetain(kSCValNetVPNOnDemandRuleInterfaceTypeMatchWiFi);
+        } else if (my_CFEqual(hardware, kSCEntNetEthernet)) {
+            interface_type = CFRetain(kSCValNetVPNOnDemandRuleInterfaceTypeMatchEthernet);
+        }
+#if TARGET_OS_IPHONE
+        else if (my_CFEqual(hardware, kSCEntNetCommCenter)) {
+            interface_type = CFRetain(kSCValNetVPNOnDemandRuleInterfaceTypeMatchCellular);
+        }
+#endif
+	}
+	
+done:
+    my_CFRelease(&interface_key);
+    my_CFRelease(&interface_dict);
+	
+	return interface_type;
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+CFDictionaryRef copy_dns_dict(CFStringRef serviceID)
+{
+    CFStringRef     dnsKey = NULL;
+    CFDictionaryRef dnsDict = NULL;
+    
+    if (!isString(serviceID)) {
+		goto done;
+	}
+    
+    dnsKey = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                         kSCDynamicStoreDomainState,
+                                                         serviceID,
+                                                         kSCEntNetDNS);
+    if (dnsKey == NULL) {
+        goto done;
+    }
+    
+    dnsDict = SCDynamicStoreCopyValue(gDynamicStore, dnsKey);
+    if (dnsDict == NULL) {
+        goto done;
+    }
+	
+done:
+	my_CFRelease(&dnsKey);
+	
+	return dnsDict;
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+CFStringRef copy_interface_name(CFStringRef serviceID)
+{
+    CFStringRef		interfaceName = NULL;
+    CFStringRef     ipv4Key = NULL;
+    CFDictionaryRef ipv4Dict = NULL;
+    
+    if (!isString(serviceID)) {
+        goto done;
+    }
+    
+    ipv4Key = SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+                                                         kSCDynamicStoreDomainState,
+                                                         serviceID,
+                                                         kSCEntNetIPv4);
+    if (ipv4Key == NULL) {
+        goto done;
+    }
+    
+    ipv4Dict = SCDynamicStoreCopyValue(gDynamicStore, ipv4Key);
+    if (ipv4Dict == NULL) {
+        goto done;
+    }
+    
+    interfaceName = CFDictionaryGetValue(ipv4Dict, kSCPropInterfaceName);
+    if (interfaceName) {
+        interfaceName = CFStringCreateCopy(kCFAllocatorDefault, interfaceName);
+    }
+    
+done:
+    my_CFRelease(&ipv4Key);
+    my_CFRelease(&ipv4Dict);
+    
+    return interfaceName;
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+CFArrayRef
+copy_service_order(void)
+{
+	CFDictionaryRef	ip_dict = NULL;
+	CFStringRef		key;
+	CFArrayRef		serviceorder = NULL;
+
+	key = CREATEGLOBALSETUP(kSCEntNetIPv4);
+	if (key) {
+		ip_dict = (CFDictionaryRef)SCDynamicStoreCopyValue(gDynamicStore, key);
+		if (ip_dict) {
+			serviceorder = CFDictionaryGetValue(ip_dict, kSCPropNetServiceOrder);        
+			if (serviceorder) {
+				CFRetain(serviceorder);
+			}
+			CFRelease(ip_dict);
+		}
+		CFRelease(key);
+	}
+
+	return serviceorder;
 }

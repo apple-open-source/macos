@@ -622,7 +622,7 @@ dtrace='
  
 	/* print main data */
 	printf("%s(0x%X, 0x%X, 0x%X, 0x%X, 0x%X, 0x%X)\t\t = 0x%X %s%d\n",probefunc,self->arg0,
-	    self->arg1,self->arg2,self->arg3,self->arg4,self->arg5, (int)arg0,self->code,(int)errno);
+	    self->arg1,self->arg2,self->arg3,self->arg4,self->arg5, arg0,self->code,(int)errno);
 	OPT_stack ? ustack()    : 1;
 	OPT_stack ? trace("\n") : 1;
 	self->arg0 = 0;

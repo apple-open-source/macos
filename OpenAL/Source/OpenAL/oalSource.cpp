@@ -107,7 +107,9 @@ OALSource::OALSource (ALuint 	 	inSelfToken, OALContext	*inOwningContext)
         mResetPitch(true),
 		mBufferQueueActive(NULL),
 		mBufferQueueInactive(NULL),
+        mBufferQueueTemp(NULL),
         mQueueLength(0),
+        mTempQueueLength(0),
 		mBuffersQueuedForClear(0),
 		mCurrentBufferIndex(0),
 		mQueueIsProcessed(true),
@@ -179,6 +181,9 @@ OALSource::OALSource (ALuint 	 	inSelfToken, OALContext	*inOwningContext)
 	
     mBufferQueueInactive = new BufferQueue();
 	mBufferQueueInactive->Reserve(512);
+    
+    mBufferQueueTemp = new BufferQueue();
+	mBufferQueueTemp->Reserve(128);
 	
     mACMap = new ACMap();
 
@@ -229,6 +234,7 @@ OALSource::~OALSource()
 		
     delete (mBufferQueueInactive);
     delete (mBufferQueueActive);
+    delete (mBufferQueueTemp);
     	
 	// remove all the AudioConverters that were created for the buffer queue of this source object
     if (mACMap)
@@ -923,15 +929,29 @@ ALuint	OALSource::GetToken()
 // BUFFER QUEUE METHODS 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// this should only be called when the source is render and edit protected
+UInt32	OALSource::GetQLengthPriv()
+{
+#if LOG_VERBOSE
+	DebugMessageN1("OALSource::GetQLengthPriv() called - OALSource = %ld", (long int) mSelfToken);
+#endif
+    
+    // the Q length is the size of the inactive & active lists
+    return mQueueLength;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 UInt32	OALSource::GetQLength()
 {
 #if LOG_VERBOSE
-	DebugMessageN1("OALSource::GetQLength called - OALSource = %ld\n", (long int) mSelfToken);
+	DebugMessageN1("OALSource::GetQLength() called OALSource = %ld", (long int) mSelfToken);
 #endif
-    // as far as the user is concerned, the Q length is the size of the inactive & active lists, 
-	// minus the inactive buffers that are pending removal
-	return mQueueLength;
+    
+	if(IsSourceTransitioningToFlushQ())
+        return mTempQueueLength;
+    
+    // the Q length is the size of the inactive & active lists
+    return mQueueLength;
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1003,11 +1023,14 @@ void	OALSource::SetBuffer (ALuint inBufferToken, OALBuffer	*inBuffer)
 			{
 				mSourceType = AL_UNDETERMINED;
 				mTransitioningToFlushQ = true;
+                mTempQueueLength = 0;   //reset the temp queue length
+                FlushTempBufferQueue();
 			}
 				
 #if	LOG_MESSAGE_QUEUE					
 			DebugMessageN1("OALSource::SetBuffer - kMQ_SetBuffer added to MQ - OALSource = %ld", (long int) mSelfToken);
 #endif
+            inBuffer->SetIsInPostRenderMessageQueue(true);
 			AddPlaybackMessage(kMQ_SetBuffer, inBuffer, 0);
 			break;
 		}
@@ -1051,6 +1074,18 @@ void	OALSource::FlushBufferQueue()
     
     //now that both queues have been modified, the queue length can be set
     SetQueueLength();
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void	OALSource::FlushTempBufferQueue()
+{
+#if LOG_VERBOSE
+	DebugMessageN1("OALSource::FlushTempBufferQueue() - OALSource = %ld", (long int) mSelfToken);
+#endif
+    
+	UInt32	count = mBufferQueueTemp->GetQueueSize();
+	for (UInt32	i = 0; i < count; i++)
+		mBufferQueueInactive->RemoveQueueEntryByIndex(this, 0, false);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1099,6 +1134,25 @@ void	OALSource::AddToQueue(ALuint	inBufferToken, OALBuffer	*inBuffer)
 		mSourceType = AL_STREAMING;
 			
 	AppendBufferToQueue(inBufferToken, inBuffer);
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void	OALSource::AddToTempQueue(ALuint	inBufferToken, OALBuffer	*inBuffer)
+{
+#if LOG_VERBOSE
+	DebugMessageN3("OALSource::AddToQueue called - OALSource:inBufferToken:inBuffer = %ld:%ld:%p\n", (long int) mSelfToken, (long int) inBufferToken, inBuffer);
+#endif
+	// wait if in render, then prevent rendering til completion
+	OALRenderLocker::RenderLocker locked(mRenderLocker, InRenderThread());
+    
+	// don't allow synchronous source manipulation
+	CAGuard::Locker sourceLock(mSourceLock);
+    
+    mBufferQueueTemp->AppendBuffer(this, inBufferToken, inBuffer, 0);
+    //Protect the buffer so it can't be deleted. This lock is released when the buffer is handed off to the active queue
+    inBuffer->UseThisBuffer(this);
+    ++mTempQueueLength;
+	AddPlaybackMessage(kMQ_AddBuffersToQueue, NULL, 1);
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1216,6 +1270,7 @@ void	OALSource::RemoveBuffersFromQueue(UInt32	inCount, ALuint	*outBufferTokens)
 		// don't allow synchronous source manipulation
 		CAGuard::Locker sourceLock(mSourceLock);
 
+        //this check also accounts for the case when the source might be transitioning to flush the Qs
 		if (inCount > GetQLength())
 			throw ((OSStatus) AL_INVALID_OPERATION);			
 
@@ -1226,7 +1281,15 @@ void	OALSource::RemoveBuffersFromQueue(UInt32	inCount, ALuint	*outBufferTokens)
 		// 2) determine if buffers can be removed now or at PostRender time
 		// 3) get the buffer names that will be removed and if safe, remove them now
 		
-		if ((mState == AL_PLAYING) || (mState == AL_PAUSED))
+		//If the source is transitioning to flush, then that's the first case to check because mState could contain a stale value
+        if (IsSourceTransitioningToFlushQ())
+        {
+#if LOG_BUFFER_QUEUEING
+            DebugMessageN2("	OALSource::RemoveBuffersFromQueue IsSourceTransitioningToFlushQ() - OALSource:inCount = %ld:%ld", (long int)mSelfToken, inCount);
+#endif
+            AddPlaybackMessage((UInt32) kMQ_ClearBuffersFromQueue, NULL, inCount);
+        }
+        else if ((mState == AL_PLAYING) || (mState == AL_PAUSED))
 		{			
 			if (mLooping == true)
 				throw ((OSStatus) AL_INVALID_OPERATION);
@@ -1256,9 +1319,16 @@ void	OALSource::RemoveBuffersFromQueue(UInt32	inCount, ALuint	*outBufferTokens)
 		
 		for (UInt32	i = mBuffersQueuedForClear; i < mBuffersQueuedForClear+inCount; i++)
 		{	
-			if ((mState == kTransitionToStop) || (mState == kTransitionToRewind))
+			//If the source is transitioning to flush, then that's the first case to check because mState could contain a stale value
+            if (IsSourceTransitioningToFlushQ())
+            {
+                //get the buffer token from the temp queue
+                outBufferTokens[i] = mBufferQueueTemp->GetBufferTokenByIndex(i);
+                --mTempQueueLength;
+            }
+            else if ((mState == kTransitionToStop) || (mState == kTransitionToRewind))
 			{
-				//DebugMessageN1("	* RemoveBuffersFromQueue kTransitionState - GetQLength() = %ld", (long int) GetQLength());
+				//DebugMessageN1("	* RemoveBuffersFromQueue kTransitionState - GetQLengthPriv() = %ld", (long int) GetQLengthPriv());
 				// we're transitioning, so let the caller know what buffers will be removed, but don't actually do it until the deferred message is acted on
 				// first return the token for the buffers in the inactive queue, then the active queue
 				if (i < (UInt32)mBufferQueueInactive->GetQueueSize())
@@ -1354,6 +1424,37 @@ void	OALSource::PostRenderRemoveBuffersFromQueue(UInt32	inBuffersToUnqueue)
 #endif
 
 	return;
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void	OALSource::PostRenderAddBuffersToQueue (UInt32 inNumBuffersToQueue)
+{
+#if LOG_VERBOSE
+	DebugMessageN3("OALSource::PostRenderAddBuffersToQueue - OALSource:inBufferToken:inBuffer = %ld:%ld:%p", (long int) mSelfToken, (long int) inBufferToken, inBuffer);
+#endif
+    
+    try
+    {
+        if (mSourceType == AL_STATIC)
+            throw (OSStatus) AL_INVALID_OPERATION;
+        
+        if (mSourceType == AL_UNDETERMINED)
+            mSourceType = AL_STREAMING;
+        
+        while (inNumBuffersToQueue--)
+        {
+            // Get buffer #i from Temp List
+            BufferInfo* bufferInfo = mBufferQueueTemp->Get(0);
+            // Append it to Active List
+            AppendBufferToQueue(bufferInfo->mBufferToken, bufferInfo->mBuffer);
+            // Remove it from Temp List
+            mBufferQueueTemp->RemoveQueueEntryByIndex(this, 0, true);
+        }
+    }
+    catch (OSStatus	 result) {
+		DebugMessageN1("	REMOVE BUFFER FAILED, OALSource = %ld\n", (long int) mSelfToken);
+		throw (result);
+	}
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1619,7 +1720,7 @@ void	OALSource::Play()
 		// don't allow synchronous source manipulation
 		CAGuard::Locker sourceLock(mSourceLock);
 
-		if (GetQLength() == 0)
+		if (GetQLengthPriv() == 0)
 			return; // nothing to do
         
 		switch (mState)
@@ -2279,19 +2380,6 @@ void OALSource::RemoveNotification(ALuint notificationID, alSourceNotificationPr
 	mSourceNotifications->RemoveSourceNotification(notificationID, notifyProc, userData);
 }
 
-void CallSourceNotification(void* inMessage)
-{
-#if LOG_VERBOSE
-	DebugMessage("OALSource::CallSourceNotification called");
-#endif
-	SourceNotificationDispatchMessage* message = (SourceNotificationDispatchMessage*) inMessage;
-	//calling the user's function
-	message->mProc(message->mSourceToken, message->mID, message->mUserData);
-	
-	//flag this message for deletion
-	message->flagForDeletion = true;
-}
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #pragma mark ***** PRIVATE *****
@@ -2319,12 +2407,12 @@ void OALSource::SwapBufferQueues()
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void	OALSource::AddPlaybackMessage(UInt32 inMessage, OALBuffer* inDeferredAppendBuffer, UInt32	inBuffersToUnqueue)
+void	OALSource::AddPlaybackMessage(UInt32 inMessage, OALBuffer* inBuffer, UInt32	inNumBuffers)
 {
 #if LOG_VERBOSE
 	DebugMessageN4("OALSource::AddPlaybackMessage called - OALSource:inMessage:inDeferredAppendBuffer:inBuffersToUnqueue = %ld:%ld:%p:%ld\n", (long int) mSelfToken, (long int) inMessage, inDeferredAppendBuffer, (long int) inBuffersToUnqueue);
 #endif
-	PlaybackMessage*		pbm = new PlaybackMessage((UInt32) inMessage, inDeferredAppendBuffer, inBuffersToUnqueue);
+	PlaybackMessage*		pbm = new PlaybackMessage((UInt32) inMessage, inBuffer, inNumBuffers);
 	mMessageQueue.push_atomic(pbm);
 }
 
@@ -3229,14 +3317,23 @@ OSStatus OALSource::DoPostRender ()
 						DebugMessage("     MQ:kMQ_ClearBuffersFromQueue");
 #endif
 						// when unqueue buffers is called while a source is in transition, the action must be deferred so the audio data can finish up
-						PostRenderRemoveBuffersFromQueue(messages->mBuffersToUnqueueInPostRender);
+						PostRenderRemoveBuffersFromQueue(messages->mNumBuffers);
 						break;
+                        
+                    case kMQ_AddBuffersToQueue:
+#if	LOG_MESSAGE_QUEUE
+                        DebugMessageN1("     MQ:kMQ_AddBuffersToQueue: mBuffer->GetToken() = %ld", (long int) messages->mBuffer->GetToken());
+#endif
+                        //when queue buffers is called while a source is in transition, the action must be deferred so the audio data can finish up
+                        PostRenderAddBuffersToQueue(messages->mNumBuffers);
+                        mRampState = kNoRamping;
+                        break;
 						
 					case kMQ_SetBuffer:
 #if	LOG_MESSAGE_QUEUE					
 						DebugMessageN1("     MQ:kMQ_SetBuffer: mAppendBuffer->GetToken() = %ld", (long int) messages->mAppendBuffer->GetToken());
 #endif
-						PostRenderSetBuffer(messages->mAppendBuffer->GetToken(), messages->mAppendBuffer);
+						PostRenderSetBuffer(messages->mBuffer->GetToken(), messages->mBuffer);
 						SetPlaybackState(AL_STOPPED, true);
 						break;
 						
@@ -3255,6 +3352,16 @@ OSStatus OALSource::DoPostRender ()
 						ReleaseNotifyAndRenderProcs();
 						renderProcsRemoved = true;
 						break;
+                        
+                    case kMQ_Resume:
+#if	LOG_MESSAGE_QUEUE
+						DebugMessage("     MQ:kMQ_Pause");
+#endif
+                        if (mRampState != kRampingComplete)
+                            mRampState = kRampUp;
+                        AddNotifyAndRenderProcs();
+                        SetPlaybackState(AL_PLAYING,true);
+                        break;
 						
 					case kMQ_SetFramePosition:
 #if	LOG_MESSAGE_QUEUE					
@@ -3281,6 +3388,12 @@ OSStatus OALSource::DoPostRender ()
 						
 						goto Finished;					// skip any remaining MQ messages
 					}
+                        
+                    default:
+#if	LOG_MESSAGE_QUEUE
+						DebugMessage("     MQ:WARNING - UNIMPLEMENTED MESSAGE...");
+#endif
+                        break;
 				}
 				
 				lastMessage = messages;

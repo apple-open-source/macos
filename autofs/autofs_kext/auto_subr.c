@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2013 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_subr.c	1.95	05/12/19 SMI"
@@ -195,7 +195,7 @@ auto_rearm(vnode_t vp, int pid)
 	int error;
 	fnnode_t *fnp;
 
-	error = auto_mark_vnode_homedirmount(vp, pid);
+	error = auto_mark_vnode_homedirmount(vp, pid, 0);
 
 	/*
 	 * If we get EINVAL, it means we're not a home directory mounter
@@ -561,6 +561,9 @@ auto_do_mount(void *arg)
 		return (error);
 	}
 
+        /* <13595777> Keep from racing with homedirmounter */
+	lck_mtx_lock(fnp->fn_mnt_lock);
+
 	/*
 	 * Set the UID of the mount point to the UID of the process on
 	 * whose behalf we're doing the mount; the mount might have to
@@ -595,6 +598,10 @@ auto_do_mount(void *arg)
 		fnp->fn_uid = 0;
 		lck_mtx_unlock(fnp->fn_lock);
 	}
+        
+        /* <13595777> Keep from racing with homedirmounter */
+	lck_mtx_unlock(fnp->fn_mnt_lock);
+        
 	auto_fninfo_unlock_shared(fnip, 0);
 
 	return (error);
@@ -1481,10 +1488,12 @@ auto_makefnnode(
 	lck_attr_setdebug(lckattr);
 	fnp->fn_lock = lck_mtx_alloc_init(autofs_lck_grp, lckattr);
 	fnp->fn_rwlock = lck_rw_alloc_init(autofs_lck_grp, lckattr);
+	fnp->fn_mnt_lock = lck_mtx_alloc_init(autofs_lck_grp, lckattr);
 	lck_attr_free(lckattr);
 #else
 	fnp->fn_lock = lck_mtx_alloc_init(autofs_lck_grp, NULL);
 	fnp->fn_rwlock = lck_rw_alloc_init(autofs_lck_grp, NULL);
+	fnp->fn_mnt_lock = lck_mtx_alloc_init(autofs_lck_grp, NULL);
 #endif
 	*fnpp = fnp;
 
@@ -1507,6 +1516,7 @@ auto_freefnnode(fnnode_t *fnp)
 		FREE(fnp->fn_symlink, M_AUTOFS);
 	lck_mtx_free(fnp->fn_lock, autofs_lck_grp);
 	lck_rw_free(fnp->fn_rwlock, autofs_lck_grp);
+	lck_mtx_free(fnp->fn_mnt_lock, autofs_lck_grp);
 
 	lck_mtx_lock(autofs_nodeid_lock);
 	fnp->fn_globals->fng_fnnode_count--;

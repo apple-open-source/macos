@@ -72,7 +72,7 @@ IdentityCursorPolicyAndID::findPreferredIdentity()
 	uint32_t iprfValue = 'iprf'; // value is specified in host byte order, since kSecTypeItemAttr has type uint32 in the db schema
 	SecKeychainAttribute sAttrs[] = {
 		{ kSecTypeItemAttr, sizeof(uint32_t), &iprfValue },
-		{ kSecServiceItemAttr, strlen(idUTF8), (char *)idUTF8 }
+		{ kSecServiceItemAttr, (UInt32)strlen(idUTF8), (char *)idUTF8 }
 	};
 	SecKeychainAttributeList sAttrList = { sizeof(sAttrs) / sizeof(sAttrs[0]), sAttrs };
 

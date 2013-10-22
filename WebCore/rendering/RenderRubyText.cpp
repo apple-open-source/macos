@@ -37,8 +37,8 @@ using namespace std;
 
 namespace WebCore {
 
-RenderRubyText::RenderRubyText(Node* node)
-    : RenderBlock(node)
+RenderRubyText::RenderRubyText(Element* element)
+    : RenderBlock(element)
 {
 }
 
@@ -54,7 +54,8 @@ bool RenderRubyText::isChildAllowed(RenderObject* child, RenderStyle*) const
 ETextAlign RenderRubyText::textAlignmentForLine(bool endsWithSoftBreak) const
 {
     ETextAlign textAlign = style()->textAlign();
-    if (textAlign != TAAUTO)
+    // FIXME: This check is bogus since user can set the initial value.
+    if (textAlign != RenderStyle::initialTextAlign())
         return RenderBlock::textAlignmentForLine(endsWithSoftBreak);
 
     // The default behavior is to allow ruby text to expand if it is shorter than the ruby base.
@@ -64,7 +65,8 @@ ETextAlign RenderRubyText::textAlignmentForLine(bool endsWithSoftBreak) const
 void RenderRubyText::adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const
 {
     ETextAlign textAlign = style()->textAlign();
-    if (textAlign != TAAUTO)
+    // FIXME: This check is bogus since user can set the initial value.
+    if (textAlign != RenderStyle::initialTextAlign())
         return RenderBlock::adjustInlineDirectionLineBounds(expansionOpportunityCount, logicalLeft, logicalWidth);
 
     int maxPreferredLogicalWidth = this->maxPreferredLogicalWidth();
@@ -84,17 +86,6 @@ void RenderRubyText::adjustInlineDirectionLineBounds(int expansionOpportunityCou
 bool RenderRubyText::avoidsFloats() const
 {
     return true;
-}
-
-void RenderRubyText::updateBeforeAfterContent(PseudoId pseudoId)
-{
-    // RenderRubyText manages its own :before and :after content
-    // and is not handled by its anonymous wrappers RenderRubyRun
-    // and RenderRuby. This contrasts with other ruby children, which
-    // are enclosed in RenderRubyBase and hence they are able to
-    // update their :before, :after content (since RenderRubyBase
-    // is not a anonymous wrapper).
-    return children()->updateBeforeAfterContent(this, pseudoId);
 }
 
 } // namespace WebCore

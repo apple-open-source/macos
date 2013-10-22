@@ -26,7 +26,6 @@
 #include <isc/stdtime.h>
 
 #include <dns/types.h>
-#include <dns/log.h>
 #include <dns/name.h>
 #include <dns/secalg.h>
 
@@ -60,8 +59,6 @@ typedef struct dst_context 	dst_context_t;
 #define DST_ALG_RSASHA256	8
 #define DST_ALG_RSASHA512	10
 #define DST_ALG_ECCGOST		12
-#define DST_ALG_ECDSA256	13
-#define DST_ALG_ECDSA384	14
 #define DST_ALG_HMACMD5		157
 #define DST_ALG_GSSAPI		160
 #define DST_ALG_HMACSHA1	161	/* XXXMPA */
@@ -170,11 +167,6 @@ dst_algorithm_supported(unsigned int alg);
 
 isc_result_t
 dst_context_create(dst_key_t *key, isc_mem_t *mctx, dst_context_t **dctxp);
-
-isc_result_t
-dst_context_create2(dst_key_t *key, isc_mem_t *mctx,
-		    isc_logcategory_t *category, dst_context_t **dctxp);
-
 /*%<
  * Creates a context to be used for a sign or verify operation.
  *

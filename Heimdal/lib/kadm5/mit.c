@@ -295,7 +295,7 @@ xdr_send_request(krb5_context context,
     /* write packet to output stream */
     {
 	CHECK(krb5_storage_to_data(msg, &data));
-	CHECK(krb5_store_uint32(client->sp, data.length | LAST_FRAGMENT));
+	CHECK(krb5_store_uint32(client->sp, ((uint32_t)data.length) | LAST_FRAGMENT));
 	sret = krb5_storage_write(client->sp, data.data, data.length);
 	INSIST(sret == data.length);
 	krb5_data_free(&data);
@@ -768,6 +768,7 @@ xdr_setup_connection(krb5_context context,
 	s = socket (a->ai_family, a->ai_socktype, a->ai_protocol);
 	if (s < 0)
 	    continue;
+	socket_set_nopipe(s, 1);
 	if (connect (s, a->ai_addr, a->ai_addrlen) < 0) {
 	    close (s);
 	    continue;

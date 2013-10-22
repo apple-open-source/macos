@@ -38,9 +38,7 @@
 #include <security_asn1/ocspTemplates.h>
 #include <Security/SecCertificatePath.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef enum {
 	kSecOCSPBad = -2,
@@ -153,8 +151,6 @@ void SecOCSPSingleResponseDestroy(SecOCSPSingleResponseRef this);
 SecCertificatePathRef SecOCSPResponseCopySigner(SecOCSPResponseRef this,
     SecCertificatePathRef issuerPath);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECOCSPRESPONSE_H_ */

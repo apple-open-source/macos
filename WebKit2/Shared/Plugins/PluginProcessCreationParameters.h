@@ -28,7 +28,7 @@
 
 #if ENABLE(PLUGIN_PROCESS)
 
-#include <wtf/text/WTFString.h>
+#include "PluginProcessAttributes.h"
 
 #if PLATFORM(MAC)
 #include "MachPort.h"
@@ -44,15 +44,16 @@ namespace WebKit {
 struct PluginProcessCreationParameters {
     PluginProcessCreationParameters();
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, PluginProcessCreationParameters&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, PluginProcessCreationParameters&);
 
-    String pluginPath;
+    PluginProcessType processType;
+    bool supportsAsynchronousPluginInitialization;
 
+    double minimumLifetime;
     double terminationTimeout;
 
 #if PLATFORM(MAC)
-    String parentProcessName;
     CoreIPC::MachPort acceleratedCompositingPort;
 #endif
 };

@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/hi.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/hi.xml
 // *
 // ***************************************************************************
 /**
@@ -44,7 +44,7 @@ hi{
             "अर्जेण्टीनी पीसो",
         }
         AUD{
-            "AU$",
+            "A$",
             "ऑस्ट्रेलियाई डॉलर",
         }
         AWG{
@@ -439,6 +439,10 @@ hi{
             "MYR",
             "मलेशियाई रिंगित",
         }
+        MZN{
+            "MZN",
+            "मोज़ाम्बिकन मेटिकल",
+        }
         NAD{
             "NAD",
             "नामीबियाई डालर",
@@ -579,6 +583,10 @@ hi{
             "SRG",
             "सूरीनामी गिल्डर",
         }
+        SSP{
+            "SSP",
+            "दक्षिण सूडानी पाउंड",
+        }
         STD{
             "STD",
             "साओ तोमे और प्रिंसिपे डोबरा",
@@ -669,7 +677,7 @@ hi{
         }
         VEB{
             "VEB",
-            "वेनेज़ुएलाई बोलिवार",
+            "वेनेज़ुएला बोलिवर (1871-2008)",
         }
         VEF{
             "VEF",
@@ -717,12 +725,42 @@ hi{
         }
         ZMK{
             "ZMK",
+            "ज़ाम्बियन क्वाचा (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "ज़ाम्बियन क्वाचा",
+        }
+    }
+    CurrencyPlurals{
+        MZN{
+            one{"मोज़ाम्बिकन मेटिकल"}
+            other{"मोज़ाम्बिकन मेटिकल"}
+        }
+        RWF{
+            one{"रवांडाई फ्रैंक"}
+            other{"रवांडाई फ्रैंक"}
+        }
+        SCR{
+            one{"सेशिल्वा"}
+            other{"सेशिल्वा"}
+        }
+        SSP{
+            one{"दक्षिण सूडानी पाउंड"}
+            other{"दक्षिण सूडानी पाउंड"}
+        }
+        TND{
+            one{"ट्युनिशियन दिनार"}
+            other{"ट्युनिशियन दिनार"}
+        }
+        XOF{
+            one{"CFA फ़्रैंक BCEAO"}
+            other{"CFA फ़्रैंक BCEAO"}
         }
     }
     CurrencyUnitPatterns{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
 }

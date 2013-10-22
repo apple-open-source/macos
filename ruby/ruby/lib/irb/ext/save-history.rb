@@ -1,34 +1,41 @@
-#!/usr/local/bin/ruby
-#
-#   save-history.rb - 
-#   	$Release Version: 0.9.5$
-#   	$Revision: 24483 $
-#   	$Date: 2009-08-09 17:44:15 +0900 (Sun, 09 Aug 2009) $
-#   	by Keiju ISHITSUKAkeiju@ruby-lang.org)
+#   save-history.rb -
+#   	$Release Version: 0.9.6$
+#   	$Revision: 39049 $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
+#
 #
 
 require "readline"
 
 module IRB
-  module HistorySavingAbility
-    @RCS_ID='-$Id: save-history.rb 24483 2009-08-09 08:44:15Z shyouhei $-'
+  module HistorySavingAbility # :nodoc:
+    @RCS_ID='-$Id: save-history.rb 39049 2013-02-04 23:04:09Z zzak $-'
   end
 
   class Context
-    def init_save_history
+    def init_save_history# :nodoc:
       unless (class<<@io;self;end).include?(HistorySavingAbility)
 	@io.extend(HistorySavingAbility)
       end
     end
 
+    # A copy of the default <code>IRB.conf[:SAVE_HISTORY]</code>
     def save_history
       IRB.conf[:SAVE_HISTORY]
     end
 
+    # Sets <code>IRB.conf[:SAVE_HISTORY]</code> to the given +val+ and calls
+    # #init_save_history with this context.
+    #
+    # Will store the number of +val+ entries of history in the #history_file
+    #
+    # Add the following to your +.irbrc+ to change the number of history
+    # entries stored to 1000:
+    #
+    #     IRB.conf[:SAVE_HISTORY] = 1000
     def save_history=(val)
       IRB.conf[:SAVE_HISTORY] = val
       if val
@@ -38,16 +45,18 @@ module IRB
       end
     end
 
+    # A copy of the default <code>IRB.conf[:HISTORY_FILE]</code>
     def history_file
       IRB.conf[:HISTORY_FILE]
     end
 
+    # Set <code>IRB.conf[:HISTORY_FILE]</code> to the given +hist+.
     def history_file=(hist)
       IRB.conf[:HISTORY_FILE] = hist
     end
   end
 
-  module HistorySavingAbility
+  module HistorySavingAbility # :nodoc:
     include Readline
 
 #     def HistorySavingAbility.create_finalizer
@@ -73,10 +82,12 @@ module IRB
     end
 
     def load_history
-      hist = IRB.conf[:HISTORY_FILE]
-      hist = IRB.rc_file("_history") unless hist
-      if File.exist?(hist)
-	open(hist) do |f|
+      if history_file = IRB.conf[:HISTORY_FILE]
+	history_file = File.expand_path(history_file)
+      end
+      history_file = IRB.rc_file("_history") unless history_file
+      if File.exist?(history_file)
+	open(history_file) do |f|
 	  f.each {|l| HISTORY << l.chomp}
 	end
       end
@@ -88,7 +99,18 @@ module IRB
 	  history_file = File.expand_path(history_file)
 	end
 	history_file = IRB.rc_file("_history") unless history_file
-	open(history_file, 'w' ) do |f|
+
+	# Change the permission of a file that already exists[BUG #7694]
+	begin
+	  if File.stat(history_file).mode & 066 != 0
+	    File.chmod(0600, history_file)
+	  end
+	rescue Errno::ENOENT
+	rescue
+	  raise
+	end
+
+	open(history_file, 'w', 0600 ) do |f|
 	  hist = HISTORY.to_a
 	  f.puts(hist[-num..-1] || hist)
 	end
@@ -96,4 +118,3 @@ module IRB
     end
   end
 end
-

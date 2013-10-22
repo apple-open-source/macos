@@ -22,21 +22,16 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 # This script generates a LocalKDC and provisions LKDC service principals.
-# The script is non-destructive - it can be run multiple times.
+#
+# The script is destructive - it can be run multiple times though and
+# will geneate new KDC and service keys every time.
 #
 # Flow
 # =======
 #   1. Redirect output to /Library/Logs/LKDC-setup
 #   2. generate: create the LKDC certificates
-#   3. Fetch LKDC name
-#     3.1 generate: generate the name from the certificatre
-#     3.2 restore: get name from KerberosKDC.plist in DSLocal
-#   4. If no m-key, create, if there was none, force KDC generation
-#   5. Create database
-#     5.1: generate: init database, force keytab generation
-#     5.2: restore: pull out the old database entries
-#   6. Create keytabs and plist for services
-#   7. If creating the database, make launchd not launch us again
+#   3. Create database
+#   4. If creating the database, make launchd not launch us again
 #
 
 use strict;
@@ -62,284 +57,70 @@ open STDERR, ">&STDOUT" || die "Failed to open STDERR";
 # print when we are running
 system("date");
 
-my $kadmin = '/usr/sbin/kadmin';
-my $ktutil = '/usr/sbin/ktutil';
 my $hod_admin = '/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/hod-admin';
-
 my $system_keychain = '/Library/Keychains/System.keychain';
+
+my $restore = 0;
+
+my $argc = scalar @ARGV;
+my $i;
+for ($i = 0; $i < $argc; ++$i) {
+	if ($ARGV[$i] eq '--plist') {
+	} elsif ($ARGV[$i] eq '--source') {
+		$restore = 1;
+		die "Error: --source requires an argument\n" unless ++$i < $argc;
+	} elsif ($ARGV[$i] eq '--source-version') {
+	    die "Error: --source-version requires an argument\n" unless ++$i < $argc;
+	} elsif ($ARGV[$i] eq '--mode') {
+	    die "Error: --mode requires an argument\n" unless ++$i < $argc;
+	} else {
+		die "Error: unknown argument $ARGV[$i]\n";
+	}
+}
+
+if ($restore) {
+    unlink $configured;
+    print "lkdc restore trigger re-setup of LKDC on next boot\n";
+    exit 0;
+}
+
+my $res;
 
 # certtool requires a system keychain to be present.  Bootstrap one if it is missing.
 if (! -f $system_keychain) {
 	system '/usr/sbin/systemkeychain', '-C';
 }
 
-my $kdc_db_dir = '/var/db/krb5kdc';
-my $kdc_log_dir = '/var/log/krb5kdc';
-my $kdc_local = '/var/db/dslocal/nodes/Default/config/KerberosKDC.plist';
+printf("creating system keychain entries\n");
 
-my $migration_conf = "${kdc_db_dir}/migration.conf";
-
-
-my $plist_set = 0;
-my $make_keytab_flag = 0;
-my $update_plists_flag = 0;
-
-my @kdcsetup_args;
-my $krb5kdc_plist = '/System/Library/LaunchDaemons/com.apple.Kerberos.kdc.plist';
-my $source_version = '10.5'; # if not given, assume Leopard
-my $restore_directory;
-my $restore = 0;
-
-my $fixup_disallow_service = 0;
-
-my $argc = scalar @ARGV;
-my $i;
-for ($i = 0; $i < $argc; ++$i) {
-	if ($ARGV[$i] eq '--plist') {
-		$plist_set = 1;
-		$make_keytab_flag = 0;
-		$update_plists_flag = 1;
-	} elsif ($ARGV[$i] eq '--source') {
-		die "Error: --source requires an argument\n" unless ++$i < $argc;
-		$restore_directory = $ARGV[$i];
-		$restore = 1;
-	} elsif ($ARGV[$i] eq '--source-version') {
-		die "Error: --source-version requires an argument\n" unless ++$i < $argc;
-		$source_version = $ARGV[$i]
-	} elsif ($ARGV[$i] eq '--mode') {
-		die "Error: --mode requires an argument\n" unless ++$i < $argc;
-		# XXX handle migration assistant here
-	} else {
-		die "Error: unknown argument $ARGV[$i]\n";
-	}
+$res = system '/usr/bin/certtool', 'C', 'com.apple.systemdefault', 'u', 'P', 'v';
+if ($res != 0) {
+    unlink $configured;
+    die "cert tool failed for com.apple.systemdefault";
+}
+$res = system '/usr/bin/certtool', 'C', 'com.apple.kerberos.kdc', 'u', 'P', 'v', 'x=S';
+if ($res != 0) {
+    unlink $configured;
+    die "cert tool failed for com.apple.kerberos.kdc";
 }
 
-if (not $restore) {
-    my $res;
-
-    printf("creating system keychain entries\n");
-
-    $res = system '/usr/bin/certtool', 'C', 'com.apple.systemdefault', 'u', 'P', 'v';
-    if ($res != 0) {
-	unlink $configured;
-	die "cert tool failed for com.apple.systemdefault";
-    }
-    $res = system '/usr/bin/certtool', 'C', 'com.apple.kerberos.kdc', 'u', 'P', 'v', 'x=S';
-    if ($res != 0) {
-	unlink $configured;
-	die "cert tool failed for com.apple.kerberos.kdc";
-    }
-} else {
-    printf("doing a restore from ${restore_directory}\n");
-}
-
-system '/System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers/lkdc_acl',
+$res = system '/System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers/lkdc_acl',
      '-s', 'com.apple.kerberos.kdc', '-a',
     '/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/kdc';
-
-my $LKDC_realm;
-
-if (not $restore) {
-	my $REALM;
-
-	if (not open REALM, '/System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers/lkdc-cert-hash|' ) {
-	    die "failed to get realm of LocalKDC\n";
-	}
-
-	$LKDC_realm = <REALM>;
-	close REALM;
-} else {
-	$kdc_local = $restore_directory."/private".$kdc_local;
-	my $KDC_LOCAL;
-	if (not open (KDC_LOCAL, '/usr/libexec/PlistBuddy -c "Print :realname:0" "' . ${kdc_local} . '" |')) {
-		print 'Error: '. $progname ." failed to find $kdc_local\n";
-		exit 1;
-	}
-	$LKDC_realm = <KDC_LOCAL>;
-	close KDC_LOCAL;
+if ($res != 0) {
+    print "ldkc_acl failed with: $res\n";
 }
 
-$LKDC_realm =~ s/^.*(LKDC:SHA1\.[0-9A-F]{40}).*$/\1/s;
-if ($LKDC_realm eq '') {
-	print 'Error: '. $progname ." cannot parse $kdc_local\n";
-	exit 1;
+$res = system $hod_admin, '.', 'setup-lkdc';
+if ($res != 0) {
+    print "hod-admin . setup-lkdc failed with: $res\n";
 }
 
-print "using LKDC realm: ${LKDC_realm}\n";
-
-mkdir(${kdc_db_dir}, 0700) if (not -d ${kdc_db_dir});
-mkdir(${kdc_log_dir}, 0700) if (not -d ${kdc_log_dir});
-
-# init the realm
-
-my $force_reinit = 0;
-my $res;
-my @args = ('-l', '-r', $LKDC_realm) ;
-
-if (not -f "${kdc_db_dir}/m-key") {
-    printf("no mkey, creating one\n");
-    $res = system(${kadmin}, @args, 'stash',
-		  '--random-password', '--no-print-password');
-    if ($res ne 0) {
-	print "kadmin stash failed\n";
-	exit 1;
-    }
-    $force_reinit = 1;
-}
-
-if (not $restore) {
-
-    if (not `dscl /Local/Default read /Users/_krbtgt dsAttrTypeNative:KerberosKeys | grep 'dsAttrTypeNative:KerberosKeys:'`) {
-	print "no krbtgt kerberos keys, forcing re-init\n";
-	$force_reinit = 1;
-    }
-
-    if ($force_reinit) {
-	printf("init database\n");
-	
-	$res = system(${kadmin}, @args,
-		      'init', '--bare',
-		      '--realm-max-ticket-life=unlimited',
-		      '--realm-max-renewable-life=unlimited',
-		      'WELLKNOWN:COM.APPLE.LKDC');
-	
-	if ($res ne 0) {
-	    print "kadmin init failed\n";
-	    return 1;
-	}
-	
-	if ($plist_set eq 0 or $force_reinit ne 0) {
-	    $make_keytab_flag = 1;
-	    $update_plists_flag = 1;
-	}
-	print "$LKDC_realm created\n";
-    } else {
-	print "$LKDC_realm reused\n";
-    }
-
-} elsif ( -f "${restore_directory}/private${kdc_db_dir}/principal.${LKDC_realm}" || $source_version > 10.6) {
-    my $CONF;
-
-    my $f = "${kdc_db_dir}/migration.conf";
-    my $df = "${kdc_db_dir}/lkdc-dump";
-
-    my @dump_args = ('-c', $migration_conf, '-l', '-r', $LKDC_realm) ;
-
-    open CONF, ">${migration_conf}";
-    print CONF "[kdc]\n";
-    print CONF "database = {\n";
-    if ($source_version < 10.7) {
-        print CONF "\tdbname = mit-db:${restore_directory}/private${kdc_db_dir}/principal.${LKDC_realm}\n";
-        print CONF "\tmkey_file = FILE:${restore_directory}/private${kdc_db_dir}/.k5.${LKDC_realm}\n";
-        print CONF "\tlog_file = ${restore_directory}/private${kdc_db_dir}/log-${LKDC_realm}\n";
-    } else {
-	print CONF "\tdbname = od:/Local/Default&${restore_directory}/private/var/db/dslocal/nodes/Default\n";
-	print CONF "\tmkey_file = ${restore_directory}/private/var/db/krb5kdc/m-key\n";
-	print CONF "\tlog_file = ${restore_directory}/private${kdc_db_dir}/log-${LKDC_realm}\n";
-    }
-    print CONF "}\n";
-    close CONF;
-
-    printf "dumping database\n";
-    system $kadmin, @dump_args, "dump", "-d", $df;
-
-    my $OLD_DUMP;
-    open OLD_DUMP, $df;
-    my @dump = <OLD_DUMP>;
-    close OLD_DUMP;
-
-    # XXXX filter out everything except users
-    my @princs;
-    my $NEW_DUMP;
-    open NEW_DUMP, ">".${df}.".new";
-    foreach my $d (@dump) {
-	if ($d =~ /(^[^\/]*[^\$])\@/) {
-	    push(@princs, $1);
-	    print NEW_DUMP $d;
-	}
-    }
-    close NEW_DUMP;
-
-    open CONF, ">${migration_conf}";
-    print CONF "[kdc]\n";
-    print CONF "database = {\n";
-    print CONF "\tdbname = od:/Local/Default\n";
-    print CONF "\tmkey_file = FILE:${kdc_db_dir}/m-key\n";
-    print CONF "\tlog_file = ${kdc_db_dir}/log-${LKDC_realm}\n";
-    print CONF "}\n";
-    close CONF;
-
-    printf "merge in new database\n";
-    system $kadmin, @args, "merge", "--fix-salts", "${df}.new";
-
-    unlink $df;
-    unlink "${df}.new";
-
-    foreach my $p (@princs) {
-	system $hod_admin, ".", "principal-setflags", $p, "RequireStrongPreAuth";
-    }
-} elsif (not $plist_set) {
-    $make_keytab_flag = 0;
-    $update_plists_flag = 0;
-}
-
-if ($make_keytab_flag or $update_plists_flag) {
-	my %afp_config = (service => 'afpserver', realm => $LKDC_realm,
-			  prefs => '/Library/Preferences/com.apple.AppleFileServer',
-			  key => 'kerberosPrincipal', format => '%s/%s@%2$s');
-
-	my %smb_config = (service => 'cifs', realm => $LKDC_realm,
-			  prefs => '/Library/Preferences/SystemConfiguration/com.apple.smb.server',
-       			  key => 'LocalKerberosRealm', format => '%2$s');
- 
-	my %ss_config  = (service => 'vnc', realm => $LKDC_realm);
-
-	my %host_config  = (service => 'host', realm => $LKDC_realm);
-
-	my $principal = sprintf "%s/%s@%s", "host", $LKDC_realm, $LKDC_realm;
-
-	if ($make_keytab_flag) {
-	    print  "$kadmin add $principal\n";
-	    system $kadmin, @args, 'add', '--use-defaults', '--random-key', $principal;
-	    system $kadmin, @args, 'mod', '-a', '-disallow-svr', $principal;
-	}
-	    
-	configure_service (\%afp_config, $make_keytab_flag, $update_plists_flag);
-	configure_service (\%smb_config, $make_keytab_flag, $update_plists_flag);
-	configure_service (\%ss_config,  $make_keytab_flag, $update_plists_flag);
-	configure_service (\%host_config,  $make_keytab_flag, $update_plists_flag);
-}
-
-unlink($migration_conf) if ($restore);
-
-# restore just migrates user, rerun provisioning of krbtgt on next boot
-if (not $restore and not $plist_set) {
+if ($res eq 0) {
+    print "Done LKDC setup\n";
     system "touch", $configured;
+    system 'killall', '-9', 'kdc', 'digest-service';
 } else {
+    print "Failed LKDC setup\n";
     unlink $configured;
-}
-
-sub configure_service {
-	my $config = shift;
-	my $do_keytab = shift;
-	my $do_plist  = shift;
-	my $realm = $config->{realm};
-
-	my $principal = sprintf "%s/%s@%s", $config->{service}, $realm, $realm;
-
-	if ($do_keytab) {
-
-		system $ktutil, 'remove', '-p', $principal;
-
-		print  "$kadmin ext_keytab\n";
-		system $kadmin, @args, 'ext_keytab', $principal;
-	} 
-
-	if ($do_plist and defined ($config->{prefs})) {
-		my $value = sprintf $config->{format}, $config->{service}, $realm;
-		my @args = ('write', $config->{prefs}, $config->{key}, $value);
-
-		print  '/usr/bin/defaults '. join (' ', @args). "\n";
-		system '/usr/bin/defaults', @args;
-	}
 }

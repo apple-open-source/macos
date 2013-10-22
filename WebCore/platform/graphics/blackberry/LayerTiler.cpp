@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Research In Motion Limited. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,59 +22,95 @@
 
 #include "LayerTiler.h"
 
+#include "AffineTransform.h"
 #include "BitmapImage.h"
 #include "LayerCompositingThread.h"
 #include "LayerMessage.h"
+#include "LayerRenderer.h"
+#include "LayerUtilities.h"
 #include "LayerWebKitThread.h"
-#include "NativeImageSkia.h"
 #include "TextureCacheCompositingThread.h"
 
+#include <BlackBerryPlatformGLES2Program.h>
 #include <BlackBerryPlatformScreen.h>
+#include <BlackBerryPlatformSettings.h>
 #include <GLES2/gl2.h>
+#include _NTO_CPU_HDR_(smpxchg.h)
+
+#define DEBUG_LAYER_VISIBILITY 0 // Show visible region of layers as a thick border, and print visible rect.
+#if DEBUG_LAYER_VISIBILITY
+#include <stdlib.h>
+#endif
 
 using namespace std;
+using BlackBerry::Platform::Graphics::GLES2Program;
 
 namespace WebCore {
 
+class LayerVisibility {
+public:
+    LayerVisibility(const FloatRect& visibleRect, const HashSet<TileIndex>& tilesNeedingRender)
+        : m_visibleRect(visibleRect)
+        , m_tilesNeedingRender(tilesNeedingRender)
+    {
+    }
+
+    FloatRect visibleRect() const { return m_visibleRect; }
+    void setVisibleRect(const FloatRect& visibleRect) { m_visibleRect = visibleRect; }
+
+    bool needsRender() const { return !m_tilesNeedingRender.isEmpty(); }
+    bool tileNeedsRender(const TileIndex& index) const { return m_tilesNeedingRender.contains(index); }
+    void markTileAsRendered(const TileIndex& index) { m_tilesNeedingRender.remove(index); m_tilesRendered.add(index); }
+    void swapTilesNeedingRender(HashSet<TileIndex>& tilesNeedingRender) { m_tilesNeedingRender.swap(tilesNeedingRender); }
+
+    void merge(LayerVisibility* visibility)
+    {
+        if (!visibility)
+            return;
+        m_tilesRendered.swap(visibility->m_tilesRendered);
+        for (HashSet<TileIndex>::iterator it = m_tilesRendered.begin(); it != m_tilesRendered.end(); ++it)
+            m_tilesNeedingRender.remove(*it);
+    }
+
+private:
+    FloatRect m_visibleRect;
+    HashSet<TileIndex> m_tilesNeedingRender;
+    HashSet<TileIndex> m_tilesRendered;
+};
+
 // This is used to make the viewport as used in texture visibility calculations
 // slightly larger so textures are uploaded before becoming really visible.
-const float viewportInflationFactor = 1.1f;
+// Inflation is greater in Y direction (one screenful in either direction) since
+// scrolling vertically is more common, and easily reaches higher velocity, than
+// scrolling horizontally.
+// The viewportInflation is expressed as a fraction to multiply the viewport by, and
+// it is centered.
+// A height of 3 means to consider one screenful above and one screenful below the
+// current viewport as visible.
+const FloatSize viewportInflation(1.2f, 3.0f);
 
-// The tileMultiplier indicates how many tiles will fit in the largest dimension
-// of the screen, if drawn using identity transform.
-// We use half the screen size as tile size, to reduce the texture upload time
-// for small repaint rects. Compared to using screen size directly, this should
-// make most small invalidations 16x faster, unless they're unfortunate enough
-// to intersect two or more tiles, where it would be 8x-1x faster.
-const int tileMultiplier = 4;
-
-static void transformPoint(float x, float y, const TransformationMatrix& m, float* result)
-{
-    // Squash the Z coordinate so that layers aren't clipped against the near and
-    // far plane. Note that the perspective is maintained as we're still passing
-    // down the W coordinate.
-    result[0] = x * m.m11() + y * m.m21() + m.m41();
-    result[1] = x * m.m12() + y * m.m22() + m.m42();
-    result[2] = 0;
-    result[3] = x * m.m14() + y * m.m24() + m.m44();
-}
+// This is a small optimization to cut down on calls to operator new.
+// Since the compositing thread normally swaps in new visibility objects much more
+// often than the WebKit thread swaps them out, it's likely that it will swap out
+// the previous visibility object and we can reuse that.
+static LayerVisibility* s_spareVisibility = 0;
 
 static IntSize defaultTileSize()
 {
-    static IntSize screenSize = BlackBerry::Platform::Graphics::Screen::primaryScreen()->nativeSize();
-    static int dim = max(screenSize.width(), screenSize.height()) / tileMultiplier;
-    return IntSize(dim, dim);
+    static IntSize size(BlackBerry::Platform::Settings::instance()->tileSize());
+    return size;
 }
 
 LayerTiler::LayerTiler(LayerWebKitThread* layer)
     : m_layer(layer)
-    , m_tilingDisabled(false)
+    , m_needsBacking(false)
     , m_contentsDirty(false)
     , m_tileSize(defaultTileSize())
     , m_clearTextureJobs(false)
-    , m_hasMissingTextures(false)
-    , m_contentsScale(0.0)
+    , m_frontVisibility(0)
+    , m_backVisibility(0)
 {
+    ref(); // This ref() is matched by a deref in layerCompositingThreadDestroyed();
 }
 
 LayerTiler::~LayerTiler()
@@ -82,7 +118,10 @@ LayerTiler::~LayerTiler()
     // Someone should have called LayerTiler::deleteTextures()
     // before now. We can't call it here because we have no
     // OpenGL context.
-    ASSERT(m_tilesCompositingThread.isEmpty());
+    ASSERT(m_tiles.isEmpty());
+
+    delete m_frontVisibility;
+    delete m_backVisibility;
 }
 
 void LayerTiler::layerWebKitThreadDestroyed()
@@ -90,9 +129,10 @@ void LayerTiler::layerWebKitThreadDestroyed()
     m_layer = 0;
 }
 
-void LayerTiler::layerCompositingThreadDestroyed()
+void LayerTiler::layerCompositingThreadDestroyed(LayerCompositingThread*)
 {
     ASSERT(isCompositingThread());
+    deref(); // Matched by ref() in constructor;
 }
 
 void LayerTiler::setNeedsDisplay(const FloatRect& dirtyRect)
@@ -112,21 +152,40 @@ void LayerTiler::updateTextureContentsIfNeeded(double scale)
 {
     updateTileSize();
 
-    HashSet<TileIndex> renderJobs;
-    {
-        MutexLocker locker(m_renderJobsMutex);
-        if (!m_contentsDirty && m_renderJobs.isEmpty())
-            return;
-        renderJobs = m_renderJobs;
+    LayerVisibility* frontVisibility = takeFrontVisibility();
+    if (frontVisibility) {
+        // If we're dirty, start fresh. Otherwise, keep track of tiles rendered so far, to avoid re-rendering the same content.
+        if (!m_contentsDirty)
+            frontVisibility->merge(m_backVisibility);
+        delete m_backVisibility;
+        m_backVisibility = frontVisibility;
     }
+    bool needsRender = m_backVisibility && m_backVisibility->needsRender();
 
-    bool isZoomJob = false;
-    if (scale != m_contentsScale) {
-        // The first time around, it does not count as a zoom job.
-        if (m_contentsScale)
-            isZoomJob = true;
-        m_contentsScale = scale;
-    }
+    // Check if update is needed
+    if (!m_contentsDirty && !needsRender)
+        return;
+
+#if DEBUG_LAYER_VISIBILITY
+    if (m_backVisibility && !m_backVisibility->visibleRect().isEmpty())
+        printf("Layer 0x%p local visible rect %s\n", m_layer, BlackBerry::Platform::FloatRect(m_backVisibility->visibleRect()).toString().c_str());
+#endif
+
+    // There's no point in drawing contents at a higher resolution for scale
+    // invariant layers.
+    if (m_layer->sizeIsScaleInvariant())
+        scale = 1;
+
+    // Render only visible tiles. Mask layers are a special case, because they're never considered
+    // visible. Workaround this by always rendering them (a very fast operation with the
+    // BlackBerry::Platform::GraphicsContext since it will just result in ref'ing the mask image).
+    FloatRect visibleRect;
+    if (m_layer->isMask() || m_layer->filters().size())
+        visibleRect = FloatRect(IntPoint::zero(), m_layer->bounds());
+    else if (m_backVisibility)
+        visibleRect = m_backVisibility->visibleRect();
+    else
+        visibleRect = FloatRect(BlackBerry::Platform::FloatRect(BlackBerry::Platform::Settings::instance()->layerTilerPrefillRect()));
 
     IntRect dirtyRect = enclosingIntRect(m_dirtyRect);
     IntSize requiredTextureSize;
@@ -138,13 +197,16 @@ void LayerTiler::updateTextureContentsIfNeeded(double scale)
         IntRect untransformedBoundsRect(boundsRect);
         requiredTextureSize = boundsRect.size();
 
-        if (scale != 1.0) {
+        if (scale != 1) {
             TransformationMatrix matrix;
             matrix.scale(scale);
 
             dirtyRect = matrix.mapRect(untransformedDirtyRect);
             requiredTextureSize = matrix.mapRect(IntRect(IntPoint::zero(), requiredTextureSize)).size();
             boundsRect = matrix.mapRect(untransformedBoundsRect);
+            // The visible rect is using unscaled coordinates in most cases.
+            if (m_backVisibility || m_layer->isMask() || m_layer->filters().size())
+                visibleRect = matrix.mapRect(visibleRect);
         }
 
         if (requiredTextureSize != m_pendingTextureSize)
@@ -160,168 +222,85 @@ void LayerTiler::updateTextureContentsIfNeeded(double scale)
         dirtyRect = IntRect(IntPoint::zero(), requiredTextureSize);
     }
 
-    // If we need display because we no longer need to be displayed, due to texture size becoming 0 x 0,
-    // or if we're re-rendering the whole thing anyway, clear old texture jobs.
-    HashSet<TileIndex> finishedJobs;
-    if (requiredTextureSize.isEmpty() || dirtyRect == IntRect(IntPoint::zero(), requiredTextureSize)) {
-        {
-            MutexLocker locker(m_renderJobsMutex);
-            m_renderJobs.clear();
-        }
-        clearTextureJobs();
-    } else if (!renderJobs.isEmpty()) {
-        if (Image* image = m_layer->contents()) {
-            bool isOpaque = false;
-            if (image->isBitmapImage())
-                isOpaque = !static_cast<BitmapImage*>(image)->currentFrameHasAlpha();
-            if (NativeImagePtr nativeImage = image->nativeImageForCurrentFrame()) {
-                SkBitmap bitmap = SkBitmap(nativeImage->bitmap());
-                addTextureJob(TextureJob::setContents(bitmap, isOpaque));
-            }
-        } else {
-            // There might still be some pending render jobs due to visibility changes.
-            for (HashSet<TileIndex>::iterator it = renderJobs.begin(); it != renderJobs.end(); ++it) {
-                {
-                    // Check if the job has been cancelled.
-                    MutexLocker locker(m_renderJobsMutex);
-                    if (!m_renderJobs.contains(*it))
-                        continue;
-                    m_renderJobs.remove(*it);
-                }
-
-                IntRect tileRect = rectForTile(*it, requiredTextureSize);
-                if (tileRect.isEmpty())
-                    continue;
-
-                bool isSolidColor = false;
-                Color color;
-                SkBitmap bitmap = m_layer->paintContents(tileRect, scale, &isSolidColor, &color);
-                // bitmap can be null here. Make requiredTextureSize empty so that we
-                // will not try to update and draw the layer.
-                if (!bitmap.isNull()) {
-                    if (isSolidColor)
-                        addTextureJob(TextureJob::setContentsToColor(color, *it));
-                    else
-                        addTextureJob(TextureJob::updateContents(bitmap, tileRect, m_layer->isOpaque()));
-                }
-
-                finishedJobs.add(*it);
-            }
-        }
-    }
-
-    bool didResize = false;
+    IntRect previousTextureRect(IntPoint::zero(), m_pendingTextureSize);
     if (m_pendingTextureSize != requiredTextureSize) {
-        didResize = true;
         m_pendingTextureSize = requiredTextureSize;
         addTextureJob(TextureJob::resizeContents(m_pendingTextureSize));
     }
-    m_contentsDirty = false;
-    m_dirtyRect = FloatRect();
 
-    if (dirtyRect.isEmpty() || requiredTextureSize.isEmpty())
+    bool contentsDirty = m_contentsDirty;
+    if (m_contentsDirty) {
+        // If we're not going to re-render all the covered tiles, mark those not covered as dirty.
+        if (!visibleRect.contains(dirtyRect))
+            addTextureJob(TextureJob::dirtyContents(dirtyRect));
+        m_contentsDirty = false;
+        m_dirtyRect = FloatRect();
+    }
+
+    // If we need display because we no longer need to be displayed, due to texture size becoming 0 x 0,
+    // or if we're re-rendering the whole thing anyway, clear old texture jobs.
+    if (requiredTextureSize.isEmpty() || dirtyRect == IntRect(IntPoint::zero(), requiredTextureSize))
+        clearTextureJobs();
+
+    if (visibleRect.isEmpty())
+        return;
+
+    HashSet<TileIndex> renderJobs;
+    TileIndex first;
+    TileIndex last;
+    if (m_layer->contentsResolutionIndependent()) {
+        // Resolution independent layers have all the needed data in the first tile.
+        first = last = TileIndex(0, 0);
+    } else {
+        first = indexOfTile(flooredIntPoint(visibleRect.minXMinYCorner()));
+        last = indexOfTile(ceiledIntPoint(visibleRect.maxXMaxYCorner()));
+    }
+    for (unsigned i = first.i(); i <= last.i(); ++i) {
+        for (unsigned j = first.j(); j <= last.j(); ++j) {
+            TileIndex index(i, j);
+            IntRect tileRect = rectForTile(index, requiredTextureSize);
+            if (tileRect.isEmpty())
+                continue;
+
+            if (m_backVisibility && m_backVisibility->tileNeedsRender(index)) {
+#if DEBUG_LAYER_VISIBILITY
+                printf("Tile at (%d, %d) needs render\n", index.i(), index.j());
+#endif
+                renderJobs.add(index);
+                m_backVisibility->markTileAsRendered(index);
+            } else if (contentsDirty && dirtyRect.intersects(tileRect))
+                renderJobs.add(index);
+        }
+    }
+
+    if (renderJobs.isEmpty())
         return;
 
     if (Image* image = m_layer->contents()) {
-        bool isOpaque = false;
-        if (image->isBitmapImage())
-            isOpaque = !static_cast<BitmapImage*>(image)->currentFrameHasAlpha();
-        // No point in tiling an image layer, the image is already stored as an SkBitmap
-        NativeImagePtr nativeImage = m_layer->contents()->nativeImageForCurrentFrame();
-        if (nativeImage) {
-            SkBitmap bitmap = SkBitmap(nativeImage->bitmap());
-            addTextureJob(TextureJob::setContents(bitmap, isOpaque));
+        // If we need backing, we have no choice but to enforce the tile size, which could cause clipping.
+        // Otherwise, don't clip - include the whole image.
+        IntSize bufferSize = m_needsBacking ? tileSize() : image->size();
+        if (BlackBerry::Platform::Graphics::Buffer* buffer = createBuffer(bufferSize)) {
+            IntRect contentsRect(IntPoint::zero(), image->size());
+            m_layer->paintContents(buffer, contentsRect, scale);
+            addTextureJob(TextureJob::setContents(buffer, contentsRect));
         }
-        return;
-    }
-
-    IntPoint topLeft = dirtyRect.minXMinYCorner();
-    IntPoint bottomRight = dirtyRect.maxXMaxYCorner(); // This is actually a pixel below and to the right of the dirtyRect.
-
-    IntSize tileMaximumSize = tileSize();
-    bool wasOneTile = m_tilesWebKitThread.size() == 1;
-    bool isOneTile = m_pendingTextureSize.width() <= tileMaximumSize.width() && m_pendingTextureSize.height() <= tileMaximumSize.height();
-    IntPoint origin = originOfTile(indexOfTile(topLeft));
-    IntRect tileRect;
-    for (tileRect.setX(origin.x()); tileRect.x() < bottomRight.x(); tileRect.setX(tileRect.x() + tileMaximumSize.width())) {
-        for (tileRect.setY(origin.y()); tileRect.y() < bottomRight.y(); tileRect.setY(tileRect.y() + tileMaximumSize.height())) {
-            tileRect.setWidth(min(requiredTextureSize.width() - tileRect.x(), tileMaximumSize.width()));
-            tileRect.setHeight(min(requiredTextureSize.height() - tileRect.y(), tileMaximumSize.height()));
-
-            IntRect localDirtyRect(dirtyRect);
-            localDirtyRect.intersect(tileRect);
-            if (localDirtyRect.isEmpty())
-                continue;
-
-            TileIndex index = indexOfTile(tileRect.location());
-
-            // If we already did this as part of one of the render jobs due to
-            // visibility changes, don't render that tile again.
-            if (finishedJobs.contains(index))
-                continue;
-
-            if (!shouldPerformRenderJob(index, !isZoomJob)) {
-                // Avoid checkerboarding unless the layer is resized. When
-                // resized, the contents are likely to change appearance, for
-                // example due to aspect ratio change. However, if it is a
-                // resize due to zooming, the aspect ratio and content will
-                // stay the same, and we can keep the old texture content as a
-                // preview.
-                // FIXME: the zoom preview only works if we don't re-tile the
-                // layer. We need to store texture coordinates in
-                // WebCore::Texture to be able to fix that.
-                if (didResize && !(isZoomJob && wasOneTile && isOneTile))
-                    addTextureJob(TextureJob::discardContents(tileRect));
-                else
-                    addTextureJob(TextureJob::dirtyContents(tileRect));
-                continue;
-            }
-
-            // Just in case a new job for this tile has just been inserted by compositing thread.
-            removeRenderJob(index);
-
-            // FIXME: We are always drawing whole tiles at the moment, because
-            // we currently can't keep track of which part of a tile is
-            // rendered and which is not. Sending only a subrectangle of a tile
-            // to the compositing thread might cause it to be uploaded using
-            // glTexImage, if the texture was previously evicted from the cache.
-            // The result would be that a subrectangle of the tile was stretched
-            // to fit the tile geometry, appearing as a glaring misrendering of
-            // the web page.
-            bool isSolidColor = false;
-            Color color;
-            SkBitmap bitmap = m_layer->paintContents(tileRect, scale, &isSolidColor, &color);
-            // bitmap can be null here. Make requiredTextureSize empty so that we
-            // will not try to update and draw the layer.
-            if (!bitmap.isNull()) {
-                if (isSolidColor)
-                    addTextureJob(TextureJob::setContentsToColor(color, index));
-                else
-                    addTextureJob(TextureJob::updateContents(bitmap, tileRect, m_layer->isOpaque()));
+    } else if (m_layer->drawsContent()) {
+        for (HashSet<TileIndex>::iterator it = renderJobs.begin(); it != renderJobs.end(); ++it) {
+            if (BlackBerry::Platform::Graphics::Buffer* buffer = createBuffer(tileSize())) {
+                IntRect tileRect = rectForTile(*it, requiredTextureSize);
+                m_layer->paintContents(buffer, tileRect, scale);
+                addTextureJob(TextureJob::updateContents(buffer, tileRect));
             }
         }
     }
 }
 
-bool LayerTiler::shouldPerformRenderJob(const TileIndex& index, bool allowPrefill)
+BlackBerry::Platform::Graphics::Buffer* LayerTiler::createBuffer(const IntSize& size)
 {
-    // If the visibility information was propagated from the compositing
-    // thread, use that information.
-    // However, we are about to commit new layer properties that may make
-    // currently hidden layers visible. To avoid false negatives, we only allow
-    // the current state to be used to accept render jobs, not to reject them.
-    if (m_tilesWebKitThread.get(index).isVisible())
-        return true;
-
-    // Tiles that are not currently visible on the compositing thread may still
-    // deserve to be rendered if they should be prefilled...
-    if (allowPrefill && !m_tilesWebKitThread.contains(index) && shouldPrefillTile(index))
-        return true;
-
-    // Or if they are visible according to the state that's about to be
-    // committed. We do a visibility test using the current transform state.
-    IntRect contentRect = rectForTile(index, m_pendingTextureSize);
-    return m_layer->contentsVisible(contentRect);
+    BlackBerry::Platform::Graphics::BufferType bufferType = m_needsBacking ? BlackBerry::Platform::Graphics::AlwaysBacked : BlackBerry::Platform::Graphics::BackedWhenNecessary;
+    BlackBerry::Platform::Graphics::Buffer* buffer = BlackBerry::Platform::Graphics::createBuffer(size, bufferType);
+    return buffer;
 }
 
 void LayerTiler::addTextureJob(const TextureJob& job)
@@ -337,39 +316,65 @@ void LayerTiler::clearTextureJobs()
     removeUpdateContentsJobs(m_pendingTextureJobs);
 }
 
-void LayerTiler::commitPendingTextureUploads()
+static size_t backingSizeInBytes = 0;
+
+void LayerTiler::willCommit()
+{
+    backingSizeInBytes = 0;
+}
+
+void LayerTiler::commitPendingTextureUploads(LayerCompositingThread*)
 {
     if (m_clearTextureJobs) {
         removeUpdateContentsJobs(m_textureJobs);
         m_clearTextureJobs = false;
     }
 
-    for (Vector<TextureJob>::iterator it = m_pendingTextureJobs.begin(); it != m_pendingTextureJobs.end(); ++it)
-        m_textureJobs.append(*it);
+    // There's no point in rendering more than the cache capacity during one frame.
+    const size_t maxBackingPerFrame = textureCacheCompositingThread()->memoryLimit();
+
+    for (Vector<TextureJob>::iterator it = m_pendingTextureJobs.begin(); it != m_pendingTextureJobs.end(); ++it) {
+        TextureJob& textureJob = *it;
+
+        // Update backing surface for backed tiles now, to avoid dropping frames during animation.
+        if (textureJob.m_contents && backingSizeInBytes < maxBackingPerFrame) {
+            BlackBerry::Platform::Graphics::updateBufferBackingSurface(textureJob.m_contents);
+            backingSizeInBytes += BlackBerry::Platform::Graphics::bufferSizeInBytes(textureJob.m_contents);
+        }
+
+        m_textureJobs.append(textureJob);
+    }
     m_pendingTextureJobs.clear();
 }
 
-void LayerTiler::layerVisibilityChanged(bool visible)
+LayerVisibility* LayerTiler::swapFrontVisibility(LayerVisibility* visibility)
+{
+    return reinterpret_cast<LayerVisibility*>(_smp_xchg(reinterpret_cast<unsigned*>(&m_frontVisibility), reinterpret_cast<unsigned>(visibility)));
+}
+
+void LayerTiler::setFrontVisibility(const FloatRect& visibleRect, HashSet<TileIndex>& tilesNeedingRender)
+{
+    LayerVisibility* visibility = s_spareVisibility;
+    if (visibility) {
+        visibility->setVisibleRect(visibleRect);
+        visibility->swapTilesNeedingRender(tilesNeedingRender);
+    } else
+        visibility = new LayerVisibility(visibleRect, tilesNeedingRender);
+    s_spareVisibility = swapFrontVisibility(visibility);
+}
+
+void LayerTiler::layerVisibilityChanged(LayerCompositingThread*, bool visible)
 {
     // For visible layers, we handle the tile-level visibility
     // in the draw loop, see LayerTiler::drawTextures().
     if (visible)
         return;
 
-    {
-        // All tiles are invisible now.
-        MutexLocker locker(m_renderJobsMutex);
-        m_renderJobs.clear();
-    }
-
-    for (TileMap::iterator it = m_tilesCompositingThread.begin(); it != m_tilesCompositingThread.end(); ++it) {
-        TileIndex index = (*it).first;
-        LayerTile* tile = (*it).second;
-        tile->setVisible(false);
-    }
+    HashSet<TileIndex> emptyTileSet;
+    setFrontVisibility(FloatRect(), emptyTileSet);
 }
 
-void LayerTiler::uploadTexturesIfNeeded()
+void LayerTiler::uploadTexturesIfNeeded(LayerCompositingThread* layer)
 {
     TileJobsMap tileJobsMap;
     Deque<TextureJob>::const_iterator textureJobIterEnd = m_textureJobs.end();
@@ -378,21 +383,18 @@ void LayerTiler::uploadTexturesIfNeeded()
 
     TileJobsMap::const_iterator tileJobsIterEnd = tileJobsMap.end();
     for (TileJobsMap::const_iterator tileJobsIter = tileJobsMap.begin(); tileJobsIter != tileJobsIterEnd; ++tileJobsIter) {
-        IntPoint origin = originOfTile(tileJobsIter->first);
+        IntPoint origin = originOfTile(tileJobsIter->key);
 
-        LayerTile* tile = m_tilesCompositingThread.get(tileJobsIter->first);
+        LayerTile* tile = m_tiles.get(tileJobsIter->key);
         if (!tile) {
             if (origin.x() >= m_requiredTextureSize.width() || origin.y() >= m_requiredTextureSize.height())
                 continue;
+
             tile = new LayerTile();
-            m_tilesCompositingThread.add(tileJobsIter->first, tile);
+            m_tiles.add(tileJobsIter->key, tile);
         }
 
-        IntRect tileRect(origin, tileSize());
-        tileRect.setWidth(min(m_requiredTextureSize.width() - tileRect.x(), tileRect.width()));
-        tileRect.setHeight(min(m_requiredTextureSize.height() - tileRect.y(), tileRect.height()));
-
-        performTileJob(tile, *tileJobsIter->second, tileRect);
+        performTileJob(layer, tile, *tileJobsIter->value);
     }
 
     m_textureJobs.clear();
@@ -407,22 +409,18 @@ void LayerTiler::processTextureJob(const TextureJob& job, TileJobsMap& tileJobsM
 
         m_requiredTextureSize = pendingTextureSize;
         return;
-    }
-
-    if (job.m_type == TextureJob::SetContentsToColor) {
-        addTileJob(job.m_index, job, tileJobsMap);
+    } else if (job.m_type == TextureJob::DirtyContents) {
+        TileIndex first = indexOfTile(job.m_dirtyRect.minXMinYCorner());
+        TileIndex last = indexOfTile(job.m_dirtyRect.maxXMaxYCorner());
+        for (TileMap::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it) {
+            TileIndex index = (*it).key;
+            if (index.i() >= first.i() && index.j() >= first.j() && index.i() <= last.i() && index.j() <= last.j())
+                (*it).value->setContentsDirty();
+        }
         return;
-     }
-
-    IntSize tileMaximumSize = tileSize();
-    IntPoint topLeft = job.m_dirtyRect.minXMinYCorner();
-    IntPoint bottomRight = job.m_dirtyRect.maxXMaxYCorner(); // This is actually a pixel below and to the right of the dirtyRect.
-    IntPoint origin = originOfTile(indexOfTile(topLeft));
-    IntRect tileRect;
-    for (tileRect.setX(origin.x()); tileRect.x() < bottomRight.x(); tileRect.setX(tileRect.x() + tileMaximumSize.width())) {
-        for (tileRect.setY(origin.y()); tileRect.y() < bottomRight.y(); tileRect.setY(tileRect.y() + tileMaximumSize.height()))
-            addTileJob(indexOfTile(tileRect.location()), job, tileJobsMap);
     }
+
+    addTileJob(indexOfTile(job.m_dirtyRect.minXMinYCorner()), job, tileJobsMap);
 }
 
 void LayerTiler::addTileJob(const TileIndex& index, const TextureJob& job, TileJobsMap& tileJobsMap)
@@ -434,195 +432,196 @@ void LayerTiler::addTileJob(const TileIndex& index, const TextureJob& job, TileJ
     if (result.isNewEntry)
         return;
 
-    // In this case we leave the previous job.
-    if (job.m_type == TextureJob::DirtyContents && result.iterator->second->m_type == TextureJob::DiscardContents)
-        return;
-
     // Override the previous job.
-    result.iterator->second = &job;
+    if (result.iterator->value && result.iterator->value->m_contents)
+        BlackBerry::Platform::Graphics::destroyBuffer(result.iterator->value->m_contents);
+
+    result.iterator->value = &job;
 }
 
-void LayerTiler::performTileJob(LayerTile* tile, const TextureJob& job, const IntRect& tileRect)
+void LayerTiler::performTileJob(LayerCompositingThread* layer, LayerTile* tile, const TextureJob& job)
 {
     switch (job.m_type) {
-    case TextureJob::SetContentsToColor:
-        tile->setContentsToColor(job.m_color);
-        return;
     case TextureJob::SetContents:
-        tile->setContents(job.m_contents, tileRect, indexOfTile(tileRect.location()), job.m_isOpaque);
+        tile->setContents(job.m_contents);
         return;
     case TextureJob::UpdateContents:
-        tile->updateContents(job.m_contents, job.m_dirtyRect, tileRect, job.m_isOpaque);
-        return;
-    case TextureJob::DiscardContents:
-        tile->discardContents();
-        return;
-    case TextureJob::DirtyContents:
-        tile->setContentsDirty();
+        tile->updateContents(job.m_contents, layer->contentsScale());
         return;
     case TextureJob::Unknown:
     case TextureJob::ResizeContents:
+    case TextureJob::DirtyContents:
         ASSERT_NOT_REACHED();
         return;
     }
     ASSERT_NOT_REACHED();
 }
 
-void LayerTiler::drawTextures(LayerCompositingThread* layer, int pos, int texCoord)
+bool LayerTiler::drawTile(LayerCompositingThread* layer, LayerTile* tile, const TileIndex& index, double scale, const FloatRect& dst, const FloatRect& dstClip)
 {
-    drawTexturesInternal(layer, pos, texCoord, false /* drawMissing */);
-}
+    unsigned char globalAlpha = static_cast<unsigned char>(layer->drawOpacity() * 255);
+    bool shouldDrawTile = dst.intersects(dstClip) && globalAlpha;
 
-void LayerTiler::drawMissingTextures(LayerCompositingThread* layer, int pos, int texCoord)
-{
-    drawTexturesInternal(layer, pos, texCoord, true /* drawMissing */);
-}
+    // Even if the tile has wrong scale, it can be used as a "preview" if there is no risk of overlap with other tiles.
+    bool tileHasCorrectScale = tile->contentsScale() == 0.0 || tile->contentsScale() == layer->contentsScale();
+    if (!tileHasCorrectScale)
+        shouldDrawTile = shouldDrawTile && (m_tiles.size() == 1 && !index.i() && !index.j());
 
-void LayerTiler::drawTexturesInternal(LayerCompositingThread* layer, int positionLocation, int texCoordLocation, bool drawMissing)
-{
-    const TransformationMatrix& drawTransform = layer->drawTransform();
-    IntSize bounds = layer->bounds();
+    if (tile->hasTexture()) {
+        LayerTexture* texture = tile->texture();
+        textureCacheCompositingThread()->textureAccessed(texture);
 
-    float texcoords[4 * 2] = { 0, 0,  0, 1,  1, 1,  1, 0 };
-    float vertices[4 * 4];
-
-    glVertexAttribPointer(positionLocation, 4, GL_FLOAT, GL_FALSE, 0, vertices);
-    glVertexAttribPointer(texCoordLocation, 2, GL_FLOAT, GL_FALSE, 0, texcoords);
-
-    m_hasMissingTextures = false;
-
-    int maxw = tileSize().width();
-    int maxh = tileSize().height();
-    float sx = static_cast<float>(bounds.width()) / m_requiredTextureSize.width();
-    float sy = static_cast<float>(bounds.height()) / m_requiredTextureSize.height();
-
-    bool needsDisplay = false;
-
-    bool blending = !drawMissing;
-
-    IntRect tileRect;
-    for (tileRect.setX(0); tileRect.x() < m_requiredTextureSize.width(); tileRect.setX(tileRect.x() + maxw)) {
-        for (tileRect.setY(0); tileRect.y() < m_requiredTextureSize.height(); tileRect.setY(tileRect.y() + maxh)) {
-            TileIndex index = indexOfTile(tileRect.location());
-            LayerTile* tile = m_tilesCompositingThread.get(index);
-            if (!tile) {
-                tile = new LayerTile();
-                m_tilesCompositingThread.add(index, tile);
-            }
-
-            float x = index.i() * maxw * sx;
-            float y = index.j() * maxh * sy;
-            float w = min(bounds.width() - x, maxw * sx);
-            float h = min(bounds.height() - y, maxh * sy);
-            float ox = x - bounds.width() / 2.0;
-            float oy = y - bounds.height() / 2.0;
-
-            // We apply the transformation by hand, since we need the z coordinate
-            // as well (to do perspective correct texturing) and we don't need
-            // to divide by w by hand, the GPU will do that for us
-            transformPoint(ox, oy, drawTransform, &vertices[0]);
-            transformPoint(ox, oy + h, drawTransform, &vertices[4]);
-            transformPoint(ox + w, oy + h, drawTransform, &vertices[8]);
-            transformPoint(ox + w, oy, drawTransform, &vertices[12]);
-
-            // Inflate the rect somewhat to attempt to make textures render before they show
-            // up on screen.
-            float d = viewportInflationFactor;
-            FloatRect rect(-d, -d, 2 * d, 2 * d);
-            FloatQuad quad(FloatPoint(vertices[0] / vertices[3], vertices[1] / vertices[3]),
-                           FloatPoint(vertices[4] / vertices[7], vertices[5] / vertices[7]),
-                           FloatPoint(vertices[8] / vertices[11], vertices[9] / vertices[11]),
-                           FloatPoint(vertices[12] / vertices[15], vertices[13] / vertices[15]));
-            bool visible = quad.boundingBox().intersects(rect);
-
-            bool wasVisible = tile->isVisible();
-            tile->setVisible(visible);
-
-            // This method is called in two passes. The first pass draws all
-            // visible tiles with textures.
-            // If a visible tile has no texture, set the m_hasMissingTextures
-            // flag, to indicate that we need a second pass.
-            // The second "drawMissing" pass draws all visible tiles without
-            // textures as checkerboard.
-            // However, don't draw brand new tiles as checkerboard. The checker-
-            // board indicates that a tile has dirty contents, but that's not
-            // the case if it's brand new.
-            if (visible) {
-                bool hasTexture = tile->hasTexture();
-                if (!hasTexture)
-                    m_hasMissingTextures = true;
-
-                if (hasTexture && !drawMissing) {
-                    Texture* texture = tile->texture();
-                    if (texture->isOpaque() && layer->drawOpacity() == 1.0f && !layer->maskLayer()) {
-                        if (blending) {
-                            blending = false;
-                            glDisable(GL_BLEND);
-                        }
-                    } else if (!blending) {
-                        blending = true;
-                        glEnable(GL_BLEND);
-                        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-                    }
-
-                    textureCacheCompositingThread()->textureAccessed(texture);
-                    glBindTexture(GL_TEXTURE_2D, texture->textureId());
-                }
-
-                if (hasTexture != drawMissing)
-                    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-                if (tile->isDirty()) {
-                    addRenderJob(index);
-                    needsDisplay = true;
-                }
-            } else if (wasVisible)
-                removeRenderJob(index);
+        if (shouldDrawTile) {
+            TransformationMatrix drawTransform = layer->drawTransform();
+            drawTransform.translate(dst.x(), dst.y());
+            if (layer->contentsResolutionIndependent())
+                drawTransform.scaleNonUniform(dst.width() / m_requiredTextureSize.width(), dst.height() / m_requiredTextureSize.height());
+            else if (tile->contentsScale())
+                drawTransform.scale(1 / tile->contentsScale());
+            if (layer->sizeIsScaleInvariant())
+                drawTransform.scale(1 / scale);
+            blitToBuffer(0, texture->buffer(), reinterpret_cast<BlackBerry::Platform::TransformationMatrix&>(drawTransform),
+                BlackBerry::Platform::Graphics::SourceOver, globalAlpha);
         }
     }
 
-    // Return early for the drawMissing case, don't flag us as needing commit.
-    if (drawMissing)
-        return;
+    // Return false if the tile needs to be (re-)rendered.
+    return !tile->isDirty() && tileHasCorrectScale;
+}
 
-    // Switch on blending again (we know that drawMissing == false).
-    if (!blending) {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+static FloatRect inflateViewport(const FloatRect& viewport)
+{
+    // Everything is expressed in normalized device coordinates.
+    FloatSize viewportSize(viewport.size());
+    viewportSize.scale(viewportInflation.width(), viewportInflation.height());
+
+    FloatSize viewportOffset(viewport.size());
+    viewportOffset.scale(viewportInflation.width() - 1, viewportInflation.height() - 1);
+    viewportOffset.scale(0.5);
+
+    return FloatRect(viewport.location() - viewportOffset, viewportSize);
+}
+
+void LayerTiler::drawTextures(LayerCompositingThread* layer, const GLES2Program&, double scale, const FloatRect& clipRect)
+{
+    FloatRect boundsRect(-layer->origin(), layer->bounds());
+    if (layer->sizeIsScaleInvariant())
+        boundsRect.scale(1 / scale);
+
+    FloatRect inflatedViewport = inflateViewport(clipRect);
+
+    // Unprojecting points outside the transformed bounds gives poor numerical stability if there's a perspective effect,
+    // so unproject the clipped transformed bounds instead.
+    Vector<FloatPoint, 4> clipPolygon = intersectPolygonWithRect(layer->transformedBounds(), clipRect);
+    if (clipPolygon.isEmpty()) {
+        // The LayerRenderer figures we're visible, or it wouldn't have called into this method, but we beg to differ.
+        layer->setVisible(false);
+        return;
     }
+
+    FloatRect normalizedLayerClipRect = FloatRect(0, 0, 1, 1);
+    FloatRect normalizedLayerVisibleRect = FloatRect(0, 0, 1, 1);
+
+    if (clipPolygon != layer->transformedBounds()) {
+        Vector<FloatPoint, 4> normalizedLayerClipPolygon = unproject(layer, clipPolygon);
+        normalizedLayerClipRect.intersect(boundingBox(normalizedLayerClipPolygon));
+
+        Vector<FloatPoint, 4> visiblePolygon = intersectPolygonWithRect(layer->transformedBounds(), inflatedViewport);
+        Vector<FloatPoint, 4> normalizedLayerVisiblePolygon = unproject(layer, visiblePolygon);
+        normalizedLayerVisibleRect.intersect(boundingBox(normalizedLayerVisiblePolygon));
+    }
+
+    FloatSize tileSize;
+    FloatRect dstClip;
+    TileIndex first;
+    TileIndex last;
+    if (layer->contentsResolutionIndependent()) {
+        // Resolution independent layers have all the needed data in the first tile
+        tileSize = boundsRect.size();
+        dstClip = boundsRect;
+        first = last = TileIndex(0, 0);
+    } else {
+        FloatRect destinationRect = normalizedLayerVisibleRect;
+        destinationRect.scale(m_requiredTextureSize.width(), m_requiredTextureSize.height());
+
+        tileSize = m_tileSize;
+        tileSize.scale(boundsRect.width() / m_requiredTextureSize.width(), boundsRect.height() / m_requiredTextureSize.height());
+
+        dstClip = normalizedLayerClipRect;
+        dstClip.scale(boundsRect.width(), boundsRect.height());
+        dstClip.moveBy(boundsRect.location());
+
+        // The layer contains pixels with coordinates (0 ... m_requiredTextureSize.width() - 1, 0 ... m_requiredTextureSize.height() - 1),
+        // so clamp the destinationRect-to-tileindex calculation appropriately.
+        first = indexOfTile(flooredIntPoint(destinationRect.minXMinYCorner()));
+        last = indexOfTile(ceiledIntPoint(destinationRect.maxXMaxYCorner()).shrunkTo(IntPoint(-1, -1) + m_requiredTextureSize));
+    }
+
+    HashSet<TileIndex> tilesNeedingRender;
+    for (unsigned i = first.i(); i <= last.i(); ++i) {
+        for (unsigned j = first.j(); j <= last.j(); ++j) {
+            TileIndex index(i, j);
+            LayerTile* tile = m_tiles.get(index);
+            if (!tile) {
+                tile = new LayerTile();
+                m_tiles.add(index, tile);
+            }
+            tile->setVisible(true);
+            FloatPoint tileOrigin(index.i() * tileSize.width(), index.j() * tileSize.height());
+            FloatRect dst(tileOrigin - 0.5 * boundsRect.size(), tileSize.shrunkTo(boundsRect.size() - toFloatSize(tileOrigin)));
+            if (!drawTile(layer, tile, index, scale, dst, dstClip))
+                tilesNeedingRender.add(index);
+        }
+    }
+
+    for (TileMap::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it) {
+        TileIndex index = (*it).key;
+        if (index.i() < first.i() || index.j() < first.j() || index.i() > last.i() || index.j() > last.j())
+            (*it).value->setVisible(false);
+    }
+
+    // The visible rect will be used on the WebKit thread and should use the bounds expressed in
+    // document coordinates, not corrected for scale invariance. So use "layer->bounds()" instead
+    // of the local variable "boundsRect.size()".
+    FloatRect layerVisibleRect = normalizedLayerVisibleRect;
+    layerVisibleRect.scale(layer->bounds().width(), layer->bounds().height());
+
+#if DEBUG_LAYER_VISIBILITY
+    Vector<FloatPoint> v = unproject(layer, clipPolygon);
+    for (size_t i = 0; i < v.size(); ++i) {
+        v[i].scale(layer->bounds().width(), layer->bounds().height());
+        v[i].move(toFloatSize(boundsRect.location()));
+        v[i] = layer->drawTransform().mapPoint(v[i]);
+    }
+
+    // Use a thick border to make the border visible even for the root layer (which typically covers the screen width and/or height).
+    unsigned tmp = reinterpret_cast<unsigned>(this);
+    int t = rand_r(&tmp);
+    glDisable(GL_SCISSOR_TEST);
+    // When debugging, draw first layer->transformedBounds(), then clipPolygon, then v
+    // to find out where the problem is (clipping to image plane, clipping to viewport or unprojecting).
+    layer->layerRenderer()->drawDebugBorder(/* layer->transformedBounds() */ /* clipPolygon */ v, makeRGBAFromHSLA(static_cast<double>(t) / RAND_MAX, 1, 0.5, 1), 5);
+    glEnable(GL_SCISSOR_TEST);
+#endif
 
     // If we schedule a commit, visibility will be updated, and display will
     // happen if there are any visible and dirty textures.
-    if (needsDisplay)
+    if (!tilesNeedingRender.isEmpty())
         layer->setNeedsCommit();
+
+    setFrontVisibility(layerVisibleRect, tilesNeedingRender);
 }
 
-void LayerTiler::addRenderJob(const TileIndex& index)
-{
-    ASSERT(isCompositingThread());
-
-    MutexLocker locker(m_renderJobsMutex);
-    m_renderJobs.add(index);
-}
-
-void LayerTiler::removeRenderJob(const TileIndex& index)
-{
-    MutexLocker locker(m_renderJobsMutex);
-    m_renderJobs.remove(index);
-}
-
-void LayerTiler::deleteTextures()
+void LayerTiler::deleteTextures(LayerCompositingThread*)
 {
     // Since textures are deleted by a synchronous message
     // from WebKit thread to compositing thread, we don't need
     // any synchronization mechanism here, even though we are
     // touching some WebKit thread state.
-    m_tilesWebKitThread.clear();
-
-    if (m_tilesCompositingThread.size()) {
-        for (TileMap::iterator it = m_tilesCompositingThread.begin(); it != m_tilesCompositingThread.end(); ++it)
-            (*it).second->discardContents();
-        m_tilesCompositingThread.clear();
+    if (m_tiles.size()) {
+        for (TileMap::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it)
+            (*it).value->discardContents();
+        m_tiles.clear();
 
         m_contentsDirty = true;
     }
@@ -637,8 +636,8 @@ void LayerTiler::pruneTextures()
 {
     // Prune tiles that are no longer needed.
     Vector<TileIndex> tilesToDelete;
-    for (TileMap::iterator it = m_tilesCompositingThread.begin(); it != m_tilesCompositingThread.end(); ++it) {
-        TileIndex index = (*it).first;
+    for (TileMap::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it) {
+        TileIndex index = (*it).key;
 
         IntPoint origin = originOfTile(index);
         if (origin.x() >= m_requiredTextureSize.width() || origin.y() >= m_requiredTextureSize.height())
@@ -646,15 +645,14 @@ void LayerTiler::pruneTextures()
     }
 
     for (Vector<TileIndex>::iterator it = tilesToDelete.begin(); it != tilesToDelete.end(); ++it) {
-        LayerTile* tile = m_tilesCompositingThread.take(*it);
+        OwnPtr<LayerTile> tile = adoptPtr(m_tiles.take(*it));
         tile->discardContents();
-        delete tile;
     }
 }
 
 void LayerTiler::updateTileSize()
 {
-    IntSize size = m_tilingDisabled ? m_layer->bounds() : defaultTileSize();
+    IntSize size = m_layer->isMask() ? m_layer->bounds() : defaultTileSize();
     const IntSize maxTextureSize(2048, 2048);
     size = size.shrunkTo(maxTextureSize);
 
@@ -666,30 +664,21 @@ void LayerTiler::updateTileSize()
     m_tileSize = size;
 }
 
-void LayerTiler::disableTiling(bool disable)
+void LayerTiler::setNeedsBacking(bool needsBacking)
 {
-    if (m_tilingDisabled == disable)
+    if (m_needsBacking == needsBacking)
         return;
 
-    m_tilingDisabled = disable;
+    m_needsBacking = needsBacking;
     updateTileSize();
 }
 
-bool LayerTiler::shouldPrefillTile(const TileIndex& index)
+void LayerTiler::scheduleCommit()
 {
-    // For now, we use the heuristic of prefilling the first screenful of tiles.
-    // This gives the correct result only for layers with identity transform,
-    // which is why it's called a heuristic here. This is needed for the case
-    // where the developer actually designed their web page around the use of
-    // accelerated compositing, and expects even offscreen layers to have content.
-    // We oblige them to some degree by prefilling a screenful of tiles.
-    // This is redundant in some other scenarios, i.e. when an offscreen layer
-    // is composited only because of overlapping a flash ad or something like
-    // that, but we're willing to make this tradeoff.
+    ASSERT(isWebKitThread());
 
-    // Since the tileMultiplier indicates how many tiles fit on the screen,
-    // the following formula can be used:
-    return index.i() < static_cast<unsigned>(tileMultiplier) && index.j() < static_cast<unsigned>(tileMultiplier);
+    if (m_layer)
+        m_layer->setNeedsCommit();
 }
 
 TileIndex LayerTiler::indexOfTile(const WebCore::IntPoint& origin)
@@ -711,35 +700,23 @@ IntPoint LayerTiler::originOfTile(const TileIndex& index)
 IntRect LayerTiler::rectForTile(const TileIndex& index, const IntSize& bounds)
 {
     IntPoint origin = originOfTile(index);
-    IntSize offset(origin.x(), origin.y());
-    IntSize size = tileSize().shrunkTo(bounds - offset);
+    IntSize size = tileSize().shrunkTo(bounds - toIntSize(origin));
     return IntRect(origin, size);
 }
 
-bool LayerTiler::hasDirtyTiles() const
+LayerTexture* LayerTiler::contentsTexture(LayerCompositingThread*)
 {
-    for (TileMap::const_iterator it = m_tilesCompositingThread.begin(); it != m_tilesCompositingThread.end(); ++it) {
-        const LayerTile* tile = (*it).second;
-        if (tile->isDirty())
-            return true;
-    }
+    ASSERT(m_tiles.size() == 1);
+    if (m_tiles.size() != 1)
+        return 0;
 
-    return false;
-}
-
-void LayerTiler::bindContentsTexture()
-{
-    ASSERT(m_tilesCompositingThread.size() == 1);
-    if (m_tilesCompositingThread.size() != 1)
-        return;
-
-    const LayerTile* tile = m_tilesCompositingThread.begin()->second;
+    const LayerTile* tile = m_tiles.begin()->value;
 
     ASSERT(tile->hasTexture());
     if (!tile->hasTexture())
-        return;
+        return 0;
 
-    glBindTexture(GL_TEXTURE_2D, tile->texture()->textureId());
+    return tile->texture();
 }
 
 } // namespace WebCore

@@ -326,13 +326,13 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 
 		memset(DPO(tmp, vallength), 0, ellen);
 		el->val = tmp;
+		el->len++;
 
 		ret = _asn1_decode(t->ptr, flags & (~A1_PF_INDEFINTE), p, len,
 				   DPO(el->val, vallength), &newsize);
 		if (ret)
 		    return ret;
 		vallength = newlen;
-		el->len++;
 		p += newsize; len -= newsize;
 	    }
 
@@ -369,12 +369,12 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 	}
 	case A1_OP_CHOICE: {
 	    const struct asn1_template *choice = t->ptr;
-	    unsigned int *element = DPO(data, choice->offset);
+	    int *element = DPO(data, choice->offset);
 	    size_t datalen;
 	    unsigned int i;
 
-	    /* provide a saner value as default, we should have a NO element value */
-	    *element = 1;
+	    /* provide a invalid value as default (0, so same as memset) */
+	    *element = ASN1_CHOICE_INVALID;
 	   
 	    for (i = 1; i < A1_HEADER_LEN(choice) + 1; i++) {
 		/* should match first tag instead, store it in choice.tt */
@@ -385,14 +385,16 @@ _asn1_decode(const struct asn1_template *t, unsigned flags,
 		    p += datalen; len -= datalen;
 		    break;
 		} else if (ret != ASN1_BAD_ID && ret != ASN1_MISPLACED_FIELD && ret != ASN1_MISSING_FIELD) {
+		    _asn1_free_top(choice[i].ptr, DPO(data, choice[i].offset));
 		    return ret;
 		}
+		_asn1_free_top(choice[i].ptr, DPO(data, choice[i].offset));
 	    }
 	    if (i >= A1_HEADER_LEN(choice) + 1) {
 		if (choice->tt == 0)
 		    return ASN1_BAD_ID;
 
-		*element = 0;
+		*element = ASN1_CHOICE_ELLIPSIS;
 		ret = der_get_octet_string(p, len,
 					   DPO(data, choice->tt), &datalen);
 		if (ret)
@@ -536,7 +538,7 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    if (el->len > UINT_MAX/sizeof(val[0]))
 		return ERANGE;
 
-	    val = malloc(sizeof(val[0]) * el->len);
+	    val = calloc(el->len, sizeof(val[0]));
 	    if (val == NULL)
 		return ENOMEM;
 
@@ -545,7 +547,13 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 		size_t l;
 
 		val[i].length = _asn1_length(t->ptr, elptr);
-		val[i].data = malloc(val[i].length);
+		if (val[i].length) {
+		    val[i].data = malloc(val[i].length);
+		    if (val[i].data == NULL) {
+			ret = ENOMEM;
+			break;
+		    }
+		}
 
 		ret = _asn1_encode(t->ptr, DPO(val[i].data, val[i].length - 1),
 				   val[i].length, elptr, &l);
@@ -563,9 +571,8 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	    if (ret == 0 && totallen > len)
 		ret = ASN1_OVERFLOW;
 	    if (ret) {
-		do {
+		for (i = 0; i < el->len; i++)
 		    free(val[i].data);
-		} while(i-- > 0);
 		free(val);
 		return ret;
 	    }
@@ -657,16 +664,16 @@ _asn1_encode(const struct asn1_template *t, unsigned char *p, size_t len, const 
 	}
 	case A1_OP_CHOICE: {
 	    const struct asn1_template *choice = t->ptr;
-	    const unsigned int *element = DPOC(data, choice->offset);
+	    const int *element = DPOC(data, choice->offset);
 	    size_t datalen;
 	    const void *el;
 
-	    if (*element > A1_HEADER_LEN(choice)) {
-		printf("element: %d\n", *element);
+	    if (*element == ASN1_CHOICE_INVALID || *element > (int)A1_HEADER_LEN(choice)) {
+		ABORT_ON_ERROR();
 		return ASN1_PARSE_ERROR;
 	    }
 
-	    if (*element == 0) {
+	    if (*element == ASN1_CHOICE_ELLIPSIS) {
 		ret += der_put_octet_string(p, len,
 					    DPOC(data, choice->tt), &datalen);
 	    } else {
@@ -792,12 +799,14 @@ _asn1_length(const struct asn1_template *t, const void *data)
 	}
 	case A1_OP_CHOICE: {
 	    const struct asn1_template *choice = t->ptr;
-	    const unsigned int *element = DPOC(data, choice->offset);
+	    const int *element = DPOC(data, choice->offset);
 
-	    if (*element > A1_HEADER_LEN(choice))
+	    if (*element == ASN1_CHOICE_INVALID || *element > (int)A1_HEADER_LEN(choice)) {
+		ABORT_ON_ERROR();
 		break;
+	    }
 
-	    if (*element == 0) {
+	    if (*element == ASN1_CHOICE_ELLIPSIS) {
 		ret += der_length_octet_string(DPOC(data, choice->tt));
 	    } else {
 		choice += *element;
@@ -898,12 +907,17 @@ _asn1_free(const struct asn1_template *t, void *data)
 	    break;
 	case A1_OP_CHOICE: {
 	    const struct asn1_template *choice = t->ptr;
-	    const unsigned int *element = DPOC(data, choice->offset);
+	    const int *element = DPOC(data, choice->offset);
 
-	    if (*element > A1_HEADER_LEN(choice))
+	    if (*element == ASN1_CHOICE_INVALID)
 		break;
 
-	    if (*element == 0) {
+	    if (*element > (int)A1_HEADER_LEN(choice)) {
+		ABORT_ON_ERROR();
+		break;
+	    }
+
+	    if (*element == ASN1_CHOICE_ELLIPSIS) {
 		der_free_octet_string(DPO(data, choice->tt));
 	    } else {
 		choice += *element;
@@ -1059,15 +1073,15 @@ _asn1_copy(const struct asn1_template *t, const void *from, void *to)
 	}
 	case A1_OP_CHOICE: {
 	    const struct asn1_template *choice = t->ptr;
-	    const unsigned int *felement = DPOC(from, choice->offset);
-	    unsigned int *telement = DPO(to, choice->offset);
+	    const int *felement = DPOC(from, choice->offset);
+	    int *telement = DPO(to, choice->offset);
 
-	    if (*felement > A1_HEADER_LEN(choice))
-		return ASN1_PARSE_ERROR;
+	    if (*felement == ASN1_CHOICE_INVALID || *felement > (int)A1_HEADER_LEN(choice))
+		return ASN1_INVALID_CHOICE;
 
 	    *telement = *felement;
 
-	    if (*felement == 0) {
+	    if (*felement == ASN1_CHOICE_ELLIPSIS) {
 		ret = der_copy_octet_string(DPOC(from, choice->tt), DPO(to, choice->tt));
 	    } else {
 		choice += *felement;
@@ -1119,3 +1133,27 @@ _asn1_free_top(const struct asn1_template *t, void *data)
     _asn1_free(t, data);
     memset(data, 0, t->offset);
 }
+
+#ifdef ASN1_CAPTURE_DATA
+
+void
+_asn1_capture_data(const char *type, const unsigned char *p, size_t len)
+{
+    static unsigned long count = 0;
+    char *filename = NULL;
+    int fd;
+
+    asprintf(&filename, "/tmp/asn1/heimdal-%s-%s-%d-%lu", getprogname(), type, getpid(), count++);
+    if (filename == NULL)
+	return;
+
+    fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    free(filename);
+    if (fd < 0)
+	return;
+    write(fd, type, strlen(type) + 1);
+    write(fd, p, len);
+    close(fd);
+}
+
+#endif

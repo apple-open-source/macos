@@ -4,13 +4,6 @@
 
 Project = mount_nfs
 
-pathsearch = $(firstword $(wildcard $(addsuffix /$(1),$(subst :, ,$(PATH)))))
-TCONF := $(call pathsearch,tconf)
-
-ifneq "$(TCONF)" ""
-Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
-endif
-
 inplace:
 	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
@@ -25,7 +18,7 @@ WARNING_FLAGS = -Wall -Wextra -Wformat=2 -Wpointer-arith -Wcast-align \
 Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 -fPIE
 Extra_LD_Flags = -Wl,-pie -lutil -dead_strip
 
-ifeq "$(Embedded)" "YES"
+ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 Extra_CC_Flags += -isysroot $(SDKROOT)
 endif
 
@@ -49,6 +42,7 @@ install:: all
 	install -c -o root -g wheel -m 444 $(SRCROOT)/mount_nfs.8 $(MAN_DIR)
 	install -d -o root -g wheel -m 755 $(LAUNCHD_DIR)
 	install -c -o root -g wheel -m 444 $(SRCROOT)/com.apple.nfsconf.plist $(LAUNCHD_DIR)
+	plutil  -convert binary1 $(LAUNCHD_DIR)/com.apple.nfsconf.plist
 	install -d -o root -g wheel -m 755 $(ETC_DIR)
 	install -c -o root -g wheel -m 644 $(SRCROOT)/nfs.conf $(ETC_DIR)
 

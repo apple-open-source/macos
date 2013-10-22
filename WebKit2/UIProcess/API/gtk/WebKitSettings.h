@@ -60,11 +60,10 @@ struct _WebKitSettings {
 struct _WebKitSettingsClass {
     GObjectClass parent_class;
 
-    /* Padding for future expansion */
+    void (*_webkit_reserved0) (void);
     void (*_webkit_reserved1) (void);
     void (*_webkit_reserved2) (void);
     void (*_webkit_reserved3) (void);
-    void (*_webkit_reserved4) (void);
 };
 
 WEBKIT_API GType
@@ -308,6 +307,13 @@ webkit_settings_set_enable_webgl                               (WebKitSettings *
                                                                 gboolean        enabled);
 
 WEBKIT_API void
+webkit_settings_set_allow_modal_dialogs                        (WebKitSettings *settings,
+                                                                gboolean        allowed);
+
+WEBKIT_API gboolean
+webkit_settings_get_allow_modal_dialogs                        (WebKitSettings *settings);
+
+WEBKIT_API void
 webkit_settings_set_zoom_text_only                             (WebKitSettings *settings,
                                                                 gboolean        zoom_text_only);
 
@@ -319,6 +325,72 @@ webkit_settings_get_javascript_can_access_clipboard            (WebKitSettings *
 
 WEBKIT_API void
 webkit_settings_set_javascript_can_access_clipboard            (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
+webkit_settings_get_media_playback_requires_user_gesture       (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_media_playback_requires_user_gesture       (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
+webkit_settings_get_media_playback_allows_inline               (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_media_playback_allows_inline               (WebKitSettings *settings,
+                                                                gboolean        enabled);
+WEBKIT_API gboolean
+webkit_settings_get_draw_compositing_indicators                (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_draw_compositing_indicators                (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
+webkit_settings_get_enable_site_specific_quirks                (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_site_specific_quirks                (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
+webkit_settings_get_enable_page_cache                          (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_page_cache                          (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API const gchar *
+webkit_settings_get_user_agent                                 (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_user_agent                                 (WebKitSettings *settings,
+                                                                const gchar    *user_agent);
+WEBKIT_API void
+webkit_settings_set_user_agent_with_application_details        (WebKitSettings *settings,
+                                                                const gchar    *application_name,
+                                                                const gchar    *application_version);
+
+WEBKIT_API gboolean
+webkit_settings_get_enable_smooth_scrolling                    (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_smooth_scrolling                    (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
+webkit_settings_get_enable_accelerated_2d_canvas               (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_accelerated_2d_canvas               (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
+webkit_settings_get_enable_write_console_messages_to_stdout    (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_write_console_messages_to_stdout    (WebKitSettings *settings,
                                                                 gboolean        enabled);
 
 G_END_DECLS

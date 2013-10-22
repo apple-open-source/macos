@@ -54,22 +54,25 @@ kadm5_log_get_version_fd (int fd,
 			  uint32_t *ver)
 {
     int ret;
+    off_t oret;
     krb5_storage *sp;
     int32_t old_version;
 
-    ret = lseek (fd, 0, SEEK_END);
-    if(ret < 0)
+    oret = lseek (fd, 0, SEEK_END);
+    if(oret < 0)
 	return errno;
-    if(ret == 0) {
+    if(oret == 0) {
 	*ver = 0;
 	return 0;
     }
     sp = krb5_storage_from_fd (fd);
     krb5_storage_seek(sp, -4, SEEK_CUR);
-    krb5_ret_int32 (sp, &old_version);
-    *ver = old_version;
+    ret = krb5_ret_int32 (sp, &old_version);
     krb5_storage_free(sp);
     lseek (fd, 0, SEEK_END);
+    if (ret)
+	return ret;
+    *ver = old_version;
     return 0;
 }
 
@@ -170,7 +173,7 @@ kadm5_log_preamble (kadm5_server_context *context,
 	return kadm_ret;
 
     krb5_store_int32 (sp, ++log_context->version);
-    krb5_store_int32 (sp, time(NULL));
+    krb5_store_int32 (sp, (int32_t)time(NULL));
     krb5_store_int32 (sp, op);
     return 0;
 }
@@ -255,9 +258,9 @@ kadm5_log_create (kadm5_server_context *context,
 	krb5_storage_free(sp);
 	return ret;
     }
-    krb5_store_int32 (sp, value.length);
+    krb5_store_int32 (sp, (int32_t)value.length);
     krb5_storage_write(sp, value.data, value.length);
-    krb5_store_int32 (sp, value.length);
+    krb5_store_int32 (sp, (int32_t)value.length);
     krb5_data_free (&value);
     ret = kadm5_log_postamble (log_context, sp);
     if (ret) {
@@ -336,11 +339,11 @@ kadm5_log_delete (kadm5_server_context *context,
 	goto out;
     len = krb5_storage_seek (sp, 0, SEEK_CUR) - off;
     krb5_storage_seek(sp, -(len + 4), SEEK_CUR);
-    ret = krb5_store_int32 (sp, len);
+    ret = krb5_store_int32 (sp, (int32_t)len);
     if (ret)
 	goto out;
     krb5_storage_seek(sp, len, SEEK_CUR);
-    ret = krb5_store_int32 (sp, len);
+    ret = krb5_store_int32 (sp, (int32_t)len);
     if (ret)
 	goto out;
     ret = kadm5_log_postamble (log_context, sp);
@@ -419,12 +422,12 @@ kadm5_log_rename (kadm5_server_context *context,
     len = krb5_storage_seek (sp, 0, SEEK_CUR) - off;
 
     krb5_storage_seek(sp, -(len + 4), SEEK_CUR);
-    ret = krb5_store_int32 (sp, len);
+    ret = krb5_store_int32 (sp, (int32_t)len);
     if (ret)
 	goto failed;
 
     krb5_storage_seek(sp, len, SEEK_CUR);
-    ret = krb5_store_int32 (sp, len);
+    ret = krb5_store_int32 (sp, (int32_t)len);
     if (ret)
 	goto failed;
 
@@ -511,7 +514,7 @@ kadm5_log_modify (kadm5_server_context *context,
     krb5_storage *sp;
     kadm5_ret_t ret;
     krb5_data value;
-    uint32_t len;
+    size_t len;
     kadm5_log_context *log_context = &context->log_context;
 
     krb5_data_zero(&value);
@@ -526,7 +529,7 @@ kadm5_log_modify (kadm5_server_context *context,
 	goto failed;
 
     len = value.length + 4;
-    ret = krb5_store_int32 (sp, len);
+    ret = krb5_store_int32 (sp, (int32_t)len);
     if (ret)
 	goto failed;
     ret = krb5_store_int32 (sp, mask);
@@ -534,7 +537,7 @@ kadm5_log_modify (kadm5_server_context *context,
 	goto failed;
     krb5_storage_write (sp, value.data, value.length);
 
-    ret = krb5_store_int32 (sp, len);
+    ret = krb5_store_int32 (sp, (int32_t)len);
     if (ret)
 	goto failed;
     ret = kadm5_log_postamble (log_context, sp);
@@ -728,7 +731,7 @@ kadm5_log_replay_modify (kadm5_server_context *context,
 
 	num = log_ent.entry.keys.len;
 
-	ent.entry.keys.len = num;
+	ent.entry.keys.len = (int)num;
 	ent.entry.keys.val = malloc(len * sizeof(*ent.entry.keys.val));
 	if (ent.entry.keys.val == NULL) {
 	    krb5_set_error_message(context->context, ENOMEM, "out of memory");

@@ -1,5 +1,5 @@
 /*
- * $Id: openssl_missing.c 16467 2008-05-19 03:00:52Z knu $
+ * $Id: openssl_missing.c 32230 2011-06-26 01:32:03Z emboss $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -36,12 +36,13 @@ HMAC_CTX_copy(HMAC_CTX *out, HMAC_CTX *in)
 #endif /* NO_HMAC */
 
 #if !defined(HAVE_X509_STORE_SET_EX_DATA)
-
 int X509_STORE_set_ex_data(X509_STORE *str, int idx, void *data)
 {
     return CRYPTO_set_ex_data(&str->ex_data, idx, data);
 }
- 
+#endif
+
+#if !defined(HAVE_X509_STORE_GET_EX_DATA)
 void *X509_STORE_get_ex_data(X509_STORE *str, int idx)
 {
     return CRYPTO_get_ex_data(&str->ex_data, idx);
@@ -111,7 +112,7 @@ HMAC_CTX_cleanup(HMAC_CTX *ctx)
 #endif
 
 #if !defined(HAVE_EVP_CIPHER_CTX_COPY)
-/* 
+/*
  * this function does not exist in OpenSSL yet... or ever?.
  * a future version may break this function.
  * tested on 0.9.7d.
@@ -180,12 +181,12 @@ OSSL_X509_REVOKED_cmp(const X509_REVOKED * const *a, const X509_REVOKED * const 
 		(ASN1_STRING *)(*a)->serialNumber,
 		(ASN1_STRING *)(*b)->serialNumber));
 }
-		    
+
 int
 X509_CRL_add0_revoked(X509_CRL *crl, X509_REVOKED *rev)
 {
     X509_CRL_INFO *inf;
-    
+
     inf = crl->crl;
     if (!inf->revoked)
 	inf->revoked = sk_X509_REVOKED_new(OSSL_X509_REVOKED_cmp);
@@ -313,7 +314,7 @@ PEM_def_callback(char *buf, int num, int w, void *key)
 {
     int i,j;
     const char *prompt;
-    
+
     if (key) {
 	i = strlen(key);
 	i = (i > num) ? num : i;
@@ -338,6 +339,18 @@ PEM_def_callback(char *buf, int num, int w, void *key)
 	else break;
     }
     return j;
+}
+#endif
+
+#if !defined(HAVE_ASN1_PUT_EOC)
+int
+ASN1_put_eoc(unsigned char **pp)
+{
+    unsigned char *p = *pp;
+    *p++ = 0;
+    *p++ = 0;
+    *pp = p;
+    return 2;
 }
 #endif
 

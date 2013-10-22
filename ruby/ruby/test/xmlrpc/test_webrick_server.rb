@@ -1,14 +1,28 @@
+# coding: utf-8
+
 require 'test/unit'
 require 'webrick'
-require File.join(File.dirname(__FILE__), 'webrick_testing')
+require_relative 'webrick_testing'
 require "xmlrpc/server"
 require 'xmlrpc/client'
+require 'logger'
 
 class Test_Webrick < Test::Unit::TestCase
   include WEBrick_Testing
 
+  @@basic_auth = WEBrick::HTTPAuth::BasicAuth.new(
+    :Realm => 'auth',
+    :UserDB => WEBrick::HTTPAuth::Htpasswd.new(File.expand_path('./htpasswd', File.dirname(__FILE__))),
+    :Logger => Logger.new(File::NULL),
+  )
+
   def create_servlet
     s = XMLRPC::WEBrickServlet.new
+
+    def s.service(req, res)
+      @@basic_auth.authenticate(req, res)
+      super(req, res)
+    end
 
     s.add_handler("test.add") do |a,b|
       a + b
@@ -18,9 +32,9 @@ class Test_Webrick < Test::Unit::TestCase
       if b == 0
         raise XMLRPC::FaultException.new(1, "division by zero")
       else
-        a / b 
+        a / b
       end
-    end 
+    end
 
     s.set_default_handler do |name, *args|
       raise XMLRPC::FaultException.new(-99, "Method #{name} missing" +
@@ -34,32 +48,51 @@ class Test_Webrick < Test::Unit::TestCase
 
   def setup_http_server(port, use_ssl)
     option = {
-      :Port => port, 
+      :BindAddress => "localhost",
+      :Port => port,
       :SSLEnable => use_ssl,
     }
     if use_ssl
       require 'webrick/https'
       option.update(
-        :SSLVerifyClient => ::OpenSSL::SSL::VERIFY_NONE, 
+        :SSLVerifyClient => ::OpenSSL::SSL::VERIFY_NONE,
         :SSLCertName => []
       )
     end
 
     start_server(option) {|w| w.mount('/RPC2', create_servlet) }
-
-    @s = XMLRPC::Client.new3(:port => port, :use_ssl => use_ssl)
   end
 
-  PORT = 8070
+  PORT = 8071
   def test_client_server
     # NOTE: I don't enable SSL testing as this hangs
     [false].each do |use_ssl|
       begin
         setup_http_server(PORT, use_ssl)
-        do_test
+        @s = XMLRPC::Client.new3(:port => PORT, :use_ssl => use_ssl)
+        @s.user = 'admin'
+        @s.password = 'admin'
+        silent do
+          do_test
+        end
+        @s = XMLRPC::Client.new3(:port => PORT, :use_ssl => use_ssl)
+        @s.user = '01234567890123456789012345678901234567890123456789012345678901234567890123456789'
+        @s.password = 'guest'
+        silent do
+          do_test
+        end
       ensure
         stop_server
       end
+    end
+  end
+
+  def silent
+    begin
+      back, $VERBOSE = $VERBOSE, nil
+      yield
+    ensure
+      $VERBOSE = back
     end
   end
 
@@ -68,7 +101,7 @@ class Test_Webrick < Test::Unit::TestCase
     assert_equal 9, @s.call('test.add', 4, 5)
 
     # fault exception
-    assert_raises(XMLRPC::FaultException) { @s.call('test.div', 1, 0) }
+    assert_raise(XMLRPC::FaultException) { @s.call('test.div', 1, 0) }
 
     # fault exception via call2
     ok, param = @s.call2('test.div', 1, 0)
@@ -88,11 +121,14 @@ class Test_Webrick < Test::Unit::TestCase
     # default handler (missing handler)
     ok, param = @s.call2('test.nonexisting')
     assert_equal false, ok
-    assert_equal -99, param.faultCode
+    assert_equal(-99, param.faultCode)
 
     # default handler (wrong number of arguments)
     ok, param = @s.call2('test.add', 1, 2, 3)
     assert_equal false, ok
-    assert_equal -99, param.faultCode
+    assert_equal(-99, param.faultCode)
+
+    # multibyte characters
+    assert_equal "あいうえおかきくけこ", @s.call('test.add', "あいうえお", "かきくけこ")
   end
 end

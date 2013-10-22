@@ -241,7 +241,7 @@ How to print date strings in logs, this string is passed to
 Write log-entries using UTC instead of your local time zone.
 .It Li scan_interfaces = Va boolean
 Scan all network interfaces for addresses, as opposed to simply using
-the address associated with the system's host name.
+the address associated with the system\'s host name.
 .It Li fcache_version = Va int
 Use file credential cache format version specified.
 .It Li krb4_get_tickets = Va boolean
@@ -252,7 +252,7 @@ and other programs.
 This option is also valid in the [realms] section.
 .It Li fcc-mit-ticketflags = Va boolean
 Use MIT compatible format for file credential cache.
-It's the field ticketflags that is stored in reverse bit order for
+It\'s the field ticketflags that is stored in reverse bit order for
 older than Heimdal 0.7.
 Setting this flag to
 .Dv TRUE
@@ -279,9 +279,9 @@ matches
 but not
 .Dq foo.test.example.com .
 .Pp
-The realm may be the token `dns_locate', in which case the actual
+The realm may be the token \`dns_locate\', in which case the actual
 realm will be determined using DNS (independently of the setting
-of the `dns_lookup_realm' option).
+of the `dns_lookup_realm\' option).
 .It Li [realms]
 .Bl -tag -width "xxx" -offset indent
 .It Va REALM Li = {
@@ -416,9 +416,9 @@ Should the kdc answer kdc-requests over http.
 If this kdc should emulate the AFS kaserver.
 .It Li as-use-strongest-session-key = Va BOOL
 If this is TRUE then the KDC will prefer the strongest key from the
-client's AS-REQ enctype list, that is also supported by the KDC and the
+client\'s AS-REQ enctype list, that is also supported by the KDC and the
 target principal, for the ticket session key. Else it will prefer the
-first key from the client's AS-REQ enctype list that is also supported
+first key from the client\'s AS-REQ enctype list that is also supported
 by the KDC and the target principal. Defaults to TRUE.
 .It Li preauth-use-strongest-session-key = Va BOOL
 Like as-use-strongest-session-key, but applies to the session key
@@ -428,7 +428,7 @@ pre-authentication). Defaults to TRUE.
 Like as-use-strongest-session-key, but applies to the session key
 enctype of tickets issued by the TGS. Defaults to TRUE.
 .It Li use-strongest-server-key = Va BOOL
-If TRUE then the KDC picks, for the ticket encrypted part's key, the
+If TRUE then the KDC picks, for the ticket encrypted part\'s key, the
 first supported enctype from the target service principal's hdb entry's
 current keyset. Else the KDC picks the first supported enctype from the
 target service principal's hdb entry's current keyset. Defaults to TRUE.
@@ -522,6 +522,12 @@ among other minimum-length, character-class, external-check.
 .El
 .El
 .Sh ENVIRONMENT
+.Ev KRB5CCNAME
+the Kerberos credential cache to use.
+.Ev KRB5CCPRINCIPAL
+the Kerberos credential cache use, specified by principal, if the
+strings starts with an @, only the realm is used for matching.
+Example @REALM will only match the (exact match) of cache that have the realm REALM. The first cache found is picked.
 .Ev KRB5_CONFIG
 points to the configuration file to read.
 .Sh FILES

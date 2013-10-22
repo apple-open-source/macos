@@ -28,11 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module storage {
-    interface [
-        Conditional=FILE_SYSTEM,
-        JSNoStaticTables
-    ] DirectoryReaderSync {
-        EntryArraySync readEntries() raises (FileException);
-    };
-}
+[
+    NoInterfaceObject,
+    Conditional=FILE_SYSTEM,
+    JSNoStaticTables,
+    ImplementationLacksVTable
+] interface DirectoryReaderSync {
+    [RaisesException] EntryArraySync readEntries();
+};

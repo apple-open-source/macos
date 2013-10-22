@@ -31,6 +31,9 @@ _asn1_copy_top (
 	void */*to*/);
 
 void
+_asn1_capture_data(const char *type, const unsigned char *p, size_t len);
+
+void
 _asn1_free_top(const struct asn1_template *t,
 	       void *data);
 

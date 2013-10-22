@@ -35,33 +35,35 @@ public:
     TouchEventHandler(WebPagePrivate* webpage);
     ~TouchEventHandler();
 
-    bool handleTouchPoint(Platform::TouchPoint&);
-    void touchEventCancel();
-    void touchEventCancelAndClearFocusedNode();
-    void touchHoldEvent();
-
-    bool shouldSuppressMouseDownOnTouchDown() const;
+    void doFatFingers(const Platform::TouchPoint&);
+    void handleTouchHold();
+    void handleTouchPoint(const Platform::TouchPoint&, unsigned modifiers);
+    void sendClickAtFatFingersPoint(unsigned modifiers = 0);
 
     const FatFingersResult& lastFatFingersResult() const { return m_lastFatFingersResult; }
+    void cacheTextResult(FatFingersResult result) { m_lastTextResult = result; }
     void resetLastFatFingersResult() { m_lastFatFingersResult.reset(); }
 
-private:
-    unsigned spellCheck(Platform::TouchPoint&);
-    void handleFatFingerPressed();
+    void playSoundIfAnchorIsTarget() const;
 
     void drawTapHighlight();
+
+    // This value should reset to false on MouseReleased
+    bool m_userTriggeredTouchPressOnTextInput;
+
+private:
+    void handleFatFingerPressed(bool shiftActive = false, bool altActive = false, bool ctrlActive = false);
 
 private:
     WebPagePrivate* m_webPage;
 
-    bool m_didCancelTouch;
-    bool m_convertTouchToMouse;
-
     WebCore::TouchEventMode m_existingTouchMode;
-
     WebCore::IntPoint m_lastScreenPoint; // Screen Position
-
     FatFingersResult m_lastFatFingersResult;
+    FatFingersResult m_lastTextResult;
+    imf_sp_text_t m_spellCheckOptionRequest;
+    bool m_shouldRequestSpellCheckOptions;
+
 };
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,12 +54,8 @@
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <net/route.h>
-#include <netinet/in.h>
 #include <netinet/ip6.h>
-#include <netinet6/ip6_var.h>
-#define KERNEL_PRIVATE
 #include <netinet6/in6_var.h>
-#undef KERNEL_PRIVATE
 #include <netinet/icmp6.h>
 #include <netinet6/nd6.h>
 #include <arpa/inet.h>
@@ -743,11 +739,12 @@ RTADVSocketOpenSocket(RTADVSocketRef sock)
 	sockfd = open_rtadv_socket();
 	if (sockfd < 0) {
 	    my_log(LOG_ERR, 
-		   "RTADVSocketOpenSocket: socket() failed, %m");
+		   "RTADVSocketOpenSocket: socket() failed, %s",
+		   strerror(errno));
 	    goto failed;
 	}
 	my_log(LOG_DEBUG, 
-	       "RTADVSocketOpenSocket(): opened RTADV socket %d\n",
+	       "RTADVSocketOpenSocket(): opened RTADV socket %d",
 	       sockfd);
 	/* register as a reader */
 	S_globals->read_fd = FDCalloutCreate(sockfd,
@@ -855,7 +852,7 @@ RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
     if (sock->fd_open == FALSE) {
 	/* open the RTADV socket in case it's needed */
 	if (RTADVSocketOpenSocket(sock) == FALSE) {
-	    my_log(LOG_ERR, "RTADVSocket: failed to open socket\n");
+	    my_log(LOG_ERR, "RTADVSocket: failed to open socket");
 	    return (FALSE);
 	}
 	needs_close = TRUE;
@@ -875,7 +872,7 @@ RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
 #include <CoreFoundation/CFRunLoop.h>
 #include "ipconfigd_threads.h"
 
-int G_IPConfiguration_verbose = 1;
+Boolean G_IPConfiguration_verbose = TRUE;
 
 typedef struct {
     RTADVSocketRef	sock;
@@ -905,7 +902,7 @@ start_rtadv(RTADVInfoRef rtadv, IFEventID_t event_id, void * event_data)
 	my_log(LOG_DEBUG, 
 	       "RTADV %s: sending Router Solicitation (%d of %d)",
 	       if_name(if_p), rtadv->try, MAX_RTR_SOLICITATIONS);
-	error = RTADVSocketSendSolicitation(rtadv->sock);
+	error = RTADVSocketSendSolicitation(rtadv->sock, TRUE);
 	switch (error) {
 	case 0:
 	case ENXIO:

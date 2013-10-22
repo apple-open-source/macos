@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/ga.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/ga.xml
 // *
 // ***************************************************************************
 /**
@@ -72,7 +72,7 @@ ga{
             "Scilling Ostarach",
         }
         AUD{
-            "AU$",
+            "A$",
             "Dollar Astrálach",
         }
         AWG{
@@ -873,6 +873,10 @@ ga{
         }
         VEB{
             "VEB",
+            "Bolivar Veiniséala (1871-2008)",
+        }
+        VEF{
+            "VEF",
             "Bolivar Veiniséala",
         }
         VND{
@@ -969,6 +973,10 @@ ga{
         }
         ZMK{
             "ZMK",
+            "Kwacha Saimbiach (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "Kwacha Saimbiach",
         }
         ZRN{
@@ -984,5 +992,5 @@ ga{
             "Dollar Siombábach",
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
 }

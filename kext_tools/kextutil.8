@@ -1,4 +1,4 @@
-.Dd March 6, 2009 
+.Dd November 14, 2012 
 .Os Darwin
 .Dt KEXTUTIL 8
 .Sh NAME
@@ -100,6 +100,8 @@ options.
 .It Fl e , Fl no-system-extensions
 Don't use the contents of
 .Pa /System/Library/Extensions/
+or 
+.Pa /Library/Extensions/
 as the
 default repository of kexts.
 If you use this option you will have to explicitly specify
@@ -132,7 +134,7 @@ Allowed only with the
 option to generate debug symbols.
 By default
 .Nm
-attempts to get link symbols from the kernal at /mach_kernel.
+attempts to get link symbols from the kernel at /mach_kernel.
 .It Fl l , Fl load-only
 Load and start the kext only; don't send I/O Kit personalities
 to the kernel to begin matching.
@@ -316,6 +318,8 @@ With no additional options
 .Nm
 looks in
 .Pa /System/Library/Extensions/
+and
+.Pa /Library/Extensions/
 for a kext
 with the given CFBundleIdentifier.
 Adding repository directories with the
@@ -358,7 +362,9 @@ and
 .Li ( Ns Fl Z Ns Li )
 options to omit the
 .Pa /System/Library/Extensions/
-repository
+and
+.Pa /Library/Extensions/
+repositories
 and to suppress dependency resolution, respectively:
 .Bd -literal -offset indent
 kextutil -entZ PacketSniffer.kext
@@ -478,7 +484,9 @@ The
 .Fl no-system-extensions
 option excludes the standard
 .Pa /System/Library/Extensions/
-folder,
+and 
+.Pa /Library/Extensions/
+directories,
 leaving the set of candidate extensions for dependency resolution
 entirely up to you.
 To specify candidate dependencies you use either
@@ -577,6 +585,8 @@ so that you can set up your debugging session as needed before proceeding.
 .Bl -tag -width "/System/Library/Extensions/" -compact
 .It Pa /System/Library/Extensions/
 The standard system repository of kernel extensions.
+.It Pa /Library/Extensions/
+The standard repository of non Apple kernel extensions.
 .It Pa /System/Library/Caches/com.apple.kext.caches/*
 Contains all kext caches for a Mac OS X 10.6 (Snow Leopard) system: prelinked kernel,
 mkext, and system kext info caches.

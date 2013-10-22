@@ -2,8 +2,8 @@
 # = net/protocol.rb
 #
 #--
-# Copyright (c) 1999-2005 Yukihiro Matsumoto
-# Copyright (c) 1999-2005 Minero Aoki
+# Copyright (c) 1999-2004 Yukihiro Matsumoto
+# Copyright (c) 1999-2004 Minero Aoki
 #
 # written and maintained by Minero Aoki <aamine@loveruby.net>
 #
@@ -11,7 +11,7 @@
 # modify this program under the same terms as Ruby itself,
 # Ruby Distribute License or GNU General Public License.
 #
-# $Id: protocol.rb 12092 2007-03-19 02:39:22Z aamine $
+# $Id: protocol.rb 37563 2012-11-08 10:04:24Z naruse $
 #++
 #
 # WARNING: This file is going to remove.
@@ -45,21 +45,39 @@ module Net # :nodoc:
   class ProtoRetriableError    < ProtocolError; end
   ProtocRetryError = ProtoRetriableError
 
+  ##
+  # OpenTimeout, a subclass of Timeout::Error, is raised if a connection cannot
+  # be created within the open_timeout.
+
+  class OpenTimeout            < Timeout::Error; end
+
+  ##
+  # ReadTimeout, a subclass of Timeout::Error, is raised if a chunk of the
+  # response cannot be read within the read_timeout.
+
+  class ReadTimeout            < Timeout::Error; end
+
 
   class BufferedIO   #:nodoc: internal use only
     def initialize(io)
       @io = io
       @read_timeout = 60
+      @continue_timeout = nil
       @debug_output = nil
       @rbuf = ''
     end
 
     attr_reader :io
     attr_accessor :read_timeout
+    attr_accessor :continue_timeout
     attr_accessor :debug_output
 
     def inspect
       "#<#{self.class} io=#{@io}>"
+    end
+
+    def eof?
+      @io.eof?
     end
 
     def closed?
@@ -121,7 +139,7 @@ module Net # :nodoc:
         return rbuf_consume(@rbuf.size)
       end
     end
-        
+
     def readline
       readuntil("\n").chop
     end
@@ -131,9 +149,23 @@ module Net # :nodoc:
     BUFSIZE = 1024 * 16
 
     def rbuf_fill
-      timeout(@read_timeout) {
-        @rbuf << @io.sysread(BUFSIZE)
-      }
+      begin
+        @rbuf << @io.read_nonblock(BUFSIZE)
+      rescue IO::WaitReadable
+        if IO.select([@io], nil, nil, @read_timeout)
+          retry
+        else
+          raise Net::ReadTimeout
+        end
+      rescue IO::WaitWritable
+        # OpenSSL::Buffering#read_nonblock may fail with IO::WaitWritable.
+        # http://www.openssl.org/support/faq.html#PROG10
+        if IO.select(nil, [@io], nil, @read_timeout)
+          retry
+        else
+          raise Net::ReadTimeout
+        end
+      end
     end
 
     def rbuf_consume(len)
@@ -153,6 +185,8 @@ module Net # :nodoc:
         write0 str
       }
     end
+
+    alias << write
 
     def writeline(str)
       writing {
@@ -202,16 +236,6 @@ module Net # :nodoc:
 
 
   class InternetMessageIO < BufferedIO   #:nodoc: internal use only
-    def InternetMessageIO.old_open(addr, port,
-        open_timeout = nil, read_timeout = nil, debug_output = nil)
-      debug_output << "opening connection to #{addr}...\n" if debug_output
-      s = timeout(open_timeout) { TCPsocket.new(addr, port) }
-      io = new(s)
-      io.read_timeout = read_timeout
-      io.debug_output = debug_output
-      io
-    end
-
     def initialize(io)
       super
       @wbuf = nil
@@ -232,7 +256,7 @@ module Net # :nodoc:
       LOG_on()
       LOG "read message (#{read_bytes} bytes)"
     end
-  
+
     # *library private* (cannot handle 'break')
     def each_list_item
       while (str = readuntil("\r\n")) != ".\r\n"
@@ -298,7 +322,7 @@ module Net # :nodoc:
 
     def each_crlf_line(src)
       buffer_filling(@wbuf, src) do
-        while line = @wbuf.slice!(/\A.*(?:\n|\r\n|\r(?!\z))/n)
+        while line = @wbuf.slice!(/\A[^\r\n]*(?:\n|\r(?:\n|(?!\z)))/)
           yield line.chomp("\n") + "\r\n"
         end
       end
@@ -317,8 +341,8 @@ module Net # :nodoc:
           yield
         end
       else    # generic reader
-        src.each do |s|
-          buf << s
+        src.each do |str|
+          buf << str
           yield if buf.size > 1024
         end
         yield unless buf.empty?

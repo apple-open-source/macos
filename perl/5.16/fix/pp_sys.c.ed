@@ -1,0 +1,18 @@
+/retval = syscall(a\[0]);/c
+	switch (a[0]) {
+	case 0x1000000:
+	    SP = ORIGMARK;
+#if defined(__i386__)
+	    PUSHp("i386", 4);
+#elif defined(__x86_64__)
+	    PUSHp("x86_64", 6);
+#else
+#error Unknown architecture
+#endif
+	    RETURN;
+	default:
+	    retval = syscall(a[0]);
+	    break;
+	}
+.
+w

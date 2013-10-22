@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -149,7 +149,7 @@ _configremove(mach_port_t		server,
 		}
 	}
 
-	if (!hasWriteAccess(mySession)) {
+	if (!hasWriteAccess(mySession, key)) {
 		*sc_status = kSCStatusAccessError;
 		goto done;
 	}

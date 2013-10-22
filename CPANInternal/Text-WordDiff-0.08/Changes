@@ -1,0 +1,42 @@
+Revision history for Perl extension Text::WordDiff.
+
+0.08  2011-10-19T22:08:34Z
+      - Control and punctuation characters are now treated as standalone
+        chunks rather than as part of the words the preceed them. This makes
+        for much more intuitive-looking diffs. Thanks to Artem Krivopolenov
+        for the pull request.
+
+0.07  2011-06-19T05:04:42
+      - Removed `.gitignore` file.
+      - Added proper links to the GitHub repository.
+      - Added bug reporting and repository metadata.
+
+0.06  2011-06-18T22:20:53
+      - Moved repository to GitHub.
+      - Added Text::WordDiff::HTMLTwoLines by Amelia Ireland.
+
+0.05  2009-04-06T18:34:42
+      - Fixed documentation typo in Search::WordDiff::ANSIColor. Patch from
+        Jeff Lavallee (Ticket #40509).
+
+0.04  2008-05-06T17:24:36
+      - Fixed a pasto in the "Support" section of the documentation.
+      - Fixed an encoding-related test failure on Perl 5.6.2. Thanks to
+        David Cantrell for the usual QA.
+
+0.03  2008-05-05T03:27:04
+      - Added the "configure_requires" and "recommends" parameters to
+        Build.PL.
+      - Added a link to the Subversion repository.
+
+0.02  2005-09-16T01:19:16
+      - Fixed example CSS so that insert is green and delete is red, instead
+        of vice-versa.
+      - Added code to split strings into words based on the Unicode \p{IsWord}
+        character class in Perl 5.6.0 and later.
+      - Expanded on the "What is a Word?" documentation section with some
+        examples and more details based on the discussion at
+        http://www.justatheory.com/computers/programming/perl/split_words.html.
+
+0.01  2005-09-07T19:05:08
+      - Initial public release.

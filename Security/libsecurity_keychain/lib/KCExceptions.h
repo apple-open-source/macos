@@ -28,9 +28,8 @@
 #ifndef _SECURITY_KCEXCEPTIONS_H_
 #define _SECURITY_KCEXCEPTIONS_H_
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_utilities/errors.h>
-
+#include <SecBase.h>
 #ifdef lock
 #undef lock
 #endif
@@ -52,7 +51,7 @@ namespace KeychainCore
 
 /*	remove RequiredParam when cdsa does namespaces
 template <class T>
-inline T &Required(T *ptr,OSStatus err = paramErr)
+inline T &Required(T *ptr,OSStatus err = errSecParam)
 {
     return Required(ptr,err);
 }
@@ -62,13 +61,13 @@ template <class T>
 inline void KCThrowIfMemFail_(const T *ptr)
 {
     if (ptr==NULL)
-		MacOSError::throwMe(memFullErr);
+		MacOSError::throwMe(errSecAllocate);
 }
 
 inline void KCThrowIf_(OSStatus theErr)
 {
 	// will also work for OSErr
-    if (theErr!=noErr)
+    if (theErr!=errSecSuccess)
         MacOSError::throwMe(theErr);
 }
 
@@ -82,12 +81,12 @@ inline void KCThrowIf_(bool test,OSStatus theErr)
 inline void KCThrowParamErrIf_(bool test)
 {
     if (test)
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 }
 
 inline void KCUnimplemented_()
 {
-	MacOSError::throwMe(unimpErr);
+	MacOSError::throwMe(errSecUnimplemented);
 }
 
 } // end namespace KeychainCore

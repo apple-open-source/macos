@@ -36,9 +36,11 @@
 #include "config.h"
 #include "RenderArena.h"
 
+#include <limits>
 #include <stdlib.h>
 #include <string.h>
 #include <wtf/Assertions.h>
+#include <wtf/CryptographicallyRandomNumber.h>
 
 #define ROUNDUP(x, y) ((((x)+((y)-1))/(y))*(y))
 
@@ -67,14 +69,19 @@ static const size_t debugHeaderSize = ARENA_ALIGN(sizeof(RenderArenaDebugHeader)
 #endif
 
 RenderArena::RenderArena(unsigned arenaSize)
+    : m_totalSize(0)
+    , m_totalAllocated(0)
 {
+    ASSERT(arenaSize > sizeof(Arena) + ARENA_ALIGN_MASK);
+    // The underlying Arena class allocates some metadata on top of our
+    // requested size. Factor this in so that we can get perfect power-of-two
+    // allocation sizes passed to the underlying malloc() call.
+    arenaSize -= (sizeof(Arena) + ARENA_ALIGN_MASK);
     // Initialize the arena pool
     INIT_ARENA_POOL(&m_pool, "RenderArena", arenaSize);
 
     // Zero out the recyclers array
     memset(m_recyclers, 0, sizeof(m_recyclers));
-
-    m_totalSize = 0;
 
     // Mask freelist pointers to detect corruption and stop freelist spraying.
     // We use an arbitray function and rely on ASLR to randomize it.
@@ -84,10 +91,8 @@ RenderArena::RenderArena(unsigned arenaSize)
     // should immediately crash on the first invalid vtable access for a stale
     // RenderObject pointer.
     // See http://download.crowdstrike.com/papers/hes-exploiting-a-coalmine.pdf.
-
-    // The bottom bits are predictable because the binary is loaded on a
-    // boundary. This just shifts most of those predictable bits out.
-    m_mask = ~(reinterpret_cast<uintptr_t>(WTF::fastMalloc) >> 13);
+    WTF::cryptographicallyRandomValues(&m_mask, sizeof(m_mask));
+    m_mask |= (static_cast<uintptr_t>(3) << (std::numeric_limits<uintptr_t>::digits - 2)) | 1;
 }
 
 RenderArena::~RenderArena()
@@ -97,6 +102,7 @@ RenderArena::~RenderArena()
 
 void* RenderArena::allocate(size_t size)
 {
+    ASSERT(size <= gMaxRecycledSize - 32);
     m_totalSize += size;
 
 #ifdef ADDRESS_SANITIZER
@@ -111,21 +117,16 @@ void* RenderArena::allocate(size_t size)
     header->signature = signature;
     return static_cast<char*>(block) + debugHeaderSize;
 #else
-    void* result = 0;
-
     // Ensure we have correct alignment for pointers.  Important for Tru64
     size = ROUNDUP(size, sizeof(void*));
 
-    // Check recyclers first
-    if (size < gMaxRecycledSize) {
-        const size_t index = size >> 2;
+    const size_t index = size >> kRecyclerShift;
 
-        result = m_recyclers[index];
-        if (result) {
-            // Need to move to the next object
-            void* next = MaskPtr(*((void**)result), m_mask);
-            m_recyclers[index] = next;
-        }
+    void* result = m_recyclers[index];
+    if (result) {
+        // Need to move to the next object
+        void* next = MaskPtr(*((void**)result), m_mask);
+        m_recyclers[index] = next;
     }
 
     if (!result) {
@@ -141,6 +142,7 @@ void* RenderArena::allocate(size_t size)
 
 void RenderArena::free(size_t size, void* ptr)
 {
+    ASSERT(size <= gMaxRecycledSize - 32);
     m_totalSize -= size;
 
 #ifdef ADDRESS_SANITIZER
@@ -158,13 +160,10 @@ void RenderArena::free(size_t size, void* ptr)
     // Ensure we have correct alignment for pointers.  Important for Tru64
     size = ROUNDUP(size, sizeof(void*));
 
-    // See if it's a size that we recycle
-    if (size < gMaxRecycledSize) {
-        const size_t index = size >> 2;
-        void* currentTop = m_recyclers[index];
-        m_recyclers[index] = ptr;
-        *((void**)ptr) = MaskPtr(currentTop, m_mask);
-    }
+    const size_t index = size >> kRecyclerShift;
+    void* currentTop = m_recyclers[index];
+    m_recyclers[index] = ptr;
+    *((void**)ptr) = MaskPtr(currentTop, m_mask);
 #endif
 }
 

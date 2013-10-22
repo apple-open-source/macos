@@ -1,0 +1,385 @@
+Revision history for Perl extension HTTP::Proxy
+
+0.25 Sun Jul  3 00:28:10 CEST 2011
+        [ENHANCEMENTS]
+        - new Engine: HTTP::Proxy::Engine::Threaded, by Angelos Karageorgiou
+        [FIXES]
+        - Correctly call eod() when the response has no body
+          (closed RT ticket #48310)
+
+0.24 Tue Jul 21 21:28:02 CEST 2009
+        [ENHANCEMENTS]
+        - When a short-circuit response was send, the next response
+          would not be filtered at all. This has been fixed.
+        [FIXES]
+        - yet another fix for t/23connect, proposed by Marek Rouchal
+          (closed RT ticket #38995) [test skipped for now]
+        - HTTP::Headers::Util's split_header_words() returns lower case
+          tokens/keys since October 6, 2008. Fix by Maurice Aubrey.
+          (closed RT tickets #43249, #43622)
+
+0.23 Thu Sep  4 02:29:47 CEST 2008
+        [ENHANCEMENTS]
+        - HTTP::Proxy::BodyFilter::save had an issue with cygwin because
+          of an incorrect use of File::Spec's catdir(). This is fixed.
+        - CONNECT requests are now forwarded to the upstream proxy, if there
+          is one. Errors from the upstream proxy are relayed to the client.
+        [TESTS]
+        - t/23connect.t does not use sysread() anymore. This time the test
+          should pass about everywhere.
+
+0.22 Thu May  1 00:18:38 CEST 2008
+        [TESTS]
+        - increased test coverage
+        - t/23connect.t doesn't need an Internet connection any more,
+          thus closing RT ticket #19653.
+        - t/67complete.t tests HTTP::Proxy::BodyFilter::complete
+        [DOCUMENTATION]
+        - closed RT ticket #33465 (Jimbo), by explaining in a little
+          more detail how HTTP::Proxy::BodyFilter::complete works.
+
+0.21 Sun Apr 20 04:34:47 CEST 2008
+        [ENHANCEMENTS]
+        - HTTP::Proxy::Engine::Legacy and HTTP::Proxy::Engine::ScoreBoard
+          log the number of remaining child processes (in addition to
+          their pids), thanks to Amos Shapira.
+        [FIXES]
+        - HTTP::Proxy::BodyFilter::save had a bug that prevented the
+          'filename' parameter to be correctly used to compute the 
+          filename to save to, and that made the proxy die the second
+          time the filter was called.
+          This fix allowed to close RT tickets #14548 (Max Maischein),
+          #18644 (Mark Tilford) and #33018 (Roland Stigge and Gunnar Wolf).
+        - HTTP::Proxy::BodyFilter::save had many other bugs, which the
+          test suite allowed to spot and fix.
+        [TESTS]
+        - t/67save.t provides 96% coverage of HTTP::Proxy::BodyFilter::save,
+          and helped fix many bugs in it.
+        - fixed t/22http.t and t/22transparent.t not to break when the
+          DNS wrongly resolves an invalid address.
+        [DOCUMENTATION]
+        - closed RT ticket #25295 (Matsuno Tokuhiro) with a doc patch.
+
+0.20 Fri Aug 18 10:25:11 CEST 2006
+        [ENHANCEMENTS]
+        - Added a will_modify() method to HTTP::Proxy::BodyFilter, that
+          lets the proxy know if a filter may modify the content length,
+          thus closing RT ticket #21051 (Chris Dolan)
+        - If no filter in the current stack will modify the content length,
+          then the header is not removed
+        [FIXES]
+        - closed RT tickets #3184 and #20251 (chunked encoding was enforced
+          while transfering data between a client and server using
+          different versions of HTTP, causing unwanted garbage to appear
+          in the data)
+        - removed useless "ERROR: Getting request failed:" messages
+          when there are simply "No more requests from this connection"
+        [INTERNALS]
+        - Removed the HTTP::Proxy::FilterStack class from inside HTTP::Proxy
+          and put it in its own module file
+        - renamed HTTP::Proxy::FilterStack::active() as will_modify() for
+          consistency reasons
+        [TESTS]
+        - updated t/22http.t and t/23connect.t following Ken Williams'
+          recommandations in RT ticket #19986
+        [DOCUMENTATION]
+        - patched a small inconsistency in HTTP::Proxy::BodyFilter's
+          documentation (and closed RT ticket #20303)
+        - fully documented HTTP::Proxy::FilterStack
+
+0.19 Fri Apr 28 19:55:41 CEST 2006
+        [ENHANCEMENTS]
+        - HTTP::Proxy::HeaderFilter::simple now lets one define an
+          end() method as well
+        [FIXES]
+        - HTTP::Proxy::(Body|Header)Filter::simple now provide a default
+          filter() that does nothing if their constructor is not given one
+          (thanks to Merijn Brand)
+        - close RT ticket #14548 by correcting the 'filename' check
+          in HTTP::Proxy::BodyFilter::save (Max Maischein)
+        - ERROR messages are always logged (Mark Tilford)
+        [TESTS]
+        - more tests for log() and logmask() in t/11log.t
+
+0.18 Sun Mar 19 23:49:38 CET 2006
+        [ENHANCEMENTS]
+        - the new known_methods() method can return all method
+          names know to HTTP::Proxy (can be helpful with the
+          method parameter of push_filter())
+        [FIXES]
+        - close RT ticket #14898 by using a per-parent lockfile for
+          HTTP::Proxy::Engine::ScoreBoard (Chris Dolan)
+        - close RT ticket #18243 by adding missing DeltaV methods
+          (Stephen Steneker)
+        [EXAMPLES]
+        - eg/perlmonks.pl   - redirect perlmonks.com to perlmonks.org
+
+0.17 Wed Sep 28 23:25:17 CEST 2005
+        [ENHANCEMENTS]
+        - Thanks to Randal Schwartz, a new HTTP::Proxy::Engine::ScoreBoard
+          engine is available. I've benchmarked a twofold speed increase.
+          This engine is still beta, you must enable it by hand.
+
+0.16  Thu Sep  1 19:13:55 CEST 2005
+        [ENHANCEMENTS]
+        - the new HTTP::Proxy::Engine class and its subclasses
+          now handle the life and death of child processes
+        - the Content-Length header is now removed only if body
+          filters will be applied on the response body
+        - HTTP::Proxy now supports some Apache-like attributes
+          (start_servers, max_clients, max_requests_per_child,
+          min_spare_servers, max_spare_servers, keep_alive,
+          max_keep_alive_requests, keep_alive_timeout)
+        - added support for ALL WebDAV/DeltaV methods
+        - the query argument to push_filter(), added in 0.14, should
+          now work (thanks to Simon Cozens for spotting the problem)
+        - the proxy now has a stash, which is a hash where filters can
+          store data (possibly to share it). (Requested by Mark Fowler)
+          Warning: since the proxy forks for each TCP connection, the
+          data is only shared between filters in the same child process.
+        [DEPRECATION]
+        - the maxchild, maxconn and maxserve accessors are now
+          deprecated. They will disappear in the future:
+          + maxchild has no replacement (should be handled by the engine)
+          + maxconn becomes max_connections
+          + maxserve becomes max_keep_alive_requests
+        - Information regarding the way the engine should behave
+          must passed in the constructor or directly to the engine
+        [NEW METHODS]
+        - $proxy->engine() return the HTTP::Proxy::Engine instance
+        - $proxy->new_connection() increase the TCP connections counter
+          (should only be used by HTTP::Proxy::Engine object)
+        [FIXES]
+        - Makefile.PL was not playing nice with Build.PL in the
+          previous distributions. This has been fixed. Sorry for the
+          inconvenience
+        - no more annoying "getsockname() on closed socket GEN0"
+          warnings (they appeared in 0.14)
+        [Win32 SUPPORT]
+        - Win32 is now supported! badly supported, but supported...
+        - until someone writes a decent engine for Win32, the default
+          Win32 engine will be HTTP::Proxy::Engine::NoFork, which
+          can only handle a single TCP connection at a time
+        [EXAMPLES]
+        - eg/yahoogroups.pl - removes ad interruptions from Yahoo! Groups
+        - eg/https.pl       - peek/poke at encrypted web pages
+        - eg/logger.pl      - improved the logger script
+
+0.15  Tue Apr  5 21:17:40 CEST 2005
+        [ENHANCEMENTS]
+        - added support for WebDAV methods (requested by Christian Laursen)
+        - The filter selection is based on the original request and response,
+          as it should
+        - improved kwalitee
+        [DEPRECATION]
+        - the start() method is no longer supported in HTTP::Proxy::BodyFilter
+          subclasses. Use begin() instead.
+        [EXAMPLES]
+        - eg/pdf.pl    - save \.pdf files and send a HTML confirmation instead
+                         (idea by Emmanuel Di Prétoro)
+
+0.14  Tue Mar 29 11:40:51 CEST 2005
+        [ANNOUNCE]
+        - It's been more than a year since last release, which is bad.
+          I now plan to release new versions more often, maybe about
+          once a month, or when there are big changes.
+        [DEPRECATION]
+        - the start() method of HTTP::Proxy::Bodyfilter subclasses
+          is renamed begin(), since it now has an end() counterpart.
+          (On a related note, I improve my English. Be sure to check out
+          http://www.landgren.net/perl/lt-2004.html for details)          
+        - start() in filters is therefore declared deprecated, an error
+          message is logged. The start() method will not be called any
+          more as from 0.15.
+        - the FILTER constant is now named FILTERS. FILTER will disappear
+          in 0.15 as well.
+        [ENHANCEMENTS]
+        - subclasses of HTTP::Proxy::BodyFilter can now have a
+          finalisation method, named end()
+        - the start^Wbegin() method of HTTP::Proxy::BodyFilter subclasses
+          now receive the message as an argument
+        - new built-in filter: HTTP::Proxy::BodyFilter::save
+          that can save the message body to a file while browsing
+        - new built-in filter: HTTP::Proxy::BodyFilter::complete
+          that stores the message body in memory and passes it on to the
+          next filters only when it's complete
+        - logs have cleaner prefixes and the pid is always shown
+        - should work under 5.005_03 (Thanks to Mathieu Arnold)
+        - transparent proxying support (mostly to please Martin Zdila
+          and Paul Makepeace)
+        - push_filter() should now accept the query parameter
+        [FIXES]
+        - the FILTER constant is now named FILTERS
+        [BUGS]
+        - the proxy does not work under Win32, except if you force
+          maxchild to 0 (no forking at all).
+        - t/20dummy.t (and a few otrhers) hanged under Win32
+          + Ken Hirsch proposed a patch for HTTP::Daemon
+            (and a workaround for HTTP::Proxy's daemon object)
+          + Bruno De Fraine tracked down the problem to the fork()
+            emulation by Windows threads under Win32 that lead to
+            a deadlock.
+          => both explanations cover the same problem, which I haven't
+             been able to correct yet
+        - all the tests that fork a proxy and a server are therefore
+          skipped under Win32. This is ugly, and will change in the future.
+        [EXAMPLES]
+        - eg/rfc.pl    - save rfc\d+\.txt files as we browse them
+        - eg/js.pl     - save \.js files as we browse them
+        - eg/dragon.pl - enhance the Dragon Go Server web site
+        - eg/fudd.pl   - make the web tawk wike Ewmer J. Fudd
+        - eg/switch.pl - switch proxies as you browse
+        - Changed all the examples so that they can take HTTP::Proxy::new()
+          parameters on the command-line (so, call them with logmask 3,
+          for example)
+        [DOCUMENTATION]
+        - documentation for the filter initialisation methods
+        - removed all references to the so-called "store-and-forward"
+          mechanism (see HTTP::Proxy::BodyFilter::complete)
+
+0.13  Wed Mar  3 17:36:31 CET 2004
+        [ENHANCEMENTS]
+        - CONNECT support (but only transparently...)
+        - the client_headers() method (similar to hop_headers()) give
+          the filters access to the proxy's LWP::UA Client-* headers
+        - filters are applied on all supported methods by default
+        [FIXES]
+        - removed everything regarding control() and control_regex(),
+          which were not used and confusing
+        [TESTS]
+        - tests for CONNECT support
+        - tests for SSL support (not working yet)
+        [EXAMPLES]
+        - eg/adblock.pl    - a very simple adblocker
+        - eg/trim.pl       - trims whitespace from HTML pages 
+        - eg/javascript.pl - add any text right after <body>
+        [DOCUMENTATION]
+        - separate COPYRIGHT and LICENSE sections in all man pages
+
+0.12  Thu Jan 22 23:54:03 CET 2004
+        [ENHANCEMENTS]
+        - send the error message to the client when the Proxy agent dies
+          (usually because of a filter error)
+        - the proxy now sends a X-Forwarded-For header by default
+          (and the proxy method x_forwarded_for can toggle this)
+        - the proxy method client_socket() gives access to the socket
+          connected to the current client (the example in Changes for 0.10
+          was wrong: one can get the IP address of the connected agent from
+          inside a filter with $self->proxy->client_socket->peerhost)
+        [FIXES]
+        - do not block simultaneous connections when not forking
+        - clean up the filter chain after the body-request filters
+        - ensure the filter stack is reinitialised between requests
+        [TESTS]
+        - tests for X-Forwarded-For
+        - test the proxy against http://diveintomark.org/tests/client/http/
+        [EXAMPLES]
+        - eg/post.pl   - outputs the URI and parameters of all POST requests
+        - eg/logger.pl - outputs details of GET and POST requests
+
+0.11  Fri Jan  2 17:02:08 CET 2004
+        [ENHANCEMENTS]
+        - setting maxchild to 0 prevents forking (Jim Cromie)
+        - filters can now match on the query string
+        - hop-by-hop headers and Max-Forwards headers are correctly supported
+        - new mutators added to HTTP::Proxy: via, hop_headers, request,
+          response
+        - filters can now answer in place of the server, which allows
+          for authorisation filters, cache (?) filters, etc.
+        - new examples scripts: proxy-auth.pl
+        [FIXES]
+        - push_filter() now correctly supports several match criteria
+        [TESTS]
+        - all the Via: header tests are now in t/50via.t
+        - t/50standard.t now checks headers for several request types
+        - new tests:
+          + t/51simple2.t - check response header filters with an actual proxy
+          + t/61simple2.t - check response body filters with an actual proxy
+        [INTERNALS]
+        - new method _send_response_headers
+
+0.10  Wed Nov 19 01:36:59 CET 2003
+
+        *** MAJOR INTERFACE CHANGES ***
+
+        - new base classes HTTP::Proxy::HeaderFilter and
+          HTTP::Proxy::BodyFilter
+        - some useful built-in filter classes:
+          HTTP::Proxy::BodyFilter::htmlparser
+          HTTP::Proxy::BodyFilter::htmltext
+          HTTP::Proxy::BodyFilter::lines
+          HTTP::Proxy::BodyFilter::simple
+          HTTP::Proxy::BodyFilter::tags
+          HTTP::Proxy::HeaderFilter::simple
+          HTTP::Proxy::HeaderFilter::standard
+        - tests for the internal class HTTP::Proxy::FilterStack
+        - tests for the built-in filters
+        - the examples are up-to-date with the new interface 
+        - new/enhanced accessors:
+          + the proxy host() attribute becomes actually useful: by default,
+            the proxy is only usable by local user-agents (the socket
+            is bound to localhost)
+          + the filters proxy() accessor gives access to the proxy itself.
+            For example, one can get the IP address of the agent connected
+            to the proxy from inside a filter ($self->proxy->daemon->peerhost)
+        - many documentation changes
+
+        This version is NOT compatible with the previous ones
+        regarding the way filters work.
+
+        *** MAJOR INTERFACE CHANGES ***
+
+0.09  Fri Aug 15 21:12:17 CEST 2003
+        - maxserve is now correctly handled
+        - corrected a bug in the t/20keepalive.t test file that
+          made the tests fail on some machines
+
+0.08  Thu Mar 13 01:41:42 CET 2003
+        - cleaned up support for filters
+        - added support for "buffering" filters
+          and a new HTTP::Proxy::FilterStack class
+        - added an anonymiser script (eg/anonymiser.pl)
+        - the tests won't break if a local proxy is configured
+        - the interfaces are very likely to change soon
+
+0.07  Tue Feb 18 22:30:43 CET 2003
+        - the proxy now supports persistent connexions (Yay!)
+        - and tests to check for it
+        - and a new timeout accessor
+
+0.06  Mon Feb 17 00:21:37 CET 2003
+        - better forking system and better reaping of zombies
+          (thanks to David Landgren and Stéphane Payrard)
+          Still won't work under Windows, though :-(
+        - replaced verbose() by logmask(), so as to fine-tune
+          the logging system
+        - put some of the test functions in a test module (t::Utils)
+
+0.05  Tue Feb  4 00:47:23 CET 2003
+        - explicitly refuse CONNECT
+        - better support for TRACE method
+        - support the Via: Header (a MUST in RFC 2616)
+        - filters, but this needs more work
+
+0.04  Sat Nov 30 12:19:22 CET 2002
+        - accept connection from other hosts
+        - better ftp support (no test yet)
+        - basic gopher support (no test yet)
+        - better HTTP error handling
+        - use CRLF in HTTP headers
+
+0.03  Fri Nov 29 11:17:36 CET 2002
+        - url() method gives a url to reach the proxy
+        - new 'control' attribute defines the control URL
+        - better subprocess management by preforking child processes
+          (thanks to Eric Cholet)
+        - a children handles only one request at a time, for better
+          performance (this means we only do HTTP/1.0 for now)
+        - correctly handle the Proxy-Connection and Connection headers
+
+0.02  Thu Oct 24 23:45:08 CEST 2002
+        - the system now forks to handle several connections
+        - but needs better test suites
+
+0.01  Tue Oct  1 11:54:07 CEST 2002
+        - original version

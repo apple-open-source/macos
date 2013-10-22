@@ -43,11 +43,13 @@ class SearchInputType : public BaseTextInputType {
 public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
 
-    void startSearchEventTimer();
     void stopSearchEventTimer();
 
 private:
     SearchInputType(HTMLInputElement*);
+    virtual void attach() OVERRIDE;
+    virtual void addSearchResult() OVERRIDE;
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*) const OVERRIDE;
     virtual const AtomicString& formControlType() const OVERRIDE;
     virtual bool shouldRespectSpeechAttribute() OVERRIDE;
     virtual bool isSearchField() const OVERRIDE;
@@ -57,11 +59,14 @@ private:
     virtual HTMLElement* resultsButtonElement() const OVERRIDE;
     virtual HTMLElement* cancelButtonElement() const OVERRIDE;
     virtual void handleKeydownEvent(KeyboardEvent*) OVERRIDE;
+    virtual void didSetValueByUserEdit(ValueChangeState) OVERRIDE;
 
     void searchEventTimerFired(Timer<SearchInputType>*);
+    bool searchEventsShouldBeDispatched() const;
+    void startSearchEventTimer();
 
-    RefPtr<HTMLElement> m_resultsButton;
-    RefPtr<HTMLElement> m_cancelButton;
+    HTMLElement* m_resultsButton;
+    HTMLElement* m_cancelButton;
     Timer<SearchInputType> m_searchEventTimer;
 };
 

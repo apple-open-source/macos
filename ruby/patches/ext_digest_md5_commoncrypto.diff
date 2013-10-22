@@ -1,71 +1,22 @@
-diff -Naur ../../ruby.orig/ruby/ext/digest/md5/extconf.rb ./ext/digest/md5/extconf.rb
---- ../../ruby.orig/ruby/ext/digest/md5/extconf.rb	2012-01-12 01:00:01.000000000 -0800
-+++ ./ext/digest/md5/extconf.rb	2012-01-12 01:01:55.000000000 -0800
-@@ -10,13 +10,13 @@
+--- ./ext/dlgest/md5/extconf.rb.orig	2013-02-25 11:42:40.000000000 -0800
++++ ./ext/digest/md5/extconf.rb	2013-02-25 12:05:37.000000000 -0800
+@@ -18,7 +18,7 @@ if !with_config("bundled-md5") &&
+   $objs << "md5ossl.#{$OBJEXT}"
  
- dir_config("openssl")
- 
--if !with_config("bundled-md5") &&
--    have_library("crypto") && have_header("openssl/md5.h")
--  $objs << "md5ossl.#{$OBJEXT}"
--
--else
+ else
 -  $objs << "md5.#{$OBJEXT}"
--end
-+#if !with_config("bundled-md5") &&
-+    #have_library("crypto") && have_header("openssl/md5.h")
-+  #$objs << "md5ossl.#{$OBJEXT}"
-+
-+#else
 +  $objs << "md5cc.#{$OBJEXT}"
-+#end
+ end
  
  have_header("sys/cdefs.h")
- 
-diff -Naur ../../ruby.orig/ruby/ext/digest/md5/md5cc.c ./ext/digest/md5/md5cc.c
---- ../../ruby.orig/ruby/ext/digest/md5/md5cc.c	1969-12-31 16:00:00.000000000 -0800
-+++ ./ext/digest/md5/md5cc.c	2012-01-12 01:16:16.000000000 -0800
-@@ -0,0 +1,7 @@
-+#include "md5cc.h"
-+
-+void
-+MD5_Finish(MD5_CTX *pctx, unsigned char *digest)
-+{
-+	CC_MD5_Final(digest, pctx);
-+}
-diff -Naur ../../ruby.orig/ruby/ext/digest/md5/md5cc.h ./ext/digest/md5/md5cc.h
---- ../../ruby.orig/ruby/ext/digest/md5/md5cc.h	1969-12-31 16:00:00.000000000 -0800
-+++ ./ext/digest/md5/md5cc.h	2012-01-12 01:09:05.000000000 -0800
-@@ -0,0 +1,18 @@
-+#ifndef MD5CC_H_INCLUDED
-+#define MD5CC_H_INCLUDED
-+
-+#include <stddef.h>
-+#include <CommonCrypto/CommonDigest.h>
-+
-+#define MD5_CTX		CC_MD5_CTX
-+
-+#define MD5_DIGEST_LENGTH	CC_MD5_DIGEST_LENGTH
-+#define MD5_BLOCK_LENGTH	CC_MD5_BLOCK_BYTES
-+
-+#define MD5_Init CC_MD5_Init
-+#define MD5_Update CC_MD5_Update
-+#define MD5_Finish CC_MD5_Finish
-+
-+void MD5_Finish(MD5_CTX *pctx, unsigned char *digest);
-+
-+#endif
-diff -Naur ../../ruby.orig/ruby/ext/digest/md5/md5init.c ./ext/digest/md5/md5init.c
---- ../../ruby.orig/ruby/ext/digest/md5/md5init.c	2007-02-12 15:01:19.000000000 -0800
-+++ ./ext/digest/md5/md5init.c	2012-01-12 01:02:41.000000000 -0800
-@@ -2,7 +2,9 @@
- /* $Id: md5init.c 11708 2007-02-12 23:01:19Z shyouhei $ */
- 
- #include "digest.h"
--#if defined(HAVE_OPENSSL_MD5_H)
-+#if defined (__APPLE__)
-+#include "md5cc.h"
-+#elif defined(HAVE_OPENSSL_MD5_H)
+--- ext/digest/md5/md5init.c~	2012-02-25 12:37:12.000000000 -0800
++++ ext/digest/md5/md5init.c	2013-02-27 23:14:50.000000000 -0800
+@@ -5,7 +5,7 @@
+ #if defined(HAVE_OPENSSL_MD5_H)
  #include "md5ossl.h"
  #else
- #include "md5.h"
+-#include "md5.h"
++#include "md5cc.h"
+ #endif
+ 
+ static const rb_digest_metadata_t md5 = {

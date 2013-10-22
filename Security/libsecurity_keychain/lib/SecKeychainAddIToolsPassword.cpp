@@ -75,7 +75,7 @@ OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNam
 					for (CFIndex n = 0; n < size; n++) {
 						CFStringRef path = (CFStringRef)CFArrayGetValueAtIndex(list, n);
 						CFRef<SecTrustedApplicationRef> app;
-						if (SecTrustedApplicationCreateFromPath(cfString(path).c_str(), &app.aref()) == noErr)
+						if (SecTrustedApplicationCreateFromPath(cfString(path).c_str(), &app.aref()) == errSecSuccess)
 							CFArrayAppendValue(apps, app);
 					}
 				}
@@ -89,7 +89,7 @@ OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNam
 	SecKeychainAttribute attrs[] = {
 		{ kSecLabelItemAttr, accountNameLength, (char *)accountName },	// use the account name as the label for display purposes [3787371]
 		{ kSecAccountItemAttr, accountNameLength, (char *)accountName },
-		{ kSecServiceItemAttr, strlen(serviceUTF8), (char *)serviceUTF8 }
+		{ kSecServiceItemAttr, (UInt32)strlen(serviceUTF8), (char *)serviceUTF8 }
 	};
 	SecKeychainAttributeList attributes = { sizeof(attrs) / sizeof(attrs[0]), attrs };
 

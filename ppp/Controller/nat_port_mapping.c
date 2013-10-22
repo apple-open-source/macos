@@ -65,6 +65,13 @@
 #include "PPPControllerPriv.h"
 #include "pppd.h"
 
+/* -----------------------------------------------------------------------------
+  Declarations
+ ----------------------------------------------------------------------------- */
+
+int racoon_send_cmd_start_dpd(int fd, u_int32_t address) ;
+
+
 static void
 startProbe (struct service *serv)
 {

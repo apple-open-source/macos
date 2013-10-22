@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008-2010, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -108,6 +108,9 @@ enum {
 	 */
 	kSCStatusConnectionNoService		= 5001,	/* Network service for connection not available
 							   __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_2_0)
+							 */
+	kSCStatusConnectionIgnore               = 5002, /* Network connection information not available at this time
+							   __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_6_0)
 							 */
 };
 

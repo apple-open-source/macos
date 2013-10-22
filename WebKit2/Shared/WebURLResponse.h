@@ -32,18 +32,14 @@
 
 #if PLATFORM(MAC)
 typedef NSURLResponse* PlatformResponse;
-#elif PLATFORM(WIN)
-typedef CFURLResponseRef PlatformResponse;
 #else
 typedef void* PlatformResponse;
 #endif
 
 namespace WebKit {
 
-class WebURLResponse : public APIObject {
+class WebURLResponse : public TypedAPIObject<APIObject::TypeURLResponse> {
 public:
-    static const Type APIType = TypeURLResponse;
-
     static PassRefPtr<WebURLResponse> create(const WebCore::ResourceResponse& response)
     {
         return adoptRef(new WebURLResponse(response));
@@ -60,8 +56,6 @@ public:
 private:
     explicit WebURLResponse(const WebCore::ResourceResponse&);
     explicit WebURLResponse(PlatformResponse);
-
-    virtual Type type() const { return APIType; }
 
     WebCore::ResourceResponse m_response;
 };

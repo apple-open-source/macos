@@ -1,3 +1,41 @@
+# Default platform uses the native SDK.
+# To build for Mac OS X using internal SDK, use 'make PLATFORM=macosx <target>'
+# To build for iOS, use 'make PLATFORM=iphoneos <target>'
+
+ifeq ($(PLATFORM),iphoneos)
+# iOS internal SDK
+CORETELEPHONY=-framework CoreTelephony
+ARCHS=armv7
+endif
+
+ifeq ($(PLATFORM),macosx)
+# Mac OS X internal SDK
+ARCHS=i386 x86_64
+CORETELEPHONY=
+endif
+
+ifeq ($(PLATFORM),)
+# Mac OS X native SDK
+ARCHS=i386 x86_64
+CORETELEPHONY=
+CC = cc
+SYSROOT = /
+PF_INC = -F/System/Library/PrivateFrameworks
+else
+# Mac OS X or iOS internal SDK
+SDK=$(PLATFORM).internal
+SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
+CC = xcrun -sdk $(SDK) cc
+PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
+endif
+
+ARCH_FLAGS=$(foreach a,$(ARCHS),-arch $(a))
+
+SYSTEM_PRIVATE = -I$(SYSROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+
+SC_PRIV = -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS 
+BLIB = ../bootplib
+
 none:
 	@echo "make what?"
 
@@ -30,11 +68,11 @@ arp: arp.c arp.h
 nihosts:
 	cc -Wall -g -o nihosts -DTEST_NIHOSTS NIHosts.m util.c NIDomain.c dynarray.c ptrlist.c netinfo.c host_identifier.c
 
-interfaces: interfaces.c interfaces.h
-	cc -Wall -g -o interfaces -DTEST_INTERFACES interfaces.c ptrlist.c dynarray.c -I$(NET_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
+interfaces: interfaces.c IPConfigurationLog.c ptrlist.c dynarray.c
+	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
 
 dhcpopt: dhcp_options.c
-	cc -Wall -g -DTEST_DHCP_OPTIONS -o dhcpopt dhcp_options.c ptrlist.c util.c DNSNameList.c
+	cc -Wall -g -DTEST_DHCP_OPTIONS -o dhcpopt dhcp_options.c ptrlist.c util.c DNSNameList.c -framework CoreFoundation -framework SystemConfiguration
 
 macncopt: macnc_options.c
 	cc -Wall -g -DTEST_MACNC_OPTIONS -o macncopt macnc_options.c dhcp_options.c ptrlist.c util.c DNSNameList.c
@@ -55,7 +93,7 @@ subnets: subnets.c cfutil.c DNSNameList.c util.c ptrlist.c dynarray.c dhcp_optio
 	cc -g -Wall -DTEST_SUBNETS -o subnets subnets.c cfutil.c util.c ptrlist.c dynarray.c DNSNameList.c dhcp_options.c -framework CoreFoundation
 
 test-dhcpv6-options: DHCPv6Options.c DHCPv6.c DHCPDUID.c
-	cc -g -Wall DHCPv6Options.c DHCPDUID.c DHCPv6.c -o test-dhcpv6-options -DTEST_DHCPV6_OPTIONS ptrlist.c util.c DNSNameList.c cfutil.c -framework CoreFoundation
+	cc -g -Wall DHCPv6Options.c DHCPDUID.c DHCPv6.c -o test-dhcpv6-options -DTEST_DHCPV6_OPTIONS ptrlist.c util.c DNSNameList.c cfutil.c -framework CoreFoundation -framework SystemConfiguration
 
 clean:
 	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options

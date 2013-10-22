@@ -1,0 +1,69 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="install" ToolsVersion="3.5">
+
+    <!--
+        Ex: 
+            C:\Windows\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe Project.proj -> both platforms
+            C:\Windows\Microsoft.NET\Framework\v4.0.30319\MSBuild.exe Project.proj /p:Platform="x86" -> x86 only
+
+            MSBuild.exe zlib.proj /p:SRCROOT="c:\sources\zlib" /p:DSTROOT="c:\roots\zlib"
+    -->
+   
+   
+	<!--
+		Unless 'vcvars=none' is included in the buildArguments, the build system will call vcvars before invoking MSBuild.
+		If vcvars has been called, VCINSTALLDIR will be defined to the appropriate VC path. Otherwise, the path will be
+		retrieved from the registry.
+		
+		For manual builds, either call vcvars before invoking MSBuild or change the version in the registry key below to match the system.
+	-->
+	<PropertyGroup>
+        <VCPath Condition="'$(VCINSTALLDIR)' == ''">$(registry:HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\11.0\Setup\VC@ProductDir)</VCPath>
+		<VCPath Condition="'$(VCINSTALLDIR)' != ''">$(VCINSTALLDIR)</VCPath>
+    </PropertyGroup>
+	
+	<ItemGroup>
+        <!-- command line platforms (/p:Platform="xxx;yyy") -->
+        <PlatformList Condition="'@(PlatformList)' == '' and $(Platform) != ''" Include="$(Platform.Split(';'))" />
+        <!-- default platforms: x86 and x64 cross -->
+        <PlatformList Condition="'@(PlatformList)' == ''" Include="x86;x86_amd64" />
+    </ItemGroup>
+ 
+    <Target Name="install">
+
+        <!-- SRCROOT, DSTROOT, and OBJROOT must be defined -->
+        <Error Text="SRCROOT property or environment variable must be defined." Condition="'$(SRCROOT)' == ''"/>
+        <Error Text="DSTROOT property or environment variable must be defined." Condition="'$(DSTROOT)' == ''"/>
+
+		<ItemGroup>
+			<NMakeArgs Include="SRCROOT=&quot;$(SRCROOT)&quot;"/>
+			<NMakeArgs Include="DSTROOT=&quot;$(DSTROOT)&quot;"/>
+		</ItemGroup>
+
+        <!-- ensure the registry queries succeeded -->
+		<Error Text="Cannot determine Visual Studio 'vcvars' location." Condition="'$(VCPath)' == ''"/>
+        
+        <!-- The following will be executed once for each item in $(PlatformList) -->
+        <Exec Command="call &quot;$(VCPath)vcvarsall.bat&quot; %(PlatformList.Identity) &amp;
+                       nmake.exe /f $(MSBuildProjectDirectory)\NMakefile PLATFORM=%(PlatformList.Identity) @(NMakeArgs, ' ') install" />
+    </Target>
+
+	<Target Name="install_DEBUG">
+
+        <!-- SRCROOT, DSTROOT, and OBJROOT must be defined -->
+        <Error Text="SRCROOT property or environment variable must be defined." Condition="'$(SRCROOT)' == ''"/>
+        <Error Text="DSTROOT property or environment variable must be defined." Condition="'$(DSTROOT)' == ''"/>
+
+		<ItemGroup>
+			<NMakeArgs Include="SRCROOT=&quot;$(SRCROOT)&quot;"/>
+			<NMakeArgs Include="DSTROOT=&quot;$(DSTROOT)&quot;"/>
+		</ItemGroup>
+		
+        <!-- ensure the registry queries succeeded -->
+		<Error Text="Cannot determine Visual Studio 'vcvars' location." Condition="'$(VCPath)' == ''"/>
+		
+        <!-- The following will be executed once for each item in $(PlatformList) -->
+        <Exec Command="call &quot;$(VCPath)vcvarsall.bat&quot; %(PlatformList.Identity) &amp;
+                       nmake.exe /f $(MSBuildProjectDirectory)\NMakefile PLATFORM=%(PlatformList.Identity) @(NMakeArgs, ' ') install_DEBUG" />
+    </Target>
+	
+</Project>

@@ -29,7 +29,7 @@ tcpdump \- dump traffic on a network
 .na
 .B tcpdump
 [
-.B \-AbdDefgIkKlLnNOPpqRStuUvxX
+.B \-AbdDefhgHIJKlLnNOpPqRStuUvxX
 ] [
 .B \-B
 .I buffer_size
@@ -55,6 +55,16 @@ tcpdump \- dump traffic on a network
 .B \-i
 .I interface
 ]
+[
+.B \-j
+.I tstamp_type
+]
+[
+.B \-k
+.I (metadata_arg) 
+]
+.br
+.ti +8
 [
 .B \-m
 .I module
@@ -106,6 +116,11 @@ tcpdump \- dump traffic on a network
 [
 .B \-Z
 .I user
+]
+.ti +8
+[
+.B \-Q
+.I packet-metadata-filter
 ]
 .ti +8
 [
@@ -196,7 +211,8 @@ Print the AS number in BGP packets in ASDOT notation rather than ASPLAIN
 notation.
 .TP
 .B \-B
-Set the operating system capture buffer size to \fIbuffer_size\fP.
+Set the operating system capture buffer size to \fIbuffer_size\fP, in
+units of KiB (1024 bytes).
 .TP
 .B \-c
 Exit after receiving \fIcount\fP packets.
@@ -256,7 +272,7 @@ Print the link-level header on each dump line.
 .B \-E
 Use \fIspi@ipaddr algo:secret\fP for decrypting IPsec ESP packets that
 are addressed to \fIaddr\fP and contain Security Parameter Index value
-\fIspi\fP. This combination may be repeated with comma or newline seperation.
+\fIspi\fP. This combination may be repeated with comma or newline separation.
 .IP
 Note that setting the secret for IPv4 ESP packets is supported at this time.
 .IP
@@ -272,7 +288,7 @@ The ability to decrypt packets is only present if \fItcpdump\fP was compiled
 with cryptography enabled.
 .IP
 \fIsecret\fP is the ASCII text for ESP secret key. 
-If preceeded by 0x, then a hex value will be read.
+If preceded by 0x, then a hex value will be read.
 .IP
 The option assumes RFC2406 ESP, not RFC1827 ESP.
 The option is only for debugging purposes, and
@@ -323,9 +339,64 @@ If used in conjunction with the
 .B \-C
 option, filenames will take the form of `\fIfile\fP<count>'.
 .TP
+.B \-h
+Print the tcpdump and libpcap version strings, print a usage message,
+and exit.
+.TP
+.B \-H
+Attempt to detect 802.11s draft mesh headers.
+.TP
 .B \-i
 Listen on \fIinterface\fP.
-If unspecified, \fItcpdump\fP searches the system interface list for the
+.IP
+If the
+.B \-D
+flag is supported, an interface number as printed by that flag can be
+used as the
+.I interface
+argument.
+.IP
+On Darwin systems version 13 or later, when the 
+.I interface
+is unspecified, tcpdump will use a 
+pseudo interface to capture packets on a set of interfaces determined  
+by the kernel (excludes by default loopback and tunnel interfaces).
+.IP
+Alternatively, to capture on more than one interface at a time, 
+one may use "pktap" as the
+.I interface 
+parameter followed by an optional list of comma separated interface names to include.
+For example, to capture on the loopback and en0 interface:
+.IP
+.RS
+.RS
+.nf
+\fBtcpdump \-i pktap,lo0,en0\fP
+.fi
+.RE
+.RE
+.IP
+An
+.I interface
+argument of "all" or "pktap,all" can be used to capture packets from all interfaces,
+including loopback and tunnel interfaces. 
+.IP
+A pktap pseudo interface provides for packet metadata using the default PKTAP 
+data link type and files are written in the Pcap-ng file format. 
+The RAW data link type must be used to force to use the legacy 
+.BR pcap-savefile (5)
+file format with a ptkap pseudo interface.
+Note that captures on a ptkap pseudo interface will not be done in promiscuous
+mode.
+.IP
+An
+.I interface
+argument of "iptap" can be used to capture packets from at the IP layer. 
+This capture packets as they are passed to the input and output routines 
+of the IPv4 and IPv6 protocol handlers of the networking stack.
+Note that captures will not be done in promiscuous mode.
+.IP
+On other OSes, if unspecified, \fItcpdump\fP searches the system interface list for the
 lowest numbered, configured up interface (excluding loopback).
 Ties are broken by choosing the earliest match.
 .IP
@@ -334,13 +405,6 @@ On Linux systems with 2.2 or later kernels, an
 argument of ``any'' can be used to capture packets from all interfaces.
 Note that captures on the ``any'' device will not be done in promiscuous
 mode.
-.IP
-If the
-.B \-D
-flag is supported, an interface number as printed by that flag can be
-used as the
-.I interface
-argument.
 .TP
 .B \-I
 Put the interface in "monitor mode"; this is supported only on IEEE
@@ -363,9 +427,48 @@ monitor mode will be shown; if
 is specified, only those link-layer types available when in monitor mode
 will be shown.
 .TP
+.B \-j
+Set the time stamp type for the capture to \fItstamp_type\fP.  The names
+to use for the time stamp types are given in
+.BR pcap-tstamp-type (7);
+not all the types listed there will necessarily be valid for any given
+interface.
+.TP
+.B \-J
+List the supported time stamp types for the interface and exit.  If the
+time stamp type cannot be set for the interface, no time stamp types are
+listed.
+.TP
 .B \-k
-Print the comment field from the libpcap packet header.
-Apple modification.
+Control the display of packet metadata via an optional 
+.I metadata_arg
+argument. This is useful when displaying packet saved in the pcap-ng file 
+format or with interfaces that support the PKTAP data link type.
+.IP
+By default, when the
+.I metadata_arg
+optional argument is not specified, any available packet metadata information 
+is printed out. 
+.IP
+The  
+.I metadata_arg
+argument controls the display of specific packet metadata information using a flag word, 
+where each character corresponds to a type of packet metadata as follows:
+.LP
+.RS
+.RS
+.nf
+\fBI\fP     interface name (or interface ID)
+\fBN\fP     process name
+\fBP\fP     process ID
+\fBS\fP     service class
+\fBD\fP     direction
+\fBC\fP     comment
+.fi
+.RE
+.RE
+.IP
+This is an Apple modification.
 .TP
 .B \-K
 Don't attempt to verify IP, TCP, or UDP checksums.  This is useful for
@@ -377,9 +480,37 @@ Make stdout line buffered.
 Useful if you want to see the data
 while capturing it.
 E.g.,
-.br
-``tcpdump\ \ \-l\ \ |\ \ tee dat'' or
-``tcpdump\ \ \-l \ \ > dat\ \ &\ \ tail\ \ \-f\ \ dat''.
+.IP
+.RS
+.RS
+.nf
+\fBtcpdump \-l | tee dat\fP
+.fi
+.RE
+.RE
+.IP
+or
+.IP
+.RS
+.RS
+.nf
+\fBtcpdump \-l > dat & tail \-f dat\fP
+.fi
+.RE
+.RE
+.IP
+Note that on Windows,``line buffered'' means ``unbuffered'', so that
+WinDump will write each character individually if
+.B \-l
+is specified.
+.IP
+.B \-U
+is similar to
+.B \-l
+in its behavior, but it will cause output to be ``packet-buffered'', so
+that the output is written to stdout at the end of each packet rather
+than at the end of each line; this is buffered on all platforms,
+including Windows.
 .TP
 .B \-L
 List the known data link types for the interface, in the specified mode,
@@ -425,6 +556,15 @@ into promiscuous mode.
 Note that the interface might be in promiscuous
 mode for some other reason; hence, `-p' cannot be used as an abbreviation for
 `ether host {local-hw-addr} or ether broadcast'.
+.TP
+.B \-Q
+To specify a filter expression based on packet metadata information like 
+interface or process name.  
+Packet with matching packet metadata will be displayed or saved to a file. 
+See section 
+PACKET METADATA FILTER 
+for the syntax of packet metadata filter expressions. 
+This is an Apple addition.
 .TP
 .B \-q
 Quick (quiet?) output.
@@ -496,15 +636,45 @@ Print a timestamp in default format proceeded by date on each dump line.
 Print a delta (micro-second resolution) between current and first line
 on each dump line.
 .TP
+.B \-t n
+An alternate form for specifying the kind of timestamp display where
+.B n
+is a number between 0 and 5 with the following meaning:
+.LP
+.RS
+.RS
+.nf
+\fB0\fP     time
+\fB1\fP     no time 
+\fB2\fP     unformatted timestamp
+\fB3\fP     microseconds since previous line
+\fB4\fP     date and time
+\fB5\fP     microseconds since first line
+.fi
+.RE
+.RE
+.IP
+This option may be specified more than once to display more than one kind of timestamp 
+on each dump line.
+.TP
 .B \-u
 Print undecoded NFS handles.
 .TP
 .B \-U
-Make output saved via the
+If the
 .B \-w
-option ``packet-buffered''; i.e., as each packet is saved, it will be
-written to the output file, rather than being written only when the
-output buffer fills.
+option is not specified, make the printed packet output
+``packet-buffered''; i.e., as the description of the contents of each
+packet is printed, it will be written to the standard output, rather
+than, when not writing to a terminal, being written only when the output
+buffer fills.
+.IP
+If the
+.B \-w
+option is specified, make the saved raw packet output
+``packet-buffered''; i.e., as each packet is saved, it will be written
+to the output file, rather than being written only when the output
+buffer fills.
 .IP
 The
 .B \-U
@@ -541,11 +711,21 @@ With
 .B \-X
 Telnet options are printed in hex as well.
 .TP
+.B \-V
+Print the packet number at the beginning of each dump line.
+.TP
 .B \-w
 Write the raw packets to \fIfile\fR rather than parsing and printing
 them out.
 They can later be printed with the \-r option.
 Standard output is used if \fIfile\fR is ``-''.
+.IP
+This output will be buffered if written to a file or pipe, so a program
+reading from the file or pipe may not see packets for an arbitrary
+amount of time after they are received.  Use the
+.B \-U
+flag to cause packets to be written as soon as they are received.
+.IP
 See
 .BR pcap-savefile (5)
 for a description of the file format.
@@ -627,7 +807,10 @@ savefile name as the only argument, make the flags & arguments arrangements
 and execute the command that you want.
 .TP
 .B \-Z
-Drops privileges (if root) and changes user ID to
+If
+.I tcpdump
+is running as root, after opening the capture device or input savefile,
+but before opening any savefiles for output, change the user ID to
 .I user
 and the group ID to the primary group of
 .IR user .
@@ -883,8 +1066,8 @@ The general format of a tcp protocol line is:
 \fISrc\fP and \fIdst\fP are the source and destination IP
 addresses and ports.
 \fIFlags\fP are some combination of S (SYN),
-F (FIN), P (PUSH), R (RST), W (ECN CWR) or E (ECN-Echo), or a single
-`.' (no flags).
+F (FIN), P (PUSH), R (RST), U (URG), W (ECN CWR), E (ECN-Echo) or
+`.' (ACK), or `none' if no flags are set.
 \fIData-seqno\fP describes the portion of sequence space covered
 by the data in this packet (see example below).
 \fIAck\fP is sequence number of the next data expected the other
@@ -931,8 +1114,7 @@ bytes and there was a max-segment-size option requesting an mss of
 Csam replies with a similar packet except it includes a piggy-backed
 ack for rtsg's SYN.
 Rtsg then acks csam's SYN.
-The `.' means no
-flags were set.
+The `.' means the ACK flag was set.
 The packet contained no data so there is no data sequence number.
 Note that the ack sequence
 number is a small integer (1).
@@ -1278,7 +1460,6 @@ RA, \fInot\fP set) and `|' (truncated message, TC, set).
 If the
 `question' section doesn't contain exactly one entry, `[\fIn\fPq]'
 is printed.
-
 .HD
 SMB/CIFS decoding
 .LP
@@ -1286,19 +1467,18 @@ SMB/CIFS decoding
 on UDP/137, UDP/138 and TCP/139.
 Some primitive decoding of IPX and
 NetBEUI SMB data is also done.
-
+.LP
 By default a fairly minimal decode is done, with a much more detailed
 decode done if -v is used.
 Be warned that with -v a single SMB packet
 may take up a page or more, so only use -v if you really want all the
 gory details.
-
-For information on SMB packet formats and what all te fields mean see
+.LP
+For information on SMB packet formats and what all the fields mean see
 www.cifs.org or the pub/samba/specs/ directory on your favorite
 samba.org mirror site.
 The SMB patches were written by Andrew Tridgell
 (tridge@samba.org).
-
 .HD
 NFS Requests and Replies
 .LP
@@ -1649,8 +1829,59 @@ No attempt
 is made to account for the time lag between when the
 Ethernet interface removed the packet from the wire and when the kernel
 serviced the `new packet' interrupt.
+.SH "PACKET METADATA FILTER"
+Use packet metadata filter expression to match packets against descriptive 
+information about the packet: interface, process, service type or direction.
+.LP
+Note this is meaningful only with capture files in the Pcap-ng file format or 
+for interfaces supporting the PKTAP data link type.
+.LP
+The syntax supports the following operators:
+.LP
+.RS
+.nf
+\fBor\fP     logical or
+\fBand\fP    logical and
+\fBnot\fP    negation
+\fB(...)\fP  to group sub-expressions
+\fB=\fP      is equal
+\fB!=\fP     is not equal
+\fB||\fP     logical or (alternate)
+\fB&&\fP     logical and (alternate)
+\fB!\fP      negation (alternate)
+.fi
+.RE
+.LP
+The syntax support the following keywords to denote which of packet metadata contents
+is to be compared:
+.LP
+.RS
+.nf
+\fBif\fP     interface name
+\fBproc\fP   process name
+\fBpid\fP    process ID
+\fBsvc\fP    service class
+\fBdir\fP    direction
+\fBeproc\fP  effective process name
+\fBepid\fP   effective process ID
+.fi
+.RE
+.LP
+For example to filter packets from interface en0 "sent" by the process named "nc" or 
+incoming packet not on interface en0:
+.LP
+.RS
+.nf
+\fB-Q "( if=en0 and proc =nc ) || (if != en0 and dir=in)"\fP
+.fi
+.RE
+.LP
+Note that a complex packet metadata filter expression needs to be put in quotes as the option 
+.B \-Q
+takes a single string parameter.
 .SH "SEE ALSO"
-stty(1), pcap(3PCAP), bpf(4), pcap-savefile(5), pcap-filter(7)
+stty(1), pcap(3PCAP), bpf(4), nit(4P), pcap-savefile(5),
+pcap-filter(7), pcap-tstamp-type(7)
 .SH AUTHORS
 The original authors are:
 .LP
@@ -1683,7 +1914,8 @@ etc. to:
 tcpdump-workers@lists.tcpdump.org
 .RE
 .LP
-Use BPF to watch your own outbound traffic.
+NIT doesn't let you watch your own outbound traffic, BPF will.
+We recommend that you use the latter.
 .LP
 On Linux systems with 2.0[.x] kernels:
 .IP

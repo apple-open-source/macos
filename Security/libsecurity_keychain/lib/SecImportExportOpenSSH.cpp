@@ -34,7 +34,6 @@
 #include <ctype.h>
 #include <CommonCrypto/CommonDigest.h>	/* for CC_MD5_DIGEST_LENGTH */
 #include <security_utilities/debugging.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
 
 #define SecSSHDbg(args...)	secdebug("openssh", ## args)
@@ -164,7 +163,7 @@ static char *genPrintName(
 	const char *header,		// e.g. SSHv2_PUB_KEY_NAME
 	const char *comment)	// optional, from key 
 {
-	unsigned totalLen = strlen(header) + 1;
+	size_t totalLen = strlen(header) + 1;
 	if(comment) {
 		/* append ": <comment>" */
 		totalLen += strlen(comment);
@@ -252,7 +251,7 @@ static char *opensshV1PrivComment(
 	 * (numBits + 7)/8 bytes of data
 	 */
 	/* length: ID string, NULL, Cipher, 4-byte spare */
-	unsigned len = strlen(authfile_id_string);
+	size_t len = strlen(authfile_id_string);
 	if(keyLen < (len + 6)) {
 		return NULL;
 	}
@@ -304,7 +303,7 @@ char *impExpOpensshInferPrintName(
 	SecExternalFormat externFormat)
 {
 	const unsigned char *key = (const unsigned char *)CFDataGetBytePtr(external);
-	unsigned keyLen = CFDataGetLength(external);
+	unsigned keyLen = (unsigned)CFDataGetLength(external);
 	switch(externType) {
 		case kSecItemTypePublicKey:
 			switch(externFormat) {
@@ -358,7 +357,7 @@ void impExpOpensshInferDescData(
 		NULL,			// don't need the data
 		NULL);
 	if(ortn) {
-		SecSSHDbg("SecKeychainItemCopyAttributesAndData returned %ld", ortn);
+		SecSSHDbg("SecKeychainItemCopyAttributesAndData returned %ld", (unsigned long)ortn);
 		return;
 	}
 	/* subsequent errors to errOut: */
@@ -460,7 +459,7 @@ static CSSM_RETURN openSSHv1DeriveKey(
 	memset(&seed, 0, sizeof(seed));
 	if(cfPhrase != NULL) {
 		/* TBD - caller-supplied empty passphrase means "export in the clear" */
-		unsigned len = CFDataGetLength(cfPhrase);
+		size_t len = CFDataGetLength(cfPhrase);
 		seed.Param.Data = (uint8 *)malloc(len);
 		seed.Param.Length = len;
 		memmove(seed.Param.Data, CFDataGetBytePtr(cfPhrase), len);
@@ -533,7 +532,7 @@ OSStatus impExpWrappedOpenSSHImport(
 
 	assert(cspHand != 0);
 	if(keyParams == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	memset(&unwrapParams, 0, sizeof(unwrapParams));
 
@@ -588,7 +587,7 @@ OSStatus impExpWrappedOpenSSHExport(
 	CSSM_RETURN crtn;
 	
 	if(keyParams == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 
 	/* we need a CSPDL handle - try to get it from the key */	

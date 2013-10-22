@@ -244,7 +244,7 @@ make_passwd(argp)
 	if (p >= bp + st.st_size)
 		goto fail;
 
-#define	EXPAND(e)	e = p; while (*p++);
+#define	EXPAND(e)	e = p; while (*p++) {}
 	EXPAND(pw.pw_name);
 	EXPAND(pw.pw_passwd);
 	pw.pw_uid = atoi(p); EXPAND(t);

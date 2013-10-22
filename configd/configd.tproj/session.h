@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007, 2009-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,22 @@
 
 
 #if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
+/*
+ * SCDynamicStore write access entitlement
+ *
+ *   Key   : "com.apple.SystemConfiguration.SCDynamicStore-write-access"
+ *   Value : Boolean
+ *             TRUE == allow SCDynamicStore write access for this process
+ *
+ *           Dictionary
+ *             Key   : "keys"
+ *             Value : <array> of CFString with write access allowed for
+ *                     each SCDynamicStore key matching the string(s)
+ *
+ *             Key   : "patterns"
+ *             Value : <array> of CFString with write access allowed for
+ *                     each SCDynamicStore key matching the regex pattern(s)
+ */
 #define	kSCWriteEntitlementName	CFSTR("com.apple.SystemConfiguration.SCDynamicStore-write-access")
 #endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 
@@ -69,8 +85,18 @@ typedef struct {
 	/* root access credential associated with this "open" session */
 	lazyBoolean		callerRootAccess;
 
-	/* write access entitlement associated with this "open" session */
-	lazyBoolean		callerWriteAccess;
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
+	/*
+	 * write access entitlement associated with this "open" session
+	 *
+	 *   kCFNull		caller entitlements unknown (need to fetch)
+	 *   NULL		no entitlement
+	 *   CFBoolean		true/false
+	 *   CFDictionary	"keys"     = CFArray[writable keys]
+	 *			"patterns" = CFArray[writable patterns]
+	 */
+	CFTypeRef		callerWriteEntitlement;
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 } serverSession, *serverSessionRef;
 
@@ -91,7 +117,8 @@ void			listSessions	(FILE		*f);
 
 Boolean			hasRootAccess	(serverSessionRef	session);
 
-Boolean			hasWriteAccess	(serverSessionRef	session);
+Boolean			hasWriteAccess	(serverSessionRef	session,
+					 CFStringRef		key);
 
 Boolean			hasPathAccess	(serverSessionRef	session,
 					 const char		*path);

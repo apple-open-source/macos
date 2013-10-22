@@ -26,6 +26,8 @@
 //
 #include "resources.h"
 #include "csutilities.h"
+#include <security_utilities/unix++.h>
+#include <security_utilities/debugging.h>
 #include <Security/CSCommon.h>
 #include <security_utilities/unix++.h>
 #include <security_utilities/cfmunge.h>
@@ -38,17 +40,25 @@ namespace CodeSigning {
 // Construction and maintainance
 //
 ResourceBuilder::ResourceBuilder(const std::string &root, CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType)
-	: ResourceEnumerator(root), mHashType(hashType)
+	: mRoot(root), mHashType(hashType)
 {
+	assert(!mRoot.empty());
+    if (mRoot.substr(mRoot.length()-2, 2) == "/.")  // produced by versioned bundle implicit "Current" case
+        mRoot = mRoot.substr(0, mRoot.length()-2);  // ... so take it off for this
+	const char * paths[2] = { mRoot.c_str(), NULL };
+	mFTS = fts_open((char * const *)paths, FTS_PHYSICAL | FTS_COMFOLLOW | FTS_NOCHDIR, NULL);
+	if (!mFTS)
+		UnixError::throwMe();
+	mRawRules = rulesDict;
 	CFDictionary rules(rulesDict, errSecCSResourceRulesInvalid);
 	rules.apply(this, &ResourceBuilder::addRule);
-	mRawRules = rules;
 }
 
 ResourceBuilder::~ResourceBuilder()
 {
 	for (Rules::iterator it = mRules.begin(); it != mRules.end(); ++it)
 		delete *it;
+	UnixPlusPlus::checkError(fts_close(mFTS));
 }
 
 
@@ -73,6 +83,12 @@ void ResourceBuilder::addRule(CFTypeRef key, CFTypeRef value)
 		if (CFBooleanRef optRef = rule.get<CFBooleanRef>("optional"))
 			if (optRef == kCFBooleanTrue)
 				flags |= optional;
+		if (CFBooleanRef nestRef = rule.get<CFBooleanRef>("nested"))
+			if (nestRef == kCFBooleanTrue)
+				flags |= nested;
+		if (CFBooleanRef topRef = rule.get<CFBooleanRef>("top"))
+			if (topRef == kCFBooleanTrue)
+				flags |= top;
 	}
 	addRule(new Rule(pattern, weight, flags));
 }
@@ -82,64 +98,99 @@ void ResourceBuilder::addRule(CFTypeRef key, CFTypeRef value)
 // Locate the next non-ignored file, look up its rule, and return it.
 // Returns NULL when we're out of files.
 //
-FTSENT *ResourceBuilder::next(string &path, Rule * &rule)
+void ResourceBuilder::scan(Scanner next)
 {
-	while (FTSENT *ent = ResourceEnumerator::next(path)) {
-		// find best matching rule
-		Rule *bestRule = NULL;
-		for (Rules::const_iterator it = mRules.begin(); it != mRules.end(); ++it) {
-			Rule *rule = *it;
-			if (rule->match(path.c_str())) {
-				if (rule->flags & exclusion) {
-					bestRule = NULL;
-					break;
+	bool first = true;
+	while (FTSENT *ent = fts_read(mFTS)) {
+		const char *relpath = ent->fts_path + mRoot.size() + 1;	// skip prefix + "/"
+		switch (ent->fts_info) {
+		case FTS_F:
+			secdebug("rdirenum", "file %s", ent->fts_path);
+			if (Rule *rule = findRule(relpath))
+				if (!(rule->flags & (omitted | exclusion)))
+					next(ent, rule->flags, relpath, rule);
+			break;
+		case FTS_SL:
+			// symlinks cannot ever be nested code, so quietly convert to resource file
+			secdebug("rdirenum", "symlink %s", ent->fts_path);
+			if (Rule *rule = findRule(relpath))
+				if (!(rule->flags & (omitted | exclusion)))
+					next(ent, rule->flags & ~nested, relpath, rule);
+			break;
+		case FTS_D:
+			secdebug("rdirenum", "entering %s", ent->fts_path);
+			if (!first) {	// skip root directory (relpath invalid)
+				if (Rule *rule = findRule(relpath)) {
+					if (rule->flags & nested) {
+						if (strchr(ent->fts_name, '.')) {	// nested, has extension -> treat as nested bundle
+							next(ent, rule->flags, relpath, rule);
+							fts_set(mFTS, ent, FTS_SKIP);
+						}
+					} else if (rule->flags & exclusion) {	// exclude the whole directory
+						fts_set(mFTS, ent, FTS_SKIP);
+					}
+					// else treat as normal directory and descend into it
 				}
-				if (!bestRule || rule->weight > bestRule->weight)
-					bestRule = rule;
+			}
+			first = false;
+			break;
+		case FTS_DP:
+			secdebug("rdirenum", "leaving %s", ent->fts_path);
+			break;
+		default:
+			secdebug("rdirenum", "type %d (errno %d): %s",
+				ent->fts_info, ent->fts_errno, ent->fts_path);
+			break;
 		}
-		}
-		if (!bestRule || (bestRule->flags & omitted))
-			continue;
-		rule = bestRule;
-		return ent;
 	}
-	return NULL;
 }
 
 
 //
-// Build the ResourceDirectory given the currently established rule set.
+// Check a single for for inclusion in the resource envelope
 //
-CFDictionaryRef ResourceBuilder::build()
+bool ResourceBuilder::includes(string path) const
 {
-	secdebug("codesign", "start building resource directory");
-	CFRef<CFMutableDictionaryRef> files = makeCFMutableDictionary();
+	if (Rule *rule = findRule(path))
+		return !(rule->flags & (omitted | exclusion));
+	else
+		return false;
+}
 
-	string path;
-	Rule *rule;
-	while (FTSENT *ent = next(path, rule)) {
-		assert(rule);
-		CFRef<CFDataRef> hash = hashFile(ent->fts_accpath);
-		if (rule->flags == 0) {	// default case - plain hash
-			cfadd(files, "{%s=%O}", path.c_str(), hash.get());
-			secdebug("csresource", "%s added simple (rule %p)", path.c_str(), rule);
-		} else {	// more complicated - use a sub-dictionary
-			cfadd(files, "{%s={hash=%O,optional=%B}}",
-				path.c_str(), hash.get(), rule->flags & optional);
-			secdebug("csresource", "%s added complex (rule %p)", path.c_str(), rule);
+
+//
+// Find the best-matching resource rule for an alleged resource file.
+// Returns NULL if no rule matches, or an exclusion rule applies.
+//
+ResourceBuilder::Rule *ResourceBuilder::findRule(string path) const
+{
+	Rule *bestRule = NULL;
+	secdebug("rscan", "test %s", path.c_str());
+	for (Rules::const_iterator it = mRules.begin(); it != mRules.end(); ++it) {
+		Rule *rule = *it;
+		secdebug("rscan", "try %s", rule->source.c_str());
+		if (rule->match(path.c_str())) {
+			secdebug("rscan", "match");
+			if (rule->flags & exclusion) {
+				secdebug("rscan", "excluded");
+				return rule;
+			}
+			if (!bestRule || rule->weight > bestRule->weight)
+				bestRule = rule;
 		}
 	}
-	secdebug("codesign", "finished code directory with %d entries",
-		int(CFDictionaryGetCount(files)));
-	
-	return cfmake<CFDictionaryRef>("{rules=%O,files=%O}", mRawRules.get(), files.get());
+	secdebug("rscan", "choosing %s (%d,0x%x)",
+		bestRule ? bestRule->source.c_str() : "NOTHING",
+		bestRule ? bestRule->weight : 0,
+		bestRule ? bestRule->flags : 0);
+	return bestRule;
 }
 
 
 //
 // Hash a file and return a CFDataRef with the hash
 //
-CFDataRef ResourceBuilder::hashFile(const char *path)
+CFDataRef ResourceBuilder::hashFile(const char *path) const
 {
 	UnixPlusPlus::AutoFileDesc fd(path);
 	fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
@@ -155,7 +206,7 @@ CFDataRef ResourceBuilder::hashFile(const char *path)
 // Regex matching objects
 //
 ResourceBuilder::Rule::Rule(const std::string &pattern, unsigned w, uint32_t f)
-	: weight(w), flags(f)
+	: weight(w), flags(f), source(pattern)
 {
 	if (::regcomp(this, pattern.c_str(), REG_EXTENDED | REG_NOSUB))	//@@@ REG_ICASE?
 		MacOSError::throwMe(errSecCSResourceRulesInvalid);
@@ -198,16 +249,28 @@ std::string ResourceBuilder::escapeRE(const std::string &s)
 // Resource Seals
 //
 ResourceSeal::ResourceSeal(CFTypeRef it)
+	: mDict(NULL), mHash(NULL), mRequirement(NULL), mLink(NULL), mFlags(0)
 {
 	if (it == NULL)
 		MacOSError::throwMe(errSecCSResourcesInvalid);
 	if (CFGetTypeID(it) == CFDataGetTypeID()) {
 		mHash = CFDataRef(it);
-		mOptional = false;
 	} else {
-		mOptional = false;
-		if (!cfscan(it, "{hash=%XO,?optional=%B}", &mHash, &mOptional))
+		int optional = 0;
+		mDict = CFDictionaryRef(it);
+		bool err;
+		if (CFDictionaryGetValue(mDict, CFSTR("requirement")))
+			err = !cfscan(mDict, "{requirement=%SO,?optional=%B}", &mRequirement, &optional);
+		else if (CFDictionaryGetValue(mDict, CFSTR("symlink")))
+			err = !cfscan(mDict, "{symlink=%SO,?optional=%B}", &mLink, &optional);
+		else
+			err = !cfscan(mDict, "{hash=%XO,?optional=%B}", &mHash, &optional);
+		if (err)
 			MacOSError::throwMe(errSecCSResourcesInvalid);
+		if (optional)
+			mFlags |= ResourceBuilder::optional;
+		if (mRequirement)
+			mFlags |= ResourceBuilder::nested;
 	}
 }
 

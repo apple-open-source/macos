@@ -1,5 +1,5 @@
 /*
- * "$Id: sysman.h 7928 2008-09-10 22:14:22Z mike $"
+ * "$Id: sysman.h 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   System management definitions for the CUPS scheduler.
  *
@@ -60,5 +60,5 @@ extern void	cupsdStopSystemMonitor(void);
 
 
 /*
- * End of "$Id: sysman.h 7928 2008-09-10 22:14:22Z mike $".
+ * End of "$Id: sysman.h 11093 2013-07-03 20:48:42Z msweet $".
  */

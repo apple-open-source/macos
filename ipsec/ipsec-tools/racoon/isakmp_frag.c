@@ -86,7 +86,7 @@
 
 int
 isakmp_sendfrags(iph1, buf) 
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	vchar_t *buf;
 {
 	struct isakmp *hdr;
@@ -143,7 +143,7 @@ isakmp_sendfrags(iph1, buf)
 		fraglen = sizeof(*hdr) + sizeof(*fraghdr) + datalen;
 
 		if ((frag = vmalloc(fraglen)) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
+			plog(ASL_LEVEL_ERR, 
 			    "Cannot allocate memory\n");
 			return -1;
 		}
@@ -171,7 +171,7 @@ isakmp_sendfrags(iph1, buf)
 		 allocate a new buffer and release it at the end. */
 		if (extralen) {
 			if ((vbuf = vmalloc(frag->l + extralen)) == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL, 
+				plog(ASL_LEVEL_ERR, 
 					 "%s: vbuf allocation failed\n", __FUNCTION__);
 				vfree(frag);
 				return -1;
@@ -185,7 +185,7 @@ isakmp_sendfrags(iph1, buf)
 
 		if (sendfromto(s, frag->v, frag->l,
 					   iph1->local, iph1->remote, lcconf->count_persend) == -1) {
-			plog(LLV_ERROR, LOCATION, NULL, "%s: sendfromto failed\n", __FUNCTION__);
+			plog(ASL_LEVEL_ERR, "%s: sendfromto failed\n", __FUNCTION__);
 			vfree(frag);
 			return -1;
 		}
@@ -196,7 +196,7 @@ isakmp_sendfrags(iph1, buf)
 		sdata += datalen;
 	}
 
-	plog(LLV_DEBUG2, LOCATION, NULL, 
+	plog(ASL_LEVEL_DEBUG, 
 		 "%s: processed %d fragments\n", __FUNCTION__, fragnum);
 
 	return fragnum;
@@ -216,7 +216,7 @@ vendorid_frag_cap(gen)
 
 int 
 isakmp_frag_extract(iph1, msg)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	struct isakmp *isakmp;
@@ -228,7 +228,7 @@ isakmp_frag_extract(iph1, msg)
 	int i;
 
 	if (msg->l < sizeof(*isakmp) + sizeof(*frag)) {
-		plog(LLV_ERROR, LOCATION, NULL, "Message too short\n");
+		plog(ASL_LEVEL_ERR, "Message too short\n");
 		return -1;
 	}
 
@@ -241,29 +241,29 @@ isakmp_frag_extract(iph1, msg)
 	 */
 	if (msg->l < sizeof(*isakmp) + ntohs(frag->len) ||
 		ntohs(frag->len) < sizeof(*frag) + 1) {
-		plog(LLV_ERROR, LOCATION, NULL, "Fragment too short\n");
+		plog(ASL_LEVEL_ERR, "Fragment too short\n");
 		return -1;
 	}
 
 	if (ntohs(frag->len) < sizeof(*frag)) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "invalid Frag, frag-len %d\n",
 			 ntohs(frag->len));
 		return -1;
 	}
 
 	if ((buf = vmalloc(ntohs(frag->len) - sizeof(*frag))) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "Cannot allocate memory\n");
+		plog(ASL_LEVEL_ERR, "Cannot allocate memory\n");
 		return -1;
 	}
 
 	if ((item = racoon_malloc(sizeof(*item))) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "Cannot allocate memory\n");
+		plog(ASL_LEVEL_ERR, "Cannot allocate memory\n");
 		vfree(buf);
 		return -1;
 	}
-	bzero(item, sizeof(*item));
-
+    bzero(item, sizeof(*item));
+    
 	data = (char *)(frag + 1);
 	memcpy(buf->v, data, buf->l);
 
@@ -272,67 +272,52 @@ isakmp_frag_extract(iph1, msg)
 	item->frag_next = NULL;
 	item->frag_packet = buf;
 	item->frag_id = ntohs(frag->unknown1);
+    
+    plog(ASL_LEVEL_DEBUG,
+		 "%s: received fragment #%d  frag ID=%d  last frag=%d\n",
+            __FUNCTION__, item->frag_num, item->frag_id, item->frag_last);
 
-	/* Look for the last frag while inserting the new item in the chain */
-	if (item->frag_last)
-		last_frag = item->frag_num;
+    /* Insert if new and find the last frag num if present */
+    struct isakmp_frag_item *current;
 
-	if (iph1->frag_chain == NULL) {
-		iph1->frag_chain = item;
-	} else {
-		struct isakmp_frag_item *current;
-		int dup = 0;
+    last_frag = (item->frag_last ? item->frag_num : 0);
+    current = iph1->frag_chain;
+    while (current) {
+        if (current->frag_num == item->frag_num) {  // duplicate?
+            vfree(item->frag_packet);
+            racoon_free(item);
+            return 0;   // already have it
+        }
+        if (current->frag_last)
+            last_frag = current->frag_num;
+        current = current->frag_next;
+    }
+    /* no dup - insert it */
+    item->frag_next = iph1->frag_chain;
+    iph1->frag_chain = item;
 
-		current = iph1->frag_chain;
-		if (!current->frag_next && current->frag_last) {
-			last_frag = current->frag_num;
-		}
-		while (current->frag_next) {
-			if (current->frag_last)
-				last_frag = current->frag_num;
-			if (current->frag_num == item->frag_num) {
-				dup = 1;
-			}
-			current = current->frag_next;
-		}
-		// avoid duplicates
-		if (!dup) {
-			current->frag_next = item;
-		} else {
-			racoon_free(item);
-			vfree(buf);
-			item = NULL;
-			buf = NULL;
-		}
-	}
+    /* Check if the chain is complete   */
+    if (last_frag == 0)
+        return 0;       /* if last_frag not found - chain is not complete */
+    for (i = 1; i <= last_frag; i++) {
+        current = iph1->frag_chain;
+        while (current) {
+            if (current->frag_num == i)
+                break;
+            current = current->frag_next;
+        };
+        if (!current)
+            return 0;   /* chain not complete */
+    }
 
-	/* If we saw the last frag, check if the chain is complete */
-	if (last_frag != 0) {
-		for (i = 1; i <= last_frag; i++) {
-			item = iph1->frag_chain;
-			do {
-				if (item->frag_num == i)
-					break;
-				item = item->frag_next;
-			} while (item != NULL);
-
-			if (item == NULL) /* Not found */
-				break;
-		}
-
-		if (item != NULL) /* It is complete */
-			return 1;
-	}
-
-	plog(LLV_DEBUG2, LOCATION, NULL, 
-		 "%s: processed %d fragments\n", __FUNCTION__, last_frag);
-
-	return 0;
+	plog(ASL_LEVEL_DEBUG, 
+		 "%s: processed fragment %d\n", __FUNCTION__, frag->index);
+	return 1;   /* chain is complete */
 }
 
 vchar_t *
 isakmp_frag_reassembly(iph1)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 {
 	struct isakmp_frag_item *item;
 	size_t len = 0;
@@ -342,7 +327,7 @@ isakmp_frag_reassembly(iph1)
 	char *data;
 
 	if ((item = iph1->frag_chain) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "No fragment to reassemble\n");
+		plog(ASL_LEVEL_ERR, "No fragment to reassemble\n");
 		goto out;
 	}
 
@@ -356,7 +341,7 @@ isakmp_frag_reassembly(iph1)
 	} while (item != NULL);
 	
 	if ((buf = vmalloc(len)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "Cannot allocate memory\n");
+		plog(ASL_LEVEL_ERR, "Cannot allocate memory\n");
 		goto out;
 	}
 	data = buf->v;
@@ -370,17 +355,17 @@ isakmp_frag_reassembly(iph1)
 		} while (item != NULL);
 
 		if (item == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
+			plog(ASL_LEVEL_ERR, 
 			    "Missing fragment #%d\n", i);
 			vfree(buf);
 			buf = NULL;
 			return buf;
-		}
+        }
 		memcpy(data, item->frag_packet->v, item->frag_packet->l);
 		data += item->frag_packet->l;
 	}
 
-	plog(LLV_DEBUG2, LOCATION, NULL, 
+	plog(ASL_LEVEL_DEBUG, 
 		 "%s: processed %d fragments\n", __FUNCTION__, frag_count);
 
 out:
@@ -399,6 +384,7 @@ out:
 
 	iph1->frag_chain = NULL;
 
+    //plogdump(ASL_LEVEL_DEBUG, buf->v, buf->l, "re-assembled fragements:\n");
 	return buf;
 }
 
@@ -415,7 +401,7 @@ isakmp_frag_addcap(buf, cap)
 	len = buf->l;
 	if (len == hashlen_bytes) {
 		if ((buf = vrealloc(buf, len + sizeof(cap))) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
+			plog(ASL_LEVEL_ERR, 
 			    "Cannot allocate memory\n");
 			return NULL;
 		}
@@ -482,7 +468,7 @@ sendfragsfromto(s, buf, local, remote, count_persend, frag_flags)
 		fraglen = sizeof(*hdr) + sizeof(*fraghdr) + datalen;
 
 		if ((frag = vmalloc(fraglen)) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
+			plog(ASL_LEVEL_ERR, 
 				 "Cannot allocate memory\n");
 			return -1;
 		}
@@ -513,7 +499,7 @@ sendfragsfromto(s, buf, local, remote, count_persend, frag_flags)
 			vchar_t *vbuf;
 			
 			if ((vbuf = vmalloc(frag->l + extralen)) == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL, 
+				plog(ASL_LEVEL_ERR, 
 					 "%s: vbuf allocation failed\n", __FUNCTION__);
 				vfree(frag);
 				return -1;
@@ -526,7 +512,7 @@ sendfragsfromto(s, buf, local, remote, count_persend, frag_flags)
 #endif
 
 		if (sendfromto(s, frag->v, frag->l, local, remote, count_persend) == -1) {
-			plog(LLV_ERROR, LOCATION, NULL, "sendfromto failed\n");
+			plog(ASL_LEVEL_ERR, "sendfromto failed\n");
 			vfree(frag);
 			return -1;
 		}
@@ -537,7 +523,7 @@ sendfragsfromto(s, buf, local, remote, count_persend, frag_flags)
 		sdata += datalen;
 	}
 
-	plog(LLV_DEBUG2, LOCATION, NULL, 
+	plog(ASL_LEVEL_DEBUG, 
 		 "%s: processed %d fragments\n", __FUNCTION__, fragnum);
 
 	return fragnum;

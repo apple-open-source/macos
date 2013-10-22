@@ -63,6 +63,7 @@
 				72FD18F81015541C00277ED4 /* PBXTargetDependency */,
 				230560F605E1808C00EAB16F /* PBXTargetDependency */,
 				230560FA05E1808C00EAB16F /* PBXTargetDependency */,
+				B0AE78B01744342200840C25 /* PBXTargetDependency */,
 			);
 			name = "Helpers (Aggregate)";
 			productName = "Helpers (Aggregate)";
@@ -123,6 +124,7 @@
 				72C265CE0D412950003A6CE8 /* PBXTargetDependency */,
 				81937EB5107EC4B100EEE3F8 /* PBXTargetDependency */,
 				72DA28211151704B0028754B /* PBXTargetDependency */,
+				B07ACE0117459A0000DAF35A /* PBXTargetDependency */,
 			);
 			name = "Helpers (Aggregate) EMBEDDED";
 			productName = "Helpers (Aggregate)";
@@ -223,6 +225,7 @@
 		23055FBF05E1808200EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = F5BDED7703CE029B01CA2DE3 /* main.c */; };
 		23055FC105E1808200EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5C000D203E73F4101CA2DE3 /* CoreFoundation.framework */; };
 		23055FC805E1808200EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
+		23055FCA05E1808200EAB16F /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 018CF39F00BDC8447F000001 /* NetworkConnect.icns */; };
 		23055FCC05E1808200EAB16F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F52C515801F3540C01CA2DE5 /* Localizable.strings */; };
 		23055FCE05E1808200EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = F5592B7E01E2B47B01EA6C3B /* main.c */; };
 		23055FD005E1808200EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
@@ -356,7 +359,7 @@
 		230560CA05E1808B00EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		230560CC05E1808B00EAB16F /* chat.c in Sources */ = {isa = PBXBuildFile; fileRef = 23F53318052E175A0011A2BC /* chat.c */; };
 		230560D005E1808B00EAB16F /* chat.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23F53317052E175A0011A2BC /* chat.8 */; };
-		2305610A05E1808C00EAB16F /* PPPDialogs.ppp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23055F8C05E1808100EAB16F /* PPPDialogs.ppp */; };
+		2305610A05E1808C00EAB16F /* PPPDialogs.ppp in Copy Files */ = {isa = PBXBuildFile; fileRef = 23055F8C05E1808100EAB16F /* PPPDialogs.ppp */; };
 		2305610C05E1808C00EAB16F /* PPPoE.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23055F4705E1808000EAB16F /* PPPoE.kext */; };
 		2305610D05E1808C00EAB16F /* PPPoE.vpn in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23055F5405E1808000EAB16F /* PPPoE.vpn */; };
 		2305610F05E1808C00EAB16F /* PPTP.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23055FB905E1808200EAB16F /* PPTP.kext */; };
@@ -404,7 +407,7 @@
 		23B70769061B74AF008BA483 /* scnc_mach_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B70764061B74AE008BA483 /* scnc_mach_server.c */; };
 		23B7076A061B74AF008BA483 /* scnc_mach_server.h in Headers */ = {isa = PBXBuildFile; fileRef = 23B70765061B74AE008BA483 /* scnc_mach_server.h */; };
 		23B7076C061B74AF008BA483 /* pppcontroller_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 23B70767061B74AE008BA483 /* pppcontroller_types.h */; };
-		23B7076D061B74AF008BA483 /* pppcontroller.defs in Sources */ = {isa = PBXBuildFile; fileRef = 23B70768061B74AE008BA483 /* pppcontroller.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
+		23B7076D061B74AF008BA483 /* pppcontroller.defs in Sources */ = {isa = PBXBuildFile; fileRef = 23B70768061B74AE008BA483 /* pppcontroller.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		23B70900061CA53B008BA483 /* scnc_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B708FF061CA53B008BA483 /* scnc_utils.c */; };
 		23B70909061CA5B6008BA483 /* scnc_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 23B70908061CA5B6008BA483 /* scnc_utils.h */; };
 		23C5A61206F280A90082320C /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 23C5A60E06F280A90082320C /* InfoPlist.strings */; };
@@ -421,21 +424,35 @@
 		7202B3FA114EF02700FD3AA2 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB13A0235C9C70160DF93 /* SystemConfiguration.framework */; };
 		7202B3FB114EF02700FD3AA2 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
 		7202B3FC114EF02700FD3AA2 /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
+		7208653116A762D7004A5747 /* controller_options.c in Sources */ = {isa = PBXBuildFile; fileRef = 7208653016A762D7004A5747 /* controller_options.c */; };
+		7208653216A762D7004A5747 /* controller_options.c in Sources */ = {isa = PBXBuildFile; fileRef = 7208653016A762D7004A5747 /* controller_options.c */; };
+		7208653416A762F0004A5747 /* controller_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 7208653316A762F0004A5747 /* controller_options.h */; };
+		7208653516A762F0004A5747 /* controller_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 7208653316A762F0004A5747 /* controller_options.h */; };
+		720C564714E0999B008B1CDE /* network_detection.c in Sources */ = {isa = PBXBuildFile; fileRef = 720C564614E0999B008B1CDE /* network_detection.c */; };
+		720C564814E0999B008B1CDE /* network_detection.c in Sources */ = {isa = PBXBuildFile; fileRef = 720C564614E0999B008B1CDE /* network_detection.c */; };
 		72117C6409EC519A008EC1A2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
+		7228853616C062D800E8090E /* sandbox_info.m in Sources */ = {isa = PBXBuildFile; fileRef = 7228853516C062D800E8090E /* sandbox_info.m */; };
 		723074571161275A004C0871 /* vpn_environment.c in Sources */ = {isa = PBXBuildFile; fileRef = 723074551161275A004C0871 /* vpn_environment.c */; };
 		723074581161275A004C0871 /* vpn_environment.h in Headers */ = {isa = PBXBuildFile; fileRef = 723074561161275A004C0871 /* vpn_environment.h */; };
 		723074591161275A004C0871 /* vpn_environment.c in Sources */ = {isa = PBXBuildFile; fileRef = 723074551161275A004C0871 /* vpn_environment.c */; };
 		7230745A1161275A004C0871 /* vpn_environment.h in Headers */ = {isa = PBXBuildFile; fileRef = 723074561161275A004C0871 /* vpn_environment.h */; };
+		723EC005164C76FF003D5EB3 /* sbslauncher.m in Sources */ = {isa = PBXBuildFile; fileRef = 83F592FA0F6B38C900B1E1AE /* sbslauncher.m */; };
+		723EC008164C76FF003D5EB3 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
+		723EC00B164C76FF003D5EB3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8179206711124814005B9F24 /* Foundation.framework */; };
+		723EC00C164C76FF003D5EB3 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D95F5914F7358E002A7614 /* CFNetwork.framework */; };
 		723FE96709E5C4AA00845480 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
 		7249BFC112A9518100FB4435 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
 		7251DFEF09212AAA00B94FFF /* radius_eap.c in Sources */ = {isa = PBXBuildFile; fileRef = 7251DFEE09212AAA00B94FFF /* radius_eap.c */; };
 		7251E01309212CF000B94FFF /* radius.h in Headers */ = {isa = PBXBuildFile; fileRef = 7251E01209212CF000B94FFF /* radius.h */; };
+		72584E201726019800C7EBE8 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */; };
 		725D8ABC0DA5C12400017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8ABA0DA5C12400017E37 /* Localizable.strings */; };
 		725D8AC30DA5C14800017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8AC10DA5C14800017E37 /* Localizable.strings */; };
 		725D8AD50DA5C45700017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8AD30DA5C45700017E37 /* Localizable.strings */; };
 		7273078E11611E7100395F26 /* net_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 7273078C11611E7100395F26 /* net_utils.c */; };
 		7273078F11611E7100395F26 /* net_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 7273078C11611E7100395F26 /* net_utils.c */; };
 		7273079011611E7100395F26 /* net_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 7273078C11611E7100395F26 /* net_utils.c */; };
+		727412031728A3E700221EE3 /* diagnostics.c in Sources */ = {isa = PBXBuildFile; fileRef = 727412021728A2A600221EE3 /* diagnostics.c */; };
+		727612B416AF16340095EF4B /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 727612B316AF16340095EF4B /* MobileCoreServices.framework */; };
 		728CB6300D404ECD00B1964E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		728CB6400D404F6600B1964E /* pptp.h in Headers */ = {isa = PBXBuildFile; fileRef = FAD305DC029D629504CA2CDC /* pptp.h */; };
 		728CB6410D404F6600B1964E /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
@@ -470,7 +487,8 @@
 		7290FEBF0D3318CC0027CEAD /* pppcontroller.h in Headers */ = {isa = PBXBuildFile; fileRef = 23022727062DA4C10033908D /* pppcontroller.h */; };
 		7290FEC00D3318CC0027CEAD /* ipsec_manager.h in Headers */ = {isa = PBXBuildFile; fileRef = 23EC33990CD7E4BB005AB2A9 /* ipsec_manager.h */; };
 		7290FEC10D3318CC0027CEAD /* scnc_main.h in Headers */ = {isa = PBXBuildFile; fileRef = 23EC340A0CD94AFE005AB2A9 /* scnc_main.h */; };
-		7290FEC60D3318CC0027CEAD /* pppcontroller.defs in Sources */ = {isa = PBXBuildFile; fileRef = 23B70768061B74AE008BA483 /* pppcontroller.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
+		7290FEC40D3318CC0027CEAD /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0D977A4500C8596D7F000001 /* NetworkConnect.icns */; };
+		7290FEC60D3318CC0027CEAD /* pppcontroller.defs in Sources */ = {isa = PBXBuildFile; fileRef = 23B70768061B74AE008BA483 /* pppcontroller.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		7290FEC70D3318CC0027CEAD /* ipsec_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 2395013C06504CF800ECAC9B /* ipsec_utils.c */; };
 		7290FEC80D3318CC0027CEAD /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = FA76575503EB2B7504CA2DDA /* pfkey.c */; };
 		7290FEC90D3318CC0027CEAD /* ppp_getoption.c in Sources */ = {isa = PBXBuildFile; fileRef = 7129A45CFFF956F311CA2CDC /* ppp_getoption.c */; settings = {ATTRIBUTES = (); }; };
@@ -489,6 +507,12 @@
 		72A56F870D1B58EB00DFDE1E /* ipsec_strerror.h in Headers */ = {isa = PBXBuildFile; fileRef = FA76575303EB2B7504CA2DDA /* ipsec_strerror.h */; };
 		72A56FF10D1B5E2300DFDE1E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		72A570130D1B5E9400DFDE1E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
+		72AD6D26164D88C000ADE57C /* sbslauncher in CopyFiles */ = {isa = PBXBuildFile; fileRef = 723EC011164C76FF003D5EB3 /* sbslauncher */; };
+		72B280F214E45A6B00EBDC05 /* network_detection.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B280F114E45A6B00EBDC05 /* network_detection.h */; };
+		72B280F314E45A6B00EBDC05 /* network_detection.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B280F114E45A6B00EBDC05 /* network_detection.h */; };
+		72B41EC515ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
+		72B41EC615ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
+		72B41EC715ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
 		72B9DBF00F6DEFD3006DFE11 /* SpringBoardServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */; };
 		72BE352510A0C29900F4849C /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
 		72BE36B810A11F3800F4849C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
@@ -550,12 +574,15 @@
 		72D07F270A65A7D0009D1FA4 /* vpn_control.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D07F260A65A7D0009D1FA4 /* vpn_control.h */; };
 		72D07F280A65A7D0009D1FA4 /* vpn_control.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D07F260A65A7D0009D1FA4 /* vpn_control.h */; };
 		72D35601112F7EF9000F1B65 /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
+		72D95F5A14F7358E002A7614 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D95F5914F7358E002A7614 /* CFNetwork.framework */; };
 		72DC04C1115834E700CEA5A9 /* vpnagent.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72DC04BA1158348E00CEA5A9 /* vpnagent.8 */; };
 		72DC04C2115834F800CEA5A9 /* vpnagent.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72DC04BA1158348E00CEA5A9 /* vpnagent.8 */; };
 		72DCD75D1149BBE900B25E3A /* vpn_configuration.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DCD75B1149BBE900B25E3A /* vpn_configuration.c */; };
 		72DCD75F1149BBE900B25E3A /* vpn_configuration.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DCD75B1149BBE900B25E3A /* vpn_configuration.c */; };
 		72DE9C74101551E600DF2440 /* ipsec_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 2395013C06504CF800ECAC9B /* ipsec_utils.c */; };
 		72E07C47103E387600E4241C /* vpnd.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72E07C3B103E376900E4241C /* vpnd.5 */; };
+		72E8662E16BC4D8600AB05E3 /* AppSandbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E8662D16BC4D8600AB05E3 /* AppSandbox.framework */; };
+		72E8663016BC4DC600AB05E3 /* AppContainer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72E8662F16BC4DC600AB05E3 /* AppContainer.framework */; };
 		72E8A03712973B36002DD098 /* vpn-plugins.sb in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72E8A03412973AE5002DD098 /* vpn-plugins.sb */; };
 		72F5EB630D4721600078F2B3 /* PPPControllerPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */; };
 		72FDE4750D4124C4007C4F13 /* if_ppp.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C5C00754CF87F000001 /* if_ppp.h */; };
@@ -605,8 +632,15 @@
 		72FDE4DB0D412522007C4F13 /* pptp_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = F58FB66D018A6B6A01CA2DD5 /* pptp_rfc.c */; };
 		72FDE4DC0D412522007C4F13 /* ppp_mppe.c in Sources */ = {isa = PBXBuildFile; fileRef = F582B56D018FBC5201DBB4AA /* ppp_mppe.c */; };
 		72FDE5000D41256B007C4F13 /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
+		72FDE5030D41256B007C4F13 /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 018CF39F00BDC8447F000001 /* NetworkConnect.icns */; };
 		72FDE5050D41256B007C4F13 /* Dialogs.c in Sources */ = {isa = PBXBuildFile; fileRef = 071EC564009888F57F000001 /* Dialogs.c */; };
 		72FDE5070D41256B007C4F13 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
+		7827408617049C71006CF9E1 /* scnc_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 7827408517049C71006CF9E1 /* scnc_cache.c */; };
+		7827408717049C71006CF9E1 /* scnc_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 7827408517049C71006CF9E1 /* scnc_cache.c */; };
+		7827408917049C93006CF9E1 /* scnc_cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 7827408817049C93006CF9E1 /* scnc_cache.h */; };
+		7827408A17049C93006CF9E1 /* scnc_cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 7827408817049C93006CF9E1 /* scnc_cache.h */; };
+		78CFEBA81703655700CB6E65 /* network_detection_helper.m in Sources */ = {isa = PBXBuildFile; fileRef = 78CFEBA71703655700CB6E65 /* network_detection_helper.m */; };
+		78CFEBA91703655700CB6E65 /* network_detection_helper.m in Sources */ = {isa = PBXBuildFile; fileRef = 78CFEBA71703655700CB6E65 /* network_detection_helper.m */; };
 		8135E2BB139967E600C0C449 /* sbslauncher in CopyFiles */ = {isa = PBXBuildFile; fileRef = 83F592D40F6B376D00B1E1AE /* sbslauncher */; };
 		813F1F6E11168087005AB6C7 /* StoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81CF182E111126D500D53EB8 /* StoreServices.framework */; };
 		813F1F6F1116809D005AB6C7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8179206711124814005B9F24 /* Foundation.framework */; };
@@ -632,14 +666,70 @@
 		83467A260DCFE8FC00FCABA3 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */; };
 		8376A9630DCA88ED0084EA79 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */; };
 		83F592FB0F6B38C900B1E1AE /* sbslauncher.m in Sources */ = {isa = PBXBuildFile; fileRef = 83F592FA0F6B38C900B1E1AE /* sbslauncher.m */; };
+		9AFD09B217305E94003BF988 /* scnc_utils_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AFD09B017305E58003BF988 /* scnc_utils_common.c */; };
+		9AFD09B317305EC2003BF988 /* scnc_utils_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AFD09B017305E58003BF988 /* scnc_utils_common.c */; };
+		9AFD09B417305EC8003BF988 /* scnc_utils_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AFD09B017305E58003BF988 /* scnc_utils_common.c */; };
+		9AFD09B517305ECD003BF988 /* scnc_utils_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AFD09B017305E58003BF988 /* scnc_utils_common.c */; };
+		B02A237717709EEB00B228B9 /* com.apple.snhelper.sb in CopyFiles */ = {isa = PBXBuildFile; fileRef = B02A237417709E7D00B228B9 /* com.apple.snhelper.sb */; };
+		B07ACDF4174599B300DAF35A /* flow_divert.c in Sources */ = {isa = PBXBuildFile; fileRef = B0AE789717442EC700840C25 /* flow_divert.c */; };
+		B07ACDF5174599B300DAF35A /* snhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = B0AE789917442EC700840C25 /* snhelper.c */; };
+		B07ACDF7174599B300DAF35A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
+		B07ACDF8174599B300DAF35A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
+		B07ACDFA174599B300DAF35A /* com.apple.snhelper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B0AE789617442EC700840C25 /* com.apple.snhelper.plist */; };
+		B089692B164038E000E79570 /* pppcontroller_mach_defines.h in Headers */ = {isa = PBXBuildFile; fileRef = B08969281640385600E79570 /* pppcontroller_mach_defines.h */; };
+		B089692C164038FB00E79570 /* pppcontroller_mach_defines.h in Headers */ = {isa = PBXBuildFile; fileRef = B08969281640385600E79570 /* pppcontroller_mach_defines.h */; };
+		B089692D1640390900E79570 /* pppcontroller_mach_defines.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B08969281640385600E79570 /* pppcontroller_mach_defines.h */; };
+		B089692F1640392F00E79570 /* app_layer.h in Headers */ = {isa = PBXBuildFile; fileRef = B089692E1640392F00E79570 /* app_layer.h */; };
+		B08969301640392F00E79570 /* app_layer.h in Headers */ = {isa = PBXBuildFile; fileRef = B089692E1640392F00E79570 /* app_layer.h */; };
+		B08969321640394500E79570 /* app_layer.c in Sources */ = {isa = PBXBuildFile; fileRef = B08969311640394500E79570 /* app_layer.c */; };
+		B08969331640394500E79570 /* app_layer.c in Sources */ = {isa = PBXBuildFile; fileRef = B08969311640394500E79570 /* app_layer.c */; };
+		B096EC3F171DFC6E00EE4713 /* fd_exchange.c in Sources */ = {isa = PBXBuildFile; fileRef = B096EC3B171DFC6E00EE4713 /* fd_exchange.c */; };
+		B096EC40171DFC6E00EE4713 /* fd_exchange.c in Sources */ = {isa = PBXBuildFile; fileRef = B096EC3B171DFC6E00EE4713 /* fd_exchange.c */; };
+		B096EC41171DFC6E00EE4713 /* fd_exchange.c in Sources */ = {isa = PBXBuildFile; fileRef = B096EC3B171DFC6E00EE4713 /* fd_exchange.c */; };
+		B096EC42171DFC6E00EE4713 /* fd_exchange.c in Sources */ = {isa = PBXBuildFile; fileRef = B096EC3B171DFC6E00EE4713 /* fd_exchange.c */; };
+		B096EC43171DFC6E00EE4713 /* fd_exchange.c in Sources */ = {isa = PBXBuildFile; fileRef = B096EC3B171DFC6E00EE4713 /* fd_exchange.c */; };
+		B096EC44171DFC6E00EE4713 /* fd_exchange.h in Headers */ = {isa = PBXBuildFile; fileRef = B096EC3C171DFC6E00EE4713 /* fd_exchange.h */; };
+		B096EC45171DFC6E00EE4713 /* fd_exchange.h in Headers */ = {isa = PBXBuildFile; fileRef = B096EC3C171DFC6E00EE4713 /* fd_exchange.h */; };
+		B0AE78AB1744333800840C25 /* flow_divert.c in Sources */ = {isa = PBXBuildFile; fileRef = B0AE789717442EC700840C25 /* flow_divert.c */; };
+		B0AE78AC1744333800840C25 /* snhelper.c in Sources */ = {isa = PBXBuildFile; fileRef = B0AE789917442EC700840C25 /* snhelper.c */; };
+		B0AE78AE1744337F00840C25 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
+		B0AE78B21744346E00840C25 /* com.apple.snhelper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B0AE789617442EC700840C25 /* com.apple.snhelper.plist */; };
+		B0AE78B617443BA200840C25 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
+		B0C78051168501D900537A2F /* behaviors.c in Sources */ = {isa = PBXBuildFile; fileRef = B0C78050168501D900537A2F /* behaviors.c */; };
+		B0C78052168501D900537A2F /* behaviors.c in Sources */ = {isa = PBXBuildFile; fileRef = B0C78050168501D900537A2F /* behaviors.c */; };
+		B0C78054168501F100537A2F /* behaviors.h in Headers */ = {isa = PBXBuildFile; fileRef = B0C78053168501F100537A2F /* behaviors.h */; };
+		B0C78055168501F100537A2F /* behaviors.h in Headers */ = {isa = PBXBuildFile; fileRef = B0C78053168501F100537A2F /* behaviors.h */; };
+		B0C780591685021400537A2F /* behaviors_check_asset.m in Sources */ = {isa = PBXBuildFile; fileRef = B0C780571685021400537A2F /* behaviors_check_asset.m */; };
+		B0C7805C168502B400537A2F /* MobileAsset.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0C7805A1685029D00537A2F /* MobileAsset.framework */; };
+		B0C7805F168502D400537A2F /* AppSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0C7805D168502C900537A2F /* AppSupport.framework */; };
+		B0C780621685043D00537A2F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0C780601685043100537A2F /* SystemConfiguration.framework */; };
+		B0F8AFCB16A074D500545847 /* pppcontroller_types.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23B70767061B74AE008BA483 /* pppcontroller_types.h */; };
+		B0F8AFCC16A074D500545847 /* pppcontroller.defs in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23B70768061B74AE008BA483 /* pppcontroller.defs */; };
+		B0F8AFCD16A074D500545847 /* ppp_msg.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7129A448FFF956F311CA2CDC /* ppp_msg.h */; };
+		B0F8AFCE16A074D500545847 /* if_ppplink.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5D00754CF87F000001 /* if_ppplink.h */; };
+		B0F8AFCF16A074D500545847 /* if_ppp.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5C00754CF87F000001 /* if_ppp.h */; };
+		B0F8AFD016A074D500545847 /* ppp_defs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5F00754CF87F000001 /* ppp_defs.h */; };
+		B0F8AFD116A074D500545847 /* ppp_comp.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C6600754CF87F000001 /* ppp_comp.h */; };
+		B0F8AFD216A074D500545847 /* RASSchemaDefinitions.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2562EB580469B8D2005239BE /* RASSchemaDefinitions.h */; };
+		B0F8AFD316A074D500545847 /* eap_plugin.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2364AD260466D36B00A8C900 /* eap_plugin.h */; };
+		B0F8AFD416A074D500545847 /* pppcontroller_mach_defines.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B08969281640385600E79570 /* pppcontroller_mach_defines.h */; };
+		B0F8AFD516A074D500545847 /* PPPControllerPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */; };
 		BA1E33C50F3FFDF200E52690 /* messageTracer.h in Headers */ = {isa = PBXBuildFile; fileRef = BA1E33C20F3FFDF200E52690 /* messageTracer.h */; };
 		BA1E33C60F3FFDF200E52690 /* sessionTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA1E33C30F3FFDF200E52690 /* sessionTracer.c */; };
 		BA1E33C70F3FFDF200E52690 /* sessionTracer.h in Headers */ = {isa = PBXBuildFile; fileRef = BA1E33C40F3FFDF200E52690 /* sessionTracer.h */; };
 		BA6C4EA210D49581001D4B22 /* net_location.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6C4EA110D49581001D4B22 /* net_location.c */; };
 		BA6C4EA310D49581001D4B22 /* net_location.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6C4EA110D49581001D4B22 /* net_location.c */; };
 		BA6C4F2410D4BD89001D4B22 /* Apple80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAB4969610CC6007007B830C /* Apple80211.framework */; };
+		BA8B563C14E089FB00697D55 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA8B563B14E089FB00697D55 /* Security.framework */; };
+		BA8B563D14E08A1000697D55 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA8B563B14E089FB00697D55 /* Security.framework */; };
 		BAC29FA510D493F9007AC660 /* nat_port_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC29FA410D493F9007AC660 /* nat_port_mapping.c */; };
 		BAC29FA610D493F9007AC660 /* nat_port_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC29FA410D493F9007AC660 /* nat_port_mapping.c */; };
+		C447EC8E160283EB00CF047A /* flow_divert_controller.c in Sources */ = {isa = PBXBuildFile; fileRef = C447EC8D160283EB00CF047A /* flow_divert_controller.c */; };
+		C447EC8F160283EB00CF047A /* flow_divert_controller.c in Sources */ = {isa = PBXBuildFile; fileRef = C447EC8D160283EB00CF047A /* flow_divert_controller.c */; };
+		C4D868D916C06D1D00ECF818 /* reachability.c in Sources */ = {isa = PBXBuildFile; fileRef = C4D868D816C06D1200ECF818 /* reachability.c */; };
+		C4D868DA16C06D2300ECF818 /* reachability.c in Sources */ = {isa = PBXBuildFile; fileRef = C4D868D816C06D1200ECF818 /* reachability.c */; };
+		C4D868DC16C06D4200ECF818 /* reachability.h in Headers */ = {isa = PBXBuildFile; fileRef = C4D868DB16C06D3900ECF818 /* reachability.h */; };
+		C4D868DD16C06D4500ECF818 /* reachability.h in Headers */ = {isa = PBXBuildFile; fileRef = C4D868DB16C06D3900ECF818 /* reachability.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -825,6 +915,13 @@
 			remoteGlobalIDString = 2342E4A006DA523D0019B94A;
 			remoteInfo = "EAP-KRB (Plugin)";
 		};
+		723EC012164C7742003D5EB3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 723EC003164C76FF003D5EB3;
+			remoteInfo = "sbslauncher (Tool)";
+		};
 		728CB6350D404EFE00B1964E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
@@ -944,6 +1041,20 @@
 			remoteGlobalIDString = 83F592D30F6B376D00B1E1AE;
 			remoteInfo = SBSLauncher;
 		};
+		B07ACE0017459A0000DAF35A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B07ACDF2174599B300DAF35A;
+			remoteInfo = "snhelper (Tool) EMBEDDED";
+		};
+		B0AE78AF1744342200840C25 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B0AE789C17442F4C00840C25;
+			remoteInfo = "snhelper (Tool)";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -967,14 +1078,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		23055EEE05E1807F00EAB16F /* CopyFiles */ = {
+		23055EEE05E1807F00EAB16F /* Copy Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				2305610A05E1808C00EAB16F /* PPPDialogs.ppp in CopyFiles */,
+				2305610A05E1808C00EAB16F /* PPPDialogs.ppp in Copy Files */,
 			);
+			name = "Copy Files";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		23055F1C05E1807F00EAB16F /* CopyFiles */ = {
@@ -1064,6 +1176,7 @@
 				2305604905E1808400EAB16F /* ppp_comp.h in CopyFiles */,
 				2305604A05E1808400EAB16F /* RASSchemaDefinitions.h in CopyFiles */,
 				2305604B05E1808400EAB16F /* eap_plugin.h in CopyFiles */,
+				B089692D1640390900E79570 /* pppcontroller_mach_defines.h in CopyFiles */,
 				72F5EB630D4721600078F2B3 /* PPPControllerPriv.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -1138,6 +1251,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		72AD6D25164D88B300ADE57C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				72AD6D26164D88C000ADE57C /* sbslauncher in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		72C265C00D412932003A6CE8 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -1188,6 +1311,56 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B02A237617709EB300B228B9 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Sandbox/Profiles;
+			dstSubfolderSpec = 0;
+			files = (
+				B02A237717709EEB00B228B9 /* com.apple.snhelper.sb in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B07ACDF9174599B300DAF35A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				B07ACDFA174599B300DAF35A /* com.apple.snhelper.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B0AE78B11744345500840C25 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				B0AE78B21744346E00840C25 /* com.apple.snhelper.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B0F8AFCA16A074D500545847 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = $INSTALL_PATH;
+			dstSubfolderSpec = 0;
+			files = (
+				B0F8AFCB16A074D500545847 /* pppcontroller_types.h in CopyFiles */,
+				B0F8AFCC16A074D500545847 /* pppcontroller.defs in CopyFiles */,
+				B0F8AFCD16A074D500545847 /* ppp_msg.h in CopyFiles */,
+				B0F8AFCE16A074D500545847 /* if_ppplink.h in CopyFiles */,
+				B0F8AFCF16A074D500545847 /* if_ppp.h in CopyFiles */,
+				B0F8AFD016A074D500545847 /* ppp_defs.h in CopyFiles */,
+				B0F8AFD116A074D500545847 /* ppp_comp.h in CopyFiles */,
+				B0F8AFD216A074D500545847 /* RASSchemaDefinitions.h in CopyFiles */,
+				B0F8AFD316A074D500545847 /* eap_plugin.h in CopyFiles */,
+				B0F8AFD416A074D500545847 /* pppcontroller_mach_defines.h in CopyFiles */,
+				B0F8AFD516A074D500545847 /* PPPControllerPriv.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -1226,9 +1399,11 @@
 		014A7C8400754E8E7F000001 /* pppoe_rfc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppoe_rfc.h; path = "Drivers/PPPoE/PPPoE-extension/pppoe_rfc.h"; sourceTree = SOURCE_ROOT; };
 		014A7C8500754E8E7F000001 /* pppoe_wan.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppoe_wan.h; path = "Drivers/PPPoE/PPPoE-extension/pppoe_wan.h"; sourceTree = SOURCE_ROOT; };
 		014A7C8600754E8E7F000001 /* PPPoE.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PPPoE.h; path = "Drivers/PPPoE/PPPoE-extension/PPPoE.h"; sourceTree = SOURCE_ROOT; };
+		018CF39F00BDC8447F000001 /* NetworkConnect.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = NetworkConnect.icns; path = Dialogs/NetworkConnect.icns; sourceTree = SOURCE_ROOT; };
 		01A345D600C4684A7F000001 /* scnc_client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = scnc_client.c; path = Controller/scnc_client.c; sourceTree = "<group>"; };
 		071EC564009888F57F000001 /* Dialogs.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = Dialogs.c; path = Dialogs/Dialogs.c; sourceTree = SOURCE_ROOT; };
 		071EC567009889367F000001 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = Dialogs/English.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
+		0D977A4500C8596D7F000001 /* NetworkConnect.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = NetworkConnect.icns; sourceTree = "<group>"; };
 		23022727062DA4C10033908D /* pppcontroller.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppcontroller.h; path = "ppp.build/PPPController (Bundle).build/DerivedSources/pppcontroller.h"; sourceTree = BUILT_PRODUCTS_DIR; };
 		23055EF205E1807F00EAB16F /* PPPController-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "PPPController-Info.plist"; path = "Controller/PPPController-Info.plist"; sourceTree = SOURCE_ROOT; };
 		23055EF305E1807F00EAB16F /* PPPController.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPPController.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1348,8 +1523,13 @@
 		72047526101FE0A200E486DB /* vpnagent_control.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vpnagent_control.h; path = vpnagent/vpnagent_control.h; sourceTree = "<group>"; };
 		72047527101FE0A200E486DB /* vpnagent_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vpnagent_utils.h; path = vpnagent/vpnagent_utils.h; sourceTree = "<group>"; };
 		72047528101FE0A200E486DB /* vpnagent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vpnagent.h; path = vpnagent/vpnagent.h; sourceTree = "<group>"; };
+		7208653016A762D7004A5747 /* controller_options.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = controller_options.c; path = Controller/controller_options.c; sourceTree = "<group>"; };
+		7208653316A762F0004A5747 /* controller_options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = controller_options.h; sourceTree = "<group>"; };
+		720C564614E0999B008B1CDE /* network_detection.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = network_detection.c; path = Controller/network_detection.c; sourceTree = "<group>"; };
+		7228853516C062D800E8090E /* sandbox_info.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = sandbox_info.m; path = sbslauncher/sandbox_info.m; sourceTree = "<group>"; };
 		723074551161275A004C0871 /* vpn_environment.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_environment.c; path = Controller/vpn_environment.c; sourceTree = "<group>"; };
 		723074561161275A004C0871 /* vpn_environment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_environment.h; sourceTree = "<group>"; };
+		723EC011164C76FF003D5EB3 /* sbslauncher */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sbslauncher; sourceTree = BUILT_PRODUCTS_DIR; };
 		7240E44B152617B2001F555F /* NetworkConnect_128x128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_128x128.png; sourceTree = "<group>"; };
 		7240E44C152617B2001F555F /* NetworkConnect_128x128@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_128x128@2x.png"; sourceTree = "<group>"; };
 		7240E44D152617B2001F555F /* NetworkConnect_16x16.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_16x16.png; sourceTree = "<group>"; };
@@ -1362,32 +1542,48 @@
 		7240E454152617B2001F555F /* NetworkConnect_512x512@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_512x512@2x.png"; sourceTree = "<group>"; };
 		7251DFEE09212AAA00B94FFF /* radius_eap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = radius_eap.c; path = Authenticators/Radius/radius_eap.c; sourceTree = "<group>"; };
 		7251E01209212CF000B94FFF /* radius.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = radius.h; path = Authenticators/Radius/radius.h; sourceTree = "<group>"; };
+		72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AggregateDictionary.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/AggregateDictionary.framework; sourceTree = DEVELOPER_DIR; };
 		725D8ABB0DA5C12400017E37 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = EMBEDDED/English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		725D8AC20DA5C14800017E37 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		725D8AD40DA5C45700017E37 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = Dialogs/EMBEDDED/English.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
 		7273078C11611E7100395F26 /* net_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = net_utils.c; path = vpnagent/net_utils.c; sourceTree = "<group>"; };
 		7273078D11611E7100395F26 /* net_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = net_utils.h; path = vpnagent/net_utils.h; sourceTree = "<group>"; };
+		727412011728A2A600221EE3 /* diagnostics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = diagnostics.h; path = Controller/diagnostics.h; sourceTree = "<group>"; };
+		727412021728A2A600221EE3 /* diagnostics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = diagnostics.c; path = Controller/diagnostics.c; sourceTree = "<group>"; };
+		727612B316AF16340095EF4B /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/Frameworks/MobileCoreServices.framework; sourceTree = DEVELOPER_DIR; };
 		728CB6530D404F6600B1964E /* PPTP.ppp */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPTP.ppp; sourceTree = BUILT_PRODUCTS_DIR; };
 		728CB6870D404F8C00B1964E /* L2TP.ppp */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = L2TP.ppp; sourceTree = BUILT_PRODUCTS_DIR; };
 		7290FEDD0D3318CC0027CEAD /* PPPController.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPPController.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		7293B86216D55628003A69B0 /* vpnagent-entitlement-dev-embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "vpnagent-entitlement-dev-embedded.plist"; path = "vpnagent/vpnagent-entitlement-dev-embedded.plist"; sourceTree = "<group>"; };
+		7293B86316D55638003A69B0 /* vpnagent-entitlement-embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "vpnagent-entitlement-embedded.plist"; path = "vpnagent/vpnagent-entitlement-embedded.plist"; sourceTree = "<group>"; };
+		72B280F114E45A6B00EBDC05 /* network_detection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = network_detection.h; sourceTree = "<group>"; };
+		72B41EC415ED9F4B00C31217 /* algorithm_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = algorithm_types.h; path = "Drivers/L2TP/L2TP-plugin/algorithm_types.h"; sourceTree = "<group>"; };
 		72B435CE1138BFBA00EBF1B6 /* vpnagent-entitlement.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "vpnagent-entitlement.plist"; path = "vpnagent/vpnagent-entitlement.plist"; sourceTree = "<group>"; };
 		72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SpringBoardServices.framework; path = System/Library/PrivateFrameworks/SpringBoardServices.framework; sourceTree = SDKROOT; };
-		72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
+		72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 		72BE352410A0C29900F4849C /* MobileInstallation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileInstallation.framework; path = System/Library/PrivateFrameworks/MobileInstallation.framework; sourceTree = SDKROOT; };
 		72C04DBD1304666B00163BFD /* vpn_configuration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_configuration.h; sourceTree = "<group>"; };
 		72C265C70D412932003A6CE8 /* pppd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pppd; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D07F260A65A7D0009D1FA4 /* vpn_control.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vpn_control.h; path = "Drivers/L2TP/L2TP-plugin/vpn_control.h"; sourceTree = "<group>"; };
+		72D95F5914F7358E002A7614 /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CFNetwork.framework; sourceTree = "<absolute>"; };
 		72DA281011516ECB0028754B /* vpnagent-entitlement-dev.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "vpnagent-entitlement-dev.plist"; path = "vpnagent/vpnagent-entitlement-dev.plist"; sourceTree = "<group>"; };
 		72DC04BA1158348E00CEA5A9 /* vpnagent.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = vpnagent.8; path = vpnagent/vpnagent.8; sourceTree = "<group>"; };
 		72DCD75B1149BBE900B25E3A /* vpn_configuration.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_configuration.c; path = Controller/vpn_configuration.c; sourceTree = "<group>"; };
 		72DE98FD10113DF700DF2440 /* vpnagent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vpnagent; sourceTree = BUILT_PRODUCTS_DIR; };
 		72E07C3B103E376900E4241C /* vpnd.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = vpnd.5; path = vpnd/vpnd.5; sourceTree = "<group>"; };
+		72E8662D16BC4D8600AB05E3 /* AppSandbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSandbox.framework; path = System/Library/PrivateFrameworks/AppSandbox.framework; sourceTree = SDKROOT; };
+		72E8662F16BC4DC600AB05E3 /* AppContainer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppContainer.framework; path = System/Library/PrivateFrameworks/AppContainer.framework; sourceTree = SDKROOT; };
 		72E8A03412973AE5002DD098 /* vpn-plugins.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "vpn-plugins.sb"; path = "vpnagent/vpn-plugins.sb"; sourceTree = "<group>"; };
+		72EC2EF516CB4F8C00029F51 /* sandbox_info.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sandbox_info.h; path = sbslauncher/sandbox_info.h; sourceTree = "<group>"; };
 		72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PPPControllerPriv.h; sourceTree = "<group>"; };
 		72FDE4940D4124C4007C4F13 /* PPP.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPP.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FDE4C20D41251B007C4F13 /* L2TP.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = L2TP.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FDE4E40D412522007C4F13 /* PPTP.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPTP.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FDE50D0D41256B007C4F13 /* PPPDialogs.ppp */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPPDialogs.ppp; sourceTree = BUILT_PRODUCTS_DIR; };
+		7827408517049C71006CF9E1 /* scnc_cache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = scnc_cache.c; path = Controller/scnc_cache.c; sourceTree = "<group>"; };
+		7827408817049C93006CF9E1 /* scnc_cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = scnc_cache.h; sourceTree = "<group>"; };
+		78CFEBA61703655700CB6E65 /* network_detection_helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = network_detection_helper.h; path = sbslauncher/network_detection_helper.h; sourceTree = "<group>"; };
+		78CFEBA71703655700CB6E65 /* network_detection_helper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = network_detection_helper.m; path = sbslauncher/network_detection_helper.m; sourceTree = "<group>"; };
 		8179206711124814005B9F24 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		81937EA1107EC4A200EEE3F8 /* vpnagent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vpnagent; sourceTree = BUILT_PRODUCTS_DIR; };
 		81953A2E0F5208CB00BC014C /* vpn_manager.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_manager.c; path = Controller/vpn_manager.c; sourceTree = "<group>"; };
@@ -1412,12 +1608,42 @@
 		83F592F90F6B38C900B1E1AE /* sbslauncher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sbslauncher.h; path = sbslauncher/sbslauncher.h; sourceTree = "<group>"; };
 		83F592FA0F6B38C900B1E1AE /* sbslauncher.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = sbslauncher.m; path = sbslauncher/sbslauncher.m; sourceTree = "<group>"; };
 		83F593010F6B394800B1E1AE /* sbslauncher-entitlement.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "sbslauncher-entitlement.plist"; path = "sbslauncher/sbslauncher-entitlement.plist"; sourceTree = "<group>"; };
+		9AFD09B017305E58003BF988 /* scnc_utils_common.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = scnc_utils_common.c; sourceTree = "<group>"; };
+		B02A237417709E7D00B228B9 /* com.apple.snhelper.sb */ = {isa = PBXFileReference; lastKnownFileType = text; path = com.apple.snhelper.sb; sourceTree = "<group>"; };
+		B07ACDFF174599B300DAF35A /* snhelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = snhelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		B08969281640385600E79570 /* pppcontroller_mach_defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pppcontroller_mach_defines.h; sourceTree = "<group>"; };
+		B089692E1640392F00E79570 /* app_layer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = app_layer.h; sourceTree = "<group>"; };
+		B08969311640394500E79570 /* app_layer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = app_layer.c; path = Controller/app_layer.c; sourceTree = "<group>"; };
+		B096EC3B171DFC6E00EE4713 /* fd_exchange.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fd_exchange.c; sourceTree = "<group>"; };
+		B096EC3C171DFC6E00EE4713 /* fd_exchange.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fd_exchange.h; sourceTree = "<group>"; };
+		B0AE789617442EC700840C25 /* com.apple.snhelper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.snhelper.plist; sourceTree = "<group>"; };
+		B0AE789717442EC700840C25 /* flow_divert.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = flow_divert.c; sourceTree = "<group>"; };
+		B0AE789817442EC700840C25 /* flow_divert.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = flow_divert.h; sourceTree = "<group>"; };
+		B0AE789917442EC700840C25 /* snhelper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = snhelper.c; sourceTree = "<group>"; };
+		B0AE78AA17442F4C00840C25 /* snhelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = snhelper; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0AE78B3174434B800840C25 /* entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
+		B0AE78B5174438B100840C25 /* snhelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = snhelper.h; sourceTree = "<group>"; };
+		B0C78050168501D900537A2F /* behaviors.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = behaviors.c; path = Controller/behaviors.c; sourceTree = "<group>"; };
+		B0C78053168501F100537A2F /* behaviors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = behaviors.h; sourceTree = "<group>"; };
+		B0C780561685021400537A2F /* behaviors_check_asset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = behaviors_check_asset.h; path = sbslauncher/behaviors_check_asset.h; sourceTree = "<group>"; };
+		B0C780571685021400537A2F /* behaviors_check_asset.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = behaviors_check_asset.m; path = sbslauncher/behaviors_check_asset.m; sourceTree = "<group>"; };
+		B0C780581685021400537A2F /* behaviors_defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = behaviors_defines.h; path = sbslauncher/behaviors_defines.h; sourceTree = "<group>"; };
+		B0C7805A1685029D00537A2F /* MobileAsset.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileAsset.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/MobileAsset.framework; sourceTree = DEVELOPER_DIR; };
+		B0C7805D168502C900537A2F /* AppSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSupport.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/AppSupport.framework; sourceTree = DEVELOPER_DIR; };
+		B0C780601685043100537A2F /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = IndigoSDK.xcconfig; path = AppleInternal/XcodeConfig/IndigoSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
+		B0F8AFDA16A074D500545847 /* PPP Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "PPP Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		BA1E33C20F3FFDF200E52690 /* messageTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = messageTracer.h; sourceTree = "<group>"; };
 		BA1E33C30F3FFDF200E52690 /* sessionTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sessionTracer.c; path = Controller/sessionTracer.c; sourceTree = "<group>"; };
 		BA1E33C40F3FFDF200E52690 /* sessionTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sessionTracer.h; sourceTree = "<group>"; };
 		BA6C4EA110D49581001D4B22 /* net_location.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = net_location.c; path = Controller/net_location.c; sourceTree = "<group>"; };
+		BA8B563B14E089FB00697D55 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		BAB4969610CC6007007B830C /* Apple80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Apple80211.framework; path = /System/Library/PrivateFrameworks/Apple80211.framework; sourceTree = "<absolute>"; };
 		BAC29FA410D493F9007AC660 /* nat_port_mapping.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = nat_port_mapping.c; path = Controller/nat_port_mapping.c; sourceTree = "<group>"; };
+		C447EC8D160283EB00CF047A /* flow_divert_controller.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = flow_divert_controller.c; path = Controller/flow_divert_controller.c; sourceTree = "<group>"; };
+		C447EC901602840200CF047A /* flow_divert_controller.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = flow_divert_controller.h; sourceTree = "<group>"; };
+		C4D868D816C06D1200ECF818 /* reachability.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reachability.c; path = Controller/reachability.c; sourceTree = "<group>"; };
+		C4D868DB16C06D3900ECF818 /* reachability.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = reachability.h; sourceTree = "<group>"; };
 		F50592A103DDFFB301CA2DE3 /* vpnd.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = vpnd.8; path = vpnd/vpnd.8; sourceTree = "<group>"; };
 		F5130EDC03F04FD701CA2DE3 /* vpnoptions.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = vpnoptions.c; path = vpnd/vpnoptions.c; sourceTree = "<group>"; };
 		F5130EDE03F04FF301CA2DE3 /* vpnoptions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vpnoptions.h; path = vpnd/vpnoptions.h; sourceTree = "<group>"; };
@@ -1743,9 +1969,22 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA8B563D14E08A1000697D55 /* Security.framework in Frameworks */,
 				7202B3FA114EF02700FD3AA2 /* SystemConfiguration.framework in Frameworks */,
 				7202B3FB114EF02700FD3AA2 /* CoreFoundation.framework in Frameworks */,
 				7202B3FC114EF02700FD3AA2 /* MobileInstallation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723EC007164C76FF003D5EB3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				723EC008164C76FF003D5EB3 /* CoreFoundation.framework in Frameworks */,
+				723EC00B164C76FF003D5EB3 /* Foundation.framework in Frameworks */,
+				723EC00C164C76FF003D5EB3 /* CFNetwork.framework in Frameworks */,
+				72E8662E16BC4D8600AB05E3 /* AppSandbox.framework in Frameworks */,
+				72E8663016BC4DC600AB05E3 /* AppContainer.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1773,6 +2012,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72584E201726019800C7EBE8 /* AggregateDictionary.framework in Frameworks */,
 				72BE36B810A11F3800F4849C /* Security.framework in Frameworks */,
 				7290FED20D3318CC0027CEAD /* CoreFoundation.framework in Frameworks */,
 				7290FED30D3318CC0027CEAD /* SystemConfiguration.framework in Frameworks */,
@@ -1827,6 +2067,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA8B563C14E089FB00697D55 /* Security.framework in Frameworks */,
 				81937E9B107EC4A200EEE3F8 /* SystemConfiguration.framework in Frameworks */,
 				81937E9C107EC4A200EEE3F8 /* CoreFoundation.framework in Frameworks */,
 				72D35601112F7EF9000F1B65 /* MobileInstallation.framework in Frameworks */,
@@ -1847,10 +2088,33 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				727612B416AF16340095EF4B /* MobileCoreServices.framework in Frameworks */,
+				B0C780621685043D00537A2F /* SystemConfiguration.framework in Frameworks */,
 				830402C50F6B43590062C836 /* CoreFoundation.framework in Frameworks */,
+				B0C7805F168502D400537A2F /* AppSupport.framework in Frameworks */,
 				72B9DBF00F6DEFD3006DFE11 /* SpringBoardServices.framework in Frameworks */,
 				813F1F6E11168087005AB6C7 /* StoreServices.framework in Frameworks */,
+				B0C7805C168502B400537A2F /* MobileAsset.framework in Frameworks */,
 				813F1F6F1116809D005AB6C7 /* Foundation.framework in Frameworks */,
+				72D95F5A14F7358E002A7614 /* CFNetwork.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B07ACDF6174599B300DAF35A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B07ACDF7174599B300DAF35A /* SystemConfiguration.framework in Frameworks */,
+				B07ACDF8174599B300DAF35A /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0AE78A117442F4C00840C25 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0AE78AE1744337F00840C25 /* SystemConfiguration.framework in Frameworks */,
+				B0AE78B617443BA200840C25 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1887,6 +2151,7 @@
 				071EC564009888F57F000001 /* Dialogs.c */,
 				071EC566009889367F000001 /* Localizable.strings */,
 				725D8AD00DA5C43800017E37 /* EMBEDDED */,
+				018CF39F00BDC8447F000001 /* NetworkConnect.icns */,
 			);
 			name = Dialogs;
 			path = Helpers;
@@ -1976,6 +2241,7 @@
 				23B70767061B74AE008BA483 /* pppcontroller_types.h */,
 				23B70768061B74AE008BA483 /* pppcontroller.defs */,
 				23022727062DA4C10033908D /* pppcontroller.h */,
+				B08969281640385600E79570 /* pppcontroller_mach_defines.h */,
 			);
 			name = "Mach Server";
 			sourceTree = "<group>";
@@ -2052,10 +2318,18 @@
 		2D5033BA0072595C7F000001 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				727412011728A2A600221EE3 /* diagnostics.h */,
+				727412021728A2A600221EE3 /* diagnostics.c */,
+				C4D868D816C06D1200ECF818 /* reachability.c */,
+				7208653016A762D7004A5747 /* controller_options.c */,
+				B0C78050168501D900537A2F /* behaviors.c */,
+				B08969311640394500E79570 /* app_layer.c */,
+				C447EC8D160283EB00CF047A /* flow_divert_controller.c */,
 				72DCD75B1149BBE900B25E3A /* vpn_configuration.c */,
 				7129A45DFFF956F311CA2CDC /* ppp_manager.c */,
 				7129A45CFFF956F311CA2CDC /* ppp_getoption.c */,
 				23EC339A0CD7E4BB005AB2A9 /* ipsec_manager.c */,
+				7827408517049C71006CF9E1 /* scnc_cache.c */,
 				23B708FF061CA53B008BA483 /* scnc_utils.c */,
 				01A345D600C4684A7F000001 /* scnc_client.c */,
 				81953A2E0F5208CB00BC014C /* vpn_manager.c */,
@@ -2063,6 +2337,7 @@
 				7129A463FFF956F311CA2CDC /* scnc_main.c */,
 				BA1E33C30F3FFDF200E52690 /* sessionTracer.c */,
 				BA6C4EA110D49581001D4B22 /* net_location.c */,
+				720C564614E0999B008B1CDE /* network_detection.c */,
 				BAC29FA410D493F9007AC660 /* nat_port_mapping.c */,
 			);
 			name = Sources;
@@ -2092,6 +2367,8 @@
 		7129A432FFF956F311CA2CDC /* ppp */ = {
 			isa = PBXGroup;
 			children = (
+				72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */,
+				BA8B563B14E089FB00697D55 /* Security.framework */,
 				7129A438FFF956F311CA2CDC /* Controller */,
 				7129A46AFFF956F311CA2CDC /* Family */,
 				02BD92D900786C227F000001 /* Dialogs */,
@@ -2100,10 +2377,12 @@
 				7129A4BAFFF956F311CA2CDC /* Helpers */,
 				23F53312052E16E70011A2BC /* chat */,
 				7129A4B5FFF956F311CA2CDC /* SampleCode */,
+				B096EC39171DFC6E00EE4713 /* Shared */,
 				7129A4CBFFF956F311CA2CDC /* External Libraries */,
 				7129A4CEFFF956F311CA2CDC /* Products */,
 				23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */,
 				72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */,
+				B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */,
 			);
 			name = ppp;
 			sourceTree = "<group>";
@@ -2118,6 +2397,7 @@
 				7129A439FFF956F311CA2CDC /* Headers */,
 				725D8AC10DA5C14800017E37 /* Localizable.strings */,
 				725D8AB50DA5C0F200017E37 /* EMBEDDED */,
+				0D977A4500C8596D7F000001 /* NetworkConnect.icns */,
 				7240E44A152617B2001F555F /* NetworkConnectIcons */,
 			);
 			path = Controller;
@@ -2126,9 +2406,16 @@
 		7129A439FFF956F311CA2CDC /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				C4D868DB16C06D3900ECF818 /* reachability.h */,
+				7208653316A762F0004A5747 /* controller_options.h */,
+				B0C78053168501F100537A2F /* behaviors.h */,
+				B089692E1640392F00E79570 /* app_layer.h */,
+				C447EC901602840200CF047A /* flow_divert_controller.h */,
+				72B280F114E45A6B00EBDC05 /* network_detection.h */,
 				72C04DBD1304666B00163BFD /* vpn_configuration.h */,
 				72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */,
 				23EC340A0CD94AFE005AB2A9 /* scnc_main.h */,
+				7827408817049C93006CF9E1 /* scnc_cache.h */,
 				23B70908061CA5B6008BA483 /* scnc_utils.h */,
 				7129A445FFF956F311CA2CDC /* scnc_client.h */,
 				7129A449FFF956F311CA2CDC /* ppp_option.h */,
@@ -2226,6 +2513,7 @@
 		7129A4BAFFF956F311CA2CDC /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
+				B0AE789517442EC600840C25 /* snhelper */,
 				F5BDED8103CE034301CA2DE3 /* vpnd */,
 				F51AB0D50235C5AF0160DF93 /* pppd */,
 				013F9724001901697F000001 /* MiniTerm */,
@@ -2291,6 +2579,10 @@
 				72DE98FD10113DF700DF2440 /* vpnagent */,
 				81937EA1107EC4A200EEE3F8 /* vpnagent */,
 				7202B401114EF02700FD3AA2 /* vpnagent */,
+				723EC011164C76FF003D5EB3 /* sbslauncher */,
+				B0F8AFDA16A074D500545847 /* PPP Headers */,
+				B0AE78AA17442F4C00840C25 /* snhelper */,
+				B07ACDFF174599B300DAF35A /* snhelper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2342,6 +2634,8 @@
 				81D42EFA0F572A1B0031E487 /* vpnagent_control.c */,
 				72B435CE1138BFBA00EBF1B6 /* vpnagent-entitlement.plist */,
 				72DA281011516ECB0028754B /* vpnagent-entitlement-dev.plist */,
+				7293B86316D55638003A69B0 /* vpnagent-entitlement-embedded.plist */,
+				7293B86216D55628003A69B0 /* vpnagent-entitlement-dev-embedded.plist */,
 				81953A310F52095800BC014C /* Headers */,
 			);
 			name = vpnagent;
@@ -2361,16 +2655,54 @@
 		83F592F30F6B386600B1E1AE /* sbslauncher */ = {
 			isa = PBXGroup;
 			children = (
+				72E8662F16BC4DC600AB05E3 /* AppContainer.framework */,
+				72E8662D16BC4D8600AB05E3 /* AppSandbox.framework */,
+				727612B316AF16340095EF4B /* MobileCoreServices.framework */,
+				B0C780601685043100537A2F /* SystemConfiguration.framework */,
+				B0C780561685021400537A2F /* behaviors_check_asset.h */,
+				72EC2EF516CB4F8C00029F51 /* sandbox_info.h */,
+				B0C780571685021400537A2F /* behaviors_check_asset.m */,
+				B0C780581685021400537A2F /* behaviors_defines.h */,
 				72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */,
+				B0C7805D168502C900537A2F /* AppSupport.framework */,
+				B0C7805A1685029D00537A2F /* MobileAsset.framework */,
 				81CF182E111126D500D53EB8 /* StoreServices.framework */,
+				72D95F5914F7358E002A7614 /* CFNetwork.framework */,
 				8179206711124814005B9F24 /* Foundation.framework */,
 				83F592F90F6B38C900B1E1AE /* sbslauncher.h */,
 				83F592FA0F6B38C900B1E1AE /* sbslauncher.m */,
+				7228853516C062D800E8090E /* sandbox_info.m */,
 				83F593010F6B394800B1E1AE /* sbslauncher-entitlement.plist */,
 				81FC7D9311C697B20058949B /* PluginDownloadObserver.h */,
 				81FC7D9411C697B20058949B /* PluginDownloadObserver.m */,
+				78CFEBA61703655700CB6E65 /* network_detection_helper.h */,
+				78CFEBA71703655700CB6E65 /* network_detection_helper.m */,
 			);
 			name = sbslauncher;
+			sourceTree = "<group>";
+		};
+		B096EC39171DFC6E00EE4713 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				B096EC3B171DFC6E00EE4713 /* fd_exchange.c */,
+				B096EC3C171DFC6E00EE4713 /* fd_exchange.h */,
+				9AFD09B017305E58003BF988 /* scnc_utils_common.c */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		B0AE789517442EC600840C25 /* snhelper */ = {
+			isa = PBXGroup;
+			children = (
+				B02A237417709E7D00B228B9 /* com.apple.snhelper.sb */,
+				B0AE78B3174434B800840C25 /* entitlements.plist */,
+				B0AE789617442EC700840C25 /* com.apple.snhelper.plist */,
+				B0AE789717442EC700840C25 /* flow_divert.c */,
+				B0AE789817442EC700840C25 /* flow_divert.h */,
+				B0AE789917442EC700840C25 /* snhelper.c */,
+				B0AE78B5174438B100840C25 /* snhelper.h */,
+			);
+			path = snhelper;
 			sourceTree = "<group>";
 		};
 		F517DE960237251F01E059DF /* Libraries */ = {
@@ -2648,6 +2980,7 @@
 		FAE9AFE303A19C5704CA2CDC /* L2TP-plugin */ = {
 			isa = PBXGroup;
 			children = (
+				72B41EC415ED9F4B00C31217 /* algorithm_types.h */,
 				2305606805E1808600EAB16F /* L2TP-ppp-Info.plist */,
 				F68A744B03A1B0E301DF2EE2 /* main.c */,
 				F68A744903A1B0E301DF2EE2 /* l2tp.c */,
@@ -2671,9 +3004,12 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7827408917049C93006CF9E1 /* scnc_cache.h in Headers */,
+				B089692B164038E000E79570 /* pppcontroller_mach_defines.h in Headers */,
 				81D430A90F575A160031E487 /* vpn_manager.h in Headers */,
 				23055ED705E1807F00EAB16F /* scnc_client.h in Headers */,
 				23055ED905E1807F00EAB16F /* ppp_manager.h in Headers */,
+				B096EC44171DFC6E00EE4713 /* fd_exchange.h in Headers */,
 				23055EDA05E1807F00EAB16F /* ppp_msg.h in Headers */,
 				23055EDB05E1807F00EAB16F /* ppp_option.h in Headers */,
 				23055EDC05E1807F00EAB16F /* ppp_privmsg.h in Headers */,
@@ -2689,6 +3025,11 @@
 				BA1E33C50F3FFDF200E52690 /* messageTracer.h in Headers */,
 				BA1E33C70F3FFDF200E52690 /* sessionTracer.h in Headers */,
 				723074581161275A004C0871 /* vpn_environment.h in Headers */,
+				72B280F214E45A6B00EBDC05 /* network_detection.h in Headers */,
+				B089692F1640392F00E79570 /* app_layer.h in Headers */,
+				B0C78054168501F100537A2F /* behaviors.h in Headers */,
+				7208653416A762F0004A5747 /* controller_options.h in Headers */,
+				C4D868DC16C06D4200ECF818 /* reachability.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2862,6 +3203,7 @@
 				2305605705E1808500EAB16F /* PPP_VERSION.h in Headers */,
 				2363A9FF06E00493007D0E7A /* cf_utils.h in Headers */,
 				72D07F270A65A7D0009D1FA4 /* vpn_control.h in Headers */,
+				72B41EC515ED9F4B00C31217 /* algorithm_types.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2887,6 +3229,7 @@
 				2305608405E1808600EAB16F /* RASSchemaDefinitions.h in Headers */,
 				2305608505E1808600EAB16F /* PPP_VERSION.h in Headers */,
 				72D07F280A65A7D0009D1FA4 /* vpn_control.h in Headers */,
+				72B41EC615ED9F4B00C31217 /* algorithm_types.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2958,6 +3301,7 @@
 				728CB6700D404F8C00B1964E /* PPP_VERSION.h in Headers */,
 				728CB6710D404F8C00B1964E /* cf_utils.h in Headers */,
 				728CB6720D404F8C00B1964E /* vpn_control.h in Headers */,
+				72B41EC715ED9F4B00C31217 /* algorithm_types.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2980,7 +3324,15 @@
 				7290FEC00D3318CC0027CEAD /* ipsec_manager.h in Headers */,
 				81937E63107EC2FA00EEE3F8 /* vpn_manager.h in Headers */,
 				7290FEC10D3318CC0027CEAD /* scnc_main.h in Headers */,
+				B096EC45171DFC6E00EE4713 /* fd_exchange.h in Headers */,
 				7230745A1161275A004C0871 /* vpn_environment.h in Headers */,
+				72B280F314E45A6B00EBDC05 /* network_detection.h in Headers */,
+				7827408A17049C93006CF9E1 /* scnc_cache.h in Headers */,
+				B089692C164038FB00E79570 /* pppcontroller_mach_defines.h in Headers */,
+				B08969301640392F00E79570 /* app_layer.h in Headers */,
+				B0C78055168501F100537A2F /* behaviors.h in Headers */,
+				7208653516A762F0004A5747 /* controller_options.h in Headers */,
+				C4D868DD16C06D4500ECF818 /* reachability.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3081,7 +3433,8 @@
 				23055EE105E1807F00EAB16F /* Sources */,
 				23055EE905E1807F00EAB16F /* Frameworks */,
 				23055EED05E1807F00EAB16F /* Rez */,
-				23055EEE05E1807F00EAB16F /* CopyFiles */,
+				23055EEE05E1807F00EAB16F /* Copy Files */,
+				72AD6D25164D88B300ADE57C /* CopyFiles */,
 				23055EF005E1807F00EAB16F /* ShellScript */,
 				722E71261526260800E7383A /* ShellScript */,
 			);
@@ -3089,6 +3442,7 @@
 			);
 			dependencies = (
 				230560E405E1808C00EAB16F /* PBXTargetDependency */,
+				723EC013164C7742003D5EB3 /* PBXTargetDependency */,
 			);
 			name = "PPPController (Bundle)";
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -3602,6 +3956,22 @@
 			productReference = 7202B401114EF02700FD3AA2 /* vpnagent */;
 			productType = "com.apple.product-type.tool";
 		};
+		723EC003164C76FF003D5EB3 /* sbslauncher (Tool) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 723EC00D164C76FF003D5EB3 /* Build configuration list for PBXNativeTarget "sbslauncher (Tool)" */;
+			buildPhases = (
+				723EC004164C76FF003D5EB3 /* Sources */,
+				723EC007164C76FF003D5EB3 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "sbslauncher (Tool)";
+			productName = SBSLauncher;
+			productReference = 723EC011164C76FF003D5EB3 /* sbslauncher */;
+			productType = "com.apple.product-type.tool";
+		};
 		728CB63A0D404F6600B1964E /* PPTP (Plugin) EMBEDDED */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 728CB64F0D404F6600B1964E /* Build configuration list for PBXNativeTarget "PPTP (Plugin) EMBEDDED" */;
@@ -3656,7 +4026,6 @@
 				7290FED60D3318CC0027CEAD /* CopyFiles */,
 				830403500F6B4D140062C836 /* CopyFiles */,
 				7290FED80D3318CC0027CEAD /* ShellScript */,
-				722E71361526272700E7383A /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -3763,7 +4132,6 @@
 				72FDE5040D41256B007C4F13 /* Sources */,
 				72FDE5060D41256B007C4F13 /* Frameworks */,
 				72FDE5080D41256B007C4F13 /* Rez */,
-				7240E46B152621A9001F555F /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -3824,11 +4192,66 @@
 			productReference = 83F592D40F6B376D00B1E1AE /* sbslauncher */;
 			productType = "com.apple.product-type.tool";
 		};
+		B07ACDF2174599B300DAF35A /* snhelper (Tool) EMBEDDED */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B07ACDFB174599B300DAF35A /* Build configuration list for PBXNativeTarget "snhelper (Tool) EMBEDDED" */;
+			buildPhases = (
+				B07ACDF3174599B300DAF35A /* Sources */,
+				B07ACDF6174599B300DAF35A /* Frameworks */,
+				B07ACDF9174599B300DAF35A /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "snhelper (Tool) EMBEDDED";
+			productInstallPath = /usr/local/bin;
+			productName = pppstats;
+			productReference = B07ACDFF174599B300DAF35A /* snhelper */;
+			productType = "com.apple.product-type.tool";
+		};
+		B0AE789C17442F4C00840C25 /* snhelper (Tool) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0AE78A617442F4C00840C25 /* Build configuration list for PBXNativeTarget "snhelper (Tool)" */;
+			buildPhases = (
+				B0AE789F17442F4C00840C25 /* Sources */,
+				B0AE78A117442F4C00840C25 /* Frameworks */,
+				B0AE78B11744345500840C25 /* CopyFiles */,
+				B02A237617709EB300B228B9 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "snhelper (Tool)";
+			productInstallPath = /usr/local/bin;
+			productName = pppstats;
+			productReference = B0AE78AA17442F4C00840C25 /* snhelper */;
+			productType = "com.apple.product-type.tool";
+		};
+		B0F8AFC916A074D500545847 /* ppp_Sim */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B0F8AFD616A074D500545847 /* Build configuration list for PBXNativeTarget "ppp_Sim" */;
+			buildPhases = (
+				B0F8AFCA16A074D500545847 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ppp_Sim;
+			productInstallPath = /usr/local/include/ppp;
+			productName = "PPP Headers";
+			productReference = B0F8AFDA16A074D500545847 /* PPP Headers */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		7129A431FFF956F311CA2CDC /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 72DD79E0091AA0ED00EE4DEA /* Build configuration list for PBXProject "ppp" */;
 			compatibilityVersion = "Xcode 2.4";
 			developmentRegion = English;
@@ -3890,6 +4313,10 @@
 				83F592D30F6B376D00B1E1AE /* sbslauncher (Tool) EMBEDDED */,
 				81937E93107EC4A200EEE3F8 /* vpnagent (Tool) EMBEDDED */,
 				7202B3F3114EF02700FD3AA2 /* vpnagent (Tool - Developer) EMBEDDED */,
+				723EC003164C76FF003D5EB3 /* sbslauncher (Tool) */,
+				B0F8AFC916A074D500545847 /* ppp_Sim */,
+				B0AE789C17442F4C00840C25 /* snhelper (Tool) */,
+				B07ACDF2174599B300DAF35A /* snhelper (Tool) EMBEDDED */,
 			);
 		};
 /* End PBXProject section */
@@ -3973,6 +4400,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23055FCA05E1808200EAB16F /* NetworkConnect.icns in Resources */,
 				23055FCC05E1808200EAB16F /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4057,6 +4485,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7290FEC40D3318CC0027CEAD /* NetworkConnect.icns in Resources */,
 				725D8ABC0DA5C12400017E37 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4086,6 +4515,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72FDE5030D41256B007C4F13 /* NetworkConnect.icns in Resources */,
 				725D8AD50DA5C45700017E37 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4408,33 +4838,7 @@
 			shellPath = /bin/sh;
 			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
 		};
-		722E71361526272700E7383A /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
-		};
 		7240E46A15261821001F555F /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
-		};
-		7240E46B152621A9001F555F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -4542,10 +4946,12 @@
 				23B7076D061B74AF008BA483 /* pppcontroller.defs in Sources */,
 				7294F16A0CE559EF0084954B /* pfkey.c in Sources */,
 				23055EE305E1807F00EAB16F /* ppp_getoption.c in Sources */,
+				B096EC3F171DFC6E00EE4713 /* fd_exchange.c in Sources */,
 				23055EE405E1807F00EAB16F /* ppp_manager.c in Sources */,
 				23055EE705E1807F00EAB16F /* scnc_main.c in Sources */,
 				23055EE805E1807F00EAB16F /* scnc_client.c in Sources */,
 				23B7074B061B7457008BA483 /* ppp_socket_server.c in Sources */,
+				7827408617049C71006CF9E1 /* scnc_cache.c in Sources */,
 				23B70769061B74AF008BA483 /* scnc_mach_server.c in Sources */,
 				23B70900061CA53B008BA483 /* scnc_utils.c in Sources */,
 				23EC339C0CD7E4BB005AB2A9 /* ipsec_manager.c in Sources */,
@@ -4556,6 +4962,13 @@
 				BA6C4EA210D49581001D4B22 /* net_location.c in Sources */,
 				72DCD75D1149BBE900B25E3A /* vpn_configuration.c in Sources */,
 				723074571161275A004C0871 /* vpn_environment.c in Sources */,
+				720C564714E0999B008B1CDE /* network_detection.c in Sources */,
+				C447EC8E160283EB00CF047A /* flow_divert_controller.c in Sources */,
+				B08969321640394500E79570 /* app_layer.c in Sources */,
+				B0C78051168501D900537A2F /* behaviors.c in Sources */,
+				9AFD09B217305E94003BF988 /* scnc_utils_common.c in Sources */,
+				7208653116A762D7004A5747 /* controller_options.c in Sources */,
+				C4D868D916C06D1D00ECF818 /* reachability.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4685,6 +5098,7 @@
 				2305600705E1808300EAB16F /* acscp.c in Sources */,
 				2305600805E1808300EAB16F /* acsp.c in Sources */,
 				2305600905E1808300EAB16F /* chap-new.c in Sources */,
+				9AFD09B417305EC8003BF988 /* scnc_utils_common.c in Sources */,
 				2305600A05E1808300EAB16F /* pppcrypt.c in Sources */,
 				2305600B05E1808300EAB16F /* chap-md5.c in Sources */,
 			);
@@ -4814,11 +5228,22 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B096EC43171DFC6E00EE4713 /* fd_exchange.c in Sources */,
 				7202B3F5114EF02700FD3AA2 /* main.c in Sources */,
 				7202B3F6114EF02700FD3AA2 /* vpnagent.c in Sources */,
 				7202B3F7114EF02700FD3AA2 /* vpnagent_utils.c in Sources */,
 				7202B3F8114EF02700FD3AA2 /* vpnagent_control.c in Sources */,
 				7273079011611E7100395F26 /* net_utils.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723EC004164C76FF003D5EB3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				78CFEBA91703655700CB6E65 /* network_detection_helper.m in Sources */,
+				723EC005164C76FF003D5EB3 /* sbslauncher.m in Sources */,
+				7228853616C062D800E8090E /* sandbox_info.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4847,8 +5272,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				727412031728A3E700221EE3 /* diagnostics.c in Sources */,
 				7290FEC60D3318CC0027CEAD /* pppcontroller.defs in Sources */,
 				7290FEC70D3318CC0027CEAD /* ipsec_utils.c in Sources */,
+				7827408717049C71006CF9E1 /* scnc_cache.c in Sources */,
 				7290FEC80D3318CC0027CEAD /* pfkey.c in Sources */,
 				7290FEC90D3318CC0027CEAD /* ppp_getoption.c in Sources */,
 				81937E62107EC2D900EEE3F8 /* vpn_manager.c in Sources */,
@@ -4860,9 +5287,17 @@
 				7290FECF0D3318CC0027CEAD /* scnc_utils.c in Sources */,
 				7290FED00D3318CC0027CEAD /* ipsec_manager.c in Sources */,
 				BAC29FA610D493F9007AC660 /* nat_port_mapping.c in Sources */,
+				9AFD09B317305EC2003BF988 /* scnc_utils_common.c in Sources */,
 				BA6C4EA310D49581001D4B22 /* net_location.c in Sources */,
 				72DCD75F1149BBE900B25E3A /* vpn_configuration.c in Sources */,
 				723074591161275A004C0871 /* vpn_environment.c in Sources */,
+				720C564814E0999B008B1CDE /* network_detection.c in Sources */,
+				B096EC41171DFC6E00EE4713 /* fd_exchange.c in Sources */,
+				C447EC8F160283EB00CF047A /* flow_divert_controller.c in Sources */,
+				B08969331640394500E79570 /* app_layer.c in Sources */,
+				B0C78052168501D900537A2F /* behaviors.c in Sources */,
+				7208653216A762D7004A5747 /* controller_options.c in Sources */,
+				C4D868DA16C06D2300ECF818 /* reachability.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4893,6 +5328,7 @@
 				72C265B30D412932003A6CE8 /* acscp.c in Sources */,
 				72C265B40D412932003A6CE8 /* acsp.c in Sources */,
 				72C265B50D412932003A6CE8 /* chap-new.c in Sources */,
+				9AFD09B517305ECD003BF988 /* scnc_utils_common.c in Sources */,
 				72C265B60D412932003A6CE8 /* pppcrypt.c in Sources */,
 				72C265B70D412932003A6CE8 /* chap-md5.c in Sources */,
 			);
@@ -4951,6 +5387,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B096EC42171DFC6E00EE4713 /* fd_exchange.c in Sources */,
 				81937E95107EC4A200EEE3F8 /* main.c in Sources */,
 				81937E96107EC4A200EEE3F8 /* vpnagent.c in Sources */,
 				81937E97107EC4A200EEE3F8 /* vpnagent_utils.c in Sources */,
@@ -4963,6 +5400,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B096EC40171DFC6E00EE4713 /* fd_exchange.c in Sources */,
 				81D42EFB0F572A1B0031E487 /* main.c in Sources */,
 				81D42EFC0F572A1B0031E487 /* vpnagent.c in Sources */,
 				81D42EFD0F572A1B0031E487 /* vpnagent_utils.c in Sources */,
@@ -4977,6 +5415,26 @@
 			files = (
 				83F592FB0F6B38C900B1E1AE /* sbslauncher.m in Sources */,
 				81FC7D9511C697B20058949B /* PluginDownloadObserver.m in Sources */,
+				B0C780591685021400537A2F /* behaviors_check_asset.m in Sources */,
+				78CFEBA81703655700CB6E65 /* network_detection_helper.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B07ACDF3174599B300DAF35A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B07ACDF4174599B300DAF35A /* flow_divert.c in Sources */,
+				B07ACDF5174599B300DAF35A /* snhelper.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0AE789F17442F4C00840C25 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B0AE78AB1744333800840C25 /* flow_divert.c in Sources */,
+				B0AE78AC1744333800840C25 /* snhelper.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5113,6 +5571,11 @@
 			target = 2342E4A006DA523D0019B94A /* EAP-KRB (Plugin) */;
 			targetProxy = 2342E4A306DA533F0019B94A /* PBXContainerItemProxy */;
 		};
+		723EC013164C7742003D5EB3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 723EC003164C76FF003D5EB3 /* sbslauncher (Tool) */;
+			targetProxy = 723EC012164C7742003D5EB3 /* PBXContainerItemProxy */;
+		};
 		728CB6360D404EFE00B1964E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 728CB6260D404ECD00B1964E /* Drivers (Aggregate) EMBEDDED */;
@@ -5197,6 +5660,16 @@
 			isa = PBXTargetDependency;
 			target = 83F592D30F6B376D00B1E1AE /* sbslauncher (Tool) EMBEDDED */;
 			targetProxy = 83F592E40F6B379300B1E1AE /* PBXContainerItemProxy */;
+		};
+		B07ACE0117459A0000DAF35A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B07ACDF2174599B300DAF35A /* snhelper (Tool) EMBEDDED */;
+			targetProxy = B07ACE0017459A0000DAF35A /* PBXContainerItemProxy */;
+		};
+		B0AE78B01744342200840C25 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B0AE789C17442F4C00840C25 /* snhelper (Tool) */;
+			targetProxy = B0AE78AF1744342200840C25 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -5291,24 +5764,36 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev.plist";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev-embedded.plist";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /Developer/usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/lib",
+				);
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
+				OTHER_LDFLAGS = (
+					"-ltlssocket",
+					"-lMobileGestalt",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
+				SDKROOT = iphoneos.internal;
 				WARNING_CFLAGS = "-Wcast-align";
+				WARNING_LDFLAGS = "";
 			};
 			name = Development;
 		};
@@ -5318,25 +5803,36 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev.plist";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev-embedded.plist";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /Developer/usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/lib",
+				);
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
+				OTHER_LDFLAGS = (
+					"-ltlssocket",
+					"-lMobileGestalt",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
-				SDKROOT = iphoneos4.3.internal;
+				SDKROOT = iphoneos.internal;
 				WARNING_CFLAGS = "-Wcast-align";
+				WARNING_LDFLAGS = "";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -5346,23 +5842,110 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev.plist";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev-embedded.plist";
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /Developer/usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/lib",
+				);
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
+				OTHER_LDFLAGS = (
+					"-ltlssocket",
+					"-lMobileGestalt",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
-				SDKROOT = iphoneos4.0.internal;
+				SDKROOT = iphoneos.internal;
 				WARNING_CFLAGS = "-Wcast-align";
+				WARNING_LDFLAGS = "";
+			};
+			name = Default;
+		};
+		723EC00E164C76FF003D5EB3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Versions/A/Frameworks\"",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = "";
+				New_Setting = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = sbslauncher;
+				PROVISIONING_PROFILE = "";
+				SDKROOT = "";
+			};
+			name = Development;
+		};
+		723EC00F164C76FF003D5EB3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Versions/A/Frameworks\"",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "";
+				New_Setting = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = sbslauncher;
+				PROVISIONING_PROFILE = "";
+				SDKROOT = "";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		723EC010164C76FF003D5EB3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SDKROOT)$SYSTEM_LIBRARY_DIR)/Frameworks \"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Versions/A/Frameworks\"",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "";
+				New_Setting = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = sbslauncher;
+				PROVISIONING_PROFILE = "";
+				SDKROOT = "";
 			};
 			name = Default;
 		};
@@ -5713,7 +6296,8 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\\\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\\\"",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -5725,6 +6309,7 @@
 				HEADER_SEARCH_PATHS = (
 					../include,
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+					../Shared,
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -5764,7 +6349,8 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\\\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\\\"",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -5773,6 +6359,7 @@
 				HEADER_SEARCH_PATHS = (
 					../include,
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+					../Shared,
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -5810,13 +6397,15 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\\\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\\\"",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
 				HEADER_SEARCH_PATHS = (
 					../include,
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+					../Shared,
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -6047,6 +6636,7 @@
 				HEADER_SEARCH_PATHS = (
 					../../Family,
 					"$(DSTROOT)/usr/include",
+					../../Shared,
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
@@ -6109,6 +6699,7 @@
 				HEADER_SEARCH_PATHS = (
 					../../Family,
 					"$(DSTROOT)/usr/include",
+					../../Shared,
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
@@ -6167,6 +6758,7 @@
 				HEADER_SEARCH_PATHS = (
 					../../Family,
 					"$(DSTROOT)/usr/include",
+					../../Shared,
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
@@ -6309,6 +6901,7 @@
 				HEADER_SEARCH_PATHS = (
 					../../Family,
 					"$(DSTROOT)/usr/include",
+					../../Shared,
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
@@ -6371,6 +6964,7 @@
 				HEADER_SEARCH_PATHS = (
 					../../Family,
 					"$(DSTROOT)/usr/include",
+					../../Shared,
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
@@ -6429,6 +7023,7 @@
 				HEADER_SEARCH_PATHS = (
 					../../Family,
 					"$(DSTROOT)/usr/include",
+					../../Shared,
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 555;
@@ -6946,6 +7541,7 @@
 				HEADER_SEARCH_PATHS = (
 					../include,
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+					../../Shared,
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -6994,6 +7590,7 @@
 				HEADER_SEARCH_PATHS = (
 					../include,
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+					../../Shared,
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -7038,6 +7635,7 @@
 				HEADER_SEARCH_PATHS = (
 					../include,
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+					../../Shared,
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
@@ -9296,24 +9894,27 @@
 		72DD79E1091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				CLANG_WARN_INT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Development;
 		};
 		72DD79E2091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				CLANG_WARN_INT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Deployment;
 		};
 		72DD79E3091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				CLANG_WARN_INT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Default;
 		};
@@ -9779,22 +10380,34 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement.plist";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-embedded.plist";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/lib",
+				);
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
+				OTHER_LDFLAGS = (
+					"-ltlssocket",
+					"-lMobileGestalt",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
+				SDKROOT = iphoneos.internal;
 				WARNING_CFLAGS = "-Wcast-align";
 			};
 			name = Development;
@@ -9805,23 +10418,34 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement.plist";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-embedded.plist";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/lib",
+				);
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
+				OTHER_LDFLAGS = (
+					"-ltlssocket",
+					"-lMobileGestalt",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
-				SDKROOT = iphoneos4.3.internal;
+				SDKROOT = iphoneos.internal;
 				WARNING_CFLAGS = "-Wcast-align";
 				ZERO_LINK = NO;
 			};
@@ -9832,21 +10456,32 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement.plist";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-embedded.plist";
 				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/usr/local/lib",
+				);
 				OTHER_CFLAGS = (
 					"-include",
 					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
+				OTHER_LDFLAGS = (
+					"-ltlssocket",
+					"-lMobileGestalt",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
-				SDKROOT = iphoneos4.0.internal;
+				SDKROOT = iphoneos.internal;
 				WARNING_CFLAGS = "-Wcast-align";
 			};
 			name = Default;
@@ -9866,9 +10501,16 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib,
+				);
+				OTHER_LDFLAGS = "-lsandbox";
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -9889,9 +10531,16 @@
 				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib,
+				);
+				OTHER_LDFLAGS = "-lsandbox";
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -9911,9 +10560,16 @@
 				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = (
+					../include,
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/",
+				);
 				INSTALL_PATH = /usr/libexec;
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/lib,
+				);
+				OTHER_LDFLAGS = "-lsandbox";
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
@@ -9931,11 +10587,14 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Versions/A/Frameworks\"",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = sbslauncher;
@@ -9955,10 +10614,13 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Versions/A/Frameworks\"",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = sbslauncher;
@@ -9977,14 +10639,194 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SDKROOT)$SYSTEM_LIBRARY_DIR)/Frameworks \"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Versions/A/Frameworks\"",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = sbslauncher;
 				PROVISIONING_PROFILE = "";
+			};
+			name = Default;
+		};
+		B07ACDFC174599B300DAF35A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Helpers/snhelper/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = snhelper;
+				SDKROOT = iphoneos.internal;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		B07ACDFD174599B300DAF35A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Helpers/snhelper/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = snhelper;
+				SDKROOT = iphoneos.internal;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		B07ACDFE174599B300DAF35A /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Helpers/snhelper/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = snhelper;
+				SDKROOT = iphoneos.internal;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		B0AE78A717442F4C00840C25 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Helpers/snhelper/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = snhelper;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		B0AE78A817442F4C00840C25 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Helpers/snhelper/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = snhelper;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		B0AE78A917442F4C00840C25 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Helpers/snhelper/entitlements.plist;
+				CODE_SIGN_IDENTITY = "-";
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = snhelper;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		B0F8AFD716A074D500545847 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH_ACTUAL = /usr/local/include/ppp;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				OTHER_REZFLAGS = "";
+				PPP_DEVELOPMENT = 1;
+				PRODUCT_NAME = "PPP Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		B0F8AFD816A074D500545847 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH_ACTUAL = /usr/local/include/ppp;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "PPP Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		B0F8AFD916A074D500545847 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = B0F8AFC816A073E900545847 /* IndigoSDK.xcconfig */;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH_ACTUAL = /usr/local/include/ppp;
+				MACOSX_DEPLOYMENT_TARGET = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "PPP Headers";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Default;
 		};
@@ -9997,6 +10839,16 @@
 				7202B3FE114EF02700FD3AA2 /* Development */,
 				7202B3FF114EF02700FD3AA2 /* Deployment */,
 				7202B400114EF02700FD3AA2 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		723EC00D164C76FF003D5EB3 /* Build configuration list for PBXNativeTarget "sbslauncher (Tool)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				723EC00E164C76FF003D5EB3 /* Development */,
+				723EC00F164C76FF003D5EB3 /* Deployment */,
+				723EC010164C76FF003D5EB3 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
@@ -10447,6 +11299,36 @@
 				83F592E10F6B376E00B1E1AE /* Development */,
 				83F592E20F6B376E00B1E1AE /* Deployment */,
 				83F592E30F6B376E00B1E1AE /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		B07ACDFB174599B300DAF35A /* Build configuration list for PBXNativeTarget "snhelper (Tool) EMBEDDED" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B07ACDFC174599B300DAF35A /* Development */,
+				B07ACDFD174599B300DAF35A /* Deployment */,
+				B07ACDFE174599B300DAF35A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		B0AE78A617442F4C00840C25 /* Build configuration list for PBXNativeTarget "snhelper (Tool)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0AE78A717442F4C00840C25 /* Development */,
+				B0AE78A817442F4C00840C25 /* Deployment */,
+				B0AE78A917442F4C00840C25 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		B0F8AFD616A074D500545847 /* Build configuration list for PBXNativeTarget "ppp_Sim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B0F8AFD716A074D500545847 /* Development */,
+				B0F8AFD816A074D500545847 /* Deployment */,
+				B0F8AFD916A074D500545847 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

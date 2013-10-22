@@ -78,10 +78,8 @@ int recv_fd(int servfd)
         msg.msg_control = (caddr_t) &cmsg;
         msg.msg_controllen = sizeof(struct cmsg);
 
-        if ( (nread = recvmsg(servfd, &msg, 0)) < 0)
-            ;//err_sys("recvmsg error");
-        else if (nread == 0) {
-            ;//err_ret("connection closed by server");
+        nread = recvmsg(servfd, &msg, 0);
+        if (nread == 0) {
             return -1;
         }
 	/* See if this is the final data with null & status.
@@ -90,12 +88,8 @@ int recv_fd(int servfd)
 	be a file descriptor to receive. */
         for (ptr = buf; ptr < &buf[nread]; ) {
             if (*ptr++ == 0) {
-                if (ptr != &buf[nread-1])
-                    ;//err_dump("message format error");
                 status = *ptr & 255;
                 if (status == 0) {
-                    if (msg.msg_controllen != sizeof(struct cmsg))
-                        ;//err_dump("status = 0 but no fd");
                     newfd = cmsg.fd; /* new descriptor */
                 } 
                 else
@@ -155,7 +149,7 @@ int recv_fd(int servfd)
     adr.sun_family = AF_LOCAL;
     strlcpy(adr.sun_path, "/var/run/pppd-miniterm", sizeof(adr.sun_path));
 
-    if (err = connect(sockfd, (struct sockaddr *)&adr, sizeof(adr)) < 0) {
+    if ((err = connect(sockfd, (struct sockaddr *)&adr, sizeof(adr)) < 0)) {
         exit(0);	// should probably display an alert
     }
     

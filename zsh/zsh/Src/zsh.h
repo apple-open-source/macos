@@ -232,7 +232,7 @@ enum {
  * appear in strings and don't necessarily represent a single character.
  */
 
-enum {
+enum lextok {
     NULLTOK,		/* 0  */
     SEPER,
     NEWLIN,
@@ -407,6 +407,7 @@ typedef struct cmdnam    *Cmdnam;
 typedef struct complist  *Complist;
 typedef struct conddef   *Conddef;
 typedef struct dirsav    *Dirsav;
+typedef struct emulation_options *Emulation_options;
 typedef struct features  *Features;
 typedef struct feature_enables  *Feature_enables;
 typedef struct funcstack *Funcstack;
@@ -907,6 +908,8 @@ struct job {
 #define STAT_ATTACH	(0x1000) /* delay reattaching shell to tty       */
 #define STAT_SUBLEADER  (0x2000) /* is super-job, but leader is sub-shell */
 
+#define STAT_BUILTIN    (0x4000) /* job at tail of pipeline is a builtin */
+
 #define SP_RUNNING -1		/* fake status for jobs currently running */
 
 struct timeinfo {
@@ -1097,7 +1100,7 @@ struct shfunc {
     char *filename;             /* Name of file located in */
     zlong lineno;		/* line number in above file */
     Eprog funcdef;		/* function definition    */
-    int emulation;		/* sticky emulation for function */
+    Emulation_options sticky;   /* sticky emulation definitions, if any */
 };
 
 /* Shell function context types. */
@@ -1552,6 +1555,7 @@ struct tieddata {
 #define PM_HIDE		(1<<14)	/* Special behaviour hidden by local        */
 #define PM_HIDEVAL	(1<<15)	/* Value not shown in `typeset' commands    */
 #define PM_TIED 	(1<<16)	/* array tied to colon-path or v.v.         */
+#define PM_TAGGED_LOCAL (1<<16) /* (function): non-recursive PM_TAGGED      */
 
 #define PM_KSHSTORED	(1<<17) /* function stored in ksh form              */
 #define PM_ZSHSTORED	(1<<18) /* function stored in zsh form              */
@@ -1643,9 +1647,18 @@ enum {
 };
 
 /* Flags as the second argument to prefork */
-#define PF_TYPESET	0x01	/* argument handled like typeset foo=bar */
-#define PF_ASSIGN	0x02	/* argument handled like the RHS of foo=bar */
-#define PF_SINGLE	0x04	/* single word substitution */
+/* argument handled like typeset foo=bar */
+#define PREFORK_TYPESET	        0x01
+/* argument handled like the RHS of foo=bar */
+#define PREFORK_ASSIGN	        0x02
+/* single word substitution */
+#define PREFORK_SINGLE	        0x04
+/* explicitly split nested substitution */
+#define PREFORK_SPLIT           0x08
+/* SHWORDSPLIT in parameter expn */
+#define PREFORK_SHWORDSPLIT     0x10
+/* SHWORDSPLIT forced off in nested subst */
+#define PREFORK_NOSHWORDSPLIT   0x20
 
 /*
  * Structure for adding parameters in a module.
@@ -1731,6 +1744,23 @@ struct nameddir {
 #define ND_USERNAME	(1<<1)	/* nam is actually a username       */
 #define ND_NOABBREV	(1<<2)	/* never print as abbrev (PWD or OLDPWD) */
 
+/* Storage for single group/name mapping */
+typedef struct {
+    /* Name of group */
+    char *name;
+    /* Group identifier */
+    gid_t gid;
+} groupmap;
+typedef groupmap *Groupmap;
+
+/* Storage for a set of group/name mappings */
+typedef struct {
+    /* The set of name to gid mappings */
+    Groupmap array;
+    /* A count of the valid entries in groupmap. */
+    int num;
+} groupset;
+typedef groupset *Groupset;
 
 /* flags for controlling printing of hash table nodes */
 #define PRINT_NAMEONLY		(1<<0)
@@ -1941,6 +1971,7 @@ enum {
     COMPLETEINWORD,
     CORRECT,
     CORRECTALL,
+    CONTINUEONERROR,
     CPRECEDENCES,
     CSHJUNKIEHISTORY,
     CSHJUNKIELOOPS,
@@ -1967,6 +1998,7 @@ enum {
     GLOBSUBST,
     HASHCMDS,
     HASHDIRS,
+    HASHEXECUTABLESONLY,
     HASHLISTALL,
     HISTALLOWCLOBBER,
     HISTBEEP,
@@ -1986,6 +2018,7 @@ enum {
     HISTVERIFY,
     HUP,
     IGNOREBRACES,
+    IGNORECLOSEBRACES,
     IGNOREEOF,
     INCAPPENDHISTORY,
     INTERACTIVE,
@@ -2073,6 +2106,12 @@ enum {
     OPT_SIZE
 };
 
+/*
+ * Size required to fit an option number.
+ * If OPT_SIZE goes above 256 this will need to expand.
+ */
+typedef unsigned char OptIndex;
+
 #undef isset
 #define isset(X) (opts[X])
 #define unset(X) (!opts[X])
@@ -2080,6 +2119,27 @@ enum {
 #define interact (isset(INTERACTIVE))
 #define jobbing  (isset(MONITOR))
 #define islogin  (isset(LOGINSHELL))
+
+/*
+ * Record of emulation and options that need to be set
+ * for a full "emulate".
+ */
+struct emulation_options {
+    /* The emulation itself */
+    int emulation;
+    /* The number of options in on_opts. */
+    int n_on_opts;
+    /* The number of options in off_opts. */
+    int n_off_opts;
+    /*
+     * Array of options to be turned on.
+     * Only options specified explicitly in the emulate command
+     * are recorded.  Null if n_on_opts is zero.
+     */
+    OptIndex *on_opts;
+    /* Array of options to be turned off, similar. */
+    OptIndex *off_opts;
+};
 
 /***********************************************/
 /* Definitions for terminal and display control */
@@ -2105,6 +2165,7 @@ struct ttyinfo {
 #endif
 };
 
+#ifndef __INTERIX
 /* defines for whether tabs expand to spaces */
 #if defined(HAVE_TERMIOS_H) || defined(HAVE_TERMIO_H)
 #define SGTTYFLAG       shttyinfo.tio.c_oflag
@@ -2122,6 +2183,7 @@ struct ttyinfo {
 #   endif
 #  endif
 # endif
+#endif
 
 /* flags for termflags */
 
@@ -2310,11 +2372,68 @@ enum {
  * Memory management *
  *********************/
 
+/*
+ * A Heapid is a type for identifying, uniquely up to the point where
+ * the count of new identifiers wraps. all heaps that are or
+ * (importantly) have been valid.  Each valid heap is given an
+ * identifier, and every time we push a heap we save the old identifier
+ * and give the heap a new identifier so that when the heap is popped
+ * or freed we can spot anything using invalid memory from the popped
+ * heap.
+ *
+ * We could make this unsigned long long if we wanted a big range.
+ */
+typedef unsigned int Heapid;
+
+#ifdef ZSH_HEAP_DEBUG
+
+/* printf format specifier corresponding to Heapid */
+#define HEAPID_FMT	"%x"
+
+/* Marker that memory is permanently allocated */
+#define HEAPID_PERMANENT (UINT_MAX)
+
+/*
+ * Heap debug verbosity.
+ * Bits to be 'or'ed into the variable also called heap_debug_verbosity.
+ */
+enum heap_debug_verbosity {
+    /* Report when we push a heap */
+    HDV_PUSH = 0x01,
+    /* Report when we pop a heap */
+    HDV_POP = 0x02,
+    /* Report when we create a new heap from which to allocate */
+    HDV_CREATE = 0x04,
+    /* Report every time we free a complete heap */
+    HDV_FREE = 0x08,
+    /* Report when we temporarily install a new set of heaps */
+    HDV_NEW = 0x10,
+    /* Report when we restore an old set of heaps */
+    HDV_OLD = 0x20,
+    /* Report when we temporarily switch heaps */
+    HDV_SWITCH = 0x40,
+    /*
+     * Report every time we allocate memory from the heap.
+     * This is very verbose, and arguably not very useful: we
+     * would expect to allocate memory from a heap we create.
+     * For much debugging heap_debug_verbosity = 0x7f should be sufficient.
+     */
+    HDV_ALLOC = 0x80
+};
+
+#define HEAP_ERROR(heap_id)			\
+    fprintf(stderr, "%s:%d: HEAP DEBUG: invalid heap: " HEAPID_FMT ".\n", \
+	    __FILE__, __LINE__, heap_id)
+#endif
+
 /* heappush saves the current heap state using this structure */
 
 struct heapstack {
     struct heapstack *next;	/* next one in list for this heap */
     size_t used;
+#ifdef ZSH_HEAP_DEBUG
+    Heapid heap_id;
+#endif
 };
 
 /* A zsh heap. */
@@ -2324,6 +2443,10 @@ struct heap {
     size_t size;		/* size of heap                              */
     size_t used;		/* bytes used from the heap                  */
     struct heapstack *sp;	/* used by pushheap() to save the value used */
+
+#ifdef ZSH_HEAP_DEBUG
+    unsigned int heap_id;
+#endif
 
 /* Uncomment the following if the struct needs padding to 64-bit size. */
 /* Make sure sizeof(heap) is a multiple of 8 
@@ -2492,7 +2615,11 @@ enum {
      * Yes, I know that doesn't seem to make much sense.
      * It's for use in completion, comprenez?
      */
-    GETKEY_UPDATE_OFFSET = (1 << 7)
+    GETKEY_UPDATE_OFFSET = (1 << 7),
+    /*
+     * When replacing numeric escapes for printf format strings, % -> %%
+     */
+    GETKEY_PRINTF_PERCENT = (1 << 8)
 };
 
 /*
@@ -2501,8 +2628,9 @@ enum {
  */
 /* echo builtin */
 #define GETKEYS_ECHO	(GETKEY_BACKSLASH_C)
-/* printf format string:  \123 -> S, \0123 -> NL 3 */
-#define GETKEYS_PRINTF_FMT	(GETKEY_OCTAL_ESC|GETKEY_BACKSLASH_C)
+/* printf format string:  \123 -> S, \0123 -> NL 3, \045 -> %% */
+#define GETKEYS_PRINTF_FMT	\
+        (GETKEY_OCTAL_ESC|GETKEY_BACKSLASH_C|GETKEY_PRINTF_PERCENT)
 /* printf argument:  \123 -> \123, \0123 -> S */
 #define GETKEYS_PRINTF_ARG	(GETKEY_BACKSLASH_C)
 /* Full print without -e */
@@ -2582,7 +2710,14 @@ typedef wint_t convchar_t;
 #define MB_METASTRWIDTH(str)	mb_metastrlen(str, 1)
 #define MB_METASTRLEN2(str, widthp)	mb_metastrlen(str, widthp)
 
-#ifdef BROKEN_WCWIDTH
+/*
+ * We replace broken implementations with one that uses Unicode
+ * characters directly as wide characters.  In principle this is only
+ * likely to work if __STDC_ISO_10646__ is defined, since that's pretty
+ * much what the definition tells us.  However, we happen to know this
+ * works on MacOS which doesn't define that.
+ */
+#if defined(BROKEN_WCWIDTH) && (defined(__STDC_ISO_10646__) || defined(__APPLE__))
 #define WCWIDTH(wc)	mk_wcwidth(wc)
 #else
 #define WCWIDTH(wc)	wcwidth(wc)

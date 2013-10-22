@@ -28,7 +28,7 @@
 #include "CMSEncoder.h"
 #include "CMSPrivate.h"
 #include "CMSUtils.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <Security/SecBase.h>
 #include <Security/SecCmsEncoder.h>
 #include <Security/SecCmsEnvelopedData.h>
 #include <Security/SecCmsMessage.h>
@@ -186,14 +186,15 @@ static int encodeOid(
 {
 	unsigned char **digits = NULL;		/* array of char * from encodeNumber */
 	unsigned *numDigits = NULL;			/* array of unsigned from encodeNumber */
-	unsigned digit;
+	CFIndex digit;
 	unsigned numDigitBytes;				/* total #of output chars */
 	unsigned char firstByte;
 	unsigned char *outP;
-	unsigned numsToProcess;
+	CFIndex numsToProcess;
 	CFStringRef oidStr = NULL;
 	CFArrayRef argvRef = NULL;
-	int num, argc, result = 1;
+	int num, result = 1;
+        CFIndex argc;
 	
 	/* parse input string into array of substrings */
 	if (!inStr || !outOid || !outLen) goto cleanExit;
@@ -265,7 +266,7 @@ static int convertOid(
 	CSSM_OID *outOid)
 {
 	if (!inRef || !outOid)
-		return paramErr;
+		return errSecParam;
 	
 	unsigned char *oidData = NULL;
 	unsigned int oidLen = 0;
@@ -276,10 +277,10 @@ static int convertOid(
 		CFIndex max = CFStringGetLength(inStr) * 3;
 		char buf[max];
 		if (!CFStringGetCString(inStr, buf, max-1, kCFStringEncodingASCII))
-			return paramErr;
+			return errSecParam;
 
 		if(encodeOid((unsigned char *)buf, &oidData, &oidLen) != 0)
-			return paramErr;
+			return errSecParam;
 	}
 	else if (CFGetTypeID(inRef) == CFDataGetTypeID()) {
 		// CFDataRef: OID representation is in binary DER format
@@ -290,7 +291,7 @@ static int convertOid(
 	}
 	else {
 		// Not in a format we understand
-		return paramErr;
+		return errSecParam;
 	}
 	outOid->Length = oidLen;
 	outOid->Data = (uint8 *)oidData;
@@ -367,7 +368,7 @@ static OSStatus cmsSetupEncoder(
 	if(ortn) {
 		return cmsRtnToOSStatus(ortn);
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -388,12 +389,12 @@ static OSStatus cmsSetupForSignedData(
 	}
 	cmsEncoder->cmsMsg = SecCmsMessageCreate(NULL);
 	if(cmsEncoder->cmsMsg == NULL) {
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 
 	signedData = SecCmsSignedDataCreate(cmsEncoder->cmsMsg);
 	if(signedData == NULL) {
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 	contentInfo = SecCmsMessageGetContentInfo(cmsEncoder->cmsMsg);
 	ortn = SecCmsContentInfoSetContentSignedData(cmsEncoder->cmsMsg, contentInfo, 
@@ -473,7 +474,7 @@ static OSStatus cmsSetupForSignedData(
 		}
 		signerInfo = SecCmsSignerInfoCreate(cmsEncoder->cmsMsg, ourId, SEC_OID_SHA1);
 		if (signerInfo == NULL) {
-			ortn = internalComponentErr;
+			ortn = errSecInternalComponent;
 			break;
 		}
 
@@ -584,12 +585,12 @@ static OSStatus cmsSetupForEnvelopedData(
 	}
 	cmsEncoder->cmsMsg = SecCmsMessageCreate(NULL);
 	if(cmsEncoder->cmsMsg == NULL) {
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 	envelopedData = SecCmsEnvelopedDataCreate(cmsEncoder->cmsMsg, 
 		algorithmTag, keySize);
 	if(envelopedData == NULL) {
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 	contentInfo = SecCmsMessageGetContentInfo(cmsEncoder->cmsMsg);
 	ortn = SecCmsContentInfoSetContentEnvelopedData(cmsEncoder->cmsMsg, 
@@ -636,7 +637,7 @@ static OSStatus cmsSetupForEnvelopedData(
 			return ortn;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -663,10 +664,10 @@ static OSStatus cmsSetupCmsMsg(
 	}
 	else {
 		dprintf("CMSEncoderUpdateContent: nothing to do\n");
-		return paramErr;
+		return errSecParam;
 	}
 	
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	
 	switch(cmsEncoder->op) {
 		case EO_Sign:
@@ -719,10 +720,10 @@ static OSStatus cmsContentInfoContent(
     }
     if(decodedInfo.content.Data == NULL) {
 		dprintf("***Error decoding contentInfo: no content\n");
-		return internalComponentErr;
+		return errSecInternalComponent;
     }
     *content = decodedInfo.content;
-	return noErr;
+	return errSecSuccess;
 }
 
 #pragma mark --- Start of Public API ---
@@ -749,12 +750,12 @@ OSStatus CMSEncoderCreate(
 	cmsEncoder = (CMSEncoderRef)_CFRuntimeCreateInstance(NULL, CMSEncoderGetTypeID(),
 		extra, NULL);
 	if(cmsEncoder == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	cmsEncoder->encState = ES_Init;
 	cmsEncoder->chainMode = kCMSCertificateChain;
 	*cmsEncoderOut = cmsEncoder;
-	return noErr;
+	return errSecSuccess;
 }
 	
 #pragma mark --- Getters & Setters ---
@@ -767,10 +768,10 @@ OSStatus CMSEncoderAddSigners(
 	CFTypeRef			signerOrArray)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->encState != ES_Init) {
-		return paramErr;
+		return errSecParam;
 	}
 	return cmsAppendToArray(signerOrArray, &cmsEncoder->signers, SecIdentityGetTypeID());
 }
@@ -783,13 +784,13 @@ OSStatus CMSEncoderCopySigners(
 	CFArrayRef			*signers)
 {
 	if((cmsEncoder == NULL) || (signers == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->signers != NULL) {
 		CFRetain(cmsEncoder->signers);
 	}
 	*signers = cmsEncoder->signers;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -800,10 +801,10 @@ OSStatus CMSEncoderAddRecipients(
 	CFTypeRef			recipientOrArray)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->encState != ES_Init) {
-		return paramErr;
+		return errSecParam;
 	}
 	return cmsAppendToArray(recipientOrArray, &cmsEncoder->recipients, 
 			SecCertificateGetTypeID());
@@ -817,13 +818,13 @@ OSStatus CMSEncoderCopyRecipients(
 	CFArrayRef			*recipients)
 {
 	if((cmsEncoder == NULL) || (recipients == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->recipients != NULL) {
 		CFRetain(cmsEncoder->recipients);
 	}
 	*recipients = cmsEncoder->recipients;
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -834,10 +835,10 @@ OSStatus CMSEncoderAddSupportingCerts(
 	CFTypeRef			certOrArray)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->encState != ES_Init) {
-		return paramErr;
+		return errSecParam;
 	}
 	return cmsAppendToArray(certOrArray, &cmsEncoder->otherCerts, 
 			SecCertificateGetTypeID());
@@ -851,13 +852,13 @@ OSStatus CMSEncoderCopySupportingCerts(
 	CFArrayRef			*certs)			/* RETURNED */
 {
 	if((cmsEncoder == NULL) || (certs == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->otherCerts != NULL) {
 		CFRetain(cmsEncoder->otherCerts);
 	}
 	*certs = cmsEncoder->otherCerts;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus CMSEncoderSetHasDetachedContent(
@@ -865,13 +866,13 @@ OSStatus CMSEncoderSetHasDetachedContent(
 	Boolean				detachedContent)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->encState != ES_Init) {
-		return paramErr;
+		return errSecParam;
 	}
 	cmsEncoder->detachedContent = detachedContent;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus CMSEncoderGetHasDetachedContent(
@@ -879,10 +880,10 @@ OSStatus CMSEncoderGetHasDetachedContent(
 	Boolean				*detachedContent)	/* RETURNED */
 {
 	if((cmsEncoder == NULL) || (detachedContent == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	*detachedContent = cmsEncoder->detachedContent;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -895,10 +896,10 @@ OSStatus CMSEncoderSetEncapsulatedContentType(
 	const CSSM_OID	*eContentType)
 {
 	if((cmsEncoder == NULL) || (eContentType == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->encState != ES_Init) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	CSSM_OID *ecOid = &cmsEncoder->eContentType;
@@ -906,7 +907,7 @@ OSStatus CMSEncoderSetEncapsulatedContentType(
 		free(ecOid->Data);
 	}
 	cmsCopyCmsData(eContentType, ecOid);
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus CMSEncoderSetEncapsulatedContentTypeOID(
@@ -916,7 +917,7 @@ OSStatus CMSEncoderSetEncapsulatedContentTypeOID(
 	// convert eContentTypeOID to a CSSM_OID
 	CSSM_OID contentType = { 0, NULL };
 	if (!eContentTypeOID || convertOid(eContentTypeOID, &contentType) != 0)
-		return paramErr;
+		return errSecParam;
 	OSStatus result = CMSEncoderSetEncapsulatedContentType(cmsEncoder, &contentType);
 	if (contentType.Data)
 		free(contentType.Data);
@@ -931,7 +932,7 @@ OSStatus CMSEncoderCopyEncapsulatedContentType(
 	CFDataRef			*eContentType)
 {
 	if((cmsEncoder == NULL) || (eContentType == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	CSSM_OID *ecOid = &cmsEncoder->eContentType;
@@ -941,7 +942,7 @@ OSStatus CMSEncoderCopyEncapsulatedContentType(
 	else {
 		*eContentType = CFDataCreate(NULL, ecOid->Data, ecOid->Length);
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -954,13 +955,13 @@ OSStatus CMSEncoderAddSignedAttributes(
 	CMSSignedAttributes	signedAttributes)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->encState != ES_Init) {
-		return paramErr;
+		return errSecParam;
 	}
 	cmsEncoder->signedAttributes = signedAttributes;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -972,13 +973,13 @@ OSStatus CMSEncoderSetSigningTime(
 	CFAbsoluteTime		time)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->encState != ES_Init) {
-		return paramErr;
+		return errSecParam;
 	}
 	cmsEncoder->signingTime = time;
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -987,10 +988,10 @@ OSStatus CMSEncoderSetCertificateChainMode(
 	CMSCertificateChainMode	chainMode)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->encState != ES_Init) {
-		return paramErr;
+		return errSecParam;
 	}
 	switch(chainMode) {
 		case kCMSCertificateNone:
@@ -999,10 +1000,10 @@ OSStatus CMSEncoderSetCertificateChainMode(
 		case kCMSCertificateChainWithRoot:
 			break;
 		default:
-			return paramErr;
+			return errSecParam;
 	}
 	cmsEncoder->chainMode = chainMode;
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus CMSEncoderGetCertificateChainMode(
@@ -1010,10 +1011,10 @@ OSStatus CMSEncoderGetCertificateChainMode(
 	CMSCertificateChainMode	*chainModeOut)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	*chainModeOut = cmsEncoder->chainMode;
-	return noErr;
+	return errSecSuccess;
 }
 
 void
@@ -1043,10 +1044,10 @@ OSStatus CMSEncoderUpdateContent(
 	size_t				contentLen)
 {
 	if(cmsEncoder == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	switch(cmsEncoder->encState) {
 		case ES_Init:
 			/* 
@@ -1076,10 +1077,10 @@ OSStatus CMSEncoderUpdateContent(
 
 		case ES_Final:
 			/* Too late for another update */
-			return paramErr;
+			return errSecParam;
 			
 		default:
-			return internalComponentErr;
+			return errSecInternalComponent;
 	}
 	
 	/* FIXME - CFIndex same size as size_t on 64bit? */
@@ -1100,7 +1101,7 @@ OSStatus CMSEncoderCopyEncodedContent(
 	CFDataRef			*encodedContent)
 {
 	if((cmsEncoder == NULL) || (encodedContent == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 
 	OSStatus ortn;
@@ -1111,7 +1112,7 @@ OSStatus CMSEncoderCopyEncodedContent(
 			break;
 		case ES_Final:
 			/* already been called */
-			return paramErr;
+			return errSecParam;
 		case ES_Msg:
 		case ES_Init:
 			/*
@@ -1121,7 +1122,7 @@ OSStatus CMSEncoderCopyEncodedContent(
 			if((cmsEncoder->signers != NULL) ||
 			   (cmsEncoder->recipients != NULL) ||
 			   (cmsEncoder->otherCerts == NULL)) {
-				return paramErr;
+				return errSecParam;
 			}
 			
 			/* Set up for certs only */
@@ -1150,12 +1151,12 @@ OSStatus CMSEncoderCopyEncodedContent(
 	if((cmsEncoder->encoderOut.Data == NULL) && !cmsEncoder->customCoder) {
 		/* not sure how this could happen... */
 		dprintf("Successful encode, but no data\n");
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 	if(cmsEncoder->customCoder) {
 		/* we're done */
 		*encodedContent = NULL;
-		return noErr;
+		return errSecSuccess;
 	}
 	
 	/* in two out of three cases, we're done */
@@ -1164,7 +1165,7 @@ OSStatus CMSEncoderCopyEncodedContent(
 		case EO_Encrypt:
 			*encodedContent = CFDataCreate(NULL, (const UInt8 *)cmsEncoder->encoderOut.Data,	
 				cmsEncoder->encoderOut.Length);
-			return noErr;
+			return errSecSuccess;
 		case EO_SignEncrypt:
 			/* proceed, more work to do */
 			break;
@@ -1223,10 +1224,10 @@ OSStatus CMSEncode(
 	CFDataRef			*encodedContent)	/* RETURNED */
 {
 	if((signers == NULL) && (recipients == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(encodedContent == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	CMSEncoderRef cmsEncoder;
@@ -1294,7 +1295,7 @@ OSStatus CMSEncodeContent(
 	// convert eContentTypeOID to a CSSM_OID
 	CSSM_OID contentType = { 0, NULL };
 	if (eContentTypeOID && convertOid(eContentTypeOID, &contentType) != 0)
-		return paramErr;
+		return errSecParam;
 	const CSSM_OID *contentTypePtr = (eContentTypeOID) ? &contentType : NULL;
 	OSStatus result = CMSEncode(signers, recipients, contentTypePtr,
 									detachedContent, signedAttributes,
@@ -1316,12 +1317,12 @@ OSStatus CMSEncoderGetCmsMessage(
 	SecCmsMessageRef	*cmsMessage)		/* RETURNED */
 {
 	if((cmsEncoder == NULL) || (cmsMessage == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(cmsEncoder->cmsMsg != NULL) {
 		ASSERT(cmsEncoder->encState != ES_Init);
 		*cmsMessage = cmsEncoder->cmsMsg;
-		return noErr;
+		return errSecSuccess;
 	}
 
 	OSStatus ortn = cmsSetupCmsMsg(cmsEncoder);
@@ -1332,7 +1333,7 @@ OSStatus CMSEncoderGetCmsMessage(
 	
 	/* Don't set up encoder yet; caller might do that via CMSEncoderSetEncoder */
 	cmsEncoder->encState = ES_Msg;
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -1346,7 +1347,7 @@ OSStatus CMSEncoderSetEncoder(
 	SecCmsEncoderRef	encoder)
 {
 	if((cmsEncoder == NULL) || (encoder == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	OSStatus ortn;
@@ -1368,10 +1369,10 @@ OSStatus CMSEncoderSetEncoder(
 			cmsEncoder->encoder = encoder;
 			cmsEncoder->encState = ES_Updating;
 			cmsEncoder->customCoder = true;			/* we won't see data */
-			return noErr;
+			return errSecSuccess;
 		default:
 			/* no can do, too late */
-			return paramErr;
+			return errSecParam;
 	}
 }
 	
@@ -1386,12 +1387,12 @@ OSStatus CMSEncoderGetEncoder(
 	SecCmsEncoderRef	*encoder)			/* RETURNED */
 {
 	if((cmsEncoder == NULL) || (encoder == NULL)) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	/* any state, whether we have an encoder or not is OK */
 	*encoder = cmsEncoder->encoder;
-	return noErr;
+	return errSecSuccess;
 }
 
 #include <AssertMacros.h>
@@ -1401,7 +1402,7 @@ OSStatus CMSEncoderGetEncoder(
  * present. This timestamp is an authenticated timestamp provided by
  * a timestamping authority.
  *
- * Returns paramErr if the CMS message was not signed or if signerIndex
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
  * is greater than the number of signers of the message minus one. 
  *
  * This cannot be called until after CMSEncoderCopyEncodedContent() is called. 
@@ -1411,7 +1412,7 @@ OSStatus CMSEncoderCopySignerTimestamp(
 	size_t				signerIndex,        /* usually 0 */
 	CFAbsoluteTime      *timestamp)			/* RETURNED */
 {
-    OSStatus status = paramErr;
+    OSStatus status = errSecParam;
 	SecCmsMessageRef cmsg;
 	SecCmsSignedDataRef signedData = NULL;
     int numContentInfos = 0;

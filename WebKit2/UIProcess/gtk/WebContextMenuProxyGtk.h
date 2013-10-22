@@ -26,7 +26,10 @@
 #ifndef WebContextMenuProxyGtk_h
 #define WebContextMenuProxyGtk_h
 
+#if ENABLE(CONTEXT_MENUS)
+
 #include "WebContextMenuProxy.h"
+#include <WebCore/ContextMenu.h>
 #include <WebCore/IntPoint.h>
 
 namespace WebKit {
@@ -45,19 +48,24 @@ public:
     virtual void showContextMenu(const WebCore::IntPoint&, const Vector<WebContextMenuItemData>&);
     virtual void hideContextMenu();
 
+    void populate(Vector<WebCore::ContextMenuItem>&);
+    GtkMenu* gtkMenu() const { return m_menu.platformDescription(); }
+
 private:
     WebContextMenuProxyGtk(GtkWidget*, WebPageProxy*);
-    GtkMenu* createGtkMenu(const Vector<WebContextMenuItemData>&);
 
+    void append(WebCore::ContextMenuItem&);
+    void populate(const Vector<WebContextMenuItemData>&);
     static void menuPositionFunction(GtkMenu*, gint*, gint*, gboolean*, WebContextMenuProxyGtk*);
 
     GtkWidget* m_webView;
     WebPageProxy* m_page;
-    GtkMenu* m_popup;
+    WebCore::ContextMenu m_menu;
     WebCore::IntPoint m_popupPosition;
 };
 
 
 } // namespace WebKit
 
+#endif // ENABLE(CONTEXT_MENUS)
 #endif // WebContextMenuProxyGtk_h

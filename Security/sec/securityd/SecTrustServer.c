@@ -30,6 +30,10 @@
 #include <securityd/SecPolicyServer.h>
 #include <securityd/SecTrustStoreServer.h>
 #include <securityd/SecCAIssuerRequest.h>
+#include <securityd/SecItemServer.h>
+
+#include <utilities/SecIOFormat.h>
+#include <utilities/SecDispatchRelease.h>
 
 #include <Security/SecTrustPriv.h>
 #include <Security/SecItem.h>
@@ -47,25 +51,146 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <MacErrors.h>
+#include <limits.h>
+#include <Security/SecBase.h>
 #include "SecRSAKey.h"
 #include <libDER/oids.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
+#include <utilities/SecCFWrappers.h>
 #include <Security/SecInternal.h>
 #include "securityd_client.h"
-#include "securityd_server.h"
+#include <CommonCrypto/CommonDigest.h>
+#include "OTATrustUtilities.h"
 
-const struct digest_to_ix_t *
-digest_to_anchor_ix (register const char *str, register unsigned int len);
-const struct subject_to_ix_t *
-subject_to_anchor_ix (register const char *str, register unsigned int len);
-const struct ev_oids *
-ev_oid (register const char *str, register unsigned int len);
+
+/********************************************************
+ ***************** OTA Trust support ********************
+ ********************************************************/
+
 
 #ifndef SECITEM_SHIM_OSX
-#include "evroots.h"
+
+static CFArrayRef subject_to_anchors(CFDataRef nic);
+static CFArrayRef CopyCertsFromIndices(CFArrayRef offsets);
+
+static CFArrayRef subject_to_anchors(CFDataRef nic)
+{
+    CFArrayRef result = NULL;
+
+    if (NULL == nic)
+    {
+        return result;
+    }
+
+	SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+	if (NULL == otapkiref)
+	{
+		return result;
+	}
+	
+	CFDictionaryRef lookupTable = SecOTAPKICopyAnchorLookupTable(otapkiref);
+	CFRelease(otapkiref);
+
+	if (NULL == lookupTable)
+	{
+		return result;
+	}
+
+    unsigned char subject_digest[CC_SHA1_DIGEST_LENGTH];
+    memset(subject_digest, 0, CC_SHA1_DIGEST_LENGTH);
+
+    (void)CC_SHA1(CFDataGetBytePtr(nic), (CC_LONG)CFDataGetLength(nic), subject_digest);
+    CFDataRef sha1Digest = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, subject_digest, CC_SHA1_DIGEST_LENGTH, kCFAllocatorNull);
+
+
+    result = (CFArrayRef)CFDictionaryGetValue(lookupTable, sha1Digest);
+	CFReleaseSafe(lookupTable);
+    CFReleaseSafe(sha1Digest);
+
+    return result;
+}
+
+static CFArrayRef CopyCertDataFromIndices(CFArrayRef offsets)
+{
+    CFMutableArrayRef result = NULL;
+
+	SecOTAPKIRef otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+	if (NULL == otapkiref)
+	{
+		return result;
+	}
+	
+	const char* anchorTable = SecOTAPKIGetAnchorTable(otapkiref);	
+	if (NULL == anchorTable)
+	{
+		CFReleaseSafe(otapkiref);
+		return result;
+	}
+
+	CFIndex num_offsets = CFArrayGetCount(offsets);
+	
+	result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+	
+	for (CFIndex idx = 0; idx < num_offsets; idx++)
+    {
+		CFNumberRef offset = (CFNumberRef)CFArrayGetValueAtIndex(offsets, idx);
+		uint32_t offset_value = 0;
+		if (CFNumberGetValue(offset, kCFNumberSInt32Type, &offset_value))
+		{
+			char* pDataPtr = (char *)(anchorTable + offset_value);
+			//int32_t record_length = *((int32_t * )pDataPtr);
+			//record_length = record_length;
+			pDataPtr += sizeof(uint32_t);
+
+			int32_t cert_data_length = *((int32_t * )pDataPtr);
+			pDataPtr += sizeof(uint32_t);
+
+			CFDataRef cert_data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)pDataPtr,
+                                                              cert_data_length, kCFAllocatorNull);
+			if (NULL != cert_data)
+			{
+                CFArrayAppendValue(result, cert_data);
+                CFReleaseSafe(cert_data);
+            }
+		}
+	}
+	CFReleaseSafe(otapkiref);
+	return result;
+}
+
+static CFArrayRef CopyCertsFromIndices(CFArrayRef offsets)
+{
+	CFMutableArrayRef result = NULL;
+
+    CFArrayRef cert_data_array = CopyCertDataFromIndices(offsets);
+
+    if (NULL != cert_data_array)
+    {
+        result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        CFIndex num_cert_datas = CFArrayGetCount(cert_data_array);
+        for (CFIndex idx = 0; idx < num_cert_datas; idx++)
+        {
+            CFDataRef cert_data = (CFDataRef)CFArrayGetValueAtIndex(cert_data_array, idx);
+            if (NULL != cert_data)
+            {
+                SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, cert_data);
+                if (NULL != cert)
+                {
+                    CFArrayAppendValue(result, cert);
+                    CFRelease(cert);
+                }
+            }
+        }
+        CFRelease(cert_data_array);
+    }
+    return result;
+
+}
 #endif
+
+/********************************************************
+ *************** END OTA Trust support ******************
+ ********************************************************/
 
 #define MAX_CHAIN_LENGTH  15
 
@@ -73,8 +198,8 @@ ev_oid (register const char *str, register unsigned int len);
 static void SecPathBuilderExtendPaths(void *context, CFArrayRef parents);
 
 
-#pragma mark -
-#pragma mark SecCertificateSource
+// MARK: -
+// MARK: SecCertificateSource
 /********************************************************
  ************ SecCertificateSource object ***************
  ********************************************************/
@@ -102,21 +227,45 @@ static bool SecCertificateSourceContains(SecCertificateSourceRef source,
 	return source->contains(source, certificate);
 }
 
-#pragma mark -
-#pragma mark SecItemCertificateSource
+// MARK: -
+// MARK: SecItemCertificateSource
 /********************************************************
  *********** SecItemCertificateSource object ************
  ********************************************************/
+struct SecItemCertificateSource {
+	struct SecCertificateSource base;
+	CFArrayRef accessGroups;
+};
+typedef struct SecItemCertificateSource *SecItemCertificateSourceRef;
+
+static CFTypeRef SecItemCertificateSourceResultsPost(CFTypeRef raw_results) {
+    if (isArray(raw_results)) {
+        CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, CFArrayGetCount(raw_results), &kCFTypeArrayCallBacks);
+        CFArrayForEach(raw_results, ^(const void *value) {
+            SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, value);
+            if (cert) {
+                CFArrayAppendValue(result, cert);
+				CFRelease(cert);
+			}
+        });
+        return result;
+    } else if (isData(raw_results)) {
+        return SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)raw_results);
+    }
+    return NULL;
+}
+
 static bool SecItemCertificateSourceCopyParents(
 	SecCertificateSourceRef source, SecCertificateRef certificate,
         void *context, SecCertificateSourceParents callback) {
+	SecItemCertificateSourceRef msource = (SecItemCertificateSourceRef)source;
     /* FIXME: Search for things other than just subject of our issuer if we
        have a subjectID or authorityKeyIdentifier. */
     CFDataRef normalizedIssuer =
         SecCertificateGetNormalizedIssuerContent(certificate);
     const void *keys[] = {
         kSecClass,
-        kSecReturnRef,
+        kSecReturnData,
         kSecMatchLimit,
         kSecAttrSubject
     },
@@ -130,18 +279,24 @@ static bool SecItemCertificateSourceCopyParents(
 		NULL, NULL);
     CFTypeRef results = NULL;
     /* We can make this async or run this on a queue now easily. */
-    OSStatus status = SecItemCopyMatching(query, &results);
-    CFRelease(query);
-    if (status) {
-		secdebug("trust", "SecItemCopyMatching status: %lu", status);
+    CFErrorRef localError = NULL;
+    if (!_SecItemCopyMatching(query, msource->accessGroups, &results, &localError)) {
+        if (CFErrorGetCode(localError) != errSecItemNotFound) {
+            secdebug("trust", "_SecItemCopyMatching: %@", localError);
+        }
+        CFRelease(localError);
     }
-    callback(context, results);
+    CFRelease(query);
+    CFTypeRef certs = SecItemCertificateSourceResultsPost(results);
     CFReleaseSafe(results);
+    callback(context, certs);
+    CFReleaseSafe(certs);
     return true;
 }
 
 static bool SecItemCertificateSourceContains(SecCertificateSourceRef source,
 	SecCertificateRef certificate) {
+	SecItemCertificateSourceRef msource = (SecItemCertificateSourceRef)source;
     /* Lookup a certificate by issuer and serial number. */
     CFDataRef normalizedSubject =
         SecCertificateGetNormalizedSubjectContent(certificate);
@@ -149,146 +304,78 @@ static bool SecItemCertificateSourceContains(SecCertificateSourceRef source,
         SecCertificateCopySerialNumber(certificate);
     const void *keys[] = {
         kSecClass,
-        kSecReturnRef,
         kSecMatchLimit,
         kSecAttrIssuer,
 		kSecAttrSerialNumber
     },
     *values[] = {
         kSecClassCertificate,
-        kCFBooleanTrue,
         kSecMatchLimitOne,
         normalizedSubject,
 		serialNumber
     };
     CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 5,
         NULL, NULL);
-    OSStatus status = SecItemCopyMatching(query, NULL);
+    CFErrorRef localError = NULL;
+    CFTypeRef results = NULL;
+    bool ok = _SecItemCopyMatching(query, msource->accessGroups, &results, &localError);
     CFRelease(query);
     CFRelease(serialNumber);
-
-    if (status) {
-		if (status != errSecItemNotFound) {
-			secdebug("trust", "SecItemCopyMatching returned %d", status);
-		}
+    CFReleaseSafe(results);
+    if (!ok) {
+        if (CFErrorGetCode(localError) != errSecItemNotFound) {
+            secdebug("trust", "_SecItemCopyMatching: %@", localError);
+        }
+        CFRelease(localError);
 		return false;
     }
     return true;
 }
 
-struct SecCertificateSource kSecItemCertificateSource = {
-	SecItemCertificateSourceCopyParents,
-	SecItemCertificateSourceContains
-};
+static SecCertificateSourceRef SecItemCertificateSourceCreate(CFArrayRef accessGroups) {
+	SecItemCertificateSourceRef result = (SecItemCertificateSourceRef)malloc(sizeof(*result));
+	result->base.copyParents = SecItemCertificateSourceCopyParents;
+	result->base.contains = SecItemCertificateSourceContains;
+	result->accessGroups = accessGroups;
+    CFRetainSafe(accessGroups);
+	return (SecCertificateSourceRef)result;
+}
 
-#if 0
-#pragma mark -
-#pragma mark SecSystemAnchorSource
+static void SecItemCertificateSourceDestroy(SecCertificateSourceRef source) {
+	SecItemCertificateSourceRef msource = (SecItemCertificateSourceRef)source;
+	CFReleaseSafe(msource->accessGroups);
+	free(msource);
+}
+
+// MARK: -
+// MARK: SecSystemAnchorSource
 /********************************************************
  *********** SecSystemAnchorSource object ************
  ********************************************************/
-struct SecSystemAnchorSource {
-	struct SecCertificateSource base;
-	CFSetRef digests;
-};
-typedef struct SecSystemAnchorSource *SecSystemAnchorSourceRef;
 
-/* One time init data. */
-static pthread_once_t kSecSystemAnchorSourceInit = PTHREAD_ONCE_INIT;
-static SecCertificateSourceRef kSecSystemAnchorSource = NULL;
-
-static bool SecSystemAnchorSourceCopyParents(
-	SecCertificateSourceRef source, SecCertificateRef certificate,
-        void *context, SecCertificateSourceParents callback) {
-    callback(context, NULL);
-    return true;
-}
-
-static bool SecSystemAnchorSourceContains(SecCertificateSourceRef source,
-	SecCertificateRef certificate) {
-	SecSystemAnchorSourceRef sasource = (SecSystemAnchorSourceRef)source;
-	CFDataRef digest = SecCertificateGetSHA1Digest(certificate);
-	return CFSetContainsValue(sasource->digests, digest);
-}
-
-static void SecSystemAnchorSourceInit(void) {
-	SecSystemAnchorSourceRef result = (SecSystemAnchorSourceRef)
-		malloc(sizeof(*result));
-	result->base.copyParents = SecSystemAnchorSourceCopyParents;
-	result->base.contains = SecSystemAnchorSourceContains;
-
-	CFDataRef xmlData = SecFrameworkCopyResourceContents(
-		CFSTR("SystemAnchors"), CFSTR("plist"), NULL);
-	CFPropertyListRef plist = CFPropertyListCreateFromXMLData(
-		kCFAllocatorDefault, xmlData, kCFPropertyListImmutable, NULL);
-	if (plist) {
-		if (CFGetTypeID(plist) == CFDictionaryGetTypeID()) {
-			result->digests = (CFSetRef)plist;
-		} else {
-			secwarning("SystemAnchors plist is wrong type.");
-			CFRelease(plist);
-		}
-	}
-
-	if (!result->digests) {
-		result->digests = CFSetCreate(kCFAllocatorDefault, NULL, 0,
-			&kCFTypeSetCallBacks);
-	}
-
-	kSecSystemAnchorSource = (SecCertificateSourceRef)result;
-}
-
-static SecCertificateSourceRef SecSystemAnchorSourceGetDefault(void) {
-    pthread_once(&kSecSystemAnchorSourceInit, SecSystemAnchorSourceInit);
-    return kSecSystemAnchorSource;
-}
-#else
-#pragma mark -
-#pragma mark SecSystemAnchorSource
-/********************************************************
- *********** SecSystemAnchorSource object ************
- ********************************************************/
 static bool SecSystemAnchorSourceCopyParents(
 	SecCertificateSourceRef source, SecCertificateRef certificate,
         void *context, SecCertificateSourceParents callback) {
 #ifndef SECITEM_SHIM_OSX
-    CFMutableArrayRef parents = NULL;
+    CFArrayRef parents = NULL;
+	CFArrayRef anchors = NULL;
+	SecOTAPKIRef otapkiref = NULL;
+	
     CFDataRef nic = SecCertificateGetNormalizedIssuerContent(certificate);
     /* 64 bits cast: the worst that can happen here is we truncate the length and match an actual anchor.
        It does not matter since we would be returning the wrong anchors */
     assert((unsigned long)CFDataGetLength(nic)<UINT_MAX); /* Debug check. correct as long as CFIndex is signed long */
-    const struct subject_to_ix_t *i2x =
-        subject_to_anchor_ix((const char *)CFDataGetBytePtr(nic),
-            (unsigned int)CFDataGetLength(nic));
-    require_quiet(i2x, errOut);
-    int anchor_ix = i2x->anchor_ix;
-    CFIndex capacity = 0;
-    do {
-        ++capacity;
-    } while ((anchor_ix = anchorslist[anchor_ix].next_same_subject));
 
-    parents = CFArrayCreateMutable(kCFAllocatorDefault, capacity,
-        &kCFTypeArrayCallBacks);
-    anchor_ix = i2x->anchor_ix;
-    do {
-        const void *anchor = NULL;
-        CFDataRef anchor_data = NULL;
-
-        require_quiet(anchor_data = CFDataCreateWithBytesNoCopy(
-            kCFAllocatorDefault, (const UInt8 *)anchorslist[anchor_ix].data,
-            anchorslist[anchor_ix].length, kCFAllocatorNull), errOut);
-        anchor = SecCertificateCreateWithData(kCFAllocatorDefault,
-            anchor_data);
-        CFRelease(anchor_data);
-        if (anchor) {
-            CFArrayAppendValue(parents, anchor);
-            CFRelease(anchor);
-        }
-    } while ((anchor_ix = anchorslist[anchor_ix].next_same_subject));
+	otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+	require_quiet(otapkiref, errOut);
+	anchors = subject_to_anchors(nic);
+	require_quiet(anchors, errOut);
+	parents = CopyCertsFromIndices(anchors);
 
 errOut:
     callback(context, parents);
     CFReleaseSafe(parents);
+	CFReleaseSafe(otapkiref);
 #endif
     return true;
 }
@@ -297,36 +384,67 @@ errOut:
    before all others and we remember if we got a cert from an anchorsource. */
 static bool SecSystemAnchorSourceContains(SecCertificateSourceRef source,
 	SecCertificateRef certificate) {
+	bool result = false;
 #ifndef SECITEM_SHIM_OSX
+	CFArrayRef anchors = NULL;
+	SecOTAPKIRef otapkiref = NULL;
+	CFArrayRef cert_datas = NULL;
+	
     CFDataRef nic = SecCertificateGetNormalizedSubjectContent(certificate);
     /* 64 bits cast: the worst that can happen here is we truncate the length and match an actual anchor.
      It does not matter since we would be returning the wrong anchors */
     assert((unsigned long)CFDataGetLength(nic)<UINT_MAX); /* Debug check. correct as long as CFIndex is signed long */
-    const struct subject_to_ix_t *i2x =
-        subject_to_anchor_ix((const char *)CFDataGetBytePtr(nic),
-            (unsigned int)CFDataGetLength(nic));
-    require_quiet(i2x, errOut);
+    
+	otapkiref = SecOTAPKICopyCurrentOTAPKIRef();
+	require_quiet(otapkiref, errOut);
+    anchors = subject_to_anchors(nic);
+	require_quiet(anchors, errOut);
+    cert_datas = CopyCertDataFromIndices(anchors);
+    require_quiet(cert_datas, errOut);
+  
     CFIndex cert_length = SecCertificateGetLength(certificate);
-    const UInt8 *cert_data = SecCertificateGetBytePtr(certificate);
-    int anchor_ix = i2x->anchor_ix;
-    do {
-        if (cert_length == anchorslist[anchor_ix].length &&
-            !memcmp(anchorslist[anchor_ix].data, cert_data, cert_length))
-            return true;
-    } while ((anchor_ix = anchorslist[anchor_ix].next_same_subject));
+    const UInt8 *cert_data_ptr = SecCertificateGetBytePtr(certificate);
+    
+    CFIndex num_cert_datas = CFArrayGetCount(cert_datas);
+    for (CFIndex idx = 0; idx < num_cert_datas; idx++)
+    {
+        CFDataRef cert_data = (CFDataRef)CFArrayGetValueAtIndex(cert_datas, idx);
+               
+		if (NULL != cert_data)
+		{
+            if (CFGetTypeID(cert_data) == CFDataGetTypeID())
+            {
+                CFIndex  aCert_Length = CFDataGetLength(cert_data);
+                const UInt8*  aCert_Data_Ptr = CFDataGetBytePtr(cert_data);
+                
+                if (aCert_Length == cert_length)
+                {
+                    if (!memcmp(cert_data_ptr, aCert_Data_Ptr, cert_length))
+                    {
+						result = true;
+						break;
+                    }
+                }
+            }
+		}
+    }
 
 errOut:
+	CFReleaseSafe(cert_datas);
+	CFReleaseSafe(otapkiref);
 #endif
-    return false;
+    return result;
 }
+
+
 
 struct SecCertificateSource kSecSystemAnchorSource = {
 	SecSystemAnchorSourceCopyParents,
 	SecSystemAnchorSourceContains
 };
 
-#pragma mark -
-#pragma mark SecUserAnchorSource
+// MARK: -
+// MARK: SecUserAnchorSource
 /********************************************************
  *********** SecUserAnchorSource object ************
  ********************************************************/
@@ -334,7 +452,7 @@ static bool SecUserAnchorSourceCopyParents(
 	SecCertificateSourceRef source, SecCertificateRef certificate,
         void *context, SecCertificateSourceParents callback) {
     CFArrayRef parents = SecTrustStoreCopyParents(
-        SecTrustStoreForDomain(kSecTrustStoreDomainUser), certificate);
+        SecTrustStoreForDomain(kSecTrustStoreDomainUser), certificate, NULL);
     callback(context, parents);
     CFReleaseSafe(parents);
     return true;
@@ -350,10 +468,9 @@ struct SecCertificateSource kSecUserAnchorSource = {
 	SecUserAnchorSourceCopyParents,
 	SecUserAnchorSourceContains
 };
-#endif
 
-#pragma mark -
-#pragma mark SecMemoryCertificateSource
+// MARK: -
+// MARK: SecMemoryCertificateSource
 /********************************************************
  *********** SecMemoryCertificateSource object ************
  ********************************************************/
@@ -448,15 +565,15 @@ static void SecMemoryCertificateSourceDestroy(
 	free(msource);
 }
 
-#pragma mark -
-#pragma mark SecCAIssuerCertificateSource
+// MARK: -
+// MARK: SecCAIssuerCertificateSource
 /********************************************************
  ********* SecCAIssuerCertificateSource object **********
  ********************************************************/
 static bool SecCAIssuerCertificateSourceCopyParents(
 	SecCertificateSourceRef source, SecCertificateRef certificate,
         void *context, SecCertificateSourceParents callback) {
-    return SecCAIssuerCopyParents(certificate, context, callback);
+    return SecCAIssuerCopyParents(certificate, SecPathBuilderGetQueue((SecPathBuilderRef)context), context, callback);
 }
 
 static bool SecCAIssuerCertificateSourceContains(
@@ -469,13 +586,15 @@ struct SecCertificateSource kSecCAIssuerSource = {
 	SecCAIssuerCertificateSourceContains
 };
 
-#pragma mark -
-#pragma mark SecPathBuilder
+// MARK: -
+// MARK: SecPathBuilder
 /********************************************************
  *************** SecPathBuilder object ******************
  ********************************************************/
 struct SecPathBuilder {
+    dispatch_queue_t queue;
 	SecCertificateSourceRef	certificateSource;
+	SecCertificateSourceRef	itemCertificateSource;
 	SecCertificateSourceRef	anchorSource;
 	CFMutableArrayRef		anchorSources;
 	CFIndex					nextParentSource;
@@ -550,10 +669,12 @@ static void SecPathBuilderLeafCertificateChecks(SecPathBuilderRef builder,
 
 static void SecPathBuilderInit(SecPathBuilderRef builder,
 	CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly,
-    CFArrayRef policies, CFAbsoluteTime verifyTime,
+    CFArrayRef policies, CFAbsoluteTime verifyTime, CFArrayRef accessGroups,
     SecPathBuilderCompleted completed, const void *context) {
     secdebug("alloc", "%p", builder);
 	CFAllocatorRef allocator = kCFAllocatorDefault;
+
+    builder->queue = dispatch_queue_create("builder", DISPATCH_QUEUE_SERIAL);
 
 	builder->nextParentSource = 1;
 	builder->considerPartials = false;
@@ -589,7 +710,8 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
 	if (builder->anchorSource) {
 		CFArrayAppendValue(builder->anchorSources, builder->anchorSource);
 	}
-	CFArrayAppendValue(builder->parentSources, &kSecItemCertificateSource);
+    builder->itemCertificateSource = SecItemCertificateSourceCreate(accessGroups);
+	CFArrayAppendValue(builder->parentSources, builder->itemCertificateSource);
     if (anchorsOnly) {
         /* Add the system and user anchor certificate db to the search list
            if we don't explicitly trust them. */
@@ -624,21 +746,23 @@ static void SecPathBuilderInit(SecPathBuilderRef builder,
 
 SecPathBuilderRef SecPathBuilderCreate(CFArrayRef certificates,
     CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies,
-    CFAbsoluteTime verifyTime,
+    CFAbsoluteTime verifyTime, CFArrayRef accessGroups,
     SecPathBuilderCompleted completed, const void *context) {
     SecPathBuilderRef builder = malloc(sizeof(*builder));
     SecPathBuilderInit(builder, certificates, anchors, anchorsOnly,
-        policies, verifyTime, completed, context);
+        policies, verifyTime, accessGroups, completed, context);
     return builder;
 }
 
 static void SecPathBuilderDestroy(SecPathBuilderRef builder) {
     secdebug("alloc", "%p", builder);
+    dispatch_release_null(builder->queue);
 	if (builder->anchorSource)
 		SecMemoryCertificateSourceDestroy(builder->anchorSource);
 	if (builder->certificateSource)
 		SecMemoryCertificateSourceDestroy(builder->certificateSource);
-
+    if (builder->itemCertificateSource)
+        SecItemCertificateSourceDestroy(builder->itemCertificateSource);
 	CFReleaseSafe(builder->anchorSources);
 	CFReleaseSafe(builder->parentSources);
 	CFReleaseSafe(builder->allPaths);
@@ -738,7 +862,7 @@ static void SecPathBuilderProccessParents(SecPathBuilderRef builder,
     CFIndex parentIX;
     bool is_anchor = SecCertificatePathGetNextSourceIndex(partial) <=
         CFArrayGetCount(builder->anchorSources);
-    secdebug("trust", "found %d candidate %s", num_parents,
+    secdebug("trust", "found %" PRIdCFIndex " candidate %s", num_parents,
              (is_anchor ? "anchors" : "parents"));
     for (parentIX = 0; parentIX < num_parents; ++parentIX) {
         SecCertificateRef parent = (SecCertificateRef)
@@ -771,7 +895,7 @@ static void SecPathBuilderProccessParents(SecPathBuilderRef builder,
                    candiate partial. */
                 CFArrayInsertValueAtIndex(builder->partialPaths,
                     ++builder->partialIX, path);
-                secdebug("trust", "Adding partial for parent %d/%d %@",
+                secdebug("trust", "Adding partial for parent %" PRIdCFIndex "/%" PRIdCFIndex " %@",
                     parentIX + 1, num_parents, path);
             }
             secdebug("trust", "found new path %@", path);
@@ -836,7 +960,7 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
         CFIndex num_sources = CFArrayGetCount(builder->parentSources);
         if (builder->nextParentSource < num_sources) {
             builder->nextParentSource++;
-            secdebug("trust", "broading search to %d/%d sources",
+            secdebug("trust", "broading search to %" PRIdCFIndex "/%" PRIdCFIndex " sources",
                 builder->nextParentSource, num_sources);
         } else {
             /* We've run out of new sources to consider so let's look at
@@ -860,7 +984,7 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
             }
         }
         builder->partialIX = CFArrayGetCount(builder->partialPaths) - 1;
-        secdebug("trust", "re-checking %d partials", builder->partialIX + 1);
+        secdebug("trust", "re-checking %" PRIdCFIndex " partials", builder->partialIX + 1);
         return true;
     }
 
@@ -879,7 +1003,7 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
 
     /* Attempt to extend this partial path with another certificate. This
        should give us a list of potential parents to consider. */
-    secdebug("trust", "looking for parents of partial %d/%d: %@",
+    secdebug("trust", "looking for parents of partial %" PRIdCFIndex "/%" PRIdCFIndex ": %@",
         builder->partialIX + 1, CFArrayGetCount(builder->partialPaths),
         partial);
 
@@ -892,13 +1016,13 @@ static bool SecPathBuilderGetNext(SecPathBuilderRef builder) {
         if (sourceIX < num_anchor_sources) {
             source = (SecCertificateSourceRef)
                 CFArrayGetValueAtIndex(builder->anchorSources, sourceIX);
-            secdebug("trust", "searching anchor source %d/%d", sourceIX + 1,
+            secdebug("trust", "searching anchor source %" PRIdCFIndex "/%" PRIdCFIndex, sourceIX + 1,
                      num_anchor_sources);
         } else {
             CFIndex parentIX = sourceIX - num_anchor_sources;
             source = (SecCertificateSourceRef)
                 CFArrayGetValueAtIndex(builder->parentSources, parentIX);
-            secdebug("trust", "searching parent source %d/%d", parentIX + 1,
+            secdebug("trust", "searching parent source %" PRIdCFIndex "/%" PRIdCFIndex, parentIX + 1,
                      builder->nextParentSource);
         }
         SecCertificatePathSetNextSourceIndex(partial, sourceIX + 1);
@@ -951,13 +1075,13 @@ static void SecPathBuilderReject(SecPathBuilderRef builder) {
 	if (!builder->bestPath || score > rejectScore) {
         if (builder->bestPath) {
             secdebug("reject",
-                "replacing %sev %s score: %ld with %sev reject score: %d %@",
+                "replacing %sev %s score: %ld with %sev reject score: %" PRIdCFIndex " %@",
                 (builder->bestPathIsEV ? "" : "non "),
                 (builder->rejectScore == INTPTR_MAX ? "accept" : "reject"),
                 builder->rejectScore,
-                (pvc->is_ev ? "" : "non "), score, builder->path.path);
+                (pvc->is_ev ? "" : "non "), (long)score, builder->path.path);
         } else {
-            secdebug("reject", "%sev reject score: %d %@",
+            secdebug("reject", "%sev reject score: %" PRIdCFIndex " %@",
                 (pvc->is_ev ? "" : "non "), score, builder->path.path);
         }
 
@@ -965,7 +1089,7 @@ static void SecPathBuilderReject(SecPathBuilderRef builder) {
         builder->bestPath = pvc->path;
         builder->bestPathIsEV = pvc->is_ev;
 	} else {
-        secdebug("reject", "%sev reject score: %d lower than %d %@",
+        secdebug("reject", "%sev reject score: %" PRIdCFIndex " lower than %" PRIdCFIndex " %@",
             (pvc->is_ev ? "" : "non "), score, rejectScore, builder->path.path);
     }
 }
@@ -1017,6 +1141,7 @@ static bool SecPathBuilderDidValidatePath(SecPathBuilderRef builder) {
 }
 
 static bool SecPathBuilderComputeDetails(SecPathBuilderRef builder) {
+    // foobar
     SecPVCRef pvc = &builder->path;
 #if 0
     if (!builder->caller_wants_details) {
@@ -1041,7 +1166,8 @@ static bool SecPathBuilderComputeDetails(SecPathBuilderRef builder) {
         CFArrayAppendValue(details, certDetail);
         CFRelease(certDetail);
         SecPVCParentCertificateChecks(pvc, ix);
-        SecPVCBlackListedKeyChecks(pvc, ix);
+		SecPVCGrayListedKeyChecks(pvc, ix);
+		SecPVCBlackListedKeyChecks(pvc, ix);
     }
     builder->state = SecPathBuilderReportResult;
     bool completed = SecPVCPathChecks(pvc);
@@ -1131,8 +1257,10 @@ bool SecPathBuilderStep(SecPathBuilderRef builder) {
 
     SecTrustResultType result = (builder->rejectScore == INTPTR_MAX
         ? kSecTrustResultUnspecified : kSecTrustResultRecoverableTrustFailure);
+    
     secdebug("trust", "completed: %@ details: %@ result: %d",
         builder->bestPath, builder->path.details, result);
+    
     if (builder->completed) {
         builder->completed(builder->context, builder->bestPath,
             builder->path.details, builder->path.info, result);
@@ -1145,113 +1273,67 @@ bool SecPathBuilderStep(SecPathBuilderRef builder) {
     return false;
 }
 
+dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder) {
+    return builder->queue;
+}
 
-#pragma mark -
-#pragma mark SecTrustServer
+// MARK: -
+// MARK: SecTrustServer
 /********************************************************
  ****************** SecTrustServer **********************
  ********************************************************/
 
-/* AUDIT[securityd](done):
-   args_in (ok) is a caller provided dictionary, only its cf type has been checked.
- */
-OSStatus
-SecTrustServerEvaluateAsync(CFDictionaryRef args_in,
-    SecPathBuilderCompleted completed, const void *userData) {
-    OSStatus status = paramErr;
-    CFArrayRef certificates = NULL, anchors = NULL, policies = NULL;
-
-    /* Proccess incoming arguments. */
-    CFArrayRef certificatesData = (CFArrayRef)CFDictionaryGetValue(args_in, kSecTrustCertificatesKey);
-    require_quiet(certificatesData && CFGetTypeID(certificatesData) == CFArrayGetTypeID(), errOut);
-    certificates = SecCertificateDataArrayCopyArray(certificatesData);
-    require_quiet(certificates
-        && CFGetTypeID(certificates) == CFArrayGetTypeID()
-        && CFArrayGetCount(certificates) > 0, errOut);
-    CFArrayRef anchorsData = (CFArrayRef)CFDictionaryGetValue(args_in, kSecTrustAnchorsKey);
-    if (anchorsData) {
-        require_quiet(CFGetTypeID(anchorsData) == CFArrayGetTypeID(), errOut);
-        anchors = SecCertificateDataArrayCopyArray(anchorsData);
-    }
-    bool anchorsOnly = CFDictionaryContainsKey(args_in, kSecTrustAnchorsOnlyKey);
-    CFArrayRef serializedPolicies = (CFArrayRef)CFDictionaryGetValue(args_in, kSecTrustPoliciesKey);
-    if (serializedPolicies) {
-        require_quiet(CFGetTypeID(serializedPolicies) == CFArrayGetTypeID(), errOut);
-        policies = SecPolicyArrayDeserialize(serializedPolicies);
-    }
-    CFDateRef verifyDate = (CFDateRef)CFDictionaryGetValue(args_in, kSecTrustVerifyDateKey);
-    require_quiet(verifyDate && CFGetTypeID(verifyDate) == CFDateGetTypeID(), errOut);
-    CFAbsoluteTime verifyTime = CFDateGetAbsoluteTime(verifyDate);
-
-    /* Call the actual evaluator function. */
-    SecPathBuilderRef builder = SecPathBuilderCreate(certificates, anchors,
-        anchorsOnly, policies, verifyTime, completed, userData);
-    status = SecPathBuilderStep(builder) ? errSecWaitForCallback : noErr;
-
-errOut:
-    CFReleaseSafe(policies);
-    CFReleaseSafe(anchors);
-    CFReleaseSafe(certificates);
-    return status;
-}
-
-struct SecTrustEvaluationContext {
-    CFTypeRef args_out;
-    bool running;
-};
+typedef void (^SecTrustServerEvaluationCompleted)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error);
 
 static void
-SecTrustServerEvaluateDone(const void *userData,
-    SecCertificatePathRef chain, CFArrayRef details, CFDictionaryRef info,
-    SecTrustResultType result) {
-    struct SecTrustEvaluationContext *tec =
-        (struct SecTrustEvaluationContext *)userData;
-
-    /* @@@ This code snippit is also in server.c.  I'd factor it, but a better
-       fix would be to chage the interfaces here to not use single in/out args
-       and do all the argument munging in server.c and client.c. */
-    CFDictionaryRef args_out;
-    CFNumberRef resultNumber = NULL;
-    CFArrayRef chain_certs = NULL;
-    /* Proccess outgoing results. */
-    resultNumber = CFNumberCreate(NULL, kCFNumberSInt32Type, &result);
-    chain_certs = SecCertificatePathCopyArray(chain);
-    const void *out_keys[] = { kSecTrustChainKey, kSecTrustDetailsKey,
-        kSecTrustInfoKey, kSecTrustResultKey };
-    const void *out_values[] = { chain_certs, details, info, resultNumber };
-    args_out = (CFTypeRef)CFDictionaryCreate(kCFAllocatorDefault, out_keys,
-        out_values, sizeof(out_keys) / sizeof(*out_keys),
-        &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFReleaseSafe(chain_certs);
-    CFReleaseSafe(resultNumber);
-
-    /* Return the final result. */
-    tec->args_out = args_out;
-    if (tec->running) {
-        /* Stop the runloop in SecTrustServerEvaluate if it is running. */
-        CFRunLoopStop(CFRunLoopGetCurrent());
-    }
+SecTrustServerEvaluateCompleted(const void *userData,
+                                SecCertificatePathRef chain, CFArrayRef details, CFDictionaryRef info,
+                                SecTrustResultType result) {
+    SecTrustServerEvaluationCompleted evaluated = (SecTrustServerEvaluationCompleted)userData;
+    evaluated(result, details, info, chain, NULL);
+    Block_release(evaluated);
 }
 
-OSStatus
-SecTrustServerEvaluate(CFDictionaryRef args_in, CFTypeRef *args_out) {
-    OSStatus status;
-    struct SecTrustEvaluationContext tec;
-    tec.args_out = NULL;
-    tec.running = false;
-    status = SecTrustServerEvaluateAsync(args_in, SecTrustServerEvaluateDone,
-        &tec);
-    if (status == noErr || status == errSecWaitForCallback) {
-        if (status == errSecWaitForCallback) {
-            /* Since errSecWaitForCallback isn't a real error clear status. */
-            status = noErr;
-            /* Mark the context as running so the callback will stop the runloop,
-               and run the default runloop until the callback stops us. */
-            tec.running = true;
-            CFRunLoopRun();
-        }
-        *args_out = tec.args_out;
-    }
+void
+SecTrustServerEvaluateBlock(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, void (^evaluated)(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error)) {
+    SecTrustServerEvaluationCompleted userData = Block_copy(evaluated);
+    /* Call the actual evaluator function. */
+    SecPathBuilderRef builder = SecPathBuilderCreate(certificates, anchors,
+                                                     anchorsOnly, policies,
+                                                     verifyTime, accessGroups,
+                                                     SecTrustServerEvaluateCompleted, userData);
+    dispatch_async(builder->queue, ^{ SecPathBuilderStep(builder); });
+}
 
-    return status;
+
+// NO_SERVER Shim code only, xpc interface should call SecTrustServerEvaluateBlock() directly
+SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, CFArrayRef policies, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef *pdetails, CFDictionaryRef *pinfo, SecCertificatePathRef *pchain, CFErrorRef *perror) {
+    dispatch_semaphore_t done = dispatch_semaphore_create(0);
+    __block SecTrustResultType result = kSecTrustResultInvalid;
+    SecTrustServerEvaluateBlock(certificates, anchors, anchorsOnly, policies, verifyTime, accessGroups, ^(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, SecCertificatePathRef chain, CFErrorRef error) {
+        result = tr;
+        if (tr == kSecTrustResultInvalid) {
+            if (perror) {
+                *perror = error;
+                CFRetainSafe(error);
+            }
+        } else {
+            if (pdetails) {
+                *pdetails = details;
+                CFRetainSafe(details);
+            }
+            if (pinfo) {
+                *pinfo = info;
+                CFRetainSafe(info);
+            }
+            if (pchain) {
+                *pchain = chain;
+                CFRetainSafe(chain);
+            }
+        }
+        dispatch_semaphore_signal(done);
+    });
+    dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+
+    return result;
 }

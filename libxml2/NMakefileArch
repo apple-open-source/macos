@@ -1,0 +1,27 @@
+# This relies on the sources being prepared on a Mac OS X machine via 'make COPY_SOURCES=YES install_source'
+
+install:
+# ========== libxml2 ==========
+	set PATH=$(PATH);$(CYGWINPATH);$(PROGRAMFILESAAS)
+	$(CYGWINPATH)\bash "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.sh" "$(OBJROOT)\libxml\obj"
+	cd "$(SRCROOT)\libxml2\win32"
+	cscript //nologo configure.js cruntime=/MD prefix="$(OBJROOT)\libxml" rinclude="$(OBJROOT)\libxml\obj\include" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib$(ARCH)" iconv=no icu=yes
+	nmake /f Makefile.msvc
+	nmake /f Makefile.msvc install	
+	xcopy "$(OBJROOT)\libxml\bin\libxml2.*" "$(DSTROOT)\$(PROGRAMFILESAAS)" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\lib\*.dll" "$(DSTROOT)\$(PROGRAMFILESAAS)" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\lib\*.lib" "$(DSTROOT)\AppleInternal\lib$(ARCH)" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\include\libxml2\libxml" "$(DSTROOT)\AppleInternal\include\libxml" /e/v/i/h/y	
+
+install_DEBUG:
+# ========== libxml2 ==========
+	set PATH=$(PATH);$(CYGWINPATH);$(PROGRAMFILESAAS)
+	$(CYGWINPATH)\bash "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.sh" "$(OBJROOT)\libxml\obj"
+	cd "$(SRCROOT)\libxml2\win32"
+	cscript //nologo configure.js debug=1 cruntime=/MDd prefix="$(OBJROOT)\libxml" rinclude="$(OBJROOT)\libxml\obj\include" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib$(ARCH)" iconv=no icu=yes
+	nmake /f Makefile.msvc
+	nmake /f Makefile.msvc install
+	xcopy "$(OBJROOT)\libxml\bin\libxml*" "$(DSTROOT)\$(PROGRAMFILESAAS)" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\lib\*.dll" "$(DSTROOT)\$(PROGRAMFILESAAS)" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\lib\*.lib" "$(DSTROOT)\AppleInternal\lib$(ARCH)" /e/v/i/h/y
+	xcopy "$(OBJROOT)\libxml\include\libxml2\libxml" "$(DSTROOT)\AppleInternal\include\libxml" /e/v/i/h/y	

@@ -1,5 +1,5 @@
 /*
- * "$Id: raster.h 3796 2012-04-23 22:54:48Z msweet $"
+ * "$Id: raster.h 4029 2012-11-16 01:58:24Z msweet $"
  *
  *   Raster file definitions for CUPS.
  *
@@ -368,11 +368,11 @@ typedef ssize_t (*cups_raster_iocb_t)(void *ctx, unsigned char *buffer, size_t l
 extern void		cupsRasterClose(cups_raster_t *r);
 extern cups_raster_t	*cupsRasterOpen(int fd, cups_mode_t mode);
 extern unsigned		cupsRasterReadHeader(cups_raster_t *r,
-			                     cups_page_header_t *h) _CUPS_DEPRECATED;
+			                     cups_page_header_t *h) _CUPS_DEPRECATED_MSG("Use cupsRasterReadHeader2 instead.");
 extern unsigned		cupsRasterReadPixels(cups_raster_t *r,
 			                     unsigned char *p, unsigned len);
 extern unsigned		cupsRasterWriteHeader(cups_raster_t *r,
-			                      cups_page_header_t *h) _CUPS_DEPRECATED;
+			                      cups_page_header_t *h) _CUPS_DEPRECATED_MSG("Use cupsRasterWriteHeader2 instead.");
 extern unsigned		cupsRasterWritePixels(cups_raster_t *r,
 			                      unsigned char *p, unsigned len);
 
@@ -401,5 +401,5 @@ extern cups_raster_t	*cupsRasterOpenIO(cups_raster_iocb_t iocb, void *ctx,
 #endif /* !_CUPS_RASTER_H_ */
 
 /*
- * End of "$Id: raster.h 3796 2012-04-23 22:54:48Z msweet $".
+ * End of "$Id: raster.h 4029 2012-11-16 01:58:24Z msweet $".
  */

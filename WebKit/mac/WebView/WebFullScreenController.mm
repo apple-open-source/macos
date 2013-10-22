@@ -33,6 +33,8 @@
 #import <WebCore/Document.h>
 #import <WebCore/Element.h>
 #import <WebCore/FloatRect.h>
+#import <WebCore/Frame.h>
+#import <WebCore/FrameView.h>
 #import <WebCore/HTMLElement.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/Page.h>
@@ -45,7 +47,6 @@
 #import <WebCore/WebWindowAnimation.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/RetainPtr.h>
-#import <wtf/UnusedParam.h>
 
 using namespace WebCore;
 
@@ -70,20 +71,19 @@ static IntRect screenRectOfContents(Element* element)
 - (void)_startExitFullScreenAnimationWithDuration:(NSTimeInterval)duration;
 @end
 
-#if defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)
-@interface NSWindow(convertRectToScreenForLeopardAndSnowLeopard)
-- (NSRect)convertRectToScreen:(NSRect)aRect;
-@end
-
-@implementation NSWindow(convertRectToScreenForLeopardAndSnowLeopard)
-- (NSRect)convertRectToScreen:(NSRect)rect
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+static NSRect convertRectToScreen(NSWindow *window, NSRect rect)
 {
-    NSRect frame = [self frame];
+    return [window convertRectToScreen:rect];
+}
+#else
+static NSRect convertRectToScreen(NSWindow *window, NSRect rect)
+{
+    NSRect frame = [window frame];
     rect.origin.x += frame.origin.x;
     rect.origin.y += frame.origin.y;
     return rect;
 }
-@end
 #endif
 
 @interface NSWindow(IsOnActiveSpaceAdditionForTigerAndLeopard)
@@ -97,7 +97,7 @@ static IntRect screenRectOfContents(Element* element)
 - (id)init
 {
     // Do not defer window creation, to make sure -windowNumber is created (needed by WebWindowScaleAnimation).
-    NSWindow *window = [[WebCoreFullScreenWindow alloc] initWithContentRect:NSZeroRect styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:NO];
+    NSWindow *window = [[WebCoreFullScreenWindow alloc] initWithContentRect:NSZeroRect styleMask:NSClosableWindowMask backing:NSBackingStoreBuffered defer:NO];
     self = [super initWithWindow:window];
     [window release];
     if (!self)
@@ -138,6 +138,11 @@ static IntRect screenRectOfContents(Element* element)
     [webView retain];
     [_webView release];
     _webView = webView;
+}
+
+- (NSView*)webViewPlaceholder
+{
+    return _webViewPlaceholder.get();
 }
 
 - (Element*)element
@@ -208,10 +213,9 @@ static IntRect screenRectOfContents(Element* element)
     if (!screen)
         screen = [NSScreen mainScreen];
     NSRect screenFrame = [screen frame];
-    
-    NSRect webViewFrame = [[_webView window] convertRectToScreen:
-                           [_webView convertRect:[_webView frame] toView:nil]];
-    
+
+    NSRect webViewFrame = convertRectToScreen([_webView window], [_webView convertRect:[_webView frame] toView:nil]);
+
     // Flip coordinate system:
     webViewFrame.origin.y = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - NSMaxY(webViewFrame);
     
@@ -229,11 +233,12 @@ static IntRect screenRectOfContents(Element* element)
 
     // Swap the webView placeholder into place.
     if (!_webViewPlaceholder) {
-        _webViewPlaceholder.adoptNS([[NSView alloc] init]);
+        _webViewPlaceholder = adoptNS([[NSView alloc] init]);
         [_webViewPlaceholder.get() setLayer:[CALayer layer]];
         [_webViewPlaceholder.get() setWantsLayer:YES];
     }
     [[_webViewPlaceholder.get() layer] setContents:(id)webViewContents.get()];
+    _scrollPosition = [_webView _mainCoreFrame]->view()->scrollPosition();
     [self _swapView:_webView with:_webViewPlaceholder.get()];
     
     // Then insert the WebView into the full screen window
@@ -273,14 +278,14 @@ static IntRect screenRectOfContents(Element* element)
         WKWindowSetClipRect([self window], windowBounds);
         
         NSWindow *webWindow = [_webViewPlaceholder.get() window];
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         // In Lion, NSWindow will animate into and out of orderOut operations. Suppress that
         // behavior here, making sure to reset the animation behavior afterward.
         NSWindowAnimationBehavior animationBehavior = [webWindow animationBehavior];
         [webWindow setAnimationBehavior:NSWindowAnimationBehaviorNone];
 #endif
         [webWindow orderOut:self];
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
         [webWindow setAnimationBehavior:animationBehavior];
 #endif
         
@@ -323,7 +328,7 @@ static IntRect screenRectOfContents(Element* element)
     [self _updateMenuAndDockForFullScreen];
     
     NSWindow* webWindow = [_webViewPlaceholder.get() window];
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     // In Lion, NSWindow will animate into and out of orderOut operations. Suppress that
     // behavior here, making sure to reset the animation behavior afterward.
     NSWindowAnimationBehavior animationBehavior = [webWindow animationBehavior];
@@ -338,7 +343,7 @@ static IntRect screenRectOfContents(Element* element)
         [webWindow setCollectionBehavior:behavior];
     } else
         [webWindow orderWindow:NSWindowBelow relativeTo:[[self window] windowNumber]];
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     [webWindow setAnimationBehavior:animationBehavior];
 #endif
 
@@ -362,6 +367,7 @@ static IntRect screenRectOfContents(Element* element)
     
     NSResponder *firstResponder = [[self window] firstResponder];
     [self _swapView:_webViewPlaceholder.get() with:_webView];
+    [_webView _mainCoreFrame]->view()->setScrollPosition(_scrollPosition);
     [[_webView window] makeResponder:firstResponder firstResponderIfDescendantOfView:_webView];
     
     NSRect windowBounds = [[self window] frame];
@@ -381,6 +387,12 @@ static IntRect screenRectOfContents(Element* element)
     [[_webView window] makeKeyAndOrderFront:self];
 
     NSEnableScreenUpdates();
+}
+
+- (void)performClose:(id)sender
+{
+    if (_isFullScreen)
+        [self cancelOperation:sender];
 }
 
 - (void)close
@@ -414,8 +426,6 @@ static IntRect screenRectOfContents(Element* element)
 
 - (void)_updateMenuAndDockForFullScreen
 {
-    // NSApplicationPresentationOptions is available on > 10.6 only:
-#ifndef BUILDING_ON_LEOPARD
     NSApplicationPresentationOptions options = NSApplicationPresentationDefault;
     NSScreen* fullscreenScreen = [[self window] screen];
     
@@ -435,7 +445,6 @@ static IntRect screenRectOfContents(Element* element)
     if ([NSApp respondsToSelector:@selector(setPresentationOptions:)])
         [NSApp setPresentationOptions:options];
     else
-#endif
         SetSystemUIMode(_isFullScreen ? kUIModeAllHidden : kUIModeNormal, 0);
 }
 

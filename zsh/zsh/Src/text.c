@@ -253,6 +253,7 @@ struct tstack {
 	struct {
 	    char *strs;
 	    Wordcode end;
+	    int nargs;
 	} _funcdef;
 	struct {
 	    Wordcode end;
@@ -456,19 +457,31 @@ gettext2(Estate state)
 	    if (!s) {
 		Wordcode p = state->pc;
 		Wordcode end = p + WC_FUNCDEF_SKIP(code);
+		int nargs = *state->pc++;
 
-		taddlist(state, *state->pc++);
+		taddlist(state, nargs);
+		if (nargs)
+		    taddstr(" ");
 		if (tjob) {
-		    taddstr(" () { ... }");
+		    taddstr("() { ... }");
 		    state->pc = end;
+		    if (!nargs) {
+			/*
+			 * Unnamed fucntion.
+			 * We're not going to pull any arguments off
+			 * later, so skip them now...
+			 */
+			state->pc += *end;
+		    }
 		    stack = 1;
 		} else {
-		    taddstr(" () {");
+		    taddstr("() {");
 		    tindent++;
 		    taddnl(1);
 		    n = tpush(code, 1);
 		    n->u._funcdef.strs = state->strs;
 		    n->u._funcdef.end = end;
+		    n->u._funcdef.nargs = nargs;
 		    state->strs += *state->pc;
 		    state->pc += 3;
 		}
@@ -478,6 +491,17 @@ gettext2(Estate state)
 		dec_tindent();
 		taddnl(0);
 		taddstr("}");
+		if (s->u._funcdef.nargs == 0) {
+		    /* Unnamed function with post-arguments */
+		    int nargs;
+		    s->u._funcdef.end += *state->pc++;
+		    nargs = *state->pc++;
+		    if (nargs) {
+			taddstr(" ");
+			taddlist(state, nargs);
+		    }
+		    state->pc = s->u._funcdef.end;
+		}
 		stack = 1;
 	    }
 	    break;
@@ -785,8 +809,7 @@ gettext2(Estate state)
 			    taddstr(" ");
 			    taddstr(ecgetstr(state, EC_NODUP, NULL));
 			    if (ctype == COND_STREQ ||
-				ctype == COND_STRNEQ ||
-				ctype == COND_REGEX)
+				ctype == COND_STRNEQ)
 				state->pc++;
 			} else {
 			    /* Unary test: `-f foo' etc. */ 
@@ -894,13 +917,13 @@ getredirs(LinkList redirs)
 		    taddstr(f->here_terminator);
 		    taddpending(f->name, f->munged_here_terminator);
 		} else {
+		    int fnamelen, sav;
 		    taddstr(fstr[REDIR_HERESTR]);
 		    /*
 		     * Just a quick and dirty representation.
 		     * Remove a terminating newline, if any.
 		     */
-		    int fnamelen = strlen(f->name);
-		    int sav;
+		    fnamelen = strlen(f->name);
 		    if (fnamelen > 0 && f->name[fnamelen-1] == '\n') {
 			sav = 1;
 			f->name[fnamelen-1] = '\0';

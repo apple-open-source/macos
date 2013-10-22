@@ -24,11 +24,7 @@
 #include <QtCore/qstring.h>
 #include <QtCore/qdatetime.h>
 #include <QtCore/qshareddata.h>
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-#include <QtWidgets/qicon.h>
-#else
 #include <QtGui/qicon.h>
-#endif
 
 #include "qwebkitglobal.h"
 
@@ -105,7 +101,7 @@ private:
     ~QWebHistory();
 
     friend class QWebPage;
-    friend class QWebPagePrivate;
+    friend class QWebPageAdapter;
     friend QWEBKIT_EXPORT QDataStream& operator>>(QDataStream&, QWebHistory&);
     friend QWEBKIT_EXPORT QDataStream& operator<<(QDataStream&, const QWebHistory&);
 

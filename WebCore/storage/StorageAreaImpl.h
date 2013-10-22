@@ -27,60 +27,73 @@
 #define StorageAreaImpl_h
 
 #include "StorageArea.h"
+#include "Timer.h"
 
+#include <wtf/HashMap.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-    class SecurityOrigin;
-    class StorageMap;
-    class StorageAreaSync;
+class SecurityOrigin;
+class StorageMap;
+class StorageAreaSync;
 
-    class StorageAreaImpl : public StorageArea {
-    public:
-        static PassRefPtr<StorageAreaImpl> create(StorageType, PassRefPtr<SecurityOrigin>, PassRefPtr<StorageSyncManager>, unsigned quota);
-        virtual ~StorageAreaImpl();
+class StorageAreaImpl : public StorageArea {
+public:
+    static PassRefPtr<StorageAreaImpl> create(StorageType, PassRefPtr<SecurityOrigin>, PassRefPtr<StorageSyncManager>, unsigned quota);
+    virtual ~StorageAreaImpl();
 
-        // The HTML5 DOM Storage API (and contains)
-        virtual unsigned length(Frame* sourceFrame) const;
-        virtual String key(unsigned index, Frame* sourceFrame) const;
-        virtual String getItem(const String& key, Frame* sourceFrame) const;
-        virtual String setItem(const String& key, const String& value, ExceptionCode& ec, Frame* sourceFrame);
-        virtual String removeItem(const String& key, Frame* sourceFrame);
-        virtual bool clear(Frame* sourceFrame);
-        virtual bool contains(const String& key, Frame* sourceFrame) const;
+    virtual unsigned length() OVERRIDE;
+    virtual String key(unsigned index) OVERRIDE;
+    virtual String item(const String& key) OVERRIDE;
+    virtual void setItem(Frame* sourceFrame, const String& key, const String& value, bool& quotaException) OVERRIDE;
+    virtual void removeItem(Frame* sourceFrame, const String& key) OVERRIDE;
+    virtual void clear(Frame* sourceFrame) OVERRIDE;
+    virtual bool contains(const String& key) OVERRIDE;
 
-        virtual bool disabledByPrivateBrowsingInFrame(const Frame* sourceFrame) const;
+    virtual bool canAccessStorage(Frame* sourceFrame) OVERRIDE;
+    virtual StorageType storageType() const OVERRIDE;
 
-        PassRefPtr<StorageAreaImpl> copy();
-        void close();
+    virtual size_t memoryBytesUsedByCache() OVERRIDE;
 
-        // Only called from a background thread.
-        void importItem(const String& key, const String& value);
+    virtual void incrementAccessCount();
+    virtual void decrementAccessCount();
+    virtual void closeDatabaseIfIdle();
 
-        // Used to clear a StorageArea and close db before backing db file is deleted.
-        void clearForOriginDeletion();
+    PassRefPtr<StorageAreaImpl> copy();
+    void close();
 
-        void sync();
+    // Only called from a background thread.
+    void importItems(const HashMap<String, String>& items);
 
-    private:
-        StorageAreaImpl(StorageType, PassRefPtr<SecurityOrigin>, PassRefPtr<StorageSyncManager>, unsigned quota);
-        StorageAreaImpl(StorageAreaImpl*);
+    // Used to clear a StorageArea and close db before backing db file is deleted.
+    void clearForOriginDeletion();
 
-        void blockUntilImportComplete() const;
+    void sync();
 
-        StorageType m_storageType;
-        RefPtr<SecurityOrigin> m_securityOrigin;
-        RefPtr<StorageMap> m_storageMap;
+private:
+    StorageAreaImpl(StorageType, PassRefPtr<SecurityOrigin>, PassRefPtr<StorageSyncManager>, unsigned quota);
+    explicit StorageAreaImpl(StorageAreaImpl*);
 
-        RefPtr<StorageAreaSync> m_storageAreaSync;
-        RefPtr<StorageSyncManager> m_storageSyncManager;
+    void blockUntilImportComplete() const;
+    void closeDatabaseTimerFired(Timer<StorageAreaImpl>*);
+
+    void dispatchStorageEvent(const String& key, const String& oldValue, const String& newValue, Frame* sourceFrame);
+
+    StorageType m_storageType;
+    RefPtr<SecurityOrigin> m_securityOrigin;
+    RefPtr<StorageMap> m_storageMap;
+
+    RefPtr<StorageAreaSync> m_storageAreaSync;
+    RefPtr<StorageSyncManager> m_storageSyncManager;
 
 #ifndef NDEBUG
-        bool m_isShutdown;
+    bool m_isShutdown;
 #endif
-    };
+    unsigned m_accessCount;
+    Timer<StorageAreaImpl> m_closeDatabaseTimer;
+};
 
 } // namespace WebCore
 

@@ -271,6 +271,3 @@ typedef long off_t;
 
 /* Define to enable rpz-nsip rules. */
 #define ENABLE_RPZ_NSIP
-
-/* Get SRCID */
-#include "srcid.h"

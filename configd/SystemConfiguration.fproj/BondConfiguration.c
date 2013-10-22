@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -228,133 +228,25 @@ add_configured_interface(const void *key, const void *value, void *context)
 }
 
 
-static void
-add_legacy_configuration(addContextRef myContext)
-{
-	CFArrayRef		bonds;
-	CFIndex			i;
-	CFIndex			n_bonds;
-	SCPreferencesRef	prefs;
-
-#define BOND_PREFERENCES_ID		CFSTR("VirtualNetworkInterfaces.plist")
-#define	BOND_PREFERENCES_BONDS		CFSTR("Bonds")
-#define	__kBondInterface_interface	CFSTR("interface")	// e.g. bond0, bond1, ...
-#define	__kBondInterface_devices	CFSTR("devices")	// e.g. en0, en1, ...
-#define __kBondInterface_options	CFSTR("options")	// e.g. UserDefinedName
-
-	prefs = SCPreferencesCreate(NULL, CFSTR("SCBondInterfaceCopyAll"), BOND_PREFERENCES_ID);
-	if (prefs == NULL) {
-		return;
-	}
-
-	bonds = SCPreferencesGetValue(prefs, BOND_PREFERENCES_BONDS);
-	if ((bonds != NULL) && !isA_CFArray(bonds)) {
-		CFRelease(prefs);	// if the prefs are confused
-		return;
-	}
-
-	n_bonds = (bonds != NULL) ? CFArrayGetCount(bonds) : 0;
-	for (i = 0; i < n_bonds; i++) {
-		SCBondInterfaceRef		bond;
-		CFDictionaryRef			bond_dict;
-		CFStringRef			bond_if;
-		CFDictionaryRef			dict;
-		CFArrayRef			interfaces;
-		SCNetworkInterfacePrivateRef	interfacePrivate;
-		CFIndex				j;
-		CFMutableArrayRef		members		= NULL;
-		CFMutableDictionaryRef		newDict;
-		CFArrayRef			newInterfaces;
-		CFIndex				n_interfaces;
-		Boolean				ok;
-		CFDictionaryRef			options;
-		CFStringRef			path;
-
-		bond_dict = CFArrayGetValueAtIndex(bonds, i);
-		if (!isA_CFDictionary(bond_dict)) {
-			continue;	// if the prefs are confused
-		}
-
-		bond_if = CFDictionaryGetValue(bond_dict, __kBondInterface_interface);
-		if (!isA_CFString(bond_if)) {
-			continue;	// if the prefs are confused
-		}
-
-		// check if this bond has already been allocated
-		path = CFStringCreateWithFormat(NULL,
-						NULL,
-						CFSTR("/%@/%@/%@"),
-						kSCPrefVirtualNetworkInterfaces,
-						kSCNetworkInterfaceTypeBond,
-						bond_if);
-		dict = SCPreferencesPathGetValue(myContext->prefs, path);
-		if (dict != NULL) {
-			// if bond interface name not available
-			CFRelease(path);
-			continue;
-		}
-
-		// add a placeholder for the bond in the stored preferences
-		newDict = CFDictionaryCreateMutable(NULL,
-						    0,
-						    &kCFTypeDictionaryKeyCallBacks,
-						    &kCFTypeDictionaryValueCallBacks);
-		newInterfaces = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
-		CFDictionaryAddValue(newDict, kSCPropVirtualNetworkInterfacesBondInterfaces, newInterfaces);
-		CFRelease(newInterfaces);
-		ok = SCPreferencesPathSetValue(myContext->prefs, path, newDict);
-		CFRelease(newDict);
-		CFRelease(path);
-		if (!ok) {
-			// if the bond could not be saved
-			continue;
-		}
-
-		// create the bond interface
-		bond = (SCBondInterfaceRef)_SCBondInterfaceCreatePrivate(NULL, bond_if);
-
-		// estabish link to the stored configuration
-		interfacePrivate = (SCNetworkInterfacePrivateRef)bond;
-		interfacePrivate->prefs = CFRetain(myContext->prefs);
-
-		// add member interfaces
-		interfaces = CFDictionaryGetValue(bond_dict, __kBondInterface_devices);
-		n_interfaces = isA_CFArray(interfaces) ? CFArrayGetCount(interfaces) : 0;
-		for (j = 0; j < n_interfaces; j++) {
-			CFStringRef	member;
-
-			member = CFArrayGetValueAtIndex(interfaces, j);
-			if (isA_CFString(member)) {
-				add_interface(&members, member);
-			}
-		}
-		if (members != NULL) {
-			_SCBondInterfaceSetMemberInterfaces(bond, members);
-			CFRelease(members);
-		}
-
-		// set display name
-		options = CFDictionaryGetValue(bond_dict, __kBondInterface_options);
-		if (isA_CFDictionary(options)) {
-			CFStringRef	name;
-
-			name = CFDictionaryGetValue(options, kSCPropUserDefinedName);
-			if (isA_CFString(name)) {
-				SCBondInterfaceSetLocalizedDisplayName(bond, name);
-			}
-		}
-
-		CFArrayAppendValue(myContext->bonds, bond);
-		CFRelease(bond);
-	}
-
-	CFRelease(prefs);
-	return;
-}
-
 
 #pragma mark -
 #pragma mark SCBondInterface APIs
+
+
+static __inline__ void
+my_CFDictionaryApplyFunction(CFDictionaryRef			theDict,
+			     CFDictionaryApplierFunction	applier,
+			     void				*context)
+{
+	CFAllocatorRef	myAllocator;
+	CFDictionaryRef	myDict;
+
+	myAllocator = CFGetAllocator(theDict);
+	myDict      = CFDictionaryCreateCopy(myAllocator, theDict);
+	CFDictionaryApplyFunction(myDict, applier, context);
+	CFRelease(myDict);
+	return;
+}
 
 
 CFArrayRef
@@ -373,20 +265,10 @@ SCBondInterfaceCopyAll(SCPreferencesRef prefs)
 					kSCPrefVirtualNetworkInterfaces,
 					kSCNetworkInterfaceTypeBond);
 	dict = SCPreferencesPathGetValue(prefs, path);
-	if (isA_CFDictionary(dict)) {
-		CFDictionaryApplyFunction(dict, add_configured_interface, &context);
-	} else {
-		// no bond configuration, upgrade from legacy configuration
-		dict = CFDictionaryCreate(NULL,
-					  NULL, NULL, 0,
-					  &kCFTypeDictionaryKeyCallBacks,
-					  &kCFTypeDictionaryValueCallBacks);
-		(void) SCPreferencesPathSetValue(prefs, path, dict);
-		CFRelease(dict);
-
-		add_legacy_configuration(&context);
-	}
 	CFRelease(path);
+	if (isA_CFDictionary(dict)) {
+		my_CFDictionaryApplyFunction(dict, add_configured_interface, &context);
+	}
 
 	return context.bonds;
 }
@@ -563,6 +445,7 @@ _SCBondInterfaceCopyActive(void)
 		// set the mode
 		int_val = ibsr_p->ibsr_mode;
 		mode = CFNumberCreate(NULL, kCFNumberIntType, &int_val);
+		assert(mode != NULL);
 		_SCBondInterfaceSetMode(bond, mode);
 		CFRelease(mode);
 
@@ -595,7 +478,9 @@ _SCBondInterfaceCopyActive(void)
 
     done :
 
-	(void) close(s);
+	if (s != -1) {
+		(void) close(s);
+	}
 	freeifaddrs(ifap);
 	return bonds;
 }
@@ -625,7 +510,7 @@ SCBondInterfaceCreate(SCPreferencesRef prefs)
 		Boolean				ok;
 		CFStringRef			path;
 
-		bond_if = CFStringCreateWithFormat(allocator, NULL, CFSTR("bond%d"), i);
+		bond_if = CFStringCreateWithFormat(allocator, NULL, CFSTR("bond%ld"), i);
 		path    = CFStringCreateWithFormat(allocator,
 						   NULL,
 						   CFSTR("/%@/%@/%@"),
@@ -774,8 +659,9 @@ _SCBondInterfaceSetMemberInterfaces(SCBondInterfaceRef bond, CFArrayRef members)
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 		CFDictionarySetValue(newDict, kSCPropVirtualNetworkInterfacesBondInterfaces, newMembers);
 		CFRelease(newMembers);
-
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}
@@ -925,7 +811,9 @@ SCBondInterfaceSetLocalizedDisplayName(SCBondInterfaceRef bond, CFStringRef newN
 		} else {
 			CFDictionaryRemoveValue(newDict, kSCPropUserDefinedName);
 		}
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}
@@ -987,7 +875,9 @@ SCBondInterfaceSetOptions(SCBondInterfaceRef bond, CFDictionaryRef newOptions)
 		} else {
 			CFDictionaryRemoveValue(newDict, kSCPropVirtualNetworkInterfacesBondOptions);
 		}
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}
@@ -1013,6 +903,8 @@ _SCBondInterfaceSetMode(SCBondInterfaceRef bond, CFNumberRef mode)
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)bond;
 	Boolean				needs_release 		= FALSE;
 	Boolean				ok			= TRUE;
+
+	assert(bond != NULL);
 
 	if (mode == NULL) {
 		int	mode_num	= IF_BOND_MODE_LACP;
@@ -1043,8 +935,9 @@ _SCBondInterfaceSetMode(SCBondInterfaceRef bond, CFNumberRef mode)
 		}
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 		CFDictionarySetValue(newDict, kSCPropVirtualNetworkInterfacesBondMode, mode);
-
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}

@@ -32,11 +32,15 @@
 #if ENABLE(CSS_SHADERS)
 #include "WebKitCSSShaderValue.h"
 
-#include "CachedResourceLoader.h"
 #include "CSSParser.h"
+#include "CachedResourceLoader.h"
+#include "CachedResourceRequest.h"
+#include "CachedResourceRequestInitiators.h"
 #include "Document.h"
+#include "KURL.h"
 #include "StyleCachedShader.h"
 #include "StylePendingShader.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -51,6 +55,11 @@ WebKitCSSShaderValue::~WebKitCSSShaderValue()
 {
 }
 
+KURL WebKitCSSShaderValue::completeURL(CachedResourceLoader* loader) const
+{
+    return loader->document()->completeURL(m_url);
+}
+
 StyleCachedShader* WebKitCSSShaderValue::cachedShader(CachedResourceLoader* loader)
 {
     ASSERT(loader);
@@ -58,9 +67,10 @@ StyleCachedShader* WebKitCSSShaderValue::cachedShader(CachedResourceLoader* load
     if (!m_accessedShader) {
         m_accessedShader = true;
 
-        ResourceRequest request(loader->document()->completeURL(m_url));
-        if (CachedShader* cachedShader = loader->requestShader(request))
-            m_shader = StyleCachedShader::create(cachedShader);
+        CachedResourceRequest request(ResourceRequest(completeURL(loader)));
+        request.setInitiator(cachedResourceRequestInitiators().css);
+        if (CachedResourceHandle<CachedShader> cachedShader = loader->requestShader(request))
+            m_shader = StyleCachedShader::create(cachedShader.get());
     }
 
     return (m_shader && m_shader->isCachedShader()) ? static_cast<StyleCachedShader*>(m_shader.get()) : 0;
@@ -76,9 +86,23 @@ StyleShader* WebKitCSSShaderValue::cachedOrPendingShader()
 
 String WebKitCSSShaderValue::customCssText() const
 {
-    return "url(" + quoteCSSURLIfNeeded(m_url) + ")";
+    StringBuilder result;
+    result.appendLiteral("url(");
+    result.append(quoteCSSURLIfNeeded(m_url));
+    result.append(')');
+    if (!m_format.isEmpty()) {
+        result.appendLiteral(" format('");
+        result.append(m_format);
+        result.appendLiteral("')");
+    }
+    return result.toString();
 }
 
+bool WebKitCSSShaderValue::equals(const WebKitCSSShaderValue& other) const
+{
+    return m_url == other.m_url;
+}
+    
 } // namespace WebCore
 
 #endif // ENABLE(CSS_SHADERS)

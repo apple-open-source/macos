@@ -1,0 +1,3 @@
+# redirect com.apple.eventmonitor* messages to /var/log/eventmonitor
+? [A= Facility com.apple.eventmonitor] claim only
+* store_dir /var/log/eventmonitor

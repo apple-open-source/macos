@@ -1,0 +1,4 @@
+/^extern flag/i
+extern flag localauto;
+.
+w

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -69,10 +69,7 @@ static char sccsid[] = "@(#)ping.c	8.1 (Berkeley) 6/5/93";
 #endif /* not lint */
 #endif
 #include <sys/cdefs.h>
-#ifndef __APPLE__
-__FBSDID("$FreeBSD: src/sbin/ping/ping.c,v 1.112 2007/07/01 12:08:06 gnn Exp $");
-#endif
-	
+
 /*
  *			P I N G . C
  *
@@ -250,13 +247,11 @@ static void pr_pack(char *, int, struct sockaddr_in *, struct timeval *, int);
 static void pr_retip(struct ip *);
 static void status(int);
 static void stopit(int);
-static void tvsub(struct timeval *, struct timeval *);
+static void tvsub(struct timeval *, const struct timeval *);
 static void usage(void) __dead2;
 
 int
-main(argc, argv)
-	int argc;
-	char *const *argv;
+main(int argc, char *const *argv)
 {
 	struct sockaddr_in from, sock_in;
 	struct in_addr ifaddr;
@@ -266,7 +261,7 @@ main(argc, argv)
 	struct msghdr msg;
 	struct sigaction si_sa;
 	size_t sz;
-	u_char *datap, packet[IP_MAXPACKET];
+	u_char *datap, packet[IP_MAXPACKET] __attribute__((aligned(4)));
 	char *ep, *source, *target, *payload;
 	struct hostent *hp;
 #ifdef IPSEC_POLICY_IPSEC
@@ -300,7 +295,8 @@ main(argc, argv)
 		s = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	sockerrno = errno;
 
-	setuid(getuid());
+	if (setuid(getuid()) != 0)
+		err(EX_NOPERM, "setuid() failed");
 	uid = getuid();
 
 	alarmtimeout = df = preload = tos = 0;
@@ -422,7 +418,7 @@ main(argc, argv)
 				    optarg);
 			options |= F_INTERVAL;
 			interval = (int)t;
-			if (uid && interval < 1000) {
+			if (uid && interval < 100) {
 				errno = EPERM;
 				err(EX_NOPERM, "-i interval too short");
 			}
@@ -696,6 +692,8 @@ main(argc, argv)
 		err(EX_OSERR, "socket");
 	}
 	hold = 1;
+	(void) setsockopt(s, SOL_SOCKET, SO_RECV_ANYIF, (char *)&hold,
+	    sizeof(hold));
 	if (ifscope != 0) {
 		if (setsockopt(s, IPPROTO_IP, IP_BOUND_IF,
 		    (char *)&ifscope, sizeof (ifscope)) != 0)
@@ -894,17 +892,21 @@ main(argc, argv)
 	if (sigaction(SIGINT, &si_sa, 0) == -1) {
 		err(EX_OSERR, "sigaction SIGINT");
 	}
-
+	si_sa.sa_handler = stopit;
+	if (sigaction(SIGQUIT, &si_sa, 0) == -1) {
+		err(EX_OSERR, "sigaction SIGQUIT");
+	}
+    
 	si_sa.sa_handler = status;
 	if (sigaction(SIGINFO, &si_sa, 0) == -1) {
-		err(EX_OSERR, "sigaction");
+		err(EX_OSERR, "sigaction SIGINFO");
 	}
 
-        if (alarmtimeout > 0) {
+	if (alarmtimeout > 0) {
 		si_sa.sa_handler = stopit;
 		if (sigaction(SIGALRM, &si_sa, 0) == -1)
 			err(EX_OSERR, "sigaction SIGALRM");
-        }
+	}
 
 	bzero(&msg, sizeof(msg));
 	msg.msg_name = (caddr_t)&from;
@@ -977,7 +979,7 @@ main(argc, argv)
 				continue;
 			}
 			for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-	#ifdef SO_TIMESTAMP
+#ifdef SO_TIMESTAMP
 				if (cmsg->cmsg_level == SOL_SOCKET &&
 					cmsg->cmsg_type == SCM_TIMESTAMP &&
 					cmsg->cmsg_len == CMSG_LEN(sizeof *tv)) {
@@ -985,7 +987,7 @@ main(argc, argv)
 					memcpy(&now, CMSG_DATA(cmsg), sizeof(now));
 					tv = &now;
 				}
-	#endif
+#endif
 				if (cmsg->cmsg_level == SOL_SOCKET &&
 					cmsg->cmsg_type == SO_TRAFFIC_CLASS &&
 					cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
@@ -1050,8 +1052,7 @@ main(argc, argv)
  * to be called from a signal handler.
  */
 void
-stopit(sig)
-	int sig __unused;
+stopit(int sig __unused)
 {
 
 	/*
@@ -1171,12 +1172,8 @@ pinger(void)
  * program to be run without having intermingled output (or statistics!).
  */
 static void
-pr_pack(buf, cc, from, tv, tc)
-	char *buf;
-	int cc;
-	struct sockaddr_in *from;
-	struct timeval *tv;
-	int tc;
+pr_pack(char *buf, int cc, struct sockaddr_in *from, struct timeval *tv,
+    int tc)
 {
 	struct in_addr ina;
 	u_char *cp, *dp;
@@ -1444,9 +1441,7 @@ pr_pack(buf, cc, from, tv, tc)
  *	Checksum routine for Internet Protocol family headers (C Version)
  */
 u_short
-in_cksum(addr, len)
-	u_short *addr;
-	int len;
+in_cksum(u_short *addr, int len)
 {
 	int nleft, sum;
 	u_short *w;
@@ -1490,8 +1485,7 @@ in_cksum(addr, len)
  * be >= in.
  */
 static void
-tvsub(out, in)
-	struct timeval *out, *in;
+tvsub(struct timeval *out, const struct timeval *in)
 {
 
 	if ((out->tv_usec -= in->tv_usec) < 0) {
@@ -1507,15 +1501,14 @@ tvsub(out, in)
  */
 
 static void
-status(sig)
-	int sig __unused;
+status(int sig __unused)
 {
 
 	siginfo_p = 1;
 }
 
 static void
-check_status()
+check_status(void)
 {
 
 	if (siginfo_p) {
@@ -1535,7 +1528,7 @@ check_status()
  *	Print out statistics, and give up.
  */
 static void
-finish()
+finish(void)
 {
 
 	(void)signal(SIGINT, SIG_IGN);
@@ -1594,8 +1587,7 @@ static char *ttab[] = {
  *	Print a descriptive string about an ICMP header.
  */
 static void
-pr_icmph(icp)
-	struct icmp *icp;
+pr_icmph(struct icmp *icp)
 {
 
 	switch(icp->icmp_type) {
@@ -1742,8 +1734,7 @@ pr_icmph(icp)
  *	Print an IP header with options.
  */
 static void
-pr_iph(ip)
-	struct ip *ip;
+pr_iph(struct ip *ip)
 {
 	u_char *cp;
 	int hlen;
@@ -1775,8 +1766,7 @@ pr_iph(ip)
  * a hostname.
  */
 static char *
-pr_addr(ina)
-	struct in_addr ina;
+pr_addr(struct in_addr ina)
 {
 	struct hostent *hp;
 	static char buf[16 + 3 + MAXHOSTNAMELEN];
@@ -1795,8 +1785,7 @@ pr_addr(ina)
  *	Dump some info on a returned (via ICMP) IP packet.
  */
 static void
-pr_retip(ip)
-	struct ip *ip;
+pr_retip(struct ip *ip)
 {
 	u_char *cp;
 	int hlen;
@@ -1814,7 +1803,7 @@ pr_retip(ip)
 }
 
 static char *
-pr_ntime (n_time timestamp)
+pr_ntime(n_time timestamp)
 {
 	static char buf[10];
 	int hour, min, sec;
@@ -1830,8 +1819,7 @@ pr_ntime (n_time timestamp)
 }
 
 static void
-fill(bp, patp)
-	char *bp, *patp;
+fill(char *bp, char *patp)
 {
 	char *cp;
 	int pat[16];
@@ -1867,7 +1855,7 @@ fill(bp, patp)
 #define	SECOPT		""
 #endif
 static void
-usage()
+usage(void)
 {
 
 	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",

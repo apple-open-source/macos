@@ -35,7 +35,7 @@
 
 const libtop_tsamp_t *tsamp;
 
-static int sort_subcomp(int a_key, const libtop_psamp_t *a_a, 
+static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
 			const libtop_psamp_t *a_b);
 
 static bool top_do_relayout = false;
@@ -133,11 +133,21 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
 
     case STATISTIC_MREGION: return COMP(a_a->reg, a_b->reg);
 
+#ifdef TOP_ANONYMOUS_MEMORY
+    case STATISTIC_RMEM: return COMP(a_a->anonymous, a_b->anonymous);
+
+    case STATISTIC_RPRVT: return COMP(a_a->rprvt, a_b->rprvt);
+
+    case STATISTIC_PURG: return COMP(a_a->purgeable, a_b->purgeable);
+
+    case STATISTIC_COMPRESSED: return COMP(a_a->compressed, a_b->compressed);
+#else
     case STATISTIC_RPRVT: return COMP(a_a->rprvt, a_b->rprvt);
 
     case STATISTIC_RSHRD: return COMP(a_a->rshrd, a_b->rshrd);
 
     case STATISTIC_RSIZE: return COMP(a_a->rsize, a_b->rsize);
+#endif
 
     case STATISTIC_VSIZE: return COMP(a_a->vsize, a_b->vsize);
 
@@ -148,10 +158,10 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
     case STATISTIC_PPID: return COMP(a_a->ppid, a_b->ppid);
 
     case STATISTIC_KPRVT: return COMP(a_a->palloc - a_a->pfree,
-				     a_b->palloc + a_b->pfree);
+				     a_b->palloc - a_b->pfree);
 
     case STATISTIC_KSHRD: return COMP(a_a->salloc - a_a->sfree,
-				     a_b->salloc + a_b->sfree);
+				     a_b->salloc - a_b->sfree);
 
     case STATISTIC_PSTATE: {
 	const char *a = libtop_state_str(a_a->state);
@@ -185,6 +195,26 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
     case STATISTIC_PAGEINS:
 	return COMP(a_a->pageins.now, a_b->pageins.now);
 
+    case STATISTIC_IDLEWAKE:
+	return COMP(a_a->power.task_platform_idle_wakeups, a_b->power.task_platform_idle_wakeups);
+
+    case STATISTIC_POWERSCORE: {
+	uint64_t a_idlew = a_a->power.task_platform_idle_wakeups - a_a->p_power.task_platform_idle_wakeups;
+	uint64_t b_idlew = a_b->power.task_platform_idle_wakeups - a_b->p_power.task_platform_idle_wakeups;
+	timersub(&a_a->total_time, &a_a->p_total_time, &tv_a);
+	timersub(&a_b->total_time, &a_b->p_total_time, &tv_b);
+	uint64_t a_usec = tv_a.tv_usec + (UINT64_C(1000000) * tv_a.tv_sec) + (UINT64_C(500) * a_idlew);
+	uint64_t b_usec = tv_b.tv_usec + (UINT64_C(1000000) * tv_b.tv_sec) + (UINT64_C(500) * b_idlew);
+
+	// kernel gets a free ride
+	if (a_a->pid == 0) {
+		a_usec = UINT64_C(0);
+	} else if (a_b->pid == 0) {
+		b_usec = UINT64_C(0);
+	}
+	return COMP(a_usec, b_usec);
+    }
+
     case STATISTIC_USER:
 	/* Handle the == case first, since it's common. */
 	if (a_a->uid == a_b->uid) return 0;
@@ -213,7 +243,6 @@ void top_sample(void) {
     }
 }
 
-
 void top_insert(void *ptr) {
     struct statistics_controller *c = ptr;
     const libtop_psamp_t *psample;
@@ -227,7 +256,7 @@ void top_insert(void *ptr) {
 
     top_sample();
 
-    /* 
+    /*
      * The ordering is important here, because the libtop_psort actually 
      * updates the tsamp->nprocs.
      */

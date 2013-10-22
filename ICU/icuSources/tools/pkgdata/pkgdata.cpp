@@ -1,5 +1,5 @@
 /******************************************************************************
- *   Copyright (C) 2000-2012, International Business Machines
+ *   Copyright (C) 2000-2013, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *******************************************************************************
  *   file name:  pkgdata.cpp
@@ -1117,13 +1117,17 @@ static int32_t pkg_installFileMode(const char *installDir, const char *srcDir, c
     }
 #ifndef U_WINDOWS_WITH_MSVC
     char buffer[SMALL_BUFFER_MAX_SIZE] = "";
+    int32_t bufferLength = 0;
 
     FileStream *f = T_FileStream_open(fileListName, "r");
     if (f != NULL) {
         for(;;) {
             if (T_FileStream_readLine(f, buffer, SMALL_BUFFER_MAX_SIZE) != NULL) {
+                bufferLength = uprv_strlen(buffer);
                 /* Remove new line character. */
-                buffer[uprv_strlen(buffer)-1] = 0;
+                if (bufferLength > 0) {
+                    buffer[bufferLength-1] = 0;
+                }
 
                 sprintf(cmd, "%s %s%s%s %s%s%s",
                         pkgDataFlags[INSTALL_CMD],
@@ -1571,7 +1575,7 @@ static int32_t pkg_createWithoutAssemblyCode(UPKGOptions *o, const char *targetD
     if (result == 0) {
         /* Generate the library file. */
 #if U_PLATFORM == U_PF_OS390
-        if (o->pdsbuild && mode == MODE_DLL) {
+        if (o->pdsbuild && IN_DLL_MODE(mode)) {
             result = pkg_generateLibraryFile("",mode, buffer, cmd);
         } else {
             result = pkg_generateLibraryFile(targetDir,mode, buffer, cmd);
@@ -1860,9 +1864,12 @@ static void loadLists(UPKGOptions *o, UErrorCode *status)
             }
             /* remove spaces at the beginning */
             linePtr = line;
+            /* On z/OS, disable call to isspace (#9996).  Investigate using uprv_isspace instead (#9999) */
+#if U_PLATFORM != U_PF_OS390
             while(isspace(*linePtr)) {
                 linePtr++;
             }
+#endif
             s=linePtr;
             /* remove trailing newline characters */
             while(*s!=0) {
@@ -1961,28 +1968,20 @@ static void loadLists(UPKGOptions *o, UErrorCode *status)
       p = popen(cmdBuf, "r");
     }
 
-    if(p == NULL) {
+    if(p == NULL || (n = fread(buf, 1, 511, p)) <= 0) {
       if(verbose) {
         fprintf(stdout, "# Calling icu-config: %s\n", cmd);
       }
-      p = popen(cmd, "r");      
-    }
+      pclose(p);
 
-    if(p == NULL)
-    {
-        fprintf(stderr, "%s: icu-config: No icu-config found. (fix PATH or use -O option)\n", progname);
-        return -1;
+      p = popen(cmd, "r");
+      if(p == NULL || (n = fread(buf, 1, 511, p)) <= 0) {
+          fprintf(stderr, "%s: icu-config: No icu-config found. (fix PATH or use -O option)\n", progname);
+          return -1;
+      }
     }
-
-    n = fread(buf, 1, 511, p);
 
     pclose(p);
-
-    if(n<=0)
-    {
-        fprintf(stderr,"%s: icu-config: Could not read from icu-config. (fix PATH or use -O option)\n", progname);
-        return -1;
-    }
 
     for (int32_t length = strlen(buf) - 1; length >= 0; length--) {
         if (buf[length] == '\n' || buf[length] == ' ') {
@@ -2011,6 +2010,7 @@ static void loadLists(UPKGOptions *o, UErrorCode *status)
     option->doesOccur = TRUE;
 
     return 0;
-#endif
+#else
     return -1;
+#endif
 }

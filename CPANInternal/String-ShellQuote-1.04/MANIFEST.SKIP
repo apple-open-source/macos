@@ -1,0 +1,5 @@
+# $Id: MANIFEST.SKIP,v 1.2 1997/03/14 17:12:32 roderick Exp $
+
+,v$
+~$
+^Makefile$

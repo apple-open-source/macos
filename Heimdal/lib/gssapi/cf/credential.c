@@ -31,6 +31,7 @@
 #include <heim_threads.h>
 
 #include <Security/Security.h>
+#include "krb5.h"
 
 /**
  * Acquire a new initial credentials using long term credentials (password, certificate).
@@ -58,24 +59,20 @@
  * @returns a gss_error code, see the CFErrorRef passed back in error for the failure message.
  *
  * attributes must contains one of the following keys
- * * kGSSICPasssword - CFStringRef password
+ * * kGSSICPassword - CFStringRef password
  * * kGSSICCertificate - SecIdentityRef to the certificate to use with PKINIT/PKU2U
  *
  * optional keys
  * * kGSSCredentialUsage - one of kGSS_C_INITIATE, kGSS_C_ACCEPT, kGSS_C_BOTH, default if not given is kGSS_C_INITIATE
- * * kGSSRequestedLifeTime - CFNumberRef life time of credentials, default is dependant of the mechanism
  * * kGSSICVerifyCredential - validate the credential with a trusted source that there was no MITM
  * * kGSSICLKDCHostname - CFStringRef hostname of LKDC hostname
- * * kGSSICKerberosRenewTime - CFNumberRef rewnable time of credentials
- * * kGSSICKerberosForwardable - CFBooleanRef if credentials should be forwardable, if not set default value is used
- * * kGSSICKerberosProxiable - CFBooleanRef if credentials should be allowed to be proxied, if not set default value is used
- * * kGSSICSessionPersistent - CFBooleanRef store long term credential in cache, and delete on session end
+ * * kGSSICKerberosCacheName - CFStringRef name of cache that will be created (including type)
+ * * kGSSICAppIdentifierACL - CFArrayRef[CFStringRef] prefix of bundle ID allowed to access this credential
  *
  *
  *	  
  * @ingroup gssapi
  */
-
 
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_aapl_initial_cred(const gss_name_t desired_name,
@@ -129,7 +126,12 @@ gss_aapl_initial_cred(const gss_name_t desired_name,
 	    return GSS_S_FAILURE;
     }
 
-    if (password && CFGetTypeID(password) == CFStringGetTypeID()) {
+    if (gss_oid_equal(desired_mech, GSS_KRB5_MECHANISM)) {
+
+	cred_value = (void *)attributes;
+	cred_type = GSS_C_CRED_HEIMBASE;
+	
+    } else if (password && CFGetTypeID(password) == CFStringGetTypeID()) {
 	char *str = rk_cfstring2cstring(password);
 	if (str == NULL)
 	    return GSS_S_FAILURE;
@@ -263,4 +265,376 @@ gss_aapl_change_password(const gss_name_t name,
     }
 
     return maj_stat;
+}
+
+/**
+ * Returns a copy of the UUID of the GSS credential
+ *
+ * @param credential credential
+ *
+ * @returns CFUUIDRef that can be used to turn into a credential,
+ * normal CoreFoundaton rules for rules applies so the CFUUIDRef needs
+ * to be released.
+ *
+ * @ingroup gssapi
+ */
+
+CFUUIDRef
+GSSCredentialCopyUUID(gss_cred_id_t cred)
+{
+    OM_uint32 major, minor;
+    gss_buffer_set_t dataset = GSS_C_NO_BUFFER_SET;
+    krb5_error_code ret;
+    krb5_uuid uuid;
+    CFUUIDBytes cfuuid;
+
+    major = gss_inquire_cred_by_oid(&minor, cred, GSS_C_NT_UUID, &dataset);
+    if (major || dataset->count != 1) {
+	gss_release_buffer_set(&minor, &dataset);
+	return NULL;
+    }
+	    
+    if (dataset->elements[0].length != 36) {
+	gss_release_buffer_set(&minor, &dataset);
+	return NULL;
+    }
+
+    ret = krb5_string_to_uuid(dataset->elements[0].value, uuid);
+    gss_release_buffer_set(&minor, &dataset);
+    if (ret)
+	return NULL;
+	
+    memcpy(&cfuuid, uuid, sizeof(uuid));
+
+    return CFUUIDCreateFromUUIDBytes(NULL, cfuuid);
+}
+
+/**
+ * Returns a GSS credential for a given UUID if the credential exists.
+ *
+ * @param uuid the UUID of the credential to fetch
+ *
+ * @returns a gss_cred_id_t, normal CoreFoundaton rules for rules
+ * applies so the CFUUIDRef needs to be released with either CFRelease() or gss_release_name().
+ *
+ * @ingroup gssapi
+ */
+
+gss_cred_id_t GSSAPI_LIB_FUNCTION
+GSSCreateCredentialFromUUID(CFUUIDRef uuid)
+{
+    OM_uint32 min_stat, maj_stat;
+    gss_cred_id_t cred;
+    CFStringRef name;
+    gss_name_t gname;
+
+    name = CFUUIDCreateString(NULL, uuid);
+    if (name == NULL)
+	return NULL;
+    
+    gname = GSSCreateName(name, GSS_C_NT_UUID, NULL);
+    CFRelease(name);
+    if (gname == NULL)
+	return NULL;
+
+    maj_stat = gss_acquire_cred(&min_stat, gname, GSS_C_INDEFINITE, NULL,
+				GSS_C_INITIATE, &cred, NULL, NULL);
+    gss_release_name(&min_stat, &gname);
+    if (maj_stat != GSS_S_COMPLETE)
+	return NULL;
+
+    return cred;
+}
+
+static CFStringRef
+CopyFoldString(CFStringRef host)
+{
+    CFMutableStringRef string = CFStringCreateMutableCopy(NULL, 0, host);
+    static dispatch_once_t once;
+    static CFLocaleRef locale;
+    dispatch_once(&once, ^{
+	    locale = CFLocaleCreate(NULL, CFSTR("C"));
+	});
+    CFStringFold(string, kCFCompareCaseInsensitive, locale);
+    return string;
+}
+
+static CFStringRef
+CopyFoldedHostName(CFStringRef stringOrURL, CFStringRef *path)
+{
+    CFStringRef string, hn = NULL;
+    CFURLRef url;
+
+    *path = NULL;
+
+    /*
+     * Try paring the hostname as an URL first
+     */
+
+    url = CFURLCreateWithString(NULL, stringOrURL, NULL);
+    if (url) {
+	CFStringRef host = CFURLCopyHostName(url);
+	CFStringRef scheme = CFURLCopyScheme(url);
+	if (host == NULL)
+	    host = CFSTR("");
+	if (scheme == NULL)
+	    scheme = CFSTR("");
+	hn = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-%@"), host, scheme);
+	*path = CFURLCopyPath(url);
+	if (CFStringCompare(*path, CFSTR(""), 0) == kCFCompareEqualTo) {
+	    CFRelease(*path);
+	    *path = CFSTR("/");
+	}
+	CFRelease(url);
+	CFRelease(scheme);
+	CFRelease(host);
+    }
+    if (hn == NULL) {
+	hn = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@-host"), stringOrURL);
+	*path = CFSTR("/");
+    }
+
+    string = CopyFoldString(hn);
+    CFRelease(hn);
+    return string;
+}
+
+/*
+ *
+ */
+
+void
+GSSRuleAddMatch(CFMutableDictionaryRef rules, CFStringRef host, CFStringRef value)
+{
+    CFMutableDictionaryRef match;
+    CFStringRef hostname, path;
+
+    hostname = CopyFoldedHostName(host, &path);
+    if (hostname) {
+
+	match = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (match) {
+	    CFMutableArrayRef mutable;
+
+	    CFDictionarySetValue(match, CFSTR("path"), path);
+	    CFDictionarySetValue(match, CFSTR("value"), value);
+
+	    CFArrayRef array = CFDictionaryGetValue(rules, hostname);
+	    if (array) {
+		mutable = CFArrayCreateMutableCopy(NULL, 0, array);
+	    } else {
+		mutable = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	    }
+	    if (mutable) {
+		
+		CFIndex n, count = CFArrayGetCount(mutable);
+
+		for (n = 0; n < count; n++) {
+		    CFDictionaryRef item = (CFDictionaryRef)CFArrayGetValueAtIndex(mutable, n);
+		    CFStringRef p = CFDictionaryGetValue(item, CFSTR("path"));
+
+		    if (CFStringHasPrefix(path, p)) {
+			CFArrayInsertValueAtIndex(mutable, n, match);
+			break;
+		    }
+		}
+		if (n >= count)
+		    CFArrayAppendValue(mutable, match);
+
+		CFDictionarySetValue(rules, hostname, mutable);
+		CFRelease(mutable);
+	    }
+	    CFRelease(hostname);
+	    CFRelease(path);
+	}
+	CFRelease(match);
+    }
+}
+
+/*
+ * host is a URL string or hostname string
+ */
+
+CFStringRef
+GSSRuleGetMatch(CFDictionaryRef rules, CFStringRef host)
+{
+    CFTypeRef result = NULL;
+    CFStringRef hostFolded, path;
+    const char *p;
+
+    hostFolded = CopyFoldedHostName(host, &path);
+    if (hostFolded == NULL)
+	return NULL;
+
+    char *str = rk_cfstring2cstring(hostFolded);
+    CFRelease(hostFolded);
+    if (str == NULL) {
+	CFRelease(path);
+	return NULL;
+    }
+    
+    if (str[0] == '\0') {
+	free(str);
+	return NULL;
+    }
+    
+    for (p = str; p != NULL && result == NULL; p = strchr(p + 1, '.')) {
+	CFStringRef partial = CFStringCreateWithCString(NULL, p, kCFStringEncodingUTF8);
+	CFArrayRef array = (CFArrayRef)CFDictionaryGetValue(rules, partial);
+
+	CFRelease(partial);
+
+	if (array) {
+	    CFIndex n, count = CFArrayGetCount(array);
+
+	    for (n = 0; n < count && result == NULL; n++) {
+		CFDictionaryRef item = (CFDictionaryRef)CFArrayGetValueAtIndex(array, n);
+
+		CFStringRef matchPath = CFDictionaryGetValue(item, CFSTR("path"));
+		if (CFStringHasPrefix(path, matchPath)) {
+		    result = CFDictionaryGetValue(item, CFSTR("value"));
+		    if (result)
+			CFRetain(result);
+		}
+	    }
+	}
+    }
+    CFRelease(path);
+    free(str);
+    return result;
+}
+
+/**
+ * Create a GSS name from a buffer and type.
+ *
+ * @param name name buffer describing a credential, can be either a CFDataRef or CFStringRef of a name.
+ * @param name_type on OID of the GSS_C_NT_* OIDs constants specifiy the name type.
+ * @param error if an error happen, this may be set to a CFErrorRef describing the failure futher.
+ *
+ * @returns returns gss_name_t or NULL on failure. Must be freed using gss_release_name() or CFRelease(). Follows CoreFoundation Create/Copy rule.
+ *
+ * @ingroup gssapi
+ */
+
+gss_name_t
+GSSCreateName(CFTypeRef name, gss_const_OID name_type, CFErrorRef *error)
+{
+    OM_uint32 maj_stat, min_stat;
+    gss_buffer_desc buffer;
+    int free_data = 0;
+    gss_name_t n;
+
+    if (error)
+	*error = NULL;
+
+    if (CFGetTypeID(name) == CFStringGetTypeID()) {
+	buffer.value = rk_cfstring2cstring(name);
+	if (buffer.value == NULL)
+	    return GSS_S_FAILURE;
+	buffer.length = strlen((char *)buffer.value);
+	free_data = 1;
+    } else if (CFGetTypeID(name) == CFDataGetTypeID()) {
+	buffer.value = (void *)CFDataGetBytePtr(name);
+	buffer.length = (void *)CFDataGetLength(name);
+    } else {
+	return GSS_C_NO_NAME;
+    }
+
+    maj_stat = gss_import_name(&min_stat, &buffer, name_type, &n);
+
+    if (free_data)
+	free(buffer.value);
+
+    if (maj_stat)
+	return GSS_C_NO_NAME;
+
+    return n;
+}
+
+/**
+ * Copy the name describing the credential
+ *
+ * @param cred the credential to get the name from
+ *
+ * @returns returns gss_name_t or NULL on failure. Must be freed using gss_release_name() or CFRelease(). Follows CoreFoundation Create/Copy rule.
+ *
+ * @ingroup gssapi
+ */
+
+gss_name_t
+GSSCredentialCopyName(gss_cred_id_t cred)
+{
+    OM_uint32 major, minor;
+    gss_name_t name;
+                
+    major = gss_inquire_cred(&minor, cred, &name, NULL, NULL, NULL);
+    if (major != GSS_S_COMPLETE)
+	return NULL;
+	
+    return name;
+}
+
+/**
+ * Return the lifetime (in seconds) left of the credential.
+ *
+ * @param cred the credential to get the name from
+ *
+ * @returns the lifetime of the credentials. 0 on failure and
+ * GSS_C_INDEFINITE on credentials that never expire.
+ *
+ * @ingroup gssapi
+ */
+
+OM_uint32
+GSSCredentialGetLifetime(gss_cred_id_t cred)
+{
+    OM_uint32 maj_stat, min_stat;
+    OM_uint32 lifetime;
+                
+    maj_stat = gss_inquire_cred(&min_stat, cred, NULL, &lifetime, NULL, NULL);
+    if (maj_stat != GSS_S_COMPLETE)
+	return 0;
+	
+    return lifetime;
+}
+
+/**
+ * Returns a string that is suitable for displaying to user, must not
+ * be used for verify subjects on an ACLs.
+ *
+ * @param name to get a display strings from
+ *
+ * @returns a string that is printable. Follows CoreFoundation Create/Copy rule.
+ *
+ * @ingroup gssapi
+ */
+
+CFStringRef
+GSSNameCreateDisplayString(gss_name_t name)
+{
+    OM_uint32 maj_stat, min_stat;
+    gss_buffer_desc buffer;
+    CFStringRef str;
+
+    maj_stat = gss_display_name(&min_stat, name, &buffer, NULL);
+    if (maj_stat != GSS_S_COMPLETE)
+	return NULL;
+
+    str = CFStringCreateWithBytes(NULL, (const UInt8 *)buffer.value, buffer.length, kCFStringEncodingUTF8, false);
+    gss_release_buffer(&min_stat, &buffer);
+
+    return str;
+}
+
+/* deprecated */
+OM_uint32
+GSSCredGetLifetime(gss_cred_id_t cred)
+{
+    return GSSCredentialGetLifetime(cred);
+}
+
+gss_name_t
+GSSCredCopyName(gss_cred_id_t cred)
+{
+    return GSSCredentialCopyName(cred);
 }

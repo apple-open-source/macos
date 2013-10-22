@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadDescription</key>
+			<string>Enables 802.1X verbose logging.</string>
+			<key>PayloadDisplayName</key>
+			<string>802.1X Logging</string>
+			<key>PayloadIdentifier</key>
+			<string>com.apple.defaults.managed.eapol.control</string>
+			<key>PayloadOrganization</key>
+			<string>Apple Inc.</string>
+			<key>PayloadType</key>
+			<string>com.apple.defaults.managed</string>
+			<key>PayloadUUID</key>
+			<string>0341A589-A569-4568-8256-1717C782142B</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>PayloadContent</key>
+			<array>
+				<dict>
+					<key>DefaultsDomainName</key>
+					<string>com.apple.eapol.control</string>
+					<key>DefaultsData</key>
+					<dict>
+						<key>LogFlags</key>
+						<integer>-1</integer>
+					</dict>
+				</dict>
+			</array>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>Enables 802.1X verbose logging.</string>
+	<key>PayloadDisplayName</key>
+	<string>802.1X Logging</string>
+	<key>PayloadIdentifier</key>
+	<string>com.apple.eapol.control</string>
+	<key>PayloadOrganization</key>
+	<string>Apple Inc.</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>FF637E4B-DFC0-4645-9505-A004028C4DD6</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

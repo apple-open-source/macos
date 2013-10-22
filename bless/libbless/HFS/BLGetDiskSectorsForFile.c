@@ -62,7 +62,7 @@ struct allocinfo {
  */
 
 int BLGetDiskSectorsForFile(BLContextPtr context, const char * path, off_t extents[8][2],
-                            char * device) {
+                            char * device, int deviceLen) {
 
     struct statfs sb;
     struct extinfo info;
@@ -81,7 +81,7 @@ int BLGetDiskSectorsForFile(BLContextPtr context, const char * path, off_t exten
         return 1;
     }
 
-    strcpy(device, sb.f_mntfromname);
+    strlcpy(device, sb.f_mntfromname, deviceLen);
 
     alist.bitmapcount = 5;
     alist.reserved = 0;

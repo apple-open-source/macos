@@ -44,6 +44,9 @@ typedef struct __IOMIGMachPort {
     CFRunLoopRef                        runLoop;
     CFStringRef                         runLoopMode;
     
+    dispatch_queue_t                    dispatchQueue;
+    dispatch_source_t                   dispatchSource;
+    
     CFMachPortRef                       port;
     CFRunLoopSourceRef                  source;
     CFIndex                             maxMessageSize;
@@ -107,6 +110,10 @@ void __IOMIGMachPortRelease(CFTypeRef object)
     if ( migPort->source ) {
         CFRelease(migPort->source);
     }
+    
+    if ( migPort->dispatchSource ) {
+        dispatch_release(migPort->dispatchSource);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -142,8 +149,8 @@ IOMIGMachPortRef IOMIGMachPortCreate(CFAllocatorRef allocator, CFIndex maxMessag
         
     CFMachPortContext context = {0, migPort, NULL, NULL, NULL};
     migPort->port = (port != MACH_PORT_NULL) ? 
-            CFMachPortCreateWithPort(kCFAllocatorDefault, port, __IOMIGMachPortPortCallback, &context, NULL) :
-            CFMachPortCreate(kCFAllocatorDefault, __IOMIGMachPortPortCallback, &context, NULL);
+            CFMachPortCreateWithPort(allocator, port, __IOMIGMachPortPortCallback, &context, NULL) :
+            CFMachPortCreate(allocator, __IOMIGMachPortPortCallback, &context, NULL);
     
     require(migPort->port, exit);
     
@@ -159,6 +166,74 @@ exit:
 }
 
 //------------------------------------------------------------------------------
+// IOMIGMachPortScheduleWithDispatchQueue
+//------------------------------------------------------------------------------
+void IOMIGMachPortScheduleWithDispatchQueue(IOMIGMachPortRef migPort, dispatch_queue_t queue)
+{
+    
+    mach_port_t port = CFMachPortGetPort(migPort->port);
+    
+    migPort->dispatchQueue = queue;
+    
+    require(migPort->dispatchQueue, exit);
+    
+    // init the sources
+    if ( !migPort->dispatchSource ) {
+        migPort->dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, port, 0, migPort->dispatchQueue);
+        require(migPort->dispatchSource, exit);
+
+        dispatch_source_set_event_handler(migPort->dispatchSource, ^{
+            CFRetain(migPort);
+            mach_msg_size_t size = migPort->maxMessageSize + MAX_TRAILER_SIZE;
+            mach_msg_header_t *msg = (mach_msg_header_t *)CFAllocatorAllocate(CFGetAllocator(migPort), size, 0);
+            msg->msgh_size = size;
+            for (;;) {
+                msg->msgh_bits = 0;
+                msg->msgh_local_port = port;
+                msg->msgh_remote_port = MACH_PORT_NULL;
+                msg->msgh_id = 0;
+                kern_return_t ret = mach_msg(msg, MACH_RCV_MSG|MACH_RCV_LARGE|MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)|MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AV), 0, msg->msgh_size, port, 0, MACH_PORT_NULL);
+                if (MACH_MSG_SUCCESS == ret) break;
+                if (MACH_RCV_TOO_LARGE != ret) goto inner_exit;
+                uint32_t newSize = round_msg(msg->msgh_size + MAX_TRAILER_SIZE);
+                msg = CFAllocatorReallocate(CFGetAllocator(migPort), msg, newSize, 0);
+                msg->msgh_size = newSize;
+            }
+            
+            __IOMIGMachPortPortCallback(migPort->port, msg, msg->msgh_size, migPort);
+            
+        inner_exit:
+            CFAllocatorDeallocate(kCFAllocatorSystemDefault, msg);
+            CFRelease(migPort);
+        });
+    }
+    
+    dispatch_resume(migPort->dispatchSource);
+    
+exit:
+    return;
+}
+
+//------------------------------------------------------------------------------
+// IOMIGMachPortUnscheduleFromDispatchQueue
+//------------------------------------------------------------------------------
+void IOMIGMachPortUnscheduleFromDispatchQueue(IOMIGMachPortRef migPort, dispatch_queue_t queue)
+{
+    if ( !queue || !migPort->dispatchQueue)
+        return;
+    
+    if ( queue != migPort->dispatchQueue )
+        return;
+    
+    migPort->dispatchQueue = NULL;
+
+    if ( migPort->dispatchSource ) {
+        dispatch_release(migPort->dispatchSource);
+        migPort->dispatchSource = NULL;
+    }
+}
+
+//------------------------------------------------------------------------------
 // IOMIGMachPortScheduleWithRunLoop
 //------------------------------------------------------------------------------
 void IOMIGMachPortScheduleWithRunLoop(IOMIGMachPortRef migPort, CFRunLoopRef runLoop, CFStringRef runLoopMode)
@@ -171,7 +246,7 @@ void IOMIGMachPortScheduleWithRunLoop(IOMIGMachPortRef migPort, CFRunLoopRef run
 
     // init the sources
     if ( !migPort->source ) {
-        migPort->source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, migPort->port, 1);
+        migPort->source = CFMachPortCreateRunLoopSource(CFGetAllocator(migPort), migPort->port, 1);
         require(migPort->source, exit);
     }
 

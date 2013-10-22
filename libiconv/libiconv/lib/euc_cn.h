@@ -23,7 +23,7 @@
  */
 
 static int
-euc_cn_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+euc_cn_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   /* Code set 0 (ASCII or GB 1988-89) */
@@ -47,7 +47,7 @@ euc_cn_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-euc_cn_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+euc_cn_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char buf[2];
   int ret;

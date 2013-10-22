@@ -1,3 +1,4 @@
+# coding: US-ASCII
 require 'rexml/encoding'
 
 module REXML
@@ -7,13 +8,14 @@ module REXML
     # @param arg Either a String, or an IO
     # @return a Source, or nil if a bad argument was given
     def SourceFactory::create_from(arg)
-      if arg.kind_of? String
-        Source.new(arg)
-      elsif arg.respond_to? :read and
-            arg.respond_to? :readline and
-            arg.respond_to? :nil? and
-            arg.respond_to? :eof?
+      if arg.respond_to? :read and
+          arg.respond_to? :readline and
+          arg.respond_to? :nil? and
+          arg.respond_to? :eof?
         IOSource.new(arg)
+      elsif arg.respond_to? :to_str
+        require 'stringio'
+        IOSource.new(StringIO.new(arg))
       elsif arg.kind_of? Source
         arg
       else
@@ -42,7 +44,7 @@ module REXML
       if encoding
         self.encoding = encoding
       else
-        self.encoding = check_encoding( @buffer )
+        detect_encoding
       end
       @line = 0
     end
@@ -52,22 +54,16 @@ module REXML
     # Overridden to support optimized en/decoding
     def encoding=(enc)
       return unless super
-      @line_break = encode( '>' )
-      if enc != UTF_8
-        @buffer = decode(@buffer)
-        @to_utf = true
-      else
-        @to_utf = false
-      end
+      encoding_updated
     end
 
     # Scans the source for a given pattern.  Note, that this is not your
     # usual scan() method.  For one thing, the pattern argument has some
     # requirements; for another, the source can be consumed.  You can easily
     # confuse this method.  Originally, the patterns were easier
-    # to construct and this method more robust, because this method 
-    # generated search regexes on the fly; however, this was 
-    # computationally expensive and slowed down the entire REXML package 
+    # to construct and this method more robust, because this method
+    # generated search regexes on the fly; however, this was
+    # computationally expensive and slowed down the entire REXML package
     # considerably, since this is by far the most commonly called method.
     # @param pattern must be a Regexp, and must be in the form of
     # /^\s*(#{your pattern, with no groups})(.*)/.  The first group
@@ -123,6 +119,38 @@ module REXML
       res = res[-1] if res.kind_of? Array
       lines.index( res ) if res
     end
+
+    private
+    def detect_encoding
+      buffer_encoding = @buffer.encoding
+      detected_encoding = "UTF-8"
+      begin
+        @buffer.force_encoding("ASCII-8BIT")
+        if @buffer[0, 2] == "\xfe\xff"
+          @buffer[0, 2] = ""
+          detected_encoding = "UTF-16BE"
+        elsif @buffer[0, 2] == "\xff\xfe"
+          @buffer[0, 2] = ""
+          detected_encoding = "UTF-16LE"
+        elsif @buffer[0, 3] == "\xef\xbb\xbf"
+          @buffer[0, 3] = ""
+          detected_encoding = "UTF-8"
+        end
+      ensure
+        @buffer.force_encoding(buffer_encoding)
+      end
+      self.encoding = detected_encoding
+    end
+
+    def encoding_updated
+      if @encoding != 'UTF-8'
+        @buffer = decode(@buffer)
+        @to_utf = true
+      else
+        @to_utf = false
+        @buffer.force_encoding ::Encoding::UTF_8
+      end
+    end
   end
 
   # A Source that wraps an IO.  See the Source class for method
@@ -134,30 +162,22 @@ module REXML
     def initialize(arg, block_size=500, encoding=nil)
       @er_source = @source = arg
       @to_utf = false
+      @pending_buffer = nil
 
-      # Determining the encoding is a deceptively difficult issue to resolve.
-      # First, we check the first two bytes for UTF-16.  Then we
-      # assume that the encoding is at least ASCII enough for the '>', and
-      # we read until we get one of those.  This gives us the XML declaration,
-      # if there is one.  If there isn't one, the file MUST be UTF-8, as per
-      # the XML spec.  If there is one, we can determine the encoding from
-      # it.
-      @buffer = ""
-      str = @source.read( 2 )
       if encoding
-        self.encoding = encoding
-      elsif 0xfe == str[0] && 0xff == str[1]
-        @line_break = "\000>"
-      elsif 0xff == str[0] && 0xfe == str[1]
-        @line_break = ">\000"
-      elsif 0xef == str[0] && 0xbb == str[1]
-        str += @source.read(1)
-        str = '' if (0xbf == str[2])
-        @line_break = ">"
+        super("", encoding)
       else
-        @line_break = ">"
+        super(@source.read(3) || "")
       end
-      super str+@source.readline( @line_break )
+
+      if !@to_utf and
+          @buffer.respond_to?(:force_encoding) and
+          @source.respond_to?(:external_encoding) and
+          @source.external_encoding != ::Encoding::UTF_8
+        @force_utf8 = true
+      else
+        @force_utf8 = false
+      end
     end
 
     def scan(pattern, cons=false)
@@ -170,11 +190,7 @@ module REXML
       if rv.size == 0
         until @buffer =~ pattern or @source.nil?
           begin
-            # READLINE OPT
-            #str = @source.read(@block_size)
-            str = @source.readline(@line_break)
-            str = decode(str) if @to_utf and str
-            @buffer << str
+            @buffer << readline
           rescue Iconv::IllegalSequence
             raise
           rescue
@@ -189,9 +205,7 @@ module REXML
 
     def read
       begin
-        str = @source.readline(@line_break)
-        str = decode(str) if @to_utf and str 
-        @buffer << str
+        @buffer << readline
       rescue Exception, NameError
         @source = nil
       end
@@ -206,9 +220,7 @@ module REXML
       @buffer = $' if cons and rv
       while !rv and @source
         begin
-          str = @source.readline(@line_break)
-          str = decode(str) if @to_utf and str
-          @buffer << str
+          @buffer << readline
           rv = pattern.match(@buffer)
           @buffer = $' if cons and rv
         rescue
@@ -218,13 +230,13 @@ module REXML
       rv.taint
       rv
     end
-    
+
     def empty?
       super and ( @source.nil? || @source.eof? )
     end
 
     def position
-      @er_source.stat.pipe? ? 0 : @er_source.pos
+      @er_source.pos rescue 0
     end
 
     # @return the current line in the source
@@ -246,6 +258,39 @@ module REXML
         line = -1
       end
       [pos, lineno, line]
+    end
+
+    private
+    def readline
+      str = @source.readline(@line_break)
+      if @pending_buffer
+        if str.nil?
+          str = @pending_buffer
+        else
+          str = @pending_buffer + str
+        end
+        @pending_buffer = nil
+      end
+      return nil if str.nil?
+
+      if @to_utf
+        decode(str)
+      else
+        str.force_encoding(::Encoding::UTF_8) if @force_utf8
+        str
+      end
+    end
+
+    def encoding_updated
+      case @encoding
+      when "UTF-16BE", "UTF-16LE"
+        @source.binmode
+        @source.set_encoding(@encoding)
+      end
+      @line_break = encode(">")
+      @pending_buffer, @buffer = @buffer, ""
+      @pending_buffer.force_encoding(@encoding)
+      super
     end
   end
 end

@@ -1,5 +1,5 @@
 /**
- * xsltICUSort.c: module provided by Richard Jinks to provide a 
+ * xsltICUSort.c: module provided by Richard Jinks to provide a
  *                sort function replacement using ICU, it is not
  *                included in standard due to the size of the ICU
  *                library
@@ -136,8 +136,8 @@ xsltICUSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts,
     conv = ucnv_open("UTF8", &status);
     if(U_FAILURE(status)) {
 	xsltTransformError(ctxt, NULL, NULL, "xsltICUSortFunction: Error opening converter\n");
-    }	
-    if(comp->has_lang) 
+    }
+    if(comp->has_lang)
 	coll = ucol_open(comp->lang, &status);
     if(U_FAILURE(status) || !comp->has_lang) {
 	status = U_ZERO_ERROR;
@@ -146,9 +146,9 @@ xsltICUSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts,
     if(U_FAILURE(status)) {
 	xsltTransformError(ctxt, NULL, NULL, "xsltICUSortFunction: Error opening collator\n");
     }
-    if(comp->lower_first) 
+    if(comp->lower_first)
 	ucol_setAttribute(coll,UCOL_CASE_FIRST,UCOL_LOWER_FIRST,&status);
-    else 
+    else
 	ucol_setAttribute(coll,UCOL_CASE_FIRST,UCOL_UPPER_FIRST,&status);
     if(U_FAILURE(status)) {
 	xsltTransformError(ctxt, NULL, NULL, "xsltICUSortFunction: Error setting collator attribute\n");
@@ -161,7 +161,7 @@ xsltICUSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts,
 	    j = i - incr;
 	    if (results[i] == NULL)
 		continue;
-	    
+
 	    while (j >= 0) {
 		if (results[j] == NULL)
 		    tst = 1;
@@ -169,7 +169,7 @@ xsltICUSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts,
 		    if (number) {
 			if (results[j]->floatval == results[j + incr]->floatval)
 			    tst = 0;
-			else if (results[j]->floatval > 
+			else if (results[j]->floatval >
 				results[j + incr]->floatval)
 			    tst = 1;
 			else tst = -1;
@@ -207,11 +207,11 @@ xsltICUSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts,
 			 * Compute the result of the next level for the
 			 * full set, this might be optimized ... or not
 			 */
-			if (resultsTab[depth] == NULL) 
+			if (resultsTab[depth] == NULL)
 			    resultsTab[depth] = xsltComputeSortResult(ctxt,
 				                        sorts[depth]);
 			res = resultsTab[depth];
-			if (res == NULL) 
+			if (res == NULL)
 			    break;
 			if (res[j] == NULL)
 			    tst = 1;
@@ -219,7 +219,7 @@ xsltICUSortFunction(xsltTransformContextPtr ctxt, xmlNodePtr *sorts,
 			    if (numb) {
 				if (res[j]->floatval == res[j + incr]->floatval)
 				    tst = 0;
-				else if (res[j]->floatval > 
+				else if (res[j]->floatval >
 					res[j + incr]->floatval)
 				    tst = 1;
 				else tst = -1;

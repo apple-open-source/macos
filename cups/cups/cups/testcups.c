@@ -1,9 +1,9 @@
 /*
- * "$Id$"
+ * "$Id: testcups.c 11214 2013-08-01 22:24:05Z msweet $"
  *
  *   CUPS API test program for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -24,6 +24,7 @@
  * Include necessary headers...
  */
 
+#undef _CUPS_NO_DEPRECATED
 #include "string-private.h"
 #include "cups.h"
 #include "ppd.h"
@@ -170,10 +171,27 @@ main(int  argc,				/* I - Number of command-line arguments */
       else
 	puts("No password entered.");
     }
+    else if (!strcmp(argv[1], "ppd") && argc == 3)
+    {
+     /*
+      * ./testcups ppd printer
+      */
+
+      http_status_t	http_status;	/* Status */
+      char		buffer[1024];	/* PPD filename */
+      time_t		modtime = 0;	/* Last modified */
+
+      if ((http_status = cupsGetPPD3(CUPS_HTTP_DEFAULT, argv[2], &modtime,
+                                     buffer, sizeof(buffer))) != HTTP_STATUS_OK)
+        printf("Unable to get PPD: %d (%s)\n", (int)http_status,
+               cupsLastErrorString());
+      else
+        puts(buffer);
+    }
     else if (!strcmp(argv[1], "print") && argc == 5)
     {
      /*
-      * ./testcups printer file interval
+      * ./testcups print printer file interval
       */
 
       int		interval,	/* Interval between writes */
@@ -199,7 +217,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       interval = atoi(argv[4]);
 
       if (cupsStartDocument(CUPS_HTTP_DEFAULT, argv[1], job_id, argv[2],
-			    CUPS_FORMAT_AUTO, 1) != HTTP_CONTINUE)
+			    CUPS_FORMAT_AUTO, 1) != HTTP_STATUS_CONTINUE)
       {
 	puts("Unable to start document!");
 	return (1);
@@ -210,7 +228,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	printf("Writing %d bytes...\n", (int)bytes);
 
 	if (cupsWriteRequestData(CUPS_HTTP_DEFAULT, buffer,
-				 bytes) != HTTP_CONTINUE)
+				 bytes) != HTTP_STATUS_CONTINUE)
 	{
 	  puts("Unable to write bytes!");
 	  return (1);
@@ -222,7 +240,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 
       cupsFileClose(fp);
 
-      if (cupsFinishDocument(CUPS_HTTP_DEFAULT, argv[1]) > IPP_OK_SUBST)
+      if (cupsFinishDocument(CUPS_HTTP_DEFAULT,
+                             argv[1]) > IPP_STATUS_OK_IGNORED_OR_SUBSTITUTED)
       {
 	puts("Unable to finish document!");
 	return (1);
@@ -243,6 +262,10 @@ main(int  argc,				/* I - Number of command-line arguments */
       puts("Ask for a password:");
       puts("");
       puts("    ./testcups password");
+      puts("");
+      puts("Get the PPD file:");
+      puts("");
+      puts("    ./testcups ppd printer");
       puts("");
       puts("Print a file (interval controls delay between buffers in seconds):");
       puts("");
@@ -566,5 +589,5 @@ show_diffs(cups_dest_t *a,		/* I - First destination */
 
 
 /*
- * End of "$Id$".
+ * End of "$Id: testcups.c 11214 2013-08-01 22:24:05Z msweet $".
  */

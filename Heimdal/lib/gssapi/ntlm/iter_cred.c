@@ -64,6 +64,7 @@ _gss_ntlm_iter_creds_f(OM_uint32 flags,
 	char *user = NULL, *domain = NULL;
 	kcmuuid_t uuid;
 	ntlm_cred dn;
+	size_t sret;
 
 	ret = krb5_ret_uint32(response, &morep);
 	if (ret) goto out;
@@ -77,8 +78,8 @@ _gss_ntlm_iter_creds_f(OM_uint32 flags,
 	    free(user);
 	    goto out;
 	}
-	ret = krb5_storage_read(response, uuid, sizeof(uuid));
-	if (ret != sizeof(uuid)) {
+	sret = krb5_storage_read(response, uuid, sizeof(uuid));
+	if (sret != sizeof(uuid)) {
 	    free(user);
 	    free(domain);
 	    goto out;

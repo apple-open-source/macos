@@ -13,5 +13,4 @@ _dummy(const char *x, int y)
 	/* remove tab completion binding */
 	rl_parse_and_bind("bind ^I ed-insert");
 .
-/line = history_get(state->length)->line/s/length/& - 1/
 w

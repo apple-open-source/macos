@@ -1,0 +1,153 @@
+NAME
+    Class::Trigger - Mixin to add / call inheritable triggers
+
+SYNOPSIS
+      package Foo;
+      use Class::Trigger;
+
+      sub foo {
+          my $self = shift;
+          $self->call_trigger('before_foo');
+          # some code ...
+          $self->call_trigger('middle_of_foo');
+          # some code ...
+          $self->call_trigger('after_foo');
+      }
+
+      package main;
+      Foo->add_trigger(before_foo => \&sub1);
+      Foo->add_trigger(after_foo => \&sub2);
+
+      my $foo = Foo->new;
+      $foo->foo;            # then sub1, sub2 called
+
+      # triggers are inheritable
+      package Bar;
+      use base qw(Foo);
+
+      Bar->add_trigger(before_foo => \&sub);
+
+      # triggers can be object based
+      $foo->add_trigger(after_foo => \&sub3);
+      $foo->foo;            # sub3 would appply only to this object
+
+DESCRIPTION
+    Class::Trigger is a mixin class to add / call triggers (or hooks) that
+    get called at some points you specify.
+
+METHODS
+    By using this module, your class is capable of following two methods.
+
+    add_trigger
+          Foo->add_trigger($triggerpoint => $sub);
+          $foo->add_trigger($triggerpoint => $sub);
+
+          Foo->add_trigger( name => $triggerpoint,
+                            callback => sub {return undef},
+                            abortable => 1); 
+
+          # no further triggers will be called. Undef will be returned.
+
+        Adds triggers for trigger point. You can have any number of triggers
+        for each point. Each coderef will be passed a reference to the
+        calling object, as well as arguments passed in via run_trigger.
+
+        If add_trigger is called with named_parameters and the "abortable"
+        parameter is passed a true value, a false return values will stop
+        processing of this trigger point. If the trigger is "abortable"
+        return the return value from the last callback processed will be
+        returned to calling code.
+
+        If "add_trigger" is called without the "abortable" flag, return
+        values will be ignored.
+
+        If "add_trigger" is called as object method, whole current trigger
+        table will be copied onto the object and the new trigger added to
+        that. (The object must be implemented as hash.)
+
+          my $foo = Foo->new;
+
+          # this trigger ($sub_foo) would apply only to $foo object
+          $foo->add_trigger($triggerpoint => $sub_foo);
+          $foo->foo;
+
+          # And not to another $bar object
+          my $bar = Foo->new;
+          $bar->foo;
+
+    call_trigger
+          $foo->call_trigger($triggerpoint, @args);
+
+        Calls triggers for trigger point, which were added via "add_trigger"
+        method. Each triggers will be passed a copy of the object as the
+        first argument. Remaining arguments passed to "call_trigger" will be
+        passed on to each trigger. Triggers are invoked in the same order
+        they were defined.
+
+TRIGGER POINTS
+    By default you can make any number of trigger points, but if you want to
+    declare names of trigger points explicitly, you can do it via "import".
+
+      package Foo;
+      use Class::Trigger qw(foo bar baz);
+
+      package main;
+      Foo->add_trigger(foo  => \&sub1); # okay
+      Foo->add_trigger(hoge => \&sub2); # exception
+
+FAQ
+    Acknowledgement: Thanks to everyone at POOP mailing-list
+    (http://poop.sourceforge.net/).
+
+    Q.  This module lets me add subs to be run before/after a specific
+        subroutine is run. Yes?
+
+    A.  You put various call_trigger() method in your class. Then your class
+        users can call add_trigger() method to add subs to be run in points
+        just you specify (exactly where you put call_trigger()).
+
+    Q.  Are you aware of the perl-aspects project and the Aspect module?
+        Very similar to Class::Trigger by the look of it, but its not nearly
+        as explicit. Its not necessary for foo() to actually say "triggers
+        go *here*", you just add them.
+
+    A.  Yep ;)
+
+        But the difference with Aspect would be that Class::Trigger is so
+        simple that it's easy to learn, and doesn't require 5.6 or over.
+
+    Q.  How does this compare to Sub::Versive, or Hook::LexWrap?
+
+    A.  Very similar. But the difference with Class::Trigger would be the
+        explicitness of trigger points.
+
+        In addition, you can put hooks in any point, rather than pre or post
+        of a method.
+
+    Q.  It looks interesting, but I just can't think of a practical example
+        of its use...
+
+    A.  (by Tony Bowden)
+
+        I originally added code like this to Class::DBI to cope with one
+        particular case: auto-upkeep of full-text search indices.
+
+        So I added functionality in Class::DBI to be able to trigger an
+        arbitary subroutine every time something happened - then it was a
+        simple matter of setting up triggers on INSERT and UPDATE to reindex
+        that row, and on DELETE to remove that index row.
+
+        See Class::DBI::mysql::FullTextSearch and its source code to see it
+        in action.
+
+AUTHOR
+    Original idea by Tony Bowden <tony@kasei.com> in Class::DBI.
+
+    Code by Tatsuhiko Miyagawa <miyagawa@bulknews.net>.
+
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+SEE ALSO
+    Class::DBI
+

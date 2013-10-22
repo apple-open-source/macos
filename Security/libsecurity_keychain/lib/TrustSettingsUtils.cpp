@@ -35,7 +35,6 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 /* 
  * Preferred location for user root store is ~/Library/Keychain/UserRootCerts.keychain. 
@@ -72,17 +71,17 @@ int tsReadFile(
 	if(rtn) {
 		goto errOut;
 	}
-	size = sb.st_size;
+	size = (unsigned)sb.st_size;
 	fileData.Data = (uint8 *)alloc.malloc(size);
 	if(fileData.Data == NULL) {
 		rtn = ENOMEM;
 		goto errOut;
 	}
-	rtn = lseek(fd, 0, SEEK_SET);
+	rtn = (int)lseek(fd, 0, SEEK_SET);
 	if(rtn < 0) {
 		goto errOut;
 	}
-	rtn = read(fd, fileData.Data, (size_t)size);
+	rtn = (int)read(fd, fileData.Data, (size_t)size);
 	if(rtn != (int)size) {
 		rtn = EIO;
 	}

@@ -1,0 +1,23 @@
+Crypt::OpenSSL::Bignum is an XS perl module designed to provide basic
+access to the OpenSSL multiprecision integer arithmetic libraries.
+Presently, many though not all of the arithmetic operations that
+OpenSSL provides are exposed to perl.  In addition, this module can be
+used to provide access to bignum values produced by other OpenSSL
+modules, such as key parameters from Crypt::OpenSSL::RSA.  This module
+requires that the OpenSSL libraries and header files be installed.
+
+Crypt::OpenSSL::Bignum is currently under active development, and the
+many of the arithmetic APIs may change.  However, the author is
+committed to greater stability of the following methods:
+
+  new_from_bin, new_from_hex, new_from_decimal
+  to_bin, to_hex, to_decimal
+  pointer_copy, bless_pointer
+
+The module is being developed on sourceforge; if you find something
+you like or hate, please come to http://perl-openssl.sf.net/ for
+discussion and the latest in the cvs repository.
+
+Copyright (c) 2003 Ian Robertson.  Crypt::OpenSSL::RSA is free
+software; you may redistribute it and/or modify it under the same
+terms as Perl itself.

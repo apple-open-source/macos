@@ -26,7 +26,7 @@
    in the stream, not just at the beginning. The default is big-endian. */
 /* The state is 0 if big-endian, 1 if little-endian. */
 static int
-ucs2_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+ucs2_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   state_t state = conv->istate;
   int count = 0;
@@ -53,7 +53,7 @@ ucs2_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
    "ISO/IEC 10646-1:1993(E) specifies that when characters the UCS-2 form are
     serialized as octets, that the most significant octet appear first." */
 static int
-ucs2_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+ucs2_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (wc < 0x10000 && wc != 0xfffe && !(wc >= 0xd800 && wc < 0xe000)) {
     if (n >= 2) {

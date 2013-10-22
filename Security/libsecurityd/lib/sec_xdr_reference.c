@@ -121,7 +121,7 @@ sec_xdr_reference(XDR *xdrs, uint8_t **pp, u_int size, xdrproc_t proc)
                 break;
             }
 
-    stat = (*proc)(xdrs, loc);
+    stat = (*proc)(xdrs, loc, 0);
 
     if (xdrs->x_op == XDR_FREE) {
         sec_mem_free(xdrs, loc, size);

@@ -32,6 +32,7 @@
 
 #include "ReverbConvolverStage.h"
 
+#include "FFTFrame.h"
 #include "VectorMath.h"
 #include "ReverbAccumulationBuffer.h"
 #include "ReverbConvolver.h"
@@ -43,12 +44,11 @@ namespace WebCore {
 
 using namespace VectorMath;
 
-ReverbConvolverStage::ReverbConvolverStage(const float* impulseResponse, size_t responseLength, size_t reverbTotalLatency, size_t stageOffset, size_t stageLength,
+ReverbConvolverStage::ReverbConvolverStage(const float* impulseResponse, size_t, size_t reverbTotalLatency, size_t stageOffset, size_t stageLength,
                                            size_t fftSize, size_t renderPhase, size_t renderSliceSize, ReverbAccumulationBuffer* accumulationBuffer, bool directMode)
     : m_accumulationBuffer(accumulationBuffer)
     , m_accumulationReadIndex(0)
     , m_inputReadIndex(0)
-    , m_impulseResponseLength(responseLength)
     , m_directMode(directMode)
 {
     ASSERT(impulseResponse);
@@ -90,6 +90,10 @@ ReverbConvolverStage::ReverbConvolverStage(const float* impulseResponse, size_t 
     size_t delayBufferSize = m_preDelayLength < fftSize ? fftSize : m_preDelayLength;
     delayBufferSize = delayBufferSize < renderSliceSize ? renderSliceSize : delayBufferSize;
     m_preDelayBuffer.allocate(delayBufferSize);
+}
+
+ReverbConvolverStage::~ReverbConvolverStage()
+{
 }
 
 void ReverbConvolverStage::processInBackground(ReverbConvolver* convolver, size_t framesToProcess)

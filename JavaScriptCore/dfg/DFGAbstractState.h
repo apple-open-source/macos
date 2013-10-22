@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGAbstractValue.h"
+#include "DFGBranchDirection.h"
 #include "DFGGraph.h"
 #include "DFGNode.h"
 #include <wtf/Vector.h>
@@ -71,8 +72,8 @@ struct BasicBlock;
 // AbstractState state(codeBlock, graph);
 // state.beginBasicBlock(basicBlock);
 // bool endReached = true;
-// for (NodeIndex idx = basicBlock.begin; idx < basicBlock.end; ++idx) {
-//     if (!state.execute(idx))
+// for (unsigned i = 0; i < basicBlock->size(); ++i) {
+//     if (!state.execute(i))
 //         break;
 // }
 // bool result = state.endBasicBlock(<either Merge or DontMerge>);
@@ -96,14 +97,19 @@ public:
     
     ~AbstractState();
     
-    AbstractValue& forNode(NodeIndex nodeIndex)
+    AbstractValue& forNode(Node* node)
     {
-        return m_nodes[nodeIndex];
+        return node->value;
     }
     
-    AbstractValue& forNode(Edge nodeUse)
+    AbstractValue& forNode(Edge edge)
     {
-        return forNode(nodeUse.index());
+        return forNode(edge.node());
+    }
+    
+    Operands<AbstractValue>& variables()
+    {
+        return m_variables;
     }
     
     // Call this before beginning CFA to initialize the abstract values of
@@ -146,13 +152,62 @@ public:
     void reset();
     
     // Abstractly executes the given node. The new abstract state is stored into an
-    // abstract register file stored in *this. Loads of local variables (that span
+    // abstract stack stored in *this. Loads of local variables (that span
     // basic blocks) interrogate the basic block's notion of the state at the head.
     // Stores to local variables are handled in endBasicBlock(). This returns true
     // if execution should continue past this node. Notably, it will return true
     // for block terminals, so long as those terminals are not Return or variants
     // of Throw.
-    bool execute(unsigned);
+    //
+    // This is guaranteed to be equivalent to doing:
+    //
+    // if (state.startExecuting(index)) {
+    //     state.executeEdges(index);
+    //     result = state.executeEffects(index);
+    // } else
+    //     result = true;
+    bool execute(unsigned indexInBlock);
+    
+    // Indicate the start of execution of the node. It resets any state in the node,
+    // that is progressively built up by executeEdges() and executeEffects(). In
+    // particular, this resets canExit(), so if you want to "know" between calls of
+    // startExecuting() and executeEdges()/Effects() whether the last run of the
+    // analysis concluded that the node can exit, you should probably set that
+    // information aside prior to calling startExecuting().
+    bool startExecuting(Node*);
+    bool startExecuting(unsigned indexInBlock);
+    
+    // Abstractly execute the edges of the given node. This runs filterEdgeByUse()
+    // on all edges of the node. You can skip this step, if you have already used
+    // filterEdgeByUse() (or some equivalent) on each edge.
+    void executeEdges(Node*);
+    void executeEdges(unsigned indexInBlock);
+    
+    ALWAYS_INLINE void filterEdgeByUse(Node* node, Edge& edge)
+    {
+#if !ASSERT_DISABLED
+        switch (edge.useKind()) {
+        case KnownInt32Use:
+        case KnownNumberUse:
+        case KnownCellUse:
+        case KnownStringUse:
+            ASSERT(!(forNode(edge).m_type & ~typeFilterFor(edge.useKind())));
+            break;
+        default:
+            break;
+        }
+#endif // !ASSERT_DISABLED
+        
+        filterByType(node, edge, typeFilterFor(edge.useKind()));
+    }
+    
+    // Abstractly execute the effects of the given node. This changes the abstract
+    // state assuming that edges have already been filtered.
+    bool executeEffects(unsigned indexInBlock);
+    bool executeEffects(unsigned indexInBlock, Node*);
+    
+    // Did the last executed node clobber the world?
+    bool didClobber() const { return m_didClobber; }
     
     // Is the execution state still valid? This will be false if execute() has
     // returned false previously.
@@ -170,27 +225,69 @@ public:
     // that this is automatically called in endBasicBlock() if MergeMode is
     // MergeToSuccessors.
     bool mergeToSuccessors(Graph&, BasicBlock*);
-
-#ifndef NDEBUG
-    void dump(FILE* out);
-#endif
+    
+    void dump(PrintStream& out);
     
 private:
-    void clobberStructures(unsigned);
+    void clobberWorld(const CodeOrigin&, unsigned indexInBlock);
+    void clobberCapturedVars(const CodeOrigin&);
+    void clobberStructures(unsigned indexInBlock);
     
-    bool mergeStateAtTail(AbstractValue& destination, AbstractValue& inVariable, NodeIndex);
+    bool mergeStateAtTail(AbstractValue& destination, AbstractValue& inVariable, Node*);
     
-    static bool mergeVariableBetweenBlocks(AbstractValue& destination, AbstractValue& source, NodeIndex destinationNodeIndex, NodeIndex sourceNodeIndex);
+    static bool mergeVariableBetweenBlocks(AbstractValue& destination, AbstractValue& source, Node* destinationNode, Node* sourceNode);
+    
+    enum BooleanResult {
+        UnknownBooleanResult,
+        DefinitelyFalse,
+        DefinitelyTrue
+    };
+    BooleanResult booleanResult(Node*, AbstractValue&);
+    
+    bool trySetConstant(Node* node, JSValue value)
+    {
+        // Make sure we don't constant fold something that will produce values that contravene
+        // predictions. If that happens then we know that the code will OSR exit, forcing
+        // recompilation. But if we tried to constant fold then we'll have a very degenerate
+        // IR: namely we'll have a JSConstant that contravenes its own prediction. There's a
+        // lot of subtle code that assumes that
+        // speculationFromValue(jsConstant) == jsConstant.prediction(). "Hardening" that code
+        // is probably less sane than just pulling back on constant folding.
+        SpeculatedType oldType = node->prediction();
+        if (mergeSpeculations(speculationFromValue(value), oldType) != oldType)
+            return false;
+        
+        forNode(node).set(value);
+        return true;
+    }
+    
+    ALWAYS_INLINE void filterByType(Node* node, Edge& edge, SpeculatedType type)
+    {
+        AbstractValue& value = forNode(edge);
+        if (value.m_type & ~type) {
+            node->setCanExit(true);
+            edge.setProofStatus(NeedsCheck);
+        } else
+            edge.setProofStatus(IsProved);
+        
+        value.filter(type);
+    }
+    
+    void verifyEdge(Node*, Edge);
+    void verifyEdges(Node*);
     
     CodeBlock* m_codeBlock;
     Graph& m_graph;
     
-    Vector<AbstractValue, 64> m_nodes;
     Operands<AbstractValue> m_variables;
     BasicBlock* m_block;
     bool m_haveStructures;
+    bool m_foundConstants;
     
     bool m_isValid;
+    bool m_didClobber;
+    
+    BranchDirection m_branchDirection; // This is only set for blocks that end in Branch and that execute to completion (i.e. m_isValid == true).
 };
 
 } } // namespace JSC::DFG

@@ -32,10 +32,11 @@ namespace Security {
 namespace CodeSigning {
 
 
-void xpcEngineAssess(CFURLRef path, uint flags, CFDictionaryRef context, CFMutableDictionaryRef result);
-CFDictionaryRef xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context)
+void xpcEngineAssess(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result);
+CFDictionaryRef xpcEngineUpdate(CFTypeRef target, SecAssessmentFlags flags, CFDictionaryRef context)
     CF_RETURNS_RETAINED;
 bool xpcEngineControl(const char *name);
+void xpcEngineRecord(CFDictionaryRef info);
 
 
 } // end namespace CodeSigning

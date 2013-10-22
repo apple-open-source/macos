@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2010,2012 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2013 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -81,7 +81,9 @@ extern const CFTypeRef kSecClassIdentity
 	 below lists the currently defined attributes for each item class:
 
 	 kSecClassGenericPassword item attributes:
-	 kSecAttrAccess
+	 kSecAttrAccess (OS X only)
+	 kSecAttrAccessGroup (iOS; also OS X if kSecAttrSynchronizable specified)
+	 kSecAttrAccessible (iOS; also OS X if kSecAttrSynchronizable specified)
 	 kSecAttrCreationDate
 	 kSecAttrModificationDate
 	 kSecAttrDescription
@@ -96,7 +98,9 @@ extern const CFTypeRef kSecClassIdentity
 	 kSecAttrGeneric
 
 	 kSecClassInternetPassword item attributes:
-	 kSecAttrAccess
+	 kSecAttrAccess (OS X only)
+	 kSecAttrAccessGroup (iOS; also OS X if kSecAttrSynchronizable specified)
+	 kSecAttrAccessible (iOS; also OS X if kSecAttrSynchronizable specified)
 	 kSecAttrCreationDate
 	 kSecAttrModificationDate
 	 kSecAttrDescription
@@ -125,7 +129,9 @@ extern const CFTypeRef kSecClassIdentity
 	 kSecAttrPublicKeyHash
 
 	 kSecClassKey item attributes:
-	 kSecAttrAccess
+	 kSecAttrAccess (OS X only)
+	 kSecAttrAccessGroup (iOS only)
+	 kSecAttrAccessible (iOS only)
 	 kSecAttrKeyClass
 	 kSecAttrLabel
 	 kSecAttrApplicationLabel
@@ -158,8 +164,84 @@ extern const CFTypeRef kSecClassIdentity
 	 certificate, this class shares attributes of both kSecClassKey and
 	 kSecClassCertificate.
 
-    @constant kSecAttrAccess Specifies a dictionary key whose value
-	 is a SecAccessRef describing the access control settings for this item.
+     @constant kSecAttrAccessible Specifies a dictionary key whose value
+     indicates when your application needs access to an item's data.  You
+     should choose the most restrictive option that meets your application's
+     needs to allow the system to protect that item in the best way possible.
+     See the "kSecAttrAccessible Value Constants" section for a list of
+     values which can be specified.
+     IMPORTANT: This attribute is currently not supported for OS X keychain
+     items, unless the kSecAttrSynchronizable attribute is also present. If
+     both attributes are specified on either OS X or iOS, the value for the
+     kSecAttrAccessible key may only be one whose name does not end with
+     "ThisDeviceOnly", as those cannot sync to another device.
+
+     @constant kSecAttrAccess Specifies a dictionary key whose value
+     is a SecAccessRef describing the access control settings for this item.
+     This key is available on OS X only.
+
+     @constant kSecAttrAccessGroup Specifies a dictionary key whose value is
+     a CFStringRef indicating which access group a item is in.  The access
+     groups that a particular application has membership in are determined by
+     two entitlements for that application.  The application-identifier
+     entitlement contains the application's single access group, unless
+     there is a keychain-access-groups entitlement present.  The latter
+     has as its value a list of access groups; the first item in this list
+     is the default access group. Unless a specific access group is provided
+     as the value of kSecAttrAccessGroup when SecItemAdd is called, new items
+     are created in the application's default access group.  Specifying this
+     attribute in SecItemCopyMatching, SecItemUpdate, or SecItemDelete calls
+     limits the search to the specified access group (of which the calling
+     application must be a member to obtain matching results.)  To share
+     keychain items between multiple applications, each application must have
+     a common group listed in its keychain-access-groups entitlement, and each
+     must specify this shared access group name as the value for the
+     kSecAttrAccessGroup key in the dictionary passed to SecItem functions.
+
+     @constant kSecAttrSynchronizable Specifies a dictionary key whose value is
+     a CFBooleanRef indicating whether the item in question can be synchronized.
+     To add a new item which can be synced to other devices, or to obtain
+     synchronizable results from a query, supply this key with a value of
+     kCFBooleanTrue. If the key is not supplied, or has a value of
+     kCFBooleanFalse, then no synchronizable items will be added or returned.
+     A predefined value, kSecAttrSynchronizableAny, may be provided instead of
+     kCFBooleanTrue if both synchronizable and non-synchronizable results are
+     desired.
+
+     IMPORTANT: Specifying the kSecAttrSynchronizable key has several caveats:
+
+         - Updating or deleting items using the kSecAttrSynchronizable key will
+           affect all copies of the item, not just the one on your local device.
+           Be sure that it makes sense to use the same password on all devices
+           before deciding to make a password synchronizable.
+         - Only password items can currently be synchronized. Keychain syncing
+           is not supported for certificates or cryptographic keys.
+         - Items stored or obtained using the kSecAttrSynchronizable key cannot
+           specify SecAccessRef-based access control with kSecAttrAccess. If a
+           password is intended to be shared between multiple applications, the
+           kSecAttrAccessGroup key must be specified, and each application
+           using this password must have a 'keychain-access-groups' entitlement
+           with the specified access group value.
+         - Items stored or obtained using the kSecAttrSynchronizable key may
+           not also specify a kSecAttrAccessible value which is incompatible
+           with syncing (namely, those whose names end with "ThisDeviceOnly".)
+         - Items stored or obtained using the kSecAttrSynchronizable key cannot
+           be specified by reference. You must pass kSecReturnAttributes and/or
+           kSecReturnData to retrieve results; kSecReturnRef is currently not
+           supported for synchronizable items.
+         - Persistent references to synchronizable items should be avoided;
+           while they may work locally, they cannot be moved between devices,
+           and may not resolve if the item is modified on some other device.
+         - When specifying a query that uses the kSecAttrSynchronizable key,
+           search keys are limited to the item's class and attributes.
+           The only search constant which may be used is kSecMatchLimit; other
+           constants using the kSecMatch prefix are not supported at this time.
+
+     @constant kSecAttrSynchronizableAny Specifies that both synchronizable and
+     non-synchronizable results should be returned from this query. This may be
+     used as a value for the kSecAttrSynchronizable dictionary key in a call to
+     SecItemCopyMatching, SecItemUpdate, or SecItemDelete.
+
 	 @constant kSecAttrCreationDate (read-only) Specifies a dictionary key whose
 	 value is the item's creation date. You use this key to get a value
 	 of type CFDateRef that represents the date the item was created.
@@ -275,10 +357,17 @@ extern const CFTypeRef kSecClassIdentity
 	 kSecAttrLabel (which is intended to be human-readable). This attribute
 	 is used to look up a key programmatically; in particular, for keys of
 	 class kSecAttrKeyClassPublic and kSecAttrKeyClassPrivate, the value of
-	 this attribute is the hash of the public key.
+	 this attribute is the hash of the public key. This item is a type of CFDataRef.
+	 Legacy keys may contain a UUID in this field as a CFStringRef.
 	 @constant kSecAttrIsPermanent Specifies a dictionary key whose value is a
 	 CFBooleanRef indicating whether the key in question will be stored
 	 permanently.
+	 @constant kSecAttrIsSensitive Specifies a dictionary key whose value is a
+	 CFBooleanRef indicating that the key in question can only be exported
+	 in a wrapped (encrypted) format.
+	 @constant kSecAttrIsExtractable Specifies a dictionary key whose value is a
+	 CFBooleanRef indicating whether the key in question can be exported from
+	 its keychain container.
 	 @constant kSecAttrApplicationTag Specifies a dictionary key whose value is a
 	 CFDataRef containing private tag data.
 	 @constant kSecAttrKeyType Specifies a dictionary key whose value is a
@@ -318,8 +407,16 @@ extern const CFTypeRef kSecClassIdentity
 	 CFBooleanRef indicating whether the key in question can be used to
 	 unwrap another key.
 */
+extern const CFTypeRef kSecAttrAccessible
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
 extern const CFTypeRef kSecAttrAccess
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+extern const CFTypeRef kSecAttrAccessGroup
+	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_3_0);
+extern const CFTypeRef kSecAttrSynchronizable
+	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+extern const CFTypeRef kSecAttrSynchronizableAny
+	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 extern const CFTypeRef kSecAttrCreationDate
 	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 extern const CFTypeRef kSecAttrModificationDate
@@ -376,6 +473,10 @@ extern const CFTypeRef kSecAttrApplicationLabel
 	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 extern const CFTypeRef kSecAttrIsPermanent
 	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+extern const CFTypeRef kSecAttrIsSensitive
+	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+extern const CFTypeRef kSecAttrIsExtractable
+	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 extern const CFTypeRef kSecAttrApplicationTag
 	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 extern const CFTypeRef kSecAttrKeyType
@@ -404,6 +505,58 @@ extern const CFTypeRef kSecAttrCanWrap
 	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 extern const CFTypeRef kSecAttrCanUnwrap
 	__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
+
+/*!
+    @enum kSecAttrAccessible Value Constants
+    @discussion Predefined item attribute constants used to get or set values
+        in a dictionary. The kSecAttrAccessible constant is the key and its
+        value is one of the constants defined here.
+        When asking SecItemCopyMatching to return the item's data, the error
+        errSecInteractionNotAllowed will be returned if the item's data is not
+        available until a device unlock occurs.
+    @constant kSecAttrAccessibleWhenUnlocked Item data can only be accessed
+        while the device is unlocked. This is recommended for items that only
+        need be accesible while the application is in the foreground.  Items
+        with this attribute will migrate to a new device when using encrypted
+        backups.
+    @constant kSecAttrAccessibleAfterFirstUnlock Item data can only be
+        accessed once the device has been unlocked after a restart.  This is
+        recommended for items that need to be accesible by background
+        applications. Items with this attribute will migrate to a new device
+        when using encrypted backups.
+    @constant kSecAttrAccessibleAlways Item data can always be accessed
+        regardless of the lock state of the device.  This is not recommended
+        for anything except system use. Items with this attribute will migrate
+        to a new device when using encrypted backups.
+    @constant kSecAttrAccessibleWhenUnlockedThisDeviceOnly Item data can only
+        be accessed while the device is unlocked. This is recommended for items
+        that only need be accesible while the application is in the foreground.
+        Items with this attribute will never migrate to a new device, so after
+        a backup is restored to a new device, these items will be missing.
+    @constant kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly Item data can
+        only be accessed once the device has been unlocked after a restart.
+        This is recommended for items that need to be accessible by background
+        applications. Items with this attribute will never migrate to a new
+        device, so after a backup is restored to a new device these items will
+        be missing.
+    @constant kSecAttrAccessibleAlwaysThisDeviceOnly Item data can always
+        be accessed regardless of the lock state of the device.  This option
+        is not recommended for anything except system use. Items with this
+        attribute will never migrate to a new device, so after a backup is
+        restored to a new device, these items will be missing.
+*/
+extern const CFTypeRef kSecAttrAccessibleWhenUnlocked
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+extern const CFTypeRef kSecAttrAccessibleAfterFirstUnlock
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+extern const CFTypeRef kSecAttrAccessibleAlways
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+extern const CFTypeRef kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+extern const CFTypeRef kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
+extern const CFTypeRef kSecAttrAccessibleAlwaysThisDeviceOnly
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
 
 /*!
 	 @enum kSecAttrProtocol Value Constants
@@ -564,7 +717,8 @@ extern const CFTypeRef kSecAttrKeyClassSymmetric
 	 @constant kSecAttrKeyTypeRC4
 	 @constant kSecAttrKeyTypeRC2
 	 @constant kSecAttrKeyTypeCAST
-	 @constant kSecAttrKeyTypeECDSA
+     @constant kSecAttrKeyTypeECDSA (deprecated; use kSecAttrKeyTypeEC instead.)
+     @constant kSecAttrKeyTypeEC
 */
 extern const CFTypeRef kSecAttrKeyTypeRSA
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
@@ -584,6 +738,8 @@ extern const CFTypeRef kSecAttrKeyTypeCAST
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFTypeRef kSecAttrKeyTypeECDSA
 	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+extern const CFTypeRef kSecAttrKeyTypeEC
+	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_4_0);
 
 /*!
 	 @enum kSecAttrPRF Value Constants

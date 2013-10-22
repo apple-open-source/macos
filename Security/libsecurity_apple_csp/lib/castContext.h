@@ -40,9 +40,8 @@
 
 #include "AppleCSPContext.h"
 #include "BlockCryptor.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <CommonCrypto/CommonCryptor.h>
-#include "/usr/local/include/CommonCrypto/CommonCryptorSPI.h"
+#include <CommonCrypto/CommonCryptorSPI.h>
 
 class CastContext : public BlockCryptor {
 public:

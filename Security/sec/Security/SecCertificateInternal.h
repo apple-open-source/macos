@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2007-2010 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2007-2012 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -32,9 +32,7 @@
 #include <Security/certextensions.h>
 #include <libDER/DER_Keys.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
 CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate);
@@ -67,6 +65,9 @@ CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRef certificate
 /* Return the content of a DER encoded X.501 name (without the tag and length
    fields) for the receiving certificates subject. */
 CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRef certificate);
+
+/* Return the normalized name or NULL if it fails to parse */
+CFDataRef SecDistinguishedNameCopyNormalizedContent(CFDataRef distinguished_name);
 
 /* Return true iff the certificate has a subject. */
 bool SecCertificateHasSubject(SecCertificateRef certificate);
@@ -126,14 +127,14 @@ const DERAlgorithmId *SecCertificateGetPublicKeyAlgorithm(
 /* Return the raw public key data for certificate.  */
 const DERItem *SecCertificateGetPublicKeyData(SecCertificateRef certificate);
 
-#pragma mark -
-#pragma mark Certificate Operations
+// MARK: -
+// MARK: Certificate Operations
 
 OSStatus SecCertificateIsSignedBy(SecCertificateRef certificate,
     SecKeyRef issuerKey);
 
-#pragma mark -
-#pragma mark Certificate Creation
+// MARK: -
+// MARK: Certificate Creation
 
 #ifdef OPTIONAL_METHODS
 /* Return a certificate for the PEM representation of this certificate.
@@ -303,8 +304,6 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
 
 bool SecCertificateHasMarkerExtension(SecCertificateRef certificate, CFTypeRef oid);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECCERTIFICATEINTERNAL_H_ */

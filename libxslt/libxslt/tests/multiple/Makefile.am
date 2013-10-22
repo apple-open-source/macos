@@ -28,7 +28,7 @@ GENERATED = \
 	out/letterw.html out/letterx.html out/lettery.html out/letterz.html \
 	out/titlepage.html
 
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'

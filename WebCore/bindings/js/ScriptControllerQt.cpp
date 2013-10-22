@@ -47,7 +47,7 @@ namespace WebCore {
 PassRefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWidget(WebCore::Widget* widget)
 {
     if (widget->isPluginView()) {
-        PluginView* pluginView = static_cast<PluginView*>(widget);
+        PluginView* pluginView = toPluginView(widget);
         return pluginView->bindingInstance();
     }
 
@@ -59,7 +59,7 @@ PassRefPtr<JSC::Bindings::Instance> ScriptController::createScriptInstanceForWid
     if (!object)
         return 0;
 
-    return JSC::Bindings::QtInstance::getQtInstance(object, bindingRootObject(), QScriptEngine::QtOwnership);
+    return JSC::Bindings::QtInstance::getQtInstance(object, bindingRootObject(), JSC::Bindings::QtInstance::QtOwnership);
 }
 
 }

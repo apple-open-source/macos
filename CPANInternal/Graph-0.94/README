@@ -1,0 +1,23 @@
+This is Graph, a Perl module for dealing with graphs, the abstract
+data structures.  (If you were looking for pie charts, I'm sorry.)
+
+This is a full rewrite of the Graph module 0.2xx series as discussed
+in the book "Mastering Algorithms with Perl", written by Jarkko
+Hietaniemi (the undersigned), John Macdonald, and Jon Orwant,
+and published by O'Reilly and Associates.  This rewrite is not
+fully compatible with the 0.2xx series, simply because I did
+not want to carry over all the design flaws and bugs.
+
+Test cases of all sizes to keep me honest are warmly welcomed.
+
+For the changes, read Changes.
+
+For the release notes, read RELEASE.
+
+If you find bugs, please distill your test case to the absolute minimum
+and report it, preferably via http://rt.cpan.org/NoAuth/Bugs.html?Dist=Graph
+
+Jarkko Hietaniemi
+jhi@iki.fi
+
+

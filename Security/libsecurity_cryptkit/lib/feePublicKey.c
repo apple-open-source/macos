@@ -463,6 +463,7 @@ feeReturn feePubKeyCreatePad(feePubKey myKey,
 
 #if	CRYPTKIT_HIGH_LEVEL_SIG
 
+#warning HLS
 /*
  * Generate digital signature, ElGamal style.
  */
@@ -600,7 +601,10 @@ feeReturn feePubKeyCreateECDSASignature(feePubKey pubKey,
 	return frtn;
 }
 #endif	/* CRYPTKIT_ECDSA_ENABLE */
+#endif  /* CRYPTKIT_HIGH_LEVEL_SIG */
 #endif	/* ECDSA_VERIFY_ONLY */
+
+#if	CRYPTKIT_HIGH_LEVEL_SIG
 
 #if	CRYPTKIT_ECDSA_ENABLE
 
@@ -1262,7 +1266,7 @@ feeReturn feePubKeyInitFromDERPubBlob(feePubKey pubKey,
 	 pkinst->plus->twist  = CURVE_PLUS;
 	 pkinst->minus->twist = CURVE_MINUS;
 	 frtn = feeDERDecodePublicKey(keyBlob, 
-		keyBlobLen,
+		(unsigned)keyBlobLen,
 		&version,			// currently unused
 		&pkinst->cp,
 		&pkinst->plus->x,
@@ -1293,7 +1297,7 @@ feeReturn feePubKeyInitFromDERPrivBlob(feePubKey pubKey,
 	}
 	memset(pkinst, 0, sizeof(pubKeyInst));
 	frtn = feeDERDecodePrivateKey(keyBlob, 
-		keyBlobLen, 
+		(unsigned)keyBlobLen,
 		&version,		// currently unused
 		&pkinst->cp,
 		&pkinst->privGiant);
@@ -1371,7 +1375,7 @@ feeReturn feePubKeyInitFromX509Blob(
 	unsigned xyStrLen = 0;
 	
 	/* obtain x/y and depth from X509 encoding */
-	feeReturn frtn = feeDERDecodeX509PublicKey(keyBlob, keyBlobLen, &depth,
+	feeReturn frtn = feeDERDecodeX509PublicKey(keyBlob, (unsigned)keyBlobLen, &depth,
 		&xyStr, &xyStrLen);
 	if(frtn) {
 		return frtn;
@@ -1394,7 +1398,7 @@ feeReturn feePubKeyInitFromPKCS8Blob(
 	
 	/* obtain x/y and depth from PKCS8 encoding */
 	/* For now we ignore the possible public key string */
-	feeReturn frtn = feeDERDecodePKCS8PrivateKey(keyBlob, keyBlobLen, &depth,
+	feeReturn frtn = feeDERDecodePKCS8PrivateKey(keyBlob, (unsigned)keyBlobLen, &depth,
 		&privStr, &privStrLen, NULL, NULL);
 	if(frtn) {
 		return frtn;
@@ -1458,7 +1462,7 @@ feeReturn feePubKeyInitFromOpenSSLBlob(
 	unsigned pubStrLen = 0;
 	
 	/* obtain x/y, public bit string, and depth from PKCS8 encoding */
-	feeReturn frtn = feeDERDecodeOpenSSLKey(keyBlob, keyBlobLen, &depth,
+	feeReturn frtn = feeDERDecodeOpenSSLKey(keyBlob, (unsigned)keyBlobLen, &depth,
 		&privStr, &privStrLen, &pubStr, &pubStrLen);
 	if(frtn) {
 		return frtn;

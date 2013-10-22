@@ -32,6 +32,8 @@
 #ifndef _IPSEC_DOI_H
 #define _IPSEC_DOI_H
 
+#include "isakmp.h"
+
 /* refered to RFC2407 */
 
 #define IPSEC_DOI 1
@@ -120,6 +122,8 @@
 #define   IPSECDOI_ATTR_AUTH_HMAC_SHA2_256      5
 #define   IPSECDOI_ATTR_AUTH_HMAC_SHA2_384      6
 #define   IPSECDOI_ATTR_AUTH_HMAC_SHA2_512      7
+#define   IPSECDOI_ATTR_AUTH_HMAC_MD5_96        252 /* NOTE:internal use */
+#define   IPSECDOI_ATTR_AUTH_HMAC_SHA1_96       253 /* NOTE:internal use */
 #define   IPSECDOI_ATTR_AUTH_NONE               254	/* NOTE:internal use */
 	/*
 	 * When negotiating ESP without authentication, the Auth
@@ -182,6 +186,7 @@ struct ipsecdoi_pl_id {
 #define IDTYPE_LOGIN		6
 #define IDTYPE_SUBNET		7
 #define IDTYPE_KEYIDUSE     8
+#define IDTYPE_MAX          IDTYPE_KEYIDUSE
 
 /* shared secret type, it's internal use. */
 #define SECRETTYPE_USE				0
@@ -205,8 +210,8 @@ struct ipsecdoi_pl_id {
 
 
 /* The use for checking proposal payload. This is not exchange type. */
-#define IPSECDOI_TYPE_PH1	0
-#define IPSECDOI_TYPE_PH2	1
+#define IPSECDOI_TYPE_PH1		0
+#define IPSECDOI_TYPE_PH2		1
 
 struct isakmpsa;
 struct ipsecdoi_pl_sa;
@@ -215,42 +220,46 @@ struct saproto;
 struct satrns;
 struct prop_pair;
 
-extern int ipsecdoi_checkph1proposal __P((vchar_t *, struct ph1handle *));
-extern int ipsecdoi_selectph2proposal __P((struct ph2handle *));
-extern int ipsecdoi_checkph2proposal __P((struct ph2handle *));
+extern struct isakmpsa *get_ph1approvalx (struct prop_pair *,
+										  struct isakmpsa *, struct isakmpsa *, int);
+extern int ipsecdoi_checkph1proposal (vchar_t *, phase1_handle_t *);
+extern int ipsecdoi_selectph2proposal (phase2_handle_t *);
+extern int ipsecdoi_checkph2proposal (phase2_handle_t *);
 
-extern struct prop_pair **get_proppair __P((vchar_t *, int));
-extern vchar_t *get_sabyproppair __P((struct prop_pair *, struct ph1handle *));
-extern int ipsecdoi_updatespi __P((struct ph2handle *iph2));
-extern vchar_t *get_sabysaprop __P((struct saprop *, vchar_t *));
-extern int ipsecdoi_chkcmpids( const vchar_t *, const vchar_t *, int );
-extern int ipsecdoi_checkid1 __P((struct ph1handle *));
-extern int ipsecdoi_setid1 __P((struct ph1handle *));
-extern int set_identifier __P((vchar_t **, int, vchar_t *));
-extern int set_identifier_qual __P((vchar_t **, int, vchar_t *, int));
-extern int ipsecdoi_setid2 __P((struct ph2handle *));
-extern vchar_t *ipsecdoi_sockaddr2id __P((struct sockaddr_storage *, u_int, u_int));
-extern int ipsecdoi_id2sockaddr __P((vchar_t *, struct sockaddr_storage *,
-	u_int8_t *, u_int16_t *));
-extern char *ipsecdoi_id2str __P((const vchar_t *));
-extern vchar_t *ipsecdoi_sockrange2id __P((	struct sockaddr_storage *,
-	struct sockaddr_storage *, u_int));
+extern struct prop_pair **get_proppair (vchar_t *, int);
+extern vchar_t *get_sabyproppair (struct prop_pair *, phase1_handle_t *);
+extern int ipsecdoi_updatespi (phase2_handle_t *iph2);
+extern vchar_t *get_sabysaprop (struct saprop *, vchar_t *);
+extern int ipsecdoi_chkcmpids (const vchar_t *, const vchar_t *, int );
+extern int ipsecdoi_checkid1 (phase1_handle_t *);
+extern int ipsecdoi_setid1 (phase1_handle_t *);
+extern int set_identifier (vchar_t **, int, vchar_t *);
+extern int set_identifier_qual (vchar_t **, int, vchar_t *, int);
+extern int ipsecdoi_setid2 (phase2_handle_t *);
+extern vchar_t *ipsecdoi_sockaddr2id (struct sockaddr_storage *, u_int, u_int);
+extern int ipsecdoi_id2sockaddr (vchar_t *, struct sockaddr_storage *,
+	u_int8_t *, u_int16_t *, int);
+extern char *ipsecdoi_id2str (const vchar_t *);
+extern vchar_t *ipsecdoi_sockrange2id (struct sockaddr_storage *,
+	struct sockaddr_storage *, u_int);
 
-extern vchar_t *ipsecdoi_setph1proposal __P((struct isakmpsa *));
-extern int ipsecdoi_setph2proposal __P((struct ph2handle *));
-extern int ipsecdoi_transportmode __P((struct saprop *));
-extern int ipsecdoi_tunnelmode __P((struct ph2handle *));
-extern int ipsecdoi_any_transportmode __P((struct saprop *));
-extern int ipsecdoi_get_defaultlifetime __P((void));
-extern int ipsecdoi_checkalgtypes __P((int, int, int, int));
-extern int ipproto2doi __P((int));
-extern int doi2ipproto __P((int));
+extern vchar_t *ipsecdoi_setph1proposal (phase1_handle_t *);
+extern int ipsecdoi_setph2proposal (phase2_handle_t *, int);
+extern int ipsecdoi_transportmode (struct saprop *);
+extern int ipsecdoi_tunnelmode (phase2_handle_t *);
+extern int ipsecdoi_any_transportmode (struct saprop *);
+extern int ipsecdoi_get_defaultlifetime (void);
+extern int ipsecdoi_checkalgtypes (int, int, int, int);
+extern int ipproto2doi (int);
+extern int doi2ipproto (int);
 
-extern int ipsecdoi_t2satrns __P((struct isakmp_pl_t *,
-	struct saprop *, struct saproto *, struct satrns *));
-extern int ipsecdoi_authalg2trnsid __P((int));
-extern int idtype2doi __P((int));
-extern int doi2idtype __P((int));
+extern int ipsecdoi_t2satrns (struct isakmp_pl_t *,
+	struct saprop *, struct saproto *, struct satrns *);
+extern int ipsecdoi_authalg2trnsid (int);
+extern int idtype2doi (int);
+extern int doi2idtype (int);
+extern int check_spi_size (int, int);
+extern void print_ph1mismatched (struct prop_pair *, struct isakmpsa *);
 
 
 #endif /* _IPSEC_DOI_H */

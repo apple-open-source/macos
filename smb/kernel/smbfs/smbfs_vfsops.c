@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,6 +52,7 @@
 #include <sys/mchain.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_dev.h>
@@ -60,6 +61,7 @@
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
+#include <smbfs/smbfs_subr_2.h>
 #include <smbclient/smbclient_internal.h>
 #include "smbfs_security.h"
 #include <Triggers/triggers.h>
@@ -70,15 +72,17 @@ int smbfs_module_start(kmod_info_t *ki, void *data);
 int smbfs_module_stop(kmod_info_t *ki, void *data);
 static int smbfs_root(struct mount *, vnode_t *, vfs_context_t);
 
+#define	SMB_FSYNC_TIMO 30
+
 #ifdef SMB_DEBUG
-__private_extern__ int smbfs_loglevel = SMB_LOW_LOG_LEVEL;
+__attribute__((visibility("hidden"))) int smbfs_loglevel = SMB_LOW_LOG_LEVEL;
 #else // SMB_DEBUG
-__private_extern__ int smbfs_loglevel = SMB_NO_LOG_LEVEL;
+__attribute__((visibility("hidden"))) int smbfs_loglevel = SMB_NO_LOG_LEVEL;
 #endif // SMB_DEBUG
 
-__private_extern__ uint32_t smbfs_deadtimer = DEAD_TIMEOUT;
-__private_extern__ uint32_t smbfs_hard_deadtimer = HARD_DEAD_TIMER;
-__private_extern__ uint32_t smbfs_trigger_deadtimer = TRIGGER_DEAD_TIMEOUT;
+__attribute__((visibility("hidden"))) uint32_t smbfs_deadtimer = DEAD_TIMEOUT;
+__attribute__((visibility("hidden"))) uint32_t smbfs_hard_deadtimer = HARD_DEAD_TIMER;
+__attribute__((visibility("hidden"))) uint32_t smbfs_trigger_deadtimer = TRIGGER_DEAD_TIMEOUT;
 
 static int smbfs_version = SMBFS_VERSION;
 static int mount_cnt = 0;
@@ -93,40 +97,60 @@ lck_grp_t *smbfs_rwlock_group;
 lck_grp_attr_t *co_grp_attr;
 lck_grp_t *co_lck_group;
 lck_attr_t *co_lck_attr;
+
+lck_grp_attr_t *vc_credits_grp_attr;
+lck_grp_t *vc_credits_lck_group;
+lck_attr_t *vc_credits_lck_attr;
+
 lck_grp_attr_t *vcst_grp_attr;
 lck_grp_t *vcst_lck_group;
 lck_attr_t *vcst_lck_attr;
+
 lck_grp_attr_t *ssst_grp_attr;
 lck_grp_t *ssst_lck_group;
 lck_attr_t *ssst_lck_attr;
+
+lck_grp_attr_t *fid_lck_grp_attr;
+lck_grp_t *fid_lck_grp;
+lck_attr_t *fid_lck_attr;
+
 lck_grp_attr_t *iodflags_grp_attr;
 lck_grp_t *iodflags_lck_group;
 lck_attr_t *iodflags_lck_attr;
+
 lck_grp_attr_t *iodrq_grp_attr;
 lck_grp_t *iodrq_lck_group;
 lck_attr_t *iodrq_lck_attr;
+
 lck_grp_attr_t *iodev_grp_attr;
 lck_grp_t *iodev_lck_group;
 lck_attr_t *iodev_lck_attr;
+
 lck_grp_attr_t *srs_grp_attr;
 lck_grp_t *srs_lck_group;
 lck_attr_t *srs_lck_attr;
+
 lck_grp_attr_t *nbp_grp_attr;
 lck_grp_t *nbp_lck_group;
 lck_attr_t *nbp_lck_attr;
-lck_grp_attr_t   * dev_lck_grp_attr;
-lck_grp_t  * dev_lck_grp;
-lck_attr_t * dev_lck_attr;
-lck_rw_t * dev_rw_lck;
-lck_grp_attr_t   * hash_lck_grp_attr;
-lck_grp_t  * hash_lck_grp;
-lck_attr_t * hash_lck_attr;
+
+lck_grp_attr_t *dev_lck_grp_attr;
+lck_grp_t *dev_lck_grp;
+lck_attr_t *dev_lck_attr;
+lck_rw_t *dev_rw_lck;
+
+lck_grp_attr_t *hash_lck_grp_attr;
+lck_grp_t *hash_lck_grp;
+lck_attr_t *hash_lck_attr;
 
 struct smbmnt_carg {
 	vfs_context_t context;
 	struct mount *mp;
 	int found;
 };
+
+static uint32_t smb_maxsegreadsize = 1024 * 1024 * 2;
+static uint32_t smb_maxsegwritesize = 1024 * 1024 * 2;
 
 SYSCTL_DECL(_net_smb);
 SYSCTL_NODE(_net_smb, OID_AUTO, fs, CTLFLAG_RW, 0, "SMB/CIFS file system");
@@ -135,6 +159,9 @@ SYSCTL_INT(_net_smb_fs, OID_AUTO, loglevel, CTLFLAG_RW,  &smbfs_loglevel, 0, "")
 SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_deadtimer, CTLFLAG_RW, &smbfs_deadtimer, DEAD_TIMEOUT, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_hard_deadtimer, CTLFLAG_RW, &smbfs_hard_deadtimer, HARD_DEAD_TIMER, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_soft_deadtimer, CTLFLAG_RW, &smbfs_trigger_deadtimer, TRIGGER_DEAD_TIMEOUT, "");
+SYSCTL_INT(_net_smb_fs, OID_AUTO, maxsegreadsize, CTLFLAG_RW, &smb_maxsegreadsize, 0, "");
+SYSCTL_INT(_net_smb_fs, OID_AUTO, maxsegwritesize, CTLFLAG_RW, &smb_maxsegwritesize, 0, "");
+
 
 extern struct sysctl_oid sysctl__net_smb;
 extern struct sysctl_oid sysctl__net_smb_fs_version;
@@ -144,6 +171,11 @@ extern struct sysctl_oid sysctl__net_smb_fs_kern_hard_deadtimer;
 extern struct sysctl_oid sysctl__net_smb_fs_kern_soft_deadtimer;
 extern struct sysctl_oid sysctl__net_smb_fs_tcpsndbuf;
 extern struct sysctl_oid sysctl__net_smb_fs_tcprcvbuf;
+extern struct sysctl_oid sysctl__net_smb_fs_maxwrite;
+extern struct sysctl_oid sysctl__net_smb_fs_maxread;
+extern struct sysctl_oid sysctl__net_smb_fs_maxsegreadsize;
+extern struct sysctl_oid sysctl__net_smb_fs_maxsegwritesize;
+
 
 MALLOC_DEFINE(M_SMBFSHASH, "SMBFS hash", "SMBFS hash table");
 
@@ -184,6 +216,10 @@ smbnet_lock_init()
 	co_grp_attr = lck_grp_attr_alloc_init();
 	co_lck_group = lck_grp_alloc_init("smb-co", co_grp_attr);
 	
+	vc_credits_lck_attr = lck_attr_alloc_init();
+	vc_credits_grp_attr = lck_grp_attr_alloc_init();
+	vc_credits_lck_group = lck_grp_alloc_init("smb-vc_credits", vc_credits_grp_attr);
+
 	vcst_lck_attr = lck_attr_alloc_init();
 	vcst_grp_attr = lck_grp_attr_alloc_init();
 	vcst_lck_group = lck_grp_alloc_init("smb-vcst", vcst_grp_attr);
@@ -192,6 +228,10 @@ smbnet_lock_init()
 	ssst_grp_attr = lck_grp_attr_alloc_init();
 	ssst_lck_group = lck_grp_alloc_init("smb-ssst", ssst_grp_attr);
 	
+	fid_lck_attr = lck_attr_alloc_init();
+	fid_lck_grp_attr = lck_grp_attr_alloc_init();
+	fid_lck_grp = lck_grp_alloc_init("smb-fid", fid_lck_grp_attr);
+    
 	iodflags_lck_attr = lck_attr_alloc_init();
 	iodflags_grp_attr = lck_grp_attr_alloc_init();
 	iodflags_lck_group = lck_grp_alloc_init("smb-iodflags", iodflags_grp_attr);
@@ -249,6 +289,14 @@ smbnet_lock_uninit()
 	lck_grp_attr_free(ssst_grp_attr);
 	lck_attr_free(ssst_lck_attr);
 	
+	lck_grp_free(fid_lck_grp);
+	lck_grp_attr_free(fid_lck_grp_attr);
+	lck_attr_free(fid_lck_attr);
+
+	lck_grp_free(vc_credits_lck_group);
+	lck_grp_attr_free(vc_credits_grp_attr);
+	lck_attr_free(vc_credits_lck_attr);
+
 	lck_grp_free(vcst_lck_group);
 	lck_grp_attr_free(vcst_grp_attr);
 	lck_attr_free(vcst_lck_attr);
@@ -266,7 +314,10 @@ static void
 isServerInSameDomian(struct smb_share *share, struct smbmount *smp)
 {
 	/* Just to be safe */
-	SMB_FREE(smp->ntwrk_sids, M_TEMP);
+    if (smp->ntwrk_sids) {
+        SMB_FREE(smp->ntwrk_sids, M_TEMP);
+    }
+
 	smp->ntwrk_sids_cnt = 0;
 	if (SSTOVC(share)->vc_flags & SMBV_NETWORK_SID) {
 		/* See if the VC network SID is known by Directory Service */
@@ -364,13 +415,16 @@ smbfs_up(struct smb_share *share, int reconnect)
 	struct smbmount *smp;
 	
 	smp = share->ss_mount;
+    
 	/* We have already unmounted or we are being force unmount, we are done */
 	if ((smp == NULL) || (vfs_isforce(smp->sm_mp))) {
 		return;
 	}
+    
 	if (reconnect) {
 		smbfs_reconnect(smp);
 	}
+    
 	/* We are done remounting, either we reconnect or the remount worked */
 	smp->sm_status &= ~SM_STATUS_REMOUNT;
 	
@@ -418,14 +472,22 @@ smbfs_dead(struct smb_share *share)
 static int 
 smbfs_is_going_away(struct smb_share* share)
 {	
-	struct smbmount *smp;
-	
-	smp = share->ss_mount;
-	/* If we have a ss_mount then we have a sm_mp */
-	if (smp && (vfs_isforce(smp->sm_mp))) {
-		 return TRUE;			
-	}
-	return FALSE;
+    struct smbmount *smp;
+
+    if (share->ss_flags & SMBS_GOING_AWAY) {
+        /* Once marked as going away, always going away */
+        return TRUE;
+    }
+    
+    smp = share->ss_mount;
+    
+    /* If we have a ss_mount then we have a sm_mp */
+    if (smp && (vfs_isforce(smp->sm_mp))) {
+        share->ss_flags |= SMBS_GOING_AWAY;
+        return TRUE;
+    }
+    
+    return FALSE;
 }
 
 /*
@@ -591,7 +653,8 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	struct vfsioattr smbIOAttr;
 	vnode_t vp;
 	int error;
-
+    uint32_t stream_flags = 0;
+    
 	if (data == USER_ADDR_NULL) {
 		SMBDEBUG("missing data argument\n");
 		error = EINVAL;
@@ -653,13 +716,17 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 
 	smp->sm_mp = mp;
 	vfs_setfsprivate(mp, (void *)smp);	
+    
+    /* alloc hash stuff */
 	smp->sm_hash = hashinit(desiredvnodes, M_SMBFSHASH, &smp->sm_hashlen);
 	if (smp->sm_hash == NULL)
 		goto bad;
 	smp->sm_hashlock = lck_mtx_alloc_init(hash_lck_grp, hash_lck_attr);
+
 	lck_rw_init(&smp->sm_rw_sharelock, smbfs_rwlock_group, smbfs_lock_attr);
 	lck_mtx_init(&smp->sm_statfslock, smbfs_mutex_group, smbfs_lock_attr);		
 	lck_mtx_init(&smp->sm_reclaim_renamelock, smbfs_mutex_group, smbfs_lock_attr);
+    lck_mtx_init(&smp->sm_svrmsg_lock, smbfs_mutex_group, smbfs_lock_attr);
 
 	lck_rw_lock_exclusive(&smp->sm_rw_sharelock);
 	smp->sm_share = share;
@@ -683,22 +750,25 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	} else {
 		smp->sm_args.volume_name = NULL;
 	}
+	
 	/*
 	 * This call should be done from mount() in vfs layer. Not sure why each 
 	 * file system has to do it here, but go ahead and make an internal call to 
 	 * fill in the default values.
 	 */
-	error = smbfs_statfs(share, vfs_statfs(mp), context);
+	error = smbfs_smb_statfs(share, vfs_statfs(mp), context);
 	if (error) {
-		SMBDEBUG("The smbfs_statfs failed %d\n", error);
+		SMBDEBUG("smbfs_smb_statfs failed %d\n", error);
 		goto bad;
 	}
+    
 	/* Copy in the from name, used for reconnects and other things  */
 	strlcpy(vfs_statfs(mp)->f_mntfromname, args->url_fromname, MAXPATHLEN);
 	/* See if they sent use a starting path to use */
 	if (args->path_len) {
 		smbfs_create_start_path(smp, args, SMB_UNICODE_STRINGS(SSTOVC(share)));
 	}
+    
 	/* Now get the mounted volumes unique id */
 	smp->sm_args.unique_id_len = args->unique_id_len;
 	SMB_MALLOC(smp->sm_args.unique_id, unsigned char *, smp->sm_args.unique_id_len, 
@@ -716,12 +786,29 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 
 	vfs_getnewfsid(mp);
 	
+    if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+        /* Only SMB 2.x uses File IDs or AAPL create context */
+        if (smp->sm_args.altflags & SMBFS_MNT_FILE_IDS_OFF) {
+            /* Turn off File IDs */
+            SMBWARNING("File IDs has been turned off for %s volume\n",
+                       (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
+            SSTOVC(share)->vc_misc_flags &= ~SMBV_HAS_FILEIDS;
+        }
+
+        if (smp->sm_args.altflags & SMBFS_MNT_AAPL_OFF) {
+            /* Turn off AAPL */
+            SMBWARNING("AAPL has been turned off for %s volume\n",
+                       (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
+            SSTOVC(share)->vc_misc_flags |= SMBV_OTHER_SERVER;
+        }
+    }
+
 	/*
 	 * Need to get the remote server's file system information
 	 * here before we do anything else. Make sure we have the servers or
 	 * the default value for ss_maxfilenamelen. NOTE: We use it in strnlen.
 	 */
-	smbfs_qfsattr(share, context);
+	smbfs_smb_qfsattr(share, context);
 	
 	/* Its a unix server see if it supports any of the UNIX extensions */
 	if (UNIX_SERVER(SSTOVC(share))) {
@@ -788,14 +875,24 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		} else if (!kauth_guid_equal(&smp->sm_args.uuid, &ntwrk_uuid)) {
 			smp->sm_flags |= MNT_MAPS_NETWORK_LOCAL_USER;
 		}
-	} else {
+	}
+    else {
 		SMB_LOG_ACCESS("%s doesn't support ACLs\n", vfs_statfs(mp)->f_mntfromname);
 		vfs_clearextendedsecurity (mp);
 	}
-	if ((share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) && 
-		(((!UNIX_CAPS(share)) || (SSTOVC(share)->vc_flags & SMBV_DARWIN)))) {
-		smp->sm_flags |= MNT_SUPPORTS_REPARSE_SYMLINKS;
-	}
+    
+    if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+        if (share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) {
+            smp->sm_flags |= MNT_SUPPORTS_REPARSE_SYMLINKS;
+        }
+    }
+    else {
+        if ((share->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) &&
+            (((!UNIX_CAPS(share)) || (SSTOVC(share)->vc_flags & SMBV_DARWIN)))) {
+            smp->sm_flags |= MNT_SUPPORTS_REPARSE_SYMLINKS;
+        }
+    }
+    
 	/* 
 	 * This is a read-only volume, so change the mount flags so
 	 * the finder will show it as a read-only volume. 
@@ -807,37 +904,50 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 					   share->maxAccessRights);
 		vfs_setflags(mp, MNT_RDONLY);
 	}
-	/*
-	 * We now default to have named streams on if the server supports named 
-	 * streams. The user can turn off named streams by setting the correct 
-	 * option in the nsmb.conf file or by creating a file on the top level of 
-	 * the share called ".com.apple.smb.streams.off". The "nsmb.conf" allows the 
-	 * user to turn off named streams per share. So now we only check for turning
-	 * off named streams since the default is to have them on.
-	 *
-	 * .com.apple.smb.streams.on - If exist on top level of share means turn on streams.
-	 * .com.apple.smb.streams.off - If exist on top level of share means turn off streams.
-	 *
-	 */
-	if (share->ss_attributes & FILE_NAMED_STREAMS) {		
-		if (!(smp->sm_args.altflags & SMBFS_MNT_STREAMS_ON) || 
-			(smbfs_smb_query_info(share, VTOSMB(vp), SMB_STREAMS_OFF, 
-								  sizeof(SMB_STREAMS_OFF) - 1, NULL, context) == 0)) {
-			share->ss_attributes &= ~FILE_NAMED_STREAMS;
-		} else if (! UNIX_SERVER(SSTOVC(share)) && 
-				   (smbfs_smb_qstreaminfo(share, VTOSMB(vp), NULL, NULL,
-                                          SFM_DESKTOP_NAME, NULL, context) == 0)) {
-			/* 
-			 * We would like to know if this is a SFM Volume, we skip this 
-			 * check for unix servers. 
-			 */
-			smp->sm_flags |= MNT_IS_SFM_VOLUME;
-		}
-	}
+    
+    if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
+        /*
+         * SMB 1.x Only
+         *
+         * We now default to have named streams on if the server supports named
+         * streams. The user can turn off named streams by setting the correct
+         * option in the nsmb.conf file or by creating a file on the top level
+         * of the share called ".com.apple.smb.streams.off". The "nsmb.conf" 
+         * allows the user to turn off named streams per share. So now we only 
+         * check for turning off named streams since the default is to have 
+         * them on.
+         *
+         * .com.apple.smb.streams.on - If exist on top level of share means 
+         * turn on streams.
+         * .com.apple.smb.streams.off - If exist on top level of share means 
+         * turn off streams.
+         */
+        if (share->ss_attributes & FILE_NAMED_STREAMS) {		
+            if (!(smp->sm_args.altflags & SMBFS_MNT_STREAMS_ON) || 
+                (smbfs_smb_query_info(share, VTOSMB(vp), SMB_STREAMS_OFF, 
+                                      sizeof(SMB_STREAMS_OFF) - 1, NULL, context) == 0)) {
+                share->ss_attributes &= ~FILE_NAMED_STREAMS;
+            } else if (! UNIX_SERVER(SSTOVC(share)) && 
+                       (smbfs_smb_qstreaminfo(share, VTOSMB(vp),
+                                              NULL, 0,
+                                              SFM_DESKTOP_NAME,
+                                              NULL, NULL,
+                                              NULL, NULL,
+                                              &stream_flags, NULL,
+                                              context) == 0)) {
+                /* 
+                 * We would like to know if this is a really old Windows server
+                 * with Services For Mac (SFM Volume), we skip this check for 
+                 * unix servers.
+                 */
+                smp->sm_flags |= MNT_IS_SFM_VOLUME;
+            }
+        }
+    }
 	
 	/*
 	 * The AFP code sets io_devblocksize to one, which is used by the Cluster IO
-	 * code to decide what to do when writing pass the eof.  ClusterIO code uses 
+	 * code to decide what to do when writing past the eof.  ClusterIO code uses 
 	 * the io_devblocksize to decided what size block to use when writing pass 
 	 * the eof. So a io_devblocksize of one means only write to the eof. Seems
 	 * like a hack, but not sure what else to do at this point. Talk this over
@@ -845,16 +955,54 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	 */
 	vfs_ioattr(mp, &smbIOAttr);	/* get the current settings */
 	smbIOAttr.io_devblocksize = 1;
+    
 	/*
-	 * Should we just leave these set to the default, should we base them on the 
-	 * server buffer size or should we try to calculate WAN/LAN speed. For now 
-	 * lets base them on the server buffer size.
+     * io_maxreadcnt/io_maxwritecnt is the IO size that we want passed to us
+     * from UBC. 
+     *
+     * io_maxsegreadsize/io_maxsegwritesize is the hardware limited max size,
+     * but we are not limited so set to be same as io_maxreadcnt/io_maxwritecnt.
+     *
+     * io_segreadcnt/io_segwritecnt is just the segment size / page size. Again,
+     * no real meaning to us.  VM requires they must be evenly divisible by 4.
+     * See <rdar://problem/14266574>.
+     *
 	 */
-	smbIOAttr.io_maxsegreadsize = (uint32_t)vfs_statfs(mp)->f_iosize;
-	smbIOAttr.io_maxsegwritesize = (uint32_t)vfs_statfs(mp)->f_iosize;
-	smbIOAttr.io_segreadcnt = smbIOAttr.io_maxsegreadsize / PAGE_SIZE;
-	smbIOAttr.io_segwritecnt = smbIOAttr.io_maxsegwritesize / PAGE_SIZE;
+    
+	if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+		/* Never allow more than 4 MB */
+		if (smb_maxsegreadsize > SMB_IOMAXCACHE) {
+			smb_maxsegreadsize = SMB_IOMAXCACHE;
+		}
+		smbIOAttr.io_segwritecnt = smb_maxsegreadsize / PAGE_SIZE;
+		/* Never allow more than 4 MB */
+		if (smb_maxsegwritesize > SMB_IOMAXCACHE) {
+			smb_maxsegwritesize = SMB_IOMAXCACHE;
+		}
+		smbIOAttr.io_segreadcnt = smb_maxsegwritesize / PAGE_SIZE;
+		
+	} else {
+        size_t f_iosize = vfs_statfs(mp)->f_iosize;
+        if (f_iosize < (PAGE_SIZE * 4)) {
+            f_iosize = PAGE_SIZE * 4; /* Bad Server */
+        }
+        smbIOAttr.io_segreadcnt =  (uint32_t)(f_iosize / (PAGE_SIZE * 4)) * 4;
+        smbIOAttr.io_segwritecnt = smbIOAttr.io_segreadcnt;
+    }
+	
+	smbIOAttr.io_maxsegreadsize = smbIOAttr.io_segreadcnt * PAGE_SIZE;
+    smbIOAttr.io_maxsegwritesize = smbIOAttr.io_segwritecnt * PAGE_SIZE;
+
+    smbIOAttr.io_maxreadcnt = smbIOAttr.io_maxsegreadsize;
+    smbIOAttr.io_maxwritecnt = smbIOAttr.io_maxsegwritesize;
+
+	SMBWARNING("io_maxsegreadsize = %d io_maxsegwritesize = %d f_iosize = %ld vc_rxmax = %d vc_wxmax = %d\n",
+			 smbIOAttr.io_maxsegreadsize, smbIOAttr.io_maxsegwritesize,
+			 vfs_statfs(mp)->f_iosize,
+			 SSTOVC(share)->vc_rxmax, SSTOVC(share)->vc_wxmax);
+	
 	vfs_setioattr(mp, &smbIOAttr);
+    
 	
 	/* smbfs_root did a vnode_get and a vnode_ref, so keep the ref but release the get */
 	vnode_put(vp);
@@ -899,7 +1047,17 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
     else {
         SMBWARNING("compound off in preferences\n");
     }
-
+    
+    if ((SSTOVC(share)->vc_flags & SMBV_SMB2) &&
+        (SSTOVC(share)->vc_misc_flags & SMBV_OSX_SERVER)) {
+        
+        /* Mac OS X SMB2 server */
+        share->ss_fstype = SMB_FS_MAC_OS_X;
+        
+        /* Enable server message notification */
+        smbfs_start_svrmsg_notify(smp);
+    }
+    
 	mount_cnt++;
 	return (0);
 bad:
@@ -911,13 +1069,16 @@ bad:
 	}
 	if (smp) {
 		vfs_setfsprivate(mp, (void *)0);
+        
 		/* Was malloced by hashinit */
 		if (smp->sm_hash)
 			SMB_FREE(smp->sm_hash, M_SMBFSHASH);
 		lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
+
 		lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
 		lck_mtx_destroy(&smp->sm_reclaim_renamelock, smbfs_mutex_group);
 		lck_rw_destroy(&smp->sm_rw_sharelock, smbfs_rwlock_group);
+        lck_mtx_destroy(&smp->sm_svrmsg_lock, smbfs_mutex_group);
 		SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
 		SMB_FREE(smp->sm_args.path, M_SMBFSDATA);
 		SMB_FREE(smp->sm_args.unique_id, M_SMBFSDATA);
@@ -934,6 +1095,7 @@ static int
 smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
+    struct smb_share *share = smp->sm_share;
 	vnode_t vp;
 	int error;
 
@@ -941,7 +1103,7 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 
 	/* Force unmount shutdown all outstanding I/O requests on this share. */
 	if (mntflags & MNT_FORCE) {
-		smb_iod_errorout_share_request(smp->sm_share, ENXIO);
+		smb_iod_errorout_share_request(share, ENXIO);
 	}
 
 	error = smbfs_root(mp, &vp, context);
@@ -963,25 +1125,36 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	vnode_put(vp);	/* to drop ref taken by VFS_ROOT above */
 
 	(void)vflush(mp, NULLVP, FORCECLOSE);
+    
+    /* Cancel outstanding svrmsg notify request */
+    if ((SSTOVC(share)->vc_flags & SMBV_SMB2) &&
+        (SSTOVC(share)->vc_misc_flags & SMBV_OSX_SERVER)) {
+        smbfs_stop_svrmsg_notify(smp);
+    }
 	
 	/* We are done with this share shutdown all outstanding I/O requests. */
-	smb_iod_errorout_share_request(smp->sm_share, ENXIO);
+	smb_iod_errorout_share_request(share, ENXIO);
 	
-	OSAddAtomic(-1, &SSTOVC(smp->sm_share)->vc_volume_cnt);
+	OSAddAtomic(-1, &SSTOVC(share)->vc_volume_cnt);
 	smbfs_notify_change_destroy_thread(smp);
 
-	if (SSTOVC(smp->sm_share)->throttle_info)
+	if (SSTOVC(share)->throttle_info)
 		throttle_info_mount_rel(mp);
 	
+    /* Make sure SMB 2.x fid table is empty */
+    if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+        smb_fid_delete_all(share);
+    }
+
 	/* Remove the smb mount pointer from the share before freeing it */
-	lck_mtx_lock(&smp->sm_share->ss_shlock);
-	smp->sm_share->ss_mount = NULL;
-	smp->sm_share->ss_dead = NULL;
-	smp->sm_share->ss_up = NULL;
-	smp->sm_share->ss_down = NULL;
-	lck_mtx_unlock(&smp->sm_share->ss_shlock);
+	lck_mtx_lock(&share->ss_shlock);
+	share->ss_mount = NULL;
+	share->ss_dead = NULL;
+	share->ss_up = NULL;
+	share->ss_down = NULL;
+	lck_mtx_unlock(&share->ss_shlock);
 	 
-	smb_share_rele(smp->sm_share, context);
+	smb_share_rele(share, context);
 	vfs_setfsprivate(mp, (void *)0);
 
 	if (smp->sm_hash) {
@@ -989,15 +1162,31 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 		smp->sm_hash = (void *)0xDEAD5AB0;
 	}
 	lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
+
 	lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
 	lck_mtx_destroy(&smp->sm_reclaim_renamelock, smbfs_mutex_group);
+    lck_mtx_destroy(&smp->sm_svrmsg_lock, smbfs_mutex_group);
 	lck_rw_destroy(&smp->sm_rw_sharelock, smbfs_rwlock_group);
-	SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
-	SMB_FREE(smp->sm_args.path, M_SMBFSDATA);
-	SMB_FREE(smp->sm_args.unique_id, M_SMBFSDATA);
-	SMB_FREE(smp->ntwrk_gids, M_TEMP);
-	SMB_FREE(smp->ntwrk_sids, M_TEMP);
-	SMB_FREE(smp, M_SMBFSDATA);
+    
+    if (smp->sm_args.volume_name) {
+        SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
+    }
+    if (smp->sm_args.path) {
+        SMB_FREE(smp->sm_args.path, M_SMBSTR);	
+    }
+    if (smp->sm_args.unique_id) {
+        SMB_FREE(smp->sm_args.unique_id, M_SMBSTR);	
+    }
+    if (smp->ntwrk_gids) {
+        SMB_FREE(smp->ntwrk_gids, M_SMBSTR);	
+    }
+    if (smp->ntwrk_sids) {
+        SMB_FREE(smp->ntwrk_sids, M_SMBSTR);	
+    }
+    if (smp) {
+        SMB_FREE(smp, M_SMBSTR);	
+    }
+    
 	vfs_clearflags(mp, MNT_LOCAL);
 	mount_cnt--;
 	return (0);
@@ -1026,23 +1215,41 @@ smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
 		return (vnode_get(*vpp));
 	}
 	
-	/* Fill in the deafult values that we already know about the root vnode */
+	/* Fill in the default values that we already know about the root vnode */
 	bzero(&fattr, sizeof(fattr));
 	nanouptime(&fattr.fa_reqtime);
 	fattr.fa_valid_mask |= FA_VTYPE_VALID;
 	fattr.fa_attr = SMB_EFA_DIRECTORY;
 	fattr.fa_vtype = VDIR;
-	fattr.fa_ino = 2;
+    
+    if (smp->sm_root_ino == 0) {
+        /* 
+         * Must be at mount time and we dont know what the root File ID is.
+         * Assume its 2 to start with
+         */
+        smp->sm_root_ino = SMBFS_ROOT_INO;
+        fattr.fa_ino = SMBFS_ROOT_INO;
+   }
+    else {
+        /* Recreating root vnode and we know what its ID was */
+        fattr.fa_ino = smp->sm_root_ino;
+    }
+    
 	/*
 	 * First time to get the root vnode, smbfs_nget will create it and check 
 	 * with the network to make sure all is well with the root node. Could get 
 	 * an error if the device is not ready are we have no access.
 	 */
 	share = smb_get_share_with_reference(smp);
-	error = smbfs_nget(share, mp, NULL, "TheRooT", 7, &fattr, &vp, 0, context);
+	error = smbfs_nget(share, mp,
+                       NULL, "TheRooT", 7,
+                       &fattr, &vp,
+                       0, SMBFS_NGET_CREATE_VNODE,
+                       context);
 	smb_share_rele(share, context);
 	if (error)
 		return (error);
+
 	/* 
 	 * Since root vnode has an exclusive lock, I know only one process can be 
 	 * here at this time.  Check once more while I still have the lock that 
@@ -1112,11 +1319,14 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 	struct vfsstatfs cachedstatfs;
 	struct timespec ts;
 	int error = 0;
+    struct smb_vc *vcp = NULL;
 
 	if ((smp->sm_rvp == NULL) || (VTOSMB(smp->sm_rvp) == NULL))
 		return (EINVAL);
 	
 	share = smb_get_share_with_reference(smp);	
+    vcp = SSTOVC(share);
+
 	lck_mtx_lock(&smp->sm_statfslock);
 	cachedstatfs = smp->sm_statfsbuf;
 	if (smp->sm_status & SM_STATUS_STATFS)
@@ -1132,7 +1342,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			 VFSATTR_IS_ACTIVE(fsap, f_bfree) || VFSATTR_IS_ACTIVE(fsap, f_bavail) ||
 			 VFSATTR_IS_ACTIVE(fsap, f_files) || VFSATTR_IS_ACTIVE(fsap, f_ffree)))) {
 			/* update cached from-the-server data */
-			error = smbfs_statfs(share, &cachedstatfs, context);
+			error = smbfs_smb_statfs(share, &cachedstatfs, context);
 			if (error == 0) {
 				nanouptime(&ts);
 				smp->sm_statfstime = ts.tv_sec;
@@ -1195,10 +1405,11 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			VOL_CAP_FMT_FAST_STATFS |
 			VOL_CAP_FMT_OPENDENYMODES |
 			VOL_CAP_FMT_HIDDEN_FILES |
+            VOL_CAP_FMT_64BIT_OBJECT_IDS | 
 			0;
 		
 		/* Only say we support large files if the server supports it */
-		if (VC_CAPS(SSTOVC(share)) & SMB_CAP_LARGE_FILES)
+		if (VC_CAPS(vcp) & SMB_CAP_LARGE_FILES)
 			cap->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_2TB_FILESIZE;
 			
 		/* Must be FAT so don't trust the modify times */
@@ -1207,8 +1418,34 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			
 		if (share->ss_attributes & FILE_CASE_PRESERVED_NAMES)
 			cap->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_CASE_PRESERVING;
-		
-		if (share->ss_attributes & FILE_SUPPORTS_SPARSE_FILES)
+
+        if (vcp->vc_misc_flags & SMBV_OSX_SERVER) {
+            /* Its OS X Server so we know for sure */
+            if (vcp->vc_volume_caps & kAAPL_CASE_SENSITIVE) {
+                cap->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_CASE_SENSITIVE;
+            }
+
+            if ((vcp->vc_volume_caps & kAAPL_SUPPORT_RESOLVE_ID) &&
+                (vcp->vc_misc_flags & SMBV_HAS_FILEIDS)) {
+                /* Supports Resolve ID */
+                cap->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_PATH_FROM_ID |
+                                                              VOL_CAP_FMT_PERSISTENTOBJECTIDS;
+            }
+        }
+        else {
+            /*
+             * Not a OS X Server, so we have to guess.
+             *
+             * This SMB file system is case INSENSITIVE and case preserving,
+             * but servers vary, depending on the underlying volume.  In
+             * pathconf we have to give a yes or no answer. We need to return a
+             * consistent answer in both cases. We do not know the real answer
+             * for case sensitive, but lets default to what 90% of the servers
+             * have set. Also remember this fixes Radar 4057391 and 3530751.
+             */
+        }
+
+        if (share->ss_attributes & FILE_SUPPORTS_SPARSE_FILES)
 			cap->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_SPARSE_FILES;
 
 		cap->capabilities[VOL_CAPABILITIES_INTERFACES] = 
@@ -1217,31 +1454,49 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			VOL_CAP_INT_MANLOCK |
 			0;
 		
-		if (UNIX_CAPS(share) & CIFS_UNIX_FCNTL_LOCKS_CAP)
+        if (!(smp->sm_args.altflags & SMBFS_MNT_READDIRATTR_OFF)) {
+            /* vnop_readdirattr allowed */
+            cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_READDIRATTR;
+        }
+        else {
+            SMBWARNING("readdirattr has been turned off for %s volume\n",
+                       (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");		
+        }
+        
+        if (UNIX_CAPS(share) & CIFS_UNIX_FCNTL_LOCKS_CAP)
 			cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_ADVLOCK;
 			
 		if (share->ss_attributes & FILE_NAMED_STREAMS)
 			cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_NAMEDSTREAMS | VOL_CAP_INT_EXTENDED_ATTR;			
 		
-		if ((SSTOVC(share)->vc_maxmux < SMB_NOTIFY_MIN_MUX)) {
-			SMBWARNING("Notifications are not support on %s volume\n",
-					   (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");		
-		} else if ((smp->sm_args.altflags & SMBFS_MNT_NOTIFY_OFF) == SMBFS_MNT_NOTIFY_OFF) {
-			SMBWARNING("Notifications have been turned off for %s volume\n", 
-					   (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");		
-		} else 
-			cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_REMOTE_EVENT;			
-		
+        if ((smp->sm_args.altflags & SMBFS_MNT_NOTIFY_OFF) == SMBFS_MNT_NOTIFY_OFF) {
+            SMBWARNING("Notifications have been turned off for %s volume\n",
+                       (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
+        }
+        else {
+            if (!(vcp->vc_flags & SMBV_SMB2) &&
+                (vcp->vc_maxmux < SMB_NOTIFY_MIN_MUX)) {
+                /* SMB 1.x */
+                SMBWARNING("Notifications are not support on %s volume\n",
+                           (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");
+            }
+            else {
+                cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_REMOTE_EVENT;
+            }
+        }
+        
+        /*
+         * We only turn on VOL_CAP_INT_COPYFILE if it's an SMB2 connection
+         * AND OS X Server
+         */
+		if ((SSTOVC(share)->vc_flags & SMBV_SMB2) &&
+            (SSTOVC(share)->vc_misc_flags & SMBV_OSX_SERVER)) {
+            cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_COPYFILE;
+        }
+        
 		cap->capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
 		cap->capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
-		/*
-		 * This SMB file system is case insensitive and case preserving, but
-		 * servers vary, depending on the underlying volume.  In pathconf
-		 * we have to give a yes or no answer. We need to return a consistent
-		 * answer in both cases. We do not know the real answer for case 
-		 * sensitive, but lets default to what 90% of the servers have set. 
-		 * Also remeber this fixes Radar 4057391 and 3530751. 
-		 */
+
 		cap->valid[VOL_CAPABILITIES_FORMAT] =
 			VOL_CAP_FMT_PERSISTENTOBJECTIDS |
 			VOL_CAP_FMT_NO_ROOT_TIMES |
@@ -1257,10 +1512,19 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 			VOL_CAP_FMT_FAST_STATFS |
 			VOL_CAP_FMT_OPENDENYMODES |
 			VOL_CAP_FMT_HIDDEN_FILES |
+            VOL_CAP_FMT_64BIT_OBJECT_IDS |
 			0;
 					
+        if (vcp->vc_misc_flags & SMBV_OSX_SERVER) {
+            /* Its OS X Server so we know for sure */
+            if ((vcp->vc_volume_caps & kAAPL_SUPPORT_RESOLVE_ID) &&
+                (vcp->vc_misc_flags & SMBV_HAS_FILEIDS)) {
+                /* Supports Resolve ID */
+                cap->valid[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_PATH_FROM_ID;
+            }
+        }
 
-		cap->valid[VOL_CAPABILITIES_INTERFACES] =
+        cap->valid[VOL_CAPABILITIES_INTERFACES] =
 			VOL_CAP_INT_SEARCHFS |
 			VOL_CAP_INT_ATTRLIST |
 			VOL_CAP_INT_NFSEXPORT |
@@ -1456,7 +1720,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 		}
 		VFSATTR_SET_SUPPORTED(fsap, f_vol_name);
 	}
-	
+
 	/* Let the vfs layer handle f_signature */
 	/* We never set f_carbon_fsid, see <rdar://problem/4470282> depricated */
 
@@ -1478,7 +1742,9 @@ smbfs_sync_callback(vnode_t vp, void *args)
 	struct smbfs_sync_cargs *cargs;
 	struct smbnode *np = NULL;
 	struct smb_share *share = NULL;
-
+	struct timespec	ts;
+    struct timespec waittime;
+    
 	cargs = (struct smbfs_sync_cargs *)args;
 
 	if (smbnode_lock(VTOSMB(vp), SMBFS_EXCLUSIVE_LOCK) != 0) {
@@ -1515,7 +1781,7 @@ smbfs_sync_callback(vnode_t vp, void *args)
 		(void)smbfs_smb_reopen_file(share, np, cargs->context);
 
 		lck_mtx_lock(&np->f_openStateLock);
-		if (np->f_openState == kNeedRevoke) {
+		if (np->f_openState & kNeedRevoke) {
 			lck_mtx_unlock(&np->f_openStateLock);
 			SMBWARNING("revoking %s\n", np->n_name);
 			smbnode_unlock(np);
@@ -1531,9 +1797,23 @@ smbfs_sync_callback(vnode_t vp, void *args)
 	 */
 	if (vnode_hasdirtyblks(vp) || 
 		(vnode_isreg(vp) && (np->n_flag & (NNEEDS_EOF_SET | NNEEDS_FLUSH)))) {
-		error = smbfs_fsync(share, vp, cargs->waitfor, 0, cargs->context);
-		if (error)
-			cargs->error = error;
+        
+        /* 
+         * Only send flush to server if its been longer than 30 secs since when
+         * the last write was done. A flush can take a while and thus it can
+         * hammer performance if you are doing a flush in the middle of a long
+         * set of writes.
+         */
+        nanouptime(&ts);
+        waittime.tv_sec = SMB_FSYNC_TIMO;
+        waittime.tv_nsec = 0;
+        timespecsub(&ts, &waittime);
+
+        if (timespeccmp(&ts, &np->n_last_write_time, >)) {
+            error = smbfs_fsync(share, vp, cargs->waitfor, 0, cargs->context);
+            if (error)
+                cargs->error = error;
+        }
 	}
 	
 	/* Someone is monitoring this node see if we have any work */
@@ -1589,14 +1869,189 @@ smbfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 }
 
 /*
- * smbfs flat namespace lookup. Unsupported.
+ * smbfs_vget - Equivalent of AFP Resolve ID
+ * Returns an unlocked vnode
  */
 static int
-smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp,
-	   vfs_context_t context)
+smbfs_vget(struct mount *mp, ino64_t ino, vnode_t *vpp, vfs_context_t context)
 {
-#pragma unused(mp, ino, vpp, context)
-	return (ENOTSUP);
+    int error;
+    struct smbmount *smp = VFSTOSMBFS(mp);
+    struct smb_share *share = NULL;
+    struct smb_vc *vcp = NULL;
+    char *path = NULL;
+    size_t path_max = MAXPATHLEN;
+    struct smbfattr *fap = NULL;
+    uint32_t resolve_error = 0;
+    char *server_path = NULL;
+    vnode_t root_vp = NULL;
+    struct smbnode *root_np = NULL;
+
+    if (smp == NULL) {
+        SMBERROR("smp == NULL\n");
+        return (EINVAL);
+    }
+
+    SMB_MALLOC(path,
+               char *,
+               MAXPATHLEN,
+               M_SMBTEMP,
+               M_WAITOK | M_ZERO);
+    if (path == NULL) {
+        SMBERROR("SMB_MALLOC failed\n");
+        error = ENOMEM;
+        goto done;
+    }
+
+    SMB_MALLOC(fap,
+               struct smbfattr *,
+               sizeof(struct smbfattr),
+               M_SMBTEMP,
+               M_WAITOK | M_ZERO);
+    if (fap == NULL) {
+        SMBERROR("SMB_MALLOC failed\n");
+        error = ENOMEM;
+        goto done;
+    }
+    
+    share = smb_get_share_with_reference(smp);
+    vcp = SSTOVC(share);
+
+    if ((vcp->vc_misc_flags & SMBV_OSX_SERVER) &&
+        (vcp->vc_volume_caps & kAAPL_SUPPORT_RESOLVE_ID) &&
+        (vcp->vc_misc_flags & SMBV_HAS_FILEIDS)) {
+        /*
+         * Supports Resolve ID.
+         * First check to see if we already have the vnode
+         */
+        if ((ino == SMBFS_ROOT_INO) || (ino == SMBFS_ROOT_PAR_INO)) {
+            /* Get the root vnode */
+            error = smbfs_root(mp, vpp, context);
+            goto done;
+        }
+        else {
+            /* 
+             * Some other vnode
+             */
+            fap->fa_ino = ino;
+            
+            /* 
+             * Since we only have the ino in the fap, if we do find an existing
+             * vnode, dont update its meta data
+             */
+            if (smbfs_nget(share, mp,
+                           NULL, NULL, 0,
+                           fap, vpp,
+                           0, (SMBFS_NGET_LOOKUP_ONLY | SMBFS_NGET_NO_CACHE_UPDATE),
+                           context) == 0) {
+                /*
+                 * Found one in our hash table. Unlock it and return it 
+                 */
+                error = 0;
+                smbnode_unlock(VTOSMB(*vpp));
+                goto done;
+            }
+        }
+           
+        /*
+         * Not already in our hash table.
+         * Do Resolve ID to server to see if server can find the item.  If so
+         * it will return the path from the share to the item.
+         *
+         * Need root vnode to do the Resolve ID call on
+         */
+        error = smbfs_root(mp, &root_vp, context);
+        if (error) {
+            SMBDEBUG("smbfs_root failed %d\n", error);
+            goto done;
+        }
+        root_np = VTOSMB(root_vp);
+
+        error = smb2fs_smb_cmpd_resolve_id(share, root_np,
+                                           ino, &resolve_error, &server_path,
+                                           context);
+        if (error) {
+            goto done;
+        }
+        
+        if (resolve_error) {
+            error = resolve_error;
+            goto done;
+        }
+       
+        if (server_path == NULL) {
+            error = ENOENT;
+            goto done;
+        }
+     
+        /* 
+         * Build the local path to the item starting with mount point 
+         */
+        if (strlcpy(path, vfs_statfs(mp)->f_mntonname, path_max) >= path_max) {
+            /* Should not happen */
+            SMBDEBUG("path too long <%s>\n", vfs_statfs(mp)->f_mntonname);
+            error = ENAMETOOLONG;
+            goto done;
+        }
+        path_max = MAXPATHLEN - strlen(path);
+
+        if (strlcat(path, "/", path_max) >= path_max) {
+            /* Should not happen */
+            SMBDEBUG("path too long <%s> + <%s>\n", path, "/");
+            error = ENAMETOOLONG;
+            goto done;
+        }
+        path_max = MAXPATHLEN - strlen(path);
+        
+        if (strlcat(path, server_path, path_max) >= path_max) {
+            SMBDEBUG("path too long <%s> + <%s>\n", path, server_path);
+            error = ENAMETOOLONG;
+            goto done;
+        }
+        
+        /*
+         * Follow that path to find the vnode
+         */
+        error = vnode_lookup (path, 0, vpp, context);
+        if (error) {
+            SMBDEBUG("vnode_lookup failed %d\n", error);
+            goto done;
+        }
+        
+        /* make sure it is one of my vnodes */
+        if (vnode_tag(*vpp) != VT_CIFS) {
+            SMBDEBUG("vnode_lookup found non SMB vnode???\n");
+            error = ENOENT;
+            goto done;
+        }
+    }
+    else {
+        error = ENOTSUP;
+    }
+    
+done:    
+    if (root_vp) {
+        vnode_put(root_vp);
+    }
+
+    if (server_path) {
+        SMB_FREE(server_path, M_SMBTEMP);
+    }
+
+    if (fap) {
+        SMB_FREE(fap, M_SMBTEMP);
+    }
+    
+    if (path) {
+        SMB_FREE(path, M_SMBTEMP);
+    }
+
+    /* We only have a share if we took a reference, release it */
+    if (share) {
+        smb_share_rele(share, context);
+    }
+    
+    return (error);
 }
 
 static int
@@ -1634,6 +2089,7 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 	int32_t dev = 0;
 	struct smb_remount_info info;
 	struct smb_share *share;
+    struct vfs_server v_server;
 	
 	/*
 	 * All names at this level are terminal.
@@ -1656,6 +2112,7 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 		case VFS_CTL_QUERY:
 		case VFS_CTL_SADDR:
         case VFS_CTL_DISC:
+        case VFS_CTL_SERVERINFO:
 		{
 			boolean_t is_64_bit = vfs_context_is64bit(context);
 			union union_vfsidctl vc;
@@ -1749,6 +2206,11 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 					/* report back only once */
 					smp->sm_status &= ~SM_STATUS_UPDATED;
 				}
+                
+                /* Check if we have any pending svrmsg replies */
+                if (smp->sm_svrmsg_pending) {
+                    vq.vq_flags |= VQ_SERVEREVENT;
+                }
 			}
 			SMBDEBUG("vq.vq_flags = 0x%x\n", vq.vq_flags);
 			error = SYSCTL_OUT(req, &vq, sizeof(vq));
@@ -1826,6 +2288,42 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
             }
             
             break;
+            
+        case VFS_CTL_SERVERINFO:
+        {
+            /* Fill in the server name */
+            size_t len;
+            share = smb_get_share_with_reference(smp);
+            len = strnlen(SSTOVC(share)->vc_srvname, SMB_MAX_DNS_SRVNAMELEN);
+            strlcpy((char *)v_server.vs_server_name, SSTOVC(share)->vc_srvname, len + 1);
+                
+            if (smp->sm_svrmsg_pending) {
+                /* Fill in shutdown delay */
+                if (smp->sm_svrmsg_pending & SVRMSG_RCVD_GOING_DOWN) {
+                    /* Set the delay (in minutes) we received from the server */
+                    v_server.vs_minutes = smp->sm_svrmsg_shutdown_delay / 60;
+                    
+                    smp->sm_svrmsg_pending &= ~SVRMSG_RCVD_GOING_DOWN;
+                } else if (smp->sm_svrmsg_pending & SVRMSG_RCVD_SHUTDOWN_CANCEL) {
+                    /* Delay = 0xfff means server is staying up */
+                    v_server.vs_minutes = 0xfff;
+                    smp->sm_svrmsg_pending &= ~SVRMSG_RCVD_SHUTDOWN_CANCEL;
+                }
+            } else {
+                /*
+                 * No server events to report.
+                 * Don't return an error, otherwise nothing gets passed back.
+                 * Use -1 for v_minutes to indicate an error.
+                 */
+                v_server.vs_minutes = -1;
+            }
+            smb_share_rele(share, context);
+            
+            error = SYSCTL_OUT(req, &v_server, sizeof(v_server));
+            
+            break;
+        }
+            
 	    default:
 			error = ENOTSUP;
 			break;
@@ -1913,7 +2411,13 @@ int smbfs_module_start(kmod_info_t *ki, void *data)
 
 	sysctl_register_oid(&sysctl__net_smb_fs_tcpsndbuf);
 	sysctl_register_oid(&sysctl__net_smb_fs_tcprcvbuf);
-	
+
+	sysctl_register_oid(&sysctl__net_smb_fs_maxwrite);
+	sysctl_register_oid(&sysctl__net_smb_fs_maxread);
+
+	sysctl_register_oid(&sysctl__net_smb_fs_maxsegreadsize);
+	sysctl_register_oid(&sysctl__net_smb_fs_maxsegwritesize);
+
 	smbfs_install_sleep_wake_notifier();
 
 out:
@@ -1949,6 +2453,11 @@ int smbfs_module_stop(kmod_info_t *ki, void *data)
 		SMBERROR("vfs_fsremove failed with %d, may want to reboot!\n", error);
 		goto out;
 	}
+	sysctl_unregister_oid(&sysctl__net_smb_fs_maxsegreadsize);
+	sysctl_unregister_oid(&sysctl__net_smb_fs_maxsegwritesize);
+
+	sysctl_unregister_oid(&sysctl__net_smb_fs_maxwrite);
+	sysctl_unregister_oid(&sysctl__net_smb_fs_maxread);
 
 	sysctl_unregister_oid(&sysctl__net_smb_fs_tcpsndbuf);
 	sysctl_unregister_oid(&sysctl__net_smb_fs_tcprcvbuf);

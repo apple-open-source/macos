@@ -42,6 +42,7 @@ if [ "$UID" != 0 ] ; then
     exit 1
 fi
 
+uid=82367356
 u=heimdaltestuser
 s=heimdalserveruser
 r=FOO.H5L.SE
@@ -59,14 +60,20 @@ testfailed="echo test failed; cat ${logfile}; exit 1"
 
 dscl . -delete /Users/$u > /dev/null 2>/dev/null
 dscl . -create /Users/$u || exit 1
+dscl . -create /Users/$u/UniqueID $uid
+dscl . -create /Users/$u/PrimaryGroupID 20
 dscl . -append /Users/$u RealName "Heimdal testuser" || exit 1
 
 dscl . -delete /Users/$s > /dev/null 2>/dev/null
 dscl . -create /Users/$s || exit 1
+dscl . -create /Users/$s/UniqueID $(expr $uid + 1)
+dscl . -create /Users/$s/PrimaryGroupID 20
 dscl . -append /Users/$s RealName "Heimdal test server" || exit 1
 
 
 defaults write com.apple.Kerberos ForceHeimODServerMode -bool YES
+
+trap "defaults delete com.apple.Kerberos ForceHeimODServerMode" EXIT
 
 $hodadmin . principal-create $u $u@$r || exit 1
 $hodadmin . password $u foo || exit 1
@@ -88,5 +95,9 @@ $hodadmin . alias-remove $s cifs/$s.$d@$r || exit 1
 
 
 defaults delete com.apple.Kerberos ForceHeimODServerMode
+trap - EXIT
+
+dscl . -delete /Users/$u
+dscl . -delete /Users/$s
 
 exit $ec

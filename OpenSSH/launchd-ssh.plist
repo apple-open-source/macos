@@ -35,5 +35,7 @@
 	<string>/dev/null</string>
 	<key>SHAuthorizationRight</key>
 	<string>system.preferences</string>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
 </dict>
 </plist>

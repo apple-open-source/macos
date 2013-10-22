@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -155,6 +155,9 @@ typedef	opaque			nfs_mattr_fh<NFS4_FHSIZE>;
 typedef nfs_fs_locations	nfs_mattr_fs_locations;
 typedef uint32_t		nfs_mattr_mntflags;
 typedef string			nfs_mattr_mntfrom<MAXPATHLEN-1>;
+typedef string			nfs_mattr_realm<MAXPATHLEN-1>;
+typedef string			nfs_mattr_principal<MAXPATHLEN-1>;
+typedef string			nfs_mattr_svcpinc<MAXPATHLEN-1>;
 
 /* mount attribute bitmap indices */
 const NFS_MATTR_FLAGS			= 0;	/* mount flags bitmap (MFLAG_*) */
@@ -181,6 +184,9 @@ const NFS_MATTR_FH			= 20;	/* file handle for mount directory */
 const NFS_MATTR_FS_LOCATIONS		= 21;	/* list of locations for the file system */
 const NFS_MATTR_MNTFLAGS		= 22;	/* VFS mount flags (MNT_*) */
 const NFS_MATTR_MNTFROM			= 23;	/* fixed string to use for "f_mntfromname" */
+const NFS_MATTR_REALM			= 24;	/* Kerberos realm to use for authentication */
+const NFS_MATTR_PRINCIPAL		= 25;	/* Principal to use for the mount */
+const NFS_MATTR_SVCPRINCIPAL		= 26;	/* Kerberos principal of the server */
 
 /*
  * Mount flags

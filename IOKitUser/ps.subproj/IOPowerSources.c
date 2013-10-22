@@ -49,6 +49,9 @@
 #define kIOPSDynamicStorePowerAdapterKey "/IOKit/PowerAdapter"
 #endif
 
+#if TARGET_OS_EMBEDDED
+#define kIOPSDynamicStoreFullPath "State:/IOKit/PowerSources/InternalBattery-0"
+#endif
 
 IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void)
 {
@@ -150,6 +153,38 @@ SAD_EXIT:
     if (key) CFRelease(key);
     return ret_dict;
 }
+
+static CFArrayRef CreatePSKeysArray(void)
+{
+    CFStringRef                 ps_match = NULL;
+    CFMutableArrayRef           ps_arr = NULL;
+    
+#if TARGET_OS_EMBEDDED
+    // Doing a regex match on iOS is unnecessary as there is always only 1
+    // power source, whose identity is known.
+    // Optimization for <rdar://problem/11177160>
+    ps_match = SCDynamicStoreKeyCreate(kCFAllocatorDefault,
+                                       CFSTR(kIOPSDynamicStoreFullPath));
+#else
+    // Create regular expression to match all Power Sources
+    ps_match = SCDynamicStoreKeyCreate(
+                                       kCFAllocatorDefault,
+                                       CFSTR("%@%@/%@"),
+                                       _io_kSCDynamicStoreDomainState,
+                                       CFSTR(kIOPSDynamicStorePath),
+                                       _io_kSCCompAnyRegex);
+#endif
+    
+    if(!ps_match) return NULL;
+    ps_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    if(!ps_arr) return NULL;
+    CFArrayAppendValue(ps_arr, ps_match);
+    CFRelease(ps_match);
+    
+    return (CFArrayRef)ps_arr;
+}
+
+
 /***
  Returns a blob of Power Source information in an opaque CFTypeRef. Clients should
  not actually look directly at data in the CFTypeRef - they should use the accessor
@@ -159,8 +194,7 @@ SAD_EXIT:
 ***/
 CFTypeRef IOPSCopyPowerSourcesInfo(void) {
     SCDynamicStoreRef   store = NULL;
-    CFStringRef         ps_match = NULL;
-    CFMutableArrayRef   ps_arr = NULL;
+    CFArrayRef          ps_arr = NULL;
     CFDictionaryRef     power_sources = NULL;
     
     // Open connection to SCDynamicStore
@@ -169,25 +203,20 @@ CFTypeRef IOPSCopyPowerSourcesInfo(void) {
     if(!store) { 
         goto exit;
      }
-    // Create regular expression to match all Power Sources
-    ps_match = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@/%@"),
-                _io_kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStorePathKey), _io_kSCCompAnyRegex);
-    if(!ps_match) {
-        goto exit;
-    }
-    ps_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    if(!ps_arr) {
-        goto exit;
-    }
-    CFArrayAppendValue(ps_arr, ps_match);
-    
+
+    ps_arr = CreatePSKeysArray();
+
+#if TARGET_OS_EMBEDDED
+    // No need to pattern check on embedded. There is always only one power source
+    // <rdar://problem/11177160>
+    power_sources = SCDynamicStoreCopyMultiple(store, ps_arr, NULL);
+#else
     // Copy multiple Power Sources into dictionary
     power_sources = SCDynamicStoreCopyMultiple(store, NULL, ps_arr);
+#endif
     
 exit:
 
-    if (ps_match)
-        CFRelease(ps_match);
     if (ps_arr)
         CFRelease(ps_arr);
     if (store)
@@ -360,69 +389,91 @@ CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob)
 typedef struct {
     IOPowerSourceCallbackType       callback;
     void                            *context;
-} user_callback_context;
+    int                             token;
+    CFMachPortRef                   mpRef;
+} IOPSNotifyCallbackContext;
 
-void ioCallout(SCDynamicStoreRef store __unused, CFArrayRef keys __unused, void *ctxt) {
-    user_callback_context	*c;
+static void IOPSRLSMachPortCallback (CFMachPortRef port __unused, void *msg __unused, CFIndex size __unused, void *info)
+{
+    IOPSNotifyCallbackContext	*c = (IOPSNotifyCallbackContext *)info;
     IOPowerSourceCallbackType cb;
-
-    c = (user_callback_context *)CFDataGetBytePtr((CFDataRef)ctxt);
-    if(!c) return;
-    cb = c->callback;
-    if(!cb) return;    
-    (*cb)(c->context);
-}
-
-/***
- Returns a CFRunLoopSourceRef that notifies the caller when power source
- information changes.
- Arguments:
-    IOPowerSourceCallbackType callback - A function to be called whenever any power source is added, removed, or changes
-    void *context - Any user-defined pointer, passed to the IOPowerSource callback.
- Returns NULL if there were any problems.
- Caller must CFRelease() the returned value.
-***/
-CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType callback, void *context) {
-    SCDynamicStoreRef           store = NULL;
-    CFStringRef                 ps_match = NULL;
-    CFMutableArrayRef           ps_arr = NULL;
-    CFRunLoopSourceRef          SCDrls = NULL;
-    user_callback_context       *ioContext = NULL;
-    SCDynamicStoreContext       scContext = {0, NULL, CFRetain, CFRelease, NULL};
-
-    if(!callback) return NULL;
-
-    scContext.info = CFDataCreateMutable(NULL, sizeof(user_callback_context));
-    CFDataSetLength(scContext.info, sizeof(user_callback_context));
-    ioContext = (user_callback_context *)CFDataGetBytePtr(scContext.info); 
-    ioContext->context = context;
-    ioContext->callback = callback;
-        
-    // Open connection to SCDynamicStore. User's callback as context.
-    store = SCDynamicStoreCreate(kCFAllocatorDefault, 
-                CFSTR("IOKit Power Source Copy"), ioCallout, (void *)&scContext);
-    if(!store) return NULL;
-     
-    // Create regular expression to match all Power Sources
-    ps_match = SCDynamicStoreKeyCreate(
-                    kCFAllocatorDefault, 
-                    CFSTR("%@%@/%@"), 
-                    _io_kSCDynamicStoreDomainState, 
-                    CFSTR(kIOPSDynamicStorePath), 
-                    _io_kSCCompAnyRegex);
-    if(!ps_match) return NULL;
-    ps_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    if(!ps_arr) return NULL;
-    CFArrayAppendValue(ps_arr, ps_match);
-    CFRelease(ps_match);
     
-    // Set up regular expression notifications
-    SCDynamicStoreSetNotificationKeys(store, NULL, ps_arr);
-    CFRelease(ps_arr);
-
-    // Obtain the CFRunLoopSourceRef from this SCDynamicStoreRef session
-    SCDrls = SCDynamicStoreCreateRunLoopSource(kCFAllocatorDefault, store, 0);
-    CFRelease(store);    
-
-    return SCDrls;
+    if (c && (cb = c->callback)) {
+        (*cb)(c->context);
+    }
 }
+
+static void IOPSRLSMachPortRelease(const void *info)
+{
+    IOPSNotifyCallbackContext	*c = (IOPSNotifyCallbackContext *)info;
+    
+    if (c) {
+        if (0 != c->token) {
+            notify_cancel(c->token);
+        }
+        if (c->mpRef) {
+            CFMachPortInvalidate(c->mpRef);
+            CFRelease(c->mpRef);
+        }
+        free(c);
+    }
+}
+
+
+static CFRunLoopSourceRef doCreatePSRLS(const char *notify_type, IOPowerSourceCallbackType callback, void *context)
+{
+    int                             status = 0;
+    int                             token = 0;
+    mach_port_t                     mp = MACH_PORT_NULL;
+    CFMachPortRef                   mpRef = NULL;
+    CFMachPortContext               mpContext;
+    CFRunLoopSourceRef              mpRLS = NULL;
+    IOPSNotifyCallbackContext       *ioContext;
+    Boolean                         isReused = false;
+    int                             giveUpRetryCount = 5;
+
+    status = notify_register_mach_port(notify_type, &mp, 0, &token);
+    if (NOTIFY_STATUS_OK != status) {
+        return NULL;
+    }
+    
+    ioContext = calloc(1, sizeof(IOPSNotifyCallbackContext));
+    ioContext->callback = callback;
+    ioContext->context = context;
+    ioContext->token = token;
+
+    bzero(&mpContext, sizeof(mpContext));
+    mpContext.info = (void *)ioContext;
+    mpContext.release = IOPSRLSMachPortRelease;
+    
+    do {
+        if (mpRef) {
+            // CFMachPorts may be reused. We don't want to get a reused mach port; so if we're unlucky enough
+            // to get one, we'll pre-emptively invalidate it, throw them back in the pool, and retry.
+            CFMachPortInvalidate(mpRef);
+            CFRelease(mpRef);
+        }
+        
+        mpRef = CFMachPortCreateWithPort(0, mp, IOPSRLSMachPortCallback, &mpContext, &isReused);
+    } while (!mpRef && isReused && (--giveUpRetryCount > 0));
+
+    if (mpRef) {
+        if (!isReused) {
+            // A reused mach port is a failure; it'll have an invalid callback pointer associated with it.
+            ioContext->mpRef = mpRef;
+            mpRLS = CFMachPortCreateRunLoopSource(0, mpRef, 0);
+        }
+        CFRelease(mpRef);
+    }
+    
+    return mpRLS;
+}
+
+CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType callback, void *context) {
+    return doCreatePSRLS(kIOPSNotifyTimeRemaining, callback, context);
+}
+
+CFRunLoopSourceRef IOPSCreateLimitedPowerNotification(IOPowerSourceCallbackType callback, void *context) {
+    return doCreatePSRLS(kIOPSNotifyPowerSource, callback, context);
+}
+

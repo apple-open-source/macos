@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
+ * Copyright (C) 2012 Intel Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -60,6 +61,16 @@ PerformanceEntry* PerformanceEntryList::item(unsigned index)
 void PerformanceEntryList::append(PassRefPtr<PerformanceEntry> entry)
 {
     m_entries.append(entry);
+}
+
+void PerformanceEntryList::appendAll(const Vector<RefPtr<PerformanceEntry> >& entries)
+{
+    m_entries.appendVector(entries);
+}
+
+void PerformanceEntryList::sort()
+{
+    std::sort(m_entries.begin(), m_entries.end(), PerformanceEntry::startTimeCompareLessThan);
 }
 
 } // namespace WebCore

@@ -65,7 +65,7 @@
 # define rb_int2big rb_int2big_stub
 #endif
 
-#include <Ruby/ruby.h>
+#include <ruby.h>
 #ifdef RUBY19_OR_LATER
 # include <ruby/encoding.h>
 #endif

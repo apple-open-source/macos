@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -28,8 +28,8 @@
 
 #include "SecBridge.h"
 
-        
-        
+
+
 static inline CssmData cfData(CFDataRef data)
 {
     return CssmData(const_cast<UInt8 *>(CFDataGetBytePtr(data)),
@@ -71,8 +71,9 @@ OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef,
 	CFDataRef dataRef)
 {
 	BEGIN_SECAPI
-	secdebug("UNIMP", "legacy SecTrustedApplicationSetData not re-implemented");
-//	TrustedApplication::required(appRef)->data(cfData(dataRef));
+	if (!dataRef)
+		return errSecParam;
+	TrustedApplication::required(appRef)->data(dataRef);
 	END_SECAPI
 }
 
@@ -92,7 +93,7 @@ SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const cha
 // Convert from/to external data representation
 //
 OSStatus SecTrustedApplicationCopyExternalRepresentation(
-	SecTrustedApplicationRef appRef, 
+	SecTrustedApplicationRef appRef,
 	CFDataRef *externalRef)
 {
 	BEGIN_SECAPI
@@ -117,7 +118,7 @@ SecTrustedApplicationMakeEquivalent(SecTrustedApplicationRef oldRef,
 {
 	BEGIN_SECAPI
 	if (flags & ~kSecApplicationValidFlags)
-		return paramErr;
+		return errSecParam;
 	SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
 	TrustedApplication *oldApp = TrustedApplication::required(oldRef);
 	TrustedApplication *newApp = TrustedApplication::required(newRef);
@@ -131,7 +132,7 @@ SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 f
 {
 	BEGIN_SECAPI
 	if (flags & ~kSecApplicationValidFlags)
-		return paramErr;
+		return errSecParam;
 	SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
 	TrustedApplication *app = TrustedApplication::required(appRef);
 	ss.removeCodeEquivalence(app->legacyHash(), app->path(),
@@ -148,19 +149,19 @@ OSStatus
 SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path)
 {
     BEGIN_SECAPI
-	
+
 	// strip installroot
 	if (installroot) {
 		size_t rootlen = strlen(installroot);
 		if (!strncmp(installroot, path, rootlen))
 			path += rootlen - 1;	// keep the slash
 	}
-		
+
 	// look up in database
 	static ModuleNexus<PathDatabase> paths;
 	static ModuleNexus<RecursiveMutex> mutex;
 	StLock<Mutex>_(mutex());
-	
+
 	if (!paths()[path])
 		return CSSMERR_DL_RECORD_NOT_FOUND;	// whatever
     END_SECAPI
@@ -196,7 +197,7 @@ OSStatus SecTrustedApplicationCreateFromRequirement(const char *description,
 	if (description == NULL)
 		description = "csreq://";	// default to "generic requirement"
 	SecPointer<TrustedApplication> app = new TrustedApplication(description, requirement);
-	Required(appRef) = app->handle();	
+	Required(appRef) = app->handle();
 	END_SECAPI
 }
 

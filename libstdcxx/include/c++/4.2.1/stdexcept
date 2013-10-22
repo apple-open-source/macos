@@ -42,6 +42,7 @@
 
 #include <exception>
 #include <string>
+#include <cxxabi.h>
 
 /* APPLE LOCAL 5892085 */
 #pragma GCC visibility push(default)
@@ -77,9 +78,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   {
   public:
     explicit domain_error(const string&  __arg);
+#ifndef _LIBCPPABI_VERSION
 #if BUILDING_LIBSTDCXX
 	__attribute__((used))
 	virtual ~domain_error() throw() {}
+#endif
+#else
+#if BUILDING_LIBSTDCXX
+	virtual ~domain_error() throw();
+#else
+	__attribute__((used))
+	virtual ~domain_error() throw() {}
+#endif
 #endif
   };
 
@@ -88,9 +98,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   {
   public:
     explicit invalid_argument(const string&  __arg);
+#ifndef _LIBCPPABI_VERSION
 #if BUILDING_LIBSTDCXX
 	__attribute__((used))
 	virtual ~invalid_argument() throw() {}
+#endif
+#else
+#if BUILDING_LIBSTDCXX
+	virtual ~invalid_argument() throw();
+#else
+	__attribute__((used))
+	virtual ~invalid_argument() throw() {}
+#endif
 #endif
   };
 
@@ -100,9 +119,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   {
   public:
     explicit length_error(const string&  __arg);
+#ifndef _LIBCPPABI_VERSION
 #if BUILDING_LIBSTDCXX
 	__attribute__((used))
 	virtual ~length_error() throw() {}
+#endif
+#else
+#if BUILDING_LIBSTDCXX
+	virtual ~length_error() throw();
+#else
+	__attribute__((used))
+	virtual ~length_error() throw() {}
+#endif
 #endif
   };
 
@@ -112,9 +140,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   {
   public:
     explicit out_of_range(const string&  __arg);
+#ifndef _LIBCPPABI_VERSION
 #if BUILDING_LIBSTDCXX
 	__attribute__((used))
 	virtual ~out_of_range() throw() {}
+#endif
+#else
+#if BUILDING_LIBSTDCXX
+	virtual ~out_of_range() throw();
+#else
+	__attribute__((used))
+	virtual ~out_of_range() throw() {}
+#endif
 #endif
   };
 
@@ -146,9 +183,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   {
   public:
     explicit range_error(const string&  __arg);
+#ifndef _LIBCPPABI_VERSION
 #if BUILDING_LIBSTDCXX
 	__attribute__((used))
 	virtual ~range_error() throw() {}
+#endif
+#else
+#if BUILDING_LIBSTDCXX
+	virtual ~range_error() throw();
+#else
+	__attribute__((used))
+	virtual ~range_error() throw() {}
+#endif
 #endif
   };
 
@@ -157,9 +203,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   {
   public:
     explicit overflow_error(const string&  __arg);
+#ifndef _LIBCPPABI_VERSION
 #if BUILDING_LIBSTDCXX
 	__attribute__((used))
 	virtual ~overflow_error() throw() {}
+#endif
+#else
+#if BUILDING_LIBSTDCXX
+	virtual ~overflow_error() throw();
+#else
+	__attribute__((used))
+	virtual ~overflow_error() throw() {}
+#endif
 #endif
   };
 
@@ -168,9 +223,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   {
   public:
     explicit underflow_error(const string&  __arg);
+#ifndef _LIBCPPABI_VERSION
 #if BUILDING_LIBSTDCXX
 	__attribute__((used))
 	virtual ~underflow_error() throw() {}
+#endif
+#else
+#if BUILDING_LIBSTDCXX
+	virtual ~underflow_error() throw();
+#else
+	__attribute__((used))
+	virtual ~underflow_error() throw() {}
+#endif
 #endif
   };
 

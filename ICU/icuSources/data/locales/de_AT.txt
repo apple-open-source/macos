@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/de_AT.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/de_AT.xml
 // *
 // ***************************************************************************
 de_AT{
@@ -14,8 +14,25 @@ de_AT{
             }
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     calendar{
+        generic{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, dd. MMMM y G",
+                "dd. MMMM y G",
+                "dd.MM.y G",
+                "dd.MM.yy GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+        }
         gregorian{
             DateTimePatterns{
                 "HH:mm:ss zzzz",
@@ -24,7 +41,7 @@ de_AT{
                 "HH:mm",
                 "EEEE, dd. MMMM y",
                 "dd. MMMM y",
-                "dd.MM.yyyy",
+                "dd.MM.y",
                 "dd.MM.yy",
                 "{1} {0}",
                 "{1} {0}",
@@ -36,17 +53,17 @@ de_AT{
                 format{
                     abbreviated{
                         "Jän",
-                        "Feb",
-                        "Mär",
-                        "Apr",
+                        "Feb.",
+                        "Mär.",
+                        "Apr.",
                         "Mai",
-                        "Jun",
-                        "Jul",
-                        "Aug",
-                        "Sep",
-                        "Okt",
-                        "Nov",
-                        "Dez",
+                        "Juni",
+                        "Juli",
+                        "Aug.",
+                        "Sep.",
+                        "Okt.",
+                        "Nov.",
+                        "Dez.",
                     }
                     wide{
                         "Jänner",

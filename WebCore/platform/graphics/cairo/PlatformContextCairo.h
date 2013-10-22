@@ -58,8 +58,8 @@ public:
     void pushImageMask(cairo_surface_t*, const FloatRect&);
     void drawSurfaceToContext(cairo_surface_t*, const FloatRect& destRect, const FloatRect& srcRect, GraphicsContext*);
 
-    void setImageInterpolationQuality(InterpolationQuality quality) { m_imageInterpolationQuality = quality; }
-    InterpolationQuality imageInterpolationQuality() const { return m_imageInterpolationQuality; }
+    void setImageInterpolationQuality(InterpolationQuality);
+    InterpolationQuality imageInterpolationQuality() const;
 
     enum PatternAdjustment { NoAdjustment, AdjustPatternForGlobalAlpha };
     void prepareForFilling(const GraphicsContextState&, PatternAdjustment);
@@ -68,6 +68,8 @@ public:
     void prepareForStroking(const GraphicsContextState&, AlphaPreservation = PreserveAlpha);
 
 private:
+    void clipForPatternFilling(const GraphicsContextState&);
+
     RefPtr<cairo_t> m_cr;
 
     class State;
@@ -78,7 +80,6 @@ private:
     // so it does not need to be on the state stack.
     ShadowBlur m_shadowBlur;
 
-    InterpolationQuality m_imageInterpolationQuality;
 };
 
 } // namespace WebCore

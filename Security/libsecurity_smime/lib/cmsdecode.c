@@ -421,7 +421,7 @@ nss_cms_decoder_work_data(SecCmsDecoderRef p7dcx,
     SecCmsContentInfoRef cinfo;
     unsigned char *buf = NULL;
     unsigned char *dest;
-    unsigned int offset;
+    CSSM_SIZE offset;
     OSStatus rv;
     CSSM_DATA_PTR storage;
     

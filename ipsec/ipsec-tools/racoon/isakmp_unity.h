@@ -31,6 +31,9 @@
  * SUCH DAMAGE.
  */
 
+
+#include "racoon_types.h"
+
 /* ISAKMP notifies specific to the Unity vendor Id */
 /* Sent during xauth if the user types his password too slowly */
 #define ISAKMP_NTYPE_UNITY_HEARTBEAT	40500
@@ -64,9 +67,9 @@ struct unity_netentry {
 	struct unity_netentry   *next;
 };
 
-int	splitnet_list_add(struct unity_netentry **, struct unity_network *, int *);
-void	splitnet_list_free(struct unity_netentry *, int *);
-char *	splitnet_list_2str(struct unity_netentry *);
+int	splitnet_list_add (struct unity_netentry **, struct unity_network *, int *);
+void	splitnet_list_free (struct unity_netentry *, int *);
+char *	splitnet_list_2str (struct unity_netentry *);
 
-vchar_t *isakmp_unity_req(struct ph1handle *, struct isakmp_data *);
-void isakmp_unity_reply(struct ph1handle *, struct isakmp_data *);
+vchar_t *isakmp_unity_req (phase1_handle_t *, struct isakmp_data *);
+void isakmp_unity_reply (phase1_handle_t *, struct isakmp_data *);

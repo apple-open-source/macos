@@ -26,32 +26,36 @@
 #include "config.h"
 #include "OriginAndDatabases.h"
 
+#if ENABLE(SQL_DATABASE)
+
 #include "WebCoreArgumentCoders.h"
 
 using namespace WebCore;
 
 namespace WebKit {
 
-void OriginAndDatabases::encode(CoreIPC::ArgumentEncoder* encoder) const
+void OriginAndDatabases::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
-    encoder->encode(originIdentifier);
-    encoder->encode(originQuota);
-    encoder->encode(originUsage);
-    encoder->encode(databases);
+    encoder << originIdentifier;
+    encoder << originQuota;
+    encoder << originUsage;
+    encoder << databases;
 }
 
-bool OriginAndDatabases::decode(CoreIPC::ArgumentDecoder* decoder, OriginAndDatabases& originAndDatabases)
+bool OriginAndDatabases::decode(CoreIPC::ArgumentDecoder& decoder, OriginAndDatabases& originAndDatabases)
 {
-    if (!decoder->decode(originAndDatabases.originIdentifier))
+    if (!decoder.decode(originAndDatabases.originIdentifier))
         return false;
-    if (!decoder->decode(originAndDatabases.originQuota))
+    if (!decoder.decode(originAndDatabases.originQuota))
         return false;
-    if (!decoder->decode(originAndDatabases.originUsage))
+    if (!decoder.decode(originAndDatabases.originUsage))
         return false;
-    if (!decoder->decode(originAndDatabases.databases))
+    if (!decoder.decode(originAndDatabases.databases))
         return false;
 
     return true;
 }
 
 } // namespace WebKit
+
+#endif // ENABLE(SQL_DATABASE)

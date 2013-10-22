@@ -29,6 +29,7 @@
 #include "DocumentLoader.h"
 #include "DocumentParser.h"
 #include "Frame.h"
+#include "FrameLoader.h"
 #include "HTMLNames.h"
 
 namespace WebCore {
@@ -51,9 +52,9 @@ PassRefPtr<HTMLHtmlElement> HTMLHtmlElement::create(const QualifiedName& tagName
     return adoptRef(new HTMLHtmlElement(tagName, document));
 }
 
-bool HTMLHtmlElement::isURLAttribute(Attribute* attribute) const
+bool HTMLHtmlElement::isURLAttribute(const Attribute& attribute) const
 {
-    return attribute->name() == manifestAttr || HTMLElement::isURLAttribute(attribute);
+    return attribute.name() == manifestAttr || HTMLElement::isURLAttribute(attribute);
 }
 
 void HTMLHtmlElement::insertedByParser()

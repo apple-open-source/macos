@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,7 @@
 
 /*
  * eapttls_plugin.c
- * - EAP/TTLS client using SecureTransport API's
+ * - EAP-TTLS client using SecureTransport API's
  */
 
 /* 
@@ -45,11 +45,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <syslog.h>
 #include <Security/SecureTransport.h>
 #include <Security/SecCertificate.h>
 #include <sys/param.h>
 #include <EAP8021X/EAPTLSUtil.h>
+#include <EAP8021X/EAPUtil.h>
 #include <EAP8021X/EAPSecurity.h>
 #include <EAP8021X/EAPCertificateUtil.h>
 #include <Security/SecureTransportPriv.h>
@@ -61,6 +61,7 @@
 #include <EAP8021X/DiameterAVP.h>
 #include "myCFUtil.h"
 #include "printdata.h"
+#include "EAPLog.h"
 
 /*
  * Declare these here to ensure that the compiler
@@ -78,7 +79,7 @@ static EAPClientPluginFuncSessionKey eapttls_session_key;
 static EAPClientPluginFuncServerKey eapttls_server_key;
 static EAPClientPluginFuncRequireProperties eapttls_require_props;
 static EAPClientPluginFuncPublishProperties eapttls_publish_props;
-static EAPClientPluginFuncPacketDump eapttls_packet_dump;
+static EAPClientPluginFuncCopyPacketDescription eapttls_copy_packet_description;
 
 #define kEAPTTLSClientLabel		"ttls keying material"
 #define kEAPTTLSClientLabelLength	 (sizeof(kEAPTTLSClientLabel) - 1)
@@ -115,12 +116,12 @@ typedef enum {
     kAuthStateStarted,
     kAuthStateComplete,
 } AuthState;
-#define TTLS_MSCHAP_RESPONSE_LENGTH	(MSCHAP_NT_RESPONSE_SIZE \
-					 + MSCHAP_LM_RESPONSE_SIZE \
-					 + MSCHAP_FLAGS_SIZE \
+#define TTLS_MSCHAP_RESPONSE_LENGTH	(MSCHAP_NT_RESPONSE_SIZE	\
+					 + MSCHAP_LM_RESPONSE_SIZE	\
+					 + MSCHAP_FLAGS_SIZE		\
 					 + MSCHAP_IDENT_SIZE)
 
-#define TTLS_MSCHAP2_RESPONSE_LENGTH	(MSCHAP2_RESPONSE_LENGTH \
+#define TTLS_MSCHAP2_RESPONSE_LENGTH	(MSCHAP2_RESPONSE_LENGTH	\
 					 + MSCHAP_IDENT_SIZE)
 typedef struct {
     SSLContextRef		ssl_context;
@@ -130,6 +131,7 @@ typedef struct {
     int				previous_identifier;
     memoryIO			mem_io;
     EAPClientState		plugin_state;
+    bool			cert_is_required;
     CFArrayRef			certs;
     int				mtu;
     OSStatus			last_ssl_error;
@@ -142,6 +144,7 @@ typedef struct {
     bool			trust_proceed;
     bool			key_data_valid;
     char			key_data[128];
+    bool			server_auth_completed;
     CFArrayRef			server_certs;
     bool			resume_sessions;
     bool			session_was_resumed;
@@ -183,10 +186,9 @@ eapttls_compute_session_key(EAPTTLSPluginDataRef context)
 				  context->key_data,
 				  sizeof(context->key_data));
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "eapttls_compute_session_key: "
-	       "EAPTLSComputeSessionKey failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, 
+		  "EAPTLSComputeSessionKey failed, %s",
+		  EAPSSLErrorString(status));
 	return (FALSE);
     }
     context->key_data_valid = TRUE;
@@ -197,7 +199,7 @@ static void
 eapttls_free_context(EAPTTLSPluginDataRef context)
 {
     if (context->ssl_context != NULL) {
-	SSLDisposeContext(context->ssl_context);
+	CFRelease(context->ssl_context);
 	context->ssl_context = NULL;
     }
     my_CFRelease(&context->certs);
@@ -207,7 +209,6 @@ eapttls_free_context(EAPTTLSPluginDataRef context)
     return;
 }
 
-
 static OSStatus
 eapttls_start(EAPClientPluginDataRef plugin)
 {
@@ -216,7 +217,7 @@ eapttls_start(EAPClientPluginDataRef plugin)
     OSStatus			status = noErr;
 
     if (context->ssl_context != NULL) {
-	SSLDisposeContext(context->ssl_context);
+	CFRelease(context->ssl_context);
 	context->ssl_context = NULL;
     }
     my_CFRelease(&context->server_certs);
@@ -224,30 +225,36 @@ eapttls_start(EAPClientPluginDataRef plugin)
     ssl_context = EAPTLSMemIOContextCreate(FALSE, &context->mem_io, NULL, 
 					   &status);
     if (ssl_context == NULL) {
-	syslog(LOG_NOTICE, "eapttls_start: EAPTLSMemIOContextCreate failed, %s",
-	       EAPSSLErrorString(status));
-	goto failed;
-    }
-    status = SSLSetEnableCertVerify(ssl_context, FALSE);
-    if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_start: SSLSetEnableCertVerify failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s",
+		  EAPSSLErrorString(status));
 	goto failed;
     }
     if (context->resume_sessions && plugin->unique_id != NULL) {
 	status = SSLSetPeerID(ssl_context, plugin->unique_id,
 			      plugin->unique_id_length);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
 	    goto failed;
 	}
     }
-    if (context->certs != NULL) {
+    if (context->cert_is_required) {
+	if (context->certs == NULL) {
+	    status = EAPTLSCopyIdentityTrustChain(plugin->sec_identity,
+						  plugin->properties,
+						  &context->certs);
+	    if (status != noErr) {
+		EAPLOG_FL(LOG_NOTICE, 
+			  "failed to find client cert/identity, %s (%ld)",
+			  EAPSSLErrorString(status), (long)status);
+		goto failed;
+	    }
+	}
 	status = SSLSetCertificate(ssl_context, context->certs);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "SSLSetCertificate failed, %s", EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SSLSetCertificate failed, %s",
+		      EAPSSLErrorString(status));
 	    goto failed;
 	}
     }
@@ -259,13 +266,14 @@ eapttls_start(EAPClientPluginDataRef plugin)
     context->handshake_complete = FALSE;
     context->authentication_started = FALSE;
     context->trust_proceed = FALSE;
+    context->server_auth_completed = FALSE;
     context->key_data_valid = FALSE;
     context->last_write_size = 0;
     context->session_was_resumed = FALSE;
     return (status);
  failed:
     if (ssl_context != NULL) {
-	SSLDisposeContext(ssl_context);
+	CFRelease(ssl_context);
     }
     return (status);
 }
@@ -300,15 +308,13 @@ eapttls_init(EAPClientPluginDataRef plugin, CFArrayRef * required_props,
 {
     EAPTTLSPluginDataRef	context = NULL;
     InnerAuthType		inner_auth_type;
-    EAPClientStatus		result = kEAPClientStatusOK;
-    OSStatus			status = noErr;
 
-    *error = 0;
     context = malloc(sizeof(*context));
-    if (context == NULL) {
-	goto failed;
-    }
     bzero(context, sizeof(*context));
+    context->cert_is_required 
+	= my_CFDictionaryGetBooleanValue(plugin->properties,
+					 kEAPClientPropTLSCertificateIsRequired,
+					 FALSE);
     context->mtu = plugin->mtu;
     inner_auth_type = get_inner_auth_type(plugin->properties);
     if (inner_auth_type == kInnerAuthTypeNone) {
@@ -323,23 +329,10 @@ eapttls_init(EAPClientPluginDataRef plugin, CFArrayRef * required_props,
     memoryIOInit(&context->mem_io, &context->read_buffer,
 		 &context->write_buffer);
     //memoryIOSetDebug(&context->mem_io, TRUE);
-
     plugin->private = context;
-    status = eapttls_start(plugin);
-    if (status != noErr) {
-	result = kEAPClientStatusSecurityError;
-	*error = status;
-	goto failed;
-    }
-    plugin->private = context;
-    return (result);
 
- failed:
-    plugin->private = NULL;
-    if (context != NULL) {
-	eapttls_free_context(context);
-    }
-    return (result);
+    *error = 0;
+    return (kEAPClientStatusOK);
 }
 
 static void
@@ -390,7 +383,7 @@ eapttls_pap(EAPClientPluginDataRef plugin)
     data_length = sizeof(*avp) * 2 + user_length_r + password_length_r;
     data = malloc(data_length);
     if (data == NULL) {
-	syslog(LOG_NOTICE, "eapttls_pap: malloc failed");
+	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	return (FALSE);
     }
     offset = data;
@@ -429,8 +422,8 @@ eapttls_pap(EAPClientPluginDataRef plugin)
 #endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_request: SSLWrite failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
+		  EAPSSLErrorString(status));
 	ret = FALSE;
     }
     free(data);
@@ -454,7 +447,7 @@ eapttls_eap_start(EAPClientPluginDataRef plugin, int identifier)
     data_length = sizeof(*avp) + plugin->username_length + sizeof(*resp_p);
     data = malloc(data_length);
     if (data == NULL) {
-	syslog(LOG_NOTICE, "eapttls_eap_start: malloc failed");
+	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	return (FALSE);
     }
     offset = data;
@@ -478,8 +471,8 @@ eapttls_eap_start(EAPClientPluginDataRef plugin, int identifier)
 #endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_eap_start: SSLWrite failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
+		  EAPSSLErrorString(status));
 	ret = FALSE;
     }
     free(data);
@@ -514,8 +507,8 @@ eapttls_chap(EAPClientPluginDataRef plugin)
 				  kEAPTTLSChallengeLabelLength,
 				  key_data, sizeof(key_data));
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_request: EAPTLSComputeKeyData failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s",
+		  EAPSSLErrorString(status));
 	return (FALSE);
     }
 
@@ -527,7 +520,7 @@ eapttls_chap(EAPClientPluginDataRef plugin)
     data_length_r = roundup(data_length, 4);
     data = malloc(data_length_r);
     if (data == NULL) {
-	syslog(LOG_NOTICE, "eapttls_chap: malloc failed");
+	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	return (FALSE);
     }
     offset = data;
@@ -580,8 +573,8 @@ eapttls_chap(EAPClientPluginDataRef plugin)
 #endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_request: SSLWrite failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
+		  EAPSSLErrorString(status));
 	ret = FALSE;
     }
     free(data);
@@ -618,8 +611,8 @@ eapttls_mschap(EAPClientPluginDataRef plugin)
 				  kEAPTTLSChallengeLabelLength,
 				  key_data, sizeof(key_data));
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_request: EAPTLSComputeKeyData failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s",
+		  EAPSSLErrorString(status));
 	return (FALSE);
     }
 
@@ -631,7 +624,7 @@ eapttls_mschap(EAPClientPluginDataRef plugin)
     data_length_r = roundup(data_length, 4);
     data = malloc(data_length_r);
     if (data == NULL) {
-	syslog(LOG_NOTICE, "eapttls_mschap: malloc failed");
+	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	return (FALSE);
     }
     offset = data;
@@ -696,8 +689,8 @@ eapttls_mschap(EAPClientPluginDataRef plugin)
 #endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_request: SSLWrite failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
+		  EAPSSLErrorString(status));
 	ret = FALSE;
     }
     free(data);
@@ -733,8 +726,8 @@ eapttls_mschap2(EAPClientPluginDataRef plugin)
 				  context->auth_challenge_id,
 				  MSCHAP2_CHALLENGE_SIZE + 1);
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_request: EAPTLSComputeKeyData failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSComputeKeyData failed, %s",
+		  EAPSSLErrorString(status));
 	return (FALSE);
     }
 
@@ -746,7 +739,7 @@ eapttls_mschap2(EAPClientPluginDataRef plugin)
     data_length_r = roundup(data_length, 4);
     data = malloc(data_length_r);
     if (data == NULL) {
-	syslog(LOG_NOTICE, "eapttls_mschap2: malloc failed");
+	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	return (FALSE);
     }
     offset = data;
@@ -820,8 +813,8 @@ eapttls_mschap2(EAPClientPluginDataRef plugin)
 
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_request: SSLWrite failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLWrite failed, %s",
+		  EAPSSLErrorString(status));
 	ret = FALSE;
     }
     free(data);
@@ -843,8 +836,8 @@ eapttls_mschap2_verify(EAPClientPluginDataRef plugin, int identifier)
     status = SSLRead(context->ssl_context, &avpv, sizeof(avpv), 
 		     &data_size);
     if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_mschap2_verify: SSLRead failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLRead failed, %s",
+		  EAPSSLErrorString(status));
 	context->plugin_state = kEAPClientStateFailure;
 	context->last_ssl_error = status;
 	goto done;
@@ -970,14 +963,12 @@ eapttls_verify_server(EAPClientPluginDataRef plugin,
 					     context->server_certs,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
-	syslog(LOG_NOTICE, 
-	       "eapttls_verify_server: server certificate not trusted"
-	       ", status %d %d", context->trust_status,
-	       (int)context->trust_ssl_error);
+	EAPLOG_FL(LOG_NOTICE, "server certificate not trusted status %d %d",
+		  context->trust_status,
+		  (int)context->trust_ssl_error);
     }
     switch (context->trust_status) {
     case kEAPClientStatusOK:
-	eapttls_compute_session_key(context);
 	context->trust_proceed = TRUE;
 	break;
     case kEAPClientStatusUserInputRequired:
@@ -1009,16 +1000,6 @@ eapttls_tunnel(EAPClientPluginDataRef plugin,
     EAPPacketRef		pkt = NULL;
     memoryBufferRef		read_buf = &context->read_buffer;
 
-    if (context->trust_proceed == FALSE) {
-	if (identifier == context->previous_identifier) {
-	    /* we've already seen this packet, discard buffer contents */
-	    memoryBufferClear(read_buf);
-	}
-	pkt = eapttls_verify_server(plugin, identifier, client_status);
-	if (context->trust_proceed == FALSE) {
-	    return (pkt);
-	}
-    }
     if (context->authentication_started == FALSE) {
 	if (identifier == context->previous_identifier) {
 	    /* we've already seen this packet, discard buffer contents */
@@ -1030,7 +1011,6 @@ eapttls_tunnel(EAPClientPluginDataRef plugin,
 	}
 	return (eapttls_start_inner_auth(plugin, identifier, client_status));
     }
-    read_buf->offset = 0;
     switch (context->inner_auth_type) {
     default:
 	/* we didn't expect data, Ack it anyways */
@@ -1072,24 +1052,51 @@ eapttls_handshake(EAPClientPluginDataRef plugin,
 {
     EAPTTLSPluginDataRef context = (EAPTTLSPluginDataRef)plugin->private;
     EAPPacketRef	eaptls_out = NULL;
-    memoryBufferRef	read_buf = &context->read_buffer;
     OSStatus		status = noErr;
     memoryBufferRef	write_buf = &context->write_buffer; 
 
-    read_buf->offset = 0;
+    if (context->server_auth_completed && context->trust_proceed == FALSE) {
+	eaptls_out = eapttls_verify_server(plugin, identifier, client_status);
+	if (context->trust_proceed == FALSE) {
+	    goto done;
+	}
+    }
     status = SSLHandshake(context->ssl_context);
-    switch (status) {
-    case noErr:
-	/* handshake complete, tunnel established */
-	context->handshake_complete = TRUE;
-	eapttls_set_session_was_resumed(context);
+    if (status == errSSLServerAuthCompleted) {
+	if (context->server_auth_completed) {
+	    /* this should not happen */
+	    EAPLOG_FL(LOG_NOTICE, "AuthCompleted again?");
+	    goto done;
+	}
+	context->server_auth_completed = TRUE;
 	my_CFRelease(&context->server_certs);
 	(void)EAPSSLCopyPeerCertificates(context->ssl_context,
 					 &context->server_certs);
 	eaptls_out = eapttls_verify_server(plugin, identifier, client_status);
 	if (context->trust_proceed == FALSE) {
-	    break;
+	    goto done;
 	}
+	/* handshake again to get past the AuthCompleted status */
+	status = SSLHandshake(context->ssl_context);
+    }
+    switch (status) {
+    case noErr:
+	/* handshake complete, tunnel established */
+	if (context->trust_proceed == FALSE) {
+	    my_CFRelease(&context->server_certs);
+	    (void)EAPSSLCopyPeerCertificates(context->ssl_context,
+					     &context->server_certs);
+	    eaptls_out = eapttls_verify_server(plugin, identifier,
+					       client_status);
+	    if (context->trust_proceed == FALSE) {
+		/* this should not happen */
+		EAPLOG_FL(LOG_NOTICE, "trust_proceed is FALSE?");
+		break;
+	    }
+	}
+	context->handshake_complete = TRUE;
+	eapttls_compute_session_key(context);
+	eapttls_set_session_was_resumed(context);
 	if (plugin->password == NULL) {
 	    *client_status = context->last_client_status 
 		= kEAPClientStatusUserInputRequired;
@@ -1099,8 +1106,8 @@ eapttls_handshake(EAPClientPluginDataRef plugin,
 					      identifier, client_status);
 	break;
     default:
-	syslog(LOG_NOTICE, "eapttls_handshake: SSLHandshake failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s",
+		  EAPSSLErrorString(status));
 	context->last_ssl_error = status;
 	my_CFRelease(&context->server_certs);
 	(void) EAPSSLCopyPeerCertificates(context->ssl_context,
@@ -1127,12 +1134,13 @@ eapttls_handshake(EAPClientPluginDataRef plugin,
 	}
 	break;
     }
+
+ done:
     return (eaptls_out);
 }
 
 static EAPPacketRef
 eapttls_request(EAPClientPluginDataRef plugin,
-		SSLSessionState ssl_state,
 		const EAPPacketRef in_pkt,
 		EAPClientStatus * client_status)
 {
@@ -1145,17 +1153,27 @@ eapttls_request(EAPClientPluginDataRef plugin,
     u_int16_t			in_length = EAPPacketGetLength(in_pkt);
     memoryBufferRef		write_buf = &context->write_buffer; 
     memoryBufferRef		read_buf = &context->read_buffer;
+    SSLSessionState		ssl_state = kSSLIdle;
     OSStatus			status = noErr;
     u_int32_t			tls_message_length = 0;
     RequestType			type;
 
     /* ALIGN: void * cast OK, we don't expect proper alignment */
     eaptls_in_l = (EAPTLSLengthIncludedPacket *)(void *)in_pkt;
-    
     if (in_length < sizeof(*eaptls_in)) {
-	syslog(LOG_NOTICE, "eapttls_request: length %d < %ld",
-	       in_length, sizeof(*eaptls_in));
+	EAPLOG_FL(LOG_NOTICE, "length %d < %ld",
+		  in_length, sizeof(*eaptls_in));
 	goto done;
+    }
+    if (context->ssl_context != NULL) {
+	status = SSLGetSessionState(context->ssl_context, &ssl_state);
+	if (status != noErr) {
+	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s",
+		      EAPSSLErrorString(status));
+	    context->plugin_state = kEAPClientStateFailure;
+	    context->last_ssl_error = status;
+	    goto done;
+	}
     }
     in_data_ptr = eaptls_in->tls_data;
     tls_message_length = in_data_length = in_length - sizeof(EAPTLSPacket);
@@ -1163,13 +1181,10 @@ eapttls_request(EAPClientPluginDataRef plugin,
     type = kRequestTypeData;
     if ((eaptls_in->flags & kEAPTLSPacketFlagsStart) != 0) {
 	type = kRequestTypeStart;
-	if (ssl_state != kSSLIdle) {
-	    /* reinitialize */
-	    status = eapttls_start(plugin);
-	    if (status != noErr) {
-		context->last_ssl_error = status;
-		goto done;
-	    }
+	/* only reset our state if this is not a re-transmitted Start packet */
+	if (ssl_state != kSSLHandshake
+	    || write_buf->data == NULL
+	    || in_pkt->identifier != context->previous_identifier) {
 	    ssl_state = kSSLIdle;
 	}
     }
@@ -1178,9 +1193,9 @@ eapttls_request(EAPClientPluginDataRef plugin,
     }
     else if ((eaptls_in->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
 	if (in_length < sizeof(EAPTLSLengthIncludedPacket)) {
-	    syslog(LOG_NOTICE, 
-		   "eapttls_request: packet too short %d < %ld",
-		   in_length, sizeof(EAPTLSLengthIncludedPacket));
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "packet too short %d < %ld",
+		      in_length, sizeof(EAPTLSLengthIncludedPacket));
 	    goto done;
 	}
 	in_data_ptr = eaptls_in_l->tls_data;
@@ -1188,9 +1203,9 @@ eapttls_request(EAPClientPluginDataRef plugin,
 	tls_message_length 
 	    = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_in_l);
 	if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
-	    syslog(LOG_NOTICE, 
-		   "eapttls_request: received message too large, %d > %d",
-		   tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "received message too large, %d > %d",
+		      tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
 	    context->plugin_state = kEAPClientStateFailure;
 	    goto done;
 	}
@@ -1207,15 +1222,20 @@ eapttls_request(EAPClientPluginDataRef plugin,
     case kSSLIdle:
 	if (type != kRequestTypeStart) {
 	    /* ignore it: XXX should this be an error? */
-	    syslog(LOG_NOTICE, 
-		   "eapttls_request: ignoring non TTLS start frame");
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "ignoring non TTLS start frame");
+	    goto done;
+	}
+	status = eapttls_start(plugin);
+	if (status != noErr) {
+	    context->last_ssl_error = status;
+	    context->plugin_state = kEAPClientStateFailure;
 	    goto done;
 	}
 	status = SSLHandshake(context->ssl_context);
 	if (status != errSSLWouldBlock) {
-	    syslog(LOG_NOTICE, 
-		   "eapttls_request: SSLHandshake failed, %s",
-		   EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s",
+		      EAPSSLErrorString(status));
 	    context->last_ssl_error = status;
 	    context->plugin_state = kEAPClientStateFailure;
 	    goto done;
@@ -1265,53 +1285,46 @@ eapttls_request(EAPClientPluginDataRef plugin,
 		|| context->session_was_resumed == FALSE
 		|| context->trust_proceed == FALSE
 		|| context->authentication_started == TRUE) {
-		syslog(LOG_NOTICE, "eapttls_request: unexpected %s frame",
-		       type == kRequestTypeAck ? "Ack" : "Start");
+		EAPLOG_FL(LOG_NOTICE, "unexpected %s frame",
+			  type == kRequestTypeAck ? "Ack" : "Start");
 		goto done;
 	    }
 	    /* server is forcing us to re-auth even though we resumed */
-	    syslog(LOG_NOTICE,
-		   "eapttls_request: server forcing re-auth after resume");
+	    EAPLOG(LOG_NOTICE, "server forcing re-auth after resume");
 	    eaptls_out
 		= eapttls_do_inner_auth(plugin, eaptls_in->identifier,
 					client_status);
 	    break;
 	}
-	if (read_buf->data == NULL) {
-	    read_buf->data = malloc(tls_message_length);
-	    read_buf->length = tls_message_length;
-	    read_buf->offset = 0;
+	if (in_pkt->identifier == context->previous_identifier) {
+	    if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
+		/* just ack it, we've already seen the fragment */
+		eaptls_out = EAPTTLSPacketCreateAck(eaptls_in->identifier);
+		break;
+	    }
 	}
-	else if (in_pkt->identifier == context->previous_identifier) {
-	    if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) == 0) {
-		syslog(LOG_NOTICE, "eapttls_request: re-sent packet does not"
-		       " have more fragments bit set, ignoring");
+	else {
+	    if (read_buf->data == NULL) {
+		memoryBufferAllocate(read_buf, tls_message_length);
+	    }
+	    if (memoryBufferAddData(read_buf, in_data_ptr, in_data_length)
+		== FALSE) {
+		EAPLOG_FL(LOG_NOTICE, 
+			  "fragment too large %d",
+			  in_data_length);
 		goto done;
 	    }
-	    /* just ack it, we've already seen the fragment */
-	    eaptls_out = EAPTTLSPacketCreateAck(eaptls_in->identifier);
-	    break;
-	}
-	if ((read_buf->offset + in_data_length) > read_buf->length) {
-	    syslog(LOG_NOTICE, 
-		   "eapttls_request: fragment too large %ld + %d > %ld",
-		   read_buf->offset, in_data_length, read_buf->length);
-	    goto done;
-	}
-	if ((read_buf->offset + in_data_length) < read_buf->length
-	    && (eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) == 0) {
-	    syslog(LOG_NOTICE, 
-		   "eapttls_request: expecting more data but "
-		   "more fragments bit is not set, ignoring");
-	    goto done;
-	}
-	bcopy(in_data_ptr,
-	      read_buf->data + read_buf->offset, in_data_length);
-	read_buf->offset += in_data_length;
-	if (read_buf->offset < read_buf->length) {
-	    /* we haven't received the entire TLS message */
-	    eaptls_out = EAPTTLSPacketCreateAck(eaptls_in->identifier);
-	    break;
+	    if (memoryBufferIsComplete(read_buf) == FALSE) {
+		if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) == 0) {
+		    EAPLOG_FL(LOG_NOTICE, 
+			      "expecting more data but "
+			      "more fragments bit is not set, ignoring");
+		    goto done;
+		}
+		/* we haven't received the entire TLS message */
+		eaptls_out = EAPTTLSPacketCreateAck(eaptls_in->identifier);
+		break;
+	    }
 	}
 	/* we've got the whole TLS message, process it */
 	if (context->handshake_complete) {
@@ -1343,25 +1356,14 @@ eapttls_process(EAPClientPluginDataRef plugin,
 		EAPClientDomainSpecificError * error)
 {
     EAPTTLSPluginDataRef	context = (EAPTTLSPluginDataRef)plugin->private;
-    SSLSessionState		ssl_state = kSSLIdle;
-    OSStatus			status = noErr;
 
     *client_status = kEAPClientStatusOK;
     *error = 0;
 
-    status = SSLGetSessionState(context->ssl_context, &ssl_state);
-    if (status != noErr) {
-	syslog(LOG_NOTICE, "eapttls_process: SSLGetSessionState failed, %s",
-	       EAPSSLErrorString(status));
-	context->plugin_state = kEAPClientStateFailure;
-	context->last_ssl_error = status;
-	goto done;
-    }
-
     *out_pkt_p = NULL;
     switch (in_pkt->code) {
     case kEAPCodeRequest:
-	*out_pkt_p = eapttls_request(plugin, ssl_state, in_pkt, client_status);
+	*out_pkt_p = eapttls_request(plugin, in_pkt, client_status);
 	break;
     case kEAPCodeSuccess:
 	if (context->trust_proceed) {
@@ -1383,7 +1385,6 @@ eapttls_process(EAPClientPluginDataRef plugin,
     default:
 	break;
     }
- done:
     if (context->plugin_state == kEAPClientStateFailure) {
 	if (context->last_ssl_error == noErr) {
 	    switch (context->last_client_status) {
@@ -1491,8 +1492,9 @@ eapttls_publish_props(EAPClientPluginDataRef plugin)
     (void)SSLGetNegotiatedCipher(context->ssl_context, &cipher);
     if (cipher != SSL_NULL_WITH_NULL_NULL) {
 	CFNumberRef	c;
+	int		tmp = cipher;
 
-	c = CFNumberCreate(NULL, kCFNumberIntType, &cipher);
+	c = CFNumberCreate(NULL, kCFNumberIntType, &tmp);
 	CFDictionarySetValue(dict, kEAPClientPropTLSNegotiatedCipher, c);
 	CFRelease(c);
     }
@@ -1507,67 +1509,12 @@ eapttls_publish_props(EAPClientPluginDataRef plugin)
     return (dict);
 }
 
-static bool
-eapttls_packet_dump(FILE * out_f, const EAPPacketRef pkt)
-{
-    EAPTLSPacket * 	eaptls_pkt = (EAPTLSPacket *)pkt;
-    EAPTLSLengthIncludedPacket * eaptls_pkt_l;
-    int			data_length;
-    void *		data_ptr = NULL;
-    u_int16_t		length = EAPPacketGetLength(pkt);
-    u_int32_t		tls_message_length = 0;
+static CFStringRef
+eapttls_copy_packet_description(const EAPPacketRef pkt, bool * packet_is_valid)
+{ 
+    EAPTLSPacketRef 	eaptls_pkt = (EAPTLSPacketRef)pkt;
 
-    switch (pkt->code) {
-    case kEAPCodeRequest:
-    case kEAPCodeResponse:
-	break;
-    default:
-	/* just return */
-	return (FALSE);
-	break;
-    }
-    if (length < sizeof(*eaptls_pkt)) {
-	fprintf(out_f, "invalid packet: length %d < min length %ld",
-		length, sizeof(*eaptls_pkt));
-	goto done;
-    }
-    fprintf(out_f, "EAP/TTLS %s: Identifier %d Length %d Flags 0x%x%s",
-	    pkt->code == kEAPCodeRequest ? "Request" : "Response",
-	    pkt->identifier, length, eaptls_pkt->flags,
-	    eaptls_pkt->flags != 0 ? " [" : "");
-    eaptls_pkt_l = (EAPTLSLengthIncludedPacket *)(void *)pkt;
-    data_ptr = eaptls_pkt->tls_data;
-    tls_message_length = data_length = length - sizeof(EAPTLSPacket);
-
-    if ((eaptls_pkt->flags & kEAPTLSPacketFlagsStart) != 0) {
-	fprintf(out_f, " start");
-    }
-    if ((eaptls_pkt->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
-	if (length < sizeof(EAPTLSLengthIncludedPacket)) {
-	    fprintf(out_f, "\ninvalid packet: length %d < %lu",
-		    length, sizeof(EAPTLSLengthIncludedPacket));
-	    goto done;
-	}
-	data_ptr = eaptls_pkt_l->tls_data;
-	data_length = length - sizeof(EAPTLSLengthIncludedPacket);
-	tls_message_length 
-	    = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_pkt_l);
-	fprintf(out_f, " length=%u", tls_message_length);
-	
-    }
-    if ((eaptls_pkt->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
-	fprintf(out_f, " more");
-    }
-    fprintf(out_f, "%s Data Length %d\n", eaptls_pkt->flags != 0 ? " ]" : "",
-	    data_length);
-    if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
-	fprintf(out_f, "rejecting packet to avoid DOS attack %u > %d\n",
-		tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
-	goto done;
-    }
-    fprint_data(out_f, data_ptr, data_length);
- done:
-    return (TRUE);
+    return (EAPTLSPacketCopyDescription(eaptls_pkt, packet_is_valid));
 }
 
 static EAPType 
@@ -1580,8 +1527,7 @@ eapttls_type()
 static const char *
 eapttls_name()
 {
-    return ("TTLS");
-
+    return (EAPTypeStr(kEAPTypeTTLS));
 }
 
 static EAPClientPluginVersion 
@@ -1609,7 +1555,8 @@ static struct func_table_ent {
     { kEAPClientPluginFuncNameServerKey, eapttls_server_key },
     { kEAPClientPluginFuncNameRequireProperties, eapttls_require_props },
     { kEAPClientPluginFuncNamePublishProperties, eapttls_publish_props },
-    { kEAPClientPluginFuncNamePacketDump, eapttls_packet_dump },
+    { kEAPClientPluginFuncNameCopyPacketDescription,
+      eapttls_copy_packet_description },
     { NULL, NULL},
 };
 

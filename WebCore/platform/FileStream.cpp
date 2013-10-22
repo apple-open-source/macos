@@ -34,7 +34,8 @@
 
 #include "FileStream.h"
 
-#include "PlatformString.h"
+#include "FileSystem.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -66,7 +67,7 @@ long long FileStream::getSize(const String& path, double expectedModificationTim
     time_t modificationTime;
     if (!getFileModificationTime(path, modificationTime))
         return -1;
-    if (expectedModificationTime) {
+    if (isValidFileTime(expectedModificationTime)) {
         if (static_cast<time_t>(expectedModificationTime) != modificationTime)
             return -1;
     }

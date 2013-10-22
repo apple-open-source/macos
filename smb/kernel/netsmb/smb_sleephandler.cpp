@@ -70,12 +70,12 @@ smb_sleepwakehandler(void *target, void *refCon, UInt32 messageType, IOService *
 extern "C" {
 	IONotifier *fNotifier = NULL;
 
-	__private_extern__ void smbfs_install_sleep_wake_notifier()
+	__attribute__((visibility("hidden"))) void smbfs_install_sleep_wake_notifier()
 	{
 		fNotifier = registerSleepWakeInterest(smb_sleepwakehandler, NULL, NULL);
 	}
 
-	__private_extern__ void smbfs_remove_sleep_wake_notifier()
+	__attribute__((visibility("hidden"))) void smbfs_remove_sleep_wake_notifier()
 	{
 		if (fNotifier != NULL) {
 			fNotifier->disable();

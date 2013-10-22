@@ -48,25 +48,24 @@
 #include "sudo_auth.h"
 
 int
-kerb4_init(pw, promptp, auth)
+kerb4_init(pw, auth)
     struct passwd *pw;
-    char **promptp;
     sudo_auth *auth;
 {
     static char realm[REALM_SZ];
 
     /* Don't try to verify root */
     if (pw->pw_uid == 0)
-	return(AUTH_FAILURE);
+	return AUTH_FAILURE;
 
     /* Get the local realm, or retrun failure (no krb.conf) */
     if (krb_get_lrealm(realm, 1) != KSUCCESS)
-	return(AUTH_FAILURE);
+	return AUTH_FAILURE;
 
     /* Stash a pointer to the realm (used in kerb4_verify) */
     auth->data = (void *) realm;
 
-    return(AUTH_SUCCESS);
+    return AUTH_SUCCESS;
 }
 
 int
@@ -83,8 +82,8 @@ kerb4_verify(pw, pass, auth)
      * Set the ticket file to be in sudo sudo timedir so we don't
      * wipe out other (real) kerberos tickets.
      */
-    (void) snprintf(tkfile, sizeof(tkfile), "%s/tkt%lu",
-	_PATH_SUDO_TIMEDIR, (unsigned long) pw->pw_uid);
+    (void) snprintf(tkfile, sizeof(tkfile), "%s/tkt%u",
+	_PATH_SUDO_TIMEDIR, (unsigned int) pw->pw_uid);
     (void) krb_set_tkt_string(tkfile);
 
     /* Convert the password to a ticket given. */
@@ -94,7 +93,7 @@ kerb4_verify(pw, pass, auth)
     switch (error) {
 	case INTK_OK:
 	    dest_tkt();			/* we are done with the temp ticket */
-	    return(AUTH_SUCCESS);
+	    return AUTH_SUCCESS;
 	    break;
 	case INTK_BADPW:
 	case KDC_PR_UNKNOWN:
@@ -104,5 +103,5 @@ kerb4_verify(pw, pass, auth)
 		krb_err_txt[error]);
     }
 
-    return(AUTH_FAILURE);
+    return AUTH_FAILURE;
 }

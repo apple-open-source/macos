@@ -276,12 +276,12 @@ int pppoe_connect(int *errorcode)
         sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
         if (sockfd < 0) {
             if (!noload) {
-                if (url = CFBundleCopyBundleURL(bundle)) {
+                if ((url = CFBundleCopyBundleURL(bundle))) {
                     name[0] = 0;
                     CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                     CFRelease(url);
                     strlcat(name, "/", sizeof(name));
-                    if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
+                    if ((url = CFBundleCopyBuiltInPlugInsURL(bundle))) {
                         CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                             MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
                         CFRelease(url);
@@ -407,7 +407,7 @@ int pppoe_establish_ppp(int fd)
         return -1;
     }
 
-    new_fd = generic_establish_ppp(fd);
+    new_fd = generic_establish_ppp(fd, NULL);
     if (new_fd == -1)
         return -1;
 
@@ -451,12 +451,12 @@ int pppoe_dial()
 	for (i = 0; i < len; i++) 
             if (remoteaddress[i] == '\\')
                 break;
-        if (service = malloc(i + 1)) {
+        if ((service = malloc(i + 1))) {
             strncpy(service, remoteaddress, i);
             service[i] = 0;
         }
         if (i < len) {
-            if (access_concentrator = malloc(len - i))
+            if ((access_concentrator = malloc(len - i)))
                 strlcpy(access_concentrator, &remoteaddress[i + 1], len - i);
         }
     }

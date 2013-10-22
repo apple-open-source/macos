@@ -62,12 +62,12 @@ static const char *ipsp_policy_strs[] = {
 	"discard", "none", "ipsec", "entrust", "bypass", "generate",
 };
 
-static char *ipsec_dump_ipsecrequest __P((char *, size_t,
-	struct sadb_x_ipsecrequest *, size_t, int));
-static char *ipsec_dump_policy1 __P((void *, const char *, int));
-static int set_addresses __P((char *, size_t, struct sockaddr *,
-	struct sockaddr *, int));
-static char *set_address __P((char *, size_t, struct sockaddr *, int));
+static char *ipsec_dump_ipsecrequest (char *, size_t,
+	struct sadb_x_ipsecrequest *, size_t, int);
+static char *ipsec_dump_policy1 (void *, const char *, int);
+static int set_addresses (char *, size_t, struct sockaddr *,
+	struct sockaddr *, int);
+static char *set_address (char *, size_t, struct sockaddr *, int);
 
 /*
  * policy is sadb_x_policy buffer.

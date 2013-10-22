@@ -39,26 +39,15 @@
 
 #include "config.h"
 #include "JPEGImageDecoder.h"
-#include <stdio.h>  // Needed by jpeglib.h for FILE.
+#include "PlatformInstrumentation.h"
 #include <wtf/PassOwnPtr.h>
 
-#if PLATFORM(CHROMIUM)
-#include "TraceEvent.h"
-#endif
-
-#if OS(WINCE)
-// Remove warning: 'FAR' macro redefinition
-#undef FAR
-
-// jmorecfg.h in libjpeg checks for XMD_H with the comment: "X11/xmd.h correctly defines INT32"
-// fix INT32 redefinition error by pretending we are X11/xmd.h
-#define XMD_H
-#endif
-
 extern "C" {
-#include "jpeglib.h"
 #if USE(ICCJPEG)
 #include "iccjpeg.h"
+#endif
+#if USE(QCMSLIB)
+#include "qcms.h"
 #endif
 #include <setjmp.h>
 }
@@ -70,26 +59,30 @@ extern "C" {
 #endif
 
 #if defined(JCS_ALPHA_EXTENSIONS) && ASSUME_LITTLE_ENDIAN
-inline J_DCT_METHOD dctMethod() { return JDCT_IFAST; }
 #define TURBO_JPEG_RGB_SWIZZLE
-#if USE(SKIA) && (!SK_R32_SHIFT && SK_G32_SHIFT == 8 && SK_B32_SHIFT == 16)
-inline J_COLOR_SPACE rgbOutputColorSpace() { return JCS_EXT_RGBA; }
-#else
 inline J_COLOR_SPACE rgbOutputColorSpace() { return JCS_EXT_BGRA; }
-#endif
-inline bool turboSwizzled(J_COLOR_SPACE colorSpace) { return colorSpace == rgbOutputColorSpace(); }
+inline bool turboSwizzled(J_COLOR_SPACE colorSpace) { return colorSpace == JCS_EXT_RGBA || colorSpace == JCS_EXT_BGRA; }
+inline bool colorSpaceHasAlpha(J_COLOR_SPACE colorSpace) { return turboSwizzled(colorSpace); }
 #else
-inline J_DCT_METHOD dctMethod() { return JDCT_ISLOW; }
 inline J_COLOR_SPACE rgbOutputColorSpace() { return JCS_RGB; }
+inline bool colorSpaceHasAlpha(J_COLOR_SPACE) { return false; }
 #endif
 
-#if OS(ANDROID)
+#if USE(LOW_QUALITY_IMAGE_NO_JPEG_DITHERING)
+inline J_DCT_METHOD dctMethod() { return JDCT_IFAST; }
 inline J_DITHER_MODE ditherMode() { return JDITHER_NONE; }
+#else
+inline J_DCT_METHOD dctMethod() { return JDCT_ISLOW; }
+inline J_DITHER_MODE ditherMode() { return JDITHER_FS; }
+#endif
+
+#if USE(LOW_QUALITY_IMAGE_NO_JPEG_FANCY_UPSAMPLING)
 inline bool doFancyUpsampling() { return false; }
 #else
-inline J_DITHER_MODE ditherMode() { return JDITHER_FS; }
 inline bool doFancyUpsampling() { return true; }
 #endif
+
+const int exifMarker = JPEG_APP0 + 1;
 
 namespace WebCore {
 
@@ -125,6 +118,93 @@ struct decoder_source_mgr {
     JPEGImageReader* decoder;
 };
 
+static unsigned readUint16(JOCTET* data, bool isBigEndian)
+{
+    if (isBigEndian)
+        return (GETJOCTET(data[0]) << 8) | GETJOCTET(data[1]);
+    return (GETJOCTET(data[1]) << 8) | GETJOCTET(data[0]);
+}
+
+static unsigned readUint32(JOCTET* data, bool isBigEndian)
+{
+    if (isBigEndian)
+        return (GETJOCTET(data[0]) << 24) | (GETJOCTET(data[1]) << 16) | (GETJOCTET(data[2]) << 8) | GETJOCTET(data[3]);
+    return (GETJOCTET(data[3]) << 24) | (GETJOCTET(data[2]) << 16) | (GETJOCTET(data[1]) << 8) | GETJOCTET(data[0]);
+}
+
+static bool checkExifHeader(jpeg_saved_marker_ptr marker, bool& isBigEndian, unsigned& ifdOffset)
+{
+    // For exif data, the APP1 block is followed by 'E', 'x', 'i', 'f', '\0',
+    // then a fill byte, and then a tiff file that contains the metadata.
+    // A tiff file starts with 'I', 'I' (intel / little endian byte order) or
+    // 'M', 'M' (motorola / big endian byte order), followed by (uint16_t)42,
+    // followed by an uint32_t with the offset to the tag block, relative to the
+    // tiff file start.
+    const unsigned exifHeaderSize = 14;
+    if (!(marker->marker == exifMarker
+        && marker->data_length >= exifHeaderSize
+        && marker->data[0] == 'E'
+        && marker->data[1] == 'x'
+        && marker->data[2] == 'i'
+        && marker->data[3] == 'f'
+        && marker->data[4] == '\0'
+        // data[5] is a fill byte
+        && ((marker->data[6] == 'I' && marker->data[7] == 'I')
+            || (marker->data[6] == 'M' && marker->data[7] == 'M'))))
+        return false;
+
+    isBigEndian = marker->data[6] == 'M';
+    if (readUint16(marker->data + 8, isBigEndian) != 42)
+        return false;
+
+    ifdOffset = readUint32(marker->data + 10, isBigEndian);
+    return true;
+}
+
+static ImageOrientation readImageOrientation(jpeg_decompress_struct* info)
+{
+    // The JPEG decoder looks at EXIF metadata.
+    // FIXME: Possibly implement XMP and IPTC support.
+    const unsigned orientationTag = 0x112;
+    const unsigned shortType = 3;
+    for (jpeg_saved_marker_ptr marker = info->marker_list; marker; marker = marker->next) {
+        bool isBigEndian;
+        unsigned ifdOffset;
+        if (!checkExifHeader(marker, isBigEndian, ifdOffset))
+            continue;
+        const unsigned offsetToTiffData = 6; // Account for 'Exif\0<fill byte>' header.
+        if (marker->data_length < offsetToTiffData || ifdOffset >= marker->data_length - offsetToTiffData)
+            continue;
+        ifdOffset += offsetToTiffData;
+
+        // The jpeg exif container format contains a tiff block for metadata.
+        // A tiff image file directory (ifd) consists of a uint16_t describing
+        // the number of ifd entries, followed by that many entries.
+        // When touching this code, it's useful to look at the tiff spec:
+        // http://partners.adobe.com/public/developer/en/tiff/TIFF6.pdf
+        JOCTET* ifd = marker->data + ifdOffset;
+        JOCTET* end = marker->data + marker->data_length;
+        if (end - ifd < 2)
+            continue;
+        unsigned tagCount = readUint16(ifd, isBigEndian);
+        ifd += 2; // Skip over the uint16 that was just read.
+
+        // Every ifd entry is 2 bytes of tag, 2 bytes of contents datatype,
+        // 4 bytes of number-of-elements, and 4 bytes of either offset to the
+        // tag data, or if the data is small enough, the inlined data itself.
+        const int ifdEntrySize = 12;
+        for (unsigned i = 0; i < tagCount && end - ifd >= ifdEntrySize; ++i, ifd += ifdEntrySize) {
+            unsigned tag = readUint16(ifd, isBigEndian);
+            unsigned type = readUint16(ifd + 2, isBigEndian);
+            unsigned count = readUint32(ifd + 4, isBigEndian);
+            if (tag == orientationTag && type == shortType && count == 1)
+                return ImageOrientation::fromEXIFValue(readUint16(ifd + 8, isBigEndian));
+        }
+    }
+
+    return ImageOrientation();
+}
+
 static ColorProfile readColorProfile(jpeg_decompress_struct* info)
 {
 #if USE(ICCJPEG)
@@ -150,12 +230,13 @@ static ColorProfile readColorProfile(jpeg_decompress_struct* info)
     free(profile);
     return colorProfile;
 #else
+    UNUSED_PARAM(info);
     return ColorProfile();
 #endif
 }
 
-class JPEGImageReader
-{
+class JPEGImageReader {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     JPEGImageReader(JPEGImageDecoder* decoder)
         : m_decoder(decoder)
@@ -163,6 +244,9 @@ public:
         , m_bytesToSkip(0)
         , m_state(JPEG_HEADER)
         , m_samples(0)
+#if USE(QCMSLIB)
+        , m_transform(0)
+#endif
     {
         memset(&m_info, 0, sizeof(jpeg_decompress_struct));
 
@@ -196,6 +280,9 @@ public:
         // Retain ICC color profile markers for color management.
         setup_read_icc_profile(&m_info);
 #endif
+
+        // Keep APP1 blocks, for obtaining exif data.
+        jpeg_save_markers(&m_info, exifMarker, 0xFFFF);
     }
 
     ~JPEGImageReader()
@@ -210,6 +297,11 @@ public:
             fastFree(src);
         m_info.src = 0;
 
+#if USE(QCMSLIB)
+        if (m_transform)
+            qcms_transform_release(m_transform);
+        m_transform = 0;
+#endif
         jpeg_destroy_decompress(&m_info);
     }
 
@@ -274,6 +366,35 @@ public:
                 return m_decoder->setFailed();
             }
 
+            m_state = JPEG_START_DECOMPRESS;
+
+            // We can fill in the size now that the header is available.
+            if (!m_decoder->setSize(m_info.image_width, m_info.image_height))
+                return false;
+
+            m_decoder->setOrientation(readImageOrientation(info()));
+
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING) && defined(TURBO_JPEG_RGB_SWIZZLE)
+            // There's no point swizzle decoding if image down sampling will
+            // be applied. Revert to using JSC_RGB in that case.
+            if (m_decoder->willDownSample() && turboSwizzled(m_info.out_color_space))
+                m_info.out_color_space = JCS_RGB;
+#endif
+            // Allow color management of the decoded RGBA pixels if possible.
+            if (!m_decoder->ignoresGammaAndColorProfile()) {
+                ColorProfile rgbInputDeviceColorProfile = readColorProfile(info());
+                if (!rgbInputDeviceColorProfile.isEmpty())
+                    m_decoder->setColorProfile(rgbInputDeviceColorProfile);
+#if USE(QCMSLIB)
+                createColorTransform(rgbInputDeviceColorProfile, colorSpaceHasAlpha(m_info.out_color_space));
+#if defined(TURBO_JPEG_RGB_SWIZZLE)
+                // Input RGBA data to qcms. Note: restored to BGRA on output.
+                if (m_transform && m_info.out_color_space == JCS_EXT_BGRA)
+                    m_info.out_color_space = JCS_EXT_RGBA;
+#endif
+#endif
+            }
+
             // Don't allocate a giant and superfluous memory buffer when the
             // image is a sequential JPEG.
             m_info.buffered_image = jpeg_has_multiple_scans(&m_info);
@@ -282,27 +403,15 @@ public:
             jpeg_calc_output_dimensions(&m_info);
 
             // Make a one-row-high sample array that will go away when done with
-            // image. Always make it big enough to hold an RGB row.  Since this
+            // image. Always make it big enough to hold an RGB row. Since this
             // uses the IJG memory manager, it must be allocated before the call
             // to jpeg_start_compress().
+            // FIXME: note that some output color spaces do not need the samples
+            // buffer. Remove this allocation for those color spaces.
             m_samples = (*m_info.mem->alloc_sarray)((j_common_ptr) &m_info, JPOOL_IMAGE, m_info.output_width * 4, 1);
 
-            m_state = JPEG_START_DECOMPRESS;
-
-            // We can fill in the size now that the header is available.
-            if (!m_decoder->setSize(m_info.image_width, m_info.image_height))
-                return false;
-
-            // Allow color management of the decoded RGBA pixels if possible.
-            if (!m_decoder->ignoresGammaAndColorProfile()) {
-                ColorProfile rgbInputDeviceColorProfile = readColorProfile(info());
-                if (!rgbInputDeviceColorProfile.isEmpty())
-                    m_decoder->setColorProfile(rgbInputDeviceColorProfile);
-            }
-
             if (m_decodingSizeOnly) {
-                // We can stop here.  Reduce our buffer length and available
-                // data.
+                // We can stop here. Reduce our buffer length and available data.
                 m_bufferLength -= m_info.src->bytes_in_buffer;
                 m_info.src->bytes_in_buffer = 0;
                 return true;
@@ -402,30 +511,58 @@ public:
     jpeg_decompress_struct* info() { return &m_info; }
     JSAMPARRAY samples() const { return m_samples; }
     JPEGImageDecoder* decoder() { return m_decoder; }
+#if USE(QCMSLIB)
+    qcms_transform* colorTransform() const { return m_transform; }
+
+    void createColorTransform(const ColorProfile& colorProfile, bool hasAlpha)
+    {
+        if (m_transform)
+            qcms_transform_release(m_transform);
+        m_transform = 0;
+
+        if (colorProfile.isEmpty())
+            return;
+        qcms_profile* deviceProfile = ImageDecoder::qcmsOutputDeviceProfile();
+        if (!deviceProfile)
+            return;
+        qcms_profile* inputProfile = qcms_profile_from_memory(colorProfile.data(), colorProfile.size());
+        if (!inputProfile)
+            return;
+        // We currently only support color profiles for RGB profiled images.
+        ASSERT(icSigRgbData == qcms_profile_get_color_space(inputProfile));
+        qcms_data_type dataFormat = hasAlpha ? QCMS_DATA_RGBA_8 : QCMS_DATA_RGB_8;
+        // FIXME: Don't force perceptual intent if the image profile contains an intent.
+        m_transform = qcms_transform_create(inputProfile, dataFormat, deviceProfile, dataFormat, QCMS_INTENT_PERCEPTUAL);
+        qcms_profile_release(inputProfile);
+    }
+#endif
 
 private:
     JPEGImageDecoder* m_decoder;
     unsigned m_bufferLength;
     int m_bytesToSkip;
     bool m_decodingSizeOnly;
-    bool m_initialized;
 
     jpeg_decompress_struct m_info;
     decoder_error_mgr m_err;
     jstate m_state;
 
     JSAMPARRAY m_samples;
+
+#if USE(QCMSLIB)
+    qcms_transform* m_transform;
+#endif
 };
 
 // Override the standard error method in the IJG JPEG decoder code.
 void error_exit(j_common_ptr cinfo)
 {
     // Return control to the setjmp point.
-    decoder_error_mgr *err = (decoder_error_mgr *) cinfo->err;
+    decoder_error_mgr *err = reinterpret_cast_ptr<decoder_error_mgr *>(cinfo->err);
     longjmp(err->setjmp_buffer, -1);
 }
 
-void init_source(j_decompress_ptr jd)
+void init_source(j_decompress_ptr)
 {
 }
 
@@ -435,7 +572,7 @@ void skip_input_data(j_decompress_ptr jd, long num_bytes)
     src->decoder->skipBytes(num_bytes);
 }
 
-boolean fill_input_buffer(j_decompress_ptr jd)
+boolean fill_input_buffer(j_decompress_ptr)
 {
     // Our decode step always sets things up properly, so if this method is ever
     // called, then we have hit the end of the buffer.  A return value of false
@@ -487,8 +624,11 @@ ImageFrame* JPEGImageDecoder::frameBufferAtIndex(size_t index)
     }
 
     ImageFrame& frame = m_frameBufferCache[0];
-    if (frame.status() != ImageFrame::FrameComplete)
+    if (frame.status() != ImageFrame::FrameComplete) {
+        PlatformInstrumentation::willDecodeImage("JPEG");
         decode(false);
+        PlatformInstrumentation::didDecodeImage();
+    }
     return &frame;
 }
 
@@ -496,6 +636,70 @@ bool JPEGImageDecoder::setFailed()
 {
     m_reader.clear();
     return ImageDecoder::setFailed();
+}
+
+template <J_COLOR_SPACE colorSpace>
+void setPixel(ImageFrame& buffer, ImageFrame::PixelData* currentAddress, JSAMPARRAY samples, int column)
+{
+    JSAMPLE* jsample = *samples + column * (colorSpace == JCS_RGB ? 3 : 4);
+
+    switch (colorSpace) {
+    case JCS_RGB:
+        buffer.setRGBA(currentAddress, jsample[0], jsample[1], jsample[2], 0xFF);
+        break;
+    case JCS_CMYK:
+        // Source is 'Inverted CMYK', output is RGB.
+        // See: http://www.easyrgb.com/math.php?MATH=M12#text12
+        // Or: http://www.ilkeratalay.com/colorspacesfaq.php#rgb
+        // From CMYK to CMY:
+        // X =   X    * (1 -   K   ) +   K  [for X = C, M, or Y]
+        // Thus, from Inverted CMYK to CMY is:
+        // X = (1-iX) * (1 - (1-iK)) + (1-iK) => 1 - iX*iK
+        // From CMY (0..1) to RGB (0..1):
+        // R = 1 - C => 1 - (1 - iC*iK) => iC*iK  [G and B similar]
+        unsigned k = jsample[3];
+        buffer.setRGBA(currentAddress, jsample[0] * k / 255, jsample[1] * k / 255, jsample[2] * k / 255, 0xFF);
+        break;
+    }
+}
+
+template <J_COLOR_SPACE colorSpace, bool isScaled>
+bool JPEGImageDecoder::outputScanlines(ImageFrame& buffer)
+{
+    JSAMPARRAY samples = m_reader->samples();
+    jpeg_decompress_struct* info = m_reader->info();
+    int width = isScaled ? m_scaledColumns.size() : info->output_width;
+
+    while (info->output_scanline < info->output_height) {
+        // jpeg_read_scanlines will increase the scanline counter, so we
+        // save the scanline before calling it.
+        int sourceY = info->output_scanline;
+        /* Request one scanline.  Returns 0 or 1 scanlines. */
+        if (jpeg_read_scanlines(info, samples, 1) != 1)
+            return false;
+
+        int destY = scaledY(sourceY);
+        if (destY < 0)
+            continue;
+
+#if USE(QCMSLIB)
+        if (m_reader->colorTransform() && colorSpace == JCS_RGB)
+            qcms_transform_data(m_reader->colorTransform(), *samples, *samples, info->output_width);
+#endif
+
+        ImageFrame::PixelData* currentAddress = buffer.getAddr(0, destY);
+        for (int x = 0; x < width; ++x) {
+            setPixel<colorSpace>(buffer, currentAddress, samples, isScaled ? m_scaledColumns[x] : x);
+            ++currentAddress;
+        }
+    }
+    return true;
+}
+
+template <J_COLOR_SPACE colorSpace>
+bool JPEGImageDecoder::outputScanlines(ImageFrame& buffer)
+{
+    return m_scaled ? outputScanlines<colorSpace, true>(buffer) : outputScanlines<colorSpace, false>(buffer);
 }
 
 bool JPEGImageDecoder::outputScanlines()
@@ -520,56 +724,35 @@ bool JPEGImageDecoder::outputScanlines()
 
     jpeg_decompress_struct* info = m_reader->info();
 
-#if !ENABLE(IMAGE_DECODER_DOWN_SAMPLING) && defined(TURBO_JPEG_RGB_SWIZZLE)
-    if (turboSwizzled(info->out_color_space)) {
-         ASSERT(!m_scaled);
-         while (info->output_scanline < info->output_height) {
-             unsigned char* row = reinterpret_cast<unsigned char*>(buffer.getAddr(0, info->output_scanline));
-             if (jpeg_read_scanlines(info, &row, 1) != 1)
-                  return false;
+#if defined(TURBO_JPEG_RGB_SWIZZLE)
+    if (!m_scaled && turboSwizzled(info->out_color_space)) {
+        while (info->output_scanline < info->output_height) {
+            unsigned char* row = reinterpret_cast<unsigned char*>(buffer.getAddr(0, info->output_scanline));
+            if (jpeg_read_scanlines(info, &row, 1) != 1)
+                return false;
+#if USE(QCMSLIB)
+            if (qcms_transform* transform = m_reader->colorTransform())
+                qcms_transform_data_type(transform, row, row, info->output_width, rgbOutputColorSpace() == JCS_EXT_BGRA ? QCMS_OUTPUT_BGRX : QCMS_OUTPUT_RGBX);
+#endif
          }
          return true;
      }
 #endif
 
-    JSAMPARRAY samples = m_reader->samples();
-
-    while (info->output_scanline < info->output_height) {
-        // jpeg_read_scanlines will increase the scanline counter, so we
-        // save the scanline before calling it.
-        int sourceY = info->output_scanline;
-        /* Request one scanline.  Returns 0 or 1 scanlines. */
-        if (jpeg_read_scanlines(info, samples, 1) != 1)
-            return false;
-
-        int destY = scaledY(sourceY);
-        if (destY < 0)
-            continue;
-        int width = m_scaled ? m_scaledColumns.size() : info->output_width;
-        for (int x = 0; x < width; ++x) {
-            JSAMPLE* jsample = *samples + (m_scaled ? m_scaledColumns[x] : x) * ((info->out_color_space == JCS_RGB) ? 3 : 4);
-            if (info->out_color_space == JCS_RGB)
-                buffer.setRGBA(x, destY, jsample[0], jsample[1], jsample[2], 0xFF);
-            else if (info->out_color_space == JCS_CMYK) {
-                // Source is 'Inverted CMYK', output is RGB.
-                // See: http://www.easyrgb.com/math.php?MATH=M12#text12
-                // Or:  http://www.ilkeratalay.com/colorspacesfaq.php#rgb
-                // From CMYK to CMY:
-                // X =   X    * (1 -   K   ) +   K  [for X = C, M, or Y]
-                // Thus, from Inverted CMYK to CMY is:
-                // X = (1-iX) * (1 - (1-iK)) + (1-iK) => 1 - iX*iK
-                // From CMY (0..1) to RGB (0..1):
-                // R = 1 - C => 1 - (1 - iC*iK) => iC*iK  [G and B similar]
-                unsigned k = jsample[3];
-                buffer.setRGBA(x, destY, jsample[0] * k / 255, jsample[1] * k / 255, jsample[2] * k / 255, 0xFF);
-            } else {
-                ASSERT_NOT_REACHED();
-                return setFailed();
-            }
-        }
+    switch (info->out_color_space) {
+    // The code inside outputScanlines<int, bool> will be executed
+    // for each pixel, so we want to avoid any extra comparisons there.
+    // That is why we use template and template specializations here so
+    // the proper code will be generated at compile time.
+    case JCS_RGB:
+        return outputScanlines<JCS_RGB>(buffer);
+    case JCS_CMYK:
+        return outputScanlines<JCS_CMYK>(buffer);
+    default:
+        ASSERT_NOT_REACHED();
     }
 
-    return true;
+    return setFailed();
 }
 
 void JPEGImageDecoder::jpegComplete()
@@ -586,9 +769,6 @@ void JPEGImageDecoder::jpegComplete()
 
 void JPEGImageDecoder::decode(bool onlySize)
 {
-#if PLATFORM(CHROMIUM)
-    TRACE_EVENT("JPEGImageDecoder::decode", this, 0);
-#endif
     if (failed())
         return;
 

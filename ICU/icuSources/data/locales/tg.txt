@@ -1,0 +1,130 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/tg.xml
+// *
+// ***************************************************************************
+/**
+ *  ICU <specials> source: <path>/xml/main/tg.xml
+ */
+tg{
+    AuxExemplarCharacters{"[ц щ ы ь]"}
+    ExemplarCharacters{"[а б в г ғ д е ё ж з и ӣ й к қ л м н о п р с т у ӯ ф х ҳ ч ҷ ш ъ э ю я]"}
+    ExemplarCharactersIndex{"[А Б В Г Ғ Д Е Ж З И Й К Қ Л М Н О П Р С Т У Ф Х Ҳ Ч Ҷ Ш Ъ Э Ю Я]"}
+    LocaleScript{
+        "Cyrl",
+    }
+    Version{"2.0.82.45"}
+    calendar{
+        generic{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, G y MMMM dd",
+                "G y MMMM d",
+                "G y MMM d",
+                "GGGGG yy/MM/dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+        }
+        gregorian{
+            AmPmMarkers{
+                "пе. чо.",
+                "па. чо.",
+            }
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, y MMMM dd",
+                "y MMMM d",
+                "y MMM d",
+                "yy/MM/dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            dayNames{
+                format{
+                    abbreviated{
+                        "Яшб",
+                        "Дшб",
+                        "Сшб",
+                        "Чшб",
+                        "Пшб",
+                        "Ҷмъ",
+                        "Шнб",
+                    }
+                    wide{
+                        "Якшанбе",
+                        "Душанбе",
+                        "Сешанбе",
+                        "Чоршанбе",
+                        "Панҷшанбе",
+                        "Ҷумъа",
+                        "Шанбе",
+                    }
+                }
+            }
+            eras{
+                abbreviated{
+                    "ПеМ",
+                    "ПаМ",
+                }
+                wide{
+                    "Пеш аз милод",
+                    "ПаМ",
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "Янв",
+                        "Фев",
+                        "Мар",
+                        "Апр",
+                        "Май",
+                        "Июн",
+                        "Июл",
+                        "Авг",
+                        "Сен",
+                        "Окт",
+                        "Ноя",
+                        "Дек",
+                    }
+                    wide{
+                        "Январ",
+                        "Феврал",
+                        "Март",
+                        "Апрел",
+                        "Май",
+                        "Июн",
+                        "Июл",
+                        "Август",
+                        "Сентябр",
+                        "Октябр",
+                        "Ноябр",
+                        "Декабр",
+                    }
+                }
+            }
+        }
+    }
+    delimiters{
+        alternateQuotationEnd{"„"}
+        alternateQuotationStart{"«"}
+        quotationEnd{"»"}
+        quotationStart{"«"}
+    }
+}

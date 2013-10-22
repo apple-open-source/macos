@@ -2283,6 +2283,20 @@ struct ofile *ofile)
 	   archs[0].toc_strsize == ofile->toc_strsize){
 
 	    /*
+	     * If the table of contents in the input does have a long name and
+	     * the one we built does not (or vice a versa) then don't update it
+	     * in place.
+	     */
+	    if(strcmp(ofile->toc_ar_hdr->ar_name, AR_EFMT1) == 0){
+	       if(archs[0].toc_long_name != TRUE)
+		goto fail_to_update_toc_in_place;
+	    }
+	    else{
+	       if(archs[0].toc_long_name == TRUE)
+		goto fail_to_update_toc_in_place;
+	    }
+
+	    /*
 	     * The existing thin archive may not be laid out the same way as
 	     * libtool(1) would do it.  As ar(1) does not know to pad things
 	     * so object files are on their natural alignment.  So check to

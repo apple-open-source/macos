@@ -43,11 +43,11 @@ int writeFile(
 	if(fd < 0) {
 		return errno;
 	}
-	rtn = lseek(fd, 0, SEEK_SET);
+	rtn = (int)lseek(fd, 0, SEEK_SET);
 	if(rtn < 0) {
 		return errno;
 	}
-	rtn = write(fd, bytes, (size_t)numBytes);
+	rtn = (int)write(fd, bytes, (size_t)numBytes);
 	if(rtn != (int)numBytes) {
 		if(rtn >= 0) {
 			printf("writeFile: short write\n");
@@ -85,17 +85,17 @@ int readFile(
 	if(rtn) {
 		goto errOut;
 	}
-	size = sb.st_size;
+	size = (unsigned)sb.st_size;
 	buf = malloc(size);
 	if(buf == NULL) {
 		rtn = ENOMEM;
 		goto errOut;
 	}
-	rtn = lseek(fd, 0, SEEK_SET);
+	rtn = (int)lseek(fd, 0, SEEK_SET);
 	if(rtn < 0) {
 		goto errOut;
 	}
-	rtn = read(fd, buf, (size_t)size);
+	rtn = (int)read(fd, buf, (size_t)size);
 	if(rtn != (int)size) {
 		if(rtn >= 0) {
 			printf("readFile: short read\n");

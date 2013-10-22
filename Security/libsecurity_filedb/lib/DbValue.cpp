@@ -113,7 +113,7 @@ SInt32Value::pack(WriteSection &ws, uint32 &offset) const
 
 DoubleValue::DoubleValue(const ReadSection &rs, uint32 &offset)
 {
-	Range r(offset, size());
+	Range r(offset, (uint32)size());
 	mValue = *reinterpret_cast<const double *>(rs.range(r));
 	offset += size();
 }
@@ -140,7 +140,7 @@ DoubleValue::~DoubleValue()
 void
 DoubleValue::pack(WriteSection &ws, uint32 &offset) const
 {
-	offset = ws.put(offset, size(), bytes());
+	offset = ws.put(offset, (uint32)size(), bytes());
 }
 
 //
@@ -150,8 +150,8 @@ DoubleValue::pack(WriteSection &ws, uint32 &offset) const
 BlobValue::BlobValue(const ReadSection &rs, uint32 &offset)
 {
 	Length = rs.at(offset);
-	Data = const_cast<uint8 *>(rs.range(Range(offset + AtomSize, Length)));
-	offset = ReadSection::align(offset + Length + AtomSize);
+	Data = const_cast<uint8 *>(rs.range(Range(offset + AtomSize, (uint32)Length)));
+	offset = ReadSection::align((uint32)(offset + Length + AtomSize));
 }
 
 BlobValue::BlobValue(const CSSM_DATA &data)
@@ -166,8 +166,8 @@ BlobValue::~BlobValue()
 void
 BlobValue::pack(WriteSection &ws, uint32 &offset) const
 {
-	offset = ws.put(offset, Length);
-	offset = ws.put(offset, Length, Data);
+	offset = ws.put(offset, (uint32)Length);
+	offset = ws.put(offset, (uint32)Length, Data);
 }
 
 BlobValue::Comparator::~Comparator()
@@ -190,7 +190,7 @@ bool
 BlobValue::evaluate(const CssmData &inData1, const CssmData &inData2, CSSM_DB_OPERATOR op,
 	Comparator compare)
 {
-	uint32 length1 = inData1.Length, length2 = inData2.Length;
+	uint32 length1 = (uint32)inData1.Length, length2 = (uint32)inData2.Length;
 	const uint8 *data1 = inData1.Data;
 	const uint8 *data2 = inData2.Data;
 	
@@ -262,8 +262,8 @@ BlobValue::evaluate(const CssmData &inData1, const CssmData &inData2, CSSM_DB_OP
 TimeDateValue::TimeDateValue(const ReadSection &rs, uint32 &offset)
 {
 	Length = kTimeDateSize;
-	Data = const_cast<uint8 *>(rs.range(Range(offset, Length)));
-	offset = ReadSection::align(offset + Length);
+	Data = const_cast<uint8 *>(rs.range(Range(offset, (uint32)Length)));
+	offset = ReadSection::align(offset + (uint32)Length);
 }
 
 TimeDateValue::TimeDateValue(const CSSM_DATA &data)
@@ -280,7 +280,7 @@ TimeDateValue::~TimeDateValue()
 void
 TimeDateValue::pack(WriteSection &ws, uint32 &offset) const
 {
-	offset = ws.put(offset, Length, Data);
+	offset = ws.put(offset, (uint32)Length, Data);
 }
 
 bool
@@ -303,15 +303,15 @@ TimeDateValue::isValidDate() const
 		return false;
 		
 	uint32 hour = rangeValue(8, 2);
-	if (hour < 0 || hour > 23)
+	if (hour > 23)
 		return false;
 		
 	uint32 minute = rangeValue(10, 2);
-	if (minute < 0 || minute > 59)
+	if (minute > 59)
 		return false;
 
 	uint32 second = rangeValue(12, 2);
-	if (second < 0 || second > 59)
+	if (second > 59)
 		return false;		
 
 	return true;
@@ -403,7 +403,7 @@ BigNumValue::compare(const uint8 *a, const uint8 *b, int length)
 bool
 BigNumValue::evaluate(const BigNumValue &other, CSSM_DB_OPERATOR op) const
 {
-	uint32 length1 = Length, length2 = other.Length;
+	uint32 length1 = (uint32)Length, length2 = (uint32)other.Length;
 	uint8 sign1 = length1 ? (Data[0] & kSignBit) : 0;
 	uint8 sign2 = length2 ? (other.Data[0] & kSignBit) : 0;
 	
@@ -470,7 +470,7 @@ MultiUInt32Value::MultiUInt32Value(const CSSM_DATA &data)
 	if (data.Length & (sizeof(uint32) - 1))
 		CssmError::throwMe(CSSMERR_DL_INVALID_VALUE);
 		
-	mNumValues = data.Length / sizeof(uint32);
+	mNumValues = (uint32)(data.Length / sizeof(uint32));
 	mValues = reinterpret_cast<uint32 *>(data.Data);
 	mOwnsValues = false;
 }

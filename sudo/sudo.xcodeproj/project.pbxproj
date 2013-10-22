@@ -87,6 +87,12 @@
 		72A31DDA12A57EB20088E971 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A31DD912A57DFF0088E971 /* libz.dylib */; };
 		72A31DDE12A57F370088E971 /* parse_args.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A31DDD12A57F370088E971 /* parse_args.c */; };
 		72A31DE312A580080088E971 /* get_pty.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A31DE212A580080088E971 /* get_pty.c */; };
+		FE9495C316C7333600AE40BD /* toke_util.c in Sources */ = {isa = PBXBuildFile; fileRef = FE9495C216C732EE00AE40BD /* toke_util.c */; };
+		FE9495C416C7333700AE40BD /* toke_util.c in Sources */ = {isa = PBXBuildFile; fileRef = FE9495C216C732EE00AE40BD /* toke_util.c */; };
+		FE9495C716C733A500AE40BD /* logwrap.c in Sources */ = {isa = PBXBuildFile; fileRef = FE9495C616C733A500AE40BD /* logwrap.c */; };
+		FE9495CA16C733DC00AE40BD /* ttyname.c in Sources */ = {isa = PBXBuildFile; fileRef = FE9495C916C733DC00AE40BD /* ttyname.c */; };
+		FE9495CC16C7342A00AE40BD /* secure_path.c in Sources */ = {isa = PBXBuildFile; fileRef = FE9495C516C7337700AE40BD /* secure_path.c */; };
+		FE9495CD16C7344300AE40BD /* secure_path.c in Sources */ = {isa = PBXBuildFile; fileRef = FE9495C516C7337700AE40BD /* secure_path.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -180,6 +186,10 @@
 		72A31DD912A57DFF0088E971 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
 		72A31DDD12A57F370088E971 /* parse_args.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parse_args.c; sourceTree = "<group>"; };
 		72A31DE212A580080088E971 /* get_pty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = get_pty.c; sourceTree = "<group>"; };
+		FE9495C216C732EE00AE40BD /* toke_util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = toke_util.c; sourceTree = "<group>"; };
+		FE9495C516C7337700AE40BD /* secure_path.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = secure_path.c; sourceTree = "<group>"; };
+		FE9495C616C733A500AE40BD /* logwrap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = logwrap.c; sourceTree = "<group>"; };
+		FE9495C916C733DC00AE40BD /* ttyname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ttyname.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -253,6 +263,10 @@
 				1C35E91B0F40B56C006E8642 /* memrchr.c */,
 				1C35E9170F40B56C006E8642 /* logging.c */,
 				1C35E94E0F40B56C006E8642 /* toke.c */,
+				FE9495C216C732EE00AE40BD /* toke_util.c */,
+				FE9495C616C733A500AE40BD /* logwrap.c */,
+				FE9495C916C733DC00AE40BD /* ttyname.c */,
+				FE9495C516C7337700AE40BD /* secure_path.c */,
 				1C35E8D90F40B56C006E8642 /* pam.c */,
 				1C35E9530F40B56C006E8642 /* visudo.c */,
 				1C35E8E40F40B56C006E8642 /* compat.h */,
@@ -392,6 +406,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "sudo" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -513,8 +529,10 @@
 			files = (
 				1C909487100C020900894C22 /* closefrom.c in Sources */,
 				1C909477100C01EC00894C22 /* fileops.c in Sources */,
+				FE9495CD16C7344300AE40BD /* secure_path.c in Sources */,
 				1C909478100C01EC00894C22 /* find_path.c in Sources */,
 				1C909479100C01EC00894C22 /* gettime.c in Sources */,
+				FE9495C416C7333700AE40BD /* toke_util.c in Sources */,
 				1C90947A100C01EC00894C22 /* goodpath.c in Sources */,
 				1C90947B100C01EC00894C22 /* pwutil.c in Sources */,
 				1C90947C100C01EC00894C22 /* visudo.c in Sources */,
@@ -557,10 +575,12 @@
 				1C84C70E0F40D63700E9FD67 /* lbuf.c in Sources */,
 				1C84C70B0F40D61100E9FD67 /* list.c in Sources */,
 				1C84C6F60F40CFF600E9FD67 /* logging.c in Sources */,
+				FE9495C316C7333600AE40BD /* toke_util.c in Sources */,
 				1C84C6F30F40CF9000E9FD67 /* sudo_auth.c in Sources */,
 				1C84C6D90F40CD9E00E9FD67 /* defaults.c in Sources */,
 				1C84C6D30F40CD8000E9FD67 /* env.c in Sources */,
 				1C84C6C80F40CD5300E9FD67 /* error.c in Sources */,
+				FE9495C716C733A500AE40BD /* logwrap.c in Sources */,
 				1C84C6C50F40CD0600E9FD67 /* sudo_nss.c in Sources */,
 				1C84C6A60F40CB6900E9FD67 /* alloc.c in Sources */,
 				1C84C6AE0F40CBB200E9FD67 /* pwutil.c in Sources */,
@@ -568,11 +588,13 @@
 				1C84C6970F40CA5400E9FD67 /* set_perms.c in Sources */,
 				1C84C6520F40BDE100E9FD67 /* sudo.c in Sources */,
 				1CCC83C01006987400B77185 /* term.c in Sources */,
+				FE9495CC16C7342A00AE40BD /* secure_path.c in Sources */,
 				1C909400100BFA2F00894C22 /* bsm_audit.c in Sources */,
 				72A31DCC12A57C900088E971 /* boottime.c in Sources */,
 				72A31DCD12A57C900088E971 /* exec_pty.c in Sources */,
 				72A31DCE12A57C900088E971 /* exec.c in Sources */,
 				72A31DCF12A57C900088E971 /* iolog.c in Sources */,
+				FE9495CA16C733DC00AE40BD /* ttyname.c in Sources */,
 				72A31DD812A57D8E0088E971 /* timestr.c in Sources */,
 				72A31DDE12A57F370088E971 /* parse_args.c in Sources */,
 				72A31DE312A580080088E971 /* get_pty.c in Sources */,
@@ -640,6 +662,11 @@
 				);
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
+				OTHER_CFLAGS = (
+					"-DSUDOERS_UID=0",
+					"-DSUDOERS_GID=0",
+					"-DSUDOERS_MODE=0440",
+				);
 			};
 			name = Release;
 		};

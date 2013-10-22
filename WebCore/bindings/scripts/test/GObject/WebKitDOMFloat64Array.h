@@ -18,15 +18,19 @@
     Boston, MA 02110-1301, USA.
 */
 
+#if !defined(__WEBKITDOM_H_INSIDE__) && !defined(BUILDING_WEBKIT)
+#error "Only <webkitdom/webkitdom.h> can be included directly."
+#endif
+
 #ifndef WebKitDOMFloat64Array_h
 #define WebKitDOMFloat64Array_h
 
 #include <glib-object.h>
-#include <webkit/WebKitDOMArrayBufferView.h>
-#include <webkit/webkitdefines.h>
-#include <webkit/webkitdomdefines.h>
+#include <webkitdom/WebKitDOMArrayBufferView.h>
+#include <webkitdom/webkitdomdefines.h>
 
 G_BEGIN_DECLS
+
 #define WEBKIT_TYPE_DOM_FLOAT64ARRAY            (webkit_dom_float64array_get_type())
 #define WEBKIT_DOM_FLOAT64ARRAY(obj)            (G_TYPE_CHECK_INSTANCE_CAST((obj), WEBKIT_TYPE_DOM_FLOAT64ARRAY, WebKitDOMFloat64Array))
 #define WEBKIT_DOM_FLOAT64ARRAY_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST((klass),  WEBKIT_TYPE_DOM_FLOAT64ARRAY, WebKitDOMFloat64ArrayClass)

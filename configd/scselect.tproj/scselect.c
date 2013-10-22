@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,7 +49,7 @@
 #include <SystemConfiguration/SCPrivate.h>
 
 #if	!TARGET_OS_IPHONE
-#include <Security/AuthSession.h>
+#include <Security/Authorization.h>
 #endif	/* !TARGET_OS_IPHONE */
 
 
@@ -73,94 +73,6 @@ usage(const char *command)
 }
 
 
-static Boolean
-isAdmin()
-{
-	gid_t	groups[NGROUPS_MAX];
-	int	ngroups;
-
-	if (getuid() == 0) {
-		return TRUE;	// if "root"
-	}
-
-	ngroups = getgroups(NGROUPS_MAX, groups);
-	if(ngroups > 0) {
-		struct group	*adminGroup;
-
-		adminGroup = getgrnam("admin");
-		if (adminGroup != NULL) {
-			gid_t	adminGid = adminGroup->gr_gid;
-			int	i;
-
-			for (i = 0; i < ngroups; i++) {
-				if (groups[i] == adminGid) {
-					return TRUE;	// if a member of group "admin"
-				}
-			}
-		}
-	}
-
-	return FALSE;
-}
-
-
-#if	!TARGET_OS_IPHONE
-static void *
-__loadSecurity(void) {
-	static void *image = NULL;
-	if (NULL == image) {
-		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
-		struct stat	statbuf;
-		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
-		char		path[MAXPATHLEN];
-
-		strlcpy(path, framework, sizeof(path));
-		if (suffix) strlcat(path, suffix, sizeof(path));
-		if (0 <= stat(path, &statbuf)) {
-			image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-		} else {
-			image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
-		}
-	}
-	return (void *)image;
-}
-
-
-static OSStatus
-_SessionGetInfo(SecuritySessionId session, SecuritySessionId *sessionId, SessionAttributeBits *attributes)
-{
-	#undef SessionGetInfo
-	static typeof (SessionGetInfo) *dyfunc = NULL;
-	if (!dyfunc) {
-		void *image = __loadSecurity();
-		if (image) dyfunc = dlsym(image, "SessionGetInfo");
-	}
-	return dyfunc ? dyfunc(session, sessionId, attributes) : -1;
-}
-#define SessionGetInfo _SessionGetInfo
-#endif	/* !TARGET_OS_IPHONE */
-
-static Boolean
-hasLocalConsoleAccess()
-{
-#if	!TARGET_OS_IPHONE
-	OSStatus		error;
-	SecuritySessionId	sessionID	= 0;
-	SessionAttributeBits	attributeBits	= 0;
-
-	error = SessionGetInfo(callerSecuritySession, &sessionID, &attributeBits);
-	if (error != noErr) {
-		/* Security check failed, must not permit access */
-		return FALSE;
-	}
-
-	return (attributeBits & (sessionHasGraphicAccess|sessionIsRemote)) == sessionHasGraphicAccess;
-#else	/* !TARGET_OS_IPHONE */
-	return TRUE;
-#endif	/* !TARGET_OS_IPHONE */
-}
-
-
 int
 main(int argc, char **argv)
 {
@@ -178,6 +90,13 @@ main(int argc, char **argv)
 	const void		**setKeys	= NULL;
 	const void		**setVals	= NULL;
 	CFIndex			i;
+
+#if	!TARGET_OS_IPHONE
+	AuthorizationRef	authorization	= NULL;
+	AuthorizationFlags	flags		= kAuthorizationFlagDefaults;
+	CFMutableDictionaryRef	options;
+	OSStatus		status;
+#endif	// !TARGET_OS_IPHONE
 
 	/* process any arguments */
 
@@ -228,12 +147,37 @@ main(int argc, char **argv)
 		newSet = CFRetain(CFSTR(""));
 	}
 
+#if	!TARGET_OS_IPHONE
+	status = AuthorizationCreate(NULL,
+				     kAuthorizationEmptyEnvironment,
+				     flags,
+				     &authorization);
+	if (status != errAuthorizationSuccess) {
+		SCPrint(TRUE,
+			stderr,
+			CFSTR("AuthorizationCreate() failed: status = %d\n"),
+			status);
+		exit (1);
+	}
 
-	prefs = SCPreferencesCreate(NULL, CFSTR("Select Set Command"), NULL);
+	options = CFDictionaryCreateMutable(NULL,
+					    0,
+					    &kCFTypeDictionaryKeyCallBacks,
+					    &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(options, kSCPreferencesOptionChangeNetworkSet, kCFBooleanTrue);
+	prefs = SCPreferencesCreateWithOptions(NULL, CFSTR("scselect"), NULL, authorization, options);
+	CFRelease(options);
 	if (prefs == NULL) {
 		SCPrint(TRUE, stderr, CFSTR("SCPreferencesCreate() failed\n"));
 		exit (1);
 	}
+#else	// !TARGET_OS_IPHONE
+	prefs = SCPreferencesCreate(NULL, CFSTR("scselect"), NULL);
+	if (prefs == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("SCPreferencesCreate() failed\n"));
+		exit (1);
+	}
+#endif	// !TARGET_OS_IPHONE
 
 	sets = SCPreferencesGetValue(prefs, kSCPrefSets);
 	if (sets == NULL) {
@@ -330,35 +274,43 @@ main(int argc, char **argv)
 			break;
 	}
 
+	CFRelease(prefix);
 	exit (0);
 
     found :
-
-	if (!(isAdmin() || hasLocalConsoleAccess())) {
-		SCPrint(TRUE, stderr,
-			CFSTR("Only local console users and administrators can change locations\n"));
-		exit (EX_NOPERM);
-	}
 
 	CFRelease(current);
 	current = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@%@"), prefix, newSet);
 
 	if (!SCPreferencesSetValue(prefs, kSCPrefCurrentSet, current)) {
 		SCPrint(TRUE, stderr,
-			CFSTR("SCPreferencesSetValue(...,%@,%@) failed\n"),
+			CFSTR("SCPreferencesSetValue(...,%@,%@) failed: %s\n"),
 			kSCPrefCurrentSet,
-			current);
+			current,
+			SCErrorString(SCError()));
 		exit (1);
 	}
 
 	if (!SCPreferencesCommitChanges(prefs)) {
-		SCPrint(TRUE, stderr, CFSTR("SCPreferencesCommitChanges() failed\n"));
-		exit (1);
+		int	sc_status	= SCError();
+
+		if (sc_status == kSCStatusAccessError) {
+			SCPrint(TRUE, stderr,
+				CFSTR("Only local console users and administrators can change locations\n"));
+			exit (EX_NOPERM);
+		} else {
+			SCPrint(TRUE, stderr,
+				CFSTR("SCPreferencesCommitChanges() failed: %s\n"),
+				SCErrorString(sc_status));
+			exit (1);
+		}
 	}
 
 	if (apply) {
 		if (!SCPreferencesApplyChanges(prefs)) {
-			SCPrint(TRUE, stderr, CFSTR("SCPreferencesApplyChanges() failed\n"));
+			SCPrint(TRUE, stderr,
+				CFSTR("SCPreferencesApplyChanges() failed %s\n"),
+				SCErrorString(SCError()));
 			exit (1);
 		}
 	}
@@ -374,6 +326,11 @@ main(int argc, char **argv)
 	if (newSetUDN != NULL)	CFRelease(newSetUDN);
 	CFRelease(prefix);
 	CFRelease(prefs);
+
+#if	!TARGET_OS_IPHONE
+	AuthorizationFree(authorization, kAuthorizationFlagDefaults);
+//	AuthorizationFree(authorization, kAuthorizationFlagDestroyRights);
+#endif	/* !TARGET_OS_IPHONE */
 
 	exit (0);
 	return 0;

@@ -1,10 +1,10 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /*
- * "$Id: config.h 3972 2012-10-24 11:59:21Z msweet $"
+ * "$Id: config.h 4169 2013-02-04 19:32:45Z msweet $"
  *
  *   Configuration file for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -21,8 +21,8 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v1.6.0"
-#define CUPS_MINIMAL "CUPS/1.6.0"
+#define CUPS_SVERSION "CUPS v1.7.0"
+#define CUPS_MINIMAL "CUPS/1.7.0"
 
 
 /*
@@ -132,13 +132,11 @@
 
 
 /*
- * Do we have various image libraries?
+ * Do we have ZLIB?
  */
 
-/* #undef HAVE_LIBPNG */
 #define HAVE_LIBZ 1
-/* #undef HAVE_LIBJPEG */
-/* #undef HAVE_LIBTIFF */
+#define HAVE_INFLATECOPY 1
 
 
 /*
@@ -169,10 +167,10 @@
 
 
 /*
- * Do we have <scsi/sg.h>?
+ * Use <stdint.h>?
  */
 
-/* #undef HAVE_SCSI_SG_H */
+#define HAVE_STDINT_H 1
 
 
 /*
@@ -308,42 +306,14 @@
  */
 
 #define HAVE_AUTHORIZATION_H 1
-#define HAVE_SECBASEPRIV_H 1
+/* #undef HAVE_SECBASEPRIV_H */
 #define HAVE_SECCERTIFICATE_H 1
-#define HAVE_SECIDENTITYSEARCHPRIV_H 1
+/* #undef HAVE_SECIDENTITYSEARCHPRIV_H */
 #define HAVE_SECITEM_H 1
-#define HAVE_SECITEMPRIV_H 1
+/* #undef HAVE_SECITEMPRIV_H */
 #define HAVE_SECPOLICY_H 1
-#define HAVE_SECPOLICYPRIV_H 1
-#define HAVE_SECURETRANSPORTPRIV_H 1
-
-
-/*
- * Do we have the SecCertificateCopyData function?
- */
-
-#define HAVE_SECCERTIFICATECOPYDATA 1
-
-
-/*
- * Do we have the SecIdentitySearchCreateWithPolicy function?
- */
-
-#define HAVE_SECIDENTITYSEARCHCREATEWITHPOLICY 1
-
-
-/*
- * Do we have the SecPolicyCreateSSL function?
- */
-
-#define HAVE_SECPOLICYCREATESSL 1
-
-
-/*
- * Do we have the SecPolicyCreateSSL function?
- */
-
-#define HAVE_SECPOLICYCREATESSL 1
+/* #undef HAVE_SECPOLICYPRIV_H */
+/* #undef HAVE_SECURETRANSPORTPRIV_H */
 
 
 /*
@@ -517,8 +487,8 @@
  */
 
 #define HAVE_COREFOUNDATION_H 1
-#define HAVE_CFPRIV_H 1
-#define HAVE_CFBUNDLEPRIV_H 1
+/* #undef HAVE_CFPRIV_H */
+/* #undef HAVE_CFBUNDLEPRIV_H */
 
 
 /*
@@ -540,7 +510,7 @@
  */
 
 #define HAVE_MEMBERSHIP_H 1
-#define HAVE_MEMBERSHIPPRIV_H 1
+/* #undef HAVE_MEMBERSHIPPRIV_H */
 #define HAVE_MBR_UID_TO_UUID 1
 
 
@@ -556,7 +526,7 @@
  * Do we have Darwin's IOKit private headers?
  */
 
-#define HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H 1
+/* #undef HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H */
 
 
 /*
@@ -574,13 +544,10 @@
 #define HAVE_GSS_ACQUIRE_CRED_EX_F 1
 #define HAVE_GSS_C_NT_HOSTBASED_SERVICE 1
 #define HAVE_GSS_GSSAPI_H 1
-#define HAVE_GSS_GSSAPI_SPI_H 1
+/* #undef HAVE_GSS_GSSAPI_SPI_H */
 #define HAVE_GSSAPI 1
-/* #undef HAVE_GSSAPI_GENERIC_H */
 /* #undef HAVE_GSSAPI_GSSAPI_H */
 /* #undef HAVE_GSSAPI_H */
-#define HAVE_GSSAPI_KRB5_H 1
-#define HAVE_KRB5_H 1
 
 
 /*
@@ -709,7 +676,7 @@
  */
 
 #define HAVE_XPC 1
-#define HAVE_XPC_PRIVATE_H 1
+/* #undef HAVE_XPC_PRIVATE_H */
 
 
 /*
@@ -739,5 +706,5 @@ static __inline int _cups_abs(int i) { return (i < 0 ? -i : i); }
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h 3972 2012-10-24 11:59:21Z msweet $".
+ * End of "$Id: config.h 4169 2013-02-04 19:32:45Z msweet $".
  */

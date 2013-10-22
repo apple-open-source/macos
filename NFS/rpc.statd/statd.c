@@ -724,6 +724,9 @@ statd_notify_start(void)
 	return (rv);
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+
 /*
  * our own little logging function...
  */
@@ -745,6 +748,7 @@ SYSLOG(int pri, const char *fmt,...)
 	}
 	va_end(ap);
 }
+#pragma clang diagnostic pop
 
 /*
  * Compare the addresses in two addrinfo structures.

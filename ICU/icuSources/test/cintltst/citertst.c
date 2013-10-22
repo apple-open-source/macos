@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2011, International Business Machines Corporation and
+ * Copyright (c) 1997-2013, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -1686,6 +1686,8 @@ static UBool checkCEValidity(const UCollator *coll, const UChar *codepoints,
     return result;
 }
 
+static const UChar IMPORT[] = { 0x5B, 0x69, 0x6D, 0x70, 0x6F, 0x72, 0x74, 0 };  /* "[import" */
+
 static void TestCEValidity()
 {
     /* testing UCA collation elements */
@@ -1775,6 +1777,7 @@ static void TestCEValidity()
                 continue;
             }
         }
+        status = U_ZERO_ERROR; // clear status from previous loop iteration
 
         uprv_memset(&src, 0, sizeof(UColTokenParser));
 
@@ -1782,14 +1785,21 @@ static void TestCEValidity()
 
         coll      = ucol_open(loc, &status);
         if (U_FAILURE(status)) {
-            log_err("%s collator creation failed\n", loc);
+            log_err("%s collator creation failed with status %s\n", loc, u_errorName(status));
             return;
         }
 
         src.opts = &opts;
         rules = ucol_getRules(coll, &ruleLen);
 
-        if (ruleLen > 0) {
+        /*
+         * We have not set up the UColTokenParser with a callback function
+         * to fetch [import] sub-rules,
+         * so skip testing tailorings that import others.
+         * TODO: Ticket #8047: Change TestCEValidity to use ucol_getTailoredSet()
+         *                     rather than the internal collation rule parser
+         */
+        if (ruleLen > 0 && u_strstr(rules, IMPORT) == NULL) {
             rulesCopy = (UChar *)uprv_malloc((ruleLen +
                 UCOL_TOK_EXTRA_RULE_SPACE_SIZE) * sizeof(UChar));
             uprv_memcpy(rulesCopy, rules, ruleLen * sizeof(UChar));
@@ -1800,7 +1810,7 @@ static void TestCEValidity()
 
 	        /* Note that as a result of tickets 7015 or 6912, ucol_tok_parseNextToken can cause the pointer to
 	           the rules copy in src.source to get reallocated, freeing the original pointer in rulesCopy */
-            while ((current = ucol_tok_parseNextToken(&src, startOfRules, &parseError,&status)) != NULL) {
+            while ((current = ucol_tok_parseNextToken(&src, startOfRules, &parseError,&status)) != NULL && U_SUCCESS(status)) {
               strength = src.parsedToken.strength;
               chOffset = src.parsedToken.charsOffset;
               chLen = src.parsedToken.charsLen;
@@ -1816,7 +1826,11 @@ static void TestCEValidity()
                 codepoints[chLen] = 0;
                 checkCEValidity(coll, codepoints, chLen);
             }
+            if (U_FAILURE(status)) {
+                log_err("%s collator, ucol_tok_parseNextToken failed with status %s\n", loc, u_errorName(status));
+            }
             uprv_free(src.source);
+            uprv_free(src.reorderCodes);
         }
 
         ucol_close(coll);
@@ -1967,19 +1981,27 @@ static void TestSortKeyValidity(void)
         UColTokenParser src;
         uint32_t strength = 0;
         uint16_t specs = 0;
+        status = U_ZERO_ERROR; // clear status from previous loop iteration
 
         uprv_memset(&src, 0, sizeof(UColTokenParser));
 
         coll      = ucol_open(locale[count], &status);
         if (U_FAILURE(status)) {
-            log_err("%s collator creation failed\n", locale[count]);
+            log_err("%s collator creation failed with status %s\n", locale[count], u_errorName(status));
             return;
         }
 
         src.opts = &opts;
         rules = ucol_getRules(coll, &ruleLen);
 
-        if (ruleLen > 0) {
+        /*
+         * We have not set up the UColTokenParser with a callback function
+         * to fetch [import] sub-rules,
+         * so skip testing tailorings that import others.
+         * TODO: Ticket #8047: Change TestSortKeyValidity to use ucol_getTailoredSet()
+         *                     rather than the internal collation rule parser
+         */
+        if (ruleLen > 0 && u_strstr(rules, IMPORT) == NULL) {
             rulesCopy = (UChar *)uprv_malloc((ruleLen +
                 UCOL_TOK_EXTRA_RULE_SPACE_SIZE) * sizeof(UChar));
             uprv_memcpy(rulesCopy, rules, ruleLen * sizeof(UChar));
@@ -1990,7 +2012,7 @@ static void TestSortKeyValidity(void)
 
 	        /* Note that as a result of tickets 7015 or 6912, ucol_tok_parseNextToken can cause the pointer to
 	           the rules copy in src.source to get reallocated, freeing the original pointer in rulesCopy */
-            while ((current = ucol_tok_parseNextToken(&src, startOfRules,&parseError, &status)) != NULL) {
+            while ((current = ucol_tok_parseNextToken(&src, startOfRules,&parseError, &status)) != NULL && U_SUCCESS(status)) {
                 strength = src.parsedToken.strength;
                 chOffset = src.parsedToken.charsOffset;
                 chLen = src.parsedToken.charsLen;
@@ -2010,7 +2032,11 @@ static void TestSortKeyValidity(void)
                 }
                 checkSortKeyValidity(coll, codepoints, chLen);
             }
+            if (U_FAILURE(status)) {
+                log_err("%s collator, ucol_tok_parseNextToken failed with status %s\n", locale[count], u_errorName(status));
+            }
             uprv_free(src.source);
+            uprv_free(src.reorderCodes);
         }
 
         ucol_close(coll);

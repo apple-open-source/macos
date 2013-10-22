@@ -24,7 +24,7 @@
 .\"
 .\" $FreeBSD: src/sbin/gpt/gpt.8,v 1.17.2.2.6.1 2010/02/10 00:26:20 kensmith Exp $
 .\"
-.Dd February 5, 2008
+.Dd May 7, 2012
 .Os
 .Dt GPT 8
 .Sh NAME
@@ -232,6 +232,11 @@ The
 .Fl l Ar label
 option is used to specify the label in the command line.
 The label is assumed to be encoded in UTF-8.
+.\" ==== recover ====
+.It Nm Ic recover Ar device ...
+The
+.Ic recover
+command allows the user to recover the GPT from the backup table.
 .\" ==== remove ====
 .It Nm Ic remove Oo Fl a Oc Ar device ...
 .It Xo

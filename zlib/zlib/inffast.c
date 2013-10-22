@@ -7,11 +7,6 @@
 #include <arm/arch.h>
 #endif
 
-#if defined VEC_OPTIMIZE && (defined __x86_64__ || defined __i386__ || defined _ARM_ARCH_6)	// architecture
-
-	typedef char DummyDefinition;
-
-#else	// architecture
 
 #include "zutil.h"
 #include "inftrees.h"
@@ -349,4 +344,3 @@ unsigned start;         /* inflate()'s starting value for strm->avail_out */
 
 #endif /* !ASMINF */
 
-#endif	// architecture

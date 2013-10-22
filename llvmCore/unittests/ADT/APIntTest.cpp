@@ -144,6 +144,12 @@ TEST(APIntTest, i1) {
   EXPECT_EQ(zero, one.lshr(1));
   EXPECT_EQ(zero, one.ashr(1));
 
+  // Rotates.
+  EXPECT_EQ(one, one.rotl(0));
+  EXPECT_EQ(one, one.rotl(1));
+  EXPECT_EQ(one, one.rotr(0));
+  EXPECT_EQ(one, one.rotr(1));
+
   // Multiplies.
   EXPECT_EQ(neg_one, neg_one * one);
   EXPECT_EQ(neg_one, one * neg_one);
@@ -165,6 +171,34 @@ TEST(APIntTest, i1) {
   EXPECT_EQ(zero, neg_one.srem(one));
   EXPECT_EQ(zero, neg_one.urem(one));
   EXPECT_EQ(zero, one.srem(neg_one));
+
+  // sdivrem
+  {
+  APInt q(8, 0);
+  APInt r(8, 0);
+  APInt one(8, 1);
+  APInt two(8, 2);
+  APInt nine(8, 9);
+  APInt four(8, 4);
+
+  EXPECT_EQ(nine.srem(two), one);
+  EXPECT_EQ(nine.srem(-two), one);
+  EXPECT_EQ((-nine).srem(two), -one);
+  EXPECT_EQ((-nine).srem(-two), -one);
+
+  APInt::sdivrem(nine, two, q, r);
+  EXPECT_EQ(four, q);
+  EXPECT_EQ(one, r);
+  APInt::sdivrem(-nine, two, q, r);
+  EXPECT_EQ(-four, q);
+  EXPECT_EQ(-one, r);
+  APInt::sdivrem(nine, -two, q, r);
+  EXPECT_EQ(-four, q);
+  EXPECT_EQ(one, r);
+  APInt::sdivrem(-nine, -two, q, r);
+  EXPECT_EQ(four, q);
+  EXPECT_EQ(-one, r);
+  }
 }
 
 TEST(APIntTest, fromString) {
@@ -354,7 +388,7 @@ TEST(APIntTest, toString) {
   APInt(8, 0).toString(S, 16, true, true);
   EXPECT_EQ(S.str().str(), "0x0");
   S.clear();
-  APInt(8, 0).toString(S, 36, true, true);
+  APInt(8, 0).toString(S, 36, true, false);
   EXPECT_EQ(S.str().str(), "0");
   S.clear();
 
@@ -371,7 +405,7 @@ TEST(APIntTest, toString) {
   APInt(8, 255, isSigned).toString(S, 16, isSigned, true);
   EXPECT_EQ(S.str().str(), "0xFF");
   S.clear();
-  APInt(8, 255, isSigned).toString(S, 36, isSigned, true);
+  APInt(8, 255, isSigned).toString(S, 36, isSigned, false);
   EXPECT_EQ(S.str().str(), "73");
   S.clear();
 
@@ -388,7 +422,7 @@ TEST(APIntTest, toString) {
   APInt(8, 255, isSigned).toString(S, 16, isSigned, true);
   EXPECT_EQ(S.str().str(), "-0x1");
   S.clear();
-  APInt(8, 255, isSigned).toString(S, 36, isSigned, true);
+  APInt(8, 255, isSigned).toString(S, 36, isSigned, false);
   EXPECT_EQ(S.str().str(), "-1");
   S.clear();
 }
@@ -448,6 +482,36 @@ TEST(APIntTest, mul_clear) {
   ValC = ValA * ValB;
   ValA *= ValB;
   EXPECT_EQ(ValA.toString(10, false), ValC.toString(10, false));
+}
+
+TEST(APIntTest, Rotate) {
+  EXPECT_EQ(APInt(8, 1),  APInt(8, 1).rotl(0));
+  EXPECT_EQ(APInt(8, 2),  APInt(8, 1).rotl(1));
+  EXPECT_EQ(APInt(8, 4),  APInt(8, 1).rotl(2));
+  EXPECT_EQ(APInt(8, 16), APInt(8, 1).rotl(4));
+  EXPECT_EQ(APInt(8, 1),  APInt(8, 1).rotl(8));
+
+  EXPECT_EQ(APInt(8, 16), APInt(8, 16).rotl(0));
+  EXPECT_EQ(APInt(8, 32), APInt(8, 16).rotl(1));
+  EXPECT_EQ(APInt(8, 64), APInt(8, 16).rotl(2));
+  EXPECT_EQ(APInt(8, 1),  APInt(8, 16).rotl(4));
+  EXPECT_EQ(APInt(8, 16), APInt(8, 16).rotl(8));
+
+  EXPECT_EQ(APInt(8, 16), APInt(8, 16).rotr(0));
+  EXPECT_EQ(APInt(8, 8),  APInt(8, 16).rotr(1));
+  EXPECT_EQ(APInt(8, 4),  APInt(8, 16).rotr(2));
+  EXPECT_EQ(APInt(8, 1),  APInt(8, 16).rotr(4));
+  EXPECT_EQ(APInt(8, 16), APInt(8, 16).rotr(8));
+
+  EXPECT_EQ(APInt(8, 1),   APInt(8, 1).rotr(0));
+  EXPECT_EQ(APInt(8, 128), APInt(8, 1).rotr(1));
+  EXPECT_EQ(APInt(8, 64),  APInt(8, 1).rotr(2));
+  EXPECT_EQ(APInt(8, 16),  APInt(8, 1).rotr(4));
+  EXPECT_EQ(APInt(8, 1),   APInt(8, 1).rotr(8));
+
+  APInt Big(256, "00004000800000000000000000003fff8000000000000000", 16);
+  APInt Rot(256, "3fff80000000000000000000000000000000000040008000", 16);
+  EXPECT_EQ(Rot, Big.rotr(144));
 }
 
 }

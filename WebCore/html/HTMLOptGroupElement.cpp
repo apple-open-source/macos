@@ -42,11 +42,17 @@ inline HTMLOptGroupElement::HTMLOptGroupElement(const QualifiedName& tagName, Do
     : HTMLElement(tagName, document)
 {
     ASSERT(hasTagName(optgroupTag));
+    setHasCustomStyleCallbacks();
 }
 
 PassRefPtr<HTMLOptGroupElement> HTMLOptGroupElement::create(const QualifiedName& tagName, Document* document)
 {
     return adoptRef(new HTMLOptGroupElement(tagName, document));
+}
+
+bool HTMLOptGroupElement::isDisabledFormControl() const
+{
+    return fastHasAttribute(disabledAttr);
 }
 
 bool HTMLOptGroupElement::supportsFocus() const
@@ -62,7 +68,7 @@ bool HTMLOptGroupElement::isFocusable() const
 
 const AtomicString& HTMLOptGroupElement::formControlType() const
 {
-    DEFINE_STATIC_LOCAL(const AtomicString, optgroup, ("optgroup"));
+    DEFINE_STATIC_LOCAL(const AtomicString, optgroup, ("optgroup", AtomicString::ConstructFromLiteral));
     return optgroup;
 }
 
@@ -72,10 +78,13 @@ void HTMLOptGroupElement::childrenChanged(bool changedByParser, Node* beforeChan
     HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
-void HTMLOptGroupElement::parseAttribute(Attribute* attr)
+void HTMLOptGroupElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    HTMLElement::parseAttribute(attr);
+    HTMLElement::parseAttribute(name, value);
     recalcSelectOptions();
+
+    if (name == disabledAttr)
+        didAffectSelector(AffectedSelectorDisabled | AffectedSelectorEnabled);
 }
 
 void HTMLOptGroupElement::recalcSelectOptions()
@@ -87,27 +96,38 @@ void HTMLOptGroupElement::recalcSelectOptions()
         toHTMLSelectElement(select)->setRecalcListItems();
 }
 
-void HTMLOptGroupElement::attach()
+void HTMLOptGroupElement::attach(const AttachContext& context)
 {
-    if (parentNode()->renderStyle())
-        setRenderStyle(styleForRenderer());
-    HTMLElement::attach();
+    HTMLElement::attach(context);
+    // If after attaching nothing called styleForRenderer() on this node we
+    // manually cache the value. This happens if our parent doesn't have a
+    // renderer like <optgroup> or if it doesn't allow children like <select>.
+    if (!m_style && parentNode()->renderStyle())
+        updateNonRenderStyle();
 }
 
-void HTMLOptGroupElement::detach()
+void HTMLOptGroupElement::detach(const AttachContext& context)
 {
     m_style.clear();
-    HTMLElement::detach();
+    HTMLElement::detach(context);
 }
 
-void HTMLOptGroupElement::setRenderStyle(PassRefPtr<RenderStyle> newStyle)
+void HTMLOptGroupElement::updateNonRenderStyle()
 {
-    m_style = newStyle;
+    m_style = document()->ensureStyleResolver()->styleForElement(this);
 }
-    
-RenderStyle* HTMLOptGroupElement::nonRendererRenderStyle() const 
-{ 
-    return m_style.get(); 
+
+RenderStyle* HTMLOptGroupElement::nonRendererStyle() const
+{
+    return m_style.get();
+}
+
+PassRefPtr<RenderStyle> HTMLOptGroupElement::customStyleForRenderer()
+{
+    // styleForRenderer is called whenever a new style should be associated
+    // with an Element so now is a good time to update our cached style.
+    updateNonRenderStyle();
+    return m_style;
 }
 
 String HTMLOptGroupElement::groupLabelText() const

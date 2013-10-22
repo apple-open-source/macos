@@ -24,29 +24,30 @@
 #ifndef NameNodeList_h
 #define NameNodeList_h
 
-#include "DynamicNodeList.h"
+#include "LiveNodeList.h"
 #include <wtf/Forward.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
-    // NodeList which lists all Nodes in a Element with a given "name" attribute
-    class NameNodeList : public DynamicSubtreeNodeList {
-    public:
-        static PassRefPtr<NameNodeList> create(PassRefPtr<Node> rootNode, const String& name)
-        {
-            return adoptRef(new NameNodeList(rootNode, name));
-        }
+// NodeList which lists all Nodes in a Element with a given "name" attribute
+class NameNodeList : public LiveNodeList {
+public:
+    static PassRefPtr<NameNodeList> create(PassRefPtr<Node> rootNode, CollectionType type, const AtomicString& name)
+    {
+        ASSERT_UNUSED(type, type == NameNodeListType);
+        return adoptRef(new NameNodeList(rootNode, name));
+    }
 
-        virtual ~NameNodeList();
+    virtual ~NameNodeList();
 
-    private:
-        NameNodeList(PassRefPtr<Node> rootNode, const String& name);
+private:
+    NameNodeList(PassRefPtr<Node> rootNode, const AtomicString& name);
 
-        virtual bool nodeMatches(Element*) const;
+    virtual bool nodeMatches(Element*) const;
 
-        AtomicString m_nodeName;
-    };
+    AtomicString m_name;
+};
 
 } // namespace WebCore
 

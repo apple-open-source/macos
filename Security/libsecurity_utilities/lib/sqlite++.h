@@ -69,9 +69,10 @@ public:
 class Database {
 	friend class Statement;
 public:
-	Database(const char *path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+	Database(const char *path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, bool lenient = false);
 	virtual ~Database();
 	
+	bool isOpen() const { return mDb != NULL; }
 	void close();
 	
 	// open flags

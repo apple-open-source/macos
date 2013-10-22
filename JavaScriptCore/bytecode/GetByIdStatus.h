@@ -26,6 +26,7 @@
 #ifndef GetByIdStatus_h
 #define GetByIdStatus_h
 
+#include "PropertyOffset.h"
 #include "StructureSet.h"
 #include <wtf/NotFound.h>
 
@@ -38,47 +39,65 @@ class GetByIdStatus {
 public:
     enum State {
         NoInformation,  // It's uncached so we have no information.
-        SimpleDirect,   // It's cached for a direct access to a known object property.
+        Simple,         // It's cached for a simple access to a known object property with
+                        // a possible structure chain and a possible specific value.
         TakesSlowPath,  // It's known to often take slow path.
         MakesCalls      // It's known to take paths that make calls.
     };
 
     GetByIdStatus()
         : m_state(NoInformation)
-        , m_offset(notFound)
+        , m_offset(invalidOffset)
     {
     }
     
-    GetByIdStatus(State state, const StructureSet& structureSet, size_t offset, bool wasSeenInJIT)
+    explicit GetByIdStatus(State state)
+        : m_state(state)
+        , m_offset(invalidOffset)
+    {
+        ASSERT(state == NoInformation || state == TakesSlowPath || state == MakesCalls);
+    }
+    
+    GetByIdStatus(
+        State state, bool wasSeenInJIT, const StructureSet& structureSet = StructureSet(),
+        PropertyOffset offset = invalidOffset, JSValue specificValue = JSValue(), Vector<Structure*> chain = Vector<Structure*>())
         : m_state(state)
         , m_structureSet(structureSet)
+        , m_chain(chain)
+        , m_specificValue(specificValue)
         , m_offset(offset)
         , m_wasSeenInJIT(wasSeenInJIT)
     {
-        ASSERT((state == SimpleDirect) == (offset != notFound));
+        ASSERT((state == Simple) == (offset != invalidOffset));
     }
     
     static GetByIdStatus computeFor(CodeBlock*, unsigned bytecodeIndex, Identifier&);
+    static GetByIdStatus computeFor(VM&, Structure*, Identifier&);
     
     State state() const { return m_state; }
     
     bool isSet() const { return m_state != NoInformation; }
     bool operator!() const { return !isSet(); }
-    bool isSimpleDirect() const { return m_state == SimpleDirect; }
+    bool isSimple() const { return m_state == Simple; }
     bool takesSlowPath() const { return m_state == TakesSlowPath || m_state == MakesCalls; }
     bool makesCalls() const { return m_state == MakesCalls; }
     
     const StructureSet& structureSet() const { return m_structureSet; }
-    size_t offset() const { return m_offset; }
+    const Vector<Structure*>& chain() const { return m_chain; } // Returns empty vector if this is a direct access.
+    JSValue specificValue() const { return m_specificValue; } // Returns JSValue() if there is no specific value.
+    PropertyOffset offset() const { return m_offset; }
     
     bool wasSeenInJIT() const { return m_wasSeenInJIT; }
     
 private:
+    static void computeForChain(GetByIdStatus& result, CodeBlock*, Identifier&, Structure*);
     static GetByIdStatus computeFromLLInt(CodeBlock*, unsigned bytecodeIndex, Identifier&);
     
     State m_state;
     StructureSet m_structureSet;
-    size_t m_offset;
+    Vector<Structure*> m_chain;
+    JSValue m_specificValue;
+    PropertyOffset m_offset;
     bool m_wasSeenInJIT;
 };
 

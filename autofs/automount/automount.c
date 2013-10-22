@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2012 Apple Inc.
  */
 
 #pragma ident	"@(#)automount.c	1.50	05/06/08 SMI"
@@ -43,6 +43,7 @@
 #include <signal.h>
 #include <fstab.h>
 #include <mntopts.h>
+#include <syslog.h>
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -131,6 +132,17 @@ main(int argc, char *argv[])
 				verbose = TRUE;
 			else
 				verbose = FALSE;
+		}
+		if ((defval = defread("AUTOMOUNTD_TRACE=")) != NULL) {
+			/*
+			 * Turn on tracing here too if the automountd
+			 * is set up to do it - since automount calls
+			 * many of the common library functions.
+			 */
+			errno = 0;
+			trace = (int)strtol(defval, (char **)NULL, 10);
+			if (errno != 0)
+				trace = 0;
 		}
 
 		/* close defaults file */
@@ -507,6 +519,18 @@ main(int argc, char *argv[])
 					continue;
 				}
 			} else {
+				/*
+				 * Mountpoint doesn't exist.
+				 *
+				 * Create it unless it's under /Volumes.
+				 * At boot time it's possible the volume
+				 * containing the mountpoint hasn't mounted yet.
+				 */
+				if (strncmp(dir->dir_name, "/Volumes/", 9) == 0) {
+					pr_msg("%s: mountpoint unavailable", dir->dir_name);
+					continue;
+				}
+
 				if (mkdir_r(dir->dir_name)) {
 					pr_msg("%s: %m", dir->dir_name);
 					continue;
@@ -1068,6 +1092,13 @@ pr_msg(const char *fmt, ...)
 	va_list ap;
 	char buf[BUFSIZ], *p2;
 	const char *p1;
+
+	if (!isatty(fileno(stderr))) {
+		va_start(ap, fmt);
+ 		(void) vsyslog(LOG_ERR, fmt, ap);
+		va_end(ap);
+		return;
+	}
 
 	(void) strlcpy(buf, "automount: ", sizeof buf);
 	p2 = buf + strlen(buf);

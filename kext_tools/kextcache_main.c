@@ -87,6 +87,11 @@
 *******************************************************************************/
 const char * progname = "(unknown)";
 
+CFMutableDictionaryRef       sNoLoadKextAlertDict = NULL;
+CFMutableDictionaryRef       sInvalidSignedKextAlertDict = NULL;
+//CFMutableDictionaryRef       sUnsignedKextAlertDict = NULL;
+CFMutableDictionaryRef       sExcludedKextAlertDict = NULL;
+CFMutableDictionaryRef       sRevokedKextAlertDict = NULL;
 
 /*******************************************************************************
 * Utility and callback functions.
@@ -101,7 +106,9 @@ static void waitForGreatSystemLoad(void);
 static u_int usecs_from_timeval(struct timeval *t);
 static void timeval_from_usecs(struct timeval *t, u_int usecs);
 static void timeval_difference(struct timeval *dst, 
-    struct timeval *a, struct timeval *b);
+                               struct timeval *a, struct timeval *b);
+static Boolean isValidKextSigningTargetVolume(CFURLRef theURL);
+static Boolean _isNewerVersionInArray(OSKextRef theKext, CFArrayRef theArray);
 
 /*******************************************************************************
 *******************************************************************************/
@@ -136,7 +143,21 @@ int main(int argc, char * const * argv)
             /* kernel? */ true);
         tool_openlog("com.apple.kextcache");
     }
-    
+
+#if 0
+    int     i;
+    OSKextLog(NULL,
+              kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+              "%s: kextcache args %d ",
+              __FUNCTION__, argc);
+    for (i = 0; i < argc; i++) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                  "%s ",
+                  argv[i]);
+    }
+#endif
+
    /*****
     * Process args & check for permission to load.
     */
@@ -147,7 +168,7 @@ int main(int argc, char * const * argv)
         }
         goto finish;
     }
-    
+
    /*****
     * Now that we have a custom verbose level set by options,
     * check the filter kextd passed in and combine them.
@@ -198,8 +219,9 @@ int main(int argc, char * const * argv)
     }
 #endif /* !NO_BOOT_ROOT */
 
-   /* If we're just un/compressing the prelinked kernel, do it and exit.
-    */
+    /* If we're uncompressing the prelinked kernel, take care of that here
+     * and exit.
+     */
     if (toolArgs.prelinkedKernelPath && !CFArrayGetCount(toolArgs.argURLs) &&
         (toolArgs.compress || toolArgs.uncompress)) 
     {
@@ -841,7 +863,7 @@ ExitStatus doUpdateVolume(KextcacheArgs *toolArgs)
     int result;                         // errno-type value
     IOReturn pmres = kIOReturnError;    // init against future re-flow
     IOPMAssertionID awakeForUpdate;     // valid if pmres == 0
-    BRUpdateOpts_t opts = kBRUOptsNone;
+    BRUpdateOpts_t opts = kBROptsNone;
 
     if (toolArgs->forceUpdateFlag)  { opts |= kBRUForceUpdateHelpers;  }
     if (toolArgs->expectUpToDate)   { opts |= kBRUExpectUpToDate;      }
@@ -889,8 +911,7 @@ Boolean setDefaultKernel(KextcacheArgs * toolArgs)
 {
     Boolean      result = FALSE;
     size_t       length = 0;
-
-    toolArgs->haveKernelMtime = FALSE;
+    struct stat  statBuf;
 
     if (!toolArgs->kernelPath) {
         toolArgs->kernelPath = malloc(PATH_MAX);
@@ -910,10 +931,11 @@ Boolean setDefaultKernel(KextcacheArgs * toolArgs)
         goto finish;
     }
 
-    if (EX_OK != statPath(toolArgs->kernelPath, &toolArgs->kernelStatBuffer)) {
+    if (EX_OK != statPath(toolArgs->kernelPath, &statBuf)) {
         goto finish;
     }
-    toolArgs->haveKernelMtime = TRUE;
+    TIMESPEC_TO_TIMEVAL(&toolArgs->kernelTimes[0], &statBuf.st_atimespec);
+    TIMESPEC_TO_TIMEVAL(&toolArgs->kernelTimes[1], &statBuf.st_mtimespec);
 
     result = TRUE;
 
@@ -1090,7 +1112,7 @@ waitForGreatSystemLoad(void)
             continue;
         }
 
-        myResult = read(systemLoadAdvisoryFileDescriptor, 
+        myResult = (int)read(systemLoadAdvisoryFileDescriptor,
             &currentToken, sizeof(currentToken));
         if (myResult < 0) {
             goto finish;
@@ -1146,7 +1168,7 @@ usecs_from_timeval(struct timeval *t)
     u_int usecs = 0;
 
     if (t) {
-        usecs = (t->tv_sec * 1000) + t->tv_usec;
+        usecs = (unsigned int)((t->tv_sec * 1000) + t->tv_usec);
     }
 
     return usecs;
@@ -1192,21 +1214,16 @@ timeval_difference(struct timeval *dst, struct timeval *a, struct timeval *b)
 *******************************************************************************/
 void setDefaultArchesIfNeeded(KextcacheArgs * toolArgs)
 {
-   /* If no arches were explicitly specified, toss in the currently-supported
-    * ones.
-    * xxx - should find a reliable way to do this dynamically for any volume
-    * with or without boot-root.
+   /* If no arches were explicitly specified, use the architecture of the 
+    * running kernel.
     */
     if (toolArgs->explicitArch) {
         return;
     }
 
-    CFArrayRemoveAllValues(toolArgs->targetArchs);
-    addArchForName(toolArgs, "x86_64");
-
-
-        addArchForName(toolArgs, "i386");
-
+    CFArrayRemoveAllValues(toolArgs->targetArchs);   
+    addArch(toolArgs, OSKextGetRunningKernelArchitecture());
+    
     return;
 }
 #endif /* !NO_BOOT_ROOT */
@@ -1222,7 +1239,7 @@ void addArch(
     {
         return;
     }
-
+    
     CFArrayAppendValue(toolArgs->targetArchs, arch);
 }
 
@@ -1270,7 +1287,7 @@ void checkKextdSpawnedFilter(Boolean kernelFlag)
     */
     if (environmentLogFilterString) {
         OSKextLogSpec toolLogSpec  = OSKextGetLogFilter(kernelFlag);
-        OSKextLogSpec kextdLogSpec = strtoul(environmentLogFilterString, NULL, 16);
+        OSKextLogSpec kextdLogSpec = (unsigned int)strtoul(environmentLogFilterString, NULL, 16);
         
         OSKextLogSpec toolLogLevel  = toolLogSpec & kOSKextLogLevelMask;
         OSKextLogSpec kextdLogLevel = kextdLogSpec & kOSKextLogLevelMask;
@@ -1383,25 +1400,21 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
     }
 
 #if !NO_BOOT_ROOT
-   /* This is so lame.
-    */
     setDefaultArchesIfNeeded(toolArgs);
 #endif /* !NO_BOOT_ROOT */
 
-   /* xxx - Old kextcache behavior was to just check the time of the
-    * first directory argument given. Ideally we'd check every single
-    * folder & kext cached, but that's prohibitively complicated....
+   /* 11860417 - we now support multiple extensions directories, get access and
+    * mod times from extensions directory with the most current mode date.
     */
-    if (!toolArgs->haveFolderMtime && CFArrayGetCount(toolArgs->repositoryURLs)) {
-        CFURLRef firstURL = (CFURLRef)CFArrayGetValueAtIndex(
-            toolArgs->repositoryURLs, 0);
-
-        if (firstURL) {
-            result = statURL(firstURL, &toolArgs->firstFolderStatBuffer);
-            if (result != EX_OK) {
-                goto finish;
-            }
-            toolArgs->haveFolderMtime = true;
+    if (toolArgs->extensionsDirTimes[1].tv_sec == 0 &&
+        CFArrayGetCount(toolArgs->repositoryURLs)) {
+        result = getLatestTimesFromCFURLArray(toolArgs->repositoryURLs,
+                                              toolArgs->extensionsDirTimes);
+        if (result != EX_OK) {
+            OSKextLog(NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "%s: Can't get mod times", __FUNCTION__);
+            goto finish;
         }
     }
 
@@ -1412,22 +1425,24 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
         }
     }
 #endif /* !NO_BOOT_ROOT */
-
+    
     if (toolArgs->prelinkedKernelPath && CFArrayGetCount(toolArgs->argURLs)) {
-         if (!toolArgs->kernelPath) {
+        struct stat     myStatBuf;
+        
+        if (!toolArgs->kernelPath) {
             OSKextLog(/* kext */ NULL,
-                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                    "No kernel specified for prelinked kernel generation.");
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "No kernel specified for prelinked kernel generation.");
             goto finish;
-        } else {
-            result = statPath(toolArgs->kernelPath, &toolArgs->kernelStatBuffer);
-            if (result != EX_OK) {
-                goto finish;
-            }
-            toolArgs->haveKernelMtime = true;
         }
+        result = statPath(toolArgs->kernelPath, &myStatBuf);
+        if (result != EX_OK) {
+            goto finish;
+        }
+        TIMESPEC_TO_TIMEVAL(&toolArgs->kernelTimes[0], &myStatBuf.st_atimespec);
+        TIMESPEC_TO_TIMEVAL(&toolArgs->kernelTimes[1], &myStatBuf.st_mtimespec);
     }
-
+   
    /* Updating system caches requires no additional kexts or repositories,
     * and must run as root.
     */
@@ -1467,51 +1482,6 @@ finish:
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus 
-statURL(CFURLRef anURL, struct stat * statBuffer)
-{
-    ExitStatus result = EX_OSERR;
-    char path[PATH_MAX];
-
-    if (!CFURLGetFileSystemRepresentation(anURL, /* resolveToBase */ true,
-            (UInt8 *)path, sizeof(path))) 
-    {
-        OSKextLogStringError(/* kext */ NULL);
-        goto finish;
-    }
-
-    result = statPath(path, statBuffer);
-    if (!result) {
-        goto finish;
-    }
-
-    result = EX_OK;
-finish:
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-ExitStatus
-statPath(const char *path, struct stat *statBuffer)
-{
-    ExitStatus result = EX_OSERR;
-
-    if (stat(path, statBuffer)) {
-        OSKextLog(/* kext */ NULL,
-                kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
-                "Can't stat %s - %s.", path, strerror(errno));
-        goto finish;
-    }
-
-    result = EX_OK;
-
-finish:
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-ExitStatus
 getLoadedKextInfo(
     KextcacheArgs *toolArgs)
 {
@@ -1691,7 +1661,7 @@ ExitStatus createMkext(
     KextcacheArgs * toolArgs,
     Boolean       * fatalOut)
 {
-    struct timeval    cacheFileTimes[2];
+    struct timeval    extDirsTimes[2];
     ExitStatus        result         = EX_SOFTWARE;
     CFMutableArrayRef archiveKexts   = NULL;  // must release
     CFMutableArrayRef mkexts         = NULL;  // must release
@@ -1789,18 +1759,32 @@ ExitStatus createMkext(
         goto finish;
     }
 
-    if (toolArgs->haveFolderMtime) {
-        CFURLRef firstURL = CFArrayGetValueAtIndex(toolArgs->repositoryURLs, 0);
-
-        result = getFileURLModTimePlusOne(firstURL, 
-            &toolArgs->firstFolderStatBuffer, cacheFileTimes);
+    /* Get access and mod times of the extensions directory with most
+     * recent mod time.  We now support multiple extensions directories.
+     */
+    if (toolArgs->extensionsDirTimes[1].tv_sec != 0) {
+        result = getLatestTimesFromCFURLArray(toolArgs->repositoryURLs,
+                                              extDirsTimes);
         if (result != EX_OK) {
             goto finish;
         }
+        
+        /* see if an extensions dir has been changed since we started */
+        if (timercmp(&toolArgs->extensionsDirTimes[1], &extDirsTimes[1], !=)) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag | kOSKextLogFileAccessFlag,
+                      "An extensions dir has changed since starting; "
+                      "not saving cache file");
+            result = kKextcacheExitStale;
+            goto finish;
+        }
+        /* bump kexts modtime by 1 second */
+        extDirsTimes[1].tv_sec++;
     }
 
     result = writeFatFile(toolArgs->mkextPath, mkexts, toolArgs->targetArchs,
-        MKEXT_PERMS, (toolArgs->haveFolderMtime) ? cacheFileTimes : NULL);
+                          MKEXT_PERMS,
+                          (toolArgs->extensionsDirTimes[1].tv_sec != 0) ? extDirsTimes : NULL);
     if (result != EX_OK) {
         goto finish;
     }
@@ -1825,32 +1809,9 @@ finish:
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus
-getFilePathTimes(
-    const char        * filePath,
-    struct timeval      cacheFileTimes[2])
-{
-    struct stat         statBuffer;
-    ExitStatus          result          = EX_SOFTWARE;
-
-    result = statPath(filePath, &statBuffer);
-    if (result != EX_OK) {
-        goto finish;
-    }
-
-    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &statBuffer.st_atimespec);
-    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &statBuffer.st_mtimespec);
-
-    result = EX_OK;
-finish:
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-ExitStatus
 getFileURLModTimePlusOne(
     CFURLRef            fileURL,
-    struct stat       * origStatBuffer,
+    struct timeval      *origModTime,
     struct timeval      cacheFileTimes[2])
 {
     ExitStatus   result          = EX_SOFTWARE;
@@ -1862,8 +1823,7 @@ getFileURLModTimePlusOne(
         OSKextLogStringError(/* kext */ NULL);
         goto finish;
     }
-
-    result = getFilePathModTimePlusOne(path, origStatBuffer, cacheFileTimes);
+    result = getFilePathModTimePlusOne(path, origModTime, cacheFileTimes);
 
 finish:
     return result;
@@ -1874,61 +1834,31 @@ finish:
 ExitStatus
 getFilePathModTimePlusOne(
     const char        * filePath,
-    struct stat       * origStatBuffer,
+    struct timeval    * origModTime,
     struct timeval      cacheFileTimes[2])
 {
-    struct stat         newStatBuffer;
     ExitStatus          result          = EX_SOFTWARE;
 
-    result = statPath(filePath, &newStatBuffer);
+    result = getFilePathTimes(filePath, cacheFileTimes);
     if (result != EX_OK) {
         goto finish;
     }
 
-    result = getModTimePlusOne(filePath, origStatBuffer, &newStatBuffer,
-        cacheFileTimes);
-    if (result != EX_OK) {
-        goto finish;
-    }
-
-    result = EX_OK;
-finish:
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-ExitStatus
-getModTimePlusOne(
-    const char     * path,
-    struct stat    * origStatBuffer,
-    struct stat    * newStatBuffer,
-    struct timeval   cacheFileTimes[2])
-{
-    ExitStatus       result = EX_SOFTWARE;
-    struct timespec  newModTime;
-    struct timespec  origModTime;
-
-    origModTime = origStatBuffer->st_mtimespec;
-    newModTime = newStatBuffer->st_mtimespec;
-
-    if ((newModTime.tv_sec != origModTime.tv_sec) ||
-        (newModTime.tv_nsec != origModTime.tv_nsec)) {
-
-        OSKextLog(/* kext */ NULL,
+    /* If asked, check to see if mod time has changed */
+    if (origModTime != NULL) {
+        if (timercmp(origModTime, &cacheFileTimes[1], !=)) {
+            OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag | kOSKextLogFileAccessFlag,
             "Source item %s has changed since starting; "
-            "not saving cache file", path);
-        result = kKextcacheExitStale;
-        goto finish;
+                      "not saving cache file", filePath);
+            result = kKextcacheExitStale;
+            goto finish;
+        }
     }
 
-    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &newStatBuffer->st_atimespec);
-    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &newStatBuffer->st_mtimespec);
-
+    /* bump modtime by 1 second */
     cacheFileTimes[1].tv_sec++;
     result = EX_OK;
-
 finish:
     return result;
 }
@@ -2114,7 +2044,10 @@ ExitStatus filterKextsForCache(
 
     count = CFArrayGetCount(firstPassArray);
     if (count) {
+        OSKextIsInExcludeList(NULL, false); // prime the exclude list cache
+        isInExceptionList(NULL, false);     // prime the exception list cache
         for (i = count - 1; i >= 0; i--) {
+            OSStatus  sigResult;
             char kextPath[PATH_MAX];
             OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(
                     firstPassArray, i);
@@ -2157,6 +2090,22 @@ ExitStatus filterKextsForCache(
                 }
                 continue;
             }
+
+            if (OSKextIsInExcludeList(theKext, true)) {
+                /* send alert about kext and message trace it
+                 */
+                addKextToAlertDict(&sExcludedKextAlertDict, theKext);
+                messageTraceExcludedKext(theKext);
+                OSKextLog(/* kext */ NULL,
+                          kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                          kOSKextLogValidationFlag | kOSKextLogGeneralFlag, 
+                          "%s is in exclude list; omitting.", kextPath);
+                if (toolArgs->printTestResults) {
+                    OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
+                }
+                continue;
+            }
+
             if (!OSKextResolveDependencies(theKext)) {
                 OSKextLog(/* kext */ NULL,
                         kOSKextLogWarningLevel | kOSKextLogArchiveFlag |
@@ -2167,19 +2116,205 @@ ExitStatus filterKextsForCache(
                     OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
                 }
             }
+ 
+            if (isValidKextSigningTargetVolume(toolArgs->volumeRootURL)
+                && (sigResult = checkKextSignature(theKext, true)) != 0 ) {
+                
+                /* skip this invalid signed kext if we have a newer version
+                 * in our array
+                 */
+                if (_isNewerVersionInArray(theKext, firstPassArray)) {
+                    continue;
+                }
+                
+                Boolean inLibExtFolder = isInLibraryExtensionsFolder(theKext);
+                if (inLibExtFolder) {
+                    addKextToAlertDict(&sNoLoadKextAlertDict, theKext);
+                }
+                else if (sigResult == CSSMERR_TP_CERT_REVOKED) {
+                    addKextToAlertDict(&sRevokedKextAlertDict, theKext);
+               }
+#if 0 // not yet
+                else if (sigResult == errSecCSUnsigned) {
+                    addKextToAlertDict(&sUnsignedKextAlertDict, theKext);
+                }
+#endif
+                else {
+                    addKextToAlertDict(&sInvalidSignedKextAlertDict, theKext);
+                }
+                
+                /* Do not load if kext has bad signature and comes from
+                 * /Library/Extensions/
+                 */
+                if ( inLibExtFolder || sigResult == CSSMERR_TP_CERT_REVOKED ) {
+                    OSKextLog(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                              kOSKextLogAuthenticationFlag | kOSKextLogGeneralFlag,
+                              "%s has invalid signature; omitting.",
+                              kextPath);
+                    if (toolArgs->printTestResults) {
+                        OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
+                    }
+                    continue;
+                }
+                CFStringRef     myKextPath = NULL; // must release
+                myKextPath = copyKextPath(theKext);
+                if ( myKextPath ) {
+                    OSKextLogCFString(NULL,
+                            kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                            CFSTR("WARNING - Invalid signature %ld 0x%02lX for kext \"%@\""),
+                            (long)sigResult, (long)sigResult, myKextPath);
+                    SAFE_RELEASE(myKextPath);
+                }
+            } // isValidKextSigningTargetVolume...
+
             if (!CFArrayContainsValue(kextArray, RANGE_ALL(kextArray), theKext)) {
                 CFArrayAppendValue(kextArray, theKext);
-                /* <rdar://problem/12435992> Message tracing for kext loads
-                 */
-                logMTMessage(theKext);
             }
         }
+    }
+
+    if (CFArrayGetCount(kextArray)) {
+        recordKextLoadListForMT(kextArray);
     }
 
     result = EX_OK;
 
 finish:
-    return result;
+   return result;
+}
+
+/* Scan the given array to see if we have a newer version of the given
+ * kext (bundle ID).
+ */
+static Boolean _isNewerVersionInArray(
+                                       OSKextRef theKext,
+                                       CFArrayRef theArray )
+{
+    CFStringRef     theBundleID;            // do not release
+    CFStringRef     theBundleVersion;       // do not release
+    OSKextVersion   theKextVersion = -1;
+    CFIndex         myCount, i;
+    Boolean         myResult = false;
+
+    theBundleID = OSKextGetIdentifier(theKext);
+    theBundleVersion = OSKextGetValueForInfoDictionaryKey(
+                                                          theKext,
+                                                          kCFBundleVersionKey );
+    if (theBundleVersion == NULL) {
+        return(myResult);
+    }
+    theKextVersion = OSKextParseVersionCFString(theBundleVersion);
+    if (theKextVersion == -1) {
+        return(myResult);
+    }
+
+    myCount = CFArrayGetCount(theArray);
+    for (i = 0; i < myCount; i++) {
+        OSKextRef       myKext;             // do not release
+        CFStringRef     myBundleID;         // do not release
+        CFStringRef     myBundleVersion;    // do not release
+        OSKextVersion   myKextVersion = -1;
+        
+
+        myKext = (OSKextRef) CFArrayGetValueAtIndex(theArray, i);
+        myBundleID = OSKextGetIdentifier(myKext);
+        
+        if ( CFStringCompare(myBundleID, theBundleID, 0) == kCFCompareEqualTo ) {
+            myBundleVersion = OSKextGetValueForInfoDictionaryKey(
+                                                    myKext,
+                                                    kCFBundleVersionKey );
+            if (myBundleVersion == NULL)  continue;
+            myKextVersion = OSKextParseVersionCFString(myBundleVersion);
+            if (myKextVersion > 0 && myKextVersion > theKextVersion ) {
+                myResult = true;
+                break;
+            }
+        }
+    }
+    return(myResult);
+}
+
+/* We only want to check code signatures for volumes running 10.9 or
+ * later version of OS (which means a Kernelcache v1.3 or later)
+ */
+static Boolean isValidKextSigningTargetVolume(CFURLRef theVolRootURL)
+{
+    static Boolean  useCachedResult = false;
+    static Boolean  myResult = true;
+    CFStringRef     myVolRoot = NULL;       // must release
+    CFStringRef     myPath = NULL;          // must release
+    CFURLRef        myURL = NULL;           // must release
+    CFDictionaryRef myPlist = NULL;         // must release
+
+    if (useCachedResult) {
+       return(myResult);
+    }
+    else {
+        useCachedResult = true;
+    }
+    
+    if (theVolRootURL) {
+        myVolRoot = CFURLCopyFileSystemPath(theVolRootURL,
+                                            kCFURLPOSIXPathStyle);
+        if (myVolRoot == NULL) {
+            goto finish;
+        }
+        myPath = CFStringCreateWithFormat(
+                                          kCFAllocatorDefault,
+                                          /* formatOptions */ NULL,
+                                          CFSTR("%@%s"),
+                                          myVolRoot,
+                                          "/usr/standalone/bootcaches.plist" );
+    }
+    else {
+        myPath = CFStringCreateWithCString(
+                                           kCFAllocatorDefault,
+                                           "/usr/standalone/bootcaches.plist",
+                                           kCFStringEncodingUTF8 );
+    }
+    if (myPath == NULL) {
+        goto finish;
+    }
+
+    myURL = CFURLCreateWithFileSystemPath( kCFAllocatorDefault,
+                                          myPath,
+                                          kCFURLPOSIXPathStyle,
+                                          false );
+    if (myURL && CFURLResourceIsReachable(myURL, NULL)) {
+        CFReadStreamRef         readStream      = NULL;  // must release
+        
+        readStream = CFReadStreamCreateWithFile(kCFAllocatorDefault, myURL);
+        if (readStream) {
+            if (CFReadStreamOpen(readStream)) {
+                /* read in contents of bootcaches.plist */
+                myPlist = CFPropertyListCreateWithStream(
+                                    kCFAllocatorDefault,
+                                    readStream,
+                                    0,
+                                    kCFPropertyListMutableContainersAndLeaves,
+                                    NULL, NULL);
+                CFReadStreamClose(readStream);
+            }
+            SAFE_RELEASE(readStream);
+        }
+    }
+    if (myPlist) {
+        CFDictionaryRef myDict = NULL;         // do not release
+        myDict = (CFDictionaryRef) CFDictionaryGetValue(myPlist, kBCPostBootKey);
+        if (myDict) {
+            if (!CFDictionaryContainsKey(myDict, kBCKernelcacheV3Key)) {
+                myResult = false;
+            }
+        }
+    }
+finish:
+    SAFE_RELEASE(myPlist);
+    SAFE_RELEASE(myURL);
+    SAFE_RELEASE(myPath);
+    SAFE_RELEASE(myVolRoot);
+
+    return(myResult);
 }
 
 /*******************************************************************************
@@ -2281,8 +2416,8 @@ createExistingPrelinkedSlices(
         goto finish;
     }
 
-    bzero(existingFileTimes, sizeof(existingFileTimes));
-    bzero(prelinkFileTimes, sizeof(prelinkFileTimes));
+    bzero(&existingFileTimes, sizeof(existingFileTimes));
+    bzero(&prelinkFileTimes, sizeof(prelinkFileTimes));
 
     result = getFilePathTimes(toolArgs->prelinkedKernelPath,
         existingFileTimes);
@@ -2320,6 +2455,9 @@ finish:
     return result;
 }
 
+static void setVolumeRootInAlertDict(CFURLRef theURL,
+                                     CFMutableDictionaryRef theDict);
+
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus
@@ -2342,7 +2480,7 @@ createPrelinkedKernel(
     u_int               i                   = 0;
     int                 j                   = 0;
 
-    bzero(prelinkFileTimes, sizeof(prelinkFileTimes));
+    bzero(&prelinkFileTimes, sizeof(prelinkFileTimes));
 
 #if !NO_BOOT_ROOT
     /* Try a lock on the volume for the prelinked kernel being updated.
@@ -2361,7 +2499,7 @@ createPrelinkedKernel(
     if (result != EX_OK) {
         goto finish;
     }
-    numArchs = CFArrayGetCount(prelinkArchs);
+    numArchs = (u_int)CFArrayGetCount(prelinkArchs);
 
     /* If we're generating symbols, we'll regenerate all slices.
      */
@@ -2399,7 +2537,7 @@ createPrelinkedKernel(
         if (existingArchs && 
             targetArch != OSKextGetRunningKernelArchitecture())
         {
-            j = CFArrayGetFirstIndexOfValue(existingArchs, 
+            j = (int)CFArrayGetFirstIndexOfValue(existingArchs,
                 RANGE_ALL(existingArchs), targetArch);
             if (j != -1) {
                 prelinkSlice = CFArrayGetValueAtIndex(existingSlices, j);
@@ -2458,6 +2596,66 @@ createPrelinkedKernel(
     result = EX_OK;
 
 finish:
+    if (sNoLoadKextAlertDict) {
+        /* notify kextd that we have some nonsigned kexts going into the
+         * kernel cache.
+         */
+        if (toolArgs->volumeRootURL) {
+            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
+                                     sNoLoadKextAlertDict);
+        }
+        postNoteAboutKexts(CFSTR("No Load Kext Notification"),
+                           sNoLoadKextAlertDict );
+    }
+    
+    if (sRevokedKextAlertDict) {
+        /* notify kextd that we have some kexts with revoked certificate.
+         */
+        if (toolArgs->volumeRootURL) {
+            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
+                                     sRevokedKextAlertDict);
+        }
+        postNoteAboutKexts(CFSTR("Revoked Cert Kext Notification"),
+                           sRevokedKextAlertDict );
+    }
+#if 0 // not yet
+    if (sUnsignedKextAlertDict) {
+        /* notify kextd that we have some unsigned kexts going into the
+         * kernel cache.
+         */
+        if (toolArgs->volumeRootURL) {
+            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
+                                     sUnsignedKextAlertDict);
+        }
+        postNoteAboutKexts(CFSTR("Unsigned Kext Notification"),
+                           sUnsignedKextAlertDict);
+    }
+#endif
+    
+    if (sInvalidSignedKextAlertDict) {
+        /* notify kextd that we have some invalid signed kexts going into the
+         * kernel cache.
+         */
+        if (toolArgs->volumeRootURL) {
+            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
+                                     sInvalidSignedKextAlertDict);
+        }
+        postNoteAboutKexts(CFSTR("Invalid Signature Kext Notification"),
+                           sInvalidSignedKextAlertDict);
+    }
+    
+    if (sExcludedKextAlertDict) {
+        /* notify kextd that we have some excluded kexts going into the
+         * kernel cache.
+         */
+        if (toolArgs->volumeRootURL) {
+            setVolumeRootInAlertDict(toolArgs->volumeRootURL,
+                                     sExcludedKextAlertDict);
+        }
+        postNoteAboutKexts(CFSTR("Excluded Kext Notification"),
+                           sExcludedKextAlertDict);
+    }
+
     SAFE_RELEASE(generatedArchs);
     SAFE_RELEASE(generatedSymbols);
     SAFE_RELEASE(existingArchs);
@@ -2472,6 +2670,27 @@ finish:
 #endif /* !NO_BOOT_ROOT */
 
     return result;
+}
+
+static void setVolumeRootInAlertDict(CFURLRef theURL,
+                                     CFMutableDictionaryRef theDict)
+{
+    CFStringRef   myVolRoot;
+    
+    myVolRoot = (CFStringRef)
+        CFDictionaryGetValue(theDict,
+                             CFSTR("VolRootKey"));
+    if (myVolRoot == NULL) {
+        myVolRoot = CFURLCopyFileSystemPath(theURL,
+                                            kCFURLPOSIXPathStyle);
+        if (myVolRoot) {
+            CFDictionarySetValue(theDict,
+                                 CFSTR("VolRootKey"),
+                                 myVolRoot);
+            SAFE_RELEASE(myVolRoot);
+        }
+    }
+    return;
 }
 
 /*******************************************************************************
@@ -2592,9 +2811,6 @@ finish:
 }
 
 /*****************************************************************************
- * FIXME: This assumes that we only care about the first repository URL. We
- *        need to make this more general if we add support for multiple system
- *        extensions folders.
  *****************************************************************************/
 ExitStatus
 getExpectedPrelinkedKernelModTime(
@@ -2605,28 +2821,28 @@ getExpectedPrelinkedKernelModTime(
     struct timeval  kextTimes[2];
     struct timeval  kernelTimes[2];
     ExitStatus      result          = EX_SOFTWARE;
-    CFURLRef        firstURL        = NULL;
     Boolean         updateModTime   = false; 
 
-    if (!toolArgs->haveFolderMtime || !toolArgs->haveKernelMtime) {
+    /* bail out if we don't have modtimes for extensions directory or kernel file
+     */
+    if (toolArgs->extensionsDirTimes[1].tv_sec == 0 ||
+        toolArgs->kernelTimes[1].tv_sec == 0) {
         result = EX_OK;
         goto finish;
     }
-
-    firstURL = (CFURLRef)CFArrayGetValueAtIndex(toolArgs->repositoryURLs, 0);
-
-    /* Check kext repository mod time */
-
-    result = getFileURLModTimePlusOne(firstURL, 
-        &toolArgs->firstFolderStatBuffer, kextTimes);
+        
+    result = getLatestTimesFromCFURLArray(toolArgs->repositoryURLs,
+                                          kextTimes);
     if (result != EX_OK) {
         goto finish;
     }
 
-    /* Check kernel mod time */
+    /* bump kexts modtime by 1 second */
+    kextTimes[1].tv_sec++;
 
+    /* Check kernel mod time */
     result = getFilePathModTimePlusOne(toolArgs->kernelPath,
-        &toolArgs->kernelStatBuffer, kernelTimes);
+                                       &toolArgs->kernelTimes[1], kernelTimes);
     if (result != EX_OK) {
         goto finish;
     }
@@ -2634,17 +2850,19 @@ getExpectedPrelinkedKernelModTime(
     /* Get the access and mod times of the later modified of the kernel
      * and kext repository.
      */
-
     if (timercmp(&kextTimes[1], &kernelTimes[1], >)) {
-        cacheFileTimes[0] = kextTimes[0];
-        cacheFileTimes[1] = kextTimes[1];
+        cacheFileTimes[0].tv_sec = kextTimes[0].tv_sec;     // access time
+        cacheFileTimes[0].tv_usec = kextTimes[0].tv_usec;
+        cacheFileTimes[1].tv_sec = kextTimes[1].tv_sec;     // mod time
+        cacheFileTimes[1].tv_usec = kextTimes[1].tv_usec;
     } else {
-        cacheFileTimes[0] = kernelTimes[0];
-        cacheFileTimes[1] = kernelTimes[1];
+        cacheFileTimes[0].tv_sec = kernelTimes[0].tv_sec;   // access time
+        cacheFileTimes[0].tv_usec = kernelTimes[0].tv_usec;
+        cacheFileTimes[1].tv_sec = kernelTimes[1].tv_sec;   // mod time
+        cacheFileTimes[1].tv_usec = kernelTimes[1].tv_usec;
     }
 
     /* Set the mod time of the kernelcache relative to the kernel */
-
     updateModTime = true;
     result = EX_OK;
 

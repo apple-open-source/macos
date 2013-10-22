@@ -2,50 +2,37 @@
 
   main.c -
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: ko1 $
   created at: Fri Aug 19 13:19:58 JST 1994
 
-  Copyright (C) 1993-2003 Yukihiro Matsumoto
+  Copyright (C) 1993-2007 Yukihiro Matsumoto
 
 **********************************************************************/
 
+#undef RUBY_EXPORT
 #include "ruby.h"
-
-#ifdef __human68k__
-int _stacksize = 262144;
+#include "vm_debug.h"
+#ifdef HAVE_LOCALE_H
+#include <locale.h>
 #endif
-
-#if defined __MINGW32__
-int _CRT_glob = 0;
-#endif
-
-#if defined(__MACOS__) && defined(__MWERKS__)
-#include <console.h>
-#endif
-
-/* to link startup code with ObjC support */
-#if (defined(__APPLE__) || defined(__NeXT__)) && defined(__MACH__)
-static void objcdummyfunction( void ) { objc_msgSend(); }
+#ifdef RUBY_DEBUG_ENV
+#include <stdlib.h>
 #endif
 
 int
-main(argc, argv, envp)
-    int argc;
-    char **argv, **envp;
+main(int argc, char **argv)
 {
-#ifdef _WIN32
-    NtInitialize(&argc, &argv);
+#ifdef RUBY_DEBUG_ENV
+    ruby_set_debug_option(getenv("RUBY_DEBUG"));
 #endif
-#if defined(__MACOS__) && defined(__MWERKS__)
-    argc = ccommand(&argv);
+#ifdef HAVE_LOCALE_H
+    setlocale(LC_CTYPE, "");
 #endif
 
+    ruby_sysinit(&argc, &argv);
     {
-        RUBY_INIT_STACK
-        ruby_init();
-        ruby_options(argc, argv);
-        ruby_run();
+	RUBY_INIT_STACK;
+	ruby_init();
+	return ruby_run_node(ruby_options(argc, argv));
     }
-    return 0;
 }

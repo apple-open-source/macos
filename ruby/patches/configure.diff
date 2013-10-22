@@ -1,0 +1,59 @@
+--- configure.orig	2013-05-14 05:02:28.000000000 -0700
++++ configure	2013-05-14 08:54:29.000000000 -0700
+@@ -5106,8 +5106,8 @@ fi
+ 
+ # RUBY_UNIVERSAL_ARCH begin
+ ARCH_FLAG=`expr " $CFLAGS " : '.* \(-m[0-9][0-9]*\) '`
+-test ${CFLAGS+set} && CFLAGS=`echo "$CFLAGS" | sed -e 's/ *-arch  *^ *//g' -e 's/ *-m32//g' -e 's/ *-m64//g'`
+-test ${LDFLAGS+set} && LDFLAGS=`echo "$LDFLAGS" | sed -e 's/ *-arch  *^ *//g' -e 's/ *-m32//g' -e 's/ *-m64//g'`
++test ${CFLAGS+set} && CFLAGS=`echo "$CFLAGS" | sed -e 's/ *-arch  *[^ ]*//g' -e 's/ *-m32//g' -e 's/ *-m64//g'`
++test ${LDFLAGS+set} && LDFLAGS=`echo "$LDFLAGS" | sed -e 's/ *-arch  *[^ ]*//g' -e 's/ *-m32//g' -e 's/ *-m64//g'`
+ unset universal_binary universal_archnames
+ if test ${target_archs+set}; then
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking target architectures" >&5
+@@ -5134,13 +5134,7 @@ $as_echo "failed" >&6; }
+ esac
+     done
+     target_archs="$universal_binary"
+-    unset universal_binary
+-    case "$target_archs" in #(
+-  *,*) :
+-    universal_binary=yes ;; #(
+-  *) :
+-    unset universal_archnames ;;
+-esac
++    universal_binary=yes
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: $target_archs" >&5
+ $as_echo "$target_archs" >&6; }
+ 
+@@ -8591,7 +8585,7 @@ $as_echo "#define HAVE_SYS_WAIT_H 1" >>c
+ 
+ fi
+ 
+-for ac_header in limits.h sys/file.h sys/ioctl.h sys/syscall.h\
++for ac_header in net/if.h ifaddrs.h limits.h sys/file.h sys/ioctl.h sys/syscall.h\
+ 		 fcntl.h sys/fcntl.h sys/select.h sys/time.h sys/times.h sys/param.h\
+ 		 syscall.h pwd.h grp.h a.out.h utime.h direct.h sys/resource.h \
+ 		 sys/mkdev.h sys/utime.h xti.h netinet/in_systm.h float.h ieeefp.h \
+@@ -8840,20 +8834,15 @@ else
+ _ACEOF
+ if ac_fn_c_try_compile "$LINENO"; then :
+ 
+-	# Check for potential -arch flags.  It is not universal unless
+-	# there are at least two -arch flags with different values.
++	# Check for potential -arch flags.  It is then universal.
+ 	ac_arch=
+ 	ac_prev=
+ 	for ac_word in $CC $CFLAGS $CPPFLAGS $LDFLAGS; do
+ 	 if test -n "$ac_prev"; then
+ 	   case $ac_word in
+ 	     i?86 | x86_64 | ppc | ppc64)
+-	       if test -z "$ac_arch" || test "$ac_arch" = "$ac_word"; then
+-		 ac_arch=$ac_word
+-	       else
+ 		 ac_cv_c_bigendian=universal
+ 		 break
+-	       fi
+ 	       ;;
+ 	   esac
+ 	   ac_prev=

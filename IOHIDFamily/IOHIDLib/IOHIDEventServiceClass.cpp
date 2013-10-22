@@ -76,7 +76,7 @@ IOHIDServiceInterface2 IOHIDEventServiceClass::sIOHIDServiceInterface2 =
     &IOHIDIUnknown::genericRelease,
     &IOHIDEventServiceClass::_open,
     &IOHIDEventServiceClass::_close,
-    &IOHIDEventServiceClass::_getProperty,
+    &IOHIDEventServiceClass::_copyProperty,
     &IOHIDEventServiceClass::_setProperty,
     &IOHIDEventServiceClass::_setEventCallback,
     &IOHIDEventServiceClass::_scheduleWithRunLoop,
@@ -93,7 +93,7 @@ IOHIDServiceInterface2 IOHIDEventServiceClass::sIOHIDServiceInterface2 =
 //---------------------------------------------------------------------------
 IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInterfaceV1)
 {
-    _hidService.pseudoVTable    = (IUnknownVTbl *)  &sIOHIDServiceInterface2;
+    _hidService.pseudoVTable    = NULL;
     _hidService.obj             = this;
     
     _service                    = MACH_PORT_NULL;
@@ -105,7 +105,6 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
     _asyncEventSource           = NULL;
     
     _serviceProperties          = NULL;
-    _dynamicServiceProperties   = NULL;
     _servicePreferences         = NULL;
     _eventCallback              = NULL;
     _eventTarget                = NULL;
@@ -158,11 +157,6 @@ IOHIDEventServiceClass::~IOHIDEventServiceClass()
     if (_serviceProperties) {
         CFRelease(_serviceProperties);
         _serviceProperties = NULL;
-    }
-
-    if (_dynamicServiceProperties) {
-        CFRelease(_dynamicServiceProperties);
-        _dynamicServiceProperties = NULL;
     }
 
     if (_servicePreferences) {
@@ -218,9 +212,9 @@ void IOHIDEventServiceClass::_close(void * self, IOOptionBits options)
     getThis(self)->close(options);
 }
 
-CFTypeRef IOHIDEventServiceClass::_getProperty(void * self, CFStringRef key)
+CFTypeRef IOHIDEventServiceClass::_copyProperty(void * self, CFStringRef key)
 {
-    return getThis(self)->getProperty(key);
+    return getThis(self)->copyProperty(key);
 }
 
 boolean_t IOHIDEventServiceClass::_setProperty(void * self, CFStringRef key, CFTypeRef property)
@@ -233,7 +227,7 @@ IOHIDEventRef IOHIDEventServiceClass::_copyEvent(void *self, IOHIDEventType type
     return getThis(self)->copyEvent(type, matching, options);
 }
 
-void IOHIDEventServiceClass::_setElementValue(void *self, uint32_t usagePage, uint32_t usage, uint32_t value)
+IOReturn IOHIDEventServiceClass::_setElementValue(void *self, uint32_t usagePage, uint32_t usage, uint32_t value)
 {
     return getThis(self)->setElementValue(usagePage, usage, value);
 }
@@ -278,29 +272,20 @@ void IOHIDEventServiceClass::_queueEventSourceCallback(
         // check entry size
         IODataQueueEntry *  nextEntry;
         uint32_t            dataSize;
-        CFDataRef           data;
 
         // if queue empty, then stop
         while ((nextEntry = IODataQueuePeek(eventService->_queueMappedMemory))) {
-			// RY: cfPort==NULL means we're draining
-			if ( cfPort ) {
-            data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8*)&(nextEntry->data), nextEntry->size, kCFAllocatorNull);
+            // RY: cfPort==NULL means we're draining
+            if ( cfPort ) {
+                IOHIDEventRef event = IOHIDEventCreateWithBytes(kCFAllocatorDefault, (const UInt8*)&(nextEntry->data), nextEntry->size);
 
-            // if we got an entry
-            if (data) {
-                IOHIDEventRef event = IOHIDEventCreateWithData(kCFAllocatorDefault, data);
-                
                 if ( event ) {
-                
                     QUEUE_UNLOCK(eventService);
                     eventService->dispatchHIDEvent(event);
                     QUEUE_LOCK(eventService);
-                    
                     CFRelease(event);
                 }
-                CFRelease(data);
             }
-			}
             
             // dequeue the item
             dataSize = 0;
@@ -353,8 +338,10 @@ HRESULT IOHIDEventServiceClass::queryInterface(REFIID iid, void **ppv)
         *ppv = &iunknown;
         addRef();
     }
-    else if (CFEqual(uuid, kIOHIDServiceInterfaceID) || CFEqual(uuid, kIOHIDServiceInterface2ID))
+    else if (CFEqual(uuid, kIOHIDServiceInterface2ID))
     {
+        _hidService.pseudoVTable    = (IUnknownVTbl *)  &sIOHIDServiceInterface2;
+        _hidService.obj             = this;
         *ppv = &_hidService;
         addRef();
     }
@@ -577,25 +564,18 @@ void IOHIDEventServiceClass::close(IOOptionBits options)
 }
 
 //---------------------------------------------------------------------------
-// IOHIDEventServiceClass::getProperty
+// IOHIDEventServiceClass::copyProperty
 //---------------------------------------------------------------------------
-CFTypeRef IOHIDEventServiceClass::getProperty(CFStringRef key)
+CFTypeRef IOHIDEventServiceClass::copyProperty(CFStringRef key)
 {
     CFTypeRef value = CFDictionaryGetValue(_serviceProperties, key);
     
-    if ( !value ) {
-        if ( !_dynamicServiceProperties && 
-             !(_dynamicServiceProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)))
-            return NULL;
-
-        value = IORegistryEntryCreateCFProperty(_service, key, kCFAllocatorDefault, kNilOptions);
-        if (value)
-        {
-            CFDictionarySetValue(_dynamicServiceProperties,key,value);
-            CFRelease(value);
-        }        
+    if ( value ) {
+        CFRetain(value);
+    } else {
+        value = IORegistryEntrySearchCFProperty(_service, kIOServicePlane, key, kCFAllocatorDefault, kIORegistryIterateRecursively| kIORegistryIterateParents);
     }
-
+    
     return value;
 }
 
@@ -665,17 +645,6 @@ boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef propert
         CFRelease(floatProperties);
         
     return retVal;
-
-/*    
-    if (kIOReturnSuccess != IORegistryEntrySetCFProperty(_service, key, property))
-        return;
-
-    if ( !_dynamicServiceProperties || 
-         !(_dynamicServiceProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)))
-        return;
-
-    CFDictionarySetValue(_dynamicServiceProperties, key, property);
-*/
 }
 
 //---------------------------------------------------------------------------
@@ -747,11 +716,11 @@ IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDE
 //---------------------------------------------------------------------------
 // IOHIDEventServiceClass::setElementValue
 //---------------------------------------------------------------------------
-void IOHIDEventServiceClass::setElementValue(uint32_t usagePage, uint32_t usage, uint32_t value)
+IOReturn IOHIDEventServiceClass::setElementValue(uint32_t usagePage, uint32_t usage, uint32_t value)
 {
     uint64_t input[3] = {usagePage, usage, value};
 
-    IOConnectCallMethod(_connect, kIOHIDEventServiceUserClientSetElementValue, input, 3, NULL, 0, NULL, NULL, NULL, NULL); 
+    return IOConnectCallMethod(_connect, kIOHIDEventServiceUserClientSetElementValue, input, 3, NULL, 0, NULL, NULL, NULL, NULL);
 }
 
 
@@ -770,12 +739,12 @@ void IOHIDEventServiceClass::setEventCallback(IOHIDServiceEventCallback callback
 //---------------------------------------------------------------------------
 void IOHIDEventServiceClass::scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode)
 {
-    if ( !_asyncPort ) {     
-        IOReturn ret = IOCreateReceivePort(kOSNotificationMessageID, &_asyncPort);
-        if (kIOReturnSuccess != ret || !_asyncPort)
+    if ( !_asyncPort ) {
+        _asyncPort = IODataQueueAllocateNotificationPort();
+        if (!_asyncPort)
             return;
             
-        ret = IOConnectSetNotificationPort(_connect, 0, _asyncPort, NULL);
+        IOReturn ret = IOConnectSetNotificationPort(_connect, 0, _asyncPort, NULL);
         if ( kIOReturnSuccess != ret )
             return;
     }
@@ -847,5 +816,8 @@ IOReturn MergeDictionaries(CFDictionaryRef srcDict, CFMutableDictionaryRef * pDs
     for ( uint32_t i=0; i<count; i++) 
         CFDictionarySetValue(*pDstDict, keys[i], values[i]);
     
+    free(values);
+    free(keys);
+
     return kIOReturnSuccess;
 }

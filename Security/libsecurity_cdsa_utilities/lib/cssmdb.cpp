@@ -283,7 +283,7 @@ void CssmDbAttributeData::set(const CSSM_DB_ATTRIBUTE_INFO &inInfo, const CssmPo
 	NumberOfValues = 0;
 	Value = inAllocator.alloc<CSSM_DATA>();
 	Value[0].Length = 0;
-	Value[0].Data = inAllocator.alloc<uint8>(inValue.Length);
+	Value[0].Data = inAllocator.alloc<uint8>((UInt32)inValue.Length);
 	Value[0].Length = inValue.Length;
 	memcpy(Value[0].Data, inValue.Data, inValue.Length);
 	NumberOfValues = 1;
@@ -356,7 +356,7 @@ CssmDbAttributeData::add(const CssmDbAttributeData &src, Allocator &inAllocator)
 		uint32 destIndex = NumberOfValues + srcIndex;
 		
 		Value[destIndex].Length = 0;
-		Value[destIndex].Data = inAllocator.alloc<uint8>(src.Value[srcIndex].Length);
+		Value[destIndex].Data = inAllocator.alloc<uint8>((UInt32)src.Value[srcIndex].Length);
 		Value[destIndex].Length = src.Value[srcIndex].Length;
 		memcpy(Value[destIndex].Data, src.Value[srcIndex].Data, src.Value[srcIndex].Length);
 	}

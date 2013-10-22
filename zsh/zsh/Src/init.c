@@ -149,7 +149,7 @@ loop(int toplevel, int justonce)
 	    continue;
 	}
 	if (hend(prog)) {
-	    int toksav = tok;
+	    enum lextok toksav = tok;
 
 	    non_empty = 1;
 	    if (toplevel &&
@@ -215,6 +215,7 @@ loop(int toplevel, int justonce)
     return LOOP_OK;
 }
 
+/* Shared among parseargs(), parseopts(), init_io(), and init_misc() */
 static char *cmd;
 static int restricted;
 
@@ -222,9 +223,7 @@ static int restricted;
 static void
 parseargs(char **argv, char **runscript)
 {
-    int optionbreak = 0;
     char **x;
-    int action, optno;
     LinkList paramlist;
 
     argzero = *argv++;
@@ -243,8 +242,93 @@ parseargs(char **argv, char **runscript)
      * still 2 at the end, we set it to the value of INTERACTIVE.
      */
     opts[MONITOR] = 2;   /* may be unset in init_io() */
+    opts[HASHDIRS] = 2;  /* same relationship to INTERACTIVE */
     opts[SHINSTDIN] = 0;
     opts[SINGLECOMMAND] = 0;
+
+    if (parseopts(NULL, &argv, opts, &cmd, NULL))
+	exit(1);
+
+    paramlist = znewlinklist();
+    if (*argv) {
+	if (unset(SHINSTDIN)) {
+	    if (cmd)
+		argzero = *argv;
+	    else
+		*runscript = *argv;
+	    opts[INTERACTIVE] &= 1;
+	    argv++;
+	}
+	while (*argv)
+	    zaddlinknode(paramlist, ztrdup(*argv++));
+    } else if (!cmd)
+	opts[SHINSTDIN] = 1;
+    if(isset(SINGLECOMMAND))
+	opts[INTERACTIVE] &= 1;
+    opts[INTERACTIVE] = !!opts[INTERACTIVE];
+    if (opts[MONITOR] == 2)
+	opts[MONITOR] = opts[INTERACTIVE];
+    if (opts[HASHDIRS] == 2)
+	opts[HASHDIRS] = opts[INTERACTIVE];
+    pparams = x = (char **) zshcalloc((countlinknodes(paramlist) + 1) * sizeof(char *));
+
+    while ((*x++ = (char *)getlinknode(paramlist)));
+    free(paramlist);
+    argzero = ztrdup(argzero);
+}
+
+/* Insert into list in order of pointer value */
+
+/**/
+static void
+parseopts_insert(LinkList optlist, void *ptr)
+{
+    LinkNode node;
+
+    for (node = firstnode(optlist); node; incnode(node)) {
+	if (ptr < getdata(node)) {
+	    insertlinknode(optlist, prevnode(node), ptr);
+	    return;
+	}
+    }
+
+    addlinknode(optlist, ptr);
+}
+
+/*
+ * Parse shell options.
+ * If nam is not NULL, this is called from a command; don't
+ * exit on failure.
+ *
+ * If optlist is not NULL, it used to form a list of pointers
+ * into new_opts indicating which options have been changed.
+ */
+
+/**/
+mod_export int
+parseopts(char *nam, char ***argvp, char *new_opts, char **cmdp,
+	  LinkList optlist)
+{
+    int optionbreak = 0;
+    int action, optno;
+    char **argv = *argvp;
+
+    *cmdp = 0;
+#define WARN_OPTION(F, S)						\
+    do {								\
+	if (nam)							\
+	    zwarnnam(nam, F, S);					\
+	else								\
+	    zerr(F, S);							\
+    } while (0)
+#define LAST_OPTION(N)	       \
+    do {		       \
+	if (nam) {	       \
+	    if (*argv)	       \
+		argv++;	       \
+	    goto doneargv;     \
+	} else exit(N);	       \
+    } while(0)
 
     /* loop through command line options (begins with "-" or "+") */
     while (!optionbreak && *argv && (**argv == '-' || **argv == '+')) {
@@ -266,11 +350,11 @@ parseargs(char **argv, char **runscript)
 		if (!strcmp(*argv, "version")) {
 		    printf("zsh %s (%s-%s-%s)\n",
 			    ZSH_VERSION, MACHTYPE, VENDOR, OSTYPE);
-		    exit(0);
+		    LAST_OPTION(0);
 		}
 		if (!strcmp(*argv, "help")) {
 		    printhelp();
-		    exit(0);
+		    LAST_OPTION(0);
 		}
 		/* `-' characters are allowed in long options */
 		for(args = *argv; *args; args++)
@@ -284,78 +368,71 @@ parseargs(char **argv, char **runscript)
 		optionbreak = 1;
 	    } else if (**argv == 'c') {
 		/* -c command */
-		cmd = *argv;
-		opts[INTERACTIVE] &= 1;
+		*cmdp = *argv;
+		new_opts[INTERACTIVE] &= 1;
 		scriptname = scriptfilename = ztrdup("zsh");
 	    } else if (**argv == 'o') {
 		if (!*++*argv)
 		    argv++;
 		if (!*argv) {
-		    zerr("string expected after -o");
-		    exit(1);
+		    WARN_OPTION("string expected after -o", NULL);
+		    return 1;
 		}
 	    longoptions:
 		if (!(optno = optlookup(*argv))) {
-		    zerr("no such option: %s", *argv);
-		    exit(1);
-		} else if (optno == RESTRICTED)
+		    WARN_OPTION("no such option: %s", *argv);
+		    return 1;
+		} else if (optno == RESTRICTED && !nam) {
 		    restricted = action;
-		else
-		    dosetopt(optno, action, 1);
+		} else if ((optno == EMACSMODE || optno == VIMODE) && nam) {
+		    WARN_OPTION("can't change option: %s", *argv);
+		} else {
+		    if (dosetopt(optno, action, !nam, new_opts) && nam) {
+			WARN_OPTION("can't change option: %s", *argv);
+		    } else if (optlist) {
+			parseopts_insert(optlist, new_opts+optno);
+		    }
+		}
               break;
 	    } else if (isspace(STOUC(**argv))) {
 		/* zsh's typtab not yet set, have to use ctype */
 		while (*++*argv)
 		    if (!isspace(STOUC(**argv))) {
-		    badoptionstring:
-			zerr("bad option string: `%s'", args);
-			exit(1);
+		     badoptionstring:
+			WARN_OPTION("bad option string: '%s'", args);
+			return 1;
 		    }
 		break;
 	    } else {
 	    	if (!(optno = optlookupc(**argv))) {
-		    zerr("bad option: -%c", **argv);
-		    exit(1);
-		} else if (optno == RESTRICTED)
+		    WARN_OPTION("bad option: -%c", **argv);
+		    return 1;
+		} else if (optno == RESTRICTED && !nam) {
 		    restricted = action;
-		else
-		    dosetopt(optno, action, 1);
+		} else if ((optno == EMACSMODE || optno == VIMODE) && nam) {
+		    WARN_OPTION("can't change option: %s", *argv);
+		} else {
+		    if (dosetopt(optno, action, !nam, new_opts) && nam) {
+			WARN_OPTION("can't change option: -%c", **argv);
+		    } else if (optlist) {
+			parseopts_insert(optlist, new_opts+optno);
+		    }
+		}
 	    }
 	}
 	argv++;
     }
-    doneoptions:
-    paramlist = znewlinklist();
-    if (cmd) {
+ doneoptions:
+    if (*cmdp) {
 	if (!*argv) {
-	    zerr("string expected after -%s", cmd);
-	    exit(1);
+	    WARN_OPTION("string expected after -%s", *cmdp);
+	    return 1;
 	}
-	cmd = *argv++;
+	*cmdp = *argv++;
     }
-    if (*argv) {
-	if (unset(SHINSTDIN)) {
-	    if (cmd)
-		argzero = *argv;
-	    else
-		*runscript = *argv;
-	    opts[INTERACTIVE] &= 1;
-	    argv++;
-	}
-	while (*argv)
-	    zaddlinknode(paramlist, ztrdup(*argv++));
-    } else if (!cmd)
-	opts[SHINSTDIN] = 1;
-    if(isset(SINGLECOMMAND))
-	opts[INTERACTIVE] &= 1;
-    opts[INTERACTIVE] = !!opts[INTERACTIVE];
-    if (opts[MONITOR] == 2)
-	opts[MONITOR] = opts[INTERACTIVE];
-    pparams = x = (char **) zshcalloc((countlinknodes(paramlist) + 1) * sizeof(char *));
-
-    while ((*x++ = (char *)getlinknode(paramlist)));
-    free(paramlist);
-    argzero = ztrdup(argzero);
+ doneargv:
+    *argvp = argv;
+    return 0;
 }
 
 /**/
@@ -555,6 +632,19 @@ static char *tccapnams[TC_COUNT] = {
     "ku", "kd", "kl", "kr", "sc", "rc", "bc", "AF", "AB"
 };
 
+/**/
+mod_export char *
+tccap_get_name(int cap)
+{
+    if (cap >= TC_COUNT) {
+#ifdef DEBUG
+	dputs("name of invalid capability %d requested", cap);
+#endif
+	return "";
+    }
+    return tccapnams[cap];
+}
+
 /* Initialise termcap */
 
 /**/
@@ -673,10 +763,14 @@ setupvals(void)
     struct timezone dummy_tz;
     char *ptr;
     int i, j;
-#if defined(SITEFPATH_DIR) || defined(FPATH_DIR)
+#if defined(SITEFPATH_DIR) || defined(FPATH_DIR) || defined (ADDITIONAL_FPATH)
     char **fpathptr;
 # if defined(FPATH_DIR) && defined(FPATH_SUBDIRS)
     char *fpath_subdirs[] = FPATH_SUBDIRS;
+# endif
+# if defined(ADDITIONAL_FPATH)
+    char *more_fndirs[] = ADDITIONAL_FPATH;
+    int more_fndirs_len;
 # endif
 # ifdef SITEFPATH_DIR
     int fpathlen = 1;
@@ -761,7 +855,7 @@ setupvals(void)
     manpath  = mkarray(NULL);
     fignore  = mkarray(NULL);
 
-#if defined(SITEFPATH_DIR) || defined(FPATH_DIR)
+#if defined(SITEFPATH_DIR) || defined(FPATH_DIR) || defined(ADDITIONAL_FPATH)
 # ifdef FPATH_DIR
 #  ifdef FPATH_SUBDIRS
     fpathlen += sizeof(fpath_subdirs)/sizeof(char *);
@@ -769,15 +863,28 @@ setupvals(void)
     fpathlen++;
 #  endif
 # endif
+# if defined(ADDITIONAL_FPATH)
+    more_fndirs_len = sizeof(more_fndirs)/sizeof(char *);
+    fpathlen += more_fndirs_len;
+# endif
     fpath = fpathptr = (char **)zalloc((fpathlen+1)*sizeof(char *));
 # ifdef SITEFPATH_DIR
     *fpathptr++ = ztrdup(SITEFPATH_DIR);
     fpathlen--;
 # endif
+# if defined(ADDITIONAL_FPATH)
+    for (j = 0; j < more_fndirs_len; j++)
+	*fpathptr++ = ztrdup(more_fndirs[j]);
+# endif
 # ifdef FPATH_DIR
 #  ifdef FPATH_SUBDIRS
+#   ifdef ADDITIONAL_FPATH
+    for (j = more_fndirs_len; j < fpathlen; j++)
+	*fpathptr++ = tricat(FPATH_DIR, "/", fpath_subdirs[j - more_fndirs_len]);
+#   else
     for (j = 0; j < fpathlen; j++)
 	*fpathptr++ = tricat(FPATH_DIR, "/", fpath_subdirs[j]);
+#endif
 #  else
     *fpathptr++ = ztrdup(FPATH_DIR);
 #  endif
@@ -888,8 +995,8 @@ setupvals(void)
     /* columns and lines are normally zero, unless something different *
      * was inhereted from the environment.  If either of them are zero *
      * the setiparam calls below set them to the defaults from termcap */
-    setiparam("COLUMNS", columns);
-    setiparam("LINES", lines);
+    setiparam("COLUMNS", zterm_columns);
+    setiparam("LINES", zterm_lines);
 #endif
 
 #ifdef HAVE_GETRLIMIT
@@ -958,6 +1065,7 @@ setupshin(char *runscript)
 	    exit(127);
 	}
 	scriptfilename = sfname;
+	zsfree(argzero); /* ztrdup'd in parseargs */
 	argzero = runscript;
     }
     /*
@@ -1103,7 +1211,7 @@ init_misc(void)
 #else
     if (*zsh_name == 'r' || restricted)
 #endif
-	dosetopt(RESTRICTED, 1, 0);
+	dosetopt(RESTRICTED, 1, 0, opts);
     if (cmd) {
 	if (SHIN >= 10)
 	    fclose(bshin);
@@ -1166,7 +1274,7 @@ source(char *s)
     subsh  = 0;
     lineno = 1;
     loops  = 0;
-    dosetopt(SHINSTDIN, 0, 1);
+    dosetopt(SHINSTDIN, 0, 1, opts);
     scriptname = s;
     scriptfilename = s;
 
@@ -1238,7 +1346,7 @@ source(char *s)
     thisjob = cj;                    /* current job number                   */
     lineno = oldlineno;              /* our current lineno                   */
     loops = oloops;                  /* the # of nested loops we are in      */
-    dosetopt(SHINSTDIN, oldshst, 1); /* SHINSTDIN option                     */
+    dosetopt(SHINSTDIN, oldshst, 1, opts); /* SHINSTDIN option               */
     errflag = 0;
     if (!exit_pending)
 	retflag = 0;
@@ -1482,7 +1590,7 @@ zsh_main(int argc, char **argv)
     fdtable = zshcalloc(fdtable_size*sizeof(*fdtable));
 
     createoptiontable();
-    emulate(zsh_name, 1);   /* initialises most options */
+    emulate(zsh_name, 1, &emulation, opts);   /* initialises most options */
     opts[LOGINSHELL] = (**argv == '-');
     opts[PRIVILEGED] = (getuid() != geteuid() || getgid() != getegid());
     opts[USEZLE] = 1;   /* may be unset in init_io() */
@@ -1506,15 +1614,20 @@ zsh_main(int argc, char **argv)
 	 * We only do this at top level, because if we are
 	 * executing stuff we may refer to them by job pointer.
 	 */
+	int errexit = 0;
 	maybeshrinkjobtab();
 
 	do {
 	    /* Reset return from top level which gets us back here */
 	    retflag = 0;
 	    loop(1,0);
+	    if (errflag && !interact && !isset(CONTINUEONERROR)) {
+		errexit = 1;
+		break;
+	    }
 	} while (tok != ENDINPUT && (tok != LEXERR || isset(SHINSTDIN)));
-	if (tok == LEXERR) {
-	    /* Make sure a parse error exits with non-zero status */
+	if (tok == LEXERR || errexit) {
+	    /* Make sure a fatal error exits with non-zero status */
 	    if (!lastval)
 		lastval = 1;
 	    stopmsg = 1;

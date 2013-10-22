@@ -1,6 +1,6 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2012, International Business Machines
+# *  Copyright (C) 2004-2013, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
@@ -1128,6 +1128,7 @@ $SCDigit { 出 } 戏 → 齣;
 吊唁↔弔唁;
 吊↔吊;
 吊←弔;
+英寸↔英吋;
 方腊↔方腊;
 腊↔臘;
 乡愿↔鄉愿;
@@ -1610,6 +1611,12 @@ $SCDigit { 出 } 戏 → 齣;
 㑩↔儸;
 傩↔儺;
 俨↔儼;
+# Preserve 丰 for traditional in some cases
+丰标不凡→丰標不凡;
+丰}[度情茸姿神采]→丰;
+丰仪→丰儀;
+丰韵→丰韻;
+张三丰→張三丰;
 丰↔豐;
 兑↔兌;
 儿↔兒;
@@ -2162,7 +2169,7 @@ $SCDigit { 出 } 戏 → 齣;
 京沈↔京瀋;
 辽沈↔遼瀋;
 沈←瀋;
-墨渖未干↔墨瀋未乾; # 瀋 meaning liquid
+墨渖未干↔墨瀋未乾;	 # 瀋 meaning liquid
 渖→瀋;
 石沉大海↔石沈大海; # 沈 meaning sink
 鱼沉雁杳↔魚沈雁杳;

@@ -36,21 +36,20 @@
 #include <CoreFoundation/CFDate.h>
 #include <CFNetwork/CFHTTPMessage.h>
 #include <CFNetwork/CFHTTPStream.h>
+#include <dispatch/dispatch.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef struct asynchttp_s {
     void(*completed)(struct asynchttp_s *http, CFTimeInterval maxAge);
     void *info;
     CFHTTPMessageRef request;
     CFHTTPMessageRef response;
+    dispatch_queue_t queue;
     /* The fields below should be considered private. */
     CFMutableDataRef data;
     CFReadStreamRef stream;
-    CFRunLoopSourceRef source;
-    CFRunLoopTimerRef timer;
+    dispatch_source_t timer;
 } asynchttp_t;
 
 /* Return false if work was scheduled and the callback will be invoked,
@@ -65,8 +64,6 @@ void asynchttp_free(asynchttp_t *http);
 /* */
 
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITYD_ASYNCHTTP_H_ */

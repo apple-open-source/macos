@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -220,6 +221,30 @@ TEST(StringRefTest, Split2) {
   EXPECT_TRUE(parts == expected);
 }
 
+TEST(StringRefTest, Trim) {
+  StringRef Str0("hello");
+  StringRef Str1(" hello ");
+  StringRef Str2("  hello  ");
+
+  EXPECT_EQ(StringRef("hello"), Str0.rtrim());
+  EXPECT_EQ(StringRef(" hello"), Str1.rtrim());
+  EXPECT_EQ(StringRef("  hello"), Str2.rtrim());
+  EXPECT_EQ(StringRef("hello"), Str0.ltrim());
+  EXPECT_EQ(StringRef("hello "), Str1.ltrim());
+  EXPECT_EQ(StringRef("hello  "), Str2.ltrim());
+  EXPECT_EQ(StringRef("hello"), Str0.trim());
+  EXPECT_EQ(StringRef("hello"), Str1.trim());
+  EXPECT_EQ(StringRef("hello"), Str2.trim());
+
+  EXPECT_EQ(StringRef("ello"), Str0.trim("hhhhhhhhhhh"));
+
+  EXPECT_EQ(StringRef(""), StringRef("").trim());
+  EXPECT_EQ(StringRef(""), StringRef(" ").trim());
+  EXPECT_EQ(StringRef("\0", 1), StringRef(" \0 ", 3).trim());
+  EXPECT_EQ(StringRef("\0\0", 2), StringRef("\0\0", 2).trim());
+  EXPECT_EQ(StringRef("x"), StringRef("\0\0x\0\0", 5).trim(StringRef("\0", 1)));
+}
+
 TEST(StringRefTest, StartsWith) {
   StringRef Str("hello");
   EXPECT_TRUE(Str.startswith("he"));
@@ -266,6 +291,10 @@ TEST(StringRefTest, Find) {
   EXPECT_EQ(1U, Str.find_first_not_of('h'));
   EXPECT_EQ(4U, Str.find_first_not_of("hel"));
   EXPECT_EQ(StringRef::npos, Str.find_first_not_of("hello"));
+
+  EXPECT_EQ(3U, Str.find_last_not_of('o'));
+  EXPECT_EQ(1U, Str.find_last_not_of("lo"));
+  EXPECT_EQ(StringRef::npos, Str.find_last_not_of("helo"));
 }
 
 TEST(StringRefTest, Count) {
@@ -289,6 +318,142 @@ TEST(StringRefTest, Misc) {
   raw_string_ostream OS(Storage);
   OS << StringRef("hello");
   EXPECT_EQ("hello", OS.str());
+}
+
+TEST(StringRefTest, Hashing) {
+  EXPECT_EQ(hash_value(std::string()), hash_value(StringRef()));
+  EXPECT_EQ(hash_value(std::string()), hash_value(StringRef("")));
+  std::string S = "hello world";
+  hash_code H = hash_value(S);
+  EXPECT_EQ(H, hash_value(StringRef("hello world")));
+  EXPECT_EQ(H, hash_value(StringRef(S)));
+  EXPECT_NE(H, hash_value(StringRef("hello worl")));
+  EXPECT_EQ(hash_value(std::string("hello worl")),
+            hash_value(StringRef("hello worl")));
+  EXPECT_NE(H, hash_value(StringRef("hello world ")));
+  EXPECT_EQ(hash_value(std::string("hello world ")),
+            hash_value(StringRef("hello world ")));
+  EXPECT_EQ(H, hash_value(StringRef("hello world\0")));
+  EXPECT_NE(hash_value(std::string("ello worl")),
+            hash_value(StringRef("hello world").slice(1, -1)));
+}
+
+struct UnsignedPair {
+  const char *Str;
+  uint64_t Expected;
+} Unsigned[] =
+  { {"0", 0}
+  , {"255", 255}
+  , {"256", 256}
+  , {"65535", 65535}
+  , {"65536", 65536}
+  , {"4294967295", 4294967295ULL}
+  , {"4294967296", 4294967296ULL}
+  , {"18446744073709551615", 18446744073709551615ULL}
+  , {"042", 34}
+  , {"0x42", 66}
+  , {"0b101010", 42}
+  };
+
+struct SignedPair {
+  const char *Str;
+  int64_t Expected;
+} Signed[] =
+  { {"0", 0}
+  , {"-0", 0}
+  , {"127", 127}
+  , {"128", 128}
+  , {"-128", -128}
+  , {"-129", -129}
+  , {"32767", 32767}
+  , {"32768", 32768}
+  , {"-32768", -32768}
+  , {"-32769", -32769}
+  , {"2147483647", 2147483647LL}
+  , {"2147483648", 2147483648LL}
+  , {"-2147483648", -2147483648LL}
+  , {"-2147483649", -2147483649LL}
+  , {"-9223372036854775808", -(9223372036854775807LL) - 1}
+  , {"042", 34}
+  , {"0x42", 66}
+  , {"0b101010", 42}
+  , {"-042", -34}
+  , {"-0x42", -66}
+  , {"-0b101010", -42}
+  };
+
+TEST(StringRefTest, getAsInteger) {
+  uint8_t U8;
+  uint16_t U16;
+  uint32_t U32;
+  uint64_t U64;
+
+  for (size_t i = 0; i < array_lengthof(Unsigned); ++i) {
+    bool U8Success = StringRef(Unsigned[i].Str).getAsInteger(0, U8);
+    if (static_cast<uint8_t>(Unsigned[i].Expected) == Unsigned[i].Expected) {
+      ASSERT_FALSE(U8Success);
+      EXPECT_EQ(U8, Unsigned[i].Expected);
+    } else {
+      ASSERT_TRUE(U8Success);
+    }
+    bool U16Success = StringRef(Unsigned[i].Str).getAsInteger(0, U16);
+    if (static_cast<uint16_t>(Unsigned[i].Expected) == Unsigned[i].Expected) {
+      ASSERT_FALSE(U16Success);
+      EXPECT_EQ(U16, Unsigned[i].Expected);
+    } else {
+      ASSERT_TRUE(U16Success);
+    }
+    bool U32Success = StringRef(Unsigned[i].Str).getAsInteger(0, U32);
+    if (static_cast<uint32_t>(Unsigned[i].Expected) == Unsigned[i].Expected) {
+      ASSERT_FALSE(U32Success);
+      EXPECT_EQ(U32, Unsigned[i].Expected);
+    } else {
+      ASSERT_TRUE(U32Success);
+    }
+    bool U64Success = StringRef(Unsigned[i].Str).getAsInteger(0, U64);
+    if (static_cast<uint64_t>(Unsigned[i].Expected) == Unsigned[i].Expected) {
+      ASSERT_FALSE(U64Success);
+      EXPECT_EQ(U64, Unsigned[i].Expected);
+    } else {
+      ASSERT_TRUE(U64Success);
+    }
+  }
+
+  int8_t S8;
+  int16_t S16;
+  int32_t S32;
+  int64_t S64;
+
+  for (size_t i = 0; i < array_lengthof(Signed); ++i) {
+    bool S8Success = StringRef(Signed[i].Str).getAsInteger(0, S8);
+    if (static_cast<int8_t>(Signed[i].Expected) == Signed[i].Expected) {
+      ASSERT_FALSE(S8Success);
+      EXPECT_EQ(S8, Signed[i].Expected);
+    } else {
+      ASSERT_TRUE(S8Success);
+    }
+    bool S16Success = StringRef(Signed[i].Str).getAsInteger(0, S16);
+    if (static_cast<int16_t>(Signed[i].Expected) == Signed[i].Expected) {
+      ASSERT_FALSE(S16Success);
+      EXPECT_EQ(S16, Signed[i].Expected);
+    } else {
+      ASSERT_TRUE(S16Success);
+    }
+    bool S32Success = StringRef(Signed[i].Str).getAsInteger(0, S32);
+    if (static_cast<int32_t>(Signed[i].Expected) == Signed[i].Expected) {
+      ASSERT_FALSE(S32Success);
+      EXPECT_EQ(S32, Signed[i].Expected);
+    } else {
+      ASSERT_TRUE(S32Success);
+    }
+    bool S64Success = StringRef(Signed[i].Str).getAsInteger(0, S64);
+    if (static_cast<int64_t>(Signed[i].Expected) == Signed[i].Expected) {
+      ASSERT_FALSE(S64Success);
+      EXPECT_EQ(S64, Signed[i].Expected);
+    } else {
+      ASSERT_TRUE(S64Success);
+    }
+  }
 }
 
 } // end anonymous namespace

@@ -86,6 +86,7 @@ mod_export
 char *ifs,		/* $IFS         */
      *postedit,		/* $POSTEDIT    */
      *term,		/* $TERM        */
+     *zsh_terminfo,     /* $TERMINFO    */
      *ttystrname,	/* $TTY         */
      *pwd;		/* $PWD         */
 
@@ -94,8 +95,8 @@ mod_export
 zlong lastval,		/* $?           */
      mypid,		/* $$           */
      lastpid,		/* $!           */
-     columns,		/* $COLUMNS     */
-     lines,		/* $LINES       */
+     zterm_columns,	/* $COLUMNS     */
+     zterm_lines,	/* $LINES       */
      ppid,		/* $PPID        */
      zsh_subshell;	/* $ZSH_SUBSHELL */
 /**/
@@ -202,6 +203,8 @@ static const struct gsu_scalar home_gsu =
 { homegetfn, homesetfn, stdunsetfn };
 static const struct gsu_scalar term_gsu =
 { termgetfn, termsetfn, stdunsetfn };
+static const struct gsu_scalar terminfo_gsu =
+{ terminfogetfn, terminfosetfn, stdunsetfn };
 static const struct gsu_scalar wordchars_gsu =
 { wordcharsgetfn, wordcharssetfn, stdunsetfn };
 static const struct gsu_scalar ifs_gsu =
@@ -276,6 +279,7 @@ IPDEF2("-", dash_gsu, PM_READONLY),
 IPDEF2("histchars", histchars_gsu, PM_DONTIMPORT),
 IPDEF2("HOME", home_gsu, PM_UNSET),
 IPDEF2("TERM", term_gsu, 0),
+IPDEF2("TERMINFO", terminfo_gsu, PM_UNSET),
 IPDEF2("WORDCHARS", wordchars_gsu, 0),
 IPDEF2("IFS", ifs_gsu, PM_DONTIMPORT),
 IPDEF2("_", underscore_gsu, PM_READONLY),
@@ -311,9 +315,9 @@ IPDEF4("LINENO", &lineno),
 IPDEF4("PPID", &ppid),
 IPDEF4("ZSH_SUBSHELL", &zsh_subshell),
 
-#define IPDEF5(A,B,F) {{NULL,A,PM_INTEGER|PM_SPECIAL},BR((void *)B),GSU(varinteger_gsu),10,0,NULL,NULL,NULL,0}
-IPDEF5("COLUMNS", &columns, zlevar_gsu),
-IPDEF5("LINES", &lines, zlevar_gsu),
+#define IPDEF5(A,B,F) {{NULL,A,PM_INTEGER|PM_SPECIAL},BR((void *)B),GSU(F),10,0,NULL,NULL,NULL,0}
+IPDEF5("COLUMNS", &zterm_columns, zlevar_gsu),
+IPDEF5("LINES", &zterm_lines, zlevar_gsu),
 IPDEF5("OPTIND", &zoptind, varinteger_gsu),
 IPDEF5("SHLVL", &shlvl, varinteger_gsu),
 IPDEF5("TRY_BLOCK_ERROR", &try_errflag, varinteger_gsu),
@@ -651,7 +655,10 @@ createparamtable(void)
     char **new_environ;
     int  envsize;
 #endif
-    char **envp, **envp2, **sigptr, **t;
+#ifndef USE_SET_UNSET_ENV
+    char **envp;
+#endif
+    char **envp2, **sigptr, **t;
     char buf[50], *str, *iname, *ivalue, *hostnam;
     int  oae = opts[ALLEXPORT];
 #ifdef HAVE_UNAME
@@ -691,16 +698,18 @@ createparamtable(void)
      * So allow the user to set it in the special cases where it's
      * useful.
      */
-    setsparam("TMPPREFIX", ztrdup(DEFAULT_TMPPREFIX));
-    setsparam("TIMEFMT", ztrdup(DEFAULT_TIMEFMT));
-    setsparam("WATCHFMT", ztrdup(default_watchfmt));
+    setsparam("TMPPREFIX", ztrdup_metafy(DEFAULT_TMPPREFIX));
+    setsparam("TIMEFMT", ztrdup_metafy(DEFAULT_TIMEFMT));
+    setsparam("WATCHFMT", ztrdup_metafy(default_watchfmt));
 
     hostnam = (char *)zalloc(256);
     gethostname(hostnam, 256);
-    setsparam("HOST", ztrdup(hostnam));
+    setsparam("HOST", ztrdup_metafy(hostnam));
     zfree(hostnam, 256);
 
-    setsparam("LOGNAME", ztrdup((str = getlogin()) && *str ? str : cached_username));
+    setsparam("LOGNAME",
+	      ztrdup_metafy((str = getlogin()) && *str ?
+			    str : cached_username));
 
 #if !defined(HAVE_PUTENV) && !defined(USE_SET_UNSET_ENV)
     /* Copy the environment variables we are inheriting to dynamic *
@@ -717,7 +726,11 @@ createparamtable(void)
     /* Now incorporate environment variables we are inheriting *
      * into the parameter hash table. Copy them into dynamic   *
      * memory so that we can free them if needed               */
-    for (envp = envp2 = environ; *envp2; envp2++) {
+    for (
+#ifndef USE_SET_UNSET_ENV
+	envp = 
+#endif
+	    envp2 = environ; *envp2; envp2++) {
 	if (split_env_string(*envp2, &iname, &ivalue)) {
 	    if (!idigit(*iname) && isident(iname) && !strchr(iname, '[')) {
 		if ((!(pm = (Param) paramtab->getnode(paramtab, iname)) ||
@@ -767,22 +780,22 @@ createparamtable(void)
     if(uname(&unamebuf)) setsparam("CPUTYPE", ztrdup("unknown"));
     else
     {
-       machinebuf = ztrdup(unamebuf.machine);
+       machinebuf = ztrdup_metafy(unamebuf.machine);
        setsparam("CPUTYPE", machinebuf);
     }
-	
+
 #else
-    setsparam("CPUTYPE", ztrdup("unknown"));
+    setsparam("CPUTYPE", ztrdup_metafy("unknown"));
 #endif
-    setsparam("MACHTYPE", ztrdup(MACHTYPE));
-    setsparam("OSTYPE", ztrdup(OSTYPE));
-    setsparam("TTY", ztrdup(ttystrname));
-    setsparam("VENDOR", ztrdup(VENDOR));
-    setsparam("ZSH_NAME", ztrdup(zsh_name));
-    setsparam("ZSH_VERSION", ztrdup(ZSH_VERSION));
-    setsparam("ZSH_PATCHLEVEL", ztrdup(ZSH_PATCHLEVEL));
+    setsparam("MACHTYPE", ztrdup_metafy(MACHTYPE));
+    setsparam("OSTYPE", ztrdup_metafy(OSTYPE));
+    setsparam("TTY", ztrdup_metafy(ttystrname));
+    setsparam("VENDOR", ztrdup_metafy(VENDOR));
+    setsparam("ZSH_NAME", ztrdup_metafy(zsh_name));
+    setsparam("ZSH_VERSION", ztrdup_metafy(ZSH_VERSION));
+    setsparam("ZSH_PATCHLEVEL", ztrdup_metafy(ZSH_PATCHLEVEL));
     setaparam("signals", sigptr = zalloc((SIGCOUNT+4) * sizeof(char *)));
-    for (t = sigs; (*sigptr++ = ztrdup(*t++)); );
+    for (t = sigs; (*sigptr++ = ztrdup_metafy(*t++)); );
 
     noerrs = 0;
 }
@@ -974,7 +987,7 @@ copyparam(Param tpm, Param pm, int fakecopy)
      * called from inside an associative array), we need the gets and sets
      * functions to be useful.
      *
-     * In this case we assume the the saved parameter is not itself special,
+     * In this case we assume the saved parameter is not itself special,
      * so we just use the standard functions.  This is also why we switch off
      * PM_SPECIAL.
      */
@@ -989,9 +1002,7 @@ mod_export int
 isident(char *s)
 {
     char *ss;
-    int ne;
 
-    ne = noeval;		/* save the current value of noeval     */
     if (!*s)			/* empty string is definitely not valid */
 	return 0;
 
@@ -1009,6 +1020,8 @@ isident(char *s)
      * definitely not a valid identifier.         */
     if (!*ss)
 	return 1;
+    if (s == ss)
+	return 0;
     if (*ss != '[')
 	return 0;
 
@@ -1054,6 +1067,14 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
     char *s = *str, *sep = NULL, *t, sav, *d, **ta, **p, *tt, c;
     zlong num = 1, beg = 0, r = 0, quote_arg = 0;
     Patprog pprog = NULL;
+
+    /*
+     * If in NO_EXEC mode, the parameters won't be set up
+     * properly, so there's no point even doing any sanity checking.
+     * Just return 0 now.
+     */
+    if (unset(EXECOPT))
+	return 0;
 
     ishash = (v->pm && PM_TYPE(v->pm->node.flags) == PM_HASHED);
     if (prevcharlen)
@@ -1884,6 +1905,18 @@ fetchvalue(Value v, char **pptr, int bracks, int flags)
     if (!bracks && *s)
 	return NULL;
     *pptr = s;
+#if 0
+    /*
+     * Check for large subscripts that might be erroneous.
+     * This code is too gross in several ways:
+     * - the limit is completely arbitrary
+     * - the test vetoes operations on existing arrays
+     * - it's not at all clear a general test on large arrays of
+     *   this kind is any use.
+     *
+     * Until someone comes up with workable replacement code it's
+     * therefore commented out.
+     */
     if (v->start > MAX_ARRLEN) {
 	zerr("subscript too %s: %d", "big", v->start + !isset(KSHARRAYS));
 	return NULL;
@@ -1900,6 +1933,7 @@ fetchvalue(Value v, char **pptr, int bracks, int flags)
 	zerr("subscript too %s: %d", "small", v->end);
 	return NULL;
     }
+#endif
     return v;
 }
 
@@ -2230,6 +2264,8 @@ export_param(Param pm)
 mod_export void
 setstrvalue(Value v, char *val)
 {
+    if (unset(EXECOPT))
+	return;
     if (v->pm->node.flags & PM_READONLY) {
 	zerr("read-only variable: %s", v->pm->node.nam);
 	zsfree(val);
@@ -2361,6 +2397,8 @@ setnumvalue(Value v, mnumber val)
 {
     char buf[BDIGBUFSIZE], *p;
 
+    if (unset(EXECOPT))
+	return;
     if (v->pm->node.flags & PM_READONLY) {
 	zerr("read-only variable: %s", v->pm->node.nam);
 	return;
@@ -2398,6 +2436,8 @@ setnumvalue(Value v, mnumber val)
 mod_export void
 setarrvalue(Value v, char **val)
 {
+    if (unset(EXECOPT))
+	return;
     if (v->pm->node.flags & PM_READONLY) {
 	zerr("read-only variable: %s", v->pm->node.nam);
 	freearray(val);
@@ -2442,8 +2482,6 @@ setarrvalue(Value v, char **val)
 		v->start--;
 	    v->end--;
 	}
-	if (v->end < v->start)
-	    v->end = v->start;
 	q = old = v->pm->gsu.a->getfn(v->pm);
 	n = arrlen(old);
 	if (v->start < 0) {
@@ -2456,6 +2494,8 @@ setarrvalue(Value v, char **val)
 	    if (v->end < 0)
 		v->end = 0;
 	}
+	if (v->end < v->start)
+	    v->end = v->start;
 
 	ll = v->start + arrlen(val);
 	if (v->end <= n)
@@ -2808,6 +2848,8 @@ sethparam(char *s, char **val)
 	errflag = 1;
 	return NULL;
     }
+    if (unset(EXECOPT))
+	return NULL;
     queue_signals();
     if (!(v = fetchvalue(&vbuf, &s, 1, SCANPM_ASSIGNING)))
 	createparam(t, PM_HASHED);
@@ -2846,6 +2888,8 @@ setnparam(char *s, mnumber val)
 	errflag = 1;
 	return NULL;
     }
+    if (unset(EXECOPT))
+	return NULL;
     queue_signals();
     ss = strchr(s, '[');
     v = getvalue(&vbuf, &s, 1);
@@ -3017,9 +3061,21 @@ mod_export void
 stdunsetfn(Param pm, UNUSED(int exp))
 {
     switch (PM_TYPE(pm->node.flags)) {
-	case PM_SCALAR: pm->gsu.s->setfn(pm, NULL); break;
-	case PM_ARRAY:  pm->gsu.a->setfn(pm, NULL); break;
-	case PM_HASHED: pm->gsu.h->setfn(pm, NULL); break;
+	case PM_SCALAR:
+	    if (pm->gsu.s->setfn)
+		pm->gsu.s->setfn(pm, NULL);
+	    break;
+
+	case PM_ARRAY:
+	    if (pm->gsu.a->setfn)
+		pm->gsu.a->setfn(pm, NULL);
+	    break;
+
+	case PM_HASHED:
+	    if (pm->gsu.h->setfn)
+		pm->gsu.h->setfn(pm, NULL);
+	    break;
+
 	default:
 	    if (!(pm->node.flags & PM_SPECIAL))
 	    	pm->u.str = NULL;
@@ -3249,8 +3305,8 @@ zlevarsetfn(Param pm, zlong x)
     zlong *p = pm->u.valptr;
 
     *p = x;
-    if (p == &lines || p == &columns)
-	adjustwinsize(2 + (p == &columns));
+    if (p == &zterm_lines || p == &zterm_columns)
+	adjustwinsize(2 + (p == &zterm_columns));
 }
 
 /* Function to set value of generic special scalar    *
@@ -3413,18 +3469,104 @@ tiedarrunsetfn(Param pm, UNUSED(int exp))
 
 /**/
 static void
-arrayuniq(char **x, int freeok)
+simple_arrayuniq(char **x, int freeok)
 {
     char **t, **p = x;
+    char *hole = "";
 
+    /* Find duplicates and replace them with holes */
     while (*++p)
 	for (t = x; t < p; t++)
-	    if (!strcmp(*p, *t)) {
+	    if (*t != hole && !strcmp(*p, *t)) {
 		if (freeok)
 		    zsfree(*p);
-		for (t = p--; (*t = t[1]) != NULL; t++);
+		*p = hole;
 		break;
 	    }
+    /* Swap non-holes into holes in optimal jumps */
+    for (p = t = x; *t != NULL; t++) {
+	if (*t == hole) {
+	    while (*p == hole)
+		++p;
+	    if ((*t = *p) != NULL)
+		*p++ = hole;
+	} else if (p == t)
+	    p++;
+    }
+    /* Erase all the remaining holes, just in case */
+    while (++t < p)
+	*t = NULL;
+}
+
+/**/
+static void
+arrayuniq_freenode(HashNode hn)
+{
+    (void)hn;
+}
+
+/**/
+HashTable
+newuniqtable(zlong size)
+{
+    HashTable ht = newhashtable((int)size, "arrayuniq", NULL);
+    /* ??? error checking */
+
+    ht->hash        = hasher;
+    ht->emptytable  = emptyhashtable;
+    ht->filltable   = NULL;
+    ht->cmpnodes    = strcmp;
+    ht->addnode     = addhashnode;
+    ht->getnode     = gethashnode2;
+    ht->getnode2    = gethashnode2;
+    ht->removenode  = removehashnode;
+    ht->disablenode = disablehashnode;
+    ht->enablenode  = enablehashnode;
+    ht->freenode    = arrayuniq_freenode;
+    ht->printnode   = NULL;
+
+    return ht;
+}
+
+/**/
+static void
+arrayuniq(char **x, int freeok)
+{
+    char **it, **write_it;
+    zlong array_size = arrlen(x);
+    HashTable ht;
+
+    if (array_size == 0)
+	return;
+    if (array_size < 10 || !(ht = newuniqtable(array_size + 1))) {
+	/* fallback to simpler routine */
+	simple_arrayuniq(x, freeok);
+	return;
+    }
+
+    for (it = x, write_it = x; *it;) {
+	if (! gethashnode2(ht, *it)) {
+	    HashNode new_node = zhalloc(sizeof(struct hashnode));
+	    if (!new_node) {
+		/* Oops, out of heap memory, no way to recover */
+		zerr("out of memory in arrayuniq");
+		break;
+	    }
+	    (void) addhashnode2(ht, *it, new_node);
+	    *write_it = *it;
+	    if (it != write_it)
+		*it = NULL;
+	    ++write_it;
+	}
+	else {
+	    if (freeok)
+		zsfree(*it);
+	    *it = NULL;
+	}
+	++it;
+    }
+    
+    deletehashtable(ht);
 }
 
 /**/
@@ -3747,6 +3889,10 @@ static void
 setlang(char *x)
 {
     struct localename *ln;
+    char *x2;
+
+    if ((x2 = getsparam("LC_ALL")) && *x2)
+	return;
 
     /*
      * Set the global locale to the value passed, but override
@@ -4025,6 +4171,18 @@ underscoregetfn(UNUSED(Param pm))
     return u;
 }
 
+/* Function used when we need to reinitialise the terminal */
+
+static void
+term_reinit_from_pm(void)
+{
+    /* If non-interactive, delay setting up term till we need it. */
+    if (unset(INTERACTIVE) || !*term)
+	termflags |= TERM_UNKNOWN;
+    else
+	init_term();
+}
+
 /* Function to get value for special parameter `TERM' */
 
 /**/
@@ -4042,12 +4200,35 @@ termsetfn(UNUSED(Param pm), char *x)
 {
     zsfree(term);
     term = x ? x : ztrdup("");
+    term_reinit_from_pm();
+}
 
-    /* If non-interactive, delay setting up term till we need it. */
-    if (unset(INTERACTIVE) || !*term)
-	termflags |= TERM_UNKNOWN;
-    else 
-	init_term();
+/* Function to get value of special parameter `TERMINFO' */
+
+/**/
+char *
+terminfogetfn(UNUSED(Param pm))
+{
+    return zsh_terminfo ? zsh_terminfo : dupstring("");
+}
+
+/* Function to set value of special parameter `TERMINFO' */
+
+/**/
+void
+terminfosetfn(Param pm, char *x)
+{
+    zsfree(zsh_terminfo);
+    zsh_terminfo = x;
+
+    /*
+     * terminfo relies on the value being exported before
+     * we reinitialise the terminal.  This is a bit inefficient.
+     */
+    if ((pm->node.flags & PM_EXPORTED) && x)
+	addenv(pm, x);
+
+    term_reinit_from_pm();
 }
 
 /* Function to get value for special parameter `pipestatus' */
@@ -4129,6 +4310,7 @@ arrfixenv(char *s, char **t)
 int
 zputenv(char *str)
 {
+    DPUTS(!str, "Attempt to put null string into environment.");
 #ifdef USE_SET_UNSET_ENV
     /*
      * If we are using unsetenv() to remove values from the

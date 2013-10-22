@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -71,11 +71,11 @@
  *
  *------------------------------------------------------------------------------
 */
-OSStatus HIDGetData(void * report, ByteCount iReportLength,
+OSStatus HIDGetData(void * report, IOByteCount iReportLength,
 						 UInt32 iStart, UInt32 iSize, SInt32 *piValue,
 						 Boolean bSignExtend)
 {
-	Byte * psReport = (Byte *)report;
+	UInt8 * psReport = (UInt8 *)report;
 	unsigned data;
 	unsigned iSignBit;
 	unsigned iExtendMask;

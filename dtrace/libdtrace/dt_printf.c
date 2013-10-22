@@ -20,6 +20,10 @@
  */
 
 /*
+ * Portions copyright (c) 2011, Joyent, Inc. All rights reserved.
+ */
+
+/*
  * Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -1260,6 +1264,14 @@ pfprint_lquantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 	return (dt_print_lquantize(dtp, fp, addr, size, normal));
 }
 
+/*ARGSUSED*/
+static int
+pfprint_llquantize(dtrace_hdl_t *dtp, FILE *fp, const char *format,
+    const dt_pfargd_t *pfd, const void *addr, size_t size, uint64_t normal)
+{
+	return (dt_print_llquantize(dtp, fp, addr, size, normal));
+}
+
 static int
 dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
     const dtrace_recdesc_t *recs, uint_t nrecs, const void *buf,
@@ -1441,6 +1453,9 @@ dt_printf_format(dtrace_hdl_t *dtp, FILE *fp, const dt_pfargv_t *pfv,
 			break;
 		case DTRACEAGG_LQUANTIZE:
 			func = pfprint_lquantize;
+			break;
+		case DTRACEAGG_LLQUANTIZE:
+			func = pfprint_llquantize;
 			break;
 		case DTRACEACT_MOD:
 			func = pfprint_mod;

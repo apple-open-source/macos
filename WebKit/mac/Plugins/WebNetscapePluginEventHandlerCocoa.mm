@@ -29,7 +29,6 @@
 
 #import "WebKitSystemInterface.h"
 #import "WebNetscapePluginView.h"
-#import <wtf/UnusedParam.h>
 #import <wtf/Vector.h>
 
 WebNetscapePluginEventHandlerCocoa::WebNetscapePluginEventHandlerCocoa(WebNetscapePluginView* pluginView)
@@ -158,7 +157,7 @@ void WebNetscapePluginEventHandlerCocoa::syntheticKeyDownWithCommandModifier(int
 {
     char nullTerminatedString[] = { character, '\0' };
     
-    RetainPtr<NSString> characters(AdoptNS, [[NSString alloc] initWithUTF8String:nullTerminatedString]);
+    RetainPtr<NSString> characters = adoptNS([[NSString alloc] initWithUTF8String:nullTerminatedString]);
     
     NPCocoaEvent event;
     initializeEvent(&event, NPCocoaEventKeyDown);
@@ -286,7 +285,7 @@ OSStatus WebNetscapePluginEventHandlerCocoa::handleTSMEvent(EventRef eventRef)
     if (result != noErr)
         return result;
 
-    RetainPtr<CFStringRef> text(AdoptCF, CFStringCreateWithCharacters(0, characters.data(), length));
+    RetainPtr<CFStringRef> text = adoptCF(CFStringCreateWithCharacters(0, characters.data(), length));
 
     NPCocoaEvent event;
     

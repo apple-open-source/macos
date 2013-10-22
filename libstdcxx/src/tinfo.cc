@@ -33,6 +33,8 @@
 #include <typeinfo>
 #include <cxxabi.h>
 
+#ifndef _LIBCPPABI_VERSION
+
 std::type_info::~type_info () { }
 
 std::bad_cast::~bad_cast() throw() { }
@@ -61,5 +63,5 @@ void __cxxabiv1::__cxa_bad_cast()
 	throw std::bad_cast();
 }
 
-
+#endif  // _LIBCPPABI_VERSION
 

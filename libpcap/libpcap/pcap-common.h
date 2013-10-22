@@ -16,6 +16,8 @@
 ((((y)&0xff)<<24) | (((y)&0xff00)<<8) | (((y)&0xff0000)>>8) | (((y)>>24)&0xff))
 #define	SWAPSHORT(y) \
 	( (((y)&0xff)<<8) | ((u_short)((y)&0xff00)>>8) )
+#define	SWAPLONGLONG(y) \
+	(((unsigned long long)SWAPLONG((unsigned long)(y)) << 32) | (SWAPLONG((unsigned long)((y) >> 32))))
 
 extern int dlt_to_linktype(int dlt);
 

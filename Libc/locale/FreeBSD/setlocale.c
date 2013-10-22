@@ -59,7 +59,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/setlocale.c,v 1.51 2007/01/09 00:28:00 i
 /*
  * Category names for getenv()
  */
-static char *categories[_LC_LAST] = {
+static const char * const categories[_LC_LAST] = {
     "LC_ALL",
     "LC_COLLATE",
     "LC_CTYPE",
@@ -92,8 +92,6 @@ char	*_PathLocale;
  */
 static char new_categories[_LC_LAST][ENCODING_LEN + 1];
 static char saved_categories[_LC_LAST][ENCODING_LEN + 1];
-
-static char current_locale_string[_LC_LAST * (ENCODING_LEN + 1/*"/"*/ + 1)];
 
 static char	*currentlocale(void);
 static char	*loadlocale(int);
@@ -226,7 +224,17 @@ currentlocale()
 {
 	int i;
 
-	(void)strcpy(current_locale_string, current_categories[1]);
+	size_t bufsiz = _LC_LAST * (ENCODING_LEN + 1/*"/"*/ + 1);
+	static char *current_locale_string = NULL;
+	
+	if (current_locale_string == NULL) {
+		current_locale_string = malloc(bufsiz);
+		if (current_locale_string == NULL) {
+			return NULL;
+		}
+	}
+	
+	(void)strlcpy(current_locale_string, current_categories[1], bufsiz);
 
 	for (i = 2; i < _LC_LAST; ++i)
 		if (strcmp(current_categories[1], current_categories[i])) {

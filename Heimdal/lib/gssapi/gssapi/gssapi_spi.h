@@ -60,16 +60,17 @@ extern gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_attr_stream_sizes_oid_desc;
  * Kerberos SPI
  */
 
+#ifndef __KRB5_H__
 struct krb5_keytab_data;
 struct krb5_ccache_data;
 struct Principal;
+struct EncryptionKey;
+#endif
 
 struct gsskrb5_send_to_kdc {
     void *func;
     void *ptr;
 };
-
-struct EncryptionKey;
 
 struct gsskrb5_krb5_plugin {
     int type;

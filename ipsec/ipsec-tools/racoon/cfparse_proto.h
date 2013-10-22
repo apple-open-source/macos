@@ -33,8 +33,8 @@
 #define _CFPARSE_PROTO_H
 
 /* cfparse.y */
-extern int yyparse __P((void));
-extern int cfparse __P((void));
-extern int cfreparse __P((int));
+extern int yyparse (void);
+extern int cfparse (void);
+extern int cfreparse (int);
 
 #endif /* _CFPARSE_PROTO_H */

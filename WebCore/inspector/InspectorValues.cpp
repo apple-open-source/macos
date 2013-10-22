@@ -29,9 +29,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(INSPECTOR)
-
 #include "InspectorValues.h"
 
 #include <wtf/DecimalNumber.h>
@@ -628,8 +625,8 @@ void InspectorBasicValue::writeJSON(StringBuilder* output) const
         else
             output->append(falseString, 5);
     } else if (type() == TypeNumber) {
-        NumberToUStringBuffer buffer;
-        if (!isfinite(m_doubleValue)) {
+        NumberToLStringBuffer buffer;
+        if (!std::isfinite(m_doubleValue)) {
             output->append(nullString, 4);
             return;
         }
@@ -720,7 +717,7 @@ PassRefPtr<InspectorValue> InspectorObjectBase::get(const String& name) const
     Dictionary::const_iterator it = m_data.find(name);
     if (it == m_data.end())
         return 0;
-    return it->second;
+    return it->value;
 }
 
 void InspectorObjectBase::remove(const String& name)
@@ -742,9 +739,9 @@ void InspectorObjectBase::writeJSON(StringBuilder* output) const
         ASSERT(it != m_data.end());
         if (i)
             output->append(',');
-        doubleQuoteString(it->first, output);
+        doubleQuoteString(it->key, output);
         output->append(':');
-        it->second->writeJSON(output);
+        it->value->writeJSON(output);
     }
     output->append('}');
 }
@@ -792,10 +789,8 @@ InspectorArrayBase::InspectorArrayBase()
 
 PassRefPtr<InspectorValue> InspectorArrayBase::get(size_t index)
 {
-    ASSERT(index < m_data.size());
+    ASSERT_WITH_SECURITY_IMPLICATION(index < m_data.size());
     return m_data[index];
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(INSPECTOR)

@@ -27,6 +27,8 @@
 
 #include "includes.h"
 
+#ifdef JPAKE
+
 #include <sys/types.h>
 
 #include <string.h>
@@ -673,3 +675,4 @@ main(int argc, char **argv)
 }
 #endif
 
+#endif /* JPAKE */

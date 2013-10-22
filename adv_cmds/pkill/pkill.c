@@ -478,6 +478,11 @@ main(int argc, char **argv)
 				if (mstr == NULL || *mstr == '\0') {
 					mstr = (char *)xpc_dictionary_get_string(kp, "comm");
 				}
+
+				/* Couldn't find process name, it probably exited. */
+				if (mstr == NULL) {
+					continue;
+				}
 			}
 #else
 				mstr = kp->ki_comm;

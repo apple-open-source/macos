@@ -35,7 +35,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/at/parsetime.c,v 1.25 2001/12/10 21:13:01 dwmalone Exp $");
+__FBSDID("$FreeBSD: /usr/local/www/cvsroot/FreeBSD/src/usr.bin/at/parsetime.c,v 1.28 2011/11/06 17:32:29 ed Exp $");
 
 /* System Headers */
 
@@ -75,7 +75,7 @@ enum {	/* symbols */
 
 /* parse translation table - table driven parsers can be your FRIEND!
  */
-struct {
+static const struct {
     const char *name;	/* token name */
     int value;	/* token id */
     int plural;	/* is this plural? */
@@ -646,14 +646,10 @@ parsetime(int argc, char **argv)
     } /* ugly case statement */
     expect(EOF);
 
-    /* adjust for daylight savings time
+    /* convert back to time_t
      */
     runtime.tm_isdst = -1;
     runtimer = mktime(&runtime);
-    if (runtime.tm_isdst > 0) {
-	runtimer -= 3600;
-	runtimer = mktime(&runtime);
-    }
 
     if (runtimer < 0)
 	panic("garbled time");

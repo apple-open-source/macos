@@ -31,6 +31,7 @@
 #include <freesoft.h>
 #include <getopt.h>
 #include <hard-locale.h>
+#include <posixver.h>
 #include <prepargs.h>
 #include <quotesys.h>
 #include <regex.h>

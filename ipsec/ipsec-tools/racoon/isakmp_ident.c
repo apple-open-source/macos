@@ -60,12 +60,12 @@
 #include "sockmisc.h"
 #include "schedule.h"
 #include "debug.h"
+#include "fsm.h"
 
 #include "localconf.h"
 #include "remoteconf.h"
 #include "isakmp_var.h"
 #include "isakmp.h"
-#include "evt.h"
 #include "oakley.h"
 #include "handler.h"
 #include "ipsec_doi.h"
@@ -77,9 +77,6 @@
 
 #ifdef ENABLE_NATT
 #include "nattraversal.h"
-#endif
-#ifdef HAVE_GSSAPI
-#include "gssapi.h"
 #endif
 #ifdef ENABLE_HYBRID
 #include <resolv.h>
@@ -98,8 +95,8 @@
 #include <Security/SecDH.h>
 #endif
 
-static vchar_t *ident_ir2mx __P((struct ph1handle *));
-static vchar_t *ident_ir3mx __P((struct ph1handle *));
+static vchar_t *ident_ir2mx (phase1_handle_t *);
+static vchar_t *ident_ir3mx (phase1_handle_t *);
 
 /* %%%
  * begin Identity Protection Mode as initiator.
@@ -113,7 +110,7 @@ static vchar_t *ident_ir3mx __P((struct ph1handle *));
  */
 int
 ident_i1send(iph1, msg)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	vchar_t *msg; /* must be null */
 {
 	struct payload_list *plist = NULL;
@@ -132,15 +129,18 @@ ident_i1send(iph1, msg)
 #ifdef ENABLE_DPD
 	vchar_t *vid_dpd = NULL;
 #endif
-	/* validity check */
-	if (msg != NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"msg has to be NULL in this function.\n");
+
+    /* validity check */
+	if (iph1->status != IKEV1_STATE_IDENT_I_START) {
+		plog(ASL_LEVEL_ERR,
+             "status mismatched %d.\n", iph1->status);
 		goto end;
 	}
-	if (iph1->status != PHASE1ST_START) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"status mismatched %d.\n", iph1->status);
+
+    /* validity check */
+	if (msg != NULL) {
+		plog(ASL_LEVEL_ERR,
+			"msg has to be NULL in this function.\n");
 		goto end;
 	}
 
@@ -149,9 +149,9 @@ ident_i1send(iph1, msg)
 	isakmp_newcookie((caddr_t)&iph1->index, iph1->remote, iph1->local);
 
 	/* create SA payload for my proposal */
-	iph1->sa = ipsecdoi_setph1proposal(iph1->rmconf->proposal);
+	iph1->sa = ipsecdoi_setph1proposal(iph1);
 	if (iph1->sa == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to set proposal");
 		goto end;
 	}
@@ -169,20 +169,18 @@ ident_i1send(iph1, msg)
 	switch (RMAUTHMETHOD(iph1)) {
 	case FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I:
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I:
 		if ((vid_xauth = set_vendorid(VENDORID_XAUTH)) == NULL)
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			     "Xauth vendor ID generation failed\n");
 		else
 			plist = isakmp_plist_append(plist,
 			    vid_xauth, ISAKMP_NPTYPE_VID);
 			
 		if ((vid_unity = set_vendorid(VENDORID_UNITY)) == NULL)
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			     "Unity vendor ID generation failed\n");
 		else
                 	plist = isakmp_plist_append(plist,
@@ -195,7 +193,7 @@ ident_i1send(iph1, msg)
 #ifdef ENABLE_FRAG
 	if (iph1->rmconf->ike_frag) {
 		if ((vid_frag = set_vendorid(VENDORID_FRAG)) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			    "Frag vendorID construction failed\n");
 		} else {
 			vid_frag = isakmp_frag_addcap(vid_frag,
@@ -223,12 +221,12 @@ ident_i1send(iph1, msg)
 	/* send the packet, add to the schedule to resend */
 	iph1->retry_counter = iph1->rmconf->retry_counter;
 	if (isakmp_ph1resend(iph1) == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to send packet");
 		goto end;
 	}
 
-	iph1->status = PHASE1ST_MSG1SENT;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG1SENT);
 
 	error = 0;
 
@@ -275,7 +273,7 @@ end:
  */
 int
 ident_i2recv(iph1, msg)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	vchar_t *pbuf = NULL;
@@ -284,10 +282,10 @@ ident_i2recv(iph1, msg)
 	int error = -1;
 	int vid_numeric;
 
-	/* validity check */
-	if (iph1->status != PHASE1ST_MSG1SENT) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"status mismatched %d.\n", iph1->status);
+    /* validity check */
+	if (iph1->status != IKEV1_STATE_IDENT_I_MSG1SENT) {
+		plog(ASL_LEVEL_ERR,
+             "status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
@@ -303,7 +301,7 @@ ident_i2recv(iph1, msg)
 	 */
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to parse msg");
 		goto end;
 	}
@@ -311,14 +309,14 @@ ident_i2recv(iph1, msg)
 
 	/* SA payload is fixed postion */
 	if (pa->type != ISAKMP_NPTYPE_SA) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"received invalid next payload type %d, "
 			"expecting %d.\n",
 			pa->type, ISAKMP_NPTYPE_SA);
 		goto end;
 	}
 	if (isakmp_p2ph(&satmp, pa->ptr) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to process SA payload");
 		goto end;
 	}
@@ -358,7 +356,7 @@ ident_i2recv(iph1, msg)
 #ifdef ENABLE_FRAG
 			if ((vid_numeric == VENDORID_FRAG) &&
 				(vendorid_frag_cap(pa->ptr) & VENDORID_FRAG_IDENT)) {
-				plog(LLV_DEBUG, LOCATION, NULL,
+				plog(ASL_LEVEL_DEBUG, 
 					 "remote supports FRAGMENTATION\n");
 				iph1->frag = 1;
 			}
@@ -366,7 +364,7 @@ ident_i2recv(iph1, msg)
 			break;
 		default:
 			/* don't send information, see ident_r1recv() */
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"ignore the packet, "
 				"received unexpecting payload type %d.\n",
 				pa->type);
@@ -376,7 +374,7 @@ ident_i2recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1)) {
-		plog(LLV_INFO, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_INFO,
 		     "Selected NAT-T version: %s\n",
 		     vid_string_by_id(iph1->natt_options->version));
 		ike_session_update_natt_version(iph1);
@@ -385,14 +383,14 @@ ident_i2recv(iph1, msg)
 
 	/* check SA payload and set approval SA for use */
 	if (ipsecdoi_checkph1proposal(satmp, iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"failed to get valid proposal.\n");
 		/* XXX send information */
 		goto end;
 	}
 	VPTRINIT(iph1->sa_ret);
 
-	iph1->status = PHASE1ST_MSG2RECEIVED;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG2RCVD);
 
 #ifdef ENABLE_VPNCONTROL_PORT
 	vpncontrol_notify_phase_change(1, FROM_REMOTE, iph1, NULL);
@@ -429,16 +427,16 @@ end:
  * 	          <IDi1_b>Ke_i, [<<Cert-I_b>Ke_i]
  */
 int
-ident_i2send(iph1, msg)
-	struct ph1handle *iph1;
+ident_i3send(iph1, msg)
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	int error = -1;
 
-	/* validity check */
-	if (iph1->status != PHASE1ST_MSG2RECEIVED) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"status mismatched %d.\n", iph1->status);
+    /* validity check */
+	if (iph1->status != IKEV1_STATE_IDENT_I_MSG2RCVD) {
+		plog(ASL_LEVEL_ERR,
+             "status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
@@ -454,7 +452,7 @@ ident_i2send(iph1, msg)
 	if (oakley_dh_generate(iph1->approval->dhgrp,
 						   &iph1->dhpub, &iph1->publicKeySize, &iph1->dhC) < 0) {
 #endif
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate DH");
 		goto end;
 	}
@@ -462,24 +460,15 @@ ident_i2send(iph1, msg)
 	/* generate NONCE value */
 	iph1->nonce = eay_set_random(iph1->rmconf->nonce_size);
 	if (iph1->nonce == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate NONCE");
 		goto end;
 	}
 
-#ifdef HAVE_GSSAPI
-	if (AUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB &&
-	    gssapi_get_itoken(iph1, NULL) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to get GSS token");
-		goto end;
-	}
-#endif
-
 	/* create buffer to send isakmp payload */
 	iph1->sendbuf = ident_ir2mx(iph1);
 	if (iph1->sendbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to create send buffer");
 		goto end;
 	}
@@ -491,20 +480,20 @@ ident_i2send(iph1, msg)
 	/* send the packet, add to the schedule to resend */
 	iph1->retry_counter = iph1->rmconf->retry_counter;
 	if (isakmp_ph1resend(iph1) == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to send packet");
 		goto end;
 	}
 
 	/* the sending message is added to the received-list. */
-	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
-                     PH1_NON_ESP_EXTRA_LEN(iph1), PH1_FRAG_FLAGS(iph1)) == -1) {
-		plog(LLV_ERROR , LOCATION, NULL,
+	if (ike_session_add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
+                     PH1_NON_ESP_EXTRA_LEN(iph1, iph1->sendbuf), PH1_FRAG_FLAGS(iph1)) == -1) {
+		plog(ASL_LEVEL_ERR , 
 			"failed to add a response packet to the tree.\n");
 		goto end;
 	}
 
-	iph1->status = PHASE1ST_MSG2SENT;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG3SENT);
 
 	error = 0;
 
@@ -532,33 +521,30 @@ end:
  * 	rev: HDR, <Nr_b>PubKey_i, <KE_b>Ke_r, <IDr1_b>Ke_r,
  */
 int
-ident_i3recv(iph1, msg)
-	struct ph1handle *iph1;
+ident_i4recv(iph1, msg)
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	vchar_t *pbuf = NULL;
 	struct isakmp_parse_t *pa;
 	int error = -1;
 	int vid_numeric;
-#ifdef HAVE_GSSAPI
-	vchar_t *gsstoken = NULL;
-#endif
 #ifdef ENABLE_NATT
 	vchar_t	*natd_received;
 	int natd_seq = 0, natd_verified;
 #endif
 
-	/* validity check */
-	if (iph1->status != PHASE1ST_MSG2SENT) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"status mismatched %d.\n", iph1->status);
+    /* validity check */
+	if (iph1->status != IKEV1_STATE_IDENT_I_MSG3SENT) {
+		plog(ASL_LEVEL_ERR,
+             "status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
 	/* validate the type of next payload */
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to parse msg");
 		goto end;
 	}
@@ -570,14 +556,14 @@ ident_i3recv(iph1, msg)
 		switch (pa->type) {
 		case ISAKMP_NPTYPE_KE:
 			if (isakmp_p2ph(&iph1->dhpub_p, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process KE payload");
 				goto end;
 			}
 			break;
 		case ISAKMP_NPTYPE_NONCE:
 			if (isakmp_p2ph(&iph1->nonce_p, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process NONCE payload");
 				goto end;
 			}
@@ -608,21 +594,11 @@ ident_i3recv(iph1, msg)
 			break;
 		case ISAKMP_NPTYPE_CR:
 			if (oakley_savecr(iph1, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process CR payload");
 				goto end;
 			}
 			break;
-#ifdef HAVE_GSSAPI
-		case ISAKMP_NPTYPE_GSS:
-			if (isakmp_p2ph(&gsstoken, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to process GSS payload");
-				goto end;
-			}
-			gssapi_save_received_token(iph1, gsstoken);
-			break;
-#endif
 
 #ifdef ENABLE_NATT
 		case ISAKMP_NPTYPE_NATD_DRAFT:
@@ -632,7 +608,7 @@ ident_i3recv(iph1, msg)
 			    pa->type == iph1->natt_options->payload_nat_d) {
 				natd_received = NULL;
 				if (isakmp_p2ph (&natd_received, pa->ptr) < 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						 "failed to process NATD payload");
 					goto end;
 				}
@@ -647,7 +623,7 @@ ident_i3recv(iph1, msg)
 				natd_verified = natt_compare_addr_hash (iph1,
 					natd_received, natd_seq++);
                         
-				plog (LLV_INFO, LOCATION, NULL, "NAT-D payload #%d %s\n",
+				plog (ASL_LEVEL_INFO, "NAT-D payload #%d %s\n",
 					natd_seq - 1,
 					natd_verified ? "verified" : "doesn't match");
                         
@@ -661,7 +637,7 @@ ident_i3recv(iph1, msg)
 
 		default:
 			/* don't send information, see ident_r1recv() */
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"ignore the packet, "
 				"received unexpecting payload type %d.\n",
 				pa->type);
@@ -671,7 +647,7 @@ ident_i3recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1)) {
-		plog (LLV_INFO, LOCATION, NULL, "NAT %s %s%s\n",
+		plog (ASL_LEVEL_INFO, "NAT %s %s%s\n",
 		      iph1->natt_flags & NAT_DETECTED ? 
 		      		"detected:" : "not detected",
 		      iph1->natt_flags & NAT_DETECTED_ME ? "ME " : "",
@@ -683,7 +659,7 @@ ident_i3recv(iph1, msg)
 
 	/* payload existency check */
 	if (iph1->dhpub_p == NULL || iph1->nonce_p == NULL) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"few isakmp message received.\n");
 		goto end;
 	}
@@ -693,7 +669,7 @@ ident_i3recv(iph1, msg)
 		;
 	}
 
-	iph1->status = PHASE1ST_MSG3RECEIVED;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG4RCVD);
 
 	error = 0;
 
@@ -709,10 +685,6 @@ end:
 								CONSTSTR("Initiator, Main-Mode Message 4"),
 								CONSTSTR("Failed to process Main-Mode Message 4"));
 	}
-#ifdef HAVE_GSSAPI
-	if (gsstoken)
-		vfree(gsstoken);
-#endif
 	if (pbuf)
 		vfree(pbuf);
 	if (error) {
@@ -735,20 +707,17 @@ end:
  * 	rev: HDR*, HASH_I
  */
 int
-ident_i3send(iph1, msg0)
-	struct ph1handle *iph1;
+ident_i5send(iph1, msg0)
+	phase1_handle_t *iph1;
 	vchar_t *msg0;
 {
 	int error = -1;
 	int dohash = 1;
-#ifdef HAVE_GSSAPI
-	int len;
-#endif
 
-	/* validity check */
-	if (iph1->status != PHASE1ST_MSG3RECEIVED) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"status mismatched %d.\n", iph1->status);
+    /* validity check */
+	if (iph1->status != IKEV1_STATE_IDENT_I_MSG4RCVD) {
+		plog(ASL_LEVEL_ERR,
+             "status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
@@ -757,61 +726,47 @@ ident_i3send(iph1, msg0)
 	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub,
 						  iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0) {
 #else
-	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub_p, iph1->publicKeySize, &iph1->dhgxy, iph1->dhC) < 0) {
+	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub_p, iph1->publicKeySize, &iph1->dhgxy, &iph1->dhC) < 0) {
 #endif
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to compute DH");
 		goto end;
 	}
 
 	/* generate SKEYIDs & IV & final cipher key */
 	if (oakley_skeyid(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate SKEYID");
 		goto end;
 	}
 	if (oakley_skeyid_dae(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate SKEYID-DAE");
 		goto end;
 	}
 	if (oakley_compute_enckey(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate ENCKEY");
 		goto end;
 	}
 	if (oakley_newiv(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate IV");
 		goto end;
 	}
 
 	/* make ID payload into isakmp status */
 	if (ipsecdoi_setid1(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to set ID");
 		goto end;
 	}
-
-#ifdef HAVE_GSSAPI
-	if (AUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB &&
-	    gssapi_more_tokens(iph1)) {
-		plog(LLV_DEBUG, LOCATION, NULL, "calling get_itoken\n");
-		if (gssapi_get_itoken(iph1, &len) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "failed to get GSSAPI token");
-			goto end;
-		}
-		if (len != 0)
-			dohash = 0;
-	}
-#endif
 
 	/* generate HASH to send */
 	if (dohash) {
 		iph1->hash = oakley_ph1hash_common(iph1, GENERATE);
 		if (iph1->hash == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "failed to generate HASH");
 			goto end;
 		}
@@ -824,7 +779,7 @@ ident_i3send(iph1, msg0)
 	/* create HDR;ID;HASH payload */
 	iph1->sendbuf = ident_ir3mx(iph1);
 	if (iph1->sendbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to allocate send buffer");
 		goto end;
 	}
@@ -832,15 +787,15 @@ ident_i3send(iph1, msg0)
 	/* send the packet, add to the schedule to resend */
 	iph1->retry_counter = iph1->rmconf->retry_counter;
 	if (isakmp_ph1resend(iph1) == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to send packet");
 		goto end;
 	}
 
 	/* the sending message is added to the received-list. */
-	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg0,
-                     PH1_NON_ESP_EXTRA_LEN(iph1), PH1_FRAG_FLAGS(iph1)) == -1) {
-		plog(LLV_ERROR , LOCATION, NULL,
+	if (ike_session_add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg0,
+                     PH1_NON_ESP_EXTRA_LEN(iph1, iph1->sendbuf), PH1_FRAG_FLAGS(iph1)) == -1) {
+		plog(ASL_LEVEL_ERR , 
 			"failed to add a response packet to the tree.\n");
 		goto end;
 	}
@@ -848,7 +803,7 @@ ident_i3send(iph1, msg0)
 	/* see handler.h about IV synchronization. */
 	memcpy(iph1->ivm->ive->v, iph1->ivm->iv->v, iph1->ivm->iv->l);
 
-	iph1->status = PHASE1ST_MSG3SENT;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG5SENT);
 
 	error = 0;
 
@@ -876,8 +831,8 @@ end:
  * 	rev: HDR*, HASH_R
  */
 int
-ident_i4recv(iph1, msg0)
-	struct ph1handle *iph1;
+ident_i6recv(iph1, msg0)
+	phase1_handle_t *iph1;
 	vchar_t *msg0;
 {
 	vchar_t *pbuf = NULL;
@@ -886,28 +841,25 @@ ident_i4recv(iph1, msg0)
 	int error = -1;
 	int type;
 	int vid_numeric;
-#ifdef HAVE_GSSAPI
-	vchar_t *gsstoken = NULL;
-#endif
 	int received_cert = 0;
 
-	/* validity check */
-	if (iph1->status != PHASE1ST_MSG3SENT) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"status mismatched %d.\n", iph1->status);
+    /* validity check */
+	if (iph1->status != IKEV1_STATE_IDENT_I_MSG5SENT) {
+		plog(ASL_LEVEL_ERR,
+             "status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
 	/* decrypting */
 	if (!ISSET(((struct isakmp *)msg0->v)->flags, ISAKMP_FLAG_E)) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"ignore the packet, "
 			"expecting the packet encrypted.\n");
 		goto end;
 	}
 	msg = oakley_do_decrypt(iph1, msg0, iph1->ivm->iv, iph1->ivm->ive);
 	if (msg == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR,
 			 "failed to decrypt");
 		goto end;
 	}
@@ -915,7 +867,7 @@ ident_i4recv(iph1, msg0)
 	/* validate the type of next payload */
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to parse msg");
 		goto end;
 	}
@@ -929,7 +881,7 @@ ident_i4recv(iph1, msg0)
 		switch (pa->type) {
 		case ISAKMP_NPTYPE_ID:
 			if (isakmp_p2ph(&iph1->id_p, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process ID payload");
 				goto end;
 			}
@@ -939,7 +891,7 @@ ident_i4recv(iph1, msg0)
 			break;
 		case ISAKMP_NPTYPE_CERT:
 			if (oakley_savecert(iph1, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process CERT payload");
 				goto end;
 			}
@@ -947,21 +899,12 @@ ident_i4recv(iph1, msg0)
 			break;
 		case ISAKMP_NPTYPE_SIG:
 			if (isakmp_p2ph(&iph1->sig_p, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process SIG payload");
 				goto end;
 			}
 			break;
-#ifdef HAVE_GSSAPI
-		case ISAKMP_NPTYPE_GSS:
-			if (isakmp_p2ph(&gsstoken, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to process GSS payload");
-				goto end;
-			}
-			gssapi_save_received_token(iph1, gsstoken);
-			break;
-#endif
+
 		case ISAKMP_NPTYPE_VID:
 				vid_numeric = check_vendorid(pa->ptr);
 #ifdef ENABLE_DPD
@@ -974,7 +917,7 @@ ident_i4recv(iph1, msg0)
 			break;
 		default:
 			/* don't send information, see ident_r1recv() */
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"ignore the packet, "
 				"received unexpecting payload type %d.\n",
 				pa->type);
@@ -990,45 +933,37 @@ ident_i4recv(iph1, msg0)
 
 	/* verify identifier */
 	if (ipsecdoi_checkid1(iph1) != 0) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"invalid ID payload.\n");
 		goto end;
 	}
 
 	/* validate authentication value */
-#ifdef HAVE_GSSAPI
-	if (gsstoken == NULL) {
-#endif
-		type = oakley_validate_auth(iph1);
-		if (type != 0) {
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
-									CONSTSTR("Initiator, Main-Mode Message 6"),
-									CONSTSTR("Failed to authenticate Main-Mode Message 6"));
-			if (type == -1) {
-				/* msg printed inner oakley_validate_auth() */
-				goto end;
-			}
-			EVT_PUSH(iph1->local, iph1->remote, 
-			    EVTT_PEERPH1AUTH_FAILED, NULL);
-			isakmp_info_send_n1(iph1, type, NULL);
-			goto end;
-		}
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
-								CONSTSTR("Initiator, Main-Mode Message 6"),
-								CONSTSTR(NULL));
-#ifdef HAVE_GSSAPI
-	}
-#endif
+    type = oakley_validate_auth(iph1);
+    if (type != 0) {
+        IPSECSESSIONTRACEREVENT(iph1->parent_session,
+                                IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
+                                CONSTSTR("Initiator, Main-Mode Message 6"),
+                                CONSTSTR("Failed to authenticate Main-Mode Message 6"));
+        if (type == -1) {
+            /* msg printed inner oakley_validate_auth() */
+            goto end;
+        }
+        isakmp_info_send_n1(iph1, type, NULL);
+        goto end;
+    }
+    IPSECSESSIONTRACEREVENT(iph1->parent_session,
+                            IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
+                            CONSTSTR("Initiator, Main-Mode Message 6"),
+                            CONSTSTR(NULL));
+
 
 	/*
 	 * XXX: Should we do compare two addresses, ph1handle's and ID
 	 * payload's.
 	 */
 
-	plog(LLV_DEBUG, LOCATION, iph1->remote, "peer's ID:");
-	plogdump(LLV_DEBUG, iph1->id_p->v, iph1->id_p->l);
+	plogdump(ASL_LEVEL_DEBUG, iph1->id_p->v, iph1->id_p->l, "peer's ID:");
 
 	/* see handler.h about IV synchronization. */
 	memcpy(iph1->ivm->iv->v, iph1->ivm->ive->v, iph1->ivm->ive->l);
@@ -1036,12 +971,7 @@ ident_i4recv(iph1, msg0)
 	/*
 	 * If we got a GSS token, we need to this roundtrip again.
 	 */
-#ifdef HAVE_GSSAPI
-	iph1->status = gsstoken != 0 ? PHASE1ST_MSG3RECEIVED : 
-	    PHASE1ST_MSG4RECEIVED;
-#else
-	iph1->status = PHASE1ST_MSG4RECEIVED;
-#endif
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG6RCVD);
 
 	error = 0;
 
@@ -1061,10 +991,6 @@ end:
 		vfree(pbuf);
 	if (msg)
 		vfree(msg);
-#ifdef HAVE_GSSAPI
-	if (gsstoken)
-		vfree(gsstoken);
-#endif
 
 	if (error) {
 		VPTRINIT(iph1->id_p);
@@ -1082,23 +1008,23 @@ end:
  * status update and establish isakmp sa.
  */
 int
-ident_i4send(iph1, msg)
-	struct ph1handle *iph1;
+ident_ifinalize(iph1, msg)
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	int error = -1;
 
-	/* validity check */
-	if (iph1->status != PHASE1ST_MSG4RECEIVED) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"status mismatched %d.\n", iph1->status);
+    /* validity check */
+	if (iph1->status != IKEV1_STATE_IDENT_I_MSG6RCVD) {
+		plog(ASL_LEVEL_ERR,
+             "status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
 	/* see handler.h about IV synchronization. */
 	memcpy(iph1->ivm->iv->v, iph1->ivm->ive->v, iph1->ivm->iv->l);
 
-	iph1->status = PHASE1ST_ESTABLISHED;
+	fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_ESTABLISHED);
 
 	IPSECSESSIONTRACEREVENT(iph1->parent_session,
 							IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_SUCC,
@@ -1120,7 +1046,7 @@ end:
  */
 int
 ident_r1recv(iph1, msg)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	vchar_t *pbuf = NULL;
@@ -1129,8 +1055,8 @@ ident_r1recv(iph1, msg)
 	int vid_numeric;
 
 	/* validity check */
-	if (iph1->status != PHASE1ST_START) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if (iph1->status != IKEV1_STATE_IDENT_R_START) {
+		plog(ASL_LEVEL_ERR,
 			"status mismatched %d.\n", iph1->status);
 		goto end;
 	}
@@ -1141,7 +1067,7 @@ ident_r1recv(iph1, msg)
 	 */
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to parse msg");
 		goto end;
 	}
@@ -1149,14 +1075,14 @@ ident_r1recv(iph1, msg)
 
 	/* check the position of SA payload */
 	if (pa->type != ISAKMP_NPTYPE_SA) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"received invalid next payload type %d, "
 			"expecting %d.\n",
 			pa->type, ISAKMP_NPTYPE_SA);
 		goto end;
 	}
 	if (isakmp_p2ph(&iph1->sa, pa->ptr) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to process SA payload");
 		goto end;
 	}
@@ -1196,7 +1122,7 @@ ident_r1recv(iph1, msg)
 #ifdef ENABLE_FRAG
 			if ((vid_numeric == VENDORID_FRAG) &&
 				(vendorid_frag_cap(pa->ptr) & VENDORID_FRAG_IDENT)) {
-				plog(LLV_DEBUG, LOCATION, NULL,
+				plog(ASL_LEVEL_DEBUG, 
 					 "remote supports FRAGMENTATION\n");
 				iph1->frag = 1;
 			}
@@ -1210,7 +1136,7 @@ ident_r1recv(iph1, msg)
 			 * the re-sent packet.  And we do same behavior
 			 * when we expect encrypted packet.
 			 */
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"ignore the packet, "
 				"received unexpecting payload type %d.\n",
 				pa->type);
@@ -1220,7 +1146,7 @@ ident_r1recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1)) {
-		plog(LLV_INFO, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_INFO,
 		     "Selected NAT-T version: %s\n",
 		     vid_string_by_id(iph1->natt_options->version));
 		ike_session_update_natt_version(iph1);
@@ -1229,13 +1155,13 @@ ident_r1recv(iph1, msg)
 
 	/* check SA payload and set approval SA for use */
 	if (ipsecdoi_checkph1proposal(iph1->sa, iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"failed to get valid proposal.\n");
 		/* XXX send information */
 		goto end;
 	}
 
-	iph1->status = PHASE1ST_MSG1RECEIVED;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG1RCVD);
 
 	error = 0;
 
@@ -1268,16 +1194,13 @@ end:
  * 	rev: HDR, SA
  */
 int
-ident_r1send(iph1, msg)
-	struct ph1handle *iph1;
+ident_r2send(iph1, msg)
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	struct payload_list *plist = NULL;
 	int error = -1;
 	vchar_t *gss_sa = NULL;
-#ifdef HAVE_GSSAPI
-	int free_gss_sa = 0;
-#endif
 #ifdef ENABLE_NATT
 	vchar_t *vid_natt = NULL;
 #endif
@@ -1293,32 +1216,24 @@ ident_r1send(iph1, msg)
 #endif 
 
 	/* validity check */
-	if (iph1->status != PHASE1ST_MSG1RECEIVED) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if (iph1->status != IKEV1_STATE_IDENT_R_MSG1RCVD) {
+		plog(ASL_LEVEL_ERR,
 			"status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
 	/* set responder's cookie */
 	isakmp_newcookie((caddr_t)&iph1->index.r_ck, iph1->remote, iph1->local);
-
-#ifdef HAVE_GSSAPI
-	if (iph1->approval->gssid != NULL) {
-		gss_sa = ipsecdoi_setph1proposal(iph1->approval);
-		if (gss_sa != iph1->sa_ret)
-			free_gss_sa = 1;
-	} else 
-#endif
-		gss_sa = iph1->sa_ret;
+    gss_sa = iph1->sa_ret;
 
 	/* set SA payload to reply */
 	plist = isakmp_plist_append(plist, gss_sa, ISAKMP_NPTYPE_SA);
 
 #ifdef ENABLE_HYBRID
 	if (iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) {
-		plog (LLV_INFO, LOCATION, NULL, "Adding xauth VID payload.\n");
+		plog (ASL_LEVEL_INFO, "Adding xauth VID payload.\n");
 		if ((vid_xauth = set_vendorid(VENDORID_XAUTH)) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			    "Cannot create Xauth vendor ID\n");
 			goto end;
 		}
@@ -1328,7 +1243,7 @@ ident_r1send(iph1, msg)
 
 	if (iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_UNITY) {
 		if ((vid_unity = set_vendorid(VENDORID_UNITY)) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			    "Cannot create Unity vendor ID\n");
 			goto end;
 		}
@@ -1359,7 +1274,7 @@ ident_r1send(iph1, msg)
 			vid_frag = isakmp_frag_addcap(vid_frag,
 			    VENDORID_FRAG_IDENT);
 		if (vid_frag == NULL)
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			    "Frag vendorID construction failed\n");
 		else
 			plist = isakmp_plist_append(plist, 
@@ -1376,20 +1291,20 @@ ident_r1send(iph1, msg)
 	/* send the packet, add to the schedule to resend */
 	iph1->retry_counter = iph1->rmconf->retry_counter;
 	if (isakmp_ph1resend(iph1) == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to send packet");
 		goto end;
 	}
 
 	/* the sending message is added to the received-list. */
-	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
-                     PH1_NON_ESP_EXTRA_LEN(iph1), PH1_FRAG_FLAGS(iph1)) == -1) {
-		plog(LLV_ERROR , LOCATION, NULL,
+	if (ike_session_add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
+                     PH1_NON_ESP_EXTRA_LEN(iph1, iph1->sendbuf), PH1_FRAG_FLAGS(iph1)) == -1) {
+		plog(ASL_LEVEL_ERR , 
 			"failed to add a response packet to the tree.\n");
 		goto end;
 	}
 
-	iph1->status = PHASE1ST_MSG1SENT;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG2SENT);
 
 #ifdef ENABLE_VPNCONTROL_PORT
 	vpncontrol_notify_phase_change(1, FROM_LOCAL, iph1, NULL);
@@ -1409,10 +1324,6 @@ end:
 								CONSTSTR("Responder, Main-Mode Message 2"),
 								CONSTSTR("Failed to transmit Main-Mode Message 2"));
 	}
-#ifdef HAVE_GSSAPI
-	if (free_gss_sa)
-		vfree(gss_sa);
-#endif
 #ifdef ENABLE_NATT
 	if (vid_natt)
 		vfree(vid_natt);
@@ -1445,23 +1356,20 @@ end:
  * 	          <IDi1_b>Ke_i, [<<Cert-I_b>Ke_i]
  */
 int
-ident_r2recv(iph1, msg)
-	struct ph1handle *iph1;
+ident_r3recv(iph1, msg)
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	vchar_t *pbuf = NULL;
 	struct isakmp_parse_t *pa;
 	int error = -1;
-#ifdef HAVE_GSSAPI
-	vchar_t *gsstoken = NULL;
-#endif
 #ifdef ENABLE_NATT
 	int natd_seq = 0;
 #endif
 
 	/* validity check */
-	if (iph1->status != PHASE1ST_MSG1SENT) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if (iph1->status != IKEV1_STATE_IDENT_R_MSG2SENT) {
+		plog(ASL_LEVEL_ERR,
 			"status mismatched %d.\n", iph1->status);
 		goto end;
 	}
@@ -1469,7 +1377,7 @@ ident_r2recv(iph1, msg)
 	/* validate the type of next payload */
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to parse msg");
 		goto end;
 	}
@@ -1480,14 +1388,14 @@ ident_r2recv(iph1, msg)
 		switch (pa->type) {
 		case ISAKMP_NPTYPE_KE:
 			if (isakmp_p2ph(&iph1->dhpub_p, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process KE payload");
 				goto end;
 			}
 			break;
 		case ISAKMP_NPTYPE_NONCE:
 			if (isakmp_p2ph(&iph1->nonce_p, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process NONCE payload");
 				goto end;
 			}
@@ -1496,20 +1404,10 @@ ident_r2recv(iph1, msg)
 			(void)check_vendorid(pa->ptr);
 			break;
 		case ISAKMP_NPTYPE_CR:
-			plog(LLV_WARNING, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_WARNING,
 				"CR received, ignore it. "
 				"It should be in other exchange.\n");
 			break;
-#ifdef HAVE_GSSAPI
-		case ISAKMP_NPTYPE_GSS:
-			if (isakmp_p2ph(&gsstoken, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to process GSS payload");
-				goto end;
-			}
-			gssapi_save_received_token(iph1, gsstoken);
-			break;
-#endif
 
 #ifdef ENABLE_NATT
 		case ISAKMP_NPTYPE_NATD_DRAFT:
@@ -1522,7 +1420,7 @@ ident_r2recv(iph1, msg)
 				int natd_verified;
 				
 				if (isakmp_p2ph (&natd_received, pa->ptr) < 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						 "failed to process NATD payload");
 					goto end;
 				}
@@ -1533,7 +1431,7 @@ ident_r2recv(iph1, msg)
 				natd_verified = natt_compare_addr_hash (iph1,
 					natd_received, natd_seq++);
 				
-				plog (LLV_INFO, LOCATION, NULL, "NAT-D payload #%d %s\n",
+				plog (ASL_LEVEL_INFO, "NAT-D payload #%d %s\n",
 					natd_seq - 1,
 					natd_verified ? "verified" : "doesn't match");
 				
@@ -1547,7 +1445,7 @@ ident_r2recv(iph1, msg)
 
 		default:
 			/* don't send information, see ident_r1recv() */
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"ignore the packet, "
 				"received unexpecting payload type %d.\n",
 				pa->type);
@@ -1557,7 +1455,7 @@ ident_r2recv(iph1, msg)
 
 #ifdef ENABLE_NATT
 	if (NATT_AVAILABLE(iph1))
-		plog (LLV_INFO, LOCATION, NULL, "NAT %s %s%s\n",
+		plog (ASL_LEVEL_INFO, "NAT %s %s%s\n",
 		      iph1->natt_flags & NAT_DETECTED ? 
 		      		"detected:" : "not detected",
 		      iph1->natt_flags & NAT_DETECTED_ME ? "ME " : "",
@@ -1566,12 +1464,12 @@ ident_r2recv(iph1, msg)
 
 	/* payload existency check */
 	if (iph1->dhpub_p == NULL || iph1->nonce_p == NULL) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"few isakmp message received.\n");
 		goto end;
 	}
 
-	iph1->status = PHASE1ST_MSG2RECEIVED;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG3RCVD);
 
 	error = 0;
 
@@ -1589,10 +1487,6 @@ end:
 	}
 	if (pbuf)
 		vfree(pbuf);
-#ifdef HAVE_GSSAPI
-	if (gsstoken)
-		vfree(gsstoken);
-#endif
 
 	if (error) {
 		VPTRINIT(iph1->dhpub_p);
@@ -1612,15 +1506,15 @@ end:
  * 	rev: HDR, <Nr_b>PubKey_i, <KE_b>Ke_r, <IDr1_b>Ke_r,
  */
 int
-ident_r2send(iph1, msg)
-	struct ph1handle *iph1;
+ident_r4send(iph1, msg)
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	int error = -1;
 
 	/* validity check */
-	if (iph1->status != PHASE1ST_MSG2RECEIVED) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if (iph1->status != IKEV1_STATE_IDENT_R_MSG3RCVD) {
+		plog(ASL_LEVEL_ERR,
 			"status mismatched %d.\n", iph1->status);
 		goto end;
 	}
@@ -1633,7 +1527,7 @@ ident_r2send(iph1, msg)
 		if (oakley_dh_generate(iph1->approval->dhgrp,
 							   &iph1->dhpub, &iph1->publicKeySize, &iph1->dhC) < 0) {
 #endif		
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate DH");
 		goto end;
 	}
@@ -1641,20 +1535,15 @@ ident_r2send(iph1, msg)
 	/* generate NONCE value */
 	iph1->nonce = eay_set_random(iph1->rmconf->nonce_size);
 	if (iph1->nonce == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate NONCE");
 		goto end;
 	}
 
-#ifdef HAVE_GSSAPI
-	if (AUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB)
-		gssapi_get_rtoken(iph1, NULL);
-#endif
-
 	/* create HDR;KE;NONCE payload */
 	iph1->sendbuf = ident_ir2mx(iph1);
 	if (iph1->sendbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to allocate send buffer");
 		goto end;
 	}
@@ -1666,15 +1555,15 @@ ident_r2send(iph1, msg)
 	/* send the packet, add to the schedule to resend */
 	iph1->retry_counter = iph1->rmconf->retry_counter;
 	if (isakmp_ph1resend(iph1) == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to send packet");
 		goto end;
 	}
 
 	/* the sending message is added to the received-list. */
-	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
-                     PH1_NON_ESP_EXTRA_LEN(iph1), PH1_FRAG_FLAGS(iph1)) == -1) {
-		plog(LLV_ERROR , LOCATION, NULL,
+	if (ike_session_add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
+                     PH1_NON_ESP_EXTRA_LEN(iph1, iph1->sendbuf), PH1_FRAG_FLAGS(iph1)) == -1) {
+		plog(ASL_LEVEL_ERR , 
 			"failed to add a response packet to the tree.\n");
 		goto end;
 	}
@@ -1684,36 +1573,36 @@ ident_r2send(iph1, msg)
 		if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub,
 							  iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0) {
 #else
-	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub_p, iph1->publicKeySize, &iph1->dhgxy, iph1->dhC) < 0) {
+	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub_p, iph1->publicKeySize, &iph1->dhgxy, &iph1->dhC) < 0) {
 #endif
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to compute DH");
 		goto end;
 	}
 
 	/* generate SKEYIDs & IV & final cipher key */
 	if (oakley_skeyid(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate SKEYID");
 		goto end;
 	}
 	if (oakley_skeyid_dae(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate SKEYID-DAE");
 		goto end;
 	}
 	if (oakley_compute_enckey(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate ENCKEY");
 		goto end;
 	}
 	if (oakley_newiv(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to generate IV");
 		goto end;
 	}
 
-	iph1->status = PHASE1ST_MSG2SENT;
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG4SENT);
 
 	error = 0;
 
@@ -1741,8 +1630,8 @@ end:
  * 	rev: HDR*, HASH_I
  */
 int
-ident_r3recv(iph1, msg0)
-	struct ph1handle *iph1;
+ident_r5recv(iph1, msg0)
+	phase1_handle_t *iph1;
 	vchar_t *msg0;
 {
 	vchar_t *msg = NULL;
@@ -1750,28 +1639,25 @@ ident_r3recv(iph1, msg0)
 	struct isakmp_parse_t *pa;
 	int error = -1;
 	int type;
-#ifdef HAVE_GSSAPI
-	vchar_t *gsstoken = NULL;
-#endif
 	int received_cert = 0;
 
 	/* validity check */
-	if (iph1->status != PHASE1ST_MSG2SENT) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if (iph1->status != IKEV1_STATE_IDENT_R_MSG4SENT) {
+		plog(ASL_LEVEL_ERR,
 			"status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
 	/* decrypting */
 	if (!ISSET(((struct isakmp *)msg0->v)->flags, ISAKMP_FLAG_E)) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"reject the packet, "
 			"expecting the packet encrypted.\n");
 		goto end;
 	}
 	msg = oakley_do_decrypt(iph1, msg0, iph1->ivm->iv, iph1->ivm->ive);
 	if (msg == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR,
 			 "failed to decrypt");
 		goto end;
 	}
@@ -1779,7 +1665,7 @@ ident_r3recv(iph1, msg0)
 	/* validate the type of next payload */
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to parse msg");
 		goto end;
 	}
@@ -1793,7 +1679,7 @@ ident_r3recv(iph1, msg0)
 		switch (pa->type) {
 		case ISAKMP_NPTYPE_ID:
 			if (isakmp_p2ph(&iph1->id_p, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process ID payload");
 				goto end;
 			}
@@ -1803,14 +1689,14 @@ ident_r3recv(iph1, msg0)
 			break;
 		case ISAKMP_NPTYPE_CR:
 			if (oakley_savecr(iph1, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process CR payload");
 				goto end;
 			}
 			break;
 		case ISAKMP_NPTYPE_CERT:
 			if (oakley_savecert(iph1, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process CERT payload");
 				goto end;
 			}
@@ -1818,21 +1704,11 @@ ident_r3recv(iph1, msg0)
 			break;
 		case ISAKMP_NPTYPE_SIG:
 			if (isakmp_p2ph(&iph1->sig_p, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "failed to process SIG payload");
 				goto end;
 			}
 			break;
-#ifdef HAVE_GSSAPI
-		case ISAKMP_NPTYPE_GSS:
-			if (isakmp_p2ph(&gsstoken, pa->ptr) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to process GSS payload");
-				goto end;
-			}
-			gssapi_save_received_token(iph1, gsstoken);
-			break;
-#endif
 		case ISAKMP_NPTYPE_VID:
 			(void)check_vendorid(pa->ptr);
 			break;
@@ -1841,7 +1717,7 @@ ident_r3recv(iph1, msg0)
 			break;
 		default:
 			/* don't send information, see ident_r1recv() */
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"ignore the packet, "
 				"received unexpecting payload type %d.\n",
 				pa->type);
@@ -1863,16 +1739,13 @@ ident_r3recv(iph1, msg0)
 #ifdef ENABLE_HYBRID
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
 #endif
 		if (iph1->id_p == NULL || iph1->pl_hash == NULL)
 			ng++;
 		break;
-	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
 	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
 #ifdef ENABLE_HYBRID
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
 #endif
 		if (iph1->id_p == NULL || iph1->sig_p == NULL)
 			ng++;
@@ -1886,20 +1759,14 @@ ident_r3recv(iph1, msg0)
 		if (iph1->pl_hash == NULL)
 			ng++;
 		break;
-#ifdef HAVE_GSSAPI
-	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
-		if (gsstoken == NULL && iph1->pl_hash == NULL)
-			ng++;
-		break;
-#endif
 	default:
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"invalid authmethod %d why ?\n",
 			iph1->approval->authmethod);
 		goto end;
 	}
 	if (ng) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"few isakmp message received.\n");
 		goto end;
 	}
@@ -1907,37 +1774,30 @@ ident_r3recv(iph1, msg0)
 
 	/* verify identifier */
 	if (ipsecdoi_checkid1(iph1) != 0) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"invalid ID payload.\n");
 		goto end;
 	}
 
 	/* validate authentication value */
-#ifdef HAVE_GSSAPI
-	if (gsstoken == NULL) {
-#endif
-		type = oakley_validate_auth(iph1);
-		if (type != 0) {
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
-									CONSTSTR("Responder, Main-Mode Message 5"),
-									CONSTSTR("Failed to authenticate Main-Mode Message 5"));
-			if (type == -1) {
-				/* msg printed inner oakley_validate_auth() */
-				goto end;
-			}
-			EVT_PUSH(iph1->local, iph1->remote, 
-			    EVTT_PEERPH1AUTH_FAILED, NULL);
-			isakmp_info_send_n1(iph1, type, NULL);
-			goto end;
-		}
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
-								CONSTSTR("Responder, Main-Mode Message 5"),
-								CONSTSTR(NULL));
-#ifdef HAVE_GSSAPI
-	}
-#endif
+
+    type = oakley_validate_auth(iph1);
+    if (type != 0) {
+        IPSECSESSIONTRACEREVENT(iph1->parent_session,
+                                IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
+                                CONSTSTR("Responder, Main-Mode Message 5"),
+                                CONSTSTR("Failed to authenticate Main-Mode Message 5"));
+        if (type == -1) {
+            /* msg printed inner oakley_validate_auth() */
+            goto end;
+        }
+        isakmp_info_send_n1(iph1, type, NULL);
+        goto end;
+    }
+    IPSECSESSIONTRACEREVENT(iph1->parent_session,
+                            IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
+                            CONSTSTR("Responder, Main-Mode Message 5"),
+                            CONSTSTR(NULL));
 
 	if (oakley_checkcr(iph1) < 0) {
 		/* Ignore this error in order to be interoperability. */
@@ -1949,19 +1809,12 @@ ident_r3recv(iph1, msg0)
 	 * payload's.
 	 */
 
-	plog(LLV_DEBUG, LOCATION, iph1->remote, "peer's ID\n");
-	plogdump(LLV_DEBUG, iph1->id_p->v, iph1->id_p->l);
+	plogdump(ASL_LEVEL_DEBUG, iph1->id_p->v, iph1->id_p->l, "peer's ID\n");
 
 	/* see handler.h about IV synchronization. */
 	memcpy(iph1->ivm->iv->v, iph1->ivm->ive->v, iph1->ivm->ive->l);
 
-#ifdef HAVE_GSSAPI
-	iph1->status = gsstoken != NULL ? PHASE1ST_MSG2RECEIVED :
-	    PHASE1ST_MSG3RECEIVED;
-#else
-	iph1->status = PHASE1ST_MSG3RECEIVED;
-#endif
-
+	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG5RCVD);
 	error = 0;
 
 	IPSECSESSIONTRACEREVENT(iph1->parent_session,
@@ -1980,10 +1833,6 @@ end:
 		vfree(pbuf);
 	if (msg)
 		vfree(msg);
-#ifdef HAVE_GSSAPI
-	if (gsstoken)
-		vfree(gsstoken);
-#endif
 
 	if (error) {
 		VPTRINIT(iph1->id_p);
@@ -2008,45 +1857,33 @@ end:
  * 	rev: HDR*, HASH_R
  */
 int
-ident_r3send(iph1, msg)
-	struct ph1handle *iph1;
+ident_r6send(iph1, msg)
+	phase1_handle_t *iph1;
 	vchar_t *msg;
 {
 	int error = -1;
 	int dohash = 1;
-#ifdef HAVE_GSSAPI
-	int len;
-#endif
 
 	/* validity check */
-	if (iph1->status != PHASE1ST_MSG3RECEIVED) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if (iph1->status != IKEV1_STATE_IDENT_R_MSG5RCVD) {
+		plog(ASL_LEVEL_ERR,
 			"status mismatched %d.\n", iph1->status);
 		goto end;
 	}
 
 	/* make ID payload into isakmp status */
 	if (ipsecdoi_setid1(iph1) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR,
 			 "failed to set ID");
 		goto end;
 	}
 
-#ifdef HAVE_GSSAPI
-	if (AUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB &&
-	    gssapi_more_tokens(iph1)) {
-		gssapi_get_rtoken(iph1, &len);
-		if (len != 0)
-			dohash = 0;
-	}
-#endif
-
 	if (dohash) {
 		/* generate HASH to send */
-		plog(LLV_DEBUG, LOCATION, NULL, "generate HASH_R\n");
+		plog(ASL_LEVEL_DEBUG, "generate HASH_R\n");
 		iph1->hash = oakley_ph1hash_common(iph1, GENERATE);
 		if (iph1->hash == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR,
 				 "failed to generate HASH");
 			goto end;
 		}
@@ -2059,22 +1896,22 @@ ident_r3send(iph1, msg)
 	/* create HDR;ID;HASH payload */
 	iph1->sendbuf = ident_ir3mx(iph1);
 	if (iph1->sendbuf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to create send buffer");
 		goto end;
 	}
 
 	/* send HDR;ID;HASH to responder */
 	if (isakmp_send(iph1, iph1->sendbuf) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to send packet");
 		goto end;
 	}
 
 	/* the sending message is added to the received-list. */
-	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
-                     PH1_NON_ESP_EXTRA_LEN(iph1), PH1_FRAG_FLAGS(iph1)) == -1) {
-		plog(LLV_ERROR , LOCATION, NULL,
+	if (ike_session_add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
+                     PH1_NON_ESP_EXTRA_LEN(iph1, iph1->sendbuf), PH1_FRAG_FLAGS(iph1)) == -1) {
+		plog(ASL_LEVEL_ERR , 
 			"failed to add a response packet to the tree.\n");
 		goto end;
 	}
@@ -2082,7 +1919,7 @@ ident_r3send(iph1, msg)
 	/* see handler.h about IV synchronization. */
 	memcpy(iph1->ivm->ive->v, iph1->ivm->iv->v, iph1->ivm->iv->l);
 
-	iph1->status = PHASE1ST_ESTABLISHED;
+	fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_ESTABLISHED);
 
 	IPSECSESSIONTRACEREVENT(iph1->parent_session,
 							IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_SUCC,
@@ -2123,7 +1960,7 @@ end:
  */
 static vchar_t *
 ident_ir2mx(iph1)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 {
 	vchar_t *buf = 0;
 	struct payload_list *plist = NULL;
@@ -2131,9 +1968,6 @@ ident_ir2mx(iph1)
 	vchar_t *cr = NULL;
 	vchar_t *vid = NULL;
 	int error = -1;
-#ifdef HAVE_GSSAPI
-	vchar_t *gsstoken = NULL;
-#endif
 #ifdef ENABLE_NATT
 	vchar_t *natd[2] = { NULL, NULL };
 #endif
@@ -2141,32 +1975,21 @@ ident_ir2mx(iph1)
 	/* create CR if need */
 	if (iph1->side == RESPONDER
 	 && iph1->rmconf->send_cr
-	 && oakley_needcr(iph1->approval->authmethod)
-	 && iph1->rmconf->peerscertfile == NULL) {
+	 && oakley_needcr(iph1->approval->authmethod)) {
 		need_cr = 1;
 		cr = oakley_getcr(iph1);
 		if (cr == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to get cr buffer.\n");
 			goto end;
 		}
 	}
-
-#ifdef HAVE_GSSAPI
-	if (AUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB)
-		gssapi_get_token_to_send(iph1, &gsstoken);
-#endif
 
 	/* create isakmp KE payload */
 	plist = isakmp_plist_append(plist, iph1->dhpub, ISAKMP_NPTYPE_KE);
 
 	/* create isakmp NONCE payload */
 	plist = isakmp_plist_append(plist, iph1->nonce, ISAKMP_NPTYPE_NONCE);
-
-#ifdef HAVE_GSSAPI
-	if (AUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB)
-		plist = isakmp_plist_append(plist, gsstoken, ISAKMP_NPTYPE_GSS);
-#endif
 
 	/* append vendor id, if needed */
 	if (vid)
@@ -2178,21 +2001,21 @@ ident_ir2mx(iph1)
 
 #ifdef ENABLE_NATT
 	/* generate and append NAT-D payloads */
-	if (NATT_AVAILABLE(iph1) && iph1->status == PHASE1ST_MSG2RECEIVED)
+	if (NATT_AVAILABLE(iph1))
 	{
 		if ((natd[0] = natt_hash_addr (iph1, iph1->remote)) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"NAT-D hashing failed for %s\n", saddr2str((struct sockaddr *)iph1->remote));
 			goto end;
 		}
 
 		if ((natd[1] = natt_hash_addr (iph1, iph1->local)) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"NAT-D hashing failed for %s\n", saddr2str((struct sockaddr *)iph1->local));
 			goto end;
 		}
 
-		plog (LLV_INFO, LOCATION, NULL, "Adding remote and local NAT-D payloads.\n");
+		plog (ASL_LEVEL_INFO, "Adding remote and local NAT-D payloads.\n");
 		/* old Apple version sends natd payloads in the wrong order */
 		if (iph1->natt_options->version == VENDORID_NATT_APPLE) {
 			plist = isakmp_plist_append(plist, natd[1], iph1->natt_options->payload_nat_d);
@@ -2216,10 +2039,6 @@ end:
 	}
 	if (cr)
 		vfree(cr);
-#ifdef HAVE_GSSAPI
-	if (gsstoken)
-		vfree(gsstoken);
-#endif
 	if (vid)
 		vfree(vid);
 
@@ -2250,7 +2069,7 @@ end:
  */
 static vchar_t *
 ident_ir3mx(iph1)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 {
 	struct payload_list *plist = NULL;
 	vchar_t *buf = NULL, *new = NULL;
@@ -2258,11 +2077,6 @@ ident_ir3mx(iph1)
 	int need_cert = 0;
 	vchar_t *cr = NULL;
 	int error = -1;
-#ifdef HAVE_GSSAPI
-	int nptype;
-	vchar_t *gsstoken = NULL;
-	vchar_t *gsshash = NULL;
-#endif
 	vchar_t *notp_ini = NULL;
 
 	switch (AUTHMETHOD(iph1)) {
@@ -2271,7 +2085,6 @@ ident_ir3mx(iph1)
 	case FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
 #endif
 		/* create isakmp ID payload */
 		plist = isakmp_plist_append(plist, iph1->id, ISAKMP_NPTYPE_ID);
@@ -2279,24 +2092,20 @@ ident_ir3mx(iph1)
 		/* create isakmp HASH payload */
 		plist = isakmp_plist_append(plist, iph1->hash, ISAKMP_NPTYPE_HASH);
 		break;
-	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
 	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
 #ifdef ENABLE_HYBRID
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
 #endif 
 		if (oakley_getmycert(iph1) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "failed to get mycert");
 			goto end;
 		}
 
 		if (oakley_getsign(iph1) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "failed to get sign");
 			goto end;
 		}
@@ -2304,12 +2113,11 @@ ident_ir3mx(iph1)
 		/* create CR if need */
 		if (iph1->side == INITIATOR
 		 && iph1->rmconf->send_cr
-	 	 && oakley_needcr(iph1->approval->authmethod)
-		 && iph1->rmconf->peerscertfile == NULL) {
+	 	 && oakley_needcr(iph1->approval->authmethod)) {
 			need_cr = 1;
 			cr = oakley_getcr(iph1);
 			if (cr == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to get CR");
 				goto end;
 			}
@@ -2332,32 +2140,7 @@ ident_ir3mx(iph1)
 		if (need_cr)
 			plist = isakmp_plist_append(plist, cr, ISAKMP_NPTYPE_CR);
 		break;
-#ifdef HAVE_GSSAPI
-	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
-		if (iph1->hash != NULL) {
-			gsshash = gssapi_wraphash(iph1);
-			if (gsshash == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to generate GSSAPI HASH");
-				goto end;
-			}
-		} else {
-			gssapi_get_token_to_send(iph1, &gsstoken);
-		}
 
-		if (!gssapi_id_sent(iph1)) {
-			/* create isakmp ID payload */
-			plist = isakmp_plist_append(plist, iph1->id, ISAKMP_NPTYPE_ID);
-			gssapi_set_id_sent(iph1);
-		}
-
-		if (iph1->hash != NULL)
-			/* create isakmp HASH payload */
-			plist = isakmp_plist_append(plist, gsshash, ISAKMP_NPTYPE_HASH);
-		else
-			plist = isakmp_plist_append(plist, gsstoken, ISAKMP_NPTYPE_GSS);
-		break;
-#endif
 	case OAKLEY_ATTR_AUTH_METHOD_RSAENC:
 	case OAKLEY_ATTR_AUTH_METHOD_RSAREV:
 #ifdef ENABLE_HYBRID
@@ -2366,12 +2149,12 @@ ident_ir3mx(iph1)
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R:
 #endif
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"not supported authentication type %d\n",
 			iph1->approval->authmethod);
 		goto end;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid authentication type %d\n",
 			iph1->approval->authmethod);
 		goto end;
@@ -2390,7 +2173,7 @@ ident_ir3mx(iph1)
 	/* encoding */
 	new = oakley_do_encrypt(iph1, buf, iph1->ivm->ive, iph1->ivm->iv);
 	if (new == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to encrypt");
 		goto end;
 	}
@@ -2402,10 +2185,6 @@ ident_ir3mx(iph1)
 	error = 0;
 
 end:
-#ifdef HAVE_GSSAPI
-	if (gsstoken)
-		vfree(gsstoken);
-#endif
 	if (cr)
 		vfree(cr);
 	if (error && buf != NULL) {

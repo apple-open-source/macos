@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008, 2009 Julien Chaffraix <julien.chaffraix@gmail.com>
- * Copyright (C) 2010, 2011, 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012, 2013 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,10 +36,11 @@
 #include "FileSystem.h"
 #include "Logging.h"
 #include "WebSettings.h"
-#include <BlackBerryPlatformClient.h>
 #include <BlackBerryPlatformExecutableMessage.h>
 #include <BlackBerryPlatformMessageClient.h>
 #include <BlackBerryPlatformNavigatorHandler.h>
+#include <BlackBerryPlatformSettings.h>
+#include <network/DomainTools.h>
 #include <stdlib.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
@@ -70,11 +71,6 @@ static const unsigned s_maxCookieCountPerHost = 60;
 static const unsigned s_cookiesToDeleteWhenLimitReached = 60;
 static const unsigned s_delayToStartCookieCleanup = 10;
 
-static void flushCookiesOnExit(void)
-{
-    cookieManager().flushCookiesToBackingStore();
-}
-
 CookieManager& cookieManager()
 {
     static CookieManager *cookieManager = 0;
@@ -82,10 +78,6 @@ CookieManager& cookieManager()
         // Open the cookieJar now and get the backing store cookies to fill the manager.
         cookieManager = new CookieManager;
         cookieManager->m_cookieBackingStore->open(cookieManager->cookieJar());
-        cookieManager->getBackingStoreCookies();
-        CookieLog("CookieManager - Backingstore load complete.\n");
-
-        atexit(&flushCookiesOnExit);
     }
     return *cookieManager;
 }
@@ -94,7 +86,8 @@ CookieManager::CookieManager()
     : m_count(0)
     , m_privateMode(false)
     , m_shouldDumpAllCookies(false)
-    , m_cookieJarFileName(pathByAppendingComponent(BlackBerry::Platform::Client::get()->getApplicationDataDirectory().c_str(), "/cookieCollection.db"))
+    , m_syncedWithDatabase(false)
+    , m_cookieJarFileName(pathByAppendingComponent(BlackBerry::Platform::Settings::instance()->applicationDataDirectory().c_str(), "/cookieCollection.db"))
     , m_policy(CookieStorageAcceptPolicyAlways)
     , m_cookieBackingStore(CookieDatabaseBackingStore::create())
     , m_limitTimer(this, &CookieManager::cookieLimitCleanUp)
@@ -117,87 +110,58 @@ CookieManager::~CookieManager()
 }
 
 // Sorting logic is based on Cookie Spec RFC6265, section 5.4.2
-static bool cookieSorter(ParsedCookie* a, ParsedCookie* b)
+static bool cookieSorter(PassRefPtr<ParsedCookie> a, PassRefPtr<ParsedCookie> b)
 {
     if (a->path().length() == b->path().length())
         return a->creationTime() < b->creationTime();
     return a->path().length() > b->path().length();
 }
 
-// Returns whether the protocol supports domains
-static bool shouldIgnoreDomain(const String protocol)
+// Return whether we should ignore the scheme
+static bool shouldIgnoreScheme(const String& protocol)
 {
-    // ignore domain security for file and local
+    // We want to ignore file and local schemes
     return protocol == "file" || protocol == "local";
 }
 
-void CookieManager::setCookies(const KURL& url, const String& value)
+void CookieManager::setCookies(const KURL& url, const String& value, CookieFilter filter)
 {
+    // If the database hasn't been sync-ed at this point, force a sync load
+    if (!m_syncedWithDatabase && !m_privateMode)
+        m_cookieBackingStore->openAndLoadDatabaseSynchronously(cookieJar());
+
     CookieLog("CookieManager - Setting cookies");
     CookieParser parser(url);
-    Vector<ParsedCookie*> cookies = parser.parse(value);
+    Vector<RefPtr<ParsedCookie> > cookies = parser.parse(value);
 
     for (size_t i = 0; i < cookies.size(); ++i) {
-        ParsedCookie* cookie = cookies[i];
-        if (!shouldRejectForSecurityReason(cookie, url)) {
-            BackingStoreRemovalPolicy treatment = m_privateMode ? DoNotRemoveFromBackingStore : RemoveFromBackingStore;
-            checkAndTreatCookie(cookie, treatment);
-        } else
-            delete cookie;
+        BackingStoreRemovalPolicy treatment = m_privateMode ? DoNotRemoveFromBackingStore : RemoveFromBackingStore;
+        checkAndTreatCookie(cookies[i], treatment, filter);
     }
 }
 
-bool CookieManager::shouldRejectForSecurityReason(const ParsedCookie* cookie, const KURL& url)
+void CookieManager::setCookies(const KURL& url, const Vector<String>& cookies, CookieFilter filter)
 {
-    // We have to disable the following check because sites like Facebook and
-    // Gmail currently do not follow the spec.
-#if 0
-    // Check if path attribute is a prefix of the request URI.
-    if (!url.path().startsWith(cookie->path())) {
-        LOG_ERROR("Cookie %s is rejected because its path does not math the URL %s\n", cookie->toString().utf8().data(), url.string().utf8().data());
-        return true;
+    // If the database hasn't been sync-ed at this point, force a sync load
+    if (!m_syncedWithDatabase && !m_privateMode)
+        m_cookieBackingStore->openAndLoadDatabaseSynchronously(cookieJar());
+
+    CookieLog("CookieManager - Setting cookies");
+    CookieParser parser(url);
+    for (size_t i = 0; i < cookies.size(); ++i) {
+        BackingStoreRemovalPolicy treatment = m_privateMode ? DoNotRemoveFromBackingStore : RemoveFromBackingStore;
+        if (RefPtr<ParsedCookie> parsedCookie = parser.parseOneCookie(cookies[i]))
+            checkAndTreatCookie(parsedCookie, treatment, filter);
     }
-#endif
-
-    // ignore domain security if protocol doesn't have domains
-    if (shouldIgnoreDomain(cookie->protocol()))
-        return false;
-
-    // Reject Cookie if domain is empty
-    if (!cookie->domain().length())
-        return true;
-
-    // If an explicitly specified value does not start with a dot, the user agent supplies. (RFC 2965 3.2.2)
-    // Domain: Defaults to the effective request-host. There is no dot at the beginning of request-host. (RFC 2965 3.3.1)
-    if (cookie->domain()[0] == '.') {
-        // Check if the domain contains an embedded dot.
-        size_t dotPosition = cookie->domain().find(".", 1);
-        if (dotPosition == notFound || dotPosition == cookie->domain().length()) {
-            LOG_ERROR("Cookie %s is rejected because its domain does not contain an embedded dot.\n", cookie->toString().utf8().data());
-            return true;
-        }
-    }
-
-    // The request host should domain match the Domain attribute.
-    // Domain string starts with a dot, so a.b.com should domain match .a.b.com.
-    // add a "." at beginning of host name, because it can handle many cases such as
-    // a.b.com matches b.com, a.b.com matches .B.com and a.b.com matches .A.b.Com
-    // and so on.
-    String hostDomainName = url.host();
-    hostDomainName = hostDomainName.startsWith('.') ? hostDomainName : "." + hostDomainName;
-    if (!hostDomainName.endsWith(cookie->domain(), false)) {
-        LOG_ERROR("Cookie %s is rejected because its domain does not domain match the URL %s\n", cookie->toString().utf8().data(), url.string().utf8().data());
-        return true;
-    }
-    // We should check for an embedded dot in the portion of string in the host not in the domain
-    // but to match firefox behaviour we do not.
-
-    return false;
 }
 
 String CookieManager::getCookie(const KURL& url, CookieFilter filter) const
 {
-    Vector<ParsedCookie*> rawCookies;
+    // If the database hasn't been sync-ed at this point, force a sync load
+    if (!m_syncedWithDatabase && !m_privateMode)
+        m_cookieBackingStore->openAndLoadDatabaseSynchronously(cookieJar());
+
+    Vector<RefPtr<ParsedCookie> > rawCookies;
     rawCookies.reserveInitialCapacity(s_maxCookieCountPerHost);
 
     // Retrieve cookies related to this url
@@ -222,14 +186,18 @@ String CookieManager::getCookie(const KURL& url, CookieFilter filter) const
 
 String CookieManager::generateHtmlFragmentForCookies()
 {
+    // If the database hasn't been sync-ed at this point, force a sync load
+    if (!m_syncedWithDatabase && !m_privateMode)
+        m_cookieBackingStore->openAndLoadDatabaseSynchronously(cookieJar());
+
     CookieLog("CookieManager - generateHtmlFragmentForCookies\n");
 
-    Vector<ParsedCookie*> cookieCandidates;
+    Vector<RefPtr<ParsedCookie> > cookieCandidates;
     for (HashMap<String, CookieMap*>::iterator it = m_managerMap.begin(); it != m_managerMap.end(); ++it)
-        it->second->getAllChildCookies(&cookieCandidates);
+        it->value->getAllChildCookies(&cookieCandidates);
 
     String result;
-    ParsedCookie* cookie = 0;
+    RefPtr<ParsedCookie> cookie = 0;
     result.append(String("<table style=\"word-wrap:break-word\" cellSpacing=\"0\" cellPadding=\"0\" border=\"1\"><tr><th>Domain</th><th>Path</th><th>Protocol</th><th>Name</th><th>Value</th><th>Secure</th><th>HttpOnly</th><th>Session</th></tr>"));
     for (size_t i = 0; i < cookieCandidates.size(); ++i) {
         cookie = cookieCandidates[i];
@@ -255,30 +223,59 @@ String CookieManager::generateHtmlFragmentForCookies()
     return result;
 }
 
-void CookieManager::getRawCookies(Vector<ParsedCookie*> &stackOfCookies, const KURL& requestURL, CookieFilter filter) const
+void CookieManager::getRawCookies(Vector<RefPtr<ParsedCookie> > &stackOfCookies, const KURL& requestURL, CookieFilter filter) const
 {
+    // Force a sync load of the database
+    if (!m_syncedWithDatabase && !m_privateMode)
+        m_cookieBackingStore->openAndLoadDatabaseSynchronously(cookieJar());
+
     CookieLog("CookieManager - getRawCookies - processing url with domain - %s & protocol: %s & path: %s\n", requestURL.host().utf8().data(), requestURL.protocol().utf8().data(), requestURL.path().utf8().data());
 
-    bool specialCaseForLocal = (requestURL.protocolIs("local") || requestURL.protocolIs("file")) && m_shouldDumpAllCookies;
-    bool isConnectionSecure = requestURL.protocolIs("https") || requestURL.protocolIs("wss") || specialCaseForLocal;
+    const bool invalidScheme = shouldIgnoreScheme(requestURL.protocol());
+    const bool specialCaseForWebWorks = invalidScheme && m_shouldDumpAllCookies;
+    const bool isConnectionSecure = requestURL.protocolIs("https") || requestURL.protocolIs("wss") || specialCaseForWebWorks;
 
-    Vector<ParsedCookie*> cookieCandidates;
+    Vector<RefPtr<ParsedCookie> > cookieCandidates;
     Vector<CookieMap*> protocolsToSearch;
 
-    if (specialCaseForLocal)
+    // Special Case: If a server sets a "secure" cookie over a non-secure channel and tries to access the cookie
+    // over a secure channel, it will not succeed because the secure protocol isn't mapped to the insecure protocol yet.
+    // Set the map to the non-secure version, so it'll search the mapping for a secure cookie.
+    CookieMap* targetMap = m_managerMap.get(requestURL.protocol());
+    if (!targetMap && isConnectionSecure) {
+        CookieLog("CookieManager - special case: secure protocol are not linked yet.");
+        if (requestURL.protocolIs("https"))
+            targetMap = m_managerMap.get("http");
+        else if (requestURL.protocolIs("wss"))
+            targetMap = m_managerMap.get("ws");
+    }
+
+    // Decide which scheme tree we should look at.
+    // Return on invalid schemes. cookies are currently disabled on file and local.
+    // We only want to enable them for WebWorks that enabled a special flag.
+    if (specialCaseForWebWorks)
         copyValuesToVector(m_managerMap, protocolsToSearch);
+    else if (invalidScheme)
+        return;
     else {
-        protocolsToSearch.append(m_managerMap.get(requestURL.protocol()));
+        protocolsToSearch.append(targetMap);
         // FIXME: this is a hack for webworks apps; RFC 6265 says "Cookies do not provide isolation by scheme"
         // so we should not be checking protocols at all. See PR 135595
         if (m_shouldDumpAllCookies) {
             protocolsToSearch.append(m_managerMap.get("file"));
             protocolsToSearch.append(m_managerMap.get("local"));
-       }
+        }
     }
 
     Vector<String> delimitedHost;
-    requestURL.host().lower().split(".", true, delimitedHost);
+
+    // IP addresses are stored in a particular format (due to ipv6). Reduce the ip address so we can match
+    // it with the one in memory.
+    BlackBerry::Platform::String canonicalIP = BlackBerry::Platform::getCanonicalIPFormat(requestURL.host());
+    if (!canonicalIP.empty())
+        delimitedHost.append(String(canonicalIP.c_str()));
+    else
+        requestURL.host().lower().split(".", true, delimitedHost);
 
     // Go through all the protocol trees that we need to search for
     // and get all cookies that are valid for this domain
@@ -292,12 +289,20 @@ void CookieManager::getRawCookies(Vector<ParsedCookie*> &stackOfCookies, const K
         CookieLog("CookieManager - looking at protocol map %s \n", currentMap->getName().utf8().data());
 
         // Special case for local and files - because WebApps expect to get ALL cookies from the backing-store on local protocol
-        if (specialCaseForLocal) {
+        if (specialCaseForWebWorks) {
             CookieLog("CookieManager - special case find in protocol map - %s\n", currentMap->getName().utf8().data());
             currentMap->getAllChildCookies(&cookieCandidates);
         } else {
             // Get cookies from the null domain map
             currentMap->getAllCookies(&cookieCandidates);
+
+            // Get cookies from Host-only cookies
+            if (canonicalIP.empty()) {
+                CookieLog("CookieManager - looking for host-only cookies for host - %s", requestURL.host().utf8().data());
+                CookieMap* hostMap = currentMap->getSubdomainMap(requestURL.host());
+                if (hostMap)
+                    hostMap->getAllCookies(&cookieCandidates);
+            }
 
             // Get cookies from the valid domain maps
             int i = delimitedHost.size() - 1;
@@ -319,16 +324,16 @@ void CookieManager::getRawCookies(Vector<ParsedCookie*> &stackOfCookies, const K
     CookieLog("CookieManager - there are %d cookies in candidate\n", cookieCandidates.size());
 
     for (size_t i = 0; i < cookieCandidates.size(); ++i) {
-        ParsedCookie* cookie = cookieCandidates[i];
+        RefPtr<ParsedCookie> cookie = cookieCandidates[i];
 
         // According to the path-matches rules in RFC6265, section 5.1.4,
         // we should add a '/' at the end of cookie-path for comparison if the cookie-path is not end with '/'.
         String path = cookie->path();
         CookieLog("CookieManager - comparing cookie path %s (len %d) to request path %s (len %d)", path.utf8().data(), path.length(), requestURL.path().utf8().data(), path.length());
         if (!equalIgnoringCase(path, requestURL.path()) && !path.endsWith("/", false))
-            path += "/";
+            path = path + "/";
 
-        // Only secure connections have access to secure cookies. Unless specialCaseForLocal is true
+        // Only secure connections have access to secure cookies. Unless specialCaseForWebWorks is true.
         // Get the cookies filtering out HttpOnly cookies if requested.
         if (requestURL.path().startsWith(path, false) && (isConnectionSecure || !cookie->isSecure()) && (filter == WithHttpOnlyCookies || !cookie->isHttpOnly())) {
             CookieLog("CookieManager - cookie chosen - %s\n", cookie->toString().utf8().data());
@@ -345,7 +350,7 @@ void CookieManager::removeAllCookies(BackingStoreRemovalPolicy backingStoreRemov
     HashMap<String, CookieMap*>::iterator first = m_managerMap.begin();
     HashMap<String, CookieMap*>::iterator end = m_managerMap.end();
     for (HashMap<String, CookieMap*>::iterator it = first; it != end; ++it)
-        it->second->deleteAllCookiesAndDomains();
+        it->value->deleteAllCookiesAndDomains();
 
     if (backingStoreRemoval == RemoveFromBackingStore)
         m_cookieBackingStore->removeAll();
@@ -358,11 +363,18 @@ void CookieManager::setCookieJar(const char* fileName)
     m_cookieBackingStore->open(m_cookieJarFileName);
 }
 
-void CookieManager::checkAndTreatCookie(ParsedCookie* candidateCookie, BackingStoreRemovalPolicy postToBackingStore)
+void CookieManager::checkAndTreatCookie(PassRefPtr<ParsedCookie> prpCandidateCookie, BackingStoreRemovalPolicy postToBackingStore, CookieFilter filter)
 {
+    RefPtr<ParsedCookie> candidateCookie = prpCandidateCookie;
     CookieLog("CookieManager - checkAndTreatCookie - processing url with domain - %s & protocol %s\n", candidateCookie->domain().utf8().data(), candidateCookie->protocol().utf8().data());
 
-    const bool ignoreDomain = shouldIgnoreDomain(candidateCookie->protocol());
+    // Delete invalid cookies:
+    // 1) A cookie which is not from http shouldn't have a httpOnly property.
+    // 2) Cookies coming from schemes that we do not support and the special flag isn't on
+    if ((filter == NoHttpOnlyCookie && candidateCookie->isHttpOnly()) || (shouldIgnoreScheme(candidateCookie->protocol()) && !m_shouldDumpAllCookies))
+        return;
+
+    const bool ignoreDomain = (candidateCookie->protocol() == "file" || candidateCookie->protocol() == "local");
 
     // Determine which protocol tree to add the cookie to. Create one if necessary.
     CookieMap* curMap = 0;
@@ -394,7 +406,7 @@ void CookieManager::checkAndTreatCookie(ParsedCookie* candidateCookie, BackingSt
     // If protocol support domain, we have to traverse the domain tree to find the right
     // cookieMap to handle with
     if (!ignoreDomain)
-        curMap = findOrCreateCookieMap(curMap, candidateCookie->domain(), candidateCookie->hasExpired());
+        curMap = findOrCreateCookieMap(curMap, candidateCookie);
 
     // Now that we have the proper map for this cookie, we can modify it
     // If cookie does not exist and has expired, delete it
@@ -408,28 +420,32 @@ void CookieManager::checkAndTreatCookie(ParsedCookie* candidateCookie, BackingSt
             m_cookieBackingStore->remove(candidateCookie);
         else if (curMap) {
             // RemoveCookie will return 0 if the cookie doesn't exist.
-            ParsedCookie* expired = curMap->removeCookie(candidateCookie);
+            RefPtr<ParsedCookie> expired = curMap->removeCookie(candidateCookie, filter);
             // Cookie is useless, Remove the cookie from the backingstore if it exists.
             // Backup check for BackingStoreCookieEntry incase someone incorrectly uses this enum.
             if (expired && postToBackingStore != BackingStoreCookieEntry && !expired->isSession()) {
                 CookieLog("CookieManager - expired cookie is nonsession, deleting from db");
                 m_cookieBackingStore->remove(expired);
             }
-            delete expired;
-
-        } else
-            delete candidateCookie;
+        }
     } else {
         ASSERT(curMap);
-        addCookieToMap(curMap, candidateCookie, postToBackingStore);
+        CookieLog("CookieManager - adding cookiemap - %s\n", curMap->getName().utf8().data());
+        addCookieToMap(curMap, candidateCookie, postToBackingStore, filter);
     }
 }
 
-void CookieManager::addCookieToMap(CookieMap* targetMap, ParsedCookie* candidateCookie, BackingStoreRemovalPolicy postToBackingStore)
+void CookieManager::addCookieToMap(CookieMap* targetMap, PassRefPtr<ParsedCookie> prpCandidateCookie, BackingStoreRemovalPolicy postToBackingStore, CookieFilter filter)
 {
-    ParsedCookie* prevCookie = targetMap->addOrReplaceCookie(candidateCookie);
-    if (prevCookie) {
+    RefPtr<ParsedCookie> replacedCookie = 0;
+    RefPtr<ParsedCookie> candidateCookie = prpCandidateCookie;
 
+    if (!targetMap->addOrReplaceCookie(candidateCookie, replacedCookie, filter)) {
+        CookieLog("CookieManager - rejecting new cookie - %s.\n", candidateCookie->toString().utf8().data());
+        return;
+    }
+
+    if (replacedCookie) {
         CookieLog("CookieManager - updating new cookie - %s.\n", candidateCookie->toString().utf8().data());
 
         // A cookie was replaced in targetMap.
@@ -437,7 +453,7 @@ void CookieManager::addCookieToMap(CookieMap* targetMap, ParsedCookie* candidate
         // If new cookie is non-session and old one is, we have to add it to backingstore
         // If both sessions are non-session, then we update it in the backingstore
         bool newIsSession = candidateCookie->isSession();
-        bool oldIsSession = prevCookie->isSession();
+        bool oldIsSession = replacedCookie->isSession();
 
         if (postToBackingStore == RemoveFromBackingStore) {
             if (!newIsSession && !oldIsSession)
@@ -446,7 +462,7 @@ void CookieManager::addCookieToMap(CookieMap* targetMap, ParsedCookie* candidate
                 // Must manually decrease the counter because it was not counted when
                 // the cookie was removed in cookieVector.
                 removedCookie();
-                m_cookieBackingStore->remove(prevCookie);
+                m_cookieBackingStore->remove(replacedCookie);
             } else if (!newIsSession && oldIsSession) {
                 // Must manually increase the counter because it was not counted when
                 // the cookie was added in cookieVector.
@@ -454,13 +470,12 @@ void CookieManager::addCookieToMap(CookieMap* targetMap, ParsedCookie* candidate
                 m_cookieBackingStore->insert(candidateCookie);
             }
         }
-        delete prevCookie;
         return;
     }
 
     CookieLog("CookieManager - adding new cookie - %s.\n", candidateCookie->toString().utf8().data());
 
-    ParsedCookie* oldestCookie = 0;
+    RefPtr<ParsedCookie> oldestCookie = 0;
     // Check if we have not reached the per cookie domain limit.
     // If that is not true, we check if the global limit has been reached if backingstore mode is on
     // Two points:
@@ -489,42 +504,64 @@ void CookieManager::addCookieToMap(CookieMap* targetMap, ParsedCookie* candidate
         if (!candidateCookie->isSession())
             m_cookieBackingStore->insert(candidateCookie);
     }
-    if (oldestCookie)
-        delete oldestCookie;
 }
 
 void CookieManager::getBackingStoreCookies()
 {
-    // This method should be called just after having created the cookieManager
-    // NEVER afterwards!
-    ASSERT(!m_count);
+    // Make sure private mode is off when the database thread calls this method
+    if (m_privateMode)
+        return;
 
-    Vector<ParsedCookie*> cookies;
+    // If there exists cookies in memory, flush them out and we'll load everything from the database again
+    if (m_count)
+        removeAllCookies(DoNotRemoveFromBackingStore);
+
+    Vector<RefPtr<ParsedCookie> > cookies;
     m_cookieBackingStore->getCookiesFromDatabase(cookies);
     CookieLog("CookieManager - Backingstore has %d cookies, loading them in memory now", cookies.size());
     for (size_t i = 0; i < cookies.size(); ++i) {
-        ParsedCookie* newCookie = cookies[i];
+        RefPtr<ParsedCookie> newCookie = cookies[i];
+
+        // The IP flag is not persisted in the database.
+        if (BlackBerry::Platform::isIPAddress(newCookie->domain()))
+            newCookie->setDomain(newCookie->domain(), true);
+
         checkAndTreatCookie(newCookie, BackingStoreCookieEntry);
     }
+    CookieLog("CookieManager - Backingstore loading complete.");
+
+    m_syncedWithDatabase = true;
 }
 
-void CookieManager::setPrivateMode(const bool mode)
+void CookieManager::setPrivateMode(bool privateMode)
 {
-    if (m_privateMode == mode)
+    if (m_privateMode == privateMode)
         return;
 
-    m_privateMode = mode;
-    if (!mode) {
-        removeAllCookies(DoNotRemoveFromBackingStore);
+    m_privateMode = privateMode;
+
+    // If we switched to private mode when the database cookies haven't loaded into memory yet
+    // we can return because there's nothing in memory anyway.
+    if (m_privateMode && !m_syncedWithDatabase)
+        return;
+
+    removeAllCookies(DoNotRemoveFromBackingStore);
+
+    // If we are switching back to public mode, reload the database to memory.
+    if (!m_privateMode)
         getBackingStoreCookies();
-    }
 }
 
-CookieMap* CookieManager::findOrCreateCookieMap(CookieMap* protocolMap, const String& domain, bool findOnly)
+CookieMap* CookieManager::findOrCreateCookieMap(CookieMap* protocolMap, const PassRefPtr<ParsedCookie> candidateCookie)
 {
     // Explode the domain with the '.' delimiter
     Vector<String> delimitedHost;
-    domain.split(".", delimitedHost);
+
+    // If the domain is an IP address or is a host-only domain, don't split it.
+    if (candidateCookie->domainIsIPAddress() || candidateCookie->isHostOnly())
+        delimitedHost.append(candidateCookie->domain());
+    else
+        candidateCookie->domain().split(".", delimitedHost);
 
     CookieMap* curMap = protocolMap;
     size_t hostSize = delimitedHost.size();
@@ -539,7 +576,7 @@ CookieMap* CookieManager::findOrCreateCookieMap(CookieMap* protocolMap, const St
         CookieMap* nextMap = curMap->getSubdomainMap(delimitedHost[i]);
         if (!nextMap) {
             CookieLog("CookieManager - cannot find map\n");
-            if (findOnly)
+            if (candidateCookie->hasExpired())
                 return 0;
             CookieLog("CookieManager - creating %s in currentmap %s\n", delimitedHost[i].utf8().data(), curMap->getName().utf8().data());
             nextMap = new CookieMap(delimitedHost[i]);
@@ -552,16 +589,24 @@ CookieMap* CookieManager::findOrCreateCookieMap(CookieMap* protocolMap, const St
     return curMap;
 }
 
-
 void CookieManager::removeCookieWithName(const KURL& url, const String& cookieName)
 {
+    // Dispatch the message because the database cookies are not loaded in memory yet.
+    if (!m_syncedWithDatabase && !m_privateMode) {
+        typedef void (WebCore::CookieManager::*FunctionType)(const KURL&, const String&);
+        BlackBerry::Platform::webKitThreadMessageClient()->dispatchMessage(
+            BlackBerry::Platform::createMethodCallMessage<FunctionType, CookieManager, const KURL, const String>(
+                &CookieManager::removeCookieWithName, this, url, cookieName));
+        return;
+    }
+
     // We get all cookies from all domains that domain matches the request domain
     // and delete any cookies with the specified name that path matches the request path
-    Vector<ParsedCookie*> results;
+    Vector<RefPtr<ParsedCookie> > results;
     getRawCookies(results, url, WithHttpOnlyCookies);
     // Delete the cookies that path matches the request path
     for (size_t i = 0; i < results.size(); i++) {
-        ParsedCookie* cookie = results[i];
+        RefPtr<ParsedCookie> cookie = results[i];
         if (!equalIgnoringCase(cookie->name(), cookieName))
             continue;
         if (url.path().startsWith(cookie->path(), false)) {
@@ -595,7 +640,7 @@ void CookieManager::cookieLimitCleanUp(Timer<CookieManager>* timer)
     CookieLimitLog("CookieManager - Excess: %d  Amount to Delete: %d", numberOfCookiesOverLimit, amountToDelete);
 
     // Call the database to delete 'amountToDelete' of cookies
-    Vector<ParsedCookie*> cookiesToDelete;
+    Vector<RefPtr<ParsedCookie> > cookiesToDelete;
     cookiesToDelete.reserveInitialCapacity(amountToDelete);
 
     CookieLimitLog("CookieManager - Calling database to clean up");
@@ -604,23 +649,13 @@ void CookieManager::cookieLimitCleanUp(Timer<CookieManager>* timer)
     // Cookies are ordered in ASC order by lastAccessed
     for (size_t i = 0; i < amountToDelete; ++i) {
         // Expire them and call checkandtreat to delete them from memory and database
-        ParsedCookie* newCookie = cookiesToDelete[i];
+        RefPtr<ParsedCookie> newCookie = cookiesToDelete[i];
         CookieLimitLog("CookieManager - Expire cookie: %s and delete", newCookie->toString().utf8().data());
         newCookie->forceExpire();
         checkAndTreatCookie(newCookie, RemoveFromBackingStore);
     }
 
     CookieLimitLog("CookieManager - Cookie clean up complete.");
-}
-
-void CookieManager::flushCookiesToBackingStore()
-{
-    CookieLog("CookieManager - flushCookiesToBackingStore starting.\n");
-    // This is called from shutdown, so we need to be sure the OS doesn't kill us before the db write finishes.
-    // Once should be enough since this extends terimination by 2 seconds.
-    BlackBerry::Platform::NavigatorHandler::sendExtendTerminate();
-    m_cookieBackingStore->sendChangesToDatabaseSynchronously();
-    CookieLog("CookieManager - flushCookiesToBackingStore finished.\n");
 }
 
 } // namespace WebCore

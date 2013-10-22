@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,7 +86,7 @@ bootp_session_t *
 bootp_session_init(uint16_t client_port);
 
 void
-bootp_session_set_debug(bootp_session_t * slist, FILE * log_file);
+bootp_session_set_verbose(bool verbose);
 
 void
 bootp_session_free(bootp_session_t * * slist);

@@ -33,7 +33,7 @@
 #include "ioSock.h"
 #include "fileIo.h"
 
-#include <MacErrors.h>
+#include <Security/SecBase.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -446,7 +446,7 @@ static OSStatus sslServe(
 		}
 		if(e) {
 			printf("***SSLGetAllowAnonymousCiphers() returned true; expected false\n");
-			ortn = ioErr;
+			ortn = errSecIO;
 			goto cleanup;
 		}
 	}
@@ -495,7 +495,7 @@ static OSStatus sslServe(
 	}
 
 	/* wait for one complete line or user says they've had enough */
-	while(ortn == noErr) {
+	while(ortn == errSecSuccess) {
 		length = sizeof(rcvBuf);
 		ortn = SSLRead(ctx, rcvBuf, length, &length);
 		if(length == 0) {
@@ -527,7 +527,7 @@ static OSStatus sslServe(
 			}
 		}
 		if (ortn == errSSLWouldBlock) {
-			ortn = noErr;
+			ortn = errSecSuccess;
 		}
 	}
 
@@ -550,7 +550,7 @@ cleanup:
 	 * always do close, even on error - to flush outgoing write queue
 	 */
 	OSStatus cerr = SSLClose(ctx);
-	if(ortn == noErr) {
+	if(ortn == errSecSuccess) {
 		ortn = cerr;
 	}
 	if(acceptSock) {

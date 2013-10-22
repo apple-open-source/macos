@@ -1,6 +1,57 @@
 Notes on upgrading from an older release
 ========================================
 
+o Upgrading from a version prior to 1.7.6:
+
+    Changes in the sudoers parser could result in parse errors for
+    existing sudoers file.  These changes cause certain erroneous
+    entries to be flagged as errors where before they allowed.
+    Changes include:
+
+    Combining multiple Defaults entries with a backslash.  E.g.
+
+	Defaults set_path \
+	Defaults syslog
+
+    which should be:
+
+	Defaults set_path
+	Defaults syslog
+
+    Also, double-quoted strings with a missing end-quote are now
+    detected and result in an error.  Previously, text starting a
+    double quote and ending with a newline was ignored.  E.g.
+
+	Defaults set_path"foo
+
+    In previous versions of sudo, the `"foo' portion would have
+    been ignored.
+
+    To avoid problems, sudo 1.8.1's "make install" will not install
+    a new sudo binary if the existing sudoers file has errors.
+
+o Upgrading from a version prior to 1.7.5:
+
+    Sudo 1.7.5 includes an updated LDAP schema with support for
+    the sudoNotBefore, sudoNotAfter and sudoOrder attributes.
+
+    The sudoNotBefore and sudoNotAfter attribute support is only
+    used when the SUDOERS_TIMED setting is enabled in ldap.conf.
+    If enabled, those attributes are used directly when constructing
+    an LDAP filter.  As a result, your LDAP server must have the
+    updated schema if you want to use sudoNotBefore and sudoNotAfter.
+
+    The sudoOrder support does not affect the LDAP filter sudo
+    constructs and so there is no need to explicitly enable it in
+    ldap.conf.  If the sudoOrder attribute is not present in an
+    entry, a value of 0 is used.  If no entries contain sudoOrder
+    attributes, the results are in whatever order the LDAP server
+    returns them, as in past versions of sudo.
+
+    Older versions of sudo will simply ignore the new attributes
+    if they are present in an entry.  There are no compatibility
+    problems using the updated schema with older versions of sudo.
+
 o Upgrading from a version prior to 1.7.4:
 
     Starting with sudo 1.7.4, the time stamp files have moved from
@@ -26,7 +77,7 @@ o Upgrading from a version prior to 1.7.4:
     to preserve the old value of MAIL.
 
     NOTE: preserving HOME has security implications since many programs
-    use when searching for configuration files.  Adding HOME to env_keep
+    use it when searching for configuration files.  Adding HOME to env_keep
     may enable a user to run unrestricted commands via sudo.
 
     The default syslog facility has changed from "local2" to "authpriv"

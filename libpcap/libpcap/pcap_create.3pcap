@@ -49,6 +49,17 @@ argument of "any" or
 .B NULL
 can be used to capture packets from all interfaces.
 .PP
+On Darwin systems version 13 or later, a 
+.I source
+argument of "all" or "any"
+can be used to capture packets from all interfaces. 
+A 
+.I source
+argument of 
+.B NULL
+can be used to capture packets from all physical interfaces, 
+i.e. excluding loopback, virtual and tunnel interfaces.
+.PP
 The returned handle must be activated with
 .B pcap_activate()
 before packets can be captured

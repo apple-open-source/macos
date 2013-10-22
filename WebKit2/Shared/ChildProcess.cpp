@@ -26,6 +26,8 @@
 #include "config.h"
 #include "ChildProcess.h"
 
+#include "SandboxInitializationParameters.h"
+
 #if !OS(WINDOWS)
 #include <unistd.h>
 #endif
@@ -33,6 +35,82 @@
 using namespace WebCore;
 
 namespace WebKit {
+
+ChildProcess::ChildProcess()
+    : m_terminationTimeout(0)
+    , m_terminationCounter(0)
+    , m_terminationTimer(RunLoop::main(), this, &ChildProcess::terminationTimerFired)
+#if PLATFORM(MAC)
+    , m_activeTaskCount(0)
+    , m_shouldSuspend(false)
+    , m_suspensionHysteresisTimer(RunLoop::main(), this, &ChildProcess::suspensionHysteresisTimerFired)
+#endif
+{
+}
+
+ChildProcess::~ChildProcess()
+{
+}
+
+NO_RETURN static void watchdogCallback()
+{
+    // We use _exit here since the watchdog callback is called from another thread and we don't want 
+    // global destructors or atexit handlers to be called from this thread while the main thread is busy
+    // doing its thing.
+    _exit(EXIT_FAILURE);
+}
+
+static void didCloseOnConnectionWorkQueue(CoreIPC::Connection*)
+{
+    // If the connection has been closed and we haven't responded in the main thread for 10 seconds
+    // the process will exit forcibly.
+    const double watchdogDelay = 10;
+
+    WorkQueue::create("com.apple.WebKit.ChildProcess.WatchDogQueue")->dispatchAfterDelay(bind(static_cast<void(*)()>(watchdogCallback)), watchdogDelay);
+}
+
+void ChildProcess::initialize(const ChildProcessInitializationParameters& parameters)
+{
+    platformInitialize();
+
+    initializeProcess(parameters);
+    initializeProcessName(parameters);
+
+    SandboxInitializationParameters sandboxParameters;
+    initializeSandbox(parameters, sandboxParameters);
+    
+    m_connection = CoreIPC::Connection::createClientConnection(parameters.connectionIdentifier, this, RunLoop::main());
+    m_connection->setDidCloseOnConnectionWorkQueueCallback(didCloseOnConnectionWorkQueue);
+    initializeConnection(m_connection.get());
+    m_connection->open();
+}
+
+void ChildProcess::initializeProcess(const ChildProcessInitializationParameters&)
+{
+}
+
+void ChildProcess::initializeProcessName(const ChildProcessInitializationParameters&)
+{
+}
+
+void ChildProcess::initializeConnection(CoreIPC::Connection*)
+{
+}
+
+void ChildProcess::addMessageReceiver(CoreIPC::StringReference messageReceiverName, CoreIPC::MessageReceiver* messageReceiver)
+{
+    m_messageReceiverMap.addMessageReceiver(messageReceiverName, messageReceiver);
+}
+
+void ChildProcess::addMessageReceiver(CoreIPC::StringReference messageReceiverName, uint64_t destinationID, CoreIPC::MessageReceiver* messageReceiver)
+{
+    m_messageReceiverMap.addMessageReceiver(messageReceiverName, destinationID, messageReceiver);
+}
+
+void ChildProcess::removeMessageReceiver(CoreIPC::StringReference messageReceiverName, uint64_t destinationID)
+{
+    m_messageReceiverMap.removeMessageReceiver(messageReceiverName, destinationID);
+}
 
 void ChildProcess::disableTermination()
 {
@@ -56,17 +134,14 @@ void ChildProcess::enableTermination()
     m_terminationTimer.startOneShot(m_terminationTimeout);
 }
 
-ChildProcess::ChildProcess(double terminationTimeout)
-    : m_terminationTimeout(terminationTimeout)
-    , m_terminationCounter(0)
-    , m_terminationTimer(RunLoop::main(), this, &ChildProcess::terminationTimerFired)
+CoreIPC::Connection* ChildProcess::messageSenderConnection()
 {
-    // FIXME: The termination timer should not be scheduled on the main run loop.
-    // It won't work with the threaded mode, but it's not really useful anyway as is.
+    return m_connection.get();
 }
 
-ChildProcess::~ChildProcess()
+uint64_t ChildProcess::messageSenderDestinationID()
 {
+    return 0;
 }
 
 void ChildProcess::terminationTimerFired()
@@ -79,24 +154,19 @@ void ChildProcess::terminationTimerFired()
 
 void ChildProcess::terminate()
 {
+    m_connection->invalidate();
+
     RunLoop::main()->stop();
 }
 
-NO_RETURN static void watchdogCallback()
+#if !PLATFORM(MAC)
+void ChildProcess::platformInitialize()
 {
-    // We use _exit here since the watchdog callback is called from another thread and we don't want 
-    // global destructors or atexit handlers to be called from this thread while the main thread is busy
-    // doing its thing.
-    _exit(EXIT_FAILURE);
 }
 
-void ChildProcess::didCloseOnConnectionWorkQueue(WorkQueue& workQueue, CoreIPC::Connection*)
+void ChildProcess::initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&)
 {
-    // If the connection has been closed and we haven't responded in the main thread for 10 seconds
-    // the process will exit forcibly.
-    static const double watchdogDelay = 10.0;
-
-    workQueue.dispatchAfterDelay(bind(static_cast<void(*)()>(watchdogCallback)), watchdogDelay);
 }
-    
+#endif
+
 } // namespace WebKit

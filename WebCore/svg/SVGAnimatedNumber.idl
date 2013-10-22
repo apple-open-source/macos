@@ -24,14 +24,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-module svg {
+[
+    Conditional=SVG,
+    SkipVTableValidation
+] interface SVGAnimatedNumber {
+    [StrictTypeChecking, SetterRaisesException] attribute float baseVal;
+    readonly attribute float animVal;
+};
 
-    interface [
-        Conditional=SVG
-    ] SVGAnimatedNumber {
-        attribute [StrictTypeChecking] float baseVal
-            setter raises(DOMException);
-        readonly attribute float animVal;
-    };
-
-}

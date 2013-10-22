@@ -41,6 +41,7 @@
 #include "stuff/allocate.h"
 #include "stuff/symbol.h"
 #include "stuff/symbol.h"
+#include "stuff/llvm.h"
 #include "otool.h"
 #include "ofile_print.h"
 #include "m68k_disasm.h"
@@ -75,6 +76,9 @@ enum bool Mflag = FALSE; /* print the dylib module table */
 enum bool Rflag = FALSE; /* print the dylib reference table */
 enum bool Iflag = FALSE; /* print the indirect symbol table entries */
 enum bool Hflag = FALSE; /* print the two-level hints table */
+enum bool Gflag = FALSE; /* print the data in code table */
+enum bool gflag = FALSE; /* group the disassembly */
+enum bool eflag = FALSE; /* print enhanced disassembly */
 enum bool Sflag = FALSE; /* print the contents of the __.SYMDEF file */
 enum bool vflag = FALSE; /* print verbosely (symbolically) when possible */
 enum bool Vflag = FALSE; /* print dissassembled operands verbosely */
@@ -87,10 +91,12 @@ enum bool Bflag = FALSE; /* force Thumb disassembly (ARM objects only) */
 enum bool Qflag = FALSE; /* use otool's disassembler */
 enum bool qflag = FALSE; /* use 'C' Public llvm-mc disassembler */
 enum bool jflag = FALSE; /* print opcode bytes */
+enum bool nflag = FALSE; /* use intel disassembly syntax */
 char *pflag = NULL; 	 /* procedure name to start disassembling from */
 char *segname = NULL;	 /* name of the section to print the contents of */
 char *sectname = NULL;
 enum bool llvm_mc = FALSE; /* disassemble as llvm-mc will assemble */
+char *mcpu = "";	/* the arg of the -mcpu=arg flag */
 
 /* this is set when any of the flags that process object files is set */
 enum bool object_processing = FALSE;
@@ -183,6 +189,23 @@ static enum bool get_hints_cmd(
     enum byte_sex load_commands_byte_sex,
     struct twolevel_hints_command *hints_cmd);
 
+static void get_data_in_code_info(
+    struct load_command *load_commands,
+    uint32_t ncmds,
+    uint32_t sizeofcmds,
+    enum byte_sex load_commands_byte_sex,
+    char *object_addr,
+    uint32_t object_size,
+    struct data_in_code_entry **dices,
+    uint32_t *ndices);
+
+static enum bool get_dices_cmd(
+    struct load_command *load_commands,
+    uint32_t ncmds,
+    uint32_t sizeofcmds,
+    enum byte_sex load_commands_byte_sex,
+    struct linkedit_data_command *dices_cmd);
+
 static int sym_compare(
     struct symbol *sym1,
     struct symbol *sym2);
@@ -228,7 +251,11 @@ static void print_text(
     enum bool verbose,
     cpu_subtype_t cpusubtype,
     char *object_addr,
-    uint32_t object_size);
+    uint32_t object_size,
+    struct data_in_code_entry *dices,
+    uint32_t ndices,
+    uint64_t seg_addr,
+    uint32_t filetype);
 
 static void print_argstrings(
     uint32_t magic,
@@ -310,6 +337,14 @@ char **envp)
 		llvm_mc = TRUE;
 		continue;
 	    }
+	    if(strncmp(argv[i], "-mcpu=", sizeof("-mcpu=")-1) == 0){
+		mcpu = argv[i] + sizeof("-mcpu=")-1;
+		if(*mcpu == '\0'){
+		    error("missing argument to -mcpu=");
+		    usage();
+		}
+		continue;
+	    }
 	    if(argv[i][1] == 'p'){
 		if(argc <=  i + 1){
 		    error("-p requires an argument (a text symbol name)");
@@ -349,6 +384,15 @@ char **envp)
 		    break;
 		case 'a':
 		    aflag = TRUE;
+		    break;
+		case 'g':
+		    gflag = TRUE;
+		    break;
+		case 'e':
+		    eflag = TRUE;
+		    break;
+		case 'n':
+		    nflag = TRUE;
 		    break;
 		case 'h':
 		    hflag = TRUE;
@@ -406,6 +450,10 @@ char **envp)
 		    Hflag = TRUE;
 		    object_processing = TRUE;
 		    break;
+		case 'G':
+		    Gflag = TRUE;
+		    object_processing = TRUE;
+		    break;
 		case 'S':
 		    Sflag = TRUE;
 		    break;
@@ -453,14 +501,20 @@ char **envp)
 	 */
 	if(!fflag && !aflag && !hflag && !lflag && !Lflag && !tflag && !dflag &&
 	   !oflag && !Oflag && !rflag && !Tflag && !Mflag && !Rflag && !Iflag &&
-	   !Hflag && !Sflag && !cflag && !iflag && !Dflag && !segname){
-	    error("one of -fahlLtdoOrTMRIHScis must be specified");
+	   !Hflag && !Gflag && !Sflag && !cflag && !iflag && !Dflag &&!segname){
+	    error("one of -fahlLtdoOrTMRIHGScis must be specified");
 	    usage();
 	}
 	if(qflag && Qflag){
 	    error("can't specify both -q and -Q");
 	    usage();
 	}
+	/*
+	 * The default, without the -Q flag, is to use the llvm dissembler
+	 * instead of otool's internal disassemblers.
+	 */
+	if(!Qflag)
+	    qflag = TRUE;
 	if(nfiles == 0){
 	    error("at least one file must be specified");
 	    usage();
@@ -502,8 +556,8 @@ usage(
 void)
 {
 	fprintf(stderr,
-		"Usage: %s [-arch arch_type] [-fahlLDtdorSTMRIHvVcXmqQ] "
-		"<object file> ...\n", progname);
+		"Usage: %s [-arch arch_type] [-fahlLDtdorSTMRIHGvVcXmqQ] "
+		"[-mcpu=arg] <object file> ...\n", progname);
 
 	fprintf(stderr, "\t-f print the fat headers\n");
 	fprintf(stderr, "\t-a print the archive header\n");
@@ -528,14 +582,16 @@ void)
 		"library\n");
 	fprintf(stderr, "\t-I print the indirect symbol table\n");
 	fprintf(stderr, "\t-H print the two-level hints table\n");
+	fprintf(stderr, "\t-G print the data in code table\n");
 	fprintf(stderr, "\t-v print verbosely (symbolically) when possible\n");
 	fprintf(stderr, "\t-V print disassembled operands symbolically\n");
 	fprintf(stderr, "\t-c print argument strings of a core file\n");
 	fprintf(stderr, "\t-X print no leading addresses or headers\n");
 	fprintf(stderr, "\t-m don't use archive(member) syntax\n");
 	fprintf(stderr, "\t-B force Thumb disassembly (ARM objects only)\n");
-	fprintf(stderr, "\t-q use llvm's disassembler\n");
+	fprintf(stderr, "\t-q use llvm's disassembler (the default)\n");
 	fprintf(stderr, "\t-Q use otool(1)'s disassembler\n");
+	fprintf(stderr, "\t-mcpu=arg use `arg' as the cpu for disassembly\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -576,7 +632,9 @@ void *cookie) /* cookie is not used */
     struct dylib_reference *refs, *allocated_refs;
     uint32_t nmods, ntocs, nrefs;
     struct twolevel_hint *hints, *allocated_hints;
-    uint32_t nhints;
+    struct data_in_code_entry *dices, *allocated_dices;
+    uint32_t nhints, ndices;
+    uint64_t seg_addr;
 
 	sorted_symbols = NULL;
 	nsorted_symbols = 0;
@@ -584,6 +642,8 @@ void *cookie) /* cookie is not used */
 	nindirect_symbols = 0;
 	hints = NULL;
 	nhints = 0;
+	dices = NULL;
+	ndices = 0;
 	symbols = NULL;
 	symbols64 = NULL;
 	nsymbols = 0;
@@ -604,6 +664,7 @@ void *cookie) /* cookie is not used */
 	allocated_mods = NULL;
 	allocated_refs = NULL;
 	allocated_hints = NULL;
+	allocated_dices = NULL;
 
 	/*
 	 * The fat headers are printed in ofile_map() in ofile.c #ifdef'ed
@@ -868,7 +929,7 @@ void *cookie) /* cookie is not used */
 			mh_ncmds, mh_sizeofcmds, mh_filetype,
 			ofile->object_byte_sex,
 			addr, size, &sect, &sect_size, &sect_addr,
-			&sect_relocs, &sect_nrelocs, &sect_flags);
+			&sect_relocs, &sect_nrelocs, &sect_flags, &seg_addr);
 	    /*
 	     * The MH_DYLIB_STUB format has all section sizes set to zero 
 	     * except sections with indirect symbol table entries (so that the
@@ -966,6 +1027,8 @@ void *cookie) /* cookie is not used */
 			   strcmp(p + (len - (sizeof(".o") - 1)), ".o") == 0)
 			    continue;
 			if(strcmp(p, "gcc_compiled.") == 0)
+			    continue;
+			if(strcmp(p, "ltmp0") == 0)
 			    continue;
 			if(n_type == N_ABS && n_value == 0 && *p == '.')
 			    continue;
@@ -1088,6 +1151,22 @@ void *cookie) /* cookie is not used */
 		ofile->object_byte_sex, hints, nhints, symbols, symbols64,
 		nsymbols, strings, strings_size, vflag);
 	}
+	if(Gflag || (tflag && vflag)){
+	    get_data_in_code_info(ofile->load_commands, mh_ncmds, mh_sizeofcmds,
+		ofile->object_byte_sex, addr, size, &dices, &ndices);
+	    if((intptr_t)dices % sizeof(uint32_t) ||
+	       ofile->object_byte_sex != get_host_byte_sex()){
+		allocated_dices = allocate(ndices *
+					   sizeof(struct data_in_code_entry));
+		memcpy(allocated_dices, dices,
+		       ndices * sizeof(struct data_in_code_entry));
+		dices = allocated_dices;
+	    }
+	    if(ofile->object_byte_sex != get_host_byte_sex())
+		swap_data_in_code_entry(dices, ndices, get_host_byte_sex());
+	    if(Gflag)
+		print_dices(dices, ndices, vflag);
+	}
 	if(Iflag)
 	    print_indirect_symbols(ofile->load_commands, mh_ncmds,mh_sizeofcmds,
 		mh_cputype, ofile->object_byte_sex, indirect_symbols,
@@ -1109,23 +1188,43 @@ void *cookie) /* cookie is not used */
 		    mh_ncmds, mh_sizeofcmds, mh_filetype,
 		    ofile->object_byte_sex,
 		    addr, size, &sect, &sect_size, &sect_addr,
-		    &sect_relocs, &sect_nrelocs, &sect_flags);
+		    &sect_relocs, &sect_nrelocs, &sect_flags, &seg_addr);
 
 	    /* create aligned relocations entries as needed */
 	    relocs = NULL;
 	    nrelocs = 0;
 	    if(Vflag){
-		if((intptr_t)sect_relocs % sizeof(int32_t) != 0 ||
-		   ofile->object_byte_sex != get_host_byte_sex()){
-		    nrelocs = sect_nrelocs;
-		    relocs = allocate(nrelocs *
-				      sizeof(struct relocation_info));
-		    memcpy(relocs, sect_relocs, nrelocs *
-			   sizeof(struct relocation_info));
+		if(mh_filetype != MH_KEXT_BUNDLE){
+		    if((intptr_t)sect_relocs % sizeof(int32_t) != 0 ||
+		       ofile->object_byte_sex != get_host_byte_sex()){
+			nrelocs = sect_nrelocs;
+			relocs = allocate(nrelocs *
+					  sizeof(struct relocation_info));
+			memcpy(relocs, sect_relocs, nrelocs *
+			       sizeof(struct relocation_info));
+		    }
+		    else{
+			nrelocs = sect_nrelocs;
+			relocs = sect_relocs;
+		    }
 		}
 		else{
-		    nrelocs = sect_nrelocs;
-		    relocs = sect_relocs;
+		    get_linked_reloc_info(ofile->load_commands, mh_ncmds,
+			    mh_sizeofcmds, ofile->object_byte_sex,
+			    ofile->object_addr, ofile->object_size, &ext_relocs,
+			    &next_relocs, &loc_relocs, &nloc_relocs);
+		    if((intptr_t)ext_relocs % sizeof(int32_t) != 0 ||
+		       ofile->object_byte_sex != get_host_byte_sex()){
+			nrelocs = next_relocs;
+			relocs = allocate(next_relocs *
+					  sizeof(struct relocation_info));
+			memcpy(relocs, ext_relocs, next_relocs *
+				sizeof(struct relocation_info));
+		    }
+		    else{
+			nrelocs = next_relocs;
+			relocs = ext_relocs;
+		    }
 		}
 		if(ofile->object_byte_sex != get_host_byte_sex())
 		    swap_relocation_info(relocs, nrelocs,
@@ -1144,17 +1243,23 @@ void *cookie) /* cookie is not used */
 		       strings_size, relocs, nrelocs, indirect_symbols,
 		       nindirect_symbols, ofile->load_commands, mh_ncmds,
 		       mh_sizeofcmds, vflag, Vflag, mh_cpusubtype,
-		       ofile->object_addr, ofile->object_size);
+		       ofile->object_addr, ofile->object_size, dices, ndices,
+                       seg_addr, mh_filetype);
 
-	    if(relocs != NULL && relocs != sect_relocs)
-		free(relocs);
+	    if(mh_filetype != MH_KEXT_BUNDLE){
+		if(relocs != NULL && relocs != sect_relocs)
+		    free(relocs);
+	    } else {
+		if(relocs != NULL && relocs != ext_relocs)
+		    free(relocs);
+	    }
 	}
 
 	if(iflag){
 	    if(get_sect_info(SEG_TEXT, SECT_FVMLIB_INIT0, ofile->load_commands,
 		mh_ncmds, mh_sizeofcmds, mh_filetype, ofile->object_byte_sex,
 		addr, size, &sect, &sect_size, &sect_addr,
-		&sect_relocs, &sect_nrelocs, &sect_flags) == TRUE){
+		&sect_relocs, &sect_nrelocs, &sect_flags, &seg_addr) == TRUE){
 
 		/* create aligned, sorted relocations entries */
 		nrelocs = sect_nrelocs;
@@ -1181,7 +1286,7 @@ void *cookie) /* cookie is not used */
 	    if(get_sect_info(SEG_DATA, SECT_DATA, ofile->load_commands,
 		mh_ncmds, mh_sizeofcmds, mh_filetype, ofile->object_byte_sex,
 		addr, size, &sect, &sect_size, &sect_addr,
-		&sect_relocs, &sect_nrelocs, &sect_flags) == TRUE){
+		&sect_relocs, &sect_nrelocs, &sect_flags, &seg_addr) == TRUE){
 
 		if(Xflag == FALSE)
 		    printf("(%s,%s) section\n", SEG_DATA, SECT_DATA);
@@ -1235,7 +1340,7 @@ void *cookie) /* cookie is not used */
 	    else if(get_sect_info(segname, sectname, ofile->load_commands,
 		mh_ncmds, mh_sizeofcmds, mh_filetype, ofile->object_byte_sex,
 		addr, size, &sect, &sect_size, &sect_addr,
-		&sect_relocs, &sect_nrelocs, &sect_flags) == TRUE){
+		&sect_relocs, &sect_nrelocs, &sect_flags, &seg_addr) == TRUE){
 
 		if(Xflag == FALSE)
 		    printf("Contents of (%.16s,%.16s) section\n", segname,
@@ -1461,6 +1566,8 @@ void *cookie) /* cookie is not used */
 	    free(allocated_indirect_symbols);
 	if(allocated_hints != NULL)
 	    free(allocated_hints);
+	if(allocated_dices != NULL)
+	    free(allocated_dices);
 	if(allocated_tocs != NULL)
 	    free(allocated_tocs);
 	if(allocated_mods != NULL)
@@ -2002,6 +2109,126 @@ struct twolevel_hints_command *hints_cmd)
 	return(TRUE);
 }
 
+/*
+ * get_data_in_code_info() returns a pointer and the size of the data in code
+ * table.  This routine handles the problems related to the file being truncated
+ * and only returns valid pointers and sizes that can be used.  This routine
+ * will return pointers that are misaligned and it is up to the caller to deal
+ * with alignment issues.  It is also up to the caller to deal with byte sex of
+ * the table.
+ */
+static
+void
+get_data_in_code_info(
+struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
+enum byte_sex load_commands_byte_sex,
+char *object_addr,
+uint32_t object_size,
+struct data_in_code_entry **dices,	/* output */
+uint32_t *ndices)
+{
+    struct linkedit_data_command dices_cmd;
+    uint64_t bigsize;
+
+	*dices = NULL;
+	*ndices = 0;
+
+	memset(&dices_cmd, '\0', sizeof(struct linkedit_data_command));
+	if(get_dices_cmd(load_commands, ncmds, sizeofcmds,
+		         load_commands_byte_sex, &dices_cmd) == FALSE)
+	    return;
+
+	if(dices_cmd.dataoff >= object_size){
+	    printf("data in code offset is past end of file\n");
+	}
+	else{
+	    *dices = (struct data_in_code_entry *)
+		     (object_addr + dices_cmd.dataoff);
+	    bigsize = dices_cmd.datasize;
+	    bigsize += dices_cmd.dataoff;
+	    if(bigsize > object_size){
+		printf("data in code table extends past end of file\n");
+		*ndices = (object_size - dices_cmd.dataoff) /
+			  sizeof(struct data_in_code_entry);
+	    }
+	    else
+		*ndices = dices_cmd.datasize /
+			  sizeof(struct data_in_code_entry);
+	}
+}
+
+/*
+ * get_dices_cmd() gets the linkedit_data_command for the data in code from the
+ * mach header and load commands passed to it and copys it into dices_cmd.  It
+ * if doesn't find one it returns FALSE else it returns TRUE.
+ */
+static
+enum bool
+get_dices_cmd(
+struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
+enum byte_sex load_commands_byte_sex,
+struct linkedit_data_command *dices_cmd)
+{
+    enum byte_sex host_byte_sex;
+    enum bool swapped;
+    uint32_t i, left, size, cmd;
+    struct load_command *lc, l;
+
+	host_byte_sex = get_host_byte_sex();
+	swapped = host_byte_sex != load_commands_byte_sex;
+
+	cmd = UINT_MAX;
+	lc = load_commands;
+	for(i = 0 ; i < ncmds; i++){
+	    memcpy((char *)&l, (char *)lc, sizeof(struct load_command));
+	    if(swapped)
+		swap_load_command(&l, host_byte_sex);
+	    if(l.cmdsize % sizeof(int32_t) != 0)
+		printf("load command %u size not a multiple of "
+		       "sizeof(int32_t)\n", i);
+	    if((char *)lc + l.cmdsize >
+	       (char *)load_commands + sizeofcmds)
+		printf("load command %u extends past end of load "
+		       "commands\n", i);
+	    left = sizeofcmds - ((char *)lc - (char *)load_commands);
+
+	    switch(l.cmd){
+	    case LC_DATA_IN_CODE:
+		if(cmd != UINT_MAX){
+		    printf("more than one LC_DATA_IN_CODE command (using "
+			   "command %u)\n", cmd);
+		    break;
+		}
+		memset((char *)dices_cmd, '\0',
+		       sizeof(struct linkedit_data_command));
+		size = left < sizeof(struct linkedit_data_command) ?
+		       left : sizeof(struct linkedit_data_command);
+		memcpy((char *)dices_cmd, (char *)lc, size);
+		if(swapped)
+		    swap_linkedit_data_command(dices_cmd, host_byte_sex);
+		cmd = i;
+	    }
+	    if(l.cmdsize == 0){
+		printf("load command %u size zero (can't advance to other "
+		       "load commands)\n", i);
+		break;
+	    }
+	    lc = (struct load_command *)((char *)lc + l.cmdsize);
+	    if((char *)lc > (char *)load_commands + sizeofcmds)
+		break;
+	}
+	if((char *)load_commands + sizeofcmds != (char *)lc)
+	    printf("Inconsistent sizeofcmds\n");
+
+	if(cmd == UINT_MAX){
+	    return(FALSE);
+	}
+	return(TRUE);
+}
 
 /*
  * Function for qsort for comparing symbols.
@@ -2069,7 +2296,8 @@ uint64_t *sect_size,
 uint64_t *sect_addr,
 struct relocation_info **sect_relocs,
 uint32_t *sect_nrelocs,
-uint32_t *sect_flags)
+uint32_t *sect_flags,
+uint64_t *seg_addr)
 {
     enum byte_sex host_byte_sex;
     enum bool found, swapped;
@@ -2119,7 +2347,7 @@ uint32_t *sect_flags)
 
 		if((filetype == MH_OBJECT && sg.segname[0] == '\0') ||
 		   strncmp(sg.segname, segname, sizeof(sg.segname)) == 0){
-
+                    *seg_addr = sg.vmaddr;
 		    p = (char *)lc + sizeof(struct segment_command);
 		    for(j = 0 ; found == FALSE && j < sg.nsects ; j++){
 			if(p + sizeof(struct section) >
@@ -2161,7 +2389,7 @@ uint32_t *sect_flags)
 
 		if((filetype == MH_OBJECT && sg64.segname[0] == '\0') ||
 		   strncmp(sg64.segname, segname, sizeof(sg64.segname)) == 0){
-
+                    *seg_addr = sg.vmaddr;
 		    p = (char *)lc + sizeof(struct segment_command_64);
 		    for(j = 0 ; found == FALSE && j < sg64.nsects ; j++){
 			if(p + sizeof(struct section_64) >
@@ -2381,7 +2609,11 @@ enum bool disassemble,
 enum bool verbose,
 cpu_subtype_t cpusubtype,
 char *object_addr,
-uint32_t object_size)
+uint32_t object_size,
+struct data_in_code_entry *dices,
+uint32_t ndices,
+uint64_t seg_addr,
+uint32_t filetype)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
@@ -2390,6 +2622,9 @@ uint32_t object_size)
     unsigned short short_word;
     unsigned char byte_word;
     LLVMDisasmContextRef arm_dc, thumb_dc, i386_dc, x86_64_dc;
+    uint32_t n, ninsts;
+    struct inst *insts;
+    char *sect_start;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -2397,6 +2632,9 @@ uint32_t object_size)
 	thumb_dc = NULL;
 	i386_dc = NULL;
 	x86_64_dc = NULL;
+	n = 0;
+	ninsts = 0;
+	insts = NULL;
 
 	if(disassemble == TRUE){
 	    if(pflag){
@@ -2416,14 +2654,17 @@ uint32_t object_size)
 		offset = sorted_symbols[i].n_value - addr;
 		sect += offset;
 		cur_addr = sorted_symbols[i].n_value;
+		sect_start = sect;
 	    }
 	    else{
 		offset = 0;
 		cur_addr = addr;
+		sect_start = sect;
 	    }
 	    if(cputype == CPU_TYPE_ARM &&
 	       (cpusubtype == CPU_SUBTYPE_ARM_V7 ||
 	        cpusubtype == CPU_SUBTYPE_ARM_V7F ||
+	        cpusubtype == CPU_SUBTYPE_ARM_V7S ||
 	        cpusubtype == CPU_SUBTYPE_ARM_V7K)){
 		if(sect_flags & S_SYMBOL_STUBS)
 		    in_thumb = FALSE;
@@ -2432,23 +2673,86 @@ uint32_t object_size)
 	    }
 	    else
 		in_thumb = FALSE;
-	    if(qflag && cputype == CPU_TYPE_ARM){
-		arm_dc = create_arm_llvm_disassembler();
-		thumb_dc = create_thumb_llvm_disassembler();
+	    if((qflag || gflag) && cputype == CPU_TYPE_ARM){
+		arm_dc = create_arm_llvm_disassembler(cpusubtype);
+		if(arm_dc == NULL){
+		    printf("can't create arm llvm disassembler\n");
+		    return;
+		}
+		thumb_dc = create_thumb_llvm_disassembler(cpusubtype);
+		if(thumb_dc == NULL){
+		    printf("can't create thumb llvm disassembler\n");
+		    return;
+		}
+		llvm_disasm_set_options(arm_dc,
+		    LLVMDisassembler_Option_PrintImmHex);
+		llvm_disasm_set_options(thumb_dc,
+		    LLVMDisassembler_Option_PrintImmHex);
+		if(eflag){
+		    llvm_disasm_set_options(arm_dc,
+			LLVMDisassembler_Option_UseMarkup);
+		    llvm_disasm_set_options(thumb_dc,
+			LLVMDisassembler_Option_UseMarkup);
+		}
 	    }
-	    if(qflag && cputype == CPU_TYPE_I386)
+	    if((qflag || gflag) && cputype == CPU_TYPE_I386){
 		i386_dc = create_i386_llvm_disassembler();
-	    if(qflag && cputype == CPU_TYPE_X86_64)
+		if(i386_dc == NULL){
+		    printf("can't create i386 llvm disassembler\n");
+		    return;
+		}
+		llvm_disasm_set_options(i386_dc,
+		    LLVMDisassembler_Option_PrintImmHex);
+		if(nflag)
+		    llvm_disasm_set_options(i386_dc,
+			LLVMDisassembler_Option_AsmPrinterVariant);
+		if(eflag)
+		    llvm_disasm_set_options(i386_dc,
+			LLVMDisassembler_Option_UseMarkup);
+	    }
+	    if((qflag || gflag) && cputype == CPU_TYPE_X86_64){
 		x86_64_dc = create_x86_64_llvm_disassembler();
+		if(x86_64_dc == NULL){
+		    printf("can't create x86_64 llvm disassembler\n");
+		    return;
+		}
+		llvm_disasm_set_options(x86_64_dc,
+		    LLVMDisassembler_Option_PrintImmHex);
+		if(nflag)
+		    llvm_disasm_set_options(x86_64_dc,
+			LLVMDisassembler_Option_AsmPrinterVariant);
+		if(eflag)
+		    llvm_disasm_set_options(x86_64_dc,
+			LLVMDisassembler_Option_UseMarkup);
+	    }
+	    if(gflag){
+		ninsts = 100;
+		insts = allocate(sizeof(struct inst) * ninsts);
+	    }
 	    for(i = offset ; i < size ; ){
-		print_label(cur_addr, TRUE, sorted_symbols, nsorted_symbols);
-		if(Xflag == FALSE){
-		    if(cputype & CPU_ARCH_ABI64)
-			printf("%016llx", cur_addr);
-		    else
-			printf("%08x", (uint32_t)cur_addr);
-		    if(qflag == FALSE)
-			printf("\t");
+		if(gflag &&
+		   (cputype == CPU_TYPE_X86_64 ||
+		    cputype == CPU_TYPE_I386 ||
+		    cputype == CPU_TYPE_ARM)){
+		    if(n > ninsts){
+			ninsts += ninsts;
+			insts = reallocate(insts, sizeof(struct inst) * ninsts);
+		    }
+		    memset(&(insts[n]), '\0', sizeof(struct inst));
+		    insts[n].address = cur_addr;
+		    insts[n].label = get_label(cur_addr, sorted_symbols,
+					       nsorted_symbols);;
+		}
+		else{
+		    print_label(cur_addr, TRUE, sorted_symbols,nsorted_symbols);
+		    if(Xflag == FALSE){
+			if(cputype & CPU_ARCH_ABI64)
+			    printf("%016llx", cur_addr);
+			else
+			    printf("%08x", (uint32_t)cur_addr);
+			if(qflag == FALSE)
+			    printf("\t");
+		    }
 		}
 		if(cputype == CPU_TYPE_POWERPC64)
 		    j = ppc_disassemble(sect, size - i, cur_addr, addr,
@@ -2465,7 +2769,8 @@ uint32_t object_size)
 				indirect_symbols, nindirect_symbols, cputype,
 				load_commands, ncmds, sizeofcmds, verbose,
 				llvm_mc, i386_dc, x86_64_dc , object_addr,
-				object_size);
+				object_size, &(insts[n]), NULL, 0,
+				filetype);
 	 	else if(cputype == CPU_TYPE_MC680x0)
 		    j = m68k_disassemble(sect, size - i, cur_addr, addr,
 				object_byte_sex, relocs, nrelocs, symbols,
@@ -2485,7 +2790,8 @@ uint32_t object_size)
 				strings, strings_size, indirect_symbols,
 				nindirect_symbols, cputype, load_commands, 
 				ncmds, sizeofcmds, verbose, llvm_mc, i386_dc,
-				x86_64_dc, object_addr, object_size);
+				x86_64_dc, object_addr, object_size,
+				&(insts[n]), NULL, 0, filetype);
 		else if(cputype == CPU_TYPE_MC88000)
 		    j = m88k_disassemble(sect, size - i, cur_addr, addr,
 				object_byte_sex, relocs, nrelocs, symbols,
@@ -2518,7 +2824,8 @@ uint32_t object_size)
 				strings, strings_size, indirect_symbols,
 				nindirect_symbols, load_commands, ncmds,
 				sizeofcmds, cpusubtype, verbose, arm_dc,
-				thumb_dc, object_addr, object_size);
+				thumb_dc, object_addr, object_size, dices,
+				ndices, seg_addr, &(insts[n]), NULL, 0);
 		else{
 		    printf("Can't disassemble unknown cputype %d\n", cputype);
 		    return;
@@ -2526,7 +2833,76 @@ uint32_t object_size)
 		sect += j;
 		cur_addr += j;
 		i += j;
+		if(gflag)
+		    n++;
 	    }
+	    if(gflag &&
+	       (cputype == CPU_TYPE_X86_64 ||
+		cputype == CPU_TYPE_I386 ||
+		cputype == CPU_TYPE_ARM)){
+		char dst[4096];
+		dst[4095] = '\0';
+
+		/* Look for inits that need tmp labels. */
+		for(i = 0 ; i < n ; i++){
+		    if(insts[i].has_raw_target_address){
+			for(j = 0; j < n; j++){
+			    if(insts[i].raw_target_address == insts[j].address)
+				insts[j].needs_tmp_label = TRUE;
+			}
+		    }
+		}
+
+		/* Create the needed tmp labels. */
+		j = 1;
+		for(i = 0 ; i < n ; i++){
+		    if(insts[i].needs_tmp_label == TRUE){
+			insts[i].tmp_label = allocate(20);
+			sprintf(insts[i].tmp_label, "L%d", j++);
+		    }
+		}
+
+		/* Now finally print the inits. */
+		for(i = 0 ; i < n ; i++){
+		    if(insts[i].label != NULL)
+			printf("%s:\n", insts[i].label);
+		    else if(insts[i].tmp_label != NULL)
+			printf("%s:", insts[i].tmp_label);
+		    insts[i].print = TRUE;
+		    cur_addr = insts[i].address;
+		    offset = cur_addr - addr;
+		    sect = sect_start + offset;
+		    if(cputype == CPU_TYPE_X86_64 || cputype == CPU_TYPE_I386)
+			j = i386_disassemble(sect, size - offset, cur_addr, addr,
+				object_byte_sex, relocs, nrelocs, symbols, NULL,
+				nsymbols, sorted_symbols, nsorted_symbols,
+				strings, strings_size, indirect_symbols,
+				nindirect_symbols, cputype, load_commands, 
+				ncmds, sizeofcmds, verbose, llvm_mc, i386_dc,
+				x86_64_dc, object_addr, object_size,
+				&(insts[i]), insts, n, filetype);
+		    else if(cputype == CPU_TYPE_ARM)
+			j = arm_disassemble(sect, size - offset, cur_addr, addr,
+				    object_byte_sex, relocs, nrelocs, symbols,
+				    nsymbols, sorted_symbols, nsorted_symbols,
+				    strings, strings_size, indirect_symbols,
+				    nindirect_symbols, load_commands, ncmds,
+				    sizeofcmds, cpusubtype, verbose, arm_dc,
+				    thumb_dc, object_addr, object_size, dices,
+				    ndices, seg_addr, &(insts[i]), insts, n);
+		}
+
+		/* Free up allocated space */
+		for(i = 0 ; i < n ; i++){
+		    if(insts[i].tmp_label != NULL)
+			free(insts[i].tmp_label);
+		}
+		free(insts);
+	    }
+	    if(i386_dc != NULL)
+		delete_arm_llvm_disassembler(i386_dc);
+	    if(x86_64_dc != NULL)
+		delete_arm_llvm_disassembler(x86_64_dc);
 	    if(arm_dc != NULL)
 		delete_arm_llvm_disassembler(arm_dc);
 	    if(thumb_dc != NULL)
@@ -2564,7 +2940,10 @@ uint32_t object_size)
 	    }
 	    else{
 		for(i = 0 ; i < size ; i += j , addr += j){
-		    printf("%08x ", (unsigned int)addr);
+		    if(cputype & CPU_ARCH_ABI64)
+			printf("%016llx ", addr);
+		    else
+			printf("%08x ", (uint32_t)addr);
 		    for(j = 0;
 			j < 4 * sizeof(int32_t) && i + j < size;
 			j += sizeof(int32_t)){

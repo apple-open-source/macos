@@ -1,33 +1,39 @@
-LIST(INSERT WebKit_INCLUDE_DIRECTORIES 0
+list(INSERT WebKit_INCLUDE_DIRECTORIES 0
     "${BLACKBERRY_THIRD_PARTY_DIR}" # For <unicode.h>, which is included from <sys/keycodes.h>.
-    "${BLACKBERRY_THIRD_PARTY_DIR}/icu"
 )
 
-LIST(APPEND WebKit_INCLUDE_DIRECTORIES
-    "${JAVASCRIPTCORE_DIR}/wtf/text"
+list(APPEND WebKit_INCLUDE_DIRECTORIES
+    "${JAVASCRIPTCORE_DIR}/dfg"
     "${WEBCORE_DIR}/bindings/cpp"
+    "${WEBCORE_DIR}/fileapi"
     "${WEBCORE_DIR}/history/blackberry"
-    "${WEBCORE_DIR}/html/canvas"
     "${WEBCORE_DIR}/html/parser" # For HTMLParserIdioms.h
     "${WEBCORE_DIR}/loader/appcache"
-    "${WEBCORE_DIR}/notifications"
     "${WEBCORE_DIR}/platform/blackberry"
+    "${WEBCORE_DIR}/platform/graphics/gpu"
     "${WEBCORE_DIR}/platform/graphics/blackberry"
-    "${WEBCORE_DIR}/platform/graphics/blackberry/skia"
-    "${WEBCORE_DIR}/platform/graphics/skia"
+    "${WEBCORE_DIR}/platform/image-encoders"
     "${WEBCORE_DIR}/platform/network/blackberry"
-    "${WEBCORE_DIR}/Modules/websockets"
+    "${WEBCORE_DIR}/testing/js"
     "${WEBCORE_DIR}/Modules/geolocation"
+    "${WEBCORE_DIR}/Modules/indexeddb"
     "${WEBCORE_DIR}/Modules/vibration"
+    "${WEBCORE_DIR}/Modules/websockets"
     "${WEBKIT_DIR}/blackberry/Api"
     "${WEBKIT_DIR}/blackberry/WebCoreSupport"
     "${WEBKIT_DIR}/blackberry/WebKitSupport"
-    "${CMAKE_SOURCE_DIR}/Source" # For JavaScriptCore API headers
+    "${CMAKE_SOURCE_DIR}"
 )
-IF (ENABLE_DRT)
-    LIST(APPEND WebKit_INCLUDE_DIRECTORIES
+
+if (ENABLE_NOTIFICATIONS)
+    list(APPEND WebKit_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/Modules/notifications"
+    )
+endif ()
+
+if (NOT PUBLIC_BUILD)
+    list(APPEND WebKit_INCLUDE_DIRECTORIES
         # needed for DRT for now
-        "${JAVASCRIPTCORE_DIR}/wtf"
         "${WEBCORE_DIR}/platform/mock"
         "${WEBCORE_DIR}/svg/animation"
         "${WEBCORE_DIR}/workers"
@@ -35,31 +41,51 @@ IF (ENABLE_DRT)
         "${TOOLS_DIR}/DumpRenderTree"
         "${TOOLS_DIR}/DumpRenderTree/blackberry"
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_BATTERY_STATUS)
-    LIST(APPEND WebKit_INCLUDE_DIRECTORIES ${WEBCORE_DIR}/Modules/battery)
-    LIST(APPEND WebKit_SOURCES blackberry/WebCoreSupport/BatteryClientBlackBerry.cpp)
-ENDIF ()
+if (ENABLE_BATTERY_STATUS)
+    list(APPEND WebKit_INCLUDE_DIRECTORIES ${WEBCORE_DIR}/Modules/battery)
+    list(APPEND WebKit_SOURCES blackberry/WebCoreSupport/BatteryClientBlackBerry.cpp)
+endif ()
 
-ADD_DEFINITIONS(-DUSER_PROCESSES)
+if (ENABLE_NAVIGATOR_CONTENT_UTILS)
+  list(APPEND WebKit_INCLUDE_DIRECTORIES
+    "${WEBCORE_DIR}/Modules/navigatorcontentutils"
+  )
+endif ()
 
-LIST(APPEND WebKit_SOURCES
+if (ENABLE_MEDIA_STREAM)
+    list(APPEND WebKit_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/Modules/mediastream"
+        "${WEBCORE_DIR}/platform/mediastream"
+    )
+    list(APPEND WebKit_SOURCES
+        blackberry/WebCoreSupport/UserMediaClientImpl.cpp
+    )
+endif ()
+
+add_definitions(-DUSER_PROCESSES)
+
+list(APPEND WebKit_SOURCES
     blackberry/Api/BackingStore.cpp
     blackberry/Api/BlackBerryGlobal.cpp
-    blackberry/Api/WebString.cpp
+    blackberry/Api/InRegionScroller.cpp
+    blackberry/Api/WebAnimation.cpp
+    blackberry/Api/WebCookieJar.cpp
     blackberry/Api/WebKitMIMETypeConverter.cpp
     blackberry/Api/WebKitTextCodec.cpp
+    blackberry/Api/WebOverlay.cpp
+    blackberry/Api/WebOverlayOverride.cpp
     blackberry/Api/WebPage.cpp
     blackberry/Api/WebPageCompositor.cpp
     blackberry/Api/WebPageGroupLoadDeferrer.cpp
     blackberry/Api/WebSettings.cpp
     blackberry/Api/WebViewportArguments.cpp
-    blackberry/WebCoreSupport/AboutData.cpp
+    blackberry/Api/JavaScriptVariant.cpp
+    blackberry/WebCoreSupport/AutofillManager.cpp
+    blackberry/WebCoreSupport/BackForwardListBlackBerry.cpp
     blackberry/WebCoreSupport/CacheClientBlackBerry.cpp
     blackberry/WebCoreSupport/ChromeClientBlackBerry.cpp
-    blackberry/WebCoreSupport/ClientExtension.cpp
-    blackberry/WebCoreSupport/ContextMenuClientBlackBerry.cpp
     blackberry/WebCoreSupport/CredentialManager.cpp
     blackberry/WebCoreSupport/CredentialTransformData.cpp
     blackberry/WebCoreSupport/DeviceMotionClientBlackBerry.cpp
@@ -68,162 +94,203 @@ LIST(APPEND WebKit_SOURCES
     blackberry/WebCoreSupport/EditorClientBlackBerry.cpp
     blackberry/WebCoreSupport/FrameLoaderClientBlackBerry.cpp
     blackberry/WebCoreSupport/FrameNetworkingContextBlackBerry.cpp
-    blackberry/WebCoreSupport/GeolocationControllerClientBlackBerry.cpp
+    blackberry/WebCoreSupport/GeolocationClientBlackBerry.cpp
     blackberry/WebCoreSupport/IconDatabaseClientBlackBerry.cpp
     blackberry/WebCoreSupport/InspectorClientBlackBerry.cpp
-    blackberry/WebCoreSupport/JavaScriptDebuggerBlackBerry.cpp
-    blackberry/WebCoreSupport/NotificationPresenterImpl.cpp
+    blackberry/WebCoreSupport/NetworkInfoClientBlackBerry.cpp
+    blackberry/WebCoreSupport/NotificationClientBlackBerry.cpp
+    blackberry/WebCoreSupport/PlatformStrategiesBlackBerry.cpp
+    blackberry/WebCoreSupport/NavigatorContentUtilsClientBlackBerry.cpp
+    blackberry/WebCoreSupport/SuggestionBoxHandler.cpp
+    blackberry/WebCoreSupport/SuggestionBoxElement.cpp
     blackberry/WebCoreSupport/VibrationClientBlackBerry.cpp
-    blackberry/WebKitSupport/BackingStoreCompositingSurface.cpp
+    blackberry/WebKitSupport/AboutData.cpp
     blackberry/WebKitSupport/BackingStoreTile.cpp
     blackberry/WebKitSupport/BackingStoreClient.cpp
+    blackberry/WebKitSupport/BackingStoreVisualizationViewportAccessor.cpp
+    blackberry/WebKitSupport/ColorPickerClient.cpp
+    blackberry/WebKitSupport/DatePickerClient.cpp
+    blackberry/WebKitSupport/DefaultTapHighlight.cpp
     blackberry/WebKitSupport/DOMSupport.cpp
     blackberry/WebKitSupport/FrameLayers.cpp
     blackberry/WebKitSupport/InPageSearchManager.cpp
     blackberry/WebKitSupport/InputHandler.cpp
+    blackberry/WebKitSupport/InRegionScrollableArea.cpp
+    blackberry/WebKitSupport/InspectorOverlayBlackBerry.cpp
+    blackberry/WebKitSupport/NotificationManager.cpp
+    blackberry/WebKitSupport/PagePopup.cpp
+    blackberry/WebKitSupport/PagePopupClient.cpp
+    blackberry/WebKitSupport/ProximityDetector.cpp
     blackberry/WebKitSupport/RenderQueue.cpp
+    blackberry/WebKitSupport/SelectPopupClient.cpp
     blackberry/WebKitSupport/SelectionHandler.cpp
+    blackberry/WebKitSupport/SelectionOverlay.cpp
+    blackberry/WebKitSupport/SpellingHandler.cpp
     blackberry/WebKitSupport/SurfacePool.cpp
     blackberry/WebKitSupport/TouchEventHandler.cpp
     blackberry/WebKitSupport/FatFingers.cpp
+    blackberry/WebKitSupport/WebKitThreadViewportAccessor.cpp
 )
 
-IF (ENABLE_DRT)
+if (ENABLE_WEBGL)
+    add_definitions(-DWTF_USE_OPENGL_ES_2=1)
+    list(APPEND WebKit_INCLUDE_DIRECTORIES
+        ${OPENGL_INCLUDE_DIR}
+        ${THIRDPARTY_DIR}/ANGLE/src
+        ${THIRDPARTY_DIR}/ANGLE/include/GLSLANG
+    )
+    list(APPEND WebKit_LIBRARIES
+        ${OPENGL_gl_LIBRARY}
+    )
+endif (ENABLE_WEBGL)
+
+if (NOT PUBLIC_BUILD)
     # DumpRenderTree sources
-    LIST(APPEND WebKit_SOURCES
+    list(APPEND WebKit_SOURCES
         blackberry/WebKitSupport/DumpRenderTreeSupport.cpp
         ${TOOLS_DIR}/DumpRenderTree/blackberry/AccessibilityControllerBlackBerry.cpp
         ${TOOLS_DIR}/DumpRenderTree/blackberry/AccessibilityUIElementBlackBerry.cpp
         ${TOOLS_DIR}/DumpRenderTree/blackberry/DumpRenderTree.cpp
         ${TOOLS_DIR}/DumpRenderTree/blackberry/EventSender.cpp
         ${TOOLS_DIR}/DumpRenderTree/blackberry/GCControllerBlackBerry.cpp
-        ${TOOLS_DIR}/DumpRenderTree/blackberry/LayoutTestControllerBlackBerry.cpp
+        ${TOOLS_DIR}/DumpRenderTree/blackberry/TestRunnerBlackBerry.cpp
         ${TOOLS_DIR}/DumpRenderTree/blackberry/PixelDumpSupportBlackBerry.cpp
         ${TOOLS_DIR}/DumpRenderTree/blackberry/PNGImageEncoder.cpp
         ${TOOLS_DIR}/DumpRenderTree/blackberry/WorkQueueItemBlackBerry.cpp
         ${TOOLS_DIR}/DumpRenderTree/AccessibilityController.cpp
         ${TOOLS_DIR}/DumpRenderTree/AccessibilityUIElement.cpp
         ${TOOLS_DIR}/DumpRenderTree/AccessibilityTextMarker.cpp
-        ${TOOLS_DIR}/DumpRenderTree/LayoutTestController.cpp
+        ${TOOLS_DIR}/DumpRenderTree/TestRunner.cpp
         ${TOOLS_DIR}/DumpRenderTree/CyclicRedundancyCheck.cpp
         ${TOOLS_DIR}/DumpRenderTree/PixelDumpSupport.cpp
         ${TOOLS_DIR}/DumpRenderTree/WorkQueue.cpp
         ${TOOLS_DIR}/DumpRenderTree/GCController.cpp
+        ${WTF_DIR}/wtf/MD5.cpp
     )
-ENDIF ()
+endif ()
 
-SET(WebKit_LINK_FLAGS ${BLACKBERRY_LINK_FLAGS})
+set(WebKit_LINK_FLAGS ${BLACKBERRY_LINK_FLAGS})
 
-LIST(APPEND WebKit_LIBRARIES
-    ${AOI_LIBRARY}
-    ${CLIPBOARD_LIBRARY}
+list(APPEND WebKit_LIBRARIES
     ${CURL_LIBRARY}
-    ${Crypto_LIBRARY}
     ${FONTCONFIG_LIBRARY}
-    ${FREETYPE_LIBRARY}
-    ${HARFBUZZ_LIBRARY}
     ${ICUData_LIBRARY}
     ${ICUI18N_LIBRARY}
     ${ICUUC_LIBRARY}
     ${INTL_LIBRARY}
-    ${Iconv_LIBRARY}
+    ${ITYPE_LIBRARY}
     ${JPEG_LIBRARY}
-    ${JavaScriptCore_LIBRARY_NAME}
-    ${MD_LIBRARY}
+    JavaScriptCore
+    ${LEVELDB_LIBRARY}
     ${MMR_LIBRARY}
     ${M_LIBRARY}
-    ${NBUTIL_LIBRARY}
     ${OTS_LIBRARY}
     ${PNG_LIBRARY}
-    ${PPSCache_LIBRARY}
     ${SQLITE3_LIBRARY}
-    ${SSL_LIBRARY}
-    ${STRM_LIBRARY}
-    ${Screen_LIBRARY}
-    ${Skia_LIBRARY}
-    ${Skia_QNX_LIBRARY}
-    ${Socket_LIBRARY}
-    ${UUID_LIBRARY}
+    ${WTLE_LIBRARY}
     ${WebKitPlatform_LIBRARY}
     ${XML2_LIBRARY}
     ${XSLT_LIBRARY}
     ${Z_LIBRARY}
 )
 
-IF (PROFILING)
-    LIST(APPEND WebKit_LIBRARIES
+if (PROFILING)
+    list(APPEND WebKit_LIBRARIES
         ${PROFILING_LIBRARY}
     )
-ENDIF ()
+endif ()
 
-IF (WTF_USE_ACCELERATED_COMPOSITING)
-    LIST(APPEND WebKit_SOURCES
+if (WTF_USE_ACCELERATED_COMPOSITING)
+    list(APPEND WebKit_SOURCES
         blackberry/WebKitSupport/GLES2Context.cpp
     )
-    LIST(APPEND WebKit_INCLUDE_DIRECTORIES
+    list(APPEND WebKit_INCLUDE_DIRECTORIES
         "${WEBCORE_DIR}/platform/graphics/gles2"
     )
-    LIST(APPEND WebKit_LIBRARIES
+    list(APPEND WebKit_LIBRARIES
         ${GLESv2_LIBRARY}
         ${EGL_LIBRARY}
     )
-ENDIF ()
+endif ()
 
-FILE(GLOB BBWebKit_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/blackberry/Api/*.h")
+file(GLOB BBWebKit_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/blackberry/Api/*.h")
 
-INSTALL(FILES ${BBWebKit_HEADERS} DESTINATION usr/include/browser/webkit)
+install(FILES ${BBWebKit_HEADERS}
+        DESTINATION ../../usr/include/browser/webkit)
 
-IF (ENABLE_DRT)
-    INSTALL(FILES ${TOOLS_DIR}/DumpRenderTree/blackberry/DumpRenderTreeBlackBerry.h
-            DESTINATION usr/include/browser/webkit)
-ENDIF ()
+if (NOT PUBLIC_BUILD)
+    install(FILES ${TOOLS_DIR}/DumpRenderTree/blackberry/DumpRenderTreeBlackBerry.h
+            DESTINATION ../../usr/include/browser/webkit)
+endif ()
 
-SET(WebKit_INSTALL_DIR "${CMAKE_SYSTEM_PROCESSOR}/usr/lib/torch-webkit")
+if (ENABLE_VIDEO_TRACK)
+    list(APPEND WebKit_INCLUDE_DIRECTORIES
+        "${WEBCORE_DIR}/html/track"
+    )
+endif ()
 
-# Get the JavaScript file names from inspector.html, in order to keep the JavaScript files
-# generated in the correct order, and to keep the file names in-sync with the changes of inspector.html
-FILE (STRINGS ${WEBCORE_DIR}/inspector/front-end/inspector.html SCRIPT_TAGS REGEX "<script.* src=\".*js\".*></script>")
-FOREACH (_line IN LISTS SCRIPT_TAGS)
-    STRING (STRIP ${_line} _stripped_line)
-    STRING (REGEX REPLACE "<script.* src=\"(.*\\.js)\".*></script>" "\\1" _js_file ${_stripped_line})
-    STRING (COMPARE EQUAL ${_js_file} "InspectorBackendStub.js" _comp_result)
-    IF ( ${_comp_result} )
-        # InspectorBackendStub.js was generated with the build, should get it from DERIVED_SOURCES_WEBCORE_DIR.
-        SET (_js_file "${DERIVED_SOURCES_WEBCORE_DIR}/${_js_file}")
-    ELSE ()
-        SET (_js_file "${WEBCORE_DIR}/inspector/front-end/${_js_file}")
-    ENDIF ()
-    SET (JS_FILES ${JS_FILES} ${_js_file})
-ENDFOREACH ()
-SET (JS_FILES ${JS_FILES} ${WEBKIT_DIR}/blackberry/WebCoreSupport/inspectorBB.js)
+install(DIRECTORY ${WEBCORE_DIR}/inspector/front-end/
+        DESTINATION ../../usr/share/webkit/inspector/
+        FILES_MATCHING PATTERN "*.js")
+install(DIRECTORY ${WEBCORE_DIR}/inspector/front-end/
+        DESTINATION ../../usr/share/webkit/inspector/
+        FILES_MATCHING PATTERN "*.css")
+install(DIRECTORY ${WEBCORE_DIR}/inspector/front-end/
+        DESTINATION ../../usr/share/webkit/inspector/
+        FILES_MATCHING PATTERN "*.png")
+install(DIRECTORY ${WEBCORE_DIR}/inspector/front-end/
+        DESTINATION ../../usr/share/webkit/inspector/
+        FILES_MATCHING PATTERN "*.jpg")
+install(DIRECTORY ${WEBCORE_DIR}/inspector/front-end/
+        DESTINATION ../../usr/share/webkit/inspector/
+        FILES_MATCHING PATTERN "*.gif")
+install(FILES ${DERIVED_SOURCES_WEBCORE_DIR}/inspectorBB.html
+              ${WEBKIT_DIR}/blackberry/WebCoreSupport/inspectorBB.js
+              ${DERIVED_SOURCES_WEBCORE_DIR}/InspectorBackendCommands.js
+        DESTINATION ../../usr/share/webkit/inspector/)
 
-ADD_CUSTOM_TARGET (
+if (NOT PUBLIC_BUILD)
+    # Add the custom target to build the host-side ImageDiff binary.
+    # Reuse the Qt version.
+    add_custom_target(
+        ImageDiff ALL
+        WORKING_DIRECTORY ${TOOLS_DIR}/DumpRenderTree/blackberry/
+        COMMAND ./build
+        DEPENDS ${TOOLS_DIR}/DumpRenderTree/qt/ImageDiff.cpp
+        COMMENT "ImageDiff building..."
+    )
+endif ()
+
+add_custom_target(
     inspector ALL
-    COMMAND cat ${JS_FILES} > ${DERIVED_SOURCES_WEBCORE_DIR}/javascript.js
-    DEPENDS ${WebCore_LIBRARY_NAME}
+    command cp ${WEBCORE_DIR}/inspector/front-end/inspector.html ${DERIVED_SOURCES_WEBCORE_DIR}/inspectorBB.html && echo '<script src="inspectorBB.js"></script>'  >> ${DERIVED_SOURCES_WEBCORE_DIR}/inspectorBB.html
+    DEPENDS WebCore
     COMMENT "Web Inspector resources building..."
 )
 
 # Generate contents for AboutData.cpp
-ADD_CUSTOM_COMMAND(
+add_custom_command(
     OUTPUT ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataHaveFeatures.cpp
-    MAIN_DEPENDENCY ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataHaveFeatures.in ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl
+    MAIN_DEPENDENCY ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataHaveFeatures.in
+    DEPENDS ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataHaveFeatures.in ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl
     COMMAND ${PERL_EXECUTABLE} ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl HAVE ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataHaveFeatures.in ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataHaveFeatures.cpp
 )
 
-ADD_CUSTOM_COMMAND(
+add_custom_command(
     OUTPUT ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataEnableFeatures.cpp
-    MAIN_DEPENDENCY ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataEnableFeatures.in ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl
+    MAIN_DEPENDENCY ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataEnableFeatures.in
+    DEPENDS ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataEnableFeatures.in ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl
     COMMAND ${PERL_EXECUTABLE} ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl ENABLE ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataEnableFeatures.in ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataEnableFeatures.cpp
 )
 
-ADD_CUSTOM_COMMAND(
+add_custom_command(
     OUTPUT ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataUseFeatures.cpp
-    MAIN_DEPENDENCY ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataUseFeatures.in ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl
+    MAIN_DEPENDENCY ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataUseFeatures.in
+    DEPENDS ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataUseFeatures.in ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl
     COMMAND ${PERL_EXECUTABLE} ${WEBKIT_DIR}/blackberry/WebCoreSupport/generateAboutDataFeatures.pl USE ${WEBKIT_DIR}/blackberry/WebCoreSupport/AboutDataUseFeatures.in ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataUseFeatures.cpp
 )
 
-ADD_CUSTOM_TARGET(
+add_custom_target(
     aboutFeatures ALL
     DEPENDS ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataHaveFeatures.cpp ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataEnableFeatures.cpp ${DERIVED_SOURCES_WEBCORE_DIR}/AboutDataUseFeatures.cpp
 )

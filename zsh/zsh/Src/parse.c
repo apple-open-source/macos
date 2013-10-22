@@ -666,7 +666,8 @@ par_sublist(int *complex)
 
 	*complex |= c;
 	if (tok == DBAR || tok == DAMPER) {
-	    int qtok = tok, sl;
+	    enum lextok qtok = tok;
+	    int sl;
 
 	    cmdpush(tok == DBAR ? CS_CMDOR : CS_CMDAND);
 	    zshlex();
@@ -845,7 +846,7 @@ par_cmd(int *complex)
 	break;
     case FUNC:
 	cmdpush(CS_FUNCDEF);
-	par_funcdef();
+	par_funcdef(complex);
 	cmdpop();
 	break;
     case DINBRACK:
@@ -1176,7 +1177,8 @@ par_case(int *complex)
 static void
 par_if(int *complex)
 {
-    int oecused = ecused, xtok, p, pp, type, usebrace = 0;
+    int oecused = ecused, p, pp, type, usebrace = 0;
+    enum lextok xtok;
     unsigned char nc;
 
     p = ecadd(0);
@@ -1367,7 +1369,8 @@ par_repeat(int *complex)
 static void
 par_subsh(int *complex)
 {
-    int oecused = ecused, otok = tok, p, pp;
+    enum lextok otok = tok;
+    int oecused = ecused, p, pp;
 
     p = ecadd(0);
     /* Extra word only needed for always block */
@@ -1417,7 +1420,7 @@ par_subsh(int *complex)
 
 /**/
 static void
-par_funcdef(void)
+par_funcdef(int *complex)
 {
     int oecused = ecused, num = 0, onp, p, c = 0;
     int so, oecssub = ecssub;
@@ -1465,6 +1468,11 @@ par_funcdef(void)
 	    ecssub = oecssub;
 	    YYERRORV(oecused);
 	}
+	if (num == 0) {
+	    /* Anonymous function, possibly with arguments */
+	    incmdpos = 0;
+	    *complex = 1;
+	}
 	zshlex();
     } else if (unset(SHORTLOOPS)) {
 	lineno += oldlineno;
@@ -1480,12 +1488,25 @@ par_funcdef(void)
     ecbuf[p + num + 4] = ecnpats;
     ecbuf[p + 1] = num;
 
-    lineno += oldlineno;
     ecnpats = onp;
     ecssub = oecssub;
     ecnfunc++;
 
     ecbuf[p] = WCB_FUNCDEF(ecused - 1 - p);
+
+    if (num == 0) {
+	/* Unnamed function */
+	int parg = ecadd(0);
+	ecadd(0);
+	while (tok == STRING) {
+	    ecstr(tokstr);
+	    num++;
+	    zshlex();
+	}
+	ecbuf[parg] = ecused - parg; /*?*/
+	ecbuf[parg+1] = num;
+    }
+    lineno += oldlineno;
 }
 
 /*
@@ -1590,6 +1611,11 @@ par_simple(int *complex, int nr)
 	} else if (tok == ENVARRAY) {
 	    int oldcmdpos = incmdpos, n, type2;
 
+	    /*
+	     * We consider array setting complex because it can
+	     * contain process substitutions, which need a valid job.
+	     */
+	    *complex = c = 1;
 	    p = ecadd(0);
 	    incmdpos = 0;
 	    if ((type2 = strlen(tokstr) - 1) && tokstr[type2] == '+') {
@@ -1707,13 +1733,18 @@ par_simple(int *complex, int nr)
 		    ecssub = oecssub;
 		    YYERROR(oecused);
 		}
+		if (argc == 0) {
+		    /* Anonymous function, possibly with arguments */
+		    incmdpos = 0;
+		    *complex = 1;
+		}
 		zshlex();
 	    } else {
-		int ll, sl, pl, c = 0;
+		int ll, sl, c = 0;
 
 		ll = ecadd(0);
 		sl = ecadd(0);
-		pl = ecadd(WCB_PIPE(WC_PIPE_END, 0));
+		(void)ecadd(WCB_PIPE(WC_PIPE_END, 0));
 
 		if (!par_cmd(&c)) {
 		    cmdpop();
@@ -1730,12 +1761,25 @@ par_simple(int *complex, int nr)
 	    ecbuf[p + argc + 3] = ecsoffs - so;
 	    ecbuf[p + argc + 4] = ecnpats;
 
-	    lineno += oldlineno;
 	    ecnpats = onp;
 	    ecssub = oecssub;
 	    ecnfunc++;
 
 	    ecbuf[p] = WCB_FUNCDEF(ecused - 1 - p);
+
+	    if (argc == 0) {
+		/* Unnamed function */
+		int parg = ecadd(0);
+		ecadd(0);
+		while (tok == STRING) {
+		    ecstr(tokstr);
+		    argc++;
+		    zshlex();
+		}
+		ecbuf[parg] = ecused - parg; /*?*/
+		ecbuf[parg+1] = argc;
+	    }
+	    lineno += oldlineno;
 
 	    isfunc = 1;
 	    isnull = 0;
@@ -2076,7 +2120,7 @@ par_cond_2(void)
 		  && !s1[2]);
     condlex();
     if (tok == INANG || tok == OUTANG) {
-	int xtok = tok;
+	enum lextok xtok = tok;
 	condlex();
 	if (tok != STRING)
 	    YYERROR(ecused);
@@ -2337,7 +2381,7 @@ freeeprog(Eprog p)
 
 /**/
 char *
-ecgetstr(Estate s, int dup, int *tok)
+ecgetstr(Estate s, int dup, int *tokflag)
 {
     static char buf[4];
     wordcode c = *s->pc++;
@@ -2355,8 +2399,8 @@ ecgetstr(Estate s, int dup, int *tok)
     } else {
 	r = s->strs + (c >> 2);
     }
-    if (tok)
-	*tok = (c & 1);
+    if (tokflag)
+	*tokflag = (c & 1);
 
     /*** Since function dump files are mapped read-only, avoiding to
      *   to duplicate strings when they don't contain tokens may fail
@@ -2373,33 +2417,33 @@ ecgetstr(Estate s, int dup, int *tok)
 
 /**/
 char *
-ecrawstr(Eprog p, Wordcode pc, int *tok)
+ecrawstr(Eprog p, Wordcode pc, int *tokflag)
 {
     static char buf[4];
     wordcode c = *pc;
 
     if (c == 6 || c == 7) {
-	if (tok)
-	    *tok = (c & 1);
+	if (tokflag)
+	    *tokflag = (c & 1);
 	return "";
     } else if (c & 2) {
 	buf[0] = (char) ((c >>  3) & 0xff);
 	buf[1] = (char) ((c >> 11) & 0xff);
 	buf[2] = (char) ((c >> 19) & 0xff);
 	buf[3] = '\0';
-	if (tok)
-	    *tok = (c & 1);
+	if (tokflag)
+	    *tokflag = (c & 1);
 	return buf;
     } else {
-	if (tok)
-	    *tok = (c & 1);
+	if (tokflag)
+	    *tokflag = (c & 1);
 	return p->strs + (c >> 2);
     }
 }
 
 /**/
 char **
-ecgetarr(Estate s, int num, int dup, int *tok)
+ecgetarr(Estate s, int num, int dup, int *tokflag)
 {
     char **ret, **rp;
     int tf = 0, tmp = 0;
@@ -2411,15 +2455,15 @@ ecgetarr(Estate s, int num, int dup, int *tok)
 	tf |=  tmp;
     }
     *rp = NULL;
-    if (tok)
-	*tok = tf;
+    if (tokflag)
+	*tokflag = tf;
 
     return ret;
 }
 
 /**/
 LinkList
-ecgetlist(Estate s, int num, int dup, int *tok)
+ecgetlist(Estate s, int num, int dup, int *tokflag)
 {
     if (num) {
 	LinkList ret;
@@ -2430,12 +2474,12 @@ ecgetlist(Estate s, int num, int dup, int *tok)
 	    setsizednode(ret, i, ecgetstr(s, dup, &tmp));
 	    tf |= tmp;
 	}
-	if (tok)
-	    *tok = tf;
+	if (tokflag)
+	    *tokflag = tf;
 	return ret;
     }
-    if (tok)
-	*tok = 0;
+    if (tokflag)
+	*tokflag = 0;
     return NULL;
 }
 
@@ -3445,7 +3489,7 @@ dump_autoload(char *nam, char *file, int on, Options ops, int func)
 	shf = (Shfunc) zshcalloc(sizeof *shf);
 	shf->node.flags = on;
 	shf->funcdef = mkautofn(shf);
-	shf->emulation = 0;
+	shf->sticky = NULL;
 	shfunctab->addnode(shfunctab, ztrdup(fdname(n) + fdhtail(n)), shf);
 	if (OPT_ISSET(ops,'X') && eval_autoload(shf, shf->node.nam, ops, func))
 	    ret = 1;

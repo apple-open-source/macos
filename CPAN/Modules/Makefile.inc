@@ -6,14 +6,18 @@
 
 NAMEVERSION := $(NAME)-$(VERSION)
 TARBALL := $(NAMEVERSION).tar.gz
+ifneq ($(ALTTARDIR),)
+DIR := $(OBJROOT)/$(ALTTARDIR)
+else
 DIR := $(OBJROOT)/$(NAMEVERSION)
+endif
 MYSRC := $(SRCROOT)/Modules/$(NAMEVERSION)
 ARCHFLAGS := ARCHFLAGS='$(RC_CFLAGS)'
 export PATH := $(DSTROOT)/usr/bin:$(PATH)
 
 ifeq ($(shell [ -f $(DIR)/Build.PL ] && echo YES || echo NO),YES)
 PLFILE = Build.PL
-MAKECMD = ./Build
+MAKECMD = perl ./Build
 INDIRECTPLARGS = PLBARGS
 INDIRECTMAKEARGS = BUILDARGS
 else

@@ -36,7 +36,7 @@ int DellocationCounter = 0;
 @implementation TestObject
 
 
-- init {
+- (id)init {
     version = AllocationCounter++;
     return self;
 }

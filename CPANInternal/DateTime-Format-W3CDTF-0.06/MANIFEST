@@ -1,0 +1,23 @@
+inc/Module/Install.pm
+inc/Module/Install/Base.pm
+inc/Module/Install/Can.pm
+inc/Module/Install/Fetch.pm
+inc/Module/Install/Makefile.pm
+inc/Module/Install/Metadata.pm
+inc/Module/Install/Win32.pm
+inc/Module/Install/WriteAll.pm
+Changes
+lib/DateTime/Format/W3CDTF.pm
+LICENSE
+Makefile.PL
+MANIFEST			This list of files
+t/00load.t
+t/01parse.t
+t/02bugs.t
+t/pod.t
+t/pod_coverage.t
+Makefile.PL
+README
+META.yml
+examples/now.pl
+SIGNATURE                                Public-key signature (added by MakeMaker)

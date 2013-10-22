@@ -1,33 +1,38 @@
 #
-#   output-method.rb - optput methods used by irb 
-#   	$Release Version: 0.9.5$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   output-method.rb - output methods used by irb
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38604 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
+#
 #
 
 require "e2mmap"
 
 module IRB
-  # OutputMethod
-  #   StdioOutputMethod
-
+  # An abstract output class for IO in irb. This is mainly used internally by
+  # IRB::Notifier. You can define your own output method to use with Irb.new,
+  # or Context.new
   class OutputMethod
-    @RCS_ID='-$Id: output-method.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
+    extend Exception2MessageMapper
+    def_exception :NotImplementedError, "Need to define `%s'"
 
+
+    # Open this method to implement your own output method, raises a
+    # NotImplementedError if you don't define #print in your own class.
     def print(*opts)
-      IRB.fail NotImplementError, "print"
+      OutputMethod.Raise NotImplementedError, "print"
     end
 
+    # Prints the given +opts+, with a newline delimiter.
     def printn(*opts)
       print opts.join(" "), "\n"
     end
 
-    # extend printf
+    # Extends IO#printf to format the given +opts+ for Kernel#sprintf using
+    # #parse_printf_format
     def printf(format, *opts)
       if /(%*)%I/ =~ format
 	format, opts = parse_printf_format(format, opts)
@@ -35,31 +40,22 @@ module IRB
       print sprintf(format, *opts)
     end
 
-    # %
-    # <フラグ>  [#0- +]
-    # <最小フィールド幅> (\*|\*[1-9][0-9]*\$|[1-9][0-9]*)
-    # <精度>.(\*|\*[1-9][0-9]*\$|[1-9][0-9]*|)?
-    # #<長さ修正文字>(hh|h|l|ll|L|q|j|z|t)
-    # <変換修正文字>[diouxXeEfgGcsb%] 
+    # Returns an array of the given +format+ and +opts+ to be used by
+    # Kernel#sprintf, if there was a successful Regexp match in the given
+    # +format+ from #printf
+    #
+    #     %
+    #     <flag>  [#0- +]
+    #     <minimum field width> (\*|\*[1-9][0-9]*\$|[1-9][0-9]*)
+    #     <precision>.(\*|\*[1-9][0-9]*\$|[1-9][0-9]*|)?
+    #     #<length modifier>(hh|h|l|ll|L|q|j|z|t)
+    #     <conversion specifier>[diouxXeEfgGcsb%]
     def parse_printf_format(format, opts)
       return format, opts if $1.size % 2 == 1
     end
 
-    def foo(format)
-      pos = 0
-      inspects = []
-      format.scan(/%[#0\-+ ]?(\*(?=[^0-9])|\*[1-9][0-9]*\$|[1-9][0-9]*(?=[^0-9]))?(\.(\*(?=[^0-9])|\*[1-9][0-9]*\$|[1-9][0-9]*(?=[^0-9])))?(([1-9][0-9]*\$)*)([diouxXeEfgGcsb%])/) {|f, p, pp, pos, new_pos, c|
-	puts [f, p, pp, pos, new_pos, c].join("!")
-	pos = new_pos if new_pos
-	if c == "I"
-	  inspects.push pos.to_i 
-	  (f||"")+(p||"")+(pp||"")+(pos||"")+"s"
-	else
-	  $&
-	end
-      }
-    end
-
+    # Calls #print on each element in the given +objs+, followed by a newline
+    # character.
     def puts(*objs)
       for obj in objs
 	print(*obj)
@@ -67,17 +63,27 @@ module IRB
       end
     end
 
+    # Prints the given +objs+ calling Object#inspect on each.
+    #
+    # See #puts for more detail.
     def pp(*objs)
       puts(*objs.collect{|obj| obj.inspect})
     end
 
+    # Prints the given +objs+ calling Object#inspect on each and appending the
+    # given +prefix+.
+    #
+    # See #puts for more detail.
     def ppx(prefix, *objs)
       puts(*objs.collect{|obj| prefix+obj.inspect})
     end
 
   end
 
+  # A standard output printer
   class StdioOutputMethod<OutputMethod
+    # Prints the given +opts+ to standard output, see IO#print for more
+    # information.
     def print(*opts)
       STDOUT.print(*opts)
     end

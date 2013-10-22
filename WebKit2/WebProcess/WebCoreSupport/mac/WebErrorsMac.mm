@@ -44,7 +44,7 @@ static RetainPtr<NSError> createNSError(NSString* domain, int code, NSURL *URL)
         [URL absoluteString], @"NSErrorFailingURLStringKey",
         nil];
 
-    return RetainPtr<NSError>(AdoptNS, [[NSError alloc] initWithDomain:domain code:code userInfo:userInfo]);
+    return adoptNS([[NSError alloc] initWithDomain:domain code:code userInfo:userInfo]);
 }
 
 // Use NSError's if available.
@@ -85,6 +85,11 @@ ResourceError cannotShowMIMETypeError(const ResourceResponse& response)
 ResourceError pluginWillHandleLoadError(const ResourceResponse& response)
 {
     return ResourceError(WebError::webKitErrorDomain(), kWKErrorCodePlugInWillHandleLoad, response.url(), WEB_UI_STRING("Plug-in handled load", "WebKitErrorPlugInWillHandleLoad description"));
+}
+
+ResourceError internalError(const KURL& url)
+{
+    return ResourceError(WebError::webKitErrorDomain(), kWKErrorInternal, url, WEB_UI_STRING("WebKit encountered an internal error", "WebKitErrorInternal description"));
 }
 
 } // namespace WebKit

@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Attributes.h"
+#include "AttributesImpl.h"
+#include "LLVMContextImpl.h"
 #include "llvm/Type.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/FoldingSet.h"
@@ -26,64 +28,66 @@ using namespace llvm;
 // Attribute Function Definitions
 //===----------------------------------------------------------------------===//
 
-std::string Attribute::getAsString(Attributes Attrs) {
+std::string Attributes::getAsString() const {
   std::string Result;
-  if (Attrs & Attribute::ZExt)
+  if (hasZExtAttr())
     Result += "zeroext ";
-  if (Attrs & Attribute::SExt)
+  if (hasSExtAttr())
     Result += "signext ";
-  if (Attrs & Attribute::NoReturn)
+  if (hasNoReturnAttr())
     Result += "noreturn ";
-  if (Attrs & Attribute::NoUnwind)
+  if (hasNoUnwindAttr())
     Result += "nounwind ";
-  if (Attrs & Attribute::UWTable)
+  if (hasUWTableAttr())
     Result += "uwtable ";
-  if (Attrs & Attribute::ReturnsTwice)
+  if (hasReturnsTwiceAttr())
     Result += "returns_twice ";
-  if (Attrs & Attribute::InReg)
+  if (hasInRegAttr())
     Result += "inreg ";
-  if (Attrs & Attribute::NoAlias)
+  if (hasNoAliasAttr())
     Result += "noalias ";
-  if (Attrs & Attribute::NoCapture)
+  if (hasNoCaptureAttr())
     Result += "nocapture ";
-  if (Attrs & Attribute::StructRet)
+  if (hasStructRetAttr())
     Result += "sret ";
-  if (Attrs & Attribute::ByVal)
+  if (hasByValAttr())
     Result += "byval ";
-  if (Attrs & Attribute::Nest)
+  if (hasNestAttr())
     Result += "nest ";
-  if (Attrs & Attribute::ReadNone)
+  if (hasReadNoneAttr())
     Result += "readnone ";
-  if (Attrs & Attribute::ReadOnly)
+  if (hasReadOnlyAttr())
     Result += "readonly ";
-  if (Attrs & Attribute::OptimizeForSize)
+  if (hasOptimizeForSizeAttr())
     Result += "optsize ";
-  if (Attrs & Attribute::NoInline)
+  if (hasNoInlineAttr())
     Result += "noinline ";
-  if (Attrs & Attribute::InlineHint)
+  if (hasInlineHintAttr())
     Result += "inlinehint ";
-  if (Attrs & Attribute::AlwaysInline)
+  if (hasAlwaysInlineAttr())
     Result += "alwaysinline ";
-  if (Attrs & Attribute::StackProtect)
+  if (hasStackProtectAttr())
     Result += "ssp ";
-  if (Attrs & Attribute::StackProtectReq)
+  if (hasStackProtectReqAttr())
     Result += "sspreq ";
-  if (Attrs & Attribute::NoRedZone)
+  if (hasNoRedZoneAttr())
     Result += "noredzone ";
-  if (Attrs & Attribute::NoImplicitFloat)
+  if (hasNoImplicitFloatAttr())
     Result += "noimplicitfloat ";
-  if (Attrs & Attribute::Naked)
+  if (hasNakedAttr())
     Result += "naked ";
-  if (Attrs & Attribute::NonLazyBind)
+  if (hasNonLazyBindAttr())
     Result += "nonlazybind ";
-  if (Attrs & Attribute::StackAlignment) {
+  if (hasAddressSafetyAttr())
+    Result += "address_safety ";
+  if (hasStackAlignmentAttr()) {
     Result += "alignstack(";
-    Result += utostr(Attribute::getStackAlignmentFromAttrs(Attrs));
+    Result += utostr(getStackAlignment());
     Result += ") ";
   }
-  if (Attrs & Attribute::Alignment) {
+  if (hasAlignmentAttr()) {
     Result += "align ";
-    Result += utostr(Attribute::getAlignmentFromAttrs(Attrs));
+    Result += utostr(getAlignment());
     Result += " ";
   }
   // Trim the trailing space.
@@ -92,18 +96,49 @@ std::string Attribute::getAsString(Attributes Attrs) {
   return Result;
 }
 
-Attributes Attribute::typeIncompatible(Type *Ty) {
-  Attributes Incompatible = None;
+Attributes Attributes::typeIncompatible(Type *Ty) {
+  Attributes Incompatible = Attribute::None;
   
   if (!Ty->isIntegerTy())
     // Attributes that only apply to integers.
-    Incompatible |= SExt | ZExt;
+    Incompatible |= Attribute::SExt | Attribute::ZExt;
   
   if (!Ty->isPointerTy())
     // Attributes that only apply to pointers.
-    Incompatible |= ByVal | Nest | NoAlias | StructRet | NoCapture;
+    Incompatible |= Attribute::ByVal | Attribute::Nest | Attribute::NoAlias |
+      Attribute::StructRet | Attribute::NoCapture;
   
   return Incompatible;
+}
+
+//===----------------------------------------------------------------------===//
+// AttributeImpl Definition
+//===----------------------------------------------------------------------===//
+
+Attributes::Attributes(AttributesImpl *A) : Bits(0) {}
+
+Attributes Attributes::get(LLVMContext &Context, Attributes::Builder &B) {
+  // If there are no attributes, return an empty Attributes class.
+  if (B.Bits == 0)
+    return Attributes();
+
+  // Otherwise, build a key to look up the existing attributes.
+  LLVMContextImpl *pImpl = Context.pImpl;
+  FoldingSetNodeID ID;
+  ID.AddInteger(B.Bits);
+
+  void *InsertPoint;
+  AttributesImpl *PA = pImpl->AttrsSet.FindNodeOrInsertPos(ID, InsertPoint);
+
+  if (!PA) {
+    // If we didn't find any existing attributes of the same shape then create a
+    // new one and insert it.
+    PA = new AttributesImpl(B.Bits);
+    pImpl->AttrsSet.InsertNode(PA, InsertPoint);
+  }
+
+  // Return the AttributesList that we found or created.
+  return Attributes(PA);
 }
 
 //===----------------------------------------------------------------------===//
@@ -123,14 +158,14 @@ class AttributeListImpl : public FoldingSetNode {
   sys::cas_flag RefCount;
   
   // AttributesList is uniqued, these should not be publicly available.
-  void operator=(const AttributeListImpl &); // Do not implement
-  AttributeListImpl(const AttributeListImpl &); // Do not implement
+  void operator=(const AttributeListImpl &) LLVM_DELETED_FUNCTION;
+  AttributeListImpl(const AttributeListImpl &) LLVM_DELETED_FUNCTION;
   ~AttributeListImpl();                        // Private implementation
 public:
   SmallVector<AttributeWithIndex, 4> Attrs;
   
-  AttributeListImpl(const AttributeWithIndex *Attr, unsigned NumAttrs)
-    : Attrs(Attr, Attr+NumAttrs) {
+  AttributeListImpl(ArrayRef<AttributeWithIndex> attrs)
+    : Attrs(attrs.begin(), attrs.end()) {
     RefCount = 0;
   }
   
@@ -148,12 +183,13 @@ public:
   }
   
   void Profile(FoldingSetNodeID &ID) const {
-    Profile(ID, Attrs.data(), Attrs.size());
+    Profile(ID, Attrs);
   }
-  static void Profile(FoldingSetNodeID &ID, const AttributeWithIndex *Attr,
-                      unsigned NumAttrs) {
-    for (unsigned i = 0; i != NumAttrs; ++i)
-      ID.AddInteger(uint64_t(Attr[i].Attrs) << 32 | unsigned(Attr[i].Index));
+  static void Profile(FoldingSetNodeID &ID, ArrayRef<AttributeWithIndex> Attrs){
+    for (unsigned i = 0, e = Attrs.size(); i != e; ++i) {
+      ID.AddInteger(Attrs[i].Attrs.Raw());
+      ID.AddInteger(Attrs[i].Index);
+    }
   }
 };
 }
@@ -164,14 +200,14 @@ AttributeListImpl::~AttributeListImpl() {
 }
 
 
-AttrListPtr AttrListPtr::get(const AttributeWithIndex *Attrs, unsigned NumAttrs) {
+AttrListPtr AttrListPtr::get(ArrayRef<AttributeWithIndex> Attrs) {
   // If there are no attributes then return a null AttributesList pointer.
-  if (NumAttrs == 0)
+  if (Attrs.empty())
     return AttrListPtr();
   
 #ifndef NDEBUG
-  for (unsigned i = 0; i != NumAttrs; ++i) {
-    assert(Attrs[i].Attrs != Attribute::None && 
+  for (unsigned i = 0, e = Attrs.size(); i != e; ++i) {
+    assert(Attrs[i].Attrs.hasAttributes() && 
            "Pointless attribute!");
     assert((!i || Attrs[i-1].Index < Attrs[i].Index) &&
            "Misordered AttributesList!");
@@ -180,7 +216,7 @@ AttrListPtr AttrListPtr::get(const AttributeWithIndex *Attrs, unsigned NumAttrs)
   
   // Otherwise, build a key to look up the existing attributes.
   FoldingSetNodeID ID;
-  AttributeListImpl::Profile(ID, Attrs, NumAttrs);
+  AttributeListImpl::Profile(ID, Attrs);
   void *InsertPos;
   
   sys::SmartScopedLock<true> Lock(*ALMutex);
@@ -191,7 +227,7 @@ AttrListPtr AttrListPtr::get(const AttributeWithIndex *Attrs, unsigned NumAttrs)
   // If we didn't find any existing attributes of the same shape then
   // create a new one and insert it.
   if (!PAL) {
-    PAL = new AttributeListImpl(Attrs, NumAttrs);
+    PAL = new AttributeListImpl(Attrs);
     AttributesLists->InsertNode(PAL, InsertPos);
   }
   
@@ -244,13 +280,14 @@ const AttributeWithIndex &AttrListPtr::getSlot(unsigned Slot) const {
 /// returned.  Attributes for the result are denoted with Idx = 0.
 /// Function notes are denoted with idx = ~0.
 Attributes AttrListPtr::getAttributes(unsigned Idx) const {
-  if (AttrList == 0) return Attribute::None;
+  if (AttrList == 0) return Attributes();
   
   const SmallVector<AttributeWithIndex, 4> &Attrs = AttrList->Attrs;
   for (unsigned i = 0, e = Attrs.size(); i != e && Attrs[i].Index <= Idx; ++i)
     if (Attrs[i].Index == Idx)
       return Attrs[i].Attrs;
-  return Attribute::None;
+
+  return Attributes();
 }
 
 /// hasAttrSomewhere - Return true if the specified attribute is set for at
@@ -260,7 +297,7 @@ bool AttrListPtr::hasAttrSomewhere(Attributes Attr) const {
   
   const SmallVector<AttributeWithIndex, 4> &Attrs = AttrList->Attrs;
   for (unsigned i = 0, e = Attrs.size(); i != e; ++i)
-    if (Attrs[i].Attrs & Attr)
+    if (Attrs[i].Attrs.hasAttributes(Attr))
       return true;
   return false;
 }
@@ -271,8 +308,8 @@ AttrListPtr AttrListPtr::addAttr(unsigned Idx, Attributes Attrs) const {
 #ifndef NDEBUG
   // FIXME it is not obvious how this should work for alignment.
   // For now, say we can't change a known alignment.
-  Attributes OldAlign = OldAttrs & Attribute::Alignment;
-  Attributes NewAlign = Attrs & Attribute::Alignment;
+  unsigned OldAlign = OldAttrs.getAlignment();
+  unsigned NewAlign = Attrs.getAlignment();
   assert((!OldAlign || !NewAlign || OldAlign == NewAlign) &&
          "Attempt to change alignment!");
 #endif
@@ -304,14 +341,14 @@ AttrListPtr AttrListPtr::addAttr(unsigned Idx, Attributes Attrs) const {
                        OldAttrList.begin()+i, OldAttrList.end());
   }
   
-  return get(NewAttrList.data(), NewAttrList.size());
+  return get(NewAttrList);
 }
 
 AttrListPtr AttrListPtr::removeAttr(unsigned Idx, Attributes Attrs) const {
 #ifndef NDEBUG
   // FIXME it is not obvious how this should work for alignment.
   // For now, say we can't pass in alignment, which no current use does.
-  assert(!(Attrs & Attribute::Alignment) && "Attempt to exclude alignment!");
+  assert(!Attrs.hasAlignmentAttr() && "Attempt to exclude alignment!");
 #endif
   if (AttrList == 0) return AttrListPtr();
   
@@ -339,7 +376,7 @@ AttrListPtr AttrListPtr::removeAttr(unsigned Idx, Attributes Attrs) const {
   NewAttrList.insert(NewAttrList.end(), 
                      OldAttrList.begin()+i, OldAttrList.end());
   
-  return get(NewAttrList.data(), NewAttrList.size());
+  return get(NewAttrList);
 }
 
 void AttrListPtr::dump() const {

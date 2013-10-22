@@ -56,8 +56,9 @@
 #endif
 
 #if TARGET_OS_EMBEDDED
-#define SESSIONTRACERSTOP(service)                                      
-#define SESSIONTRACERESTABLISHED(service)                               
+#define SESSIONTRACERSTOP(service)                                      {service->connecttime = 0; service->establishtime = 0;}
+#define SESSIONTRACERESTABLISHED(service)                               {if (!service->establishtime)                                           \
+                                                                            service->establishtime = mach_absolute_time() * gTimeScaleSeconds;}
 #else
 #define SESSIONTRACERSTOP(service)                                      sessionTracerStop(service)
 #define SESSIONTRACERESTABLISHED(service)                               sessionTracerLogEstablished(service)

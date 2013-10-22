@@ -24,12 +24,17 @@
 #ifndef FormAssociatedElement_h
 #define FormAssociatedElement_h
 
-#include "HTMLElement.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+class ContainerNode;
+class Document;
+class FormAttributeTargetObserver;
 class FormDataList;
+class HTMLElement;
 class HTMLFormElement;
+class Node;
 class ValidationMessage;
 class ValidityState;
 class VisibleSelection;
@@ -46,9 +51,13 @@ public:
     ValidityState* validity();
 
     virtual bool isFormControlElement() const = 0;
+    virtual bool isFormControlElementWithState() const;
     virtual bool isEnumeratable() const = 0;
 
-    const AtomicString& name() const { return formControlName(); }
+    // Returns the 'name' attribute value. If this element has no name
+    // attribute, it returns an empty string instead of null string.
+    // Note that the 'name' IDL attribute doesn't use this function.
+    virtual const AtomicString& name() const;
 
     // Override in derived classes to get the encoded name=value pair for submitting.
     // Return true for a successful control (see HTML4-17.13.2).
@@ -60,11 +69,30 @@ public:
 
     void formRemovedFromTree(const Node* formRoot);
 
+    // ValidityState attribute implementations
+    bool customError() const;
+
+    // Override functions for patterMismatch, rangeOverflow, rangerUnderflow,
+    // stepMismatch, tooLong and valueMissing must call willValidate method.
+    virtual bool hasBadInput() const;
+    virtual bool patternMismatch() const;
+    virtual bool rangeOverflow() const;
+    virtual bool rangeUnderflow() const;
+    virtual bool stepMismatch() const;
+    virtual bool tooLong() const;
+    virtual bool typeMismatch() const;
+    virtual bool valueMissing() const;
+    virtual String validationMessage() const;
+    bool valid() const;
+    virtual void setCustomValidity(const String&);
+
+    void formAttributeTargetChanged();
+
 protected:
     FormAssociatedElement();
 
-    void insertedInto(Node*);
-    void removedFrom(Node*);
+    void insertedInto(ContainerNode*);
+    void removedFrom(ContainerNode*);
     void didMoveToNewDocument(Document* oldDocument);
 
     void setForm(HTMLFormElement*);
@@ -76,14 +104,18 @@ protected:
     virtual void willChangeForm();
     virtual void didChangeForm();
 
-private:
-    virtual const AtomicString& formControlName() const = 0;
+    String customValidationMessage() const;
 
+private:
     virtual void refFormAssociatedElement() = 0;
     virtual void derefFormAssociatedElement() = 0;
 
+    void resetFormAttributeTargetObserver();
+
+    OwnPtr<FormAttributeTargetObserver> m_formAttributeTargetObserver;
     HTMLFormElement* m_form;
     OwnPtr<ValidityState> m_validityState;
+    String m_customValidationMessage;
 };
 
 HTMLElement* toHTMLElement(FormAssociatedElement*);

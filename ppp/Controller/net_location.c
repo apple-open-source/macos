@@ -290,7 +290,7 @@ checkVPNInterfaceOrServiceBlocked (const char        *location,
 			} else if (CFStringHasSuffix(s_key, kSCEntNetAirPort)) {
 				// Interface/<vpn_if>/Airport entity
 				if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainSetup)) {
-					CFBooleanRef powerEnable = CFDictionaryGetValue(s_dict, kSCPropNetAirPortPowerEnabled);
+					CFBooleanRef powerEnable = CFDictionaryGetValue(s_dict, SC_AIRPORT_POWERENABLED_KEY);
 					if (isA_CFBoolean(powerEnable) &&
 					    CFEqual(powerEnable, kCFBooleanFalse)) {
 						syslog(LOG_NOTICE, "%s: detected AirPort, PowerEnable == FALSE", location);
@@ -299,7 +299,7 @@ checkVPNInterfaceOrServiceBlocked (const char        *location,
 					}
 				} else if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainState)) {
 					UInt16      temp;
-					CFNumberRef airStatus = CFDictionaryGetValue(s_dict, CFSTR("Power Status"));
+					CFNumberRef airStatus = CFDictionaryGetValue(s_dict, SC_AIRPORT_POWERSTATUS_KEY);
 					if (isA_CFNumber(airStatus) &&
 					    CFNumberGetValue(airStatus, kCFNumberShortType, &temp)) {
 						if (temp ==0) {

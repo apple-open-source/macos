@@ -50,7 +50,7 @@ static const unsigned short cp852_2uni[128] = {
 };
 
 static int
-cp852_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cp852_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80)
@@ -122,7 +122,7 @@ static const unsigned char cp852_page25[168] = {
 };
 
 static int
-cp852_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+cp852_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

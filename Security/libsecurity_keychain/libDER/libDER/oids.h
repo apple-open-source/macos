@@ -88,9 +88,19 @@ extern const DERItem
 	oidAppleSecureBootCertSpec,
     oidAppleProvisioningProfile,
     oidAppleApplicationSigning,
+    oidAppleInstallerPackagingSigningExternal,
     oidAppleExtendedKeyUsageAppleID,
+    oidAppleExtendedKeyUsageShoebox,
+    oidAppleExtendedKeyUsageProfileSigning,
+    oidAppleExtendedKeyUsageQAProfileSigning,
     oidAppleIntmMarkerAppleID,
-    oidAppleIntmMarkerAppleID2;
+    oidAppleIntmMarkerAppleID2,
+    oidApplePushServiceClient,
+	oidApplePolicyMobileStore,
+    oidApplePolicyTestMobileStore,
+	oidApplePolicyEscrowService,
+	oidAppleCertExtensionAppleIDRecordValidationSigning,
+	oidAppleIntmMarkerAppleSystemIntg2;
 
 /* Compare two decoded OIDs.  Returns true iff they are equivalent. */
 bool DEROidCompare(const DERItem *oid1, const DERItem *oid2);

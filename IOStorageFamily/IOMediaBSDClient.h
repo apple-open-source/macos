@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,11 +57,11 @@ protected:
 
 private:
 
-    AnchorTable * _anchors;              /* (table of anchors)                */
-    UInt32        _reserved0064;         /* (reserved, do not use)            */
-    UInt32        _reserved0096;         /* (reserved, do not use)            */
-    MinorTable *  _minors;               /* (table of minors)                 */
-    UInt32        _reserved0160;         /* (reserved, do not use)            */
+    AnchorTable * _anchors;
+    UInt32        _reserved0064 __attribute__ ((unused));
+    UInt32        _reserved0096 __attribute__ ((unused));
+    MinorTable *  _minors;
+    UInt32        _reserved0160 __attribute__ ((unused));
 
 protected:
 

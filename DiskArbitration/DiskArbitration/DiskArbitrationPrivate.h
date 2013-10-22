@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -286,6 +286,8 @@ extern const CFStringRef kDADiskDescriptionAppearanceTimeKey;
 extern const CFStringRef kDADiskDescriptionMediaMatchKey;
 
 #ifndef __DISKARBITRATIOND__
+
+extern DADiskRef _DADiskCreateFromSerialization( CFAllocatorRef allocator, DASessionRef session, CFDataRef serialization );
 
 extern DASessionRef _DADiskGetSession( DADiskRef disk );
 

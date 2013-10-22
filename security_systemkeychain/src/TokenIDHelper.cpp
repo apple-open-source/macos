@@ -158,7 +158,7 @@ int findEncryptionIdentities(CFTypeRef *identityOrArray)
 	if (status)
 		return status;
 		
-	uint32_t count = searchList ? CFArrayGetCount(searchList) : 0;	
+	CFIndex count = searchList ? CFArrayGetCount(searchList) : 0;
 	if (!count)
 		return errSecNoSuchKeychain;
 
@@ -221,11 +221,11 @@ int unlockToken(const char *password)
 	if (status)
 		return status;
 		
-	uint32_t count = searchList ? CFArrayGetCount(searchList) : 0;
+	CFIndex count = searchList ? CFArrayGetCount(searchList) : 0;
 	if (count)
 	{
 		SecKeychainRef keychainRef = (SecKeychainRef)CFArrayGetValueAtIndex(searchList, 0);	// only first dynamic keychain!
-		status = SecKeychainUnlock(keychainRef, strlen(password), password, 1);
+		status = SecKeychainUnlock(keychainRef, (UInt32)strlen(password), password, 1);
 		if (keychainRef)
 			CFRelease(keychainRef);
 	}

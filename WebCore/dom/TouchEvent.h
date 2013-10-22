@@ -29,11 +29,11 @@
 
 #if ENABLE(TOUCH_EVENTS)
 
+#include "EventDispatchMediator.h"
 #include "MouseRelatedEvent.h"
+#include "TouchList.h"
 
 namespace WebCore {
-
-class TouchList;
 
 class TouchEvent : public MouseRelatedEvent {
 public:
@@ -63,12 +63,18 @@ public:
     TouchList* touches() const { return m_touches.get(); }
     TouchList* targetTouches() const { return m_targetTouches.get(); }
     TouchList* changedTouches() const { return m_changedTouches.get(); }
+
+    void setTouches(PassRefPtr<TouchList> touches) { m_touches = touches; }
+    void setTargetTouches(PassRefPtr<TouchList> targetTouches) { m_targetTouches = targetTouches; }
+    void setChangedTouches(PassRefPtr<TouchList> changedTouches) { m_changedTouches = changedTouches; }
+
 #if PLATFORM(BLACKBERRY)
     void setDoubleTap(bool doubleTap) { m_doubleTap = doubleTap; }
     bool isDoubleTap() const { return m_doubleTap; }
     void setTouchHold(bool touchHold) { m_touchHold = touchHold; }
     bool isTouchHold() const { return m_touchHold; }
 #endif
+    virtual bool isTouchEvent() const OVERRIDE;
 
     virtual const AtomicString& interfaceName() const;
 
@@ -88,6 +94,22 @@ private:
     bool m_doubleTap;
 #endif
 };
+
+class TouchEventDispatchMediator : public EventDispatchMediator {
+public:
+    static PassRefPtr<TouchEventDispatchMediator> create(PassRefPtr<TouchEvent>);
+
+private:
+    explicit TouchEventDispatchMediator(PassRefPtr<TouchEvent>);
+    TouchEvent* event() const;
+    virtual bool dispatchEvent(EventDispatcher*) const OVERRIDE;
+};
+
+inline TouchEvent* toTouchEvent(Event* event)
+{
+    ASSERT(event && event->isTouchEvent());
+    return static_cast<TouchEvent*>(event);
+}
 
 } // namespace WebCore
 

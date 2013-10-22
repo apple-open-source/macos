@@ -31,29 +31,26 @@
 #ifndef DateTimeLocalInputType_h
 #define DateTimeLocalInputType_h
 
-#include "BaseDateAndTimeInputType.h"
-
 #if ENABLE(INPUT_TYPE_DATETIMELOCAL)
+#include "BaseChooserOnlyDateAndTimeInputType.h"
 
 namespace WebCore {
 
-class DateTimeLocalInputType : public BaseDateAndTimeInputType {
+class DateTimeLocalInputType : public BaseChooserOnlyDateAndTimeInputType {
 public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
 
 private:
-    DateTimeLocalInputType(HTMLInputElement* element) : BaseDateAndTimeInputType(element) { }
+    DateTimeLocalInputType(HTMLInputElement* element) : BaseDateTimeLocalInputType(element) { }
+    virtual void attach() OVERRIDE;
     virtual const AtomicString& formControlType() const OVERRIDE;
     virtual DateComponents::Type dateType() const OVERRIDE;
     virtual double valueAsDate() const OVERRIDE;
     virtual void setValueAsDate(double, ExceptionCode&) const OVERRIDE;
-    virtual double minimum() const OVERRIDE;
-    virtual double maximum() const OVERRIDE;
-    virtual double defaultStep() const OVERRIDE;
-    virtual double stepScaleFactor() const OVERRIDE;
-    virtual bool scaledStepValueShouldBeInteger() const OVERRIDE;
+    virtual StepRange createStepRange(AnyStepHandling) const;
     virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const OVERRIDE;
     virtual bool setMillisecondToDateComponents(double, DateComponents*) const OVERRIDE;
+    virtual bool isDateTimeLocalField() const OVERRIDE;
 };
 
 } // namespace WebCore

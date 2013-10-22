@@ -26,6 +26,7 @@
 #include "config.h"
 #include "EventDispatcher.h"
 
+#include "EventDispatcherMessages.h"
 #include "WebEvent.h"
 #include "WebEventConversion.h"
 #include "WebPage.h"
@@ -45,7 +46,13 @@ using namespace WebCore;
 
 namespace WebKit {
 
+PassRefPtr<EventDispatcher> EventDispatcher::create()
+{
+    return adoptRef(new EventDispatcher);
+}
+
 EventDispatcher::EventDispatcher()
+    : m_queue(WorkQueue::create("com.apple.WebKit.EventDispatcher"))
 {
 }
 
@@ -72,19 +79,16 @@ void EventDispatcher::removeScrollingTreeForPage(WebPage* webPage)
 }
 #endif
 
-void EventDispatcher::didReceiveMessageOnConnectionWorkQueue(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, bool& didHandleMessage)
+void EventDispatcher::initializeConnection(CoreIPC::Connection* connection)
 {
-    if (messageID.is<CoreIPC::MessageClassEventDispatcher>()) {
-        didReceiveEventDispatcherMessageOnConnectionWorkQueue(connection, messageID, arguments, didHandleMessage);
-        return;
-    }
+    connection->addWorkQueueMessageReceiver(Messages::EventDispatcher::messageReceiverName(), m_queue.get(), this);
 }
 
-void EventDispatcher::wheelEvent(CoreIPC::Connection*, uint64_t pageID, const WebWheelEvent& wheelEvent, bool canGoBack, bool canGoForward)
+void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEvent, bool canGoBack, bool canGoForward)
 {
 #if ENABLE(THREADED_SCROLLING)
     MutexLocker locker(m_scrollingTreesMutex);
-    if (ScrollingTree* scrollingTree = m_scrollingTrees.get(pageID).get()) {
+    if (ScrollingTree* scrollingTree = m_scrollingTrees.get(pageID)) {
         PlatformWheelEvent platformWheelEvent = platform(wheelEvent);
 
         // FIXME: It's pretty horrible that we're updating the back/forward state here.
@@ -109,7 +113,7 @@ void EventDispatcher::wheelEvent(CoreIPC::Connection*, uint64_t pageID, const We
 }
 
 #if ENABLE(GESTURE_EVENTS)
-void EventDispatcher::gestureEvent(CoreIPC::Connection*, uint64_t pageID, const WebGestureEvent& gestureEvent)
+void EventDispatcher::gestureEvent(uint64_t pageID, const WebGestureEvent& gestureEvent)
 {
     RunLoop::main()->dispatch(bind(&EventDispatcher::dispatchGestureEvent, this, pageID, gestureEvent));
 }
@@ -142,7 +146,7 @@ void EventDispatcher::dispatchGestureEvent(uint64_t pageID, const WebGestureEven
 #if ENABLE(THREADED_SCROLLING)
 void EventDispatcher::sendDidReceiveEvent(uint64_t pageID, const WebEvent& event, bool didHandleEvent)
 {
-    WebProcess::shared().connection()->send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(event.type()), didHandleEvent), pageID);
+    WebProcess::shared().parentProcessConnection()->send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(event.type()), didHandleEvent), pageID);
 }
 #endif
 

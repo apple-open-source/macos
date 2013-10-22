@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,9 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
-#include <curl/curl.h>
+#include "tool_setup.h"
 
 #include "tool_cfgable.h"
 
@@ -60,8 +58,10 @@ void free_config_fields(struct Configurable *config)
   Curl_safefree(config->proxy);
 
   Curl_safefree(config->noproxy);
+
   Curl_safefree(config->mail_from);
   curl_slist_free_all(config->mail_rcpt);
+  Curl_safefree(config->mail_auth);
 
   Curl_safefree(config->netrc_file);
 

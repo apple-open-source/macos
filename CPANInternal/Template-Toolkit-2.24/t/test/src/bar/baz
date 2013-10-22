@@ -1,0 +1,3 @@
+[% DEFAULT word = 'qux' -%]
+This is file baz
+The word is '[% word %]'

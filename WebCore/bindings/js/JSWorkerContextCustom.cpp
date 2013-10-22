@@ -69,7 +69,7 @@ void JSWorkerContext::visitChildren(JSCell* cell, SlotVisitor& visitor)
     thisObject->impl()->visitJSEventListeners(visitor);
 }
 
-bool JSWorkerContext::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+bool JSWorkerContext::getOwnPropertySlotDelegate(ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
     // Look for overrides before looking at any of our own properties.
     if (JSGlobalObject::getOwnPropertySlot(this, exec, propertyName, slot))
@@ -77,30 +77,13 @@ bool JSWorkerContext::getOwnPropertySlotDelegate(ExecState* exec, const Identifi
     return false;
 }
 
-bool JSWorkerContext::getOwnPropertyDescriptorDelegate(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+bool JSWorkerContext::getOwnPropertyDescriptorDelegate(ExecState* exec, PropertyName propertyName, PropertyDescriptor& descriptor)
 {
     // Look for overrides before looking at any of our own properties.
     if (JSGlobalObject::getOwnPropertyDescriptor(this, exec, propertyName, descriptor))
         return true;
     return false;
 }
-
-JSValue JSWorkerContext::eventSource(ExecState* exec) const
-{
-    return getDOMConstructor<JSEventSourceConstructor>(exec, this);
-}
-
-JSValue JSWorkerContext::xmlHttpRequest(ExecState* exec) const
-{
-    return getDOMConstructor<JSXMLHttpRequestConstructor>(exec, this);
-}
-
-#if ENABLE(WEB_SOCKETS)
-JSValue JSWorkerContext::webSocket(ExecState* exec) const
-{
-    return getDOMConstructor<JSWebSocketConstructor>(exec, this);
-}
-#endif
 
 JSValue JSWorkerContext::importScripts(ExecState* exec)
 {
@@ -109,7 +92,7 @@ JSValue JSWorkerContext::importScripts(ExecState* exec)
 
     Vector<String> urls;
     for (unsigned i = 0; i < exec->argumentCount(); i++) {
-        urls.append(ustringToString(exec->argument(i).toString(exec)->value(exec)));
+        urls.append(exec->argument(i).toString(exec)->value(exec));
         if (exec->hadException())
             return jsUndefined();
     }
@@ -122,31 +105,25 @@ JSValue JSWorkerContext::importScripts(ExecState* exec)
 
 JSValue JSWorkerContext::setTimeout(ExecState* exec)
 {
-    // FIXME: Should we enforce a Content-Security-Policy on workers?
-    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, currentWorld(exec), 0);
+    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, currentWorld(exec), impl()->contentSecurityPolicy());
     if (exec->hadException())
         return jsUndefined();
+    if (!action)
+        return jsNumber(0);
     int delay = exec->argument(1).toInt32(exec);
     return jsNumber(impl()->setTimeout(action.release(), delay));
 }
 
 JSValue JSWorkerContext::setInterval(ExecState* exec)
 {
-    // FIXME: Should we enforce a Content-Security-Policy on workers?
-    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, currentWorld(exec), 0);
+    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, currentWorld(exec), impl()->contentSecurityPolicy());
     if (exec->hadException())
         return jsUndefined();
+    if (!action)
+        return jsNumber(0);
     int delay = exec->argument(1).toInt32(exec);
     return jsNumber(impl()->setInterval(action.release(), delay));
 }
-
-
-#if ENABLE(CHANNEL_MESSAGING)
-JSValue JSWorkerContext::messageChannel(ExecState* exec) const
-{
-    return getDOMConstructor<JSMessageChannelConstructor>(exec, this);
-}
-#endif
 
 } // namespace WebCore
 

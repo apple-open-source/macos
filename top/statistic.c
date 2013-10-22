@@ -46,6 +46,7 @@
 #include "syscalls.h"
 #include "csw.h"
 #include "log.h"
+#include "power.h"
 
 struct statistic_name_map statistic_name_map[] = {
     /*The order of this must match the enum in statistic.h. */
@@ -56,9 +57,16 @@ struct statistic_name_map statistic_name_map[] = {
     {STATISTIC_THREADS, top_threadcount_create, "#TH"},
     {STATISTIC_PORTS, top_ports_create, "#PORTS"},
     {STATISTIC_MREGION, top_mregion_create, "#MREGS"},
+#ifdef TOP_ANONYMOUS_MEMORY
+    {STATISTIC_RMEM, top_rmem_create, "MEM"},
+    {STATISTIC_RPRVT, top_rprvt_create, "RPRVT"},
+    {STATISTIC_PURG, top_purg_create, "PURG"},
+    {STATISTIC_COMPRESSED, top_compressed_create, "CMPRS"},
+#else
     {STATISTIC_RPRVT, top_rprvt_create, "RPRVT"},
     {STATISTIC_RSHRD, top_rshrd_create, "RSHRD"}, 
     {STATISTIC_RSIZE, top_rsize_create, "RSIZE"},
+#endif
     {STATISTIC_VSIZE, top_vsize_create, "VSIZE"},
     {STATISTIC_VPRVT, top_vprvt_create, "VPRVT"},
     {STATISTIC_PGRP, top_pgrp_create, "PGRP"},
@@ -76,6 +84,8 @@ struct statistic_name_map statistic_name_map[] = {
     {STATISTIC_PAGEINS, top_pageins_create, "PAGEINS"},
     {STATISTIC_KPRVT, top_kprvt_create, "KPRVT"},
     {STATISTIC_KSHRD, top_kshrd_create, "KSHRD"},
+    {STATISTIC_IDLEWAKE, top_idlewake_create, "IDLEW"},
+    {STATISTIC_POWERSCORE, top_powerscore_create, "POWER"},
     {STATISTIC_USER, top_user_create, "USER"},
     {0, NULL, NULL}
 };

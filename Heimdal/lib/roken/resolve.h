@@ -235,6 +235,8 @@ extern "C" {
 
 ROKEN_LIB_FUNCTION struct rk_dns_reply* ROKEN_LIB_CALL
 	rk_dns_lookup(const char *, const char *);
+ROKEN_LIB_FUNCTION struct rk_dns_reply* ROKEN_LIB_CALL
+	rk_dns_parse_reply(const unsigned char *data, size_t len);
 ROKEN_LIB_FUNCTION void ROKEN_LIB_CALL
 	rk_dns_free_data(struct rk_dns_reply *);
 ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL

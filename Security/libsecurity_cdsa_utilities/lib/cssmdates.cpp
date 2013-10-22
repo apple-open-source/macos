@@ -83,7 +83,7 @@ int CssmDate::day() const
 void CssmDate::assign(char *dest, int width, const char *src)
 {
     // pick last width characters of src at most
-    int len = strlen(src);
+    size_t len = strlen(src);
     if (len > width)
         CssmError::throwMe(CSSM_ERRCODE_UNKNOWN_FORMAT);
     memset(dest, '0', width - len);
@@ -191,5 +191,5 @@ void CssmUniformDate::setFromString(const char *src, const char *format, size_t 
         CssmError::throwMe(CSSM_ERRCODE_UNKNOWN_FORMAT);
 
     // success
-    mTime = Gregorian(year, month, day, hour, minute, second);
+    mTime = Gregorian((int)year, month, day, hour, minute, second);
 }

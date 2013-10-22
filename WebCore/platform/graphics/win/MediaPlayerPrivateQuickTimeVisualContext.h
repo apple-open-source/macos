@@ -99,7 +99,7 @@ private:
     
     PassRefPtr<TimeRanges> buffered() const;
     float maxTimeSeekable() const;
-    unsigned bytesLoaded() const;
+    bool didLoadingProgress() const;
     unsigned totalBytes() const;
     
     void setVisible(bool);
@@ -128,7 +128,7 @@ private:
     // engine support
     static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static void getSupportedTypes(HashSet<String>& types);
-    static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
+    static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs, const KURL&);
     static bool isAvailable();
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -203,6 +203,7 @@ private:
     String m_movieURL;
     bool m_privateBrowsing;
     MediaPlayer::Preload m_preload;
+    mutable float m_maxTimeLoadedAtLastDidLoadingProgress;
 #if DRAW_FRAME_RATE
     double m_frameCountWhilePlaying;
     double m_timeStartedPlaying;

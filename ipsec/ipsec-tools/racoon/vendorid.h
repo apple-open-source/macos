@@ -84,10 +84,10 @@ struct vendor_id {
 	vchar_t		*hash;
 };
 
-vchar_t *set_vendorid __P((int));
-int check_vendorid __P((struct isakmp_gen *));
+vchar_t *set_vendorid (int);
+int check_vendorid (struct isakmp_gen *);
 
-void compute_vendorids __P((void));
-const char *vid_string_by_id __P((int id));
+void compute_vendorids (void);
+const char *vid_string_by_id (int id);
 
 #endif /* _VENDORID_H */

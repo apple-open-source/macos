@@ -158,3 +158,6 @@ free_EncryptionKey
 length_EncryptionKey
 encode_EncryptionKey
 decode_EncryptionKey
+length_KDC_PROXY_MESSAGE
+encode_KDC_PROXY_MESSAGE
+decode_KDC_PROXY_MESSAGE

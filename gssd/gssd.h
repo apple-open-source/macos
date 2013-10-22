@@ -64,6 +64,14 @@
 	}\
 } while (0)
 
+#define Notice(fmt, ...) do {\
+	if (get_debug_level() > 1) {\
+		gssd_log(ASL_LEVEL_NOTICE, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__); \
+	} else { \
+		gssd_log(ASL_LEVEL_NOTICE, fmt,## __VA_ARGS__); \
+	}\
+} while (0)
+
 #define Log(fmt, ...) do {\
 	if (get_debug_level()) {\
 		gssd_log(ASL_LEVEL_ERR, "%s: %d: " fmt, __func__, __LINE__,## __VA_ARGS__); \

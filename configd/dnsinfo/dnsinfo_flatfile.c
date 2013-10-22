@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,8 @@
 #include "dnsinfo.h"
 #include "dnsinfo_private.h"
 #include "dnsinfo_create.h"
+
+static uint32_t _dnsinfo_flatfile_flags;
 
 enum {
 	TOKEN_DOMAIN,
@@ -234,6 +236,34 @@ _dnsinfo_parse_sortaddr(char *token)
 
 
 /*
+ * _dnsinfo_flatfile_set_flags
+ *
+ * Set the default resolver flags.
+ */
+__private_extern__
+void
+_dnsinfo_flatfile_set_flags(uint32_t flags)
+{
+	_dnsinfo_flatfile_flags = flags;
+	return;
+}
+
+
+static void
+_dnsinfo_flatfile_update_flags(dns_create_resolver_t *_resolver)
+{
+	uint32_t		new_flags;
+	uint32_t		old_flags;
+	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
+
+	old_flags = ntohl(resolver->resolver.flags);
+	new_flags = old_flags | _dnsinfo_flatfile_flags;
+	_dns_resolver_set_flags(_resolver, new_flags);
+	return;
+}
+
+
+/*
  * _dnsinfo_flatfile_create_resolver
  *
  * Create a new dns resolver configuration from the configuration file at the
@@ -243,6 +273,7 @@ static dns_create_resolver_t
 _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 {
 	char			*buf;
+	uint32_t		config_flags		= 0;
 	FILE			*f;
 	char			filename[FILENAME_MAX];
 	size_t			len			= 0;
@@ -339,19 +370,17 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 			}
 
 			case TOKEN_FLAGS: {
-				uint32_t	flags	= 0;
-
 				while (word != NULL) {
 					if (word[0] != '\0') {
 						if (strcasecmp(word, "scoped") == 0) {
-							flags |= DNS_RESOLVER_FLAGS_SCOPED;
+							config_flags |= DNS_RESOLVER_FLAGS_SCOPED;
+						} else if (strcasecmp(word, "a") == 0) {
+							config_flags |= DNS_RESOLVER_FLAGS_REQUEST_A_RECORDS;
+						} else if (strcasecmp(word, "aaaa") == 0) {
+							config_flags |= DNS_RESOLVER_FLAGS_REQUEST_AAAA_RECORDS;
 						}
 					}
 					word = strsep(&lineptr, sep);
-				}
-
-				if (flags != 0) {
-					_dns_resolver_set_flags(&res, flags);
 				}
 				break;
 			}
@@ -480,6 +509,15 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 		_dns_resolver_set_domain(&res, domain);
 	}
 
+	if (res != NULL) {
+		// config flags should overwrite any default flags
+		if (config_flags != 0) {
+			_dns_resolver_set_flags(&res, config_flags);
+		} else {
+			_dnsinfo_flatfile_update_flags(&res);
+		}
+	}
+
     done :
 
 	fclose(f);
@@ -493,6 +531,7 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
  * Parse the files in the resolver config directory (/etc/resolver) and add each
  * resolver to the dns config.
  */
+__private_extern__
 void
 _dnsinfo_flatfile_add_resolvers(dns_create_config_t *config)
 {

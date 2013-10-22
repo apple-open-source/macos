@@ -42,7 +42,7 @@
 extern "C" {
 #endif
 
-#pragma mark --- X509 Validity support ---
+// MARK: --- X509 Validity support ---
 
 /* 
  * ASN Class : Validity
@@ -64,7 +64,7 @@ typedef struct  {
 
 extern const SecAsn1Template kSecAsn1ValidityTemplate[];
 
-#pragma mark --- Certificate ---
+// MARK: --- Certificate ---
 
 /*
  * X509 cert extension
@@ -126,7 +126,7 @@ typedef struct {
 
 extern const SecAsn1Template kSecAsn1SignedCertTemplate[];
 
-#pragma mark --- CRL ---
+// MARK: --- CRL ---
 
 /*
  * ASN class : revokedCertificate

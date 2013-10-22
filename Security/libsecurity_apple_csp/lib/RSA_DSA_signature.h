@@ -23,7 +23,6 @@
 #ifndef	_RSA_DSA_SIGNATURE_H_
 #define _RSA_DSA_SIGNATURE_H_
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <openssl/rsa.h>
 #include <openssl/dsa.h>
 #include <RawSigner.h>

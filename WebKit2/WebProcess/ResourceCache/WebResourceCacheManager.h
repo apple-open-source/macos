@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,44 +26,46 @@
 #ifndef WebResourceCacheManager_h
 #define WebResourceCacheManager_h
 
-#include "Arguments.h"
+#include "MessageReceiver.h"
 #include "ResourceCachesToClear.h"
+#include "WebProcessSupplement.h"
+#include <WebCore/MemoryCache.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 
-namespace CoreIPC {
-class ArgumentDecoder;
-class Connection;
-class MessageID;
-}
-
 namespace WebKit {
 
+class WebProcess;
 struct SecurityOriginData;
 
-class WebResourceCacheManager {
+class WebResourceCacheManager : public WebProcessSupplement, public CoreIPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebResourceCacheManager);
 public:
-    static WebResourceCacheManager& shared();
+    WebResourceCacheManager(WebProcess*);
 
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    static const char* supplementName();
 
 private:
-    WebResourceCacheManager();
-    virtual ~WebResourceCacheManager();
-
+    // CoreIPC::MessageReceiver
     // Implemented in generated WebResourceCacheManagerMessageReceiver.cpp
-    void didReceiveWebResourceCacheManagerMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
 
     void getCacheOrigins(uint64_t callbackID) const;
-    void clearCacheForOrigin(SecurityOriginData, uint32_t cachesToClear) const;
+    void returnCacheOrigins(uint64_t callbackID, const WebCore::MemoryCache::SecurityOriginSet&) const;
+    void clearCacheForOrigin(const SecurityOriginData&, uint32_t cachesToClear) const;
     void clearCacheForAllOrigins(uint32_t cachesToClear) const;
 
 #if USE(CFURLCACHE)
     static RetainPtr<CFArrayRef> cfURLCacheHostNames();
+#if ENABLE(CACHE_PARTITIONING)
+    typedef void (^CacheCallback)(RetainPtr<CFArrayRef>);
+    static void cfURLCacheHostNamesWithCallback(CacheCallback);
+#endif
     static void clearCFURLCacheForHostNames(CFArrayRef);
 #endif
+
+    WebProcess* m_process;
 };
 
 } // namespace WebKit

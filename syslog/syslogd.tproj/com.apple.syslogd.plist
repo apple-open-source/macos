@@ -17,6 +17,8 @@
 	<true/>
 	<key>EnableTransactions</key>
 	<true/>
+        <key>POSIXSpawnType</key>
+        <string>Interactive</string>
 	<key>ProgramArguments</key>
 	<array>
 <!--
@@ -48,13 +50,6 @@
 	</dict>
 	<key>Sockets</key>
 	<dict>
-		<key>AppleSystemLogger</key>
-		<dict>
-			<key>SockPathName</key>
-			<string>/var/run/asl_input</string>
-			<key>SockPathMode</key>
-			<integer>438</integer>
-		</dict>
 		<key>BSDSystemLogger</key>
 		<dict>
 			<key>SockPathName</key>

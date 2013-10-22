@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
  */
 #include <sys/smb_apple.h>
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_dev.h>
@@ -123,7 +124,7 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 	error = smb_rq_init(rqp, SSTOCP(share), dp->ioc_cmd, dp->ioc_flags2, context);
 	if (error)
 		return error;
-	mbp = &rqp->sr_rq;
+    smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
 	error = mb_put_user_mem(mbp, dp->ioc_kern_twords, dp->ioc_twc * 2, 0, context);
 	if (error)
@@ -137,7 +138,7 @@ smb_usr_simplerequest(struct smb_share *share, struct smbioc_rq *dp,
 	error = smb_rq_simple(rqp);
 	if (error)
 		goto bad;
-	mdp = &rqp->sr_rp;
+    smb_rq_getreply(rqp, &mdp);
 	/* 
 	 * Amount of data left in the response buffer. 
 	 * Should include size of word count field + any word count data + size of 
@@ -173,7 +174,7 @@ bad:
 
 }
 
-static int 
+int 
 smb_cpdatain(struct mbchain *mbp, user_addr_t data, int len, vfs_context_t context)
 {
 	int error;
@@ -279,7 +280,7 @@ bad:
 }
 
 /*
- * Converrts UTF8 string to a network style STRING. The network STRING returned
+ * Converts UTF8 string to a network style STRING. The network STRING returned
  * may be ASCII or UTF16, depending on what was negotiated with the server. The
  * lower level routines will handle any byte swapping issue and will set the 
  * precomosed flag. The only flag support currently is UTF_SFM_CONVERSIONS. 

@@ -1,0 +1,4 @@
+/cppflags="${cppflags} -no-cpp-precomp"/a
+.
+?^#?,/^fi$/+1d
+w

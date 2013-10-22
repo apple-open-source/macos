@@ -26,6 +26,8 @@
 #ifndef NetscapePlugin_h
 #define NetscapePlugin_h
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #include "NetscapePluginModule.h"
 #include "Plugin.h"
 #include <WebCore/AffineTransform.h>
@@ -39,7 +41,10 @@
 namespace WebCore {
     class HTTPHeaderMap;
     class ProtectionSpace;
+    class SharedBuffer;
 }
+
+OBJC_CLASS WKNPAPIPlugInContainer;
 
 namespace WebKit {
 
@@ -51,6 +56,9 @@ public:
     virtual ~NetscapePlugin();
 
     static PassRefPtr<NetscapePlugin> fromNPP(NPP);
+
+    // In-process NetscapePlugins don't support asynchronous initialization.
+    virtual bool isBeingAsynchronouslyInitialized() const { return false; }
 
 #if PLATFORM(MAC)
     NPError setDrawingModel(NPDrawingModel);
@@ -64,9 +72,12 @@ public:
     bool hasHandledAKeyDownEvent() const { return m_hasHandledAKeyDownEvent; }
 
     mach_port_t compositingRenderServerPort();
+    void openPluginPreferencePane();
 
     // Computes an affine transform from the given coordinate space to the screen coordinate space.
     bool getScreenTransform(NPCoordinateSpace sourceSpace, WebCore::AffineTransform&);
+
+    WKNPAPIPlugInContainer* plugInContainer();
 
 #ifndef NP_NO_CARBON
     WindowRef windowRef() const;
@@ -77,8 +88,6 @@ public:
     static unsigned buttonState();
 #endif
 
-#elif PLATFORM(WIN)
-    HWND containingWindow();
 #endif
 
     PluginQuirks quirks() const { return m_pluginModule->pluginQuirks(); }
@@ -149,6 +158,7 @@ private:
 
     const char* userAgent();
 
+    void platformPreInitialize();
     bool platformPostInitialize();
     void platformDestroy();
     bool platformInvalidate(const WebCore::IntRect&);
@@ -198,7 +208,19 @@ private:
     virtual bool handleContextMenuEvent(const WebMouseEvent&);
     virtual bool handleKeyboardEvent(const WebKeyboardEvent&);
     virtual void setFocus(bool);
+
+    virtual bool handleEditingCommand(const String& commandName, const String& argument) OVERRIDE;
+    virtual bool isEditingCommandEnabled(const String&) OVERRIDE;
+
+    virtual bool shouldAllowScripting() OVERRIDE;
+    virtual bool shouldAllowNavigationFromDrags() OVERRIDE;
+    
+    virtual bool handlesPageScaleFactor() OVERRIDE;
+
     virtual NPObject* pluginScriptableNPObject();
+    
+    virtual unsigned countFindMatches(const String&, WebCore::FindOptions, unsigned maxMatchCount) OVERRIDE;
+    virtual bool findString(const String&, WebCore::FindOptions, unsigned maxMatchCount) OVERRIDE;
 
 #if PLATFORM(MAC)
     virtual void windowFocusChanged(bool);
@@ -216,20 +238,29 @@ private:
 #endif
 
     virtual void contentsScaleFactorChanged(float);
+    virtual void storageBlockingStateChanged(bool);
     virtual void privateBrowsingStateChanged(bool);
     virtual bool getFormValue(String& formValue);
     virtual bool handleScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity);
     virtual WebCore::Scrollbar* horizontalScrollbar();
     virtual WebCore::Scrollbar* verticalScrollbar();
 
-    bool supportsSnapshotting() const;
+    virtual bool supportsSnapshotting() const;
 
     // Convert the given point from plug-in coordinates to root view coordinates.
-    WebCore::IntPoint convertToRootView(const WebCore::IntPoint&) const;
+    virtual WebCore::IntPoint convertToRootView(const WebCore::IntPoint&) const OVERRIDE;
 
     // Convert the given point from root view coordinates to plug-in coordinates. Returns false if the point can't be
     // converted (if the transformation matrix isn't invertible).
     bool convertFromRootView(const WebCore::IntPoint& pointInRootViewCoordinates, WebCore::IntPoint& pointInPluginCoordinates);
+
+    virtual PassRefPtr<WebCore::SharedBuffer> liveResourceData() const OVERRIDE;
+
+    virtual bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) OVERRIDE { return false; }
+
+    virtual String getSelectionString() const OVERRIDE { return String(); }
+
+    void updateNPNPrivateMode();
 
 #if PLUGIN_ARCHITECTURE(WIN)
     static BOOL WINAPI hookedTrackPopupMenu(HMENU, UINT uFlags, int x, int y, int nReserved, HWND, const RECT*);
@@ -243,10 +274,10 @@ private:
 
     uint64_t m_nextRequestID;
 
-    typedef HashMap<uint64_t, std::pair<String, void*> > PendingURLNotifyMap;
+    typedef HashMap<uint64_t, std::pair<String, void*>> PendingURLNotifyMap;
     PendingURLNotifyMap m_pendingURLNotifications;
 
-    typedef HashMap<uint64_t, RefPtr<NetscapePluginStream> > StreamsMap;
+    typedef HashMap<uint64_t, RefPtr<NetscapePluginStream>> StreamsMap;
     StreamsMap m_streams;
 
     RefPtr<NetscapePluginModule> m_pluginModule;
@@ -303,9 +334,12 @@ private:
 
         WebCore::RunLoop::Timer<Timer> m_timer;
     };
-    typedef HashMap<unsigned, Timer*> TimerMap;
+    typedef HashMap<unsigned, OwnPtr<Timer>> TimerMap;
     TimerMap m_timers;
     unsigned m_nextTimerID;
+
+    bool m_privateBrowsingState;
+    bool m_storageBlockingState;
 
 #if PLUGIN_ARCHITECTURE(MAC)
     NPDrawingModel m_drawingModel;
@@ -338,6 +372,8 @@ private:
     WebCore::IntRect m_windowFrameInScreenCoordinates;
     WebCore::IntRect m_viewFrameInWindowCoordinates;
 
+    RetainPtr<WKNPAPIPlugInContainer> m_plugInContainer;
+
 #ifndef NP_NO_CARBON
     void nullEventTimerFired();
 
@@ -362,5 +398,7 @@ public: // Need to call it in the NPN_GetValue browser callback.
 };
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #endif // NetscapePlugin_h

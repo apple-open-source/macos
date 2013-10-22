@@ -1,0 +1,15 @@
+/>dot(/i
+! <f2c_ftype2=double precision,double precision> <f2c_ctype2=double,double>
+.
+/callprotoargument <ctype2>/s/ctype2/f2c_ctype2/
+/<ftype2>.*>dot,/s/ftype2/f2c_ftype2/
+/>nrm2(/i
+! <f2c_ftypereal=double precision,double precision,double precision,double precision> <f2c_ctypereal=double,double,double,double>
+.
+/<ftypereal>.*>nrm2,/s/ftypereal/f2c_ftypereal/
+/callprotoargument <ctypereal>/s/ctypereal/f2c_ctypereal/
+/>asum(/a
+.
+/callprotoargument <ctypereal>/s/ctypereal/f2c_ctypereal/
+/<ftypereal>.*>asum,/s/ftypereal/f2c_ftypereal/
+w

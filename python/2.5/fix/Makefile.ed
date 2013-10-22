@@ -11,6 +11,10 @@ EXTRASPATH=:../../Extras/lib/python
 s/$(CC)/& $(RC_CFLAGS)/
 g,b=$(LIBDEST)/$$d;,s,,if test $$d = site-packages; then b=$(LIBPYTHON)/$$d; else & fi;,
 g,$(LIBDEST)/site-packages,s,,$(LIBPYTHON)/site-packages,g
+/ln -fs/a
+.
+.t.
+s/\.a/.dylib/
 /^frameworkinstallapps:$/c
 # Temporarily replace EasyDialogs.py, so that it won't talk
 # to the Window Server (and fail if CoreGraphics versions don't match)
@@ -28,6 +32,6 @@ frameworkinstallapps:
 		mv -f $$i $$j; \
 	done
 .
-g/cd Mac && /s/$/ CC=$(WITH_GCC)/
+g/cd Mac && /s/$/ CC=$(MY_CC)/
 g/-lSystem/s//-framework CoreFoundation &/
 w

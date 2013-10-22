@@ -1,0 +1,286 @@
+#!/bin/bash
+
+###############################################################################
+# kcinstall
+#
+# A script for personalizing and installing kernelcaches and related files to
+# iOS devices.
+#
+# Andrew Myrick, Mike Smith
+# Copyright © 2012,2103 Apple Inc. All rights reserved.
+###############################################################################
+
+EDM="xcrun -sdk iphoneos.internal embedded_device_map"
+MOBDEV=`xcrun -sdk iphoneos.internal -f mobdev`
+PERSONALIZE_IMG4="xcrun -sdk iphoneos.internal personalize_img4"
+TCPRELAY="xcrun -sdk iphoneos.internal tcprelay"
+FSREMOUNT="`dirname $0`/fsremount"
+
+CLEAN_TMP=
+TCPRELAY_OUTPUT=
+TCPRELAY_PID=
+
+kBoardIDKey="BoardId"
+kChipIDKey="ChipID"
+kECIDKey="UniqueChipID"
+
+VERBOSELEVEL=0
+ROOTPASS="alpine"
+KCACHEDST=/System/Library/Caches/com.apple.kernelcaches/kernelcache
+SEPOSDST=/usr/standalone/firmware/sep-firmware.img4
+PTYPE=" -X"
+BOARDID=
+CHIPID=
+ECID=
+LOCATIONID=
+UDID=
+
+function usage() {
+	echo "Usage: `basename $0` [-l location|-d udid] [options] [-S path|-C path] [-k kernelcache|-s sepos|-c file]"
+	echo
+	echo "Device selection:"
+	echo "	-l Location ID"
+	echo "	-u UDID"
+	echo
+	echo "Options:"
+	echo "	-F Force local signing"
+	echo "	-h Print this help"
+	echo "	-k Kernelcache to install"
+	echo "	-s SEP/OS to install"
+	echo "  -c arbitrary file to install"
+	echo "	-S override SEP/OS install location"
+	echo "	-C override SEP/OS install location"
+	echo "	-p Root password (default: alpine)"
+	echo "	-X Enable user authlisting (default)"
+	echo "	-v Enable verbosity (may specify more than once)"
+}
+
+function cleanup() {
+	if [[ $TCPRELAY_PID ]]; then
+		kill $TCPRELAY_PID
+		wait $TCPRELAY_PID 2>/dev/null
+	fi
+	if [ $CLEAN_TMP ]; then
+		rm -rf $TMPDIR
+	fi
+}
+
+trap cleanup EXIT
+exec 9>/dev/null
+
+args=$(getopt Fhk:l:p:s:S:c:C:u:vX $*)
+if [ $? != 0 ]; then
+	usage; exit 1
+fi
+set -- $args
+while [ $# -gt 0 ]; do
+	case $1 in
+	-F)
+		PTYPE=" -F";;
+	-h)
+		usage; exit 0;;
+	-k)
+		KCACHE=$2; shift;;
+	-s)
+		SEPOS=$2; shift;;
+	-S)
+		SEPOSDST=$2; shift;;
+	-c)
+		COPYFILE=$2; shift;;
+	-C)
+		COPYDST=$2; shift;;
+	-l)
+		if [[ $UDID ]]; then
+			echo "Error: -l may not be specified with -u"
+			echo
+			usage; exit 1;
+		fi;
+		LOCATIONID=$2;
+		shift;;
+	-p)
+		ROOTPASS=$2;
+		shift;;
+	-u)
+		if [[ $LOCATIONID ]]; then
+			echo "Error: -u may not be specified with -l"
+			echo
+			usage; exit 1;
+		fi;
+		UDID=$2;
+		shift;;
+	-v)
+		case $VERBOSELEVEL in
+		0)
+			exec 9>&1
+			VERBOSELEVEL=1;;
+		1)
+			set -x
+			VERBOSELEVEL=2;;
+		*)
+			;;
+		esac;;
+	-X)
+		PTYPE=" -X";;
+	--)
+		if [ $# != 1 ]; then
+			echo "Unrecognized options: $*"
+			usage; exit 1
+		fi
+		;;
+	*)
+		echo "Unrecognized option: $1"
+		usage; exit 1;;
+	esac
+	shift
+done
+
+# Validate kernelcache and device location
+
+if [[ ( -z $KCACHE && -z $SEPOS && -z $COPYFILE ) ]]; then
+	echo "Error: at least one of -k, -s or -c must be specified."
+	echo
+	usage; exit 1;
+fi
+
+if [[ $LOCATIONID ]]; then
+	mobdev list 2>&1 | grep $LOCATIONID > /dev/null
+	if [ $? -ne 0 ]; then
+		echo "Cannot find device at location $LOCATIONID"
+		exit $?
+	fi
+	MBDEVICE=" -l $LOCATIONID"
+	TRDEVICE=" --locationid $LOCATIONID"
+elif [[ $UDID ]]; then
+	mobdev list 2>&1 | grep $UDID > /dev/null
+	if [ $? -ne 0 ]; then
+		echo "Cannot find device with UDID $UDID"
+		exit $?
+	fi
+	MBDEVICE=" -u $UDID"
+	TRDEVICE=" --serialnumber $UDID"
+fi
+
+TMPDIR=`mktemp -d -t \`basename $0\``
+if [[ -z $TMPDIR ]]; then
+    echo "Could not create temporary directory"
+    exit 1;
+fi
+CLEAN_TMP=1
+
+# Personalize the kernelcache / SEP/OS if needed
+
+CHIPID=`$MOBDEV $MBDEVICE get NULL $kChipIDKey 2>&1 | awk '/CFNumber/ {print $5}' | sed 's/[+|,]//g'`
+if [[ -z $CHIPID ]]; then
+	echo "Failed to read ChipID from device"
+	exit 1;
+fi
+
+IMAGEFORMAT=`$EDM -query SELECT DISTINCT ImageFormat FROM Targets WHERE ChipID==$CHIPID`
+if [[ $IMAGEFORMAT == 'im4p' ]]; then
+	BOARDID=`$MOBDEV $MBDEVICE get NULL $kBoardIDKey 2>&1 | awk '/CFNumber/ {print $5}' | sed 's/[+|,]//g'`
+	if [[ -z $BOARDID ]]; then
+		echo "Failed to read BoardID from device"
+		exit 1;
+	fi
+
+	ECID=`$MOBDEV $MBDEVICE get NULL $kECIDKey 2>&1 | awk '/ECID in hex/ { print $4}'`
+	if [[ -z $ECID ]]; then
+		echo "Failed to read ECID from device"
+		exit 1;
+	fi
+
+	if [[ -n $KCACHE ]]; then
+		echo "Personalizing kernelcache for device with BoardID=`printf %d $BOARDID` ChipID=`printf 0x%x $CHIPID` ECID=`printf 0x%x $ECID`"
+		$PERSONALIZE_IMG4 -a -b $BOARDID -c $CHIPID -d 1 -e $ECID -n 0 -s 0 -i KernelCache=$KCACHE -i RestoreKernelCache=$KCACHE -o $TMPDIR $PTYPE >&9
+		if [ $? -ne 0 ]; then
+			echo "Personalization failed."
+			exit 1
+		fi
+		KCACHE=$TMPDIR/"`basename ${KCACHE}`.img4"
+	fi
+
+	if [[ -n $SEPOS ]]; then
+		echo "Personalizing SEP/OS for device with BoardID=`printf %d $BOARDID` ChipID=`printf 0x%x $CHIPID` ECID=`printf 0x%x $ECID`"
+		$PERSONALIZE_IMG4 -a -b $BOARDID -c $CHIPID -d 1 -e $ECID -n 0 -s 0 -i SEP=$SEPOS -i RestoreSEP=$SEPOS -l -o $TMPDIR $PTYPE >&9
+		if [ $? -ne 0 ]; then
+			echo "Personalization failed."
+			exit 1
+		fi
+		SEPOS=$TMPDIR/"`basename ${SEPOS%.*}`.img4"
+	fi
+fi
+
+# Fire up tcprelay and wait for it start
+
+TCPRELAY_OUTPUT=`mktemp -t tcprelay`
+if [[ -z $TCPRELAY_OUTPUT ]]; then
+    echo "Could not create tcprelay output"
+    exit 1;
+fi
+$TCPRELAY $TRDEVICE --dynamicports --autoexit telnet rsync > $TCPRELAY_OUTPUT 2>&1 &
+TCPRELAY_PID=$!
+
+while [[ `stat -f "%z" $TCPRELAY_OUTPUT` -eq 0 ]]; do
+	sleep 1
+done
+
+TELNET_PORT=`awk '/127\.0\.0\.1.*telnet/ {print $9}' $TCPRELAY_OUTPUT | awk -F : '{print $2}'`
+RSYNC_PORT=`awk '/127\.0\.0\.1.*rsync/ {print $9}' $TCPRELAY_OUTPUT | awk -F : '{print $2}'`
+
+# Mount the device's root filesystem read-write
+
+$FSREMOUNT localhost $TELNET_PORT $ROOTPASS rw >&9
+case $? in
+	128)
+		SKIP_MOUNT_RO=1;;
+	0)
+		;;
+	*)
+		echo "Failed to mount root filesystem rw"
+		exit 1;;
+esac
+
+# Send over the kernelcache
+if [[ -n $KCACHE ]]; then
+	RSYNC_PASSWORD=$ROOTPASS rsync -v $KCACHE rsync://root@localhost:$RSYNC_PORT/root/$KCACHEDST >&9
+	if [ $? -ne 0 ]; then
+		echo "Failed to install kernelcache"
+		exit 1
+	else
+		echo "Kernelcache installed successfully."
+	fi
+fi
+
+# Send over the SEP/OS
+if [[ -n $SEPOS ]]; then
+	RSYNC_PASSWORD=$ROOTPASS rsync -v $SEPOS rsync://root@localhost:$RSYNC_PORT/root/$SEPOSDST >&9
+	if [ $? -ne 0 ]; then
+		echo "Failed to install SEP/OS"
+		exit 1
+	else
+		echo "SEP/OS installed successfully."
+	fi
+fi
+
+# Copy the file
+if [[ -n $COPYFILE ]]; then
+	RSYNC_PASSWORD=$ROOTPASS rsync -v $COPYFILE rsync://root@localhost:$RSYNC_PORT/root/$COPYDST >&9
+	if [ $? -ne 0 ]; then
+		echo "Failed to install $COPYDST"
+		exit 1
+	else
+		echo "$COPYDST installed successfully."
+	fi
+fi
+
+
+# Remount the root filesystem read-only if needed
+
+if [ ! $SKIP_MOUNT_RO ]; then
+	$FSREMOUNT localhost $TELNET_PORT $ROOTPASS ro >&9
+	if [ $? -ne 0 ]; then
+		echo "Failed to mount root filesystem ro"
+		exit 1
+	fi
+fi
+

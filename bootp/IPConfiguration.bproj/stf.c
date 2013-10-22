@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -179,7 +179,7 @@ stf_reachability_callback(SCNetworkReachabilityRef target,
 	    struct in6_addr	relay;
 
 	    if (G_IPConfiguration_verbose) {
-		my_log(LOG_NOTICE, "6TO4 %s: resolved %s to " IP_FORMAT,
+		my_log(LOG_DEBUG, "6TO4 %s: resolved %s to " IP_FORMAT,
 		       if_name(if_p), stf->relay_hostname, 
 		       IP_LIST(&sin->sin_addr));
 	    }
@@ -340,7 +340,7 @@ stf_remove_all_addresses(ServiceRef service_p)
 	if (G_IPConfiguration_verbose) {
 	    char 	ntopbuf[INET6_ADDRSTRLEN];
 
-	    my_log(LOG_NOTICE, "6TO4 %s: removing %s/%d",
+	    my_log(LOG_DEBUG, "6TO4 %s: removing %s/%d",
 		   if_name(if_p),
 		   inet_ntop(AF_INET6, &list.list[i].addr,
 			     ntopbuf, sizeof(ntopbuf)),
@@ -376,11 +376,11 @@ stf_update_address(ServiceRef service_p, CFDictionaryRef info,
 
 	    if_p = service_interface(service_p);
 	    if (local_ip.s_addr == 0) {
-		my_log(LOG_NOTICE, "6TO4 %s: no primary IPv4 address",
+		my_log(LOG_DEBUG, "6TO4 %s: no primary IPv4 address",
 		       if_name(if_p));
 	    }
 	    else {
-		my_log(LOG_NOTICE,
+		my_log(LOG_DEBUG,
 		       "6TO4 %s: primary IPv4 address changed to " IP_FORMAT,
 		       if_name(if_p), IP_LIST(&local_ip));
 	    }
@@ -520,7 +520,7 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	    return;
 	}
 	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_NOTICE, "6TO4 %s: using default anycast relay",
+	    my_log(LOG_DEBUG, "6TO4 %s: using default anycast relay",
 		   if_name(if_p));
 	}
 	stf->relay = stf_anycast_relay;
@@ -535,7 +535,7 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	    return;
 	}
 	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_NOTICE, "6TO4 %s: specified DNS relay %s",
+	    my_log(LOG_DEBUG, "6TO4 %s: specified DNS relay %s",
 		   if_name(if_p), method_data->relay_addr.dns);
 	}
 	stf_set_relay_hostname(service_p, method_data->relay_addr.dns);
@@ -551,7 +551,7 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	    return;
 	}
 	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_NOTICE, "6TO4 %s: specified IPv4 relay " IP_FORMAT,
+	    my_log(LOG_DEBUG, "6TO4 %s: specified IPv4 relay " IP_FORMAT,
 		   if_name(if_p), IP_LIST(&method_data->relay_addr.v4));
 	}
 	stf->relay = requested_ip;
@@ -567,7 +567,7 @@ stf_set_relay(ServiceRef service_p, ipconfig_method_data_stf_t * method_data)
 	if (G_IPConfiguration_verbose) {
 	    char 	ntopbuf[INET6_ADDRSTRLEN];
 
-	    my_log(LOG_NOTICE, "6TO4 %s: specified IPv6 relay %s",
+	    my_log(LOG_DEBUG, "6TO4 %s: specified IPv6 relay %s",
 		   if_name(if_p), 
 		   inet_ntop(AF_INET6, &method_data->relay_addr.v6,
 			     ntopbuf, sizeof(ntopbuf)));

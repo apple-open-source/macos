@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,12 +39,12 @@
 #include <netinet/in.h>
 #include <netsmb/netbios.h>
 
-#define SMBFS_VERMAJ	1
-#define SMBFS_VERMIN	7000
+#define SMBFS_VERMAJ	2
+#define SMBFS_VERMIN	0000
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 1.8.0"	/* Needs to match SMBFS_VERSION */
-#define SMBFS_NATIVEOS	"Mac OS X 10.8"	/* Needs to match current OS version major number only */
+#define SMBFS_LANMAN	"SMBFS 2.0.0"	/* Needs to match SMBFS_VERSION */
+#define SMBFS_NATIVEOS	"Mac OS X 10.9"	/* Needs to match current OS version major number only */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 #define	SMBFS_MAXPATHCOMP	256	/* maximum number of path components */
@@ -237,6 +237,12 @@ struct smbfs_notify_change;
 #define MNT_IS_SFM_VOLUME				0x0004	/* We mount a Service for Macintosh Volume */
 #define MNT_SUPPORTS_REPARSE_SYMLINKS		0x0008
 
+/*
+ * Bit definitions for the svrmsg_pending field in the smbmount structure
+ */
+#define SVRMSG_RCVD_GOING_DOWN	0x0000000000000001
+#define SVRMSG_RCVD_SHUTDOWN_CANCEL	0x0000000000000002
+
 struct smbmount {
 	uint64_t		ntwrk_uid;
 	uint64_t		ntwrk_gid;
@@ -247,6 +253,7 @@ struct smbmount {
 	struct smbfs_args	sm_args;
 	struct mount * 		sm_mp;
 	vnode_t			sm_rvp;
+	uint64_t		sm_root_ino;
 	struct smb_share * 	sm_share;
 	lck_rw_t		sm_rw_sharelock;
 	int			sm_flags;
@@ -260,6 +267,9 @@ struct smbmount {
 	lck_mtx_t		sm_reclaim_renamelock; /* mount reclaim/rename lock */
 	void			*notify_thread;	/* pointer to the notify thread structure */
 	int32_t			tooManyNotifies;
+	lck_mtx_t		sm_svrmsg_lock;		/* protects svrmsg fields */
+	uint64_t		sm_svrmsg_pending;	/* svrmsg replies pending (bits defined above) */
+	uint32_t		sm_svrmsg_shutdown_delay;  /* valid when SVRMSG_GOING_DOWN is set */
 };
 
 #define VFSTOSMBFS(mp)		((struct smbmount *)(vfs_fsprivate(mp)))
@@ -298,11 +308,16 @@ void smbfs_notify_change_create_thread(struct smbmount *smp);
 void smbfs_notify_change_destroy_thread(struct smbmount *smp);
 int smbfs_start_change_notify(struct smb_share *share, struct smbnode *np, 
 			      vfs_context_t context, int *releaseLock);
-int smbfs_stop_change_notify(struct smb_share *share, struct smbnode *np, 
+int smbfs_start_svrmsg_notify(struct smbmount *smp);
+int smbfs_stop_change_notify(struct smb_share *share, struct smbnode *np,
 			     int forceClose, vfs_context_t context, int *releaseLock);
+int smbfs_stop_svrmsg_notify(struct smbmount *smp);
 void smbfs_restart_change_notify(struct smb_share *share, struct smbnode *np, 
 				 vfs_context_t context);
-#define SMB_IOMAX ((size_t)MAX_UPL_TRANSFER * PAGE_SIZE)
+
+#define SMB_IOMIN (1024 * 1024)
+#define SMB_IOMAXCACHE (SMB_IOMIN * 4)
+#define SMB_IOMAX ((size_t)MAX_UPL_SIZE * PAGE_SIZE)
 
 #endif	/* KERNEL */
 

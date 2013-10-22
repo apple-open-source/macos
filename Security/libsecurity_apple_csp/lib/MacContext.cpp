@@ -133,7 +133,7 @@ void MacLegacyContext::init(const Context &context, bool isSigning)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
 	
-	OSStatus ortn = hmacLegacyInit(mHmac, keyData, keyLen);
+	OSStatus ortn = hmacLegacyInit(mHmac, keyData, (UInt32)keyLen);
 	if(ortn) {
 		MacOSError::throwMe(ortn);
 	}
@@ -143,7 +143,7 @@ void MacLegacyContext::update(const CssmData &data)
 {
 	OSStatus ortn = hmacLegacyUpdate(mHmac,
 		data.data(),
-		data.length());
+		(UInt32)data.length());
 	if(ortn) {
 		MacOSError::throwMe(ortn);
 	}

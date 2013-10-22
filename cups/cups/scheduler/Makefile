@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 10104 2011-11-04 06:37:03Z mike $"
+# "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $"
 #
 #   Scheduler Makefile for CUPS.
 #
@@ -127,6 +127,14 @@ depend:
 
 
 #
+# Run oclint to check code coverage...
+#
+
+oclint:
+	oclint -o=oclint.html -html $(CUPSDOBJS:.o=.c) $(LIBOBJS:.o=.c) -- $(ALL_CFLAGS)
+
+
+#
 # Install all targets...
 #
 
@@ -224,6 +232,7 @@ install-exec:
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(PROGRAMS); do \
 			cp $$file $(SYMROOT); \
+			dsymutil $(SYMROOT)/$$file; \
 		done \
 	fi
 
@@ -257,6 +266,7 @@ install-libs: $(INSTALLSTATIC)
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		cp $(LIBCUPSMIME) $(SYMROOT); \
+		dsymutil $(SYMROOT)/$(LIBCUPSMIME); \
 	fi
 
 installstatic:
@@ -551,5 +561,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 10104 2011-11-04 06:37:03Z mike $".
+# End of "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $".
 #

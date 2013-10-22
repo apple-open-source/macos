@@ -868,11 +868,7 @@ EapReceiveFailure(cstate, inpacket, packet_len, inp, id, len)
  * EAPClientProcess - Process a packet in a client context.
  */
 static int
-EAPClientProcess(cstate, notification, inpacket, packet_len)
-    eap_state *cstate;
-    u_int16_t notification;
-    u_char *inpacket;
-    int packet_len;
+EAPClientProcess(eap_state *cstate, u_int16_t notification, u_char *inpacket, int packet_len)
 {
     int err;
     
@@ -1089,11 +1085,7 @@ EAPClientAction(cstate)
  * EAPServerProcess - Process a packet in a client context.
  */
 static int
-EAPServerProcess(cstate, notification, inpacket, packet_len)
-    eap_state *cstate;
-    u_int16_t notification;
-    u_char *inpacket;
-    int packet_len;
+EAPServerProcess(eap_state *cstate, u_int16_t notification, u_char *inpacket, int packet_len)
 {
     int err;
     
@@ -1301,7 +1293,7 @@ EapPrintPkt(p, plen, printer, arg)
         GETCHAR(req, p);
         if (req >= 1 && req <= sizeof(EapRequestnames) / sizeof(char *))
             printer(arg, " %s ", EapRequestnames[req-1]);
-        else if (eap = EapSupportedType(req))
+        else if ((eap = EapSupportedType(req)))
             printer(arg, " %s ", eap->name ? eap->name : "???");
         else
             printer(arg, " type=0x%x ", req);

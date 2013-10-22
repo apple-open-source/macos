@@ -21,13 +21,22 @@
 #define qwebiconimageprovider_p_h
 
 #include "qwebkitglobal.h"
+#include <QString>
 #include <QtQuick/QQuickImageProvider>
 
-class QWEBKIT_EXPORT QWebIconImageProvider : public QDeclarativeImageProvider {
+namespace WebKit {
+    class QtWebContext;
+}
+
+class QWEBKIT_EXPORT QWebIconImageProvider : public QQuickImageProvider {
 public:
     QWebIconImageProvider();
     ~QWebIconImageProvider();
-    QImage requestImage(const QString& id, QSize* size, const QSize& requestedSize);
+
+    static QString identifier() { return QStringLiteral("webicon"); }
+
+    QUrl iconURLForPageURLInContext(const QString& pageURL, WebKit::QtWebContext* context);
+    virtual QImage requestImage(const QString& id, QSize* size, const QSize& requestedSize);
 };
 
 #endif

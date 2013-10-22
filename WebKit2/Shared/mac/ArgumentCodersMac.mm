@@ -33,17 +33,23 @@
 #import <WebCore/ColorMac.h>
 
 using namespace WebCore;
-using namespace std;
 
 namespace CoreIPC {
 
 enum NSType {
     NSAttributedStringType,
+#if USE(APPKIT)
     NSColorType,
+#endif
     NSDictionaryType,
+    NSArrayType,
+#if USE(APPKIT)
     NSFontType,
+#endif
     NSNumberType,
     NSStringType,
+    NSDateType,
+    NSDataType,
     Unknown,
 };
 
@@ -53,44 +59,67 @@ static NSType typeFromObject(id object)
 
     if ([object isKindOfClass:[NSAttributedString class]])
         return NSAttributedStringType;
+#if USE(APPKIT)
     if ([object isKindOfClass:[NSColor class]])
         return NSColorType;
+#endif
     if ([object isKindOfClass:[NSDictionary class]])
         return NSDictionaryType;
+#if USE(APPKIT)
     if ([object isKindOfClass:[NSFont class]])
         return NSFontType;
+#endif
     if ([object isKindOfClass:[NSNumber class]])
         return NSNumberType;
     if ([object isKindOfClass:[NSString class]])
         return NSStringType;
+    if ([object isKindOfClass:[NSArray class]])
+        return NSArrayType;
+    if ([object isKindOfClass:[NSDate class]])
+        return NSDateType;
+    if ([object isKindOfClass:[NSData class]])
+        return NSDataType;
 
     ASSERT_NOT_REACHED();
     return Unknown;
 }
 
-static void encode(ArgumentEncoder* encoder, id object)
+void encode(ArgumentEncoder& encoder, id object)
 {
     NSType type = typeFromObject(object);
-    encoder->encodeEnum(type);
+    encoder.encodeEnum(type);
 
     switch (type) {
     case NSAttributedStringType:
         encode(encoder, static_cast<NSAttributedString *>(object));
         return;
+#if USE(APPKIT)
     case NSColorType:
         encode(encoder, static_cast<NSColor *>(object));
         return;
+#endif
     case NSDictionaryType:
         encode(encoder, static_cast<NSDictionary *>(object));
         return;
+#if USE(APPKIT)
     case NSFontType:
         encode(encoder, static_cast<NSFont *>(object));
         return;
+#endif
     case NSNumberType:
         encode(encoder, static_cast<NSNumber *>(object));
         return;
     case NSStringType:
         encode(encoder, static_cast<NSString *>(object));
+        return;
+    case NSArrayType:
+        encode(encoder, static_cast<NSArray *>(object));
+        return;
+    case NSDateType:
+        encode(encoder, static_cast<NSDate *>(object));
+        return;
+    case NSDataType:
+        encode(encoder, static_cast<NSData *>(object));
         return;
     case Unknown:
         break;
@@ -99,10 +128,10 @@ static void encode(ArgumentEncoder* encoder, id object)
     ASSERT_NOT_REACHED();
 }
 
-static bool decode(ArgumentDecoder* decoder, RetainPtr<id>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<id>& result)
 {
     NSType type;
-    if (!decoder->decodeEnum(type))
+    if (!decoder.decodeEnum(type))
         return false;
 
     switch (type) {
@@ -113,6 +142,7 @@ static bool decode(ArgumentDecoder* decoder, RetainPtr<id>& result)
         result = string;
         return true;
     }
+#if USE(APPKIT)
     case NSColorType: {
         RetainPtr<NSColor> color;
         if (!decode(decoder, color))
@@ -120,6 +150,7 @@ static bool decode(ArgumentDecoder* decoder, RetainPtr<id>& result)
         result = color;
         return true;
     }
+#endif
     case NSDictionaryType: {
         RetainPtr<NSDictionary> dictionary;
         if (!decode(decoder, dictionary))
@@ -127,6 +158,7 @@ static bool decode(ArgumentDecoder* decoder, RetainPtr<id>& result)
         result = dictionary;
         return true;
     }
+#if USE(APPKIT)
     case NSFontType: {
         RetainPtr<NSFont> font;
         if (!decode(decoder, font))
@@ -134,6 +166,7 @@ static bool decode(ArgumentDecoder* decoder, RetainPtr<id>& result)
         result = font;
         return true;
     }
+#endif
     case NSNumberType: {
         RetainPtr<NSNumber> number;
         if (!decode(decoder, number))
@@ -148,6 +181,27 @@ static bool decode(ArgumentDecoder* decoder, RetainPtr<id>& result)
         result = string;
         return true;
     }
+    case NSArrayType: {
+        RetainPtr<NSArray> array;
+        if (!decode(decoder, array))
+            return false;
+        result = array;
+        return true;
+    }
+    case NSDateType: {
+        RetainPtr<NSDate> date;
+        if (!decode(decoder, date))
+            return false;
+        result = date;
+        return true;
+    }
+    case NSDataType: {
+        RetainPtr<NSData> data;
+        if (!decode(decoder, data))
+            return false;
+        result = data;
+        return true;
+    }
     case Unknown:
         ASSERT_NOT_REACHED();
         return false;
@@ -156,7 +210,7 @@ static bool decode(ArgumentDecoder* decoder, RetainPtr<id>& result)
     return false;
 }
 
-void encode(ArgumentEncoder* encoder, NSAttributedString *string)
+void encode(ArgumentEncoder& encoder, NSAttributedString *string)
 {
     // Even though NSAttributedString is toll free bridged with CFAttributedStringRef, attributes' values may be not, so we should stay within this file's code.
 
@@ -164,7 +218,7 @@ void encode(ArgumentEncoder* encoder, NSAttributedString *string)
     NSUInteger length = [plainString length];
     CoreIPC::encode(encoder, plainString);
 
-    Vector<pair<NSRange, RetainPtr<NSDictionary> > > ranges;
+    Vector<pair<NSRange, RetainPtr<NSDictionary>>> ranges;
 
     NSUInteger position = 0;
     while (position < length) {
@@ -175,21 +229,21 @@ void encode(ArgumentEncoder* encoder, NSAttributedString *string)
         ASSERT(effectiveRange.length);
         ASSERT(NSMaxRange(effectiveRange) <= length);
 
-        ranges.append(make_pair(effectiveRange, attributesAtIndex));
+        ranges.append(std::make_pair(effectiveRange, attributesAtIndex));
 
         position = NSMaxRange(effectiveRange);
     }
 
-    encoder->encodeUInt64(ranges.size());
+    encoder << static_cast<uint64_t>(ranges.size());
 
     for (size_t i = 0; i < ranges.size(); ++i) {
-        encoder->encodeUInt64(ranges[i].first.location);
-        encoder->encodeUInt64(ranges[i].first.length);
+        encoder << static_cast<uint64_t>(ranges[i].first.location);
+        encoder << static_cast<uint64_t>(ranges[i].first.length);
         CoreIPC::encode(encoder, ranges[i].second.get());
     }
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<NSAttributedString>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSAttributedString>& result)
 {
     RetainPtr<NSString> plainString;
     if (!CoreIPC::decode(decoder, plainString))
@@ -197,19 +251,19 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<NSAttributedString>& result)
 
     NSUInteger stringLength = [plainString.get() length];
 
-    RetainPtr<NSMutableAttributedString> resultString(AdoptNS, [[NSMutableAttributedString alloc] initWithString:plainString.get()]);
+    RetainPtr<NSMutableAttributedString> resultString = adoptNS([[NSMutableAttributedString alloc] initWithString:plainString.get()]);
 
     uint64_t rangeCount;
-    if (!decoder->decode(rangeCount))
+    if (!decoder.decode(rangeCount))
         return false;
 
     while (rangeCount--) {
         uint64_t rangeLocation;
         uint64_t rangeLength;
         RetainPtr<NSDictionary> attributes;
-        if (!decoder->decode(rangeLocation))
+        if (!decoder.decode(rangeLocation))
             return false;
-        if (!decoder->decode(rangeLength))
+        if (!decoder.decode(rangeLength))
             return false;
 
         ASSERT(rangeLocation + rangeLength > rangeLocation);
@@ -222,26 +276,28 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<NSAttributedString>& result)
         [resultString.get() addAttributes:attributes.get() range:NSMakeRange(rangeLocation, rangeLength)];
     }
 
-    result.adoptCF(resultString.leakRef());
+    result = adoptNS(resultString.leakRef());
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, NSColor *color)
+#if USE(APPKIT)
+void encode(ArgumentEncoder& encoder, NSColor *color)
 {
-    encoder->encode(colorFromNSColor(color));
+    encoder << colorFromNSColor(color);
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<NSColor>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSColor>& result)
 {
     Color color;
-    if (!decoder->decode(color))
+    if (!decoder.decode(color))
         return false;
 
     result = nsColor(color);
     return true;
 }
+#endif
 
-void encode(ArgumentEncoder* encoder, NSDictionary *dictionary)
+void encode(ArgumentEncoder& encoder, NSDictionary *dictionary)
 {
     // Even though NSDictionary is toll free bridged with CFDictionaryRef, values may be not, so we should stay within this file's code.
 
@@ -249,7 +305,7 @@ void encode(ArgumentEncoder* encoder, NSDictionary *dictionary)
     NSArray *keys = [dictionary allKeys];
     NSArray *values = [dictionary allValues];
 
-    encoder->encodeUInt64(size);
+    encoder << static_cast<uint64_t>(size);
 
     for (NSUInteger i = 0; i < size; ++i) {
         id key = [keys objectAtIndex:i];
@@ -267,13 +323,13 @@ void encode(ArgumentEncoder* encoder, NSDictionary *dictionary)
     }
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<NSDictionary>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSDictionary>& result)
 {
     uint64_t size;
-    if (!decoder->decodeUInt64(size))
+    if (!decoder.decode(size))
         return false;
 
-    RetainPtr<NSMutableDictionary> dictionary(AdoptNS, [[NSMutableDictionary alloc] initWithCapacity:size]);
+    RetainPtr<NSMutableDictionary> dictionary = adoptNS([[NSMutableDictionary alloc] initWithCapacity:size]);
     for (uint64_t i = 0; i < size; ++i) {
         // Try to decode the key name.
         RetainPtr<NSString> key;
@@ -287,18 +343,18 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<NSDictionary>& result)
         [dictionary.get() setObject:value.get() forKey:key.get()];
     }
 
-    result.adoptCF(dictionary.leakRef());
+    result = adoptNS(dictionary.leakRef());
     return true;
 }
 
-
-void encode(ArgumentEncoder* encoder, NSFont *font)
+#if USE(APPKIT)
+void encode(ArgumentEncoder& encoder, NSFont *font)
 {
     // NSFont could use CTFontRef code if we had it in ArgumentCodersCF.
     encode(encoder, [[font fontDescriptor] fontAttributes]);
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<NSFont>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSFont>& result)
 {
     RetainPtr<NSDictionary> fontAttributes;
     if (!decode(decoder, fontAttributes))
@@ -309,34 +365,100 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<NSFont>& result)
 
     return true;
 }
+#endif
 
-void encode(ArgumentEncoder* encoder, NSNumber *number)
+void encode(ArgumentEncoder& encoder, NSNumber *number)
 {
     encode(encoder, (CFNumberRef)number);
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<NSNumber>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSNumber>& result)
 {
     RetainPtr<CFNumberRef> number;
     if (!decode(decoder, number))
         return false;
 
-    result.adoptCF((NSNumber *)number.leakRef());
+    result = adoptNS((NSNumber *)number.leakRef());
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, NSString *string)
+void encode(ArgumentEncoder& encoder, NSString *string)
 {
     encode(encoder, (CFStringRef)string);
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<NSString>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSString>& result)
 {
     RetainPtr<CFStringRef> string;
     if (!decode(decoder, string))
         return false;
 
-    result.adoptCF((NSString *)string.leakRef());
+    result = adoptNS((NSString *)string.leakRef());
+    return true;
+}
+
+void encode(ArgumentEncoder& encoder, NSArray *array)
+{
+    NSUInteger size = [array count];
+    encoder << static_cast<uint64_t>(size);
+
+    for (NSUInteger i = 0; i < size; ++i) {
+        id value = [array objectAtIndex:i];
+
+        // Ignore values we don't recognize.
+        if (typeFromObject(value) == Unknown)
+            continue;
+
+        encode(encoder, value);
+    }
+}
+
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSArray>& result)
+{
+    uint64_t size;
+    if (!decoder.decode(size))
+        return false;
+
+    RetainPtr<NSMutableArray> array = adoptNS([[NSMutableArray alloc] initWithCapacity:size]);
+    for (uint64_t i = 0; i < size; ++i) {
+        RetainPtr<id> value;
+        if (!decode(decoder, value))
+            return false;
+
+        [array.get() addObject:value.get()];
+    }
+
+    result = adoptNS(array.leakRef());
+    return true;
+}
+
+void encode(ArgumentEncoder& encoder, NSDate *date)
+{
+    encode(encoder, (CFDateRef)date);
+}
+
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSDate>& result)
+{
+    RetainPtr<CFDateRef> date;
+    if (!decode(decoder, date))
+        return false;
+
+    result = adoptNS((NSDate *)date.leakRef());
+    return true;
+}
+
+void encode(ArgumentEncoder& encoder, NSData *data)
+{
+    encode(encoder, (CFDataRef)data);
+}
+
+bool decode(ArgumentDecoder& decoder, RetainPtr<NSData>& result)
+{
+    RetainPtr<CFDataRef> data;
+    if (!decode(decoder, data))
+        return false;
+
+    result = adoptNS((NSData *)data.leakRef());
     return true;
 }
 

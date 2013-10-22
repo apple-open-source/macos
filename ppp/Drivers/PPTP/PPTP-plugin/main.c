@@ -524,7 +524,7 @@ void *pptp_resolver_thread(void *arg)
     if (pthread_detach(pthread_self()) == 0) {
         
         // try to resolve the name
-        if (host = gethostbyname(remoteaddress)) {
+        if ((host = gethostbyname(remoteaddress))) {
 
 			for (count = 0; host->h_addr_list[count]; count++);
 		
@@ -577,7 +577,7 @@ void *pptp_edge_thread(void *arg)
 		
 		edgeConnection = _CTServerConnectionCreate(kCFAllocatorDefault, callbackEDGE, &ctxt);
 		if (edgeConnection) {
-			_CTServerConnectionSetPacketContextActive(edgeConnection, 0, TRUE);		// Zero is the main PDP context.
+			_CTServerConnectionSetPacketContextActiveByServiceType(edgeConnection, kCTDataConnectionServiceTypeInternet, TRUE);
 			
 			count = PPPD_WWAN_INTERFACE_TIMEOUT;
 			cterror = _CTServerConnectionGetPacketContextActive(edgeConnection, 0, &active);
@@ -661,9 +661,9 @@ int pptp_connect(int *errorcode)
         dict = SCDynamicStoreCopyValue(cfgCache, key);
 	CFRelease(key);
         if (dict) {
-            if (string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router))
+            if ((string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router)))
                 CFStringGetCString(string, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
-            if (string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)) 
+            if ((string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)))
                 CFStringGetCString(string, (char*)interface, sizeof(interface), kCFStringEncodingUTF8);
             CFRelease(dict);
         }
@@ -960,12 +960,12 @@ int pptp_connect(int *errorcode)
     datasockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPTP);
     if (datasockfd < 0) {
         if (!noload) {
-            if (url = CFBundleCopyBundleURL(bundle)) {
+            if ((url = CFBundleCopyBundleURL(bundle))) {
                 name[0] = 0;
                 CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                 CFRelease(url);
                 strlcat(name, "/", sizeof(name));
-                if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
+                if ((url = CFBundleCopyBuiltInPlugInsURL(bundle))) {
                     CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                         MAXPATHLEN - strlen(name) - strlen(PPTP_NKE) - 1);
                     CFRelease(url);
@@ -1129,7 +1129,7 @@ int pptp_establish_ppp(int fd)
         return -1;
     }
 
-    new_fd = generic_establish_ppp(fd);
+    new_fd = generic_establish_ppp(fd, interface);
     if (new_fd == -1)
         return -1;
 

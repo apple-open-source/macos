@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2008,2012 International Business Machines
+ *   Copyright (C) 2005-2012, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -62,9 +62,9 @@ protected:
      *             bits 8-15: The match reason, an enum-like value.
      */
 #if U_PLATFORM_IS_DARWIN_BASED
-    int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen, const uint8_t (*keyStrings)[MAX_KEY_STRING_WITH_NULL] );
+    int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen, const uint8_t (*keyStrings)[MAX_KEY_STRING_WITH_NULL] ) const;
 #else
-    int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen);
+    int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen) const;
 #endif
 
 public:
@@ -78,7 +78,7 @@ public:
 
     const char *getName() const = 0;
     const char *getLanguage() const = 0;
-    int32_t match(InputText* det) = 0;
+    UBool match(InputText* input, CharsetMatch *results) const = 0;
 
     /**
      * Get the next character (however many bytes it is) from the input data
@@ -92,7 +92,7 @@ public:
      *            being iterated over.
      * @return    True if a character was returned, false at end of input.
      */
-    virtual UBool nextChar(IteratedChar *it, InputText *textIn) = 0;
+    virtual UBool nextChar(IteratedChar *it, InputText *textIn) const = 0;
 
 };
 
@@ -105,9 +105,9 @@ class CharsetRecog_sjis : public CharsetRecog_mbcs {
 public:
     virtual ~CharsetRecog_sjis();
 
-    UBool nextChar(IteratedChar *it, InputText *det);
+    UBool nextChar(IteratedChar *it, InputText *det) const;
 
-    int32_t match(InputText *det);
+    UBool match(InputText* input, CharsetMatch *results) const;
 
     const char *getName() const;
     const char *getLanguage() const;
@@ -129,14 +129,14 @@ public:
     const char *getName() const = 0;
     const char *getLanguage() const = 0;
 
-    int32_t match(InputText* det) = 0;
+    UBool match(InputText* input, CharsetMatch *results) const = 0;
     /*
      *  (non-Javadoc)
      *  Get the next character value for EUC based encodings.
      *  Character "value" is simply the raw bytes that make up the character
      *     packed into an int.
      */
-    UBool nextChar(IteratedChar *it, InputText *det);
+    UBool nextChar(IteratedChar *it, InputText *det) const;
 };
 
 /**
@@ -151,7 +151,7 @@ public:
     const char *getName() const;
     const char *getLanguage() const;
 
-    int32_t match(InputText *det);
+    UBool match(InputText* input, CharsetMatch *results) const;
 };
 
 /**
@@ -166,7 +166,7 @@ public:
     const char *getName() const;
     const char *getLanguage() const;
 
-    int32_t match(InputText *det);
+    UBool match(InputText* input, CharsetMatch *results) const;
 };
 
 /**
@@ -179,12 +179,12 @@ class CharsetRecog_big5 : public CharsetRecog_mbcs
 public:
     virtual ~CharsetRecog_big5();
 
-    UBool nextChar(IteratedChar* it, InputText* det);
+    UBool nextChar(IteratedChar* it, InputText* det) const;
 
     const char *getName() const;
     const char *getLanguage() const;
 
-    int32_t match(InputText *det);
+    UBool match(InputText* input, CharsetMatch *results) const;
 };
 
 
@@ -198,12 +198,12 @@ class CharsetRecog_gb_18030 : public CharsetRecog_mbcs
 public:
     virtual ~CharsetRecog_gb_18030();
 
-    UBool nextChar(IteratedChar* it, InputText* det);
+    UBool nextChar(IteratedChar* it, InputText* det) const;
 
     const char *getName() const;
     const char *getLanguage() const;
 
-    int32_t match(InputText *det);
+    UBool match(InputText* input, CharsetMatch *results) const;
 };
 
 U_NAMESPACE_END

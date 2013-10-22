@@ -339,7 +339,7 @@ again:
      if (expander && *expander) {
 	  char *command;
 
-	  command = my_xsprintf ("%s %S", expander, name);
+	  command = my_xsprintf ("%s '%Q'", expander, name);
 	  fp = my_popen (command, "r");
 	  if (fp == NULL) {
 	       perror("popen");
@@ -614,10 +614,10 @@ make_roff_command (const char *path, const char *file) {
 
      if (expander && *expander) {
 	  if (converter && *converter)
-	     command = my_xsprintf("%s%s '%S' | %s%s",
+	     command = my_xsprintf("%s%s '%Q' | %s%s",
 				   bufh, expander, file, converter, buft);
 	  else
-	     command = my_xsprintf("%s%s '%S'%s",
+	     command = my_xsprintf("%s%s '%Q'%s",
 				   bufh, expander, file, buft);
      } else if (ll || pl) {
 	  const char *cat = getval("CAT");
@@ -625,10 +625,10 @@ make_roff_command (const char *path, const char *file) {
 		  cat = "cat";
 
 	  if (converter && *converter)
-	      command = my_xsprintf("%s%s '%S' | %s%s",
+	      command = my_xsprintf("%s%s '%Q' | %s%s",
 				    bufh, cat, file, converter, buft);
 	  else
-	      command = my_xsprintf("%s%s '%S'%s",
+	      command = my_xsprintf("%s%s '%Q'%s",
 				    bufh, cat, file, buft);
      }
 
@@ -651,7 +651,7 @@ make_roff_command (const char *path, const char *file) {
      }
 
      if (expander && *expander) {
-	  char *cmd = my_xsprintf ("%s %S", expander, file);
+	  char *cmd = my_xsprintf ("%s '%Q'", expander, file);
 	  fp = my_popen (cmd, "r");
 	  if (fp == NULL) {
 	       perror("popen");
@@ -836,9 +836,9 @@ display_man_file(const char *path, const char *man_file) {
      if (roff_command == NULL)
 	  return 0;
      if (do_troff)
-	  command = my_xsprintf ("(cd %S && %s)", path, roff_command);
+	  command = my_xsprintf ("(cd '%Q' && %s)", path, roff_command);
      else
-	  command = my_xsprintf ("(cd %S && %s | (%s || true))", path,
+	  command = my_xsprintf ("(cd '%Q' && %s | (%s || true))", path,
 		   roff_command, pager);
 
      return !do_system_command (command, 0);

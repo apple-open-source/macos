@@ -29,12 +29,15 @@
 #if ENABLE(MEMORY_SAMPLER)
 
 #include <stdio.h>
+#include <unistd.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
+static const char separator = '\t';
 
 WebMemorySampler* WebMemorySampler::shared()
 {
@@ -45,8 +48,7 @@ WebMemorySampler* WebMemorySampler::shared()
 }
 
 WebMemorySampler::WebMemorySampler() 
-    : m_separator(String("\t"))  
-    , m_sampleTimer(this, &WebMemorySampler::sampleTimerFired)
+    : m_sampleTimer(this, &WebMemorySampler::sampleTimerFired)
     , m_stopTimer(this, &WebMemorySampler::stopTimerFired)
     , m_isRunning(false)
     , m_runningTime(0)
@@ -81,7 +83,7 @@ void WebMemorySampler::start(const SandboxExtension::Handle& sampleLogFileHandle
 void WebMemorySampler::initializeTimers(double interval)
 {
     m_sampleTimer.startRepeating(1);
-    printf("Started memory sampler for process %s", processName().utf8().data());
+    printf("Started memory sampler for process %s %d", processName().utf8().data(), getpid());
     if (interval > 0) {
         m_stopTimer.startOneShot(interval);
         printf(" for a interval of %g seconds", interval);
@@ -97,17 +99,17 @@ void WebMemorySampler::stop()
         return;
     m_sampleTimer.stop();
     m_sampleLogFile = 0;
-    printf("Stopped memory sampler for process %s\n", processName().utf8().data());
+    printf("Stopped memory sampler for process %s %d\n", processName().utf8().data(), getpid());
     // Flush stdout buffer so python script can be guaranteed to read up to this point.
     fflush(stdout);
     m_isRunning = false;
     
-    if(m_stopTimer.isActive())
+    if (m_stopTimer.isActive())
         m_stopTimer.stop();
     
     if (m_sampleLogSandboxExtension) {
-        m_sampleLogSandboxExtension->invalidate();
-        m_sampleLogSandboxExtension = 0;
+        m_sampleLogSandboxExtension->revoke();
+        m_sampleLogSandboxExtension = nullptr;
     }    
 }
 
@@ -134,21 +136,22 @@ void WebMemorySampler::initializeSandboxedLogFile(const SandboxExtension::Handle
 
 void WebMemorySampler::writeHeaders()
 {
-    String processDetails = String("Process: ");
-    processDetails.append(processName());
-    processDetails.append(String("\n"));
-    writeToFile(m_sampleLogFile, processDetails.utf8().data(), processDetails.utf8().length());
+    String processDetails = String::format("Process: %s Pid: %d\n", processName().utf8().data(), getpid());
+
+    CString utf8String = processDetails.utf8();
+    writeToFile(m_sampleLogFile, utf8String.data(), utf8String.length());
     
-    String header; 
+    StringBuilder header; 
     WebMemoryStatistics stats = sampleWebKit();
     if (!stats.keys.isEmpty()) {
         for (size_t i = 0; i < stats.keys.size(); ++i) {
-            header.append(m_separator);
-            header.append(stats.keys[i].utf8().data());
+            header.append(separator);
+            header.append(stats.keys[i]);
         }
     }
-    header.append(String("\n"));
-    writeToFile(m_sampleLogFile, header.utf8().data(), header.utf8().length());
+    header.append('\n');
+    utf8String = header.toString().utf8();
+    writeToFile(m_sampleLogFile, utf8String.data(), utf8String.length());
 }
 
 void WebMemorySampler::sampleTimerFired(Timer<WebMemorySampler>*)
@@ -165,21 +168,23 @@ void WebMemorySampler::stopTimerFired(Timer<WebMemorySampler>*)
     stop();
 }
 
-void WebMemorySampler::appendCurrentMemoryUsageToFile(PlatformFileHandle& file)
+void WebMemorySampler::appendCurrentMemoryUsageToFile(PlatformFileHandle&)
 {
     // Collect statistics from allocators and get RSIZE metric
-    String statString; 
+    StringBuilder statString;
     WebMemoryStatistics memoryStats = sampleWebKit();
 
     if (!memoryStats.values.isEmpty()) {
-        statString.append(m_separator);
+        statString.append(separator);
         for (size_t i = 0; i < memoryStats.values.size(); ++i) {
-            statString.append(m_separator);
-            statString.append(String::format("%lu", memoryStats.values[i]));
+            statString.append(separator);
+            statString.appendNumber(memoryStats.values[i]);
         }
     }
-    statString.append(String("\n"));
-    writeToFile(m_sampleLogFile, statString.utf8().data(), statString.utf8().length());
+    statString.append('\n');
+
+    CString utf8String = statString.toString().utf8();
+    writeToFile(m_sampleLogFile, utf8String.data(), utf8String.length());
 }
 
 }

@@ -8,12 +8,14 @@
 
 
 #define CC_HAS_PROTOS 1
-//#define SYSTEM_NAME "darwin11.0.0"
+//#define SYSTEM_NAME "darwin13.0.0"
 #define BZCAT_PATH "bzcat"
 #define BZIP2_PATH "bzip2"
 #define COMPRESS_PATH "compress"
 #define GZIP_PATH "gzip"
+#define LZCAT_PATH "xz"
 #define UNCOMPRESS_PATH "uncompress"
+#define XZ_PATH "xz"
 #define ZCAT_PATH "zcat"
 #define STDC_HEADERS 1
 #define HAVE_SEARCH_H 1

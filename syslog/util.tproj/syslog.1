@@ -1,4 +1,4 @@
-.\"Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+.\"Copyright (c) 2004-2012 Apple Inc. All rights reserved.
 .\"
 .\"@APPLE_LICENSE_HEADER_START@
 .\"
@@ -66,6 +66,10 @@ key val
 .D1 ""
 .Nm 
 .Fl config Op options
+.D1 ""
+.Nm 
+.Fl module
+.Op name Op action
 .Sh DESCRIPTION
 .Nm
 is a command-line utility for a variety of tasks relating to the Apple System Log (ASL) facility.
@@ -327,6 +331,15 @@ Dictionary keys represent message keys.
 Dictionary values are strings.
 .El
 .Pp
+Each of the format styles above may optionally be followed by a dot character and an integer value, for example:
+.Pp
+.Dl syslog -F std.4
+.Pp
+This causes sub-second time values to be printed.
+In the example above, 4 decimal digits would be printed.
+The sub-second time values come from the value of the TimeNanoSec key in the ASL message.
+If the TimeNanoSec key is missing, a value of zero is used.
+.Pp
 The value of the
 .Ar format
 argument may also be a custom print format string.  
@@ -398,11 +411,44 @@ J is used to indicate the local timezone.
 When printing using $((Time)(J)), the output format is
 .Dq "yyyy-mm-dd hh:mm:ss" ,
 without a trailing timezone letter.
+.It $((Time)(JZ))
+Specifies the local timezone.
+The timezone offset from UTC follows the date and time.
+The time is formatted as
+.Dq "yyyy-mm-dd hh:mm:ss[+|-]HH[:MM]" .
+Minutes in the timezone offset are only printed if they are non-zero.
+.It $((Time)(ISO8601))
+Specifies the local timezone and ISO 8601 extended format.
+The timezone offset from UTC follows the date and time.
+The time is formatted as
+.Dq "yyyy-mm-ddThh:mm:ss[+|-]HH[:MM]" .
+Minutes in the timezone offset are only printed if they are non-zero.
+Note that this differs from
+.Dq JZ
+format only in that a
+.Dq T
+character separates the date and time.
+.It $((Time)(ISO8601B))
+Specifies the local timezone and ISO 8601 basic format, in the form:
+.Dq "yyyymmddThhmmss[+|-]HH[:MM]" .
+.It $((Time)(ISO8601Z))
+Specifies UTC/Zulu time and ISO 8601 extended format, in the form:
+.Dq "yyyy-mm-ddThh:mm:ssZ" .
+.It $((Time)(ISO8601BZ))
+Specifies UTC/Zulu time and ISO 8601 basic format, in the form:
+.Dq "yyyymmddThhmmssZ" .
 .It $((Time)([+|-]HH[:MM]))
 Specifies an offset (+ or -) of the indicated number of hours (HH) and optionally minutes (MM) to UTC.
 The value is formatted as a string of the form
-.Dq "yyyy-mm-dd hh:mm:ss[+|-]HH:MM" .
+.Dq "yyyy-mm-dd hh:mm:ss[+|-]HH[:MM]" .
+Minutes in the timezone offset are only printed if they are non-zero.
 .El
+.Pp
+Each of the print formats listed above for Time values may optionally be followed by a dot character and an integer value.
+In that case, sub-second time values will be printed.
+For example, the following line prints messages with a UTC time format, and includes 6 digits of sub-second time:
+.Pp
+.Dl syslog -F '$((Time)(utc.6)) $Host $(Sender)[$(PID)] <$((Level)(str))>: $Message
 .Pp
 If a custom format is not being used to specify the format for Time values, then Time values
 are generally converted to local time, except when the
@@ -431,9 +477,29 @@ printed in the same format as UTC.
 .Dq J
 is interpreted as the local timezone and printed in the same format,
 but without a trailing timezone letter.
+.It JZ
+is interpreted as the local timezone and printed with the format
+.Dl yyyy-mm-dd hh:mm:ss[+|-]HH[:MM] .
+The trailing 
+.Dq [+|-]HH[:MM]
+string represents the local timezone offset from UTC in hours,
+or in hours and minutes if minutes are non-zero.
+.It ISO8601
+Times are printed with the format specified by ISO 8601:
+.Dl yyyy-mm-ddThh:mm:ss[+|-]HH[:MM] .
+This is the same as the 
+.Dq JZ
+format, except a 
+.Dq T character separates the date and time components.
 .It [+|-]hh[:mm]
 The specified offset is used to adjust time.
 .El
+.Pp
+Each of the time formats above may optionally be followed by a dot character and an integer value.
+In that case, sub-second time values will be printed.
+For example:
+.Pp
+.Dl syslog -T bsd.3
 .Pp
 The 
 .Fl u
@@ -715,7 +781,7 @@ Any of the configuration options that may be set in the file (following an ``=''
 be sent to syslogd using the
 .Fl config
 flag (without an ``='' character).
-For example, to temporarily disable the message-per-second limit:
+For example, to temporarily disable the kernel message-per-second limit:
 .Pp
 .Dl syslog -config mps_limit 0
 .Pp
@@ -730,6 +796,65 @@ manual page, an additional option:
 will cause
 .Nm syslogd
 to reset its configuration.
+.Ss ASL OUTPUT MODULES
+ASL Output Modules are named configuration bundles used by the ASL server
+.Nm syslogd ,
+and by the ASL filesystem manager
+.Nm aslmanager .
+The /etc/asl.conf file represents the system's primary output module,
+and is given the name
+.Dq com.apple.asl .
+Other modules are read from files in the /etc/asl directory.
+File names serve as module names.
+ASL Output Modules are described in detail in
+.Xr asl.conf 5 .
+.Pp
+When invoked with
+.Fl module ,
+.Nm syslog
+prints a summary of all loaded ASL Output Modules.
+The summary includes the output files and ASL store directories used by each module,
+a list of the module's configuration rules, and the module's current enabled or disabled status.
+.Fl module Ar name
+prints a summary for the module with the given name.
+.Pp
+ASL Output Modules may be enabled or disabled using the command:
+.Pp
+    syslog -module 
+.Ar name
+enable 
+.Op 0
+.Pp
+Note that only the superuser (root) may enable or disable a module.
+.Pp
+The name '*'
+(including the single-quote characters)
+may be used to change the status of all ASL Output Modules, 
+excluding the primary com.apple.asl module.
+com.apple.asl may be enabled or disabled, but only specifically by name.
+.Pp
+If a module includes rotated files, the command:
+.Pp
+	syslog -module 
+.Ar name
+checkpoint
+.Op file
+.Pp
+Will force the module to checkpoint all of its rotated files,
+or just the single optionally named file.
+The name '*'
+(including the single-quote characters)
+may be used to force checkpointing of all rotated files for all ASL Output Modules, 
+including the primary com.apple.asl module.
+.Pp
+Note that only the superuser (root) may force files to be checkpointed.
+.Pp
+The checkpoint action sends a command to
+.Nm syslogd 
+and waits for a reply to be returned.
+This means that any files currently in use will be checkpointed when the
+.Nm syslog
+command completes.
 .Sh SEE ALSO
 .Xr syslogd 8 ,
 .Xr logger 1 ,

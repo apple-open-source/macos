@@ -60,7 +60,12 @@ static dispatch_queue_t eventq;
 
 static dispatch_queue_t workq;
 
-static heim_array_t dispatch_signals;
+struct dispatch_signal {
+    dispatch_source_t s;
+    struct dispatch_signal *next;
+};
+
+static struct dispatch_signal *dispatch_signals;
 
 static void
 default_timer_ev(void)
@@ -91,7 +96,6 @@ init_globals(void)
 	workq = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 	eventq = dispatch_queue_create("heim-ipc.event-queue", NULL);
 	dispatch_suspend(eventq);
-	dispatch_signals = heim_array_create();
     });
 }
 
@@ -137,7 +141,7 @@ mach_complete_sync(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 	replyinCnt = 0;
 	replyout = 0; replyoutCnt = 0;
     } else if (reply->length < 2048) {
-	replyinCnt = reply->length;
+	replyinCnt = (mach_msg_type_number_t)reply->length;
 	memcpy(replyin, reply->data, replyinCnt);
 	replyout = 0; replyoutCnt = 0;
     } else {
@@ -173,7 +177,7 @@ mach_complete_async(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 	replyout = 0; replyoutCnt = 0;
 	kr = KERN_SUCCESS;
     } else if (reply->length < 2048) {
-	replyinCnt = reply->length;
+	replyinCnt = (mach_msg_type_number_t)reply->length;
 	memcpy(replyin, reply->data, replyinCnt);
 	replyout = 0; replyoutCnt = 0;
 	kr = KERN_SUCCESS;
@@ -209,7 +213,7 @@ mheim_do_call(mach_port_t server_port,
 	      heim_ipc_message_outband_t *replyout,
 	      mach_msg_type_number_t *replyoutCnt)
 {
-    heim_sipc ctx = dispatch_get_context(dispatch_get_current_queue());
+    heim_sipc ctx = dispatch_get_specific(mheim_ipc_server);
     struct mach_call_ctx *s;
     kern_return_t kr;
     uid_t uid;
@@ -264,7 +268,7 @@ mheim_do_call_request(mach_port_t server_port,
 		      heim_ipc_message_outband_t requestout,
 		      mach_msg_type_number_t requestoutCnt)
 {
-    heim_sipc ctx = dispatch_get_context(dispatch_get_current_queue());
+    heim_sipc ctx = dispatch_get_specific(mheim_ipc_server);
     struct mach_call_ctx *s;
     kern_return_t kr;
     uid_t uid;
@@ -333,15 +337,16 @@ mach_init(const char *service, mach_port_t sport, heim_sipc ctx)
     }
     ctx->mech = s;
 
-    dispatch_set_context(s->queue, ctx);
-    dispatch_set_context(s->source, s);
+    dispatch_queue_set_specific(s->queue, mheim_ipc_server, ctx, NULL);
 
     dispatch_source_set_event_handler(s->source, ^{
-	    dispatch_mig_server(s->source, sizeof(union __RequestUnion__mheim_do_mheim_ipc_subsystem), mheim_ipc_server);
+	    heim_sipc cctx = dispatch_get_specific(mheim_ipc_server);
+	    struct mach_service *st = cctx->mech;
+	    dispatch_mig_server(st->source, sizeof(union __RequestUnion__mheim_do_mheim_ipc_subsystem), mheim_ipc_server);
 	});
 
     dispatch_source_set_cancel_handler(s->source, ^{
-	    heim_sipc cctx = dispatch_get_context(dispatch_get_current_queue());
+	    heim_sipc cctx = dispatch_get_specific(mheim_ipc_server);
 	    struct mach_service *st = cctx->mech;
 	    mach_port_mod_refs(mach_task_self(), st->sport,
 			       MACH_PORT_RIGHT_RECEIVE, -1);
@@ -910,9 +915,9 @@ dgram_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
     hdr.msg_namelen = namelen;
 
     hdr.msg_iov = iov;
-    hdr.msg_iovlen = iovp - iov;
+    hdr.msg_iovlen = (int)(iovp - iov);
     hdr.msg_control = cmsg;
-    hdr.msg_controllen = cmsglen;
+    hdr.msg_controllen = (socklen_t)cmsglen;
 
     server = heim_ipc_cred_get_server_address(sc->cred, &namelen);
 
@@ -1130,7 +1135,8 @@ handle_dgram(struct client *c)
     void *cmsg;
     heim_idata data;
     struct iovec iov[1];
-    int len, ret;
+    int ret;
+    ssize_t len;
     heim_icred cred;
 
     heim_assert(c->inmsg == NULL, "dgram have data buffer in struct client");
@@ -1157,7 +1163,7 @@ handle_dgram(struct client *c)
     hdr.msg_iov = iov;
     hdr.msg_iovlen = 1;
     hdr.msg_control = cmsg;
-    hdr.msg_controllen = cmsglen;
+    hdr.msg_controllen = (socklen_t)cmsglen;
 
     len = recvmsg(c->fd, &hdr, 0);
     if (len <= 0) {
@@ -1466,6 +1472,7 @@ heim_sipc_service_unix(const char *service,
     if (fd < 0)
 	return errno;
 
+    socket_set_nopipe(fd, 1);
     socket_set_reuseaddr(fd, 1);
 #ifdef LOCAL_CREDS
     {
@@ -1576,21 +1583,22 @@ heim_sipc_signal_handler(int signo, void (*handler)(void *), void *ctx)
     init_globals();
 
     dispatch_sync(timerq, ^{
-	dispatch_source_t *s;
-	
-	s = heim_alloc(sizeof(*s), "dispatch-signal-source", NULL);
-	if (s == NULL)
-	    abort();
+	struct dispatch_signal *signal;
 
-	*s = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, signo, 0, workq);
-	if (*s == NULL)
+	signal = calloc(1, sizeof(*signal));
+	
+	signal->s = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, signo, 0, workq);
+	if (signal->s == NULL)
 	    abort();
 	
-	dispatch_source_set_event_handler(*s, ^{
+	dispatch_source_set_event_handler(signal->s, ^{
 	    handler(ctx);
 	});
-	dispatch_resume(*s);
-	heim_array_append_value(dispatch_signals, s);
+	dispatch_resume(signal->s);
+
+	/* avoid leaks(1) finding leaked memory */
+	signal->next = dispatch_signals;
+	dispatch_signals = signal;
     });
 #else /* !HAVE_GCD */
 

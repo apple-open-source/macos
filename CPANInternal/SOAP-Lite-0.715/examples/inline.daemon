@@ -1,0 +1,27 @@
+#!perl -w
+#!d:\perl\bin\perl.exe 
+
+# -- SOAP::Lite -- soaplite.com -- Copyright (C) 2001 Paul Kulchenko --
+
+# that's OO call, so first parameter is scalar (class name)
+
+use Inline C => <<ENDC;
+SV* greet(SV* o, char* x) { newSVpvf("Hello, %s world", x); }
+ENDC
+
+use SOAP::Transport::HTTP;
+
+$SIG{PIPE} = $SIG{INT} = 'IGNORE'; # don't want to die on 'Broken pipe' or Ctrl-C
+
+my $daemon = SOAP::Transport::HTTP::Daemon
+  -> new (LocalAddr => 'localhost', LocalPort => 81) 
+  -> dispatch_to('greet') 
+;
+print "Contact to SOAP server at ", $daemon->url, "\n";
+$daemon->handle;
+
+# you can see the result with:
+#
+# % perl SOAPsh.pl http://localhost:81/
+# > greet('cruel')
+#

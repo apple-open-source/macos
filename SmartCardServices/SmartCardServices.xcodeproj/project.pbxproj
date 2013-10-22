@@ -268,10 +268,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				18A25C0214753029004F59F8 /* Security.framework in Frameworks */,
 				18B965681472F9B4005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */,
 				18B965661472F99B005A4D2E /* libsecurityd_client.a in Frameworks */,
 				1865FD0D147273A900FD79DF /* libsecurity_utilities.a in Frameworks */,
+				18A25C0214753029004F59F8 /* Security.framework in Frameworks */,
 				5234B6B20E78286000F02D95 /* CoreFoundation.framework in Frameworks */,
 				5234B6B30E78286000F02D95 /* IOKit.framework in Frameworks */,
 			);
@@ -830,7 +830,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55105;
+				DYLIB_CURRENT_VERSION = 55111;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -849,7 +849,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55105;
+				DYLIB_CURRENT_VERSION = 55111;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -1012,6 +1012,7 @@
 				52E9B96614C4BC95004150C6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		52E9BA2314C4C8CA004150C6 /* Build configuration list for PBXLegacyTarget "InstallPhase-Executables" */ = {
 			isa = XCConfigurationList;

@@ -27,6 +27,7 @@
 #include "csprocess.h"
 #include "cskernel.h"
 #include <securityd_client/ssclient.h>
+#include <System/sys/codesign.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -35,8 +36,8 @@ namespace CodeSigning {
 //
 // Construct a running process representation
 //
-ProcessCode::ProcessCode(pid_t pid)
-	: GenericCode(KernelCode::active()), mPid(pid)
+ProcessCode::ProcessCode(pid_t pid, PidDiskRep *pidDiskRep /*= NULL */)
+	: GenericCode(KernelCode::active()), mPid(pid), mPidBased(pidDiskRep)
 {
 }
 
@@ -46,6 +47,41 @@ mach_port_t ProcessCode::getHostingPort()
 	return SecurityServer::ClientSession().hostingPort(pid());
 }
 
+/*
+ *
+ */
+        
+ProcessDynamicCode::ProcessDynamicCode(ProcessCode *guest)
+        : SecStaticCode(guest->pidBased()), mGuest(guest)
+{
+}
 
+CFDataRef ProcessDynamicCode::component(CodeDirectory::SpecialSlot slot, OSStatus fail /* = errSecCSSignatureFailed */)
+{
+        if (slot == cdInfoSlot && !mGuest->pidBased()->supportInfoPlist())
+                return NULL;
+        else if (slot == cdResourceDirSlot)
+                return NULL;
+        return SecStaticCode::component(slot, fail);
+}
+
+CFDictionaryRef ProcessDynamicCode::infoDictionary()
+{
+        if (mGuest->pidBased()->supportInfoPlist())
+                return SecStaticCode::infoDictionary();
+        return makeCFDictionary(0);
+}
+
+void ProcessDynamicCode::validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail /* = errSecCSSignatureFailed */)
+{
+        if (slot == cdInfoSlot && !mGuest->pidBased()->supportInfoPlist())
+                return;
+        else if (slot == cdResourceDirSlot)
+                return;
+        SecStaticCode::validateComponent(slot, fail);
+}
+
+
+        
 } // CodeSigning
 } // Security

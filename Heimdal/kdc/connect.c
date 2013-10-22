@@ -286,6 +286,7 @@ init_socket(krb5_context context,
 	return;
     }
     socket_set_reuseaddr(d->s, 1);
+    socket_set_nopipe(d->s, 1);
 #ifdef HAVE_IPV6
     if (family == AF_INET6)
 	socket_set_ipv6only(d->s, 1);

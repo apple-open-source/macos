@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010,2012 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,11 +26,31 @@
 #include "Trust.h"
 #include <security_keychain/SecTrustSettingsPriv.h>
 #include "SecBridge.h"
+#include "SecInternal.h"
 #include "SecTrustSettings.h"
 #include "SecCertificatePriv.h"
 #include <security_utilities/cfutilities.h>
+#include <security_utilities/cfmunge.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+// forward declarations
+CFArrayRef SecTrustCopyDetails(SecTrustRef trust);
+static CFDictionaryRef SecTrustGetExceptionForCertificateAtIndex(SecTrustRef trust, CFIndex ix);
+static void SecTrustCheckException(const void *key, const void *value, void *context);
+
+typedef struct SecTrustCheckExceptionContext {
+	CFDictionaryRef exception;
+	bool exceptionNotFound;
+} SecTrustCheckExceptionContext;
+
+// public trust result constants
+CFTypeRef kSecTrustEvaluationDate           = CFSTR("TrustEvaluationDate");
+CFTypeRef kSecTrustExtendedValidation       = CFSTR("TrustExtendedValidation");
+CFTypeRef kSecTrustOrganizationName         = CFSTR("Organization");
+CFTypeRef kSecTrustResultValue              = CFSTR("TrustResultValue");
+CFTypeRef kSecTrustRevocationChecked        = CFSTR("TrustRevocationChecked");
+CFTypeRef kSecTrustRevocationValidUntilDate = CFSTR("TrustExpirationDate");
+CFTypeRef kSecTrustResultDetails            = CFSTR("TrustResultDetails");
 
 //
 // CF boilerplate
@@ -49,14 +69,14 @@ CFTypeID SecTrustGetTypeID(void)
 // Sec* API bridge functions
 //
 OSStatus SecTrustCreateWithCertificates(
-	CFArrayRef certificates,
+	CFTypeRef certificates,
 	CFTypeRef policies,
 	SecTrustRef *trustRef)
 {
-    BEGIN_SECAPI
+	BEGIN_SECAPI
 	Required(trustRef);
-    *trustRef = (new Trust(certificates, policies))->handle();
-    END_SECAPI
+	*trustRef = (new Trust(certificates, policies))->handle();
+	END_SECAPI
 }
 
 OSStatus
@@ -115,16 +135,16 @@ OSStatus SecTrustSetAnchorCertificatesOnly(SecTrustRef trust, Boolean anchorCert
 
 OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray)
 {
-    BEGIN_SECAPI
-	StorageManager::KeychainList keychains;
+	BEGIN_SECAPI
+		StorageManager::KeychainList keychains;
 	// avoid unnecessary global initializations if an empty array is passed in
 	if (!( (keychainOrArray != NULL) &&
-	       (CFGetTypeID(keychainOrArray) == CFArrayGetTypeID()) &&
-	       (CFArrayGetCount((CFArrayRef)keychainOrArray) == 0) )) {
+				(CFGetTypeID(keychainOrArray) == CFArrayGetTypeID()) &&
+				(CFArrayGetCount((CFArrayRef)keychainOrArray) == 0) )) {
 		globals().storageManager.optionalSearchList(keychainOrArray, keychains);
 	}
-    Trust::required(trust)->searchLibs(keychains);
-    END_SECAPI
+	Trust::required(trust)->searchLibs(keychains);
+	END_SECAPI
 }
 
 
@@ -139,30 +159,74 @@ OSStatus SecTrustSetVerifyDate(SecTrustRef trust, CFDateRef verifyDate)
 CFAbsoluteTime SecTrustGetVerifyTime(SecTrustRef trust)
 {
 	CFAbsoluteTime verifyTime = 0;
-    OSStatus __secapiresult;
+	OSStatus __secapiresult = errSecSuccess;
 	try {
 		CFRef<CFDateRef> verifyDate = Trust::required(trust)->time();
 		verifyTime = CFDateGetAbsoluteTime(verifyDate);
-
-		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
-	catch (...) { __secapiresult=internalComponentErr; }
-    return verifyTime;
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
+	return verifyTime;
 }
 
-OSStatus SecTrustEvaluate(SecTrustRef trustRef, SecTrustResultType *resultP)
+
+
+OSStatus SecTrustEvaluate(SecTrustRef trust, SecTrustResultType *resultP)
 {
-    BEGIN_SECAPI
-    Trust *trust = Trust::required(trustRef);
-    trust->evaluate();
-    if (resultP) {
-        *resultP = trust->result();
-        secdebug("SecTrustEvaluate", "SecTrustEvaluate trust result = %d", (int)*resultP);
-    }
-    END_SECAPI
+	SecTrustResultType trustResult = kSecTrustResultInvalid;
+	CFArrayRef exceptions = NULL;
+	OSStatus __secapiresult = errSecSuccess;
+	try {
+		Trust *trustObj = Trust::required(trust);
+		trustObj->evaluate();
+		trustResult = trustObj->result();
+		exceptions = trustObj->exceptions();
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
+
+	if (__secapiresult) {
+		return __secapiresult;
+	}
+
+	/* post-process trust result based on exceptions */
+	if (trustResult == kSecTrustResultUnspecified) {
+		/* If leaf is in exceptions -> proceed, otherwise unspecified. */
+		if (SecTrustGetExceptionForCertificateAtIndex(trust, 0))
+			trustResult = kSecTrustResultProceed;
+	}
+	else if (trustResult == kSecTrustResultRecoverableTrustFailure && exceptions) {
+		/* If we have exceptions get details and match to exceptions. */
+		CFArrayRef details = SecTrustCopyDetails(trust);
+		if (details) {
+			CFIndex pathLength = CFArrayGetCount(details);
+			struct SecTrustCheckExceptionContext context = {};
+			CFIndex ix;
+			for (ix = 0; ix < pathLength; ++ix) {
+				CFDictionaryRef detail = (CFDictionaryRef)CFArrayGetValueAtIndex(details, ix);
+			//	if ((ix == 0) && CFDictionaryContainsKey(detail, kSecPolicyCheckBlackListedLeaf))
+			//		trustResult = kSecTrustResultFatalTrustFailure;
+				context.exception = SecTrustGetExceptionForCertificateAtIndex(trust, ix);
+				CFDictionaryApplyFunction(detail, SecTrustCheckException, &context);
+				if (context.exceptionNotFound) {
+					break;
+				}
+			}
+			if (!context.exceptionNotFound)
+				trustResult = kSecTrustResultProceed;
+		}
+	}
+
+
+	secdebug("SecTrustEvaluate", "SecTrustEvaluate trust result = %d", (int)trustResult);
+	if (resultP) {
+		*resultP = trustResult;
+	}
+	return __secapiresult;
 }
 
 OSStatus SecTrustEvaluateAsync(SecTrustRef trust,
@@ -173,7 +237,8 @@ OSStatus SecTrustEvaluateAsync(SecTrustRef trust,
 		try {
 			Trust *trustObj = Trust::required(trust);
 			trustObj->evaluate();
-			result(trust, trustObj->result());
+			SecTrustResultType trustResult = trustObj->result();
+			result(trust, trustResult);
 		}
 		catch (...) {
 			result(trust, kSecTrustResultInvalid);
@@ -219,7 +284,7 @@ OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result)
     BEGIN_SECAPI
 	Trust *trustObj = Trust::required(trust);
 	if (result == nil)
-		return paramErr;
+		return errSecParam;
 	trustObj->extendedResult(*result);
     END_SECAPI
 }
@@ -239,42 +304,76 @@ OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_
 //
 OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
 {
-    BEGIN_SECAPI
-	Trust *trust = Trust::required(trustRef);
+	BEGIN_SECAPI
+		Trust *trust = Trust::required(trustRef);
 	if (trust->result() == kSecTrustResultInvalid)
-		return paramErr;
+		return errSecParam;
 	else
 		Required(result) = trust->cssmResultCode();
-    END_SECAPI
+	END_SECAPI
 }
 
 OSStatus SecTrustGetTPHandle(SecTrustRef trust, CSSM_TP_HANDLE *handle)
 {
-    BEGIN_SECAPI
-    Required(handle) = Trust::required(trust)->getTPHandle();
-    END_SECAPI
+	BEGIN_SECAPI
+		Required(handle) = Trust::required(trust)->getTPHandle();
+	END_SECAPI
 }
 
 OSStatus SecTrustCopyPolicies(SecTrustRef trust, CFArrayRef *policies)
 {
-    BEGIN_SECAPI
-    CFArrayRef currentPolicies = Trust::required(trust)->policies();
+	BEGIN_SECAPI
+		CFArrayRef currentPolicies = Trust::required(trust)->policies();
 	if (currentPolicies != NULL)
 	{
 		CFRetain(currentPolicies);
 	}
 
-    Required(policies) =  currentPolicies;
-    END_SECAPI
+	Required(policies) = currentPolicies;
+	END_SECAPI
+}
+
+OSStatus SecTrustSetNetworkFetchAllowed(SecTrustRef trust, Boolean allowFetch)
+{
+	BEGIN_SECAPI
+	Trust *trustObj = Trust::required(trust);
+	Trust::NetworkPolicy netPolicy = (allowFetch) ?
+		Trust::useNetworkEnabled : Trust::useNetworkDisabled;
+	trustObj->networkPolicy(netPolicy);
+	END_SECAPI
+}
+
+OSStatus SecTrustGetNetworkFetchAllowed(SecTrustRef trust, Boolean *allowFetch)
+{
+	BEGIN_SECAPI
+	Boolean allowed = false;
+	Trust *trustObj = Trust::required(trust);
+	Trust::NetworkPolicy netPolicy = trustObj->networkPolicy();
+	if (netPolicy == Trust::useNetworkDefault) {
+		// network fetch is enabled by default for SSL only
+		allowed = trustObj->policySpecified(trustObj->policies(), CSSMOID_APPLE_TP_SSL);
+	} else {
+		// caller has explicitly set the network policy
+		allowed = (netPolicy == Trust::useNetworkEnabled);
+	}
+	Required(allowFetch) = allowed;
+	END_SECAPI
+}
+
+OSStatus SecTrustSetOCSPResponse(SecTrustRef trust, CFTypeRef responseData)
+{
+	BEGIN_SECAPI
+	Trust::required(trust)->responses(responseData);
+	END_SECAPI
 }
 
 OSStatus SecTrustCopyCustomAnchorCertificates(SecTrustRef trust, CFArrayRef *anchorCertificates)
 {
-    BEGIN_SECAPI
-    CFRef<CFArrayRef> customAnchors(Trust::required(trust)->anchors());
-    Required(anchorCertificates) = (customAnchors) ?
-        (const CFArrayRef)CFRetain(customAnchors) : (const CFArrayRef)NULL;
-    END_SECAPI
+	BEGIN_SECAPI
+	CFArrayRef customAnchors = Trust::required(trust)->anchors();
+	Required(anchorCertificates) = (customAnchors) ?
+		(const CFArrayRef)CFRetain(customAnchors) : (const CFArrayRef)NULL;
+	END_SECAPI
 }
 
 //
@@ -282,13 +381,13 @@ OSStatus SecTrustCopyCustomAnchorCertificates(SecTrustRef trust, CFArrayRef *anc
 //
 OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchorCertificates)
 {
-    BEGIN_SECAPI
+	BEGIN_SECAPI
 
 	return SecTrustSettingsCopyUnrestrictedRoots(
-		true, true, true,		/* all domains */
-		anchorCertificates);
+			true, true, true,		/* all domains */
+			anchorCertificates);
 
-    END_SECAPI
+	END_SECAPI
 }
 
 /* new in 10.6 */
@@ -298,7 +397,7 @@ SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 	CFArrayRef certChain = NULL;
 	CFArrayRef evidenceChain = NULL;
 	CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
-    OSStatus __secapiresult;
+	OSStatus __secapiresult = errSecSuccess;
 	try {
 		Trust *trustObj = Trust::required(trust);
 		if (trustObj->result() == kSecTrustResultInvalid)
@@ -306,12 +405,11 @@ SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 		if (trustObj->evidence() == nil)
 			trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
 		evidenceChain = trustObj->evidence();
-		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
-	catch (...) { __secapiresult=internalComponentErr; }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
 
 	if (certChain)
 		CFRelease(certChain);
@@ -323,7 +421,7 @@ SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 		}
 		// do not release evidenceChain, as it is owned by the trust object.
 	}
-    return pubKey;
+	return pubKey;
 }
 
 /* new in 10.6 */
@@ -333,20 +431,22 @@ CFIndex SecTrustGetCertificateCount(SecTrustRef trust)
 	CFArrayRef certChain = NULL;
 	CFArrayRef evidenceChain = NULL;
 	CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
-    OSStatus __secapiresult;
+    OSStatus __secapiresult = errSecSuccess;
 	try {
 		Trust *trustObj = Trust::required(trust);
-		if (trustObj->result() == kSecTrustResultInvalid)
-			MacOSError::throwMe(errSecTrustNotAvailable);
+		if (trustObj->result() == kSecTrustResultInvalid) {
+			trustObj->evaluate();
+			if (trustObj->result() == kSecTrustResultInvalid)
+				MacOSError::throwMe(errSecTrustNotAvailable);
+		}
 		if (trustObj->evidence() == nil)
 			trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
 		evidenceChain = trustObj->evidence();
-		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
-	catch (...) { __secapiresult=internalComponentErr; }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
 
 	if (certChain)
 		CFRelease(certChain);
@@ -364,20 +464,22 @@ SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix)
 	CFArrayRef certChain = NULL;
 	CFArrayRef evidenceChain = NULL;
 	CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
-    OSStatus __secapiresult;
+    OSStatus __secapiresult = errSecSuccess;
 	try {
 		Trust *trustObj = Trust::required(trust);
-		if (trustObj->result() == kSecTrustResultInvalid)
-			MacOSError::throwMe(errSecTrustNotAvailable);
+		if (trustObj->result() == kSecTrustResultInvalid) {
+			trustObj->evaluate();
+			if (trustObj->result() == kSecTrustResultInvalid)
+				MacOSError::throwMe(errSecTrustNotAvailable);
+		}
 		if (trustObj->evidence() == nil)
 			trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
 		evidenceChain = trustObj->evidence();
-		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
-	catch (...) { __secapiresult=internalComponentErr; }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
 
 	if (certChain)
 		CFRelease(certChain);
@@ -395,6 +497,243 @@ SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix)
 	return certificate;
 }
 
+
+static CFStringRef kSecCertificateDetailSHA1Digest = CFSTR("SHA1Digest");
+static CFStringRef kSecCertificateDetailStatusCodes = CFSTR("StatusCodes");
+
+static void
+_AppendStatusCode(CFMutableArrayRef array, OSStatus statusCode)
+{
+	if (!array)
+		return;
+	SInt32 num = statusCode;
+	CFNumberRef numRef = CFNumberCreate(NULL, kCFNumberSInt32Type, &num);
+	if (!numRef)
+		return;
+	CFArrayAppendValue(array, numRef);
+	CFRelease(numRef);
+}
+
+CFArrayRef SecTrustCopyDetails(SecTrustRef trust)
+{
+	// This function returns an array of dictionaries, one per certificate,
+	// holding status info for each certificate in the evaluated chain.
+	//
+	CFIndex count, chainLen = 0;
+	CFArrayRef certChain = NULL;
+	CFMutableArrayRef details = NULL;
+	CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
+    OSStatus __secapiresult = errSecSuccess;
+	try {
+		Trust *trustObj = Trust::required(trust);
+		if (trustObj->result() == kSecTrustResultInvalid) {
+			trustObj->evaluate();
+			if (trustObj->result() == kSecTrustResultInvalid)
+				MacOSError::throwMe(errSecTrustNotAvailable);
+		}
+		trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
+
+	if (certChain) {
+		chainLen = CFArrayGetCount(certChain);
+		CFRelease(certChain);
+	}
+	if (statusChain) {
+		details = CFArrayCreateMutable(NULL, chainLen, &kCFTypeArrayCallBacks);
+		for (count = 0; count < chainLen; count++) {
+			CFMutableDictionaryRef certDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
+				0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFMutableArrayRef statusCodes = CFArrayCreateMutable(kCFAllocatorDefault,
+				0, &kCFTypeArrayCallBacks);
+			CSSM_TP_APPLE_EVIDENCE_INFO *evInfo = &statusChain[count];
+			CSSM_TP_APPLE_CERT_STATUS statBits = evInfo->StatusBits;
+
+			// translate status bits
+			if (statBits & CSSM_CERT_STATUS_EXPIRED)
+				_AppendStatusCode(statusCodes, errSecCertificateExpired);
+			if (statBits & CSSM_CERT_STATUS_NOT_VALID_YET)
+				_AppendStatusCode(statusCodes, errSecCertificateNotValidYet);
+			if (statBits & CSSM_CERT_STATUS_TRUST_SETTINGS_DENY)
+				_AppendStatusCode(statusCodes, errSecTrustSettingDeny);
+
+			// translate status codes
+			unsigned int i;
+			for (i = 0; i < evInfo->NumStatusCodes; i++) {
+				CSSM_RETURN scode = evInfo->StatusCodes[i];
+				_AppendStatusCode(statusCodes, (OSStatus)scode);
+			}
+
+			CFDictionarySetValue(certDict, kSecCertificateDetailStatusCodes, statusCodes);
+			CFRelease(statusCodes);
+			CFArrayAppendValue(details, certDict);
+			CFRelease(certDict);
+		}
+	}
+	return details;
+}
+
+static CFDictionaryRef SecTrustGetExceptionForCertificateAtIndex(SecTrustRef trust, CFIndex ix)
+{
+	CFArrayRef exceptions = NULL;
+    OSStatus __secapiresult = errSecSuccess;
+	try {
+		exceptions = Trust::required(trust)->exceptions();
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
+
+	if (!exceptions || ix >= CFArrayGetCount(exceptions))
+		return NULL;
+	CFDictionaryRef exception = (CFDictionaryRef)CFArrayGetValueAtIndex(exceptions, ix);
+	if (CFGetTypeID(exception) != CFDictionaryGetTypeID())
+		return NULL;
+
+	SecCertificateRef certificate = SecTrustGetCertificateAtIndex(trust, ix);
+	if (!certificate)
+		return NULL;
+
+	/* If the exception contains the current certificate's sha1Digest in the
+	   kSecCertificateDetailSHA1Digest key then we use it otherwise we ignore it. */
+	CFDataRef sha1Digest = SecCertificateGetSHA1Digest(certificate);
+	CFTypeRef digestValue = CFDictionaryGetValue(exception, kSecCertificateDetailSHA1Digest);
+	if (!digestValue || !CFEqual(sha1Digest, digestValue))
+		exception = NULL;
+
+	return exception;
+}
+
+static void SecTrustCheckException(const void *key, const void *value, void *context)
+{
+	struct SecTrustCheckExceptionContext *cec = (struct SecTrustCheckExceptionContext *)context;
+	if (cec->exception) {
+		CFTypeRef exceptionValue = CFDictionaryGetValue(cec->exception, key);
+		if (!exceptionValue || !CFEqual(value, exceptionValue)) {
+			cec->exceptionNotFound = true;
+		}
+	} else {
+		cec->exceptionNotFound = true;
+	}
+}
+
+/* new in 10.9 */
+CFDataRef SecTrustCopyExceptions(SecTrustRef trust)
+{
+	CFArrayRef details = SecTrustCopyDetails(trust);
+	CFIndex pathLength = details ? CFArrayGetCount(details) : 0;
+	CFMutableArrayRef exceptions = CFArrayCreateMutable(kCFAllocatorDefault,
+			pathLength, &kCFTypeArrayCallBacks);
+	CFIndex ix;
+	for (ix = 0; ix < pathLength; ++ix) {
+		CFDictionaryRef detail = (CFDictionaryRef)CFArrayGetValueAtIndex(details, ix);
+		CFIndex detailCount = CFDictionaryGetCount(detail);
+		CFMutableDictionaryRef exception;
+		if (ix == 0 || detailCount > 0) {
+			exception = CFDictionaryCreateMutableCopy(kCFAllocatorDefault,
+				detailCount + 1, detail);
+			SecCertificateRef certificate = SecTrustGetCertificateAtIndex(trust, ix);
+			CFDataRef digest = SecCertificateGetSHA1Digest(certificate);
+			if (digest) {
+				CFDictionaryAddValue(exception, kSecCertificateDetailSHA1Digest, digest);
+			}
+		} else {
+			/* Add empty exception dictionaries for non leaf certs which have no exceptions
+			 * to save space.
+			 */
+			exception = (CFMutableDictionaryRef)CFDictionaryCreate(kCFAllocatorDefault,
+				NULL, NULL, 0,
+				&kCFTypeDictionaryKeyCallBacks,
+				&kCFTypeDictionaryValueCallBacks);
+		}
+		CFArrayAppendValue(exceptions, exception);
+		CFReleaseNull(exception);
+	}
+	CFReleaseSafe(details);
+
+	/* Remove any trailing empty dictionaries to save even more space (we skip the leaf
+	   since it will never be empty). */
+	for (ix = pathLength; ix-- > 1;) {
+		CFDictionaryRef exception = (CFDictionaryRef)CFArrayGetValueAtIndex(exceptions, ix);
+		if (CFDictionaryGetCount(exception) == 0) {
+			CFArrayRemoveValueAtIndex(exceptions, ix);
+		} else {
+			break;
+		}
+	}
+
+	CFDataRef encodedExceptions = CFPropertyListCreateData(kCFAllocatorDefault,
+			exceptions, kCFPropertyListBinaryFormat_v1_0, 0, NULL);
+	CFRelease(exceptions);
+
+	return encodedExceptions;
+}
+
+/* new in 10.9 */
+bool SecTrustSetExceptions(SecTrustRef trust, CFDataRef encodedExceptions)
+{
+	CFArrayRef exceptions;
+	exceptions = (CFArrayRef)CFPropertyListCreateWithData(kCFAllocatorDefault,
+		encodedExceptions, kCFPropertyListImmutable, NULL, NULL);
+	if (exceptions && CFGetTypeID(exceptions) != CFArrayGetTypeID()) {
+		CFRelease(exceptions);
+		exceptions = NULL;
+	}
+
+	OSStatus __secapiresult = errSecSuccess;
+	try {
+		Trust::required(trust)->exceptions(exceptions);
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
+
+	/* If there is a valid exception entry for our current leaf we're golden. */
+	if (SecTrustGetExceptionForCertificateAtIndex(trust, 0))
+		return true;
+
+	/* The passed in exceptions didn't match our current leaf, so we discard it. */
+	try {
+		Trust::required(trust)->exceptions(NULL);
+		__secapiresult = errSecSuccess;
+	}
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
+
+	return false;
+}
+
+/* new in 10.9 */
+CFDictionaryRef
+SecTrustCopyResult(SecTrustRef trust)
+{
+	CFDictionaryRef result = NULL;
+	try {
+		result = Trust::required(trust)->results();
+		// merge details into result
+		CFArrayRef details = SecTrustCopyDetails(trust);
+		if (details) {
+			CFDictionarySetValue((CFMutableDictionaryRef)result,
+				kSecTrustResultDetails, details);
+			CFRelease(details);
+		}
+	}
+	catch (...) {
+		if (result) {
+			CFRelease(result);
+			result = NULL;
+		}
+	}
+	return result;
+}
+
 /* new in 10.7 */
 CFArrayRef
 SecTrustCopyProperties(SecTrustRef trust)
@@ -409,7 +748,7 @@ SecTrustCopyProperties(SecTrustRef trust)
 			CFRelease(result);
 			result = NULL;
 		}
-	};
+	}
 	return result;
 }
 
@@ -446,7 +785,7 @@ OSStatus SecTrustGetUserTrust(SecCertificateRef certificate,
 
 //
 // The public setter, also deprecated; it maps to the appropriate
-// Trust Settings call if possible, else throws unimpErr.
+// Trust Settings call if possible, else throws errSecUnimplemented.
 //
 OSStatus SecTrustSetUserTrust(SecCertificateRef certificate,
     SecPolicyRef policy, SecTrustUserSetting trustSetting)
@@ -474,7 +813,7 @@ OSStatus SecTrustSetUserTrust(SecCertificateRef certificate,
 			tsResult = kSecTrustSettingsResultDeny;
 			break;
 		default:
-			return unimpErr;
+			return errSecUnimplemented;
 	}
 
 	/* make a usage constraints dictionary */

@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2012 Apple Computer, Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * tsaSupport.c -  ASN1 templates Time Stamping Authority requests and responses
@@ -67,7 +67,7 @@ extern const SecAsn1Template kSecAsn1TSATSTInfoTemplate[];
 extern OSStatus impExpImportCertCommon(
 	const CSSM_DATA		*cdata,
 	SecKeychainRef		importKeychain, // optional
-	CFMutableArrayRef	outArray);		// optional, append here 
+	CFMutableArrayRef	outArray);		// optional, append here
 
 #pragma mark ----- Debug Logs -----
 
@@ -149,7 +149,7 @@ static OSStatus remapHTTPErrorCodes(OSStatus status)
         return status;
     }
     return status;
-   
+
 }
 
 static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxToPrint) // 0 means print it all
@@ -163,7 +163,7 @@ static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxTo
     size_t bufferSize;
     int offset, sz = 0;
     const int wrapwid = 24;     // large enough so SHA-1 hashes fit on one line...
-    
+
     if ((maxToPrint != 0) && (len > maxToPrint))
     {
         len = maxToPrint;
@@ -172,7 +172,7 @@ static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxTo
 
     bufferSize = wrapwid+3*len;
     buffer = (char *)malloc(bufferSize);
-    
+
     offset = sprintf(buffer, "%s [len = %u]\n", title, len);
     dtprintf("%s", buffer);
     offset = 0;
@@ -187,11 +187,11 @@ static void printDataAsHex(const char *title, const CSSM_DATA *d, unsigned maxTo
             sz = 0;
         }
     }
-    
+
     sz=sprintf(buffer + offset, more?" ...\n":"\n");
         offset += sz;
     buffer[offset+1]=0;
-    
+
 //    fprintf(stderr, "%s", buffer);
     dtprintf("%s", buffer);
 #endif
@@ -228,13 +228,13 @@ char *cfStringToChar(CFStringRef inStr)
     char *result = NULL;
     const char *str = NULL;
 
-    if (!inStr)
+	if (!inStr)
         return strdup("");     // return a null string
 
-    // quick path first
-    if ((str = CFStringGetCStringPtr(inStr, kCFStringEncodingUTF8))) {
+	// quick path first
+	if ((str = CFStringGetCStringPtr(inStr, kCFStringEncodingUTF8))) {
         result = strdup(str);
-    } else {
+	} else {
         // need to extract into buffer
         CFIndex length = CFStringGetLength(inStr);  // in 16-bit character units
         CFIndex bytesToAllocate = CFStringGetMaximumSizeForEncoding(length, kCFStringEncodingUTF8) + 1;
@@ -242,15 +242,17 @@ char *cfStringToChar(CFStringRef inStr)
         if (!CFStringGetCString(inStr, result, bytesToAllocate, kCFStringEncodingUTF8))
             result[0] = 0;
     }
-
-    return result;
+    
+	return result;
 }
 
 /* Oids longer than this are considered invalid. */
 #define MAX_OID_SIZE				32
 
+#ifndef NDEBUG
+/* FIXME: There are other versions of this in SecCertifcate.c and SecCertificateP.c */
 static CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator, const CSSM_OID *oid)
-{	
+{
 	if (oid->Length == 0)
         return CFSTR("<NULL>");
 
@@ -280,12 +282,13 @@ static CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocat
         /* A max number of 20 values is allowed. */
 		if (!(oid->Data[x] & 0x80))
 		{
-            CFStringAppendFormat(result, NULL, CFSTR(".%lu"), value);
+            CFStringAppendFormat(result, NULL, CFSTR(".%lu"), (unsigned long)value);
 			value = 0;
 		}
 	}
 	return result;
 }
+#endif
 
 static void debugSaveCertificates(CSSM_DATA **outCerts)
 {
@@ -432,32 +435,32 @@ static OSStatus checkForNonDERResponse(const unsigned char *resp, size_t respLen
 {
     /*
         Good start is something like 30 82 0c 03 30 15 02 01  00 30 10 0c 0e 4f 70 65
-    
+
         URL:    http://timestamp-int.corp.apple.com/signserver/process?TimeStampSigner
         Resp:   Http/1.1 Service Unavailable
-        
+
         URL:    http://timestamp-int.corp.apple.com/ts01
         Resp:   blank
-        
+
         URL:    http://cutandtaste.com/404 (or other forced 404 site)
         Resp:   404
     */
-    
+
     OSStatus status = noErr;
     const char ader[2] = { 0x30, 0x82 };
     char *respStr = NULL;
     size_t maxlen = 0;
     size_t badResponseCount;
-    
+
     const char *badResponses[] =
     {
         "<!DOCTYPE html>",
         "Http/1.1 Service Unavailable",
         "blank"
     };
-    
+
     require_action(resp && respLen, xit, status = errSecTimestampServiceNotAvailable);
-    
+
     // This is usual case
     if ((respLen > 1) && (memcmp(resp, ader, 2)==0))    // might be good; pass on to DER decoder
         return noErr;
@@ -471,14 +474,14 @@ static OSStatus checkForNonDERResponse(const unsigned char *resp, size_t respLen
     // Prevent a large response from allocating a ton of memory
     if (respLen > maxlen)
         respLen = maxlen;
-        
+
     respStr = (char *)malloc(respLen+1);
     strlcpy(respStr, (const char *)resp, respLen);
-    
+
     for (ix = 0; ix < badResponseCount; ++ix)
         if (strcmp(respStr, badResponses[ix])==0)
             return errSecTimestampServiceNotAvailable;
-        
+
 xit:
     if (respStr)
         free((void *)respStr);
@@ -487,7 +490,7 @@ xit:
 }
 
 static OSStatus sendTSARequestWithXPC(const unsigned char *tsaReq, size_t tsaReqLength, const unsigned char *tsaURL, unsigned char **tsaResp, size_t *tsaRespLength)
-{    
+{
     __block OSStatus result = noErr;
     int timeoutInSeconds = 15;
     extern xpc_object_t xpc_create_with_format(const char * format, ...);
@@ -503,7 +506,7 @@ static OSStatus sendTSARequestWithXPC(const unsigned char *tsaReq, size_t tsaReq
         if (XPC_TYPE_ERROR == xtype)
         {    tsaDebug("default: connection error: %s\n", xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION)); }
         else
-         {   tsaDebug("default: unexpected connection event %p\n", event); } 
+         {   tsaDebug("default: unexpected connection event %p\n", event); }
     });
 
     xpc_connection_resume(con);
@@ -534,14 +537,14 @@ static OSStatus sendTSARequestWithXPC(const unsigned char *tsaReq, size_t tsaReq
         free(debug);
          */
 #endif
-        
+
         xpc_object_t xpcTimeStampReply = xpc_dictionary_get_value(reply, "TimeStampReply");
         size_t xpcTSRLength = xpc_data_get_length(xpcTimeStampReply);
         tsaDebug("xpcTSRLength: %ld bytes of response\n", xpcTSRLength);
 
         xpc_object_t xpcTimeStampError = xpc_dictionary_get_value(reply, "TimeStampError");
         xpc_object_t xpcTimeStampStatus = xpc_dictionary_get_value(reply, "TimeStampStatus");
-        
+
         if (xpcTimeStampError || xpcTimeStampStatus)
         {
 #ifndef NDEBUG
@@ -561,7 +564,7 @@ static OSStatus sendTSARequestWithXPC(const unsigned char *tsaReq, size_t tsaReq
                 tsaDebug("xpcTimeStampStatus: %d\n", (int)result);
             }
         }
-        
+
         result = remapHTTPErrorCodes(result);
 
         if ((result == noErr) && tsaResp && tsaRespLength)
@@ -592,14 +595,14 @@ static OSStatus sendTSARequestWithXPC(const unsigned char *tsaReq, size_t tsaReq
         dispatch_semaphore_signal(waitSemaphore);
         dispatch_release(waitSemaphore);
     });
-    
+
     { tsaDebug("waiting up to %d seconds for response from XPC\n", timeoutInSeconds); }
 	dispatch_semaphore_wait(waitSemaphore, finishTime);
 
 	dispatch_release(waitSemaphore);
     xpc_release(tsaReqData);
     xpc_release(message);
-    
+
     { tsaDebug("sendTSARequestWithXPC exit\n"); }
 
     return result;
@@ -621,7 +624,7 @@ CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef *error)
     // Caller responsible for retain/release
     // <rdar://problem/11077440> Update SecCmsTSAGetDefaultContext with actual URL for Apple Timestamp server
     //      URL will be in TimeStampingPrefs.plist
-    
+
     CFBundleRef secFWbundle = NULL;
     CFURLRef resourceURL = NULL;
     CFDataRef resourceData = NULL;
@@ -631,7 +634,7 @@ CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef *error)
     CFOptionFlags options = 0;
     CFPropertyListFormat format = 0;
     OSStatus status = noErr;
-    
+
     require_action(secFWbundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")), xit, status = errSecInternalError);
     require_action(resourceURL = CFBundleCopyResourceURL(secFWbundle, CFSTR("TimeStampingPrefs"), CFSTR("plist"), NULL),
         xit, status = errSecInvalidPrefsDomain);
@@ -642,7 +645,7 @@ CFMutableDictionaryRef SecCmsTSAGetDefaultContext(CFErrorRef *error)
 
     prefs = CFPropertyListCreateWithData(kCFAllocatorDefault, resourceData, options, &format, error);
     require_action(prefs && (CFGetTypeID(prefs)==CFDictionaryGetTypeID()), xit, status = errSecInvalidPrefsDomain);
-    
+
     contextDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, prefs);
 
     if (error)
@@ -669,7 +672,7 @@ static CFDataRef _SecTSARequestCopyDEREncoding(SecAsn1TSAMessageImprint *message
     // Returns DER encoded TimeStampReq
     // Modeled on _SecOCSPRequestCopyDEREncoding
     // The Timestamp Authority supports 64 bit nonces (or more possibly)
-    
+
     SecAsn1CoderRef             coder = NULL;
     uint8_t                     version = 1;
     SecAsn1Item                 vers = {1, &version};
@@ -680,14 +683,14 @@ static CFDataRef _SecTSARequestCopyDEREncoding(SecAsn1TSAMessageImprint *message
     uint64_t                    nonceVal = OSSwapHostToBigConstInt64(nonce);
     SecAsn1Item                 nonceItem = {sizeof(uint64_t), (unsigned char *)&nonceVal};
 
-    uint8_t OID_FakePolicy_Data[] = { 0x2A, 0x03, 0x04, 0x05, 0x06};	
+    uint8_t OID_FakePolicy_Data[] = { 0x2A, 0x03, 0x04, 0x05, 0x06};
     const CSSM_OID fakePolicyOID = {sizeof(OID_FakePolicy_Data),OID_FakePolicy_Data};
 
     tsreq.version = vers;
 
     tsreq.messageImprint = *messageImprint;
     tsreq.certReq = certReq;
-    
+
     // skip reqPolicy, extensions for now - FAKES - jch
     tsreq.reqPolicy = fakePolicyOID;    //policyID;
 
@@ -695,7 +698,7 @@ static CFDataRef _SecTSARequestCopyDEREncoding(SecAsn1TSAMessageImprint *message
 
     // Encode the request
     require_noerr(SecAsn1CoderCreate(&coder), errOut);
-    
+
     SecAsn1Item encoded;
     require_noerr(SecAsn1EncodeItem(coder, &tsreq,
         &kSecAsn1TSATimeStampReqTemplate, &encoded), errOut);
@@ -713,7 +716,7 @@ OSStatus SecTSAResponseCopyDEREncoding(SecAsn1CoderRef coder, const CSSM_DATA *t
 {
     // Partially decode the response
     OSStatus status = paramErr;
-    
+
     require(tsaResponse && respDER, errOut);
     require_noerr(SecAsn1DecodeData(coder, tsaResponse,
         &kSecAsn1TSATimeStampRespTemplateDER, respDER), errOut);
@@ -734,10 +737,10 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
     CFDataRef cfreq = NULL;
     unsigned char *tsaURL = NULL;
     bool noCerts = false;
-    
+
     if (!context || CFGetTypeID(context)!=CFDictionaryGetTypeID())
         return paramErr;
-        
+
     SecAsn1TSAMessageImprint *messageImprint = (SecAsn1TSAMessageImprint *)messageImprintV;
     if (!messageImprint || !signedDERBlob)
         return paramErr;
@@ -764,31 +767,31 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
     {
         tsaReq = CFDataGetBytePtr(cfreq);
         tsaReqLength = CFDataGetLength(cfreq);
-        
+
 #ifndef NDEBUG
         CFShow(cfreq);
         tsaWriteFileX("/tmp/tsareq.req", tsaReq, tsaReqLength);
 #endif
     }
-    
+
     CFStringRef url = (CFStringRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSAContextKeyURL);
     if (!url)
     {
         tsaDebug("[TSA] missing URL for TSA (key: %s)\n", "kTSAContextKeyURL");
         goto xit;
     }
-    
+
     /*
         If debugging, look at special values in the context to mess things up
     */
-    
+
     CFBooleanRef cfBadReq = (CFBooleanRef)CFDictionaryGetValue((CFDictionaryRef)context, kTSADebugContextKeyBadReq);
     if (cfBadReq && CFBooleanGetValue(cfBadReq))
     {
         tsaDebug("[TSA] Forcing bad TS Request by truncating length from %ld to %ld\n", tsaReqLength, (tsaReqLength-4));
         tsaReqLength -= 4;
     }
-    
+
     // need to extract into buffer
     CFIndex length = CFStringGetLength(url);        // in 16-bit character units
     tsaURL = malloc(6 * length + 1);                // pessimistic
@@ -807,9 +810,9 @@ OSStatus SecCmsTSADefaultCallback(CFTypeRef context, void *messageImprintV, uint
 
     signedDERBlob->Data = tsaResp;
     signedDERBlob->Length = tsaRespLength;
-    
+
     result = noErr;
-    
+
 xit:
     if (tsaURL)
         free((void *)tsaURL);
@@ -826,7 +829,7 @@ static OSStatus convertGeneralizedTimeToCFAbsoluteTime(const char *timeStr, CFAb
     /*
         See http://userguide.icu-project.org/formatparse/datetime for date/time format.
         The "Z" signal a GMT time, but CFDateFormatterGetAbsoluteTimeFromString returns
-        values based on local time. 
+        values based on local time.
     */
 
     OSStatus result = noErr;
@@ -851,13 +854,13 @@ static OSStatus convertGeneralizedTimeToCFAbsoluteTime(const char *timeStr, CFAb
     }
 
 xit:
-    if (formatter) 
+    if (formatter)
         CFRelease(formatter);
-    if (time_string) 
+    if (time_string)
         CFRelease(time_string);
-    if (gmt) 
+    if (gmt)
         CFRelease(gmt);
-    
+
     return result;
 }
 
@@ -870,11 +873,11 @@ static OSStatus SecTSAValidateTimestamp(const SecAsn1TSATSTInfo *tstInfo, CSSM_D
     SecCertificateRef signingCertificate = NULL;
 
     require(tstInfo && signingCerts && (tstInfo->genTime.Length < 16), xit);
-    
+
     // Find the leaf signingCert
-    require_noerr(result = SecCertificateCreateFromData(*signingCerts, 
+    require_noerr(result = SecCertificateCreateFromData(*signingCerts,
         CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER, &signingCertificate), xit);
-    
+
     memcpy(timeStr, tstInfo->genTime.Data, tstInfo->genTime.Length);
     timeStr[tstInfo->genTime.Length] = 0;
     require_noerr(convertGeneralizedTimeToCFAbsoluteTime(timeStr, &genTime), xit);
@@ -895,12 +898,12 @@ static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content, CSSM_DATA **signingCe
 
     if (!tstInfo)
         return SECFailure;
-        
+
     require_noerr(SecAsn1CoderCreate(&coder), xit);
-    require_noerr(SecAsn1Decode(coder, content->Data, content->Length, 
+    require_noerr(SecAsn1Decode(coder, content->Data, content->Length,
 		kSecAsn1TSATSTInfoTemplate, tstInfo), xit);
     displayTSTInfo(tstInfo);
-    
+
     // Check the nonce
     if (tstInfo->nonce.Data && expectedNonce!=0)
     {
@@ -909,7 +912,7 @@ static OSStatus verifyTSTInfo(const CSSM_DATA_PTR content, CSSM_DATA **signingCe
             dtprintf("verifyTSTInfo nonce: actual: %lld, expected: %lld\n", nonce, expectedNonce);
         require_action(expectedNonce==nonce, xit, status = errSecTimestampRejection);
     }
-    
+
     status = SecTSAValidateTimestamp(tstInfo, signingCerts, timestampTime);
     dtprintf("SecTSAValidateTimestamp result: %ld\n", (long)status);
 
@@ -960,11 +963,11 @@ static void debugShowCertEvidenceInfo(uint16_t certCount, const CSSM_TP_APPLE_EV
         {
 			dtprintf(" ( ");
 			statusBitTest(cs, CSSM_CERT_STATUS_EXPIRED, "EXPIRED");
-			statusBitTest(cs, CSSM_CERT_STATUS_NOT_VALID_YET, 
+			statusBitTest(cs, CSSM_CERT_STATUS_NOT_VALID_YET,
 				"NOT_VALID_YET");
-			statusBitTest(cs, CSSM_CERT_STATUS_IS_IN_INPUT_CERTS, 
+			statusBitTest(cs, CSSM_CERT_STATUS_IS_IN_INPUT_CERTS,
 				"IS_IN_INPUT_CERTS");
-			statusBitTest(cs, CSSM_CERT_STATUS_IS_IN_ANCHORS, 
+			statusBitTest(cs, CSSM_CERT_STATUS_IS_IN_ANCHORS,
 				"IS_IN_ANCHORS");
 			statusBitTest(cs, CSSM_CERT_STATUS_IS_ROOT, "IS_ROOT");
 			statusBitTest(cs, CSSM_CERT_STATUS_IS_FROM_NET, "IS_FROM_NET");
@@ -978,7 +981,7 @@ static void debugShowCertEvidenceInfo(uint16_t certCount, const CSSM_TP_APPLE_EV
 		uint16_t jx;
         for (jx=0; pstatuscode && (jx<info->NumStatusCodes); jx++, ++pstatuscode)
             dtprintf("%s  ", cssmErrorString(*pstatuscode));
-		
+
 		dtprintf("\n");
 		dtprintf("      Index: %u\n", info->Index);
 	}
@@ -986,9 +989,9 @@ static void debugShowCertEvidenceInfo(uint16_t certCount, const CSSM_TP_APPLE_EV
 #endif
 }
 
+#ifndef NDEBUG
 static const char *trustResultTypeString(SecTrustResultType trustResultType)
 {
-#ifndef NDEBUG
     switch (trustResultType)
     {
     case kSecTrustResultProceed:                    return "TrustResultProceed";
@@ -1001,9 +1004,9 @@ static const char *trustResultTypeString(SecTrustResultType trustResultType)
     case kSecTrustResultOtherError:                 return "TrustResultOtherError";
     default:                                        return "TrustResultUnknown";
     }
-#endif
     return "";
 }
+#endif
 
 static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigners)
 {
@@ -1011,8 +1014,9 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
     // Also <rdar://problem/11077708> Properly handle revocation information of timestamping certificate
 
     SecPolicyRef policy = NULL;
-    int result, rx;
-    
+    int result=errSecInternalError;
+    int rx;
+
     require(policy = SecPolicyCreateWithOID(kSecPolicyAppleTimeStamping), xit);
     int jx;
     for (jx = 0; jx < numberOfSigners; ++jx)
@@ -1022,7 +1026,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
         CFDictionaryRef extendedResult = NULL;
         CFArrayRef certChain = NULL;
         uint16_t certCount = 0;
-        
+
         CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
 
         // SecCmsSignedDataVerifySignerInfo returns trustRef, which we can call SecTrustEvaluate on
@@ -1069,12 +1073,12 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
 			}
             break;
 		}
-    
+
         rx = SecTrustGetResult(trustRef, &trustResultType, &certChain, &statusChain);
         dtprintf("[%s] SecTrustGetResult: result: %d, type: %d\n", __FUNCTION__,rx, trustResultType);
         certCount = certChain?CFArrayGetCount(certChain):0;
         debugShowCertEvidenceInfo(certCount, statusChain);
-        
+
         rx = SecTrustCopyExtendedResult(trustRef, &extendedResult);
         dtprintf("[%s] SecTrustCopyExtendedResult: result: %d\n", __FUNCTION__, rx);
         if (extendedResult)
@@ -1082,7 +1086,7 @@ static OSStatus verifySigners(SecCmsSignedDataRef signedData, int numberOfSigner
             debugShowExtendedTrustResult(jx, extendedResult);
             CFRelease(extendedResult);
         }
-        
+
         if (trustRef)
             CFRelease (trustRef);
      }
@@ -1096,13 +1100,13 @@ xit:
 static OSStatus impExpImportCertUnCommon(
 	const CSSM_DATA		*cdata,
 	SecKeychainRef		importKeychain, // optional
-	CFMutableArrayRef	outArray)		// optional, append here 
+	CFMutableArrayRef	outArray)		// optional, append here
 {
     // The only difference between this and impExpImportCertCommon is that we append to outArray
     // before attempting to add to the keychain
 	OSStatus status = noErr;
 	SecCertificateRef certRef = NULL;
-	
+
     require_action(cdata, xit, status = errSecUnsupportedFormat);
 
 	/* Pass kCFAllocatorNull as bytesDeallocator to assure the bytes aren't freed */
@@ -1166,19 +1170,15 @@ static const char *cfabsoluteTimeToString(CFAbsoluteTime abstime)
 static OSStatus setTSALeafValidityDates(SecCmsSignerInfoRef signerinfo)
 {
     OSStatus status = noErr;
-    
+
     if (!signerinfo->timestampCertList || (CFArrayGetCount(signerinfo->timestampCertList) == 0))
         return SecCmsVSSigningCertNotFound;
-        
-    SecCertificateRef tsaLeaf = (SecCertificateRef)CFArrayGetValueAtIndex(signerinfo->timestampCertList, 0);
-    
-	CFDataRef certData = SecCertificateCopyData(tsaLeaf);
-    SecCertificateRefP certP = certData?SecCertificateCreateWithDataP(kCFAllocatorDefault, certData):NULL;
 
-    require_action(certP, xit, status = errSecCertificateCannotOperate);
-	
-    signerinfo->tsaLeafNotBefore = SecCertificateNotValidBefore(certP); /* Start date for Timestamp Authority leaf */
-    signerinfo->tsaLeafNotAfter = SecCertificateNotValidAfter(certP);   /* Expiration date for Timestamp Authority leaf */
+    SecCertificateRef tsaLeaf = (SecCertificateRef)CFArrayGetValueAtIndex(signerinfo->timestampCertList, 0);
+    require_action(tsaLeaf, xit, status = errSecCertificateCannotOperate);
+
+    signerinfo->tsaLeafNotBefore = SecCertificateNotValidBefore(tsaLeaf); /* Start date for Timestamp Authority leaf */
+    signerinfo->tsaLeafNotAfter = SecCertificateNotValidAfter(tsaLeaf);   /* Expiration date for Timestamp Authority leaf */
 
     const char *nbefore = cfabsoluteTimeToString(signerinfo->tsaLeafNotBefore);
     const char *nafter = cfabsoluteTimeToString(signerinfo->tsaLeafNotAfter);
@@ -1196,15 +1196,12 @@ static OSStatus setTSALeafValidityDates(SecCmsSignerInfoRef signerinfo)
 */
 
 xit:
-	if (certData) CFRelease(certData);
-	if (certP) CFRelease(certP);
-
     return status;
 }
 
 /*
     From RFC 3161: Time-Stamp Protocol (TSP),August 2001, APPENDIX B:
-    
+
     B) The validity of the digital signature may then be verified in the
         following way:
 
@@ -1238,7 +1235,7 @@ OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inDa
         We update signerinfo with timestamp and tsa certificate chain.
         encDigest is the original signed blob, which we must hash and compare.
         inData comes from the unAuthAttr section of the CMS message
-    
+
         These are set in signerinfo as side effects:
             timestampTime -
             timestampCertList
@@ -1254,10 +1251,9 @@ OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inDa
     OSStatus                result = errSecUnknownFormat;
     CSSM_DATA               **signingCerts = NULL;
 
-    OSStatus currentPORTErr = PORT_GetError();
-    dtprintf("decodeTimeStampToken top: PORT_GetError() %d -----\n", (int)currentPORTErr);
+    dtprintf("decodeTimeStampToken top: PORT_GetError() %d -----\n", PORT_GetError());
     PORT_SetError(0);
-    
+
     /* decode the message */
     require_noerr(result = SecCmsDecoderCreate (NULL, NULL, NULL, NULL, NULL, NULL, NULL, &decoderContext), xit);
     result = SecCmsDecoderUpdate(decoderContext, inData->Data, inData->Length);
@@ -1267,12 +1263,12 @@ OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inDa
         SecCmsDecoderDestroy(decoderContext);
         goto xit;
 	}
-	
+
     require_noerr(result = SecCmsDecoderFinish(decoderContext, &cmsMessage), xit);
 
     // process the results
     contentLevelCount = SecCmsMessageContentLevelCount(cmsMessage);
-    
+
     if (encDigest)
         printDataAsHex("encDigest",encDigest, 0);
 
@@ -1282,17 +1278,17 @@ OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inDa
         // get content information
         contentInfo = SecCmsMessageContentLevel (cmsMessage, ix);
         contentTypeTag = SecCmsContentInfoGetContentTypeTag (contentInfo);
-        
+
         // After 2nd round, contentInfo.content.data is the TSTInfo
 
         debugShowContentTypeOID(contentInfo);
-        
+
         switch (contentTypeTag)
         {
         case SEC_OID_PKCS7_SIGNED_DATA:
         {
             require((signedData = (SecCmsSignedDataRef)SecCmsContentInfoGetContent(contentInfo)) != NULL, xit);
-            
+
             debugShowSignerInfo(signedData);
 
             SECAlgorithmID **digestAlgorithms = SecCmsSignedDataGetDigestAlgs(signedData);
@@ -1349,11 +1345,11 @@ OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inDa
             result = verifySigners(signedData, numberOfSigners);
             if (result)
                 dtprintf("verifySigners failed: %ld\n", (long)result);   // warning
-                
-            
+
+
             if (result)     // remap to SecCmsVSTimestampNotTrusted ?
                 goto xit;
-                
+
             break;
         }
         case SEC_OID_PKCS9_SIGNING_CERTIFICATE:
@@ -1361,7 +1357,7 @@ OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inDa
             dtprintf("SEC_OID_PKCS9_SIGNING_CERTIFICATE seen\n");
             break;
         }
-        
+
         case SEC_OID_PKCS9_ID_CT_TSTInfo:
         {
             SecAsn1TSATSTInfo tstInfo = {{0},};
@@ -1379,8 +1375,7 @@ OSStatus decodeTimeStampToken(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR inDa
         }
         case SEC_OID_OTHER:
         {
-            char *otherContent = (char *)SecCmsContentInfoGetContent (contentInfo);
-            dtprintf("otherContent : %p\n", otherContent);
+            dtprintf("otherContent : %p\n", (char *)SecCmsContentInfoGetContent (contentInfo));
             break;
         }
         default:

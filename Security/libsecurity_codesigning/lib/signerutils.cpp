@@ -29,7 +29,7 @@
 #include "SecCodeSigner.h"
 #include <Security/SecIdentity.h>
 #include <Security/CMSEncoder.h>
-#include "renum.h"
+#include "resources.h"
 #include "csutilities.h"
 #include "drmaker.h"
 #include <security_utilities/unix++.h>
@@ -67,7 +67,7 @@ void BlobWriter::component(CodeDirectory::SpecialSlot slot, CFDataRef data)
 void DetachedBlobWriter::flush()
 {
 	EmbeddedSignatureBlob *blob = this->make();
-	signer.code->detachedSignature(makeCFData(*blob));
+	signer.code->detachedSignature(CFTempData(*blob));
 	signer.state.returnDetachedSignature(blob, signer);
 	::free(blob);
 }
@@ -171,7 +171,7 @@ void MachOEditor::allocate()
 	fork();
 	wait();
 	if (!Child::succeeded())
-		UnixError::throwMe(ENOEXEC);	//@@@ how to signal "it din' work"?
+		MacOSError::throwMe(errSecCSHelperFailed);
 	
 	// open the new (temporary) Universal file
 	{
@@ -197,9 +197,7 @@ void MachOEditor::parentAction()
 		CODESIGN_ALLOCATE_VALIDATE((char*)mHelperPath, this->pid());
 		// check code identity of an overridden allocation helper
 		SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(mHelperPath));
-		code->validateDirectory();
-		code->validateExecutable();
-		code->validateResources();
+		code->staticValidate(kSecCSDefaultFlags, NULL);
 		code->validateRequirement((const Requirement *)appleReq, errSecCSReqFailed);
 	}
 }
@@ -219,11 +217,11 @@ void MachOEditor::childAction()
 		asprintf(&ssize, "%zd", size);
 
 		if (const char *arch = it->first.name()) {
-			CODESIGN_ALLOCATE_ARCH((char*)arch, size);
+			CODESIGN_ALLOCATE_ARCH((char*)arch, (unsigned int)size);
 			arguments.push_back("-a");
 			arguments.push_back(arch);
 		} else {
-			CODESIGN_ALLOCATE_ARCHN(it->first.cpuType(), it->first.cpuSubtype(), size);
+			CODESIGN_ALLOCATE_ARCHN(it->first.cpuType(), it->first.cpuSubtype(), (unsigned int)size);
 			arguments.push_back("-A");
 			char *anum;
 			asprintf(&anum, "%d", it->first.cpuType());
@@ -257,7 +255,7 @@ void MachOEditor::write(Arch &arch, EmbeddedSignatureBlob *blob)
 {
 	if (size_t offset = arch.source->signingOffset()) {
 		size_t signingLength = arch.source->signingLength();
-		CODESIGN_ALLOCATE_WRITE((char*)arch.architecture.name(), offset, blob->length(), signingLength);
+		CODESIGN_ALLOCATE_WRITE((char*)arch.architecture.name(), offset, (unsigned)blob->length(), (unsigned)signingLength);
 		if (signingLength < blob->length())
 			MacOSError::throwMe(errSecCSCMSTooLarge);
 		arch.source->seek(offset);

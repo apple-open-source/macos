@@ -57,6 +57,7 @@
 
 #include <sys/cdefs.h>
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -116,8 +117,7 @@ static struct dirTodoNode *newDirTodo __P((void));
 static void freeDirTodo __P((struct dirTodoNode *));
 static char *fullpath __P((struct dosDirEntry *));
 static u_char calcShortSum __P((u_char *));
-static int delete __P((int, struct bootblock *, cl_t, int,
-    cl_t, int, int));
+static int delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl, size_t endoff, int notlast);
 static int msdosfs_removede __P((int, struct bootblock *, u_char *,
     u_char *, cl_t, cl_t, cl_t, char *, int));
 static int checksize __P((struct bootblock *, u_char *, struct dosDirEntry *));
@@ -189,7 +189,7 @@ fullpath(dir)
 {
 	static char namebuf[MAXPATHLEN + 1];
 	char *cp, *np;
-	int nl;
+	size_t nl;
 
 	/*
 	 * The loop below returns the empty string for the root directory.
@@ -424,17 +424,20 @@ finishDosDirSection()
 }
 
 /*
- * Delete directory entries between startcl, startoff and endcl, endoff.
+ * Delete a range of directory entries.
+ *
+ * Inputs:
+ *  fd          File descriptor.
+ *  startcl     Cluster number containing first directory entry.
+ *  startoff    Offset within cluster of first directory entry.
+ *  endcl       Cluster number containing last directory entry.
+ *  endoff      Offset within cluster beyond last byte of last directory entry.
+ *  notlast     If true, don't delete the directory entries in the last cluster
+ *              (endcl); the caller already has that cluster in memory and will
+ *              update those entries itself.
  */
 static int
-delete(f, boot, startcl, startoff, endcl, endoff, notlast)
-	int f;
-	struct bootblock *boot;
-	cl_t startcl;
-	int startoff;
-	cl_t endcl;
-	int endoff;
-	int notlast;
+delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl, size_t endoff, int notlast)
 {
 	u_char *s, *e;
 	off_t off;
@@ -450,8 +453,8 @@ delete(f, boot, startcl, startoff, endcl, endoff, notlast)
 		}
 		off = startcl * boot->SecPerClust + boot->ClusterOffset;
 		off *= boot->BytesPerSec;
-		if (lseek(f, off, SEEK_SET) != off
-		    || read(f, delbuf, clsz) != clsz) {
+		if (lseek(fd, off, SEEK_SET) != off
+		    || read(fd, delbuf, clsz) != clsz) {
 			perr("Unable to read directory");
 			return FSFATAL;
 		}
@@ -459,8 +462,8 @@ delete(f, boot, startcl, startoff, endcl, endoff, notlast)
 			*s = SLOT_DELETED;
 			s += 32;
 		}
-		if (lseek(f, off, SEEK_SET) != off
-		    || write(f, delbuf, clsz) != clsz) {
+		if (lseek(fd, off, SEEK_SET) != off
+		    || write(fd, delbuf, clsz) != clsz) {
 			perr("Unable to write directory");
 			return FSFATAL;
 		}
@@ -534,7 +537,7 @@ checksize(boot, p, dir)
 		pwarn("size of %s is %u, should at most be %llu\n",
 		      fullpath(dir), dir->size, dir->physicalSize);
 		if (ask(1, "Truncate")) {
-			dir->size = dir->physicalSize;
+			dir->size = (uint32_t)dir->physicalSize;
 			p[28] = (u_char)dir->physicalSize;
 			p[29] = (u_char)(dir->physicalSize >> 8);
 			p[30] = (u_char)(dir->physicalSize >> 16);

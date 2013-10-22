@@ -47,6 +47,21 @@
 #       endif
 #endif
 
+#ifndef __has_extension
+#define __has_extension(x) 0
+#endif
+
+#ifndef GSSKRB_APPLE_DEPRECATED
+#if __has_extension(attribute_deprecated_with_message)
+#define GSSKRB_APPLE_DEPRECATED(x) __attribute__((deprecated(x)))
+#else
+#if !defined(__GNUC__) && !defined(__attribute__)
+#define __attribute__(x)
+#endif
+#define GSSKRB_APPLE_DEPRECATED(x) __attribute__((deprecated))
+#endif
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
@@ -435,12 +450,12 @@ gss_acquire_cred(
     gss_cred_usage_t,   /* cred_usage */
     gss_cred_id_t *,    /* output_cred_handle */
     gss_OID_set *,      /* actual_mechs */
-    OM_uint32 *);       /* time_rec */
+    OM_uint32 *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");       /* time_rec */
 
 OM_uint32 KRB5_CALLCONV
 gss_release_cred(
     OM_uint32 *,        /* minor_status */
-    gss_cred_id_t *);   /* cred_handle */
+    gss_cred_id_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");   /* cred_handle */
 
 OM_uint32 KRB5_CALLCONV
 gss_init_sec_context(
@@ -456,7 +471,7 @@ gss_init_sec_context(
     gss_OID *,          /* actual_mech_type */
     gss_buffer_t,       /* output_token */
     OM_uint32 *,        /* ret_flags */
-    OM_uint32 *);       /* time_rec */
+    OM_uint32 *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");       /* time_rec */
 
 OM_uint32 KRB5_CALLCONV
 gss_accept_sec_context(
@@ -470,27 +485,27 @@ gss_accept_sec_context(
     gss_buffer_t,               /* output_token */
     OM_uint32 *,                /* ret_flags */
     OM_uint32 *,                /* time_rec */
-    gss_cred_id_t *);           /* delegated_cred_handle */
+    gss_cred_id_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");           /* delegated_cred_handle */
 
 OM_uint32 KRB5_CALLCONV
 gss_process_context_token(
     OM_uint32 *,        /* minor_status */
     gss_ctx_id_t,       /* context_handle */
-    gss_buffer_t);      /* token_buffer */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* token_buffer */
 
 
 OM_uint32 KRB5_CALLCONV
 gss_delete_sec_context(
     OM_uint32 *,        /* minor_status */
     gss_ctx_id_t *,     /* context_handle */
-    gss_buffer_t);      /* output_token */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* output_token */
 
 
 OM_uint32 KRB5_CALLCONV
 gss_context_time(
     OM_uint32 *,        /* minor_status */
     gss_ctx_id_t,       /* context_handle */
-    OM_uint32 *);       /* time_rec */
+    OM_uint32 *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");       /* time_rec */
 
 
 /* New for V2 */
@@ -500,7 +515,7 @@ gss_get_mic(
     gss_ctx_id_t,       /* context_handle */
     gss_qop_t,          /* qop_req */
     gss_buffer_t,       /* message_buffer */
-    gss_buffer_t);      /* message_token */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* message_token */
 
 
 /* New for V2 */
@@ -510,7 +525,7 @@ gss_verify_mic(OM_uint32 *,     /* minor_status */
                gss_buffer_t,    /* message_buffer */
                gss_buffer_t,    /* message_token */
                gss_qop_t *      /* qop_state */
-);
+) GSSKRB_APPLE_DEPRECATED("use GSS.framework");
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -521,7 +536,7 @@ gss_wrap(
     gss_qop_t,          /* qop_req */
     gss_buffer_t,       /* input_message_buffer */
     int *,              /* conf_state */
-    gss_buffer_t);      /* output_message_buffer */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* output_message_buffer */
 
 
 /* New for V2 */
@@ -532,7 +547,7 @@ gss_unwrap(
     gss_buffer_t,       /* input_message_buffer */
     gss_buffer_t,       /* output_message_buffer */
     int *,              /* conf_state */
-    gss_qop_t *);       /* qop_state */
+    gss_qop_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");       /* qop_state */
 
 
 OM_uint32 KRB5_CALLCONV
@@ -542,13 +557,13 @@ gss_display_status(
     int,                /* status_type */
     gss_OID,            /* mech_type (used to be const) */
     OM_uint32 *,        /* message_context */
-    gss_buffer_t);      /* status_string */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* status_string */
 
 
 OM_uint32 KRB5_CALLCONV
 gss_indicate_mechs(
     OM_uint32 *,        /* minor_status */
-    gss_OID_set *);     /* mech_set */
+    gss_OID_set *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");     /* mech_set */
 
 
 OM_uint32 KRB5_CALLCONV
@@ -556,7 +571,7 @@ gss_compare_name(
     OM_uint32 *,        /* minor_status */
     gss_name_t,         /* name1 */
     gss_name_t,         /* name2 */
-    int *);             /* name_equal */
+    int *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");             /* name_equal */
 
 
 OM_uint32 KRB5_CALLCONV
@@ -564,7 +579,7 @@ gss_display_name(
     OM_uint32 *,        /* minor_status */
     gss_name_t,         /* input_name */
     gss_buffer_t,       /* output_name_buffer */
-    gss_OID *);         /* output_name_type */
+    gss_OID *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");         /* output_name_type */
 
 
 OM_uint32 KRB5_CALLCONV
@@ -572,22 +587,22 @@ gss_import_name(
     OM_uint32 *,        /* minor_status */
     gss_buffer_t,       /* input_name_buffer */
     gss_OID,            /* input_name_type(used to be const) */
-    gss_name_t *);      /* output_name */
+    gss_name_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* output_name */
 
 OM_uint32 KRB5_CALLCONV
 gss_release_name(
     OM_uint32 *,        /* minor_status */
-    gss_name_t *);      /* input_name */
+    gss_name_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* input_name */
 
 OM_uint32 KRB5_CALLCONV
 gss_release_buffer(
     OM_uint32 *,        /* minor_status */
-    gss_buffer_t);      /* buffer */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* buffer */
 
 OM_uint32 KRB5_CALLCONV
 gss_release_oid_set(
     OM_uint32 *,        /* minor_status */
-    gss_OID_set *);     /* set */
+    gss_OID_set *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");     /* set */
 
 OM_uint32 KRB5_CALLCONV
 gss_inquire_cred(
@@ -596,7 +611,7 @@ gss_inquire_cred(
     gss_name_t *,       /* name */
     OM_uint32 *,        /* lifetime */
     gss_cred_usage_t *, /* cred_usage */
-    gss_OID_set *);     /* mechanisms */
+    gss_OID_set *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");     /* mechanisms */
 
 /* Last argument new for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -609,7 +624,7 @@ gss_inquire_context(
     gss_OID *,          /* mech_type */
     OM_uint32 *,        /* ctx_flags */
     int *,              /* locally_initiated */
-    int *);             /* open */
+    int *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");             /* open */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -619,7 +634,7 @@ gss_wrap_size_limit(
     int,                /* conf_req_flag */
     gss_qop_t,          /* qop_req */
     OM_uint32,          /* req_output_size */
-    OM_uint32 *);       /* max_input_size */
+    OM_uint32 *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");       /* max_input_size */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -627,7 +642,7 @@ gss_import_name_object(
     OM_uint32 *,        /* minor_status */
     void *,             /* input_name */
     gss_OID,            /* input_name_type */
-    gss_name_t *);      /* output_name */
+    gss_name_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* output_name */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -635,7 +650,7 @@ gss_export_name_object(
     OM_uint32 *,        /* minor_status */
     gss_name_t,         /* input_name */
     gss_OID,            /* desired_name_type */
-    void **);           /* output_name */
+    void **) GSSKRB_APPLE_DEPRECATED("use GSS.framework");           /* output_name */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -650,7 +665,7 @@ gss_add_cred(
     gss_cred_id_t *,    /* output_cred_handle */
     gss_OID_set *,      /* actual_mechs */
     OM_uint32 *,        /* initiator_time_rec */
-    OM_uint32 *);       /* acceptor_time_rec */
+    OM_uint32 *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");       /* acceptor_time_rec */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -661,40 +676,40 @@ gss_inquire_cred_by_mech(
     gss_name_t *,               /* name */
     OM_uint32 *,                /* initiator_lifetime */
     OM_uint32 *,                /* acceptor_lifetime */
-    gss_cred_usage_t *);        /* cred_usage */
+    gss_cred_usage_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");        /* cred_usage */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_export_sec_context(
     OM_uint32 *,        /* minor_status */
     gss_ctx_id_t *,     /* context_handle */
-    gss_buffer_t);      /* interprocess_token */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* interprocess_token */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_import_sec_context(
     OM_uint32 *,        /* minor_status */
     gss_buffer_t,       /* interprocess_token */
-    gss_ctx_id_t *);    /* context_handle */
+    gss_ctx_id_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");    /* context_handle */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_release_oid(
     OM_uint32 *,        /* minor_status */
-    gss_OID *);         /* oid */
+    gss_OID *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");         /* oid */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_create_empty_oid_set(
     OM_uint32 *,        /* minor_status */
-    gss_OID_set *);     /* oid_set */
+    gss_OID_set *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");     /* oid_set */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_add_oid_set_member(
     OM_uint32 *,        /* minor_status */
     gss_OID,            /* member_oid */
-    gss_OID_set *);     /* oid_set */
+    gss_OID_set *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");     /* oid_set */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -702,35 +717,35 @@ gss_test_oid_set_member(
     OM_uint32 *,        /* minor_status */
     gss_OID,            /* member */
     gss_OID_set,        /* set */
-    int *);             /* present */
+    int *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");             /* present */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_str_to_oid(
     OM_uint32 *,        /* minor_status */
     gss_buffer_t,       /* oid_str */
-    gss_OID *);         /* oid */
+    gss_OID *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");         /* oid */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_oid_to_str(
     OM_uint32 *,        /* minor_status */
     gss_OID,            /* oid */
-    gss_buffer_t);      /* oid_str */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* oid_str */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_inquire_names_for_mech(
     OM_uint32 *,        /* minor_status */
     gss_OID,            /* mechanism */
-    gss_OID_set *);     /* name_types */
+    gss_OID_set *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");     /* name_types */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_inquire_mechs_for_name(
     OM_uint32 *,        /* minor_status */
     const gss_name_t,   /* input_name */
-    gss_OID_set *);     /* mech_types */
+    gss_OID_set *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");     /* mech_types */
 
 /*
  * The following routines are obsolete variants of gss_get_mic, gss_wrap,
@@ -745,7 +760,7 @@ gss_sign(
     gss_ctx_id_t,       /* context_handle */
     int,                /* qop_req */
     gss_buffer_t,       /* message_buffer */
-    gss_buffer_t);      /* message_token */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* message_token */
 
 OM_uint32 KRB5_CALLCONV
 gss_verify(
@@ -753,7 +768,7 @@ gss_verify(
     gss_ctx_id_t,       /* context_handle */
     gss_buffer_t,       /* message_buffer */
     gss_buffer_t,       /* token_buffer */
-    int *);             /* qop_state */
+    int *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");             /* qop_state */
 
 OM_uint32 KRB5_CALLCONV
 gss_seal(
@@ -763,7 +778,7 @@ gss_seal(
     int,                /* qop_req */
     gss_buffer_t,       /* input_message_buffer */
     int *,              /* conf_state */
-    gss_buffer_t);      /* output_message_buffer */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* output_message_buffer */
 
 OM_uint32 KRB5_CALLCONV
 gss_unseal(
@@ -772,21 +787,21 @@ gss_unseal(
     gss_buffer_t,       /* input_message_buffer */
     gss_buffer_t,       /* output_message_buffer */
     int *,              /* conf_state */
-    int *);             /* qop_state */
+    int *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");             /* qop_state */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_export_name(
     OM_uint32  *,       /* minor_status */
     const gss_name_t,   /* input_name */
-    gss_buffer_t);      /* exported_name */
+    gss_buffer_t) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* exported_name */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
 gss_duplicate_name(
     OM_uint32  *,       /* minor_status */
     const gss_name_t,   /* input_name */
-    gss_name_t *);      /* dest_name */
+    gss_name_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* dest_name */
 
 /* New for V2 */
 OM_uint32 KRB5_CALLCONV
@@ -794,7 +809,7 @@ gss_canonicalize_name(
     OM_uint32  *,       /* minor_status */
     const gss_name_t,   /* input_name */
     const gss_OID,      /* mech_type */
-    gss_name_t *);      /* output_name */
+    gss_name_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework");      /* output_name */
 
 #if TARGET_OS_MAC
 #    pragma pack(pop)

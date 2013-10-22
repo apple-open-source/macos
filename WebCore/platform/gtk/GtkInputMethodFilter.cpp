@@ -66,10 +66,31 @@ void GtkInputMethodFilter::setWidget(GtkWidget* widget)
     ASSERT(!m_widget);
 
     m_widget = widget;
-    if (GdkWindow* window = gtk_widget_get_window(m_widget))
+    if (gtk_widget_get_window(m_widget))
         handleWidgetRealize(m_widget, this);
     else
         g_signal_connect_after(widget, "realize", G_CALLBACK(handleWidgetRealize), this);
+}
+
+void GtkInputMethodFilter::setCursorRect(const IntRect& cursorRect)
+{
+    // Don't move the window unless the cursor actually moves more than 10
+    // pixels. This prevents us from making the window flash during minor
+    // cursor adjustments.
+    static const int windowMovementThreshold = 10 * 10;
+    if (cursorRect.location().distanceSquaredToPoint(m_lastCareLocation) < windowMovementThreshold)
+        return;
+
+    m_lastCareLocation = cursorRect.location();
+    IntRect translatedRect = cursorRect;
+
+    ASSERT(m_widget);
+    GtkAllocation allocation;
+    gtk_widget_get_allocation(m_widget, &allocation);
+    translatedRect.move(allocation.x, allocation.y);
+
+    GdkRectangle gdkCursorRect = cursorRect;
+    gtk_im_context_set_cursor_location(m_context.get(), &gdkCursorRect);
 }
 
 GtkInputMethodFilter::GtkInputMethodFilter()
@@ -185,8 +206,9 @@ void GtkInputMethodFilter::notifyMouseButtonPress()
     // Confirming the composition may trigger a selection change, which
     // might trigger further unwanted actions on the context, so we prevent
     // that by setting m_composingTextCurrently to false.
+    if (m_composingTextCurrently)
+        confirmCurrentComposition();
     m_composingTextCurrently = false;
-    confirmCurrentComposition();
     cancelContextComposition();
 }
 
@@ -227,8 +249,8 @@ void GtkInputMethodFilter::notifyFocusedOut()
     if (!m_enabled)
         return;
 
-    m_composingTextCurrently = false;
-    confirmCurrentComposition();
+    if (m_composingTextCurrently)
+        confirmCurrentComposition();
     cancelContextComposition();
     gtk_im_context_focus_out(m_context.get());
     m_enabled = false;
@@ -251,13 +273,14 @@ void GtkInputMethodFilter::sendCompositionAndPreeditWithFakeKeyEvents(ResultsToS
     GOwnPtr<GdkEvent> event(gdk_event_new(GDK_KEY_PRESS));
     event->key.time = GDK_CURRENT_TIME;
     event->key.keyval = gCompositionEventKeyCode;
-    sendKeyEventWithCompositionResults(&event->key, resultsToSend);
+    sendKeyEventWithCompositionResults(&event->key, resultsToSend, EventFaked);
 
     m_confirmedComposition = String();
-    m_composingTextCurrently = false;
+    if (resultsToSend & Composition)
+        m_composingTextCurrently = false;
 
     event->type = GDK_KEY_RELEASE;
-    sendSimpleKeyEvent(&event->key);
+    sendSimpleKeyEvent(&event->key, String(), EventFaked);
     m_justSentFakeKeyUp = true;
 }
 
@@ -271,7 +294,7 @@ void GtkInputMethodFilter::handleCommit(const char* compositionString)
     if (!m_enabled)
         return;
 
-    m_confirmedComposition += String::fromUTF8(compositionString);
+    m_confirmedComposition.append(String::fromUTF8(compositionString));
 
     // If the commit was triggered outside of a key event, just send
     // the IME event now. If we are handling a key event, we'll decide

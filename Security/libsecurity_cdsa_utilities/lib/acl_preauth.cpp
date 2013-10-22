@@ -171,7 +171,7 @@ bool SourceAclSubject::SourceAclSubject::validate(const AclValidationContext &ba
 			CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
 		uint32 slot = CSSM_ACL_AUTHORIZATION_PREAUTH_SLOT(auth);
 		secdebug("preauth", "using state %d@%p", slot, &env->store(this));
-		bool &accepted = env->store(this).attachment<AclState>((void *)slot).accepted;
+		bool &accepted = env->store(this).attachment<AclState>((void *)((size_t) slot)).accepted;
 		if (!accepted) {
 			secdebug("preauth", "%p needs to authenticate its subject", this);
 			SourceValidationContext ctx(baseCtx);

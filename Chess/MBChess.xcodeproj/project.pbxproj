@@ -343,14 +343,14 @@
 		95D2026304C2247B00590F98 /* MBCLanguageModel.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCLanguageModel.mm; path = Sources/MBCLanguageModel.mm; sourceTree = "<group>"; };
 		95D4D51A1327E29E0063FA06 /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Spoken.strings; sourceTree = "<group>"; };
 		95D6CE63045BBDBE0045D5FC /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
-		95D8520E13E710190045366C /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/Board.xib; sourceTree = "<group>"; };
-		95D8521513E710B80045366C /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/About.xib; sourceTree = "<group>"; };
-		95D8521713E710B80045366C /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		95DEC3D81488581300E1305A /* Chess.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Chess.entitlements; sourceTree = "<group>"; };
 		95E9EE6D045797010091A3D7 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = English; path = sjeng/English.lproj/COPYING; sourceTree = "<group>"; };
 		95ECDE261491C5B100DFD47B /* container-migration.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "container-migration.plist"; path = "Resources/container-migration.plist"; sourceTree = "<group>"; };
 		95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewAccessibility.h; path = Sources/MBCBoardViewAccessibility.h; sourceTree = "<group>"; };
 		95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewAccessibility.mm; path = Sources/MBCBoardViewAccessibility.mm; sourceTree = "<group>"; };
+		CA51FF1E1768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/Board.xib; sourceTree = "<group>"; };
+		CA51FF1F1768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/About.xib; sourceTree = "<group>"; };
+		CA51FF201768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		F505DC4103032B9F01F7F1A0 /* MBCEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngine.h; path = Sources/MBCEngine.h; sourceTree = "<group>"; };
 		F505DC4203032B9F01F7F1A0 /* MBCEngine.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCEngine.mm; path = Sources/MBCEngine.mm; sourceTree = "<group>"; };
 		F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewDraw.h; path = Sources/MBCBoardViewDraw.h; sourceTree = "<group>"; };
@@ -884,6 +884,7 @@
 				Japanese,
 				French,
 				German,
+				Base,
 			);
 			mainGroup = 29B97314FDCFA39411CA2CEA /* MBChess */;
 			projectDirPath = "";
@@ -1145,7 +1146,7 @@
 		95D8520D13E710190045366C /* Board.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				95D8520E13E710190045366C /* English */,
+				CA51FF1E1768EBCE00C0EFD7 /* Base */,
 			);
 			name = Board.xib;
 			sourceTree = "<group>";
@@ -1153,7 +1154,7 @@
 		95D8521413E710B80045366C /* About.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				95D8521513E710B80045366C /* English */,
+				CA51FF1F1768EBCE00C0EFD7 /* Base */,
 			);
 			name = About.xib;
 			sourceTree = "<group>";
@@ -1161,7 +1162,7 @@
 		95D8521613E710B80045366C /* MainMenu.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				95D8521713E710B80045366C /* English */,
+				CA51FF201768EBCE00C0EFD7 /* Base */,
 			);
 			name = MainMenu.xib;
 			sourceTree = "<group>";
@@ -1174,7 +1175,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
-				CODE_SIGN_IDENTITY = "Mac Developer";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1210,7 +1211,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
-				CODE_SIGN_IDENTITY = "3rd Party Mac Developer Application";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1243,7 +1244,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1262,6 +1263,7 @@
 					1000,
 				);
 				PRODUCT_NAME = Chess;
+				PROVISIONING_PROFILE = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

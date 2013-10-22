@@ -29,7 +29,6 @@
 #include <kern/locks.h>
 
 #include <net/if_types.h>
-#include <net/route.h>
 #include <net/dlil.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
@@ -52,34 +51,21 @@ Definitions
 Declarations
 ----------------------------------------------------------------------------- */
 
-void	pptp_ip_input(mbuf_t , int len);
+mbuf_t 	pptp_ip_input(mbuf_t , int len, int other);
 
 /* -----------------------------------------------------------------------------
 Globals
 ----------------------------------------------------------------------------- */
 
-struct protosw 	gre_pr, *old_pr;
-
-extern lck_mtx_t	*ip_mutex;
 extern lck_mtx_t	*ppp_domain_mutex;
-extern lck_mtx_t	*inet_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 intialize pptp datalink attachment strutures
 ----------------------------------------------------------------------------- */
 int pptp_ip_init()
 {
-
-    bzero(&gre_pr, sizeof(gre_pr));
-    gre_pr.pr_input = (void	(*)(struct mbuf *, int))pptp_ip_input;
-    gre_pr.pr_flags = PR_PROTOLOCK;
-	lck_mtx_unlock(ppp_domain_mutex);
-	lck_mtx_lock(ip_mutex);
-    old_pr = ip_protox[IPPROTO_GRE];
-    ip_protox[IPPROTO_GRE] = &gre_pr;
-	lck_mtx_unlock(ip_mutex);
-	lck_mtx_lock(ppp_domain_mutex);
-    return 0;
+	ip_gre_register_input((gre_input_func_t)pptp_ip_input);
+	return 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -88,20 +74,16 @@ can't dispose if clients are still attached
 ----------------------------------------------------------------------------- */
 int pptp_ip_dispose()
 {
-	lck_mtx_unlock(ppp_domain_mutex);
-	lck_mtx_lock(ip_mutex);
-    ip_protox[IPPROTO_GRE] = old_pr;
-	lck_mtx_unlock(ip_mutex);
-	lck_mtx_lock(ppp_domain_mutex);
-    return 0;
+	ip_gre_register_input(NULL);
+	return 0;
 }
 
 /* -----------------------------------------------------------------------------
 callback from ip
 ----------------------------------------------------------------------------- */
-void pptp_ip_input(mbuf_t m, int len)
+mbuf_t pptp_ip_input(mbuf_t m, int len, int other)
 {
-    struct ip 		*ip;
+    struct ip 		*ip, ip_data;
     u_int32_t 		from;
 	int				success;
 
@@ -115,17 +97,8 @@ void pptp_ip_input(mbuf_t m, int len)
     }
 #endif
 
-	if (mbuf_len(m) < sizeof(struct ip) && 
-		mbuf_pullup(&m, sizeof(struct ip))) {
-			if (m) {
-				mbuf_freem(m);
-				m = NULL;
-			}
-			IOLog("pptp_ip_input: cannot pullup ip header\n");
-			return;
-	}
-
-    ip = mbuf_data(m);
+    ip = &ip_data; 
+    memcpy(ip, mbuf_data(m), sizeof(ip_data));
     from = ip->ip_src.s_addr;
 
     /* remove the IP header */
@@ -135,16 +108,9 @@ void pptp_ip_input(mbuf_t m, int len)
     success = pptp_rfc_lower_input(m, from);
 	lck_mtx_unlock(ppp_domain_mutex);
 	if (success)
-        return;
+        return NULL;
 	
-    // the packet was not for us, just call the old hook
-	
-	if (!((*old_pr).pr_flags & PR_PROTOLOCK)) {
-		lck_mtx_lock(inet_domain_mutex);
-		(*old_pr).pr_input((struct mbuf *)m, len);
-		lck_mtx_unlock(inet_domain_mutex);
-	} else
-		(*old_pr).pr_input((struct mbuf *)m, len);
+	return m;
 }
 
 /* -----------------------------------------------------------------------------
@@ -152,8 +118,7 @@ called from pppenet_proto when data need to be sent
 ----------------------------------------------------------------------------- */
 int pptp_ip_output(mbuf_t m, u_int32_t from, u_int32_t to)
 {
-    struct route ro;
-    struct ip 	*ip;
+    struct ip 	*ip, ip_data;
 
 #if 0
     u_int8_t 	*d, i;
@@ -169,7 +134,8 @@ int pptp_ip_output(mbuf_t m, u_int32_t from, u_int32_t to)
     if (mbuf_prepend(&m, sizeof(struct ip), MBUF_WAITOK) != 0)
         return 1;
         
-    ip = mbuf_data(m);
+    ip = &ip_data; 
+    memcpy(ip, mbuf_data(m), sizeof(ip_data));
     ip->ip_tos = 0;
     ip->ip_off = 0;
     ip->ip_p = IPPROTO_GRE;
@@ -177,15 +143,12 @@ int pptp_ip_output(mbuf_t m, u_int32_t from, u_int32_t to)
     ip->ip_src.s_addr = from;
     ip->ip_dst.s_addr = to;
     ip->ip_ttl = MAXTTL;
+    memcpy(mbuf_data(m), ip, sizeof(ip_data));
  
-    bzero(&ro, sizeof(ro));
 	lck_mtx_unlock(ppp_domain_mutex);
-    ip_output((struct mbuf *)m, 0, &ro, 0, 0, 0);
+    ip_gre_output((struct mbuf *)m);
 	lck_mtx_lock(ppp_domain_mutex);
-	if (ro.ro_rt != NULL) {
-		rtfree(ro.ro_rt);
-		ro.ro_rt = NULL;
-	}
+
     return 0;
 }
 

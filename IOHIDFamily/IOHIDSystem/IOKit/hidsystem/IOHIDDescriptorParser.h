@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -26,9 +26,6 @@
 #include <TargetConditionals.h>
 #include <IOKit/IOTypes.h>
 #include <IOKit/hidsystem/IOHIDUsageTables.h>
-#if !TARGET_OS_EMBEDDED
-    #include <IOKit/ndrvsupport/IOMacOSTypes.h>
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,7 +38,6 @@ typedef UInt8		Byte;
 typedef SInt8		SignedByte;
 typedef unsigned long	FourCharCode;
 typedef FourCharCode	OSType;
-typedef UInt32		ByteCount;
 
 enum {
 	noErr	= 0
@@ -146,27 +142,27 @@ typedef struct HIDUsageAndPage HIDUsageAndPage, *HIDUsageAndPagePtr;
  */
 struct HIDCaps
 {
-	HIDUsage	usage;
-	HIDUsage	usagePage;
-	ByteCount	inputReportByteLength;
-	ByteCount	outputReportByteLength;
-	ByteCount	featureReportByteLength;
-	UInt32		numberCollectionNodes;
-	UInt32		numberInputButtonCaps;
-	UInt32		numberInputValueCaps;
-	UInt32		numberOutputButtonCaps;
-	UInt32		numberOutputValueCaps;
-	UInt32		numberFeatureButtonCaps;
-	UInt32		numberFeatureValueCaps;
+	HIDUsage		usage;
+	HIDUsage		usagePage;
+	IOByteCount		inputReportByteLength;
+	IOByteCount		outputReportByteLength;
+	IOByteCount		featureReportByteLength;
+	UInt32			numberCollectionNodes;
+	UInt32			numberInputButtonCaps;
+	UInt32			numberInputValueCaps;
+	UInt32			numberOutputButtonCaps;
+	UInt32			numberOutputValueCaps;
+	UInt32			numberFeatureButtonCaps;
+	UInt32			numberFeatureValueCaps;
 };
 typedef struct HIDCaps HIDCaps, * HIDCapsPtr;
 
 struct HIDCapabilities {
     HIDUsage                        usage;
     HIDUsage                        usagePage;
-    ByteCount                       inputReportByteLength;
-    ByteCount                       outputReportByteLength;
-    ByteCount                       featureReportByteLength;
+    IOByteCount						inputReportByteLength;
+    IOByteCount						outputReportByteLength;
+    IOByteCount						featureReportByteLength;
     UInt32                          numberCollectionNodes;
     UInt32                          numberInputButtonCaps;
     UInt32                          numberInputValueCaps;
@@ -383,7 +379,7 @@ typedef struct HIDValueCapabilities HIDValueCapabilities, * HIDValueCapabilities
 extern 
 OSStatus
 HIDOpenReportDescriptor	   (void *					hidReportDescriptor,
-							ByteCount				descriptorLength,
+							IOByteCount				descriptorLength,
 							HIDPreparsedDataRef *	preparsedDataRef,
 							UInt32					flags);
 
@@ -499,7 +495,7 @@ HIDGetScaledUsageValue	   (HIDReportType			reportType,
 							SInt32 *				usageValue,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 /*!
   @function HIDGetSpecificButtonCaps
@@ -620,7 +616,7 @@ HIDGetButtonsOnPage		   (HIDReportType			reportType,
 							UInt32 *				usageListSize,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 /*!
   @function HIDGetButtons
@@ -643,7 +639,7 @@ HIDGetButtons			   (HIDReportType			reportType,
 							UInt32 *				usageListSize,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 extern 
 OSStatus
@@ -665,10 +661,10 @@ HIDGetNextUsageValueInfo   (HIDReportType          reportType,
 
 extern 
 OSStatus
-HIDGetReportLength         (HIDReportType          reportType,
-                            UInt8                  reportID,
-                            ByteCount *            reportLength,
-                            HIDPreparsedDataRef    preparsedDataRef);
+HIDGetReportLength         (HIDReportType          	reportType,
+                            UInt8                  	reportID,
+                            IOByteCount		   		*reportLength,
+                            HIDPreparsedDataRef    	preparsedDataRef);
 
 /*!
   @function HIDGetUsageValue
@@ -694,7 +690,7 @@ HIDGetUsageValue		   (HIDReportType			reportType,
 							SInt32 *				usageValue,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 /*!
   @function HIDGetUsageValueArray
@@ -718,11 +714,11 @@ HIDGetUsageValueArray	   (HIDReportType			reportType,
 							HIDUsage				usagePage,
 							UInt32					collection,
 							HIDUsage				usage,
-							Byte *					usageValueBuffer,
-							ByteCount				usageValueBufferSize,
+							UInt8 *					usageValueBuffer,
+							IOByteCount				usageValueBufferSize,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 /*!
   @function HIDGetValueCaps
@@ -766,7 +762,7 @@ HIDInitReport              (HIDReportType          reportType,
                             UInt8                  reportID,
                             HIDPreparsedDataRef    preparsedDataRef,
                             void *                 report,
-                            ByteCount              reportLength);
+                            IOByteCount      	   reportLength);
 
 /*!
   @function HIDMaxUsageListLength
@@ -807,7 +803,7 @@ HIDSetScaledUsageValue	   (HIDReportType			reportType,
 							SInt32					usageValue,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 /*!
   @function HIDSetButtons
@@ -832,7 +828,7 @@ HIDSetButtons			   (HIDReportType			reportType,
 							UInt32 *				usageListSize,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 /*!
   @function HIDSetUsageValue
@@ -858,7 +854,7 @@ HIDSetUsageValue		   (HIDReportType			reportType,
 							SInt32					usageValue,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 /*!
   @function HIDSetUsageValueArray
@@ -882,11 +878,11 @@ HIDSetUsageValueArray	   (HIDReportType			reportType,
 							HIDUsage				usagePage,
 							UInt32					collection,
 							HIDUsage				usage,
-							Byte *					usageValueBuffer,
-							ByteCount				usageValueBufferLength,
+							UInt8 *					usageValueBuffer,
+							IOByteCount				usageValueBufferLength,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 /*!
   @function HIDUsageListDifference
@@ -928,7 +924,7 @@ HIDSetButton			   (HIDReportType			reportType,
 							HIDUsage				usage,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength);
+							IOByteCount				reportLength);
 
 
 #ifdef __cplusplus

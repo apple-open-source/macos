@@ -1,9 +1,9 @@
 //
-// "$Id: sample.drv 3970 2012-10-24 11:44:57Z msweet $"
+// "$Id: sample.drv 3893 2012-08-29 00:38:36Z msweet $"
 //
 //   Driver info file for CUPS-supplied PPDs.
 //
-//   Copyright 2007-2011 by Apple Inc.
+//   Copyright 2007-2012 by Apple Inc.
 //   Copyright 1993-2006 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -103,7 +103,7 @@
 #media "w576h468/8.00x6.50\"" 576 468
 
 // Common stuff for all drivers...
-Attribute "cupsVersion" "" "1.6"
+Attribute "cupsVersion" "" "1.7"
 Attribute "FileSystem" "" "False"
 Attribute "LandscapeOrientation" "" "Plus90"
 Attribute "TTRasterizer" "" "Type42"
@@ -1241,5 +1241,5 @@ Version "1.5"
 }
 
 //
-// End of "$Id: sample.drv 3970 2012-10-24 11:44:57Z msweet $".
+// End of "$Id: sample.drv 3893 2012-08-29 00:38:36Z msweet $".
 //

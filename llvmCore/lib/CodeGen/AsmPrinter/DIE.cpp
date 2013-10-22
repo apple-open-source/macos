@@ -112,15 +112,6 @@ DIE::~DIE() {
     delete Children[i];
 }
 
-/// addSiblingOffset - Add a sibling offset field to the front of the DIE.
-///
-DIEValue *DIE::addSiblingOffset(BumpPtrAllocator &A) {
-  DIEInteger *DI = new (A) DIEInteger(0);
-  Values.insert(Values.begin(), DI);
-  Abbrev.AddFirstAttribute(dwarf::DW_AT_sibling, dwarf::DW_FORM_ref4);
-  return DI;
-}
-
 #ifndef NDEBUG
 void DIE::print(raw_ostream &O, unsigned IncIndent) {
   IndentCount += IncIndent;
@@ -174,6 +165,7 @@ void DIE::dump() {
 }
 #endif
 
+void DIEValue::anchor() { }
 
 #ifndef NDEBUG
 void DIEValue::dump() {
@@ -190,6 +182,12 @@ void DIEValue::dump() {
 void DIEInteger::EmitValue(AsmPrinter *Asm, unsigned Form) const {
   unsigned Size = ~0U;
   switch (Form) {
+  case dwarf::DW_FORM_flag_present:
+    // Emit something to keep the lines and comments in sync.
+    // FIXME: Is there a better way to do this?
+    if (Asm->OutStreamer.hasRawTextSupport())
+      Asm->OutStreamer.EmitRawText(StringRef(""));
+    return;
   case dwarf::DW_FORM_flag:  // Fall thru
   case dwarf::DW_FORM_ref1:  // Fall thru
   case dwarf::DW_FORM_data1: Size = 1; break;
@@ -201,7 +199,8 @@ void DIEInteger::EmitValue(AsmPrinter *Asm, unsigned Form) const {
   case dwarf::DW_FORM_data8: Size = 8; break;
   case dwarf::DW_FORM_udata: Asm->EmitULEB128(Integer); return;
   case dwarf::DW_FORM_sdata: Asm->EmitSLEB128(Integer); return;
-  case dwarf::DW_FORM_addr:  Size = Asm->getTargetData().getPointerSize(); break;
+  case dwarf::DW_FORM_addr:
+    Size = Asm->getTargetData().getPointerSize(); break;
   default: llvm_unreachable("DIE Value form not supported yet");
   }
   Asm->OutStreamer.EmitIntValue(Integer, Size, 0/*addrspace*/);
@@ -211,6 +210,7 @@ void DIEInteger::EmitValue(AsmPrinter *Asm, unsigned Form) const {
 ///
 unsigned DIEInteger::SizeOf(AsmPrinter *AP, unsigned Form) const {
   switch (Form) {
+  case dwarf::DW_FORM_flag_present: return 0;
   case dwarf::DW_FORM_flag:  // Fall thru
   case dwarf::DW_FORM_ref1:  // Fall thru
   case dwarf::DW_FORM_data1: return sizeof(int8_t);
@@ -223,9 +223,8 @@ unsigned DIEInteger::SizeOf(AsmPrinter *AP, unsigned Form) const {
   case dwarf::DW_FORM_udata: return MCAsmInfo::getULEB128Size(Integer);
   case dwarf::DW_FORM_sdata: return MCAsmInfo::getSLEB128Size(Integer);
   case dwarf::DW_FORM_addr:  return AP->getTargetData().getPointerSize();
-  default: llvm_unreachable("DIE Value form not supported yet"); break;
+  default: llvm_unreachable("DIE Value form not supported yet");
   }
-  return 0;
 }
 
 #ifndef NDEBUG
@@ -319,7 +318,7 @@ unsigned DIEBlock::ComputeSize(AsmPrinter *AP) {
 ///
 void DIEBlock::EmitValue(AsmPrinter *Asm, unsigned Form) const {
   switch (Form) {
-  default: assert(0 && "Improper form for block");    break;
+  default: llvm_unreachable("Improper form for block");
   case dwarf::DW_FORM_block1: Asm->EmitInt8(Size);    break;
   case dwarf::DW_FORM_block2: Asm->EmitInt16(Size);   break;
   case dwarf::DW_FORM_block4: Asm->EmitInt32(Size);   break;
@@ -339,9 +338,8 @@ unsigned DIEBlock::SizeOf(AsmPrinter *AP, unsigned Form) const {
   case dwarf::DW_FORM_block2: return Size + sizeof(int16_t);
   case dwarf::DW_FORM_block4: return Size + sizeof(int32_t);
   case dwarf::DW_FORM_block:  return Size + MCAsmInfo::getULEB128Size(Size);
-  default: llvm_unreachable("Improper form for block"); break;
+  default: llvm_unreachable("Improper form for block");
   }
-  return 0;
 }
 
 #ifndef NDEBUG

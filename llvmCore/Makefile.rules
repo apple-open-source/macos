@@ -79,7 +79,12 @@ LLVMBuildTool	:= $(PROJ_SRC_ROOT)/utils/llvm-build/llvm-build
 # The files we are going to generate using llvm-build.
 LLVMBuildMakeFrag := $(PROJ_OBJ_ROOT)/Makefile.llvmbuild
 LLVMConfigLibraryDependenciesInc := \
-	$(PROJ_OBJ_ROOT)/tools/llvm-config-2/LibraryDependencies.inc
+	$(PROJ_OBJ_ROOT)/tools/llvm-config/LibraryDependencies.inc
+
+# This is for temporary backwards compatibility.
+ifndef TARGET_NATIVE_ARCH
+TARGET_NATIVE_ARCH := $(ARCH)
+endif
 
 # The rule to create the LLVMBuild Makefile fragment as well as the llvm-config
 # library table.
@@ -89,11 +94,13 @@ LLVMConfigLibraryDependenciesInc := \
 #
 # We include a dependency on this Makefile to ensure that changes to the
 # generation command get picked up.
-$(LLVMBuildMakeFrag): $(PROJ_SRC_ROOT)/Makefile.rules
+$(LLVMBuildMakeFrag): $(PROJ_SRC_ROOT)/Makefile.rules \
+		      $(PROJ_OBJ_ROOT)/Makefile.config
 	$(Echo) Constructing LLVMBuild project information.
 	$(Verb) $(LLVMBuildTool) \
-	  --native-target "$(ARCH)" \
+	  --native-target "$(TARGET_NATIVE_ARCH)" \
 	  --enable-targets "$(TARGETS_TO_BUILD)" \
+	  --enable-optional-components "$(OPTIONAL_COMPONENTS)" \
 	  --write-library-table $(LLVMConfigLibraryDependenciesInc) \
 	  --write-make-fragment $(LLVMBuildMakeFrag)
 
@@ -110,6 +117,10 @@ $(LLVMConfigLibraryDependenciesInc): $(LLVMBuildMakeFrag)
 # building from a subdirectory, but that is always somewhat unreliable.
 ifeq ($(LEVEL),.)
 LLVMBUILD_INCLUDE_DEPENDENCIES := 1
+
+# Clean the generated makefile fragment at the top-level.
+clean-local::
+	-$(Verb) $(RM) -f $(LLVMBuildMakeFrag)
 endif
 -include $(LLVMBuildMakeFrag)
 
@@ -301,6 +312,20 @@ else
   endif
 endif
 
+ifeq ($(ENABLE_LIBCPP),1)
+  CXX.Flags +=  -stdlib=libc++
+  LD.Flags +=  -stdlib=libc++
+endif
+
+ifeq ($(ENABLE_CXX11),1)
+  CXX.Flags += -std=c++11
+endif
+
+ifeq ($(ENABLE_WERROR),1)
+  CXX.Flags += -Werror
+  C.Flags += -Werror
+endif
+
 ifeq ($(ENABLE_PROFILING),1)
   BuildMode := $(BuildMode)+Profile
   CXX.Flags := $(filter-out -fomit-frame-pointer,$(CXX.Flags)) -pg -g
@@ -309,9 +334,9 @@ ifeq ($(ENABLE_PROFILING),1)
   KEEP_SYMBOLS := 1
 endif
 
-#ifeq ($(ENABLE_VISIBILITY_INLINES_HIDDEN),1)
-#    CXX.Flags += -fvisibility-inlines-hidden
-#endif
+ifeq ($(ENABLE_VISIBILITY_INLINES_HIDDEN),1)
+    CXX.Flags += -fvisibility-inlines-hidden
+endif
 
 ifdef ENABLE_EXPENSIVE_CHECKS
   # GNU libstdc++ uses RTTI if you define _GLIBCXX_DEBUG, which we did above.
@@ -501,8 +526,12 @@ endif
 #--------------------------------------------------------------------
 # Full Paths To Compiled Tools and Utilities
 #--------------------------------------------------------------------
-EchoCmd  = $(ECHO) llvm[$(MAKELEVEL)]:
-Echo     = @$(EchoCmd)
+EchoCmd  := $(ECHO) llvm[$(MAKELEVEL)]:
+ifdef BUILD_DIRS_ONLY
+EchoCmd  := $(EchoCmd) "(build tools)":
+endif
+
+Echo     := @$(EchoCmd)
 ifndef LLVMAS
 LLVMAS   := $(LLVMToolDir)/llvm-as$(EXEEXT)
 endif
@@ -513,9 +542,10 @@ ifndef LLVM_TBLGEN
     LLVM_TBLGEN   := $(LLVMToolDir)/llvm-tblgen$(EXEEXT)
   endif
 endif
-LLVM_CONFIG := $(LLVMToolDir)/llvm-config
-ifndef LLVMLD
-LLVMLD    := $(LLVMToolDir)/llvm-ld$(EXEEXT)
+ifeq ($(LLVM_CROSS_COMPILING),1)
+  LLVM_CONFIG := $(BuildLLVMToolDir)/llvm-config$(BUILD_EXEEXT)
+else
+  LLVM_CONFIG := $(LLVMToolDir)/llvm-config$(EXEEXT)
 endif
 ifndef LLVMDIS
 LLVMDIS  := $(LLVMToolDir)/llvm-dis$(EXEEXT)
@@ -532,17 +562,24 @@ endif
 ifndef LBUGPOINT
 LBUGPOINT := $(LLVMToolDir)/bugpoint$(EXEEXT)
 endif
+ifndef LLVMLINK
+LLVMLINK      := $(LLVMToolDir)/llvm-link$(EXEEXT)
+endif
 
 #--------------------------------------------------------------------
 # Adjust to user's request
 #--------------------------------------------------------------------
 
 ifeq ($(HOST_OS),Darwin)
+ ifdef MACOSX_DEPLOYMENT_TARGET
+  DARWIN_VERSION := $(MACOSX_DEPLOYMENT_TARGET)
+ else
   DARWIN_VERSION := `sw_vers -productVersion`
+ endif
   # Strip a number like 10.4.7 to 10.4
-  DARWIN_VERSION := $(shell echo $(DARWIN_VERSION)| sed -E 's/(10.[0-9]).*/\1/')
+  DARWIN_VERSION := $(shell echo $(DARWIN_VERSION)| sed -E 's/(10.[0-9]*).*/\1/')
   # Get "4" out of 10.4 for later pieces in the makefile.
-  DARWIN_MAJVERS := $(shell echo $(DARWIN_VERSION)| sed -E 's/10.([0-9]).*/\1/')
+  DARWIN_MAJVERS := $(shell echo $(DARWIN_VERSION)| sed -E 's/10.([0-9]*).*/\1/')
 
   LoadableModuleOptions := -Wl,-flat_namespace -Wl,-undefined,suppress
   SharedLinkOptions := -dynamiclib
@@ -598,19 +635,23 @@ endif
 
 # Adjust linker flags for building an executable
 ifneq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW))
-ifneq ($(HOST_OS), Darwin)
-ifdef TOOLNAME
-  LD.Flags += $(RPATH) -Wl,'$$ORIGIN/../lib'
-  ifdef EXAMPLE_TOOL
-    LD.Flags += $(RPATH) -Wl,$(ExmplDir) $(DynamicFlag)
-  else
-    LD.Flags += $(RPATH) -Wl,$(ToolDir) $(DynamicFlag)
+  ifneq ($(HOST_OS), Darwin)
+    ifdef TOOLNAME
+      LD.Flags += $(RPATH) -Wl,'$$ORIGIN/../lib'
+      ifdef EXAMPLE_TOOL
+        LD.Flags += $(RPATH) -Wl,$(ExmplDir) $(DynamicFlag)
+      else
+        LD.Flags += $(RPATH) -Wl,$(ToolDir) $(DynamicFlag)
+    endif
   endif
-endif
 else
-ifneq ($(DARWIN_MAJVERS),4)
-  LD.Flags += $(RPATH) -Wl,@executable_path/../lib
-endif
+  ifneq ($(DARWIN_MAJVERS),4)
+    LD.Flags += $(RPATH) -Wl,@executable_path/../lib
+  endif
+  ifeq ($(RC_BUILDIT),YES)
+    TempFile := $(shell mkdir -p ${OBJROOT}/dSYMs ; mktemp ${OBJROOT}/dSYMs/llvm-lto.XXXXXX)
+    LD.Flags += -Wl,-object_path_lto -Wl,$(TempFile)
+  endif
 endif
 endif
 
@@ -627,7 +668,7 @@ ifndef NO_PEDANTIC
 CompileCommonOpts += -pedantic -Wno-long-long
 endif
 CompileCommonOpts += -Wall -W -Wno-unused-parameter -Wwrite-strings \
-                     $(EXTRA_OPTIONS)
+                     $(EXTRA_OPTIONS) $(COVERED_SWITCH_DEFAULT)
 # Enable cast-qual for C++; the workaround is to use const_cast.
 CXX.Flags += -Wcast-qual
 
@@ -678,7 +719,13 @@ ifeq ($(HOST_OS),AuroraUX)
 CPP.BaseFlags += -include llvm/Support/Solaris.h
 endif # !HOST_OS - AuroraUX.
 
-LD.Flags      += -L$(LibDir) -L$(LLVMLibDir)
+# On Windows, SharedLibDir != LibDir. The order is important.
+ifeq ($(HOST_OS), $(filter $(HOST_OS), Cygwin MingW))
+  LD.Flags    += -L$(SharedLibDir) -L$(LibDir) -L$(LLVMToolDir) -L$(LLVMLibDir)
+else
+  LD.Flags    += -L$(LibDir) -L$(LLVMLibDir)
+endif
+
 CPP.BaseFlags += -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS
 # All -I flags should go here, so that they don't confuse llvm-config.
 CPP.Flags     += $(sort -I$(PROJ_OBJ_DIR) -I$(PROJ_SRC_DIR) \
@@ -699,35 +746,18 @@ else
   Compile.Wrapper :=
 endif
 
-ifeq ($(BUILD_COMPONENT), 1)
-  Compile.C     = $(Compile.Wrapper) \
-	          $(BUILD_CC) $(CPP.Flags) $(C.Flags) $(CFLAGS) $(CPPFLAGS) \
-                  $(TargetCommonOpts) $(CompileCommonOpts) -c
-  Compile.CXX   = $(Compile.Wrapper) \
-	          $(BUILD_CXX) $(CPP.Flags) $(CXX.Flags) $(CXXFLAGS) \
-		  $(CPPFLAGS) \
-                  $(TargetCommonOpts) $(CompileCommonOpts) -c
-  Preprocess.CXX= $(Compile.Wrapper) \
-	          $(BUILD_CXX) $(CPP.Flags) $(CPPFLAGS) $(TargetCommonOpts) \
-                  $(CompileCommonOpts) $(CXX.Flags) -E
-  Link          = $(Compile.Wrapper) \
-	          $(BUILD_CXX) $(CPP.Flags) $(CXX.Flags) $(CXXFLAGS) \
-		  $(LD.Flags) $(LDFLAGS) \
-                  $(TargetCommonOpts) $(CompileCommonOpts) $(Strip)
-else
-  Compile.C     = $(Compile.Wrapper) \
+Compile.C     = $(Compile.Wrapper) \
 	          $(CC) $(CPP.Flags) $(C.Flags) $(CFLAGS) $(CPPFLAGS) \
-                  $(TargetCommonOpts) $(CompileCommonOpts) -c
-  Compile.CXX   = $(Compile.Wrapper) \
+                $(TargetCommonOpts) $(CompileCommonOpts) -c
+Compile.CXX   = $(Compile.Wrapper) \
 	          $(CXX) $(CPP.Flags) $(CXX.Flags) $(CXXFLAGS) $(CPPFLAGS) \
-                  $(TargetCommonOpts) $(CompileCommonOpts) -c
-  Preprocess.CXX= $(Compile.Wrapper) \
+                $(TargetCommonOpts) $(CompileCommonOpts) -c
+Preprocess.CXX= $(Compile.Wrapper) \
 	          $(CXX) $(CPP.Flags) $(TargetCommonOpts) $(CPPFLAGS) \
-                  $(CompileCommonOpts) $(CXX.Flags) -E
-  Link          = $(Compile.Wrapper) \
+                $(CompileCommonOpts) $(CXX.Flags) -E
+Link          = $(Compile.Wrapper) \
 	          $(CXX) $(CPP.Flags) $(CXX.Flags) $(CXXFLAGS) $(LD.Flags) \
-                  $(LDFLAGS) $(TargetCommonOpts)  $(CompileCommonOpts) $(Strip)
-endif
+                $(LDFLAGS) $(TargetCommonOpts)  $(CompileCommonOpts) $(Strip)
 
 BCCompile.C   = $(LLVMCC) $(CPP.Flags) $(C.Flags) $(CFLAGS) $(CPPFLAGS) \
                 $(TargetCommonOpts) $(CompileCommonOpts)
@@ -1058,7 +1088,7 @@ ifeq ($(HAVE_LINK_VERSION_SCRIPT),1)
 NativeExportsFile := $(ObjDir)/$(notdir $(EXPORTED_SYMBOL_FILE)).map
 $(NativeExportsFile): $(EXPORTED_SYMBOL_FILE) $(ObjDir)/.dir
 	$(Verb) echo "{" > $@
-	$(Verb) grep -q "\<" $< && echo "  global:" >> $@ || :
+	$(Verb) grep -q '[[:alnum:]_]' $< && echo "  global:" >> $@ || :
 	$(Verb) sed -e 's/$$/;/' -e 's/^/    /' < $< >> $@
 ifneq ($(HOST_OS),OpenBSD)
 	$(Verb) echo "  local: *;" >> $@
@@ -1121,14 +1151,14 @@ $(warning Modules require LLVM capable compiler but none is available ****)
 else
 
 Module     := $(LibDir)/$(MODULE_NAME).bc
-LinkModule := $(LLVMLD) -r
+LinkModule := $(LLVMLINK)
 
 
 ifdef EXPORTED_SYMBOL_FILE
 LinkModule += -internalize-public-api-file=$(EXPORTED_SYMBOL_FILE)
 endif
 
-$(Module): $(BUILT_SOURCES) $(ObjectsBC) $(LibDir)/.dir $(LLVMLD)
+$(Module): $(BUILT_SOURCES) $(ObjectsBC) $(LibDir)/.dir $(LLVMLINK)
 	$(Echo) Building $(BuildMode) Bytecode Module $(notdir $@)
 	$(Verb) $(LinkModule) -o $@ $(ObjectsBC)
 
@@ -1263,9 +1293,9 @@ else
 all-local:: $(LibName.BCA)
 
 ifdef EXPORTED_SYMBOL_FILE
-BCLinkLib = $(LLVMLD) -internalize-public-api-file=$(EXPORTED_SYMBOL_FILE)
+BCLinkLib = $(LLVMLINK) -internalize-public-api-file=$(EXPORTED_SYMBOL_FILE)
 
-$(LibName.BCA): $(ObjectsBC) $(LibDir)/.dir $(LLVMLD) \
+$(LibName.BCA): $(ObjectsBC) $(LibDir)/.dir $(LLVMLINK) \
                 $(LLVMToolDir)/llvm-ar
 	$(Echo) Building $(BuildMode) Bytecode Archive $(notdir $@) \
 	  "(internalize)"
@@ -1420,7 +1450,7 @@ LD.Flags += -Wl,-exported_symbol,_main
 endif
 endif
 
-ifeq ($(HOST_OS), $(filter $(HOST_OS), Linux NetBSD FreeBSD))
+ifeq ($(HOST_OS), $(filter $(HOST_OS), Linux NetBSD FreeBSD GNU))
 ifneq ($(ARCH), Mips)
   LD.Flags += -Wl,--version-script=$(LLVM_SRC_ROOT)/autoconf/ExportMap.map
 endif
@@ -1480,12 +1510,23 @@ else
 $(ToolBuildPath): $(ToolDir)/.dir
 endif
 
+ifdef CODESIGN_TOOLS
 $(ToolBuildPath): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths)
 	$(Echo) Linking $(BuildMode) executable $(TOOLNAME) $(StripWarnMsg)
 	$(Verb) $(Link) -o $@ $(TOOLLINKOPTS) $(ObjectsO) $(ProjLibsOptions) \
 	$(LLVMLibsOptions) $(ExtraLibs) $(TOOLLINKOPTSB) $(LIBS)
 	$(Echo) ======= Finished Linking $(BuildMode) Executable $(TOOLNAME) \
           $(StripWarnMsg)
+	$(Echo) ======= Code-Signing $(BuildMode) Executable $(TOOLNAME)
+	$(Verb) codesign -s - $@
+else
+$(ToolBuildPath): $(ObjectsO) $(ProjLibsPaths) $(LLVMLibsPaths)
+	$(Echo) Linking $(BuildMode) executable $(TOOLNAME) $(StripWarnMsg)
+	$(Verb) $(Link) -o $@ $(TOOLLINKOPTS) $(ObjectsO) $(ProjLibsOptions) \
+	$(LLVMLibsOptions) $(ExtraLibs) $(TOOLLINKOPTSB) $(LIBS)
+	$(Echo) ======= Finished Linking $(BuildMode) Executable $(TOOLNAME) \
+          $(StripWarnMsg)
+endif
 
 ifneq ($(strip $(ToolAliasBuildPath)),)
 $(ToolAliasBuildPath): $(ToolBuildPath)
@@ -1508,7 +1549,7 @@ ToolBinDir = $(DESTDIR)$(PROJ_internal_prefix)/bin
 else
 ToolBinDir = $(DESTDIR)$(PROJ_bindir)
 endif
-DestTool = $(ToolBinDir)/$(TOOLEXENAME)
+DestTool = $(ToolBinDir)/$(program_prefix)$(TOOLEXENAME)
 
 install-local:: $(DestTool)
 
@@ -1523,7 +1564,7 @@ uninstall-local::
 
 # TOOLALIAS install.
 ifdef TOOLALIAS
-DestToolAlias = $(ToolBinDir)/$(TOOLALIAS)$(EXEEXT)
+DestToolAlias = $(ToolBinDir)/$(program_prefix)$(TOOLALIAS)$(EXEEXT)
 
 install-local:: $(DestToolAlias)
 
@@ -1857,6 +1898,9 @@ $(ObjDir)/ARMGenDecoderTables.inc.tmp : ARM.td $(ObjDir)/.dir $(LLVM_TBLGEN)
 	$(Echo) "Building $(<F) decoder tables with tblgen"
 	$(Verb) $(LLVMTableGen) -gen-arm-decoder -o $(call SYSPATH, $@) $<
 
+$(ObjDir)/%GenDFAPacketizer.inc.tmp : %.td $(ObjDir)/.dir $(LLVM_TBLGEN)
+	$(Echo) "Building $(<F) DFA packetizer tables with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-dfa-packetizer -o $(call SYSPATH, $@) $<
 
 clean-local::
 	-$(Verb) $(RM) -f $(INCFiles)
@@ -1889,7 +1933,6 @@ clean-local::
 ifneq ($(strip $(ObjRootDir)),)
 	-$(Verb) $(RM) -rf $(ObjRootDir)
 endif
-	-$(Verb) $(RM) -f core core.[0-9][0-9]* *.o *.d *~ *.flc
 ifneq ($(strip $(SHLIBEXT)),) # Extra paranoia - make real sure SHLIBEXT is set
 	-$(Verb) $(RM) -f *$(SHLIBEXT)
 endif
@@ -1938,19 +1981,8 @@ check::
 	  $(EchoCmd) No test directory ; \
 	fi
 
+# An alias dating from when both lit and DejaGNU test runners were used.
 check-lit:: check
-
-check-dg::
-	$(Verb) if test -d "$(PROJ_OBJ_ROOT)/test" ; then \
-	  if test -f "$(PROJ_OBJ_ROOT)/test/Makefile" ; then \
-	    $(EchoCmd) Running test suite ; \
-	    $(MAKE) -C $(PROJ_OBJ_ROOT)/test check-local-dg ; \
-	  else \
-	    $(EchoCmd) No Makefile in test directory ; \
-	  fi ; \
-	else \
-	  $(EchoCmd) No test directory ; \
-	fi
 
 check-all::
 	$(Verb) if test -d "$(PROJ_OBJ_ROOT)/test" ; then \

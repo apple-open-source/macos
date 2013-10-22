@@ -682,6 +682,7 @@ BUILD_CC
 BUILD_EXEEXT
 BUILD_CXX
 CVSBUILD
+ENABLE_LIBCPP
 ENABLE_OPTIMIZED
 ENABLE_PROFILING
 DISABLE_ASSERTIONS
@@ -704,7 +705,6 @@ LLVM_ENUM_TARGETS
 LLVM_ENUM_ASM_PRINTERS
 LLVM_ENUM_ASM_PARSERS
 LLVM_ENUM_DISASSEMBLERS
-ENABLE_CBE_PRINTF_A
 OPTIMIZE_OPTION
 EXTRA_OPTIONS
 EXTRA_LD_OPTIONS
@@ -733,8 +733,6 @@ CIRCO
 GV
 DOTTY
 XDOT_PY
-PERL
-HAVE_PERL
 INSTALL_PROGRAM
 INSTALL_SCRIPT
 INSTALL_DATA
@@ -762,6 +760,7 @@ CONVENIENCE_LTDL_FALSE
 LIBADD_DL
 NO_VARIADIC_MACROS
 NO_MISSING_FIELD_INITIALIZERS
+COVERED_SWITCH_DEFAULT
 USE_UDIS86
 USE_OPROFILE
 HAVE_PTHREAD
@@ -1375,6 +1374,7 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-polly          Use polly if available (default is YES)
+  --enable-libcpp         Use libc++ if available (default is NO)
   --enable-optimized      Compile with optimizations enabled (default is NO)
   --enable-profiling      Compile with profiling enabled (default is NO)
   --enable-assertions     Compile with assertion checks enabled (default is
@@ -1401,11 +1401,8 @@ Optional Features:
                           (default is YES)
   --enable-targets        Build specific host targets: all or
                           target1,target2,... Valid targets are: host, x86,
-                          x86_64, sparc, powerpc, arm, mips, spu,
-                          xcore, msp430, ptx, cbe, and cpp
-                          (default=all)
-  --enable-cbe-printf-a   Enable C Backend output with hex floating point via
-                          %a (default is YES)
+                          x86_64, sparc, powerpc, arm, mips, spu, hexagon,
+                          xcore, msp430, nvptx, cbe, and cpp (default=all)
   --enable-bindings       Build specific language bindings:
                           all,auto,none,{binding-name} (default=auto)
   --enable-libffi         Check for the presence of libffi (default is NO)
@@ -1427,12 +1424,7 @@ Optional Packages:
                           resource files
   --with-c-include-dirs   Colon separated list of directories clang will
                           search for headers
-  --with-cxx-include-root Directory with the libstdc++ headers.
-  --with-cxx-include-arch Architecture of the libstdc++ headers.
-  --with-cxx-include-32bit-dir
-                          32 bit multilib dir.
-  --with-cxx-include-64bit-dir
-                          64 bit multilib directory.
+  --with-gcc-toolchain    Directory where gcc is installed.
   --with-binutils-include Specify path to binutils/include/ containing
                           plugin-api.h file for gold plugin.
   --with-bug-report-url   Specify the URL where bug reports should be
@@ -3654,7 +3646,7 @@ else
     llvm_cv_no_link_all_option="-Wl,-noall_load"
     llvm_cv_os_type="Minix"
     llvm_cv_platform_type="Unix" ;;
-  *-*-freebsd*)
+  *-*-freebsd* | *-*-kfreebsd-gnu)
     llvm_cv_link_all_option="-Wl,--whole-archive"
     llvm_cv_no_link_all_option="-Wl,--no-whole-archive"
     llvm_cv_os_type="FreeBSD"
@@ -3688,6 +3680,11 @@ else
     llvm_cv_link_all_option="-Wl,--whole-archive"
     llvm_cv_no_link_all_option="-Wl,--no-whole-archive"
     llvm_cv_os_type="Linux"
+    llvm_cv_platform_type="Unix" ;;
+  *-*-gnu*)
+    llvm_cv_link_all_option="-Wl,--whole-archive"
+    llvm_cv_no_link_all_option="-Wl,--no-whole-archive"
+    llvm_cv_os_type="GNU"
     llvm_cv_platform_type="Unix" ;;
   *-*-solaris*)
     llvm_cv_link_all_option="-Wl,-z,allextract"
@@ -3750,7 +3747,7 @@ else
     llvm_cv_target_os_type="Darwin" ;;
   *-*-minix*)
     llvm_cv_target_os_type="Minix" ;;
-  *-*-freebsd*)
+  *-*-freebsd* | *-*-kfreebsd-gnu)
     llvm_cv_target_os_type="FreeBSD" ;;
   *-*-openbsd*)
     llvm_cv_target_os_type="OpenBSD" ;;
@@ -3764,6 +3761,8 @@ else
     llvm_cv_target_os_type="Interix" ;;
   *-*-linux*)
     llvm_cv_target_os_type="Linux" ;;
+  *-*-gnu*)
+    llvm_cv_target_os_type="GNU" ;;
   *-*-solaris*)
     llvm_cv_target_os_type="SunOS" ;;
   *-*-auroraux*)
@@ -3842,10 +3841,12 @@ else
   powerpc*-*)             llvm_cv_target_arch="PowerPC" ;;
   arm*-*)                 llvm_cv_target_arch="ARM" ;;
   mips-*)                 llvm_cv_target_arch="Mips" ;;
+  mipsel-*)               llvm_cv_target_arch="Mips" ;;
   xcore-*)                llvm_cv_target_arch="XCore" ;;
   msp430-*)               llvm_cv_target_arch="MSP430" ;;
+  hexagon-*)              llvm_cv_target_arch="Hexagon" ;;
   mblaze-*)               llvm_cv_target_arch="MBlaze" ;;
-  ptx-*)                  llvm_cv_target_arch="PTX" ;;
+  nvptx-*)                llvm_cv_target_arch="NVPTX" ;;
   *)                      llvm_cv_target_arch="Unknown" ;;
 esac
 fi
@@ -4922,6 +4923,25 @@ else
 fi
 
 
+# Check whether --enable-libcpp was given.
+if test "${enable_libcpp+set}" = set; then
+  enableval=$enable_libcpp;
+else
+  enableval=default
+fi
+
+case "$enableval" in
+  yes) ENABLE_LIBCPP=1
+ ;;
+  no)  ENABLE_LIBCPP=0
+ ;;
+  default) ENABLE_LIBCPP=0
+;;
+  *) { { echo "$as_me:$LINENO: error: Invalid setting for --enable-libcpp. Use \"yes\" or \"no\"" >&5
+echo "$as_me: error: Invalid setting for --enable-libcpp. Use \"yes\" or \"no\"" >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac
+
 # Check whether --enable-optimized was given.
 if test "${enable_optimized+set}" = set; then
   enableval=$enable_optimized;
@@ -5045,9 +5065,11 @@ else
  ;;
     MSP430)      TARGET_HAS_JIT=0
  ;;
+    Hexagon)     TARGET_HAS_JIT=0
+ ;;
     MBlaze)      TARGET_HAS_JIT=0
  ;;
-    PTX)         TARGET_HAS_JIT=0
+    NVPTX)       TARGET_HAS_JIT=0
  ;;
     *)           TARGET_HAS_JIT=0
  ;;
@@ -5233,7 +5255,7 @@ if test "$enableval" = host-only ; then
   enableval=host
 fi
 case "$enableval" in
-  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 CBackend CppBackend MBlaze PTX" ;;
+  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 Hexagon CppBackend MBlaze NVPTX" ;;
   *)for a_target in `echo $enableval|sed -e 's/,/ /g' ` ; do
       case "$a_target" in
         x86)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
@@ -5245,10 +5267,10 @@ case "$enableval" in
         spu)      TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
         xcore)    TARGETS_TO_BUILD="XCore $TARGETS_TO_BUILD" ;;
         msp430)   TARGETS_TO_BUILD="MSP430 $TARGETS_TO_BUILD" ;;
-        cbe)      TARGETS_TO_BUILD="CBackend $TARGETS_TO_BUILD" ;;
+        hexagon)  TARGETS_TO_BUILD="Hexagon $TARGETS_TO_BUILD" ;;
         cpp)      TARGETS_TO_BUILD="CppBackend $TARGETS_TO_BUILD" ;;
         mblaze)   TARGETS_TO_BUILD="MBlaze $TARGETS_TO_BUILD" ;;
-        ptx)      TARGETS_TO_BUILD="PTX $TARGETS_TO_BUILD" ;;
+        nvptx)    TARGETS_TO_BUILD="NVPTX $TARGETS_TO_BUILD" ;;
         host) case "$llvm_cv_target_arch" in
             x86)         TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
             x86_64)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
@@ -5260,7 +5282,8 @@ case "$enableval" in
             CellSPU|SPU) TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
             XCore)       TARGETS_TO_BUILD="XCore $TARGETS_TO_BUILD" ;;
             MSP430)      TARGETS_TO_BUILD="MSP430 $TARGETS_TO_BUILD" ;;
-            PTX)         TARGETS_TO_BUILD="PTX $TARGETS_TO_BUILD" ;;
+            Hexagon)     TARGETS_TO_BUILD="Hexagon $TARGETS_TO_BUILD" ;;
+            NVPTX)       TARGETS_TO_BUILD="NVPTX $TARGETS_TO_BUILD" ;;
             *)       { { echo "$as_me:$LINENO: error: Can not set target to build" >&5
 echo "$as_me: error: Can not set target to build" >&2;}
    { (exit 1); exit 1; }; } ;;
@@ -5291,6 +5314,9 @@ _ACEOF
     if test -f ${srcdir}/lib/Target/${LLVM_NATIVE_ARCH}/AsmParser/Makefile ; then
       LLVM_NATIVE_ASMPARSER="LLVMInitialize${LLVM_NATIVE_ARCH}AsmParser"
     fi
+    if test -f ${srcdir}/lib/Target/${LLVM_NATIVE_ARCH}/Disassembler/Makefile ; then
+      LLVM_NATIVE_DISASSEMBLER="LLVMInitialize${LLVM_NATIVE_ARCH}Disassembler"
+    fi
 
 cat >>confdefs.h <<_ACEOF
 #define LLVM_NATIVE_TARGET $LLVM_NATIVE_TARGET
@@ -5318,6 +5344,13 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
     fi
+    if test -f ${srcdir}/lib/Target/${LLVM_NATIVE_ARCH}/Disassembler/Makefile ; then
+
+cat >>confdefs.h <<_ACEOF
+#define LLVM_NATIVE_DISASSEMBLER $LLVM_NATIVE_DISASSEMBLER
+_ACEOF
+
+    fi
   fi
 done
 
@@ -5342,30 +5375,6 @@ done
 
 
 
-
-
-# Check whether --enable-cbe-printf-a was given.
-if test "${enable_cbe_printf_a+set}" = set; then
-  enableval=$enable_cbe_printf_a;
-else
-  enableval=default
-fi
-
-case "$enableval" in
-  yes) ENABLE_CBE_PRINTF_A=1
- ;;
-  no)  ENABLE_CBE_PRINTF_A=0
- ;;
-  default)  ENABLE_CBE_PRINTF_A=1
- ;;
-  *) { { echo "$as_me:$LINENO: error: Invalid setting for --enable-cbe-printf-a. Use \"yes\" or \"no\"" >&5
-echo "$as_me: error: Invalid setting for --enable-cbe-printf-a. Use \"yes\" or \"no\"" >&2;}
-   { (exit 1); exit 1; }; } ;;
-esac
-
-cat >>confdefs.h <<_ACEOF
-#define ENABLE_CBE_PRINTF_A $ENABLE_CBE_PRINTF_A
-_ACEOF
 
 
 
@@ -5489,59 +5498,20 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
+# Clang normally uses the system c++ headers and libraries. With this option,
+# clang will use the ones provided by a gcc installation instead. This option should
+# be passed the same value that was used with --prefix when configuring gcc.
 
-# Check whether --with-cxx-include-root was given.
-if test "${with_cxx_include_root+set}" = set; then
-  withval=$with_cxx_include_root;
+# Check whether --with-gcc-toolchain was given.
+if test "${with_gcc_toolchain+set}" = set; then
+  withval=$with_gcc_toolchain;
 else
   withval=""
 fi
 
 
 cat >>confdefs.h <<_ACEOF
-#define CXX_INCLUDE_ROOT "$withval"
-_ACEOF
-
-
-
-# Check whether --with-cxx-include-arch was given.
-if test "${with_cxx_include_arch+set}" = set; then
-  withval=$with_cxx_include_arch;
-else
-  withval=""
-fi
-
-
-cat >>confdefs.h <<_ACEOF
-#define CXX_INCLUDE_ARCH "$withval"
-_ACEOF
-
-
-
-# Check whether --with-cxx-include-32bit-dir was given.
-if test "${with_cxx_include_32bit_dir+set}" = set; then
-  withval=$with_cxx_include_32bit_dir;
-else
-  withval=""
-fi
-
-
-cat >>confdefs.h <<_ACEOF
-#define CXX_INCLUDE_32BIT_DIR "$withval"
-_ACEOF
-
-
-
-# Check whether --with-cxx-include-64bit-dir was given.
-if test "${with_cxx_include_64bit_dir+set}" = set; then
-  withval=$with_cxx_include_64bit_dir;
-else
-  withval=""
-fi
-
-
-cat >>confdefs.h <<_ACEOF
-#define CXX_INCLUDE_64BIT_DIR "$withval"
+#define GCC_INSTALL_PREFIX "$withval"
 _ACEOF
 
 
@@ -6846,73 +6816,6 @@ _ACEOF
 
 fi
 
-
-# Extract the first word of "perl", so it can be a program name with args.
-set dummy perl; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
-if test "${ac_cv_path_PERL+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  case $PERL in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PERL="$PERL" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_PERL="$as_dir/$ac_word$ac_exec_ext"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_PERL" && ac_cv_path_PERL="none"
-  ;;
-esac
-fi
-PERL=$ac_cv_path_PERL
-if test -n "$PERL"; then
-  { echo "$as_me:$LINENO: result: $PERL" >&5
-echo "${ECHO_T}$PERL" >&6; }
-else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-fi
-
-
-if test "$PERL" != "none"; then
-  { echo "$as_me:$LINENO: checking for Perl 5.006 or newer" >&5
-echo $ECHO_N "checking for Perl 5.006 or newer... $ECHO_C" >&6; }
-  if $PERL -e 'use 5.006;' 2>&1 > /dev/null; then
-    { echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6; }
-  else
-    PERL=none
-    { echo "$as_me:$LINENO: result: not found" >&5
-echo "${ECHO_T}not found" >&6; }
-  fi
-fi
-
-
-if test x"$PERL" = xnone; then
-   HAVE_PERL=0
-
-   { { echo "$as_me:$LINENO: error: perl is required but was not found, please install it" >&5
-echo "$as_me: error: perl is required but was not found, please install it" >&2;}
-   { (exit 1); exit 1; }; }
-else
-   HAVE_PERL=1
-
-fi
-
 # Find a good install program.  We prefer a C program (faster),
 # so one script is as good as another.  But avoid the broken or
 # incompatible versions:
@@ -7724,7 +7627,7 @@ else
 
    # Check for ld64.
    if (echo "$version_string" | grep -q "ld64"); then
-     llvm_cv_link_version=$(echo "$version_string" | sed -e "s#.*ld64-\([^ ]*\)#\1#")
+     llvm_cv_link_version=$(echo "$version_string" | sed -e "s#.*ld64-\([^ ]*\)\( (.*)\)\{0,1\}#\1#")
    else
      llvm_cv_link_version=$(echo "$version_string" | sed -e "s#[^0-9]*\([0-9.]*\).*#\1#")
    fi
@@ -8850,7 +8753,7 @@ dgux*)
   shlibpath_var=LD_LIBRARY_PATH
   ;;
 
-freebsd1*)
+freebsd1.*)
   dynamic_linker=no
   ;;
 
@@ -8873,7 +8776,7 @@ freebsd* | dragonfly*)
     objformat=`/usr/bin/objformat`
   else
     case $host_os in
-    freebsd[123]*) objformat=aout ;;
+    freebsd[123].*) objformat=aout ;;
     *) objformat=elf ;;
     esac
   fi
@@ -8891,7 +8794,7 @@ freebsd* | dragonfly*)
   esac
   shlibpath_var=LD_LIBRARY_PATH
   case $host_os in
-  freebsd2*)
+  freebsd2.*)
     shlibpath_overrides_runpath=yes
     ;;
   freebsd3.[01]* | freebsdelf3.[01]*)
@@ -10405,7 +10308,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 10423 "configure"
+#line 10311 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12160,12 +12063,14 @@ echo "${ECHO_T}ok" >&6; }
 
 { echo "$as_me:$LINENO: checking optional compiler flags" >&5
 echo $ECHO_N "checking optional compiler flags... $ECHO_C" >&6; }
-NO_VARIADIC_MACROS=`$CXX -Wno-variadic-macros -fsyntax-only -xc /dev/null 2>/dev/null && echo -Wno-variadic-macros`
+NO_VARIADIC_MACROS=`$CXX -Werror -Wno-variadic-macros -fsyntax-only -xc /dev/null 2>/dev/null && echo -Wno-variadic-macros`
 
-NO_MISSING_FIELD_INITIALIZERS=`$CXX -Wno-missing-field-initializers -fsyntax-only -xc /dev/null 2>/dev/null && echo -Wno-missing-field-initializers`
+NO_MISSING_FIELD_INITIALIZERS=`$CXX -Werror -Wno-missing-field-initializers -fsyntax-only -xc /dev/null 2>/dev/null && echo -Wno-missing-field-initializers`
 
-{ echo "$as_me:$LINENO: result: $NO_VARIADIC_MACROS $NO_MISSING_FIELD_INITIALIZERS" >&5
-echo "${ECHO_T}$NO_VARIADIC_MACROS $NO_MISSING_FIELD_INITIALIZERS" >&6; }
+COVERED_SWITCH_DEFAULT=`$CXX -Werror -Wcovered-switch-default -fsyntax-only -xc /dev/null 2>/dev/null && echo -Wcovered-switch-default`
+
+{ echo "$as_me:$LINENO: result: $NO_VARIADIC_MACROS $NO_MISSING_FIELD_INITIALIZERS $COVERED_SWITCH_DEFAULT" >&5
+echo "${ECHO_T}$NO_VARIADIC_MACROS $NO_MISSING_FIELD_INITIALIZERS $COVERED_SWITCH_DEFAULT" >&6; }
 
 
 
@@ -16064,7 +15969,7 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
     ac_save_CXXFLAGS=$CXXFLAGS
-    CXXFLAGS=-pedantic
+    CXXFLAGS="$CXXFLAGS -pedantic"
     if test "$cross_compiling" = yes; then
   ac_cv_huge_val_sanity=yes
 else
@@ -19689,7 +19594,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 int
 main ()
 {
-float f; std::isinf(f)}
+float f; std::isinf(f);
   ;
   return 0;
 }
@@ -20890,18 +20795,18 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
   oldcxxflags="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS -fvisibility-inlines-hidden"
+  CXXFLAGS="$CXXFLAGS -O0 -fvisibility-inlines-hidden -Werror"
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-
+template <typename T> struct X { void __attribute__((noinline)) f() {} };
 int
 main ()
 {
-
+X<int>().f();
   ;
   return 0;
 }
@@ -21735,6 +21640,7 @@ BUILD_CC!$BUILD_CC$ac_delim
 BUILD_EXEEXT!$BUILD_EXEEXT$ac_delim
 BUILD_CXX!$BUILD_CXX$ac_delim
 CVSBUILD!$CVSBUILD$ac_delim
+ENABLE_LIBCPP!$ENABLE_LIBCPP$ac_delim
 ENABLE_OPTIMIZED!$ENABLE_OPTIMIZED$ac_delim
 ENABLE_PROFILING!$ENABLE_PROFILING$ac_delim
 DISABLE_ASSERTIONS!$DISABLE_ASSERTIONS$ac_delim
@@ -21749,7 +21655,6 @@ ENABLE_DOXYGEN!$ENABLE_DOXYGEN$ac_delim
 ENABLE_THREADS!$ENABLE_THREADS$ac_delim
 ENABLE_PTHREADS!$ENABLE_PTHREADS$ac_delim
 ENABLE_PIC!$ENABLE_PIC$ac_delim
-ENABLE_SHARED!$ENABLE_SHARED$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -21791,6 +21696,7 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+ENABLE_SHARED!$ENABLE_SHARED$ac_delim
 ENABLE_EMBED_STDCXX!$ENABLE_EMBED_STDCXX$ac_delim
 ENABLE_TIMESTAMPS!$ENABLE_TIMESTAMPS$ac_delim
 TARGETS_TO_BUILD!$TARGETS_TO_BUILD$ac_delim
@@ -21798,7 +21704,6 @@ LLVM_ENUM_TARGETS!$LLVM_ENUM_TARGETS$ac_delim
 LLVM_ENUM_ASM_PRINTERS!$LLVM_ENUM_ASM_PRINTERS$ac_delim
 LLVM_ENUM_ASM_PARSERS!$LLVM_ENUM_ASM_PARSERS$ac_delim
 LLVM_ENUM_DISASSEMBLERS!$LLVM_ENUM_DISASSEMBLERS$ac_delim
-ENABLE_CBE_PRINTF_A!$ENABLE_CBE_PRINTF_A$ac_delim
 OPTIMIZE_OPTION!$OPTIMIZE_OPTION$ac_delim
 EXTRA_OPTIONS!$EXTRA_OPTIONS$ac_delim
 EXTRA_LD_OPTIONS!$EXTRA_LD_OPTIONS$ac_delim
@@ -21827,8 +21732,6 @@ CIRCO!$CIRCO$ac_delim
 GV!$GV$ac_delim
 DOTTY!$DOTTY$ac_delim
 XDOT_PY!$XDOT_PY$ac_delim
-PERL!$PERL$ac_delim
-HAVE_PERL!$HAVE_PERL$ac_delim
 INSTALL_PROGRAM!$INSTALL_PROGRAM$ac_delim
 INSTALL_SCRIPT!$INSTALL_SCRIPT$ac_delim
 INSTALL_DATA!$INSTALL_DATA$ac_delim
@@ -21856,6 +21759,7 @@ CONVENIENCE_LTDL_FALSE!$CONVENIENCE_LTDL_FALSE$ac_delim
 LIBADD_DL!$LIBADD_DL$ac_delim
 NO_VARIADIC_MACROS!$NO_VARIADIC_MACROS$ac_delim
 NO_MISSING_FIELD_INITIALIZERS!$NO_MISSING_FIELD_INITIALIZERS$ac_delim
+COVERED_SWITCH_DEFAULT!$COVERED_SWITCH_DEFAULT$ac_delim
 USE_UDIS86!$USE_UDIS86$ac_delim
 USE_OPROFILE!$USE_OPROFILE$ac_delim
 HAVE_PTHREAD!$HAVE_PTHREAD$ac_delim
@@ -21883,7 +21787,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 90; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 89; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
@@ -22189,16 +22093,16 @@ echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
-    "Makefile":C) ${srcdir}/autoconf/mkinstalldirs `dirname Makefile`
-   ${SHELL} ${srcdir}/autoconf/install-sh -m 0644 -c ${srcdir}/Makefile Makefile ;;
-    "lib/Makefile":C) ${srcdir}/autoconf/mkinstalldirs `dirname lib/Makefile`
-   ${SHELL} ${srcdir}/autoconf/install-sh -m 0644 -c ${srcdir}/lib/Makefile lib/Makefile ;;
-    "lib/sample/Makefile":C) ${srcdir}/autoconf/mkinstalldirs `dirname lib/sample/Makefile`
-   ${SHELL} ${srcdir}/autoconf/install-sh -m 0644 -c ${srcdir}/lib/sample/Makefile lib/sample/Makefile ;;
-    "tools/Makefile":C) ${srcdir}/autoconf/mkinstalldirs `dirname tools/Makefile`
-   ${SHELL} ${srcdir}/autoconf/install-sh -m 0644 -c ${srcdir}/tools/Makefile tools/Makefile ;;
-    "tools/sample/Makefile":C) ${srcdir}/autoconf/mkinstalldirs `dirname tools/sample/Makefile`
-   ${SHELL} ${srcdir}/autoconf/install-sh -m 0644 -c ${srcdir}/tools/sample/Makefile tools/sample/Makefile ;;
+    "Makefile":C) ${llvm_src}/autoconf/mkinstalldirs `dirname Makefile`
+   ${SHELL} ${llvm_src}/autoconf/install-sh -m 0644 -c ${srcdir}/Makefile Makefile ;;
+    "lib/Makefile":C) ${llvm_src}/autoconf/mkinstalldirs `dirname lib/Makefile`
+   ${SHELL} ${llvm_src}/autoconf/install-sh -m 0644 -c ${srcdir}/lib/Makefile lib/Makefile ;;
+    "lib/sample/Makefile":C) ${llvm_src}/autoconf/mkinstalldirs `dirname lib/sample/Makefile`
+   ${SHELL} ${llvm_src}/autoconf/install-sh -m 0644 -c ${srcdir}/lib/sample/Makefile lib/sample/Makefile ;;
+    "tools/Makefile":C) ${llvm_src}/autoconf/mkinstalldirs `dirname tools/Makefile`
+   ${SHELL} ${llvm_src}/autoconf/install-sh -m 0644 -c ${srcdir}/tools/Makefile tools/Makefile ;;
+    "tools/sample/Makefile":C) ${llvm_src}/autoconf/mkinstalldirs `dirname tools/sample/Makefile`
+   ${SHELL} ${llvm_src}/autoconf/install-sh -m 0644 -c ${srcdir}/tools/sample/Makefile tools/sample/Makefile ;;
 
   esac
 done # for ac_tag

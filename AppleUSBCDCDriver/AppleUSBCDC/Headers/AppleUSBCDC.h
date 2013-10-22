@@ -46,6 +46,8 @@ public:
 	UInt8			fDevSubClass;
 	UInt8			fDevProtocol;
 	bool			fIAD;					// Set if we're looking at a device with an IAD descriptor
+    UInt8           bFirstInterface;        // First Interface if MBIM
+    UInt8           bInterfaceCount;        // Number of Interfaces that make up this function (Per the Spec Number of **contiguous** interfaces that are associated with this function.)
 	
 	UInt8			fDataInterfaceNumber;	// Data interface number (if there's only one)
 

@@ -142,7 +142,7 @@ OSStatus SecACLCopyContents(SecACLRef acl,
 {
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR cdsaPromptSelector;
 	memset(&cdsaPromptSelector, 0, sizeof(cdsaPromptSelector));
-	OSStatus err = noErr;
+	OSStatus err = errSecSuccess;
 	
 	err = SecACLCopySimpleContents(acl, applicationList, description, &cdsaPromptSelector);
 	*promptSelector = cdsaPromptSelector.flags;
@@ -204,10 +204,10 @@ OSStatus SecACLGetAuthorizations(SecACLRef acl,
 	BEGIN_SECAPI
 	AclAuthorizationSet auths = ACL::required(acl)->authorizations();
 	if (Required(tagCount) < auths.size()) {	// overflow
-		*tagCount = auths.size();				// report size required
-		CssmError::throwMe(paramErr);
+		*tagCount = (uint32)auths.size();				// report size required
+		CssmError::throwMe(errSecParam);
 	}
-	*tagCount = auths.size();
+	*tagCount = (uint32)auths.size();
 	copy(auths.begin(), auths.end(), tags);
 	END_SECAPI
 }
@@ -221,7 +221,7 @@ CFArrayRef SecACLCopyAuthorizations(SecACLRef acl)
 	}
 	
 	AclAuthorizationSet auths = ACL::required(acl)->authorizations();
-	uint32 numAuths = auths.size();				
+	uint32 numAuths = (uint32)auths.size();				
 	
     CSSM_ACL_AUTHORIZATION_TAG* tags = new CSSM_ACL_AUTHORIZATION_TAG[numAuths];
     int i;
@@ -231,7 +231,7 @@ CFArrayRef SecACLCopyAuthorizations(SecACLRef acl)
     }
 	
 	OSStatus err = SecACLGetAuthorizations(acl, tags, &numAuths);
-	if (noErr != err)
+	if (errSecSuccess != err)
 	{
 		
 		return result;
@@ -275,9 +275,9 @@ OSStatus SecACLUpdateAuthorizations(SecACLRef acl, CFArrayRef authorizations)
 {
 	if (NULL == acl || NULL == authorizations)
 	{
-		return paramErr;
+		return errSecParam;
 	}
-	uint32 tagCount = CFArrayGetCount(authorizations);
+	uint32 tagCount = (uint32)CFArrayGetCount(authorizations);
 	
 	size_t tagSize = (tagCount * sizeof(CSSM_ACL_AUTHORIZATION_TAG));
 	

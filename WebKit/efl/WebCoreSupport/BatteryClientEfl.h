@@ -1,5 +1,6 @@
 /*
- *  Copyright (C) 2012 Samsung Electronics
+ *  Copyright (C) 2012 Samsung Electronics.  All rights reserved.
+ *  Copyright (C) 2012 Intel Corporation. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -23,31 +24,33 @@
 #if ENABLE(BATTERY_STATUS)
 
 #include "BatteryClient.h"
-#include <wtf/text/AtomicString.h>
+#include "BatteryProviderEfl.h"
+#include "BatteryProviderEflClient.h"
+#include "BatteryStatus.h"
+#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
-
 class BatteryController;
-class BatteryStatus;
+}
 
-class BatteryClientEfl : public BatteryClient {
+class BatteryClientEfl : public WebCore::BatteryClient, public WebCore::BatteryProviderEflClient {
 public:
-    BatteryClientEfl();
-    ~BatteryClientEfl() { };
+    explicit BatteryClientEfl(Evas_Object* view);
+    virtual ~BatteryClientEfl();
 
-    virtual void setController(BatteryController*);
+    // BatteryClient interface.
     virtual void startUpdating();
     virtual void stopUpdating();
     virtual void batteryControllerDestroyed();
 
-    void setBatteryStatus(const AtomicString& eventType, PassRefPtr<BatteryStatus>);
-
 private:
-    BatteryController* m_controller;
+    // BatteryProviderEflClient interface.
+    virtual void didChangeBatteryStatus(const AtomicString& eventType, PassRefPtr<WebCore::BatteryStatus>);
+
+    Evas_Object* m_view;
+    WebCore::BatteryProviderEfl m_provider;
 };
 
-}
+#endif // ENABLE(BATTERY_STATUS)
 
-#endif // BATTERY_STATUS
 #endif // BatteryClientEfl_h
-

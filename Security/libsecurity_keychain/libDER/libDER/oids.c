@@ -177,14 +177,22 @@
  */
 #define APPLE_EKU_CODE_SIGNING			APPLE_EKU_OID, 1
 #define APPLE_EKU_APPLE_ID              APPLE_EKU_OID, 7
+#define APPLE_EKU_SHOEBOX               APPLE_EKU_OID, 14
+#define APPLE_EKU_PROFILE_SIGNING       APPLE_EKU_OID, 16
+#define APPLE_EKU_QA_PROFILE_SIGNING    APPLE_EKU_OID, 17
+
 
 /*
- * Basis of Apple-specific Certific Policy IDs.
+ * Basis of Apple-specific Certificate Policy IDs.
  * appleCertificatePolicies OBJECT IDENTIFIER ::= 
  *		{ appleDataSecurity 5 }
  *		{ 1 2 840 113635 100 5 }
  */
 #define APPLE_CERT_POLICIES				APPLE_ADS_OID, 5
+
+#define APPLE_CERT_POLICY_MOBILE_STORE	APPLE_CERT_POLICIES, 12
+
+#define APPLE_CERT_POLICY_TEST_MOBILE_STORE APPLE_CERT_POLICY_MOBILE_STORE, 1
 
 /*
  * Basis of Apple-specific Signing extensions
@@ -205,14 +213,28 @@
  */
 #define APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_2 APPLE_CERT_EXT_INTERMEDIATE_MARKER, 7
 
+#define APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_SYSTEM_INTEGRATION_2 APPLE_CERT_EXT_INTERMEDIATE_MARKER, 10
+
+#define APPLE_CERT_EXT_APPLE_PUSH_MARKER    APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID, 2
+
+
+#define APPLE_CERT_EXTENSION_CODESIGNING        APPLE_CERT_EXT, 1
 
 /* Secure Boot Embedded Image3 value,
    co-opted by desktop for "Apple Released Code Signature", without value */
-#define APPLE_SBOOT_CERT_EXTEN_SBOOT_SPEC_OID	APPLE_ADS_OID, 6, 1, 1
-/* iPhone Provisioning Profile Signing leaf */
-#define APPLE_PROVISIONING_PROFILE_OID	APPLE_ADS_OID, 6, 2, 2, 1
+#define APPLE_SBOOT_CERT_EXTEN_SBOOT_SPEC_OID	APPLE_CERT_EXTENSION_CODESIGNING, 1
+/* iPhone Provisioning Profile Signing leaf - on the intermediate marker arc? */
+#define APPLE_PROVISIONING_PROFILE_OID	APPLE_CERT_EXT_INTERMEDIATE_MARKER, 1
 /* iPhone Application Signing leaf */
-#define APPLE_APP_SIGINING_OID	APPLE_ADS_OID, 6, 1, 3
+#define APPLE_APP_SIGINING_OID          APPLE_CERT_EXTENSION_CODESIGNING, 3
+/* Shoebox card signing leaf */
+#define APPLE_INSTALLER_PACKAGE_SIGNING_EXTERNAL_OID       APPLE_CERT_EXTENSION_CODESIGNING, 16
+
+#define APPLE_ESCROW_ARC APPLE_CERT_EXT, 23
+
+#define APPLE_ESCROW_POLICY_OID APPLE_ESCROW_ARC, 1
+
+#define APPLE_CERT_EXTENSTION_APPLE_ID_VALIDATION_RECORD_SIGNING	APPLE_CERT_EXT, 25
 
 /*
  * Netscape OIDs.
@@ -359,9 +381,19 @@ static const DERByte
     _oidAppleSecureBootCertSpec[]   = { APPLE_SBOOT_CERT_EXTEN_SBOOT_SPEC_OID },
     _oidAppleProvisioningProfile[]  = {APPLE_PROVISIONING_PROFILE_OID },
     _oidAppleApplicationSigning[]   = { APPLE_APP_SIGINING_OID },
+    _oidAppleInstallerPackagingSigningExternal[]       = { APPLE_INSTALLER_PACKAGE_SIGNING_EXTERNAL_OID },
     _oidAppleExtendedKeyUsageAppleID[] = { APPLE_EKU_APPLE_ID },
+    _oidAppleExtendedKeyUsageShoebox[] = { APPLE_EKU_SHOEBOX },
+    _oidAppleExtendedKeyUsageProfileSigning[] = { APPLE_EKU_PROFILE_SIGNING },
+    _oidAppleExtendedKeyUsageQAProfileSigning[] = { APPLE_EKU_QA_PROFILE_SIGNING },
     _oidAppleIntmMarkerAppleID[] = { APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID },
-    _oidAppleIntmMarkerAppleID2[] = {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_2 };
+    _oidAppleIntmMarkerAppleID2[] = {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_2 },
+    _oidApplePushServiceClient[]   =   { APPLE_CERT_EXT_APPLE_PUSH_MARKER, 2 },
+	_oidApplePolicyMobileStore[]  = { APPLE_CERT_POLICY_MOBILE_STORE },
+	_oidApplePolicyTestMobileStore[] = { APPLE_CERT_POLICY_TEST_MOBILE_STORE },
+	_oidApplePolicyEscrowService[] = { APPLE_ESCROW_POLICY_OID },
+	_oidAppleCertExtensionAppleIDRecordValidationSigning[] = { APPLE_CERT_EXTENSTION_APPLE_ID_VALIDATION_RECORD_SIGNING },
+	_oidAppleIntmMarkerAppleSystemIntg2[] =  {APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_SYSTEM_INTEGRATION_2};
 
 const DERItem
     oidSubjectKeyIdentifier         = { (DERByte *)_oidSubjectKeyIdentifier,
@@ -455,13 +487,35 @@ const DERItem
     oidAppleProvisioningProfile     = { (DERByte *)_oidAppleProvisioningProfile,
                                         sizeof(_oidAppleProvisioningProfile) },
     oidAppleApplicationSigning      = { (DERByte *)_oidAppleApplicationSigning,
-                                        sizeof(_oidAppleApplicationSigning) },
+                                         sizeof(_oidAppleApplicationSigning) },
+    oidAppleInstallerPackagingSigningExternal          = { (DERByte *)_oidAppleInstallerPackagingSigningExternal,
+                                                            sizeof(_oidAppleInstallerPackagingSigningExternal) },
     oidAppleExtendedKeyUsageAppleID = { (DERByte *)_oidAppleExtendedKeyUsageAppleID,
                                         sizeof(_oidAppleExtendedKeyUsageAppleID) },
+    oidAppleExtendedKeyUsageShoebox = { (DERByte *)_oidAppleExtendedKeyUsageShoebox,
+                                        sizeof(_oidAppleExtendedKeyUsageShoebox) },
+    oidAppleExtendedKeyUsageProfileSigning  
+                                     = { (DERByte *)_oidAppleExtendedKeyUsageProfileSigning,
+                                        sizeof(_oidAppleExtendedKeyUsageProfileSigning) },
+    oidAppleExtendedKeyUsageQAProfileSigning
+                                    = { (DERByte *)_oidAppleExtendedKeyUsageQAProfileSigning,
+                                        sizeof(_oidAppleExtendedKeyUsageQAProfileSigning) },
     oidAppleIntmMarkerAppleID       = { (DERByte *)_oidAppleIntmMarkerAppleID,
                                         sizeof(_oidAppleIntmMarkerAppleID) },
     oidAppleIntmMarkerAppleID2      = { (DERByte *)_oidAppleIntmMarkerAppleID2,
-                                        sizeof(_oidAppleIntmMarkerAppleID2) };
+                                        sizeof(_oidAppleIntmMarkerAppleID2) },
+    oidApplePushServiceClient       = { (DERByte *)_oidAppleIntmMarkerAppleID2,
+                                        sizeof(_oidAppleIntmMarkerAppleID2) },
+	oidApplePolicyMobileStore		= { (DERByte *)_oidApplePolicyMobileStore,
+										sizeof(_oidApplePolicyMobileStore)},
+	oidApplePolicyTestMobileStore	= { (DERByte *)_oidApplePolicyTestMobileStore,
+										sizeof(_oidApplePolicyTestMobileStore)},
+	oidApplePolicyEscrowService		= { (DERByte *)_oidApplePolicyEscrowService,
+										sizeof(_oidApplePolicyEscrowService)},
+	oidAppleCertExtensionAppleIDRecordValidationSigning = { (DERByte *)_oidAppleCertExtensionAppleIDRecordValidationSigning,
+										sizeof(_oidAppleCertExtensionAppleIDRecordValidationSigning)},
+	oidAppleIntmMarkerAppleSystemIntg2 = { (DERByte *) _oidAppleIntmMarkerAppleSystemIntg2,
+										sizeof(_oidAppleIntmMarkerAppleSystemIntg2)};
 
 
 bool DEROidCompare(const DERItem *oid1, const DERItem *oid2) {

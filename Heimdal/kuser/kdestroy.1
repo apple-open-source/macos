@@ -43,7 +43,7 @@
 .Op Fl c Ar cachefile
 .Op Fl -credential= Ns Ar principal
 .Op Fl -principal= Ns Ar principal
-.Op Fl -cache= Ns Ar cachefile
+.Op Fl -cache= Ns Ar type:name
 .Op Fl A | Fl a | Fl -all
 .Op Fl -no-unlog
 .Op Fl -no-delete-v4
@@ -64,8 +64,8 @@ from the credential cache if it exists.
 .It Fl principal= Ns Ar principal
 The cache with client principal to remove.
 .It Fl c Ar cachefile
-.It Fl cache= Ns Ar cachefile
-The cache file to remove.
+.It Fl cache= Ns Ar type:name
+The cache to remove. If the name is path-like, the cache type cache can be omitted.
 .It Fl A
 .It Fl a
 .It Fl Fl all

@@ -22,39 +22,31 @@
 #include "CookieJarSoup.h"
 #include "NotImplemented.h"
 
-#if USE(PLATFORM_STRATEGIES)
-#include "CookiesStrategy.h"
-#include "PlatformStrategies.h"
-#endif
-
 #include <stdio.h>
 
 namespace WebCore {
 
-void setCookieStoragePrivateBrowsingEnabled(bool enabled)
+static CookieChangeCallbackPtr cookieChangeCallback;
+
+static void soupCookiesChanged(SoupCookieJar* jar, SoupCookie*, SoupCookie*, gpointer)
 {
-    notImplemented();
+    if (jar != soupCookieJar())
+        return;
+    cookieChangeCallback();
 }
 
-#if USE(PLATFORM_STRATEGIES)
-static void soupCookiesChanged(SoupCookieJar*, SoupCookie*, SoupCookie*, gpointer)
+void startObservingCookieChanges(CookieChangeCallbackPtr callback)
 {
-    platformStrategies()->cookiesStrategy()->notifyCookiesChanged();
-}
-#endif
+    ASSERT(!cookieChangeCallback);
+    cookieChangeCallback = callback;
 
-void startObservingCookieChanges()
-{
-#if USE(PLATFORM_STRATEGIES)
     g_signal_connect(soupCookieJar(), "changed", G_CALLBACK(soupCookiesChanged), 0);
-#endif
 }
 
 void stopObservingCookieChanges()
 {
-#if USE(PLATFORM_STRATEGIES)
     g_signal_handlers_disconnect_by_func(soupCookieJar(), reinterpret_cast<void*>(soupCookiesChanged), 0);
-#endif
+    cookieChangeCallback = 0;
 }
 
 }

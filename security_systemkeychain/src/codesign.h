@@ -30,6 +30,7 @@
 #include "cs_utils.h"
 #include <Security/Security.h>
 #include <Security/CodeSigning.h>
+#include <Security/SecCodeSigner.h>
 
 
 //
@@ -49,8 +50,8 @@ void procaction(const char *target);
 //
 // Program arguments
 //
-static const int pagesizeUnspecified = -1;
-extern int pagesize;					// signing page size
+static const size_t pagesizeUnspecified = -1;
+extern size_t pagesize;					// signing page size
 extern SecIdentityRef signer;			// signer identity
 extern SecKeychainRef keychain;			// source keychain for signer identity
 extern const char *internalReq;			// internal requirement (raw optarg)
@@ -66,6 +67,7 @@ extern const char *extractCerts;		// location for extracting signing chain certi
 extern const char *sdkRoot;				// alternate root for looking up sub-components
 extern SecCSFlags staticVerifyOptions;	// option flags to static verifications
 extern SecCSFlags dynamicVerifyOptions;	// option flags to dynamic verifications
+extern SecCSFlags signOptions;			// option flags to signing operations
 extern uint32_t digestAlgorithm;		// digest algorithm to be used when signing
 extern CFDateRef signingTime;			// explicit signing time option
 extern size_t signatureSize;			// override CMS signature size estimate
@@ -76,17 +78,11 @@ extern const char *bundleVersion;		// specific version string requested (from a 
 extern bool noMachO;					// force non-MachO operation
 extern bool dryrun;						// do not actually change anything
 extern bool allArchitectures;			// process all architectures in a universal (aka fat) code file
+extern bool nested;						// nested code processing (--deep)
 extern CFBooleanRef timestampRequest;	// timestamp request option
 extern bool noTSAcerts;					// Don't request certificates with ts request
 extern const char *tsaURL;				// TimeStamping Authority URL
-
-enum {
-    kPreserveIdentifier = 1 << 0,		// preserve signing identifier
-    kPreserveRequirements = 1 << 1,		// preserve internal requirements (including DR)
-    kPreserveEntitlements = 1 << 2,		// preserve entitlements
-    kPreserveResourceRules = 1 << 3,	// preserve resource rules (and thus resources)
-};
-extern int preserveMetadata;			// keep metadata from previous signature (if any)
+extern uint32_t preserveMetadata;		// keep metadata from previous signature (if any)
 
 
 //

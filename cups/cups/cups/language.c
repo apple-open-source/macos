@@ -1,5 +1,5 @@
 /*
- * "$Id: language.c 7558 2008-05-12 23:46:44Z mike $"
+ * "$Id: language.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   I18N/language support for CUPS.
  *
@@ -446,7 +446,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
   * Set the character set to UTF-8...
   */
 
-  strcpy(charset, "UTF8");
+  strlcpy(charset, "UTF8", sizeof(charset));
 
  /*
   * Apple's setlocale doesn't give us the user's localization
@@ -582,7 +582,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
   */
 
   if (!charset[0])
-    strcpy(charset, "UTF8");
+    strlcpy(charset, "UTF8", sizeof(charset));
 
  /*
   * Parse the language string passed in to a locale string. "C" is the
@@ -597,7 +597,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
 
   if (language == NULL || !language[0] ||
       !strcmp(language, "POSIX"))
-    strcpy(langname, "C");
+    strlcpy(langname, "C", sizeof(langname));
   else
   {
    /*
@@ -646,7 +646,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
 
     if (strlen(langname) != 2)
     {
-      strcpy(langname, "C");
+      strlcpy(langname, "C", sizeof(langname));
       country[0] = '\0';
       charset[0] = '\0';
     }
@@ -701,7 +701,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
   if (country[0])
     snprintf(real, sizeof(real), "%s_%s", langname, country);
   else
-    strcpy(real, langname);
+    strlcpy(real, langname, sizeof(real));
 
   _cupsMutexLock(&lang_mutex);
 
@@ -847,6 +847,7 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
 			*ptr,		/* Pointer into buffer */
 			*temp;		/* New string */
   int			length;		/* Length of combined strings */
+  size_t		ptrlen;		/* Length of string */
 
 
   DEBUG_printf(("4_cupsMessageLoad(filename=\"%s\")", filename));
@@ -978,9 +979,10 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
       */
 
       length = (int)strlen(m->str ? m->str : m->id);
+      ptrlen = strlen(ptr);
 
       if ((temp = realloc(m->str ? m->str : m->id,
-                          length + strlen(ptr) + 1)) == NULL)
+                          length + ptrlen + 1)) == NULL)
       {
         if (m->str)
 	  free(m->str);
@@ -995,25 +997,25 @@ _cupsMessageLoad(const char *filename,	/* I - Message catalog to load */
       {
        /*
         * Copy the new portion to the end of the msgstr string - safe
-	* to use strcpy because the buffer is allocated to the correct
+	* to use memcpy because the buffer is allocated to the correct
 	* size...
 	*/
 
         m->str = temp;
 
-	strcpy(m->str + length, ptr);
+	memcpy(m->str + length, ptr, ptrlen + 1);
       }
       else
       {
        /*
         * Copy the new portion to the end of the msgid string - safe
-	* to use strcpy because the buffer is allocated to the correct
+	* to use memcpy because the buffer is allocated to the correct
 	* size...
 	*/
 
         m->id = temp;
 
-	strcpy(m->id + length, ptr);
+	memcpy(m->id + length, ptr, ptrlen + 1);
       }
     }
     else if (!strncmp(s, "msgstr", 6) && m)
@@ -1182,24 +1184,40 @@ appleLangDefault(void)
   {
     if (getenv("SOFTWARE") != NULL && (lang = getenv("LANG")) != NULL)
     {
+      DEBUG_printf(("3appleLangDefault: Using LANG=%s", lang));
       strlcpy(cg->language, lang, sizeof(cg->language));
       return (cg->language);
     }
     else if ((bundle = CFBundleGetMainBundle()) != NULL &&
              (bundleList = CFBundleCopyBundleLocalizations(bundle)) != NULL)
     {
+      DEBUG_puts("3appleLangDefault: Getting localizationList from bundle.");
+
       localizationList =
 	  CFBundleCopyPreferredLocalizationsFromArray(bundleList);
 
       CFRelease(bundleList);
     }
     else
+    {
+      DEBUG_puts("3appleLangDefault: Getting localizationList from preferences.");
+
       localizationList =
 	  CFPreferencesCopyAppValue(CFSTR("AppleLanguages"),
 				    kCFPreferencesCurrentApplication);
+    }
 
     if (localizationList)
     {
+
+#ifdef DEBUG
+      if (CFGetTypeID(localizationList) == CFArrayGetTypeID())
+        DEBUG_printf(("3appleLangDefault: Got localizationList, %d entries.",
+                      (int)CFArrayGetCount(localizationList)));
+      else
+        DEBUG_puts("3appleLangDefault: Got localizationList but not an array.");
+#endif /* DEBUG */
+
       if (CFGetTypeID(localizationList) == CFArrayGetTypeID() &&
 	  CFArrayGetCount(localizationList) > 0)
       {
@@ -1217,7 +1235,7 @@ appleLangDefault(void)
 			       kCFStringEncodingASCII);
 	    CFRelease(localeName);
 
-	    DEBUG_printf(("9appleLangDefault: cg->language=\"%s\"",
+	    DEBUG_printf(("3appleLangDefault: cg->language=\"%s\"",
 			  cg->language));
 
 	   /*
@@ -1231,7 +1249,7 @@ appleLangDefault(void)
 	    {
 	      if (!strcmp(cg->language, apple_language_locale[i].language))
 	      {
-		DEBUG_printf(("9appleLangDefault: mapping \"%s\" to \"%s\"...",
+		DEBUG_printf(("3appleLangDefault: mapping \"%s\" to \"%s\"...",
 			      cg->language, apple_language_locale[i].locale));
 		strlcpy(cg->language, apple_language_locale[i].locale,
 			sizeof(cg->language));
@@ -1249,6 +1267,8 @@ appleLangDefault(void)
 	    if (!strchr(cg->language, '.'))
 	      strlcat(cg->language, ".UTF-8", sizeof(cg->language));
 	  }
+	  else
+	    DEBUG_puts("3appleLangDefault: Unable to get localeName.");
 	}
       }
 
@@ -1260,7 +1280,10 @@ appleLangDefault(void)
     */
 
     if (!cg->language[0])
+    {
+      DEBUG_puts("3appleLangDefault: Defaulting to en_US.");
       strlcpy(cg->language, "en_US.UTF-8", sizeof(cg->language));
+    }
   }
 
  /*
@@ -1563,5 +1586,5 @@ cups_unquote(char       *d,		/* O - Unquoted string */
 
 
 /*
- * End of "$Id: language.c 7558 2008-05-12 23:46:44Z mike $".
+ * End of "$Id: language.c 11093 2013-07-03 20:48:42Z msweet $".
  */

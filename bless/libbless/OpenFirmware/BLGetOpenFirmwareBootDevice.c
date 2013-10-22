@@ -89,7 +89,7 @@ int BLGetOpenFirmwareBootDevice(BLContextPtr context, const char * mntfrm, char 
 
     if(!mntfrm || 0 != strncmp(mntfrm, "/dev/", 5)) return 1;
 
-	strcpy(device, mntfrm);
+	strlcpy(device, mntfrm, sizeof device);
     
     // Obtain the I/O Kit communication handle.
     if((kret = IOMasterPort(bootstrap_port, &ourIOKitPort)) != KERN_SUCCESS) {

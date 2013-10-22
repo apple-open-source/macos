@@ -1,5 +1,5 @@
 /*
-    $Id: strscan.c 11708 2007-02-12 23:01:19Z shyouhei $
+    $Id: strscan.c 37916 2012-11-28 00:17:33Z ryan $
 
     Copyright (c) 1999-2006 Minero Aoki
 
@@ -8,8 +8,10 @@
     the Ruby License. For details, see the file COPYING.
 */
 
-#include "ruby.h"
-#include "re.h"
+#include "ruby/ruby.h"
+#include "ruby/re.h"
+#include "ruby/encoding.h"
+#include "regint.h"
 
 #define STRSCAN_VERSION "0.7.0"
 
@@ -19,6 +21,7 @@
 
 static VALUE StringScanner;
 static VALUE ScanError;
+static ID id_byteslice;
 
 struct strscanner
 {
@@ -28,7 +31,7 @@ struct strscanner
 
     /* the string to scan */
     VALUE str;
-    
+
     /* scan pointers */
     long prev;   /* legal only when MATCHED_P(s) */
     long curr;   /* always legal */
@@ -41,17 +44,17 @@ struct strscanner
 #define MATCHED(s)             (s)->flags |= FLAG_MATCHED
 #define CLEAR_MATCH_STATUS(s)  (s)->flags &= ~FLAG_MATCHED
 
-#define S_PBEG(s)  (RSTRING((s)->str)->ptr)
-#define S_LEN(s)  (RSTRING((s)->str)->len)
+#define S_PBEG(s)  (RSTRING_PTR((s)->str))
+#define S_LEN(s)  (RSTRING_LEN((s)->str))
 #define S_PEND(s)  (S_PBEG(s) + S_LEN(s))
 #define CURPTR(s) (S_PBEG(s) + (s)->curr)
 #define S_RESTLEN(s) (S_LEN(s) - (s)->curr)
 
-#define EOS_P(s) ((s)->curr >= RSTRING(p->str)->len)
+#define EOS_P(s) ((s)->curr >= RSTRING_LEN(p->str))
 
 #define GET_SCANNER(obj,var) do {\
-    Data_Get_Struct(obj, struct strscanner, var);\
-    if (NIL_P(var->str)) rb_raise(rb_eArgError, "uninitialized StringScanner object");\
+    (var) = check_strscan(obj);\
+    if (NIL_P((var)->str)) rb_raise(rb_eArgError, "uninitialized StringScanner object");\
 } while (0)
 
 /* =======================================================================
@@ -62,9 +65,10 @@ static VALUE infect _((VALUE str, struct strscanner *p));
 static VALUE extract_range _((struct strscanner *p, long beg_i, long end_i));
 static VALUE extract_beg_len _((struct strscanner *p, long beg_i, long len));
 
-static void check_strscan _((VALUE obj));
-static void strscan_mark _((struct strscanner *p));
-static void strscan_free _((struct strscanner *p));
+static struct strscanner *check_strscan _((VALUE obj));
+static void strscan_mark _((void *p));
+static void strscan_free _((void *p));
+static size_t strscan_memsize _((const void *p));
 static VALUE strscan_s_allocate _((VALUE klass));
 static VALUE strscan_initialize _((int argc, VALUE *argv, VALUE self));
 static VALUE strscan_init_copy _((VALUE vself, VALUE vorig));
@@ -126,12 +130,20 @@ infect(VALUE str, struct strscanner *p)
 }
 
 static VALUE
+str_new(struct strscanner *p, const char *ptr, long len)
+{
+    VALUE str = rb_str_new(ptr, len);
+    rb_enc_copy(str, p->str);
+    return str;
+}
+
+static VALUE
 extract_range(struct strscanner *p, long beg_i, long end_i)
 {
     if (beg_i > S_LEN(p)) return Qnil;
     if (end_i > S_LEN(p))
         end_i = S_LEN(p);
-    return infect(rb_str_new(S_PBEG(p) + beg_i, end_i - beg_i), p);
+    return infect(str_new(p, S_PBEG(p) + beg_i, end_i - beg_i), p);
 }
 
 static VALUE
@@ -140,7 +152,7 @@ extract_beg_len(struct strscanner *p, long beg_i, long len)
     if (beg_i > S_LEN(p)) return Qnil;
     if (beg_i + len > S_LEN(p))
         len = S_LEN(p) - beg_i;
-    return infect(rb_str_new(S_PBEG(p) + beg_i, len), p);
+    return infect(str_new(p, S_PBEG(p) + beg_i, len), p);
 }
 
 /* =======================================================================
@@ -148,29 +160,47 @@ extract_beg_len(struct strscanner *p, long beg_i, long len)
    ======================================================================= */
 
 static void
-strscan_mark(struct strscanner *p)
+strscan_mark(void *ptr)
 {
+    struct strscanner *p = ptr;
     rb_gc_mark(p->str);
 }
 
 static void
-strscan_free(struct strscanner *p)
+strscan_free(void *ptr)
 {
-    re_free_registers(&(p->regs));
-    free(p);
+    struct strscanner *p = ptr;
+    onig_region_free(&(p->regs), 0);
+    ruby_xfree(p);
 }
+
+static size_t
+strscan_memsize(const void *ptr)
+{
+    const struct strscanner *p = ptr;
+    size_t size = 0;
+    if (p) {
+	size = sizeof(*p) - sizeof(p->regs) + onig_region_memsize(&p->regs);
+    }
+    return size;
+}
+
+static const rb_data_type_t strscanner_type = {
+    "StringScanner",
+    {strscan_mark, strscan_free, strscan_memsize}
+};
 
 static VALUE
 strscan_s_allocate(VALUE klass)
 {
     struct strscanner *p;
-    
+
     p = ALLOC(struct strscanner);
     MEMZERO(p, struct strscanner, 1);
     CLEAR_MATCH_STATUS(p);
-    MEMZERO(&(p->regs), struct re_registers, 1);
+    onig_region_init(&(p->regs));
     p->str = Qnil;
-    return Data_Wrap_Struct(klass, strscan_mark, strscan_free, p);
+    return TypedData_Wrap_Struct(klass, &strscanner_type, p);
 }
 
 /*
@@ -185,7 +215,7 @@ strscan_initialize(int argc, VALUE *argv, VALUE self)
     struct strscanner *p;
     VALUE str, need_dup;
 
-    Data_Get_Struct(self, struct strscanner, p);
+    p = check_strscan(self);
     rb_scan_args(argc, argv, "11", &str, &need_dup);
     StringValue(str);
     p->str = str;
@@ -193,14 +223,10 @@ strscan_initialize(int argc, VALUE *argv, VALUE self)
     return self;
 }
 
-static void
+static struct strscanner *
 check_strscan(VALUE obj)
 {
-    if (TYPE(obj) != T_DATA || RDATA(obj)->dmark != (RUBY_DATA_FUNC)strscan_mark) {
-        rb_raise(rb_eTypeError,
-                 "wrong argument type %s (expected StringScanner)",
-                 rb_obj_classname(obj));
-    }
+    return rb_check_typeddata(obj, &strscanner_type);
 }
 
 /*
@@ -215,16 +241,16 @@ strscan_init_copy(VALUE vself, VALUE vorig)
 {
     struct strscanner *self, *orig;
 
-    Data_Get_Struct(vself, struct strscanner, self);
-    check_strscan(vorig);
-    Data_Get_Struct(vorig, struct strscanner, orig);
+    self = check_strscan(vself);
+    orig = check_strscan(vorig);
     if (self != orig) {
-        self->flags = orig->flags;
-        self->str = orig->str;
-        self->prev = orig->prev;
-        self->curr = orig->curr;
-        re_copy_registers(&self->regs, &orig->regs);
+	self->flags = orig->flags;
+	self->str = orig->str;
+	self->prev = orig->prev;
+	self->curr = orig->curr;
+	onig_region_copy(&self->regs, &orig->regs);
     }
+
     return vself;
 }
 
@@ -307,12 +333,10 @@ strscan_get_string(VALUE self)
 static VALUE
 strscan_set_string(VALUE self, VALUE str)
 {
-    struct strscanner *p;
+    struct strscanner *p = check_strscan(self);
 
-    Data_Get_Struct(self, struct strscanner, p);
     StringValue(str);
-    p->str = rb_str_dup(str);
-    rb_obj_freeze(p->str);
+    p->str = str;
     p->curr = 0;
     CLEAR_MATCH_STATUS(p);
     return str;
@@ -344,11 +368,11 @@ strscan_concat(VALUE self, VALUE str)
 }
 
 /*
- * Returns the position of the scan pointer.  In the 'reset' position, this
+ * Returns the byte position of the scan pointer.  In the 'reset' position, this
  * value is zero.  In the 'terminated' position (i.e. the string is exhausted),
- * this value is the length of the string.
+ * this value is the bytesize of the string.
  *
- * In short, it's a 0-based index into the string.
+ * In short, it's a 0-based index into bytes of the string.
  *
  *   s = StringScanner.new('test string')
  *   s.pos               # -> 0
@@ -367,9 +391,35 @@ strscan_get_pos(VALUE self)
 }
 
 /*
+ * Returns the character position of the scan pointer.  In the 'reset' position, this
+ * value is zero.  In the 'terminated' position (i.e. the string is exhausted),
+ * this value is the size of the string.
+ *
+ * In short, it's a 0-based index into the string.
+ *
+ *   s = StringScanner.new("abcädeföghi")
+ *   s.charpos           # -> 0
+ *   s.scan_until(/ä/)   # -> "abcä"
+ *   s.pos               # -> 5
+ *   s.charpos           # -> 4
+ */
+static VALUE
+strscan_get_charpos(VALUE self)
+{
+    struct strscanner *p;
+    VALUE substr;
+
+    GET_SCANNER(self, p);
+
+    substr = rb_funcall(p->str, id_byteslice, 2, INT2FIX(0), INT2NUM(p->curr));
+
+    return rb_str_length(substr);
+}
+
+/*
  * call-seq: pos=(n)
  *
- * Modify the scan pointer.
+ * Set the byte position of the scan pointer.
  *
  *   s = StringScanner.new('test string')
  *   s.pos = 7            # -> 7
@@ -393,8 +443,11 @@ strscan_set_pos(VALUE self, VALUE v)
 static VALUE
 strscan_do_scan(VALUE self, VALUE regex, int succptr, int getstr, int headonly)
 {
+    regex_t *rb_reg_prepare_re(VALUE re, VALUE str);
     struct strscanner *p;
-    int ret;
+    regex_t *re;
+    long ret;
+    int tmpreg;
 
     Check_Type(regex, T_REGEXP);
     GET_SCANNER(self, p);
@@ -403,21 +456,31 @@ strscan_do_scan(VALUE self, VALUE regex, int succptr, int getstr, int headonly)
     if (S_RESTLEN(p) < 0) {
         return Qnil;
     }
-    rb_kcode_set_option(regex);
+    re = rb_reg_prepare_re(regex, p->str);
+    tmpreg = re != RREGEXP(regex)->ptr;
+    if (!tmpreg) RREGEXP(regex)->usecnt++;
+
     if (headonly) {
-        ret = re_match(RREGEXP(regex)->ptr,
-                       CURPTR(p), S_RESTLEN(p),
-                       0,
-                       &(p->regs));
+        ret = onig_match(re, (UChar* )CURPTR(p),
+                         (UChar* )(CURPTR(p) + S_RESTLEN(p)),
+                         (UChar* )CURPTR(p), &(p->regs), ONIG_OPTION_NONE);
     }
     else {
-        ret = re_search(RREGEXP(regex)->ptr,
-                        CURPTR(p), S_RESTLEN(p),
-                        0,
-                        S_RESTLEN(p),
-                        &(p->regs));
+        ret = onig_search(re,
+                          (UChar* )CURPTR(p), (UChar* )(CURPTR(p) + S_RESTLEN(p)),
+                          (UChar* )CURPTR(p), (UChar* )(CURPTR(p) + S_RESTLEN(p)),
+                          &(p->regs), ONIG_OPTION_NONE);
     }
-    rb_kcode_reset_option();
+    if (!tmpreg) RREGEXP(regex)->usecnt--;
+    if (tmpreg) {
+        if (RREGEXP(regex)->usecnt) {
+            onig_free(re);
+        }
+        else {
+            onig_free(RREGEXP(regex)->ptr);
+            RREGEXP(regex)->ptr = re;
+        }
+    }
 
     if (ret == -2) rb_raise(ScanError, "regexp buffer overflow");
     if (ret < 0) {
@@ -521,11 +584,11 @@ strscan_check(VALUE self, VALUE re)
 }
 
 /*
- * call-seq: scan_full(pattern, return_string_p, advance_pointer_p)
+ * call-seq: scan_full(pattern, advance_pointer_p, return_string_p)
  *
  * Tests whether the given +pattern+ is matched from the current scan pointer.
- * Returns the matched string if +return_string_p+ is true.
  * Advances the scan pointer if +advance_pointer_p+ is true.
+ * Returns the matched string if +return_string_p+ is true.
  * The match register is affected.
  *
  * "full" means "#scan with full parameters".
@@ -535,7 +598,6 @@ strscan_scan_full(VALUE self, VALUE re, VALUE s, VALUE f)
 {
     return strscan_do_scan(self, re, RTEST(s), RTEST(f), 1);
 }
-
 
 /*
  * call-seq: scan_until(pattern)
@@ -565,7 +627,7 @@ strscan_scan_until(VALUE self, VALUE re)
  *   s = StringScanner.new('test string')
  *   s.exist? /s/            # -> 3
  *   s.scan /test/           # -> "test"
- *   s.exist? /s/            # -> 6
+ *   s.exist? /s/            # -> 2
  *   s.exist? /e/            # -> nil
  */
 static VALUE
@@ -588,7 +650,7 @@ strscan_exist_p(VALUE self, VALUE re)
  *
  *   s = StringScanner.new("Fri Dec 12 1975 14:39")
  *   s.skip_until /12/           # -> 10
- *   s                           # 
+ *   s                           #
  */
 static VALUE
 strscan_skip_until(VALUE self, VALUE re)
@@ -616,12 +678,12 @@ strscan_check_until(VALUE self, VALUE re)
 }
 
 /*
- * call-seq: search_full(pattern, return_string_p, advance_pointer_p)
+ * call-seq: search_full(pattern, advance_pointer_p, return_string_p)
  *
  * Scans the string _until_ the +pattern+ is matched.
+ * Advances the scan pointer if +advance_pointer_p+, otherwise not.
  * Returns the matched string if +return_string_p+ is true, otherwise
  * returns the number of bytes advanced.
- * Advances the scan pointer if +advance_pointer_p+, otherwise not.
  * This method does affect the match register.
  */
 static VALUE
@@ -630,26 +692,18 @@ strscan_search_full(VALUE self, VALUE re, VALUE s, VALUE f)
     return strscan_do_scan(self, re, RTEST(s), RTEST(f), 0);
 }
 
-/* DANGEROUS; need to synchronize with regex.c */
 static void
 adjust_registers_to_matched(struct strscanner *p)
 {
-    if (p->regs.allocated == 0) {
-        p->regs.beg = ALLOC_N(int, RE_NREGS);
-        p->regs.end = ALLOC_N(int, RE_NREGS);
-        p->regs.allocated = RE_NREGS;
-    }
-    p->regs.num_regs = 1;
-    p->regs.beg[0] = 0;
-    p->regs.end[0] = p->curr - p->prev;
+    onig_region_clear(&(p->regs));
+    onig_region_set(&(p->regs), 0, 0, (int)(p->curr - p->prev));
 }
 
 /*
  * Scans one character and returns it.
- * This method is multi-byte character sensitive.
- * See also #get_byte.
+ * This method is multibyte character sensitive.
  *
- *   s = StringScanner.new('ab')
+ *   s = StringScanner.new("ab")
  *   s.getch           # => "a"
  *   s.getch           # => "b"
  *   s.getch           # => nil
@@ -669,7 +723,8 @@ strscan_getch(VALUE self)
     CLEAR_MATCH_STATUS(p);
     if (EOS_P(p))
         return Qnil;
-    len = mbclen(*CURPTR(p));
+
+    len = rb_enc_mbclen(CURPTR(p), S_PEND(p), rb_enc_get(p->str));
     if (p->curr + len > S_LEN(p)) {
         len = S_LEN(p) - p->curr;
     }
@@ -683,14 +738,15 @@ strscan_getch(VALUE self)
 
 /*
  * Scans one byte and returns it.
- * This method is NOT multi-byte character sensitive.
- * See also #getch.
+ * This method is not multibyte character sensitive.
+ * See also: #getch.
  *
  *   s = StringScanner.new('ab')
  *   s.get_byte         # => "a"
  *   s.get_byte         # => "b"
  *   s.get_byte         # => nil
  *
+ *   $KCODE = 'EUC'
  *   s = StringScanner.new("\244\242")
  *   s.get_byte         # => "\244"
  *   s.get_byte         # => "\242"
@@ -703,9 +759,9 @@ strscan_get_byte(VALUE self)
 
     GET_SCANNER(self, p);
     CLEAR_MATCH_STATUS(p);
-    if (EOS_P(p)) {
+    if (EOS_P(p))
         return Qnil;
-    }
+
     p->prev = p->curr;
     p->curr++;
     MATCHED(p);
@@ -743,13 +799,13 @@ strscan_peek(VALUE self, VALUE vlen)
     long len;
 
     GET_SCANNER(self, p);
+
     len = NUM2LONG(vlen);
-    if (EOS_P(p)) {
-        return infect(rb_str_new("", 0), p);
-    }
-    if (p->curr + len > S_LEN(p)) {
+    if (EOS_P(p))
+        return infect(str_new(p, "", 0), p);
+
+    if (p->curr + len > S_LEN(p))
         len = S_LEN(p) - p->curr;
-    }
     return extract_beg_len(p, p->curr, len);
 }
 
@@ -773,7 +829,7 @@ strscan_peep(VALUE self, VALUE vlen)
  *   s.unscan
  *   s.scan(/../)         # => "te"
  *   s.scan(/\d/)         # => nil
- *   s.unscan             # ScanError: unscan failed: previous match had failed
+ *   s.unscan             # ScanError: unscan failed: previous match record not exist
  */
 static VALUE
 strscan_unscan(VALUE self)
@@ -781,9 +837,8 @@ strscan_unscan(VALUE self)
     struct strscanner *p;
 
     GET_SCANNER(self, p);
-    if (! MATCHED_P(p)) {
-        rb_raise(ScanError, "unscan failed: previous match had failed");
-    }
+    if (! MATCHED_P(p))
+        rb_raise(ScanError, "unscan failed: previous match record not exist");
     p->curr = p->prev;
     CLEAR_MATCH_STATUS(p);
     return self;
@@ -879,7 +934,7 @@ strscan_matched_p(VALUE self)
 
 /*
  * Returns the last matched string.
- * 
+ *
  *   s = StringScanner.new('test string')
  *   s.match?(/\w+/)     # -> 4
  *   s.matched           # -> "test"
@@ -891,7 +946,6 @@ strscan_matched(VALUE self)
 
     GET_SCANNER(self, p);
     if (! MATCHED_P(p)) return Qnil;
-
     return extract_range(p, p->prev + p->regs.beg[0],
                             p->prev + p->regs.end[0]);
 }
@@ -913,19 +967,7 @@ strscan_matched_size(VALUE self)
 
     GET_SCANNER(self, p);
     if (! MATCHED_P(p)) return Qnil;
-
     return INT2NUM(p->regs.end[0] - p->regs.beg[0]);
-}
-
-/*
- * Equivalent to #matched_size.
- * This method is obsolete; use #matched_size instead.
- */
-static VALUE
-strscan_matchedsize(VALUE self)
-{
-    rb_warning("StringScanner#matchedsize is obsolete; use #matched_size instead");
-    return strscan_matched_size(self);
 }
 
 /*
@@ -950,7 +992,7 @@ strscan_aref(VALUE self, VALUE idx)
 
     GET_SCANNER(self, p);
     if (! MATCHED_P(p))        return Qnil;
-    
+
     i = NUM2LONG(idx);
     if (i < 0)
         i += p->regs.num_regs;
@@ -978,7 +1020,6 @@ strscan_pre_match(VALUE self)
 
     GET_SCANNER(self, p);
     if (! MATCHED_P(p)) return Qnil;
-
     return extract_range(p, 0, p->prev + p->regs.beg[0]);
 }
 
@@ -998,7 +1039,6 @@ strscan_post_match(VALUE self)
 
     GET_SCANNER(self, p);
     if (! MATCHED_P(p)) return Qnil;
-
     return extract_range(p, p->prev + p->regs.end[0], S_LEN(p));
 }
 
@@ -1013,7 +1053,7 @@ strscan_rest(VALUE self)
 
     GET_SCANNER(self, p);
     if (EOS_P(p)) {
-        return infect(rb_str_new("", 0), p);
+        return infect(str_new(p, "", 0), p);
     }
     return extract_range(p, p->curr, S_LEN(p));
 }
@@ -1031,7 +1071,6 @@ strscan_rest_size(VALUE self)
     if (EOS_P(p)) {
         return INT2FIX(0);
     }
-
     i = S_LEN(p) - p->curr;
     return INT2FIX(i);
 }
@@ -1069,7 +1108,7 @@ strscan_inspect(VALUE self)
     long len;
     VALUE a, b;
 
-    Data_Get_Struct(self, struct strscanner, p);
+    p = check_strscan(self);
     if (NIL_P(p->str)) {
         len = snprintf(buf, BUFSIZE, "#<%s (uninitialized)>",
                        rb_class2name(CLASS_OF(self)));
@@ -1085,7 +1124,7 @@ strscan_inspect(VALUE self)
         len = snprintf(buf, BUFSIZE, "#<%s %ld/%ld @ %s>",
                        rb_class2name(CLASS_OF(self)),
                        p->curr, S_LEN(p),
-                       RSTRING(b)->ptr);
+                       RSTRING_PTR(b));
         return infect(rb_str_new(buf, len), p);
     }
     a = inspect1(p);
@@ -1093,8 +1132,8 @@ strscan_inspect(VALUE self)
     len = snprintf(buf, BUFSIZE, "#<%s %ld/%ld %s @ %s>",
                    rb_class2name(CLASS_OF(self)),
                    p->curr, S_LEN(p),
-                   RSTRING(a)->ptr,
-                   RSTRING(b)->ptr);
+                   RSTRING_PTR(a),
+                   RSTRING_PTR(b));
     return infect(rb_str_new(buf, len), p);
 }
 
@@ -1143,20 +1182,20 @@ inspect2(struct strscanner *p)
 
 /*
  * Document-class: StringScanner
- * 
+ *
  * StringScanner provides for lexical scanning operations on a String.  Here is
  * an example of its usage:
  *
  *   s = StringScanner.new('This is an example string')
  *   s.eos?               # -> false
- *   
+ *
  *   p s.scan(/\w+/)      # -> "This"
  *   p s.scan(/\w+/)      # -> nil
  *   p s.scan(/\s+/)      # -> " "
  *   p s.scan(/\s+/)      # -> nil
  *   p s.scan(/\w+/)      # -> "is"
  *   s.eos?               # -> false
- *   
+ *
  *   p s.scan(/\s+/)      # -> " "
  *   p s.scan(/\w+/)      # -> "an"
  *   p s.scan(/\s+/)      # -> " "
@@ -1164,7 +1203,7 @@ inspect2(struct strscanner *p)
  *   p s.scan(/\s+/)      # -> " "
  *   p s.scan(/\w+/)      # -> "string"
  *   s.eos?               # -> true
- *   
+ *
  *   p s.scan(/\s+/)      # -> nil
  *   p s.scan(/\w+/)      # -> nil
  *
@@ -1193,7 +1232,7 @@ inspect2(struct strscanner *p)
  * the string without actually scanning.  You can access the most recent match.
  * You can modify the string being scanned, reset or terminate the scanner,
  * find out or change the position of the scan pointer, skip ahead, and so on.
- * 
+ *
  * === Advancing the Scan Pointer
  *
  * - #getch
@@ -1224,7 +1263,7 @@ inspect2(struct strscanner *p)
  * - #reset
  * - #terminate
  * - #pos=
- * 
+ *
  * === Match Data
  *
  * - #matched
@@ -1245,10 +1284,12 @@ inspect2(struct strscanner *p)
  * There are aliases to several of the methods.
  */
 void
-Init_strscan(void)
+Init_strscan()
 {
     ID id_scanerr = rb_intern("ScanError");
     VALUE tmp;
+
+    id_byteslice = rb_intern("byteslice");
 
     StringScanner = rb_define_class("StringScanner", rb_cObject);
     ScanError = rb_define_class_under(StringScanner, "Error", rb_eStandardError);
@@ -1258,10 +1299,10 @@ Init_strscan(void)
     tmp = rb_str_new2(STRSCAN_VERSION);
     rb_obj_freeze(tmp);
     rb_const_set(StringScanner, rb_intern("Version"), tmp);
-    tmp = rb_str_new2("$Id: strscan.c 11708 2007-02-12 23:01:19Z shyouhei $");
+    tmp = rb_str_new2("$Id: strscan.c 37916 2012-11-28 00:17:33Z ryan $");
     rb_obj_freeze(tmp);
     rb_const_set(StringScanner, rb_intern("Id"), tmp);
-    
+
     rb_define_alloc_func(StringScanner, strscan_s_allocate);
     rb_define_private_method(StringScanner, "initialize", strscan_initialize, -1);
     rb_define_private_method(StringScanner, "initialize_copy", strscan_init_copy, 1);
@@ -1275,6 +1316,7 @@ Init_strscan(void)
     rb_define_method(StringScanner, "<<",          strscan_concat,      1);
     rb_define_method(StringScanner, "pos",         strscan_get_pos,     0);
     rb_define_method(StringScanner, "pos=",        strscan_set_pos,     1);
+    rb_define_method(StringScanner, "charpos",     strscan_get_charpos, 0);
     rb_define_method(StringScanner, "pointer",     strscan_get_pos,     0);
     rb_define_method(StringScanner, "pointer=",    strscan_set_pos,     1);
 
@@ -1307,7 +1349,6 @@ Init_strscan(void)
     rb_define_method(StringScanner, "matched?",    strscan_matched_p,   0);
     rb_define_method(StringScanner, "matched",     strscan_matched,     0);
     rb_define_method(StringScanner, "matched_size", strscan_matched_size, 0);
-    rb_define_method(StringScanner, "matchedsize", strscan_matchedsize, 0);
     rb_define_method(StringScanner, "[]",          strscan_aref,        1);
     rb_define_method(StringScanner, "pre_match",   strscan_pre_match,   0);
     rb_define_method(StringScanner, "post_match",  strscan_post_match,  0);

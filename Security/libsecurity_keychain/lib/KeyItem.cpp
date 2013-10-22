@@ -25,7 +25,6 @@
 // KeyItem.cpp
 //
 #include <security_keychain/KeyItem.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/cssmtype.h>
 #include <security_keychain/Access.h>
 #include <security_keychain/Keychains.h>
@@ -37,6 +36,8 @@
 
 #include <security_keychain/Globals.h>
 #include "KCEventNotifier.h"
+#include <CommonCrypto/CommonDigest.h>
+#include <SecBase.h>
 
 // @@@ This needs to be shared.
 static CSSM_DB_NAME_ATTR(kInfoKeyPrintName, kSecKeyPrintName, (char*) "PrintName", 0, NULL, BLOB);
@@ -96,7 +97,7 @@ KeyItem::KeyItem(const CssmClient::Key &key) :
 	mPubKeyHash(Allocator::standard())
 {
 	if (key->keyClass() > CSSM_KEYCLASS_SESSION_KEY)
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 }
 
 KeyItem::~KeyItem()
@@ -125,14 +126,18 @@ KeyItem::copyTo(const Keychain &keychain, Access *newAccess)
 	SSDb ssDb(dbImpl);
 
 	/* Make sure mKey is valid. */
-	key();
+	const CSSM_KEY *cssmKey = key();
+	if (cssmKey && (0==(cssmKey->KeyHeader.KeyAttr & CSSM_KEYATTR_EXTRACTABLE)))
+	{
+		MacOSError::throwMe(errSecDataNotAvailable);
+	}
 
 	// Generate a random label to use initially
 	CssmClient::CSP appleCsp(gGuidAppleCSP);
 	CssmClient::Random random(appleCsp, CSSM_ALGID_APPLE_YARROW);
 	uint8 labelBytes[20];
 	CssmData label(labelBytes, sizeof(labelBytes));
-	random.generate(label, label.Length);
+	random.generate(label, (uint32)label.Length);
 
 	/* Set up the ACL for the new key. */
 	SecPointer<Access> access;
@@ -149,7 +154,7 @@ KeyItem::copyTo(const Keychain &keychain, Access *newAccess)
 	/* make a random IV */
 	uint8 ivBytes[8];
 	CssmData iv(ivBytes, sizeof(ivBytes));
-	random.generate(iv, iv.length());
+	random.generate(iv, (uint32)iv.length());
 
 	/* Extract the key by wrapping it with the wrapping key. */
 	CssmClient::WrapKey wrap(csp(), CSSM_ALGID_3DES_3KEY_EDE);
@@ -247,7 +252,7 @@ KeyItem::importTo(const Keychain &keychain, Access *newAccess, SecKeychainAttrib
 	CssmClient::Random random(appleCsp, CSSM_ALGID_APPLE_YARROW);
 	uint8 labelBytes[20];
 	CssmData label(labelBytes, sizeof(labelBytes));
-	random.generate(label, label.Length);
+	random.generate(label, (uint32)label.Length);
 
 	/* Set up the ACL for the new key. */
 	SecPointer<Access> access;
@@ -264,7 +269,7 @@ KeyItem::importTo(const Keychain &keychain, Access *newAccess, SecKeychainAttrib
 	/* make a random IV */
 	uint8 ivBytes[8];
 	CssmData iv(ivBytes, sizeof(ivBytes));
-	random.generate(iv, iv.length());
+	random.generate(iv, (uint32)iv.length());
 
 	/* Extract the key by wrapping it with the wrapping key. */
 	CssmClient::WrapKey wrap(csp(), CSSM_ALGID_3DES_3KEY_EDE);
@@ -372,7 +377,7 @@ KeyItem::didModify()
 PrimaryKey
 KeyItem::add(Keychain &keychain)
 {
-	MacOSError::throwMe(unimpErr);
+	MacOSError::throwMe(errSecUnimplemented);
 }
 
 CssmClient::SSDbUniqueRecord
@@ -495,7 +500,7 @@ KeyItem::getCredentials(
 	case kSecCredentialTypeNoUI:
 		return factory.nullCred();
 	default:
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 }
 
@@ -547,7 +552,7 @@ KeyItem::createPair(
 	CssmClient::Random random(appleCsp, CSSM_ALGID_APPLE_YARROW);
 	uint8 labelBytes[20];
 	CssmData label(labelBytes, sizeof(labelBytes));
-	random.generate(label, label.Length);
+	random.generate(label, (uint32)label.Length);
 
 	// Create a Access::Maker for the initial owner of the private key.
 	ResourceControlContext rcc;
@@ -983,7 +988,7 @@ KeyItem::generateWithAttributes(const SecKeychainAttributeList *attrList,
 
 		// Generate a random label to use initially
 		CssmClient::Random random(appleCsp, CSSM_ALGID_APPLE_YARROW);
-		random.generate(label, label.Length);
+		random.generate(label, (uint32)label.Length);
 		plabel = &label;
 	}
 	else
@@ -1158,9 +1163,10 @@ KeyItem::generate(Keychain keychain,
 void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, const AccessCredentials *credentials, CSSM_DATA& signature)
 {
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
-	if ((baseAlg != CSSM_ALGID_RSA) && (baseAlg != CSSM_ALGID_ECDSA))
+
+    if ((baseAlg != CSSM_ALGID_RSA) && (baseAlg != CSSM_ALGID_ECDSA))
 	{
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 
 	CSSM_ALGORITHMS paddingAlg = CSSM_PADDING_PKCS1;
@@ -1216,9 +1222,9 @@ void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, const AccessCred
 void KeyItem::RawVerify(SecPadding padding, CSSM_DATA dataToVerify, const AccessCredentials *credentials, CSSM_DATA sig)
 {
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
-	if ((baseAlg != CSSM_ALGID_RSA) && (baseAlg != CSSM_ALGID_ECDSA))
+    if ((baseAlg != CSSM_ALGID_RSA) && (baseAlg != CSSM_ALGID_ECDSA))
 	{
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 
 	CSSM_ALGORITHMS paddingAlg = CSSM_PADDING_PKCS1;
@@ -1273,7 +1279,7 @@ void KeyItem::Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, const AccessC
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
 	if (baseAlg != CSSM_ALGID_RSA)
 	{
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 
 	CSSM_ALGORITHMS paddingAlg = CSSM_PADDING_PKCS1;
@@ -1312,7 +1318,7 @@ void KeyItem::Decrypt(SecPadding padding, CSSM_DATA dataToDecrypt, const AccessC
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
 	if (baseAlg != CSSM_ALGID_RSA)
 	{
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 
 	CSSM_ALGORITHMS paddingAlg = CSSM_PADDING_PKCS1;
@@ -1346,5 +1352,49 @@ void KeyItem::Decrypt(SecPadding padding, CSSM_DATA dataToDecrypt, const AccessC
     {
         free(remData.Data);
     }
+}
+
+CFHashCode KeyItem::hash()
+{
+	CFHashCode result = 0;
+	const CSSM_KEY *cssmKey = key();
+	if (NULL != cssmKey)
+	{
+		unsigned char digest[CC_SHA256_DIGEST_LENGTH];
+		
+		CFIndex size_of_data = sizeof(CSSM_KEYHEADER) +  cssmKey->KeyData.Length;
+		
+		CFMutableDataRef temp_cfdata = CFDataCreateMutable(kCFAllocatorDefault, size_of_data);
+		if (NULL == temp_cfdata)
+		{
+			return result;
+		}
+		
+		CFDataAppendBytes(temp_cfdata, (const UInt8 *)cssmKey, sizeof(CSSM_KEYHEADER));
+		CFDataAppendBytes(temp_cfdata, cssmKey->KeyData.Data, cssmKey->KeyData.Length);
+
+		if (size_of_data < 80)
+		{
+			// If it is less than 80 bytes then CFData can be used
+			result = CFHash(temp_cfdata);
+			CFRelease(temp_cfdata);
+		}
+		// CFData truncates its hash value to 80 bytes. ????
+		// In order to do the 'right thing' a SHA 256 hash will be used to
+		// include all of the data
+		else
+		{
+			memset(digest, 0, CC_SHA256_DIGEST_LENGTH);
+
+			CC_SHA256((const void *)CFDataGetBytePtr(temp_cfdata), (CC_LONG)CFDataGetLength(temp_cfdata), digest);
+
+			CFDataRef data_to_hash = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+				(const UInt8 *)digest, CC_SHA256_DIGEST_LENGTH, kCFAllocatorNull);
+			result = CFHash(data_to_hash);
+			CFRelease(data_to_hash);
+			CFRelease(temp_cfdata);
+		}
+	}
+	return result;
 }
 

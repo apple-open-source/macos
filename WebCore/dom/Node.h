@@ -28,21 +28,21 @@
 #include "EditingBoundary.h"
 #include "EventTarget.h"
 #include "KURLHash.h"
-#include "LayoutTypes.h"
+#include "LayoutRect.h"
+#include "MutationObserver.h"
 #include "RenderStyleConstants.h"
 #include "ScriptWrappable.h"
+#include "SimulatedClickOptions.h"
+#include "TreeScope.h"
 #include "TreeShared.h"
-#include "WebKitMutationObserver.h"
 #include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/text/AtomicString.h>
 
-#if USE(JSC)
 namespace JSC {
-    class JSGlobalData;
+    class VM;
     class SlotVisitor;
 }
-#endif
 
 // This needs to be here because Document.h also depends on it.
 #define DUMP_NODE_STATISTICS 0
@@ -54,7 +54,6 @@ class ClassNodeList;
 class ContainerNode;
 class DOMSettableTokenList;
 class Document;
-class DynamicSubtreeNodeList;
 class Element;
 class Event;
 class EventContext;
@@ -69,28 +68,39 @@ class NSResolver;
 class NamedNodeMap;
 class NameNodeList;
 class NodeList;
+class NodeListsNodeData;
 class NodeRareData;
 class NodeRenderingContext;
 class PlatformKeyboardEvent;
 class PlatformMouseEvent;
 class PlatformWheelEvent;
 class QualifiedName;
+class RadioNodeList;
 class RegisteredEventListener;
 class RenderArena;
 class RenderBox;
 class RenderBoxModelObject;
 class RenderObject;
 class RenderStyle;
+class ShadowRoot;
 class TagNodeList;
-class TreeScope;
+
+#if ENABLE(GESTURE_EVENTS)
+class PlatformGestureEvent;
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+class TouchEvent;
+#endif
 
 #if ENABLE(MICRODATA)
 class HTMLPropertiesCollection;
+class PropertyNodeList;
 #endif
 
 typedef int ExceptionCode;
 
-const int nodeStyleChangeShift = 21;
+const int nodeStyleChangeShift = 15;
 
 // SyntheticStyleChange means that we need to go through the entire style change logic even though
 // no style property has actually changed. It is used to restructure the tree when, for instance,
@@ -102,7 +112,26 @@ enum StyleChangeType {
     SyntheticStyleChange = 3 << nodeStyleChangeShift
 };
 
-class Node : public EventTarget, public ScriptWrappable, public TreeShared<ContainerNode> {
+class NodeRareDataBase {
+public:
+    RenderObject* renderer() const { return m_renderer; }
+    void setRenderer(RenderObject* renderer) { m_renderer = renderer; }
+
+protected:
+    NodeRareDataBase(RenderObject* renderer)
+        : m_renderer(renderer)
+    { }
+
+private:
+    RenderObject* m_renderer;
+};
+
+enum AttachBehavior {
+    AttachNow,
+    AttachLazily,
+};
+
+class Node : public EventTarget, public ScriptWrappable, public TreeShared<Node> {
     friend class Document;
     friend class TreeScope;
     friend class TreeScopeAdopter;
@@ -144,6 +173,7 @@ public:
     static StyleChange diff(const RenderStyle*, const RenderStyle*, Document*);
 
     virtual ~Node();
+    void willBeDeletedFrom(Document*);
 
     // DOM methods & attributes for Node
 
@@ -162,6 +192,10 @@ public:
     Node* lastChild() const;
     bool hasAttributes() const;
     NamedNodeMap* attributes() const;
+    Node* pseudoAwareNextSibling() const;
+    Node* pseudoAwarePreviousSibling() const;
+    Node* pseudoAwareFirstChild() const;
+    Node* pseudoAwareLastChild() const;
 
     virtual KURL baseURI() const;
     
@@ -170,17 +204,17 @@ public:
     // These should all actually return a node, but this is only important for language bindings,
     // which will already know and hold a ref on the right node to return. Returning bool allows
     // these methods to be more efficient since they don't need to return a ref
-    bool insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode&, bool shouldLazyAttach = false);
-    bool replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionCode&, bool shouldLazyAttach = false);
+    bool insertBefore(PassRefPtr<Node> newChild, Node* refChild, ExceptionCode&, AttachBehavior = AttachNow);
+    bool replaceChild(PassRefPtr<Node> newChild, Node* oldChild, ExceptionCode&, AttachBehavior = AttachNow);
     bool removeChild(Node* child, ExceptionCode&);
-    bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&, bool shouldLazyAttach = false);
+    bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&, AttachBehavior = AttachNow);
 
     void remove(ExceptionCode&);
     bool hasChildNodes() const { return firstChild(); }
     virtual PassRefPtr<Node> cloneNode(bool deep) = 0;
-    const AtomicString& localName() const { return virtualLocalName(); }
-    const AtomicString& namespaceURI() const { return virtualNamespaceURI(); }
-    const AtomicString& prefix() const { return virtualPrefix(); }
+    virtual const AtomicString& localName() const;
+    virtual const AtomicString& namespaceURI() const;
+    virtual const AtomicString& prefix() const;
     virtual void setPrefix(const AtomicString&, ExceptionCode&);
     void normalize();
 
@@ -197,8 +231,6 @@ public:
     Node* lastDescendant() const;
     Node* firstDescendant() const;
 
-    virtual bool isActiveNode() const { return false; }
-    
     // Other methods (not part of DOM)
 
     bool isElementNode() const { return getFlag(IsElementFlag); }
@@ -207,26 +239,59 @@ public:
     bool isHTMLElement() const { return getFlag(IsHTMLFlag); }
     bool isSVGElement() const { return getFlag(IsSVGFlag); }
 
+    bool isPseudoElement() const { return pseudoId() != NOPSEUDO; }
+    bool isBeforePseudoElement() const { return pseudoId() == BEFORE; }
+    bool isAfterPseudoElement() const { return pseudoId() == AFTER; }
+    PseudoId pseudoId() const { return (isElementNode() && hasCustomStyleCallbacks()) ? customPseudoId() : NOPSEUDO; }
+
     virtual bool isMediaControlElement() const { return false; }
     virtual bool isMediaControls() const { return false; }
+#if ENABLE(VIDEO_TRACK)
+    virtual bool isWebVTTElement() const { return false; }
+#endif
     bool isStyledElement() const { return getFlag(IsStyledElementFlag); }
     virtual bool isAttributeNode() const { return false; }
     virtual bool isCharacterDataNode() const { return false; }
-    bool isDocumentNode() const;
-    bool isShadowRoot() const { return getFlag(IsShadowRootFlag); }
-    bool inNamedFlow() const { return getFlag(InNamedFlowFlag); }
-    bool hasAttrList() const { return getFlag(HasAttrListFlag); }
-    bool isFrameOwnerElement() const { return getFlag(IsFrameOwnerElementFlag); }
+    virtual bool isFrameOwnerElement() const { return false; }
+    virtual bool isPluginElement() const { return false; }
+    virtual bool isInsertionPointNode() const { return false; }
 
-    Node* shadowAncestorNode() const;
-    // Returns 0, a ShadowRoot, or a legacy shadow root.
-    Node* shadowTreeRootNode() const;
+    bool isDocumentNode() const;
+    bool isTreeScope() const;
+    bool isDocumentFragment() const { return getFlag(IsDocumentFragmentFlag); }
+    bool isShadowRoot() const { return isDocumentFragment() && isTreeScope(); }
+    bool isInsertionPoint() const { return getFlag(NeedsShadowTreeWalkerFlag) && isInsertionPointNode(); }
+    // Returns Node rather than InsertionPoint. Should be used only for language bindings.
+    Node* insertionParentForBinding() const;
+
+    bool needsShadowTreeWalker() const;
+    bool needsShadowTreeWalkerSlow() const;
+    void setNeedsShadowTreeWalker() { setFlag(NeedsShadowTreeWalkerFlag); }
+    void resetNeedsShadowTreeWalker() { setFlag(needsShadowTreeWalkerSlow(), NeedsShadowTreeWalkerFlag); }
+
+    bool inNamedFlow() const { return getFlag(InNamedFlowFlag); }
+    bool hasCustomStyleCallbacks() const { return getFlag(HasCustomStyleCallbacksFlag); }
+
+    bool isRegisteredWithNamedFlow() const;
+
+    bool hasSyntheticAttrChildNodes() const { return getFlag(HasSyntheticAttrChildNodesFlag); }
+    void setHasSyntheticAttrChildNodes(bool flag) { setFlag(flag, HasSyntheticAttrChildNodesFlag); }
+
+    // If this node is in a shadow tree, returns its shadow host. Otherwise, returns 0.
+    Element* shadowHost() const;
+    // If this node is in a shadow tree, returns its shadow host. Otherwise, returns this.
+    // Deprecated. Should use shadowHost() and check the return value.
+    Node* deprecatedShadowAncestorNode() const;
+    ShadowRoot* containingShadowRoot() const;
+    ShadowRoot* shadowRoot() const;
+
     // Returns 0, a child of ShadowRoot, or a legacy shadow root.
     Node* nonBoundaryShadowTreeRootNode();
-    bool isInShadowTree() const;
+
     // Node's parent, shadow tree host.
-    ContainerNode* parentOrHostNode() const;
-    Element* parentOrHostElement() const;
+    ContainerNode* parentOrShadowHostNode() const;
+    Element* parentOrShadowHostElement() const;
+    void setParentOrShadowHostNode(ContainerNode*);
     Node* highestAncestor() const;
 
     // Use when it's guaranteed to that shadowHost is 0.
@@ -234,47 +299,21 @@ public:
     // Returns the parent node, but 0 if the parent node is a ShadowRoot.
     ContainerNode* nonShadowBoundaryParentNode() const;
 
-    Element* shadowHost() const;
-    void setShadowHost(Element*);
-
     bool selfOrAncestorHasDirAutoAttribute() const { return getFlag(SelfOrAncestorHasDirAutoFlag); }
     void setSelfOrAncestorHasDirAutoAttribute(bool flag) { setFlag(flag, SelfOrAncestorHasDirAutoFlag); }
 
     // Returns the enclosing event parent node (or self) that, when clicked, would trigger a navigation.
     Node* enclosingLinkEventParentOrSelf();
 
-    bool isBlockFlow() const;
-    bool isBlockFlowOrBlockTable() const;
-    
     // These low-level calls give the caller responsibility for maintaining the integrity of the tree.
     void setPreviousSibling(Node* previous) { m_previous = previous; }
     void setNextSibling(Node* next) { m_next = next; }
 
     virtual bool canContainRangeEndPoint() const { return false; }
 
-    // FIXME: These two functions belong in editing -- "atomic node" is an editing concept.
-    Node* previousNodeConsideringAtomicNodes() const;
-    Node* nextNodeConsideringAtomicNodes() const;
-    
-    // Returns the next leaf node or 0 if there are no more.
-    // Delivers leaf nodes as if the whole DOM tree were a linear chain of its leaf nodes.
-    // Uses an editing-specific concept of what a leaf node is, and should probably be moved
-    // out of the Node class into an editing-specific source file.
-    Node* nextLeafNode() const;
-
-    // Returns the previous leaf node or 0 if there are no more.
-    // Delivers leaf nodes as if the whole DOM tree were a linear chain of its leaf nodes.
-    // Uses an editing-specific concept of what a leaf node is, and should probably be moved
-    // out of the Node class into an editing-specific source file.
-    Node* previousLeafNode() const;
-
-    // enclosingBlockFlowElement() is deprecated. Use enclosingBlock instead.
-    Element* enclosingBlockFlowElement() const;
-    
+    bool isRootEditableElement() const;
     Element* rootEditableElement() const;
     Element* rootEditableElement(EditableType) const;
-
-    bool inSameContainingBlockFlowElement(Node*);
 
     // Called by the parser when this element's close tag is reached,
     // signaling that all child tags have been parsed and added.
@@ -285,40 +324,24 @@ public:
     virtual void finishParsingChildren() { }
     virtual void beginParsingChildren() { }
 
-    // Called on the focused node right before dispatching an unload event.
-    virtual void aboutToUnload() { }
-
     // For <link> and <style> elements.
     virtual bool sheetLoaded() { return true; }
     virtual void notifyLoadedSheetAndAllCriticalSubresources(bool /* error loading subresource */) { }
     virtual void startLoadingDynamicSheet() { ASSERT_NOT_REACHED(); }
 
-    bool attributeStyleDirty() const { return getFlag(AttributeStyleDirtyFlag); }
-    bool hasName() const { return getFlag(HasNameFlag); }
-    bool hasID() const;
-    bool hasClass() const;
-    
-    bool active() const { return getFlag(IsActiveFlag); }
-    bool inActiveChain() const { return getFlag(InActiveChainFlag); }
-    bool inDetach() const { return getFlag(InDetachFlag); }
-    bool hovered() const { return getFlag(IsHoveredFlag); }
-    bool focused() const { return hasRareData() ? rareDataFocused() : false; }
+    bool isUserActionElement() const { return getFlag(IsUserActionElement); }
+    void setUserActionElement(bool flag) { setFlag(flag, IsUserActionElement); }
+
     bool attached() const { return getFlag(IsAttachedFlag); }
     void setAttached() { setFlag(IsAttachedFlag); }
     bool needsStyleRecalc() const { return styleChangeType() != NoStyleChange; }
     StyleChangeType styleChangeType() const { return static_cast<StyleChangeType>(m_nodeFlags & StyleChangeMask); }
     bool childNeedsStyleRecalc() const { return getFlag(ChildNeedsStyleRecalcFlag); }
     bool isLink() const { return getFlag(IsLinkFlag); }
+    bool isEditingText() const { return getFlag(IsEditingTextFlag); }
 
-    void setAttributeStyleDirty() { setFlag(AttributeStyleDirtyFlag); }
-    void clearAttributeStyleDirty() { clearFlag(AttributeStyleDirtyFlag); }
-
-    void setHasName(bool f) { setFlag(f, HasNameFlag); }
     void setChildNeedsStyleRecalc() { setFlag(ChildNeedsStyleRecalcFlag); }
     void clearChildNeedsStyleRecalc() { clearFlag(ChildNeedsStyleRecalcFlag); }
-
-    void setInActiveChain() { setFlag(InActiveChainFlag); }
-    void clearInActiveChain() { clearFlag(InActiveChainFlag); }
 
     void setNeedsStyleRecalc(StyleChangeType changeType = FullStyleChange);
     void clearNeedsStyleRecalc() { m_nodeFlags &= ~StyleChangeMask; }
@@ -331,40 +354,33 @@ public:
     void setInNamedFlow() { setFlag(InNamedFlowFlag); }
     void clearInNamedFlow() { clearFlag(InNamedFlowFlag); }
 
-    void setHasAttrList() { setFlag(HasAttrListFlag); }
-    void clearHasAttrList() { clearFlag(HasAttrListFlag); }
+    bool hasScopedHTMLStyleChild() const { return getFlag(HasScopedHTMLStyleChildFlag); }
+    void setHasScopedHTMLStyleChild(bool flag) { setFlag(flag, HasScopedHTMLStyleChildFlag); }
+
+    bool hasEventTargetData() const { return getFlag(HasEventTargetDataFlag); }
+    void setHasEventTargetData(bool flag) { setFlag(flag, HasEventTargetDataFlag); }
 
     enum ShouldSetAttached {
         SetAttached,
         DoNotSetAttached
     };
     void lazyAttach(ShouldSetAttached = SetAttached);
+    void lazyReattach(ShouldSetAttached = SetAttached);
 
-    virtual void setFocus(bool = true);
-    virtual void setActive(bool f = true, bool /*pause*/ = false) { setFlag(f, IsActiveFlag); }
-    virtual void setHovered(bool f = true) { setFlag(f, IsHoveredFlag); }
-
-    virtual short tabIndex() const;
-
-    // Whether this kind of node can receive focus by default. Most nodes are
-    // not focusable but some elements, such as form controls and links, are.
-    virtual bool supportsFocus() const;
-    // Whether the node can actually be focused.
-    virtual bool isFocusable() const;
-    virtual bool isKeyboardFocusable(KeyboardEvent*) const;
-    virtual bool isMouseFocusable() const;
-    virtual Node* focusDelegate();
-
-    bool isContentEditable();
+    enum UserSelectAllTreatment {
+        UserSelectAllDoesNotAffectEditability,
+        UserSelectAllIsAlwaysNonEditable
+    };
+    bool isContentEditable(UserSelectAllTreatment = UserSelectAllDoesNotAffectEditability);
     bool isContentRichlyEditable();
 
     void inspect();
 
-    bool rendererIsEditable(EditableType editableType = ContentIsEditable) const
+    bool rendererIsEditable(EditableType editableType = ContentIsEditable, UserSelectAllTreatment treatment = UserSelectAllIsAlwaysNonEditable) const
     {
         switch (editableType) {
         case ContentIsEditable:
-            return rendererIsEditable(Editable);
+            return rendererIsEditable(Editable, treatment);
         case HasEditableAXRole:
             return isEditableToAccessibility(Editable);
         }
@@ -376,7 +392,7 @@ public:
     {
         switch (editableType) {
         case ContentIsEditable:
-            return rendererIsEditable(RichlyEditable);
+            return rendererIsEditable(RichlyEditable, UserSelectAllIsAlwaysNonEditable);
         case HasEditableAXRole:
             return isEditableToAccessibility(RichlyEditable);
         }
@@ -384,16 +400,10 @@ public:
         return false;
     }
 
-    virtual bool shouldUseInputMethod();
-    virtual LayoutRect getRect() const;
-    IntRect getPixelSnappedRect() const { return pixelSnappedIntRect(getRect()); }
+    virtual LayoutRect boundingBox() const;
+    IntRect pixelSnappedBoundingBox() const { return pixelSnappedIntRect(boundingBox()); }
     LayoutRect renderRect(bool* isReplaced);
     IntRect pixelSnappedRenderRect(bool* isReplaced) { return pixelSnappedIntRect(renderRect(isReplaced)); }
-
-    // Returns true if the node has a non-empty bounding box in layout.
-    // This does not 100% guarantee the user can see it, but is pretty close.
-    // Note: This method only works properly after layout has occurred.
-    bool hasNonEmptyBoundingBox() const;
 
     unsigned nodeIndex() const;
 
@@ -412,55 +422,30 @@ public:
         return documentInternal();
     }
 
-    TreeScope* treeScope() const;
+    TreeScope* treeScope() const { return m_treeScope; }
 
     // Returns true if this node is associated with a document and is in its associated document's
     // node tree, false otherwise.
     bool inDocument() const 
     { 
-        ASSERT(m_document || !getFlag(InDocumentFlag));
+        ASSERT(documentInternal() || !getFlag(InDocumentFlag));
         return getFlag(InDocumentFlag);
     }
+    bool isInShadowTree() const { return getFlag(IsInShadowTreeFlag); }
+    bool isInTreeScope() const { return getFlag(static_cast<NodeFlags>(InDocumentFlag | IsInShadowTreeFlag)); }
 
     bool isReadOnlyNode() const { return nodeType() == ENTITY_REFERENCE_NODE; }
+    bool isDocumentTypeNode() const { return nodeType() == DOCUMENT_TYPE_NODE; }
     virtual bool childTypeAllowed(NodeType) const { return false; }
     unsigned childNodeCount() const;
     Node* childNode(unsigned index) const;
 
-    // Does a pre-order traversal of the tree to find the next node after this one.
-    // This uses the same order that tags appear in the source file. If the stayWithin
-    // argument is non-null, the traversal will stop once the specified node is reached.
-    // This can be used to restrict traversal to a particular sub-tree.
-    Node* traverseNextNode(const Node* stayWithin = 0) const;
-
-    // Like traverseNextNode, but skips children and starts with the next sibling.
-    Node* traverseNextSibling(const Node* stayWithin = 0) const;
-
-    // Does a reverse pre-order traversal to find the node that comes before the current one in document order
-    Node* traversePreviousNode(const Node* stayWithin = 0) const;
-
-    // Like traversePreviousNode, but skips children and starts with the next sibling.
-    Node* traversePreviousSibling(const Node* stayWithin = 0) const;
-
-    // Like traverseNextNode, but visits parents after their children.
-    Node* traverseNextNodePostOrder() const;
-
-    // Like traversePreviousNode, but visits parents before their children.
-    Node* traversePreviousNodePostOrder(const Node* stayWithin = 0) const;
-    Node* traversePreviousSiblingPostOrder(const Node* stayWithin = 0) const;
-
     void checkSetPrefix(const AtomicString& prefix, ExceptionCode&);
     bool isDescendantOf(const Node*) const;
     bool contains(const Node*) const;
-    bool containsIncludingShadowDOM(Node*);
+    bool containsIncludingShadowDOM(const Node*) const;
+    bool containsIncludingHostElements(const Node*) const;
 
-    // This method is used to do strict error-checking when adding children via
-    // the public DOM API (e.g., appendChild()).
-    void checkAddChild(Node* newChild, ExceptionCode&); // Error-checking when adding via the DOM API
-
-    void checkReplaceChild(Node* newChild, Node* oldChild, ExceptionCode&);
-    virtual bool canReplaceChild(Node* newChild, Node* oldChild);
-    
     // Used to determine whether range offsets use characters or node indices.
     virtual bool offsetInCharacters() const;
     // Number of DOM 16-bit units contained in node. Note that rendered text length can be different - e.g. because of
@@ -477,33 +462,46 @@ public:
     // -----------------------------------------------------------------------------
     // Integration with rendering tree
 
-    RenderObject* renderer() const { return m_renderer; }
-    void setRenderer(RenderObject* renderer) { m_renderer = renderer; }
-    
+    // As renderer() includes a branch you should avoid calling it repeatedly in hot code paths.
+    RenderObject* renderer() const { return hasRareData() ? m_data.m_rareData->renderer() : m_data.m_renderer; };
+    void setRenderer(RenderObject* renderer)
+    {
+        if (hasRareData())
+            m_data.m_rareData->setRenderer(renderer);
+        else
+            m_data.m_renderer = renderer;
+    }
+
     // Use these two methods with caution.
     RenderBox* renderBox() const;
     RenderBoxModelObject* renderBoxModelObject() const;
 
+    struct AttachContext {
+        RenderStyle* resolvedStyle;
+        bool performingReattach;
+
+        AttachContext() : resolvedStyle(0), performingReattach(false) { }
+    };
+
     // Attaches this node to the rendering tree. This calculates the style to be applied to the node and creates an
     // appropriate RenderObject which will be inserted into the tree (except when the style has display: none). This
     // makes the node visible in the FrameView.
-    virtual void attach();
+    virtual void attach(const AttachContext& = AttachContext());
 
     // Detaches the node from the rendering tree, making it invisible in the rendered view. This method will remove
     // the node's rendering object from the rendering tree and delete it.
-    virtual void detach();
+    virtual void detach(const AttachContext& = AttachContext());
 
-    void reattach();
-    void reattachIfAttached();
-    void createRendererIfNeeded();
-    virtual bool rendererIsNeeded(const NodeRenderingContext&);
-    virtual bool childShouldCreateRenderer(const NodeRenderingContext&) const { return true; }
-    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+#ifndef NDEBUG
+    bool inDetach() const;
+#endif
+
+    void reattach(const AttachContext& = AttachContext());
+    void reattachIfAttached(const AttachContext& = AttachContext());
     ContainerNode* parentNodeForRenderingAndStyle();
     
     // Wrapper for nodes that don't have a renderer, but still cache the style (like HTMLOptionElement).
     RenderStyle* renderStyle() const;
-    virtual void setRenderStyle(PassRefPtr<RenderStyle>);
 
     RenderStyle* computedStyle(PseudoId pseudoElementSpecifier = NOPSEUDO) { return virtualComputedStyle(pseudoElementSpecifier); }
 
@@ -515,60 +513,55 @@ public:
     // This is similar to the DOMNodeInsertedIntoDocument DOM event, but does not require the overhead of event
     // dispatching.
     //
-    // Webkit notifies this callback regardless if the subtree of the node is a document tree or a floating subtree.
+    // WebKit notifies this callback regardless if the subtree of the node is a document tree or a floating subtree.
     // Implementation can determine the type of subtree by seeing insertionPoint->inDocument().
     // For a performance reason, notifications are delivered only to ContainerNode subclasses if the insertionPoint is out of document.
     //
-    // There are another callback named didNotifyDescendantInseretions(), which is called after all the descendant is notified.
-    // Only a few subclasses actually need this. To utilize this, the node should return InsertionShouldCallDidNotifyDescendantInseretions
+    // There are another callback named didNotifyDescendantInsertions(), which is called after all the descendant is notified.
+    // Only a few subclasses actually need this. To utilize this, the node should return InsertionShouldCallDidNotifyDescendantInsertions
     // from insrtedInto().
     //
     enum InsertionNotificationRequest {
         InsertionDone,
-        InsertionShouldCallDidNotifyDescendantInseretions,
         InsertionShouldCallDidNotifySubtreeInsertions
     };
 
-    virtual InsertionNotificationRequest insertedInto(Node* insertionPoint);
-    virtual void didNotifyDescendantInseretions(Node*) { }
-    virtual void didNotifySubtreeInsertions(Node*) { }
+    virtual InsertionNotificationRequest insertedInto(ContainerNode* insertionPoint);
+    virtual void didNotifySubtreeInsertions(ContainerNode*) { }
 
     // Notifies the node that it is no longer part of the tree.
     //
     // This is a dual of insertedInto(), and is similar to the DOMNodeRemovedFromDocument DOM event, but does not require the overhead of event
     // dispatching, and is called _after_ the node is removed from the tree.
     //
-    virtual void removedFrom(Node* insertionPoint);
+    virtual void removedFrom(ContainerNode* insertionPoint);
 
 #ifndef NDEBUG
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 
     void showNode(const char* prefix = "") const;
     void showTreeForThis() const;
+    void showNodePathForThis() const;
     void showTreeAndMark(const Node* markedNode1, const char* markedLabel1, const Node* markedNode2 = 0, const char* markedLabel2 = 0) const;
     void showTreeForThisAcrossFrame() const;
 #endif
 
-    void registerDynamicSubtreeNodeList(DynamicSubtreeNodeList*);
-    void unregisterDynamicSubtreeNodeList(DynamicSubtreeNodeList*);
-    void invalidateNodeListsCacheAfterAttributeChanged(const QualifiedName&);
-    void invalidateNodeListsCacheAfterChildrenChanged();
-    void removeCachedClassNodeList(ClassNodeList*, const String&);
-
-    void removeCachedNameNodeList(NameNodeList*, const String&);
-    void removeCachedTagNodeList(TagNodeList*, const AtomicString&);
-    void removeCachedTagNodeList(TagNodeList*, const QualifiedName&);
-    void removeCachedLabelsNodeList(DynamicSubtreeNodeList*);
-
-    void removeCachedChildNodeList();
+    void invalidateNodeListCachesInAncestors(const QualifiedName* attrName = 0, Element* attributeOwnerElement = 0);
+    NodeListsNodeData* nodeLists();
+    void clearNodeLists();
 
     PassRefPtr<NodeList> getElementsByTagName(const AtomicString&);
     PassRefPtr<NodeList> getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName);
     PassRefPtr<NodeList> getElementsByName(const String& elementName);
     PassRefPtr<NodeList> getElementsByClassName(const String& classNames);
+    PassRefPtr<RadioNodeList> radioNodeList(const AtomicString&);
 
-    PassRefPtr<Element> querySelector(const String& selectors, ExceptionCode&);
-    PassRefPtr<NodeList> querySelectorAll(const String& selectors, ExceptionCode&);
+    virtual bool willRespondToMouseMoveEvents();
+    virtual bool willRespondToMouseClickEvents();
+    virtual bool willRespondToTouchEvents();
+
+    PassRefPtr<Element> querySelector(const AtomicString& selectors, ExceptionCode&);
+    PassRefPtr<NodeList> querySelectorAll(const AtomicString& selectors, ExceptionCode&);
 
     unsigned short compareDocumentPosition(Node*);
 
@@ -587,39 +580,35 @@ public:
     virtual void postDispatchEventHandler(Event*, void* /*dataFromPreDispatch*/) { }
 
     using EventTarget::dispatchEvent;
-    bool dispatchEvent(PassRefPtr<Event>);
+    virtual bool dispatchEvent(PassRefPtr<Event>) OVERRIDE;
+
     void dispatchScopedEvent(PassRefPtr<Event>);
     void dispatchScopedEventDispatchMediator(PassRefPtr<EventDispatchMediator>);
 
     virtual void handleLocalEvents(Event*);
 
-    void dispatchRegionLayoutUpdateEvent();
-
     void dispatchSubtreeModifiedEvent();
-    void dispatchDOMActivateEvent(int detail, PassRefPtr<Event> underlyingEvent);
-    void dispatchFocusInEvent(const AtomicString& eventType, PassRefPtr<Node> oldFocusedNode);
-    void dispatchFocusOutEvent(const AtomicString& eventType, PassRefPtr<Node> newFocusedNode);
+    bool dispatchDOMActivateEvent(int detail, PassRefPtr<Event> underlyingEvent);
 
     bool dispatchKeyEvent(const PlatformKeyboardEvent&);
     bool dispatchWheelEvent(const PlatformWheelEvent&);
     bool dispatchMouseEvent(const PlatformMouseEvent&, const AtomicString& eventType, int clickCount = 0, Node* relatedTarget = 0);
-    void dispatchSimulatedClick(PassRefPtr<Event> underlyingEvent, bool sendMouseEvents = false, bool showPressedLook = true);
+#if ENABLE(GESTURE_EVENTS)
+    bool dispatchGestureEvent(const PlatformGestureEvent&);
+#endif
+#if ENABLE(TOUCH_EVENTS)
+    bool dispatchTouchEvent(PassRefPtr<TouchEvent>);
+#endif
+
     bool dispatchBeforeLoadEvent(const String& sourceURL);
 
-    virtual void dispatchFocusEvent(PassRefPtr<Node> oldFocusedNode);
-    virtual void dispatchBlurEvent(PassRefPtr<Node> newFocusedNode);
-    virtual void dispatchChangeEvent();
     virtual void dispatchInputEvent();
 
     // Perform the default action for an event.
     virtual void defaultEventHandler(Event*);
 
-    // Used for disabled form elements; if true, prevents mouse events from being dispatched
-    // to event listeners, and prevents DOMActivate events from being sent at all.
-    virtual bool disabled() const;
-
-    using TreeShared<ContainerNode>::ref;
-    using TreeShared<ContainerNode>::deref;
+    using TreeShared<Node>::ref;
+    using TreeShared<Node>::deref;
 
     virtual EventTargetData* eventTargetData();
     virtual EventTargetData* ensureEventTargetData();
@@ -628,24 +617,27 @@ public:
     DOMSettableTokenList* itemProp();
     DOMSettableTokenList* itemRef();
     DOMSettableTokenList* itemType();
-    HTMLPropertiesCollection* properties();
+    PassRefPtr<PropertyNodeList> propertyNodeList(const String&);
 #endif
 
-#if ENABLE(MUTATION_OBSERVERS)
-    void getRegisteredMutationObserversOfType(HashMap<WebKitMutationObserver*, MutationRecordDeliveryOptions>&, WebKitMutationObserver::MutationType, const QualifiedName* attributeName);
-    MutationObserverRegistration* registerMutationObserver(PassRefPtr<WebKitMutationObserver>);
+    void getRegisteredMutationObserversOfType(HashMap<MutationObserver*, MutationRecordDeliveryOptions>&, MutationObserver::MutationType, const QualifiedName* attributeName);
+    void registerMutationObserver(MutationObserver*, MutationObserverOptions, const HashSet<AtomicString>& attributeFilter);
     void unregisterMutationObserver(MutationObserverRegistration*);
     void registerTransientMutationObserver(MutationObserverRegistration*);
     void unregisterTransientMutationObserver(MutationObserverRegistration*);
     void notifyMutationObserversNodeWillDetach();
-#endif // ENABLE(MUTATION_OBSERVERS)
 
-#if ENABLE(STYLE_SCOPED)
-    void registerScopedHTMLStyleChild();
-    void unregisterScopedHTMLStyleChild();
-#endif
-    bool hasScopedHTMLStyleChild() const;
+    virtual void registerScopedHTMLStyleChild();
+    virtual void unregisterScopedHTMLStyleChild();
     size_t numberOfScopedHTMLStyleChildren() const;
+
+    void textRects(Vector<IntRect>&) const;
+
+    unsigned connectedSubframeCount() const;
+    void incrementConnectedSubframeCount(unsigned amount = 1);
+    void decrementConnectedSubframeCount(unsigned amount = 1);
+    void updateAncestorConnectedSubframeCountForRemoval() const;
+    void updateAncestorConnectedSubframeCountForInsertion() const;
 
 private:
     enum NodeFlags {
@@ -659,44 +651,35 @@ private:
         ChildNeedsStyleRecalcFlag = 1 << 7,
         InDocumentFlag = 1 << 8,
         IsLinkFlag = 1 << 9,
-        IsActiveFlag = 1 << 10,
-        IsHoveredFlag = 1 << 11,
-        InActiveChainFlag = 1 << 12,
-        InDetachFlag = 1 << 13,
-        HasRareDataFlag = 1 << 14,
-        IsShadowRootFlag = 1 << 15,
+        IsUserActionElement = 1 << 10,
+        HasRareDataFlag = 1 << 11,
+        IsDocumentFragmentFlag = 1 << 12,
 
         // These bits are used by derived classes, pulled up here so they can
         // be stored in the same memory word as the Node bits above.
-        IsParsingChildrenFinishedFlag = 1 << 16, // Element
-        IsStyleAttributeValidFlag = 1 << 17, // StyledElement
+        IsParsingChildrenFinishedFlag = 1 << 13, // Element
 #if ENABLE(SVG)
-        AreSVGAttributesValidFlag = 1 << 18, // Element
-        IsSynchronizingSVGAttributesFlag = 1 << 19, // SVGElement
-        HasSVGRareDataFlag = 1 << 20, // SVGElement
+        HasSVGRareDataFlag = 1 << 14, // SVGElement
 #endif
 
         StyleChangeMask = 1 << nodeStyleChangeShift | 1 << (nodeStyleChangeShift + 1),
 
-        SelfOrAncestorHasDirAutoFlag = 1 << 23,
-        HasCustomWillOrDidRecalcStyleFlag = 1 << 24,
-        HasCustomStyleForRendererFlag = 1 << 25,
+        SelfOrAncestorHasDirAutoFlag = 1 << 17,
 
-        HasNameFlag = 1 << 26,
+        IsEditingTextFlag = 1 << 18,
 
-        AttributeStyleDirtyFlag = 1 << 27,
+        InNamedFlowFlag = 1 << 19,
+        HasSyntheticAttrChildNodesFlag = 1 << 20,
+        HasCustomStyleCallbacksFlag = 1 << 21,
+        HasScopedHTMLStyleChildFlag = 1 << 22,
+        HasEventTargetDataFlag = 1 << 23,
+        NeedsShadowTreeWalkerFlag = 1 << 25,
+        IsInShadowTreeFlag = 1 << 26,
 
-#if ENABLE(SVG)
-        DefaultNodeFlags = IsParsingChildrenFinishedFlag | IsStyleAttributeValidFlag | AreSVGAttributesValidFlag,
-#else
-        DefaultNodeFlags = IsParsingChildrenFinishedFlag | IsStyleAttributeValidFlag,
-#endif
-        InNamedFlowFlag = 1 << 29,
-        HasAttrListFlag = 1 << 30,
-        IsFrameOwnerElementFlag = 1 << 31
+        DefaultNodeFlags = IsParsingChildrenFinishedFlag
     };
 
-    // 1 bits remaining
+    // 5 bits remaining
 
     bool getFlag(NodeFlags mask) const { return m_nodeFlags & mask; }
     void setFlag(bool f, NodeFlags mask) const { m_nodeFlags = (m_nodeFlags & ~mask) | (-(int32_t)f & mask); } 
@@ -709,44 +692,49 @@ protected:
         CreateText = DefaultNodeFlags | IsTextFlag,
         CreateContainer = DefaultNodeFlags | IsContainerFlag, 
         CreateElement = CreateContainer | IsElementFlag, 
-        CreateShadowRoot = CreateContainer | IsShadowRootFlag,
+        CreatePseudoElement =  CreateElement | InDocumentFlag | NeedsShadowTreeWalkerFlag,
+        CreateShadowRoot = CreateContainer | IsDocumentFragmentFlag | NeedsShadowTreeWalkerFlag | IsInShadowTreeFlag,
+        CreateDocumentFragment = CreateContainer | IsDocumentFragmentFlag,
         CreateStyledElement = CreateElement | IsStyledElementFlag, 
-        CreateHTMLElement = CreateStyledElement | IsHTMLFlag, 
-        CreateFrameOwnerElement = CreateHTMLElement | IsFrameOwnerElementFlag,
+        CreateHTMLElement = CreateStyledElement | IsHTMLFlag,
         CreateSVGElement = CreateStyledElement | IsSVGFlag,
-        CreateDocument = CreateContainer | InDocumentFlag
+        CreateDocument = CreateContainer | InDocumentFlag,
+        CreateInsertionPoint = CreateHTMLElement | NeedsShadowTreeWalkerFlag,
+        CreateEditingText = CreateText | IsEditingTextFlag,
     };
     Node(Document*, ConstructionType);
 
     virtual void didMoveToNewDocument(Document* oldDocument);
     
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const { }
-    void setTabIndexExplicitly(short);
-    void clearTabIndexExplicitly();
-    
+
     bool hasRareData() const { return getFlag(HasRareDataFlag); }
 
     NodeRareData* rareData() const;
     NodeRareData* ensureRareData();
     void clearRareData();
 
-    bool hasCustomWillOrDidRecalcStyle() const { return getFlag(HasCustomWillOrDidRecalcStyleFlag); }
-    void setHasCustomWillOrDidRecalcStyle() { setFlag(true, HasCustomWillOrDidRecalcStyleFlag); }
-    
-    bool hasCustomStyleForRenderer() const { return getFlag(HasCustomStyleForRendererFlag); }
-    void setHasCustomStyleForRenderer() { setFlag(true, HasCustomStyleForRendererFlag); }
-    void clearHasCustomStyleForRenderer() { clearFlag(HasCustomStyleForRendererFlag); }
+    void clearEventTargetData();
 
-    Document* documentInternal() const { return m_document; }
+    void setHasCustomStyleCallbacks() { setFlag(true, HasCustomStyleCallbacksFlag); }
+
+    Document* documentInternal() const { return treeScope()->documentScope(); }
+    void setTreeScope(TreeScope* scope) { m_treeScope = scope; }
 
 private:
-    // These API should be only used for a tree scope migration.
-    // setTreeScope() returns NodeRareData to save extra nodeRareData() invocations on the caller site.
-    NodeRareData* setTreeScope(TreeScope*);
-    void setDocument(Document*);
+    friend class TreeShared<Node>;
+
+    virtual PseudoId customPseudoId() const
+    {
+        ASSERT(hasCustomStyleCallbacks());
+        return NOPSEUDO;
+    }
+
+    void removedLastRef();
+    bool hasTreeSharedParent() const { return !!parentOrShadowHostNode(); }
 
     enum EditableLevel { Editable, RichlyEditable };
-    bool rendererIsEditable(EditableLevel) const;
+    bool rendererIsEditable(EditableLevel, UserSelectAllTreatment = UserSelectAllIsAlwaysNonEditable) const;
     bool isEditableToAccessibility(EditableLevel) const;
 
     void setStyleChange(StyleChangeType);
@@ -757,56 +745,37 @@ private:
     virtual void refEventTarget();
     virtual void derefEventTarget();
 
-    virtual OwnPtr<NodeRareData> createRareData();
-    bool rareDataFocused() const;
-
-    virtual RenderStyle* nonRendererRenderStyle() const;
-
-    virtual const AtomicString& virtualPrefix() const;
-    virtual const AtomicString& virtualLocalName() const;
-    virtual const AtomicString& virtualNamespaceURI() const;
+    virtual RenderStyle* nonRendererStyle() const { return 0; }
     virtual RenderStyle* virtualComputedStyle(PseudoId = NOPSEUDO);
 
     Element* ancestorElement() const;
 
-    // Use Node::parentNode as the consistent way of querying a parent node.
-    // This method is made private to ensure a compiler error on call sites that
-    // don't follow this rule.
-    using TreeShared<ContainerNode>::parent;
-
     void trackForDebugging();
 
-#if ENABLE(MUTATION_OBSERVERS)
     Vector<OwnPtr<MutationObserverRegistration> >* mutationObserverRegistry();
     HashSet<MutationObserverRegistration*>* transientMutationObserverRegistry();
-    void collectMatchingObserversForMutation(HashMap<WebKitMutationObserver*, MutationRecordDeliveryOptions>&, Node* fromNode, WebKitMutationObserver::MutationType, const QualifiedName* attributeName);
-#endif
 
     mutable uint32_t m_nodeFlags;
-    Document* m_document;
+    ContainerNode* m_parentOrShadowHostNode;
+    TreeScope* m_treeScope;
     Node* m_previous;
     Node* m_next;
-    RenderObject* m_renderer;
+    // When a node has rare data we move the renderer into the rare data.
+    union DataUnion {
+        DataUnion() : m_renderer(0) { }
+        RenderObject* m_renderer;
+        NodeRareDataBase* m_rareData;
+    } m_data;
 
 protected:
     bool isParsingChildrenFinished() const { return getFlag(IsParsingChildrenFinishedFlag); }
     void setIsParsingChildrenFinished() { setFlag(IsParsingChildrenFinishedFlag); }
     void clearIsParsingChildrenFinished() { clearFlag(IsParsingChildrenFinishedFlag); }
-    bool isStyleAttributeValid() const { return getFlag(IsStyleAttributeValidFlag); }
-    void setIsStyleAttributeValid(bool f) { setFlag(f, IsStyleAttributeValidFlag); }
-    void setIsStyleAttributeValid() const { setFlag(IsStyleAttributeValidFlag); }
-    void clearIsStyleAttributeValid() { clearFlag(IsStyleAttributeValidFlag); }
 
 #if ENABLE(SVG)
-    bool areSVGAttributesValid() const { return getFlag(AreSVGAttributesValidFlag); }
-    void setAreSVGAttributesValid() const { setFlag(AreSVGAttributesValidFlag); }
-    void clearAreSVGAttributesValid() { clearFlag(AreSVGAttributesValidFlag); }
-    bool isSynchronizingSVGAttributes() const { return getFlag(IsSynchronizingSVGAttributesFlag); }
-    void setIsSynchronizingSVGAttributes() const { setFlag(IsSynchronizingSVGAttributesFlag); }
-    void clearIsSynchronizingSVGAttributes() const { clearFlag(IsSynchronizingSVGAttributesFlag); }
-    bool hasRareSVGData() const { return getFlag(HasSVGRareDataFlag); }
-    void setHasRareSVGData() { setFlag(HasSVGRareDataFlag); }
-    void clearHasRareSVGData() { clearFlag(HasSVGRareDataFlag); }
+    bool hasSVGRareData() const { return getFlag(HasSVGRareDataFlag); }
+    void setHasSVGRareData() { setFlag(HasSVGRareDataFlag); }
+    void clearHasSVGRareData() { clearFlag(HasSVGRareDataFlag); }
 #endif
 
 #if ENABLE(MICRODATA)
@@ -823,33 +792,50 @@ inline void addSubresourceURL(ListHashSet<KURL>& urls, const KURL& url)
         urls.add(url);
 }
 
-inline ContainerNode* Node::parentNode() const
+inline void Node::setParentOrShadowHostNode(ContainerNode* parent)
 {
-    return getFlag(IsShadowRootFlag) ? 0 : parent();
+    ASSERT(isMainThread());
+    m_parentOrShadowHostNode = parent;
 }
 
-inline ContainerNode* Node::parentOrHostNode() const
+inline ContainerNode* Node::parentOrShadowHostNode() const
 {
-    return parent();
+    ASSERT(isMainThreadOrGCThread());
+    return m_parentOrShadowHostNode;
+}
+
+inline ContainerNode* Node::parentNode() const
+{
+    return isShadowRoot() ? 0 : parentOrShadowHostNode();
 }
 
 inline ContainerNode* Node::parentNodeGuaranteedHostFree() const
 {
-    ASSERT(!getFlag(IsShadowRootFlag));
-    return parentOrHostNode();
+    ASSERT(!isShadowRoot());
+    return parentOrShadowHostNode();
 }
 
-inline void Node::reattach()
+inline void Node::reattach(const AttachContext& context)
+{
+    AttachContext reattachContext(context);
+    reattachContext.performingReattach = true;
+
+    if (attached())
+        detach(reattachContext);
+    attach(reattachContext);
+}
+
+inline void Node::reattachIfAttached(const AttachContext& context)
+{
+    if (attached())
+        reattach(context);
+}
+
+inline void Node::lazyReattach(ShouldSetAttached shouldSetAttached)
 {
     if (attached())
         detach();
-    attach();
-}
-
-inline void Node::reattachIfAttached()
-{
-    if (attached())
-        reattach();
+    lazyAttach(shouldSetAttached);
 }
 
 } //namespace
@@ -857,6 +843,7 @@ inline void Node::reattachIfAttached()
 #ifndef NDEBUG
 // Outside the WebCore namespace for ease of invocation from gdb.
 void showTree(const WebCore::Node*);
+void showNodePath(const WebCore::Node*);
 #endif
 
 #endif

@@ -777,7 +777,6 @@
 		5946B66111BEE8DA00B8FDFD /* ntpd-wrapper */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "ntpd-wrapper"; sourceTree = "<group>"; };
 		59E10E0011C69A5F00E65A8D /* ntp-restrict.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "ntp-restrict.conf"; path = "Embedded/ntp-restrict.conf"; sourceTree = "<group>"; };
 		63135D3111E6531400F27DB1 /* ntp.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ntp.conf; path = Embedded/ntp.conf; sourceTree = "<group>"; };
-		63135D3311E6534E00F27DB1 /* org.ntp.ntpd.K66.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = org.ntp.ntpd.K66.plist; path = Embedded/org.ntp.ntpd.K66.plist; sourceTree = "<group>"; };
 		635C26D111C037C500D7E740 /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = BSD.xcconfig; sourceTree = "<group>"; };
 		7278F05711AF5E9F00E31601 /* ntpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ntpd; sourceTree = BUILT_PRODUCTS_DIR; };
 		7278F06111AF5F0B00E31601 /* cmd_args.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd_args.c; sourceTree = "<group>"; };
@@ -1087,7 +1086,6 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				63135D3311E6534E00F27DB1 /* org.ntp.ntpd.K66.plist */,
 				63135D3111E6531400F27DB1 /* ntp.conf */,
 				59E10E0011C69A5F00E65A8D /* ntp-restrict.conf */,
 				635C26D111C037C500D7E740 /* BSD.xcconfig */,
@@ -2139,7 +2137,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "ntp" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -2188,7 +2186,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ev\nmkdir -p ${DSTROOT}/usr/share/doc/ntp\nrsync -a ${SRCROOT}/html/ ${DSTROOT}/usr/share/doc/ntp/\n\nfor f in $(find ${DSTROOT}/usr/share/doc/ntp -type f); do\n\tchmod u-w,a-x ${f}\ndone\n\nif [[ ${UID} -eq 0 ]]; then\n\tchown -R root:wheel ${DSTROOT}/usr/share/doc/ntp\nfi";
+			shellScript = "set -ev\nmkdir -m 755 -p ${DSTROOT}/usr/share/doc/ntp\nrsync -ia ${SRCROOT}/html/ ${DSTROOT}/usr/share/doc/ntp/\n\nfor f in $(find ${DSTROOT}/usr/share/doc/ntp -type f); do\n\tchmod a-x ${f}\ndone\n\nchmod -R a-w ${DSTROOT}/usr/share/doc/ntp\nif [[ ${UID} -eq 0 ]]; then\n\tchown -R root:wheel ${DSTROOT}/usr/share/doc/ntp\nfi";
 			showEnvVarsInLog = 0;
 		};
 		5946B5FF11BEB7F700B8FDFD /* ShellScript */ = {
@@ -2664,7 +2662,6 @@
 			baseConfigurationReference = 635C26D111C037C500D7E740 /* BSD.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;

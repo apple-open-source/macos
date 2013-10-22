@@ -26,8 +26,8 @@
 
 CastContext::CastContext(AppleCSPSession &session) :
     BlockCryptor(session),
-    mInitFlag(false),
     mCastKey(NULL),
+    mInitFlag(false),
     mRawKeySize(0)
 {
 }
@@ -88,7 +88,7 @@ void CastContext::init(
 	
 		/* save this raw key data */
 		memmove(mRawKey, keyData, keyLen); 
-		mRawKeySize = keyLen;
+		mRawKeySize = (uint32)keyLen;
 	}
 	
 	/* Finally, have BlockCryptor do its setup */

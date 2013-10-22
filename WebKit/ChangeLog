@@ -1,3 +1,2922 @@
+2013-07-12  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r152571
+
+    2013-07-11  Timothy Hatcher  <timothy@apple.com>
+
+            Revert r152267 and soft link WebInspectorUI.framework again.
+
+            https://bugs.webkit.org/show_bug.cgi?id=118544
+
+            Reviewed by David Kilzer.
+
+            * WebKit.xcodeproj/project.pbxproj:
+
+2013-07-08  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r152267
+
+    2013-07-01  Timothy Hatcher  <timothy@apple.com>
+
+            Link to WebInspectorUI.framework at build time instead of soft linking.
+
+            https://bugs.webkit.org/show_bug.cgi?id=118261
+
+            Reviewed by Joseph Pecoraro.
+
+            * WebKit.xcodeproj/project.pbxproj:
+
+2013-07-01  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r152065
+
+    2013-06-26  Roger Fong  <roger_fong@apple.com>
+
+            Add an accessibility delegate interface to AppleWin port.
+            https://bugs.webkit.org/show_bug.cgi?id=118094.
+
+            Reviewed by Brent Fulgham.
+
+            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+            * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.filters:
+
+2013-06-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r151847
+
+    2013-06-21  Roger Fong  <roger_fong@apple.com>
+
+            Unreviewed. Fix a missing parenthesis in include directory path.
+
+            * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+
+2013-06-21  Lucas Forschler  <lforschler@apple.com>
+
+        Merge r151787
+
+    2013-06-20  Roger Fong  <roger_fong@apple.com>
+
+            Make Windows makefile copy build output to a different folder.
+            <rdar://problem/14219184>.
+
+            * WebKit.vcxproj/WebKit.make:
+
+2013-06-18  Roger Fong  <roger_fong@apple.com>
+
+        Replace tools32 folder with tools and update WebKit Windows solution accordingly.
+        <rdar://problem/14118143>.
+
+        Rubberstamped by Brent Fulgham.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+        * WebKit.vcxproj/Interfaces/InterfacesDebug.props:
+        * WebKit.vcxproj/Interfaces/InterfacesDebugWinCairo.props:
+        * WebKit.vcxproj/Interfaces/InterfacesPreBuild.cmd:
+        * WebKit.vcxproj/Interfaces/InterfacesProduction.props:
+        * WebKit.vcxproj/Interfaces/InterfacesRelease.props:
+        * WebKit.vcxproj/Interfaces/InterfacesReleaseWinCairo.props:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKit/WebKitDebug.props:
+        * WebKit.vcxproj/WebKit/WebKitDebugWinCairo.props:
+        * WebKit.vcxproj/WebKit/WebKitPreBuild.cmd:
+        * WebKit.vcxproj/WebKit/WebKitProduction.props:
+        * WebKit.vcxproj/WebKit/WebKitRelease.props:
+        * WebKit.vcxproj/WebKit/WebKitReleaseWinCairo.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorDebug.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorDebugWinCairo.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorProduction.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorRelease.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorReleaseWinCairo.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDDebug.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDDebugWinCairo.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDProduction.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDRelease.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDReleaseWinCairo.props:
+
+2013-06-17  Roger Fong  <roger_fong@apple.com>
+
+        Modify Windows makefiles to copy some bin output into Program Files.
+        https://bugs.webkit.org/show_bug.cgi?id=117714.
+        <rdar://problem/14179054>
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.make:
+
+2013-06-17  Michael Brüning  <michael.bruning@digia.com>
+
+        [Qt] Remove Qt specific QTKIT flagged code.
+        https://bugs.webkit.org/show_bug.cgi?id=117635
+
+        Reviewed by Simon Hausmann.
+
+        Due to disabling QTKIT for Qt in r151546, the
+        code the flags that are not taken into account
+        anymore and the code that has been rendered
+        unreachable by this are removed.
+
+        * WebKit1.pro:
+
+2013-06-14  Alberto Garcia  <agarcia@igalia.com>
+
+        [BlackBerry] Remove implementation of ContextMenu classes
+        https://bugs.webkit.org/show_bug.cgi?id=114860
+
+        Reviewed by Rob Buis.
+
+        This code is not being used so we can safely remove it.
+
+        * PlatformBlackBerry.cmake:
+
+2013-06-13  Christophe Dumez  <ch.dumez@sisa.samsung.com>
+
+        Unreviewed build fix after rr151563.
+
+        Export needed symbols for Windows.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-06-13  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Revise WebKit project to show generated export definition file.
+        https://bugs.webkit.org/show_bug.cgi?id=109629
+
+        Reviewed by Mark Rowe.
+
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj: Add generated file.
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters: Ditto
+
+2013-06-13  Brent Fulgham  <bfulgham@webkit.org>
+
+        [WinCairo] Unreviewed build correction.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add
+        missing symbols needed by TestWebKitAPI on WinCairo build.
+
+2013-06-12  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Implement Accessibility2 APIs in Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=117561
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj: Add new IAccessible2 IDL files.
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.filters: Ditto.
+        * WebKit.vcxproj/Interfaces/InterfacesCommon.props: Reference new Accessible2 folder.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj: Build IAccessible2 symbols.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters: Ditto.
+
+2013-06-10  Bear Travis  <betravis@adobe.com>
+
+        [CSS Shapes][CSS Exclusions] Split CSS Exclusions and CSS Shapes code
+        https://bugs.webkit.org/show_bug.cgi?id=117162
+
+        Reviewed by Alexandru Chiculita.
+
+        Adding the WebCore/rendering/shapes directory to the include list.
+
+        * CMakeLists.txt:
+
+2013-06-06  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Build configuration fix. WebKitExportGenerator's include path should fall back to 
+        $(WebKit_Libraries)\include\WebCore if $(ConfigurationBuildDir)\include\WebCore doesn't exist.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+
+2013-06-05  Zan Dobersek  <zdobersek@igalia.com>
+
+        Unreviewed. Attempting a build fix for the AppleWin port after r151199.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Export the required symbol.
+
+2013-06-03  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Some AppleWin VS2010 house cleaning.
+
+        * WebKit.vcxproj/Interfaces/InterfacesPreBuild.cmd:
+        * WebKit.vcxproj/WebKit/WebKitPreBuild.cmd:
+
+2013-05-31  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Add AssembleBuildLogs project to WebKit solution in preparation for moving buildbots to VCExpress 2010.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2013-05-30  Roger Fong  <roger_fong@apple.com>
+
+        Get rid of JavaScript exports file on AppleWin port.
+        https://bugs.webkit.org/show_bug.cgi?id=117050.
+
+        Reviewed by Darin Adler.
+
+        Start linking in WTF.lib now that it's a shared library.
+
+        * WebKit.vcxproj/WebKit.sln:
+        * WebKit.vcxproj/WebKit/WebKitCommon.props:
+
+2013-05-28  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Many css2.1 tests fail on Apple's Windows port.
+        https://bugs.webkit.org/show_bug.cgi?id=75707
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Export the WebCore::directoryName method for use by DRT.
+
+2013-05-27  Patrick Gansterer  <paroga@webkit.org>
+
+        Use ICU_INCLUDE_DIRS in BlackBerry CMake files
+        https://bugs.webkit.org/show_bug.cgi?id=116210
+
+        Reviewed by Rob Buis.
+
+        Set and use the ICU_INCLUDE_DIRS variable to avoid
+        duplicated adding of the ICU include directory.
+
+        * PlatformBlackBerry.cmake:
+
+2013-05-27  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [BlackBerry] Move PagePopup implementation to WebKitSupport
+        https://bugs.webkit.org/show_bug.cgi?id=116824
+
+        Reviewed by Rob Buis.
+
+        * PlatformBlackBerry.cmake: Update new file paths and names.
+
+2013-05-24  Brent Fulgham  <bfulgham@apple.com>
+
+        [Windows] Expose database storage and cache locations via preferences.
+        https://bugs.webkit.org/show_bug.cgi?id=116729
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Export
+        three symbols needed to implement the feature.
+
+2013-05-24  Anders Carlsson  <andersca@apple.com>
+
+        Move history property list writer to WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=116746
+
+        Reviewed by Tim Horton.
+
+        Add files to the Xcode project.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-05-21  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [BlackBerry] Make PagePopup implementation independent from WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=116448
+
+        Reviewed by Anders Carlsson.
+
+        * PlatformBlackBerry.cmake: Add
+        blackberry/WebCoreSupport/PagePopupBlackBerryClient.cpp to
+        compilation.
+
+2013-05-18  Patrick Gansterer  <paroga@webkit.org>
+
+        [CMake] Replace *_LIBRARY_NAME with *_OUTPUT_NAME
+        https://bugs.webkit.org/show_bug.cgi?id=114554
+
+        Reviewed by Gyuyoung Kim.
+
+        Using variables as target names is very uncommon in CMake.
+        The usual way to specify the name of the resulting binary
+        is to set the OUTPUT_NAME target property.
+
+        * CMakeLists.txt:
+        * PlatformBlackBerry.cmake:
+        * PlatformEfl.cmake:
+
+2013-05-15  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Revert the previous commit.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-05-15  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Windows build fix attempt after r150160.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-05-15  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Windows build fix attempt after r150156.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-05-14  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [BlackBerry] Implement platform strategies
+        https://bugs.webkit.org/show_bug.cgi?id=112162
+
+        Reviewed by Rob Buis.
+
+        * PlatformBlackBerry.cmake: Add new files to compilation.
+
+2013-05-06  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. AppleWin VS2010 build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-05-04  Dean Jackson  <dino@apple.com>
+
+        Animations and Transitions should not start when globally suspended
+        https://bugs.webkit.org/show_bug.cgi?id=114915
+
+        Reviewed by Sam Weinig.
+
+        Export AnimationController::isSuspended
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-05-04  Sam Weinig  <sam@webkit.org>
+
+        Move PopupMenuMac and SearchPopupMenuMac to Source/WebKit/mac
+        matching where they are in WebKit2.
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-05-02  Roger Fong  <roger_fong@apple.com>
+
+        Following r149463, set Path for WebKit makefile as well.
+
+        * WebKit.vcxproj/WebKit.make:
+
+2013-05-01  Sergio Villar Senin  <svillar@igalia.com>
+
+        Show a block cursor in overtype mode
+        https://bugs.webkit.org/show_bug.cgi?id=114819
+
+        Reviewed by Ryosuke Niwa.
+
+        Export three more WebCore symbols.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-29  Brent Fulgham  <bfulgham@webkit.org>
+
+        [Windows, WinCairo] Remove pthread paths for WebKit build.
+        https://bugs.webkit.org/show_bug.cgi?id=115390
+
+        Reviewed by Tim Horton.
+
+        Update Visual Studio property sheets to remove include paths and
+        link references for the pthreadsVC2.dll, which is no longer used.
+
+        * WebKit.vcxproj/WebKit/WebKitCommon.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+
+2013-04-28  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Windows build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-25  Ryosuke Niwa  <rniwa@webkit.org>
+
+        StaticHashSetNodeList is unnecessary
+        https://bugs.webkit.org/show_bug.cgi?id=115219
+
+        Reviewed by Antonio Gomes.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-26  Roger Fong  <roger_fong@apple.com>
+
+        Make Apple Windows VS2010 build results into and get dependencies from __32 suffixed folders.
+        Make the DebugSuffix configuration use _debug dependencies.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+        * WebKit.vcxproj/Interfaces/InterfacesCommon.props:
+        * WebKit.vcxproj/Interfaces/InterfacesDebug.props:
+        * WebKit.vcxproj/Interfaces/InterfacesDebugWinCairo.props:
+        * WebKit.vcxproj/Interfaces/InterfacesPreBuild.cmd:
+        * WebKit.vcxproj/Interfaces/InterfacesProduction.props:
+        * WebKit.vcxproj/Interfaces/InterfacesRelease.props:
+        * WebKit.vcxproj/Interfaces/InterfacesReleaseWinCairo.props:
+        * WebKit.vcxproj/WebKit.make:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKit/WebKitApple.props:
+        * WebKit.vcxproj/WebKit/WebKitCommon.props:
+        * WebKit.vcxproj/WebKit/WebKitDebug.props:
+        * WebKit.vcxproj/WebKit/WebKitDebugWinCairo.props:
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd:
+        * WebKit.vcxproj/WebKit/WebKitPreBuild.cmd:
+        * WebKit.vcxproj/WebKit/WebKitProduction.props:
+        * WebKit.vcxproj/WebKit/WebKitRelease.props:
+        * WebKit.vcxproj/WebKit/WebKitReleaseWinCairo.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorDebug.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorDebugWinCairo.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPostBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorProduction.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorRelease.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorReleaseWinCairo.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDCommon.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDDebug.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDDebugWinCairo.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDProduction.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDRelease.props:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDReleaseWinCairo.props:
+
+2013-04-25  Andreas Kling  <akling@apple.com>
+
+        Remove ENABLE(PARSED_STYLE_SHEET_CACHING) and make it always-on.
+
+        Rubber-stamped by Anders Koivisto.
+
+        * PlatformWinCE.cmake:
+
+2013-04-25  Patrick Gansterer  <paroga@webkit.org>
+
+        Remove OS(WINCE) from AccessibilityObject.h
+        https://bugs.webkit.org/show_bug.cgi?id=115192
+
+        Reviewed by Andreas Kling.
+
+        Use the same files like the the other PLATFORM(WIN) ports use.
+
+        * PlatformWinCE.cmake:
+
+2013-04-24  Jessie Berlin  <jberlin@apple.com>
+
+        Assertion failure (crash in release) attempting to delete database storage in WK1 without
+        creating a WebView first
+        https://bugs.webkit.org/show_bug.cgi?id=115065
+
+        Reviewed by Brady Eidson.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        Remove WebDatabaseManagerInternal.h.
+
+2013-04-23  Benjamin Poulain  <bpoulain@apple.com>
+
+        Remove the WebKit layer of wxWebKit
+        https://bugs.webkit.org/show_bug.cgi?id=115006
+
+        Reviewed by Anders Carlsson.
+
+        The wxWebKit port is no longer actively maintained by Kevin
+        on webkit.org. Remove the code until new maintainers resume the work.
+
+        * wx/WebBrowserShell.cpp: Removed.
+        * wx/WebBrowserShell.h: Removed.
+        * wx/WebDOMSelection.cpp: Removed.
+        * wx/WebDOMSelection.h: Removed.
+        * wx/WebEdit.cpp: Removed.
+        * wx/WebEdit.h: Removed.
+        * wx/WebFrame.cpp: Removed.
+        * wx/WebFrame.h: Removed.
+        * wx/WebFramePrivate.h: Removed.
+        * wx/WebKitDefines.h: Removed.
+        * wx/WebKitSupport/ChromeClientWx.cpp: Removed.
+        * wx/WebKitSupport/ChromeClientWx.h: Removed.
+        * wx/WebKitSupport/ContextMenuClientWx.cpp: Removed.
+        * wx/WebKitSupport/ContextMenuClientWx.h: Removed.
+        * wx/WebKitSupport/DragClientWx.cpp: Removed.
+        * wx/WebKitSupport/DragClientWx.h: Removed.
+        * wx/WebKitSupport/EditCommandWx.h: Removed.
+        * wx/WebKitSupport/EditorClientWx.cpp: Removed.
+        * wx/WebKitSupport/EditorClientWx.h: Removed.
+        * wx/WebKitSupport/FrameLoaderClientWx.cpp: Removed.
+        * wx/WebKitSupport/FrameLoaderClientWx.h: Removed.
+        * wx/WebKitSupport/FrameNetworkingContextWx.h: Removed.
+        * wx/WebKitSupport/InspectorClientWx.cpp: Removed.
+        * wx/WebKitSupport/InspectorClientWx.h: Removed.
+        * wx/WebSettings.cpp: Removed.
+        * wx/WebSettings.h: Removed.
+        * wx/WebView.cpp: Removed.
+        * wx/WebView.h: Removed.
+        * wx/WebViewPrivate.h: Removed.
+        * wx/bindings/python/samples/simple.py: Removed.
+        * wx/bindings/python/webview.i: Removed.
+        * wx/bindings/python/wscript: Removed.
+        * wx/wscript: Removed.
+
+2013-04-22  Jessie Berlin  <jberlin@apple.com>
+
+        Speculative Windows build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-22  Benjamin Poulain  <benjamin@webkit.org>
+
+        Remove the memory instrumentation code
+        https://bugs.webkit.org/show_bug.cgi?id=114931
+
+        Reviewed by Andreas Kling.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-21  Benjamin Poulain  <benjamin@webkit.org>
+
+        Improve StringImpl code density for older ARM hardware
+        https://bugs.webkit.org/show_bug.cgi?id=114898
+
+        Reviewed by Geoffrey Garen.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-19  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. WebKit_Source is incorrectly set.
+
+        * WebKit.vcxproj/WebKit.make:
+
+2013-04-19  Jose Lejin PJ  <jose.lejin@gmail.com>
+
+        [EFL] Add method in ewk_settings for setting the CSS media type
+        https://bugs.webkit.org/show_bug.cgi?id=113284
+
+        Reviewed by Gyuyoung Kim.
+
+        test_ewk_setting is added.
+
+        * PlatformEfl.cmake:
+
+2013-04-18  Sam Weinig  <sam@webkit.org>
+
+        Network Process crashing trying to read in IDNScriptWhiteList.txt
+        https://bugs.webkit.org/show_bug.cgi?id=114827
+
+        Reviewed by Anders Carlsson.
+
+        Move IDNScriptWhiteList.txt from WebKit to WebCore, so that the NetworkProcess does not have to link against
+        WebKit. It was a layering violation for WebCore to be trying to access WebKit resources anyway.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-04-14  Roger Fong  <roger_fong@apple.com>
+
+        Copy make-file-export-generator script to the the Source folders of the projects that use it.
+        <rdar://problem/13675604>
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/make-export-file-generator: Copied from Source/WebCore/make-export-file-generator.
+
+2013-04-16  Brent Fulgham  <bfulgham@webkit.org>
+
+        [Windows] Unreviewed VS2010 build correction.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+        Add correct link library to avoid mixture of ICU 4.0 and 4.6
+        syumbol use.
+
+2013-04-12  Jer Noble  <jer.noble@apple.com>
+
+        TimeRanges::nearest() returns incorrect results.
+        https://bugs.webkit.org/show_bug.cgi?id=114483
+
+        Reviewed by Eric Carlson.
+
+        Add symbols needed by WebCoreTestSupport to the exports list.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-11  Rune Lillesveen  <rune@opera.com>
+
+        Incorrect evaluation of resolution media queries
+        https://bugs.webkit.org/show_bug.cgi?id=114029
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Removed setResolutionOverride from exports.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-05  Roger Fong  <roger_fong@apple.com>
+
+        Build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-08  Jeff Rogers  <jrogers@rim.com>
+
+        [BlackBerry] Update BlackBerry JavaScript API
+        https://bugs.webkit.org/show_bug.cgi?id=114065
+
+        Reviewed by Rob Buis.
+
+        Internal PR 317350
+        Remove obsolete files.
+
+        * PlatformBlackBerry.cmake:
+
+2013-04-07  Patrick Gansterer  <paroga@webkit.org>
+
+        Remove references to Skia and V8 from CMake files
+        https://bugs.webkit.org/show_bug.cgi?id=114130
+
+        Reviewed by Geoffrey Garen.
+
+        * PlatformBlackBerry.cmake:
+
+2013-04-06  Patrick Gansterer  <paroga@webkit.org>
+
+        [CMake] Remove general include directories from platform specific files
+
+        Move the include directories, which are required by all CMake ports
+        to the general CMakeLists.txt to fix the build for Windows CE port.
+
+        * CMakeLists.txt:
+        * PlatformBlackBerry.cmake:
+        * PlatformEfl.cmake:
+
+2013-04-05  Roger Fong  <roger_fong@apple.com>
+
+        More VS2010 solution makefile fixes.
+        <rdar://problem/13588964>
+
+        * WebKit.vcxproj/WebKit.make:
+
+2013-04-04  Benjamin Poulain  <benjamin@webkit.org>
+
+        Remove Webkit/chromium
+        https://bugs.webkit.org/show_bug.cgi?id=113998
+
+        Reviewed by Ryosuke Niwa.
+
+        O Knights of Ni, you are just and fair, and we will return with a shrubbery.
+
+        * chromium: Removed.
+
+2013-04-04  Christophe Dumez  <ch.dumez@sisa.samsung.com>
+
+        [Cairo] Fix canvas drawing of SVG-based patterns and remove NativeImageCairo
+        https://bugs.webkit.org/show_bug.cgi?id=113929
+
+        Reviewed by Martin Robinson.
+
+        Remove outdated symbols now that NativeImageCairo was removed.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-04-03  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed VS2010 build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-27  Mark Lam  <mark.lam@apple.com>
+
+        Rolling out r147044.
+        https://bugs.webkit.org/show_bug.cgi?id=113352.
+
+        Not Reviewed.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-27  Mark Lam  <mark.lam@apple.com>
+
+        Greening the Apple Win bot (debug build).
+        https://bugs.webkit.org/show_bug.cgi?id=113352.
+
+        Not Reviewed.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-27  Mark Lam  <mark.lam@apple.com>
+
+        Greening the Apple Win bot.
+        https://bugs.webkit.org/show_bug.cgi?id=113352.
+
+        Not Reviewed.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-22  Ryosuke Niwa  <rniwa@webkit.org>
+
+        The second part of the build fix for r146702. This should do it.
+        I had to see the mangled name for the new signature.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-22  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Build fix attempt after r146702.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-22  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [BlackBerry] Add custom BackForwardList client implementation
+        https://bugs.webkit.org/show_bug.cgi?id=113024
+
+        Reviewed by Rob Buis.
+
+        PR 310030
+        Internally reviewed by Joe Mason.
+
+        * PlatformBlackBerry.cmake: Add new files to compilation.
+
+2013-03-21  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Move common props files for VS2010 solution to WebKitLibraries folder and update all projects accordingly.
+
+        * WebKit.vcxproj/FeatureDefines.props: Removed.
+        * WebKit.vcxproj/FeatureDefinesCairo.props: Removed.
+        * WebKit.vcxproj/WebKit/cURL.props: Removed.
+        * WebKit.vcxproj/WinCairo.props: Removed.
+        * WebKit.vcxproj/common.props: Removed.
+        * WebKit.vcxproj/debug.props: Removed.
+        * WebKit.vcxproj/debug_wincairo.props: Removed.
+        * WebKit.vcxproj/debugsuffix.props: Removed.
+        * WebKit.vcxproj/production.props: Removed.
+        * WebKit.vcxproj/release.props: Removed.
+
+2013-03-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Windows build fix after r146430.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-20  Brent Fulgham  <bfulgham@webkit.org>
+
+        [WinCairo] Top-level solution change to build under VS2010.
+        https://bugs.webkit.org/show_bug.cgi?id=112861.
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/WebKit.sln: Add final set of WinCairo build
+        targets.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Add #if/def guards around some media-specific exports that
+        are not provided by the WinCairo port.
+
+2013-03-19  Brent Fulgham  <bfulgham@webkit.org>
+
+        [WinCairo] Build the WebKit.dll under VS2010.
+        https://bugs.webkit.org/show_bug.cgi?id=112759
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj: Update project to
+        build WinCairo variant using new property sheets.
+        * WebKit.vcxproj/Interfaces/InterfacesDebugWinCairo.props: Added.
+        * WebKit.vcxproj/Interfaces/InterfacesReleaseWinCairo.props: Added.
+        * WebKit.vcxproj/WebKit.sln: Update solution to use WinCairo
+        build targets for WebKit.dll-related projects.
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj: Update project to build
+        WinCairo variant using new property sheets.
+        * WebKit.vcxproj/WebKit/cURL.props: Added.
+        * WebKit.vcxproj/WebKit/WebKitDebugWinCairo.props: Added.
+        * WebKit.vcxproj/WebKit/WebKitReleaseWinCairo.props: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        Update project to build WinCairo variant using new property sheets.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorDebugWinCairo.props: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorReleaseWinCairo.props: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj: Update project to
+        build WinCairo variant using new property sheets.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDDebugWinCairo.props: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDReleaseWinCairo.props: Added.
+        * WebKit.vcxproj/WinCairo.props: Added.
+        * WebKit.vcxproj/debug_wincairo.props: Added.
+
+2013-03-20  Eric Carlson  <eric.carlson@apple.com>
+
+        Allow ports specific text track menu
+        https://bugs.webkit.org/show_bug.cgi?id=112800
+
+        Reviewed by Dean Jackson.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Add new exports.
+        * win/WebKit.vcproj/WebKitExports.def.in: Ditto.
+
+2013-03-20  Roger Fong  <roger_fong@apple.com>
+
+        AppleWin VS2010 build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-18  Brent Fulgham  <bfulgham@webkit.org>
+
+        [WinCairo] Build WinCairo port under VS2010 
+        https://bugs.webkit.org/show_bug.cgi?id=112604
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/WebKit.sln: Add Debug_WinCairo and Release_WinCairo
+        build targets. No other changes in this patch.
+        * WebKit.vcxproj/FeatureDefinesCairo.props: Add parallel property
+        sheet for WinCairo version of build.
+
+2013-03-18  Roger Fong  <roger_fong@apple.com>
+
+        AppleWin VS2010 build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-14  Simon Hausmann  <simon.hausmann@digia.com>
+
+        [Qt] Improve the handling of mock geolocation, device orientation and motion clients
+
+        Reviewed by Tor Arne Vestbø.
+
+        The mock versions of these web facing features should be instantiated when
+        running in DumpRenderTree only. In order for them to work, no extra Qt modules
+        such as QtLocation are actually needed.
+
+        This patch decouples enabling device orientation/motion and geolocation from
+        the underlying Qt modules and makes them available in developer builds
+        (!production_build) and backed by mock backends when running in drt.
+
+        So if the Qt 5 modules are available, they'll be used (unless drtRun). For
+        developers the web facing features are always enabled (although requests will
+        time out) and the mock backends are enabled inside DRT, allowing for the layout
+        tests to run with less dependencies.
+
+        In addition this also enables the mock device motion client, which was
+        previously never instantiated.
+
+        * WebKit1.pri:
+        * WebKit1.pro:
+
+2013-03-13  Genevieve Mak  <gmak@rim.com>
+
+        [BlackBerry] Add Proximity Detector.
+        https://bugs.webkit.org/show_bug.cgi?id=112278
+
+        Reviewed by Rob Buis.
+
+        Internally Reviewed by Mike Lattanzio.
+        PR #243385
+
+        * PlatformBlackBerry.cmake:
+
+2013-03-08  Roger Fong  <roger_fong@apple.com>
+
+        Build fix for AppleWin VS2010.
+
+        * WebKit.vcxproj/FeatureDefines.props:
+
+2013-03-06  Jer Noble  <jer.noble@apple.com>
+
+        Unreviewed partial roll-out of r145003. Disable
+        ENABLE_CURSOR_VISIBILITY on win.
+
+        * WebKit.vcxproj/FeatureDefines.props:
+
+2013-03-04  Jer Noble  <jer.noble@apple.com>
+
+        Default mouse cursor behavior should be auto-hide for full screen video with custom controls
+        https://bugs.webkit.org/show_bug.cgi?id=107601
+
+        Reviewed by Beth Dakin.
+
+        Enable the CURSOR_VISIBILITY feature.
+
+        * WebKit.vcxproj/FeatureDefines.props:
+
+2013-03-05  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Build break with latest EFL libraries
+        https://bugs.webkit.org/show_bug.cgi?id=111028
+
+        Reviewed by Dirk Pranke.
+
+        * PlatformEfl.cmake: Added ECORE_X_INCLUDE_DIRS.
+
+2013-03-04  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. AppleWin build fix.
+
+        * WebKit.vcxproj/FeatureDefines.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-03-03  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r144567.
+        http://trac.webkit.org/changeset/144567
+        https://bugs.webkit.org/show_bug.cgi?id=111266
+
+        Does not compile on apple-win (Requested by abarth on
+        #webkit).
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-02-26  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed AppleWin build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+
+2013-02-26  Alberto Garcia  <agarcia@igalia.com>
+
+        [BlackBerry] Upstream the datalist support UI
+        https://bugs.webkit.org/show_bug.cgi?id=110736
+
+        Reviewed by Rob Buis.
+
+        Original code by Otto Derek Cheung <otcheung@rim.com>
+
+        * PlatformBlackBerry.cmake:
+
+2013-02-25  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. VS2010 solution build fix.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-02-22  Aaron Colwell  <acolwell@chromium.org>
+
+        Disable MediaSource on Apple Windows port
+        https://bugs.webkit.org/show_bug.cgi?id=110494
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/FeatureDefines.props:
+
+2013-02-20  Roger Fong  <roger_fong@apple.com>
+
+        Get VS2010 Solution B&I ready.
+        <rdar://problem/1322988>
+
+        Rubberstamped by Timothy Horton.        
+        
+        Add Production configuration. 
+        Add a WebKit submit solution with a DebugSuffix configuration. 
+        Modify WebKit.make as necessary.
+        
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj:
+        * WebKit.vcxproj/Interfaces/InterfacesProduction.props: Added.
+        * WebKit.vcxproj/Interfaces/InterfacesRelease.props:
+        * WebKit.vcxproj/WebKit.make: Added.
+        * WebKit.vcxproj/WebKit.sln:
+        * WebKit.vcxproj/WebKit.submit.sln: Added.
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj:
+        * WebKit.vcxproj/WebKit/WebKitCommon.props:
+        * WebKit.vcxproj/WebKit/WebKitProduction.props: Added.
+        * WebKit.vcxproj/WebKit/WebKitRelease.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPostBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorProduction.props: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorRelease.props:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj:
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDProduction.props: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDRelease.props:
+        * WebKit.vcxproj/common.props:
+        * WebKit.vcxproj/debugsuffix.props: Added.
+        * WebKit.vcxproj/production.props: Added.
+        * WebKit.vcxproj/releaseproduction.props: Removed.
+
+2013-02-19  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, include exports for VS2010 as well.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-02-18  Brent Fulgham  <bfulgham@webkit.org>
+
+        [Windows] Unreviewed VS2010 build correction.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Sync
+        export definition with VS2005 version.
+
+2013-02-15  Rik Cabanier  <cabanier@adobe.com>
+
+        Add platform support for -webkit-background-blend-mode to CG context
+        https://bugs.webkit.org/show_bug.cgi?id=108549
+
+        Reviewed by Dean Jackson.
+
+        Fixed build issue.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-02-14  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Touch-ups to the VS2010 WebKit solution.
+        Remove un-needed include directories and force includes. 
+        Update exports file.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        * WebKit.vcxproj/common.props:
+        * DumpRenderTree/DumpRenderTree.vcxproj/DumpRenderTree/DumpRenderTreeLauncherCommon.props:
+        * DumpRenderTree/DumpRenderTree.vcxproj/ImageDiff/ImageDiffLauncherCommon.props:
+        * DumpRenderTree/DumpRenderTree.vcxproj/TestNetscapePlugin/TestNetscapePlugin.vcxproj:
+        * DumpRenderTree/DumpRenderTree.vcxproj/TestNetscapePlugin/TestNetscapePlugin.vcxproj.filters:
+        * TestWebKitAPI/TestWebKitAPI.vcxproj/TestWebKitAPI.vcxproj:
+        * TestWebKitAPI/TestWebKitAPI.vcxproj/TestWebKitAPI.vcxproj.filters:
+        * WinLauncher/WinLauncher.vcxproj/WinLauncherCommon.props:
+        * win/record-memory/record-memoryCommon.props:
+        * WebCore.vcxproj/WebCore.vcxproj:
+        * WebCore.vcxproj/WebCore.vcxproj.filters:
+        * JavaScriptCore.vcxproj/JavaScriptCoreCommon.props:
+        * JavaScriptCore.vcxproj/JavaScriptCoreExportGenerator/JavaScriptCoreExports.def.in:
+        * JavaScriptCore.vcxproj/jsc/jscCommon.props:
+        * JavaScriptCore.vcxproj/testRegExp/testRegExp.vcxproj:
+        * JavaScriptCore.vcxproj/testapi/testapi.vcxproj:
+        * WTF.vcxproj/WTFCommon.props:
+
+2013-02-14  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, set svn:eol-style native for .sln, .vcproj, and .vsprops files.
+        https://bugs.webkit.org/show_bug.cgi?id=96934
+
+        * WebKit.vcxproj/WebKit.sln: Modified property svn:eol-style.
+
+2013-02-14  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, set svn:eol-style CRLF for .sln files.
+
+        * WebKit.vcxproj/WebKit.sln: Modified property svn:eol-style.
+
+2013-02-14  Roger Fong  <roger_fong@apple.com>
+
+        Add TestWebKitAPI, gtest-md and record-memory projects to VS2010 WebKit solution.
+        https://bugs.webkit.org/show_bug.cgi?id=107034.
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2013-02-12  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Build fix for VS2010 WebKit solution.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-02-11  Adenilson Cavalcanti  <cavalcantii@gmail.com>
+
+        Build fix: r142549 broke EFL build
+        https://bugs.webkit.org/show_bug.cgi?id=109527
+
+        Reviewed by Kentaro Hara.
+
+        Build fix.
+
+        * CMakeLists.txt:
+
+2013-02-11  Brent Fulgham  <bfulgham@webkit.org>
+
+        Rename Visual Studio solution folders to avoid conflicts with project names
+        https://bugs.webkit.org/show_bug.cgi?id=109484
+
+        Reviewed by Tim Horton.
+
+        * WebKit.vcxproj/WebKit.sln: Rename several solution folders (e.g.,
+        WTF, WebCore, WebKit, JavaScriptCore) so that they do not conflict
+        with projects using the same name.
+
+2013-02-08  Benjamin Poulain  <bpoulain@apple.com>
+
+        Move workerThreadCount from TestRunner to WebCore Internals
+        https://bugs.webkit.org/show_bug.cgi?id=109239
+
+        Reviewed by Darin Adler.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2013-02-07  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Corrections the exports definition file.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-02-07  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. More VS2010 WebKit solution touchups.
+        Make WebKitExports.def.in be treated as a custom build file so that changes to it cause the exports to be rebuilt.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters:
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-02-06  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Touchups to VS2010 WebKit solution.
+        Add WinLauncher projects to solution.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2013-02-05  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Get rid of redundant exports in export definitions file.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+
+2013-02-05  Brent Fulgham  <bfulgham@webkit.org>
+
+        Unreviewed Visual Studio 2010 build correction.
+
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in:
+        Link export definitions out of date with ToT.  Corrected.
+
+2013-02-05  Roger Fong  <roger_fong@apple.com>
+
+        Add a JavaScriptCore Export Generator project.
+        https://bugs.webkit.org/show_bug.cgi?id=108971.
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2013-02-05  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Delete some errant preprocessor definitions.
+
+        * WebKit.vcxproj/WebKit/WebKitCommon.props:
+
+2013-02-05  Roger Fong  <roger_fong@apple.com>
+
+        VS2010 WebKit projects, scripts, and property sheets.
+        https://bugs.webkit.org/show_bug.cgi?id=106989.
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj/Interfaces: Added.
+        * WebKit.vcxproj/Interfaces/FixMIDLHeaders.pl: Copied from win/WebKit.vcproj/FixMIDLHeaders.pl.
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj: Added.
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.filters: Added.
+        * WebKit.vcxproj/Interfaces/Interfaces.vcxproj.user: Added.
+        * WebKit.vcxproj/Interfaces/InterfacesCommon.props: Added.
+        * WebKit.vcxproj/Interfaces/InterfacesDebug.props: Added.
+        * WebKit.vcxproj/Interfaces/InterfacesPostBuild.cmd: Added.
+        * WebKit.vcxproj/Interfaces/InterfacesPreBuild.cmd: Added.
+        * WebKit.vcxproj/Interfaces/InterfacesRelease.props: Added.
+        * WebKit.vcxproj/WebKit: Added.
+        * WebKit.vcxproj/WebKit.sln:
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj: Added.
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj.filters: Added.
+        * WebKit.vcxproj/WebKit/WebKit.vcxproj.user: Added.
+        * WebKit.vcxproj/WebKit/WebKitApple.props: Added.
+        * WebKit.vcxproj/WebKit/WebKitCFLite.props: Added.
+        * WebKit.vcxproj/WebKit/WebKitCommon.props: Added.
+        * WebKit.vcxproj/WebKit/WebKitDebug.props: Added.
+        * WebKit.vcxproj/WebKit/WebKitDirectX.props: Added.
+        * WebKit.vcxproj/WebKit/WebKitPostBuild.cmd: Added.
+        * WebKit.vcxproj/WebKit/WebKitPreBuild.cmd: Added.
+        * WebKit.vcxproj/WebKit/WebKitPreLink.cmd: Added.
+        * WebKit.vcxproj/WebKit/WebKitRelease.props: Added.
+        * WebKit.vcxproj/WebKit/resource.h: Copied from win/WebKit.vcproj/resource.h.
+        * WebKit.vcxproj/WebKitExportGenerator: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.filters: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGenerator.vcxproj.user: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorBuildCmd.cmd: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorCommon.props: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorDebug.props: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPostBuild.cmd: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorPreBuild.cmd: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExportGeneratorRelease.props: Added.
+        * WebKit.vcxproj/WebKitExportGenerator/WebKitExports.def.in: Copied from win/WebKit.vcproj/WebKitExports.def.in.
+        * WebKit.vcxproj/WebKitGUID: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.filters: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUID.vcxproj.user: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDCommon.props: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDDebug.props: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDPostBuild.cmd: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDPreBuild.cmd: Added.
+        * WebKit.vcxproj/WebKitGUID/WebKitGUIDRelease.props: Added.
+
+2013-01-31  Christophe Dumez  <dchris@gmail.com>
+
+        [EFL] Disable Web Intents
+        https://bugs.webkit.org/show_bug.cgi?id=108457
+
+        Reviewed by Alexey Proskuryakov.
+
+        Remove intents files from EFL CMake project.
+
+        * PlatformEfl.cmake:
+
+2013-01-25  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Rename LLInt projects folder and make appropriate changes to solutions.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2013-01-23  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Add svn:eol-style to solution file, not eol-style.
+
+        * WebKit.vcxproj/WebKit.sln: Added property svn:eol-style. Removed property eol-style.
+
+2013-01-23  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Added eol-style=native to solution file.
+
+        * WebKit.vcxproj/WebKit.sln: Added property eol-style.
+
+2013-01-23  Roger Fong  <roger_fong@apple.com>
+
+        Unreviewed. Checkin the OpenSource WebKit solution.
+
+        * WebKit.vcxproj/WebKit.sln:
+
+2013-01-23  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, set svn:eol-style to CRLF on Windows .sln files.
+
+        * WebKit.vcxproj/WebKit.sln: Added property svn:eol-style.
+
+2013-01-23  Roger Fong  <roger_fong@apple.com>
+
+        Add the VS2010 WebKit solution folder and solution file.
+        The solution of course will not load until the dependent projects are all completed.
+        https://bugs.webkit.org/show_bug.cgi?id=106949.
+
+        Reviewed by Brent Fulgham.
+
+        * WebKit.vcxproj: Added.
+        * WebKit.vcxproj/WebKit.sln: Added.
+
+2013-01-22  Krzysztof Czech  <k.czech@samsung.com>
+
+        [EFL] Adds Accessibility support to wk1
+        https://bugs.webkit.org/show_bug.cgi?id=107440
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake: Adds ATK headers and libraries.
+
+2013-01-17  Poul Sysolyatin  <psytonx@gmail.com>
+
+        32-bit build for Qt5 on Mac OS fails.
+        https://bugs.webkit.org/show_bug.cgi?id=107094
+
+        We need to define NS_BUILD_32_LIKE_64 for 32-bit build for Mac OS.
+        Fixed 32-bit build detection for support Qt5.
+
+        Reviewed by Benjamin Poulain.
+
+        * WebKit1.pro:
+
+2013-01-14  Dean Jackson  <dino@apple.com>
+
+        [ANGLE] Update ANGLE in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=106274
+
+        Unreviewed attempted build fix.
+
+        The khrplatform.h file is now a public header without a directory
+        prefix. Update the include path to look in the right place.
+
+        * PlatformEfl.cmake:
+
+2013-01-14  Max Vujovic  <mvujovic@adobe.com>
+
+        [ANGLE] Update ANGLE in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=106274
+
+        Reviewed by Dean Jackson.
+
+        Update ANGLE to r1641.
+
+        * PlatformEfl.cmake: Add ANGLE/include to the include directories list because ShaderLang.h
+        now includes "KHR/khrplatform.h", which is located in ANGLE/include/KHR/khrplatform.h.
+
+2013-01-10  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] Add gstreamer 1.0.5 to jhbuild
+        https://bugs.webkit.org/show_bug.cgi?id=106178
+
+        Reviewed by Laszlo Gombos.
+
+        Remove GSTREAMER_INTERFACES_LIBRARIES from EFL
+        CMake configuration.
+
+        * PlatformEfl.cmake:
+
+2013-01-07  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Sorted the xcodeproj file.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2012-12-20  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Build break with latest EFL libraries.
+        https://bugs.webkit.org/show_bug.cgi?id=104827
+
+        Reviewed by Laszlo Gombos.
+
+        * PlatformEfl.cmake: Includes eo EFL library.
+
+2012-12-18  Joseph Pecoraro  <pecoraro@apple.com>
+
+        [Mac] Add Build Phase to Check Headers for Inappropriate Macros (Platform.h macros)
+        https://bugs.webkit.org/show_bug.cgi?id=104279
+
+        Reviewed by David Kilzer.
+
+        Add a build phase to check the public WebKit headers for
+        inappropriate macros. Also set the executable as an input
+        path on the other check-* build phases.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2012-12-12  Mark Lam  <mark.lam@apple.com>
+
+        Encapsulate externally used webdatabase APIs in DatabaseManager.
+        https://bugs.webkit.org/show_bug.cgi?id=104741.
+
+        Reviewed by Sam Weinig.
+
+        Use DatabaseManager instead of accessing DatabaseTracker, AbstractDatabase,
+        and DatabaseContext directly. This is to prepare for upcoming webkit2
+        refactoring.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2012-12-05  Halton Huo  <halton.huo@intel.com>
+
+        [CMake] Unify coding style for CMake files
+        https://bugs.webkit.org/show_bug.cgi?id=103605
+
+        Reviewed by Laszlo Gombos.
+
+        Update cmake files(.cmake, CMakeLists.txt) with following style rules:
+        1. Indentation
+        1.1 Use spaces, not tabs.
+        1.2 Four spaces as indent.
+        2. Spacing
+        2.1 Place one space between control statements and their parentheses.
+            For eg, if (), else (), elseif (), endif (), foreach (),
+            endforeach (), while (), endwhile (), break ().
+        2.2 Do not place spaces between function and macro statements and
+            their parentheses. For eg, macro(), endmacro(), function(),
+            endfunction().
+        2.3 Do not place spaces between a command or function or macro and its
+            parentheses, or between a parenthesis and its content. For eg,
+            message("testing") not message( "testing") or message ("testing" )
+        2.4 No space at line ending.
+        3. Lowercase when call commands macros and functions. For eg,
+           add_executable() not ADD_EXECUTABLE(), set() not SET().
+
+        * CMakeLists.txt:
+        * PlatformBlackBerry.cmake:
+        * PlatformEfl.cmake:
+        * PlatformWinCE.cmake:
+
+2012-12-03  Pierre Rossi  <pierre.rossi@digia.com>
+
+        [Qt] another stab at fixing the windows build 
+
+        It seems the QT_BUILD_{TARGET}_LIB are not set as they should by qt_module.prf.
+        Define them by hand to be on the safe side.
+
+        * WebKit1.pro:
+
+2012-11-30  Simon Hausmann  <simon.hausmann@digia.com>, Pierre Rossi  <pierre.rossi@digia.com>
+
+        [Qt] Separate Qt WebKit into Qt WebKit and Qt WebKit Widgets
+        https://bugs.webkit.org/show_bug.cgi?id=99314
+
+        Reviewed by Tor Arne Vestbø.
+
+        This big change separates QtWebKit into QtWebKit and QtWebKitWidgets as
+        shared libraries.
+
+        It's a big refactoring that mostly involves moving WebCore dependent
+        code into QtWebKit and accessing it through exported QWebFrameAdapter
+        and QWebPageAdapter classes.
+
+        * WebKit1.pro:
+        * WebKitWidgets.pri: Removed.
+        * WebKitWidgets.pro: Removed.
+
+2012-11-22  Jeff Rogers  <jrogers@rim.com>
+
+        [BlackBerry] Update Web Notifications Implementation
+        https://bugs.webkit.org/show_bug.cgi?id=102621
+
+        Reviewed by George Staikos.
+
+        Reviewed internally by George Staikos and Joe Mason.
+        Internal PR 172120
+        Add new Notification files and remove obsolete ones.
+
+        * PlatformBlackBerry.cmake:
+
+2012-11-22  Simon Hausmann  <simon.hausmann@digia.com>, Pierre Rossi <pierre.rossi@digia.com>
+
+        [Qt] Separate QWidget dependant code into separate WebKitWidgets static library
+        https://bugs.webkit.org/show_bug.cgi?id=102800
+
+        Reviewed by Tor Arne Vestbø.
+
+        This patch separates code that needs to use QWidget related APIs in
+        WebKit/qt/WebCoreSupport and Api from code that doesn't. This means for
+        example FrameLoaderClientQt.cpp remains in the WebKit1 static library,
+        while qwebpage.cpp and qwebframe.cpp become part of the WebKitWidgets
+        static library. WebKit1 is compiled without QT += widgets and therefore
+        any widget related dependency has been moved "up" and out of WebKit1 into
+        the WebKitWidgets library.
+
+        Between the code in WebKit.a and WebKitWidgets.a new adapters and
+        interfaces have been introduced, such as QWebPageAdapter and
+        QWebFrameAdapter. QWebPageAdapter, when used from WebKit1, is a way to
+        call out into the API layer, implemented by QWebPage (QWebPagePrivate).
+        The other way around if QWebPage wants to access WebCore or
+        WebCoreSupport related functionality, it will go through
+        QWebPageAdapater (as base class). The separation in the direction up
+        into the API layer is complete with this patch, no code in WebKit1
+        depends on QtWidgets. The separation the other way around, code in the
+        API layer not using any WebCore types, is not complete yet.
+
+        Some classes such as QWebSettings, QWebElement or
+        DumpRenderTreeSupportQt remain in WebKit1. While they are API layer,
+        they do not depend on widget related Qt APIs and they make much more
+        use of WebCore internal APIs and therefore are easier to keep in
+        WebKit1.
+
+        In the future we plan to place a real shared library boundary between
+        WebKit1 and WebKitWidgets, by keeping the WebKit1 static library as
+        part of the QtWebKit shared library and by turning the WebKitWidgets
+        static library into a shared one.
+
+        * WebKit1.pri:
+        * WebKit1.pro:
+        * WebKitWidgets.pri: Copied from Source/WebKit/WebKit1.pri.
+        * WebKitWidgets.pro: Added.
+
+2012-11-21  Kai Koehne  <kai.koehne@digia.com>
+
+        [Qt] MinGW: Don't add OpenGL library dependencies here
+        https://bugs.webkit.org/show_bug.cgi?id=102924
+
+        Reviewed by Simon Hausmann.
+
+        As the comment suggests the dependency is already for WebCore, so add it there instead.
+
+        * WebKit1.pri:
+
+2012-11-18  Laszlo Gombos  <l.gombos@samsung.com>
+
+        [CMake] Consolidate common input files
+        https://bugs.webkit.org/show_bug.cgi?id=101632
+
+        Reviewed by Rob Buis.
+
+        Consolidate and sort the list of files.
+
+        * PlatformEfl.cmake:
+
+2012-11-12  Timothy Hatcher  <timothy@apple.com>
+
+        Add a dock button to the top right corner of the Web Inspector window (similar to the full screen button).
+
+        https://bugs.webkit.org/show_bug.cgi?id=102025
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebKit.xcodeproj/project.pbxproj: Added Dock.pdf.
+
+2012-11-08  Laszlo Gombos  <l.gombos@samsung.com>
+
+        [EFL] Remove non-variable options from the build system
+        https://bugs.webkit.org/show_bug.cgi?id=101506
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Remove WTF_USE_FREETYPE and ENABLE_GLIB_SUPPORT cmake variables
+        as these are always set to const 1 and not really configurable.
+
+        * PlatformEfl.cmake:
+
+2012-11-07  Andreas Kling  <akling@apple.com>
+
+        Remove build-webkit dependency on Java SDK for Apple Mac WebKit.
+        <http://webkit.org/b/101492>
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.xcodeproj/project.pbxproj: Remove WebJavaPlugIn.h
+
+2012-11-06  Laszlo Gombos  <l.gombos@samsung.com>
+
+        [EFL] Simplify the build system
+        https://bugs.webkit.org/show_bug.cgi?id=101392
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Use WTF_USE_3D_GRAPHICS to guard the inclusion of surfaces and textmap 
+        directories under WebCore/graphics to be consistent with 
+        WebCore/PlatformEfl.cmake.
+
+        * PlatformEfl.cmake:
+
+2012-11-04  Halton Huo  <halton.huo@intel.com>
+
+        [EFL] Use _LIBRARIES instead of _LIBRARY
+        https://bugs.webkit.org/show_bug.cgi?id=101042
+
+        Reviewed by Gyuyoung Kim.
+
+        In CMake Find files, _LIBRARY is intended for internal use, should
+        use _LIBRARIES instead.
+
+        * PlatformEfl.cmake: s/_LIBRARY}/_LIBRARIES}
+
+2012-11-01  Seonae Kim  <sunaeluv.kim@samsung.com>
+
+        [EFL][DRT] Support Geolocation
+        https://bugs.webkit.org/show_bug.cgi?id=97427
+
+        Reviewed by Gyuyoung Kim. 
+
+        Add a mock directory to use GeolocationClientMock in DumpRenderTree.
+
+        * PlatformEfl.cmake:
+
+2012-10-31  Otto Derek Cheung  <otcheung@rim.com>
+
+        [BlackBerry] Adding window.external to our port
+        https://bugs.webkit.org/show_bug.cgi?id=100868
+
+        Reviewed by Rob Buis.
+
+        Adding ExternalExtension classes to the BB cmake file.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-31  Michał Pakuła vel Rutka  <m.pakula@samsung.com>
+
+        [EFL][DRT] EventSender requires contextClick implementation
+        https://bugs.webkit.org/show_bug.cgi?id=86091
+
+        Reviewed by Gyuyoung Kim.
+
+        Add new unit test file, needed due to ewk API changes.
+
+        * PlatformEfl.cmake:
+
+2012-10-30  Peter Wang  <peter.wang@torchmobile.com.cn>
+
+        [BlackBerry] Clean the code of "JavaScriptDebuggerBlackBerry"
+        https://bugs.webkit.org/show_bug.cgi?id=100724
+
+        Reviewed by Rob Buis.
+
+        Remove the code of JavaScriptDebuggerBlackBerry.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-28  Mark Rowe  <mrowe@apple.com>
+
+        Remove references to unsupported OS and Xcode versions.
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2012-10-26  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r132601.
+        http://trac.webkit.org/changeset/132601
+        https://bugs.webkit.org/show_bug.cgi?id=100494
+
+        It broke the Qt build (Requested by Ossy on #webkit).
+
+        * PlatformEfl.cmake:
+
+2012-10-26  Xiaobo Wang  <xbwang@torchmobile.com.cn>
+
+        [BlackBerry] Support pixel tests for BlackBerry DRT
+        https://bugs.webkit.org/show_bug.cgi?id=100210
+
+        Reviewed by Rob Buis.
+
+        Adds a step to build ImageDiff from Qt for DRT. Most of the works are
+        accomplished by Christopher Wells.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-24  Alexey Proskuryakov  <ap@apple.com>
+
+        Add a strategy for shared workers
+        https://bugs.webkit.org/show_bug.cgi?id=100165
+
+        EFL build fix by Christophe Dumez.
+
+        Reviewed by Brady Eidson.
+
+        * CMakeLists.txt: Add WebCore/workers to include paths.
+
+2012-10-24  Otto Derek Cheung  <otcheung@rim.com>
+
+        [BlackBerry] Rename GeolocationControllerClientBlackBerry to GeolocationClientBlackBerry
+        https://bugs.webkit.org/show_bug.cgi?id=100250
+
+        Reviewed by Rob Buis.
+
+        Rename GeolocationControllerClientBlackBerry to GeolocationClientBlackBerry
+        to prevent confusion.
+
+        PR 230196
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-23  Hyowon Kim  <hw1008.kim@samsung.com>
+
+        [Texmap][EFL] Add AcceleratedCompositingContextEfl to the build system.
+        https://bugs.webkit.org/show_bug.cgi?id=88630
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake: Add the AcceleratedCompositingContextEfl.cpp file
+        and INCLUDE paths for TEXTURE_MAPPER_GL.
+
+2012-10-18  Kangil Han  <kangil.han@samsung.com>
+
+        [EFL] Add unit test for ewk_frame_source_get.
+        https://bugs.webkit.org/show_bug.cgi?id=95984
+
+        Reviewed by Gyuyoung Kim.
+
+        Add test_ewk_frame.cpp for unit test.
+
+        * PlatformEfl.cmake:
+
+2012-10-15  David Kilzer  <ddkilzer@apple.com>
+
+        Move framework and library linking into WebKit.xcconfig
+        <http://webkit.org/b/99284>
+
+        Reviewed by Mark Rowe.
+
+        * WebKit.xcodeproj/project.pbxproj: Remove frameworks and
+        libraries from Xcode project file.
+
+2012-10-15  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL][WK2] Implement Favicons API
+        https://bugs.webkit.org/show_bug.cgi?id=99087
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Remove ewk_util.cpp from PlatformEfl.cmake now that its
+        code has been moved to WebCore to be reused in WK2.
+
+        * PlatformEfl.cmake:
+
+2012-10-15  Dongwoo Joshua Im  <dw.im@samsung.com>
+
+        [EFL] Set the basepath of the File System API.
+        https://bugs.webkit.org/show_bug.cgi?id=98344
+
+        Reviewed by Gyuyoung Kim.
+
+        Set the basepath of the File System API using the internal setter function.
+
+        * PlatformEfl.cmake: Add new include path.
+
+2012-10-15  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Share resources installed for inspector
+        https://bugs.webkit.org/show_bug.cgi?id=98991
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake:
+        Extracted build scripts which install resources to WebKit/PlatformEfl.cmake.
+
+2012-10-15  George Staikos  <staikos@webkit.org>
+
+        [BlackBerry] Adapt to Platform API changes in string handling
+        https://bugs.webkit.org/show_bug.cgi?id=99248
+
+        Reviewed by Yong Li.
+
+        Convert usage of WebString, char* and std::string to BlackBerry::Platform::String.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-13  Jakob Petsovits  <jpetsovits@rim.com>
+
+        [BlackBerry] Fetch blit rects from a viewport accessor
+        https://bugs.webkit.org/show_bug.cgi?id=98581
+        RIM PR 173292
+
+        Reviewed by George Staikos.
+        Internally reviewed by Arvid Nilsson.
+
+        Add new ViewportAccessor files to the build.
+        See Source/WebKit/blackberry/ChangeLog for the
+        verbose commit message.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-12  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r131189.
+        http://trac.webkit.org/changeset/131189
+        https://bugs.webkit.org/show_bug.cgi?id=99187
+
+        Made inspector http tests crash on WK2. (Requested by rakuco
+        on #webkit).
+
+        * PlatformEfl.cmake:
+
+2012-10-12  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Share resources installed for inspector
+        https://bugs.webkit.org/show_bug.cgi?id=98991
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake:
+        Extracted build scripts which install resources to WebKit/PlatformEfl.cmake.
+
+2012-10-11  Chris Guan  <chris.guan@torchmobile.com.cn>
+
+        [Blackberry] makes NavigatorContentUtils work
+        https://bugs.webkit.org/show_bug.cgi?id=99022
+
+        Reviewed by Rob Buis.
+
+        Because r126735 renamed RegisterProtocolHandler API to NavigatorContentUtils, So we
+        need add Modules/navigatorcontentutils into WebKit_INCLUDE_DIRECTORIES.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-10  Konrad Piascik  <kpiascik@rim.com>
+
+        [BlackBerry] Install inspector files into staging directory.
+        https://bugs.webkit.org/show_bug.cgi?id=98930
+
+        Reviewed by Rob Buis.
+
+        Internally reviewed by Ming Xie.
+        Install the web inspector resources into the staging directory to make it easier to flash to device.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-09  Simon Hausmann  <simon.hausmann@digia.com>
+
+        [Qt] Fix build with QtMultimedia
+
+        Reviewed by Tor Arne Vestbø.
+
+        * WebKit1.pri: WK1 needs QtMultimediaWidgets for QVideoWidget and friends.
+
+2012-10-08  Simon Hausmann  <simon.hausmann@digia.com>
+
+        [Qt] Make RenderThemeQStyle/ScrollbarThemeQStyle compile without QStyle/QtWidgets
+        https://bugs.webkit.org/show_bug.cgi?id=98268
+
+        Reviewed by Tor Arne Vestbø.
+
+        * WebKit1.pro: Add new files to the build.
+
+2012-10-04  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Sync up CMake files
+        https://bugs.webkit.org/show_bug.cgi?id=98442
+
+        Reviewed by Gyuyoung Kim.
+
+        Amongst others use InspectorOverlayBlackBerry.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-05  Simon Hausmann  <simon.hausmann@digia.com>
+
+        Unreviewed, rolling out r130495.
+        http://trac.webkit.org/changeset/130495
+        https://bugs.webkit.org/show_bug.cgi?id=98268
+
+        Made WK2 tests crash....
+
+        * WebKit1.pro:
+
+2012-10-05  Simon Hausmann  <simon.hausmann@digia.com>
+
+        [Qt] Make RenderThemeQStyle/ScrollbarThemeQStyle compile without QStyle/QtWidgets
+        https://bugs.webkit.org/show_bug.cgi?id=98268
+
+        Reviewed by Tor Arne Vestbø.
+
+        * WebKit1.pro: Add new files to the build.
+
+2012-10-04  Konrad Piascik  <kpiascik@rim.com>
+
+        [BlackBerry] Update how we compile inspector front-end javascript.
+        https://bugs.webkit.org/show_bug.cgi?id=98413
+
+        Reviewed by Rob Buis.
+
+        No longer cat all JavaScript together, instead use the lazy init and
+        only append our custom changes script to the end of inspectorBB.html.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-03  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Default.edj should be generated although ENABLE_WEBKIT disabled.
+        https://bugs.webkit.org/show_bug.cgi?id=97753
+
+        Reviewed by Laszlo Gombos.
+
+        default.edj is used in both webkit/efl and webkit2/efl.
+        However, it has been generated only when ENABLE_WEBKIT is enabled.
+
+        This patch separates the script which generates default.edj
+        from source/webkit/platformefl.cmake.
+
+        * PlatformEfl.cmake: Extracted codes which is related to default.edj.
+
+2012-10-03  Otto Derek Cheung  <otcheung@rim.com>
+
+        [BlackBerry] Implementing the NetworkInfo API for BB port
+        https://bugs.webkit.org/show_bug.cgi?id=98273
+
+        Reviewed by Rob Buis.
+
+        Adding new classes to support NetworkInfo API in the
+        BlackBerry Port.
+
+        * PlatformBlackBerry.cmake:
+
+2012-10-02  Krzysztof Czech  <k.czech@samsung.com>
+
+        [EFL] Add file EWKTestEnvironment.cpp to build system.
+        https://bugs.webkit.org/show_bug.cgi?id=94925
+
+        Reviewed by Gyuyoung Kim.
+
+        Change is related to modifications in wk1 unit tests.
+
+        * PlatformEfl.cmake:
+
+2012-09-27  Anders Carlsson  <andersca@apple.com>
+
+        Get rid of more unused WK1 plug-in code
+        https://bugs.webkit.org/show_bug.cgi?id=97835
+
+        Reviewed by Mark Rowe.
+
+        Remove WebNetscapeDeprecatedFunctions.c and WebNetscapeDeprecatedFunctions.h from the Xcode project.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2012-09-27  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL][CMAKE] Default theme files are outdated in PlatformEfl.cmake
+        https://bugs.webkit.org/show_bug.cgi?id=97769
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Update Default theme files in PlatformEfl.cmake so that
+        changes to those files are properly picked up by CMake
+        when building incrementally.
+
+        * PlatformEfl.cmake:
+
+2012-09-24  Arvid Nilsson  <anilsson@rim.com>
+
+        [BlackBerry] Add cookie database API
+        https://bugs.webkit.org/show_bug.cgi?id=97102
+
+        Reviewed by Antonio Gomes.
+
+        Add cookie database file to build system.
+
+        Reviewed internally by Otto D. Cheung.
+
+        * PlatformBlackBerry.cmake:
+
+2012-09-21  Arvid Nilsson  <anilsson@rim.com>
+
+        [BlackBerry] Remove obsolete compositing surface code
+        https://bugs.webkit.org/show_bug.cgi?id=97314
+
+        Reviewed by Antonio Gomes.
+
+        Remove compositing surface code from build system.
+
+        PR 208038.
+
+        * PlatformBlackBerry.cmake:
+
+2012-09-14  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        [Qt] Make force_static_libs_as_shared work on Mac OS
+
+        We had to move a few LIBS += around that were in the wrong place,
+        and not caught when everything was just linked into the final
+        QtWebKit library.
+
+        Reviewed by Simon Hausmann.
+
+        * WebKit1.pri: Move multimedia-stuff to WebCore, to share with WK2
+
+2012-09-11  Raphael Kubo da Costa  <rakuco@webkit.org>
+
+        [EFL] Rewrite the EFL-related Find modules
+        https://bugs.webkit.org/show_bug.cgi?id=95237
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        * PlatformEfl.cmake: Stop setting the LINK_FLAGS property and add
+        libraries and include directories for each Enlightenment
+        Foundation Library used by the port.
+
+2012-09-11  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        [Qt] Add a configure step to the Qt build system
+
+        This allows building the Qt port using just 'qmake WebKit.pro'. Using
+        the build-webkit script is still supported, and will add slightly more
+        logic to the build, such as detecting the need for clean or incremental
+        builds.
+
+        Internally, the build system now uses a new variable, WEBKIT_CONFIG, for
+        all things related to configuring the build, such as use/have/enable flags,
+        and these are translated to defines in default_post. Project files should
+        no longer check contains(DEFINES,...) to detect features, but use the new
+        enable?(), use?(), and have?() functions. The no_webkit1 and no_webkit2
+        options have been translated into WEBKIT_CONFIG options as well, and can
+        be checked using build?().
+
+        Reviewed by Simon Hausmann.
+
+        * WebKit1.pri:
+        * WebKit1.pro:
+
+2012-09-06  Crystal Zhang  <haizhang@rim.com>
+
+        [BlackBerry]  Implement a color picker
+        https://bugs.webkit.org/show_bug.cgi?id=96001
+
+        Reviewed by Rob Buis.
+
+        Add color picker files into building system.
+
+        * PlatformBlackBerry.cmake:
+
+2012-09-06  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Fix build with ANGLE on platforms that provide EGL/GLESv2
+        https://bugs.webkit.org/show_bug.cgi?id=95965
+
+        Reviewed by Tor Arne Vestbø.
+
+        Depend on ANGLE if necessary, due to the use WebCore types that pull in ANGLE
+        headers (GraphicsContext3D.h in particular).
+
+        * WebKit1.pro:
+
+2012-09-04  Michał Pakuła vel Rutka  <m.pakula@samsung.com>
+
+        [EFL] Context menu restore.
+        https://bugs.webkit.org/show_bug.cgi?id=74179
+
+        Reviewed by Gyuyoung Kim.
+
+        Adds context menu support for EFL port using non-CROSS_PLATFORM_CONTEXT_MENUS
+        approach, the same as used in WebKit2.
+
+        * PlatformEfl.cmake: Added ContextMenuClientEfl.cpp file to sources list.
+
+2012-08-29  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Move several files to remove webkit1 dependency from WebCore.
+        https://bugs.webkit.org/show_bug.cgi?id=95264
+
+        Reviewed by Gyuyoung Kim.
+
+        * PlatformEfl.cmake: Added files which is moved.
+
+2012-08-28  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [EFL] Rename knob images to thumb on the default theme
+        https://bugs.webkit.org/show_bug.cgi?id=95186
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Updated buildsystem after renaming theme images.
+
+        * PlatformEfl.cmake:
+
+2012-08-27  Mikhail Pozdnyakov  <mikhail.pozdnyakov@intel.com>
+
+        Rename RegisterProtocolHandler API to NavigatorContentUtils
+        https://bugs.webkit.org/show_bug.cgi?id=94920
+
+        Reviewed by Adam Barth.
+
+        Modified PlatformEfl.cmake so that it includes the renamed files.
+
+        * PlatformEfl.cmake:
+
+2012-08-20  Dominik Röttsches  <dominik.rottsches@intel.com>
+
+        [EFL] Get rid of pango backend support once harfbuzz-ng is working
+        https://bugs.webkit.org/show_bug.cgi?id=92102
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Removing pango-specific includes and libraries.
+
+        * PlatformEfl.cmake: Pango sections removed.
+
+2012-08-17  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Remove some shared libraries from linking
+        https://bugs.webkit.org/show_bug.cgi?id=94253
+
+        Reviewed by Yong Li.
+
+        Remove some shared libraries.
+
+        * PlatformBlackBerry.cmake:
+
+2012-08-15  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Update manual tests and comments to refer to TestRunner instead of LayoutTestController
+        https://bugs.webkit.org/show_bug.cgi?id=94168
+
+        Reviewed by Kent Tamura.
+
+        * PlatformBlackBerry.cmake:
+
+2012-08-14  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] undefined reference to 'g_type_init' with gold linker
+        https://bugs.webkit.org/show_bug.cgi?id=93935
+
+        Unreviewed build fix. Link against glib-gobject to
+        fix linking error with gold linker.
+
+        * PlatformEfl.cmake:
+
+2012-08-11  Raphael Kubo da Costa  <rakuco@webkit.org>
+
+        [CMake] Rewrite FindLibSoup2.cmake.
+        https://bugs.webkit.org/show_bug.cgi?id=93191
+
+        Reviewed by Rob Buis.
+
+        * PlatformEfl.cmake: Use LIBSOUP_FOO instead of LIBSOUP24_FOO.
+
+2012-08-13  Raphael Kubo da Costa  <rakuco@webkit.org>
+
+        [CMake] Remove glib-related Find modules and write single new one instead.
+        https://bugs.webkit.org/show_bug.cgi?id=93786
+
+        Reviewed by Rob Buis.
+
+        * PlatformEfl.cmake: Use GLIB_* instead of Glib_*.
+
+2012-08-12  Loïc Yhuel  <loic.yhuel@softathome.com>
+
+        [Qt] Make it possible to build without QtTest/QtPrintSupport
+        https://bugs.webkit.org/show_bug.cgi?id=93492
+
+        Reviewed by Tor Arne Vestbø.
+
+        * WebKit1.pri: Optional printsupport
+
+2012-08-10  Joshua Netterfield  <jnetterfield@rim.com>
+
+        [WebGL] Add support for EXT_robustness
+        https://bugs.webkit.org/show_bug.cgi?id=93379
+
+        Reviewed by George Staikos.
+
+        RIM PR# 147510
+        Internally reviewed by Arvid Nilsson.
+
+        * CMakeLists.txt: Build system adaptation.
+
+2012-08-10  Benjamin C Meyer  <bmeyer@rim.com>
+
+        Introduce JavaScriptVariant object.
+        https://bugs.webkit.org/show_bug.cgi?id=93644
+
+        The JavaScriptVariant can be used for functions that return results from
+        JavaScript such as executeJavaScript or functions that take arguments
+        to pass a variable to JavaScript and they want to make sure the type
+        is correct.
+
+        Convert executeJavaScriptFunction() to use this data type as the
+        example, other functions will be converted in the future.
+
+        PR 14929
+
+        Internally reviewed by Joe Mason
+        Reviewed by Adam Treat
+
+        * PlatformBlackBerry.cmake:
+
+2012-08-10  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        [BlackBerry] Fix wrong include path for notifications.
+        https://bugs.webkit.org/show_bug.cgi?id=93714
+
+        Reviewed by Rob Buis.
+
+        * PlatformBlackBerry.cmake: Change path from notifications to Modules/notifications.
+
+2012-08-08  Antonio Gomes  <agomes@rim.com>
+
+        [BlackBerry] Tie up the scrolling machinery to the graphics tree when applicable for in-region scroll
+        https://bugs.webkit.org/show_bug.cgi?id=93482
+
+        Reviewed by Rob Buis.
+
+        * PlatformBlackBerry.cmake: Build system adaptation.
+
+2012-08-07  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Remove PlatformTouchEventEfl and PlatformTouchPointEfl
+        https://bugs.webkit.org/show_bug.cgi?id=93270
+
+        Reviewed by Eric Seidel.
+
+        * PlatformEfl.cmake: Added ewk_touch_event.cpp
+
+2012-08-07  Konrad Piascik  <kpiascik@rim.com>
+
+        [BlackBerry] InspectorOverlay class duplicated in WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=93124
+
+        Reviewed by Rob Buis.
+
+        Updated InspectorOverlay build path.
+
+        * PlatformBlackBerry.cmake:
+
+2012-08-07  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        [Qt] Make it possible to build without QtQuick
+
+        Reviewed by Simon Hausmann.
+
+        * WebKit1.pri:
+
+2012-07-19  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Remove Qt 4 specific code paths
+        https://bugs.webkit.org/show_bug.cgi?id=88161
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        * WebKit.pri:
+        * WebKit1.pri:
+        * WebKit1.pro:
+
+2012-08-07  Mikhail Pozdnyakov  <mikhail.pozdnyakov@intel.com>
+
+        CUSTOM_SCHEME_HANDLER flag should depend on REGISTER_PROTOCOL_HANDLER
+        https://bugs.webkit.org/show_bug.cgi?id=93081
+
+        Reviewed by Adam Barth.
+
+        Modified PlatformEfl.cmake so that CUSTOM_SCHEME_HANDLER flag cannot act without REGISTER_PROTOCOL_HANDLER being set.
+
+        * PlatformEfl.cmake:
+
+2012-08-01  Antonio Gomes  <agomes@rim.com>
+
+        [BlackBerry] Implement InRegionScroller class as a in-region scroll controller
+        https://bugs.webkit.org/show_bug.cgi?id=92889
+        PR #186587
+
+        Reviewed by Yong Li.
+
+        Internally reviewed by Arvid Nilsson.
+
+        * PlatformBlackBerry.cmake: Added InRegionScroller.cpp|h to the build system.
+
+2012-07-30  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Unreviewed Qt/Mac build fix: Use libWebKitSystemInterfaceMountainLion.a
+        on Mountain Lion.
+
+        * WebKit1.pri:
+
+2012-07-27  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [EFL] WebKit API unit tests needs a timeout
+        https://bugs.webkit.org/show_bug.cgi?id=92496
+
+        Reviewed by Antonio Gomes.
+
+        Added the same timeout value that we have for WebKit2.
+
+        * PlatformEfl.cmake:
+
+2012-07-27  Dominik Röttsches  <dominik.rottsches@intel.com>
+
+        [Cairo] Add complex font drawing using HarfbuzzNG
+        https://bugs.webkit.org/show_bug.cgi?id=91864
+
+        Reviewed by Simon Hausmann and Martin Robinson.
+
+        Adding includes for harfbuzz folders.
+
+        * CMakeLists.txt:
+
+2012-07-26  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL][WK2] Implement Network Information provider
+        https://bugs.webkit.org/show_bug.cgi?id=92343
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        WebKit EFL not longer needs to link against EEZE
+        library since the Network Information provider
+        was moved to WebCore.
+
+        * CMakeLists.txt:
+        * PlatformEfl.cmake:
+
+2012-07-26  Zoltan Nyul  <zoltan.nyul@intel.com>
+
+        [EFL] EFL port should use XDG paths
+        https://bugs.webkit.org/show_bug.cgi?id=91719
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Add efreet library to get the xdg paths.
+
+        * PlatformEfl.cmake:
+
+2012-07-25  Kihong Kwon  <kihong.kwon@samsung.com>
+
+        [EFL] Add File Chooser API
+        https://bugs.webkit.org/show_bug.cgi?id=91957
+
+        Reviewed by Hajime Morita.
+
+        Add ewk_file_chooser source and header.
+
+        * PlatformEfl.cmake:
+
+2012-07-22  Kent Tamura  <tkent@chromium.org>
+
+        Rename ENABLE_METER_TAG and ENABLE_PROGRESS_TAG to ENABLE_METER_ELEMENT and ENABLE_PROGRESS_ELEMENT respectively
+        https://bugs.webkit.org/show_bug.cgi?id=91941
+
+        Reviewed by Kentaro Hara.
+
+        A flag name for an elmement should be ENABLE_*_ELEMENT.
+
+        * PlatformEfl.cmake:
+
+2012-07-20  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] Proxy configuration should honor the no_proxy environment variable
+        https://bugs.webkit.org/show_bug.cgi?id=91747
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Add WebCore/platform/network/soup to INCLUDE paths.
+
+        * PlatformEfl.cmake:
+
+2012-07-18  Yong Li  <yoli@rim.com>
+
+        [BlackBerry] Move about: URL handling out of WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=91541
+
+        Reviewed by Rob Buis.
+
+        AboutData.cpp is moved from WebCoreSupport to WebKitSupport.
+
+        * PlatformBlackBerry.cmake:
+
+2012-07-18  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [CMake] Make gtest a shared library
+        https://bugs.webkit.org/show_bug.cgi?id=90973
+
+        Reviewed by Daniel Bates.
+
+        No need to link with gtest dependencies now since it is a shared library.
+
+        * PlatformEfl.cmake:
+
+2012-07-17  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Move codes related to theme setting from Widget to RenderTheme
+        https://bugs.webkit.org/show_bug.cgi?id=89842
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        * CMakeLists.txt: Added html/shadow to WebKit_INCLUDE_DIRECTORIES.
+
+2012-07-16  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Add RegisterProtocolHandlerClient to the Modules/protocolhandler
+        https://bugs.webkit.org/show_bug.cgi?id=90940
+
+        Reviewed by Hajime Morita.
+
+        As a step to let protocol handler be moved to the modules, RegisterProtocolHandlerClient needs
+        to be added to the Modules/protocolhandler. Because ChromeClient has some virtual functions for
+        protocol handlers, virtual functions should be moved to RegisterProtocolHandlerClient.
+
+        * PlatformEfl.cmake: Add RegisterProtocolHandlerEfl files and include path.
+
+2012-07-16  Joshua Netterfield  <jnetterfield@rim.com>
+
+        [BlackBerry] Upstream WebGL Code
+        https://bugs.webkit.org/show_bug.cgi?id=91143
+
+        Reviewed by Rob Buis.
+
+        This patch includes BlackBerry-specific fixes for anti-aliasing, logging, and shader compilation.
+
+        * PlatformBlackBerry.cmake: Define WTF_USE_OPENGL_ES_2 on WebGL-enabled builds.
+
+2012-07-16  Frederik Gladhorn  <frederik.gladhorn@nokia.com>
+
+        Add accessible for QWebView.
+        https://bugs.webkit.org/show_bug.cgi?id=91073
+
+        Reviewed by Simon Hausmann.
+
+        Add classes to enable accessibility on the widget level.
+
+        * WebKit.pri:
+        * WebKit1.pro:
+
+2012-07-15  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        [EFL] Move files guarded by #ifdef to existing file list.
+        https://bugs.webkit.org/show_bug.cgi?id=91336
+
+        Reviewed by Ryosuke Niwa.
+
+        Some EFL files are already guared by #ifdef. So, cmake files doesn't need to guard
+        them again. In addition, some files are missing #ifdef guard its header files. 
+
+        * PlatformEfl.cmake:
+
+2012-07-13  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [CMake] Proper handling of ENABLE_API_TESTS build option
+        https://bugs.webkit.org/show_bug.cgi?id=91221
+
+        Reviewed by Rob Buis.
+
+        Build unit tests only if ENABLE_API_TESTS is set.
+
+        * PlatformEfl.cmake:
+
+2012-07-12  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Typo in path in generate-webkitversion.pl
+        https://bugs.webkit.org/show_bug.cgi?id=90883
+
+        Reviewed by Mark Rowe.
+
+        Correct default path to version config file. In practice it wasn't a problem because only the Qt
+        build system seems to use the script right now and passes the path to the version file as a
+        command line parameter.
+
+        * scripts/generate-webkitversion.pl:
+
+2012-07-11  Crystal Zhang  <haizhang@rim.com>
+
+        [BlackBerry] Implement Date/Time picker
+        https://bugs.webkit.org/show_bug.cgi?id=90911
+
+        Reviewed by Rob Buis.
+
+        Add files into make file.
+
+        * PlatformBlackBerry.cmake:
+
+2012-07-09  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] Battery status code needs refactoring to be reused in WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=90760
+
+        Reviewed by Hajime Morita.
+
+        Add BatteryClientEfl to PlatformEfl.cmake.
+
+        * PlatformEfl.cmake:
+
+2012-07-08  Kihong Kwon  <kihong.kwon@samsung.com>
+
+        [EFL] Change notifications directory path of WebKit_INCLUDE_DIRECTORIES in the PlatformEfl.cmake
+        https://bugs.webkit.org/show_bug.cgi?id=90650
+
+        Reviewed by Laszlo Gombos.
+
+        Change directory path for including notifications of WebCore
+        from WebCore/notifications to WebCore/Modules/notifications
+
+        * PlatformEfl.cmake:
+
+2012-07-07  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [EFL][CMake] Remove non-existent include directory
+        https://bugs.webkit.org/show_bug.cgi?id=90605
+
+        Reviewed by Kentaro Hara.
+
+        * PlatformEfl.cmake:
+
+2012-07-06  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [EFL][CMake] Move gtest sources to an upper level
+        https://bugs.webkit.org/show_bug.cgi?id=90602
+
+        Reviewed by Chang Shu.
+
+        Removed gtest since it is now built as a separated component.
+        This will allow us to share it with WebKit 2 API tests.
+
+        * PlatformEfl.cmake:
+
+2012-07-06  Seokju Kwon  <seokju.kwon@samsung.com>
+
+        [EFL] Add Web Inspector to WebKit-EFL
+        https://bugs.webkit.org/show_bug.cgi?id=83865
+
+        Reviewed by Pavel Feldman.
+
+        EFL port implementation for Web Inspector.
+        Prepare Web Inspector resources.
+
+        * PlatformEfl.cmake:
+
+2012-07-05  Kihong Kwon  <kihong.kwon@samsung.com>
+
+        [EFL] Change class name from NotificationClientEfl to NotificationPresenterClientEfl.
+        https://bugs.webkit.org/show_bug.cgi?id=90542
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        NotificationClientEfl.cpp is changed to NotificationPresenterClientEfl.cpp
+        to be in line with other ports(qt, chromium, gtk).
+
+        * PlatformEfl.cmake:
+
+2012-07-04  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        [Qt] Remove a few un-needed load(features) after r121777
+
+        The features are computed by configure.pro and cached in .qmake.cache.
+
+        Reviewed by Jocelyn Turcotte.
+
+        * WebKit1.pro:
+
+2012-07-04  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        [Qt] Fix broken OR-operator in project file
+
+        Qmake expects |, not ||. The result was that the block was entered, even
+        if none of the two defines were set to 1.
+
+        Reviewed by Jocelyn Turcotte.
+
+        * WebKit1.pri:
+
+2012-07-03  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] Move BatteryClientEfl from WebKit to WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=90063
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Move BatteryClientEfl class from WebKit to WebCore
+        so that it can be reused in WebKit2.
+
+        * PlatformEfl.cmake:
+
+2012-07-02  Xiaobo Wang  <xbwang@torchmobile.com.cn>
+
+        [BlackBerry] Use PUBLIC_BUILD to enable/disable DRT
+        https://bugs.webkit.org/show_bug.cgi?id=90271
+
+        Reviewed by George Staikos.
+
+        RIM PR #154707
+
+        Currently DRT code will be compiled only if ENABLE_DRT is set, and it's not
+        defined by default.
+        We should enable DRT by default unless PUBLIC_BUILD is set. In this way we don't
+        need to rebuild webkit before running DRT.
+
+        * PlatformBlackBerry.cmake:
+
+2012-07-02  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [EFL][CMake] Integrate API unit tests with CTest
+        https://bugs.webkit.org/show_bug.cgi?id=87251
+
+        Reviewed by Daniel Bates.
+
+        Add every test to the test runner build target.
+
+        * PlatformEfl.cmake:
+
+2012-07-02  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        [EFL] Rename NotificationPresenterEfl with NotificationClientEfl
+        https://bugs.webkit.org/show_bug.cgi?id=90370
+
+        Reviewed by Csaba Osztrogonác.
+
+        Bug 80488 renamed NotificationPresenter with NotificationClient. So, EFL port needs to adjust
+        it as well.
+
+        * PlatformEfl.cmake:
+
+2012-06-29  Krzysztof Czech  <k.czech@samsung.com>
+
+        [EFL] Add support for Unit Tests, based on the gtest library.
+        https://bugs.webkit.org/show_bug.cgi?id=68509
+
+        Reviewed by Chang Shu.
+
+        Add configuration for building gtest library, testing framework and unit tests.
+
+        * PlatformEfl.cmake:
+
+2012-06-27  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r121398.
+        http://trac.webkit.org/changeset/121398
+        https://bugs.webkit.org/show_bug.cgi?id=90136
+
+        broke efl build (Requested by ryuan on #webkit).
+
+        * PlatformEfl.cmake:
+
+2012-06-27  Krzysztof Czech  <k.czech@samsung.com>
+
+        [EFL] Add support for Unit Tests, based on the gtest library.
+        https://bugs.webkit.org/show_bug.cgi?id=68509
+
+        Reviewed by Chang Shu.
+
+        Add configuration for building gtest library, testing framework and unit tests.
+
+        * PlatformEfl.cmake:
+
+2012-06-26  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt][Win] Symbols are not exported in QtWebKit5.dll
+        https://bugs.webkit.org/show_bug.cgi?id=88873
+
+        Reviewed by Tor Arne Vestbø.
+
+        * api.pri: Remove MAKEDLL setting done now in win32/default_post.prf.
+
+2012-06-25  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Unreviewed build fix: Don't do QT += widgets with Qt 4
+
+        * WebKit1.pro: This is already done in WebKit1.pri.
+
+2012-06-25  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Make it possible to build WebKit without QtWidgets
+        https://bugs.webkit.org/show_bug.cgi?id=78109
+
+        Reviewed by Tor Arne Vestbø.
+
+        Moved WebKit1 sources into a separate static library. Only WK1
+        depends on QtWidgets.
+
+        * WebKit1.pri: Added.
+        * WebKit1.pro: Added.
+
+2012-06-25  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        [EFL] Implement Network Information API
+        https://bugs.webkit.org/show_bug.cgi?id=87067
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        * PlatformEfl.cmake: Add dependency of eeze library.
+
+2012-06-22  Joshua Netterfield  <jnetterfield@rim.com>
+
+        [BlackBerry] Sanitize GLSL code using ANGLE.
+
+        BlackBerry port does not sanitize GLSL code with ANGLE
+        https://bugs.webkit.org/show_bug.cgi?id=89583
+
+        Reviewed by Rob Buis.
+
+        * PlatformBlackBerry.cmake: Add ANGLE sources to BlackBerry builds.
+
+2012-06-19  Csaba Osztrogonác  <ossy@webkit.org>
+
+        [CMake] Unreviewed speculative buildfix after r120786.
+
+        * CMakeLists.txt:
+
+2012-06-13  Robin Cao  <robin.cao@torchmobile.com.cn>
+
+        [BlackBerry] Enable MEDIA_STREAM by default
+        https://bugs.webkit.org/show_bug.cgi?id=88849
+
+        Reviewed by Antonio Gomes.
+
+        * PlatformBlackBerry.cmake:
+
+2012-06-12  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] Enable SHADOW_DOM flag
+        https://bugs.webkit.org/show_bug.cgi?id=87732
+
+        Reviewed by Kentaro Hara.
+
+        Add WebCore/bindings/generic to include directories so
+        that we can include RuntimeEnabledFeatures.h.
+
+        * CMakeLists.txt:
+
+2012-06-04  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        [Qt] Don't use WebKit HAVE() macro in public Qt headers
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        * WebKit.pri:
+
+2012-06-04  Tomasz Morawski  <t.morawski@samsung.com>
+
+        [EFL] Refactor ewk_view_context_paint code.
+        https://bugs.webkit.org/show_bug.cgi?id=85588
+
+        Reviewed by Hajime Morita.
+
+        Added new ewk_paint_context.cpp file to source list.
+
+        * PlatformEfl.cmake:
+
+2012-06-01  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] EFL's LayoutTestController needs to implement deliverWebIntent
+        https://bugs.webkit.org/show_bug.cgi?id=86865
+
+        Reviewed by Adam Barth.
+
+        Add "${WEBCORE_DIR}/dom/default" to include directories in
+        CMakeLists.txt.
+
+        * CMakeLists.txt:
+
+2012-06-01  Sudarsana Nagineni  <sudarsana.nagineni@linux.intel.com>
+
+        [EFL] Implement PlatformStrategies
+        https://bugs.webkit.org/show_bug.cgi?id=86946
+
+        Reviewed by Carlos Garcia Campos.
+
+        * PlatformEfl.cmake: Add PlatformStrategiesEfl file to the build
+        system.
+
+2012-05-31  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        [CMAKE][EFL] Remove unneeded include path
+        https://bugs.webkit.org/show_bug.cgi?id=87927 
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Though *wtf* directory was moved to Source/WTF, PlatformEfl.cmake is still including the previous
+        path. In addition, files on EFL port are using <wtf/gobject/XXX> directly in #include line.
+        So, EFL port doesn't need to include ${JAVASCRIPTCORE_DIR}/wtf/gobject path anymore.
+
+        * PlatformEfl.cmake: Remove '${JAVASCRIPTCORE_DIR}/wtf/gobject' path from include path list.
+
+2012-05-30  Konrad Piascik  <kpiascik@rim.com>
+
+        [BlackBerry] Add an Accelerated Compositing layer for Web Inspector DOM highlight.
+        https://bugs.webkit.org/show_bug.cgi?id=81001
+
+        Reviewed by Antonio Gomes
+        
+        Added new InspectorOverlay class
+
+        * PlatformBlackBerry.cmake:
+
+2012-05-29  Arvid Nilsson  <anilsson@rim.com>
+
+        [BlackBerry] WebKit-side implementation of SelectionOverlay
+        https://bugs.webkit.org/show_bug.cgi?id=87605
+
+        Reviewed by Rob Buis.
+
+        Add SelectionOverlay to the build system.
+
+        PR #160263
+
+        * PlatformBlackBerry.cmake:
+
+2012-05-29  Arvid Nilsson  <anilsson@rim.com>
+
+        [BlackBerry] WebOverlay API
+        https://bugs.webkit.org/show_bug.cgi?id=87603
+
+        Reviewed by Rob Buis.
+
+        Add WebOverlay related files to the build system.
+
+        PR #156812
+
+        * PlatformBlackBerry.cmake:
+
+2012-05-28  Arvid Nilsson  <anilsson@rim.com>
+
+        [BlackBerry] Add a default tap highlight
+        https://bugs.webkit.org/show_bug.cgi?id=87569
+
+        Reviewed by Rob Buis.
+
+        Add DefaultTapHighlight to the build system
+
+        Reviewed internally by Mike Lattanzio and Mike Fenton.
+
+        PR #154329
+
+        * PlatformBlackBerry.cmake:
+
+2012-05-24  Crystal Zhang  <haizhang@rim.com>
+
+        [BlackBerry] Implement select popup and remove old hook to air popup
+        https://bugs.webkit.org/show_bug.cgi?id=87419
+
+        Reviewed by Rob Buis.
+
+        Add new files to make file.
+
+        * PlatformBlackBerry.cmake:
+
+2012-05-24  Raphael Kubo da Costa  <rakuco@webkit.org>
+
+        [EFL] Unreviewed, unbreak `make install' after r117046.
+
+        * PlatformEfl.cmake: Remove ewk_auth_soup.h from the list of
+        installed headers, since it has been made private and renamed.
+
+2012-05-22  Dongwoo Im  <dw.im@samsung.com>
+
+        [EFL] Implements the registerProtocolHandler method and option.
+        https://bugs.webkit.org/show_bug.cgi?id=73638
+
+        Reviewed by Andreas Kling.
+
+        The registerProtocolHandler() method allows Web sites to register themselves
+        as possible handlers for particular schemes.
+
+        http://dev.w3.org/html5/spec/Overview.html#dom-navigator-registerprotocolhandler
+
+        * PlatformEfl.cmake: Adds the new file into the source list.
+
+2012-05-21  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] Minor style fixes in web intents code are needed
+        https://bugs.webkit.org/show_bug.cgi?id=86986
+
+        Reviewed by Adam Barth.
+
+        Fix minor ordering issues in CMake files.
+
+        * CMakeLists.txt:
+        * PlatformEfl.cmake:
+
+2012-05-18  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] Add simple implementation of Web Intents
+        https://bugs.webkit.org/show_bug.cgi?id=86354
+
+        Reviewed by Eric Seidel.
+
+        Add new ewk_intent.* and ewk_intent_request.* files to CMake.
+
+        * CMakeLists.txt:
+        * PlatformEfl.cmake:
+
+2012-05-17  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [EFL] Add API for Web Database handling
+        https://bugs.webkit.org/show_bug.cgi?id=85178
+
+        Reviewed by Antonio Gomes.
+
+        Added the new Web Database API to the buildsystem.
+
+        * PlatformEfl.cmake:
+
+2012-05-17  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [EFL] Fix link error caused by not directly linking with edbus
+        https://bugs.webkit.org/show_bug.cgi?id=86747
+
+        Unreviewed build fix.
+
+        * PlatformEfl.cmake:
+
+2012-05-16  Kihong Kwon  <kihong.kwon@samsung.com>
+
+        [EFL] Support for Battery Status API on the WebKit-Efl
+        https://bugs.webkit.org/show_bug.cgi?id=83254
+
+        Reviewed by Chang Shu.
+
+        Add e_ukit library and include directory to get battery status of device.
+
+        * PlatformEfl.cmake:
+
+2012-05-15  Tomasz Morawski  <t.morawski@samsung.com>
+
+        [EFL] Split ewk_private.h file to multiple private files.
+        https://bugs.webkit.org/show_bug.cgi?id=84572
+
+        Reviewed by Antonio Gomes.
+
+        * PlatformEfl.cmake: Removed ewk_logging.h file from EWebKit_HEADERS.
+
+2012-05-10  Sam D  <dsam2912@gmail.com>
+
+        Web Inspector: rename InspectorBackendStub.js to InspectorBackendCommands.js
+        https://bugs.webkit.org/show_bug.cgi?id=72306
+
+        Changed name for InspectorBackendStub.js to
+        InspectorBackendCommands.js
+
+        Reviewed by Yury Semikhatsky.
+
+        * PlatformBlackBerry.cmake:
+
+2012-05-08  Crystal Zhang  <haizhang@rim.com>
+
+        [BlackBerry] Implement a popup client for HTML controls
+        https://bugs.webkit.org/show_bug.cgi?id=85670
+
+        Reviewed by Rob Buis.
+
+        Add popup client file to build system.
+        
+        * PlatformBlackBerry.cmake:
+
+2012-05-08  Raphael Kubo da Costa  <rakuco@webkit.org>
+
+        [CMake] Rewrite FindGStreamer.cmake.
+        https://bugs.webkit.org/show_bug.cgi?id=85857
+
+        Reviewed by Daniel Bates.
+
+        We are currently kind of duplicating the same
+        FindGStreamer-Foo.cmake file whenever a new GStreamer plugin needs
+        to be found. Besides this approach not scaling very well, it
+        relies on pkg-config for version checking, uses the LibFindMacros
+        package that we should deprecate and all the find files could be
+        merged into one, with users using the COMPONENTS feature of the
+        FIND_PACKAGE() call to find the desired plugins.
+
+        FindGStreamer.cmake has then been rewritten to take all that into
+        account:
+        - The LibFindMacros.cmake package is not used anymore.
+        - Version check is performed in the CMake file itself by parsing
+        the gstversion.h header.
+        - All GStreamer plugins are searched and the COMPONENTS keyword
+        used in the FIND_PACKAGE() call is used to check which plugins are
+        required.
+        - The plugins-base and base GStreamer plugins are not searched, as
+        they were not used anywhere in the build system.
+
+        * PlatformEfl.cmake: Update GStreamer-related variable names.
+
+2012-05-08  Jonathan Dong  <jonathan.dong@torchmobile.com.cn>
+
+        [BlackBerry] AutofillManager implementation upstream
+        https://bugs.webkit.org/show_bug.cgi?id=85576
+
+        Reviewed by Rob Buis.
+
+        Added WebKit/blackberry/WebCoreSupport/AutofillManager.cpp
+        into building system of BlackBerry porting.
+
+        * PlatformBlackBerry.cmake:
+
 2012-05-03  Jer Noble  <jer.noble@apple.com>
 
         Move WebKitFullScreenListener into its own file.

@@ -27,7 +27,6 @@
 #include <qwebpage.h>
 #include <qnetworkrequest.h>
 #include <qdiriterator.h>
-#include <qwebkitversion.h>
 #include <qwebelement.h>
 #include <qwebframe.h>
 
@@ -38,13 +37,13 @@ class tst_QWebView : public QObject
 {
     Q_OBJECT
 
-public slots:
+public Q_SLOTS:
     void initTestCase();
     void cleanupTestCase();
     void init();
     void cleanup();
 
-private slots:
+private Q_SLOTS:
     void renderingAfterMaxAndBack();
     void renderHints();
     void getWebKitVersion();
@@ -53,6 +52,7 @@ private slots:
     void reusePage();
     void microFocusCoordinates();
     void focusInputTypes();
+    void horizontalScrollbarTest();
 
     void crashTests();
 #if !(defined(WTF_USE_QT_MOBILE_THEME) && WTF_USE_QT_MOBILE_THEME)
@@ -139,7 +139,7 @@ void tst_QWebView::reusePage()
 
     QFETCH(QString, html);
     QWebView* view1 = new QWebView;
-    QWeakPointer<QWebPage> page = new QWebPage;
+    QPointer<QWebPage> page = new QWebPage;
     view1->setPage(page.data());
     page.data()->settings()->setAttribute(QWebSettings::PluginsEnabled, true);
     QWebFrame* mainFrame = page.data()->mainFrame();
@@ -150,14 +150,14 @@ void tst_QWebView::reusePage()
     }
 
     view1->show();
-    QTest::qWaitForWindowShown(view1);
+    QTest::qWaitForWindowExposed(view1);
     delete view1;
     QVERIFY(page != 0); // deleting view must not have deleted the page, since it's not a child of view
 
     QWebView *view2 = new QWebView;
     view2->setPage(page.data());
     view2->show(); // in Windowless mode, you should still be able to see the plugin here
-    QTest::qWaitForWindowShown(view2);
+    QTest::qWaitForWindowExposed(view2);
     delete view2;
 
     delete page.data(); // must not crash
@@ -180,7 +180,7 @@ public:
         view->connect(view, SIGNAL(loadProgress(int)), this, SLOT(loading(int)));
     }
 
-private slots:
+private Q_SLOTS:
     void loading(int progress)
     {
         if (progress >= 20 && progress < 90) {
@@ -234,7 +234,7 @@ void tst_QWebView::focusInputTypes()
 {
     QWebView webView;
     webView.show();
-    QTest::qWaitForWindowShown(&webView);
+    QTest::qWaitForWindowExposed(&webView);
 
     QUrl url("qrc:///resources/input_types.html");
     QWebFrame* const mainFrame = webView.page()->mainFrame();
@@ -304,6 +304,32 @@ void tst_QWebView::focusInputTypes()
     QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
 }
 
+void tst_QWebView::horizontalScrollbarTest()
+{
+    QWebView webView;
+    webView.resize(600, 600);
+    webView.show();
+    QTest::qWaitForWindowExposed(&webView);
+
+    QUrl url("qrc:///resources/scrolltest_page.html");
+    QWebFrame* const mainFrame = webView.page()->mainFrame();
+    mainFrame->load(url);
+    mainFrame->setFocus();
+
+    QVERIFY(waitForSignal(&webView, SIGNAL(loadFinished(bool))));
+
+    QVERIFY(webView.page()->mainFrame()->scrollPosition() == QPoint(0, 0));
+
+    // Note: The test below assumes that the layout direction is Qt::LeftToRight.
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, QPoint(550, 595));
+    QVERIFY(webView.page()->mainFrame()->scrollPosition().x() > 0);
+
+    // Note: The test below assumes that the layout direction is Qt::LeftToRight.
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, QPoint(20, 595));
+    QVERIFY(webView.page()->mainFrame()->scrollPosition() == QPoint(0, 0));
+}
+
+
 #if !(defined(WTF_USE_QT_MOBILE_THEME) && WTF_USE_QT_MOBILE_THEME)
 void tst_QWebView::setPalette_data()
 {
@@ -360,11 +386,11 @@ void tst_QWebView::setPalette()
     view1.page()->setViewportSize(view1.page()->currentFrame()->contentsSize());
     view1.show();
 
-    QTest::qWaitForWindowShown(&view1);
+    QTest::qWaitForWindowExposed(&view1);
 
     if (!active) {
         controlView.show();
-        QTest::qWaitForWindowShown(&controlView);
+        QTest::qWaitForWindowExposed(&controlView);
         activeView = &controlView;
         controlView.activateWindow();
     } else {
@@ -407,11 +433,11 @@ void tst_QWebView::setPalette()
     view2.page()->setViewportSize(view2.page()->currentFrame()->contentsSize());
     view2.show();
 
-    QTest::qWaitForWindowShown(&view2);
+    QTest::qWaitForWindowExposed(&view2);
 
     if (!active) {
         controlView.show();
-        QTest::qWaitForWindowShown(&controlView);
+        QTest::qWaitForWindowExposed(&controlView);
         activeView = &controlView;
         controlView.activateWindow();
     } else {
@@ -449,7 +475,7 @@ void tst_QWebView::renderingAfterMaxAndBack()
 
     view.page()->settings()->setMaximumPagesInCache(3);
 
-    QTest::qWaitForWindowShown(&view);
+    QTest::qWaitForWindowExposed(&view);
 
     QPixmap reference(view.page()->viewportSize());
     reference.fill(Qt::red);
@@ -470,7 +496,7 @@ void tst_QWebView::renderingAfterMaxAndBack()
 
     view.showMaximized();
 
-    QTest::qWaitForWindowShown(&view);
+    QTest::qWaitForWindowExposed(&view);
 
     QPixmap reference2(view.page()->viewportSize());
     reference2.fill(Qt::blue);

@@ -1397,9 +1397,10 @@ client_request(isc_task_t *task, isc_event_t *event) {
 
 	INSIST(client->recursionquota == NULL);
 
-	INSIST(client->state == (TCP_CLIENT(client) ?
-				       NS_CLIENTSTATE_READING :
-				       NS_CLIENTSTATE_READY));
+	INSIST(client->state ==
+	       TCP_CLIENT(client) ?
+	       NS_CLIENTSTATE_READING :
+	       NS_CLIENTSTATE_READY);
 
 	ns_client_requests++;
 
@@ -2411,9 +2412,6 @@ ns_client_replace(ns_client_t *client) {
 	isc_result_t result;
 
 	CTRACE("replace");
-
-	REQUIRE(client != NULL);
-	REQUIRE(client->manager != NULL);
 
 	result = ns_clientmgr_createclients(client->manager,
 					    1, client->interface,

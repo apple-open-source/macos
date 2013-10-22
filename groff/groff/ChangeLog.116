@@ -207,7 +207,7 @@ Version 1.16.1 released
 	src/roff/groff/groff.cc: Use it.
 	* Makefile.in, configure: Updated.
 
-2000-06-07  Paco Andrés Verdú  <pandres@dragonet.es>
+2000-06-07  Paco AndrÃ©s VerdÃº  <pandres@dragonet.es>
 
 	* src/devides/grolbp/lbp.h: Removed unused variables.
 
@@ -701,7 +701,7 @@ Version 1.16 released
 
 	* src/roff/grog/grog.man: Updated copyright date.
 
-2000-03-14  Francisco Andrés Verdú  <pandres@dragonet.es>
+2000-03-14  Francisco AndrÃ©s VerdÃº  <pandres@dragonet.es>
 
 	* configure.in: Added test for strdup.
 
@@ -786,7 +786,7 @@ Version 1.16 released
 	Implement it.
 	* src/roff/troff/env.h: Add prototype.
 
-2000-03-05  Francisco Andrés Verdú  <pandres@dragonet.es>
+2000-03-05  Francisco AndrÃ©s VerdÃº  <pandres@dragonet.es>
 
 	Adding strsep() -- Solaris 8 doesn't have it.
 
@@ -810,7 +810,7 @@ Version 1.16 released
 
 	* tmac/troffrc: Add tmac.lbp.
 
-2000-03-03  Francisco Andrés Verdú  <pandres@dragonet.es>
+2000-03-03  Francisco AndrÃ©s VerdÃº  <pandres@dragonet.es>
 
 	* tmac/tmac.lbp: New file.
 	* src/devices/grolbp/grolbp.man: Add documentation of `lbpname'
@@ -895,7 +895,7 @@ Version 1.16 released
 
 	Adding a new driver, grolbp, for Canon CAPSL printers (LBP-4 and
 	LBP-8 series laser printers).  This code has been contributed by
-	Francisco Andrés Verdú <pandres@dragonet.es>.
+	Francisco AndrÃ©s VerdÃº <pandres@dragonet.es>.
 
 	* src/devices/grolbp/*: The grolbp output device.
 	* font/devlpb/*: The font description files.

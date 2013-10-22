@@ -506,7 +506,7 @@ char *ERR_error_string(unsigned long e, char *ret)
 	static char buf[256];
 	const char *ls,*fs,*rs;
 	unsigned long l,f,r;
-	int i;
+	size_t i;
 
 	l=ERR_GET_LIB(e);
 	f=ERR_GET_FUNC(e);

@@ -20,12 +20,12 @@
 #include "config.h"
 #include "webkitsecurityorigin.h"
 
-#include "DatabaseTracker.h"
-#include "PlatformString.h"
+#include "DatabaseManager.h"
 #include "webkitglobalsprivate.h"
 #include "webkitsecurityoriginprivate.h"
 #include <glib/gi18n-lib.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 /**
  * SECTION:webkitsecurityorigin
@@ -35,7 +35,7 @@
  * by web sites. An origin consists of a host name, a protocol, and a port
  * number. Web sites with the same security origin can access each other's
  * resources for client-side scripting or database access.
- * 
+ *
  * Use #webkit_web_frame_get_security_origin to get the security origin of a
  * #WebKitWebFrame.
  *
@@ -288,7 +288,7 @@ guint webkit_security_origin_get_port(WebKitSecurityOrigin* securityOrigin)
  * Returns the cumulative size of all Web Database database's in the origin
  * in bytes.
  *
- * Returns: the cumulative size of all databases 
+ * Returns: the cumulative size of all databases
  *
  * Since: 1.1.14
  **/
@@ -298,7 +298,7 @@ guint64 webkit_security_origin_get_web_database_usage(WebKitSecurityOrigin* secu
 
 #if ENABLE(SQL_DATABASE)
     WebCore::SecurityOrigin* coreOrigin = core(securityOrigin);
-    return WebCore::DatabaseTracker::tracker().usageForOrigin(coreOrigin);
+    return WebCore::DatabaseManager::manager().usageForOrigin(coreOrigin);
 #else
     return 0;
 #endif
@@ -321,7 +321,7 @@ guint64 webkit_security_origin_get_web_database_quota(WebKitSecurityOrigin* secu
 
 #if ENABLE(SQL_DATABASE)
     WebCore::SecurityOrigin* coreOrigin = core(securityOrigin);
-    return WebCore::DatabaseTracker::tracker().quotaForOrigin(coreOrigin);
+    return WebCore::DatabaseManager::manager().quotaForOrigin(coreOrigin);
 #else
     return 0;
 #endif
@@ -342,7 +342,7 @@ void webkit_security_origin_set_web_database_quota(WebKitSecurityOrigin* securit
 
 #if ENABLE(SQL_DATABASE)
     WebCore::SecurityOrigin* coreOrigin = core(securityOrigin);
-    WebCore::DatabaseTracker::tracker().setQuota(coreOrigin, quota);
+    WebCore::DatabaseManager::manager().setQuota(coreOrigin, quota);
 #endif
 }
 
@@ -366,7 +366,7 @@ GList* webkit_security_origin_get_all_web_databases(WebKitSecurityOrigin* securi
     WebCore::SecurityOrigin* coreOrigin = core(securityOrigin);
     Vector<WTF::String> databaseNames;
 
-    if (!WebCore::DatabaseTracker::tracker().databaseNamesForOrigin(coreOrigin, databaseNames))
+    if (!WebCore::DatabaseManager::manager().databaseNamesForOrigin(coreOrigin, databaseNames))
         return NULL;
 
     for (unsigned i = 0; i < databaseNames.size(); ++i) {

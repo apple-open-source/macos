@@ -11,6 +11,7 @@
 #include "caltest.h"
 #include "unicode/dtfmtsym.h"
 #include "unicode/gregocal.h"
+#include "unicode/localpointer.h"
 #include "hebrwcal.h"
 #include "unicode/smpdtfmt.h"
 #include "unicode/simpletz.h"
@@ -420,11 +421,11 @@ CalendarTest::TestGenericAPI()
     for (i=0; i<UCAL_FIELD_COUNT; ++i)
     {
         if (cal->getMinimum((UCalendarDateFields)i) > cal->getGreatestMinimum((UCalendarDateFields)i))
-            errln("FAIL: getMinimum larger than getGreatestMinimum for field " + i);
+            errln(UnicodeString("FAIL: getMinimum larger than getGreatestMinimum for field ") + i);
         if (cal->getLeastMaximum((UCalendarDateFields)i) > cal->getMaximum((UCalendarDateFields)i))
-            errln("FAIL: getLeastMaximum larger than getMaximum for field " + i);
+            errln(UnicodeString("FAIL: getLeastMaximum larger than getMaximum for field ") + i);
         if (cal->getMinimum((UCalendarDateFields)i) >= cal->getMaximum((UCalendarDateFields)i))
-            errln("FAIL: getMinimum not less than getMaximum for field " + i);
+            errln(UnicodeString("FAIL: getMinimum not less than getMaximum for field ") + i);
     }
 
     cal->adoptTimeZone(TimeZone::createDefault());
@@ -555,11 +556,49 @@ CalendarTest::TestGenericAPI()
         cal->roll(Calendar::MONTH, (int32_t)100, status);
     }
 
-    StringEnumeration *en = Calendar::getKeywordValuesForLocale(NULL, Locale::getDefault(),FALSE, status);
-    if (en == NULL || U_FAILURE(status)) {
-        dataerrln("FAIL: getKeywordValuesForLocale for Calendar. : %s", u_errorName(status));
+    LocalPointer<StringEnumeration> values(
+        Calendar::getKeywordValuesForLocale("calendar", Locale("he"), FALSE, status));
+    if (values.isNull() || U_FAILURE(status)) {
+        dataerrln("FAIL: Calendar::getKeywordValuesForLocale(he): %s", u_errorName(status));
+    } else {
+        UBool containsHebrew = FALSE;
+        const char *charValue;
+        int32_t valueLength;
+        while ((charValue = values->next(&valueLength, status)) != NULL) {
+            if (valueLength == 6 && strcmp(charValue, "hebrew") == 0) {
+                containsHebrew = TRUE;
+            }
+        }
+        if (!containsHebrew) {
+            errln("Calendar::getKeywordValuesForLocale(he)->next() does not contain \"hebrew\"");
+        }
+
+        values->reset(status);
+        containsHebrew = FALSE;
+        UnicodeString hebrew = UNICODE_STRING_SIMPLE("hebrew");
+        const UChar *ucharValue;
+        while ((ucharValue = values->unext(&valueLength, status)) != NULL) {
+            UnicodeString value(FALSE, ucharValue, valueLength);
+            if (value == hebrew) {
+                containsHebrew = TRUE;
+            }
+        }
+        if (!containsHebrew) {
+            errln("Calendar::getKeywordValuesForLocale(he)->unext() does not contain \"hebrew\"");
+        }
+
+        values->reset(status);
+        containsHebrew = FALSE;
+        const UnicodeString *stringValue;
+        while ((stringValue = values->snext(status)) != NULL) {
+            if (*stringValue == hebrew) {
+                containsHebrew = TRUE;
+            }
+        }
+        if (!containsHebrew) {
+            errln("Calendar::getKeywordValuesForLocale(he)->snext() does not contain \"hebrew\"");
+        }
     }
-    delete en;
     delete cal;
 }
 

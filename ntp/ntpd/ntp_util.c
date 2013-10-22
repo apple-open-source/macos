@@ -239,7 +239,7 @@ save_drift_file(
 
 	sigemptyset(&sigterm);
 	sigaddset(&sigterm, SIGTERM);
-	sigprocmask(SIG_BLOCK, &sigterm, &oset);
+	pthread_sigmask(SIG_BLOCK, &sigterm, &oset);
 #if !TARGET_OS_EMBEDDED
 	vt = vproc_transaction_begin(NULL);
 #endif
@@ -308,7 +308,7 @@ done:
 #if !TARGET_OS_EMBEDDED
 	vproc_transaction_end(NULL, vt);
 #endif
-	sigprocmask(SIG_SETMASK, &oset, NULL);
+	pthread_sigmask(SIG_SETMASK, &oset, NULL);
 	return rc;
 }
 
@@ -411,9 +411,9 @@ write_stats(void)
 		wander_resid *= 0.5;
 #ifdef DEBUG
 		if (debug)
-			printf("write_stats: wander %.6lf thresh %.6lf, freq %.6lf\n",
-			    clock_stability * 1e6, wander_resid * 1e6,
-			    drift_comp * 1e6);
+			msyslog(LOG_DEBUG, "write_stats: wander %.6lf thresh %.6lf, freq %.6lf\n",
+				clock_stability * 1e6, wander_resid * 1e6,
+				drift_comp * 1e6);
 #endif
  		if (sys_leap != LEAP_NOTINSYNC && clock_stability >
 		    wander_resid) {
@@ -438,7 +438,8 @@ write_stats(void)
 				    &driftdsc) & 1);
 			}
 #endif
-		} else {
+		} else if (drift_comp != 0.0) {
+            save_drift_file(); /* for pacemaker */
 			/* XXX: Log a message at INFO level */
 		}
 	}

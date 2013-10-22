@@ -43,7 +43,7 @@ class KURL;
 template<typename T> class EventSender;
 typedef EventSender<HTMLLinkElement> LinkEventSender;
 
-class HTMLLinkElement : public HTMLElement, public CachedStyleSheetClient, public LinkLoaderClient {
+class HTMLLinkElement FINAL : public HTMLElement, public CachedStyleSheetClient, public LinkLoaderClient {
 public:
     static PassRefPtr<HTMLLinkElement> create(const QualifiedName&, Document*, bool createdByParser);
     virtual ~HTMLLinkElement();
@@ -54,6 +54,11 @@ public:
     virtual String target() const;
 
     String type() const;
+
+    IconType iconType() const;
+
+    // the icon size string as parsed from the HTML attribute
+    String iconSizes() const;
 
     CSSStyleSheet* sheet() const { return m_sheet.get(); }
 
@@ -68,15 +73,15 @@ public:
     static void dispatchPendingLoadEvents();
 
 private:
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
 
     virtual bool shouldLoadLink();
     void process();
     static void processCallback(Node*);
     void clearSheet();
 
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void removedFrom(Node*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
 
     // from CachedResourceClient
     virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet);
@@ -84,21 +89,21 @@ private:
     virtual void notifyLoadedSheetAndAllCriticalSubresources(bool errorOccurred);
     virtual void startLoadingDynamicSheet();
 
-    virtual void linkLoaded();
-    virtual void linkLoadingErrored();
+    virtual void linkLoaded() OVERRIDE;
+    virtual void linkLoadingErrored() OVERRIDE;
 
     bool isAlternate() const { return m_disabledState == Unset && m_relAttribute.m_isAlternate; }
     
     void setDisabledState(bool);
 
-    virtual bool isURLAttribute(Attribute*) const;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
 
 private:
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
     virtual void finishParsingChildren();
-    
-    enum PendingSheetType { None, NonBlocking, Blocking };
+
+    enum PendingSheetType { Unknown, ActiveSheet, InactiveSheet };
     void addPendingSheet(PendingSheetType);
 
     enum RemovePendingSheetNotificationType {
@@ -125,7 +130,6 @@ private:
         Disabled
     };
 
-    KURL m_url;
     String m_type;
     String m_media;
     RefPtr<DOMSettableTokenList> m_sizes;

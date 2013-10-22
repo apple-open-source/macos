@@ -20,15 +20,19 @@
 #include "config.h"
 #include "GStreamerUtilities.h"
 
+#if USE(GSTREAMER)
 #include <gst/gst.h>
 #include <wtf/gobject/GOwnPtr.h>
-
-#if USE(GSTREAMER)
 
 namespace WebCore {
 
 bool initializeGStreamer()
 {
+#if GST_CHECK_VERSION(0, 10, 31)
+    if (gst_is_initialized())
+        return true;
+#endif
+
     GOwnPtr<GError> error;
     // FIXME: We should probably pass the arguments from the command line.
     bool gstInitialized = gst_init_check(0, 0, &error.outPtr());
@@ -38,4 +42,4 @@ bool initializeGStreamer()
 
 }
 
-#endif // ENABLE(WEB_AUDIO) && USE(GSTREAMER)
+#endif // USE(GSTREAMER)

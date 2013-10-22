@@ -58,6 +58,8 @@
 #include <pthread.h>
 #include <string.h>
 
+#include <utilities/SecIOFormat.h>
+
 /* default time-to-live in cache, in seconds */
 #define QUICK_CACHE_TEST	0
 #if		QUICK_CACHE_TEST
@@ -143,7 +145,7 @@ static SessionCacheEntry *SessionCacheEntryCreate(
 	}
 	serr = SSLCopyBuffer(sessionData, &entry->mSessionData);
 	if(serr) {
-        SSLFreeBuffer(&entry->mKey, NULL);
+        SSLFreeBuffer(&entry->mKey);
         sslFree (entry);
         return NULL;
 	}
@@ -157,8 +159,8 @@ static SessionCacheEntry *SessionCacheEntryCreate(
 static void SessionCacheEntryDelete(SessionCacheEntry *entry)
 {
 	sslLogSessCacheDebug("~SessionCacheEntryDelete() %p", entry);
-	SSLFreeBuffer(&entry->mKey, NULL);		// no SSLContext
-	SSLFreeBuffer(&entry->mSessionData, NULL);
+	SSLFreeBuffer(&entry->mKey);		// no SSLContext
+	SSLFreeBuffer(&entry->mSessionData);
     sslFree(entry);
 }
 
@@ -191,7 +193,7 @@ static bool SessionCacheEntryIsStaleNow(SessionCacheEntry *entry)
 static OSStatus SessionCacheEntrySetSessionData(SessionCacheEntry *entry,
 	const SSLBuffer *data)
 {
-	SSLFreeBuffer(&entry->mSessionData, NULL);
+	SSLFreeBuffer(&entry->mSessionData);
 	return SSLCopyBuffer(data, &entry->mSessionData);
 }
 
@@ -251,7 +253,7 @@ static OSStatus SessionCacheAddEntry(
                  */
                 sslLogSessCacheDebug("SessionCache::addEntry CACHE HIT "
                     "entry = %p", entry);
-                return noErr;
+                return errSecSuccess;
             }
             else {
                 sslLogSessCacheDebug("SessionCache::addEntry CACHE REPLACE "
@@ -281,7 +283,7 @@ static OSStatus SessionCacheAddEntry(
     entry->next = cache->head;
     cache->head = entry;
 
-	return noErr;
+	return errSecSuccess;
 }
 
 static OSStatus SessionCacheLookupEntry(
@@ -330,11 +332,11 @@ static OSStatus SessionCacheDeleteEntry(
 			#endif
             *current = entry->next;
             SessionCacheEntryDelete(entry);
-            return noErr;
+            return errSecSuccess;
 		}
 	}
 
-    return noErr;
+    return errSecSuccess;
 }
 
 /* cleanup, delete stale entries */
@@ -415,9 +417,9 @@ OSStatus sslGetSession (
     {
         serr = SessionCacheLookupEntry(cache, &sessionKey, sessionData);
 
-        sslLogSessCacheDebug("sslGetSession(%d, %p): %ld",
+        sslLogSessCacheDebug("sslGetSession(%d, %p): %d",
             (int)sessionKey.length, sessionKey.data,
-            serr);
+            (int)serr);
         if(!serr) {
             cachePrint(NULL, &sessionKey, sessionData);
         }
@@ -452,7 +454,7 @@ OSStatus sslDeleteSession (
 OSStatus sslCleanupSession(void)
 {
     SessionCache *cache = SessionCacheGetLockedInstance();
-	OSStatus serr = noErr;
+	OSStatus serr = errSecSuccess;
 	bool moreToGo = false;
 
     if (!cache)

@@ -1,0 +1,3 @@
+# install messages get saved only in /var/log/install.log
+? [= Facility install] claim only
+* file /var/log/install.log format=bsd

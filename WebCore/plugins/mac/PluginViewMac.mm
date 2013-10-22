@@ -55,12 +55,14 @@
 #include "PluginDebug.h"
 #include "PluginPackage.h"
 #include "PluginMainThreadScheduler.h"
+#include "RenderObject.h"
 #include "ScriptController.h"
 #include "Settings.h"
+#include "WheelEvent.h"
 #include "npruntime_impl.h"
 #include "runtime_root.h"
 #include <runtime/JSLock.h>
-#include <runtime/JSValue.h>
+#include <runtime/JSCJSValue.h>
 #include <wtf/RetainPtr.h>
 
 
@@ -69,24 +71,10 @@ using JSC::Interpreter;
 using JSC::JSLock;
 using JSC::JSObject;
 using JSC::JSValue;
-using JSC::UString;
 
 #if PLATFORM(QT)
-#include <QWidget>
-#include <QKeyEvent>
 #include <QPainter>
-#include "QWebPageClient.h"
-QT_BEGIN_NAMESPACE
-extern Q_GUI_EXPORT OSWindowRef qt_mac_window_for(const QWidget* w);
-QT_END_NAMESPACE
 #endif
-
-#if PLATFORM(WX)
-#include <wx/defs.h>
-#include <wx/wx.h>
-#endif
-
-using std::min;
 
 using namespace WTF;
 
@@ -94,54 +82,36 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-#ifndef NP_NO_CARBON
-static int modifiersForEvent(UIEventWithKeyState *event);
-#endif
+// --------- Cocoa specific utility functions ----------
 
-static inline WindowRef nativeWindowFor(PlatformWidget widget)
+static void initializeNPCocoaEvent(NPCocoaEvent* event)
 {
-#if PLATFORM(QT)
-    if (widget)
-#if QT_MAC_USE_COCOA
-        return static_cast<WindowRef>([qt_mac_window_for(static_cast<QWidget*>(widget)) windowRef]);
-#else
-        return static_cast<WindowRef>(qt_mac_window_for(widget));
-#endif
-#elif PLATFORM(WX)
-    if (widget)
-        return (WindowRef)widget->MacGetTopLevelWindowRef();
-#endif
-    return 0;
+    memset(event, 0, sizeof(NPCocoaEvent));
 }
 
-static inline CGContextRef cgHandleFor(PlatformWidget widget)
+static int32_t getModifiers(UIEventWithKeyState *event)
 {
-#if PLATFORM(QT)
-    if (widget)
-        return (CGContextRef)static_cast<QWidget*>(widget)->macCGHandle();
-#endif
-#if PLATFORM(WX)
-    if (widget)
-        return (CGContextRef)widget->MacGetCGContextRef();
-#endif
-    return 0;
+    int32_t modifiers = 0;
+    if (event->keyCode() == 57) modifiers |= NSAlphaShiftKeyMask;
+    if (event->shiftKey())  modifiers |= NSShiftKeyMask;
+    if (event->ctrlKey())   modifiers |= NSControlKeyMask;
+    if (event->metaKey())   modifiers |= NSCommandKeyMask;
+    if (event->altKey())    modifiers |= NSAlternateKeyMask;
+
+    return modifiers;
 }
 
-static inline IntPoint topLevelOffsetFor(PlatformWidget widget)
+static CGContextRef createBitmapContext(const IntSize& size)
 {
-#if PLATFORM(QT)
-    if (widget) {
-        QWidget* topLevel = static_cast<QWidget*>(widget)->window();
-        return static_cast<QWidget*>(widget)->mapTo(topLevel, QPoint(0, 0)) + topLevel->geometry().topLeft() - topLevel->pos();
-    }
-#endif
-#if PLATFORM(WX)
-    if (widget) {
-        PlatformWidget toplevel = wxGetTopLevelParent(widget);
-        return toplevel->ScreenToClient(widget->GetScreenPosition());
-    }
-#endif
-    return IntPoint();
+    CGColorSpaceRef colorspace = CGColorSpaceCreateDeviceRGB();
+    uint flags = kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host;
+    CGContextRef context = CGBitmapContextCreate(0, size.width(), size.height(),
+                                8, 4 * size.width(), colorspace, flags);
+
+    CGContextTranslateCTM(context, 0, size.height());
+    CGContextScaleCTM(context, 1, -1);
+    CGColorSpaceRelease(colorspace);
+    return context;
 }
 
 // --------------- Lifetime management -----------------
@@ -151,79 +121,15 @@ bool PluginView::platformStart()
     ASSERT(m_isStarted);
     ASSERT(m_status == PluginStatusLoadedSuccessfully);
 
-    if (m_drawingModel == NPDrawingModel(-1)) {
-        // We default to QuickDraw, even though we don't support it,
-        // since that's what Safari does, and some plugins expect this
-        // behavior and never set the drawing model explicitly.
-#ifndef NP_NO_QUICKDRAW
-        m_drawingModel = NPDrawingModelQuickDraw;
-#else
-        // QuickDraw not available, so we have to default to CoreGraphics
-        m_drawingModel = NPDrawingModelCoreGraphics;
-#endif
-    }
-
-    if (m_eventModel == NPEventModel(-1)) {
-        // If the plug-in did not specify an event model
-        // we default to Carbon, when it is available.
-#ifndef NP_NO_CARBON
-        m_eventModel = NPEventModelCarbon;
-#else
-        m_eventModel = NPEventModelCocoa;
-#endif
-    }
-
     // Gracefully handle unsupported drawing or event models. We can do this
     // now since the drawing and event model can only be set during NPP_New.
-#ifndef NP_NO_CARBON
     NPBool eventModelSupported;
-    if (getValueStatic(NPNVariable(NPNVsupportsCarbonBool + m_eventModel), &eventModelSupported) != NPERR_NO_ERROR
+    if (getValueStatic(NPNVariable(NPNVsupportsCocoaBool), &eventModelSupported) != NPERR_NO_ERROR
             || !eventModelSupported) {
-#endif
         m_status = PluginStatusCanNotLoadPlugin;
         LOG(Plugins, "Plug-in '%s' uses unsupported event model %s",
-                m_plugin->name().utf8().data(), prettyNameForEventModel(m_eventModel));
+                m_plugin->name().utf8().data(), prettyNameForEventModel(NPEventModelCocoa));
         return false;
-#ifndef NP_NO_CARBON
-    }
-#endif
-
-#ifndef NP_NO_QUICKDRAW
-    NPBool drawingModelSupported;
-    if (getValueStatic(NPNVariable(NPNVsupportsQuickDrawBool + m_drawingModel), &drawingModelSupported) != NPERR_NO_ERROR
-            || !drawingModelSupported) {
-#endif
-        m_status = PluginStatusCanNotLoadPlugin;
-        LOG(Plugins, "Plug-in '%s' uses unsupported drawing model %s",
-                m_plugin->name().utf8().data(), prettyNameForDrawingModel(m_drawingModel));
-        return false;
-#ifndef NP_NO_QUICKDRAW
-    }
-#endif
-
-#if PLATFORM(QT)
-    // Set the platformPluginWidget only in the case of QWebView so that the context menu appears in the right place.
-    // In all other cases, we use off-screen rendering
-    if (QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient()) {
-        if (QWidget* widget = qobject_cast<QWidget*>(client->pluginParent()))
-            setPlatformPluginWidget(widget);
-    }
-#endif
-#if PLATFORM(WX)
-    if (wxWindow* widget = m_parentFrame->view()->hostWindow()->platformPageClient())
-        setPlatformPluginWidget(widget);
-#endif
-
-    // Create a fake window relative to which all events will be sent when using offscreen rendering
-    if (!platformPluginWidget()) {
-#ifndef NP_NO_CARBON
-        // Make the default size really big. It is unclear why this is required but with a smaller size, mouse move
-        // events don't get processed. Resizing the fake window to flash's size doesn't help.
-        ::Rect windowBounds = { 0, 0, 1000, 1000 };
-        CreateNewWindow(kDocumentWindowClass, kWindowStandardDocumentAttributes, &windowBounds, &m_fakeWindow);
-        // Flash requires the window to be hilited to process mouse move events.
-        HiliteWindow(m_fakeWindow, true);
-#endif
     }
 
     updatePluginWidget();
@@ -231,26 +137,12 @@ bool PluginView::platformStart()
     if (!m_plugin->quirks().contains(PluginQuirkDeferFirstSetWindowCall))
         setNPWindowIfNeeded();
 
-    // TODO: Implement null timer throttling depending on plugin activation
-    m_nullEventTimer = adoptPtr(new Timer<PluginView>(this, &PluginView::nullEventTimerFired));
-    m_nullEventTimer->startRepeating(0.02);
-
-    m_lastMousePos.h = m_lastMousePos.v = 0;
-
     return true;
 }
 
 void PluginView::platformDestroy()
 {
-    if (platformPluginWidget())
-        setPlatformPluginWidget(0);
-    else {
-        CGContextRelease(m_contextRef);
-#ifndef NP_NO_CARBON
-        if (m_fakeWindow)
-            DisposeWindow(m_fakeWindow);
-#endif
-    }
+    CGContextRelease(m_contextRef);
 }
 
 // Used before the plugin view has been initialized properly, and as a
@@ -268,15 +160,8 @@ bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPErr
         *result = NPERR_NO_ERROR;
         return true;
 
-#ifndef NP_NO_CARBON
-    case NPNVsupportsCarbonBool:
-        *static_cast<NPBool*>(value) = true;
-        *result = NPERR_NO_ERROR;
-        return true;
-
-#endif
     case NPNVsupportsCocoaBool:
-        *static_cast<NPBool*>(value) = false;
+        *static_cast<NPBool*>(value) = true;
         *result = NPERR_NO_ERROR;
         return true;
 
@@ -286,10 +171,11 @@ bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPErr
         *result = NPERR_NO_ERROR;
         return true;
 
-#ifndef NP_NO_QUICKDRAW
-    // QuickDraw is deprecated in 10.5 and not supported on 64-bit
-    case NPNVsupportsQuickDrawBool:
-#endif
+    case NPNVsupportsAdvancedKeyHandling:
+        *static_cast<NPBool*>(value) = true;
+        *result = NPERR_NO_ERROR;
+        return true;
+
     case NPNVsupportsOpenGLBool:
     case NPNVsupportsCoreAnimationBool:
         *static_cast<NPBool*>(value) = false;
@@ -304,6 +190,20 @@ bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPErr
 // Used only for variables that need a view to resolve
 bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* error)
 {
+    // In WebKit2, this is set if the plugin queries it's availiablity and
+    // no key down events have already been sent.
+    if (variable == NPNVsupportsUpdatedCocoaTextInputBool) {
+        if (m_keyDownSent && !m_updatedCocoaTextInputRequested) {
+            *static_cast<NPBool*>(value) = false;
+            *error = NPERR_NO_ERROR;
+        }
+        else {
+            *static_cast<NPBool*>(value) = true;
+            *error = NPERR_NO_ERROR;
+            m_updatedCocoaTextInputRequested = true;
+        }
+        return true;
+    }
     return false;
 }
 
@@ -340,33 +240,20 @@ void PluginView::hide()
 void PluginView::setFocus(bool focused)
 {
     LOG(Plugins, "PluginView::setFocus(%d)", focused);
-    if (!focused) {
+    if (!focused)
         Widget::setFocus(focused);
-        return;
+
+    Widget::setFocus(focused);
+
+    NPCocoaEvent cocoaEvent;
+    initializeNPCocoaEvent(&cocoaEvent);
+    cocoaEvent.type = NPCocoaEventFocusChanged;
+    NPBool focus = focused;
+    cocoaEvent.data.focus.hasFocus = focus;
+
+    if(!dispatchNPCocoaEvent(cocoaEvent)) {
+        LOG(Events, "PluginView::setFocus(): Focus event %d not accepted", cocoaEvent.type);
     }
-
-    if (platformPluginWidget())
-#if PLATFORM(QT)
-       static_cast<QWidget*>(platformPluginWidget())->setFocus(Qt::OtherFocusReason);
-#else
-        platformPluginWidget()->SetFocus();
-#endif
-   else
-       Widget::setFocus(focused);
-
-    // TODO: Also handle and pass on blur events (focus lost)
-
-#ifndef NP_NO_CARBON
-    EventRecord record;
-    record.what = NPEventType_GetFocusEvent;
-    record.message = 0;
-    record.when = TickCount();
-    record.where = globalMousePosForPlugin();
-    record.modifiers = GetCurrentKeyModifiers();
-
-    if (!dispatchNPEvent(record))
-        LOG(Events, "PluginView::setFocus(%d): Focus event not accepted", focused);
-#endif
 }
 
 void PluginView::setParentVisible(bool visible)
@@ -384,48 +271,31 @@ void PluginView::setNPWindowRect(const IntRect&)
 
 void PluginView::setNPWindowIfNeeded()
 {
-    if (!m_isStarted || !parent() || !m_plugin->pluginFuncs()->setwindow)
+    if (!m_isStarted || !parent() || !m_plugin->pluginFuncs()->setwindow || !m_contextRef)
         return;
 
-    CGContextRef newContextRef = 0;
-    WindowRef newWindowRef = 0;
-    if (platformPluginWidget()) {
-        newContextRef = cgHandleFor(platformPluginWidget());
-        newWindowRef = nativeWindowFor(platformPluginWidget());
-        m_npWindow.type = NPWindowTypeWindow;
-    } else {
-        newContextRef = m_contextRef;
-        newWindowRef = m_fakeWindow;
-        m_npWindow.type = NPWindowTypeDrawable;
-    }
-
-    if (!newContextRef || !newWindowRef)
-        return;
-
+    // The context is set through the draw event.
+    ASSERT(!m_npCgContext.context && !m_npCgContext.window);
     m_npWindow.window = (void*)&m_npCgContext;
-#ifndef NP_NO_CARBON
-    m_npCgContext.window = newWindowRef;
-#endif
-    m_npCgContext.context = newContextRef;
+    m_npWindow.type = NPWindowTypeDrawable;
 
     m_npWindow.x = m_windowRect.x();
     m_npWindow.y = m_windowRect.y();
     m_npWindow.width = m_windowRect.width();
     m_npWindow.height = m_windowRect.height();
 
-    // TODO: (also clip against scrollbars, etc.)
     m_npWindow.clipRect.left = max(0, m_windowRect.x());
     m_npWindow.clipRect.top = max(0, m_windowRect.y());
     m_npWindow.clipRect.right = m_windowRect.x() + m_windowRect.width();
     m_npWindow.clipRect.bottom = m_windowRect.y() + m_windowRect.height();
 
-    LOG(Plugins, "PluginView::setNPWindowIfNeeded(): window=%p, context=%p,"
+    LOG(Plugins, "PluginView::setNPWindowIfNeeded(): context=%p,"
             " window.x:%d window.y:%d window.width:%d window.height:%d window.clipRect size:%dx%d",
-            newWindowRef, newContextRef, m_npWindow.x, m_npWindow.y, m_npWindow.width, m_npWindow.height,
+            m_contextRef, m_npWindow.x, m_npWindow.y, m_npWindow.width, m_npWindow.height,
             m_npWindow.clipRect.right - m_npWindow.clipRect.left, m_npWindow.clipRect.bottom - m_npWindow.clipRect.top);
 
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
     setCallingPlugin(true);
     m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
     setCallingPlugin(false);
@@ -438,30 +308,18 @@ void PluginView::updatePluginWidget()
        return;
 
     ASSERT(parent()->isFrameView());
-    FrameView* frameView = static_cast<FrameView*>(parent());
+    FrameView* frameView = toFrameView(parent());
 
     IntRect oldWindowRect = m_windowRect;
-    IntRect oldClipRect = m_clipRect;
-
     m_windowRect = frameView->contentsToWindow(frameRect());
-    IntPoint offset = topLevelOffsetFor(platformPluginWidget());
-    m_windowRect.move(offset.x(), offset.y());
 
-    if (!platformPluginWidget()) {
-        if (m_windowRect.size() != oldWindowRect.size()) {
-            CGContextRelease(m_contextRef);
-#if PLATFORM(QT)
-            m_pixmap = QPixmap(m_windowRect.size());
-            m_pixmap.fill(Qt::transparent);
-            m_contextRef = m_pixmap.isNull() ? 0 : qt_mac_cg_context(&m_pixmap);
-#endif
-        }
+    if (m_windowRect.size() != oldWindowRect.size()) {
+        CGContextRelease(m_contextRef);
+        m_contextRef = createBitmapContext(m_windowRect.size());
+        CGContextClearRect(m_contextRef, CGRectMake(0, 0, m_windowRect.width(), m_windowRect.height()));
     }
 
-    m_clipRect = windowClipRect();
-    m_clipRect.move(-m_windowRect.x(), -m_windowRect.y());
-
-    if (platformPluginWidget() && (m_windowRect != oldWindowRect || m_clipRect != oldClipRect))
+    if (m_windowRect != oldWindowRect)
         setNPWindowIfNeeded();
 }
 
@@ -472,21 +330,10 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         return;
     }
 
-    if (context->paintingDisabled())
+    if (context->paintingDisabled() || !m_contextRef)
         return;
 
-    setNPWindowIfNeeded();
-
-    CGContextRef cgContext = m_npCgContext.context;
-    if (!cgContext)
-        return;
-
-    CGContextSaveGState(cgContext);
-    if (platformPluginWidget()) {
-        IntPoint offset = frameRect().location();
-        CGContextTranslateCTM(cgContext, offset.x(), offset.y());
-    }
-
+    CGContextSaveGState(m_contextRef);
     IntRect targetRect(frameRect());
     targetRect.intersects(rect);
 
@@ -496,50 +343,59 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     r.origin.y = targetRect.y() - frameRect().y();
     r.size.width = targetRect.width();
     r.size.height = targetRect.height();
-    CGContextClipToRect(cgContext, r);
+    CGContextClipToRect(m_contextRef, r);
 
-    if (!platformPluginWidget() && m_isTransparent) { // clean the pixmap in transparent mode
-#if PLATFORM(QT)
-        QPainter painter(&m_pixmap);
-        painter.setCompositionMode(QPainter::CompositionMode_Clear);
-        painter.fillRect(QRectF(r.origin.x, r.origin.y, r.size.width, r.size.height), Qt::transparent);
-#endif
+    if (m_isTransparent) {
+        // Clean the pixmap in transparent mode.
+        CGContextClearRect(m_contextRef, CGRectMake(r.origin.x, r.origin.y, r.size.width, r.size.height));
     }
 
-#ifndef NP_NO_CARBON
-    EventRecord event;
-    event.what = updateEvt;
-    event.message = (long unsigned int)m_npCgContext.window;
-    event.when = TickCount();
-    event.where.h = 0;
-    event.where.v = 0;
-    event.modifiers = GetCurrentKeyModifiers();
+    NPCocoaEvent cocoaEvent;
+    initializeNPCocoaEvent(&cocoaEvent);
+    cocoaEvent.type = NPCocoaEventDrawRect;
+    cocoaEvent.data.draw.x = 0;
+    cocoaEvent.data.draw.y = 0;
+    cocoaEvent.data.draw.width = CGBitmapContextGetWidth(m_contextRef);
+    cocoaEvent.data.draw.height = CGBitmapContextGetHeight(m_contextRef);
+    cocoaEvent.data.draw.context = m_contextRef;
 
-    if (!dispatchNPEvent(event))
-        LOG(Events, "PluginView::paint(): Paint event not accepted");
-#endif
-
-    CGContextRestoreGState(cgContext);
-
-    if (!platformPluginWidget()) {
+    if(!dispatchNPCocoaEvent(cocoaEvent))
+        LOG(Events, "PluginView::paint(): Paint event type %d not accepted", cocoaEvent.type);
+    
 #if PLATFORM(QT)
-        QPainter* painter = context->platformContext();
-        painter->drawPixmap(targetRect.x(), targetRect.y(), m_pixmap, 
-                            targetRect.x() - frameRect().x(), targetRect.y() - frameRect().y(), targetRect.width(), targetRect.height());
+    // Paint the intermediate bitmap into our graphics context.
+    ASSERT(CGBitmapContextGetBitmapInfo(m_contextRef) & (kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host));
+    ASSERT(CGBitmapContextGetBitsPerPixel(m_contextRef) == 32);
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(CGBitmapContextGetData(m_contextRef));
+    size_t width = CGBitmapContextGetWidth(m_contextRef);
+    size_t height = CGBitmapContextGetHeight(m_contextRef);
+    const QImage imageFromBitmap(data, width, height, QImage::Format_ARGB32_Premultiplied);
+
+    QPainter* painter = context->platformContext();
+    painter->drawImage(targetRect.x(), targetRect.y(), imageFromBitmap,
+        targetRect.x() - frameRect().x(), targetRect.y() - frameRect().y(), targetRect.width(), targetRect.height());
 #endif
-    }
+
+    CGContextRestoreGState(m_contextRef);
 }
 
+bool PluginView::popUpContextMenu(NPMenu *menu)
+{
+    NSEvent* currentEvent = [NSApp currentEvent];
+    
+    // NPN_PopUpContextMenu must be called from within the plug-in's NPP_HandleEvent.
+    if (!currentEvent)
+        return NPERR_GENERIC_ERROR;
+    
+    NSWindow* window = [currentEvent window];
+    NSView* view = [window contentView];
+    [NSMenu popUpContextMenu:(NSMenu*)menu withEvent:currentEvent forView:view];
+    return true;
+}
+    
 void PluginView::invalidateRect(const IntRect& rect)
 {
-    if (platformPluginWidget())
-#if PLATFORM(QT)
-        static_cast<QWidget*>(platformPluginWidget())->update(convertToContainingWindow(rect));
-#else
-        platformPluginWidget()->RefreshRect(convertToContainingWindow(rect));
-#endif
-    else
-        invalidateWindowlessPluginRect(rect);
+    invalidateWindowlessPluginRect(rect);
 }
 
 void PluginView::invalidateRect(NPRect* rect)
@@ -561,226 +417,200 @@ void PluginView::forceRedraw()
 
 
 // ----------------- Event handling --------------------
+void PluginView::handleWheelEvent(WheelEvent *event)
+{
+    if (!m_isStarted)
+        return;
+    
+    NPCocoaEvent cocoaEvent;
+    initializeNPCocoaEvent(&cocoaEvent);
+    
+    NSEvent *currentEvent = [NSApp currentEvent];
+    
+    cocoaEvent.type = NPCocoaEventScrollWheel;
+    
+    cocoaEvent.data.mouse.pluginX = event->layerX() - m_npWindow.x + m_windowRect.x() - m_element->offsetLeft();
+    cocoaEvent.data.mouse.pluginY = event->layerY() - m_npWindow.y + m_windowRect.y() - m_element->offsetTop();
+    cocoaEvent.data.mouse.deltaX = [currentEvent deltaX];
+    cocoaEvent.data.mouse.deltaY = [currentEvent deltaY];
+    cocoaEvent.data.mouse.deltaZ = [currentEvent deltaZ];
+    cocoaEvent.data.mouse.modifierFlags = getModifiers(event);
+    
+    if(!dispatchNPCocoaEvent(cocoaEvent)) {
+        LOG(Events, "PluginView::handleMouseEvent(): Wheel event type %d at %d,%d not accepted", cocoaEvent.type,
+            cocoaEvent.data.mouse.pluginX, cocoaEvent.data.mouse.pluginY);
+    }
+    event->setDefaultHandled();
+}
 
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
     if (!m_isStarted)
         return;
+    
+    NPCocoaEventType eventType;
+    int32_t buttonNumber = 0;
+    int32_t clickCount = 0;
+    NSEvent *currentEvent = [NSApp currentEvent];
 
-#ifndef NP_NO_CARBON
-    EventRecord record;
+    NSEventType type = [currentEvent type];
 
-    if (event->type() == eventNames().mousemoveEvent) {
-        // Mouse movement is handled by null timer events
-        m_lastMousePos = mousePosForPlugin(event);
-        return;
-    } else if (event->type() == eventNames().mouseoverEvent) {
-        record.what = NPEventType_AdjustCursorEvent;
-    } else if (event->type() == eventNames().mouseoutEvent) {
-        record.what = NPEventType_AdjustCursorEvent;
-    } else if (event->type() == eventNames().mousedownEvent) {
-        record.what = mouseDown;
-        // The plugin needs focus to receive keyboard events
-        if (Page* page = m_parentFrame->page())
-            page->focusController()->setFocusedFrame(m_parentFrame);
-        m_parentFrame->document()->setFocusedNode(m_element);
-    } else if (event->type() == eventNames().mouseupEvent) {
-        record.what = mouseUp;
-    } else {
-        return;
+    switch (type) {
+        case NSLeftMouseDown:
+        case NSRightMouseDown:
+        case NSOtherMouseDown:
+            buttonNumber = [currentEvent buttonNumber];
+            clickCount = [currentEvent clickCount];
+            eventType = NPCocoaEventMouseDown;
+            // The plugin needs focus to receive keyboard events
+            if (Page* page = m_parentFrame->page())
+                page->focusController()->setFocusedFrame(m_parentFrame);
+            m_parentFrame->document()->setFocusedElement(m_element);
+            break;
+
+        case NSLeftMouseUp:
+        case NSRightMouseUp:
+        case NSOtherMouseUp:
+            buttonNumber = [currentEvent buttonNumber];
+            clickCount = [currentEvent clickCount];
+            eventType = NPCocoaEventMouseUp;
+            break;
+
+        case NSMouseMoved:
+            eventType = NPCocoaEventMouseMoved;
+            break;
+
+        case NSLeftMouseDragged:
+        case NSRightMouseDragged:
+        case NSOtherMouseDragged:
+            buttonNumber = [currentEvent buttonNumber];
+            eventType = NPCocoaEventMouseDragged;
+            break;
+
+        case NSMouseEntered:
+            eventType = NPCocoaEventMouseEntered;
+            break;
+
+        case NSMouseExited:
+            eventType = NPCocoaEventMouseExited;
+        default:
+            return;
     }
-    record.where = mousePosForPlugin(event);
-    record.modifiers = modifiersForEvent(event);
 
-    if (!event->buttonDown())
-        record.modifiers |= btnState;
+    NPCocoaEvent cocoaEvent;
+    initializeNPCocoaEvent(&cocoaEvent);
 
-    if (event->button() == 2)
-        record.modifiers |= controlKey;
-
-    if (!dispatchNPEvent(record)) {
-        if (record.what == NPEventType_AdjustCursorEvent)
-            return; // Signals that the plugin wants a normal cursor
-
-        LOG(Events, "PluginView::handleMouseEvent(): Mouse event type %d at %d,%d not accepted",
-                record.what, record.where.h, record.where.v);
-    } else {
-        event->setDefaultHandled();
+    cocoaEvent.type = eventType;
+    if (!(NPCocoaEventMouseEntered == eventType || NPCocoaEventMouseExited == eventType)) {
+        cocoaEvent.data.mouse.buttonNumber = buttonNumber;
+        cocoaEvent.data.mouse.clickCount = clickCount;
     }
-#endif
+
+    cocoaEvent.data.mouse.pluginX = event->layerX() - m_npWindow.x + m_windowRect.x() - m_element->offsetLeft();
+    cocoaEvent.data.mouse.pluginY = event->layerY() - m_npWindow.y + m_windowRect.y() - m_element->offsetTop();
+    cocoaEvent.data.mouse.deltaX = [currentEvent deltaX];
+    cocoaEvent.data.mouse.deltaY = [currentEvent deltaY];
+    cocoaEvent.data.mouse.deltaZ = [currentEvent deltaZ];
+    cocoaEvent.data.mouse.modifierFlags = getModifiers(event);
+
+    int16_t response = dispatchNPCocoaEvent(cocoaEvent);
+    if(response == kNPEventNotHandled) {
+        LOG(Events, "PluginView::handleMouseEvent(): Mouse event type %d at %d,%d not accepted", cocoaEvent.type,
+            cocoaEvent.data.mouse.pluginX, cocoaEvent.data.mouse.pluginY);
+    }
+
+    // Safari policy is to return true for all mouse events, because some plugins
+    // return false even if they have handled the event.
+    event->setDefaultHandled();
 }
-
+    
 void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 {
     if (!m_isStarted)
         return;
-
     LOG(Plugins, "PluginView::handleKeyboardEvent() ----------------- ");
 
     LOG(Plugins, "PV::hKE(): KE.keyCode: 0x%02X, KE.charCode: %d",
-            event->keyCode(), event->charCode());
+        event->keyCode(), event->charCode());
 
-#ifndef NP_NO_CARBON
-    EventRecord record;
+    NSEvent *currentEvent = [NSApp currentEvent];
+    NPCocoaEventType eventType;
+    NSEventType type = [currentEvent type];
 
-    if (event->type() == eventNames().keydownEvent) {
-        // This event is the result of a PlatformEvent::KeyDown which
-        // was disambiguated into a PlatformKeyboardEvent::RawKeyDown. Since
-        // we don't have access to the text here, we return, and wait for the
-        // corresponding event based on PlatformKeyboardEvent::Char.
-        return;
-    } else if (event->type() == eventNames().keypressEvent) {
-        // Which would be this one. This event was disambiguated from the same
-        // PlatformEvent::KeyDown, but to a PlatformEvent::Char,
-        // which retains the text from the original event. So, we can safely pass
-        // on the event as a key-down event to the plugin.
-        record.what = keyDown;
-    } else if (event->type() == eventNames().keyupEvent) {
-        // PlatformEvent::KeyUp events always have the text, so nothing
-        // fancy here.
-        record.what = keyUp;
+    switch (type) {
+        case NSKeyDown:
+            eventType = NPCocoaEventKeyDown;
+            m_keyDownSent = true;
+            break;
+        case NSKeyUp:
+            if (m_disregardKeyUpCounter > 0) {
+                m_disregardKeyUpCounter--;
+                event->setDefaultHandled();
+                return;
+            }
+            eventType = NPCocoaEventKeyUp;
+            break;
+        case NSFlagsChanged:
+            eventType = NPCocoaEventFlagsChanged;
+            break;
+        default:
+            return;
+    }
+
+    NPCocoaEvent cocoaEvent;
+    initializeNPCocoaEvent(&cocoaEvent);
+    cocoaEvent.type = eventType;
+    if (eventType != NPCocoaEventFlagsChanged) {
+        NSString *characters = [currentEvent characters];
+        NSString *charactersIgnoringModifiers = [currentEvent charactersIgnoringModifiers];
+        cocoaEvent.data.key.characters = reinterpret_cast<NPNSString*>(characters);
+        cocoaEvent.data.key.charactersIgnoringModifiers = reinterpret_cast<NPNSString*>(charactersIgnoringModifiers);
+        cocoaEvent.data.key.isARepeat = [currentEvent isARepeat];
+        cocoaEvent.data.key.keyCode = [currentEvent keyCode];
+        cocoaEvent.data.key.modifierFlags = getModifiers(event);
+    }
+
+    int16_t response = dispatchNPCocoaEvent(cocoaEvent);
+    if(response == kNPEventNotHandled) {
+        LOG(Events, "PluginView::handleKeyboardEvent(): Keyboard event type %d not accepted", cocoaEvent.type);
+    } else if (response == kNPEventStartIME) {
+        // increment counter and resend as a text input
+        m_disregardKeyUpCounter++;
+        NPCocoaEvent textEvent;
+        initializeNPCocoaEvent(&textEvent);
+        textEvent.type = NPCocoaEventTextInput;
+        textEvent.data.text.text = reinterpret_cast<NPNSString*>([currentEvent characters]);
+        response = dispatchNPCocoaEvent(textEvent);
+        if(response == kNPEventNotHandled)
+            LOG(Events, "PluginView::handleKeyboardEvent(): Keyboard event type %d not accepted", cocoaEvent.type);
+    }
+
+    // All keyboard events need to be handled to prevent them falling
+    // through to the page, unless they are Meta key events, in which
+    // case they are, unless they are Cmd+a. From WebKit2, possibly
+    // not the most elegant piece of key handling code.....
+    if (event->metaKey()) {
+        if (cocoaEvent.data.key.keyCode == 0)
+            event->setDefaultHandled();
     } else {
-        return;
-    }
-
-    const PlatformKeyboardEvent* platformEvent = event->keyEvent();
-    int keyCode = platformEvent->nativeVirtualKeyCode();
-
-    const String text = platformEvent->text();
-    if (text.length() < 1) {
+        // else ignore, it's a Meta Key event for the browser.
         event->setDefaultHandled();
-        return;
     }
-
-    WTF::RetainPtr<CFStringRef> cfText(WTF::AdoptCF, text.createCFString());
-
-    LOG(Plugins, "PV::hKE(): PKE.text: %s, PKE.unmodifiedText: %s, PKE.keyIdentifier: %s",
-            text.ascii().data(), platformEvent->unmodifiedText().ascii().data(),
-            platformEvent->keyIdentifier().ascii().data());
-
-    char charCodes[2] = { 0, 0 };
-    if (!CFStringGetCString(cfText.get(), charCodes, 2, CFStringGetSystemEncoding())) {
-        LOG_ERROR("Could not resolve character code using system encoding.");
-        event->setDefaultHandled();
-        return;
-    }
-
-    record.where = globalMousePosForPlugin();
-    record.modifiers = modifiersForEvent(event);
-    record.message = ((keyCode & 0xFF) << 8) | (charCodes[0] & 0xFF);
-    record.when = TickCount();
-
-    LOG(Plugins, "PV::hKE(): record.modifiers: %d", record.modifiers);
-
-#if PLATFORM(QT)
-    LOG(Plugins, "PV::hKE(): PKE.qtEvent()->nativeVirtualKey: 0x%02X, charCode: %d",
-               keyCode, int(uchar(charCodes[0])));
-#endif
-
-    if (!dispatchNPEvent(record))
-        LOG(Events, "PluginView::handleKeyboardEvent(): Keyboard event type %d not accepted", record.what);
-    else
-        event->setDefaultHandled();
-#endif
 }
 
-#ifndef NP_NO_CARBON
-void PluginView::nullEventTimerFired(Timer<PluginView>*)
-{
-    EventRecord record;
-
-    record.what = nullEvent;
-    record.message = 0;
-    record.when = TickCount();
-    record.where = m_lastMousePos;
-    record.modifiers = GetCurrentKeyModifiers();
-    if (!Button())
-        record.modifiers |= btnState;
-
-    if (!dispatchNPEvent(record))
-        LOG(Events, "PluginView::nullEventTimerFired(): Null event not accepted");
-}
-#endif
-
-#ifndef NP_NO_CARBON
-static int modifiersForEvent(UIEventWithKeyState* event)
-{
-    int modifiers = 0;
-
-    if (event->ctrlKey())
-        modifiers |= controlKey;
-
-    if (event->altKey())
-        modifiers |= optionKey;
-
-    if (event->metaKey())
-        modifiers |= cmdKey;
-
-    if (event->shiftKey())
-        modifiers |= shiftKey;
-
-     return modifiers;
-}
-#endif
-
-#ifndef NP_NO_CARBON
-Point PluginView::globalMousePosForPlugin() const
-{
-    Point pos;
-    GetGlobalMouse(&pos);
-
-#if PLATFORM(WX)
-    // make sure the titlebar/toolbar size is included
-    WindowRef windowRef = nativeWindowFor(platformPluginWidget());
-    ::Rect content, structure;
-
-    GetWindowBounds(windowRef, kWindowStructureRgn, &structure);
-    GetWindowBounds(windowRef, kWindowContentRgn, &content);
-
-    int top = content.top  - structure.top;
-    pos.v -= top;
-#endif
-
-    return pos;
-}
-#endif
-
-#ifndef NP_NO_CARBON
-Point PluginView::mousePosForPlugin(MouseEvent* event) const
-{
-    ASSERT(event);
-    if (platformPluginWidget())
-        return globalMousePosForPlugin();
-
-    if (event->button() == 2) {
-        // always pass the global position for right-click since Flash uses it to position the context menu
-        return globalMousePosForPlugin();
-    }
-
-    Point pos;
-    IntPoint postZoomPos = roundedIntPoint(m_element->renderer()->absoluteToLocal(event->absoluteLocation()));
-    pos.h = postZoomPos.x() + m_windowRect.x();
-    // The number 22 is the height of the title bar. As to why it figures in the calculation below
-    // is left as an exercise to the reader :-)
-    pos.v = postZoomPos.y() + m_windowRect.y() - 22;
-    return pos;
-}
-#endif
-
-#ifndef NP_NO_CARBON
-bool PluginView::dispatchNPEvent(NPEvent& event)
+int16_t PluginView::dispatchNPCocoaEvent(NPCocoaEvent& cocoaEvent)
 {
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
     setCallingPlugin(true);
 
-    bool accepted = m_plugin->pluginFuncs()->event(m_instance, &event);
+    int16_t response = m_plugin->pluginFuncs()->event(m_instance, &cocoaEvent);
 
     setCallingPlugin(false);
     PluginView::setCurrentPluginView(0);
-    return accepted;
+
+    return response;
 }
-#endif
 
 // ------------------- Miscellaneous  ------------------
 

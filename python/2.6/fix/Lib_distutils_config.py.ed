@@ -1,0 +1,9 @@
+/def _store_pypirc(/a
+.
+/f = open(rc, 'w')/a
+.
+.,/pass$/c
+        with os.fdopen(os.open(rc, os.O_CREAT | os.O_WRONLY, 0600), 'w') as fp:
+            fp.write(DEFAULT_PYPIRC % (username, password))
+.
+w

@@ -566,8 +566,8 @@ void pppoe_rfc_timer()
 u_int16_t pppoe_rfc_output(void *data, mbuf_t m)
 {
     struct pppoe_rfc 	*rfc = (struct pppoe_rfc *)data;
-    u_int8_t 		*d;
-    struct pppoe	*p;
+    // u_int8_t 		*d;
+    struct pppoe	*p, p_data;
     mbuf_t			m0;
     u_int16_t 		skip, len;
 	
@@ -596,15 +596,18 @@ u_int16_t pppoe_rfc_output(void *data, mbuf_t m)
         IOLog("pppoe_rfc_output: failed mbuf_prepend\n");
         return ENOBUFS;
     }
-    d = mbuf_data(m);
+    // d = mbuf_data(m);
 
-    mbuf_setflags(m, mbuf_flags(m) | MBUF_PKTHDR);
-    p = (struct pppoe *)d;
+    // No need to set MBUF_PKTHDR, since m must already be a header
+    
+    p = &p_data;
+    memcpy(p, mbuf_data(m), sizeof(p_data));
     p->ver = PPPOE_VER;
     p->typ = PPPOE_TYPE;
     p->code = 0;
     p->sessid = htons(rfc->session_id);
     p->len = htons(len - skip); // tag len
+    memcpy(mbuf_data(m), p, sizeof(p_data));
     mbuf_pkthdr_setlen(m, len + sizeof(struct pppoe) - skip);
 
     pppoe_rfc_lower_output(rfc, m, rfc->peer_address, PPPOE_ETHERTYPE_DATA);
@@ -785,12 +788,12 @@ return 1 if the tag was found and it could fit with maxlen, 0 otherwise
 u_int16_t get_tag(mbuf_t m, u_int16_t tag, struct pppoe_tag *val)
 {
     u_int8_t 		*data, *tmpbuf;
-    struct pppoe	*p;
+    struct pppoe	p_data;
     u_int16_t 		totallen, copylen, len;
 
     data = mbuf_data(m);
-    p = (struct pppoe *)data;
-    totallen =  ntohs(p->len);
+    memcpy(&p_data, data, sizeof(p_data));
+    totallen =  ntohs(p_data.len);
 
     // Prevent buffer overflow - the PPPoE RFC gurantees us a maximum packet size, however, an attacker
     // might very well produce huge packets.
@@ -871,7 +874,7 @@ void send_PAD(struct pppoe_rfc *rfc, u_int8_t *address, u_int16_t code, u_int16_
     mbuf_t			m = 0;
     u_int8_t 		*data;
     u_int16_t 		len;
-    struct pppoe	*p;
+    struct pppoe	*p, p_data;
 
     if (mbuf_gethdr(MBUF_WAITOK, MBUF_TYPE_DATA, &m) != 0)
         return;
@@ -884,7 +887,8 @@ void send_PAD(struct pppoe_rfc *rfc, u_int8_t *address, u_int16_t code, u_int16_
     //MH_ALIGN(m, sizeof(struct pppoe) + namelen + 4 + servlen + 4);
     data = mbuf_data(m);
 
-    p = (struct pppoe *)data;
+    p = &p_data;
+    memcpy(p, data, sizeof(p_data));
     p->ver = PPPOE_VER;
     p->typ = PPPOE_TYPE;
     p->code = code;
@@ -926,6 +930,7 @@ void send_PAD(struct pppoe_rfc *rfc, u_int8_t *address, u_int16_t code, u_int16_
     mbuf_setlen(m, sizeof(struct pppoe) + p->len);
     mbuf_pkthdr_setlen(m, sizeof(struct pppoe) + p->len);
     p->len = htons(p->len);
+    memcpy(mbuf_data(m), p, sizeof(p_data));
 
     pppoe_rfc_lower_output(rfc, m, address, PPPOE_ETHERTYPE_CTRL);
 }
@@ -1086,8 +1091,11 @@ from MUST be a valid ethernet address (6 bytes length)
 u_int16_t handle_PADS(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
 {
     PPPOE_TAG(hostuniq, PPPOE_HOST_UNIQ_LEN);
-    struct pppoe 	*p = mbuf_data(m);
-    u_int16_t		sessid = ntohs(p->sessid);
+    struct pppoe 	p_data;
+    u_int16_t		sessid;
+
+    memcpy(&p_data, mbuf_data(m), sizeof(p_data));
+    sessid = ntohs(p_data.sessid);
 
     if (rfc->state != PPPOE_STATE_CONNECTING)
         return 0;
@@ -1125,8 +1133,11 @@ from MUST be a valid ethernet address (6 bytes length)
 ----------------------------------------------------------------------------- */
 u_int16_t handle_PADT(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
 {
-    struct pppoe 	*p = mbuf_data(m);
-    u_int16_t 		sessid = ntohs(p->sessid);
+    struct pppoe 	p_data;
+    u_int16_t 		sessid;
+
+    memcpy(&p_data, mbuf_data(m), sizeof(p_data));
+    sessid = ntohs(p_data.sessid);
 
     if (rfc->state != PPPOE_STATE_CONNECTED)
         return 0;
@@ -1155,7 +1166,7 @@ u_int16_t handle_ctrl(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
 
     //IOLog("handle_ctrl, rfc = %p\n", rfc);
 
-    switch (p->code) {
+    switch (p->code) { 		// no alignment issue as p->code is u_int8_t.
        case PPPOE_PADI:
             done = handle_PADI(rfc, m, from);
             break;
@@ -1184,8 +1195,11 @@ u_int16_t handle_ctrl(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
 ----------------------------------------------------------------------------- */
 u_int16_t handle_data(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
 {
-    struct pppoe 	*p = mbuf_data(m);
-    u_int16_t 		sessid = ntohs(p->sessid);
+    struct pppoe 	p_data;
+    u_int16_t 		sessid;
+
+    memcpy(&p_data, mbuf_data(m), sizeof(p_data));
+    sessid = ntohs(p_data.sessid);
 
     //IOLog("handle_data, rfc = %p, from %x:%x:%x:%x:%x:%x\n", rfc, from[0],from[1],from[2],from[3],from[4],from[5] );
     //IOLog("handle_data, rfc = %p, rfc->peer_address %x:%x:%x:%x:%x:%x\n", rfc, rfc->peer_address[0],rfc->peer_address[1],rfc->peer_address[2],rfc->peer_address[3],rfc->peer_address[4],rfc->peer_address[5] );
@@ -1208,13 +1222,13 @@ u_int16_t handle_data(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
         if (mbuf_next(m))
 			mbuf_setlen(m, mbuf_len(m) - sizeof(struct pppoe));
         else
-			mbuf_setlen(m, ntohs(p->len));
+			mbuf_setlen(m, ntohs(p_data.len));
         if (mbuf_setdata(m, mbuf_data(m) + sizeof(struct pppoe), mbuf_len(m))) {
 			IOLog("pppoe_rfc_output: failed mbuf_setdata\n");
             mbuf_freem(m);
             return 1;
         }
-		mbuf_pkthdr_setlen(m, ntohs(p->len));
+		mbuf_pkthdr_setlen(m, ntohs(p_data.len));
 
         // packet is passed up to the host
         if (rfc->inputcb)
@@ -1291,8 +1305,12 @@ void pppoe_rfc_lower_input(ifnet_t ifp, mbuf_t m, u_int8_t *from, u_int16_t typ)
     if (typ == PPPOE_ETHERTYPE_DATA) {
         // in case of PPPOE_ETHERTYPE_DATA, send a PADT to the peer
         // trying to talk to us with an incorrect session id
-        struct pppoe	*p = mbuf_data(m);
-        u_int16_t	sessid = ntohs(p->sessid);
+        struct pppoe	p_data;
+        u_int16_t	sessid;
+
+	memcpy(&p_data, mbuf_data(m), sizeof(p_data));
+	sessid = ntohs(p_data.sessid);
+
         if (lastrfc)
             send_PAD(lastrfc, from, PPPOE_PADT, sessid, 0, 0, 0, 0, 0);
     }

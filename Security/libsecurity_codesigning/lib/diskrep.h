@@ -40,6 +40,8 @@
 namespace Security {
 namespace CodeSigning {
 
+class ResourceBuilder;
+
 
 //
 // DiskRep is an abstract interface to code somewhere located by
@@ -116,6 +118,7 @@ public:
 	public:
 		virtual std::string sdkPath(const std::string &path) const = 0;
 		virtual bool isAdhoc() const = 0;
+		virtual SecCSFlags signingFlags() const = 0;
 	};
 
 protected:

@@ -85,7 +85,7 @@ do
 	j)	opt_proj=1 ;;
 	s)	opt_time=1 ;;
 	v)	opt_timestr=1 ;;
-	Z)	opt_zone=1 ;;
+#	Z)	opt_zone=1 ;;
 	h|?)	cat <<-END >&2
 		USAGE: execsnoop [-a|-A|-ehjsvZ] [-c command]
 		       execsnoop                # default output
@@ -95,11 +95,9 @@ do
 		                -j              # print project ID
 		                -s              # print start time, us
 		                -v              # print start time, string
-		                -Z              # print zonename
 		                -c command      # command name to snoop
 		  eg,
 		        execsnoop -v            # human readable timestamps
-		        execsnoop -Z		# print zonename
 		        execsnoop -c ls         # snoop ls commands only
 		END
 		exit 1
@@ -147,8 +145,9 @@ fi
  	OPT_proj    ? printf("%5s ", "PROJ") : 1;
 
 	/* print main headers */
-	OPT_dump    ? printf("%s %s %s %s %s %s %s %s\n",
-	    "TIME", "ZONE", "PROJ", "UID", "PID", "PPID", "COMM", "ARGS") :
+	/* APPLE: Removed "ZONE" header, it has no meaning in darwin */
+	OPT_dump    ? printf("%s %s %s %s %s %s %s\n",
+	    "TIME", "PROJ", "UID", "PID", "PPID", "COMM", "ARGS") :
 	    printf("%5s %6s %6s %s\n", "UID", "PID", "PPID", "ARGS");
  }
 
@@ -167,8 +166,9 @@ fi
  	OPT_proj ? printf("%5d ", curpsinfo->pr_projid) : 1;
 
 	/* print main data */
-	OPT_dump ? printf("%d %s %d %d %d %d %s ", timestamp/1000,
-	    zonename, curpsinfo->pr_projid, uid, pid, ppid, execname) :
+	/* APPLE: Removed the zonename output, it has no meaning in darwin */
+	OPT_dump ? printf("%d %d %d %d %d %s ", timestamp/1000,
+	    curpsinfo->pr_projid, uid, pid, ppid, execname) :
 	    printf("%5d %6d %6d ", uid, pid, ppid);
 	OPT_safe ? printf("%S\n", curpsinfo->pr_psargs) :
 	    printf("%s\n", curpsinfo->pr_psargs);

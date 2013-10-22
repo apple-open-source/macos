@@ -1,8 +1,5 @@
-
-#ifndef _S_DHCPLIB_H
-#define _S_DHCPLIB_H
 /*
- * Copyright (c) 2000 - 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,14 +21,20 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+#ifndef _S_DHCPLIB_H
+#define _S_DHCPLIB_H
+
 #include <mach/boolean.h>
 #include <sys/time.h>
 #import <netinet/bootp.h>
 #include "dhcp_options.h"
 #include "gen_dhcp_tags.h"
 
-void	dhcp_print_packet(struct dhcp *dp, int pkt_len);
-void	dhcp_fprint_packet(FILE * f, struct dhcp *dp, int pkt_len);
+void	dhcp_packet_print_cfstr(CFMutableStringRef str, 
+				struct dhcp * dp, int pkt_len);
+void	dhcp_packet_fprint(FILE * f, struct dhcp * dp, int pkt_len);
+void	dhcp_packet_print(struct dhcp * dp, int pkt_len);
 
 /*
  * Function: is_dhcp_packet

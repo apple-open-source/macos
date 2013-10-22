@@ -28,7 +28,7 @@
  */
 
 #include <securityd/SecCAIssuerCache.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
 #include <Security/SecInternal.h>
@@ -40,29 +40,29 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include <pthread.h>
+#include <dispatch/dispatch.h>
 #include <asl.h>
-#include "sqlutils.h"
+#include "utilities/sqlutils.h"
+#include "utilities/iOSforOSX.h"
+
+#include <CoreFoundation/CFUtilities.h>
+#include <utilities/SecFileLocations.h>
 
 #define caissuerErrorLog(args...)     asl_log(NULL, NULL, ASL_LEVEL_ERR, ## args)
 
 static const char expireSQL[] = "DELETE FROM issuers WHERE expires<?";
 static const char beginTxnSQL[] = "BEGIN EXCLUSIVE TRANSACTION";
 static const char endTxnSQL[] = "COMMIT TRANSACTION";
-static const char insertIssuerSQL[] = "INSERT INTO issuers "
+static const char insertIssuerSQL[] = "INSERT OR REPLACE INTO issuers "
     "(uri,expires,certificate) VALUES (?,?,?)";
 static const char selectIssuerSQL[] = "SELECT certificate FROM "
     "issuers WHERE uri=?";
 
-#if NO_SERVER
-CF_EXPORT
-CFURLRef CFCopyHomeDirectoryURLForUser(CFStringRef uName);	/* Pass NULL for the current user's home directory */
-#endif
-
-#define kSecCAIssuerCachePath "/Library/Keychains/caissuercache.sqlite3";
+#define kSecCAIssuerFileName "caissuercache.sqlite3"
 
 typedef struct __SecCAIssuerCache *SecCAIssuerCacheRef;
 struct __SecCAIssuerCache {
+    dispatch_queue_t queue;
 	sqlite3 *s3h;
 	sqlite3_stmt *expire;
 	sqlite3_stmt *beginTxn;
@@ -72,8 +72,8 @@ struct __SecCAIssuerCache {
     bool in_transaction;
 };
 
-static pthread_once_t kSecCAIssuerCacheOnce = PTHREAD_ONCE_INIT;
-static SecCAIssuerCacheRef kSecCAIssuerCache = NULL;
+static dispatch_once_t kSecCAIssuerCacheOnce;
+static SecCAIssuerCacheRef kSecCAIssuerCache;
 
 /* @@@ Duplicated from SecTrustStore.c */
 static int sec_create_path(const char *path)
@@ -192,7 +192,8 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
 	int s3e;
     bool create = true;
 
-    require(this = (SecCAIssuerCacheRef)malloc(sizeof(struct __SecCAIssuerCache)), errOut);
+    require(this = (SecCAIssuerCacheRef)calloc(sizeof(struct __SecCAIssuerCache), 1), errOut);
+    require_action_quiet((this->queue = dispatch_queue_create("caissuercache", 0)), errOut, s3e = errSecAllocate);
     require_noerr(s3e = sec_sqlite3_open(db_name, &this->s3h, create), errOut);
     this->in_transaction = false;
 
@@ -240,7 +241,10 @@ static SecCAIssuerCacheRef SecCAIssuerCacheCreate(const char *db_name) {
 
 errOut:
 	if (this) {
-		sqlite3_close(this->s3h);
+        if (this->queue)
+            dispatch_release(this->queue);
+        if (this->s3h)
+            sqlite3_close(this->s3h);
 		free(this);
 	}
 
@@ -248,42 +252,10 @@ errOut:
 }
 
 static void SecCAIssuerCacheInit(void) {
-	static const char *path = kSecCAIssuerCachePath;
-#if NO_SERVER
-    /* Added this block of code back to keep the tests happy for now. */
-	const char *home = getenv("HOME");
-	char buffer[PATH_MAX];
-	size_t homeLen;
-	size_t pathLen = strlen(path);
-	if (home) {
-		homeLen = strlen(home);
-		if (homeLen + pathLen >= sizeof(buffer)) {
-			return;
-		}
+    WithPathInKeychainDirectory(CFSTR(kSecCAIssuerFileName), ^(const char *utf8String) {
+        kSecCAIssuerCache = SecCAIssuerCacheCreate(utf8String);
+    });
 
-		strlcpy(buffer, home, sizeof(buffer));
-	} else {
-		CFURLRef homeURL = CFCopyHomeDirectoryURLForUser(NULL);
-		if (!homeURL)
-			return;
-
-		CFURLGetFileSystemRepresentation(homeURL, true, (uint8_t *)buffer,
-                                         sizeof(buffer));
-		CFRelease(homeURL);
-		homeLen = strlen(buffer);
-		buffer[homeLen] = '\0';
-		if (homeLen + pathLen >= sizeof(buffer)) {
-			return;
-		}
-	}
-
-	strlcat(buffer, path, sizeof(buffer));
-
-    path = buffer;
-
-#endif
-
-    kSecCAIssuerCache = SecCAIssuerCacheCreate(path);
     if (kSecCAIssuerCache)
         atexit(SecCAIssuerCacheGC);
 }
@@ -402,19 +374,27 @@ static void _SecCAIssuerCacheFlush(void *context) {
 
 void SecCAIssuerCacheAddCertificate(SecCertificateRef certificate,
                                     CFURLRef uri, CFAbsoluteTime expires) {
-    pthread_once(&kSecCAIssuerCacheOnce, SecCAIssuerCacheInit);
+    dispatch_once(&kSecCAIssuerCacheOnce, ^{
+        SecCAIssuerCacheInit();
+    });
     if (!kSecCAIssuerCache)
         return;
 
-    _SecCAIssuerCacheAddCertificate(kSecCAIssuerCache, certificate, uri, expires);
+    dispatch_sync(kSecCAIssuerCache->queue, ^{
+        _SecCAIssuerCacheAddCertificate(kSecCAIssuerCache, certificate, uri, expires);
+    });
 }
 
 SecCertificateRef SecCAIssuerCacheCopyMatching(CFURLRef uri) {
-    pthread_once(&kSecCAIssuerCacheOnce, SecCAIssuerCacheInit);
-    if (!kSecCAIssuerCache)
-        return NULL;
-
-    return _SecCAIssuerCacheCopyMatching(kSecCAIssuerCache, uri);
+    dispatch_once(&kSecCAIssuerCacheOnce, ^{
+        SecCAIssuerCacheInit();
+    });
+    __block SecCertificateRef cert = NULL;
+    if (kSecCAIssuerCache)
+        dispatch_sync(kSecCAIssuerCache->queue, ^{
+            cert = _SecCAIssuerCacheCopyMatching(kSecCAIssuerCache, uri);
+        });
+    return cert;
 }
 
 /* This should be called on a normal non emergency exit. This function
@@ -432,11 +412,15 @@ SecCertificateRef SecCAIssuerCacheCopyMatching(CFURLRef uri) {
  */
 void SecCAIssuerCacheGC(void) {
     if (kSecCAIssuerCache)
-        _SecCAIssuerCacheGC(kSecCAIssuerCache);
+        dispatch_sync(kSecCAIssuerCache->queue, ^{
+            _SecCAIssuerCacheGC(kSecCAIssuerCache);
+        });
 }
 
 /* Call this periodically or perhaps when we are exiting due to low memory. */
 void SecCAIssuerCacheFlush(void) {
     if (kSecCAIssuerCache)
-        _SecCAIssuerCacheFlush(kSecCAIssuerCache);
+        dispatch_sync(kSecCAIssuerCache->queue, ^{
+            _SecCAIssuerCacheFlush(kSecCAIssuerCache);
+        });
 }

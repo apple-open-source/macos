@@ -27,6 +27,8 @@
 #ifndef ComposedShadowTreeWalker_h
 #define ComposedShadowTreeWalker_h
 
+#include "InsertionPoint.h"
+#include "NodeRenderingTraversal.h"
 #include "ShadowRoot.h"
 
 namespace WebCore {
@@ -38,12 +40,19 @@ class ShadowRoot;
 // https://bugs.webkit.org/show_bug.cgi?id=82702
 class ComposedShadowTreeWalker {
 public:
+    typedef NodeRenderingTraversal::ParentDetails ParentTraversalDetails;
+
     enum Policy {
         CrossUpperBoundary,
         DoNotCrossUpperBoundary,
     };
 
-    ComposedShadowTreeWalker(const Node*, Policy = CrossUpperBoundary);
+    enum StartPolicy {
+        CanStartFromShadowBoundary,
+        CannotStartFromShadowBoundary
+    };
+
+    ComposedShadowTreeWalker(const Node*, Policy = CrossUpperBoundary, StartPolicy = CannotStartFromShadowBoundary);
 
     // For a common use case such as:
     // for (ComposedShadowTreeWalker walker = ComposedShadowTreeWalker::fromFirstChild(node); walker.get(); walker.nextSibling())
@@ -62,7 +71,11 @@ public:
     void next();
     void previous();
 
+    Node* traverseParent(const Node*, ParentTraversalDetails* = 0) const;
+
 private:
+    ComposedShadowTreeWalker(const Node*, ParentTraversalDetails*);
+
     enum TraversalDirection {
         TraversalDirectionForward,
         TraversalDirectionBackward
@@ -76,11 +89,7 @@ private:
         ASSERT(m_node);
         if (canCrossUpperBoundary())
             ASSERT(!m_node->isShadowRoot());
-        else
-            ASSERT(!m_node->isShadowRoot() || toShadowRoot(m_node)->isYoungest());
-        // FIXME: Add an assertion once InsertionPoint have isActive() function.
-        // https://bugs.webkit.org/show_bug.cgi?id=82010
-        // ASSERT(!isInsertionPoint(m_node) || !toInsertionPoint(node)->isActive());
+        ASSERT(!isActiveInsertionPoint(m_node));
 #endif
     }
 
@@ -98,7 +107,6 @@ private:
     Node* traverseFirstChild(const Node*) const;
     Node* traverseLastChild(const Node*) const;
     Node* traverseChild(const Node*, TraversalDirection) const;
-    Node* traverseParent(const Node*) const;
 
     static Node* traverseNextSibling(const Node*);
     static Node* traversePreviousSibling(const Node*);
@@ -106,16 +114,29 @@ private:
     static Node* traverseSiblingOrBackToInsertionPoint(const Node*, TraversalDirection);
     static Node* traverseSiblingInCurrentTree(const Node*, TraversalDirection);
 
-    static Node* traverseSiblingOrBackToYoungerShadowRoot(const Node*, TraversalDirection);
+    static Node* traverseSiblings(const Node*, TraversalDirection);
+    static Node* traverseDistributedNodes(const Node*, const InsertionPoint*, TraversalDirection);
+
     static Node* escapeFallbackContentElement(const Node*, TraversalDirection);
 
-    Node* traverseNodeEscapingFallbackContents(const Node*) const;
-    Node* traverseParentInCurrentTree(const Node*) const;
-    Node* traverseParentBackToYoungerShadowRootOrHost(const ShadowRoot*) const;
+    Node* traverseNodeEscapingFallbackContents(const Node*, ParentTraversalDetails* = 0) const;
+    Node* traverseParentInCurrentTree(const Node*, ParentTraversalDetails* = 0) const;
+    Node* traverseParentBackToShadowRootOrHost(const ShadowRoot*, ParentTraversalDetails* = 0) const;
 
     const Node* m_node;
     Policy m_policy;
 };
+
+inline ComposedShadowTreeWalker::ComposedShadowTreeWalker(const Node* node, Policy policy, StartPolicy startPolicy)
+    : m_node(node)
+    , m_policy(policy)
+{
+    UNUSED_PARAM(startPolicy);
+#ifndef NDEBUG
+    if (m_node && startPolicy == CannotStartFromShadowBoundary)
+        assertPrecondition();
+#endif
+}
 
 } // namespace
 

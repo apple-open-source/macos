@@ -22,7 +22,7 @@ BASEDIR = ..
 XSLT_SRCDIR = $(BASEDIR)\libxslt
 EXSLT_SRCDIR = $(BASEDIR)\libexslt
 UTILS_SRCDIR = $(BASEDIR)\xsltproc
-BINDIR = bin.msvc
+BINDIR = $(ARCH)\bin.msvc
 
 # Names of various input and output components.
 !if "$(DEBUG)" == "1"
@@ -47,11 +47,11 @@ EXSLT_DEF = $(EXSLT_BASENAME).def
 EXSLT_A = $(EXSLT_BASENAME)_a.lib
 
 # Places where intermediate files produced by the compiler go
-XSLT_INTDIR = int.xslt.msvc
-XSLT_INTDIR_A = int.xslta.msvc
-EXSLT_INTDIR = int.exslt.msvc
-EXSLT_INTDIR_A = int.exslta.msvc
-UTILS_INTDIR = int.utils.msvc
+XSLT_INTDIR = $(ARCH)\int.xslt.msvc
+XSLT_INTDIR_A = $(ARCH)\int.xslta.msvc
+EXSLT_INTDIR = $(ARCH)\int.exslt.msvc
+EXSLT_INTDIR_A = $(ARCH)\int.exslta.msvc
+UTILS_INTDIR = $(ARCH)\int.utils.msvc
 
 # The preprocessor and its options.
 CPP = cl.exe /EP
@@ -66,7 +66,10 @@ CFLAGS = $(CFLAGS) /I$(BASEDIR) /I$(XSLT_SRCDIR) /I$(INCPREFIX)
 LD = link.exe
 LDFLAGS = /nologo
 LDFLAGS = $(LDFLAGS) /LIBPATH:$(BINDIR) /LIBPATH:$(LIBPREFIX)
-LDFLAGS = $(LDFLAGS) /NXCOMPAT /DYNAMICBASE /SAFESEH
+LDFLAGS = $(LDFLAGS) /NXCOMPAT /DYNAMICBASE
+!if "$(ARCH)" == "32"
+LDFLAGS = $(LDFLAGS) /SAFESEH
+!endif
 LIBS = wsock32.lib
 
 # The archiver and its options.
@@ -79,7 +82,7 @@ CFLAGS = $(CFLAGS) /D "_DEBUG" /Od /Z7
 LDFLAGS = $(LDFLAGS) /DEBUG
 !else
 CFLAGS = $(CFLAGS) /D "NDEBUG" /O2 
-LDFLAGS = $(LDFLAGS) /OPT:NOWIN98 /DEBUG
+LDFLAGS = $(LDFLAGS) /DEBUG
 !endif
 
 # Libxslt object files.

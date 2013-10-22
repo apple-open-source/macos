@@ -1,7 +1,7 @@
 .\"
-.\" Copyright (c) 2010 Apple Inc.  All rights reserved.
+.\" Copyright (c) 2010-2012 Apple Inc.  All rights reserved.
 .\"
-.Dd February 25, 2010
+.Dd November 9, 2012
 .Dt CAFFEINATE 8
 .Os Darwin
 .Sh NAME
@@ -33,12 +33,24 @@ Available options:
 Create an assertion to prevent the display from sleeping.
 .It Fl i
 Create an assertion to prevent the system from idle sleeping.
-.It Fl s 
+.It Fl m
+Create an assertion to prevent the disk from idle sleeping.
+.It Fl s
 Create an assertion to prevent the system from sleeping. This assertion is valid only when system is running on AC power. 
 .It Fl u 
 Create an assertion to declare that user is active. If the display is off, this option turns the display on and prevents the display from going into idle sleep. If a timeout is not specified with '-t' option, then this assertion is taken with a default of 5 second timeout.
 .It Fl t 
 Specifies the timeout value in seconds for which this assertion has to be valid. The assertion is dropped after the specified timeout. Timeout value is not used when an utility is invoked with this command.
 .El
+.Sh EXAMPLE
+.TP
+.Nm Fl i 
+make
+.br
+\t \t \t
+.Nm 
+forks a process, execs "make" in it, and holds an assertion that prevents idle sleep as long as that process is running.
+.Sh SEE ALSO
+.Xr pmset 1 
 .Sh LOCATION
 .Pa /usr/bin/caffeinate

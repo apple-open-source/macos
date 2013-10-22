@@ -19,6 +19,7 @@
 #import <Block.h>
 #import <stdio.h>
 #import <libkern/OSAtomic.h>
+#import <pthread.h>
 #import "test.h"
 
 int allocated = 0;
@@ -27,7 +28,7 @@ int recovered = 0;
 @interface TestObject : NSObject
 @end
 @implementation TestObject
-- init {
+- (id)init {
     // printf("allocated...\n");
     OSAtomicIncrement32(&allocated);
     return self;

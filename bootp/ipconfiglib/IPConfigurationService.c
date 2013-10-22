@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,8 +48,15 @@
 #include "symbol_scope.h"
 #include "cfutil.h"
 #include "ipconfig.h"
+#include "IPConfigurationLog.h"
 #include "IPConfigurationServiceInternal.h"
 #include "IPConfigurationService.h"
+
+const CFStringRef 
+kIPConfigurationServiceOptionMTU = _kIPConfigurationServiceOptionMTU;
+
+const CFStringRef 
+kIPConfigurationServiceOptionPerformNUD = _kIPConfigurationServiceOptionPerformNUD;
 
 /**
  ** IPConfigurationService
@@ -97,7 +104,7 @@ __IPConfigurationServiceCopyDebugDesc(CFTypeRef cf)
 			 cf, allocator);
     CFStringAppendFormat(result, NULL, CFSTR("ifname = %@, serviceID = %.*s"),
 			 service->ifname,
-			 CFDataGetLength(service->serviceID_data),
+			 (int)CFDataGetLength(service->serviceID_data),
 			 CFDataGetBytePtr(service->serviceID_data));
     CFStringAppend(result, CFSTR("}"));
     return (result);
@@ -120,15 +127,15 @@ __IPConfigurationServiceDeallocate(CFTypeRef cf)
 					   service_id, service_id_len,
 					   &status);
     if (kret != KERN_SUCCESS) {
-	fprintf(stderr, "__IPConfigurationServiceDeallocate: "
-		"ipconfig_remove_service_with_id(%.*s) failed, %s\n",
-		service_id_len, service_id, mach_error_string(kret));
+	IPConfigLogFL(LOG_NOTICE,
+		      "ipconfig_remove_service_with_id(%.*s) failed, %s",
+		      service_id_len, service_id, mach_error_string(kret));
     }
     else if (status != ipconfig_status_success_e) {
-	fprintf(stderr, "IPConfigurationServiceCreate: "
-		"ipconfig_add_service(%.*s) failed: %s\n",
-		service_id_len, service_id, 
-		ipconfig_status_string(status));
+	IPConfigLogFL(LOG_NOTICE,
+		      "ipconfig_add_service(%.*s) failed: %s",
+		      service_id_len, service_id, 
+		      ipconfig_status_string(status));
     }
     mach_port_deallocate(mach_task_self(), service->server);
     service->server = MACH_PORT_NULL;
@@ -173,21 +180,42 @@ __IPConfigurationServiceAllocate(CFAllocatorRef allocator)
 }
 
 STATIC CFDictionaryRef
-config_dict_create(pid_t pid)
+config_dict_create(pid_t pid, CFNumberRef mtu, CFBooleanRef perform_nud)
 {
+    int			count;
     CFDictionaryRef	config_dict;
-    const void *	keys[2];
+    const void *	keys[4];
     CFDictionaryRef	ipv6_dict;
     CFDictionaryRef	options;
-    const void *	values[2];
+    const void *	values[4];
 
-    /* create the options dictionary */
-    keys[0] = kIPConfigurationServiceOptionMonitorPID;
-    values[0] = kCFBooleanTrue;
-    keys[1] = kIPConfigurationServiceOptionNoPublish;
-    values[1] = kCFBooleanTrue;
+    /* monitor pid */    
+    count = 0;
+    keys[count] = _kIPConfigurationServiceOptionMonitorPID;
+    values[count] = kCFBooleanTrue;
+    count++;
+
+    /* no publish */
+    keys[count] = _kIPConfigurationServiceOptionNoPublish;
+    values[count] = kCFBooleanTrue;
+    count++;
+
+    /* mtu */
+    if (mtu != NULL) {
+	keys[count] = kIPConfigurationServiceOptionMTU;
+	values[count] = mtu;
+	count++;
+    }
+    
+    /* perform NUD */
+    if (perform_nud != NULL) {
+	keys[count] = kIPConfigurationServiceOptionPerformNUD;
+	values[count] = perform_nud;
+	count++;
+    }
+
     options
-	= CFDictionaryCreate(NULL, keys, values, 2,
+	= CFDictionaryCreate(NULL, keys, values, count,
 			     &kCFTypeDictionaryKeyCallBacks,
 			     &kCFTypeDictionaryValueCallBacks);
 
@@ -223,32 +251,6 @@ IPConfigurationServiceGetTypeID(void)
     return (__kIPConfigurationServiceTypeID);
 }
 
-/*
- * Function: IPConfigurationServiceCreate
- *
- * Purpose:
- *   Instantiate a new "service" over the specified interface
- *
- * Parameters:
- *   interface_name		: the BSD name of the interface e.g. "pdp_ip0"
- *   options			: must be NULL to signify creating an
- *				  IPv6 Automatic service over the interface,
- *				  and that the service should be made
- *				  ineligible for becoming primary.
- * Returns:
- *   Non-NULL IPConfigurationServiceRef if the service was successfully
- *   instantiated, NULL otherwise
- *
- * Note:
- * - When the last reference to the IPConfigurationServiceRef is removed by
- *   calling CFRelease(), the service is terminated by IPConfiguration.
- * - Invoking this function multiple times with the same parameters will
- *   cause an existing service to first be deallocated.  The net result
- *   is that there will only ever be one active service of the specified
- *   type for the specified interface.
- * - If the process that invokes this function terminates, the 
- *   service will be terminated by IPConfiguration.
- */
 IPConfigurationServiceRef
 IPConfigurationServiceCreate(CFStringRef interface_name, 
 			     CFDictionaryRef options)
@@ -257,6 +259,8 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     CFDataRef			data = NULL;
     if_name_t			if_name;
     kern_return_t		kret;
+    CFNumberRef			mtu = NULL;
+    CFBooleanRef		perform_nud = NULL;
     mach_port_t			server = MACH_PORT_NULL;
     IPConfigurationServiceRef	service = NULL;
     CFStringRef			serviceID;
@@ -268,17 +272,30 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     int				xml_data_len = 0;
 
     if (options != NULL) {
-	/* options must be NULL */
-	return (NULL);
+	mtu = CFDictionaryGetValue(options,
+				   kIPConfigurationServiceOptionMTU);
+	if (mtu != NULL && isA_CFNumber(mtu) == NULL) {
+	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
+			  kIPConfigurationServiceOptionMTU);
+	    mtu = NULL;
+	}
+	perform_nud 
+	    = CFDictionaryGetValue(options,
+				   kIPConfigurationServiceOptionPerformNUD);
+	if (perform_nud != NULL && isA_CFBoolean(perform_nud) == NULL) {
+	    IPConfigLogFL(LOG_NOTICE, "ignoring invalid '%@' option",
+			  kIPConfigurationServiceOptionPerformNUD);
+	    perform_nud = NULL;
+	}
     }
     kret = ipconfig_server_port(&server);
     if (kret != BOOTSTRAP_SUCCESS) {
-	fprintf(stderr,
-		"IPConfigurationServiceCreate: ipconfig_server_port, %s\n",
-		mach_error_string(kret));
+	IPConfigLogFL(LOG_NOTICE,
+		      "ipconfig_server_port, %s",
+		      mach_error_string(kret));
 	return (NULL);
     }
-    config_dict = config_dict_create(getpid());
+    config_dict = config_dict_create(getpid(), mtu, perform_nud);
     data = CFPropertyListCreateXMLData(NULL, config_dict);
     CFRelease(config_dict);
     xml_data_ptr = (void *)CFDataGetBytePtr(data);
@@ -291,9 +308,9 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
 				    service_id, &service_id_len,
 				    &status);
 	if (kret != KERN_SUCCESS) {
-	    fprintf(stderr, "IPConfigurationServiceCreate: "
-		    "ipconfig_add_service(%s) failed, %s\n",
-		    if_name, mach_error_string(kret));
+	    IPConfigLogFL(LOG_NOTICE,
+			  "ipconfig_add_service(%s) failed, %s",
+			  if_name, mach_error_string(kret));
 	    goto done;
 	}
 	if (status != ipconfig_status_duplicate_service_e) {
@@ -309,9 +326,9 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
 				      &status);
     }
     if (status != ipconfig_status_success_e) {
-	fprintf(stderr, "IPConfigurationServiceCreate: "
-		"ipconfig_add_service(%s) failed: %s\n",
-		if_name, ipconfig_status_string(status));
+	IPConfigLogFL(LOG_NOTICE,
+		      "ipconfig_add_service(%s) failed: %s",
+		      if_name, ipconfig_status_string(status));
 	goto done;
     }
 
@@ -357,52 +374,6 @@ IPConfigurationServiceGetNotificationKey(IPConfigurationServiceRef service)
     return (service->store_key);
 }
 
-/*
- * Function: IPConfigurationServiceCopyInformation
- *
- * Purpose:
- *   Retrieves the service information for the specified "service".  The
- *   format of the returned information is a dictionary of dictionaries.
- *   The key of each sub-dictionary is a kSCEntNet* key as defined in
- *   <SystemConfiguration/SCSchemaDefinitions.h>.  The value of each dictionary
- *   is a dictionary of keys matching the schema for the particular kSCEntNet*
- *   key.
- *
- * Parameters:
- *   service			: the service to monitor
- *
- * Returns:
- *   NULL if no information is ready for consumption, non-NULL dictionary of
- *   service information otherwise.
- * 
- * Example of returned information:
- * <dict>
- *     <key>IPv6</key>
- *     <dict>
- *         <key>Addresses</key>
- *         <array>
- *	       <string>2001:470:1f05:3cb:cabc:c8ff:fed9:125a</string>
- *             <string>2001:470:1f05:3cb:415c:9de:9cc4:7d12</string>
- *         <array>
- *         <key>InterfaceName</key>
- *         <string>pdp_ip0</string>
- *         <key>PrefixLength</key>
- *         <array>
- *             <integer>64</integer>
- *             <integer>64</integer>
- *         </array>
- *         <key>Router</key>
- *         <string>fe80::21f:f3ff:fe43:1abf</string>
- *     </dict>
- *     <key>DNS</key>
- *     <dict>
- *         <key>ServerAddresses</key>
- *         <array>
- *	       <string>2001:470:1f05:3cb::1</string>
- *         </array>
- *     </dict>
- * </dict>
- */
 CFDictionaryRef
 IPConfigurationServiceCopyInformation(IPConfigurationServiceRef service)
 {

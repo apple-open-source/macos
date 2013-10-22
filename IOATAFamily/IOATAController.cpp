@@ -2176,7 +2176,7 @@ IOATAController::ATAPISlaveExists( void )
 	// However, by ATA standards, a not present device is required to return 00h.
 	// Lucky break, no device and we figured it out in a hurry.
 	
-	if( (scratchByte == 0x00) )
+	if( scratchByte == 0x00 )
 	{
 		// enable device interrupt
 		*_tfAltSDevCReg = 0x00;

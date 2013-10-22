@@ -112,7 +112,6 @@ int main(int argc, char * const * argv)
         goto finish;
     }
     
-    // see comment below about clang not understanding exit() :P
     toolArgs.kextURL = CFURLCreateFromFileSystemRepresentation(
         kCFAllocatorDefault, (u_char *)toolArgs.kextName,
         strlen(toolArgs.kextName), /* isDirectory */ true);
@@ -271,21 +270,23 @@ int main(int argc, char * const * argv)
 
 finish:
 
-   /* We're done so we just exit without cleaning up.
-      clang's analyzer is now smart enough to know that exit() never
-      returns but not smart enough to know that it frees all resources.
+   /* Theoretically, we could exit w/o cleaning up.  However, 12569152
+      points out that while clang should know exit() cleans up, its
+      analyzer *should* treat CF objects differently: releasing them might
+      have (important, expected) side effects.  So we just clean up
+      everything and return from main, letting the runtime exit(result).
     */
-    exit(result);
+
 
     SAFE_FREE(arches);
 
     SAFE_RELEASE(toolArgs.repositoryURLs);
     SAFE_RELEASE(toolArgs.kextURL);
     SAFE_RELEASE(toolArgs.theKext);
-    SAFE_RELEASE(kexts);
+    SAFE_RELEASE(kexts);        // this is the one clang unexpectedly noticed
 
     if (libInfo) {
-        for (i = 0; numArches; i++) {
+        for (i = 0; i < numArches; i++) {
             SAFE_RELEASE_NULL(libInfo[i].libKexts);
             SAFE_RELEASE_NULL(libInfo[i].undefSymbols);
             SAFE_RELEASE_NULL(libInfo[i].onedefSymbols);

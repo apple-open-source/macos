@@ -1,0 +1,4 @@
+# mail facility has its own log file
+? [= Facility mail] claim only
+> /var/log/mail.log mode=0644 format=bsd rotate=seq compress file_max=5M all_max=50M
+* file /var/log/mail.log

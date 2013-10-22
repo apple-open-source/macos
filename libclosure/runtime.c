@@ -20,6 +20,12 @@
 #define osx_assert(_x) if (!(_x)) abort()
 #else
 #include <assumes.h>
+#ifndef osx_assumes
+#define osx_assumes(_x) os_assumes(_x)
+#endif
+#ifndef osx_assert
+#define osx_assert(_x) os_assert(_x)
+#endif
 #endif
 
 #if TARGET_OS_WIN32
@@ -51,7 +57,7 @@ Globals
 static void *_Block_copy_class = _NSConcreteMallocBlock;
 static void *_Block_copy_finalizing_class = _NSConcreteMallocBlock;
 static int _Block_copy_flag = BLOCK_NEEDS_FREE;
-static int _Byref_flag_initial_value = BLOCK_NEEDS_FREE | 4;  // logical 2
+static int _Byref_flag_initial_value = BLOCK_BYREF_NEEDS_FREE | 4;  // logical 2
 
 static bool isGC = false;
 
@@ -60,9 +66,9 @@ Internal Utilities
 ********************************************************************************/
 
 
-static int latching_incr_int(volatile int *where) {
+static int32_t latching_incr_int(volatile int32_t *where) {
     while (1) {
-        int old_value = *where;
+        int32_t old_value = *where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return BLOCK_REFCOUNT_MASK;
         }
@@ -72,10 +78,10 @@ static int latching_incr_int(volatile int *where) {
     }
 }
 
-static bool latching_incr_int_not_deallocating(volatile int *where) {
+static bool latching_incr_int_not_deallocating(volatile int32_t *where) {
     while (1) {
-        int old_value = *where;
-        if (old_value & 1) {
+        int32_t old_value = *where;
+        if (old_value & BLOCK_DEALLOCATING) {
             // if deallocating we can't do this
             return false;
         }
@@ -92,16 +98,16 @@ static bool latching_incr_int_not_deallocating(volatile int *where) {
 
 
 // return should_deallocate?
-static bool latching_decr_int_should_deallocate(volatile int *where) {
+static bool latching_decr_int_should_deallocate(volatile int32_t *where) {
     while (1) {
-        int old_value = *where;
+        int32_t old_value = *where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return false; // latched high
         }
         if ((old_value & BLOCK_REFCOUNT_MASK) == 0) {
             return false;   // underflow, latch low
         }
-        int new_value = old_value - 2;
+        int32_t new_value = old_value - 2;
         bool result = false;
         if ((old_value & (BLOCK_REFCOUNT_MASK|BLOCK_DEALLOCATING)) == 2) {
             new_value = old_value - 1;
@@ -114,16 +120,16 @@ static bool latching_decr_int_should_deallocate(volatile int *where) {
 }
 
 // hit zero?
-static bool latching_decr_int_now_zero(volatile int *where) {
+static bool latching_decr_int_now_zero(volatile int32_t *where) {
     while (1) {
-        int old_value = *where;
+        int32_t old_value = *where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return false; // latched high
         }
         if ((old_value & BLOCK_REFCOUNT_MASK) == 0) {
             return false;   // underflow, latch low
         }
-        int new_value = old_value - 2;
+        int32_t new_value = old_value - 2;
         if (OSAtomicCompareAndSwapInt(old_value, new_value, where)) {
             return (new_value & BLOCK_REFCOUNT_MASK) == 0;
         }
@@ -221,7 +227,7 @@ void _Block_use_GC( void *(*alloc)(const unsigned long, const bool isOne, const 
     // blocks with ctors & dtors need to have the dtor run from a class with a finalizer
     _Block_copy_finalizing_class = _NSConcreteFinalizingBlock;
     _Block_setHasRefcount = setHasRefcount;
-    _Byref_flag_initial_value = BLOCK_IS_GC;   // no refcount
+    _Byref_flag_initial_value = BLOCK_BYREF_IS_GC;   // no refcount
     _Block_retain_object = _Block_do_nothing;
     _Block_release_object = _Block_do_nothing;
     _Block_assign_weak = gc_assign_weak;
@@ -349,7 +355,7 @@ static void *_Block_copy_internal(const void *arg, const bool wantsOne) {
     // Its a stack block.  Make a copy.
     if (!isGC) {
         struct Block_layout *result = malloc(aBlock->descriptor->size);
-        if (!result) return (void *)0;
+        if (!result) return NULL;
         memmove(result, aBlock, aBlock->descriptor->size); // bitcopy first
         // reset refcount
         result->flags &= ~(BLOCK_REFCOUNT_MASK|BLOCK_DEALLOCATING);    // XXX not needed
@@ -361,10 +367,10 @@ static void *_Block_copy_internal(const void *arg, const bool wantsOne) {
     else {
         // Under GC want allocation with refcount 1 so we ask for "true" if wantsOne
         // This allows the copy helper routines to make non-refcounted block copies under GC
-        int flags = aBlock->flags;
+        int32_t flags = aBlock->flags;
         bool hasCTOR = (flags & BLOCK_HAS_CTOR) != 0;
         struct Block_layout *result = _Block_allocator(aBlock->descriptor->size, wantsOne, hasCTOR || _Block_has_layout(aBlock));
-        if (!result) return (void *)0;
+        if (!result) return NULL;
         memmove(result, aBlock, aBlock->descriptor->size); // bitcopy first
         // reset refcount
         // if we copy a malloc block to a GC block then we need to clear NEEDS_FREE.
@@ -399,7 +405,7 @@ static void _Block_byref_assign_copy(void *dest, const void *arg, const int flag
     struct Block_byref **destp = (struct Block_byref **)dest;
     struct Block_byref *src = (struct Block_byref *)arg;
         
-    if (src->forwarding->flags & BLOCK_IS_GC) {
+    if (src->forwarding->flags & BLOCK_BYREF_IS_GC) {
         ;   // don't need to do any more work
     }
     else if ((src->forwarding->flags & BLOCK_REFCOUNT_MASK) == 0) {
@@ -414,23 +420,31 @@ static void _Block_byref_assign_copy(void *dest, const void *arg, const int flag
         if (isWeak) {
             copy->isa = &_NSConcreteWeakBlockVariable;  // mark isa field so it gets weak scanning
         }
-        if (src->flags & BLOCK_HAS_COPY_DISPOSE) {
+        if (src->flags & BLOCK_BYREF_HAS_COPY_DISPOSE) {
             // Trust copy helper to copy everything of interest
             // If more than one field shows up in a byref block this is wrong XXX
-            copy->byref_keep = src->byref_keep;
-            copy->byref_destroy = src->byref_destroy;
-            (*src->byref_keep)(copy, src);
+            struct Block_byref_2 *src2 = (struct Block_byref_2 *)(src+1);
+            struct Block_byref_2 *copy2 = (struct Block_byref_2 *)(copy+1);
+            copy2->byref_keep = src2->byref_keep;
+            copy2->byref_destroy = src2->byref_destroy;
+
+            if (src->flags & BLOCK_BYREF_LAYOUT_EXTENDED) {
+                struct Block_byref_3 *src3 = (struct Block_byref_3 *)(src2+1);
+                struct Block_byref_3 *copy3 = (struct Block_byref_3*)(copy2+1);
+                copy3->layout = src3->layout;
+            }
+
+            (*src2->byref_keep)(copy, src);
         }
         else {
             // just bits.  Blast 'em using _Block_memmove in case they're __strong
-            _Block_memmove(
-                (void *)&copy->byref_keep,
-                (void *)&src->byref_keep,
-                src->size - sizeof(struct Block_byref_header));
+            // This copy includes Block_byref_3, if any.
+            _Block_memmove(copy+1, src+1,
+                           src->size - sizeof(struct Block_byref));
         }
     }
     // already copied to heap
-    else if ((src->forwarding->flags & BLOCK_NEEDS_FREE) == BLOCK_NEEDS_FREE) {
+    else if ((src->forwarding->flags & BLOCK_BYREF_NEEDS_FREE) == BLOCK_BYREF_NEEDS_FREE) {
         latching_incr_int(&src->forwarding->flags);
     }
     // assign byref data block pointer into new Block
@@ -439,24 +453,25 @@ static void _Block_byref_assign_copy(void *dest, const void *arg, const int flag
 
 // Old compiler SPI
 static void _Block_byref_release(const void *arg) {
-    struct Block_byref *shared_struct = (struct Block_byref *)arg;
-    unsigned int refcount;
+    struct Block_byref *byref = (struct Block_byref *)arg;
+    int32_t refcount;
 
     // dereference the forwarding pointer since the compiler isn't doing this anymore (ever?)
-    shared_struct = shared_struct->forwarding;
+    byref = byref->forwarding;
     
     // To support C++ destructors under GC we arrange for there to be a finalizer for this
     // by using an isa that directs the code to a finalizer that calls the byref_destroy method.
-    if ((shared_struct->flags & BLOCK_NEEDS_FREE) == 0) {
+    if ((byref->flags & BLOCK_BYREF_NEEDS_FREE) == 0) {
         return; // stack or GC or global
     }
-    refcount = shared_struct->flags & BLOCK_REFCOUNT_MASK;
+    refcount = byref->flags & BLOCK_REFCOUNT_MASK;
 	osx_assert(refcount);
-    if (latching_decr_int_should_deallocate(&shared_struct->flags)) {
-        if (shared_struct->flags & BLOCK_HAS_COPY_DISPOSE) {
-            (*shared_struct->byref_destroy)(shared_struct);
+    if (latching_decr_int_should_deallocate(&byref->flags)) {
+        if (byref->flags & BLOCK_BYREF_HAS_COPY_DISPOSE) {
+            struct Block_byref_2 *byref2 = (struct Block_byref_2 *)(byref+1);
+            (*byref2->byref_destroy)(byref);
         }
-        _Block_deallocator((struct Block_layout *)shared_struct);
+        _Block_deallocator((struct Block_layout *)byref);
     }
 }
 
@@ -564,10 +579,29 @@ const char * _Block_signature(void *aBlock)
 
 const char * _Block_layout(void *aBlock)
 {
+    // Don't return extended layout to callers expecting GC layout
+    struct Block_layout *layout = (struct Block_layout *)aBlock;
+    if (layout->flags & BLOCK_HAS_EXTENDED_LAYOUT) return NULL;
+
     struct Block_descriptor_3 *desc3 = _Block_descriptor_3(aBlock);
     if (!desc3) return NULL;
 
     return desc3->layout;
+}
+
+const char * _Block_extended_layout(void *aBlock)
+{
+    // Don't return GC layout to callers expecting extended layout
+    struct Block_layout *layout = (struct Block_layout *)aBlock;
+    if (! (layout->flags & BLOCK_HAS_EXTENDED_LAYOUT)) return NULL;
+
+    struct Block_descriptor_3 *desc3 = _Block_descriptor_3(aBlock);
+    if (!desc3) return NULL;
+
+    // Return empty string (all non-object bytes) instead of NULL 
+    // so callers can distinguish "empty layout" from "no layout".
+    if (!desc3->layout) return "";
+    else return desc3->layout;
 }
 
 #if !TARGET_OS_WIN32

@@ -64,8 +64,7 @@ by ``G'' or ``g''.
 Sizes less than 512 bytes or greater than a gigabyte are ignored.
 .It Ev EXINIT
 A startup list of commands read by
-.Xr ex  1  ,
-.Xr edit  1 ,
+.Xr ex  1
 and
 .Xr vi  1  .
 .It Ev HOME
@@ -94,34 +93,10 @@ The full pathname of the user's login shell.
 The kind of terminal for which output is to be prepared.
 This information is used by commands, such as
 .Xr nroff  1
-or
-.Xr plot 1
 which may exploit special terminal capabilities.  See
-.Pa /usr/share/misc/termcap
-.Pq Xr termcap 5
-for a list of terminal types.
-.It Ev TERMCAP
-The string describing the terminal in TERM, or, if
-it begins with a '/', the name of the termcap file.
-See
-.Ev TERMPATH
-below,
-.Xr termcap  5  ,
+.Xr termcap 3
 and
-.Xr termcap  .
-.It Ev TERMPATH
-A sequence of pathnames of termcap files, separated by colons or spaces,
-which are searched for terminal descriptions in the order listed.  Having
-no
-.Ev TERMPATH
-is equivalent to a
-.Ev TERMPATH
-of
-.Dq Pa $HOME/.termcap:/etc/termcap .
-.Ev TERMPATH
-is ignored if
-.Ev TERMCAP
-contains a full pathname.
+.Xr terminfo 5 .
 .It Ev TMPDIR
 The directory in which to store temporary files.
 Most applications use either
@@ -207,7 +182,7 @@ at runtime.
 .Xr execle 3 ,
 .Xr system 3 ,
 .Xr termcap 3 ,
-.Xr termcap 5
+.Xr terminfo 5
 .Sh HISTORY
 The
 .Nm environ

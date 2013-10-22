@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -13,6 +13,8 @@
 			buildPhases = (
 			);
 			dependencies = (
+				29BF238116767CEA00ED8003 /* PBXTargetDependency */,
+				29BF238316767CEA00ED8003 /* PBXTargetDependency */,
 				E2028118151185E8005A5B16 /* PBXTargetDependency */,
 			);
 			name = kexts_standalone;
@@ -36,9 +38,7 @@
 			buildPhases = (
 			);
 			dependencies = (
-				E202812A15118DD6005A5B16 /* PBXTargetDependency */,
 				E202811215118594005A5B16 /* PBXTargetDependency */,
-				E202810E1511854D005A5B16 /* PBXTargetDependency */,
 				E202810C15118541005A5B16 /* PBXTargetDependency */,
 			);
 			name = executables_standalone;
@@ -153,7 +153,6 @@
 		72B01E8E0BC48C5500C182DA /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0352AA410043263F11CA2A40 /* Localizable.strings */; };
 		72B01E8F0BC48C5500C182DA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A4E6EE770753FD89002458F8 /* InfoPlist.strings */; };
 		72B01E9A0BC48C5600C182DA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A4E64A23075E480A00FA0F9D /* InfoPlist.strings */; };
-		72B01E9B0BC48C5600C182DA /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = A4E64A25075E480A00FA0F9D /* MainMenu.nib */; };
 		72B01E9C0BC48C5600C182DA /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A4C36647075E96FB00A90178 /* Localizable.strings */; };
 		72B01E9E0BC48C5600C182DA /* Controller.m in Sources */ = {isa = PBXBuildFile; fileRef = A4E64A1F075E47B600FA0F9D /* Controller.m */; };
 		72B01E9F0BC48C5600C182DA /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A4E64A21075E47D900FA0F9D /* main.m */; };
@@ -178,6 +177,7 @@
 		72B01EC60BC48C5600C182DA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D13962DF047451780BCA2B4C /* Security.framework */; };
 		72B01EC70BC48C5600C182DA /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0352AA4C0043263F11CA2A40 /* System.framework */; };
 		72B01EC80BC48C5600C182DA /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0352AA4E0043263F11CA2A40 /* SystemConfiguration.framework */; };
+		72B56AC01630D8A2001E213E /* libxml.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B56ABF1630D8A2001E213E /* libxml.framework */; };
 		8F3CA6A713E22FDE00857B09 /* webdav_cookie.c in Sources */ = {isa = PBXBuildFile; fileRef = 8F3CA6A313E22FDD00857B09 /* webdav_cookie.c */; };
 		8F3CA6A813E22FDE00857B09 /* webdav_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 8F3CA6A513E22FDE00857B09 /* webdav_utils.c */; };
 		8F43CC000F86975B003A8789 /* webdavlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 8FBFB5480F868E09000B3B9B /* webdavlib.c */; };
@@ -194,6 +194,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		29BF238016767CEA00ED8003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0352A9F90043263F11CA2A40 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72B01E800BC48C5500C182DA;
+			remoteInfo = "load_webdav (Tool)";
+		};
+		29BF238216767CEA00ED8003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0352A9F90043263F11CA2A40 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72B01EAA0BC48C5600C182DA;
+			remoteInfo = webdavfs_agent;
+		};
 		8FBFB54D0F868E57000B3B9B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0352A9F90043263F11CA2A40 /* Project object */;
@@ -207,13 +221,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 72B01E600BC48C5500C182DA;
 			remoteInfo = "mount_webdav (Tool)";
-		};
-		E202810D1511854D005A5B16 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 0352A9F90043263F11CA2A40 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72B01EAA0BC48C5600C182DA;
-			remoteInfo = webdavfs_agent;
 		};
 		E202811115118594005A5B16 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -284,13 +291,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = E20280EE151183E8005A5B16;
 			remoteInfo = kexts_standalone;
-		};
-		E202812915118DD6005A5B16 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 0352A9F90043263F11CA2A40 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72B01E800BC48C5500C182DA;
-			remoteInfo = "load_webdav (Tool)";
 		};
 		E202812B15118E19005A5B16 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -392,6 +392,7 @@
 		72B01E970BC48C5600C182DA /* webdav.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = webdav.fs; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B01EA80BC48C5600C182DA /* webdav_cert_ui.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = webdav_cert_ui.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B01ECD0BC48C5600C182DA /* webdavfs_agent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = webdavfs_agent; sourceTree = BUILT_PRODUCTS_DIR; };
+		72B56ABF1630D8A2001E213E /* libxml.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = libxml.framework; path = ../../../../../System/Library/PrivateFrameworks/VCXMPP.framework/Versions/A/Frameworks/libxml.framework; sourceTree = "<group>"; };
 		8F096241118A5C2F00C03286 /* webdavfs.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = webdavfs.xcconfig; sourceTree = "<group>"; };
 		8F3CA6A313E22FDD00857B09 /* webdav_cookie.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = webdav_cookie.c; path = mount.tproj/webdav_cookie.c; sourceTree = "<group>"; };
 		8F3CA6A413E22FDD00857B09 /* webdav_cookie.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = webdav_cookie.h; path = mount.tproj/webdav_cookie.h; sourceTree = "<group>"; };
@@ -421,7 +422,6 @@
 		A4E64A1F075E47B600FA0F9D /* Controller.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = Controller.m; path = webdav_cert_ui.tproj/Controller.m; sourceTree = SOURCE_ROOT; };
 		A4E64A21075E47D900FA0F9D /* main.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = main.m; path = webdav_cert_ui.tproj/main.m; sourceTree = SOURCE_ROOT; };
 		A4E64A24075E480A00FA0F9D /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = webdav_cert_ui.tproj/English.lproj/InfoPlist.strings; sourceTree = SOURCE_ROOT; };
-		A4E64A26075E480A00FA0F9D /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = webdav_cert_ui.tproj/English.lproj/MainMenu.nib; sourceTree = SOURCE_ROOT; };
 		A4E64A2B075E486700FA0F9D /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		A4E64A2D075E488100FA0F9D /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		A4E64AC7075E4E6800FA0F9D /* SecurityInterface.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityInterface.framework; path = /System/Library/Frameworks/SecurityInterface.framework; sourceTree = "<absolute>"; };
@@ -460,6 +460,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72B56AC01630D8A2001E213E /* libxml.framework in Frameworks */,
 				72B01EC10BC48C5600C182DA /* CoreFoundation.framework in Frameworks */,
 				72B01EC20BC48C5600C182DA /* CoreServices.framework in Frameworks */,
 				72B01EC30BC48C5600C182DA /* Foundation.framework in Frameworks */,
@@ -487,6 +488,7 @@
 		0352A9FA0043263F11CA2A40 /* webdavfs */ = {
 			isa = PBXGroup;
 			children = (
+				72B56ABF1630D8A2001E213E /* libxml.framework */,
 				8F096241118A5C2F00C03286 /* webdavfs.xcconfig */,
 				0352A9FF0043263F11CA2A40 /* Subprojects */,
 				0352AA4A0043263F11CA2A40 /* External Frameworks and Libraries */,
@@ -760,7 +762,6 @@
 				A4C36647075E96FB00A90178 /* Localizable.strings */,
 				A4C35E63075E902E00A90178 /* Info.plist */,
 				A4E64A23075E480A00FA0F9D /* InfoPlist.strings */,
-				A4E64A25075E480A00FA0F9D /* MainMenu.nib */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -950,10 +951,10 @@
 		0352A9F90043263F11CA2A40 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0460;
 			};
 			buildConfigurationList = A4A08D5808FC777000820824 /* Build configuration list for PBXProject "webdavfs" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -1013,7 +1014,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				72B01E9A0BC48C5600C182DA /* InfoPlist.strings in Resources */,
-				72B01E9B0BC48C5600C182DA /* MainMenu.nib in Resources */,
 				72B01E9C0BC48C5600C182DA /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1122,6 +1122,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		29BF238116767CEA00ED8003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72B01E800BC48C5500C182DA /* load_webdav (Tool) */;
+			targetProxy = 29BF238016767CEA00ED8003 /* PBXContainerItemProxy */;
+		};
+		29BF238316767CEA00ED8003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72B01EAA0BC48C5600C182DA /* webdavfs_agent */;
+			targetProxy = 29BF238216767CEA00ED8003 /* PBXContainerItemProxy */;
+		};
 		8FBFB54E0F868E57000B3B9B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 8FBFB53B0F868C36000B3B9B /* webdavlib */;
@@ -1131,11 +1141,6 @@
 			isa = PBXTargetDependency;
 			target = 72B01E600BC48C5500C182DA /* mount_webdav (Tool) */;
 			targetProxy = E202810B15118541005A5B16 /* PBXContainerItemProxy */;
-		};
-		E202810E1511854D005A5B16 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72B01EAA0BC48C5600C182DA /* webdavfs_agent */;
-			targetProxy = E202810D1511854D005A5B16 /* PBXContainerItemProxy */;
 		};
 		E202811215118594005A5B16 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1186,11 +1191,6 @@
 			isa = PBXTargetDependency;
 			target = E20280EE151183E8005A5B16 /* kexts_standalone */;
 			targetProxy = E202812515118737005A5B16 /* PBXContainerItemProxy */;
-		};
-		E202812A15118DD6005A5B16 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72B01E800BC48C5500C182DA /* load_webdav (Tool) */;
-			targetProxy = E202812915118DD6005A5B16 /* PBXContainerItemProxy */;
 		};
 		E202812C15118E19005A5B16 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1247,14 +1247,6 @@
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
-		A4E64A25075E480A00FA0F9D /* MainMenu.nib */ = {
-			isa = PBXVariantGroup;
-			children = (
-				A4E64A26075E480A00FA0F9D /* English */,
-			);
-			name = MainMenu.nib;
-			sourceTree = "<group>";
-		};
 		A4E6EE770753FD89002458F8 /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -1271,13 +1263,12 @@
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1293,8 +1284,8 @@
 					"-Wmost",
 				);
 				OTHER_LDFLAGS = "";
-				PREBINDING = YES;
 				PRODUCT_NAME = http;
+				SDKROOT = macosx.internal;
 				VALID_ARCHS = "i386 x86_64";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -1305,12 +1296,11 @@
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /System/Library/Frameworks;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
@@ -1325,8 +1315,8 @@
 					"-Wmost",
 				);
 				OTHER_LDFLAGS = "";
-				PREBINDING = YES;
 				PRODUCT_NAME = http;
+				SDKROOT = macosx.internal;
 				VALID_ARCHS = "i386 x86_64";
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -1337,13 +1327,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG = 1;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1355,6 +1343,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = mount_webdav;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1375,11 +1364,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
@@ -1389,6 +1376,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = mount_webdav;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1409,12 +1397,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG = 1;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1434,10 +1421,11 @@
 				OTHER_CFLAGS = (
 					"-no-cpp-precomp",
 					"-fno-builtin",
+					"-msoft-float",
 				);
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = webdav_fs;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1455,10 +1443,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1475,10 +1462,11 @@
 				OTHER_CFLAGS = (
 					"-no-cpp-precomp",
 					"-fno-builtin",
+					"-msoft-float",
 				);
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = webdav_fs;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1496,18 +1484,16 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG = 1;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/include";
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/webdav_fs.kext/Contents/Resources";
 				LIBRARY_SEARCH_PATHS = "";
@@ -1516,6 +1502,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = load_webdav;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1536,14 +1523,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/include";
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/webdav_fs.kext/Contents/Resources";
 				LIBRARY_SEARCH_PATHS = "";
@@ -1552,6 +1537,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = load_webdav;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1572,13 +1558,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG = 1;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -1595,6 +1580,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = webdav;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1612,11 +1598,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
@@ -1631,6 +1616,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = webdav;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1648,12 +1634,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG = 1;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G4;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1670,8 +1655,8 @@
 					AppKit,
 				);
 				OTHER_REZFLAGS = "";
-				PREBINDING = YES;
 				PRODUCT_NAME = webdav_cert_ui;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1687,10 +1672,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G4;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1706,8 +1690,8 @@
 					AppKit,
 				);
 				OTHER_REZFLAGS = "";
-				PREBINDING = YES;
 				PRODUCT_NAME = webdav_cert_ui;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1723,20 +1707,26 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG = 1;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/VCXMPP.framework/Versions/A/Frameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_VERSION = "";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				HEADER_SEARCH_PATHS = /usr/local/include;
+				HEADER_SEARCH_PATHS = (
+					"$(SDKROOT)/usr/include",
+					"$(SDKROOT)/usr/include/libxml2",
+				);
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/webdav_fs.kext/Contents/Resources";
 				OTHER_CFLAGS = (
 					"-no-cpp-precomp",
@@ -1749,7 +1739,9 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = webdavfs_agent;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
+				USER_HEADER_SEARCH_PATHS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmissing-declarations",
@@ -1769,20 +1761,26 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG = "";
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/VCXMPP.framework/Versions/A/Frameworks\"";
 				GCC_DYNAMIC_NO_PIC = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_VERSION = "";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				HEADER_SEARCH_PATHS = /usr/local/include;
+				HEADER_SEARCH_PATHS = (
+					"$(SDKROOT)/usr/include",
+					"$(SDKROOT)/usr/include/libxml2",
+				);
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/webdav_fs.kext/Contents/Resources";
 				OTHER_CFLAGS = (
 					"-no-cpp-precomp",
@@ -1795,7 +1793,9 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = webdavfs_agent;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
+				USER_HEADER_SEARCH_PATHS = "";
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmissing-declarations",
@@ -1816,16 +1816,15 @@
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/lib;
-				PREBINDING = NO;
 				PRODUCT_NAME = webdavlib;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 			};
@@ -1836,15 +1835,14 @@
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/lib;
-				PREBINDING = NO;
 				PRODUCT_NAME = webdavlib;
+				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
 				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				ZERO_LINK = NO;
@@ -1868,6 +1866,7 @@
 		E20280EF151183E8005A5B16 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1875,6 +1874,7 @@
 		E20280F0151183E8005A5B16 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1882,6 +1882,7 @@
 		E20280F51511840E005A5B16 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1889,6 +1890,7 @@
 		E20280F61511840E005A5B16 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1896,6 +1898,7 @@
 		E20280F91511842A005A5B16 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1903,6 +1906,7 @@
 		E20280FA1511842A005A5B16 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1910,6 +1914,8 @@
 		E20280FD1511845C005A5B16 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1917,6 +1923,8 @@
 		E20280FE1511845C005A5B16 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1924,6 +1932,7 @@
 		E202810115118469005A5B16 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1931,6 +1940,7 @@
 		E202810215118469005A5B16 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1938,6 +1948,7 @@
 		E202810515118479005A5B16 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1945,6 +1956,7 @@
 		E202810615118479005A5B16 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1952,6 +1964,7 @@
 		E20281091511848C005A5B16 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1959,6 +1972,7 @@
 		E202810A1511848C005A5B16 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1966,6 +1980,7 @@
 		E284C65314BFAB3C00E07082 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1973,6 +1988,7 @@
 		E284C65414BFAB3C00E07082 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1980,6 +1996,7 @@
 		E284C65914BFAB4800E07082 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -1987,6 +2004,7 @@
 		E284C65A14BFAB4800E07082 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -1994,6 +2012,7 @@
 		E284C65D14BFAB5200E07082 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Development;
@@ -2001,6 +2020,7 @@
 		E284C65E14BFAB5200E07082 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
@@ -2008,14 +2028,18 @@
 		E284C67B14C0988800E07082 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
 			};
 			name = Development;
 		};
 		E284C67C14C0988800E07082 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
 			};
 			name = Deployment;
 		};
@@ -2110,6 +2134,7 @@
 				E20280F0151183E8005A5B16 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 		E20280F41511840E005A5B16 /* Build configuration list for PBXAggregateTarget "library_standalone" */ = {
 			isa = XCConfigurationList;
@@ -2118,6 +2143,7 @@
 				E20280F61511840E005A5B16 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 		E20280F81511842A005A5B16 /* Build configuration list for PBXAggregateTarget "executables_standalone" */ = {
 			isa = XCConfigurationList;
@@ -2126,6 +2152,7 @@
 				E20280FA1511842A005A5B16 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 		E20280FC1511845C005A5B16 /* Build configuration list for PBXAggregateTarget "webdavfs_base" */ = {
 			isa = XCConfigurationList;
@@ -2134,6 +2161,7 @@
 				E20280FE1511845C005A5B16 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 		E202810015118469005A5B16 /* Build configuration list for PBXAggregateTarget "webdavfs_executables" */ = {
 			isa = XCConfigurationList;
@@ -2142,6 +2170,7 @@
 				E202810215118469005A5B16 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 		E202810415118479005A5B16 /* Build configuration list for PBXAggregateTarget "webdavfs_frameworks" */ = {
 			isa = XCConfigurationList;
@@ -2150,6 +2179,7 @@
 				E202810615118479005A5B16 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 		E20281081511848C005A5B16 /* Build configuration list for PBXAggregateTarget "webdavfs_kexts" */ = {
 			isa = XCConfigurationList;
@@ -2158,6 +2188,7 @@
 				E202810A1511848C005A5B16 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
 		};
 		E284C65514BFAB3C00E07082 /* Build configuration list for PBXAggregateTarget "executables" */ = {
 			isa = XCConfigurationList;

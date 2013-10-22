@@ -1,5 +1,5 @@
 /*
- * "$Id: admin.c 8029 2008-10-08 21:07:45Z mike $"
+ * "$Id: admin.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Administration CGI for CUPS.
  *
@@ -962,13 +962,13 @@ do_am_printer(http_t *http,		/* I - HTTP connection */
       else if (!_cups_strncasecmp(make, "laserjet", 8) ||
                !_cups_strncasecmp(make, "deskjet", 7) ||
                !_cups_strncasecmp(make, "designjet", 9))
-        strcpy(make, "HP");
+        strlcpy(make, "HP", sizeof(make));
       else if (!_cups_strncasecmp(make, "phaser", 6))
-        strcpy(make, "Xerox");
+        strlcpy(make, "Xerox", sizeof(make));
       else if (!_cups_strncasecmp(make, "stylus", 6))
-        strcpy(make, "Epson");
+        strlcpy(make, "Epson", sizeof(make));
       else
-        strcpy(make, "Generic");
+        strlcpy(make, "Generic", sizeof(make));
 
       if (!cgiGetVariable("CURRENT_MAKE"))
         cgiSetVariable("CURRENT_MAKE", make);
@@ -4187,7 +4187,7 @@ get_option_value(
     if (bufptr == buffer || (bufend - bufptr) < 2)
       return (NULL);
 
-    strcpy(bufptr, "}");
+    memcpy(bufptr, "}", 2);
   }
 
   return (buffer);
@@ -4218,5 +4218,5 @@ get_points(double     number,		/* I - Original number */
 
 
 /*
- * End of "$Id: admin.c 8029 2008-10-08 21:07:45Z mike $".
+ * End of "$Id: admin.c 11093 2013-07-03 20:48:42Z msweet $".
  */

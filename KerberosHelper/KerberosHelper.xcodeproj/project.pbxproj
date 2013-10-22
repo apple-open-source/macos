@@ -112,7 +112,6 @@
 				EB689477153C9F7400A6E4DE /* PBXTargetDependency */,
 				EB3CCA7D14DE3EFB008E9787 /* PBXTargetDependency */,
 				EB3CCA7714DE3EA4008E9787 /* PBXTargetDependency */,
-				EB3CCA6914DE3E3D008E9787 /* PBXTargetDependency */,
 				EB3CCA6714DE3E3D008E9787 /* PBXTargetDependency */,
 				EB3CCA7114DE3E65008E9787 /* PBXTargetDependency */,
 				EB3CCA7314DE3E84008E9787 /* PBXTargetDependency */,
@@ -122,6 +121,7 @@
 				EB3CCA6114DE3E3D008E9787 /* PBXTargetDependency */,
 				EB3CCA6314DE3E3D008E9787 /* PBXTargetDependency */,
 				EB3CCA6B14DE3E3D008E9787 /* PBXTargetDependency */,
+				EB2E5E3D15D998C4007A8B5D /* PBXTargetDependency */,
 			);
 			name = KerberosHelper_executables;
 			productName = KerberosHelper_executables;
@@ -204,6 +204,11 @@
 		EB24BF07138F825900C459CB /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCD5AA1114335D800B964AB /* GSS.framework */; };
 		EB2C84990F1701EC004CB289 /* migrateLocalKDC in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2C84970F1701A7004CB289 /* migrateLocalKDC */; };
 		EB2C84B00F170302004CB289 /* configureLocalKDC.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2C84AF0F1702F3004CB289 /* configureLocalKDC.1 */; };
+		EB2E5E3015D99685007A8B5D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB2E5E2F15D99685007A8B5D /* CoreFoundation.framework */; };
+		EB2E5E3915D9969A007A8B5D /* DiskUnmountWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = EBCD599111431B3900B964AB /* DiskUnmountWatcher.c */; };
+		EB2E5E3A15D99859007A8B5D /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */; };
+		EB2E5E3B15D9987E007A8B5D /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */; };
+		EB2E5E4015D99A35007A8B5D /* com.apple.security.DiskUnmountWatcher.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2E5E3E15D9992F007A8B5D /* com.apple.security.DiskUnmountWatcher.plist */; };
 		EB344AA711782CC00071D316 /* na.c in Sources */ = {isa = PBXBuildFile; fileRef = EB344AA511782CC00071D316 /* na.c */; };
 		EB344AA811782CC00071D316 /* NetworkAuthenticationHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = EB344AA611782CC00071D316 /* NetworkAuthenticationHelper.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		EB3642FE11DE314B00FB1F2E /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB3642FD11DE314B00FB1F2E /* CoreServices.framework */; };
@@ -225,10 +230,6 @@
 		EB9E5BE20F8EED9E00CC9075 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */; };
 		EB9E5D060F8FD77600CC9075 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */; };
 		EBB59D130F8C1D7D00D324F6 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */; };
-		EBCD59A911431B9700B964AB /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */; };
-		EBCD59AA11431B9700B964AB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D176D0380BC3A42600424D2A /* CoreFoundation.framework */; };
-		EBCD59AB11431B9700B964AB /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */; };
-		EBCD59B511431C0300B964AB /* DiskUnmountWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = EBCD599111431B3900B964AB /* DiskUnmountWatcher.c */; };
 		EBCD5AA2114335D800B964AB /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCD5AA1114335D800B964AB /* GSS.framework */; };
 		EBCD5AD811433FF100B964AB /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */; };
 		EBCD5AF81143400000B964AB /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */; };
@@ -313,6 +314,13 @@
 			remoteGlobalIDString = EB1A3B810E76119F00D37DF1;
 			remoteInfo = "dns-register";
 		};
+		EB2E5E3C15D998C4007A8B5D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB2E5E2B15D99685007A8B5D;
+			remoteInfo = DiskUnwatchWatcher;
+		};
 		EB3CCA6014DE3E3D008E9787 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
@@ -333,13 +341,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = EB23424E108FCED500FFFF56;
 			remoteInfo = "lkdc-cert-hash";
-		};
-		EB3CCA6814DE3E3D008E9787 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EBCD59A111431B6D00B964AB;
-			remoteInfo = DiskUnmountWatcher;
 		};
 		EB3CCA6A14DE3E3D008E9787 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -512,6 +513,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		EB2E5E3F15D99A28007A8B5D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchAgents;
+			dstSubfolderSpec = 0;
+			files = (
+				EB2E5E4015D99A35007A8B5D /* com.apple.security.DiskUnmountWatcher.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -578,6 +589,9 @@
 		EB24BF02138F821E00C459CB /* NAHSample.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NAHSample.m; sourceTree = "<group>"; };
 		EB2C84970F1701A7004CB289 /* migrateLocalKDC */ = {isa = PBXFileReference; explicitFileType = text.script.perl; fileEncoding = 4; name = migrateLocalKDC; path = Source/migrateLocalKDC; sourceTree = "<group>"; };
 		EB2C84AF0F1702F3004CB289 /* configureLocalKDC.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = configureLocalKDC.1; path = Source/configureLocalKDC.1; sourceTree = "<group>"; };
+		EB2E5E2C15D99685007A8B5D /* DiskUnwatchWatcher */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DiskUnwatchWatcher; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB2E5E2F15D99685007A8B5D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		EB2E5E3E15D9992F007A8B5D /* com.apple.security.DiskUnmountWatcher.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.security.DiskUnmountWatcher.plist; sourceTree = "<group>"; };
 		EB344AA511782CC00071D316 /* na.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = na.c; path = Source/na.c; sourceTree = "<group>"; };
 		EB344AA611782CC00071D316 /* NetworkAuthenticationHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = NetworkAuthenticationHelper.h; path = Source/NetworkAuthenticationHelper.h; sourceTree = "<group>"; };
 		EB3642FD11DE314B00FB1F2E /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
@@ -592,8 +606,6 @@
 		EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
 		EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		EBCD599111431B3900B964AB /* DiskUnmountWatcher.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DiskUnmountWatcher.c; path = Source/DiskUnmountWatcher.c; sourceTree = "<group>"; };
-		EBCD59A211431B6D00B964AB /* DiskUnmountWatcher.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiskUnmountWatcher.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
-		EBCD59A311431B6D00B964AB /* DiskUnmountWatcher-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DiskUnmountWatcher-Info.plist"; sourceTree = "<group>"; };
 		EBCD5AA1114335D800B964AB /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = /System/Library/Frameworks/GSS.framework; sourceTree = "<absolute>"; };
 		EBCD5ACC11433FAE00B964AB /* KRBDecodeNegTokenInit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KRBDecodeNegTokenInit.c; path = Tests/KRBDecodeNegTokenInit.c; sourceTree = "<group>"; };
 		EBCD5AD211433FCE00B964AB /* KRBDecodeNegTokenInit */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = KRBDecodeNegTokenInit; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -705,6 +717,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB2E5E2915D99685007A8B5D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB2E5E3B15D9987E007A8B5D /* DiskArbitration.framework in Frameworks */,
+				EB2E5E3A15D99859007A8B5D /* KerberosHelper.framework in Frameworks */,
+				EB2E5E3015D99685007A8B5D /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB8BFC7E11798BE80003BE65 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -731,16 +753,6 @@
 			files = (
 				EB9CC40E0E1B8CD2009B3162 /* Security.framework in Frameworks */,
 				EB9CC4160E1B8D6B009B3162 /* CoreFoundation.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		EBCD59A011431B6D00B964AB /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				EBCD59A911431B9700B964AB /* KerberosHelper.framework in Frameworks */,
-				EBCD59AA11431B9700B964AB /* CoreFoundation.framework in Frameworks */,
-				EBCD59AB11431B9700B964AB /* DiskArbitration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -780,11 +792,11 @@
 				EB98FFC50E83FE5E003DAF03 /* kcc-debug */,
 				EBE3B3CC0EDA1E22005F37A5 /* kget-friendly-name */,
 				EB23424F108FCED500FFFF56 /* lkdc-cert-hash */,
-				EBCD59A211431B6D00B964AB /* DiskUnmountWatcher.plugin */,
 				EBCD5AD211433FCE00B964AB /* KRBDecodeNegTokenInit */,
 				EB8BFC8011798BE80003BE65 /* test-na */,
 				EB04AF03123EF7B400AA6C31 /* NSURLConnection */,
 				EB24BEF8138F81ED00C459CB /* NAHSample */,
+				EB2E5E2C15D99685007A8B5D /* DiskUnwatchWatcher */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -800,6 +812,7 @@
 				089C1665FE841158C02AAC07 /* Resources */,
 				0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */,
 				EB24BEFA138F81ED00C459CB /* NAHSample */,
+				EB2E5E2E15D99685007A8B5D /* Frameworks */,
 				034768DFFF38A50411DB9C8B /* Products */,
 				EB9CC41F0E1B8DC8009B3162 /* libSystem.B.dylib */,
 				EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */,
@@ -823,13 +836,13 @@
 		089C1665FE841158C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				EBCD59A311431B6D00B964AB /* DiskUnmountWatcher-Info.plist */,
 				D176D0560BC3A5F300424D2A /* KerberosHelper.exports */,
 				8DC2EF5A0486A6940098B216 /* Info.plist */,
 				72859FD80C8A02680024051E /* com.apple.KerberosHelper.LKDCHelper.plist */,
 				72B1FD050BCC42720015ABA8 /* LKDCLocate-Info.plist */,
 				72DEA5E40BCC56F4001BADAB /* KerberosHelper-Info.plist */,
 				089C1666FE841158C02AAC07 /* InfoPlist.strings */,
+				EB2E5E3E15D9992F007A8B5D /* com.apple.security.DiskUnmountWatcher.plist */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -926,6 +939,14 @@
 				EB24BF02138F821E00C459CB /* NAHSample.m */,
 			);
 			path = NAHSample;
+			sourceTree = "<group>";
+		};
+		EB2E5E2E15D99685007A8B5D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				EB2E5E2F15D99685007A8B5D /* CoreFoundation.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1169,6 +1190,23 @@
 			productReference = EB24BEF8138F81ED00C459CB /* NAHSample */;
 			productType = "com.apple.product-type.tool";
 		};
+		EB2E5E2B15D99685007A8B5D /* DiskUnmountWatcher */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB2E5E3615D99685007A8B5D /* Build configuration list for PBXNativeTarget "DiskUnmountWatcher" */;
+			buildPhases = (
+				EB2E5E2815D99685007A8B5D /* Sources */,
+				EB2E5E2915D99685007A8B5D /* Frameworks */,
+				EB2E5E3F15D99A28007A8B5D /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DiskUnmountWatcher;
+			productName = DiskUnwatchWatcher;
+			productReference = EB2E5E2C15D99685007A8B5D /* DiskUnwatchWatcher */;
+			productType = "com.apple.product-type.tool";
+		};
 		EB8BFC7F11798BE80003BE65 /* test-na */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EB8BFC8411798C220003BE65 /* Build configuration list for PBXNativeTarget "test-na" */;
@@ -1217,23 +1255,6 @@
 			productName = lkdc_acl;
 			productReference = EB9CC3900E1B8C54009B3162 /* lkdc_acl */;
 			productType = "com.apple.product-type.tool";
-		};
-		EBCD59A111431B6D00B964AB /* DiskUnmountWatcher */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = EBCD59A611431B7000B964AB /* Build configuration list for PBXNativeTarget "DiskUnmountWatcher" */;
-			buildPhases = (
-				EBCD599E11431B6D00B964AB /* Resources */,
-				EBCD599F11431B6D00B964AB /* Sources */,
-				EBCD59A011431B6D00B964AB /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = DiskUnmountWatcher;
-			productName = DiskUnmountWatcher;
-			productReference = EBCD59A211431B6D00B964AB /* DiskUnmountWatcher.plugin */;
-			productType = "com.apple.product-type.bundle";
 		};
 		EBCD5AD111433FCE00B964AB /* KRBDecodeNegTokenInit */ = {
 			isa = PBXNativeTarget;
@@ -1310,12 +1331,12 @@
 				EB98FFC40E83FE5E003DAF03 /* kcc-debug */,
 				EBE3B3CB0EDA1E22005F37A5 /* kget-friendly-name */,
 				EB23424E108FCED500FFFF56 /* lkdc-cert-hash */,
-				EBCD59A111431B6D00B964AB /* DiskUnmountWatcher */,
 				EBCD5AD111433FCE00B964AB /* KRBDecodeNegTokenInit */,
 				EB8BFC7F11798BE80003BE65 /* test-na */,
 				727C12FE11F62134003772C6 /* migration-test */,
 				EB04AF02123EF7B400AA6C31 /* NSURLConnection */,
 				EB24BEF7138F81ED00C459CB /* NAHSample */,
+				EB2E5E2B15D99685007A8B5D /* DiskUnmountWatcher */,
 			);
 		};
 /* End PBXProject section */
@@ -1329,13 +1350,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		72DEA5DF0BCC56F4001BADAB /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		EBCD599E11431B6D00B964AB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1454,6 +1468,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB2E5E2815D99685007A8B5D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB2E5E3915D9969A007A8B5D /* DiskUnmountWatcher.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB8BFC7D11798BE80003BE65 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1476,14 +1498,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				EB9CC3950E1B8C77009B3162 /* lkdc_acl.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		EBCD599F11431B6D00B964AB /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				EBCD59B511431C0300B964AB /* DiskUnmountWatcher.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1556,6 +1570,11 @@
 			target = EB1A3B810E76119F00D37DF1 /* dns-register */;
 			targetProxy = EB1A3B880E7611CA00D37DF1 /* PBXContainerItemProxy */;
 		};
+		EB2E5E3D15D998C4007A8B5D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB2E5E2B15D99685007A8B5D /* DiskUnmountWatcher */;
+			targetProxy = EB2E5E3C15D998C4007A8B5D /* PBXContainerItemProxy */;
+		};
 		EB3CCA6114DE3E3D008E9787 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72C36BA80BE29662002813A1 /* lkdc_lookup */;
@@ -1570,11 +1589,6 @@
 			isa = PBXTargetDependency;
 			target = EB23424E108FCED500FFFF56 /* lkdc-cert-hash */;
 			targetProxy = EB3CCA6614DE3E3D008E9787 /* PBXContainerItemProxy */;
-		};
-		EB3CCA6914DE3E3D008E9787 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EBCD59A111431B6D00B964AB /* DiskUnmountWatcher */;
-			targetProxy = EB3CCA6814DE3E3D008E9787 /* PBXContainerItemProxy */;
 		};
 		EB3CCA6B14DE3E3D008E9787 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2324,6 +2338,53 @@
 			};
 			name = Release;
 		};
+		EB2E5E3715D99685007A8B5D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper/Helpers;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB2E5E3815D99685007A8B5D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper/Helpers;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		EB3CCA5714DE3DE6008E9787 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2423,31 +2484,6 @@
 				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
 				PRODUCT_NAME = lkdc_acl;
 				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		EBCD59A411431B7000B964AB /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				INFOPLIST_FILE = "DiskUnmountWatcher-Info.plist";
-				INSTALL_PATH = /System/Library/UserEventPlugins;
-				PRODUCT_NAME = DiskUnmountWatcher;
-				WRAPPER_EXTENSION = plugin;
-			};
-			name = Debug;
-		};
-		EBCD59A511431B7000B964AB /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INFOPLIST_FILE = "DiskUnmountWatcher-Info.plist";
-				INSTALL_PATH = /System/Library/UserEventPlugins;
-				PRODUCT_NAME = DiskUnmountWatcher;
-				WRAPPER_EXTENSION = plugin;
 			};
 			name = Release;
 		};
@@ -2715,6 +2751,14 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		EB2E5E3615D99685007A8B5D /* Build configuration list for PBXNativeTarget "DiskUnmountWatcher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB2E5E3715D99685007A8B5D /* Debug */,
+				EB2E5E3815D99685007A8B5D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
 		EB3CCA5914DE3DE6008E9787 /* Build configuration list for PBXAggregateTarget "KerberosHelper_executables" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2747,15 +2791,6 @@
 			buildConfigurations = (
 				EB9CC3920E1B8C55009B3162 /* Debug */,
 				EB9CC3930E1B8C55009B3162 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		EBCD59A611431B7000B964AB /* Build configuration list for PBXNativeTarget "DiskUnmountWatcher" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				EBCD59A411431B7000B964AB /* Debug */,
-				EBCD59A511431B7000B964AB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

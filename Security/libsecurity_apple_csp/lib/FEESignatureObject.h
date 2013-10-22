@@ -25,7 +25,6 @@
 #ifndef	_FEE_SIGNATURE_OBJECT_H_
 #define _FEE_SIGNATURE_OBJECT_H_
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <security_cryptkit/feePublicKey.h>
 #include <security_cryptkit/feeECDSA.h>
 #include "FEECSPUtils.h"

@@ -200,6 +200,7 @@ typedef struct __OSKext {
 
         unsigned int      hasIOKitDebugProperty:1;
         unsigned int      warnForMismatchedKmodInfo:1;
+        unsigned int      isSigned:1;
     } flags;
 
 } __OSKext, * __OSKextRef;
@@ -448,6 +449,9 @@ const CFStringRef kOSKextDiagnosticBundleVersionMismatchKey =
 const CFStringRef kOSKextDiagnosticsDependencyNotOSBundleRequired =
                   CFSTR("Dependency lacks appropriate value for OSBundleRequired "
                   "and may not be availalble during early boot");
+
+const CFStringRef kOSKextDiagnosticNotSignedKey =
+                  CFSTR("Kext is not signed");
 
 /* Dependency resolution diagnostic strings.
  */
@@ -930,7 +934,7 @@ static void __OSKextInitialize(void)
     CFAllocatorRef     nonrefcountAllocator = NULL;  // must release
 
     // must release each
-    CFURLRef  systemFolders[_kOSKextNumSystemExtensionsFolders] = { 0, };
+    CFURLRef  extensionsDirs[_kOSKextNumSystemExtensionsFolders] = { 0, 0 };
 
     int    numValues;
 
@@ -950,16 +954,28 @@ static void __OSKextInitialize(void)
         OSKextLogMemError();
         goto finish;
     }
-    systemFolders[0] = CFURLCreateFromFileSystemRepresentation(
-        nonrefcountAllocator,
-        (const UInt8 *)_kOSKextSystemLibraryExtensionsFolder,
-        strlen(_kOSKextSystemLibraryExtensionsFolder),
-        /* isDir */ true);
-    __sOSKextSystemExtensionsFolderURLs = CFArrayCreate(nonrefcountAllocator,
-        (const void **)systemFolders,
-        _kOSKextNumSystemExtensionsFolders,
-        &kCFTypeArrayCallBacks);
-    if (!systemFolders[0] || !__sOSKextSystemExtensionsFolderURLs) {
+    
+    extensionsDirs[0] = CFURLCreateFromFileSystemRepresentation(
+                nonrefcountAllocator,
+                (const UInt8 *)_kOSKextSystemLibraryExtensionsFolder,
+                strlen(_kOSKextSystemLibraryExtensionsFolder),
+                /* isDir */ true);
+    
+    extensionsDirs[1] = CFURLCreateFromFileSystemRepresentation(
+                nonrefcountAllocator,
+                (const UInt8 *)_kOSKextLibraryExtensionsFolder,
+                strlen(_kOSKextLibraryExtensionsFolder),
+                /* isDir */ true);
+    
+    __sOSKextSystemExtensionsFolderURLs = CFArrayCreate(
+                    nonrefcountAllocator,
+                    (const void **)extensionsDirs,
+                    _kOSKextNumSystemExtensionsFolders,
+                    &kCFTypeArrayCallBacks);
+    
+    if (!extensionsDirs[0] ||
+        !extensionsDirs[1] ||
+        !__sOSKextSystemExtensionsFolderURLs) {
         OSKextLogMemError();
         goto finish;
     }
@@ -1239,6 +1255,7 @@ finish:
             kOSKextLogErrorLevel |
             kOSKextLogGeneralFlag | kOSKextLogIPCFlag,
             "Can't read running kernel architecture.");
+        result = &__sOSKextUnknownArchInfo;
     }
     return result;
 }
@@ -1907,7 +1924,17 @@ Boolean __OSKextRecordKextInIdentifierDict(
         */
         if (__sOSKextStrictRecordingByLastOpened) {
             CFMutableArrayRef kextsWithSameID = (CFMutableArrayRef)foundEntry;
-            CFArrayInsertValueAtIndex(kextsWithSameID, 0, aKext);
+            CFIndex           i;
+            
+            /* check to see if we've already added this kext (can happen when
+             * __OSKextProcessInfoDictionary is called before __OSKextRecordKext)
+             * <rdar://problem/11843581>
+             */
+            i = CFArrayGetFirstIndexOfValue(kextsWithSameID,
+                                            RANGE_ALL(kextsWithSameID), aKext);
+            if (i == kCFNotFound) {
+                CFArrayInsertValueAtIndex(kextsWithSameID, 0, aKext);
+            }
         } else {
 
             CFMutableArrayRef kextsWithSameID      = (CFMutableArrayRef)foundEntry;
@@ -2203,9 +2230,9 @@ CFMutableArrayRef __OSKextCreateKextsFromURL(
     } else if (!CFBooleanGetValue(dirExists)) {
         if (!aKext) {
             OSKextLog(aKext,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "%s - no such file or directory.",
-                urlPath);
+                kOSKextLogProgressLevel | kOSKextLogFileAccessFlag,
+                "%s: %s - no such file or directory.",
+                __func__, urlPath);
         }
         goto finish;
     }
@@ -2903,9 +2930,9 @@ CFURLRef __OSKextCreateCacheFileURL(
         */
         if (!__OSKextURLIsSystemFolder(folderURL)) {
             OSKextLogCFString(/* kext */ NULL,
-                kOSKextLogProgressLevel | kOSKextLogKextBookkeepingFlag,
-                CFSTR("%@ is not a system extensions folder; not looking for a cache."),
-                folderAbsPath);
+                              kOSKextLogProgressLevel | kOSKextLogKextBookkeepingFlag,
+                              CFSTR("%@ is not a system extensions folder; not looking for a cache."),
+                              folderAbsPath);
             goto finish;
         }
     } else if (folderURLsOrURL == OSKextGetSystemExtensionsFolderURLs()) {
@@ -3110,8 +3137,9 @@ Boolean __OSKextURLIsSystemFolder(CFURLRef folderURL)
         goto finish;
     }
     if (kCFNotFound == CFArrayGetFirstIndexOfValue(
-        __sOSKextSystemExtensionsFolderURLs,
-        RANGE_ALL(__sOSKextSystemExtensionsFolderURLs), folderAbsURL)) {
+                            __sOSKextSystemExtensionsFolderURLs,
+                            RANGE_ALL(__sOSKextSystemExtensionsFolderURLs),
+                            folderAbsURL)) {
 
         goto finish;
     }
@@ -3179,6 +3207,8 @@ Boolean __OSKextStatURLsOrURL(
     Boolean     localMissing = FALSE;
     struct stat newStatBuf;
     struct stat latestStatBuf;
+    
+    bzero(&latestStatBuf, sizeof(latestStatBuf));
     
     if (CFGetTypeID(folderURLsOrURL) == CFURLGetTypeID()) {
         result = __OSKextStatURL((CFURLRef)folderURLsOrURL,
@@ -3469,6 +3499,7 @@ finish:
         }
     }
 
+    SAFE_RELEASE(folderAbsURL);
     SAFE_RELEASE(folderAbsPath);
     SAFE_RELEASE(cacheFileString);
     SAFE_RELEASE(cacheFileURL);
@@ -3878,7 +3909,7 @@ Boolean _OSKextWriteIdentifierCacheForKextsInDirectory(
     * this function; we're just using the convenience of the NULL return value
     * to avoid all the work of generating data we'll never save.
     */
-    cacheFileURL = __OSKextCreateCacheFileURL(
+   cacheFileURL = __OSKextCreateCacheFileURL(
         directoryURL,
         CFSTR(_kOSKextIdentifierCacheBasename),
         /* arch */ NULL,
@@ -4340,6 +4371,10 @@ OSKextRef OSKextGetLoadedKextWithIdentifier(
     OSKextRef result     = NULL;
     CFTypeRef foundEntry = NULL;  // do not release
     OSKextRef theKext    = NULL;  // do not release
+ 
+    if (!__sOSKextsByIdentifier) {
+        goto finish;
+    }
 
    /* Make sure the lookup dict only contains realized kexts with the
     * requested identifier.
@@ -4913,6 +4948,7 @@ void OSKextFlushInfoDictionary(OSKextRef aKext)
             aKext->flags.authentic = 0;
             aKext->flags.inauthentic = 0;
             aKext->flags.authenticated = 0;
+            aKext->flags.isSigned = 0;
         }
 
     } else if (__sOSKextsByURL) {
@@ -6202,6 +6238,227 @@ finish:
     SAFE_RELEASE(kextBundle);
     return result;
 }
+
+#ifndef IOKIT_EMBEDDED
+
+#define GET_CSTRING_PTR(the_cfstring, the_ptr, the_buffer, the_size) \
+do { \
+    the_ptr = CFStringGetCStringPtr(the_cfstring, kCFStringEncodingUTF8); \
+    if (the_ptr == NULL) { \
+        the_buffer[0] = 0x00; \
+        the_ptr = the_buffer;  \
+        CFStringGetCString(the_cfstring, the_buffer, the_size, kCFStringEncodingUTF8); \
+    } \
+} while(0)
+
+#define isWhiteSpace(c)	((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n')
+
+/*********************************************************************
+ * OSKextIsInExcludeList checks to see if the given kext is in the 
+ * kext exclude list (com.apple.driver.KextExcludeList).  If useCache
+ * is TRUE, we will use the cached copy of the exclude list.
+ * If useCache is FALSE, we will refresh the cache from disk.  The 
+ * kext exclude list rarely changes but to insure you have the most 
+ * recent copy in the cache pass FALSE for the first call and TRUE for
+ * subsequent calls (when dealing with a large list of kexts).
+ * theKext can be NULL if you just want the invalidate the cache.
+ *********************************************************************/
+Boolean OSKextIsInExcludeList(OSKextRef theKext, Boolean useCache)
+{
+    Boolean             result              = false;
+    CFStringRef         kextID              = NULL;  // must release
+    OSKextRef           excludelistKext     = NULL;  // must release
+    CFDictionaryRef     excludelistDict     = NULL;  // do NOT release
+    static CFDictionaryRef myDictionary     = NULL;  // do NOT release
+ 
+    /* invalidate the cache or create it if not present */
+    if (useCache == false || myDictionary == NULL) {
+        if (myDictionary != NULL) {
+            SAFE_RELEASE_NULL(myDictionary);
+        }
+        kextID = CFStringCreateWithCString(kCFAllocatorDefault,
+                                           "com.apple.driver.KextExcludeList",
+                                           kCFStringEncodingUTF8);
+        if (!kextID) {
+            OSKextLogStringError(/* kext */ NULL);
+            goto finish;
+        }
+        
+        excludelistKext = OSKextCreateWithIdentifier(kCFAllocatorDefault,
+                                                     kextID);
+        if (!excludelistKext) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                      "Warning: %s could not find com.apple.driver.KextExcludeList",
+                      __FUNCTION__);
+            goto finish;
+        }
+        
+        excludelistDict = OSKextGetValueForInfoDictionaryKey(
+                                                excludelistKext,
+                                                CFSTR("OSKextExcludeList"));
+        if (!excludelistDict) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "%s could not get excludelistDict",
+                      __FUNCTION__);
+            goto finish;
+        }
+        
+        if ((unsigned int)CFDictionaryGetCount(excludelistDict) > 0) {
+            myDictionary = CFDictionaryCreateCopy(NULL, excludelistDict);
+        }
+        if (myDictionary == NULL) {
+            OSKextLogMemError();
+            goto finish;
+       }
+    }
+    
+    /*********************************************************************
+     * myDictionary is a dictionary with keys / values of:
+     *  key = bundleID string of kext we will not allow to load
+     *  value = version string(s) of kexts to not load.
+     *      The version strings can be comma delimited.  For example if kext
+     *      com.foocompany.fookext has two versions that we want to deny
+     *      adding to kernel cache then the version strings might look like:
+     *      1.0.0, 1.0.1
+     *      If the current fookext has a version of 1.0.0 OR 1.0.1 we will
+     *      not add the kext to the kernel cache.
+     *
+     *      Value may also be in the form of "LE 2.0.0" (version numbers
+     *      less than or equal to 2.0.0 will not load) or "LT 2.0.0" (version
+     *      number less than 2.0.0 will not load).
+     *      NOTE - we cannot use the characters "<=" or "<" because code in the
+     *      kernel that serializes plists treats '<' as a special character.
+     *********************************************************************/
+    if (theKext != NULL) {
+        CFStringRef     bundleID                = NULL;  // do NOT release
+        CFStringRef     excludedKextVersString  = NULL;  // do NOT release
+        OSKextVersion   kextVers                = -1;
+        const char *    versCString             = NULL;  // do not free
+        size_t          i, j;
+        Boolean         wantLessThan            = FALSE;
+        Boolean         wantLessThanEqualTo     = FALSE;
+        char            versBuffer[256];
+        
+        bundleID = OSKextGetIdentifier(theKext);
+        if (!bundleID) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "%s could not get bundleID",
+                      __FUNCTION__);
+            goto finish;
+        }
+        
+        kextVers = OSKextGetVersion(theKext);
+        if (!kextVers) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "%s could not get kextVers",
+                      __FUNCTION__);
+            goto finish;
+        }
+        
+        excludedKextVersString = CFDictionaryGetValue(myDictionary, bundleID);
+        if (!excludedKextVersString) {
+            goto finish;
+        }
+        
+        /* parse version strings */
+        GET_CSTRING_PTR(excludedKextVersString,
+                        versCString,
+                        versBuffer,
+                        sizeof(versBuffer));
+        if (strlen(versCString) < 1) {
+            goto finish;
+        }
+        /* look for "LT" or "LE" form of version string, must be in first two
+         * positions.
+         */
+        if (strlen(versCString) > 1) {
+            if (*versCString == 'L' && *(versCString + 1) == 'T') {
+                wantLessThan = true;
+                versCString +=2;
+            }
+            else if (*versCString == 'L' && *(versCString + 1) == 'E') {
+                wantLessThanEqualTo = true;
+                versCString +=2;
+            }
+        }
+        
+        for (i = 0, j = 0; i < strlen(versCString) + 1; i++) {
+            Boolean         excludeIt = FALSE;
+            char            myBuffer[32];
+            
+            /* skip whitespace */
+            if ( isWhiteSpace(*(versCString + i)) ) {
+                continue;
+            }
+            
+            /* look for version string separator or null terminator */
+            if (*(versCString + i) == ',' ||
+                *(versCString + i) == 0x00) {
+                
+                /* OK, we have a version string */
+                myBuffer[j] = 0x00;
+ 
+                OSKextVersion excludedKextVers;
+                excludedKextVers = OSKextParseVersionString(myBuffer);
+                
+                if (wantLessThanEqualTo) {
+                    if (kextVers <= excludedKextVers) {
+                        excludeIt = TRUE;
+                    }
+                }
+                else if (wantLessThan) {
+                    if (kextVers < excludedKextVers) {
+                        excludeIt = TRUE;
+                    }
+                }
+                else if (kextVers == excludedKextVers)  {
+                    excludeIt = TRUE;
+                }
+                
+                if (excludeIt) {
+#if 0
+                    const char *    cp;
+                    char            tempBuffer[256];
+                    
+                    GET_CSTRING_PTR(bundleID, cp, tempBuffer, sizeof(tempBuffer));
+                    OSKextLog(/* kext */ NULL,
+                              kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                              kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                              "bundleID \"%s\" %lld is in exclude list %lld",
+                              cp, kextVers, excludedKextVers);
+#endif
+                    
+                    result = true;
+                    goto finish;
+                }
+                
+                /* now move to the next (if any) version string */
+                j = 0;
+                wantLessThan = FALSE;
+                wantLessThanEqualTo = FALSE;
+            }
+            else {
+                /* save valid version character */
+                myBuffer[j++] = *(versCString + i);
+                
+                /* make sure bogus version string doesn't overrun local buffer */
+                if ( j >= sizeof(myBuffer) ) {
+                    break; /* bogus form of version string */
+                }
+            }
+        }
+    }
+    
+finish:
+    SAFE_RELEASE(kextID);
+    SAFE_RELEASE(excludelistKext);
+    return result;
+}
+#endif /* !IOKIT_EMBEDDED */
 
 #pragma mark Dependency Resolution
 /*********************************************************************
@@ -10222,7 +10479,8 @@ void OSKextFlushLoadInfo(
             aKext->flags.authentic = 0;
             aKext->flags.inauthentic = 0;
             aKext->flags.authenticated = 0;
-        }
+            aKext->flags.isSigned = 0;
+       }
     } else if (__sOSKextsByURL) {
         flushingAll = true;
         OSKextLog(/* kext */ NULL,
@@ -11572,6 +11830,39 @@ Boolean OSKextIsAuthentic(OSKextRef aKext)
 
     return aKext->flags.authentic ? true : false;
 }
+
+#ifndef IOKIT_EMBEDDED
+/*********************************************************************
+ * we can't actually link with security signing framework until issues
+ * with the iOS simulator are resolved (see 12826218)
+ *********************************************************************/
+Boolean OSKextIsSigned(OSKextRef aKext)
+{
+    CFURLRef    checkURL           = NULL;  // must release
+    
+    if (aKext->flags.isSigned) {
+        return(true);
+    }
+    
+    checkURL = CFURLCreateCopyAppendingPathComponent(
+                                                     kCFAllocatorDefault,
+                                                     aKext->bundleURL,
+                                                     CFSTR("Contents/_CodeSignature"),
+                                                     true);
+    if (checkURL) {
+        if (CFURLResourceIsReachable(checkURL, NULL)) {
+            aKext->flags.isSigned = 1;
+        }
+        else {
+            __OSKextSetDiagnostic(aKext, kOSKextDiagnosticsFlagWarnings,
+                                  kOSKextDiagnosticNotSignedKey);
+        }
+    }
+    SAFE_RELEASE(checkURL);
+    
+    return aKext->flags.isSigned ? true : false;
+}
+#endif /* !IOKIT_EMBEDDED */
 
 /*********************************************************************
 *********************************************************************/
@@ -14152,6 +14443,7 @@ static CFArrayRef __OSKextPrelinkKexts(
     OSKextLogSpec     linkLogLevel;
     char            * kextIdentifierCString = NULL;  // must free
     CFIndex           i;
+    int               badLinkCount = 0;
 
     linkLogLevel = needAllFlag ? kOSKextLogErrorLevel : kOSKextLogWarningLevel;
 
@@ -14215,12 +14507,19 @@ static CFArrayRef __OSKextPrelinkKexts(
             /* kernelLoadAddress */ 0, stripSymbolsFlag, kxldContext);
         if (!success) {
             if ( needAllFlag == false ) {
-                if (__OSKextRequiredAtEarlyBoot(aKext)) {
-                    // This is a critical kext, abort the prelink so we don't
-                    // end up with an unusable kernel cache. radar 10056871
-                    needAllFlag = true;
-                    linkLogLevel = kOSKextLogErrorLevel;
-                }
+                if (OSKextMatchesRequiredFlags(aKext,
+                                    kOSKextOSBundleRequiredRootFlag |
+                                    kOSKextOSBundleRequiredLocalRootFlag |
+                                    kOSKextOSBundleRequiredNetworkRootFlag)) {
+                    /* This is a "rooting" kext, if we have more than a few of
+                     * these fail to link then something bad has happened with
+                     * our environment, abort the prelink.  13080154
+                     */
+                    if (++badLinkCount > 3) {
+                        needAllFlag = true;
+                        linkLogLevel = kOSKextLogErrorLevel;
+                    }
+               }
             }
             OSKextLog(/* kext */ aKext, linkLogLevel | kOSKextLogLinkFlag,
                 "Prelink failed for %s; %s.",

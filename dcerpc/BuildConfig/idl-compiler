@@ -33,4 +33,8 @@
 #
 #
 
+# Since dceidl resides in /usr/local/bin, it needs to be in the search path so that
+# xcrun can find it. This is for when we build in Xcode using the Human Interface.
+export PATH=$PATH:/usr/local/bin
+
 exec xcrun dceidl "$@"

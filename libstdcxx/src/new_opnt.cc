@@ -22,6 +22,9 @@
  */
 
 #include <new>
+#include <cxxabi.h>
+
+#ifndef _LIBCPPABI_VERSION
 
 __attribute__((__weak__, __visibility__("default")))
 void*
@@ -37,3 +40,5 @@ operator new (size_t size, const std::nothrow_t&) throw()
     }
     return p;
 }
+
+#endif  // _LIBCPPABI_VERSION

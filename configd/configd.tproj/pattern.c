@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, 2006-2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006-2008, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,7 @@
 
 typedef struct {
 	CFMutableArrayRef	pInfo;
-	regex_t			*preg;
+	CFDataRef		pRegex;
 } addContext, *addContextRef;
 
 
@@ -67,39 +67,33 @@ my_CFDictionaryApplyFunction(CFDictionaryRef			theDict,
 }
 
 
-static void
-identifyKeyForPattern(const void *key, void *val, void *context)
+static Boolean
+keyMatchesPattern(CFStringRef key, CFDataRef pRegex)
 {
-	CFStringRef		storeKey	= (CFStringRef)key;
-	CFDictionaryRef		storeValue	= (CFDictionaryRef)val;
-	CFMutableArrayRef	pInfo		= ((addContextRef)context)->pInfo;
-	regex_t *		preg		= ((addContextRef)context)->preg;
-
 	CFIndex			len;
+	Boolean			match		= FALSE;
+	regex_t			*preg;
 	int			reError;
 	char			str_q[256];
 	char *			str		= str_q;
 
-	if (!CFDictionaryContainsKey(storeValue, kSCDData)) {
-		/* if no data (yet) */
-		return;
-	}
-
 	/* convert store key to C string */
-	len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(storeKey), kCFStringEncodingASCII) + 1;
+	len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(key), kCFStringEncodingASCII) + 1;
 	if (len > (CFIndex)sizeof(str_q))
 		str = CFAllocatorAllocate(NULL, len, 0);
-	if (_SC_cfstring_to_cstring(storeKey, str, len, kCFStringEncodingASCII) == NULL) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("identifyKeyForPattern(): could not convert store key to C string"));
+	if (_SC_cfstring_to_cstring(key, str, len, kCFStringEncodingASCII) == NULL) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("keyMatchesPattern(): could not convert store key to C string"));
 		goto done;
 	}
 
-	/* compare store key to new notification keys regular expression pattern */
+	/* ALIGN: CF aligns to >8 byte boundries */
+	preg = (regex_t *)(void *)CFDataGetBytePtr(pRegex);
+
+	/* compare key to regular expression pattern */
 	reError = regexec(preg, str, 0, NULL, 0);
 	switch (reError) {
 		case 0 :
-			/* we've got a match */
-			CFArrayAppendValue(pInfo, storeKey);
+			match = TRUE;
 			break;
 		case REG_NOMATCH :
 			/* no match */
@@ -108,7 +102,7 @@ identifyKeyForPattern(const void *key, void *val, void *context)
 			char	reErrBuf[256];
 
 			(void)regerror(reError, preg, reErrBuf, sizeof(reErrBuf));
-			SCLog(TRUE, LOG_DEBUG, CFSTR("identifyKeyForPattern regexec(): %s"), reErrBuf);
+			SCLog(TRUE, LOG_DEBUG, CFSTR("keyMatchesPattern regexec(): %s"), reErrBuf);
 			break;
 		}
 	}
@@ -116,12 +110,34 @@ identifyKeyForPattern(const void *key, void *val, void *context)
     done :
 
 	if (str != str_q) CFAllocatorDeallocate(NULL, str);
+	return match;
+}
+
+
+static void
+identifyKeyForPattern(const void *key, void *val, void *context)
+{
+	CFStringRef		storeKey	= (CFStringRef)key;
+	CFDictionaryRef		storeValue	= (CFDictionaryRef)val;
+	CFMutableArrayRef	pInfo		= ((addContextRef)context)->pInfo;
+	CFDataRef		pRegex		= ((addContextRef)context)->pRegex;
+
+	if (!CFDictionaryContainsKey(storeValue, kSCDData)) {
+		/* if no data (yet) */
+		return;
+	}
+
+	if (keyMatchesPattern(storeKey, pRegex)) {
+		/* if we've got a match */
+		CFArrayAppendValue(pInfo, storeKey);
+	}
+
 	return;
 }
 
 
 static Boolean
-patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
+patternCompile(CFStringRef pattern, CFDataRef pRegex, CFStringRef *error)
 {
 	Boolean		append		= FALSE;
 	Boolean		insert		= FALSE;
@@ -174,7 +190,11 @@ patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
 		CFRelease(pattern);
 	}
 	if (ok) {
+		regex_t	*preg;
 		int	reError;
+
+		/* ALIGN: CF aligns to >8 byte boundries */
+		preg = (regex_t *)(void *)CFDataGetBytePtr(pRegex);
 
 		reError = regcomp(preg, str, REG_EXTENDED);
 		if (reError != 0) {
@@ -199,13 +219,26 @@ patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
 }
 
 
+static void
+patternRelease(CFDataRef pRegex)
+{
+	regex_t		*preg;
+
+	/* ALIGN: CF aligns to >8 byte boundries */
+	preg = (regex_t *)(void *)CFDataGetBytePtr(pRegex);
+	regfree(preg);
+
+	return;
+}
+
+
 static CF_RETURNS_RETAINED CFMutableArrayRef
 patternCopy(CFStringRef	pattern)
 {
 	CFArrayRef	pInfo;
 
 	pInfo = CFDictionaryGetValue(patternData, pattern);
-	return pInfo ? CFArrayCreateMutableCopy(NULL, 0, pInfo) : NULL;
+	return (pInfo != NULL) ? CFArrayCreateMutableCopy(NULL, 0, pInfo) : NULL;
 }
 
 
@@ -224,8 +257,7 @@ patternNew(CFStringRef pattern)
 	/* compile the regular expression from the pattern string. */
 	pRegex = CFDataCreateMutable(NULL, sizeof(regex_t));
 	CFDataSetLength(pRegex, sizeof(regex_t));
-	/* ALIGN: CF aligns to >8 byte boundries */
-	if (!patternCompile(pattern, (regex_t *)(void *)CFDataGetBytePtr(pRegex), &err)) {
+	if (!patternCompile(pattern, pRegex, &err)) {
 		CFRelease(err);
 		CFRelease(pRegex);
 		CFRelease(pInfo);
@@ -241,9 +273,8 @@ patternNew(CFStringRef pattern)
 	CFRelease(pSessions);
 
 	/* identify/add all existing keys that match the specified pattern */
-	context.pInfo = pInfo;
-	/* ALIGN: CF aligns to >8 byte boundries */
-	context.preg  = (regex_t *)(void *)CFDataGetBytePtr(pRegex);
+	context.pInfo  = pInfo;
+	context.pRegex = pRegex;
 	my_CFDictionaryApplyFunction(storeData,
 				     (CFDictionaryApplierFunction)identifyKeyForPattern,
 				     &context);
@@ -277,8 +308,7 @@ patternCopyMatches(CFStringRef pattern)
 		CFDataRef	pRegex;
 
 		pRegex = CFArrayGetValueAtIndex(pInfo, 0);
-		/* ALIGN: CF aligns to >8 byte boundries */
-		regfree((regex_t *)(void *)CFDataGetBytePtr(pRegex));
+		patternRelease(pRegex);
 	}
 
 	CFArrayReplaceValues(pInfo, CFRangeMake(0, 2), NULL, 0);
@@ -286,6 +316,52 @@ patternCopyMatches(CFStringRef pattern)
 	CFRelease(pInfo);
 
 	return keys;
+}
+
+
+__private_extern__
+Boolean
+patternKeyMatches(CFStringRef pattern, CFStringRef key)
+{
+	Boolean			isNew	= FALSE;
+	Boolean			match	= FALSE;
+	CFMutableArrayRef	pInfo;
+	CFDataRef		pRegex;
+
+	/* find (or create new instance of) this pattern */
+	pInfo = patternCopy(pattern);
+	if (pInfo != NULL) {
+		CFIndex		n;
+
+		/* if existing pattern, check if known key */
+		n = CFArrayGetCount(pInfo);
+		match = (n > 2) &&
+			CFArrayContainsValue(pInfo, CFRangeMake(2, n - 2), key);
+		if (match) {
+			goto done;
+		}
+	} else {
+		/* if new pattern */
+		pInfo = patternNew(pattern);
+		if (pInfo == NULL) {
+			return FALSE;
+		}
+
+		isNew = TRUE;
+	}
+
+	pRegex = CFArrayGetValueAtIndex(pInfo, 0);
+	match = keyMatchesPattern(key, pRegex);
+
+	if (isNew) {
+		patternRelease(pRegex);
+	}
+
+    done :
+
+	CFRelease(pInfo);
+
+	return match;
 }
 
 
@@ -344,6 +420,7 @@ patternRemoveSession(CFStringRef pattern, CFNumberRef sessionNum)
 
 	/* find instance of this pattern */
 	pInfo = patternCopy(pattern);
+	assert(pInfo != NULL);
 
 	/* remove this session as a watcher from all matching keys */
 	n = CFArrayGetCount(pInfo);
@@ -371,8 +448,7 @@ patternRemoveSession(CFStringRef pattern, CFNumberRef sessionNum)
 		/* if no other sessions are watching this pattern */
 
 		pRegex = CFArrayGetValueAtIndex(pInfo, 0);
-		/* ALIGN: CF aligns to >8 byte boundries */
-		regfree((regex_t *)(void *)CFDataGetBytePtr(pRegex));
+		patternRelease(pRegex);
 		CFDictionaryRemoveValue(patternData, pattern);
 	}
 

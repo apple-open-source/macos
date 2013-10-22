@@ -9,6 +9,8 @@ BIN=	${DSTROOT}/usr/sbin
 
 DOC=	${DSTROOT}/usr/share/man/man8
 
+DS=	/usr/bin/dsymutil
+
 I=/usr/include
 S=/usr/include/sys
 L=/usr/include/local
@@ -48,9 +50,12 @@ clean: FRC
 	(cd lib; ${MAKE} -f Makefile.skel clean)
 
 install-strip: all FRC
-	@if [ -n "${SYMROOT}" ]; then \
+	if [ -n "${SYMROOT}" ]; then \
 	  mkdir -p ${SYMROOT}; \
 	  cp -p ${PROG} ${SYMROOT}/${PROG}; \
+	  if [ -x "${DS}" ]; then \
+	    ${DS} -o ${SYMROOT}/${PROG}.dSYM ${SYMROOT}/${PROG}; \
+	  fi \
 	fi
 	mkdir -p ${BIN}
 	install -c -s -m 755 -g ${GRP} ${PROG} ${BIN}

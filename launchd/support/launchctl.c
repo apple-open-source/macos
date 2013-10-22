@@ -35,6 +35,7 @@
 #include <IOKit/IOKitLib.h>
 #include <NSSystemDirectories.h>
 #include <mach/mach.h>
+#include <mach-o/getsect.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
@@ -75,8 +76,11 @@
 #include <spawn.h>
 #include <sys/syslimits.h>
 #include <fnmatch.h>
-#include <assumes.h>
+#include <os/assumes.h>
 #include <dlfcn.h>
+#if HAVE_SYSTEMSTATS
+#include <systemstats/systemstats.h>
+#endif
 
 #if HAVE_LIBAUDITD
 #include <bsm/auditd_lib.h>
@@ -94,6 +98,23 @@ extern char **environ;
 #define CFTypeCheck(cf, type) (CFGetTypeID(cf) == type ## GetTypeID())
 #define CFReleaseIfNotNULL(cf) if (cf) CFRelease(cf);
 
+#if TARGET_OS_EMBEDDED
+#include <sys/kern_memorystatus.h>
+
+#define XPC_PLIST_CACHE "/System/Library/Caches/com.apple.xpcd/xpcd_cache.dylib"
+#define XPC_PLIST_CACHE_KEY "LaunchDaemons"
+
+#if JETSAM_PRIORITY_REVISION
+#define READ_JETSAM_DEFAULTS 1
+#define JETSAM_PROP_DIR "/System/Library/LaunchDaemons"
+#define JETSAM_PROP_DIR_LENGTH (sizeof(JETSAM_PROP_DIR) - 1)
+#define JETSAM_PROP_PREFIX "com.apple.jetsamproperties."
+#define JETSAM_PROP_PREFIX_LENGTH (sizeof(JETSAM_PROP_PREFIX) - 1)
+#define JETSAM_PROP_SUFFIX ".plist"
+#define JETSAM_PROP_SUFFIX_LENGTH (sizeof(JETSAM_PROP_SUFFIX) - 1)
+#endif
+#endif
+
 struct load_unload_state {
 	launch_data_t pass1;
 	char *session_type;
@@ -103,7 +124,6 @@ struct load_unload_state {
 static void launchctl_log(int level, const char *fmt, ...);
 static void launchctl_log_CFString(int level, CFStringRef string);
 static void myCFDictionaryApplyFunction(const void *key, const void *value, void *context);
-static void job_override(CFTypeRef key, CFTypeRef val, CFMutableDictionaryRef job);
 static CFTypeRef CFTypeCreateFromLaunchData(launch_data_t obj);
 static CFArrayRef CFArrayCreateFromLaunchArray(launch_data_t arr);
 static CFDictionaryRef CFDictionaryCreateFromLaunchDictionary(launch_data_t dict);
@@ -116,6 +136,11 @@ static void sock_dict_cb(launch_data_t what, const char *key, void *context);
 static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data_t fdarray, launch_data_t thejob);
 static launch_data_t CF2launch_data(CFTypeRef);
 static launch_data_t read_plist_file(const char *file, bool editondisk, bool load);
+#if TARGET_OS_EMBEDDED
+static CFPropertyListRef GetPropertyListFromCache(void);
+static CFPropertyListRef CreateMyPropertyListFromCachedFile(const char *posixfile);
+static bool require_jobs_from_cache(void);
+#endif
 static CFPropertyListRef CreateMyPropertyListFromFile(const char *);
 static CFPropertyListRef CFPropertyListCreateFromFile(CFURLRef plistURL);
 static void WriteMyPropertyListToFile(CFPropertyListRef, const char *);
@@ -255,6 +280,11 @@ static CFMutableDictionaryRef _launchctl_overrides_db = NULL;
 
 static char *_launchctl_job_overrides_db_path;
 static char *_launchctl_managername = NULL;
+
+#if READ_JETSAM_DEFAULTS
+static CFDictionaryRef _launchctl_jetsam_defaults = NULL;
+static CFDictionaryRef _launchctl_jetsam_defaults_cached = NULL;
+#endif
 
 int
 main(int argc, char *const argv[])
@@ -433,6 +463,7 @@ launchctl_log_CFString(int level, CFStringRef string)
 void
 read_launchd_conf(void)
 {
+#if !TARGET_OS_EMBEDDED
 	char s[1000], *c, *av[100];
 	const char *file;
 	size_t len;
@@ -469,6 +500,7 @@ read_launchd_conf(void)
 	}
 
 	fclose(f);
+#endif // !TARGET_OS_EMBEDDED
 }
 
 static CFPropertyListRef
@@ -666,24 +698,232 @@ unloadjob(launch_data_t job)
 	}
 }
 
-void
-job_override(CFTypeRef key, CFTypeRef val, CFMutableDictionaryRef job)
-{
-	if (!CFTypeCheck(key, CFString)) {
-		return;
+#if READ_JETSAM_DEFAULTS
+
+static CFDictionaryRef
+read_jetsam_defaults_from_cache(void) {
+	CFPropertyListRef cache = GetPropertyListFromCache();
+	CFPropertyListRef defaults = NULL;
+	const void **keys = 0;
+	CFIndex count, i;
+
+	if (!cache) {
+		return NULL;
 	}
-	if (CFStringCompare(key, CFSTR(LAUNCH_JOBKEY_LABEL), kCFCompareCaseInsensitive) == 0) {
-		return;
+        
+	CFPropertyListRef cachefiles = CFDictionaryGetValue(cache, CFSTR(XPC_PLIST_CACHE_KEY));
+	if (!cachefiles) {
+		return NULL;
 	}
 
-	CFDictionarySetValue(job, key, val);
+	count = CFDictionaryGetCount(cachefiles);
+	keys = (const void **)malloc(sizeof(void *) * count);
+	if (!keys) {
+		return NULL;
+	}
+        
+	CFDictionaryGetKeysAndValues(cachefiles, keys, NULL);
+	for (i = 0; i < count; i++) {
+		CFStringRef key = (CFStringRef)keys[i];
+		CFIndex key_length = CFStringGetLength(key);
+
+		if (key_length <= (CFIndex)(JETSAM_PROP_DIR_LENGTH + JETSAM_PROP_PREFIX_LENGTH + JETSAM_PROP_SUFFIX_LENGTH + 1)) {
+			continue;
+		}
+
+		if (CFStringCompareWithOptions(key, CFSTR(JETSAM_PROP_DIR "/" JETSAM_PROP_PREFIX), 
+			CFRangeMake(0, JETSAM_PROP_DIR_LENGTH + JETSAM_PROP_PREFIX_LENGTH + 1), 0)) {
+			continue;
+		}
+	
+		if (CFStringCompareWithOptions(key, CFSTR(JETSAM_PROP_SUFFIX), 
+			CFRangeMake(key_length - JETSAM_PROP_SUFFIX_LENGTH, JETSAM_PROP_SUFFIX_LENGTH), 0)) {
+			continue;
+		}
+
+		defaults = CFDictionaryGetValue(cachefiles, key);
+		break;
+	}
+
+	free(keys);
+
+	return defaults;
 }
+
+static CFDictionaryRef
+read_jetsam_defaults_from_file(void) {
+	DIR *dirp;
+	struct dirent *dp;
+	CFDictionaryRef defaults = NULL;
+
+	dirp = opendir(JETSAM_PROP_DIR);
+	while ((dp = readdir(dirp)) != NULL) {
+		char *fullpath;
+    
+		if (dp->d_namlen <= (JETSAM_PROP_PREFIX_LENGTH + JETSAM_PROP_SUFFIX_LENGTH)) {
+			continue;
+		}
+	
+		if (strncmp(dp->d_name, JETSAM_PROP_PREFIX, JETSAM_PROP_PREFIX_LENGTH)) {
+			continue;
+		}
+	
+		if (strncmp(dp->d_name + dp->d_namlen - JETSAM_PROP_SUFFIX_LENGTH, JETSAM_PROP_SUFFIX, JETSAM_PROP_SUFFIX_LENGTH)) {
+			continue;
+		}
+	
+		if (-1 != asprintf(&fullpath, "%s/%s", JETSAM_PROP_DIR, dp->d_name)) {
+			defaults = (CFDictionaryRef)CreateMyPropertyListFromFile(fullpath);
+			free(fullpath);
+		}
+
+		break;
+	}
+
+	if (dirp) {
+		closedir(dirp);
+	}
+        
+	return defaults;    
+}
+
+static bool
+submit_cached_defaults(void) {
+	launch_data_t msg, resp;
+	const void **keys = NULL;
+	int i;
+    
+	if (_launchctl_jetsam_defaults_cached == NULL) {
+        return false;
+	}
+
+	/* The dictionary to transmit */
+	CFMutableDictionaryRef payload_dict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    
+	/* Add a key to indicate that this is a special job */
+	CFBooleanRef ID = kCFBooleanTrue;
+	CFDictionaryAddValue(payload_dict, CFSTR(LAUNCH_JOBKEY_DEFAULTS), ID);
+  
+ 	CFMutableDictionaryRef defaults_dict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	
+	CFDictionaryAddValue(payload_dict, CFSTR(LAUNCHD_JOB_DEFAULTS), defaults_dict);
+    
+	/* Compile appropriate launchd dictionary... */
+	CFIndex count = CFDictionaryGetCount(_launchctl_jetsam_defaults_cached);
+	keys = (const void **)malloc(sizeof(void *) * count);
+	if (!keys) {
+		goto exit;
+	}
+    
+	CFDictionaryGetKeysAndValues(_launchctl_jetsam_defaults_cached, keys, NULL);
+    
+	for (i = 0; i < count; i++) {
+		CFStringRef label = (CFStringRef)keys[i];
+        
+		/* Get the defaults for the job */
+		CFDictionaryRef job_defaults_dict = CFDictionaryGetValue(_launchctl_jetsam_defaults_cached, label);
+		if (!(job_defaults_dict && CFTypeCheck(job_defaults_dict, CFDictionary))) {
+			continue;
+		}
+        
+		/* Create a new dictionary to represent the job */
+		CFMutableDictionaryRef job_dict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		
+		/* Add the defaults */
+		CFDictionaryAddValue(job_dict, CFSTR(LAUNCH_JOBKEY_JETSAMPROPERTIES), job_defaults_dict);
+        
+		/* Finally, add the result to the main dictionary */
+		CFDictionaryAddValue(defaults_dict, label, job_dict);
+        
+		/* Cleanup */
+		CFRelease(job_dict);
+	}
+    
+	/* Send the payload */
+	launch_data_t ldp = CF2launch_data(payload_dict);
+    
+	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+	launch_data_dict_insert(msg, ldp, LAUNCH_KEY_SUBMITJOB);
+
+	resp = launch_msg(msg);
+	launch_data_free(msg);   
+
+	launch_data_free(resp);
+
+exit:
+	CFRelease(defaults_dict);
+	CFRelease(payload_dict);
+    	
+	free(keys);
+
+	return true;
+}
+
+static boolean_t
+read_jetsam_defaults(void)
+{
+	/* Current supported version */
+	const int v = 3;
+    
+	CFDictionaryRef jetsam_defaults = NULL;
+    
+	if (require_jobs_from_cache()) {
+		jetsam_defaults = read_jetsam_defaults_from_cache();
+	} else {
+		jetsam_defaults = read_jetsam_defaults_from_file();
+	}
+
+	if (NULL == jetsam_defaults) {
+		launchctl_log(LOG_NOTICE, "%s: no jetsam property file found", getprogname());
+		return false;
+	}
+
+	/* Validate the version */
+	CFNumberRef defaults_vers = CFDictionaryGetValue(jetsam_defaults, CFSTR("Version"));
+	if (!(defaults_vers && CFTypeCheck(defaults_vers, CFNumber))) {
+		return false;
+	}
+	
+	CFNumberRef supported_vers = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &v);
+	if (!(kCFCompareEqualTo == CFNumberCompare(defaults_vers, supported_vers, NULL ))) {
+		return false;
+	}
+
+	/* These defaults are merged within launchctl prior to submitting the job */
+	_launchctl_jetsam_defaults = CFDictionaryGetValue(jetsam_defaults, CFSTR(LAUNCHD_JOB_DEFAULTS));
+	if (!(_launchctl_jetsam_defaults && CFTypeCheck(_launchctl_jetsam_defaults, CFDictionary))) {
+		_launchctl_jetsam_defaults = NULL;
+		return false;
+	}
+
+	/* Cached defaults (applied by launchd) - parse and submit immediately as a fake job */
+	_launchctl_jetsam_defaults_cached = CFDictionaryGetValue(jetsam_defaults, CFSTR(LAUNCHD_JOB_DEFAULTS_CACHED));
+	if (!(_launchctl_jetsam_defaults_cached && CFTypeCheck(_launchctl_jetsam_defaults_cached, CFDictionary))) {
+		_launchctl_jetsam_defaults_cached = NULL;
+		return false;
+	}
+
+	submit_cached_defaults();
+	
+	return true;
+}
+
+#endif /* READ_JETSAM_DEFAULTS */
 
 launch_data_t
 read_plist_file(const char *file, bool editondisk, bool load)
 {
-	CFPropertyListRef plist = CreateMyPropertyListFromFile(file);
+	CFPropertyListRef plist;
 	launch_data_t r = NULL;
+#if TARGET_OS_EMBEDDED
+	if (require_jobs_from_cache()) {
+		plist = CreateMyPropertyListFromCachedFile(file);
+	} else {
+		plist = CreateMyPropertyListFromFile(file);
+	}
+#else
+	plist = CreateMyPropertyListFromFile(file);
+#endif
 
 	if (NULL == plist) {
 		launchctl_log(LOG_ERR, "%s: no plist was returned for: %s", getprogname(), file);
@@ -698,7 +938,10 @@ read_plist_file(const char *file, bool editondisk, bool load)
 	if (_launchctl_overrides_db) {
 		CFDictionaryRef overrides = CFDictionaryGetValue(_launchctl_overrides_db, label);
 		if (overrides && CFTypeCheck(overrides, CFDictionary)) {
-			CFDictionaryApplyFunction(overrides, (CFDictionaryApplierFunction)job_override, (void *)plist);
+			CFBooleanRef disabled = CFDictionaryGetValue(overrides, CFSTR(LAUNCH_JOBKEY_DISABLED));
+			if (disabled && CFTypeCheck(disabled, CFBoolean)) {
+				CFDictionarySetValue((CFMutableDictionaryRef)plist, CFSTR(LAUNCH_JOBKEY_DISABLED), disabled);
+			}
 		}
 	}
 
@@ -723,6 +966,26 @@ read_plist_file(const char *file, bool editondisk, bool load)
 			WriteMyPropertyListToFile(plist, file);
 		}
 	}
+
+#if READ_JETSAM_DEFAULTS
+	if (_launchctl_jetsam_defaults) {
+		CFDictionaryRef job_defaults_dict = CFDictionaryGetValue(_launchctl_jetsam_defaults, label);
+		if (job_defaults_dict) {
+			CFDictionarySetValue((CFMutableDictionaryRef)plist, CFSTR(LAUNCH_JOBKEY_JETSAMPROPERTIES), job_defaults_dict);
+		}
+	} else {
+		/* The plist is missing. Set a default memory limit, since the device will be otherwise unusable */
+		long default_limit = 0;
+		CFMutableDictionaryRef job_defaults_dict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		CFNumberRef memory_limit = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &default_limit);
+		if (memory_limit) {
+			CFDictionaryAddValue(job_defaults_dict, CFSTR(LAUNCH_JOBKEY_JETSAMMEMORYLIMIT), memory_limit);
+			CFRelease(memory_limit);
+		}
+		CFDictionarySetValue((CFMutableDictionaryRef)plist, CFSTR(LAUNCH_JOBKEY_JETSAMPROPERTIES), job_defaults_dict);
+		CFRelease(job_defaults_dict);
+	}
+#endif /* READ_JETSAM_DEFAULTS */
 
 	r = CF2launch_data(plist);
 
@@ -757,7 +1020,7 @@ limitloadtohardware_iterator(launch_data_t val, const char *key, void *ctx)
 
 	int mib[2];
 	size_t sz = 2;
-	if (*result != true && osx_assumes_zero(sysctlnametomib(name, mib, &sz)) == 0) {
+	if (*result != true && os_assumes_zero(sysctlnametomib(name, mib, &sz)) == 0) {
 		if (launch_data_get_type(val) == LAUNCH_DATA_ARRAY) {
 			size_t c = launch_data_array_get_count(val);
 
@@ -1426,6 +1689,115 @@ do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgrou
 	freeaddrinfo(res0);
 }
 
+#pragma mark XPC Cache
+
+#if TARGET_OS_EMBEDDED
+
+CFPropertyListRef
+GetPropertyListFromCache(void)
+{
+	static CFPropertyListRef propertyList;
+	CFDataRef cacheData;
+	CFErrorRef error;
+
+	if (!propertyList) {
+		uint8_t *data = NULL;
+		unsigned long sz = 0;
+
+		void *handle = dlopen(XPC_PLIST_CACHE, RTLD_NOW);
+
+		if (handle) {
+			void *fnptr = dlsym(handle, "__xpcd_cache");
+
+			if (fnptr) {
+				Dl_info image_info;
+
+				int rv = dladdr(fnptr, &image_info);
+				if (rv != 0) {
+					data = getsectiondata(image_info.dli_fbase, "__TEXT", "__xpcd_cache", &sz);
+				} else {
+					launchctl_log(LOG_ERR, "cache loading failed: failed to find address of __xpcd_cache symbol.");
+				}
+			} else {
+				launchctl_log(LOG_ERR, "cache loading failed: failed to find __xpcd_cache symbol in cache.");
+			}
+		} else {
+			launchctl_log(LOG_ERR, "cache loading failed: dlopen returned %s.", dlerror());
+		}
+
+		if (data) {
+			cacheData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, data, sz, kCFAllocatorNull);
+			if (cacheData) {
+				propertyList = CFPropertyListCreateWithData(kCFAllocatorDefault, cacheData, kCFPropertyListMutableContainersAndLeaves, NULL, &error);
+				CFRelease(cacheData);
+			} else {
+				launchctl_log(LOG_ERR, "cache loading failed: unable to create data out of memory region.");
+			}
+		} else {
+			launchctl_log(LOG_ERR, "cache loading failed: no cache data found in __TEXT,__xpcd_cache segment.");
+		}
+	}
+
+	return propertyList;
+}
+
+CFPropertyListRef
+CreateMyPropertyListFromCachedFile(const char *posixfile)
+{
+	CFPropertyListRef cache = GetPropertyListFromCache();
+	CFPropertyListRef job = NULL;
+
+	if (cache) {
+		CFPropertyListRef jobs = CFDictionaryGetValue(cache, CFSTR(XPC_PLIST_CACHE_KEY));
+
+		if (jobs) {
+			CFStringRef key = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, posixfile, kCFStringEncodingUTF8, kCFAllocatorNull);
+
+			if (key) {
+				job = CFDictionaryGetValue(jobs, key);
+				CFRelease(key);
+			}
+		}
+	}
+
+	if (job) {
+		CFRetain(job);
+	}
+	return job;
+}
+
+bool
+require_jobs_from_cache(void)
+{
+	char buf[1024];
+	size_t len;
+	char *ptr;
+	unsigned long val;
+	bool cs_disabled = false;
+	len = sizeof(buf);
+
+	if (sysctlbyname("kern.bootargs", buf, &len, NULL, 0) == 0) {
+		ptr = strnstr(buf, "cs_enforcement_disable=", len);
+		if (ptr != NULL) {
+			val = strtoul(ptr + strlen("cs_enforcement_disable="), NULL, 10);
+			cs_disabled = (val != 0);
+		}
+		ptr = strnstr(buf, "launchctl_enforce_codesign=", len);
+		if (ptr != NULL) {
+			char *endptr = NULL;
+			char *startptr = ptr + strlen("launchctl_enforce_codesign=");
+			val = strtoul(startptr, &endptr, 10);
+			cs_disabled = (val == 0 && startptr != endptr);
+		}
+	}
+
+	return !cs_disabled;
+}
+
+#endif
+
+#pragma mark File-based Property Lists
+
 CFPropertyListRef
 CreateMyPropertyListFromFile(const char *posixfile)
 {
@@ -1756,7 +2128,7 @@ do_single_user_mode2(void)
 	case 0:
 		break;
 	default:
-		(void)osx_assumes_zero(waitpid(p, &wstatus, 0));
+		(void)os_assumes_zero(waitpid(p, &wstatus, 0));
 		if (WIFEXITED(wstatus)) {
 			if (WEXITSTATUS(wstatus) == EXIT_SUCCESS) {
 				return true;
@@ -1818,7 +2190,7 @@ do_crash_debug_mode2(void)
 	case 0:
 		break;
 	default:
-		(void)osx_assumes_zero(waitpid(p, &wstatus, 0));
+		(void)os_assumes_zero(waitpid(p, &wstatus, 0));
 		if (WIFEXITED(wstatus)) {
 			if (WEXITSTATUS(wstatus) == EXIT_SUCCESS) {
 				return true;
@@ -1893,6 +2265,22 @@ handle_system_bootstrapper_crashes_separately(void)
 	(void)posix_assumes_zero(sigaction(SIGABRT, &fsa, NULL));
 }
 
+#if TARGET_OS_EMBEDDED
+static void
+init_data_protection(void)
+{
+	if (path_check("/usr/libexec/init_data_protection")) {
+		const char *init_cp[] = { "/usr/libexec/init_data_protection", NULL };
+		if (fwexec(init_cp, NULL) == -1) {
+			launchctl_log(LOG_ERR, "Couldn't init content protection: %d: %s", errno, strerror(errno));
+			(void)reboot(RB_HALT);
+
+			_exit(EXIT_FAILURE);
+		}
+	}
+}
+#endif
+
 static void
 system_specific_bootstrap(bool sflag)
 {
@@ -1926,7 +2314,7 @@ system_specific_bootstrap(bool sflag)
 	EV_SET(&kev, 0, EVFILT_TIMER, EV_ADD|EV_ONESHOT, NOTE_SECONDS, 60, 0);
 	(void)posix_assumes_zero(kevent(kq, &kev, 1, NULL, 0, NULL));
 
-	__OSX_COMPILETIME_ASSERT__(SIG_ERR == (typeof(SIG_ERR))-1);
+	__OS_COMPILETIME_ASSERT__(SIG_ERR == (typeof(SIG_ERR))-1);
 	EV_SET(&kev, SIGTERM, EVFILT_SIGNAL, EV_ADD, 0, 0, 0);
 	(void)posix_assumes_zero(kevent(kq, &kev, 1, NULL, 0, NULL));
 	(void)posix_assumes_zero(signal(SIGTERM, SIG_IGN));
@@ -1968,6 +2356,13 @@ system_specific_bootstrap(bool sflag)
 	} else {
 		do_potential_fsck();
 	}
+
+#if TARGET_OS_EMBEDDED
+	if (path_check("/usr/libexec/tzinit")) {
+		const char *tzinit_tool[] = { "/usr/libexec/tzinit", NULL };
+		(void)posix_assumes_zero(fwexec(tzinit_tool, NULL));
+	}
+#endif
 
 #if TARGET_OS_EMBEDDED
 	if (path_check("/usr/libexec/FinishRestoreFromBackup")) {
@@ -2051,7 +2446,7 @@ system_specific_bootstrap(bool sflag)
 #if HAVE_LIBAUDITD
 	/* Only start auditing if not "Disabled" in auditd plist. */
 	if ((lda = read_plist_file(AUDITD_PLIST_FILE, false, false)) != NULL && ((ldb = launch_data_dict_lookup(lda, LAUNCH_JOBKEY_DISABLED)) == NULL || job_disabled_logic(ldb) == false)) {
-		(void)osx_assumes_zero(audit_quick_start());
+		(void)os_assumes_zero(audit_quick_start());
 		launch_data_free(lda);	
 	}
 #else
@@ -2059,6 +2454,10 @@ system_specific_bootstrap(bool sflag)
 		const char *audit_tool[] = { _PATH_BSHELL, "/etc/security/rc.audit", NULL };
 		(void)posix_assumes_zero(fwexec(audit_tool, NULL));
 	}
+#endif
+
+#if HAVE_SYSTEMSTATS
+	systemstats_boot();
 #endif
 
 	do_BootCache_magic(BOOTCACHE_START);
@@ -2311,25 +2710,59 @@ load_and_unload_cmd(int argc, char *const argv[])
 		}
 	}
 
+#if READ_JETSAM_DEFAULTS
+	if (!read_jetsam_defaults()) {
+		launchctl_log(LOG_NOTICE, "Failed to read jetsam defaults; no process limits applied");	    
+	}
+#endif  
+
 	/* Only one pass! */
 	lus.pass1 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 
 	es = NSStartSearchPathEnumeration(NSLibraryDirectory, es);
 
 	while ((es = NSGetNextSearchPathEnumeration(es, nspath))) {
-		glob_t g;
-
 		if (lus.session_type) {
 			strcat(nspath, "/LaunchAgents");
 		} else {
 			strcat(nspath, "/LaunchDaemons");
 		}
 
-		if (glob(nspath, GLOB_TILDE|GLOB_NOSORT, NULL, &g) == 0) {
-			for (i = 0; i < g.gl_pathc; i++) {
-				readpath(g.gl_pathv[i], &lus);
+		bool should_glob = true;
+
+#if TARGET_OS_EMBEDDED
+		if (require_jobs_from_cache()) {
+			CFDictionaryRef cache = GetPropertyListFromCache();
+			if (cache) {
+				CFDictionaryRef launchdJobs = CFDictionaryGetValue(cache, CFSTR(XPC_PLIST_CACHE_KEY));
+				if (launchdJobs) {
+					CFIndex sz = CFDictionaryGetCount(launchdJobs);
+
+					CFStringRef *keys = malloc(sz * sizeof(CFStringRef));
+					CFDictionaryGetKeysAndValues(launchdJobs, (const void**)keys, NULL);
+
+					for (i=0; i < (size_t)sz; i++) {
+						char path[PATH_MAX];
+						if (CFStringGetCString(keys[i], path, PATH_MAX, kCFStringEncodingUTF8) && (strncmp(path, nspath, strlen(nspath)) == 0)) {
+							readpath(path, &lus);
+						}
+					}
+				}
 			}
-			globfree(&g);
+
+			should_glob = false;
+		}
+#endif
+
+		if (should_glob) {
+			glob_t g;
+
+			if (glob(nspath, GLOB_TILDE|GLOB_NOSORT, NULL, &g) == 0) {
+				for (i = 0; i < g.gl_pathc; i++) {
+					readpath(g.gl_pathv[i], &lus);
+				}
+				globfree(&g);
+			}
 		}
 	}
 
@@ -3522,7 +3955,7 @@ loopback_setup_ipv6(void)
 	ifra6.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
 
 	if (ioctl(s6, SIOCAIFADDR_IN6, &ifra6) == -1 && errno != EEXIST) {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 	}
 
 	(void)close(s6);
@@ -3620,6 +4053,15 @@ do_potential_fsck(void)
 
 	return;
 out:
+
+#if TARGET_OS_EMBEDDED
+	/* Once we've validated the root filesystem, kick off any
+	 * tasks needed for data protection before we mount other file
+	 * systems.
+	 */
+	init_data_protection();
+#endif
+
 	/* 
 	 * Once this is fixed:
 	 *
@@ -3648,6 +4090,8 @@ out:
 void
 fix_bogus_file_metadata(void)
 {
+	// Don't do any of this on embedded: <rdar://problem/13212363>
+#if !TARGET_OS_EMBEDDED
 	static const struct {
 		const char *path;
 		const uid_t owner;
@@ -3664,11 +4108,9 @@ fix_bogus_file_metadata(void)
 		{ LAUNCHD_DB_PREFIX "/com.apple.launchd", 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH, true },
 		// Fixing <rdar://problem/7571633>.
 		{ _PATH_VARDB, 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH | S_ISUID | S_ISGID, true },
-#if !TARGET_OS_EMBEDDED
 		{ _PATH_VARDB "mds/", 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH | S_ISUID | S_ISGID, true },
 		// Similar fix for <rdar://problem/6550172>.
 		{ "/Library/StartupItems", 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH | S_ISUID | S_ISGID, true },
-#endif
 	};
 	struct stat sb;
 	size_t i;
@@ -3719,6 +4161,7 @@ fix_bogus_file_metadata(void)
 			(void)posix_assumes_zero(chown(f[i].path, f[i].owner, f[i].group));
 		}
 	}
+#endif
 }
 
 
@@ -3784,7 +4227,7 @@ empty_dir(const char *thedir, struct stat *psb)
 	}
 
 	if (!(od = opendir("."))) {
-		(void)osx_assumes_zero(errno);
+		(void)os_assumes_zero(errno);
 		goto out;
 	}
 
@@ -3813,7 +4256,7 @@ empty_dir(const char *thedir, struct stat *psb)
 				continue;
 			}
 
-			if (osx_assumes(psb->st_dev == sb.st_dev)) {
+			if (os_assumes(psb->st_dev == sb.st_dev)) {
 				continue;
 			}
 		}
@@ -3860,7 +4303,7 @@ apply_sysctls_from_file(const char *thefile)
 			continue;
 		}
 		if (!(tmpstr = malloc(ln_len + 1))) {
-			(void)osx_assumes_zero(errno);
+			(void)os_assumes_zero(errno);
 			continue;
 		}
 		memcpy(tmpstr, val, ln_len);
@@ -4002,7 +4445,7 @@ do_application_firewall_magic(int sfd, launch_data_t thejob)
 		 * errno == ENOPROTOOPT.
 		 */
 		if (setsockopt(sfd, SOL_SOCKET, SO_EXECPATH, prog, (socklen_t)(strlen(prog) + 1)) == -1 && errno != ENOPROTOOPT) {
-			(void)osx_assumes_zero(errno);
+			(void)os_assumes_zero(errno);
 		}
 	}
 }
@@ -4038,7 +4481,7 @@ preheat_page_cache_hack(void)
 			if ((sb.st_size < 10*1024*1024) && (junkbuf = malloc((size_t)sb.st_size)) != NULL) {
 				ssize_t n = read(fd, junkbuf, (size_t)sb.st_size);
 				if (posix_assumes_zero(n) != -1 && n != (ssize_t)sb.st_size) {
-					(void)osx_assumes_zero(n);
+					(void)os_assumes_zero(n);
 				}
 				free(junkbuf);
 			}
@@ -4061,7 +4504,7 @@ do_bootroot_magic(void)
 
 	chosen = IORegistryEntryFromPath(kIOMasterPortDefault, "IODeviceTree:/chosen");
 
-	if (!osx_assumes(chosen)) {
+	if (!os_assumes(chosen)) {
 		return;
 	}
 

@@ -45,77 +45,9 @@ namespace BlackBerry {
 namespace WebKit {
 
 class WebPagePrivate;
-class FatFingers;
+class FatFingersResult;
 class TouchEventHandler;
 
-class FatFingersResult {
-public:
-
-    FatFingersResult(const WebCore::IntPoint& p = WebCore::IntPoint::zero())
-        : m_originalPosition(p)
-        , m_adjustedPosition(p)
-        , m_positionWasAdjusted(false)
-        , m_isTextInput(false)
-        , m_isValid(false)
-        , m_nodeUnderFatFinger(0)
-    {
-    }
-
-    void reset()
-    {
-        m_originalPosition = m_adjustedPosition = WebCore::IntPoint::zero();
-        m_positionWasAdjusted = false;
-        m_isTextInput = false;
-        m_isValid = false;
-        m_nodeUnderFatFinger = 0;
-    }
-
-    WebCore::IntPoint originPosition() const { return m_originalPosition; }
-    WebCore::IntPoint adjustedPosition() const { return m_adjustedPosition; }
-    bool positionWasAdjusted() const { return m_isValid && m_positionWasAdjusted; }
-    bool isTextInput() const { return m_isValid && !!m_nodeUnderFatFinger && m_isTextInput; }
-    bool isValid() const { return m_isValid; }
-
-    enum ContentType { ShadowContentAllowed, ShadowContentNotAllowed };
-
-    WebCore::Node* node(ContentType type = ShadowContentAllowed) const
-    {
-        if (!m_nodeUnderFatFinger || !m_nodeUnderFatFinger->inDocument())
-            return 0;
-
-        WebCore::Node* result = m_nodeUnderFatFinger.get();
-
-        if (type == ShadowContentAllowed)
-            return result;
-
-        // Shadow trees can be nested.
-        while (result->isInShadowTree())
-            result = toElement(result->shadowAncestorNode());
-
-        return result;
-    }
-
-    WebCore::Element* nodeAsElementIfApplicable(ContentType type = ShadowContentAllowed) const
-    {
-        WebCore::Node* result = node(type);
-        if (!result || !result->isElementNode())
-            return 0;
-
-        return static_cast<WebCore::Element*>(result);
-    }
-
-private:
-    friend class WebKit::FatFingers;
-    friend class WebKit::TouchEventHandler;
-
-    WebCore::IntPoint m_originalPosition; // Main frame contents coordinates.
-    WebCore::IntPoint m_adjustedPosition; // Main frame contents coordinates.
-    bool m_positionWasAdjusted;
-    bool m_isTextInput; // Check if the element under the touch point will require a VKB be displayed so that
-                        // the touch down can be suppressed.
-    bool m_isValid;
-    RefPtr<WebCore::Node> m_nodeUnderFatFinger;
-};
 
 class FatFingers {
 public:
@@ -140,48 +72,122 @@ private:
 
     typedef std::pair<WebCore::Node*, Platform::IntRectRegion> IntersectingRegion;
 
-    enum CachedResultsStrategy { GetFromRenderTree = 0, GetFromCache };
-    CachedResultsStrategy cachingStrategy() const;
-    typedef HashMap<RefPtr<WebCore::Document>, ListHashSet<RefPtr<WebCore::Node> > > CachedRectHitTestResults;
-
     bool checkFingerIntersection(const Platform::IntRectRegion&,
-                                 const Platform::IntRectRegion& remainingFingerRegion,
-                                 WebCore::Node*,
-                                 Vector<IntersectingRegion>& intersectingRegions);
+        const Platform::IntRectRegion& remainingFingerRegion,
+        WebCore::Node*,
+        Vector<IntersectingRegion>& intersectingRegions);
 
     bool findIntersectingRegions(WebCore::Document*,
-                                 Vector<IntersectingRegion>& intersectingRegions,
-                                 Platform::IntRectRegion& remainingFingerRegion);
+        Vector<IntersectingRegion>& intersectingRegions,
+        Platform::IntRectRegion& remainingFingerRegion);
 
     bool checkForClickableElement(WebCore::Element*,
-                                  Vector<IntersectingRegion>& intersectingRegions,
-                                  Platform::IntRectRegion& remainingFingerRegion,
-                                  WebCore::RenderLayer*& lowestPositionedEnclosingLayerSoFar);
+        Vector<IntersectingRegion>& intersectingRegions,
+        Platform::IntRectRegion& remainingFingerRegion,
+        WebCore::RenderLayer*& lowestPositionedEnclosingLayerSoFar);
 
     bool checkForText(WebCore::Node*,
-                      Vector<IntersectingRegion>& intersectingRegions,
-                      Platform::IntRectRegion& fingerRegion);
+        Vector<IntersectingRegion>& intersectingRegions,
+        Platform::IntRectRegion& fingerRegion);
 
     void setSuccessfulFatFingersResult(FatFingersResult&, WebCore::Node*, const WebCore::IntPoint&);
 
     void getNodesFromRect(WebCore::Document*, const WebCore::IntPoint&, ListHashSet<RefPtr<WebCore::Node> >&);
 
-    // It mimics Document::elementFromPoint, but recursively hit-tests in case an inner frame is found.
-    void getRelevantInfoFromPoint(WebCore::Document*,
-                                  const WebCore::IntPoint&,
-                                  WebCore::Element*& elementUnderPoint,
-                                  WebCore::Element*& clickableElementUnderPoint) const;
-
     bool isElementClickable(WebCore::Element*) const;
 
     inline WebCore::IntRect fingerRectForPoint(const WebCore::IntPoint&) const;
-    void getPaddings(unsigned& top, unsigned& right, unsigned& bottom, unsigned& left) const;
+    void getAdjustedPaddings(const WebCore::IntPoint&, unsigned& top, unsigned& right, unsigned& bottom, unsigned& left) const;
 
     WebPagePrivate* m_webPage;
     WebCore::IntPoint m_contentPos;
     TargetType m_targetType;
-    MatchingApproachForClickable m_matchingApproach;
-    CachedRectHitTestResults m_cachedRectHitTestResults;
+};
+
+class FatFingersResult {
+public:
+
+    FatFingersResult(const WebCore::IntPoint& p = WebCore::IntPoint::zero(), const FatFingers::TargetType targetType = FatFingers::ClickableElement)
+        : m_originalPosition(p)
+        , m_adjustedPosition(p)
+        , m_targetType(targetType)
+        , m_positionWasAdjusted(false)
+        , m_isTextInput(false)
+        , m_isValid(false)
+        , m_nodeUnderFatFinger(0)
+    {
+    }
+
+    void reset()
+    {
+        m_originalPosition = m_adjustedPosition = WebCore::IntPoint::zero();
+        m_positionWasAdjusted = false;
+        m_isTextInput = false;
+        m_isValid = false;
+        m_nodeUnderFatFinger = 0;
+    }
+
+    bool resultMatches(const WebCore::IntPoint& p, const FatFingers::TargetType targetType) const
+    {
+        return m_isValid && p == m_originalPosition && targetType == m_targetType;
+    }
+
+    WebCore::IntPoint originPosition() const { return m_originalPosition; }
+    WebCore::IntPoint adjustedPosition() const { return m_adjustedPosition; }
+    bool positionWasAdjusted() const { return m_isValid && m_positionWasAdjusted; }
+    bool isTextInput() const { return m_isValid && !!m_nodeUnderFatFinger && m_isTextInput; }
+    bool isValid() const { return m_isValid; }
+
+    enum ContentType { ShadowContentAllowed, ShadowContentNotAllowed };
+
+    WebCore::Node* node(ContentType type = ShadowContentAllowed, bool shouldUseRootEditableElement = false) const
+    {
+        if (!m_nodeUnderFatFinger || !m_nodeUnderFatFinger->inDocument())
+            return 0;
+
+        WebCore::Node* result = m_nodeUnderFatFinger.get();
+
+        if (type == ShadowContentAllowed)
+            return result;
+
+        // Shadow trees can be nested.
+        while (result->isInShadowTree())
+            result = toElement(result->deprecatedShadowAncestorNode());
+
+        if (!shouldUseRootEditableElement || !result->isElementNode())
+            return result;
+
+        // Retrieve the top level editable node
+        while (!result->isRootEditableElement()) {
+            WebCore::Element* parentElement = result->parentElement();
+            if (!parentElement)
+                break;
+            result = parentElement;
+        }
+
+        return result;
+    }
+
+    WebCore::Element* nodeAsElementIfApplicable(ContentType type = ShadowContentAllowed, bool shouldUseRootEditableElement = false) const
+    {
+        WebCore::Node* result = node(type, shouldUseRootEditableElement);
+        if (!result || !result->isElementNode())
+            return 0;
+
+        return static_cast<WebCore::Element*>(result);
+    }
+
+private:
+    friend class WebKit::FatFingers;
+    friend class WebKit::TouchEventHandler;
+
+    WebCore::IntPoint m_originalPosition; // Main frame contents coordinates.
+    WebCore::IntPoint m_adjustedPosition; // Main frame contents coordinates.
+    FatFingers::TargetType m_targetType;
+    bool m_positionWasAdjusted;
+    bool m_isTextInput; // Check if the element under the touch point will require a VKB be displayed so that the touch down can be suppressed.
+    bool m_isValid;
+    RefPtr<WebCore::Node> m_nodeUnderFatFinger;
 };
 
 }

@@ -1,0 +1,46 @@
+version 0.003; 2011-03-18
+
+  * bugfix: in shellwords.pl, require Text::ParseWords 3.25, because
+    earlier versions have a bug that causes an infinite loop on some
+    inputs
+
+  * use full stricture in test suite
+
+  * in Build.PL, complete declaration of configure-time requirements
+
+  * in Build.PL, declare appropriate version on Module::Build dependency
+
+version 0.002; 2010-05-19
+
+  * remove all uses of $[, both reads and writes, from library code,
+    where it has been obsolete since perl 5.000
+
+  * for option parsing libraries, test behaviour with "--" argument
+
+  * in t/shellwords.t, remove unnecessary timeout that caused false
+    test failures
+
+  * in test suite, consistently use strictures and Test::More
+
+  * revise test code style
+
+version 0.001; 2010-04-10
+
+  * revise statement about deprecation of the modules, to be more complete
+    and accurate and to reflect the latest nuances to their status
+
+  * in documentation, list the bundled libraries, with very short
+    descriptions
+
+  * add tests for several of the libraries based on the core's tests for
+    more modern replacements: abbrev.pl from Text::Abbrev, getopt.pl
+    and getopts.pl from Getopt::Std, hostname.pl from Sys::Hostname,
+    open2.pl from IPC::Open2, open3.pl from IPC::Open3, shellwords.pl
+    from Text::ParseWords, timelocal.pl from Time::Local
+
+  * in titular version-number-supplying module, check for required Perl
+    version at runtime
+
+version 0.000; 2010-03-30
+
+  * initial released version

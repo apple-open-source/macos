@@ -126,7 +126,7 @@ OpenDevice(const char *devname)
 		errx(kBadExit, "device name `%s' does not fit pattern", devname);
 	}
 	// Only use an exclusive open if we're not debugging.
-	fd = open(dev.devname, O_RDWR | (debug ? 0 : O_EXLOCK));
+	fd = open(dev.devname, O_RDONLY | (debug ? 0 : O_EXLOCK));
 	if (fd == -1) {
 		err(kBadExit, "cannot open raw device %s", dev.devname);
 	}

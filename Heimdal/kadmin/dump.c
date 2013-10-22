@@ -62,6 +62,7 @@ od_dump_entry(krb5_context kcontext, HDB *db, hdb_entry_ex *entry, void *data)
     uuid = CFUUIDCreate(NULL);
     if (uuid == NULL) {
 	krb5_warnx(kcontext, "out of memory");
+        CFRelease(dict);
 	return 0;
     }
     
@@ -69,6 +70,7 @@ od_dump_entry(krb5_context kcontext, HDB *db, hdb_entry_ex *entry, void *data)
     CFRelease(uuid);
     if (uuidstr == NULL) {
 	krb5_warnx(kcontext, "out of memory");
+        CFRelease(dict);
 	return 0;
     }
 
@@ -76,6 +78,7 @@ od_dump_entry(krb5_context kcontext, HDB *db, hdb_entry_ex *entry, void *data)
     CFRelease(uuidstr);
     if (fn == NULL) {
 	krb5_warnx(kcontext, "out of memory");
+        CFRelease(dict);
 	return 0;
     }
 
@@ -83,6 +86,7 @@ od_dump_entry(krb5_context kcontext, HDB *db, hdb_entry_ex *entry, void *data)
     CFRelease(fn);
     if (url == NULL) {
 	krb5_warnx(kcontext, "out of memory");
+        CFRelease(dict);
 	return 0;
     }
 
@@ -94,7 +98,13 @@ od_dump_entry(krb5_context kcontext, HDB *db, hdb_entry_ex *entry, void *data)
 	return 0;
     }
 
-    CFURLWriteDataAndPropertiesToResource(url, xmldata, NULL, NULL);
+    CFWriteStreamRef stream = CFWriteStreamCreateWithFile(NULL, url);
+    if (stream) {
+	if (CFWriteStreamOpen(stream))
+	    CFWriteStreamWrite(stream, CFDataGetBytePtr(xmldata), CFDataGetLength(xmldata));
+	CFWriteStreamClose(stream);
+	CFRelease(stream);
+    }
 
     CFRelease(url);
     CFRelease(xmldata);
@@ -118,11 +128,15 @@ dump(struct dump_options *opt, int argc, char **argv)
     if (strcasecmp(format, "heimdal") == 0) {
 	func = hdb_print_entry;
 
-	if (argc == 0)
+	if (argc == 0) {
 	    arg = stdout;
-	else
+	} else {
 	    arg = f = fopen(argv[0], "w");
-
+	    if (f == NULL) {
+		krb5_warn(context, errno, "failed to open %s", argv[0]);
+		return 0;
+	    }
+	}
 #ifdef __APPLE__
     } else if (strcasecmp(format, "od") == 0) {
 	

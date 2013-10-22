@@ -657,7 +657,6 @@ _krb5_extract_ticket(krb5_context context,
 		     krb5_kdc_rep *rep,
 		     krb5_creds *creds,
 		     krb5_keyblock *key,
-		     krb5_const_pointer keyseed,
 		     krb5_key_usage key_usage,
 		     krb5_addresses *addrs,
 		     unsigned nonce,
@@ -681,7 +680,7 @@ _krb5_extract_ticket(krb5_context context,
     if (ret)
 	goto out;
 
-    if (rep->enc_part.flags.enc_pa_rep && request) {
+    if (rep->enc_part.flags.enc_pa_rep && request && (flags & EXTRACT_TICKET_REQUIRE_ENC_PA)) {
 	krb5_crypto crypto = NULL;
 	Checksum cksum;
 	PA_DATA *pa = NULL;
@@ -790,6 +789,8 @@ _krb5_extract_ticket(krb5_context context,
 	    strcmp(rep->enc_part.srealm, crealm) != 0)
 	{
 	    ret = KRB5KRB_AP_ERR_MODIFIED;
+	    krb5_set_error_message(context, ret, "server realm (%s) doesn't match client's (%s)", 
+				   srealm, crealm);
 	    krb5_clear_error_message(context);
 	    goto out;
 	}
@@ -813,7 +814,7 @@ _krb5_extract_ticket(krb5_context context,
 				 "libdefaults",
 				 "kdc_timesync",
 				 NULL)) {
-	context->kdc_sec_offset = rep->enc_part.authtime - sec_now;
+	context->kdc_sec_offset = (int32_t)(rep->enc_part.authtime - sec_now);
 	krb5_timeofday (context, &sec_now);
     }
 
@@ -825,18 +826,19 @@ _krb5_extract_ticket(krb5_context context,
 	tmp_time = rep->enc_part.authtime;
 
     if (creds->times.starttime == 0
-	&& abs(tmp_time - sec_now) > context->max_skew) {
+	&& krb5_time_abs(tmp_time, sec_now) > context->max_skew) {
 	ret = KRB5KRB_AP_ERR_SKEW;
 	krb5_set_error_message (context, ret,
-				N_("time skew (%d) larger than max (%d)", ""),
-			       abs(tmp_time - sec_now),
-			       (int)context->max_skew);
+				N_("time skew (%ld) larger than max (%d)", ""),
+				(long)krb5_time_abs(tmp_time, sec_now),
+				(int)context->max_skew);
 	goto out;
     }
 
     if (creds->times.starttime != 0
 	&& tmp_time != creds->times.starttime) {
 	krb5_clear_error_message (context);
+	krb5_set_error_message(context, ret, "startime is not the requested startime");
 	ret = KRB5KRB_AP_ERR_MODIFIED;
 	goto out;
     }
@@ -851,6 +853,7 @@ _krb5_extract_ticket(krb5_context context,
     if (creds->times.renew_till != 0
 	&& tmp_time > creds->times.renew_till) {
 	krb5_clear_error_message (context);
+	krb5_set_error_message(context, ret, "renewtime is past the requested renewtime");
 	ret = KRB5KRB_AP_ERR_MODIFIED;
 	goto out;
     }
@@ -863,6 +866,7 @@ _krb5_extract_ticket(krb5_context context,
 	&& rep->enc_part.endtime > creds->times.endtime) {
 	krb5_clear_error_message (context);
 	ret = KRB5KRB_AP_ERR_MODIFIED;
+	krb5_set_error_message(context, ret, "endtime is past the requested endtime");
 	goto out;
     }
 
@@ -893,6 +897,9 @@ _krb5_extract_ticket(krb5_context context,
 
 
 out:
+    if (ret)
+	_krb5_debugx(context, 5, "_krb5_extract_ticket failed with %d", ret);
+
     memset (rep->enc_part.key.keyvalue.data, 0,
 	    rep->enc_part.key.keyvalue.length);
     return ret;

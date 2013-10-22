@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 #include <sys/smb_byte_order.h>
 #include <sys/mchain.h>
 
+/* smb_rq sr_flags */
 #define	SMBR_ALLOCED		0x0001	/* structure was malloced */
 #define SMBR_ASYNC			0x0002	/* This is async request, should never be set if SMBR_INTERNAL is set */
 #define	SMBR_REXMIT			0x0004	/* Request was retransmitted during a reconnect*/
@@ -46,8 +47,12 @@
 #define	SMBR_DEAD			0x0020	/* Network down nothing we can do with it. */
 #define	SMBR_MULTIPACKET	0x0040	/* multiple packets can be sent and received */
 #define	SMBR_INTERNAL		0x0080	/* request is internal to smbrqd runs off the main thread. */
+#define	SMBR_COMPOUND_RQ	0x0100	/* SMB2 compound request */
+#define	SMBR_NO_TIMEOUT     0x0200  /* Do not timeout, long-running request (i.e. Mac-to-Mac COPYCHUNK IOCTL) */
+                                    /* Note: we need to remove this in Sarah */
 #define	SMBR_MOREDATA		0x8000	/* our buffer was too small */
 
+/* smb_t2rq t2_flags and smb_ntrq nt_flags */
 #define SMBT2_ALLSENT		0x0001	/* all data and params are sent */
 #define SMBT2_ALLRECV		0x0002	/* all data and params are received */
 #define	SMBT2_ALLOCED		0x0004
@@ -71,32 +76,49 @@ struct smb_vc;
 #define MAX_SR_RECONNECT_CNT	5
 
 struct smb_rq {
+	struct smb_rq   *sr_next_rqp;
 	enum smbrq_state	sr_state;
 	struct smb_vc		*sr_vc;
 	struct smb_share	*sr_share;
 	uint32_t		sr_reconnect_cnt;
+
+    /* SMB2 fields */
+    uint32_t        sr_extflags;
+	uint16_t		sr_command;
+	uint16_t		sr_creditcharge;
+	uint16_t		sr_creditsrequested;
+    uint32_t		sr_rqflags;
+    uint32_t		sr_nextcmd;
+    uint64_t        sr_messageid;   /* local copy of message id */
+    uint64_t        *sr_messageidp; /* filled in right before the send */
+	uint32_t		sr_rqtreeid;
+	uint64_t		sr_rqsessionid;
+	uint16_t		*sr_bcount;     /* used every now and then for lengths */
+	uint32_t		*sr_lcount;     /* used every now and then for lengths */
+    uint16_t		*sr_creditchargep;
+    uint16_t		*sr_creditreqp;
+    uint32_t		*sr_flagsp;
+    uint32_t		*sr_nextcmdp;
+
+    /* response fields */
+	uint16_t		sr_rspcreditsgranted;
+	uint32_t		sr_rspflags;
+	uint32_t		sr_rspnextcmd;
+	uint32_t		sr_rsppid;
+	uint32_t		sr_rsptreeid;
+    uint64_t		sr_rspasyncid;
+	uint64_t		sr_rspsessionid;
+
+    /* SMB1 fields */
 	uint16_t		sr_mid;
 	uint16_t		sr_pidHigh;
 	uint16_t		sr_pidLow;
-	uint32_t		sr_seqno;
-	uint32_t		sr_rseqno;
-	struct mbchain	sr_rq;
 	uint8_t			sr_cmd;
 	u_char			*sr_wcount;
-	uint16_t		*sr_bcount;
-	struct mdchain	sr_rp;
-	int				sr_rpgen;
-	int				sr_rplast;
-	uint32_t		sr_flags;
-	int				sr_rpsize;
-	vfs_context_t	sr_context;
-	int				sr_timo;        /* Only used for Echo req to dequeue */
-	struct timespec 	sr_timesent;
-	int				sr_lerror;
-	uint8_t			*sr_rqsig;
 	uint16_t		*sr_rqtid;
 	uint16_t		*sr_rquid;
-	uint32_t		sr_ntstatus;
+    
+    /* response fields */
 	uint8_t			sr_rpflags;
 	uint16_t		sr_rpflags2;
 	uint16_t		sr_rptid;
@@ -104,6 +126,27 @@ struct smb_rq {
 	uint16_t		sr_rppidLow;	/* Currently never used, handle with macro */
 	uint16_t		sr_rpuid;
 	uint16_t		sr_rpmid;	/* Currently never used, handle with macro */
+    
+    /* Used by SMB1 and SMB2 */
+	uint32_t		sr_seqno;
+	uint32_t		sr_rseqno;
+	struct mbchain	sr_rq;
+    struct mdchain	sr_rp;
+    uint8_t			*sr_rqsig;
+	uint32_t		sr_ntstatus;
+
+    /* %%% TO DO
+     * Finish sorting rest of these fields on whether they belong to SMB1 or
+     * or SMB2 or both.
+     */
+	int				sr_rpgen;
+	int				sr_rplast;
+	uint32_t		sr_flags;
+	int				sr_rpsize;
+	vfs_context_t	sr_context;
+	int				sr_timo;
+	struct timespec 	sr_timesent;
+	int				sr_lerror;
 	lck_mtx_t		sr_slock;		/* short term locks */
 	struct smb_t2rq *sr_t2;
 	TAILQ_ENTRY(smb_rq)	sr_link;
@@ -167,6 +210,7 @@ void smb_rq_wstart(struct smb_rq *rqp);
 void smb_rq_wend(struct smb_rq *rqp);
 void smb_rq_bstart(struct smb_rq *rqp);
 void smb_rq_bend(struct smb_rq *rqp);
+int  smb_rq_reply(struct smb_rq *rqp);
 int  smb_rq_simple(struct smb_rq *rqp);
 int  smb_rq_simple_timed(struct smb_rq *rqp, int timo);
 

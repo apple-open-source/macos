@@ -24,11 +24,15 @@ kUseCloseFDs = not kIsWindows
 kAvoidDevNull = kIsWindows
 
 def executeCommand(command, cwd=None, env=None):
+    # Close extra file handles on UNIX (on Windows this cannot be done while
+    # also redirecting input).
+    close_fds = not kIsWindows
+
     p = subprocess.Popen(command, cwd=cwd,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE,
-                         env=env)
+                         env=env, close_fds=close_fds)
     out,err = p.communicate()
     exitCode = p.wait()
 
@@ -366,10 +370,15 @@ def executeScript(test, litConfig, tmpBase, commands, cwd):
 
     return executeCommand(command, cwd=cwd, env=test.config.environment)
 
-def isExpectedFail(xfails, xtargets, target_triple):
-    # Check if any xfail matches this target.
+def isExpectedFail(test, xfails, xtargets):
+    # If the xfail matches an available feature, it always fails.
     for item in xfails:
-        if item == '*' or item in target_triple:
+        if item in test.config.available_features:
+            return True
+
+    # Otherwise, check if any xfail matches this target.
+    for item in xfails:
+        if item == '*' or item in test.suite.config.target_triple:
             break
     else:
         return False
@@ -378,12 +387,13 @@ def isExpectedFail(xfails, xtargets, target_triple):
     #
     # FIXME: Rename XTARGET to something that makes sense, like XPASS.
     for item in xtargets:
-        if item == '*' or item in target_triple:
+        if item == '*' or item in test.suite.config.target_triple:
             return False
 
     return True
 
-def parseIntegratedTestScript(test, normalize_slashes=False):
+def parseIntegratedTestScript(test, normalize_slashes=False,
+                              extra_substitutions=[]):
     """parseIntegratedTestScript - Scan an LLVM/Clang style integrated test
     script and extract the lines to 'RUN' as well as 'XFAIL' and 'XTARGET'
     information. The RUN lines also will have variable substitution performed.
@@ -410,11 +420,13 @@ def parseIntegratedTestScript(test, normalize_slashes=False):
         tmpBase = tmpBase.replace('\\', '/')
 
     # We use #_MARKER_# to hide %% while we do the other substitutions.
-    substitutions = [('%%', '#_MARKER_#')]
+    substitutions = list(extra_substitutions)
+    substitutions.extend([('%%', '#_MARKER_#')])
     substitutions.extend(test.config.substitutions)
     substitutions.extend([('%s', sourcepath),
                           ('%S', sourcedir),
                           ('%p', sourcedir),
+                          ('%{pathsep}', os.pathsep),
                           ('%t', tmpBase + '.tmp'),
                           ('%T', tmpDir),
                           # FIXME: Remove this once we kill DejaGNU.
@@ -484,7 +496,7 @@ def parseIntegratedTestScript(test, normalize_slashes=False):
         return (Test.UNSUPPORTED,
                 "Test requires the following features: %s" % msg)
 
-    isXFail = isExpectedFail(xfails, xtargets, test.suite.config.target_triple)
+    isXFail = isExpectedFail(test, xfails, xtargets)
     return script,isXFail,tmpBase,execdir
 
 def formatTestOutput(status, out, err, exitCode, failDueToStderr, script):
@@ -557,11 +569,12 @@ def executeTclTest(test, litConfig):
 
     return formatTestOutput(status, out, err, exitCode, failDueToStderr, script)
 
-def executeShTest(test, litConfig, useExternalSh):
+def executeShTest(test, litConfig, useExternalSh,
+                  extra_substitutions=[]):
     if test.config.unsupported:
         return (Test.UNSUPPORTED, 'Test is unsupported')
 
-    res = parseIntegratedTestScript(test, useExternalSh)
+    res = parseIntegratedTestScript(test, useExternalSh, extra_substitutions)
     if len(res) == 2:
         return res
 

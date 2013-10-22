@@ -141,6 +141,8 @@ void MachOBase::initCommands(const load_command *commands)
 {
 	mCommands = commands;
 	mEndCommands = LowLevelMemoryUtilities::increment<load_command>(commands, flip(mHeader->sizeofcmds));
+	if (mCommands + 1 > mEndCommands)	// ensure initial load command core available
+		UnixError::throwMe(ENOEXEC);
 }
 
 
@@ -235,7 +237,12 @@ const load_command *MachOBase::nextCommand(const load_command *command) const
 {
 	using LowLevelMemoryUtilities::increment;
 	command = increment<const load_command>(command, flip(command->cmdsize));
-	return (command < mEndCommands) ? command : NULL;
+	if (command >= mEndCommands)	// end of load commands
+		return NULL;
+	if (increment(command, sizeof(load_command)) > mEndCommands
+		|| increment(command, flip(command->cmdsize)) > mEndCommands)
+		UnixError::throwMe(ENOEXEC);
+	return command;
 }
 
 
@@ -384,7 +391,7 @@ CFDataRef MachO::dataAt(size_t offset, size_t size)
 // Fat (aka universal) file wrappers.
 // The offset is relative to the start of the containing file.
 //
-Universal::Universal(FileDesc fd, off_t offset /* = 0 */)
+Universal::Universal(FileDesc fd, size_t offset /* = 0 */)
 	: FileDesc(fd), mBase(offset)
 {
 	union {
@@ -493,7 +500,7 @@ size_t Universal::archOffset(const Architecture &arch) const
 // Get the architecture at a specified offset from the fat file.
 // Throws an exception of the offset does not point at a Mach-O image.
 //
-MachO *Universal::architecture(off_t offset) const
+MachO *Universal::architecture(size_t offset) const
 {
 	if (isUniversal())
 		return new MachO(*this, offset);
@@ -606,6 +613,7 @@ uint32_t Universal::typeOf(FileDesc fd)
 			return 0;
 		}
 	}
+    return 0;
 }
 
 

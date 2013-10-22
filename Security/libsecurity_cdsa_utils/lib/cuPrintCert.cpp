@@ -45,7 +45,7 @@ static void printTimeStr(const CSSM_DATA *cssmTime)
 	struct tm tm;
 	
 	/* ignore cssmTime->timeType for now */
-	if(cuTimeStringToTm((char *)cssmTime->Data, cssmTime->Length, &tm)) {
+	if(cuTimeStringToTm((char *)cssmTime->Data, (unsigned int)cssmTime->Length, &tm)) {
 		printf("***Bad time string format***\n");
 		return;
 	}
@@ -72,7 +72,7 @@ static void printDataAsHex(
 {
 	unsigned i;
 	bool more = false;
-	uint32 len = d->Length;
+	uint32 len = (uint32)d->Length;
 	uint8 *cp = d->Data;
 	
 	if((maxToPrint != 0) && (len > maxToPrint)) {
@@ -150,7 +150,7 @@ static void printOid(OidParser &parser, const CSSM_DATA *oid)
 		printf("EMPTY\n");
 		return;
 	}
-	parser.oidParse(oid->Data, oid->Length, strBuf);
+	parser.oidParse(oid->Data, (unsigned int)oid->Length, strBuf);
 	printf("%s\n", strBuf);
 }
 
@@ -229,16 +229,16 @@ static void printDerThing(
 			printString(thing);
 			return;
 		case BER_TAG_OCTET_STRING:
-			printBlobBytes("Byte string", "bytes", thing->Length, thing);
+			printBlobBytes("Byte string", "bytes", (uint32)thing->Length, thing);
 			return;
 		case BER_TAG_BIT_STRING:
-			printBlobBytes("Bit string", "bits", (thing->Length + 7) / 8, thing);
+			printBlobBytes("Bit string", "bits", (uint32)(thing->Length + 7) / 8, thing);
 			return;
 		case BER_TAG_SEQUENCE:
-			printBlobBytes("Sequence", "bytes", thing->Length, thing);
+			printBlobBytes("Sequence", "bytes", (uint32)thing->Length, thing);
 			return;
 		case BER_TAG_SET:
-			printBlobBytes("Set", "bytes", thing->Length, thing);
+			printBlobBytes("Set", "bytes", (uint32)thing->Length, thing);
 			return;
 		case BER_TAG_OID:
 			printf("OID = ");
@@ -496,7 +496,7 @@ static void printGeneralName(
 		case GNT_X400Address:
 			/* ORAddress, a very complicated struct - punt */
 			printf("   X400Address     : ");
-			printBlobBytes("Sequence", "bytes", name->name.Length, &name->name);
+			printBlobBytes("Sequence", "bytes", (uint32)name->name.Length, &name->name);
 			break;
 		case GNT_DirectoryName:
 			if(!name->berEncoded) {
@@ -514,13 +514,13 @@ static void printGeneralName(
 				/* encoded Name (i.e. CSSM_X509_NAME) */
 				printf("   Dir Name        : ");
 				printBlobBytes("Byte string", "bytes", 
-					name->name.Length, &name->name);
+					(uint32)name->name.Length, &name->name);
 			}
 			break;
 		case GNT_EdiPartyName:
 			/* sequence EDIPartyName */
 			printf("   EdiPartyName    : ");
-			printBlobBytes("Sequence", "bytes", name->name.Length, &name->name);
+			printBlobBytes("Sequence", "bytes", (uint32)name->name.Length, &name->name);
 			break;
 		case GNT_OtherName:
 		{
@@ -1173,6 +1173,7 @@ void printCertField(
 	}
 }
 
+static
 void printCrlExten(
 	const CSSM_X509_EXTENSION *exten,
 	CSSM_BOOL			verbose,
@@ -1228,6 +1229,8 @@ void printCrlExten(
 	}
 }
 
+
+static
 void printCrlEntryExten(
 	const CSSM_X509_EXTENSION *exten,
 	CSSM_BOOL			verbose,
@@ -1300,6 +1303,7 @@ void printCrlEntryExten(
 	}
 }
 
+static
 void printCrlFields(
 	const CSSM_X509_SIGNED_CRL *signedCrl,
 	CSSM_BOOL					verbose,

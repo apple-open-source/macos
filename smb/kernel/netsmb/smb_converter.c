@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 - 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2008 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_converter.h>

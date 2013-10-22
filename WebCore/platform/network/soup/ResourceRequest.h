@@ -67,6 +67,10 @@ namespace WebCore {
             updateFromSoupMessage(soupMessage);
         }
 
+        void updateFromDelegatePreservingOldHTTPBody(const ResourceRequest& delegateProvidedRequest) { *this = delegateProvidedRequest; }
+
+        void updateSoupMessageHeaders(SoupMessageHeaders*) const;
+        void updateFromSoupMessageHeaders(SoupMessageHeaders*);
         void updateSoupMessage(SoupMessage*) const;
         SoupMessage* toSoupMessage() const;
         void updateFromSoupMessage(SoupMessage*);
@@ -74,13 +78,17 @@ namespace WebCore {
         SoupMessageFlags soupMessageFlags() const { return m_soupFlags; }
         void setSoupMessageFlags(SoupMessageFlags soupFlags) { m_soupFlags = soupFlags; }
 
+        SoupURI* soupURI() const;
+
     private:
         friend class ResourceRequestBase;
 
         SoupMessageFlags m_soupFlags;
 
-        void doUpdatePlatformRequest() {};
-        void doUpdateResourceRequest() {};
+        void doUpdatePlatformRequest() { }
+        void doUpdateResourceRequest() { }
+        void doUpdatePlatformHTTPBody() { }
+        void doUpdateResourceHTTPBody() { }
 
         PassOwnPtr<CrossThreadResourceRequestData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceRequestData> data) const { return data; }
         void doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData>) { }
@@ -88,6 +96,29 @@ namespace WebCore {
 
     struct CrossThreadResourceRequestData : public CrossThreadResourceRequestDataBase {
     };
+
+#if SOUP_CHECK_VERSION(2, 43, 1)
+inline SoupMessagePriority toSoupMessagePriority(ResourceLoadPriority priority)
+{
+    switch (priority) {
+    case ResourceLoadPriorityUnresolved:
+        return SOUP_MESSAGE_PRIORITY_NORMAL;
+    case ResourceLoadPriorityVeryLow:
+        return SOUP_MESSAGE_PRIORITY_VERY_LOW;
+    case ResourceLoadPriorityLow:
+        return SOUP_MESSAGE_PRIORITY_LOW;
+    case ResourceLoadPriorityMedium:
+        return SOUP_MESSAGE_PRIORITY_NORMAL;
+    case ResourceLoadPriorityHigh:
+        return SOUP_MESSAGE_PRIORITY_HIGH;
+    case ResourceLoadPriorityVeryHigh:
+        return SOUP_MESSAGE_PRIORITY_VERY_HIGH;
+    }
+
+    ASSERT_NOT_REACHED();
+    return SOUP_MESSAGE_PRIORITY_VERY_LOW;
+}
+#endif
 
 } // namespace WebCore
 

@@ -374,7 +374,7 @@ ROKEN_LIB_FUNCTION void ROKEN_LIB_CALL
 socket_set_any (struct sockaddr *, int);
 
 #define socket_sockaddr_size rk_socket_sockaddr_size
-ROKEN_LIB_FUNCTION size_t ROKEN_LIB_CALL
+ROKEN_LIB_FUNCTION socklen_t ROKEN_LIB_CALL
 socket_sockaddr_size (const struct sockaddr *);
 
 #define socket_get_address rk_socket_get_address
@@ -404,6 +404,10 @@ socket_set_tos (rk_socket_t, int);
 #define socket_set_nonblocking rk_socket_set_nonblocking
 ROKEN_LIB_FUNCTION void ROKEN_LIB_CALL
 socket_set_nonblocking (rk_socket_t sock, int nonblock);
+
+#define socket_set_nopipe rk_socket_set_nopipe
+ROKEN_LIB_FUNCTION void ROKEN_LIB_CALL
+socket_set_nopipe(rk_socket_t sock, int nopipe);
 
 #define socket_set_reuseaddr rk_socket_set_reuseaddr
 ROKEN_LIB_FUNCTION void ROKEN_LIB_CALL

@@ -48,7 +48,7 @@ void Requirement::Maker::require(size_t size)
 	if (mPC + size > mSize) {
 		mSize *= 2;
 		if (mPC + size > mSize)
-			mSize = mPC + size;
+			mSize = (Offset)(mPC + size);
 		if (!(mBuffer = (Requirement *)realloc(mBuffer, mSize)))
 			UnixError::throwMe(ENOMEM);
 	}
@@ -135,6 +135,11 @@ void Requirement::Maker::cdhash(SHA1::Digest digest)
 	putData(digest, SHA1::digestLength);
 }
 
+void Requirement::Maker::cdhash(CFDataRef digest)
+{
+	put(opCDHash);
+	putData(CFDataGetBytePtr(digest), CFDataGetLength(digest));
+}
 
 
 void Requirement::Maker::copy(const Requirement *req)

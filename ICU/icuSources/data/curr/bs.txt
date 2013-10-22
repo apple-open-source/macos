@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/bs.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/bs.xml
 // *
 // ***************************************************************************
 /**
@@ -28,7 +28,7 @@ bs{
             "Avganistanski avgani",
         }
         ALK{
-            "ALK" /** ===  */,
+            "ALK",
             "Albanski lek (1946-1965)",
         }
         ALL{
@@ -76,7 +76,7 @@ bs{
             "Austrijski šiling",
         }
         AUD{
-            "AU$",
+            "A$",
             "Australijski dolar",
         }
         AWG{
@@ -460,7 +460,7 @@ bs{
             "Izraelska funta",
         }
         ILR{
-            "ILR" /** ===  */,
+            "ILR",
             "stari izraelski šekeli",
         }
         ILS{
@@ -480,7 +480,7 @@ bs{
             "Iranijski rial",
         }
         ISJ{
-            "ISJ" /** ===  */,
+            "ISJ",
             "stara islandska kruna",
         }
         ISK{
@@ -1113,6 +1113,10 @@ bs{
         }
         ZMK{
             "ZMK",
+            "Zambijska kvača (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "Zambijska kvača",
         }
         ZRN{
@@ -2788,6 +2792,12 @@ bs{
             other{"južnoafričkih randa"}
         }
         ZMK{
+            few{"zambijske kvače (1968-2012)"}
+            many{"zambijskih kvača (1968-2012)"}
+            one{"zambijska kvača (1968-2012)"}
+            other{"zambijske kvače (1968-2012)"}
+        }
+        ZMW{
             few{"zambijske kvače"}
             many{"zambijskih kvača"}
             one{"zambijska kvača"}
@@ -2824,5 +2834,5 @@ bs{
             other{"zimbabvejskih dolara (2008)"}
         }
     }
-    Version{"2.0.64.72"}
+    Version{"2.0.82.45"}
 }

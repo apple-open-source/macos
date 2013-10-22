@@ -30,27 +30,49 @@
 #include <algorithm>
 #include <stdio.h>
 
+#if OS(DARWIN)
+#include <sys/mman.h>
+#endif
+
 namespace CoreIPC {
 
-PassOwnPtr<ArgumentEncoder> ArgumentEncoder::create(uint64_t destinationID)
+static inline void* allocBuffer(size_t size)
 {
-    return adoptPtr(new ArgumentEncoder(destinationID));
+#if OS(DARWIN)
+    return mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+#else
+    return fastMalloc(size);
+#endif
 }
 
-ArgumentEncoder::ArgumentEncoder(uint64_t destinationID)
-    : m_buffer(0)
-    , m_bufferPointer(0)
-    , m_bufferSize(0)
-    , m_bufferCapacity(0)
+static inline void freeBuffer(void* addr, size_t size)
 {
-    // Encode the destination ID.
-    encodeUInt64(destinationID);
+#if OS(DARWIN)
+    munmap(addr, size);
+#else
+    UNUSED_PARAM(size);
+    fastFree(addr);
+#endif
+}
+
+PassOwnPtr<ArgumentEncoder> ArgumentEncoder::create()
+{
+    return adoptPtr(new ArgumentEncoder);
+}
+
+ArgumentEncoder::ArgumentEncoder()
+    : m_buffer(m_inlineBuffer)
+    , m_bufferPointer(m_inlineBuffer)
+    , m_bufferSize(0)
+    , m_bufferCapacity(sizeof(m_inlineBuffer))
+{
 }
 
 ArgumentEncoder::~ArgumentEncoder()
 {
-    if (m_buffer)
-        free(m_buffer);
+    if (m_buffer != m_inlineBuffer)
+        freeBuffer(m_buffer, m_bufferCapacity);
+
 #if !USE(UNIX_DOMAIN_SOCKETS)
     // FIXME: We need to dispose of the attachments in cases of failure.
 #else
@@ -69,22 +91,21 @@ uint8_t* ArgumentEncoder::grow(unsigned alignment, size_t size)
     size_t alignedSize = roundUpToAlignment(m_bufferSize, alignment);
     
     if (alignedSize + size > m_bufferCapacity) {
-        size_t newCapacity = std::max(alignedSize + size, std::max(static_cast<size_t>(32), m_bufferCapacity + m_bufferCapacity / 4 + 1));
-        // Use system malloc / realloc instead of fastMalloc due to 
-        // fastMalloc using MADV_FREE_REUSABLE which doesn't work with
-        // mach messages with OOL message and MACH_MSG_VIRTUAL_COPY.
-        // System malloc also calls madvise(MADV_FREE_REUSABLE) but after first
-        // checking via madvise(CAN_REUSE) that it will succeed. Should this
-        // behavior change we'll need to revisit this.
-        if (!m_buffer)
-            m_buffer = static_cast<uint8_t*>(malloc(newCapacity));
-        else
-            m_buffer = static_cast<uint8_t*>(realloc(m_buffer, newCapacity));
+        size_t newCapacity = roundUpToAlignment(m_bufferCapacity * 2, 4096);
+        while (newCapacity < alignedSize + size)
+            newCapacity *= 2;
 
-        if (!m_buffer)
+        uint8_t* newBuffer = static_cast<uint8_t*>(allocBuffer(newCapacity));
+        if (!newBuffer)
             CRASH();
 
-        m_bufferCapacity = newCapacity;        
+        memcpy(newBuffer, m_buffer, m_bufferSize);
+
+        if (m_buffer != m_inlineBuffer)
+            freeBuffer(m_buffer, m_bufferCapacity);
+
+        m_buffer = newBuffer;
+        m_bufferCapacity = newCapacity;
     }
 
     m_bufferSize = alignedSize + size;
@@ -103,62 +124,67 @@ void ArgumentEncoder::encodeFixedLengthData(const uint8_t* data, size_t size, un
 
 void ArgumentEncoder::encodeVariableLengthByteArray(const DataReference& dataReference)
 {
-    // Encode the size.
-    encodeUInt64(static_cast<uint64_t>(dataReference.size()));
-
+    encode(static_cast<uint64_t>(dataReference.size()));
     encodeFixedLengthData(dataReference.data(), dataReference.size(), 1);
 }
 
-void ArgumentEncoder::encodeBool(bool n)
+void ArgumentEncoder::encode(bool n)
 {
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
     
     *reinterpret_cast<bool*>(buffer) = n;
 }
 
-void ArgumentEncoder::encodeUInt16(uint16_t n)
+void ArgumentEncoder::encode(uint8_t n)
+{
+    uint8_t* buffer = grow(sizeof(n), sizeof(n));
+
+    *reinterpret_cast<uint8_t*>(buffer) = n;
+}
+
+void ArgumentEncoder::encode(uint16_t n)
 {
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
 
     *reinterpret_cast<uint16_t*>(buffer) = n;
 }
 
-void ArgumentEncoder::encodeUInt32(uint32_t n)
+void ArgumentEncoder::encode(uint32_t n)
 {
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
     
     *reinterpret_cast<uint32_t*>(buffer) = n;
 }
 
-void ArgumentEncoder::encodeUInt64(uint64_t n)
+void ArgumentEncoder::encode(uint64_t n)
 {
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
     
     *reinterpret_cast<uint64_t*>(buffer) = n;
 }
 
-void ArgumentEncoder::encodeInt32(int32_t n)
+void ArgumentEncoder::encode(int32_t n)
 {
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
     
     *reinterpret_cast<int32_t*>(buffer) = n;
 }
 
-void ArgumentEncoder::encodeInt64(int64_t n)
+void ArgumentEncoder::encode(int64_t n)
 {
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
     
     *reinterpret_cast<int64_t*>(buffer) = n;
 }
 
-void ArgumentEncoder::encodeFloat(float n)
+void ArgumentEncoder::encode(float n)
 {
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
 
     *reinterpret_cast<float*>(buffer) = n;
 }
 
-void ArgumentEncoder::encodeDouble(double n)
+void ArgumentEncoder::encode(double n)
 {
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
 
@@ -176,14 +202,5 @@ Vector<Attachment> ArgumentEncoder::releaseAttachments()
     newList.swap(m_attachments);
     return newList;
 }
-
-#ifndef NDEBUG
-void ArgumentEncoder::debug()
-{
-    printf("ArgumentEncoder::debug()\n");
-    printf("Number of Attachments: %d\n", (int)m_attachments.size());
-    printf("Size of buffer: %d\n", (int)m_bufferSize);
-}
-#endif
 
 } // namespace CoreIPC

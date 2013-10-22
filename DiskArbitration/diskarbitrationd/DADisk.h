@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,6 @@ enum
     kDADiskStateStagedProbe          = 0x00010000,
     kDADiskStateStagedPeek           = 0x00020000,
     kDADiskStateStagedAppear         = 0x00040000,
-    kDADiskStateStagedRepair         = 0x00080000,
     kDADiskStateStagedApprove        = 0x00100000,
     kDADiskStateStagedAuthorize      = 0x00200000,
     kDADiskStateStagedMount          = 0x00400000,

@@ -52,6 +52,7 @@ private:
     AbsoluteTime  fAnnoyanceUntil;
 
     AbsoluteTime  fDimInterval;
+    AbsoluteTime  fSettingsChanged;
     AbsoluteTime  fOffInterval[2];
 
 private:

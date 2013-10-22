@@ -41,7 +41,7 @@
 #include <sys/sysctl.h>
 #include <err.h>
 #include <netinet/in.h>
-#include <System/net/pfkeyv2.h>
+#include <net/pfkeyv2.h>
 #ifdef HAVE_NETINET6_IPSEC
 #  include <netinet6/ipsec.h>
 #else 
@@ -75,20 +75,20 @@
 #include "ipsecMessageTracer.h"
 
 
-void usage __P((/*int*/));
-int main __P((int, char **));
-int get_supported __P((void));
-void sendkeyshort __P((u_int));
-void promisc __P((void));
-int postproc __P((struct sadb_msg *, int));
-int verifypriority __P((struct sadb_msg *m));
-int fileproc __P((const char *));
-const char *numstr __P((int));
-void shortdump_hdr __P((void));
-void shortdump __P((struct sadb_msg *));
-static void printdate __P((void));
-static int32_t gmt2local __P((time_t));
-void stdin_loop __P((void));
+void usage (/*int*/);
+int main (int, char **);
+int get_supported (void);
+void sendkeyshort (u_int);
+void promisc (void);
+int postproc (struct sadb_msg *, int);
+int verifypriority (struct sadb_msg *m);
+int fileproc (const char *);
+const char *numstr (int);
+void shortdump_hdr (void);
+void shortdump (struct sadb_msg *);
+static void printdate (void);
+static int32_t gmt2local (time_t);
+void stdin_loop (void);
 
 #define MODE_SCRIPT	1
 #define MODE_CMDDUMP	2
@@ -152,7 +152,7 @@ main(argc, argv)
 	int c;
 
 	if (argc == 1) {
-		usage(0);
+		usage();
 		/* NOTREACHED */
 	}
 
@@ -227,7 +227,7 @@ main(argc, argv)
 #endif
 			break;
 		case 'V':
-			usage(1);
+			usage();
 			break;
 			/*NOTREACHED*/
 #ifndef __NetBSD__
@@ -235,7 +235,7 @@ main(argc, argv)
 #endif
 		case '?':
 		default:
-			usage(0);
+			usage();
 			/*NOTREACHED*/
 		}
 	}
@@ -296,7 +296,7 @@ main(argc, argv)
 		promisc();
 		/*NOTREACHED*/
 	default:
-		usage(0);
+		usage();
 		/*NOTREACHED*/
 	}
 

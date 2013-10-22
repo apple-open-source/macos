@@ -28,7 +28,7 @@
 
 #include "CallFrame.h"
 #include "JSObject.h"
-#include "ScopeChain.h"
+#include <wtf/PrintStream.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -43,8 +43,10 @@ template<typename T> struct OperandValueTraits;
 template<typename T>
 struct OperandValueTraits {
     static T defaultValue() { return T(); }
-    static void dump(const T& value, FILE* out) { value.dump(out); }
+    static void dump(const T& value, PrintStream& out) { value.dump(out); }
 };
+
+enum OperandKind { ArgumentOperand, LocalOperand };
 
 template<typename T, typename Traits = OperandValueTraits<T> >
 class Operands {
@@ -65,6 +67,28 @@ public:
     
     T& local(size_t idx) { return m_locals[idx]; }
     const T& local(size_t idx) const { return m_locals[idx]; }
+    
+    template<OperandKind operandKind>
+    size_t sizeFor() const
+    {
+        if (operandKind == ArgumentOperand)
+            return numberOfArguments();
+        return numberOfLocals();
+    }
+    template<OperandKind operandKind>
+    T& atFor(size_t idx)
+    {
+        if (operandKind == ArgumentOperand)
+            return argument(idx);
+        return local(idx);
+    }
+    template<OperandKind operandKind>
+    const T& atFor(size_t idx) const
+    {
+        if (operandKind == ArgumentOperand)
+            return argument(idx);
+        return local(idx);
+    }
     
     void ensureLocals(size_t size)
     {
@@ -115,6 +139,13 @@ public:
     
     const T& operand(int operand) const { return const_cast<const T&>(const_cast<Operands*>(this)->operand(operand)); }
     
+    bool hasOperand(int operand) const
+    {
+        if (operandIsArgument(operand))
+            return true;
+        return static_cast<size_t>(operand) < numberOfLocals();
+    }
+    
     void setOperand(int operand, const T& value)
     {
         if (operandIsArgument(operand)) {
@@ -124,6 +155,49 @@ public:
         }
         
         setLocal(operand, value);
+    }
+    
+    size_t size() const { return numberOfArguments() + numberOfLocals(); }
+    const T& at(size_t index) const
+    {
+        if (index < numberOfArguments())
+            return m_arguments[index];
+        return m_locals[index - numberOfArguments()];
+    }
+    T& at(size_t index)
+    {
+        if (index < numberOfArguments())
+            return m_arguments[index];
+        return m_locals[index - numberOfArguments()];
+    }
+    const T& operator[](size_t index) const { return at(index); }
+    T& operator[](size_t index) { return at(index); }
+
+    bool isArgument(size_t index) const { return index < numberOfArguments(); }
+    bool isVariable(size_t index) const { return !isArgument(index); }
+    int argumentForIndex(size_t index) const
+    {
+        return index;
+    }
+    int variableForIndex(size_t index) const
+    {
+        return index - m_arguments.size();
+    }
+    int operandForIndex(size_t index) const
+    {
+        if (index < numberOfArguments())
+            return argumentToOperand(index);
+        return index - numberOfArguments();
+    }
+    
+    void setOperandFirstTime(int operand, const T& value)
+    {
+        if (operandIsArgument(operand)) {
+            setArgumentFirstTime(operandToArgument(operand), value);
+            return;
+        }
+        
+        setLocalFirstTime(operand, value);
     }
     
     void clear()
@@ -140,17 +214,19 @@ private:
 };
 
 template<typename T, typename Traits>
-void dumpOperands(Operands<T, Traits>& operands, FILE* out)
+void dumpOperands(const Operands<T, Traits>& operands, PrintStream& out)
 {
-    for (size_t argument = 0; argument < operands.numberOfArguments(); ++argument) {
-        if (argument)
-            fprintf(out, " ");
+    for (size_t argument = operands.numberOfArguments(); argument--;) {
+        if (argument != operands.numberOfArguments() - 1)
+            out.printf(" ");
+        out.print("arg", argument, ":");
         Traits::dump(operands.argument(argument), out);
     }
-    fprintf(out, " : ");
+    out.printf(" : ");
     for (size_t local = 0; local < operands.numberOfLocals(); ++local) {
         if (local)
-            fprintf(out, " ");
+            out.printf(" ");
+        out.print("r", local, ":");
         Traits::dump(operands.local(local), out);
     }
 }

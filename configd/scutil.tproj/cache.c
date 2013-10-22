@@ -296,7 +296,7 @@ do_list(int argc, char **argv)
 			CFIndex	n;
 
 			n = CFDictionaryGetCount(cached_set);
-			if (n > 0){
+			if (n > 0) {
 				const void *	cachedKeys_q[N_QUICK];
 				const void **	cachedKeys	= cachedKeys_q;
 

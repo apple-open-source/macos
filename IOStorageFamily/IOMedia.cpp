@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -793,10 +793,12 @@ void IOMedia::write(IOService *           client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
+#if !TARGET_OS_EMBEDDED		
 #ifdef __LP64__
         complete(completion, kIOReturnNotPrivileged);
         return;
 #endif /* __LP64__ */
+#endif /* !TARGET_OS_EMBEDDED */
     }
 
     if (_isWritable == 0)
@@ -845,9 +847,11 @@ IOReturn IOMedia::synchronizeCache(IOService * client)
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
+#if !TARGET_OS_EMBEDDED				
 #ifdef __LP64__
         return kIOReturnNotPrivileged;
 #endif /* __LP64__ */
+#endif /* !TARGET_OS_EMBEDDED */
     }
 
     if (_isWritable == 0)
@@ -887,9 +891,11 @@ IOReturn IOMedia::unmap(IOService *       client,
 
     if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
+#if !TARGET_OS_EMBEDDED				
 #ifdef __LP64__
         return kIOReturnNotPrivileged;
 #endif /* __LP64__ */
+#endif /* !TARGET_OS_EMBEDDED */		
     }
 
     if (_isWritable == 0)

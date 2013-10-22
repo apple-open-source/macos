@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2007-2011 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -87,6 +87,10 @@ sudo_read_nss()
 		/* NOTFOUND affects the most recent entry */
 		tq_last(&snl)->ret_if_notfound = TRUE;
 		got_match = FALSE;
+	    } else if (strcasecmp(cp, "[SUCCESS=return]") == 0 && got_match) {
+		/* SUCCESS affects the most recent entry */
+		tq_last(&snl)->ret_if_found = TRUE;
+		got_match = FALSE;
 	    } else
 		got_match = FALSE;
 	}
@@ -100,7 +104,7 @@ nomatch:
     if (tq_empty(&snl))
 	tq_append(&snl, &sudo_nss_file);
 
-    return(&snl);
+    return &snl;
 }
 
 #else /* HAVE_LDAP && _PATH_NSSWITCH_CONF */
@@ -179,7 +183,7 @@ nomatch:
     if (tq_empty(&snl))
 	tq_append(&snl, &sudo_nss_file);
 
-    return(&snl);
+    return &snl;
 }
 
 # else /* !_PATH_NETSVC_CONF && !_PATH_NSSWITCH_CONF */
@@ -197,7 +201,7 @@ sudo_read_nss()
 #  endif
     tq_append(&snl, &sudo_nss_file);
 
-    return(&snl);
+    return &snl;
 }
 
 # endif /* !HAVE_LDAP || !_PATH_NETSVC_CONF */
@@ -212,18 +216,19 @@ reset_groups(pw)
 #if defined(HAVE_INITGROUPS) && defined(HAVE_GETGROUPS)
     if (pw != sudo_user.pw) {
 # ifdef HAVE_SETAUTHDB
-        aix_setauthdb(pw->pw_name);
+	aix_setauthdb(pw->pw_name);
 # endif
-	(void) initgroups(pw->pw_name, pw->pw_gid);
+	if (initgroups(pw->pw_name, pw->pw_gid) == -1)
+	    log_fatal(USE_ERRNO|MSG_ONLY, "can't reset group vector");
 	efree(user_groups);
 	user_groups = NULL;
 	if ((user_ngroups = getgroups(0, NULL)) > 0) {
 	    user_groups = emalloc2(user_ngroups, sizeof(GETGROUPS_T));
 	    if (getgroups(user_ngroups, user_groups) < 0)
-		log_error(USE_ERRNO|MSG_ONLY, "can't get group vector");
+		log_fatal(USE_ERRNO|MSG_ONLY, "can't get group vector");
 	}
 # ifdef HAVE_SETAUTHDB
-        aix_restoreauthdb();
+	aix_restoreauthdb();
 # endif
     }
 #endif /* HAVE_INITGROUPS && HAVE_GETGROUPS */
@@ -246,52 +251,58 @@ display_privs(snl, pw)
     struct passwd *pw;
 {
     struct sudo_nss *nss;
-    struct lbuf lbuf;
-    int count;
+    struct lbuf defs, privs;
+    int count, olen;
 
     /* Reset group vector so group matching works correctly. */
     reset_groups(pw);
 
-    lbuf_init(&lbuf, output, 4, NULL);
+    lbuf_init(&defs, output, 4, NULL);
+    lbuf_init(&privs, output, 4, NULL);
 
     /* Display defaults from all sources. */
-    lbuf_append(&lbuf, "Matching Defaults entries for ", pw->pw_name,
-	" on this host:\n", NULL);
+    lbuf_append(&defs, "Matching Defaults entries for %s on this host:\n",
+	pw->pw_name);
     count = 0;
     tq_foreach_fwd(snl, nss) {
-	count += nss->display_defaults(nss, pw, &lbuf);
+	count += nss->display_defaults(nss, pw, &defs);
     }
-    if (count) {
-	lbuf_append(&lbuf, "\n\n", NULL);
-	lbuf_print(&lbuf);
-    }
+    if (count)
+	lbuf_append(&defs, "\n\n");
+    else
+	defs.len = 0;
 
     /* Display Runas and Cmnd-specific defaults from all sources. */
-    lbuf.len = 0;
-    lbuf_append(&lbuf, "Runas and Command-specific defaults for ", pw->pw_name,
-	":\n", NULL);
+    olen = defs.len;
+    lbuf_append(&defs, "Runas and Command-specific defaults for %s:\n",
+	pw->pw_name);
     count = 0;
     tq_foreach_fwd(snl, nss) {
-	count += nss->display_bound_defaults(nss, pw, &lbuf);
+	count += nss->display_bound_defaults(nss, pw, &defs);
     }
-    if (count) {
-	lbuf_append(&lbuf, "\n\n", NULL);
-	lbuf_print(&lbuf);
-    }
+    if (count)
+	lbuf_append(&defs, "\n\n");
+    else
+	defs.len = olen;
 
     /* Display privileges from all sources. */
-    lbuf.len = 0;
-    lbuf_append(&lbuf, "User ", pw->pw_name,
-	" may run the following commands on this host:\n", NULL);
+    lbuf_append(&privs,
+	"User %s may run the following commands on this host:\n", pw->pw_name);
     count = 0;
     tq_foreach_fwd(snl, nss) {
-	count += nss->display_privs(nss, pw, &lbuf);
+	count += nss->display_privs(nss, pw, &privs);
     }
-    if (count) {
-	lbuf_print(&lbuf);
+    if (count == 0) {
+	defs.len = 0;
+	privs.len = 0;
+	lbuf_append(&privs, "User %s is not allowed to run sudo on %s.\n",
+	    pw->pw_name, user_shost);
     }
+    lbuf_print(&defs);
+    lbuf_print(&privs);
 
-    lbuf_destroy(&lbuf);
+    lbuf_destroy(&defs);
+    lbuf_destroy(&privs);
 }
 
 /*
@@ -310,7 +321,7 @@ display_cmnd(snl, pw)
 
     tq_foreach_fwd(snl, nss) {
 	if (nss->display_cmnd(nss, pw) == 0)
-	    return(0);
+	    return TRUE;
     }
-    return(1);
+    return FALSE;
 }

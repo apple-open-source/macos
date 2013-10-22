@@ -31,17 +31,12 @@
 #include "ImageObserver.h"
 #include "IntRect.h"
 #include "MIMETypeRegistry.h"
-#include "PlatformString.h"
 #include "Timer.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
-
-static int frameBytes(const IntSize& frameSize)
-{
-    return frameSize.width() * frameSize.height() * 4;
-}
 
 BitmapImage::BitmapImage(ImageObserver* observer)
     : Image(observer)
@@ -64,7 +59,6 @@ BitmapImage::BitmapImage(ImageObserver* observer)
     , m_hasUniformFrameSize(true)
     , m_haveFrameCount(false)
 {
-    initPlatformData();
 }
 
 BitmapImage::~BitmapImage()
@@ -86,17 +80,18 @@ bool BitmapImage::hasSingleSecurityOrigin() const
 
 void BitmapImage::destroyDecodedData(bool destroyAll)
 {
-    int framesCleared = 0;
+    unsigned frameBytesCleared = 0;
     const size_t clearBeforeFrame = destroyAll ? m_frames.size() : m_currentFrame;
     for (size_t i = 0; i < clearBeforeFrame; ++i) {
         // The underlying frame isn't actually changing (we're just trying to
         // save the memory for the framebuffer data), so we don't need to clear
         // the metadata.
+        unsigned frameBytes = m_frames[i].m_frameBytes;
         if (m_frames[i].clear(false))
-          ++framesCleared;
+            frameBytesCleared += frameBytes;
     }
 
-    destroyMetadataAndNotify(framesCleared);
+    destroyMetadataAndNotify(frameBytesCleared);
 
     m_source.clear(destroyAll, clearBeforeFrame, data(), m_allDataReceived);
     return;
@@ -107,24 +102,28 @@ void BitmapImage::destroyDecodedDataIfNecessary(bool destroyAll)
     // Animated images >5MB are considered large enough that we'll only hang on
     // to one frame at a time.
     static const unsigned cLargeAnimationCutoff = 5242880;
-    if (m_frames.size() * frameBytes(m_size) > cLargeAnimationCutoff)
+    unsigned allFrameBytes = 0;
+    for (size_t i = 0; i < m_frames.size(); ++i)
+        allFrameBytes += m_frames[i].m_frameBytes;
+
+    if (allFrameBytes > cLargeAnimationCutoff)
         destroyDecodedData(destroyAll);
 }
 
-void BitmapImage::destroyMetadataAndNotify(int framesCleared)
+void BitmapImage::destroyMetadataAndNotify(unsigned frameBytesCleared)
 {
     m_isSolidColor = false;
     m_checkedForSolidColor = false;
     invalidatePlatformData();
 
-    int deltaBytes = framesCleared * -frameBytes(m_size);
-    m_decodedSize += deltaBytes;
-    if (framesCleared > 0) {
-        deltaBytes -= m_decodedPropertiesSize;
+    ASSERT(m_decodedSize >= frameBytesCleared);
+    m_decodedSize -= frameBytesCleared;
+    if (frameBytesCleared > 0) {
+        frameBytesCleared += m_decodedPropertiesSize;
         m_decodedPropertiesSize = 0;
     }
-    if (deltaBytes && imageObserver())
-        imageObserver()->decodedSizeChanged(this, deltaBytes);
+    if (frameBytesCleared && imageObserver())
+        imageObserver()->decodedSizeChanged(this, -safeCast<int>(frameBytesCleared));
 }
 
 void BitmapImage::cacheFrame(size_t index)
@@ -145,12 +144,13 @@ void BitmapImage::cacheFrame(size_t index)
     if (repetitionCount(false) != cAnimationNone)
         m_frames[index].m_duration = m_source.frameDurationAtIndex(index);
     m_frames[index].m_hasAlpha = m_source.frameHasAlphaAtIndex(index);
+    m_frames[index].m_frameBytes = m_source.frameBytesAtIndex(index);
 
     const IntSize frameSize(index ? m_source.frameSizeAtIndex(index) : m_size);
     if (frameSize != m_size)
         m_hasUniformFrameSize = false;
     if (m_frames[index].m_frame) {
-        int deltaBytes = frameBytes(frameSize);
+        int deltaBytes = safeCast<int>(m_frames[index].m_frameBytes);
         m_decodedSize += deltaBytes;
         // The fully-decoded frame will subsume the partially decoded data used
         // to determine image properties.
@@ -179,25 +179,26 @@ void BitmapImage::didDecodeProperties() const
         imageObserver()->decodedSizeChanged(this, deltaBytes);
 }
 
+void BitmapImage::updateSize() const
+{
+    if (!m_sizeAvailable || m_haveSize)
+        return;
+
+    m_size = m_source.size();
+    m_sizeRespectingOrientation = m_source.size(RespectImageOrientation);
+    m_haveSize = true;
+    didDecodeProperties();
+}
+
 IntSize BitmapImage::size() const
 {
-    if (m_sizeAvailable && !m_haveSize) {
-        m_size = m_source.size();
-        m_sizeRespectingOrientation = m_source.size(RespectImageOrientation);
-        m_haveSize = true;
-        didDecodeProperties();
-    }
+    updateSize();
     return m_size;
 }
 
 IntSize BitmapImage::sizeRespectingOrientation() const
 {
-    if (m_sizeAvailable && !m_haveSize) {
-        m_size = m_source.size();
-        m_sizeRespectingOrientation = m_source.size(RespectImageOrientation);
-        m_haveSize = true;
-        didDecodeProperties();
-    }
+    updateSize();
     return m_sizeRespectingOrientation;
 }
 
@@ -236,15 +237,16 @@ bool BitmapImage::dataChanged(bool allDataReceived)
     // start of the frame data), and any or none of them might be the particular
     // frame affected by appending new data here. Thus we have to clear all the
     // incomplete frames to be safe.
-    int framesCleared = 0;
+    unsigned frameBytesCleared = 0;
     for (size_t i = 0; i < m_frames.size(); ++i) {
         // NOTE: Don't call frameIsCompleteAtIndex() here, that will try to
         // decode any uncached (i.e. never-decoded or
         // cleared-on-a-previous-pass) frames!
+        unsigned frameBytes = m_frames[i].m_frameBytes;
         if (m_frames[i].m_haveMetadata && !m_frames[i].m_isComplete)
-            framesCleared += (m_frames[i].clear(true) ? 1 : 0);
+            frameBytesCleared += (m_frames[i].clear(true) ? frameBytes : 0);
     }
-    destroyMetadataAndNotify(framesCleared);
+    destroyMetadataAndNotify(frameBytesCleared);
     
     // Feed all the data we've seen so far to the image decoder.
     m_allDataReceived = allDataReceived;
@@ -263,9 +265,12 @@ String BitmapImage::filenameExtension() const
 size_t BitmapImage::frameCount()
 {
     if (!m_haveFrameCount) {
-        m_haveFrameCount = true;
         m_frameCount = m_source.frameCount();
-        didDecodeProperties();
+        // If decoder is not initialized yet, m_source.frameCount() returns 0.
+        if (m_frameCount) {
+            didDecodeProperties();
+            m_haveFrameCount = true;
+        }
     }
     return m_frameCount;
 }
@@ -291,7 +296,7 @@ bool BitmapImage::ensureFrameIsCached(size_t index)
     return true;
 }
 
-NativeImagePtr BitmapImage::frameAtIndex(size_t index)
+PassNativeImagePtr BitmapImage::frameAtIndex(size_t index)
 {
     if (!ensureFrameIsCached(index))
         return 0;
@@ -301,7 +306,7 @@ NativeImagePtr BitmapImage::frameAtIndex(size_t index)
 bool BitmapImage::frameIsCompleteAtIndex(size_t index)
 {
     if (!ensureFrameIsCached(index))
-        return true; // Why would an invalid index return true here?
+        return false;
     return m_frames[index].m_isComplete;
 }
 
@@ -312,21 +317,25 @@ float BitmapImage::frameDurationAtIndex(size_t index)
     return m_frames[index].m_duration;
 }
 
-NativeImagePtr BitmapImage::nativeImageForCurrentFrame()
+PassNativeImagePtr BitmapImage::nativeImageForCurrentFrame()
 {
     return frameAtIndex(currentFrame());
 }
 
 bool BitmapImage::frameHasAlphaAtIndex(size_t index)
 {
-    if (!ensureFrameIsCached(index))
-        return true; // Why does an invalid index mean alpha?
-    return m_frames[index].m_hasAlpha;
+    if (m_frames.size() <= index)
+        return true;
+
+    if (m_frames[index].m_haveMetadata)
+        return m_frames[index].m_hasAlpha;
+
+    return m_source.frameHasAlphaAtIndex(index);
 }
 
-bool BitmapImage::currentFrameHasAlpha()
+bool BitmapImage::currentFrameKnownToBeOpaque()
 {
-    return frameHasAlphaAtIndex(currentFrame());
+    return !frameHasAlphaAtIndex(currentFrame());
 }
 
 ImageOrientation BitmapImage::currentFrameOrientation()
@@ -336,9 +345,13 @@ ImageOrientation BitmapImage::currentFrameOrientation()
 
 ImageOrientation BitmapImage::frameOrientationAtIndex(size_t index)
 {
-    if (!ensureFrameIsCached(index))
+    if (m_frames.size() <= index)
         return DefaultImageOrientation;
-    return m_frames[index].m_orientation;
+
+    if (m_frames[index].m_haveMetadata)
+        return m_frames[index].m_orientation;
+
+    return m_source.orientationAtIndex(index);
 }
 
 #if !ASSERT_DISABLED
@@ -557,12 +570,10 @@ Color BitmapImage::solidColor() const
 {
     return m_solidColor;
 }
-
-#if !USE(CG)
-void BitmapImage::draw(GraphicsContext* ctx, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator op, RespectImageOrientationEnum)
+    
+bool BitmapImage::canAnimate()
 {
-    draw(ctx, dstRect, srcRect, styleColorSpace, op);
+    return shouldAnimate() && frameCount() > 1;
 }
-#endif
 
 }

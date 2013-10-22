@@ -205,7 +205,7 @@ __opendir2(const char *name, int flags)
 				/*
 				 * This sort must be stable.
 				 */
-				mergesort(dpv, n, sizeof(*dpv), alphasort);
+				mergesort(dpv, n, sizeof(*dpv), (int (*)(const void *, const void *))alphasort);
 
 				dpv[n] = NULL;
 				xp = NULL;

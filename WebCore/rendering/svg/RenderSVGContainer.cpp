@@ -35,6 +35,7 @@
 #include "SVGResources.h"
 #include "SVGResourcesCache.h"
 #include "SVGStyledElement.h"
+#include <wtf/StackStats.h>
 
 namespace WebCore {
 
@@ -51,12 +52,13 @@ RenderSVGContainer::~RenderSVGContainer()
 
 void RenderSVGContainer::layout()
 {
+    StackStats::LayoutCheckPoint layoutCheckPoint;
     ASSERT(needsLayout());
 
     // RenderSVGRoot disables layoutState for the SVG rendering tree.
     ASSERT(!view()->layoutStateEnabled());
 
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() || selfWillPaint());
+    LayoutRepainter repainter(*this, SVGRenderSupport::checkForSVGRepaintDuringLayout(this) || selfWillPaint());
 
     // Allow RenderSVGViewportContainer to update its viewport.
     calcViewport();
@@ -86,6 +88,19 @@ void RenderSVGContainer::layout()
     repainter.repaintAfterLayout();
     setNeedsLayout(false);
 }
+
+void RenderSVGContainer::addChild(RenderObject* child, RenderObject* beforeChild)
+{
+    RenderSVGModelObject::addChild(child, beforeChild);
+    SVGResourcesCache::clientWasAddedToTree(child, child->style());
+}
+
+void RenderSVGContainer::removeChild(RenderObject* child)
+{
+    SVGResourcesCache::clientWillBeRemovedFromTree(child);
+    RenderSVGModelObject::removeChild(child);
+}
+
 
 bool RenderSVGContainer::selfWillPaint()
 {
@@ -123,7 +138,7 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, const LayoutPoint&)
         }
 
         if (continueRendering) {
-            childPaintInfo.updatePaintingRootForChildren(this);
+            childPaintInfo.updateSubtreePaintRootForChildren(this);
             for (RenderObject* child = firstChild(); child; child = child->nextSibling())
                 child->paint(childPaintInfo, IntPoint());
         }
@@ -150,11 +165,6 @@ void RenderSVGContainer::addFocusRingRects(Vector<IntRect>& rects, const LayoutP
 
 void RenderSVGContainer::updateCachedBoundaries()
 {
-    m_objectBoundingBox = FloatRect();
-    m_objectBoundingBoxValid = false;
-    m_strokeBoundingBox = FloatRect();
-    m_repaintBoundingBox = FloatRect();
-
     SVGRenderSupport::computeContainerBoundingBoxes(this, m_objectBoundingBox, m_objectBoundingBoxValid, m_strokeBoundingBox, m_repaintBoundingBox);
     SVGRenderSupport::intersectRepaintRectWithResources(this, m_repaintBoundingBox);
 }
@@ -177,6 +187,12 @@ bool RenderSVGContainer::nodeAtFloatPoint(const HitTestRequest& request, HitTest
         }
     }
 
+    // Accessibility wants to return SVG containers, if appropriate.
+    if (request.type() & HitTestRequest::AccessibilityHitTest && m_objectBoundingBox.contains(localPoint)) {
+        updateHitTestResult(result, roundedLayoutPoint(localPoint));
+        return true;
+    }
+    
     // Spec: Only graphical elements can be targeted by the mouse, period.
     // 16.4: "If there are no graphics elements whose relevant graphics content is under the pointer (i.e., there is no target element), the event is not dispatched."
     return false;

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>keychain-sync-updates</key>
+	<true/>
+	<key>application-identifier</key>
+	<string>com.apple.security.cloudkeychainproxy3</string>
+	<key>sync-keychain</key>
+	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>sync</string>
+		<string>*</string>
+	</array>
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>com.apple.security.cloudkeychainproxy3</string>
+</dict>
+</plist>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,60 +26,63 @@
 #include "config.h"
 #include "WebResourceCacheManager.h"
 
-#include "Connection.h"
-#include "MessageID.h"
-#include "ResourceCachesToClear.h"
 #include "SecurityOriginData.h"
 #include "WebCoreArgumentCoders.h"
-#include "WebResourceCacheManagerProxyMessages.h"
 #include "WebProcess.h"
+#include "WebResourceCacheManagerMessages.h"
+#include "WebResourceCacheManagerProxyMessages.h"
 #include <WebCore/MemoryCache.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginHash.h>
-#include <wtf/UnusedParam.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-WebResourceCacheManager& WebResourceCacheManager::shared()
+const char* WebResourceCacheManager::supplementName()
 {
-    static WebResourceCacheManager& shared = *new WebResourceCacheManager;
-    return shared;
+    return "WebResourceCacheManager";
 }
 
-WebResourceCacheManager::WebResourceCacheManager()
+WebResourceCacheManager::WebResourceCacheManager(WebProcess* process)
+    : m_process(process)
 {
+    m_process->addMessageReceiver(Messages::WebResourceCacheManager::messageReceiverName(), this);
 }
-
-WebResourceCacheManager::~WebResourceCacheManager()
-{
-}
-
-void WebResourceCacheManager::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
-{
-    didReceiveWebResourceCacheManagerMessage(connection, messageID, arguments);
-}
-
 
 void WebResourceCacheManager::getCacheOrigins(uint64_t callbackID) const
 {
-    WebProcess::LocalTerminationDisabler terminationDisabler(WebProcess::shared());
-
+#if USE(CFURLCACHE) && ENABLE(CACHE_PARTITIONING)
+    __block MemoryCache::SecurityOriginSet origins;
+#else
     MemoryCache::SecurityOriginSet origins;
+#endif
     memoryCache()->getOriginsWithCache(origins);
 
 #if USE(CFURLCACHE)
-    RetainPtr<CFArrayRef> cfURLHosts = cfURLCacheHostNames();
-    CFIndex size = cfURLHosts ? CFArrayGetCount(cfURLHosts.get()) : 0;
+#if ENABLE(CACHE_PARTITIONING)
+    cfURLCacheHostNamesWithCallback(^(RetainPtr<CFArrayRef> cfURLHosts) {
+#else
+        RetainPtr<CFArrayRef> cfURLHosts = cfURLCacheHostNames();
+#endif
+        CFIndex size = cfURLHosts ? CFArrayGetCount(cfURLHosts.get()) : 0;
 
-    String httpString("http");
-    for (CFIndex i = 0; i < size; ++i) {
-        CFStringRef host = static_cast<CFStringRef>(CFArrayGetValueAtIndex(cfURLHosts.get(), i));
-        origins.add(SecurityOrigin::create(httpString, host, 0));
-    }
+        String httpString("http");
+        for (CFIndex i = 0; i < size; ++i) {
+            CFStringRef host = static_cast<CFStringRef>(CFArrayGetValueAtIndex(cfURLHosts.get(), i));
+            origins.add(SecurityOrigin::create(httpString, host, 0));
+        }
 #endif
 
+        returnCacheOrigins(callbackID, origins);
+
+#if USE(CFURLCACHE) && ENABLE(CACHE_PARTITIONING)
+    });
+#endif
+}
+
+void WebResourceCacheManager::returnCacheOrigins(uint64_t callbackID, const MemoryCache::SecurityOriginSet& origins) const
+{
     // Create a list with the origins in both of the caches.
     Vector<SecurityOriginData> identifiers;
     identifiers.reserveCapacity(origins.size());
@@ -96,13 +99,11 @@ void WebResourceCacheManager::getCacheOrigins(uint64_t callbackID) const
         identifiers.uncheckedAppend(originData);
     }
 
-    WebProcess::shared().connection()->send(Messages::WebResourceCacheManagerProxy::DidGetCacheOrigins(identifiers, callbackID), 0);
+    m_process->send(Messages::WebResourceCacheManagerProxy::DidGetCacheOrigins(identifiers, callbackID), 0);
 }
 
-void WebResourceCacheManager::clearCacheForOrigin(SecurityOriginData originData, uint32_t cachesToClear) const
+void WebResourceCacheManager::clearCacheForOrigin(const SecurityOriginData& originData, uint32_t cachesToClear) const
 {
-    WebProcess::LocalTerminationDisabler terminationDisabler(WebProcess::shared());
-
 #if USE(CFURLCACHE)
     ResourceCachesToClear resourceCachesToClear = static_cast<ResourceCachesToClear>(cachesToClear);
 #else
@@ -117,9 +118,8 @@ void WebResourceCacheManager::clearCacheForOrigin(SecurityOriginData originData,
 
 #if USE(CFURLCACHE)
     if (resourceCachesToClear != InMemoryResourceCachesOnly) { 
-        RetainPtr<CFMutableArrayRef> hostArray(AdoptCF, CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks));
-        RetainPtr<CFStringRef> host(AdoptCF, origin->host().createCFString());
-        CFArrayAppendValue(hostArray.get(), host.get());
+        RetainPtr<CFMutableArrayRef> hostArray = adoptCF(CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks));
+        CFArrayAppendValue(hostArray.get(), origin->host().createCFString().get());
 
         clearCFURLCacheForHostNames(hostArray.get());
     }
@@ -128,11 +128,8 @@ void WebResourceCacheManager::clearCacheForOrigin(SecurityOriginData originData,
 
 void WebResourceCacheManager::clearCacheForAllOrigins(uint32_t cachesToClear) const
 {
-    WebProcess::LocalTerminationDisabler terminationDisabler(WebProcess::shared());
-
     ResourceCachesToClear resourceCachesToClear = static_cast<ResourceCachesToClear>(cachesToClear);
-
-    WebProcess::shared().clearResourceCaches(resourceCachesToClear);
+    m_process->clearResourceCaches(resourceCachesToClear);
 }
 
 } // namespace WebKit

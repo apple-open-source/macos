@@ -2,14 +2,14 @@
 
 module DRb
   class DRbServer
-    module InvokeMethod18Mixin
+    module InvokeMethod18Mixin # :nodoc: all
       def block_yield(x)
-	if x.size == 1 && x[0].class == Array
-	  x[0] = DRbArray.new(x[0])
-	end
-        block_value = @block.call(*x)
+        if x.size == 1 && x[0].class == Array
+          x[0] = DRbArray.new(x[0])
+        end
+        @block.call(*x)
       end
-      
+
       def perform_with_block
         @obj.__send__(@msg_id, *@argv) do |*x|
           jump_error = nil
@@ -20,8 +20,6 @@ module DRb
           end
           if jump_error
             case jump_error.reason
-            when :retry
-              retry
             when :break
               break(jump_error.exit_value)
             else

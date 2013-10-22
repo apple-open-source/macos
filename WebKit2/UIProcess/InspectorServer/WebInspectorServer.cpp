@@ -30,9 +30,9 @@
 
 #include "WebInspectorServer.h"
 
+#include "HTTPRequest.h"
 #include "WebInspectorProxy.h"
 #include "WebSocketServerConnection.h"
-#include <WebCore/HTTPRequest.h>
 
 using namespace WebCore;
 
@@ -67,7 +67,7 @@ WebInspectorServer::~WebInspectorServer()
     // Close any remaining open connections.
     HashMap<unsigned, WebSocketServerConnection*>::iterator end = m_connectionMap.end();
     for (HashMap<unsigned, WebSocketServerConnection*>::iterator it = m_connectionMap.begin(); it != end; ++it) {
-        WebSocketServerConnection* connection = it->second;
+        WebSocketServerConnection* connection = it->value;
         WebInspectorProxy* client = m_clientMap.get(connection->identifier());
         closeConnection(client, connection);
     }
@@ -78,7 +78,7 @@ int WebInspectorServer::registerPage(WebInspectorProxy* client)
 #ifndef ASSERT_DISABLED
     ClientMap::iterator end = m_clientMap.end();
     for (ClientMap::iterator it = m_clientMap.begin(); it != end; ++it)
-        ASSERT(it->second != client);
+        ASSERT(it->value != client);
 #endif
 
     int pageId = m_nextAvailablePageId++;
@@ -93,6 +93,13 @@ void WebInspectorServer::unregisterPage(int pageId)
     if (connection)
         closeConnection(0, connection);
 }
+
+#if !PLATFORM(QT)
+String WebInspectorServer::inspectorUrlForPageID(int)
+{
+    return String();
+}
+#endif
 
 void WebInspectorServer::sendMessageOverConnection(unsigned pageIdForConnection, const String& message)
 {
@@ -135,7 +142,7 @@ bool WebInspectorServer::didReceiveWebSocketUpgradeHTTPRequest(WebSocketServerCo
     String path = request->url();
 
     // NOTE: Keep this in sync with WebCore/inspector/front-end/inspector.js.
-    DEFINE_STATIC_LOCAL(const String, inspectorWebSocketConnectionPathPrefix, ("/devtools/page/"));
+    DEFINE_STATIC_LOCAL(const String, inspectorWebSocketConnectionPathPrefix, (ASCIILiteral("/devtools/page/")));
 
     // Unknown path requested.
     if (!path.startsWith(inspectorWebSocketConnectionPathPrefix))

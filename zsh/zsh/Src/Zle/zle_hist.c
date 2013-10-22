@@ -470,7 +470,7 @@ historysearchbackward(char **args)
 		histpos++;
 	    /* ensure we're not on a combining character */
 	    CCRIGHTPOS(histpos);
-	    /* histpos from now on on is an index into the metafied string */
+	    /* histpos from now on is an index into the metafied string */
 	    srch_str = zlelineasstring(zleline, histpos, 0, NULL, NULL, 0);
 	}
 	free(line);
@@ -765,6 +765,7 @@ zle_setline(Histent he)
     histline = he->histnum;
 
     setline(GETZLETEXT(he), ZSL_COPY|ZSL_TOEND);
+    zlecallhook("zle-history-line-set", NULL);
     setlastline();
     clearlist = 1;
     if (remetafy)

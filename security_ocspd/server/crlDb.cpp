@@ -98,7 +98,6 @@ private:
 
 	/* everything this module does is protected by this global lock */
 	Mutex					mLock;
-    Mutex                   mRefreshLock;
 
 	/*
 	 * We maintain open handles to these two modules, but we do NOT maintain
@@ -304,7 +303,7 @@ CSSM_RETURN CrlDatabase::lookupPriv(
 
 	query.RecordType = CSSM_DL_DB_RECORD_X509_CRL;
 	query.Conjunctive = CSSM_DB_AND;
-	query.NumSelectionPredicates = predPtr - pred;
+	query.NumSelectionPredicates = (uint32)(predPtr - pred);
 	query.SelectionPredicate = pred;
 	query.QueryLimits.TimeLimit = 0;	// FIXME - meaningful?
 	query.QueryLimits.SizeLimit = 1;	// FIXME - meaningful?
@@ -354,6 +353,10 @@ bool CrlDatabase::lookup(
 	CSSM_DL_DB_HANDLE			dlDbHand = {mDlHand, dbHand};
 
 	crtn = lookupPriv(dbHand, url, issuer, &verifyTime, &resultHand, &record, NULL, &dbCrl);
+	if(crtn) {
+		ocspdCrlDebug("CrlDatabase::lookupPriv result %d", crtn);
+	}
+
 	if(resultHand) {
 		CSSM_DL_DataAbortQuery(dlDbHand, resultHand);
 	}
@@ -478,29 +481,22 @@ void CrlDatabase::refresh(
 	bool				fullCryptoVerify,
 	bool				doRefresh)
 {
-// hold a lock to serialize refresh operations.  This allows ocsp to
-// continue to function while a refresh operation continues.
-    StLock<Mutex> _rl(mRefreshLock);
+	StLock<Mutex> _(mLock);
 
-    bool didCreate;
-    CSSM_DB_HANDLE dbHand;
+	bool didCreate;
+	CSSM_DB_HANDLE dbHand;
 
-    {
-        // hold the database lock only when actual work is being done with the database
-        StLock<Mutex> _(mLock);
-
-        if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
-            /* error: no DB, we're done */
-            ocspdErrorLog("CrlDatabase::refresh: no cache DB\n");
-            return;
-        }
-        if(didCreate) {
-            /* we just created empty DB, we're done */
-            ocspdCrlDebug("CrlDatabase::refresh: empty cache DB");
-            closeDatabase(dbHand);
-            return;
-        }
-    }
+	if(openDatabase(CRL_CACHE_DB, dbHand, didCreate)) {
+		/* error: no DB, we're done */
+		ocspdErrorLog("CrlDatabase::refresh: no cache DB\n");
+		return;
+	}
+	if(didCreate) {
+		/* we just created empty DB, we're done */
+		ocspdCrlDebug("CrlDatabase::refresh: empty cache DB");
+		closeDatabase(dbHand);
+		return;
+	}
 
 	CSSM_DL_DB_HANDLE dlDbHand = {mDlHand, dbHand};
 	ocspdCrlRefresh(dlDbHand, mClHand, staleDays, expireOverlapSeconds,

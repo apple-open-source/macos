@@ -68,10 +68,6 @@ private:
 };
 
 
-extern ModuleNexus<SignatureDatabase> signatureDatabase;
-extern ModuleNexus<SignatureDatabaseWriter> signatureDatabaseWriter;
-
-
 } // end namespace CodeSigning
 } // end namespace Security
 

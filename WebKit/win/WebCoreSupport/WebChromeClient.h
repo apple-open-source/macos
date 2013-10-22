@@ -43,7 +43,6 @@ public:
 
     virtual void chromeDestroyed();
 
-    virtual void* webView() const { return m_webView; }
     virtual void setWindowRect(const WebCore::FloatRect&);
     virtual WebCore::FloatRect windowRect();
     
@@ -78,7 +77,7 @@ public:
 
     virtual void setResizable(bool);
 
-    virtual void addMessageToConsole(WebCore::MessageSource source, WebCore::MessageType type, WebCore::MessageLevel level, const WTF::String& message, unsigned line, const WTF::String& url);
+    virtual void addMessageToConsole(WebCore::MessageSource, WebCore::MessageLevel, const WTF::String& message, unsigned lineNumber, unsigned columnNumber, const WTF::String& url);
 
     virtual bool canRunBeforeUnloadConfirmPanel();
     virtual bool runBeforeUnloadConfirmPanel(const WTF::String& message, WebCore::Frame* frame);
@@ -114,7 +113,7 @@ public:
     virtual void print(WebCore::Frame*);
 
 #if ENABLE(SQL_DATABASE)
-    virtual void exceededDatabaseQuota(WebCore::Frame*, const WTF::String&);
+    virtual void exceededDatabaseQuota(WebCore::Frame*, const WTF::String&, WebCore::DatabaseDetails);
 #endif
 
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
@@ -139,7 +138,7 @@ public:
         virtual void setNeedsOneShotDrawingSynchronization() { }
         // Sets a flag to specify that the view needs to be updated, so we need
         // to do an eager layout before the drawing.
-        virtual void scheduleCompositingLayerSync();
+        virtual void scheduleCompositingLayerFlush();
 #endif
 
 #if PLATFORM(WIN) && USE(AVFOUNDATION)
@@ -172,7 +171,11 @@ public:
 
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
     virtual void numWheelEventHandlersChanged(unsigned) { }
-    virtual void numTouchEventHandlersChanged(unsigned) { }
+
+    WebView* webView() { return m_webView; }
+
+    virtual void AXStartFrameLoad();
+    virtual void AXFinishFrameLoad();
 
 private:
     COMPtr<IWebUIDelegate> uiDelegate();

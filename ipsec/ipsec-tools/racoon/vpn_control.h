@@ -97,6 +97,8 @@ extern mode_t vpncontrolsock_mode;
  * Flags
  */
 #define VPNCTL_FLAG_MODECFG_USED		0x0001
+#define VPNCTL_FLAG_IKE_VERSION			0x0002
+#define VPNCTL_FLAG_IKEV2				VPNCTL_FLAG_IKE_VERSION
 
 /*
  * XAUTH Attribute Types

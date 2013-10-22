@@ -1,6 +1,16 @@
 /^#include/a
 #include <stdlib.h>
 .
+/^get_history_item(/a
+.
+/^#ifdef  *__APPLE__/c
+/*
+ * Recent versions of libedit have corrected the off-by-one history indexes
+ * (though the Apple version emulates a true offset rather than using the
+ * event id).  So we comment out the off-by-one fix.
+ */
+#if 0 /* __APPLE__ */
+.
 /^setup_readline/-1i
 static char *
 _dummy(const char *x, int y)
@@ -15,5 +25,15 @@ _dummy(const char *x, int y)
 /rl_initialize()/a
 	/* remove tab completion binding */
 	rl_parse_and_bind("bind ^I ed-insert");
+.
+/^call_readline(/a
+.
+/^#ifdef  *__APPLE__/c
+/*
+ * Recent versions of libedit have corrected the off-by-one history indexes
+ * (though the Apple version emulates a true offset rather than using the
+ * event id).  So we comment out the off-by-one fix.
+ */
+#if 0 /* __APPLE__ */
 .
 w

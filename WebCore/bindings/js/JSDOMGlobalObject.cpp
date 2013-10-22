@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -42,8 +42,8 @@ namespace WebCore {
 
 const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject", &JSGlobalObject::s_info, 0, 0, CREATE_METHOD_TABLE(JSDOMGlobalObject) };
 
-JSDOMGlobalObject::JSDOMGlobalObject(JSGlobalData& globalData, Structure* structure, PassRefPtr<DOMWrapperWorld> world, const GlobalObjectMethodTable* globalObjectMethodTable)
-    : JSGlobalObject(globalData, structure, globalObjectMethodTable)
+JSDOMGlobalObject::JSDOMGlobalObject(VM& vm, Structure* structure, PassRefPtr<DOMWrapperWorld> world, const GlobalObjectMethodTable* globalObjectMethodTable)
+    : JSGlobalObject(vm, structure, globalObjectMethodTable)
     , m_currentEvent(0)
     , m_world(world)
 {
@@ -51,18 +51,18 @@ JSDOMGlobalObject::JSDOMGlobalObject(JSGlobalData& globalData, Structure* struct
 
 void JSDOMGlobalObject::destroy(JSCell* cell)
 {
-    jsCast<JSDOMGlobalObject*>(cell)->JSDOMGlobalObject::~JSDOMGlobalObject();
+    static_cast<JSDOMGlobalObject*>(cell)->JSDOMGlobalObject::~JSDOMGlobalObject();
 }
 
-void JSDOMGlobalObject::finishCreation(JSGlobalData& globalData)
+void JSDOMGlobalObject::finishCreation(VM& vm)
 {
-    Base::finishCreation(globalData);
+    Base::finishCreation(vm);
     ASSERT(inherits(&s_info));
 }
 
-void JSDOMGlobalObject::finishCreation(JSGlobalData& globalData, JSGlobalThis* thisValue)
+void JSDOMGlobalObject::finishCreation(VM& vm, JSObject* thisValue)
 {
-    Base::finishCreation(globalData, thisValue);
+    Base::finishCreation(vm, thisValue);
     ASSERT(inherits(&s_info));
 }
 
@@ -88,14 +88,11 @@ void JSDOMGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 
     JSDOMStructureMap::iterator end = thisObject->structures().end();
     for (JSDOMStructureMap::iterator it = thisObject->structures().begin(); it != end; ++it)
-        visitor.append(&it->second);
+        visitor.append(&it->value);
 
     JSDOMConstructorMap::iterator end2 = thisObject->constructors().end();
     for (JSDOMConstructorMap::iterator it2 = thisObject->constructors().begin(); it2 != end2; ++it2)
-        visitor.append(&it2->second);
-
-    if (thisObject->m_injectedScript)
-        visitor.append(&thisObject->m_injectedScript);
+        visitor.append(&it2->value);
 }
 
 void JSDOMGlobalObject::setCurrentEvent(Event* currentEvent)
@@ -108,16 +105,6 @@ Event* JSDOMGlobalObject::currentEvent() const
     return m_currentEvent;
 }
 
-void JSDOMGlobalObject::setInjectedScript(JSObject* injectedScript)
-{
-    m_injectedScript.setMayBeNull(globalData(), this, injectedScript);
-}
-
-JSObject* JSDOMGlobalObject::injectedScript() const
-{
-    return m_injectedScript.get();
-}
-
 JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, JSC::ExecState* exec)
 {
     return toJSDOMWindow(document->frame(), currentWorld(exec));
@@ -126,7 +113,7 @@ JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, JSC::ExecState* exec)
 JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext, JSC::ExecState* exec)
 {
     if (scriptExecutionContext->isDocument())
-        return toJSDOMGlobalObject(static_cast<Document*>(scriptExecutionContext), exec);
+        return toJSDOMGlobalObject(toDocument(scriptExecutionContext), exec);
 
 #if ENABLE(WORKERS)
     if (scriptExecutionContext->isWorkerContext())
@@ -145,7 +132,7 @@ JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, DOMWrapperWorld* worl
 JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext, DOMWrapperWorld* world)
 {
     if (scriptExecutionContext->isDocument())
-        return toJSDOMGlobalObject(static_cast<Document*>(scriptExecutionContext), world);
+        return toJSDOMGlobalObject(toDocument(scriptExecutionContext), world);
 
 #if ENABLE(WORKERS)
     if (scriptExecutionContext->isWorkerContext())

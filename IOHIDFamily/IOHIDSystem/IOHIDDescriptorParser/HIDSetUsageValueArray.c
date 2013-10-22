@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -83,10 +83,10 @@ OSStatus HIDSetUsageValueArray(HIDReportType reportType,
 									UInt32 iCollection,
 									HIDUsage usage,
 									UInt8 *psUsageBuffer,
-									ByteCount iByteLength,
+									IOByteCount iByteLength,
 									HIDPreparsedDataRef preparsedDataRef,
 									void *psReport,
-									ByteCount iReportLength)
+									IOByteCount iReportLength)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
 	HIDCollection *ptCollection;

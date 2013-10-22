@@ -36,16 +36,17 @@ namespace WebCore {
 
 using namespace MathMLNames;
 
-RenderMathMLRow::RenderMathMLRow(Node* node)
-    : RenderMathMLBlock(node)
+RenderMathMLRow::RenderMathMLRow(Element* element)
+    : RenderMathMLBlock(element)
 {
 }
 
 // FIXME: Change all these createAnonymous... routines to return a PassOwnPtr<>.
 RenderMathMLRow* RenderMathMLRow::createAnonymousWithParentRenderer(const RenderObject* parent)
 {
-    RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyleWithDisplay(parent->style(), INLINE_BLOCK);
-    RenderMathMLRow* newMRow = new (parent->renderArena()) RenderMathMLRow(parent->document() /* is anonymous */);
+    RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyleWithDisplay(parent->style(), FLEX);
+    RenderMathMLRow* newMRow = new (parent->renderArena()) RenderMathMLRow(0);
+    newMRow->setDocumentForAnonymous(parent->document());
     newMRow->setStyle(newStyle.release());
     return newMRow;
 }
@@ -53,7 +54,12 @@ RenderMathMLRow* RenderMathMLRow::createAnonymousWithParentRenderer(const Render
 void RenderMathMLRow::computePreferredLogicalWidths()
 {
     ASSERT(preferredLogicalWidthsDirty() && needsLayout());
-    
+
+#ifndef NDEBUG
+    // FIXME: Remove this once mathml stops modifying the render tree here.
+    SetLayoutNeededForbiddenScope layoutForbiddenScope(this, false);
+#endif
+
     computeChildrenPreferredLogicalHeights();
     int stretchLogicalHeight = 0;
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
@@ -76,7 +82,7 @@ void RenderMathMLRow::computePreferredLogicalWidths()
                 renderMo->stretchToHeight(stretchLogicalHeight);
         }
     }
-    
+
     RenderMathMLBlock::computePreferredLogicalWidths();
     
     // Shrink our logical width to its probable value now without triggering unnecessary relayout of our children.

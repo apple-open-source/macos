@@ -235,7 +235,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD3BA0987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_ocspd" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -321,6 +321,7 @@
 		C27AD3AF0987FCDF001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 			};
 			name = Debug;
@@ -328,6 +329,7 @@
 		C27AD3B10987FCDF001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 			};
 			name = Release;
@@ -336,6 +338,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844612C146E894C00B12992 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_ocspd;
 				SKIP_INSTALL = NO;
 			};
@@ -345,6 +348,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844612E146E894C00B12992 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_ocspd;
 				SKIP_INSTALL = NO;
 			};
@@ -354,6 +358,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844612D146E894C00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -361,6 +372,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1844612D146E894C00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

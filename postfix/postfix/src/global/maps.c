@@ -205,7 +205,7 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 			if ( var_use_getpwnam_ext ) {
 				uid_t a_uid = ads_get_uid(name);
 				if (a_uid > 0 && a_uid < var_minimum_valid_uid) {
-					msg_warn("recipient rejected <%s> uid falls below minimum allowed: %d < %d",
+					msg_warn("recipient %s rejected: uid falls below minimum allowed: %d < %d",
 						name, a_uid, var_minimum_valid_uid);
 					return (0);
 				}
@@ -213,7 +213,7 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 				struct passwd *pwd;
 				if ((pwd = getpwnam(name)) != 0) {
 					if (pwd->pw_uid > 0 && pwd->pw_uid < var_minimum_valid_uid) {
-						msg_warn("recipient rejected <%s> uid falls below minimum allowed: %d < %d",
+						msg_warn("recipient %s rejected: uid falls below minimum allowed: %d < %d",
 							name, pwd->pw_uid, var_minimum_valid_uid);
 						return (0);
 					}
@@ -221,7 +221,7 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 			}
 
 			if (sacl_check(name) == 0) {
-				msg_warn("recipient rejected <%s> not in Mail Service ACL", name);
+				msg_warn("recipient %s rejected: not in Mail Service ACL", name);
 				return 0;
 			}
 		}
@@ -234,7 +234,7 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 			if ( var_use_getpwnam_ext ) {
 				uid_t a_uid = ads_get_uid(name);
 				if (a_uid > 0 && a_uid < var_minimum_valid_uid) {
-					msg_warn("recipient <%s> uid falls below minimum allowed: %d < %d",
+					msg_warn("recipient %s uid falls below minimum allowed: %d < %d",
 						name, a_uid, var_minimum_valid_uid);
 					return (0);
 				}
@@ -242,7 +242,7 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 				struct passwd *pwd;
 				if ((pwd = getpwnam(name)) != 0) {
 					if (pwd->pw_uid > 0 && pwd->pw_uid < var_minimum_valid_uid) {
-						msg_warn("recipient <%s> uid falls below minimum allowed: %d < %d",
+						msg_warn("recipient %s uid falls below minimum allowed: %d < %d",
 							name, pwd->pw_uid, var_minimum_valid_uid);
 						return (0);
 					}
@@ -251,7 +251,8 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 		}
 
 		if (sacl_check(name) == 0) {
-			msg_warn("recipient <%s> not in Mail Service ACL", name);
+			if (msg_verbose)
+				msg_warn("recipient %s is not in Mail Service ACL", name);
 			return 0;
 		}
 

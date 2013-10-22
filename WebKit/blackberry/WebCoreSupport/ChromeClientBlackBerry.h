@@ -34,7 +34,6 @@ public:
     ChromeClientBlackBerry(BlackBerry::WebKit::WebPagePrivate*);
 
     virtual void chromeDestroyed();
-    virtual void* webView() const { return 0; };
     virtual void setWindowRect(const FloatRect&);
     virtual FloatRect windowRect();
     virtual FloatRect pageRect();
@@ -59,7 +58,7 @@ public:
     virtual void setMenubarVisible(bool);
     virtual bool menubarVisible();
     virtual void setResizable(bool);
-    virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID);
+    virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, unsigned columnNumber, const String& sourceID);
     virtual bool canRunBeforeUnloadConfirmPanel();
     virtual bool runBeforeUnloadConfirmPanel(const String&, Frame*);
     virtual void closeWindowSoon();
@@ -79,7 +78,7 @@ public:
     virtual IntRect rootViewToScreen(const IntRect&) const;
     virtual void contentsSizeChanged(Frame*, const IntSize&) const;
     virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const;
-    virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned int);
+    virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned);
     virtual void setToolTip(const String&, TextDirection);
 #if ENABLE(EVENT_MODE_METATAGS)
     virtual void didReceiveCursorEventMode(Frame*, CursorEventMode) const;
@@ -88,9 +87,8 @@ public:
     virtual void dispatchViewportPropertiesDidChange(const ViewportArguments&) const;
     virtual bool shouldRubberBandInDirection(ScrollDirection) const { return true; }
     virtual void numWheelEventHandlersChanged(unsigned) { }
-    virtual void numTouchEventHandlersChanged(unsigned) { }
     virtual void print(Frame*);
-    virtual void exceededDatabaseQuota(Frame*, const String&);
+    virtual void exceededDatabaseQuota(Frame*, const String&, DatabaseDetails);
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
     virtual void loadIconForFiles(const Vector<String>&, FileIconLoader*);
     virtual void setCursor(const Cursor&);
@@ -124,8 +122,11 @@ public:
     virtual bool supportsFullscreenForNode(const Node*);
     virtual void enterFullscreenForNode(Node*);
     virtual void exitFullscreenForNode(Node*);
-#if ENABLE(WEBGL)
-    virtual void requestWebGLPermission(Frame*);
+#if ENABLE(FULLSCREEN_API)
+    virtual bool supportsFullScreenForElement(const Element*, bool withKeyboard);
+    virtual void enterFullScreenForElement(Element*);
+    virtual void exitFullScreenForElement(Element*);
+    virtual void fullScreenRendererChanged(RenderBox*);
 #endif
 
 #if ENABLE(SVG)
@@ -140,14 +141,19 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*);
     virtual void setNeedsOneShotDrawingSynchronization();
-    virtual void scheduleCompositingLayerSync();
+    virtual void scheduleCompositingLayerFlush();
     virtual bool allowsAcceleratedCompositing() const;
+#endif
+
+#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
+    virtual void scheduleAnimation();
 #endif
 
     BlackBerry::WebKit::WebPagePrivate* webPagePrivate() const { return m_webPagePrivate; }
 
 private:
     BlackBerry::WebKit::WebPagePrivate* m_webPagePrivate;
+    RefPtr<WebCore::Element> m_fullScreenElement;
 };
 
 } // WebCore

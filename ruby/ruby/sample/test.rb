@@ -1,12 +1,106 @@
 #! /usr/bin/env ruby
+# -*- coding: us-ascii -*-
 
-$KCODE = "none"
 $testnum=0
 $ntest=0
 $failed = 0
+class Progress
+  def initialize
+    @color = nil
+    @tty = nil
+    @quiet = nil
+    @verbose = nil
+    ARGV.each do |arg|
+      case arg
+      when /\A--color(?:=(?:always|(auto)|(never)|(.*)))?\z/
+        warn "unknown --color argument: #$3" if $3
+        @color = $1 ? nil : !$2
+      when /\A--tty(=(?:yes|(no)|(.*)))?\z/
+        warn "unknown --tty argument: #$3" if $3
+        @tty = !$1 || !$2
+        true
+      when /\A-(q|-quiet)\z/
+        @quiet = true
+      when /\A-(v|-verbose)\z/
+        @verbose = true
+      end
+    end
+    @tty = STDERR.tty? && !STDOUT.tty? && /dumb/ !~ ENV["TERM"] if @tty.nil?
+    @eol = @tty && !@verbose ? "\r\e[K\r" : "\n"
+    case @color
+    when nil
+      @color = @tty
+    end
+    if @color
+      # dircolors-like style
+      colors = (colors = ENV['TEST_COLORS']) ? Hash[colors.scan(/(\w+)=([^:]*)/)] : {}
+      @passed = "\e[#{colors["pass"] || "32"}m"
+      @failed = "\e[#{colors["fail"] || "31"}m"
+      @reset = "\e[m"
+    else
+      @passed = @failed = @reset = ""
+    end
+    extend(Rotator) if @tty
+  end
+
+  def passed_string
+    "."
+  end
+  def failed_string
+    "#{@failed}F#{@reset}"
+  end
+  def init_string
+  end
+  def finish_string
+    if @quiet
+      @eol
+    else
+      "#{@passed}#{@ok ? 'OK' : ''} #{$testnum}#{@reset}#{@eol}"
+    end
+  end
+  def pass
+    STDERR.print passed_string
+  end
+  def fail
+    @ok = false
+    STDERR.print failed_string
+  end
+  def init
+    @ok = true
+    STDERR.print init_string
+  end
+  def finish
+    STDERR.print finish_string
+  end
+
+  module Rotator
+    ROTATOR = %w[- \\ | /]
+    BS = "\b" * ROTATOR[0].size
+    def passed_string
+      "#{BS}#{ROTATOR[(@count += 1) % ROTATOR.size]}"
+    end
+    def failed_string
+      "#{BS}#{super}#{ROTATOR[@count % ROTATOR.size]}"
+    end
+    def init_string
+      @count = 0
+      " "
+    end
+    def finish_string
+      s = "#{BS}#{' ' * BS.size}#{BS}#{super}"
+      s.gsub!(/\n/, "\r\e[2K\r") if @quiet
+      s
+    end
+  end
+end
+PROGRESS = Progress.new
 
 def test_check(what)
-  printf "%s\n", what
+  unless $ntest.zero?
+    PROGRESS.finish
+  end
+  STDERR.print "sample/test.rb:#{what} "
+  PROGRESS.init
   $what = what
   $testnum = 0
 end
@@ -14,13 +108,17 @@ end
 def test_ok(cond,n=1)
   $testnum+=1
   $ntest+=1
+  where = (st = caller(n)) ? st[0] : "caller error! (n=#{n}, trace=#{caller(0).join(', ')}"
   if cond
-    printf "ok %d\n", $testnum
+    PROGRESS.pass
+    printf "ok %d (%s)\n", $testnum, where
   else
-    where = caller(n)[0]
+    PROGRESS.fail
     printf "not ok %s %d -- %s\n", $what, $testnum, where
-    $failed+=1 
+    $failed+=1
   end
+  STDOUT.flush
+  STDERR.flush
 end
 
 # make sure conditional operators work
@@ -54,15 +152,13 @@ a = [*[]]; test_ok(a == [])
 a = [*[1]]; test_ok(a == [1])
 a = [*[1,2]]; test_ok(a == [1,2])
 
-a = *nil; test_ok(a == nil)
-a = *1; test_ok(a == 1)
-a = *[]; test_ok(a == nil)
-a = *[1]; test_ok(a == 1)
-a = *[nil]; test_ok(a == nil)
-a = *[[]]; test_ok(a == [])
+a = *[]; test_ok(a == [])
+a = *[1]; test_ok(a == [1])
+a = *[nil]; test_ok(a == [nil])
+a = *[[]]; test_ok(a == [[]])
 a = *[1,2]; test_ok(a == [1,2])
-a = *[*[]]; test_ok(a == nil)
-a = *[*[1]]; test_ok(a == 1)
+a = *[*[]]; test_ok(a == [])
+a = *[*[1]]; test_ok(a == [1])
 a = *[*[1,2]]; test_ok(a == [1,2])
 
 a, = nil; test_ok(a == nil)
@@ -78,8 +174,6 @@ a, = [*[1]]; test_ok(a == 1)
 a, = *[1,2]; test_ok(a == 1)
 a, = [*[1,2]]; test_ok(a == 1)
 
-a, = *nil; test_ok(a == nil)
-a, = *1; test_ok(a == 1)
 a, = *[]; test_ok(a == nil)
 a, = *[1]; test_ok(a == 1)
 a, = *[nil]; test_ok(a == nil)
@@ -91,17 +185,15 @@ a, = *[*[1,2]]; test_ok(a == 1)
 
 *a = nil; test_ok(a == [nil])
 *a = 1; test_ok(a == [1])
-*a = []; test_ok(a == [[]])
-*a = [1]; test_ok(a == [[1]])
-*a = [nil]; test_ok(a == [[nil]])
-*a = [[]]; test_ok(a == [[[]]])
-*a = [1,2]; test_ok(a == [[1,2]])
-*a = [*[]]; test_ok(a == [[]])
-*a = [*[1]]; test_ok(a == [[1]])
-*a = [*[1,2]]; test_ok(a == [[1,2]])
+*a = []; test_ok(a == [])
+*a = [1]; test_ok(a == [1])
+*a = [nil]; test_ok(a == [nil])
+*a = [[]]; test_ok(a == [[]])
+*a = [1,2]; test_ok(a == [1,2])
+*a = [*[]]; test_ok(a == [])
+*a = [*[1]]; test_ok(a == [1])
+*a = [*[1,2]]; test_ok(a == [1,2])
 
-*a = *nil; test_ok(a == [nil])
-*a = *1; test_ok(a == [1])
 *a = *[]; test_ok(a == [])
 *a = *[1]; test_ok(a == [1])
 *a = *[nil]; test_ok(a == [nil])
@@ -122,8 +214,6 @@ a,b,*c = [*[]]; test_ok([a,b,c] == [nil,nil,[]])
 a,b,*c = [*[1]]; test_ok([a,b,c] == [1,nil,[]])
 a,b,*c = [*[1,2]]; test_ok([a,b,c] == [1,2,[]])
 
-a,b,*c = *nil; test_ok([a,b,c] == [nil,nil,[]])
-a,b,*c = *1; test_ok([a,b,c] == [1,nil,[]])
 a,b,*c = *[]; test_ok([a,b,c] == [nil,nil,[]])
 a,b,*c = *[1]; test_ok([a,b,c] == [1,nil,[]])
 a,b,*c = *[nil]; test_ok([a,b,c] == [nil,nil,[]])
@@ -142,13 +232,13 @@ def f; yield [[]]; end; f {|a| test_ok(a == [[]])}
 def f; yield [*[]]; end; f {|a| test_ok(a == [])}
 def f; yield [*[1]]; end; f {|a| test_ok(a == [1])}
 def f; yield [*[1,2]]; end; f {|a| test_ok(a == [1,2])}
-
-def f; yield *nil; end; f {|a| test_ok(a == nil)}
-def f; yield *1; end; f {|a| test_ok(a == 1)}
+def f; yield *[]; end; f {|a| test_ok(a == nil)}
 def f; yield *[1]; end; f {|a| test_ok(a == 1)}
 def f; yield *[nil]; end; f {|a| test_ok(a == nil)}
 def f; yield *[[]]; end; f {|a| test_ok(a == [])}
+def f; yield *[*[]]; end; f {|a| test_ok(a == nil)}
 def f; yield *[*[1]]; end; f {|a| test_ok(a == 1)}
+def f; yield *[*[1,2]]; end; f {|a| test_ok(a == 1)}
 
 def f; yield; end; f {|a,| test_ok(a == nil)}
 def f; yield nil; end; f {|a,| test_ok(a == nil)}
@@ -161,12 +251,10 @@ def f; yield [*[]]; end; f {|a,| test_ok(a == nil)}
 def f; yield [*[1]]; end; f {|a,| test_ok(a == 1)}
 def f; yield [*[1,2]]; end; f {|a,| test_ok(a == 1)}
 
-def f; yield *nil; end; f {|a,| test_ok(a == nil)}
-def f; yield *1; end; f {|a,| test_ok(a == 1)}
 def f; yield *[]; end; f {|a,| test_ok(a == nil)}
 def f; yield *[1]; end; f {|a,| test_ok(a == 1)}
 def f; yield *[nil]; end; f {|a,| test_ok(a == nil)}
-def f; yield *[[]]; end; f {|a,| test_ok(a == [])}
+def f; yield *[[]]; end; f {|a,| test_ok(a == nil)}
 def f; yield *[*[]]; end; f {|a,| test_ok(a == nil)}
 def f; yield *[*[1]]; end; f {|a,| test_ok(a == 1)}
 def f; yield *[*[1,2]]; end; f {|a,| test_ok(a == 1)}
@@ -183,8 +271,6 @@ def f; yield [*[]]; end; f {|*a| test_ok(a == [[]])}
 def f; yield [*[1]]; end; f {|*a| test_ok(a == [[1]])}
 def f; yield [*[1,2]]; end; f {|*a| test_ok(a == [[1,2]])}
 
-def f; yield *nil; end; f {|*a| test_ok(a == [nil])}
-def f; yield *1; end; f {|*a| test_ok(a == [1])}
 def f; yield *[]; end; f {|*a| test_ok(a == [])}
 def f; yield *[1]; end; f {|*a| test_ok(a == [1])}
 def f; yield *[nil]; end; f {|*a| test_ok(a == [nil])}
@@ -204,12 +290,10 @@ def f; yield [*[]]; end; f {|a,b,*c| test_ok([a,b,c] == [nil,nil,[]])}
 def f; yield [*[1]]; end; f {|a,b,*c| test_ok([a,b,c] == [1,nil,[]])}
 def f; yield [*[1,2]]; end; f {|a,b,*c| test_ok([a,b,c] == [1,2,[]])}
 
-def f; yield *nil; end; f {|a,b,*c| test_ok([a,b,c] == [nil,nil,[]])}
-def f; yield *1; end; f {|a,b,*c| test_ok([a,b,c] == [1,nil,[]])}
 def f; yield *[]; end; f {|a,b,*c| test_ok([a,b,c] == [nil,nil,[]])}
 def f; yield *[1]; end; f {|a,b,*c| test_ok([a,b,c] == [1,nil,[]])}
 def f; yield *[nil]; end; f {|a,b,*c| test_ok([a,b,c] == [nil,nil,[]])}
-def f; yield *[[]]; end; f {|a,b,*c| test_ok([a,b,c] == [[],nil,[]])}
+def f; yield *[[]]; end; f {|a,b,*c| test_ok([a,b,c] == [nil,nil,[]])}
 def f; yield *[*[]]; end; f {|a,b,*c| test_ok([a,b,c] == [nil,nil,[]])}
 def f; yield *[*[1]]; end; f {|a,b,*c| test_ok([a,b,c] == [1,nil,[]])}
 def f; yield *[*[1,2]]; end; f {|a,b,*c| test_ok([a,b,c] == [1,2,[]])}
@@ -225,58 +309,40 @@ def r; return [*[]]; end; a = r(); test_ok(a == [])
 def r; return [*[1]]; end; a = r(); test_ok(a == [1])
 def r; return [*[1,2]]; end; a = r(); test_ok(a == [1,2])
 
-def r; return *nil; end; a = r(); test_ok(a == nil)
-def r; return *1; end; a = r(); test_ok(a == 1)
-def r; return *[]; end; a = r(); test_ok(a == nil)
-def r; return *[1]; end; a = r(); test_ok(a == 1)
-def r; return *[nil]; end; a = r(); test_ok(a == nil)
-def r; return *[[]]; end; a = r(); test_ok(a == [])
-def r; return *[*[]]; end; a = r(); test_ok(a == nil)
-def r; return *[*[1]]; end; a = r(); test_ok(a == 1)
+def r; return *[]; end; a = r(); test_ok(a == [])
+def r; return *[1]; end; a = r(); test_ok(a == [1])
+def r; return *[nil]; end; a = r(); test_ok(a == [nil])
+def r; return *[[]]; end; a = r(); test_ok(a == [[]])
+def r; return *[*[]]; end; a = r(); test_ok(a == [])
+def r; return *[*[1]]; end; a = r(); test_ok(a == [1])
 def r; return *[*[1,2]]; end; a = r(); test_ok(a == [1,2])
 
-def r; return *nil; end; a = *r(); test_ok(a == nil)
-def r; return *1; end; a = *r(); test_ok(a == 1)
-def r; return *[]; end; a = *r(); test_ok(a == nil)
-def r; return *[1]; end; a = *r(); test_ok(a == 1)
-def r; return *[nil]; end; a = *r(); test_ok(a == nil)
-def r; return *[[]]; end; a = *r(); test_ok(a == nil)
-def r; return *[*[]]; end; a = *r(); test_ok(a == nil)
-def r; return *[*[1]]; end; a = *r(); test_ok(a == 1)
+def r; return *[[]]; end; a = *r(); test_ok(a == [[]])
 def r; return *[*[1,2]]; end; a = *r(); test_ok(a == [1,2])
 
 def r; return; end; *a = r(); test_ok(a == [nil])
 def r; return nil; end; *a = r(); test_ok(a == [nil])
 def r; return 1; end; *a = r(); test_ok(a == [1])
-def r; return []; end; *a = r(); test_ok(a == [[]])
-def r; return [1]; end; *a = r(); test_ok(a == [[1]])
-def r; return [nil]; end; *a = r(); test_ok(a == [[nil]])
-def r; return [[]]; end; *a = r(); test_ok(a == [[[]]])
-def r; return [1,2]; end; *a = r(); test_ok(a == [[1,2]])
-def r; return [*[]]; end; *a = r(); test_ok(a == [[]])
-def r; return [*[1]]; end; *a = r(); test_ok(a == [[1]])
-def r; return [*[1,2]]; end; *a = r(); test_ok(a == [[1,2]])
+def r; return []; end; *a = r(); test_ok(a == [])
+def r; return [1]; end; *a = r(); test_ok(a == [1])
+def r; return [nil]; end; *a = r(); test_ok(a == [nil])
+def r; return [[]]; end; *a = r(); test_ok(a == [[]])
+def r; return [1,2]; end; *a = r(); test_ok(a == [1,2])
+def r; return [*[]]; end; *a = r(); test_ok(a == [])
+def r; return [*[1]]; end; *a = r(); test_ok(a == [1])
+def r; return [*[1,2]]; end; *a = r(); test_ok(a == [1,2])
 
-def r; return *nil; end; *a = r(); test_ok(a == [nil])
-def r; return *1; end; *a = r(); test_ok(a == [1])
-def r; return *[]; end; *a = r(); test_ok(a == [nil])
+def r; return *[]; end; *a = r(); test_ok(a == [])
 def r; return *[1]; end; *a = r(); test_ok(a == [1])
 def r; return *[nil]; end; *a = r(); test_ok(a == [nil])
 def r; return *[[]]; end; *a = r(); test_ok(a == [[]])
-def r; return *[1,2]; end; *a = r(); test_ok(a == [[1,2]])
-def r; return *[*[]]; end; *a = r(); test_ok(a == [nil])
+def r; return *[1,2]; end; *a = r(); test_ok(a == [1,2])
+def r; return *[*[]]; end; *a = r(); test_ok(a == [])
 def r; return *[*[1]]; end; *a = r(); test_ok(a == [1])
-def r; return *[*[1,2]]; end; *a = r(); test_ok(a == [[1,2]])
+def r; return *[*[1,2]]; end; *a = r(); test_ok(a == [1,2])
 
-def r; return *nil; end; *a = *r(); test_ok(a == [nil])
-def r; return *1; end; *a = *r(); test_ok(a == [1])
-def r; return *[]; end; *a = *r(); test_ok(a == [nil])
-def r; return *[1]; end; *a = *r(); test_ok(a == [1])
-def r; return *[nil]; end; *a = *r(); test_ok(a == [nil])
-def r; return *[[]]; end; *a = *r(); test_ok(a == [])
+def r; return *[[]]; end; *a = *r(); test_ok(a == [[]])
 def r; return *[1,2]; end; *a = *r(); test_ok(a == [1,2])
-def r; return *[*[]]; end; *a = *r(); test_ok(a == [nil])
-def r; return *[*[1]]; end; *a = *r(); test_ok(a == [1])
 def r; return *[*[1,2]]; end; *a = *r(); test_ok(a == [1,2])
 
 def r; return; end; a,b,*c = r(); test_ok([a,b,c] == [nil,nil,[]])
@@ -291,12 +357,10 @@ def r; return [*[]]; end; a,b,*c = r(); test_ok([a,b,c] == [nil,nil,[]])
 def r; return [*[1]]; end; a,b,*c = r(); test_ok([a,b,c] == [1,nil,[]])
 def r; return [*[1,2]]; end; a,b,*c = r(); test_ok([a,b,c] == [1,2,[]])
 
-def r; return *nil; end; a,b,*c = r(); test_ok([a,b,c] == [nil,nil,[]])
-def r; return *1; end; a,b,*c = r(); test_ok([a,b,c] == [1,nil,[]])
 def r; return *[]; end; a,b,*c = r(); test_ok([a,b,c] == [nil,nil,[]])
 def r; return *[1]; end; a,b,*c = r(); test_ok([a,b,c] == [1,nil,[]])
 def r; return *[nil]; end; a,b,*c = r(); test_ok([a,b,c] == [nil,nil,[]])
-def r; return *[[]]; end; a,b,*c = r(); test_ok([a,b,c] == [nil,nil,[]])
+def r; return *[[]]; end; a,b,*c = r(); test_ok([a,b,c] == [[],nil,[]])
 def r; return *[1,2]; end; a,b,*c = r(); test_ok([a,b,c] == [1,2,[]])
 def r; return *[*[]]; end; a,b,*c = r(); test_ok([a,b,c] == [nil,nil,[]])
 def r; return *[*[1]]; end; a,b,*c = r(); test_ok([a,b,c] == [1,nil,[]])
@@ -327,6 +391,64 @@ test_ok(f.call([[42]]) == [[[42]]])
 test_ok(f.call([42,55]) == [[42,55]])
 test_ok(f.call(42,55) == [42,55])
 
+f = lambda { |a, b=42, *c| [a,b,c] }
+test_ok(f.call(1      ) == [1,42,[  ]] )
+test_ok(f.call(1,43   ) == [1,43,[  ]] )
+test_ok(f.call(1,43,44) == [1,43,[44]] )
+
+f = lambda { |a, b=(a|16), *c, &block| [a,b,c,block&&block[]] }
+test_ok(f.call(8      )     == [8,24,[  ],nil] )
+test_ok(f.call(8,43   )     == [8,43,[  ],nil] )
+test_ok(f.call(8,43,44)     == [8,43,[44],nil] )
+test_ok(f.call(8      ){45} == [8,24,[  ],45 ] )
+test_ok(f.call(8,43   ){45} == [8,43,[  ],45 ] )
+test_ok(f.call(8,43,44){45} == [8,43,[44],45 ] )
+
+f = lambda { |a, b=42, *c, d| [a,b,c,d] }
+test_ok(f.call(1      ,99) == [1,42,[  ],99] )
+test_ok(f.call(1,43   ,99) == [1,43,[  ],99] )
+test_ok(f.call(1,43,44,99) == [1,43,[44],99] )
+
+f = lambda { |a, b=(a|16), &block| [a,b,block&&block[]] }
+test_ok(f.call(8   )     == [8,24,nil] )
+test_ok(f.call(8,43)     == [8,43,nil] )
+test_ok(f.call(8,43)     == [8,43,nil] )
+test_ok(f.call(8   ){45} == [8,24,45 ] )
+test_ok(f.call(8,43){45} == [8,43,45 ] )
+test_ok(f.call(8,43){45} == [8,43,45 ] )
+
+f = lambda { |a, b=42, d| [a,b,d] }
+test_ok(f.call(1   ,99) == [1,42,99] )
+test_ok(f.call(1,43,99) == [1,43,99] )
+test_ok(f.call(1,43,99) == [1,43,99] )
+
+f = lambda { |b=42, *c, &block| [b,c,block&&block[]] }
+test_ok(f.call(     )     == [42,[  ],nil] )
+test_ok(f.call(43   )     == [43,[  ],nil] )
+test_ok(f.call(43,44)     == [43,[44],nil] )
+test_ok(f.call(     ){45} == [42,[  ],45 ] )
+test_ok(f.call(43   ){45} == [43,[  ],45 ] )
+test_ok(f.call(43,44){45} == [43,[44],45 ] )
+
+f = lambda { |b=42, *c, d| [b,c,d] }
+test_ok(f.call(      99) == [42,[  ],99] )
+test_ok(f.call(43   ,99) == [43,[  ],99] )
+test_ok(f.call(43,44,99) == [43,[44],99] )
+
+f = lambda { |b=42, &block| [b,block&&block[]] }
+test_ok(f.call(  )     == [42,nil] )
+test_ok(f.call(43)     == [43,nil] )
+test_ok(f.call(43)     == [43,nil] )
+test_ok(f.call(  ){45} == [42,45 ] )
+test_ok(f.call(43){45} == [43,45 ] )
+test_ok(f.call(43){45} == [43,45 ] )
+
+f = lambda { |b=42, d| [b,d] }
+test_ok(f.call(   99) == [42,99] )
+test_ok(f.call(43,99) == [43,99] )
+test_ok(f.call(43,99) == [43,99] )
+
+
 a,=*[1]
 test_ok(a == 1)
 a,=*[[1]]
@@ -352,48 +474,37 @@ a = loop do break [*[]]; end; test_ok(a == [])
 a = loop do break [*[1]]; end; test_ok(a == [1])
 a = loop do break [*[1,2]]; end; test_ok(a == [1,2])
 
-a = loop do break *nil; end; test_ok(a == nil)
-a = loop do break *1; end; test_ok(a == 1)
-a = loop do break *[]; end; test_ok(a == nil)
-a = loop do break *[1]; end; test_ok(a == 1)
-a = loop do break *[nil]; end; test_ok(a == nil)
-a = loop do break *[[]]; end; test_ok(a == [])
-a = loop do break *[*[]]; end; test_ok(a == nil)
-a = loop do break *[*[1]]; end; test_ok(a == 1)
+a = loop do break *[]; end; test_ok(a == [])
+a = loop do break *[1]; end; test_ok(a == [1])
+a = loop do break *[nil]; end; test_ok(a == [nil])
+a = loop do break *[[]]; end; test_ok(a == [[]])
+a = loop do break *[*[]]; end; test_ok(a == [])
+a = loop do break *[*[1]]; end; test_ok(a == [1])
 a = loop do break *[*[1,2]]; end; test_ok(a == [1,2])
 
 *a = loop do break; end; test_ok(a == [nil])
 *a = loop do break nil; end; test_ok(a == [nil])
 *a = loop do break 1; end; test_ok(a == [1])
-*a = loop do break []; end; test_ok(a == [[]])
-*a = loop do break [1]; end; test_ok(a == [[1]])
-*a = loop do break [nil]; end; test_ok(a == [[nil]])
-*a = loop do break [[]]; end; test_ok(a == [[[]]])
-*a = loop do break [1,2]; end; test_ok(a == [[1,2]])
-*a = loop do break [*[]]; end; test_ok(a == [[]])
-*a = loop do break [*[1]]; end; test_ok(a == [[1]])
-*a = loop do break [*[1,2]]; end; test_ok(a == [[1,2]])
+*a = loop do break []; end; test_ok(a == [])
+*a = loop do break [1]; end; test_ok(a == [1])
+*a = loop do break [nil]; end; test_ok(a == [nil])
+*a = loop do break [[]]; end; test_ok(a == [[]])
+*a = loop do break [1,2]; end; test_ok(a == [1,2])
+*a = loop do break [*[]]; end; test_ok(a == [])
+*a = loop do break [*[1]]; end; test_ok(a == [1])
+*a = loop do break [*[1,2]]; end; test_ok(a == [1,2])
 
-*a = loop do break *nil; end; test_ok(a == [nil])
-*a = loop do break *1; end; test_ok(a == [1])
-*a = loop do break *[]; end; test_ok(a == [nil])
+*a = loop do break *[]; end; test_ok(a == [])
 *a = loop do break *[1]; end; test_ok(a == [1])
 *a = loop do break *[nil]; end; test_ok(a == [nil])
 *a = loop do break *[[]]; end; test_ok(a == [[]])
-*a = loop do break *[1,2]; end; test_ok(a == [[1,2]])
-*a = loop do break *[*[]]; end; test_ok(a == [nil])
+*a = loop do break *[1,2]; end; test_ok(a == [1,2])
+*a = loop do break *[*[]]; end; test_ok(a == [])
 *a = loop do break *[*[1]]; end; test_ok(a == [1])
-*a = loop do break *[*[1,2]]; end; test_ok(a == [[1,2]])
+*a = loop do break *[*[1,2]]; end; test_ok(a == [1,2])
 
-*a = *loop do break *nil; end; test_ok(a == [nil])
-*a = *loop do break *1; end; test_ok(a == [1])
-*a = *loop do break *[]; end; test_ok(a == [nil])
-*a = *loop do break *[1]; end; test_ok(a == [1])
-*a = *loop do break *[nil]; end; test_ok(a == [nil])
-*a = *loop do break *[[]]; end; test_ok(a == [])
+*a = *loop do break *[[]]; end; test_ok(a == [[]])
 *a = *loop do break *[1,2]; end; test_ok(a == [1,2])
-*a = *loop do break *[*[]]; end; test_ok(a == [nil])
-*a = *loop do break *[*[1]]; end; test_ok(a == [1])
 *a = *loop do break *[*[1,2]]; end; test_ok(a == [1,2])
 
 a,b,*c = loop do break; end; test_ok([a,b,c] == [nil,nil,[]])
@@ -408,12 +519,10 @@ a,b,*c = loop do break [*[]]; end; test_ok([a,b,c] == [nil,nil,[]])
 a,b,*c = loop do break [*[1]]; end; test_ok([a,b,c] == [1,nil,[]])
 a,b,*c = loop do break [*[1,2]]; end; test_ok([a,b,c] == [1,2,[]])
 
-a,b,*c = loop do break *nil; end; test_ok([a,b,c] == [nil,nil,[]])
-a,b,*c = loop do break *1; end; test_ok([a,b,c] == [1,nil,[]])
 a,b,*c = loop do break *[]; end; test_ok([a,b,c] == [nil,nil,[]])
 a,b,*c = loop do break *[1]; end; test_ok([a,b,c] == [1,nil,[]])
 a,b,*c = loop do break *[nil]; end; test_ok([a,b,c] == [nil,nil,[]])
-a,b,*c = loop do break *[[]]; end; test_ok([a,b,c] == [nil,nil,[]])
+a,b,*c = loop do break *[[]]; end; test_ok([a,b,c] == [[],nil,[]])
 a,b,*c = loop do break *[1,2]; end; test_ok([a,b,c] == [1,2,[]])
 a,b,*c = loop do break *[*[]]; end; test_ok([a,b,c] == [nil,nil,[]])
 a,b,*c = loop do break *[*[1]]; end; test_ok([a,b,c] == [1,nil,[]])
@@ -431,39 +540,30 @@ r([]){next [*[]]}
 r([1]){next [*[1]]}
 r([1,2]){next [*[1,2]]}
 
-r(nil){next *nil}
-r(1){next *1}
-r(nil){next *[]}
-r(1){next *[1]}
-r(nil){next *[nil]}
-r([]){next *[[]]}
-r(nil){next *[*[]]}
-r(1){next *[*[1]]}
+r([]){next *[]}
+r([1]){next *[1]}
+r([nil]){next *[nil]}
+r([[]]){next *[[]]}
+r([]){next *[*[]]}
+r([1]){next *[*[1]]}
 r([1,2]){next *[*[1,2]]}
 
 def r(val); *a = yield(); test_ok(a == val, 2); end
 r([nil]){next}
 r([nil]){next nil}
 r([1]){next 1}
-r([[]]){next []}
-r([[1]]){next [1]}
-r([[nil]]){next [nil]}
-r([[[]]]){next [[]]}
-r([[1,2]]){next [1,2]}
-r([[]]){next [*[]]}
-r([[1]]){next [*[1]]}
-r([[1,2]]){next [*[1,2]]}
+r([]){next []}
+r([1]){next [1]}
+r([nil]){next [nil]}
+r([[]]){next [[]]}
+r([1,2]){next [1,2]}
+r([]){next [*[]]}
+r([1]){next [*[1]]}
+r([1,2]){next [*[1,2]]}
 
 def r(val); *a = *yield(); test_ok(a == val, 2); end
-r([nil]){next *nil}
-r([1]){next *1}
-r([nil]){next *[]}
-r([1]){next *[1]}
-r([nil]){next *[nil]}
-r([]){next *[[]]}
+r([[]]){next *[[]]}
 r([1,2]){next *[1,2]}
-r([nil]){next *[*[]]}
-r([1]){next *[*[1]]}
 r([1,2]){next *[*[1,2]]}
 
 def r(val); a,b,*c = yield(); test_ok([a,b,c] == val, 2); end
@@ -480,15 +580,8 @@ r([1,nil,[]]){next [*[1]]}
 r([1,2,[]]){next [*[1,2]]}
 
 def r(val); a,b,*c = *yield(); test_ok([a,b,c] == val, 2); end
-r([nil,nil,[]]){next *nil}
-r([1,nil,[]]){next *1}
-r([nil,nil,[]]){next *[]}
-r([1,nil,[]]){next *[1]}
-r([nil,nil,[]]){next *[nil]}
-r([nil,nil,[]]){next *[[]]}
+r([[],nil,[]]){next *[[]]}
 r([1,2,[]]){next *[1,2]}
-r([nil,nil,[]]){next *[*[]]}
-r([1,nil,[]]){next *[*[1]]}
 r([1,2,[]]){next *[*[1,2]]}
 
 test_check "condition"
@@ -585,15 +678,15 @@ tmp.close
 # test redo
 $bad = false
 tmp = open("while_tmp", "r")
-while tmp.gets()
-  line = $_
-  gsub(/vt100/, 'VT100')
-  if $_ != line
-    $_.gsub!('VT100', 'Vt100')
+while line = tmp.gets()
+  lastline = line
+  line = line.gsub(/vt100/, 'VT100')
+  if lastline != line
+    line.gsub!('VT100', 'Vt100')
     redo
   end
-  $bad = 1 if /vt100/ =~ $_
-  $bad = 1 if /VT100/ =~ $_
+  $bad = 1 if /vt100/ =~ line
+  $bad = 1 if /VT100/ =~ line
 end
 test_ok(tmp.eof? && !$bad)
 tmp.close
@@ -658,19 +751,21 @@ $string = "this must be handled no.3"
 begin
   begin
     raise "exception in rescue clause"
-  rescue 
+  rescue
     raise $string
   end
   test_ok(false)
-rescue
-  test_ok(true) if $! == $string
+rescue => e
+  test_ok($! == e)
+  test_ok(e.message == $string)
+  test_ok(e != $string)
 end
-  
+
 # exception in ensure clause
 begin
   begin
     raise "this must be handled no.4"
-  ensure 
+  ensure
     raise "exception in ensure clause"
   end
   test_ok(false)
@@ -740,7 +835,7 @@ test_ok($x[1,3] == [1, 2, 3])
 
 $x[0, 2] = 10
 test_ok($x[0] == 10 && $x[1] == 2)
-  
+
 $x[0, 0] = -1
 test_ok($x[0] == -1 && $x[1] == 10)
 
@@ -813,12 +908,11 @@ test_ok($x == [1,2,3,1,2,3])
 
 test_check "hash"
 $x = {1=>2, 2=>4, 3=>6}
-$y = {1, 2, 2, 4, 3, 6}
 
 test_ok($x[1] == 2)
 
-test_ok(begin   
-     for k,v in $y
+test_ok(begin
+     for k,v in $x
        raise if k*2 != v
      end
      true
@@ -832,19 +926,19 @@ test_ok($x.has_value?(4))
 test_ok($x.values_at(2,3) == [4,6])
 test_ok($x == {1=>2, 2=>4, 3=>6})
 
-$z = $y.keys.sort.join(":")
+$z = $x.keys.sort.join(":")
 test_ok($z == "1:2:3")
 
-$z = $y.values.sort.join(":")
+$z = $x.values.sort.join(":")
 test_ok($z == "2:4:6")
-test_ok($x == $y)
+test_ok($x == $x)
 
-$y.shift
-test_ok($y.length == 2)
+$x.shift
+test_ok($x.length == 2)
 
 $z = [1,2]
-$y[$z] = 256
-test_ok($y[$z] == 256)
+$x[$z] = 256
+test_ok($x[$z] == 256)
 
 $x = Hash.new(0)
 $x[1] = 1
@@ -909,8 +1003,9 @@ def tt
   }
 end
 
+i=0
 tt{|i| break if i == 5}
-test_ok(i == 5)
+test_ok(i == 0)
 
 def tt2(dummy)
   yield 1
@@ -976,18 +1071,6 @@ end
 test_ok($x.size == 7)
 test_ok($x == [1, 2, 3, 4, 5, 6, 7])
 
-$done = false
-$x = []
-for i in 1 .. 7			# see how retry works in iterator loop
-  if i == 4 and not $done
-    $done = true
-    retry
-  end
-  $x.push(i)
-end
-test_ok($x.size == 10)
-test_ok($x == [1, 2, 3, 1, 2, 3, 4, 5, 6, 7])
-
 # append method to built-in class
 class Array
   def iter_test1
@@ -1025,11 +1108,11 @@ test_ok(IterTest.new(nil).method(:f).to_proc.call([m]) == [m])
 IterTest.new([0]).each0 {|x| test_ok(x == 0)}
 IterTest.new([1]).each1 {|x| test_ok(x == 1)}
 IterTest.new([2]).each2 {|x| test_ok(x == [2])}
-IterTest.new([3]).each3 {|x| test_ok(x == 3)}
+#IterTest.new([3]).each3 {|x| test_ok(x == 3)}
 IterTest.new([4]).each4 {|x| test_ok(x == 4)}
 IterTest.new([5]).each5 {|x| test_ok(x == 5)}
 IterTest.new([6]).each6 {|x| test_ok(x == [6])}
-IterTest.new([7]).each7 {|x| test_ok(x == 7)}
+#IterTest.new([7]).each7 {|x| test_ok(x == 7)}
 IterTest.new([8]).each8 {|x| test_ok(x == 8)}
 
 IterTest.new([[0]]).each0 {|x| test_ok(x == [0])}
@@ -1042,8 +1125,8 @@ IterTest.new([[6]]).each6 {|x| test_ok(x == [[6]])}
 IterTest.new([[7]]).each7 {|x| test_ok(x == 7)}
 IterTest.new([[8]]).each8 {|x| test_ok(x == [8])}
 
-IterTest.new([[0,0]]).each0 {|x| test_ok(x == [0,0])}
-IterTest.new([[8,8]]).each8 {|x| test_ok(x == [8,8])}
+IterTest.new([[0,0]]).each0 {|*x| test_ok(x == [[0,0]])}
+IterTest.new([[8,8]]).each8 {|*x| test_ok(x == [[8,8]])}
 
 def m0(v)
   v
@@ -1056,7 +1139,7 @@ test_ok(m1{p 'test'})
 test_ok(!m1)
 
 def m
-  m0(block_given?,&proc{})
+  m0(block_given?,&Proc.new{})
 end
 test_ok(m1{p 'test'})
 test_ok(!m1)
@@ -1083,7 +1166,7 @@ end
 block_test(NilClass)
 block_test(Proc){}
 
-def argument_test(state, proc, *args)
+def call_argument_test(state, proc, *args)
   x = state
   begin
     proc.call(*args)
@@ -1093,42 +1176,48 @@ def argument_test(state, proc, *args)
   test_ok(x,2)
 end
 
-argument_test(true, lambda{||})
-argument_test(false, lambda{||}, 1)
-argument_test(true, lambda{|a,|}, 1)
-argument_test(false, lambda{|a,|})
-argument_test(false, lambda{|a,|}, 1,2)
+call_argument_test(true, lambda{||})
+call_argument_test(false, lambda{||}, 1)
+call_argument_test(true, lambda{|a,|}, 1)
+call_argument_test(false, lambda{|a,|})
+call_argument_test(false, lambda{|a,|}, 1,2)
 
-def get_block(&block)
+call_argument_test(true, Proc.new{||})
+call_argument_test(true, Proc.new{||}, 1)
+call_argument_test(true, Proc.new{|a,|}, 1)
+call_argument_test(true, Proc.new{|a,|})
+call_argument_test(true, Proc.new{|a,|}, 1,2)
+
+def block_get(&block)
   block
 end
 
-test_ok(Proc == get_block{}.class)
-argument_test(true, get_block{||})
-argument_test(true, get_block{||}, 1)
-argument_test(true, get_block{|a,|}, 1)
-argument_test(true, get_block{|a,|})
-argument_test(true, get_block{|a,|}, 1,2)
+test_ok(Proc == block_get{}.class)
+call_argument_test(true, block_get{||})
+call_argument_test(true, block_get{||}, 1)
+call_argument_test(true, block_get{|a,|}, 1)
+call_argument_test(true, block_get{|a,|})
+call_argument_test(true, block_get{|a,|}, 1,2)
 
-argument_test(true, get_block(&lambda{||}))
-argument_test(false, get_block(&lambda{||}),1)
-argument_test(true, get_block(&lambda{|a,|}),1)
-argument_test(false, get_block(&lambda{|a,|}),1,2)
+call_argument_test(true, block_get(&lambda{||}))
+call_argument_test(false, block_get(&lambda{||}),1)
+call_argument_test(true, block_get(&lambda{|a,|}),1)
+call_argument_test(false, block_get(&lambda{|a,|}),1,2)
 
-block = get_block{11}
-test_ok(block.class == Proc)
-test_ok(block.to_proc.class == Proc)
-test_ok(block.clone.call == 11)
-test_ok(get_block(&block).class == Proc)
+blk = block_get{11}
+test_ok(blk.class == Proc)
+test_ok(blk.to_proc.class == Proc)
+test_ok(blk.clone.call == 11)
+test_ok(block_get(&blk).class == Proc)
 
-lambda = lambda{44}
-test_ok(lambda.class == Proc)
-test_ok(lambda.to_proc.class == Proc)
-test_ok(lambda.clone.call == 44)
-test_ok(get_block(&lambda).class == Proc)
+lmd = lambda{44}
+test_ok(lmd.class == Proc)
+test_ok(lmd.to_proc.class == Proc)
+test_ok(lmd.clone.call == 44)
+test_ok(block_get(&lmd).class == Proc)
 
-test_ok(Proc.new{|a,| a}.call(1,2,3) == 1)
-argument_test(true, Proc.new{|a,|}, 1,2)
+test_ok(Proc.new{|a,| a}.yield(1,2,3) == 1)
+call_argument_test(true, Proc.new{|a,|}, 1,2)
 
 test_ok(Proc.new{|&b| b.call(10)}.call {|x| x} == 10)
 test_ok(Proc.new{|a,&b| b.call(a)}.call(12) {|x| x} == 12)
@@ -1136,7 +1225,7 @@ test_ok(Proc.new{|a,&b| b.call(a)}.call(12) {|x| x} == 12)
 def test_return1
   Proc.new {
     return 55
-  }.call + 5
+  }.yield + 5
 end
 test_ok(test_return1() == 55)
 def test_return2
@@ -1153,13 +1242,21 @@ def proc_yield()
   yield
 end
 def proc_return1
+  lambda{return 42}.call+1
+end
+test_ok(proc_return1() == 43)
+def proc_return2
+  ->{return 42}.call+1
+end
+test_ok(proc_return2() == 43)
+def proc_return3
   proc_call{return 42}+1
 end
-test_ok(proc_return1() == 42)
-def proc_return2
+test_ok(proc_return3() == 42)
+def proc_return4
   proc_yield{return 42}+1
 end
-test_ok(proc_return2() == 42)
+test_ok(proc_return4() == 42)
 
 def ljump_test(state, proc, *args)
   x = state
@@ -1171,26 +1268,165 @@ def ljump_test(state, proc, *args)
   test_ok(x,2)
 end
 
-ljump_test(false, get_block{break})
+ljump_test(false, block_get{break})
 ljump_test(true, lambda{break})
 
-test_ok(block.arity == -1)
-test_ok(lambda.arity == -1)
-test_ok(lambda{||}.arity == 0)
-test_ok(lambda{|a|}.arity == 1)
-test_ok(lambda{|a,|}.arity == 1)
-test_ok(lambda{|a,b|}.arity == 2)
+def exit_value_test(&block)
+  block.call
+rescue LocalJumpError
+  $!.exit_value
+end
+
+test_ok(45 == exit_value_test{break 45})
+
+test_ok(55 == begin
+              block_get{break 55}.call
+            rescue LocalJumpError
+              $!.exit_value
+            end)
+
+def block_call(&block)
+  block.call
+end
+
+def test_b1
+  block_call{break 11}
+end
+test_ok(test_b1() == 11)
+
+def ljump_rescue(r)
+  begin
+    yield
+  rescue LocalJumpError => e
+    r if /from proc-closure/ =~ e.message
+  end
+end
+
+def test_b2
+  ljump_rescue(22) do
+    block_get{break 21}.call
+  end
+end
+test_ok(test_b2() == 22)
+
+def test_b3
+  ljump_rescue(33) do
+    Proc.new{break 31}.yield
+  end
+end
+test_ok(test_b3() == 33)
+
+def test_b4
+  lambda{break 44}.call
+end
+test_ok(test_b4() == 44)
+
+def test_b5
+  ljump_rescue(55) do
+    b = block_get{break 54}
+    block_call(&b)
+  end
+end
+test_ok(test_b5() == 55)
+
+def test_b6
+  b = lambda{break 67}
+  block_call(&b)
+  66
+end
+test_ok(test_b6() == 66)
+
+def util_r7
+  block_get{break 78}
+end
+
+def test_b7
+  b = util_r7()
+  ljump_rescue(77) do
+    block_call(&b)
+  end
+end
+test_ok(test_b7() == 77)
+
+def util_b8(&block)
+  block_call(&block)
+end
+
+def test_b8
+  util_b8{break 88}
+end
+test_ok(test_b8() == 88)
+
+def util_b9(&block)
+  lambda{block.call; 98}.call
+end
+
+def test_b9
+  util_b9{break 99}
+end
+test_ok(test_b9() == 99)
+
+def util_b10
+  util_b9{break 100}
+end
+
+def test_b10
+  util_b10()
+end
+test_ok(test_b10() == 100)
+
+def test_b11
+  ljump_rescue(111) do
+    loop do
+      Proc.new{break 110}.yield
+      break 112
+    end
+  end
+end
+test_ok(test_b11() == 111)
+
+def test_b12
+  loop do
+    break lambda{break 122}.call
+    break 121
+  end
+end
+test_ok(test_b12() == 122)
+
+def test_b13
+  ljump_rescue(133) do
+    while true
+      Proc.new{break 130}.yield
+      break 131
+    end
+  end
+end
+test_ok(test_b13() == 133)
+
+def test_b14
+  while true
+    break lambda{break 144}.call
+    break 143
+  end
+end
+test_ok(test_b14() == 144)
+
+def test_b15
+  [0].each {|c| yield 1 }
+  156
+end
+test_ok(test_b15{|e| break 155 } == 155)
 
 def marity_test(m)
   method = method(m)
-  test_ok(method.arity == method.to_proc.arity)
+  test_ok(method.arity == method.to_proc.arity, 2)
 end
 marity_test(:test_ok)
 marity_test(:marity_test)
 marity_test(:p)
 
 lambda(&method(:test_ok)).call(true)
-lambda(&get_block{|a,n| test_ok(a,n)}).call(true, 2)
+lambda(&block_get{|a,n| test_ok(a,n)}).call(true, 2)
 
 class ITER_TEST1
    def a
@@ -1220,7 +1456,38 @@ class ITER_TEST4 < ITER_TEST3
   end
 end
 
-ITER_TEST4.new.foo(44){55}   
+ITER_TEST4.new.foo(44){55}
+
+class ITER_TEST5
+   def tt(aa)
+     aa
+   end
+
+   def uu(a)
+      class << self
+         define_method(:tt) do |sym|
+            super(sym)
+         end
+      end
+   end
+
+   def xx(*x)
+     x.size
+   end
+end
+
+a = ITER_TEST5.new
+a.uu(12)
+test_ok(a.tt(1) == 1)
+
+class ITER_TEST6 < ITER_TEST5
+   def xx(*a)
+      a << 12
+      super
+   end
+end
+
+test_ok(ITER_TEST6.new.xx([24]) == 2)
 
 test_check "float"
 test_ok(2.6.floor == 2)
@@ -1312,7 +1579,6 @@ $good = true;
 for i in 4000..4096
   n1 = 1 << i;
   if (n1**2-1) / (n1+1) != (n1-1)
-    p i
     $good = false
   end
 end
@@ -1384,7 +1650,7 @@ $x = <<END;
 ABCD
 ABCD
 END
-$x.gsub!(/((.|\n)*?)B((.|\n)*?)D/){$1+$3}
+$x.gsub!(/((.|\n)*?)B((.|\n)*?)D/, '\1\3')
 test_ok($x == "AC\nAC\n")
 
 test_ok("foobar" =~ /foo(?=(bar)|(baz))/)
@@ -1416,9 +1682,9 @@ test_ok($x.sub(/.*\.([^\.]+)$/, '<\&>') == "<a.gif>")
 # character constants(assumes ASCII)
 test_ok("a"[0] == ?a)
 test_ok(?a == ?a)
-test_ok(?\C-a == 1)
-test_ok(?\M-a == 225)
-test_ok(?\M-\C-a == 129)
+test_ok(?\C-a == "\1")
+test_ok(?\M-a == "\341")
+test_ok(?\M-\C-a == "\201")
 test_ok("a".upcase![0] == ?A)
 test_ok("A".downcase![0] == ?a)
 test_ok("abc".tr!("a-z", "A-Z") == "ABC")
@@ -1430,7 +1696,7 @@ $x = "abcdef"
 $y = [ ?a, ?b, ?c, ?d, ?e, ?f ]
 $bad = false
 $x.each_byte {|i|
-  if i != $y.shift
+  if i.chr != $y.shift
     $bad = true
     break
   end
@@ -1456,8 +1722,8 @@ test_ok(-265419172580680477752431643787347.to_s(36) == "-justanotherrubyhacker")
 
 a = []
 (0..255).each {|n|
-  ch = [n].pack("C")                     
-  a.push ch if /a#{Regexp.quote ch}b/x =~ "ab" 
+  ch = [n].pack("C")
+  a.push ch if /a#{Regexp.quote ch}b/x =~ "ab"
 }
 test_ok(a.size == 0)
 
@@ -1519,20 +1785,20 @@ test_ok(aaa(1, 2, 3, 4) == [1, 2, 3, 4])
 test_ok(aaa(1, *[2, 3, 4]) == [1, 2, 3, 4])
 
 test_check "proc"
-$proc = proc{|i| i}
+$proc = Proc.new{|i| i}
 test_ok($proc.call(2) == 2)
 test_ok($proc.call(3) == 3)
 
-$proc = proc{|i| i*2}
+$proc = Proc.new{|i| i*2}
 test_ok($proc.call(2) == 4)
 test_ok($proc.call(3) == 6)
 
-proc{
+Proc.new{
   iii=5				# nested local variable
-  $proc = proc{|i|
+  $proc = Proc.new{|i|
     iii = i
   }
-  $proc2 = proc {
+  $proc2 = Proc.new {
     $x = iii			# nested variables shared by procs
   }
   # scope of nested variables
@@ -1561,12 +1827,15 @@ if defined? Process.kill
   test_check "signal"
 
   $x = 0
-  trap "SIGINT", proc{|sig| $x = 2}
+  trap "SIGINT", Proc.new{|sig| $x = 2}
   Process.kill "SIGINT", $$
-  sleep 0.1
+  100.times {
+    sleep 0.1
+    break if $x != 0
+  }
   test_ok($x == 2)
 
-  trap "SIGINT", proc{raise "Interrupt"}
+  trap "SIGINT", Proc.new{raise "Interrupt"}
 
   x = false
   begin
@@ -1640,51 +1909,53 @@ rescue NameError		# must raise error
 end
 test_ok(!$bad)
 
-x = proc{}
+x = binding #! YARV Limitation: Proc.new{}
 eval "i4 = 1", x
 test_ok(eval("i4", x) == 1)
-x = proc{proc{}}.call
+x = Proc.new{binding}.call #! YARV Limitation: Proc.new{Proc.new{}}.call
 eval "i4 = 22", x
 test_ok(eval("i4", x) == 22)
 $x = []
-x = proc{proc{}}.call
-eval "(0..9).each{|i5| $x[i5] = proc{i5*2}}", x
+x = Proc.new{binding}.call #! YARV Limitation: Proc.new{Proc.new{}}.call
+eval "(0..9).each{|i5| $x[i5] = Proc.new{i5*2}}", x
 test_ok($x[4].call == 8)
 
 x = binding
 eval "i = 1", x
 test_ok(eval("i", x) == 1)
-x = proc{binding}.call
+x = Proc.new{binding}.call
 eval "i = 22", x
 test_ok(eval("i", x) == 22)
 $x = []
-x = proc{binding}.call
-eval "(0..9).each{|i5| $x[i5] = proc{i5*2}}", x
+x = Proc.new{binding}.call
+eval "(0..9).each{|i5| $x[i5] = Proc.new{i5*2}}", x
 test_ok($x[4].call == 8)
-x = proc{binding}.call
+x = Proc.new{binding}.call
 eval "for i6 in 1..1; j6=i6; end", x
 test_ok(eval("defined? i6", x))
 test_ok(eval("defined? j6", x))
 
-proc {
+Proc.new {
   p = binding
   eval "foo11 = 1", p
   foo22 = 5
-  proc{foo11=22}.call
-  proc{foo22=55}.call
+  Proc.new{foo11=22}.call
+  Proc.new{foo22=55}.call
   test_ok(eval("foo11", p) == eval("foo11"))
   test_ok(eval("foo11") == 1)
   test_ok(eval("foo22", p) == eval("foo22"))
   test_ok(eval("foo22") == 55)
-}.call
+}.call if false #! YARV Limitation
 
-p1 = proc{i7 = 0; proc{i7}}.call
-test_ok(p1.call == 0)
+#! YARV Limitation: p1 = Proc.new{i7 = 0; Proc.new{i7}}.call
+p1 = Proc.new{i7 = 0; binding}.call
+#! YARV Limitation: test_ok(p1.call == 0)
 eval "i7=5", p1
-test_ok(p1.call == 5)
+#! YARV Limitation: test_ok(p1.call == 5)
 test_ok(!defined?(i7))
 
-p1 = proc{i7 = 0; proc{i7}}.call
+if false #! YARV Limitation
+p1 = Proc.new{i7 = 0; Proc.new{i7}}.call
 i7 = nil
 test_ok(p1.call == 0)
 eval "i7=1", p1
@@ -1692,6 +1963,7 @@ test_ok(p1.call == 1)
 eval "i7=5", p1
 test_ok(p1.call == 5)
 test_ok(i7 == nil)
+end
 
 test_check "system"
 test_ok(`echo foobar` == "foobar\n")
@@ -1719,7 +1991,7 @@ tmp.print "__END__\n";
 tmp.print "this is a trailing junk\n";
 tmp.close
 
-test_ok(`./miniruby -x script_tmp` == 'nil')
+test_ok(`./miniruby -x script_tmp` == '')
 test_ok(`./miniruby -x script_tmp -zzz=555` == '555')
 
 tmp = open("script_tmp", "w")
@@ -1728,7 +2000,7 @@ for i in 1..5
 end
 tmp.close
 
-`./miniruby -i.bak -pe 'sub(/^[0-9]+$/){$&.to_i * 5}' script_tmp`
+`./miniruby -i.bak -pe '$_.sub!(/^[0-9]+$/){$&.to_i * 5}' script_tmp`
 done = true
 tmp = open("script_tmp", "r")
 while tmp.gets
@@ -1739,33 +2011,9 @@ while tmp.gets
 end
 tmp.close
 test_ok(done)
-  
+
 File.unlink "script_tmp" or `/bin/rm -f "script_tmp"`
 File.unlink "script_tmp.bak" or `/bin/rm -f "script_tmp.bak"`
-
-$bad = false
-if (dir = File.dirname(File.dirname($0))) == '.'
-  dir = ""
-else
-  dir << "/"
-end
-
-def valid_syntax?(code, fname)
-  code = code.sub(/\A(?:\s*\#.*$)*(\n)?/n) {
-    "#$&#{"\n" if $1 && !$2}BEGIN{return true}\n"
-  }
-  eval(code, nil, fname, 0)
-rescue Exception
-  puts $!.message
-  false
-end
-
-for script in Dir["#{dir}{lib,sample,ext}/**/*.rb"]
-  unless valid_syntax? IO::read(script), script
-    $bad = true
-  end
-end
-test_ok(!$bad)
 
 test_check "const"
 TEST1 = 1
@@ -1806,7 +2054,7 @@ end
 
 test_ok(bar.test2 == "test2")
 test_ok(bar.test == "test")
-test_ok(foo.test == "test")  
+test_ok(foo.test == "test")
 
 begin
   foo.test2
@@ -1893,14 +2141,14 @@ $_ = foobar
 test_ok($_ == foobar)
 
 class Gods
-  @@rule = "Uranus"
+  @@rule = "Uranus"		# private to Gods
   def ruler0
     @@rule
   end
 
   def self.ruler1		# <= per method definition style
     @@rule
-  end		   
+  end
   class << self			# <= multiple method definition style
     def ruler2
       @@rule
@@ -1909,15 +2157,18 @@ class Gods
 end
 
 module Olympians
- @@rule ="Zeus"
- def ruler3
+  @@rule ="Zeus"
+  def ruler3
     @@rule
   end
 end
 
 class Titans < Gods
-  @@rule = "Cronus"
-  include Olympians           	# OK to cause warning (intentional)
+  @@rule = "Cronus"		# do not affect @@rule in Gods
+  include Olympians
+  def ruler4
+    @@rule
+  end
 end
 
 test_ok(Gods.new.ruler0 == "Cronus")
@@ -1928,11 +2179,12 @@ test_ok(Titans.ruler2 == "Cronus")
 atlas = Titans.new
 test_ok(atlas.ruler0 == "Cronus")
 test_ok(atlas.ruler3 == "Zeus")
+test_ok(atlas.ruler4 == "Cronus")
 
 test_check "trace"
 $x = 1234
 $y = 0
-trace_var :$x, proc{$y = $x}
+trace_var :$x, Proc.new{$y = $x}
 $x = 40414
 test_ok($y == $x)
 
@@ -1940,7 +2192,7 @@ untrace_var :$x
 $x = 19660208
 test_ok($y != $x)
 
-trace_var :$x, proc{$x *= 2}
+trace_var :$x, Proc.new{$x *= 2}
 $x = 5
 test_ok($x == 10)
 
@@ -2058,6 +2310,15 @@ end
 test_ok(File.expand_path(".", "//") == "//")
 test_ok(File.expand_path("sub", "//") == "//sub")
 
+# test_check "Proc#binding"
+ObjectSpace.each_object(Proc){|o|
+  begin
+    b = o.binding
+    eval 'self', b
+  rescue ArgumentError
+  end
+}
+
 test_check "gc"
 begin
   1.upto(10000) {
@@ -2086,8 +2347,15 @@ l = []
 GC.start
 test_ok true   # reach here or dumps core
 
+ObjectSpace.each_object{|o|
+  o.class.name
+}
+
+test_ok true   # reach here or dumps core
+
+PROGRESS.finish
 if $failed > 0
-  printf "test: %d failed %d\n", $ntest, $failed
+  printf "not ok/test: %d failed %d\n", $ntest, $failed
 else
   printf "end of test(test: %d)\n", $ntest
 end

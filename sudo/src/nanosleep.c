@@ -24,12 +24,12 @@
 #if TIME_WITH_SYS_TIME
 # include <time.h>
 #endif
-#ifndef HAVE_TIMESPEC
-# include <emul/timespec.h>
+#ifndef HAVE_STRUCT_TIMESPEC
+# include "emul/timespec.h"
 #endif
 #include <errno.h>
 
-#include "compat.h"
+#include "missing.h"
 
 int
 nanosleep(ts, rts)
@@ -52,5 +52,5 @@ nanosleep(ts, rts)
 	rts->tv_sec = endtime.tv_sec;
 	rts->tv_nsec = endtime.tv_usec * 1000;
     }
-    return(rval);
+    return rval;
 }

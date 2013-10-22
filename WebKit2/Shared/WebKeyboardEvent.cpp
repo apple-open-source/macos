@@ -45,43 +45,43 @@ WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& 
     ASSERT(isKeyboardEventType(type));
 }
 
-void WebKeyboardEvent::encode(CoreIPC::ArgumentEncoder* encoder) const
+void WebKeyboardEvent::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
     WebEvent::encode(encoder);
 
-    encoder->encode(m_text);
-    encoder->encode(m_unmodifiedText);
-    encoder->encode(m_keyIdentifier);
-    encoder->encode(m_windowsVirtualKeyCode);
-    encoder->encode(m_nativeVirtualKeyCode);
-    encoder->encode(m_macCharCode);
-    encoder->encode(m_isAutoRepeat);
-    encoder->encode(m_isKeypad);
-    encoder->encode(m_isSystemKey);
+    encoder << m_text;
+    encoder << m_unmodifiedText;
+    encoder << m_keyIdentifier;
+    encoder << m_windowsVirtualKeyCode;
+    encoder << m_nativeVirtualKeyCode;
+    encoder << m_macCharCode;
+    encoder << m_isAutoRepeat;
+    encoder << m_isKeypad;
+    encoder << m_isSystemKey;
 }
 
-bool WebKeyboardEvent::decode(CoreIPC::ArgumentDecoder* decoder, WebKeyboardEvent& result)
+bool WebKeyboardEvent::decode(CoreIPC::ArgumentDecoder& decoder, WebKeyboardEvent& result)
 {
     if (!WebEvent::decode(decoder, result))
         return false;
 
-    if (!decoder->decode(result.m_text))
+    if (!decoder.decode(result.m_text))
         return false;
-    if (!decoder->decode(result.m_unmodifiedText))
+    if (!decoder.decode(result.m_unmodifiedText))
         return false;
-    if (!decoder->decode(result.m_keyIdentifier))
+    if (!decoder.decode(result.m_keyIdentifier))
         return false;
-    if (!decoder->decode(result.m_windowsVirtualKeyCode))
+    if (!decoder.decode(result.m_windowsVirtualKeyCode))
         return false;
-    if (!decoder->decode(result.m_nativeVirtualKeyCode))
+    if (!decoder.decode(result.m_nativeVirtualKeyCode))
         return false;
-    if (!decoder->decode(result.m_macCharCode))
+    if (!decoder.decode(result.m_macCharCode))
         return false;
-    if (!decoder->decode(result.m_isAutoRepeat))
+    if (!decoder.decode(result.m_isAutoRepeat))
         return false;
-    if (!decoder->decode(result.m_isKeypad))
+    if (!decoder.decode(result.m_isKeypad))
         return false;
-    if (!decoder->decode(result.m_isSystemKey))
+    if (!decoder.decode(result.m_isSystemKey))
         return false;
 
     return true;

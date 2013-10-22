@@ -23,7 +23,7 @@
  */
 
 static int
-iso8859_1_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+iso8859_1_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   *pwc = (ucs4_t) c;
@@ -31,7 +31,7 @@ iso8859_1_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-iso8859_1_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+iso8859_1_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (wc < 0x0100) {
     *r = wc;

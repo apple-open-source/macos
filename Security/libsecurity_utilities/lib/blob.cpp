@@ -114,15 +114,19 @@ BlobCore *BlobCore::readBlob(std::FILE *file, uint32_t magic, size_t minSize, si
 BlobWrapper *BlobWrapper::alloc(size_t length, Magic magic /* = _magic */)
 {
 	size_t wrapLength = length + sizeof(BlobCore);
+	if (wrapLength < length)	// overflow
+		return NULL;
 	BlobWrapper *w = (BlobWrapper *)malloc(wrapLength);
-	w->BlobCore::initialize(magic, wrapLength);
+	if (w)
+		w->BlobCore::initialize(magic, wrapLength);
 	return w;
 }
 
 BlobWrapper *BlobWrapper::alloc(const void *data, size_t length, Magic magic /* = _magic */)
 {
 	BlobWrapper *w = alloc(length, magic);
-	memcpy(w->data(), data, w->length());
+	if (w)
+		memcpy(w->data(), data, w->length());
 	return w;
 }
 

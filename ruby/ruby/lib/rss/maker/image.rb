@@ -13,7 +13,7 @@ module RSS
       end
 
       def self.install_image_item(klass)
-	klass.module_eval(<<-EOC, __FILE__, __LINE__ + 1)
+        klass.module_eval(<<-EOC, __FILE__, __LINE__ + 1)
           class ImageItem < ImageItemBase
             DublinCoreModel.install_dublin_core(self)
           end
@@ -57,7 +57,7 @@ EOC
       end
 
       def self.install_image_favicon(klass)
-	klass.module_eval(<<-EOC, __FILE__, __LINE__ + 1)
+        klass.module_eval(<<-EOC, __FILE__, __LINE__ + 1)
           class ImageFavicon < ImageFaviconBase
             DublinCoreModel.install_dublin_core(self)
           end
@@ -89,7 +89,7 @@ EOC
     end
 
     class ChannelBase; include Maker::ImageFaviconModel; end
-    
+
     class ItemsBase
       class ItemBase; include Maker::ImageItemModel; end
     end

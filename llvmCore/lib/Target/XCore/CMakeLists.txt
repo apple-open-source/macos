@@ -14,6 +14,7 @@ add_llvm_target(XCoreCodeGen
   XCoreInstrInfo.cpp
   XCoreISelDAGToDAG.cpp
   XCoreISelLowering.cpp
+  XCoreMachineFunctionInfo.cpp
   XCoreRegisterInfo.cpp
   XCoreSubtarget.cpp
   XCoreTargetMachine.cpp
@@ -21,17 +22,7 @@ add_llvm_target(XCoreCodeGen
   XCoreSelectionDAGInfo.cpp
   )
 
-add_llvm_library_dependencies(LLVMXCoreCodeGen
-  LLVMAsmPrinter
-  LLVMCodeGen
-  LLVMCore
-  LLVMMC
-  LLVMSelectionDAG
-  LLVMSupport
-  LLVMTarget
-  LLVMXCoreDesc
-  LLVMXCoreInfo
-  )
+add_dependencies(LLVMXCoreCodeGen intrinsics_gen)
 
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)

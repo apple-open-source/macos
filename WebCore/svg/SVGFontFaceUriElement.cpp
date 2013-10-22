@@ -27,6 +27,7 @@
 #include "CSSFontFaceSrcValue.h"
 #include "CachedFont.h"
 #include "CachedResourceLoader.h"
+#include "CachedResourceRequest.h"
 #include "Document.h"
 #include "SVGFontFaceElement.h"
 #include "SVGNames.h"
@@ -61,13 +62,12 @@ PassRefPtr<CSSFontFaceSrcValue> SVGFontFaceUriElement::srcValue() const
     return src.release();
 }
 
-void SVGFontFaceUriElement::parseAttribute(Attribute* attr)
+void SVGFontFaceUriElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    const QualifiedName& attrName = attr->name();
-    if (attrName == XLinkNames::hrefAttr)
+    if (name == XLinkNames::hrefAttr)
         loadFont();
     else
-        SVGElement::parseAttribute(attr);
+        SVGElement::parseAttribute(name, value);
 }
 
 void SVGFontFaceUriElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
@@ -82,7 +82,7 @@ void SVGFontFaceUriElement::childrenChanged(bool changedByParser, Node* beforeCh
         static_cast<SVGFontFaceElement*>(grandparent)->rebuildFontFace();
 }
 
-Node::InsertionNotificationRequest SVGFontFaceUriElement::insertedInto(Node* rootParent)
+Node::InsertionNotificationRequest SVGFontFaceUriElement::insertedInto(ContainerNode* rootParent)
 {
     loadFont();
     return SVGElement::insertedInto(rootParent);
@@ -96,7 +96,8 @@ void SVGFontFaceUriElement::loadFont()
     const AtomicString& href = getAttribute(XLinkNames::hrefAttr);
     if (!href.isNull()) {
         CachedResourceLoader* cachedResourceLoader = document()->cachedResourceLoader();
-        ResourceRequest request(document()->completeURL(href));
+        CachedResourceRequest request(ResourceRequest(document()->completeURL(href)));
+        request.setInitiator(this);
         m_cachedFont = cachedResourceLoader->requestFont(request);
         if (m_cachedFont) {
             m_cachedFont->addClient(this);

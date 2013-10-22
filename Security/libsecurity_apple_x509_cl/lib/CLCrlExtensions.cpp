@@ -63,7 +63,7 @@ void setFieldCrlNumber(
 		kSecAsn1IntegerTemplate); 
 }
 
-
+static
 bool getFieldCrlCommon(
 	DecodedItem		 	&crl,
 	const CSSM_OID		&fieldId,		// identifies extension we seek

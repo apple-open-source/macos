@@ -1,5 +1,5 @@
 /*
- * "$Id: rss.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: rss.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   RSS notifier for CUPS.
  *
@@ -737,5 +737,5 @@ xml_escape(const char *s)		/* I - String to escape */
 
 
 /*
- * End of "$Id: rss.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: rss.c 11093 2013-07-03 20:48:42Z msweet $".
  */

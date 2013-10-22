@@ -21,7 +21,7 @@ INCLUDEPATH = \
 INSTALLS += target
 
 isEmpty(INSTALL_BINS) {
-    target.path = $$[QT_INSTALL_BINS]
+    target.path = $$[QT_INSTALL_LIBEXECS]
 } else {
     target.path = $$INSTALL_BINS
 }

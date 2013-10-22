@@ -22,13 +22,12 @@
 #define WebKitDOMTestActiveDOMObjectPrivate_h
 
 #include "TestActiveDOMObject.h"
-#include <glib-object.h>
-#include <webkit/WebKitDOMObject.h>
+#include <webkitdom/WebKitDOMTestActiveDOMObject.h>
 
 namespace WebKit {
 WebKitDOMTestActiveDOMObject* wrapTestActiveDOMObject(WebCore::TestActiveDOMObject*);
-WebCore::TestActiveDOMObject* core(WebKitDOMTestActiveDOMObject* request);
-WebKitDOMTestActiveDOMObject* kit(WebCore::TestActiveDOMObject* node);
+WebKitDOMTestActiveDOMObject* kit(WebCore::TestActiveDOMObject*);
+WebCore::TestActiveDOMObject* core(WebKitDOMTestActiveDOMObject*);
 } // namespace WebKit
 
 #endif /* WebKitDOMTestActiveDOMObjectPrivate_h */

@@ -20,6 +20,8 @@
 #ifndef VibrationClientEfl_h
 #define VibrationClientEfl_h
 
+#if ENABLE(VIBRATION)
+
 #include "VibrationClient.h"
 #include <Evas.h>
 
@@ -27,10 +29,10 @@ namespace WebCore {
 
 class VibrationClientEfl : public VibrationClient {
 public:
-    VibrationClientEfl(Evas_Object* view);
+    explicit VibrationClientEfl(Evas_Object* view);
     virtual ~VibrationClientEfl() { }
 
-    virtual void vibrate(const unsigned long& time);
+    virtual void vibrate(const unsigned& time);
     virtual void cancelVibration();
 
     virtual void vibrationDestroyed();
@@ -41,5 +43,6 @@ private:
 
 } // namespace WebCore
 
+#endif
 #endif // VibrationClientEfl_h
 

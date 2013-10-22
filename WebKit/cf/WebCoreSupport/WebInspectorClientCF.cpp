@@ -33,6 +33,14 @@
 #define WTF_USE_CF 1
 #endif
 
+#include <wtf/Platform.h>
+
+#if PLATFORM(WIN) && !OS(WINCE)
+#ifndef WTF_USE_CG
+#define WTF_USE_CG 1
+#endif
+#endif
+
 // NOTE: These need to appear up top, as they declare macros
 // used in the JS and WTF headers.
 #include <runtime/JSExportMacros.h>
@@ -45,26 +53,26 @@
 #include <WebCore/Frame.h>
 #include <WebCore/InspectorFrontendClientLocal.h>
 #include <WebCore/Page.h>
-#include <WebCore/PlatformString.h>
 
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
 static const char* inspectorStartsAttachedSetting = "inspectorStartsAttached";
+static const char* inspectorAttachDisabledSetting = "inspectorAttachDisabled";
 
-static inline CFStringRef createKeyForPreferences(const String& key)
+static inline RetainPtr<CFStringRef> createKeyForPreferences(const String& key)
 {
-    RetainPtr<CFStringRef> keyCFString(AdoptCF, key.createCFString());
-    return CFStringCreateWithFormat(0, 0, CFSTR("WebKit Web Inspector Setting - %@"), keyCFString.get());
+    return adoptCF(CFStringCreateWithFormat(0, 0, CFSTR("WebKit Web Inspector Setting - %@"), key.createCFString().get()));
 }
 
 static void populateSetting(const String& key, String* setting)
 {
-    RetainPtr<CFStringRef> preferencesKey(AdoptCF, createKeyForPreferences(key));
-    RetainPtr<CFPropertyListRef> value(AdoptCF, CFPreferencesCopyAppValue(preferencesKey.get(), kCFPreferencesCurrentApplication));
+    RetainPtr<CFStringRef> preferencesKey = createKeyForPreferences(key);
+    RetainPtr<CFPropertyListRef> value = adoptCF(CFPreferencesCopyAppValue(preferencesKey.get(), kCFPreferencesCurrentApplication));
 
     if (!value)
         return;
@@ -80,17 +88,26 @@ static void populateSetting(const String& key, String* setting)
 
 static void storeSetting(const String& key, const String& setting)
 {
-    RetainPtr<CFPropertyListRef> objectToStore;
-    objectToStore.adoptCF(setting.createCFString());
-    ASSERT(objectToStore);
-
-    RetainPtr<CFStringRef> preferencesKey(AdoptCF, createKeyForPreferences(key));
-    CFPreferencesSetAppValue(preferencesKey.get(), objectToStore.get(), kCFPreferencesCurrentApplication);
+    CFPreferencesSetAppValue(createKeyForPreferences(key).get(), setting.createCFString().get(), kCFPreferencesCurrentApplication);
 }
 
 bool WebInspectorClient::sendMessageToFrontend(const String& message)
 {
     return doDispatchMessageOnFrontendPage(m_frontendPage, message);
+}
+
+bool WebInspectorClient::inspectorAttachDisabled()
+{
+    String value;
+    populateSetting(inspectorAttachDisabledSetting, &value);
+    if (value.isEmpty())
+        return false;
+    return value == "true";
+}
+
+void WebInspectorClient::setInspectorAttachDisabled(bool disabled)
+{
+    storeSetting(inspectorAttachDisabledSetting, disabled ? "true" : "false");
 }
 
 bool WebInspectorClient::inspectorStartsAttached()
@@ -107,7 +124,7 @@ void WebInspectorClient::setInspectorStartsAttached(bool attached)
     storeSetting(inspectorStartsAttachedSetting, attached ? "true" : "false");
 }
 
-WTF::PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> WebInspectorClient::createFrontendSettings()
+PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> WebInspectorClient::createFrontendSettings()
 {
     class InspectorFrontendSettingsCF : public WebCore::InspectorFrontendClientLocal::Settings {
     public:

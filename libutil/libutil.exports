@@ -12,6 +12,7 @@ _realhostname
 _realhostname_sa
 _reexec_to_match_kernel
 _reexec_to_match_lp64ness
+_tzlink
 _wipefs_alloc
 _wipefs_except_blocks
 _wipefs_free

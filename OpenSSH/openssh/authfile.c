@@ -1,4 +1,4 @@
-/* $OpenBSD: authfile.c,v 1.92 2011/06/14 22:49:18 markus Exp $ */
+/* $OpenBSD: authfile.c,v 1.95 2013/01/08 18:49:04 markus Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -43,9 +43,15 @@
 #include <sys/param.h>
 #include <sys/uio.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-err.h"
+#include "ossl-evp.h"
+#include "ossl-pem.h"
+#else
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
+#endif
 
 /* compatibility with old or broken OpenSSL versions */
 #include "openbsd-compat/openssl-compat.h"
@@ -150,7 +156,7 @@ key_private_rsa1_to_blob(Key *key, Buffer *blob, const char *passphrase,
 	cipher_set_key_string(&ciphercontext, cipher, passphrase,
 	    CIPHER_ENCRYPT);
 	cipher_crypt(&ciphercontext, cp,
-	    buffer_ptr(&buffer), buffer_len(&buffer));
+	    buffer_ptr(&buffer), buffer_len(&buffer), 0, 0);
 	cipher_cleanup(&ciphercontext);
 	memset(&ciphercontext, 0, sizeof(ciphercontext));
 
@@ -340,7 +346,7 @@ key_load_file(int fd, const char *filename, Buffer *blob)
 		    filename == NULL ? "" : " ");
 		return 0;
 	}
-	buffer_init(blob);
+	buffer_clear(blob);
 	for (;;) {
 		if ((len = atomicio(read, fd, buf, sizeof(buf))) == 0) {
 			if (errno == EPIPE)
@@ -474,7 +480,7 @@ key_parse_private_rsa1(Buffer *blob, const char *passphrase, char **commentp)
 	cipher_set_key_string(&ciphercontext, cipher, passphrase,
 	    CIPHER_DECRYPT);
 	cipher_crypt(&ciphercontext, cp,
-	    buffer_ptr(&copy), buffer_len(&copy));
+	    buffer_ptr(&copy), buffer_len(&copy), 0, 0);
 	cipher_cleanup(&ciphercontext);
 	memset(&ciphercontext, 0, sizeof(ciphercontext));
 	buffer_free(&copy);

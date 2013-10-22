@@ -39,7 +39,7 @@
 
 namespace WebKit {
 
-typedef Vector<RefPtr<WebBackForwardListItem> > BackForwardListItemVector;
+typedef Vector<RefPtr<WebBackForwardListItem>> BackForwardListItemVector;
 
 /*
  *          Current
@@ -47,10 +47,8 @@ typedef Vector<RefPtr<WebBackForwardListItem> > BackForwardListItemVector;
  *      Back        Forward
  */
 
-class WebBackForwardList : public APIObject {
+class WebBackForwardList : public TypedAPIObject<APIObject::TypeBackForwardList> {
 public:
-    static const Type APIType = TypeBackForwardList;
-
     static PassRefPtr<WebBackForwardList> create(WebPageProxy* page)
     {
         return adoptRef(new WebBackForwardList(page));
@@ -70,31 +68,29 @@ public:
     
     const BackForwardListItemVector& entries() const { return m_entries; }
 
-    uint32_t currentIndex() { return m_current; }
-    int backListCount();
-    int forwardListCount();
+    uint32_t currentIndex() const { return m_currentIndex; }
+    int backListCount() const;
+    int forwardListCount() const;
 
-    PassRefPtr<ImmutableArray> backListAsImmutableArrayWithLimit(unsigned limit);
-    PassRefPtr<ImmutableArray> forwardListAsImmutableArrayWithLimit(unsigned limit);
+    PassRefPtr<ImmutableArray> backListAsImmutableArrayWithLimit(unsigned limit) const;
+    PassRefPtr<ImmutableArray> forwardListAsImmutableArrayWithLimit(unsigned limit) const;
 
 #if USE(CF)
     CFDictionaryRef createCFDictionaryRepresentation(WebPageProxy::WebPageProxySessionStateFilterCallback, void* context) const;
     bool restoreFromCFDictionaryRepresentation(CFDictionaryRef);
+    bool restoreFromV0CFDictionaryRepresentation(CFDictionaryRef);
+    bool restoreFromV1CFDictionaryRepresentation(CFDictionaryRef);
 #endif
 
 private:
-    static const unsigned NoCurrentItemIndex = UINT_MAX;
-
-    WebBackForwardList(WebPageProxy*);
-
-    virtual Type type() const { return APIType; }
+    explicit WebBackForwardList(WebPageProxy*);
 
     WebPageProxy* m_page;
     BackForwardListItemVector m_entries;
-    uint32_t m_current;
-    uint32_t m_capacity;
-    bool m_closed;
-    bool m_enabled;
+    
+    bool m_hasCurrentIndex;
+    unsigned m_currentIndex;
+    unsigned m_capacity;
 };
 
 } // namespace WebKit

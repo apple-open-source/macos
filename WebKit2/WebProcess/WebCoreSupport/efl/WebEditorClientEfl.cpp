@@ -27,12 +27,15 @@
 #include "WebEditorClient.h"
 
 #include "Frame.h"
+#include "NativeWebKeyboardEvent.h"
 #include "PlatformKeyboardEvent.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
+#include <WebCore/FocusController.h>
 #include <WebCore/KeyboardEvent.h>
-#include <WebCore/NotImplemented.h>
+#include <WebCore/Page.h>
+#include <WebKit2/Shared/WebCoreArgumentCoders.h>
 
 using namespace WebCore;
 
@@ -40,12 +43,29 @@ namespace WebKit {
 
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
-    notImplemented();
+    if (m_page->handleEditingKeyboardEvent(event))
+        event->setDefaultHandled();
 }
 
-void WebEditorClient::handleInputMethodKeydown(KeyboardEvent*)
+void WebEditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
-    notImplemented();
+    Frame* frame = m_page->corePage()->focusController()->focusedOrMainFrame();
+    if (!frame || !frame->editor().canEdit())
+        return;
+
+    // FIXME: sending sync message might make input lagging.
+    bool handled = false;
+    m_page->sendSync(Messages::WebPageProxy::HandleInputMethodKeydown(), Messages::WebPageProxy::HandleInputMethodKeydown::Reply(handled));
+
+    if (handled)
+        event->setDefaultHandled();
 }
+
+#if USE(UNIFIED_TEXT_CHECKING)
+void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, WebCore::TextCheckingTypeMask checkingTypes, Vector<TextCheckingResult>& results)
+{
+    m_page->sendSync(Messages::WebPageProxy::CheckTextOfParagraph(String(text, length), checkingTypes), Messages::WebPageProxy::CheckTextOfParagraph::Reply(results));
+}
+#endif
 
 }

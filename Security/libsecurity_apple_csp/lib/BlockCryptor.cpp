@@ -318,7 +318,7 @@ void BlockCryptor::update(
 	/* 
 	 * en/decrypt even blocks in (remaining) inp.  
 	 */
-	unsigned leftOver = uInSize % mInBlockSize;
+	size_t leftOver = uInSize % mInBlockSize;
 	if((leftOver == 0) && needLeftOver) {
 		/* 
 		 * Even blocks coming in, but we really need to leave some data

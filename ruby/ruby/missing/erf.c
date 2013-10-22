@@ -3,6 +3,7 @@
 reference - Haruhiko Okumura: C-gengo niyoru saishin algorithm jiten
             (New Algorithm handbook in C language) (Gijyutsu hyouron
             sha, Tokyo, 1991) p.227 [in Japanese]                 */
+#include "ruby/missing.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -25,8 +26,7 @@ static double q_gamma(double, double, double);
 
 /* Incomplete gamma function
    1 / Gamma(a) * Int_0^x exp(-t) t^(a-1) dt  */
-static double p_gamma(a, x, loggamma_a)
-    double a, x, loggamma_a;
+static double p_gamma(double a, double x, double loggamma_a)
 {
     int k;
     double result, term, previous;
@@ -45,8 +45,7 @@ static double p_gamma(a, x, loggamma_a)
 
 /* Incomplete gamma function
    1 / Gamma(a) * Int_x^inf exp(-t) t^(a-1) dt  */
-static double q_gamma(a, x, loggamma_a)
-    double a, x, loggamma_a;
+static double q_gamma(double a, double x, double loggamma_a)
 {
     int k;
     double result, w, temp, previous;
@@ -69,8 +68,7 @@ static double q_gamma(a, x, loggamma_a)
 
 #define LOG_PI_OVER_2 0.572364942924700087071713675675 /* log_e(PI)/2 */
 
-double erf(x)
-    double x;
+double erf(double x)
 {
     if (!finite(x)) {
         if (isnan(x)) return x;      /* erf(NaN)   = NaN   */
@@ -80,8 +78,7 @@ double erf(x)
     else        return - p_gamma(0.5, x * x, LOG_PI_OVER_2);
 }
 
-double erfc(x)
-    double x;
+double erfc(double x)
 {
     if (!finite(x)) {
         if (isnan(x)) return x;      /* erfc(NaN)   = NaN      */

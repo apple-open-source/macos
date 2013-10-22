@@ -23,27 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-module svg {
+[
+    Conditional=SVG
+] interface SVGPointList {
+    readonly attribute unsigned long numberOfItems;
 
-    interface [
-        Conditional=SVG
-    ] SVGPointList {
-        readonly attribute unsigned long numberOfItems;
+    [RaisesException] void clear();
+    [StrictTypeChecking, RaisesException] SVGPoint initialize(SVGPoint item);
+    [StrictTypeChecking, RaisesException] SVGPoint getItem(unsigned long index);
+    [StrictTypeChecking, RaisesException] SVGPoint insertItemBefore(SVGPoint item, unsigned long index);
+    [StrictTypeChecking, RaisesException] SVGPoint replaceItem(SVGPoint item, unsigned long index);
+    [StrictTypeChecking, RaisesException] SVGPoint removeItem(unsigned long index);
+    [StrictTypeChecking, RaisesException] SVGPoint appendItem(SVGPoint item);
+};
 
-        void clear()
-            raises(DOMException);
-        [StrictTypeChecking] SVGPoint initialize(in SVGPoint item)
-            raises(DOMException, SVGException);
-        [StrictTypeChecking] SVGPoint getItem(in unsigned long index)
-            raises(DOMException);
-        [StrictTypeChecking] SVGPoint insertItemBefore(in SVGPoint item, in unsigned long index)
-            raises(DOMException, SVGException);
-        [StrictTypeChecking] SVGPoint replaceItem(in SVGPoint item, in unsigned long index)
-            raises(DOMException, SVGException);
-        [StrictTypeChecking] SVGPoint removeItem(in unsigned long index)
-            raises(DOMException);
-        [StrictTypeChecking] SVGPoint appendItem(in SVGPoint item)
-            raises(DOMException, SVGException);
-    };
-
-}

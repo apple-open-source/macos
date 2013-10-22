@@ -1,0 +1,27 @@
+HTTP::Proxy
+-----------
+
+This module is a pure Perl HTTP proxy.
+
+Its main use should be to record and/or modify web sessions, so as to
+help users create web robots, web testing suites, as well as proxy
+systems than can transparently alter the requests to and answers from
+an origin server.
+
+The eg/ directory holds a few examples. See eg/README for details.
+
+There is also a t/README file that explains the tests strategy.
+
+!WARNING!WARNING!WARNING!WARNING!WARNING!WARNING!WARNING!WARNING!
+
+The way the filters are implemented has changed in version 0.10
+of HTTP::Proxy. You can now play with two dedicated filter classes
+and notice slight changes in the HTTP::Proxy interface.
+
+!WARNING!WARNING!WARNING!WARNING!WARNING!WARNING!WARNING!WARNING!
+
+Recommended order for reading the documentation:
+1) HTTP::Proxy
+2) HTTP::Proxy::HeaderFilter and HTTP::Proxy::BodyFilter
+3) included standard filter classes and code examples in eg/
+

@@ -67,7 +67,7 @@ BIGNUM *cssmDataToBn(
 	BIGNUM *bn = BN_new();
 	BIGNUM *rtn;
 
-	rtn = BN_bin2bn(cdata.Data, cdata.Length, bn);
+	rtn = BN_bin2bn(cdata.Data, (int)cdata.Length, bn);
 	if(rtn == NULL) {
 		BN_free(bn);
 		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
@@ -253,7 +253,7 @@ static CSSM_RETURN RSAPublicKeyDecodeX509(
 			return CSSMERR_CSP_INVALID_KEY;
 		}
 		if(nssPubKeyInfo.algorithm.parameters.Data != NULL) {
-			uint32 len = nssPubKeyInfo.algorithm.parameters.Length;
+			CSSM_SIZE len = nssPubKeyInfo.algorithm.parameters.Length;
 			*algParams = (uint8 *)malloc(len);
 			memmove(*algParams, nssPubKeyInfo.algorithm.parameters.Data, len);
 			*algParamLen = len;
@@ -420,7 +420,7 @@ static CSSM_RETURN RSAPrivateKeyDecodePKCS8(
 			return CSSMERR_CSP_INVALID_KEY;
 		}
 		if(nssPrivKeyInfo.algorithm.parameters.Data != NULL) {
-			uint32 len = nssPrivKeyInfo.algorithm.parameters.Length;
+			CSSM_SIZE len = nssPrivKeyInfo.algorithm.parameters.Length;
 			*algParams = (uint8 *)malloc(len);
 			memmove(*algParams, nssPrivKeyInfo.algorithm.parameters.Data, len);
 			*algParamLen = len;
@@ -585,7 +585,7 @@ CSSM_RETURN	RSAOAEPPrivateKeyEncode(
 	CSSM_DATA encodedParams = {0, NULL};
 	/* TBD encode the label into a RSAES-OAEP-params */
 
-	return RSAPrivateKeyEncodePKCS8(coder, openKey, encodedKey, encodedParams.Data, encodedParams.Length);
+	return RSAPrivateKeyEncodePKCS8(coder, openKey, encodedKey, encodedParams.Data, (unsigned int)encodedParams.Length);
 }
 
 CSSM_RETURN	RSAOAEPPublicKeyEncode(
@@ -597,7 +597,7 @@ CSSM_RETURN	RSAOAEPPublicKeyEncode(
 	CSSM_DATA encodedParams = {0, NULL};
 	/* TBD encode the label into a RSAES-OAEP-params */
 
-	return RSAPublicKeyEncodeX509(coder, openKey, encodedKey, encodedParams.Data, encodedParams.Length);
+	return RSAPublicKeyEncodeX509(coder, openKey, encodedKey, encodedParams.Data, (unsigned int)encodedParams.Length);
 }
 
 CSSM_RETURN RSAOAEPPublicKeyDecode(
@@ -718,11 +718,12 @@ static CSSM_RETURN nssAlgIdToDsaX509(
  * DSA public keys, FIPS186 format.
  * Compatible with BSAFE.
  */
+static
 CSSM_RETURN DSAPublicKeyDecodeFIPS186(
 	SecNssCoder 	&coder,
 	DSA 			*openKey, 
 	void 			*p, 
-	unsigned		length)
+	size_t		length)
 {
 	NSS_DSAPublicKeyBSAFE nssPubKey;
 	PRErrorCode perr;
@@ -762,6 +763,7 @@ CSSM_RETURN DSAPublicKeyDecodeFIPS186(
 	return 0;
 }
 
+static
 CSSM_RETURN	DSAPublicKeyEncodeFIPS186(
 	SecNssCoder		&coder,
 	DSA 			*openKey, 
@@ -803,6 +805,7 @@ CSSM_RETURN	DSAPublicKeyEncodeFIPS186(
  * DSA private keys, FIPS186 format.
  * Compatible with BSAFE.
  */
+static
 CSSM_RETURN DSAPrivateKeyDecodeFIPS186(
 	SecNssCoder 	&coder,
 	DSA 			*openKey, 
@@ -849,6 +852,7 @@ CSSM_RETURN DSAPrivateKeyDecodeFIPS186(
 	}
 }
 
+static
 CSSM_RETURN	DSAPrivateKeyEncodeFIPS186(
 	SecNssCoder 	&coder,
 	DSA 			*openKey, 
@@ -884,6 +888,7 @@ CSSM_RETURN	DSAPrivateKeyEncodeFIPS186(
 /* 
  * DSA private keys, PKCS8/SMIME format.
  */
+static
 CSSM_RETURN DSAPrivateKeyDecodePKCS8(
 	SecNssCoder 	&coder,
 	DSA 			*openKey, 
@@ -932,6 +937,7 @@ CSSM_RETURN DSAPrivateKeyDecodePKCS8(
 	}
 }
 
+static
 CSSM_RETURN	DSAPrivateKeyEncodePKCS8(
 	SecNssCoder 	&coder,
 	DSA 			*openKey, 
@@ -1210,11 +1216,11 @@ CSSM_RETURN DSAPrivateKeyDecode(
 
 	switch(format) {
 		case CSSM_KEYBLOB_RAW_FORMAT_FIPS186:
-			return DSAPrivateKeyDecodeFIPS186(coder, openKey, p, length);
+			return DSAPrivateKeyDecodeFIPS186(coder, openKey, p, (unsigned)length);
 		case CSSM_KEYBLOB_RAW_FORMAT_OPENSSL:
 			return DSAPrivateKeyDecodeOpenssl(coder, openKey, p, length);
 		case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:
-			return DSAPrivateKeyDecodePKCS8(coder, openKey, p, length);
+			return DSAPrivateKeyDecodePKCS8(coder, openKey, p, (unsigned)length);
 		default:
 			assert(0);
 			return CSSMERR_CSP_INTERNAL_ERROR;
@@ -1331,7 +1337,7 @@ CSSM_RETURN DSADecodeAlgParams(
 
 #pragma mark -
 #pragma mark *** Diffie-Hellman key encode/decode ***
-
+static
 CSSM_RETURN DHPrivateKeyDecodePKCS3(
 	SecNssCoder		&coder,
 	DH	 			*openKey, 
@@ -1370,6 +1376,7 @@ CSSM_RETURN DHPrivateKeyDecodePKCS3(
 	return 0;
 }
 
+static
 CSSM_RETURN	DHPrivateKeyEncodePKCS3(
 	SecNssCoder		&coder,
 	DH	 			*openKey, 
@@ -1459,6 +1466,7 @@ static CSSM_RETURN nssAlgIdToDhX942(
 	return CSSM_OK;
 }
 
+static
 CSSM_RETURN DHPrivateKeyDecodePKCS8(
 	SecNssCoder		&coder,
 	DH	 			*openKey, 
@@ -1500,6 +1508,7 @@ CSSM_RETURN DHPrivateKeyDecodePKCS8(
 	return 0;
 }
 
+static
 CSSM_RETURN	DHPrivateKeyEncodePKCS8(
 	SecNssCoder		&coder,
 	DH	 			*openKey, 

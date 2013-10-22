@@ -1,16 +1,16 @@
 /*
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,11 +18,11 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <IOKit/hidevent/IOHIDEventDriver.h>
+#include "IOHIDEventDriver.h"
 #include "IOHIDInterface.h"
 #include "IOHIDKeys.h"
 #include "IOHIDTypes.h"
@@ -32,6 +32,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/usb/USB.h>
 #include "IOHIDFamilyTrace.h"
+#include "IOHIDEventTypes.h"
 
 enum {
     kMouseButtons   = 0x1,
@@ -56,7 +57,7 @@ struct IOHIDReportHandler
     OSArray * array[ kIOHIDReportTypeCount ];
 };
 
-#define kReportHandlerSlots	8
+#define kReportHandlerSlots    8
 
 #define GetReportHandlerSlot(id)    \
     ((id) & (kReportHandlerSlots - 1))
@@ -69,12 +70,24 @@ struct IOHIDReportHandler
     (type <= kIOHIDElementTypeOutput) ? kIOHIDReportTypeOutput :            \
     (type <= kIOHIDElementTypeFeature) ? kIOHIDReportTypeFeature : -1)
 
+#define GET_AXIS_COUNT(usage) (usage-kHIDUsage_GD_X+ 1)
+#define GET_AXIS_INDEX(usage) (usage-kHIDUsage_GD_X)
+
+
+#define kDefaultAbsoluteAxisRemovalPercentage           15
+#define kDefaultButtonAbsoluteAxisRemovalPercentage     60
+
 //===========================================================================
 // IOHIDEventDriver class
 
 #define super IOHIDEventService
 
 OSDefineMetaClassAndStructors( IOHIDEventDriver, IOHIDEventService )
+
+#define _digitizer                      _reserved->digitizer
+#define _absoluteAxisRemovalPercentage  _reserved->absoluteAxisRemovalPercentage
+#define _multiAxis                      _reserved->multiAxis
+
 
 //====================================================================================================
 // IOHIDEventDriver::init
@@ -84,10 +97,14 @@ bool IOHIDEventDriver::init( OSDictionary * dictionary )
     if ( ! super::init ( dictionary ) )
         return false;
 
-	_cachedRangeState					= true;
-	_relativeButtonCollection   = false;
-    _multipleReports            = false;
-    
+    _reserved = IONew(ExpansionData, 1);
+    bzero(_reserved, sizeof(ExpansionData));
+
+    _cachedRangeState               = true;
+    _relativeButtonCollection       = false;
+    _multipleReports                = false;
+    _absoluteAxisRemovalPercentage  = kDefaultAbsoluteAxisRemovalPercentage;
+
     return true;
 }
 
@@ -105,7 +122,7 @@ void IOHIDEventDriver::free ()
             {
                 temp = GetElementArray(i, j);
                 if ( temp == NULL ) continue;
-                
+
                 temp->release();
             }
         }
@@ -113,13 +130,19 @@ void IOHIDEventDriver::free ()
                 sizeof(IOHIDReportHandler) * kReportHandlerSlots );
         _reportHandlers = 0;
     }
-    
+
     if ( _supportedElements )
     {
         _supportedElements->release();
         _supportedElements = 0;
     }
-    
+
+    if (_reserved)
+    {
+        IODelete(_reserved, ExpansionData, 1);
+        _reserved = NULL;
+    }
+
     super::free();
 }
 
@@ -128,13 +151,13 @@ void IOHIDEventDriver::free ()
 //====================================================================================================
 bool IOHIDEventDriver::handleStart( IOService * provider )
 {
-	_interface = OSDynamicCast( IOHIDInterface, provider );
-	
-	if ( !_interface )
-		return false;
-    
+    _interface = OSDynamicCast( IOHIDInterface, provider );
+
+    if ( !_interface )
+        return false;
+
     IOService * service = provider->getProvider();
-    
+
     // Check to see if this is a product of an IOHIDevice or IOHIDDevice shim
     while ( NULL != (service = service->getProvider()) )
     {
@@ -143,8 +166,10 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
             return false;
         }
     }
-						
-	if (!_interface->open(this, 0, _handleInterruptReport, 0))
+
+
+
+    if (!_interface->open(this, 0,  OSMemberFunctionCast(IOHIDInterface::InterruptReportAction, this, &IOHIDEventDriver::handleInterruptReport), NULL))
         return false;
 
     _reportHandlers = (IOHIDReportHandler *)
@@ -154,26 +179,33 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
         return false;
 
     bzero( _reportHandlers, sizeof(IOHIDReportHandler) * kReportHandlerSlots );
-    
+
     UInt32      bootProtocol    = 0;
     OSNumber *  number          = (OSNumber *)_interface->copyProperty("BootProtocol");
-    
-    if (number) 
+
+    if (number)
         bootProtocol = number->unsigned32BitValue();
-        
+
     setProperty("BootProtocol", number);
     OSSafeReleaseNULL(number);
-    
+
     OSArray *elements = _interface->createMatchingElements();
     bool result = false;
-    
+
     if ( elements ) {
         if ( findElements ( elements, bootProtocol )) {
             result = true;
         }
-	}
+    }
     OSSafeRelease(elements);
-        
+
+    number = (OSNumber*)copyProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage, gIOServicePlane);
+    if ( OSDynamicCast(OSNumber, number) ) {
+        _absoluteAxisRemovalPercentage = number->unsigned32BitValue();
+    }
+    OSSafeReleaseNULL(number);
+
+
     return result;
 }
 
@@ -281,37 +313,64 @@ bool IOHIDEventDriver::didTerminate( IOService * provider, IOOptionBits options,
 //====================================================================================================
 bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol)
 {
-    UInt32              count       = 0;
-    UInt32              index       = 0;
-    UInt32              usage       = 0;
-    UInt32              usagePage   = 0;
-    bool                stored      = false;
-    bool                pointer     = false;
-    bool                supportsInk = false;
-    IOHIDElement *      element     = 0;
-	IOHIDElement *		buttonCollection = 0;
-	IOHIDElement *		relativeCollection = 0;
-    OSArray *           buttonArray = 0;
-    
+    UInt32              count               = 0;
+    UInt32              index               = 0;
+    UInt32              usage               = 0;
+    UInt32              usagePage           = 0;
+    bool                stored              = false;
+    bool                pointer             = false;
+    bool                supportsInk         = false;
+    IOHIDElement *      element             = NULL;
+    IOHIDElement *      buttonCollection    = NULL;
+    IOHIDElement *      relativeCollection  = NULL;
+    IOHIDElement *      zAxis               = NULL;
+    IOHIDElement *      rzAxis              = NULL;
+    OSArray *           buttonArray         = NULL;
+
     if ( bootProtocol == kBootProtocolMouse )
         _bootSupport = kBootMouse;
-    
+
     if ( elementArray )
     {
         _supportedElements = elementArray;
         _supportedElements->retain();
-            
+
         count = elementArray->getCount();
-        
+
         for ( index = 0; index < count; index++ )
         {
+            bool    isRelative  = false;
+            UInt32  reportID    = 0;
+
             element = (IOHIDElement *) elementArray->getObject(index);
-            
-            if ((element == NULL) || 
-                (element->getType() == kIOHIDElementTypeCollection)) continue;
-                    
-            if ( element->getReportID() > 0)
+
+            if ( element == NULL )
+                continue;
+
+            if ( element->getType() == kIOHIDElementTypeCollection ) {
+
+                if ( usagePage == kHIDPage_Digitizer ) {
+                    switch ( usage )  {
+                        case kHIDUsage_Dig_TouchScreen:
+                        case kHIDUsage_Dig_TouchPad:
+                        case kHIDUsage_Dig_Finger:
+                            _digitizer.type = kDigitizerTransducerTypeFinger;
+                            break;
+                        default:
+                            break;
+
+                    }
+                }
+                continue;
+            }
+
+            reportID = element->getReportID();
+
+            if ( reportID > 0)
                 _multipleReports = true;
+
+            if ( element->getFlags() & kIOHIDElementFlagsRelativeMask)
+                isRelative = true;
 
             usagePage   = element->getUsagePage();
             usage       = element->getUsage();
@@ -320,48 +379,86 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
             {
                 switch ( usage )
                 {
+                    case kHIDUsage_GD_Dial:
                     case kHIDUsage_GD_Wheel:
-                    case kHIDUsage_GD_Z:
-                        stored |= storeReportElement ( element ); 
-                        break;       
-                        
-                    case kHIDUsage_GD_X:
-                        _bootSupport &= ~kMouseXAxis;
-                            
-                        if ((element->getFlags() & kIOHIDElementFlagsRelativeMask) != 0)
-                            relativeCollection = element->getParentElement();
-                        else
-                            supportsInk = true;
-                        
-                        stored |= storeReportElement ( element ); 
-                        pointer = true;
-                        break;       
 
+                        if ((element->getFlags() & (kIOHIDElementFlagsNoPreferredMask|kIOHIDElementFlagsRelativeMask)) == 0) {
+                            calibratePreferredStateElement(element, _absoluteAxisRemovalPercentage);
+                        }
+
+                        stored |= storeReportElement(element);
+                        pointer = true;
+                        break;
+
+                    case kHIDUsage_GD_X:
                     case kHIDUsage_GD_Y:
-                        _bootSupport &= ~kMouseYAxis;
-                        
+                        _bootSupport &= (usage==kHIDUsage_GD_X) ? ~kMouseXAxis : ~kMouseYAxis;
+
+                        processMultiAxisElement(element, &_multiAxis.capable, &supportsInk, &relativeCollection);
+
+                        if ( _multiAxis.capable ) {
+                            calibratePreferredStateElement(element, _absoluteAxisRemovalPercentage);
+
+                            if ( reportID > _multiAxis.sendingReportID )
+                                _multiAxis.sendingReportID = reportID;
+
+                        } else if ( !isRelative ) {
+                            calibrateDigitizerElement(element, _absoluteAxisRemovalPercentage);
+                        }
+
                         stored |= storeReportElement ( element );
                         pointer = true;
-                        break;       
-                        
+                        break;
+
+                    case kHIDUsage_GD_Z:
+                        processMultiAxisElement(element, &_multiAxis.capable);
+                        zAxis = element;
+                        stored |= storeReportElement(element);
+                        pointer = true;
+                        break;
+
+                    case kHIDUsage_GD_Rx:
+                    case kHIDUsage_GD_Ry:
+                        if ( _multiAxis.capable ) {
+                            _multiAxis.options |= kMultiAxisOptionRotationForTranslation;
+
+                            if ( reportID > _multiAxis.sendingReportID )
+                                _multiAxis.sendingReportID = reportID;
+                        }
+
+                    case kHIDUsage_GD_Rz:
+                        pointer = true;
+                        processMultiAxisElement(element, &_multiAxis.capable);
+
+                        if ( _multiAxis.capable ) {
+                            rzAxis = element;
+                            stored |= storeReportElement ( element );
+                        }
+                        break;
+
                     case kHIDUsage_GD_SystemPowerDown:
                     case kHIDUsage_GD_SystemSleep:
                     case kHIDUsage_GD_SystemWakeUp:
-                        stored |= storeReportElement ( element ); 
-                        break;       
+                        stored |= storeReportElement ( element );
+                        break;
                 }
             }
-        
+
             else if ( usagePage == kHIDPage_Digitizer )
             {
-                switch ( usage ) 
+                switch ( usage )
                 {
                     case kHIDUsage_Dig_InRange:
+                        _digitizer.containsRange = true;
                         _cachedRangeState = false;
                         stored |= storeReportElement ( element );
                         break;
                     case kHIDUsage_Dig_TipPressure:
                         supportsInk = true;
+                    case kHIDUsage_Dig_BarrelPressure:
+                        calibrateDigitizerElement(element, _absoluteAxisRemovalPercentage);
+                        stored |= storeReportElement ( element );
+                        break;
                     case kHIDUsage_Dig_BarrelSwitch:
                     case kHIDUsage_Dig_TipSwitch:
                     case kHIDUsage_Dig_Eraser:
@@ -375,7 +472,7 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
                         break;
                 }
             }
-                
+
             else if (( usagePage == kHIDPage_KeyboardOrKeypad ) &&
                 (( usage >= kHIDUsage_KeyboardA ) && ( usage <= kHIDUsage_KeyboardRightGUI )))
             {
@@ -386,63 +483,83 @@ bool IOHIDEventDriver::findElements ( OSArray* elementArray, UInt32 bootProtocol
             {
                 if ( !buttonArray )
                     buttonArray = OSArray::withCapacity(4);
-                    
+
                 // RY: Save the buttons for later.
                 if ( buttonArray )
                     buttonArray->setObject(element);
             }
 
-            else if ( usagePage == kHIDPage_Consumer )
+            else if ( usagePage == kHIDPage_Consumer || usagePage == kHIDPage_Telephony )
             {
                 stored |= storeReportElement ( element );
             }
-            
+
             else if (( usagePage == kHIDPage_LEDs ) &&
                 (((usage == kHIDUsage_LED_NumLock) || (usage == kHIDUsage_LED_CapsLock))
                 && (_ledElements[usage - kHIDUsage_LED_NumLock] == 0)))
             {
                 _ledElements[usage - kHIDUsage_LED_NumLock] = element;
             }
-            else if ((getVendorID() == kIOUSBVendorIDAppleComputer) 
-                && (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AV_TopCase_KeyboardFn)) 
+            else if ((getVendorID() == kIOUSBVendorIDAppleComputer)
+                && (((usagePage == kHIDPage_AppleVendorTopCase) && (usage == kHIDUsage_AV_TopCase_KeyboardFn))
                 || ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function))))
             {
                 stored |= storeReportElement ( element );
             }
         }
     }
-    
+
     // RY: Add the buttons only if elements of a pointer have been discovered.
     if ( buttonArray )
     {
         if ( pointer )
         {
             count = buttonArray->getCount();
-                        
+
             for (index=0; index<count; index++)
             {
                 element = (IOHIDElement *)buttonArray->getObject(index);
-                
+
                 if ( !element ) continue;
-                
+
                 _bootSupport &= ~kMouseButtons;
-                    
-                buttonCollection = element->getParentElement();
+
+                if ( !buttonCollection )
+                    buttonCollection = element->getParentElement();
+
                 stored |= storeReportElement ( element );
             }
         }
         buttonArray->release();
     }
 
-	
-	if (supportsInk)
-	{
-		setProperty("SupportsInk", 1, 32);
-	}
-	
-	if (buttonCollection == relativeCollection)
-		_relativeButtonCollection = true;
-    
+    if ( zAxis ) {
+
+        if ( (_multiAxis.capable & ((1<<GET_AXIS_INDEX(kHIDUsage_GD_Rx)) | (1<<GET_AXIS_INDEX(kHIDUsage_GD_Ry)))) == 0) {
+            _multiAxis.options |= kMultiAxisOptionZForScroll;
+        }
+        calibratePreferredStateElement(zAxis, _absoluteAxisRemovalPercentage);
+    }
+
+    if ( rzAxis ) {
+        SInt32 removal = _absoluteAxisRemovalPercentage;
+
+
+        if ( (_multiAxis.capable & ((1<<GET_AXIS_INDEX(kHIDUsage_GD_Rx)) | (1<<GET_AXIS_INDEX(kHIDUsage_GD_Ry)))) != 0) {
+            removal *= 2;
+        }
+        calibratePreferredStateElement(rzAxis, removal);
+
+    }
+
+    setProperty("MultiAxis", _multiAxis.capable, 32);
+
+    if ( supportsInk )
+        setProperty("SupportsInk", 1, 32);
+
+    if (buttonCollection == relativeCollection)
+        _relativeButtonCollection = true;
+
     return ( stored || _bootSupport );
 
 }
@@ -454,22 +571,108 @@ bool IOHIDEventDriver::storeReportElement ( IOHIDElement * element )
 {
     OSArray **  array;
     SInt32      type;
-    
+
     type = GetReportType(element->getType());
     if ( type == -1 ) return false;
-    
+
     array = &(GetElementArray(GetReportHandlerSlot(element->getReportID()), type));
-    
+
     if ( *array == NULL )
     {
         (*array) = OSArray::withCapacity(4);
     }
-    
+
     (*array)->setObject ( element );
-    
+
     return true;
 }
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEventDriver::processMultiAxisElement
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void IOHIDEventDriver::processMultiAxisElement(IOHIDElement * element, UInt32 * isMultiAxis, bool * supportsInk, IOHIDElement ** relativeCollection)
+{
+    // RY: can't deal with array objects
+    if ( (element->getFlags() & kIOHIDElementFlagsVariableMask) == 0 ) {
+        return;
+    }
+    
+    if (!(*isMultiAxis & (1<<(element->getUsage()-kHIDUsage_GD_X))))
+    {
+        if ( !element->conformsTo(kHIDPage_GenericDesktop, kHIDUsage_GD_Mouse) &&
+             !element->conformsTo(kHIDPage_Digitizer) )
+        {
+            bool isAbsolute = (element->getFlags() & (kIOHIDElementFlagsNoPreferredMask|kIOHIDElementFlagsRelativeMask)) == 0;
+            if ( isAbsolute ||
+                 element->conformsTo(kHIDPage_GenericDesktop, kHIDUsage_GD_MultiAxisController) ||
+                 element->conformsTo(kHIDPage_GenericDesktop, kHIDUsage_GD_Joystick) )
+            {
+        *isMultiAxis |= (1<<(element->getUsage()-kHIDUsage_GD_X));
+    }
+        }
+    }
+
+    if ( relativeCollection && isMultiAxis && supportsInk ) {
+        if ((element->getFlags() & kIOHIDElementFlagsRelativeMask) != 0) {
+
+            if ( !*isMultiAxis && !*relativeCollection )
+                *relativeCollection = element->getParentElement();
+        }
+        else if ( !*isMultiAxis ) {
+            *supportsInk = true;
+        }
+    }
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEventDriver::calibratePreferredStateElement
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void IOHIDEventDriver::calibratePreferredStateElement(IOHIDElement * element, SInt32 removalPercentage)
+{
+    UInt32 mid      = element->getLogicalMin() + ((element->getLogicalMax() - element->getLogicalMin()) / 2);
+    UInt32 satMin   = element->getLogicalMin();
+    UInt32 satMax   = element->getLogicalMax();
+    UInt32 diff     = ((satMax - satMin) * removalPercentage) / 200;
+    UInt32 dzMin    = mid - diff;
+    UInt32 dzMax    = mid + diff;
+    satMin          += diff;
+    satMax          -= diff;
+
+    element->setCalibration(-1, 1, satMin, satMax, dzMin, dzMax);
+
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEventDriver::calibrateDigitizerElement
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void IOHIDEventDriver::calibrateDigitizerElement(IOHIDElement * element, SInt32 removalPercentage)
+{
+#if TARGET_OS_EMBEDDED
+    removalPercentage = 0;
+#endif /* TARGET_OS_EMBEDDED */
+    UInt32 satMin   = element->getLogicalMin();
+    UInt32 satMax   = element->getLogicalMax();
+    UInt32 diff     = ((satMax - satMin) * removalPercentage) / 200;
+    satMin          += diff;
+    satMax          -= diff;
+
+    element->setCalibration(0, 1, satMin, satMax);
+}
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEventDriver::calibrateAxisToButtonElement
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void IOHIDEventDriver::calibrateAxisToButtonElement(IOHIDElement * element, SInt32 removalPercentage)
+{
+    UInt32 satMin   = element->getLogicalMin();
+    UInt32 satMax   = element->getLogicalMax();
+    UInt32 diff     = ((satMax - satMin) * removalPercentage) / 200;
+    satMin          += diff;
+    satMax          -= diff;
+
+    element->setCalibration(0, 1, satMin, satMax);
+}
 
 //====================================================================================================
 // IOHIDEventDriver::getReportElements
@@ -480,29 +683,13 @@ OSArray * IOHIDEventDriver::getReportElements()
 }
 
 //====================================================================================================
-// IOHIDEventDriver::_handleInterruptReport
-//====================================================================================================
-void IOHIDEventDriver::_handleInterruptReport (
-                                OSObject *                  target,
-                                AbsoluteTime                timeStamp,
-                                IOMemoryDescriptor *        report,
-                                IOHIDReportType             reportType,
-                                UInt32                      reportID,
-                                void *                      refcon __unused)
-{
-    IOHIDEventDriver *  self = (IOHIDEventDriver *)target;
-    
-    self->handleInterruptReport(timeStamp, report, reportType, reportID);
-}
-
-//====================================================================================================
 // IOHIDEventDriver::setButtonState
 //====================================================================================================
-static inline void setButtonState(UInt32 * state, UInt32 bit, UInt32 value) 
+static inline void setButtonState(UInt32 * state, UInt32 bit, UInt32 value)
 {
-    
-	UInt32 buttonMask = (1 << bit);
-	
+
+    UInt32 buttonMask = (1 << bit);
+
     if ( value )
         (*state) |= buttonMask;
     else
@@ -518,130 +705,106 @@ void IOHIDEventDriver::handleInterruptReport (
                                 IOHIDReportType             reportType,
                                 UInt32                      reportID)
 {
-    OSNumber *      number;
     OSArray *       elements;
     IOHIDElement *  element;
-    IOGBounds       bounds;
-    UInt32          count           = 0;
-    UInt32          index           = 0;
-    UInt32          usage           = 0;
-    UInt32          usagePage       = 0;
-    UInt32          buttonState     = _cachedButtonState;
-    UInt32          transducerID    = reportID;
-    UInt32          volumeHandled   = 0;
-    UInt32          volumeState     = 0;
-    SInt32          relativeX       = 0;
-    SInt32          relativeY       = 0;
-    SInt32          absoluteX       = 0;
-    SInt32          absoluteY       = 0;
-    SInt32          absoluteZ       = 0;
-    SInt32          scrollVert      = 0;
-    SInt32          scrollHoriz     = 0;
-    SInt32          barrelPressure  = 0;
-    SInt32          tiltX           = 0;
-    SInt32          tiltY           = 0;
-    SInt32          twist           = 0;
-    SInt32          tipPressure     = EV_MAXPRESSURE;
-    SInt32          tipPressureMin  = EV_MAXPRESSURE;
-    SInt32          tipPressureMax  = EV_MAXPRESSURE;
-    SInt32          barrelPressureMin = 0;
-    SInt32          barrelPressureMax = 0;
-    SInt32          boundsDiff      = 0;
-    SInt32          absoluteAxisRemovalPercentage = 15;
-    bool            absoluteAxis    = false;
-    bool            pointingHandled = false;
-    bool            tabletHandled   = false;
-    bool            proximityHandled = false;
-    bool            invert          = false;
-    bool            elementIsCurrent= false;
-    bool            inRange         = _cachedRangeState;
+    UInt32          count               = 0;
+    UInt32          index               = 0;
+    UInt32          usage               = 0;
+    UInt32          usagePage           = 0;
+    UInt32          buttonState         = _cachedButtonState;
+    UInt32          transducerID        = reportID;
+    UInt32          volumeHandled       = 0;
+    UInt32          volumeState         = 0;
+    SInt32          relativeAxis[GET_AXIS_COUNT(kHIDUsage_GD_Y)]    = {};
+    IOFixed         absoluteAxis[GET_AXIS_COUNT(kHIDUsage_GD_Rz)]   = {};
+    IOFixed         tipPressure         = 0;
+    IOFixed         barrelPressure      = 0;
+    SInt32          scrollVert          = 0;
+    SInt32          scrollHoriz         = 0;
+    IOFixed         tiltX               = 0;
+    IOFixed         tiltY               = 0;
+    IOFixed         twist               = 0;
+    bool            isAbsoluteAxis      = false;
+    bool            pointingHandled     = false;
+    bool            digitizerHandled    = false;
+    bool            invert              = false;
+    bool            elementIsCurrent    = false;
+    bool            inRange             = _cachedRangeState;
+    IOOptionBits    options             = 0;
     AbsoluteTime    elementTS;
     AbsoluteTime    reportTS;
-    
+
     if (!readyForReports())
         return;
-    
+
     elements = GetElementArray(GetReportHandlerSlot(reportID), reportType);
-    
-    IOHID_DEBUG(kIOHIDDebugCode_InturruptReport, reportType, reportID, elements ? elements->getCount() : -1, 0);
-    
+
+    IOHID_DEBUG(kIOHIDDebugCode_InturruptReport, reportType, reportID, elements ? elements->getCount() : -1, getRegistryEntryID());
+
     if ( elements ) {
-        number = (OSNumber*)copyProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage);
-        if ( OSDynamicCast(OSNumber, number) ) {
-            absoluteAxisRemovalPercentage = number->unsigned32BitValue();
-        }
-        OSSafeReleaseNULL(number);
-            
         count = elements->getCount();
-        
+
         for (index = 0; index < count; index++) {
+            bool elementIsRelative = false;
+
             element = (IOHIDElement *)elements->getObject(index);
-            
+
             elementTS           = element->getTimeStamp();
             reportTS            = timeStamp;
-            
+            elementIsRelative   = element->getFlags() & kIOHIDElementFlagsRelativeMask;
             elementIsCurrent    = (CMP_ABSOLUTETIME(&elementTS, &reportTS) == 0);
-            
+
             if ( element->getReportID() != reportID )
                 continue;
-                
+
             usagePage       = element->getUsagePage();
             usage           = element->getUsage();
-            
-            
+
+
             if ( usagePage == kHIDPage_GenericDesktop ) {
                 switch ( element->getUsage() ) {
                     case kHIDUsage_GD_X:
-                        pointingHandled |= true;
-                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask) {
-                            if ( elementIsCurrent )
-                                relativeX = element->getValue();
-                        }
-                        else {
-                            tabletHandled  |= elementIsCurrent;
-                            absoluteAxis    = true;
-                            absoluteX       = element->getValue();
-                            bounds.minx     = element->getLogicalMin();
-                            bounds.maxx     = element->getLogicalMax();
-                            boundsDiff      = ((bounds.maxx - bounds.minx) * absoluteAxisRemovalPercentage) / 200;
-                            bounds.minx     += boundsDiff;
-                            bounds.maxx     -= boundsDiff;
-                        }
-                        break;
-                        
                     case kHIDUsage_GD_Y:
                         pointingHandled |= true;
-                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask) {
+                        if ( _multiAxis.capable ) {
+                            _multiAxis.axis[GET_AXIS_INDEX(element->getUsage())] = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        }
+                        else if (elementIsRelative) {
                             if ( elementIsCurrent )
-                                relativeY = element->getValue();
+                                relativeAxis[GET_AXIS_INDEX(element->getUsage())] = element->getValue();
                         }
                         else {
-                            tabletHandled  |= elementIsCurrent;
-                            absoluteAxis    = true;
-                            absoluteY       = element->getValue();
-                            bounds.miny     = element->getLogicalMin();
-                            bounds.maxy     = element->getLogicalMax();
-                            bounds.maxy     = element->getLogicalMax();
-                            boundsDiff      = ((bounds.maxy - bounds.miny) * absoluteAxisRemovalPercentage) / 200;
-                            bounds.miny     += boundsDiff;
-                            bounds.maxy     -= boundsDiff;
+                            digitizerHandled |= elementIsCurrent;
+                            isAbsoluteAxis = true;
+                            absoluteAxis[GET_AXIS_INDEX(element->getUsage())] = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
                         }
                         break;
-                        
                     case kHIDUsage_GD_Z:
-                        if (element->getFlags() & kIOHIDElementFlagsRelativeMask) {
+                        if ( _multiAxis.capable ) {
+                            _multiAxis.axis[GET_AXIS_INDEX(element->getUsage())] = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        }
+                        else if (elementIsRelative) {
                             if ( elementIsCurrent )
                                 scrollHoriz = element->getValue();
                         }
                         else {
-                            tabletHandled  |= elementIsCurrent;
-                            absoluteZ       = element->getValue();
+                            digitizerHandled |= elementIsCurrent;
+                            absoluteAxis[GET_AXIS_INDEX(element->getUsage())] = element->getValue();
                         }
                         break;
-                        
+
+                    case kHIDUsage_GD_Rx:
+                    case kHIDUsage_GD_Ry:
+                    case kHIDUsage_GD_Rz:
+                        if ( _multiAxis.capable ) {
+                            pointingHandled |= true;
+                            _multiAxis.axis[GET_AXIS_INDEX(element->getUsage())] = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
+                        }
+                        break;
                     case kHIDUsage_GD_Wheel:
+                    case kHIDUsage_GD_Dial:
                         if ( elementIsCurrent ) {
-                            scrollVert = element->getValue();
+                            scrollVert = (element->getFlags() & kIOHIDElementFlagsWrapMask) ?  element->getValue(kIOHIDValueOptionsFlagRelativeSimple) : element->getValue();
                         }
                         break;
                     case kHIDUsage_GD_SystemPowerDown:
@@ -654,7 +817,7 @@ void IOHIDEventDriver::handleInterruptReport (
             }
             else if ( usagePage == kHIDPage_Digitizer ) {
                 pointingHandled |= elementIsCurrent;
-                
+
                 switch ( usage ) {
                     case kHIDUsage_Dig_TipSwitch:
                         setButtonState ( &buttonState, 0, element->getValue());
@@ -668,42 +831,36 @@ void IOHIDEventDriver::handleInterruptReport (
                     case kHIDUsage_Dig_InRange:
                         if ( elementIsCurrent ) {
                             inRange = (element->getValue() != 0);
-                            proximityHandled |= ( inRange != _cachedRangeState );
+                            digitizerHandled |= ( inRange != _cachedRangeState );
                         }
                         break;
                     case kHIDUsage_Dig_BarrelPressure:
-                        tabletHandled      |= elementIsCurrent;
-                        barrelPressure      = element->getValue();
-                        barrelPressureMin   = element->getLogicalMin();
-                        barrelPressureMax   = element->getLogicalMax();
-                        barrelPressureMin  += ((barrelPressureMax - barrelPressureMin) * 15) / 100;
+                        digitizerHandled    |= elementIsCurrent;
+                        barrelPressure      = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
                         break;
                     case kHIDUsage_Dig_TipPressure:
-                        tabletHandled  |= elementIsCurrent;
-                        tipPressure     = element->getValue();
-                        tipPressureMin  = element->getLogicalMin();
-                        tipPressureMax  = element->getLogicalMax();
-                        tipPressureMin  += ((tipPressureMax - tipPressureMin) * 15) / 100;
+                        digitizerHandled    |= elementIsCurrent;
+                        tipPressure         = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
                         break;
                     case kHIDUsage_Dig_XTilt:
-                        tabletHandled  |= elementIsCurrent;
-                        tiltX           = element->getValue();
+                        digitizerHandled    |= elementIsCurrent;
+                        tiltX               = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
                         break;
                     case kHIDUsage_Dig_YTilt:
-                        tabletHandled  |= elementIsCurrent;
-                        tiltY           = element->getValue();
+                        digitizerHandled    |= elementIsCurrent;
+                        tiltY               = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
                         break;
                     case kHIDUsage_Dig_Twist:
-                        tabletHandled  |= elementIsCurrent;
-                        twist           = element->getValue();
+                        digitizerHandled    |= elementIsCurrent;
+                        twist               = element->getScaledFixedValue(kIOHIDValueScaleTypePhysical);
                         break;
                     case kHIDUsage_Dig_TransducerIndex:
-                        tabletHandled  |= elementIsCurrent;
-                        transducerID    = element->getValue();
+                        digitizerHandled    |= elementIsCurrent;
+                        transducerID        = element->getValue();
                         break;
                     case kHIDUsage_Dig_Invert:
-                        proximityHandled |= elementIsCurrent;
-                        invert          = (element->getValue() != 0);
+                        digitizerHandled    |= elementIsCurrent;
+                        invert              = (element->getValue() != 0);
                         break;
                     default:
                         break;
@@ -711,12 +868,12 @@ void IOHIDEventDriver::handleInterruptReport (
             }
             else if ( usagePage == kHIDPage_Button ) {
                 pointingHandled |= true;
-                
-                tabletHandled  |= ( absoluteAxis && elementIsCurrent );
-                
+
+                digitizerHandled  |= ( isAbsoluteAxis && elementIsCurrent );
+
                 setButtonState ( &buttonState, (element->getUsage() - 1), element->getValue());
             }
-            else if (( usagePage == kHIDPage_KeyboardOrKeypad ) && elementIsCurrent ) {
+            else if (( usagePage == kHIDPage_KeyboardOrKeypad || usagePage == kHIDPage_Telephony ) && elementIsCurrent ) {
                 dispatchKeyboardEvent( timeStamp, usagePage, usage, element->getValue());
             }
             else if (( usagePage == kHIDPage_Consumer ) && elementIsCurrent ) {
@@ -746,9 +903,9 @@ void IOHIDEventDriver::handleInterruptReport (
                       ((usagePage == kHIDPage_AppleVendorKeyboard) && (usage == kHIDUsage_AppleVendorKeyboard_Function)))) {
                 dispatchKeyboardEvent(timeStamp, usagePage, usage, element->getValue());
             }
-            
+
         }
-        
+
         // RY: Handle the case where Vol Increment, Decrement, and Mute are all down
         // If such an event occurs, it is likely that the device is defective,
         // and should be ignored.
@@ -763,40 +920,53 @@ void IOHIDEventDriver::handleInterruptReport (
             if ( volumeHandled & 0x4 )
                 dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_Mute, ((volumeState & 0x4) != 0));
         }
-        
+
         if ( scrollVert || scrollHoriz )
             dispatchScrollWheelEvent(timeStamp, scrollVert, scrollHoriz, 0);
     }
-    
+
     if ( (_bootSupport & kBootMouse) && (reportID == 0)) {
-        handleBootPointingReport(report, &relativeX, &relativeY, &buttonState);
+        handleBootPointingReport(report, &relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_X)], &relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_Y)], &buttonState);
         pointingHandled |= true;
     }
-    
-    
-    if ( proximityHandled ) {
-        dispatchTabletProximityEvent(timeStamp, transducerID, inRange, invert);
-        _cachedRangeState = inRange;
-    }
-    
-    if ( tabletHandled && inRange ) {
-        dispatchTabletPointerEvent(timeStamp, transducerID, absoluteX, absoluteY, absoluteZ, &bounds, buttonState, tipPressure, tipPressureMin, tipPressureMax, barrelPressure, barrelPressureMin, barrelPressureMax, tiltX, tiltY, twist);
-    }
-    
-    if ( pointingHandled || proximityHandled ) {
-        if ( proximityHandled || (absoluteAxis && inRange && !relativeX && !relativeY &&
-                                  !((buttonState != _cachedButtonState) && _relativeButtonCollection))) {
-            if ( !inRange ) {
-                buttonState = 0;
-                tipPressure = tipPressureMin;
+
+    if ( pointingHandled || digitizerHandled ) {
+
+        if ( isAbsoluteAxis && !relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_X)] && !relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_Y)] && !_digitizer.containsRange ) {
+#if TARGET_OS_EMBEDDED // {
+            inRange = buttonState & 0x1;
+
+            digitizerHandled = inRange != _cachedRangeState;
+#else // } TARGET_OS_EMBEDDED {
+            //IOLog("Correcting for !_digitizer.containsRange for 0x%08llx\n", getRegistryEntryID());
+            inRange = digitizerHandled = true;
+#endif // } TARGET_OS_EMBEDDED
+        }
+
+        if ( invert )
+            options |= IOHIDEventService::kDigitizerInvert;
+
+        if ( _multiAxis.capable ) {
+            if ( reportID == _multiAxis.sendingReportID ) {
+                dispatchMultiAxisPointerEvent(timeStamp, buttonState, _multiAxis.axis[GET_AXIS_INDEX(kHIDUsage_GD_X)], _multiAxis.axis[GET_AXIS_INDEX(kHIDUsage_GD_Y)], _multiAxis.axis[GET_AXIS_INDEX(kHIDUsage_GD_Z)], _multiAxis.axis[GET_AXIS_INDEX(kHIDUsage_GD_Rx)], _multiAxis.axis[GET_AXIS_INDEX(kHIDUsage_GD_Ry)], _multiAxis.axis[GET_AXIS_INDEX(kHIDUsage_GD_Rz)], _multiAxis.options);
             }
-            
-            dispatchAbsolutePointerEvent(timeStamp, absoluteX, absoluteY, &bounds, buttonState, inRange, tipPressure, tipPressureMin, tipPressureMax);
+			else {
+				// event is dropped
+				//IOLog("Dropping event from 0x%08x because %d != %d\n", getRegistryEntryID(), reportID, _multiAxis.sendingReportID);
+			}
         }
-        else if (relativeX || relativeY || (buttonState != _cachedButtonState)) {
-            dispatchRelativePointerEvent(timeStamp, relativeX, relativeY, buttonState);
+        else if ( digitizerHandled || (isAbsoluteAxis && !relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_X)] && !relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_Y)] && (inRange || ((buttonState != _cachedButtonState) && !_relativeButtonCollection)))) {
+            dispatchDigitizerEventWithTiltOrientation(timeStamp, transducerID, _digitizer.type, inRange, buttonState, absoluteAxis[GET_AXIS_INDEX(kHIDUsage_GD_X)], absoluteAxis[GET_AXIS_INDEX(kHIDUsage_GD_Y)], absoluteAxis[GET_AXIS_INDEX(kHIDUsage_GD_Z)], tipPressure, barrelPressure, twist, tiltX, tiltY, options);
         }
-        
+        else if (relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_X)] || relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_Y)] || (buttonState != _cachedButtonState)) {
+            dispatchRelativePointerEvent(timeStamp, relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_X)], relativeAxis[GET_AXIS_INDEX(kHIDUsage_GD_Y)], buttonState);
+        }
+        else {
+        	// event is dropped
+        	//IOLog("Dropping event from 0x%08x\n", getRegistryEntryID());
+        }
+
+        _cachedRangeState = inRange;
         _cachedButtonState = buttonState;
     }
 }
@@ -813,27 +983,27 @@ void IOHIDEventDriver::handleBootPointingReport (
     UInt32          bootOffset;
     UInt8 *         mouseData;
     IOByteCount     reportLength;
-    
+
     // Get a pointer to the data in the descriptor.
     reportLength = report->getLength();
-    
+
     if ( !reportLength )
         return;
-        
+
     mouseData = (UInt8 *)IOMalloc(reportLength);
-    
+
     if ( !mouseData )
         return;
-        
+
     report->readBytes( 0, (void *)mouseData, reportLength );
 
     if ( reportLength >= 3 )
     {
         bootOffset = ( _multipleReports ) ? 1 : 0;
-        
+
         if ( _bootSupport & kMouseButtons )
             *buttonState = mouseData[bootOffset];
-        
+
         if ( _bootSupport & kMouseXAxis )
             *dX = mouseData[bootOffset + 1];
 
@@ -853,27 +1023,27 @@ void IOHIDEventDriver::setElementValue (
                                 UInt32                      usage,
                                 UInt32                      value )
 {
-	IOHIDElement *element = 0;
-    
+    IOHIDElement *element = 0;
+
     if ( usagePage == kHIDPage_LEDs )
         element = _ledElements[usage - kHIDUsage_LED_NumLock];
-	
-	if (element)
-		element->setValue(value);        
+
+    if (element)
+        element->setValue(value);
 }
 
 //====================================================================================================
 // IOHIDEventDriver::getElementValue
 //====================================================================================================
-UInt32 IOHIDEventDriver::getElementValue ( 
+UInt32 IOHIDEventDriver::getElementValue (
                                 UInt32                      usagePage,
                                 UInt32                      usage )
 {
-	IOHIDElement *element = 0;
-    
+    IOHIDElement *element = 0;
+
     if ( usagePage == kHIDPage_LEDs )
         element = _ledElements[usage - kHIDUsage_LED_NumLock];
-	
+
     return (element) ? element->getValue() : 0;
 }
 

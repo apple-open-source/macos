@@ -25,7 +25,7 @@ references and by using this option \fBgroff\fP will only
 be run once.
 .\".SH BUGS
 .SH AUTHOR
-Jörgen Hägg, Lund, Sweden <jh@axis.se>.
+JÃ¶rgen HÃ¤gg, Lund, Sweden <jh@axis.se>.
 .SH FILES
 .TP
 .B @MACRODIR@/tmac.@TMAC_M_PREFIX@m

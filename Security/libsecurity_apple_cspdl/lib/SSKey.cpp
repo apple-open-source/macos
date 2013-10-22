@@ -334,7 +334,7 @@ SSKey::didChangeAcl()
 {
 	if (mUniqueId == true)
 	{
-	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu updating DL entry", mKeyHandle);
+	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu updating DL entry", (unsigned long)mKeyHandle);
 		// The key is persistent, make the change on disk.
 		CssmDataContainer keyBlob(mAllocator);
 		clientSession().encodeKey(keyHandle(), keyBlob);
@@ -342,6 +342,6 @@ SSKey::didChangeAcl()
 	}
 	else
 	{
-	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu transient key no update done", mKeyHandle);
+	    secdebug("keyacl", "SSKey::didChangeAcl() keyHandle: %lu transient key no update done", (unsigned long)mKeyHandle);
 	}
 }

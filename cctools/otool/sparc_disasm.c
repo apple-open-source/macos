@@ -360,8 +360,7 @@ print_symbolic(
     /* Now get the reloc information if we located one */
 
     if (reloc_found && (r_extern == 1)) {
-      if (symbols[r_symbolnum].n_un.n_strx < 0 ||
-	  (uint32_t)symbols[r_symbolnum].n_un.n_strx >= strings_size)
+      if ((uint32_t)symbols[r_symbolnum].n_un.n_strx >= strings_size)
 	name = "bad string offset";
       else
 	name = strings + symbols[r_symbolnum].n_un.n_strx;

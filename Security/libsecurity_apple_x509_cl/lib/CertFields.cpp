@@ -1,12 +1,12 @@
 /*
  * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
- * 
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
  * You may not use this file except in compliance with the License. Please obtain
  * a copy of the License at http://www.apple.com/publicsource and read it before
  * using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
  * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
@@ -20,8 +20,8 @@
  * CertFields.cpp - convert between NSS-based Certificate components and CDSA-style
  *                  fields. A major component of DecodedCert.
  *
- * Created 9/1/2000 by Doug Mitchell. 
- * Copyright (c) 2000 by Apple Computer. 
+ * Created 9/1/2000 by Doug Mitchell.
+ * Copyright (c) 2000 by Apple Computer.
  */
 
 #include "DecodedCert.h"
@@ -140,7 +140,7 @@ static bool getField_Issuer (
 	}
 
 	bool brtn;
-	
+
 	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
 	try {
 		brtn = getField_RDN_NSS(cert.mCert.tbs.issuer, fieldValue);
@@ -179,7 +179,7 @@ static bool getField_Subject (
 	}
 
 	bool brtn;
-	
+
 	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
 	try {
 		brtn = getField_RDN_NSS(cert.mCert.tbs.subject, fieldValue);
@@ -220,7 +220,7 @@ static bool getFieldSubjectNorm(
 		return false;
 	}
 	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
-	return getField_normRDN_NSS(cert.mCert.tbs.derSubject, numFields, 
+	return getField_normRDN_NSS(cert.mCert.tbs.derSubject, numFields,
 		fieldValue);
 }
 
@@ -298,7 +298,7 @@ static void setField_TbsAlgId (
 {
 	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
 	CSSM_X509_ALGORITHM_IDENTIFIER &dstAlgId = cert.mCert.tbs.signature;
-	tbsSetCheck(dstAlgId.algorithm.Data, fieldValue, 
+	tbsSetCheck(dstAlgId.algorithm.Data, fieldValue,
 		sizeof(CSSM_X509_ALGORITHM_IDENTIFIER), "TBS_AlgId");
 	setField_AlgIdNSS(fieldValue, dstAlgId, cert.coder());
 }
@@ -343,7 +343,7 @@ static void setField_NotBefore (
 {
 	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
 	NSS_Time &dstTime = cert.mCert.tbs.validity.notBefore;
-	tbsSetCheck(dstTime.item.Data, fieldValue, 
+	tbsSetCheck(dstTime.item.Data, fieldValue,
 		sizeof(CSSM_X509_TIME), "NotBefore");
 	setField_TimeNSS(fieldValue, dstTime, cert.coder());
 }
@@ -366,7 +366,7 @@ static void setField_NotAfter (
 {
 	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
 	NSS_Time &dstTime = cert.mCert.tbs.validity.notAfter;
-	tbsSetCheck(dstTime.item.Data, fieldValue, 
+	tbsSetCheck(dstTime.item.Data, fieldValue,
 		sizeof(CSSM_X509_TIME), "NotAfter");
 	setField_TimeNSS(fieldValue, dstTime, cert.coder());
 }
@@ -374,7 +374,7 @@ static void setField_NotAfter (
 /***
  *** Subject/issuer unique ID
  *** Format: Raw bytes. It's stored in the cert as an ASN bit string; the decoded
- *** bytes are present at this level (i.e., not tag and length in the bytes). 
+ *** bytes are present at this level (i.e., not tag and length in the bytes).
  *** NOTE: this is not quite accurate in that we only provide byte-aligned size,
  *** not bit-aligned. This field is rarely if ever used so I think it's O, but
  *** beware.
@@ -452,7 +452,7 @@ static bool getField_PublicKeyInfo (
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
 	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
-	const CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &srcInfo = 
+	const CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &srcInfo =
 		cert.mCert.tbs.subjectPublicKeyInfo;
 	if(!tbsGetCheck(srcInfo.subjectPublicKey.Data, index)) {
 		return false;
@@ -460,9 +460,9 @@ static bool getField_PublicKeyInfo (
 
 	Allocator &alloc = fieldValue.allocator;
 	fieldValue.malloc(sizeof(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO));
-	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *dstInfo = 
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *dstInfo =
 		(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *)fieldValue.data();
-		
+
 	CL_copySubjPubKeyInfo(srcInfo, true,		// length in bits here
 		*dstInfo, false,						// length in bytes
 		alloc);
@@ -476,12 +476,12 @@ static void setField_PublicKeyInfo (
 	const CssmData		&fieldValue)
 {
 	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
-	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &dstKeyInfo = 
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &dstKeyInfo =
 		cert.mCert.tbs.subjectPublicKeyInfo;
-	tbsSetCheck(dstKeyInfo.subjectPublicKey.Data, fieldValue, 
+	tbsSetCheck(dstKeyInfo.subjectPublicKey.Data, fieldValue,
 		sizeof(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO), "PubKeyInfo");
-		
-	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *srcKeyInfo = 
+
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *srcKeyInfo =
 		(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *)fieldValue.Data;
 	if((srcKeyInfo->subjectPublicKey.Data == NULL) ||
 	   (srcKeyInfo->subjectPublicKey.Length == 0)) {
@@ -497,7 +497,7 @@ static void setField_PublicKeyInfo (
 static void freeField_PublicKeyInfo (
 	CssmOwnedData		&fieldValue)
 {
-	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *cssmKeyInfo = 
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *cssmKeyInfo =
 		(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *)fieldValue.data();
 	if(cssmKeyInfo == NULL) {
 		return;
@@ -533,9 +533,9 @@ static void setField_PublicKeyStruct (
 	const CssmData		&fieldValue)
 {
 	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
-	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &dstKeyInfo = 
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &dstKeyInfo =
 		cert.mCert.tbs.subjectPublicKeyInfo;
-	tbsSetCheck(dstKeyInfo.subjectPublicKey.Data, fieldValue, 
+	tbsSetCheck(dstKeyInfo.subjectPublicKey.Data, fieldValue,
 		sizeof(CSSM_KEY), "PubKeyStruct");
 
 	CSSM_KEY_PTR cssmKey = (CSSM_KEY_PTR)fieldValue.data();
@@ -577,7 +577,7 @@ static bool getField_Signature (
 /***
  *** end of field-specific triplets
  ***/
- 
+
 /*
  * Table to map OID to {get,set,free}field
  */
@@ -585,22 +585,22 @@ typedef struct {
 	const CSSM_OID		*fieldId;
 	getItemFieldFcn		*getFcn;
 	setItemFieldFcn		*setFcn;
-	freeFieldFcn		*freeFcn;		// OPTIONAL - NULL means just free the 
+	freeFieldFcn		*freeFcn;		// OPTIONAL - NULL means just free the
 										// top-level data
 } oidToFieldFuncs;
 
 static const oidToFieldFuncs fieldFuncTable[] = {
-	{ 	&CSSMOID_X509V1Version, 
+	{ 	&CSSMOID_X509V1Version,
 		&getField_Version, &setField_Version, NULL },
-	{ 	&CSSMOID_X509V1SerialNumber, 
+	{ 	&CSSMOID_X509V1SerialNumber,
 		&getField_SerialNumber, &setField_SerialNumber, NULL 	},
-	{ 	&CSSMOID_X509V1IssuerNameCStruct, 
+	{ 	&CSSMOID_X509V1IssuerNameCStruct,
 		&getField_Issuer, &setField_Issuer, &freeField_RDN },
-	{ 	&CSSMOID_X509V1SubjectNameCStruct, 
+	{ 	&CSSMOID_X509V1SubjectNameCStruct,
 		&getField_Subject, &setField_Subject, &freeField_RDN },
 	{	&CSSMOID_X509V1SignatureAlgorithmTBS,
 		&getField_TbsAlgId, &setField_TbsAlgId, &freeField_AlgId },
-	{	&CSSMOID_X509V1SignatureAlgorithm, 
+	{	&CSSMOID_X509V1SignatureAlgorithm,
 		&getField_CertAlgId, &setField_ReadOnly, &freeField_AlgId	},
 	{	&CSSMOID_X509V1ValidityNotBefore,
 		&getField_NotBefore,	&setField_NotBefore,	&freeField_Time },
@@ -613,28 +613,28 @@ static const oidToFieldFuncs fieldFuncTable[] = {
 	{	&CSSMOID_X509V1SubjectPublicKeyCStruct,
 		&getField_PublicKeyInfo, &setField_PublicKeyInfo, &freeField_PublicKeyInfo },
 	{	&CSSMOID_CSSMKeyStruct,
-		&getField_PublicKeyStruct, &setField_PublicKeyStruct, 
+		&getField_PublicKeyStruct, &setField_PublicKeyStruct,
 		&freeField_PublicKeyStruct },
 	{	&CSSMOID_X509V1Signature,
 		&getField_Signature, &setField_ReadOnly, NULL },
-	{   &CSSMOID_X509V1IssuerName, 
+	{   &CSSMOID_X509V1IssuerName,
 		getFieldIssuerNorm, &setField_ReadOnly, NULL },
-	{   &CSSMOID_X509V1SubjectName, 
+	{   &CSSMOID_X509V1SubjectName,
 		getFieldSubjectNorm, &setField_ReadOnly, NULL },
-	{   &CSSMOID_X509V1IssuerNameStd, 
+	{   &CSSMOID_X509V1IssuerNameStd,
 		getFieldIssuerStd, &setField_ReadOnly, NULL },
-	{   &CSSMOID_X509V1SubjectNameStd, 
+	{   &CSSMOID_X509V1SubjectNameStd,
 		getFieldSubjectStd, &setField_ReadOnly, NULL },
-		
-	/* 
-	 * Extensions, implemented in CLCertExtensions.cpp 
+
+	/*
+	 * Extensions, implemented in CLCertExtensions.cpp
 	 * When adding new ones, also add to:
 	 *   -- clOidToNssInfo() in CLFieldsCommon.cpp
 	 *   -- get/set/free functions in CLCertExtensions.{cpp,h}
 	 */
-	{	&CSSMOID_KeyUsage, &getFieldKeyUsage, &setFieldKeyUsage, 
+	{	&CSSMOID_KeyUsage, &getFieldKeyUsage, &setFieldKeyUsage,
 	    &freeFieldSimpleExtension },
-	{   &CSSMOID_BasicConstraints, &getFieldBasicConstraints, 
+	{   &CSSMOID_BasicConstraints, &getFieldBasicConstraints,
 	    &setFieldBasicConstraints, &freeFieldSimpleExtension },
 	{	&CSSMOID_ExtendedKeyUsage, &getFieldExtKeyUsage,
 		&setFieldExtKeyUsage, &freeFieldExtKeyUsage } ,
@@ -686,6 +686,10 @@ static const oidToFieldFuncs *oidToFields(
 		}
 		fieldTable++;
 	}
+#ifndef	NDEBUG
+	clErrorLog("oidToFields: unknown OID (len=%d): %s\n",
+		(int)fieldId.length(), fieldId.toHex().c_str());
+#endif
 	CssmError::throwMe(CSSMERR_CL_UNKNOWN_TAG);
 }
 
@@ -694,22 +698,22 @@ static const oidToFieldFuncs *oidToFields(
  *** Public functions
  ***/
 
-/* 
+/*
  * Obtain the index'th occurrence of field specified by fieldId in specified cert.
  * Format of the returned field depends on fieldId.
  * Returns total number of fieldId fields in the cert if index is 0.
- * FieldValue assumed to be empty on entry. 
- * Returns true if specified field was found, else returns false. 
+ * FieldValue assumed to be empty on entry.
+ * Returns true if specified field was found, else returns false.
  */
 bool DecodedCert::getCertFieldData(
 	const CssmOid		&fieldId,		// which field
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue) 	// RETURNED
-{ 
+{
 	switch(mState) {
-		case IS_Empty:		
-		case IS_Building:	
+		case IS_Empty:
+		case IS_Building:
 			clErrorLog("DecodedCert::getCertField: can't parse undecoded cert!");
 			CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
 		case IS_DecodedAll:
@@ -719,15 +723,15 @@ bool DecodedCert::getCertFieldData(
 	const oidToFieldFuncs *fieldFuncs = oidToFields(fieldId);
 	return fieldFuncs->getFcn(*this, index, numFields, fieldValue);
 }
- 
+
 /*
- * Set the field specified by fieldId in the specified Cert. 
+ * Set the field specified by fieldId in the specified Cert.
  * Note no index - individual field routines either append (for extensions)
- * or if field already set ::throwMe(for all others) 
+ * or if field already set ::throwMe(for all others)
  */
 void DecodedCert::setCertField(
 	const CssmOid		&fieldId,		// which field
-	const CssmData		&fieldValue) 
+	const CssmData		&fieldValue)
 {
 	switch(mState) {
 		case IS_Empty:			// first time thru
@@ -749,7 +753,7 @@ void DecodedCert::setCertField(
 }
 
 /*
- * Free the fieldId-specific data referred to by fieldValue->Data. 
+ * Free the fieldId-specific data referred to by fieldValue->Data.
  */
 void DecodedCert::freeCertFieldData(
 	const CssmOid		&fieldId,
@@ -770,7 +774,7 @@ void DecodedCert::freeCertFieldData(
 
 
 /*
- * Common means to get all fields from a decoded cert. Used in 
+ * Common means to get all fields from a decoded cert. Used in
  * CertGetAllTemplateFields and CertGetAllFields.
  */
 void DecodedCert::getAllParsedCertFields(
@@ -780,7 +784,7 @@ void DecodedCert::getAllParsedCertFields(
 	/* this is the max - some might be missing */
 	uint32 maxFields = NUM_STD_CERT_FIELDS + mDecodedExtensions.numExtensions();
 	CSSM_FIELD_PTR outFields = (CSSM_FIELD_PTR)mAlloc.malloc(maxFields * sizeof(CSSM_FIELD));
-	
+
 	/*
 	 * We'll be copying oids and values for fields we find into
 	 * outFields; current number of valid fields found in numOutFields.
@@ -791,24 +795,24 @@ void DecodedCert::getAllParsedCertFields(
 	uint32 			currOidDex;
 	const CSSM_OID 	*currOid;
 	CssmAutoData 	aData(mAlloc);		// for malloc/copy of outgoing data
-	
+
 	/* query for each OID we know about */
 	for(currOidDex=0; currOidDex<NUM_KNOWN_FIELDS; currOidDex++) {
 		const oidToFieldFuncs *fieldFuncs = &fieldFuncTable[currOidDex];
 		currOid = fieldFuncs->fieldId;
 		uint32 numFields;				// for THIS oid
 
-		/* 
-		 * Return false if field not there, which is not an error here. 
+		/*
+		 * Return false if field not there, which is not an error here.
 		 * Actual exceptions are fatal.
 		 */
-		if(!fieldFuncs->getFcn(*this, 
+		if(!fieldFuncs->getFcn(*this,
 				0, 				// index - looking for first one
-				numFields, 
+				numFields,
 				aData)) {
 			continue;
 		}
-		
+
 		/* got some data for this oid - copy it and oid to outgoing CertFields */
 		assert(numOutFields < maxFields);
 		currOutField = &outFields[numOutFields];
@@ -816,12 +820,12 @@ void DecodedCert::getAllParsedCertFields(
 		aData.copy(*currOid);
 		currOutField->FieldOid = aData.release();
 		numOutFields++;
-		
+
 		/* if more fields are available for this OID, snag them too */
 		for(uint32 fieldDex=1; fieldDex<numFields; fieldDex++) {
 			/* note this should always succeed */
 			bool brtn = fieldFuncs->getFcn(*this,
-				fieldDex, 			
+				fieldDex,
 				numFields, 			// shouldn't change
 				aData);
 			if(!brtn) {
@@ -836,7 +840,7 @@ void DecodedCert::getAllParsedCertFields(
 			numOutFields++;
 		}	/* multiple fields for currOid */
 	}		/* for each known OID */
-	
+
 	NumberOfFields = numOutFields;
 	CertFields = outFields;
 }

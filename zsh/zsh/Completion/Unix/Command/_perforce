@@ -3,7 +3,7 @@
 # Maintainer: Peter Stephenson <pws@csr.com>.
 
 # Increasingly loosely based on _cvs version 1.17.
-# Completions currently based on Perforce release 2006.2.
+# Completions currently based on Perforce release 2010.2.
 
 # Styles, tags and contexts
 # =========================
@@ -322,6 +322,9 @@ _perforce() {
   local p4cmd==p4 match mbegin mend
   integer _perforce_cmd_ind
 
+  # Localise variables used at different levels of the hierarchy.
+  local _perforce_exclude_change
+
   if [[ $1 = -l ]]; then
     # Run to load _perforce and associated functions but do
     # nothing else.
@@ -471,8 +474,17 @@ _perforce_gen_cmd_list() {
   # Ignore blank lines and the heading line beginning `Perforce...'
   # Just gets run once, then cached, so don't bother optimising
   # this to a grossly unreadable parameter substitution.
+  _perforce_cmd_list=()
   _perforce_call_p4 help-commands help commands | while read -A hline; do
-    (( ${#hline} < 2 )) && continue
+    if (( ${#hline} < 2 )); then
+      if (( ${#_perforce_cmd_list} )); then
+	# Ignore comments after the main list of commands, separate by blank
+	# line.
+	break
+      else
+	continue
+      fi
+    fi
     [[ $hline[1] = (#i)perforce ]] && continue
     _perforce_cmd_list+=("${hline[1]}:${hline[2,-1]}")
   done
@@ -600,7 +612,7 @@ _perforce_global_options() {
 _perforce_branches() {
   local bline match mbegin mend
   local -a bl
-  bl=(${${${(f)"$(_perforce_call_p4 branches branches 2>/dev/null)"}##Branch }/ /:})
+  bl=(${${${${(f)"$(_perforce_call_p4 branches branches 2>/dev/null)"}##Branch }//:/\\:}/ /:})
   [[ $#bl -eq 1 && $bl[1] = '' ]] && bl=()
   (( $#bl )) && _describe -t branches 'Perforce branch' bl
 }
@@ -682,7 +694,7 @@ awk '/^Client:/ { print $2 }')")
   # Limit to the 20 most recent changes by default to avoid huge
   # output.
   cl=(
-${${${${(f)"$(_perforce_call_p4 changes changes $amax $xargs $cstatus \$file)"}##Change\ }//\ on\ /:}/\ by\ /\ }
+${${${${${(f)"$(_perforce_call_p4 changes changes $amax $xargs $cstatus \$file)"}##Change\ }//:/\\:}//\ on\ /:}/\ by\ /\ }
   )
   # "default" can't have shelved files in it...
   [[ $ctype = shelved* ]] || cl+=("default:change not yet numbered")
@@ -708,7 +720,7 @@ _perforce_clients() {
     compset -P '//' && slash=(-S/ -q)
   fi
 
-  cl=(${${${(f)"$(_perforce_call_p4 clients clients)"}##Client\ }/\ /:})
+  cl=(${${${${(f)"$(_perforce_call_p4 clients clients)"}##Client\ }//:/\\:}/\ /:})
   [[ $#cl -eq 1 && $cl[1] = '' ]] && cl=()
   _describe -t clients 'Perforce client' cl $slash
 }
@@ -719,7 +731,7 @@ _perforce_counters() {
   local cline match mbegin mend
   local -a cl
 
-  cl=(${${${(f)"$(_perforce_call_p4 counters counters)"}/\ /:}/\=/current value})
+  cl=(${${${${(f)"$(_perforce_call_p4 counters counters)"}//:/\\:}/\ /:}/\=/current value})
   [[ $#cl -eq 1 && $cl[1] = '' ]] && cl=()
   _describe -t counters 'Perforce counter' cl
 }
@@ -793,7 +805,7 @@ _perforce_depots() {
   local dline match mbegin mend
   local -a dl
 
-  dl=(${${${(f)"$(_perforce_call_p4 depots depots)"}##Depot\ }/\ /:})
+  dl=(${${${${(f)"$(_perforce_call_p4 depots depots)"}##Depot\ }//:/\\:}/\ /:})
   [[ $#dl -eq 1 && $dl[1] = '' ]] && dl=()
   _describe -t depots 'depot name' dl
 }
@@ -857,28 +869,65 @@ _perforce_whole_path() {
 }
 
 #
+# Helper function for the helper function _perforce_retreive_files
+# for the helper functions for the helper function _perforce files.
+#
+# This code retrieves the list of files with a glob filter and
+# possibly a line filter specified by the caller.  The line filter
+# must match the entire line.
+#
+# Result returned in $files.
+#
+(( $+functions[_perforce_filter_files] )) ||
+_perforce_filter_files() {
+  local call="$1"
+  local globfilter="$2"
+  local linefilter="$3"
+  local line
+
+  if [[ -n $linefilter ]]; then
+    files=(
+      ${${${(f)"$(_perforce_call_p4 $call $call $globfilter 2>/dev/null)"}:#${~linefilter}}%%\#*}
+    )
+  else
+    files=(
+      ${${(f)"$(_perforce_call_p4 $call $call $globfilter 2>/dev/null)"}%%\#*}
+    )
+  fi
+}
+
+#
 # Helper function for the helper functions for the helper function
 # _perforce_files.  This is common code to retrieve a list of files
 # from Perforce.
 #
 # First argument is the p4 subcommand used to list the files.
 # This is also used as a tag for the style to decide whether
-# to limit the list within Perforce.
+# to limit the list within Perforce. It may have a colon
+# followed by a shell pattern to match lines to be excluded
+# from the match.
+#
 # Remaining arguments are additional arguments to compadd.
 #
 (( $+functions[_perforce_retrieve_files] )) ||
 _perforce_retrieve_files() {
-  local pfx
-  local -a files
+  local pfx exclude
+  local -a files match mbegin mend
+
+  if [[ $1 = (#b)([^:]##):(*) ]]; then
+    1=$match[1]
+    exclude=$match[2]
+  fi
 
   if _perforce_whole_path $1; then
-    files=(${${(f)"$(_perforce_call_p4 $1 $1 2>/dev/null)"}%%\#*})
+    _perforce_filter_files $1 '' $exclude
   elif zstyle -t ":completion:${curcontext}:$1" glob; then
     # Limit the list by using Perforce to glob the pattern.
     # This may be faster, but won't use matcher specs etc.
     pfx=${(Q)PREFIX}
     compset -P '*/'
-    files=(${${${(f)"$(_perforce_call_p4 $1 $1 \"\$pfx\*\$\{\(Q\)SUFFIX\}\" 2>/dev/null)"}%%\#*}##*/})
+    _perforce_filter_files $1 '"$pfx*${(Q)SUFFIX}"' $exclude
+    files=(${files##*/})
   else
     # We need to limit the list to a directory.
     if [[ $PREFIX = */* ]]; then
@@ -887,7 +936,8 @@ _perforce_retrieve_files() {
       pfx="*"
     fi
     compset -P '*/'
-    files=(${${${(f)"$(_perforce_call_p4 $1 $1 \$pfx 2>/dev/null)"}%%\#*}##*/})
+    _perforce_filter_files $1 '$pfx' $exclude
+    files=(${files##*/})
   fi
   [[ $#files -eq 1 && $files[1] = '' ]] && files=()
   shift
@@ -912,10 +962,17 @@ _perforce_integrated_files() {
 
 (( $+functions[_perforce_opened_files] )) ||
 _perforce_opened_files() {
-  local type
-  local -a files
+  local csuf
 
-  _perforce_retrieve_files opened "$@"
+  if [[ -n $_perforce_exclude_change ]]; then
+    if [[ $_perforce_exclude_change = default ]]; then
+      csuf=":* default change [^#]#"
+    else
+      csuf=":* change $_perforce_exclude_change [^#]#"
+    fi
+  fi
+
+  _perforce_retrieve_files opened$csuf "$@"
 }
 
 
@@ -1546,7 +1603,7 @@ _perforce_submit_options() {
 _perforce_pids() {
   local -a ul
 
-  ul=(${${${(f)"$(_perforce_call_p4 monitor monitor show 2>/dev/null)"}# *}/\ /:})
+  ul=(${${${${(f)"$(_perforce_call_p4 monitor monitor show 2>/dev/null)"}# *}//:/\\:}/\ /:})
   [[ $#ul -eq 1 && $ul[1] = '' ]] && ul=()
   _describe -t id 'process ID' ul
 }
@@ -1556,7 +1613,7 @@ _perforce_pids() {
 _perforce_users() {
   local -a ul
 
-  ul=(${${(f)"$(_perforce_call_p4 users users)"}/\ /:})
+  ul=(${${${(f)"$(_perforce_call_p4 users users)"}//:/\\:}/\ /:})
   [[ $#ul -eq 1 && $ul[1] = '' ]] && ul=()
   _describe -t users 'Perforce user' ul
 }
@@ -1638,6 +1695,7 @@ _perforce_cmd_annotate() {
     '-a[all, show both added and deleted lines]' \
     '-c[output change numbers instead of revisions]' \
     '-i[follow branches (integration records)]' \
+    '-I[follow integrations to get change numbers]' \
     '-q[quiet, suppress one-line file header]' \
     '*::file:_perforce_files -tR'
 }
@@ -1700,7 +1758,8 @@ _perforce_cmd_change() {
     '(-d -i -f)-o[output specification to standard output]' \
     '(-d -o)-i[read specification from standard input]' \
     '(-d -o)-u[force change of jobs or description by owner]' \
-    "(-i)1::change:_perforce_changes$ctype"
+    "(-i)1::change:_perforce_changes$ctype" \
+    '-t[specify visibility type]:visibility type:(public restricted)'
 }
 
 
@@ -1751,6 +1810,22 @@ _perforce_cmd_clients() {
     '-m+[set maximum to show]:max clients: '
 }
 
+
+(( $+functions[_perforce_cmd_copy] )) ||
+_perforce_cmd_copy() {
+  local range
+  # If -s is present, the first normal argument can't have revRange.
+  [[ ${words[(I)-s]} -eq 0 ]] && range=" -tR"
+  _arguments -s : \
+    '-b[select branch]:branch:_perforce_branches' \
+    '-c[select change for copy]:change:_perforce_changes -tc' \
+    '-n[no action, dummy run]' \
+    '-r[reverse direction of copy with branch]' \
+    '-s[select source with -b]:source file:_perforce_files -tR' \
+    '-v[leave newly copied files uncopied till sync]' \
+    "1:file:_perforce_files$range" \
+    '*::file:_perforce_files'
+}
 
 (( $+functions[_perforce_cmd_counter] )) ||
 _perforce_cmd_counter() {
@@ -1894,7 +1969,8 @@ _perforce_cmd_export() {
     '(-j)-l[specify number of lines]:number of lines: ' \
     '(-j)-F[specify filter]:filter pattern: ' \
     '(-c)-r[raw format]' \
-    '-J[specify file prefix]:file prefix: '
+    '-J[specify file prefix]:file prefix: ' \
+    '-T[space-separated list of tables not to export]'
 }
 
 
@@ -1943,7 +2019,7 @@ _perforce_cmd_fix() {
     '-s[set job status]:status:_perforce_statuses' \
     '1::-c required:(-c)' \
     '2::change:_perforce_changes' \
-    "3::job:_perforce_jobs$job"
+    "*::job:_perforce_jobs$job"
 }
 
 
@@ -2069,8 +2145,8 @@ _perforce_cmd_help() {
 
 (( $+functions[_perforce_cmd_info] )) ||
 _perforce_cmd_info() {
-  # No arguments
-  _arguments -s :
+  _arguments -s : \
+    '-s[don'\''t check for unknown users or clients]'
 }
 
 
@@ -2209,6 +2285,7 @@ _perforce_cmd_labelsync() {
     '-d[delete files from label]' \
     '-n[no effect, dummy run]' \
     '-l[specify label]:label:_perforce_labels' \
+    '-q[suppress informational messages]' \
     '*::file:_perforce_files -tR'
 }
 
@@ -2359,6 +2436,19 @@ _perforce_cmd_passwd() {
 }
 
 
+(( $+functions[_perforce_cmd_ping] )) ||
+_perforce_cmd_ping() {
+  _arguments -s : \
+    '-c[specify count of messages]:count of messages: ' \
+    '-t[specify total time of test]:time in seconds: ' \
+    '-i[specify iterations for test]:number of iterations: ' \
+    '-f[transmit continuously without waiting for responses]' \
+    '-p[specify pause between tests]:pause in seconds: ' \
+    '-s[specify send size]:send size in octets: ' \
+    '-r[specify receive size]:receive size in octets: '
+}
+
+
 (( $+functions[_perforce_cmd_print] )) ||
 _perforce_cmd_print() {
   _arguments -s : \
@@ -2389,8 +2479,25 @@ _perforce_cmd_protects() {
 }
 
 
+(( $+functions[_perforce_cmd_pull] )) ||
+_perforce_cmd_pull() {
+  _arguments -s : \
+    '-i[repeat as specified]:seconds between repeats: ' \
+    '-u[retrieve file content rather than journal]' \
+    '-p[display information about pending transfers]' \
+    '-J[specify prefix for journal file]:journal file prefix: '
+}
+
 (( $+functions[_perforce_cmd_reopen] )) ||
 _perforce_cmd_reopen() {
+  # Assume user doesn't want to reopen to same changelist.
+  integer pos=${words[(I)-c]}
+  if (( pos )); then
+    _perforce_exclude_change=${words[pos+1]}
+  elif [[ -n ${words[(R)-c?*]} ]]; then
+    _perforce_exclude_change=${${words[(R)-c?*]}##-c}
+  fi
+
   _arguments -s : \
     '-c+[select change to reopen on]:change:_perforce_changes -tc' \
     '-t+[set file type]:file type:_perforce_filetypes' \
@@ -2406,7 +2513,9 @@ _perforce_cmd_replicate() {
     '-J[specify file prefix]:file prefix: ' \
     '-k[keep pipe open]' \
     '-o[specify output file]:output file:_files' \
+    '-R[reconnect on failure, needs -i]' \
     '-s[specify file to track state]:state file:_files' \
+    '-T[space-separate list of tables not to transfer]' \
     '-x[terminate when journal rotates]' \
     '*::->_command'
 }
@@ -2474,7 +2583,7 @@ _perforce_cmd_set() {
 (( $+functions[_perforce_cmd_shelve] )) ||
 _perforce_cmd_shelve() {
   _arguments -s : \
-    '(-i)-c[specify changlist if not default]:change:_perforce_changes -tc' \
+    '(-i)-c[specify changelist if not default]:change:_perforce_changes -tc' \
     '(-i -r)-d[delete shelved files]' \
     '(-r)-f[force by admin user or force to overwrite]' \
     '(-c)-i[read from standard input]' \
@@ -2524,6 +2633,7 @@ _perforce_cmd_sync() {
     '-f[force resynchronisation]' \
     '-n[show operations but don'\''t perform them]' \
     '-k[bypass client file update]' \
+    '-q[suppress informational messages]' \
     '*::file:_perforce_files -tR'
 }
 
@@ -2549,7 +2659,7 @@ _perforce_cmd_tickets() {
 _perforce_cmd_triggers() {
   _arguments -s : \
     '-o[output form to stdout]' \
-    '-i[read from from stdin]'
+    '-i[read from stdin]'
 }
 
 

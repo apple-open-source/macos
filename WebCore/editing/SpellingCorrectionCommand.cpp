@@ -29,6 +29,7 @@
 #include "AlternativeTextController.h"
 #include "Document.h"
 #include "DocumentFragment.h"
+#include "Editor.h"
 #include "Frame.h"
 #include "ReplaceSelectionCommand.h"
 #include "SetSelectionCommand.h"
@@ -62,7 +63,7 @@ private:
     virtual void doUnapply() OVERRIDE
     {
         if (!m_hasBeenUndone) {
-            document()->frame()->editor()->unappliedSpellCorrection(startingSelection(), m_corrected, m_correction);
+            document()->frame()->editor().unappliedSpellCorrection(startingSelection(), m_corrected, m_correction);
             m_hasBeenUndone = true;
         }
         
@@ -105,7 +106,8 @@ void SpellingCorrectionCommand::doApply()
 #if USE(AUTOCORRECTION_PANEL)
     applyCommandToComposite(SpellingCorrectionRecordUndoCommand::create(document(), m_corrected, m_correction));
 #endif
-    applyCommandToComposite(ReplaceSelectionCommand::create(document(), fragment, ReplaceSelectionCommand::MatchStyle | ReplaceSelectionCommand::PreventNesting, EditActionPaste));
+
+    applyCommandToComposite(ReplaceSelectionCommand::create(document(), fragment.release(), ReplaceSelectionCommand::MatchStyle, EditActionPaste));
 }
 
 bool SpellingCorrectionCommand::shouldRetainAutocorrectionIndicator() const

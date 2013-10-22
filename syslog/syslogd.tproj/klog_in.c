@@ -21,6 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
+#if TARGET_IPHONE_SIMULATOR
+struct _not_empty;
+#else
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -65,7 +71,7 @@ klog_in_acceptdata(int fd)
 		{
 			*q = '\0';
 			m = asl_input_parse(p, q - p, NULL, SOURCE_KERN);
-			dispatch_async(global.work_queue, ^{ process_message(m, SOURCE_KERN); });
+			process_message(m, SOURCE_KERN);
 			p = q + 1;
 		}
 	}
@@ -131,3 +137,5 @@ klog_in_reset(void)
 {
 	return 0;
 }
+
+#endif /* !TARGET_IPHONE_SIMULATOR */

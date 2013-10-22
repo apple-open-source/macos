@@ -55,4 +55,4 @@ private const el_func_t el_func[] = {
     vi_yank_end,               vi_zero,                   
 };
 
-protected const el_func_t* func__get() { return el_func; }
+protected const el_func_t* func__get(void) { return el_func; }

@@ -95,21 +95,24 @@ static inline void convertJSMethodNameToObjc(const CString& jsName, JSNameConver
     }
 }
 
-MethodList ObjcClass::methodsNamed(const Identifier& identifier, Instance*) const
+Method* ObjcClass::methodNamed(PropertyName propertyName, Instance*) const
 {
-    MethodList methodList;
-    if (Method* method = m_methodCache.get(identifier.impl())) {
-        methodList.append(method);
-        return methodList;
-    }
+    String name(propertyName.publicName());
+    if (name.isNull())
+        return 0;
 
-    CString jsName = identifier.ascii();
+    if (Method* method = m_methodCache.get(name.impl()))
+        return method;
+
+    CString jsName = name.ascii();
     JSNameConversionBuffer buffer;
     convertJSMethodNameToObjc(jsName, buffer);
-    RetainPtr<CFStringRef> methodName(AdoptCF, CFStringCreateWithCString(NULL, buffer.data(), kCFStringEncodingASCII));
+    RetainPtr<CFStringRef> methodName = adoptCF(CFStringCreateWithCString(NULL, buffer.data(), kCFStringEncodingASCII));
 
+    Method* methodPtr = 0;
     ClassStructPtr thisClass = _isa;
-    while (thisClass && methodList.isEmpty()) {
+    
+    while (thisClass && !methodPtr) {
         unsigned numMethodsInClass = 0;
         MethodStructPtr* objcMethodList = class_copyMethodList(thisClass, &numMethodsInClass);
         for (unsigned i = 0; i < numMethodsInClass; i++) {
@@ -131,8 +134,8 @@ MethodList ObjcClass::methodsNamed(const Identifier& identifier, Instance*) cons
 
             if ((mappedName && [mappedName isEqual:(NSString*)methodName.get()]) || strcmp(objcMethodSelectorName, buffer.data()) == 0) {
                 OwnPtr<Method> method = adoptPtr(new ObjcMethod(thisClass, objcMethodSelector));
-                methodList.append(method.get());
-                m_methodCache.add(identifier.impl(), method.release());
+                methodPtr = method.get();
+                m_methodCache.add(name.impl(), method.release());
                 break;
             }
         }
@@ -140,19 +143,23 @@ MethodList ObjcClass::methodsNamed(const Identifier& identifier, Instance*) cons
         free(objcMethodList);
     }
 
-    return methodList;
+    return methodPtr;
 }
 
-Field* ObjcClass::fieldNamed(const Identifier& identifier, Instance* instance) const
+Field* ObjcClass::fieldNamed(PropertyName propertyName, Instance* instance) const
 {
-    Field* field = m_fieldCache.get(identifier.impl());
+    String name(propertyName.publicName());
+    if (name.isNull())
+        return 0;
+
+    Field* field = m_fieldCache.get(name.impl());
     if (field)
         return field;
 
     ClassStructPtr thisClass = _isa;
 
-    CString jsName = identifier.ascii();
-    RetainPtr<CFStringRef> fieldName(AdoptCF, CFStringCreateWithCString(NULL, jsName.data(), kCFStringEncodingASCII));
+    CString jsName = name.ascii();
+    RetainPtr<CFStringRef> fieldName = adoptCF(CFStringCreateWithCString(NULL, jsName.data(), kCFStringEncodingASCII));
     id targetObject = (static_cast<ObjcInstance*>(instance))->getObject();
     id attributes = [targetObject attributeKeys];
     if (attributes) {
@@ -177,7 +184,7 @@ Field* ObjcClass::fieldNamed(const Identifier& identifier, Instance* instance) c
             if ((mappedName && [mappedName isEqual:(NSString*)fieldName.get()]) || [keyName isEqual:(NSString*)fieldName.get()]) {
                 OwnPtr<Field> newField = adoptPtr(new ObjcField((CFStringRef)keyName));
                 field = newField.get();
-                m_fieldCache.add(identifier.impl(), newField.release());
+                m_fieldCache.add(name.impl(), newField.release());
                 break;
             }
         }
@@ -208,7 +215,7 @@ Field* ObjcClass::fieldNamed(const Identifier& identifier, Instance* instance) c
                 if ((mappedName && [mappedName isEqual:(NSString*)fieldName.get()]) || strcmp(objcIvarName, jsName.data()) == 0) {
                     OwnPtr<Field> newField = adoptPtr(new ObjcField(objcIVar));
                     field = newField.get();
-                    m_fieldCache.add(identifier.impl(), newField.release());
+                    m_fieldCache.add(name.impl(), newField.release());
                     break;
                 }
             }
@@ -221,14 +228,14 @@ Field* ObjcClass::fieldNamed(const Identifier& identifier, Instance* instance) c
     return field;
 }
 
-JSValue ObjcClass::fallbackObject(ExecState* exec, Instance* instance, const Identifier &propertyName)
+JSValue ObjcClass::fallbackObject(ExecState* exec, Instance* instance, PropertyName propertyName)
 {
     ObjcInstance* objcInstance = static_cast<ObjcInstance*>(instance);
     id targetObject = objcInstance->getObject();
     
     if (![targetObject respondsToSelector:@selector(invokeUndefinedMethodFromWebScript:withArguments:)])
         return jsUndefined();
-    return ObjcFallbackObjectImp::create(exec, exec->lexicalGlobalObject(), objcInstance, propertyName);
+    return ObjcFallbackObjectImp::create(exec, exec->lexicalGlobalObject(), objcInstance, propertyName.publicName());
 }
 
 }

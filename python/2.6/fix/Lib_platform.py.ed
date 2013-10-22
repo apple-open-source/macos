@@ -6,4 +6,7 @@
 /release =/a
     release = re.sub('^(\d+\.\d+)$', '\g<1>.0', release)
 .
+/# Bits/a
+.
+.+1,/^$/-1s/^/#/
 w

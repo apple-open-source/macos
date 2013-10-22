@@ -35,7 +35,7 @@
 
 
 /*
- * $Id: machine.h,v 1.8 2011/08/07 22:52:30 abe Exp $
+ * $Id: machine.h,v 1.9 2012/04/10 16:41:04 abe Exp abe $
  */
 
 
@@ -45,6 +45,10 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
+
+# if	defined(NEEDS_MACH_PORT_T)
+# include <device/device_types.h>
+# endif	/* NEED_MACH_PORT_T */
 
 #include "/usr/include/string.h"
 
@@ -230,14 +234,17 @@
  */
 
 #define	HASLFILEADD char *V_path; \
-		    mach_port_t fileport;
+		    mach_port_t fileport; \
+		    uint32_t guardflags;
 #define CLRLFILEADD(lf)	if (lf->V_path) { \
 			    (void) free((FREE_P *)lf->V_path); \
 			    lf->V_path = (char *)NULL; \
 			} \
-			lf->fileport = MACH_PORT_NULL;
+			lf->fileport = MACH_PORT_NULL; \
+			lf->guardflags = 0;
 #define SETLFILEADD Lf->V_path = (char *)NULL; \
-		    Lf->fileport = MACH_PORT_NULL;
+		    Lf->fileport = MACH_PORT_NULL; \
+	 	    Lf->guardflags = 0;
 
 
 /*

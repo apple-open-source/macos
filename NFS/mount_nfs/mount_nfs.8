@@ -225,6 +225,31 @@ is one of: krb5p, krb5i, krb5, or sys.  When this option is not given
 the security mechanism will be negotiated transparently with the remote
 server.
 .Pp
+.It Cm realm Ns = Ns Aq Ar realm
+Use the default credential for realm or security domain. For
+Kerberos realms are usually uppercase. If the realm specified
+does not begin with an 
+.Dq "@" ,
+an 
+.Dq "@"
+sign will be prepended to it.
+Note specifying the realm is typically used for automounter maps when clients may have multiple credential caches, and tells the client
+what cache to use on the mount.
+.Pp
+.It Cm principal Ns = Ns Aq Ar principal
+Use the specified principal for acquiring credentials for the mount.
+That principal will be used for all accesses by the mounting
+credential on the mounted file system. Note specifying a principal is useful for user initiated command line mounts, where the user knows the particular credential to use.
+.Pp
+.It
+.It Cm sprincipal Ns = Ns Aq Ar server-principal
+Use the specified server-principal for establishing credentials
+for the mount. That server principal will be use for all mount
+access. If no server principal is specified, then the
+GSS_C_NT_HOSTBASED_SERVICE nfs@server is used, where server is taken
+from the mount argument server:/path. Note its rare to use this
+option.
+.Pp
 .It Cm rsize Ns = Ns Aq Ar readsize
 Set the read data size to the specified value.
 The default is 8192 for UDP mounts and 32768 for TCP mounts.

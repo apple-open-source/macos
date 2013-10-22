@@ -262,7 +262,7 @@ krb5_rc_get_lifespan(krb5_context context,
 		     krb5_deltat *auth_lifespan)
 {
     FILE *f = fopen(id->name, "r");
-    int r;
+    size_t r;
     struct rc_entry ent;
     r = fread(&ent, sizeof(ent), 1, f);
     fclose(f);

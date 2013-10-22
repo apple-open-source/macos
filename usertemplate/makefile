@@ -35,7 +35,7 @@ install:
 	chmod -R 755 $(DESTINATION) # Start with 755 
 	chmod 700 $(DESTINATION) # We need to set /Sytem/Library/User Template to 700
 
-	chmod 700 $(DESTINATION)"/English.lproj/Library" $(DESTINATION)"/Non_localized/Documents" $(DESTINATION)"/English.lproj/Library/Favorites" $(DESTINATION)"/English.lproj/Movies" $(DESTINATION)"/English.lproj/Music" $(DESTINATION)"/English.lproj/Pictures" $(DESTINATION)"/Non_localized/Library" $(DESTINATION)"/Non_localized/Library/Preferences" $(DESTINATION)"/English.lproj/Desktop" $(DESTINATION)"/Non_localized/Library/PreferencePanes" $(DESTINATION)"/Non_localized/Downloads" $(DESTINATION)"/Non_localized/Library/Logs" $(DESTINATION)"/Non_localized/Library/Caches"  $(DESTINATION)"/Non_localized/Library/Spelling" $(DESTINATION)"/Non_localized/Library/Colors"
+	chmod 700 $(DESTINATION)"/English.lproj/Library" $(DESTINATION)"/Non_localized/Documents" $(DESTINATION)"/English.lproj/Library/Favorites" $(DESTINATION)"/English.lproj/Movies" $(DESTINATION)"/English.lproj/Music" $(DESTINATION)"/English.lproj/Pictures" $(DESTINATION)"/Non_localized/Library" $(DESTINATION)"/Non_localized/Library/Preferences" $(DESTINATION)"/English.lproj/Desktop" $(DESTINATION)"/Non_localized/Library/PreferencePanes" $(DESTINATION)"/Non_localized/Downloads" $(DESTINATION)"/Non_localized/Library/Logs" $(DESTINATION)"/Non_localized/Library/Caches"  $(DESTINATION)"/Non_localized/Library/Spelling" $(DESTINATION)"/Non_localized/Library/Colors" $(DESTINATION)"/Non_localized/Library/Services"
 
 	chmod -R 700 $(DESTINATION)"/English.lproj/Library/Preferences" $(DESTINATION)"/English.lproj/Library/Compositions" $(DESTINATION)"/English.lproj/Library/Keyboard Layouts" $(DESTINATION)"/English.lproj/Library/Input Methods" # Set Preferences to 700
 	

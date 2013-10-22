@@ -50,7 +50,7 @@ static const unsigned short cp869_2uni[128] = {
 };
 
 static int
-cp869_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cp869_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80) {
@@ -114,7 +114,7 @@ static const unsigned char cp869_page25[168] = {
 };
 
 static int
-cp869_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+cp869_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

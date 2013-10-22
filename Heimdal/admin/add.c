@@ -39,7 +39,7 @@ static char *
 readstring(const char *prompt, char *buf, size_t len)
 {
     printf("%s", prompt);
-    if (fgets(buf, len, stdin) == NULL)
+    if (fgets(buf, (int)len, stdin) == NULL)
 	return NULL;
     buf[strcspn(buf, "\r\n")] = '\0';
     return buf;
@@ -92,6 +92,27 @@ kt_add(struct add_options *opt, int argc, char **argv)
 	}
 	if(sscanf(buf, "%u", &opt->kvno_integer) != 1)
 	    goto out;
+    }
+    if (opt->pw_file_string) {
+	FILE *f;
+
+	if (strcasecmp("STDIN", opt->pw_file_string) == 0)
+	    f = stdin;
+	else
+	    f = fopen(opt->pw_file_string, "r");
+	if (f == NULL)
+	    krb5_errx(context, 1, "Failed to open the password file %s",
+		      opt->pw_file_string);
+	
+	if (fgets(buf, sizeof(buf), f) == NULL)
+	    krb5_errx(context, 1,
+		      "Failed to read password from file %s",
+		      opt->pw_file_string);
+	if (f != stdin)
+	    fclose(f);
+	buf[strcspn(buf, "\n")] = '\0';
+
+	opt->password_string = buf;
     }
     if(opt->password_string == NULL && opt->random_flag == 0) {
 	if(UI_UTIL_read_pw_string(buf, sizeof(buf), "Password: ", 1)) {
@@ -146,7 +167,7 @@ kt_add(struct add_options *opt, int argc, char **argv)
 	goto out;
     }
     entry.vno = opt->kvno_integer;
-    entry.timestamp = time (NULL);
+    entry.timestamp = (uint32_t)time (NULL);
     ret = krb5_kt_add_entry(context, keytab, &entry);
     if(ret)
 	krb5_warn(context, ret, "add");

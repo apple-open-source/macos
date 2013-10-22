@@ -112,6 +112,8 @@ typedef struct {
 
 #define NAMEINCR	64	/* must be power of 2 */
 
+#define AOK	(void *)	// assert alignment is OK
+
 typedef struct {
 	uint16_t hi_len;	/* length of this HostInfo record	 */
 	uint16_t hi_monitored;	/* host is being monitored		 */
@@ -121,7 +123,7 @@ typedef struct {
 	/* NULL terminated string allocated in NAMEINCR-byte increments */
 } HostInfo;
 #define RNDUP_NAMELEN(NL)	(((NL) + 1 + (NAMEINCR-1)) & (~(NAMEINCR-1)))
-#define HOSTINFO(OFF)		((HostInfo*)((char*)status_info + (OFF)))
+#define HOSTINFO(OFF)		((HostInfo*) AOK ((char*)status_info + (OFF)))
 
 /* Original "version 0" file layout */
 typedef struct {

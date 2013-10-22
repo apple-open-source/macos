@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -85,11 +85,7 @@ routine eapolcontroller_copy_status (	server		: mach_port_t;
 				 out	state		: int;
 				 out	result		: int);
 
-routine eapolcontroller_set_logging (	server		: mach_port_t;
-					if_name		: if_name;
-					level		: int32_t;
-				 out	result		: int);
-
+skip;
 
 routine eapolcontroller_provide_user_input (	server	: mach_port_t;
 					if_name		: if_name;

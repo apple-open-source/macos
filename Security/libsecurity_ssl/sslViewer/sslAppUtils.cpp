@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/param.h>
-#include <MacErrors.h>
+#include <Security/SecBase.h>
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 #include <Security/SecIdentityPriv.h>
@@ -184,15 +185,15 @@ const char *sslGetProtocolVersionString(SSLProtocol prot)
  */
 const char *sslGetSSLErrString(OSStatus err)
 {
-	static char noErrStr[20];
+	static char errSecSuccessStr[20];
 
 	switch(err) {
-		case noErr:                         return "noErr";
-		case memFullErr:                    return "memFullErr";
-		case paramErr:                      return "paramErr";
-		case unimpErr:                      return "unimpErr";
-		case ioErr:                         return "ioErr";
-		case badReqErr:                     return "badReqErr";
+		case errSecSuccess:                 return "errSecSuccess";
+		case errSecAllocate:                return "errSecAllocate";
+		case errSecParam:                   return "errSecParam";
+		case errSecUnimplemented:           return "errSecUnimplemented";
+		case errSecIO:                      return "errSecIO";
+		case errSecBadReq:                  return "errSecBadReq";
 		/* SSL errors */
 		case errSSLProtocol:                return "errSSLProtocol";
 		case errSSLNegotiation:             return "errSSLNegotiation";
@@ -247,7 +248,7 @@ const char *sslGetSSLErrString(OSStatus err)
 		case errSecNotAvailable:            return "errSecNotAvailable";
 		case errSecDuplicateItem:           return "errSecDuplicateItem";
 		case errSecItemNotFound:            return "errSecItemNotFound";
-#if TARGET_OS_MAC
+#if !TARGET_OS_IPHONE
 		case errSecReadOnly:                return "errSecReadOnly";
 		case errSecAuthFailed:              return "errSecAuthFailed";
 		case errSecNoSuchKeychain:          return "errSecNoSuchKeychain";
@@ -272,8 +273,8 @@ const char *sslGetSSLErrString(OSStatus err)
 			else
 #endif
 			{
-				sprintf(noErrStr, "Unknown (%d)", (unsigned)err);
-				return noErrStr;
+				sprintf(errSecSuccessStr, "Unknown (%d)", (unsigned)err);
+				return errSecSuccessStr;
 			}
 	}
 }
@@ -551,7 +552,7 @@ OSStatus sslCompleteCertChain(
 	if(isRoot) {
 		*outArray = certArray;
 		CFRelease(certRef);
-		return noErr;
+		return errSecSuccess;
 	}
 
 	/*
@@ -633,7 +634,7 @@ OSStatus sslCompleteCertChain(
 			 * Just go with the single subject cert we were given.
 			 */
 			printf("***Warning: could not construct completed cert chain\n");
-			ortn = noErr;
+			ortn = errSecSuccess;
 			goto errOut;
 	}
 
@@ -658,7 +659,7 @@ OSStatus sslCompleteCertChain(
 		 */
 		printf("***sslCompleteCertChain screwup: numResCerts %d\n",
 			(int)numResCerts);
-		ortn = noErr;
+		ortn = errSecSuccess;
 		goto errOut;
 	}
 	if(!includeRoot) {
@@ -778,12 +779,12 @@ OSStatus addTrustedSecCert(
 
 	if(secCert == NULL) {
 		printf("***addTrustedSecCert screwup\n");
-		return paramErr;
+		return errSecParam;
 	}
 	array = CFArrayCreateMutable(kCFAllocatorDefault,
 		(CFIndex)1, &kCFTypeArrayCallBacks);
 	if(array == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	CFArrayAppendValue(array, secCert);
 	ortn = SSLSetTrustedRoots(ctx, array, replaceAnchors ? true : false);
@@ -813,12 +814,12 @@ OSStatus sslReadAnchor(
 	free(certData);
 	if(!secCert) {
 		printf("***SecCertificateCreateWithData returned NULL\n");
-		return paramErr;
+		return errSecParam;
 	}
 	if (certRef) {
 		*certRef = secCert;
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus sslAddTrustedRoot(
@@ -857,7 +858,7 @@ OSStatus addIdentityAsTrustedRoot(
 	CFIndex numItems = CFArrayGetCount(identArray);
 	if(numItems == 0) {
 		printf("***addIdentityAsTrustedRoot: empty identArray\n");
-		return paramErr;
+		return errSecParam;
 	}
 
 	/* Root should be the last item - could be identity, could be cert */
@@ -882,7 +883,7 @@ OSStatus addIdentityAsTrustedRoot(
 	}
 	else {
 		printf("***Bogus item in identity array\n");
-		return paramErr;
+		return errSecParam;
 	}
 }
 #else
@@ -890,7 +891,7 @@ OSStatus addIdentityAsTrustedRoot(
 	SSLContextRef 	ctx,
 	CFArrayRef		identArray)
 {
-	return noErr;
+	return errSecSuccess;
 }
 #endif
 
@@ -1185,7 +1186,7 @@ OSStatus sslSetCipherRestrictions(
 	OSStatus ortn;
 
 	if(cipherRestrict == '\0') {
-		return noErr;		// actually should not have been called
+		return errSecSuccess;		// actually should not have been called
 	}
 	switch(cipherRestrict) {
 		case 'e':
@@ -1356,7 +1357,7 @@ OSStatus sslSetProtocols(
 			return ortn;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 void sslShowResult(
@@ -1497,11 +1498,11 @@ int sslRunSession(
 		serverParams->certState);
 	ourRtn += sslVerifyClientCertState("client", clientParams->expectCertState,
 		clientParams->certState);
-	if(serverParams->ortn == noErr) {
+	if(serverParams->ortn == errSecSuccess) {
 		ourRtn += sslVerifyCipher("server", serverParams->expectCipher,
 			serverParams->negCipher);
 	}
-	if(clientParams->ortn == noErr) {
+	if(clientParams->ortn == errSecSuccess) {
 		ourRtn += sslVerifyCipher("client", clientParams->expectCipher,
 			clientParams->negCipher);
 	}
@@ -1555,9 +1556,9 @@ OSStatus sslAddTrustedRoots(
 		}
 		CFRelease(secCert);
 		*foundOne = true;
-	} while(ortn == noErr);
+	} while(ortn == errSecSuccess);
 	CFRelease(srch);
-	return noErr;
+	return errSecSuccess;
 }
 
 /*

@@ -51,6 +51,7 @@
 
 #include "sudo.h"
 #include "parse.h"
+#include "gram.h"
 
 /*
  * We must define SIZE_MAX for yacc's skeleton.c.
@@ -69,10 +70,11 @@
  * Globals
  */
 extern int sudolineno;
+extern int last_token;
 extern char *sudoers;
-int parse_error;
+int sudoers_warnings = TRUE;
+int parse_error = FALSE;
 int pedantic = FALSE;
-int verbose = FALSE;
 int errorlineno = -1;
 char *errorfile = NULL;
 
@@ -92,15 +94,19 @@ void
 yyerror(s)
     const char *s;
 {
+    /* If we last saw a newline the error is on the preceding line. */
+    if (last_token == COMMENT)
+	sudolineno--;
+
     /* Save the line the first error occurred on. */
     if (errorlineno == -1) {
-	errorlineno = sudolineno ? sudolineno - 1 : 0;
+	errorlineno = sudolineno;
 	errorfile = estrdup(sudoers);
     }
-    if (verbose && s != NULL) {
+    if (sudoers_warnings && s != NULL) {
 #ifndef TRACELEXER
 	(void) fprintf(stderr, ">>> %s: %s near line %d <<<\n", sudoers, s,
-	    sudolineno ? sudolineno - 1 : 0);
+	    sudolineno);
 #else
 	(void) fprintf(stderr, "<*> ");
 #endif
@@ -620,7 +626,7 @@ new_default(var, val, op)
     d->prev = d;
     d->next = NULL;
 
-    return(d);
+    return d;
 }
 
 static struct member *
@@ -636,7 +642,7 @@ new_member(name, type)
     m->prev = m;
     m->next = NULL;
 
-    return(m);
+    return m;
 }
 
 /*
@@ -789,7 +795,6 @@ init_parser(path, quiet)
 
     parse_error = FALSE;
     errorlineno = -1;
-    errorfile = NULL;
-    sudolineno = 1;
-    verbose = !quiet;
+    errorfile = sudoers;
+    sudoers_warnings = !quiet;
 }

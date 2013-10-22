@@ -406,7 +406,7 @@
 
 #define HAVE_DECL_PRINTF 1
 
-#define HAVE_DECL_SBRK 1
+/* #undef HAVE_DECL_SBRK */
 
 #define HAVE_DECL_STRCPY 1
 
@@ -668,7 +668,7 @@
 #define HAVE_RENAME 1
 
 /* Define if you have the sbrk function. */
-#define HAVE_SBRK 1
+/* #undef HAVE_SBRK */
 
 /* Define if you have the select function.  */
 #define HAVE_SELECT 1

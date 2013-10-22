@@ -99,8 +99,8 @@ extern "C" {
     ASSERT(!_attributeKeys);
     ASSERT(!_attributeValues);
     
-    _attributeKeys.adoptNS([keys copy]);
-    _attributeValues.adoptNS([values copy]);
+    _attributeKeys = adoptNS([keys copy]);
+    _attributeValues = adoptNS([values copy]);
 }    
 
 - (BOOL)createPlugin
@@ -125,18 +125,16 @@ extern "C" {
 
         if (accleratedCompositingEnabled && _proxy->rendererType() == UseAcceleratedCompositing) {
             // FIXME: This code can be shared between WebHostedNetscapePluginView and WebNetscapePluginView.
-#ifndef BUILDING_ON_LEOPARD
             // Since this layer isn't going to be inserted into a view, we need to create another layer and flip its geometry
             // in order to get the coordinate system right.
-            RetainPtr<CALayer> realPluginLayer(AdoptNS, _pluginLayer.leakRef());
+            RetainPtr<CALayer> realPluginLayer = adoptNS(_pluginLayer.leakRef());
             
-            _pluginLayer.adoptNS([[CALayer alloc] init]);
+            _pluginLayer = adoptNS([[CALayer alloc] init]);
             _pluginLayer.get().bounds = realPluginLayer.get().bounds;
             _pluginLayer.get().geometryFlipped = YES;
             
             realPluginLayer.get().autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
             [_pluginLayer.get() addSublayer:realPluginLayer.get()];
-#endif
             
             // Eagerly enter compositing mode, since we know we'll need it. This avoids firing setNeedsStyleRecalc()
             // for iframes that contain composited plugins at bad times. https://bugs.webkit.org/show_bug.cgi?id=39033

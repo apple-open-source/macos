@@ -36,9 +36,7 @@
 #include <securityd/SecOCSPResponse.h>
 #include <CoreFoundation/CFURL.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 
 void SecOCSPCacheAddResponse(SecOCSPResponseRef response,
@@ -53,9 +51,7 @@ void SecOCSPCacheGC(void);
 /* Call this periodically or perhaps when we are exiting due to low memory. */
 void SecOCSPCacheFlush(void);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* _SECURITY_SECOCSPCACHE_H_ */
 

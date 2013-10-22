@@ -283,3 +283,15 @@ out				reply		: pointer_t, dealloc;
 out				reply_fds	: mach_port_move_send_array_t, dealloc;
 				asport		: mach_port_t
 );
+
+routine
+get_listener_port_rights(
+				j			: job_t;
+out				sports		: mach_port_make_send_array_t, dealloc
+);
+
+routine
+register_gui_session(
+				j			: job_t;
+				asport		: mach_port_t
+);

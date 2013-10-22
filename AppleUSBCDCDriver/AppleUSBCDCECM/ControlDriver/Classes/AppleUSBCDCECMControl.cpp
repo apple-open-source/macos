@@ -41,7 +41,10 @@
 
 #include <IOKit/pwr_mgt/RootDomain.h>
 
+#if !TARGET_OS_IPHONE
 #include <IOKit/usb/IOUSBBus.h>
+#endif /* TARGET_OS_IPHONE */
+
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBPipe.h>
@@ -60,6 +63,7 @@ extern "C"
 
 #include "AppleUSBCDCECM.h"
 #include "AppleUSBCDCECMControl.h"
+#include "AppleUSBCDCECMData.h"
 
 #if 0
 static IOPMPowerState gOurPowerStates[kNumCDCStates] =
@@ -222,6 +226,7 @@ void AppleUSBCDCECMControl::commReadComplete(void *obj, void *param, IOReturn rc
     IOReturn			ior;
     UInt32			dLen;
     UInt8			notif;
+ 	ConnectionSpeedChange	*speedChange;
     
     if (rc == kIOReturnSuccess)	// If operation returned ok
     {
@@ -244,8 +249,12 @@ void AppleUSBCDCECMControl::commReadComplete(void *obj, void *param, IOReturn rc
 					}
                     break;
                 case kUSBCONNECTION_SPEED_CHANGE:
-                    me->fUpSpeed = USBToHostLong((UInt32)me->fCommPipeBuffer[8]);
-                    me->fDownSpeed = USBToHostLong((UInt32)me->fCommPipeBuffer[13]);
+                    speedChange = (ConnectionSpeedChange *)me->fCommPipeBuffer;
+//                    me->fUpSpeed = USBToHostLong((UInt32)me->fCommPipeBuffer[8]);
+//                    me->fDownSpeed = USBToHostLong((UInt32)me->fCommPipeBuffer[13]);
+					me->fUpSpeed = USBToHostLong(speedChange->USBitRate);
+					me->fDownSpeed = USBToHostLong(speedChange->DSBitRate);
+
                     XTRACE(me, me->fUpSpeed, me->fDownSpeed, "commReadComplete - kConnection_Speed_Change");
 					if (me->fDataDriver)
 					{

@@ -221,6 +221,7 @@
     <symbol file="xslt">xsltLibxmlVersion</symbol>
     <symbol file="xslt">xsltLibxsltVersion</symbol>
     <symbol file="xslt">xsltMaxDepth</symbol>
+    <symbol file="xslt">xsltMaxVars</symbol>
     <symbol file="xsltInternals">xsltParseStylesheetImportedDoc</symbol>
     <symbol file="xsltutils">xsltSetCtxtSortFunc</symbol>
     <symbol file="xsltutils">xsltSetSortFunc</symbol>
@@ -283,8 +284,8 @@
     <symbol file="xsltInternals">xsltReleaseRVT</symbol>
     <symbol file="xsltInternals">xsltRestoreDocumentNamespaces</symbol>
     <symbol file="extensions">xsltStyleStylesheetLevelGetExtData</symbol>
-    <symbol file="xsltInternals">xsltTransStorageAdd</symbol>
-    <symbol file="xsltInternals">xsltTransStorageRemove</symbol>
+    <symbol removed="1.1.28" file="xsltInternals">xsltTransStorageAdd</symbol>
+    <symbol removed="1.1.28" file="xsltInternals">xsltTransStorageRemove</symbol>
     <symbol file="xsltInternals">xsltUninit</symbol>
     <symbol file="xsltInternals">xsltXSLTAttrMarker</symbol>
   </release>
@@ -308,5 +309,9 @@
   <release version="1.1.26">
     <!-- lxml was using it even if not pusblished -->
     <symbol file="transform">xsltProcessOneNode</symbol>
+  </release>
+  <release version="1.1.27">
+    <symbol file="xsltlocale">xsltFreeLocales</symbol>
+    <symbol file="xsltutils">xsltXPathCompileFlags</symbol>
   </release>
 </symbols>

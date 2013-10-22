@@ -1,9 +1,9 @@
 /*
- * "$Id: testpwg.c 3786 2012-04-13 18:12:13Z msweet $"
+ * "$Id: testpwg.c 11013 2013-06-05 17:27:16Z msweet $"
  *
  *   PWG test program for CUPS.
  *
- *   Copyright 2009-2012 by Apple Inc.
+ *   Copyright 2009-2013 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -49,7 +49,7 @@ main(int  argc,				/* I - Number of command-line args */
   const char	*ppdfile;		/* PPD filename */
   ppd_file_t	*ppd;			/* PPD file */
   _ppd_cache_t	*pc;			/* PPD cache and PWG mapping data */
-  _pwg_media_t	*pwgmedia;		/* PWG media size */
+  pwg_media_t	*pwgmedia;		/* PWG media size */
 
 
   status = 0;
@@ -151,8 +151,8 @@ main(int  argc,				/* I - Number of command-line args */
     puts("PASS");
   }
 
-  fputs("_pwgMediaForPWG(\"iso_a4_210x297mm\"): ", stdout);
-  if ((pwgmedia = _pwgMediaForPWG("iso_a4_210x297mm")) == NULL)
+  fputs("pwgMediaForPWG(\"iso_a4_210x297mm\"): ", stdout);
+  if ((pwgmedia = pwgMediaForPWG("iso_a4_210x297mm")) == NULL)
   {
     puts("FAIL (not found)");
     status ++;
@@ -170,8 +170,22 @@ main(int  argc,				/* I - Number of command-line args */
   else
     puts("PASS");
 
-  fputs("_pwgMediaForLegacy(\"na-letter\"): ", stdout);
-  if ((pwgmedia = _pwgMediaForLegacy("na-letter")) == NULL)
+  fputs("pwgMediaForPWG(\"roll_max_36.1025x3622.0472in\"): ", stdout);
+  if ((pwgmedia = pwgMediaForPWG("roll_max_36.1025x3622.0472in")) == NULL)
+  {
+    puts("FAIL (not found)");
+    status ++;
+  }
+  else if (pwgmedia->width != 91700 || pwgmedia->length != 9199999)
+  {
+    printf("FAIL (%dx%d)\n", pwgmedia->width, pwgmedia->length);
+    status ++;
+  }
+  else
+    printf("PASS (%dx%d)\n", pwgmedia->width, pwgmedia->length);
+
+  fputs("pwgMediaForLegacy(\"na-letter\"): ", stdout);
+  if ((pwgmedia = pwgMediaForLegacy("na-letter")) == NULL)
   {
     puts("FAIL (not found)");
     status ++;
@@ -189,8 +203,8 @@ main(int  argc,				/* I - Number of command-line args */
   else
     puts("PASS");
 
-  fputs("_pwgMediaForPPD(\"4x6\"): ", stdout);
-  if ((pwgmedia = _pwgMediaForPPD("4x6")) == NULL)
+  fputs("pwgMediaForPPD(\"4x6\"): ", stdout);
+  if ((pwgmedia = pwgMediaForPPD("4x6")) == NULL)
   {
     puts("FAIL (not found)");
     status ++;
@@ -208,8 +222,8 @@ main(int  argc,				/* I - Number of command-line args */
   else
     puts("PASS");
 
-  fputs("_pwgMediaForPPD(\"10x15cm\"): ", stdout);
-  if ((pwgmedia = _pwgMediaForPPD("10x15cm")) == NULL)
+  fputs("pwgMediaForPPD(\"10x15cm\"): ", stdout);
+  if ((pwgmedia = pwgMediaForPPD("10x15cm")) == NULL)
   {
     puts("FAIL (not found)");
     status ++;
@@ -227,8 +241,8 @@ main(int  argc,				/* I - Number of command-line args */
   else
     puts("PASS");
 
-  fputs("_pwgMediaForPPD(\"Custom.10x15cm\"): ", stdout);
-  if ((pwgmedia = _pwgMediaForPPD("Custom.10x15cm")) == NULL)
+  fputs("pwgMediaForPPD(\"Custom.10x15cm\"): ", stdout);
+  if ((pwgmedia = pwgMediaForPPD("Custom.10x15cm")) == NULL)
   {
     puts("FAIL (not found)");
     status ++;
@@ -246,8 +260,8 @@ main(int  argc,				/* I - Number of command-line args */
   else
     puts("PASS");
 
-  fputs("_pwgMediaForSize(29700, 42000): ", stdout);
-  if ((pwgmedia = _pwgMediaForSize(29700, 42000)) == NULL)
+  fputs("pwgMediaForSize(29700, 42000): ", stdout);
+  if ((pwgmedia = pwgMediaForSize(29700, 42000)) == NULL)
   {
     puts("FAIL (not found)");
     status ++;
@@ -260,8 +274,8 @@ main(int  argc,				/* I - Number of command-line args */
   else
     puts("PASS");
 
-  fputs("_pwgMediaForSize(9842, 19050): ", stdout);
-  if ((pwgmedia = _pwgMediaForSize(9842, 19050)) == NULL)
+  fputs("pwgMediaForSize(9842, 19050): ", stdout);
+  if ((pwgmedia = pwgMediaForSize(9842, 19050)) == NULL)
   {
     puts("FAIL (not found)");
     status ++;
@@ -274,8 +288,8 @@ main(int  argc,				/* I - Number of command-line args */
   else
     printf("PASS (%s)\n", pwgmedia->pwg);
 
-  fputs("_pwgMediaForSize(9800, 19000): ", stdout);
-  if ((pwgmedia = _pwgMediaForSize(9800, 19000)) == NULL)
+  fputs("pwgMediaForSize(9800, 19000): ", stdout);
+  if ((pwgmedia = pwgMediaForSize(9800, 19000)) == NULL)
   {
     puts("FAIL (not found)");
     status ++;
@@ -361,9 +375,9 @@ test_ppd_cache(_ppd_cache_t *pc,	/* I - PWG mapping data */
   int		i,			/* Looping var */
 		status = 0;		/* Return status */
   _ppd_cache_t	*pc2;			/* Loaded data */
-  _pwg_size_t	*size,			/* Size from original */
+  pwg_size_t	*size,			/* Size from original */
 		*size2;			/* Size from saved */
-  _pwg_map_t	*map,			/* Map from original */
+  pwg_map_t	*map,			/* Map from original */
 		*map2;			/* Map from saved */
 
 
@@ -521,5 +535,5 @@ test_ppd_cache(_ppd_cache_t *pc,	/* I - PWG mapping data */
 
 
 /*
- * End of "$Id: testpwg.c 3786 2012-04-13 18:12:13Z msweet $".
+ * End of "$Id: testpwg.c 11013 2013-06-05 17:27:16Z msweet $".
  */

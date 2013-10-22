@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 138
+Submission	= 140.1
 
 
 #
@@ -266,6 +266,11 @@ install-macosx:
 	$(_v) $(FIND) $(DSTROOT)$(SHAREDIR)/snmp -type f -exec chmod 644 {} \;
 	$(_v) $(RM) $(DSTROOT)$(USRLIBDIR)/*.a $(DSTROOT)$(USRLIBDIR)/*.la
 	$(_v) $(FIND) $(DSTROOT)$(MANDIR) -type f -exec chmod 644 {} \;
+	@echo "setting up snmpd proxy"
+	$(_v) $(MKDIR) -p $(DSTROOT)/usr/libexec/
+	$(_v) $(MV) $(DSTROOT)$(USRSBINDIR)/snmpd $(DSTROOT)/usr/libexec/snmpd
+	$(_v) $(CP) $(SRCROOT)/snmpd-proxy $(DSTROOT)$(USRSBINDIR)/snmpd
+	$(_v) $(CHOWN) root:wheel $(DSTROOT)$(USRSBINDIR)/snmpd
 	@echo "Removing perllocal.pod..."
 	$(_v) $(RM) -rf "$(DSTROOT)/System/Library/Perl"
 	@echo "Eliminating architecture flags from $(CONFIGTOOL)..."

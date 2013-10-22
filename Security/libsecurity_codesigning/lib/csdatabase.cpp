@@ -79,7 +79,7 @@ const char schema[] = "\
 // Note that this isn't creating the schema; we do that on first write.
 //
 SignatureDatabase::SignatureDatabase(const char *path, int flags)
-	: SQLite::Database(path, flags)
+	: SQLite::Database(path, flags, true)	// lenient open
 {
 }
 
@@ -99,8 +99,11 @@ FilterRep *SignatureDatabase::findCode(DiskRep *rep)
 				"select code.signature, global.signature from code, global \
 				 where code.identification = ?1 and code.global = global.id;");
 			query.bind(1) = identification.get();
-			if (query.nextRow())
-				return new DetachedRep(query[0].data(), query[1].data(), rep, "system");
+			if (query.nextRow()) {
+				CFRef<CFDataRef> sig = query[0].data();
+				CFRef<CFDataRef> gsig = query[1].data();
+				return new DetachedRep(sig, gsig, rep, "system");
+			}
 		}
 
 	// no joy
@@ -115,6 +118,8 @@ FilterRep *SignatureDatabase::findCode(DiskRep *rep)
 //
 void SignatureDatabaseWriter::storeCode(const BlobCore *sig, const char *location)
 {
+	if (!this->isOpen())	// failed database open or creation
+		MacOSError::throwMe(errSecCSDBAccess);
 	Transaction xa(*this, Transaction::exclusive);	// lock out everyone
 	if (this->empty())
 		this->execute(schema);					// initialize schema

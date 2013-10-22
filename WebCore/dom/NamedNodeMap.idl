@@ -18,43 +18,31 @@
  * Boston, MA 02110-1301, USA.
  */
 
-module core {
+[
+    GenerateIsReachable=ImplElementRoot,
+    ImplementationLacksVTable
+] interface NamedNodeMap {
 
-    interface [
-        JSGenerateIsReachable=ImplElementRoot,
-        JSCustomMarkFunction,
-        IndexedGetter,
-        NamedGetter,
-        V8CustomToJSObject
-    ] NamedNodeMap {
+    getter Node getNamedItem([Default=Undefined] optional DOMString name);
 
-        Node getNamedItem(in [Optional=DefaultIsUndefined] DOMString name);
+    [RaisesException] Node setNamedItem([Default=Undefined] optional Node node);
 
-        Node setNamedItem(in [Optional=DefaultIsUndefined] Node node)
-            raises(DOMException);
+    [RaisesException] Node removeNamedItem([Default=Undefined] optional DOMString name);
 
-        Node removeNamedItem(in [Optional=DefaultIsUndefined] DOMString name)
-            raises(DOMException);
-
-        Node item(in [Optional=DefaultIsUndefined] unsigned long index);
-        
-        readonly attribute unsigned long length;
+    getter Node item([Default=Undefined] optional unsigned long index);
+    
+    readonly attribute unsigned long length;
 
 
-        // Introduced in DOM Level 2:
+    // Introduced in DOM Level 2:
 
-        [ObjCLegacyUnnamedParameters] Node getNamedItemNS(in [TreatNullAs=NullString,Optional=DefaultIsUndefined] DOMString namespaceURI, 
-                                           in [Optional=DefaultIsUndefined] DOMString localName)
-            // FIXME: the implementation does take an exceptioncode parameter.
-            /*raises(DOMException)*/;
+    [ObjCLegacyUnnamedParameters] Node getNamedItemNS([TreatNullAs=NullString,Default=Undefined] optional DOMString namespaceURI, 
+                                       [Default=Undefined] optional DOMString localName);
 
-        Node setNamedItemNS(in [Optional=DefaultIsUndefined] Node node)
-            raises(DOMException);
+    [RaisesException] Node setNamedItemNS([Default=Undefined] optional Node node);
 
-        [ObjCLegacyUnnamedParameters] Node removeNamedItemNS(in [TreatNullAs=NullString,Optional=DefaultIsUndefined] DOMString namespaceURI, 
-                                              in [Optional=DefaultIsUndefined] DOMString localName)
-            raises(DOMException);
+    [ObjCLegacyUnnamedParameters, RaisesException] Node removeNamedItemNS([TreatNullAs=NullString,Default=Undefined] optional DOMString namespaceURI, 
+                                          [Default=Undefined] optional DOMString localName);
 
-    };
+};
 
-}

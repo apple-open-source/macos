@@ -489,7 +489,8 @@ _io_pm_cancel_repeat_events
 
     SCPreferencesRef    prefs = 0;
     uid_t               callerEUID;
-    CFStringRef         offType, onType;
+    CFStringRef         offType = NULL;
+    CFStringRef         onType = NULL;
 
     *return_code = kIOReturnSuccess;
 

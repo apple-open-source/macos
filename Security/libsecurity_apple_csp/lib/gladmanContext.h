@@ -28,7 +28,7 @@
 #include "AppleCSPSession.h"
 #include "BlockCryptor.h"
 #include <CommonCrypto/CommonCryptor.h>
-#include "/usr/local/include/CommonCrypto/CommonCryptorSPI.h"
+#include <CommonCrypto/CommonCryptorSPI.h>
 #include "aesCommon.h"
 
 #define GLADMAN_BLOCK_SIZE_BYTES	DEFAULT_AES_BLOCK_BYTES

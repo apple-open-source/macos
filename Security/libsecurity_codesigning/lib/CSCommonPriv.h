@@ -104,11 +104,15 @@ enum {
 	kSecCodeSignatureNoHash							=  0,	/* null value */
 	kSecCodeSignatureHashSHA1						=  1,	/* SHA-1 */
 	kSecCodeSignatureHashSHA256						=  2,	/* SHA-256 */
-	kSecCodeSignatureHashPrestandardSkein160x256	= 32,	/* Skein, 160 bits, 256 bit pool */
-	kSecCodeSignatureHashPrestandardSkein256x512	= 33,	/* Skein, 256 bits, 512 bit pool */
 	
 	kSecCodeSignatureDefaultDigestAlgorithm = kSecCodeSignatureHashSHA1
 };
+
+
+/*!
+	A callback block type for monitoring certain code signing operations
+ */
+typedef CFTypeRef (^SecCodeCallback)(SecStaticCodeRef code, CFStringRef stage, CFDictionaryRef info);
 
 
 #ifdef __cplusplus

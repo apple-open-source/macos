@@ -3,20 +3,20 @@
 # Copyright (c) 1999-2007 Yukihiro Matsumoto.
 #
 # Copyright (c) 1999-2007 Minero Aoki.
-# 
+#
 # Written & maintained by Minero Aoki <aamine@loveruby.net>.
 #
 # Documented by William Webber and Minero Aoki.
-# 
+#
 # This program is free software. You can re-distribute and/or
 # modify this program under the same terms as Ruby itself,
 # Ruby Distribute License.
-# 
+#
 # NOTE: You can find Japanese version of this document at:
 # http://www.ruby-lang.org/ja/man/html/net_pop.html
-# 
-#   $Id: pop.rb 29903 2010-11-24 07:38:32Z shyouhei $
-# 
+#
+#   $Id: pop.rb 40295 2013-04-14 15:19:46Z nagachika $
+#
 # See Net::POP3 for documentation.
 #
 
@@ -25,7 +25,7 @@ require 'digest/md5'
 require 'timeout'
 
 begin
-  require "openssl/ssl"
+  require "openssl"
 rescue LoadError
 end
 
@@ -42,28 +42,26 @@ module Net
   class POPBadResponse < POPError; end
 
   #
-  # = Net::POP3
-  #
   # == What is This Library?
-  # 
-  # This library provides functionality for retrieving 
+  #
+  # This library provides functionality for retrieving
   # email via POP3, the Post Office Protocol version 3. For details
   # of POP3, see [RFC1939] (http://www.ietf.org/rfc/rfc1939.txt).
-  # 
+  #
   # == Examples
-  # 
-  # === Retrieving Messages 
-  # 
-  # This example retrieves messages from the server and deletes them 
+  #
+  # === Retrieving Messages
+  #
+  # This example retrieves messages from the server and deletes them
   # on the server.
   #
   # Messages are written to files named 'inbox/1', 'inbox/2', ....
   # Replace 'pop.example.com' with your POP3 server address, and
   # 'YourAccount' and 'YourPassword' with the appropriate account
   # details.
-  # 
+  #
   #     require 'net/pop'
-  # 
+  #
   #     pop = Net::POP3.new('pop.example.com')
   #     pop.start('YourAccount', 'YourPassword')             # (1)
   #     if pop.mails.empty?
@@ -80,19 +78,19 @@ module Net
   #       puts "#{pop.mails.size} mails popped."
   #     end
   #     pop.finish                                           # (3)
-  # 
+  #
   # 1. Call Net::POP3#start and start POP session.
   # 2. Access messages by using POP3#each_mail and/or POP3#mails.
   # 3. Close POP session by calling POP3#finish or use the block form of #start.
-  # 
+  #
   # === Shortened Code
-  # 
+  #
   # The example above is very verbose. You can shorten the code by using
   # some utility methods. First, the block form of Net::POP3.start can
   # be used instead of POP3.new, POP3#start and POP3#finish.
-  # 
+  #
   #     require 'net/pop'
-  # 
+  #
   #     Net::POP3.start('pop.example.com', 110,
   #                     'YourAccount', 'YourPassword') do |pop|
   #       if pop.mails.empty?
@@ -109,11 +107,11 @@ module Net
   #         puts "#{pop.mails.size} mails popped."
   #       end
   #     end
-  # 
+  #
   # POP3#delete_all is an alternative for #each_mail and #delete.
-  # 
+  #
   #     require 'net/pop'
-  # 
+  #
   #     Net::POP3.start('pop.example.com', 110,
   #                     'YourAccount', 'YourPassword') do |pop|
   #       if pop.mails.empty?
@@ -128,11 +126,11 @@ module Net
   #         end
   #       end
   #     end
-  # 
+  #
   # And here is an even shorter example.
-  # 
+  #
   #     require 'net/pop'
-  # 
+  #
   #     i = 0
   #     Net::POP3.delete_all('pop.example.com', 110,
   #                          'YourAccount', 'YourPassword') do |m|
@@ -141,14 +139,14 @@ module Net
   #       end
   #       i += 1
   #     end
-  # 
+  #
   # === Memory Space Issues
-  # 
+  #
   # All the examples above get each message as one big string.
   # This example avoids this.
-  # 
+  #
   #     require 'net/pop'
-  # 
+  #
   #     i = 1
   #     Net::POP3.delete_all('pop.example.com', 110,
   #                          'YourAccount', 'YourPassword') do |m|
@@ -159,49 +157,51 @@ module Net
   #         i += 1
   #       end
   #     end
-  # 
+  #
   # === Using APOP
-  # 
+  #
   # The net/pop library supports APOP authentication.
   # To use APOP, use the Net::APOP class instead of the Net::POP3 class.
   # You can use the utility method, Net::POP3.APOP(). For example:
-  # 
+  #
   #     require 'net/pop'
-  # 
+  #
   #     # Use APOP authentication if $isapop == true
   #     pop = Net::POP3.APOP($is_apop).new('apop.example.com', 110)
   #     pop.start(YourAccount', 'YourPassword') do |pop|
   #       # Rest of the code is the same.
   #     end
-  # 
+  #
   # === Fetch Only Selected Mail Using 'UIDL' POP Command
-  # 
+  #
   # If your POP server provides UIDL functionality,
   # you can grab only selected mails from the POP server.
   # e.g.
-  # 
+  #
   #     def need_pop?( id )
   #       # determine if we need pop this mail...
   #     end
-  # 
+  #
   #     Net::POP3.start('pop.example.com', 110,
   #                     'Your account', 'Your password') do |pop|
   #       pop.mails.select { |m| need_pop?(m.unique_id) }.each do |m|
   #         do_something(m.pop)
   #       end
   #     end
-  # 
+  #
   # The POPMail#unique_id() method returns the unique-id of the message as a
   # String. Normally the unique-id is a hash of the message.
-  # 
+  #
   class POP3 < Protocol
 
-    Revision = %q$Revision: 29903 $.split[1]
+    # svn revision of this library
+    Revision = %q$Revision: 40295 $.split[1]
 
     #
     # Class Parameters
     #
 
+    # returns the port for POP3
     def POP3.default_port
       default_pop3_port()
     end
@@ -210,7 +210,7 @@ module Net
     def POP3.default_pop3_port
       110
     end
-    
+
     # The default port for POP3S connections, port 995
     def POP3.default_pop3s_port
       995
@@ -324,7 +324,7 @@ module Net
 
     @ssl_params = nil
 
-    # call-seq:
+    # :call-seq:
     #    Net::POP.enable_ssl(params = {})
     #
     # Enable SSL for all new instances.
@@ -333,6 +333,7 @@ module Net
       @ssl_params = create_ssl_params(*args)
     end
 
+    # Constructs proper parameters from arguments
     def POP3.create_ssl_params(verify_or_params = {}, certs = nil)
       begin
         params = verify_or_params.to_hash
@@ -355,18 +356,24 @@ module Net
       @ssl_params = nil
     end
 
+    # returns the SSL Parameters
+    #
+    # see also POP3.enable_ssl
     def POP3.ssl_params
       return @ssl_params
     end
 
+    # returns +true+ if POP3.ssl_params is set
     def POP3.use_ssl?
       return !@ssl_params.nil?
     end
 
+    # returns whether verify_mode is enable from POP3.ssl_params
     def POP3.verify
       return @ssl_params[:verify_mode]
     end
 
+    # returns the :ca_file or :ca_path from POP3.ssl_params
     def POP3.certs
       return @ssl_params[:ca_file] || @ssl_params[:ca_path]
     end
@@ -375,7 +382,7 @@ module Net
     # Session management
     #
 
-    # Creates a new POP3 object and open the connection.  Equivalent to 
+    # Creates a new POP3 object and open the connection.  Equivalent to
     #
     #   Net::POP3.new(address, port, isapop).start(account, password)
     #
@@ -396,7 +403,7 @@ module Net
                    isapop = false, &block)   # :yield: pop
       new(address, port, isapop).start(account, password, &block)
     end
-    
+
     # Creates a new POP3 object.
     #
     # +address+ is the hostname or ip address of your POP3 server.
@@ -412,7 +419,7 @@ module Net
       @ssl_params = POP3.ssl_params
       @port = port
       @apop = isapop
-      
+
       @command = nil
       @socket = nil
       @started = false
@@ -434,8 +441,8 @@ module Net
     def use_ssl?
       return !@ssl_params.nil?
     end
-   
-    # call-seq:
+
+    # :call-seq:
     #    Net::POP#enable_ssl(params = {})
     #
     # Enables SSL for this instance.  Must be called before the connection is
@@ -451,7 +458,8 @@ module Net
         @port = port || @port
       end
     end
-    
+
+    # Disable SSL for all new instances.
     def disable_ssl
       @ssl_params = nil
     end
@@ -488,12 +496,12 @@ module Net
 
     # Seconds to wait until a connection is opened.
     # If the POP3 object cannot open a connection within this time,
-    # it raises a TimeoutError exception.
+    # it raises a Net::OpenTimeout exception. The default value is 30 seconds.
     attr_accessor :open_timeout
 
     # Seconds to wait until reading one block (by one read(1) call).
     # If the POP3 object cannot complete a read() within this time,
-    # it raises a TimeoutError exception.
+    # it raises a Net::ReadTimeout exception. The default value is 60 seconds.
     attr_reader :read_timeout
 
     # Set the read timeout.
@@ -530,8 +538,11 @@ module Net
       end
     end
 
-    def do_start(account, password)
-      s = timeout(@open_timeout) { TCPSocket.open(@address, port) }
+    # internal method for Net::POP3.start
+    def do_start(account, password) # :nodoc:
+      s = Timeout.timeout(@open_timeout, Net::OpenTimeout) do
+        TCPSocket.open(@address, port)
+      end
       if use_ssl?
         raise 'openssl library not installed' unless defined?(OpenSSL)
         context = OpenSSL::SSL::SSLContext.new
@@ -565,7 +576,8 @@ module Net
     end
     private :do_start
 
-    def on_connect
+    # Does nothing
+    def on_connect # :nodoc:
     end
     private :on_connect
 
@@ -575,7 +587,12 @@ module Net
       do_finish
     end
 
-    def do_finish
+    # nil's out the:
+    # - mails
+    # - number counter for mails
+    # - number counter for bytes
+    # - quits the current command, if any
+    def do_finish # :nodoc:
       @mails = nil
       @n_mails = nil
       @n_bytes = nil
@@ -588,7 +605,10 @@ module Net
     end
     private :do_finish
 
-    def command
+    # Returns the current command.
+    #
+    # Raises IOError if there is no active socket
+    def command # :nodoc:
       raise IOError, 'POP session not opened yet' \
                                       if not @socket or @socket.closed?
       @command
@@ -635,7 +655,7 @@ module Net
 
     # Yields each message to the passed-in block in turn.
     # Equivalent to:
-    # 
+    #
     #   pop3.mails.each do |popmail|
     #     ....
     #   end
@@ -687,6 +707,7 @@ module Net
       @mails.each {|m| m.uid = uidl[m.number] }
     end
 
+    # deguging output for +msg+
     def logging(msg)
       @debug_output << msg + "\n" if @debug_output
     end
@@ -694,9 +715,9 @@ module Net
   end   # class POP3
 
   # class aliases
-  POP = POP3
-  POPSession  = POP3
-  POP3Session = POP3
+  POP = POP3 # :nodoc:
+  POPSession  = POP3 # :nodoc:
+  POP3Session = POP3 # :nodoc:
 
   #
   # This class is equivalent to POP3, except that it uses APOP authentication.
@@ -742,7 +763,7 @@ module Net
     #
     # This method fetches the message.  If called with a block, the
     # message is yielded to the block one chunk at a time.  If called
-    # without a block, the message is returned as a String.  The optional 
+    # without a block, the message is returned as a String.  The optional
     # +dest+ argument will be prepended to the returned String; this
     # argument is essentially obsolete.
     #
@@ -753,7 +774,7 @@ module Net
     #       n = 1
     #       pop.mails.each do |popmail|
     #         File.open("inbox/#{n}", 'w') do |f|
-    #           f.write popmail.pop              
+    #           f.write popmail.pop
     #         end
     #         popmail.delete
     #         n += 1
@@ -792,7 +813,7 @@ module Net
     alias all pop    #:nodoc: obsolete
     alias mail pop   #:nodoc: obsolete
 
-    # Fetches the message header and +lines+ lines of body. 
+    # Fetches the message header and +lines+ lines of body.
     #
     # The optional +dest+ argument is obsolete.
     #
@@ -804,7 +825,7 @@ module Net
       dest
     end
 
-    # Fetches the message header.     
+    # Fetches the message header.
     #
     # The optional +dest+ argument is obsolete.
     #
@@ -873,6 +894,8 @@ module Net
       @apop_stamp = res.slice(/<[!-~]+@[!-~]+>/)
     end
 
+    attr_reader :socket
+
     def inspect
       "#<#{self.class} socket=#{@socket}>"
     end
@@ -931,7 +954,7 @@ module Net
         @socket.each_message_chunk(&block)
       }
     end
-    
+
     def dele(num)
       check_response(critical { get_response('DELE %d', num) })
     end

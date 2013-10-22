@@ -24,7 +24,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-@interface PromptChat : NSObject
+@interface PromptChat : NSObject <NSApplicationDelegate>
 {
     IBOutlet id text;
     int 	fromline;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -220,12 +220,6 @@ static void __DAMain( void )
     DAFileSystemInitialize( );
 
     DASessionInitialize( );
-
-    /*
-     * Initialize components.
-     */
-
-    DADialogInitialize( );
 
     /*
      * Initialize bundle path.

@@ -1,35 +1,43 @@
-#--
-#   mutex_m.rb - 
-#   	$Release Version: 3.0$
-#   	$Revision: 1.7 $
-#   	$Date: 1998/02/27 04:28:57 $
+#
+#   mutex_m.rb -
+#       $Release Version: 3.0$
+#       $Revision: 1.7 $
 #       Original from mutex.rb
-#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
+#       by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #       modified by matz
 #       patched by akira yamada
-#++
 #
-# == Usage
+# --
+
+
+require 'thread'
+
+# = mutex_m.rb
 #
-# Extend an object and use it like a Mutex object:
+# When 'mutex_m' is required, any object that extends or includes Mutex_m will
+# be treated like a Mutex.
+#
+# Start by requiring the standard library Mutex_m:
 #
 #   require "mutex_m.rb"
+#
+# From here you can extend an object with Mutex instance methods:
+#
 #   obj = Object.new
 #   obj.extend Mutex_m
-#   # ...
 #
-# Or, include Mutex_m in a class to have its instances behave like a Mutex
-# object:
+# Or mixin Mutex_m into your module to your class inherit Mutex instance
+# methods.
 #
 #   class Foo
 #     include Mutex_m
 #     # ...
 #   end
-#   
 #   obj = Foo.new
-
+#   # this obj can be handled like Mutex
+#
 module Mutex_m
-  def Mutex_m.define_aliases(cl)
+  def Mutex_m.define_aliases(cl) # :nodoc:
     cl.module_eval %q{
       alias locked? mu_locked?
       alias lock mu_lock
@@ -37,85 +45,66 @@ module Mutex_m
       alias try_lock mu_try_lock
       alias synchronize mu_synchronize
     }
-  end  
+  end
 
-  def Mutex_m.append_features(cl)
+  def Mutex_m.append_features(cl) # :nodoc:
     super
     define_aliases(cl) unless cl.instance_of?(Module)
   end
-  
-  def Mutex_m.extend_object(obj)
+
+  def Mutex_m.extend_object(obj) # :nodoc:
     super
     obj.mu_extended
   end
 
-  def mu_extended
+  def mu_extended # :nodoc:
     unless (defined? locked? and
-	    defined? lock and
-	    defined? unlock and
-	    defined? try_lock and
-	    defined? synchronize)
-      Mutex_m.define_aliases(class<<self;self;end)
+            defined? lock and
+            defined? unlock and
+            defined? try_lock and
+            defined? synchronize)
+      Mutex_m.define_aliases(singleton_class)
     end
     mu_initialize
   end
-  
-  # locking 
-  def mu_synchronize
-    begin
-      mu_lock
-      yield
-    ensure
-      mu_unlock
-    end
-  end
-  
-  def mu_locked?
-    @mu_locked
-  end
-  
-  def mu_try_lock
-    result = false
-    Thread.critical = true
-    unless @mu_locked
-      @mu_locked = true
-      result = true
-    end
-    Thread.critical = false
-    result
-  end
-  
-  def mu_lock
-    while (Thread.critical = true; @mu_locked)
-      @mu_waiting.push Thread.current
-      Thread.stop
-    end
-    @mu_locked = true
-    Thread.critical = false
-    self
-  end
-  
-  def mu_unlock
-    return unless @mu_locked
-    Thread.critical = true
-    wait = @mu_waiting
-    @mu_waiting = []
-    @mu_locked = false
-    Thread.critical = false
-    for w in wait
-      w.run
-    end
-    self
-  end
-  
-  private
-  
-  def mu_initialize
-    @mu_waiting = []
-    @mu_locked = false;
+
+  # See Mutex#synchronize
+  def mu_synchronize(&block)
+    @_mutex.synchronize(&block)
   end
 
-  def initialize(*args)
+  # See Mutex#locked?
+  def mu_locked?
+    @_mutex.locked?
+  end
+
+  # See Mutex#try_lock
+  def mu_try_lock
+    @_mutex.try_lock
+  end
+
+  # See Mutex#lock
+  def mu_lock
+    @_mutex.lock
+  end
+
+  # See Mutex#unlock
+  def mu_unlock
+    @_mutex.unlock
+  end
+
+  # See Mutex#sleep
+  def sleep(timeout = nil)
+    @_mutex.sleep(timeout)
+  end
+
+  private
+
+  def mu_initialize # :nodoc:
+    @_mutex = Mutex.new
+  end
+
+  def initialize(*args) # :nodoc:
     mu_initialize
     super
   end

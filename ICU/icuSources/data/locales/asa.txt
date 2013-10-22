@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/asa.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/asa.xml
 // *
 // ***************************************************************************
 /**
@@ -23,22 +23,18 @@ asa{
             }
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     calendar{
-        gregorian{
-            AmPmMarkers{
-                "icheheavo",
-                "ichamthi",
-            }
+        generic{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, d MMMM y",
-                "d MMMM y",
-                "d MMM y",
-                "dd/MM/yyyy",
+                "EEEE, d MMMM y G",
+                "d MMMM y G",
+                "d MMM y G",
+                "dd/MM/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -67,8 +63,54 @@ asa{
                 yMMMM{"MMMM y"}
                 yMMMd{"d MMM y"}
                 yMd{"d/M/y"}
-                yQ{"Q y"}
                 yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+        }
+        gregorian{
+            AmPmMarkers{
+                "icheheavo",
+                "ichamthi",
+            }
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "dd/MM/y",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, M/d"}
+                MMM{"LLL"}
+                MMMEd{"E, MMM d"}
+                MMMMEd{"E, MMMM d"}
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"M/d"}
+                d{"d"}
+                hm{"h:mm a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"M/y"}
+                yMEd{"E, M/d/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, MMM d, y"}
+                yMMMM{"MMMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
             }
             dayNames{
                 format{
@@ -111,46 +153,6 @@ asa{
                 wide{
                     "Kabla yakwe Yethu",
                     "Baada yakwe Yethu",
-                }
-            }
-            fields{
-                day{
-                    dn{"Thiku"}
-                    relative{
-                        "-1"{"Ighuo"}
-                        "0"{"Iyoo"}
-                        "1"{"Yavo"}
-                    }
-                }
-                dayperiod{
-                    dn{"Marango athiku"}
-                }
-                era{
-                    dn{"Edhi"}
-                }
-                hour{
-                    dn{"Thaa"}
-                }
-                minute{
-                    dn{"Dakika"}
-                }
-                month{
-                    dn{"Mweji"}
-                }
-                second{
-                    dn{"Thekunde"}
-                }
-                week{
-                    dn{"Ndisha"}
-                }
-                weekday{
-                    dn{"Thiku ya ndisha"}
-                }
-                year{
-                    dn{"Mwaka"}
-                }
-                zone{
-                    dn{"Majira Athaa"}
                 }
             }
             monthNames{
@@ -224,5 +226,45 @@ asa{
         alternateQuotationStart{"‘"}
         quotationEnd{"”"}
         quotationStart{"“"}
+    }
+    fields{
+        day{
+            dn{"Thiku"}
+            relative{
+                "-1"{"Ighuo"}
+                "0"{"Iyoo"}
+                "1"{"Yavo"}
+            }
+        }
+        dayperiod{
+            dn{"Marango athiku"}
+        }
+        era{
+            dn{"Edhi"}
+        }
+        hour{
+            dn{"Thaa"}
+        }
+        minute{
+            dn{"Dakika"}
+        }
+        month{
+            dn{"Mweji"}
+        }
+        second{
+            dn{"Thekunde"}
+        }
+        week{
+            dn{"Ndisha"}
+        }
+        weekday{
+            dn{"Thiku ya ndisha"}
+        }
+        year{
+            dn{"Mwaka"}
+        }
+        zone{
+            dn{"Majira Athaa"}
+        }
     }
 }

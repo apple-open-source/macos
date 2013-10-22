@@ -20,7 +20,7 @@ module REXML
   class Element < Parent
     include Namespace
 
-    UNDEFINED = "UNDEFINED";		# The default name
+    UNDEFINED = "UNDEFINED";            # The default name
 
     # Mechanisms for accessing attributes and child elements of this
     # element.
@@ -30,18 +30,18 @@ module REXML
     attr_accessor :context
 
     # Constructor
-    # arg:: 
-    # 	if not supplied, will be set to the default value.
-    # 	If a String, the name of this object will be set to the argument.
-    # 	If an Element, the object will be shallowly cloned; name, 
-    # 	attributes, and namespaces will be copied.  Children will +not+ be
-    # 	copied.
-    # parent:: 
-    # 	if supplied, must be a Parent, and will be used as
-    # 	the parent of this object.
+    # arg::
+    #   if not supplied, will be set to the default value.
+    #   If a String, the name of this object will be set to the argument.
+    #   If an Element, the object will be shallowly cloned; name,
+    #   attributes, and namespaces will be copied.  Children will +not+ be
+    #   copied.
+    # parent::
+    #   if supplied, must be a Parent, and will be used as
+    #   the parent of this object.
     # context::
-    # 	If supplied, must be a hash containing context items.  Context items
-    # 	include:
+    #   If supplied, must be a hash containing context items.  Context items
+    #   include:
     # * <tt>:respect_whitespace</tt> the value of this is :+all+ or an array of
     #   strings being the names of the elements to respect
     #   whitespace for.  Defaults to :+all+.
@@ -97,7 +97,7 @@ module REXML
       self.class.new self
     end
 
-    # Evaluates to the root node of the document that this element 
+    # Evaluates to the root node of the document that this element
     # belongs to. If this element doesn't belong to a document, but does
     # belong to another Element, the parent's root will be returned, until the
     # earliest ancestor is found.
@@ -137,8 +137,8 @@ module REXML
     # is the case if:
     # 1. Neither :+respect_whitespace+ nor :+compress_whitespace+ has any value
     # 2. The context has :+respect_whitespace+ set to :+all+ or
-    #    an array containing the name of this element, and 
-    #    :+compress_whitespace+ isn't set to :+all+ or an array containing the 
+    #    an array containing the name of this element, and
+    #    :+compress_whitespace+ isn't set to :+all+ or an array containing the
     #    name of this element.
     # The evaluation is tested against +expanded_name+, and so is namespace
     # sensitive.
@@ -162,7 +162,7 @@ module REXML
       @ignore_whitespace_nodes = false
       if @context
         if @context[:ignore_whitespace_nodes]
-          @ignore_whitespace_nodes = 
+          @ignore_whitespace_nodes =
             (@context[:ignore_whitespace_nodes] == :all or
              @context[:ignore_whitespace_nodes].include? expanded_name)
         end
@@ -206,13 +206,13 @@ module REXML
       return namespaces
     end
 
-    # Evalutas to the URI for a prefix, or the empty string if no such 
+    # Evalutas to the URI for a prefix, or the empty string if no such
     # namespace is declared for this element. Evaluates recursively for
     # ancestors.  Returns the default namespace, if there is one.
-    # prefix:: 
+    # prefix::
     #   the prefix to search for.  If not supplied, returns the default
     #   namespace if one exists
-    # Returns:: 
+    # Returns::
     #   the namespace URI as a String, or nil if no such namespace
     #   exists.  If the namespace is undefined, returns an empty string
     #  doc = Document.new("<a xmlns='1' xmlns:y='2'><b/><c xmlns:z='3'/></a>")
@@ -235,10 +235,10 @@ module REXML
     end
 
     # Adds a namespace to this element.
-    # prefix:: 
+    # prefix::
     #   the prefix string, or the namespace URI if +uri+ is not
     #   supplied
-    # uri::    
+    # uri::
     #   the namespace URI.  May be nil, in which +prefix+ is used as
     #   the URI
     # Evaluates to: this Element
@@ -280,12 +280,12 @@ module REXML
 
     # Adds a child to this element, optionally setting attributes in
     # the element.
-    # element:: 
+    # element::
     #   optional.  If Element, the element is added.
     #   Otherwise, a new Element is constructed with the argument (see
     #   Element.initialize).
-    # attrs:: 
-    #   If supplied, must be a Hash containing String name,value 
+    # attrs::
+    #   If supplied, must be a Hash containing String name,value
     #   pairs, which will be used to set the attributes of the new Element.
     # Returns:: the Element that was added
     #  el = doc.add_element 'my-tag'
@@ -296,15 +296,15 @@ module REXML
       raise "First argument must be either an element name, or an Element object" if element.nil?
       el = @elements.add(element)
       attrs.each do |key, value|
-        el.attributes[key]=Attribute.new(key,value,self)
-      end	if attrs.kind_of? Hash
+        el.attributes[key]=value
+      end       if attrs.kind_of? Hash
       el
     end
 
     # Deletes a child element.
-    # element:: 
-    #   Must be an +Element+, +String+, or +Integer+.  If Element, 
-    #   the element is removed.  If String, the element is found (via XPath) 
+    # element::
+    #   Must be an +Element+, +String+, or +Integer+.  If Element,
+    #   the element is removed.  If String, the element is found (via XPath)
     #   and removed.  <em>This means that any parent can remove any
     #   descendant.<em>  If Integer, the Element indexed by that number will be
     #   removed.
@@ -327,14 +327,14 @@ module REXML
 
     # Iterates through the child elements, yielding for each Element that
     # has a particular attribute set.
-    # key:: 
+    # key::
     #   the name of the attribute to search for
-    # value:: 
+    # value::
     #   the value of the attribute
-    # max:: 
-    #   (optional) causes this method to return after yielding 
+    # max::
+    #   (optional) causes this method to return after yielding
     #   for this number of matching children
-    # name:: 
+    # name::
     #   (optional) if supplied, this is an XPath that filters
     #   the children to check.
     #
@@ -348,7 +348,7 @@ module REXML
     #  # Yields d
     #  doc.root.each_element_with_attribute( 'id', '1', 0, 'd' ) {|e| p e}
     def each_element_with_attribute( key, value=nil, max=0, name=nil, &block ) # :yields: Element
-      each_with_something( proc {|child| 
+      each_with_something( proc {|child|
         if value.nil?
           child.attributes[key] != nil
         else
@@ -359,13 +359,13 @@ module REXML
 
     # Iterates through the children, yielding for each Element that
     # has a particular text set.
-    # text:: 
+    # text::
     #   the text to search for.  If nil, or not supplied, will iterate
     #   over all +Element+ children that contain at least one +Text+ node.
-    # max:: 
+    # max::
     #   (optional) causes this method to return after yielding
     #   for this number of matching children
-    # name:: 
+    # name::
     #   (optional) if supplied, this is an XPath that filters
     #   the children to check.
     #
@@ -379,7 +379,7 @@ module REXML
     #  # Yields d
     #  doc.each_element_with_text(nil, 0, 'd'){|e|p e}
     def each_element_with_text( text=nil, max=0, name=nil, &block ) # :yields: Element
-      each_with_something( proc {|child| 
+      each_with_something( proc {|child|
         if text.nil?
           child.has_text?
         else
@@ -408,7 +408,7 @@ module REXML
     #  doc.root.elements['c'].next_element          #-> nil
     def next_element
       element = next_sibling
-      element = element.next_sibling until element.nil? or element.kind_of? Element 
+      element = element.next_sibling until element.nil? or element.kind_of? Element
       return element
     end
 
@@ -477,7 +477,7 @@ module REXML
     # this method with a nil argument.  In this case, the next Text
     # child becomes the first Text child.  In no case is the order of
     # any siblings disturbed.
-    # text:: 
+    # text::
     #   If a String, a new Text child is created and added to
     #   this Element as the first Text child.  If Text, the text is set
     #   as the first Child element.  If nil, then any existing first Text
@@ -520,7 +520,7 @@ module REXML
     # Note that at the end of this example, the branch has <b>3</b> nodes; the 'e'
     # element and <b>2</b> Text node children.
     def add_text( text )
-      if text.kind_of? String 
+      if text.kind_of? String
         if @children[-1].kind_of? Text
           @children[-1] << text
           return
@@ -552,9 +552,25 @@ module REXML
 
     def attribute( name, namespace=nil )
       prefix = nil
-      prefix = namespaces.index(namespace) if namespace
+      if namespaces.respond_to? :key
+        prefix = namespaces.key(namespace) if namespace
+      else
+        prefix = namespaces.index(namespace) if namespace
+      end
       prefix = nil if prefix == 'xmlns'
-      attributes.get_attribute( "#{prefix ? prefix + ':' : ''}#{name}" )
+
+      ret_val =
+        attributes.get_attribute( "#{prefix ? prefix + ':' : ''}#{name}" )
+
+      return ret_val unless ret_val.nil?
+      return nil if prefix.nil?
+
+      # now check that prefix'es namespace is not the same as the
+      # default namespace
+      return nil unless ( namespaces[ prefix ] == namespaces[ 'xmlns' ] )
+
+      attributes.get_attribute( name )
+
     end
 
     # Evaluates to +true+ if this element has any attributes set, false
@@ -570,7 +586,7 @@ module REXML
     #   the attribute is added to the list of Element attributes.  If String,
     #   the argument is used as the name of the new attribute, and the value
     #   parameter must be supplied.
-    # value:: 
+    # value::
     #   Required if +key+ is a String, and ignored if the first argument is
     #   an Attribute.  This is a String, and is used as the value
     #   of the new Attribute.  This should be the unnormalized value of the
@@ -605,7 +621,7 @@ module REXML
     #   either an Attribute or a String.  In either case, the
     #   attribute is found by matching the attribute name to the argument,
     #   and then removed.  If no attribute is found, no action is taken.
-    # Returns:: 
+    # Returns::
     #   the attribute removed, or nil if this Element did not contain
     #   a matching attribute
     #  e = Element.new('E')
@@ -622,7 +638,7 @@ module REXML
     # Other Utilities                               #
     #################################################
 
-    # Get an array of all CData children.  
+    # Get an array of all CData children.
     # IMMUTABLE
     def cdatas
       find_all { |child| child.kind_of? CData }.freeze
@@ -651,7 +667,7 @@ module REXML
     #
     # Writes out this element, and recursively, all children.
     # output::
-    #	  output an object which supports '<< string'; this is where the
+    #     output an object which supports '<< string'; this is where the
     #   document will be written.
     # indent::
     #   An integer.  If -1, no indenting will be used; otherwise, the
@@ -665,16 +681,17 @@ module REXML
     #   Internet Explorer is the worst piece of crap to have ever been
     #   written, with the possible exception of Windows itself.  Since IE is
     #   unable to parse proper XML, we have to provide a hack to generate XML
-    #   that IE's limited abilities can handle.  This hack inserts a space 
+    #   that IE's limited abilities can handle.  This hack inserts a space
     #   before the /> on empty tags.  Defaults to false
     #
     #  out = ''
     #  doc.write( out )     #-> doc is written to the string 'out'
     #  doc.write( $stdout ) #-> doc written to the console
-    def write(writer=$stdout, indent=-1, transitive=false, ie_hack=false)
+    def write(output=$stdout, indent=-1, transitive=false, ie_hack=false)
       Kernel.warn("#{self.class.name}.write is deprecated.  See REXML::Formatters")
       formatter = if indent > -1
           if transitive
+            require "rexml/formatters/transitive"
             REXML::Formatters::Transitive.new( indent, ie_hack )
           else
             REXML::Formatters::Pretty.new( indent, ie_hack )
@@ -690,8 +707,8 @@ module REXML
     def __to_xpath_helper node
       rv = node.expanded_name.clone
       if node.parent
-        results = node.parent.find_all {|n| 
-          n.kind_of?(REXML::Element) and n.expanded_name == node.expanded_name 
+        results = node.parent.find_all {|n|
+          n.kind_of?(REXML::Element) and n.expanded_name == node.expanded_name
         }
         if results.length > 1
           idx = results.index( node )
@@ -704,7 +721,6 @@ module REXML
     # A private helper method
     def each_with_something( test, max=0, name=nil )
       num = 0
-      child=nil
       @elements.each( name ){ |child|
         yield child if test.call(child) and num += 1
         return if max>0 and num == max
@@ -718,7 +734,7 @@ module REXML
 
   # A class which provides filtering of children for Elements, and
   # XPath search support.  You are expected to only encounter this class as
-  # the <tt>element.elements</tt> object.  Therefore, you are 
+  # the <tt>element.elements</tt> object.  Therefore, you are
   # _not_ expected to instantiate this yourself.
   class Elements
     include Enumerable
@@ -730,7 +746,7 @@ module REXML
 
     # Fetches a child element.  Filters only Element children, regardless of
     # the XPath match.
-    # index:: 
+    # index::
     #   the search parameter.  This is either an Integer, which
     #   will be used to find the index'th child Element, or an XPath,
     #   which will be used to search for the Element.  <em>Because
@@ -740,7 +756,7 @@ module REXML
     #   child element is at index 1, not 0, and the +n+th element is at index
     #   +n+, not <tt>n-1</tt>.  This is because XPath indexes element children
     #   starting from 1, not 0, and the indexes should be the same.
-    # name:: 
+    # name::
     #   optional, and only used in the first argument is an
     #   Integer.  In that case, the index'th child Element that has the
     #   supplied name will be returned.  Note again that the indexes start at 1.
@@ -754,16 +770,15 @@ module REXML
         raise "index (#{index}) must be >= 1" if index < 1
         name = literalize(name) if name
         num = 0
-        child = nil
         @element.find { |child|
           child.kind_of? Element and
-          (name.nil? ? true : child.has_name?( name )) and 
+          (name.nil? ? true : child.has_name?( name )) and
           (num += 1) == index
         }
       else
         return XPath::first( @element, index )
-        #{ |element| 
-        #	return element if element.kind_of? Element
+        #{ |element|
+        #       return element if element.kind_of? Element
         #}
         #return nil
       end
@@ -772,7 +787,7 @@ module REXML
     # Sets an element, replacing any previous matching element.  If no
     # existing element is found ,the element is added.
     # index:: Used to find a matching element to replace.  See []().
-    # element:: 
+    # element::
     #   The element to replace the existing element with
     #   the previous element
     # Returns:: nil if no previous element was found.
@@ -797,12 +812,12 @@ module REXML
       @element.find{ |child| child.kind_of? Element}.nil?
     end
 
-    # Returns the index of the supplied child (starting at 1), or -1 if 
+    # Returns the index of the supplied child (starting at 1), or -1 if
     # the element is not a child
     # element:: an +Element+ child
     def index element
       rv = 0
-      found = @element.find do |child| 
+      found = @element.find do |child|
         child.kind_of? Element and
         (rv += 1) and
         child == element
@@ -812,7 +827,7 @@ module REXML
     end
 
     # Deletes a child Element
-    # element:: 
+    # element::
     #   Either an Element, which is removed directly; an
     #   xpath, where the first matching child is removed; or an Integer,
     #   where the n'th Element is removed.
@@ -839,7 +854,7 @@ module REXML
     #  deleted = doc.elements.delete_all 'a/c' #-> [<c/>, <c/>, <c/>, <c/>]
     def delete_all( xpath )
       rv = []
-      XPath::each( @element, xpath) {|element| 
+      XPath::each( @element, xpath) {|element|
         rv << element if element.kind_of? Element
       }
       rv.each do |element|
@@ -850,7 +865,7 @@ module REXML
     end
 
     # Adds an element
-    # element:: 
+    # element::
     #   if supplied, is either an Element, String, or
     #   Source (see Element.initialize).  If not supplied or nil, a
     #   new, default Element will be constructed
@@ -859,7 +874,6 @@ module REXML
     #  a.elements.add(Element.new('b'))  #-> <a><b/></a>
     #  a.elements.add('c')               #-> <a><b/><c/></a>
     def add element=nil
-      rv = nil
       if element.nil?
         Element.new("", self, @element.context)
       elsif not element.kind_of?(Element)
@@ -875,31 +889,31 @@ module REXML
 
     # Iterates through all of the child Elements, optionally filtering
     # them by a given XPath
-    # xpath:: 
-    #   optional.  If supplied, this is a String XPath, and is used to 
+    # xpath::
+    #   optional.  If supplied, this is a String XPath, and is used to
     #   filter the children, so that only matching children are yielded.  Note
     #   that XPaths are automatically filtered for Elements, so that
     #   non-Element children will not be yielded
     #  doc = Document.new '<a><b/><c/><d/>sean<b/><c/><d/></a>'
-    #  doc.root.each {|e|p e}       #-> Yields b, c, d, b, c, d elements
-    #  doc.root.each('b') {|e|p e}  #-> Yields b, b elements
-    #  doc.root.each('child::node()')  {|e|p e}
+    #  doc.root.elements.each {|e|p e}       #-> Yields b, c, d, b, c, d elements
+    #  doc.root.elements.each('b') {|e|p e}  #-> Yields b, b elements
+    #  doc.root.elements.each('child::node()')  {|e|p e}
     #  #-> Yields <b/>, <c/>, <d/>, <b/>, <c/>, <d/>
     #  XPath.each(doc.root, 'child::node()', &block)
     #  #-> Yields <b/>, <c/>, <d/>, sean, <b/>, <c/>, <d/>
-    def each( xpath=nil, &block)
+    def each( xpath=nil )
       XPath::each( @element, xpath ) {|e| yield e if e.kind_of? Element }
     end
 
-    def collect( xpath=nil, &block )
+    def collect( xpath=nil )
       collection = []
-      XPath::each( @element, xpath ) {|e| 
-        collection << yield(e)  if e.kind_of?(Element) 
+      XPath::each( @element, xpath ) {|e|
+        collection << yield(e)  if e.kind_of?(Element)
       }
       collection
     end
 
-    def inject( xpath=nil, initial=nil, &block )
+    def inject( xpath=nil, initial=nil )
       first = true
       XPath::each( @element, xpath ) {|e|
         if (e.kind_of? Element)
@@ -929,7 +943,7 @@ module REXML
     # supplied XPath matches non-Element children.
     #  doc = Document.new '<a>sean<b/>elliott<c/></a>'
     #  doc.root.elements.to_a                  #-> [ <b/>, <c/> ]
-    #  doc.root.elements.to_a("child::node()") #-> [ <b/>, <c/> ] 
+    #  doc.root.elements.to_a("child::node()") #-> [ <b/>, <c/> ]
     #  XPath.match(doc.root, "child::node()")  #-> [ sean, <b/>, elliott, <c/> ]
     def to_a( xpath=nil )
       rv = XPath.match( @element, xpath )
@@ -949,7 +963,7 @@ module REXML
   # ATTRIBUTES                                                           #
   ########################################################################
 
-  # A class that defines the set of Attributes of an Element and provides 
+  # A class that defines the set of Attributes of an Element and provides
   # operations for accessing elements in that set.
   class Attributes < Hash
     # Constructor
@@ -961,11 +975,11 @@ module REXML
     # Fetches an attribute value.  If you want to get the Attribute itself,
     # use get_attribute()
     # name:: an XPath attribute name.  Namespaces are relevant here.
-    # Returns:: 
+    # Returns::
     #   the String value of the matching attribute, or +nil+ if no
     #   matching attribute was found.  This is the unnormalized value
     #   (with entities expanded).
-    # 
+    #
     #  doc = Document.new "<a foo:att='1' bar:att='2' att='&lt;'/>"
     #  doc.root.attributes['att']         #-> '<'
     #  doc.root.attributes['bar:att']     #-> '2'
@@ -991,7 +1005,7 @@ module REXML
 
     # Iterates over the attributes of an Element.  Yields actual Attribute
     # nodes, not String values.
-    # 
+    #
     #  doc = Document.new '<a x="1" y="2"/>'
     #  doc.root.attributes.each_attribute {|attr|
     #    p attr.expanded_name+" => "+attr.value
@@ -1013,12 +1027,12 @@ module REXML
     #  doc.root.attributes.each {|name, value| p name+" => "+value }
     def each
       each_attribute do |attr|
-        yield attr.expanded_name, attr.value
+        yield [attr.expanded_name, attr.value]
       end
     end
 
     # Fetches an attribute
-    # name:: 
+    # name::
     #   the name by which to search for the attribute.  Can be a
     #   <tt>prefix:name</tt> namespace name.
     # Returns:: The first matching attribute, or nil if there was none.  This
@@ -1062,22 +1076,22 @@ module REXML
     # Sets an attribute, overwriting any existing attribute value by the
     # same name.  Namespace is significant.
     # name:: the name of the attribute
-    # value:: 
+    # value::
     #   (optional) If supplied, the value of the attribute.  If
     #   nil, any existing matching attribute is deleted.
-    # Returns:: 
+    # Returns::
     #   Owning element
     #  doc = Document.new "<a x:foo='1' foo='3'/>"
     #  doc.root.attributes['y:foo'] = '2'
     #  doc.root.attributes['foo'] = '4'
     #  doc.root.attributes['x:foo'] = nil
     def []=( name, value )
-      if value.nil?		# Delete the named attribute
+      if value.nil?             # Delete the named attribute
         attr = get_attribute(name)
         delete attr
         return
       end
-      element_document = @element.document
+
       unless value.kind_of? Attribute
         if @element.document and @element.document.doctype
           value = Text::normalize( value, @element.document.doctype )
@@ -1094,23 +1108,23 @@ module REXML
         old_attr[value.prefix] = value
       elsif old_attr.prefix != value.prefix
         # Check for conflicting namespaces
-        raise ParseException.new( 
+        raise ParseException.new(
           "Namespace conflict in adding attribute \"#{value.name}\": "+
           "Prefix \"#{old_attr.prefix}\" = "+
           "\"#{@element.namespace(old_attr.prefix)}\" and prefix "+
-          "\"#{value.prefix}\" = \"#{@element.namespace(value.prefix)}\"") if 
+          "\"#{value.prefix}\" = \"#{@element.namespace(value.prefix)}\"") if
           value.prefix != "xmlns" and old_attr.prefix != "xmlns" and
-          @element.namespace( old_attr.prefix ) == 
+          @element.namespace( old_attr.prefix ) ==
             @element.namespace( value.prefix )
-          store value.name, { old_attr.prefix	=> old_attr,
-            value.prefix		=> value }
+          store value.name, { old_attr.prefix   => old_attr,
+            value.prefix                => value }
       else
         store value.name, value
       end
       return @element
     end
 
-    # Returns an array of Strings containing all of the prefixes declared 
+    # Returns an array of Strings containing all of the prefixes declared
     # by this set of # attributes.  The array does not include the default
     # namespace declaration, if one exists.
     #  doc = Document.new("<a xmlns='foo' xmlns:x='bar' xmlns:y='twee' "+
@@ -1149,7 +1163,7 @@ module REXML
     end
 
     # Removes an attribute
-    # attribute:: 
+    # attribute::
     #   either a String, which is the name of the attribute to remove --
     #   namespaces are significant here -- or the attribute to remove.
     # Returns:: the owning element
@@ -1182,7 +1196,7 @@ module REXML
         return @element
       else # the supplied attribute is a top-level one
         attr = old
-        res = super(name)
+        super(name)
       end
       @element
     end
@@ -1197,12 +1211,12 @@ module REXML
     alias :<< :add
 
     # Deletes all attributes matching a name.  Namespaces are significant.
-    # name:: 
+    # name::
     #   A String; all attributes that match this path will be removed
     # Returns:: an Array of the Attributes that were removed
     def delete_all( name )
       rv = []
-      each_attribute { |attribute| 
+      each_attribute { |attribute|
         rv << attribute if attribute.expanded_name == name
       }
       rv.each{ |attr| attr.remove }
@@ -1212,16 +1226,20 @@ module REXML
     # The +get_attribute_ns+ method retrieves a method by its namespace
     # and name. Thus it is possible to reliably identify an attribute
     # even if an XML processor has changed the prefix.
-    # 
+    #
     # Method contributed by Henrik Martensson
     def get_attribute_ns(namespace, name)
+      result = nil
       each_attribute() { |attribute|
         if name == attribute.name &&
-          namespace == attribute.namespace()
-          return attribute
+          namespace == attribute.namespace() &&
+          ( !namespace.empty? || !attribute.fully_expanded_name.index(':') )
+          # foo will match xmlns:foo, but only if foo isn't also an attribute
+          result = attribute if !result or !namespace.empty? or
+                                !attribute.fully_expanded_name.index(':')
         end
       }
-      nil
+      result
     end
   end
 end

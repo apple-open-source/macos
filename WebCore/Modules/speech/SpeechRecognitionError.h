@@ -28,34 +28,49 @@
 
 #if ENABLE(SCRIPTED_SPEECH)
 
-#include "PlatformString.h"
+#include "Event.h"
 #include <wtf/RefCounted.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class SpeechRecognitionError : public RefCounted<SpeechRecognitionError> {
+struct SpeechRecognitionErrorInit : public EventInit {
+    SpeechRecognitionErrorInit();
+
+    String error;
+    String message;
+};
+
+class SpeechRecognitionError : public Event {
 public:
-    enum Code {
-        OTHER = 0,
-        NO_SPEECH = 1,
-        ABORTED = 2,
-        AUDIO_CAPTURE = 3,
-        NETWORK = 4,
-        NOT_ALLOWED = 5,
-        SERVICE_NOT_ALLOWED = 6,
-        BAD_GRAMMAR = 7,
-        LANGUAGE_NOT_SUPPORTED = 8
+    enum ErrorCode {
+        // FIXME: This is an unspecified error and Chromium should stop using it.
+        ErrorCodeOther = 0,
+
+        ErrorCodeNoSpeech = 1,
+        ErrorCodeAborted = 2,
+        ErrorCodeAudioCapture = 3,
+        ErrorCodeNetwork = 4,
+        ErrorCodeNotAllowed = 5,
+        ErrorCodeServiceNotAllowed = 6,
+        ErrorCodeBadGrammar = 7,
+        ErrorCodeLanguageNotSupported = 8
     };
 
-    static PassRefPtr<SpeechRecognitionError> create(Code, const String&);
+    static PassRefPtr<SpeechRecognitionError> create(ErrorCode, const String&);
+    static PassRefPtr<SpeechRecognitionError> create();
+    static PassRefPtr<SpeechRecognitionError> create(const AtomicString&, const SpeechRecognitionErrorInit&);
 
-    Code code() { return m_code; }
+    const String& error() { return m_error; }
     const String& message() { return m_message; }
 
-private:
-    SpeechRecognitionError(Code, const String&);
+    virtual const AtomicString& interfaceName() const OVERRIDE;
 
-    Code m_code;
+private:
+    SpeechRecognitionError(const String&, const String&);
+    SpeechRecognitionError(const AtomicString&, const SpeechRecognitionErrorInit&);
+
+    String m_error;
     String m_message;
 };
 

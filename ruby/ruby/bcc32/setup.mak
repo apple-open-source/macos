@@ -15,7 +15,7 @@ prefix = /usr
 OS = bccwin32
 RT = $(OS)
 BANG = !
-APPEND = echo>>$(MAKEFILE)
+APPEND = echo.>>$(MAKEFILE)
 !ifdef MAKEFILE
 MAKE = $(MAKE) -f $(MAKEFILE)
 !else
@@ -41,6 +41,16 @@ srcdir = $(srcdir:\=/)
 $(BANG)endif
 $(BANG)ifndef prefix
 prefix = $(prefix:\=/)
+$(BANG)endif
+$(BANG)if !defined(BASERUBY)
+!if defined(BASERUBY)
+BASERUBY = $(BASERUBY)
+!endif
+|
+!if !defined(BASERUBY)
+	@for %I in (ruby.exe) do @echo BASERUBY = "%~$$PATH:I" >> $(MAKEFILE)
+!endif
+	@type >> $(MAKEFILE) &&|
 $(BANG)endif
 |
 !if exist(confargs.mk)
@@ -84,10 +94,11 @@ $(BANG)endif
 
 -version-: nul
 	@cpp32 -I$(srcdir) -P- -o$(MAKEFILE) > nul &&|
+\#define RUBY_REVISION 0
 \#include "version.h"
-MAJOR = RUBY_VERSION_MAJOR
-MINOR = RUBY_VERSION_MINOR
-TEENY = RUBY_VERSION_TEENY
+MAJOR = RUBY_API_VERSION_MAJOR
+MINOR = RUBY_API_VERSION_MINOR
+TEENY = RUBY_API_VERSION_TEENY
 
 BORLANDC = __BORLANDC__
 |
@@ -146,6 +157,11 @@ $(BANG)endif
 	@$(APPEND) !ifndef PROCESSOR_LEVEL
 	@$(APPEND) PROCESSOR_LEVEL = 6
 	@$(APPEND) !endif
+
+-epilogue-: -encs-
+
+-encs-: nul
+	@$(MAKE) -f $(srcdir)/win32/enc-setup.mak srcdir="$(srcdir)" MAKEFILE=$(MAKEFILE)
 
 -epilogue-: nul
 	@type >> $(MAKEFILE) &&|

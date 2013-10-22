@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,6 +65,7 @@
 #include <CoreFoundation/CFNumber.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <string.h>
+#include "EAPLog.h"
 #include "EAPTLSUtil.h"
 #include "EAPCertificateUtil.h"
 #include "EAPSecurity.h"
@@ -179,10 +179,9 @@ IdentityCreateFromDictionary(CFDictionaryRef dict,
 	}
 	status = SecIdentityCopyCertificate(identity, &this_cert);
 	if (this_cert == NULL) {
-	    fprintf(stderr, 
-		    "IdentityCreateFromDictionary:"
-		    "SecIdentityCopyCertificate failed, %s (%d)\n",
-		    EAPSecurityErrorString(status), (int)status);
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SecIdentityCopyCertificate failed, %s (%d)",
+		      EAPSecurityErrorString(status), (int)status);
 	    break;
 	}
 	if (CFEqual(cert_to_match, this_cert)) {
@@ -292,14 +291,14 @@ EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
     *ret_chain = NULL;
     status = EAPSecPolicyCopy(&policy);
     if (status != noErr) {
-	fprintf(stderr, "EAPSecPolicyCopy failed: %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, "EAPSecPolicyCopy failed: %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     status = SecIdentityCopyCertificate(identity, &cert);
     if (status != noErr) {
-	fprintf(stderr, "SecIdentityCopyCertificate failed: %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, "SecIdentityCopyCertificate failed: %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     certs = CFArrayCreate(NULL, (const void **)&cert, 
@@ -308,14 +307,14 @@ EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
     status = SecTrustCreateWithCertificates(certs, policy, &trust);
     my_CFRelease(&certs);
     if (status != noErr) {
-	fprintf(stderr, "SecTrustCreateWithCertificates failed: %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, "SecTrustCreateWithCertificates failed: %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     status = SecTrustEvaluate(trust, &trust_result);
     if (status != noErr) {
-	fprintf(stderr, "SecTrustEvaluate returned %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, "SecTrustEvaluate returned %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
     }
     {
 	CFMutableArrayRef	array;
@@ -323,7 +322,7 @@ EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
 	int			i;
 
 	if (count == 0) {
-	    fprintf(stderr, "SecTrustGetCertificateCount returned 0)\n");
+	    EAPLOG_FL(LOG_NOTICE, "SecTrustGetCertificateCount returned 0");
 	    goto done;
 	}
 	array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
@@ -365,9 +364,9 @@ EAPSecIdentityCreateTrustChain(SecIdentityRef identity, CFArrayRef * ret_array)
     status = EAPSecIdentityCreateCertificateTrustChain(identity,
 						       &trust_chain);
     if (status != noErr) {
-	fprintf(stderr, 
-		"EAPSecIdentityCreateCertificateTrustChain failed: %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "EAPSecIdentityCreateCertificateTrustChain failed: %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
 
@@ -443,8 +442,8 @@ EAPSecIdentityHandleCreate(SecIdentityRef identity)
     status = SecItemCopyMatching(query, &results);
     if (status != noErr) {
 	results = NULL;
-	fprintf(stderr, "EAPSecIdentityHandleCreate() failed, %d\n",
-		(int)status);
+	EAPLOG_FL(LOG_NOTICE, "EAPSecIdentityHandleCreate() failed, %d",
+		  (int)status);
     }
     CFRelease(query);
     return (results);
@@ -459,18 +458,18 @@ EAPSecIdentityHandleCreate(SecIdentityRef identity)
 
     status = SecIdentityCopyCertificate(identity, &cert);
     if (status != noErr) {
-	fprintf(stderr, 
-		"SecIdentityCopyCertificate failed, %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SecIdentityCopyCertificate failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	return (NULL);
     }
     status = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)cert,
 						      &data);
     CFRelease(cert);
     if (status != noErr) {
-	fprintf(stderr, 
-		"SecIdentityCopyCertificate failed, %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SecIdentityCopyCertificate failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	return (NULL);
     }
     return (data);

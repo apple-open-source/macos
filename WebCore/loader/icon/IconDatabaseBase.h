@@ -26,13 +26,14 @@
 #ifndef IconDatabaseBase_h
 #define IconDatabaseBase_h
 
+#include "ImageSource.h"
 #include "SharedBuffer.h"
 
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
 
-namespace WebCore { 
+namespace WebCore {
 
 class DocumentLoader;
 class IconDatabaseClient;
@@ -178,7 +179,8 @@ public:
     virtual bool synchronousIconDataKnownForIconURL(const String&) { return false; }
     virtual IconLoadDecision synchronousLoadDecisionForIconURL(const String&, DocumentLoader*) { return IconLoadNo; }
     virtual Image* synchronousIconForPageURL(const String&, const IntSize&) { return 0; }
-    
+    virtual PassNativeImagePtr synchronousNativeIconForPageURL(const String&, const IntSize&) { return 0; }
+
     // Asynchronous calls we should use to replace the above when supported.
     virtual bool supportsAsynchronousMode() { return false; }
     virtual void loadDecisionForIconURL(const String&, PassRefPtr<IconLoadDecisionCallback>) { }
@@ -196,8 +198,6 @@ public:
     virtual size_t iconRecordCount() { return 0; }
     virtual size_t iconRecordCountWithData() { return 0; }
 
-    virtual void importIconURLForPageURL(const String&, const String&) { }
-    virtual void importIconDataForIconURL(PassRefPtr<SharedBuffer>, const String&) { }
     virtual bool shouldStopThreadActivity() const { return true; }
 
     virtual bool open(const String& directory, const String& filename);

@@ -97,7 +97,7 @@ PasswordImpl::getData(UInt32 *length, const void **data)
             mItem->getData(outData);
             if (length && data)
             {
-                *length=outData.length();
+                *length=(uint32)outData.length();
                 outData.Length=0;
                 *data=outData.data();
                 outData.Data=NULL;

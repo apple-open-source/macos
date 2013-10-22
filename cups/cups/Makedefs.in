@@ -1,9 +1,9 @@
 #
-# "$Id: Makedefs.in 7900 2008-09-03 13:47:57Z mike $"
+# "$Id: Makedefs.in 11158 2013-07-17 18:31:56Z msweet $"
 #
 #   Common makefile definitions for CUPS.
 #
-#   Copyright 2007-2012 by Apple Inc.
+#   Copyright 2007-2013 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -138,6 +138,8 @@ DNSSD_BACKEND	=	@DNSSD_BACKEND@
 DSOFLAGS	=	-L../cups @DSOFLAGS@
 DSOLIBS		=	@DSOLIBS@ $(COMMONLIBS)
 DNSSDLIBS	=	@DNSSDLIBS@
+IPPFIND_BIN	=	@IPPFIND_BIN@
+IPPFIND_MAN	=	@IPPFIND_MAN@
 LAUNCHDLIBS	=	@LAUNCHDLIBS@
 LDFLAGS		=	-L../cgi-bin -L../cups -L../filter -L../ppdc \
 			-L../scheduler @LDARCHFLAGS@ \
@@ -216,6 +218,7 @@ SERVERBIN	= 	$(BUILDROOT)@CUPS_SERVERBIN@
 SERVERROOT	= 	$(BUILDROOT)@CUPS_SERVERROOT@
 SMFMANIFESTDIR	= 	@SMFMANIFESTDIR@
 STATEDIR	=	$(BUILDROOT)@CUPS_STATEDIR@
+USBQUIRKS	=	@USBQUIRKS@
 XINETD		=	@XINETD@
 
 MAN1EXT		=	@MAN1EXT@
@@ -258,5 +261,5 @@ DBUSDIR		=	@DBUSDIR@
 
 
 #
-# End of "$Id: Makedefs.in 7900 2008-09-03 13:47:57Z mike $"
+# End of "$Id: Makedefs.in 11158 2013-07-17 18:31:56Z msweet $"
 #

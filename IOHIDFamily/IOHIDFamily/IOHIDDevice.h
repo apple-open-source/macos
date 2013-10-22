@@ -1,16 +1,16 @@
 /*
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -70,7 +70,7 @@ typedef struct IOHIDCompletion {
 
 /*!
     @enum IOHIDReportOption
-    @abstract Option bits for IOHIDDevice::handleReport, 
+    @abstract Option bits for IOHIDDevice::handleReport,
     IOHIDDevice::getReport, and IOHIDDevice::setReport
     @constant kIOHIDReportOptionNotInterrupt Tells method that the report
     passed was not interrupt driven.
@@ -105,7 +105,7 @@ class IOHIDDevice : public IOService
 
     friend class IOHIDLibUserClient;
     friend class IOHIDDeviceShim;
-    
+
 private:
     OSArray *                   _elementArray;
     UInt32                      _dataElementIndex;
@@ -118,7 +118,7 @@ private:
     UInt32                      _maxOutputReportSize;
     UInt32                      _maxFeatureReportSize;
 
-    struct ExpansionData { 
+    struct ExpansionData {
         OSSet *                 clientSet;
         IOService *             seizedClient;
         AbsoluteTime            eventDeadline;
@@ -133,7 +133,7 @@ private:
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
     ExpansionData * _reserved;
-    
+
     // HID report descriptor parsing support.
 
     bool linkToParent( const OSArray * array,
@@ -155,10 +155,8 @@ private:
                                UInt32              hidReportType,
                                IOHIDElementType    elementType,
                                UInt32              maxCount );
-                               
-    bool createReportHandlerElements( HIDPreparsedDataRef parseData);
 
-    OSArray * newDeviceUsagePairs();
+    bool createReportHandlerElements( HIDPreparsedDataRef parseData);
 
     bool getReportCountAndSizes( HIDPreparsedDataRef parseData );
 
@@ -173,16 +171,16 @@ private:
 
     IOBufferMemoryDescriptor * createMemoryForElementValues();
 
-    
-    static bool _publishDisplayNotificationHandler(void * target, 
-                                                   void * ref, 
-                                                   IOService * newService, 
-                                                   IONotifier * notifier );    
-    static bool _publishDeviceNotificationHandler(void * target, 
-                                                  void * refCon, 
-                                                  IOService * newService, 
+
+    static bool _publishDisplayNotificationHandler(void * target,
+                                                   void * ref,
+                                                   IOService * newService,
+                                                   IONotifier * notifier );
+    static bool _publishDeviceNotificationHandler(void * target,
+                                                  void * refCon,
+                                                  IOService * newService,
                                                   IONotifier * notifier );
-    
+
 protected:
 
 /*! @function free
@@ -275,7 +273,7 @@ protected:
                                 void *          security_id,
                                 OSDictionary *  properties,
                                 IOUserClient ** handler );
-    
+
 /*! @function publishProperties
     @abstract Publish HID properties to the I/O Kit registry.
     @discussion Called by the start() method to fetch and publish all
@@ -309,7 +307,7 @@ public:
     @abstract Start up the driver using the given provider.
     @discussion IOHIDDevice will allocate resources, then call handleStart()
     before fetching the report descriptor through newReportDescriptor(), and
-    publishing HID properties to the registry. Before returning true to 
+    publishing HID properties to the registry. Before returning true to
     indicate success, registerService() is called to trigger client matching.
     Subclasses are recommended to override handleStart().
     @param provider The provider that the driver was matched to, and selected
@@ -326,15 +324,15 @@ public:
     @param provider The provider that the driver was started on. */
 
     virtual void stop( IOService * provider );
-    
+
 /*! @function matchPropertyTable
     @abstract Called by the provider during a match
-    @discussion Compare the properties in the supplied table to this 
+    @discussion Compare the properties in the supplied table to this
     object's properties.
     @param table The property table that this device will match against
 */
 
-    virtual bool matchPropertyTable(OSDictionary * table, SInt32 * score);    
+    virtual bool matchPropertyTable(OSDictionary * table, SInt32 * score);
 
 /*! @function message
     @abstract Receives messages delivered from an attached provider.
@@ -355,7 +353,7 @@ public:
     on the object returned. */
 
     virtual OSString * newTransportString() const;
-    
+
 /*! @function newManufacturerString
     @abstract Returns a string object that describes the manufacturer
     of the HID device.
@@ -575,7 +573,7 @@ public:
     @result kIOReturnSuccess on success, or an error return otherwise. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  0);
     virtual IOReturn updateElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount = 1);
-    
+
 /*! @function postElementValues
     @abstract Posts element values to a HID device via setReport.
     @discussion A completion parameter may be added in the future.
@@ -593,12 +591,12 @@ public:
     on the object returned. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  2);
     virtual OSString * newSerialNumberString() const;
-    
+
 /*! @function newLocationIDNumber
     @abstract Returns a number object that describes the location ID
     of the HID device.
     @result A number object. The caller must decrement the retain count
-    on the object returned. */    
+    on the object returned. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  3);
     virtual OSNumber * newLocationIDNumber() const;
 
@@ -610,7 +608,7 @@ public:
     @param reportType The report type.
     @param options The lower 8 bits will represent the Report ID.  The
     other 24 bits are options to specify the request.
-    @param completionTimeout Specifies an amount of time (in ms) after which 
+    @param completionTimeout Specifies an amount of time (in ms) after which
     the command will be aborted if the entire command has not been completed.
     @param completion Function to call when request completes. If omitted then
     getReport() executes synchronously, blocking until the request is complete.
@@ -631,7 +629,7 @@ public:
     @param reportType The report type.
     @param options The lower 8 bits will represent the Report ID.  The
     other 24 bits are options to specify the request.
-    @param completionTimeout Specifies an amount of time (in ms) after which 
+    @param completionTimeout Specifies an amount of time (in ms) after which
     the command will be aborted if the entire command has not been completed.
     @param completion Function to call when request completes. If omitted then
     setReport() executes synchronously, blocking until the request is complete.
@@ -642,25 +640,25 @@ public:
                                 IOHIDReportType      reportType,
                                 IOOptionBits         options,
                                 UInt32               completionTimeout,
-                                IOHIDCompletion	*    completion = 0);    
+                                IOHIDCompletion	*    completion = 0);
 
 /*! @function newVendorIDSourceNumber
     @abstract Returns a number object that describes the vendor ID
-    source of the HID device.  
+    source of the HID device.
     @result A number object. The caller must decrement the retain count
     on the object returned. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  6);
     virtual OSNumber * newVendorIDSourceNumber() const;
-    
+
 /*! @function newCountryCodeNumber
     @abstract Returns a number object that describes the country code
-    of the HID device.  
+    of the HID device.
     @result A number object. The caller must decrement the retain count
     on the object returned. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  7);
     virtual OSNumber * newCountryCodeNumber() const;
 
-    
+
 /*! @function handleReportWithTime
     @abstract Handle an asynchronous report received from the HID device.
 	@param timeStamp The timestamp of report.
@@ -680,12 +678,12 @@ public:
 
 /*! @function newReportInterval
     @abstract Returns a number object that describes the actual polling
-    interval of the HID device in microseconds.  
+    interval of the HID device in microseconds.
     @result A number object. The caller must decrement the retain count
     on the object returned. */
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  9);
     virtual OSNumber * newReportIntervalNumber() const;
-    
+
     OSMetaClassDeclareReservedUsed(IOHIDDevice, 10);
     virtual IOReturn handleReportWithTimeAsync(
                                   AbsoluteTime         timeStamp,
@@ -695,7 +693,15 @@ public:
                                   UInt32               completionTimeout,
                                   IOHIDCompletion *    completion);
 
-    OSMetaClassDeclareReservedUnused(IOHIDDevice, 11);
+/*! @function newDeviceUsagePairs
+    @abstract Returns an array of usage dictionaries. IOHIDDevice creates
+    create this from the actual report descriptor, and that should be the base
+    for any subclass override.
+    @result A number object. The caller must decrement the retain count
+    on the object returned. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice, 11);
+    virtual OSArray * newDeviceUsagePairs();
+
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 12);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 13);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 14);
@@ -716,8 +722,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 29);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 30);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 31);
-
-#ifndef __ppc__
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 32);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 33);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 34);
@@ -727,7 +731,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 38);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 39);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 40);
-#endif
 
 };
 

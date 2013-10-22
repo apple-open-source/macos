@@ -31,10 +31,10 @@
 
 namespace WebCore {
 
-class SVGScriptElement : public SVGElement
-                       , public SVGURIReference
-                       , public SVGExternalResourcesRequired
-                       , public ScriptElement {
+class SVGScriptElement FINAL : public SVGElement
+                             , public SVGURIReference
+                             , public SVGExternalResourcesRequired
+                             , public ScriptElement {
 public:
     static PassRefPtr<SVGScriptElement> create(const QualifiedName&, Document*, bool wasInsertedByParser);
 
@@ -45,12 +45,12 @@ private:
     SVGScriptElement(const QualifiedName&, Document*, bool wasInsertedByParser, bool alreadyStarted);
 
     bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(Attribute*) OVERRIDE;
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual bool isURLAttribute(Attribute*) const;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
     virtual void finishParsingChildren();
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;

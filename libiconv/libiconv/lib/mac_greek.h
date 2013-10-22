@@ -50,7 +50,7 @@ static const unsigned short mac_greek_2uni[128] = {
 };
 
 static int
-mac_greek_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+mac_greek_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80) {
@@ -108,7 +108,7 @@ static const unsigned char mac_greek_page22[32] = {
 };
 
 static int
-mac_greek_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+mac_greek_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

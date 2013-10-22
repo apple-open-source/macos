@@ -1,15 +1,15 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -25,6 +25,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IODataQueueShared.h>
 #include <IOKit/IOMemoryDescriptor.h>
+#include <libkern/OSAtomic.h>
 #undef enqueue
 #include "IOHIDEventServiceQueue.h"
 #include "IOHIDEvent.h"
@@ -67,6 +68,8 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     const UInt32        tail      = dataQueue->tail;
     const UInt32        entrySize = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IODataQueueEntry *  entry;
+    bool                queueFull = false;
+    bool                result    = true;
 
     if ( tail >= head )
     {
@@ -82,7 +85,8 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
             // exactly matches the available space at the end of the queue.
             // The tail can range from 0 to dataQueue->queueSize inclusive.
 
-            dataQueue->tail += entrySize;
+            // RY: effectively performs a memory barrier
+            OSAddAtomic(entrySize, (SInt32 *)&dataQueue->tail);
         }
         else if ( head > entrySize ) 	// Is there enough room at the beginning?
         {
@@ -101,11 +105,14 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
             }
 
             event->readBytes(&dataQueue->queue->data, dataSize);
-            dataQueue->tail = entrySize;
+            
+            // RY: effectively performs a memory barrier
+            OSCompareAndSwap(dataQueue->tail, entrySize, &dataQueue->tail);
         }
         else
         {
-            return false;	// queue is full
+            queueFull = true;
+            result = false;	// queue is full
         }
     }
     else
@@ -119,22 +126,32 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
 
             entry->size = dataSize;
             event->readBytes(&entry->data, dataSize);
-            dataQueue->tail += entrySize;
+
+            // RY: effectively performs a memory barrier
+            OSAddAtomic(entrySize, (SInt32 *)&dataQueue->tail);
         }
         else
         {
-            return false;	// queue is full
+            queueFull = true;
+            result = false;	// queue is full
         }
     }
 
     // Send notification (via mach message) that data is available if either the
     // queue was empty prior to enqueue() or queue was emptied during enqueue()
-    if ( ( head == tail ) || ( dataQueue->head == tail ) )
+    if ( ( head == tail ) || ( dataQueue->head == tail ) || queueFull) {
+//        if (queueFull) {
+//            IOLog("IOHIDEventServiceQueue::enqueueEvent - Queue is full, notifying again\n");
+//        }
         sendDataAvailableNotification();
+    }
 
-    return true;
+    return result;
 }
 
+
+//---------------------------------------------------------------------------
+// set the notification port
 
 void IOHIDEventServiceQueue::setNotificationPort(mach_port_t port) {
     super::setNotificationPort(port);
@@ -154,3 +171,4 @@ IOMemoryDescriptor * IOHIDEventServiceQueue::getMemoryDescriptor()
     return _descriptor;
 }
 
+//---------------------------------------------------------------------------

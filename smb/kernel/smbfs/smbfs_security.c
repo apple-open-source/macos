@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,11 +31,14 @@
 #include <sys/msfscc.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
+#include <smbfs/smbfs_subr_2.h>
 #include <smbfs/smbfs_security.h>
+#include <smbfs/smb_rq_2.h>
 
 
 #define MAX_SID_PRINTBUFFER	256	/* Used to print out the sid in case of an error */
@@ -430,11 +433,11 @@ smbfs_update_acl_cache(struct smb_share *share, struct smbnode *np,
 	uint32_t selector = OWNER_SECURITY_INFORMATION | 
 						GROUP_SECURITY_INFORMATION | 
 						DACL_SECURITY_INFORMATION;
-	uint16_t fid = 0;
+	SMBFID fid = 0;
 	struct timespec	ts;
 	struct ntsecdesc *acl_cache_data = NULL;
 	size_t acl_cache_len = 0;
-	int	error;
+	int	error = 0;
 	
 	/* Check to see if the cache has time out */
 	nanouptime(&ts);
@@ -453,17 +456,27 @@ smbfs_update_acl_cache(struct smb_share *share, struct smbnode *np,
 		}
 	}
 	
-	error = smbfs_tmpopen(share, np, SMB2_READ_CONTROL, &fid, context);
+    if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
+        /* Only open file if its SMB1 */
+        error = smbfs_tmpopen(share, np, SMB2_READ_CONTROL, &fid, context);
+    }
+
 	if (error == 0) {
 		int cerror;
 		
-		error = smbfs_getsec(share, fid, selector, 
-                             (struct ntsecdesc **)&acl_cache_data, 
-                             &acl_cache_len, context);
-		cerror = smbfs_tmpclose(share, np, fid, context);
-		if (cerror)
-			SMBWARNING("error %d closing fid %d file %s\n", cerror, fid, np->n_name);	
-		if ((error == 0) && (acl_cache_data == NULL))
+        error = smbfs_smb_getsec(share, np, SMB2_READ_CONTROL | SMB2_SYNCHRONIZE, fid, selector,
+                                 (struct ntsecdesc **)&acl_cache_data, 
+                                 &acl_cache_len, context);
+        
+        if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
+            /* Only close file if its SMB1 */
+            cerror = smbfs_tmpclose(share, np, fid, context);
+            if (cerror)
+                SMBWARNING("error %d closing fid %llx file %s\n", 
+                           cerror, fid, np->n_name);
+        }
+
+        if ((error == 0) && (acl_cache_data == NULL))
 			error = EBADRPC;
 	}
 	
@@ -852,14 +865,14 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 	uint32_t arights, openrights;
 	size_t needed;
 	uint16_t ControlFlags = 0;
-	uint16_t fid = 0;
+	SMBFID	fid = 0;
 	uuid_string_t out_str;
 	
 	/* We do not support acl access on a stream node */
 	if (vnode_isnamedstream(vp))
 		return ENOTSUP;
 	
-	openrights = SMB2_READ_CONTROL;
+	openrights = SMB2_READ_CONTROL | SMB2_SYNCHRONIZE;
 	error = 0;
 	if (VATTR_IS_ACTIVE(vap, va_guuid) &&  !kauth_guid_equal(&vap->va_guuid, &kauth_null_guid)) {
 		SMB_MALLOC(w_grp, struct ntsid *, MAXSIDLEN, M_TEMP, M_WAITOK);
@@ -1065,16 +1078,32 @@ smbfs_setsecurity(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 	}
 	
 set_dacl:
-	error = smbfs_tmpopen(share, np, openrights, &fid, context);
+    if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
+        /* Only open file if its SMB1 */
+        error = smbfs_tmpopen(share, np, openrights, &fid, context);
+    }
+    
 	if (error == 0) {
-		error = smbfs_setsec(share, fid, selector, ControlFlags,
-                             w_usr, w_grp, NULL, w_dacl, context);
-		(void)smbfs_tmpclose(share, np, fid, context);
+        error = smbfs_smb_setsec(share, np, openrights,
+                                 fid, selector, ControlFlags,
+                                 w_usr, w_grp, NULL, w_dacl, context);
+        
+        if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
+            /* Only close file if its SMB1 */
+            (void)smbfs_tmpclose(share, np, fid, context);
+        }
 	}
 exit:
-	SMB_FREE(w_usr, M_TEMP);
-	SMB_FREE(w_grp, M_TEMP);
-	SMB_FREE(w_dacl, M_TEMP);
+    if (w_usr != NULL) {
+        SMB_FREE(w_usr, M_TEMP);
+    }
+    if (w_grp != NULL) {
+        SMB_FREE(w_grp, M_TEMP);
+    }
+    if (w_dacl != NULL) {
+        SMB_FREE(w_dacl, M_TEMP);
+    }
+    
 	/* The current cache is out of date clear it */
 	smbfs_clear_acl_cache(np);
 	return (error);
@@ -1196,90 +1225,6 @@ done:
 }
 
 /*
- * This server must be our Samba server, so use the ACL and the list of SIDs
- * return in the whoami call to calculate the true maximum access.
- *
- * The calling routine must hold a reference on the share
- *
- */
-static void 
-UpdateMaximumAccessFromACLs(struct smb_share *share, struct smbnode *np, 
-							vfs_context_t context)
-{
-	struct ntsecdesc *w_sec = NULL;
-	size_t				seclen;
-	struct ntacl		*w_dacl = NULL;
-	char				*endptr;
-	struct ntace		*w_acep = NULL;
-	int					error;
-	uint32_t			AccessRightsWeChecked = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
-	uint32_t			CurrentRights = SMB2_DELETE; /* Always allow delete unless its denied */
-	uint32_t			j;
-	
-	/* 
-	 * Default to full access, incase we have errors, always let the server 
-	 * have the final nay say 
-	 */
-	np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
-	error = smbfs_update_acl_cache(share, np, context, &w_sec, &seclen);
-	if (error || (w_sec == NULL))
-		return;
-	
-	endptr = (char *)w_sec+seclen;
-	
-	w_dacl = sddacl(w_sec, seclen);
-	if (w_dacl == NULL) {
-		SMB_FREE(w_sec, M_TEMP);
-		return;
-	}
-	
-	for (j = 0, w_acep = aclace(w_dacl); (((char *)acesid(w_acep) < endptr) && 
-			(j < letohs(w_dacl->acl_acecount))); j++, w_acep = aceace(w_acep)) {
-		struct ntsid		*w_sidp = acesid(w_acep);
-		ntsid_t				sid;
-		uint32_t sid_index;
-		
-		if ((acetype(w_acep) != ACCESS_ALLOWED_ACE_TYPE) && 
-			(acetype(w_acep) != ACCESS_DENIED_ACE_TYPE)) {
-			continue;	/* We only care about allow and denied ACE */
-		}
-		if (aceflags(w_acep) & INHERIT_ONLY_ACE_FLAG) {
-			continue;	/* Skip inherit-only entries. */
-		}
-		if ((char *)w_sidp+sizeof(*w_sidp) > endptr) {
-			break; /* Must be done */				
-		}
-		smb_sid2sid16(w_sidp, &sid, (char*)w_sec+seclen);
-		for (sid_index = 0; sid_index < np->n_mount->ntwrk_sids_cnt; sid_index++) {
-			if (bcmp(&np->n_mount->ntwrk_sids[sid_index], &sid, sizeof(sid)) == 0) {
-				/* only care about rights we havn't looked at yet */
-				uint32_t w_rights = acerights(w_acep) & AccessRightsWeChecked;
-				
-				if (acetype(w_acep) == ACCESS_ALLOWED_ACE_TYPE)
-					CurrentRights |= w_rights;
-				else if (acetype(w_acep) == ACCESS_DENIED_ACE_TYPE)
-					CurrentRights &= ~w_rights;
-				
-				AccessRightsWeChecked &= ~w_rights;
-				break;
-			}
-		}
-	}
-	if (w_sec)
-		SMB_FREE(w_sec, M_TEMP);
-	np->maxAccessRights = CurrentRights;
-	/*
-	 * We weren't granted delete access, but the parent allows delete child
-	 * so say we have delete access on the item. If no parent then just
-	 * say we have delete access (let the server control it).
-	 */
-	if (((np->maxAccessRights & SMB2_DELETE) != SMB2_DELETE) &&
-		(!np->n_parent || (np->n_parent->maxAccessRights & SMB2_FILE_DELETE_CHILD))) {
-		np->maxAccessRights |= SMB2_DELETE;
-	}
-}
-
-/*
  * Need to check to see if the maximum access rights needs to be updated. We
  * use the node's change time to determine when we need to update. We check to
  * see if the node's change time has changed since the last time we got the
@@ -1294,11 +1239,7 @@ UpdateMaximumAccessFromACLs(struct smb_share *share, struct smbnode *np,
  * reply we never test again and the cache never expired. 
  *
  * For servers that supports the extended open reply we just believe they are
- * returning the correct information. We do make one exception, our Samba server
- * supports sending us all the users' SIDs in the whoami call. So if we have the
- * user's SIDs then we get the ACLs and compute the maximum access rights ourself.
- * Since we always have at least one network SID, make sure there is more than one
- * before computing the maximal access ourself.
+ * returning the correct information.
  *
  * If the server doesn't support the extended open reply, then we will set the
  * maximum access rights to full access. We mark that the call failed so we
@@ -1312,6 +1253,8 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
 {
 	struct smbnode *np;
 	uint32_t maxAccessRights;
+    int error;
+    SMBFID	fid = 0;
 	
 	/* 
 	 * Need to have the node locked while getting the maximum access rights. In
@@ -1322,124 +1265,168 @@ smbfs_get_maximum_access(struct smb_share *share, vnode_t vp, vfs_context_t cont
 	
 	np = VTOSMB(vp);
 	np->n_lastvop = smbfs_get_maximum_access;
+    
 	/*
 	 * We can't open a reparse point that has a Dfs tag, so don't even try. Let
 	 * the server handle any security issues.
 	 */
-	if ((np->n_dosattr &  SMB_EFA_REPARSE_POINT) && 
+	if ((np->n_dosattr & SMB_EFA_REPARSE_POINT) && 
         (np->n_reparse_tag == IO_REPARSE_TAG_DFS)) {
 		np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
 		goto done;
 	}
+    
 	/* This server doesn't support maximum access, just lie */
-	if (np->n_flag & NO_EXTENDEDOPEN)
+	if (np->n_flag & NO_EXTENDEDOPEN) {
+        /* When smb1fs_smb_ntcreatex() sets NO_EXTENDEDOPEN, it also sets
+         * np->maxAccessRights to "all access".  So we don't need to modify
+         * np->maxAccessRights here.
+         */
 		goto done;
-	
+    }
+    
+    /*
+     * This server doesn't support extended security, so assume
+     * it doesn't support maximum access. We grant all access and
+     * let the server make the final call.
+     */
+	if (!(VC_CAPS(SSTOVC(share)) & SMB_CAP_EXT_SECURITY)) {
+        np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
+		goto done;
+    }
+
 	/* Cache is still good, return the last value we had */
 	if (timespeccmp(&np->maxAccessRightChTime, &np->n_chtime, ==))
 		goto done;
-	
-	/* 
-	 * XXX - 10809405 Another case were we should quit working around server bugs.
-	 *
-     *       This is a hack and a performance killer, but it works around a bug in Samba Servers.
-     *       They always report that you have complete access. We want to be backwards compatible 
-     *       to Leopard and Snow Leopard Servers, so if they support ACLs use the ACLs to 
-     *       find out the access. Very bad for performance, but its what we did in the past.
-     *       Some day soon we should just remove this code. 
-     */
-	if ((share->ss_attributes & FILE_PERSISTENT_ACLS) && (!(SSTOVC(share)->vc_flags & SMBV_DARWIN)) &&
-		((UNIX_CAPS(share) & UNIX_QFS_POSIX_WHOAMI_SID_CAP))) {
-		/* Get the maximum access from the acl and our list of whoami sids. */
-		UpdateMaximumAccessFromACLs(share, np, context);
-		/* The open call will not set the cache timer for Samba  so it here */
-		np->maxAccessRightChTime = np->n_chtime;
-	} 
-    else {
-		int			error;
-		uint16_t	fid = 0;
-		
-		/* 
-		 * For Windows we only need to open and close the item. Need to see if 
-		 * we can write a routine that does a CreateAndX/close in one message.  
-		 * Also Windows server allow us to get the maximum access by opening the 
-		 * file without requesting access. This allows us to get the maximum  
-		 * access, even when we can't read the security descriptor. We need to 
-		 * test with other servers and see if they behave the same as windows or 
-		 * do we need to open them with SMB2_READ_CONTROL?
-         *
-         * <9874997> In Lion, we started using maximal access returned by the
-         * server. One odd setup with a Windows 2003 server where the maximal
-         * access returned in the Tree Connect response (share ACL) gave more 
-         * access than the maximal access given by CreateAndX on the '\' folder
-         * (filesystem ACL).
-         * Treat the root folder as a special case.
-         * 1) If the CreateAndX fails on the root, then assume full access
-         * 2) If the CreateAndX works on the root, if no ReadAttr or Execute BUT
-         * the share ACL grants ReadAttr or Execute then assume '\' also has
-         * ReadAttr or Execute.
-		 */
-        /*
-         * We could solve a lot of headaches by testing for the servers that do
-         * not support opening the item with no access. Something like the following
-         * should work (accessOpenModes defaults to zero):
-         *
-         * error = smbfs_tmpopen(share, np, share->accessOpenModes, &fid, context);
-         * if (error && share->firstAccessOpen) {
-         *      share->accessOpenModes = SMB2_READ_CONTROL;
-         *      error = smbfs_tmpopen(share, np, share->accessOpenModes, &fid, context);
-         *  }
-         *  share->firstAccessOpen = TRUE;
-         *
-         * At this point we should just trust what they say, may want to make an exception
-         * for the root node, and non darwin Unix systems.
-         */
-		error = smbfs_tmpopen(share, np, 0, &fid, context);
-		if (error) {
-            if (error != EACCES) {
- 				/* We have no idea why it failed, give them full access. */
-				np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
-            } else {
-                if (vnode_isvroot(np->n_vnode)) {
-                    np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;                  
-                } else if (((!UNIX_SERVER(SSTOVC(share))) || (SSTOVC(share)->vc_flags & SMBV_DARWIN))) {
-                    /* Windows or Darwin Server and they told us we have no access. */
-                    np->maxAccessRights = 0;
-                } else {
-                    np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;                                    
-                }
-            }			
-            SMB_LOG_ACCESS("Opening %s failed with error = %d, granting %s access\n",
-						   np->n_name, error, (np->maxAccessRights) ? "full" : "no");
-			/* 
-             * The open call failed so the cache timer wasn't set, so do that 
-             * here 
-             */
-			np->maxAccessRightChTime = np->n_chtime;
-		} else {
-			smbfs_tmpclose(share, np, fid, context);
 
-            if (vnode_isvroot(np->n_vnode)) {
-                /* 
-                 * its the root folder, if no Execute, but share grants
-                 * Execute then grant Execute to root folder
-                 */
-                if ((!(np->maxAccessRights & SMB2_FILE_EXECUTE)) && 
-                    (share->maxAccessRights & SMB2_FILE_EXECUTE)) {
-                    np->maxAccessRights |= SMB2_FILE_EXECUTE;
-                }
+    /* 
+	 * For Windows we only need to open and close the item. Need to see if 
+	 * we can write a routine that does a CreateAndX/close in one message.  
+	 * Also Windows server allow us to get the maximum access by opening the 
+	 * file without requesting access. This allows us to get the maximum  
+	 * access, even when we can't read the security descriptor. We need to 
+	 * test with other servers and see if they behave the same as windows or 
+	 * do we need to open them with SMB2_READ_CONTROL?
+	 *
+	 * <9874997> In Lion, we started using maximal access returned by the
+	 * server. One odd setup with a Windows 2003 server where the maximal
+	 * access returned in the Tree Connect response (share ACL) gave more 
+	 * access than the maximal access given by CreateAndX on the '\' folder
+	 * (filesystem ACL).
+	 * Treat the root folder as a special case.
+	 * 1) If the CreateAndX fails on the root, then assume full access
+	 * 2) If the CreateAndX works on the root, if no ReadAttr or Execute BUT
+	 * the share ACL grants ReadAttr or Execute then assume '\' also has
+	 * ReadAttr or Execute.
+	 */
+    /*
+	 * We could solve a lot of headaches by testing for the servers that do
+	 * not support opening the item with no access. Something like the following
+	 * should work (accessOpenModes defaults to zero):
+	 *
+	 * error = smbfs_tmpopen(share, np, share->accessOpenModes, &fid, context);
+	 * if (error && share->firstAccessOpen) {
+	 *      share->accessOpenModes = SMB2_READ_CONTROL;
+	 *      error = smbfs_tmpopen(share, np, share->accessOpenModes, &fid, context);
+	 *  }
+	 *  share->firstAccessOpen = TRUE;
+	 *
+	 * At this point we should just trust what they say, may want to make an exception
+	 * for the root node, and non darwin Unix systems.
+	 */
+
+	 if (SSTOVC(share)->vc_flags & SMBV_SMB2) {
+        struct smbfattr *fap = NULL;
+        uint32_t desired_access = 0;
+        enum vtype vnode_type  = vnode_isdir(np->n_vnode) ? VDIR : VREG;
+        uint32_t share_access = NTCREATEX_SHARE_ACCESS_ALL;
+        uint64_t create_flags = SMB2_CREATE_GET_MAX_ACCESS;
+         uint32_t ntstatus = 0;
+
+        /* 
+         * Do a compound create/close 
+         * Note: this always does a create/close over the wire and never
+         * uses an existing open file like smbfs_tmpopen can do.
+         */
+        SMB_MALLOC(fap, 
+                    struct smbfattr *, 
+                    sizeof(struct smbfattr), 
+                    M_SMBTEMP, 
+                    M_WAITOK | M_ZERO);
+        if (fap == NULL) {
+            SMBERROR("SMB_MALLOC failed\n");
+            error = ENOMEM;
+        }
+        else {
+            /* Send a Create/Close */
+            error = smb2fs_smb_cmpd_create(share, np,
+                                           NULL, 0,
+                                           NULL, 0,
+                                           desired_access, vnode_type,
+                                           share_access, FILE_OPEN,
+                                           create_flags, &ntstatus,
+                                           NULL, fap,
+                                           NULL, context);
+            /* 
+             * smb2fs_smb_cmpd_create() will update the vnodes 
+             * maxAccessRights
+             */
                 
-                /* 
-                 * its the root, if no ReadAttr, but share grants
-                 * ReadAttr then grant ReadAttr to root 
-                 */
-                if ((!(np->maxAccessRights & SMB2_FILE_READ_ATTRIBUTES)) && 
-                    (share->maxAccessRights & SMB2_FILE_READ_ATTRIBUTES)) {
-                    np->maxAccessRights |= SMB2_FILE_READ_ATTRIBUTES;
-                }
+            SMB_FREE(fap, M_SMBTEMP);
+        }
+    }
+    else {
+        error = smbfs_tmpopen(share, np, 0, &fid, context);
+        if (!error) {
+            smbfs_tmpclose(share, np, fid, context);
+        }
+    }
+        
+    if (error) {
+        if (error != EACCES) {
+            /* We have no idea why it failed, give them full access. */
+            np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
+        } else {
+            if (vnode_isvroot(np->n_vnode)) {
+                np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
+            } else if (((!UNIX_SERVER(SSTOVC(share))) || (SSTOVC(share)->vc_flags & SMBV_DARWIN))) {
+                /* Windows or Darwin Server and they told us we have no access. */
+                np->maxAccessRights = 0;
+            } else {
+                np->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
             }
         }
-	}
+        SMB_LOG_ACCESS("Opening %s failed with error = %d, granting %s access\n",
+                    np->n_name, error, (np->maxAccessRights) ? "full" : "no");
+        /*
+         * The open call failed so the cache timer wasn't set, so do that
+         * here
+         */
+        np->maxAccessRightChTime = np->n_chtime;
+    }
+    else {
+        /* Special case the root vnode */
+        if (vnode_isvroot(np->n_vnode)) {
+            /*
+             * its the root folder, if no Execute, but share grants
+             * Execute then grant Execute to root folder
+             */
+            if ((!(np->maxAccessRights & SMB2_FILE_EXECUTE)) &&
+                (share->maxAccessRights & SMB2_FILE_EXECUTE)) {
+                np->maxAccessRights |= SMB2_FILE_EXECUTE;
+            }
+            
+            /*
+             * its the root, if no ReadAttr, but share grants
+             * ReadAttr then grant ReadAttr to root
+             */
+            if ((!(np->maxAccessRights & SMB2_FILE_READ_ATTRIBUTES)) &&
+                (share->maxAccessRights & SMB2_FILE_READ_ATTRIBUTES)) {
+                np->maxAccessRights |= SMB2_FILE_READ_ATTRIBUTES;
+            }
+        }
+    }
+
 	SMB_LOG_ACCESS("%s maxAccessRights = 0x%x\n", np->n_name, 
                                                   np->maxAccessRights);
 done:
@@ -1579,18 +1566,21 @@ static int
 smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_context_t context)
 {
 	int error;
-	uint16_t fid = 0;
+	SMBFID	fid = 0;
 	ntsid_t nfs_sid;
 	size_t needed;
 	uint32_t acecount = 1;
 	struct ntacl *w_dacl = NULL;	/* Wire DACL */
 	struct ntace *w_acep;	/* Wire ACE */
 	
-	error = smbfs_tmpopen(share, np, SMB2_READ_CONTROL | SMB2_WRITE_DAC, &fid,
-                          context);
-	if (error) {
-		return error;
-	}
+    if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
+        /* Only open file if its SMB1 */
+        error = smbfs_tmpopen(share, np, SMB2_READ_CONTROL | SMB2_WRITE_DAC, &fid,
+                              context);
+        if (error) {
+            return error;
+        }
+    }
 	
 	needed = sizeof(struct ntacl) + acecount * (sizeof(struct ntace) + MAXSIDLEN);
 	SMB_MALLOC(w_dacl, struct ntacl *, needed, M_TEMP, M_WAITOK | M_ZERO);
@@ -1607,11 +1597,18 @@ smbfs_set_default_nfs_ace(struct smb_share *share, struct smbnode *np, vfs_conte
 	nfs_sid.sid_authorities[2] = np->n_mode;
 	w_acep = set_nfs_ace(w_acep, &nfs_sid, needed);
 	wset_acllen(w_dacl, ((char *)w_acep - (char *)w_dacl));
-	error = smbfs_setsec(share, fid, DACL_SECURITY_INFORMATION, 0, NULL, NULL, 
-                         NULL, w_dacl, context);
+    
+	error = smbfs_smb_setsec(share, np, SMB2_READ_CONTROL | SMB2_WRITE_DAC | SMB2_SYNCHRONIZE,
+                             fid, DACL_SECURITY_INFORMATION, 0, NULL, NULL,
+                             NULL, w_dacl, context);
 	
-	(void)smbfs_tmpclose(share, np, fid, context);
-	SMB_FREE(w_dacl, M_TEMP);
+    if (!(SSTOVC(share)->vc_flags & SMBV_SMB2)) {
+        /* Only close file if its SMB1 */
+        (void)smbfs_tmpclose(share, np, fid, context);
+    }
+    
+    SMB_FREE(w_dacl, M_TEMP);
+    
 	/* The current cache is out of date clear it */
 	smbfs_clear_acl_cache(np);
 	return error;

@@ -464,7 +464,8 @@ void IOBasicOutputQueue::dequeue()
 
     if ( newState & kStateOutputServiceMask )
     {
-        scheduleServiceThread((void *)(newState & kStateOutputServiceMask));
+        scheduleServiceThread(
+            (void *)(uintptr_t) (newState & kStateOutputServiceMask));
     }
 
     if (_waitDequeueDone)

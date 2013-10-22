@@ -43,6 +43,7 @@ static void usage();
 //
 void doAssess(xpc_object_t msg, xpc_object_t reply);
 void doUpdate(xpc_object_t msg, xpc_object_t reply);
+void doRecord(xpc_object_t msg, xpc_object_t reply, xpc_connection_t connection);
 
 
 //
@@ -86,6 +87,8 @@ int main (int argc, char * const argv[])
 							doAssess(msg, reply);
 						} else if (!strcmp(function, "update")) {
 							doUpdate(msg, reply);
+						} else if (!strcmp(function, "record")) {
+							doRecord(msg, reply, connection);
 						} else {
 							xpc_dictionary_set_int64(reply, "error", errSecCSInternalError);
 						}
@@ -156,6 +159,28 @@ void doUpdate(xpc_object_t msg, xpc_object_t reply)
 		CFRef<CFDataRef> resultData = makeCFData(result.get());
 		xpc_dictionary_set_data(reply, "result", CFDataGetBytePtr(resultData), CFDataGetLength(resultData));
 	} else {
+		xpc_dictionary_set_int64(reply, "error", CFErrorGetCode(errors));
+		CFRelease(errors);
+	}
+}
+
+
+void doRecord(xpc_object_t msg, xpc_object_t reply, xpc_connection_t connection)
+{
+	// check caller for required entitlement
+	xpc_object_t entitlement = xpc_connection_copy_entitlement_value(connection, "com.apple.private.assessment.recording");
+	if (entitlement == NULL || entitlement == XPC_BOOL_FALSE) {
+		xpc_dictionary_set_int64(reply, "error", errSecAuthFailed);
+		return;
+	}
+
+	// make local control call and relay result
+	size_t length;
+	const void *infoData = xpc_dictionary_get_data(msg, "info", &length);
+	CFRef<CFDictionaryRef> info = makeCFDictionaryFrom(infoData, length);
+
+	CFErrorRef errors = NULL;
+	if (!SecAssessmentControl(CFSTR("ui-record-reject-local"), (void *)info.get(), &errors)) {
 		xpc_dictionary_set_int64(reply, "error", CFErrorGetCode(errors));
 		CFRelease(errors);
 	}

@@ -42,7 +42,11 @@ PassRefPtr<WebFullScreenManagerProxy> WebFullScreenManagerProxy::create(WebPageP
 WebFullScreenManagerProxy::WebFullScreenManagerProxy(WebPageProxy* page)
     : m_page(page)
     , m_webView(0)
+#if PLATFORM(EFL)
+    , m_hasRequestedFullScreen(false)
+#endif
 {
+    m_page->process()->addMessageReceiver(Messages::WebFullScreenManagerProxy::messageReceiverName(), m_page->pageID(), this);
 }
 
 WebFullScreenManagerProxy::~WebFullScreenManagerProxy()
@@ -52,16 +56,6 @@ WebFullScreenManagerProxy::~WebFullScreenManagerProxy()
 void WebFullScreenManagerProxy::setWebView(PlatformWebView* webView)
 {
     m_webView = webView;
-}
-
-void WebFullScreenManagerProxy::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
-{
-    didReceiveWebFullScreenManagerProxyMessage(connection, messageID, arguments);
-}
-
-void WebFullScreenManagerProxy::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
-{
-    didReceiveSyncWebFullScreenManagerProxyMessage(connection, messageID, arguments, reply);
 }
 
 void WebFullScreenManagerProxy::willEnterFullScreen()
@@ -97,6 +91,16 @@ void WebFullScreenManagerProxy::requestExitFullScreen()
 void WebFullScreenManagerProxy::supportsFullScreen(bool withKeyboard, bool& supports)
 {
     supports = !withKeyboard;
+}
+
+void WebFullScreenManagerProxy::saveScrollPosition()
+{
+    m_page->process()->send(Messages::WebFullScreenManager::SaveScrollPosition(), m_page->pageID());
+}
+
+void WebFullScreenManagerProxy::restoreScrollPosition()
+{
+    m_page->process()->send(Messages::WebFullScreenManager::RestoreScrollPosition(), m_page->pageID());
 }
 
 } // namespace WebKit

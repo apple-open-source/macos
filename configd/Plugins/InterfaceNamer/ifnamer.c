@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,14 +63,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/sockio.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/param.h>
 #include <mach/mach.h>
 #include <net/ethernet.h>
-#include <net/if.h>
 #include <net/if_types.h>
 #include <pthread.h>
 #include <vproc.h>
@@ -590,6 +587,40 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
     return;
 }
 
+#if	!TARGET_OS_EMBEDDED
+
+#define	BT_PAN_NAME "Bluetooth PAN"
+
+static void
+updateBTPANInformation(const void *value, void *context)
+{   CFDictionaryRef dict    = (CFDictionaryRef)value;
+    CFStringRef	    if_name;
+    CFDictionaryRef info;
+    CFStringRef	    name;
+
+    if_name = CFDictionaryGetValue(dict, CFSTR(kIOBSDNameKey));
+    if (!isA_CFString(if_name)) {
+	// if no BSD name
+	return;
+    }
+
+    info = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceInfo));
+    if (!isA_CFDictionary(info)) {
+	// if no SCNetworkInterface info
+	return;
+    }
+
+    name = CFDictionaryGetValue(info, kSCPropUserDefinedName);
+    if (!isA_CFString(name) || !CFEqual(name, CFSTR(BT_PAN_NAME))) {
+	// if not BT-PAN interface
+	return;
+    }
+
+    CFDictionaryAddValue(S_state, CFSTR("_" BT_PAN_NAME "_"), if_name);
+    return;
+}
+#endif	// !TARGET_OS_EMBEDDED
+
 static CFDictionaryRef
 createInterfaceDict(SCNetworkInterfaceRef interface)
 {
@@ -610,6 +641,11 @@ createInterfaceDict(SCNetworkInterfaceRef interface)
     val = _SCNetworkInterfaceGetIOPath(interface);
     if (val != NULL) {
 	CFDictionarySetValue(new_if, CFSTR(kIOPathMatchKey), val);
+    }
+
+    val = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
+    if (val != NULL) {
+	CFDictionarySetValue(new_if, CFSTR(kIOInterfaceNamePrefix), val);
     }
 
     val = _SCNetworkInterfaceGetIOInterfaceType(interface);
@@ -767,8 +803,8 @@ matchInterfaceInfo(CFDictionaryRef known_info, CFDictionaryRef match_info)
 	known_info = thinInterfaceInfo(known_info);
 	match_info = thinInterfaceInfo(match_info);
 	match = _SC_CFEqual(known_info, match_info);
-	CFRelease(known_info);
-	CFRelease(match_info);
+	if (known_info != NULL) CFRelease(known_info);
+	if (match_info != NULL) CFRelease(match_info);
     }
 
     return match;
@@ -873,6 +909,83 @@ matchUnnamed(const void *value, void *context)
     return;
 }
 
+static Boolean
+interfaceExists(CFStringRef prefix, CFNumberRef unit)
+{
+    Boolean		found	    = FALSE;
+    CFDictionaryRef	match_dict;
+    CFStringRef		match_keys[2];
+    CFTypeRef		match_vals[2];
+    CFDictionaryRef	matching;
+
+
+
+    io_registry_entry_t	entry		= MACH_PORT_NULL;
+    io_iterator_t		iterator	= MACH_PORT_NULL;
+    kern_return_t		kr;
+    mach_port_t			masterPort	= MACH_PORT_NULL;
+
+    kr = IOMasterPort(bootstrap_port, &masterPort);
+    if (kr != KERN_SUCCESS) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"),
+	      kr);
+	goto error;
+    }
+
+    // look for kIONetworkInterface with matching prefix and unit
+    match_keys[0] = CFSTR(kIOInterfaceNamePrefix);
+    match_vals[0] = prefix;
+    match_keys[1] = CFSTR(kIOInterfaceUnit);
+    match_vals[1] = unit;
+    match_dict = CFDictionaryCreate(NULL,
+				    (const void **)match_keys,
+				    (const void **)match_vals,
+				    2,
+				    &kCFTypeDictionaryKeyCallBacks,
+				    &kCFTypeDictionaryValueCallBacks);
+
+    match_keys[0] = CFSTR(kIOProviderClassKey);
+    match_vals[0] = CFSTR(kIONetworkInterfaceClass);
+    match_keys[1] = CFSTR(kIOPropertyMatchKey);
+    match_vals[1] = match_dict;
+    matching = CFDictionaryCreate(NULL,
+				  (const void **)match_keys,
+				  (const void **)match_vals,
+				  sizeof(match_keys)/sizeof(match_keys[0]),
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+    CFRelease(match_dict);
+
+    // note: the "matching" dictionary will be consumed by the following
+    kr = IOServiceGetMatchingServices(masterPort, matching, &iterator);
+    if ((kr != kIOReturnSuccess) || (iterator == MACH_PORT_NULL)) {
+	// if no interface
+	goto error;
+    }
+
+    entry = IOIteratorNext(iterator);
+    if (entry == MACH_PORT_NULL) {
+	// if no interface
+	goto error;
+    }
+
+    found = TRUE;
+
+error:
+    if (masterPort != MACH_PORT_NULL) {
+	mach_port_deallocate(mach_task_self(), masterPort);
+    }
+    if (entry != MACH_PORT_NULL) {
+	IOObjectRelease(entry);
+    }
+    if (iterator != MACH_PORT_NULL) {
+	IOObjectRelease(iterator);
+    }
+
+    return (found);
+}
+
 /*
  * lookupMatchingInterface
  *
@@ -908,8 +1021,8 @@ lookupMatchingInterface(SCNetworkInterfaceRef	interface,
     match_context.match_builtin	= builtin;
     match_context.matches	= NULL;
 
-    // check for matches to already named interfaces
-    // ... and appends each match that we find to match_context.matches
+    // check for matches to interfaces that have already been named
+    // ... and append each match that we find to match_context.matches
     if (db_list != NULL) {
 	CFArrayApplyFunction(db_list,
 			     CFRangeMake(0, CFArrayGetCount(db_list)),
@@ -917,8 +1030,8 @@ lookupMatchingInterface(SCNetworkInterfaceRef	interface,
 			     &match_context);
     }
 
-    // check for matches to to be named interfaces
-    // ... and CFReleases match_context.matches if we find another network
+    // check for matches to interfaces that will be named
+    // ... and CFRelease match_context.matches if we find another network
     //     interface of the same type that also needs to be named
     if (if_list != NULL) {
 	CFIndex	   if_list_count;
@@ -946,18 +1059,15 @@ lookupMatchingInterface(SCNetworkInterfaceRef	interface,
 
 	name = CFDictionaryGetValue(match, CFSTR(kIOBSDNameKey));
 	if (isA_CFString(name)) {
-	    int		sock;
+	    CFStringRef	    prefix;
+	    CFNumberRef	    unit;
 
-	    sock = socket(AF_INET, SOCK_DGRAM, 0);
-	    if (sock != -1) {
-		struct ifreq	ifr;
-
-		(void)_SC_cfstring_to_cstring(name, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII);
-		if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
-		    // if interface name not currently in-use
+	    prefix = CFDictionaryGetValue(match, CFSTR(kIOInterfaceNamePrefix));
+	    unit   = CFDictionaryGetValue(match, CFSTR(kIOInterfaceUnit));
+	    if (isA_CFString(prefix) && isA_CFNumber(unit)) {
+		if (!interfaceExists(prefix, unit)) {
 		    active = FALSE;
 		}
-		close(sock);
 	    }
 	}
 
@@ -1013,6 +1123,11 @@ insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface)
     }
 
     CFArrayAppendValue(S_dblist, if_dict);
+
+#if	!TARGET_OS_EMBEDDED
+    updateBTPANInformation(if_dict, NULL);
+#endif	// !TARGET_OS_EMBEDDED
+
     CFRelease(if_dict);
     return;
 }
@@ -1179,7 +1294,6 @@ copyInterfaceForIORegistryEntryID(uint64_t entryID)
 	IOObjectRelease(iterator);
     }
     return (interface);
-
 }
 
 static SCNetworkInterfaceRef
@@ -1293,6 +1407,47 @@ displayInterface(SCNetworkInterfaceRef interface)
 	  (unit != NULL) ? (CFTypeRef)unit : (CFTypeRef)CFSTR(""),
 	  (unit != NULL) ? ", " : "",
 	  addr);
+}
+
+static Boolean
+builtinAvailable(SCNetworkInterfaceRef	interface,	// new interface
+		 CFNumberRef		if_unit)	// desired unit
+{
+    CFIndex	i;
+    CFNumberRef if_type	= _SCNetworkInterfaceGetIOInterfaceType(interface);
+    CFIndex	n;
+
+    n = (S_dblist != NULL) ? CFArrayGetCount(S_dblist) : 0;
+    for (i = 0; i < n; i++) {
+	CFStringRef	    if_path;
+	CFDictionaryRef	    known_dict	    = CFArrayGetValueAtIndex(S_dblist, i);
+	CFStringRef	    known_path;
+	CFNumberRef	    known_type;
+	CFNumberRef	    known_unit;
+
+	known_type = CFDictionaryGetValue(known_dict, CFSTR(kIOInterfaceType));
+	if (!_SC_CFEqual(if_type, known_type)) {
+	    continue;	// if not the same interface type
+	}
+
+	known_unit = CFDictionaryGetValue(known_dict, CFSTR(kIOInterfaceUnit));
+	if (!_SC_CFEqual(if_unit, known_unit)) {
+	    continue;	// if not the same interface unit
+	}
+
+	if_path    = _SCNetworkInterfaceGetIOPath(interface);
+	known_path = CFDictionaryGetValue(known_dict, CFSTR(kIOPathMatchKey));
+	if (!_SC_CFEqual(if_path, known_path)) {
+	    // if different IORegistry path
+	    return FALSE;
+	}
+
+	// if same type, same unit, same path
+	return TRUE;
+    }
+
+    // if interface type/unit not found
+    return TRUE;
 }
 
 static int
@@ -1418,10 +1573,31 @@ nameInterfaces(CFMutableArrayRef if_list)
 		int 		next_unit	= 0;
 
 		if (is_builtin) {
-		    // built-in interface, use the reserved slots
+		    // built-in interface, try to use the reserved slots
 		    next_unit = builtinCount(if_list, i, type);
-		} else {
-		    // not built-in, skip over the reserved slots
+
+		    // But, before claiming a reserved slot we check to see if the
+		    // slot had previously been used.  If so, and if the slot had been
+		    // assigned to the same type of interface, then we will perform a
+		    // replacement (e.g. assume that this was a board swap).  But, if
+		    // the new interface is a different type then we assume that the
+		    // built-in configuration has changed and allocate a new unit from
+		    // the non-reserved slots.
+
+		    unit = CFNumberCreate(NULL, kCFNumberIntType, &next_unit);
+		    if (!builtinAvailable(interface, unit)) {
+			// if [built-in] unit not available
+			SCLog(S_debug, LOG_INFO,
+			      CFSTR(MY_PLUGIN_NAME ": Interface not assigned [built-in] unit %@"),
+			      unit);
+			CFRelease(unit);
+			unit = NULL;
+		    }
+		}
+
+		if (unit == NULL) {
+		    // not built-in (or built-in unit not available), allocate from
+		    // the non-reserved slots
 		    next_unit = builtinCount(if_list, n, type);
 
 		    unit = getHighestUnitForType(type);
@@ -1433,8 +1609,9 @@ nameInterfaces(CFMutableArrayRef if_list)
 			    next_unit = high_unit + 1;
 			}
 		    }
+
+		    unit = CFNumberCreate(NULL, kCFNumberIntType, &next_unit);
 		}
-		unit = CFNumberCreate(NULL, kCFNumberIntType, &next_unit);
 
 		SCLog(S_debug, LOG_INFO,
 		      CFSTR(MY_PLUGIN_NAME ": Interface assigned unit %@ (%s)"),
@@ -1563,6 +1740,73 @@ nameInterfaces(CFMutableArrayRef if_list)
     return;
 }
 
+#if	!TARGET_OS_IPHONE
+static void
+updateNetworkConfiguration(CFArrayRef if_list)
+{
+    Boolean		do_commit	= FALSE;
+    CFIndex		i;
+    CFIndex		n;
+    SCPreferencesRef	prefs		= NULL;
+    SCNetworkSetRef	set		= NULL;
+
+    prefs = SCPreferencesCreate(NULL, CFSTR("SCMonitor"), NULL);
+
+    set = SCNetworkSetCopyCurrent(prefs);
+    if (set == NULL) {
+	SCLog(TRUE, LOG_ERR, CFSTR(MY_PLUGIN_NAME ": No current set"));
+	goto done;
+    }
+
+    n = CFArrayGetCount(if_list);
+    for (i = 0; i < n; i++) {
+	SCNetworkInterfaceRef	interface;
+
+	interface = CFArrayGetValueAtIndex(if_list, i);
+	if (SCNetworkSetEstablishDefaultInterfaceConfiguration(set, interface)) {
+	    SCLog(TRUE, LOG_INFO,
+		  CFSTR(MY_PLUGIN_NAME ": adding default configuration for %s"),
+		  SCNetworkInterfaceGetBSDName(interface));
+	    do_commit = TRUE;
+	}
+    }
+
+    if (do_commit) {
+	Boolean	ok;
+
+	ok = SCPreferencesCommitChanges(prefs);
+	if (!ok) {
+	    SCLog(TRUE, LOG_INFO,
+		  CFSTR(MY_PLUGIN_NAME ": updateNetworkConfiguration: SCPreferencesCommitChanges() failed: %s"),
+		  SCErrorString(SCError()));
+	    goto done;
+	}
+
+	ok = SCPreferencesApplyChanges(prefs);
+	if (!ok) {
+	    SCLog(TRUE, LOG_INFO,
+		  CFSTR(MY_PLUGIN_NAME ": updateNetworkConfiguration: SCPreferencesApplyChanges() failed: %s"),
+		  SCErrorString(SCError()));
+	    goto done;
+	}
+    }
+
+  done :
+
+    if (set != NULL) {
+	CFRelease(set);
+	set = NULL;
+    }
+
+    if (prefs != NULL) {
+	CFRelease(prefs);
+	prefs = NULL;
+    }
+
+    return;
+}
+#endif	// !TARGET_OS_IPHONE
+
 static void
 updateInterfaces()
 {
@@ -1592,6 +1836,19 @@ updateInterfaces()
 	 */
 	writeInterfaceList(S_dblist);
 	updateVirtualNetworkInterfaceConfiguration(NULL, kSCPreferencesNotificationApply, NULL);
+
+#if	!TARGET_OS_IPHONE
+	if (access("/usr/libexec/UserEventAgent",  X_OK) == -1
+	    && errno == ENOENT) {
+	    /*
+	     * We are most likely booted into the Recovery OS with no "SCMonitor"
+	     * UserEventAgent plugin running so let's make sure we update the
+	     * network configuration for new interfaces.
+	     */
+	    updateNetworkConfiguration(S_iflist);
+	}
+#endif	// !TARGET_OS_IPHONE
+
 	updateStore();
 
 	if (S_iflist != NULL) {
@@ -1961,6 +2218,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef
 	} else {
 	    newNodes = CFArrayCreateMutableCopy(NULL, 0, nodes);
 	}
+	assert(newNodes != NULL);
 
 	kr = IORegistryEntryGetName(obj, name);
 	if (kr != kIOReturnSuccess) {
@@ -2256,6 +2514,16 @@ setup_IOKit(CFBundleRef bundle)
 	rlStatus = CFRunLoopRunInMode(MY_PLUGIN_ID, 1.0e10, TRUE);
     }
 #endif	/* WAIT_PREVIOUS_BOOT_INTERFACES_OR_QUIET */
+
+#if	!TARGET_OS_EMBEDDED
+    if (S_dblist != NULL) {
+	// apply special handling for the BT-PAN interface (if present)
+	CFArrayApplyFunction(S_dblist,
+			     CFRangeMake(0, CFArrayGetCount(S_dblist)),
+			     updateBTPANInformation,
+			     NULL);
+    }
+#endif	// !TARGET_OS_EMBEDDED
 
     ok = TRUE;
 

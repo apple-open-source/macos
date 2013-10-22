@@ -25,11 +25,13 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecItem.h>
 #include <Security/SecRSAKey.h>
+#include <Security/SecECKey.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecTrust.h>
 #include <Security/SecInternal.h>
+#include <libDER/oids.h>
 
 #include <AssertMacros.h>
 
@@ -82,11 +84,22 @@ static void build_trust_chains(const void *key, const void *value,
     require(key_bytes, out);
     CFDataRef cert_bytes = CFDictionaryGetValue(value, CFSTR("cert"));
     require(cert_bytes, out);
+    CFDataRef algoid_bytes = CFDictionaryGetValue(value, CFSTR("algid"));
 
-    /* p12import only passes up rsa keys */
-    require (private_key = SecKeyCreateRSAPrivateKey(kCFAllocatorDefault, 
-        CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
-        kSecKeyEncodingPkcs1), out);
+
+    DERItem algorithm = { (DERByte *)CFDataGetBytePtr(algoid_bytes), CFDataGetLength(algoid_bytes) };
+    if (DEROidCompare(&oidEcPubKey, &algorithm)) {
+        require (private_key = SecKeyCreateECPrivateKey(kCFAllocatorDefault,
+                                                         CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
+                                                         kSecKeyEncodingPkcs1), out);
+    } else if (DEROidCompare(&oidRsa, &algorithm)) {
+        require (private_key = SecKeyCreateRSAPrivateKey(kCFAllocatorDefault,
+                                                         CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
+                                                         kSecKeyEncodingPkcs1), out);
+    } else {
+        goto out;
+    }
+
     require(cert = SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes), out);
     require(identity = SecIdentityCreate(kCFAllocatorDefault, cert, private_key), out);
     CFDictionarySetValue(identity_dict, kSecImportItemIdentity, identity);
@@ -149,11 +162,11 @@ OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArray
     SecAsn1CoderRelease(context.coder);
     
     switch (status) {
-    case p12_noErr: return noErr;
+    case p12_noErr: return errSecSuccess;
     case p12_passwordErr: return errSecAuthFailed;
     case p12_decodeErr: return errSecDecode;
     default: return errSecInternal;
     };
-    return noErr;
+    return errSecSuccess;
 }
 

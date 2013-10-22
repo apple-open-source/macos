@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -100,7 +100,7 @@ setup(const char *zonename, const char *filename, const char *classname) {
 
 	dns_zone_settype(zone, zonetype);
 
-	isc_buffer_constinit(&buffer, zonename, strlen(zonename));
+	isc_buffer_init(&buffer, zonename, strlen(zonename));
 	isc_buffer_add(&buffer, strlen(zonename));
 	dns_fixedname_init(&fixorigin);
 	result = dns_name_fromtext(dns_fixedname_name(&fixorigin),
@@ -261,12 +261,8 @@ main(int argc, char **argv) {
 		case 'm':
 			memset(&addr, 0, sizeof(addr));
 			addr.type.sin.sin_family = AF_INET;
-			if (inet_pton(AF_INET, isc_commandline_argument,
-				      &addr.type.sin.sin_addr) != 1) {
-				fprintf(stderr, "bad master address '%s'\n",
-					isc_commandline_argument);
-				exit(1);
-			}
+			inet_pton(AF_INET, isc_commandline_argument,
+				  &addr.type.sin.sin_addr);
 			addr.type.sin.sin_port = htons(53);
 			break;
 		case 'q':

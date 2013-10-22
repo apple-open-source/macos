@@ -26,6 +26,8 @@
 #ifndef NetscapePluginStream_h
 #define NetscapePluginStream_h
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #include <WebCore/FileSystem.h>
 #include <WebCore/RunLoop.h>
 #include <WebCore/npruntime_internal.h>
@@ -104,10 +106,12 @@ private:
     CString m_headers;
 
     WebCore::RunLoop::Timer<NetscapePluginStream> m_deliveryDataTimer;
-    OwnPtr< Vector<uint8_t> > m_deliveryData;
+    OwnPtr< Vector<uint8_t>> m_deliveryData;
     bool m_stopStreamWhenDoneDelivering;
 };
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #endif // NetscapePluginStream_h

@@ -54,5 +54,28 @@ Class pdfDocumentClass()
     ASSERT(pdfDocumentClass);
     return pdfDocumentClass;
 }
+    
+#if ENABLE(PDFKIT_PLUGIN)
+Class pdfLayerControllerClass()
+{
+    static Class pdfLayerControllerClass = classFromPDFKit(@"PDFLayerController");
+    ASSERT(pdfLayerControllerClass);
+    return pdfLayerControllerClass;
+}
+
+Class pdfAnnotationTextWidgetClass()
+{
+    static Class pdfAnnotationTextWidgetClass = classFromPDFKit(@"PDFAnnotationTextWidget");
+    ASSERT(pdfAnnotationTextWidgetClass);
+    return pdfAnnotationTextWidgetClass;
+}
+
+Class pdfAnnotationChoiceWidgetClass()
+{
+    static Class pdfAnnotationChoiceWidgetClass = classFromPDFKit(@"PDFAnnotationChoiceWidget");
+    ASSERT(pdfAnnotationChoiceWidgetClass);
+    return pdfAnnotationChoiceWidgetClass;
+}
+#endif
 
 }

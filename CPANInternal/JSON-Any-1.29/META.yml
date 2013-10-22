@@ -1,0 +1,30 @@
+---
+abstract: 'Wrapper Class for the various JSON classes.'
+author:
+  - 'Chris Thompson C<< cthom at cpan.org >>'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+  Test::More: 0.42
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+generated_by: 'Module::Install version 1.01'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: JSON-Any
+no_index:
+  directory:
+    - inc
+    - t
+    - xt
+requires:
+  Carp: 0
+  JSON: 2.02
+  JSON::Syck: 0
+  JSON::XS: 2.3
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: git://github.com/perigrin/json-any.git
+version: 1.29

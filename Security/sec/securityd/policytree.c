@@ -28,7 +28,7 @@
 #include "policytree.h"
 #include <libDER/oids.h>
 
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 
 #include <stdlib.h>
 

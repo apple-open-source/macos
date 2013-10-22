@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,7 @@
  *
  ***************************************************************************/
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #include "urldata.h"
 #include "sendf.h"
@@ -131,11 +131,14 @@ static char *max5data(curl_off_t bytes, char *max5)
 
 */
 
-void Curl_pgrsDone(struct connectdata *conn)
+int Curl_pgrsDone(struct connectdata *conn)
 {
+  int rc;
   struct SessionHandle *data = conn->data;
   data->progress.lastshow=0;
-  Curl_pgrsUpdate(conn); /* the final (forced) update */
+  rc = Curl_pgrsUpdate(conn); /* the final (forced) update */
+  if(rc)
+    return rc;
 
   if(!(data->progress.flags & PGRS_HIDE) &&
      !data->progress.callback)
@@ -144,15 +147,19 @@ void Curl_pgrsDone(struct connectdata *conn)
     fprintf(data->set.err, "\n");
 
   data->progress.speeder_c = 0; /* reset the progress meter display */
+  return 0;
 }
 
-/* reset all times except redirect */
-void Curl_pgrsResetTimes(struct SessionHandle *data)
+/* reset all times except redirect, and reset the known transfer sizes */
+void Curl_pgrsResetTimesSizes(struct SessionHandle *data)
 {
   data->progress.t_nslookup = 0.0;
   data->progress.t_connect = 0.0;
   data->progress.t_pretransfer = 0.0;
   data->progress.t_starttransfer = 0.0;
+
+  Curl_pgrsSetDownloadSize(data, 0);
+  Curl_pgrsSetUploadSize(data, 0);
 }
 
 void Curl_pgrsTime(struct SessionHandle *data, timerid timer)
@@ -238,6 +245,10 @@ void Curl_pgrsSetUploadSize(struct SessionHandle *data, curl_off_t size)
     data->progress.flags &= ~PGRS_UL_SIZE_KNOWN;
 }
 
+/*
+ * Curl_pgrsUpdate() returns 0 for success or the value returned by the
+ * progress callback!
+ */
 int Curl_pgrsUpdate(struct connectdata *conn)
 {
   struct timeval now;

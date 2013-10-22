@@ -178,6 +178,7 @@ gss_accept_sec_context(OM_uint32 *minor_status,
 	    *delegated_cred_handle = GSS_C_NO_CREDENTIAL;
 	_mg_buffer_zero(output_token);
 
+	_gss_mg_check_credential(acceptor_cred_handle);
 
 	/*
 	 * If this is the first call (*context_handle is NULL), we must
@@ -321,6 +322,8 @@ gss_accept_sec_context(OM_uint32 *minor_status,
 			*delegated_cred_handle = (gss_cred_id_t) dcred;
 		}
 	}
+
+	_gss_mg_log(10, "gss-asc: return %d/%d", (int)major_status, (int)*minor_status);
 
 	if (ret_flags)
 	    *ret_flags = mech_ret_flags;

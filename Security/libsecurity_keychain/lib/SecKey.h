@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2002-2010 Apple, Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -62,7 +62,7 @@ extern "C" {
     attributes of this key can be modified.
     @constant kSecKeyLabel type blob, for private and public keys
     this contains the hash of the public key.  This is used to
-    associate certificates and keys.  It's value matches the value
+    associate certificates and keys.  Its value matches the value
     of the kSecPublicKeyHashItemAttr of a certificate and it's used
     to construct an identity from a certificate and a key.
     For symmetric keys this is whatever the creator of the key
@@ -71,7 +71,7 @@ extern "C" {
     @constant kSecKeyKeyCreator type data, the data points to a
     CSSM_GUID structure representing the moduleid of the csp owning
     this key.
-    @constant kSecKeyKeyType type uint32, value a CSSM_ALGORITHMS
+    @constant kSecKeyKeyType type uint32, value is a CSSM_ALGORITHMS
     representing the algorithm associated with this key.
     @constant kSecKeyKeySizeInBits type uint32, value is the number
     of bits in this key.
@@ -106,11 +106,11 @@ extern "C" {
     @constant kSecKeySignRecover type uint32.
     @constant kSecKeyVerifyRecover type uint32.
     key can unwrap other keys.
-    @constant kSecKeyWrap type uint32, value is nonzero iff this 
+    @constant kSecKeyWrap type uint32, value is nonzero iff this
     key can wrap other keys.
     @constant kSecKeyUnwrap type uint32, value is nonzero iff this
     key can unwrap other keys.
-	@discussion 
+	@discussion
 	The use of these enumerations has been deprecated.  Please
 	use the equivalent items defined in SecItem.h
 	@@@.
@@ -197,23 +197,23 @@ enum
     @abstract Supported key lengths.
 */
 typedef uint32_t SecKeySizes;
-enum 
+enum
 {
     kSecDefaultKeySize  = 0,
-    
+
     // Symmetric Keysizes - default is currently kSecAES128 for AES.
     kSec3DES192         = 192,
     kSecAES128          = 128,
     kSecAES192          = 192,
     kSecAES256          = 256,
- 
+
     // Supported ECC Keys for Suite-B from RFC 4492 section 5.1.1.
     // default is currently kSecp256r1
     kSecp192r1          = 192,
     kSecp256r1          = 256,
     kSecp384r1          = 384,
     kSecp521r1          = 521,  // Yes, 521
-    
+
     // Boundaries for RSA KeySizes - default is currently 2048
 		// RSA keysizes must be multiples of 8
     kSecRSAMin          = 1024,
@@ -256,7 +256,7 @@ OSStatus SecKeyCreatePair(
         CSSM_KEYUSE privateKeyUsage,
         uint32 privateKeyAttr,
         SecAccessRef initialAccess,
-        SecKeyRef* publicKey, 
+        SecKeyRef* publicKey,
         SecKeyRef* privateKey)
 		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
@@ -288,7 +288,7 @@ OSStatus SecKeyGenerate(
 /*!
     @function SecKeyGetCSSMKey
     @abstract Returns a pointer to the CSSM_KEY for the given key item reference.
-    @param key A keychain key item reference. The key item must be of class type kSecAppleKeyItemClass.
+    @param key A keychain key item reference. The key item must be of class type kSecPublicKeyItemClass, kSecPrivateKeyItemClass, or kSecSymmetricKeyItemClass.
     @param cssmKey On return, a pointer to a CSSM_KEY structure for the given key. This pointer remains valid until the key reference is released. The caller should not attempt to modify or free this data.
     @result A result code. See "Security Error Codes" (SecBase.h).
     @discussion  The CSSM_KEY is valid until the key item reference is released. This API is deprecated in 10.7. Its use should no longer be needed.
@@ -325,10 +325,10 @@ OSStatus SecKeyGetCredentials(
 
 /*!
     @function SecKeyGetBlockSize
-    @abstract Decrypt a block of ciphertext. 
+    @abstract Decrypt a block of ciphertext.
     @param key The key for which the block length is requested.
     @result The block length of the key in bytes.
-    @discussion If for example key is an RSA key the value returned by 
+    @discussion If for example key is an RSA key the value returned by
     this function is the size of the modulus.
  */
 size_t SecKeyGetBlockSize(SecKeyRef key)
@@ -337,8 +337,8 @@ size_t SecKeyGetBlockSize(SecKeyRef key)
 /*!
  @function	SecKeyGenerateSymmetric
  @abstract	Generates a random symmetric key with the specified length
- and algorithm type.  
- 
+ and algorithm type.
+
  @param parameters A dictionary containing one or more key-value pairs.
  See the discussion sections below for a complete overview of options.
  @param error An optional pointer to a CFErrorRef. This value is set
@@ -346,16 +346,16 @@ size_t SecKeyGetBlockSize(SecKeyRef key)
  releasing the CFErrorRef.
  @result On return, a SecKeyRef reference to the symmetric key, or
  NULL if the key could not be created.
- 
+
  @discussion In order to generate a symmetric key, the parameters dictionary
  must at least contain the following keys:
- 
+
  * kSecAttrKeyType with a value of kSecAttrKeyTypeAES or any other
  kSecAttrKeyType defined in SecItem.h
  * kSecAttrKeySizeInBits with a value being a CFNumberRef containing
  the requested key size in bits.  Example sizes for AES keys are:
  128, 192, 256, 512.
- 
+
  To store the generated symmetric key in a keychain, set these keys:
  * kSecUseKeychain (value is a SecKeychainRef)
  * kSecAttrLabel (a user-visible label whose value is a CFStringRef,
@@ -363,50 +363,50 @@ size_t SecKeyGetBlockSize(SecKeyRef key)
  * kSecAttrApplicationLabel (a label defined by your application, whose
  value is a CFStringRef and which can be used to find this key in a
  subsequent call to SecItemCopyMatching, e.g. "ID-1234567890-9876-0151")
- 
+
  To specify the generated key's access control settings, set this key:
  * kSecAttrAccess (value is a SecAccessRef)
- 
+
  The keys below may be optionally set in the parameters dictionary
  (with a CFBooleanRef value) to override the default usage values:
- 
+
  * kSecAttrCanEncrypt (defaults to true if not explicitly specified)
  * kSecAttrCanDecrypt (defaults to true if not explicitly specified)
  * kSecAttrCanWrap (defaults to true if not explicitly specified)
  * kSecAttrCanUnwrap (defaults to true if not explicitly specified)
- 
+
 */
 SecKeyRef SecKeyGenerateSymmetric(CFDictionaryRef parameters, CFErrorRef *error)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA); 
-	
+	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+
 
 /*!
  @function	SecKeyCreateFromData
- @abstract	Creates a symmetric key with the given data and sets the 
- algorithm type specified.  
- 
+ @abstract	Creates a symmetric key with the given data and sets the
+ algorithm type specified.
+
  @param parameters A dictionary containing one or more key-value pairs.
  See the discussion sections below for a complete overview of options.
  @result On return, a SecKeyRef reference to the symmetric key.
- 
+
  @discussion In order to generate a symmetric key the parameters dictionary must
  at least contain the following keys:
- 
+
  * kSecAttrKeyType with a value of kSecAttrKeyTypeAES or any other
  kSecAttrKeyType defined in SecItem.h
- 
+
  The keys below may be optionally set in the parameters dictionary
  (with a CFBooleanRef value) to override the default usage values:
- 
+
  * kSecAttrCanEncrypt (defaults to true if not explicitly specified)
  * kSecAttrCanDecrypt (defaults to true if not explicitly specified)
  * kSecAttrCanWrap (defaults to true if not explicitly specified)
  * kSecAttrCanUnwrap (defaults to true if not explicitly specified)
- 
+
 */
 SecKeyRef SecKeyCreateFromData(CFDictionaryRef parameters,
 	CFDataRef keyData, CFErrorRef *error)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA); 
+	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
 
 /*!
@@ -417,20 +417,20 @@ SecKeyRef SecKeyCreateFromData(CFDictionaryRef parameters,
  the result code will be errSecSuccess, and the output parameters will
  contain the public SecKeyRef and private SecKeyRef. It is the caller's
  responsibility to CFRelease these key references when finished with them.
- 
+
  @discussion In order to generate a keypair the parameters dictionary must
  at least contain the following keys:
- 
+
  * kSecAttrKeyType with a value of kSecAttrKeyTypeRSA or any other
  kSecAttrKeyType defined in SecItem.h
  * kSecAttrKeySizeInBits with a value being a CFNumberRef containing
  the requested key size in bits.  Example sizes for RSA keys are:
  512, 768, 1024, 2048.
- 
+
  Setting the following attributes explicitly will override the defaults below.
  See SecItem.h for detailed information on these attributes including the types
  of the values.
- 
+
  * kSecAttrLabel default NULL
  * kSecUseKeychain default NULL, which specifies the default keychain
  * kSecAttrApplicationTag default NULL
@@ -442,7 +442,7 @@ SecKeyRef SecKeyCreateFromData(CFDictionaryRef parameters,
  * kSecAttrCanVerify default false for private keys, true for public keys
  * kSecAttrCanWrap default false for private keys, true for public keys
  * kSecAttrCanUnwrap default true for private keys, false for public keys
- 
+
 */
 OSStatus SecKeyGeneratePair(CFDictionaryRef parameters,
 	SecKeyRef *publicKey, SecKeyRef *privateKey)
@@ -467,23 +467,23 @@ typedef void (^SecKeyGeneratePairBlock)(SecKeyRef publicKey, SecKeyRef privateKe
  @param deliveryQueue A dispatch queue to be used to deliver the results.
  @param result A callback function to result when the operation has completed.
  @result On success the function returns NULL.
- 
+
  @discussion In order to generate a keypair the parameters dictionary must
  at least contain the following keys:
- 
+
  * kSecAttrKeyType with a value being kSecAttrKeyTypeRSA or any other
  kSecAttrKeyType defined in SecItem.h
  * kSecAttrKeySizeInBits with a value being a CFNumberRef or CFStringRef
  containing the requested key size in bits.  Example sizes for RSA
  keys are: 512, 768, 1024, 2048.
- 
+
  The values below may be set either in the top-level dictionary or in a
  dictionary that is the value of the kSecPrivateKeyAttrs or
  kSecPublicKeyAttrs key in the top-level dictionary.  Setting these
  attributes explicitly will override the defaults below.  See SecItem.h
  for detailed information on these attributes including the types of
  the values.
- 
+
  * kSecAttrLabel default NULL
  * kSecAttrIsPermanent if this key is present and has a Boolean
  value of true, the key or key pair will be added to the default
@@ -497,11 +497,11 @@ typedef void (^SecKeyGeneratePairBlock)(SecKeyRef publicKey, SecKeyRef privateKe
  * kSecAttrCanVerify default false for private keys, true for public keys
  * kSecAttrCanWrap default false for private keys, true for public keys
  * kSecAttrCanUnwrap default true for private keys, false for public keys
- 
+
 */
 void SecKeyGeneratePairAsync(CFDictionaryRef parameters,
 	dispatch_queue_t deliveryQueue, SecKeyGeneratePairBlock result)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);	
+	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
 #endif /* __BLOCKS__ */
 
@@ -510,51 +510,51 @@ void SecKeyGeneratePairAsync(CFDictionaryRef parameters,
 /*!
  @function SecKeyDeriveFromPassword
  @abstract Derives a symmetric key from a password.
- 
+
  @param password The password from which the keyis to be derived.
  @param parameters A dictionary containing one or more key-value pairs.
  @param error If the call fails this will contain the error code.
- 
+
  @discussion In order to derive a key the parameters dictionary must contain at least contain the following keys:
  * kSecAttrSalt	- a CFData for the salt value for mixing in the pseudo-random rounds.
  * kSecAttrPRF - the algorithm to use for the pseudo-random-function.
    If 0, this defaults to kSecAttrPRFHmacAlgSHA1. Possible values are:
- 
+
  * kSecAttrPRFHmacAlgSHA1
  * kSecAttrPRFHmacAlgSHA224
  * kSecAttrPRFHmacAlgSHA256
  * kSecAttrPRFHmacAlgSHA384
  * kSecAttrPRFHmacAlgSHA512
-  
+
  * kSecAttrRounds - the number of rounds to call the pseudo random function.
    If 0, a count will be computed to average 1/10 of a second.
  * kSecAttrKeySizeInBits with a value being a CFNumberRef
    containing the requested key size in bits.  Example sizes for RSA keys are:
    512, 768, 1024, 2048.
-  
+
  @result On success a SecKeyRef is returned.  On failure this result is NULL and the
  error parameter contains the reason.
- 
+
 */
 SecKeyRef SecKeyDeriveFromPassword(CFStringRef password,
 	CFDictionaryRef parameters, CFErrorRef *error)
-	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA); 
+	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
 /*!
  @function SecKeyWrapSymmetric
  @abstract Wraps a symmetric key with a symmetric key.
- 
+
  @param keyToWrap The key which is to be wrapped.
  @param wrappingKey The key wrapping key.
  #param parameters The parameter list to use for wrapping the key.
  @param error If the call fails this will contain the error code.
- 
+
  @result On success a CFDataRef is returned.  On failure this result is NULL and the
  error parameter contains the reason.
- 
+
  @discussion In order to wrap a key the parameters dictionary may contain the following key:
  * kSecSalt	- a CFData for the salt value for the encrypt.
- 
+
 */
 CFDataRef SecKeyWrapSymmetric(SecKeyRef keyToWrap,
 	SecKeyRef wrappingKey, CFDictionaryRef parameters, CFErrorRef *error)
@@ -563,18 +563,18 @@ CFDataRef SecKeyWrapSymmetric(SecKeyRef keyToWrap,
 /*!
  @function SecKeyUnwrapSymmetric
  @abstract Unwrap a wrapped symmetric key.
- 
+
  @param keyToUnwrap The wrapped key to unwrap.
  @param unwrappingKey The key unwrapping key.
  #param parameters The parameter list to use for unwrapping the key.
  @param error If the call fails this will contain the error code.
- 
+
  @result On success a SecKeyRef is returned.  On failure this result is NULL and the
  error parameter contains the reason.
- 
+
  @discussion In order to unwrap a key the parameters dictionary may contain the following key:
  * kSecSalt	- a CFData for the salt value for the decrypt.
- 
+
 */
 SecKeyRef SecKeyUnwrapSymmetric(CFDataRef *keyToUnwrap,
 	SecKeyRef unwrappingKey, CFDictionaryRef parameters, CFErrorRef *error)

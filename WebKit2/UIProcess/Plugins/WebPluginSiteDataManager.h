@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,8 @@
 #ifndef WebPluginSiteDataManagerh
 #define WebPluginSiteDataManager_h
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #include "APIObject.h"
 #include "Arguments.h"
 #include "GenericCallback.h"
@@ -39,10 +41,8 @@ class WebProcessProxy;
 
 typedef GenericCallback<WKArrayRef> ArrayCallback;
 
-class WebPluginSiteDataManager : public APIObject {
+class WebPluginSiteDataManager : public TypedAPIObject<APIObject::TypePluginSiteDataManager> {
 public:
-    static const Type APIType = TypePluginSiteDataManager;
-
     static PassRefPtr<WebPluginSiteDataManager> create(WebContext*);
     virtual ~WebPluginSiteDataManager();
 
@@ -65,24 +65,24 @@ public:
 private:
     explicit WebPluginSiteDataManager(WebContext*);
 
-    virtual Type type() const { return APIType; }
-
     WebContext* m_webContext;
-    HashMap<uint64_t, RefPtr<ArrayCallback> > m_arrayCallbacks;
-    HashMap<uint64_t, RefPtr<VoidCallback> > m_voidCallbacks;
+    HashMap<uint64_t, RefPtr<ArrayCallback>> m_arrayCallbacks;
+    HashMap<uint64_t, RefPtr<VoidCallback>> m_voidCallbacks;
 
 #if ENABLE(PLUGIN_PROCESS)
     void didGetSitesWithDataForAllPlugins(const Vector<String>& sites, uint64_t callbackID);
     void didClearSiteDataForAllPlugins(uint64_t callbackID);
 
     class GetSitesWithDataState;
-    HashMap<uint64_t, GetSitesWithDataState*> m_pendingGetSitesWithData;
+    HashMap<uint64_t, OwnPtr<GetSitesWithDataState>> m_pendingGetSitesWithData;
 
     class ClearSiteDataState;
-    HashMap<uint64_t, ClearSiteDataState*> m_pendingClearSiteData;
+    HashMap<uint64_t, OwnPtr<ClearSiteDataState>> m_pendingClearSiteData;
 #endif
 };
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #endif // WebPluginSiteDataManager_h

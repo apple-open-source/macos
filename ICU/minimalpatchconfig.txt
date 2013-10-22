@@ -1,6 +1,6 @@
---- icuSources/common/unicode/uconfig.h	2011-12-11 21:21:47.000000000 -0800
-+++ build/common/unicode/uconfig.h	2011-12-15 22:22:52.000000000 -0800
-@@ -106,7 +106,7 @@
+--- icuSources/common/unicode/uconfig.h	2012-11-06 20:15:02.000000000 -0800
++++ build/common/unicode/uconfig.h	2012-11-09 02:15:45.000000000 -0800
+@@ -87,7 +87,7 @@
   * @internal
   */
  #ifndef U_DISABLE_RENAMING
@@ -9,7 +9,7 @@
  #endif
  
  /**
-@@ -401,7 +401,7 @@
+@@ -385,7 +385,7 @@
   * @stable ICU 3.2
   */
  #ifndef UCONFIG_NO_SERVICE
@@ -17,21 +17,25 @@
 +#   define UCONFIG_NO_SERVICE 1
  #endif
  
- #endif
---- icuSources/common/unicode/udata.h	2010-11-23 14:49:28.000000000 -0800
-+++ build/common/unicode/udata.h	2011-12-15 22:31:10.000000000 -0800
-@@ -393,7 +393,7 @@
-     /** ICU does not access the file system for data loading. */
-     UDATA_NO_FILES,
-     /** An alias for the default access mode. */
+ /**
+--- icuSources/common/unicode/udata.h	2012-10-01 21:42:46.000000000 -0700
++++ build/common/unicode/udata.h	2012-11-09 02:22:30.000000000 -0800
+@@ -385,10 +385,10 @@
+ typedef enum UDataFileAccess {
+     /** ICU looks for data in single files first, then in packages. (default) @stable ICU 3.4 */
+     UDATA_FILES_FIRST,
+-    /** An alias for the default access mode. @stable ICU 3.4 */
 -    UDATA_DEFAULT_ACCESS = UDATA_FILES_FIRST,
+     /** ICU only loads data from packages, not from single files. @stable ICU 3.4 */
+     UDATA_ONLY_PACKAGES,
++    /** An alias for the default access mode. @stable ICU 3.4 */
 +    UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES,
-     UDATA_FILE_ACCESS_COUNT
- } UDataFileAccess;
- 
---- icuSources/common/unicode/utypes.h	2011-12-12 12:17:54.000000000 -0800
-+++ build/common/unicode/utypes.h	2011-12-15 22:30:43.000000000 -0800
-@@ -59,7 +59,7 @@
+     /** ICU loads data from packages first, and only from single files
+         if the data cannot be found in a package. @stable ICU 3.4 */
+     UDATA_PACKAGES_FIRST,
+--- icuSources/common/unicode/utypes.h	2012-02-28 00:12:59.000000000 -0800
++++ build/common/unicode/utypes.h	2012-11-09 02:21:16.000000000 -0800
+@@ -61,7 +61,7 @@
   */
  #ifdef __cplusplus
  #   ifndef U_SHOW_CPLUSPLUS_API
@@ -40,7 +44,7 @@
  #   endif
  #else
  #   undef U_SHOW_CPLUSPLUS_API
-@@ -137,7 +137,7 @@
+@@ -139,7 +139,7 @@
  #define U_ICUDATA_NAME    "icudt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER
  #ifndef U_HIDE_INTERNAL_API
  #define U_USRDATA_NAME    "usrdt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER  /**< @internal */

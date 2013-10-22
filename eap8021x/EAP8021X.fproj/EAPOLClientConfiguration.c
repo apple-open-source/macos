@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,6 +51,7 @@
 #include "EAPOLClientConfigurationInternal.h"
 #include "symbol_scope.h"
 #include "myCFUtil.h"
+#include "EAPLog.h"
 
 #define kPrefsName CFSTR("EAPOLClientConfiguration")
 
@@ -88,7 +89,7 @@ get_sc_prefs(EAPOLClientConfigurationRef cfg)
     if (cfg->sc_prefs == NULL) {
 	cfg->sc_prefs = SCPreferencesCreate(NULL, kPrefsName, NULL);
 	if (cfg->sc_prefs == NULL) {
-	    syslog(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "EAPOLClientConfiguration: SCPreferencesCreate failed, %s",
 		   SCErrorString(SCError()));
 	}
@@ -316,6 +317,7 @@ STATIC void
 import_profiles(EAPOLClientConfigurationRef cfg)
 {
     int					count = 0;
+    CFMutableDictionaryRef		domains_dict;
     int					i;
     const void * *			keys;
     CFDictionaryRef			prefs_dict;
@@ -329,6 +331,9 @@ import_profiles(EAPOLClientConfigurationRef cfg)
     ssids_dict = CFDictionaryCreateMutable(NULL, 0,
 					   &kCFTypeDictionaryKeyCallBacks,
 					   &kCFTypeDictionaryValueCallBacks);
+    domains_dict = CFDictionaryCreateMutable(NULL, 0,
+					     &kCFTypeDictionaryKeyCallBacks,
+					     &kCFTypeDictionaryValueCallBacks);
     prefs_dict = SCPreferencesGetValue(cfg->eap_prefs,
 				       kConfigurationKeyProfiles);
     if (isA_CFDictionary(prefs_dict) != NULL) {
@@ -368,14 +373,34 @@ import_profiles(EAPOLClientConfigurationRef cfg)
 		CFStringRef	ssid_str = my_CFStringCreateWithData(ssid);
 
 		SCLog(TRUE, LOG_NOTICE, 
-		      CFSTR("EAPOLClientConfiguration: ignoring profile %@: "
-			    "SSID '%@' already used by %@"),
+		      CFSTR("EAPOLClientConfiguration: ignoring profile %@:"
+			    " SSID '%@' already used by %@"),
 		      profileID, ssid_str, conflicting_profileID);
 		CFRelease(ssid_str);
 		CFRelease(profile);
 		continue;
 	    }
 	    CFDictionarySetValue(ssids_dict, ssid, profileID);
+	}
+	else {
+	    CFStringRef		domain;
+
+	    domain = EAPOLClientProfileGetWLANDomain(profile);
+	    if (domain != NULL) {
+		CFStringRef		conflicting_profileID;
+
+		conflicting_profileID 
+		    = CFDictionaryGetValue(profiles_dict, domain);
+		if (conflicting_profileID != NULL) {
+		    SCLog(TRUE, LOG_NOTICE, 
+			  CFSTR("EAPOLClientConfiguration: ignoring profile %@:"
+				" WLAN domain '%@' already used by %@"),
+			  profileID, domain, conflicting_profileID);
+		    CFRelease(profile);
+		    continue;
+		}
+		CFDictionarySetValue(domains_dict, domain, profileID);
+	    }
 	}
 	CFDictionarySetValue(profiles_dict, profileID, profile);
 	EAPOLClientProfileSetConfiguration(profile, cfg);
@@ -386,6 +411,7 @@ import_profiles(EAPOLClientConfigurationRef cfg)
  done:
     cfg->ssids = ssids_dict;
     cfg->profiles = profiles_dict;
+    cfg->domains = domains_dict;
     return;
 }
 
@@ -574,19 +600,19 @@ copy_interface(SCPreferencesRef prefs, CFStringRef if_name,
     /* find the service in any set */
     service = copy_service(prefs, net_if);
     if (service == NULL) {
-	syslog(LOG_ERR, 
+	EAPLOG(LOG_ERR, 
 	       "EAPOLClientConfiguration: can't get service");
 	goto done;
     }
     /* add the service to the current set */
     current_set = SCNetworkSetCopyCurrent(prefs);
     if (current_set == NULL) {
-	syslog(LOG_ERR,
+	EAPLOG(LOG_ERR,
 	       "EAPOLClientConfiguration: can't get current set");
 	goto done;
     }
     if (SCNetworkSetAddService(current_set, service) == FALSE) {
-	syslog(LOG_ERR,
+	EAPLOG(LOG_ERR,
 	       "EAPOLClientConfiguration: failed to add dummy service");
 	goto done;
     }
@@ -624,7 +650,7 @@ set_eapol_configuration(SCPreferencesRef prefs, CFStringRef if_name,
 	ret = SCNetworkInterfaceSetExtendedConfiguration(net_if_save, kEAPOL,
 							 dict);
 	if (ret == FALSE) {
-	    syslog(LOG_ERR,
+	    EAPLOG(LOG_ERR,
 		   "EAPOLClientConfiguration: SetExtendedConfiguration failed");
 	}
     }
@@ -741,7 +767,7 @@ saveInterfaceEAPOLConfiguration(EAPOLClientConfigurationRef cfg,
 
 	status = AuthorizationCreateFromExternalForm(auth_ext_p, &auth);
 	if (status != errAuthorizationSuccess) {
-	    syslog(LOG_ERR,
+	    EAPLOG(LOG_ERR,
 		   "EAPOLClientConfiguration: can't allocate Authorization, %d",
 		   (int)status);
 	    goto done;
@@ -765,7 +791,7 @@ saveInterfaceEAPOLConfiguration(EAPOLClientConfigurationRef cfg,
 	if_name = SCNetworkInterfaceGetBSDName(net_if);
 	if (if_name == NULL) {
 	    /* should not happen */
-	    syslog(LOG_ERR, "EAPOLClientConfiguration: missing BSD name");
+	    EAPLOG(LOG_ERR, "EAPOLClientConfiguration: missing BSD name");
 	    continue;
 	}
 	dict = SCNetworkInterfaceGetExtendedConfiguration(net_if, kEAPOL);
@@ -778,7 +804,7 @@ saveInterfaceEAPOLConfiguration(EAPOLClientConfigurationRef cfg,
 
     ret = SCPreferencesCommitChanges(prefs);
     if (ret == FALSE) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAPOLClientConfigurationSave SCPreferencesCommitChanges"
 	       " failed %s", SCErrorString(SCError()));
 	goto done;
@@ -847,10 +873,11 @@ __EAPOLClientConfigurationDeallocate(CFTypeRef cf)
     }
     my_CFRelease(&cfg->eap_prefs);
     my_CFRelease(&cfg->sc_prefs);
+    my_CFRelease(&cfg->sc_changed_if);
     my_CFRelease(&cfg->profiles);
     my_CFRelease(&cfg->ssids);
+    my_CFRelease(&cfg->domains);
     my_CFRelease(&cfg->def_auth_props);
-    my_CFRelease(&cfg->sc_changed_if);
     return;
 }
 
@@ -1012,8 +1039,8 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
     /* save the 802.1X prefs */
     prefs_dict = export_profiles(cfg);
     if (prefs_dict == NULL) {
-	syslog(LOG_NOTICE,
-	       "EAPOLClientConfigurationSave copy_profiles() failed");
+	EAPLOG(LOG_NOTICE,
+	       "EAPOLClientConfigurationSave export_profiles() failed");
 	goto done;
     }
     existing_prefs_dict = SCPreferencesGetValue(cfg->eap_prefs,
@@ -1028,7 +1055,7 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
 					kConfigurationKeyDefaultAuthenticationProperties,
 					cfg->def_auth_props);
 	    if (ret == FALSE) {
-		syslog(LOG_NOTICE,
+		EAPLOG(LOG_NOTICE,
 		       "EAPOLClientConfigurationSave SCPreferencesSetValue"
 		       " failed %s",
 		       SCErrorString(SCError()));
@@ -1038,7 +1065,7 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
 	ret = SCPreferencesSetValue(cfg->eap_prefs, kConfigurationKeyProfiles,
 				    prefs_dict);
 	if (ret == FALSE) {
-	    syslog(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "EAPOLClientConfigurationSave SCPreferencesSetValue"
 		   " failed %s",
 		   SCErrorString(SCError()));
@@ -1046,7 +1073,7 @@ EAPOLClientConfigurationSave(EAPOLClientConfigurationRef cfg)
 	}
 	ret = SCPreferencesCommitChanges(cfg->eap_prefs);
 	if (ret == FALSE) {
-	    syslog(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "EAPOLClientConfigurationSave SCPreferencesCommitChanges"
 		   " failed %s", SCErrorString(SCError()));
 	    return (FALSE);
@@ -1149,6 +1176,30 @@ EAPOLClientConfigurationGetProfileWithWLANSSID(EAPOLClientConfigurationRef cfg,
 }
 
 /*
+ * Function: EAPOLClientConfigurationGetProfileWithWLANDomain
+ *
+ * Purpose:
+ *   Return the profile associated with the specified WLAN 
+ *   Hotspot 2.0 domain name.
+ *
+ * Returns:
+ *   NULL if no such profile exists, non-NULL profile otherwise.
+ */
+EAPOLClientProfileRef
+EAPOLClientConfigurationGetProfileWithWLANDomain(EAPOLClientConfigurationRef cfg,
+						 CFStringRef domain)
+{
+    CFStringRef		profileID;
+
+    profileID = CFDictionaryGetValue(cfg->domains, domain);
+    if (profileID == NULL) {
+	return (NULL);
+    }
+    return ((EAPOLClientProfileRef)
+	    CFDictionaryGetValue(cfg->profiles, profileID));
+}
+
+/*
  * Function: EAPOLClientConfigurationRemoveProfile
  *
  * Purpose:
@@ -1193,8 +1244,9 @@ Boolean
 EAPOLClientConfigurationAddProfile(EAPOLClientConfigurationRef cfg,
 				   EAPOLClientProfileRef profile)
 {
-    CFStringRef			profileID = EAPOLClientProfileGetID(profile);
-    CFDataRef			ssid;
+    CFStringRef		domain = NULL;
+    CFStringRef		profileID = EAPOLClientProfileGetID(profile);
+    CFDataRef		ssid;
 
     if (profile->cfg != NULL) {
 	/* profile is already part of the configuration */
@@ -1205,18 +1257,31 @@ EAPOLClientConfigurationAddProfile(EAPOLClientConfigurationRef cfg,
 	return (FALSE);
     }
     ssid = EAPOLClientProfileGetWLANSSIDAndSecurityType(profile, NULL);
-    if (ssid != NULL
-	&& EAPOLClientConfigurationGetProfileWithWLANSSID(cfg, ssid) != NULL) {
-	/* profile already present with that SSID */
-	return (FALSE);
+    if (ssid != NULL) {
+	if (EAPOLClientConfigurationGetProfileWithWLANSSID(cfg, ssid) != NULL) {
+	    /* profile already present with that SSID */
+	    return (FALSE);
+	}
+    }
+    else {
+	domain = EAPOLClientProfileGetWLANDomain(profile);
+	if (domain != NULL) {
+	    if (EAPOLClientConfigurationGetProfileWithWLANDomain(cfg, domain)
+		!= NULL) {
+		/* profile already exists with that domain */
+		return (FALSE);
+	    }
+	}
     }
     CFDictionarySetValue(cfg->profiles, profileID, profile);
     if (ssid != NULL) {
 	CFDictionarySetValue(cfg->ssids, ssid, profileID);
     }
+    else if (domain != NULL) {
+	CFDictionarySetValue(cfg->domains, domain, profileID);
+    }
     EAPOLClientProfileSetConfiguration(profile, cfg);
     return (TRUE);
-    
 }
 
 /*
@@ -1224,8 +1289,8 @@ EAPOLClientConfigurationAddProfile(EAPOLClientConfigurationRef cfg,
  *
  * Purpose:
  *   Find the profile(s) matching the specified profile.
- *   A profile is matched based on the profileID and the SSID, both of which
- *   must be unique in the configuration.
+ *   A profile is matched based on the profileID, the WLAN SSID, and
+ *   the WLAN domain, all of which must be unique in the configuration.
  *
  *   Usually invoked after calling 
  *   EAPOLClientProfileCreateWithPropertyList() to instantiate a profile
@@ -1240,26 +1305,35 @@ EAPOLClientConfigurationCopyMatchingProfiles(EAPOLClientConfigurationRef cfg,
 					     EAPOLClientProfileRef profile)
 {
     int				count;
-    EAPOLClientProfileRef	existing_profile;
+    EAPOLClientProfileRef	matching_profile;
     CFStringRef			profileID = EAPOLClientProfileGetID(profile);
     CFDataRef			ssid;
     const void *		values[2] = { NULL, NULL };
     
     count = 0;
-    existing_profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
-    if (existing_profile != NULL) {
-	values[count] = existing_profile;
+    matching_profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
+    if (matching_profile != NULL) {
+	values[count] = matching_profile;
 	count++;
     }
+    matching_profile = NULL;
     ssid = EAPOLClientProfileGetWLANSSIDAndSecurityType(profile, NULL);
     if (ssid != NULL) {
-	existing_profile 
-	    = EAPOLClientConfigurationGetProfileWithWLANSSID(cfg,
-							     ssid);
-	if (existing_profile != NULL && values[0] != existing_profile) {
-	    values[count] = existing_profile;
-	    count++;
+	matching_profile 
+	    = EAPOLClientConfigurationGetProfileWithWLANSSID(cfg, ssid);
+    }
+    else {
+	CFStringRef		domain;
+	
+	domain = EAPOLClientProfileGetWLANDomain(profile);
+	if (domain != NULL) {
+	    matching_profile 
+		= EAPOLClientConfigurationGetProfileWithWLANDomain(cfg, domain);
 	}
+    }
+    if (matching_profile != NULL && values[0] != matching_profile) {
+	values[count] = matching_profile;
+	count++;
     }
     if (count == 0) {
 	return (NULL);
@@ -1638,6 +1712,21 @@ EAPOLClientConfigurationSetProfileForSSID(EAPOLClientConfigurationRef cfg,
     }
     else {
 	CFDictionarySetValue(cfg->ssids, ssid,
+			     EAPOLClientProfileGetID(profile));
+    }
+    return;
+}
+
+PRIVATE_EXTERN void
+EAPOLClientConfigurationSetProfileForWLANDomain(EAPOLClientConfigurationRef cfg,
+						CFStringRef domain,
+						EAPOLClientProfileRef profile)
+{
+    if (profile == NULL) {
+	CFDictionaryRemoveValue(cfg->domains, domain);
+    }
+    else {
+	CFDictionarySetValue(cfg->domains, domain,
 			     EAPOLClientProfileGetID(profile));
     }
     return;

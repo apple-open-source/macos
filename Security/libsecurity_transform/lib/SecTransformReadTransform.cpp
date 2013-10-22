@@ -41,14 +41,41 @@ static SecTransformInstanceBlock StreamTransformImplementation(CFStringRef name,
 			}
 			
 			CFArrayRef array = (CFArrayRef) value;
-			CFReadStreamRef input = (CFReadStreamRef) CFArrayGetValueAtIndex(array, 0);
-			
-			// open the stream
-			if (!CFReadStreamOpen(input))
+			CFTypeRef item = (CFTypeRef) CFArrayGetValueAtIndex(array, 0);
+
+			// Ensure that indeed we do have a CFReadStreamRef
+			if (NULL == item || CFReadStreamGetTypeID() != CFGetTypeID(item))
 			{
-				// We didn't open properly.  Error out
-				return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "An error occurred while opening the stream.");
+				return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "The input attribute item was nil or not a read stream");
 			}
+			
+			// This now is a safe cast
+			CFReadStreamRef input = (CFReadStreamRef)item;
+
+			// Get the state of the stream
+			CFStreamStatus streamStatus = CFReadStreamGetStatus(input);
+			switch (streamStatus)
+			{
+				case kCFStreamStatusNotOpen:
+				{
+					if (!CFReadStreamOpen(input))
+					{
+						// We didn't open properly.  Error out
+						return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "An error occurred while opening the stream.");
+					}
+				}
+				break;
+
+				case kCFStreamStatusError:
+				{
+					return (CFTypeRef) CreateSecTransformErrorRef(kSecTransformErrorInvalidInput, "The read stream is in an error state");
+				}
+				break;
+
+				default:
+					// The assumption is that the stream is ready to go as is.
+				break;
+			}		
 			
 			// allocate the read buffer on the heap
 			u_int8_t* buffer = (u_int8_t*) malloc(blockSize);

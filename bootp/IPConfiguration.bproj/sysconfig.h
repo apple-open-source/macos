@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -88,5 +88,7 @@ IPv4ARPCollisionKeyParse(CFStringRef cache_key, struct in_addr * ipaddr_p,
 CFDictionaryRef
 DNSEntityCreateWithDHCPv4AndDHCPv6Info(dhcp_info_t * info_v4_p,
 				       dhcpv6_info_t * info_v6_p);
+void *
+bytesFromColonHexString(CFStringRef colon_hex, int * len);
 
 #endif /* _S_SYSCONFIG_H */

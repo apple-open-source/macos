@@ -33,10 +33,10 @@
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFDate.h>
+#include <CoreFoundation/CFError.h>
+#include <xpc/xpc.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef struct SecCertificatePath *SecCertificatePathRef;
 
@@ -47,11 +47,11 @@ CFTypeID SecCertificatePathGetTypeID(void);
 SecCertificatePathRef SecCertificatePathCreate(SecCertificatePathRef path,
 	SecCertificateRef certificate);
 
-/* Create a new certificate path from an array of CFDataRefs. */
-SecCertificatePathRef SecCertificatePathCreateWithArray(CFArrayRef certificates);
+/* Create a new certificate path from an xpc_array of datas. */
+SecCertificatePathRef SecCertificatePathCreateWithXPCArray(xpc_object_t xpc_path, CFErrorRef *error);
 
 /* Create an array of CFDataRefs from a certificate path. */
-CFArrayRef SecCertificatePathCopyArray(SecCertificatePathRef path);
+xpc_object_t SecCertificatePathCopyXPCArray(SecCertificatePathRef path, CFErrorRef *error);
 
 SecCertificatePathRef SecCertificatePathCopyAddingLeaf(SecCertificatePathRef path,
 SecCertificateRef leaf);
@@ -119,8 +119,6 @@ CFIndex SecCertificatePathScore(SecCertificatePathRef certificatePath,
 Node based version is possible.  We need to make sure we extract algorithm oid and parameters in the chain.  When constructing a new path (with a new parent from a path with the child at it's head), we duplicate each child node for which we could not previously establish a public key because the parameters were missing and there was no cert with the same algorithm in the chain which does have parameters.  This is because, when extended with a different parent certificate that has different parameters for the childs algorithm, the signatures in the child chain must be reverified using the new parameters and therefore might yeild a different result.
 We could allow more sharing if we stored the parameters found in the search up the chain in each node, and only duplicate the nodes if the parameters differ and then reset the isSigned status of each node with changed parameters. */
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECCERTIFICATEPATH_H_ */

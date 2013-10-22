@@ -408,7 +408,7 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
     TLS_SESS_STATE *sess_ctx;
     VSTRING *request, *response;
     unsigned int length;
-    bool plain;
+    bool plain, x_plain_submit;
 
     port = 143;
     stream = NULL;
@@ -538,10 +538,12 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
 
     /* determine which authentication mechanism to use; prefer PLAIN */
     plain = FALSE;
+    x_plain_submit = FALSE;
     if (imap_capable_of(stream, is, request, response, "AUTH=PLAIN", FALSE))
 	plain = TRUE;
-    else if (!imap_capable_of(stream, is, request, response,
-			      "AUTH=X-PLAIN-SUBMIT", FALSE)) {
+    if (imap_capable_of(stream, is, request, response, "AUTH=X-PLAIN-SUBMIT", FALSE))
+	x_plain_submit = TRUE;
+    if (!plain && !x_plain_submit) {
 	msg_warn("IMAP server %s supports neither "
 		 "AUTH=PLAIN nor AUTH=X-PLAIN-SUBMIT.  can't log in.",
 		 is->hostport);
@@ -570,9 +572,21 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
 	vstream_longjmp(stream, -1);
     }
 
-    /* authorization ID \0 authentication ID \0 password */
     VSTRING_RESET(response);
-    vstring_strcat(response, state->sasl_username);
+    if (x_plain_submit) {
+	/*
+	 * Servers which advertise X-PLAIN-SUBMIT need both authorization and
+	 * authentication IDs with either authentication mechanism:
+	 *  authorization ID \0 authentication ID \0 password
+	 */
+	vstring_strcat(response, state->sasl_username);
+    } else {
+	/*
+	 * Servers which don't advertise X-PLAIN-SUBMIT need only the
+	 * authentication ID:
+	 *  \0 authentication ID \0 password
+	 */
+    }
     VSTRING_ADDCH(response, 0);
     vstring_strcat(response, is->username);
     VSTRING_ADDCH(response, 0);
@@ -590,8 +604,9 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
     if (VSTRING_LEN(response) < 4 ||
 	strncasecmp(vstring_str(response), "A OK", 4) != 0) {
 	msg_warn("logging in to IMAP server %s failed.  "
-		 "mechanism=%s response=\"%s\"",
+		 "mechanism=%s authz=%s auth=%s response=\"%s\"",
 		 is->hostport, plain ? "PLAIN" : "X-PLAIN-SUBMIT",
+		 x_plain_submit ? state->sasl_username : "", is->username,
 		 vstring_str(response));
 	vstream_longjmp(stream, -1);
     }

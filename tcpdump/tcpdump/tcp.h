@@ -85,7 +85,21 @@ struct tcphdr {
 #define TCPOPT_AUTH             20      /* Enhanced AUTH option */
 #define	TCPOPT_UTO		28	/* tcp user timeout (rfc5482) */
 #define	   TCPOLEN_UTO			4
+#define TCPOPT_MPTCP		30	/* Multipath TCP (draft-ietf-mptcp-multiaddressed-10) */
+#define    TCPOPT_MPTCP_MP_CAPABLE		0x0
+#define    TCPOPT_MPTCP_MP_JOIN			0x1
+#define    TCPOPT_MPTCP_DSS				0x2
+#define    TCPOPT_MPTCP_ADD_ADDR		0x3
+#define    TCPOPT_MPTCP_REMOVE_ADDR		0x4
+#define    TCPOPT_MPTCP_MP_PRIO			0x5
+#define    TCPOPT_MPTCP_MP_FAIL			0x6
+#define    TCPOPT_MPTCP_MP_FASTCLOSE	0x7
 
+#define MPDSS_FLAG_F	0x10
+#define MPDSS_FLAG_m	0x08
+#define MPDSS_FLAG_M	0x04
+#define MPDSS_FLAG_a	0x02
+#define MPDSS_FLAG_A	0x01
 
 #define TCPOPT_TSTAMP_HDR	\
     (TCPOPT_NOP<<24|TCPOPT_NOP<<16|TCPOPT_TIMESTAMP<<8|TCPOLEN_TIMESTAMP)
@@ -105,6 +119,7 @@ struct tcphdr {
 #define NFS_PORT	        2049
 #endif
 #define MSDP_PORT	        639
+#define RPKI_RTR_PORT	        2222 /* experimental up until sidr-wg registers a well-known port */
 #define LDP_PORT                646
 #ifndef SMB_PORT
 #define SMB_PORT                445

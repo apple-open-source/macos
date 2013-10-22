@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,6 +53,7 @@ typedef struct memoryBuffer_s {
     void *			data;
     size_t			length;
     size_t			offset;
+    bool			complete;
 } memoryBuffer, *memoryBufferRef;
 
 typedef struct {
@@ -103,6 +103,15 @@ memoryBufferClear(memoryBufferRef buf);
 
 void
 memoryBufferInit(memoryBufferRef buf);
+
+void
+memoryBufferAllocate(memoryBufferRef buf, size_t length);
+
+bool
+memoryBufferIsComplete(memoryBufferRef buf);
+
+bool
+memoryBufferAddData(memoryBufferRef buf, const void * data, size_t length);
 
 void
 memoryIOClearBuffers(memoryIORef mem_io);
@@ -157,6 +166,10 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
  */
 OSStatus
 EAPSecPolicyCopy(SecPolicyRef * ret_policy);
+
+CFStringRef
+EAPTLSPacketCopyDescription(EAPTLSPacketRef eaptls_pkt, bool * packet_is_valid);
+
 
 #if TARGET_OS_EMBEDDED
 /*
@@ -213,5 +226,16 @@ EAPTLSCreateSecTrust(CFDictionaryRef properties, CFArrayRef server_certs,
 		     CFStringRef domain, CFStringRef identifier);
 
 #endif /* TARGET_OS_EMBEDDED */
+
+/*
+ * Function: EAPTLSCopyIdentityChain
+ * Purpose:
+ *   Copy the trust chain corresponding to the given SecIdentityRef, or if NULL,
+ *   the one specified in the given properties dictionary.
+ */
+OSStatus
+EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
+			     CFDictionaryRef properties,
+			     CFArrayRef * ret_array);
 
 #endif /* _EAP8021X_EAPTLSUTIL_H */

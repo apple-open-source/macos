@@ -26,13 +26,18 @@
 #include "config.h"
 #include "NPJSObject.h"
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #include "JSNPObject.h"
 #include "NPRuntimeObjectMap.h"
 #include "NPRuntimeUtilities.h"
+#include <JavaScriptCore/JSCJSValueInlines.h>
+#include <JavaScriptCore/JSCellInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/StrongInlines.h>
-#include <WebCore/Frame.h>  
+#include <JavaScriptCore/StructureInlines.h>
+#include <WebCore/Frame.h>
 #include <WebCore/IdentifierRep.h>
 #include <wtf/text/WTFString.h>
 
@@ -41,13 +46,13 @@ using namespace WebCore;
 
 namespace WebKit {
 
-NPJSObject* NPJSObject::create(JSGlobalData& globalData, NPRuntimeObjectMap* objectMap, JSObject* jsObject)
+NPJSObject* NPJSObject::create(VM& vm, NPRuntimeObjectMap* objectMap, JSObject* jsObject)
 {
     // We should never have a JSNPObject inside an NPJSObject.
     ASSERT(!jsObject->inherits(&JSNPObject::s_info));
 
     NPJSObject* npJSObject = toNPJSObject(createNPObject(0, npClass()));
-    npJSObject->initialize(globalData, objectMap, jsObject);
+    npJSObject->initialize(vm, objectMap, jsObject);
 
     return npJSObject;
 }
@@ -67,13 +72,13 @@ bool NPJSObject::isNPJSObject(NPObject* npObject)
     return npObject->_class == npClass();
 }
 
-void NPJSObject::initialize(JSGlobalData& globalData, NPRuntimeObjectMap* objectMap, JSObject* jsObject)
+void NPJSObject::initialize(VM& vm, NPRuntimeObjectMap* objectMap, JSObject* jsObject)
 {
     ASSERT(!m_objectMap);
     ASSERT(!m_jsObject);
 
     m_objectMap = objectMap;
-    m_jsObject.set(globalData, jsObject);
+    m_jsObject.set(vm, jsObject);
 }
 
 static Identifier identifierFromIdentifierRep(ExecState* exec, IdentifierRep* identifierRep)
@@ -241,7 +246,7 @@ bool NPJSObject::enumerate(NPIdentifier** identifiers, uint32_t* identifierCount
     NPIdentifier* nameIdentifiers = npnMemNewArray<NPIdentifier>(propertyNames.size());
 
     for (size_t i = 0; i < propertyNames.size(); ++i)
-        nameIdentifiers[i] = static_cast<NPIdentifier>(IdentifierRep::get(propertyNames[i].ustring().utf8().data()));
+        nameIdentifiers[i] = static_cast<NPIdentifier>(IdentifierRep::get(propertyNames[i].string().utf8().data()));
 
     *identifiers = nameIdentifiers;
     *identifierCount = propertyNames.size();
@@ -267,9 +272,7 @@ bool NPJSObject::construct(const NPVariant* arguments, uint32_t argumentCount, N
     for (uint32_t i = 0; i < argumentCount; ++i)
         argumentList.append(m_objectMap->convertNPVariantToJSValue(exec, m_objectMap->globalObject(), arguments[i]));
 
-    exec->globalData().timeoutChecker.start();
     JSValue value = JSC::construct(exec, m_jsObject.get(), constructType, constructData, argumentList);
-    exec->globalData().timeoutChecker.stop();
     
     // Convert and return the new object.
     m_objectMap->convertJSValueToNPVariant(exec, value, *result);
@@ -290,9 +293,7 @@ bool NPJSObject::invoke(ExecState* exec, JSGlobalObject* globalObject, JSValue f
     for (uint32_t i = 0; i < argumentCount; ++i)
         argumentList.append(m_objectMap->convertNPVariantToJSValue(exec, globalObject, arguments[i]));
 
-    exec->globalData().timeoutChecker.start();
     JSValue value = JSC::call(exec, function, callType, callData, m_jsObject->methodTable()->toThisObject(m_jsObject.get(), exec), argumentList);
-    exec->globalData().timeoutChecker.stop();
 
     // Convert and return the result of the function call.
     m_objectMap->convertJSValueToNPVariant(exec, value, *result);
@@ -381,3 +382,5 @@ bool NPJSObject::NP_Construct(NPObject* npObject, const NPVariant* arguments, ui
 }
     
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

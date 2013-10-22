@@ -39,6 +39,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		04F66BBF154896020023F41F /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04F66BBE154896020023F41F /* DCERPC.framework */; };
+		04F66BC01548960E0023F41F /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04F66BBE154896020023F41F /* DCERPC.framework */; };
+		04F66BC1154896260023F41F /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 04F66BBE154896020023F41F /* DCERPC.framework */; };
 		D610EA3910B7575800D0305F /* acf_l.c in Sources */ = {isa = PBXBuildFile; fileRef = D610EA3810B7575800D0305F /* acf_l.c */; };
 		D610EA3B10B7577F00D0305F /* acf_y.c in Sources */ = {isa = PBXBuildFile; fileRef = D610EA3A10B7577F00D0305F /* acf_y.c */; };
 		D616F80B11B722660036020D /* libnck_stubs.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DD10F4C9106D2364005F1EF3 /* libnck_stubs.a */; };
@@ -398,9 +401,6 @@
 		DDE704EB1071199C00563825 /* echo_server.c in Sources */ = {isa = PBXBuildFile; fileRef = DD3DAFA8100408FC0080B762 /* echo_server.c */; };
 		DDE704EC1071199C00563825 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = DD3DAFAD100408FC0080B762 /* misc.c */; };
 		DDE7051810711B8800563825 /* libuuid.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DDE017DE106C334200A5E41A /* libuuid.a */; };
-		DDEFE5AB107E37C9006B8032 /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD04350210769FDA0010E492 /* DCERPC.framework */; };
-		DDEFE5FB107E37DB006B8032 /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD04350210769FDA0010E492 /* DCERPC.framework */; };
-		DDEFE64D107E37F8006B8032 /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD04350210769FDA0010E492 /* DCERPC.framework */; };
 		DDEFE654107E380B006B8032 /* DCERPC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DD04350210769FDA0010E492 /* DCERPC.framework */; };
 		DDFD947510723C3A008E776F /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = DD3DAFAD100408FC0080B762 /* misc.c */; };
 		DDFD947710723C4C008E776F /* echo_client.c in Sources */ = {isa = PBXBuildFile; fileRef = DD3DAFA7100408FC0080B762 /* echo_client.c */; };
@@ -495,6 +495,13 @@
 /* End PBXBuildRule section */
 
 /* Begin PBXContainerItemProxy section */
+		04F66BBC154895C00023F41F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DD04350110769FDA0010E492;
+			remoteInfo = DCERPC;
+		};
 		D6A1242111066E61007B04CF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
@@ -636,13 +643,6 @@
 			remoteInfo = dce;
 		};
 		DDEFE5A9107E37C0006B8032 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DD04350110769FDA0010E492;
-			remoteInfo = DCERPC;
-		};
-		DDEFE649107E37E6006B8032 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
 			proxyType = 1;
@@ -793,6 +793,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		04F66BBE154896020023F41F /* DCERPC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DCERPC.framework; path = System/Library/PrivateFrameworks/DCERPC.framework; sourceTree = SDKROOT; };
 		D610EA3810B7575800D0305F /* acf_l.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = acf_l.c; sourceTree = "<group>"; };
 		D610EA3A10B7577F00D0305F /* acf_y.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = acf_y.c; sourceTree = "<group>"; };
 		D62430B510B7596C0092FD35 /* nidl_l.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nidl_l.c; sourceTree = "<group>"; };
@@ -895,8 +896,6 @@
 		DD3DAFAA100408FC0080B762 /* getopt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = getopt.h; sourceTree = "<group>"; };
 		DD3DAFAD100408FC0080B762 /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
 		DD3DAFAE100408FC0080B762 /* misc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = misc.h; sourceTree = "<group>"; };
-		DD3DAFB0100408FC0080B762 /* echo_client.exe */ = {isa = PBXFileReference; lastKnownFileType = file; path = echo_client.exe; sourceTree = "<group>"; };
-		DD3DAFB1100408FC0080B762 /* echo_server.exe */ = {isa = PBXFileReference; lastKnownFileType = file; path = echo_server.exe; sourceTree = "<group>"; };
 		DD3DAFB2100408FC0080B762 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		DD3DAFB4100408FC0080B762 /* echou.acf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = echou.acf; sourceTree = "<group>"; };
 		DD3DAFB5100408FC0080B762 /* echou.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = echou.idl; sourceTree = "<group>"; };
@@ -1511,7 +1510,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DDEFE5AB107E37C9006B8032 /* DCERPC.framework in Frameworks */,
+				04F66BC1154896260023F41F /* DCERPC.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1537,9 +1536,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				04F66BBF154896020023F41F /* DCERPC.framework in Frameworks */,
 				DDE7051810711B8800563825 /* libuuid.a in Frameworks */,
 				DDD80ABE10756AAA00956CF0 /* libecho_stubs.a in Frameworks */,
-				DDEFE5FB107E37DB006B8032 /* DCERPC.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1547,9 +1546,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				04F66BC01548960E0023F41F /* DCERPC.framework in Frameworks */,
 				DDFD948D10723D0D008E776F /* libuuid.a in Frameworks */,
 				DDD80ACF10756AF500956CF0 /* libecho_stubs.a in Frameworks */,
-				DDEFE64D107E37F8006B8032 /* DCERPC.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1589,6 +1588,7 @@
 		0867D691FE84028FC02AAC07 /* dcerpc */ = {
 			isa = PBXGroup;
 			children = (
+				04F66BBE154896020023F41F /* DCERPC.framework */,
 				D6FC8BD410B765C300C5F198 /* DerivedSources */,
 				08FB77AEFE84172EC02AAC07 /* Sources */,
 				DD8828671073178F00FBF62B /* ConfigurationFiles */,
@@ -1692,19 +1692,9 @@
 				DD3DAFAA100408FC0080B762 /* getopt.h */,
 				DD3DAFAD100408FC0080B762 /* misc.c */,
 				DD3DAFAE100408FC0080B762 /* misc.h */,
-				DD3DAFAF100408FC0080B762 /* prebuilt */,
 				DD3DAFB2100408FC0080B762 /* README */,
 			);
 			path = echo_server;
-			sourceTree = "<group>";
-		};
-		DD3DAFAF100408FC0080B762 /* prebuilt */ = {
-			isa = PBXGroup;
-			children = (
-				DD3DAFB0100408FC0080B762 /* echo_client.exe */,
-				DD3DAFB1100408FC0080B762 /* echo_server.exe */,
-			);
-			path = prebuilt;
 			sourceTree = "<group>";
 		};
 		DD3DAFB3100408FC0080B762 /* echo_union */ = {
@@ -2943,7 +2933,7 @@
 			dependencies = (
 				DDE7051510711B7600563825 /* PBXTargetDependency */,
 				DDD80ABD10756AA200956CF0 /* PBXTargetDependency */,
-				DDEFE64A107E37E6006B8032 /* PBXTargetDependency */,
+				04F66BBD154895C00023F41F /* PBXTargetDependency */,
 			);
 			name = echo_server;
 			productName = echo_server;
@@ -2991,6 +2981,8 @@
 /* Begin PBXProject section */
 		0867D690FE84028FC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB91B108733DA50010E9CD /* Build configuration list for PBXProject "dcerpc" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -3607,6 +3599,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		04F66BBD154895C00023F41F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DD04350110769FDA0010E492 /* DCERPC */;
+			targetProxy = 04F66BBC154895C00023F41F /* PBXContainerItemProxy */;
+		};
 		D6A1242211066E61007B04CF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DD10F5E9106D3528005F1EF3 /* mgmt_stubs */;
@@ -3712,11 +3709,6 @@
 			target = DD04350110769FDA0010E492 /* DCERPC */;
 			targetProxy = DDEFE5A9107E37C0006B8032 /* PBXContainerItemProxy */;
 		};
-		DDEFE64A107E37E6006B8032 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DD04350110769FDA0010E492 /* DCERPC */;
-			targetProxy = DDEFE649107E37E6006B8032 /* PBXContainerItemProxy */;
-		};
 		DDEFE64C107E37F3006B8032 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DD04350110769FDA0010E492 /* DCERPC */;
@@ -3764,8 +3756,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CURRENT_PROJECT_VERSION = 53.1.1;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CURRENT_PROJECT_VERSION = 58;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				ONLY_ACTIVE_ARCH = YES;
@@ -3778,8 +3770,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CURRENT_PROJECT_VERSION = 53.1.1;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CURRENT_PROJECT_VERSION = 58;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				SDKROOT = "";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -3807,9 +3799,11 @@
 			baseConfigurationReference = DD04350B10769FF80010E492 /* dcerpc_framework.xcconfig */;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53.1.1;
+				DYLIB_CURRENT_VERSION = 58;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
+				INSTALL_GROUP = "$(GROUP)";
+				INSTALL_OWNER = "$(USER)";
 				PRODUCT_NAME = DCERPC;
 			};
 			name = Debug;
@@ -3819,9 +3813,11 @@
 			baseConfigurationReference = DD04350B10769FF80010E492 /* dcerpc_framework.xcconfig */;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 53.1.1;
+				DYLIB_CURRENT_VERSION = 58;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
+				INSTALL_GROUP = "$(GROUP)";
+				INSTALL_OWNER = "$(USER)";
 				PRODUCT_NAME = DCERPC;
 			};
 			name = Release;
@@ -3934,6 +3930,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD501C071073C24800473324 /* stubs.xcconfig */;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				PRODUCT_NAME = echo_stubs;
 			};
 			name = Debug;
@@ -3942,6 +3942,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DD501C071073C24800473324 /* stubs.xcconfig */;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				PRODUCT_NAME = echo_stubs;
 			};
 			name = Release;
@@ -4031,6 +4035,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				PRODUCT_NAME = echo_server;
 			};
 			name = Debug;
@@ -4039,6 +4047,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				PRODUCT_NAME = echo_server;
 			};
 			name = Release;
@@ -4047,6 +4059,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				PRODUCT_NAME = echo_client;
 			};
 			name = Debug;
@@ -4055,6 +4071,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DDB66DA2107BE3310095CBC1 /* base_config.xcconfig */;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				PRODUCT_NAME = echo_client;
 			};
 			name = Release;

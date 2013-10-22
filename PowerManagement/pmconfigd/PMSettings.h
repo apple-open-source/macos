@@ -39,13 +39,8 @@ enum {
     kPMForceLowSpeedProfile         = (1<<0),
     kPMForceHighSpeed               = (1<<1),
     kPMPreventIdleSleep             = (1<<2),
-    kPMPreventDisplaySleep          = (1<<3)
-};
-
-enum {
-    kPMSROverrideNotSet   = 0,
-    kPMSROverrideEnable   = 1,
-    kPMSROverrideDisable  = 2
+    kPMPreventDisplaySleep          = (1<<3),
+    kPMPreventDiskSleep             = (1<<4)
 };
 
 __private_extern__ void PMSettings_prime(void);
@@ -72,9 +67,7 @@ __private_extern__ void overrideSetting(int, int);
 __private_extern__ void activateSettingOverrides(void);
 
 __private_extern__ IOReturn getDisplaySleepTimer(uint32_t *displaySleepTimer);
-
-__private_extern__ void _Set_SR_override(int f);
-__private_extern__ int _get_SR_Override();
+__private_extern__ IOReturn getIdleSleepTimer(uint32_t *idleSleepTimer);
 
 __private_extern__ bool _DWBT_allowed(void);
 __private_extern__ bool _DWBT_enabled(void);

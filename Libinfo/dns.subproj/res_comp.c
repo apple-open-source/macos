@@ -1,27 +1,4 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * ++Copyright++ 1985, 1993
  * -
  * Copyright (c) 1985, 1993
@@ -87,18 +64,8 @@ static char rcsid[] = "$Id: res_comp.c,v 1.4 2003/02/18 17:29:24 majka Exp $";
 #include <stdio.h>
 #include <ctype.h>
 
-#include "nameser8_compat.h"
-#include "resolv8_compat.h"
-
-#if defined(BSD) && (BSD >= 199103)
-# include <unistd.h>
-# include <string.h>
-#else
-# include "portability.h"
-#endif
-
-static int	dn_find __P((u_char *exp_dn, u_char *msg,
-			     u_char **dnptrs, u_char **lastdnptr));
+#include <arpa/nameser_compat.h>
+#include <nameser.h>
 
 /*
  * Expand compressed domain name 'comp_dn' to full domain name.
@@ -108,10 +75,7 @@ static int	dn_find __P((u_char *exp_dn, u_char *msg,
  * Return size of compressed name or -1 if there was an error.
  */
 int
-dn_expand(msg, eomorig, comp_dn, exp_dn, length)
-	const u_char *msg, *eomorig, *comp_dn;
-	char *exp_dn;
-	int length;
+dn_expand(const u_char *msg, const u_char *eomorig, const u_char *comp_dn, char *exp_dn, int length)
 {
 	register const u_char *cp;
 	register char *dn;
@@ -181,100 +145,10 @@ dn_expand(msg, eomorig, comp_dn, exp_dn, length)
 }
 
 /*
- * Compress domain name 'exp_dn' into 'comp_dn'.
- * Return the size of the compressed name or -1.
- * 'length' is the size of the array pointed to by 'comp_dn'.
- * 'dnptrs' is a list of pointers to previous compressed names. dnptrs[0]
- * is a pointer to the beginning of the message. The list ends with NULL.
- * 'lastdnptr' is a pointer to the end of the arrary pointed to
- * by 'dnptrs'. Side effect is to update the list of pointers for
- * labels inserted into the message as we compress the name.
- * If 'dnptr' is NULL, we don't try to compress names. If 'lastdnptr'
- * is NULL, we don't update the list.
- */
-int
-dn_comp(exp_dn, comp_dn, length, dnptrs, lastdnptr)
-	const char *exp_dn;
-	u_char *comp_dn, **dnptrs, **lastdnptr;
-	int length;
-{
-	register u_char *cp, *dn;
-	register int c, l;
-	u_char **cpp, **lpp, *sp, *eob;
-	u_char *msg;
-
-	dn = (u_char *)exp_dn;
-	cp = comp_dn;
-	eob = cp + length;
-	lpp = cpp = NULL;
-	if (dnptrs != NULL) {
-		if ((msg = *dnptrs++) != NULL) {
-			for (cpp = dnptrs; *cpp != NULL; cpp++)
-				;
-			lpp = cpp;	/* end of list to search */
-		}
-	} else
-		msg = NULL;
-	for (c = *dn++; c != '\0'; ) {
-		/* look to see if we can use pointers */
-		if (msg != NULL) {
-			if ((l = dn_find(dn-1, msg, dnptrs, lpp)) >= 0) {
-				if (cp+1 >= eob)
-					return (-1);
-				*cp++ = (l >> 8) | INDIR_MASK;
-				*cp++ = l % 256;
-				return (cp - comp_dn);
-			}
-			/* not found, save it */
-			if (lastdnptr != NULL && cpp < lastdnptr-1) {
-				*cpp++ = cp;
-				*cpp = NULL;
-			}
-		}
-		sp = cp++;	/* save ptr to length byte */
-		do {
-			if (c == '.') {
-				c = *dn++;
-				break;
-			}
-			if (c == '\\') {
-				if ((c = *dn++) == '\0')
-					break;
-			}
-			if (cp >= eob) {
-				if (msg != NULL)
-					*lpp = NULL;
-				return (-1);
-			}
-			*cp++ = c;
-		} while ((c = *dn++) != '\0');
-		/* catch trailing '.'s but not '..' */
-		if ((l = cp - sp - 1) == 0 && c == '\0') {
-			cp--;
-			break;
-		}
-		if (l <= 0 || l > MAXLABEL) {
-			if (msg != NULL)
-				*lpp = NULL;
-			return (-1);
-		}
-		*sp = l;
-	}
-	if (cp >= eob) {
-		if (msg != NULL)
-			*lpp = NULL;
-		return (-1);
-	}
-	*cp++ = '\0';
-	return (cp - comp_dn);
-}
-
-/*
  * Skip over a compressed domain name. Return the size or -1.
  */
 int
-__dn_skipname(comp_dn, eom)
-	const u_char *comp_dn, *eom;
+__dn_skipname(const u_char *comp_dn, const u_char *eom)
 {
 	register const u_char *cp;
 	register int n;
@@ -301,153 +175,22 @@ __dn_skipname(comp_dn, eom)
 	return (cp - comp_dn);
 }
 
-static int
-mklower(ch)
-	register int ch;
-{
-	if (isascii(ch) && isupper(ch))
-		return (tolower(ch));
-	return (ch);
-}
-
-/*
- * Search for expanded name from a list of previously compressed names.
- * Return the offset from msg if found or -1.
- * dnptrs is the pointer to the first name on the list,
- * not the pointer to the start of the message.
- */
-static int
-dn_find(exp_dn, msg, dnptrs, lastdnptr)
-	u_char *exp_dn, *msg;
-	u_char **dnptrs, **lastdnptr;
-{
-	register u_char *dn, *cp, **cpp;
-	register int n;
-	u_char *sp;
-
-	for (cpp = dnptrs; cpp < lastdnptr; cpp++) {
-		dn = exp_dn;
-		sp = cp = *cpp;
-		while ((n = *cp++)) {
-			/*
-			 * check for indirection
-			 */
-			switch (n & INDIR_MASK) {
-			case 0:		/* normal case, n == len */
-				while (--n >= 0) {
-					if (*dn == '.')
-						goto next;
-					if (*dn == '\\')
-						dn++;
-					if (mklower(*dn++) != mklower(*cp++))
-						goto next;
-				}
-				if ((n = *dn++) == '\0' && *cp == '\0')
-					return (sp - msg);
-				if (n == '.')
-					continue;
-				goto next;
-
-			case INDIR_MASK:	/* indirection */
-				cp = msg + (((n & 0x3f) << 8) | *cp);
-				break;
-
-			default:	/* illegal type */
-				return (-1);
-			}
-		}
-		if (*dn == '\0')
-			return (sp - msg);
-	next:	;
-	}
-	return (-1);
-}
-
 /*
  * Routines to insert/extract short/long's.
  */
 
 u_int16_t
-_getshort(msgp)
-	register const u_char *msgp;
+_getshort(const u_char *msgp)
 {
-	register u_int16_t u;
-
+	u_int16_t u;
 	GETSHORT(u, msgp);
-	return (u);
+	return u;
 }
-
-#if defined(__APPLE__)
-/*
- * nExt machines have some funky library conventions, which we must maintain.
- */
-u_int16_t
-res_getshort(msgp)
-	register const u_char *msgp;
-{
-	return (_getshort(msgp));
-}
-#endif
 
 u_int32_t
-_getlong(msgp)
-	register const u_char *msgp;
+_getlong(const u_char *msgp)
 {
-	register u_int32_t u;
-
+	u_int32_t u;
 	GETLONG(u, msgp);
-	return (u);
+	return u;
 }
-
-void
-#if defined(__STDC__) || defined(__cplusplus)
-__putshort(register u_int16_t s, register u_char *msgp)	/* must match proto */
-#else
-__putshort(s, msgp)
-	register u_int16_t s;
-	register u_char *msgp;
-#endif
-{
-	PUTSHORT(s, msgp);
-}
-
-void
-__putlong(l, msgp)
-	register u_int32_t l;
-	register u_char *msgp;
-{
-	PUTLONG(l, msgp);
-}
-
-#ifdef ultrix
-/* ultrix 4.0 had some icky packaging in its libc.a.  alias for it here.
- * there is more gunk of this kind over in res_debug.c.
- */
-#undef putshort
-void
-#if defined(__STDC__) || defined(__cplusplus)
-putshort(register u_short s, register u_char *msgp)
-#else
-putshort(s, msgp)
-	register u_short s;
-	register u_char *msgp;
-#endif
-{
-	__putshort(s, msgp);
-}
-#undef putlong
-void
-putlong(l, msgp)
-	register u_int32_t l;
-	register u_char *msgp;
-{
-	__putlong(l, msgp);
-}
- 
-#undef dn_skipname
-dn_skipname(comp_dn, eom)
-	const u_char *comp_dn, *eom;
-{
-	return (__dn_skipname(comp_dn, eom));
-}
-#endif /* Ultrix 4.0 hackery */

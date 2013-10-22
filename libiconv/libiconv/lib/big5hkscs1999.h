@@ -47,7 +47,7 @@
 #include "flushwc.h"
 
 static int
-big5hkscs1999_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+big5hkscs1999_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   ucs4_t last_wc = conv->istate;
   if (last_wc) {
@@ -104,7 +104,7 @@ big5hkscs1999_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 #define big5hkscs1999_flushwc normal_flushwc
 
 static int
-big5hkscs1999_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+big5hkscs1999_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   int count = 0;
   unsigned char last = conv->ostate;
@@ -181,7 +181,7 @@ big5hkscs1999_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 }
 
 static int
-big5hkscs1999_reset (conv_t conv, unsigned char *r, int n)
+big5hkscs1999_reset (conv_t conv, unsigned char *r, size_t n)
 {
   unsigned char last = conv->ostate;
 

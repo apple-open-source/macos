@@ -44,5 +44,5 @@ enum ataPrivateEventCode
 };
 
 
-#endif	_IO_ATA_FAMILY_PRIV_H
+#endif	//_IO_ATA_FAMILY_PRIV_H
 

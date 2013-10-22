@@ -28,16 +28,19 @@
 
 #include "CSSComputedStyleDeclaration.h"
 #include "HTMLNames.h"
+#include "InlineIterator.h"
 #include "InlineTextBox.h"
 #include "Logging.h"
 #include "PositionIterator.h"
 #include "RenderBlock.h"
+#include "RenderInline.h"
 #include "RenderText.h"
+#include "RuntimeEnabledFeatures.h"
 #include "Text.h"
 #include "TextIterator.h"
 #include "VisiblePosition.h"
+#include "VisibleUnits.h"
 #include "htmlediting.h"
-#include "visible_units.h"
 #include <stdio.h>
 #include <wtf/text/CString.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -48,7 +51,7 @@ using namespace HTMLNames;
 
 static Node* nextRenderedEditable(Node* node)
 {
-    while ((node = node->nextLeafNode())) {
+    while ((node = nextLeafNode(node))) {
         if (!node->rendererIsEditable())
             continue;
         RenderObject* renderer = node->renderer();
@@ -62,7 +65,7 @@ static Node* nextRenderedEditable(Node* node)
 
 static Node* previousRenderedEditable(Node* node)
 {
-    while ((node = node->previousLeafNode())) {
+    while ((node = previousLeafNode(node))) {
         if (!node->rendererIsEditable())
             continue;
         RenderObject* renderer = node->renderer();
@@ -80,7 +83,13 @@ Position::Position(PassRefPtr<Node> anchorNode, LegacyEditingOffset offset)
     , m_anchorType(anchorTypeForLegacyEditingPosition(m_anchorNode.get(), m_offset))
     , m_isLegacyEditingPosition(true)
 {
+#if ENABLE(SHADOW_DOM)
+    ASSERT((m_anchorNode && RuntimeEnabledFeatures::shadowDOMEnabled())
+           || !m_anchorNode || !m_anchorNode->isShadowRoot());
+#else
     ASSERT(!m_anchorNode || !m_anchorNode->isShadowRoot());
+#endif
+    ASSERT(!m_anchorNode || !m_anchorNode->isPseudoElement());
 }
 
 Position::Position(PassRefPtr<Node> anchorNode, AnchorType anchorType)
@@ -89,7 +98,15 @@ Position::Position(PassRefPtr<Node> anchorNode, AnchorType anchorType)
     , m_anchorType(anchorType)
     , m_isLegacyEditingPosition(false)
 {
+#if ENABLE(SHADOW_DOM)
+    ASSERT((m_anchorNode && RuntimeEnabledFeatures::shadowDOMEnabled())
+           || !m_anchorNode || !m_anchorNode->isShadowRoot());
+#else
     ASSERT(!m_anchorNode || !m_anchorNode->isShadowRoot());
+#endif
+
+    ASSERT(!m_anchorNode || !m_anchorNode->isPseudoElement());
+
     ASSERT(anchorType != PositionIsOffsetInAnchor);
     ASSERT(!((anchorType == PositionIsBeforeChildren || anchorType == PositionIsAfterChildren)
         && (m_anchorNode->isTextNode() || editingIgnoresContent(m_anchorNode.get()))));
@@ -101,7 +118,15 @@ Position::Position(PassRefPtr<Node> anchorNode, int offset, AnchorType anchorTyp
     , m_anchorType(anchorType)
     , m_isLegacyEditingPosition(false)
 {
+#if ENABLE(SHADOW_DOM)
+    ASSERT((m_anchorNode && RuntimeEnabledFeatures::shadowDOMEnabled())
+           || !m_anchorNode || !editingIgnoresContent(m_anchorNode.get()) || !m_anchorNode->isShadowRoot());
+#else
     ASSERT(!m_anchorNode || !editingIgnoresContent(m_anchorNode.get()) || !m_anchorNode->isShadowRoot());
+#endif
+
+    ASSERT(!m_anchorNode || !m_anchorNode->isPseudoElement());
+
     ASSERT(anchorType == PositionIsOffsetInAnchor);
 }
 
@@ -143,7 +168,7 @@ Node* Position::containerNode() const
         return m_anchorNode.get();
     case PositionIsBeforeAnchor:
     case PositionIsAfterAnchor:
-        return m_anchorNode->nonShadowBoundaryParentNode();
+        return findParent(m_anchorNode.get());
     }
     ASSERT_NOT_REACHED();
     return 0;
@@ -203,7 +228,7 @@ Position Position::parentAnchoredEquivalent() const
     
     // FIXME: This should only be necessary for legacy positions, but is also needed for positions before and after Tables
     if (m_offset <= 0 && (m_anchorType != PositionIsAfterAnchor && m_anchorType != PositionIsAfterChildren)) {
-        if (m_anchorNode->nonShadowBoundaryParentNode() && (editingIgnoresContent(m_anchorNode.get()) || isTableElement(m_anchorNode.get())))
+        if (findParent(m_anchorNode.get()) && (editingIgnoresContent(m_anchorNode.get()) || isTableElement(m_anchorNode.get())))
             return positionInParentBeforeNode(m_anchorNode.get());
         return Position(m_anchorNode.get(), 0, PositionIsOffsetInAnchor);
     }
@@ -275,15 +300,7 @@ Element* Position::element() const
     Node* n = anchorNode();
     while (n && !n->isElementNode())
         n = n->parentNode();
-    return static_cast<Element*>(n);
-}
-
-PassRefPtr<CSSComputedStyleDeclaration> Position::computedStyle() const
-{
-    Element* elem = element();
-    if (!elem)
-        return 0;
-    return CSSComputedStyleDeclaration::create(elem);
+    return toElement(n);
 }
 
 Position Position::previous(PositionMoveType moveType) const
@@ -316,7 +333,7 @@ Position Position::previous(PositionMoveType moveType) const
         }
     }
 
-    ContainerNode* parent = n->nonShadowBoundaryParentNode();
+    ContainerNode* parent = findParent(n);
     if (!parent)
         return *this;
 
@@ -348,7 +365,7 @@ Position Position::next(PositionMoveType moveType) const
         return createLegacyEditingPosition(n, (moveType == Character) ? uncheckedNextOffset(n, o) : o + 1);
     }
 
-    ContainerNode* parent = n->nonShadowBoundaryParentNode();
+    ContainerNode* parent = findParent(n);
     if (!parent)
         return *this;
 
@@ -441,14 +458,14 @@ bool Position::atStartOfTree() const
 {
     if (isNull())
         return true;
-    return !deprecatedNode()->nonShadowBoundaryParentNode() && m_offset <= 0;
+    return !findParent(deprecatedNode()) && m_offset <= 0;
 }
 
 bool Position::atEndOfTree() const
 {
     if (isNull())
         return true;
-    return !deprecatedNode()->nonShadowBoundaryParentNode() && m_offset >= lastOffsetForEditing(deprecatedNode());
+    return !findParent(deprecatedNode()) && m_offset >= lastOffsetForEditing(deprecatedNode());
 }
 
 int Position::renderedOffset() const
@@ -818,13 +835,19 @@ Position Position::downstream(EditingBoundaryCrossingRule rule) const
     return lastVisible;
 }
 
+static int boundingBoxLogicalHeight(RenderObject *o, const IntRect &rect)
+{
+    return o->style()->isHorizontalWritingMode() ? rect.height() : rect.width();
+}
+
 bool Position::hasRenderedNonAnonymousDescendantsWithHeight(RenderObject* renderer)
 {
     RenderObject* stop = renderer->nextInPreOrderAfterChildren();
     for (RenderObject *o = renderer->firstChild(); o && o != stop; o = o->nextInPreOrder())
-        if (o->node()) {
-            if ((o->isText() && toRenderText(o)->linesBoundingBox().height()) ||
-                (o->isBox() && toRenderBox(o)->borderBoundingBox().height()))
+        if (o->nonPseudoNode()) {
+            if ((o->isText() && boundingBoxLogicalHeight(o, toRenderText(o)->linesBoundingBox()))
+                || (o->isBox() && toRenderBox(o)->pixelSnappedLogicalHeight())
+                || (o->isRenderInline() && isEmptyInline(o) && boundingBoxLogicalHeight(o, toRenderInline(o)->linesBoundingBox())))
                 return true;
         }
     return false;
@@ -834,6 +857,47 @@ bool Position::nodeIsUserSelectNone(Node* node)
 {
     return node && node->renderer() && node->renderer()->style()->userSelect() == SELECT_NONE;
 }
+
+ContainerNode* Position::findParent(const Node* node)
+{
+    // FIXME: See http://web.ug/82697
+
+#if ENABLE(SHADOW_DOM)
+    if (RuntimeEnabledFeatures::shadowDOMEnabled())
+        return node->parentNode();
+#endif
+
+    return node->nonShadowBoundaryParentNode();
+}
+
+#if ENABLE(USERSELECT_ALL)
+bool Position::nodeIsUserSelectAll(const Node* node)
+{
+    return node && node->renderer() && node->renderer()->style()->userSelect() == SELECT_ALL;
+}
+
+Node* Position::rootUserSelectAllForNode(Node* node)
+{
+    if (!node || !nodeIsUserSelectAll(node))
+        return 0;
+    Node* parent = node->parentNode();
+    if (!parent)
+        return node;
+
+    Node* candidateRoot = node;
+    while (parent) {
+        if (!parent->renderer()) {
+            parent = parent->parentNode();
+            continue;
+        }
+        if (!nodeIsUserSelectAll(parent))
+            break;
+        candidateRoot = parent;
+        parent = candidateRoot->parentNode();
+    }
+    return candidateRoot;
+}
+#endif
 
 bool Position::isCandidate() const
 {
@@ -861,7 +925,7 @@ bool Position::isCandidate() const
         return false;
         
     if (renderer->isBlockFlow()) {
-        if (toRenderBlock(renderer)->height() || m_anchorNode->hasTagName(bodyTag)) {
+        if (toRenderBlock(renderer)->logicalHeight() || m_anchorNode->hasTagName(bodyTag)) {
             if (!Position::hasRenderedNonAnonymousDescendantsWithHeight(renderer))
                 return atFirstEditingPositionForNode() && !Position::nodeIsUserSelectNone(deprecatedNode());
             return m_anchorNode->rendererIsEditable() && !Position::nodeIsUserSelectNone(deprecatedNode()) && atEditingBoundary();
@@ -921,6 +985,11 @@ bool Position::isRenderedCharacter() const
     return false;
 }
 
+static bool inSameEnclosingBlockFlowElement(Node* a, Node* b)
+{
+    return a && b && deprecatedEnclosingBlockFlowElement(a) == deprecatedEnclosingBlockFlowElement(b);
+}
+
 bool Position::rendersInDifferentPosition(const Position &pos) const
 {
     if (isNull() || pos.isNull())
@@ -957,7 +1026,7 @@ bool Position::rendersInDifferentPosition(const Position &pos) const
     if (pos.deprecatedNode()->hasTagName(brTag) && isCandidate())
         return true;
                 
-    if (deprecatedNode()->enclosingBlockFlowElement() != pos.deprecatedNode()->enclosingBlockFlowElement())
+    if (!inSameEnclosingBlockFlowElement(deprecatedNode(), pos.deprecatedNode()))
         return true;
 
     if (deprecatedNode()->isTextNode() && !inRenderedText())
@@ -1018,7 +1087,7 @@ Position Position::leadingWhitespacePosition(EAffinity affinity, bool considerNo
         return Position();
 
     Position prev = previousCharacterPosition(affinity);
-    if (prev != *this && prev.deprecatedNode()->inSameContainingBlockFlowElement(deprecatedNode()) && prev.deprecatedNode()->isTextNode()) {
+    if (prev != *this && inSameEnclosingBlockFlowElement(deprecatedNode(), prev.deprecatedNode()) && prev.deprecatedNode()->isTextNode()) {
         String string = toText(prev.deprecatedNode())->data();
         UChar c = string[prev.deprecatedEditingOffset()];
         if (considerNonCollapsibleWhitespace ? (isSpaceOrNewline(c) || c == noBreakSpace) : isCollapsibleWhitespace(c))
@@ -1285,20 +1354,20 @@ void Position::debugPosition(const char* msg) const
 
 void Position::formatForDebugger(char* buffer, unsigned length) const
 {
-    String result;
-    
+    StringBuilder result;
+
     if (isNull())
-        result = "<null>";
+        result.appendLiteral("<null>");
     else {
         char s[1024];
-        result += "offset ";
-        result += String::number(m_offset);
-        result += " of ";
+        result.appendLiteral("offset ");
+        result.appendNumber(m_offset);
+        result.appendLiteral(" of ");
         deprecatedNode()->formatForDebugger(s, sizeof(s));
-        result += s;
+        result.append(s);
     }
-          
-    strncpy(buffer, result.utf8().data(), length - 1);
+
+    strncpy(buffer, result.toString().utf8().data(), length - 1);
 }
 
 void Position::showAnchorTypeAndOffset() const

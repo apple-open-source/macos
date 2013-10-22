@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2004,2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * SecImportExportUtils.cpp - misc. utilities for import/export module
@@ -29,8 +29,7 @@
 #include "SecIdentityPriv.h"
 #include "SecItem.h"
 #include <security_cdsa_utils/cuCdsaUtils.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-
+#include <Security/SecBase.h>
 #pragma mark --- Debug support ---
 
 #ifndef NDEBUG
@@ -72,9 +71,9 @@ const char *impExpExtItemTypeStr(
 }
 #endif  /* NDEBUG */
 
-/* 
- * Parse file extension and attempt to map it to format and type. Returns true 
- * on success. 
+/*
+ * Parse file extension and attempt to map it to format and type. Returns true
+ * on success.
  */
 bool impExpImportParseFileExten(
 	CFStringRef			fstr,
@@ -85,14 +84,14 @@ bool impExpImportParseFileExten(
 		/* nothing to work with */
 		return false;
 	}
-	if(CFStringHasSuffix(fstr, CFSTR(".cer")) || 
+	if(CFStringHasSuffix(fstr, CFSTR(".cer")) ||
 	   CFStringHasSuffix(fstr, CFSTR(".crt"))) {
 		*inputFormat = kSecFormatX509Cert;
 		*itemType = kSecItemTypeCertificate;
 		SecImpInferDbg("Inferring kSecFormatX509Cert from file name");
 		return true;
 	}
-	if(CFStringHasSuffix(fstr, CFSTR(".p12")) || 
+	if(CFStringHasSuffix(fstr, CFSTR(".p12")) ||
 	   CFStringHasSuffix(fstr, CFSTR(".pfx"))) {
 		*inputFormat = kSecFormatPKCS12;
 		*itemType = kSecItemTypeAggregate;
@@ -134,7 +133,7 @@ bool impExpImportParseFileExten(
 	CFRelease(exten);
 	return ortn;
 }
-	
+
 /* do a [NSString stringByDeletingPathExtension] equivalent */
 CFStringRef impExpImportDeleteExtension(
 	CFStringRef			fileStr)
@@ -144,8 +143,8 @@ CFStringRef impExpImportDeleteExtension(
 	if(fileStrData == NULL) {
 		return NULL;
 	}
-	
-	CFURLRef urlRef = CFURLCreateFromFileSystemRepresentation(NULL, 
+
+	CFURLRef urlRef = CFURLCreateFromFileSystemRepresentation(NULL,
 		CFDataGetBytePtr(fileStrData), CFDataGetLength(fileStrData), false);
 	if(urlRef == NULL) {
 		CFRelease(fileStrData);
@@ -166,11 +165,11 @@ CFStringRef impExpImportDeleteExtension(
 #pragma mark --- mapping of external format to CDSA formats ---
 
 /*
- * For the record, here is the mapping of SecExternalFormat, algorithm, and key 
- * class to CSSM-style key format (CSSM_KEYBLOB_FORMAT - 
- * CSSM_KEYBLOB_RAW_FORMAT_X509, etc). The entries in the table are the 
+ * For the record, here is the mapping of SecExternalFormat, algorithm, and key
+ * class to CSSM-style key format (CSSM_KEYBLOB_FORMAT -
+ * CSSM_KEYBLOB_RAW_FORMAT_X509, etc). The entries in the table are the
  * last component of a CSSM_KEYBLOB_FORMAT. Format kSecFormatUnknown means
- * "default for specified class and algorithm", which is currently the 
+ * "default for specified class and algorithm", which is currently the
  * same as kSecFormatOpenSSL.
  *
  *							              algorithm/class
@@ -187,7 +186,7 @@ CFStringRef impExpImportDeleteExtension(
  * The only external format supported for ECDSA and ECDH keys is kSecFormatOpenSSL,
  * which translates to OPENSSL for private keys and X509 for public keys.
  */
- 
+
 /* Arrays expressing the above table. */
 
 /* l.s. dimension is pub/priv for one alg */
@@ -196,8 +195,8 @@ typedef struct {
 	CSSM_KEYBLOB_FORMAT pub;
 } algForms;
 
-/* 
- * indices into array of algForms defining all algs' formats for a given  
+/*
+ * indices into array of algForms defining all algs' formats for a given
  * SecExternalFormat
  */
 #define SIE_ALG_RSA		0
@@ -208,7 +207,7 @@ typedef struct {
 #define SIE_NUM_ALGS	(SIE_ALG_LAST + 1)
 
 /* kSecFormatOpenSSL */
-static algForms opensslAlgForms[SIE_NUM_ALGS] = 
+static algForms opensslAlgForms[SIE_NUM_ALGS] =
 {
 	{ CSSM_KEYBLOB_RAW_FORMAT_PKCS1,	CSSM_KEYBLOB_RAW_FORMAT_X509 },		// RSA
 	{ CSSM_KEYBLOB_RAW_FORMAT_OPENSSL,  CSSM_KEYBLOB_RAW_FORMAT_X509 },		// DSA
@@ -217,7 +216,7 @@ static algForms opensslAlgForms[SIE_NUM_ALGS] =
 };
 
 /* kSecFormatBSAFE */
-static algForms bsafeAlgForms[SIE_NUM_ALGS] = 
+static algForms bsafeAlgForms[SIE_NUM_ALGS] =
 {
 	{ CSSM_KEYBLOB_RAW_FORMAT_PKCS8,	CSSM_KEYBLOB_RAW_FORMAT_PKCS1 },	// RSA
 	{ CSSM_KEYBLOB_RAW_FORMAT_FIPS186,  CSSM_KEYBLOB_RAW_FORMAT_FIPS186 },	// DSA
@@ -226,7 +225,7 @@ static algForms bsafeAlgForms[SIE_NUM_ALGS] =
 };
 
 /* kSecFormatSSH (v1) */
-static algForms ssh1AlgForms[SIE_NUM_ALGS] = 
+static algForms ssh1AlgForms[SIE_NUM_ALGS] =
 {
 	{ CSSM_KEYBLOB_RAW_FORMAT_OPENSSH,	CSSM_KEYBLOB_RAW_FORMAT_OPENSSH },	// RSA only
 	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// DSA not supported
@@ -235,7 +234,7 @@ static algForms ssh1AlgForms[SIE_NUM_ALGS] =
 };
 
 /* kSecFormatSSHv2 */
-static algForms ssh2AlgForms[SIE_NUM_ALGS] = 
+static algForms ssh2AlgForms[SIE_NUM_ALGS] =
 {
 	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2 },	// RSA - public only
 	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2 },	// DSA - public only
@@ -260,13 +259,13 @@ OSStatus impExpKeyForm(
 		/* FIXME ensure caller hasn't specified bogus format */
 		*cssmForm = CSSM_KEYBLOB_RAW_FORMAT_NONE;
 		*cssmClass = CSSM_KEYCLASS_SESSION_KEY;
-		return noErr;
+		return errSecSuccess;
 	}
 	if(externForm == kSecFormatUnknown) {
 		/* default is openssl */
 		externForm = kSecFormatOpenSSL;
 	}
-	
+
 	unsigned algDex;
 	switch(alg) {
 		case CSSM_ALGID_RSA:
@@ -320,12 +319,12 @@ OSStatus impExpKeyForm(
 	}
 	else {
 		*cssmForm = form;
-		return noErr;
+		return errSecSuccess;
 	}
 }
 
 /*
- * Given a raw key blob and zero to three known parameters (type, format, 
+ * Given a raw key blob and zero to three known parameters (type, format,
  * algorithm), figure out all parameters. Used for private and public keys.
  */
 static bool impExpGuessKeyParams(
@@ -335,13 +334,13 @@ static bool impExpGuessKeyParams(
 	CSSM_ALGORITHMS			*keyAlg)			// IN/OUT
 {
 	/* CSSM alg list: RSA, DSA, DH, ECDSA */
-	CSSM_ALGORITHMS minAlg		 = CSSM_ALGID_RSA;	
+	CSSM_ALGORITHMS minAlg		 = CSSM_ALGID_RSA;
 	CSSM_ALGORITHMS maxAlg		 = CSSM_ALGID_ECDSA;
 	SecExternalFormat minForm    = kSecFormatOpenSSL;		// then SSH, BSAFE, then...
 	SecExternalFormat maxForm    = kSecFormatSSHv2;
 	SecExternalItemType minType  = kSecItemTypePrivateKey;  // just two
 	SecExternalItemType maxType  = kSecItemTypePublicKey;
-	
+
 	switch(*externForm) {
 		case kSecFormatUnknown:
 			break;								// run through all formats
@@ -376,7 +375,7 @@ static bool impExpGuessKeyParams(
 		default:
 			return false;
 	}
-	
+
 	CSSM_ALGORITHMS theAlg;
 	SecExternalFormat theForm;
 	SecExternalItemType theType;
@@ -384,7 +383,7 @@ static bool impExpGuessKeyParams(
 	if(cspHand == 0) {
 		return CSSMERR_CSSM_ADDIN_LOAD_FAILED;
 	}
-	
+
 	/*
 	 * Iterate through all set of enabled {alg, type, format}.
 	 * We do not assume that any of the enums are sequential hence this
@@ -394,7 +393,7 @@ static bool impExpGuessKeyParams(
 	for(theAlg=minAlg; ; ) {
 		for(theForm=minForm; ; ) {
 			for(theType=minType; ; ) {
-				
+
 				/* do super lightweight null unwrap to parse */
 				OSStatus ortn = impExpImportRawKey(keyData,
 					theForm, theType, theAlg,
@@ -404,21 +403,21 @@ static bool impExpGuessKeyParams(
 					NULL,		// no key params
 					NULL,		// no printName
 					NULL);		// no returned items
-				if(ortn == noErr) {
+				if(ortn == errSecSuccess) {
 					*externForm = theForm;
 					*itemType = theType;
 					*keyAlg = theAlg;
 					ourRtn = true;
 					goto done;
 				}
-				
+
 				/* next type or break if we're done */
 				if(theType == maxType) {
 					break;
 				}
 				else switch(theType) {
-					case kSecItemTypePrivateKey: 
-						theType = kSecItemTypePublicKey; 
+					case kSecItemTypePrivateKey:
+						theType = kSecItemTypePublicKey;
 						break;
 					default:
 						assert(0);
@@ -432,11 +431,11 @@ static bool impExpGuessKeyParams(
 				break;
 			}
 			else switch(theForm) {
-				case kSecFormatOpenSSL: 
-					theForm = kSecFormatSSH; 
+				case kSecFormatOpenSSL:
+					theForm = kSecFormatSSH;
 					break;
-				case kSecFormatSSH: 
-					theForm = kSecFormatBSAFE; 
+				case kSecFormatSSH:
+					theForm = kSecFormatBSAFE;
 					break;
 				case kSecFormatBSAFE:
 					theForm = kSecFormatSSHv2;
@@ -447,17 +446,17 @@ static bool impExpGuessKeyParams(
 					goto done;
 			}
 		}		/* for each format */
-		
+
 		/* next alg or break if we're done */
 		if(theAlg == maxAlg) {
 			break;
 		}
 		else switch(theAlg) {
-			case CSSM_ALGID_RSA: 
-				theAlg = CSSM_ALGID_DSA; 
+			case CSSM_ALGID_RSA:
+				theAlg = CSSM_ALGID_DSA;
 				break;
-			case CSSM_ALGID_DSA: 
-				theAlg = CSSM_ALGID_DH; 
+			case CSSM_ALGID_DSA:
+				theAlg = CSSM_ALGID_DH;
 				break;
 			case CSSM_ALGID_DH:
 				theAlg = CSSM_ALGID_ECDSA;
@@ -476,22 +475,22 @@ done:
 
 /*
  * Guess an incoming blob's type, format and (for keys only) algorithm
- * by examining its contents. Returns true on success, in which case 
- * *inputFormat, *itemType, and *keyAlg are all valid. Caller optionally 
+ * by examining its contents. Returns true on success, in which case
+ * *inputFormat, *itemType, and *keyAlg are all valid. Caller optionally
  * passes in valid values any number of these as a clue.
  */
 bool impExpImportGuessByExamination(
 	CFDataRef			inData,
-	SecExternalFormat   *inputFormat,	// may be kSecFormatUnknown on entry 
-	SecExternalItemType	*itemType,		// may be kSecItemTypeUnknown on entry 
+	SecExternalFormat   *inputFormat,	// may be kSecFormatUnknown on entry
+	SecExternalItemType	*itemType,		// may be kSecItemTypeUnknown on entry
 	CSSM_ALGORITHMS		*keyAlg)		// CSSM_ALGID_NONE - unknown
 {
 	if( ( (*inputFormat == kSecFormatUnknown) ||
-	      (*inputFormat == kSecFormatX509Cert) 
+	      (*inputFormat == kSecFormatX509Cert)
 		) &&
 	   ( (*itemType == kSecItemTypeUnknown) ||
 		 (*itemType == kSecItemTypeCertificate) ) ) {
-		/* 
+		/*
 		 * See if it parses as a cert
 		 */
 		CSSM_CL_HANDLE clHand = cuClStartup();
@@ -500,7 +499,7 @@ bool impExpImportGuessByExamination(
 		}
 		CSSM_HANDLE cacheHand;
 		CSSM_RETURN crtn;
-		CSSM_DATA cdata = { CFDataGetLength(inData), 
+		CSSM_DATA cdata = { CFDataGetLength(inData),
 						    (uint8 *)CFDataGetBytePtr(inData) };
 		crtn = CSSM_CL_CertCache(clHand, &cdata, &cacheHand);
 		bool brtn = false;
@@ -517,9 +516,9 @@ bool impExpImportGuessByExamination(
 		}
 	}
 	/* TBD: need way to inquire of P12 lib if this is a valid-looking PFX */
-	
+
 	if( ( (*inputFormat == kSecFormatUnknown) ||
-	      (*inputFormat == kSecFormatNetscapeCertSequence) 
+	      (*inputFormat == kSecFormatNetscapeCertSequence)
 		) &&
 	   ( (*itemType == kSecItemTypeUnknown) ||
 		 (*itemType == kSecItemTypeAggregate) ) ) {
@@ -532,7 +531,7 @@ bool impExpImportGuessByExamination(
 			return true;
 		}
 	}
-	
+
 	/* See if it's a key */
 	return impExpGuessKeyParams(inData, inputFormat, itemType, keyAlg);
 }
@@ -549,8 +548,8 @@ CSSM_RETURN impExpAddContextAttribute(CSSM_CC_HANDLE CCHandle,
 	uint32 AttributeLength,
 	const void *AttributePtr)
 {
-	CSSM_CONTEXT_ATTRIBUTE		newAttr;	
-	
+	CSSM_CONTEXT_ATTRIBUTE		newAttr;
+
 	newAttr.AttributeType     = AttributeType;
 	newAttr.AttributeLength   = AttributeLength;
 	newAttr.Attribute.Data    = (CSSM_DATA_PTR)AttributePtr;
@@ -572,14 +571,14 @@ void impExpFreeCssmMemory(
 	memFuncs.free_func(p, memFuncs.AllocRef);
 }
 
-/* 
+/*
  * Calculate digest of any CSSM_KEY. Unlike older implementations
- * of this logic, you can actually calculate the public key hash 
+ * of this logic, you can actually calculate the public key hash
  * on any class of key, any format, raw CSP or CSPDL (though if
  * you're using the CSPDL, the key has to be a reference key
  * in that CSPDL session).
  *
- * Caller must free keyDigest->Data using impExpFreeCssmMemory() since 
+ * Caller must free keyDigest->Data using impExpFreeCssmMemory() since
  * this is allocated by the CSP's app-specified allocator.
  */
 CSSM_RETURN impExpKeyDigest(
@@ -589,7 +588,7 @@ CSSM_RETURN impExpKeyDigest(
 {
 	CSSM_DATA_PTR   localDigest;
 	CSSM_CC_HANDLE  ccHand;
-	
+
 	CSSM_RETURN crtn = CSSM_CSP_CreatePassThroughContext(cspHand,
 		key,
 		&ccHand);
@@ -604,8 +603,8 @@ CSSM_RETURN impExpKeyDigest(
 		SecImpExpDbg("CSSM_CSP_PassThrough(KEY_DIGEST) failure");
 	}
 	else {
-		/* 
-		 * Give caller the Data referent and we'll free the 
+		/*
+		 * Give caller the Data referent and we'll free the
 		 * CSSM_DATA struct itswelf.
 		 */
 		*keyDigest = *localDigest;
@@ -614,12 +613,12 @@ CSSM_RETURN impExpKeyDigest(
 	CSSM_DeleteContext(ccHand);
 	return crtn;
 }
-	
+
 
 /*
  * Given a CFTypeRef passphrase which may be a CFDataRef or a CFStringRef,
  * return a refcounted CFStringRef suitable for use with the PKCS12 library.
- * PKCS12 passphrases in CFData format must be UTF8 encoded. 
+ * PKCS12 passphrases in CFData format must be UTF8 encoded.
  */
 OSStatus impExpPassphraseToCFString(
 	CFTypeRef   passin,
@@ -629,29 +628,29 @@ OSStatus impExpPassphraseToCFString(
 		CFStringRef passInStr = (CFStringRef)passin;
 		CFRetain(passInStr);
 		*passout = passInStr;
-		return noErr;
+		return errSecSuccess;
 	}
 	else if(CFGetTypeID(passin) == CFDataGetTypeID()) {
 		CFDataRef cfData = (CFDataRef)passin;
 		CFIndex len = CFDataGetLength(cfData);
-		CFStringRef cfStr = CFStringCreateWithBytes(NULL, 
+		CFStringRef cfStr = CFStringCreateWithBytes(NULL,
 			CFDataGetBytePtr(cfData), len, kCFStringEncodingUTF8, true);
 		if(cfStr == NULL) {
 			SecImpExpDbg("Passphrase not in UTF8 format");
-			return paramErr;
+			return errSecParam;
 		}
 		*passout = cfStr;
-		return noErr;
+		return errSecSuccess;
 	}
 	else {
 		SecImpExpDbg("Passphrase not CFData or CFString");
-		return paramErr;
+		return errSecParam;
 	}
 }
 
 /*
  * Given a CFTypeRef passphrase which may be a CFDataRef or a CFStringRef,
- * return a refcounted CFDataRef whose bytes are suitable for use with 
+ * return a refcounted CFDataRef whose bytes are suitable for use with
  * PKCS5 (v1.5 and v2.0) key derivation.
  */
 OSStatus impExpPassphraseToCFData(
@@ -662,54 +661,54 @@ OSStatus impExpPassphraseToCFData(
 		CFDataRef passInData = (CFDataRef)passin;
 		CFRetain(passInData);
 		*passout = passInData;
-		return noErr;
+		return errSecSuccess;
 	}
 	else if(CFGetTypeID(passin) == CFStringGetTypeID()) {
 		CFStringRef passInStr = (CFStringRef)passin;
 		CFDataRef outData;
 		outData = CFStringCreateExternalRepresentation(NULL,
-			passInStr, 
+			passInStr,
 			kCFStringEncodingUTF8,
-			0);		// lossByte 0 ==> no loss allowed 
-		if(outData == NULL) {			
+			0);		// lossByte 0 ==> no loss allowed
+		if(outData == NULL) {
 			/* Well try with lossy conversion */
 			SecImpExpDbg("Trying lossy conversion of CFString passphrase to UTF8");
 			outData = CFStringCreateExternalRepresentation(NULL,
-				passInStr, 
+				passInStr,
 				kCFStringEncodingUTF8,
-				1);		
+				1);
 			if(outData == NULL) {
 				SecImpExpDbg("Failure on conversion of CFString passphrase to UTF8");
 				/* what do we do now, Batman? */
-				return paramErr;
+				return errSecParam;
 			}
 		}
 		*passout = outData;
-		return noErr;
+		return errSecSuccess;
 	}
 	else {
 		SecImpExpDbg("Passphrase not CFData or CFString");
-		return paramErr;
+		return errSecParam;
 	}
 }
 
-/* 
-* Add a CFString to a crypto context handle. 
+/*
+* Add a CFString to a crypto context handle.
 */
 static CSSM_RETURN impExpAddStringAttr(
-	CSSM_CC_HANDLE ccHand, 
+	CSSM_CC_HANDLE ccHand,
 	CFStringRef str,
 	CSSM_ATTRIBUTE_TYPE attrType)
 {
 	/* CFStrings are passed as external rep in UTF8 encoding by convention */
 	CFDataRef outData;
 	outData = CFStringCreateExternalRepresentation(NULL,
-		str, kCFStringEncodingUTF8,	0);		// lossByte 0 ==> no loss allowed 
+		str, kCFStringEncodingUTF8,	0);		// lossByte 0 ==> no loss allowed
 	if(outData == NULL) {
 		SecImpExpDbg("impExpAddStringAttr: bad string format");
-		return paramErr;
+		return errSecParam;
 	}
-	
+
 	CSSM_DATA attrData;
 	attrData.Data = (uint8 *)CFDataGetBytePtr(outData);
 	attrData.Length = CFDataGetLength(outData);
@@ -723,7 +722,7 @@ static CSSM_RETURN impExpAddStringAttr(
 }
 
 /*
- * Generate a secure passphrase key. Caller must eventually CSSM_FreeKey the result. 
+ * Generate a secure passphrase key. Caller must eventually CSSM_FreeKey the result.
  */
 static CSSM_RETURN impExpCreatePassKey(
 	const SecKeyImportExportParameters *keyParams,  // required
@@ -736,14 +735,14 @@ static CSSM_RETURN impExpCreatePassKey(
 	uint32 verifyAttr;
 	CSSM_DATA dummyLabel;
 	CSSM_KEY_PTR ourKey = NULL;
-	
+
 	SecImpExpDbg("Generating secure passphrase key");
 	ourKey = (CSSM_KEY_PTR)malloc(sizeof(CSSM_KEY));
 	if(ourKey == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	memset(ourKey, 0, sizeof(CSSM_KEY));
-	
+
 	crtn = CSSM_CSP_CreateKeyGenContext(cspHand,
 		CSSM_ALGID_SECURE_PASSPHRASE,
 		4,				// keySizeInBits must be non zero
@@ -758,18 +757,18 @@ static CSSM_RETURN impExpCreatePassKey(
 		return crtn;
 	}
 	/* subsequent errors to errOut: */
-	
+
 	/* additional context attributes specific to this type of key gen */
 	assert(keyParams != NULL);			// or we wouldn't be here
 	if(keyParams->alertTitle != NULL) {
-		crtn = impExpAddStringAttr(ccHand, keyParams->alertTitle, 
+		crtn = impExpAddStringAttr(ccHand, keyParams->alertTitle,
 			CSSM_ATTRIBUTE_ALERT_TITLE);
 		if(crtn) {
 			goto errOut;
 		}
 	}
 	if(keyParams->alertPrompt != NULL) {
-		crtn = impExpAddStringAttr(ccHand, keyParams->alertPrompt, 
+		crtn = impExpAddStringAttr(ccHand, keyParams->alertPrompt,
 			CSSM_ATTRIBUTE_PROMPT);
 		if(crtn) {
 			goto errOut;
@@ -777,7 +776,7 @@ static CSSM_RETURN impExpCreatePassKey(
 	}
 	verifyAttr = (verifyPhrase == VP_Export) ? 1 : 0;
 	crtn = impExpAddContextAttribute(ccHand, CSSM_ATTRIBUTE_VERIFY_PASSPHRASE,
-		sizeof(uint32), (const void *)verifyAttr);
+		sizeof(uint32), (const void *)((size_t) verifyAttr));
 	if(crtn) {
 		SecImpExpDbg("impExpCreatePassKey: CSSM_UpdateContextAttributes error");
 		goto errOut;
@@ -805,26 +804,26 @@ errOut:
 	}
 	return crtn;
 }
-	
+
 /*
- * Obtain passphrase, given a SecKeyImportExportParameters. 
+ * Obtain passphrase, given a SecKeyImportExportParameters.
  *
- * Passphrase comes from one of two places: app-specified, in 
+ * Passphrase comes from one of two places: app-specified, in
  * SecKeyImportExportParameters.passphrase (either as CFStringRef
  * or CFDataRef); or via the secure passphrase mechanism.
  *
  * Passphrase is returned in AT MOST one of two forms:
  *
- * -- Secure passphrase is returned as a CSSM_KEY_PTR, which the 
- *    caller must CSSM_FreeKey later as well as free()ing the actual 
- *    CSSM_KEY_PTR. 
- * -- CFTypeRef for app-supplied passphrases. This can be one of 
+ * -- Secure passphrase is returned as a CSSM_KEY_PTR, which the
+ *    caller must CSSM_FreeKey later as well as free()ing the actual
+ *    CSSM_KEY_PTR.
+ * -- CFTypeRef for app-supplied passphrases. This can be one of
  *    two types:
  *
  *    -- CFStringRef, for use with P12
- *    -- CFDataRef, for more general use (e.g. for PKCS5). 
- *   
- *    In either case the caller must CFRelease the result.    
+ *    -- CFDataRef, for more general use (e.g. for PKCS5).
+ *
+ *    In either case the caller must CFRelease the result.
  */
 OSStatus impExpPassphraseCommon(
 	const SecKeyImportExportParameters *keyParams,
@@ -835,7 +834,7 @@ OSStatus impExpPassphraseCommon(
 	CSSM_KEY_PTR			*passKey)		// mallocd and RETURNED
 {
 	assert(keyParams != NULL);
-	
+
 	/* Give precedence to secure passphrase */
 	if(keyParams->flags & kSecKeySecurePassphrase) {
 		assert(passKey != NULL);
@@ -847,19 +846,19 @@ OSStatus impExpPassphraseCommon(
 		assert(phrase != NULL);
 		switch(phraseForm) {
 			case SPF_String:
-				ortn = impExpPassphraseToCFString(keyParams->passphrase, 
+				ortn = impExpPassphraseToCFString(keyParams->passphrase,
 					(CFStringRef *)&phraseOut);
 				break;
 			case SPF_Data:
-				ortn = impExpPassphraseToCFData(keyParams->passphrase, 
+				ortn = impExpPassphraseToCFData(keyParams->passphrase,
 					(CFDataRef *)&phraseOut);
 				break;
 			default:
 				/* only called internally */
 				assert(0);
-				ortn = paramErr;
+				ortn = errSecParam;
 		}
-		if(ortn == noErr) {
+		if(ortn == errSecSuccess) {
 			*phrase = phraseOut;
 		}
 		return ortn;
@@ -869,55 +868,88 @@ OSStatus impExpPassphraseCommon(
 	}
 }
 
-CSSM_KEYATTR_FLAGS ConvertArrayToKeyAttributes(SecKeyRef aKey, CFArrayRef usage)
+static void ToggleKeyAttribute(
+	CFArrayRef keyAttrs,
+	CFTypeRef attr,
+	CSSM_KEYATTR_FLAGS mask,
+	CSSM_KEYATTR_FLAGS &result)
+{
+	// If the keyAttrs array contains the given attribute,
+	// set the corresponding keyattr flags, otherwise clear them.
+	// (Note: caller verifies that keyAttrs is not NULL.)
+	CFIndex numItems = CFArrayGetCount(keyAttrs);
+	result &= ~(mask);
+	if (numItems > 0) {
+		CFRange range = CFRangeMake(0, numItems);
+		if (CFArrayContainsValue(keyAttrs, range, attr))
+			result |= mask;
+	}
+}
+
+CSSM_KEYATTR_FLAGS ConvertArrayToKeyAttributes(SecKeyRef aKey, CFArrayRef keyAttrs)
 {
 	CSSM_KEYATTR_FLAGS result = CSSM_KEYATTR_RETURN_DEFAULT;
-	if (NULL == aKey)
-	{
-		return result;
+
+	if (aKey) {
+		const CSSM_KEY* cssmKey = NULL;
+		if (errSecSuccess == SecKeyGetCSSMKey(aKey, &cssmKey))
+			result = cssmKey->KeyHeader.KeyAttr;
 	}
-	OSStatus err = noErr;
-	
-	const CSSM_KEY* cssmKey = NULL;
-	err = SecKeyGetCSSMKey(aKey, &cssmKey);
-	if (noErr != err)
-	{
+
+	if (!keyAttrs)
 		return result;
-	}
-	
-	result = cssmKey->KeyHeader.KeyAttr;
-	
-	if (NULL != usage)
-	{
-		CFTypeRef item = NULL;
-		CFIndex numItems = CFArrayGetCount(usage);
-		for (CFIndex iCnt = 0L; iCnt < numItems; iCnt++)
-		{
-			item = (CFTypeRef)CFArrayGetValueAtIndex(usage, iCnt);
-			if (CFEqual(item, kSecAttrIsPermanent))
-			{
-				result |= CSSM_KEYATTR_PERMANENT;
+
+	CFMutableArrayRef attrs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	CFIndex idx, count = CFArrayGetCount(keyAttrs);
+	for (idx=0; idx<count; idx++) {
+		CFTypeRef attr = (CFTypeRef) CFArrayGetValueAtIndex(keyAttrs, idx);
+		if (attr && (CFNumberGetTypeID() == CFGetTypeID(attr))) {
+			// Convert numeric CSSM keyattr values to equivalent attribute constants
+			uint32 value;
+			if (CFNumberGetValue((CFNumberRef)attr, kCFNumberSInt32Type, &value)) {
+				switch (value) {
+					case CSSM_KEYATTR_SENSITIVE:
+						attr = kSecAttrIsSensitive;
+						break;
+					case CSSM_KEYATTR_EXTRACTABLE:
+						attr = kSecAttrIsExtractable;
+						break;
+					case CSSM_KEYATTR_PERMANENT:
+						attr = kSecAttrIsPermanent;
+						break;
+					default:
+						attr = NULL;
+						break;
+				}
 			}
-			/*
-			 Currently the kSecAttrIsModifiable is private.  Does this need to be
-			 made public?
-			else if (CFEqual(item, kSecAttrIsModifiable))
-			{
-				result |= CSSM_KEYATTR_MODIFIABLE;
-			}
-			*/
 		}
+		if (attr)
+			CFArrayAppendValue(attrs, attr);
 	}
-	
-	return result;	
-	
+
+	// Set key attribute flag in result if present in the array, otherwise clear
+	ToggleKeyAttribute(attrs, kSecAttrIsSensitive, CSSM_KEYATTR_SENSITIVE, result);
+	ToggleKeyAttribute(attrs, kSecAttrIsExtractable, CSSM_KEYATTR_EXTRACTABLE, result);
+	ToggleKeyAttribute(attrs, kSecAttrIsPermanent, CSSM_KEYATTR_PERMANENT, result);
+
+	// if caller specified an attributes array which omitted kSecAttrIsExtractable,
+	// this implies the sensitive attribute; force it on so that at least one bit
+	// is set. If our result is 0, this is indistinguishable from the case where
+	// no key attributes were specified, causing a default bitmask to be used
+	// in subsequent import code.
+
+	if (0==(result & CSSM_KEYATTR_EXTRACTABLE))
+		result |= CSSM_KEYATTR_SENSITIVE;
+
+	CFRelease(attrs);
+	return result;
 }
 
 Boolean ConvertSecKeyImportExportParametersToSecImportExportKeyParameters(SecKeyRef aKey,
 	const SecItemImportExportKeyParameters* newPtr, SecKeyImportExportParameters* oldPtr)
 {
 	Boolean result = false;
-	
+
 	if (NULL != oldPtr && NULL != newPtr)
 	{
 		oldPtr->version = newPtr->version;

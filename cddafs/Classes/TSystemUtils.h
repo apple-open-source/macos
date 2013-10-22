@@ -57,7 +57,8 @@ public:
 	
 	static CFArrayRef	GetPreferredLanguages ( void );
 	static uid_t		FindUIDToUse ( void );
-	
+	static CFDataRef    ReadDataFromURL ( CFURLRef url );
+    
 };
 
 

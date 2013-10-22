@@ -50,6 +50,7 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 #define HAVE_STRUCT_STAT_ST_GEN 1
 #define HAVE_STRUCT_STAT_ST_BIRTHTIME 1
 #define HAVE_STRUCT_STAT_ST_MTIMENSEC 1
+#define HAVE_STRUCT_STAT_ST_ATIM 0
 #define HAVE_DEVNAME 1
 #endif /* HAVE_CONFIG_H */
 

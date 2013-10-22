@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -426,16 +426,17 @@ scanErr:
     return 0;
 }
 
-bool IOApplePartitionScheme::isPartitionCorrupt(
-                                               dpme * /* partition          */ ,
-                                               UInt32 /* partitionID        */ ,
-                                               UInt32 /* partitionBlockSize */ )
+bool IOApplePartitionScheme::isPartitionCorrupt( dpme * partition,
+                                                 UInt32 partitionID,
+                                                 UInt32 partitionBlockSize )
 {
     //
     // Ask whether the given partition appears to be corrupt.  A partition that
     // is corrupt will cause the failure of the Apple partition map recognition
     // altogether.
     //
+
+    if ( !strncmp(partition->dpme_type, "CD_ROM_Mode_1", sizeof(partition->dpme_type)) )  return true;
 
     return false;
 }
@@ -512,7 +513,7 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
     // Determine whether the new partition type is Apple_Free, which we choose
     // not to publish because it is an internal concept to the partition map.
 
-    if ( !strncmp(partitionHint, "Apple_Free", sizeof(partitionHint)) )  return 0;
+    if ( !strncmp(partition->dpme_type, "Apple_Free", sizeof(partition->dpme_type)) )  return 0;
 
     // Determine whether the new partition is read-only.
     //

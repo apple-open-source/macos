@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 7920 2008-09-10 01:04:10Z mike $"
+# "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $"
 #
 #   Notifier makefile for CUPS.
 #
@@ -77,7 +77,10 @@ install-exec:
 	done
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
-		cp $(NOTIFIERS) $(SYMROOT); \
+		for file in $(NOTIFIERS); do \
+			cp $$file $(SYMROOT); \
+			dsymutil $(SYMROOT)/$$file; \
+		done \
 	fi
 
 
@@ -158,5 +161,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 7920 2008-09-10 01:04:10Z mike $".
+# End of "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $".
 #

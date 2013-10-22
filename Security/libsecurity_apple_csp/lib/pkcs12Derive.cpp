@@ -88,7 +88,7 @@ static CSSM_RETURN p12PbeGen(
 	unsigned 			outbufLen)
 {
 	CSSM_RETURN ourRtn = CSSM_OK;
-	unsigned unipassLen = pwd.Length;
+	unsigned unipassLen = (unsigned)pwd.Length;
 	unsigned char *unipass = pwd.Data;
 	int irtn;
 	
@@ -173,8 +173,7 @@ static CSSM_RETURN p12PbeGen(
 	/* one reusable hash object */
 	DigestCtx ourDigest;
 	DigestCtx *hashHand = &ourDigest;
-	memset(hashHand, 0, sizeof(hashHand));
-	
+
 	/* reused inside the loop */
 	unsigned char *p12_B = (unsigned char *)coder.malloc(p12_v + 1);
 	BIGNUM *Ij = BN_new();
@@ -350,11 +349,11 @@ void DeriveKey_PKCS12 (
 		}
 		
 		/* convert unicode to chars with an extra double-NULL */
-		unsigned len = CFStringGetLength(cfStr);
+		CFIndex len = CFStringGetLength(cfStr);
 		tmpCoder.allocItem(pwd, sizeof(UniChar) * (len + 1));
 		unsigned char *cp = pwd.Data;
 		UniChar uc = 0;
-		for(unsigned dex=0; dex<len; dex++) {
+		for(CFIndex dex=0; dex<len; dex++) {
 			uc = CFStringGetCharacterAtIndex(cfStr, dex);
 			*cp++ = uc >> 8;
 			*cp++ = uc & 0xff;
@@ -380,7 +379,7 @@ void DeriveKey_PKCS12 (
 	CssmData *csalt = context.get<CssmData>(CSSM_ATTRIBUTE_SALT);
 	if(csalt) {
 		salt = csalt->Data;
-		saltLen = csalt->Length;
+		saltLen = (uint32)csalt->Length;
 	}
 	
 	/* 
@@ -421,7 +420,7 @@ void DeriveKey_PKCS12 (
 		CSSM_ALGID_SHA1,			// all we support for now
 		tmpCoder,
 		keyData->Data,
-		keyData->Length);
+		(unsigned)keyData->Length);
 	if(crtn) {
 		CssmError::throwMe(crtn);
 	}
@@ -438,7 +437,7 @@ void DeriveKey_PKCS12 (
 			CSSM_ALGID_SHA1,			// all we support for now
 			tmpCoder,
 			Param.Data,
-			Param.Length);
+			(unsigned)Param.Length);
 		if(crtn) {
 			CssmError::throwMe(crtn);
 		}

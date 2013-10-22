@@ -33,6 +33,11 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/text/WTFString.h>
 
+#if USE(SOUP)
+#include <gio/gio.h>
+#include <wtf/gobject/GRefPtr.h>
+#endif
+
 #if PLATFORM(QT)
 namespace WebKit {
 class QtTcpServerHandler;
@@ -51,14 +56,18 @@ class WebSocketServerConnection;
 class WebSocketServer {
 public:
     enum ServerState { Closed, Listening };
-    WebSocketServer(WebSocketServerClient*);
+    explicit WebSocketServer(WebSocketServerClient*);
     virtual ~WebSocketServer();
 
     // Server operations.
     bool listen(const String& bindAddress, unsigned short port);
+    String bindAddress() const { return m_bindAddress; };
+    unsigned short port() const { return m_port; };
+    ServerState serverState() const { return m_state; };
     void close();
 
-    void didAcceptConnection(PassRefPtr<WebCore::SocketStreamHandle>);
+    WebSocketServerClient* client() const { return m_client; }
+    void didAcceptConnection(PassOwnPtr<WebSocketServerConnection>);
 
 private:
     void didCloseWebSocketServerConnection(WebSocketServerConnection*);
@@ -70,8 +79,12 @@ private:
     ServerState m_state;
     Deque<OwnPtr<WebSocketServerConnection> > m_connections;
     WebSocketServerClient* m_client;
+    String m_bindAddress;
+    unsigned short m_port;
 #if PLATFORM(QT)
     OwnPtr<QtTcpServerHandler> m_tcpServerHandler;
+#elif USE(SOUP)
+    GRefPtr<GSocketService> m_socketService;
 #endif
     friend class WebSocketServerConnection;
 };

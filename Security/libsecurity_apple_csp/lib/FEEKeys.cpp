@@ -338,7 +338,7 @@ void CryptKit::FEEKeyPairGenContext::generate(
 	feeReturn frtn = feePubKeyInitFromPrivDataKeyBits( 
 		fPrivBinKey.feeKey(),
 		(unsigned char *)seed->data(),
-		seed->length(),
+		(unsigned int)seed->length(),
 		keyBits,
 		primeType,
 		curveType,

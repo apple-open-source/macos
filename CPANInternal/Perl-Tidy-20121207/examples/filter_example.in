@@ -1,0 +1,16 @@
+# input file for testing filter_example.pl
+use Method::Signatures::Simple;
+
+ method foo1 { $self->bar }
+
+       # with signature
+    method foo2($bar, %opts) { $self->bar(reverse $bar) if $opts{rev};
+    }
+
+    # attributes
+    method foo3 : lvalue { $self->{foo} 
+}
+
+ # change invocant name
+    method 
+foo4 ($class: $bar) { $class->bar($bar) }

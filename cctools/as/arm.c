@@ -5813,6 +5813,16 @@ do_dbg (void)
 }
 
 static void
+do_div (void)
+{
+  if (!inst.operands[1].present)
+    inst.operands[1].reg = inst.operands[0].reg;
+  inst.instruction |= inst.operands[0].reg << 16;
+  inst.instruction |= inst.operands[1].reg;
+  inst.instruction |= inst.operands[2].reg << 8;
+}
+
+static void
 do_it (void)
 {
   /* There is no IT instruction in ARM mode.  We
@@ -9546,6 +9556,8 @@ struct neon_tab_entry
      vcge / vcgt with the operands reversed. */  	\
   X(vclt,	0x0000300, 0x1200e00, 0x1b10200),	\
   X(vcle,	0x0000310, 0x1000e00, 0x1b10180),	\
+  X(vfma,	N_INV,     0x0000c10, N_INV),		\
+  X(vfms,	N_INV,     0x0200c10, N_INV),		\
   X(vmla,	0x0000900, 0x0000d10, 0x0800040),	\
   X(vmls,	0x1000900, 0x0200d10, 0x0800440),	\
   X(vmul,	0x0000910, 0x1000d10, 0x0800840),	\
@@ -10419,6 +10431,27 @@ do_vfp_nsyn_mul (enum neon_shape rs)
 }
 
 static void
+do_vfp_nsyn_fma (enum neon_shape rs)
+{
+  int is_fma = (inst.instruction & 0x0fffffff) == N_MNEM_vfma;
+  
+  if (rs == NS_FFF)
+    {
+      if (is_fma)
+        do_vfp_nsyn_opcode ("ffmacs");
+      else
+        do_vfp_nsyn_opcode ("fnfmacs");
+    }
+  else
+    {
+      if (is_fma)
+        do_vfp_nsyn_opcode ("ffmacd");
+      else
+        do_vfp_nsyn_opcode ("fnfmacd");
+    }
+}
+
+static void
 do_vfp_nsyn_abs_neg (enum neon_shape rs)
 {
   int is_neg = (inst.instruction & 0x80) != 0;
@@ -10486,6 +10519,32 @@ do_vfp_nsyn_div (void)
     do_vfp_nsyn_opcode ("fdivs");
   else
     do_vfp_nsyn_opcode ("fdivd");
+}
+
+static void
+do_vfp_nsyn_fnma (void)
+{
+  enum neon_shape rs = neon_select_shape (NS_FFF, NS_DDD, NS_NULL);
+  neon_check_type (3, rs, N_EQK | N_VFP, N_EQK | N_VFP,
+    N_F32 | N_F64 | N_KEY | N_VFP);
+  
+  if (rs == NS_FFF)
+    do_vfp_nsyn_opcode ("ffnmas");
+  else
+    do_vfp_nsyn_opcode ("ffnmad");
+}
+
+static void
+do_vfp_nsyn_fnms (void)
+{
+  enum neon_shape rs = neon_select_shape (NS_FFF, NS_DDD, NS_NULL);
+  neon_check_type (3, rs, N_EQK | N_VFP, N_EQK | N_VFP,
+    N_F32 | N_F64 | N_KEY | N_VFP);
+  
+  if (rs == NS_FFF)
+    do_vfp_nsyn_opcode ("ffnmss");
+  else
+    do_vfp_nsyn_opcode ("ffnmsd");
 }
 
 static void
@@ -11402,6 +11461,18 @@ do_neon_mul (void)
     do_neon_mac_maybe_scalar ();
   else
     neon_dyadic_misc (NT_poly, N_I8 | N_I16 | N_I32 | N_F32 | N_P8, 0);
+}
+
+static void
+do_neon_fma (void)
+{
+  if (try_vfp_nsyn (3, do_vfp_nsyn_fma) == SUCCESS)
+    return;
+
+  if (vfp_or_neon_is_neon (NEON_CHECK_CC | NEON_CHECK_ARCH) == FAIL)
+    return;
+
+  neon_dyadic_misc (NT_untyped, N_IF_32, 0);
 }
 
 static void
@@ -14557,10 +14628,12 @@ static const struct asm_opcode insns[] =
  TCE(orns,	0, ea700000, 3, (RR, oRR, SH), 0, t_orn),
 
  /* Thumb-2 hardware division instructions (R and M profiles only).  */
+#undef ARM_VARIANT
+#define ARM_VARIANT &arm_ext_v7
 #undef THUMB_VARIANT
 #define THUMB_VARIANT &arm_ext_div
- TCE(sdiv,	0, fb90f0f0, 3, (RR, oRR, RR), 0, t_div),
- TCE(udiv,	0, fbb0f0f0, 3, (RR, oRR, RR), 0, t_div),
+ TCE(sdiv,	710f010, fb90f0f0, 3, (RR, oRR, RR), div, t_div),
+ TCE(udiv,	730f010, fbb0f0f0, 3, (RR, oRR, RR), div, t_div),
 
  /* ARM V7 instructions.  */
 #undef ARM_VARIANT
@@ -15064,10 +15137,14 @@ static const struct asm_opcode insns[] =
  cCE(fmuls,	e200a00, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
  cCE(fdivs,	e800a00, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
  cCE(fmacs,	e000a00, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
+ cCE(ffmacs,	ea00a00, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
  cCE(fmscs,	e100a00, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
  cCE(fnmuls,	e200a40, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
  cCE(fnmacs,	e000a40, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
+ cCE(fnfmacs,	ea00a40, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
  cCE(fnmscs,	e100a40, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
+ cCE(ffnmas,	e900a40, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
+ cCE(ffnmss,	e900a00, 3, (RVS, RVS, RVS),  vfp_sp_dyadic),
 
   /* Comparisons.  */
  cCE(fcmps,	eb40a40, 2, (RVS, RVS),	      vfp_sp_monadic),
@@ -15121,10 +15198,14 @@ static const struct asm_opcode insns[] =
  cCE(fmuld,	e200b00, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
  cCE(fdivd,	e800b00, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
  cCE(fmacd,	e000b00, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
+ cCE(ffmacd,	ea00b00, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
  cCE(fmscd,	e100b00, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
  cCE(fnmuld,	e200b40, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
  cCE(fnmacd,	e000b40, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
+ cCE(fnfmacd,	ea00b40, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
  cCE(fnmscd,	e100b40, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
+ cCE(ffnmad,	e900b40, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
+ cCE(ffnmsd,	e900b00, 3, (RVD, RVD, RVD),  vfp_dp_rd_rn_rm),
 
   /* Comparisons.  */
  cCE(fcmpd,	eb40b40, 2, (RVD, RVD),	      vfp_dp_rd_rm),
@@ -15156,8 +15237,13 @@ static const struct asm_opcode insns[] =
  NCE(vpush,     0,       1, (VRSDLST),          vfp_nsyn_push),
  NCE(vpop,      0,       1, (VRSDLST),          vfp_nsyn_pop),
  NCE(vcvtr,     0,       2, (RVSD, RVSD),       vfp_nsyn_cvtr),
+ NCE(vfnma,     0,       3, (RVSD, RVSD, RVSD), vfp_nsyn_fnma),
+ NCE(vfnms,     0,       3, (RVSD, RVSD, RVSD), vfp_nsyn_fnms),
 
   /* Mnemonics shared by Neon and VFP.  */
+ nCEF(vfma,     vfma,    3, (RNSDQ, oRNSDQ, RNSDQ_RNSC), neon_fma),
+ nCEF(vfms,     vfms,    3, (RNSDQ, oRNSDQ, RNSDQ_RNSC), neon_fma),
+
  nCEF(vmul,     vmul,    3, (RNSDQ, oRNSDQ, RNSDQ_RNSC), neon_mul),
  nCEF(vmla,     vmla,    3, (RNSDQ, oRNSDQ, RNSDQ_RNSC), neon_mac_maybe_scalar),
  nCEF(vmls,     vmls,    3, (RNSDQ, oRNSDQ, RNSDQ_RNSC), neon_mac_maybe_scalar),
@@ -18275,6 +18361,7 @@ md_begin (void)
 	break;
       case CPU_SUBTYPE_ARM_V7:
       case CPU_SUBTYPE_ARM_V7F:
+      case CPU_SUBTYPE_ARM_V7S:
       case CPU_SUBTYPE_ARM_V7K:
 	{
 	  static const arm_feature_set arm_arch_v7_vfp_v3_plus_neon_v1 =

@@ -1,19 +1,24 @@
 =begin
  external service
- 	Copyright (c) 2000,2002 Masatoshi SEKI 
+        Copyright (c) 2000,2002 Masatoshi SEKI
 =end
 
 require 'drb/drb'
+require 'monitor'
 
 module DRb
   class ExtServ
+    include MonitorMixin
     include DRbUndumped
 
     def initialize(there, name, server=nil)
+      super()
       @server = server || DRb::primary_server
       @name = name
       ro = DRbObject.new(nil, there)
-      @invoker = ro.regist(name, DRbObject.new(self, @server.uri))
+      synchronize do
+        @invoker = ro.regist(name, DRbObject.new(self, @server.uri))
+      end
     end
     attr_reader :server
 
@@ -22,11 +27,13 @@ module DRb
     end
 
     def stop_service
-      @invoker.unregist(@name)
-      server = @server
-      @server = nil
-      server.stop_service
-      true
+      synchronize do
+        @invoker.unregist(@name)
+        server = @server
+        @server = nil
+        server.stop_service
+        true
+      end
     end
 
     def alive?
@@ -34,6 +41,8 @@ module DRb
     end
   end
 end
+
+# :stopdoc:
 
 if __FILE__ == $0
   class Foo

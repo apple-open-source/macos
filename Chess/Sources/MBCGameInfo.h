@@ -51,7 +51,7 @@
 
 @interface MBCGameInfo : NSObject
 {
-    IBOutlet MBCDocument *  fDocument;
+    MBCDocument *  fDocument;
     IBOutlet NSPanel *      fEditSheet;
     IBOutlet NSPanel *      fPrefsSheet;
     IBOutlet NSTableView *  fMoveList;

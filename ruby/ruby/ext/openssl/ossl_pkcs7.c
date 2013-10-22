@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_pkcs7.c 28367 2010-06-21 09:18:59Z shyouhei $
+ * $Id: ossl_pkcs7.c 35167 2012-03-29 01:27:17Z emboss $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,64 +11,64 @@
 #include "ossl.h"
 
 #define WrapPKCS7(klass, obj, pkcs7) do { \
-    if (!pkcs7) { \
+    if (!(pkcs7)) { \
 	ossl_raise(rb_eRuntimeError, "PKCS7 wasn't initialized."); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, PKCS7_free, pkcs7); \
+    (obj) = Data_Wrap_Struct((klass), 0, PKCS7_free, (pkcs7)); \
 } while (0)
 #define GetPKCS7(obj, pkcs7) do { \
-    Data_Get_Struct(obj, PKCS7, pkcs7); \
-    if (!pkcs7) { \
+    Data_Get_Struct((obj), PKCS7, (pkcs7)); \
+    if (!(pkcs7)) { \
 	ossl_raise(rb_eRuntimeError, "PKCS7 wasn't initialized."); \
     } \
 } while (0)
 #define SafeGetPKCS7(obj, pkcs7) do { \
-    OSSL_Check_Kind(obj, cPKCS7); \
-    GetPKCS7(obj, pkcs7); \
+    OSSL_Check_Kind((obj), cPKCS7); \
+    GetPKCS7((obj), (pkcs7)); \
 } while (0)
 
 #define WrapPKCS7si(klass, obj, p7si) do { \
-    if (!p7si) { \
+    if (!(p7si)) { \
 	ossl_raise(rb_eRuntimeError, "PKCS7si wasn't initialized."); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, PKCS7_SIGNER_INFO_free, p7si); \
+    (obj) = Data_Wrap_Struct((klass), 0, PKCS7_SIGNER_INFO_free, (p7si)); \
 } while (0)
 #define GetPKCS7si(obj, p7si) do { \
-    Data_Get_Struct(obj, PKCS7_SIGNER_INFO, p7si); \
-    if (!p7si) { \
+    Data_Get_Struct((obj), PKCS7_SIGNER_INFO, (p7si)); \
+    if (!(p7si)) { \
 	ossl_raise(rb_eRuntimeError, "PKCS7si wasn't initialized."); \
     } \
 } while (0)
 #define SafeGetPKCS7si(obj, p7si) do { \
-    OSSL_Check_Kind(obj, cPKCS7Signer); \
-    GetPKCS7si(obj, p7si); \
+    OSSL_Check_Kind((obj), cPKCS7Signer); \
+    GetPKCS7si((obj), (p7si)); \
 } while (0)
 
 #define WrapPKCS7ri(klass, obj, p7ri) do { \
-    if (!p7ri) { \
+    if (!(p7ri)) { \
 	ossl_raise(rb_eRuntimeError, "PKCS7ri wasn't initialized."); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, PKCS7_RECIP_INFO_free, p7ri); \
+    (obj) = Data_Wrap_Struct((klass), 0, PKCS7_RECIP_INFO_free, (p7ri)); \
 } while (0)
 #define GetPKCS7ri(obj, p7ri) do { \
-    Data_Get_Struct(obj, PKCS7_RECIP_INFO, p7ri); \
-    if (!p7ri) { \
+    Data_Get_Struct((obj), PKCS7_RECIP_INFO, (p7ri)); \
+    if (!(p7ri)) { \
 	ossl_raise(rb_eRuntimeError, "PKCS7ri wasn't initialized."); \
     } \
 } while (0)
 #define SafeGetPKCS7ri(obj, p7ri) do { \
-    OSSL_Check_Kind(obj, cPKCS7Recipient); \
-    GetPKCS7ri(obj, p7ri); \
+    OSSL_Check_Kind((obj), cPKCS7Recipient); \
+    GetPKCS7ri((obj), (p7ri)); \
 } while (0)
 
-#define numberof(ary) (sizeof(ary)/sizeof(ary[0]))
+#define numberof(ary) (int)(sizeof(ary)/sizeof((ary)[0]))
 
 #define ossl_pkcs7_set_data(o,v)       rb_iv_set((o), "@data", (v))
 #define ossl_pkcs7_get_data(o)         rb_iv_get((o), "@data")
 #define ossl_pkcs7_set_err_string(o,v) rb_iv_set((o), "@error_string", (v))
 #define ossl_pkcs7_get_err_string(o)   rb_iv_get((o), "@error_string")
 
-/* 
+/*
  * Classes
  */
 VALUE cPKCS7;
@@ -97,7 +97,7 @@ static PKCS7_SIGNER_INFO *
 DupPKCS7SignerPtr(VALUE obj)
 {
     PKCS7_SIGNER_INFO *p7si, *pkcs7;
-	
+
     SafeGetPKCS7si(obj, p7si);
     if (!(pkcs7 = PKCS7_SIGNER_INFO_dup(p7si))) {
 	ossl_raise(ePKCS7Error, NULL);
@@ -123,7 +123,7 @@ static PKCS7_RECIP_INFO *
 DupPKCS7RecipientPtr(VALUE obj)
 {
     PKCS7_RECIP_INFO *p7ri, *pkcs7;
-	
+
     SafeGetPKCS7ri(obj, p7ri);
     if (!(pkcs7 = PKCS7_RECIP_INFO_dup(p7ri))) {
 	ossl_raise(ePKCS7Error, NULL);
@@ -295,7 +295,7 @@ ossl_pkcs7_alloc(VALUE klass)
 	ossl_raise(ePKCS7Error, NULL);
     }
     WrapPKCS7(klass, obj, pkcs7);
-    
+
     return obj;
 }
 
@@ -309,7 +309,7 @@ ossl_pkcs7_alloc(VALUE klass)
 static VALUE
 ossl_pkcs7_initialize(int argc, VALUE *argv, VALUE self)
 {
-    PKCS7 *p7;
+    PKCS7 *p7, *pkcs = DATA_PTR(self);
     BIO *in;
     VALUE arg;
 
@@ -317,11 +317,18 @@ ossl_pkcs7_initialize(int argc, VALUE *argv, VALUE self)
 	return self;
     arg = ossl_to_der_if_possible(arg);
     in = ossl_obj2bio(arg);
-    p7 = PEM_read_bio_PKCS7(in, (PKCS7 **)&DATA_PTR(self), NULL, NULL);
+    p7 = PEM_read_bio_PKCS7(in, &pkcs, NULL, NULL);
     if (!p7) {
-	BIO_reset(in);
-        p7 = d2i_PKCS7_bio(in, (PKCS7 **)&DATA_PTR(self));
+	OSSL_BIO_reset(in);
+        p7 = d2i_PKCS7_bio(in, &pkcs);
+	if (!p7) {
+	    BIO_free(in);
+	    PKCS7_free(pkcs);
+	    DATA_PTR(self) = NULL;
+	    ossl_raise(rb_eArgError, "Could not parse the PKCS7");
+	}
     }
+    DATA_PTR(self) = pkcs;
     BIO_free(in);
     ossl_pkcs7_set_data(self, Qnil);
     ossl_pkcs7_set_err_string(self, Qnil);
@@ -493,7 +500,7 @@ ossl_pkcs7_get_signer(VALUE self)
     PKCS7_SIGNER_INFO *si;
     int num, i;
     VALUE ary;
-    
+
     GetPKCS7(self, pkcs7);
     if (!(sk = PKCS7_get_signer_info(pkcs7))) {
 	OSSL_Debug("OpenSSL::PKCS7#get_signer_info == NULL!");
@@ -535,7 +542,7 @@ ossl_pkcs7_get_recipient(VALUE self)
     PKCS7_RECIP_INFO *si;
     int num, i;
     VALUE ary;
-    
+
     GetPKCS7(self, pkcs7);
     if (PKCS7_type_is_enveloped(pkcs7))
 	sk = pkcs7->d.enveloped->recipientinfo;
@@ -775,7 +782,7 @@ ossl_pkcs7_add_data(VALUE self, VALUE data)
     }
     if(!PKCS7_dataFinal(pkcs7, out)) goto err;
     ossl_pkcs7_set_data(self, Qnil);
-    
+
  err:
     BIO_free(out);
     BIO_free(in);
@@ -798,7 +805,7 @@ ossl_pkcs7_to_der(VALUE self)
     if((len = i2d_PKCS7(pkcs7, NULL)) <= 0)
 	ossl_raise(ePKCS7Error, NULL);
     str = rb_str_new(0, len);
-    p = RSTRING_PTR(str);
+    p = (unsigned char *)RSTRING_PTR(str);
     if(i2d_PKCS7(pkcs7, &p) <= 0)
 	ossl_raise(ePKCS7Error, NULL);
     ossl_str_adjust(str, p);
@@ -812,7 +819,7 @@ ossl_pkcs7_to_pem(VALUE self)
     PKCS7 *pkcs7;
     BIO *out;
     VALUE str;
-	
+
     GetPKCS7(self, pkcs7);
     if (!(out = BIO_new(BIO_s_mem()))) {
 	ossl_raise(ePKCS7Error, NULL);
@@ -887,9 +894,9 @@ ossl_pkcs7si_get_signed_time(VALUE self)
 {
     PKCS7_SIGNER_INFO *p7si;
     ASN1_TYPE *asn1obj;
-	
+
     GetPKCS7si(self, p7si);
-	
+
     if (!(asn1obj = PKCS7_get_signed_attribute(p7si, NID_pkcs9_signingTime))) {
 	ossl_raise(ePKCS7Error, NULL);
     }
@@ -1019,10 +1026,10 @@ Init_ossl_pkcs7()
 
     cPKCS7Recipient = rb_define_class_under(cPKCS7,"RecipientInfo",rb_cObject);
     rb_define_alloc_func(cPKCS7Recipient, ossl_pkcs7ri_alloc);
-    rb_define_method(cPKCS7Recipient, "initialize", ossl_pkcs7ri_initialize,1); 
+    rb_define_method(cPKCS7Recipient, "initialize", ossl_pkcs7ri_initialize,1);
     rb_define_method(cPKCS7Recipient, "issuer", ossl_pkcs7ri_get_issuer,0);
     rb_define_method(cPKCS7Recipient, "serial", ossl_pkcs7ri_get_serial,0);
-    rb_define_method(cPKCS7Recipient, "enc_key", ossl_pkcs7ri_get_enc_key,0); 
+    rb_define_method(cPKCS7Recipient, "enc_key", ossl_pkcs7ri_get_enc_key,0);
 
 #define DefPKCS7Const(x) rb_define_const(cPKCS7, #x, INT2NUM(PKCS7_##x))
 

@@ -25,6 +25,8 @@
 #include <cxxabi.h>
 #include <new>
 
+#ifndef _LIBCPPABI_VERSION
+
 __attribute__((__weak__, __visibility__("default")))
 void *
 operator new(size_t size) throw (std::bad_alloc)
@@ -41,3 +43,5 @@ operator new(size_t size) throw (std::bad_alloc)
     }
     return p;
 }
+
+#endif  // _LIBCPPABI_VERSION

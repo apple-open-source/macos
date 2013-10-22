@@ -55,6 +55,7 @@
 #include "misc.h"
 #include "vmbuf.h"
 #include "plog.h"
+#include "fsm.h"
 
 #include "isakmp_var.h"
 #include "isakmp.h"
@@ -69,11 +70,12 @@
 #include "pfkey.h"
 #include "strnames.h"
 #include "algorithm.h"
+#include "ikev2_rfc.h"
 
 struct ksmap {
 	int key;
 	char *str;
-	char *(*f) __P((int));
+	char *(*f) (int);
 };
 
 char *
@@ -92,107 +94,94 @@ char *
 s_isakmp_state(t, d, s)
 	int t, d, s;
 {
-	switch (t) {
-	case ISAKMP_ETYPE_AGG:
-		switch (d) {
-		case INITIATOR:
-			switch (s) {
-			case PHASE1ST_MSG1SENT:
-				return "agg I msg1";
-			case PHASE1ST_ESTABLISHED:
-				return "agg I msg2";
-			default:
-				break;
-			}
-		case RESPONDER:
-			switch (s) {
-			case PHASE1ST_MSG1SENT:
-				return "agg R msg1";
-			default:
-				break;
-			}
-		}
-		break;
-	case ISAKMP_ETYPE_BASE:
-		switch (d) {
-		case INITIATOR:
-			switch (s) {
-			case PHASE1ST_MSG1SENT:
-				return "base I msg1";
-			case PHASE1ST_MSG2SENT:
-				return "base I msg2";
-			default:
-				break;
-			}
-		case RESPONDER:
-			switch (s) {
-			case PHASE1ST_MSG1SENT:
-				return "base R msg1";
-			case PHASE1ST_ESTABLISHED:
-				return "base R msg2";
-			default:
-				break;
-			}
-		}
-		break;
-	case ISAKMP_ETYPE_IDENT:
-		switch (d) {
-		case INITIATOR:
-			switch (s) {
-			case PHASE1ST_MSG1SENT:
-				return "ident I msg1";
-			case PHASE1ST_MSG2SENT:
-				return "ident I msg2";
-			case PHASE1ST_MSG3SENT:
-				return "ident I msg3";
-			default:
-				break;
-			}
-		case RESPONDER:
-			switch (s) {
-			case PHASE1ST_MSG1SENT:
-				return "ident R msg1";
-			case PHASE1ST_MSG2SENT:
-				return "ident R msg2";
-			case PHASE1ST_ESTABLISHED:
-				return "ident R msg3";
-			default:
-				break;
-			}
-		}
-		break;
-	case ISAKMP_ETYPE_QUICK:
-		switch (d) {
-		case INITIATOR:
-			switch (s) {
-			case PHASE2ST_MSG1SENT:
-				return "quick I msg1";
-			case PHASE2ST_ADDSA:
-				return "quick I msg2";
-			default:
-				break;
-			}
-		case RESPONDER:
-			switch (s) {
-			case PHASE2ST_MSG1SENT:
-				return "quick R msg1";
-			case PHASE2ST_COMMIT:
-				return "quick R msg2";
-			default:
-				break;
-			}
-		}
-		break;
-	default:
-	case ISAKMP_ETYPE_NONE:
-	case ISAKMP_ETYPE_AUTH:
-	case ISAKMP_ETYPE_INFO:
-	case ISAKMP_ETYPE_NEWGRP:
-	case ISAKMP_ETYPE_ACKINFO:
-		break;
-	}
-	/*NOTREACHED*/
+	switch (s) {
+        case IKEV1_STATE_PHASE1_ESTABLISHED:
+            return "Phase 1 Established";
+        case IKEV1_STATE_PHASE2_ESTABLISHED:
+            return "Phase 2 established";
+        case IKEV1_STATE_PHASE1_EXPIRED:
+            return "Phase 1 expired";
+        case IKEV1_STATE_PHASE2_EXPIRED:
+            return "Phase 2 expired";
+        case IKEV1_STATE_INFO:
+            return "IKEv1 info";
+        case IKEV1_STATE_IDENT_I_START:
+            return "IKEv1 ident I start";
+        case IKEV1_STATE_IDENT_I_MSG1SENT:
+            return "IKEv1 ident I msg1 sent";
+        case IKEV1_STATE_IDENT_I_MSG2RCVD:
+            return "IKEv1 ident I msg2 rcvd";
+        case IKEV1_STATE_IDENT_I_MSG3SENT:
+            return "IKEv1 ident I msg3 sent";
+        case IKEV1_STATE_IDENT_I_MSG4RCVD:
+            return "IKEv1 ident I msg4 rcvd";
+        case IKEV1_STATE_IDENT_I_MSG5SENT:
+            return "IKEv1 ident I msg5 sent";
+        case IKEV1_STATE_IDENT_I_MSG6RCVD:
+            return "IKEv1 ident I msg6 rcvd";
+            
+        case IKEV1_STATE_IDENT_R_START:
+            return "IKEv1 ident R start";
+        case IKEV1_STATE_IDENT_R_MSG1RCVD:
+            return "IKEv1 ident R msg1 rcvd";
+        case IKEV1_STATE_IDENT_R_MSG2SENT:
+            return "IKEv1 ident R msg2 sent";
+        case IKEV1_STATE_IDENT_R_MSG3RCVD:
+            return "IKEv1 ident R msg3 rcvd";
+        case IKEV1_STATE_IDENT_R_MSG4SENT:
+            return "IKEv1 ident R msg4 sent";
+        case IKEV1_STATE_IDENT_R_MSG5RCVD:
+            return "IKEv1 ident R msg5 rcvd";
 
+        case IKEV1_STATE_AGG_I_START:
+            return "IKEv1 agg I start";
+        case IKEV1_STATE_AGG_I_MSG1SENT:
+            return "IKEv1 agg I msg1 sent";
+        case IKEV1_STATE_AGG_I_MSG2RCVD:
+            return "IKEv1 agg I msg2 rcvd";
+        case IKEV1_STATE_AGG_I_MSG3SENT:
+            return "IKEv1 agg I msg3 sent";
+        case IKEV1_STATE_AGG_R_START:
+            return "IKEv1 agg R start";
+        case IKEV1_STATE_AGG_R_MSG1RCVD:
+            return "IKEv1 agg R msg1 rcvd";
+        case IKEV1_STATE_AGG_R_MSG2SENT:
+            return "IKEv1 agg R msg2 sent";
+        case IKEV1_STATE_AGG_R_MSG3RCVD:
+            return "IKEv1 agg R msg3 rcvd";
+            
+        case IKEV1_STATE_QUICK_I_START:
+            return "IKEv1 quick I start";
+        case IKEV1_STATE_QUICK_I_GETSPISENT:
+            return "IKEv1 quick I getspi sent";
+        case IKEV1_STATE_QUICK_I_GETSPIDONE:
+            return "IKEv1 quick I getspi done";
+        case IKEV1_STATE_QUICK_I_MSG1SENT:
+            return "IKEv1 quick I msg1 sent";
+        case IKEV1_STATE_QUICK_I_MSG2RCVD:
+            return "IKEv1 quick I msg2 rcvd";
+        case IKEV1_STATE_QUICK_I_MSG3SENT:
+            return "IKEv1 quick I msg3 sent";
+        case IKEV1_STATE_QUICK_I_ADDSA:
+            return "IKEv1 quick I addsa";
+        case IKEV1_STATE_QUICK_R_START:
+            return "IKEv1 quick R start";
+        case IKEV1_STATE_QUICK_R_MSG1RCVD:
+            return "IKEv1 quick R msg1 rcvd";
+        case IKEV1_STATE_QUICK_R_GETSPISENT:
+            return "IKEv1 quick R getspi sent";
+        case IKEV1_STATE_QUICK_R_GETSPIDONE:
+            return "IKEv1 quick R getspi done";
+        case IKEV1_STATE_QUICK_R_MSG2SENT:
+            return "IKEv1 quick R msg2 sent";
+        case IKEV1_STATE_QUICK_R_MSG3RCVD:
+            return "IKEv1 quick R msg3 rcvd";
+        case IKEV1_STATE_QUICK_R_COMMIT:
+            return "IKEv1 quick R commit";
+        case IKEV1_STATE_QUICK_R_ADDSA:
+            return "IKEv1 quick R addsa";
+        
+    }
 	return "???";
 }
 
@@ -716,9 +705,6 @@ static struct ksmap name_attr_isakmp_method[] = {
 { OAKLEY_ATTR_AUTH_METHOD_RSAREV,		"Revised encryption with RSA",	NULL },
 { OAKLEY_ATTR_AUTH_METHOD_EGENC,		"Encryption with El-Gamal",	NULL },
 { OAKLEY_ATTR_AUTH_METHOD_EGREV,		"Revised encryption with El-Gamal",	NULL },
-#ifdef HAVE_GSSAPI
-{ OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB,		"GSS-API on Kerberos 5", NULL },
-#endif
 #ifdef ENABLE_HYBRID
 { OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R,		"Hybrid DSS server",	NULL },
 { OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R,		"Hybrid RSA server",	NULL },

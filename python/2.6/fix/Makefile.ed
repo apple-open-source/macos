@@ -28,5 +28,5 @@ frameworkinstallapps:
 		mv -f $$i $$j; \
 	done
 .
-g/cd Mac && /s/$/ CC=$(WITH_GCC)/
+g/cd Mac && /s/$/ CC=$(MY_CC)/
 w

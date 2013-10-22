@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -440,6 +440,11 @@ void DADiskPeekCallback( DADiskRef disk, DACallbackRef callback, DAResponseCallb
     DAQueueCallback( callback, disk, NULL );
 
     __DAResponseComplete( disk );
+}
+
+void DADiskProbe( DADiskRef disk, DACallbackRef callback )
+{
+    __DAQueueRequest( _kDADiskProbe, disk, 0, NULL, NULL, callback );
 }
 
 void DADiskRefresh( DADiskRef disk, DACallbackRef callback )
@@ -1023,5 +1028,37 @@ void DAQueueRequest( DARequestRef request )
         CFArrayAppendValue( gDARequestList, request );
 
         DAStageSignal( );
+    }
+}
+
+void DAQueueUnregisterCallback( DACallbackRef callback )
+{
+    CFIndex count;
+    CFIndex index;
+
+    count = CFArrayGetCount( gDAResponseList );
+
+    for ( index = count - 1; index > -1; index-- )
+    {
+        DACallbackRef item;
+
+        item = ( void * ) CFArrayGetValueAtIndex( gDAResponseList, index );
+
+        if ( DACallbackGetSession( item ) == DACallbackGetSession( callback ) )
+        {
+            if ( DACallbackGetAddress( item ) == DACallbackGetAddress( callback ) )
+            {
+                if ( DACallbackGetContext( item ) == DACallbackGetContext( callback ) )
+                {
+                    DADiskRef disk;
+
+                    disk = DACallbackGetDisk( item );
+
+                    CFArrayRemoveValueAtIndex( gDAResponseList, index );
+
+                    __DAResponseComplete( disk );
+                }
+            }
+        }
     }
 }

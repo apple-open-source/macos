@@ -1,7 +1,8 @@
-#include "config.h"
+#include "ruby/config.h"
+#include "ruby/ruby.h"
 
 #if defined _WIN32
-#elif defined HAVE_FCNTL && defined HAVE_FCNTL_H
+#elif defined HAVE_FCNTL && defined HAVE_FCNTL_H && !defined(__native_client__)
 
 /* These are the flock() constants.  Since this sytems doesn't have
    flock(), the values of the constants are probably not available.
@@ -24,12 +25,10 @@
 #include <errno.h>
 
 int
-flock(fd, operation)
-    int fd;
-    int operation;
+flock(int fd, int operation)
 {
     struct flock lock;
- 
+
     switch (operation & ~LOCK_NB) {
     case LOCK_SH:
 	lock.l_type = F_RDLCK;
@@ -46,7 +45,7 @@ flock(fd, operation)
     }
     lock.l_whence = SEEK_SET;
     lock.l_start = lock.l_len = 0L;
- 
+
     return fcntl(fd, (operation & LOCK_NB) ? F_SETLK : F_SETLKW, &lock);
 }
 
@@ -91,9 +90,7 @@ flock(fd, operation)
 # endif
 
 int
-flock(fd, operation)
-    int fd;
-    int operation;
+flock(int fd, int operation)
 {
     switch (operation) {
 
@@ -125,9 +122,7 @@ flock(fd, operation)
 }
 #else
 int
-flock(fd, operation)
-    int fd;
-    int operation;
+flock(int fd, int operation)
 {
     rb_notimplement();
     return -1;

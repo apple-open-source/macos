@@ -36,12 +36,14 @@
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
 #include "HostWindow.h"
+#include "JSDOMWindowBase.h"
 #include "MouseEvent.h"
 #include "NotImplemented.h"
-#include "PageClientEfl.h"
 #include "PluginPackage.h"
+#include "ScriptController.h"
 #include "npruntime_impl.h"
 #include "runtime/JSLock.h"
+#include "runtime/Operations.h"
 #include <Ecore_Evas.h>
 #include <Ecore_X.h>
 #include <Evas.h>
@@ -56,7 +58,7 @@ bool PluginView::dispatchNPEvent(NPEvent& event)
         return false;
 
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
     setCallingPlugin(true);
 
     bool accepted = m_plugin->pluginFuncs()->event(m_instance, &event);
@@ -123,7 +125,7 @@ void PluginView::updatePluginWidget()
 void PluginView::setFocus(bool focused)
 {
     if (focused)
-        m_element->document()->setFocusedNode(m_element);
+        m_element->document()->setFocusedElement(m_element);
 
     Widget::setFocus(focused);
 }
@@ -156,7 +158,7 @@ void PluginView::setParent(ScrollView* parent)
         init();
 }
 
-void PluginView::setNPWindowRect(const IntRect& rect)
+void PluginView::setNPWindowRect(const IntRect&)
 {
     notImplemented();
 }
@@ -283,9 +285,10 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
     }
 
     case NPNVnetscapeWindow: {
-        PageClientEfl* pageClient = static_cast<PageClientEfl*>(m_parentFrame->view()->hostWindow()->platformPageClient());
-        Evas_Object* widget = pageClient->view();
-        Evas* evas = evas_object_evas_get(widget);
+        Evas* evas = evas_object_evas_get(m_parentFrame->view()->evasObject());
+        if (!evas)
+            return false;
+
         Ecore_Evas* ecoreEvas = ecore_evas_ecore_evas_get(evas);
         *static_cast<XID*>(value) = static_cast<Window>(ecore_evas_window_get(ecoreEvas));
         *result = NPERR_NO_ERROR;
@@ -319,7 +322,7 @@ void PluginView::invalidateRect(NPRect* rect)
     invalidateRect(IntRect(rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top));
 }
 
-void PluginView::invalidateRegion(NPRegion region)
+void PluginView::invalidateRegion(NPRegion)
 {
     notImplemented();
 }

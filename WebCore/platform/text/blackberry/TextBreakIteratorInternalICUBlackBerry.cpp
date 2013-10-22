@@ -19,20 +19,19 @@
 #include "config.h"
 #include "TextBreakIteratorInternalICU.h"
 
-#include "NotImplemented.h"
+#include <BlackBerryPlatformString.h>
+#include <LocaleHandler.h>
 
 namespace WebCore {
 
 const char* currentSearchLocaleID()
 {
-    notImplemented();
-    return "";
+    return BlackBerry::Platform::LocaleHandler::instance()->region().c_str();
 }
 
 const char* currentTextBreakLocaleID()
 {
-    notImplemented();
-    return "en_us";
+    return BlackBerry::Platform::LocaleHandler::instance()->region().c_str();
 }
 
 }

@@ -1,4 +1,9 @@
 void
-Init_ext()
+Init_ext(void)
+{
+}
+
+void
+Init_enc(void)
 {
 }

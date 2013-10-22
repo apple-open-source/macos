@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "autotoolsconfig.h"
 #include "test_utils.h"
 
 #include <glib.h>
@@ -24,9 +25,7 @@
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
 
-#if GTK_CHECK_VERSION(2, 14, 0)
-
-#define HTML_DOCUMENT "<html><head><title>This is the title</title></head><body><p id='test'>test</p></body></html>"
+#define HTML_DOCUMENT "<html><head><title></title></head><style type='text/css'>#test { font-size: 16px; }</style><body><p id='test'>test</p></body></html>"
 
 typedef struct {
     GtkWidget* webView;
@@ -60,6 +59,26 @@ static void dom_domview_fixture_setup(DomDomviewFixture* fixture, gconstpointer 
 static void dom_domview_fixture_teardown(DomDomviewFixture* fixture, gconstpointer data)
 {
     gtk_widget_destroy(fixture->window);
+    g_main_loop_unref(fixture->loop);
+}
+
+static void dom_dom_window_fixture_setup(DomDomviewFixture* fixture, gconstpointer data)
+{
+    fixture->loop = g_main_loop_new(NULL, TRUE);
+    fixture->webView = webkit_web_view_new();
+    g_object_ref_sink(fixture->webView);
+
+    if (data != NULL)
+        webkit_web_view_load_string(WEBKIT_WEB_VIEW (fixture->webView), (const char*) data, NULL, NULL, NULL);
+
+    g_idle_add((GSourceFunc)finish_loading, fixture);
+    g_main_loop_run(fixture->loop);
+}
+
+static void dom_dom_window_fixture_teardown(DomDomviewFixture* fixture, gconstpointer data)
+{
+    if (fixture->webView)
+        g_object_unref(fixture->webView);
     g_main_loop_unref(fixture->loop);
 }
 
@@ -195,6 +214,21 @@ static void test_dom_domview_dispatch_event(DomDomviewFixture* fixture, gconstpo
     g_assert(fixture->clicked);
 }
 
+static void test_dom_dom_window_get_computed_style(DomDomviewFixture* fixture, gconstpointer data)
+{
+    WebKitDOMDocument* document = webkit_web_view_get_dom_document(WEBKIT_WEB_VIEW(fixture->webView));
+    g_assert(document);
+    WebKitDOMDOMWindow* domWindow = webkit_dom_document_get_default_view(document);
+    g_assert(domWindow);
+
+    WebKitDOMElement*  element = webkit_dom_document_get_element_by_id(document, "test");
+    g_assert(element);
+    g_assert(WEBKIT_DOM_IS_ELEMENT(element));
+    WebKitDOMCSSStyleDeclaration* cssStyle = webkit_dom_dom_window_get_computed_style(domWindow, element, NULL);
+    gchar* fontSize = webkit_dom_css_style_declaration_get_property_value(cssStyle, "font-size");
+    g_assert_cmpstr(fontSize, ==, "16px");
+}
+
 int main(int argc, char** argv)
 {
     gtk_test_init(&argc, &argv, NULL);
@@ -213,14 +247,12 @@ int main(int argc, char** argv)
                test_dom_domview_dispatch_event,
                dom_domview_fixture_teardown);
 
+    g_test_add("/webkit/domdomwindow/get_computed_style",
+               DomDomviewFixture, HTML_DOCUMENT,
+               dom_dom_window_fixture_setup,
+               test_dom_dom_window_get_computed_style,
+               dom_dom_window_fixture_teardown);
+
     return g_test_run();
 }
 
-#else
-int main(int argc, char** argv)
-{
-    g_critical("You will need gtk-2.14.0 to run the unit tests. Doing nothing now.");
-    return 0;
-}
-
-#endif

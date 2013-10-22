@@ -31,18 +31,34 @@ class QWebLoadRequest;
 
 void addQtWebProcessToPath();
 bool waitForSignal(QObject*, const char* signal, int timeout = 10000);
+void suppressDebugOutput();
+
+#if defined(HAVE_QTQUICK) && HAVE_QTQUICK
 bool waitForLoadSucceeded(QQuickWebView* webView, int timeout = 10000);
 bool waitForLoadFailed(QQuickWebView* webView, int timeout = 10000);
-void suppressDebugOutput();
+bool waitForViewportReady(QQuickWebView* webView, int timeout = 10000);
+
+class LoadSpy : public QEventLoop {
+    Q_OBJECT
+public:
+    LoadSpy(QQuickWebView* webView);
+Q_SIGNALS:
+    void loadSucceeded();
+    void loadFailed();
+private Q_SLOTS:
+    void onLoadingChanged(QWebLoadRequest* loadRequest);
+};
 
 class LoadStartedCatcher : public QObject {
     Q_OBJECT
 public:
     LoadStartedCatcher(QQuickWebView* webView);
-public slots:
+    virtual ~LoadStartedCatcher() { }
+public Q_SLOTS:
     void onLoadingChanged(QWebLoadRequest* loadRequest);
-signals:
+Q_SIGNALS:
     void finished();
 private:
     QQuickWebView* m_webView;
 };
+#endif

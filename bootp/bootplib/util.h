@@ -1,7 +1,5 @@
-#ifndef _S_UTIL_H
-#define _S_UTIL_H
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _S_UTIL_H
+#define _S_UTIL_H
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -37,26 +38,28 @@
 #include <ctype.h>
 #include <net/ethernet.h>
 #include <sys/time.h>
+#include <CoreFoundation/CFString.h>
+#include "symbol_scope.h"
 
 #define IP_FORMAT	"%d.%d.%d.%d"
-#define IP_CH(ip, i)	(((u_char *)(ip))[i])
+#define IP_CH(ip, i)	(((uint8_t *)(ip))[i])
 #define IP_LIST(ip)	IP_CH(ip,0),IP_CH(ip,1),IP_CH(ip,2),IP_CH(ip,3)
 
 #define EA_FORMAT	"%02x:%02x:%02x:%02x:%02x:%02x"
-#define EA_CH(e, i)	((u_char)((u_char *)(e))[(i)])
+#define EA_CH(e, i)	((uint8_t)((uint8_t *)(e))[(i)])
 #define EA_LIST(ea)	EA_CH(ea,0),EA_CH(ea,1),EA_CH(ea,2),EA_CH(ea,3),EA_CH(ea,4),EA_CH(ea,5)
 
 #define FWA_FORMAT	"%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x"
-#define FWA_CH(e, i) 	((u_char)((u_char *)(e))[(i)])
+#define FWA_CH(e, i) 	((uint8_t)((uint8_t *)(e))[(i)])
 #define FWA_LIST(ea) 	FWA_CH(ea,0),FWA_CH(ea,1),FWA_CH(ea,2),FWA_CH(ea,3),FWA_CH(ea,4),FWA_CH(ea,5),FWA_CH(ea,6),FWA_CH(ea,7)
 
-static __inline__ in_addr_t 
+INLINE in_addr_t 
 iptohl(struct in_addr ip)
 {
     return (ntohl(ip.s_addr));
 }
 
-static __inline__ struct in_addr 
+INLINE struct in_addr 
 hltoip(in_addr_t l)
 {
     struct in_addr ip;
@@ -65,7 +68,7 @@ hltoip(in_addr_t l)
     return (ip);
 }
 
-static __inline__ boolean_t
+INLINE boolean_t
 in_subnet(struct in_addr netaddr, struct in_addr netmask, struct in_addr ip)
 {
     if ((iptohl(ip) & iptohl(netmask)) != iptohl(netaddr)) {
@@ -90,7 +93,7 @@ in_subnet(struct in_addr netaddr, struct in_addr netmask, struct in_addr ip)
 #define IN_PRIVATE_192_168	((u_int32_t)0xc0a80000)
 #define IN_PRIVATE_192_168_NET	((u_int32_t)IN_CLASSB_NET)
 
-static __inline__ boolean_t
+INLINE boolean_t
 ip_is_private(struct in_addr iaddr)
 {
     u_int32_t	val = ntohl(iaddr.s_addr);
@@ -103,7 +106,7 @@ ip_is_private(struct in_addr iaddr)
     return (FALSE);
 }
 
-static __inline__ boolean_t
+INLINE boolean_t
 ip_is_linklocal(struct in_addr iaddr)
 {
     u_int32_t	val = ntohl(iaddr.s_addr);
@@ -126,13 +129,18 @@ void	timeval_add(struct timeval tv1, struct timeval tv2,
 
 int	timeval_compare(struct timeval tv1, struct timeval tv2);
 
+void	print_data_cfstr(CFMutableStringRef str, const uint8_t * data_p,
+			 int n_bytes);
 void	print_data(const uint8_t * data_p, int n_bytes);
 void	fprint_data(FILE * f, const uint8_t * data_p, int n_bytes);
 
-void	print_bytes(u_char * data, int len);
-void	print_bytes_sep(u_char * data, int len, char separator);
-void	fprint_bytes(FILE * out_f, u_char * data_p, int n_bytes);
-void	fprint_bytes_sep(FILE * out_f, u_char * data_p, int n_bytes,
+void	print_bytes_sep_cfstr(CFMutableStringRef str, uint8_t * data, int len,
+			      char separator);
+void	print_bytes_cfstr(CFMutableStringRef str, uint8_t * data, int len);
+void	print_bytes(uint8_t * data, int len);
+void	print_bytes_sep(uint8_t * data, int len, char separator);
+void	fprint_bytes(FILE * out_f, uint8_t * data_p, int n_bytes);
+void	fprint_bytes_sep(FILE * out_f, uint8_t * data_p, int n_bytes,
 			 char separator);
 
 int	create_path(const char * dirname, mode_t mode);
@@ -145,5 +153,7 @@ void
 link_addr_to_string(char * string_buffer, int string_buffer_length,
 		    const uint8_t * hwaddr, int hwaddr_len);
 
+void
+fill_with_random(void * buf, uint32_t len);
 
 #endif /* _S_UTIL_H */

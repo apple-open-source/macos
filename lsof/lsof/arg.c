@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: arg.c,v 1.50 2011/09/07 19:13:49 abe Exp $";
+static char *rcsid = "$Id: arg.c,v 1.51 2012/04/10 16:30:06 abe Exp $";
 #endif
 
 
@@ -312,7 +312,13 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 #endif	/* defined(CKFA_MPXCHAN) */
 
 		} else {
+
+#if	defined(SAVE_MP_IN_SFILE)
+		    sfp->mp = mp = mmp[mx++];
+#else	/* !defined(SAVE_MP_IN_SFILE) */
 		    mp = mmp[mx++];
+#endif	/* defined(SAVE_MP_IN_SFILE) */
+
 		    ss++;
 
 #if	defined(HASPROCFS)
@@ -778,8 +784,8 @@ enter_efsys(e, rdlnk)
 	ep->pathl = i;
 	ep->rdlnk = rdlnk;
 	ep->mp = (struct mounts *)NULL;
-	if (!(ep->next = Efsysl))
-	    Efsysl = ep;
+	ep->next = Efsysl;
+	Efsysl = ep;
 	return(0);
 }
 #endif	/* defined(HASEOPT) */

@@ -23,15 +23,17 @@ module RSS
         end
 
         def inherited(subclass)
-          subclass.const_set("OTHER_ELEMENTS", [])
-          subclass.const_set("NEED_INITIALIZE_VARIABLES", [])
+          subclass.const_set(:OTHER_ELEMENTS, [])
+          subclass.const_set(:NEED_INITIALIZE_VARIABLES, [])
         end
 
         def add_other_element(variable_name)
           self::OTHER_ELEMENTS << variable_name
         end
 
-        def add_need_initialize_variable(variable_name, init_value="nil")
+        def add_need_initialize_variable(variable_name, init_value=nil,
+                                         &init_block)
+          init_value ||= init_block
           self::NEED_INITIALIZE_VARIABLES << [variable_name, init_value]
         end
 
@@ -45,7 +47,7 @@ module RSS
           def_delegators("@#{plural}", :push, :pop, :shift, :unshift)
           def_delegators("@#{plural}", :each, :size, :empty?, :clear)
 
-          add_need_initialize_variable(plural, "[]")
+          add_need_initialize_variable(plural) {[]}
 
           module_eval(<<-EOC, __FILE__, __LINE__ + 1)
             def new_#{name}
@@ -74,7 +76,9 @@ module RSS
         def def_classed_element_without_accessor(name, class_name=nil)
           class_name ||= Utils.to_class_name(name)
           add_other_element(name)
-          add_need_initialize_variable(name, "make_#{name}")
+          add_need_initialize_variable(name) do |object|
+            object.send("make_#{name}")
+          end
           module_eval(<<-EOC, __FILE__, __LINE__ + 1)
             private
             def setup_#{name}(feed, current)
@@ -185,7 +189,19 @@ module RSS
       private
       def initialize_variables
         self.class.need_initialize_variables.each do |variable_name, init_value|
-          instance_eval("@#{variable_name} = #{init_value}", __FILE__, __LINE__)
+          if init_value.nil?
+            value = nil
+          else
+            if init_value.respond_to?(:call)
+              value = init_value.call(self)
+            elsif init_value.is_a?(String)
+              # just for backward compatibility
+              value = instance_eval(init_value, __FILE__, __LINE__)
+            else
+              value = init_value
+            end
+          end
+          instance_variable_set("@#{variable_name}", value)
         end
       end
 
@@ -222,7 +238,7 @@ module RSS
             setter = "#{var}="
             if target.respond_to?(setter)
               value = __send__(var)
-              if value
+              unless value.nil?
                 target.__send__(setter, value)
                 set = true
               end
@@ -238,7 +254,8 @@ module RSS
 
       def variables
         self.class.need_initialize_variables.find_all do |name, init|
-          "nil" == init
+          # init == "nil" is just for backward compatibility
+          init.nil? or init == "nil"
         end.collect do |name, init|
           name
         end
@@ -336,7 +353,7 @@ module RSS
 
     module SetupDefaultDate
       private
-      def _set_default_values(&block)
+      def _set_default_values
         keep = {
           :date => date,
           :dc_dates => dc_dates.to_a.dup,
@@ -348,7 +365,7 @@ module RSS
           dc_dates.unshift(dc_date)
         end
         self.date ||= self.dc_date
-        super(&block)
+        super
       ensure
         date = keep[:date]
         dc_dates.replace(keep[:dc_dates])
@@ -360,17 +377,38 @@ module RSS
       end
     end
 
+    module SetupDefaultLanguage
+      private
+      def _set_default_values
+        keep = {
+          :dc_languages => dc_languages.to_a.dup,
+        }
+        _language = language
+        if _language and
+            !dc_languages.any? {|dc_language| dc_language.value == _language}
+          dc_language = self.class::DublinCoreLanguages::DublinCoreLanguage.new(self)
+          dc_language.value = _language.dup
+          dc_languages.unshift(dc_language)
+        end
+        super
+      ensure
+        dc_languages.replace(keep[:dc_languages])
+      end
+    end
+
     class RSSBase < Base
       class << self
-        def make(version, &block)
-          new(version).make(&block)
+        def make(*args, &block)
+          new(*args).make(&block)
         end
       end
 
       %w(xml_stylesheets channel image items textinput).each do |element|
         attr_reader element
-        add_need_initialize_variable(element, "make_#{element}")
-        module_eval(<<-EOC, __FILE__, __LINE__)
+        add_need_initialize_variable(element) do |object|
+          object.send("make_#{element}")
+        end
+        module_eval(<<-EOC, __FILE__, __LINE__ + 1)
           private
           def setup_#{element}(feed)
             @#{element}.to_feed(feed)
@@ -381,7 +419,7 @@ module RSS
           end
         EOC
       end
-      
+
       attr_reader :feed_version
       alias_method(:rss_version, :feed_version)
       attr_accessor :version, :encoding, :standalone
@@ -395,14 +433,10 @@ module RSS
         @encoding = "UTF-8"
         @standalone = nil
       end
-      
+
       def make
-        if block_given?
-          yield(self)
-          to_feed
-        else
-          nil
-        end
+        yield(self)
+        to_feed
       end
 
       def to_feed
@@ -410,13 +444,10 @@ module RSS
         setup_xml_stylesheets(feed)
         setup_elements(feed)
         setup_other_elements(feed)
-        if feed.valid?
-          feed
-        else
-          nil
-        end
+        feed.validate
+        feed
       end
-      
+
       private
       remove_method :make_xml_stylesheets
       def make_xml_stylesheets
@@ -433,7 +464,7 @@ module RSS
           attr_accessor attribute
           add_need_initialize_variable(attribute)
         end
-        
+
         def to_feed(feed)
           xss = ::RSS::XMLStyleSheet.new
           guess_type_if_need(xss)
@@ -456,7 +487,7 @@ module RSS
         end
       end
     end
-    
+
     class ChannelBase < Base
       include SetupDefaultDate
 
@@ -543,7 +574,7 @@ module RSS
           end
         end
       end
-      
+
       class SkipHoursBase < Base
         def_array_element("hour")
 
@@ -554,7 +585,7 @@ module RSS
           end
         end
       end
-      
+
       class CloudBase < Base
         %w(domain port path registerProcedure protocol).each do |element|
           attr_accessor element
@@ -624,7 +655,7 @@ module RSS
         include AtomTextConstructBase
       end
     end
-    
+
     class ImageBase < Base
       %w(title url width height description).each do |element|
         attr_accessor element
@@ -635,18 +666,18 @@ module RSS
         @maker.channel.link
       end
     end
-    
+
     class ItemsBase < Base
       def_array_element("item")
 
       attr_accessor :do_sort, :max_size
-      
+
       def initialize(maker)
         super
         @do_sort = false
         @max_size = -1
       end
-      
+
       def normalize
         if @max_size >= 0
           sort_if_need[0...@max_size]
@@ -687,7 +718,7 @@ module RSS
          ["contributor", "name"],
         ].each do |name, attribute|
           def_classed_elements(name, attribute)
-	end
+        end
 
         %w(comments id published).each do |element|
           attr_accessor element
@@ -740,6 +771,14 @@ module RSS
           %w(isPermaLink content).each do |element|
             attr_accessor element
             add_need_initialize_variable(element)
+          end
+
+          def permanent_link?
+            isPermaLink
+          end
+
+          def permanent_link=(bool)
+            self.isPermaLink = bool
           end
         end
 

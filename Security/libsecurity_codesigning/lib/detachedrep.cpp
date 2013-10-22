@@ -39,7 +39,7 @@ namespace CodeSigning {
 // of EmbeddedSignatureBlobs.
 //
 DetachedRep::DetachedRep(CFDataRef sig, DiskRep *orig, const std::string &source)
-	: FilterRep(orig), mSig(sig), mSource(source)
+	: FilterRep(orig), mSig(sig), mFull(true), mSource(source)
 {
 	const BlobCore *sigBlob = reinterpret_cast<const BlobCore *>(CFDataGetBytePtr(sig));
 	if (sigBlob->is<EmbeddedSignatureBlob>()) {		// architecture-less
@@ -66,7 +66,7 @@ DetachedRep::DetachedRep(CFDataRef sig, DiskRep *orig, const std::string &source
 // and (optional) associated global blob. Just take them.
 //
 DetachedRep::DetachedRep(CFDataRef sig, CFDataRef gsig, DiskRep *orig, const std::string &source)
-	: FilterRep(orig), mSig(sig), mGSig(gsig), mSource(source)
+	: FilterRep(orig), mSig(sig), mGSig(gsig), mFull(false), mSource(source)
 {
 	const BlobCore *sigBlob = reinterpret_cast<const BlobCore *>(CFDataGetBytePtr(sig));
 	mArch = EmbeddedSignatureBlob::specific(sigBlob);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,16 +34,15 @@ CFBooleanRef	G_supplemental_proxies_follow_dns;
 
 __BEGIN_DECLS
 
-__private_extern__
 void
 proxy_configuration_init	(CFBundleRef		bundle);
 
 
-__private_extern__
 CF_RETURNS_RETAINED CFDictionaryRef
 proxy_configuration_update	(CFDictionaryRef	defaultProxy,
 				 CFDictionaryRef	services,
-				 CFArrayRef		serviceOrder);
+				 CFArrayRef		serviceOrder,
+				 CFDictionaryRef	servicesInfo);
 
 __END_DECLS
 

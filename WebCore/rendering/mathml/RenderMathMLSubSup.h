@@ -44,13 +44,18 @@ protected:
     virtual void layout();
     
 private:
+    virtual bool isRenderMathMLSubSup() const { return true; }
+    void fixAnonymousStyles();
+
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) OVERRIDE;
+
     virtual const char* renderName() const { return "RenderMathMLSubSup"; }
 
     // Omit our subscript and/or superscript. This may return 0 for a non-MathML base (which
     // won't occur in valid MathML).
     RenderBoxModelObject* base() const;
     
-    enum SubSupType { Sub, Sup, SubSup };
+    enum SubSupType { Sub, Super, SubSup };
     SubSupType m_kind;
     RenderMathMLBlock* m_scripts;
 };

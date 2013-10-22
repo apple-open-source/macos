@@ -24,18 +24,20 @@
 #if ENABLE(SVG)
 #include "SVGTRefElement.h"
 
+#include "ElementShadow.h"
 #include "EventListener.h"
 #include "EventNames.h"
+#include "ExceptionCodePlaceholder.h"
 #include "MutationEvent.h"
 #include "NodeRenderingContext.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGInlineText.h"
 #include "RenderSVGResource.h"
 #include "ShadowRoot.h"
-#include "ShadowTree.h"
 #include "SVGDocument.h"
 #include "SVGElementInstance.h"
 #include "SVGNames.h"
+#include "StyleInheritedData.h"
 #include "Text.h"
 #include "XLinkNames.h"
 
@@ -52,7 +54,7 @@ END_REGISTER_ANIMATED_PROPERTIES
 PassRefPtr<SVGTRefElement> SVGTRefElement::create(const QualifiedName& tagName, Document* document)
 {
     RefPtr<SVGTRefElement> element = adoptRef(new SVGTRefElement(tagName, document));
-    element->createShadowSubtree();
+    element->ensureUserAgentShadowRoot();
     return element.release();
 }
 
@@ -129,35 +131,6 @@ void SVGTRefTargetEventListener::handleEvent(ScriptExecutionContext*, Event* eve
         m_trefElement->detachTarget();
 }
 
-class SVGShadowText : public Text {
-public:
-    static PassRefPtr<SVGShadowText> create(Document* document, const String& data)
-    {
-        return adoptRef(new SVGShadowText(document, data));
-    }
-private:
-    SVGShadowText(Document* document, const String& data)
-        : Text(document, data)
-    {
-         setHasCustomWillOrDidRecalcStyle();
-    }
-    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual void willRecalcTextStyle(StyleChange);
-};
-
-RenderObject* SVGShadowText::createRenderer(RenderArena* arena, RenderStyle*)
-{
-    return new (arena) RenderSVGInlineText(this, dataImpl());
-}
-
-void SVGShadowText::willRecalcTextStyle(StyleChange change)
-{
-    if (change != NoChange && parentNode()->shadowHost()) {
-        if (renderer())
-            renderer()->setStyle(parentNode()->shadowHost()->renderer()->style());
-    }
-}
-
 inline SVGTRefElement::SVGTRefElement(const QualifiedName& tagName, Document* document)
     : SVGTextPositioningElement(tagName, document)
     , m_targetListener(SVGTRefTargetEventListener::create(this))
@@ -171,23 +144,20 @@ SVGTRefElement::~SVGTRefElement()
     m_targetListener->detach();
 }
 
-void SVGTRefElement::createShadowSubtree()
-{
-    ShadowRoot::create(this, ShadowRoot::CreatingUserAgentShadowRoot, ASSERT_NO_EXCEPTION);
-}
-
 void SVGTRefElement::updateReferencedText(Element* target)
 {
     String textContent;
     if (target)
         textContent = target->textContent();
 
-    ASSERT(hasShadowRoot());
-    ShadowRoot* root = shadowTree()->oldestShadowRoot();
+    ASSERT(shadow());
+    ShadowRoot* root = shadow()->shadowRoot();
     if (!root->firstChild())
-        root->appendChild(SVGShadowText::create(document(), textContent), ASSERT_NO_EXCEPTION);
-    else
+        root->appendChild(Text::create(document(), textContent), ASSERT_NO_EXCEPTION);
+    else {
+        ASSERT(root->firstChild()->isTextNode());
         root->firstChild()->setTextContent(textContent, ASSERT_NO_EXCEPTION);
+    }
 }
 
 void SVGTRefElement::detachTarget()
@@ -196,12 +166,11 @@ void SVGTRefElement::detachTarget()
     m_targetListener->detach();
 
     String emptyContent;
-    ExceptionCode ignore = 0;
 
-    ASSERT(hasShadowRoot());
-    Node* container = shadowTree()->oldestShadowRoot()->firstChild();
+    ASSERT(shadow());
+    Node* container = shadow()->shadowRoot()->firstChild();
     if (container)
-        container->setTextContent(emptyContent, ignore);
+        container->setTextContent(emptyContent, IGNORE_EXCEPTION);
 
     if (!inDocument())
         return;
@@ -209,7 +178,7 @@ void SVGTRefElement::detachTarget()
     // Mark the referenced ID as pending.
     String id;
     SVGURIReference::targetElementFromIRIString(href(), document(), &id);
-    if (!hasPendingResources() && !id.isEmpty())
+    if (!id.isEmpty())
         document()->accessSVGExtensions()->addPendingResource(id, this);
 }
 
@@ -221,16 +190,15 @@ bool SVGTRefElement::isSupportedAttribute(const QualifiedName& attrName)
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGTRefElement::parseAttribute(Attribute* attr)
+void SVGTRefElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGTextPositioningElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGTextPositioningElement::parseAttribute(name, value);
         return;
     }
 
-    if (SVGURIReference::parseAttribute(attr)) {
+    if (SVGURIReference::parseAttribute(name, value))
         return;
-    }
 
     ASSERT_NOT_REACHED();
 }
@@ -291,10 +259,9 @@ void SVGTRefElement::buildPendingResource()
     String id;
     RefPtr<Element> target = SVGURIReference::targetElementFromIRIString(href(), document(), &id);
     if (!target.get()) {
-        if (hasPendingResources() || id.isEmpty())
+        if (id.isEmpty())
             return;
 
-        ASSERT(!hasPendingResources());
         document()->accessSVGExtensions()->addPendingResource(id, this);
         ASSERT(hasPendingResources());
         return;
@@ -310,7 +277,7 @@ void SVGTRefElement::buildPendingResource()
     updateReferencedText(target.get());
 }
 
-Node::InsertionNotificationRequest SVGTRefElement::insertedInto(Node* rootParent)
+Node::InsertionNotificationRequest SVGTRefElement::insertedInto(ContainerNode* rootParent)
 {
     SVGStyledElement::insertedInto(rootParent);
     if (rootParent->inDocument())
@@ -318,7 +285,7 @@ Node::InsertionNotificationRequest SVGTRefElement::insertedInto(Node* rootParent
     return InsertionDone;
 }
 
-void SVGTRefElement::removedFrom(Node* rootParent)
+void SVGTRefElement::removedFrom(ContainerNode* rootParent)
 {
     SVGStyledElement::removedFrom(rootParent);
     if (rootParent->inDocument())

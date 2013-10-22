@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * trusted_cert_dump.c
@@ -45,7 +45,7 @@ static OSStatus printCertLabel(
 {
 	OSStatus ortn;
 	CFStringRef label;
-	
+
 	ortn = SecCertificateInferLabel(certRef, &label);
 	if(ortn) {
 		cssmPerror("SecCertificateInferLabel", ortn);
@@ -57,7 +57,7 @@ static OSStatus printCertLabel(
 }
 
 /*
- * Display a Trust Settings array as obtained from 
+ * Display a Trust Settings array as obtained from
  * SecTrustSettingsCopyTrustSettings().
  */
 static int displayTrustSettings(
@@ -72,7 +72,7 @@ static int displayTrustSettings(
 		fprintf(stderr, "***displayTrustSettings: malformed trust settings array");
 		return -1;
 	}
-	
+
 	int ourRtn = 0;
 	CFIndex numUseConstraints = CFArrayGetCount(trustSettings);
 	indentIncr();
@@ -89,14 +89,14 @@ static int displayTrustSettings(
 	for(ucDex=0; ucDex<numUseConstraints; ucDex++) {
 		indent(); printf("Trust Setting %ld:\n", (long)ucDex);
 		indentIncr();
-		
+
 		ucDict = (CFDictionaryRef)CFArrayGetValueAtIndex(trustSettings, ucDex);
 		if(CFGetTypeID(ucDict) != CFDictionaryGetTypeID()) {
 			fprintf(stderr, "***displayTrustSettings: malformed usage constraints dictionary");
 			ourRtn = -1;
 			goto nextAp;
 		}
-		
+
 		/* policy - optional */
 		certPolicy = (SecPolicyRef)CFDictionaryGetValue(ucDict, kSecTrustSettingsPolicy);
 		if(certPolicy != NULL) {
@@ -112,12 +112,12 @@ static int displayTrustSettings(
 				ourRtn = -1;
 				goto nextAp;
 			}
-			indent(); printf("Policy OID            : %s\n", 
-					oidToOidString(&policyOid)); 
+			indent(); printf("Policy OID            : %s\n",
+					oidToOidString(&policyOid));
 		}
-		
+
 		/* app - optional  */
-		certApp = (SecTrustedApplicationRef)CFDictionaryGetValue(ucDict, 
+		certApp = (SecTrustedApplicationRef)CFDictionaryGetValue(ucDict,
 			kSecTrustSettingsApplication);
 		if(certApp != NULL) {
 			if(CFGetTypeID(certApp) != SecTrustedApplicationGetTypeID()) {
@@ -136,7 +136,7 @@ static int displayTrustSettings(
 			printf("\n");
 			CFRelease(appPath);
 		}
-		
+
 		/* policy string */
 		policyStr = (CFStringRef)CFDictionaryGetValue(ucDict, kSecTrustSettingsPolicyString);
 		if(policyStr != NULL) {
@@ -206,7 +206,7 @@ trusted_cert_dump(int argc, char * const *argv)
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	
+
 	optind = 1;
 	while ((arg = getopt(argc, argv, "sdh")) != -1) {
 		switch (arg) {
@@ -221,7 +221,7 @@ trusted_cert_dump(int argc, char * const *argv)
 				return 2; /* @@@ Return 2 triggers usage message. */
 		}
 	}
-	
+
 	if(optind != argc) {
 		return 2; /* @@@ Return 2 triggers usage message. */
 	}
@@ -235,19 +235,19 @@ trusted_cert_dump(int argc, char * const *argv)
 	printf("Number of trusted certs = %ld\n", (long)numCerts);
 
 	for(dex=0; dex<numCerts; dex++) {
-		SecCertificateRef certRef = 
+		SecCertificateRef certRef =
 				(SecCertificateRef)CFArrayGetValueAtIndex(certArray, dex);
 		if(CFGetTypeID(certRef) != SecCertificateGetTypeID()) {
 			fprintf(stderr, "***Bad CFGetTypeID for cert %ld\n", (long)dex);
 			ourRtn = -1;
 			break;
 		}
-		
+
 		/* always print the cert's label */
-		printf("Cert %ld: ", dex); 
+		printf("Cert %ld: ", dex);
 		printCertLabel(certRef);
 		printf("\n");
-		
+
 		/* see if the cert has any usage constraints (it should!) */
 		ortn = SecTrustSettingsCopyTrustSettings(certRef, domain, &trustSettings);
 		if(ortn) {

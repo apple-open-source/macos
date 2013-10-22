@@ -27,7 +27,6 @@
 #ifndef _H_RSIGN
 #define _H_RSIGN
 
-#include "renum.h"
 #include "codedirectory.h"
 #include <security_utilities/utilities.h>
 #include <security_utilities/cfutilities.h>
@@ -35,6 +34,7 @@
 #include "regex.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <vector>
+#include <fts.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -43,20 +43,21 @@ namespace CodeSigning {
 //
 // The builder of ResourceDirectories.
 //
-// Note that this *is* a ResourceEnumerate, which can enumerate
+// Note that this *is* a ResourceEnumerator, which can enumerate
 // its source directory once (only).
 //
-class ResourceBuilder : public ResourceEnumerator {
+class ResourceBuilder {
+	NOCOPY(ResourceBuilder)
 public:
-	ResourceBuilder(const std::string &root, CFDictionaryRef rules, CodeDirectory::HashAlgorithm hashType);
+	ResourceBuilder(const std::string &root, CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType);
 	~ResourceBuilder();
 
-	CFDictionaryRef build();
-
-	enum Action {
+	enum {
 		optional = 0x01,				// may be absent at runtime
 		omitted = 0x02,					// do not seal even if present
-		exclusion = 0x04,				// overriding exclusion (stop looking)
+		nested = 0x04,					// nested code (recursively signed)
+		exclusion = 0x10,				// overriding exclusion (stop looking)
+		top = 0x20,						// special top directory handling
 	};
 	
 	typedef unsigned int Weight;
@@ -71,20 +72,29 @@ public:
 		
 		const Weight weight;
 		const uint32_t flags;
+		std::string source;
 	};
 	void addRule(Rule *rule) { mRules.push_back(rule); }
 	void addExclusion(const std::string &pattern) { mRules.insert(mRules.begin(), new Rule(pattern, 0, exclusion)); }
 
 	static std::string escapeRE(const std::string &s);
 	
-	FTSENT *next(std::string &path, Rule * &rule);	// enumerate next file and match rule
+	typedef void (^Scanner)(FTSENT *ent, uint32_t flags, const char *relpath, Rule *rule);
+	void scan(Scanner next);
+	bool includes(string path) const;
+	Rule *findRule(string path) const;
+
+	DynamicHash *getHash() const { return CodeDirectory::hashFor(this->mHashType); }
+	CFDataRef hashFile(const char *path) const;
+	
+	CFDictionaryRef rules() const { return mRawRules; }
 
 protected:
 	void addRule(CFTypeRef key, CFTypeRef value);
-	CFDataRef hashFile(const char *path);
-	DynamicHash *getHash() const { return CodeDirectory::hashFor(this->mHashType); }
 	
 private:
+	std::string mRoot;
+	FTS *mFTS;
 	CFCopyRef<CFDictionaryRef> mRawRules;
 	typedef std::vector<Rule *> Rules;
 	Rules mRules;
@@ -104,11 +114,18 @@ public:
 	bool operator ! () const { return mHash == NULL; }
 	
 	const SHA1::Byte *hash() const { return CFDataGetBytePtr(mHash); }
-	bool optional() const { return mOptional; }
+	bool nested() const { return mFlags & ResourceBuilder::nested; }
+	bool optional() const { return mFlags & ResourceBuilder::optional; }
+	CFDictionaryRef dict() const { return mDict; }
+	CFStringRef requirement() const { return mRequirement; }
+	CFStringRef link() const { return mLink; }
 
 private:
+	CFDictionaryRef mDict;
 	CFDataRef mHash;
-	int mOptional;
+	CFStringRef mRequirement;
+	CFStringRef mLink;
+	uint32_t mFlags;
 };
 
 

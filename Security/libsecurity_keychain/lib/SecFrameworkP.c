@@ -39,9 +39,12 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <debuggingP.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <errno.h>
+#include <dlfcn.h>
+#include <string.h>
+#include <CoreFoundation/CFBundlePriv.h>
+
+#include <utilities/debugging.h>
 
 /* Security.framework's bundle id. */
 static CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.Security");
@@ -63,7 +66,15 @@ bool SecAsn1OidCompare(const SecAsn1Oid *oid1, const SecAsn1Oid *oid2) {
 #endif
 
 static void SecFrameworkBundleLookup(void) {
-    kSecFrameworkBundle = CFBundleGetBundleWithIdentifier(kSecFrameworkBundleID);
+	// figure out the path to our executable
+	Dl_info info;
+	dladdr("", &info);
+	
+	// make a file URL from the returned string
+	CFURLRef urlRef = CFURLCreateFromFileSystemRepresentation(NULL, (const UInt8*) info.dli_fname, strlen(info.dli_fname), false);
+	kSecFrameworkBundle = _CFBundleCreateWithExecutableURLIfLooksLikeBundle(NULL, urlRef);
+	CFRelease(urlRef);
+
     if (kSecFrameworkBundle)
         CFRetain(kSecFrameworkBundle);
 }
@@ -88,7 +99,7 @@ CFURLRef SecFrameworkCopyResourceURL(CFStringRef resourceName,
         url = CFBundleCopyResourceURL(kSecFrameworkBundle, resourceName,
 			resourceType, subDirName);
 		if (!url) {
-            secdebug(NULL, "resource: %@.%@ in %@ not found", resourceName,
+            secdebug("SecFramework", "resource: %@.%@ in %@ not found", resourceName,
                 resourceType, subDirName);
 		}
     }
@@ -106,7 +117,7 @@ CFDataRef SecFrameworkCopyResourceContents(CFStringRef resourceName,
         SInt32 error;
         if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
             url, &data, NULL, NULL, &error)) {
-            secdebug(NULL, "read: %@: %d", error);
+            secdebug("SecFramework", "read: %d", (int)error);
         }
         CFRelease(url);
     }
@@ -120,7 +131,7 @@ CFDataRef SecSHA1DigestCreate(CFAllocatorRef allocator,
 	CFMutableDataRef digest = CFDataCreateMutable(allocator,
 		CC_SHA1_DIGEST_LENGTH);
 	CFDataSetLength(digest, CC_SHA1_DIGEST_LENGTH);
-	CC_SHA1(data, length, CFDataGetMutableBytePtr(digest));
+	CC_SHA1(data, (CC_LONG)length, CFDataGetMutableBytePtr(digest));
 	return digest;
 }
 
@@ -172,7 +183,7 @@ static void SecDevRandomOpen(void) {
 
 int SecRandomCopyBytes(SecRandomRef rnd, size_t count, uint8_t *bytes) {
     if (rnd != kSecRandomDefault)
-        return paramErr;
+        return errSecParam;
     pthread_once(&kSecDevRandomOpen, SecDevRandomOpen);
     if (kSecRandomFD < 0)
         return -1;

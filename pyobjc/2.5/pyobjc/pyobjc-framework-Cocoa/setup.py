@@ -19,7 +19,7 @@ if int(os.uname()[2].split('.')[0]) <= 8:
     CFLAGS=["-DNO_OBJC2_RUNTIME"]
     LDFLAGS=[]
 else:
-    CFLAGS=["-isysroot", "/"]
+    CFLAGS=[]
     LDFLAGS=CFLAGS
 
 try:

@@ -323,6 +323,11 @@
 				INSTALL_PATH = /usr/lib/system;
 				OTHER_LDFLAGS = (
 					"$(OTHER_LDFLAGS)",
+					"-nostdlib",
+					"-L$(SDKROOT)/usr/lib/system/",
+					"-lsystem_malloc",
+					"-lsystem_c",
+					"-ldyld",
 					"-Wl,-umbrella,System",
 				);
 				PRODUCT_NAME = system_blocks;
@@ -343,6 +348,11 @@
 				INSTALL_PATH = /usr/lib/system;
 				OTHER_LDFLAGS = (
 					"$(OTHER_LDFLAGS)",
+					"-nostdlib",
+					"-L$(SDKROOT)/usr/lib/system/",
+					"-lsystem_malloc",
+					"-lsystem_c",
+					"-ldyld",
 					"-Wl,-umbrella,System",
 				);
 				PRODUCT_NAME = system_blocks;
@@ -468,6 +478,14 @@
 				);
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/lib/system";
 				LD_DYLIB_INSTALL_NAME_mh_dylib = "/usr/lib/system/$(EXECUTABLE_PATH)";
+				LINK_WITH_STANDARD_LIBRARIES = NO;
+				OTHER_LDFLAGS = (
+					"-ldyld_sim",
+					"-L$(SDKROOT)/usr/lib/system",
+					"-lcompiler_rt_sim",
+					"-Wl,-umbrella,System",
+					"-Wl,-upward-lSystem",
+				);
 				PRIVATE_HEADERS_FOLDER_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include";
 				PRODUCT_NAME = system_sim_blocks;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/include";
@@ -487,6 +505,14 @@
 				);
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/lib/system";
 				LD_DYLIB_INSTALL_NAME_mh_dylib = "/usr/lib/system/$(EXECUTABLE_PATH)";
+				LINK_WITH_STANDARD_LIBRARIES = NO;
+				OTHER_LDFLAGS = (
+					"-ldyld_sim",
+					"-L$(SDKROOT)/usr/lib/system",
+					"-lcompiler_rt_sim",
+					"-Wl,-umbrella,System",
+					"-Wl,-upward-lSystem",
+				);
 				PRIVATE_HEADERS_FOLDER_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include";
 				PRODUCT_NAME = system_sim_blocks;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/include";

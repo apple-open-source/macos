@@ -231,6 +231,11 @@ char *target_triple)
 	    arch_flag->cputype = CPU_TYPE_ARM;
 	    arch_flag->cpusubtype = CPU_SUBTYPE_ARM_V6;
 	}
+	else if(strncmp(target_triple, "armv6m", n) == 0 ||
+	        strncmp(target_triple, "thumbv6m", n) == 0){
+	    arch_flag->cputype = CPU_TYPE_ARM;
+	    arch_flag->cpusubtype = CPU_SUBTYPE_ARM_V6M;
+	}
 	else if(strncmp(target_triple, "armv7", n) == 0 ||
 	        strncmp(target_triple, "thumbv7", n) == 0){
 	    arch_flag->cputype = CPU_TYPE_ARM;
@@ -241,10 +246,25 @@ char *target_triple)
 	    arch_flag->cputype = CPU_TYPE_ARM;
 	    arch_flag->cpusubtype = CPU_SUBTYPE_ARM_V7F;
 	}
+	else if(strncmp(target_triple, "armv7s", n) == 0 ||
+	        strncmp(target_triple, "thumbv7s", n) == 0){
+	    arch_flag->cputype = CPU_TYPE_ARM;
+	    arch_flag->cpusubtype = CPU_SUBTYPE_ARM_V7S;
+	}
 	else if(strncmp(target_triple, "armv7k", n) == 0 ||
 	        strncmp(target_triple, "thumbv7k", n) == 0){
 	    arch_flag->cputype = CPU_TYPE_ARM;
 	    arch_flag->cpusubtype = CPU_SUBTYPE_ARM_V7K;
+	}
+	else if(strncmp(target_triple, "armv7m", n) == 0 ||
+	        strncmp(target_triple, "thumbv7m", n) == 0){
+	    arch_flag->cputype = CPU_TYPE_ARM;
+	    arch_flag->cpusubtype = CPU_SUBTYPE_ARM_V7M;
+	}
+	else if(strncmp(target_triple, "armv7em", n) == 0 ||
+	        strncmp(target_triple, "thumbv7em", n) == 0){
+	    arch_flag->cputype = CPU_TYPE_ARM;
+	    arch_flag->cpusubtype = CPU_SUBTYPE_ARM_V7EM;
 	}
 	else{
 	    return(0);

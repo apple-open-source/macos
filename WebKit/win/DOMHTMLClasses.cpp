@@ -250,7 +250,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLDocument::URL(
     if (!result)
         return E_POINTER;
 
-    *result = BString(static_cast<HTMLDocument*>(m_document)->url()).release();
+    *result = BString(toHTMLDocument(m_document)->url()).release();
     return S_OK;
 }
     
@@ -261,7 +261,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLDocument::body(
     if (!m_document || !m_document->isHTMLDocument())
         return E_FAIL;
 
-    HTMLDocument* htmlDoc = static_cast<HTMLDocument*>(m_document);
+    HTMLDocument* htmlDoc = toHTMLDocument(m_document);
     COMPtr<IDOMElement> domElement;
     domElement.adoptRef(DOMHTMLElement::createInstance(htmlDoc->body()));
     if (domElement)
@@ -304,8 +304,9 @@ HRESULT STDMETHODCALLTYPE DOMHTMLDocument::forms(
     if (!m_document || !m_document->isHTMLDocument())
         return E_FAIL;
 
-    HTMLDocument* htmlDoc = static_cast<HTMLDocument*>(m_document);
-    *collection = DOMHTMLCollection::createInstance(htmlDoc->forms());
+    HTMLDocument* htmlDoc = toHTMLDocument(m_document);
+    RefPtr<HTMLCollection> forms = htmlDoc->forms();
+    *collection = DOMHTMLCollection::createInstance(forms.get());
     return S_OK;
 }
     
@@ -395,7 +396,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLElement::idName(
         return E_POINTER;
 
     ASSERT(m_element && m_element->isHTMLElement());
-    String idString = static_cast<HTMLElement*>(m_element)->getAttribute(idAttr);
+    String idString = toHTMLElement(m_element)->getAttribute(idAttr);
     *result = BString(idString).release();
     return S_OK;
 }
@@ -481,7 +482,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLElement::innerText(
         /* [retval][out] */ BSTR* result)
 {
     ASSERT(m_element && m_element->isHTMLElement());
-    WTF::String innerTextString = static_cast<HTMLElement*>(m_element)->innerText();
+    WTF::String innerTextString = toHTMLElement(m_element)->innerText();
     *result = BString(innerTextString.characters(), innerTextString.length()).release();
     return S_OK;
 }
@@ -490,7 +491,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLElement::setInnerText(
         /* [in] */ BSTR text)
 {
     ASSERT(m_element && m_element->isHTMLElement());
-    HTMLElement* htmlEle = static_cast<HTMLElement*>(m_element);
+    HTMLElement* htmlEle = toHTMLElement(m_element);
     WTF::String textString(text, SysStringLen(text));
     WebCore::ExceptionCode ec = 0;
     htmlEle->setInnerText(textString, ec);
@@ -709,7 +710,8 @@ HRESULT STDMETHODCALLTYPE DOMHTMLSelectElement::options(
     if (!selectElement->options())
         return E_FAIL;
 
-    *result = DOMHTMLOptionsCollection::createInstance(selectElement->options());
+    RefPtr<HTMLOptionsCollection> options = selectElement->options();
+    *result = DOMHTMLOptionsCollection::createInstance(options.get());
     return S_OK;
 }
     
@@ -1077,7 +1079,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLInputElement::disabled(
 {
     ASSERT(m_element && m_element->hasTagName(inputTag));
     HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(m_element);
-    *result = inputElement->disabled() ? TRUE : FALSE;
+    *result = inputElement->isDisabledFormControl() ? TRUE : FALSE;
     return S_OK;
 }
     
@@ -1121,7 +1123,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLInputElement::readOnly(
 {
     ASSERT(m_element && m_element->hasTagName(inputTag));
     HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(m_element);
-    *result = inputElement->readOnly() ? TRUE : FALSE;
+    *result = inputElement->isReadOnly() ? TRUE : FALSE;
     return S_OK;
 }
     

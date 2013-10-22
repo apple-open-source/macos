@@ -64,7 +64,7 @@ int BLCopyEFINVRAMVariableAsString(BLContextPtr context,
         if(!CFStringGetCString(valRef, cStr, sizeof(cStr), kCFStringEncodingUTF8)) {
             contextprintf(context, kBLLogLevelVerbose,
                                "Could not interpret NVRAM variable as UTF-8 string. Ignoring...\n");
-            strcpy(cStr, "");
+            cStr[0] = '\0';
         }
     } else if(CFGetTypeID(valRef) == CFDataGetTypeID()) {
         const UInt8 *ptr = CFDataGetBytePtr(valRef);
@@ -78,7 +78,7 @@ int BLCopyEFINVRAMVariableAsString(BLContextPtr context,
         
     } else {
         contextprintf(context, kBLLogLevelError,  "Could not interpret NVRAM variable. Ignoring...\n");
-        strcpy(cStr, "");     
+        cStr[0] = '\0';
     }
     
     CFRelease(valRef);

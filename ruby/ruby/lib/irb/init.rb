@@ -1,16 +1,15 @@
 #
 #   irb/init.rb - irb initialize module
-#   	$Release Version: 0.9.5$
-#   	$Revision: 24483 $
-#   	$Date: 2009-08-09 17:44:15 +0900 (Sun, 09 Aug 2009) $
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38620 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
+#
 #
 
-module IRB
+module IRB # :nodoc:
 
   # initialize config
   def IRB.setup(ap_path)
@@ -21,7 +20,7 @@ module IRB
     IRB.load_modules
 
     unless @CONF[:PROMPT][@CONF[:PROMPT_MODE]]
-      IRB.fail(UndefinedPromptMode, @CONF[:PROMPT_MODE]) 
+      IRB.fail(UndefinedPromptMode, @CONF[:PROMPT_MODE])
     end
   end
 
@@ -45,7 +44,7 @@ module IRB
 
     @CONF[:MATH_MODE] = false
     @CONF[:USE_READLINE] = false unless defined?(ReadlineInputMethod)
-    @CONF[:INSPECT_MODE] = nil
+    @CONF[:INSPECT_MODE] = true
     @CONF[:USE_TRACER] = false
     @CONF[:USE_LOADER] = false
     @CONF[:IGNORE_SIGINT] = true
@@ -113,10 +112,10 @@ module IRB
 
 #    @CONF[:LC_MESSAGES] = "en"
     @CONF[:LC_MESSAGES] = Locale.new
-    
+
     @CONF[:AT_EXIT] = []
-    
-    @CONF[:DEBUG_LEVEL] = 1
+
+    @CONF[:DEBUG_LEVEL] = 0
   end
 
   def IRB.init_error
@@ -136,16 +135,36 @@ module IRB
 	@CONF[:MATH_MODE] = true
       when "-d"
 	$DEBUG = true
+	$VERBOSE = true
+      when "-w"
+	$VERBOSE = true
+      when /^-W(.+)?/
+	opt = $1 || ARGV.shift
+	case opt
+	when "0"
+	  $VERBOSE = nil
+	when "1"
+	  $VERBOSE = false
+	else
+	  $VERBOSE = true
+	end
       when /^-r(.+)?/
 	opt = $1 || ARGV.shift
 	@CONF[:LOAD_MODULES].push opt if opt
       when /^-I(.+)?/
         opt = $1 || ARGV.shift
 	load_path.concat(opt.split(File::PATH_SEPARATOR)) if opt
-      when /^-K(.)/
-	$KCODE = $1
+      when '-U'
+	set_encoding("UTF-8", "UTF-8")
+      when /^-E(.+)?/, /^--encoding(?:=(.+))?/
+	opt = $1 || ARGV.shift
+	set_encoding(*opt.split(':', 2))
       when "--inspect"
-	@CONF[:INSPECT_MODE] = true
+	if /^-/ !~ ARGV.first
+	  @CONF[:INSPECT_MODE] = ARGV.shift
+	else
+	  @CONF[:INSPECT_MODE] = true
+	end
       when "--noinspect"
 	@CONF[:INSPECT_MODE] = false
       when "--readline"
@@ -160,8 +179,9 @@ module IRB
 	@CONF[:VERBOSE] = true
       when "--noverbose"
 	@CONF[:VERBOSE] = false
-      when "--prompt-mode", "--prompt"
-	prompt_mode = ARGV.shift.upcase.tr("-", "_").intern
+      when /^--prompt-mode(?:=(.+))?/, /^--prompt(?:=(.+))?/
+	opt = $1 || ARGV.shift
+	prompt_mode = opt.upcase.tr("-", "_").intern
 	@CONF[:PROMPT_MODE] = prompt_mode
       when "--noprompt"
 	@CONF[:PROMPT_MODE] = :NULL
@@ -171,14 +191,14 @@ module IRB
 	@CONF[:PROMPT_MODE] = :SIMPLE
       when "--tracer"
 	@CONF[:USE_TRACER] = true
-      when "--back-trace-limit"
-	@CONF[:BACK_TRACE_LIMIT] = ARGV.shift.to_i
-      when "--context-mode"
-	@CONF[:CONTEXT_MODE] = ARGV.shift.to_i
+      when /^--back-trace-limit(?:=(.+))?/
+	@CONF[:BACK_TRACE_LIMIT] = ($1 || ARGV.shift).to_i
+      when /^--context-mode(?:=(.+))?/
+	@CONF[:CONTEXT_MODE] = ($1 || ARGV.shift).to_i
       when "--single-irb"
 	@CONF[:SINGLE_IRB] = true
-      when "--irb_debug"
-	@CONF[:DEBUG_LEVEL] = ARGV.shift.to_i
+      when /^--irb_debug(?:=(.+))?/
+	@CONF[:DEBUG_LEVEL] = ($1 || ARGV.shift).to_i
       when "-v", "--version"
 	print IRB.version, "\n"
 	exit 0
@@ -186,6 +206,12 @@ module IRB
 	require "irb/help"
 	IRB.print_usage
 	exit 0
+      when "--"
+	if opt = ARGV.shift
+	  @CONF[:SCRIPT] = opt
+	  $0 = opt
+	end
+        break
       when /^-/
 	IRB.fail UnrecognizedSwitch, opt
       else
@@ -200,6 +226,7 @@ module IRB
       end
     end
     $LOAD_PATH.unshift(*load_path)
+
   end
 
   # running config
@@ -208,7 +235,7 @@ module IRB
       begin
 	load rc_file
       rescue LoadError, Errno::ENOENT
-      rescue
+      rescue # StandardError, ScriptError
 	print "load error: #{rc_file}\n"
 	print $!.class, ": ", $!, "\n"
 	for err in $@[0, $@.size - 2]
@@ -229,23 +256,27 @@ module IRB
 	end
       end
     end
-    @CONF[:RC_NAME_GENERATOR].call ext
+    case rc_file = @CONF[:RC_NAME_GENERATOR].call(ext)
+    when String
+      return rc_file
+    else
+      IRB.fail IllegalRCNameGenerator
+    end
   end
 
   # enumerate possible rc-file base name generators
   def IRB.rc_file_generators
     if irbrc = ENV["IRBRC"]
-      yield proc{|rc|  rc == "rc" ? irbrc : irbrc+rc}
+      yield proc{|rc| rc == "rc" ? irbrc : irbrc+rc}
     end
     if home = ENV["HOME"]
-      yield proc{|rc| home+"/.irb#{rc}"} 
+      yield proc{|rc| home+"/.irb#{rc}"}
     end
     home = Dir.pwd
     yield proc{|rc| home+"/.irb#{rc}"}
     yield proc{|rc| home+"/irb#{rc.sub(/\A_?/, '.')}"}
     yield proc{|rc| home+"/_irb#{rc}"}
     yield proc{|rc| home+"/$irb#{rc}"}
-    yield proc{|rc| "/etc/irb#{rc}"}
   end
 
   # loading modules
@@ -253,10 +284,27 @@ module IRB
     for m in @CONF[:LOAD_MODULES]
       begin
 	require m
-      rescue
-	print $@[0], ":", $!.class, ": ", $!, "\n"
+      rescue LoadError => err
+	warn err.backtrace[0] << ":#{err.class}: #{err}"
       end
     end
   end
 
+
+  DefaultEncodings = Struct.new(:external, :internal)
+  class << IRB
+    private
+    def set_encoding(extern, intern = nil)
+      verbose, $VERBOSE = $VERBOSE, nil
+      Encoding.default_external = extern unless extern.nil? || extern.empty?
+      Encoding.default_internal = intern unless intern.nil? || intern.empty?
+      @CONF[:ENCODINGS] = IRB::DefaultEncodings.new(extern, intern)
+      [$stdin, $stdout, $stderr].each do |io|
+	io.set_encoding(extern, intern)
+      end
+      @CONF[:LC_MESSAGES].instance_variable_set(:@encoding, extern)
+    ensure
+      $VERBOSE = verbose
+    end
+  end
 end

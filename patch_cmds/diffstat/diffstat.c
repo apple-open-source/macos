@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright 1994-2008,2009 by Thomas E. Dickey                               *
+ * Copyright 1994-2010,2012 by Thomas E. Dickey                               *
  * All Rights Reserved.                                                       *
  *                                                                            *
  * Permission to use, copy, modify, and distribute this software and its      *
@@ -20,7 +20,7 @@
  ******************************************************************************/
 
 #ifndef	NO_IDENT
-static const char *Id = "$Id: diffstat.c,v 1.51 2009/11/08 01:59:15 tom Exp $";
+static const char *Id = "$Id: diffstat.c,v 1.55 2012/01/03 09:44:24 tom Exp $";
 #endif
 
 /*
@@ -28,6 +28,22 @@ static const char *Id = "$Id: diffstat.c,v 1.51 2009/11/08 01:59:15 tom Exp $";
  * Author:	T.E.Dickey
  * Created:	02 Feb 1992
  * Modified:
+ *		03 Jan 2012, Correct case for "xz" suffix in is_compressed()
+ *			     (patch from Frederic Culot in FreeBSD ports).  Add
+ *			     "-R" option.  Improve dequoting of filenames in
+ *			     headers.
+ *		10 Oct 2010, correct display of new files when -S/-D options
+ *			     are used.  Remove the temporary directory on
+ *			     error, introduced in 1.48+ (patch by Solar
+ *			     Designer).
+ *		19 Jul 2010, add missing "break" statement which left "-c"
+ *			     option falling-through into "-C".
+ *		16 Jul 2010, configure "xz" path explicitly, in case lzcat
+ *			     does not support xz format.  Add "-s" (summary)
+ *			     and "-C" (color) options.
+ *		15 Jul 2010, fix strict gcc warnings, e.g., using const.
+ *		10 Jan 2010, improve a case where filenames have embedded blanks
+ *			     (patch by Reinier Post).
  *		07 Nov 2009, correct suffix-check for ".xz" files as
  *			     command-line parameters rather than as piped
  *			     input (report by Moritz Barsnick).
@@ -248,6 +264,10 @@ extern int optind;
 #define UNCOMPRESS_PATH ""
 #endif
 
+#ifndef XZ_PATH
+#define XZ_PATH ""
+#endif
+
 #ifndef ZCAT_PATH
 #define ZCAT_PATH ""
 #endif
@@ -318,6 +338,7 @@ typedef enum {
 typedef struct _data {
     struct _data *link;
     char *name;			/* the filename */
+    int copy;			/* true if filename is const-literal */
     int base;			/* beginning of name if -p option used */
     Comment cmt;
     int pending;
@@ -333,13 +354,16 @@ typedef enum {
     dcGzip,
     dcLzma,
     dcPack,
+    dcXz,
     dcEmpty
 } Decompress;
 
 static const char marks[MARKS + 1] = "+-!=";
+static const int colors[MARKS + 1] =
+{2, 1, 6, 4};
 
 static DATA *all_data;
-static char *comment_opt = "";
+static const char *comment_opt = "";
 static char *path_opt = 0;
 static int format_opt = FMT_NORMAL;
 static int max_width;		/* the specified width-limit */
@@ -349,7 +373,10 @@ static int min_name_wide;	/* minimum amount reserved for filenames */
 static int max_name_wide;	/* maximum amount reserved for filenames */
 static int names_only;		/* true if we list filenames only */
 static int num_marks = 3;	/* 3 or 4, according to "-P" option */
+static int reverse_opt;		/* true if results are reversed */
+static int show_colors;		/* true if showing SGR colors */
 static int show_progress;	/* if not writing to tty, show progress */
+static int summary_only = 0;	/* true if only summary line is shown */
 static int path_dest;		/* true if path_opt is destination (patched) */
 static int plot_width;		/* the amount left over for histogram */
 static int prefix_opt = -1;	/* if positive, controls stripping of PATHSEP */
@@ -420,33 +447,34 @@ compare_data(const void *a, const void *b)
 }
 
 static void
-init_data(DATA * data, char *name, int base)
+init_data(DATA * data, const char *name, int copy, int base)
 {
     memset(data, 0, sizeof(*data));
-    data->name = name;
+    data->name = (char *) name;
+    data->copy = copy;
     data->base = base;
     data->cmt = Normal;
 }
 
 static DATA *
-new_data(char *name, int base)
+new_data(const char *name, int base)
 {
     DATA *r = (DATA *) xmalloc(sizeof(DATA));
 
-    init_data(r, new_string(name), base);
+    init_data(r, new_string(name), 0, base);
 
     return r;
 }
 
 #ifdef HAVE_TSEARCH
 static DATA *
-add_tsearch_data(char *name, int base)
+add_tsearch_data(const char *name, int base)
 {
     DATA find;
     DATA *result;
     void *pp;
 
-    init_data(&find, name, base);
+    init_data(&find, name, 1, base);
     if ((pp = tfind(&find, &sorted_data, compare_data)) != 0) {
 	result = *(DATA **) pp;
 	return result;
@@ -461,7 +489,7 @@ add_tsearch_data(char *name, int base)
 #endif
 
 static DATA *
-find_data(char *name)
+find_data(const char *name)
 {
     DATA *p, *q, *r;
     DATA find;
@@ -477,7 +505,7 @@ find_data(char *name)
 	    char *s = strchr(name + base, PATHSEP);
 	    if (s == 0 || *++s == EOS)
 		break;
-	    base = s - name;
+	    base = (int) (s - name);
 	}
 	TRACE(("** base set to %d\n", base));
     }
@@ -496,7 +524,7 @@ find_data(char *name)
     } else
 #endif
     {
-	init_data(&find, name, base);
+	init_data(&find, name, 1, base);
 	for (p = all_data, q = 0; p != 0; q = p, p = p->link) {
 	    int cmp = compare_data(p, &find);
 	    if (merge_names && (cmp == 0))
@@ -538,7 +566,8 @@ delink(DATA * data)
 		q->link = p->link;
 	    else
 		all_data = p->link;
-	    free(p->name);
+	    if (!p->copy)
+		free(p->name);
 	    free(p);
 	    return 1;
 	}
@@ -546,9 +575,13 @@ delink(DATA * data)
     return 0;
 }
 
-/* like strncmp, but without the 3rd argument */
-static int
-match(const char *s, const char *p)
+/*
+ * Compare string 's' against a constant, returning either a pointer just
+ * past the matched part of 's' if it matches exactly, or null if a mismatch
+ * was found.
+ */
+static char *
+match(char *s, const char *p)
 {
     int ok = 0;
 
@@ -564,7 +597,7 @@ match(const char *s, const char *p)
 	    break;
 	}
     }
-    return ok;
+    return ok ? s : 0;
 }
 
 static int
@@ -592,8 +625,8 @@ edit_range(const char *s)
  */
 static int
 decode_default(char *s,
-	       int *first, int *first_size,
-	       int *second, int *second_size)
+	       long *first, long *first_size,
+	       long *second, long *second_size)
 {
     int rc = 0;
     char *next;
@@ -622,7 +655,7 @@ decode_default(char *s,
 			*second_size = strtol(s, &next, 10) + 1 - *second;
 		    }
 		}
-		if (next != 0 && next != s && *next == '\0')
+		if (next != 0 && next != s && *next == EOS)
 		    rc = 1;
 		break;
 	    }
@@ -690,92 +723,173 @@ is_leaf(const char *theLeaf, const char *path)
 }
 
 static char *
+trim_datapath(DATA ** datap, size_t length, int *localp)
+{
+    char *target = (*datap)->name;
+
+#ifdef HAVE_TSEARCH
+    /*
+     * If we are using tsearch(), make a local copy of the data
+     * so we can trim it without interfering with tsearch's
+     * notion of the ordering of data.  That will create some
+     * spurious empty data, so we add the changed() macro in a
+     * few places to skip over those.
+     */
+    if (use_tsearch) {
+	char *trim = new_string(target);
+	trim[length] = EOS;
+	*datap = add_tsearch_data(trim, (*datap)->base);
+	target = (*datap)->name;
+	free(trim);
+	*localp = 1;
+    } else
+#endif
+	target[length] = EOS;
+
+    return target;
+}
+
+/*
+ * The 'data' parameter points to the first of two markers, while
+ * 'path' is the pathname from the second marker.
+ *
+ * On the first call for
+ * a given file, the 'data' parameter stores no differences.
+ */
+static char *
 do_merging(DATA * data, char *path, int *freed)
 {
-    TRACE(("** do_merging(%s,%s) diffs:%d\n", data->name, path, HadDiffs(data)));
+    char *target = reverse_opt ? path : data->name;
+    char *source = reverse_opt ? data->name : path;
+    char *result = source;
+
+    TRACE(("** do_merging(\"%s\",\"%s\") diffs:%d\n",
+	   data->name, path, HadDiffs(data)));
 
     *freed = 0;
-    if (!HadDiffs(data)) {	/* the data was the first of 2 markers */
-	if (is_leaf(data->name, path)) {
-	    TRACE(("** is_leaf: %s vs %s\n", data->name, path));
-	    *freed = delink(data);
-	} else if (can_be_merged(data->name)
-		   && can_be_merged(path)) {
-	    size_t len1 = strlen(data->name);
-	    size_t len2 = strlen(path);
-	    unsigned n;
+    if (!HadDiffs(data)) {
+
+	if (is_leaf(target, source)) {
+	    TRACE(("** is_leaf: \"%s\" vs \"%s\"\n", target, source));
+	    if (reverse_opt) {
+		TRACE((".. no action @%d\n", __LINE__));
+	    } else {
+		*freed = delink(data);
+	    }
+	} else if (can_be_merged(target)
+		   && can_be_merged(source)) {
+	    size_t len1 = strlen(target);
+	    size_t len2 = strlen(source);
+	    size_t n;
 	    int matched = 0;
 	    int diff = 0;
 	    int local = 0;
 
 	    /*
-	     * Strip suffixes such as ".orig", ".bak", "~", etc.  The current
-	     * data for the merge is in 'path'.  The previous data (in
-	     * 'data->name') may also be a temporary filename (which would not
-	     * be merged since it has no apparent relationship to the current).
+	     * If the source/target differ only by some suffix, e.g., ".orig"
+	     * or ".bak", strip that off.  The target may may also be a
+	     * temporary filename (which would not be merged since it has no
+	     * apparent relationship to the current).
 	     */
 	    if (len1 > len2) {
-		if (!strncmp(data->name, path, len2)) {
-		    TRACE(("** trimming data '%s' to '%.*s'\n",
-			   data->name, (int) len2, data->name));
-		    len1 = len2;
-#ifdef HAVE_TSEARCH
-		    /*
-		     * If we are using tsearch(), make a local copy of the data
-		     * so we can trim it without interfering with tsearch's
-		     * notion of the ordering of data.  That will create some
-		     * spurious empty data, so we add the changed() macro in a
-		     * few places to skip over those.
-		     */
-		    if (use_tsearch) {
-			char *trim = new_string(data->name);
-			trim[len1] = EOS;
-			data = add_tsearch_data(trim, data->base);
-			free(trim);
-			local = 1;
-		    } else
-#endif
-			data->name[len1] = EOS;
+		if (!strncmp(target, source, len2)) {
+		    TRACE(("** trimming data \"%s\" to \"%.*s\"\n",
+			   target, (int) len2, target));
+		    if (reverse_opt) {
+			TRACE((".. no action @%d\n", __LINE__));
+		    } else {
+			target = trim_datapath(&data, len1 = len2, &local);
+		    }
 		}
 	    } else if (len1 < len2) {
-		if (!strncmp(data->name, path, len1)) {
-		    TRACE(("** trimming path '%s' to '%.*s'\n",
-			   path, (int) len1, path));
-		    path[len2 = len1] = EOS;
+		if (!strncmp(target, source, len1)) {
+		    TRACE(("** trimming source \"%s\" to \"%.*s\"\n",
+			   source, (int) len1, source));
+		    if (reverse_opt) {
+			TRACE((".. no action @%d\n", __LINE__));
+		    } else {
+			source[len2 = len1] = EOS;
+		    }
 		}
 	    }
 
-	    for (n = 1; n <= len1 && n <= len2; n++) {
-		if (data->name[len1 - n] != path[len2 - n]) {
-		    diff = (int) n;
-		    break;
+	    /*
+	     * If there was no "-p" option, look for the best match by
+	     * stripping prefixes from both source/target strings.
+	     */
+	    if (prefix_opt < 0) {
+		/*
+		 * Now (whether or not we trimmed a suffix), scan back from the
+		 * end of source/target strings to find if they happen to share
+		 * a common ending, e.g., a/b/c versus d/b/c.  If the strings
+		 * are not identical, then 'diff' will be set, but if they have
+		 * a common ending then 'matched' will be set.
+		 */
+		for (n = 1; n <= len1 && n <= len2; n++) {
+		    if (target[len1 - n] != source[len2 - n]) {
+			diff = (int) n;
+			break;
+		    }
+		    if (source[len2 - n] == PATHSEP) {
+			matched = (int) n;
+		    }
 		}
-		if (path[len2 - n] == PATHSEP)
-		    matched = (int) n;
+
+		TRACE(("** merge @%d, prefix_opt=%d matched=%d diff=%d\n",
+		       __LINE__, prefix_opt, matched, diff));
+		if (matched != 0 && diff) {
+		    if (reverse_opt) {
+			TRACE((".. no action @%d\n", __LINE__));
+		    } else {
+			result = source + ((int) len2 - matched + 1);
+		    }
+		}
 	    }
 
-	    if (prefix_opt < 0
-		&& matched != 0
-		&& diff)
-		path += ((int) len2 - matched + 1);
-
-	    if (!local)
-		*freed = delink(data);
-	    TRACE(("** merge @%d, prefix_opt=%d matched=%d diff=%d\n",
-		   __LINE__, prefix_opt, matched, diff));
-	} else if (!can_be_merged(path)) {
-	    TRACE(("** do not merge, retain @%d\n", __LINE__));
-	    /* must not merge, retain existing name */
-	    path = data->name;
+	    if (!local) {
+		if (reverse_opt) {
+		    TRACE((".. no action @%d\n", __LINE__));
+		} else {
+		    *freed = delink(data);
+		}
+	    }
+	} else if (reverse_opt) {
+	    TRACE((".. no action @%d\n", __LINE__));
+	    if (can_be_merged(source)) {
+		TRACE(("** merge @%d\n", __LINE__));
+	    } else {
+		TRACE(("** do not merge, retain @%d\n", __LINE__));
+		/* must not merge, retain existing name */
+		result = target;
+	    }
 	} else {
-	    TRACE(("** merge @%d\n", __LINE__));
-	    *freed = delink(data);
+	    if (can_be_merged(source)) {
+		TRACE(("** merge @%d\n", __LINE__));
+		*freed = delink(data);
+	    } else {
+		TRACE(("** do not merge, retain @%d\n", __LINE__));
+		/* must not merge, retain existing name */
+		result = target;
+	    }
 	}
-    } else if (!can_be_merged(path)) {
-	path = data->name;
+    } else if (reverse_opt) {
+	TRACE((".. no action @%d\n", __LINE__));
+	if (can_be_merged(source)) {
+	    TRACE(("** merge @%d\n", __LINE__));
+	    result = target;
+	} else {
+	    TRACE(("** do not merge, retain @%d\n", __LINE__));
+	}
+    } else {
+	if (can_be_merged(source)) {
+	    TRACE(("** merge @%d\n", __LINE__));
+	} else {
+	    TRACE(("** do not merge, retain @%d\n", __LINE__));
+	    result = target;
+	}
     }
-    TRACE(("** finish do_merging ->%s\n", path));
-    return path;
+    TRACE(("** finish do_merging ->\"%s\"\n", result));
+    return result;
 }
 
 static int
@@ -798,10 +912,31 @@ skip_blanks(char *s)
     return s;
 }
 
+/*
+ * Skip a filename, which may be in quotes, to allow embedded blanks in the
+ * name.
+ */
+static char *
+skip_filename(char *s)
+{
+    if (*s == SQUOTE && s[1] != EOS && strchr(s + 1, SQUOTE)) {
+	++s;
+	while (*s != EOS && (*s != SQUOTE) && isgraph(UC(*s))) {
+	    ++s;
+	}
+	++s;
+    } else {
+	while (*s != EOS && isgraph(UC(*s))) {
+	    ++s;
+	}
+    }
+    return s;
+}
+
 static char *
 skip_options(char *params)
 {
-    while (*params != '\0') {
+    while (*params != EOS) {
 	params = skip_blanks(params);
 	if (*params == '-') {
 	    while (isgraph(UC(*params)))
@@ -810,7 +945,7 @@ skip_options(char *params)
 	    break;
 	}
     }
-    return params;
+    return skip_blanks(params);
 }
 
 /*
@@ -867,7 +1002,7 @@ get_line(char **buffer, size_t *have, FILE *fp)
 	if (ch == '\n')
 	    break;
     }
-    (*buffer)[used] = '\0';
+    (*buffer)[used] = EOS;
     return (used != 0);
 }
 
@@ -886,12 +1021,45 @@ count_lines(DATA * p)
     int result = -1;
     char *filename = 0;
     char *filetail = data_filename(p);
-    unsigned want = strlen(path_opt) + 2 + strlen(filetail);
+    size_t want = strlen(path_opt) + 2 + strlen(filetail);
     FILE *fp;
     int ch;
 
     if ((filename = malloc(want)) != 0) {
-	sprintf(filename, "%s/%s", path_opt, filetail);
+	int merge = 0;
+
+	if (path_dest) {
+	    size_t path_len = strlen(path_opt);
+	    size_t tail_len;
+	    char *tail_sep = strchr(filetail, PATHSEP);
+
+	    if (tail_sep != 0) {
+		tail_len = (size_t) (tail_sep - filetail);
+		if (tail_len != 0 && tail_len <= path_len) {
+		    if (tail_len < path_len
+			&& path_opt[path_len - tail_len - 1] != PATHSEP) {
+			merge = 0;
+		    } else if (!strncmp(path_opt + path_len - tail_len,
+					filetail,
+					tail_len - 1)) {
+			merge = 1;
+			if (path_len > tail_len) {
+			    sprintf(filename, "%.*s%c%s",
+				    (int) (path_len - tail_len),
+				    path_opt,
+				    PATHSEP,
+				    filetail);
+			} else {
+			    strcpy(filename, filetail);
+			}
+		    }
+		}
+	    }
+	}
+	if (!merge) {
+	    sprintf(filename, "%s%c%s", path_opt, PATHSEP, filetail);
+	}
+
 	TRACE(("count_lines %s\n", filename));
 	if ((fp = fopen(filename, "r")) != 0) {
 	    result = 0;
@@ -936,7 +1104,7 @@ finish_chunk(DATA * p)
 	     * are marked as insert/delete.
 	     */
 	    if (p->chunk[cInsert] && p->chunk[cDelete]) {
-		int change;
+		long change;
 		if (p->chunk[cInsert] > p->chunk[cDelete]) {
 		    change = p->chunk[cDelete];
 		} else {
@@ -958,7 +1126,7 @@ finish_chunk(DATA * p)
 #define CASE_TRACE() TRACE(("** handle case for '%c' %d:%s\n", *buffer, ok, that ? that->name : ""))
 
 static void
-do_file(FILE *fp, char *default_name)
+do_file(FILE *fp, const char *default_name)
 {
     static const char *only_stars = "***************";
 
@@ -981,8 +1149,8 @@ do_file(FILE *fp, char *default_name)
     int new_unify = 0;
     int expect_unify = 0;
 
-    int old_dft = 0;
-    int new_dft = 0;
+    long old_dft = 0;
+    long new_dft = 0;
 
     int context = 1;
 
@@ -991,8 +1159,7 @@ do_file(FILE *fp, char *default_name)
     int line_no = 0;
 #endif
 
-    memset(&dummy, 0, sizeof(dummy));
-    dummy.name = "";
+    init_data(&dummy, "", 1, 0);
 
     fixed_buffer(&buffer, fixed = length = BUFSIZ);
     fixed_buffer(&b_fname, length);
@@ -1028,7 +1195,7 @@ do_file(FILE *fp, char *default_name)
 	 * "patch -U" can create ".rej" files lacking a filename header,
 	 * in unified format.  Check for those.
 	 */
-	if (line_no == 1 && !strncmp(buffer, "@@", 2)) {
+	if (line_no == 1 && !strncmp(buffer, "@@", (size_t) 2)) {
 	    unified = 2;
 	    that = find_data(default_name);
 	    ok = begin_data(that);
@@ -1127,7 +1294,7 @@ do_file(FILE *fp, char *default_name)
 		if (new_unify)
 		    --new_unify;
 		break;
-	    case '\0':
+	    case EOS:
 	    case ' ':
 		if (old_unify)
 		    --old_unify;
@@ -1148,7 +1315,7 @@ do_file(FILE *fp, char *default_name)
 		expect_unify = 2;
 	    }
 	} else {
-	    int old_base, new_base;
+	    long old_base, new_base;
 
 	    unified = 0;
 
@@ -1156,7 +1323,7 @@ do_file(FILE *fp, char *default_name)
 		&& decode_default(buffer,
 				  &old_base, &old_dft,
 				  &new_base, &new_dft)) {
-		TRACE(("DFT %d,%d -> %d,%d\n",
+		TRACE(("DFT %ld,%ld -> %ld,%ld\n",
 		       old_base, old_base + old_dft - 1,
 		       new_base, new_base + new_dft - 1));
 		finish_chunk(that);
@@ -1186,7 +1353,7 @@ do_file(FILE *fp, char *default_name)
 	 */
 	if (marker > 0) {
 	    TRACE(("** have marker=%d, override %s\n", marker, buffer));
-	    (void) strncpy(buffer, "***", 3);
+	    (void) strncpy(buffer, "***", (size_t) 3);
 	}
 
 	/*
@@ -1225,8 +1392,7 @@ do_file(FILE *fp, char *default_name)
 	     */
 	case 'I':
 	    CASE_TRACE();
-	    if (match(buffer, "Index: ")) {
-		s = strrchr(buffer, BLANK);	/* last token is name */
+	    if ((s = match(buffer, "Index: ")) != 0) {
 		s = skip_blanks(s);
 		dequote(s);
 		blip('.');
@@ -1239,10 +1405,14 @@ do_file(FILE *fp, char *default_name)
 
 	case 'd':		/* diff command trace */
 	    CASE_TRACE();
-	    if (match(buffer, "diff ")
-		&& *(s = skip_options(buffer + 5)) != '\0') {
-		s = strrchr(buffer, BLANK);
-		s = skip_blanks(s);
+	    if ((s = match(buffer, "diff ")) != 0
+		&& *(s = skip_options(s)) != EOS) {
+		if (reverse_opt) {
+		    *skip_filename(s) = EOS;
+		} else {
+		    s = skip_filename(s);
+		    s = skip_blanks(s);
+		}
 		dequote(s);
 		blip('.');
 		finish_chunk(that);
@@ -1378,14 +1548,24 @@ do_file(FILE *fp, char *default_name)
 	    /* FALL-THRU */
 	case 'b':		/* binary */
 	    CASE_TRACE();
-	    if (match(buffer + 1, "inary files ")) {
+	    if ((s = match(buffer + 1, "inary files ")) != 0) {
+		char *first = skip_blanks(s);
+		/* blindly assume the first filename does not contain " and " */
+		char *at_and = strstr(s, " and ");
 		s = strrchr(buffer, BLANK);
-		if (!strcmp(s, " differ")) {
-		    *s = EOS;
-		    s = strrchr(buffer, BLANK);
+		if ((at_and != NULL) && !strcmp(s, " differ")) {
+		    char *second = skip_blanks(at_and + 5);
+
+		    if (reverse_opt) {
+			*at_and = EOS;
+			s = first;
+		    } else {
+			*s = EOS;
+			s = second;
+		    }
 		    blip('.');
 		    finish_chunk(that);
-		    that = find_data(skip_blanks(s));
+		    that = find_data(s);
 		    that->cmt = Binary;
 		    ok = HAVE_NOTHING;
 		}
@@ -1406,13 +1586,28 @@ do_file(FILE *fp, char *default_name)
     }
 }
 
+static void
+show_color(int color)
+{
+    if (color >= 0)
+	printf("\033[%dm", color + 30);
+    else
+	printf("\033[0;39m");
+}
+
 static long
-plot_bar(long count, int c)
+plot_bar(long count, int c, int color)
 {
     long result = count;
 
+    if (show_colors && result != 0)
+	show_color(color);
+
     while (--count >= 0)
 	(void) putchar(c);
+
+    if (show_colors && result != 0)
+	show_color(-1);
 
     return result;
 }
@@ -1423,7 +1618,7 @@ plot_bar(long count, int c)
  * length from getting large.
  */
 static long
-plot_num(long num_value, int c, long *extra)
+plot_num(long num_value, int c, int color, long *extra)
 {
     long product;
     long result = 0;
@@ -1435,7 +1630,7 @@ plot_num(long num_value, int c, long *extra)
 	product = (plot_width * num_value);
 	result = ((product + *extra) / plot_scale);
 	*extra = product - (result * plot_scale) - *extra;
-	plot_bar(result, c);
+	plot_bar(result, c, color);
     }
     return result;
 }
@@ -1475,7 +1670,7 @@ plot_round1(const long num[MARKS])
 	}
     }
     for_each_mark(i) {
-	plot_bar(scaled[i], marks[i]);
+	plot_bar(scaled[i], marks[i], colors[i]);
 	result += scaled[i];
     }
     return result;
@@ -1547,7 +1742,7 @@ plot_round2(const long num[MARKS])
     }
 
     for_each_mark(i) {
-	result += plot_bar(scaled[i], marks[i]);
+	result += plot_bar(scaled[i], marks[i], colors[i]);
     }
 
     return result;
@@ -1578,7 +1773,7 @@ plot_numbers(const DATA * p)
 	switch (round_opt) {
 	default:
 	    for_each_mark(i) {
-		used += plot_num(p->count[i], marks[i], &temp);
+		used += plot_num(p->count[i], marks[i], colors[i], &temp);
 	    }
 	    break;
 	case 1:
@@ -1594,7 +1789,7 @@ plot_numbers(const DATA * p)
 	    if (used > plot_width)
 		printf("%ld", used - plot_width);	/* oops */
 	    else
-		plot_bar(plot_width - used, '.');
+		plot_bar(plot_width - used, '.', 0);
 	}
     }
 }
@@ -1609,7 +1804,9 @@ show_data(const DATA * p)
     char *name = data_filename(p);
     int width;
 
-    if (!changed(p)) {
+    if (summary_only) {
+	;
+    } else if (!changed(p)) {
 	;
     } else if (p->cmt == Binary && suppress_binary == 1) {
 	;
@@ -1733,17 +1930,21 @@ summarize(void)
     for (p = all_data; p; p = p->link) {
 	if (!ignore_data(p)) {
 	    EqlOf(p) = 0;
+	    if (reverse_opt) {
+		int save_ins = InsOf(p);
+		int save_del = DelOf(p);
+		InsOf(p) = save_del;
+		DelOf(p) = save_ins;
+	    }
 	    if (path_opt != 0) {
 		int count = count_lines(p);
 
 		if (count >= 0) {
 		    EqlOf(p) = count - ModOf(p);
-		    if (path_dest) {
+		    if (path_dest != 0) {
 			EqlOf(p) -= InsOf(p);
-			InsOf(p) = 0;
 		    } else {
 			EqlOf(p) -= DelOf(p);
-			DelOf(p) = 0;
 		    }
 		    if (EqlOf(p) < 0)
 			EqlOf(p) = 0;
@@ -1811,10 +2012,10 @@ summarize(void)
 
 #ifdef HAVE_POPEN
 static const char *
-get_program(char *name, const char *dft)
+get_program(const char *name, const char *dft)
 {
     const char *result = getenv(name);
-    if (result == 0 || *result == '\0')
+    if (result == 0 || *result == EOS)
 	result = dft;
     TRACE(("get_program(%s) = %s\n", name, result));
     return result;
@@ -1860,6 +2061,10 @@ decompressor(Decompress which, const char *name)
     case dcPack:
 	verb = GET_PROGRAM(PCAT_PATH);
 	break;
+    case dcXz:
+	verb = GET_PROGRAM(XZ_PATH);
+	opts = "-dc";
+	break;
     case dcEmpty:
 	/* FALLTHRU */
     case dcNone:
@@ -1892,7 +2097,7 @@ is_compressed(const char *name)
     } else if (len > 5 && !strcmp(name + len - 5, ".lzma")) {
 	which = dcLzma;
     } else if (len > 3 && !strcmp(name + len - 3, ".xz")) {
-	which = dcLzma;
+	which = dcXz;
     } else {
 	which = dcNone;
     }
@@ -1923,7 +2128,7 @@ my_mkdtemp(char *path)
 static char *
 copy_stdin(char **dirpath)
 {
-    char *tmp = getenv("TMPDIR");
+    const char *tmp = getenv("TMPDIR");
     char *result = 0;
     int ch;
     FILE *fp;
@@ -1946,7 +2151,13 @@ copy_stdin(char **dirpath)
 	} else {
 	    free(result);
 	    result = 0;
+	    rmdir(*dirpath);	/* Assume that the /stdin file was not created */
+	    free(*dirpath);
+	    *dirpath = 0;
 	}
+    } else {
+	free(*dirpath);
+	*dirpath = 0;
     }
     return result;
 }
@@ -1996,6 +2207,7 @@ usage(FILE *fp)
 	"  -p NUM  specify number of pathname-separators to strip (default: common)",
 	"  -q      suppress the \"0 files changed\" message for empty diffs",
 	"  -r NUM  specify rounding for histogram (0=none, 1=simple, 2=adjusted)",
+	"  -R      assume patch was created with old and new files swapped",
 	"  -S PATH specify location of original files, use for unchanged-count",
 	"  -t      print a table (comma-separated-values) rather than histogram",
 	"  -u      do not sort the input list",
@@ -2037,7 +2249,7 @@ main(int argc, char *argv[])
     max_width = 80;
 
     while ((j = getopt_helper(argc, argv,
-			      "bcdD:e:f:hklmn:N:o:p:qr:S:tuvVw:", 'h', 'V'))
+			      "bcCdD:e:f:hklmn:N:o:p:qr:RsS:tuvVw:", 'h', 'V'))
 	   != -1) {
 	switch (j) {
 	case 'b':
@@ -2046,11 +2258,17 @@ main(int argc, char *argv[])
 	case 'c':
 	    comment_opt = "#";
 	    break;
+	case 'C':
+	    show_colors = 1;
+	    break;
 #if OPT_TRACE
 	case 'd':
 	    trace_opt = 1;
 	    break;
 #endif
+	case 'D':
+	    set_path_opt(optarg, 1);
+	    break;
 	case 'e':
 	    if (freopen(optarg, "w", stderr) == 0)
 		failed(optarg);
@@ -2083,14 +2301,17 @@ main(int argc, char *argv[])
 	case 'p':
 	    prefix_opt = atoi(optarg);
 	    break;
-	case 'D':
-	    set_path_opt(optarg, 1);
+	case 'r':
+	    round_opt = atoi(optarg);
+	    break;
+	case 'R':
+	    reverse_opt = 1;
+	    break;
+	case 's':
+	    summary_only = 1;
 	    break;
 	case 'S':
 	    set_path_opt(optarg, 0);
-	    break;
-	case 'r':
-	    round_opt = atoi(optarg);
 	    break;
 	case 't':
 	    table_opt = 1;
@@ -2184,7 +2405,7 @@ main(int argc, char *argv[])
 		    sniff[got++] = (char) ch;
 		}
 		if (got == 5
-		    && !strncmp(sniff, "BZh", 3)
+		    && !strncmp(sniff, "BZh", (size_t) 3)
 		    && isdigit((unsigned char) sniff[3])
 		    && isdigit((unsigned char) sniff[4])) {
 		    which = dcBzip;
@@ -2197,7 +2418,7 @@ main(int argc, char *argv[])
 		    sniff[got++] = (char) ch;
 		}
 		if (got == 4
-		    && !memcmp(sniff, "]\0\0\200", 4)) {
+		    && !memcmp(sniff, "]\0\0\200", (size_t) 4)) {
 		    which = dcLzma;
 		}
 	    } else if (ch == 0xfd) {	/* perhaps xz */
@@ -2208,8 +2429,8 @@ main(int argc, char *argv[])
 		    sniff[got++] = (char) ch;
 		}
 		if (got == 6
-		    && !memcmp(sniff, "\3757zXZ\0", 6)) {
-		    which = dcLzma;
+		    && !memcmp(sniff, "\3757zXZ\0", (size_t) 6)) {
+		    which = dcXz;
 		}
 	    } else if (ch == '\037') {	/* perhaps compress, etc. */
 		sniff[got++] = (char) ch;
@@ -2251,7 +2472,11 @@ main(int argc, char *argv[])
 	    free(command);
 
 	    unlink(myfile);
+	    free(myfile);
+	    myfile = 0;
 	    rmdir(stdin_dir);
+	    free(stdin_dir);
+	    stdin_dir = 0;
 	} else if (which != dcEmpty)
 #endif
 	    do_file(stdin, "stdin");

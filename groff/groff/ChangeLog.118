@@ -131,7 +131,7 @@ Version 1.18.1 released
 
 	* src/devices/grolbp/grolbp.man, NEWS, doc/webpage.ms: Updated.
 
-2002-09-22  Paco Andrés Verdú  <pandres@dragonet.es>
+2002-09-22  Paco AndrÃ©s VerdÃº  <pandres@dragonet.es>
 
 	Fixed a bug in the line thickness setting code.
 
@@ -1782,7 +1782,7 @@ Version 1.18.0 released
 	included.
 	Handle CYGWIN properly.
 
-2002-03-07  Paco Andrés Verdú  <pandres@dragonet.es>
+2002-03-07  Paco AndrÃ©s VerdÃº  <pandres@dragonet.es>
 
 	* font/devlbp/Makefile.sub (DEVFILES): Add some missing fonts.
 	* tmac/lbp.tmac: Add some font translations.

@@ -7,13 +7,11 @@
 TEMPLATE = subdirs
 CONFIG += ordered
 
-load(features)
-
 public_api.file = public.pri
 public_api.makefile = Makefile.declarative.public
 SUBDIRS += public_api
 
-haveQt(5):!no_webkit2 {
+build?(webkit2): {
     experimental_api.file = experimental/experimental.pri
     experimental_api.makefile = Makefile.declarative.experimental
     SUBDIRS += experimental_api

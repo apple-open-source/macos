@@ -62,13 +62,18 @@ for a in test_scram test_ntlm ; do
     run_test $a /usr/local/libexec/heimdal/bin/$a
 done
 
+# asn1
+for a in check-der check-gen ; do
+    run_test $a /usr/local/libexec/heimdal/bin/$a
+done
+
 # base
 for a in test_base ; do
     run_test $a /usr/local/libexec/heimdal/bin/$a
 done
 
 # libkrb5
-for a in test-principal heimdal-test-cc ; do
+for a in test-principal heimdal-test-cc test_srv ; do
     run_test $a /usr/local/libexec/heimdal/bin/$a
 done
 
@@ -88,7 +93,7 @@ if sudo -n true ; then
 
     trap "sudo launchctl load /System/Library/LaunchDaemons/com.apple.Kerberos.kdc.plist" SIGINT EXIT
 
-    for a in check-apple-lkdc check-apple-hodadmin check-server-hodadmin check-apple-od ; do
+    for a in check-apple-lkdc check-apple-hodadmin check-server-hodadmin check-apple-od check-apple-no-home-directory ; do
 	run_test $a sudo /usr/local/libexec/heimdal/tests/apple/$a
     done
 

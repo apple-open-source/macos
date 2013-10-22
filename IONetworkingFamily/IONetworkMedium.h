@@ -151,7 +151,7 @@ enum {
 // Medium type field accessors.
 //
 #define IOMediumGetSubType(x)       ((x)  & kIOMediumSubTypeMask)
-#define IOMediumGetNetworkType(x)   ((x)  & kIOMediumNetworkMask)
+#define IOMediumGetNetworkType(x)   ((x)  & kIOMediumNetworkTypeMask)
 #define IOMediumGetInstance(x)      (((x) & kIOMediumInstanceMask) >> \
                                             kIOMediumInstanceShift)
 
@@ -163,8 +163,9 @@ enum {
 // Link status bits.
 //
 enum {
-    kIONetworkLinkValid        = IFM_AVALID,    // link status is valid
-    kIONetworkLinkActive       = IFM_ACTIVE     // link is up/active.
+    kIONetworkLinkValid           = IFM_AVALID,     // link status is valid
+    kIONetworkLinkActive          = IFM_ACTIVE,     // link is up/active.
+    kIONetworkLinkNoNetworkChange = IFM_WAKESAMENET
 };
 
 __END_DECLS

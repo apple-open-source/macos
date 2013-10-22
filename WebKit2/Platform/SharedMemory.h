@@ -57,8 +57,8 @@ public:
 
         bool isNull() const;
 
-        void encode(CoreIPC::ArgumentEncoder*) const;
-        static bool decode(CoreIPC::ArgumentDecoder*, Handle&);
+        void encode(CoreIPC::ArgumentEncoder&) const;
+        static bool decode(CoreIPC::ArgumentDecoder&, Handle&);
 
 #if USE(UNIX_DOMAIN_SOCKETS)
         CoreIPC::Attachment releaseToAttachment() const;
@@ -68,7 +68,7 @@ public:
         friend class SharedMemory;
 #if OS(DARWIN)
         mutable mach_port_t m_port;
-#elif PLATFORM(WIN)
+#elif OS(WINDOWS)
         mutable HANDLE m_handle;
 #elif USE(UNIX_DOMAIN_SOCKETS)
         mutable int m_fileDescriptor;
@@ -81,8 +81,12 @@ public:
 
     // Create a shared memory object from the given handle and the requested protection. Will return 0 on failure.
     static PassRefPtr<SharedMemory> create(const Handle&, Protection);
-    
-#if PLATFORM(WIN)
+
+    // Create a shared memory object with the given size by vm_copy'ing the given buffer.
+    // Will return 0 on failure.
+    static PassRefPtr<SharedMemory> createFromVMBuffer(void*, size_t);
+
+#if OS(WINDOWS)
     static PassRefPtr<SharedMemory> adopt(HANDLE, size_t, Protection);
 #endif
 
@@ -92,7 +96,7 @@ public:
 
     size_t size() const { return m_size; }
     void* data() const { return m_data; }
-#if PLATFORM(WIN)
+#if OS(WINDOWS)
     HANDLE handle() const { return m_handle; }
 #endif
 
@@ -105,9 +109,11 @@ public:
 private:
     size_t m_size;
     void* m_data;
+    bool m_shouldVMDeallocateData;
+
 #if OS(DARWIN)
     mach_port_t m_port;
-#elif PLATFORM(WIN)
+#elif OS(WINDOWS)
     HANDLE m_handle;
 #elif USE(UNIX_DOMAIN_SOCKETS)
     int m_fileDescriptor;

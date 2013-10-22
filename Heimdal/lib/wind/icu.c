@@ -48,7 +48,7 @@ wind_stringprep(const uint32_t *in, size_t in_len,
 
     status = 0;
 
-    len = usprep_prepare(profile, uin, in_len, dest, *out_len,
+    len = usprep_prepare(profile, uin, (int32_t)in_len, dest, (int32_t)*out_len,
 			 USPREP_DEFAULT, NULL, &status);
     
     if (len < 0 || status) {

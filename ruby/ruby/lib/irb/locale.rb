@@ -1,51 +1,53 @@
 #
 #   irb/locale.rb - internationalization module
-#   	$Release Version: 0.9.5$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38358 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
 #
-
-autoload :Kconv, "kconv"
-
-module IRB
+#
+module IRB # :nodoc:
   class Locale
-    @RCS_ID='-$Id: locale.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
+    @RCS_ID='-$Id: locale.rb 38358 2012-12-13 05:22:30Z zzak $-'
 
-    JPDefaultLocale = "ja"
+    LOCALE_NAME_RE = %r[
+      (?<language>[[:alpha:]]{2,3})
+      (?:_  (?<territory>[[:alpha:]]{2,3}) )?
+      (?:\. (?<codeset>[^@]+) )?
+      (?:@  (?<modifier>.*) )?
+    ]x
     LOCALE_DIR = "/lc/"
 
+    @@legacy_encoding_alias_map = {}.freeze
+
     def initialize(locale = nil)
-      @lang = locale || ENV["IRB_LANG"] || ENV["LC_MESSAGES"] || ENV["LC_ALL"] || ENV["LANG"] || "C" 
-    end
+      @lang = @territory = @encoding_name = @modifier = nil
+      @locale = locale || ENV["IRB_LANG"] || ENV["LC_MESSAGES"] || ENV["LC_ALL"] || ENV["LANG"] || "C"
+      if m = LOCALE_NAME_RE.match(@locale)
+	@lang, @territory, @encoding_name, @modifier = m[:language], m[:territory], m[:codeset], m[:modifier]
 
-    attr_reader :lang
-
-    def lc2kconv(lang)
-      case lang
-      when "ja_JP.ujis", "ja_JP.euc", "ja_JP.eucJP"
-        Kconv::EUC
-      when "ja_JP.sjis", "ja_JP.SJIS"
-        Kconv::SJIS
-      when /ja_JP.utf-?8/i
-	Kconv::UTF8
+	if @encoding_name
+	  begin load 'irb/encoding_aliases.rb'; rescue LoadError; end
+	  if @encoding = @@legacy_encoding_alias_map[@encoding_name]
+	    warn "%s is obsolete. use %s" % ["#{@lang}_#{@territory}.#{@encoding_name}", "#{@lang}_#{@territory}.#{@encoding.name}"]
+	  end
+	  @encoding = Encoding.find(@encoding_name) rescue nil
+	end
       end
+      @encoding ||= (Encoding.find('locale') rescue Encoding::ASCII_8BIT)
     end
-    private :lc2kconv
+
+    attr_reader :lang, :territory, :encoding, :modifieer
 
     def String(mes)
       mes = super(mes)
-      case @lang
-      when /^ja/
-	mes = Kconv::kconv(mes, lc2kconv(@lang))
+      if @encoding
+	mes.encode(@encoding, undef: :replace)
       else
 	mes
       end
-      mes
     end
 
     def format(*opts)
@@ -101,84 +103,80 @@ module IRB
     end
 
     alias toplevel_load load
-    
+
     def load(file, priv=nil)
+      found = find(file)
+      if found
+        return real_load(found, priv)
+      else
+        raise LoadError, "No such file to load -- #{file}"
+      end
+    end
+
+    def find(file , paths = $:)
       dir = File.dirname(file)
       dir = "" if dir == "."
       base = File.basename(file)
 
-      if /^ja(_JP)?$/ =~ @lang
- 	back, @lang = @lang, "C"
+      if dir.start_with?('/')
+        return each_localized_path(dir, base).find{|full_path| File.readable? full_path}
+      else
+        return search_file(paths, dir, base)
       end
-      begin
-	if dir[0] == ?/ #/
-	  lc_path = search_file(dir, base)
-	  return real_load(lc_path, priv) if lc_path
-	end
-	
-	for path in $:
-	  lc_path = search_file(path + "/" + dir, base)
-	  return real_load(lc_path, priv) if lc_path
-	end
-      ensure
-	@lang = back if back
-      end
-      raise LoadError, "No such file to load -- #{file}"
-    end 
+    end
 
+    private
     def real_load(path, priv)
-      src = self.String(File.read(path))
+      src = MagicFile.open(path){|f| f.read}
       if priv
 	eval("self", TOPLEVEL_BINDING).extend(Module.new {eval(src, nil, path)})
       else
 	eval(src, TOPLEVEL_BINDING, path)
       end
     end
-    private :real_load
 
-    def find(file , paths = $:)
-      dir = File.dirname(file)
-      dir = "" if dir == "."
-      base = File.basename(file)
-      if dir[0] == ?/ #/
-	  return lc_path = search_file(dir, base)
-      else
-	for path in $:
-	  if lc_path = search_file(path + "/" + dir, base)
-	    return lc_path
+    # @param paths load paths in which IRB find a localized file.
+    # @param dir directory
+    # @param file basename to be localized
+    #
+    # typically, for the parameters and a <path> in paths, it searches
+    #   <path>/<dir>/<locale>/<file>
+    def search_file(lib_paths, dir, file)
+      each_localized_path(dir, file) do |lc_path|
+        lib_paths.each do |libpath|
+          full_path = File.join(libpath, lc_path)
+          return full_path if File.readable?(full_path)
+        end
+        redo if defined?(Gem) and Gem.try_activate(lc_path)
+      end
+      nil
+    end
+
+    def each_localized_path(dir, file)
+      return enum_for(:each_localized_path) unless block_given?
+      each_sublocale do |lc|
+        yield lc.nil? ? File.join(dir, LOCALE_DIR, file) : File.join(dir, LOCALE_DIR, lc, file)
+      end
+    end
+
+    def each_sublocale
+      if @lang
+	if @territory
+	  if @encoding_name
+	    yield "#{@lang}_#{@territory}.#{@encoding_name}@#{@modifier}" if @modifier
+	    yield "#{@lang}_#{@territory}.#{@encoding_name}"
 	  end
+	  yield "#{@lang}_#{@territory}@#{@modifier}" if @modifier
+	  yield "#{@lang}_#{@territory}"
 	end
+        if @encoding_name
+          yield "#{@lang}.#{@encoding_name}@#{@modifier}" if @modifier
+          yield "#{@lang}.#{@encoding_name}"
+        end
+	yield "#{@lang}@#{@modifier}" if @modifier
+	yield "#{@lang}"
       end
-      nil
+      yield nil
     end
-
-    def search_file(path, file)
-      if File.exist?(p1 = path + lc_path(file, "C"))
-	if File.exist?(p2 = path + lc_path(file))
-	  return p2
-	else
-	end
-	return p1
-      else
-      end
-      nil
-    end
-    private :search_file
-
-    def lc_path(file = "", lc = @lang)
-      case lc
-      when "C"
-	LOCALE_DIR + file
-      when /^ja/
-	LOCALE_DIR + "ja/" + file
-      else
-	LOCALE_DIR + @lang + "/" + file
-      end
-    end
-    private :lc_path
   end
 end
-
-
-
-

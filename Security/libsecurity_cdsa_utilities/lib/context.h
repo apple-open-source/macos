@@ -74,7 +74,7 @@ public:
             AttributeType = typ;
 			// attribute component pointers are stupidly non-const; allow const input
             Attribute.String = const_cast<char *>(reinterpret_cast<const char *>(&value));
-            AttributeLength = size ? size : sizeof(T);
+            AttributeLength = (uint32_t) (size ? size : sizeof(T));
         }
 
         Attr(CSSM_ATTRIBUTE_TYPE typ, uint32 value)
@@ -339,7 +339,7 @@ public:
             assert(slot < slotCount);			// check overflow
             Attr &attribute = attributes[slot++];
             attribute.AttributeType = type;
-            attribute.AttributeLength = size(p); //@@@ needed? how/when/what for?
+            attribute.AttributeLength =  (uint32)size(p); //@@@ needed? how/when/what for?
             T *tmp = const_cast<T *>(p);
             attribute = walk(copier, tmp);
         }

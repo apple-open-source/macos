@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#if ENABLE(ACCELERATED_2D_CANVAS) || ENABLE(WEBGL)
+#if ENABLE(ACCELERATED_2D_CANVAS) || USE(3D_GRAPHICS)
 
 #include "DrawingBuffer.h"
 
@@ -98,7 +98,11 @@ unsigned DrawingBuffer::frontColorBuffer() const
     return colorBuffer();
 }
 
-void DrawingBuffer::paintCompositedResultsToCanvas(CanvasRenderingContext* context)
+void DrawingBuffer::paintCompositedResultsToCanvas(ImageBuffer*)
+{
+}
+
+void DrawingBuffer::clearPlatformLayer()
 {
 }
 #endif

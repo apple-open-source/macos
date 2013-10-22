@@ -50,7 +50,7 @@ static const unsigned short cp1257_2uni[128] = {
 };
 
 static int
-cp1257_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cp1257_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80) {
@@ -114,7 +114,7 @@ static const unsigned char cp1257_page20[48] = {
 };
 
 static int
-cp1257_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+cp1257_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

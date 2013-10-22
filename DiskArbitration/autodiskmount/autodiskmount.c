@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -124,7 +124,7 @@ fsDirForFS(char *fsname)
 }
 
 int
-suffixfs(struct dirent * dp)
+suffixfs(const struct dirent * dp)
 {
 	char           *s;
 	if ((s = strstr(&dp->d_name[0], FS_DIR_SUFFIX)))

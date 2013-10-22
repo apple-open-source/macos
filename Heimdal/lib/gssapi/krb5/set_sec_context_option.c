@@ -178,6 +178,7 @@ _gsskrb5_set_sec_context_option
 	*minor_status = 0;
 	return GSS_S_COMPLETE;
 
+#ifndef HEIMDAL_SMALLER
     } else if (gss_oid_equal(desired_object, GSS_KRB5_SEND_TO_KDC_X)) {
 
 	if (value == NULL || value->length == 0) {
@@ -197,6 +198,7 @@ _gsskrb5_set_sec_context_option
 
 	*minor_status = 0;
 	return GSS_S_COMPLETE;
+#endif
     } else if (gss_oid_equal(desired_object, GSS_KRB5_CCACHE_NAME_X)) {
 	char *str;
 
@@ -234,7 +236,7 @@ _gsskrb5_set_sec_context_option
 
 	krb5_us_timeofday (context, &sec, &usec);
 
-	maj_stat = set_int32(minor_status, value, sec - t);
+	maj_stat = set_int32(minor_status, value, (OM_uint32)(sec - t));
 	if (maj_stat != GSS_S_COMPLETE)
 	    return maj_stat;
 

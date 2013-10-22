@@ -7,8 +7,11 @@ SRC_PASSWD=
 SRC_GROUP=
 SRC_TTYS=ttys
 
-Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
-Product=$(shell tconf --product)
+ifdef RC_TARGET_CONFIG
+Product=$(RC_TARGET_CONFIG)
+else
+Product=MacOSX
+endif
 ifeq "$(Product)" "iPhone"
 SRC_PASSWD=master.passwd.iPhone
 SRC_GROUP=group.iPhone
@@ -45,12 +48,7 @@ endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/rmtab"
 	$(_v) $(INSTALL_FILE) -m 0644 -c shells		 "$(Destination)/shells"
 	$(_v) $(INSTALL_FILE) -m 0644 -c syslog.conf	 "$(Destination)/syslog.conf"
-ifeq "$(RC_RELEASE)" "Darwin"
-	$(_v) cat ttys | sed -e 's/^console/##console/' -e 's/^#console/console/' > "$(Destination)/ttys"
-	$(_v) chmod 0644 "$(Destination)/ttys" ; chown root:wheel "$(Destination)/ttys"
-else
 	$(_v) $(INSTALL_FILE) -m 0644 -c $(SRC_TTYS)	 "$(Destination)/ttys"
-endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/xtab"
 ifeq "$(Product)" "MacOSX"
 	$(_v) $(LN) -hfs ../var/run/resolv.conf            "$(Destination)"

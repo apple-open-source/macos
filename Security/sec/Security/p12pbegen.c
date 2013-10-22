@@ -25,6 +25,7 @@
 #include <string.h> // memcpy
 
 #include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonDigestSPI.h>
 
 #include <corecrypto/ccn.h>
 
@@ -86,15 +87,18 @@ int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length,
     size_t salt_data_len = 0;
     if (salt_length)
         salt_data = concatenate_to_blocksize(salt_ptr, salt_length, hash_blocksize, &salt_data_len);
-    if (!salt_data)
+    if (!salt_data){
+        free(passphrase_data);
         return -1;
-    
+    }
     /* generate S||P block */
     size_t I_length = salt_data_len + passphrase_data_len;
     uint8_t *I_data = malloc(I_length);
-    if (!I_data)
+    if (!I_data){
+        free(salt_data);
+        free(passphrase_data);
         return -1;
-        
+    }
     memcpy(I_data + 0, salt_data, salt_data_len);
     memcpy(I_data + salt_data_len, passphrase_data, passphrase_data_len);
     free(salt_data);
@@ -105,9 +109,10 @@ int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length,
     size_t temp_buf_size = hash_output_blocks * hash_outputsize;
     uint8_t *temp_buf = malloc(temp_buf_size);
     uint8_t *cursor = temp_buf;
-    if (!temp_buf)
+    if (!temp_buf){
+        free(I_data);
         return -1;
-
+    }
     /* 64 bits cast(s): worst case here is we dont hash all the data and incorectly derive the wrong key,
        when the passphrase + salt are over 2^32 bytes long */
     /* loop over output in hash_output_size increments */
@@ -122,7 +127,7 @@ int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length,
         /* run block through SHA-1 for iteration count */
         unsigned int i;
         for (i = 1; /*first round done above*/ i < iter_count; i++)
-            CC_SHA1(cursor, hash_outputsize, cursor);
+            CCDigest(kCCDigestSHA1, cursor, hash_outputsize, cursor);
 
         /*
          * b) Concatenate copies of A[i] to create a string B of 
@@ -132,9 +137,11 @@ int p12_pbe_gen(CFStringRef passphrase, uint8_t *salt_ptr, size_t salt_length,
         size_t A_i_len = 0;
         uint8_t *A_i = concatenate_to_blocksize(cursor, 
             hash_outputsize, hash_blocksize, &A_i_len);
-        if (!A_i)
+        if (!A_i){
+            free(I_data);
+            free(temp_buf);
             return -1;
-        
+        }
         /*
          * c) Treating I as a concatenation I[0], I[1], ..., 
          *    I[k-1] of v-bit blocks, where k = ceil(s/v) + ceil(p/v),

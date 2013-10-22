@@ -37,9 +37,7 @@ void InitWebCoreSystemInterface(void)
     
     dispatch_once(&initOnce, ^{
         INIT(AdvanceDefaultButtonPulseAnimation);
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
         INIT(CALayerEnumerateRectsBeingDrawnWithBlock);
-#endif
         INIT(CopyCFLocalizationPreferredName);
         INIT(CGContextGetShouldSmoothFonts);
         INIT(CGPatternCreateWithImageAndTransform);
@@ -47,11 +45,14 @@ void InitWebCoreSystemInterface(void)
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
         INIT(CGContextDrawsWithCorrectShadowOffsets);
 #endif
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+        INIT(CTFontTransformGlyphs);
+#endif
         INIT(CopyCONNECTProxyResponse);
         INIT(CopyNSURLResponseStatusLine);
+        INIT(CopyNSURLResponseCertificateChain);
         INIT(CreateCTLineWithUniCharProvider);
         INIT(CreateCustomCFReadStream);
-        INIT(CreateNSURLConnectionDelegateProxy);
         INIT(DrawBezeledTextArea);
         INIT(DrawBezeledTextFieldCell);
         INIT(DrawCapsLockIndicator);
@@ -71,6 +72,7 @@ void InitWebCoreSystemInterface(void)
         INIT(SignedPublicKeyAndChallengeString);
         INIT(GetPreferredExtensionForMIMEType);
         INIT(GetUserToBaseCTM);
+        INIT(CGContextIsPDFContext);
         INIT(GetWheelEventDeltas);
         INIT(GetNSEventKeyChar);
         INIT(HitTestMediaUIPart);
@@ -97,7 +99,6 @@ void InitWebCoreSystemInterface(void)
         INIT(SetCGFontRenderingMode);
         INIT(SetCONNECTProxyAuthorizationForStream);
         INIT(SetCONNECTProxyForStream);
-        INIT(SetCookieStoragePrivateBrowsingEnabled);
         INIT(SetDragImage);
         INIT(SetHTTPPipeliningMaximumPriority);
         INIT(SetHTTPPipeliningPriority);
@@ -114,25 +115,27 @@ void InitWebCoreSystemInterface(void)
         INIT(CopyHTTPCookieStorage);
         INIT(GetHTTPCookieAcceptPolicy);
         INIT(SetHTTPCookieAcceptPolicy);
+        INIT(HTTPCookies);
         INIT(HTTPCookiesForURL);
         INIT(SetHTTPCookiesForURL);
+        INIT(DeleteAllHTTPCookies);
         INIT(DeleteHTTPCookie);
 
         INIT(SetMetadataURL);
         
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
         INIT(IOSurfaceContextCreate);
         INIT(IOSurfaceContextCreateImage);
         INIT(CreateCTTypesetterWithUniCharProviderAndOptions);
+        INIT(CTRunGetInitialAdvance);
         INIT(RecommendedScrollerStyle);
         INIT(ExecutableWasLinkedOnOrBeforeSnowLeopard);
         INIT(CopyDefaultSearchProviderDisplayName);
+        INIT(SetCrashReportApplicationSpecificInformation);
         INIT(AVAssetResolvedURL);
         INIT(Cursor);
-#else
-        INIT(GetHyphenationLocationBeforeIndex);
-        INIT(GetNSEventMomentumPhase);
-#endif
+        INIT(WindowSetScaledFrame);
+        INIT(WindowSetAlpha);
+
 #if USE(CFNETWORK)
         INIT(GetDefaultHTTPCookieStorage);
         INIT(CopyCredentialFromCFPersistentStorage);
@@ -142,6 +145,10 @@ void InitWebCoreSystemInterface(void)
         INIT(SetRequestStorageSession);
 #endif
 
+#if PLATFORM(MAC)
+        INIT(SpeechSynthesisGetVoiceIdentifiers);
+        INIT(SpeechSynthesisGetDefaultVoiceIdentifierForLocale);
+#endif
         INIT(GetAXTextMarkerTypeID);
         INIT(GetAXTextMarkerRangeTypeID);
         INIT(CreateAXTextMarker);
@@ -159,36 +166,42 @@ void InitWebCoreSystemInterface(void)
         INIT(CopyCFURLResponseSuggestedFilename);
         INIT(SetCFURLResponseMIMEType);
 
-        INIT(SetMetadataURL);
-
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
         INIT(CreateVMPressureDispatchOnMainQueue);
-#endif
 
-#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
-        INIT(GetMacOSXVersionString);
+        INIT(DestroyRenderingResources);
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
         INIT(ExecutableWasLinkedOnOrBeforeLion);
 #endif
+        
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+        INIT(CreateMemoryStatusPressureCriticalDispatchOnMainQueue);
+#endif
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
         INIT(CGPathAddRoundedRect);
-#endif
-
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
         INIT(CFURLRequestAllowAllPostCaching);
-#endif
-#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+
+#if USE(CONTENT_FILTERING)
         INIT(FilterIsManagedSession);
         INIT(FilterCreateInstance);
-        INIT(FilterRelease);
         INIT(FilterWasBlocked);
+        INIT(FilterIsBuffering);
         INIT(FilterAddData);
         INIT(FilterDataComplete);
+#endif
 
+#if !PLATFORM(IOS) && PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
         INIT(NSElasticDeltaForTimeDelta);
         INIT(NSElasticDeltaForReboundDelta);
         INIT(NSReboundDeltaForElasticDelta);
 #endif
 
+#if ENABLE(PUBLIC_SUFFIX_LIST)
+        INIT(IsPublicSuffix);
+#endif
+
+#if ENABLE(CACHE_PARTITIONING)
+        INIT(CachePartitionKey);
+#endif
     });
 }

@@ -1,5 +1,5 @@
 /*
- * "$Id: classes.c 7940 2008-09-16 00:45:16Z mike $"
+ * "$Id: classes.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Class status CGI for CUPS.
  *
@@ -554,5 +554,5 @@ show_class(http_t     *http,		/* I - Connection to server */
 
 
 /*
- * End of "$Id: classes.c 7940 2008-09-16 00:45:16Z mike $".
+ * End of "$Id: classes.c 11093 2013-07-03 20:48:42Z msweet $".
  */

@@ -19,9 +19,9 @@
 #define CDC_ASL_MSG_LEN             "         0"
 #define CDC_ASL_LEVEL_NOTICE		5
 #define CDC_ASL_KEY_DOMAIN          "com.apple.message.domain"
-#define CDC_ASL_KEY_SIG             "com.apple.message.driver"
-#define CDC_ASL_KEY_SIG2			"com.apple.message.vendor_id"
-#define CDC_ASL_KEY_SIG3			"com.apple.message.product_id"
+#define CDC_ASL_KEY_SIG             "com.apple.message.signature"
+#define CDC_ASL_KEY_SIG2			"com.apple.message.signature2"
+#define CDC_ASL_KEY_SIG3			"com.apple.message.signature3"
 #define CDC_ASL_KEY_SUCCESS         "com.apple.message.success"
 #define CDC_ASL_SUCCESS_VALUE		1
 #define CDC_ASL_KEY_VALUE			"com.apple.message.value"

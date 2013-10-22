@@ -31,11 +31,17 @@
 #include "ApplicationCacheStorage.h"
 #include "ResourceRequest.h"
 #include "SecurityOrigin.h"
-#include <wtf/text/CString.h>
+#include <algorithm>
 #include <stdio.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
  
+static inline bool fallbackURLLongerThan(const std::pair<KURL, KURL>& lhs, const std::pair<KURL, KURL>& rhs)
+{
+    return lhs.first.string().length() > rhs.first.string().length();
+}
+
 ApplicationCache::ApplicationCache()
     : m_group(0)
     , m_manifest(0)
@@ -100,11 +106,11 @@ unsigned ApplicationCache::removeResource(const String& url)
         return 0;
 
     // The resource exists, get its type so we can return it.
-    unsigned type = it->second->type();
+    unsigned type = it->value->type();
 
     m_resources.remove(it);
 
-    m_estimatedSizeInStorage -= it->second->estimatedSizeInStorage();
+    m_estimatedSizeInStorage -= it->value->estimatedSizeInStorage();
 
     return type;
 }    
@@ -112,7 +118,7 @@ unsigned ApplicationCache::removeResource(const String& url)
 ApplicationCacheResource* ApplicationCache::resourceForURL(const String& url)
 {
     ASSERT(!KURL(ParsedURLString, url).hasFragmentIdentifier());
-    return m_resources.get(url).get();
+    return m_resources.get(url);
 }    
 
 bool ApplicationCache::requestIsHTTPOrHTTPSGet(const ResourceRequest& request)
@@ -159,6 +165,8 @@ void ApplicationCache::setFallbackURLs(const FallbackURLVector& fallbackURLs)
 {
     ASSERT(m_fallbackURLs.isEmpty());
     m_fallbackURLs = fallbackURLs;
+    // FIXME: What's the right behavior if we have 2 or more identical namespace URLs?
+    std::stable_sort(m_fallbackURLs.begin(), m_fallbackURLs.end(), fallbackURLLongerThan);
 }
 
 bool ApplicationCache::urlMatchesFallbackNamespace(const KURL& url, KURL* fallbackURL)
@@ -180,7 +188,7 @@ void ApplicationCache::clearStorageID()
     
     ResourceMap::const_iterator end = m_resources.end();
     for (ResourceMap::const_iterator it = m_resources.begin(); it != end; ++it)
-        it->second->clearStorageID();
+        it->value->clearStorageID();
 }
     
 void ApplicationCache::deleteCacheForOrigin(SecurityOrigin* origin)
@@ -218,8 +226,8 @@ void ApplicationCache::dump()
     HashMap<String, RefPtr<ApplicationCacheResource> >::const_iterator end = m_resources.end();
     
     for (HashMap<String, RefPtr<ApplicationCacheResource> >::const_iterator it = m_resources.begin(); it != end; ++it) {
-        printf("%s ", it->first.ascii().data());
-        ApplicationCacheResource::dumpType(it->second->type());
+        printf("%s ", it->key.ascii().data());
+        ApplicationCacheResource::dumpType(it->value->type());
     }
 }
 #endif

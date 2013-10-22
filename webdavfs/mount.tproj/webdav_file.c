@@ -352,12 +352,7 @@ ftruncate:
 	/* clean up if error */
 	if ( error )
 	{
-		/* unlock it if it was locked */
-		if ( node->file_locktoken != NULL )
-		{
-			 /* nothing we can do network_unlock fails -- the lock will time out eventually */
-			(void) network_unlock(node);
-		}
+		(void) network_unlock(node);
 
 		/* remove it from the file cache */
 		nodecache_remove_file_cache(node);
@@ -377,6 +372,7 @@ int filesystem_close(struct webdav_request_close *request_close)
 {
 	int error = 0;
 	struct node_entry *node;
+	Boolean locked = false;
 	
 	error = RetrieveDataFromOpaqueID(request_close->obj_id, (void **)&node);
 	require_noerr_action_quiet(error, bad_obj_id, error = ESTALE);
@@ -406,22 +402,28 @@ int filesystem_close(struct webdav_request_close *request_close)
 		node->put_ctx = NULL;
 	}
 	
-	/* if the file was locked, unlock it */
-	if ( node->file_locktoken  )
+	
+	lock_node_cache();
+	locked = true;
+	/* if the file was locked, unlock it and if it is deleted and locked (which should not happen), leave it locked and let the lock expire */
+	if ( node->file_locktoken && !NODE_IS_DELETED(node) )
 	{
-		/* if it is deleted and locked (which should not happen), leave it locked and let the lock expire */
-		if ( !NODE_IS_DELETED(node) )
+		error = network_unlock_with_nodecache_locked(node);
+		
+		unlock_node_cache();
+		locked = false;
+		if ( error == ENOENT )
 		{
-			error = network_unlock(node);
-			if ( error == ENOENT )
-			{
-				/* the server says it's gone so delete it and its descendants */
-				(void) nodecache_delete_node(node, TRUE);
-				error = ESTALE;
-				goto bad_obj_id;
-			}
+			/* the server says it's gone so delete it and its descendants */
+			(void) nodecache_delete_node(node, TRUE);
+			error = ESTALE;
+			goto bad_obj_id;
 		}
 	}
+	if(locked) {
+		unlock_node_cache();
+	}
+	
 
 	/*
 	 * If something went wrong with this file, it was deleted, or it is

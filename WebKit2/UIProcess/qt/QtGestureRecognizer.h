@@ -28,7 +28,7 @@
 
 namespace WebKit {
 
-class QtViewportInteractionEngine;
+class PageViewportControllerClientQt;
 class QtWebPageEventHandler;
 
 class QtGestureRecognizer {
@@ -46,7 +46,7 @@ protected:
         GestureRecognized
     } m_state;
 
-    QtViewportInteractionEngine* interactionEngine();
+    PageViewportControllerClientQt* viewportController();
 };
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994-1996,1998-2010 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1994-1996,1998-2012 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -54,12 +54,6 @@
 
 #include "sudo.h"
 
-#ifdef __TANDEM
-# define ROOT_UID	65535
-#else
-# define ROOT_UID	0
-#endif
-
 /*
  * Prototypes
  */
@@ -87,7 +81,7 @@ set_perms(perm)
     CLR(perm, PERM_MASK);
 
     if (perm == current_perm)
-	return(1);
+	return 1;
 
     switch (perm) {
 	case PERM_ROOT:
@@ -95,7 +89,7 @@ set_perms(perm)
 				    errstr = "setresuid(ROOT_UID, ROOT_UID, ROOT_UID)";
 				    goto bad;
 				}
-				(void) setresgid(-1, user_gid, -1);
+				(void) setresgid(-1, ROOT_GID, -1);
 				if (current_perm == PERM_RUNAS)
 				    restore_groups();
 			      	break;
@@ -141,8 +135,10 @@ set_perms(perm)
 
 	case PERM_SUDOERS:
 				/* assume euid == ROOT_UID, ruid == user */
-				if (setresgid(-1, SUDOERS_GID, -1))
-				    error(1, "unable to change to sudoers gid");
+				if (setresgid(-1, SUDOERS_GID, -1)) {
+				    errstr = "unable to change to sudoers gid";
+				    goto bad;
+				}
 
 				/*
 				 * If SUDOERS_UID == ROOT_UID and SUDOERS_MODE
@@ -152,7 +148,7 @@ set_perms(perm)
 				 * work on all OS's.
 				 */
 				if (SUDOERS_UID == ROOT_UID) {
-				    if ((SUDOERS_MODE & 040) && setresuid(ROOT_UID, 1, ROOT_UID)) {
+				    if ((SUDOERS_MODE & S_IRGRP) && setresuid(ROOT_UID, 1, ROOT_UID)) {
 					errstr = "setresuid(ROOT_UID, 1, ROOT_UID)";
 					goto bad;
 				    }
@@ -172,12 +168,12 @@ set_perms(perm)
     }
 
     current_perm = perm;
-    return(1);
+    return 1;
 bad:
     warningx("%s: %s", errstr,
 	errno == EAGAIN ? "too many processes" : strerror(errno));
     if (noexit)
-	return(0);
+	return 0;
     exit(1);
 }
 
@@ -201,7 +197,7 @@ set_perms(perm)
     CLR(perm, PERM_MASK);
 
     if (perm == current_perm)
-	return(1);
+	return 1;
 
     switch (perm) {
 	case PERM_ROOT:
@@ -213,7 +209,7 @@ set_perms(perm)
 				    errstr = "setuid(ROOT_UID)";
 				    goto bad;
 				}
-				(void) setregid(-1, user_gid);
+				(void) setregid(-1, ROOT_GID);
 				if (current_perm == PERM_RUNAS)
 				    restore_groups();
 			      	break;
@@ -258,8 +254,10 @@ set_perms(perm)
 
 	case PERM_SUDOERS:
 				/* assume euid == ROOT_UID, ruid == user */
-				if (setregid(-1, SUDOERS_GID))
-				    error(1, "unable to change to sudoers gid");
+				if (setregid(-1, SUDOERS_GID)) {
+				    errstr = "unable to change to sudoers gid";
+				    goto bad;
+				}
 
 				/*
 				 * If SUDOERS_UID == ROOT_UID and SUDOERS_MODE
@@ -269,7 +267,7 @@ set_perms(perm)
 				 * work on all OS's.
 				 */
 				if (SUDOERS_UID == ROOT_UID) {
-				    if ((SUDOERS_MODE & 040) && setreuid(ROOT_UID, 1)) {
+				    if ((SUDOERS_MODE & S_IRGRP) && setreuid(ROOT_UID, 1)) {
 					errstr = "setreuid(ROOT_UID, 1)";
 					goto bad;
 				    }
@@ -289,12 +287,12 @@ set_perms(perm)
     }
 
     current_perm = perm;
-    return(1);
+    return 1;
 bad:
     warningx("%s: %s", errstr,
 	errno == EAGAIN ? "too many processes" : strerror(errno));
     if (noexit)
-	return(0);
+	return 0;
     exit(1);
 }
 
@@ -316,7 +314,7 @@ set_perms(perm)
     CLR(perm, PERM_MASK);
 
     if (perm == current_perm)
-	return(1);
+	return 1;
 
     /*
      * Since we only have setuid() and seteuid() and semantics
@@ -335,7 +333,7 @@ set_perms(perm)
     switch (perm) {
 	case PERM_ROOT:
 				/* uid set above */
-				(void) setegid(user_gid);
+				(void) setegid(ROOT_GID);
 				if (current_perm == PERM_RUNAS)
 				    restore_groups();
 			      	break;
@@ -377,8 +375,10 @@ set_perms(perm)
 				break;
 
 	case PERM_SUDOERS:
-				if (setegid(SUDOERS_GID))
-				    error(1, "unable to change to sudoers gid");
+				if (setegid(SUDOERS_GID)) {
+				    errstr = "unable to change to sudoers gid";
+				    goto bad;
+				}
 
 				/*
 				 * If SUDOERS_UID == ROOT_UID and SUDOERS_MODE
@@ -388,7 +388,7 @@ set_perms(perm)
 				 * work on all OS's.
 				 */
 				if (SUDOERS_UID == ROOT_UID) {
-				    if ((SUDOERS_MODE & 040) && seteuid(1)) {
+				    if ((SUDOERS_MODE & S_IRGRP) && seteuid(1)) {
 					errstr = "seteuid(1)";
 					goto bad;
 				    }
@@ -408,12 +408,12 @@ set_perms(perm)
     }
 
     current_perm = perm;
-    return(1);
+    return 1;
 bad:
     warningx("%s: %s", errstr,
 	errno == EAGAIN ? "too many processes" : strerror(errno));
     if (noexit)
-	return(0);
+	return 0;
     exit(1);
 }
 
@@ -435,7 +435,7 @@ set_perms(perm)
     CLR(perm, PERM_MASK);
 
     if (perm == current_perm)
-	return(1);
+	return 1;
 
     switch (perm) {
 	case PERM_ROOT:
@@ -443,6 +443,7 @@ set_perms(perm)
 				    errstr = "setuid(ROOT_UID)";
 				    goto bad;
 				}
+    	    	    	        (void) setgid(ROOT_GID);
 				if (current_perm == PERM_RUNAS)
 				    restore_groups();
 				break;
@@ -472,12 +473,12 @@ set_perms(perm)
     }
 
     current_perm = perm;
-    return(1);
+    return 1;
 bad:
     warningx("%s: %s", errstr,
 	errno == EAGAIN ? "too many processes" : strerror(errno));
     if (noexit)
-	return(0);
+	return 0;
     exit(1);
 }
 #  endif /* HAVE_SETEUID */
@@ -507,7 +508,7 @@ runas_setgroups()
 	aix_setauthdb(pw->pw_name);
 # endif
 	if (initgroups(pw->pw_name, pw->pw_gid) < 0)
-	    log_error(USE_ERRNO|MSG_ONLY, "can't set runas group vector");
+	    log_fatal(USE_ERRNO|MSG_ONLY, "can't set runas group vector");
 # ifdef HAVE_GETGROUPS
 	if (groups) {
 	    efree(groups);
@@ -516,14 +517,14 @@ runas_setgroups()
 	if ((ngroups = getgroups(0, NULL)) > 0) {
 	    groups = emalloc2(ngroups, sizeof(GETGROUPS_T));
 	    if (getgroups(ngroups, groups) < 0)
-		log_error(USE_ERRNO|MSG_ONLY, "can't get runas group vector");
+		log_fatal(USE_ERRNO|MSG_ONLY, "can't get runas group vector");
 	}
 #  ifdef HAVE_SETAUTHDB
 	aix_restoreauthdb();
 #  endif
     } else {
 	if (setgroups(ngroups, groups) < 0)
-	    log_error(USE_ERRNO|MSG_ONLY, "can't set runas group vector");
+	    log_fatal(USE_ERRNO|MSG_ONLY, "can't set runas group vector");
 # endif /* HAVE_GETGROUPS */
     }
 }
@@ -532,7 +533,7 @@ static void
 restore_groups()
 {
     if (user_ngroups >= 0 && setgroups(user_ngroups, user_groups) < 0)
-	log_error(USE_ERRNO|MSG_ONLY, "can't reset user group vector");
+	log_fatal(USE_ERRNO|MSG_ONLY, "can't reset user group vector");
 }
 
 #else

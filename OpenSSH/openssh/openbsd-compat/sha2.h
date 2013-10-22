@@ -1,4 +1,4 @@
-/*	$OpenBSD: sha2.h,v 1.6 2004/06/22 01:57:30 jfb Exp $	*/
+/*	OpenBSD: sha2.h,v 1.6 2004/06/22 01:57:30 jfb Exp 	*/
 
 /*
  * FILE:	sha2.h
@@ -41,7 +41,11 @@
 
 #include "includes.h"
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-crypto.h"
+#else
 #include <openssl/opensslv.h>
+#endif
 
 #if !defined(HAVE_EVP_SHA256) && !defined(HAVE_SHA256_UPDATE) && \
     (OPENSSL_VERSION_NUMBER >= 0x00907000L)

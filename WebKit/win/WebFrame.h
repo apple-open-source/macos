@@ -37,12 +37,12 @@
 #include <WebCore/FrameWin.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/KURL.h>
-#include <WebCore/PlatformString.h>
 #include <WebCore/ResourceHandleClient.h>
 
 #include <WTF/RefPtr.h>
 #include <WTF/HashMap.h>
 #include <WTF/OwnPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
     class AuthenticationChallenge;
@@ -163,10 +163,6 @@ public:
     virtual HRESULT STDMETHODCALLTYPE unused1(BSTR*) { return E_NOTIMPL; }
     virtual HRESULT STDMETHODCALLTYPE renderTreeAsExternalRepresentation(BOOL forPrinting, BSTR *result);
 
-    virtual HRESULT STDMETHODCALLTYPE counterValueForElementById(
-        /* [in] */ BSTR id,
-        /* [retval][out] */ BSTR *result);
-
     virtual HRESULT STDMETHODCALLTYPE pageNumberForElementById(
         /* [in] */ BSTR id,
         /* [in] */ float pageWidthInPixels,
@@ -260,8 +256,6 @@ public:
     virtual HRESULT STDMETHODCALLTYPE pauseAnimation(BSTR animationName, IDOMNode*, double secondsFromNow, BOOL* animationWasRunning);
     virtual HRESULT STDMETHODCALLTYPE pauseTransition(BSTR propertyName, IDOMNode*, double secondsFromNow, BOOL* transitionWasRunning);
     virtual HRESULT STDMETHODCALLTYPE numberOfActiveAnimations(UINT*);
-    virtual HRESULT STDMETHODCALLTYPE suspendAnimations();
-    virtual HRESULT STDMETHODCALLTYPE resumeAnimations();
     virtual HRESULT STDMETHODCALLTYPE loadPlainTextString(BSTR string, BSTR url);
 
     virtual HRESULT STDMETHODCALLTYPE isDisplayingStandaloneImage(BOOL*);
@@ -285,6 +279,12 @@ public:
     virtual HRESULT STDMETHODCALLTYPE clearOpener();
 
     virtual HRESULT STDMETHODCALLTYPE setTextDirection(BSTR);
+
+    virtual HRESULT STDMETHODCALLTYPE unused3(BSTR, BSTR*) { return E_NOTIMPL; }
+
+    virtual HRESULT STDMETHODCALLTYPE resumeAnimations();
+
+    virtual HRESULT STDMETHODCALLTYPE suspendAnimations();
 
     // IWebDocumentText
     virtual HRESULT STDMETHODCALLTYPE supportsTextEncoding( 
@@ -338,7 +338,7 @@ public:
     virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WTF::String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>);
     virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
-    virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+    virtual void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int length);
     virtual void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&);

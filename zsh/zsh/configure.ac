@@ -105,6 +105,18 @@ AC_HELP_STRING([--enable-zsh-secure-free], [turn on error checking for free()]),
   AC_DEFINE(ZSH_SECURE_FREE)
 fi])
 
+dnl Do you want to debug zsh heap allocation?
+dnl Does not depend on zsh-mem.
+ifdef([zsh-heap-debug],[undefine([zsh-heap-debug])])dnl
+AH_TEMPLATE([ZSH_HEAP_DEBUG],
+[Define to 1 if you want to turn on error checking for heap allocation.])
+AC_ARG_ENABLE(zsh-heap-debug,
+AC_HELP_STRING([--enable-zsh-heap-debug],
+[turn on error checking for heap allocation]),
+[if test x$enableval = xyes; then
+  AC_DEFINE(ZSH_HEAP_DEBUG)
+fi])
+
 dnl Do you want debugging information on internal hash tables.
 dnl This turns on the `hashinfo' builtin command.
 ifdef([zsh-hash-debug],[undefine([zsh-hash-debug])])dnl
@@ -276,6 +288,16 @@ else
   FUNCTIONS_SUBDIRS=no
 fi
 
+ifdef([additionalfpath],[undefine([additionalfpath])])dnl
+AC_ARG_ENABLE(additional-fpath,
+AC_HELP_STRING([--enable-additional-fpath=DIR], [add directories to default function path]),
+[if test x$enableval = xyes; then
+  additionalfpath=""
+else
+  additionalfpath="${enableval}"
+fi], [additionalfpath=""])
+
+AC_SUBST(additionalfpath)dnl
 AC_SUBST(fndir)dnl
 AC_SUBST(sitefndir)dnl
 AC_SUBST(FUNCTIONS_SUBDIRS)dnl
@@ -539,6 +561,16 @@ AC_PROG_AWK                 dnl Check for mawk,gawk,nawk, then awk.
 AC_PROG_LN                  dnl Check for working ln, for "make install"
 AC_PROG_EGREP               dnl sets $EGREP to grep -E or egrep
 AC_CHECK_PROGS([YODL], [yodl], [: yodl])
+
+YODL_OPTIONS=''
+if test "x$ac_cv_prog_YODL" = xyodl; then
+    case `yodl --version` in
+      *"version 2."*) YODL_OPTIONS='-k' ;;
+      *"version 3."*) YODL_OPTIONS='-k -L' ;;
+    esac
+fi
+AC_SUBST(YODL_OPTIONS)
+
 AC_CHECK_PROGS([PDFETEX], [pdfetex], [: pdfetex])
 AC_CHECK_PROGS([TEXI2PDF], [texi2pdf], [])
 AC_CHECK_PROGS([TEXI2HTML], [texi2html], [])
@@ -661,6 +693,8 @@ dnl may happen.
 AC_CHECK_LIB(c, printf, [LIBS="$LIBS -lc"])
 
 AC_CHECK_LIB(m, pow)
+
+AC_CHECK_LIB(rt, clock_gettime)
 
 dnl Various features of ncurses depend on having the right header
 dnl (the system's own curses.h may well not be good enough).
@@ -977,13 +1011,45 @@ main() { return sizeof(ino_t) < 8; }
     fi
   fi
 fi
+AH_TEMPLATE([ZLONG_IS_LONG_LONG],
+[Define to 1 if the zlong type uses long long int.])
+if test "$zsh_cv_64_bit_type" = "long long"; then
+  dnl Remember this so we can get (s)printf output right.
+  AC_DEFINE(ZLONG_IS_LONG_LONG)
+fi
+
+dnl We'll blithely assume (f)printf supports the same types as sprintf.
+AC_CACHE_CHECK(for %lld printf support, zsh_cv_printf_has_lld,
+[AC_TRY_RUN(
+[#include <stdio.h>
+#include <string.h>
+int main(int argc, char **argv)
+{
+   long long foo = ((long long)0xdead << 40) | 0xf00d;
+   char buf[80];
+   sprintf(buf, "before%lldafter", foo);
+   if (!strcmp(buf, "before62677660341432333after")) {
+      return 0;
+   }
+   return 1;
+}
+],
+zsh_cv_printf_has_lld=yes,
+zsh_cv_printf_has_lld=no,
+zsh_cv_printf_has_lld=no)])
+AH_TEMPLATE(PRINTF_HAS_LLD,
+[Define to 1 if printf and sprintf support %lld for long long.])
+if test x$zsh_cv_printf_has_lld = xyes; then
+  AC_DEFINE(PRINTF_HAS_LLD)
+fi
 
 dnl Check for sigset_t.  Currently I'm looking in
 dnl <sys/types.h> and <signal.h>.  Others might need
 dnl to be added.
 AC_CACHE_CHECK(for sigset_t, zsh_cv_type_sigset_t,
 [AC_TRY_COMPILE(
-[#include <sys/types.h>
+[#define _POSIX_C_SOURCE 200809L
+#include <sys/types.h>
 #include <signal.h>], [sigset_t tempsigset;],
   zsh_cv_type_sigset_t=yes, zsh_cv_type_sigset_t=no)])
 AH_TEMPLATE([sigset_t],
@@ -1005,6 +1071,7 @@ AC_CHECK_MEMBERS([struct stat.st_atim.tv_nsec,
 
 dnl Check for struct timezone since some old SCO versions do not define it
 zsh_TYPE_EXISTS([
+#define _GNU_SOURCE 1
 #ifdef HAVE_SYS_TIME_H
 # include <sys/time.h>
 #endif
@@ -1137,7 +1204,7 @@ dnl need to integrate this function
 dnl AC_FUNC_STRFTIME
 
 AC_CHECK_FUNCS(strftime strptime mktime timelocal \
-	       difftime gettimeofday \
+	       difftime gettimeofday clock_gettime \
 	       select poll \
 	       readlink faccessx fchdir ftruncate \
 	       fstat lstat lchown fchown fchmod \
@@ -1537,6 +1604,8 @@ AH_TEMPLATE([HAVE_NUMNAMES],
 [Define if you have the terminfo numnames symbol.])
 AH_TEMPLATE([HAVE_STRNAMES],
 [Define if you have the terminfo strnames symbol.])
+AH_TEMPLATE([TGOTO_PROTO_MISSING],
+[Define if there is no prototype for the tgoto() terminal function.])
 
 if test x$zsh_cv_path_term_header != xnone; then
   AC_DEFINE(ZSH_HAVE_TERM_H)
@@ -1552,26 +1621,42 @@ if test x$zsh_cv_path_term_header != xnone; then
   AC_TRY_LINK($term_includes, [char **test = boolcodes; puts(*test);],
   AC_DEFINE(HAVE_BOOLCODES) boolcodes=yes, boolcodes=no)
   AC_MSG_RESULT($boolcodes)
+
   AC_MSG_CHECKING(if numcodes is available)
   AC_TRY_LINK($term_includes, [char **test = numcodes; puts(*test);],
   AC_DEFINE(HAVE_NUMCODES) numcodes=yes, numcodes=no)
   AC_MSG_RESULT($numcodes)
+
   AC_MSG_CHECKING(if strcodes is available)
   AC_TRY_LINK($term_includes, [char **test = strcodes; puts(*test);],
   AC_DEFINE(HAVE_STRCODES) strcodes=yes, strcodes=no)
   AC_MSG_RESULT($strcodes)
+
   AC_MSG_CHECKING(if boolnames is available)
   AC_TRY_LINK($term_includes, [char **test = boolnames; puts(*test);],
   AC_DEFINE(HAVE_BOOLNAMES) boolnames=yes, boolnames=no)
   AC_MSG_RESULT($boolnames)
+
   AC_MSG_CHECKING(if numnames is available)
   AC_TRY_LINK($term_includes, [char **test = numnames; puts(*test);],
   AC_DEFINE(HAVE_NUMNAMES) numnames=yes, numnames=no)
   AC_MSG_RESULT($numnames)
+
   AC_MSG_CHECKING(if strnames is available)
   AC_TRY_LINK($term_includes, [char **test = strnames; puts(*test);],
   AC_DEFINE(HAVE_STRNAMES) strnames=yes, strnames=no)
   AC_MSG_RESULT($strnames)
+
+  dnl There are apparently defective terminal library headers on some
+  dnl versions of Solaris before 11.
+  AC_MSG_CHECKING(if tgoto prototype is missing)
+  tgoto_includes="$term_includes
+/* guaranteed to clash with any valid tgoto prototype */
+extern void tgoto(int **stuff, float **more_stuff);"
+  AC_TRY_LINK($tgoto_includes,
+  [int *stuff; float *more_stuff; tgoto(&stuff, &more_stuff);],
+  AC_DEFINE(TGOTO_PROTO_MISSING) tgotoprotomissing=yes, tgotoprotomissing=no)
+  AC_MSG_RESULT($tgotoprotomissing)
 else
   ZSH_TERM_H=
 fi
@@ -1715,6 +1800,7 @@ zsh_LIMIT_PRESENT(RLIMIT_AS)
 zsh_LIMIT_PRESENT(RLIMIT_LOCKS)
 zsh_LIMIT_PRESENT(RLIMIT_MEMLOCK)
 zsh_LIMIT_PRESENT(RLIMIT_NPROC)
+zsh_LIMIT_PRESENT(RLIMIT_NTHR)
 zsh_LIMIT_PRESENT(RLIMIT_NOFILE)
 zsh_LIMIT_PRESENT(RLIMIT_PTHREAD)
 zsh_LIMIT_PRESENT(RLIMIT_RSS)
@@ -2455,6 +2541,17 @@ if test x$zsh_cv_c_unicode_support = xyes; then
 fi
 
 dnl
+dnl musl support
+dnl
+AH_TEMPLATE([LIBC_MUSL],
+[Define to 1 if musl is being used as the C library])
+AC_ARG_ENABLE(libc-musl,
+AC_HELP_STRING([--enable-libc-musl], [compile with musl as the C library]),
+[if test x$enableval = xyes; then
+  AC_DEFINE(LIBC_MUSL)
+fi])
+
+dnl
 dnl static user lookup
 dnl
 AC_ARG_ENABLE(dynamic-nss,
@@ -2614,6 +2711,10 @@ char *argv[];
         DLLD="${DLLD=$CC}"
         DLLDARG=""
       ;;
+      *interix*)
+        DLLD="${DLLD=$CC}"
+        DLLDARG=""
+      ;;
       * )
 	DLLD="${DLLD=ld}"
 	DLLDARG=""
@@ -2624,6 +2725,7 @@ char *argv[];
     case "$host_os" in
       hpux*)   DLLDFLAGS="${DLLDFLAGS=-shared}" ;;
       darwin*) DLCFLAGS="${DLCFLAGS=-fno-common}" ;;
+      interix*) DLCFLAGS="${DLCFLAGS=}" ;;
       *)       DLCFLAGS="${DLCFLAGS=-fPIC}" ;;
     esac
   else
@@ -2638,10 +2740,9 @@ char *argv[];
   fi
   case "$host_os" in
     osf*) DLLDFLAGS="${DLLDFLAGS=-shared -expect_unresolved '*'}" ;;
-    *freebsd*|linux*|irix*|gnu*|dragonfly*) DLLDFLAGS="${DLLDFLAGS=-shared}" ;;
+    *freebsd*|*netbsd*|linux*|irix*|gnu*|interix*|dragonfly*) DLLDFLAGS="${DLLDFLAGS=-shared}" ;;
     sunos*)       DLLDFLAGS="${DLLDFLAGS=-assert nodefinitions}" ;;
     sysv4*|esix*) DLLDFLAGS="${DLLDFLAGS=-G $ldflags}" ;;
-    netbsd*)      DLLDFLAGS="${DLLDFLAGS=${DLLDARG}-x -shared --whole-archive}" ;;
     aix*)         DLLDFLAGS="${DLLDFLAGS=-G -bexpall -lc}" ;;
     solaris*|sysv4*|esix*) DLLDFLAGS="${DLLDFLAGS=-G}" ;;
     darwin*)      DLLDFLAGS="${DLLDFLAGS=-bundle -flat_namespace -undefined suppress}" ;;
@@ -3065,6 +3166,9 @@ man page install path     : ${zshman}
 info install path         : ${zshinfo}"
 if test "$zshfndir" != no; then
   echo "functions install path    : ${zshfndir}"
+fi
+if test "x$additionalfpath" != x; then
+  echo "additional fpath entries  : ${additionalfpath}"
 fi
 echo "See config.modules for installed modules and functions.
 "

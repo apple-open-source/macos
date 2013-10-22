@@ -27,7 +27,6 @@
 #ifndef CookieDatabaseBackingStore_h
 #define CookieDatabaseBackingStore_h
 
-#include "PlatformString.h"
 #include "SQLiteDatabase.h"
 #include "Timer.h"
 
@@ -38,28 +37,32 @@
 #include <wtf/ThreadingPrimitives.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class ParsedCookie;
 
-class CookieDatabaseBackingStore : public BlackBerry::Platform::MessageClient
-                                 , public BlackBerry::Platform::ThreadTimerClient {
+class CookieDatabaseBackingStore : public BlackBerry::Platform::MessageClient , public BlackBerry::Platform::ThreadTimerClient {
 public:
     static CookieDatabaseBackingStore* create() { return new CookieDatabaseBackingStore; }
 
     void open(const String& cookieJar);
 
-    void insert(const ParsedCookie*);
-    void update(const ParsedCookie*);
-    void remove(const ParsedCookie*);
+    void insert(const PassRefPtr<ParsedCookie>);
+    void update(const PassRefPtr<ParsedCookie>);
+    void remove(const PassRefPtr<ParsedCookie>);
 
     void removeAll();
 
     // If a limit is not set, the method will return all cookies in the database
-    void getCookiesFromDatabase(Vector<ParsedCookie*>& stackOfCookies, unsigned int limit = 0);
+    void getCookiesFromDatabase(Vector<RefPtr<ParsedCookie> >& stackOfCookies, unsigned limit = 0);
 
+    void openAndLoadDatabaseSynchronously(const String& cookieJar);
     void sendChangesToDatabaseSynchronously();
+
+    // MessageClient methods
+    virtual void onThreadFinished();
 
     // ThreadTimerClient methods
     virtual bool willFireTimer() { return true; }
@@ -77,19 +80,18 @@ private:
     CookieDatabaseBackingStore();
     ~CookieDatabaseBackingStore();
 
-    void addToChangeQueue(const ParsedCookie* changedCookie, UpdateParameter actionParam);
+    void addToChangeQueue(const PassRefPtr<ParsedCookie> changedCookie, UpdateParameter actionParam);
     void sendChangesToDatabase(int interval);
     void sendChangesToDatabaseTimerFired();
-    void upgradeTableIfNeeded(const String& databaseSchema, const String& primarykeyFields);
 
     void invokeOpen(const String& cookieJar);
     void invokeRemoveAll();
-    Vector<ParsedCookie*>* invokeGetCookiesWithLimit(unsigned int limit);
+    Vector<RefPtr<ParsedCookie> >* invokeGetCookiesWithLimit(unsigned limit);
     void invokeSendChangesToDatabase();
 
     void close();
 
-    typedef pair<const ParsedCookie, UpdateParameter> CookieAction;
+    typedef pair<const RefPtr<ParsedCookie>, UpdateParameter> CookieAction;
     Vector<CookieAction> m_changedCookies;
     Mutex m_mutex;
 

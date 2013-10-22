@@ -1,9 +1,4 @@
-begin
-  require "openssl"
-  require File.join(File.dirname(__FILE__), "utils.rb")
-rescue LoadError
-end
-require "test/unit"
+require_relative 'utils'
 
 if defined?(OpenSSL)
 
@@ -22,20 +17,20 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
       ["subjectKeyIdentifier","hash",false],
       ["authorityKeyIdentifier","keyid:always",false],
     ]
-    @ca_cert = issue_cert(ca, @rsa2048, 1, Time.now, Time.now+3600, ca_exts,
+    @ca_cert = issue_cert(ca, @rsa2048, 1, now, now+3600, ca_exts,
                            nil, nil, OpenSSL::Digest::SHA1.new)
     ee_exts = [
       ["keyUsage","Non Repudiation, Digital Signature, Key Encipherment",true],
       ["authorityKeyIdentifier","keyid:always",false],
       ["extendedKeyUsage","clientAuth, emailProtection, codeSigning",false],
     ]
-    @ee1_cert = issue_cert(ee1, @rsa1024, 2, Time.now, Time.now+1800, ee_exts,
+    @ee1_cert = issue_cert(ee1, @rsa1024, 2, now, now+1800, ee_exts,
                            @ca_cert, @rsa2048, OpenSSL::Digest::SHA1.new)
-    @ee2_cert = issue_cert(ee2, @rsa1024, 3, Time.now, Time.now+1800, ee_exts,
+    @ee2_cert = issue_cert(ee2, @rsa1024, 3, now, now+1800, ee_exts,
                            @ca_cert, @rsa2048, OpenSSL::Digest::SHA1.new)
   end
 
-  def issue_cert(*args)             
+  def issue_cert(*args)
     OpenSSL::TestUtils.issue_cert(*args)
   end
 
@@ -46,7 +41,7 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
 
     data = "aaaaa\r\nbbbbb\r\nccccc\r\n"
     tmp = OpenSSL::PKCS7.sign(@ee1_cert, @rsa1024, data, ca_certs)
-    p7 = OpenSSL::PKCS7::PKCS7.new(tmp.to_der)
+    p7 = OpenSSL::PKCS7.new(tmp.to_der)
     certs = p7.certificates
     signers = p7.signers
     assert(p7.verify([], store))
@@ -65,7 +60,7 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     data = "aaaaa\nbbbbb\nccccc\n"
     flag = OpenSSL::PKCS7::BINARY
     tmp = OpenSSL::PKCS7.sign(@ee1_cert, @rsa1024, data, ca_certs, flag)
-    p7 = OpenSSL::PKCS7::PKCS7.new(tmp.to_der)
+    p7 = OpenSSL::PKCS7.new(tmp.to_der)
     certs = p7.certificates
     signers = p7.signers
     assert(p7.verify([], store))
@@ -77,7 +72,7 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     assert_equal(@ee1_cert.serial, signers[0].serial)
     assert_equal(@ee1_cert.issuer.to_s, signers[0].issuer.to_s)
 
-    # A signed-data which have multiple signatures can be created 
+    # A signed-data which have multiple signatures can be created
     # through the following steps.
     #   1. create two signed-data
     #   2. copy signerInfo and certificate from one to another
@@ -85,9 +80,9 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     tmp1 = OpenSSL::PKCS7.sign(@ee1_cert, @rsa1024, data, [], flag)
     tmp2 = OpenSSL::PKCS7.sign(@ee2_cert, @rsa1024, data, [], flag)
     tmp1.add_signer(tmp2.signers[0])
-    tmp1.add_certificate(@ee2_cert)  
+    tmp1.add_certificate(@ee2_cert)
 
-    p7 = OpenSSL::PKCS7::PKCS7.new(tmp1.to_der)
+    p7 = OpenSSL::PKCS7.new(tmp1.to_der)
     certs = p7.certificates
     signers = p7.signers
     assert(p7.verify([], store))
@@ -108,8 +103,10 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     data = "aaaaa\nbbbbb\nccccc\n"
     flag = OpenSSL::PKCS7::BINARY|OpenSSL::PKCS7::DETACHED
     tmp = OpenSSL::PKCS7.sign(@ee1_cert, @rsa1024, data, ca_certs, flag)
-    p7 = OpenSSL::PKCS7::PKCS7.new(tmp.to_der)
-    a1 = OpenSSL::ASN1.decode(p7)
+    p7 = OpenSSL::PKCS7.new(tmp.to_der)
+    assert_nothing_raised do
+      OpenSSL::ASN1.decode(p7)
+    end
 
     certs = p7.certificates
     signers = p7.signers
@@ -136,7 +133,7 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     data = "aaaaa\nbbbbb\nccccc\n"
 
     tmp = OpenSSL::PKCS7.encrypt(certs, data, cipher, OpenSSL::PKCS7::BINARY)
-    p7 = OpenSSL::PKCS7::PKCS7.new(tmp.to_der)
+    p7 = OpenSSL::PKCS7.new(tmp.to_der)
     recip = p7.recipients
     assert_equal(:enveloped, p7.type)
     assert_equal(2, recip.size)
@@ -148,6 +145,11 @@ class OpenSSL::TestPKCS7 < Test::Unit::TestCase
     assert_equal(@ca_cert.subject.to_s, recip[1].issuer.to_s)
     assert_equal(3, recip[1].serial)
     assert_equal(data, p7.decrypt(@rsa1024, @ee2_cert))
+  end
+
+  def test_graceful_parsing_failure #[ruby-core:43250]
+    contents = File.read(__FILE__)
+    assert_raise(ArgumentError) { OpenSSL::PKCS7.new(contents) }
   end
 end
 

@@ -19,70 +19,94 @@
 #include "config.h"
 #include "CanvasLayerWebKitThread.h"
 
+#include "LayerCompositingThread.h"
+
 #if USE(ACCELERATED_COMPOSITING) && ENABLE(ACCELERATED_2D_CANVAS)
 
-#include "SharedGraphicsContext3D.h"
-#include <GLES2/gl2.h>
-#include <SkGpuDevice.h>
+#include <BlackBerryPlatformGLES2Program.h>
+
+using BlackBerry::Platform::Graphics::GLES2Program;
 
 namespace WebCore {
 
-CanvasLayerWebKitThread::CanvasLayerWebKitThread(SkGpuDevice* device)
+void CanvasLayerWebKitThread::deleteTextures()
+{
+}
+
+class CanvasLayerCompositingThreadClient : public LayerCompositingThreadClient {
+public:
+    CanvasLayerCompositingThreadClient(BlackBerry::Platform::Graphics::Buffer*, const IntSize&);
+
+    void layerCompositingThreadDestroyed(LayerCompositingThread*) { }
+    void layerVisibilityChanged(LayerCompositingThread*, bool) { }
+    void uploadTexturesIfNeeded(LayerCompositingThread*) { }
+
+    void drawTextures(LayerCompositingThread*, const GLES2Program&, double scale, const FloatRect& clipRect);
+    void deleteTextures(LayerCompositingThread*);
+
+    void commitPendingTextureUploads(LayerCompositingThread*);
+
+    void clearBuffer() { m_buffer = 0; }
+
+private:
+    BlackBerry::Platform::Graphics::Buffer* m_buffer;
+    IntSize m_size;
+};
+
+CanvasLayerCompositingThreadClient::CanvasLayerCompositingThreadClient(BlackBerry::Platform::Graphics::Buffer* buffer, const IntSize& size)
+    : m_buffer(buffer)
+    , m_size(size)
+{
+}
+
+void CanvasLayerCompositingThreadClient::drawTextures(LayerCompositingThread* layer, const GLES2Program&, double, const FloatRect& /*clipRect*/)
+{
+    if (!m_buffer)
+        return;
+
+    TransformationMatrix dt = layer->drawTransform();
+    dt.translate(-layer->bounds().width() / 2.0, -layer->bounds().height() / 2.0);
+    dt.scaleNonUniform(static_cast<double>(layer->bounds().width()) / m_size.width(), static_cast<double>(layer->bounds().height()) / m_size.height());
+    blitToBuffer(0, m_buffer, reinterpret_cast<BlackBerry::Platform::TransformationMatrix&>(dt),
+        BlackBerry::Platform::Graphics::SourceOver, static_cast<unsigned char>(layer->drawOpacity() * 255));
+}
+
+void CanvasLayerCompositingThreadClient::deleteTextures(LayerCompositingThread*)
+{
+    // Nothing to do here, the buffer is not owned by us.
+}
+
+void CanvasLayerCompositingThreadClient::commitPendingTextureUploads(LayerCompositingThread*)
+{
+    if (!m_buffer)
+        return;
+
+    // This method is called during a synchronization point between WebKit and compositing thread.
+    // This is our only chance to transfer the back display list to the front display list without
+    // race conditions.
+    // 1. Flush back display list to front
+    BlackBerry::Platform::Graphics::releaseBufferDrawable(m_buffer);
+    // 2. Draw front display list to FBO
+    BlackBerry::Platform::Graphics::updateBufferBackingSurface(m_buffer);
+}
+
+
+CanvasLayerWebKitThread::CanvasLayerWebKitThread(BlackBerry::Platform::Graphics::Buffer* buffer, const IntSize& size)
     : LayerWebKitThread(CanvasLayer, 0)
 {
-    setDevice(device);
+    m_compositingThreadClient = new CanvasLayerCompositingThreadClient(buffer, size);
+    layerCompositingThread()->setClient(m_compositingThreadClient);
 }
 
 CanvasLayerWebKitThread::~CanvasLayerWebKitThread()
 {
-    if (m_texID) {
-        SharedGraphicsContext3D::get()->makeContextCurrent();
-        glDeleteTextures(1, &m_texID);
-    }
+    layerCompositingThread()->setClient(0);
+    delete m_compositingThreadClient;
 }
 
-void CanvasLayerWebKitThread::setDevice(SkGpuDevice* device)
+void CanvasLayerWebKitThread::clearBuffer(CanvasLayerWebKitThread* layer)
 {
-    m_device = device;
-    setLayerProgramShader(LayerProgramShaderRGBA);
-    setNeedsDisplay();
-}
-
-void CanvasLayerWebKitThread::setNeedsDisplay()
-{
-    m_needsDisplay = true;
-    setNeedsCommit();
-}
-
-void CanvasLayerWebKitThread::updateTextureContentsIfNeeded()
-{
-    if (!m_needsDisplay || !m_device)
-        return;
-
-    m_needsDisplay = false;
-    m_device->makeRenderTargetCurrent();
-
-    GLint previousTexture;
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousTexture);
-
-    if (!m_texID) {
-        glGenTextures(1, &m_texID);
-        glBindTexture(GL_TEXTURE_2D, m_texID);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_device->width(), m_device->height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-
-        createFrontBufferLock();
-    }
-
-    pthread_mutex_lock(m_frontBufferLock);
-    glBindTexture(GL_TEXTURE_2D, m_texID);
-    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, m_device->width(), m_device->height(), 0);
-    glFinish(); // This might be implicit in the CopyTexImage2D, but explicit Finish is required on some architectures
-    glBindTexture(GL_TEXTURE_2D, previousTexture);
-    pthread_mutex_unlock(m_frontBufferLock);
+    layer->m_compositingThreadClient->clearBuffer();
 }
 
 }

@@ -155,12 +155,14 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	    ntlm_cred cred = (ntlm_cred) initiator_cred_handle;
 	    major = _gss_ntlm_copy_cred(minor_status, cred, &ctx->client);
 	} else {
-	    ctx->client = calloc(1, sizeof(*ctx->client));
-	    ctx->client->user = strdup("");
-	    ctx->client->domain = strdup("");
-	    major = GSS_S_COMPLETE;
+	    ntlm_name_desc client_name;
+	    client_name.user = "";
+	    client_name.domain = "";
+	    client_name.flags = 0;
+
+	    major = _gss_ntlm_have_cred(minor_status, &client_name, &ctx->client);
 	}
-	
+
 	if (major) {
 	    OM_uint32 junk;
 	    _gss_ntlm_delete_sec_context(&junk, context_handle, NULL);

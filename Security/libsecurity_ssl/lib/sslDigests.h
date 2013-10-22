@@ -28,42 +28,24 @@
 #ifndef	_SSL_DIGESTS_H_
 #define _SSL_DIGESTS_H_	1
 
-#include "cryptType.h"
+#include <MacTypes.h>
+#include "sslMemory.h"
+#include "tls_digest.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*
- * These numbers show up all over the place...might as well hard code 'em once.
- */
-#define SSL_MD5_DIGEST_LEN      16
-#define SSL_SHA1_DIGEST_LEN     20
-#define SSL_SHA256_DIGEST_LEN	32
-#define SSL_SHA384_DIGEST_LEN	48
-#define SSL_MAX_DIGEST_LEN      48 /* >= SSL_MD5_DIGEST_LEN + SSL_SHA1_DIGEST_LEN */
-
-extern const UInt8 SSLMACPad1[], SSLMACPad2[];
-
-extern const HashReference SSLHashNull;
-extern const HashReference SSLHashMD5;
-extern const HashReference SSLHashSHA1;
-extern const HashReference SSLHashSHA256;
-extern const HashReference SSLHashSHA384;
-
 extern OSStatus CloneHashState(
 	const HashReference *ref,
 	const SSLBuffer *state,
-	SSLBuffer *newState,
-	SSLContext *ctx);
+	SSLBuffer *newState);
 extern OSStatus ReadyHash(
-	const HashReference *ref,
-	SSLBuffer *state,
-	SSLContext *ctx);
+	const HashReference *ref, 
+	SSLBuffer *state);
 extern OSStatus CloseHash(
-	const HashReference *ref,
-	SSLBuffer *state,
-	SSLContext *ctx);
+	const HashReference *ref, 
+	SSLBuffer *state);
 
 #ifdef __cplusplus
 }

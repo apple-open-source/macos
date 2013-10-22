@@ -1,5 +1,5 @@
 /******************************************************************************
- *   Copyright (C) 2009-2011, International Business Machines
+ *   Copyright (C) 2009-2012, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *******************************************************************************
  */
@@ -50,7 +50,6 @@
 
 #define HEX_0X 0 /*  0x1234 */
 #define HEX_0H 1 /*  01234h */
-
 
 /* prototypes --------------------------------------------------------------- */
 static void
@@ -139,6 +138,14 @@ static const struct AssemblyType {
         "\t.section .rodata\n"
         "\t.align 8\n" /* Either align 8 bytes or 2^8 (256) bytes. 8 bytes is needed. */
         "_%s:\n\n",
+
+        ".long ","",HEX_0X
+    },
+    {"gcc-mingw64",
+        ".globl %s\n"
+        "\t.section .rodata\n"
+        "\t.align 8\n" /* Either align 8 bytes or 2^8 (256) bytes. 8 bytes is needed. */
+        "%s:\n\n",
 
         ".long ","",HEX_0X
     },
@@ -1004,7 +1011,7 @@ writeObjectCode(const char *filename, const char *destdir, const char *optEntryP
 
     /* deal with options, files and the entry point name */
     getArchitecture(&cpu, &bits, &makeBigEndian, optMatchArch);
-    printf("genccode: --match-arch cpu=%hu bits=%hu big-endian=%hu\n", cpu, bits, makeBigEndian);
+    printf("genccode: --match-arch cpu=%hu bits=%hu big-endian=%d\n", cpu, bits, makeBigEndian);
 #if U_PLATFORM_HAS_WIN32_API
     if(cpu==IMAGE_FILE_MACHINE_I386) {
         entryOffset=1;

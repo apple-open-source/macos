@@ -38,112 +38,44 @@
 
 namespace WebCore {
 
-class DOMStringList;
+class PropertyNodeList;
 
 class HTMLPropertiesCollection : public HTMLCollection {
 public:
-    static PassOwnPtr<HTMLPropertiesCollection> create(Node*);
+    static PassRefPtr<HTMLPropertiesCollection> create(Node*, CollectionType);
     virtual ~HTMLPropertiesCollection();
 
-    unsigned length() const OVERRIDE;
-
-    virtual Node* item(unsigned) const OVERRIDE;
+    void updateRefElements() const;
 
     PassRefPtr<DOMStringList> names() const;
+    virtual PassRefPtr<PropertyNodeList> propertyNodeList(const String&) const;
+    virtual bool hasNamedItem(const AtomicString&) const OVERRIDE;
 
-    PassRefPtr<NodeList> namedItem(const String&) const;
-    bool hasNamedItem(const AtomicString&) const;
+    void invalidateCache() const
+    {
+        m_itemRefElements.clear();
+        m_propertyNames.clear();
+    }
 
 private:
     HTMLPropertiesCollection(Node*);
 
-    unsigned calcLength() const;
-    void findProperties(Element* base) const;
-
-    Node* findRefElements(Node* previous) const;
-
-    Element* firstProperty() const;
-    Element* itemAfter(Element* base, Element* previous) const;
+    virtual Element* virtualItemAfter(unsigned& offsetInArray, Element*) const OVERRIDE;
+    HTMLElement* virtualItemAfter(HTMLElement* base, Element* previous) const;
 
     void updateNameCache() const;
-    void updateRefElements() const;
 
-    void invalidateCacheIfNeeded() const;
+    void updatePropertyCache(const AtomicString& propertyName) const
+    {
+        if (!m_propertyNames)
+            m_propertyNames = DOMStringList::create();
 
-    mutable struct {
-        uint64_t version;
-        Element* current;
-        unsigned position;
-        unsigned length;
-        bool hasLength;
-        bool hasNameCache;
-        NodeCacheMap propertyCache;
-        Vector<Element*> itemRefElements;
-        RefPtr<DOMStringList> propertyNames;
-        unsigned itemRefElementPosition;
-        bool hasItemRefElements;
+        if (!m_propertyNames->contains(propertyName))
+            m_propertyNames->append(propertyName);
+    }
 
-        void clear()
-        {
-            version = 0;
-            current = 0;
-            position = 0;
-            length = 0;
-            hasLength = false;
-            hasNameCache = false;
-            propertyCache.clear();
-            itemRefElements.clear();
-            propertyNames.clear();
-            itemRefElementPosition = 0;
-            hasItemRefElements = false;
-        }
-
-        void setItemRefElements(const Vector<Element*>& elements)
-        {
-            itemRefElements = elements;
-            hasItemRefElements = true;
-        }
-
-        const Vector<Element*>& getItemRefElements()
-        {
-            return itemRefElements;
-        }
-
-        void updateLength(unsigned len)
-        {
-            length = len;
-            hasLength = true;
-        }
-
-        void updatePropertyCache(Element* element, const AtomicString& propertyName)
-        {
-            if (!propertyNames)
-                propertyNames = DOMStringList::create();
-
-            if (!propertyNames->contains(propertyName))
-                propertyNames->append(propertyName);
-
-            Vector<Element*>* propertyResults = propertyCache.get(propertyName.impl());
-            if (!propertyResults || !propertyResults->contains(element))
-                append(propertyCache, propertyName, element);
-        }
-
-        void updateCurrentItem(Element* element, unsigned pos, unsigned itemRefElementPos)
-        {
-            current = element;
-            position = pos;
-            itemRefElementPosition = itemRefElementPos;
-        }
-
-        void resetPosition()
-        {
-            current = 0;
-            position = 0;
-            itemRefElementPosition = 0;
-        }
-
-    } m_cache;
-
+    mutable Vector<HTMLElement*> m_itemRefElements;
+    mutable RefPtr<DOMStringList> m_propertyNames;
 };
 
 } // namespace WebCore

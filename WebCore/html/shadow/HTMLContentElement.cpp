@@ -27,33 +27,30 @@
 #include "config.h"
 #include "HTMLContentElement.h"
 
-#include "ContentSelectorQuery.h"
-#include "HTMLContentSelector.h"
+#include "CSSParser.h"
+#include "ContentDistributor.h"
 #include "HTMLNames.h"
 #include "QualifiedName.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ShadowRoot.h"
-#include "ShadowTree.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using HTMLNames::selectAttr;
 
-static const QualifiedName& contentTagName()
-{
 #if ENABLE(SHADOW_DOM)
+
+const QualifiedName& HTMLContentElement::contentTagName(Document*)
+{
     if (!RuntimeEnabledFeatures::shadowDOMEnabled())
         return HTMLNames::webkitShadowContentTag;
     return HTMLNames::contentTag;
-#else
-    return HTMLNames::webkitShadowContentTag;
-#endif
 }
 
 PassRefPtr<HTMLContentElement> HTMLContentElement::create(Document* document)
 {
-    return adoptRef(new HTMLContentElement(contentTagName(), document));
+    return adoptRef(new HTMLContentElement(contentTagName(document), document));
 }
 
 PassRefPtr<HTMLContentElement> HTMLContentElement::create(const QualifiedName& tagName, Document* document)
@@ -63,6 +60,8 @@ PassRefPtr<HTMLContentElement> HTMLContentElement::create(const QualifiedName& t
 
 HTMLContentElement::HTMLContentElement(const QualifiedName& name, Document* document)
     : InsertionPoint(name, document)
+    , m_shouldParseSelectorList(false)
+    , m_isValidSelector(true)
 {
 }
 
@@ -70,29 +69,136 @@ HTMLContentElement::~HTMLContentElement()
 {
 }
 
+InsertionPoint::MatchType HTMLContentElement::matchTypeFor(Node*)
+{
+    if (select().isNull() || select().isEmpty())
+        return AlwaysMatches;
+    if (!isSelectValid())
+        return NeverMatches;
+    return HasToMatchSelector;
+}
+
 const AtomicString& HTMLContentElement::select() const
 {
     return getAttribute(selectAttr);
 }
 
-bool HTMLContentElement::isSelectValid() const
+bool HTMLContentElement::isSelectValid()
 {
-    ContentSelectorQuery query(this);
-    return query.isValidSelector();
+    ensureSelectParsed();
+    return m_isValidSelector;
 }
 
-void HTMLContentElement::setSelect(const AtomicString& selectValue)
+void HTMLContentElement::ensureSelectParsed()
 {
-    setAttribute(selectAttr, selectValue);
+    if (!m_shouldParseSelectorList)
+        return;
+
+    CSSParser parser(document());
+    parser.parseSelector(select(), m_selectorList);
+    m_shouldParseSelectorList = false;
+    m_isValidSelector = validateSelect();
+    if (!m_isValidSelector)
+        m_selectorList = CSSSelectorList();
 }
 
-void HTMLContentElement::parseAttribute(Attribute* attr)
+void HTMLContentElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attr->name() == selectAttr) {
-        if (ShadowRoot* root = toShadowRoot(shadowTreeRootNode()))
-            root->tree()->setNeedsReattachHostChildrenAndShadow();
+    if (name == selectAttr) {
+        if (ShadowRoot* root = containingShadowRoot())
+            root->owner()->willAffectSelector();
+        m_shouldParseSelectorList = true;
     } else
-        InsertionPoint::parseAttribute(attr);
+        InsertionPoint::parseAttribute(name, value);
 }
 
+static bool validateSubSelector(const CSSSelector* selector)
+{
+    switch (selector->m_match) {
+    case CSSSelector::Tag:
+    case CSSSelector::Id:
+    case CSSSelector::Class:
+    case CSSSelector::Exact:
+    case CSSSelector::Set:
+    case CSSSelector::List:
+    case CSSSelector::Hyphen:
+    case CSSSelector::Contain:
+    case CSSSelector::Begin:
+    case CSSSelector::End:
+        return true;
+    case CSSSelector::PseudoElement:
+        return false;
+    case CSSSelector::PagePseudoClass:
+    case CSSSelector::PseudoClass:
+        break;
+    }
+
+    switch (selector->pseudoType()) {
+    case CSSSelector::PseudoEmpty:
+    case CSSSelector::PseudoLink:
+    case CSSSelector::PseudoVisited:
+    case CSSSelector::PseudoTarget:
+    case CSSSelector::PseudoEnabled:
+    case CSSSelector::PseudoDisabled:
+    case CSSSelector::PseudoChecked:
+    case CSSSelector::PseudoIndeterminate:
+    case CSSSelector::PseudoNthChild:
+    case CSSSelector::PseudoNthLastChild:
+    case CSSSelector::PseudoNthOfType:
+    case CSSSelector::PseudoNthLastOfType:
+    case CSSSelector::PseudoFirstChild:
+    case CSSSelector::PseudoLastChild:
+    case CSSSelector::PseudoFirstOfType:
+    case CSSSelector::PseudoLastOfType:
+    case CSSSelector::PseudoOnlyOfType:
+        return true;
+    default:
+        return false;
+    }
 }
+
+static bool validateSelector(const CSSSelector* selector)
+{
+    ASSERT(selector);
+
+    if (!validateSubSelector(selector))
+        return false;
+
+    const CSSSelector* prevSubSelector = selector;
+    const CSSSelector* subSelector = selector->tagHistory();
+
+    while (subSelector) {
+        if (prevSubSelector->relation() != CSSSelector::SubSelector)
+            return false;
+        if (!validateSubSelector(subSelector))
+            return false;
+
+        prevSubSelector = subSelector;
+        subSelector = subSelector->tagHistory();
+    }
+
+    return true;
+}
+
+bool HTMLContentElement::validateSelect() const
+{
+    ASSERT(!m_shouldParseSelectorList);
+
+    if (select().isNull() || select().isEmpty())
+        return true;
+
+    if (!m_selectorList.isValid())
+        return false;
+
+    for (const CSSSelector* selector = m_selectorList.first(); selector; selector = m_selectorList.next(selector)) {
+        if (!validateSelector(selector))
+            return false;
+    }
+
+    return true;
+}
+
+#endif // if ENABLE(SHADOW_DOM)
+
+}
+

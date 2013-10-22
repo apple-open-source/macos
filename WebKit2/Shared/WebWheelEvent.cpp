@@ -69,51 +69,51 @@ WebWheelEvent::WebWheelEvent(Type type, const IntPoint& position, const IntPoint
 }
 #endif
 
-void WebWheelEvent::encode(CoreIPC::ArgumentEncoder* encoder) const
+void WebWheelEvent::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
     WebEvent::encode(encoder);
 
-    encoder->encode(m_position);
-    encoder->encode(m_globalPosition);
-    encoder->encode(m_delta);
-    encoder->encode(m_wheelTicks);
-    encoder->encode(m_granularity);
-    encoder->encode(m_directionInvertedFromDevice);
+    encoder << m_position;
+    encoder << m_globalPosition;
+    encoder << m_delta;
+    encoder << m_wheelTicks;
+    encoder << m_granularity;
+    encoder << m_directionInvertedFromDevice;
 #if PLATFORM(MAC)
-    encoder->encode(m_phase);
-    encoder->encode(m_momentumPhase);
-    encoder->encode(m_hasPreciseScrollingDeltas);
-    encoder->encode(m_scrollCount);
-    encoder->encode(m_unacceleratedScrollingDelta);
+    encoder << m_phase;
+    encoder << m_momentumPhase;
+    encoder << m_hasPreciseScrollingDeltas;
+    encoder << m_scrollCount;
+    encoder << m_unacceleratedScrollingDelta;
 #endif
 }
 
-bool WebWheelEvent::decode(CoreIPC::ArgumentDecoder* decoder, WebWheelEvent& t)
+bool WebWheelEvent::decode(CoreIPC::ArgumentDecoder& decoder, WebWheelEvent& t)
 {
     if (!WebEvent::decode(decoder, t))
         return false;
-    if (!decoder->decode(t.m_position))
+    if (!decoder.decode(t.m_position))
         return false;
-    if (!decoder->decode(t.m_globalPosition))
+    if (!decoder.decode(t.m_globalPosition))
         return false;
-    if (!decoder->decode(t.m_delta))
+    if (!decoder.decode(t.m_delta))
         return false;
-    if (!decoder->decode(t.m_wheelTicks))
+    if (!decoder.decode(t.m_wheelTicks))
         return false;
-    if (!decoder->decode(t.m_granularity))
+    if (!decoder.decode(t.m_granularity))
         return false;
-    if (!decoder->decode(t.m_directionInvertedFromDevice))
+    if (!decoder.decode(t.m_directionInvertedFromDevice))
         return false;
 #if PLATFORM(MAC)
-    if (!decoder->decode(t.m_phase))
+    if (!decoder.decode(t.m_phase))
         return false;
-    if (!decoder->decode(t.m_momentumPhase))
+    if (!decoder.decode(t.m_momentumPhase))
         return false;
-    if (!decoder->decode(t.m_hasPreciseScrollingDeltas))
+    if (!decoder.decode(t.m_hasPreciseScrollingDeltas))
         return false;
-    if (!decoder->decode(t.m_scrollCount))
+    if (!decoder.decode(t.m_scrollCount))
         return false;
-    if (!decoder->decode(t.m_unacceleratedScrollingDelta))
+    if (!decoder.decode(t.m_unacceleratedScrollingDelta))
         return false;
 #endif
     return true;

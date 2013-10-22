@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +26,7 @@
 
 #include "config.h"
 
-#if ENABLE(WEBGL)
+#if USE(3D_GRAPHICS)
 
 #include "GraphicsContext3D.h"
 
@@ -33,6 +34,11 @@
 #include "IntRect.h"
 #include "IntSize.h"
 #include "NotImplemented.h"
+
+#include <algorithm>
+#include <cstring>
+#include <wtf/MainThread.h>
+#include <wtf/text/CString.h>
 
 #if PLATFORM(MAC)
 #include <OpenGL/gl.h>
@@ -42,9 +48,20 @@
 
 namespace WebCore {
 
+void GraphicsContext3D::releaseShaderCompiler()
+{
+    makeContextCurrent();
+    notImplemented();
+}
+
 void GraphicsContext3D::readPixelsAndConvertToBGRAIfNecessary(int x, int y, int width, int height, unsigned char* pixels)
 {
     ::glReadPixels(x, y, width, height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
+}
+
+void GraphicsContext3D::validateAttributes()
+{
+    validateDepthStencil("GL_EXT_packed_depth_stencil");
 }
 
 bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
@@ -80,7 +97,7 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
         GLint sampleCount = std::min(8, maxSampleCount);
         if (sampleCount > maxSampleCount)
             sampleCount = maxSampleCount;
-        if (m_boundFBO != m_multisampleFBO) {
+        if (m_state.boundFBO != m_multisampleFBO) {
             ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_multisampleFBO);
             mustRestoreFBO = true;
         }
@@ -103,7 +120,7 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
     }
 
     // resize regular FBO
-    if (m_boundFBO != m_fbo) {
+    if (m_state.boundFBO != m_fbo) {
         mustRestoreFBO = true;
         ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
     }
@@ -129,7 +146,7 @@ bool GraphicsContext3D::reshapeFBOs(const IntSize& size)
 
     if (m_attrs.antialias) {
         ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_multisampleFBO);
-        if (m_boundFBO == m_multisampleFBO)
+        if (m_state.boundFBO == m_multisampleFBO)
             mustRestoreFBO = false;
     }
 
@@ -231,19 +248,65 @@ bool GraphicsContext3D::texImage2D(GC3Denum target, GC3Dint level, GC3Denum inte
         synthesizeGLError(INVALID_VALUE);
         return false;
     }
-    makeContextCurrent();
+
     GC3Denum openGLInternalFormat = internalformat;
     if (type == GL_FLOAT) {
         if (format == GL_RGBA)
             openGLInternalFormat = GL_RGBA32F_ARB;
         else if (format == GL_RGB)
             openGLInternalFormat = GL_RGB32F_ARB;
+    } else if (type == HALF_FLOAT_OES) {
+        if (format == GL_RGBA)
+            openGLInternalFormat = GL_RGBA16F_ARB;
+        else if (format == GL_RGB)
+            openGLInternalFormat = GL_RGB16F_ARB;
+        else if (format == GL_LUMINANCE)
+            openGLInternalFormat = GL_LUMINANCE16F_ARB;
+        else if (format == GL_ALPHA)
+            openGLInternalFormat = GL_ALPHA16F_ARB;
+        else if (format == GL_LUMINANCE_ALPHA)
+            openGLInternalFormat = GL_LUMINANCE_ALPHA16F_ARB;
+        type = GL_HALF_FLOAT_ARB;
     }
-
-    ::glTexImage2D(target, level, openGLInternalFormat, width, height, border, format, type, pixels);
+    texImage2DDirect(target, level, openGLInternalFormat, width, height, border, format, type, pixels);
     return true;
 }
 
+void GraphicsContext3D::depthRange(GC3Dclampf zNear, GC3Dclampf zFar)
+{
+    makeContextCurrent();
+    ::glDepthRange(zNear, zFar);
 }
 
-#endif // ENABLE(WEBGL)
+void GraphicsContext3D::clearDepth(GC3Dclampf depth)
+{
+    makeContextCurrent();
+    ::glClearDepth(depth);
+}
+
+Extensions3D* GraphicsContext3D::getExtensions()
+{
+    if (!m_extensions)
+        m_extensions = adoptPtr(new Extensions3DOpenGL(this));
+    return m_extensions.get();
+}
+
+void GraphicsContext3D::readPixels(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, void* data)
+{
+    // FIXME: remove the two glFlush calls when the driver bug is fixed, i.e.,
+    // all previous rendering calls should be done before reading pixels.
+    makeContextCurrent();
+    ::glFlush();
+    if (m_attrs.antialias && m_state.boundFBO == m_multisampleFBO) {
+        resolveMultisamplingIfNecessary(IntRect(x, y, width, height));
+        ::glBindFramebufferEXT(GraphicsContext3D::FRAMEBUFFER, m_fbo);
+        ::glFlush();
+    }
+    ::glReadPixels(x, y, width, height, format, type, data);
+    if (m_attrs.antialias && m_state.boundFBO == m_multisampleFBO)
+        ::glBindFramebufferEXT(GraphicsContext3D::FRAMEBUFFER, m_multisampleFBO);
+}
+
+}
+
+#endif // USE(3D_GRAPHICS)

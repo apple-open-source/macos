@@ -77,7 +77,7 @@ hdb_process_master_key(krb5_context context,
 	goto fail;
     if(etype != 0)
 	(*mkey)->keytab.keyblock.keytype = etype;
-    (*mkey)->keytab.timestamp = time(NULL);
+    (*mkey)->keytab.timestamp = (uint32_t)time(NULL);
     ret = krb5_crypto_init(context, key, etype, &(*mkey)->crypto);
     if(ret)
 	goto fail;

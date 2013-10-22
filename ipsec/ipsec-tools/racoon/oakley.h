@@ -35,11 +35,13 @@
 #define _OAKLEY_H
 
 #include "config.h"
+#include "racoon_types.h"
 
 #include "vmbuf.h"
 #ifndef HAVE_OPENSSL
 #include <Security/SecDH.h>
 #endif
+
 
 /* refer to RFC 2409 */
 
@@ -91,12 +93,23 @@
 #define OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_R	65008
 #define OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I	65009
 #define OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R	65010
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_PSKEY_I OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_I
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_PSKEY_R OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_DSSSIG_I OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_DSSSIG_R OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_RSASIG_I OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_RSASIG_R OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_RSAENC_I OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_I
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_RSAENC_R OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_R
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_RSAREV_I OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I
+#define OAKLEY_ATTR_AUTH_METHOD_EAP_RSAREV_R OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R
 #endif
 
 					/*	65500 -> still private
 					 * to avoid clash with GSSAPI_KRB below 
 					 */
 #define FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I	65500
+#define FICTIVE_AUTH_METHOD_EAP_PSKEY_I FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I
 
 
 	/*
@@ -190,66 +203,62 @@ typedef struct cert_t_tag {
 	struct cert_t_tag *chain;
 } cert_t;
 
-struct ph1handle;
-struct ph2handle;
 struct isakmp_ivm;
 
-extern int oakley_get_defaultlifetime __P((void));
+extern int oakley_get_defaultlifetime (void);
 
-extern int oakley_dhinit __P((void));
-extern void oakley_dhgrp_free __P((struct dhgroup *));
+extern int oakley_dhinit (void);
+extern void oakley_dhgrp_free (struct dhgroup *);
 #ifdef HAVE_OPENSSL
-extern int oakley_dh_compute __P((const struct dhgroup *, vchar_t *, vchar_t *, vchar_t *, vchar_t **));
-extern int oakley_dh_generate __P((const struct dhgroup *, vchar_t **, vchar_t **));
+extern int oakley_dh_compute (const struct dhgroup *, vchar_t *, vchar_t *, vchar_t *, vchar_t **);
+extern int oakley_dh_generate (const struct dhgroup *, vchar_t **, vchar_t **);
 #else
-extern int oakley_dh_compute __P((const struct dhgroup *, vchar_t *, size_t, vchar_t **, SecDHContext));
-extern int oakley_dh_generate __P((const struct dhgroup *, vchar_t **, size_t *,  SecDHContext*));
+extern int oakley_dh_compute (const struct dhgroup *, vchar_t *, size_t, vchar_t **, SecDHContext*);
+extern int oakley_dh_generate (const struct dhgroup *, vchar_t **, size_t *,  SecDHContext*);
 #endif
-extern int oakley_setdhgroup __P((int, struct dhgroup **));
+extern int oakley_setdhgroup (int, struct dhgroup **);
 
-extern vchar_t *oakley_prf __P((vchar_t *, vchar_t *, struct ph1handle *));
-extern vchar_t *oakley_hash __P((vchar_t *, struct ph1handle *));
+extern vchar_t *oakley_prf (vchar_t *, vchar_t *, phase1_handle_t *);
+extern vchar_t *oakley_hash (vchar_t *, phase1_handle_t *);
 
-extern int oakley_compute_keymat __P((struct ph2handle *, int));
+extern int oakley_compute_keymat (phase2_handle_t *, int);
+extern int oakley_compute_ikev2_keymat (phase2_handle_t *);
 
 #if notyet
-extern vchar_t *oakley_compute_hashx __P((void));
+extern vchar_t *oakley_compute_hashx (void);
 #endif
-extern vchar_t *oakley_compute_hash3 __P((struct ph1handle *,
-	u_int32_t, vchar_t *));
-extern vchar_t *oakley_compute_hash1 __P((struct ph1handle *,
-	u_int32_t, vchar_t *));
-extern vchar_t *oakley_ph1hash_common __P((struct ph1handle *, int));
-extern vchar_t *oakley_ph1hash_base_i __P((struct ph1handle *, int));
-extern vchar_t *oakley_ph1hash_base_r __P((struct ph1handle *, int));
+extern vchar_t *oakley_compute_hash3 (phase1_handle_t *, u_int32_t, vchar_t *);
+extern vchar_t *oakley_compute_hash1 (phase1_handle_t *, u_int32_t, vchar_t *);
+extern vchar_t *oakley_ph1hash_common (phase1_handle_t *, int);
+extern vchar_t *oakley_ph1hash_base_i (phase1_handle_t *, int);
+extern vchar_t *oakley_ph1hash_base_r (phase1_handle_t *, int);
 
-extern int oakley_validate_auth __P((struct ph1handle *));
-extern int oakley_getmycert __P((struct ph1handle *));
-extern int oakley_getsign __P((struct ph1handle *));
-extern cert_t * oakley_get_peer_cert_from_certchain __P((struct ph1handle *));
-extern int oakley_find_status_in_certchain __P((cert_t *, cert_status_t));
-extern void oakley_verify_certid __P((struct ph1handle *));
-extern vchar_t *oakley_getcr __P((struct ph1handle *));
-extern int oakley_checkcr __P((struct ph1handle *));
-extern int oakley_needcr __P((int));
+extern int oakley_validate_auth (phase1_handle_t *);
+extern int oakley_getmycert (phase1_handle_t *);
+extern int oakley_getsign (phase1_handle_t *);
+extern cert_t * oakley_get_peer_cert_from_certchain (phase1_handle_t *);
+extern int oakley_find_status_in_certchain (cert_t *, cert_status_t);
+extern void oakley_verify_certid (phase1_handle_t *);
+extern vchar_t *oakley_getcr (phase1_handle_t *);
+extern int oakley_checkcr (phase1_handle_t *);
+extern int oakley_needcr (int);
 struct isakmp_gen;
-extern int oakley_savecert __P((struct ph1handle *, struct isakmp_gen *));
-extern int oakley_savecr __P((struct ph1handle *, struct isakmp_gen *));
+extern int oakley_savecert (phase1_handle_t *, struct isakmp_gen *);
+extern int oakley_savecr (phase1_handle_t *, struct isakmp_gen *);
 
-extern vchar_t * oakley_getpskall __P((struct ph1handle *));
-extern int oakley_skeyid __P((struct ph1handle *));
-extern int oakley_skeyid_dae __P((struct ph1handle *));
+extern vchar_t * oakley_getpskall (phase1_handle_t *);
+extern int oakley_skeyid (phase1_handle_t *);
+extern int oakley_skeyid_dae (phase1_handle_t *);
 
-extern int oakley_compute_enckey __P((struct ph1handle *));
-extern cert_t *oakley_newcert __P((void));
-extern void oakley_delcert __P((cert_t *));
-extern int oakley_newiv __P((struct ph1handle *));
-extern struct isakmp_ivm *oakley_newiv2 __P((struct ph1handle *, u_int32_t));
-extern void oakley_delivm __P((struct isakmp_ivm *));
-extern vchar_t *oakley_do_decrypt __P((struct ph1handle *,
-	vchar_t *, vchar_t *, vchar_t *));
-extern vchar_t *oakley_do_encrypt __P((struct ph1handle *,
-	vchar_t *, vchar_t *, vchar_t *));
+extern int oakley_compute_enckey (phase1_handle_t *);
+extern cert_t *oakley_newcert (void);
+extern void oakley_delcert (cert_t *);
+extern int oakley_newiv (phase1_handle_t *);
+extern struct isakmp_ivm *oakley_newiv2 (phase1_handle_t *, u_int32_t);
+extern int oakley_newiv_ikev2(phase1_handle_t *iph1);
+extern void oakley_delivm (struct isakmp_ivm *);
+extern vchar_t *oakley_do_decrypt (phase1_handle_t *, vchar_t *, vchar_t *, vchar_t *);
+extern vchar_t *oakley_do_encrypt (phase1_handle_t *, vchar_t *, vchar_t *, vchar_t *);
 
 #ifdef ENABLE_HYBRID
 #define AUTHMETHOD(iph1)						     \

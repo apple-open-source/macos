@@ -64,14 +64,13 @@ const struct segment_command *
 getsegbyname(
 char *segname)
 {
-    static struct mach_header *mhp = NULL;
     struct segment_command *sgp;
     uint32_t i;
 #ifndef RLD
 #ifndef __OPENSTEP__
-	if(mhp == NULL)
-	    mhp = _NSGetMachExecuteHeader();
+    struct mach_header *mhp = _NSGetMachExecuteHeader();
 #else /* defined(__OPENSTEP__) */
+    static struct mach_header *mhp = NULL;
         DECLARE_VAR(_mh_execute_header, struct mach_header);
         SETUP_VAR(_mh_execute_header);
 	mhp = (struct mach_header *)(& USE_VAR(_mh_execute_header));
@@ -97,15 +96,14 @@ const struct segment_command_64 *
 getsegbyname(
 char *segname)
 {
-    static struct mach_header_64 *mhp = NULL;
+    struct mach_header_64 *mhp = NULL;
     struct segment_command_64 *sgp;
     uint32_t i;
 
-	if(mhp == NULL)
 #ifndef RLD
-	    mhp = _NSGetMachExecuteHeader();
+	mhp = _NSGetMachExecuteHeader();
 #else /* defined(RLD) */
-	    mhp = (struct mach_header_64 *)(&_mh_execute_header);
+	mhp = (struct mach_header_64 *)(&_mh_execute_header);
 #endif /* defined(RLD) */
         
 	sgp = (struct segment_command_64 *)

@@ -28,8 +28,6 @@
 //
 
 extern "C" {
-#include <unistd.h>
-
 #include <sys/ioctl.h>
 
 #include <termios.h>

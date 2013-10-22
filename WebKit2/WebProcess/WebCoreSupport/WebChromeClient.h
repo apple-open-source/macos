@@ -90,7 +90,7 @@ private:
     
     virtual void setResizable(bool) OVERRIDE;
     
-    virtual void addMessageToConsole(WebCore::MessageSource, WebCore::MessageType, WebCore::MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) OVERRIDE;
+    virtual void addMessageToConsole(WebCore::MessageSource, WebCore::MessageLevel, const String& message, unsigned lineNumber, unsigned columnNumber, const String& sourceID) OVERRIDE;
     
     virtual bool canRunBeforeUnloadConfirmPanel() OVERRIDE;
     virtual bool runBeforeUnloadConfirmPanel(const String& message, WebCore::Frame*) OVERRIDE;
@@ -111,7 +111,7 @@ private:
     virtual void invalidateRootView(const WebCore::IntRect&, bool) OVERRIDE;
     virtual void invalidateContentsAndRootView(const WebCore::IntRect&, bool) OVERRIDE;
     virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&, bool) OVERRIDE;
-    virtual void scroll(const WebCore::IntSize& scrollOffset, const WebCore::IntRect& scrollRect, const WebCore::IntRect& clipRect) OVERRIDE;
+    virtual void scroll(const WebCore::IntSize& scrollDelta, const WebCore::IntRect& scrollRect, const WebCore::IntRect& clipRect) OVERRIDE;
 #if USE(TILED_BACKING_STORE)
     virtual void delegatedScrollRequested(const WebCore::IntPoint& scrollOffset) OVERRIDE;
 #endif
@@ -132,14 +132,14 @@ private:
     virtual void print(WebCore::Frame*) OVERRIDE;
     
 #if ENABLE(SQL_DATABASE)
-    virtual void exceededDatabaseQuota(WebCore::Frame*, const String& databaseName) OVERRIDE;
+    virtual void exceededDatabaseQuota(WebCore::Frame*, const String& databaseName, WebCore::DatabaseDetails) OVERRIDE;
 #endif
 
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded) OVERRIDE;
     virtual void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin*, int64_t spaceNeeded) OVERRIDE;
 
 #if ENABLE(DASHBOARD_SUPPORT)
-    virtual void dashboardRegionsChanged() OVERRIDE;
+    virtual void annotatedRegionsChanged() OVERRIDE;
 #endif
 
     virtual void populateVisitedLinks() OVERRIDE;
@@ -153,15 +153,25 @@ private:
     
     virtual bool paintCustomOverhangArea(WebCore::GraphicsContext*, const WebCore::IntRect&, const WebCore::IntRect&, const WebCore::IntRect&) OVERRIDE;
 
+#if ENABLE(INPUT_TYPE_COLOR)
+    virtual PassOwnPtr<WebCore::ColorChooser> createColorChooser(WebCore::ColorChooserClient*, const WebCore::Color&) OVERRIDE;
+#endif
+
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>) OVERRIDE;
     virtual void loadIconForFiles(const Vector<String>&, WebCore::FileIconLoader*) OVERRIDE;
 
     virtual void setCursor(const WebCore::Cursor&) OVERRIDE;
     virtual void setCursorHiddenUntilMouseMoves(bool) OVERRIDE;
+#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
+    virtual void scheduleAnimation() OVERRIDE;
+#endif
 
     // Notification that the given form element has changed. This function
     // will be called frequently, so handling should be very fast.
     virtual void formStateDidChange(const WebCore::Node*) OVERRIDE;
+
+    virtual void didAssociateFormControls(const Vector<RefPtr<WebCore::Element>>&) OVERRIDE;
+    virtual bool shouldNotifyOnFormChanges() OVERRIDE;
 
     virtual bool selectItemWritingDirectionIsNatural() OVERRIDE;
     virtual bool selectItemAlignmentFollowsMenuWritingDirection() OVERRIDE;
@@ -170,9 +180,10 @@ private:
     virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const OVERRIDE;
 
 #if USE(ACCELERATED_COMPOSITING)
+    virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() const OVERRIDE;
     virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) OVERRIDE;
     virtual void setNeedsOneShotDrawingSynchronization() OVERRIDE;
-    virtual void scheduleCompositingLayerSync() OVERRIDE;
+    virtual void scheduleCompositingLayerFlush() OVERRIDE;
 
     virtual CompositingTriggerFlags allowedCompositingTriggers() const
     {
@@ -183,18 +194,12 @@ private:
             CanvasTrigger |
             AnimationTrigger);
     }
-#endif
 
-#if PLATFORM(WIN) && USE(AVFOUNDATION)
-    virtual WebCore::GraphicsDeviceAdapter* graphicsDeviceAdapter() const OVERRIDE;
+    virtual bool layerTreeStateIsFrozen() const OVERRIDE;
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
     virtual void needTouchEvents(bool) OVERRIDE;
-#endif
-
-#if PLATFORM(WIN)
-    virtual void setLastSetCursorToCurrentCursor() OVERRIDE;
 #endif
 
 #if ENABLE(FULLSCREEN_API)
@@ -206,17 +211,32 @@ private:
 #if PLATFORM(MAC)
     virtual void makeFirstResponder() OVERRIDE;
 #endif
+
+    virtual void enableSuddenTermination() OVERRIDE;
+    virtual void disableSuddenTermination() OVERRIDE;
     
     virtual void dispatchViewportPropertiesDidChange(const WebCore::ViewportArguments&) const OVERRIDE;
 
     virtual void notifyScrollerThumbIsVisibleInRect(const WebCore::IntRect&) OVERRIDE;
     virtual void recommendedScrollbarStyleDidChange(int32_t newStyle) OVERRIDE;
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const OVERRIDE;
+
+    virtual WebCore::Color underlayColor() const OVERRIDE;
     
     virtual void numWheelEventHandlersChanged(unsigned) OVERRIDE;
-    virtual void numTouchEventHandlersChanged(unsigned) OVERRIDE { }
 
     virtual void logDiagnosticMessage(const String& message, const String& description, const String& success) OVERRIDE;
+
+    virtual String plugInStartLabelTitle(const String& mimeType) const OVERRIDE;
+    virtual String plugInStartLabelSubtitle(const String& mimeType) const OVERRIDE;
+    virtual String plugInExtraStyleSheet() const OVERRIDE;
+    virtual String plugInExtraScript() const OVERRIDE;
+
+    virtual void didAddHeaderLayer(WebCore::GraphicsLayer*) OVERRIDE;
+    virtual void didAddFooterLayer(WebCore::GraphicsLayer*) OVERRIDE;
+
+    virtual void incrementActivePageCount() OVERRIDE;
+    virtual void decrementActivePageCount() OVERRIDE;
 
     String m_cachedToolTip;
     mutable RefPtr<WebFrame> m_cachedFrameSetLargestFrame;

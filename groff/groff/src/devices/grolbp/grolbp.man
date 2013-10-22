@@ -20,7 +20,7 @@ versions, except that this permission notice may be included in
 translations approved by the Free Software Foundation instead of in
 the original English.
 
-Modified by Francisco Andrés Verdú <pandres@dragonet.es> for the grolbp
+Modified by Francisco AndrÃ©s VerdÃº <pandres@dragonet.es> for the grolbp
 program.
 ..
 .de TQ

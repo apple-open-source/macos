@@ -1,9 +1,9 @@
 /*
- * "$Id: cups-exec.c 3972 2012-10-24 11:59:21Z msweet $"
+ * "$Id: cups-exec.c 11145 2013-07-17 02:46:19Z msweet $"
  *
  *   Sandbox helper for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -31,6 +31,7 @@
 #  ifndef SANDBOX_NAMED_EXTERNAL
 #    define SANDBOX_NAMED_EXTERNAL  0x0003
 #  endif /* !SANDBOX_NAMED_EXTERNAL */
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif /* HAVE_SANDBOX_H */
 
 
@@ -42,7 +43,6 @@ int					/* O - Exit status */
 main(int  argc,				/* I - Number of command-line args */
      char *argv[])			/* I - Command-line arguments */
 {
-  int	i;				/* Looping var */
 #ifdef HAVE_SANDBOX_H
   char	*sandbox_error = NULL;		/* Sandbox error, if any */
 #endif /* HAVE_SANDBOX_H */
@@ -60,7 +60,6 @@ main(int  argc,				/* I - Number of command-line args */
   }
 
 #ifdef HAVE_SANDBOX_H
-#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
  /*
   * Run in a separate security profile...
   */
@@ -74,20 +73,6 @@ main(int  argc,				/* I - Number of command-line args */
     return (1);
   }
 #endif /* HAVE_SANDBOX_H */
-
- /*
-  * Close file descriptors we don't need (insurance):
-  *
-  * 0   = stdin
-  * 1   = stdout
-  * 2   = stderr
-  * 3   = back-channel
-  * 4   = side-channel
-  * 5-N = unused
-  */
-
-  for (i = 5; i < 1024; i ++)
-    close(i);
 
  /*
   * Execute the program...
@@ -105,5 +90,5 @@ main(int  argc,				/* I - Number of command-line args */
 
 
 /*
- * End of "$Id: cups-exec.c 3972 2012-10-24 11:59:21Z msweet $".
+ * End of "$Id: cups-exec.c 11145 2013-07-17 02:46:19Z msweet $".
  */

@@ -1,0 +1,12 @@
+Build.PL
+Changes
+examples/time.pl
+lib/Time/HiRes/Value.pm
+LICENSE
+Makefile.PL
+MANIFEST			This list of files
+META.yml
+README
+t/01test.t
+t/02timing.t
+t/99pod.t

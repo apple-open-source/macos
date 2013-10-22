@@ -167,14 +167,6 @@ mach_port_t
 IONotificationPortGetMachPort(
 	IONotificationPortRef	notify );
 
-/*! @function IODispatchCalloutFromMessage
-    @abstract Dispatches callback notifications from a mach message.
-    @discussion A notification object may deliver notifications to a mach messaging client, 
-                which should call this function to generate the callbacks associated with the notifications arriving on the port.
-    @param unused Not used, set to zero.
-    @param msg A pointer to the message received.
-    @param reference Pass the IONotificationPortRef for the object. */
-
 /*! @function IONotificationPortSetDispatchQueue
     @abstract Sets a dispatch queue to be used to listen for notifications.
     @discussion A notification object may deliver notifications to a dispatch client.
@@ -185,6 +177,14 @@ void
 IONotificationPortSetDispatchQueue(
 	IONotificationPortRef notify, dispatch_queue_t queue )
 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_4_3);
+
+/*! @function IODispatchCalloutFromMessage
+    @abstract Dispatches callback notifications from a mach message.
+    @discussion A notification object may deliver notifications to a mach messaging client, 
+                which should call this function to generate the callbacks associated with the notifications arriving on the port.
+    @param unused Not used, set to zero.
+    @param msg A pointer to the message received.
+    @param reference Pass the IONotificationPortRef for the object. */
 
 void
 IODispatchCalloutFromMessage(

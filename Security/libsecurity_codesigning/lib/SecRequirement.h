@@ -64,7 +64,7 @@ CFTypeID SecRequirementGetTypeID(void);
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param requirement On successful return, contains a reference to a SecRequirement
 	object that behaves identically to the one the data blob was obtained from.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementCreateWithData(CFDataRef data, SecCSFlags flags,
@@ -81,10 +81,10 @@ OSStatus SecRequirementCreateWithData(CFDataRef data, SecCSFlags flags,
 	@param requirement On successful return, contains a reference to a SecRequirement
 	object that implements the conditions described in text.
 	@param errors An optional pointer to a CFErrorRef variable. If the call fails
-	(and something other than noErr is returned), and this argument is non-NULL,
+	(and something other than errSecSuccess is returned), and this argument is non-NULL,
 	a CFErrorRef is stored there further describing the nature and circumstances
 	of the failure. The caller must CFRelease() this error object when done with it.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementCreateWithString(CFStringRef text, SecCSFlags flags,
@@ -104,7 +104,7 @@ OSStatus SecRequirementCreateWithStringAndErrors(CFStringRef text, SecCSFlags fl
 	@param data On successful return, contains a reference to a CFData object
 	containing a binary blob that can be fed to SecRequirementCreateWithData
 	to recreate a SecRequirement object with identical behavior.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementCopyData(SecRequirementRef requirement, SecCSFlags flags,
@@ -126,7 +126,7 @@ OSStatus SecRequirementCopyData(SecRequirementRef requirement, SecCSFlags flags,
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param text On successful return, contains a reference to a CFString object
 	containing a text representation of the requirement.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementCopyString(SecRequirementRef requirement, SecCSFlags flags,

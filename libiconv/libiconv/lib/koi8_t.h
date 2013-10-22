@@ -50,7 +50,7 @@ static const unsigned short koi8_t_2uni[128] = {
 };
 
 static int
-koi8_t_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+koi8_t_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80) {
@@ -120,7 +120,7 @@ static const unsigned char koi8_t_page21[24] = {
 };
 
 static int
-koi8_t_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+koi8_t_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

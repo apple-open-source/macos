@@ -59,9 +59,9 @@ public:
 	size_t size();								// calculate size
 	CodeDirectory *build();						// build CodeDirectory and return it
 
-private:
 	DynamicHash *getHash() const { return CodeDirectory::hashFor(this->mHashType); }
 	
+private:
 	Hashing::Byte *specialSlot(SpecialSlot slot)
 		{ assert(slot > 0 && slot <= cdSlotMax); return mSpecial + (slot - 1) * mDigestLength; }
 	Hashing::Byte *specialSlot(SpecialSlot slot) const

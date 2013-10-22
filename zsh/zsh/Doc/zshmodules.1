@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "December 20, 2010" "zsh 4\&.3\&.11"
+.TH "ZSHMODULES" "1" "December 21, 2012" "zsh 5\&.0\&.2"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -7,8 +7,11 @@ Some optional parts of zsh are in modules, separate from the core
 of the shell\&.  Each of these modules may be linked in to the
 shell at build time,
 or can be dynamically linked while the shell is running
-if the installation supports this feature\&.  The modules that
-are bundled with the zsh distribution are:
+if the installation supports this feature\&.
+Modules are linked at runtime with the \fBzmodload\fP command,
+see \fIzshbuiltins\fP(1)\&.
+.PP
+The modules that are bundled with the zsh distribution are:
 .PP
 .\" Yodl file: Zsh/modlist.yo
 .PD 0
@@ -50,6 +53,9 @@ An example of how to write a module\&.
 .TP
 \fBzsh/files\fP
 Some basic file manipulation commands as builtins\&.
+.TP
+\fBzsh/langinfo\fP
+Interface to locale information\&.
 .TP
 \fBzsh/mapfile\fP
 Access to external files via a special associative array\&.
@@ -625,7 +631,10 @@ make the longest unambiguous string be inserted in the command line
 and \fBundo\fP and \fBbackward\-delete\-char\fP go back to the previous set
 of matches
 .TP
-\fBhistory\-incremental\-search\-forward\fP,
+.PD 0
+\fBhistory\-incremental\-search\-forward\fP
+.TP
+.PD
 \fBhistory\-incremental\-search\-backward\fP
 this starts incremental searches in the list of completions displayed;
 in this mode, \fBaccept\-line\fP only leaves incremental search, going
@@ -1076,14 +1085,42 @@ in seconds if \fB\-r\fP is given) to \fIscalar\fP instead of printing it\&.
 .RE
 .RE
 .PP
-The \fBzsh/datetime\fP module makes available one parameter:
+The \fBzsh/datetime\fP module makes available several parameters;
+all are readonly:
 .PP
 .PD 0
 .TP
 .PD
+\fBEPOCHREALTIME\fP
+A floating point value representing the number of seconds since
+the epoch\&.  The notional accuracy is to nanoseconds if the
+\fBclock_gettime\fP call is available and to microseconds otherwise,
+but in practice the range of double precision floating point and
+shell scheduling latencies may be significant effects\&.
+.TP
 \fBEPOCHSECONDS\fP
 An integer value representing the number of seconds since the
 epoch\&.
+.TP
+\fBepochtime\fP
+An array value containing the number of seconds since the epoch
+in the first element and the remainder of the time since the epoch
+in nanoseconds in the second element\&.  To ensure the two elements
+are consistent the array should be copied or otherwise referenced
+as a single substitution before the values are used\&.  The following
+idiom may be used:
+.RS
+.PP
+.RS
+.nf
+\fBfor secs nsecs in $epochtime; do
+  \&.\&.\&.
+done\fP
+.fi
+.RE
+.PP
+.RE
+.RE
 .SH "THE ZSH/DELTOCHAR MODULE"
 .\" Yodl file: Zsh/mod_deltochar.yo
 
@@ -1295,6 +1332,45 @@ Removes empty directories specified\&.
 Calls the system call of the same name (see \fIsync\fP(2)), which
 flushes dirty buffers to disk\&.  It might return before the I/O has
 actually been completed\&.
+.SH "THE ZSH/LANGINFO MODULE"
+.\" Yodl file: Zsh/mod_langinfo.yo
+
+The \fBzsh/langinfo\fP module makes available one parameter:
+.PP
+.PD 0
+.TP
+.PD
+\fBlanginfo\fP
+An associative array that maps langinfo elements to
+their values\&.
+.RS
+.PP
+Your implementation may support a number of the following keys:
+.PP
+\fBCODESET\fP,
+\fBD_T_FMT\fP,
+\fBD_FMT\fP,
+\fBT_FMT\fP,
+\fBRADIXCHAR\fP,
+\fBTHOUSEP\fP,
+\fBYESEXPR\fP,
+\fBNOEXPR\fP,
+\fBCRNCYSTR\fP,
+\fBABDAY_{1\&.\&.7}\fP,
+\fBDAY_{1\&.\&.7}\fP,
+\fBABMON_{1\&.\&.12}\fP,
+\fBMON_{1\&.\&.12}\fP,
+\fBT_FMT_AMPM\fP,
+\fBAM_STR\fP,
+\fBPM_STR\fP,
+\fBERA\fP,
+\fBERA_D_FMT\fP,
+\fBERA_D_T_FMT\fP,
+\fBERA_T_FMT\fP,
+\fBALT_DIGITS\fP
+.PP
+.RE
+.RE
 .SH "THE ZSH/MAPFILE MODULE"
 .\" Yodl file: Zsh/mod_mapfile.yo
 
@@ -1638,6 +1714,11 @@ they stand for\&.
 This associative array maps user names to the pathnames of their home
 directories\&.
 .TP
+\fBusergroups\fP
+This associative array maps names of system groups of which the current
+user is a member to the corresponding group identifiers\&.  The contents
+are the same as the groups output by the \fBid\fP command\&.
+.TP
 \fBfuncfiletrace\fP
 This array contains the absolute line numbers and corresponding file
 names for the point where the current function, sourced file, or (if
@@ -1843,6 +1924,10 @@ the shell to clear the command line before the event and redraw it
 afterwards\&.  This should be used with any scheduled event that produces
 visible output to the terminal; it is not needed, for example, with
 output that updates a terminal emulator\&'s title bar\&.
+.PP
+The \fBsched\fP builtin is not made available by default when the shell
+starts in a mode emulating another shell\&.  It can be made available
+with the command `\fBzmodload \-F zsh/sched b:sched\fP\&'\&.
 .RE
 .RE
 .PP
@@ -3449,7 +3534,8 @@ style is defined for at least one matching pattern, has only one string in
 its value, and that is equal to one of `\fBtrue\fP\&', `\fByes\fP', `\fBon\fP' or
 `\fB1\fP\&'\&. If any \fIstrings\fP are given the status is zero if and only if
 at least one of the \fIstrings\fP is equal to at least one of the strings
-in the value\&. If the style is not defined, the status is \fB2\fP\&.
+in the value\&. If the style is defined but doesn\&'t match, the return status
+is \fB1\fP\&. If the style is not defined, the status is \fB2\fP\&.
 .RS
 .PP
 The \fB\-T\fP option tests the values of the style like \fB\-t\fP, but it
@@ -3533,7 +3619,7 @@ The resulting strings are stored in the \fIarray\fP\&.
 \fBzregexparse\fP
 This implements some internals of the \fB_regex_arguments\fP function\&.
 .TP
-\fBzparseopts\fP [ \fB\-D\fP ] [ \fB\-K\fP ] [ \fB\-E\fP ] [ \fB\-a\fP \fIarray\fP ] [ \fB\-A\fP \fIassoc\fP ] \fIspecs\fP
+\fBzparseopts\fP [ \fB\-D\fP ] [ \fB\-K\fP ] [ \fB\-M\fP ] [ \fB\-E\fP ] [ \fB\-a\fP \fIarray\fP ] [ \fB\-A\fP \fIassoc\fP ] \fIspecs\fP
 This builtin simplifies the parsing of options in positional parameters,
 i\&.e\&. the set of arguments given by \fB$*\fP\&.  Each \fIspec\fP describes one
 option and must be of the form `\fIopt\fP[\fB=\fP\fIarray\fP]\&'\&.  If an option
@@ -3625,6 +3711,15 @@ options and with the `\fB=\fP\fIarray\fP\&' forms are kept unchanged when none
 of the \fIspecs\fP for them is used\&.  This allows assignment of default
 values to them before calling \fBzparseopts\fP\&.
 .TP
+\fB\-M\fP
+This changes the assignment rules to implement a map among equivalent
+option names\&.  If any \fIspec\fP uses the `\fB=\fP\fIarray\fP\&' form, the
+string \fIarray\fP is interpreted as the name of another \fIspec\fP,
+which is used to choose where to store the values\&.  If no other \fIspec\fP
+is found, the values are stored as usual\&.  This changes only the way the
+values are stored, not the way \fB$*\fP is parsed, so results may be
+unpredicable if the `\fIname\fP\fB+\fP\&' specifier is used inconsistently\&.
+.TP
 \fB\-E\fP
 This changes the parsing rules to \fInot\fP stop at the first string
 that isn\&'t described by one of the \fIspec\fPs\&.  It can be used to test
@@ -3672,5 +3767,23 @@ set \-\- \-a x \-c z arg1 arg2\fP
 .PP
 I\&.e\&., the option \fB\-b\fP and its arguments are taken from the
 positional parameters and put into the array \fBbar\fP\&.
+.PP
+The \fB\-M\fP option can be used like this:
+.PP
+.RS
+.nf
+\fBset \-\- \-a \-bx \-c y \-cz baz \-cend
+zparseopts \-A bar \-M a=foo b+: c:=b\fP
+.fi
+.RE
+.PP
+to have the effect of
+.PP
+.RS
+.nf
+\fBfoo=(\-a)
+bar=(\-a \&'' \-b xyz)\fP
+.fi
+.RE
 .RE
 .RE

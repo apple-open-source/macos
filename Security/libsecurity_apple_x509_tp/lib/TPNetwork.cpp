@@ -46,7 +46,7 @@ static CSSM_RETURN tpDecodeCert(
 	CSSM_DATA		&rtnBlob)		// will be reallocated if needed
 {
 	const unsigned char *inbuf = (const unsigned char *)rtnBlob.Data;
-	unsigned inlen = rtnBlob.Length;
+	unsigned inlen = (unsigned)rtnBlob.Length;
 	unsigned char *outbuf = NULL;
 	unsigned outlen = 0;
 	CSSM_RETURN ortn = cuConvertPem(inbuf, inlen, &outbuf, &outlen);

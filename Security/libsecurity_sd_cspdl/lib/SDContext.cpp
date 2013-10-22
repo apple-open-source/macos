@@ -282,7 +282,7 @@ size_t SDSignatureContext::outputSize(bool final, size_t inSize)
 			/* FIXME - what to use for inSize here - we don't want to 
 			 * interrogate mDigest, as that would result in another RPC...
 			 * and signature size is not related to input size...right? */
-			inSize,
+			(uint32)inSize,
 			true);
 		ssCryptDebug("===sig outputSize(RPC) %u", (unsigned)outSize);
 		return (size_t)outSize;
@@ -428,7 +428,7 @@ SDCryptContext::outputSize(bool final, size_t inSize)
 		/* out-of-band case, ask CSP via SS */
 		uint32 outSize = clientSession().getOutputSize(*mContext, 
 			mKeyHandle, 
-			inBufSize + inSize,
+			(uint32)(inBufSize + inSize),
 			encoding());
 		ssCryptDebug("   ===outSize(RPC) %u", (unsigned)outSize);
 		return (size_t)outSize;
@@ -470,7 +470,7 @@ SDCryptContext::final(CssmData &out)
 	if(!inSize) return;
 
 	const CssmData in(const_cast<void *>(mNullDigest.digestPtr()), inSize);
-	IFDEBUG(unsigned origOutSize = out.length());
+	IFDEBUG(size_t origOutSize = out.length());
 	if (encoding()) {
 		clientSession().encrypt(*mContext, mKeyHandle, in, out);
 	}
@@ -518,7 +518,7 @@ size_t SDDigestContext::outputSize(bool final, size_t inSize)
 		return 0;
 	}
 	else {
-		return (size_t)mDigest->getOutputSize(inSize);
+		return (size_t)mDigest->getOutputSize((uint32)inSize);
 	}
 }
 
@@ -573,7 +573,7 @@ size_t SDMACContext::outputSize(bool final, size_t inSize)
 		/* out-of-band case, ask CSP via SS */
 		uint32 outSize = clientSession().getOutputSize(*mContext, 
 			mKeyHandle, 
-			inSize + mNullDigest.digestSizeInBytes(),
+			(uint32)(inSize + mNullDigest.digestSizeInBytes()),
 			true);
 		ssCryptDebug("===mac outputSize(RPC) %u", (unsigned)outSize);
 		return (size_t)outSize;

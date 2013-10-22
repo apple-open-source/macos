@@ -108,15 +108,6 @@ _gss_ntlm_display_name (
 	gss_OID * output_name_type );
 
 OM_uint32
-_gss_ntlm_display_status (
-	OM_uint32 */*minor_status*/,
-	OM_uint32 /*status_value*/,
-	int /*status_type*/,
-	const gss_OID /*mech_type*/,
-	OM_uint32 */*message_context*/,
-	gss_buffer_t /*status_string*/);
-
-OM_uint32
 _gss_ntlm_duplicate_name (
 	 OM_uint32 * /*minor_status*/,
 	const gss_name_t /*src_name*/,
@@ -332,6 +323,11 @@ _gss_ntlm_cred_label_get(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 OM_uint32
 _gss_ntlm_cred_label_set(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 			const char *label, gss_buffer_t value);
+
+OM_uint32
+_gss_ntlm_have_cred(OM_uint32 *minor,
+		    const ntlm_name target_name,
+		    ntlm_cred *rcred);
 
 
 #endif /* __ntlm_private_h__ */

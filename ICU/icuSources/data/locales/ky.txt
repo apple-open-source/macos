@@ -1,0 +1,473 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/ky.xml
+// *
+// ***************************************************************************
+/**
+ *  ICU <specials> source: <path>/xml/main/ky.xml
+ */
+ky{
+    AuxExemplarCharacters{"[в ф ц щ ь]"}
+    ExemplarCharacters{"[а б г д е ё ж з и й к л м н ӊ о ө п р с т у ү х ч ш ъ ы э ю я]"}
+    ExemplarCharactersIndex{"[А Б Г Д Е Ж З И Й К Л М Н Ӊ О Ө П Р С Т У Ү Х Ч Ш Ъ Ы Э Ю Я]"}
+    LocaleScript{
+        "Cyrl",
+    }
+    NumberElements{
+        latn{
+            symbols{
+                decimal{","}
+                group{" "}
+            }
+        }
+    }
+    Version{"2.0.82.45"}
+    calendar{
+        generic{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d MMMM y 'ж'. G",
+                "d MMMM y 'ж'. G",
+                "dd.MM.y G",
+                "dd.MM.yy GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                E{"ccc"}
+                Ed{"ccc, d"}
+                Gy{"y G"}
+                GyMMM{"LLL y G"}
+                GyMMMEd{"E, d MMM y 'ж'. G"}
+                GyMMMd{"d MMM y 'ж'. G"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, dd.MM"}
+                MMM{"LLL"}
+                MMMEd{"E, d MMM"}
+                MMMd{"d MMM"}
+                MMdd{"dd.MM"}
+                Md{"dd.MM"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y G"}
+                yyyy{"y G"}
+                yyyyM{"MM.y G"}
+                yyyyMEd{"E, d.MM.y G"}
+                yyyyMMM{"LLL y G"}
+                yyyyMMMEd{"E, d MMM y 'ж'. G"}
+                yyyyMMMd{"d MMM y 'ж'. G"}
+                yyyyMd{"dd.MM.y G"}
+                yyyyQQQ{"QQQ y 'ж'. G"}
+            }
+            intervalFormats{
+                H{
+                    H{"HH-HH"}
+                }
+                Hm{
+                    H{"HH:mm-HH:mm"}
+                    m{"HH:mm-HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm-HH:mm v"}
+                    m{"HH:mm-HH:mm v"}
+                }
+                Hv{
+                    H{"HH-HH v"}
+                }
+                M{
+                    M{"M-M"}
+                }
+                MEd{
+                    M{"E, dd.MM - E, dd.MM"}
+                    d{"E, dd.MM - E, dd.MM"}
+                }
+                MMM{
+                    M{"MMM-MMM"}
+                }
+                MMMEd{
+                    M{"E, d MMM - E, d MMM"}
+                    d{"E, d - E, d MMM"}
+                }
+                MMMd{
+                    M{"d MMM - d MMM"}
+                    d{"d-d MMM"}
+                }
+                Md{
+                    M{"dd.MM - dd.MM"}
+                    d{"dd.MM - dd.MM"}
+                }
+                d{
+                    d{"d-d"}
+                }
+                fallback{"{0} - {1}"}
+                h{
+                    a{"h a - h a"}
+                    h{"h-h a"}
+                }
+                hm{
+                    a{"h:mm a - h:mm a"}
+                    h{"h:mm-h:mm a"}
+                    m{"h:mm-h:mm a"}
+                }
+                hmv{
+                    a{"h:mm a - h:mm a v"}
+                    h{"h:mm-h:mm a v"}
+                    m{"h:mm-h:mm a v"}
+                }
+                hv{
+                    a{"h a - h a v"}
+                    h{"h-h a v"}
+                }
+                y{
+                    y{"y-y G"}
+                }
+                yM{
+                    M{"MM.y - MM.y G"}
+                    y{"MM.y - MM.y G"}
+                }
+                yMEd{
+                    M{"E, dd.MM.y - E, dd.MM.y G"}
+                    d{"E, dd.MM.y - E, dd.MM.y G"}
+                    y{"E, dd.MM.y - E, dd.MM.y G"}
+                }
+                yMMM{
+                    M{"LLL-LLL y 'ж'. G"}
+                    y{"LLL y 'ж'. - MMM y 'ж'. G"}
+                }
+                yMMMEd{
+                    M{"E, d MMM - E, d MMM y 'ж'. G"}
+                    d{"E, d - E, d MMM y 'ж'. G"}
+                    y{"E, d MMM y 'ж'. - E, d MMM y 'ж'. G"}
+                }
+                yMMMM{
+                    M{"LLLL - LLLL y 'ж'. G"}
+                    y{"LLLL y 'ж'. - LLLL y 'ж'. G"}
+                }
+                yMMMd{
+                    M{"d MMM - d MMM y 'ж'. G"}
+                    d{"d-d MMM y 'ж'. G"}
+                    y{"d MMM y 'ж'. - d MMM y 'ж'. G"}
+                }
+                yMd{
+                    M{"dd.MM.y - dd.MM.y G"}
+                    d{"dd.MM.y - dd.MM.y G"}
+                    y{"dd.MM.y - dd.MM.y G"}
+                }
+            }
+        }
+        gregorian{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d MMMM y 'ж'.",
+                "d MMMM y 'ж'.",
+                "dd.MM.y",
+                "dd.MM.yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                E{"ccc"}
+                Ed{"ccc, d"}
+                Gy{"y G"}
+                GyMMM{"LLL y G"}
+                GyMMMEd{"E, d MMM y 'ж'. G"}
+                GyMMMd{"d MMM y 'ж'. G"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, dd.MM"}
+                MMM{"LLL"}
+                MMMEd{"E, d MMM"}
+                MMMd{"d MMM"}
+                MMdd{"dd.MM"}
+                Md{"dd.MM"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"MM.y"}
+                yMEd{"E, d.MM.y"}
+                yMMM{"LLL y"}
+                yMMMEd{"E, d MMM y 'ж'."}
+                yMMMd{"d MMM y 'ж'."}
+                yMd{"dd.MM.y"}
+                yQQQ{"QQQ y 'ж'."}
+            }
+            dayNames{
+                format{
+                    abbreviated{
+                        "жк.",
+                        "дш.",
+                        "ше.",
+                        "ша.",
+                        "бш.",
+                        "жм.",
+                        "иш.",
+                    }
+                    wide{
+                        "жекшемби",
+                        "дүйшөмбү",
+                        "шейшемби",
+                        "шаршемби",
+                        "бейшемби",
+                        "жума",
+                        "ишемби",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Жк.",
+                        "Дш.",
+                        "Ше.",
+                        "Ша.",
+                        "Бш.",
+                        "Жм.",
+                        "Иш.",
+                    }
+                    wide{
+                        "Жекшемби",
+                        "Дүйшөмбү",
+                        "Шейшемби",
+                        "Шаршемби",
+                        "Бейшемби",
+                        "Жума",
+                        "Ишемби",
+                    }
+                }
+            }
+            eras{
+                abbreviated{
+                    "б.з. ч.",
+                    "б.з.",
+                }
+                narrow{
+                    "б.з. ч.",
+                    "б.з.",
+                }
+                wide{
+                    "б.з. чейин",
+                    "б.з.",
+                }
+            }
+            intervalFormats{
+                H{
+                    H{"HH-HH"}
+                }
+                Hm{
+                    H{"HH:mm-HH:mm"}
+                    m{"HH:mm-HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm-HH:mm v"}
+                    m{"HH:mm-HH:mm v"}
+                }
+                Hv{
+                    H{"HH-HH v"}
+                }
+                M{
+                    M{"M-M"}
+                }
+                MEd{
+                    M{"E, dd.MM - E, dd.MM"}
+                    d{"E, dd.MM - E, dd.MM"}
+                }
+                MMM{
+                    M{"MMM-MMM"}
+                }
+                MMMEd{
+                    M{"E, d MMM - E, d MMM"}
+                    d{"E, d - E, d MMM"}
+                }
+                MMMd{
+                    M{"d MMM - d MMM"}
+                    d{"d-d MMM"}
+                }
+                Md{
+                    M{"dd.MM - dd.MM"}
+                    d{"dd.MM - dd.MM"}
+                }
+                d{
+                    d{"d-d"}
+                }
+                fallback{"{0} - {1}"}
+                h{
+                    a{"h a - h a"}
+                    h{"h-h a"}
+                }
+                hm{
+                    a{"h:mm a - h:mm a"}
+                    h{"h:mm-h:mm a"}
+                    m{"h:mm-h:mm a"}
+                }
+                hmv{
+                    a{"h:mm a - h:mm a v"}
+                    h{"h:mm-h:mm a v"}
+                    m{"h:mm-h:mm a v"}
+                }
+                hv{
+                    a{"h a - h a v"}
+                    h{"h-h a v"}
+                }
+                y{
+                    y{"y-y"}
+                }
+                yM{
+                    M{"MM.y - MM.y"}
+                    y{"MM.y - MM.y"}
+                }
+                yMEd{
+                    M{"E, dd.MM.y - E, dd.MM.y"}
+                    d{"E, dd.MM.y - E, dd.MM.y"}
+                    y{"E, dd.MM.y - E, dd.MM.y"}
+                }
+                yMMM{
+                    M{"LLL-LLL y 'ж'."}
+                    y{"LLL y 'ж'. - MMM y 'ж'."}
+                }
+                yMMMEd{
+                    M{"E, d MMM - E, d MMM y 'ж'."}
+                    d{"E, d - E, d MMM y 'ж'."}
+                    y{"E, d MMM y 'ж'. - E, d MMM y 'ж'."}
+                }
+                yMMMM{
+                    M{"LLLL - LLLL y 'ж'."}
+                    y{"LLLL y 'ж'. - LLLL y 'ж'."}
+                }
+                yMMMd{
+                    M{"d MMM - d MMM y 'ж'."}
+                    d{"d-d MMM y 'ж'."}
+                    y{"d MMM y 'ж'. - d MMM y 'ж'."}
+                }
+                yMd{
+                    M{"dd.MM.y - dd.MM.y"}
+                    d{"dd.MM.y - dd.MM.y"}
+                    y{"dd.MM.y - dd.MM.y"}
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "янв.",
+                        "фев.",
+                        "мар.",
+                        "апр.",
+                        "май",
+                        "июн.",
+                        "июл.",
+                        "авг.",
+                        "сен.",
+                        "окт.",
+                        "ноя.",
+                        "дек.",
+                    }
+                    wide{
+                        "январь",
+                        "февраль",
+                        "март",
+                        "апрель",
+                        "май",
+                        "июнь",
+                        "июль",
+                        "август",
+                        "сентябрь",
+                        "октябрь",
+                        "ноябрь",
+                        "декабрь",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Янв.",
+                        "Февр.",
+                        "Мар.",
+                        "Апр.",
+                        "Май",
+                        "Июн.",
+                        "Июл.",
+                        "Авг.",
+                        "Сен.",
+                        "Окт.",
+                        "Ноя.",
+                        "Дек.",
+                    }
+                    wide{
+                        "Январь",
+                        "Февраль",
+                        "Март",
+                        "Апрель",
+                        "Май",
+                        "Июнь",
+                        "Июль",
+                        "Август",
+                        "Сентябрь",
+                        "Октябрь",
+                        "Ноябрь",
+                        "Декабрь",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "1-чи кв.",
+                        "2-чи кв.",
+                        "3-чү кв.",
+                        "4-чү кв.",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                    wide{
+                        "1-чи квартал",
+                        "2-чи квартал",
+                        "3-чү квартал",
+                        "4-чү квартал",
+                    }
+                }
+            }
+        }
+    }
+    delimiters{
+        alternateQuotationEnd{"“"}
+        alternateQuotationStart{"„"}
+        quotationEnd{"»"}
+        quotationStart{"«"}
+    }
+    fields{
+        era{
+            dn{"Заман"}
+        }
+    }
+    measurementSystemNames{
+        UK{"Англиялык"}
+        US{"Американдык"}
+        metric{"Метрикалык"}
+    }
+}

@@ -19,6 +19,7 @@
 #include "CodeGenIntrinsics.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/Support/ErrorHandling.h"
 #include <set>
 #include <algorithm>
 #include <vector>
@@ -581,8 +582,8 @@ private:
   void ComputeNamedNodes(TreePatternNode *N);
 };
 
-/// DAGDefaultOperand - One of these is created for each PredicateOperand
-/// or OptionalDefOperand that has a set ExecuteAlways / DefaultOps field.
+/// DAGDefaultOperand - One of these is created for each OperandWithDefaultOps
+/// that has a set ExecuteAlways / DefaultOps field.
 struct DAGDefaultOperand {
   std::vector<TreePatternNode*> DefaultOps;
 };
@@ -660,23 +661,18 @@ public:
   unsigned getPatternComplexity(const CodeGenDAGPatterns &CGP) const;
 };
 
-// Deterministic comparison of Record*.
-struct RecordPtrCmp {
-  bool operator()(const Record *LHS, const Record *RHS) const;
-};
-
 class CodeGenDAGPatterns {
   RecordKeeper &Records;
   CodeGenTarget Target;
   std::vector<CodeGenIntrinsic> Intrinsics;
   std::vector<CodeGenIntrinsic> TgtIntrinsics;
 
-  std::map<Record*, SDNodeInfo, RecordPtrCmp> SDNodes;
-  std::map<Record*, std::pair<Record*, std::string>, RecordPtrCmp> SDNodeXForms;
-  std::map<Record*, ComplexPattern, RecordPtrCmp> ComplexPatterns;
-  std::map<Record*, TreePattern*, RecordPtrCmp> PatternFragments;
-  std::map<Record*, DAGDefaultOperand, RecordPtrCmp> DefaultOperands;
-  std::map<Record*, DAGInstruction, RecordPtrCmp> Instructions;
+  std::map<Record*, SDNodeInfo, LessRecordByID> SDNodes;
+  std::map<Record*, std::pair<Record*, std::string>, LessRecordByID> SDNodeXForms;
+  std::map<Record*, ComplexPattern, LessRecordByID> ComplexPatterns;
+  std::map<Record*, TreePattern*, LessRecordByID> PatternFragments;
+  std::map<Record*, DAGDefaultOperand, LessRecordByID> DefaultOperands;
+  std::map<Record*, DAGInstruction, LessRecordByID> Instructions;
 
   // Specific SDNode definitions:
   Record *intrinsic_void_sdnode;
@@ -707,7 +703,7 @@ public:
     return SDNodeXForms.find(R)->second;
   }
 
-  typedef std::map<Record*, NodeXForm, RecordPtrCmp>::const_iterator
+  typedef std::map<Record*, NodeXForm, LessRecordByID>::const_iterator
           nx_iterator;
   nx_iterator nx_begin() const { return SDNodeXForms.begin(); }
   nx_iterator nx_end() const { return SDNodeXForms.end(); }
@@ -723,8 +719,7 @@ public:
       if (Intrinsics[i].TheDef == R) return Intrinsics[i];
     for (unsigned i = 0, e = TgtIntrinsics.size(); i != e; ++i)
       if (TgtIntrinsics[i].TheDef == R) return TgtIntrinsics[i];
-    assert(0 && "Unknown intrinsic!");
-    abort();
+    llvm_unreachable("Unknown intrinsic!");
   }
 
   const CodeGenIntrinsic &getIntrinsicInfo(unsigned IID) const {
@@ -732,8 +727,7 @@ public:
       return Intrinsics[IID-1];
     if (IID-Intrinsics.size()-1 < TgtIntrinsics.size())
       return TgtIntrinsics[IID-Intrinsics.size()-1];
-    assert(0 && "Bad intrinsic ID!");
-    abort();
+    llvm_unreachable("Bad intrinsic ID!");
   }
 
   unsigned getIntrinsicID(Record *R) const {
@@ -741,8 +735,7 @@ public:
       if (Intrinsics[i].TheDef == R) return i;
     for (unsigned i = 0, e = TgtIntrinsics.size(); i != e; ++i)
       if (TgtIntrinsics[i].TheDef == R) return i + Intrinsics.size();
-    assert(0 && "Unknown intrinsic!");
-    abort();
+    llvm_unreachable("Unknown intrinsic!");
   }
 
   const DAGDefaultOperand &getDefaultOperand(Record *R) const {
@@ -760,7 +753,7 @@ public:
     return PatternFragments.find(R)->second;
   }
 
-  typedef std::map<Record*, TreePattern*, RecordPtrCmp>::const_iterator
+  typedef std::map<Record*, TreePattern*, LessRecordByID>::const_iterator
           pf_iterator;
   pf_iterator pf_begin() const { return PatternFragments.begin(); }
   pf_iterator pf_end() const { return PatternFragments.end(); }
@@ -799,6 +792,7 @@ private:
   void ParsePatterns();
   void InferInstructionFlags();
   void GenerateVariants();
+  void VerifyInstructionFlags();
 
   void AddPatternToMatch(const TreePattern *Pattern, const PatternToMatch &PTM);
   void FindPatternInputsAndOutputs(TreePattern *I, TreePatternNode *Pat,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -152,6 +152,7 @@ static int no_canon = 0;	/* Don't canonicalize host names */
 static int acquire_default = 0;  /* Don't acquire default credentials in do_acquire_cred */
 static  int maxthreads = MAXTHREADS;	/* Maximum number of service threads. */
 static int numthreads = 0;		/* Current number of service threads */
+static int kernel_only = TRUE;		/* Restricts mach_gss_lookup for kernel only */
 static pthread_mutex_t numthreads_lock[1]; /* lock to protect above */
 static pthread_cond_t	 numthreads_cv[1]; /* To signal when we're below max. */
 static pthread_attr_t attr[1];		/* Needed to create detached threads */
@@ -511,12 +512,20 @@ static void
 set_identity(void)
 {
 	const char *instance = getenv("LaunchInstanceID");
-	auditinfo_t ai;
+	auditinfo_addr_t ai;
+	au_asid_t asid = -1;
+	uid_t euid = geteuid();
 
-	Debug("euid = %d, instance = %s", geteuid(), instance);
+	if (getaudit_addr(&ai, sizeof(auditinfo_addr_t)))
+		Debug("getaudit failed: %s", strerror(errno));
+	else
+		asid = ai.ai_asid;
+
+	Debug("asid = %d euid = %d, instance = %s", ai.ai_asid,
+	    euid, instance ? instance : "not set");
 	if (instance && geteuid() == 0) {
 		uid_t uid;
-		au_asid_t asid;
+
 		if (uuidstr2sessioninfo(instance, &uid, &asid))
 			Log("Could not parse  LaunchInstanceID: %s", instance);
 		else {
@@ -526,11 +535,12 @@ set_identity(void)
 	}
 
 	/* Get my actual audit session id for checkout */
-	if (getaudit(&ai))
+	if (getaudit_addr(&ai, sizeof(auditinfo_addr_t)))
 		Log("getaudit failed: %s", strerror(errno));
 	else
 		my_asid = ai.ai_asid;
-	Debug("My identity is asid = %d auid = %d", ai.ai_asid, ai.ai_auid);
+	if (asid != my_asid || getuid() != euid)
+		Info("My identity changed to asid = %d auid = %d uid = %d", ai.ai_asid, ai.ai_auid, getuid());
 }
 
 static int
@@ -544,12 +554,15 @@ check_audit(audit_token_t atok, int kernonly)
 	static audit_token_t kern_audit_token = KERNEL_AUDIT_TOKEN_VALUE;
 
 	audit_token_to_au32(atok, &uid, &euid, &egid, &ruid, &rgid, &pid, &asid, NULL);
-	Debug("Received audit token: uid = %d, euid = %d, egid = %d, ruid = %d rgid = %d, pid = %d, asid = %d atid = %d",
-	     uid, euid, egid, ruid, rgid, pid, asid, atok.val[7]);
+	DEBUG(9, "Received audit token: uid = %d, euid = %d, egid = %d, ruid = %d rgid = %d, pid = %d, asid = %d atid = %d",
+	      uid, euid, egid, ruid, rgid, pid, asid, atok.val[7]);
 
 	ok = (memcmp(&atok, &kern_audit_token, sizeof (audit_token_t)) == 0);
-	if (!ok && !kernonly)
+	if (!ok && !kernonly) {
+		Debug("gssd asid = %d gssd uid = %d  remote pid = %d remote asid = %d remote euid = %d",
+		      my_asid, getuid(), pid, asid, euid);
 		ok = (asid == my_asid || (euid && euid == getuid()));
+	}
 	if (!ok)
 		Log("Process %d in session %d as user %d was denied by gssd[%d] for session %d as user %d", pid, asid, euid, getpid(), my_asid, getuid());
 
@@ -592,15 +605,12 @@ int main(int argc, char *argv[])
 	setlinebuf(stdout);
 	setlinebuf(stderr);
 
-	/* Set our session and uid if needed */
-	set_identity();
-
 	/* Figure out our bootstrap name based on what we are called. */
 	setprogname(argv[0]);
 	strlcpy(label_buf, APPLE_PREFIX, sizeof(label_buf));
 	strlcat(label_buf, getprogname(), sizeof(label_buf));
 
-	while ((ch = getopt(argc, argv, "b:Cdhm:n:t:D")) != -1) {
+	while ((ch = getopt(argc, argv, "b:Cdhm:n:t:DT")) != -1) {
 		switch (ch) {
 		case 'C':
 			no_canon = 1;
@@ -624,6 +634,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'D':
 			acquire_default = 1;
+			break;
+		case 'T':
+			kernel_only = FALSE;
 			break;
 		case 'h':
 			/* FALLTHROUGH */
@@ -666,6 +679,10 @@ int main(int argc, char *argv[])
 	set_debug_level(debug_opt);
 	/* Check to see if the master asl filter is set */
 	set_debug_level(-1);
+
+	/* Set our session and uid if needed */
+	set_identity();
+
 
 	gssd_init();
 
@@ -1269,6 +1286,7 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 		major = construct_hostbased_service_name(minor, service, host, svcname);
 		if (major == GSS_S_COMPLETE) {
 			*name_count = 1;
+			free(service);
 			return (major);
 		}
 		/* Nope so set the realm to be the default and fall through */
@@ -1298,17 +1316,24 @@ str_to_svc_names(uint32_t *minor, const char *svcstr,
 		goto done;
 
 	fqdn = canonicalize_host(host, (count == 3) ? &rfqdn : NULL);
-	if (fqdn && strncmp(fqdn, host, MAXHOSTNAMELEN) != 0) {
-		major = construct_service_name(minor, service, fqdn, realm, true, &svcname[*name_count]);
-		if (major == GSS_S_COMPLETE)
-			*name_count += 1;
+	if (fqdn) {
+		if (strncmp(fqdn, host, MAXHOSTNAMELEN) != 0) {
+			major = construct_service_name(minor, service, fqdn, realm, true, &svcname[*name_count]);
+			if (major == GSS_S_COMPLETE)
+				*name_count += 1;
+		} else {
+			free(fqdn);
+		}
 	}
 
-	if (rfqdn && *name_count < count) {
-		major = construct_service_name(minor, service, rfqdn, realm, true, &svcname[*name_count]);
-		if (major == GSS_S_COMPLETE)
-			*name_count += 1;
-		free(rfqdn);
+	if (rfqdn) {
+		if (*name_count < count) {
+			major = construct_service_name(minor, service, rfqdn, realm, true, &svcname[*name_count]);
+			if (major == GSS_S_COMPLETE)
+				*name_count += 1;
+		} else {
+			free(rfqdn);
+		}
 	}
 
 done:
@@ -1476,7 +1501,7 @@ gssd_init(void)
 	local_host = canonicalize_host(hostbuf, NULL);
 	if ( local_host == NULL) {
 		Info("Could not canonicalize our host name in gssd_init\n");
-		local_host = lowercase(hostbuf);
+		local_host = strdup(lowercase(hostbuf));
 	}
 
 	/* Figure out how big a buffer we need for getting pwd entries */
@@ -1794,6 +1819,28 @@ vm_alloc_buffer(gss_buffer_t buf, uint8_t **value, uint32_t *len)
  * and will be released by mig. (See gssd_mach.defs)
  * XXX this is extraordinarily yuckie.
  */
+
+
+static gss_OID kerb_mechs[] = {
+	GSS_KRB5_MECHANISM,
+	GSS_IAKERB_MECHANISM,
+	GSS_PKU2U_MECHANISM,
+	NULL
+};
+
+static bool
+is_kerberos_key_mech(gss_const_OID mech)
+{
+	gss_OID *p;
+
+	for (p = kerb_mechs; p; p++) {
+		if (gss_oid_equal(mech, *p))
+			return (true);
+	}
+
+	return (false);
+}
+
 static uint32_t
 GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t *ctx,
 		gssd_byte_buffer *skey, mach_msg_type_number_t *skeyCnt)
@@ -1827,7 +1874,7 @@ GetSessionKey(uint32_t *minor, gss_OID mech, gss_ctx_id_t *ctx,
 		(void)gss_release_buffer_set(&min_stat, &keys);
 		return (GSS_S_COMPLETE);
 
-	} else if (gss_oid_equal(mech, GSS_KRB5_MECHANISM)) {
+	} else if (is_kerberos_key_mech(mech)) {
 		DEBUG(4, "Calling  gss_krb5_export_lucid_sec_context\n");
 		maj_stat = gss_krb5_export_lucid_sec_context(minor, ctx,
 							     1, &some_lucid_ctx);
@@ -1961,54 +2008,94 @@ gss_name_to_kprinc(uint32_t *minor, gss_name_t name, krb5_principal *princ, krb5
  * Given a kerberos principal find the best cache name to use.
  */
 
+static int cred_logged = 0;  /* Only complain about missing creds once per gssd session */
+
 static char*
-krb5_find_cache_name(krb5_principal sprinc, krb5_context kcontext)
+krb5_find_cache_name(krb5_context kcontext, krb5_principal sprinc, int *expired)
 {
-	krb5_error_code error;
+	krb5_error_code error, err;
 	krb5_cc_cache_cursor cursor;
 	krb5_ccache ccache;
 	krb5_principal ccache_princ;
 	char *cname = NULL;
+	char *kname = NULL;
+	time_t ltime;
 	const char *msg = NULL;
+	int cnt = 0;
+	*expired = 0;
 
-	error = krb5_cc_cache_get_first(kcontext, NULL, &cursor);
-	if (error) {
-		Info("Could not get cache collection cursor\n");
-		krb5_free_context(kcontext);
+	err = krb5_cc_cache_get_first(kcontext, NULL, &cursor);
+	if (err) {
+		if (!cred_logged) {
+			Log("No credentials found, using default (need to kinit?)\n");
+			cred_logged = 1;
+			msg = krb5_get_error_message(kcontext, err);
+			Info("Could not get cache collection cursor %s\n", msg);
+			krb5_free_error_message(kcontext, msg);
+		}
 		return (NULL);
 	}
 	while (!(error = krb5_cc_cache_next(kcontext, cursor, &ccache))) {
-		krb5_error_code err;
-
+		cnt += 1;
 		err = krb5_cc_get_full_name(kcontext, ccache, &cname);
 		if (err) {
 			msg = krb5_get_error_message(kcontext, err);
 			Info("krb5_cc_get_full_name error: %s\n", msg);
 			krb5_free_error_message(kcontext, msg);
 			krb5_cc_close(kcontext, ccache);
+			if (cname)   /* Shouldn't happen */
+				free(cname);
+			cname = NULL;
 			continue;
 		}
 		err = krb5_cc_get_principal(kcontext, ccache, &ccache_princ);
-		krb5_cc_close(kcontext, ccache);
 		if (err) {
+			krb5_cc_close(kcontext, ccache);
 			msg = krb5_get_error_message(kcontext, err);
 			Info("krb5_cc_get_principal error: %s\n", msg);
 			krb5_free_error_message(kcontext, msg);
 			free(cname);
+			cname = NULL;
 			continue;
 		}
-
 		if (krb5_realm_compare(kcontext, sprinc, ccache_princ)) {
+			(void) krb5_unparse_name(kcontext, ccache_princ, &kname);
 			krb5_free_principal(kcontext, ccache_princ);
-			break;
+
+			ltime = 0;
+			*expired = 0;
+			err = krb5_cc_get_lifetime(kcontext, ccache, &ltime);
+			Info("Found cache %d: %s for %s lifetime %ld\n",
+			      cnt, cname, kname ? kname : "could not get principal name", ltime);
+			if (kname) {
+				free(kname);
+				kname = NULL;
+			}
+
+			if (ltime <= 0) {
+				if (err && err != KRB5_CC_END) {
+					msg = krb5_get_error_message(kcontext, err);
+					Info("krb5_cc_get_lifetime error: %s\n", msg);
+					krb5_free_error_message(kcontext, msg);
+				}
+				*expired = 1;
+			} else {
+				krb5_cc_close(kcontext, ccache);
+				break;
+			}
 		}
-		krb5_free_principal(kcontext, ccache_princ);
+		krb5_cc_close(kcontext, ccache);
 		free(cname);
 		cname = NULL;
 	}
-	if (error && error != KRB5_CC_END) {
+	if (error == KRB5_CC_END) {
+		if (!cred_logged) {
+			Notice("No credentials found for %s, using default (need to kinit?)\n", krb5_principal_get_realm(kcontext, sprinc));
+			cred_logged = 1;
+		}
+	} else if (error) {
 		msg = krb5_get_error_message(kcontext, error);
-		Info("Could not iterate through cache collections: %s\n", msg);
+		Log("Could not iterate through cache collections: %s\n", msg);
 		krb5_free_error_message(kcontext, msg);
 	}
 
@@ -2021,38 +2108,42 @@ krb5_find_cache_name(krb5_principal sprinc, krb5_context kcontext)
  * calls to gss_init_sec_context will work.
  * Currently this only groks kerberos.
  */
-static void
-set_principal_identity(gss_name_t sname)
+static uint32_t
+set_principal_identity(gss_name_t sname, uint32_t *minor)
 {
 	krb5_principal sprinc;
-	uint32_t major, minor;
+	uint32_t major;
 	char *cname;
 	krb5_context kctx;
-	int error;
+	int error, expired;
 
+	*minor = 0;
 	error = krb5_init_context(&kctx);
 	if (error) {
 		Log("Can't get kerberos context");
-		return;
+		return (GSS_S_FAILURE);
 	}
 
-	major = gss_name_to_kprinc(&minor, sname, &sprinc, kctx);
+	major = gss_name_to_kprinc(minor, sname, &sprinc, kctx);
 	if (major != GSS_S_COMPLETE) {
 		krb5_free_context(kctx);
-		DEBUG(2, "Could not convert gss name to kerberos principal\n");
-		return;
+		DEBUG(2, "Could not convert gss name to kerberos principal %#K %#k\n", major, GSS_KRB5_MECHANISM, *minor);
+		return (major);
 	}
 
-	cname = krb5_find_cache_name(sprinc, kctx);
+	cname = krb5_find_cache_name(kctx, sprinc, &expired);
 	krb5_free_principal(kctx, sprinc);
 	krb5_free_context(kctx);
-	DEBUG(3, "Using ccache <%s>\n", cname ? cname : "Default");
+	Debug("Using ccache <%s> expired = %d\n", cname ? cname : "Default", expired);
+	if (expired)
+		return (GSS_S_CREDENTIALS_EXPIRED);
 	if (cname) {
-		major = gss_krb5_ccache_name(&minor, cname, NULL);
+		major = gss_krb5_ccache_name(minor, cname, NULL);
 		DEBUG(3, "gss_krb5_ccache_name returned %#K; %#k\n", major, GSS_KRB5_MECHANISM,  minor);
 		free(cname);
 	}
 
+	return (GSS_S_COMPLETE);
 }
 
 
@@ -2066,7 +2157,9 @@ do_acquire_cred_v1(uint32_t *minor, char *principal, gssd_mechtype mech, gss_nam
 	gss_OID_set mechset = GSS_C_NULL_OID_SET;
 	gss_OID name_type = GSS_KRB5_NT_PRINCIPAL_NAME;
 
-	set_principal_identity(sname);
+	major = set_principal_identity(sname, minor);
+	if (major)
+		return (major);
 	major = gss_create_empty_oid_set(minor, &mechset);
 	if (major != GSS_S_COMPLETE)
 		goto done;
@@ -2981,7 +3074,7 @@ svc_mach_gss_hold_cred(mach_port_t server __unused,
 		       uint32_t *major_stat,
 		       uint32_t *minor_stat)
 {
-	gss_cred_id_t cred;
+	gss_cred_id_t cred = NULL;
 	uint32_t m;
 	vproc_transaction_t gssd_vproc_handle;
 	kern_return_t kr = KERN_SUCCESS;
@@ -3018,7 +3111,7 @@ svc_mach_gss_unhold_cred(mach_port_t server __unused,
 			 uint32_t *major_stat,
 			 uint32_t *minor_stat)
 {
-	gss_cred_id_t cred;
+	gss_cred_id_t cred = NULL;
 	uint32_t m;
 	vproc_transaction_t gssd_vproc_handle;
 	kern_return_t kr = KERN_SUCCESS;
@@ -3060,7 +3153,7 @@ svc_mach_gss_lookup(mach_port_t server,
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
 
-	if (!check_audit(atok, TRUE)) {
+	if (!check_audit(atok, kernel_only)) {
 		kr = KERN_NO_ACCESS;
 		goto out;
 	}

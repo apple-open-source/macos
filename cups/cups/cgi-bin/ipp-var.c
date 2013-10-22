@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp-var.c 7940 2008-09-16 00:45:16Z mike $"
+ * "$Id: ipp-var.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   CGI <-> IPP variable routines for CUPS.
  *
@@ -129,7 +129,7 @@ cgiGetAttributes(ipp_t      *request,	/* I - IPP request */
       *nameptr = '\0';
 
       if (!strncmp(name, "printer_state_history", 21))
-        strcpy(name, "printer_state_history");
+        strlcpy(name, "printer_state_history", sizeof(name));
 
      /*
       * Possibly add it to the list of attributes...
@@ -554,7 +554,7 @@ cgiPrintCommand(http_t     *http,	/* I - Connection to server */
   ipp_t		*request,		/* Get-Job-Attributes request */
 		*response;		/* Get-Job-Attributes response */
   ipp_attribute_t *attr;		/* Current job attribute */
-  static const char const *job_attrs[] =/* Job attributes we want */
+  static const char * const job_attrs[] =/* Job attributes we want */
 		{
 		  "job-state",
 		  "job-printer-state-message"
@@ -1589,5 +1589,5 @@ cgiText(const char *message)		/* I - Message */
 
 
 /*
- * End of "$Id: ipp-var.c 7940 2008-09-16 00:45:16Z mike $".
+ * End of "$Id: ipp-var.c 11093 2013-07-03 20:48:42Z msweet $".
  */

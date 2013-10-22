@@ -20,18 +20,6 @@
 			name = All;
 			productName = All;
 		};
-		FDB4363B1492D27200D5E278 /* periodic */ = {
-			isa = PBXAggregateTarget;
-			buildConfigurationList = FDB4363C1492D27200D5E278 /* Build configuration list for PBXAggregateTarget "periodic" */;
-			buildPhases = (
-				FDB4365F1492D41A00D5E278 /* Install periodic.sh */,
-				FDB4365D1492D3E500D5E278 /* Install man8 */,
-			);
-			dependencies = (
-			);
-			name = periodic;
-			productName = periodic;
-		};
 		FDB436431492D28D00D5E278 /* files */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FDB436441492D28D00D5E278 /* Build configuration list for PBXAggregateTarget "files" */;
@@ -81,6 +69,8 @@
 		FDB436A51492DD2700D5E278 /* 199.rotate-fax in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB436791492DB0B00D5E278 /* 199.rotate-fax */; };
 		FDB436A61492DD2900D5E278 /* 200.accounting in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB4367A1492DB0B00D5E278 /* 200.accounting */; };
 		FDB436A71492DD2B00D5E278 /* 999.local in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB4367B1492DB0B00D5E278 /* 999.local */; };
+		FDCEF0AA162E12DC002D6429 /* periodic-wrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = FDCEF0A9162E12DC002D6429 /* periodic-wrapper.c */; };
+		FDCEF0AE162E1659002D6429 /* periodic-wrapper.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = FDCEF0AD162E1653002D6429 /* periodic-wrapper.8 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -137,6 +127,7 @@
 			dstSubfolderSpec = 0;
 			files = (
 				FDB4365E1492D3EE00D5E278 /* periodic.8 in Install man8 */,
+				FDCEF0AE162E1659002D6429 /* periodic-wrapper.8 in Install man8 */,
 			);
 			name = "Install man8";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -267,10 +258,20 @@
 		FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = periodic.conf.5; sourceTree = "<group>"; };
 		FDB436801492DB0B00D5E278 /* 320.whatis */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 320.whatis; sourceTree = "<group>"; };
 		FDB436811492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
+		FDCEF0A9162E12DC002D6429 /* periodic-wrapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "periodic-wrapper.c"; sourceTree = "<group>"; };
+		FDCEF0AC162E140E002D6429 /* periodic-wrapper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "periodic-wrapper"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDCEF0AD162E1653002D6429 /* periodic-wrapper.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "periodic-wrapper.8"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		FDB4362D1492D25500D5E278 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDCEF0AB162E12E1002D6429 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -294,6 +295,7 @@
 			isa = PBXGroup;
 			children = (
 				FDB436301492D25500D5E278 /* newsyslog */,
+				FDCEF0AC162E140E002D6429 /* periodic-wrapper */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -314,6 +316,8 @@
 		FDB436581492D3D900D5E278 /* periodic */ = {
 			isa = PBXGroup;
 			children = (
+				FDCEF0AD162E1653002D6429 /* periodic-wrapper.8 */,
+				FDCEF0A9162E12DC002D6429 /* periodic-wrapper.c */,
 				FDB4365B1492D3D900D5E278 /* periodic.8 */,
 				FDB4365C1492D3D900D5E278 /* periodic.sh */,
 			);
@@ -402,6 +406,24 @@
 			productReference = FDB436301492D25500D5E278 /* newsyslog */;
 			productType = "com.apple.product-type.tool";
 		};
+		FDB4363B1492D27200D5E278 /* periodic */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDB4363C1492D27200D5E278 /* Build configuration list for PBXNativeTarget "periodic" */;
+			buildPhases = (
+				FDCEF0A8162E12D1002D6429 /* Sources */,
+				FDCEF0AB162E12E1002D6429 /* Frameworks */,
+				FDB4365F1492D41A00D5E278 /* Install periodic.sh */,
+				FDB4365D1492D3E500D5E278 /* Install man8 */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = periodic;
+			productName = periodic;
+			productReference = FDCEF0AC162E140E002D6429 /* periodic-wrapper */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -488,6 +510,14 @@
 			files = (
 				FDB436531492D37200D5E278 /* newsyslog.c in Sources */,
 				FDB436541492D37200D5E278 /* ptimes.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDCEF0A8162E12D1002D6429 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDCEF0AA162E12DC002D6429 /* periodic-wrapper.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -587,14 +617,16 @@
 		FDB4363D1492D27200D5E278 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = "periodic-wrapper";
 			};
 			name = Debug;
 		};
 		FDB4363E1492D27200D5E278 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = "periodic-wrapper";
 			};
 			name = Release;
 		};
@@ -642,7 +674,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		FDB4363C1492D27200D5E278 /* Build configuration list for PBXAggregateTarget "periodic" */ = {
+		FDB4363C1492D27200D5E278 /* Build configuration list for PBXNativeTarget "periodic" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FDB4363D1492D27200D5E278 /* Debug */,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -47,6 +50,9 @@
 #include <notify_keys.h>
 #include <utmpx.h>
 #include <vproc_priv.h>
+#if !TARGET_OS_IPHONE
+#include <quarantine.h>
+#endif
 #include "daemon.h"
 
 #define SERVICE_NAME "com.apple.system.logger"
@@ -62,23 +68,30 @@
 #define streq(A,B) (strcmp(A,B)==0)
 #define forever for(;;)
 
-extern int __notify_78945668_info__;
 extern int _malloc_no_asl_log;
+
+#if TARGET_IPHONE_SIMULATOR
+const char *_path_pidfile;
+const char *_path_syslogd_log;
+#endif
 
 /* global */
 struct global_s global;
 
+#if !TARGET_IPHONE_SIMULATOR
 /* Input Modules */
 int klog_in_init(void);
 int klog_in_reset(void);
 int klog_in_close(void);
 static int activate_klog_in = 1;
+#endif
 
 int bsd_in_init(void);
 int bsd_in_reset(void);
 int bsd_in_close(void);
 static int activate_bsd_in = 1;
 
+#if !TARGET_IPHONE_SIMULATOR
 int udp_in_init(void);
 int udp_in_reset(void);
 int udp_in_close(void);
@@ -89,25 +102,31 @@ int bsd_out_init(void);
 int bsd_out_reset(void);
 int bsd_out_close(void);
 static int activate_bsd_out = 1;
+#endif
 
 int asl_action_init(void);
 int asl_action_reset(void);
 int asl_action_close(void);
 static int activate_asl_action = 1;
 
+#if !TARGET_IPHONE_SIMULATOR
 /* Interactive Module */
 int remote_init(void);
 int remote_reset(void);
 int remote_close(void);
 static int remote_enabled = 0;
+#endif
 
 extern void database_server();
 
 static void
 init_modules()
 {
-	module_t *m_klog_in, *m_bsd_in, *m_bsd_out, *m_udp_in;
-	module_t *m_asl, *m_remote;
+#if !TARGET_IPHONE_SIMULATOR
+	module_t *m_klog_in, *m_bsd_out, *m_udp_in, *m_remote;
+#endif
+	module_t *m_asl, *m_bsd_in;
+	int m = 0;
 
 	/* ASL module (configured by /etc/asl.conf) */
 	m_asl = (module_t *)calloc(1, sizeof(module_t));
@@ -125,6 +144,7 @@ init_modules()
 
 	if (m_asl->enabled) m_asl->init();
 
+#if !TARGET_IPHONE_SIMULATOR
 	/* BSD output module (configured by /etc/syslog.conf) */
 	m_bsd_out = (module_t *)calloc(1, sizeof(module_t));
 	if (m_bsd_out == NULL)
@@ -160,6 +180,7 @@ init_modules()
 	m_klog_in->close = klog_in_close;
 
 	if (m_klog_in->enabled) m_klog_in->init();
+#endif
 
 	/* BSD (UNIX domain socket) input module */
 	m_bsd_in = (module_t *)calloc(1, sizeof(module_t));
@@ -177,6 +198,7 @@ init_modules()
 
 	if (m_bsd_in->enabled) m_bsd_in->init();
 
+#if !TARGET_IPHONE_SIMULATOR
 	/* network (syslog protocol) input module */
 	m_udp_in = (module_t *)calloc(1, sizeof(module_t));
 	if (m_udp_in == NULL)
@@ -208,9 +230,14 @@ init_modules()
 	m_remote->close = remote_close;
 
 	if (m_remote->enabled) m_remote->init();
+#endif /* TARGET_IPHONE_SIMULATOR */
 
 	/* save modules in global.module array */
+#if TARGET_IPHONE_SIMULATOR
+	global.module_count = 2;
+#else
 	global.module_count = 6;
+#endif
 	global.module = (module_t **)calloc(global.module_count, sizeof(module_t *));
 	if (global.module == NULL)
 	{
@@ -218,12 +245,14 @@ init_modules()
 		exit(1);
 	}
 
-	global.module[0] = m_asl;
-	global.module[1] = m_bsd_out;
-	global.module[2] = m_klog_in;
-	global.module[3] = m_bsd_in;
-	global.module[4] = m_udp_in;
-	global.module[5] = m_remote;
+	global.module[m++] = m_asl;
+	global.module[m++] = m_bsd_in;
+#if !TARGET_IPHONE_SIMULATOR
+	global.module[m++] = m_bsd_out;
+	global.module[m++] = m_klog_in;
+	global.module[m++] = m_udp_in;
+	global.module[m++] = m_remote;
+#endif
 }
 
 static void
@@ -231,9 +260,6 @@ writepid(int *first)
 {
 	struct stat sb;
 	FILE *fp;
-	pid_t pid = getpid();
-
-	asldebug("\nsyslogd %d start\n", pid);
 
 	if (first != NULL)
 	{
@@ -248,7 +274,7 @@ writepid(int *first)
 	fp = fopen(_PATH_PIDFILE, "w");
 	if (fp != NULL)
 	{
-		fprintf(fp, "%d\n", pid);
+		fprintf(fp, "%d\n", global.pid);
 		fclose(fp);
 	}
 }
@@ -265,21 +291,21 @@ launch_config()
 
 	if (global.launch_dict == NULL)
 	{
-		asldebug("%d launchd checkin failed\n", getpid());
+		asldebug("%d launchd checkin failed\n", global.pid);
 		exit(1);
 	}
 
 	tmp = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_MACHSERVICES);
 	if (tmp == NULL)
 	{
-		asldebug("%d launchd lookup of LAUNCH_JOBKEY_MACHSERVICES failed\n", getpid());
+		asldebug("%d launchd lookup of LAUNCH_JOBKEY_MACHSERVICES failed\n", global.pid);
 		exit(1);
 	}
 
 	pdict = launch_data_dict_lookup(tmp, SERVICE_NAME);
 	if (pdict == NULL)
 	{
-		asldebug("%d launchd lookup of SERVICE_NAME failed\n", getpid());
+		asldebug("%d launchd lookup of SERVICE_NAME failed\n", global.pid);
 		exit(1);
 	}
 
@@ -362,11 +388,11 @@ config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t min
 void
 write_boot_log(int first)
 {
-    int mib[2] = {CTL_KERN, KERN_BOOTTIME};
+	int mib[2] = {CTL_KERN, KERN_BOOTTIME};
 	size_t len;
 	aslmsg msg;
 	char buf[256];
-    struct utmpx utx;
+	struct utmpx utx;
 
 	if (first == 0)
 	{
@@ -379,25 +405,25 @@ write_boot_log(int first)
 		asl_set(msg, ASL_KEY_LEVEL, "Notice");
 		asl_set(msg, ASL_KEY_UID, "0");
 		asl_set(msg, ASL_KEY_GID, "0");
-		snprintf(buf, sizeof(buf), "%u", getpid());
+		snprintf(buf, sizeof(buf), "%u", global.pid);
 		asl_set(msg, ASL_KEY_PID, buf);
 		asl_set(msg, ASL_KEY_MSG, "--- syslogd restarted ---");
-		dispatch_async(global.work_queue, ^{ process_message(msg, SOURCE_INTERNAL); });
+		process_message(msg, SOURCE_INTERNAL);
 		return;
 	}
 
-    bzero(&utx, sizeof(utx));
-    utx.ut_type = BOOT_TIME;
-    utx.ut_pid = 1;
+	bzero(&utx, sizeof(utx));
+	utx.ut_type = BOOT_TIME;
+	utx.ut_pid = 1;
 
 	/* get the boot time */
-    len = sizeof(struct timeval);
-    if (sysctl(mib, 2, &utx.ut_tv, &len, NULL, 0) < 0)
+	len = sizeof(struct timeval);
+	if (sysctl(mib, 2, &utx.ut_tv, &len, NULL, 0) < 0)
 	{
 		gettimeofday(&utx.ut_tv, NULL);
 	}
 
-    pututxline(&utx);
+	pututxline(&utx);
 
 	msg = asl_new(ASL_TYPE_MSG);
 	if (msg == NULL) return;
@@ -421,7 +447,7 @@ write_boot_log(int first)
 	snprintf(buf, sizeof(buf), "%u%s", (unsigned int)utx.ut_tv.tv_usec, (utx.ut_tv.tv_usec == 0) ? "" : "000");
 	asl_set(msg, ASL_KEY_TIME_NSEC, buf);
 
-	dispatch_async(global.work_queue, ^{ process_message(msg, SOURCE_INTERNAL); });
+	process_message(msg, SOURCE_INTERNAL);
 }
 
 int
@@ -433,8 +459,41 @@ main(int argc, const char *argv[])
 	time_t now;
 	int first_syslogd_start = 1;
 
+#if TARGET_IPHONE_SIMULATOR
+	const char *sim_log_dir = getenv("IPHONE_SIMULATOR_LOG_ROOT");
+	const char *sim_resource_dir = getenv("IPHONE_SHARED_RESOURCES_DIRECTORY");
+	char *p;
+	assert(sim_log_dir && sim_resource_dir);
+
+	asprintf((char **)&_path_syslogd_log, "%s/syslogd.log", sim_log_dir);
+	assert(_path_syslogd_log);
+
+	asprintf((char **)&_path_pidfile, "%s/var/run/syslog.pid", sim_resource_dir);
+	assert(_path_pidfile);
+
+	/* Make sure the directories exists */
+	mkpath_np(sim_log_dir, 0755);
+
+	p = strrchr(_path_pidfile, '/');
+	*p = '\0';
+	mkpath_np(_path_pidfile, 0755);
+	*p = '/';
+
+	extern const char *store_path;
+	store_path = PATH_ASL_STORE;
+#endif
+
 	/* Set I/O policy */
 	setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, IOPOL_PASSIVE);
+
+#if !TARGET_OS_IPHONE
+	/* Set Quarantine */
+	qtn_proc_t qp = qtn_proc_alloc();
+	qtn_proc_set_identifier(qp, "com.apple.syslogd");
+	qtn_proc_set_flags(qp, QTN_FLAG_SANDBOX | QTN_FLAG_HARD);
+	qtn_proc_apply_to_self(qp);
+	qtn_proc_free(qp);
+#endif
 
 	memset(&global, 0, sizeof(struct global_s));
 
@@ -447,11 +506,9 @@ main(int argc, const char *argv[])
 	global.work_queue = dispatch_queue_create("Work Queue", NULL);
 	dispatch_suspend(global.work_queue);
 
-	global.lockdown_session_fd = -1;
-
 	init_globals();
 
-#ifdef CONFIG_IPHONE
+#if TARGET_OS_EMBEDDED
 	remote_enabled = 1;
 	activate_bsd_out = 0;
 #endif
@@ -479,8 +536,13 @@ main(int argc, const char *argv[])
 				}
 				else if (streq(argv[i], "iphone"))
 				{
+#if TARGET_IPHONE_SIMULATOR
+					global.dbtype = DB_TYPE_FILE;
+					global.db_file_max = 25600000;
+#else
 					global.dbtype = DB_TYPE_MINI;
 					remote_enabled = 1;
+#endif
 				}
 			}
 		}
@@ -492,11 +554,6 @@ main(int argc, const char *argv[])
 		{
 			global.debug = 1;
 			if (((i+1) < argc) && (argv[i+1][0] != '-')) global.debug_file = strdup(argv[++i]);
-			memset(tstr, 0, sizeof(tstr));
-			now = time(NULL);
-			ctime_r(&now, tstr);
-			tstr[19] = '\0';
-			asldebug("%s syslogd[%d]: Start\n", tstr, getpid());
 		}
 		else if (streq(argv[i], "-db"))
 		{
@@ -536,6 +593,7 @@ main(int argc, const char *argv[])
 		{
 			if ((i + 1) < argc) global.bsd_max_dup_time = atoll(argv[++i]);
 		}
+#if !TARGET_IPHONE_SIMULATOR
 		else if (streq(argv[i], "-klog_in"))
 		{
 			if ((i + 1) < argc) activate_klog_in = atoi(argv[++i]);
@@ -548,6 +606,12 @@ main(int argc, const char *argv[])
 		{
 			if ((i + 1) < argc) activate_udp_in = atoi(argv[++i]);
 		}
+#endif
+		else if (streq(argv[i], "-launchd_in"))
+		{
+			if ((i + 1) < argc) global.launchd_enabled = atoi(argv[++i]);
+		}
+#if !TARGET_IPHONE_SIMULATOR
 		else if (streq(argv[i], "-bsd_out"))
 		{
 			if ((i + 1) < argc) activate_bsd_out = atoi(argv[++i]);
@@ -556,6 +620,7 @@ main(int argc, const char *argv[])
 		{
 			if ((i + 1) < argc) remote_enabled = atoi(argv[++i]);
 		}
+#endif
 	}
 
 	if (global.dbtype == 0)
@@ -565,6 +630,12 @@ main(int argc, const char *argv[])
 	}
 
 	signal(SIGHUP, SIG_IGN);
+
+	memset(tstr, 0, sizeof(tstr));
+	now = time(NULL);
+	ctime_r(&now, tstr);
+	tstr[19] = '\0';
+	asldebug("\n%s syslogd PID %d starting\n", tstr, global.pid);
 
 	writepid(&first_syslogd_start);
 
@@ -578,13 +649,16 @@ main(int argc, const char *argv[])
 
 	asldebug("initializing modules\n");
 	init_modules();
-	dispatch_resume(global.work_queue);
+
+#if !TARGET_IPHONE_SIMULATOR
+	asldebug("setting up notification handlers\n");
 
 	/* network change notification resets UDP and BSD modules */
-    notify_register_dispatch(kNotifySCNetworkChange, &network_change_token, global.work_queue, ^(int x){
-        if (activate_udp_in != 0) udp_in_reset();
-        if (activate_bsd_out != 0) bsd_out_reset();
-    });
+	notify_register_dispatch(kNotifySCNetworkChange, &network_change_token, global.work_queue, ^(int x){
+		if (activate_udp_in != 0) udp_in_reset();
+		if (activate_bsd_out != 0) bsd_out_reset();
+	});
+#endif
 
 	/* SIGHUP resets all modules */
 	global.sig_hup_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, (uintptr_t)SIGHUP, 0, dispatch_get_main_queue());
@@ -606,16 +680,18 @@ main(int argc, const char *argv[])
 	notify_register_plain(kNotifyASLDBUpdate, &asl_db_token);
 
 	/* timer for MARK facility */
-    if (global.mark_time > 0)
+	if (global.mark_time > 0)
 	{
 		global.mark_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
 		dispatch_source_set_event_handler(global.mark_timer, ^{ 
 			asl_mark();
 		});
-		dispatch_source_set_timer(global.mark_timer, dispatch_walltime(NULL, global.mark_time * NSEC_PER_SEC), global.mark_time * NSEC_PER_SEC, 0);
+		dispatch_source_set_timer(global.mark_timer, dispatch_time(DISPATCH_TIME_NOW, global.mark_time * NSEC_PER_SEC), global.mark_time * NSEC_PER_SEC, 0);
 		dispatch_resume(global.mark_timer);
 	}
 
+#if !TARGET_IPHONE_SIMULATOR
+	asldebug("starting launchd input channel\n");
 	/*
 	 * Start launchd service
 	 * This pins a thread in _vprocmgr_log_drain.  Eventually we will either
@@ -625,7 +701,9 @@ main(int argc, const char *argv[])
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
 		forever _vprocmgr_log_drain(NULL, NULL, launchd_callback);
 	});
+#endif
 
+	asldebug("starting mach service\n");
 	/*
 	 * Start mach server
 	 * Parks a thread in database_server.  In notifyd, we found that the overhead of
@@ -635,6 +713,9 @@ main(int argc, const char *argv[])
 		database_server();
 	});
 
+	/* go to work */
+	asldebug("starting work queue\n");
+	dispatch_resume(global.work_queue);
 	dispatch_main();
 
 	/* NOTREACHED */

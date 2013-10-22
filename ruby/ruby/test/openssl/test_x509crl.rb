@@ -1,9 +1,4 @@
-begin
-  require "openssl"
-  require File.join(File.dirname(__FILE__), "utils.rb")
-rescue LoadError
-end
-require "test/unit"
+require_relative "utils"
 
 if defined?(OpenSSL)
 
@@ -125,13 +120,13 @@ class OpenSSL::TestX509CRL < Test::Unit::TestCase
   def test_extension
     cert_exts = [
       ["basicConstraints", "CA:TRUE", true],
-      ["subjectKeyIdentifier", "hash", false], 
-      ["authorityKeyIdentifier", "keyid:always", false], 
+      ["subjectKeyIdentifier", "hash", false],
+      ["authorityKeyIdentifier", "keyid:always", false],
       ["subjectAltName", "email:xyzzy@ruby-lang.org", false],
       ["keyUsage", "cRLSign, keyCertSign", true],
     ]
     crl_exts = [
-      ["authorityKeyIdentifier", "keyid:always", false], 
+      ["authorityKeyIdentifier", "keyid:always", false],
       ["issuerAltName", "issuer:copy", false],
     ]
 
@@ -190,30 +185,6 @@ class OpenSSL::TestX509CRL < Test::Unit::TestCase
     assert_match((2**100).to_s, crl.extensions[0].value)
   end
 
-  def test_sign_and_verify_wrong_key_type
-    cert_rsa = issue_cert(@ca, @rsa2048, 1, Time.now, Time.now+3600, [],
-                      nil, nil, OpenSSL::Digest::SHA1.new)
-    crl_rsa = issue_crl([], 1, Time.now, Time.now+1600, [],
-                    cert_rsa, @rsa2048, OpenSSL::Digest::SHA1.new)
-    cert_dsa = issue_cert(@ca, @dsa512, 1, Time.now, Time.now+3600, [],
-                      nil, nil, OpenSSL::Digest::DSS1.new)
-    crl_dsa = issue_crl([], 1, Time.now, Time.now+1600, [],
-                    cert_dsa, @dsa512, OpenSSL::Digest::DSS1.new)
-    begin
-      assert_equal(false, crl_rsa.verify(@dsa256))
-    rescue OpenSSL::X509::CRLError => e
-      # OpenSSL 1.0.0 added checks for pkey OID
-      assert_equal('wrong public key type', e.message)
-    end
-
-    begin
-      assert_equal(false, crl_dsa.verify(@rsa1024))
-    rescue OpenSSL::X509::CRLError => e
-      # OpenSSL 1.0.0 added checks for pkey OID
-      assert_equal('wrong public key type', e.message)
-    end
-  end
-
   def test_sign_and_verify
     cert = issue_cert(@ca, @rsa2048, 1, Time.now, Time.now+3600, [],
                       nil, nil, OpenSSL::Digest::SHA1.new)
@@ -221,17 +192,29 @@ class OpenSSL::TestX509CRL < Test::Unit::TestCase
                     cert, @rsa2048, OpenSSL::Digest::SHA1.new)
     assert_equal(false, crl.verify(@rsa1024))
     assert_equal(true,  crl.verify(@rsa2048))
+    assert_equal(false, crl_error_returns_false { crl.verify(@dsa256) })
+    assert_equal(false, crl_error_returns_false { crl.verify(@dsa512) })
     crl.version = 0
     assert_equal(false, crl.verify(@rsa2048))
 
     cert = issue_cert(@ca, @dsa512, 1, Time.now, Time.now+3600, [],
-                      nil, nil, OpenSSL::Digest::DSS1.new)
+                      nil, nil, OpenSSL::TestUtils::DSA_SIGNATURE_DIGEST.new)
     crl = issue_crl([], 1, Time.now, Time.now+1600, [],
-                    cert, @dsa512, OpenSSL::Digest::DSS1.new)
+                    cert, @dsa512, OpenSSL::TestUtils::DSA_SIGNATURE_DIGEST.new)
+    assert_equal(false, crl_error_returns_false { crl.verify(@rsa1024) })
+    assert_equal(false, crl_error_returns_false { crl.verify(@rsa2048) })
     assert_equal(false, crl.verify(@dsa256))
     assert_equal(true,  crl.verify(@dsa512))
     crl.version = 0
     assert_equal(false, crl.verify(@dsa512))
+  end
+
+  private
+
+  def crl_error_returns_false
+    yield
+  rescue OpenSSL::X509::CRLError
+    false
   end
 end
 

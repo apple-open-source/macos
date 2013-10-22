@@ -77,10 +77,10 @@ EXTRA_DIST = 						\
     test-9.2-1.xsl					\
     stand-2.7-1.dtd stand-2.7-1.stand.out stand-2.7-1.xsl \
     stand-2.7-1.out stand-2.7-1.xml			\
-    stand-2.7-2.xml stand-2.7-3.xml
+    stand-2.7-2.stand.out stand-2.7-2.xml stand-2.7-3.xml \
+    stand-2.7-3.stand.out
 
-
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
@@ -107,7 +107,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  		echo "Fatal error, no $$name.res\n" ; \
 	  	else \
 	  		diff $(srcdir)/$$name.out $$name.res ; \
-			if [ -s $$name.err ] ; then \
+			if [ -s $(srcdir)/$$name.err ] ; then \
 				diff $(srcdir)/$$name.err $$name.bad ; \
 			else \
 				diff /dev/null $$name.bad ; \
@@ -118,7 +118,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  grep -v "MEMORY ALLOCATED : 0" || true` ; \
 	  if [ -n "$$log" ] ; then \
 	  	echo $$name result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	  fi ; \
 	  rm -f $$name.res $$name.bad ; \
 	  done)
@@ -136,7 +136,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  		echo "Fatal error, no $$name.res\n" ; \
 	  	else \
 	  		diff $(srcdir)/$$name.stand.out $$name.res ; \
-			if [ -s $$name.stand.err ] ; then \
+			if [ -s $(srcdir)/$$name.stand.err ] ; then \
 	  			diff $(srcdir)/$$name.stand.err $$name.bad ; \
 			else \
 				diff /dev/null $$name.bad; \
@@ -146,7 +146,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true` ; \
 	  if [ -n "$$log" ] ; then \
 	  	echo $$name result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	  fi ; \
 	  rm -f $$name.res $$name.bad ; \
 	  done)
@@ -169,7 +169,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  		echo "Fatal error, no $$name.res\n" ; \
 	  	else \
 	  		diff $(srcdir)/$$name.out $$name.res ; \
-			if [ -s $$name.err ] ; then \
+			if [ -s $(srcdir)/$$name.err ] ; then \
 				diff $(srcdir)/$$name.err $$name.bad ; \
 			else \
 				diff /dev/null $$name.bad ; \
@@ -180,7 +180,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  grep -v "MEMORY ALLOCATED : 0" || true` ; \
 	  if [ -n "$$log" ] ; then \
 	  	echo $$name result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	  fi ; \
 	  rm -f $$name.res $$name.bad ; \
 	  done)
@@ -198,7 +198,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  		echo "Fatal error, no $$name.res\n" ; \
 	  	else \
 	  		diff $(srcdir)/$$name.stand.out $$name.res ; \
-			if [ -s $$name.stand.err ] ; then \
+			if [ -s $(srcdir)/$$name.stand.err ] ; then \
 	  			diff $(srcdir)/$$name.stand.err $$name.bad ; \
 			else \
 				diff /dev/null $$name.bad; \
@@ -208,7 +208,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true` ; \
 	  if [ -n "$$log" ] ; then \
 	  	echo $$name result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	  fi ; \
 	  rm -f $$name.res $$name.bad ; \
 	  done)

@@ -48,7 +48,7 @@
 #include "debug.h"
 
 #if 0
-static int bindump __P((void *, size_t));
+static int bindump (void *, size_t);
 
 static int
 bindump(buf0, len)
@@ -166,4 +166,27 @@ timedelta(t1, t2)
 
 	return t2->tv_sec - t1->tv_sec - 1 +
 		(double)(1000000 + t2->tv_usec - t1->tv_usec) / 1000000;
+}
+
+/*
+ * Returns a printable string from (possibly) binary data ;
+ * concatenates all unprintable chars to one space.
+ * XXX Maybe the printable chars range is too large...
+ */
+char*
+binsanitize(binstr, n)
+	char *binstr;
+	size_t n;
+{
+	int p,q;
+	for (p = 0, q = 0; p < n; p++) {
+		if (isgraph((int)binstr[p])) {
+			binstr[q++] = binstr[p];
+		} else {
+			if (q && binstr[q - 1] != ' ')
+				binstr[q++] = ' ';
+		}
+	}
+	binstr[q++] = '\0';
+	return binstr;
 }

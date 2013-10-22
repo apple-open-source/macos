@@ -25,7 +25,7 @@
 #include <wtf/PassOwnPtr.h>
 
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
-#include "TextureMapper.h"
+#include "TextureMapperPlatformLayer.h"
 #endif
 
 namespace WebCore {
@@ -36,21 +36,23 @@ class GraphicsContext3DPrivate
 #endif
 {
 public:
-    static PassOwnPtr<GraphicsContext3DPrivate> create(GraphicsContext3D*, HostWindow*);
+    static PassOwnPtr<GraphicsContext3DPrivate> create(GraphicsContext3D*, GraphicsContext3D::RenderStyle);
     ~GraphicsContext3DPrivate();
     bool makeContextCurrent();
     PlatformGraphicsContext3D platformContext();
 
+    GraphicsContext3D::RenderStyle renderStyle() { return m_renderStyle; }
+
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
-    virtual void paintToTextureMapper(TextureMapper*, const FloatRect& target, const TransformationMatrix&, float opacity, BitmapTexture* mask);
+    virtual void paintToTextureMapper(TextureMapper*, const FloatRect& target, const TransformationMatrix&, float opacity);
 #endif
 
 private:
-    GraphicsContext3DPrivate(GraphicsContext3D*, HostWindow*);
+    GraphicsContext3DPrivate(GraphicsContext3D*, GraphicsContext3D::RenderStyle);
 
     GraphicsContext3D* m_context;
-    HostWindow* m_window;
-    GLContext* m_glContext;
+    OwnPtr<GLContext> m_glContext;
+    GraphicsContext3D::RenderStyle m_renderStyle;
 };
 
 }

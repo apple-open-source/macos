@@ -179,6 +179,9 @@ int network_lock(
 	int refresh,				/* -> if FALSE, we're getting the lock (for uid); if TRUE, we're refreshing the lock */
 	struct node_entry *node);	/* -> node to get/renew server lock on */
 
+int network_unlock_with_nodecache_locked(
+	struct node_entry *node);	/* -> node to unlock on server */
+
 int network_unlock(
 	struct node_entry *node);	/* -> node to unlock on server */
 								/* NOTE: uid comes from node */

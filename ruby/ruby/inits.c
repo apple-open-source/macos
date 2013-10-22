@@ -2,91 +2,64 @@
 
   inits.c -
 
-  $Author: shyouhei $
-  $Date: 2011-12-28 21:47:15 +0900 (Wed, 28 Dec 2011) $
+  $Author: ko1 $
   created at: Tue Dec 28 16:01:58 JST 1993
 
-  Copyright (C) 1993-2003 Yukihiro Matsumoto
+  Copyright (C) 1993-2007 Yukihiro Matsumoto
 
 **********************************************************************/
 
-#include "ruby.h"
+#include "ruby/ruby.h"
+#include "internal.h"
 
-void Init_Array _((void));
-void Init_Bignum _((void));
-void Init_Binding _((void));
-void Init_Comparable _((void));
-void Init_Dir _((void));
-void Init_Enumerable _((void));
-void Init_Enumerator _((void));
-void Init_Exception _((void));
-void Init_syserr _((void));
-void Init_eval _((void));
-void Init_load _((void));
-void Init_Proc _((void));
-void Init_Thread _((void));
-void Init_File _((void));
-void Init_GC _((void));
-void Init_Hash _((void));
-void Init_IO _((void));
-void Init_Math _((void));
-void Init_marshal _((void));
-void Init_Numeric _((void));
-void Init_Object _((void));
-void Init_pack _((void));
-void Init_Precision _((void));
-void Init_sym _((void));
-void Init_process _((void));
-void Init_Random _((void));
-void Init_RandomSeed _((void));
-void Init_Range _((void));
-void Init_Regexp _((void));
-void Init_signal _((void));
-void Init_String _((void));
-void Init_Struct _((void));
-void Init_Time _((void));
-void Init_var_tables _((void));
-void Init_version _((void));
-void Init_st _((void));
-void Init_DTracer _((void));
+#define CALL(n) {void Init_##n(void); Init_##n();}
 
 void
-rb_call_inits()
+rb_call_inits(void)
 {
-    Init_RandomSeed();
-    Init_st();
-    Init_sym();
-    Init_var_tables();
-    Init_Object();
-    Init_Comparable();
-    Init_Enumerable();
-    Init_Precision();
-    Init_eval();
-    Init_String();
-    Init_Exception();
-    Init_Thread();
-    Init_Numeric();
-    Init_Bignum();
-    Init_syserr();
-    Init_Array();
-    Init_Hash();
-    Init_Struct();
-    Init_Regexp();
-    Init_pack();
-    Init_Range();
-    Init_IO();
-    Init_Dir();
-    Init_Time();
-    Init_Random();
-    Init_signal();
-    Init_process();
-    Init_load();
-    Init_Proc();
-    Init_Binding();
-    Init_Math();
-    Init_GC();
-    Init_Enumerator();
-    Init_marshal();
-    Init_version();
-    Init_DTracer();
+    CALL(RandomSeed);
+    CALL(sym);
+    CALL(var_tables);
+    CALL(Object);
+    CALL(top_self);
+    CALL(Encoding);
+    CALL(Comparable);
+    CALL(Enumerable);
+    CALL(String);
+    CALL(Exception);
+    CALL(eval);
+    CALL(safe);
+    CALL(jump);
+    CALL(Numeric);
+    CALL(Bignum);
+    CALL(syserr);
+    CALL(Array);
+    CALL(Hash);
+    CALL(Struct);
+    CALL(Regexp);
+    CALL(pack);
+    CALL(transcode);
+    CALL(marshal);
+    CALL(Range);
+    CALL(IO);
+    CALL(Dir);
+    CALL(Time);
+    CALL(Random);
+    CALL(signal);
+    CALL(process);
+    CALL(load);
+    CALL(Proc);
+    CALL(Binding);
+    CALL(Math);
+    CALL(GC);
+    CALL(Enumerator);
+    CALL(VM);
+    CALL(ISeq);
+    CALL(Thread);
+    CALL(Cont);
+    CALL(Rational);
+    CALL(Complex);
+    CALL(version);
+    CALL(vm_trace);
 }
+#undef CALL

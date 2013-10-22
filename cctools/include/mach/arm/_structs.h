@@ -25,6 +25,7 @@ _STRUCT_ARM_EXCEPTION_STATE
 };
 #endif /* __DARWIN_UNIX03 */
 
+
 #if __DARWIN_UNIX03
 #define _STRUCT_ARM_THREAD_STATE	struct __darwin_arm_thread_state
 _STRUCT_ARM_THREAD_STATE
@@ -47,6 +48,7 @@ _STRUCT_ARM_THREAD_STATE
 };
 #endif /* __DARWIN_UNIX03 */
 
+
 #if __DARWIN_UNIX03
 #define _STRUCT_ARM_VFP_STATE		struct __darwin_arm_vfp_state
 _STRUCT_ARM_VFP_STATE
@@ -63,6 +65,7 @@ _STRUCT_ARM_VFP_STATE
 	__uint32_t        fpscr;
 };
 #endif /* __DARWIN_UNIX03 */
+
 
 #define _STRUCT_ARM_DEBUG_STATE		struct __darwin_arm_debug_state
 _STRUCT_ARM_DEBUG_STATE

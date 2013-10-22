@@ -59,22 +59,25 @@
 #import <WebCore/HTMLTextAreaElement.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/LegacyWebArchive.h>
+#import <WebCore/Page.h>
 #import <WebCore/PlatformKeyboardEvent.h>
-#import <WebCore/PlatformString.h>
 #import <WebCore/RunLoop.h>
+#import <WebCore/Settings.h>
 #import <WebCore/SpellChecker.h>
+#import <WebCore/StylePropertySet.h>
 #import <WebCore/UndoStep.h>
 #import <WebCore/UserTypingGestureIndicator.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
 #import <wtf/PassRefPtr.h>
+#import <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
 using namespace HTMLNames;
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
 @interface NSSpellChecker (WebNSSpellCheckerDetails)
 - (NSString *)languageForWordRange:(NSRange)range inString:(NSString *)string orthography:(NSOrthography *)orthography;
 @end
@@ -222,26 +225,35 @@ bool WebEditorClient::shouldDeleteRange(Range* range)
         shouldDeleteDOMRange:kit(range)];
 }
 
+#if ENABLE(DELETION_UI)
 bool WebEditorClient::shouldShowDeleteInterface(HTMLElement* element)
 {
     return [[m_webView _editingDelegateForwarder] webView:m_webView
         shouldShowDeleteInterfaceForElement:kit(element)];
 }
+#endif
 
 bool WebEditorClient::smartInsertDeleteEnabled()
 {
-    return [m_webView smartInsertDeleteEnabled];
+    Page* page = [m_webView page];
+    if (!page)
+        return false;
+    return page->settings()->smartInsertDeleteEnabled();
 }
 
 bool WebEditorClient::isSelectTrailingWhitespaceEnabled()
 {
-    return [m_webView isSelectTrailingWhitespaceEnabled];
+    Page* page = [m_webView page];
+    if (!page)
+        return false;
+    return page->settings()->selectTrailingWhitespaceEnabled();
 }
 
 bool WebEditorClient::shouldApplyStyle(StylePropertySet* style, Range* range)
 {
+    RefPtr<MutableStylePropertySet> mutableStyle = style->isMutable() ? static_cast<MutableStylePropertySet*>(style) : style->mutableCopy();
     return [[m_webView _editingDelegateForwarder] webView:m_webView
-        shouldApplyStyle:kit(style->ensureCSSStyleDeclaration()) toElementsInDOMRange:kit(range)];
+        shouldApplyStyle:kit(mutableStyle->ensureCSSStyleDeclaration()) toElementsInDOMRange:kit(range)];
 }
 
 bool WebEditorClient::shouldMoveRangeAfterDelete(Range* range, Range* rangeToBeReplaced)
@@ -311,6 +323,16 @@ void WebEditorClient::didWriteSelectionToPasteboard()
     [[m_webView _editingDelegateForwarder] webView:m_webView didWriteSelectionToPasteboard:[NSPasteboard generalPasteboard]];
 }
 
+void WebEditorClient::willWriteSelectionToPasteboard(WebCore::Range*)
+{
+    // Not implemented WebKit, only WebKit2.
+}
+
+void WebEditorClient::getClientPasteboardDataForRange(WebCore::Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer> >& pasteboardData)
+{
+    // Not implemented WebKit, only WebKit2.
+}
+
 void WebEditorClient::didSetSelectionTypesForPasteboard()
 {
     [[m_webView _editingDelegateForwarder] webView:m_webView didSetSelectionTypesForPasteboard:[NSPasteboard generalPasteboard]];
@@ -376,8 +398,7 @@ void WebEditorClient::setInsertionPasteboard(const String& pasteboardName)
     [m_webView _setInsertionPasteboard:pasteboard];
 }
 
-
-#ifndef BUILDING_ON_LEOPARD
+#if USE(APPKIT)
 void WebEditorClient::uppercaseWord()
 {
     [m_webView uppercaseWord:nil];
@@ -392,7 +413,9 @@ void WebEditorClient::capitalizeWord()
 {
     [m_webView capitalizeWord:nil];
 }
+#endif
 
+#if USE(AUTOMATIC_TEXT_REPLACEMENT)
 void WebEditorClient::showSubstitutionsPanel(bool show)
 {
     NSPanel *spellingPanel = [[NSSpellChecker sharedSpellChecker] substitutionsPanel];
@@ -461,7 +484,7 @@ void WebEditorClient::toggleAutomaticSpellingCorrection()
 {
     [m_webView toggleAutomaticSpellingCorrection:nil];
 }
-#endif
+#endif // USE(AUTOMATIC_TEXT_REPLACEMENT)
 
 bool WebEditorClient::shouldInsertNode(Node *node, Range* replacingRange, EditorInsertAction givenAction)
 { 
@@ -508,6 +531,8 @@ static NSString* undoNameForEditAction(EditAction editAction)
         case EditActionFormatBlock: return UI_STRING_KEY_INTERNAL("Formatting", "Format Block (Undo action name)", "Undo action name");
         case EditActionIndent: return UI_STRING_KEY_INTERNAL("Indent", "Indent (Undo action name)", "Undo action name");
         case EditActionOutdent: return UI_STRING_KEY_INTERNAL("Outdent", "Outdent (Undo action name)", "Undo action name");
+        case EditActionBold: return UI_STRING_KEY_INTERNAL("Bold", "Bold (Undo action name)", "Undo action name");
+        case EditActionItalics: return UI_STRING_KEY_INTERNAL("Italics", "Italics (Undo action name)", "Undo action name");
     }
     return nil;
 }
@@ -694,6 +719,16 @@ void WebEditorClient::textDidChangeInTextArea(Element* element)
     CallFormDelegate(m_webView, @selector(textDidChangeInTextArea:inFrame:), textAreaElement, kit(element->document()->frame()));
 }
 
+bool WebEditorClient::shouldEraseMarkersAfterChangeSelection(TextCheckingType type) const
+{
+    // This prevents erasing spelling markers on OS X Lion or later to match AppKit on these Mac OS X versions.
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
+    return type != TextCheckingTypeSpelling;
+#else
+    return true;
+#endif
+}
+
 void WebEditorClient::ignoreWordInSpellDocument(const String& text)
 {
     [[NSSpellChecker sharedSpellChecker] ignoreWord:text 
@@ -758,7 +793,6 @@ void WebEditorClient::checkGrammarOfString(const UChar* text, int length, Vector
     }
 }
 
-#ifndef BUILDING_ON_LEOPARD
 static Vector<TextCheckingResult> core(NSArray *incomingResults, TextCheckingTypeMask checkingTypes)
 {
     Vector<TextCheckingResult> results;
@@ -837,16 +871,13 @@ static Vector<TextCheckingResult> core(NSArray *incomingResults, TextCheckingTyp
 
     return results;
 }
-#endif
 
 void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, TextCheckingTypeMask checkingTypes, Vector<TextCheckingResult>& results)
 {
-#ifndef BUILDING_ON_LEOPARD
     NSString *textString = [[NSString alloc] initWithCharactersNoCopy:const_cast<UChar*>(text) length:length freeWhenDone:NO];
     NSArray *incomingResults = [[NSSpellChecker sharedSpellChecker] checkString:textString range:NSMakeRange(0, [textString length]) types:(checkingTypes|NSTextCheckingTypeOrthography) options:nil inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:NULL wordCount:NULL];
     [textString release];
     results = core(incomingResults, checkingTypes);
-#endif
 }
 
 void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
@@ -858,7 +889,7 @@ void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammar
     }
     NSRange grammarRange = NSMakeRange(grammarDetail.location, grammarDetail.length);
     NSString* grammarUserDescription = grammarDetail.userDescription;
-    NSMutableDictionary* grammarDetailDict = [NSDictionary dictionaryWithObjectsAndKeys:[NSValue valueWithRange:grammarRange], NSGrammarRange, grammarUserDescription, NSGrammarUserDescription, corrections, NSGrammarCorrections, nil];
+    NSDictionary* grammarDetailDict = [NSDictionary dictionaryWithObjectsAndKeys:[NSValue valueWithRange:grammarRange], NSGrammarRange, grammarUserDescription, NSGrammarUserDescription, corrections, NSGrammarCorrections, nil];
     
     [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithGrammarString:badGrammarPhrase detail:grammarDetailDict];
 }
@@ -884,7 +915,7 @@ bool WebEditorClient::spellingUIIsShowing()
 
 void WebEditorClient::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses) {
     guesses.clear();
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     NSString* language = nil;
     NSOrthography* orthography = nil;
     NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
@@ -914,51 +945,54 @@ void WebEditorClient::setInputMethodState(bool)
 {
 }
 
-#ifndef BUILDING_ON_LEOPARD
 @interface WebEditorSpellCheckResponder : NSObject
 {
-    WebCore::SpellChecker* _sender;
+    WebEditorClient* _client;
     int _sequence;
-    TextCheckingTypeMask _types;
     RetainPtr<NSArray> _results;
 }
-- (id)initWithSender:(WebCore::SpellChecker*)sender sequence:(int)sequence types:(WebCore::TextCheckingTypeMask)types results:(NSArray*)results;
+- (id)initWithClient:(WebEditorClient*)client sequence:(int)sequence results:(NSArray*)results;
 - (void)perform;
 @end
 
 @implementation WebEditorSpellCheckResponder
-- (id)initWithSender:(WebCore::SpellChecker*)sender sequence:(int)sequence types:(WebCore::TextCheckingTypeMask)types results:(NSArray*)results
+- (id)initWithClient:(WebEditorClient*)client sequence:(int)sequence results:(NSArray*)results
 {
     self = [super init];
     if (!self)
         return nil;
-    _sender = sender;
+    _client = client;
     _sequence = sequence;
-    _types = types;
     _results = results;
     return self;
 }
 
 - (void)perform
 {
-    _sender->didCheckSucceeded(_sequence, core(_results.get(), _types));
+    _client->didCheckSucceed(_sequence, _results.get());
 }
 
 @end
-#endif
 
-void WebEditorClient::requestCheckingOfString(WebCore::SpellChecker* sender, const WebCore::TextCheckingRequest& request)
+void WebEditorClient::didCheckSucceed(int sequence, NSArray* results)
 {
-#ifndef BUILDING_ON_LEOPARD
-    NSRange range = NSMakeRange(0, request.text().length());
+    ASSERT_UNUSED(sequence, sequence == m_textCheckingRequest->data().sequence());
+    m_textCheckingRequest->didSucceed(core(results, m_textCheckingRequest->data().mask()));
+    m_textCheckingRequest.clear();
+}
+
+void WebEditorClient::requestCheckingOfString(PassRefPtr<WebCore::TextCheckingRequest> request)
+{
+    ASSERT(!m_textCheckingRequest);
+    m_textCheckingRequest = request;
+
+    int sequence = m_textCheckingRequest->data().sequence();
+    NSRange range = NSMakeRange(0, m_textCheckingRequest->data().text().length());
     NSRunLoop* currentLoop = [NSRunLoop currentRunLoop];
-    int sequence = request.sequence();
-    TextCheckingTypeMask types = request.mask();
-    [[NSSpellChecker sharedSpellChecker] requestCheckingOfString:request.text() range:range types:NSTextCheckingAllSystemTypes options:0 inSpellDocumentWithTag:0
+    [[NSSpellChecker sharedSpellChecker] requestCheckingOfString:m_textCheckingRequest->data().text() range:range types:NSTextCheckingAllSystemTypes options:0 inSpellDocumentWithTag:0
                                          completionHandler:^(NSInteger, NSArray* results, NSOrthography*, NSInteger) {
             [currentLoop performSelector:@selector(perform) 
-                                  target:[[[WebEditorSpellCheckResponder alloc] initWithSender:sender sequence:sequence types:types results:results] autorelease]
+                                  target:[[[WebEditorSpellCheckResponder alloc] initWithClient:this sequence:sequence results:results] autorelease]
                                 argument:nil order:0 modes:[NSArray arrayWithObject:NSDefaultRunLoopMode]];
         }];
-#endif
 }

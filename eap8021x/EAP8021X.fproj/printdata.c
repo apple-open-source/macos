@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,15 +34,15 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include "printdata.h"
+#include "myCFUtil.h"
+#include <SystemConfiguration/SCPrivate.h>
 
 void
-fprint_bytes(FILE * out_f, const u_char * data_p, int n_bytes)
+print_bytes_cfstr(CFMutableStringRef str, const uint8_t * data_p,
+		  int n_bytes)
 {
-    int i;
+    int 		i;
 
-    if (out_f == NULL) {
-	out_f = stdout;
-    }
     for (i = 0; i < n_bytes; i++) {
 	char * space;
 
@@ -56,18 +55,15 @@ fprint_bytes(FILE * out_f, const u_char * data_p, int n_bytes)
 	else {
 	    space = " ";
 	}
-	fprintf(out_f, "%s%02x", space, data_p[i]);
+	STRING_APPEND(str, "%s%02x", space, data_p[i]);
     }
-    fflush(out_f);
     return;
 }
 
 void
-fprint_data(FILE * out_f, const u_char * data_p, int n_bytes)
+print_data_cfstr(CFMutableStringRef str, const uint8_t * data_p,
+		 int n_bytes)
 {
-    if (out_f == NULL) {
-	out_f = stdout;
-    }
 #define CHARS_PER_LINE 	16
     char		line_buf[CHARS_PER_LINE + 1];
     int			line_pos;
@@ -75,18 +71,18 @@ fprint_data(FILE * out_f, const u_char * data_p, int n_bytes)
 
     for (line_pos = 0, offset = 0; offset < n_bytes; offset++, data_p++) {
 	if (line_pos == 0)
-	    fprintf(out_f, "%04x ", offset);
+	    STRING_APPEND(str, "%04x ", offset);
 
 	line_buf[line_pos] = isprint(*data_p) ? *data_p : '.';
-	fprintf(out_f, " %02x", *data_p);
+	STRING_APPEND(str, " %02x", *data_p);
 	line_pos++;
 	if (line_pos == CHARS_PER_LINE) {
 	    line_buf[CHARS_PER_LINE] = '\0';
-	    fprintf(out_f, "  %s\n", line_buf);
+	    STRING_APPEND(str, "  %s\n", line_buf);
 	    line_pos = 0;
 	}
 	else if (line_pos == (CHARS_PER_LINE / 2))
-	    fprintf(out_f, " ");
+	    STRING_APPEND(str, " ");
     }
     if (line_pos) { /* need to finish up the line */
 	char * extra_space = "";
@@ -94,24 +90,55 @@ fprint_data(FILE * out_f, const u_char * data_p, int n_bytes)
 	    extra_space = " ";
 	}
 	for (; line_pos < CHARS_PER_LINE; line_pos++) {
-	    fprintf(out_f, "   ");
+	    STRING_APPEND(str, "   ");
 	    line_buf[line_pos] = ' ';
 	}
 	line_buf[CHARS_PER_LINE] = '\0';
-	fprintf(out_f, "  %s%s\n", extra_space, line_buf);
+	STRING_APPEND(str, "  %s%s\n", extra_space, line_buf);
     }
+    return;
+}
+
+void
+fprint_bytes(FILE * out_f, const uint8_t * data_p, int n_bytes)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    if (out_f == NULL) {
+	out_f = stdout;
+    }
+    print_bytes_cfstr(str, data_p, n_bytes);
+    SCPrint(TRUE, out_f, CFSTR("%@"), str);
+    CFRelease(str);
     fflush(out_f);
     return;
 }
 
 void
-print_bytes(const u_char * data, int len)
+fprint_data(FILE * out_f, const uint8_t * data_p, int n_bytes)
+{
+    CFMutableStringRef	str;
+
+    str = CFStringCreateMutable(NULL, 0);
+    print_data_cfstr(str, data_p, n_bytes);
+    if (out_f == NULL) {
+	out_f = stdout;
+    }
+    SCPrint(TRUE, out_f, CFSTR("%@"), str);
+    CFRelease(str);
+    fflush(out_f);
+    return;
+}
+
+void
+print_bytes(const uint8_t * data, int len)
 {
     fprint_bytes(NULL, data, len);
 }
 
 void
-print_data(const u_char * data, int len)
+print_data(const uint8_t * data, int len)
 {
     fprint_data(NULL, data, len);
 }

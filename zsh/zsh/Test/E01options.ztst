@@ -256,6 +256,8 @@
 ?next one should fail
 ?(eval):1: parse error near `end'
 
+# ` emacs deconfusion
+
   setopt cshjunkiequotes
   print this should cause an error >&2
   eval "print 'line one
@@ -270,6 +272,8 @@
 ?this should cause an error
 ?(eval):1: unmatched '
 ?this should not
+
+# ' emacs deconfusion
 
   nullcmd() { print '$NULLCMD run'; }
   readnullcmd() { print 'Running $READNULLCMD'; cat; }
@@ -343,6 +347,19 @@
   (print before; setopt noexec; print after)
 0:NO_EXEC option
 >before
+
+  (setopt noexec
+  typeset -A hash
+  hash['this is a string'])
+0:NO_EXEC option should not attempt to parse subscripts
+
+  (setopt noexec nomatch
+  echo *NonExistentFile*)
+0:NO_EXEC option should not do globbing
+
+  (setopt noexec
+  echo ${unset_var?Not an error})
+0:NO_EXEC should not test for unset variables
 
   setopt NO_eval_lineno
   eval 'print $LINENO'
@@ -888,6 +905,8 @@
 ?(eval):exec:6: ls: restricted
 ?(eval):unsetopt:7: can't change option: restricted
 
+# ' emacs deconfusion
+
   fn() {
     print =ls ={ls,}
     local foo='=ls'
@@ -1068,3 +1087,12 @@
 ?+(eval):4> fn
 ?+fn:0> print message
 ?+(eval):5> unsetopt xtrace
+
+  setopt ignoreclosebraces
+  eval "icb_test() { echo this is OK; }"
+  icb_test
+  icb_args() { print $#; }
+  eval "icb_args { this, is, ok, too }"
+0:IGNORE_CLOSE_BRACES option
+>this is OK
+>6

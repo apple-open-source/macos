@@ -706,7 +706,7 @@ max_wrap_length_arcfour(const gsskrb5_ctx ctx,
 	if (input_length < len)
 	    *max_input_size = 0;
 	else
-	    *max_input_size = input_length - len;
+	    *max_input_size = (OM_uint32)(input_length - len);
 
     } else {
 	size_t extrasize = GSS_ARCFOUR_WRAP_TOKEN_SIZE;
@@ -719,7 +719,7 @@ max_wrap_length_arcfour(const gsskrb5_ctx ctx,
 
 	total_len -= input_length; /* token length */
 	if (total_len < input_length) {
-	    *max_input_size = (input_length - total_len);
+	    *max_input_size = (OM_uint32)(input_length - total_len);
 	    (*max_input_size) &= (~(OM_uint32)(blocksize - 1));
 	} else {
 	    *max_input_size = 0;

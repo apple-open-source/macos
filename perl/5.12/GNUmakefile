@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = perl
-VERSION = 5.12.4
+VERSION = 5.12.5
 COMPATVERSIONS =
 MODSUFFIX = -mod
 #TARVERSION :=
@@ -102,9 +102,9 @@ install: $(OBJROOT)/$(PROJECT) installperl installperlupdates installstrip fixup
 
 installopensource:
 	install -d $(DSTROOT)$(OSV)
-	install $(SRCROOT)/$(PROJECT).plist $(DSTROOT)$(OSV)
+	install -m 0644 $(SRCROOT)/$(PROJECT).plist $(DSTROOT)$(OSV)
 	install -d $(DSTROOT)$(OSL)
-	install $(OBJROOT)/$(PROJECT)/Artistic $(DSTROOT)$(OSL)/perl.txt
+	install -m 0644 $(OBJROOT)/$(PROJECT)/Artistic $(DSTROOT)$(OSL)/perl.txt
 
 ifneq "$(RC_XBS)" "YES"
 MOREARGS += GnuNoBuild=YES
@@ -149,12 +149,18 @@ installperlupdates:
 	    OBJROOT='$(OBJROOT)/updates' DSTROOT='$(DSTROOT)' \
 	    SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)'
 
+DSYMUTIL := $(shell xcrun -find dsymutil)
 installstrip:
 	@set -x && \
 	cd $(DSTROOT) && \
 	find . -type f | xargs file | fgrep 'Mach-O' | grep -v '):[ 	]' | sed -e 's/: .*//' -e 's,^\./,,' > $(SYMROOT)/strip.list && \
 	cpio -pdmv $(SYMROOT) < $(SYMROOT)/strip.list && \
 	strip -x `cat $(SYMROOT)/strip.list`
+	@set -x && \
+	cd $(SYMROOT) && \
+	for i in `cat strip.list`; do \
+	    $(DSYMUTIL) $$i || exit 1; \
+	done
 
 fixupperl:
 	install -d '$(DSTROOT)$(LIBRARYPERL)'
@@ -191,6 +197,7 @@ $(OBJROOT)/$(PROJECT):
 	    -e 's/@VERSION_DEFAULT@/$(ENV_PERL_BASE_VERSION)/g' \
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \
 	    fix/README.macosx.ed | ed - $(PROJECT)/README.macosx
+	patch -d '$(OBJROOT)/$(PROJECT)' -i '$(OBJROOT)/fix/CVE-2013-1667-rehash-5.12.5.patch' -p1 -F0
 
 ifneq "$(RC_XBS)" "YES"
 clean:

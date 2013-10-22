@@ -1,3 +1,5 @@
-tcpdump is configured with the following:
---prefix=/usr
---enable-ipv6
+After being generated, config.h was manually edited to:
+- turn off HAVE_LIBCRYPTO
+- enable HAVE_NET_PFVAR_H
+- turn off HAVE_OPENSSL_EVP_H
+

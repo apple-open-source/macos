@@ -1,0 +1,28 @@
+---
+abstract: 'Alternative to Test::More::use_ok'
+build_requires:
+  ExtUtils::MakeMaker: 6.36
+configure_requires:
+  ExtUtils::MakeMaker: 6.36
+distribution_type: module
+dynamic_config: 1
+generated_by: 'Module::Install version 1.06'
+license: unrestricted
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+module_name: Test::use::ok
+name: Test-use-ok
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  perl: 5.005
+resources:
+  homepage: http://github.com/audreyt/Test-use-ok/tree
+  repository:
+    type: git
+    url: git://github.com/audreyt/Test-use-ok.git
+    web: http://github.com/audreyt/Test-use-ok/tree
+version: 0.10

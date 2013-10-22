@@ -206,6 +206,26 @@ command = {
     max_args = "2"
 }
 command = {
+    option = {
+	long = "kdc-certificate"
+	type = "flag"
+	help = "force new kdc certificate"
+    }
+    option = {
+	long = "keytab"
+	type = "-flag"
+	help = "dont remove LKDC keytab entries"
+    }
+    option = {
+	long = "verbose"
+	short = "v"
+	type = "flag"
+	help = "verbose logging"
+    }
+    name = "setup-lkdc"
+    help = "setup LKDC on this machine"
+}
+command = {
 	name = "help"
 	name = "?"
 	argument = "[command]"

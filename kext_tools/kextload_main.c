@@ -374,7 +374,7 @@ ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs)
     OSReturn   loadResult = kOSReturnError;
     char       scratchCString[PATH_MAX];
     CFIndex    count, index;
-
+ 
     count = CFArrayGetCount(toolArgs->kextIDs);
     for (index = 0; index < count; index++) {
         CFStringRef kextID  = CFArrayGetValueAtIndex(toolArgs->kextIDs, index);
@@ -390,7 +390,7 @@ ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs)
             kOSKextLogLoadFlag | kOSKextLogIPCFlag,
             "Requesting load of %s.",
             scratchCString);
-
+        
         loadResult = KextManagerLoadKextWithIdentifier(kextID,
             toolArgs->scanURLs);
         if (loadResult != kOSReturnSuccess) {

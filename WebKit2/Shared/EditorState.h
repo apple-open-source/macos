@@ -41,6 +41,7 @@ struct EditorState {
         , isContentEditable(false)
         , isContentRichlyEditable(false)
         , isInPasswordField(false)
+        , isInPlugin(false)
         , hasComposition(false)
 #if PLATFORM(QT)
         , cursorPosition(0)
@@ -57,6 +58,7 @@ struct EditorState {
     bool isContentEditable;
     bool isContentRichlyEditable;
     bool isInPasswordField;
+    bool isInPlugin;
     bool hasComposition;
 #if PLATFORM(QT)
     // The anchor, cursor represent either the selection or composition, depending
@@ -65,7 +67,6 @@ struct EditorState {
     unsigned anchorPosition;
 
     WebCore::IntRect editorRect;
-    WebCore::IntRect cursorRect;
     WebCore::IntRect compositionRect;
 
     uint64_t inputMethodHints;
@@ -74,8 +75,12 @@ struct EditorState {
     WTF::String surroundingText;
 #endif
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, EditorState&);
+#if PLATFORM(QT) || PLATFORM(GTK)
+    WebCore::IntRect cursorRect;
+#endif
+
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, EditorState&);
 };
 
 }

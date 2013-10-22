@@ -1,14 +1,14 @@
 #
-#   irb/ruby-token.rb - ruby tokens 
-#   	$Release Version: 0.9.5$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   irb/ruby-token.rb - ruby tokens
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38358 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
 #
+#
+# :stopdoc:
 module RubyToken
   EXPR_BEG = :EXPR_BEG
   EXPR_MID = :EXPR_MID
@@ -18,20 +18,13 @@ module RubyToken
   EXPR_DOT = :EXPR_DOT
   EXPR_CLASS = :EXPR_CLASS
 
-  # for ruby 1.4X
-  if !defined?(Symbol)
-    Symbol = Integer
-  end
-  
   class Token
     def initialize(seek, line_no, char_no)
       @seek = seek
       @line_no = line_no
       @char_no = char_no
     end
-    attr :seek
-    attr :line_no
-    attr :char_no
+    attr :seek, :line_no, :char_no
   end
 
   class TkNode < Token
@@ -58,7 +51,7 @@ module RubyToken
   end
 
   class TkOp < Token
-    attr :name, true
+    attr_accessor :name
   end
 
   class TkOPASGN < TkOp
@@ -87,7 +80,7 @@ module RubyToken
       if (tk = TkReading2Token[token]).nil?
 	IRB.fail TkReading2TokenNoKey, token
       end
-      tk = Token(tk[0], value) 
+      tk = Token(tk[0], value)
       if tk.kind_of?(TkOp)
 	tk.name = token
       end
@@ -96,8 +89,8 @@ module RubyToken
       if (tk = TkSymbol2Token[token]).nil?
 	IRB.fail TkSymbol2TokenNoKey, token
       end
-      return Token(tk[0], value) 
-    else 
+      return Token(tk[0], value)
+    else
       if (token.ancestors & [TkId, TkVal, TkOPASGN, TkUnknownChar]).empty?
 	token.new(@prev_seek, @prev_line_no, @prev_char_no)
       else
@@ -197,7 +190,7 @@ module RubyToken
     [:TkASSOC,      TkOp,   "=>"],
     [:TkQUESTION,   TkOp,   "?"],	 #?
     [:TkCOLON,      TkOp,   ":"],        #:
-    
+
     [:TkfLPAREN],         # func( #
     [:TkfLBRACK],         # func[ #
     [:TkfLBRACE],         # func{ #
@@ -253,7 +246,7 @@ module RubyToken
       IRB.fail AlreadyDefinedToken, token_n
     end
     token_c = eval("class #{token_n} < #{super_token}; end; #{token_n}")
-    
+
     if reading
       if TkReading2Token[reading]
 	IRB.fail TkReading2TokenDuplicateError, token_n, reading
@@ -271,3 +264,4 @@ module RubyToken
     def_token(*defs)
   end
 end
+# :startdoc:

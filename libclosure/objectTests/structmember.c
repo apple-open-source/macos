@@ -36,7 +36,7 @@ int main() {
     nominalsize += 2*sizeof(void*);
 #endif
     if ((Block_size(b) - Block_size(a)) != nominalsize) {
-        testwarn("dump of b is %s", _Block_dump(b));
+        // testwarn("dump of b is %s", _Block_dump(b));
         fail("sizeof a is %lu, sizeof b is %lu, expected %lu", Block_size(a), Block_size(b), nominalsize);
     }
 

@@ -300,7 +300,7 @@ struct sudo_defs_types sudo_defs_table[] = {
 	NULL,
     }, {
 	"visiblepw", T_FLAG,
-	"Allow sudo to prompt for a password even if it would be visisble",
+	"Allow sudo to prompt for a password even if it would be visible",
 	NULL,
     }, {
 	"pwfeedback", T_FLAG,
@@ -329,6 +329,10 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"use_pty", T_FLAG,
 	"Always run commands in a pseudo-tty",
+	NULL,
+    }, {
+	"iolog_dir", T_STR|T_PATH,
+	"Directory in which to store input/output logs: %s",
 	NULL,
     }, {
 	NULL, 0, NULL

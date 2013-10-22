@@ -30,6 +30,22 @@
 
 namespace WebKit {
 
+void WebContextClient::plugInAutoStartOriginHashesChanged(WebContext* context)
+{
+    if (!m_client.plugInAutoStartOriginHashesChanged)
+        return;
+
+    m_client.plugInAutoStartOriginHashesChanged(toAPI(context), m_client.clientInfo);
+}
+
+void WebContextClient::networkProcessDidCrash(WebContext* context)
+{
+    if (!m_client.networkProcessDidCrash)
+        return;
+
+    m_client.networkProcessDidCrash(toAPI(context), m_client.clientInfo);
+}
+
 void WebContextClient::plugInInformationBecameAvailable(WebContext* context, ImmutableArray* plugInInfo)
 {
     if (!m_client.plugInInformationBecameAvailable)

@@ -56,7 +56,7 @@ public:
     bool operator < (const CSSM_GUID &other) const
     { return memcmp(this, &other, sizeof(CSSM_GUID)) < 0; }
     size_t hash() const {	//@@@ revisit this hash
-        return Data1 + Data2 << 3 + Data3 << 11 + Data4[3] + Data4[6] << 22;
+        return Data1 + (Data2 << 3) + (Data3 << 11) + (Data4[3]) + (Data4[6] << 22);
     }
 
     static const unsigned stringRepLength = 38;	// "{x8-x4-x4-x4-x12}"

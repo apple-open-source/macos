@@ -1,0 +1,16 @@
+Build.PL
+Changes
+lib/Class/Factory/Util.pm
+LICENSE
+Makefile.PL
+MANIFEST			This list of files
+META.yml
+README
+t/01test.t
+t/lib/Factory.pm
+t/lib/Factory/Bar.pm
+t/lib/Factory/Foo.pm
+t/lib2/Factory/Baz.pm
+t/pod-coverage.t
+t/pod.t
+SIGNATURE    Added here by Module::Build

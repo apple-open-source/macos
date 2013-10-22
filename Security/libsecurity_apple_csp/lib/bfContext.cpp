@@ -71,11 +71,11 @@ void BlowfishContext::init(
 
 	/* init key only if key size or key bits have changed */
 	if(!sameKeySize || memcmp(mRawKey, keyData, mRawKeySize)) {
-		BF_set_key(&mBfKey, keyLen, keyData);
+		BF_set_key(&mBfKey, (int)keyLen, keyData);
 	
 		/* save this raw key data */
 		memmove(mRawKey, keyData, keyLen); 
-		mRawKeySize = keyLen;
+		mRawKeySize = (unsigned int)keyLen;
 	}
 	
 	/* Finally, have BlockCryptor do its setup */

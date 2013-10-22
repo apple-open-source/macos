@@ -41,15 +41,15 @@ const char * const ipsecSessionEventStrings[IPSECSESSIONEVENTCODE_MAX] = {	CONST
 																			CONSTSTR("IKE Packet: transmit failed"),
 																			CONSTSTR("IKE Packet: receive success"),
 																			CONSTSTR("IKE Packet: receive failed"),
-																			CONSTSTR("IKEv1 Phase1 Initiator: success"),
-																			CONSTSTR("IKEv1 Phase1 Initiator: failed"),
-																			CONSTSTR("IKEv1 Phase1 Initiator: dropped"),
-																			CONSTSTR("IKEv1 Phase1 Responder: success"),
-																			CONSTSTR("IKEv1 Phase1 Responder: failed"),
-																			CONSTSTR("IKEv1 Phase1 Responder: drop"),
-																			CONSTSTR("IKEv1 Phase1: maximum retransmits"),
-																			CONSTSTR("IKEv1 Phase1 AUTH: success"),
-																			CONSTSTR("IKEv1 Phase1 AUTH: failed"),
+																			CONSTSTR("IKEv1 Phase 1 Initiator: success"),
+																			CONSTSTR("IKEv1 Phase 1 Initiator: failed"),
+																			CONSTSTR("IKEv1 Phase 1 Initiator: dropped"),
+																			CONSTSTR("IKEv1 Phase 1 Responder: success"),
+																			CONSTSTR("IKEv1 Phase 1 Responder: failed"),
+																			CONSTSTR("IKEv1 Phase 1 Responder: drop"),
+																			CONSTSTR("IKEv1 Phase 1: maximum retransmits"),
+																			CONSTSTR("IKEv1 Phase 1 AUTH: success"),
+																			CONSTSTR("IKEv1 Phase 1 AUTH: failed"),
 																			CONSTSTR("IKEv1 Dead-Peer-Detection: request transmitted"),
 																			CONSTSTR("IKEv1 Dead-Peer-Detection: response received"),
 																			CONSTSTR("IKEv1 Dead-Peer-Detection: request retransmitted"),
@@ -64,15 +64,15 @@ const char * const ipsecSessionEventStrings[IPSECSESSIONEVENTCODE_MAX] = {	CONST
 																			CONSTSTR("IKEv1 XAUTH: success"),
 																			CONSTSTR("IKEv1 XAUTH: failed"),
 																			CONSTSTR("IKEv1 XAUTH: dropped"),
-																			CONSTSTR("IKEv1 Phase2 Initiator: success"),
-																			CONSTSTR("IKEv1 Phase2 Initiator: failed"),
-																			CONSTSTR("IKEv1 Phase2 Initiator: dropped"),
-																			CONSTSTR("IKEv1 Phase2 Responder: success"),
-																			CONSTSTR("IKEv1 Phase2 Responder: fail"),
-																			CONSTSTR("IKEv1 Phase2 Responder: drop"),
-																			CONSTSTR("IKEv1 Phase2: maximum retransmits"),
-																			CONSTSTR("IKEv1 Phase2 AUTH: success"),
-																			CONSTSTR("IKEv1 Phase2 AUTH: failed"),
+																			CONSTSTR("IKEv1 Phase 2 Initiator: success"),
+																			CONSTSTR("IKEv1 Phase 2 Initiator: failed"),
+																			CONSTSTR("IKEv1 Phase 2 Initiator: dropped"),
+																			CONSTSTR("IKEv1 Phase 2 Responder: success"),
+																			CONSTSTR("IKEv1 Phase 2 Responder: fail"),
+																			CONSTSTR("IKEv1 Phase 2 Responder: drop"),
+																			CONSTSTR("IKEv1 Phase 2: maximum retransmits"),
+																			CONSTSTR("IKEv1 Phase 2 AUTH: success"),
+																			CONSTSTR("IKEv1 Phase 2 AUTH: failed"),
 																			CONSTSTR("IKEv1 Information-Notice: transmit success"),
 																			CONSTSTR("IKEv1 Information-Notice: transmit failed"),
 																			CONSTSTR("IKEv1 Information-Notice: receive success"),
@@ -80,7 +80,7 @@ const char * const ipsecSessionEventStrings[IPSECSESSIONEVENTCODE_MAX] = {	CONST
 																		};
 
 /* tells us if we can ignore the failure_reason passed into the event tracer */
-const int const ipsecSessionEventIgnoreReason[IPSECSESSIONEVENTCODE_MAX] = {TRUE/* index place holder */,
+const int ipsecSessionEventIgnoreReason[IPSECSESSIONEVENTCODE_MAX] = {TRUE/* index place holder */,
 																			TRUE,
 																			TRUE,
 																			TRUE,
@@ -248,7 +248,7 @@ ipsecSessionTracerEvent (ike_session_t *session, ipsecSessionEventCode_t eventCo
 	if (failure_reason) {
 		if (!session->term_reason &&
             !ipsecSessionEventIgnoreReason[eventCode]) {
-			session->term_reason = failure_reason;
+			session->term_reason = (char*)failure_reason;
 		}
 	}
 
@@ -351,12 +351,12 @@ ipsecSessionTracerStop (ike_session_t *session, int caused_by_failure, const cha
 										 CONSTSTR("IKE Packets Receive Failure-Rate Statistic"),
 										 get_percentage((double)session->stats.counters[IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL], (double)session->stats.counters[IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC]));
 	}
-	if (session->version == IKE_VERSION_1) {
+	//if (session->version == IKE_VERSION_1) {
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_MAX_RETRANSMIT] ||
 			session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_FAIL] ||
 			session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_FAIL]) {
 			ipsecSessionTracerLogFailureRate(session,
-											 CONSTSTR("IKE Phase1 Failure-Rate Statistic"),
+											 CONSTSTR("IKE Phase 1 Failure-Rate Statistic"),
 											 get_percentage((double)(session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_MAX_RETRANSMIT] +
                                                                      session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_FAIL] + 
                                                                      session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_FAIL]),
@@ -365,17 +365,17 @@ ipsecSessionTracerStop (ike_session_t *session, int caused_by_failure, const cha
 		}
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_FAIL]) {
 			ipsecSessionTracerLogFailureRate(session,
-											 CONSTSTR("IKE Phase1 Initiator Failure-Rate Statistic"),
+											 CONSTSTR("IKE Phase 1 Initiator Failure-Rate Statistic"),
 											 get_percentage((double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_FAIL], (double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_SUCC]));
 		}
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_FAIL]) {
 			ipsecSessionTracerLogFailureRate(session,
-											 CONSTSTR("IKE Phase1 Responder Failure-Rate Statistic"),
+											 CONSTSTR("IKE Phase 1 Responder Failure-Rate Statistic"),
 											 get_percentage((double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_FAIL], (double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_SUCC]));
 		}
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL]) {
 			ipsecSessionTracerLogFailureRate(session,
-											 CONSTSTR("IKE Phase1 Authentication Failure-Rate Statistic"),
+											 CONSTSTR("IKE Phase 1 Authentication Failure-Rate Statistic"),
 											 get_percentage((double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL], (double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC]));
 		}
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_DPD_MAX_RETRANSMIT]) {
@@ -408,7 +408,7 @@ ipsecSessionTracerStop (ike_session_t *session, int caused_by_failure, const cha
 			session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_FAIL] ||
 			session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_RESP_FAIL]) {
 			ipsecSessionTracerLogFailureRate(session,
-											 CONSTSTR("IKE Phase2 Failure-Rate Statistic"),
+											 CONSTSTR("IKE Phase 2 Failure-Rate Statistic"),
 											 get_percentage((double)(session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_MAX_RETRANSMIT] +
                                                                      session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_FAIL] + 
                                                                      session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_RESP_FAIL]),
@@ -417,17 +417,17 @@ ipsecSessionTracerStop (ike_session_t *session, int caused_by_failure, const cha
 		}
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_FAIL]) {
 			ipsecSessionTracerLogFailureRate(session,
-											 CONSTSTR("IKE Phase2 Initiator Failure-Rate Statistic"),
+											 CONSTSTR("IKE Phase 2 Initiator Failure-Rate Statistic"),
 											 get_percentage((double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_FAIL], (double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_SUCC]));
 		}
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_RESP_FAIL]) {
 			ipsecSessionTracerLogFailureRate(session,
-											 CONSTSTR("IKE Phase2 Responder Failure-Rate Statistic"),
+											 CONSTSTR("IKE Phase 2 Responder Failure-Rate Statistic"),
 											 get_percentage((double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_RESP_FAIL], (double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_RESP_SUCC]));
 		}
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_AUTH_FAIL]) {
 			ipsecSessionTracerLogFailureRate(session,
-											 CONSTSTR("IKE Phase2 Authentication Failure-Rate Statistics"),
+											 CONSTSTR("IKE Phase 2 Authentication Failure-Rate Statistics"),
 											 get_percentage((double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_AUTH_FAIL], (double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_PH2_AUTH_SUCC]));
 		}
 		if (session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL]) {
@@ -440,7 +440,7 @@ ipsecSessionTracerStop (ike_session_t *session, int caused_by_failure, const cha
 											 CONSTSTR("IKE Information-Notice Receive Failure-Rate Statistic"),
 											 get_percentage((double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_RX_FAIL], (double)session->stats.counters[IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_RX_SUCC]));
 		}
-	}
+	//}
 }
 
 void

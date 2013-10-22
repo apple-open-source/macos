@@ -28,6 +28,7 @@
 
 #if ENABLE(MATHML)
 
+#include "RenderMathMLOperator.h"
 #include "RenderMathMLRow.h"
 
 namespace WebCore {
@@ -39,11 +40,14 @@ public:
     virtual void updateFromElement();
     
 private:
+    virtual bool isRenderMathMLFenced() const { return true; }
     virtual const char* renderName() const { return "RenderMathMLFenced"; }
 
-    PassRefPtr<RenderStyle> createOperatorStyle();
+    RenderMathMLOperator* createMathMLOperator(UChar, RenderMathMLOperator::OperatorType);
     void makeFences();
     
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) OVERRIDE;
+
     UChar m_open;
     UChar m_close;
     RefPtr<StringImpl> m_separators;

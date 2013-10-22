@@ -30,6 +30,8 @@ namespace std
 
 const nothrow_t nothrow = {};
 
+#ifndef _LIBCPPABI_VERSION
+
 new_handler
 set_new_handler(new_handler handler) throw()
 {
@@ -45,5 +47,7 @@ bad_alloc::what() const throw()
 {
   return "std::bad_alloc";
 }
+
+#endif  // _LIBCPPABI_VERSION
 
 }  // std

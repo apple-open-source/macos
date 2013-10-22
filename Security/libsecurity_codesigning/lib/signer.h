@@ -45,7 +45,9 @@ namespace CodeSigning {
 //
 class SecCodeSigner::Signer {
 public:
-	Signer(SecCodeSigner &s, SecStaticCode *c) : state(s), code(c) { }
+	Signer(SecCodeSigner &s, SecStaticCode *c) : state(s), code(c), requirements(NULL) { }
+	~Signer() { ::free((Requirements *)requirements); }
+
 	void sign(SecCSFlags flags);
 	void remove(SecCSFlags flags);
 	
@@ -70,12 +72,20 @@ protected:
 
 	uint32_t cdTextFlags(std::string text);		// convert text CodeDirectory flags
 	std::string uniqueName() const;				// derive unique string from rep
-	
+
+protected:
+	void buildResources(std::string root, CFDictionaryRef rules);
+	CFMutableDictionaryRef signNested(FTSENT *ent, const char *relpath);
+	CFDataRef hashFile(const char *path);
+
 private:
 	RefPointer<DiskRep> rep;		// DiskRep of Code being signed
-	CFRef<CFDataRef> resourceDirectory;	// resource directory
+	CFRef<CFDictionaryRef> resourceDirectory;	// resource directory
+	CFRef<CFDataRef> resourceDictData; // XML form of resourceDirectory
 	std::string identifier;			// signing identifier
+	CFRef<CFDataRef> entitlements;	// entitlements
 	uint32_t cdFlags;				// CodeDirectory flags
+	const Requirements *requirements; // internal requirements ready-to-use
 	size_t pagesize;				// size of main executable pages
 	CFAbsoluteTime signingTime;		// signing time for CMS signature (0 => none)
 };

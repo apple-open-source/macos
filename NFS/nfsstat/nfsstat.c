@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -92,6 +92,8 @@
 #include <nfs/xdr_subs.h>
 
 int verbose = 0;
+
+#define AOK	(void *)	// assert alignment is OK
 
 #define SHOW_SERVER 0x01
 #define SHOW_CLIENT 0x02
@@ -468,7 +470,7 @@ read_mountinfo(fsid_t *fsid, char **buf, uint *buflen)
 	name[2] = NFS_MOUNTINFO;
 
 	/* copy fsid to buffer to tell kernel which fs to read info for */
-	bufxdr = (uint32_t*)*buf;
+	bufxdr = (uint32_t*) AOK *buf;
 	bufxdr[0] = htonl(fsid->val[0]);
 	bufxdr[1] = htonl(fsid->val[1]);
 
@@ -495,7 +497,7 @@ read_mountinfo(fsid_t *fsid, char **buf, uint *buflen)
 		bzero(*buf, *buflen);
 
 		/* copy fsid to buffer to tell kernel which fs to read info for */
-		bufxdr = (uint32_t*)*buf;
+		bufxdr = (uint32_t*) AOK *buf;
 		bufxdr[0] = htonl(fsid->val[0]);
 		bufxdr[1] = htonl(fsid->val[1]);
 
@@ -508,7 +510,7 @@ read_mountinfo(fsid_t *fsid, char **buf, uint *buflen)
 	}
 
 	/* Check mount information version */
-	vers = ntohl(*(uint32_t*)*buf);
+	vers = ntohl(*(uint32_t*) AOK *buf);
 	if (vers != NFS_MOUNT_INFO_VERSION) {
 		warnx("NFS mount information version mismatch");
 		return (EBADRPC);
@@ -744,6 +746,9 @@ struct mountargs {
 	uint32_t	mattrs[NFS_MATTR_BITMAP_LEN];		/* what attrs are set */
 	uint32_t	mflags_mask[NFS_MFLAG_BITMAP_LEN];	/* what flags are set */
 	uint32_t	mflags[NFS_MFLAG_BITMAP_LEN];		/* set flag values */
+	char *		realm;					/* realm to use for acquiring creds */
+	char *		principal;				/* principal to use on initial mount */
+	char *		sprinc;					/* server's kerberos principal */
 	uint32_t	nfs_version, nfs_minor_version;		/* NFS version */
 	uint32_t	rsize, wsize, readdirsize, readahead;	/* I/O values */
 	struct timespec	acregmin, acregmax, acdirmin, acdirmax;	/* attrcache values */
@@ -816,12 +821,25 @@ mountargs_cleanup(struct mountargs *margs)
 		free(margs->mntfrom);
 		margs->mntfrom = NULL;
 	}
+
+	if (margs->realm) {
+		free(margs->realm);
+		margs->realm = NULL;
+	}
+	if (margs->principal) {
+		free(margs->principal);
+		margs->principal = NULL;
+	}
+	if (margs->sprinc) {
+		free(margs->sprinc);
+		margs->sprinc = NULL;
+	}
 }
 
 int
 parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 {
-	uint32_t val, attrslength, loc, serv, addr, comp;
+	uint32_t val = 0, attrslength = 0, loc, serv, addr, comp;
 	int error = 0, i;
 
 	if (margslen <= XDRWORD*2)
@@ -996,6 +1014,39 @@ parse_mountargs(struct xdrbuf *xb, int margslen, struct mountargs *margs)
 			error = ENOMEM;
 		if (!error)
 			error = xb_get_bytes(xb, margs->mntfrom, val, 0);
+	}
+
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_REALM)) {
+		xb_get_32(error, xb, val);
+		if (!error && ((val < 1) || (val > MAXPATHLEN)))
+			error=EINVAL;
+		margs->realm = calloc(val+1, sizeof(char));
+		if (!margs->realm)
+			error = ENOMEM;
+		if (!error)
+			error = xb_get_bytes(xb, margs->realm, val, 0);
+	}
+
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_PRINCIPAL)) {
+		xb_get_32(error, xb, val);
+		if (!error && ((val < 1) || (val > MAXPATHLEN)))
+			error=EINVAL;
+		margs->principal = calloc(val+1, sizeof(char));
+		if (!margs->principal)
+			error = ENOMEM;
+		if (!error)
+			error = xb_get_bytes(xb, margs->principal, val, 0);
+	}
+
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SVCPRINCIPAL)) {
+		xb_get_32(error, xb, val);
+		if (!error && ((val < 1) || (val > MAXPATHLEN)))
+			error=EINVAL;
+		margs->sprinc = calloc(val+1, sizeof(char));
+		if (!margs->sprinc)
+			error = ENOMEM;
+		if (!error)
+			error = xb_get_bytes(xb, margs->sprinc, val, 0);
 	}
 
 	if (error)
@@ -1199,6 +1250,14 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 			printf(":%s", sec_flavor_name(margs->sec.flavors[i]));
 		SEP;
 	}
+
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_REALM))
+		printf("%crealm=%s", sep, margs->realm);
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_PRINCIPAL))
+		printf("%cprincipal=%s", sep, margs->principal);
+	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SVCPRINCIPAL))
+		printf("%csprincipalm=%s", sep, margs->sprinc);
+	
 	printf("\n");
 
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_FS_LOCATIONS)) {

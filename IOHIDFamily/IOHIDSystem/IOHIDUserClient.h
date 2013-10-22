@@ -34,7 +34,7 @@
 
 #include <libkern/c++/OSContainers.h>
 #include <IOKit/IOUserClient.h>
-#include <IOKit/hidsystem/IOHIDSystem.h>
+#include "IOHIDSystem.h"
 #include "IOHIDEventServiceQueue.h"
 
 class IOHIDUserClient : public IOUserClient
@@ -43,7 +43,7 @@ class IOHIDUserClient : public IOUserClient
 
 private:
 
-    IOHIDSystem *	owner;
+    IOHIDSystem     *owner;
 
 public:
     // IOUserClient methods
@@ -66,6 +66,7 @@ public:
 
     virtual bool start( IOService * provider );
     virtual IOReturn setProperties( OSObject * properties );
+    IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
 };
 
 
@@ -75,13 +76,11 @@ class IOHIDParamUserClient : public IOUserClient
 
 private:
 
-    IOHIDSystem *	owner;
+    IOHIDSystem     *owner;
     
 public:
 
     // IOUserClient methods    
-    virtual IOReturn clientClose( void );
-
     virtual IOService * getService( void );
 
     virtual IOExternalMethod * getTargetAndMethodForIndex(
@@ -92,6 +91,7 @@ public:
     virtual bool start( IOService * provider );
     virtual IOReturn setProperties( OSObject * properties );
 
+    IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
 private:
     virtual IOReturn extPostEvent(void*,void*,void*,void*,void*,void*);
 };

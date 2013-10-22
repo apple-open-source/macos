@@ -83,7 +83,9 @@ enum { kIOFBSWOfflineDisplayModeID = (IODisplayModeID) 0xffffff00 };
 #define kAppleSetupDonePath     "/var/db/.AppleSetupDone"
 #define kIOFirstBootFlagPath    "/var/db/.com.apple.iokit.graphics"
 
-#define kIOGraphicsLogfilePath  "/var/log/.com.apple.iokit.graphics.log"
+#define kIOGraphicsLogfilePath      "/var/log/.com.apple.iokit.graphics.log"
+#define kIOGraphicsDesktopImagePath "/private/var/tmp/desktop.tga"
+#define kIOGraphicsLockImagePath    "/private/var/tmp/screenlock.tga"
 
 #define DEBUG_NO_DRIVER_MODES   0
 
@@ -177,12 +179,16 @@ IOFBResetTransform( IOFBConnectRef connectRef );
 static bool
 IOFBWritePrefs( IOFBConnectRef connectRef );
 
-static struct IOFBConnect *     gAllConnects = 0;
-static CFMutableDictionaryRef   gConnectRefDict = 0;
-static CFMutableDictionaryRef   gIOGraphicsProperties = 0;
-static bool                     gIOGraphicsSentPrefs = false;
-static io_service_t             gIOGraphicsPrefsService;
-static bool                     gIOGraphicsInstallBoot = false;
+__private_extern__ CFMutableDictionaryRef   gIOGraphicsProperties = 0;
+
+static struct IOFBConnect *                 gAllConnects = 0;
+static CFMutableDictionaryRef               gConnectRefDict = 0;
+static bool                                 gIOGraphicsSentPrefs = false;
+static io_service_t                         gIOGraphicsPrefsService;
+static bool                                 gIOGraphicsInstallBoot = false;
+static const char *						    gIOGraphicsImageFiles[2] = { 
+															kIOGraphicsDesktopImagePath, 
+															kIOGraphicsLockImagePath };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -2782,6 +2788,57 @@ IOFBAcknowledgePM( io_connect_t connect )
     }
     while (false);
 
+	{
+		// save images to files
+		struct stat stat_buf;
+		if (0 == stat(kIOGraphicsLogfilePath, &stat_buf)) do
+		{
+			err = _IOFBGetCurrentDisplayModeAndDepth(connectRef, &mode, &depth);
+			if (err) continue;
+			err = _IOFBGetPixelInformation(connectRef, mode, depth,
+										   kIOFBSystemAperture, &pixelInfo);
+			if (err) continue;
+			for (idx = 0; idx < kIOPreviewImageCount; idx++)
+			{
+				struct {
+				   uint8_t  identLength;
+				   uint8_t  colorMapType;
+				   uint8_t  dataType;
+				   uint8_t  colorMap[5];
+				   uint16_t origin[2];
+				   uint16_t width;
+				   uint16_t height;
+				   uint8_t  bitsPerPixel;
+				   uint8_t  imageDesc;
+				} hdr;
+				FILE *    f;
+				uint8_t * bits;
+				uint32_t  y;
+
+				if (!connectRef->imageBuffers[idx]) continue;
+
+				bzero(&hdr, sizeof(hdr));
+				hdr.dataType     = 2;
+				hdr.width        = OSSwapHostToLittleInt16(pixelInfo.activeWidth);
+				hdr.height       = OSSwapHostToLittleInt16(pixelInfo.activeHeight);
+				hdr.bitsPerPixel = pixelInfo.bitsPerPixel;
+				hdr.imageDesc    = (1<<5) | 8;
+		
+				f = fopen(gIOGraphicsImageFiles[idx], "w" /*"r+"*/);
+				if (!f) continue;
+				fwrite(&hdr, sizeof(hdr), 1, f);
+				bits = (uint8_t *)(uintptr_t) connectRef->imageBuffers[idx];
+				for (y = 0; y < pixelInfo.activeHeight; y++)
+				{
+					fwrite(bits, sizeof(uint32_t), hdr.width, f);
+					bits += pixelInfo.bytesPerRow;
+				}
+				fclose(f);
+			}
+		}
+		while (false);
+	}
+
     err = IOConnectCallMethod(connect, 14,         // Index
                 &connectRef->imageBuffers[0], 2 * arrayCnt(connectRef->imageBuffers),
                 NULL, 0, // Input
@@ -3434,7 +3491,7 @@ _IOFBInstallScaledResolution( IOFBConnectRef connectRef,
         IOFBInstallScaledMode( connectRef, desc, flags );
     }
 
-    if (okToStretch)
+    if (false && okToStretch)
     {
         desc->info.flags |= kDisplayModeStretchedFlag;
 		desc->info.flags &= ~clrModeFlags;

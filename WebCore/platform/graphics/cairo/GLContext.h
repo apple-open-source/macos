@@ -25,23 +25,41 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
 
+typedef struct _cairo_device cairo_device_t;
+
+#if PLATFORM(X11)
+typedef struct _XDisplay Display;
+#endif
+
 namespace WebCore {
 
 class GLContext {
     WTF_MAKE_NONCOPYABLE(GLContext);
 public:
-    static GLContext* getContextForWidget(PlatformWidget);
-    static GLContext* createOffscreenContext(GLContext* sharing = 0);
+    static PassOwnPtr<GLContext> createContextForWindow(uint64_t windowHandle, GLContext* sharingContext);
+    static PassOwnPtr<GLContext> createOffscreenContext(GLContext* sharing = 0);
     static GLContext* getCurrent();
+    static GLContext* sharingContext();
 
     GLContext();
     virtual ~GLContext();
-    virtual GLContext* createOffscreenSharingContext() = 0;
     virtual bool makeContextCurrent();
     virtual void swapBuffers() = 0;
+    virtual void waitNative() = 0;
     virtual bool canRenderToDefaultFramebuffer() = 0;
+    virtual IntSize defaultFrameBufferSize() = 0;
+    virtual cairo_device_t* cairoDevice() = 0;
 
-#if ENABLE(WEBGL)
+#if PLATFORM(X11)
+    static Display* sharedX11Display();
+    static void cleanupSharedX11Display();
+#endif
+
+    static void addActiveContext(GLContext*);
+    static void removeActiveContext(GLContext*);
+    static void cleanupActiveContextsAtExit();
+
+#if USE(3D_GRAPHICS)
     virtual PlatformGraphicsContext3D platformContext() = 0;
 #endif
 };

@@ -178,8 +178,8 @@ def Extension(*args, **kwds):
     cflags =  ["-DPyObjC_BUILD_RELEASE=%02d%02d"%(tuple(map(int, os_level.split('.'))))]
     ldflags = []
     if os_level != '10.4':
-        cflags.extend(['-isysroot','/'])
-        ldflags.extend(['-isysroot','/'])
+        pass
+        pass
     else:
         cflags.append('-DNO_OBJC2_RUNTIME')
 

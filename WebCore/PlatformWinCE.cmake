@@ -1,7 +1,7 @@
-LIST(APPEND WebCore_INCLUDE_DIRECTORIES
+list(APPEND WebCore_INCLUDE_DIRECTORIES
+    "${WEBCORE_DIR}/accessibility/win"
     "${WEBCORE_DIR}/platform/wince"
     "${WEBCORE_DIR}/platform/win"
-    "${WEBCORE_DIR}/platform/text/wince"
     "${WEBCORE_DIR}/platform/graphics/wince"
     "${WEBCORE_DIR}/platform/graphics/win"
     "${WEBCORE_DIR}/platform/network/win"
@@ -16,8 +16,10 @@ LIST(APPEND WebCore_INCLUDE_DIRECTORIES
     "${3RDPARTY_DIR}/zlib"
 )
 
-LIST(APPEND WebCore_SOURCES
-    bindings/js/ScriptControllerWin.cpp
+list(APPEND WebCore_SOURCES
+    accessibility/win/AccessibilityObjectWin.cpp
+
+    html/HTMLSelectElementWin.cpp
 
     page/win/DragControllerWin.cpp
     page/win/EventHandlerWin.cpp
@@ -25,26 +27,11 @@ LIST(APPEND WebCore_SOURCES
 
     rendering/RenderThemeWince.cpp
 
-    plugins/PluginDatabase.cpp
-
     plugins/win/PluginDatabaseWin.cpp
 
     platform/Cursor.cpp
     platform/LocalizedStrings.cpp
-    platform/PlatformStrategies.cpp
     platform/ScrollAnimatorNone.cpp
-
-    platform/graphics/ImageSource.cpp
-
-    platform/image-decoders/ImageDecoder.cpp
-    platform/image-decoders/bmp/BMPImageDecoder.cpp
-    platform/image-decoders/bmp/BMPImageReader.cpp
-    platform/image-decoders/gif/GIFImageDecoder.cpp
-    platform/image-decoders/gif/GIFImageReader.cpp
-    platform/image-decoders/ico/ICOImageDecoder.cpp
-    platform/image-decoders/jpeg/JPEGImageDecoder.cpp
-    platform/image-decoders/png/PNGImageDecoder.cpp
-    platform/image-decoders/webp/WEBPImageDecoder.cpp
 
     platform/win/BitmapInfo.cpp
     platform/win/ClipboardUtilitiesWin.cpp
@@ -52,11 +39,14 @@ LIST(APPEND WebCore_SOURCES
     platform/win/ContextMenuItemWin.cpp
     platform/win/ContextMenuWin.cpp
     platform/win/CursorWin.cpp
+    platform/win/DragDataWin.cpp
+    platform/win/DragImageWin.cpp
     platform/win/EditorWin.cpp
     platform/win/EventLoopWin.cpp
     platform/win/KeyEventWin.cpp
     platform/win/LanguageWin.cpp
     platform/win/LocalizedStringsWin.cpp
+    platform/win/MIMETypeRegistryWin.cpp
     platform/win/PasteboardWin.cpp
     platform/win/PopupMenuWin.cpp
     platform/win/PlatformMouseEventWin.cpp
@@ -66,24 +56,20 @@ LIST(APPEND WebCore_SOURCES
     platform/win/ScrollbarThemeWin.cpp
     platform/win/SearchPopupMenuWin.cpp
     platform/win/SharedBufferWin.cpp
+    platform/win/SharedTimerWin.cpp
     platform/win/SoundWin.cpp
     platform/win/SystemInfo.cpp
-    platform/win/SystemTimeWin.cpp
     platform/win/WCDataObject.cpp
     platform/win/WebCoreInstanceHandle.cpp
     platform/win/WidgetWin.cpp
     platform/win/WheelEventWin.cpp
 
-    platform/wince/DragDataWince.cpp
-    platform/wince/DragImageWince.cpp
     platform/wince/FileSystemWince.cpp
-    platform/wince/KURLWince.cpp
-    platform/wince/MIMETypeRegistryWince.cpp
-    platform/wince/SharedTimerWince.cpp
+
+    platform/network/NetworkStorageSessionStub.cpp
 
     platform/network/win/CredentialStorageWin.cpp
     platform/network/win/CookieJarWin.cpp
-    platform/network/win/CookieStorageWin.cpp
     platform/network/win/NetworkStateNotifierWin.cpp
     platform/network/win/ProxyServerWin.cpp
     platform/network/win/ResourceHandleWin.cpp
@@ -91,6 +77,7 @@ LIST(APPEND WebCore_SOURCES
 
     platform/graphics/opentype/OpenTypeUtilities.cpp
 
+    platform/graphics/win/DIBPixelData.cpp
     platform/graphics/win/GDIExtras.cpp
     platform/graphics/win/IconWin.cpp
     platform/graphics/win/ImageWin.cpp
@@ -112,13 +99,12 @@ LIST(APPEND WebCore_SOURCES
     platform/graphics/wince/SharedBitmap.cpp
     platform/graphics/wince/SimpleFontDataWince.cpp
 
-    platform/text/TextEncodingDetectorNone.cpp
+    platform/text/LocaleNone.cpp
 
-    platform/text/wince/TextBreakIteratorWince.cpp
-    platform/text/wince/TextCodecWinCE.cpp
+    platform/text/win/TextCodecWin.cpp
 )
 
-LIST(APPEND WebCore_LIBRARIES
+list(APPEND WebCore_LIBRARIES
     libjpeg
     libpng
     libxml2
@@ -129,19 +115,10 @@ LIST(APPEND WebCore_LIBRARIES
     wininet
 )
 
-
-IF (ENABLE_NETSCAPE_PLUGIN_API)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_NETSCAPE_PLUGIN_API)
+    list(APPEND WebCore_SOURCES
         plugins/win/PluginMessageThrottlerWin.cpp
         plugins/win/PluginPackageWin.cpp
         plugins/win/PluginViewWin.cpp
-        plugins/PluginPackage.cpp
-        plugins/PluginView.cpp
     )
-ELSE ()
-    LIST(APPEND WebCore_SOURCES
-        plugins/PluginPackage.cpp
-        plugins/PluginPackageNone.cpp
-        plugins/PluginViewNone.cpp
-    )
-ENDIF ()
+endif ()

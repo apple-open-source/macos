@@ -30,6 +30,7 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <ils.h>
+#include <pthread.h>
 #include <libkern/OSAtomic.h>
 #include <dispatch/dispatch.h>
 
@@ -41,8 +42,7 @@ uint32_t gL1CacheEnabled = 1;
 
 typedef struct
 {
-	/* XXX should be mutex */
-	OSSpinLock lock;
+	pthread_mutex_t mutex;
 	int head;
 	si_item_t *item[CACHE_MAX];
 	si_list_t *list;
@@ -114,7 +114,7 @@ cache_fetch_item(si_mod_t *si, int cat, const char *name, uint32_t num, int whic
 	pp = (cache_si_private_t *)si->private;
 	if (pp == NULL) return NULL;
 
-	OSSpinLockLock(&(pp->cache_store[cat].lock));
+	pthread_mutex_lock(&pp->cache_store[cat].mutex);
 
 	for (i = 0; i < CACHE_MAX; i++)
 	{
@@ -130,7 +130,7 @@ cache_fetch_item(si_mod_t *si, int cat, const char *name, uint32_t num, int whic
 		}
 	}
 
-	OSSpinLockUnlock(&(pp->cache_store[cat].lock));
+	pthread_mutex_unlock(&(pp->cache_store[cat].mutex));
 
 	return item;
 }
@@ -147,9 +147,9 @@ cache_fetch_list(si_mod_t *si, int cat)
 	pp = (cache_si_private_t *)si->private;
 	if (pp == NULL) return NULL;
 
-	OSSpinLockLock(&(pp->cache_store[cat].lock));
+	pthread_mutex_lock(&(pp->cache_store[cat].mutex));
 	list = cache_validate_list(pp, cat);
-	OSSpinLockUnlock(&(pp->cache_store[cat].lock));
+	pthread_mutex_unlock(&(pp->cache_store[cat].mutex));
 
 	return list;
 }
@@ -395,6 +395,8 @@ cache_close(si_mod_t *si)
 			si_item_release(pp->cache_store[i].item[j]);
 			pp->cache_store[i].item[j] = NULL;
 		}
+		
+		pthread_mutex_destroy(&(pp->cache_store[i].mutex));
 	}
 
 	free(pp);
@@ -474,8 +476,18 @@ si_module_static_cache(void)
 	static dispatch_once_t once;
 
 	dispatch_once(&once, ^{
+		cache_si_private_t *cache;
+		int i, j;
+		
+		cache = calloc(1, sizeof(cache_si_private_t));
 		si.name = strdup("cache");
-		si.private = calloc(1, sizeof(cache_si_private_t));
+		si.private = cache;
+
+		for (i = 0; i < CACHE_COUNT; i++) {
+			for (j = 0; j < CACHE_MAX; j++) {
+				pthread_mutex_init(&(cache->cache_store[i].mutex), NULL);
+			}
+		}
 	});
 
 	return &si;
@@ -502,7 +514,7 @@ si_cache_add_item(si_mod_t *si, si_mod_t *src, si_item_t *item)
 	pp = (cache_si_private_t *)si->private;
 	if (pp == NULL) return;
 
-	OSSpinLockLock(&(pp->cache_store[cat].lock));
+	pthread_mutex_lock(&(pp->cache_store[cat].mutex));
 
 	head = pp->cache_store[item->type].head;
 
@@ -513,7 +525,7 @@ si_cache_add_item(si_mod_t *si, si_mod_t *src, si_item_t *item)
 	if (head >= CACHE_MAX) head = 0;
 	pp->cache_store[item->type].head = head;
 
-	OSSpinLockUnlock(&(pp->cache_store[cat].lock));
+	pthread_mutex_unlock(&(pp->cache_store[cat].mutex));
 }
 
 void
@@ -542,10 +554,10 @@ si_cache_add_list(si_mod_t *si, si_mod_t *src, si_list_t *list)
 	pp = (cache_si_private_t *)si->private;
 	if (pp == NULL) return;
 
-	OSSpinLockLock(&(pp->cache_store[cat].lock));
+	pthread_mutex_lock(&(pp->cache_store[cat].mutex));
 
 	si_list_release(pp->cache_store[item->type].list);
 	pp->cache_store[item->type].list = si_list_retain(list);
 
-	OSSpinLockUnlock(&(pp->cache_store[cat].lock));
+	pthread_mutex_unlock(&(pp->cache_store[cat].mutex));
 }

@@ -92,10 +92,6 @@ public:
             m_modifierFlags |= WebEvent::AltKey;
         if (webEvent.metaKey())
             m_modifierFlags |= WebEvent::MetaKey;
-
-#if PLATFORM(WIN)
-        m_didActivateWebView = webEvent.didActivateWebView();
-#endif
     }
 };
 
@@ -319,7 +315,7 @@ public:
         m_timestamp = webEvent.timestamp();
 
         // PlatformTouchEvent
-        for (int i = 0; i < webEvent.touchPoints().size(); ++i)
+        for (size_t i = 0; i < webEvent.touchPoints().size(); ++i)
             m_touchPoints.append(WebKit2PlatformTouchPoint(webEvent.touchPoints().at(i)));
     }
 };

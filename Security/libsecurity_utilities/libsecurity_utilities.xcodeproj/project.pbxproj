@@ -119,6 +119,8 @@
 		4CA684FB0525011E00233BF2 /* url.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CA684BB0525011E00233BF2 /* url.cpp */; };
 		4CA684FD0525011E00233BF2 /* utilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CA684BD0525011E00233BF2 /* utilities.cpp */; };
 		4E4813D707739B0C0090D7C2 /* ccaudit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4E4813D507739B0C0090D7C2 /* ccaudit.cpp */; };
+		AAA4B91E16653547005DEFDC /* debugging_internal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAA4B91D16653547005DEFDC /* debugging_internal.cpp */; };
+		AAA4B920166535B4005DEFDC /* debugging_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = AAA4B91F16653597005DEFDC /* debugging_internal.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		AAAA499A0CC587B50099E9D4 /* crc.c in Sources */ = {isa = PBXBuildFile; fileRef = AAAA49980CC587B50099E9D4 /* crc.c */; };
 		C200C0800731DEA300564CE0 /* trackingallocator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C200C07F0731DE8C00564CE0 /* trackingallocator.cpp */; };
 		C20A206B06B03FDC00979EF3 /* osxcode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C20A206906B03FDC00979EF3 /* osxcode.cpp */; };
@@ -233,7 +235,10 @@
 		4CA684BF0525011E00233BF2 /* utility_config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = utility_config.h; sourceTree = "<group>"; };
 		4E4813D507739B0C0090D7C2 /* ccaudit.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ccaudit.cpp; sourceTree = "<group>"; };
 		4E4813D607739B0C0090D7C2 /* ccaudit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ccaudit.h; sourceTree = "<group>"; };
+		AA3BC08D166549EA00EF1D2E /* exports */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = exports; sourceTree = "<group>"; };
 		AA5B97E70E140C3E0032C12F /* dtrace.mk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = dtrace.mk; path = lib/dtrace.mk; sourceTree = "<group>"; usesTabs = 1; };
+		AAA4B91D16653547005DEFDC /* debugging_internal.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = debugging_internal.cpp; sourceTree = "<group>"; };
+		AAA4B91F16653597005DEFDC /* debugging_internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = debugging_internal.h; sourceTree = "<group>"; };
 		AAAA49980CC587B50099E9D4 /* crc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = crc.c; sourceTree = "<group>"; };
 		AAAA49990CC587B50099E9D4 /* crc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crc.h; sourceTree = "<group>"; };
 		C200C07F0731DE8C00564CE0 /* trackingallocator.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trackingallocator.cpp; path = lib/trackingallocator.cpp; sourceTree = SOURCE_ROOT; };
@@ -355,6 +360,8 @@
 				4CA684890525011D00233BF2 /* debugging.h */,
 				4CA6848A0525011D00233BF2 /* debugsupport.h */,
 				4CA684880525011D00233BF2 /* debugging.cpp */,
+				AAA4B91D16653547005DEFDC /* debugging_internal.cpp */,
+				AAA4B91F16653597005DEFDC /* debugging_internal.h */,
 				4CA6848C0525011D00233BF2 /* devrandom.h */,
 				4CA6848B0525011D00233BF2 /* devrandom.cpp */,
 				4CA6848E0525011D00233BF2 /* endian.h */,
@@ -408,6 +415,7 @@
 				C2EF2B64066E52C100F205D4 /* Mach */,
 				C20A209606B040D400979EF3 /* CoreFoundation */,
 				C2EF2B61066E52AB00F205D4 /* Network */,
+				AA3BC08D166549EA00EF1D2E /* exports */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -601,6 +609,7 @@
 				181EA3CB146D1D9700A6D320 /* socks++4.h in Headers */,
 				181EA3CC146D1D9700A6D320 /* socks++5.h in Headers */,
 				1865FC241472444600FD79DF /* utilities_dtrace.h in Headers */,
+				AAA4B920166535B4005DEFDC /* debugging_internal.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -667,7 +676,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+			shellScript = "nmedit -s lib/exports -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
 		};
 		C2C9C69C0CECBE8400B3FE07 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -747,6 +756,7 @@
 				C2E7B1FA0E2415D700956987 /* vproc++.cpp in Sources */,
 				C28342CA0E366A8E00E54360 /* sqlite++.cpp in Sources */,
 				C2C1648E0F66F2D300FD6D34 /* kq++.cpp in Sources */,
+				AAA4B91E16653547005DEFDC /* debugging_internal.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -765,8 +775,17 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 181EA3EB146D2A5F00A6D320 /* debug.xcconfig */;
 			buildSettings = {
+				EXPORTED_SYMBOLS_FILE = "";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_utilities;
 				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wno-error=#warnings",
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"$(inherited)",
+				);
 			};
 			name = Debug;
 		};
@@ -774,8 +793,17 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 181EA3ED146D2A5F00A6D320 /* release.xcconfig */;
 			buildSettings = {
+				EXPORTED_SYMBOLS_FILE = "";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_utilities;
 				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wno-error=#warnings",
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+					"$(inherited)",
+				);
 			};
 			name = Release;
 		};

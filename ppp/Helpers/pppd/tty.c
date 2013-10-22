@@ -693,7 +693,7 @@ int connect_tty()
 			err = errno;
 			if (prio < OPRIO_ROOT)
 				seteuid(0);
-			if (ttyfd >= 0)
+			if (ttyfd >= 0) {
 #ifdef __APPLE__
                             // try to acquire the port exclusively
                             if (ioctl(ttyfd, TIOCEXCL, 0) < 0)
@@ -701,6 +701,7 @@ int connect_tty()
                             else
 #endif
 				break;
+            }
 			errno = err;
 			if (err != EINTR) {
 #ifdef __APPLE__

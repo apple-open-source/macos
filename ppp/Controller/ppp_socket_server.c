@@ -220,13 +220,23 @@ void listenCallBack(CFSocketRef inref, CFSocketCallBackType type,
 ----------------------------------------------------------------------------- */
 int readn(int ref, void *data, int len)
 {
+#define MAXSLEEPTIME   40000    /* 1/25 of a second */
+#define MAXRETRY       10       
+    
     int 	n, left = len;
     void 	*p = data;
+    int     retry = MAXRETRY;
     
-    while (left > 0) {
+   while (left > 0) {
         if ((n = read(ref, p, left)) < 0) {
-            if (errno == EWOULDBLOCK) 
-                return (len - left);
+            SCLog(TRUE, LOG_ERR, CFSTR("PPPController: readn, retry %d, errno %d."), retry, errno);
+            if (errno == EAGAIN){
+                if (retry--){
+                    if (!usleep(MAXSLEEPTIME))
+                        continue;
+                }else 
+                    return (len-left);
+           }
             if (errno != EINTR) 
                 return -1;
             n = 0;
@@ -245,12 +255,23 @@ int readn(int ref, void *data, int len)
 //static 
 int writen(int ref, void *data, int len)
 {	
+#define MAXSLEEPTIME   40000    /* 1/25 of a second */
+#define MAXRETRY       10
     int 	n, left = len;
     void 	*p = data;
+    int     retry = MAXRETRY;
     
-    while (left > 0) {
+   while (left > 0) {
         if ((n = write(ref, p, left)) <= 0) {
-            if (errno != EINTR) 
+            SCLog(TRUE, LOG_ERR, CFSTR("PPPController writen: retry %d, errno %d."), retry, errno);
+            if (errno == EAGAIN){
+                if (retry--){
+                    if (!usleep(MAXSLEEPTIME))
+                        continue;
+                }else 
+                    return(len-left);
+                }
+            if (errno != EINTR)
                 return -1;
             n = 0;
         }
@@ -578,7 +599,7 @@ void socket_connect(struct client *client, struct msg *msg, void **reply)
     msg->hdr.m_result = scnc_start(serv, opts, 
         (msg->hdr.m_flags & CONNECT_ARBITRATED_FLAG) ? client : 0,  
         (msg->hdr.m_flags & CONNECT_AUTOCLOSE_FLAG) ? 1 : 0, client->uid, client->gid,
-        client->pid, 0);
+        client->pid, 0, 0);
     if (opts && msg->hdr.m_len) 
         CFRelease(opts);
     msg->hdr.m_len = 0;
@@ -700,7 +721,7 @@ void socket_enable_event(struct client *client, struct msg *msg, void **reply)
 		client->notify_serviceid = 0;
 	}
     if (msg->hdr.m_flags & USE_SERVICEID) {        
-        if (client->notify_serviceid = malloc(msg->hdr.m_link + 1)) {
+        if ((client->notify_serviceid = malloc(msg->hdr.m_link + 1))) {
             strncpy((char*)client->notify_serviceid, (char*)msg->data, msg->hdr.m_link);
             client->notify_serviceid[msg->hdr.m_link] = 0;
         }
@@ -965,13 +986,14 @@ void socket_pppd_phase(struct client *client, struct msg *msg)
     struct service		*serv = ppp_find(msg);
     void 		*data = &msg->data[MSG_DATAOFF(msg)];
     u_int32_t		phase = *(u_int32_t *)data;
+    u_int32_t		ifunit = *(u_int32_t *)(data + 4);
 
     msg->hdr.m_len = 0xFFFFFFFF; // no reply
 
     if (!serv)
         return;
 
-    ppp_updatephase(serv, phase);
+    ppp_updatephase(serv, phase, ifunit);
 
 }
 

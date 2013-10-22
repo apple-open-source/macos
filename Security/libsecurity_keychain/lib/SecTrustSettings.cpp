@@ -37,7 +37,6 @@
 #include "Trust.h"
 #include "SecKeychainPriv.h"
 #include "Globals.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_utilities/threading.h>
 #include <security_utilities/globalizer.h> 
 #include <security_utilities/errors.h> 
@@ -65,12 +64,12 @@
 	OSStatus __secapiresult; \
 	try {
 #define END_RCSAPI		\
-		__secapiresult=noErr; \
+		__secapiresult=errSecSuccess; \
 	} \
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); } \
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); } \
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; } \
-	catch (...) { __secapiresult=internalComponentErr; } \
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; } \
+	catch (...) { __secapiresult=errSecInternalComponent; } \
 	return __secapiresult;
 
 #define END_RCSAPI0		\
@@ -191,15 +190,15 @@ static TrustSettings *tsGetGlobalTrustSettings(
 	assert(globalTrustSettings[domain] == NULL);
 	
 	/* try to find one */
-	OSStatus result = noErr;
+	OSStatus result = errSecSuccess;
 	TrustSettings *ts = NULL;
 	/* don't create; trim if found */
 	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_YES, ts);
-	if(result != noErr && result != errSecNoTrustSettings) {
+	if(result != errSecSuccess && result != errSecNoTrustSettings) {
 		/* gross error */
 		MacOSError::throwMe(result);
 	}
-	else if (result != noErr) {
+	else if (result != errSecSuccess) {
 		/* 
 		 * No TrustSettings for this domain, actually a fairly common case. 
 		 * Optimize: don't bother trying this again.
@@ -243,7 +242,7 @@ static OSStatus tsTrustSettingsCallback (
 	trustSettingsDbg("tsTrustSettingsCallback, event %d", (int)keychainEvent);
 	if(keychainEvent != kSecTrustSettingsChangedEvent) {
 		/* should not happen, right? */
-		return noErr;
+		return errSecSuccess;
 	}
 	if(info->pid == getpid()) {
 		/* 
@@ -254,7 +253,7 @@ static OSStatus tsTrustSettingsCallback (
 	else {
 		tsPurgeCache();
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -269,7 +268,7 @@ static void tsRegisterCallback()
 	OSStatus ortn = SecKeychainAddCallback(tsTrustSettingsCallback, 
 		kSecTrustSettingsChangedEventMask, NULL);
 	if(ortn) {
-		trustSettingsDbg("tsRegisterCallback: SecKeychainAddCallback returned %ld", ortn);
+		trustSettingsDbg("tsRegisterCallback: SecKeychainAddCallback returned %d", (int)ortn);
 		/* Not sure how this could ever happen - maybe if there is no run loop active? */
 	}
 	sutRegisteredCallback = true;
@@ -325,7 +324,7 @@ static OSStatus tsCopyTrustSettings(
 	if (result == errSecNoTrustSettings) {
 		return errSecItemNotFound;
 	}
-	else if (result != noErr) {
+	else if (result != errSecSuccess) {
 		return result;
 	}
 	
@@ -407,7 +406,7 @@ static OSStatus tsCopyCertsCommon(
 	CFRetain(*certArray);
 	trustSettingsDbg("tsCopyCertsCommon: %ld certs found",
 		CFArrayGetCount(outArray));
-	return noErr;
+	return errSecSuccess;
 }
 
 #pragma mark --- SPI functions ---
@@ -518,14 +517,14 @@ OSStatus SecTrustSettingsEvaluateCert(
 			trustSettingsDbg("SecTrustSettingsEvaluateCert: found in domain %d", domain);
 			*foundAnyEntry = true;
 			*foundMatchingEntry = true;
-			return noErr;
+			return errSecSuccess;
 		}
 		foundAny |= foundAnyHere;
 	}
 	trustSettingsDbg("SecTrustSettingsEvaluateCert: NOT FOUND");
 	*foundAnyEntry = foundAny;
 	*foundMatchingEntry = false;
-	return noErr;
+	return errSecSuccess;
 	END_RCSAPI
 }
 
@@ -630,7 +629,7 @@ CFStringRef SecTrustSettingsCertHashStrFromData(
 		return NULL;
 	}
 
-	CC_SHA1(cert, certLen, digest);
+	CC_SHA1(cert, (CC_LONG)certLen, digest);
 
 	for(dex=0; dex<CC_SHA1_DIGEST_LENGTH; dex++) {
 		unsigned c = *inp++;
@@ -662,7 +661,7 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
 	TrustSettings* ts;
 	
 	result = TrustSettings::CreateTrustSettings(kSecTrustSettingsDomainMemory, settingsIn, ts);
-	if (result != noErr) {
+	if (result != errSecSuccess) {
 		return result;
 	}
 	
@@ -672,7 +671,7 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
 		ts->setTrustSettings(certRef, trustSettingsDictOrArray);	
 	}
 	*settingsOut = ts->createExternal();
-	return noErr;
+	return errSecSuccess;
 
 	END_RCSAPI
 }
@@ -687,7 +686,7 @@ OSStatus SecTrustSettingsCopyTrustSettings(
 	TS_REQUIRED(trustSettings)
 
 	OSStatus result = tsCopyTrustSettings(certRef, domain, trustSettings, NULL);
-	if (result == noErr && *trustSettings == NULL) {
+	if (result == errSecSuccess && *trustSettings == NULL) {
 		result = errSecItemNotFound; /* documented result if no trust settings exist */
 	}
 	return result;
@@ -701,7 +700,7 @@ OSStatus SecTrustSettingsCopyModificationDate(
 	TS_REQUIRED(modificationDate)
 
 	OSStatus result = tsCopyTrustSettings(certRef, domain, NULL, modificationDate); 
-	if (result == noErr && *modificationDate == NULL) {
+	if (result == errSecSuccess && *modificationDate == NULL) {
 		result = errSecItemNotFound; /* documented result if no trust settings exist */
 	}
 	return result;
@@ -725,7 +724,7 @@ OSStatus SecTrustSettingsSetTrustSettings(
 	TrustSettings* ts;
 	
 	result = TrustSettings::CreateTrustSettings(domain, CREATE_YES, TRIM_NO, ts);
-	if (result != noErr) {
+	if (result != errSecSuccess) {
 		return result;
 	}
 	
@@ -734,7 +733,7 @@ OSStatus SecTrustSettingsSetTrustSettings(
 	ts->setTrustSettings(certRef, trustSettingsDictOrArray);
 	ts->flushToDisk();
 	tsTrustSettingsChanged();
-	return noErr;
+	return errSecSuccess;
 
 	END_RCSAPI
 }
@@ -755,7 +754,7 @@ OSStatus SecTrustSettingsRemoveTrustSettings(
 	TrustSettings* ts;
 	
 	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_NO, ts);
-	if (result != noErr) {
+	if (result != errSecSuccess) {
 		return result;
 	}
 
@@ -767,7 +766,7 @@ OSStatus SecTrustSettingsRemoveTrustSettings(
 	ts->deleteTrustSettings(cert);
 	ts->flushToDisk();
 	tsTrustSettingsChanged();
-	return noErr;
+	return errSecSuccess;
 
 	END_RCSAPI
 }
@@ -785,7 +784,7 @@ OSStatus SecTrustSettingsCopyCertificates(
 	TrustSettings* ts;
 	
 	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_NO, ts);
-	if (result != noErr) {
+	if (result != errSecSuccess) {
 		return result;
 	}
 
@@ -847,14 +846,14 @@ OSStatus SecTrustSettingsCreateExternalRepresentation(
 	TrustSettings* ts;
 	
 	result = TrustSettings::CreateTrustSettings(domain, CREATE_NO, TRIM_NO, ts);
-	if (result != noErr) {
+	if (result != errSecSuccess) {
 		return result;
 	}
 
 	auto_ptr<TrustSettings>_(ts);
 
 	*trustSettings = ts->createExternal();
-	return noErr;
+	return errSecSuccess;
 
 	END_RCSAPI
 }
@@ -877,7 +876,7 @@ OSStatus SecTrustSettingsImportExternalRepresentation(
 	TrustSettings* ts;
 	
 	result = TrustSettings::CreateTrustSettings(domain, trustSettings, ts);
-	if (result != noErr) {
+	if (result != errSecSuccess) {
 		return result;
 	}
 
@@ -885,7 +884,7 @@ OSStatus SecTrustSettingsImportExternalRepresentation(
 
 	ts->flushToDisk();
 	tsTrustSettingsChanged();
-	return noErr;
+	return errSecSuccess;
 
 	END_RCSAPI
 }

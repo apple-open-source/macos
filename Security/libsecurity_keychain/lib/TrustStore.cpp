@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -54,7 +54,7 @@ SecTrustUserSetting TrustStore::find(Certificate *cert, Policy *policy,
 	StorageManager::KeychainList &keychainList)
 {
 	StLock<Mutex> _(mMutex);
-	
+
 	if (Item item = findItem(cert, policy, keychainList)) {
 		// Make sure that the certificate is available in some keychain,
 		// to provide a basis for editing the trust setting that we're returning.
@@ -99,7 +99,7 @@ SecTrustUserSetting TrustStore::find(Certificate *cert, Policy *policy,
 void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting trust)
 {
 	StLock<Mutex> _(mMutex);
-	
+
 	TrustData trustData = { UserTrustItem::currentVersion, trust };
 	Keychain defaultKeychain = Keychain::optional(NULL);
 	Keychain trustLocation = defaultKeychain;	// default keychain, unless trust entry found
@@ -162,40 +162,47 @@ void TrustStore::assign(Certificate *cert, Policy *policy, SecTrustUserSetting t
 Item TrustStore::findItem(Certificate *cert, Policy *policy,
 	StorageManager::KeychainList &keychainList)
 {
+	// As of OS X 10.5, user trust records are no longer stored in keychains.
+	// SecTrustSetUserTrust was replaced with SecTrustSettingsSetTrustSettings,
+	// which stores per-user trust in a separate root-owned file. This method,
+	// however, would continue to find old trust records created prior to 10.5.
+	// Since those are increasingly unlikely to exist (and cannot be edited),
+	// we no longer need or want to look for them anymore.
+	return ((ItemImpl*)NULL);
+
 	StLock<Mutex> _(mMutex);
-	
+
 	try {
 		SecKeychainAttribute attrs[2];
 		CssmAutoData certIndex(Allocator::standard());
 		UserTrustItem::makeCertIndex(cert, certIndex);
 		attrs[0].tag = kSecTrustCertAttr;
-		attrs[0].length = certIndex.length();
+		attrs[0].length = (UInt32)certIndex.length();
 		attrs[0].data = certIndex.data();
 		const CssmOid &policyOid = policy->oid();
 		attrs[1].tag = kSecTrustPolicyAttr;
-		attrs[1].length = policyOid.length();
+		attrs[1].length = (UInt32)policyOid.length();
 		attrs[1].data = policyOid.data();
 		SecKeychainAttributeList attrList = { 2, attrs };
 		KCCursor cursor(keychainList, CSSM_DL_DB_RECORD_USER_TRUST, &attrList);
 		Item item;
 		if (cursor->next(item))
 			return item;
-		else
-			return NULL;
-	} catch (const CommonError &error) {
-		return NULL;	// no trust schema, no records, no error
 	}
+	catch (const CommonError &error) {}
+
+	return ((ItemImpl*)NULL);	// no trust schema, no records, no error
 }
 
 void TrustStore::getCssmRootCertificates(CertGroup &rootCerts)
 {
 	StLock<Mutex> _(mMutex);
-	
+
 	if (!mRootsValid)
 		loadRootCertificates();
 	rootCerts = CertGroup(CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER, CSSM_CERTGROUP_DATA);
 	rootCerts.blobCerts() = &mRoots[0];
-	rootCerts.count() = mRoots.size();
+	rootCerts.count() = (uint32)mRoots.size();
 }
 
 //
@@ -204,11 +211,11 @@ void TrustStore::getCssmRootCertificates(CertGroup &rootCerts)
 void TrustStore::loadRootCertificates()
 {
 	StLock<Mutex> _(mMutex);
-	
+
 	CFRef<CFArrayRef> anchors;
 	OSStatus ortn;
 
-	/* 
+	/*
 	 * Get the current set of all positively trusted anchors.
 	 */
 	ortn = SecTrustSettingsCopyUnrestrictedRoots(
@@ -228,7 +235,7 @@ void TrustStore::loadRootCertificates()
 		crtn = SecCertificateGetData(certRef, &certData);
 		if(crtn) {
 			CssmError::throwMe(crtn);
-		}	
+		}
 		size += certData.Length;
 	}
 	mRootBytes.length(size);

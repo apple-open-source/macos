@@ -45,7 +45,9 @@
 #include <securityd_client/xdr_auth.h>
 #include <securityd_client/xdr_dldb.h>
 #include <security_utilities/logging.h>
+#include <AssertMacros.h>
 
+#include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFPropertyList.h>
 
@@ -650,11 +652,61 @@ kern_return_t ucsp_server_unlockDb(UCSP_ARGS, DbHandle db)
 	END_IPC(DL)
 }
 
+static void check_stash_entitlement(Process & proc)
+{
+    OSStatus status = noErr;
+    CFDictionaryRef code_info = NULL;
+    CFDictionaryRef entitlements = NULL;
+    CFTypeRef value = NULL;
+    bool entitled = false;
+    
+    status = SecCodeCopySigningInformation(proc.processCode(), kSecCSRequirementInformation, &code_info);
+    require_noerr(status, done);
+    
+    if (CFDictionaryGetValueIfPresent(code_info, kSecCodeInfoEntitlementsDict, &value)) {
+        if (CFGetTypeID(value) == CFDictionaryGetTypeID()) {
+            entitlements = (CFDictionaryRef)value;
+        }
+    }
+    require(entitlements != NULL, done);
+    
+    if (CFDictionaryGetValueIfPresent(entitlements, CFSTR("com.apple.private.securityd.stash"), &value)) {
+        if (CFGetTypeID(value) && CFBooleanGetTypeID()) {
+            entitled = CFBooleanGetValue((CFBooleanRef)value);
+        }
+    }
+    
+done:
+    if (code_info) {
+        CFRelease(code_info);
+    }
+    
+    if (!entitled) {
+        CssmError::throwMe(CSSM_ERRCODE_OS_ACCESS_DENIED);
+    }
+}
+
 kern_return_t ucsp_server_unlockDbWithPassphrase(UCSP_ARGS, DbHandle db, DATA_IN(passphrase))
 {
 	BEGIN_IPC(unlockDbWithPassphrase)
-	Server::keychain(db)->unlockDb(DATA(passphrase));
+    Server::keychain(db)->unlockDb(DATA(passphrase));
 	END_IPC(DL)
+}
+
+kern_return_t ucsp_server_stashDb(UCSP_ARGS, DbHandle db)
+{
+    BEGIN_IPC(stashDb)
+    check_stash_entitlement(connection.process());
+    Server::keychain(db)->stashDb();
+    END_IPC(DL)
+}
+
+kern_return_t ucsp_server_stashDbCheck(UCSP_ARGS, DbHandle db)
+{
+    BEGIN_IPC(stashDbCheck)
+    check_stash_entitlement(connection.process());
+    Server::keychain(db)->stashDbCheck();
+    END_IPC(DL)
 }
 
 kern_return_t ucsp_server_isLocked(UCSP_ARGS, DbHandle db, boolean_t *locked)
@@ -664,6 +716,26 @@ kern_return_t ucsp_server_isLocked(UCSP_ARGS, DbHandle db, boolean_t *locked)
     END_IPC(DL)
 }
 
+kern_return_t ucsp_server_verifyKeyStorePassphrase(UCSP_ARGS, uint32_t retries)
+{
+    BEGIN_IPC(verifyKeyStorePassphrase)
+    connection.process().session().verifyKeyStorePassphrase(retries);
+    END_IPC(DL)
+}
+
+kern_return_t ucsp_server_changeKeyStorePassphrase(UCSP_ARGS)
+{
+    BEGIN_IPC(verifyKeyStorePassphrase)
+    connection.process().session().changeKeyStorePassphrase();
+    END_IPC(DL)
+}
+
+kern_return_t ucsp_server_resetKeyStorePassphrase(UCSP_ARGS, DATA_IN(passphrase))
+{
+    BEGIN_IPC(verifyKeyStorePassphrase)
+    connection.process().session().resetKeyStorePassphrase(DATA(passphrase));
+    END_IPC(DL)
+}
 
 //
 // Key management

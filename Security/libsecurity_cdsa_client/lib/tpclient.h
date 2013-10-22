@@ -97,7 +97,7 @@ public:
     
 private:
     TPCallerAuth mCallerAuth;
-    PolicyInfo mPolicyInfo;
+    // PolicyInfo mPolicyInfo; // -- unused
 	CssmDlDbList mDlDbList;
 };
 

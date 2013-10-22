@@ -57,7 +57,7 @@ void DYLDCacheRep::setup()
 {
 	mSigningData = NULL;
 	if (mCache.totalSize() >= mCache.mapSize() + sizeof(BlobCore)) {
-		const EmbeddedSignatureBlob *blob = mCache.at<const EmbeddedSignatureBlob>(mCache.mapSize());
+		const EmbeddedSignatureBlob *blob = mCache.at<const EmbeddedSignatureBlob>((uint32_t)mCache.mapSize());
 		if (mCache.totalSize() >= mCache.mapSize() + blob->length())	// entire blob fits in file
 			mSigningData = blob;
 	}
@@ -159,9 +159,9 @@ void DYLDCacheRep::Writer::addDiscretionary(CodeDirectory::Builder &builder)
 		const DYLDCache::Mapping dmap = rep->mCache.mapping(n);
 		CodeDirectory::Scatter *scatter = builder.scatter() + n;
 		scatter->targetOffset = dmap.address();
-		scatter->base = dmap.offset() / segmentedPageSize;
+		scatter->base = (uint32_t)(dmap.offset() / segmentedPageSize);
 		assert(dmap.offset() % segmentedPageSize == 0);
-		scatter->count = dmap.size() / segmentedPageSize;
+		scatter->count = (uint32_t)(dmap.size() / segmentedPageSize);
 		assert(dmap.size() % segmentedPageSize == 0);
 	}
 }

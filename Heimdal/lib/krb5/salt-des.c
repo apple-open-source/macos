@@ -93,7 +93,7 @@ krb5_DES_AFS3_Transarc_string_to_key (krb5_data pw,
 
     memcpy(password, pw.data, min(pw.length, sizeof(password)));
     if(pw.length < sizeof(password)) {
-	int len = min(cell.length, sizeof(password) - pw.length);
+	size_t len = min(cell.length, sizeof(password) - pw.length);
 	size_t i;
 
 	memcpy(password + pw.length, cell.data, len);

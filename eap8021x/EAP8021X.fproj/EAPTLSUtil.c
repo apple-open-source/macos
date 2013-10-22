@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,6 @@
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
-#include <syslog.h>
 
 #include <Security/SecureTransport.h>
 #if !TARGET_OS_EMBEDDED
@@ -60,13 +59,26 @@
 #include <Security/SecTrustPriv.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <Security/SecPolicy.h>
+#include "EAPUtil.h"
 #include "EAPClientProperties.h"
 #include "EAPCertificateUtil.h"
 #include "EAPTLSUtil.h"
+#include "EAPSIMAKAPersistentState.h"
 #include "EAPSecurity.h"
 #include "printdata.h"
 #include "myCFUtil.h"
 #include "nbo.h"
+#include "EAPLog.h"
+
+#ifdef __IPHONE_OS_VERSION_MIN_REQUIRED
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < 70000
+#define NEED_TO_DISABLE_ONE_BYTE_OPTION		0
+#endif /* __IPHONE_OS_VERSION_MIN_REQUIRED < 70000 */
+#endif /* __IPHONE_OS_VERSION_MIN_REQUIRED */
+
+#ifndef NEED_TO_DISABLE_ONE_BYTE_OPTION
+#define NEED_TO_DISABLE_ONE_BYTE_OPTION		1
+#endif /* NEED_TO_DISABLE_ONE_BYTE_OPTION */
 
 /* set a 12-hour session cache timeout */
 #define kEAPTLSSessionCacheTimeoutSeconds	(12 * 60 * 60)
@@ -74,14 +86,14 @@
 uint32_t
 EAPTLSLengthIncludedPacketGetMessageLength(EAPTLSLengthIncludedPacketRef pkt)
 {
-        return (net_uint32_get(pkt->tls_message_length));
+    return (net_uint32_get(pkt->tls_message_length));
 }
 
 void
 EAPTLSLengthIncludedPacketSetMessageLength(EAPTLSLengthIncludedPacketRef pkt,
                                            uint32_t length)
 {
-        return (net_uint32_set(pkt->tls_message_length, length));
+    return (net_uint32_set(pkt->tls_message_length, length));
 }
 
 #ifdef NOTYET
@@ -360,19 +372,21 @@ EAPSSLContextCreate(SSLProtocol protocol, bool is_server,
 		    SSLReadFunc func_read, SSLWriteFunc func_write, 
 		    void * handle, char * peername, OSStatus * ret_status)
 {
-    SSLContextRef       ctx = NULL;
+    SSLContextRef       ctx;
     OSStatus		status;
 
     *ret_status = noErr;
-    status = SSLNewContext(is_server, &ctx);
-    if (status != noErr) {
-	goto cleanup;
-    } 
+    ctx = SSLCreateContext(NULL, is_server ? kSSLServerSide : kSSLClientSide,
+			   kSSLStreamType);
     status = SSLSetIOFuncs(ctx, func_read, func_write);
     if (status) {
 	goto cleanup;
     }
-    status = SSLSetProtocolVersion(ctx, protocol);
+    status = SSLSetProtocolVersionMin(ctx, protocol);
+    if (status) {
+	goto cleanup;
+    } 
+    status = SSLSetProtocolVersionMax(ctx, protocol);
     if (status) {
 	goto cleanup;
     } 
@@ -386,12 +400,23 @@ EAPSSLContextCreate(SSLProtocol protocol, bool is_server,
 	    goto cleanup;
 	}
     }
+#if NEED_TO_DISABLE_ONE_BYTE_OPTION
+    SSLSetSessionOption(ctx, kSSLSessionOptionSendOneByteRecord, FALSE);
+#endif /* NEED_TO_DISABLE_ONE_BYTE_OPTION */
+    if (is_server == FALSE) {
+	status = SSLSetSessionOption(ctx,
+				     kSSLSessionOptionBreakOnServerAuth,
+				     TRUE);
+	if (status != noErr) {
+	    goto cleanup;
+	}
+    }
     (void)SSLSetSessionCacheTimeout(ctx, kEAPTLSSessionCacheTimeoutSeconds);
     return (ctx);
 
  cleanup:
     if (ctx != NULL) {
-	SSLDisposeContext(ctx);
+	CFRelease(ctx);
     }
     *ret_status = status;
     return (NULL);
@@ -401,7 +426,7 @@ SSLContextRef
 EAPTLSMemIOContextCreate(bool is_server, memoryIORef mem_io, 
 			 char * peername, OSStatus * ret_status)
 {
-    return(EAPSSLContextCreate(kTLSProtocol1Only, is_server,
+    return(EAPSSLContextCreate(kTLSProtocol1, is_server,
 			       EAPSSLMemoryIORead, EAPSSLMemoryIOWrite, 
 			       mem_io, peername, ret_status));
 }
@@ -417,7 +442,7 @@ EAPSSLMemoryIORead(SSLConnectionRef connection, void * data_buf,
 
     if (mem_buf == NULL) {
 	if (mem_io->debug) {
-	    printf("Read not initialized\n");
+	    EAPLOG_FL(LOG_DEBUG, "Read not initialized");
 	}
 	*data_length = 0;
 	return (noErr);
@@ -427,7 +452,7 @@ EAPSSLMemoryIORead(SSLConnectionRef connection, void * data_buf,
 	|| mem_buf->length == 0 || bytes_left == 0) {
 	*data_length = 0;
 	if (mem_io->debug) {
-	    printf("Read would block\n");
+	    EAPLOG_FL(LOG_DEBUG, "Read would block");
 	}
 	return (errSSLWouldBlock);
     }
@@ -442,10 +467,14 @@ EAPSSLMemoryIORead(SSLConnectionRef connection, void * data_buf,
     }
     *data_length = length;
     if (mem_io->debug) {
-	printf("Reading %d bytes\n", (int)length);
-	print_data(data_buf, length);
-    }
+	CFMutableStringRef	str;
 
+	str = CFStringCreateMutable(NULL, 0);
+	print_data_cfstr(str, data_buf, length);
+	EAPLOG_FL(-LOG_DEBUG, "Read %d bytes:\n%@", (int)length,
+		  str);
+	CFRelease(str);
+    }
     return (noErr);
 }
 
@@ -460,7 +489,7 @@ EAPSSLMemoryIOWrite(SSLConnectionRef connection, const void * data_buf,
 
     if (mem_buf == NULL) {
 	if (mem_io->debug) {
-	    printf("Write not initialized\n");
+	    EAPLOG_FL(LOG_DEBUG, "Write not initialized");
 	}
 	*data_length = 0;
 	return (noErr);
@@ -478,9 +507,14 @@ EAPSSLMemoryIOWrite(SSLConnectionRef connection, const void * data_buf,
 	mem_buf->length += length;
     }
     if (mem_io->debug) {
-	printf("Writing %s%d bytes\n", additional ? "additional " : "",
-	       (int)length);
-	print_data((void *)data_buf, length);
+	CFMutableStringRef	str;
+
+	str = CFStringCreateMutable(NULL, 0);
+	print_data_cfstr(str, data_buf, length);
+	EAPLOG_FL(-LOG_DEBUG, "Wrote %s%d bytes:\n%@",
+		  additional ? "additional " : "",
+		  (int)length, str);
+	CFRelease(str);
     }
     return (noErr);
 }
@@ -503,6 +537,37 @@ memoryBufferClear(memoryBufferRef buf)
     }
     bzero(buf, sizeof(*buf));
     return;
+}
+
+void
+memoryBufferAllocate(memoryBufferRef buf, size_t length)
+{
+    buf->data = malloc(length);
+    buf->length = length;
+    buf->offset = 0;
+    buf->complete = FALSE;
+    return;
+}
+
+bool
+memoryBufferIsComplete(memoryBufferRef buf)
+{
+    return (buf->complete);
+}
+
+bool
+memoryBufferAddData(memoryBufferRef buf, const void * data, size_t length)
+{
+    if ((buf->offset + length) > buf->length) {
+	return (FALSE);
+    }
+    bcopy(data, buf->data + buf->offset, length);
+    buf->offset += length;
+    if (buf->offset == buf->length) {
+	buf->offset = 0;
+	buf->complete = TRUE;
+    }
+    return (TRUE);
 }
 
 void
@@ -549,25 +614,25 @@ EAPTLSComputeKeyData(SSLContextRef ssl_context,
     size = sizeof(random);
     status = SSLInternalClientRandom(ssl_context, random, &size);
     if (status != noErr) {
-	fprintf(stderr, 
-		"EAPTLSComputeSessionKey: SSLInternalClientRandom failed, %s\n",
-		EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE,
+		  "SSLInternalClientRandom failed, %s",
+		  EAPSSLErrorString(status));
 	return (status);
     }
     offset += size;
     random_size += size;
     if ((size + SSL_CLIENT_SRVR_RAND_SIZE) > sizeof(random)) {
-	fprintf(stderr,
-		"EAPTLSComputeSessionKey: buffer overflow %ld >= %ld\n",
-		size + SSL_CLIENT_SRVR_RAND_SIZE, sizeof(random));
+	EAPLOG_FL(LOG_NOTICE, 
+		  "buffer overflow %ld >= %ld",
+		  size + SSL_CLIENT_SRVR_RAND_SIZE, sizeof(random));
 	return (errSSLBufferOverflow);
     }
     size = sizeof(random) - size;
     status = SSLInternalServerRandom(ssl_context, random + offset, &size);
     if (status != noErr) {
-	fprintf(stderr, 
-		"EAPTLSComputeSessionKey: SSLInternalServerRandom failed, %s\n",
-		EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE,
+		  "SSLInternalServerRandom failed, %s",
+		  EAPSSLErrorString(status));
 	return (status);
     }
     random_size += size;
@@ -575,9 +640,9 @@ EAPTLSComputeKeyData(SSLContextRef ssl_context,
     status = SSLInternalMasterSecret(ssl_context, master_secret,
 				     &master_secret_length);
     if (status != noErr) {
-	fprintf(stderr, 
-		"EAPTLSComputeSessionKey: SSLInternalMasterSecret failed, %s\n",
-		EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SSLInternalMasterSecret failed, %s",
+		  EAPSSLErrorString(status));
 	return (status);
     }
     status = SSLInternal_PRF(ssl_context,
@@ -586,14 +651,12 @@ EAPTLSComputeKeyData(SSLContextRef ssl_context,
 			     random, random_size, 
 			     key, key_length);
     if (status != noErr) {
-	fprintf(stderr,
-		"EAPTLSComputeSessionKey: SSLInternal_PRF failed, %s\n",
-		EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE,
+		  "SSLInternal_PRF failed, %s", EAPSSLErrorString(status));
 	return (status);
     }
     return (status);
 }
-
 
 EAPPacket *
 EAPTLSPacketCreate2(EAPCode code, int type, u_char identifier, int mtu,
@@ -660,7 +723,7 @@ EAPTLSPacketCreate2(EAPCode code, int type, u_char identifier, int mtu,
 	    first = (EAPTLSLengthIncludedPacket *)(void *)eaptls;
 	    eaptls->flags |= kEAPTLSPacketFlagsLengthIncluded;
             EAPTLSLengthIncludedPacketSetMessageLength(first, 
-							buf->length);
+						       buf->length);
 	    dest = first->tls_data;
 	}
 	bcopy(buf->data + buf->offset, dest, fraglen);
@@ -679,33 +742,124 @@ EAPTLSPacketCreate(EAPCode code, int type, u_char identifier, int mtu,
 OSStatus 
 EAPSSLCopyPeerCertificates(SSLContextRef context, CFArrayRef * certs)
 {
-    return (SSLCopyPeerCertificates(context, certs));
+    CFMutableArrayRef	array = NULL;
+    int			count = 0;
+    int			i;
+    OSStatus		status;
+    SecTrustRef		trust = NULL;
+
+    status = SSLCopyPeerTrust(context, &trust);
+    if (status != noErr) {
+	EAPLOG_FL(LOG_NOTICE, "SSLCopyPeerTrust returned NULL");
+	goto done;
+    }
+    count = SecTrustGetCertificateCount(trust);
+    if (count == 0) {
+	/* this should not happen */
+	status = errSecItemNotFound;
+	EAPLOG_FL(LOG_NOTICE, "SecTrustGetCertificateCount returned 0");
+	goto done;
+    }
+    array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+    for (i = 0; i < count; i++) {
+	SecCertificateRef	s;
+
+	s = SecTrustGetCertificateAtIndex(trust, i);
+	CFArrayAppendValue(array, s);
+    }
+ done:
+    my_CFRelease(&trust);
+    *certs = array;
+    return (status);
 }
 
+enum {
+    kAvoidDenialOfServiceSize = 128 * 1024
+};
+
+CFStringRef
+EAPTLSPacketCopyDescription(EAPTLSPacketRef eaptls_pkt, bool * packet_is_valid)
+{
+    EAPTLSLengthIncludedPacketRef eaptls_pkt_l;
+    int			data_length;
+    void *		data_ptr = NULL;
+    u_int16_t		length = EAPPacketGetLength((EAPPacketRef)eaptls_pkt);
+    CFMutableStringRef	str;
+    u_int32_t		tls_message_length = 0;
+
+    *packet_is_valid = FALSE;
+    switch (eaptls_pkt->code) {
+    case kEAPCodeRequest:
+    case kEAPCodeResponse:
+	break;
+    default:
+	return (NULL);
+    }
+    str = CFStringCreateMutable(NULL, 0);
+    if (length < sizeof(*eaptls_pkt)) {
+	STRING_APPEND(str, "EAPTLSPacket header truncated %d < %d\n",
+		      length, (int)sizeof(*eaptls_pkt));
+	goto done;
+    }
+    STRING_APPEND(str, "%s %s: Identifier %d Length %d Flags 0x%x%s",
+		  EAPTypeStr(eaptls_pkt->type),
+		  eaptls_pkt->code == kEAPCodeRequest ? "Request" : "Response",
+		  eaptls_pkt->identifier, length, eaptls_pkt->flags,
+		  eaptls_pkt->flags != 0 ? " [" : "");
+
+    /* ALIGN: void * cast OK, we don't expect proper alignment */    
+    eaptls_pkt_l = (EAPTLSLengthIncludedPacketRef)(void *)eaptls_pkt;
+    data_ptr = eaptls_pkt->tls_data;
+    tls_message_length = data_length = length - sizeof(EAPTLSPacket);
+
+    if ((eaptls_pkt->flags & kEAPTLSPacketFlagsStart) != 0) {
+	STRING_APPEND(str, " start");
+    }
+    if ((eaptls_pkt->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
+	if (length < sizeof(EAPTLSLengthIncludedPacket)) {
+	    STRING_APPEND(str, "\nEAPTLSLengthIncludedPacket "
+			  "header truncated %d < %d\n",
+			  length, (int)sizeof(EAPTLSLengthIncludedPacket));
+	    goto done;
+	}
+	data_ptr = eaptls_pkt_l->tls_data;
+	data_length = length - sizeof(EAPTLSLengthIncludedPacket);
+	tls_message_length 
+	    = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_pkt_l);
+	STRING_APPEND(str, " length=%u", tls_message_length);
+	
+    }
+    if ((eaptls_pkt->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
+	STRING_APPEND(str, " more");
+    }
+    STRING_APPEND(str, "%s Data Length %d\n", 
+		  eaptls_pkt->flags != 0 ? " ]" : "", data_length);
+    if (tls_message_length > kAvoidDenialOfServiceSize) {
+	STRING_APPEND(str, "rejecting packet to avoid DOS attack %u > %d\n",
+		      tls_message_length, kAvoidDenialOfServiceSize);
+	goto done;
+    }
+    print_data_cfstr(str, data_ptr, data_length);
+    *packet_is_valid = TRUE;
+
+ done:
+    return (str);
+
+}
+
+OSStatus
+EAPSecPolicyCopy(SecPolicyRef * ret_policy)
+{
 #if TARGET_OS_EMBEDDED
-OSStatus
-EAPSecPolicyCopy(SecPolicyRef * ret_policy)
-{
     *ret_policy = SecPolicyCreateEAP(FALSE, NULL);
-    if (*ret_policy != NULL) {
-	return (noErr);
-    }
-    return (-1);
-}
-
 #else /* TARGET_OS_EMBEDDED */
-
-OSStatus
-EAPSecPolicyCopy(SecPolicyRef * ret_policy)
-{
-
-    *ret_policy = SecPolicyCreateWithOID(kSecPolicyAppleEAP);
+    *ret_policy = SecPolicyCreateWithProperties(kSecPolicyAppleEAP, NULL);
+#endif /* TARGET_OS_EMBEDDED */
     if (*ret_policy != NULL) {
 	return (noErr);
     }
     return (-1);
 }
-#endif /* TARGET_OS_EMBEDDED */
 
 static CFArrayRef
 copy_cert_list(CFDictionaryRef properties, CFStringRef prop_name)
@@ -752,22 +906,22 @@ get_trusted_server_names(CFDictionaryRef properties)
 	}
     }
     if (isA_CFArray(list) == NULL) {
-	syslog(LOG_NOTICE,
-	       "EAPTLSVerifyServerCertificateChain: TLSTrustedServerNames is not an array");
+	EAPLOG_FL(LOG_NOTICE,
+		  "TLSTrustedServerNames is not an array");
 	return (NULL);
     }
     count = CFArrayGetCount(list);
     if (count == 0) {
-	syslog(LOG_NOTICE,
-	       "EAPTLSVerifyServerCertificateChain: TLSTrustedServerNames is empty");
+	EAPLOG_FL(LOG_NOTICE,
+		  "TLSTrustedServerNames is empty");
 	return (NULL);
     }
     for (i = 0; i < count; i++) {
 	CFStringRef	name = CFArrayGetValueAtIndex(list, i);
 
 	if (isA_CFString(name) == NULL) {
-	    syslog(LOG_NOTICE, 
-	       "EAPTLSVerifyServerCertificateChain: TLSTrustedServerNames contains a non-string value");
+	    EAPLOG_FL(LOG_NOTICE, 
+		   "TLSTrustedServerNames contains a non-string value");
 	    return (NULL);
 	}
     }
@@ -793,8 +947,8 @@ exceptions_change_check(void)
     if (!token_valid) {
 	status = notify_register_check(kEAPTLSTrustExceptionsID, &token);
 	if (status != NOTIFY_STATUS_OK) {
-	    syslog(LOG_NOTICE,
-		   "EAPTLSTrustExceptions: notify_register_check returned %d",
+	    EAPLOG_FL(LOG_NOTICE,
+		      "notify_register_check returned %d",
 		   status);
 	    return;
 	}
@@ -802,8 +956,8 @@ exceptions_change_check(void)
     }
     status = notify_check(token, &check);
     if (status != NOTIFY_STATUS_OK) {
-	syslog(LOG_NOTICE,
-	       "EAPTLSTrustExceptions: notify_check returned %d",
+	EAPLOG_FL(LOG_NOTICE,
+		  "notify_check returned %d",
 	       status);
 	return;
     }
@@ -822,9 +976,9 @@ exceptions_change_notify(void)
 
     status = notify_post(kEAPTLSTrustExceptionsID);
     if (status != NOTIFY_STATUS_OK) {
-	syslog(LOG_NOTICE,
-	       "EAPTLSTrustExceptions: notify_post returned %d",
-	       status);
+	EAPLOG_FL(LOG_NOTICE,
+		  "notify_post returned %d",
+		  status);
     }
     return;
 }
@@ -936,9 +1090,7 @@ EAPTLSSecTrustSaveExceptionsBinding(SecTrustRef trust,
 
     exceptions = SecTrustCopyExceptions(trust);
     if (exceptions == NULL) {
-	syslog(LOG_NOTICE,
-	       "EAPTLSSecTrustSaveExceptionsBinding():"
-	       " failed to copy exceptions");
+	EAPLOG_FL(LOG_NOTICE, "failed to copy exceptions");
 	return (FALSE);
     }
     EAPTLSTrustExceptionsSave(domain, identifier, server_hash_str,
@@ -952,14 +1104,24 @@ EAPTLSSecTrustSaveExceptionsBinding(SecTrustRef trust,
  * Purpose:
  *   Remove all of the trust exceptions bindings for the given
  *   trust domain and identifier.
+ *
  * Example:
  * EAPTLSRemoveTrustExceptionsBindings(kEAPTLSTrustExceptionsDomainWirelessSSID,
+ * 				       ssid);
  */
 void
 EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain, CFStringRef identifier)
 {
     CFDictionaryRef	domain_list;
     CFDictionaryRef	exceptions_list;
+
+    /*
+     * Remove the saved EAP-SIM/EAP-AKA information as well.
+     * XXX: this call should be moved into a common "EAP cleanup" function.
+     */
+    if (my_CFEqual(domain, kEAPTLSTrustExceptionsDomainWirelessSSID)) {
+	EAPSIMAKAPersistentStateForgetSSID(identifier);
+    }
 
     exceptions_change_check();
     domain_list = CFPreferencesCopyValue(domain,
@@ -989,6 +1151,7 @@ EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain, CFStringRef identifier)
 				 kCFPreferencesCurrentUser,
 				 kCFPreferencesAnyHost);
 	exceptions_change_notify();
+	CFRelease(new_domain_list);
     }
     CFRelease(domain_list);
     return;
@@ -1040,7 +1203,7 @@ EAPTLSSecTrustApplyExceptionsBinding(SecTrustRef trust, CFStringRef domain,
 					   server_cert_hash);
     if (exceptions != NULL) {
 	if (SecTrustSetExceptions(trust, exceptions) == FALSE) {
-	    syslog(LOG_NOTICE, "SecTrustSetExceptions failed");
+	    EAPLOG_FL(LOG_NOTICE, "SecTrustSetExceptions failed");
 	}
     }
     my_CFRelease(&exceptions);
@@ -1084,10 +1247,9 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     }
     status = SecTrustCreateWithCertificates(server_certs, policy, &trust);
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "_EAPTLSCreateSecTrust: "
-	       "SecTrustCreateWithCertificates failed, %s (%d)",
-	       EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SecTrustCreateWithCertificates failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     trusted_certs = copy_cert_list(properties,
@@ -1095,10 +1257,9 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     if (trusted_certs != NULL) {
 	status = SecTrustSetAnchorCertificates(trust, trusted_certs);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "_EAPTLSCreateSecTrust:"
-		   " SecTrustSetAnchorCertificates failed, %s (%d)",
-		   EAPSecurityErrorString(status), (int)status);
+	    EAPLOG_FL(LOG_NOTICE, 
+		      " SecTrustSetAnchorCertificates failed, %s (%d)",
+		      EAPSecurityErrorString(status), (int)status);
 	    goto done;
 	}
     }
@@ -1181,7 +1342,7 @@ EAPTLSCreateSecTrust(CFDictionaryRef properties, CFArrayRef server_certs,
     CFDictionarySetValue(dict, kEAPClientPropTLSTrustExceptionsID, identifier);
     trust = _EAPTLSCreateSecTrust(dict, server_certs, 
 				  NULL, NULL, NULL, NULL, NULL);
-    CFRelease(dict);
+    my_CFRelease(&dict);
     return (trust);
 }
 
@@ -1190,7 +1351,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 				   CFArrayRef server_certs,
 				   OSStatus * ret_status)
 {
-    bool		allow_exceptions;
+    bool		allow_exceptions = FALSE;
     bool		has_server_certs_or_names = FALSE;
     EAPClientStatus	client_status;
     OSStatus		status;
@@ -1212,10 +1373,9 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     client_status = kEAPClientStatusSecurityError;
     status = SecTrustEvaluate(trust, &trust_result);
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "EAPTLSVerifyServerCertificateChain: "
-	       "SecTrustEvaluate failed, %s (%d)",
-	       EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SecTrustEvaluate failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     switch (trust_result) {
@@ -1308,7 +1468,7 @@ EAPSecTrustCopyCertificateChain(SecTrustRef trust)
     int			i;
     
     if (count == 0) {
-	fprintf(stderr, "SecTrustGetCertificateCount returned 0)\n");
+	EAPLOG_FL(LOG_NOTICE, "SecTrustGetCertificateCount returned 0");
 	goto done;
     }
     array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
@@ -1338,8 +1498,7 @@ server_cert_chain_is_trusted(SecTrustRef trust, CFArrayRef trusted_certs)
 	count = 0;
     }
     if (count == 0) {
-	syslog(LOG_NOTICE,
-	       "EAPTLSVerifyCertificateChain: failed to get evidence chain");
+	EAPLOG_FL(LOG_NOTICE, "failed to get evidence chain");
 	goto done;
     }
     for (i = 0; i < count; i++) {
@@ -1522,19 +1681,17 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     }
     status = SecTrustCreateWithCertificates(server_certs, policy, &trust);
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "EAPTLSVerifyServerCertificateChain: "
-	       "SecTrustCreateWithCertificates failed, %s (%d)",
-	       EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SecTrustCreateWithCertificates failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     if (profileID != NULL && trusted_certs != NULL) {
 	status = SecTrustSetAnchorCertificates(trust, trusted_certs);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "_EAPTLSCreateSecTrust:"
-		   " SecTrustSetAnchorCertificates failed, %s (%d)",
-		   EAPSecurityErrorString(status), (int)status);
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SecTrustSetAnchorCertificates failed, %s (%d)",
+		      EAPSecurityErrorString(status), (int)status);
 	    goto done;
 	}
     }
@@ -1545,10 +1702,9 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     case errSecNoDefaultKeychain:
 	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "EAPTLSVerifyServerCertificateChain: "
-		   "SecKeychainSetPreferenceDomain failed, %s (%d)",
-		   EAPSecurityErrorString(status), (int)status);
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SecKeychainSetPreferenceDomain failed, %s (%d)",
+		      EAPSecurityErrorString(status), (int)status);
 	    goto done;
 	}
 	status = SecTrustEvaluate(trust, &trust_result);
@@ -1557,10 +1713,9 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	}
 	/* FALL THROUGH */
     default:
-	syslog(LOG_NOTICE, 
-	       "EAPTLSVerifyServerCertificateChain: "
-	       "SecTrustEvaluate failed, %s (%d)",
-	       EAPSecurityErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SecTrustEvaluate failed, %s (%d)",
+		  EAPSecurityErrorString(status), (int)status);
 	goto done;
 	break;
     }
@@ -1621,6 +1776,29 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 }
 
 #endif /* TARGET_OS_EMBEDDED */
+
+OSStatus
+EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
+			     CFDictionaryRef properties,
+			     CFArrayRef * ret_array)
+{
+    if (sec_identity != NULL) {
+	return (EAPSecIdentityCreateTrustChain(sec_identity, ret_array));
+    }
+    if (properties != NULL) {
+	EAPSecIdentityHandleRef		id_handle;
+
+	id_handle = CFDictionaryGetValue(properties,
+					 kEAPClientPropTLSIdentityHandle);
+	if (id_handle != NULL) {
+	    return (EAPSecIdentityHandleCreateSecIdentityTrustChain(id_handle,
+								    ret_array));
+	}
+    }
+    *ret_array = NULL;
+    return (errSecParam);
+}
+
 
 #if defined(TEST_TRUST_EXCEPTIONS) || defined(TEST_EAPTLSVerifyServerCertificateChain)
 

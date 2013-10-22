@@ -56,6 +56,7 @@ chgpw_prexmit(krb5_context context, int proto,
     krb5_data ap_req_data, krb_priv_data, passwd_data;
     krb5_storage *sp = NULL;
     krb5_error_code ret;
+    krb5_ssize_t slen;
     size_t len;
 
     krb5_data_zero(&ap_req_data);
@@ -100,13 +101,13 @@ chgpw_prexmit(krb5_context context, int proto,
     if (ret) goto out;
     ret = krb5_store_uint16(sp, ap_req_data.length);
     if (ret) goto out;
-    ret = krb5_storage_write(sp, ap_req_data.data, ap_req_data.length);
-    if (ret != ap_req_data.length) {
+    slen = krb5_storage_write(sp, ap_req_data.data, ap_req_data.length);
+    if (slen != ap_req_data.length) {
 	ret = EINVAL;
 	goto out;
     }
-    ret = krb5_storage_write(sp, krb_priv_data.data, krb_priv_data.length);
-    if (ret != krb_priv_data.length) {
+    slen = krb5_storage_write(sp, krb_priv_data.data, krb_priv_data.length);
+    if (slen != krb_priv_data.length) {
 	ret = EINVAL;
 	goto out;
     }
@@ -137,6 +138,7 @@ setpw_prexmit(krb5_context context, int proto,
     krb5_error_code ret;
     ChangePasswdDataMS chpw;
     krb5_storage *sp = NULL;
+    ssize_t slen;
     size_t len;
 
     krb5_data_zero(&ap_req_data);
@@ -196,13 +198,13 @@ setpw_prexmit(krb5_context context, int proto,
     if (ret) goto out;
     ret = krb5_store_uint16(sp, ap_req_data.length);
     if (ret) goto out;
-    ret = krb5_storage_write(sp, ap_req_data.data, ap_req_data.length);
-    if (ret != ap_req_data.length) {
+    slen = krb5_storage_write(sp, ap_req_data.data, ap_req_data.length);
+    if (slen != ap_req_data.length) {
 	ret = EINVAL;
 	goto out;
     }
-    ret = krb5_storage_write(sp, krb_priv_data.data, krb_priv_data.length);
-    if (ret != krb_priv_data.length) {
+    slen = krb5_storage_write(sp, krb_priv_data.data, krb_priv_data.length);
+    if (slen != krb_priv_data.length) {
 	ret = EINVAL;
 	goto out;
     }

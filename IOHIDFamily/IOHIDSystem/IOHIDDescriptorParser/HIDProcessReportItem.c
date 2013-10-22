@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -51,7 +51,7 @@
 	  <USB8>	 1/10/00	DF		do proper logical range test for 32-bit report items.
 	  <USB7>	  4/7/99	BWS		Add support for reversed report items
 	  <USB6>	 3/20/99	BWS		Oops, strict error checking does not work if there is no error.
-									We should only return error if it is not noErr
+									We should only return error if it is not 0
 	  <USB5>	 3/17/99	BWS		[2314839]  Added flags field to HIDPreparsedData which is set in
 									new parameter to HIDOpenReportDescriptor. We check the
 									StrictErrorCheck bit to determine whether we return errors or
@@ -87,7 +87,7 @@
 */
 OSStatus HIDProcessReportItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDataPtr ptPreparsedData)
 {
-	OSStatus error = noErr;
+	OSStatus error = 0;
 	HIDReportItem *ptReportItem;
 	HIDReportSizes *ptReport;
 	int iBits;
@@ -125,14 +125,14 @@ OSStatus HIDProcessReportItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
 		}
 		if (ptReportItem->globals.logicalMaximum > realMax)
 		{
-			if (error == noErr)
+			if (!error)
 				error = kHIDBadLogicalMaximumErr;
 			ptReportItem->globals.logicalMaximum = realMax;
 		}
 		if (ptReportItem->globals.logicalMinimum > ptReportItem->globals.logicalMaximum)
 		{
 			SInt32	temp;
-			if (error == noErr)
+			if (!error)
 				error = kHIDInvertedLogicalRangeErr;
 			
 			// mark as a 'reversed' item
@@ -145,18 +145,18 @@ OSStatus HIDProcessReportItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
 	}
 	
 	// check to see if we got half a range (we don't need to fix this, since 'isRange' will be false
-	if ((error == noErr) && (ptDescriptor->haveUsageMin || ptDescriptor->haveUsageMax))
+	if ((!error) && (ptDescriptor->haveUsageMin || ptDescriptor->haveUsageMax))
 		error = kHIDUnmatchedUsageRangeErr;
-	if ((error == noErr) && (ptDescriptor->haveStringMin || ptDescriptor->haveStringMax))
+	if ((!error) && (ptDescriptor->haveStringMin || ptDescriptor->haveStringMax))
 		error = kHIDUnmatchedStringRangeErr;
-	if ((error == noErr) && (ptDescriptor->haveDesigMin || ptDescriptor->haveDesigMax))
+	if ((!error) && (ptDescriptor->haveDesigMin || ptDescriptor->haveDesigMax))
 		error = kHIDUnmatchedDesignatorRangeErr;
 	
 	// if the physical min/max are out of wack, use the logical values
 	if (ptReportItem->globals.physicalMinimum >= ptReportItem->globals.physicalMaximum)
 	{
 		// equal to each other is not an error, just means to use the logical values
-		if ((error == noErr) && 
+		if ((!error) &&
 			(ptReportItem->globals.physicalMinimum > ptReportItem->globals.physicalMaximum))
 			error = kHIDInvertedPhysicalRangeErr;
 
@@ -165,7 +165,7 @@ OSStatus HIDProcessReportItem(HIDReportDescriptor *ptDescriptor, HIDPreparsedDat
 	}
 	
 	// if strict error checking is true, return any errors
-	if (error != noErr && ptPreparsedData->flags & kHIDFlag_StrictErrorChecking)
+	if (error && ptPreparsedData->flags & kHIDFlag_StrictErrorChecking)
 		return error;
 	
 /*

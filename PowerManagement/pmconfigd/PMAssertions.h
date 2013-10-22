@@ -75,6 +75,10 @@
 #define kIOPMrootDomainWakeTypeLowBattery   CFSTR("LowBattery")
 #endif
 
+#ifndef kIOPMRootDomainWakeTypeNotification
+#define kIOPMRootDomainWakeTypeNotification CFSTR("Notification")
+#endif
+
 /* IOPMAssertion levels
  * 
  * Each assertion type has a corresponding bitfield index, here.
@@ -95,18 +99,43 @@ typedef enum {
     kDeclareUserActivity            = 10,
     kPushServiceTaskIndex           = 11,
     kBackgroundTaskIndex            = 12,
-    kInternalPreventDisplaySleep    = 13, /* Prevent display sleep, used as internal proxy */
+    kDeclareSystemActivity          = 13,
+    kSRPreventSleepIndex            = 14, /* Silent running Prevent Sleep, used as internal proxy */
+    kTicklessDisplayWake            = 15, /* Display wake without HID tick */
+    kPreventDiskSleepIndex          = 16,
+    kInternalPreventDisplaySleep    = 17, /* Prevent display sleep, used as internal proxy */
+    kNetworkAccessIndex             = 18, /* Prevent demand sleep on AC, prevent idle sleep on batt */
+    kInteractivePushServiceIndex    = 19,
+
+
     // Make sure this is the last enum element, as it tells us the total
     // number of elements in the enum definition
     kIOPMNumAssertionTypes      
 } kerAssertionType;
 
 
+typedef struct {
+#if !TARGET_OS_EMBEDDED
+    uint8_t    assert_cnt [kIOPMNumAssertionTypes];  // Number of assertions of each type.
+                                                     // Set only for app sleep preventing assertions
+    uint32_t   aggregate;                            // Aggregate assertion types of this proc. 
+#endif
+                                                     // Set only for app sleep preventing assertions
+                                  
+    uint32_t            retain_cnt;     // Total number of assertions raised by this process
+    CFStringRef         name;           // Process name
+    dispatch_source_t   disp_src;       // Dispatch src to handle process exit
+    pid_t               pid;            // PID 
+    uint32_t            anychange:1;    // Interested in any assertion changes notification
+    uint32_t            aggchange:1;    // Interested in assertion aggregates change notifications
+    uint32_t            timeoutchange:1;    // Interested in assertion timeout notification
+    uint32_t            disableAS_pend:1;   // Disable AppSleep notification need to be sent
+    uint32_t            enableAS_pend:1;    // Enable AppSleep notification need to be sent
+} ProcessInfo;
 
 typedef struct assertion {
     LIST_ENTRY(assertion) link;
     CFMutableDictionaryRef props;       // client provided properties
-    pid_t           pid;                // PID creating the assertion
     uint32_t        state;              // assertion state bits
     uint64_t        createTime;         // Time at which assertion is created
     uint64_t        timeout;            // absolute time at which assertion will timeout
@@ -117,14 +146,17 @@ typedef struct assertion {
     uint32_t        mods;               // Modifcation bits for most recent SetProperties call
 
     uint32_t        retainCnt;          // Number of retain calls
+
+    ProcessInfo     *pinfo;             // Pointer to ProcessInfo structure
 } assertion_t;
 
 /* State bits for assertion_t structure */
-#define kAssertionStateTimed                0x1
-#define kAssertionStateInactive             0x2
-#define kAssertionStateValidOnBatt          0x4
-#define kAssertionStateLogged               0x8
-#define kAssertionLidStateModifier          0x10
+#define kAssertionStateTimed                0x01
+#define kAssertionStateInactive             0x02
+#define kAssertionStateValidOnBatt          0x04
+#define kAssertionLidStateModifier          0x08
+#define kAssertionTimeoutIsSystemTimer      0x10  // Assertion timeout value changes with system idle/display sleep timer 
+#define kAssertionSkipLogging               0x20  // Avoid logging this assertion, even if type is set to kAssertionTypeLogOnCreate
 
 /* Mods bits for assertion_t structure */
 #define kAssertionModTimer              0x1
@@ -160,10 +192,12 @@ struct assertionType {
     uint64_t        globalTimeout;      /* Relative time at which assertion is timedout */
     uint32_t        forceTimedoutCnt;   /* Count of assertions turned off due to global timer */
     CFStringRef     uuid;               /* Assertion type specific UUID */
+    uint64_t        autoTimeout;        /* Automatic timeout for each assertion;set with kAssertionTypeAutoTimed flag */
 
     assertionHandler_f  handler;        /* Function changing the required settings in the kernel for this assertion type */
     uint32_t            linkedTypes;    /* Assertion types that need same kernel settings as this one, but different behavior
                                            in powerd.  This field bits are indices into 'gAssertionTypes' array */
+    CFArrayRef          procs;          /* ProcessInfo of processes holding this assertion type */
 
     // Fields changed by properties set on assertion. 
     // Not all fields are valid for all assertion types 
@@ -172,10 +206,23 @@ struct assertionType {
 } ;
 
 /* Flag bits for assertionType_t structure */
-#define kAssertionTypeNotValidOnBatt        0x1     /* By default, this assertion type is not valid on battery power */
-#define kAssertionTypeGloballyTimed         0x2     /* A global timer releases all assertions of this type */
-#define kAssertionTypeDisabled              0x4     /* All assertion requests of this type are ignored */
+#define kAssertionTypeNotValidOnBatt        0x01     /* By default, this assertion type is not valid on battery power */
+#define kAssertionTypeGloballyTimed         0x02     /* A global timer releases all assertions of this type */
+#define kAssertionTypeDisabled              0x04     /* All assertion requests of this type are ignored */
+#define kAssertionTypePreventAppSleep       0x08     /* App sleep is prevented when this assertion type is raised by app */
+#define kAssertionTypeAutoTimed             0x10     /* Each assertion of this type automatically gets a timeout value */
+#define kAssertionTypeLogOnCreate           0x20     /* Assertions of this type have to be logged on creation */
 
+/* Assertion logging actions */
+typedef enum {
+    kACreateLog,
+    kAReleaseLog,
+    kAClientDeathLog,
+    kATimeoutLog,
+    kASummaryLog,
+    kATurnOffLog,
+    kATurnOnLog
+} assertLogAction;
  
 __private_extern__ void PMAssertions_prime(void);
 __private_extern__ void createOnBootAssertions(void);
@@ -212,6 +259,7 @@ __private_extern__ void InternalReleaseAssertion(
 __private_extern__ void InternalEvaluateAssertions(void);
 
 __private_extern__ void evalAllUserActivityAssertions(unsigned int dispSlpTimer);
+__private_extern__ void evalAllNetworkAccessAssertions();
 
 __private_extern__ CFMutableDictionaryRef	_IOPMAssertionDescriptionCreate(
                             CFStringRef AssertionType, 

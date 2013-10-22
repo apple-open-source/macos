@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2012, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2009  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -77,12 +77,9 @@ make_querymessage(dns_message_t *message, const char *namestr,
 	isc_buffer_t b;
 	size_t namelen;
 
-	REQUIRE(message != NULL);
-	REQUIRE(namestr != NULL);
-
 	/* Construct qname */
 	namelen = strlen(namestr);
-	isc_buffer_constinit(&b, namestr, namelen);
+	isc_buffer_init(&b, namestr, namelen);
 	isc_buffer_add(&b, namelen);
 	dns_fixedname_init(&fixedqname);
 	qname0 = dns_fixedname_name(&fixedqname);
@@ -118,7 +115,8 @@ make_querymessage(dns_message_t *message, const char *namestr,
 		dns_message_puttempname(message, &qname);
 	if (qrdataset != NULL)
 		dns_message_puttemprdataset(message, &qrdataset);
-	dns_message_destroy(&message);
+	if (message != NULL)
+		dns_message_destroy(&message);
 	return (result);
 }
 
@@ -261,5 +259,5 @@ main(int argc, char *argv[]) {
 	dns_client_destroy(&client);
 	dns_lib_shutdown();
 
-	return (0);
+	exit(0);
 }

@@ -17,7 +17,7 @@
 
 static int indentLevel = 0;
 
-void doIndent()
+void doIndent(void)
 {
 	int i;
 	for (i = 0; i<indentLevel; i++) {
@@ -25,12 +25,12 @@ void doIndent()
 	}
 } /* indent */
 
-void incrIndent()
+void incrIndent(void)
 {
 	indentLevel += 3;
 }
 
-void decrIndent()
+void decrIndent(void)
 {
 	indentLevel -= 3;
 }
@@ -40,10 +40,10 @@ void decrIndent()
 void printHex(
 	DERItem *item)
 {
-	unsigned dex;
-	unsigned toPrint = item->length;
+	unsigned long dex;
+	unsigned long toPrint = item->length;
 	
-	printf("<%u> ", item->length);
+	printf("<%lu> ", item->length);
 	if(toPrint > TO_PRINT_MAX) {
 		toPrint = TO_PRINT_MAX;
 	}
@@ -59,8 +59,8 @@ void printHex(
 void printBitString(
 	DERItem *item)
 {
-	unsigned dex;
-	unsigned toPrint = item->length;
+	DERSize dex;
+	DERSize toPrint = item->length;
 	DERItem bitStringBytes;
 	DERByte numUnused;
 	DERReturn drtn;
@@ -71,7 +71,7 @@ void printBitString(
 		return;
 	}
 
-	printf("<%u, %u> ", bitStringBytes.length, numUnused);
+	printf("<%lu, %lu> ", (unsigned long)bitStringBytes.length, (unsigned long)numUnused);
 	toPrint = bitStringBytes.length;
 	if(toPrint > TO_PRINT_MAX) {
 		toPrint = TO_PRINT_MAX;
@@ -107,14 +107,14 @@ void printString(
 void printHeader(
 	const char *label)
 {
-	unsigned numPrinted;
+	size_t numPrinted;
 	
 	doIndent();
 	printf("%s", label);
 	numPrinted = indentLevel + strlen(label);
 	if(numPrinted < COLON_COLUMN) {
-		unsigned numSpaces = COLON_COLUMN - numPrinted;
-		unsigned dex;
+		size_t numSpaces = COLON_COLUMN - numPrinted;
+		size_t dex;
 		for(dex=0; dex<numSpaces; dex++) {
 			putchar(' ');
 		}

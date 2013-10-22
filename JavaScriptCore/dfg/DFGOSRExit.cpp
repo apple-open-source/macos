@@ -30,55 +30,60 @@
 
 #include "DFGAssemblyHelpers.h"
 #include "DFGSpeculativeJIT.h"
+#include "JSCellInlines.h"
 
 namespace JSC { namespace DFG {
 
-static unsigned computeNumVariablesForCodeOrigin(
-    CodeBlock* codeBlock, const CodeOrigin& codeOrigin)
-{
-    if (!codeOrigin.inlineCallFrame)
-        return codeBlock->m_numCalleeRegisters;
-    return
-        codeOrigin.inlineCallFrame->stackOffset +
-        baselineCodeBlockForInlineCallFrame(codeOrigin.inlineCallFrame)->m_numCalleeRegisters;
-}
-
-OSRExit::OSRExit(ExitKind kind, JSValueSource jsValueSource, MethodOfGettingAValueProfile valueProfile, MacroAssembler::Jump check, SpeculativeJIT* jit, unsigned recoveryIndex)
+OSRExit::OSRExit(ExitKind kind, JSValueSource jsValueSource, MethodOfGettingAValueProfile valueProfile, SpeculativeJIT* jit, unsigned streamIndex, unsigned recoveryIndex)
     : m_jsValueSource(jsValueSource)
     , m_valueProfile(valueProfile)
-    , m_check(check)
-    , m_nodeIndex(jit->m_compileIndex)
+    , m_patchableCodeOffset(0)
     , m_codeOrigin(jit->m_codeOriginForOSR)
     , m_codeOriginForExitProfile(m_codeOrigin)
     , m_recoveryIndex(recoveryIndex)
+    , m_watchpointIndex(std::numeric_limits<unsigned>::max())
     , m_kind(kind)
     , m_count(0)
-    , m_arguments(jit->m_arguments.size())
-    , m_variables(computeNumVariablesForCodeOrigin(jit->m_jit.graph().m_profiledBlock, jit->m_codeOriginForOSR))
+    , m_streamIndex(streamIndex)
     , m_lastSetOperand(jit->m_lastSetOperand)
 {
     ASSERT(m_codeOrigin.isSet());
-    for (unsigned argument = 0; argument < m_arguments.size(); ++argument)
-        m_arguments[argument] = jit->computeValueRecoveryFor(jit->m_arguments[argument]);
-    for (unsigned variable = 0; variable < m_variables.size(); ++variable)
-        m_variables[variable] = jit->computeValueRecoveryFor(jit->m_variables[variable]);
 }
 
-void OSRExit::dump(FILE* out) const
+void OSRExit::setPatchableCodeOffset(MacroAssembler::PatchableJump check)
 {
-    for (unsigned argument = 0; argument < m_arguments.size(); ++argument)
-        m_arguments[argument].dump(out);
-    fprintf(out, " : ");
-    for (unsigned variable = 0; variable < m_variables.size(); ++variable)
-        m_variables[variable].dump(out);
+    m_patchableCodeOffset = check.m_jump.m_label.m_offset;
 }
 
-bool OSRExit::considerAddingAsFrequentExitSiteSlow(CodeBlock* dfgCodeBlock, CodeBlock* profiledCodeBlock)
+MacroAssembler::Jump OSRExit::getPatchableCodeOffsetAsJump() const
 {
-    if (static_cast<double>(m_count) / dfgCodeBlock->speculativeFailCounter() <= Options::osrExitProminenceForFrequentExitSite)
-        return false;
+    return MacroAssembler::Jump(AssemblerLabel(m_patchableCodeOffset));
+}
+
+CodeLocationJump OSRExit::codeLocationForRepatch(CodeBlock* dfgCodeBlock) const
+{
+    return CodeLocationJump(dfgCodeBlock->getJITCode().dataAddressAtOffset(m_patchableCodeOffset));
+}
+
+void OSRExit::correctJump(LinkBuffer& linkBuffer)
+{
+    MacroAssembler::Label label;
+    label.m_label.m_offset = m_patchableCodeOffset;
+    m_patchableCodeOffset = linkBuffer.offsetOf(label);
+}
+
+bool OSRExit::considerAddingAsFrequentExitSiteSlow(CodeBlock* profiledCodeBlock)
+{
+    FrequentExitSite exitSite;
     
-    return baselineCodeBlockForOriginAndBaselineCodeBlock(m_codeOriginForExitProfile, profiledCodeBlock)->addFrequentExitSite(FrequentExitSite(m_codeOriginForExitProfile.bytecodeIndex, m_kind));
+    if (m_kind == ArgumentsEscaped) {
+        // Count this one globally. It doesn't matter where in the code block the arguments excaped;
+        // the fact that they did is not associated with any particular instruction.
+        exitSite = FrequentExitSite(m_kind);
+    } else
+        exitSite = FrequentExitSite(m_codeOriginForExitProfile.bytecodeIndex, m_kind);
+    
+    return baselineCodeBlockForOriginAndBaselineCodeBlock(m_codeOriginForExitProfile, profiledCodeBlock)->addFrequentExitSite(exitSite);
 }
 
 } } // namespace JSC::DFG

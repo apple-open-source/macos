@@ -1,9 +1,4 @@
-begin
-  require "openssl"
-  require File.join(File.dirname(__FILE__), "utils.rb")
-rescue LoadError
-end
-require "test/unit"
+require_relative "utils"
 
 if defined?(OpenSSL)
 
@@ -20,6 +15,14 @@ class OpenSSL::TestX509Store < Test::Unit::TestCase
   end
 
   def teardown
+  end
+
+  def test_nosegv_on_cleanup
+    cert  = OpenSSL::X509::Certificate.new
+    store = OpenSSL::X509::Store.new
+    ctx   = OpenSSL::X509::StoreContext.new(store, cert, [])
+    ctx.cleanup
+    ctx.verify
   end
 
   def issue_cert(*args)
@@ -65,15 +68,15 @@ class OpenSSL::TestX509Store < Test::Unit::TestCase
     crl2_2 = issue_crl(revoke_info, 2, now-100, now-1, [],
                        ca2_cert, @rsa1024, OpenSSL::Digest::SHA1.new)
 
-    assert(true, ca1_cert.verify(ca1_cert.public_key))   # self signed
-    assert(true, ca2_cert.verify(ca1_cert.public_key))   # issued by ca1
-    assert(true, ee1_cert.verify(ca2_cert.public_key))   # issued by ca2
-    assert(true, ee2_cert.verify(ca2_cert.public_key))   # issued by ca2
-    assert(true, ee3_cert.verify(ca2_cert.public_key))   # issued by ca2
-    assert(true, crl1.verify(ca1_cert.public_key))       # issued by ca1
-    assert(true, crl1_2.verify(ca1_cert.public_key))     # issued by ca1
-    assert(true, crl2.verify(ca2_cert.public_key))       # issued by ca2
-    assert(true, crl2_2.verify(ca2_cert.public_key))     # issued by ca2
+    assert_equal(true, ca1_cert.verify(ca1_cert.public_key))   # self signed
+    assert_equal(true, ca2_cert.verify(ca1_cert.public_key))   # issued by ca1
+    assert_equal(true, ee1_cert.verify(ca2_cert.public_key))   # issued by ca2
+    assert_equal(true, ee2_cert.verify(ca2_cert.public_key))   # issued by ca2
+    assert_equal(true, ee3_cert.verify(ca2_cert.public_key))   # issued by ca2
+    assert_equal(true, crl1.verify(ca1_cert.public_key))       # issued by ca1
+    assert_equal(true, crl1_2.verify(ca1_cert.public_key))     # issued by ca1
+    assert_equal(true, crl2.verify(ca2_cert.public_key))       # issued by ca2
+    assert_equal(true, crl2_2.verify(ca2_cert.public_key))     # issued by ca2
 
     store = OpenSSL::X509::Store.new
     assert_equal(false, store.verify(ca1_cert))
@@ -198,7 +201,7 @@ class OpenSSL::TestX509Store < Test::Unit::TestCase
                           nil, nil, OpenSSL::Digest::SHA1.new)
     store = OpenSSL::X509::Store.new
     store.add_cert(ca1_cert)
-    assert_raises(OpenSSL::X509::StoreError){
+    assert_raise(OpenSSL::X509::StoreError){
       store.add_cert(ca1_cert)  # add same certificate twice
     }
 
@@ -209,9 +212,17 @@ class OpenSSL::TestX509Store < Test::Unit::TestCase
     crl2 = issue_crl(revoke_info, 2, now+1800, now+3600, [],
                      ca1_cert, @rsa2048, OpenSSL::Digest::SHA1.new)
     store.add_crl(crl1)
-    assert_raises(OpenSSL::X509::StoreError){
-      store.add_crl(crl2) # add CRL issued by same CA twice.
-    }
+    if /0\.9\.8.*-rhel/ =~ OpenSSL::OPENSSL_VERSION
+      # RedHat is distributing a patched version of OpenSSL that allows
+      # multiple CRL for a key (multi-crl.patch)
+      assert_nothing_raised do
+        store.add_crl(crl2) # add CRL issued by same CA twice.
+      end
+    else
+      assert_raise(OpenSSL::X509::StoreError){
+        store.add_crl(crl2) # add CRL issued by same CA twice.
+      }
+    end
   end
 end
 

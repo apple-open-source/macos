@@ -29,7 +29,7 @@
 
 #include <Security/cssmtype.h>
 #include <Security/cssmapple.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <MacTypes.h>
 
 #ifdef	__cplusplus
 extern "C" {

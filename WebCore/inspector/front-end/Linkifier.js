@@ -49,7 +49,7 @@ WebInspector.LinkifierFormatter.prototype = {
  */
 WebInspector.Linkifier = function(formatter)
 {
-    this._formatter = formatter || new WebInspector.Linkifier.DefaultFormatter();
+    this._formatter = formatter || new WebInspector.Linkifier.DefaultFormatter(WebInspector.Linkifier.MaxLengthForDisplayedURLs);
     this._liveLocations = [];
 }
 
@@ -59,6 +59,7 @@ WebInspector.Linkifier.prototype = {
      * @param {number} lineNumber
      * @param {number=} columnNumber
      * @param {string=} classes
+     * @return {Element}
      */
     linkifyLocation: function(sourceURL, lineNumber, columnNumber, classes)
     {
@@ -69,8 +70,9 @@ WebInspector.Linkifier.prototype = {
     },
 
     /**
-     * @param {DebuggerAgent.Location} rawLocation
+     * @param {WebInspector.DebuggerModel.Location} rawLocation
      * @param {string=} classes
+     * @return {Element}
      */
     linkifyRawLocation: function(rawLocation, classes)
     {
@@ -79,6 +81,20 @@ WebInspector.Linkifier.prototype = {
             return null;
         var anchor = WebInspector.linkifyURLAsNode("", "", classes, false);
         var liveLocation = script.createLiveLocation(rawLocation, this._updateAnchor.bind(this, anchor));
+        this._liveLocations.push(liveLocation);
+        return anchor;
+    },
+
+    /**
+     * @param {WebInspector.CSSRule} rule
+     * @return {?Element}
+     */
+    linkifyCSSRuleLocation: function(rule)
+    {
+        var anchor = WebInspector.linkifyURLAsNode("", "", "", false);
+        var liveLocation = WebInspector.cssModel.createLiveLocation(rule, this._updateAnchor.bind(this, anchor));
+        if (!liveLocation)
+            return null;
         this._liveLocations.push(liveLocation);
         return anchor;
     },
@@ -97,7 +113,7 @@ WebInspector.Linkifier.prototype = {
     _updateAnchor: function(anchor, uiLocation)
     {
         anchor.preferredPanel = "scripts";
-        anchor.href = uiLocation.uiSourceCode.url;
+        anchor.href = sanitizeHref(uiLocation.uiSourceCode.originURL());
         anchor.uiSourceCode = uiLocation.uiSourceCode;
         anchor.lineNumber = uiLocation.lineNumber;
         this._formatter.formatLiveAnchor(anchor, uiLocation);
@@ -121,13 +137,47 @@ WebInspector.Linkifier.DefaultFormatter.prototype = {
      */
     formatLiveAnchor: function(anchor, uiLocation)
     {
-        anchor.textContent = WebInspector.formatLinkText(uiLocation.uiSourceCode.url, uiLocation.lineNumber);
-
-        var text = WebInspector.formatLinkText(uiLocation.uiSourceCode.url, uiLocation.lineNumber);
+        var text = WebInspector.formatLinkText(uiLocation.uiSourceCode.originURL(), uiLocation.lineNumber);
         if (this._maxLength)
-            text = text.trimMiddle(this._maxLength);
+            text = text.centerEllipsizedToLength(this._maxLength);
         anchor.textContent = text;
-    }
+
+        var titleText = uiLocation.uiSourceCode.originURL();
+        if (typeof uiLocation.lineNumber === "number")
+            titleText += ":" + (uiLocation.lineNumber + 1);
+        anchor.title = titleText;
+    },
+
+    __proto__: WebInspector.LinkifierFormatter.prototype
 }
 
-WebInspector.Linkifier.DefaultFormatter.prototype.__proto__ = WebInspector.LinkifierFormatter.prototype;
+/**
+ * @constructor
+ * @extends {WebInspector.Linkifier.DefaultFormatter}
+ */
+WebInspector.Linkifier.DefaultCSSFormatter = function()
+{
+    WebInspector.Linkifier.DefaultFormatter.call(this);
+}
+
+WebInspector.Linkifier.DefaultCSSFormatter.prototype = {
+    /**
+     * @param {Element} anchor
+     * @param {WebInspector.UILocation} uiLocation
+     */
+    formatLiveAnchor: function(anchor, uiLocation)
+    {
+        WebInspector.Linkifier.DefaultFormatter.prototype.formatLiveAnchor.call(this, anchor, uiLocation);
+        anchor.classList.add("webkit-html-resource-link");
+        anchor.setAttribute("data-uncopyable", anchor.textContent);
+        anchor.textContent = "";
+    },
+    __proto__: WebInspector.Linkifier.DefaultFormatter.prototype
+}
+
+/**
+ * The maximum number of characters to display in a URL.
+ * @const
+ * @type {number}
+ */
+WebInspector.Linkifier.MaxLengthForDisplayedURLs = 150;

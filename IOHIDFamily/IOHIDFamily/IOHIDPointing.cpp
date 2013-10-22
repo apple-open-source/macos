@@ -219,8 +219,9 @@ void IOHIDPointing::dispatchScrollWheelEvent(
             setScrollType(newEventType);
         }
     }
-        
-    bool    accelerate      = ((options & kHIDDispatchOptionScrollNoAcceleration) == 0);
+    
+    // rdar://13002702
+    bool    accelerate      = ((options & kHIDDispatchOptionScrollNoAcceleration) == 0) && ((options & kHIDDispatchOptionPhaseEnded) == 0);
     UInt32  pointingMode    = getPointingMode();
 
     if (((pointingMode & kAccelScroll) != 0) != accelerate)

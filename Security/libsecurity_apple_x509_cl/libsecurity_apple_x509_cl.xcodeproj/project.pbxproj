@@ -302,7 +302,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD28D0987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_apple_x509_cl" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -407,6 +407,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 184460FF146E82B800B12992 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Debug;
 		};
@@ -414,12 +415,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446101146E82B800B12992 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Release;
 		};
 		C27AD28A0987FCDC001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_PREFIX = "";
 				INFOPLIST_FILE = "Info-plugin_apple_x509_cl.plist";
 				PRODUCT_NAME = apple_x509_cl;
@@ -430,6 +433,7 @@
 		C27AD28C0987FCDC001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				EXECUTABLE_PREFIX = "";
 				INFOPLIST_FILE = "Info-plugin_apple_x509_cl.plist";
 				PRODUCT_NAME = apple_x509_cl;
@@ -441,6 +445,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446100146E82B800B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -448,6 +458,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446100146E82B800B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

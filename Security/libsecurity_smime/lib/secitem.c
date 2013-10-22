@@ -137,7 +137,7 @@ SECITEM_ReallocItem(PRArenaPool *arena, SECItem *item, unsigned int oldlen,
 SECComparison
 SECITEM_CompareItem(const SECItem *a, const SECItem *b)
 {
-    unsigned m;
+    CSSM_SIZE m;
     SECComparison rv;
 
     m = ( ( a->Length < b->Length ) ? a->Length : b->Length );

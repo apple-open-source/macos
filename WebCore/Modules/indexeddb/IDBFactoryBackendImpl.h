@@ -28,11 +28,17 @@
 #ifndef IDBFactoryBackendImpl_h
 #define IDBFactoryBackendImpl_h
 
-#include "IDBFactoryBackendInterface.h"
-#include <wtf/HashMap.h>
-#include <wtf/text/StringHash.h>
-
 #if ENABLE(INDEXED_DATABASE)
+
+#include "IDBCallbacks.h"
+#include "IDBDatabaseCallbacks.h"
+#include "IDBFactoryBackendInterface.h"
+#include "SecurityOrigin.h"
+#include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
+#include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -40,7 +46,6 @@ class DOMStringList;
 
 class IDBBackingStore;
 class IDBDatabaseBackendImpl;
-class IDBTransactionCoordinator;
 
 class IDBFactoryBackendImpl : public IDBFactoryBackendInterface {
 public:
@@ -51,28 +56,25 @@ public:
     virtual ~IDBFactoryBackendImpl();
 
     // Notifications from weak pointers.
-    void removeIDBDatabaseBackend(const String& uniqueIdentifier);
-    void addIDBBackingStore(const String& fileIdentifier, IDBBackingStore*);
-    void removeIDBBackingStore(const String& fileIdentifier);
+    virtual void removeIDBDatabaseBackend(const String& uniqueIdentifier);
 
-    virtual void getDatabaseNames(PassRefPtr<IDBCallbacks>, PassRefPtr<SecurityOrigin>, Frame*, const String& dataDir);
+    virtual void getDatabaseNames(PassRefPtr<IDBCallbacks>, PassRefPtr<SecurityOrigin>, ScriptExecutionContext*, const String& dataDir);
+    virtual void open(const String& name, int64_t version, int64_t transactionId, PassRefPtr<IDBCallbacks>, PassRefPtr<IDBDatabaseCallbacks>, PassRefPtr<SecurityOrigin>, ScriptExecutionContext*, const String& dataDir);
 
-    virtual void open(const String& name, IDBCallbacks*, PassRefPtr<SecurityOrigin>, Frame*, const String& dataDir);
-    virtual void openFromWorker(const String& name, IDBCallbacks*, PassRefPtr<SecurityOrigin>, WorkerContext*, const String& dataDir);
-    virtual void deleteDatabase(const String& name, PassRefPtr<IDBCallbacks>, PassRefPtr<SecurityOrigin>, Frame*, const String& dataDir);
+    virtual void deleteDatabase(const String& name, PassRefPtr<IDBCallbacks>, PassRefPtr<SecurityOrigin>, ScriptExecutionContext*, const String& dataDir);
+
+protected:
+    IDBFactoryBackendImpl();
+    virtual PassRefPtr<IDBBackingStore> openBackingStore(PassRefPtr<SecurityOrigin>, const String& dataDir);
 
 private:
-    IDBFactoryBackendImpl();
-    PassRefPtr<IDBBackingStore> openBackingStore(PassRefPtr<SecurityOrigin>, const String& dataDir);
-    void openInternal(const String& name, IDBCallbacks*, PassRefPtr<SecurityOrigin>, const String& dataDir);
-
-    typedef HashMap<String, IDBDatabaseBackendImpl*> IDBDatabaseBackendMap;
+    typedef HashMap<String, RefPtr<IDBDatabaseBackendImpl> > IDBDatabaseBackendMap;
     IDBDatabaseBackendMap m_databaseBackendMap;
 
-    typedef HashMap<String, IDBBackingStore*> IDBBackingStoreMap;
+    typedef HashMap<String, WeakPtr<IDBBackingStore> > IDBBackingStoreMap;
     IDBBackingStoreMap m_backingStoreMap;
 
-    RefPtr<IDBTransactionCoordinator> m_transactionCoordinator;
+    HashSet<RefPtr<IDBBackingStore> > m_sessionOnlyBackingStores;
 
     // Only one instance of the factory should exist at any given time.
     static IDBFactoryBackendImpl* idbFactoryBackendImpl;

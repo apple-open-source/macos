@@ -162,8 +162,8 @@ void AESContext::init(
 	/* init key only if key size, block size, or key bits have changed */
 	if(!sameKeyAndBlockSizes || memcmp(mRawKey, keyData, mRawKeySize)) {
 		int artn = makeKey((keyInstance *)mAesKey, 
-			keyLen * 8, 
-			mBlockSize * 8, 
+			(int)keyLen * 8,
+                        mBlockSize * 8,
 			(word8 *)keyData,
 			opt128);
 		if(artn < 0) {
@@ -172,7 +172,7 @@ void AESContext::init(
 		
 		/* save this raw key data */
 		memmove(mRawKey, keyData, mRawKeySize); 
-		mRawKeySize = keyLen;
+		mRawKeySize = (uint32)keyLen;
 	}
 
 #if		!GLADMAN_AES_128_ENABLE

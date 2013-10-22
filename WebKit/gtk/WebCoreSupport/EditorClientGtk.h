@@ -71,11 +71,10 @@ class EditorClient : public WebCore::EditorClient {
 
         // from EditorClient
         virtual void pageDestroyed();
+        virtual void frameWillDetachPage(WebCore::Frame*) { }
 
         virtual bool shouldDeleteRange(WebCore::Range*);
-        virtual bool shouldShowDeleteInterface(WebCore::HTMLElement*);
         virtual bool smartInsertDeleteEnabled();
-        void setSmartInsertDeleteEnabled(bool);
         virtual bool isSelectTrailingWhitespaceEnabled();
         virtual bool isContinuousSpellCheckingEnabled();
         virtual void toggleContinuousSpellChecking();
@@ -97,7 +96,9 @@ class EditorClient : public WebCore::EditorClient {
         virtual void respondToChangedContents();
         virtual void respondToChangedSelection(WebCore::Frame*);
         virtual void didEndEditing();
+        virtual void willWriteSelectionToPasteboard(WebCore::Range*);
         virtual void didWriteSelectionToPasteboard();
+        virtual void getClientPasteboardDataForRange(WebCore::Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer> >& pasteboardData);
         virtual void didSetSelectionTypesForPasteboard();
 
         virtual void registerUndoStep(WTF::PassRefPtr<WebCore::UndoStep>);
@@ -133,9 +134,9 @@ class EditorClient : public WebCore::EditorClient {
 
         virtual bool shouldShowUnicodeMenu();
 
-    private:
-        bool handleInputMethodKeyboardEvent(WebCore::KeyboardEvent*);
+        virtual bool supportsGlobalSelection() OVERRIDE;
 
+    private:
 #if ENABLE(SPELLCHECK)
         TextCheckerClientGtk m_textCheckerClient;
 #else
@@ -144,8 +145,6 @@ class EditorClient : public WebCore::EditorClient {
         WebKitWebView* m_webView;
         WebCore::KeyBindingTranslator m_keyBindingTranslator;
         Vector<WTF::String> m_pendingEditorCommands;
-        bool m_smartInsertDeleteEnabled;
-        bool m_updatingComposition;
     };
 }
 

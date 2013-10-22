@@ -26,6 +26,8 @@
 #include "config.h"
 #include "NetscapePlugin.h"
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #include "NPRuntimeObjectMap.h"
 #include "NPRuntimeUtilities.h"
 #include "NetscapePluginStream.h"
@@ -35,13 +37,12 @@
 #include <WebCore/HTTPHeaderMap.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/KURL.h>
+#include <WebCore/SharedBuffer.h>
 #include <runtime/JSObject.h>
-#include <runtime/ScopeChain.h>
 #include <utility>
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
-using namespace std;
 
 namespace WebKit {
 
@@ -158,7 +159,7 @@ const char* NetscapePlugin::userAgent()
 
 #if PLUGIN_ARCHITECTURE(MAC)
         if (quirks().contains(PluginQuirks::AppendVersion3UserAgent))
-            userAgent += " Version/3.2.1";
+            userAgent.append(" Version/3.2.1");
 #endif
 
         m_userAgent = userAgent.utf8();
@@ -186,7 +187,7 @@ void NetscapePlugin::loadURL(const String& method, const String& urlString, cons
         // Eventually we are going to get a frameDidFinishLoading or frameDidFail call for this request.
         // Keep track of the notification data so we can call NPP_URLNotify.
         ASSERT(!m_pendingURLNotifications.contains(requestID));
-        m_pendingURLNotifications.set(requestID, make_pair(urlString, notificationData));
+        m_pendingURLNotifications.set(requestID, std::make_pair(urlString, notificationData));
     }
 }
 
@@ -195,8 +196,8 @@ NPError NetscapePlugin::destroyStream(NPStream* stream, NPReason reason)
     NetscapePluginStream* pluginStream = 0;
 
     for (StreamsMap::const_iterator it = m_streams.begin(), end = m_streams.end(); it != end; ++it) {
-        if (it->second->npStream() == stream) {
-            pluginStream = it->second.get();
+        if (it->value->npStream() == stream) {
+            pluginStream = it->value.get();
             break;
         }
     }
@@ -307,7 +308,7 @@ void NetscapePlugin::popPopupsEnabledState()
 
 void NetscapePlugin::pluginThreadAsyncCall(void (*function)(void*), void* userData)
 {
-    RunLoop::main()->dispatch(bind(&NetscapePlugin::handlePluginThreadAsyncCall, this, function, userData));
+    RunLoop::main()->dispatch(WTF::bind(&NetscapePlugin::handlePluginThreadAsyncCall, this, function, userData));
 }
     
 void NetscapePlugin::handlePluginThreadAsyncCall(void (*function)(void*), void* userData)
@@ -372,21 +373,15 @@ uint32_t NetscapePlugin::scheduleTimer(unsigned interval, bool repeat, void (*ti
     
     // FIXME: Based on the plug-in visibility, figure out if we should throttle the timer, or if we should start it at all.
     timer->start();
-    m_timers.set(timerID, timer.leakPtr());
+    m_timers.set(timerID, timer.release());
 
     return timerID;
 }
 
 void NetscapePlugin::unscheduleTimer(unsigned timerID)
 {
-    TimerMap::iterator it = m_timers.find(timerID);
-    if (it == m_timers.end())
-        return;
-
-    OwnPtr<Timer> timer = adoptPtr(it->second);
-    m_timers.remove(it);
-
-    timer->stop();
+    if (OwnPtr<Timer> timer = m_timers.take(timerID))
+        timer->stop();
 }
 
 double NetscapePlugin::contentsScaleFactor()
@@ -533,12 +528,12 @@ bool NetscapePlugin::shouldLoadSrcURL()
 
 NetscapePluginStream* NetscapePlugin::streamFromID(uint64_t streamID)
 {
-    return m_streams.get(streamID).get();
+    return m_streams.get(streamID);
 }
 
 void NetscapePlugin::stopAllStreams()
 {
-    Vector<RefPtr<NetscapePluginStream> > streams;
+    Vector<RefPtr<NetscapePluginStream>> streams;
     copyValuesToVector(m_streams, streams);
 
     for (size_t i = 0; i < streams.size(); ++i)
@@ -559,14 +554,34 @@ bool NetscapePlugin::allowPopups() const
 }
 
 #if PLUGIN_ARCHITECTURE(MAC)
-static bool isTransparentSilverlightBackgroundValue(const String& backgroundValue)
+static bool isTransparentSilverlightBackgroundValue(const String& lowercaseBackgroundValue)
 {
-    // FIXME: We should handle all the cases from http://msdn.microsoft.com/en-us/library/cc838148(VS.95).aspx here
-    // instead of just hard-coding black.
-    if (backgroundValue == "#000000")
-        return false;
+    // This checks if the background color value is transparent, according to
+    // the format documented at http://msdn.microsoft.com/en-us/library/cc838148(VS.95).aspx
+    if (lowercaseBackgroundValue.startsWith('#')) {
+        if (lowercaseBackgroundValue.length() == 5 && lowercaseBackgroundValue[1] != 'f') {
+            // An 8-bit RGB value with alpha transparency, in the form #ARGB.
+            return true;
+        }
 
-    return true;
+        if (lowercaseBackgroundValue.length() == 9 && !(lowercaseBackgroundValue[1] == 'f' && lowercaseBackgroundValue[2] == 'f')) {
+            // A 16-bit RGB value with alpha transparency, in the form #AARRGGBB.
+            return true;
+        }
+    } else if (lowercaseBackgroundValue.startsWith("sc#")) {
+        Vector<String> components;
+        lowercaseBackgroundValue.substring(3).split(",", components);
+
+        // An ScRGB value with alpha transparency, in the form sc#A,R,G,B.
+        if (components.size() == 4) {
+            if (components[0].toDouble() < 1)
+                return true;
+        }
+    } else if (lowercaseBackgroundValue == "transparent")
+        return true;
+
+    // This is an opaque color.
+    return false;
 }
 #endif
 
@@ -606,7 +621,7 @@ bool NetscapePlugin::initialize(const Parameters& parameters)
     if (m_pluginModule->pluginQuirks().contains(PluginQuirks::MakeOpaqueUnlessTransparentSilverlightBackgroundAttributeExists)) {
         for (size_t i = 0; i < parameters.names.size(); ++i) {
             if (equalIgnoringCase(parameters.names[i], "background")) {
-                setIsTransparent(isTransparentSilverlightBackgroundValue(parameters.values[i]));
+                setIsTransparent(isTransparentSilverlightBackgroundValue(parameters.values[i].lower()));
                 break;
             }
         }
@@ -614,6 +629,8 @@ bool NetscapePlugin::initialize(const Parameters& parameters)
 
     m_layerHostingMode = parameters.layerHostingMode;
 #endif
+
+    platformPreInitialize();
 
     NetscapePlugin* previousNPPNewPlugin = currentNPPNewPlugin;
     
@@ -664,7 +681,6 @@ void NetscapePlugin::destroy()
 
     platformDestroy();
 
-    deleteAllValues(m_timers);
     m_timers.clear();
 }
     
@@ -752,8 +768,8 @@ void NetscapePlugin::frameDidFinishLoading(uint64_t requestID)
     if (it == m_pendingURLNotifications.end())
         return;
 
-    String url = it->second.first;
-    void* notificationData = it->second.second;
+    String url = it->value.first;
+    void* notificationData = it->value.second;
 
     m_pendingURLNotifications.remove(it);
     
@@ -768,8 +784,8 @@ void NetscapePlugin::frameDidFail(uint64_t requestID, bool wasCancelled)
     if (it == m_pendingURLNotifications.end())
         return;
 
-    String url = it->second.first;
-    void* notificationData = it->second.second;
+    String url = it->value.first;
+    void* notificationData = it->value.second;
 
     m_pendingURLNotifications.remove(it);
     
@@ -897,6 +913,31 @@ bool NetscapePlugin::handleKeyboardEvent(const WebKeyboardEvent& keyboardEvent)
     return platformHandleKeyboardEvent(keyboardEvent);
 }
 
+bool NetscapePlugin::handleEditingCommand(const String& /* commandName */, const String& /* argument */)
+{
+    return false;
+}
+
+bool NetscapePlugin::isEditingCommandEnabled(const String& /* commandName */)
+{
+    return false;
+}
+
+bool NetscapePlugin::shouldAllowScripting()
+{
+    return true;
+}
+
+bool NetscapePlugin::shouldAllowNavigationFromDrags()
+{
+    return false;
+}
+
+bool NetscapePlugin::handlesPageScaleFactor()
+{
+    return false;
+}
+
 void NetscapePlugin::setFocus(bool hasFocus)
 {
     ASSERT(m_isStarted);
@@ -919,6 +960,16 @@ NPObject* NetscapePlugin::pluginScriptableNPObject()
 
     return scriptableNPObject;
 }
+    
+unsigned NetscapePlugin::countFindMatches(const String&, WebCore::FindOptions, unsigned)
+{
+    return 0;
+}
+
+bool NetscapePlugin::findString(const String&, WebCore::FindOptions, unsigned)
+{
+    return false;
+}
 
 void NetscapePlugin::contentsScaleFactorChanged(float scaleFactor)
 {
@@ -927,10 +978,28 @@ void NetscapePlugin::contentsScaleFactorChanged(float scaleFactor)
 #if PLUGIN_ARCHITECTURE(MAC)
     double contentsScaleFactor = scaleFactor;
     NPP_SetValue(NPNVcontentsScaleFactor, &contentsScaleFactor);
+#else
+    UNUSED_PARAM(scaleFactor);
 #endif
 }
 
+void NetscapePlugin::storageBlockingStateChanged(bool storageBlockingEnabled)
+{
+    if (m_storageBlockingState != storageBlockingEnabled) {
+        m_storageBlockingState = storageBlockingEnabled;
+        updateNPNPrivateMode();
+    }
+}
+
 void NetscapePlugin::privateBrowsingStateChanged(bool privateBrowsingEnabled)
+{
+    if (m_privateBrowsingState != privateBrowsingEnabled) {
+        m_privateBrowsingState = privateBrowsingEnabled;
+        updateNPNPrivateMode();
+    }
+}
+
+void NetscapePlugin::updateNPNPrivateMode()
 {
     ASSERT(m_isStarted);
 
@@ -939,7 +1008,7 @@ void NetscapePlugin::privateBrowsingStateChanged(bool privateBrowsingEnabled)
     //   (assigned enum value 18) with a pointer to an NPBool value on all applicable instances.
     //   Plugins should check the boolean value pointed to, not the pointer itself. 
     //   The value will be true when private mode is on.
-    NPBool value = privateBrowsingEnabled;
+    NPBool value = m_privateBrowsingState || m_storageBlockingState;
     NPP_SetValue(NPNVprivateModeBool, &value);
 }
 
@@ -981,6 +1050,11 @@ bool NetscapePlugin::supportsSnapshotting() const
     return false;
 }
 
+PassRefPtr<WebCore::SharedBuffer> NetscapePlugin::liveResourceData() const
+{
+    return 0;
+}
+
 IntPoint NetscapePlugin::convertToRootView(const IntPoint& pointInPluginCoordinates) const
 {
     return m_pluginToRootViewTransform.mapPoint(pointInPluginCoordinates);
@@ -996,3 +1070,5 @@ bool NetscapePlugin::convertFromRootView(const IntPoint& pointInRootViewCoordina
 }
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

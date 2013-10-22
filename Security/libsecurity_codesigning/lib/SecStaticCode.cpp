@@ -60,6 +60,7 @@ OSStatus SecStaticCodeCreateWithPath(CFURLRef path, SecCSFlags flags, SecStaticC
 const CFStringRef kSecCodeAttributeArchitecture =	CFSTR("architecture");
 const CFStringRef kSecCodeAttributeSubarchitecture =CFSTR("subarchitecture");
 const CFStringRef kSecCodeAttributeBundleVersion =	CFSTR("bundleversion");
+const CFStringRef kSecCodeAttributeUniversalFileOffset =	CFSTR("UniversalFileOffset");
 
 OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flags, CFDictionaryRef attributes,
 	SecStaticCodeRef *staticCodeRef)
@@ -71,8 +72,10 @@ OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flag
 	std::string version; // holds memory placed into ctx
 	if (attributes) {
 		std::string archName;
-		int archNumber, subarchNumber;
-		if (cfscan(attributes, "{%O=%s}", kSecCodeAttributeArchitecture, &archName)) {
+		int archNumber, subarchNumber, offset;
+		if (cfscan(attributes, "{%O=%d}", kSecCodeAttributeUniversalFileOffset, &offset)) {
+			ctx.offset = offset;
+		} else if (cfscan(attributes, "{%O=%s}", kSecCodeAttributeArchitecture, &archName)) {
 			ctx.arch = Architecture(archName.c_str());
 		} else if (cfscan(attributes, "{%O=%d,%O=%d}",
 				kSecCodeAttributeArchitecture, &archNumber, kSecCodeAttributeSubarchitecture, &subarchNumber))
@@ -92,85 +95,6 @@ OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flag
 //
 // Check static validity of a StaticCode
 //
-static void validate(SecStaticCode *code, const SecRequirement *req, SecCSFlags flags);
-static void validateNested(string location, const SecRequirement *req, SecCSFlags flags, string exclude = "/");
-
-static void validate(SecStaticCode *code, const SecRequirement *req, SecCSFlags flags)
-{
-	try {
-		code->validateNonResourceComponents();	// also validates the CodeDirectory
-		if (!(flags & kSecCSDoNotValidateExecutable))
-			code->validateExecutable();
-		if (!(flags & kSecCSDoNotValidateResources))
-			code->validateResources();
-		if (req)
-			code->validateRequirement(req->requirement(), errSecCSReqFailed);
-		if (flags & kSecCSCheckNestedCode)
-			if (CFURLRef baseUrl = code->resourceBase()) {
-				// CFBundle has no orderly enumerator of these things, so this is somewhat ad-hoc.
-				// (It should be augmented by information in ResourceDirectory.)
-				string base = cfString(baseUrl) + "/";
-				validateNested(base + "Frameworks", req, flags);
-				validateNested(base + "SharedFrameworks", req, flags);
-				validateNested(base + "PlugIns", req, flags);
-				validateNested(base + "Plug-ins", req, flags);
-				validateNested(base + "XPCServices", req, flags);
-				validateNested(base + "MacOS", req, flags, code->mainExecutablePath());	// helpers
-			}
-	} catch (CSError &err) {
-		if (Universal *fat = code->diskRep()->mainExecutableImage())	// Mach-O
-			if (MachO *mach = fat->architecture()) {
-				err.augment(kSecCFErrorArchitecture, CFTempString(mach->architecture().displayName()));
-				delete mach;
-			}
-		throw;
-	} catch (const MacOSError &err) {
-		// add architecture information if we can get it
-		if (Universal *fat = code->diskRep()->mainExecutableImage())
-			if (MachO *mach = fat->architecture()) {
-				CFTempString arch(mach->architecture().displayName());
-				delete mach;
-				CSError::throwMe(err.error, kSecCFErrorArchitecture, arch);
-			}
-		// else just pass it on
-		throw;
-	}
-}
-
-static void validateNested(string location, const SecRequirement *req, SecCSFlags flags, string exclude)
-{
-	DIR *dir = opendir(location.c_str());
-	if (dir == 0) {
-		if (errno == ENOENT)	// nothing there (okay)
-			return;
-		UnixError::throwMe();
-	}
-	while (struct dirent *dp = readdir(dir)) {
-		switch (dp->d_type) {
-		case DT_REG:
-		case DT_LNK:
-		case DT_DIR:
-			break;
-		default:
-			continue;
-		}
-		if (dp->d_name[0] == '.')
-			continue;
-		string path = location + "/" + dp->d_name;
-		if (path == exclude)	// main executable; skip
-			continue;
-		try {
-			SecPointer<SecStaticCode> code = new SecStaticCode(DiskRep::bestGuess(path));
-			validate(code, req, flags);
-		} catch (CSError &err) {
-			err.augment(kSecCFErrorPath, CFTempURL(path));
-			throw;
-		}
-	}
-	closedir(dir);
-}
-
-
 OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCodeRef, SecCSFlags flags,
 	SecRequirementRef requirementRef)
 {
@@ -193,12 +117,7 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(staticCodeRef);
 	const SecRequirement *req = SecRequirement::optional(requirementRef);
 	DTRACK(CODESIGN_EVAL_STATIC, code, (char*)code->mainExecutablePath().c_str());
-	if (flags & kSecCSCheckAllArchitectures) {
-		SecStaticCode::AllArchitectures archs(code);
-		while (SecPointer<SecStaticCode> scode = archs())
-			validate(scode, req, flags);
-	} else
-		validate(code, req, flags);
+	code->staticValidate(flags, req);
 
 	END_CSAPI_ERRORS
 }
@@ -273,8 +192,6 @@ OSStatus SecCodeSetDetachedSignature(SecStaticCodeRef codeRef, CFDataRef signatu
 	checkFlags(flags);
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(codeRef);
 
-	if (signature)
-		CFRetain(signature);	// own a reference...
 	code->detachedSignature(signature); // ... and pass it to the code
 	code->resetValidity();
 
@@ -296,6 +213,23 @@ OSStatus SecCodeMapMemory(SecStaticCodeRef codeRef, SecCSFlags flags)
 		UnixError::check(::fcntl(code->diskRep()->fd(), F_ADDSIGS, &args));
 	} else
 		MacOSError::throwMe(errSecCSUnsigned);
+
+	END_CSAPI
+}
+
+
+//
+// Attach a callback block to a code object
+//
+OSStatus SecStaticCodeSetCallback(SecStaticCodeRef codeRef, SecCSFlags flags, SecCodeCallback *old, SecCodeCallback monitor)
+{
+	BEGIN_CSAPI
+
+	checkFlags(flags);
+	SecStaticCode *code = SecStaticCode::requiredStatic(codeRef);
+	if (old)
+		*old = code->monitor();
+	code->setMonitor(monitor);
 
 	END_CSAPI
 }

@@ -88,11 +88,17 @@ __BEGIN_DECLS
 #define kIOHIDMaxOutputReportSizeKey        "MaxOutputReportSize"
 #define kIOHIDMaxFeatureReportSizeKey       "MaxFeatureReportSize"
 #define kIOHIDReportIntervalKey             "ReportInterval"
+#define kIOHIDSampleIntervalKey             "SampleInterval"
 #define kIOHIDReportDescriptorKey           "ReportDescriptor"
 #define kIOHIDResetKey                      "Reset"
 #define kIOHIDKeyboardLanguageKey           "KeyboardLanguage"
 #define kIOHIDAltHandlerIdKey               "alt_handler_id"
+#define kIOHIDBuiltInKey                    "Built-In"
+#define kIOHIDDisplayIntegratedKey          "DisplayIntegrated"
+#define kIOHIDProductIDMaskKey				"ProductIDMask"
+#define kIOHIDProductIDArrayKey				"ProductIDArray"
 #define kIOHIDPowerOnDelayNSKey             "HIDPowerOnDelayNS"
+
 /*!
     @define kIOHIDElementKey
     @abstract Keys that represents an element property.
@@ -346,6 +352,30 @@ enum {
     kIOHIDStandardTypeJIS                 = 2
 };
 typedef uint32_t IOHIDStandardType;
+
+/*!
+ @typedef IOHIDValueScaleType
+ @abstract Describes different types of scaling that can be performed on element values.
+ @constant kIOHIDValueScaleTypeCalibrated Type for value that is scaled with respect to the calibration properties.
+ @constant kIOHIDValueScaleTypePhysical Type for value that is scaled with respect to the physical min and physical max of the element.
+ */
+enum {
+    kIOHIDValueScaleTypeCalibrated,
+    kIOHIDValueScaleTypePhysical
+};
+typedef uint32_t IOHIDValueScaleType;
+
+/*!
+ @typedef IOHIDValueOptions
+ @abstract Describes options for gathering element values.
+ @constant kIOHIDValueOptionsFlagSimpleRelative Compares against previous value
+ */
+enum {
+    kIOHIDValueOptionsFlagRelativeSimple = (1<<0)
+};
+typedef uint32_t IOHIDValueOptions;
+
+
 
 __END_DECLS
 

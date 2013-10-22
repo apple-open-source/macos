@@ -67,6 +67,8 @@ replace_cred_fun(krb5_context context,
 {
     const gssapi_plugin_ftable *plugin = plug;
     struct iscrc *ctx = userctx;
+    gss_name_t dupname = GSS_C_NO_NAME;
+    OM_uint32 maj_stat, junk;
 
     if (ctx->found || plugin->isc_replace_cred == NULL)
 	return KRB5_PLUGIN_NO_HANDLE;
@@ -75,9 +77,23 @@ replace_cred_fun(krb5_context context,
     if ((plugin->flags & ctx->pluginflags) != ctx->pluginflags)
 	return KRB5_PLUGIN_NO_HANDLE;
 
+    /*
+     * Duplicate name since the replace handler might ruin the name
+     * with canonicalization (gss_canonicalize_name). The name might
+     * be canonicalization differently when mech mech have access to
+     * theaccess to the peer/network.
+     */
+    maj_stat = gss_duplicate_name(&junk, ctx->target, &dupname);
+    if (maj_stat != GSS_S_COMPLETE)
+	return KRB5_PLUGIN_NO_HANDLE;
+
     _gss_mg_log(1, "gss_isc running plugin %s", plugin->name);
-    ctx->found = plugin->isc_replace_cred(ctx->target, ctx->mech_type, ctx->initiator_cred_handle, ctx->flags);
-    _gss_mg_log(1, "gss_isc plugin %s done", plugin->name);
+    ctx->found = plugin->isc_replace_cred(dupname, ctx->mech_type, ctx->initiator_cred_handle, ctx->flags);
+    _gss_mg_log(1, "gss_isc plugin %s done (%s replacement)", 
+		plugin->name, ctx->found ? "found" : "no");
+
+    gss_release_name(&junk, &dupname);
+
     if (ctx->found == NULL)
 	return KRB5_PLUGIN_NO_HANDLE;
 
@@ -257,6 +273,9 @@ gss_init_sec_context(OM_uint32 * minor_status,
 		mech_type = GSS_KRB5_MECHANISM;
     
 	HEIM_WARN_BLOCKING("gss_init_sec_context", warn_once);
+
+	_gss_mg_check_name(target_name);
+	_gss_mg_check_credential(initiator_cred_handle);
 	
 	if (_gss_mg_log_level(1))
 	    log_init_sec_context(ctx, name, req_flags,
@@ -301,7 +320,6 @@ gss_init_sec_context(OM_uint32 * minor_status,
 		if (ctx->gc_replaced_cred)	
 		    _gss_mg_log_cred(1, (struct _gss_cred *)ctx->gc_replaced_cred,
 				     "gss_isc replacement cred");
-	    
 	} else {
 		m = ctx->gc_mech;
 		mech_type = &ctx->gc_mech->gm_mech_oid;
@@ -339,7 +357,6 @@ gss_init_sec_context(OM_uint32 * minor_status,
 		}
 	}
 
-
 	major_status = m->gm_init_sec_context(minor_status,
 	    cred_handle,
 	    &ctx->gc_ctx,
@@ -364,8 +381,8 @@ gss_init_sec_context(OM_uint32 * minor_status,
 		*context_handle = (gss_ctx_id_t) ctx;
 	}
 
-	_gss_mg_log(1, "gss_isc: maj_stat: %d/%d", (int)major_status,
-		    (int)*minor_status);
+	_gss_mg_log(1, "gss_isc: %s maj_stat: %d/%d",
+		    m->gm_name, (int)major_status, (int)*minor_status);
 
 	return (major_status);
 }

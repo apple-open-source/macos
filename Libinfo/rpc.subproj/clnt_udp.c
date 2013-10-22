@@ -357,12 +357,12 @@ call_again:
 #ifdef __LP64__
 	if ((! XDR_PUTLONG(xdrs, (int *)&proc)) ||
 	    (! AUTH_MARSHALL(cl->cl_auth, xdrs)) ||
-	    (! (*xargs)(xdrs, argsp)))
+	    (! (*xargs)(xdrs, argsp, 0)))
 		return (cu->cu_error.re_status = RPC_CANTENCODEARGS);
 #else
 	if ((! XDR_PUTLONG(xdrs, (long *)&proc)) ||
 	    (! AUTH_MARSHALL(cl->cl_auth, xdrs)) ||
-	    (! (*xargs)(xdrs, argsp)))
+	    (! (*xargs)(xdrs, argsp, 0)))
 		return (cu->cu_error.re_status = RPC_CANTENCODEARGS);
 #endif
 	outlen = (int)XDR_GETPOS(xdrs);
@@ -501,7 +501,7 @@ clntudp_freeres(cl, xdr_res, res_ptr)
 	register XDR *xdrs = &(cu->cu_outxdrs);
 
 	xdrs->x_op = XDR_FREE;
-	return ((*xdr_res)(xdrs, res_ptr));
+	return ((*xdr_res)(xdrs, res_ptr, 0));
 }
 
 static void 

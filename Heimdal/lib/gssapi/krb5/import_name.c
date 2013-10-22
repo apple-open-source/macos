@@ -59,15 +59,27 @@ import_krb5_name(OM_uint32 *minor_status,
 	    input_name_buffer->length);
     tmp[input_name_buffer->length] = '\0';
 
-    ret = krb5_parse_name (context, tmp, &princ);
-    if (ret) {
-	free(tmp);
-	*minor_status = ret;
+    if (tmp[0] == '@') {
+	princ = calloc(1, sizeof(*princ));
+	if (princ == NULL)
+	    return GSS_S_FAILURE;
 
-	if (ret == KRB5_PARSE_ILLCHAR || ret == KRB5_PARSE_MALFORMED)
-	    return GSS_S_BAD_NAME;
+	princ->realm = strdup(&tmp[1]);
+	if (princ->realm == NULL) {
+	    free(princ);
+	    return GSS_S_FAILURE;
+	}
+    } else {
+	ret = krb5_parse_name (context, tmp, &princ);
+	if (ret) {
+	    free(tmp);
+	    *minor_status = ret;
 
-	return GSS_S_FAILURE;
+	    if (ret == KRB5_PARSE_ILLCHAR || ret == KRB5_PARSE_MALFORMED)
+		return GSS_S_BAD_NAME;
+
+	    return GSS_S_FAILURE;
+	}
     }
 
     if (mech && gss_oid_equal(mech, GSS_PKU2U_MECHANISM) && strchr(tmp, '@') == NULL)
@@ -254,7 +266,7 @@ import_uuid_name(OM_uint32 *minor_status,
     krb5_context context;
     krb5_error_code ret;
     krb5_principal princ;
-    char uuid[32 + 1];
+    char uuid[36 + 1];
 
     GSSAPI_KRB5_INIT(&context);
     
@@ -266,8 +278,8 @@ import_uuid_name(OM_uint32 *minor_status,
     memcpy(uuid, input_name_buffer->value, sizeof(uuid) - 1);
     uuid[sizeof(uuid) - 1] = '\0';
     
-    /* validate that uuid is only hex chars */
-    if (strspn(uuid, "0123456789abcdefABCDEF") != 32) {
+    /* validate that uuid is only uuid chars and the right length*/
+    if (strspn(uuid, "0123456789abcdefABCDEF-") != 36) {
 	*minor_status = 0;
 	return GSS_S_BAD_NAME;
     }
@@ -294,7 +306,8 @@ static struct _gss_name_type krb5_names[] = {
     { GSS_KRB5_NT_PRINCIPAL_NAME, import_krb5_name },
     { GSS_KRB5_NT_PRINCIPAL_NAME_REFERRAL, import_krb5_name },
     { GSS_C_NT_EXPORT_NAME, import_krb5_name },
-    { NULL }
+    { GSS_C_NT_UUID, import_uuid_name },
+    { NULL, NULL }
 };
 
 static struct _gss_name_type pku2u_names[] = {
@@ -305,7 +318,8 @@ static struct _gss_name_type pku2u_names[] = {
     { GSS_KRB5_NT_PRINCIPAL_NAME, import_krb5_name },
     { GSS_C_NT_DN, import_dn_name },
     { GSS_C_NT_EXPORT_NAME, import_pku2u_export_name },
-    { NULL }
+    { GSS_C_NT_UUID, import_uuid_name },
+    { NULL, NULL }
 };
 
 static struct _gss_name_type iakerb_names[] = {
@@ -317,7 +331,7 @@ static struct _gss_name_type iakerb_names[] = {
     { GSS_KRB5_NT_PRINCIPAL_NAME_REFERRAL, import_krb5_name },
     { GSS_C_NT_EXPORT_NAME, import_krb5_name },
     { GSS_C_NT_UUID, import_uuid_name },
-    { NULL }
+    { NULL, NULL }
 };
 
 OM_uint32 GSSAPI_CALLCONV _gsskrb5_import_name

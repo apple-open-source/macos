@@ -33,29 +33,12 @@
  * SUCH DAMAGE.
  */
 
+#define HEIM_BASE_INTERNAL 1
+
 #include "baselocl.h"
 #include <syslog.h>
 
 static heim_base_atomic_type tidglobal = HEIM_TID_USER;
-
-struct heim_base {
-    heim_type_t isa;
-    heim_base_atomic_type ref_cnt;
-    HEIM_TAILQ_ENTRY(heim_base) autorel;
-    heim_auto_release_t autorelpool;
-    uintptr_t isaextra[3];
-};
-
-/* specialized version of base */
-struct heim_base_mem {
-    heim_type_t isa;
-    heim_base_atomic_type ref_cnt;
-    HEIM_TAILQ_ENTRY(heim_base) autorel;
-    heim_auto_release_t autorelpool;
-    const char *name;
-    void (*dealloc)(void *);
-    uintptr_t isaextra[1];
-};
 
 #define PTR2BASE(ptr) (((struct heim_base *)ptr) - 1)
 #define BASE2PTR(ptr) ((void *)(((struct heim_base *)ptr) + 1))
@@ -224,7 +207,18 @@ heim_cmp(heim_object_t a, heim_object_t b)
     if (isa->cmp)
 	return isa->cmp(a, b);
 
-    return (uintptr_t)a - (uintptr_t)b;
+    if (a == b)
+	return 0;
+    uintptr_t ai = (uintptr_t)a;
+    uintptr_t bi = (uintptr_t)b;
+    while (((int)(ai - bi)) == 0) {
+	ai = ai >> 8;
+	bi = bi >> 8;
+    }
+    int diff = (int)(ai - bi);
+    heim_assert(diff != 0, "pointers are the same ?");
+
+    return diff;
 }
 
 /*

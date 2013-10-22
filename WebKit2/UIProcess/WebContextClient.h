@@ -36,6 +36,8 @@ class WebContext;
 
 class WebContextClient : public APIClient<WKContextClient, kWKContextClientCurrentVersion> {
 public:
+    void plugInAutoStartOriginHashesChanged(WebContext*);
+    void networkProcessDidCrash(WebContext*);
     void plugInInformationBecameAvailable(WebContext*, ImmutableArray*);
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2011-2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -14,6 +14,8 @@
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+
+/* $Id: rdata_test.c,v 1.48.814.2 2011/08/28 23:45:47 tbox Exp $ */
 
 #include <config.h>
 
@@ -53,19 +55,19 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 
 	switch (rdata->type) {
 	case dns_rdatatype_a6: {
-		static dns_rdata_in_a6_t in_a6;
+		dns_rdata_in_a6_t in_a6;
 		result = dns_rdata_tostruct(rdata, sp = &in_a6, NULL);
 		break;
 	}
 	case dns_rdatatype_a: {
 		switch (rdata->rdclass) {
 		case dns_rdataclass_hs: {
-			static dns_rdata_hs_a_t hs_a;
+			dns_rdata_hs_a_t hs_a;
 			result = dns_rdata_tostruct(rdata, sp = &hs_a, NULL);
 			break;
 		}
 		case dns_rdataclass_in: {
-			static dns_rdata_in_a_t in_a;
+			dns_rdata_in_a_t in_a;
 			result = dns_rdata_tostruct(rdata, sp = &in_a, NULL);
 			break;
 		}
@@ -76,12 +78,12 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 		break;
 	}
 	case dns_rdatatype_aaaa: {
-		static dns_rdata_in_aaaa_t in_aaaa;
+		dns_rdata_in_aaaa_t in_aaaa;
 		result = dns_rdata_tostruct(rdata, sp = &in_aaaa, NULL);
 		break;
 	}
 	case dns_rdatatype_afsdb: {
-		static dns_rdata_afsdb_t afsdb;
+		dns_rdata_afsdb_t afsdb;
 		result = dns_rdata_tostruct(rdata, sp = &afsdb, NULL);
 		break;
 	}
@@ -92,7 +94,7 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 	case dns_rdatatype_apl: {
 		switch (rdata->rdclass) {
 		case dns_rdataclass_in: {
-			static dns_rdata_in_apl_t in_apl;
+			dns_rdata_in_apl_t in_apl;
 			result = dns_rdata_tostruct(rdata, sp = &in_apl, NULL);
 			break;
 		}
@@ -103,207 +105,202 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 		break;
 	}
 	case dns_rdatatype_cert: {
-		static dns_rdata_cert_t cert;
+		dns_rdata_cert_t cert;
 		result = dns_rdata_tostruct(rdata, sp = &cert, NULL);
 		break;
 	}
 	case dns_rdatatype_cname: {
-		static dns_rdata_cname_t cname;
+		dns_rdata_cname_t cname;
 		result = dns_rdata_tostruct(rdata, sp = &cname, NULL);
 		break;
 	}
 	case dns_rdatatype_dname: {
-		static dns_rdata_dname_t dname;
+		dns_rdata_dname_t dname;
 		result = dns_rdata_tostruct(rdata, sp = &dname, NULL);
 		break;
 	}
 	case dns_rdatatype_gpos: {
-		static dns_rdata_gpos_t gpos;
+		dns_rdata_gpos_t gpos;
 		result = dns_rdata_tostruct(rdata, sp = &gpos, NULL);
 		break;
 	}
 	case dns_rdatatype_hinfo: {
-		static dns_rdata_hinfo_t hinfo;
+		dns_rdata_hinfo_t hinfo;
 		result = dns_rdata_tostruct(rdata, sp = &hinfo, NULL);
 		break;
 	}
 	case dns_rdatatype_isdn: {
-		static dns_rdata_isdn_t isdn;
+		dns_rdata_isdn_t isdn;
 		result = dns_rdata_tostruct(rdata, sp = &isdn, NULL);
 		break;
 	}
 	case dns_rdatatype_key: {
-		static dns_rdata_key_t key;
+		dns_rdata_key_t key;
 		result = dns_rdata_tostruct(rdata, sp = &key, NULL);
 		break;
 	}
 	case dns_rdatatype_kx: {
-		static dns_rdata_in_kx_t in_kx;
+		dns_rdata_in_kx_t in_kx;
 		result = dns_rdata_tostruct(rdata, sp = &in_kx, NULL);
 		break;
 	}
 	case dns_rdatatype_loc: {
-		static dns_rdata_loc_t loc;
+		dns_rdata_loc_t loc;
 		result = dns_rdata_tostruct(rdata, sp = &loc, NULL);
 		break;
 	}
 	case dns_rdatatype_mb: {
-		static dns_rdata_mb_t mb;
+		dns_rdata_mb_t mb;
 		result = dns_rdata_tostruct(rdata, sp = &mb, NULL);
 		break;
 	}
 	case dns_rdatatype_md: {
-		static dns_rdata_md_t md;
+		dns_rdata_md_t md;
 		result = dns_rdata_tostruct(rdata, sp = &md, NULL);
 		break;
 	}
 	case dns_rdatatype_mf: {
-		static dns_rdata_mf_t mf;
+		dns_rdata_mf_t mf;
 		result = dns_rdata_tostruct(rdata, sp = &mf, NULL);
 		break;
 	}
 	case dns_rdatatype_mg: {
-		static dns_rdata_mg_t mg;
+		dns_rdata_mg_t mg;
 		result = dns_rdata_tostruct(rdata, sp = &mg, NULL);
 		break;
 	}
 	case dns_rdatatype_minfo: {
-		static dns_rdata_minfo_t minfo;
+		dns_rdata_minfo_t minfo;
 		result = dns_rdata_tostruct(rdata, sp = &minfo, NULL);
 		break;
 	}
 	case dns_rdatatype_mr: {
-		static dns_rdata_mr_t mr;
+		dns_rdata_mr_t mr;
 		result = dns_rdata_tostruct(rdata, sp = &mr, NULL);
 		break;
 	}
 	case dns_rdatatype_mx: {
-		static dns_rdata_mx_t mx;
+		dns_rdata_mx_t mx;
 		result = dns_rdata_tostruct(rdata, sp = &mx, NULL);
 		break;
 	}
 	case dns_rdatatype_naptr: {
-		static dns_rdata_in_naptr_t in_naptr;
+		dns_rdata_in_naptr_t in_naptr;
 		result = dns_rdata_tostruct(rdata, sp = &in_naptr, NULL);
 		break;
 	}
 	case dns_rdatatype_ns: {
-		static dns_rdata_ns_t ns;
+		dns_rdata_ns_t ns;
 		result = dns_rdata_tostruct(rdata, sp = &ns, NULL);
 		break;
 	}
 	case dns_rdatatype_nsap: {
-		static dns_rdata_in_nsap_t in_nsap;
+		dns_rdata_in_nsap_t in_nsap;
 		result = dns_rdata_tostruct(rdata, sp = &in_nsap, NULL);
 		break;
 	}
 	case dns_rdatatype_nsap_ptr: {
-		static dns_rdata_in_nsap_ptr_t in_nsap_ptr;
+		dns_rdata_in_nsap_ptr_t in_nsap_ptr;
 		result = dns_rdata_tostruct(rdata, sp = &in_nsap_ptr, NULL);
 		break;
 	}
 	case dns_rdatatype_null: {
-		static dns_rdata_null_t null;
+		dns_rdata_null_t null;
 		result = dns_rdata_tostruct(rdata, sp = &null, NULL);
 		break;
 	}
 	case dns_rdatatype_nxt: {
-		static dns_rdata_nxt_t nxt;
+		dns_rdata_nxt_t nxt;
 		result = dns_rdata_tostruct(rdata, sp = &nxt, NULL);
 		break;
 	}
 	case dns_rdatatype_opt: {
-		static dns_rdata_opt_t opt;
+		dns_rdata_opt_t opt;
 		result = dns_rdata_tostruct(rdata, sp = &opt, NULL);
 		break;
 	}
 	case dns_rdatatype_ptr: {
-		static dns_rdata_ptr_t ptr;
+		dns_rdata_ptr_t ptr;
 		result = dns_rdata_tostruct(rdata, sp = &ptr, NULL);
 		break;
 	}
 	case dns_rdatatype_px: {
-		static dns_rdata_in_px_t in_px;
+		dns_rdata_in_px_t in_px;
 		result = dns_rdata_tostruct(rdata, sp = &in_px, NULL);
 		break;
 	}
 	case dns_rdatatype_rp: {
-		static dns_rdata_rp_t rp;
+		dns_rdata_rp_t rp;
 		result = dns_rdata_tostruct(rdata, sp = &rp, NULL);
 		break;
 	}
 	case dns_rdatatype_rt: {
-		static dns_rdata_rt_t rt;
+		dns_rdata_rt_t rt;
 		result = dns_rdata_tostruct(rdata, sp = &rt, NULL);
 		break;
 	}
 	case dns_rdatatype_sig: {
-		static dns_rdata_sig_t sig;
+		dns_rdata_sig_t sig;
 		result = dns_rdata_tostruct(rdata, sp = &sig, NULL);
 		break;
 	}
 	case dns_rdatatype_soa: {
-		static dns_rdata_soa_t soa;
+		dns_rdata_soa_t soa;
 		result = dns_rdata_tostruct(rdata, sp = &soa, NULL);
 		break;
 	}
 	case dns_rdatatype_srv: {
-		static dns_rdata_in_srv_t in_srv;
+		dns_rdata_in_srv_t in_srv;
 		result = dns_rdata_tostruct(rdata, sp = &in_srv, NULL);
 		break;
 	}
 	case dns_rdatatype_tkey: {
-		static dns_rdata_tkey_t tkey;
+		dns_rdata_tkey_t tkey;
 		result = dns_rdata_tostruct(rdata, sp = &tkey, NULL);
 		break;
 	}
 	case dns_rdatatype_tsig: {
-		static dns_rdata_any_tsig_t tsig;
+		dns_rdata_any_tsig_t tsig;
 		result = dns_rdata_tostruct(rdata, sp = &tsig, NULL);
 		break;
 	}
 	case dns_rdatatype_txt: {
-		static dns_rdata_txt_t txt;
+		dns_rdata_txt_t txt;
 		result = dns_rdata_tostruct(rdata, sp = &txt, NULL);
 		break;
 	}
 	case dns_rdatatype_spf: {
-		static dns_rdata_spf_t spf;
+		dns_rdata_spf_t spf;
 		result = dns_rdata_tostruct(rdata, sp = &spf, NULL);
 		break;
 	}
 	case dns_rdatatype_unspec: {
-		static dns_rdata_unspec_t unspec;
+		dns_rdata_unspec_t unspec;
 		result = dns_rdata_tostruct(rdata, sp = &unspec, NULL);
 		break;
 	}
-	case dns_rdatatype_uri: {
-		dns_rdata_uri_t uri;
-		result = dns_rdata_tostruct(rdata, sp = &uri, NULL);
-		break;
-	}
 	case dns_rdatatype_wks: {
-		static dns_rdata_in_wks_t in_wks;
+		dns_rdata_in_wks_t in_wks;
 		result = dns_rdata_tostruct(rdata, sp = &in_wks, NULL);
 		break;
 	}
 	case dns_rdatatype_x25: {
-		static dns_rdata_x25_t x25;
+		dns_rdata_x25_t x25;
 		result = dns_rdata_tostruct(rdata, sp = &x25, NULL);
 		break;
 	}
 	case dns_rdatatype_nsec: {
-		static dns_rdata_nsec_t nsec;
+		dns_rdata_nsec_t nsec;
 		result = dns_rdata_tostruct(rdata, sp = &nsec, NULL);
 		break;
 	}
 	case dns_rdatatype_rrsig: {
-		static dns_rdata_rrsig_t rrsig;
+		dns_rdata_rrsig_t rrsig;
 		result = dns_rdata_tostruct(rdata, sp = &rrsig, NULL);
 		break;
 	}
 	case dns_rdatatype_dnskey: {
-		static dns_rdata_dnskey_t dnskey;
+		dns_rdata_dnskey_t dnskey;
 		result = dns_rdata_tostruct(rdata, sp = &dnskey, NULL);
 		break;
 	}
@@ -320,19 +317,19 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 
 	switch (rdata->type) {
 	case dns_rdatatype_a6: {
-		static dns_rdata_in_a6_t in_a6;
+		dns_rdata_in_a6_t in_a6;
 		result = dns_rdata_tostruct(rdata, sp = &in_a6, mctx);
 		break;
 	}
 	case dns_rdatatype_a: {
 		switch (rdata->rdclass) {
 		case dns_rdataclass_hs: {
-			static dns_rdata_hs_a_t hs_a;
+			dns_rdata_hs_a_t hs_a;
 			result = dns_rdata_tostruct(rdata, sp = &hs_a, mctx);
 			break;
 		}
 		case dns_rdataclass_in: {
-			static dns_rdata_in_a_t in_a;
+			dns_rdata_in_a_t in_a;
 			result = dns_rdata_tostruct(rdata, sp = &in_a, mctx);
 			break;
 		}
@@ -343,12 +340,12 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 		break;
 	}
 	case dns_rdatatype_aaaa: {
-		static dns_rdata_in_aaaa_t in_aaaa;
+		dns_rdata_in_aaaa_t in_aaaa;
 		result = dns_rdata_tostruct(rdata, sp = &in_aaaa, mctx);
 		break;
 	}
 	case dns_rdatatype_afsdb: {
-		static dns_rdata_afsdb_t afsdb;
+		dns_rdata_afsdb_t afsdb;
 		result = dns_rdata_tostruct(rdata, sp = &afsdb, mctx);
 		break;
 	}
@@ -359,7 +356,7 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 	case dns_rdatatype_apl: {
 		switch (rdata->rdclass) {
 		case dns_rdataclass_in: {
-			static dns_rdata_in_apl_t in_apl;
+			dns_rdata_in_apl_t in_apl;
 			result = dns_rdata_tostruct(rdata, sp = &in_apl, mctx);
 			break;
 		}
@@ -370,207 +367,202 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 		break;
 	}
 	case dns_rdatatype_cert: {
-		static dns_rdata_cert_t cert;
+		dns_rdata_cert_t cert;
 		result = dns_rdata_tostruct(rdata, sp = &cert, mctx);
 		break;
 	}
 	case dns_rdatatype_cname: {
-		static dns_rdata_cname_t cname;
+		dns_rdata_cname_t cname;
 		result = dns_rdata_tostruct(rdata, sp = &cname, mctx);
 		break;
 	}
 	case dns_rdatatype_dname: {
-		static dns_rdata_dname_t dname;
+		dns_rdata_dname_t dname;
 		result = dns_rdata_tostruct(rdata, sp = &dname, mctx);
 		break;
 	}
 	case dns_rdatatype_gpos: {
-		static dns_rdata_gpos_t gpos;
+		dns_rdata_gpos_t gpos;
 		result = dns_rdata_tostruct(rdata, sp = &gpos, mctx);
 		break;
 	}
 	case dns_rdatatype_hinfo: {
-		static dns_rdata_hinfo_t hinfo;
+		dns_rdata_hinfo_t hinfo;
 		result = dns_rdata_tostruct(rdata, sp = &hinfo, mctx);
 		break;
 	}
 	case dns_rdatatype_isdn: {
-		static dns_rdata_isdn_t isdn;
+		dns_rdata_isdn_t isdn;
 		result = dns_rdata_tostruct(rdata, sp = &isdn, mctx);
 		break;
 	}
 	case dns_rdatatype_key: {
-		static dns_rdata_key_t key;
+		dns_rdata_key_t key;
 		result = dns_rdata_tostruct(rdata, sp = &key, mctx);
 		break;
 	}
 	case dns_rdatatype_kx: {
-		static dns_rdata_in_kx_t in_kx;
+		dns_rdata_in_kx_t in_kx;
 		result = dns_rdata_tostruct(rdata, sp = &in_kx, mctx);
 		break;
 	}
 	case dns_rdatatype_loc: {
-		static dns_rdata_loc_t loc;
+		dns_rdata_loc_t loc;
 		result = dns_rdata_tostruct(rdata, sp = &loc, mctx);
 		break;
 	}
 	case dns_rdatatype_mb: {
-		static dns_rdata_mb_t mb;
+		dns_rdata_mb_t mb;
 		result = dns_rdata_tostruct(rdata, sp = &mb, mctx);
 		break;
 	}
 	case dns_rdatatype_md: {
-		static dns_rdata_md_t md;
+		dns_rdata_md_t md;
 		result = dns_rdata_tostruct(rdata, sp = &md, mctx);
 		break;
 	}
 	case dns_rdatatype_mf: {
-		static dns_rdata_mf_t mf;
+		dns_rdata_mf_t mf;
 		result = dns_rdata_tostruct(rdata, sp = &mf, mctx);
 		break;
 	}
 	case dns_rdatatype_mg: {
-		static dns_rdata_mg_t mg;
+		dns_rdata_mg_t mg;
 		result = dns_rdata_tostruct(rdata, sp = &mg, mctx);
 		break;
 	}
 	case dns_rdatatype_minfo: {
-		static dns_rdata_minfo_t minfo;
+		dns_rdata_minfo_t minfo;
 		result = dns_rdata_tostruct(rdata, sp = &minfo, mctx);
 		break;
 	}
 	case dns_rdatatype_mr: {
-		static dns_rdata_mr_t mr;
+		dns_rdata_mr_t mr;
 		result = dns_rdata_tostruct(rdata, sp = &mr, mctx);
 		break;
 	}
 	case dns_rdatatype_mx: {
-		static dns_rdata_mx_t mx;
+		dns_rdata_mx_t mx;
 		result = dns_rdata_tostruct(rdata, sp = &mx, mctx);
 		break;
 	}
 	case dns_rdatatype_naptr: {
-		static dns_rdata_in_naptr_t in_naptr;
+		dns_rdata_in_naptr_t in_naptr;
 		result = dns_rdata_tostruct(rdata, sp = &in_naptr, mctx);
 		break;
 	}
 	case dns_rdatatype_ns: {
-		static dns_rdata_ns_t ns;
+		dns_rdata_ns_t ns;
 		result = dns_rdata_tostruct(rdata, sp = &ns, mctx);
 		break;
 	}
 	case dns_rdatatype_nsap: {
-		static dns_rdata_in_nsap_t in_nsap;
+		dns_rdata_in_nsap_t in_nsap;
 		result = dns_rdata_tostruct(rdata, sp = &in_nsap, mctx);
 		break;
 	}
 	case dns_rdatatype_nsap_ptr: {
-		static dns_rdata_in_nsap_ptr_t in_nsap_ptr;
+		dns_rdata_in_nsap_ptr_t in_nsap_ptr;
 		result = dns_rdata_tostruct(rdata, sp = &in_nsap_ptr, mctx);
 		break;
 	}
 	case dns_rdatatype_null: {
-		static dns_rdata_null_t null;
+		dns_rdata_null_t null;
 		result = dns_rdata_tostruct(rdata, sp = &null, mctx);
 		break;
 	}
 	case dns_rdatatype_nxt: {
-		static dns_rdata_nxt_t nxt;
+		dns_rdata_nxt_t nxt;
 		result = dns_rdata_tostruct(rdata, sp = &nxt, mctx);
 		break;
 	}
 	case dns_rdatatype_opt: {
-		static dns_rdata_opt_t opt;
+		dns_rdata_opt_t opt;
 		result = dns_rdata_tostruct(rdata, sp = &opt, mctx);
 		break;
 	}
 	case dns_rdatatype_ptr: {
-		static dns_rdata_ptr_t ptr;
+		dns_rdata_ptr_t ptr;
 		result = dns_rdata_tostruct(rdata, sp = &ptr, mctx);
 		break;
 	}
 	case dns_rdatatype_px: {
-		static dns_rdata_in_px_t in_px;
+		dns_rdata_in_px_t in_px;
 		result = dns_rdata_tostruct(rdata, sp = &in_px, mctx);
 		break;
 	}
 	case dns_rdatatype_rp: {
-		static dns_rdata_rp_t rp;
+		dns_rdata_rp_t rp;
 		result = dns_rdata_tostruct(rdata, sp = &rp, mctx);
 		break;
 	}
 	case dns_rdatatype_rt: {
-		static dns_rdata_rt_t rt;
+		dns_rdata_rt_t rt;
 		result = dns_rdata_tostruct(rdata, sp = &rt, mctx);
 		break;
 	}
 	case dns_rdatatype_sig: {
-		static dns_rdata_sig_t sig;
+		dns_rdata_sig_t sig;
 		result = dns_rdata_tostruct(rdata, sp = &sig, mctx);
 		break;
 	}
 	case dns_rdatatype_soa: {
-		static dns_rdata_soa_t soa;
+		dns_rdata_soa_t soa;
 		result = dns_rdata_tostruct(rdata, sp = &soa, mctx);
 		break;
 	}
 	case dns_rdatatype_srv: {
-		static dns_rdata_in_srv_t in_srv;
+		dns_rdata_in_srv_t in_srv;
 		result = dns_rdata_tostruct(rdata, sp = &in_srv, mctx);
 		break;
 	}
 	case dns_rdatatype_tkey: {
-		static dns_rdata_tkey_t tkey;
+		dns_rdata_tkey_t tkey;
 		result = dns_rdata_tostruct(rdata, sp = &tkey, mctx);
 		break;
 	}
 	case dns_rdatatype_tsig: {
-		static dns_rdata_any_tsig_t tsig;
+		dns_rdata_any_tsig_t tsig;
 		result = dns_rdata_tostruct(rdata, sp = &tsig, mctx);
 		break;
 	}
 	case dns_rdatatype_txt: {
-		static dns_rdata_txt_t txt;
+		dns_rdata_txt_t txt;
 		result = dns_rdata_tostruct(rdata, sp = &txt, mctx);
 		break;
 	}
 	case dns_rdatatype_spf: {
-		static dns_rdata_spf_t spf;
+		dns_rdata_spf_t spf;
 		result = dns_rdata_tostruct(rdata, sp = &spf, mctx);
 		break;
 	}
 	case dns_rdatatype_unspec: {
-		static dns_rdata_unspec_t unspec;
+		dns_rdata_unspec_t unspec;
 		result = dns_rdata_tostruct(rdata, sp = &unspec, mctx);
 		break;
 	}
-	case dns_rdatatype_uri: {
-		dns_rdata_uri_t uri;
-		result = dns_rdata_tostruct(rdata, sp = &uri, mctx);
-		break;
-	}
 	case dns_rdatatype_wks: {
-		static dns_rdata_in_wks_t in_wks;
+		dns_rdata_in_wks_t in_wks;
 		result = dns_rdata_tostruct(rdata, sp = &in_wks, mctx);
 		break;
 	}
 	case dns_rdatatype_x25: {
-		static dns_rdata_x25_t x25;
+		dns_rdata_x25_t x25;
 		result = dns_rdata_tostruct(rdata, sp = &x25, mctx);
 		break;
 	}
 	case dns_rdatatype_nsec: {
-		static dns_rdata_nsec_t nsec;
+		dns_rdata_nsec_t nsec;
 		result = dns_rdata_tostruct(rdata, sp = &nsec, mctx);
 		break;
 	}
 	case dns_rdatatype_rrsig: {
-		static dns_rdata_rrsig_t rrsig;
+		dns_rdata_rrsig_t rrsig;
 		result = dns_rdata_tostruct(rdata, sp = &rrsig, mctx);
 		break;
 	}
 	case dns_rdatatype_dnskey: {
-		static dns_rdata_dnskey_t dnskey;
+		dns_rdata_dnskey_t dnskey;
 		result = dns_rdata_tostruct(rdata, sp = &dnskey, mctx);
 		break;
 	}
@@ -839,11 +831,6 @@ viastruct(dns_rdata_t *rdata, isc_mem_t *mctx,
 	case dns_rdatatype_unspec: {
 		dns_rdata_unspec_t unspec;
 		result = dns_rdata_fromstruct(rdata2, rdc, rdt, &unspec, b);
-		break;
-	}
-	case dns_rdatatype_uri: {
-		dns_rdata_uri_t uri;
-		result = dns_rdata_fromstruct(rdata2, rdc, rdt, &uri, b);
 		break;
 	}
 	case dns_rdatatype_wks: {

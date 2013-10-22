@@ -48,6 +48,7 @@ public:
     bool hasLayer() const { return m_frameLayers.size(); }
 
     void commitOnWebKitThread(double scale);
+    void notifyAnimationsStarted(double animationStartTime);
 
     void calculateRootLayer();
 
@@ -56,6 +57,8 @@ public:
     // FIXME: This function should only be called on the WebKit thread.
     // But it's now also being called on the Compositing thread.
     WebCore::LayerWebKitThread* rootLayer() const { return m_rootLayer; }
+
+    void releaseLayerResources();
 
 private:
     WebPagePrivate* m_pagePrivate;

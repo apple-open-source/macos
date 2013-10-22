@@ -29,6 +29,7 @@
 #include <string.h>
 #include <AssertMacros.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonDigestSPI.h>
 #include <Security/SecItem.h>
 #include <Security/SecInternal.h>
 #include <Security/SecCertificateInternal.h>
@@ -36,7 +37,9 @@
 #include <Security/SecInternal.h>
 #include <libDER/DER_Encode.h>
 #include <uuid/uuid.h>
-#include <security_utilities/debugging.h>
+#include <utilities/array_size.h>
+#include <utilities/debugging.h>
+#include <utilities/SecIOFormat.h>
 
 typedef enum {
         messageType = 2,
@@ -169,7 +172,7 @@ static CFDataRef pubkeyhash(SecKeyRef key)
                 CFEqual(key_type, kSecAttrKeyClassPublic), out);
     require(pubkey_data = CFDictionaryGetValue(pubkey_attrs, kSecValueData), out);
     require((unsigned long)CFDataGetLength(pubkey_data)<=UINT32_MAX, out); /* Correct as long as CFIndex is long */
-    CC_SHA1(CFDataGetBytePtr(pubkey_data), (CC_LONG)CFDataGetLength(pubkey_data), pubkey_hash);
+    CCDigest(kCCDigestSHA1, CFDataGetBytePtr(pubkey_data), (CC_LONG)CFDataGetLength(pubkey_data), pubkey_hash);
     hash_pubkey_data = CFDataCreate(kCFAllocatorDefault, pubkey_hash, sizeof(pubkey_hash));
 out:
     CFReleaseSafe(pubkey_attrs);
@@ -206,7 +209,7 @@ SecIdentityRef SecSCEPCreateTemporaryIdentity(SecKeyRef publicKey, SecKeyRef pri
 	const void *key[] = { kSecCertificateKeyUsage };
 	const void *val[] = { key_usage_num };
 	self_signed_parameters = CFDictionaryCreate(kCFAllocatorDefault,
-	    key, val, sizeof(key)/sizeof(*key),
+	    key, val, array_size(key),
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	require(self_signed_parameters, out);
 
@@ -426,7 +429,7 @@ SecSCEPCertifyRequest(CFDataRef request, SecIdentityRef ca_identity, CFDataRef s
 	CFDataRef message_type_oid = scep_oid(messageType), message_type_value = scep_result(CertRep);
 	const void *oid[] = { transid_oid_data, pki_status_oid, message_type_oid };
 	const void *value[] = { transid_value, pki_status_value, message_type_value };
-	simple_attr = CFDictionaryCreate(kCFAllocatorDefault, oid, value, sizeof(oid)/sizeof(*oid),
+	simple_attr = CFDictionaryCreate(kCFAllocatorDefault, oid, value, array_size(oid),
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	CFReleaseSafe(pki_status_oid); CFReleaseSafe(pki_status_value);
 	CFReleaseSafe(message_type_oid); CFReleaseSafe(message_type_value);
@@ -435,7 +438,7 @@ SecSCEPCertifyRequest(CFDataRef request, SecIdentityRef ca_identity, CFDataRef s
 	signed_reply = CFDataCreateMutable(kCFAllocatorDefault, 0);
     const void *signing_params[] = { kSecCMSCertChainMode };
     const void *signing_params_vals[] = { kSecCMSCertChainModeNone };
-    parameters = CFDictionaryCreate(kCFAllocatorDefault, signing_params, signing_params_vals, sizeof(signing_params)/sizeof(*signing_params), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    parameters = CFDictionaryCreate(kCFAllocatorDefault, signing_params, signing_params_vals, array_size(signing_params), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     require_noerr_action(SecCMSCreateSignedData(ca_identity, cert_msg, parameters, simple_attr, signed_reply), out, CFReleaseNull(signed_reply));
 
 out:
@@ -631,7 +634,7 @@ OSStatus SecSCEPValidateCACertMessage(CFArrayRef certs,
         SecTrustResultType trust_result;
         SecTrustEvaluate(trust, &trust_result);
         CFIndex chain_count = SecTrustGetCertificateCount(trust);
-        secdebug("scep", "candidate leaf: %@ forms chain of length %d", candidate_leaf, chain_count);
+        secdebug("scep", "candidate leaf: %@ forms chain of length %" PRIdCFIndex, candidate_leaf, chain_count);
         if (chain_count > 1) {
             SecCertificateRef leaf = SecTrustGetCertificateAtIndex(trust, 0);
             SecCertificateRef ca_leaf = SecTrustGetCertificateAtIndex(trust, chain_count - 1);
@@ -652,7 +655,7 @@ OSStatus SecSCEPValidateCACertMessage(CFArrayRef certs,
                             break;
 
                         case CC_SHA1_DIGEST_LENGTH:
-                            CC_SHA1(ca_data, (CC_LONG)ca_data_len, ca_hash);
+                            CCDigest(kCCDigestSHA1, ca_data, (CC_LONG)ca_data_len, ca_hash);
                             break;
 
                         default:
@@ -718,7 +721,7 @@ OSStatus SecSCEPValidateCACertMessage(CFArrayRef certs,
         }
     }
 
-    status = noErr;
+    status = errSecSuccess;
 
 out:
     if (_ra_encryption_certificate) CFRelease(_ra_encryption_certificate);

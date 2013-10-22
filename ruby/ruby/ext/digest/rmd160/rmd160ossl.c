@@ -1,4 +1,4 @@
-/* $Id: rmd160ossl.c 11905 2007-02-27 10:38:32Z knu $ */
+/* $Id: rmd160ossl.c 25189 2009-10-02 12:04:37Z akr $ */
 
 #include "defs.h"
 #include "rmd160ossl.h"

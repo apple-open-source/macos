@@ -25,13 +25,17 @@
  */
 
 #include "config.h"
-#if PLUGIN_ARCHITECTURE(UNSUPPORTED)
+#if ENABLE(NETSCAPE_PLUGIN_API) && PLUGIN_ARCHITECTURE(UNSUPPORTED)
 
 #include "NetscapePlugin.h"
 
 using namespace WebCore;
 
 namespace WebKit {
+
+void NetscapePlugin::platformPreInitialize()
+{
+}
 
 bool NetscapePlugin::platformPostInitialize()
 {
@@ -95,4 +99,4 @@ bool NetscapePlugin::wantsPluginRelativeNPWindowCoordinates()
 
 } // namespace WebKit
 
-#endif // PLUGIN_ARCHITECTURE(UNSUPPORTED)
+#endif // ENABLE(NETSCAPE_PLUGIN_API) && PLUGIN_ARCHITECTURE(UNSUPPORTED)

@@ -300,7 +300,7 @@
 				"PRIVATE_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/local/include";
 				PROVISIONING_PROFILE = "";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/local/include";
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;
@@ -310,6 +310,7 @@
 			buildSettings = {
 				FRAMEWORK_VERSION = 9;
 				PRODUCT_NAME = "$(TARGET_NAME).$(FRAMEWORK_VERSION)";
+				LD_DYLIB_INSTALL_NAME = "/usr/lib/$(PRODUCT_NAME).dylib";
 			};
 			name = Release;
 		};

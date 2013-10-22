@@ -72,6 +72,7 @@
 
 #include <heimbase.h>
 #include <heimbasepriv.h>
+#include <heimbase_impl.h>
 
 #define HC_DEPRECATED_CRYPTO
 #include "crypto-headers.h"
@@ -116,6 +117,7 @@ struct hx509_name_data {
 };
 
 struct hx509_evaluate_data {
+    struct heim_base_uniq base;
     heim_array_t path;
 };
 

@@ -84,7 +84,7 @@ static int _backtrace_snprintf(char* buf, size_t size, int frame, const void* ad
 			image,
 			(uintptr_t)addr,
 			symbol,
-			symbol_offset) + 1;
+			symbol_offset);
 }
 
 char** backtrace_symbols(void* const* buffer, int size) {
@@ -142,7 +142,7 @@ char** backtrace_symbols(void* const* buffer, int size) {
 		}
 
 		ptrs[i] = (char*)strs;
-		strs += chk;
+		strs += chk + 1; // Step over the '\0'
 	}
 	
 	free(info);

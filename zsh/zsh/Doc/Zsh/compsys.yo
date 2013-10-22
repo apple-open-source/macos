@@ -447,7 +447,7 @@ directly.
 findex(compdef)
 cindex(completion system, adding definitions)
 startitem()
-xitem(tt(compdef) [ tt(-an) ] var(function names...) [ tt(-[pP]) var(patterns...) [ tt(-N) var(names...) ] ])
+xitem(tt(compdef) [ tt(-ane) ] var(function names...) [ tt(-[pP]) var(patterns...) [ tt(-N) var(names...) ] ])
 xitem(tt(compdef -d) var(names...))
 xitem(tt(compdef -k) [ tt(-an) ] var(function style key-sequences...))
 item(tt(compdef -K) [ tt(-an) ] var(function name style key-sequences ...))(
@@ -460,11 +460,14 @@ defined by `var(cmd1)tt(=)var(service)' lines in tt(#compdef) files, as
 described above.  The argument for var(cmd) will be completed in the
 same way as var(service).
 
-The var(function) argument may alternatively be a string containing any
-shell code.  The string will be executed using the tt(eval) builtin
-command to generate completions.  This provides a way of avoiding having
-to define a new completion function.  For example, to complete
-files ending in `tt(.h)' as arguments to the command tt(foo):
+The var(function) argument may alternatively be a string containing
+almost any shell code.  If the string contains an equal sign, the above
+will take precedence.  The option tt(-e) may be used to specify the first
+argument is to be evaluated as shell code even if it contains an equal
+sign.  The string will be executed using the tt(eval) builtin command to
+generate completions.  This provides a way of avoiding having to define
+a new completion function.  For example, to complete files ending in
+`tt(.h)' as arguments to the command tt(foo):
 
 example(compdef '_files -g "*.h"' foo)
 
@@ -783,7 +786,9 @@ for names of device special files
 )
 kindex(directories, completion tag)
 item(tt(directories))(
-for names of directories
+for names of directories DASH()- tt(local-directories) is used instead
+when completing arguments of tt(cd) and related builtin commands when
+the tt(cdpath) array is set
 )
 kindex(directory-stack, completion tag)
 item(tt(directory-stack))(
@@ -876,7 +881,8 @@ kindex(local-directories, completion tag)
 item(tt(local-directories))(
 for names of directories that are subdirectories of the current working
 directory when completing arguments of tt(cd) and related builtin
-commands (compare tt(path-directories))
+commands (compare tt(path-directories)) DASH()- when the tt(cdpath)
+array is unset, tt(directories) is used instead
 )
 kindex(manuals, completion tag)
 item(tt(manuals))(
@@ -1079,7 +1085,7 @@ Some of these styles are tested first for every possible tag
 corresponding to a type of match, and if no style was found, for the
 tt(default) tag.  The most notable styles of this type are tt(menu), 
 tt(list-colors) and styles controlling completion listing such as 
-tt(list-packed) and tt(last-prompt)).  When tested for the tt(default)
+tt(list-packed) and tt(last-prompt).  When tested for the tt(default)
 tag, only the var(function) field of the context will be set so that
 a style using the default tag will normally be defined along the lines of:
 
@@ -1327,7 +1333,7 @@ item(tt(environ))(
 The environ style is used when completing for `tt(sudo)'.  It is set to an
 array of `var(VAR)tt(=)var(value)' assignments to be exported into the
 local environment before the completion for the target command is invoked.
-example(zstyle :complete:sudo: environ \ 
+example(zstyle ':completion:*:sudo::' environ \ 
   PATH="/sbin:/usr/sbin:$PATH" HOME="/root")
 )
 kindex(expand, completion style)
@@ -1678,8 +1684,8 @@ will be considered as possible completions.  If it is set to
 `tt(current)', the word the cursor is on will not be considered as a
 possible completion.  The value `tt(current-shown)' is similar but only
 applies if the list of completions is currently shown on the screen.
-Finally, if the style is set to `tt(other)', no word apart from the
-current one will be considered as a possible completion.
+Finally, if the style is set to `tt(other)', all words on the line except
+for the current one will be excluded from the possible completions.
 
 The values `tt(current)' and `tt(current-shown)' are a bit like the
 opposite of the tt(accept-exact) style:  only strings with
@@ -1931,7 +1937,7 @@ changing the foreground background colour, are also available, as is the form
 (or, with a numeric argument, some other) width.
 
 After deleting this prompt the variable tt(LISTPROMPT) should be unset for
-the the removal to take effect.
+the removal to take effect.
 )
 kindex(list-rows-first, completion style)
 item(tt(list-rows-first))(
@@ -2298,13 +2304,29 @@ The default value for this style is `false'.
 )
 kindex(prefix-needed, completion style)
 item(tt(prefix-needed))(
-This, too, is used for matches with a common prefix.  If it is set to
-`true' this common prefix must be typed by the user to generate the
-matches.  In the case of command options, this means that the initial
-`tt(-)', `tt(+)', or `tt(-)tt(-)' must be typed explicitly before option
-names will be completed.
+This style is also relevant for matches with a common prefix.  If it is
+set to `true' this common prefix must be typed by the user to generate
+the matches.
 
-The default value for this style is `true'.
+The style is applicable to the tt(options), tt(signals), tt(jobs),
+tt(functions), and tt(parameters) completion tags.
+
+For command options, this means that the initial `tt(-)', `tt(+)', or
+`tt(-)tt(-)' must be typed explicitly before option names will be
+completed.
+
+For signals, an initial `tt(-)' is required before signal names will
+be completed.
+
+For jobs, an initial `tt(%)' is required before job names will be
+completed.
+
+For function and parameter names, an initial `tt(_)' or `tt(.)' is
+required before function or parameter names starting with those
+characters will be completed.
+
+The default value for this style is `false' for tt(function) and
+tt(parameter) completions, and  `true' otherwise.
 )
 kindex(preserve-prefix, completion style)
 item(tt(preserve-prefix))(
@@ -2332,6 +2354,28 @@ so on.  This process stops either when at least one match was been
 found, or var(max) words have been tried.
 
 The default is to complete all words from the history at once.
+)
+kindex(recursive-files, completion style)
+item(tt(recursive-files))(
+If this style is set, its value is an array of patterns to be
+tested against `tt($PWD/)': note the trailing slash, which allows
+directories in the pattern to be delimited unambiguously by including
+slashes on both sides.  If an ordinary file completion fails
+and the word on the command line does not yet have a directory part to its
+name, the style is retrieved using the same tag as for the completion
+just attempted, then the elements tested against tt($PWD/) in turn.
+If one matches, then the shell reattempts completion by prepending the word
+on the command line with each directory in the expansion of tt(**/*(/))
+in turn.  Typically the elements of the style will be set to restrict
+the number of directories beneath the current one to a manageable
+number, for example `tt(*/.git/*)'.
+
+For example,
+
+example(zstyle ':completion:*' recursive-files '*/zsh/*')
+
+If the current directory is tt(/home/pws/zsh/Src), then
+tt(zle_tr)em(TAB) can be completed to tt(Zle/zle_tricky.c).
 )
 kindex(regular, completion style)
 item(tt(regular))(
@@ -2646,7 +2690,7 @@ most commands.
 )
 kindex(urls, completion style)
 item(tt(urls))(
-This is used together with the the tt(urls) tag by
+This is used together with the tt(urls) tag by
 functions completing URLs.
 
 If the value consists of more than one string, or if the only string
@@ -2667,11 +2711,11 @@ descend as deep as necessary.
 For example, 
 
 example(zstyle ':completion:*' urls ~/.urls
-mkdir -p ~/.urls/ftp/ftp.zsh.org/pub/development
+mkdir -p ~/.urls/ftp/ftp.zsh.org/pub
 )
 
 allows completion of all the components of the URL
-tt(ftp://ftp.zsh.org/pub/development) after suitable commands such as
+tt(ftp://ftp.zsh.org/pub) after suitable commands such as
 `tt(netscape)' or `tt(lynx)'.  Note, however, that access methods and
 files are completed separately, so if the tt(hosts) style is set hosts
 can be completed without reference to the tt(urls) style.
@@ -2716,17 +2760,6 @@ can be completed as well.  This style is not use in any context
 where the tt(hosts) style is set; note also it must be set before
 the cache of host names is generated (typically the first completion
 attempt).
-)
-kindex(use-perl, completion style)
-item(tt(use-perl))(
-Various parts of the function system use awk to extract words from
-files or command output as it is universally available.  However, many
-versions of awk have arbitrary limits on the size of input.  If this
-style is set, perl will be used instead.  This is almost always
-preferable if perl is available on your system.
-
-Currently this is only used in completions for `make', but it may be
-extended depending on authorial frustration.
 )
 kindex(users, completion style)
 item(tt(users))(
@@ -3147,7 +3180,9 @@ var(_func) is the name of a shell function whose name must begin with
 tt(_) but is not otherwise special to the completion system.  The function
 is called with the trial word as an argument.  If the word is to be
 expanded, the function should set the array tt(reply) to a list of
-expansions.  The return status of the function is irrelevant.
+expansions.  Optionally, it can set tt(REPLY) to a word that will
+be used as a description for the set of expansions.
+The return status of the function is irrelevant.
 )
 endsitem()
 )
@@ -3400,7 +3435,7 @@ tt(compadd) with additional options which will take precedence over
 those generated by tt(_all_labels).
 )
 findex(_alternative)
-item(tt(_alternative) [ tt(-C) var(name) ] var(spec) ...)(
+item(tt(_alternative) [ tt(-O) var(name) ] [ tt(-C) var(name) ] var(spec) ...)(
 This function is useful in simple cases where multiple tags are available.
 Essentially it implements a loop like the one described for the tt(_tags)
 function below.
@@ -3426,6 +3461,10 @@ Like tt(_arguments), this function uses tt(_all_labels) to execute
 the actions, which will loop over all sets of tags.  Special handling is
 only required if there is an additional valid tag, for example inside a
 function called from tt(_alternative).
+
+The option `tt(-O) var(name)' is used in the same way as by the
+tt(_arguments) function.  In other words, the elements of the var(name)
+array will be passed to tt(compadd) when executing an action.
 
 Like tt(_tags) this function supports the tt(-C) option to give a
 different name for the argument context field.
@@ -3672,10 +3711,12 @@ state of processing; the calling function then makes its own arrangements
 for generating completions.  For example, functions that implement a state
 machine can use this type of action.
 
-Where tt(_arguments) encounters a `tt(->)var(string)', it will strip
-all leading and trailing whitespace from var(string) and set the array
-tt(state) to the set of all var(strings)s for which an action is to be
-performed.
+Where tt(_arguments) encounters var(action) in the `tt(->)var(string)'
+format, it will strip all leading and trailing whitespace from var(string)
+and set the array tt(state) to the set of all var(string)s for which an
+action is to be performed.  The elements of the array tt(state_descr) are
+assigned the corresponding var(message) field from each var(optarg)
+containing such an var(action).
 
 By default and in common with all other well behaved completion
 functions, _arguments returns status zero if it was able to add matches and
@@ -3683,7 +3724,8 @@ non-zero otherwise. However, if the tt(-R) option is given,
 tt(_arguments) will instead return a status of 300 to indicate that
 tt($state) is to be handled.
 
-In addition to tt($state), tt(_arguments) also sets the global
+In addition to tt($state) and tt($state_descr), tt(_arguments) also
+sets the global
 parameters `tt(context)', `tt(line)' and `tt(opt_args)' as described
 below, and does not reset any changes made to the special parameters
 such as tt(PREFIX) and tt(words).  This gives the calling function the
@@ -3693,7 +3735,7 @@ A function calling tt(_arguments) with at least
 one action containing a `tt(->)var(string)' must therefore declare
 appropriate local parameters:
 
-example(local context state line
+example(local context state state_descr line
 typeset -A opt_args)
 
 to prevent tt(_arguments) from altering the global environment.
@@ -3955,7 +3997,7 @@ Example:
 example(_example_caching_policy () {
     # rebuild if cache is more than a week old
     local -a oldp
-    oldp=( "$1"(Nmw+1) )
+    oldp=( "$1"(Nm+7) )
     (( $#oldp ))
 })
 )
@@ -4372,7 +4414,9 @@ tt(ambiguous), tt(special-dirs), tt(list-suffixes) and tt(file-sort)
 described above.
 )
 findex(_pick_variant)
-item(tt(_pick_variant [ tt(-c) var(command) ] [ tt(-r) var(name) ] var(label)tt(=)var(pattern) ... var(label) [ var(args) ... ]))(
+xitem(tt(_pick_variant) [ tt(-b) var(builtin-label) ] [ tt(-c)
+var(command) ] [ tt(-r) var(name) ])
+item(   var(label)tt(=)var(pattern) ... var(label) [ var(args) ... ])(
 This function is used to resolve situations where a single command name
 requires more than one type of handling, either because it
 has more than one variant or because there is a name clash between two
@@ -4387,6 +4431,10 @@ var(label)tt(=)var(pattern); if the output of `var(command) var(args)
 tt(...)' contains var(pattern), then tt(label) is selected as the label
 for the command variant.  If none of the patterns match, the final
 command label is selected and status 1 is returned.
+
+If the `tt(-b) var(builtin-label)' is given, the command is tested to
+see if it is provided as a shell builtin, possibly autoloaded; if so,
+the label var(builtin-label) is selected as the label for the variant.
 
 If the `tt(-r) var(name)' is given, the var(label) picked is stored in
 the parameter named var(name).
@@ -4773,21 +4821,23 @@ values (but not those for the arguments) should be printed.
 The associative array tt(val_args) is used to report values and their
 arguments; this works similarly to the tt(opt_args) associative array
 used by tt(_arguments).  Hence the function calling tt(_values) should
-declare the local parameters tt(state), tt(line), tt(context) and
-tt(val_args):
+declare the local parameters tt(state), tt(state_descr), tt(line),
+tt(context) and tt(val_args):
 
-example(local context state line
+example(local context state state_descr line
 typeset -A val_args)
 
 when using an action of the form `tt(->)var(string)'.  With this
 function the tt(context) parameter will be set to the name of the
-value whose argument is to be completed.
+value whose argument is to be completed.  Note that for tt(_values),
+the tt(state) and tt(state_descr) are scalars rather than arrays.
+Only a single matching state is returned.
 
 Note also that tt(_values) normally adds the character used as the
 separator between values as an auto-removable suffix (similar to a
 `tt(/)' after a directory).  However, this is not possible for a
 `tt(->)var(string)' action as the matches for the argument are
-generated by the calling function.  To get the usual behaviour, the
+generated by the calling function.  To get the usual behaviour,
 the calling function can add the separator var(x) as a suffix by
 passing the options `tt(-qS) var(x)' either directly or indirectly to
 tt(compadd).

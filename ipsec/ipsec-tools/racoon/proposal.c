@@ -72,6 +72,7 @@
 #ifdef ENABLE_NATT
 #include "nattraversal.h"
 #endif
+#include "ikev2_rfc.h"
 
 /* %%%
  * modules for ipsec sa spec
@@ -180,6 +181,27 @@ inssatrns(pr, new)
 	return;
 }
 
+int
+satrns_remove_from_list(struct satrns **listptr, struct satrns *trns)
+{
+    
+    struct satrns **ptr = listptr;
+    
+    if (ptr == NULL)
+        return -1;
+    
+    while (*ptr) {
+        if (*ptr == trns) {
+            *ptr = trns->next;
+            ptr = &trns->next;
+            trns->next = NULL;
+            return 0;
+        }
+        ptr = &((*ptr)->next);
+    }
+    return -1;
+}
+
 #ifdef ENABLE_NATT
 static void
 saprop_udp_encap (struct saproto *pr)
@@ -206,7 +228,7 @@ saprop_adjust_encmode (struct saproto *pr2, struct saproto *pr1)
 	if (natt_udp_encap(pr2->encmode)) {
 		prev = pr2->encmode;
 		saprop_udp_encap(pr2);
-		plog(LLV_INFO, LOCATION, NULL, "Adjusting my encmode %s(%d)->%s(%d)\n",
+		plog(ASL_LEVEL_INFO, "Adjusting my encmode %s(%d)->%s(%d)\n",
 			 s_ipsecdoi_encmode(prev),
 			 prev,
 			 s_ipsecdoi_encmode(pr2->encmode),
@@ -215,7 +237,7 @@ saprop_adjust_encmode (struct saproto *pr2, struct saproto *pr1)
 	if (natt_udp_encap(pr1->encmode)) {
 		prev = pr1->encmode;
 		saprop_udp_encap(pr1);
-		plog(LLV_INFO, LOCATION, NULL, "Adjusting peer's encmode %s(%d)->%s(%d)\n",
+		plog(ASL_LEVEL_INFO, "Adjusting peer's encmode %s(%d)->%s(%d)\n",
 			 s_ipsecdoi_encmode(prev),
 			 prev,
 			 s_ipsecdoi_encmode(pr1->encmode),
@@ -236,7 +258,7 @@ saprop_adjust_encmode (struct saproto *pr2, struct saproto *pr1)
  */
 struct saprop *
 cmpsaprop_alloc(ph1, pp1, pp2, side)
-	struct ph1handle *ph1;
+	phase1_handle_t *ph1;
 	const struct saprop *pp1, *pp2;
 	int side;
 {
@@ -249,7 +271,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 
 	newpp = newsaprop();
 	if (newpp == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to allocate saprop.\n");
 		return NULL;
 	}
@@ -267,14 +289,14 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 
 	case PROP_CHECK_STRICT:
 		if (pp1->lifetime > pp2->lifetime) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"long lifetime proposed: "
 				"my:%d peer:%d\n",
 				(int)pp2->lifetime, (int)pp1->lifetime);
 			goto err;
 		}
 		if (pp1->lifebyte > pp2->lifebyte) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"long lifebyte proposed: "
 				"my:%d peer:%d\n",
 				pp2->lifebyte, pp1->lifebyte);
@@ -285,7 +307,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 
     prop_pfs_check:
 		if (pp2->pfs_group != 0 && pp1->pfs_group != pp2->pfs_group) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"pfs group mismatched: "
 				"my:%d peer:%d\n",
 				pp2->pfs_group, pp1->pfs_group);
@@ -301,7 +323,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 		} else {
 			newpp->lifetime = pp2->lifetime;
 			newpp->claim |= IPSECDOI_ATTR_SA_LD_TYPE_SEC;
-			plog(LLV_NOTIFY, LOCATION, NULL,
+			plog(ASL_LEVEL_NOTICE, 
 				"use own lifetime: "
 				"my:%d peer:%d\n",
 				(int)pp2->lifetime, (int)pp1->lifetime);
@@ -311,7 +333,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 		if (pp1->lifebyte > pp2->lifebyte) {
 			newpp->lifebyte = pp2->lifebyte;
 			newpp->claim |= IPSECDOI_ATTR_SA_LD_TYPE_SEC;
-			plog(LLV_NOTIFY, LOCATION, NULL,
+			plog(ASL_LEVEL_NOTICE, 
 				"use own lifebyte: "
 				"my:%d peer:%d\n",
 				pp2->lifebyte, pp1->lifebyte);
@@ -323,7 +345,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 
 	case PROP_CHECK_EXACT:
 		if (pp1->lifetime != pp2->lifetime) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"lifetime mismatched: "
 				"my:%d peer:%d\n",
 				(int)pp2->lifetime, (int)pp1->lifetime);
@@ -331,14 +353,14 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 		}
 
 		if (pp1->lifebyte != pp2->lifebyte) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"lifebyte mismatched: "
 				"my:%d peer:%d\n",
 				pp2->lifebyte, pp1->lifebyte);
 			goto err;
 		}
 		if (pp1->pfs_group != pp2->pfs_group) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"pfs group mismatched: "
 				"my:%d peer:%d\n",
 				pp2->pfs_group, pp1->pfs_group);
@@ -350,7 +372,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 		break;
 
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid pcheck_level why?.\n");
 		goto err;
 	}
@@ -396,7 +418,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 			break;
 
 		if (pr1->proto_id != pr2->proto_id) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"proto_id mismatched: "
 				"my:%s peer:%s\n",
 				s_ipsecdoi_proto(pr2->proto_id),
@@ -419,13 +441,13 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 				spisizematch = 1;
 			}
 			if (spisizematch) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 				    "IPComp SPI size promoted "
 				    "from 16bit to 32bit\n");
 			}
 		}
 		if (!spisizematch) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"spisize mismatched: "
 				"my:%d peer:%d\n",
 				(int)pr2->spisize, (int)pr1->spisize);
@@ -439,7 +461,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 #endif
 
 		if (pr1->encmode != pr2->encmode) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"encmode mismatched: "
 				"my:%s peer:%s\n",
 				s_ipsecdoi_encmode(pr2->encmode),
@@ -459,7 +481,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 	    found:
 		newpr = newsaproto();
 		if (newpr == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to allocate saproto.\n");
 			goto err;
 		}
@@ -476,7 +498,7 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 
 		newtr = newsatrns();
 		if (newtr == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to allocate satrns.\n");
 			racoon_free(newpr);
 			goto err;
@@ -524,20 +546,20 @@ cmpsaprop(pp1, pp2)
 	const struct saprop *pp1, *pp2;
 {
 	if (pp1->pfs_group != pp2->pfs_group) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"pfs_group mismatch. mine:%d peer:%d\n",
 			pp1->pfs_group, pp2->pfs_group);
 		/* FALLTHRU */
 	}
 
 	if (pp1->lifetime > pp2->lifetime) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"less lifetime proposed. mine:%d peer:%d\n",
 			(int)pp1->lifetime, (int)pp2->lifetime);
 		/* FALLTHRU */
 	}
 	if (pp1->lifebyte > pp2->lifebyte) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"less lifebyte proposed. mine:%d peer:%d\n",
 			pp1->lifebyte, pp2->lifebyte);
 		/* FALLTHRU */
@@ -557,7 +579,7 @@ cmpsatrns(proto_id, tr1, tr2)
 	const struct satrns *tr1, *tr2;
 {
 	if (tr1->trns_id != tr2->trns_id) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG,
 			"trns_id mismatched: "
 			"my:%s peer:%s\n",
 			s_ipsecdoi_trns(proto_id, tr2->trns_id),
@@ -566,7 +588,7 @@ cmpsatrns(proto_id, tr1, tr2)
 	}
 
 	if (tr1->authtype != tr2->authtype) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG,
 			"authtype mismatched: "
 			"my:%s peer:%s\n",
 			s_ipsecdoi_attr_v(IPSECDOI_ATTR_AUTH, tr2->authtype),
@@ -579,7 +601,7 @@ cmpsatrns(proto_id, tr1, tr2)
 	 * the initiator.  It should be defined a notify message.
 	 */
 	if (tr1->encklen > tr2->encklen) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"less key length proposed, "
 			"mine:%d peer:%d.  Use initiaotr's one.\n",
 			tr2->encklen, tr1->encklen);
@@ -590,9 +612,7 @@ cmpsatrns(proto_id, tr1, tr2)
 }
 
 int
-set_satrnsbysainfo(pr, sainfo)
-	struct saproto *pr;
-	struct sainfo *sainfo;
+set_satrnsbysainfo(struct saproto *pr, struct sainfo *sainfo, u_int8_t ike_version, int pfs_group)
 {
 	struct sainfoalg *a, *b;
 	struct satrns *newtr;
@@ -601,7 +621,7 @@ set_satrnsbysainfo(pr, sainfo)
 	switch (pr->proto_id) {
 	case IPSECDOI_PROTO_IPSEC_AH:
 		if (sainfo->algs[algclass_ipsec_auth] == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"no auth algorithm found\n");
 			goto err;
 		}
@@ -614,13 +634,13 @@ set_satrnsbysainfo(pr, sainfo)
 			/* allocate satrns */
 			newtr = newsatrns();
 			if (newtr == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to allocate satrns.\n");
 				goto err;
 			}
 
 			newtr->trns_no = t++;
-			newtr->trns_id = ipsecdoi_authalg2trnsid(a->alg);
+                newtr->trns_id = ipsecdoi_authalg2trnsid(a->alg);   // IKEv1 only
 			newtr->authtype = a->alg;
 
 			inssatrns(pr, newtr);
@@ -628,33 +648,35 @@ set_satrnsbysainfo(pr, sainfo)
 		break;
 	case IPSECDOI_PROTO_IPSEC_ESP:
 		if (sainfo->algs[algclass_ipsec_enc] == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"no encryption algorithm found\n");
 			goto err;
 		}
 		t = 1;
-		for (a = sainfo->algs[algclass_ipsec_enc]; a; a = a->next) {
-			for (b = sainfo->algs[algclass_ipsec_auth]; b; b = b->next) {
-				/* allocate satrns */
-				newtr = newsatrns();
-				if (newtr == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
-						"failed to allocate satrns.\n");
-					goto err;
-				}
+        if (ike_version == ISAKMP_VERSION_NUMBER_IKEV1) {
+            for (a = sainfo->algs[algclass_ipsec_enc]; a; a = a->next) {
+                for (b = sainfo->algs[algclass_ipsec_auth]; b; b = b->next) {
+                    /* allocate satrns */
+                    newtr = newsatrns();
+                    if (newtr == NULL) {
+                        plog(ASL_LEVEL_ERR, 
+                            "failed to allocate satrns.\n");
+                        goto err;
+                    }
 
-				newtr->trns_no = t++;
-				newtr->trns_id = a->alg;
-				newtr->encklen = a->encklen;
-				newtr->authtype = b->alg;
+                    newtr->trns_no = t++;
+                    newtr->trns_id = a->alg;
+                    newtr->encklen = a->encklen;
+                    newtr->authtype = b->alg;
 
-				inssatrns(pr, newtr);
-			}
-		}
+                    inssatrns(pr, newtr);
+                }
+            }
+        }
 		break;
 	case IPSECDOI_PROTO_IPCOMP:
 		if (sainfo->algs[algclass_ipsec_comp] == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"no ipcomp algorithm found\n");
 			goto err;
 		}
@@ -664,7 +686,7 @@ set_satrnsbysainfo(pr, sainfo)
 			/* allocate satrns */
 			newtr = newsatrns();
 			if (newtr == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to allocate satrns.\n");
 				goto err;
 			}
@@ -677,14 +699,14 @@ set_satrnsbysainfo(pr, sainfo)
 		}
 		break;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"unknown proto_id (%d).\n", pr->proto_id);
 		goto err;
 	}
-
+    
 	/* no proposal found */
 	if (pr->head == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "no algorithms found.\n");
+		plog(ASL_LEVEL_ERR, "no algorithms found.\n");
 		return -1;
 	}
 
@@ -711,7 +733,7 @@ aproppair2saprop(p0)
 	/* allocate ipsec a sa proposal */
 	newpp = newsaprop();
 	if (newpp == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to allocate saprop.\n");
 		return NULL;
 	}
@@ -723,7 +745,7 @@ aproppair2saprop(p0)
 		/* allocate ipsec sa protocol */
 		newpr = newsaproto();
 		if (newpr == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to allocate saproto.\n");
 			goto err;
 		}
@@ -731,7 +753,7 @@ aproppair2saprop(p0)
 		/* check spi size */
 		/* XXX should be handled isakmp cookie */
 		if (sizeof(newpr->spi) < p->prop->spi_size) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid spi size %d.\n", p->prop->spi_size);
 			racoon_free(newpr);
 			goto err;
@@ -753,7 +775,7 @@ aproppair2saprop(p0)
 
 		for (t = p; t; t = t->tnext) {
 
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"prop#=%d prot-id=%s spi-size=%d "
 				"#trns=%d trns#=%d trns-id=%s\n",
 				t->prop->p_no,
@@ -766,7 +788,7 @@ aproppair2saprop(p0)
 			/* allocate ipsec sa transform */
 			newtr = newsatrns();
 			if (newtr == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to allocate satrns.\n");
 				racoon_free(newpr);
 				goto err;
@@ -860,7 +882,7 @@ printsaprop(pri, pp)
 	const struct saprop *p;
 
 	if (pp == NULL) {
-		plog(pri, LOCATION, NULL, "(null)");
+		plog(pri, "(null)");
 		return;
 	}
 
@@ -901,7 +923,7 @@ printsaproto(pri, pr)
 	if (pr == NULL)
 		return;
 
-	plog(pri, LOCATION, NULL,
+	plog(pri, 
 		" (proto_id=%s spisize=%d spi=%08lx spi_p=%08lx "
 		"encmode=%s reqid=%d:%d)\n",
 		s_ipsecdoi_proto(pr->proto_id),
@@ -929,25 +951,25 @@ printsatrns(pri, proto_id, tr)
 
 	switch (proto_id) {
 	case IPSECDOI_PROTO_IPSEC_AH:
-		plog(pri, LOCATION, NULL,
+		plog(pri, 
 			"  (trns_id=%s authtype=%s)\n",
 			s_ipsecdoi_trns(proto_id, tr->trns_id),
 			s_ipsecdoi_attr_v(IPSECDOI_ATTR_AUTH, tr->authtype));
 		break;
 	case IPSECDOI_PROTO_IPSEC_ESP:
-		plog(pri, LOCATION, NULL,
+		plog(pri, 
 			"  (trns_id=%s encklen=%d authtype=%s)\n",
 			s_ipsecdoi_trns(proto_id, tr->trns_id),
 			tr->encklen,
 			s_ipsecdoi_attr_v(IPSECDOI_ATTR_AUTH, tr->authtype));
 		break;
 	case IPSECDOI_PROTO_IPCOMP:
-		plog(pri, LOCATION, NULL,
+		plog(pri, 
 			"  (trns_id=%s)\n",
 			s_ipsecdoi_trns(proto_id, tr->trns_id));
 		break;
 	default:
-		plog(pri, LOCATION, NULL,
+		plog(pri, 
 			"(unknown proto_id %d)\n", proto_id);
 	}
 
@@ -968,7 +990,7 @@ print_proppair0(pri, p, level)
 		spc[level] = '\0';
 	}
 
-	plog(pri, LOCATION, NULL,
+	plog(pri, 
 		"%s%p: next=%p tnext=%p\n", spc, p, p->next, p->tnext);
 	if (p->next)
 		print_proppair0(pri, p->next, level + 1);
@@ -986,7 +1008,7 @@ print_proppair(pri, p)
 
 int
 set_proposal_from_policy(iph2, sp_main, sp_sub)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 	struct secpolicy *sp_main, *sp_sub;
 {
 	struct saprop *newpp;
@@ -995,15 +1017,17 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 
 	newpp = newsaprop();
 	if (newpp == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to allocate saprop.\n");
 		goto err;
 	}
 	newpp->prop_no = 1;
 	newpp->lifetime = iph2->sainfo->lifetime;
 	newpp->lifebyte = iph2->sainfo->lifebyte;
-	newpp->pfs_group = iph2->sainfo->pfs_group;
+    newpp->pfs_group = iph2->sainfo->pfs_group;
 
+    //%%%% to do - verify DH group is OK - tried that here and iphone failed to connect
+    
 	if (lcconf->complex_bundle)
 		goto skip1;
 
@@ -1026,6 +1050,8 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 	}
 
     skip1:
+    //%%%%%%s IKEv2 - no support for bundle - fix this - return error if bundle ???
+    // %%%% need special handling for ipcomp
 	for (req = sp_main->req; req; req = req->next) {
 		struct saproto *newpr;
 		caddr_t paddr = NULL;
@@ -1047,7 +1073,7 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 		/* allocate ipsec sa protocol */
 		newpr = newsaproto();
 		if (newpr == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to allocate saproto.\n");
 			goto err;
 		}
@@ -1058,22 +1084,21 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 		else
 			newpr->spisize = 4;
 		if (lcconf->complex_bundle) {
-			newpr->encmode = pfkey2ipsecdoi_mode(req->saidx.mode);
+			encmodesv = newpr->encmode = pfkey2ipsecdoi_mode(req->saidx.mode);
 #ifdef ENABLE_NATT
 			if (iph2->ph1 && (iph2->ph1->natt_flags & NAT_DETECTED))
 				newpr->encmode += iph2->ph1->natt_options->mode_udp_diff;
 #endif
 		}
 		else
-			newpr->encmode = encmodesv;
-
+			encmodesv = newpr->encmode = encmodesv;
 		if (iph2->side == INITIATOR)
 			newpr->reqid_out = req->saidx.reqid;
 		else
 			newpr->reqid_in = req->saidx.reqid;
 
-		if (set_satrnsbysainfo(newpr, iph2->sainfo) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+		if (set_satrnsbysainfo(newpr, iph2->sainfo, iph2->version, newpp->pfs_group) < 0) {
+			plog(ASL_LEVEL_ERR, 
 				"failed to get algorithms.\n");
 			racoon_free(newpr);
 			goto err;
@@ -1098,7 +1123,7 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 			req = req->next;
 		}
 		if (pr || req) {
-			plog(LLV_NOTIFY, LOCATION, NULL,
+			plog(ASL_LEVEL_NOTICE, 
 				"There is a difference "
 				"between the in/out bound policies in SPD.\n");
 		}
@@ -1108,7 +1133,7 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 
     ike_session_update_mode(iph2);
 
-	printsaprop0(LLV_DEBUG, newpp);
+	printsaprop0(ASL_LEVEL_DEBUG, newpp);
 
 	return 0;
 err:
@@ -1124,7 +1149,7 @@ err:
  */
 int
 set_proposal_from_proposal(iph2)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 {
         struct saprop *newpp = NULL, *pp0, *pp_peer = NULL;
 	struct saproto *newpr = NULL, *pr;
@@ -1133,7 +1158,8 @@ set_proposal_from_proposal(iph2)
 	int i;
 
 	/* get proposal pair */
-	pair = get_proppair(iph2->sa, IPSECDOI_TYPE_PH2);
+	if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1)
+		pair = get_proppair(iph2->sa, IPSECDOI_TYPE_PH2);
 	if (pair == NULL)
 		goto end;
 
@@ -1154,7 +1180,7 @@ set_proposal_from_proposal(iph2)
 
 		pp0 = newsaprop();
 		if (pp0 == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to allocate saprop.\n");
 			goto end;
 		}
@@ -1164,7 +1190,7 @@ set_proposal_from_proposal(iph2)
 		pp0->pfs_group = iph2->sainfo->pfs_group;
 
 		if (pp_peer->next != NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"pp_peer is inconsistency, ignore it.\n");
 			/*FALLTHROUGH*/
 		}
@@ -1173,7 +1199,7 @@ set_proposal_from_proposal(iph2)
 
 			newpr = newsaproto();
 			if (newpr == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 				    "failed to allocate saproto.\n");
  				racoon_free(pp0);
 				goto end;
@@ -1186,8 +1212,8 @@ set_proposal_from_proposal(iph2)
 			newpr->reqid_in = 0;
 			newpr->reqid_out = 0;
 
-			if (set_satrnsbysainfo(newpr, iph2->sainfo) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+			if (set_satrnsbysainfo(newpr, iph2->sainfo, iph2->version, 0) < 0) {
+				plog(ASL_LEVEL_ERR, 
 					"failed to get algorithms.\n");
  				racoon_free(newpr);
  				racoon_free(pp0);
@@ -1199,8 +1225,8 @@ set_proposal_from_proposal(iph2)
 		inssaprop(&newpp, pp0);
 	}
 
-	plog(LLV_DEBUG, LOCATION, NULL, "make a proposal from peer's:\n");
-	printsaprop0(LLV_DEBUG, newpp);  
+	plog(ASL_LEVEL_DEBUG, "make a proposal from peer's:\n");
+	printsaprop0(ASL_LEVEL_DEBUG, newpp);  
 
 	iph2->proposal = newpp;
 
@@ -1231,6 +1257,23 @@ tunnel_mode_prop(p)
 	return 0;
 }
 
+struct satrns *
+dupsatrns_1(struct satrns *tr)
+{
+    struct satrns *newtr;
+    
+	newtr = racoon_calloc(1, sizeof(*newtr));
+	if (newtr == NULL)
+		return NULL;
+    newtr->trns_no = tr->trns_no;
+    newtr->trns_type = tr->trns_type;
+    newtr->trns_id = tr->trns_id;
+    newtr->encklen = tr->encklen;
+    newtr->authtype = tr->authtype;
+    
+	return newtr;
+}
+
 void
 dupsatrns(newpr, head)
 	struct saproto *newpr;
@@ -1242,6 +1285,7 @@ dupsatrns(newpr, head)
 		newtr = newsatrns();
 		if (newtr) {
 			newtr->trns_no = p->trns_no;
+            newtr->trns_type = p->trns_type;
 			newtr->trns_id = p->trns_id;
 			newtr->encklen = p->encklen;
 			newtr->authtype = p->authtype;

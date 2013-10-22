@@ -1310,7 +1310,7 @@ process_stream(krb5_context lcontext,
 	    krb5_data data;
 	    ssize_t sret;
 	    CHECK(krb5_storage_to_data(reply, &data));
-	    CHECK(krb5_store_uint32(sp, data.length | LAST_FRAGMENT));
+	    CHECK(krb5_store_uint32(sp, ((uint32_t)data.length) | LAST_FRAGMENT));
 	    sret = krb5_storage_write(sp, data.data, data.length);
 	    INSIST(sret == data.length);
 	    krb5_data_free(&data);

@@ -26,10 +26,10 @@
 #ifndef DOMStringList_h
 #define DOMStringList_h
 
-#include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -51,6 +51,8 @@ public:
     size_t length() const { return m_strings.size(); }
     String item(unsigned index) const;
     bool contains(const String& str) const;
+
+    operator const Vector<String>&() const { return m_strings; }
 
 private:
     DOMStringList() { }

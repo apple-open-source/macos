@@ -130,7 +130,7 @@ DER_UTCTimeToCFDate(const CSSM_DATA_PTR utcTime, CFAbsoluteTime *date)
         goto loser;
     }
 
-    gdate.year = year + 1900;
+    gdate.year = (SInt32)(year + 1900);
     gdate.month = month;
     gdate.day = mday;
     gdate.hour = hour;
@@ -438,7 +438,7 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSSM_
 	                &encoded_attrs) == NULL)
 	    goto loser;
 
-	rv = SEC_SignData(&signature, encoded_attrs.Data, encoded_attrs.Length, 
+	rv = SEC_SignData(&signature, encoded_attrs.Data, (int)encoded_attrs.Length,
 	                  privkey, digestalgtag, pubkAlgTag);
 	PORT_FreeArena(tmppoolp, PR_FALSE); /* awkward memory management :-( */
     } else {
@@ -548,6 +548,7 @@ static void debugShowSigningCertificate(SecCmsSignerInfoRef signerinfo)
             dprintf("SecCmsSignerInfoVerify: cn: %s\n", ccn);
             free(ccn);
         }
+        CFRelease(cn);
     }
 #endif
 }
@@ -661,7 +662,7 @@ SecCmsSignerInfoVerify(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR digest, CSS
 	    goto loser;
 	}
 
-	vs = (VFY_VerifyData (encoded_attrs.Data, encoded_attrs.Length,
+	vs = (VFY_VerifyData (encoded_attrs.Data, (int)encoded_attrs.Length,
 			publickey, &(signerinfo->encDigest),
 			digestAlgTag, digestEncAlgTag,
 			signerinfo->cmsg->pwfn_arg) != SECSuccess) ? SecCmsVSBadSignature : SecCmsVSGoodSignature;
@@ -953,7 +954,7 @@ SecCmsSignerInfoGetSignerCommonName(SecCmsSignerInfoRef sinfo)
     if ((signercert = SecCmsSignerInfoGetSigningCertificate(sinfo, NULL)) == NULL)
 	return NULL;
 
-    SecCertificateGetCommonName(signercert, &commonName);
+    SecCertificateCopyCommonName(signercert, &commonName);
 
     return commonName;
 }

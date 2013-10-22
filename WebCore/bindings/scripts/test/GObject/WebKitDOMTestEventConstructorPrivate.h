@@ -22,13 +22,12 @@
 #define WebKitDOMTestEventConstructorPrivate_h
 
 #include "TestEventConstructor.h"
-#include <glib-object.h>
-#include <webkit/WebKitDOMObject.h>
+#include <webkitdom/WebKitDOMTestEventConstructor.h>
 
 namespace WebKit {
 WebKitDOMTestEventConstructor* wrapTestEventConstructor(WebCore::TestEventConstructor*);
-WebCore::TestEventConstructor* core(WebKitDOMTestEventConstructor* request);
-WebKitDOMTestEventConstructor* kit(WebCore::TestEventConstructor* node);
+WebKitDOMTestEventConstructor* kit(WebCore::TestEventConstructor*);
+WebCore::TestEventConstructor* core(WebKitDOMTestEventConstructor*);
 } // namespace WebKit
 
 #endif /* WebKitDOMTestEventConstructorPrivate_h */

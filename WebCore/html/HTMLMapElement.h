@@ -30,7 +30,7 @@ namespace WebCore {
 class HitTestResult;
 class HTMLImageElement;
     
-class HTMLMapElement : public HTMLElement {
+class HTMLMapElement FINAL : public HTMLElement {
 public:
     static PassRefPtr<HTMLMapElement> create(Document*);
     static PassRefPtr<HTMLMapElement> create(const QualifiedName&, Document*);
@@ -41,15 +41,15 @@ public:
     bool mapMouseEvent(LayoutPoint location, const LayoutSize&, HitTestResult&);
     
     HTMLImageElement* imageElement();
-    HTMLCollection* areas();
+    PassRefPtr<HTMLCollection> areas();
 
 private:
     HTMLMapElement(const QualifiedName&, Document*);
 
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
 
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void removedFrom(Node*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
 
     AtomicString m_name;
 };

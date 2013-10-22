@@ -31,29 +31,32 @@
 class AppleEmbeddedHIDEventService: public IOHIDEventService
 {
     OSDeclareAbstractStructors( AppleEmbeddedHIDEventService )
-	
-public:
-	virtual bool			handleStart(IOService * provider);
 
+public:
+    virtual bool handleStart(IOService * provider);
 
 protected:
-    virtual void            dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type = 0, IOHIDAccelerometerSubType subType = 0, IOOptionBits options=0);
-	
-    virtual void            dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type = 0, IOHIDGyroSubType subType = 0, IOOptionBits options=0);
+    virtual void dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDMotionType type = 0, IOHIDMotionPath subType = 0, UInt32 sequence = 0, IOOptionBits options=0);
 
-    virtual void            dispatchCompassEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDCompassType type=0, IOOptionBits options=0);
+    virtual void dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDMotionType type = 0, IOHIDMotionPath subType = 0, UInt32 sequence = 0, IOOptionBits options=0);
+
+    virtual void dispatchCompassEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDMotionType type=0, IOHIDMotionPath subType = 0, UInt32 sequence = 0, IOOptionBits options=0);
     
-    virtual void            dispatchProximityEvent(AbsoluteTime timestamp, IOHIDProximityDetectionMask mask, UInt32 level = 0, IOOptionBits options=0);
+    virtual void dispatchProximityEvent(AbsoluteTime timestamp, IOHIDProximityDetectionMask mask, UInt32 level = 0, IOOptionBits options=0);
 
-    virtual void            dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, UInt32 channel0 = 0, UInt32 channel1 = 0, UInt32 channel2 = 0, UInt32 channel3 = 0, IOOptionBits options=0);
+    virtual void dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, UInt32 channel0 = 0, UInt32 channel1 = 0, UInt32 channel2 = 0, UInt32 channel3 = 0, IOOptionBits options=0);
 
-    virtual void            dispatchTemperatureEvent(AbsoluteTime timestamp, IOFixed temperature, IOOptionBits options=0);
+    virtual void dispatchTemperatureEvent(AbsoluteTime timestamp, IOFixed temperature, IOOptionBits options=0);
 
-    virtual void            dispatchPowerEvent(AbsoluteTime timestamp, IOFixed measurement, IOHIDPowerType powerType, IOHIDPowerSubType powerSubType = 0, IOOptionBits options=0);
-	
-	virtual IOHIDOrientationType	getOrientation();
-	
-	virtual IOHIDPlacementType		getPlacement();
+    virtual void dispatchPowerEvent(AbsoluteTime timestamp, int64_t measurement, IOHIDPowerType powerType, IOHIDPowerSubType powerSubType = 0, IOOptionBits options=0);
+
+    virtual void dispatchVendorDefinedEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 version, UInt8 * data, UInt32 length, IOOptionBits options = 0);
+
+    virtual void dispatchBiometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options = 0);
+
+    virtual IOHIDOrientationType getOrientation();
+
+    virtual IOHIDPlacementType getPlacement();
 };
 
 #endif /* _IOKIT_HID_APPLEEMBEDDEDHIDEVENTSERVICE_H */

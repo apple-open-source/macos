@@ -43,11 +43,11 @@
 #endif /* HAVE_UNISTD_H */
 #include <pwd.h>
 
-#include "sudo.h"
-#include "sudo_auth.h"
-
 #include <afs/stds.h>
 #include <afs/kautils.h>
+
+#include "sudo.h"
+#include "sudo_auth.h"
 
 int
 afs_verify(pw, pass, auth)
@@ -67,7 +67,7 @@ afs_verify(pw, pass, auth)
 			 0,			/* lifetime */
 			 &afs_token,		/* token */
 			 0) == 0)		/* new */
-	return(AUTH_SUCCESS);
+	return AUTH_SUCCESS;
 
     /* Fall back on old method XXX - needed? */
     setpag();
@@ -80,7 +80,7 @@ afs_verify(pw, pass, auth)
 				   NULL,	/* expiration ptr (unused) */
 				   0,		/* spare */
 				   NULL) == 0)	/* reason */
-	return(AUTH_SUCCESS);
+	return AUTH_SUCCESS;
 
-    return(AUTH_FAILURE);
+    return AUTH_FAILURE;
 }

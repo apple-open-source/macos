@@ -34,6 +34,7 @@
 #include <IOEthernetController.h>
 #include "IONetworkUserClient.h"
 #include "IONetworkDebug.h"
+#include "IONetworkControllerPrivate.h"
 
 #include <IOKit/pwr_mgt/RootDomain.h>	// publishFeature()
 
@@ -394,8 +395,7 @@ bool IOEthernetInterface::controllerDidOpen(IONetworkController * ctr)
 
         addr = (IOEthernetAddress *) addrData->getBytesNoCopy();
 
-#if 1   // Print the address
-        IOLog("%s: Ethernet address %02x:%02x:%02x:%02x:%02x:%02x\n",
+        DLOG("%s: Ethernet address %02x:%02x:%02x:%02x:%02x:%02x\n",
               ctr->getName(),
               addr->bytes[0],
               addr->bytes[1],
@@ -403,8 +403,7 @@ bool IOEthernetInterface::controllerDidOpen(IONetworkController * ctr)
               addr->bytes[3],
               addr->bytes[4],
               addr->bytes[5]);
-#endif
-        
+
         ret = true;
     }
     while (0);
@@ -1325,6 +1324,31 @@ bool IOEthernetInterface::inputEvent( UInt32 type, void * data )
             {
                 release();
                 ctr->release();
+            }
+        }
+    }
+
+    if ((type == kIONetworkEventTypeLinkUp) ||
+        (type == kIONetworkEventTypeLinkDown))
+    {
+        ifnet_t ifp = getIfnet();
+        const IONetworkLinkEventData * linkData =
+            (const IONetworkLinkEventData *) data;
+
+        if (ifp && linkData)
+        {
+            if ((IOMediumGetNetworkType(linkData->linkType) == kIOMediumEthernet))
+            {
+                // Ethernet drivers typically don't report link quality,
+                // do it for them based on link status.
+                if (type == kIONetworkEventTypeLinkUp)
+                {
+                    ifnet_set_link_quality(ifp, IFNET_LQM_THRESH_GOOD);
+                }
+                else
+                {
+                    ifnet_set_link_quality(ifp, IFNET_LQM_THRESH_OFF);
+                }
             }
         }
     }

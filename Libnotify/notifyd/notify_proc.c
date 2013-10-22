@@ -239,6 +239,9 @@ register_port(client_t *c)
 
 	if (c == NULL) return;
 
+	/* ignore MACH_PORT_DEAD */
+	if (c->port == MACH_PORT_DEAD) return;
+
 	/*
 	 * Check if this port has already registered.
 	 * N.B. This call retains the portproc_data_t.  We want that.
@@ -696,6 +699,8 @@ kern_return_t __notify_server_register_mach_port_2
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
 
+	if (port == MACH_PORT_DEAD) return KERN_SUCCESS;
+
 	status = server_preflight(name, nameCnt, audit, token, &uid, &gid, &pid, &cid);
 	if (status != NOTIFY_STATUS_OK)
 	{
@@ -1101,69 +1106,6 @@ kern_return_t __notify_server_set_state_2
 	return KERN_SUCCESS;
 }
 
-kern_return_t __notify_server_get_val
-(
-	mach_port_t server,
-	int token,
-	int *val,
-	int *status,
-	audit_token_t audit
-)
-{
-	pid_t pid = (pid_t)-1;
-
-	*status = server_preflight(NULL, 0, audit, -1, NULL, NULL, &pid, NULL);
-	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
-
-	call_statistics.get_val++;
-
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_val %d %d\n", pid, token);
-
-	*status = _notify_lib_get_val(global.notify_state, pid, token, val);
-
-	return KERN_SUCCESS;
-}
-
-kern_return_t __notify_server_set_val
-(
-	mach_port_t server,
-	int token,
-	int val,
-	int *status,
-	audit_token_t audit
-)
-{
-	client_t *c;
-	name_info_t *n;
-	uid_t uid = (uid_t)-1;
-	gid_t gid = (gid_t)-1;
-	pid_t pid = (pid_t)-1;
-
-	*status = server_preflight(NULL, 0, audit, -1, &uid, &gid, &pid, NULL);
-	if (*status != NOTIFY_STATUS_OK) return KERN_SUCCESS;
-
-	call_statistics.set_val++;
-
-	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_val %d %d\n", pid, token);
-
-	*status = _notify_lib_set_val(global.notify_state, pid, token, val, uid, gid);
-	if (*status == NOTIFY_STATUS_OK)
-	{
-		c = _nc_table_find_64(global.notify_state->client_table, make_client_id(pid, token));
-		if (c == NULL)
-		{
-			*status = NOTIFY_STATUS_FAILED;
-			return KERN_SUCCESS;
-		}
-
-		n = c->name_info;
-		if (n->slot == -1) return KERN_SUCCESS;
-		global.shared_memory_base[n->slot] = val;
-	}
-
-	return KERN_SUCCESS;
-}
-
 kern_return_t __notify_server_set_owner
 (
 	mach_port_t server,
@@ -1475,7 +1417,15 @@ kern_return_t __notify_server_register_mach_port
 	kern_return_t kstatus;
 	client_t *c;
 	pid_t pid = (pid_t)-1;
-	int token = generate_token(audit);
+	int token;
+
+	if (port == MACH_PORT_DEAD)
+	{
+		*status = NOTIFY_STATUS_INVALID_REQUEST;
+		return KERN_SUCCESS;
+	}
+
+	token = generate_token(audit);
 
 	*client_id = token;
 	*status = NOTIFY_STATUS_OK;

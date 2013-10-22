@@ -31,13 +31,14 @@
 #ifndef ScriptValue_h
 #define ScriptValue_h
 
-#include "PlatformString.h"
 #include "SerializedScriptValue.h"
 #include "ScriptState.h"
 #include <heap/Strong.h>
 #include <heap/StrongInlines.h>
-#include <runtime/JSValue.h>
+#include <runtime/JSCJSValue.h>
+#include <runtime/Operations.h>
 #include <wtf/PassRefPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -47,7 +48,7 @@ class SerializedScriptValue;
 class ScriptValue {
 public:
     ScriptValue() { }
-    ScriptValue(JSC::JSGlobalData& globalData, JSC::JSValue value) : m_value(globalData, value) {}
+    ScriptValue(JSC::VM& vm, JSC::JSValue value) : m_value(vm, value) {}
     virtual ~ScriptValue() {}
 
     JSC::JSValue jsValue() const { return m_value.get(); }
@@ -60,9 +61,12 @@ public:
     bool isFunction() const;
     bool hasNoValue() const { return !m_value; }
 
+    void clear() { m_value.clear(); }
+
     bool operator==(const ScriptValue& other) const { return m_value == other.m_value; }
 
     PassRefPtr<SerializedScriptValue> serialize(ScriptState*, SerializationErrorMode = Throwing);
+    PassRefPtr<SerializedScriptValue> serialize(ScriptState*, MessagePortArray*, ArrayBufferArray*, bool&);
     static ScriptValue deserialize(ScriptState*, SerializedScriptValue*, SerializationErrorMode = Throwing);
 
 #if ENABLE(INSPECTOR)

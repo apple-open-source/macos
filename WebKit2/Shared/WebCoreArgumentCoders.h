@@ -49,7 +49,11 @@ namespace WebCore {
     class ResourceError;
     class ResourceRequest;
     class ResourceResponse;
+    class TextCheckingRequestData;
+    class UserStyleSheet;
+    class UserScript;
     struct CompositionUnderline;
+    struct Cookie;
     struct DictationAlternative;
     struct DragSession;
     struct FileChooserSettings;
@@ -67,265 +71,192 @@ namespace WebCore {
 }
 #endif
 
-#if PLATFORM(QT)
-namespace WebCore {
-    class Animation;
-    class FloatPoint3D;
-    class Matrix3DTransformOperation;
-    class MatrixTransformOperation;
-    class PerspectiveTransformOperation;
-    class RotateTransformOperation;
-    class ScaleTransformOperation;
-    class SkewTransformOperation;
-    class TimingFunction;
-    class TransformOperation;
-    class TransformOperations;
-    class TransformationMatrix;
-    class TranslateTransformOperation;
-    struct Length;
-}
-#endif
-
-#if USE(UI_SIDE_COMPOSITING) && ENABLE(CSS_FILTERS)
-namespace WebCore {
-    class FilterOperations;
-}
-#endif
-
 namespace CoreIPC {
 
 template<> struct ArgumentCoder<WebCore::AffineTransform> {
-    static void encode(ArgumentEncoder*, const WebCore::AffineTransform&);
-    static bool decode(ArgumentDecoder*, WebCore::AffineTransform&);
+    static void encode(ArgumentEncoder&, const WebCore::AffineTransform&);
+    static bool decode(ArgumentDecoder&, WebCore::AffineTransform&);
 };
 
 template<> struct ArgumentCoder<WebCore::FloatPoint> {
-    static void encode(ArgumentEncoder*, const WebCore::FloatPoint&);
-    static bool decode(ArgumentDecoder*, WebCore::FloatPoint&);
+    static void encode(ArgumentEncoder&, const WebCore::FloatPoint&);
+    static bool decode(ArgumentDecoder&, WebCore::FloatPoint&);
 };
 
 template<> struct ArgumentCoder<WebCore::FloatRect> {
-    static void encode(ArgumentEncoder*, const WebCore::FloatRect&);
-    static bool decode(ArgumentDecoder*, WebCore::FloatRect&);
+    static void encode(ArgumentEncoder&, const WebCore::FloatRect&);
+    static bool decode(ArgumentDecoder&, WebCore::FloatRect&);
 };
 
 template<> struct ArgumentCoder<WebCore::FloatSize> {
-    static void encode(ArgumentEncoder*, const WebCore::FloatSize&);
-    static bool decode(ArgumentDecoder*, WebCore::FloatSize&);
+    static void encode(ArgumentEncoder&, const WebCore::FloatSize&);
+    static bool decode(ArgumentDecoder&, WebCore::FloatSize&);
 };
 
 template<> struct ArgumentCoder<WebCore::IntPoint> {
-    static void encode(ArgumentEncoder*, const WebCore::IntPoint&);
-    static bool decode(ArgumentDecoder*, WebCore::IntPoint&);
+    static void encode(ArgumentEncoder&, const WebCore::IntPoint&);
+    static bool decode(ArgumentDecoder&, WebCore::IntPoint&);
 };
 
 template<> struct ArgumentCoder<WebCore::IntRect> {
-    static void encode(ArgumentEncoder*, const WebCore::IntRect&);
-    static bool decode(ArgumentDecoder*, WebCore::IntRect&);
+    static void encode(ArgumentEncoder&, const WebCore::IntRect&);
+    static bool decode(ArgumentDecoder&, WebCore::IntRect&);
 };
 
 template<> struct ArgumentCoder<WebCore::IntSize> {
-    static void encode(ArgumentEncoder*, const WebCore::IntSize&);
-    static bool decode(ArgumentDecoder*, WebCore::IntSize&);
+    static void encode(ArgumentEncoder&, const WebCore::IntSize&);
+    static bool decode(ArgumentDecoder&, WebCore::IntSize&);
 };
 
 template<> struct ArgumentCoder<WebCore::ViewportAttributes> {
-    static void encode(ArgumentEncoder*, const WebCore::ViewportAttributes&);
-    static bool decode(ArgumentDecoder*, WebCore::ViewportAttributes&);
+    static void encode(ArgumentEncoder&, const WebCore::ViewportAttributes&);
+    static bool decode(ArgumentDecoder&, WebCore::ViewportAttributes&);
 };
 
 template<> struct ArgumentCoder<WebCore::MimeClassInfo> {
-    static void encode(ArgumentEncoder*, const WebCore::MimeClassInfo&);
-    static bool decode(ArgumentDecoder*, WebCore::MimeClassInfo&);
+    static void encode(ArgumentEncoder&, const WebCore::MimeClassInfo&);
+    static bool decode(ArgumentDecoder&, WebCore::MimeClassInfo&);
 };
 
 template<> struct ArgumentCoder<WebCore::PluginInfo> {
-    static void encode(ArgumentEncoder*, const WebCore::PluginInfo&);
-    static bool decode(ArgumentDecoder*, WebCore::PluginInfo&);
+    static void encode(ArgumentEncoder&, const WebCore::PluginInfo&);
+    static bool decode(ArgumentDecoder&, WebCore::PluginInfo&);
 };
 
 template<> struct ArgumentCoder<WebCore::HTTPHeaderMap> {
-    static void encode(ArgumentEncoder*, const WebCore::HTTPHeaderMap&);
-    static bool decode(ArgumentDecoder*, WebCore::HTTPHeaderMap&);
+    static void encode(ArgumentEncoder&, const WebCore::HTTPHeaderMap&);
+    static bool decode(ArgumentDecoder&, WebCore::HTTPHeaderMap&);
 };
 
 template<> struct ArgumentCoder<WebCore::AuthenticationChallenge> {
-    static void encode(ArgumentEncoder*, const WebCore::AuthenticationChallenge&);
-    static bool decode(ArgumentDecoder*, WebCore::AuthenticationChallenge&);
+    static void encode(ArgumentEncoder&, const WebCore::AuthenticationChallenge&);
+    static bool decode(ArgumentDecoder&, WebCore::AuthenticationChallenge&);
 };
 
 template<> struct ArgumentCoder<WebCore::ProtectionSpace> {
-    static void encode(ArgumentEncoder*, const WebCore::ProtectionSpace&);
-    static bool decode(ArgumentDecoder*, WebCore::ProtectionSpace&);
+    static void encode(ArgumentEncoder&, const WebCore::ProtectionSpace&);
+    static bool decode(ArgumentDecoder&, WebCore::ProtectionSpace&);
 };
 
 template<> struct ArgumentCoder<WebCore::Credential> {
-    static void encode(ArgumentEncoder*, const WebCore::Credential&);
-    static bool decode(ArgumentDecoder*, WebCore::Credential&);
+    static void encode(ArgumentEncoder&, const WebCore::Credential&);
+    static bool decode(ArgumentDecoder&, WebCore::Credential&);
 };
 
 template<> struct ArgumentCoder<WebCore::Cursor> {
-    static void encode(ArgumentEncoder*, const WebCore::Cursor&);
-    static bool decode(ArgumentDecoder*, WebCore::Cursor&);
+    static void encode(ArgumentEncoder&, const WebCore::Cursor&);
+    static bool decode(ArgumentDecoder&, WebCore::Cursor&);
 };
 
 template<> struct ArgumentCoder<WebCore::ResourceRequest> {
-    static void encode(ArgumentEncoder*, const WebCore::ResourceRequest&);
-    static bool decode(ArgumentDecoder*, WebCore::ResourceRequest&);
+#if PLATFORM(MAC)
+    static const bool kShouldSerializeWebCoreData = false;
+#else
+    static const bool kShouldSerializeWebCoreData = true;
+#endif
+
+    static void encode(ArgumentEncoder&, const WebCore::ResourceRequest&);
+    static bool decode(ArgumentDecoder&, WebCore::ResourceRequest&);
+    static void encodePlatformData(ArgumentEncoder&, const WebCore::ResourceRequest&);
+    static bool decodePlatformData(ArgumentDecoder&, WebCore::ResourceRequest&);
 };
 
 template<> struct ArgumentCoder<WebCore::ResourceResponse> {
-    static void encode(ArgumentEncoder*, const WebCore::ResourceResponse&);
-    static bool decode(ArgumentDecoder*, WebCore::ResourceResponse&);
+    static void encode(ArgumentEncoder&, const WebCore::ResourceResponse&);
+    static bool decode(ArgumentDecoder&, WebCore::ResourceResponse&);
+    static void encodePlatformData(ArgumentEncoder&, const WebCore::ResourceResponse&);
+    static bool decodePlatformData(ArgumentDecoder&, WebCore::ResourceResponse&);
 };
+
 template<> struct ArgumentCoder<WebCore::ResourceError> {
-    static void encode(ArgumentEncoder*, const WebCore::ResourceError&);
-    static bool decode(ArgumentDecoder*, WebCore::ResourceError&);
+#if PLATFORM(MAC)
+    static const bool kShouldSerializeWebCoreData = false;
+#else
+    static const bool kShouldSerializeWebCoreData = true;
+#endif
+
+    static void encode(ArgumentEncoder&, const WebCore::ResourceError&);
+    static bool decode(ArgumentDecoder&, WebCore::ResourceError&);
+    static void encodePlatformData(ArgumentEncoder&, const WebCore::ResourceError&);
+    static bool decodePlatformData(ArgumentDecoder&, WebCore::ResourceError&);
 };
 
 template<> struct ArgumentCoder<WebCore::WindowFeatures> {
-    static void encode(ArgumentEncoder*, const WebCore::WindowFeatures&);
-    static bool decode(ArgumentDecoder*, WebCore::WindowFeatures&);
+    static void encode(ArgumentEncoder&, const WebCore::WindowFeatures&);
+    static bool decode(ArgumentDecoder&, WebCore::WindowFeatures&);
 };
 
 template<> struct ArgumentCoder<WebCore::Color> {
-    static void encode(ArgumentEncoder*, const WebCore::Color&);
-    static bool decode(ArgumentDecoder*, WebCore::Color&);
+    static void encode(ArgumentEncoder&, const WebCore::Color&);
+    static bool decode(ArgumentDecoder&, WebCore::Color&);
 };
 
 #if PLATFORM(MAC)
 template<> struct ArgumentCoder<WebCore::KeypressCommand> {
-    static void encode(ArgumentEncoder*, const WebCore::KeypressCommand&);
-    static bool decode(ArgumentDecoder*, WebCore::KeypressCommand&);
+    static void encode(ArgumentEncoder&, const WebCore::KeypressCommand&);
+    static bool decode(ArgumentDecoder&, WebCore::KeypressCommand&);
 };
 #endif
 
 template<> struct ArgumentCoder<WebCore::CompositionUnderline> {
-    static void encode(ArgumentEncoder*, const WebCore::CompositionUnderline&);
-    static bool decode(ArgumentDecoder*, WebCore::CompositionUnderline&);
+    static void encode(ArgumentEncoder&, const WebCore::CompositionUnderline&);
+    static bool decode(ArgumentDecoder&, WebCore::CompositionUnderline&);
+};
+
+template<> struct ArgumentCoder<WebCore::Cookie> {
+    static void encode(ArgumentEncoder&, const WebCore::Cookie&);
+    static bool decode(ArgumentDecoder&, WebCore::Cookie&);
 };
 
 template<> struct ArgumentCoder<WebCore::DatabaseDetails> {
-    static void encode(ArgumentEncoder*, const WebCore::DatabaseDetails&);
-    static bool decode(ArgumentDecoder*, WebCore::DatabaseDetails&);
+    static void encode(ArgumentEncoder&, const WebCore::DatabaseDetails&);
+    static bool decode(ArgumentDecoder&, WebCore::DatabaseDetails&);
 };
 
 template<> struct ArgumentCoder<WebCore::DictationAlternative> {
-    static void encode(ArgumentEncoder*, const WebCore::DictationAlternative&);
-    static bool decode(ArgumentDecoder*, WebCore::DictationAlternative&);
+    static void encode(ArgumentEncoder&, const WebCore::DictationAlternative&);
+    static bool decode(ArgumentDecoder&, WebCore::DictationAlternative&);
 };
 
 template<> struct ArgumentCoder<WebCore::FileChooserSettings> {
-    static void encode(ArgumentEncoder*, const WebCore::FileChooserSettings&);
-    static bool decode(ArgumentDecoder*, WebCore::FileChooserSettings&);
+    static void encode(ArgumentEncoder&, const WebCore::FileChooserSettings&);
+    static bool decode(ArgumentDecoder&, WebCore::FileChooserSettings&);
 };
 
 template<> struct ArgumentCoder<WebCore::GrammarDetail> {
-    static void encode(ArgumentEncoder*, const WebCore::GrammarDetail&);
-    static bool decode(ArgumentDecoder*, WebCore::GrammarDetail&);
+    static void encode(ArgumentEncoder&, const WebCore::GrammarDetail&);
+    static bool decode(ArgumentDecoder&, WebCore::GrammarDetail&);
+};
+
+template<> struct ArgumentCoder<WebCore::TextCheckingRequestData> {
+    static void encode(ArgumentEncoder&, const WebCore::TextCheckingRequestData&);
+    static bool decode(ArgumentDecoder&, WebCore::TextCheckingRequestData&);
 };
 
 template<> struct ArgumentCoder<WebCore::TextCheckingResult> {
-    static void encode(ArgumentEncoder*, const WebCore::TextCheckingResult&);
-    static bool decode(ArgumentDecoder*, WebCore::TextCheckingResult&);
+    static void encode(ArgumentEncoder&, const WebCore::TextCheckingResult&);
+    static bool decode(ArgumentDecoder&, WebCore::TextCheckingResult&);
 };
     
 template<> struct ArgumentCoder<WebCore::DragSession> {
-    static void encode(ArgumentEncoder*, const WebCore::DragSession&);
-    static bool decode(ArgumentDecoder*, WebCore::DragSession&);
+    static void encode(ArgumentEncoder&, const WebCore::DragSession&);
+    static bool decode(ArgumentDecoder&, WebCore::DragSession&);
 };
 
 template<> struct ArgumentCoder<WebCore::KURL> {
-    static void encode(ArgumentEncoder*, const WebCore::KURL&);
-    static bool decode(ArgumentDecoder*, WebCore::KURL&);
+    static void encode(ArgumentEncoder&, const WebCore::KURL&);
+    static bool decode(ArgumentDecoder&, WebCore::KURL&);
 };
 
-#if PLATFORM(QT)
-template<> struct ArgumentCoder<WebCore::FloatPoint3D> {
-    static void encode(ArgumentEncoder*, const WebCore::FloatPoint3D&);
-    static bool decode(ArgumentDecoder*, WebCore::FloatPoint3D&);
+template<> struct ArgumentCoder<WebCore::UserStyleSheet> {
+    static void encode(ArgumentEncoder&, const WebCore::UserStyleSheet&);
+    static bool decode(ArgumentDecoder&, WebCore::UserStyleSheet&);
 };
 
-template<> struct ArgumentCoder<WebCore::Length> {
-    static void encode(ArgumentEncoder*, const WebCore::Length&);
-    static bool decode(ArgumentDecoder*, WebCore::Length&);
+template<> struct ArgumentCoder<WebCore::UserScript> {
+    static void encode(ArgumentEncoder&, const WebCore::UserScript&);
+    static bool decode(ArgumentDecoder&, WebCore::UserScript&);
 };
-
-template<> struct ArgumentCoder<WebCore::TransformationMatrix> {
-    static void encode(ArgumentEncoder*, const WebCore::TransformationMatrix&);
-    static bool decode(ArgumentDecoder*, WebCore::TransformationMatrix&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::MatrixTransformOperation> > {
-    static void encode(ArgumentEncoder*, const WebCore::MatrixTransformOperation*);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::MatrixTransformOperation>&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::Matrix3DTransformOperation> > {
-    static void encode(ArgumentEncoder*, const WebCore::Matrix3DTransformOperation*);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::Matrix3DTransformOperation>&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::PerspectiveTransformOperation> > {
-    static void encode(ArgumentEncoder*, const WebCore::PerspectiveTransformOperation*);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::PerspectiveTransformOperation>&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::RotateTransformOperation> > {
-    static void encode(ArgumentEncoder*, const WebCore::RotateTransformOperation*);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::RotateTransformOperation>&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::ScaleTransformOperation> > {
-    static void encode(ArgumentEncoder*, const WebCore::ScaleTransformOperation*);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::ScaleTransformOperation>&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::SkewTransformOperation> > {
-    static void encode(ArgumentEncoder*, const WebCore::SkewTransformOperation*);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::SkewTransformOperation>&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::TranslateTransformOperation> > {
-    static void encode(ArgumentEncoder*, const WebCore::TranslateTransformOperation*);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::TranslateTransformOperation>&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::TimingFunction> > {
-    static void encode(ArgumentEncoder*, const RefPtr<WebCore::TimingFunction>&);
-    static void encode(ArgumentEncoder*, const WebCore::TimingFunction*);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::TimingFunction>&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::TransformOperation> > {
-    static void encode(ArgumentEncoder*, const RefPtr<WebCore::TransformOperation>&);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::TransformOperation>&);
-};
-
-template<> struct ArgumentCoder<WebCore::TransformOperations> {
-    static void encode(ArgumentEncoder*, const WebCore::TransformOperations&);
-    static bool decode(ArgumentDecoder*, WebCore::TransformOperations&);
-};
-
-template<> struct ArgumentCoder<RefPtr<WebCore::Animation> > {
-    static void encode(ArgumentEncoder*, const RefPtr<WebCore::Animation>&);
-    static bool decode(ArgumentDecoder*, RefPtr<WebCore::Animation>&);
-};
-#endif
-
-#if USE(UI_SIDE_COMPOSITING) && ENABLE(CSS_FILTERS)
-template<> struct ArgumentCoder<WebCore::FilterOperations> {
-    static void encode(ArgumentEncoder*, const WebCore::FilterOperations&);
-    static bool decode(ArgumentDecoder*, WebCore::FilterOperations&);
-};
-#endif
-
-#if USE(ACCELERATED_COMPOSITING)
-template<> struct ArgumentCoder<WebCore::KeyframeValueList> {
-    static void encode(ArgumentEncoder*, const WebCore::KeyframeValueList& keyframes);
-    static bool decode(ArgumentDecoder*, WebCore::KeyframeValueList& keyframes);
-};
-#endif
 
 } // namespace CoreIPC
 

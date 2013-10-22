@@ -57,6 +57,8 @@ public:
         TypeURLRequest,
         TypeURLResponse,
         TypeUserContentURLPattern,
+        TypeWebArchive,
+        TypeWebArchiveResource,
 
         // Base numeric types
         TypeBoolean,
@@ -72,7 +74,10 @@ public:
         TypeApplicationCacheManager,
         TypeBackForwardList,
         TypeBackForwardListItem,
+        TypeBatteryManager,
+        TypeBatteryStatus,
         TypeCacheManager,
+        TypeColorPickerResultListener,
         TypeContext,
         TypeCookieManager,
         TypeDatabaseManager,
@@ -91,6 +96,8 @@ public:
         TypeKeyValueStorageManager,
         TypeMediaCacheManager,
         TypeNavigationData,
+        TypeNetworkInfo,
+        TypeNetworkInfoManager,
         TypeNotification,
         TypeNotificationManager,
         TypeNotificationPermissionRequest,
@@ -101,6 +108,8 @@ public:
         TypePluginSiteDataManager,
         TypePreferences,
         TypeTextChecker,
+        TypeVibration,
+        TypeViewportAttributes,
 
         // Bundle types
         TypeBundle,
@@ -113,6 +122,7 @@ public:
         TypeBundleNavigationAction,
         TypeBundleNodeHandle,
         TypeBundlePage,
+        TypeBundlePageBanner,
         TypeBundlePageGroup,
         TypeBundlePageOverlay,
         TypeBundleRangeHandle,
@@ -120,9 +130,13 @@ public:
 
         // Platform specific
         TypeEditCommandProxy,
+        TypeObjCObjectGraph,
         TypeView,
 #if USE(SOUP)
         TypeSoupRequestManager,
+#endif
+#if PLATFORM(EFL)
+        TypePopupMenuItem,
 #endif
     };
 
@@ -134,6 +148,23 @@ public:
 
 protected:
     APIObject();
+};
+
+template <APIObject::Type ArgumentType>
+class TypedAPIObject : public APIObject {
+public:
+    static const Type APIType = ArgumentType;
+
+    virtual ~TypedAPIObject()
+    {
+    }
+
+protected:
+    TypedAPIObject()
+    {
+    }
+
+    virtual Type type() const OVERRIDE { return APIType; }
 };
 
 } // namespace WebKit

@@ -56,8 +56,6 @@
 		4C3895410534B31D009CF879 /* KeySchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3895400534B31D009CF879 /* KeySchema.cpp */; };
 		4C66D5EA05321B2700537B59 /* cssmdbname.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C66D5E805321B2700537B59 /* cssmdbname.cpp */; };
 		4C838EA6058163A4006DA084 /* AuthorizationData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C838EA3058163A4006DA084 /* AuthorizationData.cpp */; };
-		4C838EA7058163A4006DA084 /* AuthorizationData.h in Sources */ = {isa = PBXBuildFile; fileRef = 4C838EA4058163A4006DA084 /* AuthorizationData.h */; };
-		4C838EA8058163A4006DA084 /* AuthorizationWalkers.h in Sources */ = {isa = PBXBuildFile; fileRef = 4C838EA5058163A4006DA084 /* AuthorizationWalkers.h */; };
 		4C92661705349551004B0E72 /* cssmerrors.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22EC429052B8E4900D55C69 /* cssmerrors.cpp */; };
 		4C96462105378CEE00499C82 /* Schema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C96462005378CEE00499C82 /* Schema.cpp */; };
 		4CF64D26052A3278008ED0EA /* acl_any.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CF64CE0052A3278008ED0EA /* acl_any.cpp */; };
@@ -488,7 +486,7 @@
 		4CA2A5330523D2CD00978A7B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD2FA0987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_utilities" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -591,8 +589,6 @@
 				C21A3EC40545BEFA00C40B2E /* cssmkey.cpp in Sources */,
 				C21A3EC60545BEFA00C40B2E /* cssmpods.cpp in Sources */,
 				4C838EA6058163A4006DA084 /* AuthorizationData.cpp in Sources */,
-				4C838EA7058163A4006DA084 /* AuthorizationData.h in Sources */,
-				4C838EA8058163A4006DA084 /* AuthorizationWalkers.h in Sources */,
 				C2371E4006DD3E5E00E15E6F /* acl_preauth.cpp in Sources */,
 				C2BFD03406E6CDFE0047EA99 /* aclsubject.cpp in Sources */,
 				C2BFD03506E6CDFE0047EA99 /* objectacl.cpp in Sources */,
@@ -635,6 +631,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B516146DD045007E536C /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_cdsa_utilities;
 				SKIP_INSTALL = NO;
 			};
@@ -644,6 +641,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B518146DD045007E536C /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_cdsa_utilities;
 				SKIP_INSTALL = NO;
 			};
@@ -653,6 +651,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B517146DD045007E536C /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -660,6 +664,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B517146DD045007E536C /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

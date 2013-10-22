@@ -61,6 +61,11 @@ typedef struct kdc_request_desc *kdc_request_t;
 #include <OpenDirectory/OpenDirectory.h>
 #include <SystemConfiguration/SCPreferences.h>
 
+#ifdef __APPLE_PRIVATE__
+#include <OpenDirectory/OpenDirectoryPriv.h>
+#endif
+
+
 #endif
 
 #if defined(__APPLE_PRIVATE__) && !defined(__APPLE_TARGET_EMBEDDED__)
@@ -174,7 +179,7 @@ validate_targetinfo(krb5_context context,
 	 * "now" should be equal or forward in compared to
 	 * ti.timestamp, but lets be liberal here.
 	 */
-	if (abs(now - heim_ntlm_ts2unixtime(ti.timestamp)) > heim_ntlm_time_skew) {
+	if (krb5_time_abs(now, heim_ntlm_ts2unixtime(ti.timestamp)) > heim_ntlm_time_skew) {
 	    ret = EAUTH;
 	    goto out;
 	}
@@ -231,7 +236,7 @@ struct ntlm_ftable {
     krb5_error_code	(*init)(krb5_context, void **);
     void		(*fini)(void *);
     int			(*ti)(void *, struct ntlm_targetinfo *ti);
-    uint32_t		(*filter_flags)(void *ctx);
+    uint32_t		(*filter_flags)(krb5_context, void *);
     int			(*authenticate)(void *ctx,
 					krb5_context context,
 					const NTLMRequest2 *ntq,
@@ -240,7 +245,7 @@ struct ntlm_ftable {
 };
 
 static uint32_t
-kdc_flags(void *ctx)
+kdc_flags(krb5_context context, void *ctx)
 {
     return 0;
 }
@@ -253,10 +258,11 @@ kdc_authenticate(void *ctx,
 		 void *response_ctx,
 		 void (response)(void *, const NTLMReply *ntp))
 {
-    krb5_principal client;
+    krb5_principal client = NULL;
     unsigned char sessionkey[16];
     krb5_data sessionkeydata;
     hdb_entry_ex *user = NULL;
+    HDB *clientdb = NULL;
     Key *key = NULL;
     NTLMReply ntp;
     const char *ntlm_version = "unknown";
@@ -286,8 +292,7 @@ kdc_authenticate(void *ctx,
     krb5_principal_set_type(context, client, KRB5_NT_NTLM);
     
     ret = _kdc_db_fetch(context, config, client,
-			HDB_F_GET_CLIENT, NULL, NULL, &user);
-    krb5_free_principal(context, client);
+			HDB_F_GET_CLIENT, NULL, &clientdb, &user);
     if (ret)
 	goto failed;
     
@@ -346,25 +351,20 @@ kdc_authenticate(void *ctx,
 				     &targetinfo,
 				     ntlmv2);
 	if (ret) {
+	    if (clientdb->hdb_auth_status)
+		clientdb->hdb_auth_status(context, clientdb, user,
+					  HDB_AUTH_WRONG_PASSWORD);
+
 	    kdc_log(context, config, 2,
 		    "digest-request: verify ntlm2 hash failed", ret);
 	    goto failed;
 	}
 	
-	/* XXX session key is something like this, let fix it up later */
-	if (0 && (ntq->ntlmFlags & NTLM_NEG_NTLM2_SESSION)) {
-	    CCHmacContext c;
-	    
-	    kdc_log(context, config, 2,
-		    "digest-request: digest session key");
-	    
-	    CCHmacInit(&c, kCCHmacAlgMD5, ntlmv2, sizeof(ntlmv2));
-	    CCHmacUpdate(&c, ntq->lmchallenge.data, ntq->lmchallenge.length);
-	    CCHmacUpdate(&c, ntq->lmChallengeResponse.data,
-			 ntq->lmChallengeResponse.length);
-	    CCHmacFinal(&c, sessionkey);
-	    memset(&c, 0, sizeof(c));
-	} else {
+	if (clientdb->hdb_auth_status)
+	    clientdb->hdb_auth_status(context, clientdb, user,
+				      HDB_AUTH_SUCCESS);
+	
+	{
 	    size_t len = MIN(ntq->ntChallengeResponse.length, 16);
 	    CCHmacContext c;
 	    
@@ -501,6 +501,9 @@ failed:
     if (user)
 	_kdc_free_ent (context, user);
     
+    if (client)
+	krb5_free_principal(context, client);
+
     return ret;
 }
 
@@ -620,14 +623,44 @@ od_init(krb5_context context, void **ctx)
 
 
 static uint32_t
-od_flags(void *ctx)
+od_flags(krb5_context context, void *ctx)
 {
     CFArrayRef subnodes;
+    CFIndex count, n;
     ODNodeRef node;
-    CFIndex num;
 
     if (gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_SESSION_KEY, NULL))
 	return 0;
+
+#ifdef __APPLE_PRIVATE__
+    subnodes = ODSessionCopySessionKeySupport(kODSessionDefault);
+    if (subnodes) {
+	int haveLDAPSessionKeySupport = 0;
+	
+	count = CFArrayGetCount(subnodes);
+	for (n = 0; n < count; n++) {
+	    CFStringRef name;
+
+	    node = (ODNodeRef)CFArrayGetValueAtIndex(subnodes, n);
+
+	    name = ODNodeGetName(node);
+	    if (name && CFStringHasPrefix(name, CFSTR("/LDAPv3/"))) {
+		kdc_log(context, config, 2, "digest-request: have /LDAPv3/ nodes with signing");
+		haveLDAPSessionKeySupport = 1;
+		break;
+	    }
+	}
+	CFRelease(subnodes);
+
+	if (haveLDAPSessionKeySupport)
+	    return 0;
+
+	kdc_log(context, config, 2, "digest-request: have no LDAPv3 nodes with signing");
+
+    } else {
+	kdc_log(context, config, 2, "digest-request: have no nodes with signing");
+    }
+#endif
 
     node = ODNodeCreateWithName(kCFAllocatorDefault, kODSessionDefault, CFSTR("/LDAPv3"), NULL);
     if (node == NULL)
@@ -639,13 +672,13 @@ od_flags(void *ctx)
     if (subnodes == NULL)
 	return 0;
     
-    num = CFArrayGetCount(subnodes);
+    count = CFArrayGetCount(subnodes);
     CFRelease(subnodes);
-    if (num == 0)
+    if (count == 0)
 	return 0;
     
     /*
-     * Drat we have OD configured, since it doesn't return signing keys, we must turn that off for everyone!
+     * Drat, we have OD configured. So no session key support, we must turn that off for everyone!
      */
     
     return NTLM_NEG_SIGN | NTLM_NEG_SEAL |
@@ -672,41 +705,43 @@ od_authenticate(void *ctx,
     NTLMReply ntp;
     int ret = EINVAL;
 
-    if (ntlmDomain == NULL || ctx == NULL)
+    if (ntlmDomain == NULL || ctx == NULL) {
+	kdc_log(context, config, 2, "digest-request: no ntlmDomain");
 	return EINVAL;
+    }
 
     memset(&ntp, 0, sizeof(ntp));
     
     username = CFStringCreateWithCString(NULL, ntq->loginUserName,
 					 kCFStringEncodingUTF8);
     if (username == NULL) {
-	ret = EINVAL;
+	ret = ENOMEM;
 	goto out;
     }
     
     challenge = CFDataCreateMutable(NULL, 0);
     if (challenge == NULL) {
-	ret = EINVAL;
+	ret = ENOMEM;
 	goto out;
     }
     CFDataAppendBytes(challenge, ntq->lmchallenge.data, ntq->lmchallenge.length);
     
     resp = CFDataCreateMutable(NULL, 0);
     if (response == NULL) {
-	ret = EINVAL;
+	ret = ENOMEM;
 	goto out;
     }
     CFDataAppendBytes(resp, ntq->ntChallengeResponse.data, ntq->ntChallengeResponse.length);
     
     domain = CFStringCreateWithCString(NULL, ntq->loginDomainName, kCFStringEncodingUTF8);
     if (domain == NULL) {
-	ret = EINVAL;
+	ret = ENOMEM;
 	goto out;
     }
     
     authItems = CFArrayCreateMutable(NULL, 5, &kCFTypeArrayCallBacks);
     if (authItems == NULL) {
-	ret = EINVAL;
+	ret = ENOMEM;
 	goto out;
     }
     
@@ -719,7 +754,8 @@ od_authenticate(void *ctx,
     record = ODNodeCopyRecord(c->node, kODRecordTypeUsers, 
 			      username, meta_keys, &error);
     if (record == NULL) {
-	ret = EINVAL;
+	kdc_log(context, config, 2, "digest-request: failed to find user %s in OD", ntq->loginUserName);
+	ret = ENOENT;
 	goto out;
     }
     
@@ -731,32 +767,29 @@ od_authenticate(void *ctx,
 	    goto out;
 	}
 	if (!CFStringHasPrefix(str, CFSTR("/LDAPv3/"))) {
+	    kdc_log(context, config, 2, "digest-request: user not in /LDAPv3");
 	    ret = ENOENT;
 	    goto out;
 	}
     }
     
     b = ODRecordVerifyPasswordExtended(record,
-				       kODAuthenticationTypeNTLMv2,
+				       kODAuthenticationTypeNTLMv2WithSessionKey,
 				       authItems, &outAuthItems, NULL,
 				       &error);
     
     if (!b) {
+	kdc_log(context, config, 2, "digest-request: authentication failed");
 	ret = ENOENT;
 	goto out;
     }
     
-    /*
-     * No ntlmv2 session key or keyex for OD.
-     */
     ntp.ntlmFlags = ntq->ntlmFlags;
-    ntp.ntlmFlags &= ~(NTLM_NEG_KEYEX|NTLM_NEG_NTLM2_SESSION);
-    
+
     /*
      * If the NTLMv2 session key is supported, it is returned in the
      * output buffer
      */
-    
 
     if (outAuthItems && CFArrayGetCount(outAuthItems) > 0) {
 	CFDataRef data = (CFDataRef)CFArrayGetValueAtIndex(outAuthItems, 0);
@@ -767,8 +800,35 @@ od_authenticate(void *ctx,
 		goto out;
 	    }
 	    krb5_data_copy(ntp.sessionkey, CFDataGetBytePtr(data), 16);
+
+	    if (ntp.ntlmFlags & NTLM_NEG_KEYEX) {
+		struct ntlm_buf base, enc, sess;
+		
+		base.data = ntp.sessionkey->data;
+		base.length = ntp.sessionkey->length;
+		enc.data = ntq->encryptedSessionKey.data;
+		enc.length = ntq->encryptedSessionKey.length;
+	
+		ret = heim_ntlm_keyex_unwrap(&base, &enc, &sess);
+		if (ret != 0)
+		    goto out;
+		if (sess.length != ntp.sessionkey->length) {
+		    heim_ntlm_free_buf(&sess);
+		    ret = EINVAL;
+		    goto out;
+		}
+		memcpy(ntp.sessionkey->data, sess.data, ntp.sessionkey->length);
+		heim_ntlm_free_buf(&sess);
+	    }
 	}
+
+    } else {
+	/*
+	 * No ntlmv2 session key or keyex for OD (this it too late to strip of these flags)
+	 */
+	ntp.ntlmFlags &= ~(NTLM_NEG_KEYEX|NTLM_NEG_NTLM2_SESSION);
     }
+
     
     /*
      * If no session key was passed back, strip of SIGN/SEAL
@@ -817,7 +877,7 @@ out:
  */
 
 static uint32_t
-guest_flags(void *ctx)
+guest_flags(krb5_context context, void *ctx)
 {
     return 0;
 }
@@ -1131,6 +1191,7 @@ netr_init(krb5_context context, void **ctx)
 	return ENOENT;
 
     probeStatus = netLogonProbe(NULL, &domain);
+    kdc_log(context, config, 1, "digest-request: netr probe %d", (int)probeStatus);
     switch (probeStatus) {
     case NETLOGON_PROBE_CONFIGURED:
     case NETLOGON_PROBE_CONNECTED:
@@ -1152,7 +1213,7 @@ netr_init(krb5_context context, void **ctx)
 }
 
 static uint32_t
-netr_flags(void *ctx)
+netr_flags(krb5_context context, void *ctx)
 {
     return 0;
 }
@@ -1491,7 +1552,7 @@ process_NTLMInit(krb5_context context,
     heim_idata rep = { 0, NULL };
     struct ntlm_targetinfo ti;
     NTLMInitReply ir;
-    char *domain = NULL;
+    char *indomain = NULL;
     size_t size, n;
     int ret = 0;
     
@@ -1502,19 +1563,19 @@ process_NTLMInit(krb5_context context,
     
     ir.ntlmNegFlags = 0;
     for (n = 0; n < sizeof(backends) / sizeof(backends[0]); n++)
-	ir.ntlmNegFlags |= backends[n].filter_flags(backends[n].ctx);
+	ir.ntlmNegFlags |= backends[n].filter_flags(context, backends[n].ctx);
 
-    if (ni->domain)
-	domain = *ni->domain;
+    if (ni->domain && (*ni->domain)[0] != '\0')
+	indomain = *ni->domain;
     
-    ret = get_ntlm_domain(context, config, domain, &ti);
+    ret = get_ntlm_domain(context, config, indomain, &ti);
     if (ret)
 	goto failed;
     
     ti.timestamp = heim_ntlm_unix2ts_time(time(NULL));
 
-    kdc_log(context, config, 1, "digest-request: init return domain: %s server: %s",
-	    ti.domainname, ti.servername);
+    kdc_log(context, config, 1, "digest-request: init return domain: %s server: %s indomain was: %s",
+	    ti.domainname, ti.servername, indomain ? indomain : "<NULL>");
     
     {
 	struct ntlm_buf d;

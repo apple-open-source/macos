@@ -264,7 +264,7 @@
 		C27AD3890987FCDE001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55001.1;
+				CURRENT_PROJECT_VERSION = 55002;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -290,7 +290,7 @@
 		C27AD38A0987FCDE001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55001.1;
+				CURRENT_PROJECT_VERSION = 55002;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_OBJC_GC = "";
@@ -314,7 +314,7 @@
 		C27AD38B0987FCDE001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55001.1;
+				CURRENT_PROJECT_VERSION = 55002;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_OBJC_GC = "";

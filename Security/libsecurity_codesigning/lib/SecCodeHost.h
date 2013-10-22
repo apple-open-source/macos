@@ -105,7 +105,7 @@ extern "C" {
 	(in SecCode.h) are conventionally used here.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior, or
 	a combination of the flags defined below for special features.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 	@param newGuest Upon successful creation of the new guest, the new SecGuestRef
 	that should be used to identify the new guest from here on.
@@ -149,7 +149,7 @@ OSStatus SecHostCreateGuest(SecGuestRef host,
 	@param guest The handle for a Guest previously created with SecHostCreateGuest
 	that has not previously been destroyed. This guest is to be destroyed now.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecHostRemoveGuest(SecGuestRef host, SecGuestRef guest, SecCSFlags flags);
@@ -167,7 +167,7 @@ OSStatus SecHostRemoveGuest(SecGuestRef host, SecGuestRef guest, SecCSFlags flag
 	To indicate that the thread will act on behalf of the Host itself (rather than
 	any Guest), pass kSecNoGuest.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecHostSelectGuest(SecGuestRef guestRef, SecCSFlags flags);
@@ -181,7 +181,7 @@ OSStatus SecHostSelectGuest(SecGuestRef guestRef, SecCSFlags flags);
 	@param guestRef Will be assigned the SecGuestRef currently in effect for
 	the calling thread. If no Guest is active on this thread (i.e. the thread
 	is acting for the Host), the return value is kSecNoGuest.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecHostSelectedGuest(SecCSFlags flags, SecGuestRef *guestRef);
@@ -202,7 +202,7 @@ OSStatus SecHostSelectedGuest(SecCSFlags flags, SecGuestRef *guestRef);
 	this guest from all guests of the caller. If given, it completely replaces the attributes
 	specified earlier. If NULL, previously established attributes are retained.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
  */
 OSStatus SecHostSetGuestStatus(SecGuestRef guestRef,
@@ -228,7 +228,7 @@ OSStatus SecHostSetGuestStatus(SecGuestRef guestRef,
 	@param hostingPort A Mach message port with send rights. This port will be recorded
 	and handed to parties interested in querying the host about its children.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
  */
 OSStatus SecHostSetHostingPort(mach_port_t hostingPort, SecCSFlags flags);

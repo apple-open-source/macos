@@ -30,7 +30,7 @@
 
 namespace WebCore {
 
-class HTMLTableRowElement : public HTMLTablePartElement {
+class HTMLTableRowElement FINAL : public HTMLTablePartElement {
 public:
     static PassRefPtr<HTMLTableRowElement> create(Document*);
     static PassRefPtr<HTMLTableRowElement> create(const QualifiedName&, Document*);
@@ -44,7 +44,7 @@ public:
     PassRefPtr<HTMLElement> insertCell(int index, ExceptionCode&);
     void deleteCell(int index, ExceptionCode&);
 
-    HTMLCollection* cells();
+    PassRefPtr<HTMLCollection> cells();
     void setCells(HTMLCollection *, ExceptionCode&);
 
 private:

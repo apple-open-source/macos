@@ -31,7 +31,7 @@ int Recovered = 0;
 
 @implementation TestObject
 
-- init {
+- (id)init {
     ++Allocated;
     return self;
 }

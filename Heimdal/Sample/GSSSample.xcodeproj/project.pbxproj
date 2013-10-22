@@ -23,25 +23,40 @@
 		EB25A185147063B1004E8CB8 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = EB25A184147063B1004E8CB8 /* AppDelegate.m */; };
 		EB25A188147063B2004E8CB8 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = EB25A186147063B2004E8CB8 /* MainMenu.xib */; };
 		EB93C7B41471DBB200FE746E /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBBE486F146E1F7300A166D3 /* GSS.framework */; };
+		EBA5BE8C16B020FF00B480CA /* com.apple.Kerberos.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = EBA5BE8916B01BD500B480CA /* com.apple.Kerberos.plist */; };
+		EBB1EA0E16C2E76F00DC776D /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = EBB1EA0D16C2E76F00DC776D /* Default-568h@2x.png */; };
 		EBBE4870146E1F7300A166D3 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBBE486F146E1F7300A166D3 /* GSS.framework */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		EBA5BE8B16B0208C00B480CA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+				EBA5BE8C16B020FF00B480CA /* com.apple.Kerberos.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		EB168408146DC0B00019138B /* EmbeddedSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EmbeddedSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB168408146DC0B00019138B /* GSSSampleIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GSSSampleIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB16840C146DC0B00019138B /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		EB16840E146DC0B00019138B /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		EB168410146DC0B00019138B /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
-		EB168414146DC0B00019138B /* EmbeddedSample-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "EmbeddedSample-Info.plist"; sourceTree = "<group>"; };
+		EB168414146DC0B00019138B /* GSSSampleIOS-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GSSSampleIOS-Info.plist"; sourceTree = "<group>"; };
 		EB168416146DC0B00019138B /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		EB168418146DC0B00019138B /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		EB16841A146DC0B00019138B /* EmbeddedSample-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "EmbeddedSample-Prefix.pch"; sourceTree = "<group>"; };
+		EB16841A146DC0B00019138B /* GSSSampleIOS-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "GSSSampleIOS-Prefix.pch"; sourceTree = "<group>"; };
 		EB16841B146DC0B00019138B /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		EB16841C146DC0B00019138B /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		EB16841F146DC0B00019138B /* en */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = en; path = en.lproj/MainStoryboard_iPhone.storyboard; sourceTree = "<group>"; };
 		EB168422146DC0B00019138B /* en */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = en; path = en.lproj/MainStoryboard_iPad.storyboard; sourceTree = "<group>"; };
 		EB168424146DC0B00019138B /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		EB168425146DC0B00019138B /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
-		EB25A16E147063B1004E8CB8 /* DesktopSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DesktopSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB25A16E147063B1004E8CB8 /* GSSSampleOSX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GSSSampleOSX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB25A171147063B1004E8CB8 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
 		EB25A174147063B1004E8CB8 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		EB25A175147063B1004E8CB8 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
@@ -54,7 +69,9 @@
 		EB25A183147063B1004E8CB8 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		EB25A184147063B1004E8CB8 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		EB25A187147063B2004E8CB8 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
-		EBB752D4146E298100A49C50 /* EmbeddedSample.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = EmbeddedSample.entitlements; sourceTree = "<group>"; };
+		EBA5BE8916B01BD500B480CA /* com.apple.Kerberos.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; name = com.apple.Kerberos.plist; path = Common/com.apple.Kerberos.plist; sourceTree = "<group>"; };
+		EBB1EA0D16C2E76F00DC776D /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "Default-568h@2x.png"; path = "../Default-568h@2x.png"; sourceTree = "<group>"; };
+		EBB752D4146E298100A49C50 /* GSSSampleIOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = GSSSampleIOS.entitlements; sourceTree = "<group>"; };
 		EBBE486F146E1F7300A166D3 /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = System/Library/Frameworks/GSS.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -85,8 +102,9 @@
 		EB1683FD146DC0B00019138B = {
 			isa = PBXGroup;
 			children = (
-				EB168412146DC0B00019138B /* EmbeddedSample */,
-				EB25A177147063B1004E8CB8 /* DesktopSample */,
+				EBA5BE8816B01BAC00B480CA /* Common */,
+				EB168412146DC0B00019138B /* GSSSampleIOS */,
+				EB25A177147063B1004E8CB8 /* GSSSampleOSX */,
 			);
 			indentWidth = 8;
 			sourceTree = "<group>";
@@ -94,8 +112,8 @@
 		EB168409146DC0B00019138B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				EB168408146DC0B00019138B /* EmbeddedSample.app */,
-				EB25A16E147063B1004E8CB8 /* DesktopSample.app */,
+				EB168408146DC0B00019138B /* GSSSampleIOS.app */,
+				EB25A16E147063B1004E8CB8 /* GSSSampleOSX.app */,
 			);
 			name = Products;
 			path = ..;
@@ -113,10 +131,10 @@
 			path = ..;
 			sourceTree = "<group>";
 		};
-		EB168412146DC0B00019138B /* EmbeddedSample */ = {
+		EB168412146DC0B00019138B /* GSSSampleIOS */ = {
 			isa = PBXGroup;
 			children = (
-				EBB752D4146E298100A49C50 /* EmbeddedSample.entitlements */,
+				EBB752D4146E298100A49C50 /* GSSSampleIOS.entitlements */,
 				EB16841B146DC0B00019138B /* AppDelegate.h */,
 				EB16841C146DC0B00019138B /* AppDelegate.m */,
 				EB16841E146DC0B00019138B /* MainStoryboard_iPhone.storyboard */,
@@ -127,16 +145,17 @@
 				EB16840B146DC0B00019138B /* Frameworks */,
 				EB168409146DC0B00019138B /* Products */,
 			);
-			path = EmbeddedSample;
+			path = GSSSampleIOS;
 			sourceTree = "<group>";
 		};
 		EB168413146DC0B00019138B /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				EB168414146DC0B00019138B /* EmbeddedSample-Info.plist */,
+				EB168414146DC0B00019138B /* GSSSampleIOS-Info.plist */,
 				EB168415146DC0B00019138B /* InfoPlist.strings */,
 				EB168418146DC0B00019138B /* main.m */,
-				EB16841A146DC0B00019138B /* EmbeddedSample-Prefix.pch */,
+				EB16841A146DC0B00019138B /* GSSSampleIOS-Prefix.pch */,
+				EBB1EA0D16C2E76F00DC776D /* Default-568h@2x.png */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -161,7 +180,7 @@
 			name = "Other Frameworks";
 			sourceTree = "<group>";
 		};
-		EB25A177147063B1004E8CB8 /* DesktopSample */ = {
+		EB25A177147063B1004E8CB8 /* GSSSampleOSX */ = {
 			isa = PBXGroup;
 			children = (
 				EB25A183147063B1004E8CB8 /* AppDelegate.h */,
@@ -170,7 +189,7 @@
 				EB25A178147063B1004E8CB8 /* Supporting Files */,
 				EB25A170147063B1004E8CB8 /* Frameworks */,
 			);
-			path = DesktopSample;
+			path = GSSSampleOSX;
 			sourceTree = "<group>";
 		};
 		EB25A178147063B1004E8CB8 /* Supporting Files */ = {
@@ -185,29 +204,38 @@
 			name = "Supporting Files";
 			sourceTree = "<group>";
 		};
+		EBA5BE8816B01BAC00B480CA /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				EBA5BE8916B01BD500B480CA /* com.apple.Kerberos.plist */,
+			);
+			name = Common;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		EB168407146DC0B00019138B /* EmbeddedSample */ = {
+		EB168407146DC0B00019138B /* GSSSampleIOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = EB168429146DC0B00019138B /* Build configuration list for PBXNativeTarget "EmbeddedSample" */;
+			buildConfigurationList = EB168429146DC0B00019138B /* Build configuration list for PBXNativeTarget "GSSSampleIOS" */;
 			buildPhases = (
 				EB168404146DC0B00019138B /* Sources */,
 				EB168405146DC0B00019138B /* Frameworks */,
 				EB168406146DC0B00019138B /* Resources */,
+				EBA5BE8B16B0208C00B480CA /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = EmbeddedSample;
-			productName = EmbeddedSample;
-			productReference = EB168408146DC0B00019138B /* EmbeddedSample.app */;
+			name = GSSSampleIOS;
+			productName = GSSSampleIOS;
+			productReference = EB168408146DC0B00019138B /* GSSSampleIOS.app */;
 			productType = "com.apple.product-type.application";
 		};
-		EB25A16D147063B1004E8CB8 /* DesktopSample */ = {
+		EB25A16D147063B1004E8CB8 /* GSSSampleOSX */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = EB25A18B147063B2004E8CB8 /* Build configuration list for PBXNativeTarget "DesktopSample" */;
+			buildConfigurationList = EB25A18B147063B2004E8CB8 /* Build configuration list for PBXNativeTarget "GSSSampleOSX" */;
 			buildPhases = (
 				EB25A16A147063B1004E8CB8 /* Sources */,
 				EB25A16B147063B1004E8CB8 /* Frameworks */,
@@ -217,9 +245,9 @@
 			);
 			dependencies = (
 			);
-			name = DesktopSample;
-			productName = DesktopSample;
-			productReference = EB25A16E147063B1004E8CB8 /* DesktopSample.app */;
+			name = GSSSampleOSX;
+			productName = GSSSampleOSX;
+			productReference = EB25A16E147063B1004E8CB8 /* GSSSampleOSX.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -228,7 +256,12 @@
 		EB1683FF146DC0B00019138B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0440;
+				LastUpgradeCheck = 0500;
+				TargetAttributes = {
+					EB168407146DC0B00019138B = {
+						DevelopmentTeam = XPSUQMMH5W;
+					};
+				};
 			};
 			buildConfigurationList = EB168402146DC0B00019138B /* Build configuration list for PBXProject "GSSSample" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -242,8 +275,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				EB168407146DC0B00019138B /* EmbeddedSample */,
-				EB25A16D147063B1004E8CB8 /* DesktopSample */,
+				EB168407146DC0B00019138B /* GSSSampleIOS */,
+				EB25A16D147063B1004E8CB8 /* GSSSampleOSX */,
 			);
 		};
 /* End PBXProject section */
@@ -256,6 +289,7 @@
 				EB168417146DC0B00019138B /* InfoPlist.strings in Resources */,
 				EB168420146DC0B00019138B /* MainStoryboard_iPhone.storyboard in Resources */,
 				EB168423146DC0B00019138B /* MainStoryboard_iPad.storyboard in Resources */,
+				EBB1EA0E16C2E76F00DC776D /* Default-568h@2x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -349,9 +383,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
-				CODE_SIGN_IDENTITY = "-";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -363,9 +401,12 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 6.0;
+				ONLY_ACTIVE_ARCH = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -374,14 +415,20 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
-				CODE_SIGN_IDENTITY = "-";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 6.0;
 				OTHER_CFLAGS = "-DNS_BLOCK_ASSERTIONS=1";
@@ -393,11 +440,13 @@
 		EB16842A146DC0B00019138B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = EmbeddedSample/EmbeddedSample.entitlements;
+				CODE_SIGN_ENTITLEMENTS = GSSSampleIOS/GSSSampleIOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "EmbeddedSample/EmbeddedSample-Prefix.pch";
-				INFOPLIST_FILE = "EmbeddedSample/EmbeddedSample-Info.plist";
+				GCC_PREFIX_HEADER = "GSSSampleIOS/GSSSampleIOS-Prefix.pch";
+				INFOPLIST_FILE = "GSSSampleIOS/GSSSampleIOS-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				WRAPPER_EXTENSION = app;
 			};
@@ -406,11 +455,13 @@
 		EB16842B146DC0B00019138B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = EmbeddedSample/EmbeddedSample.entitlements;
+				CODE_SIGN_ENTITLEMENTS = GSSSampleIOS/GSSSampleIOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "EmbeddedSample/EmbeddedSample-Prefix.pch";
-				INFOPLIST_FILE = "EmbeddedSample/EmbeddedSample-Info.plist";
+				GCC_PREFIX_HEADER = "GSSSampleIOS/GSSSampleIOS-Prefix.pch";
+				INFOPLIST_FILE = "GSSSampleIOS/GSSSampleIOS-Info.plist";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				WRAPPER_EXTENSION = app;
 			};
@@ -419,16 +470,16 @@
 		EB25A189147063B2004E8CB8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(DEVELOPER_FRAMEWORKS_DIR)\"",
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
 				);
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "DesktopSample/DesktopSample-Prefix.pch";
+				GCC_PREFIX_HEADER = "GSSSampleOSX/DesktopSample-Prefix.pch";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				INFOPLIST_FILE = "DesktopSample/DesktopSample-Info.plist";
+				INFOPLIST_FILE = "GSSSampleOSX/DesktopSample-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -440,17 +491,17 @@
 		EB25A18A147063B2004E8CB8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(DEVELOPER_FRAMEWORKS_DIR)\"",
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
 				);
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = "DesktopSample/DesktopSample-Prefix.pch";
+				GCC_PREFIX_HEADER = "GSSSampleOSX/DesktopSample-Prefix.pch";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				INFOPLIST_FILE = "DesktopSample/DesktopSample-Info.plist";
+				INFOPLIST_FILE = "GSSSampleOSX/DesktopSample-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macos;
@@ -470,7 +521,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		EB168429146DC0B00019138B /* Build configuration list for PBXNativeTarget "EmbeddedSample" */ = {
+		EB168429146DC0B00019138B /* Build configuration list for PBXNativeTarget "GSSSampleIOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB16842A146DC0B00019138B /* Debug */,
@@ -479,7 +530,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		EB25A18B147063B2004E8CB8 /* Build configuration list for PBXNativeTarget "DesktopSample" */ = {
+		EB25A18B147063B2004E8CB8 /* Build configuration list for PBXNativeTarget "GSSSampleOSX" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB25A189147063B2004E8CB8 /* Debug */,

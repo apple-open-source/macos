@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,6 +66,5 @@ extern ipconfig_status_t find_service(const char * name,
 extern ipconfig_status_t remove_service(const char * name,
 					ipconfig_method_t method,
 					ipconfig_method_data_t * method_data);
-extern ipconfig_status_t set_verbose(int verbose);
 
 #endif /* _S_IPCONFIGD_H */

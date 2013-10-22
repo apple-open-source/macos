@@ -153,6 +153,9 @@
 /* Define to 1 if you have the `cap_get_proc' function. */
 #undef HAVE_CAP_GET_PROC
 
+/* Define to 1 if you have the `clock_gettime' function. */
+#undef HAVE_CLOCK_GETTIME
+
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
 
@@ -334,6 +337,9 @@
 /* Define to 1 if you have the `m' library (-lm). */
 #undef HAVE_LIBM
 
+/* Define to 1 if you have the `rt' library (-lrt). */
+#undef HAVE_LIBRT
+
 /* Define to 1 if you have the `socket' library (-lsocket). */
 #undef HAVE_LIBSOCKET
 
@@ -514,6 +520,9 @@
 /* Define to 1 if RLIMIT_NPROC is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_NPROC
 
+/* Define to 1 if RLIMIT_NTHR is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_NTHR
+
 /* Define to 1 if RLIMIT_PTHREAD is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_PTHREAD
 
@@ -668,77 +677,77 @@
 /* Define if your system's struct dirent has a member named d_stat. */
 #undef HAVE_STRUCT_DIRENT_D_STAT
 
-/* Define to 1 if `ru_idrss' is member of `struct rusage'. */
+/* Define to 1 if `ru_idrss' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_IDRSS
 
-/* Define to 1 if `ru_inblock' is member of `struct rusage'. */
+/* Define to 1 if `ru_inblock' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_INBLOCK
 
-/* Define to 1 if `ru_isrss' is member of `struct rusage'. */
+/* Define to 1 if `ru_isrss' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_ISRSS
 
-/* Define to 1 if `ru_ixrss' is member of `struct rusage'. */
+/* Define to 1 if `ru_ixrss' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_IXRSS
 
-/* Define to 1 if `ru_majflt' is member of `struct rusage'. */
+/* Define to 1 if `ru_majflt' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_MAJFLT
 
-/* Define to 1 if `ru_maxrss' is member of `struct rusage'. */
+/* Define to 1 if `ru_maxrss' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_MAXRSS
 
-/* Define to 1 if `ru_minflt' is member of `struct rusage'. */
+/* Define to 1 if `ru_minflt' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_MINFLT
 
-/* Define to 1 if `ru_msgrcv' is member of `struct rusage'. */
+/* Define to 1 if `ru_msgrcv' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_MSGRCV
 
-/* Define to 1 if `ru_msgsnd' is member of `struct rusage'. */
+/* Define to 1 if `ru_msgsnd' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_MSGSND
 
-/* Define to 1 if `ru_nivcsw' is member of `struct rusage'. */
+/* Define to 1 if `ru_nivcsw' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_NIVCSW
 
-/* Define to 1 if `ru_nsignals' is member of `struct rusage'. */
+/* Define to 1 if `ru_nsignals' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_NSIGNALS
 
-/* Define to 1 if `ru_nswap' is member of `struct rusage'. */
+/* Define to 1 if `ru_nswap' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_NSWAP
 
-/* Define to 1 if `ru_nvcsw' is member of `struct rusage'. */
+/* Define to 1 if `ru_nvcsw' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_NVCSW
 
-/* Define to 1 if `ru_oublock' is member of `struct rusage'. */
+/* Define to 1 if `ru_oublock' is a member of `struct rusage'. */
 #undef HAVE_STRUCT_RUSAGE_RU_OUBLOCK
 
 /* Define if your system's struct sockaddr_in6 has a member named
    sin6_scope_id. */
 #undef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
 
-/* Define to 1 if `st_atimensec' is member of `struct stat'. */
+/* Define to 1 if `st_atimensec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_ATIMENSEC
 
-/* Define to 1 if `st_atimespec.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `st_atimespec.tv_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_ATIMESPEC_TV_NSEC
 
-/* Define to 1 if `st_atim.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `st_atim.tv_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 
-/* Define to 1 if `st_ctimensec' is member of `struct stat'. */
+/* Define to 1 if `st_ctimensec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_CTIMENSEC
 
-/* Define to 1 if `st_ctimespec.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `st_ctimespec.tv_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_CTIMESPEC_TV_NSEC
 
-/* Define to 1 if `st_ctim.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `st_ctim.tv_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_CTIM_TV_NSEC
 
-/* Define to 1 if `st_mtimensec' is member of `struct stat'. */
+/* Define to 1 if `st_mtimensec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIMENSEC
 
-/* Define to 1 if `st_mtimespec.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `st_mtimespec.tv_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC
 
-/* Define to 1 if `st_mtim.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `st_mtim.tv_nsec' is a member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
 
 /* Define to 1 if struct timezone is defined by a system header */
@@ -930,6 +939,9 @@
    ioctl(). */
 #undef IOCTL_IN_SYS_IOCTL
 
+/* Define to 1 if musl is being used as the C library */
+#undef LIBC_MUSL
+
 /* Definitions used when a long is less than eight byte, to try to provide
    some support for eight byte operations. Note that ZSH_64_BIT_TYPE,
    OFF_T_IS_64_BIT, INO_T_IS_64_BIT do *not* get defined if long is already 64
@@ -973,6 +985,9 @@
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
 
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
@@ -993,6 +1008,9 @@
 
 /* Define to 1 if you use POSIX style signal handling. */
 #undef POSIX_SIGNALS
+
+/* Define to 1 if printf and sprintf support %lld for long long. */
+#undef PRINTF_HAS_LLD
 
 /* Define to 1 if ANSI function prototypes are usable. */
 #undef PROTOTYPES
@@ -1052,6 +1070,9 @@
 /* Define to what tgetent() returns on success (0 on HP-UX X/Open curses). */
 #undef TGETENT_SUCCESS
 
+/* Define if there is no prototype for the tgoto() terminal function. */
+#undef TGOTO_PROTO_MISSING
+
 /* Define if sys/time.h and sys/select.h cannot be both included. */
 #undef TIME_H_SELECT_H_CONFLICTS
 
@@ -1076,6 +1097,9 @@
 /* Define if getxattr() etc. require additional MacOS-style arguments */
 #undef XATTR_EXTRA_ARGS
 
+/* Define to 1 if the zlong type uses long long int. */
+#undef ZLONG_IS_LONG_LONG
+
 /* Define to a 64 bit integer type if there is one, but long is shorter. */
 #undef ZSH_64_BIT_TYPE
 
@@ -1091,6 +1115,9 @@
 
 /* Define to 1 if some variant of term.h can be included */
 #undef ZSH_HAVE_TERM_H
+
+/* Define to 1 if you want to turn on error checking for heap allocation. */
+#undef ZSH_HEAP_DEBUG
 
 /* Define to 1 if you want to use zsh's own memory allocation routines */
 #undef ZSH_MEM

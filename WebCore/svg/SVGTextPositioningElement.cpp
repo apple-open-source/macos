@@ -68,48 +68,48 @@ bool SVGTextPositioningElement::isSupportedAttribute(const QualifiedName& attrNa
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGTextPositioningElement::parseAttribute(Attribute* attr)
+void SVGTextPositioningElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGTextContentElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGTextContentElement::parseAttribute(name, value);
         return;
     }
 
-    if (attr->name() == SVGNames::xAttr) {
+    if (name == SVGNames::xAttr) {
         SVGLengthList newList;
-        newList.parse(attr->value(), LengthModeWidth);
+        newList.parse(value, LengthModeWidth);
         detachAnimatedXListWrappers(newList.size());
         setXBaseValue(newList);
         return;
     }
 
-    if (attr->name() == SVGNames::yAttr) {
+    if (name == SVGNames::yAttr) {
         SVGLengthList newList;
-        newList.parse(attr->value(), LengthModeHeight);
+        newList.parse(value, LengthModeHeight);
         detachAnimatedYListWrappers(newList.size());
         setYBaseValue(newList);
         return;
     }
 
-    if (attr->name() == SVGNames::dxAttr) {
+    if (name == SVGNames::dxAttr) {
         SVGLengthList newList;
-        newList.parse(attr->value(), LengthModeWidth);
+        newList.parse(value, LengthModeWidth);
         detachAnimatedDxListWrappers(newList.size());
         setDxBaseValue(newList);
         return;
     }
 
-    if (attr->name() == SVGNames::dyAttr) {
+    if (name == SVGNames::dyAttr) {
         SVGLengthList newList;
-        newList.parse(attr->value(), LengthModeHeight);
+        newList.parse(value, LengthModeHeight);
         detachAnimatedDyListWrappers(newList.size());
         setDyBaseValue(newList);
         return;
     }
 
-    if (attr->name() == SVGNames::rotateAttr) {
+    if (name == SVGNames::rotateAttr) {
         SVGNumberList newList;
-        newList.parse(attr->value());
+        newList.parse(value);
         detachAnimatedRotateListWrappers(newList.size());
         setRotateBaseValue(newList);
         return;

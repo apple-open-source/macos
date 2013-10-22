@@ -2,17 +2,17 @@
         <key>OpenSourceProject</key>
         <string>modulegraph</string>
         <key>OpenSourceVersion</key>
-        <string>0.9.1</string>
+        <string>0.10.1</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://pypi.python.org/pypi/modulegraph/0.9.1</string>
+        <string>http://pypi.python.org/pypi/modulegraph/</string>
         <key>OpenSourceURL</key>
-        <string>http://pypi.python.org/packages/source/m/modulegraph/modulegraph-0.9.1.tar.gz#md5=4d5e8dbfc35d7a3d1123c4cc2d958125</string>
+        <string>http://pypi.python.org/packages/source/m/modulegraph/modulegraph-0.10.1.tar.gz</string>
         <key>OpenSourceImportDate</key>
-        <string>2011-11-14</string>
+        <string>2012-11-11</string>
         <key>OpenSourceLicense</key>
         <string>MIT</string>
         <key>OpenSourceLicenseFile</key>
         <string>python_modules.txt</string>
         <key>OpenSourceMD5</key>
-        <string>4d5e8dbfc35d7a3d1123c4cc2d958125</string>
+        <string>ef6c1479128512dbed6d9dbce9ef5d42</string>
 </dict>

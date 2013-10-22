@@ -1,9 +1,9 @@
 /*
- * "$Id: sysman.c 7928 2008-09-10 22:14:22Z mike $"
+ * "$Id: sysman.c 11105 2013-07-08 12:28:32Z msweet $"
  *
  *   System management functions for the CUPS scheduler.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -44,6 +44,8 @@
 #  include <IOKit/pwr_mgt/IOPMLib.h>
 #  ifdef HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H
 #    include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#  else
+#    define kIOPMAssertionTypeDenySystemSleep CFSTR("DenySystemSleep")
 #  endif /* HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H */
 #endif /* __APPLE__ */
 
@@ -69,9 +71,9 @@
  * Local globals...
  */
 
-#ifdef kIOPMAssertionTypeDenySystemSleep
-static IOPMAssertionID	dark_wake = 0;	/* "Dark wake" assertion for sharing */
-#endif /* kIOPMAssertionTypeDenySystemSleep */
+#if defined(kIOPMAssertionTypeDenySystemSleep) || defined(kIOPMAssertNetworkClientActive)
+static IOPMAssertionID	keep_awake = 0;	/* Keep the system awake while printing */
+#endif /* kIOPMAssertionTypeDenySystemSleep || kIOPMAssertNetworkClientActive */
 
 
 /*
@@ -215,21 +217,32 @@ cupsdSetBusyState(void)
 #endif /* HAVE_VPROC_TRANSACTION_BEGIN */
   }
 
-#ifdef kIOPMAssertionTypeDenySystemSleep
-  if (cupsArrayCount(PrintingJobs) > 0 && !dark_wake)
+#if defined(kIOPMAssertionTypeDenySystemSleep) || defined(kIOPMAssertNetworkClientActive)
+  if (cupsArrayCount(PrintingJobs) > 0 && !keep_awake)
   {
-    cupsdLogMessage(CUPSD_LOG_DEBUG, "Asserting dark wake.");
+#  ifdef kIOPMAssertNetworkClientActive
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "Asserting NetworkClientActive.");
+
+    IOPMAssertionCreateWithName(kIOPMAssertNetworkClientActive,
+				kIOPMAssertionLevelOn,
+				CFSTR("org.cups.cupsd"), &keep_awake);
+
+#  else
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "Asserting DenySystemSleep.");
+
     IOPMAssertionCreateWithName(kIOPMAssertionTypeDenySystemSleep,
 				kIOPMAssertionLevelOn,
-				CFSTR("org.cups.cupsd"), &dark_wake);
+				CFSTR("org.cups.cupsd"), &keep_awake);
+
+#  endif /* kIOPMAssertNetworkClientActive */
   }
-  else if (cupsArrayCount(PrintingJobs) == 0 && dark_wake)
+  else if (cupsArrayCount(PrintingJobs) == 0 && keep_awake)
   {
-    cupsdLogMessage(CUPSD_LOG_DEBUG, "Releasing dark wake assertion.");
-    IOPMAssertionRelease(dark_wake);
-    dark_wake = 0;
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "Releasing power assertion.");
+    IOPMAssertionRelease(keep_awake);
+    keep_awake = 0;
   }
-#endif /* kIOPMAssertionTypeDenySystemSleep */
+#endif /* kIOPMAssertionTypeDenySystemSleep || kIOPMAssertNetworkClientActive */
 }
 
 
@@ -874,11 +887,11 @@ sysUpdate(void)
       * sleep (different than idle sleep)...
       */
 
-      if (dark_wake)
+      if (keep_awake)
       {
 	cupsdLogMessage(CUPSD_LOG_DEBUG, "Releasing dark wake assertion.");
-	IOPMAssertionRelease(dark_wake);
-	dark_wake = 0;
+	IOPMAssertionRelease(keep_awake);
+	keep_awake = 0;
       }
 #endif /* kIOPMAssertionTypeDenySystemSleep */
 
@@ -935,12 +948,12 @@ sysUpdate(void)
       Sleeping = 0;
 
 #ifdef kIOPMAssertionTypeDenySystemSleep
-      if (cupsArrayCount(PrintingJobs) > 0 && !dark_wake)
+      if (cupsArrayCount(PrintingJobs) > 0 && !keep_awake)
       {
 	cupsdLogMessage(CUPSD_LOG_DEBUG, "Asserting dark wake.");
 	IOPMAssertionCreateWithName(kIOPMAssertionTypeDenySystemSleep,
 				    kIOPMAssertionLevelOn,
-				    CFSTR("org.cups.cupsd"), &dark_wake);
+				    CFSTR("org.cups.cupsd"), &keep_awake);
       }
 #endif /* kIOPMAssertionTypeDenySystemSleep */
 
@@ -1002,5 +1015,5 @@ sysUpdate(void)
 
 
 /*
- * End of "$Id: sysman.c 7928 2008-09-10 22:14:22Z mike $".
+ * End of "$Id: sysman.c 11105 2013-07-08 12:28:32Z msweet $".
  */

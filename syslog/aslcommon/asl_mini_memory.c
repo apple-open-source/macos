@@ -253,6 +253,7 @@ static mini_mem_string_t *
 asl_mini_memory_string_retain(asl_mini_memory_t *s, const char *str, int create)
 {
 	uint32_t i, where, hash, len;
+	mini_mem_string_t *new;
 
 	if (s == NULL) return NULL;
 	if (str == NULL) return NULL;
@@ -297,8 +298,11 @@ asl_mini_memory_string_retain(asl_mini_memory_t *s, const char *str, int create)
 		return NULL;
 	}
 
+	new = mem_string_new(str, len, hash);
+	if (new == NULL) return NULL;
+
+	s->string_cache[where] = new;
 	s->string_count++;
-	s->string_cache[where] = mem_string_new(str, len, hash);
 
 	return s->string_cache[where];
 }
@@ -359,6 +363,7 @@ asl_mini_memory_record_clear(asl_mini_memory_t *s, mini_mem_record_t *r)
 	if (r == NULL) return;
 
 	asl_mini_memory_string_release(s, r->sender);
+	asl_mini_memory_string_release(s, r->sender_mach_uuid);
 	asl_mini_memory_string_release(s, r->facility);
 	asl_mini_memory_string_release(s, r->message);
 
@@ -398,6 +403,8 @@ asl_mini_memory_message_encode(asl_mini_memory_t *s, aslmsg msg)
 	r->flags = 0;
 	r->level = ASL_LEVEL_DEBUG;
 	r->pid = -1;
+	r->ruid = -1;
+	r->rgid = -1;
 	r->time = (uint64_t)-1;
 	r->nano = (uint32_t)-1;
 
@@ -419,6 +426,10 @@ asl_mini_memory_message_encode(asl_mini_memory_t *s, aslmsg msg)
 		else if (!strcmp(key, ASL_KEY_SENDER))
 		{
 			if (val != NULL) r->sender = asl_mini_memory_string_retain(s, val, 1);
+		}
+		else if (!strcmp(key, ASL_KEY_SENDER_MACH_UUID))
+		{
+			if (val != NULL) r->sender_mach_uuid = asl_mini_memory_string_retain(s, val, 1);
 		}
 		else if (!strcmp(key, ASL_KEY_PID))
 		{
@@ -478,13 +489,19 @@ asl_mini_memory_message_encode(asl_mini_memory_t *s, aslmsg msg)
 		}
 		else if (!strcmp(key, ASL_KEY_READ_UID))
 		{
-			/* Ignore */
-			continue;
+			if (((r->flags & ASL_MSG_FLAG_READ_UID_SET) == 0) && (val != NULL))
+			{
+				r->ruid = atoi(val);
+				r->flags |= ASL_MSG_FLAG_READ_UID_SET;
+			}
 		}
 		else if (!strcmp(key, ASL_KEY_READ_GID))
 		{
-			/* Ignore */
-			continue;
+			if (((r->flags & ASL_MSG_FLAG_READ_GID_SET) == 0) && (val != NULL))
+			{
+				r->rgid = atoi(val);
+				r->flags |= ASL_MSG_FLAG_READ_GID_SET;
+			}
 		}
 		else if (!strcmp(key, CFLOG_LOCAL_TIME_KEY))
 		{
@@ -510,7 +527,7 @@ asl_mini_memory_message_encode(asl_mini_memory_t *s, aslmsg msg)
 			}
 			else
 			{
-				r->kvlist = (mini_mem_string_t **)realloc(r->kvlist, (r->kvcount + 2) * sizeof(mini_mem_string_t *));
+				r->kvlist = (mini_mem_string_t **)reallocf(r->kvlist, (r->kvcount + 2) * sizeof(mini_mem_string_t *));
 			}
 
 			if (r->kvlist == NULL)
@@ -608,6 +625,12 @@ asl_mini_memory_message_decode(asl_mini_memory_t *s, mini_mem_record_t *r, aslms
 		asl_set(msg, ASL_KEY_SENDER, r->sender->str);
 	}
 
+	/* Sender mach UUID */
+	if (r->sender_mach_uuid != NULL)
+	{
+		asl_set(msg, ASL_KEY_SENDER_MACH_UUID, r->sender_mach_uuid->str);
+	}
+
 	/* Facility */
 	if (r->facility != NULL)
 	{
@@ -625,6 +648,20 @@ asl_mini_memory_message_decode(asl_mini_memory_t *s, mini_mem_record_t *r, aslms
 	if (r->message != NULL)
 	{
 		asl_set(msg, ASL_KEY_MSG, r->message->str);
+	}
+
+	/* ReadUID */
+	if (r->flags & ASL_MSG_FLAG_READ_UID_SET)
+	{
+		snprintf(tmp, sizeof(tmp), "%d", r->ruid);
+		asl_set(msg, ASL_KEY_READ_UID, tmp);
+	}
+
+	/* ReadGID */
+	if (r->flags & ASL_MSG_FLAG_READ_GID_SET)
+	{
+		snprintf(tmp, sizeof(tmp), "%d", r->rgid);
+		asl_set(msg, ASL_KEY_READ_GID, tmp);
 	}
 
 	/* Key - Value List */
@@ -645,9 +682,9 @@ asl_mini_memory_message_decode(asl_mini_memory_t *s, mini_mem_record_t *r, aslms
 }
 
 uint32_t
-asl_mini_memory_fetch(asl_mini_memory_t *s, uint64_t mid, aslmsg *msg)
+asl_mini_memory_fetch(asl_mini_memory_t *s, uint64_t mid, aslmsg *msg, int32_t ruid, int32_t rgid)
 {
-	uint32_t i;
+	uint32_t i, status;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (msg == NULL) return ASL_STATUS_INVALID_ARG;
@@ -655,7 +692,13 @@ asl_mini_memory_fetch(asl_mini_memory_t *s, uint64_t mid, aslmsg *msg)
 	for (i = 0; i < s->record_count; i++)
 	{
 		if (s->record[i]->mid == 0) break;
-		if (s->record[i]->mid == mid) return asl_mini_memory_message_decode(s, s->record[i], msg);
+
+		if (s->record[i]->mid == mid)
+		{
+			status = asl_core_check_access(s->record[i]->ruid, s->record[i]->rgid, ruid, rgid, s->record[i]->flags);
+			if (status != ASL_STATUS_OK) return status;
+			return asl_mini_memory_message_decode(s, s->record[i], msg);
+		}
 	}
 
 	return ASL_STATUS_INVALID_ID;
@@ -772,6 +815,34 @@ asl_mini_memory_query_to_record(asl_mini_memory_t *s, asl_msg_t *q, uint32_t *ty
 			*type |= ASL_QUERY_MATCH_PID;
 			out->pid = atoi(val);
 		}
+		else if (!strcmp(key, ASL_KEY_READ_UID))
+		{
+			if (val == NULL) continue;
+
+			if (*type & ASL_QUERY_MATCH_RUID)
+			{
+				asl_mini_memory_record_free(s, out);
+				*type = ASL_QUERY_MATCH_SLOW;
+				return NULL;
+			}
+
+			*type |= ASL_QUERY_MATCH_RUID;
+			out->ruid = atoi(val);
+		}
+		else if (!strcmp(key, ASL_KEY_READ_GID))
+		{
+			if (val == NULL) continue;
+
+			if (*type & ASL_QUERY_MATCH_RGID)
+			{
+				asl_mini_memory_record_free(s, out);
+				*type = ASL_QUERY_MATCH_SLOW;
+				return NULL;
+			}
+
+			*type |= ASL_QUERY_MATCH_RGID;
+			out->rgid = atoi(val);
+		}
 		else if (!strcmp(key, ASL_KEY_SENDER))
 		{
 			if (val == NULL) continue;
@@ -786,6 +857,26 @@ asl_mini_memory_query_to_record(asl_mini_memory_t *s, asl_msg_t *q, uint32_t *ty
 			*type |= ASL_QUERY_MATCH_SENDER;
 			out->sender = asl_mini_memory_string_retain(s, val, 0);
 			if (out->sender == NULL)
+			{
+				asl_mini_memory_record_free(s, out);
+				*type = ASL_QUERY_MATCH_FALSE;
+				return NULL;
+			}
+		}
+		else if (!strcmp(key, ASL_KEY_SENDER_MACH_UUID))
+		{
+			if (val == NULL) continue;
+
+			if (*type & ASL_QUERY_MATCH_SMUUID)
+			{
+				asl_mini_memory_record_free(s, out);
+				*type = ASL_QUERY_MATCH_SLOW;
+				return NULL;
+			}
+
+			*type |= ASL_QUERY_MATCH_SMUUID;
+			out->sender_mach_uuid = asl_mini_memory_string_retain(s, val, 0);
+			if (out->sender_mach_uuid == NULL)
 			{
 				asl_mini_memory_record_free(s, out);
 				*type = ASL_QUERY_MATCH_FALSE;
@@ -860,7 +951,7 @@ asl_mini_memory_query_to_record(asl_mini_memory_t *s, asl_msg_t *q, uint32_t *ty
 			}
 			else
 			{
-				out->kvlist = (mini_mem_string_t **)realloc(out->kvlist, (out->kvcount + 2) * sizeof(mini_mem_string_t *));
+				out->kvlist = (mini_mem_string_t **)reallocf(out->kvlist, (out->kvcount + 2) * sizeof(mini_mem_string_t *));
 			}
 
 			if (out->kvlist == NULL)
@@ -892,7 +983,10 @@ asl_mini_memory_fast_match(asl_mini_memory_t *s, mini_mem_record_t *r, uint32_t 
 	if ((qtype & ASL_QUERY_MATCH_NANO) && (q->nano != r->nano)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_LEVEL) && (q->level != r->level)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_PID) && (q->pid != r->pid)) return 0;
+	if ((qtype & ASL_QUERY_MATCH_RUID) && (q->ruid != r->ruid)) return 0;
+	if ((qtype & ASL_QUERY_MATCH_RGID) && (q->rgid != r->rgid)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_SENDER) && (q->sender != r->sender)) return 0;
+	if ((qtype & ASL_QUERY_MATCH_SMUUID) && (q->sender_mach_uuid != r->sender_mach_uuid)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_FACILITY) && (q->facility != r->facility)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_MESSAGE) && (q->message != r->message)) return 0;
 
@@ -930,7 +1024,7 @@ asl_mini_memory_slow_match(asl_mini_memory_t *s, mini_mem_record_t *r, mini_mem_
 }
 
 uint32_t
-asl_mini_memory_match(asl_mini_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction)
+asl_mini_memory_match_restricted_uuid(asl_mini_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid, const char *uuid_str)
 {
 	uint32_t status, i, where, start, j, do_match, did_match, rescount, *qtype;
 	mini_mem_record_t **qp;
@@ -1010,7 +1104,16 @@ asl_mini_memory_match(asl_mini_memory_t *s, aslresponse query, aslresponse *res,
 	 */
 	for (i = 0; i < s->record_count; i++)
 	{
-		if (s->record[where]->mid == 0)
+		status = ASL_STATUS_INVALID_ID;
+		if (s->record[where]->mid != 0) status = asl_core_check_access(s->record[where]->ruid, s->record[where]->rgid, ruid, rgid, s->record[where]->flags);
+
+		if ((status == ASL_STATUS_OK) && (uuid_str != NULL))
+		{
+			if (s->record[where]->sender_mach_uuid == NULL) status = ASL_STATUS_INVALID_ID;
+			else if (strcmp(s->record[where]->sender_mach_uuid->str, uuid_str) != 0) status = ASL_STATUS_INVALID_ID;
+		}
+
+		if (status != ASL_STATUS_OK)
 		{
 			if (direction >= 0)
 			{
@@ -1135,4 +1238,10 @@ asl_mini_memory_match(asl_mini_memory_t *s, aslresponse query, aslresponse *res,
 
 	(*res)->curr = 0;
 	return ASL_STATUS_OK;
+}
+
+uint32_t
+asl_mini_memory_match(asl_mini_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid)
+{
+	return asl_mini_memory_match_restricted_uuid(s, query, res, last_id, start_id, count, direction, ruid, rgid, NULL);
 }

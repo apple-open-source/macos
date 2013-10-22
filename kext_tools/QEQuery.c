@@ -103,7 +103,7 @@ Boolean _QEQueryStartGroup(
     Boolean andFlag,
     Boolean negated);
 CFMutableDictionaryRef _QEQueryCreateGroup(Boolean andFlag);
-CFMutableDictionaryRef _QEQueryYankElement(QEQueryRef query);
+CF_RETURNS_RETAINED CFMutableDictionaryRef _QEQueryYankElement(QEQueryRef query);
 Boolean _QEQueryStackTopIsAndGroup(QEQueryRef query);
 Boolean _QEQueryStackTopIsOrGroup(QEQueryRef query);
 Boolean _QEQueryStackTopHasCount(QEQueryRef query, CFIndex count);
@@ -116,7 +116,7 @@ Boolean _QEQueryPopGroupAndCoalesce(
 CFStringRef _QEQueryOperatorForToken(
     QEQueryRef query,
     CFStringRef token);
-CFStringRef _QEPredicateForString(
+CF_RETURNS_RETAINED CFStringRef _QEPredicateForString(
     QEQueryRef query,
     char * string);
 QEQueryParseCallback _QEQueryParseCallbackForPredicate(
@@ -525,7 +525,7 @@ QEQueryAppendElementFromArgs(
 
     }
 
-    CFRelease(predicate);
+    if (predicate)  CFRelease(predicate);
     predicate = _QEPredicateForString(query, argv[index]);
 
    /* This is not an 'else'! Not applies to most of the following.

@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_asn1.h 11708 2007-02-12 23:01:19Z shyouhei $
+ * $Id: ossl_asn1.h 27437 2010-04-22 08:04:13Z nobu $
  * 'OpenSSL for Ruby' team members
  * Copyright (C) 2003
  * All rights reserved.
@@ -32,12 +32,12 @@ ASN1_INTEGER *num_to_asn1integer(VALUE, ASN1_INTEGER *);
  * ASN1 module
  */
 extern VALUE mASN1;
-extern VALUE eASN1Error;  
+extern VALUE eASN1Error;
 
 extern VALUE cASN1Data;
 extern VALUE cASN1Primitive;
 extern VALUE cASN1Constructive;
- 
+
 extern VALUE cASN1Boolean;                           /* BOOLEAN           */
 extern VALUE cASN1Integer, cASN1Enumerated;          /* INTEGER           */
 extern VALUE cASN1BitString;                         /* BIT STRING        */

@@ -21,9 +21,8 @@
 #include "config.h"
 #include "webkitfavicondatabase.h"
 
-#include "DatabaseDetails.h"
-#include "DatabaseTracker.h"
 #include "FileSystem.h"
+#include "GdkCairoUtilities.h"
 #include "IconDatabase.h"
 #include "IconDatabaseClient.h"
 #include "Image.h"
@@ -79,7 +78,6 @@ static void webkitFaviconDatabaseClose(WebKitFaviconDatabase* database);
 class IconDatabaseClientGtk : public IconDatabaseClient {
 public:
     // IconDatabaseClient interface
-    virtual bool performImport() { return true; }
     virtual void didRemoveAllIcons() { };
 
     // Called when an icon is requested while the initial import is
@@ -243,14 +241,14 @@ static void webkit_favicon_database_class_init(WebKitFaviconDatabaseClass* klass
     gobjectClass->set_property = webkit_favicon_database_set_property;
     gobjectClass->get_property = webkit_favicon_database_get_property;
 
-     /**
-      * WebKitFaviconDatabase:path:
-      *
-      * The absolute path of the icon database folder.
-      *
-      * Since: 1.8
-      */
-     g_object_class_install_property(gobjectClass, PROP_PATH,
+    /**
+     * WebKitFaviconDatabase:path:
+     *
+     * The absolute path of the icon database folder.
+     *
+     * Since: 1.8
+     */
+    g_object_class_install_property(gobjectClass, PROP_PATH,
                                      g_param_spec_string("path",
                                                          _("Path"),
                                                          _("The absolute path of the icon database folder"),
@@ -258,29 +256,29 @@ static void webkit_favicon_database_class_init(WebKitFaviconDatabaseClass* klass
                                                          WEBKIT_PARAM_READWRITE));
 
 
-     /**
-      * WebKitFaviconDatabase::icon-loaded:
-      * @database: the object on which the signal is emitted
-      * @frame_uri: the URI of the main frame of a Web page containing
-      * the icon
-      *
-      * This signal is fired if an icon is loaded on any
-      * #WebKitWebView. If you are only interested in a particular
-      * #WebKitWebView see #WebKitWebView::icon-loaded.
-      *
-      * Note that this signal carries the URI of the frame that loads
-      * the icon, while #WebKitWebView::icon-loaded provides the URI
-      * of the favicon.
-      *
-      * Since: 1.8
-      */
-     webkit_favicon_database_signals[ICON_LOADED] = g_signal_new("icon-loaded",
-                                                              G_TYPE_FROM_CLASS(klass),
-                                                              (GSignalFlags)G_SIGNAL_RUN_LAST,
-                                                              0, 0, 0,
-                                                              webkit_marshal_VOID__STRING,
-                                                              G_TYPE_NONE, 1,
-                                                              G_TYPE_STRING);
+    /**
+     * WebKitFaviconDatabase::icon-loaded:
+     * @database: the object on which the signal is emitted
+     * @frame_uri: the URI of the main frame of a Web page containing
+     * the icon
+     *
+     * This signal is fired if an icon is loaded on any
+     * #WebKitWebView. If you are only interested in a particular
+     * #WebKitWebView see #WebKitWebView::icon-loaded.
+     *
+     * Note that this signal carries the URI of the frame that loads
+     * the icon, while #WebKitWebView::icon-loaded provides the URI
+     * of the favicon.
+     *
+     * Since: 1.8
+     */
+    webkit_favicon_database_signals[ICON_LOADED] = g_signal_new("icon-loaded",
+        G_TYPE_FROM_CLASS(klass),
+        (GSignalFlags)G_SIGNAL_RUN_LAST,
+        0, 0, 0,
+        webkit_marshal_VOID__STRING,
+        G_TYPE_NONE, 1,
+        G_TYPE_STRING);
 
     g_type_class_add_private(klass, sizeof(WebKitFaviconDatabasePrivate));
 }
@@ -394,17 +392,19 @@ static GdkPixbuf* getIconPixbufSynchronously(WebKitFaviconDatabase* database, co
 
     // The exact size we pass is irrelevant to the iconDatabase code.
     // We must pass something greater than 0x0 to get a pixbuf.
-    Image* icon = iconDatabase().synchronousIconForPageURL(pageURL, !iconSize.isZero() ? iconSize : IntSize(1, 1));
-    if (!icon)
+    RefPtr<cairo_surface_t> surface = iconDatabase().synchronousNativeIconForPageURL(pageURL, !iconSize.isZero() ? iconSize : IntSize(1, 1));
+    if (!surface)
         return 0;
 
-    GRefPtr<GdkPixbuf> pixbuf = adoptGRef(icon->getGdkPixbuf());
+    GRefPtr<GdkPixbuf> pixbuf = adoptGRef(cairoImageSurfaceToGdkPixbuf(surface.get()));
     if (!pixbuf)
         return 0;
 
     // A size of (0, 0) means the maximum available size.
-    if (!iconSize.isZero() && (icon->width() != iconSize.width() || icon->height() != iconSize.height()))
-        pixbuf = gdk_pixbuf_scale_simple(pixbuf.get(), iconSize.width(), iconSize.height(), GDK_INTERP_BILINEAR);
+    int pixbufWidth = gdk_pixbuf_get_width(pixbuf.get());
+    int pixbufHeight = gdk_pixbuf_get_height(pixbuf.get());
+    if (!iconSize.isZero() && (pixbufWidth != iconSize.width() || pixbufHeight != iconSize.height()))
+        pixbuf = adoptGRef(gdk_pixbuf_scale_simple(pixbuf.get(), iconSize.width(), iconSize.height(), GDK_INTERP_BILINEAR));
     return pixbuf.leakRef();
 }
 
@@ -611,18 +611,18 @@ static void webkitFaviconDatabaseImportFinished(WebKitFaviconDatabase* database)
     Vector<String> toDeleteURLs;
     PendingIconRequestMap::const_iterator end = database->priv->pendingIconRequests.end();
     for (PendingIconRequestMap::const_iterator iter = database->priv->pendingIconRequests.begin(); iter != end; ++iter) {
-        String iconURL = iconDatabase().synchronousIconURLForPageURL(iter->first);
+        String iconURL = iconDatabase().synchronousIconURLForPageURL(iter->key);
         if (!iconURL.isEmpty())
             continue;
 
-        PendingIconRequestVector* icons = iter->second;
+        PendingIconRequestVector* icons = iter->value;
         for (size_t i = 0; i < icons->size(); ++i) {
             PendingIconRequest* request = icons->at(i).get();
             if (request->asyncResult())
                 request->asyncResultComplete(0);
         }
 
-        toDeleteURLs.append(iter->first);
+        toDeleteURLs.append(iter->key);
     }
 
     for (size_t i = 0; i < toDeleteURLs.size(); ++i)

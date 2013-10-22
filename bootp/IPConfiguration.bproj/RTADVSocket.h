@@ -64,9 +64,6 @@ typedef RTADVSocketReceiveFunc * RTADVSocketReceiveFuncPtr;
 
 typedef struct RTADVSocket * RTADVSocketRef;
 
-void
-RTADVSocketSetLogFile(FILE * log_file);
-
 RTADVSocketRef
 RTADVSocketCreate(interface_t * if_p);
 

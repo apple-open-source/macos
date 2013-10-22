@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -104,10 +104,21 @@ add_configured_interface(const void *key, const void *value, void *context)
 
 	// create the VLAN interface
 	vlan = (SCVLANInterfaceRef)_SCVLANInterfaceCreatePrivate(NULL, vlan_if);
+	assert(vlan != NULL);
 
 	// set physical interface and tag
 	vlan_physical = _SCNetworkInterfaceCreateWithBSDName(NULL, vlan_physical_if,
 							     kIncludeBondInterfaces);
+	assert(vlan_physical != NULL);
+
+	// since we KNOW that the physical interface supported VLANs when
+	// it was first established it's OK to force that state here ...
+	// and this is needed for the case when the interface (e.g. a
+	// dongle) is not currently attached to the system
+	interfacePrivate = (SCNetworkInterfacePrivateRef)vlan_physical;
+	interfacePrivate->supportsVLAN = TRUE;
+
+	// and now we associate the physical interface and tag
 	SCVLANInterfaceSetPhysicalInterfaceAndTag(vlan, vlan_physical, vlan_tag);
 	CFRelease(vlan_physical);
 
@@ -130,126 +141,6 @@ add_configured_interface(const void *key, const void *value, void *context)
 	CFArrayAppendValue(myContext->vlans, vlan);
 	CFRelease(vlan);
 
-	return;
-}
-
-
-static void
-add_legacy_configuration(addContextRef myContext)
-{
-	CFIndex				i;
-	CFIndex				n;
-	SCPreferencesRef		prefs;
-	CFArrayRef			vlans;
-
-#define VLAN_PREFERENCES_ID		CFSTR("VirtualNetworkInterfaces.plist")
-#define	VLAN_PREFERENCES_VLANS		CFSTR("VLANs")
-#define	__kVLANInterface_interface	CFSTR("interface")	// e.g. vlan0, vlan1, ...
-#define	__kVLANInterface_device		CFSTR("device")		// e.g. en0, en1, ...
-#define __kVLANInterface_tag		CFSTR("tag")		// e.g. 1 <= tag <= 4094
-#define __kVLANInterface_options	CFSTR("options")	// e.g. UserDefinedName
-
-	prefs = SCPreferencesCreate(NULL, CFSTR("SCVLANInterfaceCopyAll"), VLAN_PREFERENCES_ID);
-	if (prefs == NULL) {
-		return;
-	}
-
-	vlans = SCPreferencesGetValue(prefs, VLAN_PREFERENCES_VLANS);
-	if ((vlans != NULL) && !isA_CFArray(vlans)) {
-		CFRelease(prefs);	// if the prefs are confused
-		return;
-	}
-
-	n = (vlans != NULL) ? CFArrayGetCount(vlans) : 0;
-	for (i = 0; i < n; i++) {
-		CFDictionaryRef			dict;
-		SCNetworkInterfacePrivateRef	interfacePrivate;
-		Boolean				ok;
-		CFDictionaryRef			options;
-		CFStringRef			path;
-		SCVLANInterfaceRef		vlan;
-		CFStringRef			vlan_if;
-		CFDictionaryRef			vlan_dict;
-		SCNetworkInterfaceRef		vlan_physical;
-		CFStringRef			vlan_physical_if;
-		CFNumberRef			vlan_tag;
-
-		vlan_dict = CFArrayGetValueAtIndex(vlans, i);
-		if (!isA_CFDictionary(vlan_dict)) {
-			continue;	// if the prefs are confused
-		}
-
-		vlan_if = CFDictionaryGetValue(vlan_dict, __kVLANInterface_interface);
-		if (!isA_CFString(vlan_if)) {
-			continue;	// if the prefs are confused
-		}
-
-		vlan_physical_if = CFDictionaryGetValue(vlan_dict, __kVLANInterface_device);
-		if (!isA_CFString(vlan_physical_if)) {
-			continue;	// if the prefs are confused
-		}
-
-		vlan_tag = CFDictionaryGetValue(vlan_dict, __kVLANInterface_tag);
-		if (!isA_CFNumber(vlan_tag)) {
-			continue;	// if the prefs are confused
-		}
-
-		// check if this VLAN interface has already been allocated
-		path = CFStringCreateWithFormat(NULL,
-						NULL,
-						CFSTR("/%@/%@/%@"),
-						kSCPrefVirtualNetworkInterfaces,
-						kSCNetworkInterfaceTypeVLAN,
-						vlan_if);
-		dict = SCPreferencesPathGetValue(myContext->prefs, path);
-		if (dict != NULL) {
-			// if VLAN interface name not available
-			CFRelease(path);
-			continue;
-		}
-
-		// add a placeholder for the VLAN in the stored preferences
-		dict = CFDictionaryCreate(NULL,
-					  NULL, NULL, 0,
-					  &kCFTypeDictionaryKeyCallBacks,
-					  &kCFTypeDictionaryValueCallBacks);
-		ok = SCPreferencesPathSetValue(myContext->prefs, path, dict);
-		CFRelease(dict);
-		CFRelease(path);
-		if (!ok) {
-			// if the VLAN could not be saved
-			continue;
-		}
-
-		// create the VLAN interface
-		vlan = (SCVLANInterfaceRef)_SCVLANInterfaceCreatePrivate(NULL, vlan_if);
-
-		// estabish link to the stored configuration
-		interfacePrivate = (SCNetworkInterfacePrivateRef)vlan;
-		interfacePrivate->prefs = CFRetain(myContext->prefs);
-
-		// set the interface and tag (which updates the stored preferences)
-		vlan_physical = _SCNetworkInterfaceCreateWithBSDName(NULL, vlan_physical_if,
-								     kIncludeBondInterfaces);
-		SCVLANInterfaceSetPhysicalInterfaceAndTag(vlan, vlan_physical, vlan_tag);
-		CFRelease(vlan_physical);
-
-		// set display name (which updates the stored preferences)
-		options = CFDictionaryGetValue(vlan_dict, __kVLANInterface_options);
-		if (isA_CFDictionary(options)) {
-			CFStringRef	vlan_name;
-
-			vlan_name = CFDictionaryGetValue(options, CFSTR("VLAN Name"));
-			if (isA_CFString(vlan_name)) {
-				SCVLANInterfaceSetLocalizedDisplayName(vlan, vlan_name);
-			}
-		}
-
-		CFArrayAppendValue(myContext->vlans, vlan);
-		CFRelease(vlan);
-	}
-
-	CFRelease(prefs);
 	return;
 }
 
@@ -299,6 +190,22 @@ findVLANInterfaceAndTag(SCPreferencesRef prefs, SCNetworkInterfaceRef physical, 
 #pragma mark SCVLANInterface APIs
 
 
+static __inline__ void
+my_CFDictionaryApplyFunction(CFDictionaryRef			theDict,
+			     CFDictionaryApplierFunction	applier,
+			     void				*context)
+{
+	CFAllocatorRef	myAllocator;
+	CFDictionaryRef	myDict;
+
+	myAllocator = CFGetAllocator(theDict);
+	myDict      = CFDictionaryCreateCopy(myAllocator, theDict);
+	CFDictionaryApplyFunction(myDict, applier, context);
+	CFRelease(myDict);
+	return;
+}
+
+
 CFArrayRef
 SCVLANInterfaceCopyAll(SCPreferencesRef prefs)
 {
@@ -315,20 +222,10 @@ SCVLANInterfaceCopyAll(SCPreferencesRef prefs)
 					kSCPrefVirtualNetworkInterfaces,
 					kSCNetworkInterfaceTypeVLAN);
 	dict = SCPreferencesPathGetValue(prefs, path);
-	if (isA_CFDictionary(dict)) {
-		CFDictionaryApplyFunction(dict, add_configured_interface, &context);
-	} else {
-		// no VLAN configuration, upgrade from legacy configuration
-		dict = CFDictionaryCreate(NULL,
-					  NULL, NULL, 0,
-					  &kCFTypeDictionaryKeyCallBacks,
-					  &kCFTypeDictionaryValueCallBacks);
-		(void) SCPreferencesPathSetValue(prefs, path, dict);
-		CFRelease(dict);
-
-		add_legacy_configuration(&context);
-	}
 	CFRelease(path);
+	if (isA_CFDictionary(dict)) {
+		my_CFDictionaryApplyFunction(dict, add_configured_interface, &context);
+	}
 
 	return context.vlans;
 }
@@ -481,6 +378,7 @@ _SCVLANInterfaceCopyActive(void)
 		// create the VLAN interface
 		vlan_if = CFStringCreateWithCString(NULL, ifp->ifa_name, kCFStringEncodingASCII);
 		vlan    = (SCVLANInterfaceRef)_SCVLANInterfaceCreatePrivate(NULL, vlan_if);
+		assert(vlan != NULL);
 		CFRelease(vlan_if);
 
 		// set the physical interface and tag
@@ -488,10 +386,12 @@ _SCVLANInterfaceCopyActive(void)
 		vlan_physical_if = CFStringCreateWithCString(NULL, vlr_parent, kCFStringEncodingASCII);
 		vlan_physical = _SCNetworkInterfaceCreateWithBSDName(NULL, vlan_physical_if,
 								     kIncludeBondInterfaces);
+		assert(vlan_physical != NULL);
 		CFRelease(vlan_physical_if);
 
 		vlr_tag  = vreq.vlr_tag;
 		vlan_tag = CFNumberCreate(NULL, kCFNumberIntType, &vlr_tag);
+		assert(vlan_tag != NULL);
 
 		SCVLANInterfaceSetPhysicalInterfaceAndTag(vlan, vlan_physical, vlan_tag);
 		CFRelease(vlan_physical);
@@ -504,7 +404,9 @@ _SCVLANInterfaceCopyActive(void)
 
     done :
 
-	(void) close(s);
+	if (s != -1) {
+		(void) close(s);
+	}
 	freeifaddrs(ifap);
 	return vlans;
 }
@@ -564,7 +466,7 @@ SCVLANInterfaceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef physical, CF
 		Boolean				ok;
 		CFStringRef			path;
 
-		vlan_if = CFStringCreateWithFormat(allocator, NULL, CFSTR("vlan%d"), i);
+		vlan_if = CFStringCreateWithFormat(allocator, NULL, CFSTR("vlan%ld"), i);
 		path    = CFStringCreateWithFormat(allocator,
 						   NULL,
 						   CFSTR("/%@/%@/%@"),
@@ -757,7 +659,9 @@ SCVLANInterfaceSetPhysicalInterfaceAndTag(SCVLANInterfaceRef vlan, SCNetworkInte
 				     kSCPropVirtualNetworkInterfacesVLANInterface,
 				     SCNetworkInterfaceGetBSDName(physical));
 		CFDictionarySetValue(newDict, kSCPropVirtualNetworkInterfacesVLANTag, tag);
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}
@@ -827,7 +731,9 @@ SCVLANInterfaceSetLocalizedDisplayName(SCVLANInterfaceRef vlan, CFStringRef newN
 		} else {
 			CFDictionaryRemoveValue(newDict, kSCPropUserDefinedName);
 		}
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}
@@ -889,7 +795,9 @@ SCVLANInterfaceSetOptions(SCVLANInterfaceRef vlan, CFDictionaryRef newOptions)
 		} else {
 			CFDictionaryRemoveValue(newDict, kSCPropVirtualNetworkInterfacesVLANOptions);
 		}
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}

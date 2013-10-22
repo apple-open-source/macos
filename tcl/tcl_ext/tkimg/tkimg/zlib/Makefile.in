@@ -263,9 +263,15 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 # Setting the VPATH variable to a list of paths will cause the makefile
 # to look into these paths when resolving .c to .obj dependencies.
 # As necessary, add $(srcdir):$(srcdir)/compat:....
+#
+# 13302200: #include_next doesn't work right if the C source is in the same
+# directory as the header.  So we symlink the source into a src subdirectory,
+# and fix VPATH to find the source there (we still need the source in the
+# original directory for configure to find it).  When 13302200 is fixed, we
+# can remove the symlinking and VPATH change.
 #========================================================================
 
-VPATH = $(srcdir):$(srcdir)/../compat/zlib
+VPATH = $(srcdir)/src:$(srcdir):$(srcdir)/../compat/zlib
 
 .c.@OBJEXT@:
 	$(COMPILE) -c `@CYGPATH@ $<` -o $@

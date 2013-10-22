@@ -95,7 +95,7 @@ void initGiantStacks(unsigned maxDigits);
 /* 
  * Free giant stacks on shutdown.
  */
-void freeGiantStacks();
+void freeGiantStacks(void);
 
 #endif	/* GIANTS_VIA_STACK */
 

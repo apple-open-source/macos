@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +48,13 @@
 #include <SystemConfiguration/SCValidation.h>
 #include "myCFUtil.h"
 
+static const CFStringEncoding	S_encodings[] = {
+    kCFStringEncodingUTF8,
+    kCFStringEncodingMacRoman
+};
+static const int		S_encodings_count = (sizeof(S_encodings)
+						     / sizeof(S_encodings[0]));
+
 Boolean
 my_CFEqual(CFTypeRef val1, CFTypeRef val2)
 {
@@ -74,16 +81,13 @@ my_CFRelease(void * t)
     return;
 }
 
-char *
-my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
+static char *
+S_copy_cstring(CFStringRef cfstr, CFRange range, CFStringEncoding encoding)
 {
     CFIndex		l;
-    CFRange		range;
     uint8_t *		str;
 
-    range = CFRangeMake(0, CFStringGetLength(cfstr));
-    CFStringGetBytes(cfstr, range, encoding,
-		     0, FALSE, NULL, 0, &l);
+    CFStringGetBytes(cfstr, range, encoding, 0, FALSE, NULL, 0, &l);
     if (l <= 0) {
 	return (NULL);
     }
@@ -91,6 +95,29 @@ my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
     CFStringGetBytes(cfstr, range, encoding, 0, FALSE, str, l, &l);
     str[l] = '\0';
     return ((char *)str);
+}
+
+char *
+my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
+{
+    int			i;
+    CFRange		range;
+
+    range = CFRangeMake(0, CFStringGetLength(cfstr));
+    if (encoding != kCFStringEncodingInvalidId) {
+	return (S_copy_cstring(cfstr, range, encoding));
+    }
+
+    /* try each encoding in turn, and return the first non-NULL value */
+    for (i = 0; i < S_encodings_count; i++) {
+	char *		str;
+
+	str = S_copy_cstring(cfstr, range, S_encodings[i]);
+	if (str != NULL) {
+	    return (str);
+	}
+    }
+    return (NULL);
 }
 
 static void *
@@ -249,13 +276,6 @@ my_CFUUIDStringCreate(CFAllocatorRef alloc)
     return (uuid_str);
 }
 
-static const CFStringEncoding	S_encodings[] = {
-    kCFStringEncodingUTF8,
-    kCFStringEncodingMacRoman
-};
-static const int		S_encodings_count = (sizeof(S_encodings)
-						     / sizeof(S_encodings[0]));
-
 CFStringRef
 my_CFStringCreateWithData(CFDataRef data)
 {
@@ -269,6 +289,22 @@ my_CFStringCreateWithData(CFDataRef data)
 				      CFDataGetLength(data),
 				      S_encodings[i],
 				      FALSE);
+	if (str != NULL) {
+	    return (str);
+	}
+    }
+    return (NULL);
+}
+
+CFStringRef
+my_CFStringCreateWithCString(const char * cstr)
+{
+    int			i;
+    CFStringRef		str;
+
+    for (i = 0; i < S_encodings_count; i++) {
+	str = CFStringCreateWithCString(NULL, cstr,
+					S_encodings[i]);
 	if (str != NULL) {
 	    return (str);
 	}
@@ -290,4 +326,40 @@ my_CFDataCreateWithString(CFStringRef str)
 	}
     }
     return (NULL);
+}
+
+void
+my_FieldSetRetainedCFType(void * field_p, const void * v)
+{
+    CFTypeRef	existing = *((CFTypeRef *)field_p);
+    CFTypeRef	val = (CFTypeRef)v;
+
+    if (val != NULL) {
+	CFRetain(val);
+    }
+    if (existing != NULL) {
+	CFRelease(existing);
+    }
+    *((CFTypeRef *)field_p) = val;
+    return;
+}
+
+CFStringRef
+my_CFPropertyListCopyAsXMLString(CFPropertyListRef plist)
+{
+    CFDataRef	data;
+    CFStringRef	str;
+
+    data = CFPropertyListCreateData(NULL, plist,
+				    kCFPropertyListXMLFormat_v1_0, 0, NULL);
+    if (data == NULL) {
+	return (NULL);
+    }
+    str = CFStringCreateWithBytes(NULL, 
+				  CFDataGetBytePtr(data),
+				  CFDataGetLength(data),
+				  kCFStringEncodingUTF8,
+				  FALSE);
+    CFRelease(data);
+    return (str);
 }

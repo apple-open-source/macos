@@ -114,7 +114,7 @@ time_t		HeimODGetKerberosMaxRenewable(ODNodeRef node, ODRecordRef record, CFErro
 /* Set password */
                 /* enctypes are optional, if NULL, default types are used */
                 /* if password is NULL, a random password is used */
-int		HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArrayRef enctypes, CFStringRef password, unsigned long flags, CFErrorRef *error);
+int		HeimODSetKeys(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFArrayRef enctypes, CFTypeRef password, unsigned long flags, CFErrorRef *error);
 CFArrayRef	HeimODCopyDefaultEnctypes(CFErrorRef *error);
 /**
  * Add/delete/modify keyset
@@ -136,7 +136,7 @@ CFArrayRef	HeimODCopyDefaultEnctypes(CFErrorRef *error);
  * @param error return CFErrorRef with user error in case there is one, NULL is allowed if no error is expected.
  * @return the new keyset or NULL on failure, error might be set
  */
-CFArrayRef	HeimODModifyKeys(CFArrayRef prevKeyset, CFStringRef principal, CFArrayRef enctypes, CFStringRef password, unsigned long flags, CFErrorRef *error);
+CFArrayRef	HeimODModifyKeys(CFArrayRef prevKeyset, CFStringRef principal, CFArrayRef enctypes, CFTypeRef password, unsigned long flags, CFErrorRef *error) __attribute__((cf_returns_retained));
 
 /**
  * Debug function to print content of a keyset element
@@ -145,7 +145,7 @@ CFArrayRef	HeimODModifyKeys(CFArrayRef prevKeyset, CFStringRef principal, CFArra
  * @param error eventual error, by default, NULL
  * @return the debug string
  */
-CFStringRef	HeimODKeysetToString(CFDataRef element, CFErrorRef *error);
+CFStringRef	HeimODKeysetToString(CFDataRef element, CFErrorRef *error) __attribute__((cf_returns_retained));
 
 /* Mange allowed cert names for this principal: aka AltSecurityIdentities */
 int		HeimODAddCertificate(ODNodeRef node, ODRecordRef record, SecCertificateRef ref, CFErrorRef *error);
@@ -164,11 +164,11 @@ int		HeimODRemoveAppleIDAlias(ODNodeRef node, ODRecordRef record, CFStringRef al
 
 
 /* dump and load entries */
-CFDictionaryRef	HeimODDumpRecord(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFErrorRef *error);
+CFDictionaryRef	HeimODDumpRecord(ODNodeRef node, ODRecordRef record, CFStringRef principal, CFErrorRef *error) __attribute__((cf_returns_retained));
 bool		HeimODLoadRecord(ODNodeRef node, ODRecordRef record, CFDictionaryRef dict, unsigned long flags, CFErrorRef *error);
 
 struct hdb_entry;
-CFDictionaryRef	HeimODDumpHdbEntry(struct hdb_entry *, CFErrorRef *error);
+CFDictionaryRef	HeimODDumpHdbEntry(struct hdb_entry *, CFErrorRef *error) __attribute__((cf_returns_retained));
 
 #ifdef __cplusplus
 };

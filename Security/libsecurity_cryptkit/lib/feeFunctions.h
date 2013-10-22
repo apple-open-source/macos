@@ -43,7 +43,7 @@ void initCryptKit(void);
 /*
  * Shutdown.
  */
-void terminateCryptKit();
+void terminateCryptKit(void);
 
 #if	defined(NeXT) && !defined(WIN32)
 

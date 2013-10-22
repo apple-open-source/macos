@@ -1,17 +1,17 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2011-10-31</string>
+	<string>2012-11-12</string>
 	<key>OpenSourceProject</key>
 	<string>perl</string>
 	<key>OpenSourceVersion</key>
-	<string>5.12.4</string>
+	<string>5.12.5</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.perl.com/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.cpan.org/src/5.0/perl-5.12.4.tar.bz2</string>
+	<string>http://www.cpan.org/src/5.0/perl-5.12.5.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>68ff2f4a0901d1e4ea263f452001db0563d2edb3</string>
+	<string>812139ceef512eb8458af29ffbf46d78ef26c12a</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>regenerate perly.h with bison 2.3</string>

@@ -14,15 +14,16 @@ Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/
 # optimizer): add -mno-fused-madd flag
 ##---------------------------------------------------------------------
 Extra_CC_Flags += -fno-common -mno-fused-madd
-ifneq "$(GCC_42)" "YES"
-Extra_CC_Flags += -Wno-long-double
-endif
 Extra_LD_Flags += -Wl,-F.
 Extra_Install_Flags   = DESTDIR=${DSTROOT}
 GnuAfterInstall       = fixup-after-install
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+
+# Override compiler setting from GNUSource.make to use those set in GNUmakefile
+override CC = $(MY_CC)
+override CXX = $(MY_CXX)
 
 Install_Flags := $(shell echo $(Install_Flags) | sed 's/prefix=[^ ]* *//')
 Install_Target = frameworkinstallstructure libinstall libainstall sharedinstall oldsharedinstall

@@ -32,6 +32,7 @@
 #include <net/if.h>
 #include <net/route.h>
 #include <netinet/in.h>
+#include <netinet/in_pcb.h>
 #include <netinet/in_systm.h>
 #include <netinet/in_var.h>
 #include <netinet/udp.h>
@@ -335,7 +336,6 @@ called from ppp_proto when data need to be sent
 int l2tp_udp_output(socket_t so, int thread, mbuf_t m, struct sockaddr* to)
 {
 	int err = 0;
-	void	*p;
 	
     if (so == 0 || to == 0) {
         mbuf_freem(m);	
@@ -360,12 +360,12 @@ int l2tp_udp_output(socket_t so, int thread, mbuf_t m, struct sockaddr* to)
         return EBUSY;
 	}	
 
-	if (err = mbuf_prepend(&m, sizeof(socket_t), M_NOWAIT)) {
+	if ((err = mbuf_prepend(&m, sizeof(socket_t), M_NOWAIT))) {
 		lck_rw_unlock_shared(l2tp_udp_mtx);
         return err;
 	}
-	p = mbuf_data(m);
-	*(socket_t*)p = so;
+	
+	memcpy(mbuf_data(m), &so, sizeof(so));
 	sock_retain(so);
 
 	lck_mtx_lock(l2tp_udp_threads[thread].mtx);
@@ -406,7 +406,6 @@ void l2tp_udp_thread_func(struct l2tp_udp_thread *thread_socket)
 {
 	mbuf_t m;
 	socket_t so;
-	void	*p;
 	
 	for (;;) {
 	
@@ -425,8 +424,7 @@ dequeue:
 		}
 		lck_mtx_unlock(thread_socket->mtx);
 		
-		p = mbuf_data(m);
-		so = *(socket_t*)p;
+		memcpy((void *)&so, mbuf_data(m), sizeof(so));
 		mbuf_adj(m, sizeof(socket_t));
 
 		// should have a kpi to sendmbuf and release at the same time
@@ -441,7 +439,7 @@ dequeue:
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr, int *thread, int nocksum)
+int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr, int *thread, int nocksum, int delegated_process)
 {
     int				val;
 	errno_t			err;
@@ -451,25 +449,30 @@ int l2tp_udp_attach(socket_t *socket, struct sockaddr *addr, int *thread, int no
 	lck_mtx_unlock(ppp_domain_mutex);
     
     /* open a UDP socket for use by the L2TP client */
-    if (err = sock_socket(AF_INET, SOCK_DGRAM, 0, l2tp_udp_input, 0, &so)) 
+    if ((err = sock_socket(AF_INET, SOCK_DGRAM, 0, l2tp_udp_input, 0, &so)))
         goto fail;
 
     /* configure the socket to reuse port */
     val = 1;
-    if (err = sock_setsockopt(so, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val)))
+    if ((err = sock_setsockopt(so, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val))))
         goto fail;
 
     if (nocksum) {
 		val = 1;
-		if (err = sock_setsockopt(so, IPPROTO_UDP, UDP_NOCKSUM, &val, sizeof(val)))
+		if ((err = sock_setsockopt(so, IPPROTO_UDP, UDP_NOCKSUM, &val, sizeof(val))))
 			goto fail;
 	}
+    
+    /* set the delegate process for traffic statistics */
+    if (delegated_process)
+        if ((err = sock_setsockopt(so, SOL_SOCKET, SO_DELEGATED, &delegated_process, sizeof(delegated_process))))
+            goto fail;
 	
-    if (err = sock_bind(so, addr))
+    if ((err = sock_bind(so, addr)))
         goto fail;
 
     /* fill in the incomplete part of the address assigned by UDP */ 
-    if (err = sock_getsockname(so, addr, addr->sa_len))
+    if ((err = sock_getsockname(so, addr, addr->sa_len)))
         goto fail;
     
 	lck_mtx_lock(ppp_domain_mutex);
@@ -519,7 +522,7 @@ int l2tp_udp_detach(socket_t so, int thread)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 void l2tp_udp_clear_INP_INADDR_ANY(socket_t so)
-{
+{	
 	if (so) {
 
 		lck_mtx_unlock(ppp_domain_mutex);

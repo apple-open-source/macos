@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2008, 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,7 +67,8 @@ typedef uint32_t EAPOLPacketType;
 
 enum {
     kEAPOLKeyDescriptorTypeRC4 = 1,
-    kEAPOLKeyDescriptorTypeIEEE80211 = 2
+    kEAPOLKeyDescriptorTypeIEEE80211 = 2,
+    kEAPOLKeyDescriptorTypeWPA = 254
 };
 typedef uint32_t EAPOLKeyDescriptorType;
 

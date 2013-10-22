@@ -51,20 +51,25 @@ endif
 
 FIX = $(VERSIONERDIR)/$(PYTHONPROJECT)/fix
 TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | sed 's/ / -a -f /g')
+TMPPREFIX = $(OBJROOT)/Root
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 installsrc: afterinstallsrc
 
 afterinstallsrc:
-	$(MAKE) -f Makefile afterinstallsrc Project=$(Project)
+	$(MAKE) -f Makefile afterinstallsrc Project=$(Project) TOPSRCROOT="$(SRCROOT)"
+	$(MAKE) -C $(SRCROOT)/tmpprefix afterinstallsrc TOPSRCROOT="$(SRCROOT)"
 	for vers in $(VERSIONS); do \
-	    [ ! -d $$vers ] || $(MAKE) -C $$vers -f Makefile afterinstallsrc Project=$(Project) SRCROOT="$(SRCROOT)/$$vers" || exit 1; \
+	    [ ! -d $$vers ] || $(MAKE) -C $$vers -f Makefile afterinstallsrc Project=$(Project) SRCROOT="$(SRCROOT)/$$vers" TOPSRCROOT="$(SRCROOT)" || exit 1; \
 	done
 
 build::
 	$(MKDIR) $(OBJROOT)/$(OSL)
 	$(MKDIR) $(OBJROOT)/$(OSV)
+	$(MAKE) -C tmpprefix \
+	    OSL='$(OBJROOT)/$(OSL)' OSV='$(OBJROOT)/$(OSV)' \
+	    TMPPREFIX='$(TMPPREFIX)'
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    no64= && \
@@ -87,10 +92,12 @@ build::
 		VERSIONER_PYTHON_PREFER_32_BIT=yes \
 		$(MAKE) $$Copt -f Makefile install Project=$(Project) NO64=$$no64 \
 		SRCROOT="$$srcroot" \
+		TOPSRCROOT="$(SRCROOT)" \
 		OBJROOT="$(OBJROOT)/$$vers" \
 		DSTROOT="$(OBJROOT)/$$vers/DSTROOT" \
 		SYMROOT="$(SYMROOT)/$$vers" \
 		OSL='$(OBJROOT)/$(OSL)' OSV='$(OBJROOT)/$(OSV)' \
+		TMPPREFIX='$(TMPPREFIX)' \
 		RC_ARCHS='$(RC_ARCHS)' >> "$(SYMROOT)/$$vers/LOG" 2>&1 && \
 		touch "$(OBJROOT)/$$vers/.ok" && \
 		echo "######## Finished $$vers:" `date` '########' >> "$(SYMROOT)/$$vers/LOG" 2>&1 \

@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use strict;
+use File::Find ();
+
+print "### removing empty auto directories\n";
+File::Find::find({
+    wanted => sub {},
+    bydepth => 1,
+    postprocess => sub {
+	print "$File::Find::dir\n" if rmdir $File::Find::dir;
+    },
+    no_chdir => 1,
+}, @ARGV);

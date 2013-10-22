@@ -50,7 +50,7 @@ get_client_rpc_binding(
 
 static void usage(void)
 {
-    printf("usage: echo_client [-h hostname] [-e endpoint] [-n] [-u] [-t]\n");
+    printf("usage: echo_server [-h hostname] -e endpoint  -n|-u|-t\n");
     printf("         -h:  specify host of RPC server (default is localhost)\n");
     printf("         -e:  specify endpoint for protocol\n");
     printf("         -n:  use named pipe protocol\n");
@@ -143,6 +143,12 @@ main(
         }
     }
 
+    if(!endpoint || !protocol)
+    {
+        usage();
+        exit(1);
+    }
+    
     /*
      * Get a binding handle to the server using the following params:
      *

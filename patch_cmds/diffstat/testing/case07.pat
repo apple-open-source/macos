@@ -2,11 +2,11 @@
 +++ ncurses-1.9.8a_960131_e285r/man/resizeterm.3x	Wed Jan 31 20:21:04 1996
 @@ -0,0 +1,53 @@
 +.\"*****************************************************************************
-+.\" Copyright 1995 by Thomas E. Dickey.  All Rights Reserved.                  *
++.\" Testcase for "resizeterm"                                                  *
 +.\"                                                                            *
-+.\" You may freely copy or redistribute this software, so long as there is no  *
-+.\" profit made from its use, sale trade or reproduction. You may not change   *
-+.\" this copyright notice, and it must be included in any copy made.           *
++.\" A discussion of this file is found at:                                     *
++.\"    http://invisible-island.net/ncurses/ncurses-license.html#ncurses_1_9_3  *
++.\" A later version of this manpage is included as part of ncurses.            *
 +.\"*****************************************************************************
 +.TH resizeterm 3X ""
 +.
@@ -58,11 +58,12 @@
 +++ ncurses-1.9.8a_960131_e285r/man/wresize.3x	Wed Jan 31 20:21:04 1996
 @@ -0,0 +1,47 @@
 +.\"*****************************************************************************
-+.\" Copyright 1995 by Thomas E. Dickey.  All Rights Reserved.                  *
++.\" Testcase for "wresize"                                                     *
 +.\"                                                                            *
-+.\" You may freely copy or redistribute this software, so long as there is no  *
-+.\" profit made from its use, sale trade or reproduction. You may not change   *
-+.\" this copyright notice, and it must be included in any copy made.           *
++.\" A discussion of this file is found at:                                     *
++.\"    http://invisible-island.net/ncurses/ncurses-license.html#ncurses_1_9_3  *
++.\" A later version of this manpage is included as part of ncurses.            *
++.\" Copyright 1995 by Thomas E. Dickey.  All Rights Reserved.                  *
 +.\"*****************************************************************************
 +.TH wresize 3X ""
 +.

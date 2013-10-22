@@ -2,13 +2,13 @@ divert(-1)
 changecom(/*, */)
 /*
  * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
- * 
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
  * You may not use this file except in compliance with the License. Please obtain
  * a copy of the License at http://www.apple.com/publicsource and read it before
  * using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
  * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
@@ -312,7 +312,7 @@ newAttribute(`  Ss', PrintName, kSecLabelItemAttr, (char*) "PrintName", 0, NULL,
 newAttribute(`  Ss', Alias, kSecAlias, (char*) "Alias", 0, NULL, BLOB)
 endNewClass()
 
-// Extended Attribute 
+// Extended Attribute
 startNewClass(ExtendedAttribute)
 newAttribute(`UISs', RecordType, kExtendedAttrRecordTypeAttr, (char*) "RecordType", 0, NULL, UINT32)
 newAttribute(`UISs', ItemID, kExtendedAttrItemIDAttr, (char*) "ItemID", 0, NULL, BLOB)
@@ -367,7 +367,7 @@ recordTypeFor(SecItemClass itemClass)
     {
     case kSecGenericPasswordItemClass: return CSSM_DL_DB_RECORD_GENERIC_PASSWORD;
     case kSecInternetPasswordItemClass: return CSSM_DL_DB_RECORD_INTERNET_PASSWORD;
-    case kSecAppleSharePasswordItemClass: return CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD;
+    case 'ashp': return CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD;
     default: return CSSM_DB_RECORDTYPE(itemClass);
     }
 }
@@ -379,7 +379,7 @@ itemClassFor(CSSM_DB_RECORDTYPE recordType)
     {
     case CSSM_DL_DB_RECORD_GENERIC_PASSWORD: return kSecGenericPasswordItemClass;
     case CSSM_DL_DB_RECORD_INTERNET_PASSWORD: return kSecInternetPasswordItemClass;
-    case CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD: return kSecAppleSharePasswordItemClass;
+    case CSSM_DL_DB_RECORD_APPLESHARE_PASSWORD: return 'ashp';
     default: return SecItemClass(recordType);
     }
 }
@@ -387,7 +387,7 @@ itemClassFor(CSSM_DB_RECORDTYPE recordType)
 const CSSM_DB_ATTRIBUTE_INFO &
 attributeInfo(SecKeychainAttrType attrType)
 {
-    switch (attrType) 
+    switch (attrType)
     {
     case kSecCreationDateItemAttr: return kGenericCreationDate;
     case kSecModDateItemAttr: return kGenericModDate;

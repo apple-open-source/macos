@@ -1,0 +1,118 @@
+2007-06-17  Malcolm Nooning  <m.nooning@cpan.org> (0.2020)
+	* Got rid of the .svn directories that I errently allowed into
+	  the last gz upload.
+2007-05-16  Malcolm Nooning  <m.nooning@cpan.org> (0.2019)
+	* Fixed an @opts name that was causing crypt.t to fail.
+	  Namely, changed 'cipher' to 'usercipher', but only in @opts,
+	  because the tests invoked by crypt.t were looking to match
+	  'usercipher' to get the user key.
+2004-07-19  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.2018)
+
+	* The RPC::PlServer::Comm module is now being used as
+	  an encapsulated object $self->{'comm'}. It has
+	  definitely been a design flaw to use like it has
+	  been.
+	* The client is no longer bound to a maximum message size
+	  of 65536 bytes. Emile, <emile at tunix.nl>
+
+2003-05-31  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.2017)
+
+	* lib/RPC/PlClient.pm: Added Disconnect method for
+	  proper cleanup of resources. Steven N. Hirsch,
+	  hirschs at btv.ibm.com
+	* lib/RPC/PlClient.pm: Initialization of Comm module
+	  is now at the beginning of new(). Steven N. Hirsch,
+	  hirschs at btv.ibm.com
+
+2001-10-01  Jochen Wiedmann <jochen.wiedmann at freenet.de> (0.2016)
+
+	* lib/RPC/PlServer/Comm.pm (Write): Added
+	  handling of $\. Brian McCauley
+	  <b.a.mccauley@bham.ac.uk>
+	
+2001-03-26  Jochen Wiedmann <jochen.wiedmann at freenet.de> (0.2014)
+
+	* lib/RPC/PlClient.pm: Documentation fixes
+	  Joel Meulenberg <joelmeulenberg@yahoo.com>
+
+2001-01-23  Jochen Wiedmann <jochen.wiedmann at freenet.de> (0.2014)
+
+	* lib/RPC/PlServer.pm: Changed DES->new to Crypt::DES->new.
+	  (Thanks heaven, DES is now a standard module!) Paul
+	  Schinder <schinder@pobox.com>
+
+2001-01-22  Jochen Wiedmann <jochen.wiedmann at freenet.de> (0.2013)
+
+	* lib/RPC/PlClient.pm (DESTROY): $@ was possibly destroyed.
+	  Tushar <tushar_pokle@pacific.net.au>
+
+1999-06-26  Jochen Wiedmann <jochen.wiedmann at freenet.de> (0.2012)
+
+	* lib/RPC/PlServer.pm (CallMethod): RegExpLock was
+	  used too long. Thanks to Brady Montz (bradym@cs.arizona.edu).
+
+1999-06-26  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.2011)
+
+	* lib/RPC/PlServer/Comm.pm (Read): The result of read()
+	  was used incorrect, resulting in never ending loops.
+	  Thanks to Gerald Richter (richter@ecos.de).
+
+1999-04-09  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.2010)
+
+	* lib/RPC/PlServer/Comm.pm (Read): Added 'maxmessage' option
+	  to omit "Out of memory" bugs (Liraz Siri <liraz_siri@usa.net>).
+	* Lots of minor bug fixes in the docs of RPC::PlServer and
+	  RPC::PlClient. Alf Wachsmann <alf@ifh.de>
+	* lib/RPC/PlServer/Comm.pm: Added 'compression' option.
+
+1999-01-13  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.2003)
+
+	* lib/RPC/PlServer.pm (CallMethod): Fixed bug in lock
+	  handling, thanks to schinder@pobox.com.
+
+1999-01-12  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.2002)
+
+	* Added use of Net::Daemon::RegExpLock.
+	* Fixed prerequisite checks in Makefile.PL, my thanks to
+	  Andreas Koenig <Andreas.Koenig@anima.de>.
+
+1998-10-30  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.2001)
+
+	* t/methods.t: $handle->Terminate() wasn't called without END.
+
+1998-10-28  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.2000)
+
+	* Complete rewrite, based on Net::Daemon. Renamed to PlRPC,
+	  due to compatibility problems.
+
+1998-09-08  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.1006)
+
+	* lib/RPC/pClient.pm: Added Log(), Debug(), Error() and Fatal()
+	  methods to support Windows. $self->{'stderr'} can now be an
+	  IO handle or any other object supporting a print method.
+	  My thanks to Toni L. Harbaugh <harbaugh@nciaxp.ncifcrf.gov> for
+	  his patches.
+
+1998-08-13  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.1005)
+
+	* Makefile.PL: Added check for Sys::Syslog.h to detect problems
+	  with missing sys/syslog.ph.
+
+1998-07-19  Jochen Wiedmann  <jochen.wiedmann at freenet.de> (0.1004)
+
+	* lib/RPC/pServer.pm: Embedded all occurrences of setlogsock('unix')
+	  into an eval. Required, because it otherwise fails on Solaris.
+
+1998-07-18  Jochen Wiedmann  <joe@spsoft.de> (0.1003)
+
+	* Minor fixes to prevent warnings with DBI::ProxyServer.
+
+0.1002  Checking for existence of Sys::Syslog::setlogsock in test scripts.
+	(Ulrich Pfeifer, upf@de.uu.net)
+	Fixed Socket::inet_ntoa() instead of inet_ntoa() in pServer.pm.
+	(Ulrich Pfeifer, upf@de.uu.net)
+	Added 'Reuse' => 1 to server configuration.
+
+0.1001  Tue Aug 19 17:53:44 1997
+	- original version; created by h2xs 1.18
+

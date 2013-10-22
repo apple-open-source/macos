@@ -94,4 +94,7 @@ int
 ssh_agent_sign(AuthenticationConnection *, Key *, u_char **, u_int *, u_char *,
     u_int);
 
+int
+ssh_add_from_keychain(AuthenticationConnection *auth);
+
 #endif				/* AUTHFD_H */

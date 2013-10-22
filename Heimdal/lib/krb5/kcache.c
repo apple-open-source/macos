@@ -265,8 +265,6 @@ kcc_resolve(krb5_context context, krb5_ccache *id, const char *res)
 static krb5_error_code
 kcc_gen_new(krb5_context context, krb5_ccache *id)
 {
-    char *file = NULL;
-    krb5_error_code ret;
     krb5_kcache *k;
     uuid_t uuid;
     uuid_string_t uuidstr;
@@ -281,15 +279,14 @@ kcc_gen_new(krb5_context context, krb5_ccache *id)
     uuid_generate_random(uuid);
     uuid_unparse(uuid, uuidstr);
 
-    ret = asprintf(&file, "unique-%s", uuidstr);
-    if (ret <= 0 || file == NULL) {
+    k->name = strdup(uuidstr);
+    if (k->name == NULL) {
 	free(k);
 	krb5_set_error_message(context, KRB5_CC_NOMEM,
 			       N_("malloc: out of memory", ""));
 	return KRB5_CC_NOMEM;
     }
 
-    k->name = file;
     k->cname = CFStringCreateWithCString(NULL, k->name, kCFStringEncodingUTF8);
     if (k->cname == NULL) {
 	free(k->name);
@@ -1115,6 +1112,26 @@ kcc_get_kdc_offset(krb5_context context, krb5_ccache id, krb5_deltat *kdc_offset
     return 0;
 }
 
+static krb5_error_code
+kcc_get_uuid(krb5_context context, krb5_ccache id, krb5_uuid uuid)
+{
+    krb5_kcache *k = KCACHE(id);
+    uuid_t kuuid;
+    heim_assert(sizeof(uuid_t) == sizeof(krb5_uuid), "uuid size different");
+    uuid_parse(k->name, kuuid);
+    memcpy(uuid, kuuid, sizeof(krb5_uuid)); 
+    return 0;
+}
+
+static krb5_error_code
+kcc_resolve_by_uuid(krb5_context context, krb5_ccache id, krb5_uuid uuid)
+{
+    uuid_string_t uuidstr;
+    uuid_unparse(uuid, uuidstr);
+    return kcc_resolve(context, &id, uuidstr);
+}
+
+
 
 /**
  * Variable containing the KEYCHAIN based credential cache implemention.
@@ -1148,7 +1165,11 @@ KRB5_LIB_VARIABLE const krb5_cc_ops krb5_kcc_ops = {
     kcc_set_default,
     kcc_lastchange,
     kcc_set_kdc_offset,
-    kcc_get_kdc_offset
+    kcc_get_kdc_offset,
+    NULL,
+    NULL,
+    kcc_get_uuid,
+    kcc_resolve_by_uuid
 };
 
 #endif /* __APPLE__ */

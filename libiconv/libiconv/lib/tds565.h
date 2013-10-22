@@ -38,7 +38,7 @@ static const unsigned short tds565_2uni[64] = {
 };
 
 static int
-tds565_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+tds565_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x40) {
@@ -84,7 +84,7 @@ static const unsigned char tds565_page01[64] = {
 };
 
 static int
-tds565_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+tds565_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0040) {

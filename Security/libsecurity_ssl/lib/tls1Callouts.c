@@ -25,6 +25,8 @@
  * tls1Callouts.c - TLSv1-specific routines for SslTlsCallouts.
  */
 
+#include "SecureTransport.h"
+
 #include "tls_ssl.h"
 #include "sslMemory.h"
 #include "sslUtils.h"
@@ -32,6 +34,7 @@
 #include "sslAlertMessage.h"
 #include "sslCrypto.h"
 #include "sslDebug.h"
+#include "tls_hmac.h"
 #include <assert.h>
 #include <strings.h>
 
@@ -59,8 +62,8 @@ static void tlsDump(const char *name, void *b, unsigned len)
 #define tlsDump(name, b, len)
 #endif	/* TLS_ENC_DEBUG */
 
-#pragma mark -
-#pragma mark PRF label strings
+// MARK: -
+// MARK: PRF label strings
 /*
  * Note we could optimize away a bunch of mallocs and frees if we, like openSSL,
  * just mallocd buffers for inputs to SSLInternal_PRF() on the stack,
@@ -83,8 +86,8 @@ static void tlsDump(const char *name, void *b, unsigned len)
 #define PLS_EXPORT_IV_BLOCK			"IV block"
 #define PLS_EXPORT_IV_BLOCK_LEN		8
 
-#pragma mark -
-#pragma mark private functions
+// MARK: -
+// MARK: private functions
 
 /*
  * P_Hash function defined in RFC2246, section 5.
@@ -104,8 +107,8 @@ static OSStatus tlsPHash(
 	HMACContextRef hmacCtx;
 	OSStatus serr;
 	size_t digestLen = hmac->macSize;
-
-	serr = hmac->alloc(hmac, ctx, secret, secretLen, &hmacCtx);
+	
+	serr = hmac->alloc(hmac, secret, secretLen, &hmacCtx);
 	if(serr) {
 		return serr;
 	}
@@ -206,7 +209,7 @@ OSStatus SSLInternal_PRF(
 		labelSeedLen = labelLen + seedLen;
 		labelSeed = (unsigned char *)sslMalloc(labelSeedLen);
 		if(labelSeed == NULL) {
-			return memFullErr;
+			return errSecAllocate;
 		}
 		memmove(labelSeed, label, labelLen);
 		memmove(labelSeed + labelLen, seed, seedLen);
@@ -220,8 +223,8 @@ OSStatus SSLInternal_PRF(
     unsigned char *out = (unsigned char *)vout;
     if(sslVersionIsLikeTls12(ctx)) {
         const HMACReference *mac = &TlsHmacSHA256;
-        if (ctx->selectedCipherSpec.macAlgorithm->hmac->alg == HA_SHA384) {
-            mac = ctx->selectedCipherSpec.macAlgorithm->hmac;
+        if (ctx->selectedCipherSpecParams.macAlg == HA_SHA384) {
+            mac = &TlsHmacSHA384;
         }
         serr = tlsPHash(ctx, mac, secret, secretLen, labelSeed, labelSeedLen,
                         out, outLen);
@@ -238,7 +241,7 @@ OSStatus SSLInternal_PRF(
         /* temporary output for SHA1, to be XORd with MD5 */
         tmpOut = (unsigned char *)sslMalloc(outLen);
         if(tmpOut == NULL) {
-            serr = memFullErr;
+            serr = errSecAllocate;
             goto fail;
         }
 
@@ -259,7 +262,7 @@ OSStatus SSLInternal_PRF(
         }
 	}
 
-    serr = noErr;
+    serr = errSecSuccess;
 fail:
 	if((labelSeed != NULL) && (label != NULL)) {
 		sslFree(labelSeed);
@@ -267,201 +270,6 @@ fail:
 	if(tmpOut != NULL) {
 		sslFree(tmpOut);
 	}
-	return serr;
-}
-
-/* not needed; encrypt/encode is the same for both protocols as long as
- * we don't use the "variable length padding" feature. */
-#if 0
-static OSStatus tls1WriteRecord(
-	SSLRecord rec,
-	SSLContext *ctx)
-{
-	assert(0);
-	return unimpErr;
-}
-#endif
-
-static OSStatus tls1DecryptRecord(
-	UInt8 type,
-	SSLBuffer *payload,
-	SSLContext *ctx)
-{
-	OSStatus    err;
-    SSLBuffer   content;
-	bool decryption_failed_or_bad_record_mac = false;
-
-    if ((ctx->readCipher.symCipher->blockSize > 0) &&
-        ((payload->length % ctx->readCipher.symCipher->blockSize) != 0)) {
-		SSLFatalSessionAlert(SSL_AlertRecordOverflow, ctx);
-        return errSSLRecordOverflow;
-    }
-
-    /* Decrypt in place */
-    if ((err = ctx->readCipher.symCipher->decrypt(payload->data,
-    		payload->data, payload->length,
-    		&ctx->readCipher,
-    		ctx)) != 0)
-    {
-		/* note: we no longer send a SSL_AlertDecryptError here;
-		 * all subsequent failures result in SSL_AlertBadRecordMac
-		 * being sent at the end of the function, to avoid leaking
-		 * differences between padding and decryption failures. */
-        decryption_failed_or_bad_record_mac = true;
-    }
-
-    /* Locate content within decrypted payload */
-
-    /* TLS 1.1 and DTLS 1.0 block ciphers */
-    if((ctx->negProtocolVersion>=TLS_Version_1_1) && (ctx->readCipher.symCipher->blockSize>0))
-    {
-        content.data = payload->data + ctx->readCipher.symCipher->blockSize;
-        content.length = payload->length - (ctx->readCipher.macRef->hash->digestSize + ctx->readCipher.symCipher->blockSize);
-    } else {
-        content.data = payload->data;
-        content.length = payload->length - ctx->readCipher.macRef->hash->digestSize;
-    }
-
-    if (ctx->readCipher.symCipher->blockSize > 0) {
-		/* for TLSv1, padding can be anywhere from 0 to 255 bytes */
-		UInt8 padSize = payload->data[payload->length - 1];
-		UInt8 *padChars;
-
-		/* verify that all padding bytes are equal - WARNING - OpenSSL code
-		 * has a special case here dealing with some kind of bug related to
-		 * even size packets...beware... */
-		if(padSize > payload->length) {
-            /* This is TLS 1.1 compliant - Do it for all protocols versions */
-        	sslErrorLog("tls1DecryptRecord: bad padding length (%d)\n",
-        		(unsigned)payload->data[payload->length - 1]);
-			decryption_failed_or_bad_record_mac = true;
-		}
-		padChars = payload->data + payload->length - padSize;
-		while(padChars < (payload->data + payload->length)) {
-			if(*padChars++ != padSize) {
-                /* This is TLS 1.1 compliant - Do it for all protocols versions */
-				sslErrorLog("tls1DecryptRecord: bad padding value\n");
-				decryption_failed_or_bad_record_mac = true;
-			}
-		}
-		/* Remove block size padding and its one-byte length */
-        content.length -= (1 + padSize);
-    }
-
-	/* Verify MAC on payload */
-    if (ctx->readCipher.macRef->hash->digestSize > 0)
-		/* Optimize away MAC for null case */
-        if ((err = SSLVerifyMac(type, &content,
-				content.data + content.length, ctx)) != 0)
-        {
-			decryption_failed_or_bad_record_mac = true;
-        }
-
-	if (decryption_failed_or_bad_record_mac) {
-		SSLFatalSessionAlert(SSL_AlertBadRecordMac, ctx);
-		return errSSLDecryptionFail;
-	}
-
-    *payload = content;     /* Modify payload buffer to indicate content length */
-
-    return noErr;
-}
-
-/* initialize a per-CipherContext HashHmacContext for use in MACing each record */
-static OSStatus tls1InitMac (
-	CipherContext *cipherCtx,		// macRef, macSecret valid on entry
-									// macCtx valid on return
-	SSLContext *ctx)
-{
-	const HMACReference *hmac;
-	OSStatus serr;
-
-	assert(cipherCtx->macRef != NULL);
-	hmac = cipherCtx->macRef->hmac;
-	assert(hmac != NULL);
-
-	if(cipherCtx->macCtx.hmacCtx != NULL) {
-		hmac->free(cipherCtx->macCtx.hmacCtx);
-		cipherCtx->macCtx.hmacCtx = NULL;
-	}
-	serr = hmac->alloc(hmac, ctx, cipherCtx->macSecret,
-		cipherCtx->macRef->hmac->macSize, &cipherCtx->macCtx.hmacCtx);
-
-	/* mac secret now stored in macCtx.hmacCtx, delete it from cipherCtx */
-	memset(cipherCtx->macSecret, 0, sizeof(cipherCtx->macSecret));
-	return serr;
-}
-
-static OSStatus tls1FreeMac (
-	CipherContext *cipherCtx)
-{
-	/* this can be called on a completely zeroed out CipherContext... */
-	if(cipherCtx->macRef == NULL) {
-		return noErr;
-	}
-	assert(cipherCtx->macRef->hmac != NULL);
-
-	if(cipherCtx->macCtx.hmacCtx != NULL) {
-		cipherCtx->macRef->hmac->free(cipherCtx->macCtx.hmacCtx);
-		cipherCtx->macCtx.hmacCtx = NULL;
-	}
-	return noErr;
-}
-
-/*
- * mac = HMAC_hash(MAC_write_secret, seq_num + TLSCompressed.type +
- *					TLSCompressed.version + TLSCompressed.length +
- *					TLSCompressed.fragment));
- */
-
-/* sequence, type, version, length */
-#define HDR_LENGTH (8 + 1 + 2 + 2)
-static OSStatus tls1ComputeMac (
-	UInt8 type,
-	SSLBuffer data,
-	SSLBuffer mac, 					// caller mallocs data
-	CipherContext *cipherCtx,		// assumes macCtx, macRef
-	sslUint64 seqNo,
-	SSLContext *ctx)
-{
-	uint8_t hdr[HDR_LENGTH];
-	uint8_t *p;
-	HMACContextRef hmacCtx;
-	OSStatus serr;
-	const HMACReference *hmac;
-	size_t macLength;
-
-	assert(cipherCtx != NULL);
-	assert(cipherCtx->macRef != NULL);
-	hmac = cipherCtx->macRef->hmac;
-	assert(hmac != NULL);
-	hmacCtx = cipherCtx->macCtx.hmacCtx;	// may be NULL, for null cipher
-
-	serr = hmac->init(hmacCtx);
-	if(serr) {
-		goto fail;
-	}
-	p = SSLEncodeUInt64(hdr, seqNo);
-	*p++ = type;
-	*p++ = ctx->negProtocolVersion >> 8;
-	*p++ = ctx->negProtocolVersion & 0xff;
-	*p++ = data.length >> 8;
-	*p   = data.length & 0xff;
-	serr = hmac->update(hmacCtx, hdr, HDR_LENGTH);
-	if(serr) {
-		goto fail;
-	}
-	serr = hmac->update(hmacCtx, data.data, data.length);
-	if(serr) {
-		goto fail;
-	}
-	macLength = mac.length;
-	serr = hmac->final(hmacCtx, mac.data, &macLength);
-	if(serr) {
-		goto fail;
-	}
-	mac.length = macLength;
-fail:
 	return serr;
 }
 
@@ -503,96 +311,6 @@ static OSStatus tls1GenerateKeyMaterial (
 		key.data,					// destination
 		key.length);
 	tlsDump("key expansion", key.data, key.length);
-	return serr;
-}
-
-/*
- *     final_client_write_key =
- *			PRF(SecurityParameters.client_write_key,
- *                                 "client write key",
- *                                 SecurityParameters.client_random +
- *                                 SecurityParameters.server_random);
- *     final_server_write_key =
- *      	PRF(SecurityParameters.server_write_key,
- *                                 "server write key",
- *                                 SecurityParameters.client_random +
- *                                 SecurityParameters.server_random);
- *
- *     iv_block = PRF("", "IV block", SecurityParameters.client_random +
- *                      SecurityParameters.server_random);
- *
- *	   iv_block is broken up into:
- *
- *     		client_write_IV[SecurityParameters.IV_size]
- *  	   	server_write_IV[SecurityParameters.IV_size]
- */
-static OSStatus tls1GenerateExportKeyAndIv (
-	SSLContext *ctx,				// clientRandom, serverRandom valid
-	const SSLBuffer clientWriteKey,
-	const SSLBuffer serverWriteKey,
-	SSLBuffer finalClientWriteKey,	// RETURNED, mallocd by caller
-	SSLBuffer finalServerWriteKey,	// RETURNED, mallocd by caller
-	SSLBuffer finalClientIV,		// RETURNED, mallocd by caller
-	SSLBuffer finalServerIV)		// RETURNED, mallocd by caller
-{
-	unsigned char randBuf[2 * SSL_CLIENT_SRVR_RAND_SIZE];
-	OSStatus serr;
-	unsigned char *ivBlock;
-	char *nullKey = "";
-
-	/* all three PRF calls use the same seed */
-	memmove(randBuf, ctx->clientRandom, SSL_CLIENT_SRVR_RAND_SIZE);
-	memmove(randBuf + SSL_CLIENT_SRVR_RAND_SIZE,
-		ctx->serverRandom, SSL_CLIENT_SRVR_RAND_SIZE);
-
-	serr = SSLInternal_PRF(ctx,
-		clientWriteKey.data,
-		clientWriteKey.length,
-		(const unsigned char *)PLS_EXPORT_CLIENT_WRITE,
-		PLS_EXPORT_CLIENT_WRITE_LEN,
-		randBuf,
-		2 * SSL_CLIENT_SRVR_RAND_SIZE,
-		finalClientWriteKey.data,		// destination
-		finalClientWriteKey.length);
-	if(serr) {
-		return serr;
-	}
-	serr = SSLInternal_PRF(ctx,
-		serverWriteKey.data,
-		serverWriteKey.length,
-		(const unsigned char *)PLS_EXPORT_SERVER_WRITE,
-		PLS_EXPORT_SERVER_WRITE_LEN,
-		randBuf,
-		2 * SSL_CLIENT_SRVR_RAND_SIZE,
-		finalServerWriteKey.data,		// destination
-		finalServerWriteKey.length);
-	if(serr) {
-		return serr;
-	}
-	if((finalClientIV.length == 0) && (finalServerIV.length == 0)) {
-		/* skip remainder as optimization */
-		return noErr;
-	}
-	ivBlock = (unsigned char *)sslMalloc(finalClientIV.length + finalServerIV.length);
-	if(ivBlock == NULL) {
-		return memFullErr;
-	}
-	serr = SSLInternal_PRF(ctx,
-		(const unsigned char *)nullKey,
-		0,
-		(const unsigned char *)PLS_EXPORT_IV_BLOCK,
-		PLS_EXPORT_IV_BLOCK_LEN,
-		randBuf,
-		2 * SSL_CLIENT_SRVR_RAND_SIZE,
-		ivBlock,					// destination
-		finalClientIV.length + finalServerIV.length);
-	if(serr) {
-		goto done;
-	}
-	memmove(finalClientIV.data, ivBlock, finalClientIV.length);
-	memmove(finalServerIV.data, ivBlock + finalClientIV.length, finalServerIV.length);
-done:
-	sslFree(ivBlock);
 	return serr;
 }
 
@@ -649,9 +367,9 @@ static OSStatus tls1ComputeFinishedMac (
 
     shaMsgState.data = 0;
     md5MsgState.data = 0;
-    if ((serr = CloneHashState(&SSLHashSHA1, &ctx->shaState, &shaMsgState, ctx)) != 0)
+    if ((serr = CloneHashState(&SSLHashSHA1, &ctx->shaState, &shaMsgState)) != 0)
         goto fail;
-    if ((serr = CloneHashState(&SSLHashMD5, &ctx->md5State, &md5MsgState, ctx)) != 0)
+    if ((serr = CloneHashState(&SSLHashMD5, &ctx->md5State, &md5MsgState)) != 0)
         goto fail;
 
 	if(isServer) {
@@ -687,8 +405,8 @@ static OSStatus tls1ComputeFinishedMac (
 		finished.length);
 
 fail:
-    SSLFreeBuffer(&shaMsgState, ctx);
-    SSLFreeBuffer(&md5MsgState, ctx);
+    SSLFreeBuffer(&shaMsgState);
+    SSLFreeBuffer(&md5MsgState);
 
     return serr;
 }
@@ -715,7 +433,7 @@ static OSStatus tls12ComputeFinishedMac (
     const SSLBuffer *ctxHashState;
 
     /* The PRF used in the finished message is based on the cipherspec */
-    if (ctx->selectedCipherSpec.macAlgorithm->hmac->alg == HA_SHA384) {
+    if (ctx->selectedCipherSpecParams.macAlg == HA_SHA384) {
         hashRef = &SSLHashSHA384;
         ctxHashState = &ctx->sha512State;
     } else {
@@ -724,7 +442,7 @@ static OSStatus tls12ComputeFinishedMac (
     }
 
     hashState.data = 0;
-    if ((serr = CloneHashState(hashRef, ctxHashState, &hashState, ctx)) != 0)
+    if ((serr = CloneHashState(hashRef, ctxHashState, &hashState)) != 0)
         goto fail;
 	if(isServer) {
 		finLabel = PLS_SERVER_FINISH;
@@ -750,7 +468,7 @@ static OSStatus tls12ComputeFinishedMac (
                            finished.data,				// destination
                            finished.length);
 fail:
-    SSLFreeBuffer(&hashState, ctx);
+    SSLFreeBuffer(&hashState);
     return serr;
 }
 
@@ -773,9 +491,9 @@ static OSStatus tls1ComputeCertVfyMac (
     shaMsgState.data = 0;
     md5MsgState.data = 0;
 
-    if ((serr = CloneHashState(&SSLHashSHA1, &ctx->shaState, &shaMsgState, ctx)) != 0)
+    if ((serr = CloneHashState(&SSLHashSHA1, &ctx->shaState, &shaMsgState)) != 0)
         goto fail;
-    if ((serr = CloneHashState(&SSLHashMD5, &ctx->md5State, &md5MsgState, ctx)) != 0)
+    if ((serr = CloneHashState(&SSLHashMD5, &ctx->md5State, &md5MsgState)) != 0)
         goto fail;
 
     if ((ctx->protocolSide == kSSLServerSide && sslPubKeyGetAlgorithmID(ctx->peerPubKey) == kSecECDSAAlgorithmID) ||
@@ -801,8 +519,8 @@ static OSStatus tls1ComputeCertVfyMac (
 	serr = SSLHashSHA1.final(&shaMsgState, &digBuf);
 
 fail:
-    SSLFreeBuffer(&shaMsgState, ctx);
-    SSLFreeBuffer(&md5MsgState, ctx);
+    SSLFreeBuffer(&shaMsgState);
+    SSLFreeBuffer(&md5MsgState);
 
     return serr;
 }
@@ -833,10 +551,11 @@ static OSStatus tls12ComputeCertVfyMac (
             ctxHashState = &ctx->sha512State;
             break;
         default:
+            return errSSLInternal;
             break;
     }
 
-    if ((serr = CloneHashState(hashRef, ctxHashState, &hashState, ctx)) != 0)
+    if ((serr = CloneHashState(hashRef, ctxHashState, &hashState)) != 0)
         goto fail;
 
 	assert(finished->length >= (hashRef->digestSize));
@@ -844,34 +563,21 @@ static OSStatus tls12ComputeCertVfyMac (
 	serr = hashRef->final(&hashState, finished);
 
 fail:
-    SSLFreeBuffer(&hashState, ctx);
+    SSLFreeBuffer(&hashState);
 
     return serr;
 }
 
 
 const SslTlsCallouts Tls1Callouts = {
-	tls1DecryptRecord,
-	ssl3WriteRecord,
-	tls1InitMac,
-	tls1FreeMac,
-	tls1ComputeMac,
 	tls1GenerateKeyMaterial,
-	tls1GenerateExportKeyAndIv,
 	tls1GenerateMasterSecret,
 	tls1ComputeFinishedMac,
 	tls1ComputeCertVfyMac
 };
 
-
 const SslTlsCallouts Tls12Callouts = {
-	tls1DecryptRecord,
-	ssl3WriteRecord,
-	tls1InitMac,
-	tls1FreeMac,
-	tls1ComputeMac,
 	tls1GenerateKeyMaterial,
-	tls1GenerateExportKeyAndIv,
 	tls1GenerateMasterSecret,
 	tls12ComputeFinishedMac,
 	tls12ComputeCertVfyMac

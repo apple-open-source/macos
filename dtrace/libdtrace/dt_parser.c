@@ -910,6 +910,12 @@ dt_node_is_string(const dt_node_t *dnp)
 }
 
 int
+dt_node_is_empty_string(const dt_node_t *dnp)
+{
+    return dt_node_is_string(dnp) && dnp->dn_string && dnp->dn_string[0] == '\0';
+}
+
+int
 dt_node_is_stack(const dt_node_t *dnp)
 {
 	return (dnp->dn_ctfp == DT_STACK_CTFP(yypcb->pcb_hdl) &&

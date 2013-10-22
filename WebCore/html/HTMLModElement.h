@@ -28,14 +28,14 @@
 
 namespace WebCore {
 
-class HTMLModElement : public HTMLElement {
+class HTMLModElement FINAL : public HTMLElement {
 public:
     static PassRefPtr<HTMLModElement> create(const QualifiedName&, Document*);
 
 private:
     HTMLModElement(const QualifiedName&, Document*);
 
-    virtual bool isURLAttribute(Attribute*) const;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
 };
 
 } //namespace

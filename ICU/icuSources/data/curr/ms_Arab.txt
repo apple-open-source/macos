@@ -1,0 +1,43 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/ms_Arab.xml
+// *
+// ***************************************************************************
+/**
+ *  ICU <specials> source: <path>/xml/main/ms_Arab.xml
+ */
+ms_Arab{
+    Currencies{
+        BND{
+            "BND",
+            "دولر بروني",
+        }
+        GBP{
+            "£",
+            "ڤاٴون ستيرليڠ بريتيش",
+        }
+        IDR{
+            "IDR",
+            "روڤياە إندونيسيا",
+        }
+        MYR{
+            "RM",
+            "ريڠݢيت مليسيا",
+        }
+        SGD{
+            "SGD",
+            "دولر سيڠاڤورا",
+        }
+        XXX{
+            "XXX",
+            "مات واڠ تيدق دکتاهوءي",
+        }
+    }
+    CurrencyUnitPatterns{
+        other{"{0} {1}"}
+    }
+    Version{"2.0.82.68"}
+}

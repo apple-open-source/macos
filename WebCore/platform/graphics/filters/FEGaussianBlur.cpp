@@ -120,13 +120,27 @@ inline void FEGaussianBlur::platformApplyGeneric(Uint8ClampedArray* srcPixelArra
     for (int i = 0; i < 3; ++i) {
         if (kernelSizeX) {
             kernelPosition(i, kernelSizeX, dxLeft, dxRight);
+#if HAVE(ARM_NEON_INTRINSICS)
+            if (!isAlphaImage())
+                boxBlurNEON(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height());
+            else
+                boxBlur(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height(), true);
+#else
             boxBlur(src, dst, kernelSizeX, dxLeft, dxRight, 4, stride, paintSize.width(), paintSize.height(), isAlphaImage());
+#endif
             swap(src, dst);
         }
 
         if (kernelSizeY) {
             kernelPosition(i, kernelSizeY, dyLeft, dyRight);
+#if HAVE(ARM_NEON_INTRINSICS)
+            if (!isAlphaImage())
+                boxBlurNEON(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width());
+            else
+                boxBlur(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width(), true);
+#else
             boxBlur(src, dst, kernelSizeY, dyLeft, dyRight, stride, 4, paintSize.height(), paintSize.width(), isAlphaImage());
+#endif
             swap(src, dst);
         }
     }
@@ -142,13 +156,8 @@ inline void FEGaussianBlur::platformApplyGeneric(Uint8ClampedArray* srcPixelArra
 void FEGaussianBlur::platformApplyWorker(PlatformApplyParameters* parameters)
 {
     IntSize paintSize(parameters->width, parameters->height);
-#if CPU(ARM_NEON) && COMPILER(GCC)
-    parameters->filter->platformApplyNeon(parameters->srcPixelArray.get(), parameters->dstPixelArray.get(),
-        parameters->kernelSizeX, parameters->kernelSizeY, paintSize);
-#else
     parameters->filter->platformApplyGeneric(parameters->srcPixelArray.get(), parameters->dstPixelArray.get(),
         parameters->kernelSizeX, parameters->kernelSizeY, paintSize);
-#endif
 }
 
 inline void FEGaussianBlur::platformApply(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize)
@@ -216,15 +225,13 @@ inline void FEGaussianBlur::platformApply(Uint8ClampedArray* srcPixelArray, Uint
     }
 
     // The selection here eventually should happen dynamically on some platforms.
-#if CPU(ARM_NEON) && COMPILER(GCC)
-    platformApplyNeon(srcPixelArray, tmpPixelArray, kernelSizeX, kernelSizeY, paintSize);
-#else
     platformApplyGeneric(srcPixelArray, tmpPixelArray, kernelSizeX, kernelSizeY, paintSize);
-#endif
 }
 
 void FEGaussianBlur::calculateUnscaledKernelSize(unsigned& kernelSizeX, unsigned& kernelSizeY, float stdX, float stdY)
 {
+    ASSERT(stdX >= 0 && stdY >= 0);
+
     kernelSizeX = 0;
     if (stdX)
         kernelSizeX = max<unsigned>(2, static_cast<unsigned>(floorf(stdX * gaussianKernelFactor() + 0.5f)));
@@ -250,19 +257,21 @@ void FEGaussianBlur::calculateKernelSize(Filter* filter, unsigned& kernelSizeX, 
 
 void FEGaussianBlur::determineAbsolutePaintRect()
 {
+    unsigned kernelSizeX = 0;
+    unsigned kernelSizeY = 0;
+    calculateKernelSize(filter(), kernelSizeX, kernelSizeY, m_stdX, m_stdY);
+
     FloatRect absolutePaintRect = inputEffect(0)->absolutePaintRect();
+
+    // We take the half kernel size and multiply it with three, because we run box blur three times.
+    absolutePaintRect.inflateX(3 * kernelSizeX * 0.5f);
+    absolutePaintRect.inflateY(3 * kernelSizeY * 0.5f);
+
     if (clipsToBounds())
         absolutePaintRect.intersect(maxEffectRect());
     else
         absolutePaintRect.unite(maxEffectRect());
 
-    unsigned kernelSizeX = 0;
-    unsigned kernelSizeY = 0;
-    calculateKernelSize(filter(), kernelSizeX, kernelSizeY, m_stdX, m_stdY);
-
-    // We take the half kernel size and multiply it with three, because we run box blur three times.
-    absolutePaintRect.inflateX(3 * kernelSizeX * 0.5f);
-    absolutePaintRect.inflateY(3 * kernelSizeY * 0.5f);
     setAbsolutePaintRect(enclosingIntRect(absolutePaintRect));
 }
 

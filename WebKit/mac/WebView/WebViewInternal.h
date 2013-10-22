@@ -37,6 +37,7 @@
 #import <WebCore/AlternativeTextClient.h>
 #import <WebCore/FindOptions.h>
 #import <WebCore/FloatRect.h>
+#import <WebCore/LayoutMilestones.h>
 #import <WebCore/TextAlternativeWithRange.h>
 #import <WebCore/WebCoreKeyboardUIMode.h>
 
@@ -64,6 +65,9 @@ struct DictationAlternative;
 #ifdef __cplusplus
 
 WebCore::FindOptions coreOptions(WebFindOptions options);
+
+WebCore::LayoutMilestones coreLayoutMilestones(WebLayoutMilestones);
+WebLayoutMilestones kitLayoutMilestones(WebCore::LayoutMilestones);
 
 #if USE(DICTATION_ALTERNATIVES)
 OBJC_CLASS NSTextAlternatives;
@@ -98,10 +102,10 @@ OBJC_CLASS NSTextAlternatives;
 #if USE(ACCELERATED_COMPOSITING)
 - (BOOL)_needsOneShotDrawingSynchronization;
 - (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization;
-- (void)_scheduleCompositingLayerSync;
+- (void)_scheduleCompositingLayerFlush;
 #endif
 
-#if ENABLE(GLIB_SUPPORT)
+#if USE(GLIB)
 - (void)_scheduleGlibContextIterations;
 #endif
 
@@ -112,7 +116,6 @@ OBJC_CLASS NSTextAlternatives;
 #if USE(DICTATION_ALTERNATIVES)
 - (void)_getWebCoreDictationAlternatives:(Vector<WebCore::DictationAlternative>&)alternatives fromTextAlternatives:(const Vector<WebCore::TextAlternativeWithRange>&)alternativesWithRange;
 - (void)_showDictationAlternativeUI:(const WebCore::FloatRect&)boundingBoxOfDictatedText forDictationContext:(uint64_t)dictationContext;
-- (void)_dismissDictationAlternativeUI;
 - (void)_removeDictationAlternatives:(uint64_t)dictationContext;
 - (Vector<String>)_dictationAlternatives:(uint64_t)dictationContext;
 #endif

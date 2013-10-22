@@ -30,6 +30,10 @@
 #include "WebPageGroupData.h"
 #include "WebPageProxy.h"
 
+#if PLATFORM(MAC)
+#include "ObjCObjectGraphCoders.h"
+#endif
+
 namespace WebKit {
 
 // Adds
@@ -41,12 +45,12 @@ class WebContextUserMessageEncoder : public UserMessageEncoder<WebContextUserMes
 public:
     typedef UserMessageEncoder<WebContextUserMessageEncoder> Base;
 
-    WebContextUserMessageEncoder(APIObject* root) 
+    explicit WebContextUserMessageEncoder(APIObject* root) 
         : Base(root)
     {
     }
 
-    void encode(CoreIPC::ArgumentEncoder* encoder) const 
+    void encode(CoreIPC::ArgumentEncoder& encoder) const
     {
         APIObject::Type type = APIObject::TypeNull;
         if (baseEncode(encoder, type))
@@ -55,19 +59,26 @@ public:
         switch (type) {
         case APIObject::TypePage: {
             WebPageProxy* page = static_cast<WebPageProxy*>(m_root);
-            encoder->encode(page->pageID());
+            encoder << page->pageID();
             break;
         }
         case APIObject::TypeFrame: {
             WebFrameProxy* frame = static_cast<WebFrameProxy*>(m_root);
-            encoder->encode(frame->frameID());
+            encoder << frame->frameID();
             break;
         }
         case APIObject::TypePageGroup: {
             WebPageGroup* pageGroup = static_cast<WebPageGroup*>(m_root);
-            encoder->encode(pageGroup->data());
+            encoder << pageGroup->data();
             break;
         }
+#if PLATFORM(MAC)
+        case APIObject::TypeObjCObjectGraph: {
+            ObjCObjectGraph* objectGraph = static_cast<ObjCObjectGraph*>(m_root);
+            encoder << WebContextObjCObjectGraphEncoder(objectGraph);
+            break;
+        }
+#endif
         default:
             ASSERT_NOT_REACHED();
             break;
@@ -84,19 +95,19 @@ class WebContextUserMessageDecoder : public UserMessageDecoder<WebContextUserMes
 public:
     typedef UserMessageDecoder<WebContextUserMessageDecoder> Base;
 
-    WebContextUserMessageDecoder(RefPtr<APIObject>& root, WebContext* context)
+    WebContextUserMessageDecoder(RefPtr<APIObject>& root, WebProcessProxy* process)
         : Base(root)
-        , m_context(context)
+        , m_process(process)
     {
     }
 
     WebContextUserMessageDecoder(WebContextUserMessageDecoder& userMessageDecoder, RefPtr<APIObject>& root)
         : Base(root)
-        , m_context(userMessageDecoder.m_context)
+        , m_process(userMessageDecoder.m_process)
     {
     }
 
-    static bool decode(CoreIPC::ArgumentDecoder* decoder, WebContextUserMessageDecoder& coder)
+    static bool decode(CoreIPC::ArgumentDecoder& decoder, WebContextUserMessageDecoder& coder)
     {
         APIObject::Type type = APIObject::TypeNull;
         if (!Base::baseDecode(decoder, coder, type))
@@ -108,25 +119,35 @@ public:
         switch (type) {
         case APIObject::TypeBundlePage: {
             uint64_t pageID;
-            if (!decoder->decode(pageID))
+            if (!decoder.decode(pageID))
                 return false;
-            coder.m_root = coder.m_context->process()->webPage(pageID);
+            coder.m_root = coder.m_process->webPage(pageID);
             break;
         }
         case APIObject::TypeBundleFrame: {
             uint64_t frameID;
-            if (!decoder->decode(frameID))
+            if (!decoder.decode(frameID))
                 return false;
-            coder.m_root = coder.m_context->process()->webFrame(frameID);
+            coder.m_root = coder.m_process->webFrame(frameID);
             break;
         }
         case APIObject::TypeBundlePageGroup: {
             uint64_t pageGroupID;
-            if (!decoder->decode(pageGroupID))
+            if (!decoder.decode(pageGroupID))
                 return false;
             coder.m_root = WebPageGroup::get(pageGroupID);
             break;
         }
+#if PLATFORM(MAC)
+        case APIObject::TypeObjCObjectGraph: {
+            RefPtr<ObjCObjectGraph> objectGraph;
+            WebContextObjCObjectGraphDecoder objectGraphDecoder(objectGraph, coder.m_process);
+            if (!decoder.decode(objectGraphDecoder))
+                return false;
+            coder.m_root = objectGraph.get();
+            break;
+        }
+#endif
         default:
             return false;
         }
@@ -135,7 +156,7 @@ public:
     }
 
 private:
-    WebContext* m_context;
+    WebProcessProxy* m_process;
 };
 
 } // namespace WebKit

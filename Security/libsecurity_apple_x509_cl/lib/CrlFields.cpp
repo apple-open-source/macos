@@ -362,7 +362,7 @@ static void setField_SignedCrl (
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
-void freeField_SignedCrl (
+static void freeField_SignedCrl (
 	CssmOwnedData		&fieldValue)
 {
 	CSSM_X509_SIGNED_CRL *cssmCrl = 

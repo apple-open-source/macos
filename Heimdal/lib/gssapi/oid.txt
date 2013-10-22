@@ -55,6 +55,7 @@ oid	base	GSS_C_MA_MECH_DESCRIPTION		1.2.752.43.13.102
 oid	base	GSS_C_CRED_PASSWORD			1.2.752.43.13.200
 oid	base	GSS_C_CRED_CERTIFICATE			1.2.752.43.13.201
 oid	base	GSS_C_CRED_SecIdentity			1.2.752.43.13.202
+oid	base	GSS_C_CRED_HEIMBASE			1.2.752.43.13.203
 
 #/* Heimdal mechanisms - 1.2.752.43.14 */
 

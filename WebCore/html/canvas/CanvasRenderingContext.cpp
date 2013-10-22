@@ -31,6 +31,7 @@
 #include "HTMLCanvasElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLVideoElement.h"
+#include "Image.h"
 #include "KURL.h"
 #include "SecurityOrigin.h"
 
@@ -77,11 +78,12 @@ bool CanvasRenderingContext::wouldTaintOrigin(const HTMLVideoElement* video)
     if (!video || !canvas()->originClean())
         return false;
 
-    if (wouldTaintOrigin(video->currentSrc()))
-        return true;
-
     if (!video->hasSingleSecurityOrigin())
         return true;
+
+    if (!(video->player() && video->player()->didPassCORSAccessCheck()) && wouldTaintOrigin(video->currentSrc()))
+        return true;
+
 #else
     UNUSED_PARAM(video);
 #endif

@@ -140,7 +140,7 @@ compute_vendorids (void)
 		if(i == VENDORID_DPD){
 			all_vendor_ids[i].hash = vmalloc(sizeof(vendorid_dpd_hash));
 			if (all_vendor_ids[i].hash == NULL) {
-				plog(LLV_ERROR2, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"unable to get memory for VID hash\n");
 				exit(1); /* this really shouldn't happen */
 			}
@@ -154,7 +154,7 @@ compute_vendorids (void)
 
 		all_vendor_ids[i].hash = eay_md5_one(&vid);
 		if (all_vendor_ids[i].hash == NULL)
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			    "unable to hash vendor ID string\n");
 
 		/* Special cases */
@@ -183,7 +183,7 @@ set_vendorid(int vendorid)
 
 	current = lookup_vendor_id_by_id(vendorid);
 	if (current == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 		    "invalid vendor ID index: %d\n", vendorid);
 		return (NULL);
 	}
@@ -216,19 +216,18 @@ check_vendorid(struct isakmp_gen *gen)
 		goto unknown;
 	
 	if (current->hash->l < vidlen)
-		plog(LLV_INFO, LOCATION, NULL,
+		plog(ASL_LEVEL_INFO, 
 		     "received broken Microsoft ID: %s\n",
 		     current->string);
 	else
-		plog(LLV_INFO, LOCATION, NULL,
+		plog(ASL_LEVEL_INFO, 
 		     "received Vendor ID: %s\n",
 		     current->string);
 
 	return current->id;
 
 unknown:
-	plog(LLV_DEBUG, LOCATION, NULL, "received unknown Vendor ID:\n");
-	plogdump(LLV_DEBUG, (char *)(gen + 1), vidlen);
+	plogdump(ASL_LEVEL_DEBUG, (char *)(gen + 1), vidlen, "received unknown Vendor ID:\n");
 	return (VENDORID_UNKNOWN);
 }
 
@@ -242,7 +241,7 @@ vendorid_fixup(vendorid, vidhash)
 		vchar_t *tmp;					    
 				  
 		if ((tmp = vmalloc(8)) == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			    "unable to hash vendor ID string\n");
 			return NULL;				    
 		}			

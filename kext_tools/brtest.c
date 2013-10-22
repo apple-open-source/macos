@@ -12,6 +12,7 @@
 
 #include <bootfiles.h>
 #include <err.h>
+#include <paths.h>
 #include <stdio.h>
 #include <strings.h>
 #include <sys/param.h>      // MIN()
@@ -95,11 +96,12 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
 {
     int result = ELAST + 1;
     char *targetSpec, *tdir, *blessarg = NULL;
-    char *hostpath, *dmgpath, helperName[DEVMAXPATHSIZE];
+    char *hostpath, *dmgpath;
+    char helperName[DEVMAXPATHSIZE], helperDev[DEVMAXPATHSIZE] = _PATH_DEV;
     char path[PATH_MAX];
     struct stat sb;
 
-    BRUpdateOpts_t opts = kBRUOptsNone;
+    BRCopyFilesOpts opts = kBROptsNone;
     CFStringRef pickerLabel = NULL;
     CFArrayRef helpers = NULL;
     CFURLRef hostVol = NULL;
@@ -112,7 +114,7 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     BRBlessStyle blessSpec = kBRBlessFSDefault;
 
     if (argc > 3 && strcmp(argv[3], "-anyboot") == 0) {
-        opts |= kBRUAnyBootStamps;
+        opts |= kBRAnyBootStamps;
         argv++; argc--;
     }
     if (argc > 4 && strcmp(argv[3], "-pickerLabel") == 0) {
@@ -126,7 +128,7 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     case 4:
     case 5:
         // brtest copyfiles <src> <bootDev>[/<dir>] [<BlessStyle>]
-        hostVol = srcVol;
+        hostVol = CFRetain(srcVol);
         (void)CFURLGetFileSystemRepresentation(hostVol, true,
                                                (UInt8*)path, PATH_MAX);
         hostpath = path;
@@ -193,7 +195,7 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     if ((tdir = strchr(targetSpec, '/'))) {
         size_t tlen = tdir-targetSpec;
         if (*(tdir + 1) == '\0')    usage(EX_USAGE);
-        strlcpy(helperName, targetSpec, MIN(tlen + 1, DEVMAXPATHSIZE));
+        (void)strlcpy(helperName, targetSpec, MIN(tlen + 1, DEVMAXPATHSIZE));
         bootDev = CFStringCreateWithBytes(nil, (UInt8*)targetSpec,
                   tlen, kCFStringEncodingUTF8, false);
         targetDir = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*)tdir,
@@ -201,6 +203,12 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
     } else {
         bootDev = CFStringCreateWithFileSystemRepresentation(nil, targetSpec);
         (void)strlcpy(helperName, targetSpec, DEVMAXPATHSIZE);
+    }
+
+    // make sure the target /dev/ node exists
+    (void)strlcat(helperDev, helperName, DEVMAXPATHSIZE);
+    if (stat(helperDev, &sb)) {
+        err(EX_NOINPUT, "%s", helperDev);
     }
 
     // warn if hostVol requires Boot!=Root but bootDev isn't one of its helpers
@@ -211,20 +219,21 @@ copyfiles(CFURLRef srcVol, int argc, char *argv[])
             fprintf(stderr,"%s doesn't 'belong to' %s; CSFDE might not work\n",
                     helperName, hostpath);
         }
-        CFRelease(helpers);
     }
+    if (helpers) CFRelease(helpers);
 
     // evaluate any bless style argument
     if (blessarg) {
         if (strcasestr(blessarg, "none")) {
             blessSpec = kBRBlessNone;
-        } else if (strcasestr(blessarg, "default") ||
-                   strcasestr(blessarg, "fsdefault")) {
+        } else if (strcasecmp(blessarg, "default") == 0) {
+            // blessSpec = kBRBlessFSDefault;
+        } else if (strcasecmp(blessarg, "full") == 0) {
             blessSpec = kBRBlessFull;
-        } else if (strcasestr(blessarg, "full")) {
-            blessSpec = kBRBlessFSDefault;
-        } else if (strcasestr(blessarg, "once")) {
+        } else if (strcasecmp(blessarg, "once") == 0) {
             blessSpec = kBRBlessOnce;
+        } else if (strcasecmp(blessarg, "fsonce") == 0) {
+            blessSpec |= kBRBlessOnce;
         } else {
             usage(EX_USAGE);
         }
@@ -245,14 +254,14 @@ CFShow(targetDir);
 fprintf(stderr, "blessSpec: %d\n", blessSpec);
 CFShow(CFURLCopyLastPathComponent(targetDir));
 #endif
-        result = BRCopyBootFilesWithOpts(srcVol, hostVol, plistOverrides,
+        result = BRCopyBootFilesToDir(srcVol, hostVol, plistOverrides,
                               bootDev, targetDir, blessSpec, pickerLabel, opts);
-        if (pickerLabel)   CFRelease(pickerLabel);
     } else {
         result = BRCopyBootFiles(srcVol, hostVol, bootDev, plistOverrides);
     }
     
 finish:
+    if (pickerLabel)    CFRelease(pickerLabel);
     if (targetDir)      CFRelease(targetDir);
     if (plistOverrides) CFRelease(plistOverrides);
     if (bootArgs)       CFRelease(bootArgs);
@@ -367,6 +376,7 @@ main(int argc, char *argv[])
         result = erasefiles(argv[2], volURL, argv[3], argv[4]);
     /* ... other verbs ... */
     } else {
+        fprintf(stderr, "no recognized verb!\n");
         usage(EX_USAGE);
     }
 

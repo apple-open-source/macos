@@ -105,6 +105,7 @@ word8 mul(word8 a, word8 b) {
 }
 #endif	/* !AES_MUL_BY_LOOKUP */
 
+static
 void KeyAddition(word8 a[4][MAXBC], word8 rk[4][MAXBC], word8 BC) {
 	/* Exor corresponding text input and round key input bytes
 	 */
@@ -114,6 +115,7 @@ void KeyAddition(word8 a[4][MAXBC], word8 rk[4][MAXBC], word8 BC) {
    		for(j = 0; j < BC; j++) a[i][j] ^= rk[i][j];
 }
 
+static
 void ShiftRow(word8 a[4][MAXBC], word8 d, word8 BC) {
 	/* Row 0 remains unchanged
 	 * The other three rows are shifted a variable amount
@@ -127,6 +129,7 @@ void ShiftRow(word8 a[4][MAXBC], word8 d, word8 BC) {
 	}
 }
 
+static
 void Substitution(word8 a[4][MAXBC], const word8 box[256], word8 BC) {
 	/* Replace every byte of the input by the byte at that place
 	 * in the nonlinear S-box
@@ -137,6 +140,7 @@ void Substitution(word8 a[4][MAXBC], const word8 box[256], word8 BC) {
 		for(j = 0; j < BC; j++) a[i][j] = box[a[i][j]] ;
 }
    
+static
 void MixColumn(word8 a[4][MAXBC], word8 BC) {
 	/* Mix the four bytes of every column in a linear way
 	 */
@@ -163,6 +167,7 @@ void MixColumn(word8 a[4][MAXBC], word8 BC) {
 	}
 }
 
+static
 void InvMixColumn(word8 a[4][MAXBC], word8 BC) {
 	/* Mix the four bytes of every column in a linear way
 	 * This is the opposite operation of Mixcolumn

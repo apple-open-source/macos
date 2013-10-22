@@ -1,9 +1,12 @@
 /*
- * $Id: dl.c 18479 2008-08-11 00:37:21Z shyouhei $
+ * ext/dl/dl.c
+ *
+ * doumentation:
+ * - Vincent Batts (vbatts@hashbangbash.com)
+ *
  */
-
-#include <ruby.h>
-#include <rubyio.h>
+#include <ruby/ruby.h>
+#include <ruby/io.h>
 #include <ctype.h>
 #include "dl.h"
 
@@ -11,726 +14,560 @@ VALUE rb_mDL;
 VALUE rb_eDLError;
 VALUE rb_eDLTypeError;
 
-static VALUE DLFuncTable;
-static void *rb_dl_callback_table[CALLBACK_TYPES][MAX_CALLBACK];
-static ID id_call;
+ID rbdl_id_cdecl;
+ID rbdl_id_stdcall;
 
-static int
-rb_dl_scan_callback_args(long stack[], const char *proto,
-			 int *argc, VALUE argv[])
-{
-  int i;
-  long *sp;
-  VALUE val;
+#ifndef DLTYPE_SSIZE_T
+# if SIZEOF_SIZE_T == SIZEOF_INT
+#   define DLTYPE_SSIZE_T DLTYPE_INT
+# elif SIZEOF_SIZE_T == SIZEOF_LONG
+#   define DLTYPE_SSIZE_T DLTYPE_LONG
+# elif defined HAVE_LONG_LONG && SIZEOF_SIZE_T == SIZEOF_LONG_LONG
+#   define DLTYPE_SSIZE_T DLTYPE_LONG_LONG
+# endif
+#endif
+#define DLTYPE_SIZE_T (-1*SIGNEDNESS_OF_SIZE_T*DLTYPE_SSIZE_T)
 
-  sp = stack;
-  for (i=1; proto[i]; i++) {
-    switch (proto[i]) {
-    case 'C':
-      {
-	char v;
-	v = (char)(*sp);
-	sp++;
-	val = INT2NUM(v);
-      }
-      break;
-    case 'H':
-      {
-	short v;
-	v = (short)(*sp);
-	sp++;
-	val = INT2NUM(v);
-      }
-      break;
-    case 'I':
-      {
-	int v;
-	v = (int)(*sp);
-	sp++;
-	val = INT2NUM(v);
-      }
-      break;
-    case 'L':
-      {
-	long v;
-	v = (long)(*sp);
-	sp++;
-	val = INT2NUM(v);
-      }
-      break;
-    case 'F':
-      {
-	float v;
-	memcpy(&v, sp, sizeof(float));
-	sp += sizeof(float)/sizeof(long);
-	val = rb_float_new(v);
-      }
-      break;
-    case 'D':
-      {
-	double v;
-	memcpy(&v, sp, sizeof(double));
-	sp += sizeof(double)/sizeof(long);
-	val = rb_float_new(v);
-      }
-      break;
-    case 'P':
-      {
-	void *v;
-	memcpy(&v, sp, sizeof(void*));
-	sp++;
-	val = rb_dlptr_new(v, 0, 0);
-      }
-      break;
-    case 'S':
-      {
-	char *v;
-	memcpy(&v, sp, sizeof(void*));
-	sp++;
-	val = rb_tainted_str_new2(v);
-      }
-      break;
-    default:
-      rb_raise(rb_eDLTypeError, "unsupported type `%c'", proto[i]);
-      break;
-    }
-    argv[i-1] = val;
-  }
-  *argc = (i - 1);
+#ifndef DLTYPE_PTRDIFF_T
+# if SIZEOF_PTRDIFF_T == SIZEOF_INT
+#   define DLTYPE_PTRDIFF_T DLTYPE_INT
+# elif SIZEOF_PTRDIFF_T == SIZEOF_LONG
+#   define DLTYPE_PTRDIFF_T DLTYPE_LONG
+# elif defined HAVE_LONG_LONG && SIZEOF_PTRDIFF_T == SIZEOF_LONG_LONG
+#   define DLTYPE_PTRDIFF_T DLTYPE_LONG_LONG
+# endif
+#endif
 
-  return (*argc);
-}
+#ifndef DLTYPE_INTPTR_T
+# if SIZEOF_INTPTR_T == SIZEOF_INT
+#   define DLTYPE_INTPTR_T DLTYPE_INT
+# elif SIZEOF_INTPTR_T == SIZEOF_LONG
+#   define DLTYPE_INTPTR_T DLTYPE_LONG
+# elif defined HAVE_LONG_LONG && SIZEOF_INTPTR_T == SIZEOF_LONG_LONG
+#   define DLTYPE_INTPTR_T DLTYPE_LONG_LONG
+# endif
+#endif
+#define DLTYPE_UINTPTR_T (-DLTYPE_INTPTR_T)
 
-#include "callback.func"
-
-static void
-init_dl_func_table(){
-#include "cbtable.func"
-}
-
-void *
-dlmalloc(size_t size)
-{
-  DEBUG_CODE2({
-    void *ptr;
-
-    printf("dlmalloc(%d)",size);
-    ptr = xmalloc(size);
-    printf(":0x%x\n",ptr);
-    return ptr;
-  },
-  {
-    return xmalloc(size);
-  });
-}
-
-void *
-dlrealloc(void *ptr, size_t size)
-{
-  DEBUG_CODE({
-    printf("dlrealloc(0x%x,%d)\n",ptr,size);
-  });
-  return xrealloc(ptr, size);
-}
-
-void
-dlfree(void *ptr)
-{
-  DEBUG_CODE({
-    printf("dlfree(0x%x)\n",ptr);
-  });
-  xfree(ptr);
-}
-
-char*
-dlstrdup(const char *str)
-{
-  char *newstr;
-
-  newstr = (char*)dlmalloc(strlen(str)+1);
-  strcpy(newstr,str);
-
-  return newstr;
-}
-
-size_t
-dlsizeof(const char *cstr)
-{
-  size_t size;
-  int i, len, n, dlen;
-  char *d;
-
-  len  = strlen(cstr);
-  size = 0;
-  for (i=0; i<len; i++) {
-    n = 1;
-    if (isdigit(cstr[i+1])) {
-      dlen = 1;
-      while (isdigit(cstr[i+dlen])) { dlen ++; };
-      dlen --;
-      d = ALLOCA_N(char, dlen + 1);
-      strncpy(d, cstr + i + 1, dlen);
-      d[dlen] = '\0';
-      n = atoi(d);
-    }
-    else{
-      dlen = 0;
-    }
-
-    switch (cstr[i]) {
-    case 'I':
-      DLALIGN(0,size,INT_ALIGN);
-    case 'i':
-      size += sizeof(int) * n;
-      break;
-    case 'L':
-      DLALIGN(0,size,LONG_ALIGN);
-    case 'l':
-      size += sizeof(long) * n;
-      break;
-    case 'F':
-      DLALIGN(0,size,FLOAT_ALIGN);
-    case 'f':
-      size += sizeof(float) * n;
-      break;
-    case 'D':
-      DLALIGN(0,size,DOUBLE_ALIGN);
-    case 'd':
-      size += sizeof(double) * n;
-      break;
-    case 'C':
-    case 'c':
-      size += sizeof(char) * n;
-      break;
-    case 'H':
-      DLALIGN(0,size,SHORT_ALIGN);
-    case 'h':
-      size += sizeof(short) * n;
-      break;
-    case 'P':
-    case 'S':
-      DLALIGN(0,size,VOIDP_ALIGN);
-    case 'p':
-    case 's':
-      size += sizeof(void*) * n;
-      break;
-    default:
-      rb_raise(rb_eDLTypeError, "unexpected type '%c'", cstr[i]);
-      break;
-    }
-    i += dlen;
-  }
-
-  return size;
-}
-
-static float *
-c_farray(VALUE v, long *size)
-{
-  int i, len;
-  float *ary;
-  VALUE e;
-
-  len = RARRAY(v)->len;
-  *size = sizeof(float) * len;
-  ary = dlmalloc(*size);
-  for (i=0; i < len; i++) {
-    e = rb_ary_entry(v, i);
-    switch (TYPE(e)) {
-    case T_FLOAT:
-      ary[i] = (float)(RFLOAT(e)->value);
-      break;
-    case T_NIL:
-      ary[i] = 0.0;
-      break;
-    default:
-      rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
-      break;
-    }
-  }
-
-  return ary;
-}
-
-static double *
-c_darray(VALUE v, long *size)
-{
-  int i, len;
-  double *ary;
-  VALUE e;
-
-  len = RARRAY(v)->len;
-  *size = sizeof(double) * len;
-  ary = dlmalloc(*size);
-  for (i=0; i < len; i++) {
-    e = rb_ary_entry(v, i);
-    switch (TYPE(e)) {
-    case T_FLOAT:
-      ary[i] = (double)(RFLOAT(e)->value);
-      break;
-    case T_NIL:
-      ary[i] = 0.0;
-      break;
-    default:
-      rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
-      break;
-    }
-  }
-
-  return ary;
-}
-
-static long *
-c_larray(VALUE v, long *size)
-{
-  int i, len;
-  long *ary;
-  VALUE e;
-
-  len = RARRAY(v)->len;
-  *size = sizeof(long) * len;
-  ary = dlmalloc(*size);
-  for (i=0; i < len; i++) {
-    e = rb_ary_entry(v, i);
-    switch (TYPE(e)) {
-    case T_FIXNUM:
-    case T_BIGNUM:
-      ary[i] = (long)(NUM2INT(e));
-      break;
-    case T_NIL:
-      ary[i] = 0;
-      break;
-    default:
-      rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
-      break;
-    }
-  }
-
-  return ary;
-}
-
-static int *
-c_iarray(VALUE v, long *size)
-{
-  int i, len;
-  int *ary;
-  VALUE e;
-
-  len = RARRAY(v)->len;
-  *size = sizeof(int) * len;
-  ary = dlmalloc(*size);
-  for (i=0; i < len; i++) {
-    e = rb_ary_entry(v, i);
-    switch (TYPE(e)) {
-    case T_FIXNUM:
-    case T_BIGNUM:
-      ary[i] = (int)(NUM2INT(e));
-      break;
-    case T_NIL:
-      ary[i] = 0;
-      break;
-    default:
-      rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
-      break;
-    }
-  }
-
-  return ary;
-}
-
-static short *
-c_harray(VALUE v, long *size)
-{
-  int i, len;
-  short *ary;
-  VALUE e;
-
-  len = RARRAY(v)->len;
-  *size = sizeof(short) * len;
-  ary = dlmalloc(*size);
-  for (i=0; i < len; i++) {
-    e = rb_ary_entry(v, i);
-    switch (TYPE(e)) {
-    case T_FIXNUM:
-    case T_BIGNUM:
-      ary[i] = (short)(NUM2INT(e));
-      break;
-    case T_NIL:
-      ary[i] = 0;
-      break;
-    default:
-      rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
-      break;
-    }
-  }
-
-  return ary;
-}
-
-static char *
-c_carray(VALUE v, long *size)
-{
-  int i, len;
-  char *ary;
-  VALUE e;
-
-  len = RARRAY(v)->len;
-  *size = sizeof(char) * len;
-  ary = dlmalloc(*size);
-  for (i=0; i < len; i++) {
-    e = rb_ary_entry(v, i);
-    switch (TYPE(e)) {
-    case T_FIXNUM:
-    case T_BIGNUM:
-      ary[i] = (char)(NUM2INT(e));
-      break;
-    case T_NIL:
-      ary[i] = 0;
-      break;
-    default:
-      rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
-      break;
-    }
-  }
-
-  return ary;
-}
-
-static void *
-c_parray(VALUE v, long *size)
-{
-  int i, len;
-  void **ary;
-  VALUE e, tmp;
-
-  len = RARRAY(v)->len;
-  *size = sizeof(void*) * len;
-  ary = dlmalloc(*size);
-  for (i=0; i < len; i++) {
-    e = rb_ary_entry(v, i);
-    switch (TYPE(e)) {
-    default:
-      tmp = rb_check_string_type(e);
-      if (NIL_P(tmp)) {
-	  rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
-      }
-      e = tmp;
-      /* fall through */
-    case T_STRING:
-      rb_check_safe_str(e);
-      {
-	char *str, *src;
-	src = RSTRING(e)->ptr;
-	str = dlstrdup(src);
-	ary[i] = (void*)str;
-      }
-      break;
-    case T_NIL:
-      ary[i] = NULL;
-      break;
-    case T_DATA:
-      if (rb_obj_is_kind_of(e, rb_cDLPtrData)) {
-	struct ptr_data *pdata;
-	Data_Get_Struct(e, struct ptr_data, pdata);
-	ary[i] = (void*)(pdata->ptr);
-      }
-      else{
-        e = rb_funcall(e, rb_intern("to_ptr"), 0);
-        if (rb_obj_is_kind_of(e, rb_cDLPtrData)) {
-	  struct ptr_data *pdata;
-	  Data_Get_Struct(e, struct ptr_data, pdata);
-	  ary[i] = (void*)(pdata->ptr);
-	}
-	else{
-	  rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
-	}
-      }
-      break;
-    }
-  }
-
-  return ary;
-}
-
-void *
-rb_ary2cary(char t, VALUE v, long *size)
-{
-  int len;
-  VALUE val0;
-
-  val0 = rb_check_array_type(v);
-  if(NIL_P(val0)) {
-    rb_raise(rb_eDLTypeError, "an array is expected.");
-  }
-  v = val0;
-
-  len = RARRAY(v)->len;
-  if (len == 0) {
-    return NULL;
-  }
-
-  if (!size) {
-    size = ALLOCA_N(long,1);
-  }
-
-  val0 = rb_ary_entry(v,0);
-  switch (TYPE(val0)) {
-  case T_FIXNUM:
-  case T_BIGNUM:
-    switch (t) {
-    case 'C': case 'c':
-      return (void*)c_carray(v,size);
-    case 'H': case 'h':
-      return (void*)c_harray(v,size);
-    case 'I': case 'i':
-      return (void*)c_iarray(v,size);
-    case 'L': case 'l': case 0:
-      return (void*)c_larray(v,size);
-    default:
-      rb_raise(rb_eDLTypeError, "type mismatch");
-    }
-  case T_STRING:
-    return (void*)c_parray(v,size);
-  case T_FLOAT:
-    switch (t) {
-    case 'F': case 'f':
-      return (void*)c_farray(v,size);
-    case 'D': case 'd': case 0:
-      return (void*)c_darray(v,size);
-    }
-    rb_raise(rb_eDLTypeError, "type mismatch");
-  case T_DATA:
-    if (rb_obj_is_kind_of(val0, rb_cDLPtrData)) {
-      return (void*)c_parray(v,size);
-    }
-    else{
-      val0 = rb_funcall(val0, rb_intern("to_ptr"), 0);
-      if (rb_obj_is_kind_of(val0, rb_cDLPtrData)) {
-        return (void*)c_parray(v,size);
-      }
-    }
-    rb_raise(rb_eDLTypeError, "type mismatch");
-  case T_NIL:
-    return (void*)c_parray(v, size);
-  default:
-    rb_raise(rb_eDLTypeError, "unsupported type");
-  }
-}
-
-VALUE
-rb_str_to_ptr(VALUE self)
-{
-  char *ptr;
-  int  len;
-  VALUE p;
-
-  len = RSTRING(self)->len;
-  ptr = (char*)dlmalloc(len + 1);
-  memcpy(ptr, RSTRING(self)->ptr, len);
-  ptr[len] = '\0';
-  p = rb_dlptr_new((void*)ptr,len,dlfree);
-  OBJ_INFECT(p, self);
-  return p;
-}
-
-VALUE
-rb_ary_to_ptr(int argc, VALUE argv[], VALUE self)
-{
-  void *ptr;
-  VALUE t;
-  long size;
-
-  switch (rb_scan_args(argc, argv, "01", &t)) {
-  case 1:
-    ptr = rb_ary2cary(StringValuePtr(t)[0], self, &size);
-    break;
-  case 0:
-    ptr = rb_ary2cary(0, self, &size);
-    break;
-  }
-  if (ptr) {
-      VALUE p = rb_dlptr_new(ptr, size, dlfree);
-      OBJ_INFECT(p, self);
-      return p;
-  }
-  return Qnil;
-}
-
-VALUE
-rb_io_to_ptr(VALUE self)
-{
-  rb_io_t *fptr;
-  FILE     *fp;
-
-  GetOpenFile(self, fptr);
-  fp = fptr->f;
-
-  return fp ? rb_dlptr_new(fp, 0, 0) : Qnil;
-}
-
+/*
+ * call-seq: DL.dlopen(so_lib)
+ *
+ * An interface to the dynamic linking loader
+ *
+ * This is a shortcut to DL::Handle.new and takes the same arguments.
+ *
+ * Example:
+ *
+ *   libc_so = "/lib64/libc.so.6"
+ *   => "/lib64/libc.so.6"
+ *
+ *   libc = DL.dlopen(libc_so)
+ *   => #<DL::Handle:0x00000000e05b00>
+ */
 VALUE
 rb_dl_dlopen(int argc, VALUE argv[], VALUE self)
 {
-  rb_secure(2);
-  return rb_class_new_instance(argc, argv, rb_cDLHandle);
+    return rb_class_new_instance(argc, argv, rb_cDLHandle);
 }
 
+/*
+ * call-seq: DL.malloc(size)
+ *
+ * Allocate +size+ bytes of memory and return the integer memory address
+ * for the allocated memory.
+ */
 VALUE
 rb_dl_malloc(VALUE self, VALUE size)
 {
-  rb_secure(4);
-  return rb_dlptr_malloc(DLNUM2LONG(size), dlfree);
+    void *ptr;
+
+    rb_secure(4);
+    ptr = (void*)ruby_xmalloc(NUM2INT(size));
+    return PTR2NUM(ptr);
 }
 
+/*
+ * call-seq: DL.realloc(addr, size)
+ *
+ * Change the size of the memory allocated at the memory location +addr+ to
+ * +size+ bytes.  Returns the memory address of the reallocated memory, which
+ * may be different than the address passed in.
+ */
 VALUE
-rb_dl_strdup(VALUE self, VALUE str)
+rb_dl_realloc(VALUE self, VALUE addr, VALUE size)
 {
-  SafeStringValue(str);
-  return rb_dlptr_new(strdup(RSTRING(str)->ptr), RSTRING(str)->len, dlfree);
+    void *ptr = NUM2PTR(addr);
+
+    rb_secure(4);
+    ptr = (void*)ruby_xrealloc(ptr, NUM2INT(size));
+    return PTR2NUM(ptr);
 }
 
-static VALUE
-rb_dl_sizeof(VALUE self, VALUE str)
+/*
+ * call-seq: DL.free(addr)
+ *
+ * Free the memory at address +addr+
+ */
+VALUE
+rb_dl_free(VALUE self, VALUE addr)
 {
-  return INT2NUM(dlsizeof(StringValuePtr(str)));
+    void *ptr = NUM2PTR(addr);
+
+    rb_secure(4);
+    ruby_xfree(ptr);
+    return Qnil;
 }
 
-static VALUE
-rb_dl_callback(int argc, VALUE argv[], VALUE self)
+/*
+ * call-seq: DL.dlunwrap(addr)
+ *
+ * Returns the hexadecimal representation of a memory pointer address +addr+
+ *
+ * Example:
+ *
+ *   lib = DL.dlopen('/lib64/libc-2.15.so')
+ *   => #<DL::Handle:0x00000001342460>
+ *
+ *   lib['strcpy'].to_s(16)
+ *   => "7f59de6dd240"
+ *
+ *   DL.dlunwrap(DL.dlwrap(lib['strcpy'].to_s(16)))
+ *   => "7f59de6dd240"
+ */
+VALUE
+rb_dl_ptr2value(VALUE self, VALUE addr)
 {
-  VALUE type, proc;
-  int rettype, entry, i;
-  char fname[127];
-
-  rb_secure(4);
-  proc = Qnil;
-  switch (rb_scan_args(argc, argv, "11", &type, &proc)) {
-  case 1:
-    if (rb_block_given_p()) {
-      proc = rb_block_proc();
-    }
-    else{
-      proc = Qnil;
-    }
-  default:
-    break;
-  }
-
-  StringValue(type);
-  switch (RSTRING(type)->ptr[0]) {
-  case '0':
-    rettype = 0x00;
-    break;
-  case 'C':
-    rettype = 0x01;
-    break;
-  case 'H':
-    rettype = 0x02;
-    break;
-  case 'I':
-    rettype = 0x03;
-    break;
-  case 'L':
-    rettype = 0x04;
-    break;
-  case 'F':
-    rettype = 0x05;
-    break;
-  case 'D':
-    rettype = 0x06;
-    break;
-  case 'P':
-    rettype = 0x07;
-    break;
-  default:
-    rb_raise(rb_eDLTypeError, "unsupported type `%c'", RSTRING(type)->ptr[0]);
-  }
-
-  entry = -1;
-  for (i=0; i < MAX_CALLBACK; i++) {
-    if (rb_hash_aref(DLFuncTable, rb_assoc_new(INT2NUM(rettype), INT2NUM(i))) == Qnil) {
-      entry = i;
-      break;
-    }
-  }
-  if (entry < 0) {
-    rb_raise(rb_eDLError, "too many callbacks are defined.");
-  }
-
-  rb_hash_aset(DLFuncTable,
-	       rb_assoc_new(INT2NUM(rettype),INT2NUM(entry)),
-	       rb_assoc_new(type,proc));
-  sprintf(fname, "rb_dl_callback_func_%d_%d", rettype, entry);
-  return rb_dlsym_new((void (*)())rb_dl_callback_table[rettype][entry],
-		      fname, RSTRING(type)->ptr);
+    rb_secure(4);
+    return (VALUE)NUM2PTR(addr);
 }
 
-static VALUE
-rb_dl_remove_callback(VALUE mod, VALUE sym)
+/*
+ * call-seq: DL.dlwrap(val)
+ *
+ * Returns a memory pointer of a function's hexadecimal address location +val+
+ *
+ * Example:
+ *
+ *   lib = DL.dlopen('/lib64/libc-2.15.so')
+ *   => #<DL::Handle:0x00000001342460>
+ *
+ *   DL.dlwrap(lib['strcpy'].to_s(16))
+ *   => 25522520
+ */
+VALUE
+rb_dl_value2ptr(VALUE self, VALUE val)
 {
-  freefunc_t f;
-  int i, j;
+    return PTR2NUM((void*)val);
+}
 
-  rb_secure(4);
-  f = rb_dlsym2csym(sym);
-  for (i=0; i < CALLBACK_TYPES; i++) {
-    for (j=0; j < MAX_CALLBACK; j++) {
-      if (rb_dl_callback_table[i][j] == f) {
-	rb_hash_aset(DLFuncTable, rb_assoc_new(INT2NUM(i),INT2NUM(j)),Qnil);
-	break;
-      }
-    }
-  }
-  return Qnil;
+static void
+rb_dl_init_callbacks(VALUE dl)
+{
+    static const char cb[] = "dl/callback.so";
+
+    rb_autoload(dl, rb_intern_const("CdeclCallbackAddrs"), cb);
+    rb_autoload(dl, rb_intern_const("CdeclCallbackProcs"), cb);
+#ifdef FUNC_STDCALL
+    rb_autoload(dl, rb_intern_const("StdcallCallbackAddrs"), cb);
+    rb_autoload(dl, rb_intern_const("StdcallCallbackProcs"), cb);
+#endif
 }
 
 void
-Init_dl()
+Init_dl(void)
 {
-  void Init_dlptr();
-  void Init_dlsym();
-  void Init_dlhandle();
+    void Init_dlhandle(void);
+    void Init_dlcfunc(void);
+    void Init_dlptr(void);
 
-  id_call = rb_intern("call");
+    rbdl_id_cdecl = rb_intern_const("cdecl");
+    rbdl_id_stdcall = rb_intern_const("stdcall");
 
-  rb_mDL = rb_define_module("DL");
+    /* Document-module: DL
+     *
+     * A bridge to the dlopen() or dynamic library linker function.
+     *
+     * == Example
+     *
+     *   bash $> cat > sum.c <<EOF
+     *   double sum(double *arry, int len)
+     *   {
+     *           double ret = 0;
+     *           int i;
+     *           for(i = 0; i < len; i++){
+     *                   ret = ret + arry[i];
+     *           }
+     *           return ret;
+     *   }
+     *
+     *   double split(double num)
+     *   {
+     *           double ret = 0;
+     *           ret = num / 2;
+     *           return ret;
+     *   }
+     *   EOF
+     *   bash $> gcc -o libsum.so -shared sum.c
+     *   bash $> cat > sum.rb <<EOF
+     *   require 'dl'
+     *   require 'dl/import'
+     *
+     *   module LibSum
+     *           extend DL::Importer
+     *           dlload './libsum.so'
+     *           extern 'double sum(double*, int)'
+     *           extern 'double split(double)'
+     *   end
+     *
+     *   a = [2.0, 3.0, 4.0]
+     *
+     *   sum = LibSum.sum(a.pack("d*"), a.count)
+     *   p LibSum.split(sum)
+     *   EOF
+     *   bash $> ruby sum.rb
+     *   4.5
+     *
+     * WIN! :-)
+     */
+    rb_mDL = rb_define_module("DL");
 
-  rb_eDLError = rb_define_class_under(rb_mDL, "DLError", rb_eStandardError);
-  rb_eDLTypeError = rb_define_class_under(rb_mDL, "DLTypeError", rb_eDLError);
+    /*
+     * Document-class: DL::DLError
+     *
+     * standard dynamic load exception
+     */
+    rb_eDLError = rb_define_class_under(rb_mDL, "DLError", rb_eStandardError);
 
-  DLFuncTable = rb_hash_new();
-  init_dl_func_table();
-  rb_define_const(rb_mDL, "FuncTable", DLFuncTable);
+    /*
+     * Document-class: DL::DLTypeError
+     *
+     * dynamic load incorrect type exception
+     */
+    rb_eDLTypeError = rb_define_class_under(rb_mDL, "DLTypeError", rb_eDLError);
 
-  rb_define_const(rb_mDL, "RTLD_GLOBAL", INT2NUM(RTLD_GLOBAL));
-  rb_define_const(rb_mDL, "RTLD_LAZY",   INT2NUM(RTLD_LAZY));
-  rb_define_const(rb_mDL, "RTLD_NOW",    INT2NUM(RTLD_NOW));
+    /* Document-const: MAX_CALLBACK
+     *
+     * Maximum number of callbacks
+     */
+    rb_define_const(rb_mDL, "MAX_CALLBACK", INT2NUM(MAX_CALLBACK));
 
-  rb_define_const(rb_mDL, "ALIGN_INT",   INT2NUM(ALIGN_INT));
-  rb_define_const(rb_mDL, "ALIGN_LONG",  INT2NUM(ALIGN_LONG));
-  rb_define_const(rb_mDL, "ALIGN_FLOAT", INT2NUM(ALIGN_FLOAT));
-  rb_define_const(rb_mDL, "ALIGN_SHORT", INT2NUM(ALIGN_SHORT));
-  rb_define_const(rb_mDL, "ALIGN_DOUBLE",INT2NUM(ALIGN_DOUBLE));
-  rb_define_const(rb_mDL, "ALIGN_VOIDP", INT2NUM(ALIGN_VOIDP));
+    /* Document-const: DLSTACK_SIZE
+     *
+     * Dynamic linker stack size
+     */
+    rb_define_const(rb_mDL, "DLSTACK_SIZE", INT2NUM(DLSTACK_SIZE));
 
-  rb_define_const(rb_mDL, "MAX_ARG", INT2NUM(MAX_ARG));
-  rb_define_const(rb_mDL, "DLSTACK", rb_tainted_str_new2(DLSTACK_METHOD));
+    rb_dl_init_callbacks(rb_mDL);
 
-  rb_define_module_function(rb_mDL, "dlopen", rb_dl_dlopen, -1);
-  rb_define_module_function(rb_mDL, "callback", rb_dl_callback, -1);
-  rb_define_module_function(rb_mDL, "define_callback", rb_dl_callback, -1);
-  rb_define_module_function(rb_mDL, "remove_callback", rb_dl_remove_callback, 1);
-  rb_define_module_function(rb_mDL, "malloc", rb_dl_malloc, 1);
-  rb_define_module_function(rb_mDL, "strdup", rb_dl_strdup, 1);
-  rb_define_module_function(rb_mDL, "sizeof", rb_dl_sizeof, 1);
+    /* Document-const: RTLD_GLOBAL
+     *
+     * rtld DL::Handle flag.
+     *
+     * The symbols defined by this library will be made available for symbol
+     * resolution of subsequently loaded libraries.
+     */
+    rb_define_const(rb_mDL, "RTLD_GLOBAL", INT2NUM(RTLD_GLOBAL));
 
-  Init_dlptr();
-  Init_dlsym();
-  Init_dlhandle();
+    /* Document-const: RTLD_LAZY
+     *
+     * rtld DL::Handle flag.
+     *
+     * Perform lazy binding.  Only resolve symbols as the code that references
+     * them is executed.  If the  symbol is never referenced, then it is never
+     * resolved.  (Lazy binding is only performed for function references;
+     * references to variables are always immediately bound when the library
+     * is loaded.)
+     */
+    rb_define_const(rb_mDL, "RTLD_LAZY",   INT2NUM(RTLD_LAZY));
 
-  rb_define_const(rb_mDL, "FREE", rb_dlsym_new(dlfree, "free", "0P"));
+    /* Document-const: RTLD_NOW
+     *
+     * rtld DL::Handle flag.
+     *
+     * If this value is specified or the environment variable LD_BIND_NOW is
+     * set to a nonempty string, all undefined symbols in the library are
+     * resolved before dlopen() returns.  If this cannot be done an error is
+     * returned.
+     */
+    rb_define_const(rb_mDL, "RTLD_NOW",    INT2NUM(RTLD_NOW));
 
-  rb_define_method(rb_cString, "to_ptr", rb_str_to_ptr, 0);
-  rb_define_method(rb_cArray, "to_ptr", rb_ary_to_ptr, -1);
-  rb_define_method(rb_cIO, "to_ptr", rb_io_to_ptr, 0);
+    /* Document-const: TYPE_VOID
+     *
+     * DL::CFunc type - void
+     */
+    rb_define_const(rb_mDL, "TYPE_VOID",  INT2NUM(DLTYPE_VOID));
+
+    /* Document-const: TYPE_VOIDP
+     *
+     * DL::CFunc type - void*
+     */
+    rb_define_const(rb_mDL, "TYPE_VOIDP",  INT2NUM(DLTYPE_VOIDP));
+
+    /* Document-const: TYPE_CHAR
+     *
+     * DL::CFunc type - char
+     */
+    rb_define_const(rb_mDL, "TYPE_CHAR",  INT2NUM(DLTYPE_CHAR));
+
+    /* Document-const: TYPE_SHORT
+     *
+     * DL::CFunc type - short
+     */
+    rb_define_const(rb_mDL, "TYPE_SHORT",  INT2NUM(DLTYPE_SHORT));
+
+    /* Document-const: TYPE_INT
+     *
+     * DL::CFunc type - int
+     */
+    rb_define_const(rb_mDL, "TYPE_INT",  INT2NUM(DLTYPE_INT));
+
+    /* Document-const: TYPE_LONG
+     *
+     * DL::CFunc type - long
+     */
+    rb_define_const(rb_mDL, "TYPE_LONG",  INT2NUM(DLTYPE_LONG));
+
+#if HAVE_LONG_LONG
+    /* Document-const: TYPE_LONG_LONG
+     *
+     * DL::CFunc type - long long
+     */
+    rb_define_const(rb_mDL, "TYPE_LONG_LONG",  INT2NUM(DLTYPE_LONG_LONG));
+#endif
+
+    /* Document-const: TYPE_FLOAT
+     *
+     * DL::CFunc type - float
+     */
+    rb_define_const(rb_mDL, "TYPE_FLOAT",  INT2NUM(DLTYPE_FLOAT));
+
+    /* Document-const: TYPE_DOUBLE
+     *
+     * DL::CFunc type - double
+     */
+    rb_define_const(rb_mDL, "TYPE_DOUBLE",  INT2NUM(DLTYPE_DOUBLE));
+
+    /* Document-const: TYPE_SIZE_T
+     *
+     * DL::CFunc type - size_t
+     */
+    rb_define_const(rb_mDL, "TYPE_SIZE_T",  INT2NUM(DLTYPE_SIZE_T));
+
+    /* Document-const: TYPE_SSIZE_T
+     *
+     * DL::CFunc type - ssize_t
+     */
+    rb_define_const(rb_mDL, "TYPE_SSIZE_T", INT2NUM(DLTYPE_SSIZE_T));
+
+    /* Document-const: TYPE_PTRDIFF_T
+     *
+     * DL::CFunc type - ptrdiff_t
+     */
+    rb_define_const(rb_mDL, "TYPE_PTRDIFF_T", INT2NUM(DLTYPE_PTRDIFF_T));
+
+    /* Document-const: TYPE_INTPTR_T
+     *
+     * DL::CFunc type - intptr_t
+     */
+    rb_define_const(rb_mDL, "TYPE_INTPTR_T", INT2NUM(DLTYPE_INTPTR_T));
+
+    /* Document-const: TYPE_UINTPTR_T
+     *
+     * DL::CFunc type - uintptr_t
+     */
+    rb_define_const(rb_mDL, "TYPE_UINTPTR_T", INT2NUM(DLTYPE_UINTPTR_T));
+
+    /* Document-const: ALIGN_VOIDP
+     *
+     * The alignment size of a void*
+     */
+    rb_define_const(rb_mDL, "ALIGN_VOIDP", INT2NUM(ALIGN_VOIDP));
+
+    /* Document-const: ALIGN_CHAR
+     *
+     * The alignment size of a char
+     */
+    rb_define_const(rb_mDL, "ALIGN_CHAR",  INT2NUM(ALIGN_CHAR));
+
+    /* Document-const: ALIGN_SHORT
+     *
+     * The alignment size of a short
+     */
+    rb_define_const(rb_mDL, "ALIGN_SHORT", INT2NUM(ALIGN_SHORT));
+
+    /* Document-const: ALIGN_INT
+     *
+     * The alignment size of an int
+     */
+    rb_define_const(rb_mDL, "ALIGN_INT",   INT2NUM(ALIGN_INT));
+
+    /* Document-const: ALIGN_LONG
+     *
+     * The alignment size of a long
+     */
+    rb_define_const(rb_mDL, "ALIGN_LONG",  INT2NUM(ALIGN_LONG));
+
+#if HAVE_LONG_LONG
+    /* Document-const: ALIGN_LONG_LONG
+     *
+     * The alignment size of a long long
+     */
+    rb_define_const(rb_mDL, "ALIGN_LONG_LONG",  INT2NUM(ALIGN_LONG_LONG));
+#endif
+
+    /* Document-const: ALIGN_FLOAT
+     *
+     * The alignment size of a float
+     */
+    rb_define_const(rb_mDL, "ALIGN_FLOAT", INT2NUM(ALIGN_FLOAT));
+
+    /* Document-const: ALIGN_DOUBLE
+     *
+     * The alignment size of a double
+     */
+    rb_define_const(rb_mDL, "ALIGN_DOUBLE",INT2NUM(ALIGN_DOUBLE));
+
+    /* Document-const: ALIGN_SIZE_T
+     *
+     * The alignment size of a size_t
+     */
+    rb_define_const(rb_mDL, "ALIGN_SIZE_T", INT2NUM(ALIGN_OF(size_t)));
+
+    /* Document-const: ALIGN_SSIZE_T
+     *
+     * The alignment size of a ssize_t
+     */
+    rb_define_const(rb_mDL, "ALIGN_SSIZE_T", INT2NUM(ALIGN_OF(size_t))); /* same as size_t */
+
+    /* Document-const: ALIGN_PTRDIFF_T
+     *
+     * The alignment size of a ptrdiff_t
+     */
+    rb_define_const(rb_mDL, "ALIGN_PTRDIFF_T", INT2NUM(ALIGN_OF(ptrdiff_t)));
+
+    /* Document-const: ALIGN_INTPTR_T
+     *
+     * The alignment size of a intptr_t
+     */
+    rb_define_const(rb_mDL, "ALIGN_INTPTR_T", INT2NUM(ALIGN_OF(intptr_t)));
+
+    /* Document-const: ALIGN_UINTPTR_T
+     *
+     * The alignment size of a uintptr_t
+     */
+    rb_define_const(rb_mDL, "ALIGN_UINTPTR_T", INT2NUM(ALIGN_OF(uintptr_t)));
+
+    /* Document-const: SIZEOF_VOIDP
+     *
+     * size of a void*
+     */
+    rb_define_const(rb_mDL, "SIZEOF_VOIDP", INT2NUM(sizeof(void*)));
+
+    /* Document-const: SIZEOF_CHAR
+     *
+     * size of a char
+     */
+    rb_define_const(rb_mDL, "SIZEOF_CHAR",  INT2NUM(sizeof(char)));
+
+    /* Document-const: SIZEOF_SHORT
+     *
+     * size of a short
+     */
+    rb_define_const(rb_mDL, "SIZEOF_SHORT", INT2NUM(sizeof(short)));
+
+    /* Document-const: SIZEOF_INT
+     *
+     * size of an int
+     */
+    rb_define_const(rb_mDL, "SIZEOF_INT",   INT2NUM(sizeof(int)));
+
+    /* Document-const: SIZEOF_LONG
+     *
+     * size of a long
+     */
+    rb_define_const(rb_mDL, "SIZEOF_LONG",  INT2NUM(sizeof(long)));
+
+#if HAVE_LONG_LONG
+    /* Document-const: SIZEOF_LONG_LONG
+     *
+     * size of a long long
+     */
+    rb_define_const(rb_mDL, "SIZEOF_LONG_LONG",  INT2NUM(sizeof(LONG_LONG)));
+#endif
+
+    /* Document-const: SIZEOF_FLOAT
+     *
+     * size of a float
+     */
+    rb_define_const(rb_mDL, "SIZEOF_FLOAT", INT2NUM(sizeof(float)));
+
+    /* Document-const: SIZEOF_DOUBLE
+     *
+     * size of a double
+     */
+    rb_define_const(rb_mDL, "SIZEOF_DOUBLE",INT2NUM(sizeof(double)));
+
+    /* Document-const: SIZEOF_SIZE_T
+     *
+     * size of a size_t
+     */
+    rb_define_const(rb_mDL, "SIZEOF_SIZE_T",  INT2NUM(sizeof(size_t)));
+
+    /* Document-const: SIZEOF_SSIZE_T
+     *
+     * size of a ssize_t
+     */
+    rb_define_const(rb_mDL, "SIZEOF_SSIZE_T",  INT2NUM(sizeof(size_t))); /* same as size_t */
+
+    /* Document-const: SIZEOF_PTRDIFF_T
+     *
+     * size of a ptrdiff_t
+     */
+    rb_define_const(rb_mDL, "SIZEOF_PTRDIFF_T",  INT2NUM(sizeof(ptrdiff_t)));
+
+    /* Document-const: SIZEOF_INTPTR_T
+     *
+     * size of a intptr_t
+     */
+    rb_define_const(rb_mDL, "SIZEOF_INTPTR_T",  INT2NUM(sizeof(intptr_t)));
+
+    /* Document-const: SIZEOF_UINTPTR_T
+     *
+     * size of a uintptr_t
+     */
+    rb_define_const(rb_mDL, "SIZEOF_UINTPTR_T",  INT2NUM(sizeof(uintptr_t)));
+
+    rb_define_module_function(rb_mDL, "dlwrap", rb_dl_value2ptr, 1);
+    rb_define_module_function(rb_mDL, "dlunwrap", rb_dl_ptr2value, 1);
+
+    rb_define_module_function(rb_mDL, "dlopen", rb_dl_dlopen, -1);
+    rb_define_module_function(rb_mDL, "malloc", rb_dl_malloc, 1);
+    rb_define_module_function(rb_mDL, "realloc", rb_dl_realloc, 2);
+    rb_define_module_function(rb_mDL, "free", rb_dl_free, 1);
+
+    /* Document-const: RUBY_FREE
+     *
+     * Address of the ruby_xfree() function
+     */
+    rb_define_const(rb_mDL, "RUBY_FREE", PTR2NUM(ruby_xfree));
+
+    /* Document-const: BUILD_RUBY_PLATFORM
+     *
+     * Platform built against (i.e. "x86_64-linux", etc.)
+     *
+     * See also RUBY_PLATFORM
+     */
+    rb_define_const(rb_mDL, "BUILD_RUBY_PLATFORM", rb_str_new2(RUBY_PLATFORM));
+
+    /* Document-const: BUILD_RUBY_VERSION
+     *
+     * Ruby Version built. (i.e. "1.9.3")
+     *
+     * See also RUBY_VERSION
+     */
+    rb_define_const(rb_mDL, "BUILD_RUBY_VERSION",  rb_str_new2(RUBY_VERSION));
+
+    Init_dlhandle();
+    Init_dlcfunc();
+    Init_dlptr();
 }

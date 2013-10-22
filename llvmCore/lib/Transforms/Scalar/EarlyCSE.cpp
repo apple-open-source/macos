@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/RecyclingAllocator.h"
@@ -38,7 +39,7 @@ static unsigned getHash(const void *V) {
 }
 
 //===----------------------------------------------------------------------===//
-// SimpleValue 
+// SimpleValue
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -46,16 +47,16 @@ namespace {
   /// scoped hash table.
   struct SimpleValue {
     Instruction *Inst;
-    
+
     SimpleValue(Instruction *I) : Inst(I) {
       assert((isSentinel() || canHandle(I)) && "Inst can't be handled!");
     }
-    
+
     bool isSentinel() const {
       return Inst == DenseMapInfo<Instruction*>::getEmptyKey() ||
              Inst == DenseMapInfo<Instruction*>::getTombstoneKey();
     }
-    
+
     static bool canHandle(Instruction *Inst) {
       // This can only handle non-void readnone functions.
       if (CallInst *CI = dyn_cast<CallInst>(Inst))
@@ -89,7 +90,7 @@ template<> struct DenseMapInfo<SimpleValue> {
 
 unsigned DenseMapInfo<SimpleValue>::getHashValue(SimpleValue Val) {
   Instruction *Inst = Val.Inst;
-  
+
   // Hash in all of the operands as pointers.
   unsigned Res = 0;
   for (unsigned i = 0, e = Inst->getNumOperands(); i != e; ++i)
@@ -125,13 +126,13 @@ bool DenseMapInfo<SimpleValue>::isEqual(SimpleValue LHS, SimpleValue RHS) {
 
   if (LHS.isSentinel() || RHS.isSentinel())
     return LHSI == RHSI;
-  
+
   if (LHSI->getOpcode() != RHSI->getOpcode()) return false;
   return LHSI->isIdenticalTo(RHSI);
 }
 
 //===----------------------------------------------------------------------===//
-// CallValue 
+// CallValue
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -139,21 +140,21 @@ namespace {
   /// the scoped hash table.
   struct CallValue {
     Instruction *Inst;
-    
+
     CallValue(Instruction *I) : Inst(I) {
       assert((isSentinel() || canHandle(I)) && "Inst can't be handled!");
     }
-    
+
     bool isSentinel() const {
       return Inst == DenseMapInfo<Instruction*>::getEmptyKey() ||
              Inst == DenseMapInfo<Instruction*>::getTombstoneKey();
     }
-    
+
     static bool canHandle(Instruction *Inst) {
       // Don't value number anything that returns void.
       if (Inst->getType()->isVoidTy())
         return false;
-      
+
       CallInst *CI = dyn_cast<CallInst>(Inst);
       if (CI == 0 || !CI->onlyReadsMemory())
         return false;
@@ -167,7 +168,7 @@ namespace llvm {
   template<> struct isPodLike<CallValue> {
     static const bool value = true;
   };
-  
+
   template<> struct DenseMapInfo<CallValue> {
     static inline CallValue getEmptyKey() {
       return DenseMapInfo<Instruction*>::getEmptyKey();
@@ -188,7 +189,7 @@ unsigned DenseMapInfo<CallValue>::getHashValue(CallValue Val) {
            "Cannot value number calls with metadata operands");
     Res ^= getHash(Inst->getOperand(i)) << (i & 0xF);
   }
-  
+
   // Mix in the opcode.
   return (Res << 1) ^ Inst->getOpcode();
 }
@@ -202,11 +203,11 @@ bool DenseMapInfo<CallValue>::isEqual(CallValue LHS, CallValue RHS) {
 
 
 //===----------------------------------------------------------------------===//
-// EarlyCSE pass. 
+// EarlyCSE pass.
 //===----------------------------------------------------------------------===//
 
 namespace {
-  
+
 /// EarlyCSE - This pass does a simple depth-first walk over the dominator
 /// tree, eliminating trivially redundant instructions and using instsimplify
 /// to canonicalize things as it goes.  It is intended to be fast and catch
@@ -216,19 +217,20 @@ namespace {
 class EarlyCSE : public FunctionPass {
 public:
   const TargetData *TD;
+  const TargetLibraryInfo *TLI;
   DominatorTree *DT;
   typedef RecyclingAllocator<BumpPtrAllocator,
                       ScopedHashTableVal<SimpleValue, Value*> > AllocatorTy;
   typedef ScopedHashTable<SimpleValue, Value*, DenseMapInfo<SimpleValue>,
                           AllocatorTy> ScopedHTType;
-  
+
   /// AvailableValues - This scoped hash table contains the current values of
   /// all of our simple scalar expressions.  As we walk down the domtree, we
   /// look to see if instructions are in this: if so, we replace them with what
   /// we find, otherwise we insert them so that dominated values can succeed in
   /// their lookup.
   ScopedHTType *AvailableValues;
-  
+
   /// AvailableLoads - This scoped hash table contains the current values
   /// of loads.  This allows us to get efficient access to dominating loads when
   /// we have a fully redundant load.  In addition to the most recent load, we
@@ -241,15 +243,15 @@ public:
   typedef ScopedHashTable<Value*, std::pair<Value*, unsigned>,
                           DenseMapInfo<Value*>, LoadMapAllocator> LoadHTType;
   LoadHTType *AvailableLoads;
-  
+
   /// AvailableCalls - This scoped hash table contains the current values
   /// of read-only call values.  It uses the same generation count as loads.
   typedef ScopedHashTable<CallValue, std::pair<Value*, unsigned> > CallHTType;
   CallHTType *AvailableCalls;
-  
+
   /// CurrentGeneration - This is the current generation of the memory value.
   unsigned CurrentGeneration;
-  
+
   static char ID;
   explicit EarlyCSE() : FunctionPass(ID) {
     initializeEarlyCSEPass(*PassRegistry::getPassRegistry());
@@ -272,7 +274,8 @@ private:
         CallScope(*availableCalls) {}
 
    private:
-    NodeScope(const NodeScope&); // DO NOT IMPLEMENT
+    NodeScope(const NodeScope&) LLVM_DELETED_FUNCTION;
+    void operator=(const NodeScope&) LLVM_DELETED_FUNCTION;
 
     ScopedHTType::ScopeTy Scope;
     LoadHTType::ScopeTy LoadScope;
@@ -311,7 +314,8 @@ private:
     void process() { Processed = true; }
 
    private:
-    StackNode(const StackNode&); // DO NOT IMPLEMENT
+    StackNode(const StackNode&) LLVM_DELETED_FUNCTION;
+    void operator=(const StackNode&) LLVM_DELETED_FUNCTION;
 
     // Members.
     unsigned CurrentGeneration;
@@ -324,10 +328,11 @@ private:
   };
 
   bool processNode(DomTreeNode *Node);
-  
+
   // This transformation requires dominator postdominator info
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<DominatorTree>();
+    AU.addRequired<TargetLibraryInfo>();
     AU.setPreservesCFG();
   }
 };
@@ -342,11 +347,12 @@ FunctionPass *llvm::createEarlyCSEPass() {
 
 INITIALIZE_PASS_BEGIN(EarlyCSE, "early-cse", "Early CSE", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfo)
 INITIALIZE_PASS_END(EarlyCSE, "early-cse", "Early CSE", false, false)
 
 bool EarlyCSE::processNode(DomTreeNode *Node) {
   BasicBlock *BB = Node->getBlock();
-  
+
   // If this block has a single predecessor, then the predecessor is the parent
   // of the domtree node and all of the live out memory values are still current
   // in this block.  If this block has multiple predecessors, then they could
@@ -355,32 +361,32 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
   // predecessors.
   if (BB->getSinglePredecessor() == 0)
     ++CurrentGeneration;
-  
+
   /// LastStore - Keep track of the last non-volatile store that we saw... for
   /// as long as there in no instruction that reads memory.  If we see a store
   /// to the same location, we delete the dead store.  This zaps trivial dead
   /// stores which can occur in bitfield code among other things.
   StoreInst *LastStore = 0;
-  
+
   bool Changed = false;
 
   // See if any instructions in the block can be eliminated.  If so, do it.  If
   // not, add them to AvailableValues.
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ) {
     Instruction *Inst = I++;
-    
+
     // Dead instructions should just be removed.
-    if (isInstructionTriviallyDead(Inst)) {
+    if (isInstructionTriviallyDead(Inst, TLI)) {
       DEBUG(dbgs() << "EarlyCSE DCE: " << *Inst << '\n');
       Inst->eraseFromParent();
       Changed = true;
       ++NumSimplify;
       continue;
     }
-    
+
     // If the instruction can be simplified (e.g. X+0 = X) then replace it with
     // its simpler value.
-    if (Value *V = SimplifyInstruction(Inst, TD, DT)) {
+    if (Value *V = SimplifyInstruction(Inst, TD, TLI, DT)) {
       DEBUG(dbgs() << "EarlyCSE Simplify: " << *Inst << "  to: " << *V << '\n');
       Inst->replaceAllUsesWith(V);
       Inst->eraseFromParent();
@@ -388,7 +394,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
       ++NumSimplify;
       continue;
     }
-    
+
     // If this is a simple instruction that we can value number, process it.
     if (SimpleValue::canHandle(Inst)) {
       // See if the instruction has an available value.  If so, use it.
@@ -400,12 +406,12 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
         ++NumCSE;
         continue;
       }
-      
+
       // Otherwise, just remember that this value is available.
       AvailableValues->insert(Inst, Inst);
       continue;
     }
-    
+
     // If this is a non-volatile load, process it.
     if (LoadInst *LI = dyn_cast<LoadInst>(Inst)) {
       // Ignore volatile loads.
@@ -413,7 +419,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
         LastStore = 0;
         continue;
       }
-      
+
       // If we have an available version of this load, and if it is the right
       // generation, replace this instruction.
       std::pair<Value*, unsigned> InVal =
@@ -427,18 +433,18 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
         ++NumCSELoad;
         continue;
       }
-      
+
       // Otherwise, remember that we have this instruction.
       AvailableLoads->insert(Inst->getOperand(0),
                           std::pair<Value*, unsigned>(Inst, CurrentGeneration));
       LastStore = 0;
       continue;
     }
-    
+
     // If this instruction may read from memory, forget LastStore.
     if (Inst->mayReadFromMemory())
       LastStore = 0;
-    
+
     // If this is a read-only call, process it.
     if (CallValue::canHandle(Inst)) {
       // If we have an available version of this call, and if it is the right
@@ -453,19 +459,19 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
         ++NumCSECall;
         continue;
       }
-      
+
       // Otherwise, remember that we have this instruction.
       AvailableCalls->insert(Inst,
                          std::pair<Value*, unsigned>(Inst, CurrentGeneration));
       continue;
     }
-    
+
     // Okay, this isn't something we can CSE at all.  Check to see if it is
     // something that could modify memory.  If so, our available memory values
     // cannot be used so bump the generation count.
     if (Inst->mayWriteToMemory()) {
       ++CurrentGeneration;
-     
+
       if (StoreInst *SI = dyn_cast<StoreInst>(Inst)) {
         // We do a trivial form of DSE if there are two stores to the same
         // location with no intervening loads.  Delete the earlier store.
@@ -479,7 +485,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
           LastStore = 0;
           continue;
         }
-        
+
         // Okay, we just invalidated anything we knew about loaded values.  Try
         // to salvage *something* by remembering that the stored value is a live
         // version of the pointer.  It is safe to forward from volatile stores
@@ -487,7 +493,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
         // the store.
         AvailableLoads->insert(SI->getPointerOperand(),
          std::pair<Value*, unsigned>(SI->getValueOperand(), CurrentGeneration));
-        
+
         // Remember that this was the last store we saw for DSE.
         if (SI->isSimple())
           LastStore = SI;
@@ -503,8 +509,9 @@ bool EarlyCSE::runOnFunction(Function &F) {
   std::deque<StackNode *> nodesToProcess;
 
   TD = getAnalysisIfAvailable<TargetData>();
+  TLI = &getAnalysis<TargetLibraryInfo>();
   DT = &getAnalysis<DominatorTree>();
-  
+
   // Tables that the pass uses when walking the domtree.
   ScopedHTType AVTable;
   AvailableValues = &AVTable;
@@ -512,7 +519,7 @@ bool EarlyCSE::runOnFunction(Function &F) {
   AvailableLoads = &LoadTable;
   CallHTType CallTable;
   AvailableCalls = &CallTable;
-  
+
   CurrentGeneration = 0;
   bool Changed = false;
 

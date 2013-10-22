@@ -1,7 +1,0 @@
-//
-// Prefix header for all source files of the 'BatteryFaker' target in the 'BatteryFaker' project
-//
-
-#ifdef __OBJC__
-    #import <Cocoa/Cocoa.h>
-#endif

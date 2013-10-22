@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/zh_Hans_HK.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/zh_Hans_HK.xml
 // *
 // ***************************************************************************
 zh_Hans_HK{
@@ -23,6 +23,10 @@ zh_Hans_HK{
         HKD{
             "$",
             "港元",
+        }
+        HNL{
+            "HNL",
+            "洪都拉斯拉伦皮拉",
         }
         KYD{
             "KYD",
@@ -44,6 +48,13 @@ zh_Hans_HK{
             "UAH",
             "乌克兰赫夫纳",
         }
+        XAG{
+            "XAG",
+            "白银",
+        }
     }
-    Version{"2.0.64.65"}
+    CurrencyUnitPatterns{
+        other{"{0} {1}"}
+    }
+    Version{"2.0.82.45"}
 }

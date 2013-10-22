@@ -202,9 +202,11 @@ private:
   String *proxy_class_name;
   String *variable_name;	//Name of a variable being wrapped
   String *variable_type;	//Type of this variable
+#if 0
   String *enumeration_name;	//Name of the current enumeration type
   Hash *enumeration_items;	//and its members
   int enumeration_max;
+#endif
   Hash *enumeration_coll;	//Collection of all enumerations.
   /* The items are nodes with members:
      "items"  - hash of with key 'itemname' and content 'itemvalue'
@@ -266,9 +268,11 @@ MODULA3():
       proxy_class_name(NULL),
       variable_name(NULL),
       variable_type(NULL),
+#if 0
       enumeration_name(NULL),
       enumeration_items(NULL),
       enumeration_max(0),
+#endif
       enumeration_coll(NULL),
       constant_values(NULL),
       constantfilename(NULL),

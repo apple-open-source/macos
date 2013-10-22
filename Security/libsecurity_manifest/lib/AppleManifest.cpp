@@ -116,7 +116,7 @@ static void WriteFileSystemItemHeader (CFMutableDataRef data, const FileSystemEn
 	// write the name
 	const char* name = fsi->GetName ();
 	secdebug ("manifest", "\tAdding header for %s", name);
-	int len = strlen (name);
+	uint16_t len = (uint16_t)strlen (name);
 	AppendUInt16 (data, len);
 	CFDataAppendBytes (data, (UInt8*) name, len);
 	AppendUInt32 (data, fsi->GetUID ());
@@ -135,8 +135,8 @@ AppleManifest::AppleManifest ()
 AppleManifest::~AppleManifest ()
 {
 	// release our interest in the signers
-	int signerCount = mSignerList.size ();
-	
+	int signerCount = (int)mSignerList.size ();
+
 	int i;
 	for (i = 0; i < signerCount; ++i)
 	{
@@ -303,7 +303,7 @@ void AppleManifest::CreateManifest (CFMutableDataRef manifest, ManifestInternal&
 void AppleManifest::AddSignersToCmsMessage (SecCmsMessageRef cmsMessage, SecCmsSignedDataRef signedData)
 {
 	// add signers for each of our signers
-	int numSigners = mSignerList.size ();
+	int numSigners = (int)mSignerList.size ();
 	
 	int i;
 	for (i = 0; i < numSigners; ++i)
@@ -442,7 +442,7 @@ static u_int64_t ReconstructUInt64 (uint32& finger, const uint8* data)
 static u_int32_t ReconstructUInt32 (uint32& finger, const uint8* data)
 {
 	unsigned i;
-	u_int64_t r = 0;
+	u_int32_t r = 0;
 	
 	for (i = 0; i < sizeof (u_int32_t); ++i)
 	{
@@ -457,8 +457,8 @@ static u_int32_t ReconstructUInt32 (uint32& finger, const uint8* data)
 static u_int16_t ReconstructUInt16 (uint32& finger, const uint8* data)
 {
 	unsigned i;
-	u_int64_t r = 0;
-	
+	u_int16_t r = 0;
+
 	for (i = 0; i < sizeof (u_int16_t); ++i)
 	{
 		r = (r << 8) | data[finger++];
@@ -514,7 +514,7 @@ void AppleManifest::ReconstructDataBlob (uint32 &finger, const uint8* data, Mani
 	secdebug ("manifest", "Reconstructing data blob.");
 	item = new ManifestDataBlobItem ();
 	u_int64_t length = ReconstructUInt64 (finger, data);
-	item->SetLength (length);
+	item->SetLength ((size_t)length);
 	item->SetDigest ((SHA1Digest*) (data + finger));
 	finger += kSHA1DigestSize;
 }
@@ -586,7 +586,8 @@ void AppleManifest::ReconstructManifestItemList (uint32 &finger, const uint8* da
 {
 	uint32 start = finger;
 	u_int64_t length = ReconstructUInt64 (finger, data);
-	uint32 end = start + length;
+#warning Casting from uint64 to uint32, this is ripe for overflow.
+	uint32 end = (uint32)(start + length);
 	
 	while (finger < end)
 	{
@@ -722,7 +723,7 @@ void AppleManifest::Verify (CFDataRef data, SecManifestTrustSetupCallback setupC
 			MacOSError::check (result);
 			
 			result = SecPolicySearchCopyNext (search, &policy);
-			if (result != noErr)
+			if (result != errSecSuccess)
 			{
 				MacOSError::throwMe (errSecManifestNoPolicy);
 			}
@@ -797,7 +798,7 @@ void AppleManifest::Verify (CFDataRef data, SecManifestTrustSetupCallback setupC
 					}
 					
 					result = SecTrustEvaluate (trustRef, &resultType);
-					if (result != noErr)
+					if (result != errSecSuccess)
 					{
 						MacOSError::throwMe (result);
 					}
@@ -827,7 +828,7 @@ void AppleManifest::Verify (CFDataRef data, SecManifestTrustSetupCallback setupC
 		if (manifest != NULL)
 		{
 			CSSM_DATA_PTR message = SecCmsMessageGetContent (cmsMessage);
-			ReconstructManifest (message->Data, message->Length, *manifest);
+			ReconstructManifest (message->Data, (uint32)message->Length, *manifest);
 		}
 		
 		SecCmsMessageDestroy (cmsMessage);

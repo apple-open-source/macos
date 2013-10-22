@@ -74,7 +74,7 @@ void DeriveKey_DH (
 			errorLog0("DeriveKey_DH: no pub_key, no Param\n");
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 		}
-		pubKeyBn = BN_bin2bn(Param.Data, Param.Length, NULL);
+		pubKeyBn = BN_bin2bn(Param.Data, (int)Param.Length, NULL);
 		if(pubKeyBn == NULL) {
 			CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 		}
@@ -94,7 +94,7 @@ void DeriveKey_DH (
 		 * to deal with that if they really need privSize bytes.
 		 */
 		assert((uint32)rtn <= privSize);
-		uint32 toMove = keyData->Length;
+		CSSM_SIZE toMove = keyData->Length;
 		if((uint32)rtn < toMove) {
 			toMove = (uint32)rtn;
 		}

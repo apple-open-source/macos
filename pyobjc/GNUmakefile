@@ -128,10 +128,14 @@ mergebegin:
 #	    done || exit 1; \
 #	done
 
-MERGEDEFAULT = \
-    Developer
+PYFRAMEWORK = /System/Library/Frameworks/Python.framework
+PYFRAMEWORKDOCUMENTATION = $(PYFRAMEWORK)/Documentation
+PYFRAMEWORKEXAMPLES = $(PYFRAMEWORK)/Examples
 mergedefault:
-	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
+	install -d $(DSTROOT)$(PYFRAMEWORKDOCUMENTATION) $(DSTROOT)$(PYFRAMEWORKEXAMPLES)
+	ditto $(OBJROOT)/$(DEFAULT)/DSTROOT/Developer/Documentation/Python $(DSTROOT)$(PYFRAMEWORKDOCUMENTATION)
+	ditto $(OBJROOT)/$(DEFAULT)/DSTROOT/Developer/Examples/Python $(DSTROOT)$(PYFRAMEWORKEXAMPLES)
+	find $(DSTROOT)$(PYFRAMEWORKDOCUMENTATION) -size 0 -delete
 
 #MYVERSIONMANLIST = $(OBJROOT)/usr-share-man.list
 #VERSIONMANLIST = $(VERSIONERDIR)/$(PYTHONPROJECT)/usr-share-man.list

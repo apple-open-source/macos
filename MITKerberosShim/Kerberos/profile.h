@@ -5,6 +5,21 @@
 #ifndef __KERBEROSPROFILE__
 #define __KERBEROSPROFILE__
 
+#ifndef __has_extension
+#define __has_extension(x) 0
+#endif
+
+#ifndef KERBEROS_APPLE_DEPRECATED
+#if __has_extension(attribute_deprecated_with_message)
+#define KERBEROS_APPLE_DEPRECATED(x) __attribute__((deprecated(x)))
+#else
+#if !defined(__GNUC__) && !defined(__attribute__)
+#define __attribute__(x)
+#endif
+#define KERBEROS_APPLE_DEPRECATED(x) __attribute__((deprecated))
+#endif
+#endif
+
 /*
  * profile.h
  */

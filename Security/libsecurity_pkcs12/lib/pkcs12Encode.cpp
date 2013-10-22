@@ -43,8 +43,8 @@
 #include "pkcs12Templates.h"
 #include "pkcs12Utils.h"
 #include <Security/cssmerr.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/oidsattr.h>
+#include <Security/SecBase.h>
 
 void P12Coder::encode(
 	CFDataRef				*cpfx)		// RETURNED
@@ -148,7 +148,7 @@ void P12Coder::authSafeBuild(
 
 	if(numContents == 0) {
 		p12ErrorLog("authSafeBuild: no contents\n");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	
 	NSS_P7_DecodedContentInfo **contents = 
@@ -159,7 +159,7 @@ void P12Coder::authSafeBuild(
 	NSS_P12_SafeBag **safeBags;
 
 	/* certs & crls */
-	unsigned numBags = mCerts.size() + mCrls.size();
+	unsigned numBags = (unsigned)(mCerts.size() + mCrls.size());
 	p12EncodeLog("authSafeBuild : %u certs + CRLS", numBags);
 	if(numBags) {
 		safeBags = (NSS_P12_SafeBag **)p12NssNullArray(numBags, localCdr);
@@ -175,7 +175,7 @@ void P12Coder::authSafeBuild(
 	}
 	
 	/* shrouded keys - encrypted at bag level */
-	numBags = mKeys.size();
+	numBags = (unsigned)mKeys.size();
 	if(numBags) {
 		p12EncodeLog("authSafeBuild : %u keys", numBags);
 		safeBags = (NSS_P12_SafeBag **)p12NssNullArray(numBags, localCdr);
@@ -188,7 +188,7 @@ void P12Coder::authSafeBuild(
 	}
 	
 	/* opaque */
-	numBags = mOpaques.size();
+	numBags = (unsigned)mOpaques.size();
 	if(numBags) {
 		p12EncodeLog("authSafeBuild : %u opaques", numBags);
 		safeBags = (NSS_P12_SafeBag **)p12NssNullArray(numBags, localCdr);

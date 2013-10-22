@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Samsung Electronics. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,12 +53,32 @@ PassRefPtr<ImmutableArray> WebOpenPanelParameters::acceptMIMETypes() const
 {
     size_t size = m_settings.acceptMIMETypes.size();
 
-    Vector<RefPtr<APIObject> > vector;
+    Vector<RefPtr<APIObject>> vector;
     vector.reserveInitialCapacity(size);
     
     for (size_t i = 0; i < size; ++i)
         vector.uncheckedAppend(WebString::create(m_settings.acceptMIMETypes[i]));
     return ImmutableArray::adopt(vector);
 }
+
+#if ENABLE(MEDIA_CAPTURE)
+String WebOpenPanelParameters::capture() const
+{
+    return m_settings.capture;
+}
+#endif
+
+PassRefPtr<ImmutableArray> WebOpenPanelParameters::selectedFileNames() const
+{    
+    size_t size = m_settings.selectedFiles.size();
+
+    Vector<RefPtr<APIObject>> vector;
+    vector.reserveInitialCapacity(size);
+
+    for (size_t i = 0; i < size; ++i)
+        vector.uncheckedAppend(WebString::create(m_settings.selectedFiles[i]));
+    return ImmutableArray::adopt(vector);
+}
+
 
 } // namespace WebCore

@@ -144,20 +144,20 @@ store_principal_ent(krb5_storage *sp,
     if (mask & KADM5_PRINCIPAL)
 	krb5_store_principal(sp, princ->principal);
     if (mask & KADM5_PRINC_EXPIRE_TIME)
-	krb5_store_int32(sp, princ->princ_expire_time);
+	krb5_store_int32(sp, (int32_t)princ->princ_expire_time);
     if (mask & KADM5_PW_EXPIRATION)
-	krb5_store_int32(sp, princ->pw_expiration);
+	krb5_store_int32(sp, (int32_t)princ->pw_expiration);
     if (mask & KADM5_LAST_PWD_CHANGE)
-	krb5_store_int32(sp, princ->last_pwd_change);
+	krb5_store_int32(sp, (int32_t)princ->last_pwd_change);
     if (mask & KADM5_MAX_LIFE)
-	krb5_store_int32(sp, princ->max_life);
+	krb5_store_int32(sp, (int32_t)princ->max_life);
     if (mask & KADM5_MOD_NAME) {
 	krb5_store_int32(sp, princ->mod_name != NULL);
 	if(princ->mod_name)
 	    krb5_store_principal(sp, princ->mod_name);
     }
     if (mask & KADM5_MOD_TIME)
-	krb5_store_int32(sp, princ->mod_date);
+	krb5_store_int32(sp, (int32_t)princ->mod_date);
     if (mask & KADM5_ATTRIBUTES)
 	krb5_store_int32(sp, princ->attributes);
     if (mask & KADM5_KVNO)
@@ -172,11 +172,11 @@ store_principal_ent(krb5_storage *sp,
     if (mask & KADM5_AUX_ATTRIBUTES)
 	krb5_store_int32(sp, princ->aux_attributes);
     if (mask & KADM5_MAX_RLIFE)
-	krb5_store_int32(sp, princ->max_renewable_life);
+	krb5_store_int32(sp, (int32_t)princ->max_renewable_life);
     if (mask & KADM5_LAST_SUCCESS)
-	krb5_store_int32(sp, princ->last_success);
+	krb5_store_int32(sp, (int32_t)princ->last_success);
     if (mask & KADM5_LAST_FAILED)
-	krb5_store_int32(sp, princ->last_failed);
+	krb5_store_int32(sp, (int32_t)princ->last_failed);
     if (mask & KADM5_FAIL_AUTH_COUNT)
 	krb5_store_int32(sp, princ->fail_auth_count);
     if (mask & KADM5_KEY_DATA) {

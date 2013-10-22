@@ -21,10 +21,13 @@
  */
 
 #include "config.h"
+#include "InitializeLogging.h"
 #include "Logging.h"
 
-#include "PlatformString.h"
+#if !LOG_DISABLED
+
 #include <Eina.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -62,3 +65,5 @@ void initializeLoggingChannelsIfNecessary()
 }
 
 }
+
+#endif // !LOG_DISABLED

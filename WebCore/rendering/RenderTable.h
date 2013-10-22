@@ -42,11 +42,11 @@ enum SkipEmptySectionsValue { DoNotSkipEmptySections, SkipEmptySections };
 
 class RenderTable : public RenderBlock {
 public:
-    explicit RenderTable(Node*);
+    explicit RenderTable(Element*);
     virtual ~RenderTable();
 
-    int getColumnPos(unsigned col) const { return m_columnPos[col]; }
-
+    // Per CSS 3 writing-mode: "The first and second values of the 'border-spacing' property represent spacing between columns
+    // and rows respectively, not necessarily the horizontal and vertical spacing respectively".
     int hBorderSpacing() const { return m_hSpacing; }
     int vBorderSpacing() const { return m_vSpacing; }
     
@@ -127,8 +127,8 @@ public:
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
 
     struct ColumnStruct {
-        ColumnStruct()
-            : span(1)
+        explicit ColumnStruct(unsigned initialSpan = 1)
+            : span(initialSpan)
         {
         }
 
@@ -141,17 +141,28 @@ public:
         recalcSections();
     }
 
-    Vector<ColumnStruct>& columns() { return m_columns; }
-    Vector<int>& columnPositions() { return m_columnPos; }
+    const Vector<ColumnStruct>& columns() const { return m_columns; }
+    const Vector<int>& columnPositions() const { return m_columnPos; }
+    void setColumnPosition(unsigned index, int position)
+    {
+        // Note that if our horizontal border-spacing changed, our position will change but not
+        // our column's width. In practice, horizontal border-spacing won't change often.
+        m_columnLogicalWidthChanged |= m_columnPos[index] != position;
+        m_columnPos[index] = position;
+    }
+
     RenderTableSection* header() const { return m_head; }
     RenderTableSection* footer() const { return m_foot; }
     RenderTableSection* firstBody() const { return m_firstBody; }
 
     // This function returns 0 if the table has no section.
     RenderTableSection* topSection() const;
+    RenderTableSection* bottomSection() const;
 
     // This function returns 0 if the table has no non-empty sections.
     RenderTableSection* topNonEmptySection() const;
+
+    unsigned lastColumnIndex() const { return numEffCols() - 1; }
 
     void splitColumn(unsigned position, unsigned firstSpan);
     void appendColumn(unsigned span);
@@ -175,14 +186,34 @@ public:
         return c;
     }
 
-    LayoutUnit bordersPaddingAndSpacingInRowDirection() const
+    LayoutUnit borderSpacingInRowDirection() const
     {
-        return borderStart() + borderEnd() +
-               (collapseBorders() ? ZERO_LAYOUT_UNIT : (paddingStart() + paddingEnd() + static_cast<LayoutUnit>(numEffCols() + 1) * hBorderSpacing()));
+        if (unsigned effectiveColumnCount = numEffCols())
+            return static_cast<LayoutUnit>(effectiveColumnCount + 1) * hBorderSpacing();
+
+        return 0;
     }
 
-    RenderTableCol* colElement(unsigned col, bool* startEdge = 0, bool* endEdge = 0) const;
-    RenderTableCol* nextColElement(RenderTableCol* current) const;
+    // Override paddingStart/End to return pixel values to match behavor of RenderTableCell.
+    virtual LayoutUnit paddingEnd() const OVERRIDE { return static_cast<int>(RenderBlock::paddingEnd()); }
+    virtual LayoutUnit paddingStart() const OVERRIDE { return static_cast<int>(RenderBlock::paddingStart()); }
+
+    LayoutUnit bordersPaddingAndSpacingInRowDirection() const
+    {
+        // 'border-spacing' only applies to separate borders (see 17.6.1 The separated borders model).
+        return borderStart() + borderEnd() + (collapseBorders() ? LayoutUnit() : (paddingStart() + paddingEnd() + borderSpacingInRowDirection()));
+    }
+
+    // Return the first column or column-group.
+    RenderTableCol* firstColumn() const;
+
+    RenderTableCol* colElement(unsigned col, bool* startEdge = 0, bool* endEdge = 0) const
+    {
+        // The common case is to not have columns, make that case fast.
+        if (!m_hasColElements)
+            return 0;
+        return slowColElement(col, startEdge, endEdge);
+    }
 
     bool needsSectionRecalc() const { return m_needsSectionRecalc; }
     void setNeedsSectionRecalc()
@@ -223,8 +254,17 @@ public:
         return createAnonymousWithParentRenderer(parent);
     }
 
+    const BorderValue& tableStartBorderAdjoiningCell(const RenderTableCell*) const;
+    const BorderValue& tableEndBorderAdjoiningCell(const RenderTableCell*) const;
+
+    void addCaption(const RenderTableCaption*);
+    void removeCaption(const RenderTableCaption*);
+    void addColumn(const RenderTableCol*);
+    void removeColumn(const RenderTableCol*);
+
 protected:
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+    virtual void simplifiedNormalFlowLayout();
 
 private:
     virtual const char* renderName() const { return "RenderTable"; }
@@ -233,26 +273,31 @@ private:
 
     virtual bool avoidsFloats() const { return true; }
 
-    virtual void removeChild(RenderObject* oldChild);
-
     virtual void paint(PaintInfo&, const LayoutPoint&);
     virtual void paintObject(PaintInfo&, const LayoutPoint&);
     virtual void paintBoxDecorations(PaintInfo&, const LayoutPoint&);
     virtual void paintMask(PaintInfo&, const LayoutPoint&);
     virtual void layout();
-    virtual void computePreferredLogicalWidths();
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
-    
-    virtual LayoutUnit firstLineBoxBaseline() const;
+    virtual void computeIntrinsicLogicalWidths(LayoutUnit& minWidth, LayoutUnit& maxWidth) const OVERRIDE;
+    virtual void computePreferredLogicalWidths() OVERRIDE;
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) OVERRIDE;
+
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const OVERRIDE;
+    virtual int firstLineBoxBaseline() const OVERRIDE;
+    virtual int inlineBlockBaseline(LineDirectionMode) const OVERRIDE;
+
+    RenderTableCol* slowColElement(unsigned col, bool* startEdge, bool* endEdge) const;
+
+    void updateColumnCache() const;
+    void invalidateCachedColumns();
 
     virtual RenderBlock* firstLineBlock() const;
     virtual void updateFirstLetter();
     
-    virtual void setCellLogicalWidths();
-
-    virtual void computeLogicalWidth();
+    virtual void updateLogicalWidth() OVERRIDE;
 
     LayoutUnit convertStyleLogicalWidthToComputedWidth(const Length& styleLogicalWidth, LayoutUnit availableWidth);
+    LayoutUnit convertStyleLogicalHeightToComputedHeight(const Length& styleLogicalHeight);
 
     virtual LayoutRect overflowClipRect(const LayoutPoint& location, RenderRegion*, OverlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize);
 
@@ -269,6 +314,7 @@ private:
     mutable Vector<int> m_columnPos;
     mutable Vector<ColumnStruct> m_columns;
     mutable Vector<RenderTableCaption*> m_captions;
+    mutable Vector<RenderTableCol*> m_columnRenderers;
 
     mutable RenderTableSection* m_head;
     mutable RenderTableSection* m_foot;
@@ -279,10 +325,13 @@ private:
     CollapsedBorderValues m_collapsedBorders;
     const CollapsedBorderValue* m_currentBorder;
     bool m_collapsedBordersValid : 1;
-    
+
     mutable bool m_hasColElements : 1;
     mutable bool m_needsSectionRecalc : 1;
-    
+
+    bool m_columnLogicalWidthChanged : 1;
+    mutable bool m_columnRenderersValid: 1;
+
     short m_hSpacing;
     short m_vSpacing;
     int m_borderStart;
@@ -301,13 +350,13 @@ inline RenderTableSection* RenderTable::topSection() const
 
 inline RenderTable* toRenderTable(RenderObject* object)
 {
-    ASSERT(!object || object->isTable());
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isTable());
     return static_cast<RenderTable*>(object);
 }
 
 inline const RenderTable* toRenderTable(const RenderObject* object)
 {
-    ASSERT(!object || object->isTable());
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isTable());
     return static_cast<const RenderTable*>(object);
 }
 

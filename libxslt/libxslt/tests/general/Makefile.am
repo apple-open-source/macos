@@ -172,7 +172,7 @@ EXTRA_DIST = \
     bug-161.out bug-161.xsl \
     bug-163.out bug-163.xsl \
     bug-164.out bug-164.xsl \
-    bug-165.out bug-165.xsl bug-145.err \
+    bug-165.out bug-165.xsl bug-165.err \
     bug-166.out bug-166.xsl \
     bug-167.out bug-167.xsl \
     bug-168.out bug-168.xsl \
@@ -180,13 +180,20 @@ EXTRA_DIST = \
     bug-170.out bug-170.xsl \
     bug-171.out bug-171.xsl \
     bug-172.out bug-172.xsl \
+    bug-173.out bug-173.xsl \
+    bug-174.out bug-174.xsl bug-174.err \
+    bug-175.out bug-175.xsl bug-175.err \
+    bug-176.out bug-176.xsl \
+    bug-177.out bug-177.xsl \
+    bug-178.out bug-178.xsl \
+    bug-179.out bug-179.xsl \
+    bug-180.out bug-180.xsl bug-180.err \
     character.out character.xsl \
     character2.out character2.xsl \
     itemschoose.out itemschoose.xsl \
     inner.xsl date_add.xsl
 
-
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
@@ -222,7 +229,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`;\
 	  if [ -n "$$log" ] ; then \
 	  	echo $$name result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	  fi ; \
 	  rm -f result.$$name err.$$name; \
 	  done ; done)
@@ -254,7 +261,7 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`;\
 	  if [ -n "$$log" ] ; then \
 	  	echo $$name result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	  fi ; \
 	  rm -f result.$$name err.$$name; \
 	  done ; done)

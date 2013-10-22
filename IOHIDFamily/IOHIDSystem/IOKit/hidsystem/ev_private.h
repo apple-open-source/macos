@@ -1,15 +1,15 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /******************************************************************************
@@ -26,11 +26,11 @@
     Internal defs for the events driver.  The contents of this module
     may need to be tweaked slightly from one architecture to the next.
     22 May 1992	Mike Paquette at NeXT Computers, Inc.
-    
+
     Copyright 1992 NeXT, Inc.
-    
+
     Modified:
-    
+
 
 ******************************************************************************/
 
@@ -48,7 +48,7 @@
 #define	EV_DCLICKSPACE	3		/* Default pixel threshold for double-clicks */
 
 /* Default Wait Cursor Timing Constants (in nanoseconds) */
-#define DefaultWCSustain	300000000	/* 0.3 seconds */	
+#define DefaultWCSustain	300000000	/* 0.3 seconds */
 #define DefaultWCFrameRate	75000000        /* 13.3 frames/second */
 #define DefaultWCThreshold	1200000000ULL	/* 1.2 seconds */
 
@@ -86,6 +86,7 @@
         (NX_ALPHASHIFTMASK | NX_SHIFTMASK | NX_CONTROLMASK | NX_ALTERNATEMASK \
         | NX_COMMANDMASK | NX_NUMERICPADMASK | NX_HELPMASK | NX_SECONDARYFNMASK\
         | NX_DEVICELSHIFTKEYMASK | NX_DEVICERSHIFTKEYMASK | NX_DEVICELCMDKEYMASK \
+        | NX_ALPHASHIFT_STATELESS_MASK | NX_DEVICE_ALPHASHIFT_STATELESS_MASK \
         | NX_DEVICERCMDKEYMASK | NX_DEVICELALTKEYMASK | NX_DEVICERALTKEYMASK\
         | NX_DEVICELCTLKEYMASK | NX_DEVICERCTLKEYMASK)
 
@@ -116,11 +117,13 @@ typedef volatile struct _evScreen {
     IOGraphicsDevice    *instance;      /* Driver instance owning this screen. */
     IOGBounds           *displayBounds; /* Screen's bounds in the coordinate system of the display space */
     IOGBounds           *desktopBounds; /* Screen's bounds in the coordinate system of the desktop space */
-    /*  Display space and desktop space are the same unless using a feature that causes them not to be them, like 
+    /*  Display space and desktop space are the same unless using a feature that causes them not to be them, like
         zooming or HiDPI. Both spaces should be contiguous (no disconnected pieces) and the mapping between them
-        should be functional (uniquely bidirectional), but the mapping is likely not continuous (if as x->a, 
+        should be functional (uniquely bidirectional), but the mapping is likely not continuous (if as x->a,
         f(x)->f(a), then the mapping is continuous) in cases where display space isn't the same as desktop space.
     */
+    pid_t               creator_pid;    /* we must track the creators manually */
+    IOGBounds           scratch[2];
 } EvScreen;
 
 /*

@@ -924,6 +924,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @param dfault  Char to return if conversion fails.
        *  @return  The converted character.
       */
+      #if BUILDING_LIBSTDCXX
+      __attribute__((used))
+      #endif
       char
       narrow(char_type __c, char __dfault) const
       {

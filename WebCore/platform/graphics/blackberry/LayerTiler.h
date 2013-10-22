@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Research In Motion Limited. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,13 +21,13 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "Color.h"
 #include "FloatRect.h"
 #include "IntRect.h"
+#include "LayerCompositingThreadClient.h"
 #include "LayerTile.h"
 #include "LayerTileIndex.h"
 
-#include <SkBitmap.h>
+#include <BlackBerryPlatformGLES2Program.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -36,9 +36,10 @@
 namespace WebCore {
 
 class LayerCompositingThread;
+class LayerVisibility;
 class LayerWebKitThread;
 
-class LayerTiler : public ThreadSafeRefCounted<LayerTiler> {
+class LayerTiler : public ThreadSafeRefCounted<LayerTiler>, public LayerCompositingThreadClient {
 public:
     TileIndex indexOfTile(const IntPoint& origin);
     IntPoint originOfTile(const TileIndex&);
@@ -51,42 +52,40 @@ public:
 
     virtual ~LayerTiler();
 
+    IntSize tileSize() const { return m_tileSize; }
+
     // WebKit thread
     LayerWebKitThread* layer() const { return m_layer; }
     void layerWebKitThreadDestroyed();
     void setNeedsDisplay(const FloatRect& dirtyRect);
     void setNeedsDisplay();
     void updateTextureContentsIfNeeded(double scale);
-    void disableTiling(bool);
+    void setNeedsBacking(bool);
+    virtual void scheduleCommit();
 
     // Compositing thread
-    void layerCompositingThreadDestroyed();
-    void uploadTexturesIfNeeded();
-    void drawTextures(LayerCompositingThread*, int positionLocation, int texCoordLocation);
-    bool hasMissingTextures() const { return m_hasMissingTextures; }
-    void drawMissingTextures(LayerCompositingThread*, int positionLocation, int texCoordLocation);
-    void deleteTextures();
-    void commitPendingTextureUploads();
-    void layerVisibilityChanged(bool visible);
-    bool hasDirtyTiles() const;
-    void bindContentsTexture();
-
-    // Thread safe
-    void addRenderJob(const TileIndex&);
-    void removeRenderJob(const TileIndex&);
+    virtual void layerCompositingThreadDestroyed(LayerCompositingThread*);
+    virtual void layerVisibilityChanged(LayerCompositingThread*, bool visible);
+    virtual void uploadTexturesIfNeeded(LayerCompositingThread*);
+    virtual LayerTexture* contentsTexture(LayerCompositingThread*);
+    virtual void drawTextures(LayerCompositingThread*, const BlackBerry::Platform::Graphics::GLES2Program&, double scale, const FloatRect& clipRect);
+    virtual void deleteTextures(LayerCompositingThread*);
+    static void willCommit();
+    virtual void commitPendingTextureUploads(LayerCompositingThread*);
 
 private:
     struct TextureJob {
-        enum Type { Unknown, SetContents, SetContentsToColor, UpdateContents, DiscardContents, ResizeContents, DirtyContents };
+        enum Type { Unknown, SetContents, UpdateContents, ResizeContents, DirtyContents };
 
         TextureJob()
             : m_type(Unknown)
+            , m_contents(0)
         {
         }
 
         TextureJob(Type type, const IntSize& newSize)
             : m_type(type)
-            , m_isOpaque(false)
+            , m_contents(0)
             , m_dirtyRect(IntPoint::zero(), newSize)
         {
             ASSERT(type == ResizeContents);
@@ -94,71 +93,61 @@ private:
 
         TextureJob(Type type, const IntRect& dirtyRect)
             : m_type(type)
-            , m_isOpaque(false)
+            , m_contents(0)
             , m_dirtyRect(dirtyRect)
         {
-            ASSERT(type == DiscardContents || type == DirtyContents);
+            ASSERT(type == DirtyContents);
         }
 
-        TextureJob(Type type, const SkBitmap& contents, const IntRect& dirtyRect, bool isOpaque)
+        TextureJob(Type type, BlackBerry::Platform::Graphics::Buffer* contents, const IntRect& dirtyRect)
             : m_type(type)
             , m_contents(contents)
-            , m_isOpaque(isOpaque)
             , m_dirtyRect(dirtyRect)
         {
             ASSERT(type == UpdateContents || type == SetContents);
-            ASSERT(!contents.isNull());
+            ASSERT(contents);
         }
 
-        TextureJob(Type type, const Color& color, const TileIndex& index)
-            : m_type(type)
-            , m_isOpaque(false)
-            , m_color(color)
-            , m_index(index)
+        static TextureJob setContents(BlackBerry::Platform::Graphics::Buffer* contents, const IntRect& contentsRect)
         {
-            ASSERT(type == SetContentsToColor);
+            return TextureJob(SetContents, contents, contentsRect);
         }
-
-        static TextureJob setContents(const SkBitmap& contents, bool isOpaque) { return TextureJob(SetContents, contents, IntRect(IntPoint::zero(), IntSize(contents.width(), contents.height())), isOpaque); }
-        static TextureJob setContentsToColor(const Color& color, const TileIndex& index) { return TextureJob(SetContentsToColor, color, index); }
-        static TextureJob updateContents(const SkBitmap& contents, const IntRect& dirtyRect, bool isOpaque) { return TextureJob(UpdateContents, contents, dirtyRect, isOpaque); }
-        static TextureJob discardContents(const IntRect& dirtyRect) { return TextureJob(DiscardContents, dirtyRect); }
+        static TextureJob updateContents(BlackBerry::Platform::Graphics::Buffer* contents, const IntRect& dirtyRect) { return TextureJob(UpdateContents, contents, dirtyRect); }
         static TextureJob resizeContents(const IntSize& newSize) { return TextureJob(ResizeContents, newSize); }
         static TextureJob dirtyContents(const IntRect& dirtyRect) { return TextureJob(DirtyContents, dirtyRect); }
 
         bool isNull() { return m_type == Unknown; }
 
         Type m_type;
-        SkBitmap m_contents;
-        bool m_isOpaque;
+        BlackBerry::Platform::Graphics::Buffer* m_contents;
         IntRect m_dirtyRect;
-        Color m_color;
         TileIndex m_index;
     };
 
     typedef HashMap<TileIndex, LayerTile*> TileMap;
-    typedef HashMap<TileIndex, LayerTileData> VisibilityMap;
     typedef HashMap<TileIndex, const TextureJob*> TileJobsMap;
-
-    IntSize tileSize() const { return m_tileSize; }
-    void updateTileSize();
 
     LayerTiler(LayerWebKitThread*);
 
+    // Swaps in a new front visibility and returns the current one, atomically.
+    LayerVisibility* swapFrontVisibility(LayerVisibility*);
+
     // WebKit thread
+    void updateTileSize();
     void addTextureJob(const TextureJob&);
     void clearTextureJobs();
-    bool shouldPerformRenderJob(const TileIndex&, bool allowPrefill);
-    bool shouldPrefillTile(const TileIndex&);
+    BlackBerry::Platform::Graphics::Buffer* createBuffer(const IntSize&);
+    LayerVisibility* takeFrontVisibility() { return swapFrontVisibility(0); }
 
     // Compositing thread
     void updateTileContents(const TextureJob&, const IntRect&);
     void addTileJob(const TileIndex&, const TextureJob&, TileJobsMap&);
-    void performTileJob(LayerTile*, const TextureJob&, const IntRect&);
+    void performTileJob(LayerCompositingThread*, LayerTile*, const TextureJob&);
     void processTextureJob(const TextureJob&, TileJobsMap&);
-    void drawTexturesInternal(LayerCompositingThread*, int positionLocation, int texCoordLocation, bool missing);
     void pruneTextures();
     void visibilityChanged(bool needsDisplay);
+    bool drawTile(LayerCompositingThread*, LayerTile*, const TileIndex&, double scale, const FloatRect& dst, const FloatRect& dstClip);
+    void setFrontVisibility(const FloatRect& visibleRect, HashSet<TileIndex>& tilesNeedingRender);
 
     // Clear all pending update content texture jobs
     template<typename T>
@@ -169,17 +158,17 @@ private:
         for (typename T::iterator it = jobs.begin(); it != jobs.end(); ++it) {
             if ((*it).m_type != TextureJob::UpdateContents)
                 list.append(*it);
+            else
+                BlackBerry::Platform::Graphics::destroyBuffer((*it).m_contents);
         }
         jobs = list;
     }
 
     LayerWebKitThread* m_layer;
 
-    TileMap m_tilesCompositingThread;
+    TileMap m_tiles;
 
-    VisibilityMap m_tilesWebKitThread;
-
-    bool m_tilingDisabled;
+    bool m_needsBacking;
 
     bool m_contentsDirty;
     FloatRect m_dirtyRect;
@@ -191,11 +180,9 @@ private:
     bool m_clearTextureJobs;
     Vector<TextureJob> m_pendingTextureJobs; // Added, but not committed yet.
     Deque<TextureJob> m_textureJobs;
-    bool m_hasMissingTextures;
 
-    HashSet<TileIndex> m_renderJobs;
-    Mutex m_renderJobsMutex;
-    double m_contentsScale;
+    LayerVisibility* m_frontVisibility;
+    LayerVisibility* m_backVisibility;
 };
 
 }

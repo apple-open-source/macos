@@ -1,5 +1,5 @@
 /*
- * "$Id: client.h 7935 2008-09-11 01:54:11Z mike $"
+ * "$Id: client.h 11214 2013-08-01 22:24:05Z msweet $"
  *
  *   Client definitions for the CUPS scheduler.
  *
@@ -54,6 +54,8 @@ struct cupsd_client_s
   int			auto_ssl;	/* Automatic test for SSL/TLS */
 #endif /* HAVE_SSL */
   http_addr_t		clientaddr;	/* Client address */
+  char			clientname[256];/* Client's server name for connection */
+  int			clientport;	/* Client's server port for connection */
   char			servername[256];/* Server name for connection */
   int			serverport;	/* Server port for connection */
 #ifdef HAVE_GSSAPI
@@ -140,5 +142,5 @@ extern int	cupsdStartTLS(cupsd_client_t *con);
 
 
 /*
- * End of "$Id: client.h 7935 2008-09-11 01:54:11Z mike $".
+ * End of "$Id: client.h 11214 2013-08-01 22:24:05Z msweet $".
  */

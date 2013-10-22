@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.apple.powerd</string>
+    <key>Program</key>
+    <string>/System/Library/CoreServices/powerd.bundle/powerd</string>
+    <key>KeepAlive</key>
+    <true/>
+    <key>POSIXSpawnType</key>
+    <string>Adaptive</string>
+    <key>MachServices</key>
+    <dict>
+        <key>com.apple.PowerManagement.control</key>
+        <true/>
+    </dict>
+    <key>JetsamProperties</key>
+    <dict>
+        <key>JetsamPriority</key>
+        <integer>-100</integer>
+    </dict>
+</dict>
+</plist>

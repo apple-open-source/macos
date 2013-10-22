@@ -42,20 +42,21 @@
 #define LOCATION        debug_location(__FILE__, __LINE__, NULL)
 #endif
 
-extern int hexdump __P((void *, size_t));
-extern char *bit2str __P((int, int));
-extern void *get_newbuf __P((void *, size_t));
-extern const char *debug_location __P((const char *, int, const char *));
-extern int getfsize __P((char *));
+extern int hexdump (void *, size_t);
+extern char *bit2str (int, int);
+extern void *get_newbuf (void *, size_t);
+extern const char *debug_location (const char *, int, const char *);
+extern int getfsize (char *);
 struct timeval;
-extern double timedelta __P((struct timeval *, struct timeval *));
-char *strdup __P((const char *));
+extern double timedelta (struct timeval *, struct timeval *);
+char *strdup (const char *);
+extern char* binsanitize (char*, size_t);
 
 #define RACOON_TAILQ_FOREACH_REVERSE(var, head, headname ,field)	\
   TAILQ_FOREACH_REVERSE(var, head, field, headname)
 
 #define STRDUP_FATAL(x) if (x == NULL) {			\
-	plog(LLV_ERROR, LOCATION, NULL, "strdup failed\n");	\
+	plog(ASL_LEVEL_ERR, "strdup failed\n");	\
 	exit(1);						\
 }
 

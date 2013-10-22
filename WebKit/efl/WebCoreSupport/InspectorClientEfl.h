@@ -2,7 +2,7 @@
  * Copyright (C) 2007 Apple Inc.  All rights reserved.
  * Copyright (C) 2008 INdT - Instituto Nokia de Tecnologia
  * Copyright (C) 2009-2010 ProFUSION embedded systems
- * Copyright (C) 2009-2010 Samsung Electronics
+ * Copyright (C) 2009-2012 Samsung Electronics
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,28 +32,71 @@
 #ifndef InspectorClientEfl_h
 #define InspectorClientEfl_h
 
+#if ENABLE(INSPECTOR)
+
 #include "InspectorClient.h"
+#include "InspectorFrontendChannel.h"
+#include "InspectorFrontendClientLocal.h"
+#include <Evas.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
-class Page;
+class InspectorFrontendClientEfl;
 
-class InspectorClientEfl : public WebCore::InspectorClient {
+class InspectorClientEfl : public InspectorClient, public InspectorFrontendChannel {
 public:
+    explicit InspectorClientEfl(Evas_Object*);
+    ~InspectorClientEfl();
+
     virtual void inspectorDestroyed();
 
-    virtual void openInspectorFrontend(InspectorController*);
+    virtual InspectorFrontendChannel* openInspectorFrontend(InspectorController*);
     virtual void closeInspectorFrontend();
     virtual void bringFrontendToFront();
 
     virtual void highlight();
     virtual void hideHighlight();
 
-    virtual void populateSetting(const String& key, String* value);
-    virtual void storeSetting(const String& key, const String& value);
-
     virtual bool sendMessageToFrontend(const String&);
+
+    void releaseFrontendPage();
+    String inspectorFilesPath();
+
+private:
+    Evas_Object* m_inspectedView;
+    Evas_Object* m_inspectorView;
+    InspectorFrontendClientEfl* m_frontendClient;
+};
+
+class InspectorFrontendClientEfl : public InspectorFrontendClientLocal {
+public:
+    InspectorFrontendClientEfl(Evas_Object*, Evas_Object*, InspectorClientEfl*);
+    ~InspectorFrontendClientEfl();
+
+    virtual String localizedStringsURL();
+
+    virtual void bringToFront();
+    virtual void closeWindow();
+
+    virtual void inspectedURLChanged(const String&);
+
+    virtual void attachWindow(DockSide);
+    virtual void detachWindow();
+
+    virtual void setAttachedWindowHeight(unsigned);
+    virtual void setAttachedWindowWidth(unsigned);
+    virtual void setToolbarHeight(unsigned) OVERRIDE;
+
+    void disconnectInspectorClient() { m_inspectorClient = 0; }
+    void destroyInspectorWindow(bool notifyInspectorController);
+
+private:
+    Evas_Object* m_inspectedView;
+    Evas_Object* m_inspectorView;
+    InspectorClientEfl* m_inspectorClient;
+
 };
 }
 
+#endif
 #endif // InspectorClientEfl_h

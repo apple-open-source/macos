@@ -1,5 +1,5 @@
 .\"
-.\" "$Id: backend.man 7810 2008-07-29 01:11:15Z mike $"
+.\" "$Id: backend.man 11093 2013-07-03 20:48:42Z msweet $"
 .\"
 .\"   Backend man page for CUPS.
 .\"
@@ -168,5 +168,5 @@ http://localhost:631/help
 .SH COPYRIGHT
 Copyright 2007-2013 by Apple Inc.
 .\"
-.\" End of "$Id: backend.man 7810 2008-07-29 01:11:15Z mike $".
+.\" End of "$Id: backend.man 11093 2013-07-03 20:48:42Z msweet $".
 .\"

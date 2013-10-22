@@ -16,6 +16,7 @@
 			<string>4468207 - convert apple icon</string>
 			<string>add macutf8</string>
 			<string>UNIX2003 changes</string>
+			<string>do not inline gperf lookup functions (12056452)</string>
 		</array>	
 		<key>OpenSourceProject</key>
 		<string>libiconv</string>

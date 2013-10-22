@@ -311,13 +311,13 @@ StBootstrap::~StBootstrap()
 //
 // Mach message buffers
 //
-Message::Message(void *buffer, size_t size)
+Message::Message(void *buffer, mach_msg_size_t size)
 	: mBuffer(NULL), mRelease(false)
 {
 	setBuffer(buffer, size);
 }
 
-Message::Message(size_t size)
+Message::Message(mach_msg_size_t size)
 	: mBuffer(NULL), mRelease(false)
 {
 	setBuffer(size);
@@ -334,7 +334,7 @@ Message::~Message()
 }
 
 
-void Message::setBuffer(void *buffer, size_t size)
+void Message::setBuffer(void *buffer, mach_msg_size_t size)
 {
 	release();
 	mBuffer = reinterpret_cast<mig_reply_error_t *>(buffer);
@@ -342,7 +342,7 @@ void Message::setBuffer(void *buffer, size_t size)
 	mRelease = false;
 }
 
-void Message::setBuffer(size_t size)
+void Message::setBuffer(mach_msg_size_t size)
 {
 	assert(size >= sizeof(mach_msg_header_t));
 	release();

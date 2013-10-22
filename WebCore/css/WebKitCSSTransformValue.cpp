@@ -27,10 +27,45 @@
 #include "WebKitCSSTransformValue.h"
 
 #include "CSSValueList.h"
-#include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
+
+// These names must be kept in sync with TransformOperationType.
+const char* const transformNamePrefixes[] = {
+    0,
+    "translate(",
+    "translateX(",
+    "translateY(",
+    "rotate(",
+    "scale(",
+    "scaleX(",
+    "scaleY(",
+    "skew(",
+    "skewX(",
+    "skewY(",
+    "matrix(",
+    "translateZ(",
+    "translate3d(",
+    "rotateX(",
+    "rotateY(",
+    "rotateZ(",
+    "rotate3d(",
+    "scaleZ(",
+    "scale3d(",
+    "perspective(",
+    "matrix3d("
+};
+
+static inline String transformValueToCssString(WebKitCSSTransformValue::TransformOperationType operation, const String& value)
+{
+    if (operation != WebKitCSSTransformValue::UnknownTransformOperation) {
+        ASSERT_WITH_SECURITY_IMPLICATION(static_cast<size_t>(operation) < WTF_ARRAY_LENGTH(transformNamePrefixes));
+        return makeString(transformNamePrefixes[operation], value, ')');
+    }
+    return String();
+}
 
 WebKitCSSTransformValue::WebKitCSSTransformValue(TransformOperationType op)
     : CSSValueList(WebKitCSSTransformClass, CommaSeparator)
@@ -40,80 +75,15 @@ WebKitCSSTransformValue::WebKitCSSTransformValue(TransformOperationType op)
 
 String WebKitCSSTransformValue::customCssText() const
 {
-    String result;
-    switch (m_type) {
-        case TranslateTransformOperation:
-            result += "translate(";
-            break;
-        case TranslateXTransformOperation:
-            result += "translateX(";
-            break;
-        case TranslateYTransformOperation:
-            result += "translateY(";
-            break;
-        case RotateTransformOperation:
-            result += "rotate(";
-            break;
-        case ScaleTransformOperation:
-            result += "scale(";
-            break;
-        case ScaleXTransformOperation:
-            result += "scaleX(";
-            break;
-        case ScaleYTransformOperation:
-            result += "scaleY(";
-            break;
-        case SkewTransformOperation:
-            result += "skew(";
-            break;
-        case SkewXTransformOperation:
-            result += "skewX(";
-            break;
-        case SkewYTransformOperation:
-            result += "skewY(";
-            break;
-        case MatrixTransformOperation:
-            result += "matrix(";
-            break;
-        case TranslateZTransformOperation:
-            result += "translateZ(";
-            break;
-        case Translate3DTransformOperation:
-            result += "translate3d(";
-            break;
-        case RotateXTransformOperation:
-            result += "rotateX(";
-            break;
-        case RotateYTransformOperation:
-            result += "rotateY(";
-            break;
-        case RotateZTransformOperation:
-            result += "rotateZ(";
-            break;
-        case Rotate3DTransformOperation:
-            result += "rotate3d(";
-            break;
-        case ScaleZTransformOperation:
-            result += "scaleZ(";
-            break;
-        case Scale3DTransformOperation:
-            result += "scale3d(";
-            break;
-        case PerspectiveTransformOperation:
-            result += "perspective(";
-            break;
-        case Matrix3DTransformOperation:
-            result += "matrix3d(";
-            break;
-        default:
-            break;
-    }
-
-    result += CSSValueList::customCssText();
-
-    result += ")";
-    return result;
+    return transformValueToCssString(m_type, CSSValueList::customCssText());
 }
+
+#if ENABLE(CSS_VARIABLES)
+String WebKitCSSTransformValue::customSerializeResolvingVariables(const HashMap<AtomicString, String>& variables) const
+{
+    return transformValueToCssString(m_type, CSSValueList::customSerializeResolvingVariables(variables));
+}
+#endif
 
 WebKitCSSTransformValue::WebKitCSSTransformValue(const WebKitCSSTransformValue& cloneFrom)
     : CSSValueList(cloneFrom)

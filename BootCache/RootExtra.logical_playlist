@@ -1,11 +1,4 @@
 /private/var/log/asl/StoreData
 /private/var/db/launchd.db/com.apple.launchd/overrides.plist
-/private/var/db/dhcpclient/leases/
-/private/var/root/Library/Preferences/blued.plist
-/System/Library/Caches/com.apple.Components2.SystemCache.Components
-/System/Library/Caches/com.apple.Components2.SystemCache.QuickTimeComponents
 /Library/Preferences/com.apple.loginwindow.plist
-/Library/Preferences/com.apple.systemuiserver.plist
 /Library/Preferences/com.apple.Bluetooth.plist
-/Library/Caches/com.apple.Components2.LocalCache.QuickTimeComponents
-/.DocumentRevisions-V100/LibraryStatus

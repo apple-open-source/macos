@@ -11,4 +11,4 @@
 #define RELSTATUS "release"
 
 /* A version string for use by sccs and the what command. */
-#define SCCSVERSION "@(#)Bash version 3.2.48(1) release GNU"
+#define SCCSVERSION "@(#)Bash version 3.2.51(1) release GNU"

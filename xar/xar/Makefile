@@ -23,7 +23,7 @@ AUTOCONF := /usr/bin/autoconf
 #
 
 CPPFLAGS :=  -I/usr/include/libxml2
-CFLAGS := -Wall -g 
+CFLAGS := -Wall -g -isysroot $(SDKROOT)
 A_CFLAGS := $(CFLAGS) 
 S_CFLAGS := $(CFLAGS) -fPIC -DPIC
 ifeq (macho, macho)

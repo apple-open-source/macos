@@ -1106,10 +1106,8 @@ uint32_t size)
 	rp = replaces;
 	while(rp != NULL){
 	    if(rp->found == 0 &&
-	       strncmp(rp->segname, segname,
-		       sizeof(segname)) == 0 &&
-	       strncmp(rp->sectname, sectname,
-		       sizeof(sectname)) == 0){
+	       strncmp(rp->segname, segname, 16) == 0 &&
+	       strncmp(rp->sectname, sectname, 16) == 0){
 		if(sect_flags == S_ZEROFILL ||
 		   sect_flags == S_THREAD_LOCAL_ZEROFILL){
 		    error("can't replace zero fill section (%.16s,"

@@ -374,14 +374,15 @@ mode_t
 a_mask(s)
 	char *s;
 {
-	int done, rv;
+	int done;
+    mode_t rv;
 	char *ep;
 
 	done = 0;
 	rv = -1;
 	if (*s >= '0' && *s <= '7') {
 		done = 1;
-		rv = strtol(optarg, &ep, 8);
+		rv = (mode_t)strtol(optarg, &ep, 8);
 	}
 	if (!done || rv < 0 || *ep)
 		errx(EX_USAGE, "invalid file mode: %s", s);
@@ -487,7 +488,7 @@ static CFStringEncoding GetDefaultDOSEncoding(void)
 			size = read(fd, buffer, MAXPATHLEN);
 			buffer[(size < 0 ? 0 : size)] = '\0';
 			close(fd);
-			encoding = strtol(buffer, NULL, 0);
+			encoding = (CFStringEncoding)strtol(buffer, NULL, 0);
 		}
 	}
 
@@ -676,7 +677,7 @@ static void FindVolumeName(struct msdosfs_args *args)
 			errx(EX_OSERR, "Out of memory");
 		
 		/* Figure out the number of directory entries per cluster */
-		rootDirEntries = readAmount / sizeof(struct dosdirentry);
+		rootDirEntries = (unsigned)(readAmount / sizeof(struct dosdirentry));
 		
 		/* Start with the first cluster of the root directory */
 		cluster = buf[44] + (buf[45]<<8L) + (buf[46]<<16L) + (buf[47]<<24L);

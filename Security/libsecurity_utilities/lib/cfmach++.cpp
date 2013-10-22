@@ -115,8 +115,9 @@ void CFAutoPort::cfCallback(CFMachPortRef cfPort, void *msg, CFIndex size, void 
 {
 	++gNumTimesCalled;
 	secdebug("adhoc", "Callback was called %d times.", gNumTimesCalled);
-	
-	Message message(msg, size);
+
+#warning Cast to mach_msg_size_t may loose precision
+	Message message(msg, (mach_msg_size_t)size);
 	try {
 		reinterpret_cast<CFAutoPort *>(context)->receive(message);
 	} catch (...) {

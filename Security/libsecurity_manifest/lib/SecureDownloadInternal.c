@@ -7,9 +7,9 @@
 //        cc -g -framework CoreFoundation -o $@ $^
 //
 
-#define DEBUG 0
+#define LOCAL_DEBUG 0
 
-#if DEBUG
+#if LOCAL_DEBUG
 extern CFDataRef read_data(char* path);
 #endif
 
@@ -22,7 +22,7 @@ extern CFDataRef read_data(char* path);
 
 struct parseState {
 	CFDictionaryRef namespaces; // array of dictionaries of namespace declarations
-#if DEBUG
+#if LOCAL_DEBUG
 	char* prefix;
 #endif
 	CFMutableArrayRef plists;	// array of all resource plists
@@ -624,7 +624,7 @@ static void _parseXMLNode(const void *value, void *context) {
 					}
 				}
 			}
-#if DEBUG
+#if LOCAL_DEBUG
 			cfprintf(stderr, "%sELEM:\t%@\t[%@]\n", state->prefix, name, ns);
 #endif
 		}
@@ -633,7 +633,7 @@ static void _parseXMLNode(const void *value, void *context) {
 	} else if (type == kCFXMLNodeTypeWhitespace) {
 		// do nothing
 	} else {
-#if DEBUG
+#if LOCAL_DEBUG
 		CFStringRef str = CFXMLNodeGetString(node);
 		cfprintf(stderr, "%s% 4d:\t%@\n", state->prefix, type, str);
 #endif
@@ -645,11 +645,11 @@ static void _parseXMLNode(const void *value, void *context) {
 		struct parseState local;
 		memcpy(&local, state, sizeof(struct parseState));
 		local.namespaces = namespaces;
-#if DEBUG
+#if LOCAL_DEBUG
 		asprintf(&local.prefix, "%s  ", state->prefix);
 #endif
 		CFTreeApplyFunctionToChildren(tree, _parseXMLNode, &local);
-#if DEBUG
+#if LOCAL_DEBUG
 		free(local.prefix);
 #endif
 	}
@@ -665,7 +665,7 @@ CFPropertyListRef _SecureDownloadParseTicketXML(CFDataRef xmlData) {
 	
 	struct parseState state;
 	memset(&state, 0, sizeof(state));
-#if DEBUG
+#if LOCAL_DEBUG
 	state.prefix = "";
 #endif
 	state.plists = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -851,7 +851,7 @@ CFDataRef _SecureDownloadCreateTicketXML(CFPropertyListRef plist) {
 	return data;
 }
 
-#if DEBUG
+#if LOCAL_DEBUG
 #include <unistd.h>
 int main(int argc, char* argv[]) {
 

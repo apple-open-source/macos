@@ -32,12 +32,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <security_utilities/errors.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <CoreFoundation/CFDate.h>
 #include <CoreFoundation/CFTimeZone.h>
 #include <ctype.h>
 #include <stdlib.h>
-
+#include <SecBase.h>
 namespace Security
 {
 
@@ -79,7 +78,7 @@ void
 TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 {
 	char 		szTemp[5];
-	unsigned 	len;
+	size_t          len;
 	int 		isUtc;
 	sint32 		x;
 	sint32 		i;
@@ -90,7 +89,7 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 
 	if ((inUTCTime.Data == NULL) || (inUTCTime.Length == 0))
     {
-    	MacOSError::throwMe(paramErr);
+    	MacOSError::throwMe(errSecParam);
   	}
 
   	/* tolerate NULL terminated or not */
@@ -107,7 +106,7 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
   			isUtc = 0;
   			break;
   		default:						// unknown format 
-            MacOSError::throwMe(paramErr);
+            MacOSError::throwMe(errSecParam);
   	}
 
   	cp = (char *)inUTCTime.Data;
@@ -115,13 +114,13 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 	/* check that all characters except last are digits */
     for(i=0; i<(sint32)(len - 1); i++) {
 		if ( !(isdigit(cp[i])) ) {
-            MacOSError::throwMe(paramErr);
+            MacOSError::throwMe(errSecParam);
 		}
 	}
 
   	/* check last character is a 'Z' */
   	if(cp[len - 1] != 'Z' )	{
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
   	}
 
   	/* YEAR */
@@ -148,7 +147,7 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 			x += 100;
 		}
 		else if(x < 70) {
-            MacOSError::throwMe(paramErr);
+            MacOSError::throwMe(errSecParam);
 		}
 		/* else century 20, OK */
 
@@ -166,7 +165,7 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 	x = atoi( szTemp );
 	/* in the string, months are from 1 to 12 */
 	if((x > 12) || (x <= 0)) {
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 	}
 	/* in a tm, 0 to 11 */
   	//tmp->tm_mon = x - 1;
@@ -179,7 +178,7 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 	x = atoi( szTemp );
 	/* 1..31 in both formats */
 	if((x > 31) || (x <= 0)) {
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 	}
   	//tmp->tm_mday = x;
   	date.day = x;
@@ -190,7 +189,7 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 	szTemp[2] = '\0';
 	x = atoi( szTemp );
 	if((x > 23) || (x < 0)) {
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 	}
 	//tmp->tm_hour = x;
 	date.hour = x;
@@ -201,7 +200,7 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 	szTemp[2] = '\0';
 	x = atoi( szTemp );
 	if((x > 59) || (x < 0)) {
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 	}
   	//tmp->tm_min = x;
   	date.minute = x;
@@ -212,7 +211,7 @@ TimeStringToMacLongDateTime (const CSSM_DATA &inUTCTime, sint64 &outMacDate)
 	szTemp[2] = '\0';
   	x = atoi( szTemp );
 	if((x > 59) || (x < 0)) {
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 	}
   	//tmp->tm_sec = x;
   	date.second = x;
@@ -265,7 +264,7 @@ void MacLongDateTimeToTimeString(const sint64 &inMacDate,
                 date.hour, date.minute, int(date.second));
     }
     else
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 }
 
 void
@@ -301,7 +300,8 @@ CssmDateStringToCFDate(const char *cssmDate, unsigned int len, CFDateRef *outCFD
 	CFGregorianDate gd;
 	CFTimeInterval ti=0;
 	char szTemp[5];
-	unsigned isUtc=0, isLocal=0, x, i;
+	unsigned isUtc=0, isLocal=0, i;
+        int x;
 	unsigned noSeconds=0;
 	char *cp;
 

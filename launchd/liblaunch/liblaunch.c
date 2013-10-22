@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_APACHE_LICENSE_HEADER_START@
  * 
@@ -196,17 +196,32 @@ static void launch_msg_getmsgs(launch_data_t m, void *context);
 static launch_data_t launch_msg_internal(launch_data_t d);
 static void launch_mach_checkin_service(launch_data_t obj, const char *key, void *context);
 
-static int64_t s_am_embedded_god = false;
-static launch_t in_flight_msg_recv_client;
-static pthread_once_t _lc_once = PTHREAD_ONCE_INIT;
+void
+_launch_init_globals(launch_globals_t globals)
+{
+	pthread_once_t once = PTHREAD_ONCE_INIT;
+	globals->lc_once = once;
+	pthread_mutex_init(&globals->lc_mtx, NULL);
+}
 
-bool launchd_apple_internal = false;
+#if !_LIBLAUNCH_HAS_ALLOC_ONCE
+launch_globals_t __launch_globals;
 
-static struct _launch_client {
-	pthread_mutex_t mtx;
-	launch_t	l;
-	launch_data_t	async_resp;
-} *_lc = NULL;
+void
+_launch_globals_init(void)
+{
+	__launch_globals = calloc(1, sizeof(struct launch_globals_s));
+	_launch_init_globals(__launch_globals);
+}
+
+launch_globals_t
+_launch_globals_impl(void)
+{
+	static pthread_once_t once = PTHREAD_ONCE_INIT;
+	pthread_once(&once, &_launch_globals_init);
+	return __launch_globals;
+}
+#endif
 
 void
 launch_client_init(void)
@@ -216,13 +231,6 @@ launch_client_init(void)
 	char *_launchd_fd = getenv(LAUNCHD_TRUSTED_FD_ENV);
 	int dfd, lfd = -1, cifd = -1;
 	name_t spath;
-
-	_lc = calloc(1, sizeof(struct _launch_client));
-
-	if (!_lc)
-		return;
-
-	pthread_mutex_init(&_lc->mtx, NULL);
 
 	if (_launchd_fd) {
 		cifd = strtol(_launchd_fd, NULL, 10);
@@ -262,15 +270,16 @@ launch_client_init(void)
 		}
 	}
 
+	launch_globals_t globals = _launch_globals();
 	if ((lfd = _fd(socket(AF_UNIX, SOCK_STREAM, 0))) == -1) {
 		goto out_bad;
 	}
 
 #if TARGET_OS_EMBEDDED
-	(void)vproc_swap_integer(NULL, VPROC_GSK_EMBEDDEDROOTEQUIVALENT, NULL, &s_am_embedded_god);
+	(void)vproc_swap_integer(NULL, VPROC_GSK_EMBEDDEDROOTEQUIVALENT, NULL, &globals->s_am_embedded_god);
 #endif
 	if (-1 == connect(lfd, (struct sockaddr *)&sun, sizeof(sun))) {
-		if (cifd != -1 || s_am_embedded_god) {
+		if (cifd != -1 || globals->s_am_embedded_god) {
 			/* There is NO security enforced by this check. This is just a hint to our
 			 * library that we shouldn't error out due to failing to open this socket. If
 			 * we inherited a trusted file descriptor, we shouldn't fail. This should be
@@ -282,27 +291,26 @@ launch_client_init(void)
 			goto out_bad;
 		}
 	}
-
-	if (!(_lc->l = launchd_fdopen(lfd, cifd))) {
+	
+	if (!(globals->l = launchd_fdopen(lfd, cifd))) {
 		goto out_bad;
 	}
 
-	if (!(_lc->async_resp = launch_data_alloc(LAUNCH_DATA_ARRAY))) {
+	if (!(globals->async_resp = launch_data_alloc(LAUNCH_DATA_ARRAY))) {
 		goto out_bad;
 	}
 
 	return;
 out_bad:
-	if (_lc->l)
-		launchd_close(_lc->l, close);
-	else if (lfd != -1)
+	if (globals->l) {
+		launchd_close(globals->l, close);
+		globals->l = NULL;
+	} else if (lfd != -1) {
 		close(lfd);
+	}
 	if (cifd != -1) {
 		close(cifd);
 	}
-	if (_lc)
-		free(_lc);
-	_lc = NULL;
 }
 
 launch_data_t
@@ -665,8 +673,10 @@ out_bad:
 void
 launchd_close(launch_t lh, typeof(close) closefunc)
 {
-	if (in_flight_msg_recv_client == lh) {
-		in_flight_msg_recv_client = NULL;
+	launch_globals_t globals = _launch_globals();
+
+	if (globals->in_flight_msg_recv_client == lh) {
+		globals->in_flight_msg_recv_client = NULL;
 	}
 
 	if (lh->sendbuf)
@@ -969,14 +979,15 @@ launchd_msg_send(launch_t lh, launch_data_t d)
 int
 launch_get_fd(void)
 {
-	pthread_once(&_lc_once, launch_client_init);
+	launch_globals_t globals = _launch_globals();
+	pthread_once(&globals->lc_once, launch_client_init);
 
-	if (!_lc) {
+	if (!globals->l) {
 		errno = ENOTCONN;
 		return -1;
 	}
 
-	return _lc->l->fd;
+	return globals->l->fd;
 }
 
 void
@@ -984,8 +995,10 @@ launch_msg_getmsgs(launch_data_t m, void *context)
 {
 	launch_data_t async_resp, *sync_resp = context;
 
+	launch_globals_t globals = _launch_globals();
+
 	if ((LAUNCH_DATA_DICTIONARY == launch_data_get_type(m)) && (async_resp = launch_data_dict_lookup(m, LAUNCHD_ASYNC_MSG_KEY))) {
-		launch_data_array_set_index(_lc->async_resp, launch_data_copy(async_resp), launch_data_array_get_count(_lc->async_resp));
+		launch_data_array_set_index(globals->async_resp, launch_data_copy(async_resp), launch_data_array_get_count(globals->async_resp));
 	} else {
 		*sync_resp = launch_data_copy(m);
 	}
@@ -1055,20 +1068,21 @@ launch_msg_internal(launch_data_t d)
 		return resp;
 	}
 
-	pthread_once(&_lc_once, launch_client_init);
-	if (!_lc) {
+	launch_globals_t globals = _launch_globals();
+	pthread_once(&globals->lc_once, launch_client_init);
+	if (!globals->l) {
 		errno = ENOTCONN;
 		return NULL;
 	}
 
 	int fd2use = -1;
-	if ((launch_data_get_type(d) == LAUNCH_DATA_STRING && strcmp(launch_data_get_string(d), LAUNCH_KEY_CHECKIN) == 0) || s_am_embedded_god) {
-		_lc->l->which = LAUNCHD_USE_CHECKIN_FD;
+	if ((launch_data_get_type(d) == LAUNCH_DATA_STRING && strcmp(launch_data_get_string(d), LAUNCH_KEY_CHECKIN) == 0) || globals->s_am_embedded_god) {
+		globals->l->which = LAUNCHD_USE_CHECKIN_FD;
 	} else {
-		_lc->l->which = LAUNCHD_USE_OTHER_FD;
+		globals->l->which = LAUNCHD_USE_OTHER_FD;
 	}
 
-	fd2use = launchd_getfd(_lc->l);
+	fd2use = launchd_getfd(globals->l);
 
 	if (fd2use == -1) {
 		errno = EPERM;
@@ -1115,21 +1129,21 @@ launch_msg_internal(launch_data_t d)
 	}
 #endif
 
-	pthread_mutex_lock(&_lc->mtx);
+	pthread_mutex_lock(&globals->lc_mtx);
 
-	if (d && launchd_msg_send(_lc->l, d) == -1) {
+	if (d && launchd_msg_send(globals->l, d) == -1) {
 		do {
 			if (errno != EAGAIN)
 				goto out;
-		} while (launchd_msg_send(_lc->l, NULL) == -1);
+		} while (launchd_msg_send(globals->l, NULL) == -1);
 	}
 
 	while (resp == NULL) {
-		if (d == NULL && launch_data_array_get_count(_lc->async_resp) > 0) {
-			resp = launch_data_array_pop_first(_lc->async_resp);
+		if (d == NULL && launch_data_array_get_count(globals->async_resp) > 0) {
+			resp = launch_data_array_pop_first(globals->async_resp);
 			goto out;
 		}
-		if (launchd_msg_recv(_lc->l, launch_msg_getmsgs, &resp) == -1) {
+		if (launchd_msg_recv(globals->l, launch_msg_getmsgs, &resp) == -1) {
 			if (errno != EAGAIN) {
 				goto out;
 			} else if (d == NULL) {
@@ -1184,7 +1198,7 @@ out:
 	}
 #endif
 
-	pthread_mutex_unlock(&_lc->mtx);
+	pthread_mutex_unlock(&globals->lc_mtx);
 
 	return resp;
 }
@@ -1260,12 +1274,14 @@ launchd_msg_recv(launch_t lh, void (*cb)(launch_data_t, void *), void *context)
 			goto out_bad;
 		}
 
-		in_flight_msg_recv_client = lh;
+		launch_globals_t globals = _launch_globals();
+
+		globals->in_flight_msg_recv_client = lh;
 
 		cb(rmsg, context);
 
 		/* launchd and only launchd can call launchd_close() as a part of the callback */
-		if (in_flight_msg_recv_client == NULL) {
+		if (globals->in_flight_msg_recv_client == NULL) {
 			r = 0;
 			break;
 		}

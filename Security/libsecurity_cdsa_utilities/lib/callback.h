@@ -56,7 +56,7 @@ public:
     { return mCallback == cb.mCallback && mContext == cb.mContext; }
     bool operator < (const ModuleCallback &cb) const
     { return mCallback < cb.mCallback
-        || mCallback == cb.mCallback && mContext < cb.mContext; }
+        || (mCallback == cb.mCallback && mContext < cb.mContext); }
 
 private:
     CSSM_API_ModuleEventHandler mCallback;
@@ -75,7 +75,7 @@ private:
 //
 class ModuleCallbackSet {
 public:
-    unsigned int size() const { return callbacks.size(); }
+    unsigned int size() const { return (int)callbacks.size(); }
     void insert(const ModuleCallback &newCallback);
     void erase(const ModuleCallback &oldCallback);
 

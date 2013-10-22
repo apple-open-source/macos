@@ -164,7 +164,7 @@ int     BN_pseudo_rand(BIGNUM *rnd, int bits, int top, int bottom)
 	return bnrand(1, rnd, bits, top, bottom);
 	}
 
-#if 1
+#if 0
 int     BN_bntest_rand(BIGNUM *rnd, int bits, int top, int bottom)
 	{
 	return bnrand(2, rnd, bits, top, bottom);

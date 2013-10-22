@@ -432,7 +432,7 @@ void CSPFullPluginSession::QuerySize(CSSM_CC_HANDLE ccHandle,
 	for (uint32 n = 0; n < querySizeCount; n++) {
 		// the outputSize() call might throw CSSMERR_CSP_QUERY_SIZE_UNKNOWN
 		dataBlock[n].SizeOutputBlock =
-			ctx->outputSize(n == querySizeCount-1, dataBlock[n].inputSize());
+			(uint32)ctx->outputSize(n == querySizeCount-1, dataBlock[n].inputSize());
 	}
 	//@@@ if we forced a context creation, should we discard it now?
 }
@@ -1039,8 +1039,8 @@ void
 KeyPool::add(ReferencedKey &referencedKey)
 {
 	StLock<Mutex> _(mKeyMapLock);
-	IFDEBUG(bool inserted =)
-		mKeyMap.insert(KeyMap::value_type(referencedKey.keyReference(), &referencedKey)).second;
+	bool inserted;
+    inserted = mKeyMap.insert(KeyMap::value_type(referencedKey.keyReference(), &referencedKey)).second;
 	// Since add is only called from the constructor of ReferencedKey we should
 	// never add a key that is already in mKeyMap
 	assert(inserted);

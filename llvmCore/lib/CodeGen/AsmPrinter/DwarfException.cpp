@@ -31,6 +31,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Support/Dwarf.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
@@ -184,7 +185,7 @@ ComputeActionsTable(const SmallVectorImpl<const LandingPadInfo*> &LandingPads,
 /// CallToNoUnwindFunction - Return `true' if this is a call to a function
 /// marked `nounwind'. Return `false' otherwise.
 bool DwarfException::CallToNoUnwindFunction(const MachineInstr *MI) {
-  assert(MI->getDesc().isCall() && "This should be a call instruction!");
+  assert(MI->isCall() && "This should be a call instruction!");
 
   bool MarkedNoUnwind = false;
   bool SawFunc = false;
@@ -243,7 +244,7 @@ ComputeCallSiteTable(SmallVectorImpl<CallSiteEntry> &CallSites,
     for (MachineBasicBlock::const_iterator MI = I->begin(), E = I->end();
          MI != E; ++MI) {
       if (!MI->isLabel()) {
-        if (MI->getDesc().isCall())
+        if (MI->isCall())
           SawPotentiallyThrowing |= !CallToNoUnwindFunction(MI);
         continue;
       }
@@ -714,17 +715,17 @@ void DwarfException::EmitExceptionTable() {
 /// EndModule - Emit all exception information that should come after the
 /// content.
 void DwarfException::EndModule() {
-  assert(0 && "Should be implemented");
+  llvm_unreachable("Should be implemented");
 }
 
 /// BeginFunction - Gather pre-function exception information. Assumes it's
 /// being emitted immediately after the function entry point.
 void DwarfException::BeginFunction(const MachineFunction *MF) {
-  assert(0 && "Should be implemented");
+  llvm_unreachable("Should be implemented");
 }
 
 /// EndFunction - Gather and emit post-function exception information.
 ///
 void DwarfException::EndFunction() {
-  assert(0 && "Should be implemented");
+  llvm_unreachable("Should be implemented");
 }

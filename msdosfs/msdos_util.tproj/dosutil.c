@@ -620,7 +620,7 @@ static CFStringEncoding GetDefaultDOSEncoding(void)
 			size = read(fd, buffer, MAXPATHLEN);
 			buffer[(size < 0 ? 0 : size)] = '\0';
 			close(fd);
-			encoding = strtol(buffer, NULL, 0);
+			encoding = (CFStringEncoding)strtol(buffer, NULL, 0);
 		}
 	}
 

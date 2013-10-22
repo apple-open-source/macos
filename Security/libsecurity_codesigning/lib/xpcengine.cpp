@@ -81,7 +81,7 @@ public:
 		if (type == XPC_TYPE_DICTIONARY) {
 			obj = reply;
 			if (int64_t error = xpc_dictionary_get_int64(obj, "error"))
-				MacOSError::throwMe(error);
+				MacOSError::throwMe((int)error);
 		} else if (type == XPC_TYPE_ERROR) {
 			const char *s = xpc_copy_description(reply);
 			printf("Error returned: %s\n", s);
@@ -100,8 +100,6 @@ public:
 static void copyCFDictionary(const void *key, const void *value, void *ctx)
 {
 	CFMutableDictionaryRef target = CFMutableDictionaryRef(ctx);
-	if (CFEqual(key, kSecAssessmentContextKeyCertificates))	// obsolete
-		return;
 	if (CFGetTypeID(value) == CFURLGetTypeID()) {
 		CFRef<CFStringRef> path = CFURLCopyFileSystemPath(CFURLRef(value), kCFURLPOSIXPathStyle);
 		CFDictionaryAddValue(target, key, path);
@@ -110,7 +108,7 @@ static void copyCFDictionary(const void *key, const void *value, void *ctx)
 	}
 }
 
-void xpcEngineAssess(CFURLRef path, uint flags, CFDictionaryRef context, CFMutableDictionaryRef result)
+void xpcEngineAssess(CFURLRef path, SecAssessmentFlags flags, CFDictionaryRef context, CFMutableDictionaryRef result)
 {
 	Message msg("assess");
 	xpc_dictionary_set_string(msg, "path", cfString(path).c_str());
@@ -124,7 +122,7 @@ void xpcEngineAssess(CFURLRef path, uint flags, CFDictionaryRef context, CFMutab
 	msg.send();
 	
 	if (int64_t error = xpc_dictionary_get_int64(msg, "error"))
-		MacOSError::throwMe(error);
+		MacOSError::throwMe((int)error);
 
 	size_t resultLength;
 	const void *resultData = xpc_dictionary_get_data(msg, "result", &resultLength);
@@ -134,7 +132,7 @@ void xpcEngineAssess(CFURLRef path, uint flags, CFDictionaryRef context, CFMutab
 }
 
 
-CFDictionaryRef xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef context)
+CFDictionaryRef xpcEngineUpdate(CFTypeRef target, SecAssessmentFlags flags, CFDictionaryRef context)
 {
 	Message msg("update");
 	// target can be NULL, a CFURLRef, a SecRequirementRef, or a CFNumberRef
@@ -170,7 +168,7 @@ CFDictionaryRef xpcEngineUpdate(CFTypeRef target, uint flags, CFDictionaryRef co
 		AuthorizationFree(localAuthorization, kAuthorizationFlagDefaults);
 	
 	if (int64_t error = xpc_dictionary_get_int64(msg, "error"))
-		MacOSError::throwMe(error);
+		MacOSError::throwMe((int)error);
 	
 	size_t resultLength;
 	const void *resultData = xpc_dictionary_get_data(msg, "result", &resultLength);
@@ -184,6 +182,16 @@ bool xpcEngineControl(const char *control)
 	xpc_dictionary_set_string(msg, "control", control);
 	msg.send();
 	return true;
+}
+
+
+void xpcEngineRecord(CFDictionaryRef info)
+{
+	Message msg("record");
+	CFRef<CFDataRef> infoData = makeCFData(CFDictionaryRef(info));
+	xpc_dictionary_set_data(msg, "info", CFDataGetBytePtr(infoData), CFDataGetLength(infoData));
+
+	msg.send();
 }
 
 

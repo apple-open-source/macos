@@ -53,7 +53,6 @@ OSDefineMetaClassAndStructors(AppleSmartBatteryManager, IOService)
 
 bool AppleSmartBatteryManager::start(IOService *provider)
 {
-    bool        ret_bool;
     IOCommandGate * gate;
     IOWorkLoop *    wl;
 
@@ -87,9 +86,9 @@ bool AppleSmartBatteryManager::start(IOService *provider)
 
     if(!fBattery) return false;
     
-    ret_bool = fBattery->attach(this);
+    fBattery->attach(this);
 
-    ret_bool = fBattery->start(this);
+    fBattery->start(this);
 
     // Command gate for SmartBatteryManager
     fManagerGate = IOCommandGate::commandGate(this);
@@ -117,6 +116,7 @@ bool AppleSmartBatteryManager::start(IOService *provider)
 }
 
 // Default polling interval is 30 seconds
+/*
 IOReturn AppleSmartBatteryManager::setPollingInterval(
     int milliSeconds)
 {
@@ -130,6 +130,7 @@ IOReturn AppleSmartBatteryManager::setPollingInterval(
 
     return kIOReturnSuccess;
 }
+ */
 
 /* 
  * performExternalWordTransaction
@@ -436,7 +437,7 @@ IOReturn AppleSmartBatteryManager::inhibitCharging(int level)
     
     fManagerGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
                        this, &AppleSmartBatteryManager::gatedSendCommand),
-                       (void *)kInhibitChargingCmd, (void *)level, 
+                       (void *)kInhibitChargingCmd, (void *)(uintptr_t)level,
                        (void *)&ret, NULL);
 
     return ret;
@@ -457,7 +458,7 @@ IOReturn AppleSmartBatteryManager::disableInflow(int level)
     
     fManagerGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
                        this, &AppleSmartBatteryManager::gatedSendCommand),
-                       (void *)kDisableInflowCmd, (void *)level, 
+                       (void *)kDisableInflowCmd, (void *)(uintptr_t)level,
                        (void *)&ret, NULL);
     
     return ret;
@@ -535,6 +536,17 @@ bool AppleSmartBatteryManager::requestExclusiveSMBusAccess(
 
 bool AppleSmartBatteryManager::hasExclusiveClient(void) {
     return fExclusiveUserClient;    
+}
+
+bool AppleSmartBatteryManager::requestPoll(int type) {
+    IOReturn ret;
+
+    BattLog("AppleSmartBatteryManager requests a poll (type=%d).\n", type);
+    ret = fBatteryGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
+                           fBattery, &AppleSmartBattery::pollBatteryState),
+                           (void *)(uintptr_t) type, NULL, NULL, NULL);
+
+    return ret;
 }
 
 void AppleSmartBatteryManager::gatedSendCommand(
@@ -662,7 +674,7 @@ void BattLog(const char *fmt, ...)
     vsnprintf(buf, sizeof(buf), fmt, listp);
     va_end(listp);
 
-    kprintf("BattLog: %s", buf);
+    IOLog("BattLog: %s", buf);
     
     return;
 #endif

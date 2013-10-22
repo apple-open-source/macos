@@ -38,7 +38,6 @@
 namespace CoreIPC {
     class ArgumentDecoder;
     class Connection;
-    class MessageID;
 }
 
 namespace WebKit {
@@ -52,10 +51,8 @@ class WebPageProxy;
 
 typedef GenericCallback<WKDataRef> DataCallback;
 
-class WebFrameProxy : public APIObject {
+class WebFrameProxy : public TypedAPIObject<APIObject::TypeFrame> {
 public:
-    static const Type APIType = TypeFrame;
-
     static PassRefPtr<WebFrameProxy> create(WebPageProxy* page, uint64_t frameID)
     {
         return adoptRef(new WebFrameProxy(page, frameID));
@@ -71,12 +68,6 @@ public:
 
     uint64_t frameID() const { return m_frameID; }
     WebPageProxy* page() const { return m_page; }
-
-    WebFrameProxy* parentFrame() { return m_parentFrame; }
-    WebFrameProxy* nextSibling() { return m_nextSibling; }
-    WebFrameProxy* previousSibling() { return m_previousSibling; }
-    WebFrameProxy* firstChild() { return m_firstChild; }
-    WebFrameProxy* lastChild() { return m_lastChild; }
 
     void disconnect();
 
@@ -121,14 +112,6 @@ public:
     void didSameDocumentNavigation(const String&); // eg. anchor navigation, session state change.
     void didChangeTitle(const String&);
 
-    // Frame tree operations.
-    void appendChild(WebFrameProxy*);
-    void removeChild(WebFrameProxy*);
-    void didRemoveFromHierarchy();
-    PassRefPtr<ImmutableArray> childFrames();
-    bool isDescendantOf(const WebFrameProxy* ancestor) const;
-    void dumpFrameTreeToSTDOUT(unsigned indent = 0);
-
     // Policy operations.
     void receivedPolicyDecision(WebCore::PolicyAction, uint64_t listenerID);
     WebFramePolicyListenerProxy* setUpPolicyListenerProxy(uint64_t listenerID);
@@ -137,15 +120,7 @@ public:
 private:
     WebFrameProxy(WebPageProxy* page, uint64_t frameID);
 
-    virtual Type type() const { return APIType; }
-
     WebPageProxy* m_page;
-    WebFrameProxy* m_parentFrame;
-    WebFrameProxy* m_nextSibling;
-    WebFrameProxy* m_previousSibling;
-    WebFrameProxy* m_firstChild;
-    WebFrameProxy* m_lastChild;
-
     LoadState m_loadState;
     String m_url;
     String m_provisionalURL;

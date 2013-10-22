@@ -43,25 +43,24 @@ extern "C" {
 
 using namespace JSC;
 using namespace JSC::Bindings;
-using namespace std;
 using namespace WebCore;
 
 namespace WebKit {
 
 class ProxyClass : public JSC::Bindings::Class {
 private:
-    virtual MethodList methodsNamed(const Identifier&, Instance*) const;
-    virtual Field* fieldNamed(const Identifier&, Instance*) const;
+    virtual Method* methodNamed(PropertyName, Instance*) const;
+    virtual Field* fieldNamed(PropertyName, Instance*) const;
 };
 
-MethodList ProxyClass::methodsNamed(const Identifier& identifier, Instance* instance) const
+Method* ProxyClass::methodNamed(PropertyName propertyName, Instance* instance) const
 {
-    return static_cast<ProxyInstance*>(instance)->methodsNamed(identifier);
+    return static_cast<ProxyInstance*>(instance)->methodNamed(propertyName);
 }
 
-Field* ProxyClass::fieldNamed(const Identifier& identifier, Instance* instance) const
+Field* ProxyClass::fieldNamed(PropertyName propertyName, Instance* instance) const
 {
-    return static_cast<ProxyInstance*>(instance)->fieldNamed(identifier);
+    return static_cast<ProxyInstance*>(instance)->fieldNamed(propertyName);
 }
 
 static ProxyClass* proxyClass()
@@ -163,7 +162,7 @@ JSValue ProxyInstance::invoke(JSC::ExecState* exec, InvokeType type, uint64_t id
         return jsUndefined();
     }
     
-    auto_ptr<NetscapePluginInstanceProxy::BooleanAndDataReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanAndDataReply>(requestID);
+    std::auto_ptr<NetscapePluginInstanceProxy::BooleanAndDataReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanAndDataReply>(requestID);
     NetscapePluginInstanceProxy::moveGlobalExceptionToExecState(exec);
 
     if (m_instanceProxy) {
@@ -181,42 +180,42 @@ class ProxyRuntimeMethod : public RuntimeMethod {
 public:
     typedef RuntimeMethod Base;
 
-    static ProxyRuntimeMethod* create(ExecState* exec, JSGlobalObject* globalObject, const Identifier& name, Bindings::MethodList& list)
+    static ProxyRuntimeMethod* create(ExecState* exec, JSGlobalObject* globalObject, const String& name, Bindings::Method* method)
     {
         // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
-        // exec-globalData() is also likely wrong.
+        // exec-vm() is also likely wrong.
         Structure* domStructure = deprecatedGetDOMStructure<ProxyRuntimeMethod>(exec);
-        ProxyRuntimeMethod* method = new (allocateCell<ProxyRuntimeMethod>(*exec->heap())) ProxyRuntimeMethod(globalObject, domStructure, list);
-        method->finishCreation(exec->globalData(), name);
-        return method;
+        ProxyRuntimeMethod* runtimeMethod = new (allocateCell<ProxyRuntimeMethod>(*exec->heap())) ProxyRuntimeMethod(globalObject, domStructure, method);
+        runtimeMethod->finishCreation(exec->vm(), name);
+        return runtimeMethod;
     }
 
-    static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
     }
 
     static const ClassInfo s_info;
 
 private:
-    ProxyRuntimeMethod(JSGlobalObject* globalObject, Structure* structure, Bindings::MethodList& list)
-        : RuntimeMethod(globalObject, structure, list)
+    ProxyRuntimeMethod(JSGlobalObject* globalObject, Structure* structure, Bindings::Method* method)
+        : RuntimeMethod(globalObject, structure, method)
     {
     }
 
-    void finishCreation(JSGlobalData& globalData, const Identifier& name)
+    void finishCreation(VM& vm, const String& name)
     {
-        Base::finishCreation(globalData, name);
+        Base::finishCreation(vm, name);
         ASSERT(inherits(&s_info));
     }
 };
 
 const ClassInfo ProxyRuntimeMethod::s_info = { "ProxyRuntimeMethod", &RuntimeMethod::s_info, 0, 0, CREATE_METHOD_TABLE(ProxyRuntimeMethod) };
 
-JSValue ProxyInstance::getMethod(JSC::ExecState* exec, const JSC::Identifier& propertyName)
+JSValue ProxyInstance::getMethod(JSC::ExecState* exec, PropertyName propertyName)
 {
-    MethodList methodList = getClass()->methodsNamed(propertyName, this);
-    return ProxyRuntimeMethod::create(exec, exec->lexicalGlobalObject(), propertyName, methodList);
+    Method* method = getClass()->methodNamed(propertyName, this);
+    return ProxyRuntimeMethod::create(exec, exec->lexicalGlobalObject(), propertyName.publicName(), method);
 }
 
 JSValue ProxyInstance::invokeMethod(ExecState* exec, JSC::RuntimeMethod* runtimeMethod)
@@ -224,11 +223,8 @@ JSValue ProxyInstance::invokeMethod(ExecState* exec, JSC::RuntimeMethod* runtime
     if (!asObject(runtimeMethod)->inherits(&ProxyRuntimeMethod::s_info))
         return throwError(exec, createTypeError(exec, "Attempt to invoke non-plug-in method on plug-in object."));
 
-    const MethodList& methodList = *runtimeMethod->methods();
-
-    ASSERT(methodList.size() == 1);
-
-    ProxyMethod* method = static_cast<ProxyMethod*>(methodList[0]);
+    ProxyMethod* method = static_cast<ProxyMethod*>(runtimeMethod->method());
+    ASSERT(method);
 
     return invoke(exec, Invoke, method->serverIdentifier(), ArgList(exec));
 }
@@ -245,7 +241,7 @@ bool ProxyInstance::supportsInvokeDefaultMethod() const
                                             m_objectID) != KERN_SUCCESS)
         return false;
     
-    auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
+    std::auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
     if (reply.get() && reply->m_result)
         return true;
         
@@ -269,7 +265,7 @@ bool ProxyInstance::supportsConstruct() const
                                         m_objectID) != KERN_SUCCESS)
         return false;
     
-    auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
+    std::auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
     if (reply.get() && reply->m_result)
         return true;
         
@@ -323,7 +319,7 @@ void ProxyInstance::getPropertyNames(ExecState* exec, PropertyNameArray& nameArr
     if (_WKPHNPObjectEnumerate(m_instanceProxy->hostProxy()->port(), m_instanceProxy->pluginID(), requestID, m_objectID) != KERN_SUCCESS)
         return;
     
-    auto_ptr<NetscapePluginInstanceProxy::BooleanAndDataReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanAndDataReply>(requestID);
+    std::auto_ptr<NetscapePluginInstanceProxy::BooleanAndDataReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanAndDataReply>(requestID);
     NetscapePluginInstanceProxy::moveGlobalExceptionToExecState(exec);
     if (!reply.get() || !reply->m_returnValue)
         return;
@@ -340,71 +336,74 @@ void ProxyInstance::getPropertyNames(ExecState* exec, PropertyNameArray& nameArr
 
         if (identifier->isString()) {
             const char* str = identifier->string();
-            nameArray.add(Identifier(JSDOMWindow::commonJSGlobalData(), stringToUString(String::fromUTF8WithLatin1Fallback(str, strlen(str)))));
+            nameArray.add(Identifier(JSDOMWindow::commonVM(), String::fromUTF8WithLatin1Fallback(str, strlen(str))));
         } else
             nameArray.add(Identifier::from(exec, identifier->number()));
     }
 }
 
-MethodList ProxyInstance::methodsNamed(const Identifier& identifier)
+Method* ProxyInstance::methodNamed(PropertyName propertyName)
 {
+    String name(propertyName.publicName());
+    if (name.isNull())
+        return 0;
+
     if (!m_instanceProxy)
-        return MethodList();
+        return 0;
     
     // If we already have an entry in the map, use it.
-    MethodMap::iterator existingMapEntry = m_methods.find(identifier.impl());
+    MethodMap::iterator existingMapEntry = m_methods.find(name.impl());
     if (existingMapEntry != m_methods.end()) {
-        MethodList methodList;
-        if (existingMapEntry->second)
-            methodList.append(existingMapEntry->second);
-        return methodList;
+        if (existingMapEntry->value)
+            return existingMapEntry->value;
     }
     
-    uint64_t methodName = reinterpret_cast<uint64_t>(_NPN_GetStringIdentifier(identifier.ascii().data()));
+    uint64_t methodName = reinterpret_cast<uint64_t>(_NPN_GetStringIdentifier(name.ascii().data()));
     uint32_t requestID = m_instanceProxy->nextRequestID();
     
     if (_WKPHNPObjectHasMethod(m_instanceProxy->hostProxy()->port(),
                                m_instanceProxy->pluginID(), requestID,
                                m_objectID, methodName) != KERN_SUCCESS)
-        return MethodList();
+        return 0;
     
-    auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
+    std::auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
     if (!reply.get())
-        return MethodList();
+        return 0;
 
     if (!reply->m_result && !m_instanceProxy->hostProxy()->shouldCacheMissingPropertiesAndMethods())
-        return MethodList();
+        return 0;
 
     // Add a new entry to the map unless an entry was added while we were in waitForReply.
-    MethodMap::AddResult mapAddResult = m_methods.add(identifier.impl(), 0);
+    MethodMap::AddResult mapAddResult = m_methods.add(name.impl(), 0);
     if (mapAddResult.isNewEntry && reply->m_result)
-        mapAddResult.iterator->second = new ProxyMethod(methodName);
+        mapAddResult.iterator->value = new ProxyMethod(methodName);
 
-    MethodList methodList;
-    if (mapAddResult.iterator->second)
-        methodList.append(mapAddResult.iterator->second);
-    return methodList;
+    return mapAddResult.iterator->value;
 }
 
-Field* ProxyInstance::fieldNamed(const Identifier& identifier)
+Field* ProxyInstance::fieldNamed(PropertyName propertyName)
 {
+    String name(propertyName.publicName());
+    if (name.isNull())
+        return 0;
+
     if (!m_instanceProxy)
         return 0;
     
     // If we already have an entry in the map, use it.
-    FieldMap::iterator existingMapEntry = m_fields.find(identifier.impl());
+    FieldMap::iterator existingMapEntry = m_fields.find(name.impl());
     if (existingMapEntry != m_fields.end())
-        return existingMapEntry->second;
+        return existingMapEntry->value;
     
-    uint64_t propertyName = reinterpret_cast<uint64_t>(_NPN_GetStringIdentifier(identifier.ascii().data()));
+    uint64_t identifier = reinterpret_cast<uint64_t>(_NPN_GetStringIdentifier(name.ascii().data()));
     uint32_t requestID = m_instanceProxy->nextRequestID();
     
     if (_WKPHNPObjectHasProperty(m_instanceProxy->hostProxy()->port(),
                                  m_instanceProxy->pluginID(), requestID,
-                                 m_objectID, propertyName) != KERN_SUCCESS)
+                                 m_objectID, identifier) != KERN_SUCCESS)
         return 0;
     
-    auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
+    std::auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
     if (!reply.get())
         return 0;
     
@@ -412,10 +411,10 @@ Field* ProxyInstance::fieldNamed(const Identifier& identifier)
         return 0;
     
     // Add a new entry to the map unless an entry was added while we were in waitForReply.
-    FieldMap::AddResult mapAddResult = m_fields.add(identifier.impl(), 0);
+    FieldMap::AddResult mapAddResult = m_fields.add(name.impl(), 0);
     if (mapAddResult.isNewEntry && reply->m_result)
-        mapAddResult.iterator->second = new ProxyField(propertyName);
-    return mapAddResult.iterator->second;
+        mapAddResult.iterator->value = new ProxyField(identifier);
+    return mapAddResult.iterator->value;
 }
 
 JSC::JSValue ProxyInstance::fieldValue(ExecState* exec, const Field* field) const
@@ -431,7 +430,7 @@ JSC::JSValue ProxyInstance::fieldValue(ExecState* exec, const Field* field) cons
                                  m_objectID, serverIdentifier) != KERN_SUCCESS)
         return jsUndefined();
     
-    auto_ptr<NetscapePluginInstanceProxy::BooleanAndDataReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanAndDataReply>(requestID);
+    std::auto_ptr<NetscapePluginInstanceProxy::BooleanAndDataReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanAndDataReply>(requestID);
     NetscapePluginInstanceProxy::moveGlobalExceptionToExecState(exec);
     if (!reply.get() || !reply->m_returnValue)
         return jsUndefined();
@@ -461,7 +460,7 @@ void ProxyInstance::setFieldValue(ExecState* exec, const Field* field, JSValue v
     if (kr != KERN_SUCCESS)
         return;
     
-    auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
+    std::auto_ptr<NetscapePluginInstanceProxy::BooleanReply> reply = waitForReply<NetscapePluginInstanceProxy::BooleanReply>(requestID);
     NetscapePluginInstanceProxy::moveGlobalExceptionToExecState(exec);
 }
 

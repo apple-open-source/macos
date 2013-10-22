@@ -9,13 +9,14 @@ alwayslink=1
 
 # autobins not specified because of alwayslink
 
-objects="builtin.o compat.o cond.o exec.o glob.o hashtable.o \
+objects="builtin.o compat.o cond.o exec.o glob.o hashtable.o hashnameddir.o \
 hist.o init.o input.o jobs.o lex.o linklist.o loop.o math.o \
 mem.o module.o options.o params.o parse.o pattern.o prompt.o signals.o \
 signames.o sort.o string.o subst.o text.o utils.o watch.o"
 
-headers="../config.h system.h zsh.h sigcount.h signals.h \
+headers="../config.h zsh_system.h zsh.h sigcount.h signals.h \
 prototypes.h hashtable.h ztype.h"
+hdrdeps="zshcurses.h zshterm.h"
 
 :<<\Make
 @CONFIG_MK@
@@ -35,9 +36,6 @@ init.o params.o parse.o: version.h
 
 params.o: patchlevel.h
 
-# The main shell doesn't currently need zshcurses.h and zshterm.h,
-# but make sure these are built with the headers.
-# If it did need need them they would be in headers at the top instead.
 version.h: $(sdir_top)/Config/version.mk zshcurses.h zshterm.h
 	echo '#define ZSH_VERSION "'$(VERSION)'"' > $@
 
@@ -86,6 +84,10 @@ zshpaths.h: Makemod $(CONFIG_INCS)
 	    >>zshpaths.h.tmp; \
 	  fi; \
 	fi
+	@if test x$(additionalfpath) != x; then \
+	  fpath_tmp="`echo $(additionalfpath) | sed -e 's:,:\", \":g'`"; \
+	  echo "#define ADDITIONAL_FPATH { \"$$fpath_tmp\" }" >> zshpaths.h.tmp; \
+	fi
 	@if cmp -s zshpaths.h zshpaths.h.tmp; then \
 	    rm -f zshpaths.h.tmp; \
 	    echo "\`zshpaths.h' is up to date." ; \
@@ -123,7 +125,7 @@ clean.zsh:
 
 # This is not properly part of this module, but it is built as if it were.
 main.o: main.c zsh.mdh main.epro
-	$(CC) -c -I. $(CPPFLAGS) $(DEFS) $(CFLAGS) -o $@ $(sdir)/main.c
+	$(CC) -c -I. -I$(sdir_top)/Src $(CPPFLAGS) $(DEFS) $(CFLAGS) -o $@ $(sdir)/main.c
 
 main.syms: $(PROTODEPS)
 proto.zsh: main.epro

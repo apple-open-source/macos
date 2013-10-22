@@ -1,5 +1,5 @@
 NAME = py2app
-VERSIONORIG = 0.6.3
+VERSIONORIG = 0.7.1
 VERSION = $(VERSIONORIG)-noprebuilt
 
 include ../Makefile.inc
@@ -23,7 +23,6 @@ custompatching:
 	ed - $(DIR)/py2app/bundletemplate/setup.py < template_setup.py.ed
 	cd $(DIR)/py2app/bundletemplate && ARCHFLAGS='$(RC_CFLAGS)' python setup.py
 	ed - $(DIR)/py2app/build_app.py < build_app.py.ed
-	ed - $(DIR)/py2app/converters/nibfile.py < nibfile.py.ed
 	ed - $(DIR)/setup.py < setup.py.ed
 
 postinstall:

@@ -18,6 +18,10 @@
 */
 // Functions and macros that really need to be in QTestLib
 
+#if 0
+#pragma qt_no_master_include
+#endif
+
 #include <QEventLoop>
 #include <QSignalSpy>
 #include <QTimer>
@@ -34,7 +38,7 @@
  * \return \p true if the requested signal was received
  *         \p false on timeout
  */
-static bool waitForSignal(QObject* obj, const char* signal, int timeout = 10000)
+static inline bool waitForSignal(QObject* obj, const char* signal, int timeout = 10000)
 {
     QEventLoop loop;
     QObject::connect(obj, signal, &loop, SLOT(quit()));
@@ -49,37 +53,29 @@ static bool waitForSignal(QObject* obj, const char* signal, int timeout = 10000)
     return timeoutSpy.isEmpty();
 }
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-// Will try to wait for the condition while allowing event processing
-#define QTRY_VERIFY(__expr) \
-    do { \
-        const int __step = 50; \
-        const int __timeout = 5000; \
-        if (!(__expr)) { \
-            QTest::qWait(0); \
-        } \
-        for (int __i = 0; __i < __timeout && !(__expr); __i+=__step) { \
-            QTest::qWait(__step); \
-        } \
-        QVERIFY(__expr); \
-    } while(0)
+/**
+ * Just like QSignalSpy but facilitates sync and async
+ * signal emission. For example if you want to verify that
+ * page->foo() emitted a signal, it could be that the
+ * implementation decides to emit the signal asynchronously
+ * - in which case we want to spin a local event loop until
+ * emission - or that the call to foo() emits it right away.
+ */
+class SignalBarrier : private QSignalSpy
+{
+public:
+    SignalBarrier(const QObject* obj, const char* aSignal)
+        : QSignalSpy(obj, aSignal)
+    { }
 
-// Will try to wait for the condition while allowing event processing
-#define QTRY_COMPARE(__expr, __expected) \
-    do { \
-        const int __step = 50; \
-        const int __timeout = 5000; \
-        if ((__expr) != (__expected)) { \
-            QTest::qWait(0); \
-        } \
-        for (int __i = 0; __i < __timeout && ((__expr) != (__expected)); __i+=__step) { \
-            QTest::qWait(__step); \
-        } \
-        QCOMPARE(__expr, __expected); \
-    } while(0)
+    bool ensureSignalEmitted()
+    {
+        bool result = count() > 0;
+        if (!result)
+            result = wait();
+        clear();
+        return result;
+    }
+};
 
-// Compatibility for Qt5
-#define W_QSKIP(a, b) QSKIP(a, b)
-#else
 #define W_QSKIP(a, b) QSKIP(a)
-#endif

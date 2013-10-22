@@ -25,13 +25,15 @@
 #ifndef StyleRareNonInheritedData_h
 #define StyleRareNonInheritedData_h
 
-#include "CSSWrapShapes.h"
+#include "BasicShapes.h"
+#include "ClipPathOperation.h"
 #include "CounterDirectives.h"
 #include "CursorData.h"
 #include "DataRef.h"
 #include "FillLayer.h"
 #include "LineClampValue.h"
 #include "NinePieceImage.h"
+#include "ShapeValue.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
@@ -45,10 +47,8 @@ class StyleDeprecatedFlexibleBoxData;
 class StyleFilterData;
 #endif
 class StyleFlexibleBoxData;
-#if ENABLE(CSS_GRID_LAYOUT)
 class StyleGridData;
 class StyleGridItemData;
-#endif
 class StyleMarqueeData;
 class StyleMultiColData;
 class StyleReflection;
@@ -96,9 +96,6 @@ public:
     float m_aspectRatioDenominator;
     float m_aspectRatioNumerator;
 
-    short m_counterIncrement;
-    short m_counterReset;
-
     float m_perspective;
     Length m_perspectiveOriginX;
     Length m_perspectiveOriginY;
@@ -106,6 +103,9 @@ public:
     LineClampValue lineClamp; // An Apple extension.
 #if ENABLE(DASHBOARD_SUPPORT)
     Vector<StyleDashboardRegion> m_dashboardRegions;
+#endif
+#if ENABLE(DRAGGABLE_REGION)
+    DraggableRegionMode m_draggableRegionMode;
 #endif
 
     DataRef<StyleDeprecatedFlexibleBoxData> m_deprecatedFlexibleBox; // Flexible box properties
@@ -118,10 +118,8 @@ public:
     DataRef<StyleFilterData> m_filter; // Filter operations (url, sepia, blur, etc.)
 #endif
 
-#if ENABLE(CSS_GRID_LAYOUT)
     DataRef<StyleGridData> m_grid;
     DataRef<StyleGridItemData> m_gridItem;
-#endif
 
     OwnPtr<ContentData> m_content;
     OwnPtr<CounterDirectiveMap> m_counterDirectives;
@@ -138,11 +136,17 @@ public:
 
     LengthSize m_pageSize;
 
-    RefPtr<CSSWrapShape> m_wrapShapeInside;
-    RefPtr<CSSWrapShape> m_wrapShapeOutside;
-    Length m_wrapMargin;
-    Length m_wrapPadding;
-    
+    RefPtr<ShapeValue> m_shapeInside;
+    RefPtr<ShapeValue> m_shapeOutside;
+    Length m_shapeMargin;
+    Length m_shapePadding;
+
+    RefPtr<ClipPathOperation> m_clipPath;
+
+#if ENABLE(CSS3_TEXT)
+    Color m_textDecorationColor;
+    Color m_visitedLinkTextDecorationColor;
+#endif // CSS3_TEXT
     Color m_visitedLinkBackgroundColor;
     Color m_visitedLinkOutlineColor;
     Color m_visitedLinkBorderLeftColor;
@@ -150,9 +154,11 @@ public:
     Color m_visitedLinkBorderTopColor;
     Color m_visitedLinkBorderBottomColor;
 
+    int m_order;
+
     AtomicString m_flowThread;
     AtomicString m_regionThread;
-    unsigned m_regionOverflow : 1; // RegionOverflow
+    unsigned m_regionFragment : 1; // RegionFragment
 
     unsigned m_regionBreakAfter : 2; // EPageBreak
     unsigned m_regionBreakBefore : 2; // EPageBreak
@@ -162,21 +168,33 @@ public:
     unsigned m_transformStyle3D : 1; // ETransformStyle3D
     unsigned m_backfaceVisibility : 1; // EBackfaceVisibility
 
+    unsigned m_alignContent : 3; // EAlignContent
+    unsigned m_alignItems : 3; // EAlignItems
+    unsigned m_alignSelf : 3; // EAlignItems
+    unsigned m_justifyContent : 3; // EJustifyContent
+
     unsigned userDrag : 2; // EUserDrag
     unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
     unsigned marginBeforeCollapse : 2; // EMarginCollapse
     unsigned marginAfterCollapse : 2; // EMarginCollapse
-    unsigned matchNearestMailBlockquoteColor : 1; // EMatchNearestMailBlockquoteColor, FIXME: This property needs to be eliminated. It should never have been added.
     unsigned m_appearance : 6; // EAppearance
     unsigned m_borderFit : 1; // EBorderFit
     unsigned m_textCombine : 1; // CSS3 text-combine properties
 
+#if ENABLE(CSS3_TEXT)
+    unsigned m_textDecorationStyle : 3; // TextDecorationStyle
+#endif // CSS3_TEXT
     unsigned m_wrapFlow: 3; // WrapFlow
     unsigned m_wrapThrough: 1; // WrapThrough
 
-    bool m_hasAspectRatio : 1; // Whether or not an aspect ratio has been specified.
 #if USE(ACCELERATED_COMPOSITING)
-    bool m_runningAcceleratedAnimation : 1;
+    unsigned m_runningAcceleratedAnimation : 1;
+#endif
+
+    unsigned m_hasAspectRatio : 1; // Whether or not an aspect ratio has been specified.
+
+#if ENABLE(CSS_COMPOSITING)
+    unsigned m_effectiveBlendMode: 5; // EBlendMode
 #endif
 
 private:

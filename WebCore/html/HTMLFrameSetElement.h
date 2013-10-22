@@ -29,7 +29,7 @@
 
 namespace WebCore {
 
-class HTMLFrameSetElement : public HTMLElement {
+class HTMLFrameSetElement FINAL : public HTMLElement {
 public:
     static PassRefPtr<HTMLFrameSetElement> create(const QualifiedName&, Document*);
 
@@ -38,7 +38,7 @@ public:
 
     int totalRows() const { return m_totalRows; }
     int totalCols() const { return m_totalCols; }
-    int border() const { return m_border; }
+    int border() const { return hasFrameBorder() ? m_border : 0; }
 
     bool hasBorderColor() const { return m_borderColorSet; }
 
@@ -67,11 +67,11 @@ public:
 private:
     HTMLFrameSetElement(const QualifiedName&, Document*);
 
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
-    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
+    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStylePropertySet*) OVERRIDE;
 
-    virtual void attach();
+    virtual void attach(const AttachContext& = AttachContext()) OVERRIDE;
     virtual bool rendererIsNeeded(const NodeRenderingContext&);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     
@@ -79,8 +79,8 @@ private:
 
     virtual bool willRecalcStyle(StyleChange);
 
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void removedFrom(Node*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
 
     OwnArrayPtr<Length> m_rowLengths;
     OwnArrayPtr<Length> m_colLengths;

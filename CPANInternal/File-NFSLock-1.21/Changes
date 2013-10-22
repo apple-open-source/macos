@@ -1,0 +1,94 @@
+Revision history for Perl extension File::NFSLock.
+
+1.21  Jul 13 17:00 2011
+        - Various patches by Chorny at cpan dot org
+          and fREW frioux at gmail dot com:
+        - Windows NTFS compatibility fixes.
+        - Allow PID to be negative.
+        - Lexically scope temp file handles to
+          reduce changes of memory leak and
+          avoid unintentional glob clobberation.
+        - Security fix: 3 arg open().
+        - Repair test suites logics.
+        - Fixed infinite freezing on Strawberry Perl v5.10.0.
+        - Fixed infinite freezing on ActiveState Perl v5.12.1.
+        - Sorry for the past 8 years of suffering.
+
+1.20  May 13 12:00 2003
+        - Avoid double reverting signal handlers when
+          unlock() is explicitly called instead of
+          implicitly called from DESTROY().
+        - Fixed this warning:
+          Argument "DEFAULT" isn't numeric in numeric eq (==)
+
+1.19  Dec 17 23:30 2002
+        - Minor code cleanup patch by Stephen Waters.
+
+1.18  Jul 25 17:00 2002
+        - Add newpid() method to handle fork() conditions.
+
+1.17  Jun 10 12:00 2002
+        - Handle system crash recovery better or
+          other abnormal/abrupt termination (like SIGKILL)
+          conditions more gracefully.
+
+1.16  Jun 05 15:00 2002
+        - Allow exclusive lock to be obtained on
+          the same file multiple times by the
+          the same process.
+
+1.15  Jun 04 09:00 2002
+        - Default to catch certain signals to avoid
+          creating stale locks on graceful termination.
+        - More tests to test signal handlers.
+        - Fix test t/300_bl_sh.t to measure only
+          what is required.
+
+1.14  Jun 03 12:00 2002
+        - Add test to exploit unlock bug
+          (fixed by Andy in 1.13)
+        - Less anal tests for slower platforms
+          (Slowaris) to succeed as well.
+
+1.13  May 30 12:00 2002
+        - Add spec file for RPM packaging.
+        - Show example in perldoc using numerical constants.
+        - Make perldoc example strict clean.
+        - Add INSTALL section to perldoc.
+        - Fixed bug that forced a lock aquired by another
+          process to be released when an exclusive lock
+          attempt fails.
+          Patch by andyh@myinternet.com.au (Andy Hird)
+
+1.12  Nov 05 12:00 2001
+        - Change code to utilize numerical constants
+          instead of the magic strings.
+        - Change several sub routines into methods
+          of the object to reduce arguments passed.
+        - Avoid double unlocking (DESTROY).
+        - Added some nice tests.
+        - Pulled out stale_lock code to check once
+          at initial lock attempt instead of repeated
+          checks during the blocking lock loop.
+          This may change functionality slightly in
+          that a lock will never "become" stale if
+          it wasn't already stale when the lock
+          attempt initiated.
+        - Shared lock feature now functional.
+
+1.11  Oct 30 12:00 2001
+        - (Not released)
+        - Initial attempt to add shared lock feature.
+
+1.10  Jul 31 10:10 2001
+        - Allow for numerical constants from Fcntl.
+        - Return Error status in $errstr.
+        - Allow for custom lock extensions via $LOCK_EXTENSION.
+        - Allow for passing parameters as a hashref
+        - Allow for stale_lock_timeout parameter
+
+1.00  May 24 10:50 2001
+        - Initial release of File::NFSLock.
+        - Release under 1.00 tag as this is already in use.
+        - Blocking and Nonblocking locking is possible.
+        - uncache routine is available.

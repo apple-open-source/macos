@@ -24,7 +24,6 @@
  */
 
 #include "config.h"
-
 #if ENABLE(VIDEO)
 #include "HTMLVideoElement.h"
 
@@ -37,10 +36,12 @@
 #include "Frame.h"
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "Page.h"
 #include "RenderImage.h"
 #include "RenderVideo.h"
 #include "ScriptController.h"
+#include "Settings.h"
 
 namespace WebCore {
 
@@ -50,6 +51,8 @@ inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document
     : HTMLMediaElement(tagName, document, createdByParser)
 {
     ASSERT(hasTagName(videoTag));
+    if (document->settings())
+        m_defaultPosterURL = document->settings()->defaultVideoPosterURL();
 }
 
 PassRefPtr<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)
@@ -71,9 +74,9 @@ RenderObject* HTMLVideoElement::createRenderer(RenderArena* arena, RenderStyle*)
 }
 #endif
 
-void HTMLVideoElement::attach()
+void HTMLVideoElement::attach(const AttachContext& context)
 {
-    HTMLMediaElement::attach();
+    HTMLMediaElement::attach(context);
 
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     updateDisplayState();
@@ -87,14 +90,14 @@ void HTMLVideoElement::attach()
 #endif
 }
 
-void HTMLVideoElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+void HTMLVideoElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStylePropertySet* style)
 {
-    if (attr->name() == widthAttr)
-        addHTMLLengthToStyle(style, CSSPropertyWidth, attr->value());
-    else if (attr->name() == heightAttr)
-        addHTMLLengthToStyle(style, CSSPropertyHeight, attr->value());
+    if (name == widthAttr)
+        addHTMLLengthToStyle(style, CSSPropertyWidth, value);
+    else if (name == heightAttr)
+        addHTMLLengthToStyle(style, CSSPropertyHeight, value);
     else
-        HTMLMediaElement::collectStyleForAttribute(attr, style);
+        HTMLMediaElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
 bool HTMLVideoElement::isPresentationAttribute(const QualifiedName& name) const
@@ -104,11 +107,9 @@ bool HTMLVideoElement::isPresentationAttribute(const QualifiedName& name) const
     return HTMLMediaElement::isPresentationAttribute(name);
 }
 
-void HTMLVideoElement::parseAttribute(Attribute* attr)
+void HTMLVideoElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    const QualifiedName& attrName = attr->name();
-
-    if (attrName == posterAttr) {
+    if (name == posterAttr) {
         // Force a poster recalc by setting m_displayMode to Unknown directly before calling updateDisplayState.
         HTMLMediaElement::setDisplayMode(Unknown);
         updateDisplayState();
@@ -123,7 +124,7 @@ void HTMLVideoElement::parseAttribute(Attribute* attr)
         }
 #endif
     } else
-        HTMLMediaElement::parseAttribute(attr);
+        HTMLMediaElement::parseAttribute(name, value);
 }
 
 bool HTMLVideoElement::supportsFullscreen() const
@@ -138,14 +139,14 @@ bool HTMLVideoElement::supportsFullscreen() const
 #if ENABLE(FULLSCREEN_API)
     // If the full screen API is enabled and is supported for the current element
     // do not require that the player has a video track to enter full screen.
-    if (page->chrome()->client()->supportsFullScreenForElement(this, false))
+    if (page->chrome().client()->supportsFullScreenForElement(this, false))
         return true;
 #endif
 
     if (!player()->hasVideo())
         return false;
 
-    return page->chrome()->client()->supportsFullscreenForNode(this);
+    return page->chrome().client()->supportsFullscreenForNode(this);
 }
 
 unsigned HTMLVideoElement::videoWidth() const
@@ -176,21 +177,23 @@ unsigned HTMLVideoElement::height() const
     return ok ? h : 0;
 }
     
-bool HTMLVideoElement::isURLAttribute(Attribute* attribute) const
+bool HTMLVideoElement::isURLAttribute(const Attribute& attribute) const
 {
-    return HTMLMediaElement::isURLAttribute(attribute)
-        || attribute->name() == posterAttr;
+    return attribute.name() == posterAttr || HTMLMediaElement::isURLAttribute(attribute);
 }
 
-const QualifiedName& HTMLVideoElement::imageSourceAttributeName() const
+const AtomicString& HTMLVideoElement::imageSourceURL() const
 {
-    return posterAttr;
+    const AtomicString& url = getAttribute(posterAttr);
+    if (!stripLeadingAndTrailingHTMLSpaces(url).isEmpty())
+        return url;
+    return m_defaultPosterURL;
 }
 
 void HTMLVideoElement::setDisplayMode(DisplayMode mode)
 {
     DisplayMode oldMode = displayMode();
-    KURL poster = getNonEmptyURLAttribute(posterAttr);
+    KURL poster = posterImageURL();
 
     if (!poster.isEmpty()) {
         // We have a poster path, but only show it until the user triggers display by playing or seeking and the
@@ -225,7 +228,7 @@ void HTMLVideoElement::setDisplayMode(DisplayMode mode)
 
 void HTMLVideoElement::updateDisplayState()
 {
-    if (getNonEmptyURLAttribute(posterAttr).isEmpty())
+    if (posterImageURL().isEmpty())
         setDisplayMode(Video);
     else if (displayMode() < Poster)
         setDisplayMode(Poster);
@@ -239,6 +242,13 @@ void HTMLVideoElement::paintCurrentFrameInContext(GraphicsContext* context, cons
     
     player->setVisible(true); // Make player visible or it won't draw.
     player->paintCurrentFrameInContext(context, destRect);
+}
+
+bool HTMLVideoElement::copyVideoTextureToPlatformTexture(GraphicsContext3D* context, Platform3DObject texture, GC3Dint level, GC3Denum type, GC3Denum internalFormat, bool premultiplyAlpha, bool flipY)
+{
+    if (!player())
+        return false;
+    return player()->copyVideoTextureToPlatformTexture(context, texture, level, type, internalFormat, premultiplyAlpha, flipY);
 }
 
 bool HTMLVideoElement::hasAvailableVideoFrame() const
@@ -304,6 +314,14 @@ unsigned HTMLVideoElement::webkitDroppedFrameCount() const
     return player()->droppedFrameCount();
 }
 #endif
+
+KURL HTMLVideoElement::posterImageURL() const
+{
+    String url = stripLeadingAndTrailingHTMLSpaces(imageSourceURL());
+    if (url.isEmpty())
+        return KURL();
+    return document()->completeURL(url);
+}
 
 }
 

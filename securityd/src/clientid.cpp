@@ -155,6 +155,30 @@ const CssmData ClientIdentification::getHash() const
 		return CssmData();
 }
 
+const bool ClientIdentification::checkAppleSigned() const
+{
+	if (GuestState *guest = current()) {
+		if (!guest->checkedSignature) {
+            // This is the clownfish supported way to check for a Mac App Store or B&I signed build
+            CFStringRef requirementString = CFSTR("(anchor apple) or (anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.9])");
+            SecRequirementRef  secRequirementRef = NULL;
+            OSStatus status = SecRequirementCreateWithString(requirementString, kSecCSDefaultFlags, &secRequirementRef);
+            if (status == errSecSuccess) {
+                OSStatus status = SecCodeCheckValidity(guest->code, kSecCSDefaultFlags, secRequirementRef);
+                if (status != errSecSuccess) {
+                    secdebug("SecurityAgentXPCQuery", "code requirement check failed (%d)", (int32_t)status);
+                } else {
+                    guest->appleSigned = true;
+                }
+                guest->checkedSignature = true;
+            }
+            CFRelease(secRequirementRef);
+		}
+		return guest->appleSigned;
+	} else
+		return false;
+}
+
 
 //
 // Bonus function: get the path out of a SecCodeRef

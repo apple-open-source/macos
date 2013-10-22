@@ -1,0 +1,46 @@
+---
+abstract: 'Create DateTime parser classes and objects.'
+author:
+  - "Originally written by Iain Truskett <spoon@cpan.org>, who died on\nDecember 29, 2003."
+  - 'Maintained by Dave Rolsky <autarch@urth.org>.'
+build_requires:
+  Module::Build: 0
+configure_requires:
+  Module::Build: 0.36
+generated_by: 'Module::Build version 0.3603'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DateTime-Format-Builder
+provides:
+  DateTime::Format::Builder:
+    file: lib/DateTime/Format/Builder.pm
+    version: 0.80
+  DateTime::Format::Builder::Parser:
+    file: lib/DateTime/Format/Builder/Parser.pm
+    version: 0.77
+  DateTime::Format::Builder::Parser::Dispatch:
+    file: lib/DateTime/Format/Builder/Parser/Dispatch.pm
+    version: 0.78
+  DateTime::Format::Builder::Parser::Quick:
+    file: lib/DateTime/Format/Builder/Parser/Quick.pm
+    version: 0.77
+  DateTime::Format::Builder::Parser::Regex:
+    file: lib/DateTime/Format/Builder/Parser/Regex.pm
+    version: 0.77
+  DateTime::Format::Builder::Parser::Strptime:
+    file: lib/DateTime/Format/Builder/Parser/Strptime.pm
+    version: 0.77
+  DateTime::Format::Builder::Parser::generic:
+    file: lib/DateTime/Format/Builder/Parser/generic.pm
+    version: 0.77
+requires:
+  Class::Factory::Util: 1.6
+  DateTime: 0.12
+  DateTime::Format::Strptime: 1.04
+  Params::Validate: 0.72
+  Task::Weaken: 0
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.80

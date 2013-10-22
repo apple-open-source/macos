@@ -6,6 +6,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <security_utilities/crc.h>
+#include <unistd.h>
 
 static const char* kPrefix = "/private/var/db/mds/messages/se_";
 

@@ -33,6 +33,7 @@
 
 #include <WebCore/ContextMenu.h>
 #include <WebCore/ContextMenuController.h>
+#include <WebCore/Editor.h>
 #include <WebCore/Event.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
@@ -63,7 +64,7 @@ PassOwnPtr<ContextMenu> WebContextMenuClient::customizeMenu(PassOwnPtr<ContextMe
 
     ASSERT(uiDelegate);
 
-    HMENU nativeMenu = menu->nativeMenu();
+    HMENU nativeMenu = menu->platformContextMenu();
     COMPtr<WebElementPropertyBag> propertyBag;
     propertyBag.adoptRef(WebElementPropertyBag::createInstance(m_webView->page()->contextMenuController()->hitTestResult()));
     // FIXME: We need to decide whether to do the default before calling this delegate method
@@ -96,9 +97,9 @@ void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem* item, const 
     ASSERT(item->type() != SubmenuType);
     ASSERT(item->type() != SeparatorType);
 
-    // ContextMenuItem::nativeMenuItem doesn't set the dwTypeData of the MENUITEMINFO, but no WebKit clients
+    // ContextMenuItem::platformContextMenuItem doesn't set the dwTypeData of the MENUITEMINFO, but no WebKit clients
     // use the title in IWebUIDelegate::contextMenuItemSelected, so we don't need to populate it here.
-    MENUITEMINFO selectedItem = item->nativeMenuItem();
+    MENUITEMINFO selectedItem = item->platformContextMenuItem();
 
     uiDelegate->contextMenuItemSelected(m_webView, &selectedItem, propertyBag.get());
 }
@@ -110,7 +111,7 @@ void WebContextMenuClient::downloadURL(const KURL& url)
 
 void WebContextMenuClient::searchWithGoogle(const Frame* frame)
 {
-    String searchString = frame->editor()->selectedText();
+    String searchString = frame->editor().selectedText();
     searchString.stripWhiteSpace();
     String encoded = encodeWithURLEscapeSequences(searchString);
     encoded.replace("%20", "+");
@@ -120,7 +121,7 @@ void WebContextMenuClient::searchWithGoogle(const Frame* frame)
     url.append("&ie=UTF-8&oe=UTF-8");
 
     if (Page* page = frame->page()) {
-        UserGestureIndicator indicator(DefinitelyProcessingUserGesture);
+        UserGestureIndicator indicator(DefinitelyProcessingNewUserGesture);
         page->mainFrame()->loader()->urlSelected(KURL(ParsedURLString, url), String(), 0, false, false, MaybeSendReferrer);
     }
 }

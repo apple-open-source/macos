@@ -34,9 +34,7 @@
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDictionary.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*!
     @enum Import/Export options
@@ -91,8 +89,6 @@ extern CFStringRef kSecImportItemIdentity
 OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options,
     CFArrayRef *items) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECIMPORTEXPORT_H_ */

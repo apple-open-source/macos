@@ -34,7 +34,7 @@
 #include <GraphicsLayer.h>
 #endif
 
-#if ENABLE(WEBGL)
+#if USE(3D_GRAPHICS)
 #include <GraphicsContext3D.h>
 #endif
 
@@ -43,6 +43,7 @@
 
 QT_BEGIN_NAMESPACE
 class QStyle;
+class QWindow;
 QT_END_NAMESPACE
 
 namespace WebCore {
@@ -57,17 +58,10 @@ public:
 
     virtual void scroll(int dx, int dy, const QRect&) = 0;
     virtual void update(const QRect&) = 0;
+    virtual void repaintViewport() = 0;
     virtual void setInputMethodEnabled(bool enable) = 0;
     virtual bool inputMethodEnabled() const = 0;
-#if USE(ACCELERATED_COMPOSITING)
-    virtual void setRootGraphicsLayer(WebCore::GraphicsLayer* layer) { }
-
-    // this gets called when the compositor wants us to sync the layers
-    // if scheduleSync is true, we schedule a sync ourselves. otherwise,
-    // we wait for the next update and sync the layers then.
-    virtual void markForSync(bool scheduleSync = false) {}
-    virtual bool allowsAcceleratedCompositing() const { return false; }
-#endif
+    virtual bool makeOpenGLContextCurrentIfAvailable() { return false; }
 
     virtual void setInputMethodHints(Qt::InputMethodHints hint) = 0;
 
@@ -90,8 +84,9 @@ public:
 
     virtual QPalette palette() const = 0;
     virtual int screenNumber() const = 0;
-    virtual QWidget* ownerWidget() const = 0;
+    virtual QObject* ownerWidget() const = 0;
     virtual QRect geometryRelativeToOwnerWidget() const = 0;
+    virtual QPoint mapToOwnerWindow(const QPoint&) const = 0;
 
     virtual QObject* pluginParent() const = 0;
 
@@ -105,10 +100,7 @@ public:
 
     virtual void setWidgetVisible(WebCore::Widget*, bool visible) = 0;
 
-#if ENABLE(WEBGL)
-    virtual void createPlatformGraphicsContext3D(PlatformGraphicsContext3D*,
-                                                 PlatformGraphicsSurface3D*) = 0;
-#endif
+    virtual QWindow* ownerWindow() const;
 
 protected:
 #ifndef QT_NO_CURSOR

@@ -349,14 +349,17 @@ EncryptPwBlockWithPasswordHash(const uint8_t * password,
 			       const uint8_t pw_hash[NT_PASSWORD_HASH_SIZE],
 			       NTPasswordBlockRef pwblock)
 {
-    int			offset;
     NTPasswordBlock	clear_pwblock;
+    int			offset;
+    uint32_t		password_len_little_endian;
 
     MSChapFillWithRandom(&clear_pwblock, sizeof(clear_pwblock));
     offset = sizeof(clear_pwblock.password) - password_len;
     bcopy(password, ((void *)&clear_pwblock) + offset, password_len);
-    clear_pwblock.password_length 
-	= OSSwapHostToLittleInt32(password_len); /* little endian? */
+    /* convert password length to little endian */
+    password_len_little_endian = OSSwapHostToLittleInt32(password_len);
+    bcopy(&password_len_little_endian, clear_pwblock.password_length,
+	  sizeof(uint32_t));
     rc4_encrypt(&clear_pwblock, sizeof(clear_pwblock),
 		pw_hash, NT_PASSWORD_HASH_SIZE, pwblock);
     return;
@@ -410,7 +413,7 @@ NTPasswordHashEncryptOldWithNew(const uint8_t * new_password,
 				uint32_t new_password_len,
 				const uint8_t * old_password,
 				uint32_t old_password_len,
-				uint8_t password_hash[NT_PASSWORD_HASH_SIZE])
+				uint8_t encrypted_hash[NT_PASSWORD_HASH_SIZE])
 {
     uint8_t	new_password_unicode[NT_MAXPWLEN * 2];
     uint8_t	new_pw_hash[NT_PASSWORD_HASH_SIZE];
@@ -424,7 +427,7 @@ NTPasswordHashEncryptOldWithNew(const uint8_t * new_password,
     NTPasswordHash(old_password_unicode, old_password_len * 2, old_pw_hash);
 
     NTPasswordHashEncryptedWithBlock(old_pw_hash, new_pw_hash,
-				     password_hash);
+				     encrypted_hash);
     return;
 }
 
@@ -588,7 +591,7 @@ MSChap2_MPPEGetAsymetricStartKey(const uint8_t MasterKey[NT_MASTER_KEY_SIZE],
 
 #ifdef TEST_MSCHAP
 
-const uint8_t * password = "clientPass";
+const char * password = "clientPass";
 const uint8_t nt_response[MSCHAP_NT_RESPONSE_SIZE] = {
     0x82, 0x30, 0x9E, 0xCD, 0x8D, 0x70, 0x8B, 0x5E,
     0xA0, 0x8F, 0xAA, 0x39, 0x81, 0xCD, 0x83, 0x54,
@@ -617,7 +620,7 @@ main()
     uint8_t master[NT_MASTER_KEY_SIZE];
     uint8_t send_start[NT_SESSION_KEY_SIZE];
 
-    MSChap2_MPPEGetMasterKey(password, strlen(password),
+    MSChap2_MPPEGetMasterKey((const uint8_t *)password, strlen(password),
 			     nt_response, master);
     if (bcmp(master, MasterKey, NT_MASTER_KEY_SIZE) != 0) {
 	printf("Master Key generation failed\n");

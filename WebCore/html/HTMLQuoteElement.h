@@ -29,15 +29,15 @@
 
 namespace WebCore {
 
-class HTMLQuoteElement : public HTMLElement {
+class HTMLQuoteElement FINAL : public HTMLElement {
 public:
     static PassRefPtr<HTMLQuoteElement> create(const QualifiedName&, Document*);
 
 private:
     HTMLQuoteElement(const QualifiedName&, Document*);
     
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual bool isURLAttribute(Attribute*) const;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
 };
 
 } //namespace

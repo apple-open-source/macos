@@ -29,26 +29,31 @@
  */
 
 #include "config.h"
+#if ENABLE(INPUT_TYPE_WEEK)
 #include "WeekInputType.h"
 
 #include "DateComponents.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "InputTypeNames.h"
 #include <wtf/PassOwnPtr.h>
-
-#if ENABLE(INPUT_TYPE_WEEK)
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-static const double weekDefaultStepBase = -259200000.0; // The first day of 1970-W01.
-static const double weekDefaultStep = 1.0;
-static const double weekStepScaleFactor = 604800000.0;
+static const int weekDefaultStepBase = -259200000; // The first day of 1970-W01.
+static const int weekDefaultStep = 1;
+static const int weekStepScaleFactor = 604800000;
 
 PassOwnPtr<InputType> WeekInputType::create(HTMLInputElement* element)
 {
     return adoptPtr(new WeekInputType(element));
+}
+
+void WeekInputType::attach()
+{
+    observeFeatureIfVisible(FeatureObserver::InputTypeWeek);
 }
 
 const AtomicString& WeekInputType::formControlType() const
@@ -61,34 +66,15 @@ DateComponents::Type WeekInputType::dateType() const
     return DateComponents::Week;
 }
 
-double WeekInputType::minimum() const
+StepRange WeekInputType::createStepRange(AnyStepHandling anyStepHandling) const
 {
-    return parseToDouble(element()->fastGetAttribute(minAttr), DateComponents::minimumWeek());
-}
+    DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (weekDefaultStep, weekDefaultStepBase, weekStepScaleFactor, StepRange::ParsedStepValueShouldBeInteger));
 
-double WeekInputType::maximum() const
-{
-    return parseToDouble(element()->fastGetAttribute(maxAttr), DateComponents::maximumWeek());
-}
-
-double WeekInputType::stepBase() const
-{
-    return parseToDouble(element()->fastGetAttribute(minAttr), weekDefaultStepBase);
-}
-
-double WeekInputType::defaultStep() const
-{
-    return weekDefaultStep;
-}
-
-double WeekInputType::stepScaleFactor() const
-{
-    return weekStepScaleFactor;
-}
-
-bool WeekInputType::parsedStepValueShouldBeInteger() const
-{
-    return true;
+    const Decimal stepBase = parseToNumber(element()->fastGetAttribute(minAttr), weekDefaultStepBase);
+    const Decimal minimum = parseToNumber(element()->fastGetAttribute(minAttr), Decimal::fromDouble(DateComponents::minimumWeek()));
+    const Decimal maximum = parseToNumber(element()->fastGetAttribute(maxAttr), Decimal::fromDouble(DateComponents::maximumWeek()));
+    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element()->fastGetAttribute(stepAttr));
+    return StepRange(stepBase, minimum, maximum, step, stepDescription);
 }
 
 bool WeekInputType::parseToDateComponentsInternal(const UChar* characters, unsigned length, DateComponents* out) const
@@ -102,6 +88,11 @@ bool WeekInputType::setMillisecondToDateComponents(double value, DateComponents*
 {
     ASSERT(date);
     return date->setMillisecondsSinceEpochForWeek(value);
+}
+
+bool WeekInputType::isWeekField() const
+{
+    return true;
 }
 
 } // namespace WebCore

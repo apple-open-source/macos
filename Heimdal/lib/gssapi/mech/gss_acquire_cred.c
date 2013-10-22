@@ -129,8 +129,9 @@ gss_acquire_cred(OM_uint32 *minor_status,
 		    &mc->gmc_cred, NULL, &cred_time);
 
 		_gss_mg_log_name(10, name, &mechs->elements[i],
-				 "gss_acquire_cred %s name: %ld",
-				 m->gm_name, (long)*minor_status);
+				 "gss_acquire_cred %s name: %ld/%ld",
+				 m->gm_name,
+				 (long)major_status, (long)*minor_status);
 
 		if (major_status) {
 			free(mc);

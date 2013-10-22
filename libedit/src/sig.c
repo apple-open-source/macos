@@ -1,4 +1,4 @@
-/*	$NetBSD: sig.c,v 1.15 2009/02/19 15:20:22 christos Exp $	*/
+/*	$NetBSD: sig.c,v 1.17 2011/07/28 20:50:55 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -37,7 +37,7 @@
 #if 0
 static char sccsid[] = "@(#)sig.c	8.1 (Berkeley) 6/4/93";
 #else
-__RCSID("$NetBSD: sig.c,v 1.15 2009/02/19 15:20:22 christos Exp $");
+__RCSID("$NetBSD: sig.c,v 1.17 2011/07/28 20:50:55 christos Exp $");
 #endif
 #endif /* not lint && not SCCSID */
 
@@ -82,7 +82,7 @@ sig_handler(int signo)
 		tty_rawmode(sel);
 		if (ed_redisplay(sel, 0) == CC_REFRESH)
 			re_refresh(sel);
-		term__flush(sel);
+		terminal__flush(sel);
 		break;
 
 	case SIGWINCH:
@@ -146,7 +146,7 @@ protected void
 sig_end(EditLine *el)
 {
 
-	el_free((ptr_t) el->el_signal);
+	el_free(el->el_signal);
 	el->el_signal = NULL;
 }
 
@@ -167,13 +167,14 @@ sig_set(EditLine *el)
 
 	(void) sigprocmask(SIG_BLOCK, &el->el_signal->sig_set, &oset);
 
+	/* 13009629: set sel before signal handlers just in case */
+	sel = el;
 	for (i = 0; sighdl[i] != -1; i++) {
 		/* This could happen if we get interrupted */
 		if (sigaction(sighdl[i], &nsa, &osa) != -1 &&
 		    osa.sa_handler != sig_handler)
 			el->el_signal->sig_action[i] = osa;
 	}
-	sel = el;
 	(void) sigprocmask(SIG_SETMASK, &oset, NULL);
 }
 
@@ -194,7 +195,6 @@ sig_clr(EditLine *el)
 			(void)sigaction(sighdl[i],
 			    &el->el_signal->sig_action[i], NULL);
 
-	sel = NULL;		/* we are going to die if the handler is
-				 * called */
+	/* 13009629: no longer clear sel, since a signal handler may still be running in another thread */
 	(void)sigprocmask(SIG_SETMASK, &oset, NULL);
 }

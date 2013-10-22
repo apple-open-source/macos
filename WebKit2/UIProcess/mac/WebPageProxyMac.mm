@@ -27,6 +27,7 @@
 #import "WebPageProxy.h"
 
 #import "AttributedString.h"
+#import "ColorSpaceData.h"
 #import "DataReference.h"
 #import "DictionaryPopupInfo.h"
 #import "EditorState.h"
@@ -39,7 +40,9 @@
 #import "WebPageMessages.h"
 #import "WebProcessProxy.h"
 #import <WebCore/DictationAlternative.h>
+#import <WebCore/GraphicsLayer.h>
 #import <WebCore/SharedBuffer.h>
+#import <WebCore/SystemVersionMac.h>
 #import <WebCore/TextAlternativeWithRange.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/text/StringConcatenate.h>
@@ -62,42 +65,13 @@ namespace WebKit {
 #error Unknown architecture
 #endif
 
-#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
-
-static String macOSXVersionString()
+static NSString *systemMarketingVersionForUserAgentString()
 {
     // Use underscores instead of dots because when we first added the Mac OS X version to the user agent string
     // we were concerned about old DHTML libraries interpreting "4." as Netscape 4. That's no longer a concern for us
     // but we're sticking with the underscores for compatibility with the format used by older versions of Safari.
-    return [WKGetMacOSXVersionString() stringByReplacingOccurrencesOfString:@"." withString:@"_"];
+    return [systemMarketingVersion() stringByReplacingOccurrencesOfString:@"." withString:@"_"];
 }
-
-#else
-
-static inline int callGestalt(OSType selector)
-{
-    SInt32 value = 0;
-    Gestalt(selector, &value);
-    return value;
-}
-
-// Uses underscores instead of dots because if "4." ever appears in a user agent string, old DHTML libraries treat it as Netscape 4.
-static String macOSXVersionString()
-{
-    // Can't use -[NSProcessInfo operatingSystemVersionString] because it has too much stuff we don't want.
-    int major = callGestalt(gestaltSystemVersionMajor);
-    ASSERT(major);
-
-    int minor = callGestalt(gestaltSystemVersionMinor);
-    int bugFix = callGestalt(gestaltSystemVersionBugFix);
-    if (bugFix)
-        return String::format("%d_%d_%d", major, minor, bugFix);
-    if (minor)
-        return String::format("%d_%d", major, minor);
-    return String::format("%d", major);
-}
-
-#endif // !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
 
 static String userVisibleWebKitVersionString()
 {
@@ -115,7 +89,7 @@ static String userVisibleWebKitVersionString()
 
 String WebPageProxy::standardUserAgent(const String& applicationNameForUserAgent)
 {
-    DEFINE_STATIC_LOCAL(String, osVersion, (macOSXVersionString()));
+    DEFINE_STATIC_LOCAL(String, osVersion, (systemMarketingVersionForUserAgentString()));
     DEFINE_STATIC_LOCAL(String, webKitVersion, (userVisibleWebKitVersionString()));
 
     if (applicationNameForUserAgent.isEmpty())
@@ -142,7 +116,16 @@ void WebPageProxy::searchWithSpotlight(const String& string)
 {
     [[NSWorkspace sharedWorkspace] showSearchResultsForQueryString:nsStringFromWebCoreString(string)];
 }
-
+    
+void WebPageProxy::searchTheWeb(const String& string)
+{
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithUniqueName];
+    [pasteboard declareTypes:[NSArray arrayWithObject:NSStringPboardType] owner:nil];
+    [pasteboard setString:string forType:NSStringPboardType];
+    
+    NSPerformService(@"Search With %WebSearchProvider@", pasteboard);
+}
+    
 CGContextRef WebPageProxy::containingWindowGraphicsContext()
 {
     return m_pageClient->containingWindowGraphicsContext();
@@ -155,12 +138,49 @@ void WebPageProxy::updateWindowIsVisible(bool windowIsVisible)
     process()->send(Messages::WebPage::SetWindowIsVisible(windowIsVisible), m_pageID);
 }
 
-void WebPageProxy::windowAndViewFramesChanged(const IntRect& windowFrameInScreenCoordinates, const IntRect& viewFrameInWindowCoordinates, const IntPoint& accessibilityViewCoordinates)
+void WebPageProxy::windowAndViewFramesChanged(const FloatRect& viewFrameInWindowCoordinates, const FloatPoint& accessibilityViewCoordinates)
 {
     if (!isValid())
         return;
 
-    process()->send(Messages::WebPage::WindowAndViewFramesChanged(windowFrameInScreenCoordinates, viewFrameInWindowCoordinates, accessibilityViewCoordinates), m_pageID);
+    // In case the UI client overrides getWindowFrame(), we call it here to make sure we send the appropriate window frame.
+    FloatRect windowFrameInScreenCoordinates = m_uiClient.windowFrame(this);
+    FloatRect windowFrameInUnflippedScreenCoordinates = m_pageClient->convertToUserSpace(windowFrameInScreenCoordinates);
+
+    process()->send(Messages::WebPage::WindowAndViewFramesChanged(windowFrameInScreenCoordinates, windowFrameInUnflippedScreenCoordinates, viewFrameInWindowCoordinates, accessibilityViewCoordinates), m_pageID);
+}
+
+void WebPageProxy::viewExposedRectChanged(const FloatRect& exposedRect, bool clipsToExposedRect)
+{
+    if (!isValid())
+        return;
+
+    m_exposedRect = exposedRect;
+    m_clipsToExposedRect = clipsToExposedRect;
+
+    if (!m_exposedRectChangedTimer.isActive())
+        m_exposedRectChangedTimer.startOneShot(0);
+}
+
+void WebPageProxy::exposedRectChangedTimerFired(Timer<WebPageProxy>*)
+{
+    if (!isValid())
+        return;
+
+    if (m_exposedRect == m_lastSentExposedRect && m_clipsToExposedRect == m_lastSentClipsToExposedRect)
+        return;
+
+    process()->send(Messages::WebPage::ViewExposedRectChanged(m_exposedRect, m_clipsToExposedRect), m_pageID);
+    m_lastSentExposedRect = m_exposedRect;
+    m_lastSentClipsToExposedRect = m_clipsToExposedRect;
+}
+
+void WebPageProxy::setMainFrameIsScrollable(bool isScrollable)
+{
+    if (!isValid())
+        return;
+
+    process()->send(Messages::WebPage::SetMainFrameIsScrollable(isScrollable), m_pageID);
 }
 
 void WebPageProxy::setComposition(const String& text, Vector<CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
@@ -197,6 +217,8 @@ bool WebPageProxy::insertText(const String& text, uint64_t replacementRangeStart
 
     bool handled = true;
     process()->sendSync(Messages::WebPage::InsertText(text, replacementRangeStart, replacementRangeEnd), Messages::WebPage::InsertText::Reply(handled, m_editorState), m_pageID);
+    m_temporarilyClosedComposition = false;
+
     return handled;
 }
 
@@ -325,6 +347,7 @@ bool WebPageProxy::readSelectionFromPasteboard(const String& pasteboardName)
     return result;
 }
 
+#if ENABLE(DRAG_SUPPORT)
 void WebPageProxy::setDragImage(const WebCore::IntPoint& clientPosition, const ShareableBitmap::Handle& dragImageHandle, bool isLinkDrag)
 {
     RefPtr<ShareableBitmap> dragImage = ShareableBitmap::create(dragImageHandle);
@@ -347,6 +370,7 @@ void WebPageProxy::setPromisedData(const String& pasteboardName, const SharedMem
     }
     m_pageClient->setPromisedData(pasteboardName, imageBuffer, filename, extension, title, url, visibleURL, archiveBuffer);
 }
+#endif
 
 void WebPageProxy::performDictionaryLookupAtLocation(const WebCore::FloatPoint& point)
 {
@@ -387,7 +411,7 @@ void WebPageProxy::capitalizeWord()
 }
 
 void WebPageProxy::setSmartInsertDeleteEnabled(bool isSmartInsertDeleteEnabled)
-{ 
+{
     if (m_isSmartInsertDeleteEnabled == isSmartInsertDeleteEnabled)
         return;
 
@@ -396,9 +420,9 @@ void WebPageProxy::setSmartInsertDeleteEnabled(bool isSmartInsertDeleteEnabled)
     process()->send(Messages::WebPage::SetSmartInsertDeleteEnabled(isSmartInsertDeleteEnabled), m_pageID);
 }
 
-void WebPageProxy::didPerformDictionaryLookup(const String& text, const DictionaryPopupInfo& dictionaryPopupInfo)
+void WebPageProxy::didPerformDictionaryLookup(const AttributedString& text, const DictionaryPopupInfo& dictionaryPopupInfo)
 {
-    m_pageClient->didPerformDictionaryLookup(text, m_pageScaleFactor, dictionaryPopupInfo);
+    m_pageClient->didPerformDictionaryLookup(text, dictionaryPopupInfo);
 }
     
 void WebPageProxy::registerWebProcessAccessibilityToken(const CoreIPC::DataReference& data)
@@ -410,7 +434,12 @@ void WebPageProxy::makeFirstResponder()
 {
     m_pageClient->makeFirstResponder();
 }
-    
+
+ColorSpaceData WebPageProxy::colorSpace()
+{
+    return m_pageClient->colorSpace();
+}
+
 void WebPageProxy::registerUIProcessAccessibilityTokens(const CoreIPC::DataReference& elementToken, const CoreIPC::DataReference& windowToken)
 {
     if (!isValid())
@@ -463,6 +492,114 @@ bool WebPageProxy::acceptsFirstMouse(int eventNumber, const WebKit::WebMouseEven
 WKView* WebPageProxy::wkView() const
 {
     return m_pageClient->wkView();
+}
+
+void WebPageProxy::intrinsicContentSizeDidChange(const IntSize& intrinsicContentSize)
+{
+    m_pageClient->intrinsicContentSizeDidChange(intrinsicContentSize);
+}
+
+void WebPageProxy::setAcceleratedCompositingRootLayer(const GraphicsLayer* rootLayer)
+{
+    m_pageClient->setAcceleratedCompositingRootLayer(rootLayer->platformLayer());
+}
+
+static NSString *temporaryPDFDirectoryPath()
+{
+    static NSString *temporaryPDFDirectoryPath;
+
+    if (!temporaryPDFDirectoryPath) {
+        NSString *temporaryDirectoryTemplate = [NSTemporaryDirectory() stringByAppendingPathComponent:@"WebKitPDFs-XXXXXX"];
+        CString templateRepresentation = [temporaryDirectoryTemplate fileSystemRepresentation];
+
+        if (mkdtemp(templateRepresentation.mutableData()))
+            temporaryPDFDirectoryPath = [[[NSFileManager defaultManager] stringWithFileSystemRepresentation:templateRepresentation.data() length:templateRepresentation.length()] copy];
+    }
+
+    return temporaryPDFDirectoryPath;
+}
+
+static NSString *pathToPDFOnDisk(const String& suggestedFilename)
+{
+    NSString *pdfDirectoryPath = temporaryPDFDirectoryPath();
+    if (!pdfDirectoryPath) {
+        WTFLogAlways("Cannot create temporary PDF download directory.");
+        return nil;
+    }
+
+    NSString *path = [pdfDirectoryPath stringByAppendingPathComponent:suggestedFilename];
+
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:path]) {
+        NSString *pathTemplatePrefix = [pdfDirectoryPath stringByAppendingPathComponent:@"XXXXXX-"];
+        NSString *pathTemplate = [pathTemplatePrefix stringByAppendingString:suggestedFilename];
+        CString pathTemplateRepresentation = [pathTemplate fileSystemRepresentation];
+
+        int fd = mkstemps(pathTemplateRepresentation.mutableData(), pathTemplateRepresentation.length() - strlen([pathTemplatePrefix fileSystemRepresentation]) + 1);
+        if (fd < 0) {
+            WTFLogAlways("Cannot create PDF file in the temporary directory (%s).", suggestedFilename.utf8().data());
+            return nil;
+        }
+
+        close(fd);
+        path = [fileManager stringWithFileSystemRepresentation:pathTemplateRepresentation.data() length:pathTemplateRepresentation.length()];
+    }
+
+    return path;
+}
+
+void WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplicationRaw(const String& suggestedFilename, const String& originatingURLString, const uint8_t* data, unsigned long size, const String& pdfUUID)
+{
+    // FIXME: Write originatingURLString to the file's originating URL metadata (perhaps WKSetMetadataURL?).
+    UNUSED_PARAM(originatingURLString);
+
+    if (!suggestedFilename.endsWith(".pdf", false)) {
+        WTFLogAlways("Cannot save file without .pdf extension to the temporary directory.");
+        return;
+    }
+
+    if (!size) {
+        WTFLogAlways("Cannot save empty PDF file to the temporary directory.");
+        return;
+    }
+
+    NSString *nsPath = pathToPDFOnDisk(suggestedFilename);
+
+    if (!nsPath)
+        return;
+
+    RetainPtr<NSNumber> permissions = adoptNS([[NSNumber alloc] initWithInt:S_IRUSR]);
+    RetainPtr<NSDictionary> fileAttributes = adoptNS([[NSDictionary alloc] initWithObjectsAndKeys:permissions.get(), NSFilePosixPermissions, nil]);
+    RetainPtr<NSData> nsData = adoptNS([[NSData alloc] initWithBytesNoCopy:(void*)data length:size freeWhenDone:NO]);
+
+    if (![[NSFileManager defaultManager] createFileAtPath:nsPath contents:nsData.get() attributes:fileAttributes.get()]) {
+        WTFLogAlways("Cannot create PDF file in the temporary directory (%s).", suggestedFilename.utf8().data());
+        return;
+    }
+
+    m_temporaryPDFFiles.add(pdfUUID, nsPath);
+
+    [[NSWorkspace sharedWorkspace] openFile:nsPath];
+}
+
+void WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplication(const String& suggestedFilename, const String& originatingURLString, const CoreIPC::DataReference& data, const String& pdfUUID)
+{
+    if (data.isEmpty()) {
+        WTFLogAlways("Cannot save empty PDF file to the temporary directory.");
+        return;
+    }
+
+    savePDFToTemporaryFolderAndOpenWithNativeApplicationRaw(suggestedFilename, originatingURLString, data.data(), data.size(), pdfUUID);
+}
+
+void WebPageProxy::openPDFFromTemporaryFolderWithNativeApplication(const String& pdfUUID)
+{
+    String pdfFilename = m_temporaryPDFFiles.get(pdfUUID);
+
+    if (!pdfFilename.endsWith(".pdf", false))
+        return;
+
+    [[NSWorkspace sharedWorkspace] openFile:pdfFilename];
 }
 
 } // namespace WebKit

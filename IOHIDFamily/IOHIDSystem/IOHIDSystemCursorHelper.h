@@ -59,9 +59,7 @@ public:
     void            logPosition(const char *name, uint64_t ts);
     void            klogPosition(const char *name, uint64_t ts);
     
-    void            setOverdueTime(UInt64 time)  { overdueTime = time; }
-    
-    bool            isPosting(UInt64 time = 0);
+    bool            isPosting();
 
 private:
     // all locations in desktop coordinates unless noted otherwise
@@ -75,7 +73,6 @@ private:
     IOFixed64       expectedCountValue;
     SInt32          eventCount;
     SInt32          eventCountPosting;
-    UInt64          overdueTime;
 };
 
 //===========================================================================

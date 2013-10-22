@@ -35,6 +35,7 @@
 #include "PositionError.h"
 #include "PositionErrorCallback.h"
 #include "PositionOptions.h"
+#include "ScriptWrappable.h"
 #include "Timer.h"
 
 namespace WebCore {
@@ -47,7 +48,7 @@ class GeolocationPosition;
 class Page;
 class ScriptExecutionContext;
 
-class Geolocation : public RefCounted<Geolocation>, public ActiveDOMObject
+class Geolocation : public ScriptWrappable, public RefCounted<Geolocation>, public ActiveDOMObject
 {
 public:
     static PassRefPtr<Geolocation> create(ScriptExecutionContext*);
@@ -111,7 +112,7 @@ private:
 
     class Watchers {
     public:
-        void set(int id, PassRefPtr<GeoNotifier>);
+        bool add(int id, PassRefPtr<GeoNotifier>);
         GeoNotifier* find(int id);
         void remove(int id);
         void remove(GeoNotifier*);
@@ -152,7 +153,7 @@ private:
 
     void handlePendingPermissionNotifiers();
 
-    PassRefPtr<GeoNotifier> startRequest(PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
+    void startRequest(GeoNotifier*);
 
     void fatalErrorOccurred(GeoNotifier*);
     void requestTimedOut(GeoNotifier*);
@@ -172,7 +173,6 @@ private:
         No
     } m_allowGeolocation;
 
-    RefPtr<Geoposition> m_cachedPosition;
     GeoNotifierSet m_requestsAwaitingCachedPosition;
 };
     

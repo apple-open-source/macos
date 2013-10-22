@@ -1,4 +1,4 @@
-/* $OpenBSD: dh.c,v 1.48 2009/10/01 11:37:33 grunk Exp $ */
+/* $OpenBSD: dh.c,v 1.49 2011/12/07 05:44:38 djm Exp $ */
 /*
  * Copyright (c) 2000 Niels Provos.  All rights reserved.
  *
@@ -27,8 +27,13 @@
 
 #include <sys/param.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#include "ossl-dh.h"
+#else
 #include <openssl/bn.h>
 #include <openssl/dh.h>
+#endif
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -236,6 +241,8 @@ dh_gen_key(DH *dh, int need)
 {
 	int i, bits_set, tries = 0;
 
+	if (need < 0)
+		fatal("dh_gen_key: need < 0");
 	if (dh->p == NULL)
 		fatal("dh_gen_key: dh->p == NULL");
 	if (need > INT_MAX / 2 || 2 * need >= BN_num_bits(dh->p))

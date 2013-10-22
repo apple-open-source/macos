@@ -24,11 +24,14 @@
 #include "Attribute.h"
 #include "ContentSecurityPolicy.h"
 #include "Document.h"
+#include "DocumentStyleSheetCollection.h"
 #include "Element.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
 #include "ScriptableDocumentParser.h"
+#include "StyleSheetContents.h"
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/TextPosition.h>
 
 namespace WebCore {
 
@@ -47,10 +50,10 @@ static bool isCSS(Element* element, const AtomicString& type)
 StyleElement::StyleElement(Document* document, bool createdByParser)
     : m_createdByParser(createdByParser)
     , m_loading(false)
-    , m_startLineNumber(0)
+    , m_startLineNumber(WTF::OrdinalNumber::beforeFirst())
 {
-    if (createdByParser && document && document->scriptableDocumentParser())
-        m_startLineNumber = document->scriptableDocumentParser()->lineNumber().zeroBasedInt();
+    if (createdByParser && document && document->scriptableDocumentParser() && !document->isInDocumentWrite())
+        m_startLineNumber = document->scriptableDocumentParser()->lineNumber();
 }
 
 StyleElement::~StyleElement()
@@ -61,7 +64,7 @@ void StyleElement::insertedIntoDocument(Document* document, Element* element)
 {
     ASSERT(document);
     ASSERT(element);
-    document->addStyleSheetCandidateNode(element, m_createdByParser);
+    document->styleSheetCollection()->addStyleSheetCandidateNode(element, m_createdByParser);
     if (m_createdByParser)
         return;
 
@@ -72,7 +75,7 @@ void StyleElement::removedFromDocument(Document* document, Element* element)
 {
     ASSERT(document);
     ASSERT(element);
-    document->removeStyleSheetCandidateNode(element);
+    document->styleSheetCollection()->removeStyleSheetCandidateNode(element);
 
     if (m_sheet)
         clearSheet();
@@ -88,7 +91,7 @@ void StyleElement::clearDocumentData(Document* document, Element* element)
         m_sheet->clearOwnerNode();
 
     if (element->inDocument())
-        document->removeStyleSheetCandidateNode(element);
+        document->styleSheetCollection()->removeStyleSheetCandidateNode(element);
 }
 
 void StyleElement::childrenChanged(Element* element)
@@ -139,24 +142,23 @@ void StyleElement::process(Element* e)
 void StyleElement::clearSheet()
 {
     ASSERT(m_sheet);
-    m_sheet->clearOwnerNode();
-    m_sheet = 0;
+    m_sheet.release()->clearOwnerNode();
 }
 
-void StyleElement::createSheet(Element* e, int startLineNumber, const String& text)
+void StyleElement::createSheet(Element* e, WTF::OrdinalNumber startLineNumber, const String& text)
 {
     ASSERT(e);
     ASSERT(e->inDocument());
     Document* document = e->document();
     if (m_sheet) {
         if (m_sheet->isLoading())
-            document->removePendingSheet();
+            document->styleSheetCollection()->removePendingSheet();
         clearSheet();
     }
 
     // If type is empty or CSS, this is a CSS style sheet.
     const AtomicString& type = this->type();
-    if (document->contentSecurityPolicy()->allowInlineStyle() && isCSS(e, type)) {
+    if (document->contentSecurityPolicy()->allowInlineStyle(e->document()->url(), startLineNumber) && isCSS(e, type)) {
         RefPtr<MediaQuerySet> mediaQueries;
         if (e->isHTMLElement())
             mediaQueries = MediaQuerySet::createAllowingDescriptionSyntax(media());
@@ -166,21 +168,20 @@ void StyleElement::createSheet(Element* e, int startLineNumber, const String& te
         MediaQueryEvaluator screenEval("screen", true);
         MediaQueryEvaluator printEval("print", true);
         if (screenEval.eval(mediaQueries.get()) || printEval.eval(mediaQueries.get())) {
-            document->addPendingSheet();
+            document->styleSheetCollection()->addPendingSheet();
             m_loading = true;
 
             m_sheet = CSSStyleSheet::createInline(e, KURL(), document->inputEncoding());
             m_sheet->setMediaQueries(mediaQueries.release());
             m_sheet->setTitle(e->title());
-    
-            m_sheet->internal()->parseStringAtLine(text, startLineNumber);
+            m_sheet->contents()->parseStringAtLine(text, startLineNumber.zeroBasedInt(), m_createdByParser);
 
             m_loading = false;
         }
     }
 
     if (m_sheet)
-        m_sheet->internal()->checkLoaded();
+        m_sheet->contents()->checkLoaded();
 }
 
 bool StyleElement::isLoading() const
@@ -196,14 +197,14 @@ bool StyleElement::sheetLoaded(Document* document)
     if (isLoading())
         return false;
 
-    document->removePendingSheet();
+    document->styleSheetCollection()->removePendingSheet();
     return true;
 }
 
 void StyleElement::startLoadingDynamicSheet(Document* document)
 {
     ASSERT(document);
-    document->addPendingSheet();
+    document->styleSheetCollection()->addPendingSheet();
 }
 
 }

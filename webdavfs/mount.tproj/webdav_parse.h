@@ -33,12 +33,15 @@ typedef struct
 {
 	int context;
 	char *locktoken;
+	Boolean start; /*For characters callback to work only after start tag and no end tag*/
 } webdav_parse_lock_struct_t;
 
 struct webdav_parse_cachevalidators_struct
 {
 	time_t last_modified;
 	char *entity_tag;
+	void* data;
+	Boolean start; /*For characters callback to work only after start tag and no end tag*/
 };
 
 struct webdav_quotas
@@ -48,6 +51,8 @@ struct webdav_quotas
 	uint64_t	quota_used_bytes;		/* DAV:quota-used-bytes property value */
 	uint64_t	quota;					/* deprecated DAV:quota property value */
 	uint64_t	quotaused;				/* deprecated DAV:quotaused property value */
+	void* data;
+	Boolean start; /*For characters callback to work only after start tag and no end tag*/
 };
 
 /* This needs to be big enough for a pathname where every character comes to us
@@ -126,6 +131,9 @@ typedef struct webdav_parse_opendir_element_tag
 typedef struct
 {
 	int error;
+	int id;
+	void *data_ptr;
+	Boolean start; /*For characters callback to work only after start tag and no end tag*/
 	webdav_parse_opendir_element_t *head;
 	webdav_parse_opendir_element_t *tail;
 } webdav_parse_opendir_struct_t;
@@ -155,6 +163,7 @@ typedef struct
 {
 	int id;
 	void *data_ptr;
+	Boolean start; /*For characters callback to work only after start tag and no end tag*/
 } webdav_parse_multistatus_return_t;
 
 typedef struct webdav_parse_multistatus_element_tag
@@ -173,8 +182,11 @@ typedef struct webdav_parse_multistatus_element_tag
 typedef struct
 {
 	int error;
+	int id;
+	void *data_ptr;
 	webdav_parse_multistatus_element_t *head;
 	webdav_parse_multistatus_element_t *tail;
+	Boolean start;
 } webdav_parse_multistatus_list_t;
 
 /* Functions */

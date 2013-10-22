@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
  * - initial revision
  */
 
+#include <TargetConditionals.h>
 #include <sysexits.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -48,13 +49,6 @@
 extern struct mig_subsystem	_config_subsystem;
 extern boolean_t		config_server(mach_msg_header_t *, mach_msg_header_t *);
 
-#include "shared_dns_info_types.h"
-#include "dnsinfo_server.h"
-
-/* MiG generated externals and functions */
-extern struct mig_subsystem	_shared_dns_info_subsystem;
-extern boolean_t		shared_dns_info_server(mach_msg_header_t *, mach_msg_header_t *);
-
 /* configd server port (for new session requests) */
 static CFMachPortRef		configd_port		= NULL;
 
@@ -68,14 +62,6 @@ config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 	 * (attempt to) process SCDynamicStore requests.
 	 */
 	processed = config_server(request, reply);
-	if (processed) {
-		return TRUE;
-	}
-
-	/*
-	 * (attempt to) process DNS configuration requests.
-	 */
-	processed = shared_dns_info_server(request, reply);
 	if (processed) {
 		return TRUE;
 	}
@@ -121,9 +107,6 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	if (bufSize == 0) {
 		// get max size for MiG reply buffers
 		bufSize = _config_subsystem.maxsize;
-		if (_shared_dns_info_subsystem.maxsize > bufSize) {
-			bufSize = _shared_dns_info_subsystem.maxsize;
-		}
 
 		// check if our on-the-stack reply buffer will be big enough
 		if (bufSize > sizeof(bufReply_q)) {
@@ -240,7 +223,8 @@ server_init()
 			exit (EX_UNAVAILABLE);
 		default :
 			SCLog(TRUE, LOG_ERR,
-			      CFSTR("server_init bootstrap_check_in() failed: %s"),
+			      CFSTR("server_init bootstrap_check_in(..., '%s', ...) failed: %s"),
+			      service_name,
 			      bootstrap_strerror(status));
 			exit (EX_UNAVAILABLE);
 	}
@@ -268,7 +252,6 @@ server_shutdown()
 	if (configd_port != NULL) {
 		mach_port_t	service_port	= CFMachPortGetPort(configd_port);
 
-		CFMachPortSetInvalidationCallBack(configd_port, NULL);
 		CFMachPortInvalidate(configd_port);
 		CFRelease(configd_port);
 		configd_port = NULL;

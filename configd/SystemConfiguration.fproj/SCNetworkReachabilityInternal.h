@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
 #include <dispatch/dispatch.h>
 
 #include <dns_sd.h>
@@ -37,10 +38,25 @@
 #include <sys/socket.h>
 #include <net/if.h>
 
-#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && !TARGET_IPHONE_SIMULATOR
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000))
 #define	HAVE_REACHABILITY_SERVER
 #include <xpc/xpc.h>
-#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000)) && !TARGET_IPHONE_SIMULATOR
+#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 50000))
+
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 40000))
+#define	HAVE_GETADDRINFO_INTERFACE_ASYNC_CALL
+#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 40000))
+
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 40000))
+#define	HAVE_IPSEC_STATUS
+#define	HAVE_VPN_STATUS
+#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 40000))
+
+
+
+#if	((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
+#define USE_DNSSERVICEGETADDRINFO
+#endif	// ((__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 60000))
 
 
 #pragma mark -
@@ -50,7 +66,15 @@
 #define kSCNetworkReachabilityFlagsFirstResolvePending	(1<<31)
 
 
-typedef	enum { NO = 0, YES, UNKNOWN }	lazyBoolean;
+
+#define kSCNetworkReachabilityFlagsMask			0x00ffffff	// top 8-bits reserved for implementation
+
+
+typedef	enum {
+	NO	= 0,
+	YES,
+	UNKNOWN
+} lazyBoolean;
 
 
 typedef enum {
@@ -82,11 +106,10 @@ typedef struct {
 
 	/* target host name */
 	const char			*name;
-	const char			*serv;
-	struct addrinfo			hints;
 	Boolean				needResolve;
-	CFArrayRef			resolvedAddress;	/* CFArray[CFData] */
-	int				resolvedAddressError;
+	CFArrayRef			resolvedAddresses;	/* CFArray[CFData] */
+	int				resolvedError;
+	SCNetworkReachabilityFlags	resolverFlags;
 
 	/* [scoped routing] interface constraints */
 	unsigned int			if_index;
@@ -119,8 +142,6 @@ typedef struct {
 	dispatch_source_t		dnsSource;		// for dispatch queries
 	struct timeval			dnsQueryStart;
 	struct timeval			dnsQueryEnd;
-	dispatch_source_t		dnsRetry;		// != NULL if DNS retry request queued
-	int				dnsRetryCount;		// number of retry attempts
 
 	/* [async] processing info */
 	struct timeval			last_dns;
@@ -138,10 +159,22 @@ typedef struct {
 	CFStringRef			onDemandServiceID;
 
 
-	Boolean				llqActive;
-	Boolean				llqBypass;
-	DNSServiceRef			llqTarget;
-	dispatch_source_t		llqTimer;		// != NULL while waiting for first callback
+	union {
+		uint32_t		dnsFlags;
+		struct {
+			Boolean		dnsActive     :1;	// if DNSServiceGetAddrInfo active
+
+			Boolean		dnsHaveError  :1;	// error during query
+			Boolean		dnsHaveV4     :1;	// have IPv4 (A) reply
+			Boolean		dnsHaveV6     :1;	// have IPv6 (AAAA) reply
+			Boolean		dnsHaveTimeout:1;	// no replies (A and/or AAAA)
+		};
+	};
+	CFArrayRef			dnsAddresses;		// CFArray[CFData]
+	Boolean				dnsBlocked;		// if DNS query blocked
+	int				dnsError;
+	DNSServiceRef			dnsMain;
+	DNSServiceRef			dnsTarget;
 
 #ifdef	HAVE_REACHABILITY_SERVER
 	/* SCNetworkReachability server "client" info */
@@ -154,12 +187,16 @@ typedef struct {
 	CFDataRef			serverDigest;
 	dispatch_group_t		serverGroup;
 	Boolean				serverInfoValid;
-	unsigned int			serverQueryActive;	// 0 == no query active, else # waiting on group
+	unsigned int			serverSyncQueryActive;	// 0 == no [sync] query active, else # waiting on group
 	dispatch_queue_t		serverQueue;
 	unsigned int			serverReferences;	// how many [client] targets
 	CFMutableDictionaryRef		serverWatchers;		// [client_id/target_id] watchers
+
+	Boolean				useVPNAppLayer;		// if App-Layer VPN, only use client mode
 #endif	// HAVE_REACHABILITY_SERVER
 	Boolean				resolverBypass;		// set this flag to bypass resolving the name
+
+
 
 	/* logging */
 	char				log_prefix[32];
@@ -176,7 +213,12 @@ typedef struct {
 
 
 #define	REACH_SERVER_VERSION		20110323
+
+#if	!TARGET_IPHONE_SIMULATOR
 #define	REACH_SERVICE_NAME		"com.apple.SystemConfiguration.SCNetworkReachability"
+#else	// !TARGET_IPHONE_SIMULATOR
+#define	REACH_SERVICE_NAME		"com.apple.SystemConfiguration.SCNetworkReachability_sim"
+#endif	// !TARGET_IPHONE_SIMULATOR
 
 // ------------------------------------------------------------
 
@@ -200,14 +242,12 @@ enum {
 };
 
 #define	REACH_TARGET_NAME		"name"			// string
-#define	REACH_TARGET_SERV		"serv"			// string
-#define	REACH_TARGET_HINTS		"hints"			// data (struct addrinfo)
 #define	REACH_TARGET_IF_INDEX		"if_index"		// int64
 #define	REACH_TARGET_IF_NAME		"if_name"		// string
-#define	REACH_TARGET_LOCAL_ADDR		"localAddress"		// data (struct sockaddr)
-#define	REACH_TARGET_REMOTE_ADDR	"remoteAddress"		// data (struct sockaddr)
-#define	REACH_TARGET_ONDEMAND_BYPASS	"onDemandBypass"	// bool
-#define REACH_TARGET_RESOLVER_BYPASS	"resolverBypass"	// bool
+#define	REACH_TARGET_LOCAL_ADDR		"local_address"		// data (struct sockaddr)
+#define	REACH_TARGET_REMOTE_ADDR	"remote_address"	// data (struct sockaddr)
+#define	REACH_TARGET_ONDEMAND_BYPASS	"ondemand_bypass"	// bool
+#define REACH_TARGET_RESOLVER_BYPASS	"resolver_bypass"	// bool
 
 
 #define REACH_REQUEST_REPLY		"reply"			// int64
@@ -233,13 +273,13 @@ enum {
 	MESSAGE_REACHABILITY_STATUS	= 0x1001,
 };
 
-#define REACH_STATUS_CYCLE			"cycle"			// uint64
-#define REACH_STATUS_FLAGS			"flags"			// uint64
-#define REACH_STATUS_IF_INDEX			"if_index"		// uint64
-#define REACH_STATUS_IF_NAME			"if_name"		// data (char if_name[IFNAMSIZ])
-#define REACH_STATUS_RESOLVED_ADDRESS		"resolvedAddress"	// array[data]
-#define REACH_STATUS_RESOLVED_ADDRESS_ERROR	"resolvedAddressError"	// int64
-#define REACH_STATUS_SLEEPING			"sleeping"		// bool
+#define REACH_STATUS_CYCLE		"cycle"			// uint64
+#define REACH_STATUS_FLAGS		"flags"			// uint64
+#define REACH_STATUS_IF_INDEX		"if_index"		// uint64
+#define REACH_STATUS_IF_NAME		"if_name"		// data (char if_name[IFNAMSIZ])
+#define REACH_STATUS_RESOLVED_ADDRESSES	"resolved_addresses"	// array[data]
+#define REACH_STATUS_RESOLVED_ERROR	"resolved_error"	// int64
+#define REACH_STATUS_SLEEPING		"sleeping"		// bool
 
 
 // ------------------------------------------------------------
@@ -255,13 +295,16 @@ _SCNetworkReachabilityCopyTargetDescription	(SCNetworkReachabilityRef	target);
 CFStringRef
 _SCNetworkReachabilityCopyTargetFlags		(SCNetworkReachabilityRef	target);
 
+void
+__SCNetworkReachabilityPerform			(SCNetworkReachabilityRef	target);
+
+void
+__SCNetworkReachabilityPerformConcurrent	(SCNetworkReachabilityRef	target);
+
 #ifdef	HAVE_REACHABILITY_SERVER
 
 dispatch_queue_t
 __SCNetworkReachability_concurrent_queue	(void);
-
-void
-__SCNetworkReachabilityPerformNoLock		(SCNetworkReachabilityRef	target);
 
 #pragma mark -
 #pragma mark [XPC] Reachability Server (client APIs)
@@ -284,16 +327,78 @@ __SCNetworkReachabilityServer_targetStatus	(SCNetworkReachabilityRef	target);
 Boolean
 __SCNetworkReachabilityServer_targetUnschedule	(SCNetworkReachabilityRef	target);
 
+
 Boolean
 __SC_checkResolverReachabilityInternal		(SCDynamicStoreRef		*storeP,
 						 SCNetworkReachabilityFlags	*flags,
 						 Boolean			*haveDNS,
 						 const char			*nodename,
-						 const char			*servname,
 						 uint32_t			*resolver_if_index,
 						 int				*dns_config_index);
 
 #endif	// HAVE_REACHABILITY_SERVER
+
+static __inline__ void
+__SCNetworkReachabilityPrintFlags(SCNetworkReachabilityFlags flags)
+{
+	if (flags != 0) {
+		if (flags & kSCNetworkReachabilityFlagsReachable) {
+			SCPrint(TRUE, stdout, CFSTR("Reachable"));
+			flags &= ~kSCNetworkReachabilityFlagsReachable;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+		if (flags & kSCNetworkReachabilityFlagsTransientConnection) {
+			SCPrint(TRUE, stdout, CFSTR("Transient Connection"));
+			flags &= ~kSCNetworkReachabilityFlagsTransientConnection;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+		if (flags & kSCNetworkReachabilityFlagsConnectionRequired) {
+			SCPrint(TRUE, stdout, CFSTR("Connection Required"));
+			flags &= ~kSCNetworkReachabilityFlagsConnectionRequired;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+		if (flags & kSCNetworkReachabilityFlagsConnectionOnTraffic) {
+			SCPrint(TRUE, stdout, CFSTR("Automatic Connection On Traffic"));
+			flags &= ~kSCNetworkReachabilityFlagsConnectionOnTraffic;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+		if (flags & kSCNetworkReachabilityFlagsConnectionOnDemand) {
+			SCPrint(TRUE, stdout, CFSTR("Automatic Connection On Demand"));
+			flags &= ~kSCNetworkReachabilityFlagsConnectionOnDemand;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+		if (flags & kSCNetworkReachabilityFlagsInterventionRequired) {
+			SCPrint(TRUE, stdout, CFSTR("Intervention Required"));
+			flags &= ~kSCNetworkReachabilityFlagsInterventionRequired;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+		if (flags & kSCNetworkReachabilityFlagsIsLocalAddress) {
+			SCPrint(TRUE, stdout, CFSTR("Local Address"));
+			flags &= ~kSCNetworkReachabilityFlagsIsLocalAddress;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+		if (flags & kSCNetworkReachabilityFlagsIsDirect) {
+			SCPrint(TRUE, stdout, CFSTR("Directly Reachable Address"));
+			flags &= ~kSCNetworkReachabilityFlagsIsDirect;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+#if	TARGET_OS_IPHONE
+		if (flags & kSCNetworkReachabilityFlagsIsWWAN) {
+			SCPrint(TRUE, stdout, CFSTR("WWAN"));
+			flags &= ~kSCNetworkReachabilityFlagsIsWWAN;
+			SCPrint(flags != 0, stdout, CFSTR(","));
+		}
+#endif	// TARGET_OS_IPHONE
+		if (flags != 0) {
+			SCPrint(TRUE, stdout, CFSTR("0x%08x"), flags);
+		}
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("Not Reachable"));
+	}
+
+	return;
+}
+
 
 __END_DECLS
 

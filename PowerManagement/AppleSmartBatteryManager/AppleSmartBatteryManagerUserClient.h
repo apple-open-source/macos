@@ -32,13 +32,14 @@
  * Method index
  */
 enum {
-    kSBInflowDisable = 0,
-    kSBChargeInhibit = 1,
-    kSBSetPollingInterval = 2,
-    kSBSMBusReadWriteWord = 3
+    kSBInflowDisable        = 0,
+    kSBChargeInhibit        = 1,
+    kSBSetPollingInterval   = 2,
+    kSBSMBusReadWriteWord   = 3,
+    kSBRequestPoll          = 4
 };
 
-#define kNumBattMethods     4
+#define kNumBattMethods     5
 
 /*
  * user client types

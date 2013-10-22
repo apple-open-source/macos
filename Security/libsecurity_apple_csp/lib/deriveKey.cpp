@@ -115,7 +115,7 @@ void AppleCSPSession::DeriveKey_PBKDF2(
 	 *    = MAX (hLen, saltLen + 4) + 2 * hLen
 	 *    = MAX (kSHA1DigestSize, saltLen + 4) + 2 * kSHA1DigestSize
 	 */
-	uint32 tempLen = salt.Length + 4;
+	size_t tempLen = salt.Length + 4;
 	if(tempLen < kSHA1DigestSize) {
 		tempLen = kSHA1DigestSize;
 	}
@@ -126,10 +126,10 @@ void AppleCSPSession::DeriveKey_PBKDF2(
 	/* go */
 	pbkdf2 (hmacsha1, 
 		kSHA1DigestSize,
-		passphrase, passphraseLen,
-		salt.Data, salt.Length,
+		passphrase, (uint32)passphraseLen,
+		salt.Data, (uint32)salt.Length,
 		iterCount,
-		keyData->Data, keyData->Length,
+		keyData->Data, (uint32)keyData->Length,
 		tempData.Data);
 	freeData(&tempData, privAllocator, false);
 }
@@ -233,9 +233,9 @@ void AppleCSPSession::DeriveKey_PKCS5_V1_5(
 	 */
 	DigestCtx ctx;
 	uint8 *keyDataP		= keyData->Data;
-	uint32 keyBytesToGo = keyData->Length;
+	size_t keyBytesToGo = keyData->Length;
 	uint8 *ivDataP		= iv.Data;
-	uint32 ivBytesToGo  = iv.Length;
+	size_t ivBytesToGo  = iv.Length;
 	bool looping		= false;		// true for additional bytes for openssl
 	unsigned char digestOut[kMaxDigestSize];
 	
@@ -249,8 +249,8 @@ void AppleCSPSession::DeriveKey_PKCS5_V1_5(
 		}
 		
 		/* digest password then salt */
-		DigestCtxUpdate(&ctx, pwd.Data, pwd.Length);
-		DigestCtxUpdate(&ctx, salt.Data, salt.Length);
+		DigestCtxUpdate(&ctx, pwd.Data, (uint32)pwd.Length);
+		DigestCtxUpdate(&ctx, salt.Data, (uint32)salt.Length);
 
 		DigestCtxFinal(&ctx, digestOut);
 		
@@ -263,7 +263,7 @@ void AppleCSPSession::DeriveKey_PKCS5_V1_5(
 		
 		/* first n bytes to the key */
 		uint32 bytesAvail = digestLen;
-		uint32 toMove = (keyBytesToGo > bytesAvail) ? bytesAvail : keyBytesToGo;
+		size_t toMove = (keyBytesToGo > bytesAvail) ? bytesAvail : keyBytesToGo;
 		memmove(keyDataP, digestOut, toMove);
 		uint8 *remainder = digestOut + toMove;
 		bytesAvail   -= toMove;
@@ -421,7 +421,7 @@ void AppleCSPSession::DeriveKey(
 		KeyAttr, 
 		KeyUsage);
 	/* handle derived size < requested size, legal for Diffie-Hellman */
-	hdr.LogicalKeySizeInBits = keyData->Length * 8;
+	hdr.LogicalKeySizeInBits = (uint32)(keyData->Length * 8);
 	
 	if(keyStorage == CKS_Ref) {
 		/* store and convert to ref key */

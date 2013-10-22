@@ -39,7 +39,7 @@ xdr_AuthorizationItem(XDR *xdrs, AuthorizationItem *objp)
     if (xdrs->x_op == XDR_ENCODE) {
 		if (objp->valueLength > (u_int)~0)
 			return (FALSE);
-		valueLength = objp->valueLength;
+		valueLength = (u_int)objp->valueLength;
     }
 	
     if (!sec_xdr_bytes(xdrs, (uint8_t **)&objp->value, &valueLength, ~0))

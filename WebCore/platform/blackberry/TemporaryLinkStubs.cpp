@@ -20,14 +20,9 @@
 
 #include "NotImplemented.h"
 
-#include "PlatformString.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
-
-void prefetchDNS(String const&)
-{
-    notImplemented();
-}
 
 void setCookieStoragePrivateBrowsingEnabled(bool)
 {

@@ -70,7 +70,7 @@ __FBSDID("$FreeBSD: src/usr.bin/tar/read.c,v 1.40 2008/08/21 06:41:14 kientzle E
 #include <libgen.h>
 
 #include <TargetConditionals.h>
-#if TARGET_OS_MAC && !TARGET_OS_EMBEDDED
+#if TARGET_OS_MAC && !TARGET_OS_IPHONE
 #define HAVE_QUARANTINE 1
 #endif /* TARGET_OS_MAC */
 

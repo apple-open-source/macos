@@ -1,0 +1,69 @@
+#!/usr/bin/expect --
+
+proc usage {} {
+  puts stderr "Usage: sshauser \[ --retry \] port user \[ command ... \]"
+  exit 22
+}
+
+if { $argc < 2 } {
+    usage
+}
+
+set arg 0
+set retry 0
+if { [lindex $argv $arg] == "--retry" } {
+  set retry 1
+  set arg [expr $arg + 1]
+}
+set offset [lindex $argv $arg]
+set arg [expr $arg + 1]
+set username [lindex $argv $arg]
+set arg [expr $arg + 1]
+set command [lrange $argv $arg $argc]
+
+set password "alpine"
+set timeout 60
+
+# trap SIGWINCH and pass to spawned process
+trap {
+ set rows [stty rows]
+ set cols [stty columns]
+ stty rows $rows columns $cols < $spawn_out(slave,name)
+} WINCH
+
+set continue 1
+while { $continue } {
+	set continue $retry
+	spawn ssh -o NoHostAuthenticationForLocalhost=yes -p $offset $username@localhost
+	while { 1 } {
+		expect "Are you sure you want to continue connecting (yes/no)" {
+			send "yes\r" 
+		} "password:" { 
+			send "$password\r" 
+		} "#" {
+			 if { $argc > 2 } { send "$command\r" }
+			 interact
+			 break
+		} "mobile" {
+			 if { $argc > 2 } { send "$command\r" }
+			 interact
+			 break
+		} "ssh: connect to host localhost port $offset: Connection refused" {
+			if { $retry } {
+			  wait
+			  set continue $retry
+			  send_user "conection lost... retrying in 5 seconds.\n"
+			  sleep 5
+			}
+			break
+		} "ssh_exchange_identification: read: Connection reset by peer" {
+			if { $retry } {
+			  wait
+			  set continue $retry
+			  send_user "Device rebooting waiting for 15 seconds.\n"
+			  sleep 15
+			}
+			break
+		}
+	}
+}

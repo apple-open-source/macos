@@ -1,0 +1,10 @@
+#!perl
+
+use strict;
+use warnings;
+
+while (<STDIN>) {
+    print;
+}
+
+print q{my $foo = "Kilroy was here";}, "\n";

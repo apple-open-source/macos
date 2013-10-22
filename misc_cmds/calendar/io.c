@@ -136,11 +136,18 @@ cal(void)
 		}
 		if (buf[0] != '\t') {
 			printing = isnow(buf, &month, &day, &var) ? 1 : 0;
-			if ((p = strchr(buf, '\t')) == NULL)
+			if ((p = strchr(buf, '\t')) == NULL) {
+#if DEBUG
+				fprintf(stderr, "[continue <%s>]\n", buf);
+#endif
 				continue;
+			}
 			if (p > buf && p[-1] == '*')
 				var = 1;
 			if (printing) {
+#if DEBUG
+				fprintf(stderr, "[Add event]\n");
+#endif
 				struct tm tm;
 				char dbuf[80];
 
@@ -380,7 +387,7 @@ opencal(void)
 			warnx("setuid failed");
 			_exit(1);
 		}
-		execl(_PATH_CPP, "cpp", "-P",
+		execl(_PATH_CPP, "cpp", "-w", "-P",
 		    "-traditional", "-nostdinc",	/* GCC specific opts */
 		    "-I.", "-I" _PATH_INCLUDE, (char *)NULL);
 		warn(_PATH_CPP);

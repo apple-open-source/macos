@@ -43,7 +43,6 @@ namespace WebKit {
     class ChromeClient : public WebCore::ChromeClient {
     public:
         ChromeClient(WebKitWebView*);
-        virtual void* webView() const { return m_webView; }
         GtkAdjustmentWatcher* adjustmentWatcher() { return &m_adjustmentWatcher; }
 
         virtual void chromeDestroyed();
@@ -82,9 +81,7 @@ namespace WebKit {
 
         virtual void setResizable(bool);
 
-        virtual void addMessageToConsole(MessageSource source, MessageType type,
-                                         MessageLevel level, const WTF::String& message,
-                                         unsigned int lineNumber, const WTF::String& sourceID);
+        virtual void addMessageToConsole(MessageSource, MessageLevel, const WTF::String& message, unsigned lineNumber, unsigned columnNumber, const WTF::String& sourceID);
 
         virtual bool canRunBeforeUnloadConfirmPanel();
         virtual bool runBeforeUnloadConfirmPanel(const WTF::String& message, Frame* frame);
@@ -99,9 +96,6 @@ namespace WebKit {
         virtual KeyboardUIMode keyboardUIMode();
 
         virtual IntRect windowResizerRect() const;
-#if ENABLE(REGISTER_PROTOCOL_HANDLER) 
-        virtual void registerProtocolHandler(const WTF::String&, const WTF::String&, const WTF::String&, const WTF::String&); 
-#endif 
         virtual void invalidateRootView(const IntRect&, bool);
         virtual void invalidateContentsAndRootView(const IntRect&, bool);
         virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
@@ -121,7 +115,7 @@ namespace WebKit {
 
         virtual void print(Frame*);
 #if ENABLE(SQL_DATABASE)
-        virtual void exceededDatabaseQuota(Frame*, const WTF::String&);
+        virtual void exceededDatabaseQuota(Frame*, const WTF::String&, DatabaseDetails);
 #endif
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
         virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t totalSpaceNeeded);
@@ -140,7 +134,7 @@ namespace WebKit {
         virtual bool hasOpenedPopup() const;
         virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
         virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && USE(NATIVE_FULLSCREEN_VIDEO)
         virtual bool supportsFullscreenForNode(const Node*);
         virtual void enterFullscreenForNode(Node*);
         virtual void exitFullscreenForNode(Node*);
@@ -155,18 +149,20 @@ namespace WebKit {
 
         virtual bool shouldRubberBandInDirection(ScrollDirection) const { return true; }
         virtual void numWheelEventHandlersChanged(unsigned) { }
-        virtual void numTouchEventHandlersChanged(unsigned) { }
 
 #if USE(ACCELERATED_COMPOSITING) 
         virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*);
         virtual void setNeedsOneShotDrawingSynchronization();
-        virtual void scheduleCompositingLayerSync();
+        virtual void scheduleCompositingLayerFlush();
         virtual CompositingTriggerFlags allowedCompositingTriggers() const;
 #endif 
 
         void performAllPendingScrolls();
         void paint(Timer<ChromeClient>*);
+        void forcePaint();
         void widgetSizeChanged(const IntSize& oldWidgetSize, IntSize newSize);
+
+        WebKitWebView* webView() { return m_webView; }
 
     private:
         WebKitWebView* m_webView;
@@ -175,13 +171,13 @@ namespace WebKit {
         unsigned int m_closeSoonTimer;
 
         Timer <ChromeClient> m_displayTimer;
+        bool m_forcePaint;
         Region m_dirtyRegion;
         Vector<IntRect> m_rectsToScroll;
         Vector<IntSize> m_scrollOffsets;
         double m_lastDisplayTime;
         unsigned int m_repaintSoonSourceId;
 
-        void invalidateWidgetRect(const IntRect&);
 #if ENABLE(FULLSCREEN_API)
         RefPtr<Element> m_fullScreenElement;
 #endif

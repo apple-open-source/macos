@@ -90,7 +90,7 @@ wait_for_process_timed(pid_t pid, time_t (*func)(void *),
 
     if (func) {
 	old_func = signal(SIGALRM, sigtimeout);
-	oldtime = alarm(timeout);
+	oldtime = alarm((int)timeout);
     }
 
     while(1) {
@@ -113,7 +113,7 @@ wait_for_process_timed(pid_t pid, time_t (*func)(void *),
 		ret = SE_E_EXECTIMEOUT;
 		goto out;
 	    }
-	    alarm(timeout);
+	    alarm((int)timeout);
 	}
 	if(WIFSTOPPED(status))
 	    continue;

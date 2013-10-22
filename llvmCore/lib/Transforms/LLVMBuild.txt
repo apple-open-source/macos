@@ -15,8 +15,10 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = IPO InstCombine Instrumentation Scalar Utils Vectorize
+
 [component_0]
 type = Group
 name = Transforms
 parent = Libraries
-

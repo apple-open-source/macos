@@ -1,0 +1,52 @@
+#include "<DEVELOPER_DIR>/Makefiles/CoreOS/Xcode/BSD.xcconfig"
+
+DEAD_CODE_STRIPPING = NO
+CURRENT_PROJECT_VERSION = $(CURRENT_PROJECT_VERSION)
+DYLIB_CURRENT_VERSION = $(CURRENT_PROJECT_VERSION)
+
+LD_DYLIB_INSTALL_NAME = /usr/lib/system/$(EXECUTABLE_PATH)
+
+EXECUTABLE_PREFIX = libsystem_
+EXECUTABLE_PREFIX[sdk=iphonesimulator*] = libsystem_sim_
+
+PRODUCT_NAME = asl
+
+INSTALL_PATH = /usr/lib/system
+INSTALL_PATH[sdk=iphonesimulator*] = $(SDKROOT)/usr/lib/system
+
+PUBLIC_HEADERS_FOLDER_PATH = /usr/include
+PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*] = $(SDKROOT)/usr/include
+
+PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include
+PRIVATE_HEADERS_FOLDER_PATH[sdk=iphonesimulator*] = $(SDKROOT)/usr/local/include
+
+LINK_WITH_STANDARD_LIBRARIES = NO
+
+CR_LDFLAGS[sdk=macosx*] = -lCrashReporterClient
+LIBCOMPILER_RT_LDFLAGS = -lcompiler_rt
+LIBCOMPILER_RT_LDFLAGS[sdk=iphonesimulator*] = -lcompiler_rt_sim
+LIBCLOSURE_LDFLAGS = -lsystem_blocks
+LIBCLOSURE_LDFLAGS[sdk=iphonesimulator*] = -lsystem_sim_blocks
+LIBC_LDFLAGS = -lsystem_c
+LIBC_LDFLAGS[sdk=iphonesimulator*] = -lsystem_sim_c
+LIBLAUNCH_LDFLAGS = -llaunch
+LIBLAUNCH_LDFLAGS[sdk=iphonesimulator*] =
+LIBMALLOC_LDFLAGS = -lsystem_malloc
+LIBMALLOC_LDFLAGS[sdk=iphonesimulator*] = -Wl,-upward-lSystem
+LIBNOTIFY_LDFLAGS = -lsystem_notify
+LIBNOTIFY_LDFLAGS[sdk=iphonesimulator*] = -Wl,-upward-lSystem
+LIBPLATFORM_LDFLAGS = -lsystem_platform
+LIBPLATFORM_LDFLAGS[sdk=iphonesimulator*] = -Wl,-upward-lSystem
+LIBPTHREAD_LDFLAGS = -lsystem_pthread
+LIBPTHREAD_LDFLAGS[sdk=iphonesimulator*] = -Wl,-upward-lSystem
+LIBSYSCALL_LDFLAGS = -lsystem_kernel
+LIBSYSCALL_LDFLAGS[sdk=iphonesimulator*] = -Wl,-upward-lSystem
+LIBM_LDFLAGS = -lsystem_m
+LIBM_LDFLAGS[sdk=iphonesimulator*] = -lsystem_sim_m
+LIBDYLD_LDFLAGS = -ldyld
+LIBDYLD_LDFLAGS[sdk=iphonesimulator*] = -ldyld_sim
+
+OTHER_LDFLAGS = -all_load -L/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBC_LDFLAGS) $(LIBCLOSURE_LDFLAGS) -ldispatch $(LIBLAUNCH_LDFLAGS) -lxpc $(LIBNOTIFY_LDFLAGS) $(UPWARD_LINKS)
+
+UPWARD_LINKS = -Wl,-upward-lsystem_info
+UPWARD_LINKS[sdk=iphonesimulator*] = -Wl,-upward-lsystem_sim_info

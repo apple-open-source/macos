@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,7 @@
 #include <sys/types.h>
 #endif
 #include <sys/ioccom.h>
+#include <sys/unistd.h>
 
 #include <netsmb/smb.h>
 
@@ -66,8 +67,12 @@
  */
 #define SMB_MAX_IOC_SIZE 4 * 1024
 
-#define SMB_SHARING_VC			1	/* We are sharing this Virtual Circuit */
-#define SMB_FORCE_NEW_SESSION	2	/* Use a new Virtual Circuit */
+/* Negotiate Ioctl extra flags */
+#define SMB_SHARING_VC          0x01	/* We are sharing this Virtual Circuit */
+#define SMB_FORCE_NEW_SESSION   0x02	/* Use a new Virtual Circuit */
+#define SMB_SMB1_ONLY           0x04	/* Only allow SMB 1.x */
+#define SMB_SMB2_ONLY           0x08	/* Only allow SMB 2.x */
+#define SMB_SIGNING_REQUIRED	0x10
 
 #define SMB_IOC_SPI_INIT_SIZE	8 * 1024 /* Inital buffer size for server provided init token */
 
@@ -109,6 +114,7 @@ struct smbioc_negotiate {
 	int32_t		ioc_laddr_len;
 	uint32_t	ioc_ntstatus;
 	uint32_t	ioc_errno;
+    uuid_t      ioc_client_guid;    /* SMB 2.x */
 	SMB_IOC_POINTER(struct sockaddr *, saddr);
 	SMB_IOC_POINTER(struct sockaddr *, laddr);
 	uint32_t	ioc_userflags;		/* Authentication request flags */
@@ -240,13 +246,19 @@ struct smbioc_ntwrk_identity {
 };
 
 struct smbioc_vc_properties {
-	uint32_t	ioc_version;
+	uint32_t    ioc_version;
 	uint32_t	ioc_reserved;
-	uint32_t	flags;				
-	uint32_t	hflags2;				
+    uint32_t    uid;
+    uint32_t    smb1_caps;
+    uint32_t    smb2_caps;
+	uint32_t	flags;
+    uint64_t    misc_flags;
+    uint32_t    hflags;
+	uint32_t	hflags2;
 	uint64_t	txmax;				
 	uint64_t	rxmax;				
-	uint64_t	wxmax;				
+	uint64_t	wxmax;
+    char        model_info[SMB_MAXFNAMELEN * 2] __attribute((aligned(8)));
 };
 
 /*
@@ -269,6 +281,7 @@ struct smbioc_vc_properties {
 #define	SMBIOC_CANCEL_SESSION	_IOR('n', 115, uint16_t)
 #define SMBIOC_VC_PROPERTIES	_IOWR('n', 116, struct smbioc_vc_properties)
 #define	SMBIOC_GET_OS_LANMAN	_IOR('n', 117, struct smbioc_os_lanman)
+/* Rest of the IOCTLs are defined in smb_dev_2.h */
 
 /*
 * Additional non-errno values that can be returned to NetFS, these get translate
@@ -304,7 +317,8 @@ int smb_usr_convert_path_to_network(struct smb_vc *vc, struct smbioc_path_conver
 int smb_usr_convert_network_to_path(struct smb_vc *vc, struct smbioc_path_convert * dp);
 int smb_dev2share(int fd, struct smb_share **outShare);
 int smb_usr_fsctl(struct smb_share *share, struct smbioc_fsctl * fsctl, vfs_context_t context);
-
+int smb_cpdatain(struct mbchain *mbp, user_addr_t data, int len, 
+                 vfs_context_t context);
 
 #else /* _KERNEL */
 /* Only used in user land */

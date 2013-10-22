@@ -39,6 +39,7 @@
 #include "HTMLDocument.h"
 #include "InspectorInstrumentation.h"
 #include "JSArrayBuffer.h"
+#include "JSArrayBufferView.h"
 #include "JSBlob.h"
 #include "JSDOMFormData.h"
 #include "JSDOMWindowCustom.h"
@@ -71,10 +72,8 @@ void JSXMLHttpRequest::visitChildren(JSCell* cell, SlotVisitor& visitor)
     if (ArrayBuffer* responseArrayBuffer = thisObject->m_impl->optionalResponseArrayBuffer())
         visitor.addOpaqueRoot(responseArrayBuffer);
 
-#if ENABLE(XHR_RESPONSE_BLOB)
     if (Blob* responseBlob = thisObject->m_impl->optionalResponseBlob())
         visitor.addOpaqueRoot(responseBlob);
-#endif
 
     thisObject->m_impl->visitJSEventListeners(visitor);
 }
@@ -85,8 +84,8 @@ JSValue JSXMLHttpRequest::open(ExecState* exec)
     if (exec->argumentCount() < 2)
         return throwError(exec, createNotEnoughArgumentsError(exec));
 
-    const KURL& url = impl()->scriptExecutionContext()->completeURL(ustringToString(exec->argument(1).toString(exec)->value(exec)));
-    String method = ustringToString(exec->argument(0).toString(exec)->value(exec));
+    const KURL& url = impl()->scriptExecutionContext()->completeURL(exec->argument(1).toString(exec)->value(exec));
+    String method = exec->argument(0).toString(exec)->value(exec);
 
     ExceptionCode ec = 0;
     if (exec->argumentCount() >= 3) {
@@ -128,17 +127,19 @@ JSValue JSXMLHttpRequest::send(ExecState* exec)
             impl()->send(toDOMFormData(val), ec);
         else if (val.inherits(&JSArrayBuffer::s_info))
             impl()->send(toArrayBuffer(val), ec);
+        else if (val.inherits(&JSArrayBufferView::s_info))
+            impl()->send(toArrayBufferView(val), ec);
         else
-            impl()->send(ustringToString(val.toString(exec)->value(exec)), ec);
+            impl()->send(val.toString(exec)->value(exec), ec);
     }
 
     int signedLineNumber;
     intptr_t sourceID;
-    UString sourceURL;
+    String sourceURL;
     JSValue function;
     exec->interpreter()->retrieveLastCaller(exec, signedLineNumber, sourceID, sourceURL, function);
     impl()->setLastSendLineNumber(signedLineNumber >= 0 ? signedLineNumber : 0);
-    impl()->setLastSendURL(ustringToString(sourceURL));
+    impl()->setLastSendURL(sourceURL);
 
     setDOMException(exec, ec);
     return jsUndefined();
@@ -174,7 +175,6 @@ JSValue JSXMLHttpRequest::response(ExecState* exec) const
         }
 
     case XMLHttpRequest::ResponseTypeBlob:
-#if ENABLE(XHR_RESPONSE_BLOB)
         {
             ExceptionCode ec = 0;
             Blob* blob = impl()->responseBlob(ec);
@@ -184,9 +184,6 @@ JSValue JSXMLHttpRequest::response(ExecState* exec) const
             }
             return toJS(exec, globalObject(), blob);
         }
-#else
-        return jsUndefined();
-#endif
 
     case XMLHttpRequest::ResponseTypeArrayBuffer:
         {

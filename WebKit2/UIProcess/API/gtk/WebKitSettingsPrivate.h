@@ -27,8 +27,8 @@
 #define WebKitSettingsPrivate_h
 
 #include "WebKitSettings.h"
-#include <WebKit2/WebKit2.h>
+#include "WebPreferences.h"
 
-void webkitSettingsAttachSettingsToPage(WebKitSettings*, WKPageRef);
+WebKit::WebPreferences* webkitSettingsGetPreferences(WebKitSettings*);
 
 #endif // WebKitSettingsPrivate_h

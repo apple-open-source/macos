@@ -33,6 +33,8 @@
 #define _ISAKMP_VAR_H
 
 #include "vmbuf.h"
+#include "racoon_types.h"
+#include <schedule.h>
 
 #define PORT_ISAKMP 500
 #define PORT_ISAKMP_NATT 4500
@@ -48,92 +50,95 @@ typedef struct { /* i_cookie + r_cookie */
 } isakmp_index;
 
 struct isakmp_gen;
-struct sched;
+
+
 
 struct sockaddr_storage;
-struct ph1handle;
-struct ph2handle;
 struct remoteconf;
 struct isakmp_gen;
 struct ipsecdoi_pl_id;	/* XXX */
 struct isakmp_pl_ke;	/* XXX */
 struct isakmp_pl_nonce;	/* XXX */
 
-extern int isakmp_handler __P((int));
-extern int isakmp_ph1begin_i __P((struct remoteconf *, struct sockaddr_storage *,
-	struct sockaddr_storage *, int));
+extern void isakmp_handler (int);
+extern int ikev1_ph1begin_i (ike_session_t *session, struct remoteconf *, struct sockaddr_storage *,
+	struct sockaddr_storage *, int);
+extern int get_sainfo_r (phase2_handle_t *);
+extern int get_proposal_r (phase2_handle_t *);
 
-extern vchar_t *isakmp_parsewoh __P((int, struct isakmp_gen *, int));
-extern vchar_t *isakmp_parse __P((vchar_t *));
+extern vchar_t *isakmp_parsewoh (int, struct isakmp_gen *, int);
+extern vchar_t *isakmp_parse (vchar_t *);
 
-extern int isakmp_init __P((int, int *));
-extern void isakmp_cleanup __P((void));
+extern int isakmp_init (void);
+extern void isakmp_cleanup (void);
 
-extern const char *isakmp_pindex __P((const isakmp_index *, const u_int32_t));
-extern int isakmp_open __P((int *));
-extern void isakmp_close __P((void));
-extern void isakmp_close_sockets __P((void));
-extern void isakmp_close_unused __P((void));
-extern int isakmp_send __P((struct ph1handle *, vchar_t *));
+extern const char *isakmp_pindex (const isakmp_index *, const u_int32_t);
+extern int isakmp_open (void);
+extern void isakmp_suspend_sockets(void);
+extern void isakmp_close (void);
+extern void isakmp_close_sockets (void);
+extern void isakmp_close_unused (void);
+extern int isakmp_send (phase1_handle_t *, vchar_t *);
 
-extern void isakmp_ph1resend_stub __P((void *));
-extern int isakmp_ph1resend __P((struct ph1handle *));
-extern void isakmp_ph2resend_stub __P((void *));
-extern int isakmp_ph2resend __P((struct ph2handle *));
-extern void isakmp_ph1expire_stub __P((void *));
-extern void isakmp_ph1expire __P((struct ph1handle *));
-extern void isakmp_ph1rekeyexpire_stub __P((void *));
-extern void isakmp_ph1rekeyexpire __P((struct ph1handle *, int));
-extern int  isakmp_ph1rekeyretry __P((struct ph1handle *));
-extern void isakmp_ph1delete_stub __P((void *));
-extern void isakmp_ph1delete __P((struct ph1handle *));
-extern void isakmp_ph2expire_stub __P((void *));
-extern void isakmp_ph2expire __P((struct ph2handle *));
-extern void isakmp_ph2delete_stub __P((void *));
-extern void isakmp_ph2delete __P((struct ph2handle *));
+extern void isakmp_ph1resend_stub (void *);
+extern int isakmp_ph1resend (phase1_handle_t *);
+extern void isakmp_ph2resend_stub (void *);
+extern int isakmp_ph2resend (phase2_handle_t *);
 
-extern int isakmp_post_acquire __P((struct ph2handle *));
-extern int isakmp_post_getspi __P((struct ph2handle *));
-extern void isakmp_chkph1there_stub __P((void *));
-extern void isakmp_chkph1there __P((struct ph2handle *));
+extern void isakmp_ph1expire_stub (void *);
+extern void isakmp_ph1expire (phase1_handle_t *);
+extern void isakmp_ph1rekeyexpire_stub (void *);
+extern void isakmp_ph1rekeyexpire (phase1_handle_t *, int);
+extern int  isakmp_ph1rekeyretry (phase1_handle_t *);
+extern void isakmp_ph1delete_stub (void *);
+extern void isakmp_ph1delete (phase1_handle_t *);
+extern void isakmp_ph2expire_stub (void *);
+extern void isakmp_ph2expire (phase2_handle_t *);
+extern void isakmp_ph2delete_stub (void *);
+extern void isakmp_ph2delete (phase2_handle_t *);
+extern int ikev1_phase1_established(phase1_handle_t *);
 
-extern caddr_t isakmp_set_attr_v __P((caddr_t, int, caddr_t, int));
-extern caddr_t isakmp_set_attr_l __P((caddr_t, int, u_int32_t));
-extern vchar_t *isakmp_add_attr_v __P((vchar_t *, int, caddr_t, int));
-extern vchar_t *isakmp_add_attr_l __P((vchar_t *, int, u_int32_t));
+extern int isakmp_post_acquire (phase2_handle_t *);
+extern int isakmp_post_getspi (phase2_handle_t *);
+extern void isakmp_chkph1there_stub (void *);
+extern void isakmp_chkph1there (phase2_handle_t *);
 
-extern int isakmp_newcookie __P((caddr_t, struct sockaddr_storage *, struct sockaddr_storage *));
+extern caddr_t isakmp_set_attr_v (caddr_t, int, caddr_t, int);
+extern caddr_t isakmp_set_attr_l (caddr_t, int, u_int32_t);
+extern vchar_t *isakmp_add_attr_v (vchar_t *, int, caddr_t, int);
+extern vchar_t *isakmp_add_attr_l (vchar_t *, int, u_int32_t);
 
-extern int isakmp_p2ph __P((vchar_t **, struct isakmp_gen *));
+extern int isakmp_newcookie (caddr_t, struct sockaddr_storage *, struct sockaddr_storage *);
 
-extern u_int32_t isakmp_newmsgid2 __P((struct ph1handle *));
-extern caddr_t set_isakmp_header1 __P((vchar_t *, struct ph1handle *, int));
-extern caddr_t set_isakmp_header2 __P((vchar_t *, struct ph2handle *, int));
-extern caddr_t set_isakmp_payload __P((caddr_t, vchar_t *, int));
+extern int isakmp_p2ph (vchar_t **, struct isakmp_gen *);
 
-extern struct payload_list *isakmp_plist_append __P((struct payload_list *plist, 
-	vchar_t *payload, int payload_type));
-extern vchar_t *isakmp_plist_set_all __P((struct payload_list **plist,
-	struct ph1handle *iph1));
-extern vchar_t *isakmp_plist_append_initial_contact __P((struct ph1handle *,
-															struct payload_list *));
+extern u_int32_t isakmp_newmsgid2 (phase1_handle_t *);
+extern caddr_t set_isakmp_header1 (vchar_t *, phase1_handle_t *, int);
+extern caddr_t set_isakmp_header2 (vchar_t *, phase2_handle_t *, int);
+extern caddr_t set_isakmp_payload (caddr_t, vchar_t *, int);
+
+extern struct payload_list *isakmp_plist_append (struct payload_list *plist, 
+	vchar_t *payload, int payload_type);
+extern vchar_t *isakmp_plist_set_all (struct payload_list **plist,
+	phase1_handle_t *iph1);
+extern vchar_t *isakmp_plist_append_initial_contact (phase1_handle_t *, struct payload_list *);
 
 #ifdef HAVE_PRINT_ISAKMP_C
-extern void isakmp_printpacket __P((vchar_t *, struct sockaddr_storage *,
-	struct sockaddr_storage *, int));
+extern void isakmp_printpacket (vchar_t *, struct sockaddr_storage *,
+	struct sockaddr_storage *, int);
 #endif
 
-extern int copy_ph1addresses __P(( struct ph1handle *,
-	struct remoteconf *, struct sockaddr_storage *, struct sockaddr_storage *));
-extern void log_ph1established __P((const struct ph1handle *));
+extern int copy_ph1addresses (phase1_handle_t *,
+	struct remoteconf *, struct sockaddr_storage *, struct sockaddr_storage *);
+extern void log_ph1established (const phase1_handle_t *);
 
-extern void script_hook __P((struct ph1handle *, int)); 
-extern int script_env_append __P((char ***, int *, char *, char *));
-extern int script_exec __P((char *, int, char * const *));
+extern void script_hook (phase1_handle_t *, int); 
+extern int script_env_append (char ***, int *, char *, char *);
+extern int script_exec (char *, int, char * const *);
 
-void purge_remote __P((struct ph1handle *));
-void delete_spd __P((struct ph2handle *));
+void purge_remote (phase1_handle_t *);
+void delete_spd (phase2_handle_t *);
 #ifdef INET6
-u_int32_t setscopeid __P((struct sockaddr_storage *, struct sockaddr_storage *));
+u_int32_t setscopeid (struct sockaddr_storage *, struct sockaddr_storage *);
 #endif
 #endif /* _ISAKMP_VAR_H */

@@ -1,15 +1,15 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * Copyright (c) 2011 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -26,18 +26,17 @@
 
 //===========================================================================
 boolean_t IOHIDSystemCursorHelper::init()
-{   
+{
     location.fromIntFloor(0, 0);
     locationDelta.fromIntFloor(0, 0);
     locationDeltaPosting.fromIntFloor(0, 0);
     locationDeltaAccumulated.fromIntFloor(0, 0);
     screenLocation.fromIntFloor(0, 0);
     expectedCountValue.fromIntFloor(0);
-    eventCount = 0; 
-    eventCountPosting = 0; 
-    overdueTime = 0;
-    
-    return true; 
+    eventCount = 0;
+    eventCountPosting = 0;
+
+    return true;
 }
 
 //===========================================================================
@@ -50,7 +49,7 @@ void IOHIDSystemCursorHelper::startPosting()
 }
 
 //===========================================================================
-void IOHIDSystemCursorHelper::updateScreenLocation(IOGBounds *desktop, 
+void IOHIDSystemCursorHelper::updateScreenLocation(IOGBounds *desktop,
                                                    IOGBounds *screen)
 {
     if (!desktop || !screen) {
@@ -75,7 +74,7 @@ void IOHIDSystemCursorHelper::updateScreenLocation(IOGBounds *desktop,
                 if ((screenWidth == desktopWidth) && (screenHeight == desktopHeight)) {
                     // translation only
                     screenLocation = location;
-                    screenLocation += scratch.fromIntFloor(screen->minx - desktop->minx, 
+                    screenLocation += scratch.fromIntFloor(screen->minx - desktop->minx,
                                                            screen->miny - desktop->miny);
                 }
                 else {
@@ -114,16 +113,11 @@ void IOHIDSystemCursorHelper::applyPostingDelta()
 
 
 //===========================================================================
-bool IOHIDSystemCursorHelper::isPosting(UInt64 time)
+bool IOHIDSystemCursorHelper::isPosting()
 {
     bool result = false;
     if (locationDeltaPosting) {
-        if (!time || !overdueTime || (time < overdueTime)) {
-            result = true;
-        }
-        else {
-            IOLog("IOHIDSystem cursor update overdue. Resending.\n");
-        }
+        result = true;
     }
     return result;
 }
@@ -166,14 +160,14 @@ void IOHIDSystemCursorHelper::klogPosition(const char *name, uint64_t ts)
             "S(%016llx, %016llx) "
             "C %ld/%ld of %016llx\n",
             name, ts,
-            location.xValue().asFixed64(), 
+            location.xValue().asFixed64(),
             location.yValue().asFixed64(),
-            locationDelta.xValue().asFixed64(), 
-            locationDelta.yValue().asFixed64(), 
-            locationDeltaPosting.xValue().asFixed64(), 
-            locationDeltaPosting.yValue().asFixed64(), 
-            locationDeltaAccumulated.xValue().asFixed64(), 
-            locationDeltaAccumulated.yValue().asFixed64(), 
+            locationDelta.xValue().asFixed64(),
+            locationDelta.yValue().asFixed64(),
+            locationDeltaPosting.xValue().asFixed64(),
+            locationDeltaPosting.yValue().asFixed64(),
+            locationDeltaAccumulated.xValue().asFixed64(),
+            locationDeltaAccumulated.yValue().asFixed64(),
             screenLocation.xValue().asFixed64(),
             screenLocation.yValue().asFixed64(),
             (long int)eventCount,

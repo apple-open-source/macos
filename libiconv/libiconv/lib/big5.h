@@ -1871,7 +1871,7 @@ static const unsigned short big5_2uni_pagec9[7652] = {
 };
 
 static int
-big5_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+big5_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c1 = s[0];
   if ((c1 >= 0xa1 && c1 <= 0xc7) || (c1 >= 0xc9 && c1 <= 0xf9)) {
@@ -4117,7 +4117,7 @@ static const Summary16 big5_uni2indx_pagefe[23] = {
 };
 
 static int
-big5_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+big5_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;

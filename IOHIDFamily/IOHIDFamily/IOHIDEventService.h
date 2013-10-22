@@ -99,33 +99,62 @@ private:
     
     bool                    _readyForInputReports;
 
-
-    struct ExpansionData { 
+    struct ExpansionData {
 		IOService *				provider;
         IOWorkLoop *            workLoop;
-        UInt32                  ejectDelayMS;
-        IOTimerEventSource 	*   ejectTimerEventSource;
-        UInt32                  ejectState;
-        IOOptionBits            ejectOptions;
-        UInt32                  capsDelayMS;
-        IOTimerEventSource 	*   capsTimerEventSource;
-        UInt32                  capsState;
-        IOOptionBits            capsOptions;
         OSArray *               deviceUsagePairs;
         IOCommandGate       *   commandGate;
         
 #if TARGET_OS_EMBEDDED
         OSDictionary *          clientDict;
-        UInt32                  debuggerMask;
-        UInt32                  startDebuggerMask;
-        IOTimerEventSource *    debuggerTimerEventSource;
-        bool                    shouldSwapISO;
-        
-        bool                    previousRangeState;
-        SInt32                  previousX;
-        SInt32                  previousY;
-        bool                    prevousTouchState;
 #endif
+
+        struct {
+            bool                    range;
+            bool                    touch;
+            SInt32                  x;
+            SInt32                  y;
+            SInt32                  z;
+        } digitizer;
+
+        struct {
+            struct {
+                UInt32                  delayMS;
+                IOTimerEventSource 	*   timer;
+                UInt32                  state;
+                IOOptionBits            options;
+            } eject;
+            struct {
+                UInt32                  delayMS;
+                IOTimerEventSource 	*   timer;
+                UInt32                  state;
+                IOOptionBits            options;
+            } caps;
+            
+#if TARGET_OS_EMBEDDED
+            struct {
+                UInt32                  startMask;
+                UInt32                  mask;
+                IOTimerEventSource 	*   timer;
+            } debug;
+
+            bool                    swapISO;
+#endif
+        } keyboard;
+        
+        struct {
+            IOFixed                 x;
+            IOFixed                 y;
+            IOFixed                 z;
+            IOFixed                 rX;
+            IOFixed                 rY;
+            IOFixed                 rZ;
+            UInt32                  buttonState;
+            IOOptionBits            options;
+            IOTimerEventSource *    timer;
+        } multiAxis;
+
+
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -151,9 +180,9 @@ private:
 
     void                    processTransducerData ();
     
-    TransducerData *        createTransducerData ( UInt32 tranducerID );
+    TransducerData *        createTransducerData ( UInt32 transducerID );
     
-    TransducerData *        getTransducerData ( UInt32 tranducerID );
+    TransducerData *        getTransducerData ( UInt32 transducerID );
                                 
     IOFixed                 determineResolution ( IOHIDElement * element );
                                     
@@ -166,6 +195,9 @@ private:
 #if TARGET_OS_EMBEDDED
     void                    debuggerTimerCallback(IOTimerEventSource *sender);
 #endif
+    
+    void                    multiAxisTimerCallback(IOTimerEventSource *sender);
+
 	void					calculateCapsLockDelay();
     
     void                    calculateStandardType();
@@ -292,7 +324,7 @@ protected:
 
     virtual void            dispatchTabletPointerEvent(
                                 AbsoluteTime                timeStamp,
-                                UInt32                      tranducerID,
+                                UInt32                      transducerID,
                                 SInt32                      x,
                                 SInt32                      y,
                                 SInt32                      z,
@@ -311,7 +343,7 @@ protected:
 
     virtual void            dispatchTabletProximityEvent(
                                 AbsoluteTime                timeStamp,
-                                UInt32                      tranducerID,
+                                UInt32                      transducerID,
                                 bool                        inRange,
                                 bool                        invert,
                                 UInt32                      vendorTransducerUniqueID        = 0,
@@ -338,11 +370,214 @@ protected:
     virtual OSArray *       getDeviceUsagePairs();
     
         
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  1);
+    virtual UInt32          getReportInterval();
+
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  2);
+    enum {
+        kMultiAxisOptionRotationForTranslation  = (1<<0),
+        kMultiAxisOptionZForScroll              = (1<<1)
+    };
+/*!
+    @function dispatchMultiAxisPointerEvent
+    @abstract Dispatch multi-axis pointer event
+    @discussion This is meant to be used with joysticks or multi-axis pointer devices such as those with
+                with 6 degrees of freedom.  This function will generate related relative pointer and scroll
+                event associated with movement.
+    @param timeStamp    AbsoluteTime representing origination of event
+    @param buttonState  Button mask where bit0 is the primary button, bit1 secondary and so forth
+    @param x            Absolute location of pointer along the x-axis from -1.0 to 1.0 in 16:16 fixed point.
+    @param y            Absolute location of pointer along the y-axis from -1.0 to 1.0 in 16:16 fixed point.
+    @param z            Absolute location of pointer along the z-axis from -1.0 to 1.0 in 16:16 fixed point.
+    @param rX           Absolute rotation of pointer around the x-axis from -1.0 to 1.0 in 16:16 fixed point.
+    @param rY           Absolute rotation of pointer around the y-axis from -1.0 to 1.0 in 16:16 fixed point.
+    @param rZ           Absolute rotation of pointer around the z-axis from -1.0 to 1.0 in 16:16 fixed point.
+    @param options      Additional options to be used when dispatching event such as leveraging rotational
+                        axis for translation or using the z axis for vertical scrolling.
+*/
+    virtual void            dispatchMultiAxisPointerEvent(
+                                AbsoluteTime                timeStamp,
+                                UInt32                      buttonState,
+                                IOFixed                     x,
+                                IOFixed                     y,
+                                IOFixed                     z,
+                                IOFixed                     rX      = 0,
+                                IOFixed                     rY      = 0,
+                                IOFixed                     rZ      = 0,
+                                IOOptionBits                options = 0 );
+
+    enum {
+        kDigitizerInvert = (1<<0)
+    };
+    
+    enum {
+        kDigitizerTransducerTypeStylus = 0,
+        kDigitizerTransducerTypePuck,
+        kDigitizerTransducerTypeFinger,
+        kDigitizerTransducerTypeHand
+    };
+    typedef UInt32 DigitizerTransducerType;
+    
+/*!
+    @function dispatchDigitizerEvent
+    @abstract Dispatch tablet events without orientation
+    @discussion This is meant to be used with transducers without any orientation.
+    @param timeStamp    AbsoluteTime representing origination of event
+    @param ID           ID of the transducer generating the event
+    @param type         Type of the transducer generating the event
+    @param inRange      Details whether the transducer is in promitity to digitizer surface
+    @param buttonState  Button mask where bit0 is the primary button, bit1 secondary and so forth
+    @param x            Absolute location of transducer along the x-axis from 0.0 to 1.0 in
+                        16:16 fixed point.
+    @param y            Absolute location of transducer along the y-axis from 0.0 to 1.0 in
+                        16:16 fixed point.
+    @param z            Absolute location of transducer along the z-axis from 0.0 to 1.0 in
+                        16:16 fixed point. This is typically used to determine the distance
+                        between the transducer and surface
+    @param tipPressure  Absolute pressure exerted on surface by tip from 0.0 to 1.0 in 16:16
+                        fixed point.
+    @param auxPressure  Absolute pressure exerted on transducer from 0.0 to 1.0 in 16:16 fixed point.
+    @param options      Additional options to be used when dispatching event.
+*/
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  3);
+    virtual void            dispatchDigitizerEvent(
+                                AbsoluteTime                    timeStamp,
+                                UInt32                          transducerID,
+                                DigitizerTransducerType         type,
+                                bool                            inRange,
+                                UInt32                          buttonState,
+                                IOFixed                         x,
+                                IOFixed                         y,
+                                IOFixed                         z               = 0,
+                                IOFixed                         tipPressure     = 0,
+                                IOFixed                         auxPressure     = 0,
+                                IOFixed                         twist           = 0,
+                                IOOptionBits                    options         = 0 );
+
+/*! 
+    @function dispatchDigitizerEventWithTiltOrientation
+    @abstract Dispatch tablet events with tilt orientation
+    @discussion This is meant to be used with transducers that leverage tilt orientation
+    @param timeStamp    AbsoluteTime representing origination of event
+    @param ID           ID of the transducer generating the event 
+    @param type         Type of the transducer generating the event
+    @param inRange      Details whether the transducer is in promitity to digitizer surface
+    @param buttonState  Button mask where bit0 is the primary button, bit1 secondary and so forth
+    @param x            Absolute location of transducer along the x-axis from 0.0 to 1.0 in 
+                        16:16 fixed point.
+    @param y            Absolute location of transducer along the y-axis from 0.0 to 1.0 in
+                        16:16 fixed point.
+    @param z            Absolute location of transducer along the z-axis from 0.0 to 1.0 in
+                        16:16 fixed point. This is typically used to determine the distance 
+                        between the transducer and surface
+    @param tipPressure  Absolute pressure exerted on surface by tip from 0.0 to 1.0 in 16:16 
+                        fixed point.
+    @param auxPressure  Absolute pressure exerted on transducer from 0.0 to 1.0 in 16:16 fixed point.
+    @param twist        Absolute clockwise rotation along the transducer's major axis from 0.0 to 
+                        360.0 degrees in 16:16 fixed point.
+    @param tiltX        Absolute plane angle between the Y-Z plane and the plane containing the
+                        transducer axis and the Y axis.  A positive X tilt is to the right.  Value is
+                        represented in degrees from -90.0 to 90.0 in 16:16 fixed point.
+    @param tiltY        Absolute plane angle between the X-Z plane and the plane containing the
+                        transducer axis and the X axis.  A positive Y tilt is towards the user.  Value
+                        is represented in degrees from -90.0 to 90.0 in 16:16 fixed point.
+    @param options      Additional options to be used when dispatching event. 
+*/
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  4);
+    virtual void            dispatchDigitizerEventWithTiltOrientation(
+                                AbsoluteTime                    timeStamp,
+                                UInt32                          ID,
+                                DigitizerTransducerType         type,
+                                bool                            inRange,
+                                UInt32                          buttonState,
+                                IOFixed                         x,
+                                IOFixed                         y,
+                                IOFixed                         z               = 0,
+                                IOFixed                         tipPressure     = 0, // 0.0-1.0 in 16:16 fixed
+                                IOFixed                         auxPressure     = 0, // 0.0-1.0 in 16:16 fixed
+                                IOFixed                         twist           = 0,
+                                IOFixed                         tiltX           = 0,
+                                IOFixed                         tiltY           = 0,
+                                IOOptionBits                    options         = 0 );
+
+/*!
+    @function dispatchDigitizerEventWithPolarOrientation
+    @abstract Dispatch tablet events with polar orientation
+    @discussion This is meant to be used with transducers that leverage polar orientation
+    @param timeStamp    AbsoluteTime representing origination of event
+    @param ID           ID of the transducer generating the event
+    @param type         Type of the transducer generating the event
+    @param inRange      Details whether the transducer is in promitity to digitizer surface
+    @param buttonState  Button mask where bit0 is the primary button, bit1 secondary and so forth
+    @param x            Absolute location of transducer along the x-axis from 0.0 to 1.0 in
+                        16:16 fixed point.
+    @param y            Absolute location of transducer along the y-axis from 0.0 to 1.0 in
+                        16:16 fixed point.
+    @param z            Absolute location of transducer along the z-axis from 0.0 to 1.0 in
+                        16:16 fixed point. This is typically used to determine the distance
+                        between the transducer and surface
+    @param tipPressure  Absolute pressure exerted on surface by tip from 0.0 to 1.0 in 16:16
+                        fixed point.
+    @param auxPressure  Absolute pressure exerted on transducer from 0.0 to 1.0 in 16:16 fixed point.
+    @param twist        Absolute clockwise rotation along the transducer's major axis from 0.0 to
+                        360.0 degrees in 16:16 fixed point.
+    @param altitude     Specifies angle with the X-Y plane thorugh a signed, semicircular range.
+                        Positive values specify an angle downward and toward the positive Z axis.
+                        Value is represented in degrees from -180.0 to 180.0 in 16:16 fixed point.
+    @param azimuth      Counter clockwise rotation of the cursor around the Z-axis through a full
+                        circular range.  Value is represented in degrees from 0.0 to 360.0 in 16:16 
+                        fixed point.
+    @param options      Additional options to be used when dispatching event.
+*/
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  5);
+    virtual void            dispatchDigitizerEventWithPolarOrientation(
+                                AbsoluteTime                    timeStamp,
+                                UInt32                          transducerID,
+                                DigitizerTransducerType         type,
+                                bool                            inRange,
+                                UInt32                          buttonState,
+                                IOFixed                         x,
+                                IOFixed                         y,
+                                IOFixed                         z               = 0,
+                                IOFixed                         tipPressure     = 0, // 0.0-1.0 in 16:16 fixed
+                                IOFixed                         tanPressure     = 0, // 0.0-1.0 in 16:16 fixed
+                                IOFixed                         twist           = 0,
+                                IOFixed                         altitude        = 0,
+                                IOFixed                         azimuth         = 0,
+                                IOOptionBits                    options         = 0 );
+    
+private:
+    enum {
+        kDigitizerOrientationTypeTilt = 0,
+        kDigitizerOrientationTypePolar,
+        kDigitizerOrientationTypeQuality
+    };
+    typedef UInt32 DigitizerOrientationType;
+    
+    void            dispatchDigitizerEventWithOrientation(
+                                AbsoluteTime                    timeStamp,
+                                UInt32                          transducerID,
+                                DigitizerTransducerType         type,
+                                bool                            inRange,
+                                UInt32                          buttonState,
+                                IOFixed                         x,
+                                IOFixed                         y,
+                                IOFixed                         z                       = 0,
+                                IOFixed                         tipPressure             = 0,
+                                IOFixed                         auxPressure             = 0,
+                                IOFixed                         twist                   = 0,
+                                DigitizerOrientationType        orientationType         = kDigitizerOrientationTypeTilt,
+                                IOFixed *                       orientationParams       = NULL,
+                                UInt32                          orientationParamCount   = 0,
+                                IOOptionBits                    options                 = 0 );
+
+
+
 #if TARGET_OS_EMBEDDED
 public:
     typedef void (*Action)(OSObject *target, OSObject * sender, void *context, OSObject *event, IOOptionBits options);
 
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  1);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  6);
     virtual bool            open(
                                 IOService *                 client,
                                 IOOptionBits                options,
@@ -350,36 +585,31 @@ public:
                                 Action                      action);
                                 
 protected:    
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  2);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  7);
     virtual void            dispatchEvent(IOHIDEvent * event, IOOptionBits options=0);
 
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  3);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  8);
     virtual UInt32          getPrimaryUsagePage();
     
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  4);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  9);
     virtual UInt32          getPrimaryUsage();
     
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  5);
-    virtual UInt32          getReportInterval();
-
-public:    
-    OSMetaClassDeclareReservedUsed(IOHIDEventService,  6);
+public:
+    OSMetaClassDeclareReservedUsed(IOHIDEventService,  10);
     virtual IOHIDEvent *    copyEvent(
                                 IOHIDEventType              type, 
                                 IOHIDEvent *                matching = 0,
                                 IOOptionBits                options = 0);
+    
+protected:
+
 #else
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  1);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  2);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  3);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  4);
-    OSMetaClassDeclareReservedUnused(IOHIDEventService,  5);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  6);
-#endif    
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  7);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  8);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  9);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 10);
+#endif
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 11);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 12);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 13);

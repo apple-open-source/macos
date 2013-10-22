@@ -108,7 +108,7 @@ OSStatus SecAsn1EncodeItem(
  * temp allocs of memory which only needs a scope which is the
  * same as this object. 
  *
- * All except SecAsn1Malloc return a memFullErr in the highly 
+ * All except SecAsn1Malloc return a errSecAllocate in the highly 
  * unlikely event of a malloc failure.
  *
  * SecAsn1Malloc() returns a pointer to allocated memory, like 

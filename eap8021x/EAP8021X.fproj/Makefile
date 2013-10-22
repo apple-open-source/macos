@@ -1,84 +1,106 @@
-SDK = xcodebuild -showsdks | sed -n 's/.*\(iphoneos.*internal\)/\1/p' | head -1
-CC = /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/llvm-gcc-4.2
-SYSROOT = echo /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS*.Internal.sdk
-SYSROOTP = /Developer/Platforms/iPhoneOS.platform
-PF_INC = -F`$(SYSROOT)`/System/Library/PrivateFrameworks
+# Default platform uses the native SDK.
+# To build for Mac OS X using internal SDK, use 'make PLATFORM=macosx <target>'
+# To build for iOS, use 'make PLATFORM=iphoneos <target>'
 
-certattrs: EAPCertificateUtil.c
-	cc -Wall -DTEST_EAPSecCertificateCopyAttributesDictionary -g -o certattrs EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+ifeq ($(PLATFORM),iphoneos)
+# iOS internal SDK
+CORETELEPHONY=-framework CoreTelephony
+ARCHS=armv7
+endif
 
-certattrsp: EAPCertificateUtil.c
-	cc -Wall -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk -arch armv6 -DTEST_EAPSecCertificateCopyAttributesDictionary -g -o certattrsp EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework SystemConfiguration -framework Security -framework CoreFoundation -F/System/Library/PrivateFrameworks
+ifeq ($(PLATFORM),macosx)
+# Mac OS X internal SDK
+ARCHS=i386 x86_64
+CORETELEPHONY=
+endif
 
-identity: EAPCertificateUtil.c
-	cc -Wall -DTEST_EAPSecIdentity -g -o identity EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+ifeq ($(PLATFORM),)
+# Mac OS X native SDK
+ARCHS=i386 x86_64
+CORETELEPHONY=
+CC = cc
+SYSROOT = /
+PF_INC = -F/System/Library/PrivateFrameworks
+else
+# Mac OS X or iOS internal SDK
+SDK=$(PLATFORM).internal
+SYSROOT=$(shell xcodebuild -version -sdk $(SDK) Path)
+CC = xcrun -sdk $(SDK) cc
+PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
+endif
 
-identity_trust_chain: EAPCertificateUtil.c
-	cc -Wall -DTEST_EAPSecIdentityHandleCreateSecIdentityTrustChain -g -o identity_trust_chain EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -F/System/Library/PrivateFrameworks
+ARCH_FLAGS=$(foreach a,$(ARCHS),-arch $(a))
 
-identity_trust_chainp: EAPCertificateUtil.c
-	cc -arch armv6 -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk -Wall -DTEST_EAPSecIdentityHandleCreateSecIdentityTrustChain -g -o identity_trust_chainp EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework SystemConfiguration -framework CoreFoundation -F/System/Library/PrivateFrameworks
+SCPRIV += -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS=1
 
-identityp: EAPCertificateUtil.c
-	cc -Wall -arch armv6 -I.. -DTEST_EAPSecIdentity -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk -g -o identityp EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -F/System/Library/PrivateFrameworks
+certattrs: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPSecCertificateCopyAttributesDictionary $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
-mschap: mschap.c
-	cc -Wall -g -DTEST_MSCHAP -o mschap mschap.c printdata.c DESSupport.c -lcrypto
+identity: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPLog.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c
+	$(CC) $(ARCH_FLAGS) $(SCPRIV) -isysroot $(SYSROOT) -Wall -I.. -DTEST_EAPSecIdentity $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
+	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
 
-keychain: EAPKeychainUtil.c
-	cc -Wall -DTEST_EAPKEYCHAINUTIL -g -o keychain EAPKeychainUtil.c myCFUtil.c EAPSecurity.c -framework Security -framework CoreFoundation
 
-item: EAPKeychainUtil.c
-	cc -Wall -DTEST_EAPKEYCHAINUTIL -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk -arch armv6 -g -o item EAPKeychainUtil.c EAPSecurity.c myCFUtil.c -framework Security -framework CoreFoundation
+identity_trust_chain: EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPSecIdentityHandleCreateSecIdentityTrustChain $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
-trustx: EAPTLSUtil.c
-	cc -Wall -I. -DTEST_TRUST_EXCEPTIONS -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk -arch armv6 -g -o trustx EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+mschap: mschap.c printdata.c DESSupport.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_MSCHAP -framework CoreFoundation -framework SystemConfiguration -lcrypto -g -o $@ $^
 
-eapsectrust: EAPTLSUtil.c
-	cc -Wall -I. -DTEST_SEC_TRUST -isysroot /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS2.0.Internal.sdk -arch armv6 -g -o eapsectrust EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+keychain: EAPKeychainUtil.c myCFUtil.c EAPSecurity.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPKEYCHAINUTIL $(PF_INC) -framework Security -framework CoreFoundation -g -o $@ $^
 
-test_server_names: EAPTLSUtil.c
-	cc -Wall -I. -DTEST_SERVER_NAMES -g -o test_server_names EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+item: EAPKeychainUtil.c EAPSecurity.c myCFUtil.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -DTEST_EAPKEYCHAINUTIL $(PF_INC) -framework Security -framework CoreFoundation -g -o $@ $^
 
-simtlv: eapsim_plugin.c SIMAccess.c
-	cc -g -Wall -Wcast-align -I. -DTEST_TLVLIST_PARSE -o simtlv eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+trustx: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_TRUST_EXCEPTIONS $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
-rand_dups: eapsim_plugin.c
-	cc -g -Wall -I. -DTEST_RAND_DUPS -o rand_dups fips186prf.c fr_sha1.c myCFUtil.c eapsim_plugin.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+eapsectrust: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_SEC_TRUST $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
-sim_crypto: eapsim_plugin.c
-	cc -g -Wall -I. -DTEST_SIM_CRYPTO -o sim_crypto eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+test_server_names: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c EAPUtil.c EAPClientModule.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_SERVER_NAMES $(PF_INC) -framework Security -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
-sim_set_version: eapsim_plugin.c
-	cc -g -Wall -I. -DTEST_SET_VERSION_LIST -o sim_set_version eapsim_plugin.c myCFUtil.c fips186prf.c fr_sha1.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+simtlv: EAPSIMAKAUtil.c EAPUtil.c EAPClientModule.c printdata.c EAPLog.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPSecurity.c myCFUtil.c fips186prf.c fr_sha1.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -Wcast-align -I. -DEAPSIMAKA_PACKET_DUMP -DTEST_TLVLIST_PARSE $(PF_INC) -framework CoreFoundation -framework SystemConfiguration $(CORETELEPHONY) -framework Security -g -o $@ $^
 
-fips186prf: fips186prf.c
-	cc -o fips186prf -g -Wall -I. -DTEST_FIPS186PRF fips186prf.c fr_sha1.c
 
-fips186prf_p: fips186prf.c
-	$(CC) -isysroot $(SYSROOT) -arch armv6 -o fips186prf_p -g -Wall -I. -DTEST_FIPS186PRF fips186prf.c fr_sha1.c
+rand_dups: eapsim_plugin.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c SIMAccess.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPUtil.c EAPClientModule.c EAPSecurity.c EAPLog.c EAPSIMAKAUtil.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_RAND_DUPS $(PF_INC) -framework CoreFoundation -framework SystemConfiguration $(CORETELEPHONY) -framework Security -g -o $@ $^
 
-sim_crypto_p: eapsim_plugin.c
-	$(CC) -arch armv6 -isysroot $(SYSROOT) -g -Wall -I. -DTEST_SIM_CRYPTO -o sim_crypto_p eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+sim_crypto: fips186prf.c fr_sha1.c myCFUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSecurity.c EAPSIMAKAUtil.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPLog.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DEAPSIMAKA_PACKET_DUMP -DTEST_SIM_CRYPTO $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Security $(CORETELEPHONY) -g -o $@ $^
 
-simtlv_p: eapsim_plugin.c SIMAccess.c
-	$(CC) -arch armv6 -isysroot $(SYSROOT) -g -Wcast-align -Wall -I. -DTEST_TLVLIST_PARSE -o simtlv_p eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+sim_set_version: eapsim_plugin.c myCFUtil.c fips186prf.c fr_sha1.c printdata.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPUtil.c EAPClientModule.c EAPSecurity.c SIMAccess.c EAPSIMAKAUtil.c EAPLog.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_SET_VERSION_LIST $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Security $(CORETELEPHONY) -g -o $@ $^
 
-siminfo: eapsim_plugin.c
-	$(CC) -arch armv6 -isysroot $(SYSROOT) -I. -g -Wall -DTEST_SIM_INFO -o siminfo eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -framework CoreTelephony $(PF_INC)
-	codesign -s - -f siminfo
+fips186prf: fips186prf.c fr_sha1.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -I. -DTEST_FIPS186PRF -g -o $@ $^
 
-SIMAccess: SIMAccess.c
-	xcrun -sdk `$(SDK)` cc -DTARGET_OS_EMBEDDED -isysroot `$(SYSROOT)` -DTEST_SIMACCESS -arch armv7 -I. -g -Wall -o SIMAccess SIMAccess.c printdata.c -framework CoreFoundation -framework CoreTelephony $(PF_INC)
-	CODESIGN_ALLOCATE=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/codesign_allocate xcrun -sdk `$(SDK)` codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist SIMAccess
+siminfo: eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPUtil.c EAPClientModule.c EAPSecurity.c EAPSIMAKAUtil.c EAPLog.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) $(SCPRIV) -Wall -I. -DTEST_SIM_INFO $(PF_INC) -framework CoreFoundation -framework SystemConfiguration -framework Security -framework CoreTelephony -g -o $@ $^
+	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
 
-verify_server: EAPTLSUtil.c
-	cc -g -DTEST_EAPTLSVerifyServerCertificateChain -o verify_server EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c -framework CoreFoundation -framework Security -F/System/Library/PrivateFrameworks
+SIMAccess: SIMAccess.c printdata.c myCFUtil.c EAPSIMAKAUtil.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c EAPSecurity.c fips186prf.c fr_sha1.c EAPLog.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) $(SCPRIV) -Wall -I. -DTARGET_OS_EMBEDDED -DTEST_SIMACCESS $(PF_INC) -framework CoreFoundation $(CORETELEPHONY) -framework SystemConfiguration -framework Security -g -o $@ $^
+	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
+
+verify_server: EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c EAPKeychainUtil.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_EAPTLSVerifyServerCertificateChain $(PF_INC) -framework CoreFoundation -framework Security -g -o $@ $^
 
 eapol_socket: eapol_socket.c
-	cc -g -I../EAP8021X.fproj -DTEST_EAPOL_SOCKET -o eapol_socket eapol_socket.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -I../EAP8021X.fproj -DTEST_EAPOL_SOCKET -g -o $@ $^
+
+simaka_persist: EAPSIMAKAPersistentState.c EAPKeychainUtil.c myCFUtil.c EAPSecurity.c printdata.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_EAPSIMAKA_PERSISTENT_STATE $(PF_INC) -framework CoreFoundation -framework Security -framework SystemConfiguration -g -o $@ $^
+	export CODESIGN_ALLOCATE=$(shell xcrun -sdk $(SDK) -find codesign_allocate)
+	xcrun -sdk $(SDK) codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist $@
+
+test_eapaka: eapaka_plugin.c EAPSIMAKAUtil.c SIMAccess.c EAPUtil.c EAPClientModule.c EAPSIMAKAPersistentState.c fips186prf.c printdata.c myCFUtil.c EAPKeychainUtil.c EAPSecurity.c fr_sha1.c EAPLog.c
+	$(CC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DEAPSIMAKA_PACKET_DUMP -DTEST_EAPAKA_PLUGIN $(PF_INC) -framework CoreFoundation -framework Security -framework SystemConfiguration -g -o $@ $^
 
 clean:
 	rm -rf *.dSYM/
 	rm -f *~
-	rm -f simtlv simtlv_p rand_dups sim_crypto sim_crypto_p sim_set_version fips186prf fips186prf_p siminfo SIMAccess verify_server keychain eapol_socket certattrs certattrsp
+	rm -f certattrs identity identity_trust_chain mschap keychain item trustx eapsectrust test_server_names simtlv rand_dups sim_crypto sim_set_version fips186prf siminfo SIMAccess verify_server eapol_socket simaka_persist test_eapaka

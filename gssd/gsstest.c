@@ -23,6 +23,7 @@
 #include <libkern/OSAtomic.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+
 #include <servers/bootstrap.h>
 #include <GSS/gssapi.h>
 #include <GSS/gssapi_krb5.h>
@@ -30,6 +31,8 @@
 #include <GSS/gssapi_spnego.h>
 
 #include <asl.h>
+#include <bsm/audit.h>
+#include <bsm/audit_session.h>
 #include <limits.h>
 #include <pthread.h>
 #include <pwd.h>
@@ -162,6 +165,44 @@ struct gss_name {
 	uint32_t len;
 } clientp, targetp;
 
+static mach_port_t
+get_gssd_port(void)
+{
+	mach_port_t mp, hgssdp;
+	kern_return_t kr;
+	auditinfo_addr_t ai;
+	au_asid_t asid;
+
+	if (getaudit_addr(&ai, sizeof(auditinfo_addr_t))) {
+		perror("getaudit_addr");
+		exit(EXIT_FAILURE);
+	}
+	asid = ai.ai_asid;
+
+	if (seteuid(0)) {
+		Log("Could not get privilege");
+		exit(EXIT_FAILURE);
+	}
+	kr = host_get_gssd_port(mach_host_self(), &hgssdp);
+	if (kr != KERN_SUCCESS) {
+		Log("host_get_gssd_port(): %s\n", mach_error_string(kr));
+		exit(EXIT_FAILURE);
+	}
+	if (seteuid(uid)) {
+		Log("Could not drop privilege");
+		exit(EXIT_FAILURE);
+	}
+	kr = mach_gss_lookup(hgssdp, uid, asid, &mp);
+	if (kr != KERN_SUCCESS) {
+		Log("Could not lookup port for asid = %d, uid = %d: %s\n",
+		    asid, uid, mach_error_string(kr));
+	}
+
+	mach_port_deallocate(mach_host_self(), hgssdp);
+	return (mp);
+
+}
+
 static int
 do_refcount(gssd_mechtype mt, gssd_nametype nt, char *princ)
 {
@@ -209,6 +250,11 @@ int main(int argc, char *argv[])
 	kern_return_t kr;
 
 	uid = getuid();
+	if (seteuid(uid)) {
+		Log("Could not drop privilege");
+		exit(EXIT_FAILURE);
+	}
+
 	setprogname(argv[0]);
 
 	/* Set up mech table */
@@ -361,21 +407,17 @@ int main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 	} else {
-		kr = task_get_gssd_port(mach_task_self(), &client_mp);
-		if (kr != KERN_SUCCESS) {
-			Log("task_get_gssd_port(): %s\n", mach_error_string(kr));
-			exit(EXIT_FAILURE);
-		}
+		client_mp = get_gssd_port();
 	}
 
 	if (!MACH_PORT_VALID(client_mp)) {
 		Log("Could not get a valid client port (%d)\n", client_mp);
 		exit(EXIT_FAILURE);
 	}
-	
+
 	if (refcnt)
 		return do_refcount(mech, name_type, principal);
-	
+
 	if (ServicePrincipal)
 		strlcpy(svcname, ServicePrincipal, sizeof(svcname));
 	else if (use_kerberos) {
@@ -404,11 +446,7 @@ int main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 	} else {
-		kr = task_get_gssd_port(mach_task_self(), &server_mp);
-		if (kr != KERN_SUCCESS) {
-			Log("task_get_gssd_port(): %s\n", mach_error_string(kr));
-			exit(EXIT_FAILURE);
-		}
+		server_mp = get_gssd_port();
 	}
 
 	if (!MACH_PORT_VALID(server_mp)) {

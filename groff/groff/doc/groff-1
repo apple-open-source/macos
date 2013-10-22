@@ -176,7 +176,7 @@ changes).
 transform certain parts of a document into `troff', which made a very
 natural use of pipes in UNIX.
 
-   The `eqn' preprocessor allowed mathematical formulæ to be specified
+   The `eqn' preprocessor allowed mathematical formulÃ¦ to be specified
 in a much simpler and more intuitive manner.  `tbl' is a preprocessor
 for formatting tables.  The `refer' preprocessor (and the similar
 program, `bib') processes citations in a document according to a
@@ -3215,7 +3215,7 @@ macro:
      Upside-down exclamation point.
 
  -- String: \*[8]
-     German ß ligature.
+     German ÃŸ ligature.
 
  -- String: \*[3]
      Yogh.
@@ -3236,10 +3236,10 @@ macro:
      Hooked o.
 
  -- String: \*[ae]
-     Lowercase æ ligature.
+     Lowercase Ã¦ ligature.
 
  -- String: \*[Ae]
-     Uppercase Æ ligature.
+     Uppercase Ã† ligature.
 
 
 File: groff,  Node: ms Strings and Special Characters-Footnotes,  Up: ms Strings and Special Characters
@@ -4214,7 +4214,7 @@ makes e.g.
 
 
      in Paris
-       => A café in Paris
+       => A cafÃ© in Paris
 
 possible, but it is better not to use this feature to avoid confusion.
 
@@ -5189,21 +5189,21 @@ Here a description of requests which influence hyphenation.
      for.  Words which contain other letters won't be hyphenated
      properly if the corresponding hyphenation patterns actually do
      contain them.  For example, the following `hcode' requests are
-     necessary to assign hyphenation codes to the letters `ÄäÖöÜüß'
+     necessary to assign hyphenation codes to the letters `Ã„Ã¤Ã–Ã¶ÃœÃ¼ÃŸ'
      (this is needed for German):
 
 
-          .hcode ä ä  Ä ä
-          .hcode ö ö  Ö ö
-          .hcode ü ü  Ü ü
-          .hcode ß ß
+          .hcode Ã¤ Ã¤  Ã„ Ã¤
+          .hcode Ã¶ Ã¶  Ã– Ã¶
+          .hcode Ã¼ Ã¼  Ãœ Ã¼
+          .hcode ÃŸ ÃŸ
 
      Without those assignments, groff treats German words like
-     `Kindergärten' (the plural form of `kindergarten') as two
+     `KindergÃ¤rten' (the plural form of `kindergarten') as two
      substrings `kinderg' and `rten' because the hyphenation code of
      the umlaut a is zero by default.  There is a German hyphenation
      pattern which covers `kinder', so groff finds the hyphenation
-     `kin-der'.  The other two hyphenation points (`kin-der-gär-ten')
+     `kin-der'.  The other two hyphenation points (`kin-der-gÃ¤r-ten')
      are missed.
 
      This request is ignored if it has no parameter.
@@ -5912,9 +5912,9 @@ Internals::, for more on this process).
           Consider the following translation:
 
 
-               .tr éÉ
+               .tr Ã©Ã‰
 
-          This maps input character `é' onto glyph `É', which is
+          This maps input character `Ã©' onto glyph `Ã‰', which is
           identical to glyph `char201'.  But this glyph intentionally
           doesn't exist!  Instead, `\[char201]' is treated as an input
           character entity and is by default mapped onto `\['E]', and
@@ -5923,7 +5923,7 @@ Internals::, for more on this process).
           The right way to write the above translation is
 
 
-               .tr é\['E]
+               .tr Ã©\['E]
 
           With other words, the first argument of `tr' should be an
           input character or entity, and the second one a glyph entity.

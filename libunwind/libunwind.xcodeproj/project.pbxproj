@@ -213,6 +213,8 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libunwind" */;
 			compatibilityVersion = "Xcode 3.0";
 			developmentRegion = English;
@@ -429,15 +431,23 @@
 				INSTALL_PATH = /usr/lib/system;
 				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
 				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
+				LIBSYSTEM_LIBS = "$(LIBSYSTEM_LIBS_$(PLATFORM_NAME))";
+				LIBSYSTEM_LIBS_iphoneos = "-lsystem_c -ldyld";
+				LIBSYSTEM_LIBS_iphonesimulator = "-lsystem_sim_c -ldyld_sim -Wl,-upward-lSystem";
+				LIBSYSTEM_LIBS_macosx = "-lsystem_malloc -lsystem_pthread -lsystem_platform -lsystem_c -ldyld -lkeymgr ";
 				MACH_O_TYPE = mh_dylib;
 				OTHER_CFLAGS = "-fexceptions";
 				OTHER_CPLUSPLUSFLAGS = "-funwind-tables";
 				OTHER_LDFLAGS = (
+					"-L$(SDKROOT)/usr/lib/system",
 					"-nodefaultlibs",
-					"-Wl,-upward-lSystem",
+					"$(LIBSYSTEM_LIBS)",
 					"-Wl,-umbrella,System",
 				);
-				PRODUCT_NAME = libunwind;
+				PRODUCT_NAME = "$(PRODUCT_NAME_$(PLATFORM_NAME))";
+				PRODUCT_NAME_iphoneos = libunwind;
+				PRODUCT_NAME_iphonesimulator = libunwind_sim;
+				PRODUCT_NAME_macosx = libunwind;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
@@ -462,19 +472,29 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/include";
-				INSTALL_PATH = /usr/lib/system;
+				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)/usr/lib/system";
 				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
 				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
+				LD_DYLIB_INSTALL_NAME = "/usr/lib/system/$(PRODUCT_NAME).dylib";
+				LIBSYSTEM_LIBS = "$(LIBSYSTEM_LIBS_$(PLATFORM_NAME))";
+				LIBSYSTEM_LIBS_iphoneos = "-lsystem_c -ldyld -Wl,-upward-lSystem";
+				LIBSYSTEM_LIBS_iphonesimulator = "-lsystem_sim_c -ldyld_sim -Wl,-upward-lSystem";
+				LIBSYSTEM_LIBS_macosx = "-lsystem_malloc -lsystem_pthread -lsystem_platform -lsystem_c -ldyld -lkeymgr ";
 				MACH_O_TYPE = mh_dylib;
 				ORDER_FILE = "$(SRCROOT)/libunwind.order";
 				OTHER_CFLAGS = "-fexceptions";
 				OTHER_CPLUSPLUSFLAGS = "-funwind-tables";
 				OTHER_LDFLAGS = (
+					"-L$(SDKROOT)/usr/lib/system",
 					"-nodefaultlibs",
-					"-Wl,-upward-lSystem",
+					"$(LIBSYSTEM_LIBS)",
 					"-Wl,-umbrella,System",
+					"-L/usr/lib/system",
 				);
-				PRODUCT_NAME = libunwind;
+				PRODUCT_NAME = "$(PRODUCT_NAME_$(PLATFORM_NAME))";
+				PRODUCT_NAME_iphoneos = libunwind;
+				PRODUCT_NAME_iphonesimulator = libunwind_sim;
+				PRODUCT_NAME_macosx = libunwind;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;

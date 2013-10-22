@@ -41,7 +41,6 @@
 #include <security_cdsa_client/securestorage.h>
 #include <security_cdsa_client/dlclient.h>
 #include <Security/cssmapi.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 /*
  * Key attrribute names and values.
@@ -94,7 +93,7 @@ static CSSM_RETURN impExpSetKeyLabel(
 	SecItemClass itemClass = (cssmKey->KeyHeader.KeyClass == 
 		CSSM_KEYCLASS_PRIVATE_KEY) ? kSecPrivateKeyItemClass :
 			kSecPublicKeyItemClass;
-	SecKeychainAttribute kcAttr = {kSecKeyLabel, existKeyLabel->Length, existKeyLabel->Data};
+	SecKeychainAttribute kcAttr = {kSecKeyLabel, (UInt32)existKeyLabel->Length, existKeyLabel->Data};
 	SecKeychainAttributeList kcAttrList = {1, &kcAttr};
 	SecKeychainSearchRef srchRef = NULL;
 	OSStatus ortn;
@@ -115,9 +114,9 @@ static CSSM_RETURN impExpSetKeyLabel(
 	}
 	#ifndef	NDEBUG
 	ortn = SecKeychainSearchCopyNext(srchRef, &itemRef);
-	if(ortn == noErr) {
+	if(ortn == errSecSuccess) {
 		SecImpExpDbg("impExpSetKeyLabel: found second key with same label!");
-		crtn = internalComponentErr;
+		crtn = errSecInternalComponent;
 		goto errOut;
 	}
 	#endif	/* NDEBUG */
@@ -125,10 +124,10 @@ static CSSM_RETURN impExpSetKeyLabel(
 	/* modify two attributes... */
 	SecKeychainAttribute modAttrs[2];
 	modAttrs[0].tag    = kSecKeyLabel;
-	modAttrs[0].length = keyDigest.Length;
+	modAttrs[0].length = (UInt32)keyDigest.Length;
 	modAttrs[0].data   = keyDigest.Data;
 	modAttrs[1].tag    = kSecKeyPrintName;
-	modAttrs[1].length = newPrintName->Length;
+	modAttrs[1].length = (UInt32)newPrintName->Length;
 	modAttrs[1].data   = newPrintName->Data;
 	kcAttrList.count = 2;
 	kcAttrList.attr = modAttrs;
@@ -261,7 +260,7 @@ OSStatus impExpKeyNotify(
 			recordType = CSSM_DL_DB_RECORD_SYMMETRIC_KEY;
 			break;
 		default:
-			return paramErr;
+			return errSecParam;
 	}
 	assert(importKeychain != NULL);
 	Keychain keychain = KeychainImpl::required(importKeychain);
@@ -293,7 +292,7 @@ OSStatus impExpKeyNotify(
 	Item keyItem = keychain->item(recordType, uniqueId);
 	keychain->postEvent(kSecAddEvent, keyItem);
 
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -457,7 +456,7 @@ OSStatus impExpImportKeyCommon(
 		crtn = impExpAddContextAttribute(ccHand, 
 			CSSM_ATTRIBUTE_EFFECTIVE_BITS,
 			sizeof(uint32),
-			(void *)unwrapParams->effectiveKeySizeInBits);
+			(void *)((size_t) unwrapParams->effectiveKeySizeInBits));
 		if(crtn) {
 			SecImpExpDbg("impExpImportKeyCommon: CSSM_UpdateContextAttributes error");
 			goto errOut;
@@ -472,7 +471,7 @@ OSStatus impExpImportKeyCommon(
 		crtn = impExpAddContextAttribute(ccHand, 
 			CSSM_ATTRIBUTE_ROUNDS,
 			sizeof(uint32),
-			(void *)unwrapParams->rounds);
+			(void *)((size_t)unwrapParams->rounds));
 		if(crtn) {
 			SecImpExpDbg("impExpImportKeyCommon: CSSM_UpdateContextAttributes error");
 			goto errOut;
@@ -490,7 +489,7 @@ OSStatus impExpImportKeyCommon(
 			crtn = impExpAddContextAttribute(ccHand, 
 				CSSM_ATTRIBUTE_BLOCK_SIZE,
 				sizeof(uint32),
-				(void *)unwrapParams->blockSizeInBits);
+				(void *)((size_t)unwrapParams->blockSizeInBits));
 			if(crtn) {
 				SecImpExpDbg("impExpImportKeyCommon: CSSM_UpdateContextAttributes error");
 				goto errOut;
@@ -678,7 +677,7 @@ CSSM_RETURN impExpExportKeyCommon(
 		crtn = impExpAddContextAttribute(ccHand,
 			CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT,
 			sizeof(uint32),		
-			(void *)wrapFormat);
+			(void *)((size_t)wrapFormat));
 		if(crtn) {
 			SecImpExpDbg("impExpExportKeyCommon AddContextAttribute error (1)");
 			CSSM_DeleteContext(ccHand);
@@ -690,7 +689,7 @@ CSSM_RETURN impExpExportKeyCommon(
 		crtn = impExpAddContextAttribute(ccHand,
 			blobAttrType,
 			sizeof(uint32),		
-			(void *)blobForm);
+			(void *)((size_t)blobForm));
 		if(crtn) {
 			SecImpExpDbg("impExpExportKeyCommon AddContextAttribute error");
 			return crtn;
@@ -701,7 +700,6 @@ CSSM_RETURN impExpExportKeyCommon(
 	if(descData) {
 		dData = *descData;
 	}
-	memset(wrappedKey, 0, sizeof(wrappedKey));
 
 	crtn = CSSM_WrapKey(ccHand,
 		creds,

@@ -30,26 +30,25 @@
 #include "config.h"
 #include "StyleGridItemData.h"
 
-#if ENABLE(CSS_GRID_LAYOUT)
-
 #include "RenderStyle.h"
 
 namespace WebCore {
 
 StyleGridItemData::StyleGridItemData()
-    : m_gridColumn(RenderStyle::initialGridItemColumn())
-    , m_gridRow(RenderStyle::initialGridItemRow())
+    : m_gridStart(RenderStyle::initialGridPosition())
+    , m_gridEnd(RenderStyle::initialGridPosition())
+    , m_gridBefore(RenderStyle::initialGridPosition())
+    , m_gridAfter(RenderStyle::initialGridPosition())
 {
 }
 
 StyleGridItemData::StyleGridItemData(const StyleGridItemData& o)
     : RefCounted<StyleGridItemData>()
-    , m_gridColumn(o.m_gridColumn)
-    , m_gridRow(o.m_gridRow)
+    , m_gridStart(o.m_gridStart)
+    , m_gridEnd(o.m_gridEnd)
+    , m_gridBefore(o.m_gridBefore)
+    , m_gridAfter(o.m_gridAfter)
 {
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(CSS_GRID_LAYOUT)
-

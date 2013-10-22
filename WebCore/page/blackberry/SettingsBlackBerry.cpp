@@ -19,44 +19,45 @@
 #include "config.h"
 #include "Settings.h"
 
+#include "LocaleToScriptMapping.h"
+
+#include <BlackBerryPlatformFontInfo.h>
+
 namespace WebCore {
 
 void Settings::initializeDefaultFontFamilies()
 {
-    setCursiveFontFamily("Comic Sans MS");
-    setFantasyFontFamily("Impact");
-    setFixedFontFamily("Courier New");
-    setSansSerifFontFamily("Arial");
-    setSerifFontFamily("Times New Roman");
-    setStandardFontFamily("Times New Roman");
+    static std::vector<BlackBerry::Platform::String> languages;
+    static bool init = false;
+    if (!init) {
+        languages = BlackBerry::Platform::FontInfo::instance()->languagesWithFonts();
+        init = true;
+    }
 
-    setStandardFontFamily("Adobe Ming Std L", USCRIPT_TRADITIONAL_HAN);
+    STATIC_LOCAL_STRING(s_webkitCursive, "-webkit-cursive");
+    STATIC_LOCAL_STRING(s_webkitFantasy, "-webkit-fantasy");
+    STATIC_LOCAL_STRING(s_webkitMonospace, "-webkit-monospace");
+    STATIC_LOCAL_STRING(s_webkitSansSerif, "-webkit-sans-serif");
+    STATIC_LOCAL_STRING(s_webkitSerif, "-webkit-serif");
+    STATIC_LOCAL_STRING(s_webkitStandard, "-webkit-standard");
 
-    setStandardFontFamily("Adobe Heiti Std R", USCRIPT_SIMPLIFIED_HAN);
+    setCursiveFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_webkitCursive, BlackBerry::Platform::String::emptyString()));
+    setFantasyFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_webkitFantasy, BlackBerry::Platform::String::emptyString()));
+    setFixedFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_webkitMonospace, BlackBerry::Platform::String::emptyString()));
+    setSansSerifFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_webkitSansSerif, BlackBerry::Platform::String::emptyString()));
+    setSerifFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_webkitSerif, BlackBerry::Platform::String::emptyString()));
+    setStandardFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_webkitStandard, BlackBerry::Platform::String::emptyString()));
 
-    setFixedFontFamily("Ryo Gothic PlusN R", USCRIPT_KATAKANA_OR_HIRAGANA);
-    setSansSerifFontFamily("Ryo Gothic PlusN R", USCRIPT_KATAKANA_OR_HIRAGANA);
-    setSerifFontFamily("Ryo Text PlusN L", USCRIPT_KATAKANA_OR_HIRAGANA);
-    setStandardFontFamily("Ryo Gothic PlusN R", USCRIPT_KATAKANA_OR_HIRAGANA);
-
-    setStandardFontFamily("Adobe Gothic Std", USCRIPT_HANGUL);
-
-    setStandardFontFamily("Garuda", USCRIPT_THAI);
-
-    setStandardFontFamily("Tahoma", USCRIPT_ARABIC);
-
-    setStandardFontFamily("Tahoma", USCRIPT_HEBREW);
-
-    setStandardFontFamily("Bengali OTS", USCRIPT_BENGALI);
-    setStandardFontFamily("Devanagari OTS", USCRIPT_DEVANAGARI);
-    setStandardFontFamily("Gujarati OTS", USCRIPT_GUJARATI);
-    setStandardFontFamily("Gurmukhi OTS", USCRIPT_GURMUKHI);
-    setStandardFontFamily("Kannada OTS", USCRIPT_KANNADA);
-    setStandardFontFamily("Malayalam OTS", USCRIPT_MALAYALAM);
-    setStandardFontFamily("Sinhala OTS", USCRIPT_SINHALA);
-    setStandardFontFamily("Tamil OTS", USCRIPT_TAMIL);
-    setStandardFontFamily("Telugu OTS", USCRIPT_TELUGU);
+    STATIC_LOCAL_STRING(s_monospace, "monospace");
+    STATIC_LOCAL_STRING(s_serif, "serif");
+    STATIC_LOCAL_STRING(s_sansSerif, "sans-serif");
+    for (size_t i = 0; i < languages.size(); ++i) {
+        UScriptCode script = localeToScriptCodeForFontSelection(languages[i]);
+        setFixedFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_monospace, languages[i]), script);
+        setSansSerifFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_sansSerif, languages[i]), script);
+        setSerifFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(s_serif, languages[i]), script);
+        setStandardFontFamily(BlackBerry::Platform::FontInfo::instance()->fontFamily(BlackBerry::Platform::String::emptyString(), languages[i]), script);
+    }
 }
-
 
 } // namespace WebCore

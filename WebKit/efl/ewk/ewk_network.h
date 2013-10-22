@@ -26,7 +26,7 @@
 #define ewk_network_h
 
 #include <Eina.h>
-#include <libsoup/soup-session.h>
+#include <libsoup/soup.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,7 +49,7 @@ EAPI void             ewk_network_proxy_uri_set(const char *proxy);
  *
  * The returned string should be freed by eina_stringshare_del() after use.
  *
- * @return current proxy URI or @c 0 if it's not set
+ * @return current proxy URI or @c NULL if it's not set
  *
  * @note If the libsoup backend is being used, this function has effect on
  * the @b default SoupSession, returned by ewk_network_default_soup_session_get().
@@ -57,13 +57,6 @@ EAPI void             ewk_network_proxy_uri_set(const char *proxy);
  * this function will not have any effect on it.
  */
 EAPI const char      *ewk_network_proxy_uri_get(void);
-
-/**
- * Sets if network backend is online or not.
- * 
- * @param online @c EINA_FALSE if network is disconnected
- */
-EAPI void             ewk_network_state_notifier_online_set(Eina_Bool online);
 
 /**
  * Returns whether HTTPS connections should check the received certificate and error out if it is invalid.

@@ -270,12 +270,16 @@ void Token::insert(::Reader &slot, RefPointer<TokenDaemon> tokend)
 		secdebug("token", "%p installing MDS from %s(%s)", this,
 			tokend->bundlePath().c_str(),
 			mdsDirectory[0] ? mdsDirectory : "ALL");
-		string holdGuid = mGuid.toString();	// extend lifetime of .toString()
+		string holdGuid = mGuid.toString();	// extend lifetime of std::string
+		string holdTokenUid;
+		if (tokend->hasTokenUid())
+			holdTokenUid = tokend->tokenUid();
+		string holdPrintName = this->printName();
 		MDS_InstallDefaults mdsDefaults = {
 			holdGuid.c_str(),
 			mSubservice,
-			tokend->hasTokenUid() ? tokend->tokenUid().c_str() : "",
-			this->printName().c_str()
+			holdTokenUid.c_str(),
+			holdPrintName.c_str()
 		};
 		mds().install(&mdsDefaults,
 			tokend->bundlePath().c_str(),

@@ -23,7 +23,7 @@
  */
 
 static int
-dec_hanyu_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+dec_hanyu_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   /* Code set 0 (ASCII) */
@@ -67,7 +67,7 @@ dec_hanyu_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-dec_hanyu_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+dec_hanyu_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char buf[3];
   int ret;

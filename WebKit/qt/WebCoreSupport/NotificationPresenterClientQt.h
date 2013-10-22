@@ -36,14 +36,13 @@
 #include "NotificationClient.h"
 #include "QtPlatformPlugin.h"
 #include "Timer.h"
-
 #include "qwebkitplatformplugin.h"
 
 #include <QMultiHash>
-#include <QSystemTrayIcon>
+#include <QScopedPointer>
 
-class QWebFrame;
-class QWebPage;
+class QWebFrameAdapter;
+class QWebPageAdapter;
 
 namespace WebCore {
 
@@ -55,7 +54,7 @@ class NotificationWrapper : public QObject, public QWebNotificationData {
     Q_OBJECT
 public:
     NotificationWrapper();
-    ~NotificationWrapper() {}
+    ~NotificationWrapper() { }
 
     void close();
     void close(Timer<NotificationWrapper>*);
@@ -69,14 +68,12 @@ public Q_SLOTS:
     void notificationClosed();
     void notificationClicked();
 
-public:
-#ifndef QT_NO_SYSTEMTRAYICON
-    OwnPtr<QSystemTrayIcon> m_notificationIcon;
-#endif
-
+private:
     OwnPtr<QWebNotificationPresenter> m_presenter;
     Timer<NotificationWrapper> m_closeTimer;
     Timer<NotificationWrapper> m_displayEventTimer;
+
+    friend class NotificationPresenterClientQt;
 };
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
@@ -97,18 +94,22 @@ public:
     virtual void requestPermission(ScriptExecutionContext*, PassRefPtr<VoidCallback>);
 #endif
 #if ENABLE(NOTIFICATIONS)
-    virtual void requestPermission(ScriptExecutionContext*, PassRefPtr<NotificationPermissionCallback>) { }
+    virtual void requestPermission(ScriptExecutionContext*, PassRefPtr<NotificationPermissionCallback>);
 #endif
     virtual NotificationClient::Permission checkPermission(ScriptExecutionContext*);
     virtual void cancelRequestsForPermission(ScriptExecutionContext*);
 
     void cancel(NotificationWrapper*);
 
-    void allowNotificationForFrame(Frame*);
+    void setNotificationsAllowedForFrame(Frame*, bool allowed);
 
     static bool dumpNotification;
 
     void addClient() { m_clientCount++; }
+#ifndef QT_NO_SYSTEMTRAYICON
+    bool hasSystemTrayIcon() const { return !m_systemTrayIcon.isNull(); }
+    void setSystemTrayIcon(QObject* icon) { m_systemTrayIcon.reset(icon); }
+#endif
     void removeClient();
     static NotificationPresenterClientQt* notificationPresenter();
 
@@ -117,6 +118,8 @@ public:
     void notificationClicked(const QString& title);
     void sendDisplayEvent(NotificationWrapper*);
 
+    void clearCachedPermissions();
+
 private:
     void sendEvent(Notification*, const AtomicString& eventName);
     void displayNotification(Notification*);
@@ -124,23 +127,31 @@ private:
     void detachNotification(Notification*);
     void dumpReplacedIdText(Notification*);
     void dumpShowText(Notification*);
-    QWebPage* toPage(ScriptExecutionContext*);
-    QWebFrame* toFrame(ScriptExecutionContext*);
+    QWebPageAdapter* toPage(ScriptExecutionContext*);
+    QWebFrameAdapter* toFrame(ScriptExecutionContext*);
 
     int m_clientCount;
     struct CallbacksInfo {
-        QWebFrame* m_frame;
-        QList<RefPtr<VoidCallback> > m_callbacks;
+        QWebFrameAdapter* m_frame;
+#if ENABLE(LEGACY_NOTIFICATIONS)
+        QList<RefPtr<VoidCallback> > m_voidCallbacks;
+#endif
+#if ENABLE(NOTIFICATIONS)
+        QList<RefPtr<NotificationPermissionCallback> > m_callbacks;
+#endif
     };
     QHash<ScriptExecutionContext*,  CallbacksInfo > m_pendingPermissionRequests;
     QHash<ScriptExecutionContext*, NotificationClient::Permission> m_cachedPermissions;
 
     NotificationsQueue m_notifications;
     QtPlatformPlugin m_platformPlugin;
+#ifndef QT_NO_SYSTEMTRAYICON
+    QScopedPointer<QObject> m_systemTrayIcon;
+#endif
 };
 
-#endif
+#endif // ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 
 }
 
-#endif
+#endif // NotificationPresenterClientQt_h

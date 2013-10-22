@@ -35,18 +35,19 @@ namespace WebCore {
 class LocalMediaStream : public MediaStream {
 public:
     static PassRefPtr<LocalMediaStream> create(ScriptExecutionContext*, const MediaStreamSourceVector& audioSources, const MediaStreamSourceVector& videoSources);
+    static PassRefPtr<LocalMediaStream> create(ScriptExecutionContext*, PassRefPtr<MediaStreamDescriptor>);
     virtual ~LocalMediaStream();
 
-    void stopFunction();
+    void stop();
 
-    // ActiveDOMObject
-    virtual void stop() OVERRIDE;
+    // MediaStream
+    virtual bool isLocal() const OVERRIDE { return true; }
 
     // EventTarget
     virtual const AtomicString& interfaceName() const OVERRIDE;
 
 private:
-    LocalMediaStream(ScriptExecutionContext*, const MediaStreamSourceVector& audioSources, const MediaStreamSourceVector& videoSources);
+    LocalMediaStream(ScriptExecutionContext*, PassRefPtr<MediaStreamDescriptor>);
 };
 
 } // namespace WebCore

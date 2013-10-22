@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,33 +102,77 @@ static const struct option longopts[] = {
 	{ "nwi",		no_argument,		NULL,	0	},
 	{ "prefs",		no_argument,		NULL,	0	},
 	{ "proxy",		no_argument,		NULL,	0	},
+	{ "renew",		required_argument,	NULL,	0	},
 	{ "set",		required_argument,	NULL,	0	},
 	{ "snapshot",		no_argument,		NULL,	0	},
 	{ "user",		required_argument,	NULL,	0	},
 	{ "password",		required_argument,	NULL,	0	},
 	{ "secret",		required_argument,	NULL,	0	},
+	{ "log",		required_argument,	NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
 };
 
 
 __private_extern__
 CFStringRef
-_copyStringFromSTDIN()
+_copyStringFromSTDIN(CFStringRef prompt, CFStringRef defaultValue)
 {
 	char		buf[1024];
+	int		i;
+	Boolean		is_user_prompt = (prompt != NULL && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO));
 	size_t		len;
+	char		*modbuf;
+	size_t		modlen;
 	CFStringRef	utf8;
 
+	/* Print out a prompt to user that entry is desired */
+	if (is_user_prompt) {
+		if (defaultValue != NULL) {
+			SCPrint(TRUE, stdout, CFSTR("%@ [%@]: "), prompt, defaultValue);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("%@: "), prompt);
+		}
+	}
+
+	/* Get user input */
 	if (fgets(buf, sizeof(buf), stdin) == NULL) {
 		return NULL;
 	}
 
+	/* Prepare for trim */
 	len = strlen(buf);
-	if (buf[len-1] == '\n') {
-		buf[--len] = '\0';
+	modbuf = buf;
+	modlen = len;
+
+	/* Trim new-line */
+	if ((modlen > 0) && (modbuf[modlen - 1] == '\n')) {
+		modbuf[modlen - 1] = '\0';
+		modlen--;
 	}
 
-	utf8 = CFStringCreateWithBytes(NULL, (UInt8 *)buf, len, kCFStringEncodingUTF8, TRUE);
+	/* If nothing was entered at the user prompt, set default */
+	if (is_user_prompt && defaultValue != NULL && modlen == 0) {
+		CFRetain(defaultValue);
+		return defaultValue;
+	}
+
+	/* Trim spaces from front */
+	while (modlen > 0 && isspace(modbuf[0])) {
+		modbuf = &modbuf[1];
+		modlen--;
+	}
+
+	/* Trim spaces  from back */
+	for (i = modlen - 1; i >= 0; i--) {
+		if (isspace(buf[i])) {
+			buf[i] = '\0';
+			modlen--;
+		} else {
+			break;
+		}
+	}
+
+	utf8 = CFStringCreateWithBytes(NULL, (UInt8 *)modbuf, modlen, kCFStringEncodingUTF8, TRUE);
 	return utf8;
 }
 
@@ -293,6 +337,7 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --get pref\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --set pref [newval]\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --get filename path key  \n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tpref\tdisplay (or set) the specified preference.  Valid preferences\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\tinclude:\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\t\tComputerName, LocalHostName, HostName\n"));
@@ -307,6 +352,9 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --nwi\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tshow network information\n"));
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --nc\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tshow VPN network configuration information. Use --nc help for full command list\n"));
 
 	if (getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
 		SCPrint(TRUE, stderr, CFSTR("\n"));
@@ -321,7 +369,11 @@ usage(const char *command)
 static char *
 prompt(EditLine *el)
 {
+#if	!TARGET_IPHONE_SIMULATOR
 	return "> ";
+#else	// !TARGET_IPHONE_SIMULATOR
+	return "sim> ";
+#endif	// !TARGET_IPHONE_SIMULATOR
 }
 
 
@@ -336,10 +388,12 @@ main(int argc, char * const argv[])
 	Boolean			doReach	= FALSE;
 	Boolean			doSnap	= FALSE;
 	char			*get	= NULL;
+	char			*log	= NULL;
 	extern int		optind;
 	int			opt;
 	int			opti;
 	const char		*prog	= argv[0];
+	char			*renew	= NULL;
 	char			*set	= NULL;
 	char			*nc_cmd	= NULL;
 	InputRef		src;
@@ -402,11 +456,17 @@ main(int argc, char * const argv[])
 			} else if (strcmp(longopts[opti].name, "proxy") == 0) {
 				doProxy = TRUE;
 				xStore++;
+			} else if (strcmp(longopts[opti].name, "renew") == 0) {
+				renew = optarg;
+				xStore++;
 			} else if (strcmp(longopts[opti].name, "set") == 0) {
 				set = optarg;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "snapshot") == 0) {
 				doSnap = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "log") == 0) {
+				log = optarg;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "user") == 0) {
 				username = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
@@ -427,6 +487,7 @@ main(int argc, char * const argv[])
 		// if we are attempting to process more than one type of request
 		usage(prog);
 	}
+
 	/* are we checking (or watching) the reachability of a host/address */
 	if (doReach) {
 		if (argc < 1) {
@@ -458,7 +519,11 @@ main(int argc, char * const argv[])
 	}
 
 	if (doSnap) {
-		if (!enablePrivateAPI || (geteuid() != 0)) {
+		if (!enablePrivateAPI
+#if	!TARGET_IPHONE_SIMULATOR
+		    || (geteuid() != 0)
+#endif	// !TARGET_IPHONE_SIMULATOR
+		   ) {
 			usage(prog);
 		}
 
@@ -469,9 +534,17 @@ main(int argc, char * const argv[])
 
 	/* are we looking up a preference value */
 	if (get) {
-		if (findPref(get) < 0) {
-			usage(prog);
+		if (argc != 2) {
+			if (findPref(get) < 0) {
+				usage(prog);
+			}
+		} else {
+			/* need to go back one argument
+			 * for the filename */
+			argc++;
+			argv--;
 		}
+
 		do_getPref(get, argc, (char **)argv);
 		/* NOT REACHED */
 	}
@@ -491,6 +564,14 @@ main(int argc, char * const argv[])
 		/* NOT REACHED */
 	}
 
+	/* verbose log */
+	if (log != NULL) {
+		if (strcasecmp(log, "IPMonitor")) {
+			usage(prog);
+		}
+		do_log(log, argc, (char * *)argv);
+		/* NOT REACHED */
+	}
 	/* network connection commands */
 	if (nc_cmd) {
 		if (find_nc_cmd(nc_cmd) < 0) {
@@ -509,15 +590,15 @@ main(int argc, char * const argv[])
 			usage(prog);
 		}
 
-		do_net_init();		/* initialization */
-		do_net_open(0, NULL);	/* open default prefs */
+		do_net_init();				/* initialization */
+		do_net_open(argc, (char **)argv);	/* open prefs */
 	} else if (doPrefs) {
 		/* if we are going to be managing the network configuration */
 		commands  = (cmdInfo *)commands_prefs;
 		nCommands = nCommands_prefs;
 
-		do_dictInit(0, NULL);	/* start with an empty dictionary */
-		do_prefs_init();	/* initialization */
+		do_dictInit(0, NULL);			/* start with an empty dictionary */
+		do_prefs_init();			/* initialization */
 		do_prefs_open(argc, (char **)argv);	/* open prefs */
 	} else {
 		/* if we are going to be managing the dynamic store */
@@ -526,6 +607,12 @@ main(int argc, char * const argv[])
 
 		do_dictInit(0, NULL);	/* start with an empty dictionary */
 		do_open(0, NULL);	/* open the dynamic store */
+	}
+
+	/* are we trying to renew a DHCP lease */
+	if (renew != NULL) {
+		do_renew(renew);
+		/* NOT REACHED */
 	}
 
 	/* allocate command input stream */

@@ -25,13 +25,13 @@
 #include "InspectorController.h"
 #include "NotImplemented.h"
 #include "Page.h"
-#include "PlatformString.h"
 #include "webkitversion.h"
 #include "webkitwebinspector.h"
 #include "webkitwebinspectorprivate.h"
 #include "webkitwebview.h"
 #include "webkitwebviewprivate.h"
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
@@ -83,7 +83,7 @@ void InspectorClient::inspectorDestroyed()
     delete this;
 }
 
-void InspectorClient::openInspectorFrontend(InspectorController* controller)
+InspectorFrontendChannel* InspectorClient::openInspectorFrontend(InspectorController* controller)
 {
     // This g_object_get will ref the inspector. We're not doing an
     // unref if this method succeeds because the inspector object must
@@ -99,7 +99,7 @@ void InspectorClient::openInspectorFrontend(InspectorController* controller)
 
     if (!inspectorWebView) {
         g_object_unref(webInspector);
-        return;
+        return 0;
     }
 
     webkit_web_inspector_set_web_view(webInspector, inspectorWebView);
@@ -117,6 +117,8 @@ void InspectorClient::openInspectorFrontend(InspectorController* controller)
 
     // The inspector must be in it's own PageGroup to avoid deadlock while debugging.
     m_frontendPage->setGroupName("");
+    
+    return this;
 }
 
 void InspectorClient::closeInspectorFrontend()
@@ -158,7 +160,7 @@ bool InspectorClient::sendMessageToFrontend(const String& message)
 const char* InspectorClient::inspectorFilesPath()
 {
     if (m_inspectorFilesPath)
-        m_inspectorFilesPath.get();
+        return m_inspectorFilesPath.get();
 
     const char* environmentPath = getenv("WEBKIT_INSPECTOR_PATH");
     if (environmentPath && g_file_test(environmentPath, G_FILE_TEST_IS_DIR))
@@ -225,12 +227,6 @@ String InspectorFrontendClient::localizedStringsURL()
     return String::fromUTF8(stringsURI.get());
 }
 
-String InspectorFrontendClient::hiddenPanels()
-{
-    notImplemented();
-    return String();
-}
-
 void InspectorFrontendClient::bringToFront()
 {
     if (!m_inspectorWebView)
@@ -245,7 +241,7 @@ void InspectorFrontendClient::closeWindow()
     destroyInspectorWindow(true);
 }
 
-void InspectorFrontendClient::attachWindow()
+void InspectorFrontendClient::attachWindow(DockSide)
 {
     if (!m_inspectorWebView)
         return;
@@ -264,6 +260,16 @@ void InspectorFrontendClient::detachWindow()
 }
 
 void InspectorFrontendClient::setAttachedWindowHeight(unsigned height)
+{
+    notImplemented();
+}
+
+void InspectorFrontendClient::setAttachedWindowWidth(unsigned width)
+{
+    notImplemented();
+}
+
+void InspectorFrontendClient::setToolbarHeight(unsigned height)
 {
     notImplemented();
 }

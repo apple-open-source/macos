@@ -129,8 +129,15 @@ static int BC_history_timeout = 240 * 100;
 #define DBG_BOOTCACHE	7
 #endif
 
-#define	DBG_BC_TAG	1
-#define	DBG_BC_BATCH	2
+#define	DBG_BC_TAG					(1 << 0)
+#define	DBG_BC_BATCH				(1 << 1)
+
+#define DBG_BC_IO_HIT				(1 << 2)
+#define DBG_BC_IO_HIT_STALLED		(1 << 3)
+#define DBG_BC_IO_MISS				(1 << 4)
+#define DBG_BC_IO_MISS_CUT_THROUGH	(1 << 5)
+#define DBG_BC_PLAYBACK_IO			(1 << 6)
+
 static int dbg_tag_count = 0;
 
 #ifdef BC_DEBUG
@@ -285,7 +292,7 @@ struct BC_cache_disk {
 struct BC_history_mount_device {
 	u_int64_t                       hmd_disk_id;
 	struct BC_history_mount_device* hmd_next;
-	int                             hmd_is_ssd;
+	uint32_t                        hmd_is_ssd;
 	dev_t                           hmd_dev;
 	int                             hmd_blocksize;
 	struct BC_history_mount         hmd_mount;
@@ -1288,7 +1295,8 @@ BC_reader_thread(void *param0, wait_result_t param1)
 					
 					/* give the buf to the underlying strategy routine */
 					KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_DKRW, DKIO_READ) | DBG_FUNC_NONE,
-										  (uintptr_t) cm->cm_bp, buf_device(cm->cm_bp), (long)buf_blkno(cm->cm_bp), buf_count(cm->cm_bp), 0);					
+										  (uintptr_t) buf_kernel_addrperm_addr(cm->cm_bp), buf_device(cm->cm_bp), (long)buf_blkno(cm->cm_bp), buf_count(cm->cm_bp), 0);
+					KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, DBG_BC_PLAYBACK_IO) | DBG_FUNC_NONE, buf_kernel_addrperm_addr(cm->cm_bp), 0, 0, 0, 0);
 					
 					BC_cache->c_strategy(cm->cm_bp);
 					
@@ -1664,14 +1672,21 @@ BC_strategy(struct buf *bp)
 	vnode_t vp = NULL;
 	int pid = 0;
 	int dont_cache = 0;
+	int throttle_tier = 0;
+	bufattr_t bap = NULL;
 	
 	assert(bp != NULL);
 	
 	blkno = buf_blkno(bp);
 	nbytes = buf_count(bp);
 	bufflags = buf_flags(bp);
+	bap = buf_attr(bp);
 	dev = buf_device(bp);
 	vp = buf_vnode(bp);
+
+	if (bap) {
+		throttle_tier = bufattr_throttled(bap);
+	}
 
 	/*
 	 * If the buf doesn't have a vnode for some reason, pretend
@@ -1727,7 +1742,7 @@ BC_strategy(struct buf *bp)
 	if (BC_cache->c_take_detailed_stats) {
 		take_detailed_stats = 1;
 		BC_ADD_STAT(strategy_calls, 1);
-		if (bufflags & B_THROTTLED_IO) {
+		if (throttle_tier) {
 			BC_ADD_STAT(strategy_throttled, 1);
 		}
 #ifdef BC_DEBUG
@@ -1863,6 +1878,7 @@ BC_strategy(struct buf *bp)
 	
 #ifndef EMULATE_ONLY
 	
+	did_block = 0;
 	if (! (status & CE_IODONE)) {
 						
 		if (is_ssd) {
@@ -1883,7 +1899,6 @@ BC_strategy(struct buf *bp)
 		 * wait for all the extents to finish
 		 */
 		microtime(&blocked_start_time);
-		did_block = 0;
 		for (ce_idx = 0;
 			 ce_idx < num_extents;
 			 ce_idx++) {
@@ -1971,7 +1986,9 @@ BC_strategy(struct buf *bp)
 			}
 		}
 	}
-	
+		
+	KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, (did_block ? DBG_BC_IO_HIT_STALLED : DBG_BC_IO_HIT)) | DBG_FUNC_NONE, buf_kernel_addrperm_addr(bp), 0, 0, 0, 0);
+
 	/*
 	 * buf_map will do its best to provide access to this
 	 * buffer via a kernel accessible address
@@ -2079,7 +2096,7 @@ BC_strategy(struct buf *bp)
 			goto bypass;
 		}
 		
-		kret = cluster_copy_ubc_data(BC_cache->c_vp, uio, &resid, 1); 
+		kret = cluster_copy_ubc_data(BC_cache->c_vp, uio, &resid, 0);
 		if (kret != KERN_SUCCESS) {
 			debug("couldn't copy ubc data - %d", kret);
 			if (take_detailed_stats)
@@ -2200,6 +2217,7 @@ bypass:
 	 * can't dereference bp after c_strategy has been issued
 	 * or else we race with buf_biodone
 	 */
+	void *bp_void = (void *)bp; // for use in ktrace
 	bp = NULL;
 	
 	/* not really "bypassed" if the cache is not active */
@@ -2289,6 +2307,7 @@ bypass:
 	
 	/* if this is a read, and we do have an active cache, and the read isn't throttled */
 	if (during_cache) {
+		(void) is_stolen;
 		if (is_swap /*|| is_stolen*/) {  //rdar://10651288&10658086 seeing stolen pages early during boot
 			if (is_swap) {
 				debug("detected %s swap file, jettisoning cache", (bufflags & B_READ) ? "read from" : "write to");
@@ -2298,7 +2317,7 @@ bypass:
 			//rdar://9858070 Do this asynchronously to avoid deadlocks
 			BC_terminate_cache_async();
 		} else if ((bufflags & B_READ) &&
-				   !(bufflags & B_THROTTLED_IO)) {
+				   !(throttle_tier)) {
 			
 			struct timeval current_time;
 			if (BC_cache->c_stats.ss_history_num_recordings < 2) {
@@ -2332,7 +2351,9 @@ bypass:
 		BC_set_flag(BC_FLAG_SHUTDOWN);
 	}
 	
-	if (should_throttle && !(bufflags & B_THROTTLED_IO)) {
+	KERNEL_DEBUG_CONSTANT(FSDBG_CODE(DBG_BOOTCACHE, (should_throttle ? DBG_BC_IO_MISS_CUT_THROUGH : DBG_BC_IO_MISS)) | DBG_FUNC_NONE, buf_kernel_addrperm_addr(bp_void), 0, 0, 0, 0);
+	
+	if (should_throttle && throttle_tier < IOPOL_THROTTLE) {
 		/*
 		 * We need to indicate to spec_strategy that we want to
 		 * throttle this IO to avoid cutting through readahead
@@ -3033,9 +3054,9 @@ out:
 static int
 BC_fill_in_mount(struct BC_cache_mount *cm, mount_t mount, vfs_context_t context)
 {
-	u_int64_t blkcount;
-	u_int32_t blksize;
-	int error, mount_idx, i, is_ssd, max_byte_count;
+	uint64_t blkcount, max_byte_count, max_segment_count, max_segment_byte_count, max_block_count;
+	uint32_t blksize, is_ssd;
+	int error, mount_idx, i;
 	u_int64_t disk_id;
 	struct BC_cache_disk *cd;
 	vnode_t devvp = NULLVP;
@@ -3162,31 +3183,78 @@ BC_fill_in_mount(struct BC_cache_mount *cm, mount_t mount, vfs_context_t context
 	cm->cm_blocksize = blksize;
 	cm->cm_devsize = blksize * blkcount;
 	
-    VNOP_IOCTL(devvp,
-			   DKIOCGETMAXSEGMENTBYTECOUNTREAD,
-			   (caddr_t)&cm->cm_maxread,
-			   0,
-			   context);
+	/* max read size isn't larger than the max UPL size */
+	cm->cm_maxread = ubc_upl_maxbufsize();
+
+	/* maxread = min ( maxread, MAXBYTECOUNTREAD ) */
 	if (0 == VNOP_IOCTL(devvp,
 						DKIOCGETMAXBYTECOUNTREAD,
 						(caddr_t)&max_byte_count,
 						0,
-						context))
-	{
+						context)) {
 		if (cm->cm_maxread > max_byte_count && max_byte_count > 0) {
 			cm->cm_maxread = max_byte_count;
+			debug("MAXBYTECOUNTREAD is %#llx", max_byte_count);
 		}
 	}
-	if (cm->cm_maxread > ubc_upl_maxbufsize()) {
-		/* max read size isn't larger than the max UPL size */
-		cm->cm_maxread = ubc_upl_maxbufsize();
+	
+	/* maxread = min ( maxread, MAXBLOCKCOUNTREAD *  BLOCKSIZE ) */
+	if (0 == VNOP_IOCTL(devvp,
+						DKIOCGETMAXBLOCKCOUNTREAD,
+						(caddr_t)&max_block_count,
+						0,
+						context)) {
+		if (cm->cm_maxread > max_block_count * cm->cm_blocksize && max_block_count > 0) {
+			cm->cm_maxread = max_block_count * cm->cm_blocksize;
+			debug("MAXBLOCKCOUNTREAD is %#llx, BLOCKSIZE is %#llx, (multiplied %#llx)", max_block_count, cm->cm_blocksize, max_block_count * cm->cm_blocksize, cm->cm_maxread);
+		}
 	}
-	if (cm->cm_maxread < MAXPHYS)
-	{
+
+	/* maxread = min ( maxread, MAXSEGMENTCOUNTREAD * min (MAXSEGMENTBYTECOUNTREAD, PAGE_SIZE ) ) */
+	if (0 == VNOP_IOCTL(devvp,
+						DKIOCGETMAXSEGMENTCOUNTREAD,
+						(caddr_t)&max_segment_count,
+						0,
+						context)) {
+		
+		if (max_segment_count > 0) {
+			
+			if (0 == VNOP_IOCTL(devvp,
+								DKIOCGETMAXSEGMENTBYTECOUNTREAD,
+								(caddr_t)&max_segment_byte_count,
+								0,
+								context)) {
+				//rdar://13835534 Limit max_segment_byte_count to PAGE_SIZE because some drives don't handle the spec correctly
+				if (max_segment_byte_count > PAGE_SIZE || max_segment_byte_count == 0) {
+					debug("MAXSEGMENTBYTECOUNTREAD is %#llx, limiting to PAGE_SIZE %#x", max_segment_byte_count, PAGE_SIZE);
+					max_segment_byte_count = PAGE_SIZE;
+				}
+			} else {
+				debug("Unable to get MAXSEGMENTBYTECOUNTREAD, assuming PAGE_SIZE %#x", PAGE_SIZE);
+				max_segment_byte_count = PAGE_SIZE;
+			}
+			
+			if (cm->cm_maxread > max_segment_count * max_segment_byte_count) {
+				cm->cm_maxread = max_segment_count * max_segment_byte_count;
+				debug("MAXSEGMENTCOUNTREAD is %#llx, MAXSEGMENTBYTECOUNTREAD is %#llx, (multiplied %#llx)", max_segment_count, max_segment_byte_count, max_segment_count * max_segment_byte_count);
+			}
+		}
+	}
+	
+	/* maxread = min ( maxread, MAX_UPL_TRANSFER * PAGE_SIZE ) */
+	if (cm->cm_maxread > MAX_UPL_TRANSFER * PAGE_SIZE) {
+		cm->cm_maxread = MAX_UPL_TRANSFER * PAGE_SIZE;
+		debug("MAX_UPL_TRANSFER is %#x, PAGE_SIZE is %#x, (multiplied %#x)", MAX_UPL_TRANSFER, PAGE_SIZE, MAX_UPL_TRANSFER * PAGE_SIZE);
+	}
+	
+	/* maxread = max ( maxread, MAXPHYS ) */
+	if (cm->cm_maxread < MAXPHYS) {
 		debug("can't determine device read size for mount %s; using default", uuid_string(cm->cm_uuid));
 		cm->cm_maxread = MAXPHYS;
 	}
-    if (cm->cm_maxread % cm->cm_blocksize != 0) {
+
+	/* make sure maxread is a multiple of the block size */
+	if (cm->cm_maxread % cm->cm_blocksize != 0) {
         debug("Mount max IO size (%llu) not a multiple of block size (%llu)", cm->cm_maxread, cm->cm_blocksize);
         cm->cm_maxread -= cm->cm_maxread % cm->cm_blocksize;
     }
@@ -4770,33 +4838,36 @@ BC_copyout_history_entries(user_addr_t uptr)
 	int error, cluster_entries;
 	
 	assert(uptr != 0);
+	assert(BC_cache->c_history);
 	
 	/*
 	 * Copying the history entires out is a little messy due to the fact that the
 	 * clusters are on the list backwards, but we want the entries in order.
 	 */
 	ohec = NULL;
-	for (;;) {
-		/* scan the list until we find the last one we haven't copied */
-		hec = BC_cache->c_history;
-		while (hec->hec_link != ohec)
-			hec = hec->hec_link;
-		ohec = hec;
-		
-		cluster_entries = hec->hec_nentries;
-		if (cluster_entries > BC_HISTORY_ENTRIES) { 
-			cluster_entries = BC_HISTORY_ENTRIES;
+	if (BC_cache->c_history) {
+		for (;;) {
+			/* scan the list until we find the last one we haven't copied */
+			hec = BC_cache->c_history;
+			while (hec->hec_link != ohec)
+				hec = hec->hec_link;
+			ohec = hec;
+			
+			cluster_entries = hec->hec_nentries;
+			if (cluster_entries > BC_HISTORY_ENTRIES) {
+				cluster_entries = BC_HISTORY_ENTRIES;
+			}
+			
+			/* copy the cluster out */
+			if ((error = copyout(hec->hec_data, uptr,
+								 cluster_entries * sizeof(struct BC_history_entry))) != 0)
+				return(error);
+			uptr += cluster_entries * sizeof(struct BC_history_entry);
+			
+			/* if this was the last cluster, all done */
+			if (hec == BC_cache->c_history)
+				break;
 		}
-		
-		/* copy the cluster out */
-		if ((error = copyout(hec->hec_data, uptr,
-							 cluster_entries * sizeof(struct BC_history_entry))) != 0)
-			return(error);
-		uptr += cluster_entries * sizeof(struct BC_history_entry);
-		
-		/* if this was the last cluster, all done */
-		if (hec == BC_cache->c_history)
-			break;
 	}
 	return(0);
 }

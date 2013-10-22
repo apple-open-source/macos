@@ -47,8 +47,8 @@ dir_src       = $(dir_top)/Src
 
 DNCFLAGS =
 
-COMPILE     = $(CC) -c -I. $(CPPFLAGS) $(DEFS) $(CFLAGS) $(D@L@CFLAGS)
-DLCOMPILE   = $(CC) -c -I. $(CPPFLAGS) $(DEFS) -DMODULE $(CFLAGS) $(DLCFLAGS)
+COMPILE     = $(CC) -c -I. -I$(dir_top)/Src -I$(sdir_top)/Src -I$(sdir_top)/Src/Zle -I$(sdir) $(CPPFLAGS) $(DEFS) $(CFLAGS) $(D@L@CFLAGS)
+DLCOMPILE   = $(CC) -c -I. -I$(dir_top)/Src -I$(sdir_top)/Src -I$(sdir_top)/Src/Zle -I$(sdir) $(CPPFLAGS) $(DEFS) -DMODULE $(CFLAGS) $(DLCFLAGS)
 LINK        = $(CC) $(LDFLAGS) $(EXELDFLAGS) $(EXTRA_LDFLAGS) -o $@
 DLLINK      = $(DLLD) $(LDFLAGS) $(LIBLDFLAGS) $(DLLDFLAGS) -o $@
 
@@ -116,8 +116,9 @@ prep:
 	done
 .PHONY: prep
 
-headers prep: $(dir_src)/modules.stamp
+headers: $(dir_src)/modules.stamp
 $(dir_src)/modules.stamp: $(MDDS)
+	$(MAKE) -f $(makefile) $(MAKEDEFS) prep
 	echo 'timestamp for *.mdd files' > $@
 .PHONY: headers
 

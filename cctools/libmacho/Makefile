@@ -1,18 +1,6 @@
-RC_OS = macos
-OFLAG = -Os
 LEGACY = -D_MACH_I386_THREAD_STATUS_FPSTATE_LEGACY_FIELD_NAMES_ \
 	 -D_ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_
 
-ifneq "$(RC_MAJOR_RELEASE_TRAIN)" "Tiger"
-KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
-       -msoft-float -nostdinc \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers/libsa \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers/bsd \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers \
-       -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
-else
 KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
        -msoft-float -nostdinc \
 -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
@@ -21,46 +9,30 @@ KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers \
        -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
+
+ifeq "cctools_ofiles_Sim" "$(RC_ProjectName)"
+  S = _sim
 endif
 
-ifeq "macos" "$(RC_OS)"
-  CC := $(shell if [ "$(RC_RELEASE)" == "Tiger" ] || \
-		   [ "$(RC_RELEASE)" == "Gordian" ] || \
-		   [ "$(RC_RELEASE)" == "Saffron" ] || \
-		   [ "$(RC_USE_GCC35_FOR_PPC64)" == "YES" ]; then \
-		     echo gcc-3.5 ; \
-		else \
-		     echo "$(CC)" ; \
-	     fi; )
-endif
+DEPENDENT_LIBS = -nodefaultlibs -umbrella System -L/usr/lib/system \
+		 -ldyld -lsystem_malloc -lsystem_c -lsystem_kernel -lcompiler_rt
+
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
   STRIP = $(shell xcrun -find -sdk ${SDKROOT} strip)
+  DSYMUTIL = $(shell xcrun -find -sdk ${SDKROOT} dsymutil)
 else
   STRIP = strip
-endif
-ifeq "clang" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -Wall $(LEGACY) \
-     -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
-  PG =
-else
-  CFLAGS = $(OFLAG) -g -Wall $(X_CFLAGS) $(LEGACY) \
-     -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
-  PG = -pg
+  DSYMUTIL = dsymutil
 endif
 
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "clang" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
+OFLAG = -Os
+CFLAGS = $(OFLAG) -g -Wall $(LEGACY) \
+	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
+PG = -pg
 
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
-else
-  MKDIRS = /bin/mkdir -p
-endif
-
+MKDIRS = /bin/mkdir -p
 SRCROOT = .
 SYMROOT = .
 OBJROOT = .
@@ -71,42 +43,30 @@ OFILE_DIRS = $(OBJROOT)/shlib_obj $(OBJROOT)/profile_obj \
 OFILE_DIR = $(OBJROOT)
 VPATH = $(OFILE_DIR)
 
-ifeq "macos" "$(RC_OS)"
-  ARCHIVEDIR := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] || \
-			   [ "$(RC_RELEASE)" = "Bunsen" ] || \
-			   [ "$(RC_RELEASE)" = "Gonzo" ]; then \
-	 echo /Local/Developer/System; else echo /usr/local/lib/system; fi; )
-else
-  ARCHIVEDIR = /Local/Developer/System
-endif
+ARCHIVEDIR = /usr/local/lib/system
 DYLIBDIR = /usr/lib/system
 
 CFILES = arch.c getsecbyname.c getsegbyname.c get_end.c \
 	 swap.c hppa_swap.c i386_swap.c m68k_swap.c sparc_swap.c \
-	 ppc_swap.c i860_swap.c m88k_swap.c
+	 ppc_swap.c i860_swap.c m88k_swap.c slot_name.c
 
 INSTALL_FILES = $(CFILES) $(HFILES) shlib.ofileList dylib.ofileList Makefile \
 		notes
 
 OBJS = arch.o getsecbyname.o getsegbyname.o get_end.o swap.o \
        hppa_swap.o i386_swap.o m68k_swap.o sparc_swap.o ppc_swap.o \
-       i860_swap.o m88k_swap.o
+       i860_swap.o m88k_swap.o slot_name.o
 
 ifeq "$(OLD_LIBKLD)" "YES"
 	KLD_OFILES = kld_ofiles
 else
-	KLD_OFILES = 
+	KLD_OFILES =
 endif
 
 all: lib_ofiles
 
-macos: optimized_ofiles $(KLD_OFILES)
-
-teflon: optimized_ofiles $(KLD_OFILES)
-
-nextstep: optimized_ofiles $(KLD_OFILES) shlib_ofiles
-
-lib_ofiles: $(OFILE_DIRS) $(SYMROOT) $(RC_OS) dynamic_ofiles profile_ofiles
+lib_ofiles: $(OFILE_DIRS) $(SYMROOT) optimized_ofiles $(KLD_OFILES) \
+	    dynamic_ofiles profile_ofiles
 
 shlib_ofiles: $(OBJROOT)/shlib_obj
 	@if [ $(SRCROOT) = . ];						\
@@ -143,8 +103,8 @@ profile_ofiles:	$(OBJROOT)/profile_obj $(OBJROOT)/ptmp_obj
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    (cd ptmp_obj;						\
-		$(MAKE) -f ../Makefile libmacho_pg.a libmacho_profile.dylib \
-		INSTALL_NAME=/usr/lib/system/libmacho_profile.dylib	\
+		$(MAKE) -f ../Makefile libmacho_pg.a libmacho$S_profile.dylib \
+		INSTALL_NAME=/usr/lib/system/libmacho$S_profile.dylib	\
 		VPATH=.. 						\
 		OFILE_DIR=.						\
 		SRCROOT=..						\
@@ -162,8 +122,8 @@ profile_ofiles:	$(OBJROOT)/profile_obj $(OBJROOT)/ptmp_obj
 	else								\
 	    (cd $(OBJROOT)/ptmp_obj;					\
 		$(MAKE) -f $(SRCROOT)/Makefile libmacho_pg.a		\
-		libmacho_profile.dylib					\
-		INSTALL_NAME=/usr/lib/system/libmacho_profile.dylib	\
+		libmacho$S_profile.dylib				\
+		INSTALL_NAME=/usr/lib/system/libmacho$S_profile.dylib	\
 		VPATH=$(SRCROOT)					\
 		OFILE_DIR=$(OBJROOT)/ptmp_obj				\
 		SRCROOT=$(SRCROOT)					\
@@ -258,8 +218,8 @@ dynamic_ofiles: $(OBJROOT)/dynamic_obj $(OBJROOT)/dtmp_obj
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    (cd dtmp_obj;						\
-		$(MAKE) -f ../Makefile libmacho.a libmacho.dylib	\
-		INSTALL_NAME=/usr/lib/system/libmacho.dylib		\
+		$(MAKE) -f ../Makefile libmacho.a libmacho$S.dylib	\
+		INSTALL_NAME=/usr/lib/system/libmacho$S.dylib		\
 		VPATH=.. 						\
 		OFILE_DIR=.						\
 		SRCROOT=..						\
@@ -269,8 +229,8 @@ dynamic_ofiles: $(OBJROOT)/dynamic_obj $(OBJROOT)/dtmp_obj
 		RC_CFLAGS="$(RC_CFLAGS)"				\
 		RC_ARCHS="$(RC_ARCHS)");				\
 	    (cd dtmp_obj;						\
-		$(MAKE) -f ../Makefile libmacho_debug.dylib		\
-		INSTALL_NAME=/usr/lib/system/libmacho_debug.dylib	\
+		$(MAKE) -f ../Makefile libmacho$S_debug.dylib		\
+		INSTALL_NAME=/usr/lib/system/libmacho$S_debug.dylib	\
 		VPATH=.. 						\
 		OFILE_DIR=.						\
 		SRCROOT=..						\
@@ -285,8 +245,8 @@ dynamic_ofiles: $(OBJROOT)/dynamic_obj $(OBJROOT)/dtmp_obj
 	    cp dylib.ofileList dynamic_obj/libmacho.ofileList;		\
 	else								\
 	    (cd $(OBJROOT)/dtmp_obj;					\
-		$(MAKE) -f $(SRCROOT)/Makefile libmacho.a libmacho.dylib \
-		INSTALL_NAME=/usr/lib/system/libmacho.dylib		\
+		$(MAKE) -f $(SRCROOT)/Makefile libmacho.a libmacho$S.dylib \
+		INSTALL_NAME=/usr/lib/system/libmacho$S.dylib		\
 		VPATH=$(SRCROOT)					\
 		OFILE_DIR=$(OBJROOT)/dtmp_obj				\
 		SRCROOT=$(SRCROOT)					\
@@ -297,8 +257,8 @@ dynamic_ofiles: $(OBJROOT)/dynamic_obj $(OBJROOT)/dtmp_obj
 		RC_CFLAGS="$(RC_CFLAGS)"				\
 		RC_ARCHS="$(RC_ARCHS)");				\
 	    (cd $(OBJROOT)/dtmp_obj;					\
-		$(MAKE) -f $(SRCROOT)/Makefile libmacho_debug.dylib	\
-		INSTALL_NAME=/usr/lib/system/libmacho_debug.dylib	\
+		$(MAKE) -f $(SRCROOT)/Makefile libmacho$S_debug.dylib	\
+		INSTALL_NAME=/usr/lib/system/libmacho$S_debug.dylib	\
 		VPATH=$(SRCROOT)					\
 		OFILE_DIR=$(OBJROOT)/dtmp_obj				\
 		SRCROOT=$(SRCROOT)					\
@@ -315,16 +275,8 @@ dynamic_ofiles: $(OBJROOT)/dynamic_obj $(OBJROOT)/dtmp_obj
 	    cp dylib.ofileList $(OBJROOT)/dynamic_obj/libmacho.ofileList; \
 	fi
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
-		-MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 clean:
 	-rm -r -f $(OFILE_DIRS) $(OBJROOT)/static_obj
@@ -335,26 +287,20 @@ shlib_clean:
 libmacho.a libmacho_pg.a libmacho_static.a libmacho_kld.a: $(OBJS)
 	libtool -static -o $(SYMROOT)/$@ $(OBJS)
 
-libmacho.dylib libmacho_profile.dylib libmacho_debug.dylib: $(OBJS)
-	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -dynamiclib  \
+libmacho$S.dylib libmacho$S_profile.dylib libmacho$S_debug.dylib: $(OBJS)
+	$(CC) $(CFLAGS) $(RC_CFLAGS) -dynamiclib  \
 		-o $(SYMROOT)/$@ $(OBJS) \
 		-install_name $(INSTALL_NAME) \
 		-compatibility_version 1 \
 		-current_version $(RC_ProjectSourceVersion) \
-		-lSystem
+		$(DEPENDENT_LIBS)
+	$(DSYMUTIL) $(SYMROOT)/$@
 
-install: $(RC_OS)_install
+install:
 
-macos_install:
-
-teflon_install nextstep_install: all
-
-
-lib_ofiles_install: $(RC_OS)_lib_ofiles_install
-
-macos_lib_ofiles_install: all
+lib_ofiles_install: all
 	$(MKDIRS) $(DSTROOT)$(ARCHIVEDIR) $(DSTROOT)$(DYLIBDIR)
-	if [ $(SRCROOT) = . ];						\
+	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    install -c -m 444 dtmp_obj/libmacho.a			\
 		     $(DSTROOT)$(ARCHIVEDIR)/libmacho.a;		\
@@ -367,15 +313,15 @@ macos_lib_ofiles_install: all
 	    install -c -m 444 otmp_obj/libmacho_static.a		\
 		     $(DSTROOT)$(ARCHIVEDIR)/libmacho_static.a;		\
 	    ranlib $(DSTROOT)$(ARCHIVEDIR)/libmacho_static.a;		\
-	    install -c -m 555 dtmp_obj/libmacho.dylib			\
-		     $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
-	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
-	    install -c -m 555 dtmp_obj/libmacho_profile.dylib		\
-		     $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
-	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
-	    install -c -m 555 dtmp_obj/libmacho_debug.dylib		\
-		     $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
-	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
+	    install -c -m 555 dtmp_obj/libmacho$S.dylib			\
+		     $(DSTROOT)$(DYLIBDIR)/libmacho$S.dylib;		\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho$S.dylib;		\
+	    install -c -m 555 dtmp_obj/libmacho$S_profile.dylib		\
+		     $(DSTROOT)$(DYLIBDIR)/libmacho$S_profile.dylib;	\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho$S_profile.dylib;	\
+	    install -c -m 555 dtmp_obj/libmacho$S_debug.dylib		\
+		     $(DSTROOT)$(DYLIBDIR)/libmacho$S_debug.dylib;	\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho$S_debug.dylib;	\
 	else								\
 	    install -c -m 444 $(SYMROOT)/libmacho.a			\
 		     $(DSTROOT)$(ARCHIVEDIR)/libmacho.a;		\
@@ -388,19 +334,16 @@ macos_lib_ofiles_install: all
 	    install -c -m 444 $(SYMROOT)/libmacho_static.a		\
 		     $(DSTROOT)$(ARCHIVEDIR)/libmacho_static.a;		\
 	    ranlib $(DSTROOT)$(ARCHIVEDIR)/libmacho_static.a;		\
-	    install -c -m 555 $(SYMROOT)/libmacho.dylib			\
-		     $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
-	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
-	    install -c -m 555 $(SYMROOT)/libmacho_profile.dylib		\
-		     $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
-	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
-	    install -c -m 555 $(SYMROOT)/libmacho_debug.dylib	\
-		     $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
-	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
+	    install -c -m 555 $(SYMROOT)/libmacho$S.dylib		\
+		     $(DSTROOT)$(DYLIBDIR)/libmacho$S.dylib;		\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho$S.dylib;		\
+	    install -c -m 555 $(SYMROOT)/libmacho$S_profile.dylib	\
+		     $(DSTROOT)$(DYLIBDIR)/libmacho$S_profile.dylib;	\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho$S_profile.dylib;	\
+	    install -c -m 555 $(SYMROOT)/libmacho$S_debug.dylib	\
+		     $(DSTROOT)$(DYLIBDIR)/libmacho$S_debug.dylib;	\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho$S_debug.dylib;	\
 	fi
-
-teflon_lib_ofiles_install nextstep_lib_ofiles_install:
-
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)
@@ -410,5 +353,3 @@ installsrc:
 
 $(OFILE_DIRS) $(SYMROOT):
 	$(MKDIRS) $@
-
--include $(OFILE_DIR)/Makedep

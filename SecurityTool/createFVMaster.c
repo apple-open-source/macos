@@ -2,14 +2,14 @@
  * Copyright (c) 2011 Apple, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * createFVMaster.c
@@ -46,8 +46,8 @@
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
-const char * const _masterKeychainName = "FileVaultMaster.keychain";	
-const char * const _masterKeychainPath = "./FileVaultMaster";	
+const char * const _masterKeychainName = "FileVaultMaster.keychain";
+const char * const _masterKeychainPath = "./FileVaultMaster";
 
 /*
  * Parameters used to create key pairs and certificates in
@@ -58,7 +58,7 @@ const char * const _masterKeychainPath = "./FileVaultMaster";
 
 #define SR2_KEY_SIZE_IN_BITS		2048        // Recommended size for FileVault2 (FDE)
 
-/* 
+/*
  * The CSSM_ALGORITHMS and OID values defining the signature
  * algorithm in the generated certificate.
  */
@@ -68,10 +68,10 @@ const char * const _masterKeychainPath = "./FileVaultMaster";
 OSStatus makeMasterPassword(const char *fvmkcName, const char *masterPasswordPassword, uint32 keySizeInBits, SecKeychainRef *keychainRef);
 
 OSStatus createPair(CFStringRef hostName,CFStringRef userName,SecKeychainRef keychainRef, uint32 keySizeInBits, CFDataRef *cert);
-OSStatus generateKeyPair(CSSM_CSP_HANDLE cspHand, CSSM_DL_DB_HANDLE dlDbHand, CSSM_ALGORITHMS keyAlg, 
+OSStatus generateKeyPair(CSSM_CSP_HANDLE cspHand, CSSM_DL_DB_HANDLE dlDbHand, CSSM_ALGORITHMS keyAlg,
     uint32 keySizeInBits, const char *keyLabel, CSSM_KEY_PTR *pubKeyPtr, CSSM_KEY_PTR *privKeyPtr);
-OSStatus createRootCert(CSSM_TP_HANDLE tpHand, CSSM_CL_HANDLE clHand, CSSM_CSP_HANDLE cspHand, 
-    CSSM_KEY_PTR subjPubKey, CSSM_KEY_PTR signerPrivKey, const char *hostName, const char *userName, 
+OSStatus createRootCert(CSSM_TP_HANDLE tpHand, CSSM_CL_HANDLE clHand, CSSM_CSP_HANDLE cspHand,
+    CSSM_KEY_PTR subjPubKey, CSSM_KEY_PTR signerPrivKey, const char *hostName, const char *userName,
     CSSM_ALGORITHMS sigAlg, const CSSM_OID *sigOid, CSSM_DATA_PTR certData);
 void randUint32(uint32 *u);
 
@@ -81,22 +81,22 @@ OSStatus makeMasterPassword(const char *fvmkcName, const char *masterPasswordPas
 {
     /*
         OSStatus SecFileVaultMakeMasterPassword(CFStringRef masterPasswordPassword);
-    
+
         *** In the real code, this will be done directly rather than exec'ing a tool, since there are too many parameters to specify
         *** this needs to be done as root, since the keychain will be a system keychain
-        /usr/bin/certtool y c k=/Library/Keychains/FileVaultMaster.keychain p=<masterPasswordPassword> 
-        /usr/bin/certtool c   k=/Library/Keychains/FileVaultMaster.keychain o=/Library/Keychains/FileVaultMaster.cer 
+        /usr/bin/certtool y c k=/Library/Keychains/FileVaultMaster.keychain p=<masterPasswordPassword>
+        /usr/bin/certtool c   k=/Library/Keychains/FileVaultMaster.keychain o=/Library/Keychains/FileVaultMaster.cer
         Two steps: create the keychain, then create the keypair
     */
 
     SecAccessRef initialAccess = NULL;
-    
+
     if (!masterPasswordPassword)
     {
         sec_error("You must supply a non-empty password");
         return -2;
     }
-    
+
     //  We return an error if the keychain already exists
     OSStatus status = SecKeychainCreate(fvmkcName, strlen(masterPasswordPassword), masterPasswordPassword, false, initialAccess, keychainRef);
     if (status!=noErr)
@@ -105,7 +105,7 @@ OSStatus makeMasterPassword(const char *fvmkcName, const char *masterPasswordPas
             sec_error("The keychain file %s already exists", fvmkcName);
         return status;
     }
-    
+
     // Create the key pair
     char host[PATH_MAX];
 	int rx = gethostname(host, sizeof(host));
@@ -139,7 +139,7 @@ OSStatus createPair(CFStringRef hostName,CFStringRef userName,SecKeychainRef key
 	char				*userStr = NULL;
 	OSStatus			ortn;
 	CSSM_OID 			algOid = SR_CERT_SIGNATURE_ALG_OID;
-    	
+
 	hostStr = secCopyCString(hostName);
 	userStr = secCopyCString(userName);
 	if (!hostStr || !userStr)	// could not convert to UTF-8
@@ -147,9 +147,9 @@ OSStatus createPair(CFStringRef hostName,CFStringRef userName,SecKeychainRef key
     	ortn = paramErr;
         goto xit;
     }
-	
+
 	// open keychain, connect to all the CDSA modules we'll need
-	
+
 	ortn = SecKeychainGetCSPHandle(keychainRef, &cspHand);
 	if (ortn)
         goto xit;
@@ -164,14 +164,14 @@ OSStatus createPair(CFStringRef hostName,CFStringRef userName,SecKeychainRef key
     	ortn = ioErr;
         goto xit;
     }
-    
+
 	clHand = srClStartup();
 	if (clHand == 0)
 	{
     	ortn = ioErr;
         goto xit;
     }
-	
+
 	// generate key pair, private key stored in keychain
 	ortn = generateKeyPair(cspHand, dlDbHand, SR_KEY_ALGORITHM, keySizeInBits,
 		"FileVault Master Password Key", &pubKey, &privKey);
@@ -212,7 +212,7 @@ xit:
 		CSSM_ModuleDetach(clHand);
 	if (pubKey)
     {
-		CSSM_FreeKey(cspHand, 
+		CSSM_FreeKey(cspHand,
 			NULL,			// access cred
 			pubKey,
 			CSSM_FALSE);	// delete
@@ -220,7 +220,7 @@ xit:
 	}
 	if (privKey)
     {
-		CSSM_FreeKey(cspHand, 
+		CSSM_FreeKey(cspHand,
 			NULL,			// access cred
 			privKey,
 			CSSM_FALSE);	// delete
@@ -254,7 +254,7 @@ char *secCopyCString(CFStringRef theString)
 #pragma mark -------------------- SecFileVaultCert private implementation --------------------
 
 OSStatus createRootCert(
-	CSSM_TP_HANDLE		tpHand,		
+	CSSM_TP_HANDLE		tpHand,
 	CSSM_CL_HANDLE		clHand,
 	CSSM_CSP_HANDLE		cspHand,
 	CSSM_KEY_PTR		subjPubKey,
@@ -279,15 +279,15 @@ OSStatus createRootCert(
 	CSSM_APPLE_TP_NAME_OID		subjectNames[2];
 	CSSM_TP_CALLERAUTH_CONTEXT 	CallerAuthContext;
 	CSSM_FIELD					policyId;
-	
+
 	numExts = 0;
-	
+
 	certReq.challengeString = NULL;
-	
+
 	/* KeyUsage extension */
 	extp->type = DT_KeyUsage;
 	extp->critical = CSSM_FALSE;
-	extp->extension.keyUsage = CE_KU_DigitalSignature | 
+	extp->extension.keyUsage = CE_KU_DigitalSignature |
 							   CE_KU_KeyCertSign |
 							   CE_KU_KeyEncipherment |
 							   CE_KU_DataEncipherment;
@@ -301,7 +301,7 @@ OSStatus createRootCert(
 	extp->extension.basicConstraints.pathLenConstraintPresent = CSSM_FALSE;
 	extp++;
 	numExts++;
-	
+
 	/* name array */
 	subjectNames[0].string 	= hostName;
 	subjectNames[0].oid 	= &CSSMOID_CommonName;
@@ -314,7 +314,7 @@ OSStatus createRootCert(
 	randUint32(&certReq.serialNumber);		// random serial number
 	certReq.numSubjectNames = 2;
 	certReq.subjectNames = subjectNames;
-	
+
 	certReq.numIssuerNames = 0;				// root for now
 	certReq.issuerNames = NULL;
 	certReq.issuerNameX509 = NULL;
@@ -322,14 +322,14 @@ OSStatus createRootCert(
 	certReq.issuerPrivateKey = signerPrivKey;
 	certReq.signatureAlg = sigAlg;
 	certReq.signatureOid = *sigOid;
-	certReq.notBefore = 0;				
+	certReq.notBefore = 0;
 	certReq.notAfter = 60 * 60 * 24 * 365;	// seconds from now, one year
 	certReq.numExtensions = numExts;
 	certReq.extensions = exts;
-	
+
 	reqSet.NumberOfRequests = 1;
 	reqSet.Requests = &certReq;
-	
+
 	/* a CSSM_TP_CALLERAUTH_CONTEXT to specify an OID */
 	memset(&CallerAuthContext, 0, sizeof(CSSM_TP_CALLERAUTH_CONTEXT));
 	memset(&policyId, 0, sizeof(CSSM_FIELD));
@@ -345,7 +345,7 @@ OSStatus createRootCert(
 		&CallerAuthContext,
 		&estTime,
 		&refId);
-		
+
 	if(crtn) {
 		sec_error("CSSM_TP_SubmitCredRequest: %s", sec_errstr(crtn));
 		goto xit;
@@ -371,7 +371,7 @@ OSStatus createRootCert(
     if (certData->Data)
         memcpy(certData->Data, encCert->CertBlob.Data, encCert->CertBlob.Length);
 	crtn = noErr;
-    
+
 xit:
 	/* free resources allocated by TP */
 	APP_FREE(refId.Data);
@@ -384,13 +384,13 @@ xit:
 /* Convert a reference key to a raw key. */
 CSSM_RETURN refKeyToRaw(
 	CSSM_CSP_HANDLE	cspHand,
-	const CSSM_KEY	*refKey,	
+	const CSSM_KEY	*refKey,
 	CSSM_KEY_PTR	rawKey)			// RETURNED
 {
 	CSSM_CC_HANDLE		ccHand;
 	CSSM_RETURN			crtn;
 	CSSM_ACCESS_CREDENTIALS	creds;
-	
+
 	memset(rawKey, 0, sizeof(CSSM_KEY));
 	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 	crtn = CSSM_CSP_CreateSymmetricContext(cspHand,
@@ -422,7 +422,7 @@ CSSM_RETURN refKeyToRaw(
 
 /*
  * Find private key by label, modify its Label attr to be the
- * hash of the associated public key. 
+ * hash of the associated public key.
  */
 CSSM_RETURN setPubKeyHash(
 	CSSM_CSP_HANDLE 	cspHand,
@@ -436,25 +436,25 @@ CSSM_RETURN setPubKeyHash(
 	CSSM_RETURN						crtn;
 	CSSM_DATA						labelData;
 	CSSM_HANDLE						resultHand;
-	
+
 	labelData.Data = (uint8 *)keyLabel;
 	labelData.Length = strlen(keyLabel) + 1;	// incl. NULL
 	query.RecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
 	query.Conjunctive = CSSM_DB_NONE;
 	query.NumSelectionPredicates = 1;
 	predicate.DbOperator = CSSM_DB_EQUAL;
-	
-	predicate.Attribute.Info.AttributeNameFormat = 
+
+	predicate.Attribute.Info.AttributeNameFormat =
 		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
 	predicate.Attribute.Info.Label.AttributeName = "Label";
-	predicate.Attribute.Info.AttributeFormat = 
+	predicate.Attribute.Info.AttributeFormat =
 		CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 	predicate.Attribute.Value = &labelData;
 	query.SelectionPredicate = &predicate;
-	
+
 	query.QueryLimits.TimeLimit = 0;
 	query.QueryLimits.SizeLimit = 1;
-	query.QueryFlags = 0; 
+	query.QueryFlags = 0;
 
 	/* build Record attribute with one attr */
 	CSSM_DB_RECORD_ATTRIBUTE_DATA recordAttrs;
@@ -466,7 +466,7 @@ CSSM_RETURN setPubKeyHash(
 	recordAttrs.DataRecordType = CSSM_DL_DB_RECORD_PRIVATE_KEY;
 	recordAttrs.NumberOfAttributes = 1;
 	recordAttrs.AttributeData = &attr;
-	
+
 	crtn = CSSM_DL_DataGetFirst(dlDbHand,
 		&query,
 		&resultHand,
@@ -478,10 +478,10 @@ CSSM_RETURN setPubKeyHash(
 		sec_error("CSSM_DL_DataGetFirst: setPubKeyHash: can't find private key: %s", sec_errstr(crtn));
 		return crtn;
 	}
-	
-	/* 
+
+	/*
 	 * If specified key is a ref key, do NULL unwrap for use with raw CSP.
-	 * If the CSPDL and SecurityServer support the key digest passthrough 
+	 * If the CSPDL and SecurityServer support the key digest passthrough
 	 * this is unnecessary.
 	 */
 	CSSM_KEY rawKeyToDigest;
@@ -496,14 +496,14 @@ CSSM_RETURN setPubKeyHash(
 		/* use as is */
 		rawKeyToDigest = *pubOrPrivKey;
 	}
-	
+
 	/* connect to raw CSP */
 	CSSM_CSP_HANDLE rawCspHand = srCspStartup(CSSM_TRUE);
 	if(rawCspHand == 0) {
 		printf("***Error connecting to raw CSP; aborting.\n");
 		return -1;
 	}
-	
+
 	/* calculate hash of pub key from private or public part */
 	CSSM_DATA_PTR keyDigest = NULL;
 	CSSM_CC_HANDLE ccHand;
@@ -528,12 +528,12 @@ CSSM_RETURN setPubKeyHash(
 	}
 	CSSM_DeleteContext(ccHand);
 	CSSM_ModuleDetach(rawCspHand);
-	
-	/* 
+
+	/*
 	 * Replace Label attr data with hash.
 	 * NOTE: the module which allocated this attribute data - a DL -
-	 * was loaded and attached by the Sec layer, not by us. Thus 
-	 * we can't use the memory allocator functions *we* used when 
+	 * was loaded and attached by the Sec layer, not by us. Thus
+	 * we can't use the memory allocator functions *we* used when
 	 * attaching to the CSPDL - we have to use the ones
 	 * which the Sec layer registered with the DL.
 	 */
@@ -548,7 +548,7 @@ CSSM_RETURN setPubKeyHash(
 		memFuncs.free_func(attr.Value, memFuncs.AllocRef);
 	}
 	attr.Value = keyDigest;
-	
+
 	/* modify key attributes */
 	crtn = CSSM_DL_DataModify(dlDbHand,
 			CSSM_DL_DB_RECORD_PRIVATE_KEY,
@@ -571,7 +571,7 @@ CSSM_RETURN setPubKeyHash(
 		/* let's keep going in this case */
 		crtn = CSSM_OK;
 	}
-	
+
 	/* free resources */
     if (keyDigest)
     {
@@ -598,14 +598,14 @@ OSStatus generateKeyPair(
 	if((pubKey == NULL) || (privKey == NULL)) {
 		return memFullErr;
 	}
-	
+
 	CSSM_RETURN crtn;
 	CSSM_KEYUSE pubKeyUse;
 	CSSM_KEYUSE privKeyUse;
-	
-	pubKeyUse = CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_ENCRYPT | 
+
+	pubKeyUse = CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_ENCRYPT |
 			CSSM_KEYUSE_WRAP;
-	privKeyUse = CSSM_KEYUSE_SIGN | CSSM_KEYUSE_DECRYPT | 
+	privKeyUse = CSSM_KEYUSE_SIGN | CSSM_KEYUSE_DECRYPT |
 			CSSM_KEYUSE_UNWRAP;
 
 	crtn = srCspGenKeyPair(cspHand,
@@ -619,7 +619,7 @@ OSStatus generateKeyPair(
 		CSSM_KEYATTR_EXTRACTABLE | CSSM_KEYATTR_RETURN_REF,
 		privKey,
 		privKeyUse,
-		CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_RETURN_REF | 
+		CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_RETURN_REF |
 			CSSM_KEYATTR_PERMANENT | CSSM_KEYATTR_EXTRACTABLE);
 
 	if(crtn) {
@@ -631,12 +631,12 @@ OSStatus generateKeyPair(
 	/* bind private key to cert by public key hash */
 	crtn = setPubKeyHash(cspHand,
 		dlDbHand,
-		pubKey, 
+		pubKey,
 		keyLabel);
 	if(crtn) {
         sec_error("setPubKeyHash: Error setting public key hash. Continuing at peril: %s", sec_errstr(crtn));
 	}
-	
+
 	*pubKeyPtr = pubKey;
 	*privKeyPtr = privKey;
 	return noErr;
@@ -690,7 +690,7 @@ keychain_createMFV(int argc, char * const *argv)
         //  Specify the keysize in bits (default 1024)
             keySizeInBits = atoi(optarg);
             if (!(keySizeInBits == SR_KEY_SIZE_IN_BITS || keySizeInBits == SR2_KEY_SIZE_IN_BITS || keySizeInBits == 4096))
-                return 2;  
+                return 2;
             break;
 		case '?':
 		default:

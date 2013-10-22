@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,306 +23,59 @@
 
 #include "DADialog.h"
 
-#include "DABase.h"
+#include "DAAgent.h"
 #include "DAMain.h"
-#include "DAQueue.h"
 
-#include <sysexits.h>
-#include <unistd.h>
 #include <xpc/private.h>
-#include <CoreFoundation/CFUserNotificationPriv.h>
 
-static const CFStringRef __kDADialogContextDiskKey   = CFSTR( "DADialogDisk" );
-static const CFStringRef __kDADialogContextSourceKey = CFSTR( "DADialogSource" );
-
-static const CFStringRef __kDADialogTextDeviceRemoval       = CFSTR( "To eject a disk, select it in the Finder and choose File > Eject. The next time you connect the disk, Mac OS X will attempt to repair any damage to the information on the disk." );
-static const CFStringRef __kDADialogTextDeviceRemovalHeader = CFSTR( "The disk was not ejected properly. If possible, always eject a disk before unplugging it or turning it off." );
-
-static const CFStringRef __kDADialogTextDeviceUnreadableEject      = CFSTR( "Eject" );
-static const CFStringRef __kDADialogTextDeviceUnreadableHeader     = CFSTR( "The disk you inserted was not readable by this computer." );
-static const CFStringRef __kDADialogTextDeviceUnreadableIgnore     = CFSTR( "Ignore" );
-static const CFStringRef __kDADialogTextDeviceUnreadableInitialize = CFSTR( "Initialize..." );
-
-static const CFStringRef __kDADialogTextDeviceUnrepairable             = CFSTR( "You can still open or copy files on the disk, but you can't save changes to files on the disk. Back up the disk and reformat it as soon as you can." );
-static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderPrefix = CFSTR( "Mac OS X can't repair the disk \"" );
-static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderSuffix = CFSTR( ".\"" );
-
-static CFMutableDictionaryRef __gDADialogList                     = NULL;
-static CFRunLoopSourceRef     __gDADialogSourceDeviceRemoval      = NULL;
-
-static void __DADialogShowDeviceRemovalCallback( CFUserNotificationRef notification, CFOptionFlags response )
+static void __DADialogShow( DADiskRef disk, _DAAgentAction action )
 {
-    CFRunLoopRemoveSource( CFRunLoopGetCurrent( ), __gDADialogSourceDeviceRemoval, kCFRunLoopDefaultMode );
+    xpc_object_t message;
 
-    CFRelease( __gDADialogSourceDeviceRemoval );
+    message = xpc_dictionary_create( NULL, NULL, 0 );
 
-    __gDADialogSourceDeviceRemoval = NULL;
-
-    CFRelease( notification );
-}
-
-static void __DADialogShowDeviceUnreadableCallback( CFUserNotificationRef notification, CFOptionFlags response )
-{
-    CFDictionaryRef context;
-
-    context = CFDictionaryGetValue( __gDADialogList, notification );
-
-    if ( context )
+    if ( message )
     {
-        CFRunLoopSourceRef source;
+        xpc_connection_t connection;
 
-        source = ( void * ) CFDictionaryGetValue( context, __kDADialogContextSourceKey );
+        connection = xpc_connection_create_mach_service( _kDAAgentName, NULL, 0 );
 
-        if ( source )
+        if ( connection )
         {
-            DADiskRef disk;
+            CFDataRef serialization;
 
-            disk = ( void * ) CFDictionaryGetValue( context, __kDADialogContextDiskKey );
+            serialization = DADiskGetSerialization( disk );
 
-            switch ( ( response & 0x3 ) )
-            {
-                case kCFUserNotificationAlternateResponse:
-                {
-                    xpc_object_t message;
+            xpc_dictionary_set_uint64( message, _kDAAgentActionKey, action );
 
-                    message = xpc_dictionary_create( NULL, NULL, 0 );
+            xpc_dictionary_set_data( message, _kDAAgentDiskKey, CFDataGetBytePtr( serialization ), CFDataGetLength( serialization ) );
 
-                    if ( message )
-                    {
-                        xpc_connection_t connection;
+            xpc_connection_set_event_handler( connection, ^( xpc_object_t object ) { } );
 
-                        connection = xpc_connection_create( _kDAAgentName, NULL );
+            xpc_connection_set_target_uid( connection, gDAConsoleUserUID );
 
-                        if ( connection )
-                        {                        
-                            xpc_connection_set_event_handler( connection, ^( xpc_object_t object ) { } );
+            xpc_connection_resume( connection );
 
-                            xpc_connection_set_legacy( connection );
+            xpc_connection_send_message( connection, message );
 
-                            xpc_connection_set_target_uid( connection, gDAConsoleUserUID );
-
-                            xpc_connection_resume( connection );
-
-                            xpc_connection_send_message( connection, message );
-
-                            xpc_release( connection );
-                        }
-
-                        xpc_release( message );
-                    }
-
-                    break;
-                }
-                case kCFUserNotificationCancelResponse:
-                case kCFUserNotificationDefaultResponse:
-                {
-                    if ( DADiskGetState( disk, kDADiskStateZombie ) == FALSE )
-                    {
-                        DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
-                    }
-
-                    break;
-                }
-            }
-
-            CFRunLoopRemoveSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
+            xpc_release( connection );
         }
 
-        CFDictionaryRemoveValue( __gDADialogList, notification );
+        xpc_release( message );
     }
 }
 
-static void __DADialogShowDeviceUnrepairableCallback( CFUserNotificationRef notification, CFOptionFlags response )
+void DADialogShowDeviceRemoval( DADiskRef disk )
 {
-    CFDictionaryRef context;
-
-    context = CFDictionaryGetValue( __gDADialogList, notification );
-
-    if ( context )
-    {
-        CFRunLoopSourceRef source;
-
-        source = ( void * ) CFDictionaryGetValue( context, __kDADialogContextSourceKey );
-
-        if ( source )
-        {
-            CFRunLoopRemoveSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
-        }
-
-        CFDictionaryRemoveValue( __gDADialogList, notification );
-    }
-}
-
-void DADialogInitialize( void )
-{
-    __gDADialogList = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-}
-
-void DADialogShowDeviceRemoval( void )
-{
-    if ( __gDADialogSourceDeviceRemoval == NULL )
-    {
-        CFMutableDictionaryRef description;
-
-        description = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-
-        if ( description )
-        {
-            CFUserNotificationRef notification;
-
-            CFDictionarySetValue( description, kCFUserNotificationAlertHeaderKey,     __kDADialogTextDeviceRemovalHeader );
-            CFDictionarySetValue( description, kCFUserNotificationAlertMessageKey,    __kDADialogTextDeviceRemoval       );
-            CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey, gDABundlePath                      );
-
-            notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationStopAlertLevel, NULL, description );
-
-            if ( notification )
-            {
-                CFRunLoopSourceRef source;
-
-                source = CFUserNotificationCreateRunLoopSource( kCFAllocatorDefault, notification, __DADialogShowDeviceRemovalCallback, 0 );
-
-                if ( source )
-                {
-                    CFRetain( notification );
-
-                    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
-
-                    __gDADialogSourceDeviceRemoval = source;
-                }
-
-                CFRelease( notification );
-            }
-
-            CFRelease( description );
-        }
-    }
+    __DADialogShow( disk, _kDAAgentActionShowDeviceRemoval );
 }
 
 void DADialogShowDeviceUnreadable( DADiskRef disk )
 {
-    CFMutableDictionaryRef context;
-
-    context = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-
-    if ( context )
-    {
-        CFMutableDictionaryRef description;
-
-        description = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-
-        if ( description )
-        {
-            CFUserNotificationRef notification;
-
-            CFDictionarySetValue( description, kCFUserNotificationAlertHeaderKey,        __kDADialogTextDeviceUnreadableHeader );
-            CFDictionarySetValue( description, kCFUserNotificationDefaultButtonTitleKey, __kDADialogTextDeviceUnreadableEject  );
-            CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey,    gDABundlePath                         );
-            CFDictionarySetValue( description, kCFUserNotificationOtherButtonTitleKey,   __kDADialogTextDeviceUnreadableIgnore );
-
-            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
-            {
-                CFDictionarySetValue( description, kCFUserNotificationAlternateButtonTitleKey, __kDADialogTextDeviceUnreadableInitialize );
-            }
-
-            notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationCautionAlertLevel, NULL, description );
-
-            if ( notification )
-            {
-                CFRunLoopSourceRef source;
-
-                source = CFUserNotificationCreateRunLoopSource( kCFAllocatorDefault, notification, __DADialogShowDeviceUnreadableCallback, 0 );
-
-                if ( source )
-                {
-                    CFDictionarySetValue( context, __kDADialogContextDiskKey,   disk   );
-                    CFDictionarySetValue( context, __kDADialogContextSourceKey, source );
-
-                    CFDictionarySetValue( __gDADialogList, notification, context );
-
-                    CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
-
-                    CFRelease( source );
-                }
-
-                CFRelease( notification );
-            }
-
-            CFRelease( description );
-        }
-
-        CFRelease( context );
-    }
+    __DADialogShow( disk, _kDAAgentActionShowDeviceUnreadable );
 }
 
 void DADialogShowDeviceUnrepairable( DADiskRef disk )
 {
-    CFMutableDictionaryRef context;
-
-    context = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-
-    if ( context )
-    {
-        CFMutableArrayRef header;
-
-        header = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
-
-        if ( header )
-        {
-            CFMutableDictionaryRef description;
-            CFStringRef            name;
-
-            name = DADiskGetDescription( disk, kDADiskDescriptionVolumeNameKey );
-
-            if ( name == NULL )
-            {
-                name = CFSTR( "Untitled" );
-            }
-
-            CFArrayAppendValue( header, __kDADialogTextDeviceUnrepairableHeaderPrefix );
-            CFArrayAppendValue( header, name );
-            CFArrayAppendValue( header, __kDADialogTextDeviceUnrepairableHeaderSuffix );
-
-            description = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-
-            if ( description )
-            {
-                CFUserNotificationRef notification;
-
-                CFDictionarySetValue( description, kCFUserNotificationAlertHeaderKey,     header                            );
-                CFDictionarySetValue( description, kCFUserNotificationAlertMessageKey,    __kDADialogTextDeviceUnrepairable );
-                CFDictionarySetValue( description, kCFUserNotificationHelpAnchorKey,      CFSTR( "mh26875" )                );
-                CFDictionarySetValue( description, kCFUserNotificationHelpBookKey,        CFSTR( "com.apple.machelp" )      );
-                CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey, gDABundlePath                     );
-
-                notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationStopAlertLevel, NULL, description );
-
-                if ( notification )
-                {
-                    CFRunLoopSourceRef source;
-
-                    source = CFUserNotificationCreateRunLoopSource( kCFAllocatorDefault, notification, __DADialogShowDeviceUnrepairableCallback, 0 );
-
-                    if ( source )
-                    {
-                        CFDictionarySetValue( context, __kDADialogContextSourceKey, source );
-
-                        CFDictionarySetValue( __gDADialogList, notification, context );
-
-                        CFRunLoopAddSource( CFRunLoopGetCurrent( ), source, kCFRunLoopDefaultMode );
-
-                        CFRelease( source );
-                    }
-
-                    CFRelease( notification );
-                }
-
-                CFRelease( description );
-            }
-
-            CFRelease( header );
-        }
-
-        CFRelease( context );
-    }
+    __DADialogShow( disk, _kDAAgentActionShowDeviceUnrepairable );
 }

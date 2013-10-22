@@ -166,7 +166,7 @@ __vfwscanf(FILE * __restrict fp, locale_t loc, const wchar_t * __restrict fmt,
 	int mb_cur_max = MB_CUR_MAX_L(loc);
 
 	/* `basefix' is used to avoid `if' tests in the integer scanner */
-	static short basefix[17] =
+	static const short basefix[17] =
 		{ 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
 	nassigned = 0;

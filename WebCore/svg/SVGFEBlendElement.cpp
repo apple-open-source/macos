@@ -67,27 +67,26 @@ bool SVGFEBlendElement::isSupportedAttribute(const QualifiedName& attrName)
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGFEBlendElement::parseAttribute(Attribute* attr)
+void SVGFEBlendElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGFilterPrimitiveStandardAttributes::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGFilterPrimitiveStandardAttributes::parseAttribute(name, value);
         return;
     }
 
-    const AtomicString& value = attr->value();
-    if (attr->name() == SVGNames::modeAttr) {
+    if (name == SVGNames::modeAttr) {
         BlendModeType propertyValue = SVGPropertyTraits<BlendModeType>::fromString(value);
         if (propertyValue > 0)
             setModeBaseValue(propertyValue);
         return;
     }
 
-    if (attr->name() == SVGNames::inAttr) {
+    if (name == SVGNames::inAttr) {
         setIn1BaseValue(value);
         return;
     }
 
-    if (attr->name() == SVGNames::in2Attr) {
+    if (name == SVGNames::in2Attr) {
         setIn2BaseValue(value);
         return;
     }

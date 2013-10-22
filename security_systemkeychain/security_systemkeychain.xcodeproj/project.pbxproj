@@ -39,7 +39,6 @@
 		18B965931472FD77005A4D2E /* libsecurityd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965921472FD77005A4D2E /* libsecurityd_client.a */; };
 		4E670EA60BFCCDBF00F573A6 /* tokenadmin.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4E670EA40BFCCD6E00F573A6 /* tokenadmin.8 */; };
 		522F1F130B6A96EE006F700F /* TokenIDHelper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52558DDF0B27827A00CD7E39 /* TokenIDHelper.cpp */; };
-		52558D3D0B274DC100CD7E39 /* Admin.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558D3C0B274DC100CD7E39 /* Admin.framework */; };
 		52558D440B2753D300CD7E39 /* tokenadmin.m in Sources */ = {isa = PBXBuildFile; fileRef = 52558D420B2753D300CD7E39 /* tokenadmin.m */; };
 		52558DCB0B27812300CD7E39 /* create_fv_user.m in Sources */ = {isa = PBXBuildFile; fileRef = 52558DC90B27812300CD7E39 /* create_fv_user.m */; };
 		52558DDE0B27821D00CD7E39 /* DiskImages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558DDD0B27821D00CD7E39 /* DiskImages.framework */; };
@@ -49,6 +48,7 @@
 		52558EAE0B28D61C00CD7E39 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
 		52558EFA0B28D66F00CD7E39 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558EF90B28D66F00CD7E39 /* Foundation.framework */; };
 		52558EFD0B28D6FD00CD7E39 /* SecurityFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558EFC0B28D6FD00CD7E39 /* SecurityFoundation.framework */; };
+		BE6C62A015DDD03F0027BB12 /* SystemAdministration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE6C629F15DDD03F0027BB12 /* SystemAdministration.framework */; };
 		C21CFB790A24CC43006CD5B1 /* codesign.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21CFB780A24CC43006CD5B1 /* codesign.cpp */; };
 		C21CFB7A0A24CC77006CD5B1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
 		C21CFC780A250F95006CD5B1 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
@@ -72,7 +72,6 @@
 		C297EE800AAE8D4C00084FFC /* cs_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26159150A9F619800771C4D /* cs_utils.cpp */; };
 		C297EF520AAE8D9400084FFC /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
 		C297EF530AAE8D9400084FFC /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
-		C297EF550AAE8D9400084FFC /* libantlr2c++.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C2254FDA0A25113B007D3358 /* libantlr2c++.a */; };
 		C2B3635C05894DAF00DA394D /* systemkeychain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B3635B05894DAF00DA394D /* systemkeychain.cpp */; };
 		C2BD5E3F0AC1E9330057FD3D /* cs_verify.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD5E3E0AC1E9330057FD3D /* cs_verify.cpp */; };
 		C2BD5E4A0AC1E9EF0057FD3D /* cs_misc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD5E490AC1E9EF0057FD3D /* cs_misc.cpp */; };
@@ -249,7 +248,6 @@
 		4E670EA40BFCCD6E00F573A6 /* tokenadmin.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = tokenadmin.8; sourceTree = "<group>"; };
 		52558D320B274C4400CD7E39 /* tokenadmin */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tokenadmin; sourceTree = BUILT_PRODUCTS_DIR; };
 		52558D340B274C4400CD7E39 /* Info-tokenadmin.plist */ = {isa = PBXFileReference; explicitFileType = sourcecode; name = "Info-tokenadmin.plist"; path = "src/Info-tokenadmin.plist"; sourceTree = "<group>"; };
-		52558D3C0B274DC100CD7E39 /* Admin.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Admin.framework; path = /System/Library/PrivateFrameworks/Admin.framework; sourceTree = "<absolute>"; };
 		52558D420B2753D300CD7E39 /* tokenadmin.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = tokenadmin.m; path = src/tokenadmin.m; sourceTree = "<group>"; };
 		52558D430B2753D300CD7E39 /* tokenadmin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = tokenadmin.h; path = src/tokenadmin.h; sourceTree = "<group>"; };
 		52558DC90B27812300CD7E39 /* create_fv_user.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = create_fv_user.m; path = src/create_fv_user.m; sourceTree = "<group>"; };
@@ -261,6 +259,7 @@
 		52558E320B28B4A900CD7E39 /* readline.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = readline.h; path = src/readline.h; sourceTree = "<group>"; };
 		52558EF90B28D66F00CD7E39 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		52558EFC0B28D6FD00CD7E39 /* SecurityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityFoundation.framework; path = /System/Library/Frameworks/SecurityFoundation.framework; sourceTree = "<absolute>"; };
+		BE6C629F15DDD03F0027BB12 /* SystemAdministration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemAdministration.framework; path = ../PrivateFrameworks/SystemAdministration.framework; sourceTree = "<group>"; };
 		C20B4B881475B3E9006E88D1 /* spctl.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = spctl.8; sourceTree = "<group>"; };
 		C20CFFB814685F11004C8E27 /* spctl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = spctl.cpp; sourceTree = "<group>"; };
 		C20CFFBA14685F1D004C8E27 /* spctl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = spctl.h; sourceTree = "<group>"; };
@@ -336,11 +335,11 @@
 			files = (
 				52558EAE0B28D61C00CD7E39 /* CoreFoundation.framework in Frameworks */,
 				52558EA90B28D5AE00CD7E39 /* Security.framework in Frameworks */,
-				52558D3D0B274DC100CD7E39 /* Admin.framework in Frameworks */,
 				52558DDE0B27821D00CD7E39 /* DiskImages.framework in Frameworks */,
 				52558EFA0B28D66F00CD7E39 /* Foundation.framework in Frameworks */,
 				52558EFD0B28D6FD00CD7E39 /* SecurityFoundation.framework in Frameworks */,
 				1865FD221472762600FD79DF /* libsecurity_utilities.a in Frameworks */,
+				BE6C62A015DDD03F0027BB12 /* SystemAdministration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -381,7 +380,6 @@
 			files = (
 				C297EF520AAE8D9400084FFC /* CoreFoundation.framework in Frameworks */,
 				C297EF530AAE8D9400084FFC /* Security.framework in Frameworks */,
-				C297EF550AAE8D9400084FFC /* libantlr2c++.a in Frameworks */,
 				1865FD1C147274A700FD79DF /* libsecurity_utilities.a in Frameworks */,
 				1865FD1E147274B800FD79DF /* libsecurity_cdsa_utilities.a in Frameworks */,
 			);
@@ -507,7 +505,7 @@
 				52558EFC0B28D6FD00CD7E39 /* SecurityFoundation.framework */,
 				52558EF90B28D66F00CD7E39 /* Foundation.framework */,
 				52558DDD0B27821D00CD7E39 /* DiskImages.framework */,
-				52558D3C0B274DC100CD7E39 /* Admin.framework */,
+				BE6C629F15DDD03F0027BB12 /* SystemAdministration.framework */,
 				C264033E0589582F00E95F9A /* CoreFoundation.framework */,
 				C21CFC770A250F95006CD5B1 /* Security.framework */,
 				EB149A84151C204C0042E8ED /* Cocoa.framework */,
@@ -753,7 +751,7 @@
 		4CA1FEB0052A3C5800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0460;
 			};
 			buildConfigurationList = C27AD4930987FCEF001272E0 /* Build configuration list for PBXProject "security_systemkeychain" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -935,6 +933,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25C5614753D14004F59F8 /* debug.xcconfig */;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				INSTALL_PATH = /usr/sbin;
 			};
 			name = Debug;
@@ -943,6 +945,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25C5814753D14004F59F8 /* release.xcconfig */;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = tokenadmin;
 				ZERO_LINK = NO;
@@ -982,12 +988,14 @@
 		C21CFB750A24CBEC006CD5B1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Debug;
 		};
 		C21CFB770A24CBEC006CD5B1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Release;
 		};
@@ -1012,7 +1020,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/sbin;
-				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1033,7 +1040,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_PATH = /usr/sbin;
-				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1074,6 +1080,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25C5714753D14004F59F8 /* project.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -1081,6 +1092,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25C5714753D14004F59F8 /* project.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};
@@ -1121,6 +1137,7 @@
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1140,7 +1157,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = "Gatekeeper/Gatekeeper-Info.plist";
 				INSTALL_PATH = /AppleInternal/Applications;
-				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1155,6 +1171,7 @@
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -1168,7 +1185,6 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = "Gatekeeper/Gatekeeper-Info.plist";
 				INSTALL_PATH = /AppleInternal/Applications;
-				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				WRAPPER_EXTENSION = app;

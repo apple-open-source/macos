@@ -62,17 +62,16 @@ bool SVGStopElement::isSupportedAttribute(const QualifiedName& attrName)
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGStopElement::parseAttribute(Attribute* attr)
+void SVGStopElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGStyledElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGStyledElement::parseAttribute(name, value);
         return;
     }
 
-    if (attr->name() == SVGNames::offsetAttr) {
-        const String& value = attr->value();
+    if (name == SVGNames::offsetAttr) {
         if (value.endsWith('%'))
-            setOffsetBaseValue(value.left(value.length() - 1).toFloat() / 100.0f);
+            setOffsetBaseValue(value.string().left(value.length() - 1).toFloat() / 100.0f);
         else
             setOffsetBaseValue(value.toFloat());
         return;
@@ -113,10 +112,14 @@ bool SVGStopElement::rendererIsNeeded(const NodeRenderingContext&)
 
 Color SVGStopElement::stopColorIncludingOpacity() const
 {
-    ASSERT(renderer());
-    ASSERT(renderer()->style());
+    RenderStyle* style = renderer() ? renderer()->style() : 0;
+    // FIXME: This check for null style exists to address Bug WK 90814, a rare crash condition in
+    // which the renderer or style is null. This entire class is scheduled for removal (Bug WK 86941)
+    // and we will tolerate this null check until then.
+    if (!style || !style->svgStyle())
+        return Color(Color::transparent, true); // Transparent black.
 
-    const SVGRenderStyle* svgStyle = renderer()->style()->svgStyle();
+    const SVGRenderStyle* svgStyle = style->svgStyle();
     return colorWithOverrideAlpha(svgStyle->stopColor().rgb(), svgStyle->stopOpacity());
 }
 

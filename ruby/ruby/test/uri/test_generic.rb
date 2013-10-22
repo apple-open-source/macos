@@ -1,10 +1,7 @@
 require 'test/unit'
 require 'uri'
 
-module URI
-
-
-class TestGeneric < Test::Unit::TestCase
+class URI::TestGeneric < Test::Unit::TestCase
   def setup
     @url = 'http://a/b/c/d;p?q'
     @base_url = URI.parse(@url)
@@ -22,9 +19,9 @@ class TestGeneric < Test::Unit::TestCase
     assert_kind_of(URI::HTTP, @base_url)
 
     exp = [
-      'http', 
-      nil, 'a', URI::HTTP.default_port, 
-      '/b/c/d;p', 
+      'http',
+      nil, 'a', URI::HTTP.default_port,
+      '/b/c/d;p',
       'q',
       nil
     ]
@@ -36,8 +33,8 @@ class TestGeneric < Test::Unit::TestCase
     assert_kind_of(URI::FTP, url)
 
     exp = [
-      'ftp', 
-      nil, 'ftp.is.co.za', URI::FTP.default_port, 
+      'ftp',
+      nil, 'ftp.is.co.za', URI::FTP.default_port,
       'rfc/rfc1808.txt', nil,
     ]
     ary = uri_to_ary(url)
@@ -47,8 +44,8 @@ class TestGeneric < Test::Unit::TestCase
     assert_kind_of(URI::FTP, url)
 
     exp = [
-      'ftp', 
-      nil, 'ftp.is.co.za', URI::FTP.default_port, 
+      'ftp',
+      nil, 'ftp.is.co.za', URI::FTP.default_port,
       '/rfc/rfc1808.txt', nil,
     ]
     ary = uri_to_ary(url)
@@ -59,7 +56,7 @@ class TestGeneric < Test::Unit::TestCase
     assert_kind_of(URI::Generic, url)
 
     exp = [
-      'gopher', 
+      'gopher',
       nil, 'spinaltap.micro.umn.edu', nil, nil,
       '/00/Weather/California/Los%20Angeles', nil,
       nil,
@@ -73,9 +70,9 @@ class TestGeneric < Test::Unit::TestCase
     assert_kind_of(URI::HTTP, url)
 
     exp = [
-      'http', 
-      nil, 'www.math.uio.no', URI::HTTP.default_port, 
-      '/faq/compression-faq/part1.html', 
+      'http',
+      nil, 'www.math.uio.no', URI::HTTP.default_port,
+      '/faq/compression-faq/part1.html',
       nil,
       nil
     ]
@@ -87,7 +84,7 @@ class TestGeneric < Test::Unit::TestCase
     assert_kind_of(URI::Generic, url)
 
     exp = [
-      'mailto', 
+      'mailto',
       'mduerst@ifi.unizh.ch',
       []
     ]
@@ -99,8 +96,8 @@ class TestGeneric < Test::Unit::TestCase
     assert_kind_of(URI::Generic, url)
 
     exp = [
-      'news', 
-      nil, nil, nil, nil, 
+      'news',
+      nil, nil, nil, nil,
       nil, 'comp.infosystems.www.servers.unix',
       nil,
       nil
@@ -113,8 +110,8 @@ class TestGeneric < Test::Unit::TestCase
     assert_kind_of(URI::Generic, url)
 
     exp = [
-      'telnet', 
-      nil, 'melvyl.ucop.edu', nil, nil, 
+      'telnet',
+      nil, 'melvyl.ucop.edu', nil, nil,
       '/', nil,
       nil,
       nil
@@ -124,8 +121,8 @@ class TestGeneric < Test::Unit::TestCase
 
     # 7
     # reported by Mr. Kubota <em6t-kbt@asahi-net.or.jp>
-    assert_raises(URI::InvalidURIError) { URI.parse('http://a_b:80/') }
-    assert_raises(URI::InvalidURIError) { URI.parse('http://a_b/') }
+    assert_raise(URI::InvalidURIError) { URI.parse('http://a_b:80/') }
+    assert_raise(URI::InvalidURIError) { URI.parse('http://a_b/') }
 
     # 8
     # reported by m_seki
@@ -694,22 +691,109 @@ class TestGeneric < Test::Unit::TestCase
     assert_equal('http://foo:bar@zab:8080/?a=1#b123', uri.to_s)
 
     uri = URI.parse('http://example.com')
-    assert_raises(URI::InvalidURIError) { uri.password = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.password = 'bar' }
+    assert_raise(URI::InvalidComponentError) { uri.query = "foo\nbar" }
     uri.userinfo = 'foo:bar'
     assert_equal('http://foo:bar@example.com', uri.to_s)
-    assert_raises(URI::InvalidURIError) { uri.registry = 'bar' }
-    assert_raises(URI::InvalidURIError) { uri.opaque = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.registry = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.opaque = 'bar' }
 
     uri = URI.parse('mailto:foo@example.com')
-    assert_raises(URI::InvalidURIError) { uri.user = 'bar' }
-    assert_raises(URI::InvalidURIError) { uri.password = 'bar' }
-    assert_raises(URI::InvalidURIError) { uri.userinfo = ['bar', 'baz'] }
-    assert_raises(URI::InvalidURIError) { uri.host = 'bar' }
-    assert_raises(URI::InvalidURIError) { uri.port = 'bar' }
-    assert_raises(URI::InvalidURIError) { uri.path = 'bar' }
-    assert_raises(URI::InvalidURIError) { uri.query = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.user = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.password = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.userinfo = ['bar', 'baz'] }
+    assert_raise(URI::InvalidURIError) { uri.host = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.port = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.path = 'bar' }
+    assert_raise(URI::InvalidURIError) { uri.query = 'bar' }
   end
-end
 
+  def test_set_scheme
+    uri = URI.parse 'HTTP://example'
+
+    assert_equal 'http://example', uri.to_s
+  end
+
+  def test_ipv6
+    assert_equal("[::1]", URI("http://[::1]/bar/baz").host)
+    assert_equal("::1", URI("http://[::1]/bar/baz").hostname)
+
+    u = URI("http://foo/bar")
+    assert_equal("http://foo/bar", u.to_s)
+    u.hostname = "::1"
+    assert_equal("http://[::1]/bar", u.to_s)
+  end
+
+  def test_build
+    URI::Generic.build(['http', nil, 'example.com', 80, nil, '/foo', nil, nil, nil])
+  end
+
+  def test_build2
+    URI::Generic.build2(path: "/foo bar/baz")
+    URI::Generic.build2(['http', nil, 'example.com', 80, nil, '/foo bar' , nil, nil, nil])
+  end
+
+  # 192.0.2.0/24 is TEST-NET.  [RFC3330]
+
+  def test_find_proxy
+    with_env({}) {
+      assert_nil(URI("http://192.0.2.1/").find_proxy)
+      assert_nil(URI("ftp://192.0.2.1/").find_proxy)
+    }
+    with_env('http_proxy'=>'http://127.0.0.1:8080') {
+      assert_equal(URI('http://127.0.0.1:8080'), URI("http://192.0.2.1/").find_proxy)
+      assert_nil(URI("ftp://192.0.2.1/").find_proxy)
+    }
+    with_env('ftp_proxy'=>'http://127.0.0.1:8080') {
+      assert_nil(URI("http://192.0.2.1/").find_proxy)
+      assert_equal(URI('http://127.0.0.1:8080'), URI("ftp://192.0.2.1/").find_proxy)
+    }
+    with_env('REQUEST_METHOD'=>'GET') {
+      assert_nil(URI("http://192.0.2.1/").find_proxy)
+    }
+    with_env('CGI_HTTP_PROXY'=>'http://127.0.0.1:8080', 'REQUEST_METHOD'=>'GET') {
+      assert_equal(URI('http://127.0.0.1:8080'), URI("http://192.0.2.1/").find_proxy)
+    }
+    with_env('http_proxy'=>'http://127.0.0.1:8080', 'no_proxy'=>'192.0.2.2') {
+      assert_equal(URI('http://127.0.0.1:8080'), URI("http://192.0.2.1/").find_proxy)
+      assert_nil(URI("http://192.0.2.2/").find_proxy)
+    }
+    with_env('http_proxy'=>'') {
+      assert_equal(URI(''), URI("http://192.0.2.1/").find_proxy)
+      assert_nil(URI("ftp://192.0.2.1/").find_proxy)
+    }
+    with_env('ftp_proxy'=>'') {
+      assert_nil(URI("http://192.0.2.1/").find_proxy)
+      assert_equal(URI(''), URI("ftp://192.0.2.1/").find_proxy)
+    }
+  end
+
+  def test_find_proxy_case_sensitive_env
+    with_env('http_proxy'=>'http://127.0.0.1:8080', 'REQUEST_METHOD'=>'GET') {
+      assert_equal(URI('http://127.0.0.1:8080'), URI("http://192.0.2.1/").find_proxy)
+    }
+    with_env('HTTP_PROXY'=>'http://127.0.0.1:8081', 'REQUEST_METHOD'=>'GET') {
+      assert_nil(nil, URI("http://192.0.2.1/").find_proxy)
+    }
+    with_env('http_proxy'=>'http://127.0.0.1:8080', 'HTTP_PROXY'=>'http://127.0.0.1:8081', 'REQUEST_METHOD'=>'GET') {
+      assert_equal(URI('http://127.0.0.1:8080'), URI("http://192.0.2.1/").find_proxy)
+    }
+  end unless RUBY_PLATFORM =~ /mswin|mingw/
+
+  def with_env(h)
+    ['http', 'https', 'ftp'].each do |scheme|
+      name = "#{scheme}_proxy"
+      h[name] ||= nil
+      h["CGI_#{name.upcase}"] ||= nil
+    end
+    begin
+      old = {}
+      h.each_key {|k| old[k] = ENV[k] }
+      h.each {|k, v| ENV[k] = v }
+      yield
+    ensure
+      h.each_key {|k| ENV[k] = old[k] }
+    end
+  end
 
 end

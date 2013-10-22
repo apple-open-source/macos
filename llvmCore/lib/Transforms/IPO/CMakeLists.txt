@@ -21,12 +21,4 @@ add_llvm_library(LLVMipo
   StripSymbols.cpp
   )
 
-add_llvm_library_dependencies(LLVMipo
-  LLVMAnalysis
-  LLVMCore
-  LLVMScalarOpts
-  LLVMSupport
-  LLVMTarget
-  LLVMTransformUtils
-  LLVMipa
-  )
+add_dependencies(LLVMipo intrinsics_gen)

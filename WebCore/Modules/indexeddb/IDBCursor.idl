@@ -23,28 +23,18 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module storage {
+[
+    Conditional=INDEXED_DATABASE,
+    JSNoStaticTables
+] interface IDBCursor {
 
-    interface [
-        Conditional=INDEXED_DATABASE,
-    ] IDBCursor {
-        const unsigned short NEXT = 0;
-        const unsigned short NEXT_NO_DUPLICATE = 1;
-        const unsigned short PREV = 2;
-        const unsigned short PREV_NO_DUPLICATE = 3;
+    readonly attribute DOMString direction;
+    readonly attribute any key;
+    readonly attribute any primaryKey;
+    readonly attribute IDBAny source;
 
-        readonly attribute unsigned short direction;
-        readonly attribute IDBKey key;
-        readonly attribute IDBKey primaryKey;
-        readonly attribute IDBAny source;
-
-        [CallWith=ScriptExecutionContext] IDBRequest update(in SerializedScriptValue value)
-            raises (IDBDatabaseException);
-        void advance(in unsigned long count)
-            raises (IDBDatabaseException);
-        [ImplementedAs=continueFunction] void continue(in [Optional] IDBKey key)
-            raises (IDBDatabaseException);
-        [CallWith=ScriptExecutionContext, ImplementedAs=deleteFunction] IDBRequest delete()
-            raises (IDBDatabaseException);
-    };
-}
+    [CallWith=ScriptState, RaisesException] IDBRequest update(any value);
+    [RaisesException] void advance([EnforceRange] unsigned long count);
+    [CallWith=ScriptExecutionContext, ImplementedAs=continueFunction, RaisesException] void continue(optional any key);
+    [CallWith=ScriptExecutionContext, ImplementedAs=deleteFunction, RaisesException] IDBRequest delete();
+};

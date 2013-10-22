@@ -72,7 +72,7 @@ SecCode *GenericCode::locateGuest(CFDictionaryRef attributes)
 		GuestChain guestPath;
 		mach_msg_type_number_t guestPathLength;
 		mach_port_t subport;
-		CALL(host, findGuest, guestRef(), attrPtr, attrLength,
+		CALL(host, findGuest, guestRef(), attrPtr, (mach_msg_type_number_t)attrLength,
 			&guestPath, &guestPathLength, &subport);
 		CODESIGN_GUEST_LOCATE_GENERIC(this, guestPath, guestPathLength, subport);
 		SecPointer<SecCode> code = this;
@@ -106,7 +106,7 @@ SecStaticCode *GenericCode::identifyGuest(SecCode *guest, CFDataRef *cdhashOut)
 		SecPointer<GenericStaticCode> code = new GenericStaticCode(DiskRep::bestGuess(path, &ctx));
 		CODESIGN_GUEST_IDENTIFY_GENERIC(iguest, iguest->guestRef(), code);
 		if (cdhash) {
-			CODESIGN_GUEST_CDHASH_GENERIC(iguest, (void *)CFDataGetBytePtr(cdhash), CFDataGetLength(cdhash));
+			CODESIGN_GUEST_CDHASH_GENERIC(iguest, (void *)CFDataGetBytePtr(cdhash), (unsigned)CFDataGetLength(cdhash));
 			*cdhashOut = cdhash.yield();
 		}
 		return code.yield();

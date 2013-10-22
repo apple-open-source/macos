@@ -46,8 +46,11 @@ WebInspector.ScriptsNavigator = function()
 
     this._snippetsView = new WebInspector.SnippetsNavigatorView();
     this._snippetsView.addEventListener(WebInspector.NavigatorView.Events.ItemSelected, this._scriptSelected, this);
+    this._snippetsView.addEventListener(WebInspector.NavigatorView.Events.FileRenamed, this._fileRenamed, this);
+    this._snippetsView.addEventListener(WebInspector.SnippetsNavigatorView.Events.SnippetCreationRequested, this._snippetCreationRequested, this);
+    this._snippetsView.addEventListener(WebInspector.SnippetsNavigatorView.Events.ItemRenamingRequested, this._itemRenamingRequested, this);
 
-    this._tabbedPane.appendTab(WebInspector.ScriptsNavigator.ScriptsTab, WebInspector.UIString("Scripts"), this._scriptsView);
+    this._tabbedPane.appendTab(WebInspector.ScriptsNavigator.ScriptsTab, WebInspector.UIString("Sources"), this._scriptsView);
     this._tabbedPane.selectTab(WebInspector.ScriptsNavigator.ScriptsTab);
     this._tabbedPane.appendTab(WebInspector.ScriptsNavigator.ContentScriptsTab, WebInspector.UIString("Content scripts"), this._contentScriptsView);
     if (WebInspector.experimentsSettings.snippetsSupport.isEnabled())
@@ -55,7 +58,10 @@ WebInspector.ScriptsNavigator = function()
 }
 
 WebInspector.ScriptsNavigator.Events = {
-    ScriptSelected: "ScriptSelected"
+    ScriptSelected: "ScriptSelected",
+    SnippetCreationRequested: "SnippetCreationRequested",
+    ItemRenamingRequested: "ItemRenamingRequested",
+    FileRenamed: "FileRenamed"
 }
 
 WebInspector.ScriptsNavigator.ScriptsTab = "scripts";
@@ -74,64 +80,52 @@ WebInspector.ScriptsNavigator.prototype = {
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
      */
+    _navigatorViewForUISourceCode: function(uiSourceCode)
+    {
+        if (uiSourceCode.isContentScript)
+            return this._contentScriptsView;
+        else if (uiSourceCode.project().type() === WebInspector.projectTypes.Snippets)
+            return this._snippetsView;
+        else
+            return this._scriptsView;
+    },
+
+    /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
     addUISourceCode: function(uiSourceCode)
     {
-        if (uiSourceCode.isContentScript)
-            this._contentScriptsView.addUISourceCode(uiSourceCode);
-        else if (uiSourceCode.isSnippet || uiSourceCode.isSnippetEvaluation)
-            this._snippetsView.addUISourceCode(uiSourceCode);
-        else
-            this._scriptsView.addUISourceCode(uiSourceCode);
-    },
-
-    /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
-     * @return {boolean}
-     */
-    isScriptSourceAdded: function(uiSourceCode)
-    {
-        if (uiSourceCode.isContentScript)
-            return this._contentScriptsView.isScriptSourceAdded(uiSourceCode);
-        if (uiSourceCode.isSnippet || uiSourceCode.isSnippetEvaluation)
-            return this._snippetsView.isScriptSourceAdded(uiSourceCode);
-        return this._scriptsView.isScriptSourceAdded(uiSourceCode);
+        this._navigatorViewForUISourceCode(uiSourceCode).addUISourceCode(uiSourceCode);
     },
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
      */
-    revealUISourceCode: function(uiSourceCode)
+    removeUISourceCode: function(uiSourceCode)
     {
-        if (uiSourceCode.isContentScript) {
-            this._contentScriptsView.revealUISourceCode(uiSourceCode);
+        this._navigatorViewForUISourceCode(uiSourceCode).removeUISourceCode(uiSourceCode);
+    },
+
+    /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     * @param {boolean=} select
+     */
+    revealUISourceCode: function(uiSourceCode, select)
+    {
+        this._navigatorViewForUISourceCode(uiSourceCode).revealUISourceCode(uiSourceCode, select);
+        if (uiSourceCode.isContentScript)
             this._tabbedPane.selectTab(WebInspector.ScriptsNavigator.ContentScriptsTab);
-        } else if (uiSourceCode.isSnippet || uiSourceCode.isSnippetEvaluation) {
-            this._snippetsView.revealUISourceCode(uiSourceCode);
-            this._tabbedPane.selectTab(WebInspector.ScriptsNavigator.SnippetsTab);
-        } else {
-            this._scriptsView.revealUISourceCode(uiSourceCode);
+        else if (uiSourceCode.project().type() !== WebInspector.projectTypes.Snippets)
             this._tabbedPane.selectTab(WebInspector.ScriptsNavigator.ScriptsTab);
-        }
     },
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
-     * @param {boolean} isDirty
+     * @param {function(boolean)=} callback
      */
-    setScriptSourceIsDirty: function(uiSourceCode, isDirty)
+    rename: function(uiSourceCode, callback)
     {
-        // Do nothing.
-    },
-
-    /**
-     * @param {Array.<WebInspector.UISourceCode>} oldUISourceCodeList
-     * @param {Array.<WebInspector.UISourceCode>} uiSourceCodeList
-     */
-    replaceUISourceCodes: function(oldUISourceCodeList, uiSourceCodeList)
-    {
-        this._scriptsView.replaceUISourceCodes(oldUISourceCodeList, uiSourceCodeList);
-        this._contentScriptsView.replaceUISourceCodes(oldUISourceCodeList, uiSourceCodeList);
-        this._snippetsView.replaceUISourceCodes(oldUISourceCodeList, uiSourceCodeList);
+        this._navigatorViewForUISourceCode(uiSourceCode).rename(uiSourceCode, callback);
     },
 
     /**
@@ -142,15 +136,32 @@ WebInspector.ScriptsNavigator.prototype = {
         this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.ScriptSelected, event.data);
     },
 
-    reset: function()
-    {
-        this._scriptsView.reset();
-        this._contentScriptsView.reset();
-        this._snippetsView.reset();
-    }
-}
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _fileRenamed: function(event)
+    {    
+        this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.FileRenamed, event.data);
+    },
 
-WebInspector.ScriptsNavigator.prototype.__proto__ = WebInspector.Object.prototype;
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _itemRenamingRequested: function(event)
+    {
+        this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.ItemRenamingRequested, event.data);
+    },
+
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _snippetCreationRequested: function(event)
+    {    
+        this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.SnippetCreationRequested, event.data);
+    },
+
+    __proto__: WebInspector.Object.prototype
+}
 
 /**
  * @constructor
@@ -162,79 +173,66 @@ WebInspector.SnippetsNavigatorView = function()
     this.element.addEventListener("contextmenu", this.handleContextMenu.bind(this), false);
 }
 
+WebInspector.SnippetsNavigatorView.Events = {
+    SnippetCreationRequested: "SnippetCreationRequested",
+    ItemRenamingRequested: "ItemRenamingRequested"
+}
+
 WebInspector.SnippetsNavigatorView.prototype = {
-    /**
-     * @param {WebInspector.UISourceCode} uiSourceCode
-     */
-    getOrCreateFolderTreeElement: function(uiSourceCode)
-    {
-        if (uiSourceCode.isSnippet)
-            return this._scriptsTree;
-        if (uiSourceCode.isSnippetEvaluation)
-            return this._getOrCreateSnippetEvaluationsFolderTreeElement();
-        return WebInspector.NavigatorView.prototype.getOrCreateFolderTreeElement.call(this, uiSourceCode);
-    },
-
-    _getOrCreateSnippetEvaluationsFolderTreeElement: function()
-    {
-        const snippetEvaluationsFolderIdentifier = "snippetEvaluationsFolder";
-        var folderTreeElement = this._folderTreeElements[snippetEvaluationsFolderIdentifier];
-        if (folderTreeElement)
-            return folderTreeElement;
-        return this.createFolderTreeElement(this._scriptsTree, snippetEvaluationsFolderIdentifier, "", WebInspector.UIString("Evaluated snippets"));
-    },
-
     /**
      * @param {Event} event
      * @param {WebInspector.UISourceCode=} uiSourceCode
      */
     handleContextMenu: function(event, uiSourceCode)
     {
-        var contextMenu = new WebInspector.ContextMenu();
+        var contextMenu = new WebInspector.ContextMenu(event);
         if (uiSourceCode) {
-            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Evaluate snippet" : "Evaluate Snippet"), this._handleEvaluateSnippet.bind(this, uiSourceCode));
-            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Rename snippet" : "Rename Snippet"), this._handleRenameSnippet.bind(this, uiSourceCode));
-            contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Remove snippet" : "Remove Snippet"), this._handleRemoveSnippet.bind(this, uiSourceCode));
+            contextMenu.appendItem(WebInspector.UIString("Run"), this._handleEvaluateSnippet.bind(this, uiSourceCode));
+            contextMenu.appendItem(WebInspector.UIString("Rename"), this._handleRenameSnippet.bind(this, uiSourceCode));
+            contextMenu.appendItem(WebInspector.UIString("Remove"), this._handleRemoveSnippet.bind(this, uiSourceCode));
             contextMenu.appendSeparator();
         }
-        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Create snippet" : "Create Snippet"), this._handleCreateSnippet.bind(this));
-        contextMenu.show(event);
+        contextMenu.appendItem(WebInspector.UIString("New"), this._handleCreateSnippet.bind(this));
+        contextMenu.show();
     },
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
-     * @param {Event} event
      */
-    _handleEvaluateSnippet: function(uiSourceCode, event)
+    _handleEvaluateSnippet: function(uiSourceCode)
     {
-        // FIXME: To be implemented.
+        if (uiSourceCode.project().type() !== WebInspector.projectTypes.Snippets)
+            return;
+        WebInspector.scriptSnippetModel.evaluateScriptSnippet(uiSourceCode);
     },
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
-     * @param {Event} event
      */
-    _handleRenameSnippet: function(uiSourceCode, event)
+    _handleRenameSnippet: function(uiSourceCode)
     {
-        this.rename(uiSourceCode);
+        this.dispatchEventToListeners(WebInspector.ScriptsNavigator.Events.ItemRenamingRequested, uiSourceCode);
     },
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
-     * @param {Event} event
      */
-    _handleRemoveSnippet: function(uiSourceCode, event)
+    _handleRemoveSnippet: function(uiSourceCode)
     {
-        // FIXME: To be implemented.
+        if (uiSourceCode.project().type() !== WebInspector.projectTypes.Snippets)
+            return;
+        WebInspector.scriptSnippetModel.deleteScriptSnippet(uiSourceCode);
     },
 
-    /**
-     * @param {Event} event
-     */
-    _handleCreateSnippet: function(event)
+    _handleCreateSnippet: function()
     {
-        // FIXME: To be implemented.
-    }
+        this._snippetCreationRequested();
+    },
+
+    _snippetCreationRequested: function()
+    {
+        this.dispatchEventToListeners(WebInspector.SnippetsNavigatorView.Events.SnippetCreationRequested, null);
+    },
+
+    __proto__: WebInspector.NavigatorView.prototype
 }
-
-WebInspector.SnippetsNavigatorView.prototype.__proto__ = WebInspector.NavigatorView.prototype;

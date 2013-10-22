@@ -42,10 +42,6 @@ public:
     int width();
     int height();
 
-#if ENABLE(FULLSCREEN_API)
-    virtual bool allowFullScreen() const;
-#endif
-
     virtual bool canContainRangeEndPoint() const { return false; }
 
 protected:
@@ -53,17 +49,21 @@ protected:
 
     bool isURLAllowed() const;
 
-    virtual void parseAttribute(Attribute*) OVERRIDE;
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void didNotifySubtreeInsertions(Node*) OVERRIDE;
-    virtual void attach();
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void didNotifySubtreeInsertions(ContainerNode*) OVERRIDE;
+    virtual void attach(const AttachContext& = AttachContext()) OVERRIDE;
 
 private:
-    virtual bool supportsFocus() const;
-    virtual void setFocus(bool);
+    virtual bool supportsFocus() const OVERRIDE;
+    virtual void setFocus(bool) OVERRIDE;
     
-    virtual bool isURLAttribute(Attribute*) const;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
+    virtual bool isHTMLContentAttribute(const Attribute&) const OVERRIDE;
+
     virtual bool isFrameElementBase() const { return true; }
+
+    virtual bool areAuthorShadowsAllowed() const OVERRIDE { return false; }
 
     bool viewSourceMode() const { return m_viewSource; }
 

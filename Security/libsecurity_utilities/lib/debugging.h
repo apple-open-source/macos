@@ -29,20 +29,13 @@
 #define _H_DEBUGGING
 
 
-//
-// Include DTrace static probe definitions
-//
-typedef const void *DTException;
-
-#include <security_utilities/utilities_dtrace.h>
-
+#include <security_utilities/debugging_internal.h>
 
 #ifdef __cplusplus
 
 #include <security_utilities/utilities.h>
 #include <cstdarg>
 #include <typeinfo>
-
 
 namespace Security {
 namespace Debug {
@@ -124,31 +117,13 @@ inline void vdebug(const char *scope, const char *format, va_list args) { }
 // leak debug() into the global namespace because URLAccess et al rely on that
 using Security::Debug::debug;
 
-
 #else	//__cplusplus
 
 #include <stdio.h>
 
 #endif	//__cplusplus
 
-
-//
-// The debug-log macro is now unconditionally emitted as a DTrace static probe point.
-//
-#define secdebug(scope, format...) \
-	if (__builtin_expect(SECURITY_DEBUG_LOG_ENABLED(), 0)) { \
-		char __msg[500]; snprintf(__msg, sizeof(__msg), ## format); \
-		volatile char c __attribute__((unused)) = scope[0]; \
-		SECURITY_DEBUG_LOG((char *)(scope), (__msg)); \
-	} else /* nothing */
-#define secdebugf(scope, __msg)	SECURITY_DEBUG_LOG((char *)(scope), (__msg))
-
-
-//
-// The old secdelay() macro is also emitted as a DTrace probe (use destructive actions to handle this).
-// Secdelay() should be considered a legacy feature; just put a secdebug at the intended delay point.
-//
-#define secdelay(file)	SECURITY_DEBUG_DELAY((char *)(file))
+#include <CoreFoundation/CFString.h>
 
 
 #endif //_H_DEBUGGING

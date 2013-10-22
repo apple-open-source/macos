@@ -412,7 +412,7 @@ void ACL::makeSubject()
 	case appListForm: {
 		// threshold(1 of n+1) of { app1, ..., appn, PROMPT }
 		chunkFree(mSubjectForm, allocator);	// release previous
-		uint32 appCount = mAppList.size();
+		uint32 appCount = (uint32)mAppList.size();
 		mSubjectForm = new(allocator) TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_THRESHOLD,
 			new(allocator) ListElement(1),
 			new(allocator) ListElement(appCount + 1));

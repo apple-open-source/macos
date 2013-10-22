@@ -42,8 +42,13 @@
 
 #include <netinet/in.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-hmac.h"
+#include "ossl-sha.h"
+#else
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
+#endif
 
 #include <resolv.h>
 #include <stdarg.h>

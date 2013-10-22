@@ -26,33 +26,36 @@
 #ifndef HTMLParserScheduler_h
 #define HTMLParserScheduler_h
 
-#include <limits.h>
-
 #include "NestingLevelIncrementer.h"
 #include "Timer.h"
+#include <limits.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+class Document;
 class HTMLDocumentParser;
 
-class PumpSession : public NestingLevelIncrementer {
+class ActiveParserSession {
 public:
-    PumpSession(unsigned& nestingLevel)
-        : NestingLevelIncrementer(nestingLevel)
-        // Setting processedTokens to INT_MAX causes us to check for yields
-        // after any token during any parse where yielding is allowed.
-        // At that time we'll initialize startTime.
-        , processedTokens(INT_MAX)
-        , startTime(0)
-        , needsYield(false)
-    {
-    }
+    explicit ActiveParserSession(Document*);
+    ~ActiveParserSession();
+
+private:
+    RefPtr<Document> m_document;
+};
+
+class PumpSession : public NestingLevelIncrementer, public ActiveParserSession {
+public:
+    PumpSession(unsigned& nestingLevel, Document*);
+    ~PumpSession();
 
     int processedTokens;
     double startTime;
     bool needsYield;
+    bool didSeeScript;
 };
 
 class HTMLParserScheduler {
@@ -67,13 +70,15 @@ public:
     // Inline as this is called after every token in the parser.
     void checkForYieldBeforeToken(PumpSession& session)
     {
-        if (session.processedTokens > m_parserChunkSize) {
+        if (session.processedTokens > m_parserChunkSize || session.didSeeScript) {
             // currentTime() can be expensive.  By delaying, we avoided calling
             // currentTime() when constructing non-yielding PumpSessions.
             if (!session.startTime)
                 session.startTime = currentTime();
 
             session.processedTokens = 0;
+            session.didSeeScript = false;
+
             double elapsedTime = currentTime() - session.startTime;
             if (elapsedTime > m_parserTimeLimit)
                 session.needsYield = true;

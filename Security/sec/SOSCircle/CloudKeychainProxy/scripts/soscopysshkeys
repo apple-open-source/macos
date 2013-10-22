@@ -1,0 +1,26 @@
+#!/bin/zsh
+
+echo 'Copying ssh keys to devices'
+
+sshopts=(-o CheckHostIP=no -o StrictHostKeyChecking=no -o NoHostAuthenticationForLocalhost=yes -o UserKnownHostsFile=/dev/null)
+
+locations=(`mobdev list | awk '/UDID/ { gsub(/^(.*location ID = )+|(,.*)+$/, ""); print}'`)
+
+port_offset=20000
+
+mkdir -p /var/tmp/roothome/.ssh/
+cat ~/.ssh/id_*.pub > /var/tmp/roothome/.ssh/authorized_keys
+
+for location in $locations
+do
+	echo 'Copying to location '"$location"
+
+	tcprelay --portoffset $port_offset --locationid $location ssh --quiet  &
+
+	(( sshport = $port_offset + 22 ))
+
+	echo "Copying file to device (via port $sshport)"
+	scp -r -P $sshport $sshopts /var/tmp/roothome/.ssh root@localhost:/var/root/
+
+	kill -HUP %%
+done

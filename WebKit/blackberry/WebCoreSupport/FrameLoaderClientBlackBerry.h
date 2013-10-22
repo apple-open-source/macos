@@ -19,6 +19,7 @@
 #ifndef FrameLoaderClientBlackBerry_h
 #define FrameLoaderClientBlackBerry_h
 
+#include "CredentialTransformData.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
@@ -54,15 +55,15 @@ public:
     virtual void setCopiesOnScroll() { notImplemented(); }
     virtual void detachedFromParent2();
     virtual void detachedFromParent3() { notImplemented(); }
-    virtual void assignIdentifierToInitialRequest(long unsigned int, DocumentLoader*, const ResourceRequest&) { notImplemented(); }
-    virtual void dispatchWillSendRequest(DocumentLoader*, long unsigned int, ResourceRequest&, const ResourceResponse&);
-    virtual bool shouldUseCredentialStorage(DocumentLoader*, long unsigned int) { notImplemented(); return false; }
-    virtual void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, long unsigned int, const AuthenticationChallenge&) { notImplemented(); }
-    virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, long unsigned int, const AuthenticationChallenge&) { notImplemented(); }
-    virtual void dispatchDidReceiveResponse(DocumentLoader*, long unsigned int, const ResourceResponse&);
-    virtual void dispatchDidReceiveContentLength(DocumentLoader*, long unsigned int, int) { notImplemented(); }
-    virtual void dispatchDidFinishLoading(DocumentLoader*, long unsigned int) { notImplemented(); }
-    virtual void dispatchDidFailLoading(DocumentLoader*, long unsigned int, const ResourceError&) { notImplemented(); }
+    virtual void assignIdentifierToInitialRequest(long unsigned, DocumentLoader*, const ResourceRequest&) { notImplemented(); }
+    virtual void dispatchWillSendRequest(DocumentLoader*, long unsigned, ResourceRequest&, const ResourceResponse&);
+    virtual bool shouldUseCredentialStorage(DocumentLoader*, long unsigned);
+    virtual void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, long unsigned, const AuthenticationChallenge&) { notImplemented(); }
+    virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, long unsigned, const AuthenticationChallenge&) { notImplemented(); }
+    virtual void dispatchDidReceiveResponse(DocumentLoader*, long unsigned, const ResourceResponse&);
+    virtual void dispatchDidReceiveContentLength(DocumentLoader*, long unsigned, int) { notImplemented(); }
+    virtual void dispatchDidFinishLoading(DocumentLoader*, long unsigned) { notImplemented(); }
+    virtual void dispatchDidFailLoading(DocumentLoader*, long unsigned, const ResourceError&) { notImplemented(); }
     virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int) { notImplemented(); return false; }
     virtual void dispatchDidHandleOnloadEvents();
     virtual void dispatchDidReceiveServerRedirectForProvisionalLoad() { notImplemented(); }
@@ -82,8 +83,7 @@ public:
     virtual void dispatchDidFailLoad(const ResourceError&);
     virtual void dispatchDidFinishDocumentLoad();
     virtual void dispatchDidFinishLoad();
-    virtual void dispatchDidFirstLayout() { notImplemented(); }
-    virtual void dispatchDidFirstVisuallyNonEmptyLayout();
+    virtual void dispatchDidLayout(LayoutMilestones);
     virtual Frame* dispatchCreatePage(const NavigationAction&);
     virtual void dispatchShow() { notImplemented(); }
 
@@ -108,9 +108,6 @@ public:
     virtual void updateGlobalHistoryRedirectLinks() { notImplemented(); }
     virtual bool shouldGoToHistoryItem(HistoryItem*) const;
     virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
-    virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
-    virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;
-    virtual void dispatchDidChangeBackForwardIndex() const;
     virtual void dispatchWillUpdateApplicationCache(const ResourceRequest&);
     virtual void dispatchDidLoadFromApplicationCache(const ResourceRequest&);
     virtual void didDisplayInsecureContent() { notImplemented(); }
@@ -145,8 +142,9 @@ public:
     virtual void didSaveToPageCache();
     virtual void didRestoreFromPageCache();
     virtual void dispatchDidBecomeFrameset(bool) { }
-    virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
+    virtual void convertMainResourceLoadToDownload(DocumentLoader*, const ResourceRequest&, const ResourceResponse&);
     virtual PassRefPtr<Frame> createFrame(const KURL&, const String&, HTMLFrameOwnerElement*, const String&, bool, int, int);
+    virtual bool shouldAlwaysUsePluginDocument(const String&) const;
     virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool);
     virtual void redirectDataToPlugin(Widget*);
     virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&) { notImplemented(); return 0; }
@@ -170,6 +168,8 @@ public:
 
     virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext();
 
+    virtual PassRefPtr<SecurityOrigin> securityOriginForNewDocument(const KURL&);
+
     void readyToRender(bool pageIsVisuallyNonEmpty);
 
     void doPendingFragmentScroll();
@@ -181,12 +181,9 @@ public:
     void suppressChildFrameCreation() { m_childFrameCreationSuppressed = true; }
 
 private:
-    void receivedData(const char*, int, const String&);
+    void receivedData(DocumentLoader*, const char*, int, const String&);
     void didFinishOrFailLoading(const ResourceError&);
     bool isMainFrame() const;
-
-    void invalidateBackForwardList() const;
-    void notifyBackForwardListChanged() const;
 
     PolicyAction decidePolicyForExternalLoad(const ResourceRequest &, bool isFragmentScroll);
     void delayPolicyCheckUntilFragmentExists(const String& fragment, FramePolicyFunction);
@@ -215,6 +212,11 @@ private:
 
     // Used to stop media files from loading because we don't need to have the entire file loaded by WebKit.
     bool m_cancelLoadOnNextData;
+
+    bool m_wasProvisionalLoadTriggeredByUserGesture;
+#if ENABLE(BLACKBERRY_CREDENTIAL_PERSIST)
+    CredentialTransformData m_formCredentials;
+#endif
 };
 
 } // WebCore

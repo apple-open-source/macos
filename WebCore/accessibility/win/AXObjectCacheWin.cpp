@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010, 2013 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012 Serotek Corporation. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,9 +30,13 @@
 
 #include "AccessibilityObject.h"
 #include "Chrome.h"
+#include "ChromeClient.h"
 #include "Document.h"
 #include "Page.h"
 #include "RenderObject.h"
+
+// Provided by IAccessibleEventID.idl
+#define IA2_EVENT_DOCUMENT_LOAD_COMPLETE    261
 
 using namespace std;
 
@@ -69,11 +74,15 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
         return;
 
     Page* page = document->page();
-    if (!page || !page->chrome()->platformPageClient())
+    if (!page || !page->chrome().platformPageClient())
         return;
 
     DWORD msaaEvent;
     switch (notification) {
+        case AXCheckedStateChanged:
+            msaaEvent = EVENT_OBJECT_STATECHANGE;
+            break;
+
         case AXFocusedUIElementChanged:
         case AXActiveDescendantChanged:
             msaaEvent = EVENT_OBJECT_FOCUS;
@@ -81,6 +90,14 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
 
         case AXScrolledToAnchor:
             msaaEvent = EVENT_SYSTEM_SCROLLINGSTART;
+            break;
+
+        case AXLayoutComplete:
+            msaaEvent = EVENT_OBJECT_REORDER;
+            break;
+
+        case AXLoadComplete:
+            msaaEvent = IA2_EVENT_DOCUMENT_LOAD_COMPLETE;
             break;
 
         case AXValueChanged:
@@ -104,15 +121,30 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
     ASSERT(obj->axObjectID() >= 1);
     ASSERT(obj->axObjectID() <= numeric_limits<LONG>::max());
 
-    NotifyWinEvent(msaaEvent, page->chrome()->platformPageClient(), OBJID_CLIENT, -static_cast<LONG>(obj->axObjectID()));
+    NotifyWinEvent(msaaEvent, page->chrome().platformPageClient(), OBJID_CLIENT, -static_cast<LONG>(obj->axObjectID()));
 }
 
 void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, const String&)
 {
 }
 
-void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject*, AXLoadingEvent)
+void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject* obj, AXLoadingEvent notification)
 {
+    if (!obj)
+        return;
+    
+    Document* document = obj->document();
+    if (!document)
+        return;
+
+    Page* page = document->page();
+    if (!page)
+        return;
+
+    if (notification == AXLoadingStarted)
+        page->chrome().client()->AXStartFrameLoad();
+    else if (notification == AXLoadingFinished)
+        page->chrome().client()->AXFinishFrameLoad();
 }
 
 AXID AXObjectCache::platformGenerateAXID() const
@@ -134,13 +166,13 @@ AXID AXObjectCache::platformGenerateAXID() const
     return objID;
 }
 
-void AXObjectCache::handleFocusedUIElementChanged(RenderObject*, RenderObject* newFocusedRenderer)
+void AXObjectCache::handleFocusedUIElementChanged(Node*, Node* newFocusedNode)
 {
-    if (!newFocusedRenderer)
+    if (!newFocusedNode)
         return;
 
-    Page* page = newFocusedRenderer->document()->page();
-    if (!page || !page->chrome()->platformPageClient())
+    Page* page = newFocusedNode->document()->page();
+    if (!page || !page->chrome().platformPageClient())
         return;
 
     AccessibilityObject* focusedObject = focusedUIElementForPage(page);

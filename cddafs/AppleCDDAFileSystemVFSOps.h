@@ -33,7 +33,7 @@ extern "C" {
 // Project Includes
 #ifndef __APPLE_CDDA_FS_VNODE_OPS_H__
 #include "AppleCDDAFileSystemVNodeOps.h"
-#endif __APPLE_CDDA_FS_VNODE_OPS_H__
+#endif
 
 #ifdef KERNEL
 

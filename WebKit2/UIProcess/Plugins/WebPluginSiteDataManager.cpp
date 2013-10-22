@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,8 @@
 
 #include "config.h"
 #include "WebPluginSiteDataManager.h"
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "ImmutableArray.h"
 #include "PluginProcessManager.h"
@@ -137,9 +139,7 @@ void WebPluginSiteDataManager::invalidate()
     invalidateCallbackMap(m_arrayCallbacks);
 
 #if ENABLE(PLUGIN_PROCESS)
-    deleteAllValues(m_pendingGetSitesWithData);
     m_pendingGetSitesWithData.clear();
-    deleteAllValues(m_pendingClearSiteData);
     m_pendingClearSiteData.clear();
 #endif
 }
@@ -160,18 +160,15 @@ void WebPluginSiteDataManager::getSitesWithData(PassRefPtr<ArrayCallback> prpCal
     ASSERT(!m_pendingGetSitesWithData.contains(callbackID));
 
     GetSitesWithDataState* state = new GetSitesWithDataState(this, callbackID);
-    m_pendingGetSitesWithData.set(callbackID, state);
+    m_pendingGetSitesWithData.set(callbackID, adoptPtr(state));
     state->getSitesWithDataForNextPlugin();
 #else
-    m_webContext->relaunchProcessIfNecessary();
-
     Vector<PluginModuleInfo> plugins = m_webContext->pluginInfoStore().plugins();
     Vector<String> pluginPaths;
     for (size_t i = 0; i < plugins.size(); ++i)
         pluginPaths.append(plugins[i].path);
 
-    // FIXME (Multi-WebProcess): When multi-process is enabled, we must always use a plug-in process for this,
-    // so this code should just be removed.
+    ASSERT(m_webContext->processModel() == ProcessModelSharedSecondaryProcess); // Plugin process is required for multiple WebProcess mode.
     m_webContext->sendToAllProcessesRelaunchingThemIfNecessary(Messages::WebProcess::GetSitesWithPluginData(pluginPaths, callbackID));
 #endif
 }
@@ -184,7 +181,7 @@ void WebPluginSiteDataManager::didGetSitesWithData(const Vector<String>& sites, 
         return;
     }
 
-    Vector<RefPtr<APIObject> > sitesWK(sites.size());
+    Vector<RefPtr<APIObject>> sitesWK(sites.size());
 
     for (size_t i = 0; i < sites.size(); ++i)
         sitesWK[i] = WebString::create(sites[i]);
@@ -223,18 +220,15 @@ void WebPluginSiteDataManager::clearSiteData(ImmutableArray* sites, uint64_t fla
     ASSERT(!m_pendingClearSiteData.contains(callbackID));
 
     ClearSiteDataState* state = new ClearSiteDataState(this, sitesVector, flags, maxAgeInSeconds, callbackID);
-    m_pendingClearSiteData.set(callbackID, state);
+    m_pendingClearSiteData.set(callbackID, adoptPtr(state));
     state->clearSiteDataForNextPlugin();
 #else
-    m_webContext->relaunchProcessIfNecessary();
-
     Vector<PluginModuleInfo> plugins = m_webContext->pluginInfoStore().plugins();
     Vector<String> pluginPaths;
     for (size_t i = 0; i < plugins.size(); ++i)
         pluginPaths.append(plugins[i].path);
 
-    // FIXME (Multi-WebProcess): When multi-process is enabled, we must always use a plug-in process for this,
-    // so this code should just be removed.
+    ASSERT(m_webContext->processModel() == ProcessModelSharedSecondaryProcess); // Plugin process is required for multiple WebProcess mode.
     m_webContext->sendToAllProcessesRelaunchingThemIfNecessary(Messages::WebProcess::ClearPluginSiteData(pluginPaths, sitesVector, flags, maxAgeInSeconds, callbackID));
 #endif
 }
@@ -271,7 +265,7 @@ void WebPluginSiteDataManager::didGetSitesWithDataForSinglePlugin(const Vector<S
 
 void WebPluginSiteDataManager::didGetSitesWithDataForAllPlugins(const Vector<String>& sites, uint64_t callbackID)
 {
-    OwnPtr<GetSitesWithDataState> state = adoptPtr(m_pendingGetSitesWithData.take(callbackID));
+    OwnPtr<GetSitesWithDataState> state = m_pendingGetSitesWithData.take(callbackID);
     ASSERT(state);
 
     didGetSitesWithData(sites, callbackID);
@@ -287,7 +281,7 @@ void WebPluginSiteDataManager::didClearSiteDataForSinglePlugin(uint64_t callback
 
 void WebPluginSiteDataManager::didClearSiteDataForAllPlugins(uint64_t callbackID)
 {
-    OwnPtr<ClearSiteDataState> state = adoptPtr(m_pendingClearSiteData.take(callbackID));
+    OwnPtr<ClearSiteDataState> state = m_pendingClearSiteData.take(callbackID);
     ASSERT(state);
 
     didClearSiteData(callbackID);
@@ -297,3 +291,4 @@ void WebPluginSiteDataManager::didClearSiteDataForAllPlugins(uint64_t callbackID
 
 } // namespace WebKit
 
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

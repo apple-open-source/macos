@@ -1,5 +1,3 @@
-# temp test for 64 bit sdk to allow building on leopard/snowleopard
-#X64	:= $(shell if [ -d /Developer/SDKs/MacOSX10.6.sdk ]; then echo x86_64; fi)
 ARCHS   ?= x86_64
 DSTROOT ?= /
 #cwd  := $(shell pwd)
@@ -18,9 +16,7 @@ install:
 	sync
 
 pkg:
-	make install
 	make clean
-	make
 	( cd Package ; make ARCHS="${ARCHS}")
 
 clean:

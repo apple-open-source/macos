@@ -26,12 +26,12 @@
 #include "config.h"
 #include "FindController.h"
 
+#include "PluginView.h"
 #include "ShareableBitmap.h"
 #include "WKPage.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
-#include "WebProcess.h"
 #include <WebCore/DocumentMarkerController.h>
 #include <WebCore/FloatQuad.h>
 #include <WebCore/FocusController.h>
@@ -39,8 +39,8 @@
 #include <WebCore/FrameView.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/Page.h>
+#include <WebCore/PluginDocument.h>
 
-using namespace std;
 using namespace WebCore;
 
 namespace WebKit {
@@ -65,15 +65,31 @@ FindController::~FindController()
 {
 }
 
+static PluginView* pluginViewForFrame(Frame* frame)
+{
+    if (!frame->document()->isPluginDocument())
+        return 0;
+
+    PluginDocument* pluginDocument = static_cast<PluginDocument*>(frame->document());
+    return static_cast<PluginView*>(pluginDocument->pluginWidget());
+}
+
 void FindController::countStringMatches(const String& string, FindOptions options, unsigned maxMatchCount)
 {
-    if (maxMatchCount == numeric_limits<unsigned>::max())
+    if (maxMatchCount == std::numeric_limits<unsigned>::max())
         --maxMatchCount;
     
-    unsigned matchCount = m_webPage->corePage()->markAllMatchesForText(string, core(options), false, maxMatchCount + 1);
-    m_webPage->corePage()->unmarkAllTextMatches();
+    PluginView* pluginView = pluginViewForFrame(m_webPage->mainFrame());
+    
+    unsigned matchCount;
 
-    // Check if we have more matches than allowed.
+    if (pluginView)
+        matchCount = pluginView->countFindMatches(string, core(options), maxMatchCount + 1);
+    else {
+        matchCount = m_webPage->corePage()->countFindMatches(string, core(options), maxMatchCount + 1);
+        m_webPage->corePage()->unmarkAllTextMatches();
+    }
+
     if (matchCount > maxMatchCount)
         matchCount = static_cast<unsigned>(kWKMoreThanMaximumMatchCount);
     
@@ -93,11 +109,15 @@ static Frame* frameWithSelection(Page* page)
 void FindController::updateFindUIAfterPageScroll(bool found, const String& string, FindOptions options, unsigned maxMatchCount)
 {
     Frame* selectedFrame = frameWithSelection(m_webPage->corePage());
+    
+    PluginView* pluginView = pluginViewForFrame(m_webPage->mainFrame());
 
     bool shouldShowOverlay = false;
 
     if (!found) {
-        // Clear the selection.
+        if (!pluginView)
+            m_webPage->corePage()->unmarkAllTextMatches();
+
         if (selectedFrame)
             selectedFrame->selection()->clear();
 
@@ -110,13 +130,18 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
         unsigned matchCount = 1;
 
         if (shouldShowOverlay || shouldShowHighlight) {
-
-            if (maxMatchCount == numeric_limits<unsigned>::max())
+            if (maxMatchCount == std::numeric_limits<unsigned>::max())
                 --maxMatchCount;
 
-            matchCount = m_webPage->corePage()->markAllMatchesForText(string, core(options), shouldShowHighlight, maxMatchCount + 1);
+            if (pluginView) {
+                matchCount = pluginView->countFindMatches(string, core(options), maxMatchCount + 1);
+                shouldShowOverlay = false;
+            } else {
+                m_webPage->corePage()->unmarkAllTextMatches();
+                matchCount = m_webPage->corePage()->markAllMatchesForText(string, core(options), shouldShowHighlight, maxMatchCount + 1);
+            }
 
-            // Check if we have more matches than allowed.
+            // If we have a large number of matches, we don't want to take the time to paint the overlay.
             if (matchCount > maxMatchCount) {
                 shouldShowOverlay = false;
                 matchCount = static_cast<unsigned>(kWKMoreThanMaximumMatchCount);
@@ -125,64 +150,62 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
 
         m_webPage->send(Messages::WebPageProxy::DidFindString(string, matchCount));
 
-        if (!(options & FindOptionsShowFindIndicator) || !updateFindIndicator(selectedFrame, shouldShowOverlay)) {
-            // Either we shouldn't show the find indicator, or we couldn't update it.
+        if (!(options & FindOptionsShowFindIndicator) || !updateFindIndicator(selectedFrame, shouldShowOverlay))
             hideFindIndicator();
-        }
     }
 
     if (!shouldShowOverlay) {
-        if (m_findPageOverlay) {
-            // Get rid of the overlay.
-            m_webPage->uninstallPageOverlay(m_findPageOverlay, false);
-        }
-        
-        ASSERT(!m_findPageOverlay);
+        if (m_findPageOverlay)
+            m_webPage->uninstallPageOverlay(m_findPageOverlay, true);
     } else {
         if (!m_findPageOverlay) {
             RefPtr<PageOverlay> findPageOverlay = PageOverlay::create(this);
             m_findPageOverlay = findPageOverlay.get();
-            m_webPage->installPageOverlay(findPageOverlay.release());
-        } else {
-            // The page overlay needs to be repainted.
+            m_webPage->installPageOverlay(findPageOverlay.release(), true);
             m_findPageOverlay->setNeedsDisplay();
-        }
+        } else
+            m_findPageOverlay->setNeedsDisplay();
     }
 }
 
 void FindController::findString(const String& string, FindOptions options, unsigned maxMatchCount)
 {
-    m_webPage->corePage()->unmarkAllTextMatches();
-
-    bool found = m_webPage->corePage()->findString(string, core(options));
-
-    m_webPage->drawingArea()->dispatchAfterEnsuringUpdatedScrollPosition(bind(&FindController::updateFindUIAfterPageScroll, this, found, string, options, maxMatchCount));
-}
-
-void FindController::hideFindUI()
-{
-    if (m_findPageOverlay)
-        m_webPage->uninstallPageOverlay(m_findPageOverlay, false);
-
-    hideFindIndicator();
-}
-
-bool FindController::updateFindIndicator(Frame* selectedFrame, bool isShowingOverlay, bool shouldAnimate)
-{
-    if (!selectedFrame)
-        return false;
-
-    IntRect selectionRect = enclosingIntRect(selectedFrame->selection()->bounds());
+    PluginView* pluginView = pluginViewForFrame(m_webPage->mainFrame());
     
+    bool found;
+    
+    if (pluginView)
+        found = pluginView->findString(string, core(options), maxMatchCount);
+    else
+        found = m_webPage->corePage()->findString(string, core(options));
+
+    m_webPage->drawingArea()->dispatchAfterEnsuringUpdatedScrollPosition(WTF::bind(&FindController::updateFindUIAfterPageScroll, this, found, string, options, maxMatchCount));
+}
+
+void FindController::findStringMatches(const String& string, FindOptions options, unsigned maxMatchCount)
+{
+    m_findMatches.clear();
+    int indexForSelection;
+
+    m_webPage->corePage()->findStringMatchingRanges(string, core(options), maxMatchCount, &m_findMatches, indexForSelection);
+
+    Vector<Vector<IntRect>> matchRects;
+    for (size_t i = 0; i < m_findMatches.size(); ++i) {
+        Vector<IntRect> rects;
+        m_findMatches[i]->textRects(rects);
+        matchRects.append(rects);
+    }
+
+    m_webPage->send(Messages::WebPageProxy::DidFindStringMatches(string, matchRects, indexForSelection));
+}
+
+bool FindController::getFindIndicatorBitmapAndRect(Frame* frame, ShareableBitmap::Handle& handle, IntRect& selectionRect)
+{
+    selectionRect = enclosingIntRect(frame->selection()->bounds());
+
     // Selection rect can be empty for matches that are currently obscured from view.
     if (selectionRect.isEmpty())
         return false;
-
-    // We want the selection rect in window coordinates.
-    IntRect selectionRectInWindowCoordinates = selectedFrame->view()->contentsToWindow(selectionRect);
-    
-    Vector<FloatRect> textRects;
-    selectedFrame->selection()->getClippedVisibleTextRectangles(textRects);
 
     IntSize backingStoreSize = selectionRect.size();
     backingStoreSize.scale(m_webPage->corePage()->deviceScaleFactor());
@@ -191,24 +214,90 @@ bool FindController::updateFindIndicator(Frame* selectedFrame, bool isShowingOve
     RefPtr<ShareableBitmap> findIndicatorTextBackingStore = ShareableBitmap::createShareable(backingStoreSize, ShareableBitmap::SupportsAlpha);
     if (!findIndicatorTextBackingStore)
         return false;
-    
+
     OwnPtr<GraphicsContext> graphicsContext = findIndicatorTextBackingStore->createGraphicsContext();
     graphicsContext->scale(FloatSize(m_webPage->corePage()->deviceScaleFactor(), m_webPage->corePage()->deviceScaleFactor()));
 
     IntRect paintRect = selectionRect;
-    paintRect.move(selectedFrame->view()->frameRect().x(), selectedFrame->view()->frameRect().y());
-    paintRect.move(-selectedFrame->view()->scrollOffset());
+    paintRect.move(frame->view()->frameRect().x(), frame->view()->frameRect().y());
+    paintRect.move(-frame->view()->scrollOffset());
 
     graphicsContext->translate(-paintRect.x(), -paintRect.y());
-    selectedFrame->view()->setPaintBehavior(PaintBehaviorSelectionOnly | PaintBehaviorForceBlackText | PaintBehaviorFlattenCompositingLayers);
-    selectedFrame->document()->updateLayout();
+    frame->view()->setPaintBehavior(PaintBehaviorSelectionOnly | PaintBehaviorForceBlackText | PaintBehaviorFlattenCompositingLayers);
+    frame->document()->updateLayout();
 
-    selectedFrame->view()->paint(graphicsContext.get(), paintRect);
-    selectedFrame->view()->setPaintBehavior(PaintBehaviorNormal);
-    
-    ShareableBitmap::Handle handle;
+    frame->view()->paint(graphicsContext.get(), paintRect);
+    frame->view()->setPaintBehavior(PaintBehaviorNormal);
+
     if (!findIndicatorTextBackingStore->createHandle(handle))
         return false;
+    return true;
+}
+
+void FindController::getImageForFindMatch(uint32_t matchIndex)
+{
+    if (matchIndex >= m_findMatches.size())
+        return;
+    Frame* frame = m_findMatches[matchIndex]->startContainer()->document()->frame();
+    if (!frame)
+        return;
+
+    VisibleSelection oldSelection = frame->selection()->selection();
+    frame->selection()->setSelection(VisibleSelection(m_findMatches[matchIndex].get()));
+
+    IntRect selectionRect;
+    ShareableBitmap::Handle handle;
+    getFindIndicatorBitmapAndRect(frame, handle, selectionRect);
+
+    frame->selection()->setSelection(oldSelection);
+
+    if (handle.isNull())
+        return;
+
+    m_webPage->send(Messages::WebPageProxy::DidGetImageForFindMatch(handle, matchIndex));
+}
+
+void FindController::selectFindMatch(uint32_t matchIndex)
+{
+    if (matchIndex >= m_findMatches.size())
+        return;
+    Frame* frame = m_findMatches[matchIndex]->startContainer()->document()->frame();
+    if (!frame)
+        return;
+    frame->selection()->setSelection(VisibleSelection(m_findMatches[matchIndex].get()));
+}
+
+void FindController::hideFindUI()
+{
+    m_findMatches.clear();
+    if (m_findPageOverlay)
+        m_webPage->uninstallPageOverlay(m_findPageOverlay, true);
+
+    PluginView* pluginView = pluginViewForFrame(m_webPage->mainFrame());
+    
+    if (pluginView)
+        pluginView->findString(emptyString(), 0, 0);
+    else
+        m_webPage->corePage()->unmarkAllTextMatches();
+    
+    hideFindIndicator();
+}
+
+bool FindController::updateFindIndicator(Frame* selectedFrame, bool isShowingOverlay, bool shouldAnimate)
+{
+    if (!selectedFrame)
+        return false;
+
+    IntRect selectionRect;
+    ShareableBitmap::Handle handle;
+    if (!getFindIndicatorBitmapAndRect(selectedFrame, handle, selectionRect))
+        return false;
+
+    // We want the selection rect in window coordinates.
+    IntRect selectionRectInWindowCoordinates = selectedFrame->view()->contentsToWindow(selectionRect);
+
+    Vector<FloatRect> textRects;
+    selectedFrame->selection()->getClippedVisibleTextRectangles(textRects);
 
     // We want the text rects in selection rect coordinates.
     Vector<FloatRect> textRectsInSelectionRectCoordinates;
@@ -268,7 +357,7 @@ Vector<IntRect> FindController::rectsForTextMatches()
 
         IntRect visibleRect = frame->view()->visibleContentRect();
         Vector<IntRect> frameRects = document->markers()->renderedRectsForMarkers(DocumentMarker::TextMatch);
-        IntPoint frameOffset(-frame->view()->scrollOffset().width(), -frame->view()->scrollOffset().height());
+        IntPoint frameOffset(-frame->view()->scrollOffsetRelativeToDocument().width(), -frame->view()->scrollOffsetRelativeToDocument().height());
         frameOffset = frame->view()->convertToContainingWindow(frameOffset);
 
         for (Vector<IntRect>::iterator it = frameRects.begin(), end = frameRects.end(); it != end; ++it) {
@@ -290,7 +379,6 @@ void FindController::willMoveToWebPage(PageOverlay*, WebPage* webPage)
     if (webPage)
         return;
 
-    // The page overlay is moving away from the web page, reset it.
     ASSERT(m_findPageOverlay);
     m_findPageOverlay = 0;
 }
@@ -365,13 +453,10 @@ void FindController::drawRect(PageOverlay* pageOverlay, GraphicsContext& graphic
     }
 }
 
-bool FindController::mouseEvent(PageOverlay* pageOverlay, const WebMouseEvent& mouseEvent)
+bool FindController::mouseEvent(PageOverlay*, const WebMouseEvent& mouseEvent)
 {
-    // If we get a mouse down event inside the page overlay we should hide the find UI.
-    if (mouseEvent.type() == WebEvent::MouseDown) {
-        // Dismiss the overlay.
+    if (mouseEvent.type() == WebEvent::MouseDown)
         hideFindUI();
-    }
 
     return false;
 }

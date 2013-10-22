@@ -176,7 +176,7 @@ _gssapi_wrap_size_cfx(OM_uint32 *minor_status,
 
 	wrapped_size -= 16;
 
-	*max_input_size = wrapped_size;
+	*max_input_size = (OM_uint32)wrapped_size;
     } else {
 	krb5_cksumtype type;
 	size_t cksumsize;
@@ -193,7 +193,7 @@ _gssapi_wrap_size_cfx(OM_uint32 *minor_status,
 	    return 0;
 
 	/* Checksum is concatenated with data */
-	*max_input_size = req_output_size - cksumsize;
+	*max_input_size = (OM_uint32)(req_output_size - cksumsize);
     }
 
     return 0;

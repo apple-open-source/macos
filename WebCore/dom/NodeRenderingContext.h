@@ -26,6 +26,8 @@
 #ifndef NodeRenderingContext_h
 #define NodeRenderingContext_h
 
+#include "NodeRenderingTraversal.h"
+
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/AtomicString.h>
@@ -39,55 +41,41 @@ class Node;
 class RenderNamedFlowThread;
 class RenderObject;
 class RenderStyle;
-class ShadowTree;
+class ElementShadow;
 
 class NodeRenderingContext {
 public:
     explicit NodeRenderingContext(Node*);
     NodeRenderingContext(Node*, RenderStyle*);
+    NodeRenderingContext(Node*, const Node::AttachContext&);
     ~NodeRenderingContext();
+
+    void createRendererForTextIfNeeded();
+    void createRendererForElementIfNeeded();
 
     Node* node() const;
     ContainerNode* parentNodeForRenderingAndStyle() const;
+    bool resetStyleInheritance() const;
     RenderObject* parentRenderer() const;
     RenderObject* nextRenderer() const;
     RenderObject* previousRenderer() const;
     InsertionPoint* insertionPoint() const;
 
-    RenderStyle* style() const;
-    void setStyle(PassRefPtr<RenderStyle>);
-    PassRefPtr<RenderStyle> releaseStyle();
-
-    bool shouldCreateRenderer() const;
-
-    void hostChildrenChanged();
+    const RenderStyle* style() const;
 
     bool isOnUpperEncapsulationBoundary() const;
     bool isOnEncapsulationBoundary() const;
-    bool hasFlowThreadParent() const { return m_parentFlowRenderer; }
-    RenderNamedFlowThread* parentFlowRenderer() const { return m_parentFlowRenderer; }
-    void moveToFlowThreadIfNeeded();
 
 private:
-    enum AttachingPhase {
-        Calculating,
-        AttachingStraight,
-        AttachingNotInTree,
-        AttachingDistributed,
-        AttachingNotDistributed,
-        AttachingFallbacked,
-        AttachingNotFallbacked,
-        AttachingShadowChild,
-    };
+    bool shouldCreateRenderer() const;
+    void moveToFlowThreadIfNeeded();
+    bool elementInsideRegionNeedsRenderer();
 
-    AttachingPhase m_phase;
     Node* m_node;
-    ContainerNode* m_parentNodeForRenderingAndStyle;
-    ShadowTree* m_visualParentShadowTree;
-    InsertionPoint* m_insertionPoint;
+    ContainerNode* m_renderingParent;
+    NodeRenderingTraversal::ParentDetails m_parentDetails;
     RefPtr<RenderStyle> m_style;
     RenderNamedFlowThread* m_parentFlowRenderer;
-    AtomicString m_flowThread;
 };
 
 inline Node* NodeRenderingContext::node() const
@@ -97,50 +85,22 @@ inline Node* NodeRenderingContext::node() const
 
 inline ContainerNode* NodeRenderingContext::parentNodeForRenderingAndStyle() const
 {
-    ASSERT(m_phase != Calculating);
-    return m_parentNodeForRenderingAndStyle;
+    return m_renderingParent;
 }
 
-inline RenderStyle* NodeRenderingContext::style() const
+inline bool NodeRenderingContext::resetStyleInheritance() const
+{
+    return m_parentDetails.resetStyleInheritance();
+}
+
+inline const RenderStyle* NodeRenderingContext::style() const
 {
     return m_style.get();
 }
 
 inline InsertionPoint* NodeRenderingContext::insertionPoint() const
 {
-    return m_insertionPoint;
-}
-
-inline bool NodeRenderingContext::isOnEncapsulationBoundary() const
-{
-    return (m_phase == AttachingDistributed
-            || m_phase == AttachingShadowChild
-            || m_phase == AttachingFallbacked);
-}
-
-inline bool NodeRenderingContext::isOnUpperEncapsulationBoundary() const
-{
-    return m_phase == AttachingShadowChild;
-}
-
-class NodeRendererFactory {
-    WTF_MAKE_NONCOPYABLE(NodeRendererFactory);
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    explicit NodeRendererFactory(Node*);
-
-    const NodeRenderingContext& context() const;
-    void createRendererIfNeeded();
-
-private:
-    RenderObject* createRenderer();
-
-    NodeRenderingContext m_context;
-};
-
-inline const NodeRenderingContext& NodeRendererFactory::context() const
-{
-    return m_context;
+    return m_parentDetails.insertionPoint();
 }
 
 } // namespace WebCore

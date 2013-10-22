@@ -89,7 +89,7 @@ static NumberType numberValueForPreferencesValue(CFPropertyListRef value)
 template<typename NumberType>
 static RetainPtr<CFNumberRef> cfNumber(NumberType value)
 {
-    return RetainPtr<CFNumberRef>(AdoptCF, CFNumberCreate(0, CFNumberTraits<NumberType>::Type, &value));
+    return adoptCF(CFNumberCreate(0, CFNumberTraits<NumberType>::Type, &value));
 }
 
 static bool booleanValueForPreferencesValue(CFPropertyListRef value)
@@ -195,8 +195,8 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultFontSizePreferenceKey), CFSTR("16"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultFixedFontSizePreferenceKey), CFSTR("13"));
 
-    String defaultDefaultEncoding(WEB_UI_STRING("ISO-8859-1", "The default, default character encoding"));
-    CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultTextEncodingNamePreferenceKey), defaultDefaultEncoding.createCFString());
+    String defaultDefaultEncoding(WEB_UI_STRING("ISO-8859-1", "The default, default character encoding on Windows"));
+    CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultTextEncodingNamePreferenceKey), defaultDefaultEncoding.createCFString().get());
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitUserStyleSheetEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitUserStyleSheetLocationPreferenceKey), CFSTR(""));
@@ -212,6 +212,7 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitFrameFlatteningEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitPluginsEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitCSSRegionsEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitDatabasesEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitExperimentalNotificationsEnabledPreferenceKey), kCFBooleanFalse);
@@ -232,7 +233,7 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitShouldDisplayCaptionsPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitShouldDisplayTextDescriptionsPreferenceKey), kCFBooleanFalse);
 
-    RetainPtr<CFStringRef> linkBehaviorStringRef(AdoptCF, CFStringCreateWithFormat(0, 0, CFSTR("%d"), WebKitEditableLinkDefaultBehavior));
+    RetainPtr<CFStringRef> linkBehaviorStringRef = adoptCF(CFStringCreateWithFormat(0, 0, CFSTR("%d"), WebKitEditableLinkDefaultBehavior));
     CFDictionaryAddValue(defaults, CFSTR(WebKitEditableLinkBehaviorPreferenceKey), linkBehaviorStringRef.get());
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitHistoryItemLimitKey), CFSTR("1000"));
@@ -248,7 +249,7 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitUsesPageCachePreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitLocalStorageDatabasePathPreferenceKey), CFSTR(""));
 
-    RetainPtr<CFStringRef> cacheModelRef(AdoptCF, CFStringCreateWithFormat(0, 0, CFSTR("%d"), WebCacheModelDocumentViewer));
+    RetainPtr<CFStringRef> cacheModelRef = adoptCF(CFStringCreateWithFormat(0, 0, CFSTR("%d"), WebCacheModelDocumentViewer));
     CFDictionaryAddValue(defaults, CFSTR(WebKitCacheModelPreferenceKey), cacheModelRef.get());
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitAuthorAndUserStylesEnabledPreferenceKey), kCFBooleanTrue);
@@ -260,18 +261,24 @@ void WebPreferences::initializeDefaultSettings()
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitUseHighResolutionTimersPreferenceKey), kCFBooleanTrue);
 
+#if USE(CG)
+    CFDictionaryAddValue(defaults, CFSTR(WebKitAcceleratedCompositingEnabledPreferenceKey), kCFBooleanTrue);
+#else
     CFDictionaryAddValue(defaults, CFSTR(WebKitAcceleratedCompositingEnabledPreferenceKey), kCFBooleanFalse);
-    
+#endif
+
     CFDictionaryAddValue(defaults, CFSTR(WebKitShowDebugBordersPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitDNSPrefetchingEnabledPreferenceKey), kCFBooleanFalse);
 
-    CFDictionaryAddValue(defaults, CFSTR(WebKitMemoryInfoEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitHyperlinkAuditingEnabledPreferenceKey), kCFBooleanTrue);
-    CFDictionaryAddValue(defaults, CFSTR(WebKitHixie76WebSocketProtocolEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitMediaPlaybackRequiresUserGesturePreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitMediaPlaybackAllowsInlinePreferenceKey), kCFBooleanTrue);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitRequestAnimationFrameEnabledPreferenceKey), kCFBooleanTrue);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitFullScreenEnabledPreferenceKey), kCFBooleanFalse);
 
     defaultSettings = defaults;
 }
@@ -282,7 +289,7 @@ RetainPtr<CFPropertyListRef> WebPreferences::valueForKey(CFStringRef key)
     if (value)
         return value;
 
-    value.adoptCF(CFPreferencesCopyAppValue(key, kCFPreferencesCurrentApplication));
+    value = adoptCF(CFPreferencesCopyAppValue(key, kCFPreferencesCurrentApplication));
     if (value)
         return value;
 
@@ -347,13 +354,12 @@ LONGLONG WebPreferences::longlongValueForKey(CFStringRef key)
 
 void WebPreferences::setStringValue(CFStringRef key, LPCTSTR value)
 {
-    BSTR val = stringValueForKey(key);
+    BString val;
+    val.adoptBSTR(stringValueForKey(key));
     if (val && !wcscmp(val, value))
         return;
-    SysFreeString(val);
     
-    RetainPtr<CFStringRef> valueRef(AdoptCF,
-        CFStringCreateWithCharactersNoCopy(0, (UniChar*)_wcsdup(value), (CFIndex)wcslen(value), kCFAllocatorMalloc));
+    RetainPtr<CFStringRef> valueRef = adoptCF(CFStringCreateWithCharacters(0, reinterpret_cast<const UniChar*>(value), static_cast<CFIndex>(wcslen(value))));
     setValueForKey(key, valueRef.get());
 
     postPreferencesChangesNotification();
@@ -420,7 +426,7 @@ void WebPreferences::load()
 {
     initializeDefaultSettings();
 
-    m_privatePrefs.adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    m_privatePrefs = adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
     migrateWebKitPreferencesToCFPreferences();
 }
@@ -437,11 +443,11 @@ void WebPreferences::migrateWebKitPreferencesToCFPreferences()
 
     WTF::CString path = oldPreferencesPath().utf8();
 
-    RetainPtr<CFURLRef> urlRef(AdoptCF, CFURLCreateFromFileSystemRepresentation(0, reinterpret_cast<const UInt8*>(path.data()), path.length(), false));
+    RetainPtr<CFURLRef> urlRef = adoptCF(CFURLCreateFromFileSystemRepresentation(0, reinterpret_cast<const UInt8*>(path.data()), path.length(), false));
     if (!urlRef)
         return;
 
-    RetainPtr<CFReadStreamRef> stream(AdoptCF, CFReadStreamCreateWithFile(0, urlRef.get()));
+    RetainPtr<CFReadStreamRef> stream = adoptCF(CFReadStreamCreateWithFile(0, urlRef.get()));
     if (!stream)
         return;
 
@@ -449,7 +455,7 @@ void WebPreferences::migrateWebKitPreferencesToCFPreferences()
         return;
 
     CFPropertyListFormat format = kCFPropertyListBinaryFormat_v1_0 | kCFPropertyListXMLFormat_v1_0;
-    RetainPtr<CFPropertyListRef> plist(AdoptCF, CFPropertyListCreateFromStream(0, stream.get(), 0, kCFPropertyListMutableContainersAndLeaves, &format, 0));
+    RetainPtr<CFPropertyListRef> plist = adoptCF(CFPropertyListCreateFromStream(0, stream.get(), 0, kCFPropertyListMutableContainersAndLeaves, &format, 0));
     CFReadStreamClose(stream.get());
 
     if (!plist || CFGetTypeID(plist.get()) != CFDictionaryGetTypeID())
@@ -906,6 +912,20 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setPlugInsEnabled(
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE WebPreferences::isCSSRegionsEnabled(
+    /* [retval][out] */ BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitCSSRegionsEnabledPreferenceKey));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setCSSRegionsEnabled(
+    /* [in] */ BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitCSSRegionsEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE WebPreferences::allowsAnimatedImages( 
     /* [retval][out] */ BOOL* enabled)
 {
@@ -965,14 +985,13 @@ HRESULT STDMETHODCALLTYPE WebPreferences::loadsSiteIconsIgnoringImageLoadingPref
 HRESULT STDMETHODCALLTYPE WebPreferences::setHixie76WebSocketProtocolEnabled(
     /* [in] */ BOOL enabled)
 {
-    setBoolValue(CFSTR(WebKitHixie76WebSocketProtocolEnabledPreferenceKey), enabled);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebPreferences::hixie76WebSocketProtocolEnabled(
     /* [retval][out] */ BOOL* enabled)
 {
-    *enabled = boolValueForKey(CFSTR(WebKitHixie76WebSocketProtocolEnabledPreferenceKey));
+    *enabled = false;
     return S_OK;
 }
 
@@ -1212,18 +1231,16 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setEditableLinkBehavior(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebPreferences::editingBehavior(
-    /* [out, retval] */ WebKitEditingBehavior* editingBehavior)
+HRESULT WebPreferences::unused5()
 {
-    *editingBehavior = (WebKitEditingBehavior) integerValueForKey(CFSTR(WebKitEditingBehaviorPreferenceKey));
-    return S_OK;
+    ASSERT_NOT_REACHED();
+    return E_FAIL;
 }
 
-HRESULT STDMETHODCALLTYPE WebPreferences::setEditingBehavior(
-    /* [in] */ WebKitEditingBehavior behavior)
+HRESULT WebPreferences::unused6()
 {
-    setIntegerValue(CFSTR(WebKitEditingBehaviorPreferenceKey), behavior);
-    return S_OK;
+    ASSERT_NOT_REACHED();
+    return E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE WebPreferences::hyperlinkAuditingEnabled(
@@ -1291,6 +1308,18 @@ HRESULT WebPreferences::allowContinuousSpellChecking(BOOL* enabled)
 HRESULT WebPreferences::setAllowContinuousSpellChecking(BOOL enabled)
 {
     setBoolValue(CFSTR(AllowContinuousSpellCheckingPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::areSeamlessIFramesEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(SeamlessIFramesPreferenceKey));
+    return S_OK;
+}
+
+HRESULT WebPreferences::setSeamlessIFramesEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(SeamlessIFramesPreferenceKey), enabled);
     return S_OK;
 }
 
@@ -1495,8 +1524,8 @@ HRESULT WebPreferences::setPreferenceForTest(BSTR key, BSTR value)
 {
     if (!SysStringLen(key) || !SysStringLen(value))
         return E_FAIL;
-    RetainPtr<CFStringRef> keyString(AdoptCF, CFStringCreateWithCharacters(0, reinterpret_cast<UniChar*>(key), SysStringLen(key)));
-    RetainPtr<CFStringRef> valueString(AdoptCF, CFStringCreateWithCharacters(0, reinterpret_cast<UniChar*>(value), SysStringLen(value)));
+    RetainPtr<CFStringRef> keyString = adoptCF(CFStringCreateWithCharacters(0, reinterpret_cast<UniChar*>(key), SysStringLen(key)));
+    RetainPtr<CFStringRef> valueString = adoptCF(CFStringCreateWithCharacters(0, reinterpret_cast<UniChar*>(value), SysStringLen(value)));
     setValueForKey(keyString.get(), valueString.get());
     postPreferencesChangesNotification();
     return S_OK;
@@ -1563,18 +1592,6 @@ HRESULT WebPreferences::setDNSPrefetchingEnabled(BOOL enabled)
 HRESULT WebPreferences::isDNSPrefetchingEnabled(BOOL* enabled)
 {
     *enabled = boolValueForKey(CFSTR(WebKitDNSPrefetchingEnabledPreferenceKey));
-    return S_OK;
-}
-
-HRESULT WebPreferences::memoryInfoEnabled(BOOL* enabled)
-{
-    *enabled = boolValueForKey(CFSTR(WebKitMemoryInfoEnabledPreferenceKey));
-    return S_OK;
-}
-
-HRESULT WebPreferences::setMemoryInfoEnabled(BOOL enabled)
-{
-    setBoolValue(CFSTR(WebKitMemoryInfoEnabledPreferenceKey), enabled);
     return S_OK;
 }
 
@@ -1736,3 +1753,16 @@ HRESULT WebPreferences::setShouldDisplayTextDescriptions(BOOL enabled)
     return E_NOTIMPL;
 #endif
 }
+
+HRESULT WebPreferences::setRequestAnimationFrameEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitRequestAnimationFrameEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::requestAnimationFrameEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitRequestAnimationFrameEnabledPreferenceKey));
+    return S_OK;
+}
+

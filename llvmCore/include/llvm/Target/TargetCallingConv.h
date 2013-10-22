@@ -14,7 +14,6 @@
 #ifndef LLVM_TARGET_TARGETCALLINGCONV_H
 #define LLVM_TARGET_TARGETCALLINGCONV_H
 
-#include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/MathExtras.h"
 #include <string>
@@ -37,16 +36,16 @@ namespace ISD {
     static const uint64_t ByValOffs      = 4;
     static const uint64_t Nest           = 1ULL<<5;  ///< Nested fn static chain
     static const uint64_t NestOffs       = 5;
-    static const uint64_t ByValAlign     = 0xFULL << 6; //< Struct alignment
+    static const uint64_t ByValAlign     = 0xFULL << 6; ///< Struct alignment
     static const uint64_t ByValAlignOffs = 6;
     static const uint64_t Split          = 1ULL << 10;
     static const uint64_t SplitOffs      = 10;
     static const uint64_t OrigAlign      = 0x1FULL<<27;
     static const uint64_t OrigAlignOffs  = 27;
-    static const uint64_t ByValSize      = 0xffffffffULL << 32; //< Struct size
+    static const uint64_t ByValSize      = 0xffffffffULL << 32; ///< Struct size
     static const uint64_t ByValSizeOffs  = 32;
 
-    static const uint64_t One            = 1ULL; //< 1 of this type, for shifts
+    static const uint64_t One            = 1ULL; ///< 1 of this type, for shifts
 
     uint64_t Flags;
   public:
@@ -114,9 +113,18 @@ namespace ISD {
     MVT VT;
     bool Used;
 
+    /// Index original Function's argument.
+    unsigned OrigArgIndex;
+
+    /// Offset in bytes of current input value relative to the beginning of
+    /// original argument. E.g. if argument was splitted into four 32 bit
+    /// registers, we got 4 InputArgs with PartOffsets 0, 4, 8 and 12.
+    unsigned PartOffset;
+
     InputArg() : VT(MVT::Other), Used(false) {}
-    InputArg(ArgFlagsTy flags, EVT vt, bool used)
-      : Flags(flags), Used(used) {
+    InputArg(ArgFlagsTy flags, EVT vt, bool used,
+             unsigned origIdx, unsigned partOffs)
+      : Flags(flags), Used(used), OrigArgIndex(origIdx), PartOffset(partOffs) {
       VT = vt.getSimpleVT();
     }
   };

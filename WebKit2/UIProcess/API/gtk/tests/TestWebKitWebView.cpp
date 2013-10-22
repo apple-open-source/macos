@@ -19,6 +19,9 @@
 
 #include "config.h"
 #include "WebViewTest.h"
+#include <JavaScriptCore/JSStringRef.h>
+#include <JavaScriptCore/JSValueRef.h>
+#include <glib/gstdio.h>
 #include <wtf/HashSet.h>
 #include <wtf/gobject/GRefPtr.h>
 #include <wtf/text/StringHash.h>
@@ -45,12 +48,10 @@ static void testWebViewCustomCharset(WebViewTest* test, gconstpointer)
 static void testWebViewSettings(WebViewTest* test, gconstpointer)
 {
     WebKitSettings* defaultSettings = webkit_web_view_get_settings(test->m_webView);
-    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(defaultSettings));
     g_assert(defaultSettings);
     g_assert(webkit_settings_get_enable_javascript(defaultSettings));
 
     GRefPtr<WebKitSettings> newSettings = adoptGRef(webkit_settings_new());
-    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(newSettings.get()));
     g_object_set(G_OBJECT(newSettings.get()), "enable-javascript", FALSE, NULL);
     webkit_web_view_set_settings(test->m_webView, newSettings.get());
 
@@ -64,29 +65,10 @@ static void testWebViewSettings(WebViewTest* test, gconstpointer)
     g_assert(webkit_web_view_get_settings(WEBKIT_WEB_VIEW(webView2.get())) == settings);
 
     GRefPtr<WebKitSettings> newSettings2 = adoptGRef(webkit_settings_new());
-    test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(newSettings2.get()));
     webkit_web_view_set_settings(WEBKIT_WEB_VIEW(webView2.get()), newSettings2.get());
     settings = webkit_web_view_get_settings(WEBKIT_WEB_VIEW(webView2.get()));
     g_assert(settings == newSettings2.get());
     g_assert(webkit_settings_get_enable_javascript(settings));
-}
-
-static void replaceContentLoadCallback(WebKitWebView* webView, WebKitLoadEvent loadEvent, WebViewTest* test)
-{
-    // There might be an event from a previous load,
-    // but never a WEBKIT_LOAD_STARTED after webkit_web_view_replace_content().
-    g_assert_cmpint(loadEvent, !=, WEBKIT_LOAD_STARTED);
-}
-
-static void testWebViewReplaceContent(WebViewTest* test, gconstpointer)
-{
-    test->loadHtml("<html><head><title>Replace Content Test</title></head><body>Content to replace</body></html>", 0);
-    test->waitUntilTitleChangedTo("Replace Content Test");
-
-    g_signal_connect(test->m_webView, "load-changed", G_CALLBACK(replaceContentLoadCallback), test);
-    test->replaceContent("<html><body onload='document.title=\"Content Replaced\"'>New Content</body></html>",
-                         "http://foo.com/bar", 0);
-    test->waitUntilTitleChangedTo("Content Replaced");
 }
 
 static const char* kAlertDialogMessage = "WebKitGTK+ alert dialog message";
@@ -101,13 +83,15 @@ public:
     enum WebViewEvents {
         Create,
         ReadyToShow,
+        RunAsModal,
         Close
     };
 
     class WindowProperties {
     public:
         WindowProperties()
-            : m_toolbarVisible(true)
+            : m_isNull(true)
+            , m_toolbarVisible(true)
             , m_statusbarVisible(true)
             , m_scrollbarsVisible(true)
             , m_menubarVisible(true)
@@ -119,7 +103,8 @@ public:
         }
 
         WindowProperties(WebKitWindowProperties* windowProperties)
-            : m_toolbarVisible(webkit_window_properties_get_toolbar_visible(windowProperties))
+            : m_isNull(false)
+            , m_toolbarVisible(webkit_window_properties_get_toolbar_visible(windowProperties))
             , m_statusbarVisible(webkit_window_properties_get_statusbar_visible(windowProperties))
             , m_scrollbarsVisible(webkit_window_properties_get_scrollbars_visible(windowProperties))
             , m_menubarVisible(webkit_window_properties_get_menubar_visible(windowProperties))
@@ -132,7 +117,8 @@ public:
 
         WindowProperties(GdkRectangle* geometry, bool toolbarVisible, bool statusbarVisible, bool scrollbarsVisible, bool menubarVisible,
                          bool locationbarVisible, bool resizable, bool fullscreen)
-            : m_geometry(*geometry)
+            : m_isNull(false)
+            , m_geometry(*geometry)
             , m_toolbarVisible(toolbarVisible)
             , m_statusbarVisible(statusbarVisible)
             , m_scrollbarsVisible(scrollbarsVisible)
@@ -143,10 +129,12 @@ public:
         {
         }
 
+        bool isNull() const { return m_isNull; }
+
         void assertEqual(const WindowProperties& other) const
         {
-            // FIXME: We should assert x and y are equal, but we are getting an incorrect
-            // value from WebCore (280 instead of 150).
+            g_assert_cmpint(m_geometry.x, ==, other.m_geometry.x);
+            g_assert_cmpint(m_geometry.y, ==, other.m_geometry.y);
             g_assert_cmpint(m_geometry.width, ==, other.m_geometry.width);
             g_assert_cmpint(m_geometry.height, ==, other.m_geometry.height);
             g_assert_cmpint(static_cast<int>(m_toolbarVisible), ==, static_cast<int>(other.m_toolbarVisible));
@@ -159,6 +147,8 @@ public:
         }
 
     private:
+        bool m_isNull;
+
         GdkRectangle m_geometry;
 
         bool m_toolbarVisible;
@@ -176,46 +166,19 @@ public:
         test->m_windowPropertiesChanged.add(g_param_spec_get_name(paramSpec));
     }
 
-    static void viewClose(WebKitWebView* webView, UIClientTest* test)
+    static GtkWidget* viewCreateCallback(WebKitWebView* webView, UIClientTest* test)
     {
-        g_assert(webView != test->m_webView);
-
-        test->m_webViewEvents.append(Close);
-        g_object_unref(webView);
-
-        g_main_loop_quit(test->m_mainLoop);
+        return test->viewCreate(webView);
     }
 
-    static void viewReadyToShow(WebKitWebView* webView, UIClientTest* test)
+    static void viewReadyToShowCallback(WebKitWebView* webView, UIClientTest* test)
     {
-        g_assert(webView != test->m_webView);
-
-        WebKitWindowProperties* windowProperties = webkit_web_view_get_window_properties(webView);
-        g_assert(windowProperties);
-        WindowProperties(windowProperties).assertEqual(test->m_windowProperties);
-
-        test->m_webViewEvents.append(ReadyToShow);
+        test->viewReadyToShow(webView);
     }
 
-    static GtkWidget* viewCreate(WebKitWebView* webView, UIClientTest* test)
+    static void viewCloseCallback(WebKitWebView* webView, UIClientTest* test)
     {
-        g_assert(webView == test->m_webView);
-
-        GtkWidget* newWebView = webkit_web_view_new_with_context(webkit_web_view_get_context(webView));
-        g_object_ref_sink(newWebView);
-
-        test->m_webViewEvents.append(Create);
-
-        WebKitWindowProperties* windowProperties = webkit_web_view_get_window_properties(WEBKIT_WEB_VIEW(newWebView));
-        g_assert(windowProperties);
-        test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(windowProperties));
-        test->m_windowPropertiesChanged.clear();
-        g_signal_connect(windowProperties, "notify", G_CALLBACK(windowPropertiesNotifyCallback), test);
-
-        g_signal_connect(newWebView, "ready-to-show", G_CALLBACK(viewReadyToShow), test);
-        g_signal_connect(newWebView, "close", G_CALLBACK(viewClose), test);
-
-        return newWebView;
+        test->viewClose(webView);
     }
 
     void scriptAlert(WebKitScriptDialog* dialog)
@@ -278,15 +241,30 @@ public:
         g_main_loop_quit(test->m_mainLoop);
     }
 
+    static gboolean permissionRequested(WebKitWebView*, WebKitPermissionRequest* request, UIClientTest* test)
+    {
+        g_assert(WEBKIT_IS_PERMISSION_REQUEST(request));
+        test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(request));
+
+        if (test->m_allowPermissionRequests)
+            webkit_permission_request_allow(request);
+        else
+            webkit_permission_request_deny(request);
+
+        return TRUE;
+    }
+
     UIClientTest()
         : m_scriptDialogType(WEBKIT_SCRIPT_DIALOG_ALERT)
         , m_scriptDialogConfirmed(true)
+        , m_allowPermissionRequests(false)
         , m_mouseTargetModifiers(0)
     {
         webkit_settings_set_javascript_can_open_windows_automatically(webkit_web_view_get_settings(m_webView), TRUE);
-        g_signal_connect(m_webView, "create", G_CALLBACK(viewCreate), this);
+        g_signal_connect(m_webView, "create", G_CALLBACK(viewCreateCallback), this);
         g_signal_connect(m_webView, "script-dialog", G_CALLBACK(scriptDialog), this);
         g_signal_connect(m_webView, "mouse-target-changed", G_CALLBACK(mouseTargetChanged), this);
+        g_signal_connect(m_webView, "permission-request", G_CALLBACK(permissionRequested), this);
     }
 
     ~UIClientTest()
@@ -311,9 +289,53 @@ public:
         return m_mouseTargetHitTestResult.get();
     }
 
+    virtual GtkWidget* viewCreate(WebKitWebView* webView)
+    {
+        g_assert(webView == m_webView);
+
+        GtkWidget* newWebView = webkit_web_view_new_with_context(webkit_web_view_get_context(webView));
+        g_object_ref_sink(newWebView);
+
+        m_webViewEvents.append(Create);
+
+        WebKitWindowProperties* windowProperties = webkit_web_view_get_window_properties(WEBKIT_WEB_VIEW(newWebView));
+        g_assert(windowProperties);
+        assertObjectIsDeletedWhenTestFinishes(G_OBJECT(windowProperties));
+        m_windowPropertiesChanged.clear();
+
+        g_signal_connect(windowProperties, "notify", G_CALLBACK(windowPropertiesNotifyCallback), this);
+        g_signal_connect(newWebView, "ready-to-show", G_CALLBACK(viewReadyToShowCallback), this);
+        g_signal_connect(newWebView, "close", G_CALLBACK(viewCloseCallback), this);
+
+        return newWebView;
+    }
+
+    virtual void viewReadyToShow(WebKitWebView* webView)
+    {
+        g_assert(webView != m_webView);
+
+        WebKitWindowProperties* windowProperties = webkit_web_view_get_window_properties(webView);
+        g_assert(windowProperties);
+        if (!m_windowProperties.isNull())
+            WindowProperties(windowProperties).assertEqual(m_windowProperties);
+
+        m_webViewEvents.append(ReadyToShow);
+    }
+
+    virtual void viewClose(WebKitWebView* webView)
+    {
+        g_assert(webView != m_webView);
+
+        m_webViewEvents.append(Close);
+        g_object_unref(webView);
+
+        g_main_loop_quit(m_mainLoop);
+    }
+
     Vector<WebViewEvents> m_webViewEvents;
     WebKitScriptDialogType m_scriptDialogType;
     bool m_scriptDialogConfirmed;
+    bool m_allowPermissionRequests;
     WindowProperties m_windowProperties;
     HashSet<WTF::String> m_windowPropertiesChanged;
     GRefPtr<WebKitHitTestResult> m_mouseTargetHitTestResult;
@@ -338,6 +360,62 @@ static gboolean checkMimeTypeForFilter(GtkFileFilter* filter, const gchar* mimeT
     filterInfo.contains = GTK_FILE_FILTER_MIME_TYPE;
     filterInfo.mime_type = mimeType;
     return gtk_file_filter_filter(filter, &filterInfo);
+}
+
+class ModalDialogsTest: public UIClientTest {
+public:
+    MAKE_GLIB_TEST_FIXTURE(ModalDialogsTest);
+
+    static void dialogRunAsModalCallback(WebKitWebView* webView, ModalDialogsTest* test)
+    {
+        g_assert(webView != test->m_webView);
+        test->m_webViewEvents.append(RunAsModal);
+    }
+
+    GtkWidget* viewCreate(WebKitWebView* webView)
+    {
+        g_assert(webView == m_webView);
+
+        GtkWidget* newWebView = UIClientTest::viewCreate(webView);
+        g_signal_connect(newWebView, "run-as-modal", G_CALLBACK(dialogRunAsModalCallback), this);
+        return newWebView;
+    }
+
+    void viewReadyToShow(WebKitWebView* webView)
+    {
+        g_assert(webView != m_webView);
+        m_webViewEvents.append(ReadyToShow);
+    }
+};
+
+static void testWebViewAllowModalDialogs(ModalDialogsTest* test, gconstpointer)
+{
+    WebKitSettings* settings = webkit_web_view_get_settings(test->m_webView);
+    webkit_settings_set_allow_modal_dialogs(settings, TRUE);
+
+    test->loadHtml("<html><body onload=\"window.showModalDialog('data:text/html,<html><body/><script>window.close();</script></html>')\"></body></html>", 0);
+    test->waitUntilMainLoopFinishes();
+
+    Vector<UIClientTest::WebViewEvents>& events = test->m_webViewEvents;
+    g_assert_cmpint(events.size(), ==, 4);
+    g_assert_cmpint(events[0], ==, UIClientTest::Create);
+    g_assert_cmpint(events[1], ==, UIClientTest::ReadyToShow);
+    g_assert_cmpint(events[2], ==, UIClientTest::RunAsModal);
+    g_assert_cmpint(events[3], ==, UIClientTest::Close);
+}
+
+static void testWebViewDisallowModalDialogs(ModalDialogsTest* test, gconstpointer)
+{
+    WebKitSettings* settings = webkit_web_view_get_settings(test->m_webView);
+    webkit_settings_set_allow_modal_dialogs(settings, FALSE);
+
+    test->loadHtml("<html><body onload=\"window.showModalDialog('data:text/html,<html><body/><script>window.close();</script></html>')\"></body></html>", 0);
+    // We need to use a timeout here because the viewClose() function
+    // won't ever be called as the dialog won't be created.
+    test->wait(1);
+
+    Vector<UIClientTest::WebViewEvents>& events = test->m_webViewEvents;
+    g_assert_cmpint(events.size(), ==, 0);
 }
 
 static void testWebViewJavaScriptDialogs(UIClientTest* test, gconstpointer)
@@ -391,14 +469,16 @@ static void testWebViewWindowProperties(UIClientTest* test, gconstpointer)
 
 static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
 {
-    test->showInWindowAndWaitUntilMapped();
+    test->showInWindowAndWaitUntilMapped(GTK_WINDOW_TOPLEVEL);
 
     const char* linksHoveredHTML =
         "<html><body>"
         " <a style='position:absolute; left:1; top:1' href='http://www.webkitgtk.org' title='WebKitGTK+ Title'>WebKitGTK+ Website</a>"
         " <img style='position:absolute; left:1; top:10' src='0xdeadbeef' width=5 height=5></img>"
         " <a style='position:absolute; left:1; top:20' href='http://www.webkitgtk.org/logo' title='WebKitGTK+ Logo'><img src='0xdeadbeef' width=5 height=5></img></a>"
-        " <video style='position:absolute; left:1; top:30' width=10 height=10 controls='controls'><source src='movie.ogg' type='video/ogg' /></video>"
+        " <input style='position:absolute; left:1; top:30' size='10'></input>"
+        " <div style='position:absolute; left:1; top:50; width:30; height:30; overflow:scroll'>&nbsp;</div>"
+        " <video style='position:absolute; left:1; top:100' width='300' height='300' controls='controls'><source src='movie.ogg' type='video/ogg' /></video>"
         "</body></html>";
 
     test->loadHtml(linksHoveredHTML, "file:///");
@@ -409,6 +489,7 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
     g_assert(webkit_hit_test_result_context_is_link(hitTestResult));
     g_assert(!webkit_hit_test_result_context_is_image(hitTestResult));
     g_assert(!webkit_hit_test_result_context_is_media(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_editable(hitTestResult));
     g_assert_cmpstr(webkit_hit_test_result_get_link_uri(hitTestResult), ==, "http://www.webkitgtk.org/");
     g_assert_cmpstr(webkit_hit_test_result_get_link_title(hitTestResult), ==, "WebKitGTK+ Title");
     g_assert_cmpstr(webkit_hit_test_result_get_link_label(hitTestResult), ==, "WebKitGTK+ Website");
@@ -419,6 +500,7 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
     g_assert(!webkit_hit_test_result_context_is_link(hitTestResult));
     g_assert(!webkit_hit_test_result_context_is_image(hitTestResult));
     g_assert(!webkit_hit_test_result_context_is_media(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_editable(hitTestResult));
     g_assert(!test->m_mouseTargetModifiers);
 
     // Move over image with GDK_CONTROL_MASK.
@@ -426,6 +508,8 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
     g_assert(!webkit_hit_test_result_context_is_link(hitTestResult));
     g_assert(webkit_hit_test_result_context_is_image(hitTestResult));
     g_assert(!webkit_hit_test_result_context_is_media(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_editable(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_scrollbar(hitTestResult));
     g_assert_cmpstr(webkit_hit_test_result_get_image_uri(hitTestResult), ==, "file:///0xdeadbeef");
     g_assert(test->m_mouseTargetModifiers & GDK_CONTROL_MASK);
 
@@ -434,6 +518,8 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
     g_assert(webkit_hit_test_result_context_is_link(hitTestResult));
     g_assert(webkit_hit_test_result_context_is_image(hitTestResult));
     g_assert(!webkit_hit_test_result_context_is_media(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_editable(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_scrollbar(hitTestResult));
     g_assert_cmpstr(webkit_hit_test_result_get_link_uri(hitTestResult), ==, "http://www.webkitgtk.org/logo");
     g_assert_cmpstr(webkit_hit_test_result_get_image_uri(hitTestResult), ==, "file:///0xdeadbeef");
     g_assert_cmpstr(webkit_hit_test_result_get_link_title(hitTestResult), ==, "WebKitGTK+ Logo");
@@ -441,12 +527,73 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
     g_assert(!test->m_mouseTargetModifiers);
 
     // Move over media.
-    hitTestResult = test->moveMouseAndWaitUntilMouseTargetChanged(1, 30);
+    hitTestResult = test->moveMouseAndWaitUntilMouseTargetChanged(1, 100);
     g_assert(!webkit_hit_test_result_context_is_link(hitTestResult));
     g_assert(!webkit_hit_test_result_context_is_image(hitTestResult));
     g_assert(webkit_hit_test_result_context_is_media(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_editable(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_scrollbar(hitTestResult));
     g_assert_cmpstr(webkit_hit_test_result_get_media_uri(hitTestResult), ==, "file:///movie.ogg");
     g_assert(!test->m_mouseTargetModifiers);
+
+    // Mover over input.
+    hitTestResult = test->moveMouseAndWaitUntilMouseTargetChanged(5, 35);
+    g_assert(!webkit_hit_test_result_context_is_link(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_image(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_media(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_scrollbar(hitTestResult));
+    g_assert(webkit_hit_test_result_context_is_editable(hitTestResult));
+    g_assert(!test->m_mouseTargetModifiers);
+
+    // Move over scrollbar.
+    hitTestResult = test->moveMouseAndWaitUntilMouseTargetChanged(5, 75);
+    g_assert(!webkit_hit_test_result_context_is_link(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_image(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_media(hitTestResult));
+    g_assert(!webkit_hit_test_result_context_is_editable(hitTestResult));
+    g_assert(webkit_hit_test_result_context_is_scrollbar(hitTestResult));
+    g_assert(!test->m_mouseTargetModifiers);
+}
+
+static void testWebViewPermissionRequests(UIClientTest* test, gconstpointer)
+{
+    // Some versions of geoclue give a runtime warning because it tries
+    // to register the error quark twice. See https://bugs.webkit.org/show_bug.cgi?id=89858.
+    // Make warnings non-fatal for this test to make it pass.
+    test->removeLogFatalFlag(G_LOG_LEVEL_WARNING);
+    test->showInWindowAndWaitUntilMapped();
+    static const char* geolocationRequestHTML =
+        "<html>"
+        "  <script>"
+        "  function runTest()"
+        "  {"
+        "    navigator.geolocation.getCurrentPosition(function(p) { document.title = \"OK\" },"
+        "                                             function(e) { document.title = e.code });"
+        "  }"
+        "  </script>"
+        "  <body onload='runTest();'></body>"
+        "</html>";
+
+    // Test denying a permission request.
+    test->m_allowPermissionRequests = false;
+    test->loadHtml(geolocationRequestHTML, 0);
+    test->waitUntilTitleChanged();
+
+    // According to the Geolocation API specification, '1' is the
+    // error code returned for the PERMISSION_DENIED error.
+    // http://dev.w3.org/geo/api/spec-source.html#position_error_interface
+    const gchar* result = webkit_web_view_get_title(test->m_webView);
+    g_assert_cmpstr(result, ==, "1");
+
+    // Test allowing a permission request.
+    test->m_allowPermissionRequests = true;
+    test->loadHtml(geolocationRequestHTML, 0);
+    test->waitUntilTitleChanged();
+
+    // Check that we did not get the PERMISSION_DENIED error now.
+    result = webkit_web_view_get_title(test->m_webView);
+    g_assert_cmpstr(result, !=, "1");
+    test->addLogFatalFlag(G_LOG_LEVEL_WARNING);
 }
 
 static void testWebViewZoomLevel(WebViewTest* test, gconstpointer)
@@ -514,6 +661,17 @@ static void testWebViewRunJavaScript(WebViewTest* test, gconstpointer)
     g_assert(javascriptResult);
     g_assert(!error.get());
     g_assert(WebViewTest::javascriptResultIsUndefined(javascriptResult));
+
+    javascriptResult = test->runJavaScriptFromGResourceAndWaitUntilFinished("/org/webkit/webkit2gtk/tests/link-title.js", &error.outPtr());
+    g_assert(javascriptResult);
+    g_assert(!error.get());
+    valueString.set(WebViewTest::javascriptResultToCString(javascriptResult));
+    g_assert_cmpstr(valueString.get(), ==, "WebKitGTK+ Title");
+
+    javascriptResult = test->runJavaScriptFromGResourceAndWaitUntilFinished("/wrong/path/to/resource.js", &error.outPtr());
+    g_assert(!javascriptResult);
+    g_assert_error(error.get(), G_RESOURCE_ERROR, G_RESOURCE_ERROR_NOT_FOUND);
+    error.clear();
 
     javascriptResult = test->runJavaScriptAndWaitUntilFinished("foo();", &error.outPtr());
     g_assert(!javascriptResult);
@@ -675,7 +833,7 @@ public:
     void requestFullScreenAndWaitUntilEnteredFullScreen()
     {
         m_event = None;
-        webkit_web_view_run_javascript(m_webView, "document.documentElement.webkitRequestFullScreen();", 0, 0);
+        webkit_web_view_run_javascript(m_webView, "document.documentElement.webkitRequestFullScreen();", 0, 0, 0);
         g_main_loop_run(m_mainLoop);
     }
 
@@ -706,20 +864,393 @@ static void testWebViewFullScreen(FullScreenClientTest* test, gconstpointer)
     g_assert_cmpint(test->m_event, ==, FullScreenClientTest::Leave);
 }
 
+static void testWebViewCanShowMIMEType(WebViewTest* test, gconstpointer)
+{
+    // Supported MIME types.
+    g_assert(webkit_web_view_can_show_mime_type(test->m_webView, "text/html"));
+    g_assert(webkit_web_view_can_show_mime_type(test->m_webView, "text/plain"));
+    g_assert(webkit_web_view_can_show_mime_type(test->m_webView, "image/jpeg"));
+
+    // Unsupported MIME types.
+    g_assert(!webkit_web_view_can_show_mime_type(test->m_webView, "text/vcard"));
+    g_assert(!webkit_web_view_can_show_mime_type(test->m_webView, "application/pdf"));
+    g_assert(!webkit_web_view_can_show_mime_type(test->m_webView, "application/zip"));
+    g_assert(!webkit_web_view_can_show_mime_type(test->m_webView, "application/octet-stream"));
+
+    // Plugins are only supported when enabled.
+    webkit_web_context_set_additional_plugins_directory(webkit_web_view_get_context(test->m_webView), WEBKIT_TEST_PLUGIN_DIR);
+    g_assert(webkit_web_view_can_show_mime_type(test->m_webView, "application/x-webkit-test-netscape"));
+    webkit_settings_set_enable_plugins(webkit_web_view_get_settings(test->m_webView), FALSE);
+    g_assert(!webkit_web_view_can_show_mime_type(test->m_webView, "application/x-webkit-test-netscape"));
+}
+
+class FormClientTest: public WebViewTest {
+public:
+    MAKE_GLIB_TEST_FIXTURE(FormClientTest);
+
+    static void submitFormCallback(WebKitWebView*, WebKitFormSubmissionRequest* request, FormClientTest* test)
+    {
+        test->submitForm(request);
+    }
+
+    FormClientTest()
+        : m_submitPositionX(0)
+        , m_submitPositionY(0)
+    {
+        g_signal_connect(m_webView, "submit-form", G_CALLBACK(submitFormCallback), this);
+    }
+
+    ~FormClientTest()
+    {
+        g_signal_handlers_disconnect_matched(m_webView, G_SIGNAL_MATCH_DATA, 0, 0, 0, 0, this);
+    }
+
+    void submitForm(WebKitFormSubmissionRequest* request)
+    {
+        assertObjectIsDeletedWhenTestFinishes(G_OBJECT(request));
+        m_request = request;
+        webkit_form_submission_request_submit(request);
+        quitMainLoop();
+    }
+
+    GHashTable* waitUntilFormSubmittedAndGetTextFields()
+    {
+        g_main_loop_run(m_mainLoop);
+        return webkit_form_submission_request_get_text_fields(m_request.get());
+    }
+
+    static gboolean doClickIdleCallback(FormClientTest* test)
+    {
+        test->clickMouseButton(test->m_submitPositionX, test->m_submitPositionY, 1);
+        return FALSE;
+    }
+
+    void submitFormAtPosition(int x, int y)
+    {
+        m_submitPositionX = x;
+        m_submitPositionY = y;
+        g_idle_add(reinterpret_cast<GSourceFunc>(doClickIdleCallback), this);
+    }
+
+    int m_submitPositionX;
+    int m_submitPositionY;
+    GRefPtr<WebKitFormSubmissionRequest> m_request;
+};
+
+static void testWebViewSubmitForm(FormClientTest* test, gconstpointer)
+{
+    test->showInWindowAndWaitUntilMapped();
+
+    const char* formHTML =
+        "<html><body>"
+        " <form action='#'>"
+        "  <input type='text' name='text1' value='value1'>"
+        "  <input type='text' name='text2' value='value2'>"
+        "  <input type='password' name='password' value='secret'>"
+        "  <textarea cols='5' rows='5' name='textarea'>Text</textarea>"
+        "  <input type='hidden' name='hidden1' value='hidden1'>"
+        "  <input type='submit' value='Submit' style='position:absolute; left:1; top:1' size='10'>"
+        " </form>"
+        "</body></html>";
+
+    test->loadHtml(formHTML, "file:///");
+    test->waitUntilLoadFinished();
+
+    test->submitFormAtPosition(5, 5);
+    GHashTable* values = test->waitUntilFormSubmittedAndGetTextFields();
+    g_assert(values);
+    g_assert_cmpuint(g_hash_table_size(values), ==, 3);
+    g_assert_cmpstr(static_cast<char*>(g_hash_table_lookup(values, "text1")), ==, "value1");
+    g_assert_cmpstr(static_cast<char*>(g_hash_table_lookup(values, "text2")), ==, "value2");
+    g_assert_cmpstr(static_cast<char*>(g_hash_table_lookup(values, "password")), ==, "secret");
+}
+
+class SaveWebViewTest: public WebViewTest {
+public:
+    MAKE_GLIB_TEST_FIXTURE(SaveWebViewTest);
+
+    SaveWebViewTest()
+        : m_tempDirectory(g_dir_make_tmp("WebKit2SaveViewTest-XXXXXX", 0))
+    {
+    }
+
+    ~SaveWebViewTest()
+    {
+        if (G_IS_FILE(m_file.get()))
+            g_file_delete(m_file.get(), 0, 0);
+
+        if (G_IS_INPUT_STREAM(m_inputStream.get()))
+            g_input_stream_close(m_inputStream.get(), 0, 0);
+
+        if (m_tempDirectory)
+            g_rmdir(m_tempDirectory.get());
+    }
+
+    static void webViewSavedToStreamCallback(GObject* object, GAsyncResult* result, SaveWebViewTest* test)
+    {
+        GOwnPtr<GError> error;
+        test->m_inputStream = adoptGRef(webkit_web_view_save_finish(test->m_webView, result, &error.outPtr()));
+        g_assert(G_IS_INPUT_STREAM(test->m_inputStream.get()));
+        g_assert(!error);
+
+        test->quitMainLoop();
+    }
+
+    static void webViewSavedToFileCallback(GObject* object, GAsyncResult* result, SaveWebViewTest* test)
+    {
+        GOwnPtr<GError> error;
+        g_assert(webkit_web_view_save_to_file_finish(test->m_webView, result, &error.outPtr()));
+        g_assert(!error);
+
+        test->quitMainLoop();
+    }
+
+    void saveAndWaitForStream()
+    {
+        webkit_web_view_save(m_webView, WEBKIT_SAVE_MODE_MHTML, 0, reinterpret_cast<GAsyncReadyCallback>(webViewSavedToStreamCallback), this);
+        g_main_loop_run(m_mainLoop);
+    }
+
+    void saveAndWaitForFile()
+    {
+        m_saveDestinationFilePath.set(g_build_filename(m_tempDirectory.get(), "testWebViewSaveResult.mht", NULL));
+        m_file = adoptGRef(g_file_new_for_path(m_saveDestinationFilePath.get()));
+        webkit_web_view_save_to_file(m_webView, m_file.get(), WEBKIT_SAVE_MODE_MHTML, 0, reinterpret_cast<GAsyncReadyCallback>(webViewSavedToFileCallback), this);
+        g_main_loop_run(m_mainLoop);
+    }
+
+    GOwnPtr<char> m_tempDirectory;
+    GOwnPtr<char> m_saveDestinationFilePath;
+    GRefPtr<GInputStream> m_inputStream;
+    GRefPtr<GFile> m_file;
+};
+
+static void testWebViewSave(SaveWebViewTest* test, gconstpointer)
+{
+    test->loadHtml("<html>"
+                   "<body>"
+                   "  <p>A paragraph with plain text</p>"
+                   "  <p>"
+                   "    A red box: <img src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3AYWDTMVwnSZnwAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAAFklEQVQI12P8z8DAwMDAxMDAwMDAAAANHQEDK+mmyAAAAABJRU5ErkJggg=='></br>"
+                   "    A blue box: <img src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3AYWDTMvBHhALQAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAAFklEQVQI12Nk4PnPwMDAxMDAwMDAAAALrwEPPIs1pgAAAABJRU5ErkJggg=='>"
+                   "  </p>"
+                   "</body>"
+                   "</html>", 0);
+    test->waitUntilLoadFinished();
+
+    // Write to a file and to an input stream.
+    test->saveAndWaitForFile();
+    test->saveAndWaitForStream();
+
+    // We should have exactly the same amount of bytes in the file
+    // than those coming from the GInputStream. We don't compare the
+    // strings read since the 'Date' field and the boundaries will be
+    // different on each case. MHTML functionality will be tested by
+    // Layout tests, so checking the amount of bytes is enough.
+    GOwnPtr<GError> error;
+    gchar buffer[512] = { 0 };
+    gssize readBytes = 0;
+    gssize totalBytesFromStream = 0;
+    while (readBytes = g_input_stream_read(test->m_inputStream.get(), &buffer, 512, 0, &error.outPtr())) {
+        g_assert(!error);
+        totalBytesFromStream += readBytes;
+    }
+
+    // Check that the file exists and that it contains the same amount of bytes.
+    GRefPtr<GFileInfo> fileInfo = adoptGRef(g_file_query_info(test->m_file.get(), G_FILE_ATTRIBUTE_STANDARD_SIZE, static_cast<GFileQueryInfoFlags>(0), 0, 0));
+    g_assert_cmpint(g_file_info_get_size(fileInfo.get()), ==, totalBytesFromStream);
+}
+
+static void testWebViewMode(WebViewTest* test, gconstpointer)
+{
+    static const char* indexHTML = "<html><body><p>Test Web View Mode</p></body></html>";
+
+    // Web mode.
+    g_assert_cmpuint(webkit_web_view_get_view_mode(test->m_webView), ==, WEBKIT_VIEW_MODE_WEB);
+    test->loadHtml(indexHTML, 0);
+    test->waitUntilLoadFinished();
+    WebKitJavascriptResult* javascriptResult = test->runJavaScriptAndWaitUntilFinished("window.document.body.textContent;", 0);
+    GOwnPtr<char> valueString(WebViewTest::javascriptResultToCString(javascriptResult));
+    g_assert_cmpstr(valueString.get(), ==, "Test Web View Mode");
+
+    // Source mode.
+    webkit_web_view_set_view_mode(test->m_webView, WEBKIT_VIEW_MODE_SOURCE);
+    test->loadHtml(indexHTML, 0);
+    test->waitUntilLoadFinished();
+    javascriptResult = test->runJavaScriptAndWaitUntilFinished("window.document.body.textContent;", 0);
+    valueString.set(WebViewTest::javascriptResultToCString(javascriptResult));
+    g_assert_cmpstr(valueString.get(), ==, indexHTML);
+}
+
+// To test page visibility API. Currently only 'visible' and 'hidden' states are implemented fully in WebCore.
+// See also http://www.w3.org/TR/2011/WD-page-visibility-20110602/ and https://developers.google.com/chrome/whitepapers/pagevisibility
+static void testWebViewPageVisibility(WebViewTest* test, gconstpointer)
+{
+    test->loadHtml("<html><title></title>"
+        "<body><p>Test Web Page Visibility</p>"
+        "<script>"
+        "document.addEventListener(\"webkitvisibilitychange\", onVisibilityChange, false);"
+        "function onVisibilityChange() {"
+        "    document.title = document.webkitVisibilityState;"
+        "}"
+        "</script>"
+        "</body></html>",
+        0);
+
+    // Wait untill the page is loaded. Initial visibility should be 'hidden'.
+    test->waitUntilLoadFinished();
+
+    GOwnPtr<GError> error;
+    WebKitJavascriptResult* javascriptResult = test->runJavaScriptAndWaitUntilFinished("document.webkitVisibilityState;", &error.outPtr());
+    g_assert(javascriptResult);
+    g_assert(!error.get());
+    GOwnPtr<char> valueString(WebViewTest::javascriptResultToCString(javascriptResult));
+    g_assert_cmpstr(valueString.get(), ==, "hidden");
+
+    javascriptResult = test->runJavaScriptAndWaitUntilFinished("document.webkitHidden;", &error.outPtr());
+    g_assert(javascriptResult);
+    g_assert(!error.get());
+    g_assert(WebViewTest::javascriptResultToBoolean(javascriptResult));
+
+    // Show the page. The visibility should be updated to 'visible'.
+    test->showInWindow();
+    test->waitUntilTitleChanged();
+
+    javascriptResult = test->runJavaScriptAndWaitUntilFinished("document.webkitVisibilityState;", &error.outPtr());
+    g_assert(javascriptResult);
+    g_assert(!error.get());
+    valueString.set(WebViewTest::javascriptResultToCString(javascriptResult));
+    g_assert_cmpstr(valueString.get(), ==, "visible");
+
+    javascriptResult = test->runJavaScriptAndWaitUntilFinished("document.webkitHidden;", &error.outPtr());
+    g_assert(javascriptResult);
+    g_assert(!error.get());
+    g_assert(!WebViewTest::javascriptResultToBoolean(javascriptResult));
+
+    // Hide the page. The visibility should be updated to 'hidden'.
+    gtk_widget_hide(GTK_WIDGET(test->m_webView));
+    test->waitUntilTitleChanged();
+
+    javascriptResult = test->runJavaScriptAndWaitUntilFinished("document.webkitVisibilityState;", &error.outPtr());
+    g_assert(javascriptResult);
+    g_assert(!error.get());
+    valueString.set(WebViewTest::javascriptResultToCString(javascriptResult));
+    g_assert_cmpstr(valueString.get(), ==, "hidden");
+
+    javascriptResult = test->runJavaScriptAndWaitUntilFinished("document.webkitHidden;", &error.outPtr());
+    g_assert(javascriptResult);
+    g_assert(!error.get());
+    g_assert(WebViewTest::javascriptResultToBoolean(javascriptResult));
+}
+
+class SnapshotWebViewTest: public WebViewTest {
+public:
+    MAKE_GLIB_TEST_FIXTURE(SnapshotWebViewTest);
+
+    static void onSnapshotCancelledReady(WebKitWebView* web_view, GAsyncResult* res, SnapshotWebViewTest* test)
+    {
+        GOwnPtr<GError> error;
+        test->m_surface = webkit_web_view_get_snapshot_finish(web_view, res, &error.outPtr());
+        g_assert(!test->m_surface);
+        g_assert_error(error.get(), G_IO_ERROR, G_IO_ERROR_CANCELLED);
+        test->quitMainLoop();
+    }
+
+    gboolean getSnapshotAndCancel()
+    {
+        if (m_surface)
+            cairo_surface_destroy(m_surface);
+        m_surface = 0;
+        GRefPtr<GCancellable> cancellable = adoptGRef(g_cancellable_new());
+        webkit_web_view_get_snapshot(m_webView, WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE, cancellable.get(), reinterpret_cast<GAsyncReadyCallback>(onSnapshotCancelledReady), this);
+        g_cancellable_cancel(cancellable.get());
+        g_main_loop_run(m_mainLoop);
+
+        return true;
+    }
+
+};
+
+static void testWebViewSnapshot(SnapshotWebViewTest* test, gconstpointer)
+{
+    test->loadHtml("<html><body><p>Whatever</p></body></html>", 0);
+    test->waitUntilLoadFinished();
+
+    // WebView not visible.
+    cairo_surface_t* surface1 = test->getSnapshotAndWaitUntilReady(WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE);
+    g_assert(!surface1);
+
+    // Show surface, resize to 50x50, try again.
+    test->showInWindowAndWaitUntilMapped();
+    test->resizeView(50, 50);
+    surface1 = test->getSnapshotAndWaitUntilReady(WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE);
+    g_assert(surface1);
+
+    // obtained surface should be at the most 50x50. Store the size
+    // for comparison later.
+    int width = cairo_image_surface_get_width(surface1);
+    int height = cairo_image_surface_get_height(surface1);
+    g_assert_cmpint(width, <=, 50);
+    g_assert_cmpint(height, <=, 50);
+
+    // Select all text in the WebView, request a snapshot ignoring selection.
+    test->selectAll();
+    surface1 = cairo_surface_reference(test->getSnapshotAndWaitUntilReady(WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE));
+    g_assert(surface1);
+    g_assert_cmpint(cairo_image_surface_get_width(surface1), ==, width);
+    g_assert_cmpint(cairo_image_surface_get_height(surface1), ==, height);
+
+    // Create identical surface.
+    cairo_surface_t* surface2 = test->getSnapshotAndWaitUntilReady(WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE);
+    g_assert(surface2);
+
+    // Compare these two, they should be identical.
+    g_assert(Test::cairoSurfacesEqual(surface1, surface2));
+
+    // Request a new snapshot, including the selection this time. The
+    // size should be the same but the result must be different to the
+    // one previously obtained.
+    surface2 = test->getSnapshotAndWaitUntilReady(WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_INCLUDE_SELECTION_HIGHLIGHTING);
+    g_assert(surface2);
+    g_assert_cmpint(cairo_image_surface_get_width(surface2), ==, width);
+    g_assert_cmpint(cairo_image_surface_get_height(surface2), ==, height);
+    g_assert(!Test::cairoSurfacesEqual(surface1, surface2));
+
+    // Request a snapshot of the whole document in the WebView. The
+    // result should be different from the size obtained previously.
+    surface2 = test->getSnapshotAndWaitUntilReady(WEBKIT_SNAPSHOT_REGION_FULL_DOCUMENT, WEBKIT_SNAPSHOT_OPTIONS_NONE);
+    g_assert(surface2);
+    g_assert_cmpint(cairo_image_surface_get_width(surface2),  >, width);
+    g_assert_cmpint(cairo_image_surface_get_height(surface2), >, height);
+    g_assert(!Test::cairoSurfacesEqual(surface1, surface2));
+
+    cairo_surface_destroy(surface1);
+
+    g_assert(test->getSnapshotAndCancel());
+}
+
 void beforeAll()
 {
     WebViewTest::add("WebKitWebView", "default-context", testWebViewDefaultContext);
     WebViewTest::add("WebKitWebView", "custom-charset", testWebViewCustomCharset);
     WebViewTest::add("WebKitWebView", "settings", testWebViewSettings);
-    WebViewTest::add("WebKitWebView", "replace-content", testWebViewReplaceContent);
     UIClientTest::add("WebKitWebView", "create-ready-close", testWebViewCreateReadyClose);
+    ModalDialogsTest::add("WebKitWebView", "allow-modal-dialogs", testWebViewAllowModalDialogs);
+    ModalDialogsTest::add("WebKitWebView", "disallow-modal-dialogs", testWebViewDisallowModalDialogs);
     UIClientTest::add("WebKitWebView", "javascript-dialogs", testWebViewJavaScriptDialogs);
     UIClientTest::add("WebKitWebView", "window-properties", testWebViewWindowProperties);
     UIClientTest::add("WebKitWebView", "mouse-target", testWebViewMouseTarget);
+    UIClientTest::add("WebKitWebView", "permission-requests", testWebViewPermissionRequests);
     WebViewTest::add("WebKitWebView", "zoom-level", testWebViewZoomLevel);
     WebViewTest::add("WebKitWebView", "run-javascript", testWebViewRunJavaScript);
     FileChooserTest::add("WebKitWebView", "file-chooser-request", testWebViewFileChooserRequest);
     FullScreenClientTest::add("WebKitWebView", "fullscreen", testWebViewFullScreen);
+    WebViewTest::add("WebKitWebView", "can-show-mime-type", testWebViewCanShowMIMEType);
+    FormClientTest::add("WebKitWebView", "submit-form", testWebViewSubmitForm);
+    SaveWebViewTest::add("WebKitWebView", "save", testWebViewSave);
+    WebViewTest::add("WebKitWebView", "view-mode", testWebViewMode);
+    SnapshotWebViewTest::add("WebKitWebView", "snapshot", testWebViewSnapshot);
+    WebViewTest::add("WebKitWebView", "page-visibility", testWebViewPageVisibility);
 }
 
 void afterAll()

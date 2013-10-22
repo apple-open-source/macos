@@ -1,12 +1,12 @@
 #
-#   Copyright (C) 2002-2011, International Business Machines Corporation and others.
+#   Copyright (C) 2002-2013, International Business Machines Corporation and others.
 #       All Rights Reserved.
 #
 #   file:  char.txt 
 #
 #   ICU Character Break Rules, also known as Grapheme Cluster Boundaries
 #      See Unicode Standard Annex #29.
-#      These rules are based on UAX #29 Revision 19 for Unicode Version 6.1
+#      These rules are based on UAX #29 Revision 20 for Unicode Version 6.2
 #
 
 #
@@ -19,6 +19,48 @@ $Control     = [\p{Grapheme_Cluster_Break = Control}];
 $Extend      = [\p{Grapheme_Cluster_Break = Extend}];
 $SpacingMark = [\p{Grapheme_Cluster_Break = SpacingMark}];
 
+$RI_A        = \U0001F1E6;  # Trail ERTU
+$RI_B        = \U0001F1E7;  # Trail EGR
+$RI_C        = \U0001F1E8;  # Trail AHLNZ
+$RI_D        = \U0001F1E9;  # Trail EK
+$RI_E        = \U0001F1EA;  # Trail GS
+$RI_F        = \U0001F1EB;  # Trail IR
+$RI_G        = \U0001F1EC;  # Trail BR
+$RI_H        = \U0001F1ED;  # Trail KU
+$RI_I        = \U0001F1EE;  # Trail DLNT
+$RI_J        = \U0001F1EF;  # Trail OP
+$RI_K        = \U0001F1F0;  # Trail R
+$RI_L        = \U0001F1F1;  # Trail B
+$RI_M        = \U0001F1F2;  # Trail OXY
+$RI_N        = \U0001F1F3;  # Trail LO
+$RI_P        = \U0001F1F5;  # Trail LT
+$RI_R        = \U0001F1F7;  # Trail OU
+$RI_S        = \U0001F1F8;  # Trail AEGK
+$RI_T        = \U0001F1F9;  # Trail HRW
+$RI_U        = \U0001F1FA;  # Trail AS
+$RI_V        = \U0001F1FB;	# Trail N
+
+$RI_A_End    = [\U0001F1EA \U0001F1F7 \U0001F1F9 \U0001F1FA];  	# ERTU
+$RI_B_End    = [\U0001F1EA \U0001F1EC \U0001F1F7];              # EGR
+$RI_C_End    = [\U0001F1E6 \U0001F1ED \U0001F1F1 \U0001F1F3 \U0001F1FF]; # AHLNZ
+$RI_D_End    = [\U0001F1EA \U0001F1F0];                         # EK
+$RI_E_End    = [\U0001F1EC \U0001F1F8];                         # GS
+$RI_F_End    = [\U0001F1EE \U0001F1F7];                         # IR
+$RI_G_End    = [\U0001F1E7 \U0001F1F7];                         # BR
+$RI_H_End    = [\U0001F1F0 \U0001F1FA];                         # KU
+$RI_I_End    = [\U0001F1E9 \U0001F1F1 \U0001F1F3 \U0001F1F9];	# DLNT
+$RI_J_End    = [\U0001F1F4 \U0001F1F5];                         # OP
+$RI_K_End    = \U0001F1F7;                                      # R
+$RI_L_End    = \U0001F1E7;                                      # B
+$RI_M_End    = [\U0001F1F4 \U0001F1FD \U0001F1FE];              # OXY
+$RI_N_End    = [\U0001F1F1 \U0001F1F4];                         # LO
+$RI_P_End    = [\U0001F1F1 \U0001F1F9];                         # LT
+$RI_R_End    = [\U0001F1F4 \U0001F1FA];                         # OU
+$RI_S_End    = [\U0001F1E6 \U0001F1EA \U0001F1EC \U0001F1F0];   # AEGK
+$RI_T_End    = [\U0001F1ED \U0001F1F7 \U0001F1FC];              # HRW
+$RI_U_End    = [\U0001F1E6 \U0001F1F8];                         # AS
+$RI_V_End    = \U0001F1F3;                                      # N
+
 #
 # Korean Syllable Definitions
 #
@@ -29,10 +71,6 @@ $T       = [\p{Grapheme_Cluster_Break = T}];
 $LV      = [\p{Grapheme_Cluster_Break = LV}];
 $LVT     = [\p{Grapheme_Cluster_Break = LVT}];
 
-#
-# Emoji regional indicators
-#
-$RI      = [\U0001F1E6-\U0001F1FF];
 
 ## -------------------------------------------------
 !!chain;
@@ -45,13 +83,32 @@ $L ($L | $V | $LV | $LVT);
 ($LV | $V) ($V | $T);
 ($LVT | $T) $T;
 
+$RI_A $RI_A_End;
+$RI_B $RI_B_End;
+$RI_C $RI_C_End;
+$RI_D $RI_D_End;
+$RI_E $RI_E_End;
+$RI_F $RI_F_End;
+$RI_G $RI_G_End;
+$RI_H $RI_H_End;
+$RI_I $RI_I_End;
+$RI_J $RI_J_End;
+$RI_K $RI_K_End;
+$RI_L $RI_L_End;
+$RI_M $RI_M_End;
+$RI_N $RI_N_End;
+$RI_P $RI_P_End;
+$RI_R $RI_R_End;
+$RI_S $RI_S_End;
+$RI_T $RI_T_End;
+$RI_U $RI_U_End;
+$RI_V $RI_V_End;
+
 [^$Control $CR $LF] $Extend;
 
 [^$Control $CR $LF] $SpacingMark;
 # TODO: Restore if the Prepend set becomes non-empty again: $Prepend [^$Control $CR $LF];
 
-$RI $RI / $RI;
-$RI $RI;
 
 ## -------------------------------------------------
 
@@ -61,19 +118,42 @@ $LF $CR;
 ($V | $T) ($LV | $V);
 $T ($LVT | $T);
 
+$RI_A_End $RI_A;
+$RI_B_End $RI_B;
+$RI_C_End $RI_C;
+$RI_D_End $RI_D;
+$RI_E_End $RI_E;
+$RI_F_End $RI_F;
+$RI_G_End $RI_G;
+$RI_H_End $RI_H;
+$RI_I_End $RI_I;
+$RI_J_End $RI_J;
+$RI_K_End $RI_K;
+$RI_L_End $RI_L;
+$RI_M_End $RI_M;
+$RI_N_End $RI_N;
+$RI_P_End $RI_P;
+$RI_R_End $RI_R;
+$RI_S_End $RI_S;
+$RI_T_End $RI_T;
+$RI_U_End $RI_U;
+$RI_V_End $RI_V;
+
 $Extend      [^$Control $CR $LF];
 $SpacingMark [^$Control $CR $LF];
 # TODO: Restore if the Prepend set becomes non-empty again: [^$Control $CR $LF] $Prepend;
 
-$RI $RI / $RI $RI;
-$RI $RI;
 
 ## -------------------------------------------------
+#  We don't logically need safe char break rules, but if we don't provide any at all
+#  the engine for preceding() and following() will fall back to the
+#  old style inefficient algorithm.
 
 !!safe_reverse;
-
+$LF $CR;
 
 ## -------------------------------------------------
 
 !!safe_forward;
+$CR $LF;
 

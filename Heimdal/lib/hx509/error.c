@@ -154,9 +154,7 @@ hx509_get_error_string(hx509_context context, int error_code)
 
     s = heim_error_copy_string(msg);
     if (s) {
-	cstr = heim_string_get_utf8(s);
-	if (cstr)
-	    str = strdup(cstr);
+	str = heim_string_copy_utf8(s);
 	heim_release(s);
     }
     return str;

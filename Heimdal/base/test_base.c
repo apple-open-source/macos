@@ -38,29 +38,33 @@
 #include <string.h>
 
 #include "heimbase.h"
-#include "heimbasepriv.h"
+#include "heimbase_impl.h"
 
 static void
 memory_free(heim_object_t obj)
 {
 }
 
+struct test_memory {
+    struct heim_base_uniq base;
+};
+
 static int
 test_memory(void)
 {
-    void *ptr;
+    struct test_memory *ptr;
 
-    ptr = heim_alloc(10, "memory", memory_free);
-
-    heim_retain(ptr);
-    heim_release(ptr);
+    ptr = heim_uniq_alloc(sizeof(*ptr), "memory", memory_free);
 
     heim_retain(ptr);
     heim_release(ptr);
 
+    heim_retain(ptr);
     heim_release(ptr);
 
-    ptr = heim_alloc(10, "memory", NULL);
+    heim_release(ptr);
+
+    ptr = heim_uniq_alloc(sizeof(*ptr), "memory", NULL);
     heim_release(ptr);
 
     return 0;
@@ -96,6 +100,7 @@ test_dict(void)
 static int
 test_auto_release(void)
 {
+#if 0
     heim_auto_release_t ar1, ar2;
     heim_number_t n1;
     heim_string_t s1;
@@ -115,9 +120,10 @@ test_auto_release(void)
 
     heim_release(ar2);
     heim_release(ar1);
-
+#endif
     return 0;
 }
+
 
 static int
 test_string(void)
@@ -144,12 +150,15 @@ test_error(void)
 {
     heim_error_t e;
     heim_string_t s;
+    char *r;
 
     e = heim_error_create(10, "foo: %s", "bar");
     heim_assert(heim_error_get_code(e) == 10, "error_code != 10");
 
     s = heim_error_copy_string(e);
-    heim_assert(strcmp(heim_string_get_utf8(s), "foo: bar") == 0, "msg wrong");
+    r = heim_string_copy_utf8(s);
+    heim_assert(strcmp(r, "foo: bar") == 0, "msg wrong");
+    free(r);
 
     heim_release(s);
     heim_release(e);

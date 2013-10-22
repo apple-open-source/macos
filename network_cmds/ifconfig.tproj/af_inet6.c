@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -66,6 +66,7 @@ static const char rcsid[] =
 #include <net/if.h>
 
 #include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -83,6 +84,10 @@ static const char rcsid[] =
 #include <netinet6/nd6.h>	/* Define ND6_INFINITE_LIFETIME */
 
 #include "ifconfig.h"
+
+#define ND6BITS "\020\001PERFORMNUD\002ACCEPT_RTADV\003PREFER_SOURCE" \
+	"\004IFDISABLED\005DONT_SET_IFROUTE\006PROXY_PREFIXES" \
+	"\007IGNORE_NA\010INSECURE"
 
 static	struct in6_ifreq in6_ridreq;
 static	struct in6_aliasreq in6_addreq = 
@@ -108,6 +113,29 @@ setifprefixlen(const char *addr, int dummy __unused, int s,
         if (afp->af_getprefix != NULL)
                 afp->af_getprefix(addr, MASK);
 	explicit_prefix = 1;
+}
+
+static void
+setnd6flags(const char *dummyaddr __unused, int d, int s,
+    const struct afswtch *afp)
+{
+	struct in6_ndireq nd;
+	int error;
+
+	memset(&nd, 0, sizeof(nd));
+	strncpy(nd.ifname, ifr.ifr_name, sizeof(nd.ifname));
+	error = ioctl(s, SIOCGIFINFO_IN6, &nd);
+	if (error) {
+		warn("ioctl(SIOCGIFINFO_IN6)");
+		return;
+	}
+	if (d < 0)
+		nd.ndi.flags &= ~(-d);
+	else
+		nd.ndi.flags |= d;
+	error = ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd);
+	if (error)
+		warn("ioctl(SIOCSIFINFO_FLAGS)");
 }
 
 static void
@@ -317,6 +345,8 @@ in6_status(int s __unused, const struct ifaddrs *ifa)
 		printf("autoconf ");
 	if ((flags6 & IN6_IFF_TEMPORARY) != 0)
 		printf("temporary ");
+	if ((flags6 & IN6_IFF_SECURED) != 0)
+		printf("secured ");
 
         if (scopeid)
 		printf("scopeid 0x%x ", scopeid);
@@ -504,6 +534,34 @@ in6_status_tunnel(int s)
 }
 
 static void
+nd6_status(int s)
+{
+	struct in6_ndireq nd;
+	int s6;
+	int error;
+
+	memset(&nd, 0, sizeof(nd));
+	strncpy(nd.ifname, ifr.ifr_name, sizeof(nd.ifname));
+	if ((s6 = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+		if (errno != EPROTONOSUPPORT)
+			warn("socket(AF_INET6, SOCK_DGRAM)");
+		return;
+	}
+	error = ioctl(s6, SIOCGIFINFO_IN6, &nd);
+	if (error) {
+		if (errno != EPFNOSUPPORT && errno != EINVAL)
+			warn("ioctl(SIOCGIFINFO_IN6)");
+		close(s6);
+		return;
+	}
+	close(s6);
+	if (nd.ndi.flags == 0)
+		return;
+	printb("\tnd6 options", (unsigned int)nd.ndi.flags, ND6BITS);
+	putchar('\n');
+}
+
+static void
 in6_set_tunnel(int s, struct addrinfo *srcres, struct addrinfo *dstres)
 {
 	struct in6_aliasreq in6_addreq; 
@@ -547,9 +605,21 @@ static struct cmd inet6_cmds[] = {
 	DEF_CMD("-deprecated", -IN6_IFF_DEPRECATED,	setip6flags),
 	DEF_CMD("autoconf",	IN6_IFF_AUTOCONF,	setip6flags),
 	DEF_CMD("-autoconf",	-IN6_IFF_AUTOCONF,	setip6flags),
+	DEF_CMD("nud",		ND6_IFF_PERFORMNUD,	setnd6flags),
+	DEF_CMD("-nud",		-ND6_IFF_PERFORMNUD,	setnd6flags),
+	DEF_CMD("ifdisabled",   ND6_IFF_IFDISABLED,	setnd6flags),
+	DEF_CMD("-ifdisabled",  -ND6_IFF_IFDISABLED,	setnd6flags),
+	DEF_CMD("ignore_na",	ND6_IFF_IGNORE_NA,	setnd6flags),
+	DEF_CMD("-ignore_na",	-ND6_IFF_IGNORE_NA,	setnd6flags),
+	DEF_CMD("proxy_prefixes", ND6_IFF_PROXY_PREFIXES,	setnd6flags),
+	DEF_CMD("-proxy_prefixes", -ND6_IFF_PROXY_PREFIXES,	setnd6flags),
+	DEF_CMD("insecure",	ND6_IFF_INSECURE,	setnd6flags),
+	DEF_CMD("-insecure",	-ND6_IFF_INSECURE,	setnd6flags),
 	DEF_CMD_ARG("pltime",        			setip6pltime),
 	DEF_CMD_ARG("vltime",        			setip6vltime),
 	DEF_CMD("eui64",	0,			setip6eui64),
+	DEF_CMD("secured",	IN6_IFF_SECURED,	setip6flags),
+	DEF_CMD("-secured",	-IN6_IFF_SECURED,	setip6flags),
 };
 
 static struct afswtch af_inet6 = {
@@ -558,6 +628,7 @@ static struct afswtch af_inet6 = {
 	.af_status	= in6_status,
 	.af_getaddr	= in6_getaddr,
 	.af_getprefix	= in6_getprefix,
+	.af_other_status = nd6_status,
 	.af_postproc	= in6_postproc,
 	.af_status_tunnel = in6_status_tunnel,
 	.af_settunnel	= in6_set_tunnel,

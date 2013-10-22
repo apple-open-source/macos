@@ -504,7 +504,7 @@ static int CompressData(uint8_t *srcbase[], uint32_t imageCount,
     if (dlen <= sizeof(hibernate_preview_t) + imageCount*height*sizeof(uint32_t))
     {
         DEBG("", "compressData: destination buffer size %d too small for y index (%ld)\n",
-                dlen, (kCompressCount+height)*sizeof(uint32_t));
+                dlen, (imageCount+height)*sizeof(uint32_t));
         return 0;
     }
 

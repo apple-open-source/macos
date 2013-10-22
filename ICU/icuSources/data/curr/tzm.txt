@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/tzm.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/tzm.xml
 // *
 // ***************************************************************************
 /**
@@ -20,7 +20,7 @@ tzm{
             "Kwanza Unguli",
         }
         AUD{
-            "AU$",
+            "A$",
             "Ḍular Usṭrali",
         }
         BHD{
@@ -225,6 +225,10 @@ tzm{
         }
         ZMK{
             "ZMK",
+            "Kwača Uzambi (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "Kwača Uzambi",
         }
         ZWD{
@@ -232,5 +236,5 @@ tzm{
             "Ḍular Uzimbabwi",
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
 }

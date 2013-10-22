@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+dbicdump - Dump a schema using DBIx::Class::Schema::Loader
+
+=head1 SYNOPSIS
+
+  dbicdump [-o <loader_option>=<value> ] <schema_class> <connect_info>
+
+=head1 DESCRIPTION
+
+Dbicdump generates a L<DBIx::Class> schema using
+L<DBIx::Class::Schema::Loader/make_schema_at> and dumps it to disk.
+
+You can pass any L<DBIx::Class::Loader::Base> constructor option using
+C<< -o <option>=<value> >>. For convenience, option names will have C<->
+replaced with C<_> and values that look like references or quote-like
+operators will be C<eval>-ed before being passed to the constructor.
+
+The C<dump_directory> option defaults to the current directory if not
+specified.
+
+=head1 SEE ALSO
+
+L<DBIx::Class::Schema::Loader>, L<DBIx::Class>.
+
+=head1 AUTHOR
+
+Dagfinn Ilmari Mannsåker C<< <ilmari@ilmari.org> >>
+
+=head1 LICENSE
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
+=cut
+
+use strict;
+use warnings;
+use Getopt::Long;
+
+use Pod::Usage;
+
+use DBIx::Class::Schema::Loader qw/ make_schema_at /;
+require DBIx::Class::Schema::Loader::Base;
+
+my $loader_options;
+
+GetOptions( 'loader-option|o=s%' => \&handle_option );
+$loader_options->{dump_directory} ||= '.';
+
+my ($schema_class, @loader_connect_info) = @ARGV
+    or pod2usage(1);
+
+sub handle_option {
+    my ($self, $key, $value) = @_;
+
+    $key =~ tr/-/_/;
+    die "Unknown option: $key\n"
+        unless DBIx::Class::Schema::Loader::Base->can($key);
+
+    $value = eval $value if $value =~ /^\s*(?:sub\s*\{|q\w?\s*[^\w\s]|[[{])/;
+
+    $loader_options->{$key} = $value;
+}
+
+make_schema_at(
+    $schema_class,
+    $loader_options,
+    \@loader_connect_info,
+);

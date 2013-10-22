@@ -2,7 +2,10 @@
 // SVG CSS property names
 //
 
+#if defined(ENABLE_SVG) && ENABLE_SVG
+
 // SVG style props
+buffered-rendering
 clip-path
 clip-rule
 mask
@@ -28,6 +31,7 @@ marker
 marker-end
 marker-mid
 marker-start
+mask-type
 shape-rendering
 stroke
 stroke-dasharray
@@ -49,3 +53,6 @@ vector-effect
 writing-mode
 
 -webkit-svg-shadow
+
+#endif
+

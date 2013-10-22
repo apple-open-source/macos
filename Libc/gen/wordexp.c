@@ -21,6 +21,21 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_IPHONE
+/* <rdar://problem/13875458> */
+
+#include <wordexp.h>
+int wordexp(const char *restrict words __unused, wordexp_t *restrict pwordexp __unused, int flags __unused) {
+    return WRDE_NOSPACE;
+}
+
+void wordfree(wordexp_t *pwordexp __unused) {
+}
+
+#else
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,9 +53,8 @@
 #include <crt_externs.h>
 
 extern size_t malloc_good_size(size_t size);
-extern int errno;
 
-pthread_once_t re_init_c = PTHREAD_ONCE_INIT;
+static pthread_once_t re_init_c = PTHREAD_ONCE_INIT;
 static regex_t re_cmd, re_goodchars, re_subcmd_syntax_err_kludge, re_quoted_string;
 
 /* Similar to popen, but captures stderr for you.  Doesn't interoperate
@@ -281,8 +295,8 @@ int wordexp(const char *__restrict__ words,
     }
     
     char *word = NULL;
-    int word_l = 0;
-    int word_i = 0;
+    size_t word_l = 0;
+    size_t word_i = 0;
     int ch;
 
     while(EOF != (ch = fgetc(out))) {
@@ -322,7 +336,7 @@ int wordexp(const char *__restrict__ words,
 
     char err_buf[1024];
     size_t err_sz = fread(err_buf, 1, sizeof(err_buf) -1, err);
-    err_buf[(err_sz >= 0) ? err_sz : 0] = '\0';
+    err_buf[err_sz] = '\0';
     if (flags & WRDE_SHOWERR) {
 	fputs(err_buf, stderr);
     }
@@ -330,7 +344,7 @@ int wordexp(const char *__restrict__ words,
     pid_t got_pid = 0;
     int status;
     do {
-	pid = wait4(pid, &status, 0, NULL);
+	got_pid = wait4(pid, &status, 0, NULL);
     } while(got_pid == -1 && errno == EINTR);
 
     fclose(out);
@@ -370,3 +384,5 @@ void wordfree(wordexp_t *pwe) {
     free(pwe->we_wordv);
     pwe->we_wordv = NULL;
 }
+
+#endif /* TARGET_OS_IPHONE */

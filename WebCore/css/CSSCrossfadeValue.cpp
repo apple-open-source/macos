@@ -34,6 +34,7 @@
 #include "RenderObject.h"
 #include "StyleCachedImage.h"
 #include "StyleGeneratedImage.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -47,6 +48,19 @@ static bool subimageIsPending(CSSValue* value)
     
     ASSERT_NOT_REACHED();
     
+    return false;
+}
+
+static bool subimageKnownToBeOpaque(CSSValue* value, const RenderObject* renderer)
+{
+    if (value->isImageValue())
+        return static_cast<CSSImageValue*>(value)->knownToBeOpaque(renderer);
+
+    if (value->isImageGeneratorValue())
+        return static_cast<CSSImageGeneratorValue*>(value)->knownToBeOpaque(renderer);
+
+    ASSERT_NOT_REACHED();
+
     return false;
 }
 
@@ -84,12 +98,15 @@ CSSCrossfadeValue::~CSSCrossfadeValue()
 
 String CSSCrossfadeValue::customCssText() const
 {
-    String result = "-webkit-cross-fade(";
-    result += m_fromValue->cssText() + ", ";
-    result += m_toValue->cssText() + ", ";
-    result += m_percentageValue->cssText();
-    result += ")";
-    return result;
+    StringBuilder result;
+    result.appendLiteral("-webkit-cross-fade(");
+    result.append(m_fromValue->cssText());
+    result.appendLiteral(", ");
+    result.append(m_toValue->cssText());
+    result.appendLiteral(", ");
+    result.append(m_percentageValue->cssText());
+    result.append(')');
+    return result.toString();
 }
 
 IntSize CSSCrossfadeValue::fixedSize(const RenderObject* renderer)
@@ -119,6 +136,11 @@ IntSize CSSCrossfadeValue::fixedSize(const RenderObject* renderer)
 bool CSSCrossfadeValue::isPending() const
 {
     return subimageIsPending(m_fromValue.get()) || subimageIsPending(m_toValue.get());
+}
+
+bool CSSCrossfadeValue::knownToBeOpaque(const RenderObject* renderer) const
+{
+    return subimageKnownToBeOpaque(m_fromValue.get(), renderer) && subimageKnownToBeOpaque(m_toValue.get(), renderer);
 }
 
 void CSSCrossfadeValue::loadSubimages(CachedResourceLoader* cachedResourceLoader)
@@ -171,9 +193,9 @@ PassRefPtr<Image> CSSCrossfadeValue::image(RenderObject* renderer, const IntSize
 
 void CSSCrossfadeValue::crossfadeChanged(const IntRect&)
 {
-    RenderObjectSizeCountMap::const_iterator end = clients().end();
-    for (RenderObjectSizeCountMap::const_iterator curr = clients().begin(); curr != end; ++curr) {
-        RenderObject* client = const_cast<RenderObject*>(curr->first);
+    HashCountedSet<RenderObject*>::const_iterator end = clients().end();
+    for (HashCountedSet<RenderObject*>::const_iterator curr = clients().begin(); curr != end; ++curr) {
+        RenderObject* client = const_cast<RenderObject*>(curr->key);
         client->imageChanged(static_cast<WrappedImagePtr>(this));
     }
 }
@@ -191,6 +213,13 @@ bool CSSCrossfadeValue::hasFailedOrCanceledSubresources() const
     if (m_cachedToImage && m_cachedToImage->loadFailedOrCanceled())
         return true;
     return false;
+}
+
+bool CSSCrossfadeValue::equals(const CSSCrossfadeValue& other) const
+{
+    return compareCSSValuePtr(m_fromValue, other.m_fromValue)
+        && compareCSSValuePtr(m_toValue, other.m_toValue)
+        && compareCSSValuePtr(m_percentageValue, other.m_percentageValue);
 }
 
 } // namespace WebCore

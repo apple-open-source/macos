@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/sbp.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/sbp.xml
 // *
 // ***************************************************************************
 /**
@@ -29,22 +29,18 @@ sbp{
             }
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     calendar{
-        gregorian{
-            AmPmMarkers{
-                "Lwamilawu",
-                "Pashamihe",
-            }
+        generic{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, d MMMM y",
-                "d MMMM y",
-                "d MMM y",
-                "dd/MM/yyyy",
+                "EEEE, d MMMM y G",
+                "d MMMM y G",
+                "d MMM y G",
+                "dd/MM/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -72,8 +68,53 @@ sbp{
                 yMMMEd{"E, MMM d, y"}
                 yMMMd{"MMM d y"}
                 yMd{"M/d/y"}
-                yQ{"Q y"}
                 yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+        }
+        gregorian{
+            AmPmMarkers{
+                "Lwamilawu",
+                "Pashamihe",
+            }
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "dd/MM/y",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E d"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, M/d"}
+                MMM{"LLL"}
+                MMMEd{"E, MMM d"}
+                MMMd{"MMM d"}
+                Md{"M/d"}
+                d{"d"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"m:ss"}
+                y{"y"}
+                yM{"M/y"}
+                yMEd{"E, M/d/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, MMM d, y"}
+                yMMMd{"MMM d y"}
+                yMd{"M/d/y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
             }
             dayNames{
                 format{
@@ -116,46 +157,6 @@ sbp{
                 wide{
                     "Ashanali uKilisito",
                     "Pamwandi ya Kilisto",
-                }
-            }
-            fields{
-                day{
-                    dn{"Lusiku"}
-                    relative{
-                        "-1"{"Imehe"}
-                        "0"{"Ineng'uni"}
-                        "1"{"Pamulaawu"}
-                    }
-                }
-                dayperiod{
-                    dn{"Uluhaavi lwa lusiku"}
-                }
-                era{
-                    dn{"Uluhaavi lwa"}
-                }
-                hour{
-                    dn{"Ilisala"}
-                }
-                minute{
-                    dn{"Idakika"}
-                }
-                month{
-                    dn{"Mwesi"}
-                }
-                second{
-                    dn{"Isekunde"}
-                }
-                week{
-                    dn{"Ilijuma"}
-                }
-                weekday{
-                    dn{"Ulusiku lwa Lijuma"}
-                }
-                year{
-                    dn{"Mwakha"}
-                }
-                zone{
-                    dn{"Uluhaavi lwa lisaa"}
                 }
             }
             monthNames{
@@ -213,5 +214,45 @@ sbp{
         alternateQuotationStart{"‘"}
         quotationEnd{"”"}
         quotationStart{"“"}
+    }
+    fields{
+        day{
+            dn{"Lusiku"}
+            relative{
+                "-1"{"Imehe"}
+                "0"{"Ineng'uni"}
+                "1"{"Pamulaawu"}
+            }
+        }
+        dayperiod{
+            dn{"Uluhaavi lwa lusiku"}
+        }
+        era{
+            dn{"Uluhaavi lwa"}
+        }
+        hour{
+            dn{"Ilisala"}
+        }
+        minute{
+            dn{"Idakika"}
+        }
+        month{
+            dn{"Mwesi"}
+        }
+        second{
+            dn{"Isekunde"}
+        }
+        week{
+            dn{"Ilijuma"}
+        }
+        weekday{
+            dn{"Ulusiku lwa Lijuma"}
+        }
+        year{
+            dn{"Mwakha"}
+        }
+        zone{
+            dn{"Uluhaavi lwa lisaa"}
+        }
     }
 }

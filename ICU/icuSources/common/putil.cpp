@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2012, International Business Machines
+*   Copyright (C) 1997-2013, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -97,15 +97,16 @@
 #   define ICU_NO_USER_DATA_OVERRIDE 1
 #elif U_PLATFORM == U_PF_OS390
 #   include "unicode/ucnv.h"   /* Needed for UCNV_SWAP_LFNL_OPTION_STRING */
-#elif U_PLATFORM_IS_DARWIN_BASED || U_PLATFORM_IS_LINUX_BASED || U_PLATFORM == U_PF_BSD
+#elif U_PLATFORM_IS_DARWIN_BASED || U_PLATFORM_IS_LINUX_BASED || U_PLATFORM == U_PF_BSD || U_PLATFORM == U_PF_SOLARIS
 #   include <limits.h>
 #   include <unistd.h>
+#   if U_PLATFORM == U_PF_SOLARIS
+#       ifndef _XPG4_2
+#           define _XPG4_2
+#       endif
+#   endif
 #elif U_PLATFORM == U_PF_QNX
 #   include <sys/neutrino.h>
-#elif U_PLATFORM == U_PF_SOLARIS
-#   ifndef _XPG4_2
-#       define _XPG4_2
-#   endif
 #endif
 
 #if (U_PF_MINGW <= U_PLATFORM && U_PLATFORM <= U_PF_CYGWIN) && defined(__STRICT_ANSI__)
@@ -240,7 +241,7 @@ u_signBit(double d) {
 UDate fakeClock_t0 = 0; /** Time to start the clock from **/
 UDate fakeClock_dt = 0; /** Offset (fake time - real time) **/
 UBool fakeClock_set = FALSE; /** True if fake clock has spun up **/
-static UMTX fakeClockMutex = NULL;
+static UMutex fakeClockMutex = U_MUTEX_INTIALIZER;
 
 static UDate getUTCtime_real() {
     struct timeval posixTime;
@@ -649,7 +650,14 @@ uprv_timezone()
     t2 = mktime(&tmrec);                 /* GMT (or UTC) in seconds*/
     tdiff = t2 - t1;
     /* imitate NT behaviour, which returns same timezone offset to GMT for
-       winter and summer*/
+       winter and summer.
+       This does not work on all platforms. For instance, on glibc on Linux
+       and on Mac OS 10.5, tdiff calculated above remains the same
+       regardless of whether DST is in effect or not. However, U_TIMEZONE
+       is defined on those platforms and this code is not reached so that
+       we can leave this alone. If there's a platform behaving
+       like glibc that uses this code, we need to add platform-dependent
+       preprocessor here. */
     if (dst_checked)
         tdiff += 3600;
     return tdiff;
@@ -664,12 +672,16 @@ uprv_timezone()
 extern U_IMPORT char *U_TZNAME[];
 #endif
 
-#if !UCONFIG_NO_FILE_IO && (U_PLATFORM_IS_DARWIN_BASED || U_PLATFORM_IS_LINUX_BASED || U_PLATFORM == U_PF_BSD)
+#if !UCONFIG_NO_FILE_IO && (U_PLATFORM_IS_DARWIN_BASED || U_PLATFORM_IS_LINUX_BASED || U_PLATFORM == U_PF_BSD || U_PLATFORM == U_PF_SOLARIS)
 /* These platforms are likely to use Olson timezone IDs. */
 #define CHECK_LOCALTIME_LINK 1
 #if U_PLATFORM_IS_DARWIN_BASED
 #include <tzfile.h>
 #define TZZONEINFO      (TZDIR "/")
+#elif U_PLATFORM == U_PF_SOLARIS
+#define TZDEFAULT       "/etc/localtime"
+#define TZZONEINFO      "/usr/share/lib/zoneinfo/"
+#define TZ_ENV_CHECK    "localtime"
 #else
 #define TZDEFAULT       "/etc/localtime"
 #define TZZONEINFO      "/usr/share/zoneinfo/"
@@ -999,8 +1011,12 @@ uprv_tzname(int n)
 /* This code can be temporarily disabled to test tzname resolution later on. */
 #ifndef DEBUG_TZNAME
     tzid = getenv("TZ");
-    if (tzid != NULL && isValidOlsonID(tzid))
-    {
+    if (tzid != NULL && isValidOlsonID(tzid)
+#if U_PLATFORM == U_PF_SOLARIS
+    /* When TZ equals localtime on Solaris, check the /etc/localtime file. */
+        && uprv_strcmp(tzid, TZ_ENV_CHECK) != 0
+#endif
+    ) {
         /* This might be a good Olson ID. */
         skipZoneIDPrefix(&tzid);
         return tzid;
@@ -1444,6 +1460,7 @@ static const char *uprv_getPOSIXIDForDefaultLocale(void)
     return posixID;
 }
 
+#if !U_CHARSET_IS_UTF8
 /* Return just the POSIX id for the default codepage, whatever happens to be in
  * it. It gets the value from LC_CTYPE and indirectly from LC_ALL and LANG.
  */
@@ -1455,6 +1472,7 @@ static const char *uprv_getPOSIXIDForDefaultCodepage(void)
     }
     return posixID;
 }
+#endif
 #endif
 
 /* NOTE: The caller should handle thread safety */
@@ -1502,7 +1520,7 @@ The leftmost codepage (.xxx) wins.
 
     if ((p = uprv_strchr(posixID, '.')) != NULL) {
         /* assume new locale can't be larger than old one? */
-        correctedPOSIXLocale = reinterpret_cast<char *>(uprv_malloc(uprv_strlen(posixID)+1));
+        correctedPOSIXLocale = static_cast<char *>(uprv_malloc(uprv_strlen(posixID)+1));
         /* Exit on memory allocation error. */
         if (correctedPOSIXLocale == NULL) {
             return NULL;
@@ -1519,7 +1537,7 @@ The leftmost codepage (.xxx) wins.
     /* Note that we scan the *uncorrected* ID. */
     if ((p = uprv_strrchr(posixID, '@')) != NULL) {
         if (correctedPOSIXLocale == NULL) {
-            correctedPOSIXLocale = reinterpret_cast<char *>(uprv_malloc(uprv_strlen(posixID)+1));
+            correctedPOSIXLocale = static_cast<char *>(uprv_malloc(uprv_strlen(posixID)+1));
             /* Exit on memory allocation error. */
             if (correctedPOSIXLocale == NULL) {
                 return NULL;
@@ -2100,7 +2118,7 @@ u_getVersion(UVersionInfo versionArray) {
 
 #if U_ENABLE_DYLOAD
  
-#if HAVE_DLOPEN && !U_PLATFORM_HAS_WIN32_API
+#if HAVE_DLOPEN && !U_PLATFORM_USES_ONLY_WIN32_API
 
 #if HAVE_DLFCN_H
 
@@ -2181,7 +2199,7 @@ uprv_dlsym_func(void *lib, const char* sym, UErrorCode *status) {
 
 #endif
 
-#elif U_PLATFORM_HAS_WIN32_API
+#elif U_PLATFORM_USES_ONLY_WIN32_API
 
 U_INTERNAL void * U_EXPORT2
 uprv_dl_open(const char *libName, UErrorCode *status) {

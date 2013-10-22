@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,7 +65,8 @@ extern CFMutableArrayRef	watchedPatterns;
 __BEGIN_DECLS
 
 Boolean		process_line		(InputRef	src);
-CFStringRef	_copyStringFromSTDIN	();
+CFStringRef	_copyStringFromSTDIN	(CFStringRef	prompt,
+					 CFStringRef	defaultValue);
 
 __END_DECLS
 

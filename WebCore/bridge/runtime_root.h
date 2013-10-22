@@ -26,11 +26,9 @@
 #ifndef RUNTIME_ROOT_H_
 #define RUNTIME_ROOT_H_
 
-#if PLATFORM(MAC)
-#include "jni_jsobject.h"
-#endif
 #include <heap/Strong.h>
 #include <heap/Weak.h>
+#include <heap/WeakInlines.h>
 #include <wtf/Forward.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
@@ -72,7 +70,7 @@ public:
     JSGlobalObject* globalObject() const;
     void updateGlobalObject(JSGlobalObject*);
 
-    void addRuntimeObject(JSGlobalData&, RuntimeObject*);
+    void addRuntimeObject(VM&, RuntimeObject*);
     void removeRuntimeObject(RuntimeObject*);
 
     struct InvalidationCallback {
@@ -93,7 +91,7 @@ private:
     Strong<JSGlobalObject> m_globalObject;
 
     ProtectCountSet m_protectCountSet;
-    HashMap<RuntimeObject*, JSC::Weak<RuntimeObject> > m_runtimeObjects; // Really need a WeakGCSet, but this will do.
+    HashMap<RuntimeObject*, JSC::Weak<RuntimeObject> > m_runtimeObjects; // We use a map to implement a set.
 
     HashSet<InvalidationCallback*> m_invalidationCallbacks;
 };

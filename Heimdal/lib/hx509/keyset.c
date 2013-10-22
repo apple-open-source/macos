@@ -60,6 +60,7 @@
  */
 
 struct hx509_certs_data {
+    struct heim_base_uniq base;
     struct hx509_keyset_ops *ops;
     void *ops_data;
 };
@@ -160,7 +161,7 @@ hx509_certs_init(hx509_context context,
     }
     free(type);
 
-    c = heim_alloc(sizeof(*c), "hx509-certs", dealloc_cert);
+    c = heim_uniq_alloc(sizeof(*c), "hx509-certs", dealloc_cert);
     if (c == NULL) {
 	hx509_clear_error_string(context);
 	return ENOMEM;

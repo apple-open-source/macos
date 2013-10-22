@@ -48,6 +48,7 @@ CFTypeID SecAssessmentGetTypeID();
  */
 #define kNotifySecAssessmentMasterSwitch "com.apple.security.assessment.masterswitch"
 #define kNotifySecAssessmentUpdate "com.apple.security.assessment.update"
+#define kNotifySecAssessmentRecordingChange "com.apple.security.assessment.UIRecordRejectDidChangeNotification"
 
 
 /*!
@@ -131,6 +132,7 @@ extern CFStringRef kSecAssessmentAssessmentSource;		// CFStringRef: primary sour
 extern CFStringRef kSecAssessmentAssessmentFromCache;	// present if result is from cache
 extern CFStringRef kSecAssessmentAssessmentAuthorityRow; // (internal)
 extern CFStringRef kSecAssessmentAssessmentAuthorityOverride; // (internal)
+extern CFStringRef kSecAssessmentAssessmentAuthorityOriginalVerdict; // (internal)
 
 extern CFStringRef kDisabledOverride;					// AuthorityOverride value for "Gatekeeper is disabled"
 
@@ -242,7 +244,6 @@ extern CFStringRef kSecAssessmentUpdateOperationEnable;	// enable rule(s) in pol
 extern CFStringRef kSecAssessmentUpdateOperationDisable;	// disable rule(s) in policy database
 extern CFStringRef kSecAssessmentUpdateOperationFind;	// extract rule(s) from the policy database
 
-extern CFStringRef kSecAssessmentContextKeyCertificates; // obsolete
 extern CFStringRef kSecAssessmentUpdateKeyAuthorization;	// [CFData] external form of governing authorization
 
 extern CFStringRef kSecAssessmentUpdateKeyPriority;		// rule priority

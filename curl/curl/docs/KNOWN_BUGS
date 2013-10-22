@@ -3,13 +3,23 @@ join in and help us correct one or more of these! Also be sure to check the
 changelog of the current development status, as one or more of these problems
 may have been fixed since this was written!
 
+80. Curl doesn't recognize certificates in DER format in keychain, but it
+  works with PEM.
+  http://curl.haxx.se/bug/view.cgi?id=3439999
+
+79. SMTP. When sending data to multiple recipients, curl will abort and return
+  failure if one of the recipients indicate failure (on the "RCPT TO"
+  command). Ordinary mail programs would proceed and still send to the ones
+  that can receive data. This is subject for change in the future.
+  http://curl.haxx.se/bug/view.cgi?id=3438362
+
 78. curl and libcurl don't always signal the client properly when "sending"
   zero bytes files - it makes for example the command line client not creating
   any file at all. Like when using FTP.
   http://curl.haxx.se/bug/view.cgi?id=3438362
 
 77. CURLOPT_FORBID_REUSE on a handle prevents NTLM from working since it
-  "absuses" the underlying connection re-use system and if connections are
+  "abuses" the underlying connection re-use system and if connections are
   forced to close they break the NTLM support.
 
 76. The SOCKET type in Win64 is 64 bits large (and thus so is curl_socket_t on
@@ -17,9 +27,14 @@ may have been fixed since this was written!
   curl_easy_getinfo() to return a socket properly with the CURLINFO_LASTSOCKET
   option as for all other operating systems.
 
-75. NTLM authentication involving unicode user name or password.
+75. NTLM authentication involving unicode user name or password only works
+  properly if built with UNICODE defined together with the schannel/winssl
+  backend. The original problem was mentioned in:
   http://curl.haxx.se/mail/lib-2009-10/0024.html
   http://curl.haxx.se/bug/view.cgi?id=2944325
+
+  The schannel version verified to work as mentioned in
+  http://curl.haxx.se/mail/lib-2012-07/0073.html
 
 73. if a connection is made to a FTP server but the server then just never
   sends the 220 response or otherwise is dead slow, libcurl will not
@@ -119,13 +134,6 @@ may have been fixed since this was written!
 38. Kumar Swamy Bhatt's problem in ftp/ssl "LIST" operation:
   http://curl.haxx.se/mail/lib-2007-01/0103.html
 
-37. Having more than one connection to the same host when doing NTLM
-  authentication (with performs multiple "passes" and authenticates a
-  connection rather than a HTTP request), and particularly when using the
-  multi interface, there's a risk that libcurl will re-use a wrong connection
-  when doing the different passes in the NTLM negotiation and thus fail to
-  negotiate (in seemingly mysterious ways).
-
 35. Both SOCKS5 and SOCKS4 proxy connections are done blocking, which is very
   bad when used with the multi interface.
 
@@ -155,7 +163,6 @@ may have been fixed since this was written!
   to what winhttp does. See http://curl.haxx.se/bug/view.cgi?id=1281867
 
 23. SOCKS-related problems:
-  A) libcurl doesn't support SOCKS for IPv6.
   B) libcurl doesn't support FTPS over a SOCKS proxy.
   E) libcurl doesn't support active FTP over a SOCKS proxy
 

@@ -20,6 +20,7 @@
 #include "config.h"
 #include "InlineBox.h"
 
+#include "FontMetrics.h"
 #include "Frame.h"
 #include "HitTestResult.h"
 #include "InlineFlowBox.h"
@@ -37,31 +38,29 @@ using namespace std;
 
 namespace WebCore {
 
-class SameSizeAsInlineBox {
+struct SameSizeAsInlineBox {
     virtual ~SameSizeAsInlineBox() { }
     void* a[4];
     FloatPoint b;
     float c;
     uint32_t d : 32;
-#ifndef NDEBUG
+#if !ASSERT_DISABLED
     bool f;
 #endif
 };
 
 COMPILE_ASSERT(sizeof(InlineBox) == sizeof(SameSizeAsInlineBox), InlineBox_size_guard);
 
-#ifndef NDEBUG
+#if !ASSERT_DISABLED
 static bool inInlineBoxDetach;
 #endif
 
-#ifndef NDEBUG
-
+#if !ASSERT_DISABLED
 InlineBox::~InlineBox()
 {
     if (!m_hasBadParent && m_parent)
         m_parent->setHasBadChildList();
 }
-
 #endif
 
 void InlineBox::remove()
@@ -72,11 +71,11 @@ void InlineBox::remove()
 
 void InlineBox::destroy(RenderArena* renderArena)
 {
-#ifndef NDEBUG
+#if !ASSERT_DISABLED
     inInlineBoxDetach = true;
 #endif
     delete this;
-#ifndef NDEBUG
+#if !ASSERT_DISABLED
     inInlineBoxDetach = false;
 #endif
 
@@ -92,7 +91,6 @@ void* InlineBox::operator new(size_t sz, RenderArena* renderArena)
 void InlineBox::operator delete(void* ptr, size_t sz)
 {
     ASSERT(inInlineBoxDetach);
-
     // Stash size where destroy can find it.
     *(size_t *)ptr = sz;
 }
@@ -158,7 +156,7 @@ float InlineBox::logicalHeight() const
     return result;
 }
 
-LayoutUnit InlineBox::baselinePosition(FontBaseline baselineType) const
+int InlineBox::baselinePosition(FontBaseline baselineType) const
 {
     return boxModelObject()->baselinePosition(baselineType, m_bitfields.firstLine(), isHorizontal() ? HorizontalLine : VerticalLine, PositionOnContainingLine);
 }
@@ -242,12 +240,16 @@ void InlineBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, Layo
     }
 }
 
-bool InlineBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit /* lineTop */, LayoutUnit /*lineBottom*/)
+bool InlineBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit /* lineTop */, LayoutUnit /*lineBottom*/)
 {
     // Hit test all phases of replaced elements atomically, as though the replaced element established its
     // own stacking context.  (See Appendix E.2, section 6.4 on inline block/table elements in the CSS2.1
     // specification.)
-    return renderer()->hitTest(request, result, pointInContainer, accumulatedOffset);
+    LayoutPoint childPoint = accumulatedOffset;
+    if (parent()->renderer()->style()->isFlippedBlocksWritingMode()) // Faster than calling containingBlock().
+        childPoint = renderer()->containingBlock()->flipForWritingModeForChild(toRenderBox(renderer()), childPoint);
+    
+    return renderer()->hitTest(request, result, locationInContainer, childPoint);
 }
 
 const RootInlineBox* InlineBox::root() const
@@ -322,7 +324,7 @@ RenderObject::SelectionState InlineBox::selectionState()
     return renderer()->selectionState();
 }
 
-bool InlineBox::canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidth)
+bool InlineBox::canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidth) const
 {
     // Non-replaced elements can always accommodate an ellipsis.
     if (!m_renderer || !m_renderer->isReplaced())
@@ -333,9 +335,10 @@ bool InlineBox::canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidt
     return !(boxRect.intersects(ellipsisRect));
 }
 
-float InlineBox::placeEllipsisBox(bool, float, float, float, bool&)
+float InlineBox::placeEllipsisBox(bool, float, float, float, float& truncatedWidth, bool&)
 {
     // Use -1 to mean "we didn't set the position."
+    truncatedWidth += logicalWidth();
     return -1;
 }
 

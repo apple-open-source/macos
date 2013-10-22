@@ -40,11 +40,19 @@
 #include <bsm/audit.h>
 #include <bsm/audit_session.h>
 #include <sys/event.h>
+#include "securityd_service/securityd_service/securityd_service_client.h"
 
 class Key;
 class Connection;
 class Server;
 class AuthHostInstance;
+
+enum {
+    session_keybag_locked           = 0,
+    session_keybag_unlocked         = 1 << 0,
+    session_keybag_check_master_key = 1 << 1,
+    session_keybag_loaded           = 1 << 2,
+};
 
 //
 // A Session object represents one or more Connections that are known to
@@ -78,7 +86,7 @@ public:
 	
     virtual void setupAttributes(SessionCreationFlags flags, SessionAttributeBits attrs);
 
-	virtual uid_t originatorUid() const		{ updateAudit(); return mAudit.uid(); }
+	virtual uid_t originatorUid();
 
 	virtual CFDataRef copyUserPrefs() = 0;
 
@@ -152,6 +160,17 @@ protected:
     Credential mOriginatorCredential;
 	
 	void kill();
+
+public:
+    void verifyKeyStorePassphrase(int32_t retries);
+    void changeKeyStorePassphrase();
+    void resetKeyStorePassphrase(const CssmData &passphrase);
+    service_context_t get_current_service_context();
+    void keybagClearState(int state);
+    void keybagSetState(int state);
+    bool keybagGetState(int state);
+private:
+    int mKeybagState;
 
 public:
 	static Session &find(SessionId id, bool create);	// find and optionally create

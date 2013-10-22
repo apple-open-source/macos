@@ -78,7 +78,6 @@ private:
 	SecurityServer::KeyHandle mKeyHandle;
 	CSSM_DB_HANDLE mDatabase;
 	SecurityServer::RecordHandle mRecord;
-	CSSM_DB_RECORDTYPE mRecordType;
 	SecurityServer::ClientSession &mClientSession;
 };
 

@@ -333,8 +333,8 @@ SSCSPSession::ObtainPrivateKeyFromPublicKey(const CssmKey &PublicKey,
 
 void
 SSCSPSession::QueryKeySizeInBits(CSSM_CC_HANDLE CCHandle,
-								 const Context &Context,
-								 const CssmKey &Key,
+								 const Context *Context,
+								 const CssmKey *Key,
 								 CSSM_KEY_SIZE &KeySize)
 {
 	unimplemented();

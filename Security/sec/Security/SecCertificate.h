@@ -37,9 +37,7 @@
 #include <Security/SecBase.h>
 #include <CoreFoundation/CFData.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*!
 	@function SecCertificateGetTypeID
@@ -84,8 +82,6 @@ CFDataRef SecCertificateCopyData(SecCertificateRef certificate)
 CFStringRef SecCertificateCopySubjectSummary(SecCertificateRef certificate)
     __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_2_0);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECCERTIFICATE_H_ */

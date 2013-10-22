@@ -38,6 +38,7 @@ namespace WebCore {
 
 RenderSVGEllipse::RenderSVGEllipse(SVGStyledTransformableElement* node)
     : RenderSVGShape(node)
+    , m_usePathFallback(false)
 {
 }
 
@@ -45,21 +46,22 @@ RenderSVGEllipse::~RenderSVGEllipse()
 {
 }
 
-void RenderSVGEllipse::createShape()
+void RenderSVGEllipse::updateShapeFromElement()
 {
     // Before creating a new object we need to clear the cached bounding box
     // to avoid using garbage.
-    m_boundingBox = FloatRect();
-    m_outerStrokeRect = FloatRect();
+    m_fillBoundingBox = FloatRect();
+    m_strokeBoundingBox = FloatRect();
     m_center = FloatPoint();
     m_radii = FloatSize();
 
-    // Fallback to RenderSVGShape if shape has a non scaling stroke.
-    if (style()->svgStyle()->vectorEffect() == VE_NON_SCALING_STROKE) {
-        RenderSVGShape::createShape();
-        setIsPaintingFallback(true);
+    // Fallback to RenderSVGShape if shape has a non-scaling stroke.
+    if (hasNonScalingStroke()) {
+        RenderSVGShape::updateShapeFromElement();
+        m_usePathFallback = true;
         return;
-    }
+    } else
+        m_usePathFallback = false;
 
     calculateRadiiAndCenter();
 
@@ -67,10 +69,10 @@ void RenderSVGEllipse::createShape()
     if (m_radii.width() <= 0 || m_radii.height() <= 0)
         return;
 
-    m_boundingBox = FloatRect(m_center.x() - m_radii.width(), m_center.y() - m_radii.height(), 2 * m_radii.width(), 2 * m_radii.height());
-    m_outerStrokeRect = m_boundingBox;
+    m_fillBoundingBox = FloatRect(m_center.x() - m_radii.width(), m_center.y() - m_radii.height(), 2 * m_radii.width(), 2 * m_radii.height());
+    m_strokeBoundingBox = m_fillBoundingBox;
     if (style()->svgStyle()->hasStroke())
-        m_outerStrokeRect.inflate(strokeWidth() / 2);
+        m_strokeBoundingBox.inflate(strokeWidth() / 2);
 }
 
 void RenderSVGEllipse::calculateRadiiAndCenter()
@@ -95,44 +97,35 @@ void RenderSVGEllipse::calculateRadiiAndCenter()
     m_center = FloatPoint(ellipse->cx().value(lengthContext), ellipse->cy().value(lengthContext));
 }
 
-FloatRect RenderSVGEllipse::objectBoundingBox() const
-{
-    if (isPaintingFallback())
-        return RenderSVGShape::objectBoundingBox();
-    return m_boundingBox;
-}
-
-FloatRect RenderSVGEllipse::strokeBoundingBox() const
-{
-    if (isPaintingFallback())
-        return RenderSVGShape::strokeBoundingBox();
-    return m_outerStrokeRect;
-}
-
 void RenderSVGEllipse::fillShape(GraphicsContext* context) const
 {
-    if (isPaintingFallback()) {
+    if (m_usePathFallback) {
         RenderSVGShape::fillShape(context);
         return;
     }
-    context->fillEllipse(m_boundingBox);
+    context->fillEllipse(m_fillBoundingBox);
 }
 
 void RenderSVGEllipse::strokeShape(GraphicsContext* context) const
 {
     if (!style()->svgStyle()->hasVisibleStroke())
         return;
-    if (isPaintingFallback()) {
+    if (m_usePathFallback) {
         RenderSVGShape::strokeShape(context);
         return;
     }
-    context->strokeEllipse(m_boundingBox);
+    context->strokeEllipse(m_fillBoundingBox);
 }
 
-bool RenderSVGEllipse::shapeDependentStrokeContains(const FloatPoint& point) const
+bool RenderSVGEllipse::shapeDependentStrokeContains(const FloatPoint& point)
 {
-    if (isPaintingFallback())
+    // The optimized contains code below does not support non-smooth strokes so we need
+    // to fall back to RenderSVGShape::shapeDependentStrokeContains in these cases.
+    if (m_usePathFallback || !hasSmoothStroke()) {
+        if (!hasPath())
+            RenderSVGShape::updateShapeFromElement();
         return RenderSVGShape::shapeDependentStrokeContains(point);
+    }
 
     float halfStrokeWidth = strokeWidth() / 2;
     FloatPoint center = FloatPoint(m_center.x() - point.x(), m_center.y() - point.y());
@@ -151,7 +144,7 @@ bool RenderSVGEllipse::shapeDependentStrokeContains(const FloatPoint& point) con
 
 bool RenderSVGEllipse::shapeDependentFillContains(const FloatPoint& point, const WindRule fillRule) const
 {
-    if (isPaintingFallback())
+    if (m_usePathFallback)
         return RenderSVGShape::shapeDependentFillContains(point, fillRule);
 
     FloatPoint center = FloatPoint(m_center.x() - point.x(), m_center.y() - point.y());

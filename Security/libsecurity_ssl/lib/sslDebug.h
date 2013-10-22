@@ -28,34 +28,19 @@
 #ifndef	_SSL_DEBUG_H_
 #define _SSL_DEBUG_H_
 
-#include "sslContext.h"
-#include <security_utilities/debugging.h>
-#include <assert.h>
+#ifdef KERNEL
+/* TODO: support secdebug in the kernel */
+#define secdebug(x...)
+#else /* KERNEL */
+#include <utilities/debugging.h>
+#endif
 
 #ifndef	NDEBUG
-#include <stdio.h>
+#include <AssertMacros.h>
 #endif
 
-/* If SSL_USE_SYSLOG is defined and not 0, use syslog() for debug
- * logging in addition to invoking the secdebug macro (which, as of
- * Snow Leopard, emits a static dtrace probe instead of an actual
- * log message.)
- */
-#ifndef SSL_USE_SYSLOG
-#define SSL_USE_SYSLOG	0
-#endif
 
-#if SSL_USE_SYSLOG
-#include <syslog.h>
-#define ssl_secdebug(scope, format...) \
-{ \
-	syslog(LOG_NOTICE, format); \
-	secdebug(scope, format); \
-}
-#else
-#define ssl_secdebug(scope, format...) \
-	secdebug(scope, format)
-#endif
+#define ssl_secdebug secdebug
 
 #ifndef NDEBUG
 
@@ -113,9 +98,6 @@ NDEBUG */
 
 #ifdef	NDEBUG
 
-#define SSLChangeHdskState(ctx, newState) { ctx->state=newState; }
-#define SSLLogHdskMsg(msg, sent)
-
 /* all errors logged to stdout for DEBUG config only */
 #define sslErrorLog(args...)
 #define sslDebugLog(args...)
@@ -123,11 +105,6 @@ NDEBUG */
 
 #else
 
-#include "sslAlertMessage.h"
-
-extern void SSLLogHdskMsg(SSLHandshakeType msg, char sent);
-extern char *hdskStateToStr(SSLHandshakeState state);
-extern void SSLChangeHdskState(SSLContext *ctx, SSLHandshakeState newState);
 extern void SSLDump(const unsigned char *data, unsigned long len);
 
 /* extra debug logging of non-error conditions, if SSL_DEBUG is defined */
@@ -148,7 +125,7 @@ extern void SSLDump(const unsigned char *data, unsigned long len);
 #ifdef	NDEBUG
 #define ASSERT(s)
 #else
-#define ASSERT(s)	assert(s)
+#define ASSERT(s)	check(s)
 #endif
 
 #endif	/* _SSL_DEBUG_H_ */

@@ -29,15 +29,15 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <TargetConditionals.h>
 
-__private_extern__ const CFStringRef		_io_kSCCompAnyRegex;
+extern const CFStringRef		_io_kSCCompAnyRegex;
 #undef  kSCCompAnyRegex
 #define kSCCompAnyRegex                     _io_kSCCompAnyRegex
 
-__private_extern__ const CFStringRef		_io_kSCDynamicStoreDomainState;
+extern const CFStringRef		_io_kSCDynamicStoreDomainState;
 #undef  kSCDynamicStoreDomainState
 #define kSCDynamicStoreDomainState          _io_kSCDynamicStoreDomainState
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     /* These prototypes are for embedded only 
      * SystemConfiguration headers define each of these function for OS */
 
@@ -148,7 +148,7 @@ __private_extern__ Boolean _io_SCPreferencesUnlock(
     SCPreferencesRef            prefs);
 #define SCPreferencesUnlock                 _io_SCPreferencesUnlock
 
-#endif // TARGET_OS_EMBEDDED
+#endif // TARGET_OS_IPHONE
 
 #endif // _IOKIT_PWRMGT_IOSYSTEMCONFIGURATION_H
 

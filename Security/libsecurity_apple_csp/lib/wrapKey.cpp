@@ -698,7 +698,7 @@ void AppleCSPSession::UnwrapKey(
 						CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
 					if(unwrappedHdr.LogicalKeySizeInBits == 0) {
 						unwrappedHdr.LogicalKeySizeInBits =
-							bytesDecrypted * 8;
+							(unsigned)(bytesDecrypted * 8);
 					}
 					/* app has to infer/know algorithm */
 					break;

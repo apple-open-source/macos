@@ -30,64 +30,69 @@
 
 /**
  * @constructor
- * @extends {WebInspector.ScriptMapping}
+ * @implements {WebInspector.ScriptSourceMapping}
+ * @param {WebInspector.Workspace} workspace
+ * @param {WebInspector.SimpleWorkspaceProvider} networkWorkspaceProvider
  */
-WebInspector.CompilerScriptMapping = function()
+WebInspector.CompilerScriptMapping = function(workspace, networkWorkspaceProvider)
 {
-    this._sourceMapByURL = {};
+    this._workspace = workspace;
+    this._workspace.addEventListener(WebInspector.UISourceCodeProvider.Events.UISourceCodeAdded, this._uiSourceCodeAddedToWorkspace, this);
+    this._networkWorkspaceProvider = networkWorkspaceProvider;
+    /** @type {Object.<string, WebInspector.SourceMap>} */
+    this._sourceMapForSourceMapURL = {};
+    /** @type {Object.<string, WebInspector.SourceMap>} */
     this._sourceMapForScriptId = {};
     this._scriptForSourceMap = new Map();
-    this._sourceMapForUISourceCode = new Map();
-    this._uiSourceCodeByURL = {};
+    /** @type {Object.<string, WebInspector.SourceMap>} */
+    this._sourceMapForURL = {};
+    WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.GlobalObjectCleared, this._debuggerReset, this);
 }
 
 WebInspector.CompilerScriptMapping.prototype = {
     /**
-     * @param {DebuggerAgent.Location} rawLocation
+     * @param {WebInspector.RawLocation} rawLocation
      * @return {WebInspector.UILocation}
      */
     rawLocationToUILocation: function(rawLocation)
     {
-        var sourceMap = this._sourceMapForScriptId[rawLocation.scriptId];
-        var entry = sourceMap.findEntry(rawLocation.lineNumber, rawLocation.columnNumber || 0);
-        return new WebInspector.UILocation(this._uiSourceCodeByURL[entry[2]], entry[3], entry[4]);
+        var debuggerModelLocation = /** @type {WebInspector.DebuggerModel.Location} */ (rawLocation);
+        var sourceMap = this._sourceMapForScriptId[debuggerModelLocation.scriptId];
+        var lineNumber = debuggerModelLocation.lineNumber;
+        var columnNumber = debuggerModelLocation.columnNumber || 0;
+        var entry = sourceMap.findEntry(lineNumber, columnNumber);
+        if (!entry || entry.length === 2)
+            return null;
+        var url = entry[2];
+        var uiSourceCode = this._workspace.uiSourceCodeForURL(url);
+        if (!uiSourceCode)
+            return null;
+        return new WebInspector.UILocation(uiSourceCode, entry[3], entry[4]);
     },
 
     /**
      * @param {WebInspector.UISourceCode} uiSourceCode
      * @param {number} lineNumber
      * @param {number} columnNumber
-     * @return {DebuggerAgent.Location}
+     * @return {WebInspector.DebuggerModel.Location}
      */
     uiLocationToRawLocation: function(uiSourceCode, lineNumber, columnNumber)
     {
-        var sourceMap = this._sourceMapForUISourceCode.get(uiSourceCode);
+        if (!uiSourceCode.url)
+            return null;
+        var sourceMap = this._sourceMapForURL[uiSourceCode.url];
+        if (!sourceMap)
+            return null;
         var entry = sourceMap.findEntryReversed(uiSourceCode.url, lineNumber);
         return WebInspector.debuggerModel.createRawLocation(this._scriptForSourceMap.get(sourceMap), entry[0], entry[1]);
     },
 
     /**
-     * @return {Array.<WebInspector.UISourceCode>}
+     * @return {boolean}
      */
-    uiSourceCodeList: function()
+    isIdentity: function()
     {
-        var result = []
-        for (var url in this._uiSourceCodeByURL)
-            result.push(this._uiSourceCodeByURL[url]);
-        return result;
-    },
-
-    /**
-     * @param {WebInspector.SourceMapParser} sourceMap
-     * @return {Array.<WebInspector.UISourceCode>}
-     */
-    _uiSourceCodesForSourceMap: function(sourceMap)
-    {
-        var result = []
-        var sourceURLs = sourceMap.sources();
-        for (var i = 0; i < sourceURLs.length; ++i)
-            result.push(this._uiSourceCodeByURL[sourceURLs[i]]);
-        return result;
+        return false;
     },
 
     /**
@@ -96,299 +101,93 @@ WebInspector.CompilerScriptMapping.prototype = {
     addScript: function(script)
     {
         var sourceMap = this.loadSourceMapForScript(script);
+        if (!sourceMap)
+            return;
 
         if (this._scriptForSourceMap.get(sourceMap)) {
             this._sourceMapForScriptId[script.scriptId] = sourceMap;
-            var uiSourceCodes = this._uiSourceCodesForSourceMap(sourceMap);
-            script.setSourceMapping(this);
+            script.pushSourceMapping(this);
             return;
-        }
-
-        var uiSourceCodeList = [];
-        var sourceURLs = sourceMap.sources();
-        for (var i = 0; i < sourceURLs.length; ++i) {
-            var sourceURL = sourceURLs[i];
-            if (this._uiSourceCodeByURL[sourceURL])
-                continue;
-            var sourceContent = sourceMap.sourceContent(sourceURL);
-            var contentProvider;
-            if (sourceContent)
-                contentProvider = new WebInspector.StaticContentProvider("text/javascript", sourceContent);
-            else
-                contentProvider = new WebInspector.CompilerSourceMappingContentProvider(sourceURL);
-            var uiSourceCode = new WebInspector.JavaScriptSource(sourceURL, sourceURL, contentProvider);
-            uiSourceCode.isContentScript = script.isContentScript;
-            uiSourceCode.isEditable = false;
-            this._uiSourceCodeByURL[sourceURL] = uiSourceCode;
-            this._sourceMapForUISourceCode.put(uiSourceCode, sourceMap);
-            uiSourceCodeList.push(uiSourceCode);
         }
 
         this._sourceMapForScriptId[script.scriptId] = sourceMap;
         this._scriptForSourceMap.put(sourceMap, script);
-        var data = { removedItems: [], addedItems: uiSourceCodeList };
-        this.dispatchEventToListeners(WebInspector.ScriptMapping.Events.UISourceCodeListChanged, data);
-        script.setSourceMapping(this);
+
+        var sourceURLs = sourceMap.sources();
+        for (var i = 0; i < sourceURLs.length; ++i) {
+            var sourceURL = sourceURLs[i];
+            if (this._sourceMapForURL[sourceURL])
+                continue;
+            this._sourceMapForURL[sourceURL] = sourceMap;
+            if (!this._workspace.hasMappingForURL(sourceURL) && !this._workspace.uiSourceCodeForURL(sourceURL)) {
+                var sourceContent = sourceMap.sourceContent(sourceURL);
+                var contentProvider;
+                if (sourceContent)
+                    contentProvider = new WebInspector.StaticContentProvider(WebInspector.resourceTypes.Script, sourceContent);
+                else
+                    contentProvider = new WebInspector.CompilerSourceMappingContentProvider(sourceURL);
+                this._networkWorkspaceProvider.addFileForURL(sourceURL, contentProvider, true);
+            }
+            var uiSourceCode = this._workspace.uiSourceCodeForURL(sourceURL);
+            if (uiSourceCode) {
+                this._bindUISourceCode(uiSourceCode);
+                uiSourceCode.isContentScript = script.isContentScript;
+            }
+        }
+        script.pushSourceMapping(this);
+    },
+
+    /**
+     * @param {WebInspector.UISourceCode} uiSourceCode
+     */
+    _bindUISourceCode: function(uiSourceCode)
+    {
+        uiSourceCode.setSourceMapping(this);
+    },
+
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _uiSourceCodeAddedToWorkspace: function(event)
+    {
+        var uiSourceCode = /** @type {WebInspector.UISourceCode} */ (event.data);
+        if (!uiSourceCode.url || !this._sourceMapForURL[uiSourceCode.url])
+            return;
+        this._bindUISourceCode(uiSourceCode);
     },
 
     /**
      * @param {WebInspector.Script} script
-     * @return {WebInspector.SourceMapParser}
+     * @return {?WebInspector.SourceMap}
      */
     loadSourceMapForScript: function(script)
     {
-        var sourceMapURL = WebInspector.SourceMapParser.prototype._canonicalizeURL(script.sourceMapURL, script.sourceURL);
-        var sourceMap = this._sourceMapByURL[sourceMapURL];
+        // script.sourceURL can be a random string, but is generally an absolute path -> complete it to inspected page url for
+        // relative links.
+        if (!script.sourceMapURL)
+            return null;
+        var scriptURL = WebInspector.ParsedURL.completeURL(WebInspector.inspectedPageURL, script.sourceURL);
+        if (!scriptURL)
+            return null;
+        var sourceMapURL = WebInspector.ParsedURL.completeURL(scriptURL, script.sourceMapURL);
+        if (!sourceMapURL)
+            return null;
+        var sourceMap = this._sourceMapForSourceMapURL[sourceMapURL];
         if (sourceMap)
             return sourceMap;
 
-        try {
-            // FIXME: make sendRequest async.
-            var response = InspectorFrontendHost.loadResourceSynchronously(sourceMapURL);
-            if (response.slice(0, 3) === ")]}")
-                response = response.substring(response.indexOf('\n'));
-            var payload = /** @type {WebInspector.SourceMapPayload} */ JSON.parse(response);
-            sourceMap = new WebInspector.SourceMapParser(sourceMapURL, payload);
-        } catch(e) {
-            console.error(e.message);
+        sourceMap = WebInspector.SourceMap.load(sourceMapURL, scriptURL);
+        if (!sourceMap)
             return null;
-        }
-        this._sourceMapByURL[sourceMapURL] = sourceMap;
+        this._sourceMapForSourceMapURL[sourceMapURL] = sourceMap;
         return sourceMap;
     },
 
-    reset: function()
+    _debuggerReset: function()
     {
-        var data = { removedItems: this.uiSourceCodeList(), addedItems: [] };
-        this.dispatchEventToListeners(WebInspector.ScriptMapping.Events.UISourceCodeListChanged, data);
-
-        this._sourceMapByURL = {};
+        this._sourceMapForSourceMapURL = {};
         this._sourceMapForScriptId = {};
         this._scriptForSourceMap = new Map();
-        this._sourceMapForUISourceCode = new Map();
-        this._uiSourceCodeByURL = {};
-    }
-}
-
-WebInspector.CompilerScriptMapping.prototype.__proto__ = WebInspector.ScriptMapping.prototype;
-
-/**
- * @constructor
- */
-WebInspector.SourceMapPayload = function()
-{
-    this.sections = [];
-    this.mappings = "";
-    this.sourceRoot = "";
-    this.sources = [];
-}
-
-/**
- * Implements Source Map V3 consumer. See http://code.google.com/p/closure-compiler/wiki/SourceMaps
- * for format description.
- * @constructor
- * @param {string} sourceMappingURL
- * @param {WebInspector.SourceMapPayload} payload
- */
-WebInspector.SourceMapParser = function(sourceMappingURL, payload)
-{
-    if (!WebInspector.SourceMapParser.prototype._base64Map) {
-        const base64Digits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        WebInspector.SourceMapParser.prototype._base64Map = {};
-        for (var i = 0; i < base64Digits.length; ++i)
-            WebInspector.SourceMapParser.prototype._base64Map[base64Digits.charAt(i)] = i;
-    }
-
-    this._sourceMappingURL = sourceMappingURL;
-    this._mappings = [];
-    this._reverseMappingsBySourceURL = {};
-    this._sourceContentByURL = {};
-    this._parseMappingPayload(payload);
-}
-
-WebInspector.SourceMapParser.prototype = {
-    /**
-     * @return {Array.<string>}
-     */
-    sources: function()
-    {
-        var sources = [];
-        for (var sourceURL in this._reverseMappingsBySourceURL)
-            sources.push(sourceURL);
-        return sources;
-    },
-
-    sourceContent: function(sourceURL)
-    {
-        return this._sourceContentByURL[sourceURL];
-    },
-
-    findEntry: function(lineNumber, columnNumber)
-    {
-        var first = 0;
-        var count = this._mappings.length;
-        while (count > 1) {
-          var step = count >> 1;
-          var middle = first + step;
-          var mapping = this._mappings[middle];
-          if (lineNumber < mapping[0] || (lineNumber == mapping[0] && columnNumber < mapping[1]))
-              count = step;
-          else {
-              first = middle;
-              count -= step;
-          }
-        }
-        return this._mappings[first];
-    },
-
-    findEntryReversed: function(sourceURL, lineNumber)
-    {
-        var mappings = this._reverseMappingsBySourceURL[sourceURL];
-        for ( ; lineNumber < mappings.length; ++lineNumber) {
-            var mapping = mappings[lineNumber];
-            if (mapping)
-                return mapping;
-        }
-        return this._mappings[0];
-    },
-
-    _parseMappingPayload: function(mappingPayload)
-    {
-        if (mappingPayload.sections)
-            this._parseSections(mappingPayload.sections);
-        else
-            this._parseMap(mappingPayload, 0, 0);
-    },
-
-    _parseSections: function(sections)
-    {
-        for (var i = 0; i < sections.length; ++i) {
-            var section = sections[i];
-            this._parseMap(section.map, section.offset.line, section.offset.column)
-        }
-    },
-
-    _parseMap: function(map, lineNumber, columnNumber)
-    {
-        var sourceIndex = 0;
-        var sourceLineNumber = 0;
-        var sourceColumnNumber = 0;
-        var nameIndex = 0;
-
-        var sources = [];
-        for (var i = 0; i < map.sources.length; ++i) {
-            var sourceURL = map.sources[i];
-            if (map.sourceRoot)
-                sourceURL = map.sourceRoot + "/" + sourceURL;
-            var url = this._canonicalizeURL(sourceURL, this._sourceMappingURL);
-            sources.push(url);
-            if (!this._reverseMappingsBySourceURL[url])
-                this._reverseMappingsBySourceURL[url] = [];
-            if (map.sourcesContent && map.sourcesContent[i])
-                this._sourceContentByURL[url] = map.sourcesContent[i];
-        }
-
-        var stringCharIterator = new WebInspector.SourceMapParser.StringCharIterator(map.mappings);
-        var sourceURL = sources[sourceIndex];
-        var reverseMappings = this._reverseMappingsBySourceURL[sourceURL];
-
-        while (true) {
-            if (stringCharIterator.peek() === ",")
-                stringCharIterator.next();
-            else {
-                while (stringCharIterator.peek() === ";") {
-                    lineNumber += 1;
-                    columnNumber = 0;
-                    stringCharIterator.next();
-                }
-                if (!stringCharIterator.hasNext())
-                    break;
-            }
-
-            columnNumber += this._decodeVLQ(stringCharIterator);
-            if (!this._isSeparator(stringCharIterator.peek())) {
-                var sourceIndexDelta = this._decodeVLQ(stringCharIterator);
-                if (sourceIndexDelta) {
-                    sourceIndex += sourceIndexDelta;
-                    sourceURL = sources[sourceIndex];
-                    reverseMappings = this._reverseMappingsBySourceURL[sourceURL];
-                }
-                sourceLineNumber += this._decodeVLQ(stringCharIterator);
-                sourceColumnNumber += this._decodeVLQ(stringCharIterator);
-                if (!this._isSeparator(stringCharIterator.peek()))
-                    nameIndex += this._decodeVLQ(stringCharIterator);
-
-                this._mappings.push([lineNumber, columnNumber, sourceURL, sourceLineNumber, sourceColumnNumber]);
-                if (!reverseMappings[sourceLineNumber])
-                    reverseMappings[sourceLineNumber] = [lineNumber, columnNumber];
-            }
-        }
-    },
-
-    _isSeparator: function(char)
-    {
-        return char === "," || char === ";";
-    },
-
-    _decodeVLQ: function(stringCharIterator)
-    {
-        // Read unsigned value.
-        var result = 0;
-        var shift = 0;
-        do {
-            var digit = this._base64Map[stringCharIterator.next()];
-            result += (digit & this._VLQ_BASE_MASK) << shift;
-            shift += this._VLQ_BASE_SHIFT;
-        } while (digit & this._VLQ_CONTINUATION_MASK);
-
-        // Fix the sign.
-        var negative = result & 1;
-        result >>= 1;
-        return negative ? -result : result;
-    },
-
-    _canonicalizeURL: function(url, baseURL)
-    {
-        if (!url || !baseURL || url.asParsedURL() || url.substring(0, 5) === "data:")
-            return url;
-
-        var base = baseURL.asParsedURL();
-        if (!base)
-            return url;
-
-        var baseHost = base.scheme + "://" + base.host + (base.port ? ":" + base.port : "");
-        if (url[0] === "/")
-            return baseHost + url;
-        return baseHost + base.folderPathComponents + "/" + url;
-    },
-
-    _VLQ_BASE_SHIFT: 5,
-    _VLQ_BASE_MASK: (1 << 5) - 1,
-    _VLQ_CONTINUATION_MASK: 1 << 5
-}
-
-/**
- * @constructor
- */
-WebInspector.SourceMapParser.StringCharIterator = function(string)
-{
-    this._string = string;
-    this._position = 0;
-}
-
-WebInspector.SourceMapParser.StringCharIterator.prototype = {
-    next: function()
-    {
-        return this._string.charAt(this._position++);
-    },
-
-    peek: function()
-    {
-        return this._string.charAt(this._position);
-    },
-
-    hasNext: function()
-    {
-        return this._position < this._string.length;
+        this._sourceMapForURL = {};
     }
 }

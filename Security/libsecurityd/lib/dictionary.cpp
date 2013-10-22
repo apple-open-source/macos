@@ -88,7 +88,7 @@ NameValuePair::~NameValuePair ()
 void NameValuePair::Export (CssmData &data) const
 {
 	// export the data in the format name length data
-	uint32 outSize = 2 * sizeof (uint32) + mValue.length ();
+	size_t outSize = 2 * sizeof (uint32) + mValue.length ();
 	unsigned char* d = (unsigned char*) malloc(outSize);
 	unsigned char* finger = d;
 	
@@ -104,7 +104,7 @@ void NameValuePair::Export (CssmData &data) const
 	
 	// export the length
 	finger += sizeof (uint32);
-	intBuffer = mValue.length ();
+	intBuffer = (uint32)mValue.length ();
 	for (i = sizeof (uint32) - 1; i >= 0; --i)
 	{
 		finger[i] = intBuffer & 0xFF;
@@ -129,7 +129,7 @@ NameValueDictionary::NameValueDictionary ()
 NameValueDictionary::~NameValueDictionary ()
 {
 	// to prevent leaks, delete all members of the vector
-	int i = mVector.size ();
+	size_t i = mVector.size ();
 	while (i > 0)
 	{
 		delete mVector[--i];
@@ -258,7 +258,7 @@ const NameValuePair* NameValueDictionary::FindByName (uint32 name) const
 
 int NameValueDictionary::CountElements () const
 {
-	return mVector.size ();
+	return (int)mVector.size ();
 }
 
 

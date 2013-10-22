@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -102,166 +102,68 @@ char const copyright[] =
  *
  */
 
-static struct nlist nl[] = {
-#define	N_IFNET		0
-	{ "_ifnet" },
-#define	N_IMP		1
-	{ "_imp_softc" },
-#define	N_RTSTAT	2
-	{ "_rtstat" },
-#define	N_UNIXSW	3
-	{ "_localsw" },
-#define N_IDP		4
-	{ "_nspcb"},
-#define N_IDPSTAT	5
-	{ "_idpstat"},
-#define N_SPPSTAT	6
-	{ "_spp_istat"},
-#define N_NSERR		7
-	{ "_ns_errstat"},
-#define	N_CLNPSTAT	8
-	{ "_clnp_stat"},
-#define	IN_NOTUSED	9
-	{ "_tp_inpcb" },
-#define	ISO_TP		10
-	{ "_tp_refinfo" },
-#define	N_TPSTAT	11
-	{ "_tp_stat" },
-#define	N_ESISSTAT	12
-	{ "_esis_stat"},
-#define N_NIMP		13
-	{ "_nimp"},
-#define N_RTREE		14
-	{ "_rt_tables"},
-#define N_CLTP		15
-	{ "_cltb"},
-#define N_CLTPSTAT	16
-	{ "_cltpstat"},
-#define	N_NFILE		17
-	{ "_nfile" },
-#define	N_FILE		18
-	{ "_file" },
-#define N_IPX		22
-	{ "_ipxpcb"},
-#define N_IPXSTAT	23
-	{ "_ipxstat"},
-#define N_SPXSTAT	24
-	{ "_spx_istat"},
-#define N_DDPSTAT	25
-	{ "_ddpstat"},
-#define N_DDPCB		26
-	{ "_ddpcb"},
-#define N_NGSOCKS	27
-	{ "_ngsocklist"},
-#define N_IP6STAT	28
-	{ "_ip6stat" },
-#define N_ICMP6STAT	29
-	{ "_icmp6stat" },
-#define N_IPSECSTAT	30
-	{ "_ipsecstat" },
-#define N_IPSEC6STAT	31
-	{ "_ipsec6stat" },
-#define N_PIM6STAT	32
-	{ "_pim6stat" },
-#define N_MRT6PROTO	33
-	{ "_ip6_mrtproto" },
-#define N_MRT6STAT	34
-	{ "_mrt6stat" },
-#define N_MF6CTABLE	35
-	{ "_mf6ctable" },
-#define N_MIF6TABLE	36
-	{ "_mif6table" },
-#define N_PFKEYSTAT	37
-	{ "_pfkeystat" },
-#define N_MBSTAT	38
-	{ "_mbstat" },
-#define N_MBTYPES	39
-	{ "_mbtypes" },
-#define N_NMBCLUSTERS	40
-	{ "_nmbclusters" },
-#define N_NMBUFS	41
-	{ "_nmbufs" },
-#define	N_RTTRASH	42
-	{ "_rttrash" },
-	{ "" },
-};
-
-
 struct protox {
-	u_char	pr_index;		/* index into nlist of cb head */
-	u_char	pr_sindex;		/* index into nlist of stat block */
-	u_char	pr_wanted;		/* 1 if wanted, 0 otherwise */
 	void	(*pr_cblocks)(uint32_t, char *, int);
 					/* control blocks printing routine */
 	void	(*pr_stats)(uint32_t, char *, int);
 					/* statistics printing routine */
 	void	(*pr_istats)(char *);	/* per/if statistics printing routine */
 	char	*pr_name;		/* well-known name */
-	int	pr_usesysctl;		/* true if we use sysctl, not kvm */
+	int	pr_protocol;
 } protox[] = {
-	{ -1,		-1,		1,	protopr,
-	  tcp_stats,	NULL,		"tcp",	IPPROTO_TCP },
-	{ -1,		-1,		1,	protopr,
-	  udp_stats,	NULL,		"udp",	IPPROTO_UDP },
-	{ -1,		-1,		1,	protopr,
-	  NULL,		NULL,		"divert",IPPROTO_DIVERT },
-	{ -1,		-1,		1,	protopr,
-	  ip_stats,	NULL,		"ip",	IPPROTO_RAW },
-	{ -1,		-1,		1,	protopr,
-	  icmp_stats,	NULL,		"icmp",	IPPROTO_ICMP },
-	{ -1,		-1,		1,	protopr,
-	  igmp_stats,	NULL,		"igmp",	IPPROTO_IGMP },
+	{ protopr,	tcp_stats,	NULL,	"tcp",	IPPROTO_TCP },
+	{ protopr,	udp_stats,	NULL,	"udp",	IPPROTO_UDP },
+	{ protopr,	NULL,		NULL,	"divert", IPPROTO_DIVERT },
+	{ protopr,	ip_stats,	NULL,	"ip",	IPPROTO_RAW },
+	{ protopr,	icmp_stats,	NULL,	"icmp",	IPPROTO_ICMP },
+	{ protopr,	igmp_stats,	NULL,	"igmp",	IPPROTO_IGMP },
 #ifdef IPSEC
-	{ -1,		-1,	1,	0,
-	  ipsec_stats,	NULL,		"ipsec",	IPPROTO_ESP},
+	{ NULL,		ipsec_stats,	NULL,	"ipsec", IPPROTO_ESP},
 #endif
-	{ -1,		-1,		0,	0,
-	  0,		NULL,		0 }
+	{ NULL,		arp_stats,	NULL,	"arp",	0 },
+#if TARGET_OS_EMBEDDED
+	{ mptcppr,	mptcp_stats,	NULL,	"mptcp", IPPROTO_TCP },
+#endif
+	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 
 #ifdef INET6
 struct protox ip6protox[] = {
-	{ -1,		-1,		1,	protopr,
-	  tcp_stats,	NULL,		"tcp",	IPPROTO_TCP },
-	{ -1,		-1,		1,	protopr,
-	  udp_stats,	NULL,		"udp",	IPPROTO_UDP },
-	{ -1,		N_IP6STAT,	1,	protopr,
-	  ip6_stats,	ip6_ifstats,	"ip6",	IPPROTO_RAW },
-	{ -1,		N_ICMP6STAT,	1,	protopr,
-	  icmp6_stats,	icmp6_ifstats,	"icmp6",IPPROTO_ICMPV6 },
+	{ protopr,	tcp_stats,	NULL,	"tcp",	IPPROTO_TCP },
+	{ protopr,	udp_stats,	NULL,	"udp",	IPPROTO_UDP },
+	{ protopr,	ip6_stats,	ip6_ifstats,	"ip6",	IPPROTO_RAW },
+	{ protopr,	icmp6_stats,	icmp6_ifstats,	"icmp6",IPPROTO_ICMPV6 },
 #ifdef IPSEC
-	{ -1,		N_IPSEC6STAT,	1,	0,
-	  ipsec_stats,	NULL,		"ipsec6",IPPROTO_ESP },
+	{ NULL,		ipsec_stats,	NULL,	"ipsec6", IPPROTO_ESP },
 #endif
 #ifdef notyet
-	{ -1,		N_PIM6STAT,	1,	0,
-	  pim6_stats,	NULL,		"pim6",	0 },
+	{ NULL,		pim6_stats,	NULL,	"pim6",	0 },
 #endif
-	{ -1,		-1,		1,	0,
-	  rip6_stats,	NULL,		"rip6",	IPPROTO_RAW },
-	{ -1,		-1,		0,	0,
-	  0,		NULL,		0,	0 }
+	{ NULL,		rip6_stats,	NULL,	"rip6",	IPPROTO_RAW },
+#if TARGET_OS_EMBEDDED
+	{ mptcppr,	mptcp_stats,	NULL,	"mptcp", IPPROTO_TCP },
+#endif
+	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 #endif /*INET6*/
 
 #ifdef IPSEC
 struct protox pfkeyprotox[] = {
-	{ -1,		N_PFKEYSTAT,	1,	0,
-	  pfkey_stats,	NULL,		"pfkey", PF_KEY_V2 },
-	{ -1,		-1,		0,	0,
-	  0,		NULL,		0,	0 }
+	{ NULL,		pfkey_stats,	NULL,	"pfkey", PF_KEY_V2 },
+	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 #endif
 
 struct protox *protoprotox[] = {
-					 protox,
+	protox,
 #ifdef INET6
-					 ip6protox,
+	ip6protox,
 #endif
 #ifdef IPSEC
-					 pfkeyprotox,
+	pfkeyprotox,
 #endif
-					 NULL };
+	NULL
+};
 
 static void printproto (struct protox *, char *);
 static void usage (void);
@@ -276,6 +178,7 @@ int	aflag;		/* show all sockets (including servers) */
 int	bflag;		/* show i/f total bytes in/out */
 int	cflag;		/* show specific classq */
 int	dflag;		/* show i/f dropped packets */
+int	Fflag;		/* show i/f forwarded packets */
 #if defined(__APPLE__)
 int	gflag;		/* show group (multicast) routing or stats */
 #endif
@@ -314,7 +217,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabc:df:gI:iLlmnP:p:qQrRstuvWw:x")) != -1)
+	while ((ch = getopt(argc, argv, "Aabc:dFf:gI:iLlmnP:p:qQrRstuvWw:x")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -331,6 +234,9 @@ main(argc, argv)
 			break;
 		case 'd':
 			dflag = 1;
+			break;
+		case 'F':
+			Fflag = 1;
 			break;
 		case 'f':
 			if (strcmp(optarg, "ipx") == 0)
@@ -461,7 +367,7 @@ main(argc, argv)
 		if (sflag)
 			rt_stats();
 		else
-			routepr(nl[N_RTREE].n_value);
+			routepr();
 		exit(0);
 	}
 	if (qflag || Qflag) {
@@ -479,7 +385,7 @@ main(argc, argv)
 
 #if defined(__APPLE__)
 	if (gflag) {
-#if !TARGET_OS_EMBEDDED		
+#if !TARGET_OS_EMBEDDED
 		if (sflag) {
 			if (af == AF_INET || af == AF_UNSPEC)
 				mrt_stats();
@@ -543,7 +449,7 @@ printproto(tp, name)
 		if (iflag && !pflag) {
 			if (tp->pr_istats)
 				intpr(tp->pr_istats);
-			else
+			else if (vflag)
 				printf("%s: no per-interface stats routine\n",
 				    tp->pr_name);
 			return;
@@ -551,25 +457,23 @@ printproto(tp, name)
 		else {
 			pr = tp->pr_stats;
 			if (!pr) {
-				if (pflag)
+				if (pflag && vflag)
 					printf("%s: no stats routine\n",
 					    tp->pr_name);
 				return;
 			}
-			off = tp->pr_usesysctl ? tp->pr_usesysctl 
-				: nl[tp->pr_sindex].n_value;
+			off = tp->pr_protocol;
 		}
 	} else {
 		pr = tp->pr_cblocks;
 		if (!pr) {
-			if (pflag)
+			if (pflag && vflag)
 				printf("%s: no PCB routine\n", tp->pr_name);
 			return;
 		}
-		off = tp->pr_usesysctl ? tp->pr_usesysctl
-			: nl[tp->pr_index].n_value;
+		off = tp->pr_protocol;
 	}
-	if (pr != NULL && (off || af != AF_UNSPEC)) {
+	if (pr != NULL) {
 		if (sflag && iflag && pflag)
 			intervalpr(pr, off, name, af);
 		else
@@ -589,6 +493,12 @@ char *
 plurales(int n)
 {
 	return (n != 1 ? "es" : "");
+}
+
+char *
+pluralies(int n)
+{
+	return (n != 1 ? "ies" : "y");
 }
 
 /*
@@ -653,3 +563,19 @@ usage(void)
 	(void) fprintf(stderr, "%s\n", NETSTAT_USAGE);
 	exit(1);
 }
+
+int
+print_time(void)
+{
+    time_t now;
+    struct tm tm;
+    int num_written = 0;
+    
+    (void) time(&now);
+    (void) localtime_r(&now, &tm);
+    
+    num_written += printf("%02d:%02d:%02d ", tm.tm_hour, tm.tm_min, tm.tm_sec);
+    
+    return (num_written);
+}
+

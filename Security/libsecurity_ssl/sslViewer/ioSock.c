@@ -37,7 +37,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 
-#include <MacErrors.h>
+#include <Security/SecBase.h>
 #include <time.h>
 #include <strings.h>
 
@@ -189,7 +189,7 @@ OSStatus MakeServerConnection(
 		}
         if(ent == NULL) {
 			printf("\n***gethostbyname(%s) returned: %s\n", hostName, hstrerror(h_errno));
-            return ioErr;
+            return errSecIO;
         }
         memcpy(&host, ent->h_addr, sizeof(struct in_addr));
     }
@@ -200,7 +200,7 @@ OSStatus MakeServerConnection(
     addr.sin_family = AF_INET;
     if (connect(sock, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) != 0)
     {   printf("connect returned error\n");
-        return ioErr;
+        return errSecIO;
     }
 
 	if(nonBlocking) {
@@ -208,14 +208,14 @@ OSStatus MakeServerConnection(
 		int rtn = fcntl(sock, F_SETFL, O_NONBLOCK);
 		if(rtn == -1) {
 			perror("fctnl(O_NONBLOCK)");
-			return ioErr;
+			return errSecIO;
 		}
 	}
 	
     peer->ipAddr = addr.sin_addr.s_addr;
     peer->port = htons((u_short)port);
 	*socketNo = (otSocket)sock;
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -235,7 +235,7 @@ OSStatus ListenForClients(
     sock = socket(AF_INET, SOCK_STREAM, 0);
 	if(sock < 1) {
 		perror("socket");
-		return ioErr;
+		return errSecIO;
 	}
     
     int reuse = 1;
@@ -248,7 +248,7 @@ OSStatus ListenForClients(
     ent = gethostbyname("localhost");
     if (!ent) {
 		perror("gethostbyname");
-		return ioErr;
+		return errSecIO;
     }
     memcpy(&addr.sin_addr, ent->h_addr, sizeof(struct in_addr));
 	
@@ -260,17 +260,17 @@ OSStatus ListenForClients(
 		int theErr = errno;
 		perror("bind");
 		if(theErr == EADDRINUSE) {
-			return opWrErr;
+			return errSecOpWr;
 		}
 		else {
-			return ioErr;
+			return errSecIO;
 		}
     }
 	if(nonBlocking) {
 		int rtn = fcntl(sock, F_SETFL, O_NONBLOCK);
 		if(rtn == -1) {
 			perror("fctnl(O_NONBLOCK)");
-			return ioErr;
+			return errSecIO;
 		}
 	}
 
@@ -279,13 +279,13 @@ OSStatus ListenForClients(
 		switch(rtn) {
 			case 0:
 				*socketNo = (otSocket)sock;
-				rtn = noErr;
+				rtn = errSecSuccess;
 				break;
 			case EWOULDBLOCK:
 				continue;
 			default:
 				perror("listen");
-				rtn = ioErr;
+				rtn = errSecIO;
 				break;
 		}
 		return rtn;
@@ -324,7 +324,7 @@ OSStatus AcceptClientConnection(
 			}
 			else {
 				perror("accept");
-				return ioErr;
+				return errSecIO;
 			}
 		}
 		else {
@@ -338,7 +338,7 @@ OSStatus AcceptClientConnection(
 	#else
     peer->port = ntohs(addr.sin_port);
 	#endif
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -364,7 +364,7 @@ OSStatus SocketRead(
 	UInt32 			initLen = bytesToGo;
 	UInt8			*currData = (UInt8 *)data;
 	int				sock = (int)((long)connection);
-	OSStatus		rtn = noErr;
+	OSStatus		rtn = errSecSuccess;
 	UInt32			bytesRead;
 	ssize_t			rrtn;
 	
@@ -394,7 +394,7 @@ OSStatus SocketRead(
 					/* normal... */
 					//rtn = errSSLWouldBlock;
 					/* ...for temp testing.... */
-					rtn = ioErr; 
+					rtn = errSecIO; 
 					break;
 				case ECONNRESET:
 					/* explicit peer abort */
@@ -407,7 +407,7 @@ OSStatus SocketRead(
 				default:
 					dprintf(("SocketRead: read(%u) error %d, rrtn %d\n", 
 						(unsigned)bytesToGo, theErr, (int)rrtn));
-					rtn = ioErr;
+					rtn = errSecIO;
 					break;
 			}
 			/* in any case, we're done with this call if rrtn <= 0 */
@@ -468,7 +468,7 @@ OSStatus SocketWrite(
 				return ortn;
 			}
 		}
-		return noErr;
+		return errSecSuccess;
 	}
 	*dataLength = 0;
 
@@ -489,12 +489,12 @@ OSStatus SocketWrite(
 			default:
 				dprintf(("SocketWrite: write(%u) error %d\n", 
 					  (unsigned)(dataLen - bytesSent), theErr));
-				ortn = ioErr;
+				ortn = errSecIO;
 				break;
 		}
 	}
 	else {
-		ortn = noErr;
+		ortn = errSecSuccess;
 	}
 	tprintf("SocketWrite", dataLen, bytesSent, dataPtr);
 	*dataLength = bytesSent;

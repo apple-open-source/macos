@@ -7,7 +7,7 @@ CFILES = global.c slc.c state.c sys_term.c telnetd.c\
 MANPAGES = telnetd.8
 LAUNCHD_PLISTS = telnet.plist
 
-Extra_CC_Flags = -Wall -Werror -fPIE
+Extra_CC_Flags = -Wall -Werror -Wno-string-plus-int -fPIE
 Extra_CC_Flags += -D__FBSDID=__RCSID
 Extra_LD_Flags = -dead_strip -pie
 
@@ -18,21 +18,15 @@ Extra_LD_Libraries = -lcurses -ltelnet
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
-Product=$(shell tconf --product)
-Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
-
 after_install:
-ifeq "$(Embedded)" "YES"
+ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 	/usr/libexec/PlistBuddy -x \
 		-c "Delete :Disabled" \
+		-c "Add :PosixSpawnType string Interactive" \
 		-c "Delete :SessionCreate" \
-		-c "Add :Sockets:Listeners:SockFamily string IPv4" \
-		"$(DSTROOT)/System/Library/LaunchDaemons/telnet.plist"
-ifeq "$(Product)" "iPhone"
-	/usr/libexec/PlistBuddy -x \
 		-c "Set :Sockets:Listeners:Bonjour false" \
+		-c "Add :Sockets:Listeners:SockFamily string IPv4" \
 		-c "Add :Sockets:Listeners:SockNodeName string localhost" \
 		"$(DSTROOT)/System/Library/LaunchDaemons/telnet.plist"
-endif
 endif
 	plutil -convert binary1 "$(DSTROOT)/System/Library/LaunchDaemons/$(LAUNCHD_PLISTS)"

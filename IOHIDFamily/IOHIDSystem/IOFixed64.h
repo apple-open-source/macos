@@ -90,6 +90,11 @@ public:
         return *this;
     }
     
+    static IOFixed64 withIntFloor(SInt64 x) {
+        IOFixed64 result;
+        return result.fromIntFloor(x);
+    }
+    
     IOFixed64& fromIntCeiling(SInt64 x) {
         value = (x * 65536LL) + 65535LL;
         return *this;
@@ -98,6 +103,11 @@ public:
     IOFixed64& fromFixed(IOFixed x) {
         value = x;
         return *this;
+    }
+    
+    static IOFixed64 withFixed(IOFixed x) {
+        IOFixed64 result;
+        return result.fromFixed(x);
     }
     
     IOFixed64& fromFixed64(SInt64 x) {

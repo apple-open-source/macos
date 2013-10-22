@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008, 2010, 2011, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2008, 2010, 2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -82,8 +82,7 @@ dns_ssutable_create(isc_mem_t *mctx, dns_ssutable_t **tablep) {
 		return (result);
 	}
 	table->references = 1;
-	table->mctx = NULL;
-	isc_mem_attach(mctx, &table->mctx);
+	table->mctx = mctx;
 	ISC_LIST_INIT(table->rules);
 	table->magic = SSUTABLEMAGIC;
 	*tablep = table;
@@ -116,7 +115,7 @@ destroy(dns_ssutable_t *table) {
 	}
 	DESTROYLOCK(&table->lock);
 	table->magic = 0;
-	isc_mem_putanddetach(&table->mctx, table, sizeof(dns_ssutable_t));
+	isc_mem_put(mctx, table, sizeof(dns_ssutable_t));
 }
 
 void

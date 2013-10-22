@@ -56,7 +56,7 @@ CFTypeID SecCodeGetTypeID(void);
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param self Upon successful return, contains a SecCodeRef representing the caller.
 	
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
  */
 OSStatus SecCodeCopySelf(SecCSFlags flags, SecCodeRef *self);
@@ -83,12 +83,22 @@ OSStatus SecCodeCopySelf(SecCSFlags flags, SecCodeRef *self);
 
 	@param code A valid SecCode object reference representing code running
 	on the system.
+	
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
+	@constant kSecCSUseAllArchitectures
+	If code refers to a single architecture of a universal binary, return a SecStaticCodeRef
+	that refers to the entire universal code with all its architectures. By default, the
+	returned static reference identifies only the actual architecture of the running program.
+
 	@param staticCode On successful return, a SecStaticCode object reference representing
 	the file system origin of the given SecCode. On error, unchanged.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
+enum {
+	kSecCSUseAllArchitectures = 1 << 0,
+};
+
 OSStatus SecCodeCopyStaticCode(SecCodeRef code, SecCSFlags flags, SecStaticCodeRef *staticCode);
 
 
@@ -104,7 +114,7 @@ OSStatus SecCodeCopyStaticCode(SecCodeRef code, SecCSFlags flags, SecStaticCodeR
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param host On successful return, a SecCode object reference identifying
 	the code's host.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeCopyHost(SecCodeRef guest, SecCSFlags flags, SecCodeRef *host);
@@ -148,8 +158,8 @@ OSStatus SecCodeCopyHost(SecCodeRef guest, SecCSFlags flags, SecCodeRef *host);
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param guest On successful return, a SecCode object reference identifying
 	the particular guest of the host that owns the attribute value(s) specified.
-	This argument will not be changed if the call fails (does not return noErr).
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	This argument will not be changed if the call fails (does not return errSecSuccess).
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers. In particular:
 	@error errSecCSUnsupportedGuestAttributes The host does not support the attribute
 	type given by attributeType.
@@ -168,6 +178,8 @@ extern const CFStringRef kSecGuestAttributeCanonical;
 extern const CFStringRef kSecGuestAttributeHash;
 extern const CFStringRef kSecGuestAttributeMachPort;
 extern const CFStringRef kSecGuestAttributePid;
+extern const CFStringRef kSecGuestAttributeDynamicCode;
+extern const CFStringRef kSecGuestAttributeDynamicCodeInfoPlist;
 extern const CFStringRef kSecGuestAttributeArchitecture;
 extern const CFStringRef kSecGuestAttributeSubarchitecture;
 
@@ -194,10 +206,10 @@ OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef host,
 	the code object must satisfy to be considered valid. If NULL, no additional
 	requirements are imposed.
 	@param errors An optional pointer to a CFErrorRef variable. If the call fails
-	(and something other than noErr is returned), and this argument is non-NULL,
+	(and something other than errSecSuccess is returned), and this argument is non-NULL,
 	a CFErrorRef is stored there further describing the nature and circumstances
 	of the failure. The caller must CFRelease() this error object when done with it.
-	@result If validation passes, noErr. If validation fails, an OSStatus value
+	@result If validation passes, errSecSuccess. If validation fails, an OSStatus value
 	documented in CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeCheckValidity(SecCodeRef code, SecCSFlags flags,
@@ -221,7 +233,7 @@ OSStatus SecCodeCheckValidityWithErrors(SecCodeRef code, SecCSFlags flags,
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param path On successful return, contains a CFURL identifying the location
 	on disk of the staticCode object.
-	@result On success, noErr. On error, an OSStatus value
+	@result On success, errSecSuccess. On error, an OSStatus value
 	documented in CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeCopyPath(SecStaticCodeRef staticCode, SecCSFlags flags,
@@ -246,7 +258,7 @@ OSStatus SecCodeCopyPath(SecStaticCodeRef staticCode, SecCSFlags flags,
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param requirement On successful return, contains a copy of a SecRequirement
 	object representing the code's Designated Requirement. On error, unchanged.
-	@result On success, noErr. On error, an OSStatus value
+	@result On success, errSecSuccess. On error, an OSStatus value
 		documented in CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flags,
@@ -284,7 +296,7 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		used by the code signing infrastructure. Making changes to these objects
 		is unsupported and may cause subsequent code signing operations on the
 		affected code to behave in undefined ways.
-	@result On success, noErr. On error, an OSStatus value
+	@result On success, errSecSuccess. On error, an OSStatus value
 		documented in CSCommon.h or certain other Security framework headers.
 		
 	Flags:
@@ -322,6 +334,8 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		of the code if it has entitlements and they are in standard dictionary form.
 		Absent if the code has no entitlements, or they are in a different format (in which
 		case, see kSecCodeInfoEntitlements).
+	@constant kSecCodeInfoFlags A CFNumber with the static (on-disk) state of the object.
+		Contants are defined by the type SecCodeSignatureFlags.
 	@constant kSecCodeInfoFormat A CFString characterizing the type and format of
 		the code. Suitable for display to a (knowledeable) user.
 	@constant kSecCodeInfoDigestAlgorithm A CFNumber indicating the kind of cryptographic
@@ -372,8 +386,6 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		This is currently the SHA-1 hash of the code's CodeDirectory. However, future
 		versions of the system may use a different algorithm for newly signed code.
 		Already-signed code not change the reported value in this case.
-	@constant kSecCodeSignerFlags A CFNumber with the dynamic state of the object.
-		Contants are defined by the type SecCodeSignatureFlags.
  */
 enum {
 	kSecCSInternalInformation = 1 << 0,
@@ -390,6 +402,7 @@ extern const CFStringRef kSecCodeInfoCMS;			/* Signing */
 extern const CFStringRef kSecCodeInfoDesignatedRequirement; /* Requirement */
 extern const CFStringRef kSecCodeInfoEntitlements;	/* Requirement */
 extern const CFStringRef kSecCodeInfoEntitlementsDict; /* Requirement */
+extern const CFStringRef kSecCodeInfoFlags;		/* generic */
 extern const CFStringRef kSecCodeInfoFormat;		/* generic */
 extern const CFStringRef kSecCodeInfoDigestAlgorithm; /* generic */
 extern const CFStringRef kSecCodeInfoIdentifier;	/* generic */
@@ -404,7 +417,6 @@ extern const CFStringRef kSecCodeInfoTime;			/* Signing */
 extern const CFStringRef kSecCodeInfoTimestamp;		/* Signing */
 extern const CFStringRef kSecCodeInfoTrust;			/* Signing */
 extern const CFStringRef kSecCodeInfoUnique;		/* generic */
-extern const CFStringRef kSecCodeSignerFlags;		/* dynamic */
 
 OSStatus SecCodeCopySigningInformation(SecStaticCodeRef code, SecCSFlags flags,
 	CFDictionaryRef *information);

@@ -32,8 +32,8 @@
 #ifndef _DUMP_H
 #define _DUMP_H
 
-extern int isakmp_dump_open __P((char *));
-extern int isakmp_dump_close __P((void));
-extern int isakmp_dump __P((vchar_t *, struct sockaddr_storage *, struct sockaddr_storage *));
+extern int isakmp_dump_open (char *);
+extern int isakmp_dump_close (void);
+extern int isakmp_dump (vchar_t *, struct sockaddr_storage *, struct sockaddr_storage *);
 
 #endif /* _DUMP_H */

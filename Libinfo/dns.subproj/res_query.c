@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -18,402 +18,113 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * ++Copyright++ 1988, 1993
- * -
- * Copyright (c) 1988, 1993
- *    The Regents of the University of California.  All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- * 	This product includes software developed by the University of
- * 	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * -
- * Portions Copyright (c) 1993 by Digital Equipment Corporation.
- * 
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies, and that
- * the name of Digital Equipment Corporation not be used in advertising or
- * publicity pertaining to distribution of the document or software without
- * specific, written prior permission.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
- * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
- * CORPORATION BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
- * -
- * --Copyright--
- */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)res_query.c	8.1 (Berkeley) 6/4/93";
-static char rcsid[] = "$Id: res_query.c,v 1.3 2003/02/18 17:29:24 majka Exp $";
-#endif /* LIBC_SCCS and not lint */
-
-#include <sys/param.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-#include <stdio.h>
-#include <netdb.h>
-#include <ctype.h>
+#include <dns_sd.h>
 #include <errno.h>
 
-#include "nameser8_compat.h"
-#include "resolv8_compat.h"
+#include <arpa/nameser_compat.h>
+#include <nameser.h>
 
-#if defined(BSD) && (BSD >= 199306)
-# include <stdlib.h>
-# include <string.h>
+#include "si_module.h"
+
+extern int h_errno;
+
+// Storage for the global struct __res_9_state.
+// The BIND9 libresolv.dylib shares the same storage for this structure as the
+// legacy BIND8 libsystem_info.dylib. This implementation does not require the
+// _res structure but libresolv.dylib does and many 3rd-party applications
+// access this global symbol directly so we preserve it here.
+#ifdef __LP64__
+#define RES_9_STATE_SIZE 552
 #else
-# include "portability.h"
+#define RES_9_STATE_SIZE 512
 #endif
+char _res[RES_9_STATE_SIZE] = {0};
 
-#if defined(USE_OPTIONS_H)
-# include "options.h"
-#endif
-
-#if PACKETSZ > 1024
-#define MAXPACKET	PACKETSZ
-#else
-#define MAXPACKET	1024
-#endif
-
-char *__hostalias __P((const char *));
-#if defined(__APPLE__)
-extern
-#endif
-int h_errno;
-
-/*
- * Formulate a normal query, send, and await answer.
- * Returned answer is placed in supplied buffer "answer".
- * Perform preliminary check of answer, returning success only
- * if no error is indicated and the answer count is nonzero.
- * Return the size of the response on success, -1 on error.
- * Error number is left in h_errno.
- *
- * Caller must parse answer and determine whether it answers the question.
- */
 int
-res_query(name, class, type, answer, anslen)
-	const char *name;	/* domain name */
-	int class, type;	/* class and type of query */
-	u_char *answer;		/* buffer to put answer */
-	int anslen;		/* size of answer buffer */
+res_init(void)
 {
-	u_char buf[MAXPACKET];
-	register HEADER *hp = (HEADER *) answer;
-	int n;
+	// For compatibility only.
+	return 0;
+}
 
-	hp->rcode = NOERROR;	/* default */
-
-	if ((_res.options & RES_INIT) == 0 && res_init() == -1) {
-		h_errno = NETDB_INTERNAL;
-		return (-1);
-	}
-#ifdef DEBUG
-	if (_res.options & RES_DEBUG)
-		printf(";; res_query(%s, %d, %d)\n", name, class, type);
-#endif
-
-	n = res_mkquery(QUERY, name, class, type, NULL, 0, NULL,
-			buf, sizeof(buf));
-	if (n <= 0) {
-#ifdef DEBUG
-		if (_res.options & RES_DEBUG)
-			printf(";; res_query: mkquery failed\n");
-#endif
+// Perform a DNS query. Returned DNS response is placed in the answer buffer.
+// A preliminary check of the answer is performed and success is returned only
+// if no error is indicated in the answer and the answer count is nonzero.
+// Returns the size of the response on success, or -1 with h_errno set.
+static int
+_mdns_query(int call, const char *name, int class, int type, u_char *answer, int anslen)
+{
+	int res = -1;
+	si_item_t *item;
+	uint32_t err;
+	
+	si_mod_t *dns = si_module_with_name("mdns");
+	if (dns == NULL) {
 		h_errno = NO_RECOVERY;
-		return (n);
+		return -1;
 	}
-	n = res_send(buf, n, answer, anslen);
-	if (n < 0) {
-#ifdef DEBUG
-		if (_res.options & RES_DEBUG)
-			printf(";; res_query: send error\n");
-#endif
-		h_errno = TRY_AGAIN;
-		return (n);
+	
+	item = dns->vtable->sim_item_call(dns, call, name, NULL, NULL, class, type, &err);
+	
+	if (item != NULL) {
+		si_dnspacket_t *p;
+		
+		p = (si_dnspacket_t *)((uintptr_t)item + sizeof(si_item_t));
+		
+		res = p->dns_packet_len;
+		
+		// Truncate to destination buffer size.
+		memcpy(answer, p->dns_packet, MIN(res, anslen));
+		
+		si_item_release(item);
+	} else {
+		h_errno = HOST_NOT_FOUND;
+		res = -1;
 	}
 
-	if (hp->rcode != NOERROR || ntohs(hp->ancount) == 0) {
-#ifdef DEBUG
-		if (_res.options & RES_DEBUG)
-			printf(";; rcode = %d, ancount=%d\n", hp->rcode,
-			    ntohs(hp->ancount));
-#endif
+	if (MIN(res, anslen) >= sizeof(HEADER)) {
+		HEADER *hp = (HEADER *)answer;
 		switch (hp->rcode) {
-		case NXDOMAIN:
-			h_errno = HOST_NOT_FOUND;
-			break;
-		case SERVFAIL:
-			h_errno = TRY_AGAIN;
-			break;
-		case NOERROR:
-			h_errno = NO_DATA;
-			break;
-		case FORMERR:
-		case NOTIMP:
-		case REFUSED:
-		default:
-			h_errno = NO_RECOVERY;
-			break;
-		}
-		return (-1);
-	}
-	return (n);
-}
-
-/*
- * Formulate a normal query, send, and retrieve answer in supplied buffer.
- * Return the size of the response on success, -1 on error.
- * If enabled, implement search rules until answer or unrecoverable failure
- * is detected.  Error code, if any, is left in h_errno.
- */
-int
-res_search(name, class, type, answer, anslen)
-	const char *name;	/* domain name */
-	int class, type;	/* class and type of query */
-	u_char *answer;		/* buffer to put answer */
-	int anslen;		/* size of answer */
-{
-	register const char *cp, * const *domain;
-	HEADER *hp = (HEADER *) answer;
-	u_int dots;
-	int trailing_dot, ret, saved_herrno;
-	int got_nodata = 0, got_servfail = 0, tried_as_is = 0;
-
-	if ((_res.options & RES_INIT) == 0 && res_init() == -1) {
-		h_errno = NETDB_INTERNAL;
-		return (-1);
-	}
-	errno = 0;
-	h_errno = HOST_NOT_FOUND;	/* default, if we never query */
-	dots = 0;
-	for (cp = name; *cp; cp++)
-		dots += (*cp == '.');
-	trailing_dot = 0;
-	if (cp > name && *--cp == '.')
-		trailing_dot++;
-
-	/*
-	 * if there aren't any dots, it could be a user-level alias
-	 */
-	if (!dots && (cp = __hostalias(name)) != NULL)
-		return (res_query(cp, class, type, answer, anslen));
-
-	/*
-	 * If there are dots in the name already, let's just give it a try
-	 * 'as is'.  The threshold can be set with the "ndots" option.
-	 */
-	saved_herrno = -1;
-	if (dots >= _res.ndots) {
-		ret = res_querydomain(name, NULL, class, type, answer, anslen);
-		if (ret > 0)
-			return (ret);
-		saved_herrno = h_errno;
-		tried_as_is++;
-	}
-
-	/*
-	 * We do at least one level of search if
-	 *	- there is no dot and RES_DEFNAME is set, or
-	 *	- there is at least one dot, there is no trailing dot,
-	 *	  and RES_DNSRCH is set.
-	 */
-	if ((!dots && (_res.options & RES_DEFNAMES)) ||
-	    (dots && !trailing_dot && (_res.options & RES_DNSRCH))) {
-		int done = 0;
-
-		for (domain = (const char * const *)_res.dnsrch;
-		     *domain && !done;
-		     domain++) {
-
-			ret = res_querydomain(name, *domain, class, type,
-					      answer, anslen);
-			if (ret > 0)
-				return (ret);
-
-			/*
-			 * If no server present, give up.
-			 * If name isn't found in this domain,
-			 * keep trying higher domains in the search list
-			 * (if that's enabled).
-			 * On a NO_DATA error, keep trying, otherwise
-			 * a wildcard entry of another type could keep us
-			 * from finding this entry higher in the domain.
-			 * If we get some other error (negative answer or
-			 * server failure), then stop searching up,
-			 * but try the input name below in case it's
-			 * fully-qualified.
-			 */
-			if (errno == ECONNREFUSED) {
+			case NXDOMAIN:
+				h_errno = HOST_NOT_FOUND;
+				res = -1;
+				break;
+			case SERVFAIL:
 				h_errno = TRY_AGAIN;
-				return (-1);
-			}
-
-			switch (h_errno) {
-			case NO_DATA:
-				got_nodata++;
-				/* FALLTHROUGH */
-			case HOST_NOT_FOUND:
-				/* keep trying */
+				res = -1;
 				break;
-			case TRY_AGAIN:
-				if (hp->rcode == SERVFAIL) {
-					/* try next search element, if any */
-					got_servfail++;
-					break;
+			case NOERROR:
+				if (ntohs(hp->ancount) == 0) {
+					h_errno = NO_DATA;
+					res = -1;
 				}
-				/* FALLTHROUGH */
-			default:
-				/* anything else implies that we're done */
-				done++;
-			}
-
-			/* if we got here for some reason other than DNSRCH,
-			 * we only wanted one iteration of the loop, so stop.
-			 */
-			if (!(_res.options & RES_DNSRCH))
-				done++;
-		}
-	}
-
-	/* if we have not already tried the name "as is", do that now.
-	 * note that we do this regardless of how many dots were in the
-	 * name or whether it ends with a dot.
-	 */
-	if (!tried_as_is) {
-		ret = res_querydomain(name, NULL, class, type, answer, anslen);
-		if (ret > 0)
-			return (ret);
-	}
-
-	/* if we got here, we didn't satisfy the search.
-	 * if we did an initial full query, return that query's h_errno
-	 * (note that we wouldn't be here if that query had succeeded).
-	 * else if we ever got a nodata, send that back as the reason.
-	 * else send back meaningless h_errno, that being the one from
-	 * the last DNSRCH we did.
-	 */
-	if (saved_herrno != -1)
-		h_errno = saved_herrno;
-	else if (got_nodata)
-		h_errno = NO_DATA;
-	else if (got_servfail)
-		h_errno = TRY_AGAIN;
-	return (-1);
-}
-
-/*
- * Perform a call on res_query on the concatenation of name and domain,
- * removing a trailing dot from name if domain is NULL.
- */
-int
-res_querydomain(name, domain, class, type, answer, anslen)
-	const char *name, *domain;
-	int class, type;	/* class and type of query */
-	u_char *answer;		/* buffer to put answer */
-	int anslen;		/* size of answer */
-{
-	char nbuf[2*MAXDNAME+2];
-	const char *longname = nbuf;
-	int n;
-
-	if ((_res.options & RES_INIT) == 0 && res_init() == -1) {
-		h_errno = NETDB_INTERNAL;
-		return (-1);
-	}
-#ifdef DEBUG
-	if (_res.options & RES_DEBUG)
-		printf(";; res_querydomain(%s, %s, %d, %d)\n",
-		       name, domain?domain:"<Nil>", class, type);
-#endif
-	if (domain == NULL) {
-		/*
-		 * Check for trailing '.';
-		 * copy without '.' if present.
-		 */
-		n = strlen(name) - 1;
-		if (n != (0 - 1) && name[n] == '.' && n < sizeof(nbuf) - 1) {
-			bcopy(name, nbuf, n);
-			nbuf[n] = '\0';
-		} else
-			longname = name;
-	} else
-		sprintf(nbuf, "%.*s.%.*s", MAXDNAME, name, MAXDNAME, domain);
-
-	return (res_query(longname, class, type, answer, anslen));
-}
-
-char *
-__hostalias(name)
-	register const char *name;
-{
-	register char *cp1, *cp2;
-	FILE *fp;
-	char *file;
-	char buf[BUFSIZ];
-	static char abuf[MAXDNAME];
-
-	if (_res.options & RES_NOALIASES)
-		return (NULL);
-	file = getenv("HOSTALIASES");
-	if (file == NULL || (fp = fopen(file, "r")) == NULL)
-		return (NULL);
-	setbuf(fp, NULL);
-	buf[sizeof(buf) - 1] = '\0';
-	while (fgets(buf, sizeof(buf), fp)) {
-		for (cp1 = buf; *cp1 && !isspace(*cp1); ++cp1)
-			;
-		if (!*cp1)
-			break;
-		*cp1 = '\0';
-		if (!strcasecmp(buf, name)) {
-			while (isspace(*++cp1))
-				;
-			if (!*cp1)
 				break;
-			for (cp2 = cp1 + 1; *cp2 && !isspace(*cp2); ++cp2)
-				;
-			abuf[sizeof(abuf) - 1] = *cp2 = '\0';
-			strncpy(abuf, cp1, sizeof(abuf) - 1);
-			fclose(fp);
-			return (abuf);
+			case FORMERR:
+			case NOTIMP:
+			case REFUSED:
+			default:
+				h_errno = NO_RECOVERY;
+				res = -1;
+				break;
 		}
 	}
-	fclose(fp);
-	return (NULL);
+
+	si_module_release(dns);
+	return res;
+}
+
+int
+res_query(const char *name, int class, int type, u_char *answer, int anslen)
+{
+	return _mdns_query(SI_CALL_DNS_QUERY, name, class, type, answer, anslen);
+}
+
+int
+res_search(const char *name, int class, int type, u_char *answer, int anslen)
+{
+	return _mdns_query(SI_CALL_DNS_SEARCH, name, class, type, answer, anslen);
 }

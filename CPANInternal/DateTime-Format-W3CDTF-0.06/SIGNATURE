@@ -1,0 +1,44 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.61.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 fe08fc077e7d5bfa2cc68a2cb4b06fe0a26b8c6c Changes
+SHA1 f235ba4160673bcb7c9d58c2f09dbc7fc0efadea LICENSE
+SHA1 c50534da6f72a6983bb3cd253afcf4c6e5f71dd9 MANIFEST
+SHA1 b0a8815cc87f77331e8bbee40f6fbb1067c1c26a META.yml
+SHA1 236f91cd1eed26d8d60047986510e01010e84788 Makefile.PL
+SHA1 bee25dfc8c7b9823a45ebc7cd4efade3bdbe39b0 README
+SHA1 8f033b8d00052585fd49221934f9df392981d798 examples/now.pl
+SHA1 53b08a2e448ac8751374a8eed725dfc09aa5fb63 inc/Module/Install.pm
+SHA1 150c0cf35e6b96a0d8eea62194c8abc0da182c86 inc/Module/Install/Base.pm
+SHA1 70c3500a28a1e5d255599ce3f44e9a7b80759109 inc/Module/Install/Can.pm
+SHA1 5f0d6d859fb1cf84cd9bbb1e263d18f581c7e537 inc/Module/Install/Fetch.pm
+SHA1 75f901a4b514a772b03223e1b08e3b5cc78b1667 inc/Module/Install/Makefile.pm
+SHA1 29044991152cb220fcd2a5ccc3512139d2f5f577 inc/Module/Install/Metadata.pm
+SHA1 896bba60ebe29b3b60fce8414f923fec97bf53e1 inc/Module/Install/Win32.pm
+SHA1 e5c82926a05f844765964b013b31c48eefbb208c inc/Module/Install/WriteAll.pm
+SHA1 a81c54f293edc92f66cc2417aac16d58d0f7c49a lib/DateTime/Format/W3CDTF.pm
+SHA1 71cbf0df8c25a43c7baf65877c60c852fae1f1c0 t/00load.t
+SHA1 3fb45f4dda907dbe20f9854ce6f4c9a8f5bafad0 t/01parse.t
+SHA1 374b4554a0a5ab940154dcfe9afc889e555ac4f3 t/02bugs.t
+SHA1 6387af7a5fde0747be5bc9ad2ec15ca9759bd95a t/pod.t
+SHA1 9115f7ffe1933ad736dc292f3c89595b36ed6aa2 t/pod_coverage.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (Darwin)
+
+iEYEARECAAYFAk1OuEoACgkQhPK6VMqoyC1tQwCeMSMicin0ncOd2zUwoD3m2hrb
+mLgAn2ydzSB5O9cpe02lCCUUGZLPaKE3
+=Nnlp
+-----END PGP SIGNATURE-----

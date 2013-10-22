@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2011 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,18 +46,20 @@
 #include "SCNetworkSignature.h"
 #include "SCNetworkSignaturePrivate.h"
 #include <arpa/inet.h>
-
-const char * kSCNetworkSignatureActiveChangedNotifyName = NETWORK_ID_KEY ".active";
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <network/conninfo.h>
 
 #pragma mark SCNetworkSignature Supporting APIs
 
 static CFStringRef
 create_global_state_v4_key(void)
 {
-	return SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, 
+	return SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
 							  kSCDynamicStoreDomainState,
 							  kSCEntNetIPv4);
-	
+
 }
 
 static CFStringRef
@@ -88,26 +90,26 @@ create_ipv6_services_pattern(void)
 
 static CFDictionaryRef
 copy_services_for_address_family(CFAllocatorRef alloc,
-                                 int af)
+				 int af)
 {
-        CFDictionaryRef info;
-        CFArrayRef      patterns;
-        CFStringRef     pattern;
-        CFStringRef     prop;
-	
-        prop = (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
-        pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-                                                              kSCDynamicStoreDomainState,
-                                                              kSCCompAnyRegex,
-                                                              prop);
-        patterns = CFArrayCreate(NULL,
-                                 (const void * *)&pattern, 1,
-                                 &kCFTypeArrayCallBacks);
-        CFRelease(pattern);
-        info = SCDynamicStoreCopyMultiple(NULL, NULL, patterns);
-        CFRelease(patterns);
-	
-        return (info);
+	CFDictionaryRef info;
+	CFArrayRef      patterns;
+	CFStringRef     pattern;
+	CFStringRef     prop;
+
+	prop = (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainState,
+							      kSCCompAnyRegex,
+							      prop);
+	patterns = CFArrayCreate(NULL,
+				 (const void * *)&pattern, 1,
+				 &kCFTypeArrayCallBacks);
+	CFRelease(pattern);
+	info = SCDynamicStoreCopyMultiple(NULL, NULL, patterns);
+	CFRelease(patterns);
+
+	return (info);
 }
 
 
@@ -115,7 +117,7 @@ static CF_RETURNS_RETAINED CFStringRef
 my_IPAddressToCFString(int af, const void * src_p)
 {
 	char		ntopbuf[INET6_ADDRSTRLEN];
-	
+
 	if (inet_ntop(af, src_p, ntopbuf, sizeof(ntopbuf)) != NULL) {
 		return (CFStringCreateWithCString(NULL, ntopbuf,
 						  kCFStringEncodingASCII));
@@ -138,7 +140,7 @@ SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 	CFDictionaryRef		global_v4_state_dict = NULL;
 	CFArrayRef		keys = NULL;
 	CFArrayRef		patterns = NULL;
-	in_addr_t 		s_addr; 
+	in_addr_t 		s_addr;
 	CFStringRef		service = NULL;
 	CFDictionaryRef		service_dict = NULL;
 	CFStringRef		service_id = NULL;
@@ -148,7 +150,7 @@ SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 	/* only accept 0.0.0.0 (i.e. default) for now */
 	if (addr == NULL
 	    || addr->sa_family != AF_INET
-	    || addr->sa_len != sizeof(struct sockaddr_in)){
+	    || addr->sa_len != sizeof(struct sockaddr_in)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		goto done;
 	}
@@ -160,18 +162,18 @@ SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 		_SCErrorSet(kSCStatusInvalidArgument);
 		goto done;
 	}
-	
+
 	global_state_v4_key = create_global_state_v4_key();
-	keys = CFArrayCreate(NULL, (const void * *)&global_state_v4_key, 
+	keys = CFArrayCreate(NULL, (const void * *)&global_state_v4_key,
 			     1, &kCFTypeArrayCallBacks);
-	
+
 	v4_service_pattern = create_ipv4_services_pattern();
 	patterns = CFArrayCreate(NULL,  (const void * *)&v4_service_pattern, 1,
 				 &kCFTypeArrayCallBacks);
 
 	info = SCDynamicStoreCopyMultiple(NULL, keys, patterns);
-	
-	if (info == NULL 
+
+	if (info == NULL
 	    || CFDictionaryGetCount(info) == 0) {
 		goto done;
 	}
@@ -181,22 +183,22 @@ SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 	if (isA_CFDictionary(global_v4_state_dict) == NULL) {
 		goto done;
 	}
-	
+
 	service_id = CFDictionaryGetValue(global_v4_state_dict,
 					   kSCDynamicStorePropNetPrimaryService);
 
 	if (isA_CFString(service_id) == NULL) {
 		goto done;
 	}
-	
+
 	service = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 							      kSCDynamicStoreDomainState,
 							      service_id, kSCEntNetIPv4);
-	
+
 	service_dict = CFDictionaryGetValue(info, service);
 
-	
-	if (isA_CFDictionary(service_dict) == NULL 
+
+	if (isA_CFDictionary(service_dict) == NULL
 	    || CFDictionaryGetCount(service_dict) == 0) {
 		goto done;
 	}
@@ -255,16 +257,16 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 	global_setup_v4_key = create_global_setup_v4_key();
 	keys = CFArrayCreate(NULL, (const void * *)&global_setup_v4_key, 1,
 			     &kCFTypeArrayCallBacks);
-	
+
 	v4_service_pattern = create_ipv4_services_pattern();
 	CFArrayAppendValue(patterns, v4_service_pattern);
-	
+
 	v6_service_pattern = create_ipv6_services_pattern();
 	CFArrayAppendValue(patterns, v6_service_pattern);
-	
+
 	info = SCDynamicStoreCopyMultiple(NULL, keys, patterns);
-	
-	if (info == NULL 
+
+	if (info == NULL
 	    || CFDictionaryGetCount(info) == 0) {
 		goto done;
 	}
@@ -272,32 +274,32 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 	services_dict = CFDictionaryCreateMutableCopy(NULL, 0, info);
 	/*
 	 * The service_dict should only contain services and once each
-	 * service has been visited, it will be removed from the dictionary.	
+	 * service has been visited, it will be removed from the dictionary.
 	 */
 	CFDictionaryRemoveValue(services_dict, global_setup_v4_key);
 
 	global_v4_dict = CFDictionaryGetValue(info, global_setup_v4_key);
 
 	if (isA_CFDictionary(global_v4_dict) == NULL) {
-		service_order = CFDictionaryGetValue(global_v4_dict, 
+		service_order = CFDictionaryGetValue(global_v4_dict,
 						     kSCPropNetServiceOrder);
 		if (isA_CFArray(service_order) != NULL) {
 			count = CFArrayGetCount(service_order);
 		}
 	}
-	
+
 	active = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	
+
 	range = CFRangeMake(0, 0);
 
 	for (i = 0; i < count ; i++) {
 		int			j;
 		CFStringRef		network_sig;
 		CFStringRef		service;
-		CFStringRef		service_id; 
+		CFStringRef		service_id;
 		CFDictionaryRef		service_info;
 		CFStringRef		afs[2] = {kSCEntNetIPv4, kSCEntNetIPv6};
-		
+
 		service_id = CFArrayGetValueAtIndex(service_order, i);
 
 		if (isA_CFString(service_id) == NULL) {
@@ -308,7 +310,7 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 			service = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
 						kSCDynamicStoreDomainState,
 						service_id, afs[j]);
-		
+
 			service_info = CFDictionaryGetValue(services_dict, service);
 
 			/* Does this service have a signature? */
@@ -337,7 +339,7 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 		CFDictionaryGetKeysAndValues(services_dict, NULL,
 					     (const void * *)values);
 	}
-	
+
 	for (i = 0; i < count; i++) {
 		CFStringRef 		network_sig;
 		CFDictionaryRef 	service_dict = (CFDictionaryRef)values[i];
@@ -349,13 +351,13 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 		network_sig = CFDictionaryGetValue(service_dict,
 						   kStoreKeyNetworkSignature);
 		/* Does this service have a signature? */
-		if (isA_CFString(network_sig) != NULL 
+		if (isA_CFString(network_sig) != NULL
 		    && CFArrayContainsValue(active, range, network_sig) == FALSE) {
 			CFArrayAppendValue(active, network_sig);
 			range.length++;
 			network_sig = NULL;
 		}
-	}		
+	}
  done:
 	if (info != NULL) {
 		CFRelease(info);
@@ -400,41 +402,44 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 	int			af;
 	int			count;
 	int			i;
-	const void * *		keys = NULL;
+	char			if_name[IFNAMSIZ];
+	CFStringRef		if_name_cf	= NULL;
+	conninfo_t *		info		 = NULL;
+	const void * *		keys		 = NULL;
 #define KEYS_STATIC_COUNT	10
 	const void *		keys_static[KEYS_STATIC_COUNT];
 	const void *		local_ip_p;
-	CFStringRef		local_ip_str = NULL;
-	CFStringRef		ret_signature = NULL;
-	CFDictionaryRef		service_info = NULL;
-	union {
-		struct sockaddr_in	inet;
-		struct sockaddr_in6	inet6;
-		struct sockaddr		sa;
-	} 			ss;
-	socklen_t		ss_len = sizeof(ss);
-	int			status = kSCStatusFailed;
+	CFStringRef		local_ip_str	= NULL;
+	CFStringRef		ret_signature	= NULL;
+	CFDictionaryRef		service_info	= NULL;
+	int			status		= kSCStatusFailed;
 
-	if (getsockname(sock_fd, &ss.sa, &ss_len) != 0) {
+	if (copyconninfo(sock_fd, CONNID_ANY, &info) != 0) {
 		status = kSCStatusInvalidArgument;
 		goto done;
 	}
-	af = ss.inet.sin_family;
+	if ((info->ci_flags & CIF_CONNECTED) == 0
+	    || info->ci_src == NULL) {
+	    goto done;
+	}
+	af = info->ci_src->sa_family;
 	switch (af) {
 	case AF_INET:
 		addresses_key = kSCPropNetIPv4Addresses;
-		local_ip_p = &ss.inet.sin_addr;
+		local_ip_p = &((struct sockaddr_in *)
+			       (void *)info->ci_src)->sin_addr;
 		break;
 	case AF_INET6:
 		addresses_key = kSCPropNetIPv6Addresses;
-		local_ip_p = &ss.inet6.sin6_addr;
+		local_ip_p = &((struct sockaddr_in6 *)
+			       (void *)info->ci_src)->sin6_addr;
 		break;
 	default:
 		status = kSCStatusInvalidArgument;
 		goto done;
 	}
 
-	/* find a service matching the local IP and get its network signature */
+	/* search for service with matching IP address and interface name */
 	service_info = copy_services_for_address_family(alloc, af);
 	if (service_info == NULL) {
 		goto done;
@@ -442,6 +447,12 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 	local_ip_str = my_IPAddressToCFString(af, local_ip_p);
 	if (local_ip_str == NULL) {
 		goto done;
+	}
+	if (info->ci_ifindex != 0
+	    && if_indextoname(info->ci_ifindex, if_name) != NULL) {
+		if_name_cf
+			= CFStringCreateWithCString(NULL, if_name,
+						    kCFStringEncodingASCII);
 	}
 	count = CFDictionaryGetCount(service_info);
 	if (count > KEYS_STATIC_COUNT) {
@@ -467,6 +478,17 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 			/* no signature */
 			continue;
 		}
+		if (if_name_cf != NULL) {
+			CFStringRef		this_if;
+
+			this_if = CFDictionaryGetValue(value,
+						       kSCPropInterfaceName);
+			if (isA_CFString(this_if) != NULL
+			    && !CFEqual(this_if, if_name_cf)) {
+				/* interface name doesn't match */
+				continue;
+			}
+		}
 		addrs = CFDictionaryGetValue(value, addresses_key);
 		if (isA_CFArray(addrs) == NULL) {
 			continue;
@@ -480,6 +502,12 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 	}
 
  done:
+	if (info != NULL) {
+		freeconninfo(info);
+	}
+	if (if_name_cf != NULL) {
+		CFRelease(if_name_cf);
+	}
 	if (local_ip_str != NULL) {
 		CFRelease(local_ip_str);
 	}

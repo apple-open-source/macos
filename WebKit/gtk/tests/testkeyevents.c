@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "autotoolsconfig.h"
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
@@ -24,9 +25,6 @@
 #include <webkit/webkit.h>
 #include <JavaScriptCore/JSStringRef.h>
 #include <JavaScriptCore/JSContextRef.h>
-
-
-#if GTK_CHECK_VERSION(2, 14, 0)
 
 typedef struct {
     char* page;
@@ -250,7 +248,7 @@ static void test_blocking(KeyEventFixture* fixture, gconstpointer data)
     setup_keyevent_test(fixture, data, G_CALLBACK(test_blocking_load_status_cb));
 }
 
-#if defined(GDK_WINDOWING_X11) && GTK_CHECK_VERSION(2, 16, 0)
+#if defined(GDK_WINDOWING_X11)
 static void test_xim_load_status_cb(WebKitWebView* webView, GParamSpec* spec, gpointer data)
 {
     KeyEventFixture* fixture = (KeyEventFixture*)data;
@@ -374,7 +372,7 @@ int main(int argc, char** argv)
                key_event_fixture_setup,
                test_blocking,
                key_event_fixture_teardown);
-#if defined(GDK_WINDOWING_X11) && GTK_CHECK_VERSION(2, 16, 0)
+#if defined(GDK_WINDOWING_X11)
     g_test_add("/webkit/keyevent/xim-textinput", KeyEventFixture,
                test_info_new(textinput_html, TRUE),
                key_event_fixture_setup,
@@ -390,12 +388,3 @@ int main(int argc, char** argv)
     return g_test_run();
 }
 
-#else
-
-int main(int argc, char** argv)
-{
-    g_critical("You will need at least GTK+ 2.14.0 to run the unit tests.");
-    return 0;
-}
-
-#endif

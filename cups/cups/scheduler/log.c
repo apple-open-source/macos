@@ -1,9 +1,9 @@
 /*
- * "$Id: log.c 7918 2008-09-08 22:03:01Z mike $"
+ * "$Id: log.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Log file routines for the CUPS scheduler.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -214,7 +214,7 @@ cupsdCheckLogFile(cups_file_t **lf,	/* IO - Log file */
 
     cupsFileClose(*lf);
 
-    strcpy(backname, filename);
+    strlcpy(backname, filename, sizeof(backname));
     strlcat(backname, ".O", sizeof(backname));
 
     unlink(backname);
@@ -501,7 +501,7 @@ cupsdLogJob(cupsd_job_t *job,		/* I - Job */
       if ((temp = malloc(sizeof(cupsd_joblog_t) + strlen(log_line))) != NULL)
       {
         temp->time = time(NULL);
-	strcpy(temp->message, log_line);
+	strlcpy(temp->message, log_line, sizeof(temp->message));
       }
 
       if (!job->history)
@@ -623,7 +623,7 @@ cupsdLogPage(cupsd_job_t *job,		/* I - Job being printed */
   if (!PageLogFormat)
     return (1);
 
-  strcpy(number, "1");
+  strlcpy(number, "1", sizeof(number));
   copies = 1;
   sscanf(page, "%255s%d", number, &copies);
 
@@ -1103,5 +1103,5 @@ format_log_line(const char *message,	/* I - Printf-style format string */
 
 
 /*
- * End of "$Id: log.c 7918 2008-09-08 22:03:01Z mike $".
+ * End of "$Id: log.c 11093 2013-07-03 20:48:42Z msweet $".
  */

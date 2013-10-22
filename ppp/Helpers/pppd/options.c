@@ -668,7 +668,7 @@ err:
  */
 static int
 match_option(name, opt, dowild)
-    char *name;
+    const char *name;
     option_t *opt;
     int dowild;
 {
@@ -679,7 +679,7 @@ match_option(name, opt, dowild)
 	if (!dowild)
 		return strcmp(name, opt->name) == 0;
 	match = (int (*) __P((char *, char **, int))) opt->addr;
-	return (*match)(name, NULL, 0);
+	return (*match)((char *)name, NULL, 0);
 }
 
 /*

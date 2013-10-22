@@ -79,7 +79,7 @@ const UInt8 *SecCertificateGetBytePtrP(SecCertificateRefP certificate);
 #pragma mark -
 #pragma mark Certificate Accessors
 
-CFDataRef SecCertificateGetSHA1Digest(SecCertificateRefP certificate);
+CFDataRef SecCertificateGetSHA1DigestP(SecCertificateRefP certificate);
 
 CFDataRef SecCertificateCopyIssuerSHA1Digest(SecCertificateRefP certificate);
 
@@ -148,8 +148,9 @@ CFStringRef SecCertificateCopyCompanyName(SecCertificateRefP certificate);
 
 /* X.509 Certificate Version: 1, 2 or 3. */
 CFIndex SecCertificateVersion(SecCertificateRefP certificate);
-CFAbsoluteTime SecCertificateNotValidBefore(SecCertificateRefP certificate);
-CFAbsoluteTime SecCertificateNotValidAfter(SecCertificateRefP certificate);
+
+CFAbsoluteTime SecCertificateNotValidBeforeP(SecCertificateRefP certificate);
+CFAbsoluteTime SecCertificateNotValidAfterP(SecCertificateRefP certificate);
 
 /* Return true iff certificate is self signed and has a basic constraints
    extension indicating that it's a certificate authority. */
@@ -173,8 +174,8 @@ CFArrayRef SecCertificateDataArrayCopyArray(CFArrayRef certificates);
 CFDataRef SecCertificateGetNormalizedIssuerContent(SecCertificateRefP certificate);
 CFDataRef SecCertificateGetNormalizedSubjectContent(SecCertificateRefP certificate);
 
-CFDataRef SecCertificateGetNormalizedIssuer(SecCertificateRefP certificate);
-CFDataRef SecCertificateGetNormalizedSubject(SecCertificateRefP certificate);
+CFDataRef SecCertificateCopyNormalizedIssuerSequence(SecCertificateRefP certificate);
+CFDataRef SecCertificateCopyNormalizedSubjectSequence(SecCertificateRefP certificate);
 
 #if defined(__cplusplus)
 }

@@ -99,7 +99,7 @@ public:
 
 	Range dataRange(const ReadSection &inReadSection) const
 	{
-        return Range(OffsetAttributeOffsets + mAttributeVector.size() * AtomSize,
+        return Range((uint32)(OffsetAttributeOffsets + mAttributeVector.size() * AtomSize),
 					 inReadSection[OffsetDataSize]);
 	}
 

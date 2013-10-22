@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/az.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/az.xml
 // *
 // ***************************************************************************
 /**
  *  ICU <specials> source: <path>/xml/main/az.xml
  */
 az{
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     zoneStrings{
         "Africa:Ceuta"{
             ec{"Seuta"}
@@ -475,39 +475,29 @@ az{
             ec{"veyk"}
         }
         "meta:Europe_Central"{
-            ld{"Orta Avropa/yay"}
-            lg{"Orta Avropa"}
-            ls{"Orta Avropa"}
+            ld{"Orta Avropa yay vaxtı"}
+            lg{"Orta Avropa vaxtı"}
+            ls{"Orta Avropa standart vaxtı"}
         }
         "meta:Europe_Eastern"{
-            ld{"Şərq Avropa/yay"}
-            lg{"Şərq Avropa"}
-            ls{"Şərq Avropa"}
-        }
-        "meta:Kuybyshev"{
-            ld{"Kuybuşev/yay"}
-            lg{"Kuybuşev"}
-            ls{"Kuybuşev"}
+            ld{"Şərq Avropa yay vaxtı"}
+            lg{"Şərq Avropa vaxtı"}
+            ls{"Şərq Avropa standart vaxtı"}
         }
         "meta:Moscow"{
-            ld{"Moskva/yay"}
-            lg{"Moskva"}
-            ls{"Moskva/standart"}
+            ld{"Moskva yay vaxtı"}
+            lg{"Moskva vaxtı"}
+            ls{"Moskva standart vaxtı"}
         }
         "meta:Samara"{
-            ld{"Samara/yay"}
-            lg{"Samara"}
-            ls{"Samara"}
-        }
-        "meta:Turkey"{
-            ld{"Türkiya/yay"}
-            lg{"Türkiya"}
-            ls{"Türkiya"}
+            ld{"Samara yay vaxtı"}
+            lg{"Samara vaxtı"}
+            ls{"Samara standart vaxtı"}
         }
         "meta:Volgograd"{
-            ld{"Volqoqrad/yay"}
-            lg{"Volqoqrad"}
-            ls{"Volqoqrad"}
+            ld{"Volqoqrad yay vaxtı"}
+            lg{"Volqoqrad vaxtı"}
+            ls{"Volqoqrad standart vaxtı"}
         }
     }
 }

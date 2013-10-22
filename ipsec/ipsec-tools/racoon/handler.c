@@ -49,6 +49,7 @@
 #include "plog.h"
 #include "sockmisc.h"
 #include "debug.h"
+#include "fsm.h"
 
 #ifdef ENABLE_HYBRID
 #include <resolv.h>
@@ -61,7 +62,6 @@
 #include "policy.h"
 #include "proposal.h"
 #include "isakmp_var.h"
-#include "evt.h"
 #include "isakmp.h"
 #ifdef ENABLE_HYBRID
 #include "isakmp_xauth.h"  
@@ -75,22 +75,20 @@
 #include "gcmalloc.h"
 #include "nattraversal.h"
 #include "ike_session.h"
+#include "isakmp_frag.h"
 
 #include "sainfo.h"
 
-#ifdef HAVE_GSSAPI
-#include "gssapi.h"
-#endif
 #include "power_mgmt.h"
 
-static LIST_HEAD(_ph1tree_, ph1handle) ph1tree;
-static LIST_HEAD(_ph2tree_, ph2handle) ph2tree;
+
+extern LIST_HEAD(_ike_session_tree_, ike_session) ike_session_tree;
 static LIST_HEAD(_ctdtree_, contacted) ctdtree;
 static LIST_HEAD(_rcptree_, recvdpkt) rcptree;
 
-static void del_recvdpkt __P((struct recvdpkt *));
-static void rem_recvdpkt __P((struct recvdpkt *));
-static void sweep_recvdpkt __P((void *));
+static void ike_session_del_recvdpkt (struct recvdpkt *);
+static void ike_session_rem_recvdpkt (struct recvdpkt *);
+static void sweep_recvdpkt (void *);
 
 /*
  * functions about management of the isakmp status table
@@ -100,40 +98,72 @@ static void sweep_recvdpkt __P((void *));
  * search for isakmpsa handler with isakmp index.
  */
 
-extern caddr_t val2str(const char *, size_t);
+extern caddr_t val2str (const char *, size_t);
 
-struct ph1handle *
-getph1byindex(index)
-	isakmp_index *index;
+static phase1_handle_t *
+getph1byindex(ike_session_t *session, isakmp_index *index)
 {
-	struct ph1handle *p;
-
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->status == PHASE1ST_EXPIRED)
+	phase1_handle_t *p = NULL;
+	
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (FSM_STATE_IS_EXPIRED(p->status))
 			continue;
 		if (memcmp(&p->index, index, sizeof(*index)) == 0)
 			return p;
 	}
-
+    
 	return NULL;
 }
+
+phase1_handle_t *
+ike_session_getph1byindex(ike_session_t *session, isakmp_index *index)
+{
+    phase1_handle_t *p;
+    ike_session_t   *cur_session = NULL;
+
+    if (session)
+        return getph1byindex(session, index);
+
+    LIST_FOREACH(cur_session, &ike_session_tree, chain) {
+        if ((p = getph1byindex(cur_session, index)) != NULL)
+            return p;
+    }
+    return NULL;
+}
+
 
 /*
  * search for isakmp handler by i_ck in index.
  */
-struct ph1handle *
-getph1byindex0(index)
-	isakmp_index *index;
+
+static phase1_handle_t *
+getph1byindex0 (ike_session_t *session, isakmp_index *index)
 {
-	struct ph1handle *p;
+    phase1_handle_t *p = NULL;
+    
+    LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+        if (FSM_STATE_IS_EXPIRED(p->status))
+            continue;
+        if (memcmp(&p->index.i_ck, &index->i_ck, sizeof(cookie_t)) == 0)
+            return p;   
+    }
+    return NULL;
+}
 
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->status == PHASE1ST_EXPIRED)
-			continue;
-		if (memcmp(&p->index, index, sizeof(cookie_t)) == 0)
-			return p;
+phase1_handle_t *
+ike_session_getph1byindex0(ike_session_t *session, isakmp_index *index)
+{
+    phase1_handle_t *p = NULL;
+    ike_session_t   *cur_session = NULL;
+    
+    if (session)
+        return getph1byindex0(session, index);
+    
+    LIST_FOREACH(cur_session, &ike_session_tree, chain) {
+        if ((p = getph1byindex0(cur_session, index)) != NULL)
+            return p;
 	}
-
+    
 	return NULL;
 }
 
@@ -142,47 +172,62 @@ getph1byindex0(index)
  * don't use port number to search because this function search
  * with phase 2's destinaion.
  */
-struct ph1handle *
-getph1byaddr(local, remote)
-	struct sockaddr_storage *local, *remote;
+phase1_handle_t *
+ike_session_getph1byaddr(ike_session_t *session, struct sockaddr_storage *local, struct sockaddr_storage *remote)
 {
-	struct ph1handle *p;
-
-	plog(LLV_DEBUG2, LOCATION, NULL, "getph1byaddr: start\n");
-	plog(LLV_DEBUG2, LOCATION, NULL, "local: %s\n", saddr2str((struct sockaddr *)local));
-	plog(LLV_DEBUG2, LOCATION, NULL, "remote: %s\n", saddr2str((struct sockaddr *)remote));
-
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->status == PHASE1ST_EXPIRED)
+    phase1_handle_t *p = NULL;
+    
+	plog(ASL_LEVEL_DEBUG, "getph1byaddr: start\n");
+	plog(ASL_LEVEL_DEBUG, "local: %s\n", saddr2str((struct sockaddr *)local));
+	plog(ASL_LEVEL_DEBUG, "remote: %s\n", saddr2str((struct sockaddr *)remote));
+    
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (FSM_STATE_IS_EXPIRED(p->status))
 			continue;
-		plog(LLV_DEBUG2, LOCATION, NULL, "p->local: %s\n", saddr2str((struct sockaddr *)p->local));
-		plog(LLV_DEBUG2, LOCATION, NULL, "p->remote: %s\n", saddr2str((struct sockaddr *)p->remote));
+		plog(ASL_LEVEL_DEBUG, "p->local: %s\n", saddr2str((struct sockaddr *)p->local));
+		plog(ASL_LEVEL_DEBUG, "p->remote: %s\n", saddr2str((struct sockaddr *)p->remote));
 		if (CMPSADDR(local, p->local) == 0
 			&& CMPSADDR(remote, p->remote) == 0){
-			plog(LLV_DEBUG2, LOCATION, NULL, "matched\n");
+			plog(ASL_LEVEL_DEBUG, "matched\n");
 			return p;
 		}
 	}
-
-	plog(LLV_DEBUG2, LOCATION, NULL, "no match\n");
-
+    
+	plog(ASL_LEVEL_DEBUG, "no match\n");
+    
 	return NULL;
 }
 
-struct ph1handle *
-getph1byaddrwop(local, remote)
-	struct sockaddr_storage *local, *remote;
+static phase1_handle_t *
+sgetph1byaddrwop(ike_session_t *session, struct sockaddr_storage *local, struct sockaddr_storage *remote)
 {
-	struct ph1handle *p;
-
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->status == PHASE1ST_EXPIRED)
+    phase1_handle_t *p = NULL;
+    
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (FSM_STATE_IS_EXPIRED(p->status))
 			continue;
 		if (cmpsaddrwop(local, p->local) == 0
-		 && cmpsaddrwop(remote, p->remote) == 0)
+            && cmpsaddrwop(remote, p->remote) == 0)
 			return p;
 	}
+    
+	return NULL;
+}
 
+phase1_handle_t *
+ike_session_getph1byaddrwop(ike_session_t *session, struct sockaddr_storage *local, struct sockaddr_storage *remote)
+{
+	phase1_handle_t *p;
+    ike_session_t   *cur_session = NULL;
+    
+    if (session)
+        return sgetph1byaddrwop(session, local, remote);
+    
+    LIST_FOREACH(cur_session, &ike_session_tree, chain) {
+        if ((p = sgetph1byaddrwop(cur_session, local, remote)) != NULL)
+            return p;
+	}
+    
 	return NULL;
 }
 
@@ -191,30 +236,45 @@ getph1byaddrwop(local, remote)
  * don't use port number to search because this function search
  * with phase 2's destinaion.
  */
-struct ph1handle *
-getph1bydstaddrwop(remote)
-	struct sockaddr_storage *remote;
+phase1_handle_t *
+sike_session_getph1bydstaddrwop(ike_session_t *session, struct sockaddr_storage *remote)
 {
-	struct ph1handle *p;
+	phase1_handle_t *p = NULL;
+           
+    LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+        if (FSM_STATE_IS_EXPIRED(p->status))
+            continue;
+        if (cmpsaddrwop(remote, p->remote) == 0)
+            return p;
+    }
+    
+    return NULL;
+}
 
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->status == PHASE1ST_EXPIRED)
-			continue;
-		if (cmpsaddrwop(remote, p->remote) == 0)
-			return p;
-	}
-
-	return NULL;
+phase1_handle_t *
+ike_session_getph1bydstaddrwop(ike_session_t *session, struct sockaddr_storage *remote)
+{
+	phase1_handle_t *p;
+    ike_session_t   *cur_session = NULL;
+    
+    if (session)
+        return sike_session_getph1bydstaddrwop(session, remote);
+    else {
+        LIST_FOREACH(cur_session, &ike_session_tree, chain) {
+            if ((p = sike_session_getph1bydstaddrwop(cur_session, remote)) != NULL)
+                return p;
+        }
+    }
+    return NULL;
 }
 
 int
-islast_ph1(ph1) 
-	struct ph1handle *ph1;
+ike_session_islast_ph1(phase1_handle_t *ph1) 
 {
-	struct ph1handle *p;
-
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->is_dying || p->status == PHASE1ST_EXPIRED)
+    phase1_handle_t *p = NULL;
+    
+    LIST_FOREACH(p, &ph1->parent_session->ph1tree, ph1ofsession_chain) {
+		if (p->is_dying || FSM_STATE_IS_EXPIRED(p->status))
 			continue;
 		if (CMPSADDR(ph1->remote, p->remote) == 0) {
 			if (p == ph1)
@@ -226,58 +286,18 @@ islast_ph1(ph1)
 }
 
 /*
- * dump isakmp-sa
- */
-vchar_t *
-dumpph1()
-{
-	struct ph1handle *iph1;
-	struct ph1dump *pd;
-	int cnt = 0;
-	vchar_t *buf;
-
-	/* get length of buffer */
-	LIST_FOREACH(iph1, &ph1tree, chain)
-		cnt++;
-
-	buf = vmalloc(cnt * sizeof(struct ph1dump));
-	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get buffer\n");
-		return NULL;
-	}
-	pd = ALIGNED_CAST(struct ph1dump *)buf->v;
-
-	LIST_FOREACH(iph1, &ph1tree, chain) {
-		memcpy(&pd->index, &iph1->index, sizeof(iph1->index));
-		pd->status = iph1->status;
-		pd->side = iph1->side;
-		memcpy(&pd->remote, iph1->remote, sysdep_sa_len((struct sockaddr *)iph1->remote));
-		memcpy(&pd->local, iph1->local, sysdep_sa_len((struct sockaddr *)iph1->local));
-		pd->version = iph1->version;
-		pd->etype = iph1->etype;
-		pd->created = iph1->created;
-		pd->ph2cnt = iph1->ph2cnt;
-		pd++;
-	}
-
-	return buf;
-}
-
-/*
  * create new isakmp Phase 1 status record to handle isakmp in Phase1
  */
-struct ph1handle *
-newph1()
+phase1_handle_t *
+ike_session_newph1(unsigned int version)
 {
-	struct ph1handle *iph1;
-
+	phase1_handle_t *iph1;
+    
 	/* create new iph1 */
 	iph1 = racoon_calloc(1, sizeof(*iph1));
 	if (iph1 == NULL)
 		return NULL;
-
-	iph1->status = PHASE1ST_SPAWN;
+	iph1->version = version;
 
 #ifdef ENABLE_DPD
 	iph1->dpd_support = 0;
@@ -291,6 +311,7 @@ newph1()
 	iph1->ping_sched = NULL;
 #endif
 	iph1->is_dying = 0;
+    plog(ASL_LEVEL_DEBUG, "*** New Phase 1\n");
 	return iph1;
 }
 
@@ -298,39 +319,33 @@ newph1()
  * delete new isakmp Phase 1 status record to handle isakmp in Phase1
  */
 void
-delph1(iph1)
-	struct ph1handle *iph1;
+ike_session_delph1(phase1_handle_t *iph1)
 {
 	if (iph1 == NULL)
 		return;
-
-	/* SA down shell script hook */
-	script_hook(iph1, SCRIPT_PHASE1_DOWN);
-
-	EVT_PUSH(iph1->local, iph1->remote, EVTT_PHASE1_DOWN, NULL);
-
+    
 #ifdef ENABLE_NATT
 	if (iph1->natt_options) {
 		racoon_free(iph1->natt_options);
 		iph1->natt_options = NULL;
 	}
 #endif
-
+    
 #ifdef ENABLE_HYBRID
 	if (iph1->mode_cfg)
 		isakmp_cfg_rmstate(iph1);
 	VPTRINIT(iph1->xauth_awaiting_userinput_msg);
 #endif
-
+    
 #ifdef ENABLE_DPD
-	if (iph1->dpd_r_u != NULL)
+	if (iph1->dpd_r_u)
 		SCHED_KILL(iph1->dpd_r_u);
 #endif
 #ifdef ENABLE_VPNCONTROL_PORT
-	if (iph1->ping_sched != NULL)
+	if (iph1->ping_sched)
 		SCHED_KILL(iph1->ping_sched);
 #endif
-
+    
 	if (iph1->remote) {
 		racoon_free(iph1->remote);
 		iph1->remote = NULL;
@@ -339,21 +354,22 @@ delph1(iph1)
 		racoon_free(iph1->local);
 		iph1->local = NULL;
 	}
-
+    
 	if (iph1->approval) {
 		delisakmpsa(iph1->approval);
 		iph1->approval = NULL;
 	}
-
-	VPTRINIT(iph1->authstr);
-
+    
 	sched_scrub_param(iph1);
-	iph1->sce = NULL;
-	iph1->sce_rekey = NULL;
-	iph1->scr = NULL;
-
+    if (iph1->sce)
+        SCHED_KILL(iph1->sce);
+    if (iph1->sce_rekey)
+        SCHED_KILL(iph1->sce_rekey);
+    if (iph1->scr)
+        SCHED_KILL(iph1->scr);
+    
 	VPTRINIT(iph1->sendbuf);
-
+    
 	VPTRINIT(iph1->dhpriv);
 	VPTRINIT(iph1->dhpub);
 	VPTRINIT(iph1->dhpub_p);
@@ -363,8 +379,13 @@ delph1(iph1)
 	VPTRINIT(iph1->skeyid);
 	VPTRINIT(iph1->skeyid_d);
 	VPTRINIT(iph1->skeyid_a);
+	VPTRINIT(iph1->skeyid_a_p);
 	VPTRINIT(iph1->skeyid_e);
+    VPTRINIT(iph1->skeyid_e_p);
+    VPTRINIT(iph1->skeyid_p);
+    VPTRINIT(iph1->skeyid_p_p);
 	VPTRINIT(iph1->key);
+    VPTRINIT(iph1->key_p);
 	VPTRINIT(iph1->hash);
 	VPTRINIT(iph1->sig);
 	VPTRINIT(iph1->sig_p);
@@ -378,266 +399,303 @@ delph1(iph1)
 	iph1->cr_p = NULL;
 	VPTRINIT(iph1->id);
 	VPTRINIT(iph1->id_p);
-
+    
 	if(iph1->approval != NULL)
 		delisakmpsa(iph1->approval);
-
+    
 	if (iph1->ivm) {
 		oakley_delivm(iph1->ivm);
 		iph1->ivm = NULL;
 	}
-
+    
 	VPTRINIT(iph1->sa);
 	VPTRINIT(iph1->sa_ret);
-
-#ifdef HAVE_GSSAPI
-	VPTRINIT(iph1->gi_i);
-	VPTRINIT(iph1->gi_r);
-
-	gssapi_free_state(iph1);
-#endif
-
-	if (iph1->parent_session) {
-		ike_session_unlink_ph1_from_session(iph1);
-	}
+    
 	if (iph1->rmconf) {
-		unlink_rmconf_from_ph1(iph1->rmconf);
+		release_rmconf(iph1->rmconf);
 		iph1->rmconf = NULL;
 	}
-	
+    
 	racoon_free(iph1);
 }
 
-/*
- * create new isakmp Phase 1 status record to handle isakmp in Phase1
- */
-int
-insph1(iph1)
-	struct ph1handle *iph1;
-{
-	/* validity check */
-	if (iph1->remote == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid isakmp SA handler. no remote address.\n");
-		return -1;
-	}
-	LIST_INSERT_HEAD(&ph1tree, iph1, chain);
-
-	return 0;
-}
-
 void
-remph1(iph1)
-	struct ph1handle *iph1;
+ike_session_flush_all_phase1_for_session(ike_session_t *session, int ignore_estab_or_assert_handles)
 {
-	LIST_REMOVE(iph1, chain);
+	phase1_handle_t *p, *next;
+		
+    LIST_FOREACH_SAFE(p, &session->ph1tree, ph1ofsession_chain, next) {
+        if (ignore_estab_or_assert_handles && p->parent_session && !p->parent_session->stopped_by_vpn_controller && p->parent_session->is_asserted) {
+            plog(ASL_LEVEL_DEBUG,
+                 "Skipping Phase 1 %s that's asserted...\n",
+                 isakmp_pindex(&p->index, 0));
+            continue;
+        }
+        
+        /* send delete information */
+        if (FSM_STATE_IS_ESTABLISHED(p->status)) {
+            if (ignore_estab_or_assert_handles &&
+                (ike_session_has_negoing_ph2(p->parent_session) || ike_session_has_established_ph2(p->parent_session))) {
+                plog(ASL_LEVEL_DEBUG,
+                     "Skipping Phase 1 %s that's established... because it's needed by children Phase 2s\n",
+                     isakmp_pindex(&p->index, 0));
+                continue;
+            }
+            /* send delete information */
+            plog(ASL_LEVEL_DEBUG,
+                 "Got a Phase 1 %s to flush...\n",
+                 isakmp_pindex(&p->index, 0));
+            isakmp_info_send_d1(p);
+        }
+        
+        ike_session_stopped_by_controller(p->parent_session,
+                                          ike_session_stopped_by_flush);
+        
+        ike_session_unlink_phase1(p);
+    }
 }
 
 /*
  * flush isakmp-sa
  */
 void
-flushph1(int ignore_estab_or_assert_handles)
+ike_session_flush_all_phase1(int ignore_estab_or_assert_handles)
 {
-	struct ph1handle *p, *next;
+    ike_session_t *session = NULL;
+    ike_session_t *next_session = NULL;
 	
-	plog(LLV_DEBUG2, LOCATION, NULL,
-		 "flushing ph1 handles: ignore_estab_or_assert %d...\n", ignore_estab_or_assert_handles);
-
-	for (p = LIST_FIRST(&ph1tree); p; p = next) {
-		next = LIST_NEXT(p, chain);
-
-		if (ignore_estab_or_assert_handles && p->parent_session && !p->parent_session->stopped_by_vpn_controller && p->parent_session->is_asserted) {
-			plog(LLV_DEBUG2, LOCATION, NULL,
-				 "skipping phase1 %s that's asserted...\n",
-				 isakmp_pindex(&p->index, 0));
-			continue;
-		}
-
-		/* send delete information */
-		if (p->status == PHASE1ST_ESTABLISHED) {
-			if (ignore_estab_or_assert_handles &&
-			    ike_session_has_negoing_ph2(p->parent_session)) {
-				plog(LLV_DEBUG2, LOCATION, NULL,
-					 "skipping phase1 %s that's established... because it's needed by children phase2s\n",
-					 isakmp_pindex(&p->index, 0));
-			    continue;
-		    }
-			/* send delete information */
-			plog(LLV_DEBUG2, LOCATION, NULL,
-				 "got a phase1 %s to flush...\n",
-				 isakmp_pindex(&p->index, 0));
-			isakmp_info_send_d1(p);
-		}
-
-		ike_session_stopped_by_controller(p->parent_session,
-										  ike_session_stopped_by_flush);
-		remph1(p);
-		delph1(p);
-	}
+	plog(ASL_LEVEL_DEBUG,
+		 "Flushing Phase 1 handles: ignore_estab_or_assert %d...\n", ignore_estab_or_assert_handles);
+    
+    LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
+        ike_session_flush_all_phase1_for_session(session, ignore_estab_or_assert_handles);
+    }
 }
 
-void
-initph1tree()
-{
-	LIST_INIT(&ph1tree);
-}
 
-/* %%% management phase 2 handler */
+
 /*
  * search ph2handle with policy id.
  */
-struct ph2handle *
-getph2byspid(spid)
-      u_int32_t spid;
+phase2_handle_t *
+ike_session_getph2byspid(u_int32_t spid)
 {
-	struct ph2handle *p;
-
-	LIST_FOREACH(p, &ph2tree, chain) {
-		/*
-		 * there are ph2handle independent on policy
-		 * such like informational exchange.
-		 */
-		if (p->spid == spid)
-			return p;
-	}
-
+    ike_session_t *session = NULL;
+    phase2_handle_t *p;
+    
+    LIST_FOREACH(session, &ike_session_tree, chain) {
+        LIST_FOREACH(p, &session->ph2tree, ph2ofsession_chain) {
+            /*
+             * there are ph2handle independent on policy
+             * such like informational exchange.
+             */
+            if (p->spid == spid)
+                return p;
+        }
+    }
+    
 	return NULL;
 }
 
+
 /*
  * search ph2handle with sequence number.
+ * Used by PF_KEY functions to locate the phase2
  */
-struct ph2handle *
-getph2byseq(seq)
-	u_int32_t seq;
+phase2_handle_t *
+ike_session_getph2byseq(u_int32_t seq)
 {
-	struct ph2handle *p;
-
-	LIST_FOREACH(p, &ph2tree, chain) {
-		if (p->seq == seq)
-			return p;
-	}
-
+    ike_session_t *session;
+	phase2_handle_t *p;
+    
+    LIST_FOREACH(session, &ike_session_tree, chain) {
+        LIST_FOREACH(p, &session->ph2tree, ph2ofsession_chain) {
+            if (p->seq == seq)
+                return p;
+        }
+    }
 	return NULL;
 }
 
 /*
  * search ph2handle with message id.
  */
-struct ph2handle *
-getph2bymsgid(iph1, msgid)
-	struct ph1handle *iph1;
-	u_int32_t msgid;
+phase2_handle_t *
+ike_session_getph2bymsgid(phase1_handle_t *iph1, u_int32_t msgid)
 {
-	struct ph2handle *p;
-
-	LIST_FOREACH(p, &ph2tree, chain) {
+	phase2_handle_t *p;
+    
+	LIST_FOREACH(p, &iph1->parent_session->ph2tree, ph2ofsession_chain) {
 		if (p->msgid == msgid)
 			return p;
 	}
-
+    
 	return NULL;
 }
 
-struct ph2handle *
-getph2byid(src, dst, spid)
-	struct sockaddr_storage *src, *dst;
-	u_int32_t spid;
+phase2_handle_t *
+ike_session_getonlyph2(phase1_handle_t *iph1)
 {
-	struct ph2handle *p;
-
-	LIST_FOREACH(p, &ph2tree, chain) {
-		if (spid == p->spid &&
-		    CMPSADDR(src, p->src) == 0 &&
-		    CMPSADDR(dst, p->dst) == 0){
-			/* Sanity check to detect zombie handlers
-			 * XXX Sould be done "somewhere" more interesting,
-			 * because we have lots of getph2byxxxx(), but this one
-			 * is called by pk_recvacquire(), so is the most important.
-			 */
-			if(p->status < PHASE2ST_ESTABLISHED &&
-			   p->retry_counter == 0
-			   && p->sce == NULL && p->scr == NULL){
-				plog(LLV_DEBUG, LOCATION, NULL,
-					 "Zombie ph2 found, expiring it\n");
-				isakmp_ph2expire(p);
-			}else
-				return p;
-		}
+    phase2_handle_t *only_ph2 = NULL;
+	phase2_handle_t *p = NULL;
+    
+	LIST_FOREACH(p, &iph1->bound_ph2tree, ph2ofsession_chain) {
+		if (only_ph2) return NULL;
+        only_ph2 = p;
 	}
-
-	return NULL;
+    
+	return only_ph2;
 }
 
-struct ph2handle *
-getph2bysaddr(src, dst)
-	struct sockaddr_storage *src, *dst;
+phase2_handle_t *
+ike_session_getph2byid(struct sockaddr_storage *src, struct sockaddr_storage *dst, u_int32_t spid)
 {
-	struct ph2handle *p;
-
-	LIST_FOREACH(p, &ph2tree, chain) {
-		if (cmpsaddrstrict(src, p->src) == 0 &&
-		    cmpsaddrstrict(dst, p->dst) == 0)
-			return p;
-	}
-
+    ike_session_t *session = NULL;
+    ike_session_t *next_session = NULL;
+    phase2_handle_t *p;
+    phase2_handle_t *next_iph2;
+    
+    LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
+        LIST_FOREACH_SAFE(p, &session->ph2tree, ph2ofsession_chain, next_iph2) {
+            if (spid == p->spid &&
+                CMPSADDR(src, p->src) == 0 &&
+                CMPSADDR(dst, p->dst) == 0){
+                /* Sanity check to detect zombie handlers
+                 * XXX Sould be done "somewhere" more interesting,
+                 * because we have lots of getph2byxxxx(), but this one
+                 * is called by pk_recvacquire(), so is the most important.
+                 */
+                if(!FSM_STATE_IS_ESTABLISHED_OR_EXPIRED(p->status) &&
+                   p->retry_counter == 0
+                   && p->sce == 0 && p->scr == 0 &&
+                   p->retry_checkph1 == 0){
+                    plog(ASL_LEVEL_DEBUG,
+                         "Zombie ph2 found, expiring it\n");
+                    isakmp_ph2expire(p);
+                }else
+                    return p;
+            }
+        }
+    }
+    
 	return NULL;
 }
+
+#ifdef NOT_USED
+phase2_handle_t *
+ike_session_getph2bysaddr(struct sockaddr_storage *src, struct sockaddr_storage *dst)
+{
+    ike_session_t *session;
+	phase2_handle_t *p;
+    
+    LIST_FOREACH(session, &ike_session_tree, chain) {
+        LIST_FOREACH(p, &session->ph2tree, chain) {
+            if (cmpsaddrstrict(src, p->src) == 0 &&
+                cmpsaddrstrict(dst, p->dst) == 0)
+                return p;
+        }
+    }
+    
+	return NULL;
+}
+#endif /* NOT_USED */
 
 /*
  * call by pk_recvexpire().
  */
-struct ph2handle *
-getph2bysaidx(src, dst, proto_id, spi)
-	struct sockaddr_storage *src, *dst;
-	u_int proto_id;
-	u_int32_t spi;
+phase2_handle_t *
+ike_session_getph2bysaidx(struct sockaddr_storage *src, struct sockaddr_storage *dst, u_int proto_id, u_int32_t spi)
 {
-	struct ph2handle *iph2;
+    ike_session_t *session;
+	phase2_handle_t *iph2;
 	struct saproto *pr;
+    
+    LIST_FOREACH(session, &ike_session_tree, chain) {
+        LIST_FOREACH(iph2, &session->ph2tree, ph2ofsession_chain) {
+            if (iph2->proposal == NULL && iph2->approval == NULL)
+                continue;
+            if (iph2->approval != NULL) {
+                for (pr = iph2->approval->head; pr != NULL;
+                     pr = pr->next) {
+                    if (proto_id != pr->proto_id)
+                        break;
+                    if (spi == pr->spi || spi == pr->spi_p)
+                        return iph2;
+                }
+            } else if (iph2->proposal != NULL) {
+                for (pr = iph2->proposal->head; pr != NULL;
+                     pr = pr->next) {
+                    if (proto_id != pr->proto_id)
+                        break;
+                    if (spi == pr->spi)
+                        return iph2;
+                }
+            }
+        }
+    }
+    
+	return NULL;
+}
 
-	LIST_FOREACH(iph2, &ph2tree, chain) {
-		if (iph2->proposal == NULL && iph2->approval == NULL)
-			continue;
-		if (iph2->approval != NULL) {
-			for (pr = iph2->approval->head; pr != NULL;
-			     pr = pr->next) {
-				if (proto_id != pr->proto_id)
-					break;
-				if (spi == pr->spi || spi == pr->spi_p)
-					return iph2;
-			}
-		} else if (iph2->proposal != NULL) {
-			for (pr = iph2->proposal->head; pr != NULL;
-			     pr = pr->next) {
-				if (proto_id != pr->proto_id)
-					break;
-				if (spi == pr->spi)
-					return iph2;
-			}
-		}
-	}
-
+phase2_handle_t *
+ike_session_getph2bysaidx2(struct sockaddr_storage *src, struct sockaddr_storage *dst, u_int proto_id, u_int32_t spi, u_int32_t *opposite_spi)
+{
+    ike_session_t *session;
+	phase2_handle_t *iph2;
+	struct saproto *pr;
+    
+    LIST_FOREACH(session, &ike_session_tree, chain) {
+        LIST_FOREACH(iph2, &session->ph2tree, ph2ofsession_chain) {
+            if (iph2->proposal == NULL && iph2->approval == NULL)
+                continue;
+            if (iph2->approval != NULL) {
+                for (pr = iph2->approval->head; pr != NULL;
+                     pr = pr->next) {
+                    if (proto_id != pr->proto_id)
+                        break;
+                    if (spi == pr->spi || spi == pr->spi_p) {
+						if (opposite_spi) {
+							*opposite_spi = (spi == pr->spi)? pr->spi_p : pr->spi;
+						}
+                        return iph2;
+					}
+                }
+            } else if (iph2->proposal != NULL) {
+                for (pr = iph2->proposal->head; pr != NULL;
+                     pr = pr->next) {
+                    if (proto_id != pr->proto_id)
+                        break;
+                    if (spi == pr->spi || spi == pr->spi_p) {
+						if (opposite_spi) {
+							*opposite_spi = (spi == pr->spi)? pr->spi_p : pr->spi;
+						}
+                        return iph2;
+					}
+                }
+            }
+        }
+    }
+    
 	return NULL;
 }
 
 /*
  * create new isakmp Phase 2 status record to handle isakmp in Phase2
  */
-struct ph2handle *
-newph2()
+phase2_handle_t *
+ike_session_newph2(unsigned int version, int type)
 {
-	struct ph2handle *iph2 = NULL;
-
+	phase2_handle_t *iph2 = NULL;
+    
 	/* create new iph2 */
 	iph2 = racoon_calloc(1, sizeof(*iph2));
 	if (iph2 == NULL)
 		return NULL;
-
-	iph2->status = PHASE1ST_SPAWN;
+    iph2->version = version;
+    iph2->phase2_type = type;
 	iph2->is_dying = 0;
-
+    
+    plog(ASL_LEVEL_DEBUG, "*** New Phase 2\n");
 	return iph2;
 }
 
@@ -647,41 +705,40 @@ newph2()
  *       SPI in the proposal is cleared.
  */
 void
-initph2(iph2)
-	struct ph2handle *iph2;
+ike_session_initph2(phase2_handle_t *iph2)
 {
 	sched_scrub_param(iph2);
 	iph2->sce = NULL;
 	iph2->scr = NULL;
-
+    
 	VPTRINIT(iph2->sendbuf);
 	VPTRINIT(iph2->msg1);
-
+    
 	/* clear spi, keep variables in the proposal */
 	if (iph2->proposal) {
 		struct saproto *pr;
 		for (pr = iph2->proposal->head; pr != NULL; pr = pr->next)
 			pr->spi = 0;
 	}
-
+    
 	/* clear approval */
 	if (iph2->approval) {
 		flushsaprop(iph2->approval);
 		iph2->approval = NULL;
 	}
-
+    
 	/* clear the generated policy */
 	if (iph2->spidx_gen) {
 		delsp_bothdir(iph2->spidx_gen);
 		racoon_free(iph2->spidx_gen);
 		iph2->spidx_gen = NULL;
 	}
-
+    
 	if (iph2->pfsgrp) {
 		oakley_dhgrp_free(iph2->pfsgrp);
 		iph2->pfsgrp = NULL;
 	}
-
+    
 	VPTRINIT(iph2->dhpriv);
 	VPTRINIT(iph2->dhpub);
 	VPTRINIT(iph2->dhpub_p);
@@ -692,7 +749,7 @@ initph2(iph2)
 	VPTRINIT(iph2->nonce_p);
 	VPTRINIT(iph2->sa);
 	VPTRINIT(iph2->sa_ret);
-
+    
 	if (iph2->ivm) {
 		oakley_delivm(iph2->ivm);
 		iph2->ivm = NULL;
@@ -703,11 +760,10 @@ initph2(iph2)
  * delete new isakmp Phase 2 status record to handle isakmp in Phase2
  */
 void
-delph2(iph2)
-	struct ph2handle *iph2;
+ike_session_delph2(phase2_handle_t *iph2)
 {
-	initph2(iph2);
-
+	ike_session_initph2(iph2);
+    
 	if (iph2->src) {
 		racoon_free(iph2->src);
 		iph2->src = NULL;
@@ -717,103 +773,85 @@ delph2(iph2)
 		iph2->dst = NULL;
 	}
 	if (iph2->src_id) {
-	      racoon_free(iph2->src_id);
-	      iph2->src_id = NULL;
+        racoon_free(iph2->src_id);
+        iph2->src_id = NULL;
 	}
 	if (iph2->dst_id) {
-	      racoon_free(iph2->dst_id);
-	      iph2->dst_id = NULL;
+        racoon_free(iph2->dst_id);
+        iph2->dst_id = NULL;
 	}
-
+    
 	if (iph2->proposal) {
 		flushsaprop(iph2->proposal);
 		iph2->proposal = NULL;
 	}
-
-	if (iph2->parent_session) {
-		ike_session_unlink_ph2_from_session(iph2);
-	}
+    
 	if (iph2->sainfo) {
-		unlink_sainfo_from_ph2(iph2->sainfo);
+		release_sainfo(iph2->sainfo);
 		iph2->sainfo = NULL;
 	}
-	if (iph2->ext_nat_id) {
-		vfree(iph2->ext_nat_id);
-		iph2->ext_nat_id = NULL;
-	}
-	if (iph2->ext_nat_id_p) {
-		vfree(iph2->ext_nat_id_p);
-		iph2->ext_nat_id_p = NULL;
-	}
-
+    VPTRINIT(iph2->id);
+    VPTRINIT(iph2->id_p);
+	VPTRINIT(iph2->ext_nat_id);
+	VPTRINIT(iph2->ext_nat_id_p);
+    
+    if (iph2->sce)
+        SCHED_KILL(iph2->sce);
+    if (iph2->scr)
+        SCHED_KILL(iph2->scr);
+    
+    
 	racoon_free(iph2);
 }
 
-/*
- * create new isakmp Phase 2 status record to handle isakmp in Phase2
- */
-int
-insph2(iph2)
-	struct ph2handle *iph2;
+void
+ike_session_flush_all_phase2_for_session(ike_session_t *session, int ignore_estab_or_assert_handles)
 {
-	LIST_INSERT_HEAD(&ph2tree, iph2, chain);
-
-	return 0;
+    phase2_handle_t *p = NULL;
+    phase2_handle_t *next = NULL;
+    LIST_FOREACH_SAFE(p, &session->ph2tree, ph2ofsession_chain, next) {
+        if (p->is_dying || FSM_STATE_IS_EXPIRED(p->status)) {
+            continue;
+        }
+        if (ignore_estab_or_assert_handles && p->parent_session && !p->parent_session->stopped_by_vpn_controller && p->parent_session->is_asserted) {
+            plog(ASL_LEVEL_DEBUG,
+                 "skipping phase2 handle that's asserted...\n");
+            continue;
+        }
+        if (FSM_STATE_IS_ESTABLISHED(p->status)){
+            if (ignore_estab_or_assert_handles) {
+                plog(ASL_LEVEL_DEBUG,
+                     "skipping ph2 handler that's established...\n");
+                continue;
+            }
+            /* send delete information */
+            plog(ASL_LEVEL_DEBUG,
+                 "got an established ph2 handler to flush...\n");
+            isakmp_info_send_d2(p);
+        }else{
+            plog(ASL_LEVEL_DEBUG,
+                 "got a ph2 handler to flush (state %d)\n", p->status);
+        }
+        
+        ike_session_stopped_by_controller(p->parent_session,
+                                          ike_session_stopped_by_flush);
+        delete_spd(p);
+        ike_session_unlink_phase2(p);
+    }
 }
 
 void
-remph2(iph2)
-	struct ph2handle *iph2;
+ike_session_flush_all_phase2(int ignore_estab_or_assert_handles)
 {
-	LIST_REMOVE(iph2, chain);
-}
-
-void
-initph2tree()
-{
-	LIST_INIT(&ph2tree);
-}
-
-void
-flushph2(int ignore_estab_or_assert_handles)
-{
-	struct ph2handle *p, *next;
-
-	plog(LLV_DEBUG2, LOCATION, NULL,
+    ike_session_t *session = NULL;
+    ike_session_t *next_session = NULL;
+    
+	plog(ASL_LEVEL_DEBUG,
 		 "flushing ph2 handles: ignore_estab_or_assert %d...\n", ignore_estab_or_assert_handles);
-
-	for (p = LIST_FIRST(&ph2tree); p; p = next) {
-		next = LIST_NEXT(p, chain);
-		if (p->is_dying || p->status == PHASE2ST_EXPIRED) {
-			continue;
-		}
-		if (ignore_estab_or_assert_handles && p->parent_session && !p->parent_session->stopped_by_vpn_controller && p->parent_session->is_asserted) {
-			plog(LLV_DEBUG2, LOCATION, NULL,
-				 "skipping phase2 handle that's asserted...\n");
-			continue;
-		}
-		if (p->status == PHASE2ST_ESTABLISHED){
-			if (ignore_estab_or_assert_handles) {
-				plog(LLV_DEBUG2, LOCATION, NULL,
-					 "skipping ph2 handler that's established...\n");
-			    continue;
-		    }
-			/* send delete information */
-			plog(LLV_DEBUG2, LOCATION, NULL,
-				 "got an established ph2 handler to flush...\n");
-			isakmp_info_send_d2(p);
-		}else{
-			plog(LLV_DEBUG2, LOCATION, NULL,
-				 "got a ph2 handler to flush (state %d)\n", p->status);
-		}
-		
-		ike_session_stopped_by_controller(p->parent_session,
-										  ike_session_stopped_by_flush);
-		delete_spd(p);
-		unbindph12(p);
-		remph2(p);
-		delph2(p);
-	}
+    
+    LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
+        ike_session_flush_all_phase2_for_session(session, ignore_estab_or_assert_handles);
+    }
 }
 
 /*
@@ -821,143 +859,97 @@ flushph2(int ignore_estab_or_assert_handles)
  * is used during INITIAL-CONTACT processing (so no need to
  * send a message to the peer).
  */
+//%%%%%%%%%%%%%%%%%%% make this smarter - find session using addresses ????
 void
-deleteallph2(src, dst, proto_id)
-	struct sockaddr_storage *src, *dst;
-	u_int proto_id;
+ike_session_deleteallph2(struct sockaddr_storage *src, struct sockaddr_storage *dst, u_int proto_id)
 {
-	struct ph2handle *iph2, *next;
+    ike_session_t *session = NULL;
+    ike_session_t *next_session = NULL;
+    phase2_handle_t *iph2 = NULL;
+    phase2_handle_t *next_iph2 = NULL;
 	struct saproto *pr;
-
-	for (iph2 = LIST_FIRST(&ph2tree); iph2 != NULL; iph2 = next) {
-		next = LIST_NEXT(iph2, chain);
-		if (iph2->is_dying || iph2->status == PHASE2ST_EXPIRED) {
-			continue;
-		}
-		if (iph2->proposal == NULL && iph2->approval == NULL)
-			continue;
-		if (cmpsaddrwop(src, iph2->src) != 0 ||
-		    cmpsaddrwop(dst, iph2->dst) != 0) {
+    
+    LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
+        LIST_FOREACH_SAFE(iph2, &session->ph2tree, ph2ofsession_chain, next_iph2) {
+            if (iph2->is_dying || FSM_STATE_IS_EXPIRED(iph2->status)) {
+                continue;
+            }
+            if (iph2->proposal == NULL && iph2->approval == NULL)
+                continue;
+            if (cmpsaddrwop(src, iph2->src) != 0 ||
+                cmpsaddrwop(dst, iph2->dst) != 0) {
+                continue;
+            }
+            if (iph2->approval != NULL) {
+                for (pr = iph2->approval->head; pr != NULL;
+                     pr = pr->next) {
+                    if (proto_id == pr->proto_id)
+                        goto zap_it;
+                }
+            } else if (iph2->proposal != NULL) {
+                for (pr = iph2->proposal->head; pr != NULL;
+                     pr = pr->next) {
+                    if (proto_id == pr->proto_id)
+                        goto zap_it;
+                }
+            }
             continue;
+        zap_it:
+            plog(ASL_LEVEL_DEBUG,
+                 "deleteallph2: got a ph2 handler...\n");
+            if (FSM_STATE_IS_ESTABLISHED(iph2->status))
+                isakmp_info_send_d2(iph2);
+            ike_session_stopped_by_controller(iph2->parent_session,
+                                              ike_session_stopped_by_flush);
+            ike_session_unlink_phase2(iph2);
         }
-        if (iph2->approval != NULL) {
-			for (pr = iph2->approval->head; pr != NULL;
-			     pr = pr->next) {
-				if (proto_id == pr->proto_id)
-					goto zap_it;
-			}
-		} else if (iph2->proposal != NULL) {
-			for (pr = iph2->proposal->head; pr != NULL;
-			     pr = pr->next) {
-				if (proto_id == pr->proto_id)
-					goto zap_it;
-			}
-		}
-		continue;
- zap_it:
-        plog(LLV_DEBUG2, LOCATION, NULL,
-             "deleteallph2: got a ph2 handler...\n");
-        if (iph2->status == PHASE2ST_ESTABLISHED)
-            isakmp_info_send_d2(iph2);
-        ike_session_stopped_by_controller(iph2->parent_session,
-                                          ike_session_stopped_by_flush);
-		unbindph12(iph2);
-		remph2(iph2);
-		delph2(iph2);
-	}
+    }
 }
 
 /*
  * Delete all Phase 1 handlers for this src/dst.
  */
 void
-deleteallph1(src, dst)
-struct sockaddr_storage *src, *dst;
+ike_session_deleteallph1(struct sockaddr_storage *src, struct sockaddr_storage *dst)
 {
-	struct ph1handle *iph1, *next;
-
-	for (iph1 = LIST_FIRST(&ph1tree); iph1 != NULL; iph1 = next) {
-		next = LIST_NEXT(iph1, chain);
-		if (cmpsaddrwop(src, iph1->local) != 0 ||
-		    cmpsaddrwop(dst, iph1->remote) != 0) {
-			continue;
+    ike_session_t *session = NULL;
+    ike_session_t *next_session = NULL;
+    phase1_handle_t *iph1 = NULL;
+    phase1_handle_t *next_iph1 = NULL;
+    
+    LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
+        LIST_FOREACH_SAFE(iph1, &session->ph1tree, ph1ofsession_chain, next_iph1) {
+            if (cmpsaddrwop(src, iph1->local) != 0 ||
+                cmpsaddrwop(dst, iph1->remote) != 0) {
+                continue;
+            }
+            plog(ASL_LEVEL_DEBUG,
+                 "deleteallph1: got a ph1 handler...\n");
+            if (FSM_STATE_IS_ESTABLISHED(iph1->status))
+                isakmp_info_send_d1(iph1);
+            
+            ike_session_stopped_by_controller(iph1->parent_session, ike_session_stopped_by_flush);
+            ike_session_unlink_phase1(iph1);
         }
-        plog(LLV_DEBUG2, LOCATION, NULL,
-             "deleteallph1: got a ph1 handler...\n");
-        if (iph1->status == PHASE2ST_ESTABLISHED)
-		isakmp_info_send_d1(iph1);
-
-		ike_session_stopped_by_controller(iph1->parent_session,
-						  ike_session_stopped_by_flush);
-		remph1(iph1);
-		delph1(iph1);
-	}
+    }
 }
 
-/* %%% */
-void
-bindph12(iph1, iph2)
-	struct ph1handle *iph1;
-	struct ph2handle *iph2;
-{
-	if (iph2->ph1 && (struct ph1handle *)iph2->ph1bind.le_next == iph1) {
-		plog(LLV_ERROR, LOCATION, NULL, "duplicate %s.\n", __FUNCTION__);		
-	}
-	iph2->ph1 = iph1;
-	LIST_INSERT_HEAD(&iph1->ph2tree, iph2, ph1bind);
-}
-
-void
-unbindph12(iph2)
-	struct ph2handle *iph2;
-{
-	if (iph2->ph1 != NULL) {
-		plog(LLV_DEBUG, LOCATION, NULL, "unbindph12.\n");
-		iph2->ph1 = NULL;
-		LIST_REMOVE(iph2, ph1bind);
-	}
-}
-
-void
-rebindph12(new_ph1, iph2)
-struct ph1handle *new_ph1;
-struct ph2handle *iph2;
-{
-	if (!new_ph1) {
-		return;
-	}
-
-	// reconcile the ph1-to-ph2 binding
-	plog(LLV_DEBUG, LOCATION, NULL, "rebindph12.\n");
-	unbindph12(iph2);
-	bindph12(new_ph1, iph2);
-	// recalculate ivm since ph1 binding has changed
-	if (iph2->ivm != NULL) {
-		oakley_delivm(iph2->ivm);
-		if (new_ph1->status == PHASE1ST_ESTABLISHED) {
-			iph2->ivm = oakley_newiv2(new_ph1, iph2->msgid);
-			plog(LLV_DEBUG, LOCATION, NULL, "ph12 binding changed... recalculated ivm.\n");
-		} else {
-			iph2->ivm = NULL;
-		}
-	}
-}
 
 /* %%% management contacted list */
 /*
  * search contacted list.
  */
 struct contacted *
-getcontacted(remote)
-	struct sockaddr_storage *remote;
+ike_session_getcontacted(remote)
+struct sockaddr_storage *remote;
 {
 	struct contacted *p;
-
+    
 	LIST_FOREACH(p, &ctdtree, chain) {
 		if (cmpsaddrstrict(remote, p->remote) == 0)
 			return p;
 	}
-
+    
 	return NULL;
 }
 
@@ -965,37 +957,35 @@ getcontacted(remote)
  * create new isakmp Phase 2 status record to handle isakmp in Phase2
  */
 int
-inscontacted(remote)
-	struct sockaddr_storage *remote;
+ike_session_inscontacted(remote)
+struct sockaddr_storage *remote;
 {
 	struct contacted *new;
-
+    
 	/* create new iph2 */
 	new = racoon_calloc(1, sizeof(*new));
 	if (new == NULL)
 		return -1;
-
-	new->remote = dupsaddr((struct sockaddr *)remote);
+    
+	new->remote = dupsaddr(remote);
 	if (new->remote == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate buffer.\n");
+		plog(ASL_LEVEL_ERR,
+             "failed to allocate buffer.\n");
 		racoon_free(new);
 		return -1;
 	}
-
+    
 	LIST_INSERT_HEAD(&ctdtree, new, chain);
-
+    
 	return 0;
 }
 
 
 void
-clear_contacted()
+ike_session_clear_contacted()
 {
 	struct contacted *c, *next;
-	
-	for (c = LIST_FIRST(&ctdtree); c; c = next) {
-		next = LIST_NEXT(c, chain);
+	LIST_FOREACH_SAFE(c, &ctdtree, chain, next) {
 		LIST_REMOVE(c, chain);
 		racoon_free(c->remote);
 		racoon_free(c);
@@ -1003,13 +993,13 @@ clear_contacted()
 }
 
 void
-initctdtree()
+ike_session_initctdtree()
 {
 	LIST_INIT(&ctdtree);
 }
 
 time_t
-get_exp_retx_interval (int num_retries, int fixed_retry_interval)
+ike_session_get_exp_retx_interval (int num_retries, int fixed_retry_interval)
 {
 	// first 3 retries aren't exponential
 	if (num_retries <= 3) {
@@ -1029,79 +1019,79 @@ get_exp_retx_interval (int num_retries, int fixed_retry_interval)
  *	-1:	error happened.
  */
 int
-check_recvdpkt(remote, local, rbuf)
-	struct sockaddr_storage *remote, *local;
-	vchar_t *rbuf;
+ike_session_check_recvdpkt(remote, local, rbuf)
+struct sockaddr_storage *remote, *local;
+vchar_t *rbuf;
 {
 	vchar_t *hash;
 	struct recvdpkt *r;
 	time_t t, d;
 	int len, s;
-
+    
 	/* set current time */
 	t = time(NULL);
-
+    
 	hash = eay_md5_one(rbuf);
 	if (!hash) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate buffer.\n");
+		plog(ASL_LEVEL_ERR,
+             "failed to allocate buffer.\n");
 		return -1;
 	}
-
+    
 	LIST_FOREACH(r, &rcptree, chain) {
 		if (memcmp(hash->v, r->hash->v, r->hash->l) == 0)
 			break;
 	}
 	vfree(hash);
-
+    
 	/* this is the first time to receive the packet */
 	if (r == NULL)
 		return 0;
-
+    
 	/*
 	 * the packet was processed before, but the remote address mismatches.
-         * ignore the port to accomodate port changes (e.g. floating).
+     * ignore the port to accomodate port changes (e.g. floating).
 	 */
 	if (cmpsaddrwop(remote, r->remote) != 0) {
-	        return 2;
-        }
-
+        return 2;
+    }
+    
 	/*
 	 * it should not check the local address because the packet
 	 * may arrive at other interface.
 	 */
-
+    
 	/* check the previous time to send */
 	if (t - r->time_send < 1) {
-		plog(LLV_WARNING, LOCATION, NULL,
-			"the packet retransmitted in a short time from %s\n",
-			saddr2str((struct sockaddr *)remote));
+		plog(ASL_LEVEL_WARNING,
+             "the packet retransmitted in a short time from %s\n",
+             saddr2str((struct sockaddr *)remote));
 		/*XXX should it be error ? */
 	}
-
+    
 	/* select the socket to be sent */
 	s = getsockmyaddr((struct sockaddr *)r->local);
 	if (s == -1)
 		return -1;
-
+    
 	// don't send if we recently sent a response.
 	if (r->time_send && t > r->time_send) {
 		d = t - r->time_send;
 		if (d  < r->retry_interval) {
-			plog(LLV_ERROR, LOCATION, NULL, "already responded within the past %ld secs\n", d);
+			plog(ASL_LEVEL_ERR, "already responded within the past %ld secs\n", d);
 			return 1;
 		}
 	}
-
+    
 #ifdef ENABLE_FRAG
 	if (r->frag_flags && r->sendbuf->l > ISAKMP_FRAG_MAXLEN) {
 		/* resend the packet if needed */
-		plog(LLV_ERROR, LOCATION, NULL, "!!! retransmitting frags\n");
+		plog(ASL_LEVEL_ERR, "!!! retransmitting frags\n");
 		len = sendfragsfromto(s, r->sendbuf,
 							  r->local, r->remote, lcconf->count_persend,
 							  r->frag_flags);
 	} else {
-		plog(LLV_ERROR, LOCATION, NULL, "!!! skipped retransmitting frags: frag_flags %x, r->sendbuf->l %d, max %d\n", r->frag_flags, r->sendbuf->l, ISAKMP_FRAG_MAXLEN);
+		plog(ASL_LEVEL_ERR, "!!! skipped retransmitting frags: frag_flags %x, r->sendbuf->l %zu, max %d\n", r->frag_flags, r->sendbuf->l, ISAKMP_FRAG_MAXLEN);
 		/* resend the packet if needed */
 		len = sendfromto(s, r->sendbuf->v, r->sendbuf->l,
 						 r->local, r->remote, lcconf->count_persend);
@@ -1109,27 +1099,27 @@ check_recvdpkt(remote, local, rbuf)
 #else
 	/* resend the packet if needed */
 	len = sendfromto(s, r->sendbuf->v, r->sendbuf->l,
-			r->local, r->remote, lcconf->count_persend);
+                     r->local, r->remote, lcconf->count_persend);
 #endif
 	if (len == -1) {
-		plog(LLV_ERROR, LOCATION, NULL, "sendfromto failed\n");
+		plog(ASL_LEVEL_ERR, "sendfromto failed\n");
 		return -1;
 	}
-
+    
 	/* check the retry counter */
 	r->retry_counter--;
 	if (r->retry_counter <= 0) {
-		rem_recvdpkt(r);
-		del_recvdpkt(r);
-		plog(LLV_DEBUG, LOCATION, NULL,
-			"deleted the retransmission packet to %s.\n",
-			saddr2str((struct sockaddr *)remote));
+		ike_session_rem_recvdpkt(r);
+		ike_session_del_recvdpkt(r);
+		plog(ASL_LEVEL_DEBUG,
+             "deleted the retransmission packet to %s.\n",
+             saddr2str((struct sockaddr *)remote));
 	} else {
 		r->time_send = t;
-		r->retry_interval = get_exp_retx_interval((lcconf->retry_counter - r->retry_counter),
+		r->retry_interval = ike_session_get_exp_retx_interval((lcconf->retry_counter - r->retry_counter),
 												  lcconf->retry_interval);
 	}
-
+    
 	return 1;
 }
 
@@ -1137,58 +1127,58 @@ check_recvdpkt(remote, local, rbuf)
  * adding a hash of received packet into the received list.
  */
 int
-add_recvdpkt(remote, local, sbuf, rbuf, non_esp, frag_flags)
-	struct sockaddr_storage *remote, *local;
-	vchar_t *sbuf, *rbuf;
-    size_t non_esp;
-    u_int32_t frag_flags;
+ike_session_add_recvdpkt(remote, local, sbuf, rbuf, non_esp, frag_flags)
+struct sockaddr_storage *remote, *local;
+vchar_t *sbuf, *rbuf;
+size_t non_esp;
+u_int32_t frag_flags;
 {
 	struct recvdpkt *new = NULL;
-
+    
 	if (lcconf->retry_counter == 0) {
 		/* no need to add it */
 		return 0;
 	}
-
+    
 	new = racoon_calloc(1, sizeof(*new));
 	if (!new) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate buffer.\n");
+		plog(ASL_LEVEL_ERR,
+             "failed to allocate buffer.\n");
 		return -1;
 	}
-
+    
 	new->hash = eay_md5_one(rbuf);
 	if (!new->hash) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate buffer.\n");
-		del_recvdpkt(new);
+		plog(ASL_LEVEL_ERR,
+             "failed to allocate buffer.\n");
+		ike_session_del_recvdpkt(new);
 		return -1;
 	}
-	new->remote = dupsaddr((struct sockaddr *)remote);
+	new->remote = dupsaddr(remote);
 	if (new->remote == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate buffer.\n");
-		del_recvdpkt(new);
+		plog(ASL_LEVEL_ERR,
+             "failed to allocate buffer.\n");
+		ike_session_del_recvdpkt(new);
 		return -1;
 	}
-	new->local = dupsaddr((struct sockaddr *)local);
+	new->local = dupsaddr(local);
 	if (new->local == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate buffer.\n");
-		del_recvdpkt(new);
+		plog(ASL_LEVEL_ERR,
+             "failed to allocate buffer.\n");
+		ike_session_del_recvdpkt(new);
 		return -1;
 	}
-
+    
 	if (non_esp) {
-		plog (LLV_DEBUG, LOCATION, NULL, "Adding NON-ESP marker\n");
-
+		plog (ASL_LEVEL_DEBUG, "Adding NON-ESP marker\n");
+        
         /* If NAT-T port floating is in use, 4 zero bytes (non-ESP marker) 
          must added just before the packet itself. For this we must 
          allocate a new buffer and release it at the end. */
         if ((new->sendbuf = vmalloc (sbuf->l + non_esp)) == NULL) {
-            plog(LLV_ERROR, LOCATION, NULL, 
+            plog(ASL_LEVEL_ERR, 
                  "failed to allocate extra buf for non-esp\n");
-            del_recvdpkt(new);
+            ike_session_del_recvdpkt(new);
             return -1;
         }
         *ALIGNED_CAST(u_int32_t *)new->sendbuf->v = 0;
@@ -1196,13 +1186,13 @@ add_recvdpkt(remote, local, sbuf, rbuf, non_esp, frag_flags)
     } else {
         new->sendbuf = vdup(sbuf);
         if (new->sendbuf == NULL) {
-            plog(LLV_ERROR, LOCATION, NULL,
+            plog(ASL_LEVEL_ERR, 
                  "failed to allocate buffer.\n");
-            del_recvdpkt(new);
+            ike_session_del_recvdpkt(new);
             return -1;
         }
     }
-
+    
 	new->retry_counter = lcconf->retry_counter;
 	new->time_send = 0;
 	new->created = time(NULL);
@@ -1211,17 +1201,17 @@ add_recvdpkt(remote, local, sbuf, rbuf, non_esp, frag_flags)
 		new->frag_flags = frag_flags;
 	}
 #endif
-	new->retry_interval = get_exp_retx_interval((lcconf->retry_counter - new->retry_counter),
+	new->retry_interval = ike_session_get_exp_retx_interval((lcconf->retry_counter - new->retry_counter),
 												lcconf->retry_interval);
-
+    
 	LIST_INSERT_HEAD(&rcptree, new, chain);
-
+    
 	return 0;
 }
 
 void
-del_recvdpkt(r)
-	struct recvdpkt *r;
+ike_session_del_recvdpkt(r)
+struct recvdpkt *r;
 {
 	if (r->remote)
 		racoon_free(r->remote);
@@ -1235,235 +1225,247 @@ del_recvdpkt(r)
 }
 
 void
-rem_recvdpkt(r)
-	struct recvdpkt *r;
+ike_session_rem_recvdpkt(r)
+struct recvdpkt *r;
 {
 	LIST_REMOVE(r, chain);
 }
 
 void
 sweep_recvdpkt(dummy)
-	void *dummy;
+void *dummy;
 {
 	struct recvdpkt *r, *next;
 	time_t t, lt;
-
+    
 	/* set current time */
 	t = time(NULL);
-
+    
 	/* set the lifetime of the retransmission */
 	lt = lcconf->retry_counter * lcconf->retry_interval;
-
-	for (r = LIST_FIRST(&rcptree); r; r = next) {
-		next = LIST_NEXT(r, chain);
-
+    
+	LIST_FOREACH_SAFE(r, &rcptree, chain, next) {
 		if (t - r->created > lt) {
-			rem_recvdpkt(r);
-			del_recvdpkt(r);
+			ike_session_rem_recvdpkt(r);
+			ike_session_del_recvdpkt(r);
 		}
 	}
-
+    
 	sched_new(lt, sweep_recvdpkt, &rcptree);
 }
 
 void
-clear_recvdpkt()
+ike_session_clear_recvdpkt()
 {
 	struct recvdpkt *r, *next;
 	
-	for (r = LIST_FIRST(&rcptree); r; r = next) {
-		next = LIST_NEXT(r, chain);
-		rem_recvdpkt(r);
-		del_recvdpkt(r);
+	LIST_FOREACH_SAFE(r, &rcptree, chain, next) {
+		ike_session_rem_recvdpkt(r);
+		ike_session_del_recvdpkt(r);
 	}
 	sched_scrub_param(&rcptree);
 }
 
 void
-init_recvdpkt()
+ike_session_init_recvdpkt()
 {
 	time_t lt = lcconf->retry_counter * lcconf->retry_interval;
-
+    
 	LIST_INIT(&rcptree);
-
+    
 	sched_new(lt, sweep_recvdpkt, &rcptree);
 }
 
+#ifdef NOT_USED
 #ifdef ENABLE_HYBRID
 /* 
  * Returns 0 if the address was obtained by ISAKMP mode config, 1 otherwise
  * This should be in isakmp_cfg.c but ph1tree being private, it must be there
  */
 int
-exclude_cfg_addr(addr)
-	const struct sockaddr_storage *addr;
+exclude_cfg_addr(const struct sockaddr_storage *addr)
 {
-	struct ph1handle *p;
+    ike_session_t *session;
+	phase1_handle_t *p;
 	struct sockaddr_in *sin;
-
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if ((p->mode_cfg != NULL) &&
-		    (p->mode_cfg->flags & ISAKMP_CFG_GOT_ADDR4) &&
-		    (addr->ss_family == AF_INET)) {
-			sin = (struct sockaddr_in *)addr;
-			if (sin->sin_addr.s_addr == p->mode_cfg->addr4.s_addr)
-				return 0;
-		}
-	}
-
+    
+    LIST_FOREACH(session, &ike_session_tree, chain) {
+        LIST_FOREACH(p, &session->ph1tree, chain) {
+            if ((p->mode_cfg != NULL) &&
+                (p->mode_cfg->flags & ISAKMP_CFG_GOT_ADDR4) &&
+                (addr->ss_family == AF_INET)) {
+                sin = (struct sockaddr_in *)addr;
+                if (sin->sin_addr.s_addr == p->mode_cfg->addr4.s_addr)
+                    return 0;
+            }
+        }
+    }
+    
 	return 1;
 }
 #endif
-
-#ifdef ENABLE_HYBRID
-struct ph1handle *
-getph1bylogin(login)
-	char *login;
-{
-	struct ph1handle *p;
-
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->mode_cfg == NULL)
-			continue;
-		if (strncmp(p->mode_cfg->login, login, LOGINLEN) == 0)
-			return p;
-	}
-
-	return NULL;
-}
+#endif /* NOT_USED */
 
 int
-purgeph1bylogin(login)
-	char *login;
-{
-	struct ph1handle *p;
-	int found = 0;
+ike_session_expire_session(ike_session_t *session)
+{    
+	int    found = 0;
+	phase1_handle_t *p;
+	phase1_handle_t *next;
+	phase2_handle_t *p2;
+    
+    if (session == NULL)
+        return 0;
+    
+    LIST_FOREACH(p2, &session->ph2tree, ph2ofsession_chain) {
+        if (p2->is_dying || FSM_STATE_IS_EXPIRED(p2->status)) {
+            continue;
+        }
 
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->mode_cfg == NULL)
-			continue;
-		if (strncmp(p->mode_cfg->login, login, LOGINLEN) == 0) {
-			if (p->status == PHASE1ST_ESTABLISHED)
-				isakmp_info_send_d1(p);
-			purge_remote(p);
-			found++;
-		}
-	}
+        if (FSM_STATE_IS_ESTABLISHED(p2->status))
+            isakmp_info_send_d2(p2);
+        isakmp_ph2expire(p2);
+        found++;
+    }
+    
+    LIST_FOREACH_SAFE(p, &session->ph1tree, ph1ofsession_chain, next) {
+        if (p->is_dying || FSM_STATE_IS_EXPIRED(p->status)) {
+            continue;
+        }
+
+        ike_session_purge_ph2s_by_ph1(p);
+        if (FSM_STATE_IS_ESTABLISHED(p->status))
+            isakmp_info_send_d1(p);
+        isakmp_ph1expire(p);
+        found++;
+    }
 
 	return found;
 }
 
+#ifdef ENABLE_HYBRID
 int
-purgephXbydstaddrwop(remote)
-struct sockaddr_storage *remote;
+ike_session_purgephXbydstaddrwop(struct sockaddr_storage *remote)
 {
 	int    found = 0;
-	struct ph1handle *p;
-	struct ph2handle *p2;
-
-	LIST_FOREACH(p2, &ph2tree, chain) {
-		if (p2->is_dying || p2->status == PHASE2ST_EXPIRED) {
+    ike_session_t *session = NULL;
+    ike_session_t *next_session = NULL;
+	phase1_handle_t *p;
+	phase2_handle_t *p2;
+    
+    LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
+        LIST_FOREACH(p2, &session->ph2tree, ph2ofsession_chain) {
+		if (p2->is_dying || FSM_STATE_IS_EXPIRED(p2->status)) {
 			continue;
 		}
-		if (cmpsaddrwop(remote, p2->dst) == 0) {
-            plog(LLV_WARNING, LOCATION, NULL,
-                 "in %s... purging phase2s\n", __FUNCTION__);
-			if (p2->status == PHASE2ST_ESTABLISHED)
-				isakmp_info_send_d2(p2);
-			isakmp_ph2expire(p2);
-			found++;
-		}
-	}
-
-	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->is_dying || p->status == PHASE1ST_EXPIRED) {
+            if (cmpsaddrwop(remote, p2->dst) == 0) {
+                plog(ASL_LEVEL_DEBUG,
+                     "in %s... purging Phase 2 structures\n", __FUNCTION__);
+                if (FSM_STATE_IS_ESTABLISHED(p2->status))
+                    isakmp_info_send_d2(p2);
+                isakmp_ph2expire(p2);
+                found++;
+            }
+        }
+        
+        LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (p->is_dying || FSM_STATE_IS_EXPIRED(p->status)) {
 			continue;
 		}
-		if (cmpsaddrwop(remote, p->remote) == 0) {
-            plog(LLV_WARNING, LOCATION, NULL,
-                 "in %s... purging phase1 and related phase2s\n", __FUNCTION__);
-            ike_session_purge_ph2s_by_ph1(p);
-			if (p->status == PHASE1ST_ESTABLISHED)
-				isakmp_info_send_d1(p);
-            isakmp_ph1expire(p);
-			found++;
-		}
-	}
-
+            if (cmpsaddrwop(remote, p->remote) == 0) {
+                plog(ASL_LEVEL_DEBUG,
+                     "in %s... purging Phase 1 and related Phase 2 structures\n", __FUNCTION__);
+                ike_session_purge_ph2s_by_ph1(p);
+                if (FSM_STATE_IS_ESTABLISHED(p->status))
+                    isakmp_info_send_d1(p);
+                isakmp_ph1expire(p);
+                found++;
+            }
+        }
+    }
+    
 	return found;
 }
 
 void
-purgephXbyspid(u_int32_t spid,
-               int       del_boundph1)
+ike_session_purgephXbyspid(u_int32_t spid, int del_boundph1)
 {
-	struct ph2handle *iph2;
-    struct ph1handle *iph1;
+    ike_session_t *session = NULL;
+    ike_session_t *next_session = NULL;
+    phase2_handle_t *iph2 = NULL;
+    phase2_handle_t *next_iph2 = NULL;
+    phase1_handle_t *iph1 = NULL;
+    phase1_handle_t *next_iph1 = NULL;
 
-    // do ph2's first... we need the ph1s for notifications
-	LIST_FOREACH(iph2, &ph2tree, chain) {
-		if (spid == iph2->spid) {
-			if (iph2->is_dying || iph2->status == PHASE2ST_EXPIRED) {
-				continue;
-			}
-            if (iph2->status == PHASE2ST_ESTABLISHED) {
-                isakmp_info_send_d2(iph2);
+    LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
+        // do ph2's first... we need the ph1s for notifications
+        LIST_FOREACH_SAFE(iph2, &session->ph2tree, ph2ofsession_chain, next_iph2) {
+            if (spid == iph2->spid) {
+                if (iph2->is_dying || FSM_STATE_IS_EXPIRED(iph2->status)) {
+                    continue;
+                }
+                if (FSM_STATE_IS_ESTABLISHED(iph2->status)) {
+                    isakmp_info_send_d2(iph2);
+                }
+                ike_session_stopped_by_controller(iph2->parent_session,
+                                                  ike_session_stopped_by_flush);
+                isakmp_ph2expire(iph2); // iph2 will go down 1 second later.
             }
-            ike_session_stopped_by_controller(iph2->parent_session,
-                                              ike_session_stopped_by_flush);
-            isakmp_ph2expire(iph2); // iph2 will go down 1 second later.
         }
-    }
-
-    // do the ph1s last.
-	LIST_FOREACH(iph2, &ph2tree, chain) {
-		if (spid == iph2->spid) {
-            if (del_boundph1 && iph2->parent_session) {
-                for (iph1 = LIST_FIRST(&iph2->parent_session->ikev1_state.ph1tree); iph1; iph1 = LIST_NEXT(iph1, ph1ofsession_chain)) {
-					if (iph1->is_dying || iph1->status == PHASE1ST_EXPIRED) {
-						continue;
-					}
-                    if (iph1->status == PHASE1ST_ESTABLISHED) {
-                        isakmp_info_send_d1(iph1);
+        
+        // do the ph1s last.   %%%%%%%%%%%%%%%%%% re-organize this - check del_boundph1 first
+        LIST_FOREACH_SAFE(iph2, &session->ph2tree, ph2ofsession_chain, next_iph2) {
+            if (spid == iph2->spid) {
+                if (del_boundph1 && iph2->parent_session) {
+                    LIST_FOREACH_SAFE(iph1, &iph2->parent_session->ph1tree, ph1ofsession_chain, next_iph1) {
+                        if (iph1->is_dying || FSM_STATE_IS_EXPIRED(iph1->status)) {
+                            continue;
+                        }
+                        if (FSM_STATE_IS_ESTABLISHED(iph1->status)) {
+                            isakmp_info_send_d1(iph1);
+                        }
+                        isakmp_ph1expire(iph1);
                     }
-                    isakmp_ph1expire(iph1);
                 }
             }
-		}
-	}
+        }
+    }
 }
 
 #endif
 
 #ifdef ENABLE_DPD
 int
-ph1_force_dpd (struct sockaddr_storage *remote)
+ike_session_ph1_force_dpd (struct sockaddr_storage *remote)
 {
     int status = -1;
-    struct ph1handle *p;
-
-    LIST_FOREACH(p, &ph1tree, chain) {
-        if (cmpsaddrwop(remote, p->remote) == 0) {
-            if (p->status == PHASE1ST_ESTABLISHED &&
-                !p->is_dying &&
-                p->dpd_support &&
-                p->rmconf->dpd_interval) {
-                if(!p->dpd_fails) {
-                    isakmp_info_send_r_u(p);
-                    status = 0;
+    ike_session_t *session = NULL;
+    phase1_handle_t *p = NULL;
+    
+    LIST_FOREACH(session, &ike_session_tree, chain) {
+        LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+            if (cmpsaddrwop(remote, p->remote) == 0) {
+                if (FSM_STATE_IS_ESTABLISHED(p->status) &&
+                    !p->is_dying &&
+                    p->dpd_support &&
+                    p->rmconf->dpd_interval) {
+                    if(!p->dpd_fails) {
+                        isakmp_info_send_r_u(p);
+                        status = 0;
+                    } else {
+                        plog(ASL_LEVEL_DEBUG, "Skipping forced-DPD for Phase 1 (dpd already in progress).\n");
+                    }
+                    if (p->parent_session) {
+                        p->parent_session->controller_awaiting_peer_resp = 1;
+                    }
                 } else {
-                    plog(LLV_DEBUG2, LOCATION, NULL, "skipping forced-DPD for phase1 (dpd already in progress).\n");
+                    plog(ASL_LEVEL_DEBUG, "Skipping forced-DPD for Phase 1 (status %d, dying %d, dpd-support %d, dpd-interval %d).\n",
+                         p->status, p->is_dying, p->dpd_support, p->rmconf->dpd_interval);
                 }
-                if (p->parent_session) {
-                    p->parent_session->controller_awaiting_peer_resp = 1;
-                }
-            } else {
-                plog(LLV_DEBUG2, LOCATION, NULL, "skipping forced-DPD for phase1 (status %d, dying %d, dpd-support %d, dpd-interval %d).\n",
-                     p->status, p->is_dying, p->dpd_support, p->rmconf->dpd_interval);
             }
         }
     }
-
+    
 	return status;
 }
 #endif
@@ -1471,79 +1473,103 @@ ph1_force_dpd (struct sockaddr_storage *remote)
 void
 sweep_sleepwake(void)
 {
-	struct ph2handle *iph2;
-	struct ph1handle *iph1;
+    ike_session_t   *session = NULL;
+    ike_session_t   *next_session = NULL;
+    phase2_handle_t *iph2 = NULL;
+    phase2_handle_t *next_iph2 = NULL;
+    phase1_handle_t *iph1 = NULL;
+    phase1_handle_t *next_iph1 = NULL;
 
-	// do the ph1s.
-	LIST_FOREACH(iph1, &ph1tree, chain) {
-		if (iph1->parent_session && iph1->parent_session->is_asserted) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of phase1 %s because it's been asserted.\n",
-				 isakmp_pindex(&iph1->index, 0));
-			continue;
-		}
-		if (iph1->is_dying || iph1->status >= PHASE1ST_EXPIRED) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of phase1 %s because it's already expired.\n",
-				 isakmp_pindex(&iph1->index, 0));
-			continue;
-		}
-		if (iph1->sce) {
-			if (iph1->sce->xtime <= swept_at) {
-				SCHED_KILL(iph1->sce);
-				SCHED_KILL(iph1->sce_rekey);
-				iph1->is_dying = 1;
-				iph1->status = PHASE1ST_EXPIRED;
-				ike_session_update_ph1_ph2tree(iph1); // move unbind/rebind ph2s to from current ph1
-				iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
-				plog(LLV_DEBUG2, LOCATION, NULL, "phase1 %s expired while sleeping: quick deletion.\n",
-				     isakmp_pindex(&iph1->index, 0));
-			}
-		}
-		if (iph1->sce_rekey) {
-			if (iph1->status == PHASE1ST_EXPIRED || iph1->sce_rekey->xtime <= swept_at) {
-				SCHED_KILL(iph1->sce_rekey);
-			}
-		}
-		if (iph1->scr) {
-			if (iph1->status == PHASE1ST_EXPIRED || iph1->scr->xtime <= swept_at) {
-				SCHED_KILL(iph1->scr);
-			}
-		}
-#ifdef ENABLE_DPD
-		if (iph1->dpd_r_u) {
-			if (iph1->status == PHASE1ST_EXPIRED || iph1->dpd_r_u->xtime <= swept_at) {
-				SCHED_KILL(iph1->dpd_r_u);
-			}
-		}
-#endif 
-	}
-
-	// do ph2's next
-	LIST_FOREACH(iph2, &ph2tree, chain) {
-		if (iph2->parent_session && iph2->parent_session->is_asserted) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of phase2 because it's been asserted.\n");
-			continue;
-		}
-		if (iph2->is_dying || iph2->status >= PHASE2ST_EXPIRED) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of phase2 because it's already expired.\n");
-			continue;
-		}
-		if (iph2->sce) {
-			if (iph2->sce->xtime <= swept_at) {
-				iph2->status = PHASE2ST_EXPIRED;
-				iph2->is_dying = 1;
-				isakmp_ph2expire(iph2); // iph2 will go down 1 second later.
-				ike_session_stopped_by_controller(iph2->parent_session,
-								  ike_session_stopped_by_sleepwake);
-				plog(LLV_DEBUG2, LOCATION, NULL, "phase2 expired while sleeping: quick deletion.\n");
-			}
-		}
-		if (iph2->scr) {
-			if (iph2->status == PHASE2ST_EXPIRED || iph2->scr->xtime <= swept_at) {
-				SCHED_KILL(iph2->scr);
-			}
-		}
-	}
-
+    LIST_FOREACH_SAFE(session, &ike_session_tree, chain, next_session) {
+        // do the ph1s.
+        LIST_FOREACH_SAFE(iph1, &session->ph1tree, ph1ofsession_chain, next_iph1) {
+            if (iph1->parent_session && iph1->parent_session->is_asserted) {
+                plog(ASL_LEVEL_DEBUG, "Skipping sweep of Phase 1 %s because it's been asserted.\n",
+                     isakmp_pindex(&iph1->index, 0));
+                continue;
+            }
+            if (iph1->is_dying || FSM_STATE_IS_EXPIRED(iph1->status)) {
+                plog(ASL_LEVEL_DEBUG, "Skipping sweep of Phase 1 %s because it's already expired.\n",
+                     isakmp_pindex(&iph1->index, 0));
+                continue;
+            }
+            if (iph1->sce) {                
+                time_t xtime;
+                if (sched_get_time(iph1->sce, &xtime)) {
+                    if (xtime <= swept_at) {
+                        SCHED_KILL(iph1->sce);
+                        SCHED_KILL(iph1->sce_rekey);
+                        iph1->is_dying = 1;
+                        fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_EXPIRED);
+                        ike_session_update_ph1_ph2tree(iph1); // move unbind/rebind ph2s to from current ph1
+                        iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
+                        plog(ASL_LEVEL_DEBUG, "Phase 1 %s expired while sleeping: quick deletion.\n",
+                             isakmp_pindex(&iph1->index, 0));
+                    }
+                }
+            }
+            if (iph1->sce_rekey) {
+                time_t xtime;
+                if (sched_get_time(iph1->sce_rekey, &xtime)) {
+                    if (FSM_STATE_IS_EXPIRED(iph1->status) || xtime <= swept_at) {
+                        SCHED_KILL(iph1->sce_rekey);
+                    }
+                }
+            }
+            if (iph1->scr) {
+                time_t xtime;
+                if (sched_get_time(iph1->scr, &xtime)) {
+                    if (FSM_STATE_IS_EXPIRED(iph1->status) || xtime <= swept_at) {
+                        SCHED_KILL(iph1->scr);
+                    }
+                }
+            }
+    #ifdef ENABLE_DPD
+            if (iph1->dpd_r_u) {
+                time_t xtime;
+                if (sched_get_time(iph1->dpd_r_u, &xtime)) {
+                    if (FSM_STATE_IS_EXPIRED(iph1->status) || xtime <= swept_at) {
+                        SCHED_KILL(iph1->dpd_r_u);
+                    }
+                }
+            }
+    #endif 
+        }
+        
+        // do ph2's next
+        LIST_FOREACH_SAFE(iph2, &session->ph2tree, ph2ofsession_chain, next_iph2) {
+            if (iph2->parent_session && iph2->parent_session->is_asserted) {
+                plog(ASL_LEVEL_DEBUG, "Skipping sweep of Phase 2 because it's been asserted.\n");
+                continue;
+            }
+            if (iph2->is_dying || FSM_STATE_IS_EXPIRED(iph2->status)) {
+                plog(ASL_LEVEL_DEBUG, "Skipping sweep of Phase 2 because it's already expired.\n");
+                continue;
+            }
+            if (iph2->sce) {
+                time_t xtime;
+                if (sched_get_time(iph2->sce, &xtime)) {
+                    if (xtime <= swept_at) {
+                        fsm_set_state(&iph2->status, IKEV1_STATE_PHASE2_EXPIRED);
+                        iph2->is_dying = 1;
+                        isakmp_ph2expire(iph2); // iph2 will go down 1 second later.
+                        ike_session_stopped_by_controller(iph2->parent_session,
+                                                      ike_session_stopped_by_sleepwake);
+                        plog(ASL_LEVEL_DEBUG, "Phase 2 expired while sleeping: quick deletion.\n");
+                    }
+                }
+            }
+            if (iph2->scr) {
+                time_t xtime;
+                if (sched_get_time(iph2->scr, &xtime)) {
+                    if (FSM_STATE_IS_EXPIRED(iph2->status) || xtime <= swept_at) {
+                        SCHED_KILL(iph2->scr);
+                    }
+                }
+            }
+        }
+    }
+    //%%%%%%%%%%%%%%% fix this
 	// do the ike_session last
 	ike_session_sweep_sleepwake();
 }

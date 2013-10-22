@@ -1,0 +1,166 @@
+The eg/ directory holds a few example proxies.
+
+All scripts accept HTTP::Proxy constructor key/value pairs on the
+command-line. Example: ./proxy.pl port 3128 host 0.0.0.0
+
+ * proxy.pl
+
+   A very simple proxy.
+
+   Filter: none
+
+ * anonymiser.pl
+
+   A simple anonymizing proxy, similar in functionnality to the one
+   shown by Randal L. Schwartz in his WebTechniques #11 column.
+   http://www.stonehenge.com/merlyn/WebTechniques/col11.html
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * proxy-auth.pl
+
+   A very simple proxy, with Basic authentication.
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * leet.pl
+ * rot13.pl
+ * rainbow.pl
+ * fudd.pl
+
+   These filters do simple modifications of all HTML pages.
+
+   Filters: HTTP::Proxy::BodyFilter::tags
+            HTTP::Proxy::BodyFilter::simple
+            HTTP::Proxy::BodyFilter::htmltext
+
+ * bork.pl
+
+   This ffiltir elsu duis simpli mudiffixeshuns uff ell HTML pegis.
+   Bork bork bork ! 
+
+ * outline.pl
+ * ayb.pl
+
+   These proxy do more complicated modifications of HTML pages, and
+   require a HTML::Parser object to do so. All you tag are belong to us.
+
+   Filter: HTTP::Proxy::BodyFilter::htmlparser
+
+ * post.pl
+
+   This filter outputs the request URI and the form parameters of
+   all POST requests.
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * logger.pl
+
+   This filter outputs the important information out of GET and POST
+   requests: method, URI, cookies, content-type (text/*) and POST
+   request parameters.
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * adblock.pl
+
+   This is a very simple proxy that block ad sites.
+
+   Filters: HTTP::Proxy::HeaderFilter::simple
+            HTTP::Proxy::BodyFilter::simple
+
+ * trim.pl
+
+   A simple proxy that trims lines of HTML text.
+
+   Filters: HTTP::Proxy::BodyFilter::lines
+            HTTP::Proxy::BodyFilter::simple
+
+ * javascript.pl
+
+   A proxy that adds anything/javascript at the beginning of a HTML page.
+   (right after the <body> tag)
+
+   Filter: HTTP::Proxy::BodyFilter::htmlparser
+
+ * rfc.pl
+
+   A proxy that automatically saves the files named rfc\d+\.txt to
+   a file of the same name in the rfc/ directory.
+
+   Filter: HTTP::Proxy::BodyFilter::save
+
+ * dragon.pl
+
+   A proxy that removes some of the shortcomings of the Dragon Go
+   Server website (http://www.dragongoserver.net/)
+
+   Filters: HTTP::Proxy::HeaderFilter::simple
+            HTTP::Proxy::BodyFilter::simple
+            HTTP::Proxy::BodyFilter::tags
+
+ * pdf.pl
+
+   Save all PDF files in the pdf/ directory, and replace it with a
+   HTML message saying "PDF file saved."
+   
+   Filters: HTTP::Proxy::HeaderFilter::simple
+            HTTP::Proxy::Body::simple
+            HTTP::Proxy::Body::save
+
+ * yahoogroups.pl
+
+   Removes the advertisment interruptions from Yahoo! Groups
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * https.pl
+
+   Modify https:// links to http:// links that the proxy will
+   recognise. The proxy will download the pages using SSL and
+   will then be able to modify them with its filter stacks.
+
+   Filters: HTTP::Proxy::HeaderFilter::simple
+            HTTP::Proxy::BodyFilter::htmlparser
+
+ * perlmonks.pl
+
+   Redirect all requests to perlmonks.com and perlmonks.org
+   to perlmonks.org, thus keeping connection information intact
+   (all cookies will point to a single web site).
+
+   This code was used as a starting point for the "Rewrite the web"
+   hack in Perl Hacks (O'Reilly 2006).
+
+   Filter:  HTTP::Proxy::HeaderFilter::simple
+
+ * switch.pl
+
+   Randomly switch proxies from a list given on the command line.
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * tracker.pl
+
+   This tracker proxy stores Referer, URL, CODE
+   and output them to STDOUT or the given file
+ 
+   Example output:
+      NULL http://www.perl.org/ 200
+      http://www.perl.org/ http://learn.perl.org/ 200
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * js.pl
+
+   Save JavaScript files as we browse them.
+
+   Filter: HTTP::Proxy::Body::save
+
+ * flv.pl
+
+   Saves all FLV files in the flv/ directory, with a computed
+   name (id taken from the URI, or MD5 hash of the URI).
+
+   Filter: HTTP::Proxy::Body::save
+

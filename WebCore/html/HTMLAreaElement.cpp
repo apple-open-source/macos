@@ -53,25 +53,25 @@ PassRefPtr<HTMLAreaElement> HTMLAreaElement::create(const QualifiedName& tagName
     return adoptRef(new HTMLAreaElement(tagName, document));
 }
 
-void HTMLAreaElement::parseAttribute(Attribute* attr)
+void HTMLAreaElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attr->name() == shapeAttr) {
-        if (equalIgnoringCase(attr->value(), "default"))
+    if (name == shapeAttr) {
+        if (equalIgnoringCase(value, "default"))
             m_shape = Default;
-        else if (equalIgnoringCase(attr->value(), "circle"))
+        else if (equalIgnoringCase(value, "circle"))
             m_shape = Circle;
-        else if (equalIgnoringCase(attr->value(), "poly"))
+        else if (equalIgnoringCase(value, "poly"))
             m_shape = Poly;
-        else if (equalIgnoringCase(attr->value(), "rect"))
+        else if (equalIgnoringCase(value, "rect"))
             m_shape = Rect;
         invalidateCachedRegion();
-    } else if (attr->name() == coordsAttr) {
-        m_coords = newCoordsArray(attr->value().string(), m_coordsLen);
+    } else if (name == coordsAttr) {
+        m_coords = newCoordsArray(value.string(), m_coordsLen);
         invalidateCachedRegion();
-    } else if (attr->name() == altAttr || attr->name() == accesskeyAttr) {
+    } else if (name == altAttr || name == accesskeyAttr) {
         // Do nothing.
     } else
-        HTMLAnchorElement::parseAttribute(attr);
+        HTMLAnchorElement::parseAttribute(name, value);
 }
 
 void HTMLAreaElement::invalidateCachedRegion()
@@ -115,7 +115,7 @@ Path HTMLAreaElement::computePath(RenderObject* obj) const
         p.transform(zoomTransform);
     }
 
-    p.translate(absPos - FloatPoint());
+    p.translate(toFloatSize(absPos));
     return p;
 }
     

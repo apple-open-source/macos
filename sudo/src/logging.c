@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994-1996, 1998-2010 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1994-1996, 1998-2012 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -47,6 +47,12 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
+#ifdef HAVE_SETLOCALE
+# include <locale.h>
+#endif /* HAVE_SETLOCALE */
+#ifdef HAVE_NL_LANGINFO
+# include <langinfo.h>
+#endif /* HAVE_NL_LANGINFO */
 #include <pwd.h>
 #include <grp.h>
 #include <signal.h>
@@ -62,6 +68,8 @@ static void send_mail		__P((const char *fmt, ...));
 static int should_mail		__P((int));
 static void mysyslog		__P((int, const char *, ...));
 static char *new_logline	__P((const char *, int));
+
+extern char **NewArgv;	/* XXX - for auditing */
 
 #define MAXSYSLOGTRIES	16	/* num of retries for broken syslogs */
 
@@ -132,6 +140,12 @@ do_syslog(pri, msg)
     char *p, *tmp, save;
     const char *fmt;
 
+#ifdef HAVE_SETLOCALE
+    const char *old_locale = estrdup(setlocale(LC_ALL, NULL));
+    if (!setlocale(LC_ALL, def_sudoers_locale))
+	setlocale(LC_ALL, "C");
+#endif /* HAVE_SETLOCALE */
+
     /*
      * Log the full line, breaking into multiple syslog(3) calls if necessary
      */
@@ -166,6 +180,11 @@ do_syslog(pri, msg)
 	fmt = FMT_CONTD;
 	maxlen = MAXSYSLOGLEN - (sizeof(FMT_CONTD) - 6 + strlen(user_name));
     }
+
+#ifdef HAVE_SETLOCALE
+    setlocale(LC_ALL, old_locale);
+    efree((void *)old_locale);
+#endif /* HAVE_SETLOCALE */
 }
 
 static void
@@ -173,13 +192,12 @@ do_logfile(msg)
     char *msg;
 {
     char *full_line;
-    char *beg, *oldend, *end;
-    FILE *fp;
+    size_t len;
     mode_t oldmask;
-    size_t maxlen;
+    time_t now;
+    FILE *fp;
 
     oldmask = umask(077);
-    maxlen = def_loglinelen > 0 ? def_loglinelen : 0;
     fp = fopen(def_logfile, "a");
     (void) umask(oldmask);
     if (fp == NULL) {
@@ -187,10 +205,14 @@ do_logfile(msg)
     } else if (!lock_file(fileno(fp), SUDO_LOCK)) {
 	send_mail("Can't lock log file: %s: %s", def_logfile, strerror(errno));
     } else {
-	time_t now;
+#ifdef HAVE_SETLOCALE
+	const char *old_locale = estrdup(setlocale(LC_ALL, NULL));
+	if (!setlocale(LC_ALL, def_sudoers_locale))
+	    setlocale(LC_ALL, "C");
+#endif /* HAVE_SETLOCALE */
 
 	now = time(NULL);
-	if (def_loglinelen == 0) {
+	if (def_loglinelen < sizeof(LOG_INDENT)) {
 	    /* Don't pretty-print long log file lines (hard to grep) */
 	    if (def_log_host)
 		(void) fprintf(fp, "%s : %s : HOST=%s : %s\n",
@@ -200,69 +222,31 @@ do_logfile(msg)
 		    get_timestr(now, def_log_year), user_name, msg);
 	} else {
 	    if (def_log_host)
-		easprintf(&full_line, "%s : %s : HOST=%s : %s",
+		len = easprintf(&full_line, "%s : %s : HOST=%s : %s",
 		    get_timestr(now, def_log_year), user_name, user_shost, msg);
 	    else
-		easprintf(&full_line, "%s : %s : %s",
+		len = easprintf(&full_line, "%s : %s : %s",
 		    get_timestr(now, def_log_year), user_name, msg);
 
 	    /*
-	     * Print out full_line with word wrap
+	     * Print out full_line with word wrap around def_loglinelen chars.
 	     */
-	    beg = end = full_line;
-	    while (beg) {
-		oldend = end;
-		end = strchr(oldend, ' ');
-
-		if (maxlen > 0 && end) {
-		    *end = '\0';
-		    if (strlen(beg) > maxlen) {
-			/* too far, need to back up & print the line */
-
-			if (beg == (char *)full_line)
-			    maxlen -= 4;	/* don't indent first line */
-
-			*end = ' ';
-			if (oldend != beg) {
-			    /* rewind & print */
-			    end = oldend-1;
-			    while (*end == ' ')
-				--end;
-			    *(++end) = '\0';
-			    (void) fprintf(fp, "%s\n    ", beg);
-			    *end = ' ';
-			} else {
-			    (void) fprintf(fp, "%s\n    ", beg);
-			}
-
-			/* reset beg to point to the start of the new substr */
-			beg = end;
-			while (*beg == ' ')
-			    ++beg;
-		    } else {
-			/* we still have room */
-			*end = ' ';
-		    }
-
-		    /* remove leading whitespace */
-		    while (*end == ' ')
-			++end;
-		} else {
-		    /* final line */
-		    (void) fprintf(fp, "%s\n", beg);
-		    beg = NULL;			/* exit condition */
-		}
-	    }
+	    writeln_wrap(fp, full_line, len, def_loglinelen);
 	    efree(full_line);
 	}
 	(void) fflush(fp);
 	(void) lock_file(fileno(fp), SUDO_UNLOCK);
 	(void) fclose(fp);
+
+#ifdef HAVE_SETLOCALE
+	setlocale(LC_ALL, old_locale);
+	efree((void *)old_locale);
+#endif /* HAVE_SETLOCALE */
     }
 }
 
 /*
- * Log and mail the denial message, optionally informing the user.
+ * Log, audit and mail the denial message, optionally informing the user.
  */
 void
 log_denial(status, inform_user)
@@ -271,6 +255,12 @@ log_denial(status, inform_user)
 {
     char *message;
     char *logline;
+
+    /* Handle auditing first. */
+    if (ISSET(status, FLAG_NO_USER | FLAG_NO_HOST))
+	audit_failure(NewArgv, "No user or host");
+    else
+	audit_failure(NewArgv, "validation failure");
 
     /* Set error message. */
     if (ISSET(status, FLAG_NO_USER))
@@ -318,6 +308,79 @@ log_denial(status, inform_user)
 }
 
 /*
+ * Log and audit that user was not allowed to run the command.
+ */
+void
+log_failure(status, flags)
+    int status;
+    int flags;
+{
+    int inform_user = TRUE;
+
+    /* The user doesn't always get to see the log message (path info). */
+    if (!ISSET(status, FLAG_NO_USER | FLAG_NO_HOST) && def_path_info &&
+	(flags == NOT_FOUND_DOT || flags == NOT_FOUND))
+	inform_user = FALSE;
+    log_denial(status, inform_user);
+
+    if (!inform_user) {
+	/*
+	 * We'd like to not leak path info at all here, but that can
+	 * *really* confuse the users.  To really close the leak we'd
+	 * have to say "not allowed to run foo" even when the problem
+	 * is just "no foo in path" since the user can trivially set
+	 * their path to just contain a single dir.
+	 */
+	if (flags == NOT_FOUND)
+	    warningx("%s: command not found", user_cmnd);
+	else if (flags == NOT_FOUND_DOT)
+	    warningx("ignoring `%s' found in '.'\nUse `sudo ./%s' if this is the `%s' you wish to run.", user_cmnd, user_cmnd, user_cmnd);
+    }
+}
+
+/*
+ * Log and audit that user was not able to authenticate themselves.
+ */
+void
+log_auth_failure(status, tries)
+    int status;
+    int tries;
+{
+    int flags = NO_MAIL;
+
+    /* Handle auditing first. */
+    audit_failure(NewArgv, "authentication failure");
+
+    /*
+     * Do we need to send mail?
+     * We want to avoid sending multiple messages for the same command
+     * so if we are going to send an email about the denial, that takes
+     * precedence.
+     */
+    if (ISSET(status, VALIDATE_OK)) {
+	/* Command allowed, auth failed; do we need to send mail? */
+	if (def_mail_badpass || def_mail_always)
+	    flags = 0;
+    } else {
+	/* Command denied, auth failed; make sure we don't send mail twice. */
+	if (def_mail_badpass && !should_mail(status))
+	    flags = 0;
+	/* Don't log the bad password message, we'll log a denial instead. */
+	flags |= NO_LOG;
+    }
+
+    /*
+     * If sudoers denied the command we'll log that separately.
+     */
+    if (ISSET(status, FLAG_BAD_PASSWORD)) {
+	log_error(flags, "%d incorrect password attempt%s",
+	    tries, tries == 1 ? "" : "s");
+    } else if (ISSET(status, FLAG_NON_INTERACTIVE)) {
+	log_error(flags, "a password is required");
+    }
+}
+
+/*
  * Log and potentially mail the allowed command.
  */
 void
@@ -342,32 +405,24 @@ log_allowed(status)
     efree(logline);
 }
 
-void
-#ifdef __STDC__
-log_error(int flags, const char *fmt, ...)
-#else
-log_error(flags, fmt, va_alist)
+/*
+ * Perform logging for log_error()/log_fatal()
+ */
+static void
+vlog_error(flags, fmt, ap)
     int flags;
     const char *fmt;
-    va_dcl
-#endif
+    va_list ap;
 {
     int serrno = errno;
     char *message;
     char *logline;
-    va_list ap;
-#ifdef __STDC__
-    va_start(ap, fmt);
-#else
-    va_start(ap);
-#endif
 
     /* Become root if we are not already to avoid user interference */
     set_perms(PERM_ROOT|PERM_NOEXIT);
 
     /* Expand printf-style format + args. */
     evasprintf(&message, fmt, ap);
-    va_end(ap);
 
     if (ISSET(flags, MSG_ONLY))
 	logline = message;
@@ -395,17 +450,62 @@ log_error(flags, fmt, va_alist)
     /*
      * Log to syslog and/or a file.
      */
-    if (def_syslog)
-	do_syslog(def_syslog_badpri, logline);
-    if (def_logfile)
-	do_logfile(logline);
+    if (!ISSET(flags, NO_LOG)) {
+	if (def_syslog)
+	    do_syslog(def_syslog_badpri, logline);
+	if (def_logfile)
+	    do_logfile(logline);
+    }
 
     efree(logline);
+}
 
-    if (!ISSET(flags, NO_EXIT)) {
-	cleanup(0);
-	exit(1);
-    }
+void
+#ifdef __STDC__
+log_error(int flags, const char *fmt, ...)
+#else
+log_error(flags, fmt, va_alist)
+    int flags;
+    const char *fmt;
+    va_dcl
+#endif
+{
+    va_list ap;
+
+    /* Log the error. */
+#ifdef __STDC__
+    va_start(ap, fmt);
+#else
+    va_start(ap);
+#endif
+    vlog_error(flags, fmt, ap);
+    va_end(ap);
+}
+
+void
+#ifdef __STDC__
+log_fatal(int flags, const char *fmt, ...)
+#else
+log_fatal(flags, fmt, va_alist)
+    int flags;
+    const char *fmt;
+    va_dcl
+#endif
+{
+    va_list ap;
+
+    /* Log the error. */
+#ifdef __STDC__
+    va_start(ap, fmt);
+#else
+    va_start(ap);
+#endif
+    vlog_error(flags, fmt, ap);
+    va_end(ap);
+
+    /* Clean up and exit. */
+    cleanup(0);
+    exit(1);
 }
 
 #define MAX_MAILFLAGS	63
@@ -437,7 +537,7 @@ send_mail(fmt, va_alist)
 	"USER=root",
 	NULL
     };
-#endif
+#endif /* NO_ROOT_MAILER */
 
     /* Just return if mailer is disabled. */
     if (!def_mailerpath || !def_mailto)
@@ -479,12 +579,21 @@ send_mail(fmt, va_alist)
     /* Daemonize - disassociate from session/tty. */
     if (setsid() == -1)
       warning("setsid");
-    (void) chdir("/");
+    if (chdir("/") == -1)
+      warning("chdir(/)");
     if ((fd = open(_PATH_DEVNULL, O_RDWR, 0644)) != -1) {
 	(void) dup2(fd, STDIN_FILENO);
 	(void) dup2(fd, STDOUT_FILENO);
 	(void) dup2(fd, STDERR_FILENO);
     }
+
+#ifdef HAVE_SETLOCALE
+    if (!setlocale(LC_ALL, def_sudoers_locale)) {
+	setlocale(LC_ALL, "C");
+	efree(def_sudoers_locale);
+	def_sudoers_locale = estrdup("C");
+    }
+#endif /* HAVE_SETLOCALE */
 
     /* Close password, group and other fds so we don't leak. */
     sudo_endpwent();
@@ -582,6 +691,11 @@ send_mail(fmt, va_alist)
 	    (void) fputc(*p, mail);
     }
 
+#ifdef HAVE_NL_LANGINFO
+    if (strcmp(def_sudoers_locale, "C") != 0)
+	(void) fprintf(mail, "\nContent-Type: text/plain; charset=\"%s\"\nContent-Transfer-Encoding: 8bit", nl_langinfo(CODESET));
+#endif /* HAVE_NL_LANGINFO */
+
     (void) fprintf(mail, "\n\n%s : %s : %s : ", user_host,
 	get_timestr(time(NULL), def_log_year), user_name);
 #ifdef __STDC__
@@ -612,10 +726,10 @@ should_mail(status)
     int status;
 {
 
-    return(def_mail_always || ISSET(status, VALIDATE_ERROR) ||
+    return def_mail_always || ISSET(status, VALIDATE_ERROR) ||
 	(def_mail_no_user && ISSET(status, FLAG_NO_USER)) ||
 	(def_mail_no_host && ISSET(status, FLAG_NO_HOST)) ||
-	(def_mail_no_perms && !ISSET(status, VALIDATE_OK)));
+	(def_mail_no_perms && !ISSET(status, VALIDATE_OK));
 }
 
 #define	LL_TTY_STR	"TTY="
@@ -669,7 +783,10 @@ new_logline(message, serrno)
 	}
 	len += sizeof(LL_ENV_STR) + 2 + evlen;
     }
+    /* Note: we log "sudo -l command arg ..." as "list command arg ..." */
     len += sizeof(LL_CMND_STR) - 1 + strlen(user_cmnd);
+    if (ISSET(sudo_mode, MODE_CHECK))
+	len += sizeof("list ") - 1;
     if (user_args != NULL)
 	len += strlen(user_args) + 1;
 
@@ -722,8 +839,11 @@ new_logline(message, serrno)
 	    goto toobig;
 	efree(evstr);
     }
-    if (strlcat(line, LL_CMND_STR, len) >= len ||
-	strlcat(line, user_cmnd, len) >= len)
+    if (strlcat(line, LL_CMND_STR, len) >= len)
+	goto toobig;
+    if (ISSET(sudo_mode, MODE_CHECK) && strlcat(line, "list ", len) >= len)
+	goto toobig;
+    if (strlcat(line, user_cmnd, len) >= len)
 	goto toobig;
     if (user_args != NULL) {
 	if (strlcat(line, " ", len) >= len ||
@@ -731,7 +851,7 @@ new_logline(message, serrno)
 	    goto toobig;
     }
 
-    return (line);
+    return line;
 toobig:
     errorx(1, "internal error: insufficient space for log line");
 }

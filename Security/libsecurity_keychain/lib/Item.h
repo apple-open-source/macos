@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2000-2004,2012-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -53,25 +53,30 @@ protected:
 
 	// new item constructors
     ItemImpl(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data, bool inhibitCheck = false);
-	
+
 	ItemImpl(SecItemClass itemClass, SecKeychainAttributeList *attrList, UInt32 length, const void* data);
 
-	// db item contstructor
+	// db item constructor
     ItemImpl(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
 
-	// PrimaryKey item contstructor
+	// PrimaryKey item constructor
     ItemImpl(const Keychain &keychain, const PrimaryKey &primaryKey);
 
 public:
 
 	static ItemImpl* make(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
 	static ItemImpl* make(const Keychain &keychain, const PrimaryKey &primaryKey);
-	
+
 	ItemImpl(ItemImpl &item);
 
 	// Return true if we got the attribute, false if we only got the actualLength.
 	void getAttributeFrom(CssmDbAttributeData *data, SecKeychainAttribute &attr,  UInt32 *actualLength);
 	void getClass(SecKeychainAttribute &attr,  UInt32 *actualLength);
+
+	// For iOS keys
+	void setPersistentRef(CFDataRef ref);
+	// returns NULL for securityd keys, or the (non-NULL) persistent ref for iOS keys
+	CFDataRef getPersistentRef();
 	
 	PrimaryKey addWithCopyInfo(Keychain &keychain, bool isCopy);
 	Mutex* getMutexForObject();
@@ -93,7 +98,7 @@ public:
 	virtual void update();
 
 	void aboutToDestruct();
-	
+
 	// put a copy of the item into a given keychain
 	virtual Item copyTo(const Keychain &keychain, Access *newAccess = NULL);
 
@@ -111,7 +116,7 @@ public:
 
 	void getAttribute(SecKeychainAttribute& attr,  UInt32 *actualLength);
 	void getData(CssmDataContainer& outData);
-	
+
 	void modifyContent(const SecKeychainAttributeList *attrList, UInt32 dataLength, const void *inData);
 	void getContent(SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData);
 	static void freeContent(SecKeychainAttributeList *attrList, void *data);
@@ -135,7 +140,8 @@ public:
 	virtual void willRead();
 
     // create a persistent reference to this item
-    void copyPersistentReference(CFDataRef &outDataRef);
+    void copyPersistentReference(CFDataRef &outDataRef, bool isSecIdentityRef=false);
+	static Item makeFromPersistentReference(const CFDataRef persistentRef, bool *isIdentityRef=NULL);
 
 	// for keychain syncing
 	void doNotEncrypt () {mDoNotEncrypt = true;}
@@ -149,18 +155,27 @@ public:
 
 	/* For binding to extended attributes. */
 	virtual const CssmData &itemID();
+
+	/* Overrides for SecCFObject methods */
+	bool equal(SecCFObject &other);
+    virtual CFHashCode hash();
 	
+    bool mayDelete();
+    
 protected:
 	// new item members
-    RefPointer<CssmDataContainer> mData;
-    auto_ptr<CssmClient::DbAttributes> mDbAttributes;
+	RefPointer<CssmDataContainer> mData;
+	auto_ptr<CssmClient::DbAttributes> mDbAttributes;
 	SecPointer<Access> mAccess;
 
 	// db item members
-    CssmClient::DbUniqueRecord mUniqueId;
+	CssmClient::DbUniqueRecord mUniqueId;
 	Keychain mKeychain;
-    PrimaryKey mPrimaryKey;
-	
+	PrimaryKey mPrimaryKey;
+
+	// non-NULL only for secd items (managed by secd, not securityd)
+	CFDataRef secd_PersistentRef;
+
 private:
 	// keychain syncing flags
 	bool mDoNotEncrypt;
@@ -186,10 +201,13 @@ public:
 	Item(ItemImpl &item);
 };
 
+
 CFIndex GetItemRetainCount(Item& item);
 
 } // end namespace KeychainCore
 
 } // end namespace Security
+
+
 
 #endif // !_SECURITY_ITEM_H_

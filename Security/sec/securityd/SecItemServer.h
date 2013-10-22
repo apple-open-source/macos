@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2009,2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,26 +31,41 @@
 #define _SECURITYD_SECITEMSERVER_H_
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <SecureObjectSync/SOSEngine.h>
+#include <SecureObjectSync/SOSCircle.h>
+#include <utilities/SecDb.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
-OSStatus _SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result,
-    CFArrayRef accessGroups);
-OSStatus _SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result,
-    CFArrayRef accessGroups);
-OSStatus _SecItemUpdate(CFDictionaryRef query,
-    CFDictionaryRef attributesToUpdate, CFArrayRef accessGroups);
-OSStatus _SecItemDelete(CFDictionaryRef query, CFArrayRef accessGroups);
-bool _SecItemDeleteAll(void);
-OSStatus _SecServerRestoreKeychain(void);
-OSStatus _SecServerMigrateKeychain(CFArrayRef args, CFTypeRef *result);
-OSStatus _SecServerKeychainBackup(CFArrayRef args_in, CFTypeRef *args_out);
-OSStatus _SecServerKeychainRestore(CFArrayRef args_in, CFTypeRef *dummy);
+bool _SecItemAdd(CFDictionaryRef attributes, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
+bool _SecItemCopyMatching(CFDictionaryRef query, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
+bool _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate, CFArrayRef accessGroups, CFErrorRef *error);
+bool _SecItemDelete(CFDictionaryRef query, CFArrayRef accessGroups, CFErrorRef *error);
+bool _SecItemDeleteAll(CFErrorRef *error);
+bool _SecServerRestoreKeychain(CFErrorRef *error);
+bool _SecServerMigrateKeychain(int32_t handle_in, CFDataRef data_in, int32_t *handle_out, CFDataRef *data_out, CFErrorRef *error);
+CFDataRef _SecServerKeychainBackup(CFDataRef keybag, CFDataRef passcode, CFErrorRef *error);
+bool _SecServerKeychainRestore(CFDataRef backup, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error);
+bool _SecServerKeychainSyncUpdate(CFDictionaryRef updates, CFErrorRef *error);
+CFDictionaryRef _SecServerBackupSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
+bool _SecServerRestoreSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
 
-#if defined(__cplusplus)
-}
-#endif
+// Hack to log objects from inside SOS code
+void SecItemServerAppendItemDescription(CFMutableStringRef desc, CFDictionaryRef object);
+
+// These are visible for testing.
+SOSDataSourceFactoryRef SecItemDataSourceFactoryCreate(SecDbRef db);
+SOSDataSourceFactoryRef SecItemDataSourceFactoryCreateDefault(void);
+
+/* FIXME: there is a specific type for keybag handle (keybag_handle_t)
+   but it's not defined for simulator so we just use an int32_t */
+void SecItemServerSetKeychainKeybag(int32_t keybag);
+void SecItemServerResetKeychainKeybag(void);
+
+void SecItemServerSetKeychainChangedNotification(const char *notification_name);
+
+CFStringRef __SecKeychainCopyPath(void);
+
+__END_DECLS
 
 #endif /* _SECURITYD_SECITEMSERVER_H_ */

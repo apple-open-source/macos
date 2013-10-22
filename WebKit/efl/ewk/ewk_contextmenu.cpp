@@ -24,7 +24,7 @@
 #include "ContextMenu.h"
 #include "ContextMenuController.h"
 #include "ContextMenuItem.h"
-#include "ewk_private.h"
+#include "ewk_contextmenu_private.h"
 #include <Eina.h>
 #include <eina_safety_checks.h>
 #include <wtf/text/CString.h>
@@ -53,6 +53,7 @@ struct _Ewk_Context_Menu_Item {
 
     const char* title; /**< contains the title of the item */
     Ewk_Context_Menu* submenu; /**< contains the pointer to the submenu of the item */
+    Ewk_Context_Menu* parentMenu; /**< contains the pointer to parent menu of the item */
 
     bool checked : 1;
     bool enabled : 1;
@@ -84,8 +85,10 @@ Eina_Bool ewk_context_menu_destroy(Ewk_Context_Menu* menu)
     EINA_SAFETY_ON_NULL_RETURN_VAL(menu, false);
     EINA_SAFETY_ON_NULL_RETURN_VAL(menu->controller, false);
     menu->controller->clearContextMenu();
+    ewk_context_menu_free(menu);
     return true;
 #else
+    UNUSED_PARAM(menu);
     return false;
 #endif
 }
@@ -97,14 +100,14 @@ const Eina_List* ewk_context_menu_item_list_get(const Ewk_Context_Menu* menu)
     return menu->items;
 }
 
-Ewk_Context_Menu_Item* ewk_context_menu_item_new(Ewk_Context_Menu_Item_Type type,
-                                                 Ewk_Context_Menu_Action action, Ewk_Context_Menu* submenu,
-                                                 const char* title, Eina_Bool checked, Eina_Bool enabled)
+Ewk_Context_Menu_Item* ewk_context_menu_item_new(Ewk_Context_Menu_Item_Type type, Ewk_Context_Menu_Action action, Ewk_Context_Menu* parentMenu,
+    Ewk_Context_Menu* submenu, const char* title, Eina_Bool checked, Eina_Bool enabled)
 {
     Ewk_Context_Menu_Item* item = new Ewk_Context_Menu_Item;
     item->type = type;
     item->action = action;
     item->title = eina_stringshare_add(title);
+    item->parentMenu = parentMenu;
     item->submenu = submenu;
     item->checked = checked;
     item->enabled = enabled;
@@ -125,6 +128,8 @@ Eina_Bool ewk_context_menu_item_select(Ewk_Context_Menu* menu, Ewk_Context_Menu_
     menu->controller->contextMenuItemSelected(&core);
     return true;
 #else
+    UNUSED_PARAM(menu);
+    UNUSED_PARAM(item);
     return false;
 #endif
 }
@@ -202,6 +207,12 @@ Eina_Bool ewk_context_menu_item_enabled_set(Ewk_Context_Menu_Item* item, Eina_Bo
     return true;
 }
 
+Ewk_Context_Menu* ewk_context_menu_item_parent_get(const Ewk_Context_Menu_Item* item)
+{
+    EINA_SAFETY_ON_NULL_RETURN_VAL(item, 0);
+
+    return item->parentMenu;
+}
 
 /* internal methods ****************************************************/
 
@@ -217,7 +228,7 @@ Eina_Bool ewk_context_menu_item_enabled_set(Ewk_Context_Menu_Item* item, Eina_Bo
  *
  * @note emits a signal "contextmenu,new"
  */
-Ewk_Context_Menu* ewk_context_menu_new(Evas_Object* view, WebCore::ContextMenuController* controller)
+Ewk_Context_Menu* ewk_context_menu_new(Evas_Object* view, WebCore::ContextMenuController* controller, WebCore::ContextMenu* coreMenu)
 {
     Ewk_Context_Menu* menu;
     EINA_SAFETY_ON_NULL_RETURN_VAL(view, 0);
@@ -230,6 +241,10 @@ Ewk_Context_Menu* ewk_context_menu_new(Evas_Object* view, WebCore::ContextMenuCo
     menu->controller = controller;
     menu->items = 0;
     evas_object_smart_callback_call(menu->view, "contextmenu,new", menu);
+
+    const Vector<WebCore::ContextMenuItem>& itemsList = coreMenu->items();
+    for (Vector<WebCore::ContextMenuItem>::const_iterator iter = itemsList.begin(); iter != itemsList.end(); ++iter)
+        ewk_context_menu_item_append(menu, *iter);
 
     return menu;
 }
@@ -266,38 +281,16 @@ bool ewk_context_menu_free(Ewk_Context_Menu* menu)
  *
  * @see ewk_context_menu_item_new
  */
-void ewk_context_menu_item_append(Ewk_Context_Menu* menu, WebCore::ContextMenuItem& core)
+void ewk_context_menu_item_append(Ewk_Context_Menu* menu, const WebCore::ContextMenuItem& core)
 {
     Ewk_Context_Menu_Item_Type type = static_cast<Ewk_Context_Menu_Item_Type>(core.type());
     Ewk_Context_Menu_Action action = static_cast<Ewk_Context_Menu_Action>(core.action());
 
-    Ewk_Context_Menu_Item* menu_item = ewk_context_menu_item_new
-                                           (type, action, 0, core.title().utf8().data(), core.checked(),
-                                           core.enabled());
+    Ewk_Context_Menu_Item* menu_item = ewk_context_menu_item_new(type, action, menu, 0, core.title().utf8().data(), core.checked(), core.enabled());
     EINA_SAFETY_ON_NULL_RETURN(menu_item);
 
     menu->items = eina_list_append(menu->items, menu_item);
     evas_object_smart_callback_call(menu->view, "contextmenu,item,appended", menu);
-}
-
-/**
- * @internal
- *
- * Emits a signal with the items of the context menu.
- *
- * @param menu the context menu object
- * @return the same context menu object that was given through parameter
- *
- * @note emits a signal "contextmenu,customize"
- *
- * @see ewk_context_menu_item_list_get
- */
-Ewk_Context_Menu* ewk_context_menu_customize(Ewk_Context_Menu* menu)
-{
-    EINA_SAFETY_ON_NULL_RETURN_VAL(menu, 0);
-
-    evas_object_smart_callback_call(menu->view, "contextmenu,customize", menu->items);
-    return menu;
 }
 
 /**

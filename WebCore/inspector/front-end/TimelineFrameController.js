@@ -61,40 +61,43 @@ WebInspector.TimelineFrameController.prototype = {
 
     _addRecord: function(record)
     {
-        if (record.type === WebInspector.TimelineModel.RecordType.BeginFrame)
+        var records;
+        if (record.isBackground)
+            return;
+        if (record.type === WebInspector.TimelineModel.RecordType.Program)
+            records = record["children"] || [];
+        else
+            records = [record];
+        records.forEach(this._innerAddRecord, this);
+    },
+
+    _innerAddRecord: function(record)
+    {
+        if (record.type === WebInspector.TimelineModel.RecordType.BeginFrame && this._lastFrame)
             this._flushFrame(record);
-        else if (this._lastFrame) {
-            WebInspector.TimelineModel.aggregateTimeForRecord(this._lastFrame.timeByCategory, record);
+        else {
+            if (!this._lastFrame)
+                this._lastFrame = this._createFrame(record);
+            if (!record.thread)
+                WebInspector.TimelineModel.aggregateTimeForRecord(this._lastFrame.timeByCategory, record);
             this._lastFrame.cpuTime += WebInspector.TimelineModel.durationInSeconds(record);
-        } else {
-            // No frame records so far -- generate a synthetic frame per each top-level record, but only
-            // dispatch these to the overview.
-            this._overviewPane.addFrame(this._createSyntheticFrame(record));
         }
     },
 
     _flushFrame: function(record)
     {
-        var frameBeginTime = WebInspector.TimelineModel.startTimeInSeconds(record);
-        if (this._lastFrame) {
-            this._lastFrame.endTime = frameBeginTime;
-            this._lastFrame.duration = this._lastFrame.endTime - this._lastFrame.startTime;
-            this._overviewPane.addFrame(this._lastFrame);
-            this._presentationModel.addFrame(this._lastFrame);
-        }
-        this._lastFrame = new WebInspector.TimelineFrame();
-        this._lastFrame.startTime = frameBeginTime;
-        this._lastFrame.startTimeOffset = this._model.recordOffsetInSeconds(record);
+        this._lastFrame.endTime = WebInspector.TimelineModel.startTimeInSeconds(record);
+        this._lastFrame.duration = this._lastFrame.endTime - this._lastFrame.startTime;
+        this._overviewPane.addFrame(this._lastFrame);
+        this._presentationModel.addFrame(this._lastFrame);
+        this._lastFrame = this._createFrame(record);
     },
 
-    _createSyntheticFrame: function(record)
+    _createFrame: function(record)
     {
         var frame = new WebInspector.TimelineFrame();
         frame.startTime = WebInspector.TimelineModel.startTimeInSeconds(record);
         frame.startTimeOffset = this._model.recordOffsetInSeconds(record);
-        frame.endTime = WebInspector.TimelineModel.endTimeInSeconds(record);
-        frame.duration = WebInspector.TimelineModel.durationInSeconds(record);
-        frame.cpuTime = frame.duration;
         return frame;
     },
 
@@ -103,6 +106,35 @@ WebInspector.TimelineFrameController.prototype = {
         this._model.removeEventListener(WebInspector.TimelineModel.Events.RecordAdded, this._onRecordAdded, this);
         this._model.removeEventListener(WebInspector.TimelineModel.Events.RecordsCleared, this._onRecordsCleared, this);
     }
+}
+
+/**
+ * @constructor
+ * @param {Array.<WebInspector.TimelineFrame>} frames
+ */
+WebInspector.FrameStatistics = function(frames)
+{
+    this.frameCount = frames.length;
+    this.minDuration = Infinity;
+    this.maxDuration = 0;
+    this.timeByCategory = {};
+    this.startOffset = frames[0].startTimeOffset;
+    var lastFrame = frames[this.frameCount - 1];
+    this.endOffset = lastFrame.startTimeOffset + lastFrame.duration;
+
+    var totalDuration = 0;
+    var sumOfSquares = 0;
+    for (var i = 0; i < this.frameCount; ++i) {
+        var duration = frames[i].duration;
+        totalDuration += duration;
+        sumOfSquares += duration * duration;
+        this.minDuration = Math.min(this.minDuration, duration);
+        this.maxDuration = Math.max(this.maxDuration, duration);
+        WebInspector.TimelineModel.aggregateTimeByCategory(this.timeByCategory, frames[i].timeByCategory);
+    }
+    this.average = totalDuration / this.frameCount;
+    var variance = sumOfSquares / this.frameCount - this.average * this.average;
+    this.stddev = Math.sqrt(variance);
 }
 
 /**

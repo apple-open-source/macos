@@ -32,6 +32,23 @@
 #include <kvbuf.h>
 #include "bootplookup.h"
 
+extern kern_return_t 
+libinfoDSmig_GetProcedureNumber(mach_port_t server,
+                                proc_name_t name,
+                                int32_t *procno,
+                                security_token_t *usertoken);
+
+extern kern_return_t
+libinfoDSmig_Query(mach_port_t server,
+                   int32_t proc,
+                   inline_data_t request,
+                   mach_msg_type_number_t requestCnt,
+                   inline_data_t reply,
+                   mach_msg_type_number_t *replyCnt,
+                   vm_offset_t *ooreply,
+                   mach_msg_type_number_t *ooreplyCnt,
+                   security_token_t *usertoken);
+
 typedef struct bootpent
 {
     struct bootpent *bp_next;

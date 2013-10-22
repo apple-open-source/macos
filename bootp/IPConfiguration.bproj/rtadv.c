@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,10 +73,10 @@
 #include "DHCPv6Client.h"
 #include "RTADVSocket.h"
 
-
 typedef struct {
     timer_callout_t *		timer;
     int				try;
+    Boolean			data_received;
     struct in6_addr		our_router;
     uint8_t			our_router_hwaddr[MAX_LINK_ADDR_LEN];
     int				our_router_hwaddr_len;
@@ -122,6 +122,7 @@ rtadv_failed(ServiceRef service_p, ipconfig_status_t status)
 {
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
 
+    rtadv->try = 0;
     rtadv_cancel_pending_events(service_p);
     inet6_rtadv_disable(if_name(service_interface(service_p)));
     rtadv_set_dns_servers(rtadv, NULL, 0);
@@ -165,10 +166,13 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	bzero(&rtadv->our_router, sizeof(rtadv->our_router));
 	rtadv_set_dns_servers(rtadv, NULL, 0);
 	rtadv->our_router_hwaddr_len = 0;
-	rtadv->try = 1;
+	rtadv->try = 0;
+	rtadv->data_received = FALSE;
+
 	/* FALL THROUGH */
 
     case IFEventID_timeout_e:
+	rtadv->try++;
 	if (rtadv->try > 1) {
 	    link_status_t	link_status = service_link_status(service_p);
 
@@ -198,7 +202,6 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		   if_name(if_p), strerror(error));
 	    break;
 	}
-	rtadv->try++;
 	
 	/* set timer values and wait for responses */
 	tv.tv_sec = RTR_SOLICITATION_INTERVAL;
@@ -228,7 +231,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		}
 	    }
 
-	    my_log(LOG_NOTICE, 
+	    my_log(LOG_DEBUG, 
 		   "RTADV %s: Received RA from %s%s%s%s",
 		   if_name(if_p),
 		   inet_ntop(AF_INET6, &data->router,
@@ -240,7 +243,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		int		i;
 		
 		for (i = 0; i < data->dns_servers_count; i++) {
-		    my_log(LOG_NOTICE, 
+		    my_log(LOG_DEBUG, 
 			   "RTADV %s: DNS Server %s",
 			   if_name(if_p),
 			   inet_ntop(AF_INET6, data->dns_servers + i,
@@ -248,6 +251,7 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		}
 	    }
 	}
+	rtadv->data_received = TRUE;
 	rtadv_cancel_pending_events(service_p);
 	rtadv->our_router = data->router;
 	if (data->router_hwaddr != NULL) {
@@ -340,14 +344,13 @@ rtadv_address_changed(ServiceRef service_p,
     if (rtadv->try == 0) {
 	link_status_t	link_status = service_link_status(service_p);
 	
-	if (link_status.valid == TRUE) {
-	    if (link_status.active == TRUE) {
-		my_log(LOG_DEBUG,
-		       "RTADV %s: link-local address is ready, starting",
-		       if_name(if_p));
-		rtadv_start(service_p, IFEventID_start_e, NULL);
-		return;
-	    }
+	if (link_status.valid == FALSE
+	    || link_status.active == TRUE) {
+	    my_log(LOG_DEBUG,
+		   "RTADV %s: link-local address is ready, starting",
+		   if_name(if_p));
+	    rtadv_start(service_p, IFEventID_start_e, NULL);
+	    return;
 	}
     }
     else {
@@ -419,7 +422,9 @@ STATIC void
 rtadv_init(ServiceRef service_p)
 {
     inet6_addrlist_t	addrs;
+    Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
 
+    rtadv->try = 0;
     inet6_addrlist_copy(&addrs,
 			if_link_index(service_interface(service_p)));
     rtadv_address_changed(service_p, &addrs);
@@ -533,22 +538,29 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	if (rtadv == NULL) {
 	    return (ipconfig_status_internal_error_e);
 	}
-	rtadv->try = 0;
 	link_status = service_link_status(service_p);
-	if (link_status.valid == TRUE) {
-	    if (link_status.active == TRUE) {
-		if (network_changed != NULL) {
-		    inet6_flush_prefixes(if_name(if_p));
-		    inet6_flush_routes(if_name(if_p));
-		    inet6_rtadv_disable(if_name(if_p));
-		    if (rtadv->dhcp_client != NULL) {
-			DHCPv6ClientStop(rtadv->dhcp_client, TRUE);
-		    }
-		    service_publish_failure(service_p,
-					    ipconfig_status_network_changed_e);
+	if (link_status.valid == FALSE
+	    || link_status.active == TRUE) {
+	    if (network_changed != NULL) {
+		inet6_flush_prefixes(if_name(if_p));
+		inet6_flush_routes(if_name(if_p));
+		inet6_rtadv_disable(if_name(if_p));
+		if (rtadv->dhcp_client != NULL) {
+		    DHCPv6ClientStop(rtadv->dhcp_client, TRUE);
 		}
-		rtadv_init(service_p);
+		service_publish_failure(service_p,
+					ipconfig_status_network_changed_e);
 	    }
+	    else if (evid == IFEventID_link_status_changed_e
+		     && rtadv->try == 1
+		     && rtadv->data_received == FALSE) {
+		/* we're already on it */
+		break;
+	    }
+	    rtadv_init(service_p);
+	}
+	else {
+	    rtadv->try = 0;
 	}
 	break;
     }

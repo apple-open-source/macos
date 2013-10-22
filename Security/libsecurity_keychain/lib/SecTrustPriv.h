@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -69,8 +69,8 @@ OSStatus SecTrustGetUserTrust(SecCertificateRef certificate, SecPolicyRef policy
 	@param trustSetting The user-specified trust settings.
 	@result A result code. See "Security Error Codes" (SecBase.h).
 	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
-	@discussion as of Mac OS version 10.5, this will result in a call to 
-	 SecTrustSettingsSetTrustSettings(). 
+	@discussion as of Mac OS version 10.5, this will result in a call to
+	 SecTrustSettingsSetTrustSettings().
 */
 OSStatus SecTrustSetUserTrust(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting)
 	/*DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER*/;
@@ -85,7 +85,7 @@ OSStatus SecTrustSetUserTrust(SecCertificateRef certificate, SecPolicyRef policy
 
 	@This is the private version of what used to be SecTrustSetUserTrust(); it operates
 	 on UserTrust entries as that function used to. The current SecTrustSetUserTrust()
-	 function operated on Trust Settings. 
+	 function operated on Trust Settings.
 */
 OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting);
 
@@ -111,15 +111,34 @@ OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors, uint32
 	errSecTrustNotAvailable is returned. If the certificate is not an extended validation certificate, there is
 	no extended result data and errSecDataNotAvailable is returned. Currently, only one dictionary key is defined
 	(kSecEVOrganizationName).
+
+	Note: this function will be deprecated in a future release of OS X. Your
+	code should use SecTrustCopyResult to obtain the trust results dictionary.
 */
-OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result);
+OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result)
+	__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
+
+/*!
+    @enum Trust Result Constants
+    @discussion Predefined key constants used to obtain values in a
+        dictionary of trust evaluation results for a certificate chain,
+        as retrieved from a call to SecTrustCopyResult.
+
+    @constant kSecTrustResultDetails
+        This key will be present if a trust evaluation has been performed.
+        Its value is a CFArrayRef of CFDictionaryRef representing detailed
+        status info for each certificate in the completed chain.
+ */
+extern CFTypeRef kSecTrustResultDetails
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
 
 
 /*
  * Preference-related strings for Revocation policies.
  */
- 
-/* 
+
+/*
  * Preference domain, i.e., the name of a plist in ~/Library/Preferences or in
  * /Library/Preferences
  */
@@ -132,12 +151,12 @@ OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result);
   #define kSecRevocationBestAttempt			CFSTR("BestAttempt")
   #define kSecRevocationRequireIfPresent	CFSTR("RequireIfPresent")
   #define kSecRevocationRequireForAll		CFSTR("RequireForAll")
-  
+
 /* Which first if both enabled? */
 #define kSecRevocationWhichFirst			CFSTR("RevocationFirst")
   #define kSecRevocationOcspFirst			CFSTR("OCSP")
   #define kSecRevocationCrlFirst			CFSTR("CRL")
-  
+
 /* boolean: A "this policy is sufficient per cert" for each */
 #define kSecRevocationOCSPSufficientPerCert	CFSTR("OCSPSufficientPerCert")
 #define kSecRevocationCRLSufficientPerCert	CFSTR("CRLSufficientPerCert")
@@ -145,10 +164,9 @@ OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result);
 /* local OCSP responder URI, value arbitrary string value */
 #define kSecOCSPLocalResponder				CFSTR("OCSPLocalResponder")
 
-/* Extended trust result keys */
-#define kSecEVOrganizationName				CFSTR("Organization")			/* validated EV organization name */
-#define kSecTrustEvaluationDate				CFSTR("TrustEvaluationDate")	/* date when this trust evaluation took place */
-#define kSecTrustExpirationDate				CFSTR("TrustExpirationDate")	/* date after which the trust result should be re-evaluated */
+/* Extended trust result keys (now in public API) */
+#define kSecEVOrganizationName				kSecTrustOrganizationName
+#define kSecTrustExpirationDate				kSecTrustRevocationValidUntilDate
 
 #if defined(__cplusplus)
 }

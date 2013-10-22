@@ -29,11 +29,21 @@
  */
 
 /**
- * @constructor
+ * @interface
  */
-WebInspector.ScriptFormatter = function()
+WebInspector.Formatter = function()
 {
-    this._tasks = [];
+}
+
+/**
+ * @param {WebInspector.ResourceType} contentType
+ * @return {?WebInspector.Formatter}
+ */
+WebInspector.Formatter.createFormatter = function(contentType)
+{
+    if (contentType === WebInspector.resourceTypes.Script || contentType === WebInspector.resourceTypes.Document)
+        return new WebInspector.ScriptFormatter();
+    return new WebInspector.IdentityFormatter();
 }
 
 /**
@@ -42,7 +52,7 @@ WebInspector.ScriptFormatter = function()
  * @param {number} columnNumber
  * @return {number}
  */
-WebInspector.ScriptFormatter.locationToPosition = function(lineEndings, lineNumber, columnNumber)
+WebInspector.Formatter.locationToPosition = function(lineEndings, lineNumber, columnNumber)
 {
     var position = lineNumber ? lineEndings[lineNumber - 1] + 1 : 0;
     return position + columnNumber;
@@ -53,7 +63,7 @@ WebInspector.ScriptFormatter.locationToPosition = function(lineEndings, lineNumb
  * @param {number} position
  * @return {Array.<number>}
  */
-WebInspector.ScriptFormatter.positionToLocation = function(lineEndings, position)
+WebInspector.Formatter.positionToLocation = function(lineEndings, position)
 {
     var lineNumber = lineEndings.upperBound(position - 1);
     if (!lineNumber)
@@ -63,17 +73,37 @@ WebInspector.ScriptFormatter.positionToLocation = function(lineEndings, position
     return [lineNumber, columnNumber];
 }
 
+WebInspector.Formatter.prototype = {
+    /**
+     * @param {string} mimeType
+     * @param {string} content
+     * @param {function(string, WebInspector.FormatterSourceMapping)} callback
+     */
+    formatContent: function(mimeType, content, callback)
+    {
+    }
+}
+
+/**
+ * @constructor
+ * @implements {WebInspector.Formatter}
+ */
+WebInspector.ScriptFormatter = function()
+{
+    this._tasks = [];
+}
+
 WebInspector.ScriptFormatter.prototype = {
     /**
      * @param {string} mimeType
-     * @param {?string} content
-     * @param {function(string, WebInspector.FormattedSourceMapping)} callback
+     * @param {string} content
+     * @param {function(string, WebInspector.FormatterSourceMapping)} callback
      */
     formatContent: function(mimeType, content, callback)
     {
         content = content.replace(/\r\n?|[\n\u2028\u2029]/g, "\n").replace(/^\uFEFF/, '');
         const method = "format";
-        var parameters = { mimeType: mimeType, content: content, indentString: "    "  };
+        var parameters = { mimeType: mimeType, content: content, indentString: WebInspector.settings.textEditorIndent.get() };
         this._tasks.push({ data: parameters, callback: callback });
         this._worker.postMessage({ method: method, params: parameters });
     },
@@ -84,7 +114,7 @@ WebInspector.ScriptFormatter.prototype = {
         var originalContent = task.data.content;
         var formattedContent = event.data.content;
         var mapping = event.data["mapping"];
-        var sourceMapping = new WebInspector.FormattedSourceMapping(originalContent.lineEndings(), formattedContent.lineEndings(), mapping);
+        var sourceMapping = new WebInspector.FormatterSourceMappingImpl(originalContent.lineEndings(), formattedContent.lineEndings(), mapping);
         task.callback(formattedContent, sourceMapping);
     },
 
@@ -95,9 +125,30 @@ WebInspector.ScriptFormatter.prototype = {
     {
         if (!this._cachedWorker) {
             this._cachedWorker = new Worker("ScriptFormatterWorker.js");
-            this._cachedWorker.onmessage = /** @type {function(this:Worker)} */ this._didFormatContent.bind(this);
+            this._cachedWorker.onmessage = /** @type {function(this:Worker)} */ (this._didFormatContent.bind(this));
         }
         return this._cachedWorker;
+    }
+}
+
+/**
+ * @constructor
+ * @implements {WebInspector.Formatter}
+ */
+WebInspector.IdentityFormatter = function()
+{
+    this._tasks = [];
+}
+
+WebInspector.IdentityFormatter.prototype = {
+    /**
+     * @param {string} mimeType
+     * @param {string} content
+     * @param {function(string, WebInspector.FormatterSourceMapping)} callback
+     */
+    formatContent: function(mimeType, content, callback)
+    {
+        callback(content, new WebInspector.IdentityFormatterSourceMapping());
     }
 }
 
@@ -111,41 +162,95 @@ WebInspector.FormatterMappingPayload = function()
 }
 
 /**
+ * @interface
+ */
+WebInspector.FormatterSourceMapping = function()
+{
+}
+
+WebInspector.FormatterSourceMapping.prototype = {
+    /**
+     * @param {number} lineNumber
+     * @param {number=} columnNumber
+     * @return {Array.<number>}
+     */
+    originalToFormatted: function(lineNumber, columnNumber) { },
+
+    /**
+     * @param {number} lineNumber
+     * @param {number=} columnNumber
+     * @return {Array.<number>}
+     */
+    formattedToOriginal: function(lineNumber, columnNumber) { }
+}
+
+/**
  * @constructor
+ * @implements {WebInspector.FormatterSourceMapping}
+ */
+WebInspector.IdentityFormatterSourceMapping = function()
+{
+}
+
+WebInspector.IdentityFormatterSourceMapping.prototype = {
+    /**
+     * @param {number} lineNumber
+     * @param {number=} columnNumber
+     * @return {Array.<number>}
+     */
+    originalToFormatted: function(lineNumber, columnNumber)
+    {
+        return [lineNumber, columnNumber || 0]; 
+    },
+
+    /**
+     * @param {number} lineNumber
+     * @param {number=} columnNumber
+     * @return {Array.<number>}
+     */
+    formattedToOriginal: function(lineNumber, columnNumber)
+    {
+        return [lineNumber, columnNumber || 0];
+    }
+}
+
+/**
+ * @constructor
+ * @implements {WebInspector.FormatterSourceMapping}
  * @param {Array.<number>} originalLineEndings
  * @param {Array.<number>} formattedLineEndings
  * @param {WebInspector.FormatterMappingPayload} mapping
  */
-WebInspector.FormattedSourceMapping = function(originalLineEndings, formattedLineEndings, mapping)
+WebInspector.FormatterSourceMappingImpl = function(originalLineEndings, formattedLineEndings, mapping)
 {
     this._originalLineEndings = originalLineEndings;
     this._formattedLineEndings = formattedLineEndings;
     this._mapping = mapping;
 }
 
-WebInspector.FormattedSourceMapping.prototype = {
+WebInspector.FormatterSourceMappingImpl.prototype = {
     /**
      * @param {number} lineNumber
-     * @param {number} columnNumber
+     * @param {number=} columnNumber
      * @return {Array.<number>}
      */
     originalToFormatted: function(lineNumber, columnNumber)
     {
-        var originalPosition = WebInspector.ScriptFormatter.locationToPosition(this._originalLineEndings, lineNumber, columnNumber);
-        var formattedPosition = this._convertPosition(this._mapping.original, this._mapping.formatted, originalPosition);
-        return WebInspector.ScriptFormatter.positionToLocation(this._formattedLineEndings, formattedPosition);
+        var originalPosition = WebInspector.Formatter.locationToPosition(this._originalLineEndings, lineNumber, columnNumber || 0);
+        var formattedPosition = this._convertPosition(this._mapping.original, this._mapping.formatted, originalPosition || 0);
+        return WebInspector.Formatter.positionToLocation(this._formattedLineEndings, formattedPosition);
     },
 
     /**
      * @param {number} lineNumber
-     * @param {number} columnNumber
+     * @param {number=} columnNumber
      * @return {Array.<number>}
      */
     formattedToOriginal: function(lineNumber, columnNumber)
     {
-        var formattedPosition = WebInspector.ScriptFormatter.locationToPosition(this._formattedLineEndings, lineNumber, columnNumber);
+        var formattedPosition = WebInspector.Formatter.locationToPosition(this._formattedLineEndings, lineNumber, columnNumber || 0);
         var originalPosition = this._convertPosition(this._mapping.formatted, this._mapping.original, formattedPosition);
-        return WebInspector.ScriptFormatter.positionToLocation(this._originalLineEndings, originalPosition);
+        return WebInspector.Formatter.positionToLocation(this._originalLineEndings, originalPosition || 0);
     },
 
     /**

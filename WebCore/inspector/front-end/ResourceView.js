@@ -44,10 +44,10 @@ WebInspector.ResourceView.prototype = {
     hasContent: function()
     {
         return false;
-    }
-}
+    },
 
-WebInspector.ResourceView.prototype.__proto__ = WebInspector.View.prototype;
+    __proto__: WebInspector.View.prototype
+}
 
 /**
  * @param {WebInspector.Resource} resource
@@ -83,8 +83,7 @@ WebInspector.ResourceView.nonSourceViewForResource = function(resource)
 WebInspector.ResourceSourceFrame = function(resource)
 {
     this._resource = resource;
-    WebInspector.SourceFrame.call(this, resource.url);
-    this._resource.addEventListener(WebInspector.Resource.Events.RevisionAdded, this._contentChanged, this);
+    WebInspector.SourceFrame.call(this, resource);
 }
 
 WebInspector.ResourceSourceFrame.prototype = {
@@ -93,126 +92,12 @@ WebInspector.ResourceSourceFrame.prototype = {
         return this._resource;
     },
 
-    /**
-     * @param {function(?string,boolean,string)} callback
-     */
-    requestContent: function(callback)
+    populateTextAreaContextMenu: function(contextMenu, lineNumber)
     {
-        /**
-         * @param {?string} content
-         * @param {boolean} contentEncoded
-         * @param {string} mimeType
-         */
-        function callbackWrapper(content, contentEncoded, mimeType)
-        {
-            callback(content, contentEncoded, mimeType);
-        }
-        this.resource.requestContent(callbackWrapper.bind(this));
+        contextMenu.appendApplicableItems(this._resource);
+        if (this._resource.request)
+            contextMenu.appendApplicableItems(this._resource.request);
     },
 
-    _contentChanged: function(event)
-    {
-        this.setContent(this._resource.content, false, this._resource.canonicalMimeType());
-    }
+    __proto__: WebInspector.SourceFrame.prototype
 }
-
-WebInspector.ResourceSourceFrame.prototype.__proto__ = WebInspector.SourceFrame.prototype;
-
-/**
- * @constructor
- * @extends {WebInspector.ResourceSourceFrame}
- */
-WebInspector.EditableResourceSourceFrame = function(resource)
-{
-    WebInspector.ResourceSourceFrame.call(this, resource);
-}
-
-WebInspector.EditableResourceSourceFrame.Events = {
-    TextEdited: "TextEdited"
-}
-
-WebInspector.EditableResourceSourceFrame.prototype = {
-    canEditSource: function()
-    {
-        //FIXME: make live edit stop using resource content binding.
-        return this._resource.isEditable() && this._resource.type === WebInspector.resourceTypes.Stylesheet;
-    },
-
-    editContent: function(newText, callback)
-    {
-        this._clearIncrementalUpdateTimer();
-        var majorChange = true;
-        this._settingContent = true;
-        function callbackWrapper(text)
-        {
-            callback(text);
-            delete this._settingContent;
-        }
-        this.resource.setContent(newText, majorChange, callbackWrapper.bind(this));
-    },
-
-    afterTextChanged: function(oldRange, newRange)
-    {
-        function commitIncrementalEdit()
-        {
-            var majorChange = false;
-            this.resource.setContent(this._textModel.text, majorChange, function() {});
-            this.dispatchEventToListeners(WebInspector.EditableResourceSourceFrame.Events.TextEdited, this);
-        }
-        const updateTimeout = 200;
-        this._incrementalUpdateTimer = setTimeout(commitIncrementalEdit.bind(this), updateTimeout);
-    },
-
-    _clearIncrementalUpdateTimer: function()
-    {
-        if (this._incrementalUpdateTimer)
-            clearTimeout(this._incrementalUpdateTimer);
-        delete this._incrementalUpdateTimer;
-    },
-
-    _contentChanged: function(event)
-    {
-        if (!this._settingContent)
-            WebInspector.ResourceSourceFrame.prototype._contentChanged.call(this, event);
-    },
-
-    didEditContent: function(error, content)
-    {
-        WebInspector.SourceFrame.prototype.didEditContent.call(this, error, content);
-        this.dispatchEventToListeners(WebInspector.EditableResourceSourceFrame.Events.TextEdited, this);
-    },
-
-    isDirty: function()
-    {
-        return this._resource.content !== this.textModel.text;
-    }
-}
-
-WebInspector.EditableResourceSourceFrame.prototype.__proto__ = WebInspector.ResourceSourceFrame.prototype;
-
-/**
- * @extends {WebInspector.ResourceSourceFrame}
- * @constructor
- */
-WebInspector.ResourceRevisionSourceFrame = function(revision)
-{
-    WebInspector.ResourceSourceFrame.call(this, revision.resource);
-    this._revision = revision;
-}
-
-WebInspector.ResourceRevisionSourceFrame.prototype = {
-    get resource()
-    {
-        return this._revision.resource;
-    },
-
-    /**
-     * @param {function(?string,boolean,string)} callback
-     */
-    requestContent: function(callback)
-    {
-        this._revision.requestContent(callback);
-    },
-}
-
-WebInspector.ResourceRevisionSourceFrame.prototype.__proto__ = WebInspector.ResourceSourceFrame.prototype;

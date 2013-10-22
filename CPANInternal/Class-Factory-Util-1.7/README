@@ -1,0 +1,42 @@
+NAME
+    Class::Factory::Util - Provide utility methods for factory classes
+
+SYNOPSIS
+      package My::Class;
+
+      use Class::Factory::Util;
+
+      My::Class->subclasses;
+
+DESCRIPTION
+    This module exports a method that is useful for factory classes.
+
+USAGE
+    When this module is loaded, it creates a method in its caller named
+    "subclasses()". This method returns a list of the available subclasses
+    for the package. It does this by looking in @INC as well as the
+    directory containing the caller, and finding any modules in the
+    immediate subdirectories of the calling module.
+
+    So if you have the modules "Foo::Base", "Foo::Base::Bar", and
+    "Foo::Base::Baz", then the return value of "Foo::Base->subclasses()"
+    would be "Bar" and "Baz".
+
+SUPPORT
+    Please submit bugs to the CPAN RT system at
+    http://rt.cpan.org/NoAuth/ReportBug.html?Queue=class-factory-util or via
+    email at bug-class-factory-util@rt.cpan.org.
+
+AUTHOR
+    Dave Rolsky, <autarch@urth.org>.
+
+    Removed from Alzabo and packaged by Terrence Brannon, <tbone@cpan.org>.
+
+COPYRIGHT
+    Copyright (c) 2003-2007 David Rolsky. All rights reserved. This program
+    is free software; you can redistribute it and/or modify it under the
+    same terms as Perl itself.
+
+    The full text of the license can be found in the LICENSE file included
+    with this module.
+

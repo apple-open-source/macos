@@ -123,6 +123,7 @@ static void webkit_web_navigation_action_finalize(GObject* obj)
     WebKitWebNavigationActionPrivate* priv = navigationAction->priv;
 
     g_free(priv->originalUri);
+    g_free(priv->targetFrame);
 
     G_OBJECT_CLASS(webkit_web_navigation_action_parent_class)->finalize(obj);
 }
@@ -133,7 +134,7 @@ static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionCla
 
     objectClass->get_property = webkit_web_navigation_action_get_property;
     objectClass->set_property = webkit_web_navigation_action_set_property;
-    objectClass->dispose = webkit_web_navigation_action_finalize;
+    objectClass->finalize = webkit_web_navigation_action_finalize;
 
     /**
      * WebKitWebNavigationAction:reason:
@@ -185,7 +186,7 @@ static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionCla
      * WebKitWebNavigationAction:modifier-state:
      *
      * The state of the modifier keys when the action was requested.
-     * 
+     *
      * Since: 1.0.3
      */
     g_object_class_install_property(objectClass, PROP_MODIFIER_STATE,

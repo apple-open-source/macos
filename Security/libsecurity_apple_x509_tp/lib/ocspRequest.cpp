@@ -82,7 +82,7 @@ const CSSM_DATA *OCSPRequest::encode()
 	CSSM_DATA_PTR	issuerKey;
 	CSSM_KEY_PTR	issuerPubKey;
 	/* from subject */
-	CSSM_DATA_PTR	subjectSerial;
+	CSSM_DATA_PTR	subjectSerial=NULL;
 
 	CSSM_RETURN					crtn;
 	uint8						issuerNameHash[CC_SHA1_DIGEST_LENGTH];
@@ -129,7 +129,7 @@ const CSSM_DATA *OCSPRequest::encode()
 	}
 
 	/* SHA1(issuerName) */
-	ocspdSha1(issuerName->Data, issuerName->Length, issuerNameHash);
+	ocspdSha1(issuerName->Data, (CC_LONG)issuerName->Length, issuerNameHash);
 
 	/* SHA1(issuer public key) */
 	if(issuerKey->Length != sizeof(CSSM_KEY)) {
@@ -138,7 +138,7 @@ const CSSM_DATA *OCSPRequest::encode()
 		goto errOut;
 	}
 	issuerPubKey = (CSSM_KEY_PTR)issuerKey->Data;
-	ocspdSha1(issuerPubKey->KeyData.Data, issuerPubKey->KeyData.Length, pubKeyHash);
+	ocspdSha1(issuerPubKey->KeyData.Data, (CC_LONG)issuerPubKey->KeyData.Length, pubKeyHash);
 	
 	/* build the CertID from those components */
 	certId.issuerNameHash.Data = issuerNameHash;

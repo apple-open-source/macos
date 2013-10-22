@@ -28,17 +28,31 @@
 #include "PluginPackage.h"
 
 #include "MIMETypeRegistry.h"
-#include "npruntime_impl.h"
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
+#include "npruntime_impl.h"
+#include <QFileInfo>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
 
 bool PluginPackage::fetchInfo()
 {
-    if (!load())
-        return false;
+    if (!m_module) {
+        if (isPluginBlacklisted())
+            return false;
+        m_module = new QLibrary((QString)m_path);
+        m_module->setLoadHints(QLibrary::ResolveAllSymbolsHint);
+        if (!m_module->load()) {
+            LOG(Plugins, "%s not loaded (%s)", m_path.utf8().data(),
+                m_module->errorString().toLatin1().constData());
+            return false;
+        }
+        // This is technically wrong (not matched by a decrement), but
+        // it matches the previous behavior (fetchInfo calling load) and
+        // prevents crashes in flash due to unload+load.
+        m_loadCount++;
+    }
 
     NPP_GetValueProcPtr gv = (NPP_GetValueProcPtr)m_module->resolve("NP_GetValue");
     NP_GetMIMEDescriptionFuncPtr gm =
@@ -60,7 +74,6 @@ bool PluginPackage::fetchInfo()
     determineModuleVersionFromDescription();
 
     setMIMEDescription(String::fromUTF8(gm()));
-    m_infoIsFromCache = false;
 
     return true;
 }
@@ -129,6 +142,21 @@ static void initializeGtk(QLibrary* module = 0)
     }
 }
 
+bool PluginPackage::isPluginBlacklisted()
+{
+    // TODO: enumerate all plugins that are incompatible with Qt5.
+    const QLatin1String pluginBlacklist[] = {
+        QLatin1String("skypebuttons")
+    };
+
+    QString baseName = QFileInfo(static_cast<QString>(m_path)).baseName();
+    for (unsigned i = 0; i < sizeof(pluginBlacklist) / sizeof(QLatin1String); ++i) {
+        if (baseName == pluginBlacklist[i])
+            return true;
+    }
+    return false;
+}
+
 bool PluginPackage::load()
 {
     if (m_isLoaded) {
@@ -136,12 +164,17 @@ bool PluginPackage::load()
         return true;
     }
 
-    m_module = new QLibrary((QString)m_path);
-    m_module->setLoadHints(QLibrary::ResolveAllSymbolsHint);
-    if (!m_module->load()) {
-        LOG(Plugins, "%s not loaded (%s)", m_path.utf8().data(),
-                m_module->errorString().toLatin1().constData());
+    if (isPluginBlacklisted())
         return false;
+
+    if (!m_module) {
+        m_module = new QLibrary((QString)m_path);
+        m_module->setLoadHints(QLibrary::ResolveAllSymbolsHint);
+        if (!m_module->load()) {
+            LOG(Plugins, "%s not loaded (%s)", m_path.utf8().data(),
+                m_module->errorString().toLatin1().constData());
+            return false;
+        }
     }
 
     m_isLoaded = true;

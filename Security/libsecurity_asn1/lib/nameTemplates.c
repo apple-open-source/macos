@@ -35,7 +35,7 @@ typedef struct {
     SecAsn1Item value; // unparsed, BER-encoded
 } CE_OtherName;
 
-#pragma mark ----- Generalized NSS_TaggedItem template chooser support -----
+// MARK: ----- Generalized NSS_TaggedItem template chooser support -----
 
 /*
  * Generalized Template chooser.
@@ -88,7 +88,7 @@ const SecAsn1Template * SecAsn1TaggedTemplateChooser(
 	return templ;
 }
 
-#pragma mark ----- X509 Name, RDN ------
+// MARK: ----- X509 Name, RDN ------
 
 /* AttributeTypeAndValue */
 
@@ -139,7 +139,7 @@ const SecAsn1Template kSecAsn1NameTemplate[] = {
 	  offsetof(NSS_Name,rdns), kSecAsn1RDNTemplate, sizeof(NSS_Name) }
 };
 
-#pragma mark ----- OtherName, GeneralizedName -----
+// MARK: ----- OtherName, GeneralizedName -----
 
 /*
  * CE_OtherName.value expressed as ASN_ANY, not en/decoded.

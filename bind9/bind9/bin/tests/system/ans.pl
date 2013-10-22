@@ -107,16 +107,9 @@ $SIG{TERM} = \&rmpid;
 my @rules;
 sub handleUDP {
 	my ($buf) = @_;
-	my $request;
 
-	if ($Net::DNS::VERSION > 0.68) {
-		$request = new Net::DNS::Packet(\$buf, 0);
-		$@ and die $@;
-	} else {
-		my $err;
-		($request, $err) = new Net::DNS::Packet(\$buf, 0);
-		$err and die $err;
-	}
+	my ($request, $err) = new Net::DNS::Packet(\$buf, 0);
+	$err and die $err;
 
 	my @questions = $request->question;
 	my $qname = $questions[0]->qname;
@@ -162,13 +155,11 @@ sub handleUDP {
 				# function will attempt to decrement it,
 				# which is incorrect in a response. Finally
 				# we set request_mac to the previous digest.
-				$packet->{"compnames"} = {}
-					if ($Net::DNS::VERSION < 0.70);
-				$packet->{"header"}{"arcount"} += 1
-					if ($Net::DNS::VERSION < 0.70);
+				$packet->{"compnames"} = {};
+				$packet->{"header"}{"arcount"} += 1;
 				if (defined($prev_tsig)) {
 					my $rmac = pack('n H*',
-						length($prev_tsig->mac)/2,
+						$prev_tsig->mac_size,
 						$prev_tsig->mac);
 					$tsig->{"request_mac"} =
 						unpack("H*", $rmac);
@@ -297,16 +288,9 @@ sub sign_tcp_continuation {
 
 sub handleTCP {
 	my ($buf) = @_;
-	my $request;
 
-	if ($Net::DNS::VERSION > 0.68) {
-		$request = new Net::DNS::Packet(\$buf, 0);
-		$@ and die $@;
-	} else {
-		my $err;
-		($request, $err) = new Net::DNS::Packet(\$buf, 0);
-		$err and die $err;
-	}
+	my ($request, $err) = new Net::DNS::Packet(\$buf, 0);
+	$err and die $err;
 	
 	my @questions = $request->question;
 	my $qname = $questions[0]->qname;
@@ -322,7 +306,6 @@ sub handleTCP {
 	# get the existing signature if any, and clear the additional section
 	my $prev_tsig;
 	my $signer;
-	my $continuation = 0;
 	while (my $rr = $request->pop("additional")) {
 		if ($rr->type eq "TSIG") {
 			$prev_tsig = $rr;
@@ -359,25 +342,19 @@ sub handleTCP {
 				# function will attempt to decrement it,
 				# which is incorrect in a response. Finally
 				# we set request_mac to the previous digest.
-				$packet->{"compnames"} = {}
-					if ($Net::DNS::VERSION < 0.70);
-				$packet->{"header"}{"arcount"} += 1
-					if ($Net::DNS::VERSION < 0.70);
+				$packet->{"compnames"} = {};
+				$packet->{"header"}{"arcount"} += 1;
 				if (defined($prev_tsig)) {
 					my $rmac = pack('n H*',
-						length($prev_tsig->mac)/2,
+						$prev_tsig->mac_size,
 						$prev_tsig->mac);
 					$tsig->{"request_mac"} =
 						unpack("H*", $rmac);
 				}
 				
 				$tsig->sign_func($signer) if defined($signer);
-				$tsig->continuation($continuation)
-					if ($Net::DNS::VERSION >= 0.71);
 				$packet->sign_tsig($tsig);
-				$signer = \&sign_tcp_continuation
-					if ($Net::DNS::VERSION < 0.70);
-				$continuation = 1;
+				$signer = \&sign_tcp_continuation;
 
 				my $copy =
 					Net::DNS::Packet->new(\($packet->data));

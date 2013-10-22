@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -153,12 +175,14 @@ struct oid_name_entry {
 	{ GSS_KRB5_NT_STRING_UID_NAME, "KRB5 uid string" },
 	{ GSS_KRB5_MECHANISM, "KRB5 mech" },
 	{ GSS_PKU2U_MECHANISM, "PKU2U mech" },
+	{ GSS_IAKERB_MECHANISM, "IA Kerb mech" },
 	/* OTHER gssapi_krb5.h oids here */
 	{ GSS_NTLM_MECHANISM, "NTLM mech" },
 	{ GSS_C_NT_NTLM, "NTLM name" },
 	{ GSS_C_NTLM_GUEST, "NTLM guest" },
 	{ GSS_NTLM_GET_SESSION_KEY_X, "NTLM session key" },
 	{ GSS_SPNEGO_MECHANISM, "SPNEGO mech" },
+	{ GSS_C_NT_UUID, "UUID name" },
 	{ NULL, NULL }
 };
 
@@ -379,8 +403,10 @@ gss_strerror(gss_OID oid, uint32_t code, uint32_t flag)
 	if (oidstr == NULL)
 		Fatal("Gssd or gssd-agent out of memory -- exiting\n");
 
-	if (oid == GSS_C_NO_OID && flag)
+	if (oid == GSS_C_NO_OID && flag) {
+		free(oidstr);
 		return (gss_alt_error(code));
+	}
 
 	maj = gss_display_status(&min, code, code_space, oid, &display_ctx, &msg_buf);
 	if (maj != GSS_S_COMPLETE) {
@@ -575,6 +601,7 @@ set_debug_level(int debug_level)
 	int status;
 	static int last_active = 0;
 
+	pthread_once(&ronce, gssd_log_init);
 	if (debug_level < 0) {
 		/*
 		 * We've got notified by syslog that our filter mask have changed.
@@ -789,7 +816,7 @@ va_next(va_list *ap, const char *fmt, regmatch_t match[PRF_FIELDS])
 	case 'x':
 	case 'X':
 		if (tlen[0] == 'h' && tlen[1] == 'h')
-			va_arg(*ap, char);
+			va_arg(*ap, int);
 		else if (tlen[0] == 'l' && tlen[1] == 'l')
 			va_arg(*ap, long long);
 		else if (*tlen == 'l')
@@ -828,7 +855,7 @@ va_next(va_list *ap, const char *fmt, regmatch_t match[PRF_FIELDS])
 		if (*tlen == 'l' && tlen[1] == '\0')
 			va_arg(*ap, wchar_t);
 		else
-			va_arg(*ap, char);
+			va_arg(*ap, int);
 		break;
 	case 's':
 		if (*tlen == 'l' && tlen[1] == '\0')
@@ -1027,12 +1054,12 @@ static const char HexChars[16] = {
 static void
 HexLine(const char *buf, size_t *bufSize, char linebuf[80])
 {
-	const char 	*bptr = buf;
+	const char *bptr = buf;
 	size_t	limit;
 	size_t	i;
-        char	*cptr = linebuf;
+	char	*cptr = linebuf;
 
-        memset(linebuf, 0, 80);
+	memset(linebuf, 0, 80);
 
 	limit = (*bufSize > 16) ? 16 : *bufSize;
 	*bufSize -= limit;
@@ -1043,25 +1070,25 @@ HexLine(const char *buf, size_t *bufSize, char linebuf[80])
 		{
 			*cptr++ = HexChars[(*bptr >> 4) & 0x0f];
 			*cptr++ = HexChars[*bptr & 0x0f];
-                        *cptr++ = ' ';
+			*cptr++ = ' ';
 			bptr++;
 		} else {
-                        *cptr++ = ' ';
-                        *cptr++ = ' ';
-                        *cptr++ = ' ';
+			*cptr++ = ' ';
+			*cptr++ = ' ';
+			*cptr++ = ' ';
 
 		}
 	}
 	bptr = buf;
-        *cptr++ = ' ';
-        *cptr++ = ' ';
-        *cptr++ = ' ';
+	*cptr++ = ' ';
+	*cptr++ = ' ';
+	*cptr++ = ' ';
 	for(i = 0; i < limit; i++)
 	{
 		*cptr++ = (char) (((*bptr > 0x1f) && (*bptr < 0x7f)) ? *bptr : '.');
 		bptr++;
 	}
-        *cptr++ = '\n';
+	*cptr++ = '\n';
 	*cptr = '\0';
 }
 

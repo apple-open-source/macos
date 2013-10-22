@@ -10,7 +10,6 @@
 #define _ASC_CONTEXT_H_
 
 #include "AppleCSPContext.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <security_comcryption/comcryption.h>
 
 /* symmetric encrypt/decrypt context */

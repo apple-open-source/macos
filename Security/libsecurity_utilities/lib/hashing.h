@@ -175,7 +175,7 @@ class SHA1 : public CC_SHA1_CTX, public Hash<CC_SHA1_DIGEST_LENGTH, SHA1>	{
 public:
 	SHA1() { CC_SHA1_Init(this); }
 	void update(const void *data, size_t length)
-		{ CC_SHA1_Update(this, data, length); }
+		{ CC_SHA1_Update(this, data, (CC_LONG)length); }
 	void finish(Byte *digest) { CC_SHA1_Final(digest, this); }
 	using Hash<CC_SHA1_DIGEST_LENGTH, SHA1>::finish;
 };

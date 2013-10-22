@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008,2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008,2010-2011,2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -474,7 +474,7 @@ int msdosfs_deget(
 		vtype = msdosfs_check_link(dep, context);
 	}
 	getmicrouptime(&tv);
-	SETHIGH(dep->de_modrev, tv.tv_sec);
+	SETHIGH(dep->de_modrev, (int32_t)tv.tv_sec);
 	SETLOW(dep->de_modrev, tv.tv_usec * 4294);
 
 	/* Remember the parent denode */
@@ -539,83 +539,109 @@ fail:
 int msdosfs_deupdat(struct denode *dep, int waitfor, vfs_context_t context)
 {
 #pragma unused (waitfor)
-	int error = 0;
-	int isRoot = 0;
-	uint32_t dirclust, diroffset;
-	struct buf *bp;
-	struct dosdirentry *dirp;
-	struct timespec ts;
-	struct msdosfsmount *pmp = dep->de_pmp;
-	
-	if (vnode_vfsisrdonly(DETOV(dep)))
-		return (0);
-	getnanotime(&ts);
-	DETIMES(dep, &ts, &ts, &ts);
-	if ((dep->de_flag & DE_MODIFIED) == 0)
-		return 0;
-	
-	isRoot = dep->de_flag & DE_ROOT;
-	
-	if (isRoot && pmp->pm_label_cluster == CLUST_EOFE)
-		return 0;				/* There is no volume label entry to update. */
-	if (dep->de_refcnt <= 0)
-		return 0;				/* Object was deleted from the namespace. */
+    int error = 0;
+    int isRoot = 0;
+    int isDir = 0;
+    uint32_t dirclust, diroffset;
+    struct buf *bp;
+    struct dosdirentry *dirp;
+    struct timespec ts;
+    struct msdosfsmount *pmp = dep->de_pmp;
+    
+    if (vnode_vfsisrdonly(DETOV(dep)))
+	return (0);
+    getnanotime(&ts);
+    DETIMES(dep, &ts, &ts, &ts);
+    if ((dep->de_flag & DE_MODIFIED) == 0)
+	return 0;
+    
+    isRoot = dep->de_flag & DE_ROOT;
+    isDir = dep->de_Attributes & ATTR_DIRECTORY;
+    
+    if (isRoot && pmp->pm_label_cluster == CLUST_EOFE)
+	return 0;				/* There is no volume label entry to update. */
+    if (dep->de_refcnt <= 0)
+	return 0;				/* Object was deleted from the namespace. */
+    
+    /*
+     * Update the fields, like times, which go in the directory entry.
+     *
+     * Windows never updates the times in a directory's directory entry.
+     * Since we wish to update them persistently, we use the times from
+     * the "." entry in the directory.  Since the root doesn't have a "."
+     * entry, we use the times in the volume label entry (if there is one).
+     */
+    if (dep->de_flag & DE_MODIFIED)
+    {
+	dep->de_flag &= ~DE_MODIFIED;
 	
 	/*
-	 * Update the fields, like times, which go in the directory entry.
+	 * Read in the directory entry to be updated.
+	 * For files, this is just the file's directory entry (in its parent).
+	 * For directories, this is the "." entry inside the directory.
+	 * For the root, this is the volume label's directory entry.
 	 */
-	if (dep->de_flag & DE_MODIFIED)
+	if (isDir)
 	{
-		dep->de_flag &= ~DE_MODIFIED;
-
-		/*
-		 * Read in the directory entry to be updated.
-		 * For files, this is just the file's directory entry (in its parent).
-		 * For directories, this is the "." entry inside the directory.
-		 * For the root, this is the volume label's directory entry.
-		 */
-		if (dep->de_Attributes & ATTR_DIRECTORY)
-		{
-			if (isRoot)
-			{
-				dirclust = pmp->pm_label_cluster;
-				diroffset = pmp->pm_label_offset;
-			}
-			else
-			{
-				dirclust = dep->de_StartCluster;
-				diroffset = 0;
-			}
-		}
-		else
-		{
-			dirclust = dep->de_dirclust;
-			diroffset = dep->de_diroffset;
-		}
-		error = msdosfs_readep(pmp, dirclust, diroffset, &bp, &dirp, context);
-		if (error) return (error);
-			
-		if (isRoot)
-			DE_EXTERNALIZE_ROOT(dirp, dep);
-		else
-		{
-			if (DEBUG)
-			{
-				if ((dirp->deAttributes ^ dep->de_Attributes) & ATTR_DIRECTORY)
-					panic("deupdate: attributes are wrong");
-				if ((dep->de_Attributes & ATTR_DIRECTORY) == 0 &&
-					bcmp(dirp->deName, dep->de_Name, SHORT_NAME_LEN))
-				{
-					panic("msdosfs_deupdat: file name is wrong");
-				}
-			}
-			DE_EXTERNALIZE(dirp, dep);
-		}
-
-		error = buf_bdwrite(bp);
+	    if (isRoot)
+	    {
+		dirclust = pmp->pm_label_cluster;
+		diroffset = pmp->pm_label_offset;
+	    }
+	    else
+	    {
+		dirclust = dep->de_StartCluster;
+		diroffset = 0;
+	    }
 	}
-
-	return error;
+	else
+	{
+	    dirclust = dep->de_dirclust;
+	    diroffset = dep->de_diroffset;
+	}
+	error = msdosfs_readep(pmp, dirclust, diroffset, &bp, &dirp, context);
+	if (error) return (error);
+	
+	if (isRoot)
+	    DE_EXTERNALIZE_ROOT(dirp, dep);
+	else
+	{
+	    if (DEBUG)
+	    {
+		if ((dirp->deAttributes ^ dep->de_Attributes) & ATTR_DIRECTORY)
+		    panic("deupdate: attributes are wrong");
+		if (!isDir && bcmp(dirp->deName, dep->de_Name, SHORT_NAME_LEN))
+		{
+		    panic("msdosfs_deupdat: file name is wrong");
+		}
+	    }
+	    DE_EXTERNALIZE(dirp, dep);
+	}
+	
+	error = buf_bdwrite(bp);
+	bp = NULL;
+    }
+    
+    /*
+     * We need to be able to update the de_Attributes for a directory (in the
+     * directory's own entry, not the "." or volume label entry) so that we can
+     * change its hidden bit.  For files, we've already updated the de_Attributes
+     * above.
+     */
+    if (error == 0 && (dep->de_flag & DE_ATTR_MOD))
+    {
+	dep->de_flag &= ~DE_ATTR_MOD;
+	
+	if (isDir && !isRoot)
+	{
+	    error = msdosfs_readep(pmp, dep->de_dirclust, dep->de_diroffset, &bp, &dirp, context);
+	    if (error) return error;
+	    dirp->deAttributes = dep->de_Attributes;
+	    error = buf_bdwrite(bp);
+	    bp = NULL;
+	}
+    }
+    return error;
 }
 
 /*
@@ -785,6 +811,7 @@ exit:
 
 /*
  * Extend the file described by dep to length specified by length.
+ * We must be able to allocate all of the new space, else fail this request.
  */
 int msdosfs_deextend(struct denode *dep, uint32_t length, int flags, vfs_context_t context)
 {
@@ -814,7 +841,7 @@ int msdosfs_deextend(struct denode *dep, uint32_t length, int flags, vfs_context
     if (count > 0) {
         if (count > pmp->pm_freeclustercount)
             return (ENOSPC);
-        error = msdosfs_extendfile(dep, count);
+        error = msdosfs_extendfile(dep, count, NULL);
         if (error) {
             /* truncate the added clusters away again */
             (void) msdosfs_detrunc(dep, dep->de_FileSize, 0, context);
@@ -822,17 +849,17 @@ int msdosfs_deextend(struct denode *dep, uint32_t length, int flags, vfs_context
         }
     }
 
-	/* Zero fill the newly allocated bytes, except if IO_NOZEROFILL was given. */
-	if (!(flags & IO_NOZEROFILL)) {
-		error = cluster_write(DETOV(dep), (struct uio *) 0,
-							  (off_t)dep->de_FileSize, (off_t)(length),
-							  (off_t)dep->de_FileSize, (off_t)0,
-							  (flags | IO_HEADZEROFILL));
-		if (error)
-			return (error);
-	}
-	
-	ubc_setsize(DETOV(dep), (off_t)length); /* XXX check errors */
+    /* Zero fill the newly allocated bytes, except if IO_NOZEROFILL was given. */
+    if (!(flags & IO_NOZEROFILL)) {
+        error = cluster_write(DETOV(dep), (struct uio *) 0,
+                              (off_t)dep->de_FileSize, (off_t)(length),
+                              (off_t)dep->de_FileSize, (off_t)0,
+                              (flags | IO_HEADZEROFILL));
+        if (error)
+            return (error);
+    }
+    
+    ubc_setsize(DETOV(dep), (off_t)length); /* XXX check errors */
 
     dep->de_FileSize = length;
 

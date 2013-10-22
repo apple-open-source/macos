@@ -69,6 +69,7 @@ struct revoke_ocsp {
 
 
 struct hx509_revoke_ctx_data {
+    struct heim_base_uniq base;
     struct {
 	struct revoke_crl *val;
 	size_t len;
@@ -121,7 +122,7 @@ revoke_free(void *ptr)
 int
 hx509_revoke_init(hx509_context context, hx509_revoke_ctx *ctx)
 {
-    *ctx = heim_alloc(sizeof(**ctx), "hx509-revoke", revoke_free);
+    *ctx = heim_uniq_alloc(sizeof(**ctx), "hx509-revoke", revoke_free);
     if (*ctx == NULL)
 	return ENOMEM;
 
@@ -187,6 +188,8 @@ verify_ocsp(hx509_context context,
 	q.match |= HX509_QUERY_MATCH_KEY_HASH_SHA1;
 	q.keyhash_sha1 = &ocsp->ocsp.tbsResponseData.responderID.u.byKey;
 	break;
+    case invalid_choice_OCSPResponderID:
+	return HX509_CERT_NOT_FOUND;
     }
 
     ret = hx509_certs_find(context, certs, &q, &signer);
@@ -732,13 +735,14 @@ hx509_revoke_verify(hx509_context context,
 	    switch (ocsp->ocsp.tbsResponseData.responses.val[j].certStatus.element) {
 	    case choice_OCSPCertStatus_good:
 		break;
+	    case invalid_choice_OCSPCertStatus:
 	    case choice_OCSPCertStatus_revoked:
 		hx509_set_error_string(context, 0,
 				       HX509_CERT_REVOKED,
 				       "Certificate revoked by issuer in OCSP");
 		return HX509_CERT_REVOKED;
 	    case choice_OCSPCertStatus_unknown:
-		continue;
+		continue;		
 	    }
 
 	    /* don't allow the update to be in the future */
@@ -1220,6 +1224,7 @@ hx509_ocsp_verify(hx509_context context,
 	    break;
 	case choice_OCSPCertStatus_revoked:
 	case choice_OCSPCertStatus_unknown:
+	case invalid_choice_OCSPCertStatus:
 	    continue;
 	}
 

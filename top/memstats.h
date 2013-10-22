@@ -25,14 +25,23 @@
 
 #include "statistic.h"
 
+#ifndef TOP_ANONYMOUS_MEMORY
 struct statistic *top_rsize_create(WINDOW *parent, const char *name);
+#endif /* !TOP_ANONYMOUS_MEMORY */
 struct statistic *top_vsize_create(WINDOW *parent, const char *name);
 struct statistic *top_rprvt_create(WINDOW *parent, const char *name);
 struct statistic *top_vprvt_create(WINDOW *parent, const char *name);
+#ifndef TOP_ANONYMOUS_MEMORY
 struct statistic *top_rshrd_create(WINDOW *parent, const char *name);
+#endif /* !TOP_ANONYMOUS_MEMORY */
 struct statistic *top_mregion_create(WINDOW *parent, const char *name);
 struct statistic *top_pageins_create(WINDOW *parent, const char *name);
 struct statistic *top_kprvt_create(WINDOW *parent, const char *name);
 struct statistic *top_kshrd_create(WINDOW *parent, const char *name);
+#ifdef TOP_ANONYMOUS_MEMORY
+struct statistic *top_rmem_create(WINDOW *parent, const char *name);
+struct statistic *top_purg_create(WINDOW *parent, const char *name);
+struct statistic *top_compressed_create(WINDOW *parent, const char *name);
+#endif /* TOP_ANONYMOUS_MEMORY */
 
 #endif /*MEMSTATS_H*/

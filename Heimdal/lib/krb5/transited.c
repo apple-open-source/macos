@@ -254,7 +254,7 @@ append_realm(struct tr_realm *head, struct tr_realm *r)
 
 static int
 decode_realms(krb5_context context,
-	      const char *tr, int length, struct tr_realm **realms)
+	      const char *tr, size_t length, struct tr_realm **realms)
 {
     struct tr_realm *r = NULL;
 
@@ -430,7 +430,7 @@ krb5_check_transited(krb5_context context,
 				       "through realm %s", ""),
 				    realms[i]);
 	    if(bad_realm)
-		*bad_realm = i;
+		*bad_realm = (int)i;
 	    return KRB5KRB_AP_ERR_ILL_CR_TKT;
 	}
     }
@@ -463,7 +463,7 @@ krb5_check_transited_realms(krb5_context context,
 					   "through realm %s", ""),
 					*p);
 		if(bad_realm)
-		    *bad_realm = i;
+		    *bad_realm = (int)i;
 		break;
 	    }
     }

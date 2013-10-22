@@ -1,9 +1,9 @@
 /*
- * "$Id: http-addr.c 7910 2008-09-06 00:25:17Z mike $"
+ * "$Id: http-addr.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   HTTP address routines for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -14,16 +14,19 @@
  *
  * Contents:
  *
- *   httpAddrAny()       - Check for the "any" address.
- *   httpAddrEqual()     - Compare two addresses.
+ *   httpAddrAny()	 - Check for the "any" address.
+ *   httpAddrEqual()	 - Compare two addresses.
+ *   httpAddrLength()	 - Return the length of the address in bytes.
+ *   httpAddrListen()	 - Create a listening socket bound to the specified
+ *			   address and port.
  *   httpAddrLocalhost() - Check for the local loopback address.
- *   httpAddrLookup()    - Lookup the hostname associated with the address.
- *   _httpAddrPort()     - Get the port number associated with an address.
+ *   httpAddrLookup()	 - Lookup the hostname associated with the address.
+ *   httpAddrPort()	 - Get the port number associated with an address.
  *   _httpAddrSetPort()  - Set the port number associated with an address.
- *   httpAddrString()    - Convert an IP address to a dotted string.
- *   httpGetHostByName() - Lookup a hostname or IP address, and return
- *                         address records for the specified name.
- *   httpGetHostname()   - Get the FQDN for the local system.
+ *   httpAddrString()	 - Convert an address to a numeric string.
+ *   httpGetHostByName() - Lookup a hostname or IPv4 address, and return
+ *			   address records for the specified name.
+ *   httpGetHostname()	 - Get the FQDN for the connection or local system.
  */
 
 /*
@@ -131,6 +134,75 @@ httpAddrLength(const http_addr_t *addr)	/* I - Address */
 
 
 /*
+ * 'httpAddrListen()' - Create a listening socket bound to the specified
+ *                      address and port.
+ *
+ * @since CUPS 1.7/OS X 10.9@
+ */
+
+int					/* O - Socket or -1 on error */
+httpAddrListen(http_addr_t *addr,	/* I - Address to bind to */
+               int         port)	/* I - Port number to bind to */
+{
+  int		fd = -1,		/* Socket */
+		val;			/* Socket value */
+
+
+ /*
+  * Range check input...
+  */
+
+  if (!addr || port <= 0)
+    return (-1);
+
+  if ((fd = socket(addr->addr.sa_family, SOCK_STREAM, 0)) < 0)
+  {
+    _cupsSetHTTPError(HTTP_STATUS_ERROR);
+    return (-1);
+  }
+
+  val = 1;
+  setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, CUPS_SOCAST &val, sizeof(val));
+
+#ifdef IPV6_V6ONLY
+  if (addr->addr.sa_family == AF_INET6)
+    setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, CUPS_SOCAST &val, sizeof(val));
+#endif /* IPV6_V6ONLY */
+
+  _httpAddrSetPort(addr, port);
+
+  if (bind(fd, (struct sockaddr *)addr, httpAddrLength(addr)))
+  {
+    _cupsSetHTTPError(HTTP_STATUS_ERROR);
+
+    close(fd);
+
+    return (-1);
+  }
+
+  if (listen(fd, 5))
+  {
+    _cupsSetHTTPError(HTTP_STATUS_ERROR);
+
+    close(fd);
+
+    return (-1);
+  }
+
+#ifdef SO_NOSIGPIPE
+ /*
+  * Disable SIGPIPE for this socket.
+  */
+
+  val = 1;
+  setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, CUPS_SOCAST &val, sizeof(val));
+#endif /* SO_NOSIGPIPE */
+
+  return (fd);
+}
+
+
+/*
  * 'httpAddrLocalhost()' - Check for the local loopback address.
  *
  * @since CUPS 1.2/OS X 10.5@
@@ -160,13 +232,6 @@ httpAddrLocalhost(
 
   return (0);
 }
-
-
-#ifdef __sgi
-#  define ADDR_CAST (struct sockaddr *)
-#else
-#  define ADDR_CAST (char *)
-#endif /* __sgi */
 
 
 /*
@@ -267,11 +332,11 @@ httpAddrLookup(
 
 #  ifdef AF_INET6
     if (addr->addr.sa_family == AF_INET6)
-      host = gethostbyaddr(ADDR_CAST &(addr->ipv6.sin6_addr),
+      host = gethostbyaddr((char *)&(addr->ipv6.sin6_addr),
                 	   sizeof(struct in_addr), AF_INET6);
     else
 #  endif /* AF_INET6 */
-    host = gethostbyaddr(ADDR_CAST &(addr->ipv4.sin_addr),
+    host = gethostbyaddr((char *)&(addr->ipv4.sin_addr),
                 	 sizeof(struct in_addr), AF_INET);
 
     if (host == NULL)
@@ -297,11 +362,13 @@ httpAddrLookup(
 
 
 /*
- * '_httpAddrPort()' - Get the port number associated with an address.
+ * 'httpAddrPort()' - Get the port number associated with an address.
+ *
+ * @since CUPS 1.7/OS X 10.9@
  */
 
 int					/* O - Port number */
-_httpAddrPort(http_addr_t *addr)	/* I - Address */
+httpAddrPort(http_addr_t *addr)		/* I - Address */
 {
   if (!addr)
     return (ippPort());
@@ -314,6 +381,9 @@ _httpAddrPort(http_addr_t *addr)	/* I - Address */
   else
     return (ippPort());
 }
+
+/* For OS X 10.8 and earlier */
+int _httpAddrPort(http_addr_t *addr) { return (httpAddrPort(addr)); }
 
 
 /*
@@ -699,5 +769,5 @@ httpGetHostname(http_t *http,		/* I - HTTP connection or NULL */
 
 
 /*
- * End of "$Id: http-addr.c 7910 2008-09-06 00:25:17Z mike $".
+ * End of "$Id: http-addr.c 11093 2013-07-03 20:48:42Z msweet $".
  */

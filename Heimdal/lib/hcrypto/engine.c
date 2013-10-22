@@ -240,11 +240,8 @@ ENGINE_load_builtin_engines(void)
 #ifdef HAVE_CDSA
     ENGINE_set_DH(engine, DH_cdsa_method());
     ENGINE_set_RSA(engine, RSA_cdsa_method());
-#elif defined(__APPLE_TARGET_EMBEDDED__)
-	ENGINE_set_DH(engine, DH_null_method());
-	ENGINE_set_RSA(engine, RSA_null_method());
 #elif defined(HEIM_HC_SF)
-    ENGINE_set_RSA(engine, RSA_ltm_method());
+    ENGINE_set_RSA(engine, RSA_sf_method());
     ENGINE_set_DH(engine, DH_sf_method());
 #elif defined(HEIM_HC_LTM)
     ENGINE_set_RSA(engine, RSA_ltm_method());

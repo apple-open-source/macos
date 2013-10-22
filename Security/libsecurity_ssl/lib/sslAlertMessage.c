@@ -78,7 +78,7 @@ SSLDetectCertRejected(
 
 OSStatus
 SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
-{   OSStatus            err = noErr;
+{   OSStatus            err = errSecSuccess;
     AlertLevel          level;
     AlertDescription    desc;
     uint8_t             *charPtr;
@@ -108,7 +108,7 @@ SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
         if (level == SSL_AlertLevelFatal) {
 			/* explicit fatal errror */
 			fatal = true;
-            sslHdskMsgDebug("***Fatal alert %d received\n", desc);
+            sslErrorLog("***Fatal alert %d received\n", desc);
         }
         SSLDetectCertRejected(ctx, desc);
 
@@ -191,7 +191,7 @@ SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
             case SSL_AlertCloseNotify:
 				/* the clean "we're done" case */
                 SSLClose(ctx);
-                err = noErr;
+                err = errSecSuccess;
                 break;
             case SSL_AlertNoCert_RESERVED:
                 if((ctx->state == SSL_HdskStateClientCert) &&
@@ -225,7 +225,7 @@ SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
 					err = errSSLFatalAlert;
 				}
 				else {
-					err = noErr;
+					err = errSecSuccess;
 				}
                 break;
         }
@@ -248,7 +248,7 @@ SSLSendAlert(AlertLevel level, AlertDescription desc, SSLContext *ctx)
 	switch(ctx->negProtocolVersion) {
 		case SSL_Version_Undetermined:
 			/* Too early in negotiation to send an alert */
-			return noErr;
+			return errSecSuccess;
 		case SSL_Version_2_0:
 			/* shouldn't be here */
 			assert(0);
@@ -258,21 +258,20 @@ SSLSendAlert(AlertLevel level, AlertDescription desc, SSLContext *ctx)
 	}
 	if(ctx->sentFatalAlert) {
 		/* no more alerts allowed */
-		return noErr;
+		return errSecSuccess;
 	}
     if ((err = SSLEncodeAlert(&rec, level, desc, ctx)) != 0)
         return err;
-	assert(ctx->sslTslCalls != NULL);
 	SSLLogAlertMsg(desc, true);
-    if ((err = ctx->sslTslCalls->writeRecord(rec, ctx)) != 0)
+    if ((err = SSLWriteRecord(rec, ctx)) != 0)
         return err;
-    if ((err = SSLFreeBuffer(&rec.contents, ctx)) != 0)
+    if ((err = SSLFreeBuffer(&rec.contents)))
         return err;
     if(desc == SSL_AlertCloseNotify) {
 		/* no more alerts allowed */
 		ctx->sentFatalAlert = true;
 	}
-    return noErr;
+    return errSecSuccess;
 }
 
 static OSStatus
@@ -282,12 +281,12 @@ SSLEncodeAlert(SSLRecord *rec, AlertLevel level, AlertDescription desc, SSLConte
 	rec->protocolVersion = ctx->negProtocolVersion;
 	rec->contentType = SSL_RecordTypeAlert;
     rec->contents.length = 2;
-    if ((err = SSLAllocBuffer(&rec->contents, 2, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&rec->contents, 2)))
         return err;
     rec->contents.data[0] = level;
     rec->contents.data[1] = desc;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus

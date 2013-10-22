@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1019,6 +1019,30 @@ Example:
 </pre>
 */
 #define kIOPropertyPhysicalInterconnectTypeVirtual		"Virtual Interface"
+
+
+/*!
+@defined kIOPropertyPhysicalInterconnectTypePCI
+@discussion This key defines the value of PCI for the key
+kIOPropertyPhysicalInterconnectTypePCI. If the device is connected
+via PCI, this key should be set.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>PCI</string>
+		<key>Physical Interconnect Location</key>
+		<string>Internal</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPhysicalInterconnectTypePCI		"PCI"
 
 
 /*!

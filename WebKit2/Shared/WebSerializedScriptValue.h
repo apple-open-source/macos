@@ -34,11 +34,9 @@
 
 namespace WebKit {
 
-class WebSerializedScriptValue : public APIObject {
+class WebSerializedScriptValue : public TypedAPIObject<APIObject::TypeSerializedScriptValue> {
 public:
-    static const Type APIType = TypeSerializedScriptValue;
-    
-    static PassRefPtr<WebSerializedScriptValue> create(WebCore::SerializedScriptValue* serializedValue)
+    static PassRefPtr<WebSerializedScriptValue> create(PassRefPtr<WebCore::SerializedScriptValue> serializedValue)
     {
         return adoptRef(new WebSerializedScriptValue(serializedValue));
     }
@@ -70,9 +68,7 @@ private:
         : m_serializedScriptValue(serializedScriptValue)
     {
     }
-    
-    virtual Type type() const { return APIType; }
-    
+
     RefPtr<WebCore::SerializedScriptValue> m_serializedScriptValue;
 };
     

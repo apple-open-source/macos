@@ -5,7 +5,7 @@ $(top_builddir)/xsltproc/xsltproc:
 
 EXTRA_DIST = format-number.xsl format-number.xml format-number.out
 
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'

@@ -35,23 +35,23 @@
 #include "HTMLPropertiesCollection.h"
 
 #include "DOMSettableTokenList.h"
-#include "DOMStringList.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "Node.h"
-#include "StaticNodeList.h"
+#include "NodeTraversal.h"
+#include "PropertyNodeList.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-PassOwnPtr<HTMLPropertiesCollection> HTMLPropertiesCollection::create(Node* itemNode)
+PassRefPtr<HTMLPropertiesCollection> HTMLPropertiesCollection::create(Node* itemNode, CollectionType)
 {
-    return adoptPtr(new HTMLPropertiesCollection(itemNode));
+    return adoptRef(new HTMLPropertiesCollection(itemNode));
 }
 
 HTMLPropertiesCollection::HTMLPropertiesCollection(Node* itemNode)
-    : HTMLCollection(itemNode, ItemProperties)
+    : HTMLCollection(itemNode, ItemProperties, OverridesItemAfter)
 {
 }
 
@@ -59,76 +59,49 @@ HTMLPropertiesCollection::~HTMLPropertiesCollection()
 {
 }
 
-void HTMLPropertiesCollection::invalidateCacheIfNeeded() const
-{
-    uint64_t docversion = base()->document()->domTreeVersion();
-
-    if (m_cache.version == docversion)
-        return;
-
-    m_cache.clear();
-    m_cache.version = docversion;
-}
-
 void HTMLPropertiesCollection::updateRefElements() const
 {
-    if (m_cache.hasItemRefElements)
+    if (isItemRefElementsCacheValid())
         return;
 
-    Vector<Element*> itemRefElements;
-    HTMLElement* baseElement = toHTMLElement(base());
-
-    if (!baseElement->fastHasAttribute(itemrefAttr)) {
-        itemRefElements.append(baseElement);
-        m_cache.setItemRefElements(itemRefElements);
-        return;
-    }
-
-    DOMSettableTokenList* itemRef = baseElement->itemRef();
-    RefPtr<DOMSettableTokenList> processedItemRef = DOMSettableTokenList::create();
-    Node* rootNode = baseElement->treeScope()->rootNode();
-
-    for (Node* current = rootNode->firstChild(); current; current = current->traverseNextNode(rootNode)) {
-        if (!current->isHTMLElement())
-            continue;
-        HTMLElement* element = toHTMLElement(current);
-
-        if (element == baseElement) {
-            itemRefElements.append(element);
-            continue;
-        }
-
-        const AtomicString& id = element->getIdAttribute();
-        if (!processedItemRef->tokens().contains(id) && itemRef->tokens().contains(id)) {
-            processedItemRef->setValue(id);
-            if (!element->isDescendantOf(baseElement))
-                itemRefElements.append(element);
-        }
-    }
-
-    m_cache.setItemRefElements(itemRefElements);
+    m_itemRefElements.clear();
+    setItemRefElementsCacheValid();
+    toHTMLElement(ownerNode())->getItemRefElements(m_itemRefElements);
 }
 
-static Node* nextNodeWithProperty(Node* base, Node* node)
+static Node* nextNodeWithProperty(Node* rootNode, Node* previous, Node* ownerNode)
 {
     // An Microdata item may contain properties which in turn are items themselves. Properties can
     // also themselves be groups of name-value pairs, by putting the itemscope attribute on the element
     // that declares the property. If the property has an itemscope attribute specified then we need
     // to traverse the next sibling.
-    return node == base || (node->isHTMLElement() && !toHTMLElement(node)->fastHasAttribute(itemscopeAttr))
-            ? node->traverseNextNode(base) : node->traverseNextSibling(base);
+    return previous == ownerNode || (previous->isHTMLElement() && !toHTMLElement(previous)->fastHasAttribute(itemscopeAttr))
+        ? NodeTraversal::next(previous, rootNode)
+        : NodeTraversal::nextSkippingChildren(previous, rootNode);
 }
 
-Element* HTMLPropertiesCollection::itemAfter(Element* base, Element* previous) const
+Element* HTMLPropertiesCollection::virtualItemAfter(unsigned& offsetInArray, Element* previousItem) const
+{
+    while (offsetInArray < m_itemRefElements.size()) {
+        if (Element* next = virtualItemAfter(m_itemRefElements[offsetInArray], previousItem))
+            return next;
+        offsetInArray++;
+        previousItem = 0;
+    }
+    return 0;
+}
+
+HTMLElement* HTMLPropertiesCollection::virtualItemAfter(HTMLElement* rootNode, Element* previous) const
 {
     Node* current;
-    current = previous ? nextNodeWithProperty(base, previous) : base;
+    Node* ownerNode = this->ownerNode();
+    current = previous ? nextNodeWithProperty(rootNode, previous, ownerNode) : rootNode;
 
-    for (; current; current = nextNodeWithProperty(base, current)) {
-        if (!current->isHTMLElement())
+    for (; current; current = nextNodeWithProperty(rootNode, current, ownerNode)) {
+        if (current == ownerNode || !current->isHTMLElement())
             continue;
         HTMLElement* element = toHTMLElement(current);
-        if (element->fastHasAttribute(itempropAttr)) {
+        if (element->fastHasAttribute(itempropAttr) && element->itemProp()->length()) {
             return element;
         }
     }
@@ -136,157 +109,43 @@ Element* HTMLPropertiesCollection::itemAfter(Element* base, Element* previous) c
     return 0;
 }
 
-unsigned HTMLPropertiesCollection::calcLength() const
-{
-    unsigned length = 0;
-    updateRefElements();
-
-    const Vector<Element*>& itemRefElements = m_cache.getItemRefElements();
-    for (unsigned i = 0; i < itemRefElements.size(); ++i) {
-        for (Element* element = itemAfter(itemRefElements[i], 0); element; element = itemAfter(itemRefElements[i], element))
-            ++length;
-    }
-
-    return length;
-}
-
-unsigned HTMLPropertiesCollection::length() const
-{
-    if (!toHTMLElement(base())->fastHasAttribute(itemscopeAttr))
-        return 0;
-
-    invalidateCacheIfNeeded();
-
-    if (!m_cache.hasLength)
-        m_cache.updateLength(calcLength());
-
-    return m_cache.length;
-}
-
-Element* HTMLPropertiesCollection::firstProperty() const
-{
-    Element* element = 0;
-    m_cache.resetPosition();
-    const Vector<Element*>& itemRefElements = m_cache.getItemRefElements();
-    for (unsigned i = 0; i < itemRefElements.size(); ++i) {
-        element = itemAfter(itemRefElements[i], 0);
-        if (element) {
-            m_cache.itemRefElementPosition = i;
-            break;
-        }
-    }
-
-    return element;
-}
-
-Node* HTMLPropertiesCollection::item(unsigned index) const
-{
-    if (!toHTMLElement(base())->fastHasAttribute(itemscopeAttr))
-        return 0;
-
-    invalidateCacheIfNeeded();
-    if (m_cache.current && m_cache.position == index)
-        return m_cache.current;
-
-    if (m_cache.hasLength && m_cache.length <= index)
-        return 0;
-
-    updateRefElements();
-    if (!m_cache.current || m_cache.position > index) {
-        m_cache.current = firstProperty();
-        if (!m_cache.current)
-            return 0;
-    }
-
-    unsigned currentPosition = m_cache.position;
-    Element* element = m_cache.current;
-    unsigned itemRefElementPos = m_cache.itemRefElementPosition;
-    const Vector<Element*>& itemRefElements = m_cache.getItemRefElements();
-
-    bool found = (m_cache.position == index);
-
-    for (unsigned i = itemRefElementPos; i < itemRefElements.size() && !found; ++i) {
-        while (currentPosition < index) {
-            element = itemAfter(itemRefElements[i], element);
-            if (!element)
-                break;
-            currentPosition++;
-
-            if (currentPosition == index) {
-                found = true;
-                itemRefElementPos = i;
-                break;
-            }
-        }
-    }
-
-    m_cache.updateCurrentItem(element, index, itemRefElementPos);
-    return m_cache.current;
-}
-
-void HTMLPropertiesCollection::findProperties(Element* base) const
-{
-    for (Element* element = itemAfter(base, 0); element; element = itemAfter(base, element)) {
-        DOMSettableTokenList* itemProperty = element->itemProp();
-        for (unsigned i = 0; i < itemProperty->length(); ++i)
-            m_cache.updatePropertyCache(element, itemProperty->item(i));
-    }
-}
-
 void HTMLPropertiesCollection::updateNameCache() const
 {
-    invalidateCacheIfNeeded();
-    if (m_cache.hasNameCache)
+    if (hasNameCache())
         return;
 
     updateRefElements();
 
-    const Vector<Element*>& itemRefElements = m_cache.getItemRefElements();
-    for (unsigned i = 0; i < itemRefElements.size(); ++i)
-        findProperties(itemRefElements[i]);
+    for (unsigned i = 0; i < m_itemRefElements.size(); ++i) {
+        HTMLElement* refElement = m_itemRefElements[i];
+        for (HTMLElement* element = virtualItemAfter(refElement, 0); element; element = virtualItemAfter(refElement, element)) {
+            DOMSettableTokenList* itemProperty = element->itemProp();
+            for (unsigned propertyIndex = 0; propertyIndex < itemProperty->length(); ++propertyIndex)
+                updatePropertyCache(itemProperty->item(propertyIndex));
+        }
+    }
 
-    m_cache.hasNameCache = true;
+    setHasNameCache();
 }
 
 PassRefPtr<DOMStringList> HTMLPropertiesCollection::names() const
 {
-    if (!toHTMLElement(base())->fastHasAttribute(itemscopeAttr))
-        return DOMStringList::create();
-
     updateNameCache();
-
-    return m_cache.propertyNames;
+    if (!m_propertyNames)
+        m_propertyNames = DOMStringList::create();
+    return m_propertyNames;
 }
 
-PassRefPtr<NodeList> HTMLPropertiesCollection::namedItem(const String& name) const
+PassRefPtr<PropertyNodeList> HTMLPropertiesCollection::propertyNodeList(const String& name) const
 {
-    if (!toHTMLElement(base())->fastHasAttribute(itemscopeAttr))
-      return 0;
-
-    Vector<RefPtr<Node> > namedItems;
-
-    updateNameCache();
-
-    Vector<Element*>* propertyResults = m_cache.propertyCache.get(AtomicString(name).impl());
-    for (unsigned i = 0; propertyResults && i < propertyResults->size(); ++i)
-        namedItems.append(propertyResults->at(i));
-
-    // FIXME: HTML5 specifies that this should return PropertyNodeList.
-    return namedItems.isEmpty() ? 0 : StaticNodeList::adopt(namedItems);
+    return ownerNode()->propertyNodeList(name);
 }
 
 bool HTMLPropertiesCollection::hasNamedItem(const AtomicString& name) const
 {
-    if (!toHTMLElement(base())->fastHasAttribute(itemscopeAttr))
-        return false;
-
     updateNameCache();
-
-    if (Vector<Element*>* propertyCache = m_cache.propertyCache.get(name.impl())) {
-        if (!propertyCache->isEmpty())
-            return true;
-    }
-
+    if (m_propertyNames)
+        return m_propertyNames->contains(name);
     return false;
 }
 

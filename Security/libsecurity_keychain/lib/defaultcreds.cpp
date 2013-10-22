@@ -130,7 +130,7 @@ bool DefaultCredentials::unlockKey(const UnlockReferralRecord &ref, const Keycha
 	try {
 		// form the query
 		SecKeychainAttribute attributes[1] = {
-			{ kSecKeyLabel, ref.keyLabel().length(), ref.keyLabel().data() }
+			{ kSecKeyLabel, (UInt32)ref.keyLabel().length(), ref.keyLabel().data() }
 		};
 		SecKeychainAttributeList search = { 1, attributes };
 		CSSM_DB_RECORDTYPE recordType =

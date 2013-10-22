@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This files implements the the LLVM difference Consumer
+// This files implements the LLVM difference Consumer
 //
 //===----------------------------------------------------------------------===//
 
@@ -43,6 +43,8 @@ static void ComputeNumbering(Function *F, DenseMap<Value*,unsigned> &Numbering){
   assert(!Numbering.empty() && "asked for numbering but numbering was no-op");
 }
 
+
+void Consumer::anchor() { }
 
 void DiffConsumer::printValue(Value *V, bool isL) {
   if (V->hasName()) {

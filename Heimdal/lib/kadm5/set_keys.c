@@ -59,7 +59,7 @@ _kadm5_set_keys(kadm5_server_context *context,
 
     _kadm5_free_keys (context->context, ent->keys.len, ent->keys.val);
     ent->keys.val = keys;
-    ent->keys.len = num_keys;
+    ent->keys.len = (int)num_keys;
 
     hdb_entry_set_pw_change_time(context->context, ent, 0);
 
@@ -333,7 +333,7 @@ _kadm5_set_keys_randomly (kadm5_server_context *context,
 {
    krb5_keyblock *kblock = NULL;
    kadm5_ret_t ret = 0;
-   int des_keyblock;
+   ssize_t des_keyblock;
    size_t i, num_keys;
    Key *keys;
 
@@ -346,7 +346,7 @@ _kadm5_set_keys_randomly (kadm5_server_context *context,
    kblock = malloc(num_keys * sizeof(kblock[0]));
    if (kblock == NULL) {
 	ret = ENOMEM;
-	_kadm5_free_keys (context->context, num_keys, keys);
+	_kadm5_free_keys (context->context, (int)num_keys, keys);
 	return ret;
    }
    memset(kblock, 0, num_keys * sizeof(kblock[0]));
@@ -389,16 +389,16 @@ out:
 	for (i = 0; i < num_keys; ++i)
 	    krb5_free_keyblock_contents (context->context, &kblock[i]);
 	free(kblock);
-	_kadm5_free_keys (context->context, num_keys, keys);
+	_kadm5_free_keys (context->context, (int)num_keys, keys);
 	return ret;
    }
 
    _kadm5_free_keys (context->context, ent->keys.len, ent->keys.val);
    ent->keys.val = keys;
-   ent->keys.len = num_keys;
+   ent->keys.len = (int)num_keys;
    if (n_keys && new_keys) {
        *new_keys     = kblock;
-       *n_keys       = num_keys;
+       *n_keys       = (int)num_keys;
    }
 
    hdb_entry_set_pw_change_time(context->context, ent, 0);

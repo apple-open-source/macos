@@ -48,7 +48,7 @@ enum
     errSecMisc_memFullErr            = -108,
     errSecMisc_dirNFErr              = -120,    /* The directory could not be found. */
     errSecMisc_volGoneErr            = -124,    /* The server volume is no longer available. It may have been disconnected. */
-	errSecMisc_userCanceledErr		 = -128,	/* The operation was cancelled by the user. */
+	errSecMisc_userCanceledErr		 = -128,	// The operation was cancelled by the user.
     errSecMisc_resNotFound           = -192,    /* A required resource could not be found. */
     errSecMisc_resFNotFound          = -193,    /* A required resource is missing or damaged. */
     errSecMisc_icNoURLErr            = -673,    /* The specified location (URL) is an unknown type, or does not contain enough information. */

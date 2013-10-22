@@ -1,0 +1,55 @@
+
+                            Template Toolkit
+
+                              Version 2.24
+
+                              February 2012
+
+        Copyright (C) 1996-2012 Andy Wardley.  All Rights Reserved
+
+          This is free software; you can redistribute it and/or
+             modify it under the same terms as Perl itself.
+
+HACKER'S GUIDE
+--------------
+
+Please hack on the Template Toolkit.  It has been designed to be
+extensible and has literally dozens of programmer hooks that you can
+tap into to do all sorts of cool things.  The object oriented
+architecture allows you to create your own subclassed modules to
+implement your own services, providers, filters, plugins, and so on.
+
+The Template::Manual::Internals document gives a brief overview of the
+architecture.  Unfortunately, it's not as complete as it could be,
+but the code is well documented and generally easy to follow.  Don't
+be afraid to use the source, Luke.
+
+The internals document also contains information about preparing and
+applying patches, updating the documentation and various other
+useful tips.
+
+
+SOURCE CODE
+-----------
+
+The source code repository for the Template Toolkit is hosted at Github.
+
+    https://github.com/abw/Template2
+
+
+AUTHOR
+------
+
+The Template Toolkit was written by Andy Wardley <abw@wardley.org>
+with the invaluable assistance and contributions from many other
+people.  See Template::Manual::Credits for details.
+
+
+COPYRIGHT
+---------
+
+Copyright (C) 1996-2012 Andy Wardley.  All Rights Reserved.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
+

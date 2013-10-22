@@ -30,6 +30,7 @@
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "IntSize.h"
+#include "NodeTraversal.h"
 #include "RenderObject.h"
 
 using namespace std;
@@ -61,10 +62,10 @@ HTMLMapElement::~HTMLMapElement()
 bool HTMLMapElement::mapMouseEvent(LayoutPoint location, const LayoutSize& size, HitTestResult& result)
 {
     HTMLAreaElement* defaultArea = 0;
-    Node *node = this;
-    while ((node = node->traverseNextNode(this))) {
-        if (node->hasTagName(areaTag)) {
-            HTMLAreaElement* areaElt = static_cast<HTMLAreaElement*>(node);
+    Element* element = this;
+    while ((element = ElementTraversal::next(element, this))) {
+        if (element->hasTagName(areaTag)) {
+            HTMLAreaElement* areaElt = static_cast<HTMLAreaElement*>(element);
             if (areaElt->isDefault()) {
                 if (!defaultArea)
                     defaultArea = areaElt;
@@ -82,8 +83,8 @@ bool HTMLMapElement::mapMouseEvent(LayoutPoint location, const LayoutSize& size,
 
 HTMLImageElement* HTMLMapElement::imageElement()
 {
-    HTMLCollection* coll = document()->images();
-    for (Node* curr = coll->firstItem(); curr; curr = coll->nextItem()) {
+    RefPtr<HTMLCollection> images = document()->images();
+    for (unsigned i = 0; Node* curr = images->item(i); i++) {
         if (!curr->hasTagName(imgTag))
             continue;
         
@@ -98,22 +99,21 @@ HTMLImageElement* HTMLMapElement::imageElement()
     return 0;    
 }
 
-void HTMLMapElement::parseAttribute(Attribute* attribute)
+void HTMLMapElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     // FIXME: This logic seems wrong for XML documents.
     // Either the id or name will be used depending on the order the attributes are parsed.
 
-    const QualifiedName& attrName = attribute->name();
-    if (isIdAttributeName(attrName) || attrName == nameAttr) {
-        if (isIdAttributeName(attrName)) {
+    if (isIdAttributeName(name) || name == nameAttr) {
+        if (isIdAttributeName(name)) {
             // Call base class so that hasID bit gets set.
-            HTMLElement::parseAttribute(attribute);
+            HTMLElement::parseAttribute(name, value);
             if (document()->isHTMLDocument())
                 return;
         }
         if (inDocument())
             treeScope()->removeImageMap(this);
-        String mapName = attribute->value();
+        String mapName = value;
         if (mapName[0] == '#')
             mapName = mapName.substring(1);
         m_name = document()->isHTMLDocument() ? mapName.lower() : mapName;
@@ -123,22 +123,22 @@ void HTMLMapElement::parseAttribute(Attribute* attribute)
         return;
     }
 
-    HTMLElement::parseAttribute(attribute);
+    HTMLElement::parseAttribute(name, value);
 }
 
-HTMLCollection* HTMLMapElement::areas()
+PassRefPtr<HTMLCollection> HTMLMapElement::areas()
 {
     return ensureCachedHTMLCollection(MapAreas);
 }
 
-Node::InsertionNotificationRequest HTMLMapElement::insertedInto(Node* insertionPoint)
+Node::InsertionNotificationRequest HTMLMapElement::insertedInto(ContainerNode* insertionPoint)
 {
     if (insertionPoint->inDocument())
         treeScope()->addImageMap(this);
     return HTMLElement::insertedInto(insertionPoint);
 }
 
-void HTMLMapElement::removedFrom(Node* insertionPoint)
+void HTMLMapElement::removedFrom(ContainerNode* insertionPoint)
 {
     if (insertionPoint->inDocument())
         treeScope()->removeImageMap(this);

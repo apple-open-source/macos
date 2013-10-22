@@ -4,37 +4,30 @@ test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.19
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.19 Ifp en0 Ifa 10.0.0.19
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 192.168.2.1 Ifp fw0 Ifa 192.168.2.30
  1. Dest 192.168.2.0 Mask 255.255.255.0 Gate 192.168.2.30 Ifp fw0 Ifa 192.168.2.30
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.13
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.13 Ifp en0 Ifa 10.0.0.13
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.10 Ifp en0 Ifa 10.0.0.10
 }
-
 Routes are <IPv4RouteList[6]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20 [SCOPED]
@@ -43,42 +36,34 @@ Routes are <IPv4RouteList[6]> = {
  4. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20 [SCOPED]
  5. Dest 192.168.2.0 Mask 255.255.255.0 Gate 192.168.2.30 Ifp fw0 Ifa 192.168.2.30
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.10 Ifp en0 Ifa 10.0.0.10
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.13
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.13 Ifp en0 Ifa 10.0.0.13
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 192.168.2.1 Ifp fw0 Ifa 192.168.2.30
  1. Dest 192.168.2.0 Mask 255.255.255.0 Gate 192.168.2.30 Ifp fw0 Ifa 192.168.2.30
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.19
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.19 Ifp en0 Ifa 10.0.0.19
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 Routes are <IPv4RouteList[6]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20 [SCOPED]
@@ -87,7 +72,6 @@ Routes are <IPv4RouteList[6]> = {
  4. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20 [SCOPED]
  5. Dest 192.168.2.0 Mask 255.255.255.0 Gate 192.168.2.30 Ifp fw0 Ifa 192.168.2.30
 }
-
 routes1 and routes2 are the same
 
 Starting test test2
@@ -95,32 +79,26 @@ test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 192.168.2.1 Ifp fw0 Ifa 192.168.2.30
  1. Dest 192.168.2.0 Mask 255.255.255.0 Gate 192.168.2.30 Ifp fw0 Ifa 192.168.2.30
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.13
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.13 Ifp en0 Ifa 10.0.0.13
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.10 Ifp en0 Ifa 10.0.0.10
 }
-
 Routes are <IPv4RouteList[6]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20 [SCOPED]
@@ -129,37 +107,30 @@ Routes are <IPv4RouteList[6]> = {
  4. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20 [SCOPED]
  5. Dest 192.168.2.0 Mask 255.255.255.0 Gate 192.168.2.30 Ifp fw0 Ifa 192.168.2.30
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.10 Ifp en0 Ifa 10.0.0.10
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.13
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.13 Ifp en0 Ifa 10.0.0.13
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 192.168.2.1 Ifp fw0 Ifa 192.168.2.30
  1. Dest 192.168.2.0 Mask 255.255.255.0 Gate 192.168.2.30 Ifp fw0 Ifa 192.168.2.30
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 Routes are <IPv4RouteList[6]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20 [SCOPED]
@@ -168,7 +139,6 @@ Routes are <IPv4RouteList[6]> = {
  4. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20 [SCOPED]
  5. Dest 192.168.2.0 Mask 255.255.255.0 Gate 192.168.2.30 Ifp fw0 Ifa 192.168.2.30
 }
-
 routes1 and routes2 are the same
 
 Starting test test3
@@ -176,27 +146,22 @@ test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24
 }
-
 Routes are <IPv4RouteList[6]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local] [SCOPED]
@@ -205,32 +170,26 @@ Routes are <IPv4RouteList[6]> = {
  4. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
  5. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24 [SCOPED]
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
 }
-
 Routes are <IPv4RouteList[6]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local] [SCOPED]
@@ -239,7 +198,6 @@ Routes are <IPv4RouteList[6]> = {
  4. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
  5. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24 [SCOPED]
 }
-
 routes1 and routes2 are the same
 
 Starting test test4
@@ -247,27 +205,22 @@ test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24
 }
-
 Routes are <IPv4RouteList[6]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local] [SCOPED]
@@ -276,32 +229,26 @@ Routes are <IPv4RouteList[6]> = {
  4. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
  5. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24 [SCOPED]
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
 }
-
 Routes are <IPv4RouteList[6]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local] [SCOPED]
@@ -310,39 +257,32 @@ Routes are <IPv4RouteList[6]> = {
  4. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
  5. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24 [SCOPED]
 }
-
 routes1 and routes2 are the same
 
 Starting test test5
 test: Adding <IPv4RouteList[1]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.219.156.1 Ifp ppp0 Ifa 17.219.156.22
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24
 }
-
 Routes are <IPv4RouteList[7]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.219.156.1 Ifp ppp0 Ifa 17.219.156.22
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local] [SCOPED]
@@ -352,36 +292,29 @@ Routes are <IPv4RouteList[7]> = {
  5. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
  6. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24 [SCOPED]
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en1 Ifa 17.202.42.24 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.11
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.11 Ifp en0 Ifa 10.0.0.11
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.12
  1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.12 Ifp en0 Ifa 10.0.0.12
 }
-
 test: Adding <IPv4RouteList[2]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local]
  1. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
 }
-
 test: Adding <IPv4RouteList[1]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.219.156.1 Ifp ppp0 Ifa 17.219.156.22
 }
-
 Routes are <IPv4RouteList[7]> = {
  0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.219.156.1 Ifp ppp0 Ifa 17.219.156.22
  1. Dest 0.0.0.0 Mask 0.0.0.0 Gate 17.202.20.1 Ifp en0 Ifa 17.202.40.191 [non-local] [SCOPED]
@@ -391,7 +324,21 @@ Routes are <IPv4RouteList[7]> = {
  5. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.40.191 Ifp en0 Ifa 17.202.40.191
  6. Dest 17.202.40.0 Mask 255.255.252.0 Gate 17.202.42.24 Ifp en1 Ifa 17.202.42.24 [SCOPED]
 }
+routes1 and routes2 are the same
 
+Starting test test15
+test: Adding <IPv4RouteList[1]> = {
+ 0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 169.254.22.44 Ifp en0 Ifa 169.254.22.44 [direct] [never] [SCOPED]
+}
+Routes are <IPv4RouteList[1]> = {
+ 0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 169.254.22.44 Ifp en0 Ifa 169.254.22.44 [direct] [SCOPED]
+}
+test: Adding <IPv4RouteList[1]> = {
+ 0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 169.254.22.44 Ifp en0 Ifa 169.254.22.44 [direct] [never] [SCOPED]
+}
+Routes are <IPv4RouteList[1]> = {
+ 0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 169.254.22.44 Ifp en0 Ifa 169.254.22.44 [direct] [SCOPED]
+}
 routes1 and routes2 are the same
 
 Compare 1 to 2:
@@ -765,4 +712,17 @@ Remove old[0] = Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
 Remove old[2] = Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.10 Ifp en0 Ifa 10.0.0.10
 
 Checking for leaks
+Process:         test_ipv4_routelist [XXXX]
+Path: XXXX
+Load Address:    0xXXXX
+Identifier:      test_ipv4_routelist
+Version:         ??? (???)
+Code Type:       X86-64 (Native)
+Parent Process:  sh [XXXX]
+
+Date/Time:       XXXX
+OS Version: XXXX
+Report Version:  7
+
+leaks Report Version:  2.0
 Process XXXX 0 leaks for 0 total leaked bytes.

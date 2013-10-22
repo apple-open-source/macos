@@ -111,6 +111,7 @@ static struct opt {
 	{ 0, 				NULL }
 };
 
+
 int
 main(argc, argv)
 	int argc;
@@ -138,8 +139,11 @@ main(argc, argv)
 			init_flags |= MNT_FORCE;
 			break;
 		case 'o':
-			if (*optarg)
+            if (*optarg) {
 				options = catopt(options, optarg);
+                if (strstr(optarg, "union"))
+                    init_flags |= MNT_UNION;
+            }
 			break;
 		case 'r':
 			init_flags |= MNT_RDONLY;
@@ -383,7 +387,7 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 	}
 	optbuf = catopt(strdup(mntopts), options);
 
-	if (strcmp(name, "/") == 0)
+	if ((strcmp(name, "/") == 0) && !(flags & MNT_UNION))
 		flags |= MNT_UPDATE;
 	if (flags & MNT_FORCE)
 		optbuf = catopt(optbuf, "force");

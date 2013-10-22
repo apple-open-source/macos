@@ -1,16 +1,14 @@
 /* $RoughId: md5init.c,v 1.2 2001/07/13 19:49:10 knu Exp $ */
-/* $Id: md5init.c 11708 2007-02-12 23:01:19Z shyouhei $ */
+/* $Id: md5init.c 34816 2012-02-25 20:37:12Z naruse $ */
 
 #include "digest.h"
-#if defined (__APPLE__)
-#include "md5cc.h"
-#elif defined(HAVE_OPENSSL_MD5_H)
+#if defined(HAVE_OPENSSL_MD5_H)
 #include "md5ossl.h"
 #else
-#include "md5.h"
+#include "md5cc.h"
 #endif
 
-static rb_digest_metadata_t md5 = {
+static const rb_digest_metadata_t md5 = {
     RUBY_DIGEST_API_VERSION,
     MD5_DIGEST_LENGTH,
     MD5_BLOCK_LENGTH,
@@ -32,11 +30,14 @@ Init_md5()
 
     rb_require("digest");
 
+#if 0
+    mDigest = rb_define_module("Digest"); /* let rdoc know */
+#endif
     mDigest = rb_path2class("Digest");
     cDigest_Base = rb_path2class("Digest::Base");
 
     cDigest_MD5 = rb_define_class_under(mDigest, "MD5", cDigest_Base);
 
     rb_ivar_set(cDigest_MD5, rb_intern("metadata"),
-      Data_Wrap_Struct(rb_cObject, 0, 0, &md5));
+      Data_Wrap_Struct(rb_cObject, 0, 0, (void *)&md5));
 }

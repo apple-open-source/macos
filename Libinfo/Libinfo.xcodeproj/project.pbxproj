@@ -11,26 +11,20 @@
 		2D31A0FD128074E700D5A84C /* getifmaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D31A0FB128074E700D5A84C /* getifmaddrs.c */; };
 		2D4070B1129354A700FE81ED /* getnameinfo_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D4070B0129354A700FE81ED /* getnameinfo_link.c */; };
 		2D4070B2129354A700FE81ED /* getnameinfo_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D4070B0129354A700FE81ED /* getnameinfo_link.c */; };
+		2D5DD5D21608E6E80051891A /* configuration_profile.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D5DD5D01608E6E80051891A /* configuration_profile.c */; };
+		2D5DD5D31608E6E80051891A /* configuration_profile.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D5DD5D01608E6E80051891A /* configuration_profile.c */; };
 		3FCF60EC1257C272008D8BB1 /* herror.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283EE11478C200058CCB0 /* herror.c */; };
 		3FCF60ED1257C272008D8BB1 /* res_comp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F711478C200058CCB0 /* res_comp.c */; };
-		3FCF60EE1257C272008D8BB1 /* res_data.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F811478C200058CCB0 /* res_data.c */; };
-		3FCF60EF1257C272008D8BB1 /* res_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F911478C200058CCB0 /* res_debug.c */; };
-		3FCF60F01257C272008D8BB1 /* res_init.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FA11478C200058CCB0 /* res_init.c */; };
-		3FCF60F11257C272008D8BB1 /* res_mkquery.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FB11478C200058CCB0 /* res_mkquery.c */; };
 		3FCF60F21257C272008D8BB1 /* res_query.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FC11478C200058CCB0 /* res_query.c */; };
-		3FCF60F31257C272008D8BB1 /* res_send.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FE11478C200058CCB0 /* res_send.c */; };
 		3FCF60F41257C272008D8BB1 /* getifaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840411478C200058CCB0 /* getifaddrs.c */; };
 		3FCF60F51257C272008D8BB1 /* if_indextoname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840A11478C200058CCB0 /* if_indextoname.c */; };
 		3FCF60F61257C272008D8BB1 /* if_nameindex.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840B11478C200058CCB0 /* if_nameindex.c */; };
 		3FCF60F71257C272008D8BB1 /* if_nametoindex.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840C11478C200058CCB0 /* if_nametoindex.c */; };
-		3FCF60F81257C272008D8BB1 /* inet_ntop.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841011478C200058CCB0 /* inet_ntop.c */; };
-		3FCF60F91257C272008D8BB1 /* inet_pton.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841111478C200058CCB0 /* inet_pton.c */; };
 		3FCF60FA1257C272008D8BB1 /* ip6opt.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841211478C200058CCB0 /* ip6opt.c */; };
 		3FCF60FB1257C272008D8BB1 /* map_v4v6.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841411478C200058CCB0 /* map_v4v6.c */; };
 		3FCF60FC1257C272008D8BB1 /* rthdr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841511478C200058CCB0 /* rthdr.c */; };
 		3FCF60FD1257C272008D8BB1 /* vars.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841611478C200058CCB0 /* vars.c */; };
 		3FCF610A1257C272008D8BB1 /* membership.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843E11478C200058CCB0 /* membership.c */; };
-		3FCF610B1257C272008D8BB1 /* ni_stub.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844411478C200058CCB0 /* ni_stub.c */; };
 		3FCF610C1257C272008D8BB1 /* getdomainname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844611478C200058CCB0 /* getdomainname.c */; };
 		3FCF610D1257C272008D8BB1 /* getnetgrent.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844711478C200058CCB0 /* getnetgrent.c */; };
 		3FCF610E1257C272008D8BB1 /* innetgr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844811478C200058CCB0 /* innetgr.c */; };
@@ -106,24 +100,27 @@
 		3FCF61541257C272008D8BB1 /* xdr_sizeof.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B611478C200058CCB0 /* xdr_sizeof.c */; };
 		3FCF61551257C272008D8BB1 /* xdr_stdio.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B711478C200058CCB0 /* xdr_stdio.c */; };
 		3FCF61561257C272008D8BB1 /* hton.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BA11478C200058CCB0 /* hton.c */; };
-		3FCF61571257C272008D8BB1 /* putpwpasswd.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BC11478C200058CCB0 /* putpwpasswd.c */; };
 		3FCF61581257C272008D8BB1 /* rcmd.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BE11478C200058CCB0 /* rcmd.c */; };
-		3FCF61591257C272008D8BB1 /* rcmdsh.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BF11478C200058CCB0 /* rcmdsh.c */; };
 		3FCF615D1257C272008D8BB1 /* ether_addr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5285F6114793400058CCB0 /* ether_addr.c */; };
+		3FFC065C167132160007509F /* cache_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841B11478C200058CCB0 /* cache_module.c */; };
+		3FFC065D167132180007509F /* ds_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841C11478C200058CCB0 /* ds_module.c */; };
+		3FFC065E1671321B0007509F /* file_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841D11478C200058CCB0 /* file_module.c */; };
+		3FFC065F1671321E0007509F /* ils.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52842611478C200058CCB0 /* ils.c */; };
+		3FFC0660167132270007509F /* kvbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52842911478C200058CCB0 /* kvbuf.c */; };
+		3FFC0661167132270007509F /* libinfo.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52842B11478C200058CCB0 /* libinfo.c */; };
+		3FFC0662167132270007509F /* mdns_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52842E11478C200058CCB0 /* mdns_module.c */; };
+		3FFC0663167132270007509F /* search_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843211478C200058CCB0 /* search_module.c */; };
+		3FFC0664167132270007509F /* si_data.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843311478C200058CCB0 /* si_data.c */; };
+		3FFC0665167132270007509F /* si_getaddrinfo.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843511478C200058CCB0 /* si_getaddrinfo.c */; };
+		3FFC0666167132270007509F /* si_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843611478C200058CCB0 /* si_module.c */; };
+		3FFC0667167132270007509F /* thread_data.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843811478C200058CCB0 /* thread_data.c */; };
 		FC5284C011478C200058CCB0 /* herror.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283EE11478C200058CCB0 /* herror.c */; };
 		FC5284C811478C200058CCB0 /* res_comp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F711478C200058CCB0 /* res_comp.c */; };
-		FC5284C911478C200058CCB0 /* res_data.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F811478C200058CCB0 /* res_data.c */; };
-		FC5284CA11478C200058CCB0 /* res_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F911478C200058CCB0 /* res_debug.c */; };
-		FC5284CB11478C200058CCB0 /* res_init.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FA11478C200058CCB0 /* res_init.c */; };
-		FC5284CC11478C200058CCB0 /* res_mkquery.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FB11478C200058CCB0 /* res_mkquery.c */; };
 		FC5284CD11478C200058CCB0 /* res_query.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FC11478C200058CCB0 /* res_query.c */; };
-		FC5284CF11478C200058CCB0 /* res_send.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283FE11478C200058CCB0 /* res_send.c */; };
 		FC5284D211478C200058CCB0 /* getifaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840411478C200058CCB0 /* getifaddrs.c */; };
 		FC5284D311478C200058CCB0 /* if_indextoname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840A11478C200058CCB0 /* if_indextoname.c */; };
 		FC5284D411478C200058CCB0 /* if_nameindex.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840B11478C200058CCB0 /* if_nameindex.c */; };
 		FC5284D511478C200058CCB0 /* if_nametoindex.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52840C11478C200058CCB0 /* if_nametoindex.c */; };
-		FC5284D711478C200058CCB0 /* inet_ntop.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841011478C200058CCB0 /* inet_ntop.c */; };
-		FC5284D811478C200058CCB0 /* inet_pton.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841111478C200058CCB0 /* inet_pton.c */; };
 		FC5284D911478C200058CCB0 /* ip6opt.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841211478C200058CCB0 /* ip6opt.c */; };
 		FC5284DB11478C200058CCB0 /* map_v4v6.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841411478C200058CCB0 /* map_v4v6.c */; };
 		FC5284DC11478C200058CCB0 /* rthdr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52841511478C200058CCB0 /* rthdr.c */; };
@@ -141,7 +138,6 @@
 		FC5284F211478C200058CCB0 /* si_module.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843611478C200058CCB0 /* si_module.c */; };
 		FC5284F411478C200058CCB0 /* thread_data.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843811478C200058CCB0 /* thread_data.c */; };
 		FC5284F711478C200058CCB0 /* membership.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52843E11478C200058CCB0 /* membership.c */; };
-		FC5284FC11478C200058CCB0 /* ni_stub.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844411478C200058CCB0 /* ni_stub.c */; };
 		FC5284FD11478C200058CCB0 /* getdomainname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844611478C200058CCB0 /* getdomainname.c */; };
 		FC5284FE11478C200058CCB0 /* getnetgrent.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844711478C200058CCB0 /* getnetgrent.c */; };
 		FC5284FF11478C200058CCB0 /* innetgr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC52844811478C200058CCB0 /* innetgr.c */; };
@@ -217,10 +213,7 @@
 		FC52855811478C200058CCB0 /* xdr_sizeof.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B611478C200058CCB0 /* xdr_sizeof.c */; };
 		FC52855911478C200058CCB0 /* xdr_stdio.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284B711478C200058CCB0 /* xdr_stdio.c */; };
 		FC52855A11478C200058CCB0 /* hton.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BA11478C200058CCB0 /* hton.c */; };
-		FC52855C11478C200058CCB0 /* putpwpasswd.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BC11478C200058CCB0 /* putpwpasswd.c */; };
 		FC52855D11478C200058CCB0 /* rcmd.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BE11478C200058CCB0 /* rcmd.c */; };
-		FC52855E11478C200058CCB0 /* rcmdsh.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BF11478C200058CCB0 /* rcmdsh.c */; };
-		FC5285D4114791B50058CCB0 /* DSlibinfoMIG.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC5285D1114791B50058CCB0 /* DSlibinfoMIG.defs */; };
 		FC5285F7114793400058CCB0 /* ether_addr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5285F6114793400058CCB0 /* ether_addr.c */; };
 /* End PBXBuildFile section */
 
@@ -229,22 +222,14 @@
 		2D31A0FB128074E700D5A84C /* getifmaddrs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getifmaddrs.c; sourceTree = "<group>"; };
 		2D4070B0129354A700FE81ED /* getnameinfo_link.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getnameinfo_link.c; sourceTree = "<group>"; };
 		2D4D4AB1122C5B83009791E5 /* inet6_rth_space.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_rth_space.3; sourceTree = "<group>"; };
+		2D5DD5D01608E6E80051891A /* configuration_profile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = configuration_profile.c; sourceTree = "<group>"; };
+		2D5DD5D11608E6E80051891A /* configuration_profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = configuration_profile.h; sourceTree = "<group>"; };
 		2DBB147712DBD63300D710E3 /* inet6_opt_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_opt_init.3; sourceTree = "<group>"; };
 		3FCF61621257C272008D8BB1 /* libsystem_sim_info.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_sim_info.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2AAC0630554660B00DB518D /* libsystem_info.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_info.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC5283EE11478C200058CCB0 /* herror.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = herror.c; sourceTree = "<group>"; };
-		FC5283EF11478C200058CCB0 /* inet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = inet.h; sourceTree = "<group>"; };
-		FC5283F311478C200058CCB0 /* nameser8_compat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nameser8_compat.h; sourceTree = "<group>"; };
-		FC5283F511478C200058CCB0 /* options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = options.h; sourceTree = "<group>"; };
-		FC5283F611478C200058CCB0 /* portability.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = portability.h; sourceTree = "<group>"; };
 		FC5283F711478C200058CCB0 /* res_comp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_comp.c; sourceTree = "<group>"; };
-		FC5283F811478C200058CCB0 /* res_data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_data.c; sourceTree = "<group>"; };
-		FC5283F911478C200058CCB0 /* res_debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_debug.c; sourceTree = "<group>"; };
-		FC5283FA11478C200058CCB0 /* res_init.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_init.c; sourceTree = "<group>"; };
-		FC5283FB11478C200058CCB0 /* res_mkquery.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_mkquery.c; sourceTree = "<group>"; };
 		FC5283FC11478C200058CCB0 /* res_query.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_query.c; sourceTree = "<group>"; };
-		FC5283FE11478C200058CCB0 /* res_send.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = res_send.c; sourceTree = "<group>"; };
-		FC5283FF11478C200058CCB0 /* resolv8_compat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = resolv8_compat.h; sourceTree = "<group>"; };
 		FC52840211478C200058CCB0 /* gethostbyname.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gethostbyname.3; sourceTree = "<group>"; };
 		FC52840311478C200058CCB0 /* getifaddrs.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = getifaddrs.3; sourceTree = "<group>"; };
 		FC52840411478C200058CCB0 /* getifaddrs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getifaddrs.c; sourceTree = "<group>"; };
@@ -259,8 +244,6 @@
 		FC52840D11478C200058CCB0 /* ifaddrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ifaddrs.h; sourceTree = "<group>"; };
 		FC52840E11478C200058CCB0 /* inet6_option_space.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_option_space.3; sourceTree = "<group>"; };
 		FC52840F11478C200058CCB0 /* inet6_rthdr_space.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_rthdr_space.3; sourceTree = "<group>"; };
-		FC52841011478C200058CCB0 /* inet_ntop.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = inet_ntop.c; sourceTree = "<group>"; };
-		FC52841111478C200058CCB0 /* inet_pton.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = inet_pton.c; sourceTree = "<group>"; };
 		FC52841211478C200058CCB0 /* ip6opt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ip6opt.c; sourceTree = "<group>"; };
 		FC52841411478C200058CCB0 /* map_v4v6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = map_v4v6.c; sourceTree = "<group>"; };
 		FC52841511478C200058CCB0 /* rthdr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rthdr.c; sourceTree = "<group>"; };
@@ -304,7 +287,6 @@
 		FC52843F11478C200058CCB0 /* membership.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = membership.h; sourceTree = "<group>"; };
 		FC52844011478C200058CCB0 /* membershipPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = membershipPriv.h; sourceTree = "<group>"; };
 		FC52844111478C200058CCB0 /* ntsid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ntsid.h; sourceTree = "<group>"; };
-		FC52844411478C200058CCB0 /* ni_stub.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ni_stub.c; sourceTree = "<group>"; };
 		FC52844611478C200058CCB0 /* getdomainname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getdomainname.c; sourceTree = "<group>"; };
 		FC52844711478C200058CCB0 /* getnetgrent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getnetgrent.c; sourceTree = "<group>"; };
 		FC52844811478C200058CCB0 /* innetgr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = innetgr.c; sourceTree = "<group>"; };
@@ -417,11 +399,8 @@
 		FC5284B711478C200058CCB0 /* xdr_stdio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xdr_stdio.c; sourceTree = "<group>"; };
 		FC5284B911478C200058CCB0 /* hosts.equiv.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hosts.equiv.5; sourceTree = "<group>"; };
 		FC5284BA11478C200058CCB0 /* hton.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hton.c; sourceTree = "<group>"; };
-		FC5284BC11478C200058CCB0 /* putpwpasswd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = putpwpasswd.c; sourceTree = "<group>"; };
 		FC5284BD11478C200058CCB0 /* rcmd.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rcmd.3; sourceTree = "<group>"; };
 		FC5284BE11478C200058CCB0 /* rcmd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rcmd.c; sourceTree = "<group>"; };
-		FC5284BF11478C200058CCB0 /* rcmdsh.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rcmdsh.c; sourceTree = "<group>"; };
-		FC5285D1114791B50058CCB0 /* DSlibinfoMIG.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = DSlibinfoMIG.defs; path = usr/local/include/opendirectory/DSlibinfoMIG.defs; sourceTree = SDKROOT; };
 		FC5285F6114793400058CCB0 /* ether_addr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ether_addr.c; sourceTree = "<group>"; };
 		FCFDBF0A145CC5C100A39A66 /* grp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = grp.h; sourceTree = "<group>"; };
 		FCFDBF0B145CC5C100A39A66 /* pwd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pwd.h; sourceTree = "<group>"; };
@@ -474,18 +453,8 @@
 			isa = PBXGroup;
 			children = (
 				FC5283EE11478C200058CCB0 /* herror.c */,
-				FC5283EF11478C200058CCB0 /* inet.h */,
-				FC5283F311478C200058CCB0 /* nameser8_compat.h */,
-				FC5283F511478C200058CCB0 /* options.h */,
-				FC5283F611478C200058CCB0 /* portability.h */,
 				FC5283F711478C200058CCB0 /* res_comp.c */,
-				FC5283F811478C200058CCB0 /* res_data.c */,
-				FC5283F911478C200058CCB0 /* res_debug.c */,
-				FC5283FA11478C200058CCB0 /* res_init.c */,
-				FC5283FB11478C200058CCB0 /* res_mkquery.c */,
 				FC5283FC11478C200058CCB0 /* res_query.c */,
-				FC5283FE11478C200058CCB0 /* res_send.c */,
-				FC5283FF11478C200058CCB0 /* resolv8_compat.h */,
 			);
 			path = dns.subproj;
 			sourceTree = "<group>";
@@ -493,6 +462,8 @@
 		FC52840011478C200058CCB0 /* gen.subproj */ = {
 			isa = PBXGroup;
 			children = (
+				2D5DD5D01608E6E80051891A /* configuration_profile.c */,
+				2D5DD5D11608E6E80051891A /* configuration_profile.h */,
 				2DBB147712DBD63300D710E3 /* inet6_opt_init.3 */,
 				2D31A0FA128074E700D5A84C /* getifmaddrs.3 */,
 				2D31A0FB128074E700D5A84C /* getifmaddrs.c */,
@@ -512,8 +483,6 @@
 				FC52840E11478C200058CCB0 /* inet6_option_space.3 */,
 				FC52840F11478C200058CCB0 /* inet6_rthdr_space.3 */,
 				2D4D4AB1122C5B83009791E5 /* inet6_rth_space.3 */,
-				FC52841011478C200058CCB0 /* inet_ntop.c */,
-				FC52841111478C200058CCB0 /* inet_pton.c */,
 				FC52841211478C200058CCB0 /* ip6opt.c */,
 				FC52841411478C200058CCB0 /* map_v4v6.c */,
 				FC52841511478C200058CCB0 /* rthdr.c */,
@@ -526,7 +495,6 @@
 			isa = PBXGroup;
 			children = (
 				2D4070B0129354A700FE81ED /* getnameinfo_link.c */,
-				FC5285D1114791B50058CCB0 /* DSlibinfoMIG.defs */,
 				FC52841811478C200058CCB0 /* aliasdb.h */,
 				FC52841911478C200058CCB0 /* bootparams.5 */,
 				FC52841A11478C200058CCB0 /* bootparams.h */,
@@ -577,14 +545,6 @@
 				FC52844111478C200058CCB0 /* ntsid.h */,
 			);
 			path = membership.subproj;
-			sourceTree = "<group>";
-		};
-		FC52844211478C200058CCB0 /* netinfo.subproj */ = {
-			isa = PBXGroup;
-			children = (
-				FC52844411478C200058CCB0 /* ni_stub.c */,
-			);
-			path = netinfo.subproj;
 			sourceTree = "<group>";
 		};
 		FC52844511478C200058CCB0 /* nis.subproj */ = {
@@ -716,10 +676,8 @@
 			children = (
 				FC5284B911478C200058CCB0 /* hosts.equiv.5 */,
 				FC5284BA11478C200058CCB0 /* hton.c */,
-				FC5284BC11478C200058CCB0 /* putpwpasswd.c */,
 				FC5284BD11478C200058CCB0 /* rcmd.3 */,
 				FC5284BE11478C200058CCB0 /* rcmd.c */,
-				FC5284BF11478C200058CCB0 /* rcmdsh.c */,
 			);
 			path = util.subproj;
 			sourceTree = "<group>";
@@ -827,24 +785,16 @@
 			files = (
 				3FCF60EC1257C272008D8BB1 /* herror.c in Sources */,
 				3FCF60ED1257C272008D8BB1 /* res_comp.c in Sources */,
-				3FCF60EE1257C272008D8BB1 /* res_data.c in Sources */,
-				3FCF60EF1257C272008D8BB1 /* res_debug.c in Sources */,
-				3FCF60F01257C272008D8BB1 /* res_init.c in Sources */,
-				3FCF60F11257C272008D8BB1 /* res_mkquery.c in Sources */,
 				3FCF60F21257C272008D8BB1 /* res_query.c in Sources */,
-				3FCF60F31257C272008D8BB1 /* res_send.c in Sources */,
 				3FCF60F41257C272008D8BB1 /* getifaddrs.c in Sources */,
 				3FCF60F51257C272008D8BB1 /* if_indextoname.c in Sources */,
 				3FCF60F61257C272008D8BB1 /* if_nameindex.c in Sources */,
 				3FCF60F71257C272008D8BB1 /* if_nametoindex.c in Sources */,
-				3FCF60F81257C272008D8BB1 /* inet_ntop.c in Sources */,
-				3FCF60F91257C272008D8BB1 /* inet_pton.c in Sources */,
 				3FCF60FA1257C272008D8BB1 /* ip6opt.c in Sources */,
 				3FCF60FB1257C272008D8BB1 /* map_v4v6.c in Sources */,
 				3FCF60FC1257C272008D8BB1 /* rthdr.c in Sources */,
 				3FCF60FD1257C272008D8BB1 /* vars.c in Sources */,
 				3FCF610A1257C272008D8BB1 /* membership.c in Sources */,
-				3FCF610B1257C272008D8BB1 /* ni_stub.c in Sources */,
 				3FCF610C1257C272008D8BB1 /* getdomainname.c in Sources */,
 				3FCF610D1257C272008D8BB1 /* getnetgrent.c in Sources */,
 				3FCF610E1257C272008D8BB1 /* innetgr.c in Sources */,
@@ -920,12 +870,23 @@
 				3FCF61541257C272008D8BB1 /* xdr_sizeof.c in Sources */,
 				3FCF61551257C272008D8BB1 /* xdr_stdio.c in Sources */,
 				3FCF61561257C272008D8BB1 /* hton.c in Sources */,
-				3FCF61571257C272008D8BB1 /* putpwpasswd.c in Sources */,
 				3FCF61581257C272008D8BB1 /* rcmd.c in Sources */,
-				3FCF61591257C272008D8BB1 /* rcmdsh.c in Sources */,
 				3FCF615D1257C272008D8BB1 /* ether_addr.c in Sources */,
 				2D31A0FD128074E700D5A84C /* getifmaddrs.c in Sources */,
 				2D4070B2129354A700FE81ED /* getnameinfo_link.c in Sources */,
+				2D5DD5D31608E6E80051891A /* configuration_profile.c in Sources */,
+				3FFC065C167132160007509F /* cache_module.c in Sources */,
+				3FFC065D167132180007509F /* ds_module.c in Sources */,
+				3FFC065E1671321B0007509F /* file_module.c in Sources */,
+				3FFC065F1671321E0007509F /* ils.c in Sources */,
+				3FFC0660167132270007509F /* kvbuf.c in Sources */,
+				3FFC0661167132270007509F /* libinfo.c in Sources */,
+				3FFC0662167132270007509F /* mdns_module.c in Sources */,
+				3FFC0663167132270007509F /* search_module.c in Sources */,
+				3FFC0664167132270007509F /* si_data.c in Sources */,
+				3FFC0665167132270007509F /* si_getaddrinfo.c in Sources */,
+				3FFC0666167132270007509F /* si_module.c in Sources */,
+				3FFC0667167132270007509F /* thread_data.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -935,18 +896,11 @@
 			files = (
 				FC5284C011478C200058CCB0 /* herror.c in Sources */,
 				FC5284C811478C200058CCB0 /* res_comp.c in Sources */,
-				FC5284C911478C200058CCB0 /* res_data.c in Sources */,
-				FC5284CA11478C200058CCB0 /* res_debug.c in Sources */,
-				FC5284CB11478C200058CCB0 /* res_init.c in Sources */,
-				FC5284CC11478C200058CCB0 /* res_mkquery.c in Sources */,
 				FC5284CD11478C200058CCB0 /* res_query.c in Sources */,
-				FC5284CF11478C200058CCB0 /* res_send.c in Sources */,
 				FC5284D211478C200058CCB0 /* getifaddrs.c in Sources */,
 				FC5284D311478C200058CCB0 /* if_indextoname.c in Sources */,
 				FC5284D411478C200058CCB0 /* if_nameindex.c in Sources */,
 				FC5284D511478C200058CCB0 /* if_nametoindex.c in Sources */,
-				FC5284D711478C200058CCB0 /* inet_ntop.c in Sources */,
-				FC5284D811478C200058CCB0 /* inet_pton.c in Sources */,
 				FC5284D911478C200058CCB0 /* ip6opt.c in Sources */,
 				FC5284DB11478C200058CCB0 /* map_v4v6.c in Sources */,
 				FC5284DC11478C200058CCB0 /* rthdr.c in Sources */,
@@ -964,7 +918,6 @@
 				FC5284F211478C200058CCB0 /* si_module.c in Sources */,
 				FC5284F411478C200058CCB0 /* thread_data.c in Sources */,
 				FC5284F711478C200058CCB0 /* membership.c in Sources */,
-				FC5284FC11478C200058CCB0 /* ni_stub.c in Sources */,
 				FC5284FD11478C200058CCB0 /* getdomainname.c in Sources */,
 				FC5284FE11478C200058CCB0 /* getnetgrent.c in Sources */,
 				FC5284FF11478C200058CCB0 /* innetgr.c in Sources */,
@@ -1040,13 +993,11 @@
 				FC52855811478C200058CCB0 /* xdr_sizeof.c in Sources */,
 				FC52855911478C200058CCB0 /* xdr_stdio.c in Sources */,
 				FC52855A11478C200058CCB0 /* hton.c in Sources */,
-				FC52855C11478C200058CCB0 /* putpwpasswd.c in Sources */,
 				FC52855D11478C200058CCB0 /* rcmd.c in Sources */,
-				FC52855E11478C200058CCB0 /* rcmdsh.c in Sources */,
-				FC5285D4114791B50058CCB0 /* DSlibinfoMIG.defs in Sources */,
 				FC5285F7114793400058CCB0 /* ether_addr.c in Sources */,
 				2D31A0FC128074E700D5A84C /* getifmaddrs.c in Sources */,
 				2D4070B1129354A700FE81ED /* getnameinfo_link.c in Sources */,
+				2D5DD5D21608E6E80051891A /* configuration_profile.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1061,7 +1012,6 @@
 					"__DARWIN_NON_CANCELABLE=1",
 					"__MigTypeCheck=1",
 					"INET6=1",
-					USE_OPTIONS_H,
 				);
 				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphone*][arch=*]" = (
 					CONFIG_IPHONE,
@@ -1075,7 +1025,27 @@
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
+				LINK_WITH_STANDARD_LIBRARIES = NO;
 				ORDER_FILE = "$(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/libsystem_info.order";
+				OTHER_LDFLAGS = (
+					"-Wl,-umbrella,System",
+					"-L/usr/lib/system",
+					"-lcompiler_rt",
+					"-ldispatch",
+					"-ldyld",
+					"-llaunch",
+					"-lsystem_asl",
+					"-lsystem_blocks",
+					"-lsystem_dnssd",
+					"-lsystem_kernel",
+					"-lsystem_notify",
+					"-lsystem_malloc",
+					"-lsystem_platform",
+					"-lsystem_pthread",
+					"-lsystem_c",
+					"-lxpc",
+					"-Wl,-upward-lsystem_network",
+				);
 				PRODUCT_NAME = info;
 				VERSION_INFO_EXPORT_DECL = static;
 				VERSION_INFO_PREFIX = __;
@@ -1095,8 +1065,10 @@
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_CURRENT_VERSION = "$(CURRENT_PROJECT_VERSION)";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -1112,7 +1084,6 @@
 					"__DARWIN_NON_CANCELABLE=1",
 					"__MigTypeCheck=1",
 					"INET6=1",
-					USE_OPTIONS_H,
 				);
 				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphone*][arch=*]" = (
 					CONFIG_IPHONE,
@@ -1126,6 +1097,11 @@
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SDKROOT)/usr/lib/system";
+				LINK_WITH_STANDARD_LIBRARIES = NO;
+				OTHER_LDFLAGS = (
+					"-Wl,-umbrella,System",
+					"-Wl,-upward-lSystem",
+				);
 				PRODUCT_NAME = info;
 				VERSION_INFO_EXPORT_DECL = static;
 				VERSION_INFO_PREFIX = __;

@@ -20,11 +20,18 @@
 #include "includes.h"
 
 #include <sys/types.h>
+#ifdef __APPLE_CRYPTO__
+#include "ossl-crypto.h"
+#else
 #include <openssl/opensslv.h>
+#endif
 
 #if !defined(HAVE_EVP_SHA256) && (OPENSSL_VERSION_NUMBER >= 0x00907000L)
 
 #include <string.h>
+#ifdef __APPLE_CRYPTO__
+#error "HAVE_EVP_SHA256 should be defined"
+#else
 #include <openssl/evp.h>
 #ifdef HAVE_SHA256_UPDATE
 # ifdef HAVE_SHA2_H
@@ -32,7 +39,8 @@
 # elif defined(HAVE_CRYPTO_SHA2_H)
 #  include <crypto/sha2.h>
 # endif
-#endif
+#endif /* HAVE_SHA256_UPDATE */
+#endif /* __APPLE_CRYPTO__ */
 
 const EVP_MD *evp_ssh_sha256(void);
 

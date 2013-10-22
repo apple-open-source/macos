@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Inc//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2002-2011 Apple Inc. All rights reserved.</string>
+	<string>$NTFS_COPYRIGHT_INFO_STRING</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.filesystems.util.ntfs</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.10</string>
+	<string>$NTFS_VERSION</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.10</string>
+	<string>$NTFS_VERSION</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>Windows_NTFS</key>
@@ -34,7 +34,7 @@
 			<key>FSProbeArguments</key>
 			<string>-p</string>
 			<key>FSProbeExecutable</key>
-			<string>../../ntfs.util</string>
+			<string>ntfs.util</string>
 			<key>FSProbeOrder</key>
 			<integer>1000</integer>
 		</dict>
@@ -50,7 +50,7 @@
 			<key>FSProbeArguments</key>
 			<string>-p</string>
 			<key>FSProbeExecutable</key>
-			<string>../../ntfs.util</string>
+			<string>ntfs.util</string>
 			<key>FSProbeOrder</key>
 			<integer>2000</integer>
 		</dict>
@@ -66,7 +66,7 @@
 			<key>FSProbeArguments</key>
 			<string>-p</string>
 			<key>FSProbeExecutable</key>
-			<string>../../ntfs.util</string>
+			<string>ntfs.util</string>
 			<key>FSProbeOrder</key>
 			<integer>4000</integer>
 		</dict>
@@ -78,7 +78,7 @@
 			<key>FSMountArguments</key>
 			<string></string>
 			<key>FSMountExecutable</key>
-			<string>../../../../../../sbin/mount_ntfs</string>
+			<string>mount_ntfs</string>
 			<key>FSName</key>
 			<string>Windows NT File System (NTFS)</string>
 		</dict>

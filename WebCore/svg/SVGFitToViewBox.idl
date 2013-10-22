@@ -24,15 +24,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-module svg {
+[
+    NoInterfaceObject,
+    Conditional=SVG,
+    ObjCProtocol,
+    SuppressToJSObject,
+] interface SVGFitToViewBox {
+    readonly attribute SVGAnimatedRect                viewBox;
+    readonly attribute SVGAnimatedPreserveAspectRatio preserveAspectRatio;
+};
 
-    interface [
-        Conditional=SVG,
-        ObjCProtocol,
-        OmitConstructor
-    ] SVGFitToViewBox {
-        readonly attribute SVGAnimatedRect                viewBox;
-        readonly attribute SVGAnimatedPreserveAspectRatio preserveAspectRatio;
-    };
-
-}

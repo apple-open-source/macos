@@ -27,6 +27,7 @@
 #include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
 #include "SVGElementInstance.h"
+#include "SVGMPathElement.h"
 #include "SVGNames.h"
 #include "SVGPathSegArc.h"
 #include "SVGPathSegClosePath.h"
@@ -52,6 +53,7 @@ const SVGPropertyInfo* SVGPathElement::dPropertyInfo()
     static const SVGPropertyInfo* s_propertyInfo = 0;
     if (!s_propertyInfo) {
         s_propertyInfo = new SVGPropertyInfo(AnimatedPath,
+                                             PropertyIsReadWrite,
                                              SVGNames::dAttr,
                                              SVGNames::dAttr.localName(),
                                              &SVGPathElement::synchronizeD,
@@ -76,7 +78,6 @@ inline SVGPathElement::SVGPathElement(const QualifiedName& tagName, Document* do
     : SVGStyledTransformableElement(tagName, document)
     , m_pathByteStream(SVGPathByteStream::create())
     , m_pathSegList(PathSegUnalteredRole)
-    , m_cachedBBoxRectIsValid(false)
     , m_isAnimValObserved(false)
 {
     ASSERT(hasTagName(SVGNames::pathTag));
@@ -217,31 +218,31 @@ bool SVGPathElement::isSupportedAttribute(const QualifiedName& attrName)
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGPathElement::parseAttribute(Attribute* attr)
+void SVGPathElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGStyledTransformableElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGStyledTransformableElement::parseAttribute(name, value);
         return;
     }
 
-    if (attr->name() == SVGNames::dAttr) {
-        if (!buildSVGPathByteStreamFromString(attr->value(), m_pathByteStream.get(), UnalteredParsing))
-            document()->accessSVGExtensions()->reportError("Problem parsing d=\"" + attr->value() + "\"");
+    if (name == SVGNames::dAttr) {
+        if (!buildSVGPathByteStreamFromString(value, m_pathByteStream.get(), UnalteredParsing))
+            document()->accessSVGExtensions()->reportError("Problem parsing d=\"" + value + "\"");
         return;
     }
 
-    if (attr->name() == SVGNames::pathLengthAttr) {
-        setPathLengthBaseValue(attr->value().toFloat());
+    if (name == SVGNames::pathLengthAttr) {
+        setPathLengthBaseValue(value.toFloat());
         if (pathLengthBaseValue() < 0)
             document()->accessSVGExtensions()->reportError("A negative value for path attribute <pathLength> is not allowed");
         return;
     }
 
-    if (SVGTests::parseAttribute(attr))
+    if (SVGTests::parseAttribute(name, value))
         return;
-    if (SVGLangSpace::parseAttribute(attr))
+    if (SVGLangSpace::parseAttribute(name, value))
         return;
-    if (SVGExternalResourcesRequired::parseAttribute(attr))
+    if (SVGExternalResourcesRequired::parseAttribute(name, value))
         return;
 
     ASSERT_NOT_REACHED();
@@ -259,54 +260,82 @@ void SVGPathElement::svgAttributeChanged(const QualifiedName& attrName)
     if (SVGTests::handleAttributeChange(this, attrName))
         return;
 
-    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
+    RenderSVGPath* renderer = toRenderSVGPath(this->renderer());
 
     if (attrName == SVGNames::dAttr) {
-        if (m_pathSegList.shouldSynchronize && !SVGAnimatedProperty::lookupWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff, true>(this, dPropertyInfo())->isAnimating()) {
+        if (m_pathSegList.shouldSynchronize && !SVGAnimatedProperty::lookupWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff>(this, dPropertyInfo())->isAnimating()) {
             SVGPathSegList newList(PathSegUnalteredRole);
             buildSVGPathSegListFromByteStream(m_pathByteStream.get(), this, newList, UnalteredParsing);
             m_pathSegList.value = newList;
-            m_cachedBBoxRectIsValid = false;
         }
 
         if (renderer)
             renderer->setNeedsShapeUpdate();
+
+        invalidateMPathDependencies();
     }
 
     if (renderer)
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
 }
 
+void SVGPathElement::invalidateMPathDependencies()
+{
+    // <mpath> can only reference <path> but this dependency is not handled in
+    // markForLayoutAndParentResourceInvalidation so we update any mpath dependencies manually.
+    ASSERT(document());
+    if (HashSet<SVGElement*>* dependencies = document()->accessSVGExtensions()->setOfElementsReferencingTarget(this)) {
+        HashSet<SVGElement*>::iterator end = dependencies->end();
+        for (HashSet<SVGElement*>::iterator it = dependencies->begin(); it != end; ++it) {
+            if ((*it)->hasTagName(SVGNames::mpathTag))
+                static_cast<SVGMPathElement*>(*it)->targetPathChanged();
+        }
+    }
+}
+
+Node::InsertionNotificationRequest SVGPathElement::insertedInto(ContainerNode* rootParent)
+{
+    SVGStyledTransformableElement::insertedInto(rootParent);
+    invalidateMPathDependencies();
+    return InsertionDone;
+}
+
+void SVGPathElement::removedFrom(ContainerNode* rootParent)
+{
+    SVGStyledTransformableElement::removedFrom(rootParent);
+    invalidateMPathDependencies();
+}
+
 SVGPathByteStream* SVGPathElement::pathByteStream() const
 {
-    SVGAnimatedProperty* property = SVGAnimatedProperty::lookupWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff, true>(this, dPropertyInfo());
+    SVGAnimatedProperty* property = SVGAnimatedProperty::lookupWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff>(this, dPropertyInfo());
     if (!property || !property->isAnimating())
         return m_pathByteStream.get();
     return static_cast<SVGAnimatedPathSegListPropertyTearOff*>(property)->animatedPathByteStream();
 }
 
-PassRefPtr<SVGAnimatedProperty> SVGPathElement::lookupOrCreateDWrapper(void* contextElement)
+PassRefPtr<SVGAnimatedProperty> SVGPathElement::lookupOrCreateDWrapper(SVGElement* contextElement)
 {
     ASSERT(contextElement);
-    SVGPathElement* ownerType = static_cast<SVGPathElement*>(contextElement);
+    SVGPathElement* ownerType = toSVGPathElement(contextElement);
 
-    if (SVGAnimatedProperty* property = SVGAnimatedProperty::lookupWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff, true>(ownerType, dPropertyInfo()))
+    if (SVGAnimatedProperty* property = SVGAnimatedProperty::lookupWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff>(ownerType, dPropertyInfo()))
         return property;
 
     // Build initial SVGPathSegList.
     buildSVGPathSegListFromByteStream(ownerType->m_pathByteStream.get(), ownerType, ownerType->m_pathSegList.value, UnalteredParsing);
 
-    return SVGAnimatedProperty::lookupOrCreateWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff, SVGPathSegList, true>
+    return SVGAnimatedProperty::lookupOrCreateWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff, SVGPathSegList>
            (ownerType, dPropertyInfo(), ownerType->m_pathSegList.value);
 }
 
-void SVGPathElement::synchronizeD(void* contextElement)
+void SVGPathElement::synchronizeD(SVGElement* contextElement)
 {
     ASSERT(contextElement);
-    SVGPathElement* ownerType = static_cast<SVGPathElement*>(contextElement);
+    SVGPathElement* ownerType = toSVGPathElement(contextElement);
     if (!ownerType->m_pathSegList.shouldSynchronize)
         return;
-    SVGAnimatedPropertySynchronizer<true>::synchronize(ownerType, dPropertyInfo()->attributeName, ownerType->m_pathSegList.value.valueAsString());
+    ownerType->m_pathSegList.synchronize(ownerType, dPropertyInfo()->attributeName, ownerType->m_pathSegList.value.valueAsString());
 }
 
 SVGPathSegListPropertyTearOff* SVGPathElement::pathSegList()
@@ -334,14 +363,18 @@ SVGPathSegListPropertyTearOff* SVGPathElement::animatedNormalizedPathSegList()
     return 0;
 }
 
-void SVGPathElement::pathSegListChanged(SVGPathSegRole role)
+void SVGPathElement::pathSegListChanged(SVGPathSegRole role, ListModification listModification)
 {
     switch (role) {
     case PathSegNormalizedRole:
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=15412 - Implement normalized path segment lists!
         break;
     case PathSegUnalteredRole:
-        buildSVGPathByteStreamFromSVGPathSegList(m_pathSegList.value, m_pathByteStream.get(), UnalteredParsing);
+        if (listModification == ListModificationAppend) {
+            ASSERT(!m_pathSegList.value.isEmpty());
+            appendSVGPathByteStreamFromSVGPathSeg(m_pathSegList.value.last(), m_pathByteStream.get(), UnalteredParsing);
+        } else
+            buildSVGPathByteStreamFromSVGPathSegList(m_pathSegList.value, m_pathByteStream.get(), UnalteredParsing);
         break;
     case PathSegUndefinedRole:
         return;
@@ -349,9 +382,7 @@ void SVGPathElement::pathSegListChanged(SVGPathSegRole role)
 
     invalidateSVGAttributes();
     
-    m_cachedBBoxRectIsValid = false;
-
-    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
+    RenderSVGPath* renderer = toRenderSVGPath(this->renderer());
     if (!renderer)
         return;
 
@@ -364,18 +395,13 @@ FloatRect SVGPathElement::getBBox(StyleUpdateStrategy styleUpdateStrategy)
     if (styleUpdateStrategy == AllowStyleUpdate)
         this->document()->updateLayoutIgnorePendingStylesheets();
 
-    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
+    RenderSVGPath* renderer = toRenderSVGPath(this->renderer());
 
     // FIXME: Eventually we should support getBBox for detached elements.
     if (!renderer)
         return FloatRect();
 
-    if (!m_cachedBBoxRectIsValid) {
-        m_cachedBBoxRect = renderer->path().boundingRect();
-        m_cachedBBoxRectIsValid = true;
-    }
-    
-    return m_cachedBBoxRect;
+    return renderer->path().boundingRect();
 }
 
 RenderObject* SVGPathElement::createRenderer(RenderArena* arena, RenderStyle*)

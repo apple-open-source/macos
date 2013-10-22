@@ -73,7 +73,7 @@ void MappingHandle<_Handle>::make()
 {
     StLock<Mutex> _(state());
     
-    _Handle hbase = reinterpret_cast<uintptr_t>(this);
+    _Handle hbase = (_Handle)reinterpret_cast<uintptr_t>(this);
     for (;;) {
         _Handle handle = hbase ^ state().nextSeq();
         if (!state().handleInUse(handle)) {

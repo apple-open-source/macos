@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -137,12 +137,12 @@ OSStatus HIDGetNextButtonInfo
 			{
 				newCollection = ptReportItem->parent;
 				newReportID = iR;
-				iStatus = noErr;
+				iStatus = 0;
 			}
 		}
 	}
 		
-	if (iStatus == noErr)
+	if (!iStatus)
 	{
 		*reportID = newReportID;
 		*collection = newCollection;

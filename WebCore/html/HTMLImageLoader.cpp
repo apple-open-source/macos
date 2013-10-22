@@ -31,10 +31,9 @@
 #include "HTMLParserIdioms.h"
 #include "Settings.h"
 
-#if USE(JSC)
 #include "JSDOMWindowBase.h"
 #include <runtime/JSLock.h>
-#endif
+#include <runtime/Operations.h>
 
 namespace WebCore {
 
@@ -74,22 +73,20 @@ void HTMLImageLoader::notifyFinished(CachedResource*)
 {
     CachedImage* cachedImage = image();
 
-    RefPtr<Element> protectElement = element();
+    RefPtr<Element> element = this->element();
     ImageLoader::notifyFinished(cachedImage);
 
     bool loadError = cachedImage->errorOccurred() || cachedImage->response().httpStatusCode() >= 400;
-#if USE(JSC)
     if (!loadError) {
-        if (!protectElement->inDocument()) {
-            JSC::JSGlobalData* globalData = JSDOMWindowBase::commonJSGlobalData();
-            JSC::JSLockHolder lock(globalData);
-            globalData->heap.reportExtraMemoryCost(cachedImage->encodedSize());
+        if (!element->inDocument()) {
+            JSC::VM* vm = JSDOMWindowBase::commonVM();
+            JSC::JSLockHolder lock(vm);
+            vm->heap.reportExtraMemoryCost(cachedImage->encodedSize());
         }
     }
-#endif
 
-    if (loadError && protectElement->hasTagName(HTMLNames::objectTag))
-        static_cast<HTMLObjectElement*>(protectElement.get())->renderFallbackContent();
+    if (loadError && element->hasTagName(HTMLNames::objectTag))
+        static_cast<HTMLObjectElement*>(element.get())->renderFallbackContent();
 }
 
 }

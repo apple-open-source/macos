@@ -162,8 +162,6 @@ void	<a href="#xsltElemPreCompDeallocator">xsltElemPreCompDeallocator</a>	(<a hr
 <pre class="programlisting">Function type: <a href="#xsltSortFunc">xsltSortFunc</a>
 void	<a href="#xsltSortFunc">xsltSortFunc</a>			(<a href="libxslt-xsltInternals.html#xsltTransformContextPtr">xsltTransformContextPtr</a> ctxt, <br />					 xmlNodePtr * sorts, <br />					 int nbsorts)
 </pre>
-<pre class="programlisting">int	<a href="#xsltTransStorageAdd">xsltTransStorageAdd</a>		(<a href="libxslt-xsltInternals.html#xsltTransformContextPtr">xsltTransformContextPtr</a> ctxt, <br />					 void * id, <br />					 void * data)</pre>
-<pre class="programlisting">void *	<a href="#xsltTransStorageRemove">xsltTransStorageRemove</a>		(<a href="libxslt-xsltInternals.html#xsltTransformContextPtr">xsltTransformContextPtr</a> ctxt, <br />					 void * id)</pre>
 <pre class="programlisting">Function type: <a href="#xsltTransformFunction">xsltTransformFunction</a>
 void	<a href="#xsltTransformFunction">xsltTransformFunction</a>		(<a href="libxslt-xsltInternals.html#xsltTransformContextPtr">xsltTransformContextPtr</a> ctxt, <br />					 xmlNodePtr node, <br />					 xmlNodePtr inst, <br />					 <a href="libxslt-xsltInternals.html#xsltElemPreCompPtr">xsltElemPreCompPtr</a> comp)
 </pre>
@@ -560,7 +558,8 @@ The content of this structure is not made public by the API.
     int	literal_result	: * The principal stylesheet *
     <a href="libxslt-xsltInternals.html#xsltStylesheetPtr">xsltStylesheetPtr</a>	principal	: * Compilation context used during compil
     <a href="libxslt-xsltInternals.html#xsltCompilerCtxtPtr">xsltCompilerCtxtPtr</a>	compCtxt	: TODO: Change this to (void *).
-    <a href="libxslt-xsltInternals.html#xsltPrincipalStylesheetDataPtr">xsltPrincipalStylesheetDataPtr</a>	principalData
+    <a href="libxslt-xsltInternals.html#xsltPrincipalStylesheetDataPtr">xsltPrincipalStylesheetDataPtr</a>	principalData	: * Forwards-compatible processing *
+    int	forwards_compatible
 }</pre><h3><a name="xsltTemplate" id="xsltTemplate">Structure xsltTemplate</a></h3><pre class="programlisting">Structure xsltTemplate<br />struct _xsltTemplate {
     struct _xsltTemplate *	next	: chained list sorted by priority
     struct _xsltStylesheet *	style	: the containing stylesheet
@@ -577,6 +576,10 @@ The content of this structure is not made public by the API.
     int	nbCalls	: the number of time the template was cal
     unsigned long	time	: the time spent in this template
     void *	params	: xsl:param instructions
+    int	templNr	: Nb of templates in the stack
+    int	templMax	: Size of the templtes stack
+    <a href="libxslt-xsltInternals.html#xsltTemplatePtr">xsltTemplatePtr</a> *	templCalledTab	: templates called
+    int *	templCountTab	: .. and how often
 }</pre><h3><a name="xsltTransformCache" id="xsltTransformCache">Structure xsltTransformCache</a></h3><pre class="programlisting">Structure xsltTransformCache<br />struct _xsltTransformCache {
     xmlDocPtr	RVT
     int	nbRVT
@@ -652,6 +655,8 @@ The content of this structure is not made public by the API.
     xmlDocPtr	localRVTBase
     int	keyInitLevel	: Needed to catch recursive keys issues
     int	funcLevel	: Needed to catch recursive functions iss
+    int	maxTemplateDepth
+    int	maxTemplateVars
 }</pre><h3>Enum <a name="xsltTransformState" id="xsltTransformState">xsltTransformState</a></h3><pre class="programlisting">Enum xsltTransformState {
     <a name="XSLT_STATE_OK" id="XSLT_STATE_OK">XSLT_STATE_OK</a> = 0
     <a name="XSLT_STATE_ERROR" id="XSLT_STATE_ERROR">XSLT_STATE_ERROR</a> = 1
@@ -741,11 +746,7 @@ void	xsltElemPreCompDeallocator	(<a href="libxslt-xsltInternals.html#xsltElemPre
 <div class="variablelist"><table border="0"><col align="left" /><tbody><tr><td><span class="term"><i><tt>ns</tt></i>:</span></td><td>map of namespaces</td></tr><tr><td><span class="term"><i><tt>doc</tt></i>:</span></td><td>the document</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>0 in case of success, -1 in case of failure</td></tr></tbody></table></div><h3><a name="xsltSortFunc" id="xsltSortFunc"></a>Function type: xsltSortFunc</h3><pre class="programlisting">Function type: xsltSortFunc
 void	xsltSortFunc			(<a href="libxslt-xsltInternals.html#xsltTransformContextPtr">xsltTransformContextPtr</a> ctxt, <br />					 xmlNodePtr * sorts, <br />					 int nbsorts)
 </pre><p>Signature of the function to use during sorting</p><div class="variablelist"><table border="0"><col align="left" /><tbody><tr><td><span class="term"><i><tt>ctxt</tt></i>:</span></td><td>a transformation context</td></tr><tr><td><span class="term"><i><tt>sorts</tt></i>:</span></td><td>the node-set to sort</td></tr><tr><td><span class="term"><i><tt>nbsorts</tt></i>:</span></td><td>the number of sorts</td></tr></tbody></table></div><br />
-<h3><a name="xsltTransStorageAdd" id="xsltTransStorageAdd"></a>Function: xsltTransStorageAdd</h3><pre class="programlisting">int	xsltTransStorageAdd		(<a href="libxslt-xsltInternals.html#xsltTransformContextPtr">xsltTransformContextPtr</a> ctxt, <br />					 void * id, <br />					 void * data)<br />
-</pre><p></p>
-<div class="variablelist"><table border="0"><col align="left" /><tbody><tr><td><span class="term"><i><tt>ctxt</tt></i>:</span></td><td></td></tr><tr><td><span class="term"><i><tt>id</tt></i>:</span></td><td></td></tr><tr><td><span class="term"><i><tt>data</tt></i>:</span></td><td></td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td></td></tr></tbody></table></div><h3><a name="xsltTransStorageRemove" id="xsltTransStorageRemove"></a>Function: xsltTransStorageRemove</h3><pre class="programlisting">void *	xsltTransStorageRemove		(<a href="libxslt-xsltInternals.html#xsltTransformContextPtr">xsltTransformContextPtr</a> ctxt, <br />					 void * id)<br />
-</pre><p></p>
-<div class="variablelist"><table border="0"><col align="left" /><tbody><tr><td><span class="term"><i><tt>ctxt</tt></i>:</span></td><td></td></tr><tr><td><span class="term"><i><tt>id</tt></i>:</span></td><td></td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td></td></tr></tbody></table></div><h3><a name="xsltTransformFunction" id="xsltTransformFunction"></a>Function type: xsltTransformFunction</h3><pre class="programlisting">Function type: xsltTransformFunction
+<h3><a name="xsltTransformFunction" id="xsltTransformFunction"></a>Function type: xsltTransformFunction</h3><pre class="programlisting">Function type: xsltTransformFunction
 void	xsltTransformFunction		(<a href="libxslt-xsltInternals.html#xsltTransformContextPtr">xsltTransformContextPtr</a> ctxt, <br />					 xmlNodePtr node, <br />					 xmlNodePtr inst, <br />					 <a href="libxslt-xsltInternals.html#xsltElemPreCompPtr">xsltElemPreCompPtr</a> comp)
 </pre><p>Signature of the function associated to elements part of the stylesheet language like xsl:if or xsl:apply-templates.</p><div class="variablelist"><table border="0"><col align="left" /><tbody><tr><td><span class="term"><i><tt>ctxt</tt></i>:</span></td><td>the XSLT transformation context</td></tr><tr><td><span class="term"><i><tt>node</tt></i>:</span></td><td>the input node</td></tr><tr><td><span class="term"><i><tt>inst</tt></i>:</span></td><td>the stylesheet node</td></tr><tr><td><span class="term"><i><tt>comp</tt></i>:</span></td><td>the compiled information from the stylesheet</td></tr></tbody></table></div><br />
 <h3><a name="xsltUninit" id="xsltUninit"></a>Function: xsltUninit</h3><pre class="programlisting">void	xsltUninit			(void)<br />

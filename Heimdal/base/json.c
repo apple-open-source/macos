@@ -68,10 +68,12 @@ heim_base2json(heim_object_t obj,
 	out("}", ctx);
 	break;
 
-    case HEIM_TID_STRING:
+    case HEIM_TID_STRING: {
+	char *r = heim_string_copy_utf8(obj);
 	out("\"", ctx);
-	out(heim_string_get_utf8(obj), ctx);
+	out(r, ctx);
 	out("\"", ctx);
+	free(r);
 	break;
 
     case HEIM_TID_NUMBER: {

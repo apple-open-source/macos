@@ -2,11 +2,10 @@
 
   dln.h -
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: nobu $
   created at: Wed Jan 19 16:53:09 JST 1994
 
-  Copyright (C) 1993-2003 Yukihiro Matsumoto
+  Copyright (C) 1993-2007 Yukihiro Matsumoto
 
 **********************************************************************/
 
@@ -29,12 +28,23 @@
 # define _(args) ()
 #endif
 
-char *dln_find_exe _((const char*,const char*));
-char *dln_find_file _((const char*,const char*));
+#if defined __GNUC__ && __GNUC__ >= 4
+#pragma GCC visibility push(default)
+#endif
+
+DEPRECATED(char *dln_find_exe(const char*,const char*));
+DEPRECATED(char *dln_find_file(const char*,const char*));
+char *dln_find_exe_r(const char*,const char*,char*,size_t);
+char *dln_find_file_r(const char*,const char*,char*,size_t);
 
 #ifdef USE_DLN_A_OUT
 extern char *dln_argv0;
 #endif
 
-void *dln_load _((const char*));
+void *dln_load(const char*);
+
+#if defined __GNUC__ && __GNUC__ >= 4
+#pragma GCC visibility pop
+#endif
+
 #endif

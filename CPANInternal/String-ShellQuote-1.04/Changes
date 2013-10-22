@@ -1,0 +1,35 @@
+Revision history for Perl extension String::ShellQuote.
+
+1.04 Mon Jun  7 09:09:36 EDT 2010
+
+    - Don't escape "=" unless it's in command position.  Thanks to Chip
+      for the inspiration.
+    - Use "#!perl" in test.t (closes #38072).
+    - Don't try to test or install the shell-quote script on Windows
+      (closes #46445).
+
+1.03  Tue May  3 06:47:39 EDT 2005
+
+    - Add shell-quote script.
+
+1.02  Thu Feb 10 22:08:27 EST 2005
+
+    - Allow qw(! % + , : @ ^) to appear without being quoted.  (This was
+      in 1.01, but I forgot to mention it.)
+
+1.01  Wed Feb  9 20:43:46 EST 2005
+
+    - Have shell_quote() croak if the string can't be encoded
+      (currently, if it contains NULs).
+    - Add shell_quote_best_effort() which will return what it can
+      instead.
+
+1.00  Sun Dec 07 12:03:36 EST 1997
+
+    - In shell_quote, drop leading and trailing ''.
+
+0.01  Tue May 13 22:29:27 EDT 1997
+
+    - Initial version.
+
+$Id: Changes,v 1.6 2010-06-11 20:00:24 roderick Exp $

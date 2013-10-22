@@ -47,7 +47,6 @@ ThreadableWebSocketChannelClientWrapper::ThreadableWebSocketChannelClientWrapper
     , m_peer(0)
     , m_failedWebSocketChannelCreation(false)
     , m_syncMethodDone(true)
-    , m_useHixie76Protocol(true)
     , m_sendRequestResult(ThreadableWebSocketChannel::SendFail)
     , m_bufferedAmount(0)
     , m_suspended(false)
@@ -79,10 +78,9 @@ WorkerThreadableWebSocketChannel::Peer* ThreadableWebSocketChannelClientWrapper:
     return m_peer;
 }
 
-void ThreadableWebSocketChannelClientWrapper::didCreateWebSocketChannel(WorkerThreadableWebSocketChannel::Peer* peer, bool useHixie76Protocol)
+void ThreadableWebSocketChannelClientWrapper::didCreateWebSocketChannel(WorkerThreadableWebSocketChannel::Peer* peer)
 {
     m_peer = peer;
-    m_useHixie76Protocol = useHixie76Protocol;
     m_syncMethodDone = true;
 }
 
@@ -101,15 +99,10 @@ void ThreadableWebSocketChannelClientWrapper::setFailedWebSocketChannelCreation(
     m_failedWebSocketChannelCreation = true;
 }
 
-bool ThreadableWebSocketChannelClientWrapper::useHixie76Protocol() const
-{
-    return m_useHixie76Protocol;
-}
-
 String ThreadableWebSocketChannelClientWrapper::subprotocol() const
 {
     if (m_subprotocol.isEmpty())
-        return String("");
+        return emptyString();
     return String(m_subprotocol);
 }
 
@@ -124,7 +117,7 @@ void ThreadableWebSocketChannelClientWrapper::setSubprotocol(const String& subpr
 String ThreadableWebSocketChannelClientWrapper::extensions() const
 {
     if (m_extensions.isEmpty())
-        return String("");
+        return emptyString();
     return String(m_extensions);
 }
 
@@ -205,6 +198,13 @@ void ThreadableWebSocketChannelClientWrapper::didClose(unsigned long unhandledBu
         processPendingTasks();
 }
 
+void ThreadableWebSocketChannelClientWrapper::didReceiveMessageError()
+{
+    m_pendingTasks.append(createCallbackTask(&didReceiveMessageErrorCallback, this));
+    if (!m_suspended)
+        processPendingTasks();
+}
+
 void ThreadableWebSocketChannelClientWrapper::suspend()
 {
     m_suspended = true;
@@ -278,6 +278,13 @@ void ThreadableWebSocketChannelClientWrapper::didCloseCallback(ScriptExecutionCo
     ASSERT_UNUSED(context, !context);
     if (wrapper->m_client)
         wrapper->m_client->didClose(unhandledBufferedAmount, closingHandshakeCompletion, code, reason);
+}
+
+void ThreadableWebSocketChannelClientWrapper::didReceiveMessageErrorCallback(ScriptExecutionContext* context, PassRefPtr<ThreadableWebSocketChannelClientWrapper> wrapper)
+{
+    ASSERT_UNUSED(context, !context);
+    if (wrapper->m_client)
+        wrapper->m_client->didReceiveMessageError();
 }
 
 } // namespace WebCore

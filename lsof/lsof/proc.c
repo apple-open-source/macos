@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.46 2010/07/29 15:59:28 abe Exp $";
+static char *rcsid = "$Id: proc.c,v 1.46 2010/07/29 15:59:28 abe Exp abe $";
 #endif
 
 
@@ -989,15 +989,9 @@ print_proc()
 	if (!Lp->pss)
 	    return(0);
 	if (Fterse) {
-
-#if	defined(HASTASKS)
-	/*
-	 * If this is a task of a process, skip it.
-	 */
-	    if (Lp->tid)
+	    if (Lp->pid == LastPid)		/* eliminate duplicates */
 		return(0);
-#endif	/* defined(HASTASKS) */
-
+	    LastPid = Lp->pid;
 	/*
 	 * The mode is terse and something in the process appears to have
 	 * been selected.  Make sure of that by looking for a selected file,

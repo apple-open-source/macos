@@ -26,6 +26,7 @@
 #ifndef StorageThread_h
 #define StorageThread_h
 
+#include <wtf/Functional.h>
 #include <wtf/HashSet.h>
 #include <wtf/MessageQueue.h>
 #include <wtf/PassOwnPtr.h>
@@ -34,32 +35,35 @@
 
 namespace WebCore {
 
-    class StorageAreaSync;
-    class StorageTask;
+class StorageAreaSync;
+class StorageTask;
 
-    class StorageThread {
-        WTF_MAKE_NONCOPYABLE(StorageThread); WTF_MAKE_FAST_ALLOCATED;
-    public:
-        static PassOwnPtr<StorageThread> create();
-        ~StorageThread();
+class StorageThread {
+    WTF_MAKE_NONCOPYABLE(StorageThread); WTF_MAKE_FAST_ALLOCATED;
+public:
+    static PassOwnPtr<StorageThread> create();
+    ~StorageThread();
 
-        bool start();
-        void terminate();
-        void scheduleTask(PassOwnPtr<StorageTask>);
+    bool start();
+    void terminate();
 
-        // Background thread part of the terminate procedure.
-        void performTerminate();
+    void dispatch(const Function<void()>&);
 
-    private:
-        StorageThread();
+    static void releaseFastMallocFreeMemoryInAllThreads();
 
-        // Called on background thread.
-        static void threadEntryPointCallback(void*);
-        void threadEntryPoint();
+private:
+    StorageThread();
 
-        ThreadIdentifier m_threadID;
-        MessageQueue<StorageTask> m_queue;
-    };
+    // Called on background thread.
+    static void threadEntryPointCallback(void*);
+    void threadEntryPoint();
+
+    // Background thread part of the terminate procedure.
+    void performTerminate();
+
+    ThreadIdentifier m_threadID;
+    MessageQueue<Function<void ()> > m_queue;
+};
 
 } // namespace WebCore
 

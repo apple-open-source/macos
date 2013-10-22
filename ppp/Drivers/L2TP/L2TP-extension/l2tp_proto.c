@@ -59,7 +59,6 @@ Declarations
 void l2tp_init();
 int l2tp_ctloutput(struct socket *so, struct sockopt *sopt);
 int l2tp_usrreq();
-void l2tp_slowtimo();
 
 int l2tp_attach(struct socket *, int, struct proc *);
 int l2tp_detach(struct socket *);
@@ -89,6 +88,36 @@ extern lck_mtx_t	*ppp_domain_mutex;
 --------------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 
+/* -----------------------------------------------------------------------------
+ L2TP Timer, at 500 ms. Replaces l2tp_slowtimo, which is deprecated.
+ ----------------------------------------------------------------------------- */
+static uint8_t l2tp_timer_thread_is_dying = 0; /* > 0 if dying */
+static uint8_t l2tp_timer_thread_is_dead = 0; /* > 0 if dead */
+static void l2tp_timer()
+{
+    struct timespec ts = {0};
+    
+    /* timeout of 500 ms */
+    ts.tv_nsec = 500 * 1000 * 1000;
+    ts.tv_sec = 0;
+
+    lck_mtx_lock(ppp_domain_mutex);
+    while (TRUE) {
+        if (l2tp_timer_thread_is_dying > 0) {
+            break;
+        }
+
+        l2tp_rfc_slowtimer();
+        
+        msleep(&l2tp_timer_thread_is_dying, ppp_domain_mutex, PSOCK, "l2tp_timer_sleep", &ts);
+    }
+
+    l2tp_timer_thread_is_dead++;
+    wakeup(&l2tp_timer_thread_is_dead);
+    lck_mtx_unlock(ppp_domain_mutex);
+
+    thread_terminate(current_thread());
+}
 
 /* -----------------------------------------------------------------------------
 Called when we need to add the L2TP protocol to the domain
@@ -97,7 +126,8 @@ but we can add the protocol anytime later, if the domain is present
 ----------------------------------------------------------------------------- */
 int l2tp_add(struct domain *domain)
 {
-    int 	err;
+    int 	 err;
+    thread_t l2tp_timer_thread = NULL;
 
     bzero(&l2tp_usr, sizeof(struct pr_usrreqs));
     l2tp_usr.pru_abort 		= pru_abort_notsupp;
@@ -130,9 +160,15 @@ int l2tp_add(struct domain *domain)
     l2tp.pr_flags		= PR_ATOMIC | PR_ADDR | PR_PROTOLOCK;
     l2tp.pr_ctloutput 	= l2tp_ctloutput;
     l2tp.pr_init		= l2tp_init;
-    l2tp.pr_slowtimo  	= l2tp_slowtimo;
+
     l2tp.pr_usrreqs 	= &l2tp_usr;
 
+    /* Start timer thread */
+    l2tp_timer_thread_is_dying = 0;
+    if (kernel_thread_start((thread_continue_t)l2tp_timer, NULL, &l2tp_timer_thread) == KERN_SUCCESS) {
+        thread_deallocate(l2tp_timer_thread);
+    }
+    
     err = net_add_proto(&l2tp, domain);
     if (err)
         return err;
@@ -146,6 +182,15 @@ Called when we need to remove the L2TP protocol from the domain
 int l2tp_remove(struct domain *domain)
 {
     int err;
+
+    lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+    
+    /* Cleanup timer thread */
+    if (l2tp_timer_thread_is_dead == 0) {
+        l2tp_timer_thread_is_dying++;           /* Tell thread to die */
+        wakeup(&l2tp_timer_thread_is_dying);    /* Wake thread */
+        msleep(&l2tp_timer_thread_is_dead, ppp_domain_mutex, PSOCK, "l2tp_timer_sleep", 0);
+    }
 
     err = net_del_proto(l2tp.pr_type, l2tp.pr_protocol, domain);
     if (err)
@@ -256,6 +301,14 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                         l2tp_rfc_command(so->so_pcb, cmd, &val);
                     }
                     break;
+                    
+                case L2TP_OPT_SETDELEGATEDPID:
+                    if (sopt->sopt_valsize != 4)
+                        error = EMSGSIZE;
+                    else if ((error = sooptcopyin(sopt, &val, 4, 4)) == 0)
+                        l2tp_rfc_command(so->so_pcb, L2TP_CMD_SETDELEGATEDPID, &val);
+                    break;
+                    
                 default:
                     error = ENOPROTOOPT;
             }
@@ -308,16 +361,6 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
             break;
     }
     return error;
-}
-
-/* -----------------------------------------------------------------------------
-slow timer function, called every 500ms
------------------------------------------------------------------------------ */
-void l2tp_slowtimo()
-{
-    lck_mtx_lock(ppp_domain_mutex);
-    l2tp_rfc_slowtimer();
-	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------

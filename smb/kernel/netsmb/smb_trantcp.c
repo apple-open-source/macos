@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,6 +56,7 @@
 #include <netsmb/netbios.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_tran.h>
@@ -66,8 +67,8 @@
 
 #define M_NBDATA	M_PCB
 
-static uint32_t smb_tcpsndbuf = 1024 * 255;
-static uint32_t smb_tcprcvbuf = 1024 * 255;
+static uint32_t smb_tcpsndbuf = 4 * 1024 * 1024; /* SMBX srvr starts at 4 MB */
+static uint32_t smb_tcprcvbuf = 4 * 1024 * 1024;
 
 SYSCTL_DECL(_net_smb_fs);
 SYSCTL_INT(_net_smb_fs, OID_AUTO, tcpsndbuf, CTLFLAG_RW, &smb_tcpsndbuf, 0, "");
@@ -159,71 +160,78 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
 	int error;
 	struct timeval  tv;
 	int optlen;
-	uint32_t bufsize;
+	uint32_t bufsize, default_size;
 	
 	error = sock_socket(to->sa_family, SOCK_STREAM, IPPROTO_TCP, nb_upcall, nbp, &so);
 	if (error)
 		return (error);
+    
 	nbp->nbp_tso = so;
 	tv.tv_sec = SMBSBTIMO;
 	tv.tv_usec = 0;
 	error = sock_setsockopt(so, SOL_SOCKET, SO_RCVTIMEO, &tv, (int)sizeof(tv));
 	if (error)
 		goto bad;
+    
 	error = sock_setsockopt(so, SOL_SOCKET, SO_SNDTIMEO, &tv, (int)sizeof(tv));
 	if (error)
 		goto bad;
 	
+	sock_getsockopt(so, SOL_SOCKET, SO_RCVBUF, &nbp->nbp_rcvchunk, &optlen);
+	if (error) {
+		goto bad;
+	}
+		/* Max size we want to read off the buffer at a time, always half the socket size */
+	nbp->nbp_rcvchunk /= 2;
+		/* Never let it go below 8K */
+	if (nbp->nbp_rcvchunk < NB_SORECEIVE_CHUNK) {
+		nbp->nbp_rcvchunk = NB_SORECEIVE_CHUNK;
+	}
+	
 	/*
-	 * The default socket buffer size can vary depending on system pressure. Since
-	 * we always send and receive using mbuf this shouldn't be a real issue for
-	 * us. So we now check to see what size socket buffer we have, if its not
-	 * big enough try to make it bigger.
+	 * The default socket buffer size can vary depending on system pressure. 
+     * Set SO_SNDBUF as large as we can get.
 	 */
 	bufsize = nbp->nbp_sndbuf;
 	optlen = sizeof(bufsize);
 	error = sock_getsockopt(so, SOL_SOCKET, SO_SNDBUF, &bufsize, &optlen);
 	if (error) {
 		/* Not sure what else we can do here, should never happen */
+        SMBERROR("sock_getsockopt failed %d\n", error);
 		goto bad;
 	}
+    default_size = bufsize;
+
 	if (bufsize < nbp->nbp_sndbuf) {
-		/* Not big enough try to make it bigger */
-		optlen = sizeof(nbp->nbp_sndbuf);
-		error = sock_setsockopt(so, SOL_SOCKET, SO_SNDBUF, &nbp->nbp_sndbuf, optlen);
-		if (error) {
-			/* 
-			 * Failed! Should never happen since we never ask for more that we
-			 * can set, but just in case use the size they gave us.
-			 */
-			nbp->nbp_sndbuf = bufsize;
-		}
+        do {
+            /* Not big enough, try to make it bigger */
+            bufsize = nbp->nbp_sndbuf;
+            optlen = sizeof(bufsize);
+            error = sock_setsockopt(so, SOL_SOCKET, SO_SNDBUF, &bufsize, optlen);
+            if ((error == 0) && (bufsize > 0x100000)) {
+				/* Currently, 1 MB seems to work fine */
+				break;
+			} else {
+				/* Reduce by 64K and try again */
+				nbp->nbp_sndbuf -= 0x10000;
+			}
+        } while (nbp->nbp_sndbuf >= 0x100000);
 	}
-	
-	bufsize = nbp->nbp_rcvbuf;
-	optlen = sizeof(bufsize);
-	error = sock_getsockopt(so, SOL_SOCKET, SO_RCVBUF, &bufsize, &optlen);
-	if (error) {
-		goto bad;
-	}
-	if (bufsize < nbp->nbp_rcvbuf) {
-		/* Not big enough try to make it bigger */
-		optlen = sizeof(nbp->nbp_rcvbuf);
-		error = sock_setsockopt(so, SOL_SOCKET, SO_RCVBUF, &nbp->nbp_rcvbuf, optlen);
-		if (error) {
-			/* 
-			 * Failed! Should never happen since we never ask for more that we
-			 * can set, but just in case use the size they gave us.
-			 */
-			nbp->nbp_rcvbuf = bufsize;
-		}
-	}
-	if ((nbp->nbp_rcvbuf < smb_tcprcvbuf) || (nbp->nbp_sndbuf < smb_tcpsndbuf)) {
+    if (error) {
+        nbp->nbp_sndbuf = default_size;
+    }
+    else {
+        nbp->nbp_sndbuf = bufsize;
+    }
+   
+	if (nbp->nbp_sndbuf < smb_tcpsndbuf) {
 		SMBWARNING("nbp_rcvbuf = %d nbp_sndbuf = %d\n", nbp->nbp_rcvbuf, nbp->nbp_sndbuf);
 	}
+    
 	error = nb_setsockopt_int(so, SOL_SOCKET, SO_KEEPALIVE, 1);
 	if (error)
 		goto bad;
+    
 	error = nb_setsockopt_int(so, IPPROTO_TCP, TCP_NODELAY, 1);
 	if (error)
 		goto bad;
@@ -232,15 +240,18 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
 	error = nb_setsockopt_int(so, SOL_SOCKET, SO_NOADDRERR, 1);
 	if (error)	/* Should we error out if this fails? */
 		goto bad;
+    
 	/* just playin' it safe */
 	nb_setsockopt_int(so, SOL_SOCKET, SO_UPCALLCLOSEWAIT, 1);
 	
 	error = sock_nointerrupt(so, 0);
 	if (error)
 		goto bad;
+    
 	error = sock_connect(so, (struct sockaddr*)to, MSG_DONTWAIT);
 	if (error && error != EINPROGRESS)
 		goto bad;
+    
 	tv.tv_sec = 2;
 	tv.tv_usec = 0;
 	while ((error = sock_connectwait(so, &tv)) == EINPROGRESS) {
@@ -249,6 +260,7 @@ static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
 	}
 	if (!error)
 		return (0);
+    
 bad:
 	smb_nbst_disconnect(nbp->nbp_vc);
 	return (error);
@@ -505,7 +517,7 @@ static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcode
 			 */
 			nanouptime(&tstart);
 			do {
-				recvdlen = MIN(resid, NB_SORECEIVE_CHUNK);
+				recvdlen = MIN(resid, nbp->nbp_rcvchunk);
 				error = sock_receivembuf(so, NULL, &tm, MSG_WAITALL, &recvdlen);
 				if (error == EAGAIN) {
 					nanouptime(&tend);

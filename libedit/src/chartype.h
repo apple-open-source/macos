@@ -1,4 +1,4 @@
-/*	$NetBSD: chartype.h,v 1.6 2010/04/20 02:01:13 christos Exp $	*/
+/*	$NetBSD: chartype.h,v 1.10 2011/11/16 01:45:10 christos Exp $	*/
 
 /*-
  * Copyright (c) 2009 The NetBSD Foundation, Inc.
@@ -65,7 +65,7 @@ wchar_t *wcsdup(const wchar_t *s);
 #endif
 
 #define ct_mbtowc            mbtowc
-#define ct_mbtowc_reset      mbtowc(0,0,0)
+#define ct_mbtowc_reset      mbtowc(0,0,(size_t)0)
 #define ct_wctomb            wctomb
 #define ct_wctomb_reset      wctomb(0,0)
 #define ct_wcstombs          wcstombs
@@ -109,7 +109,12 @@ wchar_t *wcsdup(const wchar_t *s);
 
 #define Strtol(p,e,b)   wcstol(p,e,b)
 
-#define Width(c)	({ int w = wcwidth(c);w > 0 ? w : 1; })
+static inline int
+Width(wchar_t c)
+{
+	int w = wcwidth(c);
+	return w > 0 ? w : 1;
+}
 
 #else /* NARROW */
 
@@ -176,11 +181,11 @@ typedef struct ct_buffer_t {
 } ct_buffer_t;
 
 #define ct_encode_string __ct_encode_string
-/* Encode a wide character string and return the UTF-8 encoded result. */
+/* Encode a wide-character string and return the UTF-8 encoded result. */
 public char *ct_encode_string(const Char *, ct_buffer_t *);
 
 #define ct_decode_string __ct_decode_string
-/* Decode a (multi)?byte string and return the wide character string result. */
+/* Decode a (multi)?byte string and return the wide-character string result. */
 public Char *ct_decode_string(const char *, ct_buffer_t *);
 
 /* Decode a (multi)?byte argv string array.
@@ -210,7 +215,7 @@ protected size_t ct_enc_width(Char);
 
 /* The maximum buffer size to hold the most unwieldly visual representation,
  * in this case \U+nnnnn. */
-#define VISUAL_WIDTH_MAX 8
+#define VISUAL_WIDTH_MAX ((size_t)8)
 
 /* The terminal is thought of in terms of X columns by Y lines. In the cases
  * where a wide character takes up more than one column, the adjacent 

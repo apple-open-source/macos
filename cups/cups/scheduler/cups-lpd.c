@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-lpd.c 7899 2008-09-03 12:57:17Z mike $"
+ * "$Id: cups-lpd.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Line Printer Daemon interface for CUPS.
  *
@@ -184,7 +184,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   if (getpeername(0, (struct sockaddr *)&hostaddr, &hostlen))
   {
     syslog(LOG_WARNING, "Unable to get client address - %s", strerror(errno));
-    strcpy(hostname, "unknown");
+    strlcpy(hostname, "unknown", sizeof(hostname));
   }
   else
   {
@@ -914,7 +914,7 @@ recv_print_job(
 	      break;
 	    }
 
-	    strcpy(filename, control);
+	    strlcpy(filename, control, sizeof(filename));
 	  }
 	  break;
 
@@ -950,7 +950,7 @@ recv_print_job(
 	    break;
 	  }
 
-	  strcpy(filename, temp[num_data]);
+	  strlcpy(filename, temp[num_data], sizeof(filename));
 
           num_data ++;
 	  break;
@@ -1116,7 +1116,7 @@ recv_print_job(
       {
 	syslog(LOG_WARNING, "No username specified by client! "
 		            "Using \"anonymous\"...");
-	strcpy(user, "anonymous");
+	strlcpy(user, "anonymous", sizeof(user));
       }
 
      /*
@@ -1528,7 +1528,7 @@ send_state(const char *queue,		/* I - Destination */
     */
 
     if (jobstate == IPP_JOB_PROCESSING)
-      strcpy(rankstr, "active");
+      strlcpy(rankstr, "active", sizeof(rankstr));
     else
     {
       snprintf(rankstr, sizeof(rankstr), "%d%s", rank, ranks[rank % 10]);
@@ -1622,5 +1622,5 @@ smart_gets(char *s,			/* I - Pointer to line buffer */
 
 
 /*
- * End of "$Id: cups-lpd.c 7899 2008-09-03 12:57:17Z mike $".
+ * End of "$Id: cups-lpd.c 11093 2013-07-03 20:48:42Z msweet $".
  */

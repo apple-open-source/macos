@@ -21,8 +21,7 @@
 #define WebHitTestResult_h
 
 #include "APIObject.h"
-#include <WebCore/HitTestResult.h>
-#include <WebCore/KURL.h>
+#include <WebCore/IntRect.h>
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
@@ -33,14 +32,16 @@ class ArgumentDecoder;
 class ArgumentEncoder;
 }
 
+namespace WebCore {
+class HitTestResult;
+}
+
 namespace WebKit {
 
 class WebFrame;
 
-class WebHitTestResult : public APIObject {
+class WebHitTestResult : public TypedAPIObject<APIObject::TypeHitTestResult> {
 public:
-    static const Type APIType = TypeHitTestResult;
-
     struct Data {
         String absoluteImageURL;
         String absolutePDFURL;
@@ -48,23 +49,18 @@ public:
         String absoluteMediaURL;
         String linkLabel;
         String linkTitle;
+        bool isContentEditable;
+        WebCore::IntRect elementBoundingBox;
+        bool isScrollbar;
 
-        Data()
-        {
-        }
+        Data();
+        explicit Data(const WebCore::HitTestResult&);
+        ~Data();
 
-        explicit Data(const WebCore::HitTestResult& hitTestResult)
-            : absoluteImageURL(hitTestResult.absoluteImageURL().string())
-            , absolutePDFURL(hitTestResult.absolutePDFURL().string())
-            , absoluteLinkURL(hitTestResult.absoluteLinkURL().string())
-            , absoluteMediaURL(hitTestResult.absoluteMediaURL().string())
-            , linkLabel(hitTestResult.textContent())
-            , linkTitle(hitTestResult.titleDisplayString())
-        {
-        }
+        void encode(CoreIPC::ArgumentEncoder&) const;
+        static bool decode(CoreIPC::ArgumentDecoder&, WebHitTestResult::Data&);
 
-        void encode(CoreIPC::ArgumentEncoder*) const;
-        static bool decode(CoreIPC::ArgumentDecoder*, WebHitTestResult::Data&);
+        WebCore::IntRect elementBoundingBoxInWindowCoordinates(const WebCore::HitTestResult&);
     };
 
     static PassRefPtr<WebHitTestResult> create(const WebHitTestResult::Data&);
@@ -77,13 +73,17 @@ public:
     String linkLabel() const { return m_data.linkLabel; }
     String linkTitle() const { return m_data.linkTitle; }
 
+    bool isContentEditable() const { return m_data.isContentEditable; }
+
+    WebCore::IntRect elementBoundingBox() const { return m_data.elementBoundingBox; }
+
+    bool isScrollbar() const { return m_data.isScrollbar; }
+
 private:
     explicit WebHitTestResult(const WebHitTestResult::Data& hitTestResultData)
         : m_data(hitTestResultData)
     {
     }
-
-    virtual Type type() const { return APIType; }
 
     Data m_data;
 };

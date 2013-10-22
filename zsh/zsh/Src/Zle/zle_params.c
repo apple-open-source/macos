@@ -93,6 +93,8 @@ static const struct gsu_integer pending_gsu =
 { get_pending, NULL, zleunsetfn };
 static const struct gsu_integer region_active_gsu =
 { get_region_active, set_region_active, zleunsetfn };
+static const struct gsu_integer undo_change_no_gsu =
+{ get_undo_current_change, NULL, zleunsetfn };
 
 static const struct gsu_array killring_gsu =
 { get_killring, set_killring, unset_killring };
@@ -133,6 +135,8 @@ static struct zleparam {
     { "RBUFFER", PM_SCALAR,  GSU(rbuffer_gsu), NULL },
     { "REGION_ACTIVE", PM_INTEGER, GSU(region_active_gsu), NULL},
     { "region_highlight", PM_ARRAY, GSU(region_highlight_gsu), NULL },
+    { "UNDO_CHANGE_NO", PM_INTEGER | PM_READONLY, GSU(undo_change_no_gsu),
+      NULL },
     { "WIDGET", PM_SCALAR | PM_READONLY, GSU(widget_gsu), NULL },
     { "WIDGETFUNC", PM_SCALAR | PM_READONLY, GSU(widgetfunc_gsu), NULL },
     { "WIDGETSTYLE", PM_SCALAR | PM_READONLY, GSU(widgetstyle_gsu), NULL },
@@ -230,8 +234,10 @@ get_cursor(UNUSED(Param pm))
 	/* A lot of work for one number, but still... */
 	ZLE_STRING_T tmpline;
 	int tmpcs, tmpll, tmpsz;
-	tmpline = stringaszleline(zlemetaline, zlemetacs,
+	char *tmpmetaline = ztrdup(zlemetaline);
+	tmpline = stringaszleline(tmpmetaline, zlemetacs,
 				  &tmpll, &tmpsz, &tmpcs);
+	free(tmpmetaline);
 	free(tmpline);
 	return tmpcs;
     }
@@ -703,21 +709,17 @@ get_context(UNUSED(Param pm))
 static char *
 get_zle_state(UNUSED(Param pm))
 {
-    char *zle_state = NULL, *ptr = NULL;
+    char *zle_state = NULL, *ptr = NULL, **arr = NULL;
     int itp, istate, len = 0;
 
     /*
-     * When additional substrings are added, they should be kept in
-     * alphabetical order, so the user can easily match against this
-     * parameter: if [[ $ZLE_STATE == *bar*foo*zonk* ]]; then ...; fi
+     * Substrings are sorted at the end, so the user can
+     * easily match against this parameter:
+     * if [[ $ZLE_STATE == *bar*foo*zonk* ]]; then ...; fi
      */
     for (itp = 0; itp < 2; itp++) {
 	char *str;
-	/*
-	 * Currently there is only one state: insert or overwrite.
-	 * This loop is to make it easy to add others.
-	 */
-	for (istate = 0; istate < 1; istate++) {
+	for (istate = 0; istate < 2; istate++) {
 	    int slen;
 	    switch (istate) {
 	    case 0:
@@ -725,6 +727,13 @@ get_zle_state(UNUSED(Param pm))
 		    str = "insert";
 		} else {
 		    str = "overwrite";
+		}
+		break;
+	    case 1:
+		if (hist_skip_flags & HIST_FOREIGN) {
+		    str = "localhistory";
+		} else {
+		    str = "globalhistory";
 		}
 		break;
 
@@ -740,7 +749,7 @@ get_zle_state(UNUSED(Param pm))
 	    } else {
 		/* Accumulating string */
 		if (istate)
-		    *ptr++ = ' ';
+		    *ptr++ = ':';
 		memcpy(ptr, str, slen);
 		ptr += slen;
 	    }
@@ -752,6 +761,11 @@ get_zle_state(UNUSED(Param pm))
 	    *ptr = '\0';
 	}
     }
+
+    arr = colonsplit(zle_state, 0);
+    strmetasort(arr, SORTIT_ANYOLDHOW, NULL);
+    zle_state = zjoin(arr, ' ', 1);
+    freearray(arr);
 
     return zle_state;
 }

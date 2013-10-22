@@ -77,7 +77,7 @@ _rl_find_next_mbchar_internal (string, seed, count, find_non_zero)
      char *string;
      int seed, count, find_non_zero;
 {
-  size_t tmp;
+  size_t tmp, len;
   mbstate_t ps;
   int point;
   wchar_t wc;
@@ -98,7 +98,10 @@ _rl_find_next_mbchar_internal (string, seed, count, find_non_zero)
 
   while (count > 0)  
     {
-      tmp = mbrtowc (&wc, string+point, strlen(string + point), &ps);
+      len = strlen (string + point);
+      if (len == 0)
+	break;
+      tmp = mbrtowc (&wc, string+point, len, &ps);
       if (MB_INVALIDCH ((size_t)tmp))
 	{
 	  /* invalid bytes. asume a byte represents a character */
@@ -128,12 +131,10 @@ _rl_find_next_mbchar_internal (string, seed, count, find_non_zero)
   if (find_non_zero)
     {
       tmp = mbrtowc (&wc, string + point, strlen (string + point), &ps);
-      while (tmp > 0 && wcwidth (wc) == 0)
+      while (MB_NULLWCH (tmp) == 0 && MB_INVALIDCH (tmp) == 0 && wcwidth (wc) == 0)
 	{
 	  point += tmp;
 	  tmp = mbrtowc (&wc, string + point, strlen (string + point), &ps);
-	  if (MB_NULLWCH (tmp) || MB_INVALIDCH (tmp))
-	    break;
 	}
     }
 

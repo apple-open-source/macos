@@ -56,7 +56,7 @@ _gsskrb5_lifetime_left(OM_uint32 *minor_status,
     if (endtime < timeret)
 	*lifetime = 0;
     else
-	*lifetime = endtime - timeret;
+	*lifetime = (OM_uint32)(endtime - timeret);
 
     return GSS_S_COMPLETE;
 }

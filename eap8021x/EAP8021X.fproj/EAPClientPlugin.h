@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,8 +28,8 @@
  * - created
  */
 
-#ifndef _EAP802_1X_EAPCLIENTPLUGIN_H
-#define _EAP802_1X_EAPCLIENTPLUGIN_H
+#ifndef _EAP8021X_EAPCLIENTPLUGIN_H
+#define _EAP8021X_EAPCLIENTPLUGIN_H
 
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFArray.h>
@@ -134,6 +134,7 @@ typedef struct EAPClientPluginData_s {
 #define kEAPClientPluginFuncNamePacketDump	"packet_dump"
 #define kEAPClientPluginFuncNameUserName	"user_name"
 #define kEAPClientPluginFuncNameCopyIdentity 	"copy_identity"
+#define kEAPClientPluginFuncNameCopyPacketDescription "copy_packet_description"
 
 /*
  * Type: EAPClientPluginFuncIntrospect
@@ -389,5 +390,15 @@ typedef CFStringRef
  */
 typedef CFStringRef
 (EAPClientPluginFuncCopyIdentity)(EAPClientPluginDataRef plugin);
+
+/* 
+ * Type: EAPClientPluginFuncCopyPacketDescription
+ * Purpose:
+ *   Prototype for the "copy_packet_description" function.
+ * Returns:
+ *   Non-NULL CFStringRef containing packet description, NULL if failed.
+ */
+typedef CFStringRef
+(EAPClientPluginFuncCopyPacketDescription)(const EAPPacketRef packet, bool * packet_is_valid);
 
 #endif /* _EAP8021X_EAPCLIENTPLUGIN_H */

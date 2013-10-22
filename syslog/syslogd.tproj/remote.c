@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,12 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include <TargetConditionals.h>
+
+#if TARGET_IPHONE_SIMULATOR
+struct _not_empty;
+#else
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -76,7 +82,10 @@ typedef uint64_t notify_state_t;
 
 extern char *asl_list_to_string(asl_search_result_t *list, uint32_t *outlen);
 extern size_t asl_memory_size(asl_memory_t *s);
-extern uint32_t db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int flags, uint64_t *lastid, int32_t ruid, int32_t rgid);
+extern uint32_t db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int flags, uint64_t *lastid, int32_t ruid, int32_t rgid, int raccess);
+
+extern void add_lockdown_session(int fd);
+extern void remove_lockdown_session(int fd);
 
 #define SESSION_WRITE(f,x) if (write(f, x, strlen(x)) < 0) goto exit_session
 
@@ -159,12 +168,20 @@ session(void *x)
 	query = NULL;
 	memset(&ql, 0, sizeof(asl_search_result_t));
 
+	if (flags & SESSION_FLAGS_LOCKDOWN) sleep(1);
+
 	snprintf(str, sizeof(str), "\n========================\nASL is here to serve you\n");
 	if (write(s, str, strlen(str)) < 0)
 	{
 		close(s);
 		pthread_exit(NULL);
 		return;
+	}
+
+	if (flags & SESSION_FLAGS_LOCKDOWN)
+	{
+		snprintf(str, sizeof(str), "> ");
+		SESSION_WRITE(s, str);
 	}
 
 	forever
@@ -208,6 +225,12 @@ session(void *x)
 		if ((wfd != -1) && (FD_ISSET(wfd, &readfds)))
 		{
 			(void)read(wfd, &i, sizeof(int));
+		}
+
+		if (FD_ISSET(s, &errfds))
+		{
+			asldebug("%s %d: socket %d reported error\n", MY_ID, s, s);
+			goto exit_session;
 		}
 
 		if (FD_ISSET(s, &readfds))
@@ -486,7 +509,19 @@ session(void *x)
 
 				if (flags & SESSION_FLAGS_LOCKDOWN)
 				{
+					/*
+					 * If this session is PurpleConsole or Xcode watching for log messages,
+					 * we pass through the bottom of the loop (below) once to pick up
+					 * existing messages already in memory.  After that, dbserver will
+					 * send new messages in send_to_direct_watchers().  We wait until
+					 * the initial messages are sent before adding the connection to
+					 * global.lockdown_session_fds to allow this query to complete before
+					 * dbserver starts sending.  To prevent a race between this query and
+					 * when messages are sent by send_to_direct_watchers, we suspend the
+					 * work queue and resume it when lockdown_session_fds has been updated.
+					 */
 					watch = WATCH_LOCKDOWN_START;
+					dispatch_suspend(global.work_queue);
 				}
 				else
 				{
@@ -551,20 +586,9 @@ session(void *x)
 			}
 		}
 
-		/*
-		 * If this session is PurpleConsole watching for log messages,
-		 * we pass through this part of the loop once initially to pick up
-		 * existing messages already in memory.  After that, dbserver will
-		 * send new messages in send_to_direct_watchers().  We wait until
-		 * the initial messages are sent to PurpleConsole before setting 
-		 * global.lockdown_session_fd to allow this query to complete before
-		 * dbserver starts sending.  To prevent a race between this query and
-		 * when messages are sent by send_to_direct_watchers, we  suspend the
-		 * work queue here and resume it when lockdown_session_fd is set.
-		 */
 		if ((flags & SESSION_FLAGS_LOCKDOWN) && (watch == WATCH_RUN)) continue;
 
-		if (watch == WATCH_LOCKDOWN_START) dispatch_suspend(global.work_queue);
+		/* Bottom of the loop: do a database query and print the results */
 
 		if (query != NULL)
 		{
@@ -577,7 +601,7 @@ session(void *x)
 
 		memset(&res, 0, sizeof(aslresponse));
 		high_id = 0;
-		(void)db_query(&ql, (aslresponse *)&res, low_id, 0, 0, &high_id, 0, 0);
+		(void)db_query(&ql, (aslresponse *)&res, low_id, 0, 0, &high_id, 0, 0, 0);
 
 		if ((watch == WATCH_RUN) && (high_id >= low_id)) low_id = high_id + 1;
 
@@ -611,7 +635,7 @@ session(void *x)
 		}
 		else
 		{
-			if (watch == WATCH_RUN)
+			if ((watch == WATCH_RUN) || (watch == WATCH_LOCKDOWN_START))
 			{
 				snprintf(str, sizeof(str), "\n");
 				SESSION_WRITE(s, str);
@@ -655,10 +679,8 @@ session(void *x)
 
 		if (watch == WATCH_LOCKDOWN_START)
 		{
-			global.lockdown_session_fd = s;
-			global.watchers_active++;
+			add_lockdown_session(s);
 			watch = WATCH_RUN;
-
 			dispatch_resume(global.work_queue);
 		}
 	}
@@ -669,8 +691,7 @@ exit_session:
 
 	if (s >= 0)
 	{
-		if (s == global.lockdown_session_fd) global.lockdown_session_fd = -1;
-		if (global.watchers_active > 0) global.watchers_active--;
+		if (flags & SESSION_FLAGS_LOCKDOWN) remove_lockdown_session(s);
 		close(s);
 	}
 
@@ -730,10 +751,7 @@ remote_acceptmsg(int fd, int tcp)
 	}
 
 	sp->sock = s;
-	if ((tcp == 0) && (global.lockdown_session_fd < 0))
-	{
-		sp->flags |= SESSION_FLAGS_LOCKDOWN;
-	}
+	if (tcp == 0) sp->flags |= SESSION_FLAGS_LOCKDOWN;
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
@@ -953,3 +971,5 @@ remote_reset(void)
 	remote_close();
 	return remote_init();
 }
+
+#endif /* !TARGET_IPHONE_SIMULATOR */

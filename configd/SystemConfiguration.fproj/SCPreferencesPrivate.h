@@ -35,9 +35,33 @@
 	@header SCPreferencesPrivate
  */
 
+/*!
+	@defined kSCPreferencesOptionChangeNetworkSet
+	@abstract The SCPreferences "option" used to indicate that only the
+		current network set (location) is being changed.
+ */
+#define kSCPreferencesOptionChangeNetworkSet	CFSTR("change-network-set")	// CFBooleanRef
+
+/*!
+	@defined kSCPreferencesOptionRemoveWhenEmpty
+	@abstract The SCPreferences "option" used to indicate that the .plist
+		file should be removed when/if all keys have been removed.
+ */
 #define kSCPreferencesOptionRemoveWhenEmpty	CFSTR("remove-when-empty")	// CFBooleanRef
 
-#define kSCPreferencesWriteAuthorizationRight	"system.services.systemconfiguration.network"
+/*!
+	@defined kSCPreferencesAuthorizationRight_network_set
+	@abstract The authorization right used to control whether the current
+		network set (location) can be changed.
+ */
+#define kSCPreferencesAuthorizationRight_network_set	"system.preferences.location"
+
+/*!
+	@defined kSCPreferencesAuthorizationRight_write
+	@abstract The authorization right used to control whether the network
+		configuration can be changed.
+ */
+#define kSCPreferencesAuthorizationRight_write		"system.services.systemconfiguration.network"
 
 /*!
 	@enum SCPreferencesKeyType

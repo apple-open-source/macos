@@ -182,7 +182,7 @@ enum {
     interface.
 */
 enum {
-    kAuthorizationCallbacksVersion = 0
+    kAuthorizationCallbacksVersion = 1
 };
 
 
@@ -246,6 +246,11 @@ typedef struct AuthorizationCallbacks {
     /* Read SessionId. */
     OSStatus (*GetSessionId)(AuthorizationEngineRef inEngine,
         AuthorizationSessionId *outSessionId);
+
+    /* Read value from hints. AuthorizationValue does not own data. */
+    OSStatus (*GetImmutableHintValue)(AuthorizationEngineRef inEngine,
+        AuthorizationString inKey,
+        const AuthorizationValue **outValue);
 
 } AuthorizationCallbacks;
 

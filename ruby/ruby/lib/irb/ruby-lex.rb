@@ -1,32 +1,32 @@
 #
 #   irb/ruby-lex.rb - ruby lexcal analyzer
-#   	$Release Version: 0.9.5$
-#   	$Revision: 16857 $
-#   	$Date: 2008-06-06 17:05:24 +0900 (Fri, 06 Jun 2008) $
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38632 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
+#
 #
 
 require "e2mmap"
 require "irb/slex"
 require "irb/ruby-token"
 
+# :stopdoc:
 class RubyLex
-  @RCS_ID='-$Id: ruby-lex.rb 16857 2008-06-06 08:05:24Z knu $-'
+  @RCS_ID='-$Id: ruby-lex.rb 38632 2012-12-27 14:48:42Z keiju $-'
 
   extend Exception2MessageMapper
   def_exception(:AlreadyDefinedToken, "Already defined token(%s)")
   def_exception(:TkReading2TokenNoKey, "key nothing(key='%s')")
   def_exception(:TkSymbol2TokenNoKey, "key nothing(key='%s')")
-  def_exception(:TkReading2TokenDuplicateError, 
+  def_exception(:TkReading2TokenDuplicateError,
 		"key duplicate(token_n='%s', key='%s')")
   def_exception(:SyntaxError, "%s")
 
   def_exception(:TerminateLineInput, "Terminate Line Input")
-  
+
   include RubyToken
 
   class << self
@@ -54,7 +54,8 @@ class RubyLex
     @lex_state = EXPR_BEG
     @space_seen = false
     @here_header = false
-    
+    @post_symbeg = false
+
     @continue = false
     @line = ""
 
@@ -87,12 +88,12 @@ class RubyLex
   end
 
   def get_readed
-    if idx = @readed.reverse.index("\n")
-      @base_char_no = idx
+    if idx = @readed.rindex("\n")
+      @base_char_no = @readed.size - (idx + 1)
     else
       @base_char_no += @readed.size
     end
-    
+
     readed = @readed.join("")
     @readed = []
     readed
@@ -111,7 +112,7 @@ class RubyLex
     end
     @seek += 1
     if c == "\n"
-      @line_no += 1 
+      @line_no += 1
       @char_no = 0
     else
       @char_no += 1
@@ -148,12 +149,12 @@ class RubyLex
       c2 = @here_readed.pop
     end
     c = c2 unless c
-    @rests.unshift c #c = 
-      @seek -= 1
+    @rests.unshift c #c =
+    @seek -= 1
     if c == "\n"
-      @line_no -= 1 
-      if idx = @readed.reverse.index("\n")
-	@char_no = @readed.size - idx
+      @line_no -= 1
+      if idx = @readed.rindex("\n")
+	@char_no = idx + 1
       else
 	@char_no = @base_char_no + @readed.size
       end
@@ -188,7 +189,7 @@ class RubyLex
     prompt
     line = @input.call
     return nil unless line
-    @rests.concat line.split(//)
+    @rests.concat line.chars.to_a
     true
   end
   private :buf_input
@@ -216,14 +217,16 @@ class RubyLex
     @lex_state = EXPR_BEG
     @space_seen = false
     @here_header = false
-    
+
     @continue = false
+    @post_symbeg = false
+
     prompt
 
     @line = ""
     @exp_line_no = @line_no
   end
-  
+
   def each_top_level_statement
     initialize_input
     catch(:TERM_INPUT) do
@@ -234,13 +237,13 @@ class RubyLex
 	  unless l = lex
 	    throw :TERM_INPUT if @line == ''
 	  else
-	    #p l
 	    @line.concat l
 	    if @ltype or @continue or @indent > 0
 	      next
 	    end
 	  end
 	  if @line != "\n"
+            @line.force_encoding(@io.encoding)
 	    yield @line, @exp_line_no
 	  end
 	  break unless l
@@ -286,6 +289,8 @@ class RubyLex
       begin
 	tk = @OP.match(self)
 	@space_seen = tk.kind_of?(TkSPACE)
+	@lex_state = EXPR_END if @post_symbeg && tk.kind_of?(TkOp)
+	@post_symbeg = tk.kind_of?(TkSYMBEG)
       rescue SyntaxError
 	raise if @exception_on_syntax_error
 	tk = TkError.new(@seek, @line_no, @char_no)
@@ -297,7 +302,7 @@ class RubyLex
     #      Tracer.off
     tk
   end
-  
+
   ENINDENT_CLAUSE = [
     "case", "class", "def", "do", "for", "if",
     "module", "unless", "until", "while", "begin" #, "when"
@@ -312,9 +317,11 @@ class RubyLex
     "r" => "/",
     "w" => "]",
     "W" => "]",
+    "i" => "]",
+    "I" => "]",
     "s" => ":"
   }
-  
+
   PERCENT_PAREN = {
     "{" => "}",
     "[" => "]",
@@ -354,7 +361,7 @@ class RubyLex
     end
 
     @OP.def_rule("=begin",
-		 proc{|op, io| @prev_char_no == 0 && peek(0) =~ /\s/}) do 
+		 proc{|op, io| @prev_char_no == 0 && peek(0) =~ /\s/}) do
       |op, io|
       @ltype = "="
       until getc == "\n"; end
@@ -374,8 +381,8 @@ class RubyLex
       else
 	@continue = false
 	@lex_state = EXPR_BEG
-	until (@indent_stack.empty? || 
-	       [TkLPAREN, TkLBRACK, TkLBRACE, 
+	until (@indent_stack.empty? ||
+	       [TkLPAREN, TkLBRACK, TkLBRACE,
 		 TkfLPAREN, TkfLBRACK, TkfLBRACE].include?(@indent_stack.last))
 	  @indent_stack.pop
 	end
@@ -385,11 +392,12 @@ class RubyLex
       Token(TkNL)
     end
 
-    @OP.def_rules("*", "**",	
-		  "=", "==", "===", 
-		  "=~", "<=>",	
+    @OP.def_rules("*", "**",
+		  "=", "==", "===",
+		  "=~", "<=>",
 		  "<", "<=",
-		  ">", ">=", ">>") do
+		  ">", ">=", ">>",
+		  "!", "!=", "!~") do
       |op, io|
       case @lex_state
       when EXPR_FNAME, EXPR_DOT
@@ -400,19 +408,13 @@ class RubyLex
       Token(op)
     end
 
-    @OP.def_rules("!", "!=", "!~") do
-      |op, io|
-      @lex_state = EXPR_BEG
-      Token(op)
-    end
-
     @OP.def_rules("<<") do
       |op, io|
       tk = nil
       if @lex_state != EXPR_END && @lex_state != EXPR_CLASS &&
 	  (@lex_state != EXPR_ARG || @space_seen)
 	c = peek(0)
-	if /\S/ =~ c && (/["'`]/ =~ c || /[\w_]/ =~ c || c == "-")
+	if /\S/ =~ c && (/["'`]/ =~ c || /\w/ =~ c || c == "-")
 	  tk = identify_here_document
 	end
       end
@@ -455,7 +457,7 @@ class RubyLex
 	  @lex_state = EXPR_BEG;
 	  Token(TkQUESTION)
 	else
-	  if (ch == '\\') 
+	  if (ch == '\\')
 	    read_escape
 	  end
 	  @lex_state = EXPR_END
@@ -469,8 +471,8 @@ class RubyLex
       @lex_state = EXPR_BEG
       Token(op)
     end
-    
-    @OP.def_rules("+=", "-=", "*=", "**=", 
+
+    @OP.def_rules("+=", "-=", "*=", "**=",
 		  "&=", "|=", "^=", "<<=", ">>=", "||=", "&&=") do
       |op, io|
       @lex_state = EXPR_BEG
@@ -529,7 +531,7 @@ class RubyLex
 
     lex_int2
   end
-  
+
   def lex_int2
     @OP.def_rules("]", "}", ")") do
       |op, io|
@@ -545,7 +547,7 @@ class RubyLex
 	@lex_state = EXPR_BEG
 	Token(TkCOLON)
       else
-	@lex_state = EXPR_FNAME;
+	@lex_state = EXPR_FNAME
 	Token(TkSYMBEG)
       end
     end
@@ -572,7 +574,7 @@ class RubyLex
 	Token(TkOPASGN, "/") #/)
       elsif @lex_state == EXPR_ARG and @space_seen and peek(0) !~ /\s/
 	identify_string(op)
-      else 
+      else
 	@lex_state = EXPR_BEG
 	Token("/") #/)
       end
@@ -588,7 +590,7 @@ class RubyLex
     # 	@lex_state = EXPR_BEG
     # 	Token(OP_ASGN, :^)
     #       end
-    
+
     @OP.def_rules(",") do
       |op, io|
       @lex_state = EXPR_BEG
@@ -598,8 +600,8 @@ class RubyLex
     @OP.def_rules(";") do
       |op, io|
       @lex_state = EXPR_BEG
-      until (@indent_stack.empty? || 
-	     [TkLPAREN, TkLBRACK, TkLBRACE, 
+      until (@indent_stack.empty? ||
+	     [TkLPAREN, TkLBRACK, TkLBRACE,
 	       TkfLPAREN, TkfLBRACK, TkfLBRACE].include?(@indent_stack.last))
 	@indent_stack.pop
       end
@@ -617,7 +619,7 @@ class RubyLex
       @lex_state = EXPR_BEG
       Token("~")
     end
-    
+
     @OP.def_rule("(") do
       |op, io|
       @indent += 1
@@ -629,7 +631,7 @@ class RubyLex
 	tk_c = TkLPAREN
       end
       @indent_stack.push tk_c
-      tk = Token(tk_c)
+      Token(tk_c)
     end
 
     @OP.def_rule("[]", proc{|op, io| @lex_state == EXPR_FNAME}) do
@@ -683,7 +685,7 @@ class RubyLex
 	@continue = true
 	Token(TkSPACE)
       else
-	ungetc
+	read_escape
 	Token("\\")
       end
     end
@@ -710,7 +712,7 @@ class RubyLex
 
     @OP.def_rule('@') do
       |op, io|
-      if peek(0) =~ /[\w_@]/
+      if peek(0) =~ /[\w@]/
 	ungetc
 	identify_identifier
       else
@@ -718,7 +720,7 @@ class RubyLex
       end
     end
 
-    #       @OP.def_rule("def", proc{|op, io| /\s/ =~ io.peek(0)}) do 
+    #       @OP.def_rule("def", proc{|op, io| /\s/ =~ io.peek(0)}) do
     # 	|op, io|
     # 	@indent += 1
     # 	@lex_state = EXPR_FNAME
@@ -733,19 +735,19 @@ class RubyLex
       printf "MATCH: start %s: %s\n", op, io.inspect if RubyLex.debug?
       if peek(0) =~ /[0-9]/
 	t = identify_number
-      elsif peek(0) =~ /[\w_]/
+      elsif peek(0) =~ /[^\x00-\/:-@\[-^`{-\x7F]/
 	t = identify_identifier
       end
       printf "MATCH: end %s: %s\n", op, io.inspect if RubyLex.debug?
       t
     end
-    
+
     p @OP if RubyLex.debug?
   end
-  
+
   def identify_gvar
     @lex_state = EXPR_END
-    
+
     case ch = getc
     when /[~_*$?!@\/\\;,=:<>".]/   #"
       Token(TkGVAR, "$" + ch)
@@ -761,12 +763,12 @@ class RubyLex
       ungetc
       ungetc
       identify_identifier
-    else 
+    else
       ungetc
       Token("$")
     end
   end
-  
+
   def identify_identifier
     token = ""
     if peek(0) =~ /[$@]/
@@ -776,12 +778,12 @@ class RubyLex
       end
     end
 
-    while (ch = getc) =~ /\w|_/
+    while (ch = getc) =~ /[^\x00-\/:-@\[-^`{-\x7F]/
       print ":", ch, ":" if RubyLex.debug?
       token.concat ch
     end
     ungetc
-    
+
     if (ch == "!" || ch == "?") && token[0,1] =~ /\w/ && peek(0) != "="
       token.concat getc
     end
@@ -799,7 +801,7 @@ class RubyLex
       @lex_state = EXPR_END
       return Token(TkIVAR, token)
     end
-    
+
     if @lex_state != EXPR_DOT
       print token, "\n" if RubyLex.debug?
 
@@ -822,11 +824,11 @@ class RubyLex
 	      when "class"
 		valid = false unless peek_match?(/^\s*(<<|\w|::)/)
 	      when "def"
-		valid = false if peek_match?(/^\s*(([+-\/*&\|^]|<<|>>|\|\||\&\&)=|\&\&|\|\|)/)
+		valid = false if peek_match?(/^\s*(([+\-\/*&\|^]|<<|>>|\|\||\&\&)=|\&\&|\|\|)/)
 	      when "do"
-		valid = false if peek_match?(/^\s*([+-\/*]?=|\*|<|>|\&)/)
+		valid = false if peek_match?(/^\s*([+\-\/*]?=|\*|<|>|\&)/)
 	      when *ENINDENT_CLAUSE
-		valid = false if peek_match?(/^\s*([+-\/*]?=|\*|<|>|\&|\|)/)
+		valid = false if peek_match?(/^\s*([+\-\/*]?=|\*|<|>|\&|\|)/)
 	      else
 		# no nothing
 	      end
@@ -910,10 +912,25 @@ class RubyLex
     end
 
     @here_header = false
-    while l = gets
-      l = l.sub(/(:?\r)?\n\z/, '')
-      if (indent ? l.strip : l) == quoted
- 	break
+#     while l = gets
+#       l = l.sub(/(:?\r)?\n\z/, '')
+#       if (indent ? l.strip : l) == quoted
+#  	break
+#       end
+#     end
+
+    line = ""
+    while ch = getc
+      if ch == "\n"
+	if line == quoted
+	  break
+	end
+	line = ""
+      else
+	line.concat ch unless indent && line == "" && /\s/ =~ ch
+	if @ltype != "'" && ch == "#" && peek(0) == "{"
+	  identify_string_dvar
+	end
       end
     end
 
@@ -927,7 +944,7 @@ class RubyLex
     @lex_state = EXPR_END
     Token(Ltype2Token[lt])
   end
-  
+
   def identify_quotation
     ch = getc
     if lt = PERCENT_LTYPE[ch]
@@ -967,11 +984,11 @@ class RubyLex
       when /[0-7]/
 	match = /[0-7_]/
       when /[89]/
-	RubyLex.fail SyntaxError, "Illegal octal digit"
-      else 
+	RubyLex.fail SyntaxError, "Invalid octal digit"
+      else
 	return Token(TkINTEGER)
       end
-      
+
       len0 = true
       non_digit = false
       while ch = getc
@@ -999,7 +1016,7 @@ class RubyLex
       end
       return Token(TkINTEGER)
     end
-    
+
     type = TkINTEGER
     allow_point = true
     allow_e = true
@@ -1042,7 +1059,7 @@ class RubyLex
     end
     Token(type)
   end
-  
+
   def identify_string(ltype, quoted = ltype)
     @ltype = ltype
     @quoted = quoted
@@ -1052,12 +1069,20 @@ class RubyLex
       while ch = getc
 	if @quoted == ch and nest == 0
 	  break
+	elsif @ltype != "'" && ch == "#" && peek(0) == "{"
+	  identify_string_dvar
 	elsif @ltype != "'" && @ltype != "]" && @ltype != ":" and ch == "#"
 	  subtype = true
+	elsif ch == '\\' and @ltype == "'" #'
+	  case ch = getc
+	  when "\\", "\n", "'"
+	  else
+	    ungetc
+	  end
 	elsif ch == '\\' #'
 	  read_escape
 	end
-	if PERCENT_PAREN.values.include?(@quoted) 
+	if PERCENT_PAREN.values.include?(@quoted)
 	  if PERCENT_PAREN[ch] == @quoted
 	    nest += 1
 	  elsif ch == @quoted
@@ -1066,7 +1091,7 @@ class RubyLex
 	end
       end
       if @ltype == "/"
-	if peek(0) =~ /i|m|x|o|e|s|u|n/
+        while /[imxoesun]/ =~ peek(0)
 	  getc
 	end
       end
@@ -1081,7 +1106,43 @@ class RubyLex
       @lex_state = EXPR_END
     end
   end
-  
+
+  def identify_string_dvar
+    begin
+      getc
+
+      reserve_continue = @continue
+      reserve_ltype = @ltype
+      reserve_indent = @indent
+      reserve_indent_stack = @indent_stack
+      reserve_state = @lex_state
+      reserve_quoted = @quoted
+
+      @ltype = nil
+      @quoted = nil
+      @indent = 0
+      @indent_stack = []
+      @lex_state = EXPR_BEG
+
+      loop do
+	@continue = false
+	prompt
+	tk = token
+	if @ltype or @continue or @indent > 0
+	  next
+	end
+	break if tk.kind_of?(TkRBRACE)
+      end
+    ensure
+      @continue = reserve_continue
+      @ltype = reserve_ltype
+      @indent = reserve_indent
+      @indent_stack = reserve_indent_stack
+      @lex_state = reserve_state
+      @quoted = reserve_quoted
+    end
+  end
+
   def identify_comment
     @ltype = "#"
 
@@ -1097,7 +1158,7 @@ class RubyLex
     end
     return Token(TkCOMMENT)
   end
-  
+
   def read_escape
     case ch = getc
     when "\n", "\r", "\f"
@@ -1114,7 +1175,7 @@ class RubyLex
 	  break
 	end
       end
-      
+
     when "x"
       2.times do
 	case ch = getc
@@ -1143,7 +1204,8 @@ class RubyLex
 	read_escape
       end
     else
-      # other characters 
+      # other characters
     end
   end
 end
+# :startdoc:

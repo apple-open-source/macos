@@ -27,26 +27,13 @@
 
 #include "config.h"
 #include "NSScrollerImpDetails.h"
+#include "Settings.h"
 
 namespace WebCore {
 
-#if PLATFORM(CHROMIUM)
-bool isScrollbarOverlayAPIAvailable()
-{
-    static bool apiAvailable;
-    static bool shouldInitialize = true;
-    if (shouldInitialize) {
-        shouldInitialize = false;
-        Class scrollerImpClass = NSClassFromString(@"NSScrollerImp");
-        Class scrollerImpPairClass = NSClassFromString(@"NSScrollerImpPair");
-        apiAvailable = [scrollerImpClass respondsToSelector:@selector(scrollerImpWithStyle:controlSize:horizontal:replacingScrollerImp:)]
-                       && [scrollerImpPairClass instancesRespondToSelector:@selector(scrollerStyle)];
-    }
-    return apiAvailable;
-}
-#endif
-
 NSScrollerStyle recommendedScrollerStyle() {
+    if (Settings::usesOverlayScrollbars())
+        return NSScrollerStyleOverlay;
     if ([NSScroller respondsToSelector:@selector(preferredScrollerStyle)])
         return [NSScroller preferredScrollerStyle];
     return NSScrollerStyleLegacy;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_APACHE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include <vproc.h>
 #include <uuid/uuid.h>
 #include <servers/bootstrap.h>
+#include <dispatch/dispatch.h>
 
 #ifndef VPROC_HAS_TRANSACTIONS
 #define VPROC_HAS_TRANSACTIONS 1
@@ -54,7 +55,7 @@ __BEGIN_DECLS
 /* DO NOT use this. This is a hack for 'launchctl' */
 #define VPROC_MAGIC_UNLOAD_SIGNAL 0x4141504C
 
-typedef void (*_vproc_transaction_callout)(void);
+typedef void (*_vproc_transaction_callout)(void *);
 
 typedef enum {
 	VPROC_GSK_ZERO,
@@ -208,11 +209,9 @@ __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA)
 size_t
 _vproc_transaction_count(void);
 
-int32_t *
-_vproc_transaction_ptr(void);
-
 void
-_vproc_transaction_set_callouts(_vproc_transaction_callout gone2zero, _vproc_transaction_callout gonenonzero);
+_vproc_transaction_set_clean_callback(dispatch_queue_t targetq, void *ctx,
+	dispatch_function_t func);
 
 void
 _vproc_transactions_enable(void);

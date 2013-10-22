@@ -38,8 +38,8 @@ namespace CoreIPC {
 namespace WebKit {
     
 struct FontInfo {
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, FontInfo&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, FontInfo&);
     
 #if PLATFORM(MAC)
     RetainPtr<CFDictionaryRef> fontAttributeDictionary;

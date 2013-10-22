@@ -28,7 +28,9 @@
 #define ParsedCookie_h
 
 #include "Cookie.h"
-#include <wtf/FastAllocBase.h>
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
 
 namespace WTF {
 class String;
@@ -40,18 +42,14 @@ class KURL;
 // This class represents a cookie internally
 // It can either be created by the CookieParser which will then fill it
 // or it can be created by the backing store filling it in the constructor.
-class ParsedCookie {
-WTF_MAKE_FAST_ALLOCATED;
+class ParsedCookie : public RefCounted<ParsedCookie> {
 public:
+
     // Default cookie : empty domain, non secure and session
-    ParsedCookie(double currentTime);
+    static PassRefPtr<ParsedCookie> create(double currentTime) { return adoptRef(new ParsedCookie(currentTime)); }
 
     // For backing store cookies (those cookies are never session cookies).
-    ParsedCookie(const String& name, const String& value, const String& domain, const String& protocol, const String& path, double expiry, double lastAccessed, double creationTime, bool isSecure, bool isHttpOnly);
-
-    ParsedCookie(const ParsedCookie*);
-
-    ~ParsedCookie();
+    static PassRefPtr<ParsedCookie> create(const String& name, const String& value, const String& domain, const String& protocol, const String& path, double expiry, double lastAccessed, double creationTime, bool isSecure, bool isHttpOnly)  { return adoptRef(new ParsedCookie(name, value, domain, protocol, path, expiry, lastAccessed, creationTime, isSecure, isHttpOnly)); };
 
     const String& name() const { return m_name; }
     void setName(const String& name) { m_name = name; }
@@ -63,7 +61,7 @@ public:
     void setPath(const String& path) { m_path = path; }
 
     const String& domain() const { return m_domain; }
-    void setDomain(const String& domain) { m_domain = domain.lower(); }
+    void setDomain(const String& domain, bool domainIsIPAddress = false) { m_domain = domain.lower(); m_domainIsIPAddress = domainIsIPAddress; }
 
     const String& protocol() const { return m_protocol; }
     void setProtocol(const String& protocol) { m_protocol = protocol; }
@@ -87,15 +85,24 @@ public:
 
     bool isSession() const { return m_isSession; }
 
+    bool isHostOnly() const { return !m_domain.startsWith("."); }
+
     bool hasExpired() const;
     bool isForceExpired() const { return m_isForceExpired; }
     bool isUnderSizeLimit() const;
+    bool domainIsIPAddress() const { return m_domainIsIPAddress; }
 
     String toString() const;
     String toNameValuePair() const;
     void appendWebCoreCookie(Vector<Cookie>& cookieVector) const;
 
 private:
+    // Default cookie : empty domain, non secure and session
+    ParsedCookie(double currentTime);
+
+    // For backing store cookies (those cookies are never session cookies).
+    ParsedCookie(const String& name, const String& value, const String& domain, const String& protocol, const String& path, double expiry, double lastAccessed, double creationTime, bool isSecure, bool isHttpOnly);
+
     String m_name;
     String m_value;
     String m_domain;
@@ -110,6 +117,7 @@ private:
     bool m_isHttpOnly;
     bool m_isSession;
     bool m_isForceExpired;
+    bool m_domainIsIPAddress;
 };
 
 } // namespace WebCore

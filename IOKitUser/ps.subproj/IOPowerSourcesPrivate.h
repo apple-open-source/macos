@@ -38,6 +38,29 @@ __BEGIN_DECLS
  *              Use with caution.
  */
 
+/* kIOPSReadUserVisible and kIOPSReadAll are arguments to IOPSRequestBatteryUpdate */
+enum {
+    kIOPSReadSystemBoot     = 1,
+    kIOPSReadAll            = 2,
+    kIOPSReadUserVisible    = 4
+};
+
+/*!
+ * @function    IOPSRequestBatteryUpdate
+ * @abstract    Tell the battery driver to read the battery's state.
+ * @discussion  OS X will automatically refresh user-visible battery state every 60 seconds.
+ *              OS X will refresh non-user-visible battery state every 10 minutes, or less frequently.
+ *              This API is primarily intended for diagnostic tools, that require more frequent
+ *              updates.
+ *              This call is asynchronous. This initiates a battery update, and caller should listen
+ *              for a notification <code>@link kIOPSAnyPowerSourcesNotificationKey @/link</code>.
+ * @param       type Pass kIOPSReadUserVisible to request user-visible data, namely
+ *              time remaining & capacity. Pass kIOPSReadAll to request all battery data.
+ * @result      kIOReturnSuccess on success; other IOReturn on failure.
+ */
+IOReturn        IOPSRequestBatteryUpdate(int type);
+
+
 /*! 
  * @function    IOPSCopyInternalBatteriesArray
  * @abstract    Returns a CFArray of all batteries attached to the system.
@@ -143,6 +166,18 @@ IOReturn        IOPSSetPowerSourceDetails(IOPSPowerSourceID whichPS, CFDictionar
  * @result      Returns kIOReturnSuccess on success, see IOReturn.h for possible failure codes.
  */
 IOReturn        IOPSReleasePowerSource(IOPSPowerSourceID whichPS);
+
+
+/*!
+ * These bits decipher battery state stored in notify_get_state(kIOPSTimeRemainingNotificationKey)
+ * For internal use only. 
+ * Callers should use the public API IOPSGetTimeRemainingEstimate() to access this data.
+ */
+#define kPSTimeRemainingNotifyExternalBit       (1 << 16)
+#define kPSTimeRemainingNotifyChargingBit       (1 << 17)
+#define kPSTimeRemainingNotifyUnknownBit        (1 << 18)
+#define kPSTimeRemainingNotifyValidBit          (1 << 19)
+#define kPSTimeRemainingNotifyNoPollBit         (1 << 20)
 
 __END_DECLS
 

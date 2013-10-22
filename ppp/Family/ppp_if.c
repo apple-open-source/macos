@@ -518,7 +518,7 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
 {    
     struct ppp_if 	*wan = ifnet_softc(ifp);
     int 		inlen, vjlen;
-    u_char		*iphdr, *p = mbuf_data(m);
+    u_char		*iphdr, *p = mbuf_data(m);	// no alignment issue as p is *u_char.
     u_int 		hlen;
     int 		error = ENOMEM;
 	struct timespec tv;
@@ -737,6 +737,8 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
     struct npioctl 	*npi;
     struct npafioctl 	*npafi;
 	struct timespec tv;	
+    struct ifpppdelegate    *ifdelegate;
+    ifnet_t                 del_ifp = NULL;
 
     //LOGDBG(ifp, ("ppp_if_control, (ifnet = %s%d), cmd = 0x%x\n", ifp->if_name, ifp->if_unit, cmd));
 
@@ -860,6 +862,18 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
             }
             break;
 
+    case PPPIOCSDELEGATE:
+        LOGDBG(ifp, ("ppp_if_control: PPPIOCSDELEGATE\n"));
+        ifdelegate = (struct ifpppdelegate*)data;
+        if (strlen(ifdelegate->ifr_delegate_name) != 0)
+            error = ifnet_find_by_name(ifdelegate->ifr_delegate_name, &del_ifp);
+        if (error == 0) {
+            error = ifnet_set_delegate(ifp, del_ifp);
+            if (del_ifp)
+                ifnet_release(del_ifp);
+        }
+        break;
+
 	default:
             LOGDBG(ifp, ("ppp_if_control: unknown ioctl\n"));
             error = EINVAL;
@@ -979,7 +993,9 @@ errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
 	// clear any flag that can confuse the underlying driver
 	mbuf_setflags(m, mbuf_flags(m) & ~(MBUF_BCAST + MBUF_MCAST));
 
-    proto = ntohs(*(u_int16_t*)mbuf_data(m));
+    memcpy(&proto, mbuf_data(m), sizeof(u_int16_t));
+    proto = ntohs(proto);
+
     switch (proto) {
         case PPP_IP:
             mode = wan->npmode[NP_IP];
@@ -1042,8 +1058,9 @@ errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
 			ifnet_stat_increment(ifp, &statsinc);		
             return ENOBUFS;
         }
-        *(u_int16_t*)mbuf_data(m) = htons(0xFF03);
-		(*wan->bpf_output)(ifp, m);
+        proto = htons(0xFF03);
+        memcpy(mbuf_data(m), &proto, sizeof(u_int16_t));
+	(*wan->bpf_output)(ifp, m);
         mbuf_adj(m, 2);
     }
 	lck_mtx_lock(ppp_domain_mutex);
@@ -1236,12 +1253,15 @@ int ppp_if_detachlink(struct ppp_link *link)
 int ppp_if_send(ifnet_t ifp, mbuf_t m)
 {
     struct ppp_if 	*wan = ifnet_softc(ifp);
-    u_int16_t		proto = ntohs(*(u_int16_t*)mbuf_data(m));	// always the 2 first bytes
+    u_int16_t		proto;
 	struct			ifnet_stat_increment_param statsinc;
 	int				error = 0;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
         
+    memcpy(&proto, mbuf_data(m), sizeof(u_int16_t));	// always the 2 first bytes
+    proto = ntohs(proto);
+
     if (ppp_qfull(&wan->sndq)) {
         ppp_drop(&wan->sndq);
 		bzero(&statsinc, sizeof(statsinc));
@@ -1256,7 +1276,7 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m)
             // see if we can compress it
             if ((wan->sc_flags & SC_COMP_TCP) && wan->vjcomp) {
                 mbuf_t		mp = m;
-                struct ip 	*ip = mbuf_data(m) + 2;
+                struct ip 	ip_data, *ip = mbuf_data(m) + 2;
                 int 		vjtype, len;
                 
                 // skip mbuf, in case the ppp header and ip header are not in the same mbuf
@@ -1266,15 +1286,20 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m)
                         break;
                     ip = mbuf_data(mp);
                 }
+
+		memcpy(&ip_data, ip, sizeof(ip_data));
+
                 // this code assumes the IP/TCP header is in one non-shared mbuf 
-                if (ip->ip_p == IPPROTO_TCP) {
-                    vjtype = sl_compress_tcp(mp, ip, wan->vjcomp, !(wan->sc_flags & SC_NO_TCP_CCID));
+                if (ip_data.ip_p == IPPROTO_TCP) {
+                    vjtype = sl_compress_tcp(mp, &ip_data, wan->vjcomp, !(wan->sc_flags & SC_NO_TCP_CCID));
+		    memcpy(ip, &ip_data, sizeof(ip_data));
                     switch (vjtype) {
                         case TYPE_UNCOMPRESSED_TCP:
-                            *(u_int16_t*)mbuf_data(m) = htons(PPP_VJC_UNCOMP); // update protocol
+                            proto = htons(PPP_VJC_UNCOMP); // update protocol
                             break;
                         case TYPE_COMPRESSED_TCP:
-                            *(u_int16_t*)mbuf_data(m) = htons(PPP_VJC_COMP); // header has moved, update protocol
+                            proto = htons(PPP_VJC_COMP); // header has moved, update protocol
+			memcpy(mbuf_data(m), &proto, sizeof(u_int16_t));
                         break;
                     }
                     // adjust packet len
@@ -1306,7 +1331,8 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m)
 				ifnet_stat_increment(ifp, &statsinc);		
                 return ENOBUFS;
             }
-            *(u_int16_t*)mbuf_data(m) = htons(PPP_COMP); // update protocol
+            proto = htons(PPP_COMP); // update protocol
+	    memcpy(mbuf_data(m), &proto, sizeof(u_int16_t));
         } 
     } 
 

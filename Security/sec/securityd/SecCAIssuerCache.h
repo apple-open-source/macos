@@ -37,9 +37,7 @@
 #include <CoreFoundation/CFDate.h>
 #include <CoreFoundation/CFURL.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 
 void SecCAIssuerCacheAddCertificate(SecCertificateRef certificate,
@@ -53,8 +51,6 @@ void SecCAIssuerCacheGC(void);
 /* Call this periodically or perhaps when we are exiting due to low memory. */
 void SecCAIssuerCacheFlush(void);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* _SECURITY_SECCAISSUERCACHE_H_ */

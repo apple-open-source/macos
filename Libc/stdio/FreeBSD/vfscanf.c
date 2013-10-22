@@ -156,7 +156,7 @@ __svfscanf_l(FILE * __restrict fp, locale_t loc, const char * __restrict fmt0, v
 	int mb_cur_max;
 
 	/* `basefix' is used to avoid `if' tests in the integer scanner */
-	static short basefix[17] =
+	static const short basefix[17] =
 		{ 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
 	NORMALIZE_LOCALE(loc);

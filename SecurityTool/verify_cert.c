@@ -2,14 +2,14 @@
  * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * verify_cert.c
@@ -33,7 +33,7 @@
 #include <unistd.h>
 #include "trusted_cert_utils.h"
 
-/* 
+/*
  * Read file as a cert, add to a CFArray, creating the array if necessary
  */
 static int addCertFile(
@@ -41,10 +41,10 @@ static int addCertFile(
 	CFMutableArrayRef *array)
 {
 	SecCertificateRef certRef;
-	
+
 	if(readCertFile(fileName, &certRef)) {
 		return -1;
-	}	
+	}
 	if(*array == NULL) {
 		*array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
@@ -81,7 +81,7 @@ verify_cert(int argc, char * const *argv)
 	CFDataRef			cfActionData = NULL;
 	SecTrustResultType	resultType;
 	OSStatus			ocrtn;
-	
+
 	if(argc < 2) {
 		return 2; /* @@@ Return 2 triggers usage message. */
 	}
@@ -121,7 +121,7 @@ verify_cert(int argc, char * const *argv)
 				/* this can be specified multiple times */
 				if(keychains == NULL) {
 					keychains = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-				}	
+				}
 				CFArrayAppendValue(keychains, kcRef);
 				CFRelease(kcRef);
 				break;
@@ -159,7 +159,7 @@ verify_cert(int argc, char * const *argv)
 		ourRtn = 2;
 		goto errOut;
 	}
-	
+
 	if(certs == NULL) {
 		if(roots == NULL) {
 			fprintf(stderr, "***No certs specified.\n");
@@ -171,13 +171,13 @@ verify_cert(int argc, char * const *argv)
 			ourRtn = 2;
 			goto errOut;
 		}
-		
+
 		/* no certs and one root: verify the root */
 		certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		CFArrayAppendValue(certs, CFArrayGetValueAtIndex(roots, 0));
 		actionFlags |= CSSM_TP_ACTION_LEAF_IS_CA;
 	}
-	
+
 	/* cook up a SecPolicyRef */
 	ortn = SecPolicySearchCreate(CSSM_CERT_X_509v3,
 		policy,
@@ -194,7 +194,7 @@ verify_cert(int argc, char * const *argv)
 		ourRtn = 1;
 		goto errOut;
 	}
-	
+
 	/* per-policy options */
 	if(compareOids(policy, &CSSMOID_APPLE_TP_SSL) || compareOids(policy, &CSSMOID_APPLE_TP_APPLEID_SHARING)) {
 		if(sslHost != NULL) {
@@ -236,7 +236,7 @@ verify_cert(int argc, char * const *argv)
 		ourRtn = 1;
 		goto errOut;
 	}
-	
+
 	/* roots (anchors) are optional */
 	if(roots != NULL) {
 		ortn = SecTrustSetAnchorCertificates(trustRef, roots);
@@ -266,7 +266,7 @@ verify_cert(int argc, char * const *argv)
 			goto errOut;
 		}
 	}
-	
+
 	/* GO */
 	ortn = SecTrustEvaluate(trustRef, &resultType);
 	if(ortn) {
@@ -311,7 +311,7 @@ verify_cert(int argc, char * const *argv)
 			}
 			break;
 	}
-	
+
 	if((ourRtn == 0) & !quiet) {
 		printf("...certificate verification successful.\n");
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,6 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <math.h>
-#include <syslog.h>
 #include <CoreFoundation/CFRunLoop.h>
 #include "Timer.h"
 #include "myCFUtil.h"
@@ -134,9 +133,6 @@ Timer_set_relative(TimerRef timer,
 			       0.0, 0, 0,
 			       Timer_process,
 			       &context);
-    my_log(LOG_DEBUG, "timer: wakeup time is (%d.%d) %g", 
-	   rel_time.tv_sec, rel_time.tv_usec, wakeup_time);
-    my_log(LOG_DEBUG, "timer: adding timer source");
     CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer->rls,
 		      kCFRunLoopDefaultMode);
     return (1);
@@ -151,7 +147,6 @@ Timer_cancel(TimerRef timer)
     timer->enabled = 0;
     timer->func = NULL;
     if (timer->rls) {
-	my_log(LOG_DEBUG, "timer:  freeing timer source");
 	CFRunLoopTimerInvalidate(timer->rls);
 	my_CFRelease(&timer->rls);
     }

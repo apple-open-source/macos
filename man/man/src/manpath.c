@@ -26,6 +26,10 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef __APPLE__
+#include <stdbool.h>
+#include <xcselect.h>
+#endif /* __APPLE__ */
 
 /* not always in <string.h> */
 extern char *index(const char *, int);
@@ -372,6 +376,25 @@ add_default_manpath (int perrs) {
      for (dlp = cfdirlist.nxt; dlp; dlp = dlp->nxt)
 	  if (dlp->mandatory)
 	       add_to_mandirlist (dlp->mandir, perrs);
+
+#ifdef __APPLE__
+	xcselect_manpaths *xcp;
+	const char *path;
+	unsigned i, count;
+
+	// TODO: pass something for sdkname
+	xcp = xcselect_get_manpaths(NULL);
+	if (xcp != NULL) {
+		count = xcselect_manpaths_get_num_paths(xcp);
+		for (i = 0; i < count; i++) {
+			path = xcselect_manpaths_get_path(xcp, i);
+			if (path != NULL) {
+				add_to_mandirlist((char *)path, perrs);
+			}
+		}
+		xcselect_manpaths_free(xcp);
+	}
+#endif /* __APPLE__ */
 }
 
 static void

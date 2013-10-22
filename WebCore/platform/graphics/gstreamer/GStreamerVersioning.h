@@ -19,10 +19,37 @@
 
 #ifndef GStreamerVersioning_h
 #define GStreamerVersioning_h
+#if USE(GSTREAMER)
 
+#include "GRefPtrGStreamer.h"
 #include <gst/gst.h>
+#include <gst/video/video.h>
+
+namespace WebCore {
+class IntSize;
+};
 
 void webkitGstObjectRefSink(GstObject*);
-GstCaps* webkitGstElementGetPadCaps(GstElement*, const char*);
-
+GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate*, const gchar* name, GstPad* target);
+GRefPtr<GstCaps> webkitGstGetPadCaps(GstPad*);
+GRefPtr<GstBus> webkitGstPipelineGetBus(GstPipeline*);
+#if ENABLE(VIDEO)
+bool getVideoSizeAndFormatFromCaps(GstCaps*, WebCore::IntSize&, GstVideoFormat&, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride);
+#endif
+GstBuffer* createGstBuffer(GstBuffer*);
+GstBuffer* createGstBufferForData(const char* data, int length);
+int getGstBufferSize(GstBuffer*);
+void setGstBufferSize(GstBuffer*, int newSize);
+char* getGstBufferDataPointer(GstBuffer*);
+#ifdef GST_API_VERSION_1
+void mapGstBuffer(GstBuffer*);
+void unmapGstBuffer(GstBuffer*);
+#endif
+void setGstElementClassMetadata(GstElementClass*, const char* name, const char* longName, const char* description, const char* author);
+bool gstObjectIsFloating(GstObject*);
+void notifyGstTagsOnPad(GstElement*, GstPad*, GstTagList*);
+#if ENABLE(WEB_AUDIO)
+GstCaps* getGstAudioCaps(int channels, float sampleRate);
+#endif
+#endif // USE(GSTREAMER)
 #endif // GStreamerVersioning_h

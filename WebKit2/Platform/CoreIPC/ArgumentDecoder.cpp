@@ -31,12 +31,13 @@
 
 namespace CoreIPC {
 
-ArgumentDecoder::ArgumentDecoder(const uint8_t* buffer, size_t bufferSize)
+PassOwnPtr<ArgumentDecoder> ArgumentDecoder::create(const uint8_t* buffer, size_t bufferSize)
 {
-    initialize(buffer, bufferSize);
+    Vector<Attachment> attachments;
+    return adoptPtr(new ArgumentDecoder(buffer, bufferSize, attachments));
 }
 
-ArgumentDecoder::ArgumentDecoder(const uint8_t* buffer, size_t bufferSize, Deque<Attachment>& attachments)
+ArgumentDecoder::ArgumentDecoder(const uint8_t* buffer, size_t bufferSize, Vector<Attachment>& attachments)
 {
     initialize(buffer, bufferSize);
 
@@ -50,8 +51,8 @@ ArgumentDecoder::~ArgumentDecoder()
 #if !USE(UNIX_DOMAIN_SOCKETS)
     // FIXME: We need to dispose of the mach ports in cases of failure.
 #else
-    Deque<Attachment>::iterator end = m_attachments.end();
-    for (Deque<Attachment>::iterator it = m_attachments.begin(); it != end; ++it)
+    Vector<Attachment>::iterator end = m_attachments.end();
+    for (Vector<Attachment>::iterator it = m_attachments.begin(); it != end; ++it)
         it->dispose();
 #endif
 }
@@ -76,9 +77,6 @@ void ArgumentDecoder::initialize(const uint8_t* buffer, size_t bufferSize)
     m_bufferPos = m_buffer;
     m_bufferEnd = m_buffer + bufferSize;
     memcpy(m_buffer, buffer, bufferSize);
-
-    // Decode the destination ID.
-    decodeUInt64(m_destinationID);
 }
 
 static inline bool alignedBufferIsLargeEnoughToContain(const uint8_t* alignedPosition, const uint8_t* bufferEnd, size_t size)
@@ -118,7 +116,7 @@ bool ArgumentDecoder::decodeFixedLengthData(uint8_t* data, size_t size, unsigned
 bool ArgumentDecoder::decodeVariableLengthByteArray(DataReference& dataReference)
 {
     uint64_t size;
-    if (!decodeUInt64(size))
+    if (!decode(size))
         return false;
     
     if (!alignBufferPosition(1, size))
@@ -131,7 +129,7 @@ bool ArgumentDecoder::decodeVariableLengthByteArray(DataReference& dataReference
     return true;
 }
 
-bool ArgumentDecoder::decodeBool(bool& result)
+bool ArgumentDecoder::decode(bool& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
@@ -141,7 +139,17 @@ bool ArgumentDecoder::decodeBool(bool& result)
     return true;
 }
 
-bool ArgumentDecoder::decodeUInt16(uint16_t& result)
+bool ArgumentDecoder::decode(uint8_t& result)
+{
+    if (!alignBufferPosition(sizeof(result), sizeof(result)))
+        return false;
+
+    result = *reinterpret_cast<uint8_t*>(m_bufferPos);
+    m_bufferPos += sizeof(result);
+    return true;
+}
+
+bool ArgumentDecoder::decode(uint16_t& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
@@ -151,7 +159,7 @@ bool ArgumentDecoder::decodeUInt16(uint16_t& result)
     return true;
 }
 
-bool ArgumentDecoder::decodeUInt32(uint32_t& result)
+bool ArgumentDecoder::decode(uint32_t& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
@@ -161,7 +169,7 @@ bool ArgumentDecoder::decodeUInt32(uint32_t& result)
     return true;
 }
 
-bool ArgumentDecoder::decodeUInt64(uint64_t& result)
+bool ArgumentDecoder::decode(uint64_t& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
@@ -171,7 +179,7 @@ bool ArgumentDecoder::decodeUInt64(uint64_t& result)
     return true;
 }
 
-bool ArgumentDecoder::decodeInt32(int32_t& result)
+bool ArgumentDecoder::decode(int32_t& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
@@ -181,7 +189,7 @@ bool ArgumentDecoder::decodeInt32(int32_t& result)
     return true;
 }
 
-bool ArgumentDecoder::decodeInt64(int64_t& result)
+bool ArgumentDecoder::decode(int64_t& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
@@ -191,7 +199,7 @@ bool ArgumentDecoder::decodeInt64(int64_t& result)
     return true;
 }
 
-bool ArgumentDecoder::decodeFloat(float& result)
+bool ArgumentDecoder::decode(float& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
@@ -201,7 +209,7 @@ bool ArgumentDecoder::decodeFloat(float& result)
     return true;
 }
 
-bool ArgumentDecoder::decodeDouble(double& result)
+bool ArgumentDecoder::decode(double& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
@@ -216,17 +224,9 @@ bool ArgumentDecoder::removeAttachment(Attachment& attachment)
     if (m_attachments.isEmpty())
         return false;
 
-    attachment = m_attachments.takeFirst();
+    attachment = m_attachments.last();
+    m_attachments.removeLast();
     return true;
 }
-
-#ifndef NDEBUG
-void ArgumentDecoder::debug()
-{
-    printf("ArgumentDecoder::debug()\n");
-    printf("Number of Attachments: %d\n", (int)m_attachments.size());
-    printf("Size of buffer: %d\n", (int)(m_bufferEnd - m_buffer));
-}
-#endif
 
 } // namespace CoreIPC

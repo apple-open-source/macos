@@ -2,7 +2,7 @@
  * Copyright (c) 2000, 2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,13 +48,15 @@ struct mbchain {
 	mbuf_t		mb_top;		/* head of mbufs chain */
 	mbuf_t		mb_cur;		/* current mbuf */
 	size_t		mb_mleft;	/* free space in the current mbuf */
-	size_t		mb_count;	/* total number of bytes */
+	size_t		mb_count;	/* used for byte counting */
+	size_t		mb_len;     /* nbr bytes added in SMB2 compound requests */
 };
 
 struct mdchain {
 	mbuf_t		md_top;		/* head of mbufs chain */
 	mbuf_t		md_cur;		/* current mbuf */
 	u_char *	md_pos;		/* offset in the current mbuf */
+	size_t		md_len;     /* nbr bytes parsed in SMB2 compound replies */
 };
 
 typedef	struct mbchain* mbchain_t;

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>logging</key>
+	<dict>
+		<key>libkrb5</key>
+		<string>0-/SYSLOG:</string>
+	</dict>
+	<key>realms</key>
+	<dict>
+		<key>CSD11.APPLE.COM</key>
+		<dict>
+			<key>kdc</key>
+			<string>csd11.apple.com</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

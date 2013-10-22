@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,6 +59,8 @@ extern void DADiskMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DADis
 
 extern void DADiskPeekCallback( DADiskRef disk, DACallbackRef callback, DAResponseCallback response, void * responseContext );
 
+extern void DADiskProbe( DADiskRef disk, DACallbackRef callback );
+
 extern void DADiskRefresh( DADiskRef disk, DACallbackRef callback );
 
 extern void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DACallbackRef callback );
@@ -76,6 +78,8 @@ extern void DAQueueReleaseDisk( DADiskRef disk );
 extern void DAQueueReleaseSession( DASessionRef session );
 
 extern void DAQueueRequest( DARequestRef request );
+
+extern void DAQueueUnregisterCallback( DACallbackRef callback );
 
 #ifdef __cplusplus
 }

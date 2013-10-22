@@ -12,6 +12,8 @@ if (( ! $+_telnet_args )); then
   local help="$(_call_program options 'telnet -\?' < /dev/null 2>&1)"
   local -A optionmap
   optionmap=(
+    '*\[-4\]*' '-4[Force IPv4 address resolution]'
+    '*\[-6\]*' '-6[Force IPv6 address resolution]'
     '*\[-8\]*' '-8[allow 8-Bit data]'
     '*\[-E\]*' '-E[disable an escape character]'
     '*\[-K\]*' '-K[no automatic login]'
@@ -30,11 +32,13 @@ if (( ! $+_telnet_args )); then
     '*\[-n tracefile\]*' '-n+[specify tracefile]:tracefile:_files'
     '*\[-r\]*' '-r[rlogin like user interface]'
     '*\[-s src_addr\]*' '-s+[set source IP address]:src_addr:'
+    '*\[ -b addr \]*' '-b+[set source IP address]:src_addr:'
     '*\[-x\]*' '-x'
     '*\[-t transcom\]*' '-t+:transcom:'
     '*\[-noasynch\]*' '-noasynch'
     '*\[-noasyncnet\]*' '-noasyncnet'
     '*\[-noasynctty\]*' '-noasynctty'
+    '*\[-z ssl\]*' '*-z[SSL parameters]:SSL parameter:->ssl'
   )
   _telnet_args=($optionmap[(K)"$help"])
   (( $#_telnet_args )) || _telnet_args=( '-l+[specify user]:user:->users' )
@@ -46,6 +50,20 @@ _arguments -C -s \
   ':port:->ports' && ret=0
 
 case "$state" in
+ssl)
+  _values -w 'SSL parameter' \
+    'debug[Send SSL debugging info to stderr]' \
+    '(nossl)ssl[Negotiate SSL connection]' \
+    '(ssl)nossl[Switch off SSL negotiation]' \
+    'certrequired[Require server certificate]' \
+    'secure[No fallback to unencrypted mode]' \
+    'verbose[Be verbose about certificates, etc.]' \
+    'verify[Set SSL verify flags]:int:' \
+    'cert[Specify certificate file]:certificate file:_path_files' \
+    'key[Specify key file]:key file:_path_files' \
+    'cipher[Set preferred cipher list]:ciphers:'
+  ;;
+
 hosts)
   _wanted hosts expl host \
       _combination -s '[@:]' '' users-hosts-ports \

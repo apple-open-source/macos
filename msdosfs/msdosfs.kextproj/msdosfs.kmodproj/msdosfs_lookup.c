@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -196,61 +196,67 @@ int msdosfs_unicode_to_dos_lookup(u_int16_t *unicode, size_t unichars, u_char sh
  * Assumes dep's de_lock has been acquired.
  */
 int msdosfs_lookup_name(
-	struct denode *dep,		/* parent directory */
-	struct componentname *cnp, /* the name to look up */
-	uint32_t *dirclust,		/* cluster containing short name entry */
-	uint32_t *diroffset,		/* byte offset from start of directory */
-	struct dosdirentry *direntry,	/* copy of found directory entry */
+	struct denode *dep,					/* parent directory */
+	struct componentname *cnp,			/* the name to look up */
+	uint32_t *dirclust,					/* cluster containing short name entry */
+	uint32_t *diroffset,				/* byte offset from start of directory */
+	struct dosdirentry *direntry,		/* copy of found directory entry */
+	u_int16_t *found_name,
+	u_int16_t *found_name_length,
+	boolean_t *case_folded,
 	vfs_context_t context)
 {
-	int error;
-	int chksum;			/* checksum of short name entry */
-	struct dosdirentry *dirp;
-	buf_t bp;
-	daddr64_t bn;
-	int frcn;			/* file relative cluster (within parent directory) */
-	uint32_t cluster=0;		/* physical cluster containing directory entry */
-	unsigned blkoff;			/* offset within directory block */
-	unsigned diroff=0;			/* offset from start of directory */
-	uint32_t blsize;		/* size of one directory block */
-	u_int16_t ucfn[WIN_MAXLEN];
-	u_char shortname[SHORT_NAME_LEN];
-	size_t unichars;	/* number of UTF-16 characters in original name */
-	int try_short_name;	/* If true, compare short names */
-	
+    int error;
+    int chksum;			/* checksum of short name entry */
+    struct dosdirentry *dirp;
+    buf_t bp;
+    daddr64_t bn;
+    int frcn;			/* file relative cluster (within parent directory) */
+    uint32_t cluster=0;		/* physical cluster containing directory entry */
+    unsigned blkoff;			/* offset within directory block */
+    unsigned diroff=0;			/* offset from start of directory */
+    uint32_t blsize;		/* size of one directory block */
+    u_int16_t ucfn[WIN_MAXLEN];
+    u_char shortname[SHORT_NAME_LEN];
+    size_t unichars;	/* number of UTF-16 characters in original name */
+    int try_short_name;	/* If true, compare short names */
+    boolean_t did_case_fold = FALSE;
+    
     KERNEL_DEBUG_CONSTANT(MSDOSFS_LOOKUP_NAME|DBG_FUNC_START, dep->de_pmp, dep, 0, 0, 0);
-
-	dirp = NULL;
-	chksum = -1;
-		
-	/*
-	 * Decode lookup name into UCS-2 (Unicode)
-	 */
-	error = utf8_decodestr((uint8_t *)cnp->cn_nameptr, cnp->cn_namelen, ucfn, &unichars, sizeof(ucfn), 0, UTF_PRECOMPOSED|UTF_SFM_CONVERSIONS);
-	if (error) 	goto exit;
-	unichars /= 2; /* bytes to chars */
-
-	/*
-	 * Try to convert the name to a short name.  Unlike the case of creating
-	 * a new name in the directory, allow embedded spaces and mixed case,
-	 * but do not mangle the short name.  Keep track of whether there is
-	 * a valid short name to look up.
-	 */
-	try_short_name = msdosfs_unicode_to_dos_lookup(ucfn, unichars, shortname);
-	
-	/*
-	 * Search the directory pointed at by dep for the name in ucfn.
-	 */
-
-	/*
-	 * The outer loop ranges over the clusters that make up the
-	 * directory.  Note that the root directory is different from all
-	 * other directories.  It has a fixed number of blocks that are not
-	 * part of the pool of allocatable clusters.  So, we treat it a
-	 * little differently. The root directory starts at "cluster" 0.
-	 */
-	diroff = 0;
-	for (frcn = 0; error == 0; frcn++) {
+    
+    dirp = NULL;
+    chksum = -1;
+    
+    /*
+     * Decode lookup name into UCS-2 (Unicode)
+     */
+    error = utf8_decodestr((uint8_t *)cnp->cn_nameptr, cnp->cn_namelen, ucfn, &unichars, sizeof(ucfn), 0, UTF_PRECOMPOSED|UTF_SFM_CONVERSIONS);
+    if (error) 	goto exit;
+    unichars /= 2; /* bytes to chars */
+    if (found_name_length)
+		*found_name_length = unichars;
+    
+    /*
+     * Try to convert the name to a short name.  Unlike the case of creating
+     * a new name in the directory, allow embedded spaces and mixed case,
+     * but do not mangle the short name.  Keep track of whether there is
+     * a valid short name to look up.
+     */
+    try_short_name = msdosfs_unicode_to_dos_lookup(ucfn, unichars, shortname);
+    
+    /*
+     * Search the directory pointed at by dep for the name in ucfn.
+     */
+    
+    /*
+     * The outer loop ranges over the clusters that make up the
+     * directory.  Note that the root directory is different from all
+     * other directories.  It has a fixed number of blocks that are not
+     * part of the pool of allocatable clusters.  So, we treat it a
+     * little differently. The root directory starts at "cluster" 0.
+     */
+    diroff = 0;
+    for (frcn = 0; error == 0; frcn++) {
 		error = msdosfs_pcbmap(dep, frcn, 1, &bn, &cluster, &blsize);
 		if (error) {
 			if (error == E2BIG)
@@ -263,84 +269,86 @@ int msdosfs_lookup_name(
 			break;
 		}
 		for (blkoff = 0; blkoff < blsize;
-		     blkoff += sizeof(struct dosdirentry),
-		     diroff += sizeof(struct dosdirentry))
+			 blkoff += sizeof(struct dosdirentry),
+			 diroff += sizeof(struct dosdirentry))
 		{
 			dirp = (struct dosdirentry *)((char *)buf_dataptr(bp) + blkoff);
+			
 			/*
-			 * If the slot is empty and we are still looking
-			 * for an empty then remember this one.  If the
-			 * slot is not empty then check to see if it
-			 * matches what we are looking for.  If the slot
-			 * has never been filled with anything, then the
-			 * remainder of the directory has never been used,
-			 * so there is no point in searching it.
+			 * Skip over deleted entries.
 			 */
-			if (dirp->deName[0] == SLOT_EMPTY ||
-			    dirp->deName[0] == SLOT_DELETED) {
-				/*
-				 * Drop memory of previous long matches
-				 */
-				chksum = -1;
-
-				/*
-				 * If we found SLOT_EMPTY, then we've reached a part of
-				 * the directory that has never been used, so we can
-				 * stop early.
-				 */
-				if (dirp->deName[0] == SLOT_EMPTY) {
-					error = ENOENT;
-					break;
-				}
-			} else {
-				/*
-				 * Check for Win95 long filename entry
-				 */
-				if (dirp->deAttributes == ATTR_WIN95) {
-					chksum = msdosfs_winChkName(ucfn,
-							    unichars,
-							    (struct winentry *)dirp,
-							    chksum);
-					continue;
-				}
-
-				/*
-				 * Ignore volume labels (anywhere, not just
-				 * the root directory).
-				 */
-				if (dirp->deAttributes & ATTR_VOLUME) {
-					chksum = -1;
-					continue;
-				}
-
-				/*
-				 * If we get here, we've found a short name entry.
-				 *
-				 * If there was a long name, and it matched, then verify the
-				 * checksum.  If the checksum doesn't match, then compare the
-				 * short name.
-				 */
-				if (chksum != msdosfs_winChksum(dirp->deName) &&
-					(!try_short_name || bcmp(shortname, dirp->deName, SHORT_NAME_LEN)))
-				{
-					/* No match.  Forget long name checksum, if any. */
-					chksum = -1;
-					continue;
-				}
-
-				/*
-				 * If we get here, we found a matching name.
-				 */
-				if (dirclust)
-					*dirclust = cluster;
-				if (diroffset)
-					*diroffset = diroff;
-				if (direntry)
-					*direntry = *dirp;
-				error = 0;
-				buf_brelse(bp);
-				goto exit;
+			if (dirp->deName[0] == SLOT_DELETED)
+			{
+				chksum = -1;	/* Forget previous matching long name entries. */
+				continue;
 			}
+			
+			/*
+			 * If we found an entry that has never been used, then
+			 * there is no need to search further.
+			 */
+			if (dirp->deName[0] == SLOT_EMPTY)
+			{
+				error = ENOENT;
+				break;
+			}
+			
+			/*
+			 * Check for Win95 long filename entry
+			 */
+			if (dirp->deAttributes == ATTR_WIN95) {
+				chksum = msdosfs_winChkName(ucfn, (int)unichars,
+											(struct winentry *)dirp,
+											chksum,
+											found_name, &did_case_fold);
+				continue;
+			}
+			
+			/*
+			 * Ignore volume labels (anywhere, not just
+			 * the root directory).
+			 */
+			if (dirp->deAttributes & ATTR_VOLUME) {
+				chksum = -1;
+				continue;
+			}
+			
+			/*
+			 * If we get here, we've found a short name entry.
+			 *
+			 * If there was a long name, and it matched, then verify the
+			 * checksum.  If the checksum doesn't match, then compare the
+			 * short name.
+			 */
+			if (chksum != msdosfs_winChksum(dirp->deName) &&
+				(!try_short_name || bcmp(shortname, dirp->deName, SHORT_NAME_LEN)))
+			{
+				/* No match.  Forget long name checksum, if any. */
+				chksum = -1;
+				continue;
+			}
+			
+			/* If we get here, we found a matching name. */
+			
+			/*
+			 * If we need to return the actual on-disk name, and there was no valid
+			 * long name, then convert the short name to Unicode.
+			 */
+			if (found_name && found_name_length && chksum == -1)
+			{
+				*found_name_length = msdosfs_dos2unicodefn(dirp->deName, found_name, dirp->deLowerCase);
+			}
+			
+			/* Return the location and contents of the short name entry. */
+			if (dirclust)
+				*dirclust = cluster;
+			if (diroffset)
+				*diroffset = diroff;
+			if (direntry)
+				*direntry = *dirp;
+			error = 0;
+			buf_brelse(bp);
+			goto exit;
 		}	/* for (blkoff = 0; .... */
 		
 		/*
@@ -348,11 +356,13 @@ int msdosfs_lookup_name(
 		 * searched.
 		 */
 		buf_brelse(bp);
-	}	/* for (frcn = 0; error == 0; frcn++) */
-
+    }	/* for (frcn = 0; error == 0; frcn++) */
+    
 exit:
+	if (case_folded)
+		*case_folded = did_case_fold;
     KERNEL_DEBUG_CONSTANT(MSDOSFS_LOOKUP_NAME|DBG_FUNC_END, error, cluster, diroff, 0, 0);
-	return error;
+    return error;
 }
 
 /*
@@ -397,6 +407,10 @@ int msdosfs_vnop_lookup(struct vnop_lookup_args *ap)
 	uint32_t scn;			/* starting cluster number of found item */
 	int isadir;			/* non-zero if found dosdirentry is a directory */
 	struct dosdirentry direntry;
+	u_int16_t found_name[WIN_MAXLEN];  /* TODO: Should we malloc this? */
+	u_int16_t found_name_len;
+	size_t utf8_len;
+	boolean_t case_folded;
 	
 	/*
 	 * TODO: What should we log here?  pmp, pdp, flags, nameiop?
@@ -469,7 +483,7 @@ int msdosfs_vnop_lookup(struct vnop_lookup_args *ap)
 		goto exit;	/* error must be 0 if we got here */
 	}
 	
-	error = msdosfs_lookup_name(pdp, cnp, &cluster, &diroff, &direntry, context);
+	error = msdosfs_lookup_name(pdp, cnp, &cluster, &diroff, &direntry, found_name, &found_name_len, &case_folded, context);
 
 	if (error == ENOENT)
 	{
@@ -552,8 +566,36 @@ foundroot:
 
 	/*
 	 * Return a vnode for the found directory entry.
+	 *
+	 * We construct a temporary componentname to hold the actual
+	 * on-disk name so that the on-disk name (with correct case)
+	 * gets inserted into the name cache.
 	 */
-	error = msdosfs_deget(pmp, cluster, diroff, dvp, cnp, &dp, context);
+	struct componentname found_cnp;
+	if (case_folded)
+	{
+		found_cnp = *cnp;
+		found_cnp.cn_pnlen = 1024;
+		found_cnp.cn_pnbuf = found_cnp.cn_nameptr = OSMalloc(found_cnp.cn_pnlen, msdosfs_malloc_tag);
+		if (found_cnp.cn_nameptr == NULL)
+		{
+			error = ENOMEM;
+			goto exit;
+		}
+		error = utf8_encodestr(found_name, found_name_len * 2, (u_int8_t *)found_cnp.cn_nameptr, &utf8_len, found_cnp.cn_pnlen, 0, UTF_DECOMPOSED|UTF_SFM_CONVERSIONS);
+		if (error == 0)
+		{
+			found_cnp.cn_namelen = (int)utf8_len;
+		}
+	}
+	if (error == 0)
+	{
+		error = msdosfs_deget(pmp, cluster, diroff, dvp, case_folded ? &found_cnp : cnp, &dp, context);
+	}
+	if (case_folded)
+	{
+		OSFree(found_cnp.cn_nameptr, 1024, msdosfs_malloc_tag);
+	}
 	if (error == 0)
 		*vpp = DETOV(dp);
 
@@ -604,7 +646,7 @@ int msdosfs_createde(
         diroffset = offset + sizeof(struct dosdirentry)
         		- ddep->de_FileSize;
         dirclust = de_clcount(pmp, diroffset);
-        error = msdosfs_extendfile(ddep, dirclust);
+        error = msdosfs_extendfile(ddep, dirclust, NULL);
         if (error) {
             (void)msdosfs_detrunc(ddep, ddep->de_FileSize, 0, context);
             goto done;
@@ -702,7 +744,7 @@ int msdosfs_createde(
 					panic("msdosfs_createde: long name slot in use!\n");
 			}
 			
-			if (!msdosfs_unicode2winfn(ucfn, unichars, (struct winentry *)ndep, cnt++, chksum))
+			if (!msdosfs_unicode2winfn(ucfn, (int)unichars, (struct winentry *)ndep, cnt++, chksum))
 				break;
 		}
 	}
@@ -1240,7 +1282,7 @@ int msdosfs_findslots(
 			/*
 			 * The name needs long name entries.  The +1 is for the short name entry.
 			 */
-			wincnt = msdosfs_winSlotCnt(ucfn, unichars) + 1;
+			wincnt = msdosfs_winSlotCnt(ucfn, (int)unichars) + 1;
 			break;
 	}
 

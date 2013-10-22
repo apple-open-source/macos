@@ -7,7 +7,7 @@
 		<string>-D</string>
 		<string>/Library/Server/PostgreSQL/Data</string>
 		<string>-c</string>
-		<string>unix_socket_directory=/var/pgsql_socket</string>
+		<string>unix_socket_directory=/private/var/pgsql_socket</string>
 		<string>-c</string>
 		<string>logging_collector=on</string>
 		<string>-c</string>
@@ -19,7 +19,7 @@
 		<string>-c</string>
 		<string>log_line_prefix=%t </string>
 		<string>-c</string>
-		<string>listen_addresses=</string>
+		<string>listen_addresses=127.0.0.1,::1</string>
 		<string>-c</string>
 		<string>log_directory=/Library/Logs/PostgreSQL</string>
 		<string>-c</string>

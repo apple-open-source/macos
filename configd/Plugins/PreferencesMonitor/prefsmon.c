@@ -135,7 +135,11 @@ establishNewPreferences()
 					new_key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@:%@"),
 									   old_model, existing_key);
 					SCPreferencesSetValue(prefs, new_key, value);
-					SCPreferencesRemoveValue(prefs, existing_key);
+					
+					/* Let's preserve existing host names */
+					if (!CFEqual(existing_key, kSCPrefSystem)) {
+						SCPreferencesRemoveValue(prefs, existing_key);
+					}
 					CFRelease(new_key);
 				}
 			}
@@ -144,7 +148,6 @@ establishNewPreferences()
 				CFRelease(keys);
 			}
 		}
-
 		/* Set the new model */
 		SCPreferencesSetValue(prefs, MODEL, new_model);
 	}
@@ -298,6 +301,9 @@ watchQuietEnable()
 
 	return;
 }
+
+
+
 
 static void
 watchQuietCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)

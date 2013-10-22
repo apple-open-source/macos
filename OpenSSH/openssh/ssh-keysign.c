@@ -35,9 +35,15 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#include "ossl-rand.h"
+#include "ossl-rsa.h"
+#else
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
+#endif
 
 #include "xmalloc.h"
 #include "log.h"

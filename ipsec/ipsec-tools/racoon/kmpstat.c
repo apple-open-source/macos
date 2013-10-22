@@ -39,7 +39,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include <System/net/pfkeyv2.h>
+#include <net/pfkeyv2.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -73,7 +73,6 @@
 #include "sockmisc.h"
 
 #include "racoonctl.h"
-#include "admin.h"
 #include "schedule.h"
 #include "isakmp_var.h"
 #include "isakmp.h"
@@ -84,9 +83,6 @@
 #include "oakley.h"
 #include "handler.h"
 #include "pfkey.h"
-#include "admin.h"
-#include "evt.h"
-#include "admin_var.h"
 #include "ipsec_doi.h"
 
 u_int32_t racoonctl_interface = RACOONCTL_INTERFACE;
@@ -187,21 +183,9 @@ bad1:
 /*
  * Dumb plog functions (used by sockmisc.c) 
  */
-void
-plog_func(int pri, const char *func, struct sockaddr_storage *sa, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	vprintf(fmt, ap);
-	va_end(ap);
-}
 
 void
-plogdump(pri, data, len) 
-	int pri;
-	void *data;
-	size_t len;
+plogdump_func(int pri, void *data, size_t len, const char *fmt, ...)
 {
 	return;
 }

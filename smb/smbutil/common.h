@@ -23,6 +23,9 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#include <CoreFoundation/CFDictionary.h>
+#include <CoreFoundation/CFArray.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,12 +40,16 @@ int  cmd_status(int argc, char *argv[]);
 int  cmd_view(int argc, char *argv[]);
 int  cmd_dfs(int argc, char *argv[]);
 int  cmd_identity(int argc, char *argv[]);
+int  cmd_statshares(int argc, char *argv[]);
 void lookup_usage(void);
 void status_usage(void);
 void view_usage(void);
 void dfs_usage(void);
 void identity_usage(void);
 void ntstatus_to_err(NTSTATUS status);
+void statshares_usage(void);
+struct statfs *smb_getfsstat(int *fs_cnt);
+CFArrayRef createShareArrayFromShareDictionary(CFDictionaryRef shareDict);
 	
 #ifdef __cplusplus
 } // extern "C"

@@ -13,7 +13,8 @@
 .Nm
 .Ar --master-enable | --master-disable
 .Nm
-.Ar --enable | --disable
+.Ar --enable | --disable | --remove
+.Op Fl t Ar type
 .Op Fl -path Ar path
 .Op Fl -requirement Ar requirement
 .Op Fl -anchor Ar hash
@@ -144,7 +145,7 @@ To check whether Mail.app is allowed to run on the local system:
 .Dl spctl -a /Applications/Mail.app
 .Pp
 To allow Frobozz.app to run on the local system:
-.Dl spctl --add --label \&"My Stuff\&" /Applications/Mail.app
+.Dl spctl --add --label \&"My Stuff\&" /Applications/Frobozz.app
 .Pp
 To forbid all code obtained from the Mac App Store from running:
 .Dl spctl --disable --label \&"Mac App Store\&"
@@ -154,7 +155,6 @@ exits zero on success, or one if an operation has failed.
 Exit code two indicates unrecognized or unsuitable arguments.
 If an assessment operation results in denial but no other problem has
 occurred, the exit code is three.
-.El
 .Sh SEE ALSO
 .Xr codesign 1 ,
 .Xr syspolicyd 1

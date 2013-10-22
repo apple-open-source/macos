@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,6 +68,7 @@
 #include "cfutil.h"
 #include "DHCPv6.h"
 #include "DHCPv6Options.h"
+#include "IPConfigurationControlPrefs.h"
 
 #define METHOD_LIST_V4			"BOOTP, MANUAL, DHCP, INFORM"
 #define METHOD_LIST_V4_WITH_NONE	METHOD_LIST_V4 ", NONE"
@@ -374,7 +375,7 @@ S_get_packet(mach_port_t server, int argc, char * argv[])
 	goto done;
     }
     /* ALIGN: inline_data_t is aligned at least sizeof(uint32_t) bytes */
-    dhcp_print_packet((struct dhcp *)(void *)data, data_len);
+    dhcp_packet_print((struct dhcp *)(void *)data, data_len);
     ret = 0;
 
  done:
@@ -735,9 +736,7 @@ S_set(mach_port_t server, int argc, char * argv[])
 static int
 S_set_verbose(mach_port_t server, int argc, char * argv[])
 {
-    kern_return_t		kret;
-    ipconfig_status_t		status = ipconfig_status_success_e;
-    int				verbose;
+    int			verbose;
 
     verbose = strtol(argv[0], NULL, 0);
     errno = 0;
@@ -745,14 +744,8 @@ S_set_verbose(mach_port_t server, int argc, char * argv[])
 	fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
 	return (1);
     }
-    kret = ipconfig_set_verbose(server, verbose, &status);
-    if (kret != KERN_SUCCESS) {
-	mach_error("ipconfig_set_verbose failed", kret);
-	return (1);
-    }
-    if (status != ipconfig_status_success_e) {
-	fprintf(stderr, "setverbose failed: %s\n",
-		ipconfig_status_string(status));
+    if (IPConfigurationControlPrefsSetVerbose(verbose != 0) == FALSE) {
+	fprintf(stderr, "failed to set verbose\n");
 	return (1);
     }
     return (0);
@@ -1011,7 +1004,7 @@ static const struct command_info {
       SHADOW_MOUNT_PATH_COMMAND " | " SHADOW_FILE_PATH_COMMAND
       " | " MACHINE_NAME_COMMAND, 0, 1 },
     { "netbootpacket", S_bsdp_get_packet, 0, "", 0, 1 },
-    { "setverbose", S_set_verbose, 1, "0 | 1", 1, 0 },
+    { "setverbose", S_set_verbose, 1, "0 | 1", 1, 1 },
 #ifdef IPCONFIG_TEST_NO_ENTRY
     { "setsomething", S_set_something, 1, "0 | 1", 1, 0 },
 #endif /* IPCONFIG_TEST_NO_ENTRY */

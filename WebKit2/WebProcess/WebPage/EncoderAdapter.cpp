@@ -33,8 +33,11 @@
 namespace WebKit {
 
 EncoderAdapter::EncoderAdapter()
-    : m_encoder(CoreIPC::ArgumentEncoder::create(0))
+    : m_encoder(CoreIPC::ArgumentEncoder::create())
 {
+    // Keep format compatibility by decoding an unused uint64_t value
+    // that used to be encoded by the argument encoder.
+    *m_encoder << static_cast<uint64_t>(0);
 }
 
 CoreIPC::DataReference EncoderAdapter::dataReference() const
@@ -44,47 +47,47 @@ CoreIPC::DataReference EncoderAdapter::dataReference() const
 
 void EncoderAdapter::encodeBytes(const uint8_t* bytes, size_t size)
 {
-    m_encoder->encodeVariableLengthByteArray(CoreIPC::DataReference(bytes, size));
+    *m_encoder << CoreIPC::DataReference(bytes, size);
 }
 
 void EncoderAdapter::encodeBool(bool value)
 {
-    m_encoder->encodeBool(value);
+    *m_encoder << value;
 }
 
 void EncoderAdapter::encodeUInt16(uint16_t value)
 {
-    m_encoder->encodeUInt16(value);
+    *m_encoder << value;
 }
 
 void EncoderAdapter::encodeUInt32(uint32_t value)
 {
-    m_encoder->encodeUInt32(value);
+    *m_encoder << value;
 }
 
 void EncoderAdapter::encodeUInt64(uint64_t value)
 {
-    m_encoder->encodeUInt64(value);
+    *m_encoder << value;
 }
 
 void EncoderAdapter::encodeInt32(int32_t value)
 {
-    m_encoder->encodeInt32(value);
+    *m_encoder << value;
 }
 
 void EncoderAdapter::encodeInt64(int64_t value)
 {
-    m_encoder->encodeInt64(value);
+    *m_encoder << value;
 }
 
 void EncoderAdapter::encodeFloat(float value)
 {
-    m_encoder->encodeFloat(value);
+    *m_encoder << value;
 }
 
 void EncoderAdapter::encodeDouble(double value)
 {
-    m_encoder->encodeDouble(value);
+    *m_encoder << value;
 }
 
 void EncoderAdapter::encodeString(const String& value)
@@ -97,15 +100,15 @@ void EncoderAdapter::encodeString(const String& value)
 
     // Special case the null string.
     if (value.isNull()) {
-        m_encoder->encodeUInt32(std::numeric_limits<uint32_t>::max());
+        *m_encoder << std::numeric_limits<uint32_t>::max();
         return;
     }
 
     uint32_t length = value.length();
-    m_encoder->encode(length);
+    *m_encoder << length;
 
     uint64_t lengthInBytes = length * sizeof(UChar);
-    m_encoder->encode(lengthInBytes);
+    *m_encoder << lengthInBytes;
     m_encoder->encodeFixedLengthData(reinterpret_cast<const uint8_t*>(value.characters()), length * sizeof(UChar), __alignof(UChar)); 
 }
 

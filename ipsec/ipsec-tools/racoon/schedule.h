@@ -35,54 +35,38 @@
 #define _SCHEDULE_H
 
 #include <sys/queue.h>
-#include "gnuc.h"
+#include <dispatch/dispatch.h>
+
+typedef int schedule_ref;
 
 /* scheduling table */
 /* the head is the nearest event. */
 struct sched {
-	time_t xtime;		/* event time which is as time(3). */
-				/*
-				 * if defined FIXY2038PROBLEM, this time
-				 * is from the time when called sched_init().
-				 */
-	void (*func) __P((void *)); /* call this function when timeout. */
-	void *param;		/* pointer to parameter */
-
-	int dead;		/* dead or alive */
-	long id;		/* for debug */
-	time_t created;		/* for debug */
-	time_t tick;		/* for debug */
-
+    schedule_ref ref;
+    time_t xtime;           /* event time which is as time(3). */
+	void (*func) (void *);  /* call this function when timeout. */
+	void *param;            /* pointer to parameter */
+	int dead;               /* dead or alive */
 	TAILQ_ENTRY(sched) chain;
 };
 
 /* cancel schedule */
-#define SCHED_KILL(s)                                                          \
-do {                                                                           \
-	if(s != NULL){	   														\
-		sched_kill(s);                                                         \
-		s = NULL;                                                              \
-	}\
+#define SCHED_KILL(s)               \
+do {                                \
+	if(s != 0){                     \
+		sched_kill(s);              \
+		s = 0;                      \
+	}                               \
 } while(0)
 
-/* must be called after it's called from scheduler. */
-#define SCHED_INIT(s)	(s) = NULL
-#define SELECT_SEC_MAX  86400  /* kernel's upper limit is actually 100000000 */
-#define SELECT_USEC_MAX 1000000 /* kernel's upper limit */
-
-struct scheddump {
-	time_t xtime;
-	long id;
-	time_t created;
-	time_t tick;
-};
-
-struct timeval *schedular __P((void));
-struct sched *sched_new __P((time_t, void (*func) __P((void *)), void *));
-void sched_kill __P((struct sched *));
-int sched_dump __P((caddr_t *, int *));
-void sched_init __P((void));
-void sched_scrub_param __P((void *));
-time_t current_time __P((void));
+void timer_handler (struct sched *);
+schedule_ref sched_new (time_t, void (*func) (void *), void *);
+int sched_is_dead(schedule_ref ref);
+int sched_get_time(schedule_ref ref, time_t *time);
+void sched_kill (schedule_ref);
+void sched_killall(void);
+void sched_init (void);
+void sched_scrub_param (void *);
+time_t current_time (void);
 
 #endif /* _SCHEDULE_H */

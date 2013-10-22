@@ -33,7 +33,6 @@
 #if ENABLE(MHTML)
 #include "MHTMLArchive.h"
 
-#include "Base64.h"
 #include "Document.h"
 #include "Frame.h"
 #include "MHTMLParser.h"
@@ -41,11 +40,14 @@
 #include "Page.h"
 #include "PageSerializer.h"
 #include "QuotedPrintable.h"
+#include "SchemeRegistry.h"
 #include "SharedBuffer.h"
 
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/DateMath.h>
+#include <wtf/GregorianDateTime.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/Base64.h>
 #include <wtf/text/StringBuilder.h>
 
 #if HAVE(SYS_TIME_H)
@@ -95,6 +97,12 @@ MHTMLArchive::MHTMLArchive()
 {
 }
 
+MHTMLArchive::~MHTMLArchive()
+{
+    // Because all frames know about each other we need to perform a deep clearing of the archives graph.
+    clearAllSubframeArchives();
+}
+
 PassRefPtr<MHTMLArchive> MHTMLArchive::create()
 {
     return adoptRef(new MHTMLArchive);
@@ -102,8 +110,8 @@ PassRefPtr<MHTMLArchive> MHTMLArchive::create()
 
 PassRefPtr<MHTMLArchive> MHTMLArchive::create(const KURL& url, SharedBuffer* data)
 {
-    // For security reasons we only load MHTML pages from the local file system.
-    if (!url.isLocalFile())
+    // For security reasons we only load MHTML pages from local URLs.
+    if (!SchemeRegistry::shouldTreatURLSchemeAsLocal(url.protocol()))
         return 0;
 
     MHTMLParser parser(data);
@@ -114,7 +122,7 @@ PassRefPtr<MHTMLArchive> MHTMLArchive::create(const KURL& url, SharedBuffer* dat
     // Since MHTML is a flat format, we need to make all frames aware of all resources.
     for (size_t i = 0; i < parser.frameCount(); ++i) {
         RefPtr<MHTMLArchive> archive = parser.frameAt(i);
-        for (size_t j = 0; j < parser.frameCount(); ++j) {
+        for (size_t j = 1; j < parser.frameCount(); ++j) {
             if (i != j)
                 archive->addSubframeArchive(parser.frameAt(j));
         }
@@ -143,9 +151,9 @@ PassRefPtr<SharedBuffer> MHTMLArchive::generateMHTMLData(Page* page, bool useBin
     String boundary = generateRandomBoundary();
     String endOfResourceBoundary = makeString("--", boundary, "\r\n");
 
-    tm localTM;
-    getCurrentLocalTime(&localTM);
-    String dateString = makeRFC2822DateString(localTM.tm_wday, localTM.tm_mday, localTM.tm_mon, 1900 + localTM.tm_year, localTM.tm_hour, localTM.tm_min, localTM.tm_sec, calculateUTCOffset() / (1000 * 60));
+    GregorianDateTime now;
+    now.setToCurrentLocalTime();
+    String dateString = makeRFC2822DateString(now.weekDay(), now.monthDay(), now.month(), now.year(), now.hour(), now.minute(), now.second(), now.utcOffset() / 60);
 
     StringBuilder stringBuilder;
     stringBuilder.append("From: <Saved by WebKit>\r\n");

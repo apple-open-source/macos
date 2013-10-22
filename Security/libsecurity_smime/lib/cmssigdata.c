@@ -251,6 +251,7 @@ xit:
 
 #include <Security/SecAsn1Templates.h>
 
+#ifndef NDEBUG
 static OSStatus decodeDERUTF8String(const CSSM_DATA_PTR content, char *statusstr, size_t strsz)
 {
     // The statusString should use kSecAsn1SequenceOfUTF8StringTemplate, but doesn't
@@ -273,6 +274,7 @@ xit:
         SecAsn1CoderRelease(coder);
     return status;
 }
+#endif
 
 static OSStatus validateTSAResponseAndAddTimeStamp(SecCmsSignerInfoRef signerinfo, CSSM_DATA_PTR tsaResponse,
     uint64_t expectedNonce)
@@ -282,7 +284,9 @@ static OSStatus validateTSAResponseAndAddTimeStamp(SecCmsSignerInfoRef signerinf
     SecAsn1TimeStampRespDER respDER = {{{0}},};
     SecAsn1TSAPKIStatusInfo *tsastatus = NULL;
     int respstatus = -1;
+#ifndef NDEBUG
     int failinfo = -1;
+#endif
 
     require_action(tsaResponse && tsaResponse->Data && tsaResponse->Length, xit, status = errSecTimestampMissing);
 

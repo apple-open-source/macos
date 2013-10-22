@@ -27,7 +27,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/at/at.c,v 1.29 2002/07/22 11:32:16 robert Exp $");
+__FBSDID("$FreeBSD: /usr/local/www/cvsroot/FreeBSD/src/usr.bin/at/at.c,v 1.34 2011/11/06 20:30:21 ed Exp $");
 
 #define _USE_BSD 1
 
@@ -98,20 +98,18 @@ enum { ATQ, ATRM, AT, BATCH, CAT };	/* what program we want to run */
 
 /* File scope variables */
 
-const char *no_export[] =
-{
+static const char *no_export[] = {
     "TERM", "TERMCAP", "DISPLAY", "_"
-} ;
+};
 static int send_mail = 0;
+static char *atinput = NULL;	/* where to get input from */
+static char atqueue = 0;	/* which queue to examine for jobs (atq) */
 
 /* External variables */
 
 extern char **environ;
 int fcreated;
 char atfile[] = ATJOB_DIR "12345678901234";
-
-char *atinput = (char*)0;	/* where to get input from */
-char atqueue = 0;		/* which queue to examine for jobs (atq) */
 char atverify = 0;		/* verify time instead of queuing job */
 char *namep;
 int posixly_correct;		/* Behave as per POSIX */
@@ -189,12 +187,12 @@ static char *cwdname(void)
 }
 
 static long
-nextjob()
+nextjob(void)
 {
     long jobno;
     FILE *fid;
 
-    if ((fid = fopen(ATJOB_DIR ".SEQ", "r+")) != (FILE*)0) {
+    if ((fid = fopen(ATJOB_DIR ".SEQ", "r+")) != NULL) {
 	if (fscanf(fid, "%5lx", &jobno) == 1) {
 	    rewind(fid);
 	    jobno = (1+jobno) % 0xfffff;	/* 2^20 jobs enough? */
@@ -205,7 +203,7 @@ nextjob()
 	fclose(fid);
 	return jobno;
     }
-    else if ((fid = fopen(ATJOB_DIR ".SEQ", "w")) != (FILE*)0) {
+    else if ((fid = fopen(ATJOB_DIR ".SEQ", "w")) != NULL) {
 	fprintf(fid, "%05lx\n", jobno = 1);
 	fclose(fid);
 	return 1;
@@ -659,6 +657,7 @@ process_jobs(int argc, char **argv, int what)
 			while((ch = getc(fp)) != EOF) {
 			    putchar(ch);
 			}
+			fclose(fp);
 		    }
 		    break;
 
@@ -669,6 +668,7 @@ process_jobs(int argc, char **argv, int what)
 	    }
 	}
     }
+    closedir(spool);
 } /* process_jobs */
 
 #define	ATOI2(ar)	((ar)[0] - '0') * 10 + ((ar)[1] - '0'); (ar) += 2;

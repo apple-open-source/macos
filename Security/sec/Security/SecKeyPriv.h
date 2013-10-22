@@ -36,11 +36,9 @@
 #include <Security/SecKey.h>
 #include <Security/SecAsn1Types.h>
 #include <CoreFoundation/CFRuntime.h>
-#include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CoreFoundation.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef struct __SecDERKey {
 	uint8_t             *oid;
@@ -83,6 +81,10 @@ enum {
     /* Encoding came from SecKeyCopyPublicBytes for a public key,
        or internally from a private key */
     kSecKeyEncodingBytes = 7,
+    
+    /* Handing in a private key from corecrypto directly. */
+    kSecKeyCoreCrypto = 8,
+
 };
 
 typedef OSStatus (*SecKeyInitMethod)(SecKeyRef, const uint8_t *, CFIndex,
@@ -107,7 +109,7 @@ typedef size_t (*SecKeyBlockSizeMethod)(SecKeyRef key);
 typedef CFDictionaryRef (*SecKeyCopyDictionaryMethod)(SecKeyRef key);
 typedef CFIndex (*SecKeyGetAlgorithmIDMethod)(SecKeyRef key);
 typedef OSStatus (*SecKeyCopyPublicBytesMethod)(SecKeyRef key, CFDataRef *serailziation);
-
+typedef CFStringRef (*SecKeyDescribeMethod)(SecKeyRef key);
 
 #define kSecKeyDescriptorVersion  (2)
 
@@ -142,6 +144,8 @@ typedef struct __SecKeyDescriptor {
     SecKeyBlockSizeMethod blockSize;
     /* Called by SecKeyCopyAttributeDictionary(), which is private. */
     SecKeyCopyDictionaryMethod copyDictionary;
+    /* Called by SecKeyDescribeMethod(). */
+    SecKeyDescribeMethod describe;
 #if kSecKeyDescriptorVersion > 0
     /* Called by SecKeyCopyAttributeDictionary(), which is private. */
     SecKeyGetAlgorithmIDMethod getAlgorithmID;
@@ -178,6 +182,11 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
 SecKeyRef SecKeyCreatePublicFromDER(CFAllocatorRef allocator,
     const SecAsn1Oid *oid1, const SecAsn1Item *params,
     const SecAsn1Item *keyData);
+
+/* Create public key from private key */
+SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey);
+SecKeyRef SecKeyCopyMatchingPrivateKey(SecKeyRef publicKey, CFErrorRef *error);
+CFDataRef SecKeyCreatePersistentRefToMatchingPrivateKey(SecKeyRef publicKey, CFErrorRef *error);
 
 /* Return an attribute dictionary used to store this item in a keychain. */
 CFDictionaryRef SecKeyCopyAttributeDictionary(SecKeyRef key);
@@ -222,10 +231,11 @@ OSStatus SecKeyCopyPublicBytes(SecKeyRef key, CFDataRef* serializedPublic);
 SecKeyRef SecKeyCreateFromPublicBytes(CFAllocatorRef allocator, CFIndex algorithmID, const uint8_t *keyData, CFIndex keyDataLength);
 SecKeyRef SecKeyCreateFromPublicData(CFAllocatorRef allocator, CFIndex algorithmID, CFDataRef serialized);
 
-
+CF_RETURNS_RETAINED
 CFDictionaryRef SecKeyGeneratePrivateAttributeDictionary(SecKeyRef key,
                                                          CFTypeRef keyType,
                                                          CFDataRef privateBlob);
+CF_RETURNS_RETAINED
 CFDictionaryRef SecKeyGeneratePublicAttributeDictionary(SecKeyRef key, CFTypeRef keyType);
 
 enum {
@@ -258,9 +268,28 @@ size_t SecKeyGetSize(SecKeyRef key, SecKeySize whichSize)
 __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
     
 
+/*!
+ @function SecKeyLookupPersistentRef
+ @abstract Looks up a SecKeyRef via persistent ref.
+ @param persistentRef The persistent ref data for looking up.
+ @param lookedUpData retained SecKeyRef for the found object.
+ @result Errors when using SecItemFind for the persistent ref.
+ */
+OSStatus SecKeyFindWithPersistentRef(CFDataRef persistentRef, SecKeyRef* lookedUpData)
+__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
-#if defined(__cplusplus)
-}
-#endif
+/*!
+ @function SecKeyCopyPersistentRef
+ @abstract Gets a persistent reference for a key.
+ @param key Key to make a persistent ref for.
+ @param persistentRef Allocated data representing the persistent ref.
+ @result Errors when using SecItemFind for the persistent ref.
+ */
+OSStatus SecKeyCopyPersistentRef(SecKeyRef key, CFDataRef* persistentRef)
+__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+
+
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECKEYPRIV_H_ */

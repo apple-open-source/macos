@@ -108,9 +108,9 @@ const CSSM_DATA *OCSPClientCertID::encode()
 	certID.algId.parameters.Length = sizeof(nullParam);
 
 	/* SHA1(issuerName) */
-	ocspdSha1(mIssuerName.Data, mIssuerName.Length, issuerNameHash);
+	ocspdSha1(mIssuerName.Data, (CC_LONG)mIssuerName.Length, issuerNameHash);
 	/* SHA1(issuer public key) */
-	ocspdSha1(mIssuerPubKey.Data, mIssuerPubKey.Length, pubKeyHash);
+	ocspdSha1(mIssuerPubKey.Data, (CC_LONG)mIssuerPubKey.Length, pubKeyHash);
 	
 	/* build the CertID from those components */
 	certID.issuerNameHash.Data = issuerNameHash;
@@ -171,11 +171,11 @@ bool OCSPClientCertID::compareToExist(
 	}
 	
 	/* generate digests using exist's hash algorithm */
-	hf(mIssuerName.Data, mIssuerName.Length, digest);
+	hf(mIssuerName.Data, (CC_LONG)mIssuerName.Length, digest);
 	if(!ocspdCompareCssmData(&digestData, &exist.issuerNameHash)) {
 		return false;
 	}
-	hf(mIssuerPubKey.Data, mIssuerPubKey.Length, digest);
+	hf(mIssuerPubKey.Data, (CC_LONG)mIssuerPubKey.Length, digest);
 	if(!ocspdCompareCssmData(&digestData, &exist.issuerPubKeyHash)) {
 		return false;
 	}
@@ -260,11 +260,13 @@ OCSPSingleResponse::~OCSPSingleResponse()
 }
 
 /*** Extensions-specific accessors ***/
+#if 0 /* unused ? */
 const CSSM_DATA *OCSPSingleResponse::*crlUrl()
 {
 	/* TBD */
 	return NULL;
 }
+#endif
 
 const CSSM_DATA *OCSPSingleResponse::crlNum()
 {

@@ -27,9 +27,7 @@
 #ifndef _SECURITY_P12IMPORT_H_
 #define _SECURITY_P12IMPORT_H_
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef enum {
     p12_noErr = 0,
@@ -45,8 +43,6 @@ typedef struct {
 
 p12_error p12decode(pkcs12_context * context, CFDataRef cdpfx);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_P12IMPORT_H_ */

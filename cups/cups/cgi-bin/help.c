@@ -1,5 +1,5 @@
 /*
- * "$Id$"
+ * "$Id: help.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Online help CGI for CUPS.
  *
@@ -393,5 +393,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id$".
+ * End of "$Id: help.c 11093 2013-07-03 20:48:42Z msweet $".
  */

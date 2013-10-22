@@ -27,18 +27,19 @@
 #import "Editor.h"
 
 #import "ColorMac.h"
-#import "ClipboardMac.h"
+#import "Clipboard.h"
 #import "CachedResourceLoader.h"
 #import "DocumentFragment.h"
 #import "DOMRangeInternal.h"
-#import "EditingText.h"
 #import "Editor.h"
 #import "EditorClient.h"
+#import "Font.h"
 #import "Frame.h"
 #import "FrameView.h"
 #import "HTMLConverter.h"
 #import "HTMLNames.h"
 #import "LegacyWebArchive.h"
+#import "NodeTraversal.h"
 #import "Pasteboard.h"
 #import "PasteboardStrategy.h"
 #import "PlatformStrategies.h"
@@ -46,6 +47,8 @@
 #import "RenderBlock.h"
 #import "RuntimeApplicationChecks.h"
 #import "Sound.h"
+#import "StylePropertySet.h"
+#import "Text.h"
 #import "TypingCommand.h"
 #import "htmlediting.h"
 #import "WebNSAttributedStringExtras.h"
@@ -53,12 +56,6 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-
-PassRefPtr<Clipboard> Editor::newGeneralClipboard(ClipboardAccessPolicy policy, Frame* frame)
-{
-    return ClipboardMac::create(Clipboard::CopyAndPaste,
-        policy == ClipboardWritable ? platformStrategies()->pasteboardStrategy()->uniqueName() : String(NSGeneralPboard), policy, ClipboardMac::CopyAndPasteGeneric, frame);
-}
 
 void Editor::showFontPanel()
 {
@@ -80,8 +77,8 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, bool allowPlainText)
     RefPtr<Range> range = selectedRange();
     bool choosePlainText;
     
-    m_frame->editor()->client()->setInsertionPasteboard(NSGeneralPboard);
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    m_frame->editor().client()->setInsertionPasteboard(NSGeneralPboard);
+#if PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     RefPtr<DocumentFragment> fragment = pasteboard->documentFragment(m_frame, range, allowPlainText, choosePlainText);
     if (fragment && shouldInsertFragment(fragment, range, EditorInsertActionPasted))
         pasteAsFragment(fragment, canSmartReplaceWithPasteboard(pasteboard), false);
@@ -100,7 +97,7 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, bool allowPlainText)
             pasteAsFragment(fragment, canSmartReplaceWithPasteboard(pasteboard), false);
     }
 #endif
-    m_frame->editor()->client()->setInsertionPasteboard(String());
+    m_frame->editor().client()->setInsertionPasteboard(String());
 }
 
 bool Editor::insertParagraphSeparatorInQuotedContent()
@@ -151,22 +148,20 @@ const SimpleFontData* Editor::fontForSelection(bool& hasMultipleFonts) const
         if (style)
             result = style->font().primaryFont();
 
-        if (nodeToRemove) {
-            ExceptionCode ec;
-            nodeToRemove->remove(ec);
-            ASSERT(!ec);
-        }
+        if (nodeToRemove)
+            nodeToRemove->remove(ASSERT_NO_EXCEPTION);
 
         return result;
     }
 
     const SimpleFontData* font = 0;
     RefPtr<Range> range = m_frame->selection()->toNormalizedRange();
-    if (Node* startNode = adjustedSelectionStartForStyleComputation(m_frame->selection()->selection()).deprecatedNode()) {
+    Node* startNode = adjustedSelectionStartForStyleComputation(m_frame->selection()->selection()).deprecatedNode();
+    if (range && startNode) {
         Node* pastEnd = range->pastLastNode();
         // In the loop below, n should eventually match pastEnd and not become nil, but we've seen at least one
         // unreproducible case where this didn't happen, so check for null also.
-        for (Node* node = startNode; node && node != pastEnd; node = node->traverseNextNode()) {
+        for (Node* node = startNode; node && node != pastEnd; node = NodeTraversal::next(node)) {
             RenderObject* renderer = node->renderer();
             if (!renderer)
                 continue;
@@ -204,15 +199,15 @@ NSDictionary* Editor::fontAttributesForSelectionStart() const
 
     const ShadowData* shadow = style->textShadow();
     if (shadow) {
-        NSShadow* s = [[NSShadow alloc] init];
-        [s setShadowOffset:NSMakeSize(shadow->x(), shadow->y())];
-        [s setShadowBlurRadius:shadow->blur()];
-        [s setShadowColor:nsColor(shadow->color())];
-        [result setObject:s forKey:NSShadowAttributeName];
+        RetainPtr<NSShadow> s = adoptNS([[NSShadow alloc] init]);
+        [s.get() setShadowOffset:NSMakeSize(shadow->x(), shadow->y())];
+        [s.get() setShadowBlurRadius:shadow->radius()];
+        [s.get() setShadowColor:nsColor(shadow->color())];
+        [result setObject:s.get() forKey:NSShadowAttributeName];
     }
 
     int decoration = style->textDecorationsInEffect();
-    if (decoration & LINE_THROUGH)
+    if (decoration & TextDecorationLineThrough)
         [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSStrikethroughStyleAttributeName];
 
     int superscriptInt = 0;
@@ -236,49 +231,11 @@ NSDictionary* Editor::fontAttributesForSelectionStart() const
     if (superscriptInt)
         [result setObject:[NSNumber numberWithInt:superscriptInt] forKey:NSSuperscriptAttributeName];
 
-    if (decoration & UNDERLINE)
+    if (decoration & TextDecorationUnderline)
         [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
 
-    if (nodeToRemove) {
-        ExceptionCode ec = 0;
-        nodeToRemove->remove(ec);
-        ASSERT(ec == 0);
-    }
-
-    return result;
-}
-
-NSWritingDirection Editor::baseWritingDirectionForSelectionStart() const
-{
-    NSWritingDirection result = NSWritingDirectionLeftToRight;
-
-    Position pos = m_frame->selection()->selection().visibleStart().deepEquivalent();
-    Node* node = pos.deprecatedNode();
-    if (!node)
-        return result;
-
-    RenderObject* renderer = node->renderer();
-    if (!renderer)
-        return result;
-
-    if (!renderer->isBlockFlow()) {
-        renderer = renderer->containingBlock();
-        if (!renderer)
-            return result;
-    }
-
-    RenderStyle* style = renderer->style();
-    if (!style)
-        return result;
-        
-    switch (style->direction()) {
-        case LTR:
-            result = NSWritingDirectionLeftToRight;
-            break;
-        case RTL:
-            result = NSWritingDirectionRightToLeft;
-            break;
-    }
+    if (nodeToRemove)
+        nodeToRemove->remove(ASSERT_NO_EXCEPTION);
 
     return result;
 }
@@ -299,13 +256,13 @@ void Editor::takeFindStringFromSelection()
     Vector<String> types;
     types.append(String(NSStringPboardType));
     platformStrategies()->pasteboardStrategy()->setTypes(types, NSFindPboard);
-    platformStrategies()->pasteboardStrategy()->setStringForType(m_frame->displayStringModifiedByEncoding(selectedText()), NSStringPboardType, NSFindPboard);
+    platformStrategies()->pasteboardStrategy()->setStringForType(m_frame->displayStringModifiedByEncoding(selectedTextForClipboard()), NSStringPboardType, NSFindPboard);
 }
 
 void Editor::writeSelectionToPasteboard(const String& pasteboardName, const Vector<String>& pasteboardTypes)
 {
     Pasteboard pasteboard(pasteboardName);
-    pasteboard.writeSelectionForTypes(pasteboardTypes, true, m_frame);
+    pasteboard.writeSelectionForTypes(pasteboardTypes, true, m_frame, DefaultSelectedTextType);
 }
     
 void Editor::readSelectionFromPasteboard(const String& pasteboardName)
@@ -317,9 +274,20 @@ void Editor::readSelectionFromPasteboard(const String& pasteboardName)
         pasteAsPlainTextWithPasteboard(&pasteboard);   
 }
 
+// FIXME: Makes no sense that selectedTextForClipboard always includes alt text, but stringSelectionForPasteboard does not.
+// This was left in a bad state when selectedTextForClipboard was added. Need to look over clients and fix this.
 String Editor::stringSelectionForPasteboard()
 {
-    return Pasteboard::getStringSelection(m_frame);
+    String text = selectedText();
+    text.replace(noBreakSpace, ' ');
+    return text;
+}
+
+String Editor::stringSelectionForPasteboardWithImageAltText()
+{
+    String text = selectedTextForClipboard();
+    text.replace(noBreakSpace, ' ');
+    return text;
 }
 
 PassRefPtr<SharedBuffer> Editor::dataSelectionForPasteboard(const String& pasteboardType)

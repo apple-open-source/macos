@@ -114,7 +114,7 @@ CheckDeviceName(const char *name) {
  */
 static int
 CheckUserName(const char *name, int asString, uid_t *uidp) {
-	unsigned long uid;
+	uid_t uid;
 	struct passwd *pwd;
 
 	if (!asString) {
@@ -147,7 +147,7 @@ CheckUserName(const char *name, int asString, uid_t *uidp) {
  */
 static int
 CheckGroupName(const char *name, int asString, gid_t *gidp) {
-	unsigned long uid;
+	gid_t uid;
 	struct group *grp;
 
 	if (!asString) {
@@ -338,7 +338,7 @@ parseProperty(const char *term, CFStringRef *namePtr, CFTypeRef *valuePtr) {
 	char *tag;
 	char *value = strdup(term);
 	char *endptr;
-	int tInt = -1;
+	unsigned int tInt = -1;
 	char forceInt = 0;
 	char forceString = 0;
 

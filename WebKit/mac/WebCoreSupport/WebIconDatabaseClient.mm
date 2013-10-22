@@ -29,17 +29,9 @@
 #import "WebIconDatabaseClient.h"
 
 #import "WebIconDatabaseInternal.h"
-#import <WebCore/PlatformString.h>
+#import <wtf/text/WTFString.h>
 
 #if ENABLE(ICONDATABASE)
-
-bool WebIconDatabaseClient::performImport()
-{
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    bool result = importToWebCoreFormat();
-    [pool drain];
-    return result;
-}
 
 void WebIconDatabaseClient::didRemoveAllIcons()
 {

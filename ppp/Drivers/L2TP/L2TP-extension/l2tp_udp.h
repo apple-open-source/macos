@@ -28,7 +28,7 @@
 
 int l2tp_udp_init();
 int l2tp_udp_dispose();
-int l2tp_udp_attach(socket_t *so, struct sockaddr *addr, int *thread, int nocksum);
+int l2tp_udp_attach(socket_t *so, struct sockaddr *addr, int *thread, int nocksum, int delegated_process);
 int l2tp_udp_detach(socket_t so, int thread);
 int l2tp_udp_setpeer(socket_t so, struct sockaddr *addr);
 int l2tp_udp_output(socket_t so, int thread, mbuf_t m, struct sockaddr* to);

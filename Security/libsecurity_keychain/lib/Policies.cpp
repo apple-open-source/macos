@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2002-2004,2012 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -33,16 +33,17 @@
 #define MAX_OID_SIZE				32
 
 //%%FIXME: need to use a common copy of this utility function
+static
 CFStringRef SecDERItemCopyOIDDecimalRepresentation(uint8 *oid, size_t oidLen)
 {
 	if (oidLen == 0)
-        return CFSTR("<NULL>");
-	
+		return CFSTR("<NULL>");
+
 	if (oidLen > MAX_OID_SIZE)
-        return CFSTR("Oid too long");
-	
-    CFMutableStringRef result = CFStringCreateMutable(kCFAllocatorDefault, 0);
-	
+		return CFSTR("Oid too long");
+
+	CFMutableStringRef result = CFStringCreateMutable(kCFAllocatorDefault, 0);
+
 	// The first two levels are encoded into one byte, since the root level
 	// has only 3 nodes (40*x + y).  However if x = joint-iso-itu-t(2) then
 	// y may be > 39, so we have to add special-case handling for this.
@@ -54,17 +55,17 @@ CFStringRef SecDERItemCopyOIDDecimalRepresentation(uint8 *oid, size_t oidLen)
 		y += (x - 2) * 40;
 		x = 2;
 	}
-    CFStringAppendFormat(result, NULL, CFSTR("%u.%u"), x, y);
-	
-	uint32_t value = 0;
+	CFStringAppendFormat(result, NULL, CFSTR("%u.%u"), x, y);
+
+	unsigned long value = 0;
 	for (x = 1; x < oidLen; ++x)
 	{
 		value = (value << 7) | (oid[x] & 0x7F);
-        /* @@@ value may not span more than 4 bytes. */
-        /* A max number of 20 values is allowed. */
+		/* @@@ value may not span more than 4 bytes. */
+		/* A max number of 20 values is allowed. */
 		if (!(oid[x] & 0x80))
 		{
-            CFStringAppendFormat(result, NULL, CFSTR(".%lu"), value);
+			CFStringAppendFormat(result, NULL, CFSTR(".%lu"), value);
 			value = 0;
 		}
 	}
@@ -80,7 +81,7 @@ Policy::Policy(TP supportingTp, const CssmOid &policyOid)
       mValue(Allocator::standard()),
       mAuxValue(Allocator::standard())
 {
-    // value is as yet unimplemented
+	// value is as yet unimplemented
 	secdebug("policy", "Policy() this %p", this);
 }
 
@@ -92,18 +93,18 @@ Policy::~Policy() throw()
 void Policy::setValue(const CssmData &value)
 {
 	StLock<Mutex>_(mMutex);
-    mValue = value;
-    mAuxValue.reset();
+	mValue = value;
+	mAuxValue.reset();
 
-    // Certain policy values may contain an embedded pointer. Ask me how I feel about that.
-    if (mOid == CSSMOID_APPLE_TP_SSL ||
-        mOid == CSSMOID_APPLE_TP_EAP ||
-        mOid == CSSMOID_APPLE_TP_IP_SEC ||
-        mOid == CSSMOID_APPLE_TP_APPLEID_SHARING)
-    {
-        CSSM_APPLE_TP_SSL_OPTIONS *opts = (CSSM_APPLE_TP_SSL_OPTIONS *)value.data();
-        if (opts->Version == CSSM_APPLE_TP_SSL_OPTS_VERSION)
-        {
+	// Certain policy values may contain an embedded pointer. Ask me how I feel about that.
+	if (mOid == CSSMOID_APPLE_TP_SSL ||
+		mOid == CSSMOID_APPLE_TP_EAP ||
+		mOid == CSSMOID_APPLE_TP_IP_SEC ||
+		mOid == CSSMOID_APPLE_TP_APPLEID_SHARING)
+	{
+		CSSM_APPLE_TP_SSL_OPTIONS *opts = (CSSM_APPLE_TP_SSL_OPTIONS *)value.data();
+		if (opts->Version == CSSM_APPLE_TP_SSL_OPTS_VERSION)
+		{
 			if (opts->ServerNameLen > 0)
 			{
 				// Copy auxiliary data, then update the embedded pointer to reference our copy
@@ -118,12 +119,13 @@ void Policy::setValue(const CssmData &value)
 					reinterpret_cast<char*>(NULL);
 			}
 		}
-    }
-    else if (mOid == CSSMOID_APPLE_TP_SMIME ||
-             mOid == CSSMOID_APPLE_TP_ICHAT)
-    {
-        CSSM_APPLE_TP_SMIME_OPTIONS *opts = (CSSM_APPLE_TP_SMIME_OPTIONS *)value.data();
-        if (opts->Version == CSSM_APPLE_TP_SMIME_OPTS_VERSION)
+	}
+	else if (mOid == CSSMOID_APPLE_TP_SMIME ||
+			mOid == CSSMOID_APPLE_TP_ICHAT ||
+			mOid == CSSMOID_APPLE_TP_PASSBOOK_SIGNING)
+	{
+		CSSM_APPLE_TP_SMIME_OPTIONS *opts = (CSSM_APPLE_TP_SMIME_OPTIONS *)value.data();
+		if (opts->Version == CSSM_APPLE_TP_SMIME_OPTS_VERSION)
 		{
 			if (opts->SenderEmailLen > 0)
 			{
@@ -139,17 +141,20 @@ void Policy::setValue(const CssmData &value)
 					reinterpret_cast<char*>(NULL);
 			}
 		}
-    }
+	}
 }
 
 void Policy::setProperties(CFDictionaryRef properties)
 {
 	// Set the policy value based on the provided dictionary keys.
+	if (properties == NULL)
+		return;
+
 	if (mOid == CSSMOID_APPLE_TP_SSL ||
-        mOid == CSSMOID_APPLE_TP_EAP ||
-        mOid == CSSMOID_APPLE_TP_IP_SEC ||
+		mOid == CSSMOID_APPLE_TP_EAP ||
+		mOid == CSSMOID_APPLE_TP_IP_SEC ||
 		mOid == CSSMOID_APPLE_TP_APPLEID_SHARING)
-    {
+	{
 		CSSM_APPLE_TP_SSL_OPTIONS options = { CSSM_APPLE_TP_SSL_OPTS_VERSION, 0, NULL, 0 };
 		char *buf = NULL;
 		CFStringRef nameStr = NULL;
@@ -158,7 +163,7 @@ void Policy::setProperties(CFDictionaryRef properties)
 			if (buf) {
 				if (CFStringGetCString(nameStr, buf, MAXPATHLEN, kCFStringEncodingUTF8)) {
 					options.ServerName = buf;
-					options.ServerNameLen = strlen(buf)+1; // include terminating null
+					options.ServerNameLen = (unsigned)(strlen(buf)+1); // include terminating null
 				}
 			}
 		}
@@ -172,9 +177,10 @@ void Policy::setProperties(CFDictionaryRef properties)
 
 		if (buf) free(buf);
 	}
-    else if (mOid == CSSMOID_APPLE_TP_SMIME ||
-             mOid == CSSMOID_APPLE_TP_ICHAT)
-    {
+	else if (mOid == CSSMOID_APPLE_TP_SMIME ||
+			mOid == CSSMOID_APPLE_TP_ICHAT ||
+			mOid == CSSMOID_APPLE_TP_PASSBOOK_SIGNING)
+	{
 		CSSM_APPLE_TP_SMIME_OPTIONS options = { CSSM_APPLE_TP_SMIME_OPTS_VERSION, 0, 0, NULL };
 		char *buf = NULL;
 		CFStringRef nameStr = NULL;
@@ -182,8 +188,20 @@ void Policy::setProperties(CFDictionaryRef properties)
 			buf = (char *)malloc(MAXPATHLEN);
 			if (buf) {
 				if (CFStringGetCString(nameStr, buf, MAXPATHLEN, kCFStringEncodingUTF8)) {
+					CFStringRef teamIDStr = NULL;
+					if (CFDictionaryGetValueIfPresent(properties, (const void *)kSecPolicyTeamIdentifier, (const void **)&teamIDStr)) {
+						char *buf2 = (char *)malloc(MAXPATHLEN);
+						if (buf2) {
+							if (CFStringGetCString(teamIDStr, buf2, MAXPATHLEN, kCFStringEncodingUTF8)) {
+								/* append tab separator and team identifier */
+								strlcat(buf, "\t", MAXPATHLEN);
+								strlcat(buf, buf2, MAXPATHLEN);
+							}
+							free(buf2);
+						}
+					}
 					options.SenderEmail = buf;
-					options.SenderEmailLen = strlen(buf)+1; // include terminating null
+					options.SenderEmailLen = (unsigned)(strlen(buf)+1); // include terminating null
 				}
 			}
 		}
@@ -221,35 +239,47 @@ void Policy::setProperties(CFDictionaryRef properties)
 
 		if (buf) free(buf);
     }
-	
+
 }
 
 CFDictionaryRef Policy::properties()
 {
 	// Builds and returns a dictionary which the caller must release.
-	CSSM_DATA value = this->value();
 	CFMutableDictionaryRef properties = CFDictionaryCreateMutable(NULL, 0,
 		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	if (!properties) return NULL;
-	
+
 	// kSecPolicyOid
 	CFStringRef oidStr = SecDERItemCopyOIDDecimalRepresentation((uint8*)mOid.data(), mOid.length());
 	if (oidStr) {
 		CFDictionarySetValue(properties, (const void *)kSecPolicyOid, (const void *)oidStr);
 		CFRelease(oidStr);
 	}
-	
+
 	// kSecPolicyName
-    if (mAuxValue) {
+	if (mAuxValue) {
 		CFStringRef nameStr = CFStringCreateWithBytes(NULL,
 			(const UInt8 *)reinterpret_cast<char*>(mAuxValue.data()),
 			(CFIndex)mAuxValue.length(), kCFStringEncodingUTF8, false);
 		if (nameStr) {
-			CFDictionarySetValue(properties, (const void *)kSecPolicyName, (const void *)nameStr);
+			if (mOid == CSSMOID_APPLE_TP_PASSBOOK_SIGNING) {
+				CFArrayRef strs = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, nameStr, CFSTR("\t"));
+				if (strs) {
+					CFIndex count = CFArrayGetCount(strs);
+					if (count > 0)
+						CFDictionarySetValue(properties, (const void *)kSecPolicyName, (const void *)CFArrayGetValueAtIndex(strs, 0));
+					if (count > 1)
+						CFDictionarySetValue(properties, (const void *)kSecPolicyTeamIdentifier, (const void *)CFArrayGetValueAtIndex(strs, 1));
+					CFRelease(strs);
+				}
+			}
+			else {
+				CFDictionarySetValue(properties, (const void *)kSecPolicyName, (const void *)nameStr);
+			}
 			CFRelease(nameStr);
 		}
 	}
-	
+
 	// kSecPolicyClient
 	if (mValue) {
 		if (mOid == CSSMOID_APPLE_TP_SSL ||
@@ -263,7 +293,7 @@ CFDictionaryRef Policy::properties()
 			}
 		}
 	}
-	
+
 	// key usage flags (currently only for S/MIME and iChat policies)
 	if (mValue) {
 		if (mOid == CSSMOID_APPLE_TP_SMIME ||
@@ -298,16 +328,11 @@ CFDictionaryRef Policy::properties()
 bool Policy::operator < (const Policy& other) const
 {
     //@@@ inefficient
-    return oid() < other.oid() ||
-        oid() == other.oid() && value() < other.value();
+    return (oid() < other.oid()) ||
+        (oid() == other.oid() && value() < other.value());
 }
 
 bool Policy::operator == (const Policy& other) const
 {
     return oid() == other.oid() && value() == other.value();
-}
-
-bool Policy::equal(SecCFObject &other)
-{
-    return (*this) == (const Policy &)other;
 }

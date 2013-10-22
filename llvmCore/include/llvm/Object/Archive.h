@@ -22,6 +22,7 @@ namespace llvm {
 namespace object {
 
 class Archive : public Binary {
+  virtual void anchor();
 public:
   class Child {
     const Archive *Parent;
@@ -32,6 +33,10 @@ public:
 
     bool operator ==(const Child &other) const {
       return (Parent == other.Parent) && (Data.begin() == other.Data.begin());
+    }
+
+    bool operator <(const Child &other) const {
+      return Data.begin() < other.Data.begin();
     }
 
     Child getNext() const;
@@ -62,6 +67,10 @@ public:
 
     bool operator!=(const child_iterator &other) const {
       return !(*this == other);
+    }
+
+    bool operator <(const child_iterator &other) const {
+      return child < other.child;
     }
 
     child_iterator& operator++() {  // Preincrement
@@ -122,7 +131,7 @@ public:
   // Cast methods.
   static inline bool classof(Archive const *v) { return true; }
   static inline bool classof(Binary const *v) {
-    return v->getType() == Binary::isArchive;
+    return v->isArchive();
   }
 
 private:

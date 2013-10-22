@@ -29,9 +29,11 @@
 #import "Logging.h"
 #import "PDFKitImports.h"
 #import "PrintInfo.h"
+#import "ShareableBitmap.h"
 #import "WebData.h"
 #import "WebPageProxy.h"
 #import <PDFKit/PDFKit.h>
+#import <WebCore/GraphicsContext.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/MainThread.h>
 
@@ -194,8 +196,8 @@ static BOOL isForcingPreviewUpdate;
 - (uint64_t)_expectedPreviewCallbackForRect:(const IntRect&)rect
 {
     for (HashMap<uint64_t, WebCore::IntRect>::iterator iter = _expectedPreviewCallbacks.begin(); iter != _expectedPreviewCallbacks.end(); ++iter) {
-        if (iter->second  == rect)
-            return iter->first;
+        if (iter->value  == rect)
+            return iter->key;
     }
     return 0;
 }
@@ -204,6 +206,35 @@ struct IPCCallbackContext {
     RetainPtr<WKPrintingView> view;
     uint64_t callbackID;
 };
+
+static void pageDidDrawToImage(const ShareableBitmap::Handle& imageHandle, WKErrorRef, void* untypedContext)
+{
+    ASSERT(isMainThread());
+
+    OwnPtr<IPCCallbackContext> context = adoptPtr(static_cast<IPCCallbackContext*>(untypedContext));
+    WKPrintingView *view = context->view.get();
+
+    // If the user has already changed print setup, then this response is obsolete. And if this callback is not in response to the latest request,
+    // then the user has already moved to another page - we'll cache the response, but won't draw it.
+    HashMap<uint64_t, WebCore::IntRect>::iterator iter = view->_expectedPreviewCallbacks.find(context->callbackID);
+    if (iter != view->_expectedPreviewCallbacks.end()) {
+        ASSERT([view _isPrintingPreview]);
+
+        if (!imageHandle.isNull()) {
+            RefPtr<ShareableBitmap> image = ShareableBitmap::create(imageHandle, SharedMemory::ReadOnly);
+
+            if (image)
+                view->_pagePreviews.add(iter->value, image);
+        }
+
+        view->_expectedPreviewCallbacks.remove(context->callbackID);
+        bool receivedResponseToLatestRequest = view->_latestExpectedPreviewCallback == context->callbackID;
+        if (receivedResponseToLatestRequest) {
+            view->_latestExpectedPreviewCallback = 0;
+            [view _updatePreview];
+        }
+    }
+}
 
 static void pageDidDrawToPDF(WKDataRef dataRef, WKErrorRef, void* untypedContext)
 {
@@ -221,24 +252,6 @@ static void pageDidDrawToPDF(WKDataRef dataRef, WKErrorRef, void* untypedContext
             view->_printedPagesData.append(data->bytes(), data->size());
         view->_expectedPrintCallback = 0;
         view->_printingCallbackCondition.signal();
-    } else {
-        // If the user has already changed print setup, then this response is obsolete. And this callback is not in response to the latest request,
-        // then the user has already moved to another page - we'll cache the response, but won't draw it.
-        HashMap<uint64_t, WebCore::IntRect>::iterator iter = view->_expectedPreviewCallbacks.find(context->callbackID);
-        if (iter != view->_expectedPreviewCallbacks.end()) {
-            ASSERT([view _isPrintingPreview]);
-
-            if (data) {
-                HashMap<WebCore::IntRect, Vector<uint8_t> >::AddResult entry = view->_pagePreviews.add(iter->second, Vector<uint8_t>());
-                entry.iterator->second.append(data->bytes(), data->size());
-            }
-            view->_expectedPreviewCallbacks.remove(context->callbackID);
-            bool receivedResponseToLatestRequest = view->_latestExpectedPreviewCallback == context->callbackID;
-            if (receivedResponseToLatestRequest) {
-                view->_latestExpectedPreviewCallback = 0;
-                [view _updatePreview];
-            }
-        }
     }
 }
 
@@ -459,13 +472,15 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
 {
     ASSERT(isMainThread());
 
-    IntRect rect(nsRect);
-    rect.scale(1 / _totalScaleFactorForPrinting);
-    HashMap<WebCore::IntRect, Vector<uint8_t> >::iterator pagePreviewIterator = _pagePreviews.find(rect);
+    IntRect scaledPrintingRect(nsRect);
+    scaledPrintingRect.scale(1 / _totalScaleFactorForPrinting);
+    IntSize imageSize(nsRect.size);
+    imageSize.scale(_webFrame->page()->deviceScaleFactor());
+    HashMap<WebCore::IntRect, RefPtr<ShareableBitmap>>::iterator pagePreviewIterator = _pagePreviews.find(scaledPrintingRect);
     if (pagePreviewIterator == _pagePreviews.end())  {
         // It's too early to ask for page preview if we don't even know page size and scale.
         if ([self _hasPageRects]) {
-            if (uint64_t existingCallback = [self _expectedPreviewCallbackForRect:rect]) {
+            if (uint64_t existingCallback = [self _expectedPreviewCallbackForRect:scaledPrintingRect]) {
                 // We've already asked for a preview of this page, and are waiting for response.
                 // There is no need to ask again.
                 _latestExpectedPreviewCallback = existingCallback;
@@ -478,14 +493,14 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
                 _webFrame->page()->beginPrinting(_webFrame.get(), PrintInfo([_printOperation printInfo]));
 
                 IPCCallbackContext* context = new IPCCallbackContext;
-                RefPtr<DataCallback> callback = DataCallback::create(context, pageDidDrawToPDF);
+                RefPtr<ImageCallback> callback = ImageCallback::create(context, pageDidDrawToImage);
                 _latestExpectedPreviewCallback = callback->callbackID();
-                _expectedPreviewCallbacks.add(_latestExpectedPreviewCallback, rect);
+                _expectedPreviewCallbacks.add(_latestExpectedPreviewCallback, scaledPrintingRect);
 
                 context->view = self;
                 context->callbackID = callback->callbackID();
 
-                _webFrame->page()->drawRectToPDF(_webFrame.get(), PrintInfo([_printOperation printInfo]), rect, callback.get());
+                _webFrame->page()->drawRectToImage(_webFrame.get(), PrintInfo([_printOperation printInfo]), scaledPrintingRect, imageSize, callback.get());
                 return;
             }
         }
@@ -494,11 +509,13 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
         return;
     }
 
-    const Vector<uint8_t>& pdfDataBytes = pagePreviewIterator->second;
-    RetainPtr<NSData> pdfData(AdoptNS, [[NSData alloc] initWithBytes:pdfDataBytes.data() length:pdfDataBytes.size()]);
-    RetainPtr<PDFDocument> pdfDocument(AdoptNS, [[pdfDocumentClass() alloc] initWithData:pdfData.get()]);
+    RefPtr<ShareableBitmap> bitmap = pagePreviewIterator->value;
+    CGContextRef cgContext = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
 
-    [self _drawPDFDocument:pdfDocument.get() page:0 atPoint:NSMakePoint(nsRect.origin.x, nsRect.origin.y)];
+    GraphicsContext context(cgContext);
+    GraphicsContextStateSaver stateSaver(context);
+
+    bitmap->paint(context, _webFrame->page()->deviceScaleFactor(), IntPoint(nsRect.origin), bitmap->bounds());
 }
 
 - (void)drawRect:(NSRect)nsRect
@@ -519,8 +536,8 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
     ASSERT(!_printedPagesData.isEmpty()); // Prepared by knowsPageRange:
 
     if (!_printedPagesPDFDocument) {
-        RetainPtr<NSData> pdfData(AdoptNS, [[NSData alloc] initWithBytes:_printedPagesData.data() length:_printedPagesData.size()]);
-        _printedPagesPDFDocument.adoptNS([[pdfDocumentClass() alloc] initWithData:pdfData.get()]);
+        RetainPtr<NSData> pdfData = adoptNS([[NSData alloc] initWithBytes:_printedPagesData.data() length:_printedPagesData.size()]);
+        _printedPagesPDFDocument = adoptNS([[pdfDocumentClass() alloc] initWithData:pdfData.get()]);
     }
 
     unsigned printedPageNumber = [self _pageForRect:nsRect] - [self _firstPrintedPageNumber];

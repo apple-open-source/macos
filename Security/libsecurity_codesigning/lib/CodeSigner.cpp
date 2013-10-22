@@ -26,8 +26,6 @@
 //
 #include "CodeSigner.h"
 #include "signer.h"
-#include "reqparser.h"
-#include "renum.h"
 #include "csdatabase.h"
 #include "drmaker.h"
 #include "csutilities.h"
@@ -66,7 +64,7 @@ public:
 // Construct a SecCodeSigner
 //
 SecCodeSigner::SecCodeSigner(SecCSFlags flags)
-	: mOpFlags(flags), mRequirements(NULL), mDigestAlgorithm(kSecCodeSignatureDefaultDigestAlgorithm)
+	: mOpFlags(flags), mDigestAlgorithm(kSecCodeSignatureDefaultDigestAlgorithm)
 {
 }
 
@@ -76,7 +74,6 @@ SecCodeSigner::SecCodeSigner(SecCSFlags flags)
 //
 SecCodeSigner::~SecCodeSigner() throw()
 try {
-	::free((Requirements *)mRequirements);
 } catch (...) {
 	return;
 }
@@ -110,6 +107,8 @@ bool SecCodeSigner::valid() const
 //
 void SecCodeSigner::sign(SecStaticCode *code, SecCSFlags flags)
 {
+	if (code->isSigned() && (flags & kSecCSSignPreserveSignature))
+		return;
 	Signer operation(*this, code);
 	if ((flags | mOpFlags) & kSecCSRemoveSignature) {
 		secdebug("signer", "%p will remove signature from %p", this, code);
@@ -139,7 +138,8 @@ void SecCodeSigner::returnDetachedSignature(BlobCore *blob, Signer &signer)
 		CFDataAppendBytes(CFMutableDataRef(mDetached.get()),
 			(const UInt8 *)blob, blob->length());
 	} else if (CFGetTypeID(mDetached) == CFNullGetTypeID()) {
-		signatureDatabaseWriter().storeCode(blob, signer.path().c_str());
+		SignatureDatabaseWriter db;
+		db.storeCode(blob, signer.path().c_str());
 	} else
 		assert(false);
 }
@@ -161,6 +161,11 @@ string SecCodeSigner::sdkPath(const std::string &path) const
 bool SecCodeSigner::isAdhoc() const
 {
 	return mSigner == SecIdentityRef(kCFNull);
+}
+
+SecCSFlags SecCodeSigner::signingFlags() const
+{
+	return mOpFlags;
 }
 
 
@@ -195,6 +200,13 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	else
 		state.mCMSSize = 9000;	// likely big enough
 
+	// metadata preservation options
+	if (CFNumberRef preserve = get<CFNumberRef>(kSecCodeSignerPreserveMetadata)) {
+		state.mPreserveMetadata = cfNumber<uint32_t>(preserve);
+	} else
+		state.mPreserveMetadata = 0;
+
+
 	// signing time can be a CFDateRef or null
 	if (CFTypeRef time = get<CFTypeRef>(kSecCodeSignerSigningTime)) {
 		if (CFGetTypeID(time) == CFDateGetTypeID() || time == kCFNull)
@@ -209,14 +221,12 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	if (CFStringRef prefix = get<CFStringRef>(kSecCodeSignerIdentifierPrefix))
 		state.mIdentifierPrefix = cfString(prefix);
 	
-	// requirements can be binary or string (to be compiled)
+	// Requirements can be binary or string (to be compiled).
+	// We must pass them along to the signer for possible text substitution
 	if (CFTypeRef reqs = get<CFTypeRef>(kSecCodeSignerRequirements)) {
-		if (CFGetTypeID(reqs) == CFDataGetTypeID()) {		// binary form
-			const Requirements *rp = (const Requirements *)CFDataGetBytePtr(CFDataRef(reqs));
-			state.mRequirements = rp->clone();
-		} else if (CFGetTypeID(reqs) == CFStringGetTypeID()) { // text form
-			state.mRequirements = parseRequirements(cfString(CFStringRef(reqs)));
-		} else
+		if (CFGetTypeID(reqs) == CFDataGetTypeID() || CFGetTypeID(reqs) == CFStringGetTypeID())
+			state.mRequirements = reqs;
+		else
 			MacOSError::throwMe(errSecCSInvalidObjectRef);
 	} else
 		state.mRequirements = NULL;

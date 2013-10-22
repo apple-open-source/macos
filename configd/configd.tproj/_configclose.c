@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,8 +35,6 @@
 
 #include "configd.h"
 #include "session.h"
-
-#define	N_QUICK	16
 
 static Boolean
 isMySessionKey(CFStringRef sessionKey, CFStringRef key)

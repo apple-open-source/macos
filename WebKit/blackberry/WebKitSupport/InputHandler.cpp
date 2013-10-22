@@ -22,15 +22,18 @@
 #include "BackingStore.h"
 #include "BackingStoreClient.h"
 #include "CSSStyleDeclaration.h"
-#include "CString.h"
 #include "Chrome.h"
+#include "ColorPickerClient.h"
 #include "DOMSupport.h"
+#include "DatePickerClient.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
+#include "EditorClientBlackBerry.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptGroupElement.h"
@@ -48,41 +51,62 @@
 #include "RenderText.h"
 #include "RenderTextControl.h"
 #include "RenderWidget.h"
+#include "RenderedDocumentMarker.h"
 #include "ScopePointer.h"
+#include "SelectPopupClient.h"
 #include "SelectionHandler.h"
+#include "SpellChecker.h"
+#include "SpellingHandler.h"
+#include "SuggestionBoxHandler.h"
+#include "TextCheckerClient.h"
 #include "TextIterator.h"
+#include "VisiblePosition.h"
+#include "VisibleUnits.h"
+#include "WebKitThreadViewportAccessor.h"
 #include "WebPageClient.h"
 #include "WebPage_p.h"
 #include "WebSettings.h"
+#include "htmlediting.h"
 
+#include <BlackBerryPlatformDeviceInfo.h>
+#include <BlackBerryPlatformIMF.h>
 #include <BlackBerryPlatformKeyboardEvent.h>
-#include <BlackBerryPlatformMisc.h>
+#include <BlackBerryPlatformLog.h>
+#include <BlackBerryPlatformScreen.h>
 #include <BlackBerryPlatformSettings.h>
-#include <imf/events.h>
+#include <cmath>
 #include <sys/keycodes.h>
+#include <wtf/text/CString.h>
 
 #define ENABLE_INPUT_LOG 0
 #define ENABLE_FOCUS_LOG 0
-
-static const unsigned MaxLearnTextDataSize = 500;
+#define ENABLE_SPELLING_LOG 0
 
 using namespace BlackBerry::Platform;
 using namespace WebCore;
 
 #if ENABLE_INPUT_LOG
-#define InputLog(severity, format, ...) logAlways(severity, format, ## __VA_ARGS__)
+#define InputLog(severity, format, ...) Platform::logAlways(severity, format, ## __VA_ARGS__)
 #else
 #define InputLog(severity, format, ...)
 #endif // ENABLE_INPUT_LOG
 
 #if ENABLE_FOCUS_LOG
-#define FocusLog(severity, format, ...) logAlways(severity, format, ## __VA_ARGS__)
+#define FocusLog(severity, format, ...) Platform::logAlways(severity, format, ## __VA_ARGS__)
 #else
 #define FocusLog(severity, format, ...)
 #endif // ENABLE_FOCUS_LOG
 
+#if ENABLE_SPELLING_LOG
+#define SpellingLog(severity, format, ...) Platform::logAlways(severity, format, ## __VA_ARGS__)
+#else
+#define SpellingLog(severity, format, ...)
+#endif // ENABLE_SPELLING_LOG
+
 namespace BlackBerry {
 namespace WebKit {
+
+static const float zoomAnimationThreshold = 0.5;
 
 class ProcessingChangeGuard {
 public:
@@ -109,20 +133,35 @@ private:
 InputHandler::InputHandler(WebPagePrivate* page)
     : m_webPage(page)
     , m_currentFocusElement(0)
+    , m_previousFocusableTextElement(0)
+    , m_nextFocusableTextElement(0)
+    , m_hasSubmitButton(false)
     , m_inputModeEnabled(false)
     , m_processingChange(false)
-    , m_changingFocus(false)
+    , m_shouldEnsureFocusTextElementVisibleOnSelectionChanged(false)
     , m_currentFocusElementType(TextEdit)
     , m_currentFocusElementTextEditMask(DEFAULT_STYLE)
     , m_composingTextStart(0)
     , m_composingTextEnd(0)
     , m_pendingKeyboardVisibilityChange(NoChange)
     , m_delayKeyboardVisibilityChange(false)
+    , m_sendFormStateOnNextKeyboardRequest(false)
+    , m_request(0)
+    , m_processingTransactionId(-1)
+    , m_shouldNotifyWebView(true)
+    , m_expectedKeyUpChar(0)
+    , m_didSpellCheckWord(false)
+    , m_spellingHandler(new SpellingHandler(this))
+    , m_spellCheckStatusConfirmed(false)
+    , m_globalSpellCheckStatus(false)
+    , m_minimumSpellCheckingRequestSequence(-1)
+    , m_elementTouchedIsCrossFrame(false)
 {
 }
 
 InputHandler::~InputHandler()
 {
+    delete m_spellingHandler;
 }
 
 static BlackBerryInputType convertInputType(const HTMLInputElement* inputElement)
@@ -133,7 +172,7 @@ static BlackBerryInputType convertInputType(const HTMLInputElement* inputElement
         return InputTypeSearch;
     if (inputElement->isEmailField())
         return InputTypeEmail;
-    if (inputElement->isMonthControl())
+    if (inputElement->isMonthField())
         return InputTypeMonth;
     if (inputElement->isNumberField())
         return InputTypeNumber;
@@ -145,13 +184,13 @@ static BlackBerryInputType convertInputType(const HTMLInputElement* inputElement
     if (inputElement->isColorControl())
         return InputTypeColor;
 #endif
-    if (inputElement->isDateControl())
+    if (inputElement->isDateField())
         return InputTypeDate;
-    if (inputElement->isDateTimeControl())
+    if (inputElement->isDateTimeField())
         return InputTypeDateTime;
-    if (inputElement->isDateTimeLocalControl())
+    if (inputElement->isDateTimeLocalField())
         return InputTypeDateTimeLocal;
-    if (inputElement->isTimeControl())
+    if (inputElement->isTimeField())
         return InputTypeTime;
     // FIXME: missing WEEK popup selector
     if (DOMSupport::elementIdOrNameIndicatesEmail(inputElement))
@@ -166,7 +205,7 @@ static BlackBerryInputType convertInputType(const HTMLInputElement* inputElement
     return InputTypeText;
 }
 
-static int inputStyle(BlackBerryInputType type, const Element* element)
+static int64_t inputStyle(BlackBerryInputType type, const Element* element)
 {
     switch (type) {
     case InputTypeEmail:
@@ -175,28 +214,38 @@ static int inputStyle(BlackBerryInputType type, const Element* element)
     case InputTypeText:
     case InputTypeTextArea:
         {
-            // Regular input mode, disable help if autocomplete is off.
-            int imfMask = 0;
             DOMSupport::AttributeState autoCompleteState = DOMSupport::elementSupportsAutocomplete(element);
-            if (autoCompleteState == DOMSupport::Off)
-                imfMask = NO_AUTO_TEXT | NO_PREDICTION;
-            else if (autoCompleteState != DOMSupport::On
-                     && DOMSupport::elementIdOrNameIndicatesNoAutocomplete(element))
-                imfMask = NO_AUTO_TEXT | NO_PREDICTION;
+            DOMSupport::AttributeState autoCorrectState = DOMSupport::elementSupportsAutocorrect(element);
 
-            // Disable autocorrection if it's specifically off, of if it is in default mode
-            // and we have disabled auto text and prediction.
-            if (DOMSupport::elementSupportsAutocorrect(element) == DOMSupport::Off
-                || (imfMask && DOMSupport::elementSupportsAutocorrect(element) == DOMSupport::Default))
-                imfMask |= NO_AUTO_CORRECTION;
-
-            if (imfMask)
-                return imfMask;
-            if ((type == InputTypeEmail || type == InputTypeURL) && autoCompleteState != DOMSupport::On)
+            // Autocomplete disabled explicitly.
+            if (autoCompleteState == DOMSupport::Off) {
+                if (autoCorrectState == DOMSupport::On)
+                    return NO_PREDICTION;
                 return NO_AUTO_TEXT | NO_PREDICTION | NO_AUTO_CORRECTION;
-            break;
+            }
+
+            // Autocomplete enabled explicitly.
+            if (autoCompleteState == DOMSupport::On) {
+                if (autoCorrectState == DOMSupport::Off)
+                    return NO_AUTO_TEXT | NO_AUTO_CORRECTION;
+                return DEFAULT_STYLE;
+            }
+
+            // Check for reserved strings and known types.
+            if (type == InputTypeEmail || type == InputTypeURL || DOMSupport::elementIdOrNameIndicatesNoAutocomplete(element)) {
+                if (autoCorrectState == DOMSupport::On)
+                    return NO_PREDICTION;
+                return NO_AUTO_TEXT | NO_PREDICTION | NO_AUTO_CORRECTION;
+            }
+
+            // Autocomplete state wasn't provided if it is a text area or autocorrect is on, apply support.
+            if (autoCorrectState == DOMSupport::On || (type == InputTypeTextArea && autoCorrectState != DOMSupport::Off))
+                return DEFAULT_STYLE;
+
+            // Single line text input, without special features explicitly turned on or a textarea
+            // with autocorrect disabled explicitly. Only enable predictions.
+            return NO_AUTO_TEXT | NO_AUTO_CORRECTION;
         }
-    case InputTypeIsIndex:
     case InputTypePassword:
     case InputTypeNumber:
     case InputTypeTelephone:
@@ -209,6 +258,148 @@ static int inputStyle(BlackBerryInputType type, const Element* element)
     return DEFAULT_STYLE;
 }
 
+static VirtualKeyboardType convertInputTypeToVKBType(BlackBerryInputType inputType)
+{
+    switch (inputType) {
+    case InputTypeURL:
+        return VKBTypeUrl;
+    case InputTypeEmail:
+        return VKBTypeEmail;
+    case InputTypeTelephone:
+        return VKBTypePhone;
+    case InputTypePassword:
+        return VKBTypePassword;
+    case InputTypeNumber:
+    case InputTypeHexadecimal:
+        return VKBTypePin;
+    default:
+        // All other types are text based use default keyboard.
+        return VKBTypeDefault;
+    }
+}
+
+static VirtualKeyboardType convertStringToKeyboardType(const AtomicString& string)
+{
+    DEFINE_STATIC_LOCAL(AtomicString, Default, ("default"));
+    DEFINE_STATIC_LOCAL(AtomicString, Url, ("url"));
+    DEFINE_STATIC_LOCAL(AtomicString, Email, ("email"));
+    DEFINE_STATIC_LOCAL(AtomicString, Password, ("password"));
+    DEFINE_STATIC_LOCAL(AtomicString, Web, ("web"));
+    DEFINE_STATIC_LOCAL(AtomicString, Number, ("number"));
+    DEFINE_STATIC_LOCAL(AtomicString, Symbol, ("symbol"));
+    DEFINE_STATIC_LOCAL(AtomicString, Phone, ("phone"));
+    DEFINE_STATIC_LOCAL(AtomicString, Pin, ("pin"));
+    DEFINE_STATIC_LOCAL(AtomicString, Hex, ("hexadecimal"));
+
+    if (string.isEmpty())
+        return VKBTypeNotSet;
+    if (equalIgnoringCase(string, Default))
+        return VKBTypeDefault;
+    if (equalIgnoringCase(string, Url))
+        return VKBTypeUrl;
+    if (equalIgnoringCase(string, Email))
+        return VKBTypeEmail;
+    if (equalIgnoringCase(string, Password))
+        return VKBTypePassword;
+    if (equalIgnoringCase(string, Web))
+        return VKBTypeWeb;
+    if (equalIgnoringCase(string, Number))
+        return VKBTypeNumPunc;
+    if (equalIgnoringCase(string, Symbol))
+        return VKBTypeSymbol;
+    if (equalIgnoringCase(string, Phone))
+        return VKBTypePhone;
+    if (equalIgnoringCase(string, Pin) || equalIgnoringCase(string, Hex))
+        return VKBTypePin;
+    return VKBTypeNotSet;
+}
+
+static VirtualKeyboardType keyboardTypeAttribute(const WebCore::Element* element)
+{
+    DEFINE_STATIC_LOCAL(QualifiedName, keyboardTypeAttr, (nullAtom, "data-blackberry-virtual-keyboard-type", nullAtom));
+
+    if (element->fastHasAttribute(keyboardTypeAttr)) {
+        AtomicString attributeString = element->fastGetAttribute(keyboardTypeAttr);
+        return convertStringToKeyboardType(attributeString);
+    }
+
+    if (element->isFormControlElement()) {
+        const HTMLFormControlElement* formElement = static_cast<const HTMLFormControlElement*>(element);
+        if (formElement->form() && formElement->form()->fastHasAttribute(keyboardTypeAttr)) {
+            AtomicString attributeString = formElement->form()->fastGetAttribute(keyboardTypeAttr);
+            return convertStringToKeyboardType(attributeString);
+        }
+    }
+
+    return VKBTypeNotSet;
+}
+
+static VirtualKeyboardEnterKeyType convertStringToKeyboardEnterKeyType(const AtomicString& string)
+{
+    DEFINE_STATIC_LOCAL(AtomicString, Default, ("default"));
+    DEFINE_STATIC_LOCAL(AtomicString, Connect, ("connect"));
+    DEFINE_STATIC_LOCAL(AtomicString, Done, ("done"));
+    DEFINE_STATIC_LOCAL(AtomicString, Go, ("go"));
+    DEFINE_STATIC_LOCAL(AtomicString, Join, ("join"));
+    DEFINE_STATIC_LOCAL(AtomicString, Next, ("next"));
+    DEFINE_STATIC_LOCAL(AtomicString, Search, ("search"));
+    DEFINE_STATIC_LOCAL(AtomicString, Send, ("send"));
+    DEFINE_STATIC_LOCAL(AtomicString, Submit, ("submit"));
+
+    if (string.isEmpty())
+        return VKBEnterKeyNotSet;
+    if (equalIgnoringCase(string, Default))
+        return VKBEnterKeyDefault;
+    if (equalIgnoringCase(string, Connect))
+        return VKBEnterKeyConnect;
+    if (equalIgnoringCase(string, Done))
+        return VKBEnterKeyDone;
+    if (equalIgnoringCase(string, Go))
+        return VKBEnterKeyGo;
+    if (equalIgnoringCase(string, Join))
+        return VKBEnterKeyJoin;
+    if (equalIgnoringCase(string, Next))
+        return VKBEnterKeyNext;
+    if (equalIgnoringCase(string, Search))
+        return VKBEnterKeySearch;
+    if (equalIgnoringCase(string, Send))
+        return VKBEnterKeySend;
+    if (equalIgnoringCase(string, Submit))
+        return VKBEnterKeySubmit;
+    return VKBEnterKeyNotSet;
+}
+
+static VirtualKeyboardEnterKeyType keyboardEnterKeyTypeAttribute(const WebCore::Element* element)
+{
+    DEFINE_STATIC_LOCAL(QualifiedName, keyboardEnterKeyTypeAttr, (nullAtom, "data-blackberry-virtual-keyboard-enter-key", nullAtom));
+
+    if (element->fastHasAttribute(keyboardEnterKeyTypeAttr)) {
+        AtomicString attributeString = element->fastGetAttribute(keyboardEnterKeyTypeAttr);
+        return convertStringToKeyboardEnterKeyType(attributeString);
+    }
+
+    if (element->isFormControlElement()) {
+        const HTMLFormControlElement* formElement = static_cast<const HTMLFormControlElement*>(element);
+        if (formElement->form() && formElement->form()->fastHasAttribute(keyboardEnterKeyTypeAttr)) {
+            AtomicString attributeString = formElement->form()->fastGetAttribute(keyboardEnterKeyTypeAttr);
+            return convertStringToKeyboardEnterKeyType(attributeString);
+        }
+    }
+
+    return VKBEnterKeyNotSet;
+}
+
+void InputHandler::setProcessingChange(bool processingChange)
+{
+    if (processingChange == m_processingChange)
+        return;
+
+    m_processingChange = processingChange;
+
+    if (!m_processingChange)
+        m_webPage->m_selectionHandler->inputHandlerDidFinishProcessingChange();
+}
+
 WTF::String InputHandler::elementText()
 {
     if (!isActiveTextEdit())
@@ -219,12 +410,6 @@ WTF::String InputHandler::elementText()
 
 BlackBerryInputType InputHandler::elementType(Element* element) const
 {
-    // <isIndex> is bundled with input so we need to check the formControlName
-    // first to differentiate it from input which is essentially the same as
-    // isIndex has been deprecated.
-    if (element->formControlName() == HTMLNames::isindexTag)
-        return InputTypeIsIndex;
-
     if (const HTMLInputElement* inputElement = static_cast<const HTMLInputElement*>(element->toInputElement()))
         return convertInputType(inputElement);
 
@@ -242,7 +427,7 @@ void InputHandler::focusedNodeChanged()
     if (!frame || !frame->document())
         return;
 
-    Node* node = frame->document()->focusedNode();
+    Node* node = frame->document()->focusedElement();
 
     if (isActiveTextEdit() && m_currentFocusElement == node) {
         notifyClientOfKeyboardVisibilityChange(true);
@@ -250,17 +435,20 @@ void InputHandler::focusedNodeChanged()
     }
 
     if (node && node->isElementNode()) {
-        Element* element = static_cast<Element*>(node);
+        Element* element = toElement(node);
         if (DOMSupport::isElementTypePlugin(element)) {
             setPluginFocused(element);
             return;
         }
 
-        if (DOMSupport::isTextBasedContentEditableElement(element)) {
+        if (DOMSupport::isTextBasedContentEditableElement(element) && !DOMSupport::isElementReadOnly(element)) {
             // Focused node is a text based input field, textarea or content editable field.
             setElementFocused(element);
             return;
         }
+    } else if (node && DOMSupport::isTextBasedContentEditableElement(node->parentElement()) && !DOMSupport::isElementReadOnly(node->parentElement())) {
+        setElementFocused(node->parentElement());
+        return;
     }
 
     if (isActiveTextEdit() && m_currentFocusElement->isContentEditable()) {
@@ -284,8 +472,10 @@ void InputHandler::focusedNodeChanged()
         // top level parent of this object's content editable state without actually modifying
         // this particular object.
         // Example site: html5demos.com/contentEditable - blur event triggers focus change.
-        if (frame == m_webPage->focusedOrMainFrame() && frame->selection()->start().anchorNode()
-            && frame->selection()->start().anchorNode()->isContentEditable())
+        if (frame == m_webPage->focusedOrMainFrame()
+            && frame->selection()->start().anchorNode()
+            && frame->selection()->start().anchorNode()->isContentEditable()
+            && !m_elementTouchedIsCrossFrame)
                 return;
     }
 
@@ -304,27 +494,30 @@ void InputHandler::setPluginFocused(Element* element)
     m_currentFocusElement = element;
 }
 
-static bool convertStringToWchar(const String& string, wchar_t* dest, int destCapacity, int* destLength)
+static bool convertStringToWchar(const WTF::String& string, wchar_t* dest, int destCapacity, int* destLength)
 {
     ASSERT(dest);
 
-    if (!string.length()) {
+    int length = string.length();
+
+    if (!length) {
         destLength = 0;
         return true;
     }
 
     UErrorCode ec = U_ZERO_ERROR;
+
     // wchar_t strings sent to IMF are 32 bit so casting to UChar32 is safe.
-    u_strToUTF32(reinterpret_cast<UChar32*>(dest), destCapacity, destLength, string.characters(), string.length(), &ec);
+    u_strToUTF32(reinterpret_cast<UChar32*>(dest), destCapacity, destLength, string.characters(), length, &ec);
     if (ec) {
-        InputLog(LogLevelInfo, "InputHandler::convertStringToWchar Error converting string ec (%d).", ec);
+        Platform::logAlways(Platform::LogLevelCritical, "InputHandler::convertStringToWchar Error converting string ec (%d).", ec);
         destLength = 0;
         return false;
     }
     return true;
 }
 
-static bool convertStringToWcharVector(const String& string, WTF::Vector<wchar_t>& wcharString)
+static bool convertStringToWcharVector(const WTF::String& string, WTF::Vector<wchar_t>& wcharString)
 {
     ASSERT(wcharString.isEmpty());
 
@@ -333,7 +526,7 @@ static bool convertStringToWcharVector(const String& string, WTF::Vector<wchar_t
         return true;
 
     if (!wcharString.tryReserveCapacity(length + 1)) {
-        logAlways(LogLevelWarn, "InputHandler::convertStringToWcharVector Cannot allocate memory for string.\n");
+        Platform::logAlways(Platform::LogLevelCritical, "InputHandler::convertStringToWcharVector Cannot allocate memory for string.");
         return false;
     }
 
@@ -345,16 +538,16 @@ static bool convertStringToWcharVector(const String& string, WTF::Vector<wchar_t
     return true;
 }
 
-static String convertSpannableStringToString(spannable_string_t* src)
+static WTF::String convertSpannableStringToString(spannable_string_t* src)
 {
     if (!src || !src->str || !src->length)
-        return String();
+        return WTF::String();
 
     WTF::Vector<UChar> dest;
     int destCapacity = (src->length * 2) + 1;
     if (!dest.tryReserveCapacity(destCapacity)) {
-        logAlways(LogLevelWarn, "InputHandler::convertSpannableStringToString Cannot allocate memory for string.\n");
-        return String();
+        Platform::logAlways(Platform::LogLevelCritical, "InputHandler::convertSpannableStringToString Cannot allocate memory for string.");
+        return WTF::String();
     }
 
     int destLength = 0;
@@ -362,11 +555,11 @@ static String convertSpannableStringToString(spannable_string_t* src)
     // wchar_t strings sent from IMF are 32 bit so casting to UChar32 is safe.
     u_strFromUTF32(dest.data(), destCapacity, &destLength, reinterpret_cast<UChar32*>(src->str), src->length, &ec);
     if (ec) {
-        InputLog(LogLevelInfo, "InputHandler::convertSpannableStringToString Error converting string ec (%d).", ec);
-        return String();
+        Platform::logAlways(Platform::LogLevelCritical, "InputHandler::convertSpannableStringToString Error converting string ec (%d).", ec);
+        return WTF::String();
     }
     dest.resize(destLength);
-    return String(dest.data(), destLength);
+    return WTF::String(dest.data(), destLength);
 }
 
 void InputHandler::sendLearnTextDetails(const WTF::String& string)
@@ -387,9 +580,11 @@ void InputHandler::learnText()
     if (m_currentFocusElementTextEditMask & NO_PREDICTION || m_currentFocusElementTextEditMask & NO_AUTO_TEXT)
         return;
 
-    String textInField(elementText());
-    textInField = textInField.substring(std::max(0, static_cast<int>(textInField.length() - MaxLearnTextDataSize)), textInField.length());
-    textInField.remove(0, textInField.find(" "));
+    WTF::String textInField(elementText());
+    if (textInField.length() >= MaxLearnTextDataSize)
+        textInField = textInField.substring(std::max(0, static_cast<int>(caretPosition() - MaxLearnTextDataSize)), std::min(textInField.length(), MaxLearnTextDataSize));
+
+    textInField = textInField.stripWhiteSpace();
 
     // Build up the 500 character strings in word chunks.
     // Spec says 1000, but memory corruption has been observed.
@@ -398,14 +593,276 @@ void InputHandler::learnText()
     if (textInField.isEmpty())
         return;
 
-    InputLog(LogLevelInfo, "InputHandler::learnText '%s'", textInField.latin1().data());
+    InputLog(Platform::LogLevelInfo, "InputHandler::learnText '%s'", textInField.latin1().data());
     sendLearnTextDetails(textInField);
+}
+
+void InputHandler::callRequestCheckingFor(PassRefPtr<WebCore::SpellCheckRequest> spellCheckRequest)
+{
+    if (SpellChecker* spellChecker = getSpellChecker())
+        spellChecker->requestCheckingFor(spellCheckRequest);
+}
+
+void InputHandler::requestCheckingOfString(PassRefPtr<WebCore::SpellCheckRequest> spellCheckRequest)
+{
+    SpellingLog(Platform::LogLevelInfo, "InputHandler::requestCheckingOfString '%s'", spellCheckRequest->data().text().latin1().data());
+
+    if (!spellCheckRequest) {
+        SpellingLog(Platform::LogLevelWarn, "InputHandler::requestCheckingOfString did not receive a valid request.");
+        return;
+    }
+
+    if (spellCheckRequest->data().sequence() <= m_minimumSpellCheckingRequestSequence) {
+        SpellingLog(Platform::LogLevelWarn, "InputHandler::requestCheckingOfString rejecting stale request with sequenceId=%d. Sentinal currently at %d."
+            , spellCheckRequest->data().sequence(), m_minimumSpellCheckingRequestSequence);
+        spellCheckRequest->didCancel();
+        return;
+    }
+
+    unsigned requestLength = spellCheckRequest->data().text().length();
+
+    // Check if the field should be spellchecked.
+    if (!isActiveTextEdit() || !shouldSpellCheckElement(m_currentFocusElement.get()) || requestLength < 2) {
+        SpellingLog(Platform::LogLevelWarn, "InputHandler::requestCheckingOfString request cancelled");
+        spellCheckRequest->didCancel();
+        return;
+    }
+
+    if (requestLength >= MaxSpellCheckingStringLength) {
+        // Cancel this request and send it off in newly created chunks.
+        spellCheckRequest->didCancel();
+        m_spellingHandler->spellCheckTextBlock(m_currentFocusElement.get(), TextCheckingProcessIncremental);
+        return;
+    }
+
+    wchar_t* checkingString = (wchar_t*)malloc(sizeof(wchar_t) * (requestLength + 1));
+    if (!checkingString) {
+        Platform::logAlways(Platform::LogLevelCritical, "InputHandler::requestCheckingOfString Cannot allocate memory for string.");
+        spellCheckRequest->didCancel();
+        return;
+    }
+
+    int paragraphLength = 0;
+    if (!convertStringToWchar(spellCheckRequest->data().text(), checkingString, requestLength + 1, &paragraphLength)) {
+        Platform::logAlways(Platform::LogLevelCritical, "InputHandler::requestCheckingOfString Failed to convert String to wchar type.");
+        free(checkingString);
+        spellCheckRequest->didCancel();
+        return;
+    }
+
+    m_processingTransactionId = m_webPage->m_client->checkSpellingOfStringAsync(checkingString, static_cast<unsigned>(paragraphLength));
+    free(checkingString);
+
+    // If the call to the input service did not go through, then cancel the request so we don't block endlessly.
+    // This should still take transactionId as a parameter to maintain the same behavior as if InputMethodSupport
+    // were to cancel a request during processing.
+    if (m_processingTransactionId == -1) { // Error before sending request to input service.
+        spellCheckRequest->didCancel();
+        return;
+    }
+
+    m_request = spellCheckRequest;
+}
+
+void InputHandler::spellCheckingRequestProcessed(int32_t transactionId, spannable_string_t* spannableString)
+{
+#if !ENABLE_SPELLING_LOG
+    UNUSED_PARAM(transactionId)
+#endif
+
+    SpellingLog(Platform::LogLevelWarn,
+        "InputHandler::spellCheckingRequestProcessed Expected transaction id %d, received %d. %s",
+        m_processingTransactionId,
+        transactionId,
+        transactionId == m_processingTransactionId ? "" : "We are out of sync with input service.");
+
+    if (!spannableString
+        || !isActiveTextEdit()
+        || !DOMSupport::elementHasContinuousSpellCheckingEnabled(m_currentFocusElement)
+        || !m_processingTransactionId
+        || !m_request) {
+        SpellingLog(Platform::LogLevelWarn, "InputHandler::spellCheckingRequestProcessed Cancelling request with transactionId %d.", transactionId);
+        if (m_request) {
+            m_request->didCancel();
+            m_request = 0;
+        }
+        m_processingTransactionId = -1;
+        return;
+    }
+
+    Vector<TextCheckingResult> results;
+
+    // Convert the spannableString to TextCheckingResult then append to results vector.
+    WTF::String replacement;
+    TextCheckingResult textCheckingResult;
+    textCheckingResult.type = TextCheckingTypeSpelling;
+    textCheckingResult.replacement = replacement;
+    textCheckingResult.location = 0;
+    textCheckingResult.length = 0;
+
+    span_t* span = spannableString->spans;
+    for (unsigned i = 0; i < spannableString->spans_count; i++) {
+        if (!span)
+            break;
+        if (span->end < span->start) {
+            m_request->didCancel();
+            m_request = 0;
+            return;
+        }
+        if (span->attributes_mask & MISSPELLED_WORD_ATTRIB) {
+            textCheckingResult.location = span->start;
+            // The end point includes the character that it is before. Ie, 0, 0
+            // applies to the first character as the end point includes the character
+            // at the position. This means the endPosition is always +1.
+            textCheckingResult.length = span->end - span->start + 1;
+            results.append(textCheckingResult);
+        }
+        span++;
+    }
+
+    // free data that we malloc'ed in InputMethodSupport
+    free(spannableString->spans);
+    free(spannableString);
+
+    m_request->didSucceed(results);
+    m_request = 0;
+}
+
+SpellChecker* InputHandler::getSpellChecker()
+{
+    if (!m_currentFocusElement || !m_currentFocusElement->document())
+        return 0;
+
+    if (Frame* frame = m_currentFocusElement->document()->frame())
+        if (Editor* editor = frame->editor())
+            return editor->spellChecker();
+
+    return 0;
+}
+
+bool InputHandler::shouldRequestSpellCheckingOptionsForPoint(const Platform::IntPoint& documentContentPosition, const Element* touchedElement, imf_sp_text_t& spellCheckingOptionRequest)
+{
+    if (!isActiveTextEdit())
+        return false;
+
+    Element* currentFocusElement = m_currentFocusElement.get();
+    if (!currentFocusElement || !currentFocusElement->isElementNode())
+        return false;
+
+    while (!currentFocusElement->isRootEditableElement()) {
+        Element* parentElement = currentFocusElement->parentElement();
+        if (!parentElement)
+            break;
+        currentFocusElement = parentElement;
+    }
+
+    if (touchedElement != currentFocusElement)
+        return false;
+
+    LayoutPoint contentPos(documentContentPosition);
+    contentPos = DOMSupport::convertPointToFrame(m_webPage->mainFrame(), m_webPage->focusedOrMainFrame(), roundedIntPoint(contentPos));
+
+    Document* document = currentFocusElement->document();
+    ASSERT(document);
+
+    RenderedDocumentMarker* marker = document->markers()->renderedMarkerContainingPoint(contentPos, DocumentMarker::Spelling);
+    if (!marker)
+        return false;
+
+    m_didSpellCheckWord = true;
+
+    // Populate the marker details in preparation for the request as the marker is
+    // not guaranteed to be valid after the cursor is placed.
+    spellCheckingOptionRequest.startTextPosition = marker->startOffset();
+    spellCheckingOptionRequest.endTextPosition = marker->endOffset();
+
+    m_spellCheckingOptionsRequest.startTextPosition = 0;
+    m_spellCheckingOptionsRequest.endTextPosition = 0;
+
+    SpellingLog(Platform::LogLevelInfo,
+        "InputHandler::shouldRequestSpellCheckingOptionsForPoint Found spelling marker at point %s\nMarker start %d end %d",
+        documentContentPosition.toString().c_str(),
+        spellCheckingOptionRequest.startTextPosition,
+        spellCheckingOptionRequest.endTextPosition);
+
+    return true;
+}
+
+void InputHandler::requestSpellingCheckingOptions(imf_sp_text_t& spellCheckingOptionRequest, WebCore::IntSize& screenOffset, const bool shouldMoveDialog)
+{
+    // If the caret is no longer active, no message should be sent.
+    if (m_webPage->focusedOrMainFrame()->selection()->selectionType() != VisibleSelection::CaretSelection)
+        return;
+
+    if (!m_currentFocusElement || !m_currentFocusElement->document() || !m_currentFocusElement->document()->frame())
+        return;
+
+    if (shouldMoveDialog || !(spellCheckingOptionRequest.startTextPosition || spellCheckingOptionRequest.startTextPosition)) {
+        if (m_spellCheckingOptionsRequest.startTextPosition || m_spellCheckingOptionsRequest.endTextPosition)
+            spellCheckingOptionRequest = m_spellCheckingOptionsRequest;
+    }
+
+    if (!shouldMoveDialog && spellCheckingOptionRequest.startTextPosition == spellCheckingOptionRequest.endTextPosition)
+        return;
+
+    if (screenOffset.width() == -1 && screenOffset.height() == -1) {
+        screenOffset.setWidth(m_screenOffset.width());
+        screenOffset.setHeight(m_screenOffset.height());
+    } else {
+        m_screenOffset.setWidth(screenOffset.width());
+        m_screenOffset.setHeight(screenOffset.height());
+    }
+
+    // imf_sp_text_t should be generated in pixel viewport coordinates.
+    // Caret is in document coordinates.
+    WebCore::IntRect caretRect = m_webPage->focusedOrMainFrame()->selection()->selection().visibleStart().absoluteCaretBounds();
+
+    // Shift from posible iFrame to root view/main frame.
+    caretRect = m_webPage->focusedOrMainFrame()->view()->contentsToRootView(caretRect);
+
+    // Shift to document scroll position.
+    const WebCore::IntPoint scrollPosition = m_webPage->mainFrame()->view()->scrollPosition();
+    caretRect.move(scrollPosition.x(), scrollPosition.y());
+
+    // If we are only moving the dialog, we don't need to provide startTextPosition and endTextPosition so this logic can be skipped.
+    if (!shouldMoveDialog) {
+        // Calculate the offset for contentEditable since the marker offsets are relative to the node.
+        // Get caret position. Though the spelling markers might no longer exist, if this method is called we can assume the caret was placed on top of a marker earlier.
+        VisiblePosition caretPosition = m_currentFocusElement->document()->frame()->selection()->selection().visibleStart();
+
+        if (HTMLTextFormControlElement* controlElement = DOMSupport::toTextControlElement(m_currentFocusElement.get())) {
+            spellCheckingOptionRequest.startTextPosition = controlElement->indexForVisiblePosition(startOfWord(caretPosition));
+            spellCheckingOptionRequest.endTextPosition = controlElement->indexForVisiblePosition(endOfWord(caretPosition));
+        } else {
+            unsigned location = 0;
+            unsigned length = 0;
+
+            // Create a range from the start to end of word.
+            RefPtr<Range> rangeSelection = VisibleSelection(startOfWord(caretPosition), endOfWord(caretPosition)).toNormalizedRange();
+            if (!rangeSelection)
+                return;
+
+            TextIterator::getLocationAndLengthFromRange(m_currentFocusElement.get(), rangeSelection.get(), location, length);
+            spellCheckingOptionRequest.startTextPosition = location;
+            spellCheckingOptionRequest.endTextPosition = location + length;
+        }
+    }
+    m_spellCheckingOptionsRequest = spellCheckingOptionRequest;
+
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::requestSpellingCheckingOptions caretRect topLeft=%s, bottomRight=%s, startTextPosition=%d, endTextPosition=%d",
+        Platform::IntPoint(caretRect.minXMinYCorner()).toString().c_str(),
+        Platform::IntPoint(caretRect.maxXMaxYCorner()).toString().c_str(),
+        spellCheckingOptionRequest.startTextPosition,
+        spellCheckingOptionRequest.endTextPosition);
+
+    m_webPage->m_client->requestSpellingCheckingOptions(spellCheckingOptionRequest, caretRect, screenOffset, shouldMoveDialog);
 }
 
 void InputHandler::setElementUnfocused(bool refocusOccuring)
 {
-    if (isActiveTextEdit()) {
-        FocusLog(LogLevelInfo, "InputHandler::setElementUnfocused");
+    if (isActiveTextEdit() && DOMSupport::isElementAndDocumentAttached(m_currentFocusElement.get())) {
+        FocusLog(Platform::LogLevelInfo, "InputHandler::setElementUnfocused");
 
         // Pass any text into the field to IMF to learn.
         learnText();
@@ -414,47 +871,272 @@ void InputHandler::setElementUnfocused(bool refocusOccuring)
         finishComposition();
 
         // Only hide the keyboard if we aren't refocusing on a new input field.
-        if (!refocusOccuring)
-            notifyClientOfKeyboardVisibilityChange(false);
+        if (!refocusOccuring) {
+            notifyClientOfKeyboardVisibilityChange(false, true /* triggeredByFocusChange */);
+            m_webPage->m_client->showFormControls(false /* visible */);
+        }
 
         m_webPage->m_client->inputFocusLost();
-        m_webPage->m_selectionHandler->selectionPositionChanged();
+
+        // Hide the suggestion box if it is visible.
+        hideTextInputTypeSuggestionBox();
+
+        // Repaint the element absent of the caret.
+        if (m_currentFocusElement->renderer())
+            m_currentFocusElement->renderer()->repaint();
 
         // If the frame selection isn't focused, focus it.
-        if (!m_currentFocusElement->document()->frame()->selection()->isFocused())
-            m_currentFocusElement->document()->frame()->selection()->setFocused(true);
+        FrameSelection* frameSelection = m_currentFocusElement->document()->frame()->selection();
+        if (frameSelection && !frameSelection->isFocused())
+            frameSelection->setFocused(true);
+    }
+
+    // Cancel any preexisting spellcheck requests.
+    if (m_request) {
+        stopPendingSpellCheckRequests();
+        m_request->didCancel();
+        m_request = 0;
     }
 
     // Clear the node details.
     m_currentFocusElement = 0;
     m_currentFocusElementType = TextEdit;
+    m_previousFocusableTextElement = 0;
+    m_nextFocusableTextElement = 0;
+    m_hasSubmitButton = false;
 }
 
-void InputHandler::enableInputMode(bool inputModeAllowed)
+bool InputHandler::isInputModeEnabled() const
 {
-    FocusLog(LogLevelInfo, "InputHandler::enableInputMode '%s', override is '%s'"
-             , inputModeAllowed ? "true" : "false"
-             , m_webPage->m_dumpRenderTree || Platform::Settings::get()->alwaysShowKeyboardOnFocus() ? "true" : "false");
+    // Input mode is enabled when set, or when dump render tree or always show keyboard setting is enabled.
+    return m_inputModeEnabled || m_webPage->m_dumpRenderTree || Platform::Settings::instance()->alwaysShowKeyboardOnFocus();
+}
 
-    m_inputModeEnabled = inputModeAllowed;
+void InputHandler::setInputModeEnabled(bool active)
+{
+    FocusLog(Platform::LogLevelInfo,
+        "InputHandler::setInputModeEnabled '%s', override is '%s'",
+        active ? "true" : "false",
+        m_webPage->m_dumpRenderTree || Platform::Settings::instance()->alwaysShowKeyboardOnFocus() ? "true" : "false");
 
-    // If DRT is running or always show keyboard setting is active, do not delay
-    // showing the keyboard.
-    if (m_webPage->m_dumpRenderTree || Platform::Settings::get()->alwaysShowKeyboardOnFocus())
-        m_inputModeEnabled = true;
+    m_inputModeEnabled = active;
 
     // If the frame selection isn't focused, focus it.
-    if (m_inputModeEnabled && isActiveTextEdit() && !m_currentFocusElement->document()->frame()->selection()->isFocused())
+    if (isInputModeEnabled()
+        && isActiveTextEdit()
+        && DOMSupport::isElementAndDocumentAttached(m_currentFocusElement.get())
+        && !m_currentFocusElement->document()->frame()->selection()->isFocused())
         m_currentFocusElement->document()->frame()->selection()->setFocused(true);
+}
+
+void InputHandler::updateFormState()
+{
+    m_previousFocusableTextElement = 0;
+    m_nextFocusableTextElement = 0;
+    m_hasSubmitButton = false;
+
+    if (!m_currentFocusElement || !m_currentFocusElement->isFormControlElement())
+        return;
+
+    HTMLFormElement* formElement = static_cast<HTMLFormControlElement*>(m_currentFocusElement.get())->form();
+    if (!formElement)
+        return;
+
+    const Vector<FormAssociatedElement*> formElementList = formElement->associatedElements();
+    int formElementCount = formElementList.size();
+    if (formElementCount < 2)
+        return;
+
+    m_hasSubmitButton = true;
+
+    // Walk all elements in the form to determine next/prev elements.
+    // For each element in the form we need to do the following:
+    // If it's the focus node, use render order to try to find the next/prev directly.
+    // For all other nodes:
+    // 1) If the focused node has a specific tab index, compare the elements tab
+    //    index with the current prev/next looking for the best match.
+    // 2) If the focused node does not have a tab index, update the maximum
+    //    tab index value, required for prev navigation.
+    int focusTabIndex = static_cast<Node*>(m_currentFocusElement.get())->tabIndex();
+    int prevTabIndex = -1;
+    int nextTabIndex = std::numeric_limits<short>::max() + 1;
+    InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState form has %d fields and tabIndex %d", formElementCount, focusTabIndex);
+
+    Element* firstInFieldWithoutTabIndex = 0;
+    Element* highestTabIndexElement = 0;
+    for (int focusElementId = 0; focusElementId < formElementCount; focusElementId++) {
+        // Check for the focused element, and if we don't have any target nodes, use the form order next
+        // and previous as placeholders. In a form without provided tab indices, this will determine the
+        // control fields.
+        Element* element = const_cast<HTMLElement*>(toHTMLElement(formElementList[focusElementId]));
+        if (element == m_currentFocusElement) {
+            InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState found focused element.");
+
+            // If the focus tab index is set for the node, don't use the logical ordering.
+            // Jump from last tab index to un-ordered is done separately.
+            if (focusTabIndex)
+                continue;
+
+            // Get the next/prev element if we don't already have a tab index based item.
+            // Previous
+            if (!m_previousFocusableTextElement) {
+                for (int previousElementId = focusElementId - 1; previousElementId >= 0; previousElementId--) {
+                    Element* prevElement = const_cast<HTMLElement*>(toHTMLElement(formElementList[previousElementId]));
+                    if (DOMSupport::isTextBasedContentEditableElement(prevElement) && !DOMSupport::isElementReadOnly(prevElement) && !static_cast<Node*>(prevElement)->tabIndex()) {
+                        m_previousFocusableTextElement = prevElement;
+                        InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState found previous element");
+                        break;
+                    }
+                }
+            }
+
+            // Next
+            if (!m_nextFocusableTextElement) {
+                for (int nextElementId = focusElementId + 1; nextElementId < formElementCount; nextElementId++) {
+                    Element* nextElement = const_cast<HTMLElement*>(toHTMLElement(formElementList[nextElementId]));
+                    if (DOMSupport::isTextBasedContentEditableElement(nextElement) && !DOMSupport::isElementReadOnly(nextElement) && !static_cast<Node*>(nextElement)->tabIndex()) {
+                        m_nextFocusableTextElement = nextElement;
+                        InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState found next element");
+                        break;
+                    }
+                }
+            }
+        } else if (focusTabIndex) {
+            InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState processing element");
+            if (DOMSupport::isTextBasedContentEditableElement(element) && !DOMSupport::isElementReadOnly(element)) {
+                InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState processing element valid");
+                if (int tabIndex = static_cast<Node*>(element)->tabIndex()) {
+                    InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState processing element with tab index %d", tabIndex);
+                    // Compare for the before and after form positions based on the tab index, and/or form position
+                    // if tab indexes are equal form position should be used.
+                    if (tabIndex && tabIndex < focusTabIndex && tabIndex > prevTabIndex) {
+                        m_previousFocusableTextElement = element;
+                        prevTabIndex = tabIndex;
+                        InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState found previous element with tabIndex %d", tabIndex);
+                    } else if (tabIndex > focusTabIndex && tabIndex < nextTabIndex) {
+                        m_nextFocusableTextElement = element;
+                        nextTabIndex = tabIndex;
+                        InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState found next element with tabIndex %d", tabIndex);
+                    }
+                } else if (!firstInFieldWithoutTabIndex) {
+                    // Store the first field in the form without a tab index if we have a form with some tab indexes the "next" one from
+                    // the highest tab index is the first field without a tab index.
+                    firstInFieldWithoutTabIndex = element;
+                }
+            }
+        } else {
+            // The field has no tab index, if it's the first node we'll need the highest tab index field
+            // when navigating backwards.
+            if (int tabIndex = static_cast<Node*>(element)->tabIndex()) {
+                if (!highestTabIndexElement || (tabIndex > static_cast<Node*>(highestTabIndexElement)->tabIndex()))
+                    highestTabIndexElement = element;
+            }
+        }
+    }
+
+    if (!m_nextFocusableTextElement && firstInFieldWithoutTabIndex) {
+        // No next focusable field was found, but a first one without a tabindex was found, use it as the next field.
+        m_nextFocusableTextElement = firstInFieldWithoutTabIndex;
+    }
+
+    if (!m_previousFocusableTextElement && highestTabIndexElement) {
+        // No prev focusable field was found, use the highest tab index as previous since this field must not have
+        // a tabindex, otheriwse highestTabIndexElement would be null.
+        m_previousFocusableTextElement = highestTabIndexElement;
+    }
+
+    if (!m_nextFocusableTextElement && !m_previousFocusableTextElement) {
+        m_hasSubmitButton = false;
+        InputLog(Platform::LogLevelInfo, "InputHandler::updateFormState no valid elements found, clearing state.");
+    }
+}
+
+void InputHandler::focusNextField()
+{
+    if (!m_nextFocusableTextElement)
+        return;
+
+    m_nextFocusableTextElement->focus();
+}
+
+void InputHandler::focusPreviousField()
+{
+    if (!m_previousFocusableTextElement)
+        return;
+
+    m_previousFocusableTextElement->focus();
+}
+
+void InputHandler::submitForm()
+{
+    if (!m_hasSubmitButton)
+        return;
+
+    HTMLFormElement* formElement = static_cast<HTMLFormControlElement*>(m_currentFocusElement.get())->form();
+    if (!formElement)
+        return;
+
+    InputLog(Platform::LogLevelInfo, "InputHandler::submitForm triggered");
+
+    if (elementType(m_currentFocusElement.get()) != InputTypeTextArea) {
+        handleKeyboardInput(Platform::KeyboardEvent(KEYCODE_RETURN, Platform::KeyboardEvent::KeyChar, 0), false /* changeIsPartOfComposition */);
+
+        // Did this clear the focus? If so, form was submitted or invalid.
+        if (!isActiveTextEdit())
+            return;
+    }
+
+    // Validate form data and if valid, submit.
+    if (formElement->checkValidity())
+        formElement->submit();
+}
+
+static void addInputStyleMaskForKeyboardType(int64_t& inputMask, VirtualKeyboardType keyboardType)
+{
+    switch (keyboardType) {
+    case VKBTypeUrl:
+        inputMask |= IMF_URL_TYPE;
+        break;
+    case VKBTypePassword:
+        inputMask |= IMF_PASSWORD_TYPE;
+        break;
+    case VKBTypePin:
+        inputMask |= IMF_PIN_TYPE;
+        break;
+    case VKBTypePhone:
+        inputMask |= IMF_PHONE_TYPE;
+        break;
+    case VKBTypeEmail:
+        inputMask |= IMF_EMAIL_TYPE;
+        break;
+    default:
+        break;
+    }
 }
 
 void InputHandler::setElementFocused(Element* element)
 {
     ASSERT(DOMSupport::isTextBasedContentEditableElement(element));
-    ASSERT(element->document() && element->document()->frame());
+    ASSERT(element && element->document() && element->document()->frame());
 
-    if (element->document()->frame()->selection()->isFocused() != m_inputModeEnabled)
-        element->document()->frame()->selection()->setFocused(m_inputModeEnabled);
+#if ENABLE_SPELLING_LOG
+    BlackBerry::Platform::StopWatch timer;
+    timer.start();
+#endif
+
+    if (!element || !(element->document()))
+        return;
+
+    Frame* frame = element->document()->frame();
+    if (!frame)
+        return;
+
+    if (frame->selection()->isFocused() != isInputModeEnabled())
+        frame->selection()->setFocused(isInputModeEnabled());
+
+    // Ensure visible when refocusing.
+    // If device does not have physical keyboard, wait to ensure visible until VKB resizes viewport so that both animations are combined into one.
+    m_shouldEnsureFocusTextElementVisibleOnSelectionChanged = isActiveTextEdit() || DeviceInfo::instance()->hasPhysicalKeyboard();
 
     // Clear the existing focus node details.
     setElementUnfocused(true /*refocusOccuring*/);
@@ -462,23 +1144,129 @@ void InputHandler::setElementFocused(Element* element)
     // Mark this element as active and add to frame set.
     m_currentFocusElement = element;
     m_currentFocusElementType = TextEdit;
+    updateFormState();
+
+    if (isInputModeEnabled() && !m_delayKeyboardVisibilityChange)
+        m_webPage->m_client->showFormControls(m_hasSubmitButton /* visible */, m_previousFocusableTextElement, m_nextFocusableTextElement);
+    else
+        m_sendFormStateOnNextKeyboardRequest = true;
 
     // Send details to the client about this element.
     BlackBerryInputType type = elementType(element);
     m_currentFocusElementTextEditMask = inputStyle(type, element);
 
-    FocusLog(LogLevelInfo, "InputHandler::setElementFocused, Type=%d, Style=%d", type, m_currentFocusElementTextEditMask);
-    m_webPage->m_client->inputFocusGained(type, m_currentFocusElementTextEditMask);
+    VirtualKeyboardType keyboardType = keyboardTypeAttribute(element);
+    if (keyboardType == VKBTypeNotSet)
+        keyboardType = convertInputTypeToVKBType(type);
+
+    addInputStyleMaskForKeyboardType(m_currentFocusElementTextEditMask, keyboardType);
+
+    VirtualKeyboardEnterKeyType enterKeyType = keyboardEnterKeyTypeAttribute(element);
+
+    if (enterKeyType == VKBEnterKeyNotSet && type != InputTypeTextArea) {
+        if (element->isFormControlElement()) {
+            const HTMLFormControlElement* formElement = static_cast<const HTMLFormControlElement*>(element);
+            if (formElement->form() && formElement->form()->defaultButton())
+                enterKeyType = VKBEnterKeySubmit;
+        }
+    }
+
+    FocusLog(Platform::LogLevelInfo,
+        "InputHandler::setElementFocused, Type=%d, Style=%lld, Keyboard Type=%d, Enter Key=%d",
+        type, m_currentFocusElementTextEditMask, keyboardType, enterKeyType);
+
+    m_webPage->m_client->inputFocusGained(m_currentFocusElementTextEditMask, keyboardType, enterKeyType);
 
     handleInputLocaleChanged(m_webPage->m_webSettings->isWritingDirectionRTL());
 
+    // update the suggestion box
+    showTextInputTypeSuggestionBox();
+
     if (!m_delayKeyboardVisibilityChange)
-        notifyClientOfKeyboardVisibilityChange(true);
+        notifyClientOfKeyboardVisibilityChange(true, true /* triggeredByFocusChange */);
+
+#if ENABLE_SPELLING_LOG
+    SpellingLog(Platform::LogLevelInfo, "InputHandler::setElementFocused Focusing the field took %f seconds.", timer.elapsed());
+#endif
+
+    // Spellcheck the field in its entirety.
+    spellCheckTextBlock(element);
+
+#if ENABLE_SPELLING_LOG
+    SpellingLog(Platform::LogLevelInfo, "InputHandler::setElementFocused Spellchecking the field increased the total time to focus to %f seconds.", timer.elapsed());
+#endif
+}
+
+void InputHandler::spellCheckTextBlock(Element* element)
+{
+    SpellingLog(Platform::LogLevelInfo, "InputHandler::spellCheckTextBlock");
+
+    if (!element) {
+        // Fall back to a valid focused element.
+        if (!m_currentFocusElement)
+            return;
+
+        element = m_currentFocusElement.get();
+    }
+
+    // Check if the field should be spellchecked.
+    if (!shouldSpellCheckElement(element) || !isActiveTextEdit())
+        return;
+
+    m_spellingHandler->spellCheckTextBlock(element, TextCheckingProcessBatch);
+}
+
+bool InputHandler::shouldSpellCheckElement(const Element* element) const
+{
+    DOMSupport::AttributeState spellCheckAttr = DOMSupport::elementSupportsSpellCheck(element);
+
+    // Explicitly set to off.
+    if (spellCheckAttr == DOMSupport::Off)
+        return false;
+
+    // Undefined and part of a set of cases which we do not wish to check. This includes user names and email addresses, so we are piggybacking on NoAutocomplete cases.
+    if (spellCheckAttr == DOMSupport::Default && (m_currentFocusElementTextEditMask & NO_AUTO_TEXT))
+        return false;
+
+    // Check if the system spell check setting is off
+    return m_spellCheckStatusConfirmed ? m_globalSpellCheckStatus : true;
+}
+
+void InputHandler::stopPendingSpellCheckRequests(bool isRestartRequired)
+{
+    m_spellingHandler->setSpellCheckActive(false);
+    // Prevent response from propagating through.
+    m_processingTransactionId = 0;
+
+    // Reject requests until lastRequestSequence. This helps us clear the queue of stale requests.
+    if (SpellChecker* spellChecker = getSpellChecker()) {
+        if (spellChecker->lastRequestSequence() != spellChecker->lastProcessedSequence()) {
+            SpellingLog(LogLevelInfo, "InputHandler::stopPendingSpellCheckRequests will block requests up to lastRequest=%d [lastProcessed=%d]"
+                , spellChecker->lastRequestSequence(), spellChecker->lastProcessedSequence());
+            // Prevent requests in queue from executing.
+            m_minimumSpellCheckingRequestSequence = spellChecker->lastRequestSequence();
+            if (isRestartRequired && !compositionActive()) {
+                // Create new spellcheck requests to replace those that were invalidated.
+                spellCheckTextBlock();
+            }
+        }
+    }
+}
+
+void InputHandler::redrawSpellCheckDialogIfRequired(const bool shouldMoveDialog)
+{
+    if (didSpellCheckWord()) {
+        imf_sp_text_t spellCheckingOptionRequest;
+        spellCheckingOptionRequest.startTextPosition = 0;
+        spellCheckingOptionRequest.endTextPosition = 0;
+        WebCore::IntSize screenOffset(-1, -1);
+        requestSpellingCheckingOptions(spellCheckingOptionRequest, screenOffset, shouldMoveDialog);
+    }
 }
 
 bool InputHandler::openDatePopup(HTMLInputElement* element, BlackBerryInputType type)
 {
-    if (!element || element->disabled() || !DOMSupport::isDateTimeInputField(element))
+    if (!element || element->isDisabledOrReadOnly() || !DOMSupport::isDateTimeInputField(element))
         return false;
 
     if (isActiveTextEdit())
@@ -487,17 +1275,31 @@ bool InputHandler::openDatePopup(HTMLInputElement* element, BlackBerryInputType 
     m_currentFocusElement = element;
     m_currentFocusElementType = TextPopup;
 
-    WTF::String value = element->value();
-    WTF::String min = element->getAttribute(HTMLNames::minAttr).string();
-    WTF::String max = element->getAttribute(HTMLNames::maxAttr).string();
-    double step = element->getAttribute(HTMLNames::stepAttr).toDouble();
-    m_webPage->m_client->openDateTimePopup(type, value, min, max, step);
-    return true;
+    switch (type) {
+    case BlackBerry::Platform::InputTypeDate:
+    case BlackBerry::Platform::InputTypeTime:
+    case BlackBerry::Platform::InputTypeDateTime:
+    case BlackBerry::Platform::InputTypeDateTimeLocal:
+    case BlackBerry::Platform::InputTypeMonth: {
+        // Date input have button appearance, we hide caret when they get clicked.
+        element->document()->frame()->selection()->setCaretVisible(false);
+
+        WTF::String value = element->value();
+        WTF::String min = element->getAttribute(HTMLNames::minAttr).string();
+        WTF::String max = element->getAttribute(HTMLNames::maxAttr).string();
+        double step = element->getAttribute(HTMLNames::stepAttr).toDouble();
+
+        DatePickerClient* client = new DatePickerClient(type, value, min, max, step,  m_webPage, element);
+        return m_webPage->openPagePopup(client,  WebCore::IntRect());
+        }
+    default: // Other types not supported
+        return false;
+    }
 }
 
 bool InputHandler::openColorPopup(HTMLInputElement* element)
 {
-    if (!element || element->disabled() || !DOMSupport::isColorInputField(element))
+    if (!element || element->isDisabledOrReadOnly() || !DOMSupport::isColorInputField(element))
         return false;
 
     if (isActiveTextEdit())
@@ -506,8 +1308,8 @@ bool InputHandler::openColorPopup(HTMLInputElement* element)
     m_currentFocusElement = element;
     m_currentFocusElementType = TextPopup;
 
-    m_webPage->m_client->openColorPopup(element->value());
-    return true;
+    ColorPickerClient* client = new ColorPickerClient(element->value(), m_webPage, element);
+    return m_webPage->openPagePopup(client, WebCore::IntRect());
 }
 
 void InputHandler::setInputValue(const WTF::String& value)
@@ -522,13 +1324,10 @@ void InputHandler::setInputValue(const WTF::String& value)
 
 void InputHandler::nodeTextChanged(const Node* node)
 {
-    if (processingChange() || !node)
+    if (processingChange() || !node || node != m_currentFocusElement || !m_shouldNotifyWebView)
         return;
 
-    if (node != m_currentFocusElement)
-        return;
-
-    InputLog(LogLevelInfo, "InputHandler::nodeTextChanged");
+    InputLog(Platform::LogLevelInfo, "InputHandler::nodeTextChanged");
 
     m_webPage->m_client->inputTextChanged();
 
@@ -545,15 +1344,30 @@ WebCore::IntRect InputHandler::boundingBoxForInputField()
     if (!m_currentFocusElement->renderer())
         return WebCore::IntRect();
 
-    return m_currentFocusElement->renderer()->absoluteBoundingBoxRect();
+    // type="search" can have a 'X', so take the inner block bounding box to not include it.
+    if (HTMLInputElement* element = m_currentFocusElement->toInputElement()) {
+        if (element->isSearchField())
+            return element->innerBlockElement()->renderer()->absoluteBoundingBoxRect();
+        return m_currentFocusElement->renderer()->absoluteBoundingBoxRect();
+    }
+
+    if (m_currentFocusElement->hasTagName(HTMLNames::textareaTag))
+        return m_currentFocusElement->renderer()->absoluteBoundingBoxRect();
+
+    // Content Editable can't rely on the bounding box since it isn't fixed.
+    return WebCore::IntRect();
 }
 
 void InputHandler::ensureFocusTextElementVisible(CaretScrollType scrollType)
 {
-    if (!m_inputModeEnabled || !m_currentFocusElement || !m_currentFocusElement->document())
+    if (!isActiveTextEdit() || !isInputModeEnabled() || !m_currentFocusElement->document())
         return;
 
-    if (!Platform::Settings::get()->allowCenterScrollAdjustmentForInputFields() && scrollType != EdgeIfNeeded)
+    if (!(Platform::Settings::instance()->allowedScrollAdjustmentForInputFields() & scrollType))
+        return;
+
+    // Fixed position elements cannot be scrolled into view.
+    if (DOMSupport::isFixedPositionOrHasFixedPositionAncestor(m_currentFocusElement->renderer()))
         return;
 
     Frame* elementFrame = m_currentFocusElement->document()->frame();
@@ -583,10 +1397,32 @@ void InputHandler::ensureFocusTextElementVisible(CaretScrollType scrollType)
         break;
     }
     case VisibleSelection::NoSelection:
+        m_shouldEnsureFocusTextElementVisibleOnSelectionChanged = true;
         return;
     }
 
     int fontHeight = selectionFocusRect.height();
+
+    // If the text is too small, zoom in to make it a minimum size.
+    // The minimum size being defined as 3 mm is a good value based on my observations.
+    static const int s_minimumTextHeightInPixels = Graphics::Screen::primaryScreen()->heightInMMToPixels(3);
+
+    double zoomScaleRequired;
+    if (m_webPage->isUserScalable() && fontHeight && fontHeight * m_webPage->currentScale() < s_minimumTextHeightInPixels && !isRunningDrt())
+        zoomScaleRequired = static_cast<double>(s_minimumTextHeightInPixels) / fontHeight;
+    else
+        zoomScaleRequired = m_webPage->currentScale(); // Don't scale.
+
+    // Zoom level difference must exceed the given threshold before we perform a zoom animation.
+    if (abs(zoomScaleRequired - m_webPage->currentScale()) < zoomAnimationThreshold)
+        zoomScaleRequired = m_webPage->currentScale(); // Don't scale.
+
+    // The scroll location we should go to given the zoom required, could be adjusted later.
+    WebCore::FloatPoint offset(selectionFocusRect.location().x() - m_webPage->scrollPosition().x(), selectionFocusRect.location().y() - m_webPage->scrollPosition().y());
+    double inverseScale = zoomScaleRequired / m_webPage->currentScale();
+    WebCore::IntPoint destinationScrollLocation = WebCore::IntPoint(
+        max(0, static_cast<int>(roundf(selectionFocusRect.location().x() - offset.x() / inverseScale))),
+        max(0, static_cast<int>(roundf(selectionFocusRect.location().y() - offset.y() / inverseScale))));
 
     if (elementFrame != mainFrame) { // Element is in a subframe.
         // Remove any scroll offset within the subframe to get the point relative to the main frame.
@@ -599,10 +1435,21 @@ void InputHandler::ensureFocusTextElementVisible(CaretScrollType scrollType)
         }
     }
 
+    const Platform::ViewportAccessor* viewportAccessor = m_webPage->m_webkitThreadViewportAccessor;
+    if (scrollType == EdgeIfNeeded
+        && (viewportAccessor->documentViewportRect().contains(selectionFocusRect))
+        && zoomScaleRequired == m_webPage->currentScale()) {
+        // Already in view and no zoom is required, return early.
+        return;
+    }
+
+    bool shouldConstrainScrollingToContentEdge = true;
     Position start = elementFrame->selection()->start();
     if (start.anchorNode() && start.anchorNode()->renderer()) {
         if (RenderLayer* layer = start.anchorNode()->renderer()->enclosingLayer()) {
-            WebCore::IntRect actualScreenRect = WebCore::IntRect(mainFrameView->scrollPosition(), m_webPage->actualVisibleSize());
+            // Screen rect after the required zoom.
+            WebCore::IntRect actualScreenRect = WebCore::IntRect(destinationScrollLocation.x(), destinationScrollLocation.y(), m_webPage->actualVisibleSize().width() / inverseScale, m_webPage->actualVisibleSize().height() / inverseScale);
+
             ScrollAlignment horizontalScrollAlignment = ScrollAlignment::alignToEdgeIfNeeded;
             ScrollAlignment verticalScrollAlignment = ScrollAlignment::alignToEdgeIfNeeded;
 
@@ -636,34 +1483,33 @@ void InputHandler::ensureFocusTextElementVisible(CaretScrollType scrollType)
             }
 
             // Pad the rect to improve the visual appearance.
-            // Padding must be large enough to expose the selection / FCC should they exist. Dragging the handle offscreen and releasing
-            // will not trigger an automatic scroll. Using a padding of 40 will fully exposing the width of the current handle and half of
-            // the height making it usable.
-            // FIXME: This will need to be updated when the graphics change.
-            // FIXME: The value of 40 should be calculated as a unit of measure using Graphics::Screen::primaryScreen()->heightInMMToPixels
-            // using a relative value to the size of the handle. We should also consider expanding different amounts horizontally vs vertically.
-            selectionFocusRect.inflate(40 /* padding in pixels */);
-            WebCore::IntRect revealRect = layer->getRectToExpose(actualScreenRect, selectionFocusRect,
-                                                                 horizontalScrollAlignment,
-                                                                 verticalScrollAlignment);
+            // Convert the padding back from transformed to ensure a consistent padding regardless of
+            // zoom level as controls do not zoom.
+            static const int s_focusRectPaddingSize = Graphics::Screen::primaryScreen()->heightInMMToPixels(12);
+            selectionFocusRect.inflate(std::ceilf(viewportAccessor->documentFromPixelContents(Platform::FloatSize(0, s_focusRectPaddingSize)).height()));
 
-            mainFrameView->setConstrainsScrollingToContentEdge(false);
+            WebCore::IntRect revealRect(layer->getRectToExpose(actualScreenRect, selectionFocusRect, horizontalScrollAlignment, verticalScrollAlignment));
+
+            // Don't constrain scroll position when animation finishes.
+            shouldConstrainScrollingToContentEdge = false;
+
             // In order to adjust the scroll position to ensure the focused input field is visible,
             // we allow overscrolling. However this overscroll has to be strictly allowed towards the
             // bottom of the page on the y axis only, where the virtual keyboard pops up from.
-            WebCore::IntPoint scrollLocation = revealRect.location();
-            scrollLocation.clampNegativeToZero();
+            destinationScrollLocation = revealRect.location();
+            destinationScrollLocation.clampNegativeToZero();
             WebCore::IntPoint maximumScrollPosition = WebCore::IntPoint(mainFrameView->contentsWidth() - actualScreenRect.width(), mainFrameView->contentsHeight() - actualScreenRect.height());
-            scrollLocation = scrollLocation.shrunkTo(maximumScrollPosition);
-            mainFrameView->setScrollPosition(scrollLocation);
-            mainFrameView->setConstrainsScrollingToContentEdge(true);
+            destinationScrollLocation = destinationScrollLocation.shrunkTo(maximumScrollPosition);
         }
     }
 
-    // If the text is too small, zoom in to make it a minimum size.
-    static const int s_minimumTextHeightInPixels = 6;
-    if (fontHeight && fontHeight < s_minimumTextHeightInPixels)
-        m_webPage->zoomAboutPoint(s_minimumTextHeightInPixels / fontHeight, m_webPage->centerOfVisibleContentsRect());
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::ensureFocusTextElementVisible zooming in to %f from %f and scrolling to point %s from %s",
+        zoomScaleRequired, m_webPage->currentScale(),
+        Platform::IntPoint(destinationScrollLocation).toString().c_str(),
+        Platform::IntPoint(mainFrameView->scrollPosition()).toString().c_str());
+
+    m_webPage->animateToScaleAndDocumentScrollPosition(zoomScaleRequired, WebCore::FloatPoint(destinationScrollLocation), shouldConstrainScrollingToContentEdge);
 }
 
 void InputHandler::ensureFocusPluginElementVisible()
@@ -687,7 +1533,7 @@ void InputHandler::ensureFocusPluginElementVisible()
 
     RenderWidget* renderWidget = static_cast<RenderWidget*>(m_currentFocusElement->renderer());
     if (renderWidget) {
-        PluginView* pluginView = static_cast<PluginView*>(renderWidget->widget());
+        PluginView* pluginView = toPluginView(renderWidget->widget());
 
         if (pluginView)
             selectionFocusRect = pluginView->ensureVisibleRect();
@@ -716,8 +1562,8 @@ void InputHandler::ensureFocusPluginElementVisible()
     // is at the center of the screen. FIXME: If the element was partially on screen
     // we might want to just bring the offscreen portion into view, someone needs
     // to decide if that's the behavior we want or not.
-    WebCore::IntPoint pos(selectionFocusRect.center().x() - actualScreenRect.width() / 2,
-                 selectionFocusRect.center().y() - actualScreenRect.height() / 2);
+    WebCore::IntPoint pos(selectionFocusRect.center());
+    pos.move(-actualScreenRect.width() / 2, -actualScreenRect.height() / 2);
 
     mainFrameView->setScrollPosition(pos);
 }
@@ -738,7 +1584,7 @@ void InputHandler::frameUnloaded(const Frame* frame)
     if (m_currentFocusElement->document()->frame() != frame)
         return;
 
-    FocusLog(LogLevelInfo, "InputHandler::frameUnloaded");
+    FocusLog(Platform::LogLevelInfo, "InputHandler::frameUnloaded");
 
     setElementUnfocused(false /*refocusOccuring*/);
 }
@@ -765,13 +1611,22 @@ void InputHandler::processPendingKeyboardVisibilityChange()
     m_pendingKeyboardVisibilityChange = NoChange;
 }
 
-void InputHandler::notifyClientOfKeyboardVisibilityChange(bool visible)
+void InputHandler::notifyClientOfKeyboardVisibilityChange(bool visible, bool triggeredByFocusChange)
 {
     // If we aren't ready for input, keyboard changes should be ignored.
-    if (!m_inputModeEnabled && visible)
+    if (!isInputModeEnabled() && visible)
+        return;
+
+    // If we are processing a change assume the keyboard is visbile to avoid
+    // flooding the VKB with show requests.
+    if (!triggeredByFocusChange && processingChange() && visible)
         return;
 
     if (!m_delayKeyboardVisibilityChange) {
+        if (m_sendFormStateOnNextKeyboardRequest) {
+            m_webPage->m_client->showFormControls(m_hasSubmitButton /* visible */, m_previousFocusableTextElement, m_nextFocusableTextElement);
+            m_sendFormStateOnNextKeyboardRequest = false;
+        }
         m_webPage->showVirtualKeyboard(visible);
         return;
     }
@@ -848,20 +1703,30 @@ void InputHandler::selectionChanged()
     if (!isActiveTextEdit())
         return;
 
-    if (processingChange())
+    if (processingChange()) {
+        m_webPage->m_client->suppressCaretChangeNotification(true /*shouldClearState*/);
         return;
+    }
 
     // Scroll the field if necessary. This must be done even if we are processing
     // a change as the text change may have moved the caret. IMF doesn't require
     // the update, but the user needs to see the caret.
-    ensureFocusTextElementVisible(EdgeIfNeeded);
+    if (m_shouldEnsureFocusTextElementVisibleOnSelectionChanged) {
+        ensureFocusTextElementVisible(EdgeIfNeeded);
+        m_shouldEnsureFocusTextElementVisibleOnSelectionChanged = false;
+    }
 
     ASSERT(m_currentFocusElement->document() && m_currentFocusElement->document()->frame());
+
+    if (!m_shouldNotifyWebView)
+        return;
 
     int newSelectionStart = selectionStart();
     int newSelectionEnd = selectionEnd();
 
-    InputLog(LogLevelInfo, "InputHandler::selectionChanged selectionStart=%u, selectionEnd=%u", newSelectionStart, newSelectionEnd);
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::selectionChanged selectionStart=%u, selectionEnd=%u",
+        newSelectionStart, newSelectionEnd);
 
     m_webPage->m_client->inputSelectionChanged(newSelectionStart, newSelectionEnd);
 
@@ -887,7 +1752,9 @@ bool InputHandler::setSelection(int start, int end, bool changeIsPartOfCompositi
     VisibleSelection newSelection = DOMSupport::visibleSelectionForRangeInputElement(m_currentFocusElement.get(), start, end);
     m_currentFocusElement->document()->frame()->selection()->setSelection(newSelection, changeIsPartOfComposition ? 0 : FrameSelection::CloseTyping | FrameSelection::ClearTypingStyle);
 
-    InputLog(LogLevelInfo, "InputHandler::setSelection selectionStart=%u, selectionEnd=%u", start, end);
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::setSelection selectionStart=%u, selectionEnd=%u",
+        start, end);
 
     return start == selectionStart() && end == selectionEnd();
 }
@@ -922,18 +1789,49 @@ void InputHandler::cancelSelection()
     setCursorPosition(selectionStartPosition);
 }
 
+bool InputHandler::isNavigationKey(unsigned character) const
+{
+    return character == KEYCODE_UP
+        || character == KEYCODE_DOWN
+        || character == KEYCODE_LEFT
+        || character == KEYCODE_RIGHT;
+}
+
 bool InputHandler::handleKeyboardInput(const Platform::KeyboardEvent& keyboardEvent, bool changeIsPartOfComposition)
 {
-    InputLog(LogLevelInfo, "InputHandler::handleKeyboardInput received character=%lc, type=%d", keyboardEvent.character(), keyboardEvent.type());
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::handleKeyboardInput received character='%c', type=%d",
+        keyboardEvent.character(), keyboardEvent.type());
+
+    // Clearing the m_shouldNotifyWebView state on any KeyboardEvent.
+    m_shouldNotifyWebView = true;
 
     // Enable input mode if we are processing a key event.
-    enableInputMode();
+    setInputModeEnabled();
+
+    Platform::KeyboardEvent::Type type = keyboardEvent.type();
+    /*
+     * IMF sends us an unadultered KeyUp for all key presses. This key event should be allowed to be processed at all times.
+     * We bypass the check because the state of composition has no implication on this key event.
+     * In order to ensure we allow the correct key event through, we keep track of key down events with m_expectedKeyUpChar.
+    */
+    if (type == Platform::KeyboardEvent::KeyUp) {
+        // When IMF auto-capitalizes a KeyDown, say the first letter of a new sentence, our KeyUp will still be in lowercase.
+        if (m_expectedKeyUpChar == keyboardEvent.character() || (isASCIIUpper(m_expectedKeyUpChar) && m_expectedKeyUpChar == toASCIIUpper(keyboardEvent.character()))) {
+            m_expectedKeyUpChar = 0;
+            changeIsPartOfComposition = true;
+        }
+    }
 
     // If we aren't specifically part of a composition, fail, IMF should never send key input
     // while composing text. If IMF has failed, we should have already finished the
-    // composition manually.
-    if (!changeIsPartOfComposition && compositionActive())
-        return false;
+    // composition manually. There is a caveat for KeyUp which is explained above.
+    if (!changeIsPartOfComposition && compositionActive()) {
+        if (type == Platform::KeyboardEvent::KeyDown && isNavigationKey(keyboardEvent.character()))
+            removeAttributedTextMarker();
+        else
+            return false;
+    }
 
     ProcessingChangeGuard guard(this);
 
@@ -944,26 +1842,42 @@ bool InputHandler::handleKeyboardInput(const Platform::KeyboardEvent& keyboardEv
     ASSERT(m_webPage->m_page->focusController());
     bool keyboardEventHandled = false;
     if (Frame* focusedFrame = m_webPage->m_page->focusController()->focusedFrame()) {
-        bool isKeyChar = keyboardEvent.type() == Platform::KeyboardEvent::KeyChar;
-        Platform::KeyboardEvent::Type type = keyboardEvent.type();
+        bool isKeyChar = type == Platform::KeyboardEvent::KeyChar;
 
         // If this is a KeyChar type then we handle it as a keydown followed by a key up.
         if (isKeyChar)
             type = Platform::KeyboardEvent::KeyDown;
+        else if (type == Platform::KeyboardEvent::KeyDown) {
+            m_expectedKeyUpChar = keyboardEvent.character();
 
-        Platform::KeyboardEvent adjustedKeyboardEvent(keyboardEvent.character(), type, adjustedModifiers);
+            m_shouldNotifyWebView = shouldNotifyWebView(keyboardEvent);
+        }
+
+        Platform::KeyboardEvent adjustedKeyboardEvent(keyboardEvent.character(), type, adjustedModifiers, keyboardEvent.keycode(), keyboardEvent.alternateCharacter(), keyboardEvent.sourceDevice());
         keyboardEventHandled = focusedFrame->eventHandler()->keyEvent(PlatformKeyboardEvent(adjustedKeyboardEvent));
+
+        m_shouldNotifyWebView = true;
 
         if (isKeyChar) {
             type = Platform::KeyboardEvent::KeyUp;
-            adjustedKeyboardEvent = Platform::KeyboardEvent(keyboardEvent.character(), type, adjustedModifiers);
+            adjustedKeyboardEvent = Platform::KeyboardEvent(keyboardEvent.character(), type, adjustedModifiers, keyboardEvent.keycode(), keyboardEvent.alternateCharacter(), keyboardEvent.sourceDevice());
             keyboardEventHandled = focusedFrame->eventHandler()->keyEvent(PlatformKeyboardEvent(adjustedKeyboardEvent)) || keyboardEventHandled;
         }
 
         if (!changeIsPartOfComposition && type == Platform::KeyboardEvent::KeyUp)
             ensureFocusTextElementVisible(EdgeIfNeeded);
     }
+
+    if (m_currentFocusElement && keyboardEventHandled)
+        showTextInputTypeSuggestionBox();
+
     return keyboardEventHandled;
+}
+
+bool InputHandler::shouldNotifyWebView(const Platform::KeyboardEvent& keyboardEvent)
+{
+    // If we receive the KeyDown of a Backspace or Enter key, set this flag to prevent sending unnecessary selection and caret changes to IMF.
+    return !(keyboardEvent.character() == KEYCODE_BACKSPACE || keyboardEvent.character() == KEYCODE_RETURN || keyboardEvent.character() == KEYCODE_KP_ENTER);
 }
 
 bool InputHandler::deleteSelection()
@@ -978,7 +1892,11 @@ bool InputHandler::deleteSelection()
         return false;
 
     ASSERT(frame->editor());
-    return frame->editor()->command("DeleteBackward").execute();
+    if (!handleKeyboardInput(Platform::KeyboardEvent(KEYCODE_BACKSPACE, Platform::KeyboardEvent::KeyDown, 0), false /* changeIsPartOfComposition */))
+        return false;
+
+    selectionChanged();
+    return true;
 }
 
 void InputHandler::insertText(const WTF::String& string)
@@ -988,7 +1906,6 @@ void InputHandler::insertText(const WTF::String& string)
 
     ASSERT(m_currentFocusElement->document() && m_currentFocusElement->document()->frame() && m_currentFocusElement->document()->frame()->editor());
     Editor* editor = m_currentFocusElement->document()->frame()->editor();
-
     editor->command("InsertText").execute(string);
 }
 
@@ -1027,6 +1944,11 @@ void InputHandler::paste()
     executeTextEditCommand("Paste");
 }
 
+void InputHandler::selectAll()
+{
+    executeTextEditCommand("SelectAll");
+}
+
 void InputHandler::addAttributedTextMarker(int start, int end, const AttributeTextStyle& style)
 {
     if ((end - start) < 1 || end > static_cast<int>(elementText().length()))
@@ -1044,22 +1966,6 @@ void InputHandler::removeAttributedTextMarker()
 
     m_composingTextStart = 0;
     m_composingTextEnd = 0;
-}
-
-void InputHandler::handleInputLocaleChanged(bool isRTL)
-{
-    if (!isActiveTextEdit())
-        return;
-
-    ASSERT(m_currentFocusElement->document() && m_currentFocusElement->document()->frame());
-    RenderObject* renderer = m_currentFocusElement->renderer();
-    if (!renderer)
-        return;
-
-    Editor* editor = m_currentFocusElement->document()->frame()->editor();
-    ASSERT(editor);
-    if ((renderer->style()->direction() == RTL) != isRTL)
-        editor->setBaseWritingDirection(isRTL ? RightToLeftWritingDirection : LeftToRightWritingDirection);
 }
 
 void InputHandler::clearCurrentFocusElement()
@@ -1082,7 +1988,7 @@ bool InputHandler::willOpenPopupForNode(Node* node)
     }
 
     if (node->isElementNode()) {
-        Element* element = static_cast<Element*>(node);
+        Element* element = toElement(node);
         if (DOMSupport::isPopupInputField(element))
             return true;
     }
@@ -1118,7 +2024,11 @@ bool InputHandler::didNodeOpenPopup(Node* node)
 
 bool InputHandler::openSelectPopup(HTMLSelectElement* select)
 {
-    if (!select || select->disabled())
+    if (!select || select->isDisabledFormControl())
+        return false;
+
+    // If there's no view, do nothing and return.
+    if (!select->document()->view())
         return false;
 
     if (isActiveTextEdit())
@@ -1126,46 +2036,51 @@ bool InputHandler::openSelectPopup(HTMLSelectElement* select)
 
     m_currentFocusElement = select;
     m_currentFocusElementType = SelectPopup;
+
     const WTF::Vector<HTMLElement*>& listItems = select->listItems();
     int size = listItems.size();
-    if (!size) {
-        ScopeArray<WebString> labels;
-        bool* enableds = 0;
-        int* itemTypes = 0;
-        bool* selecteds = 0;
-        m_webPage->m_client->openPopupList(false, size, labels, enableds, itemTypes, selecteds);
-        return true;
-    }
 
     bool multiple = select->multiple();
+    ScopeArray<BlackBerry::Platform::String> labels;
+    labels.reset(new BlackBerry::Platform::String[size]);
 
-    ScopeArray<WebString> labels;
-    labels.reset(new WebString[size]);
-    bool* enableds = new bool[size];
-    int* itemTypes = new int[size];
-    bool* selecteds = new bool[size];
+    bool* enableds = 0;
+    int* itemTypes = 0;
+    bool* selecteds = 0;
 
-    for (int i = 0; i < size; i++) {
-        if (listItems[i]->hasTagName(HTMLNames::optionTag)) {
-            HTMLOptionElement* option = static_cast<HTMLOptionElement*>(listItems[i]);
-            labels[i] = option->textIndentedToRespectGroupLabel();
-            enableds[i] = option->disabled() ? 0 : 1;
-            selecteds[i] = option->selected();
-            itemTypes[i] = TypeOption;
-        } else if (listItems[i]->hasTagName(HTMLNames::optgroupTag)) {
-            HTMLOptGroupElement* optGroup = static_cast<HTMLOptGroupElement*>(listItems[i]);
-            labels[i] = optGroup->groupLabelText();
-            enableds[i] = optGroup->disabled() ? 0 : 1;
-            selecteds[i] = false;
-            itemTypes[i] = TypeGroup;
-        } else if (listItems[i]->hasTagName(HTMLNames::hrTag)) {
-            enableds[i] = false;
-            selecteds[i] = false;
-            itemTypes[i] = TypeSeparator;
+    if (size) {
+        enableds = new bool[size];
+        itemTypes = new int[size];
+        selecteds = new bool[size];
+        for (int i = 0; i < size; i++) {
+            if (listItems[i]->hasTagName(HTMLNames::optionTag)) {
+                HTMLOptionElement* option = static_cast<HTMLOptionElement*>(listItems[i]);
+                labels[i] = option->textIndentedToRespectGroupLabel();
+                enableds[i] = option->isDisabledFormControl() ? 0 : 1;
+                selecteds[i] = option->selected();
+                itemTypes[i] = option->parentNode() && option->parentNode()->hasTagName(HTMLNames::optgroupTag) ? TypeOptionInGroup : TypeOption;
+            } else if (listItems[i]->hasTagName(HTMLNames::optgroupTag)) {
+                HTMLOptGroupElement* optGroup = static_cast<HTMLOptGroupElement*>(listItems[i]);
+                labels[i] = optGroup->groupLabelText();
+                enableds[i] = optGroup->isDisabledFormControl() ? 0 : 1;
+                selecteds[i] = false;
+                itemTypes[i] = TypeGroup;
+            } else if (listItems[i]->hasTagName(HTMLNames::hrTag)) {
+                enableds[i] = false;
+                selecteds[i] = false;
+                itemTypes[i] = TypeSeparator;
+            }
         }
     }
 
-    m_webPage->m_client->openPopupList(multiple, size, labels, enableds, itemTypes, selecteds);
+    SelectPopupClient* selectClient = new SelectPopupClient(multiple, size, labels, enableds, itemTypes, selecteds, m_webPage, select);
+    WebCore::IntRect elementRectInRootView = select->document()->view()->contentsToRootView(enclosingIntRect(select->getRect()));
+    // Fail to create HTML popup, use the old path
+    if (!m_webPage->openPagePopup(selectClient, elementRectInRootView))
+        m_webPage->m_client->openPopupList(multiple, size, labels, enableds, itemTypes, selecteds);
+    delete[] enableds;
+    delete[] itemTypes;
+    delete[] selecteds;
     return true;
 }
 
@@ -1199,7 +2114,7 @@ void InputHandler::setPopupListIndexes(int size, const bool* selecteds)
 
     HTMLSelectElement* selectElement = static_cast<HTMLSelectElement*>(m_currentFocusElement.get());
     const WTF::Vector<HTMLElement*>& items = selectElement->listItems();
-    if (items.size() != static_cast<unsigned int>(size))
+    if (items.size() != static_cast<unsigned>(size))
         return;
 
     HTMLOptionElement* option;
@@ -1227,16 +2142,25 @@ bool InputHandler::setBatchEditingActive(bool active)
 
     // FIXME switch this to m_currentFocusElement->document()->frame() when we have separate
     // backingstore for each frame.
-    BackingStoreClient* backingStoreClientForFrame = m_webPage->backingStoreClientForFrame(m_webPage->mainFrame());
-    ASSERT(backingStoreClientForFrame);
+    BackingStoreClient* backingStoreClient = m_webPage->backingStoreClient();
+    ASSERT(backingStoreClient);
 
     // Enable / Disable the backingstore to prevent visual updates.
-    if (!active)
-        backingStoreClientForFrame->backingStore()->resumeScreenAndBackingStoreUpdates(BackingStore::RenderAndBlit);
-    else
-        backingStoreClientForFrame->backingStore()->suspendScreenAndBackingStoreUpdates();
+    // FIXME: Do we really need to suspend/resume both backingstore and screen here?
+    if (!active) {
+        backingStoreClient->backingStore()->resumeBackingStoreUpdates();
+        backingStoreClient->backingStore()->resumeScreenUpdates(BackingStore::RenderAndBlit);
+    } else {
+        backingStoreClient->backingStore()->suspendBackingStoreUpdates();
+        backingStoreClient->backingStore()->suspendScreenUpdates();
+    }
 
     return true;
+}
+
+bool InputHandler::isCaretAtEndOfText()
+{
+    return caretPosition() == static_cast<int>(elementText().length());
 }
 
 int InputHandler::caretPosition() const
@@ -1269,15 +2193,25 @@ bool InputHandler::deleteTextRelativeToCursor(int leftOffset, int rightOffset)
     if (!isActiveTextEdit() || compositionActive())
         return false;
 
-    ProcessingChangeGuard guard(this);
-
-    InputLog(LogLevelInfo, "InputHandler::deleteTextRelativeToCursor left %d right %d", leftOffset, rightOffset);
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::deleteTextRelativeToCursor left %d right %d",
+        leftOffset, rightOffset);
 
     int caretOffset = caretPosition();
     int start = relativeLeftOffset(caretOffset, leftOffset);
     int end = relativeRightOffset(caretOffset, elementText().length(), rightOffset);
-    if (!deleteText(start, end))
+
+    // If we have backspace in a single character, send this to webkit as a KeyboardEvent. Otherwise, call deleteText.
+    if (leftOffset == 1 && !rightOffset) {
+        if (selectionActive())
+            return deleteSelection();
+
+        if (!handleKeyboardInput(Platform::KeyboardEvent(KEYCODE_BACKSPACE, Platform::KeyboardEvent::KeyDown, 0), true /* changeIsPartOfComposition */))
+            return false;
+    } else if (!deleteText(start, end))
         return false;
+
+    ProcessingChangeGuard guard(this);
 
     // Scroll the field if necessary. The automatic update is suppressed
     // by the processing change guard.
@@ -1291,44 +2225,47 @@ bool InputHandler::deleteText(int start, int end)
     if (!isActiveTextEdit())
         return false;
 
-    ProcessingChangeGuard guard(this);
+    {
+        ProcessingChangeGuard guard(this);
 
-    if (!setSelection(start, end, true /*changeIsPartOfComposition*/))
-        return false;
+        if (end - start == 1)
+            return handleKeyboardInput(Platform::KeyboardEvent(KEYCODE_BACKSPACE, Platform::KeyboardEvent::KeyDown, 0), true /* changeIsPartOfComposition */);
 
-    InputLog(LogLevelInfo, "InputHandler::deleteText start %d end %d", start, end);
+        if (!setSelection(start, end, true /*changeIsPartOfComposition*/))
+            return false;
+    }
+
+    InputLog(Platform::LogLevelInfo, "InputHandler::deleteText start %d end %d", start, end);
 
     return deleteSelection();
 }
 
-spannable_string_t* InputHandler::spannableTextInRange(int start, int end, int32_t flags)
+spannable_string_t* InputHandler::spannableTextInRange(int start, int end, int32_t)
 {
     if (!isActiveTextEdit())
         return 0;
 
-    if (start == end)
+    if (start >= end)
         return 0;
 
-    ASSERT(end > start);
     int length = end - start;
 
     WTF::String textString = elementText().substring(start, length);
 
-    spannable_string_t* pst = (spannable_string_t*)malloc(sizeof(spannable_string_t));
-    if (!pst) {
-        InputLog(LogLevelInfo, "InputHandler::spannableTextInRange error allocating spannable string.");
-        return 0;
-    }
+    spannable_string_t* pst = (spannable_string_t*)fastMalloc(sizeof(spannable_string_t));
 
+    // Don't use fastMalloc in case the string is unreasonably long. fastMalloc will
+    // crash immediately on failure.
     pst->str = (wchar_t*)malloc(sizeof(wchar_t) * (length + 1));
     if (!pst->str) {
-        InputLog(LogLevelInfo, "InputHandler::spannableTextInRange Cannot allocate memory for string.\n");
+        Platform::logAlways(Platform::LogLevelCritical, "InputHandler::spannableTextInRange Cannot allocate memory for string.");
         free(pst);
         return 0;
     }
 
     int stringLength = 0;
     if (!convertStringToWchar(textString, pst->str, length + 1, &stringLength)) {
+        Platform::logAlways(Platform::LogLevelCritical, "InputHandler::spannableTextInRange failed to convert string.");
         free(pst->str);
         free(pst);
         return 0;
@@ -1373,12 +2310,12 @@ spannable_string_t* InputHandler::textAfterCursor(int32_t length, int32_t flags)
     return spannableTextInRange(start, end, flags);
 }
 
-extracted_text_t* InputHandler::extractedTextRequest(extracted_text_request_t* request, int32_t flags)
+extracted_text_t* InputHandler::extractedTextRequest(extracted_text_request_t*, int32_t flags)
 {
     if (!isActiveTextEdit())
         return 0;
 
-    extracted_text_t* extractedText = (extracted_text_t *)malloc(sizeof(extracted_text_t));
+    extracted_text_t* extractedText = (extracted_text_t *)fastMalloc(sizeof(extracted_text_t));
 
     // 'flags' indicates whether the text is being monitored. This is not currently used.
 
@@ -1466,7 +2403,7 @@ int32_t InputHandler::setComposingRegion(int32_t start, int32_t end)
     if (compositionActive())
         addAttributedTextMarker(start, end, compositionTextStyle());
 
-    InputLog(LogLevelInfo, "InputHandler::setComposingRegion start %d end %d", start, end);
+    InputLog(Platform::LogLevelInfo, "InputHandler::setComposingRegion start %d end %d", start, end);
 
     return 0;
 }
@@ -1483,7 +2420,7 @@ int32_t InputHandler::finishComposition()
     // Remove all markers.
     removeAttributedTextMarker();
 
-    InputLog(LogLevelInfo, "InputHandler::finishComposition completed");
+    InputLog(Platform::LogLevelInfo, "InputHandler::finishComposition completed");
 
     return 0;
 }
@@ -1491,7 +2428,7 @@ int32_t InputHandler::finishComposition()
 span_t* InputHandler::firstSpanInString(spannable_string_t* spannableString, SpannableStringAttribute attrib)
 {
     span_t* span = spannableString->spans;
-    for (unsigned int i = 0; i < spannableString->spans_count; i++) {
+    for (unsigned i = 0; i < spannableString->spans_count; i++) {
         if (span->attributes_mask & attrib)
             return span;
         span++;
@@ -1534,10 +2471,12 @@ bool InputHandler::setText(spannable_string_t* spannableString)
     // changes should not be handled as notification event.
     m_webPage->m_selectionHandler->setSelectionActive(false);
 
-    String textToInsert = convertSpannableStringToString(spannableString);
+    WTF::String textToInsert = convertSpannableStringToString(spannableString);
     int textLength = textToInsert.length();
 
-    InputLog(LogLevelInfo, "InputHandler::setText spannableString is '%s', of length %d \n", textToInsert.latin1().data(), textLength);
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::setText spannableString is '%s', of length %d",
+        textToInsert.latin1().data(), textLength);
 
     span_t* changedSpan = firstSpanInString(spannableString, CHANGED_ATTRIB);
     int composingTextStart = m_composingTextStart;
@@ -1546,26 +2485,27 @@ bool InputHandler::setText(spannable_string_t* spannableString)
     removeAttributedTextMarker();
 
     if (isTrailingSingleCharacter(changedSpan, textLength, composingTextLength)) {
-        // Handle the case where text is being composed.
-        if (firstSpanInString(spannableString, COMPOSED_TEXT_ATTRIB)) {
-            InputLog(LogLevelInfo, "InputHandler::setText Single trailing character detected.  Text is being composed. \n");
+        // If the text is unconverted, do not allow JS processing as it is not a "real"
+        // character in the field.
+        if (firstSpanInString(spannableString, UNCONVERTED_TEXT_ATTRIB)) {
+            InputLog(Platform::LogLevelInfo, "InputHandler::setText Single trailing character detected. Text is unconverted.");
             return editor->command("InsertText").execute(textToInsert.right(1));
         }
-        InputLog(LogLevelInfo, "InputHandler::setText Single trailing character detected. Text is not being composed. \n");
-        return handleKeyboardInput(Platform::KeyboardEvent(textToInsert[textLength - 1], Platform::KeyboardEvent::KeyChar, 0), false /* changeIsPartOfComposition */);
+        InputLog(Platform::LogLevelInfo, "InputHandler::setText Single trailing character detected.");
+        return handleKeyboardInput(Platform::KeyboardEvent(textToInsert[textLength - 1], Platform::KeyboardEvent::KeyDown, 0), false /* changeIsPartOfComposition */);
     }
 
     // If no spans have changed, treat it as a delete operation.
     if (!changedSpan) {
         // If the composition length is the same as our string length, then we don't need to do anything.
         if (composingTextLength == textLength) {
-            InputLog(LogLevelInfo, "InputHandler::setText No spans have changed. New text is the same length as the old. Nothing to do. \n");
+            InputLog(Platform::LogLevelInfo, "InputHandler::setText No spans have changed. New text is the same length as the old. Nothing to do.");
             return true;
         }
 
         if (composingTextLength - textLength == 1) {
-            InputLog(LogLevelInfo, "InputHandler::setText No spans have changed. New text is one character shorter than the old. Treating as 'delete'. \n");
-            return editor->command("DeleteBackward").execute();
+            InputLog(Platform::LogLevelInfo, "InputHandler::setText No spans have changed. New text is one character shorter than the old. Treating as 'delete'.");
+            return handleKeyboardInput(Platform::KeyboardEvent(KEYCODE_BACKSPACE, Platform::KeyboardEvent::KeyDown, 0), true /* changeIsPartOfComposition */);
         }
     }
 
@@ -1575,7 +2515,7 @@ bool InputHandler::setText(spannable_string_t* spannableString)
     // If there is no text to add just delete.
     if (!textLength) {
         if (selectionActive())
-            return editor->command("DeleteBackward").execute();
+            return handleKeyboardInput(Platform::KeyboardEvent(KEYCODE_BACKSPACE, Platform::KeyboardEvent::KeyDown, 0), true /* changeIsPartOfComposition */);
 
         // Nothing to do.
         return true;
@@ -1586,31 +2526,37 @@ bool InputHandler::setText(spannable_string_t* spannableString)
     // Remove it and apply it as a keypress later.
     // Upstream Webkit bug created https://bugs.webkit.org/show_bug.cgi?id=70823
     bool requiresSpaceKeyPress = false;
-    if (textLength > 0 && textToInsert[textLength - 1] == 32 /* space */) {
+    if (textLength > 0 && textToInsert[textLength - 1] == KEYCODE_SPACE) {
         requiresSpaceKeyPress = true;
         textLength--;
         textToInsert.remove(textLength, 1);
     }
 
-    InputLog(LogLevelInfo, "InputHandler::setText Request being processed. Text before processing: '%s'", elementText().latin1().data());
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::setText Request being processed. Text before processing: '%s'",
+        elementText().latin1().data());
 
     if (textLength == 1 && !spannableString->spans_count) {
         // Handle single key non-attributed entry as key press rather than insert to allow
         // triggering of javascript events.
-        InputLog(LogLevelInfo, "InputHandler::setText Single character entry treated as key-press in the absense of spans. \n");
-        return handleKeyboardInput(Platform::KeyboardEvent(textToInsert[0], Platform::KeyboardEvent::KeyChar, 0), true /* changeIsPartOfComposition */);
+        InputLog(Platform::LogLevelInfo, "InputHandler::setText Single character entry treated as key-press in the absense of spans.");
+        return handleKeyboardInput(Platform::KeyboardEvent(textToInsert[0], Platform::KeyboardEvent::KeyDown, 0), true /* changeIsPartOfComposition */);
     }
 
     // Perform the text change as a single command if there is one.
     if (!textToInsert.isEmpty() && !editor->command("InsertText").execute(textToInsert)) {
-        InputLog(LogLevelWarn, "InputHandler::setText Failed to insert text '%s'", textToInsert.latin1().data());
+        InputLog(Platform::LogLevelWarn,
+            "InputHandler::setText Failed to insert text '%s'",
+            textToInsert.latin1().data());
         return false;
     }
 
     if (requiresSpaceKeyPress)
-        handleKeyboardInput(Platform::KeyboardEvent(32 /* space */, Platform::KeyboardEvent::KeyChar, 0), true /* changeIsPartOfComposition */);
+        handleKeyboardInput(Platform::KeyboardEvent(KEYCODE_SPACE, Platform::KeyboardEvent::KeyDown, 0), true /* changeIsPartOfComposition */);
 
-    InputLog(LogLevelInfo, "InputHandler::setText Request being processed. Text after processing '%s'", elementText().latin1().data());
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::setText Request being processed. Text after processing '%s'",
+        elementText().latin1().data());
 
     return true;
 }
@@ -1619,12 +2565,12 @@ bool InputHandler::setTextAttributes(int insertionPoint, spannable_string_t* spa
 {
     // Apply the attributes to the field.
     span_t* span = spannableString->spans;
-    for (unsigned int i = 0; i < spannableString->spans_count; i++) {
-        unsigned int startPosition = insertionPoint + span->start;
+    for (unsigned i = 0; i < spannableString->spans_count; i++) {
+        unsigned startPosition = insertionPoint + span->start;
         // The end point includes the character that it is before. Ie, 0, 0
         // applies to the first character as the end point includes the character
         // at the position. This means the endPosition is always +1.
-        unsigned int endPosition = insertionPoint + span->end + 1;
+        unsigned endPosition = insertionPoint + span->end + 1;
         if (endPosition < startPosition || endPosition > elementText().length())
             return false;
 
@@ -1635,13 +2581,15 @@ bool InputHandler::setTextAttributes(int insertionPoint, spannable_string_t* spa
         // used by IMF. When they add support for on the fly spell checking we can
         // use it to apply spelling markers and disable continuous spell checking.
 
-        InputLog(LogLevelInfo, "InputHandler::setTextAttributes adding marker %d to %d - %d", startPosition, endPosition, span->attributes_mask);
+        InputLog(Platform::LogLevelInfo,
+            "InputHandler::setTextAttributes adding marker %d to %d - %llu",
+            startPosition, endPosition, span->attributes_mask);
         addAttributedTextMarker(startPosition, endPosition, textStyleFromMask(span->attributes_mask));
 
         span++;
     }
 
-    InputLog(LogLevelInfo, "InputHandler::setTextAttributes attribute count %d", spannableString->spans_count);
+    InputLog(Platform::LogLevelInfo, "InputHandler::setTextAttributes attribute count %d", spannableString->spans_count);
 
     return true;
 }
@@ -1672,14 +2620,19 @@ bool InputHandler::setRelativeCursorPosition(int insertionPoint, int relativeCur
     if (cursorPosition < 0 || cursorPosition > (int)elementText().length())
         return false;
 
-    InputLog(LogLevelInfo, "InputHandler::setRelativeCursorPosition cursor position %d", cursorPosition);
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::setRelativeCursorPosition cursor position %d",
+        cursorPosition);
 
     return setCursorPosition(cursorPosition);
 }
 
 bool InputHandler::setSpannableTextAndRelativeCursor(spannable_string_t* spannableString, int relativeCursorPosition, bool markTextAsComposing)
 {
-    InputLog(LogLevelInfo, "InputHandler::setSpannableTextAndRelativeCursor(%d, %d, %d)\n", spannableString->length, relativeCursorPosition, markTextAsComposing);
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::setSpannableTextAndRelativeCursor(%d, %d, %d)",
+        spannableString->length, relativeCursorPosition, markTextAsComposing);
+
     int insertionPoint = compositionActive() ? m_composingTextStart : selectionStart();
 
     ProcessingChangeGuard guard(this);
@@ -1698,10 +2651,6 @@ bool InputHandler::setSpannableTextAndRelativeCursor(spannable_string_t* spannab
         m_composingTextEnd = insertionPoint + spannableString->length;
     }
 
-    // Scroll the field if necessary. The automatic update is suppressed
-    // by the processing change guard.
-    ensureFocusTextElementVisible(EdgeIfNeeded);
-
     return true;
 }
 
@@ -1713,10 +2662,12 @@ int32_t InputHandler::setComposingText(spannable_string_t* spannableString, int3
     if (!spannableString)
         return -1;
 
-    InputLog(LogLevelInfo, "InputHandler::setComposingText at relativeCursorPosition: %d", relativeCursorPosition);
+    InputLog(Platform::LogLevelInfo,
+        "InputHandler::setComposingText at relativeCursorPosition: %d",
+        relativeCursorPosition);
 
     // Enable input mode if we are processing a key event.
-    enableInputMode();
+    setInputModeEnabled();
 
     return setSpannableTextAndRelativeCursor(spannableString, relativeCursorPosition, true /* markTextAsComposing */) ? 0 : -1;
 }
@@ -1729,9 +2680,54 @@ int32_t InputHandler::commitText(spannable_string_t* spannableString, int32_t re
     if (!spannableString)
         return -1;
 
-    InputLog(LogLevelInfo, "InputHandler::commitText");
+    InputLog(Platform::LogLevelInfo, "InputHandler::commitText");
 
     return setSpannableTextAndRelativeCursor(spannableString, relativeCursorPosition, false /* markTextAsComposing */) ? 0 : -1;
+}
+
+void InputHandler::restoreViewState()
+{
+    setInputModeEnabled();
+
+    // Make sure we reset the selection / FCC state.
+    m_webPage->m_selectionHandler->selectionPositionChanged();
+}
+
+void InputHandler::showTextInputTypeSuggestionBox(bool allowEmptyPrefix)
+{
+    if (!isActiveTextEdit())
+        return;
+
+    HTMLInputElement* focusedInputElement = static_cast<HTMLInputElement*>(m_currentFocusElement->toInputElement());
+    if (!focusedInputElement)
+        return;
+
+    if (!m_suggestionDropdownBoxHandler)
+        m_suggestionDropdownBoxHandler = SuggestionBoxHandler::create(focusedInputElement);
+
+    // If the focused input element isn't the same as the one inside the handler, reset and display.
+    // If the focused element is the same, display the suggestions.
+    if ((m_suggestionDropdownBoxHandler->focusedElement()) && m_suggestionDropdownBoxHandler->focusedElement() != focusedInputElement)
+        m_suggestionDropdownBoxHandler->setInputElementAndUpdateDisplay(focusedInputElement);
+    else
+        m_suggestionDropdownBoxHandler->showDropdownBox(allowEmptyPrefix);
+}
+
+void InputHandler::hideTextInputTypeSuggestionBox()
+{
+    if (m_suggestionDropdownBoxHandler)
+        m_suggestionDropdownBoxHandler->hideDropdownBox();
+}
+
+void InputHandler::elementTouched(WebCore::Element* nonShadowElementUnderFatFinger)
+{
+    // Attempt to show all suggestions when the input field is empty and a tap is registered when the element is focused.
+    if (isActiveTextEdit() && nonShadowElementUnderFatFinger == m_currentFocusElement)
+        showTextInputTypeSuggestionBox(true /* allowEmptyPrefix */);
+
+    m_elementTouchedIsCrossFrame = nonShadowElementUnderFatFinger
+        && nonShadowElementUnderFatFinger->document()
+        && nonShadowElementUnderFatFinger->document()->frame() != m_webPage->focusedOrMainFrame();
 }
 
 }

@@ -391,10 +391,7 @@ querylocale(int mask, locale_t loc)
 		errno = EINVAL;
 		return NULL;
 	}
-	if (loc == NULL)
-		loc = __current_locale();
-	else if (loc == LC_GLOBAL_LOCALE)
-		loc = &__global_locale;
+	DEFAULT_CURRENT_LOCALE(loc);
 	m = ffs(mask);
 	if (m == 0 || m > _LC_NUM_MASK) {
 		errno = EINVAL;
@@ -489,12 +486,6 @@ __xlocale_release(void *loc)
 /*
  * Called from the Libc initializer to setup the thread-specific key.
  */
-/*
- * Partition _pthread_keys in a lower part that dyld can use, and an upper
- * part for libSystem.  The libSystem part starts at __pthread_tsd_first = 10.
- * dyld will set this value to 1.
- */
-
 __private_extern__ void
 __xlocale_init(void)
 {

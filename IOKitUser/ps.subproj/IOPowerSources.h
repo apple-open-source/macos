@@ -50,8 +50,11 @@ __BEGIN_DECLS
 
 /*! @constant   kIOPSNotifyLowBattery
  *
- *  @abstract   Notify(3) key. The system delivers notifications on this key when the 
- *              battery time remaining drops into a warnable level.
+ *  @abstract   Notify(3) key. IOKit posts kIOPSNotifyLowBattery notifications when the
+ *              system is drawing from limited battery power, and the battery time 
+ *              remaining drops into a warnable level.
+ * 
+ *              See also kIOPSNotifyPowerSource, and kIOPSNotifyTimeRemaining
  */
 #define kIOPSNotifyLowBattery   "com.apple.system.powersources.lowbattery"
 
@@ -106,34 +109,82 @@ IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void);
  */
 
 /*! 
- * @define      kIOPSTimeRemainingNotificationKey
+ * @define      kIOPSNotifyTimeRemaining
+ *              C-string key for a notification of changes to any power source's time remaining estimate.
+ *              IOKit also posts this notification  when the active power source changes between AC, Battery, and UPS.
  *
- * @abstract    C-string key for a notification that fires when the power source(s) time remaining changes.
+ *              If you only need to detect when the power source changes between AC, Battery, or UPS, please use
+ *              <code>@link kIOPSNotifyPowerSource @/link</code>; your code will run less often and conserve battery life.
  *
- * @discussion  Use notify(3) API to register for notifications.
+ *              See API <code>@link IOPSGetTimeRemainingEstimate @/link</code> to determine whether the active power source is
+ *              limited or unlimited; and to determine the estimated time remaining until empty.
+ *
+ *              Use notify(3) API to register for notifications.
  */
-#define kIOPSTimeRemainingNotificationKey        "com.apple.system.powersources.timeremaining"
+#define kIOPSNotifyTimeRemaining                "com.apple.system.powersources.timeremaining"
+#define kIOPSTimeRemainingNotificationKey       kIOPSNotifyTimeRemaining
+
+/*!
+ * @define      kIOPSNotifyPowerSource
+ * @abstract    C-string key for a notification of changes to the active power source.
+ * @discussion  Use this notification to discover when the active power source changes from AC power (unlimited/wall power),
+ *              to Battery Power or UPS Power (limited power). IOKit will not deliver this notification when a battery's
+ *              time remaining changes, only when the active power source changes. This makes it a more effiicent
+ *              choice for clients only interested in differentiating AC vs Battery.
+ *
+ *              See API <code>@link IOPSGetTimeRemainingEstimate @/link</code> to determine whether the active power source is
+ *              limited or unlimited.
+ *
+ *              Example: IOKit posts kIOPSNotifyPowerSource upon connecting or disconnecting AC power to a laptop.
+ *                       IOKit posts kIOPSNotifyPowerSource upon a UPS losing AC Power; as the system switches to a limited
+ *                       UPS battery power source.
+ *
+ *              Use notify(3) API to register for notifications.
+ * */
+#define kIOPSNotifyPowerSource                  "com.apple.system.powersources.source"
+
+/*!
+ * @define      kIOPSNotifyAttach
+ * @abstract    C-string key for a notification when a power source is attached or detached.
+ * @discussion  Example: IOKit posts kIOPSNotifyAttach upon detection of internal battery.
+ *                       IOKit posts kIOPSNotifyAttach when a user attaches or detaches an external UPS.
+ *
+ *              Note that IOKit doesn't deliver kIOPSNotifyAttach upon plugging or unplugging AC Power to a laptop; see
+ *              <code>@link kIOPSNotifyPowerSource@/link</code> for changes to the active power source.
+ *
+ *              IOKit may take many seconds to discover a built-in battery at boot time. If your user process runs
+ *              at early boot, use kIOPSNotifyAttach to detect an IOPowerSource's appearance.
+ *              Use notify(3) API to register for notifications.
+ */
+#define kIOPSNotifyAttach                       "com.apple.system.powersources.attach"
+
+/*!
+ * @define      kIOPSNotifyAnyPowerSource
+ * @abstract    C-string key for a notification that of changes to any attribute of any IOPowerSource.
+ * @discussion  Use notify(3) API to register for notifications.
+ *              IOKit posts this notificatino more frequently than the other notifications, and thus uses more
+ *              energy to run your code. To conserve CPU cycles and battery life, please consider another notification 
+ *              that also fits your needs. Please consider these instead:
+ *                  <code>@link kIOPSNotifyPowerSource @/link</code>,
+ *                  <code>@link kIOPSNotifyTimeRemaining @/link</code>
+ *
+ */
+#define kIOPSNotifyAnyPowerSource               "com.apple.system.powersources"
 
 /*!
  * @constant    kIOPSTimeRemainingUnknown
- *
- * @abstract    Possible return value from <code>@link IOPSGetTimeRemainingEstimate@/link</code>
- *
- * @discussion  Indicates the system is connected to a limited power source, but the system is still
- *              calculating a time remaining estimate. Check for a valid estimate again when the notification
- *              <code>@link kIOPSPowerSourcesNotificationKey@/link</code> fires.
+ *              Possible return value from <code>@link IOPSGetTimeRemainingEstimate@/link</code>
+ *              Indicates the system is connected to a limited power source, but the system is still
+ *              calculating a time remaining estimate. Check for a valid estimate again when IOKit posts the
+ *              notification <code>@link kIOPSPowerSourcesNotificationKey@/link</code>.
  */
-
 #define     kIOPSTimeRemainingUnknown           ((CFTimeInterval)-1.0)
 
 /*!
  * @constant    kIOPSTimeRemainingUnlimited
- *
- * @abstract    Possible return value from <code>@link IOPSGetTimeRemainingEstimate@/link</code>
- *
- * @discussion  Indicates the system is connected to an external power source, without a time limit.
+ *              Possible return value from <code>@link IOPSGetTimeRemainingEstimate@/link</code>
+ *              Indicates the system is connected to an external power source, without a time limit.
  */
-
 #define     kIOPSTimeRemainingUnlimited         ((CFTimeInterval)-2.0)
 
 /*! 
@@ -258,7 +309,13 @@ CFStringRef     IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
  *  @discussion Returns a CFRunLoopSourceRef for scheduling with your CFRunLoop. 
  *              If your project does not use a CFRunLoop, you can alternatively
  *              receive notifications via mach port, dispatch, or signal, via <code>notify.h</code>
- *              using the name <code>@link kIOPSTimeRemainingNotificationKey @/link</code>
+ *              using the name <code>@link kIOPSTimeRemainingNotificationKey @/link</code>.
+ *
+ *              IOKit delivers this notification when percent remaining or time remaining changes.
+ *              Thus it fires fairly frequently while discharging or charging the battery; 
+ *              please consider using:
+ *              <code>@link IOPSCreateLimitedPowerNotification @/link</code> if you only require
+ *              notifications when the power source type changes from limited to unlimited.
  *
  *  @param      callback A function to be called whenever any power source is added, removed, or changes.
  *
@@ -269,6 +326,25 @@ CFStringRef     IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
  */
 CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType callback, void *context);
 
+/*! @function   IOPSCreateLimitedPowerNotification
+ *
+ *  @abstract   Returns a CFRunLoopSourceRef that notifies the caller when power source
+ *              changes from an unlimited power source (like attached to wall, car, or airplane power), to a limited
+ *              power source (like a battery or UPS).
+ *
+ *  @discussion Returns a CFRunLoopSourceRef for scheduling with your CFRunLoop.
+ *              If your project does not use a CFRunLoop, you can alternatively
+ *              receive this notification via <code>notify.h</code>
+ *              using the name <code>@link kIOPSNotifyPowerSource @/link</code>
+ *
+ *  @param      callback A function to be called whenever the power source changes from AC to DC..
+ *
+ *  @param      context Any user-defined pointer, passed to the IOPowerSource callback.
+ *
+ *  @result     Returns NULL if an error was encountered, otherwise a CFRunLoopSource. Caller must
+ *              release the CFRunLoopSource.
+ */
+CFRunLoopSourceRef IOPSCreateLimitedPowerNotification(IOPowerSourceCallbackType callback, void *context) __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 /*! @function   IOPSCopyExternalPowerAdapterDetails
  *

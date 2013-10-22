@@ -256,7 +256,7 @@ fb_label_name (int32_t n,	/* We just saw "n:", "nf" or "nb" : n a number.  */
       *q = i % 10 + '0';
       i /= 10;
     }
-  while ((*p++ = *--q) != '\0');;
+  while ((*p++ = *--q) != '\0');
 
   /* The label, as a '\0' ended string, starts at symbol_name_build.  */
   return (symbol_name_build);

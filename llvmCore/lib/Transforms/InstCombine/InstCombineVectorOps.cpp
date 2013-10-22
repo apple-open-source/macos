@@ -16,16 +16,16 @@
 using namespace llvm;
 
 /// CheapToScalarize - Return true if the value is cheaper to scalarize than it
-/// is to leave as a vector operation.
+/// is to leave as a vector operation.  isConstant indicates whether we're
+/// extracting one known element.  If false we're extracting a variable index.
 static bool CheapToScalarize(Value *V, bool isConstant) {
-  if (isa<ConstantAggregateZero>(V))
-    return true;
-  if (ConstantVector *C = dyn_cast<ConstantVector>(V)) {
+  if (Constant *C = dyn_cast<Constant>(V)) {
     if (isConstant) return true;
-    // If all elts are the same, we can extract.
-    Constant *Op0 = C->getOperand(0);
-    for (unsigned i = 1; i < C->getNumOperands(); ++i)
-      if (C->getOperand(i) != Op0)
+
+    // If all elts are the same, we can extract it and use any of the values.
+    Constant *Op0 = C->getAggregateElement(0U);
+    for (unsigned i = 1, e = V->getType()->getVectorNumElements(); i != e; ++i)
+      if (C->getAggregateElement(i) != Op0)
         return false;
     return true;
   }
@@ -53,41 +53,18 @@ static bool CheapToScalarize(Value *V, bool isConstant) {
   return false;
 }
 
-/// getShuffleMask - Read and decode a shufflevector mask.
-/// Turn undef elements into negative values.
-static SmallVector<int, 16> getShuffleMask(const ShuffleVectorInst *SVI) {
-  unsigned NElts = SVI->getType()->getNumElements();
-  if (isa<ConstantAggregateZero>(SVI->getOperand(2)))
-    return SmallVector<int, 16>(NElts, 0);
-  if (isa<UndefValue>(SVI->getOperand(2)))
-    return SmallVector<int, 16>(NElts, -1);
-
-  SmallVector<int, 16> Result;
-  const ConstantVector *CP = cast<ConstantVector>(SVI->getOperand(2));
-  for (User::const_op_iterator i = CP->op_begin(), e = CP->op_end(); i!=e; ++i)
-    if (isa<UndefValue>(*i))
-      Result.push_back(-1);  // undef
-    else
-      Result.push_back(cast<ConstantInt>(*i)->getZExtValue());
-  return Result;
-}
-
 /// FindScalarElement - Given a vector and an element number, see if the scalar
 /// value is already around as a register, for example if it were inserted then
 /// extracted from the vector.
 static Value *FindScalarElement(Value *V, unsigned EltNo) {
   assert(V->getType()->isVectorTy() && "Not looking at a vector?");
-  VectorType *PTy = cast<VectorType>(V->getType());
-  unsigned Width = PTy->getNumElements();
+  VectorType *VTy = cast<VectorType>(V->getType());
+  unsigned Width = VTy->getNumElements();
   if (EltNo >= Width)  // Out of range access.
-    return UndefValue::get(PTy->getElementType());
+    return UndefValue::get(VTy->getElementType());
 
-  if (isa<UndefValue>(V))
-    return UndefValue::get(PTy->getElementType());
-  if (isa<ConstantAggregateZero>(V))
-    return Constant::getNullValue(PTy->getElementType());
-  if (ConstantVector *CP = dyn_cast<ConstantVector>(V))
-    return CP->getOperand(EltNo);
+  if (Constant *C = dyn_cast<Constant>(V))
+    return C->getAggregateElement(EltNo);
 
   if (InsertElementInst *III = dyn_cast<InsertElementInst>(V)) {
     // If this is an insert to a variable element, we don't know what it is.
@@ -106,11 +83,10 @@ static Value *FindScalarElement(Value *V, unsigned EltNo) {
   }
 
   if (ShuffleVectorInst *SVI = dyn_cast<ShuffleVectorInst>(V)) {
-    unsigned LHSWidth =
-      cast<VectorType>(SVI->getOperand(0)->getType())->getNumElements();
+    unsigned LHSWidth = SVI->getOperand(0)->getType()->getVectorNumElements();
     int InEl = SVI->getMaskValue(EltNo);
     if (InEl < 0)
-      return UndefValue::get(PTy->getElementType());
+      return UndefValue::get(VTy->getElementType());
     if (InEl < (int)LHSWidth)
       return FindScalarElement(SVI->getOperand(0), InEl);
     return FindScalarElement(SVI->getOperand(1), InEl - LHSWidth);
@@ -121,27 +97,11 @@ static Value *FindScalarElement(Value *V, unsigned EltNo) {
 }
 
 Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
-  // If vector val is undef, replace extract with scalar undef.
-  if (isa<UndefValue>(EI.getOperand(0)))
-    return ReplaceInstUsesWith(EI, UndefValue::get(EI.getType()));
-
-  // If vector val is constant 0, replace extract with scalar 0.
-  if (isa<ConstantAggregateZero>(EI.getOperand(0)))
-    return ReplaceInstUsesWith(EI, Constant::getNullValue(EI.getType()));
-
-  if (ConstantVector *C = dyn_cast<ConstantVector>(EI.getOperand(0))) {
-    // If vector val is constant with all elements the same, replace EI with
-    // that element. When the elements are not identical, we cannot replace yet
-    // (we do that below, but only when the index is constant).
-    Constant *op0 = C->getOperand(0);
-    for (unsigned i = 1; i != C->getNumOperands(); ++i)
-      if (C->getOperand(i) != op0) {
-        op0 = 0;
-        break;
-      }
-    if (op0)
-      return ReplaceInstUsesWith(EI, op0);
-  }
+  // If vector val is constant with all elements the same, replace EI with
+  // that element.  We handle a known element # below.
+  if (Constant *C = dyn_cast<Constant>(EI.getOperand(0)))
+    if (CheapToScalarize(C, false))
+      return ReplaceInstUsesWith(EI, C->getAggregateElement(0U));
 
   // If extracting a specified index from the vector, see if we can recursively
   // find a previously computed scalar that was inserted into the vector.
@@ -175,8 +135,7 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
     // the same number of elements, see if we can find the source element from
     // it.  In this case, we will end up needing to bitcast the scalars.
     if (BitCastInst *BCI = dyn_cast<BitCastInst>(EI.getOperand(0))) {
-      if (VectorType *VT =
-          dyn_cast<VectorType>(BCI->getOperand(0)->getType()))
+      if (VectorType *VT = dyn_cast<VectorType>(BCI->getOperand(0)->getType()))
         if (VT->getNumElements() == VectorWidth)
           if (Value *Elt = FindScalarElement(BCI->getOperand(0), IndexVal))
             return new BitCastInst(Elt, EI.getType());
@@ -215,7 +174,7 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
         int SrcIdx = SVI->getMaskValue(Elt->getZExtValue());
         Value *Src;
         unsigned LHSWidth =
-          cast<VectorType>(SVI->getOperand(0)->getType())->getNumElements();
+          SVI->getOperand(0)->getType()->getVectorNumElements();
 
         if (SrcIdx < 0)
           return ReplaceInstUsesWith(EI, UndefValue::get(EI.getType()));
@@ -248,7 +207,7 @@ Instruction *InstCombiner::visitExtractElementInst(ExtractElementInst &EI) {
 /// elements from either LHS or RHS, return the shuffle mask and true.
 /// Otherwise, return false.
 static bool CollectSingleShuffleElements(Value *V, Value *LHS, Value *RHS,
-                                         std::vector<Constant*> &Mask) {
+                                         SmallVectorImpl<Constant*> &Mask) {
   assert(V->getType() == LHS->getType() && V->getType() == RHS->getType() &&
          "Invalid CollectSingleShuffleElements");
   unsigned NumElts = cast<VectorType>(V->getType())->getNumElements();
@@ -325,7 +284,7 @@ static bool CollectSingleShuffleElements(Value *V, Value *LHS, Value *RHS,
 /// CollectShuffleElements - We are building a shuffle of V, using RHS as the
 /// RHS of the shuffle instruction, if it is not null.  Return a shuffle mask
 /// that computes V and the LHS value of the shuffle.
-static Value *CollectShuffleElements(Value *V, std::vector<Constant*> &Mask,
+static Value *CollectShuffleElements(Value *V, SmallVectorImpl<Constant*> &Mask,
                                      Value *&RHS) {
   assert(V->getType()->isVectorTy() &&
          (RHS == 0 || V->getType() == RHS->getType()) &&
@@ -335,10 +294,14 @@ static Value *CollectShuffleElements(Value *V, std::vector<Constant*> &Mask,
   if (isa<UndefValue>(V)) {
     Mask.assign(NumElts, UndefValue::get(Type::getInt32Ty(V->getContext())));
     return V;
-  } else if (isa<ConstantAggregateZero>(V)) {
+  }
+  
+  if (isa<ConstantAggregateZero>(V)) {
     Mask.assign(NumElts, ConstantInt::get(Type::getInt32Ty(V->getContext()),0));
     return V;
-  } else if (InsertElementInst *IEI = dyn_cast<InsertElementInst>(V)) {
+  }
+  
+  if (InsertElementInst *IEI = dyn_cast<InsertElementInst>(V)) {
     // If this is an insert of an extract from some other vector, include it.
     Value *VecOp    = IEI->getOperand(0);
     Value *ScalarOp = IEI->getOperand(1);
@@ -421,7 +384,7 @@ Instruction *InstCombiner::visitInsertElementInst(InsertElementInst &IE) {
       // If this insertelement isn't used by some other insertelement, turn it
       // (and any insertelements it points to), into one big shuffle.
       if (!IE.hasOneUse() || !isa<InsertElementInst>(IE.use_back())) {
-        std::vector<Constant*> Mask;
+        SmallVector<Constant*, 16> Mask;
         Value *RHS = 0;
         Value *LHS = CollectShuffleElements(&IE, Mask, RHS);
         if (RHS == 0) RHS = UndefValue::get(LHS->getType());
@@ -447,7 +410,7 @@ Instruction *InstCombiner::visitInsertElementInst(InsertElementInst &IE) {
 Instruction *InstCombiner::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
   Value *LHS = SVI.getOperand(0);
   Value *RHS = SVI.getOperand(1);
-  SmallVector<int, 16> Mask = getShuffleMask(&SVI);
+  SmallVector<int, 16> Mask = SVI.getShuffleMask();
 
   bool MadeChange = false;
 
@@ -480,20 +443,21 @@ Instruction *InstCombiner::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
     }
 
     // Remap any references to RHS to use LHS.
-    std::vector<Constant*> Elts;
+    SmallVector<Constant*, 16> Elts;
     for (unsigned i = 0, e = LHSWidth; i != VWidth; ++i) {
-      if (Mask[i] < 0)
+      if (Mask[i] < 0) {
         Elts.push_back(UndefValue::get(Type::getInt32Ty(SVI.getContext())));
-      else {
-        if ((Mask[i] >= (int)e && isa<UndefValue>(RHS)) ||
-            (Mask[i] <  (int)e && isa<UndefValue>(LHS))) {
-          Mask[i] = -1;     // Turn into undef.
-          Elts.push_back(UndefValue::get(Type::getInt32Ty(SVI.getContext())));
-        } else {
-          Mask[i] = Mask[i] % e;  // Force to LHS.
-          Elts.push_back(ConstantInt::get(Type::getInt32Ty(SVI.getContext()),
-                                          Mask[i]));
-        }
+        continue;
+      }
+
+      if ((Mask[i] >= (int)e && isa<UndefValue>(RHS)) ||
+          (Mask[i] <  (int)e && isa<UndefValue>(LHS))) {
+        Mask[i] = -1;     // Turn into undef.
+        Elts.push_back(UndefValue::get(Type::getInt32Ty(SVI.getContext())));
+      } else {
+        Mask[i] = Mask[i] % e;  // Force to LHS.
+        Elts.push_back(ConstantInt::get(Type::getInt32Ty(SVI.getContext()),
+                                        Mask[i]));
       }
     }
     SVI.setOperand(0, SVI.getOperand(1));
@@ -618,12 +582,11 @@ Instruction *InstCombiner::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
 
   SmallVector<int, 16> LHSMask;
   SmallVector<int, 16> RHSMask;
-  if (newLHS != LHS) {
-    LHSMask = getShuffleMask(LHSShuffle);
-  }
-  if (RHSShuffle && newRHS != RHS) {
-    RHSMask = getShuffleMask(RHSShuffle);
-  }
+  if (newLHS != LHS)
+    LHSMask = LHSShuffle->getShuffleMask();
+  if (RHSShuffle && newRHS != RHS)
+    RHSMask = RHSShuffle->getShuffleMask();
+
   unsigned newLHSWidth = (newLHS != LHS) ? LHSOp0Width : LHSWidth;
   SmallVector<int, 16> newMask;
   bool isSplat = true;
@@ -673,8 +636,11 @@ Instruction *InstCombiner::visitShuffleVectorInst(ShuffleVectorInst &SVI) {
 
       // If LHS's width is changed, shift the mask value accordingly.
       // If newRHS == NULL, i.e. LHSOp0 == RHSOp0, we want to remap any
-      // references to RHSOp0 to LHSOp0, so we don't need to shift the mask.
-      if (eltMask >= 0 && newRHS != NULL)
+      // references from RHSOp0 to LHSOp0, so we don't need to shift the mask.
+      // If newRHS == newLHS, we want to remap any references from newRHS to
+      // newLHS so that we can properly identify splats that may occur due to
+      // obfuscation accross the two vectors.
+      if (eltMask >= 0 && newRHS != NULL && newLHS != newRHS)
         eltMask += newLHSWidth;
     }
 

@@ -27,6 +27,7 @@
 #define InjectedBundleHitTestResult_h
 
 #include "APIObject.h"
+#include "InjectedBundleHitTestResultMediaType.h"
 #include <WebCore/HitTestResult.h>
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
@@ -37,10 +38,8 @@ namespace WebKit {
 class InjectedBundleNodeHandle;
 class WebFrame;
 
-class InjectedBundleHitTestResult : public APIObject {
+class InjectedBundleHitTestResult : public TypedAPIObject<APIObject::TypeBundleHitTestResult> {
 public:
-    static const Type APIType = TypeBundleHitTestResult;
-
     static PassRefPtr<InjectedBundleHitTestResult> create(const WebCore::HitTestResult&);
 
     const WebCore::HitTestResult& coreHitTestResult() const { return m_hitTestResult; }
@@ -53,6 +52,9 @@ public:
     String absolutePDFURL() const;
     String absoluteLinkURL() const;
     String absoluteMediaURL() const;
+    bool mediaIsInFullscreen() const;
+    bool mediaHasAudio() const;
+    BundleHitTestResultMediaType mediaType() const;
 
     String linkLabel() const;
     String linkTitle() const;
@@ -66,8 +68,6 @@ private:
         : m_hitTestResult(hitTestResult)
     {
     }
-
-    virtual Type type() const { return APIType; }
 
     WebCore::HitTestResult m_hitTestResult;
 };

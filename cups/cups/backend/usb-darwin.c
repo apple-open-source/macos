@@ -1,7 +1,7 @@
 /*
-* "$Id: usb-darwin.c 8619 2009-05-12 17:41:32Z mike $"
+* "$Id: usb-darwin.c 11093 2013-07-03 20:48:42Z msweet $"
 *
-* Copyright 2005-2012 Apple Inc. All rights reserved.
+* Copyright 2005-2013 Apple Inc. All rights reserved.
 *
 * IMPORTANT:  This Apple software is supplied to you by Apple Computer,
 * Inc. ("Apple") in consideration of your agreement to the following
@@ -96,6 +96,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/usb/IOUSBLib.h>
 #include <IOKit/IOCFPlugIn.h>
+#include <libproc.h>
 
 #include <spawn.h>
 #include <pthread.h>
@@ -134,6 +135,26 @@ extern char **environ;
 #define kUSBGenericTOPrinterClassDriver	CFSTR("/System/Library/Printers/Libraries/USBGenericPrintingClass.plugin")
 #define kUSBPrinterClassDeviceNotOpen	-9664	/*kPMInvalidIOMContext*/
 
+#define CRSetCrashLogMessage(m) _crc_make_setter(message, m)
+#define _crc_make_setter(attr, arg) (gCRAnnotations.attr = (uint64_t)(unsigned long)(arg))
+#define CRASH_REPORTER_CLIENT_HIDDEN __attribute__((visibility("hidden")))
+#define CRASHREPORTER_ANNOTATIONS_VERSION 4
+#define CRASHREPORTER_ANNOTATIONS_SECTION "__crash_info"
+
+struct crashreporter_annotations_t {
+	uint64_t version;		// unsigned long
+	uint64_t message;		// char *
+	uint64_t signature_string;	// char *
+	uint64_t backtrace;		// char *
+	uint64_t message2;		// char *
+	uint64_t thread;		// uint64_t
+	uint64_t dialog_mode;		// unsigned int
+};
+
+CRASH_REPORTER_CLIENT_HIDDEN
+struct crashreporter_annotations_t gCRAnnotations
+	__attribute__((section("__DATA," CRASHREPORTER_ANNOTATIONS_SECTION)))
+	= { CRASHREPORTER_ANNOTATIONS_VERSION, 0, 0, 0, 0, 0, 0 };
 
 /*
  * Section 5.3 USB Printing Class spec
@@ -179,7 +200,7 @@ typedef struct classdriver_s		/**** g.classdriver context ****/
   UInt16		vendorID;		/* Vendor id */
   UInt16		productID;		/* Product id */
   printer_interface_t	interface;		/* identify the device to IOKit */
-  UInt8		  	outpipe;		/* mandatory bulkOut pipe */
+  UInt8			outpipe;		/* mandatory bulkOut pipe */
   UInt8			inpipe;			/* optional bulkIn pipe */
 
   /* general class requests */
@@ -259,6 +280,7 @@ typedef struct globals_s
  */
 
 globals_t g = { 0 };			/* Globals */
+int Iterating = 0;			/* Are we iterating the bus? */
 
 
 /*
@@ -293,6 +315,7 @@ static pid_t	child_pid;		/* Child PID */
 static void run_legacy_backend(int argc, char *argv[], int fd);	/* Starts child backend process running as a ppc executable */
 #endif /* __i386__ || __x86_64__ */
 static void sigterm_handler(int sig);	/* SIGTERM handler */
+static void sigquit_handler(int sig, siginfo_t *si, void *unused);
 
 #ifdef PARSE_PS_ERRORS
 static const char *next_line (const char *buffer);
@@ -344,9 +367,19 @@ print_device(const char *uri,		/* I - Device URI */
   struct timeval  *timeout,		/* Timeout pointer */
 		  tv;			/* Time value */
   struct timespec cond_timeout;		/* pthread condition timeout */
+  struct sigaction action;		/* Actions for POSIX signals */
 
 
   (void)uri;
+
+ /*
+  * Catch SIGQUIT to determine who is sending it...
+  */
+
+  memset(&action, 0, sizeof(action));
+  action.sa_sigaction = sigquit_handler;
+  action.sa_flags = SA_SIGINFO;
+  sigaction(SIGQUIT, &action, NULL);
 
  /*
   * See if the side-channel descriptor is valid...
@@ -472,9 +505,6 @@ print_device(const char *uri,		/* I - Device URI */
 
   if (!print_fd)
   {
-    struct sigaction	action;		/* POSIX signal action */
-
-
     memset(&action, 0, sizeof(action));
 
     sigemptyset(&action.sa_mask);
@@ -684,7 +714,7 @@ print_device(const char *uri,		/* I - Device URI */
 
        /*
 	* Ignore timeout errors, but retain the number of bytes written to
-	* avoid sending duplicate data (<rdar://problem/6254911>)...
+	* avoid sending duplicate data...
 	*/
 
 	if (iostatus == kIOUSBTransactionTimeout)
@@ -707,7 +737,7 @@ print_device(const char *uri,		/* I - Device URI */
 
        /*
 	* Retry a write after an aborted write since we probably just got
-	* SIGTERM (<rdar://problem/6860126>)...
+	* SIGTERM...
 	*/
 
 	else if (iostatus == kIOReturnAborted)
@@ -1077,6 +1107,8 @@ sidechannel_thread(void *reference)
 static void iterate_printers(iterator_callback_t callBack,
 			     void *userdata)
 {
+  Iterating = 1;
+
   mach_port_t	masterPort = 0x0;
   kern_return_t kr = IOMasterPort (bootstrap_port, &masterPort);
 
@@ -1100,7 +1132,7 @@ static void iterate_printers(iterator_callback_t callBack,
     CFRelease(usb_klass);
     CFRelease(usb_subklass);
 
-    kr = IOServiceAddMatchingNotification(addNotification, kIOMatchedNotification, usbPrinterMatchDictionary, &device_added, &reference, &addIterator);
+    IOServiceAddMatchingNotification(addNotification, kIOMatchedNotification, usbPrinterMatchDictionary, &device_added, &reference, &addIterator);
     if (addIterator != 0x0)
     {
       device_added (&reference, addIterator);
@@ -1114,6 +1146,8 @@ static void iterate_printers(iterator_callback_t callBack,
     }
     mach_port_deallocate(mach_task_self(), masterPort);
   }
+
+  Iterating = 0;
 }
 
 
@@ -1137,7 +1171,7 @@ static void device_added(void *userdata,
 
   /* One last call to the call back now that we are not longer have printers left to iterate...
    */
-  if (reference->keepRunning)
+  if (reference->keepRunning && reference->callback)
     reference->keepRunning = reference->callback(reference->userdata, 0x0);
 
   if (!reference->keepRunning)
@@ -1180,12 +1214,12 @@ static Boolean list_device_cb(void *refcon,
       if (!make ||
           !CFStringGetCString(make, makestr, sizeof(makestr),
 			      kCFStringEncodingUTF8))
-        strcpy(makestr, "Unknown");
+        strlcpy(makestr, "Unknown", sizeof(makestr));
 
       if (!model ||
           !CFStringGetCString(model, &modelstr[1], sizeof(modelstr)-1,
 			      kCFStringEncodingUTF8))
-        strcpy(modelstr + 1, "Printer");
+        strlcpy(modelstr + 1, "Printer", sizeof(modelstr) - 1);
 
       optionsstr[0] = '\0';
       if (serial != NULL)
@@ -1402,7 +1436,7 @@ static kern_return_t load_classdriver(CFStringRef	    driverPath,
 
   _cups_fc_result_t result = _cupsFileCheck(bundlestr,
                                             _CUPS_FILE_CHECK_DIRECTORY, 1,
-                                            _cupsFileCheckFilter, NULL);
+                                            Iterating ? NULL : _cupsFileCheckFilter, NULL);
 
   if (result && driverPath)
     return (load_classdriver(NULL, interface, printerDriver));
@@ -1569,11 +1603,12 @@ static kern_return_t registry_close(void)
 static OSStatus copy_deviceid(classdriver_t **classdriver,
 			      CFStringRef *deviceID)
 {
-  CFStringRef devID = NULL,
-
-  deviceMake = NULL,
-  deviceModel = NULL,
-  deviceSerial = NULL;
+  CFStringRef devID = NULL;
+  CFStringRef deviceMake = NULL;
+  CFStringRef deviceModel = NULL;
+  CFStringRef deviceSerial = NULL;
+  
+  *deviceID = NULL;
 
   OSStatus err = (*classdriver)->GetDeviceID(classdriver, &devID, DEFAULT_TIMEOUT);
 
@@ -1619,12 +1654,10 @@ static OSStatus copy_deviceid(classdriver_t **classdriver,
 
       if (deviceSerial == NULL && desc.iSerialNumber != 0)
       {
-	CFStringRef data = NULL;
-	err = (*classdriver)->GetString(classdriver, desc.iSerialNumber, kUSBLanguageEnglish, DEFAULT_TIMEOUT, &data);
-	if (data != NULL)
+	err = (*classdriver)->GetString(classdriver, desc.iSerialNumber, kUSBLanguageEnglish, DEFAULT_TIMEOUT, &deviceSerial);
+	if (deviceSerial != NULL)
 	{
-	  CFStringAppendFormat(newDevID, NULL, CFSTR("SERN:%@;"), data);
-	  CFRelease(data);
+	  CFStringAppendFormat(newDevID, NULL, CFSTR("SERN:%@;"), deviceSerial);
 	}
       }
 
@@ -1641,6 +1674,21 @@ static OSStatus copy_deviceid(classdriver_t **classdriver,
   {
     *deviceID = devID;
   }
+
+  if (*deviceID == NULL)
+      return err;
+
+  /* Remove special characters from the serial number */
+  CFRange range = (deviceSerial != NULL ? CFStringFind(deviceSerial, CFSTR("+"), 0) : CFRangeMake(0, 0));
+  if (range.length == 1) {
+      range = CFStringFind(*deviceID, deviceSerial, 0);
+      
+      CFMutableStringRef deviceIDString = CFStringCreateMutableCopy(NULL, 0, *deviceID);
+      CFStringFindAndReplace(deviceIDString, CFSTR("+"), CFSTR(""), range, 0);
+      CFRelease(*deviceID);
+      *deviceID = deviceIDString;
+  }
+  
   release_deviceinfo(&deviceMake, &deviceModel, &deviceSerial);
 
   return err;
@@ -1685,7 +1733,7 @@ static void copy_devicestring(io_service_t usbInterface,
 	kr = load_classdriver(NULL, interface, &klassDriver);
 
       if (kr == kIOReturnSuccess && klassDriver != NULL)
-	  kr = copy_deviceid(klassDriver, deviceID);
+	  copy_deviceid(klassDriver, deviceID);
 
       unload_classdriver(&klassDriver);
 
@@ -2094,6 +2142,32 @@ sigterm_handler(int sig)		/* I - Signal */
 }
 
 
+/*
+ * 'sigquit_handler()' - SIGQUIT handler.
+ */
+
+static void sigquit_handler(int sig, siginfo_t *si, void *unused)
+{
+  char  *path;
+  char	pathbuf[PROC_PIDPATHINFO_MAXSIZE];
+  static char msgbuf[256] = "";
+
+
+  (void)sig;
+  (void)unused;
+
+  if (proc_pidpath(si->si_pid, pathbuf, sizeof(pathbuf)) > 0 &&
+      (path = basename(pathbuf)) != NULL)
+    snprintf(msgbuf, sizeof(msgbuf), "SIGQUIT sent by %s(%d)", path, (int)si->si_pid);
+  else
+    snprintf(msgbuf, sizeof(msgbuf), "SIGQUIT sent by PID %d", (int)si->si_pid);
+
+  CRSetCrashLogMessage(msgbuf);
+
+  abort();
+}
+
+
 #ifdef PARSE_PS_ERRORS
 /*
  * 'next_line()' - Find the next line in a buffer.
@@ -2164,7 +2238,7 @@ static void parse_pserror(char *sockBuffer,
     }
 
     /* move everything over... */
-    strcpy(gErrorBuffer, pLineEnd);
+    strlcpy(gErrorBuffer, pLineEnd, sizeof(gErrorBuffer));
     gErrorBufferPtr = gErrorBuffer;
     pLineEnd = (char *)next_line((const char *)gErrorBuffer);
   }
@@ -2265,5 +2339,5 @@ static void get_device_id(cups_sc_status_t *status,
 
 
 /*
- * End of "$Id: usb-darwin.c 8619 2009-05-12 17:41:32Z mike $".
+ * End of "$Id: usb-darwin.c 11093 2013-07-03 20:48:42Z msweet $".
  */

@@ -449,7 +449,7 @@ spnego_reply(OM_uint32 * minor_status,
 
 	ctx->flags.seen_supported_mech = 1;
 
-	oid.length = der_length_oid(resp.u.negTokenResp.supportedMech);
+	oid.length = (OM_uint32)der_length_oid(resp.u.negTokenResp.supportedMech);
 	oid.elements = malloc(oid.length);
 	if (oid.elements == NULL) {
 	    free_NegotiationToken(&resp);
@@ -753,14 +753,13 @@ _gss_spnego_init_sec_context(OM_uint32 * minor_status,
 	     ctx->initiator_state != step_completed &&
 	     output_token->length == 0);
 
-    HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
-
-
     /* destroy context in case of error */
     if (GSS_ERROR(ret)) {
 	OM_uint32 junk;
 	_gss_spnego_internal_delete_sec_context(&junk, context_handle, GSS_C_NO_BUFFER);
     } else {
+
+	HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
 
 	if (actual_mech_type)
 	    *actual_mech_type = ctx->negotiated_mech_type;

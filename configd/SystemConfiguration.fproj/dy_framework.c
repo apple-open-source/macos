@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008, 2010-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,6 @@
 #include <dlfcn.h>
 
 #include "dy_framework.h"
-
 
 
 #pragma mark -
@@ -338,6 +337,9 @@ SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecMatchLimit)
 SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecMatchLimitAll)
 SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecMatchSearchList)
 SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecReturnRef)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecGuestAttributePid)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecCodeInfoIdentifier)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecCodeInfoUnique)
 
 __private_extern__ OSStatus
 _AuthorizationMakeExternalForm(AuthorizationRef authorization, AuthorizationExternalForm *extForm)
@@ -564,4 +566,5 @@ _SecCertificateCreateWithData(CFAllocatorRef allocator, CFDataRef data)
 	}
 	return dyfunc ? dyfunc(allocator, data) : NULL;
 }
+
 

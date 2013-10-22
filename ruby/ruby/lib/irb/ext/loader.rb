@@ -1,25 +1,29 @@
 #
-#   loader.rb - 
-#   	$Release Version: 0.9.5$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   loader.rb -
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38515 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
+#
 #
 
 
-module IRB
+module IRB # :nodoc:
+  # Raised in the event of an exception in a file loaded from an Irb session
   class LoadAbort < Exception;end
 
+  # Provides a few commands for loading files within an irb session.
+  #
+  # See ExtendCommandBundle for more information.
   module IrbLoader
-    @RCS_ID='-$Id: loader.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
+    @RCS_ID='-$Id: loader.rb 38515 2012-12-21 05:45:50Z zzak $-'
 
     alias ruby_load load
     alias ruby_require require
 
+    # Loads the given file similarly to Kernel#load
     def irb_load(fn, priv = nil)
       path = search_file_from_ruby_path(fn)
       raise LoadError, "No such file to load -- #{fn}" unless path
@@ -27,7 +31,7 @@ module IRB
       load_file(path, priv)
     end
 
-    def search_file_from_ruby_path(fn)
+    def search_file_from_ruby_path(fn) # :nodoc:
       if /^#{Regexp.quote(File::Separator)}/ =~ fn
 	return fn if File.exist?(fn)
 	return nil
@@ -41,11 +45,14 @@ module IRB
       return nil
     end
 
+    # Loads a given file in the current session and displays the source lines
+    #
+    # See Irb#suspend_input_method for more information.
     def source_file(path)
       irb.suspend_name(path, File.basename(path)) do
 	irb.suspend_input_method(FileInputMethod.new(path)) do
 	  |back_io|
-	  irb.signal_status(:IN_LOAD) do 
+	  irb.signal_status(:IN_LOAD) do
 	    if back_io.kind_of?(FileInputMethod)
 	      irb.eval_input
 	    else
@@ -60,9 +67,12 @@ module IRB
       end
     end
 
+    # Loads the given file in the current session's context and evaluates it.
+    #
+    # See Irb#suspend_input_method for more information.
     def load_file(path, priv = nil)
       irb.suspend_name(path, File.basename(path)) do
-	
+
 	if priv
 	  ws = WorkSpace.new(Module.new)
 	else
@@ -71,7 +81,7 @@ module IRB
 	irb.suspend_workspace(ws) do
 	  irb.suspend_input_method(FileInputMethod.new(path)) do
 	    |back_io|
-	    irb.signal_status(:IN_LOAD) do 
+	    irb.signal_status(:IN_LOAD) do
 #	      p irb.conf
 	      if back_io.kind_of?(FileInputMethod)
 		irb.eval_input
@@ -88,7 +98,7 @@ module IRB
       end
     end
 
-    def old
+    def old # :nodoc:
       back_io = @io
       back_path = @irb_path
       back_name = @irb_name

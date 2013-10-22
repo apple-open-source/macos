@@ -1,0 +1,70 @@
+# objectclass ( myobjs:3
+#     NAME 'log4perlAppender'
+#     SUP top
+#     STRUCTURAL
+#     DESC 'A log4perl Appender'
+#     MUST ( name $ log4perlClass $ log4perlLayout)
+#     MAY ( log4perlParam )
+#     )
+#
+# objectclass ( myobjs:6
+#     NAME 'log4perlFileAppender'
+#     SUP top
+#     AUXILIARY
+#     DESC 'appends to a file'
+#     MUST ( log4perlfilename $ log4perlmode
+#            $log4perlautoflush)
+#
+#     )
+#
+#
+# objectclass ( myobjs:7
+#     NAME 'log4perlParam'
+#     SUP top
+#     AUXILIARY
+#     DESC 'a name/value tuple'
+#     MUST ( name $ log4perlvalue )
+#
+#     )
+
+
+#Method 1
+#using auxiliary classes
+dn: name=FileAppender1,dc=testsystem,dc=log4perl,dc=goess,dc=org
+objectclass: log4perlAppender
+objectclass: log4perlFileAppender
+name:FileAppender1
+log4perlClass:Log::Log4perl::Appender::File
+log4perlLayout:name=Layout1,dc=testsystem,dc=log4perl,dc=goess,dc=org
+log4perlfilename:/var/log/testfile
+log4perlmode:append
+log4perlautoflush:1
+
+#Method 2
+#using log4perlParam classes
+dn: name=OtherFileAppndr, dc=testsystem,dc=log4perl,dc=goess,dc=org
+objectclass: log4perlAppender
+name:OtherFileAppndr
+log4perlClass:Log::Log4perl::Appender::File
+log4perlLayout:name=Layout1,dc=testsystem,dc=log4perl,dc=goess,dc=org
+log4perlParam:name=filename,name=OtherFileAppndr,dc=testsystem,dc=log4perl,dc=goess,dc=org
+log4perlParam:name=mode,name=OtherFileAppndr,dc=testsystem,dc=log4perl,dc=goess,dc=org
+log4perlParam:name=autoflush,name=OtherFileAppndr,dc=testsystem,dc=log4perl,dc=goess,dc=org
+
+dn: name=filename,name=OtherFileAppndr,dc=testsystem,dc=log4perl,dc=goess,dc=org
+objectclass: log4perlParam
+name:filename
+log4perlvalue:/var/log/testfile
+
+dn: name=mode,name=OtherFileAppndr,dc=testsystem,dc=log4perl,dc=goess,dc=org
+objectclass: log4perlParam
+name:mode
+log4perlvalue:append
+
+dn: name=autoflush,name=OtherFileAppndr,dc=testsystem,dc=log4perl,dc=goess,dc=org
+objectclass: log4perlParam
+name:autoflush
+log4perlvalue:1
+
+
+

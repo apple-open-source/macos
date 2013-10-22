@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -993,7 +993,6 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
 
                         disk->_state |= kDADiskStateStagedProbe;
                         disk->_state |= kDADiskStateStagedPeek;
-                        disk->_state |= kDADiskStateStagedRepair;
                         disk->_state |= kDADiskStateStagedApprove;
                         disk->_state |= kDADiskStateStagedAuthorize;
                         disk->_state |= kDADiskStateStagedMount;

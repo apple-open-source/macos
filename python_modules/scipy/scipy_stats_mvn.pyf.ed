@@ -1,0 +1,9 @@
+/subroutine mvnun(/s/)/, infin, stdev, rho, nlower, nupper)/
+/end subroutine mvnun/i
+            integer dimension(d), intent(cache, hide) :: infin
+            double precision dimension(d), intent(cache, hide) :: stdev
+            double precision dimension((d <= 1 ? 1 : d*(d-1)/2)), intent(cache, hide) :: rho
+            double precision dimension(d), intent(cache, hide) :: nlower
+            double precision dimension(d), intent(cache, hide) :: nupper
+.
+w

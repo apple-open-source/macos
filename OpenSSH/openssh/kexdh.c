@@ -29,7 +29,11 @@
 
 #include <signal.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#else
 #include <openssl/evp.h>
+#endif
 
 #include "buffer.h"
 #include "ssh2.h"

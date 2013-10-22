@@ -31,9 +31,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecKey.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 extern const void * kSecOidCommonName;
 extern const void * kSecOidCountryName;
@@ -59,11 +57,16 @@ extern const unsigned char SecASN1UTF8String;
             a CA cert.  If 0 <= number < 256, specifies path length, otherwise
             path length will be omitted.  Basic contraints will always be 
             marked critical.
+        @param kSecCertificateExtensions     CFDictionaryRef
+            if set all keys (strings with oids in dotted notation) will be added
+            as extensions with accompanying value in binary (CFDataRef) or
+            appropriate string (CFStringRef) type (based on used character set).
 */
 extern const void * kSecCSRChallengePassword;
 extern const void * kSecSubjectAltName;
 extern const void * kSecCertificateKeyUsage;
 extern const void * kSecCSRBasicContraintsPathLen;
+extern const void * kSecCertificateExtensions;
 
 typedef struct {
     const void *oid;          /* kSecOid constant or CFDataRef with oid */
@@ -90,10 +93,10 @@ Example for subject:
     SecRDN atvs[] = { cn, c, o, NULL };
 */
 CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject, 
-    CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey);
+    CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey) CF_RETURNS_RETAINED;
 
 CFDataRef SecGenerateCertificateRequest(CFArrayRef subject, 
-    CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey);
+    CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey) CF_RETURNS_RETAINED;
 
 /*
 	@function SecVerifyCertificateRequest
@@ -120,8 +123,6 @@ SecIdentitySignCertificate(SecIdentityRef issuer, CFDataRef serialno,
 CFDataRef
 SecGenerateCertificateRequestSubject(SecCertificateRef ca_certificate, CFArrayRef subject);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* _SECURITY_SECCERTIFICATEREQUEST_H_ */

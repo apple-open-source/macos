@@ -37,7 +37,7 @@ namespace IPPlusPlus {
 void *FdMover::Element::operator new (size_t base, size_t more)
 {
 	Element *element = (Element *)::malloc(CMSG_SPACE(more));
-	element->cmsg_len = CMSG_LEN(more);
+	element->cmsg_len = (socklen_t)CMSG_LEN(more);
 	return element;
 }
 
@@ -92,7 +92,7 @@ size_t FdMover::receive(void *data, size_t length, FdVector &fds)
 	msg.set(elem.get());
 	ssize_t rc = ::recvmsg(fd(), &msg, 0);
 	checkError(rc);
-	unsigned count = elem.get()->payloadSize() / sizeof(int);
+	size_t count = elem.get()->payloadSize() / sizeof(int);
 	FdVector result;
 	copy(&elem.get()->payload<int>(), &elem.get()->payload<int>() + count, back_inserter(result));
 	swap(fds, result);

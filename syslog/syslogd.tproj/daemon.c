@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -40,6 +42,8 @@
 #include <mach/mach.h>
 #include <assert.h>
 #include <libkern/OSAtomic.h>
+#include <libproc.h>
+#include <uuid/uuid.h>
 #include "daemon.h"
 
 #define LIST_SIZE_DELTA 256
@@ -63,22 +67,18 @@
 
 extern void disaster_message(aslmsg m);
 extern int asl_action_reset(void);
+extern int asl_action_control_set_param(const char *s);
 
 static char myname[MAXHOSTNAMELEN + 1] = {0};
 static int name_change_token = -1;
 
 static OSSpinLock count_lock = 0;
 
-#ifndef CONFIG_IPHONE
+#if !TARGET_OS_EMBEDDED
 static vproc_transaction_t vproc_trans = {0};
 #endif
 
-#define QUOTA_TABLE_SIZE 8192
-#define QUOTA_TABLE_SLOTS 8
-
-#define QUOTA_EXCEEDED_MESSAGE "*** process %d exceeded %d log message per second limit  -  remaining messages this second discarded ***"
 #define QUOTA_KERN_EXCEEDED_MESSAGE "*** kernel exceeded %d log message per second limit  -  remaining messages this second discarded ***"
-#define QUOTA_EXCEEDED_LEVEL "3"
 
 #define DEFAULT_DB_FILE_MAX 25600000
 #define DEFAULT_DB_MEMORY_MAX 8192
@@ -89,9 +89,7 @@ static vproc_transaction_t vproc_trans = {0};
 #define DEFAULT_MARK_SEC 0
 #define DEFAULT_UTMP_TTL_SEC 31622400
 
-static time_t quota_table_time = 0;
-static pid_t quota_table_pid[QUOTA_TABLE_SIZE];
-static int32_t quota_table_quota[QUOTA_TABLE_SIZE];
+static time_t quota_time = 0;
 static int32_t kern_quota;
 static int32_t kern_level;
 
@@ -109,265 +107,47 @@ static const char *kern_notify_key[] =
 
 static int kern_notify_token[8] = {-1, -1, -1, -1, -1, -1, -1, -1 };
 
-static char **
-_insertString(char *s, char **l, uint32_t x)
-{
-	int i, len;
-
-	if (s == NULL) return l;
-	if (l == NULL) 
-	{
-		l = (char **)malloc(2 * sizeof(char *));
-		if (l == NULL) return NULL;
-
-		l[0] = strdup(s);
-		if (l[0] == NULL)
-		{
-			free(l);
-			return NULL;
-		}
-
-		l[1] = NULL;
-		return l;
-	}
-
-	for (i = 0; l[i] != NULL; i++);
-	len = i + 1; /* count the NULL on the end of the list too! */
-
-	l = (char **)reallocf(l, (len + 1) * sizeof(char *));
-	if (l == NULL) return NULL;
-
-	if ((x >= (len - 1)) || (x == IndexNull))
-	{
-		l[len - 1] = strdup(s);
-		if (l[len - 1] == NULL)
-		{
-			free(l);
-			return NULL;
-		}
-
-		l[len] = NULL;
-		return l;
-	}
-
-	for (i = len; i > x; i--) l[i] = l[i - 1];
-	l[x] = strdup(s);
-	if (l[x] == NULL) return NULL;
-
-	return l;
-}
-
-char **
-explode(const char *s, const char *delim)
-{
-	char **l = NULL;
-	const char *p;
-	char *t, quote;
-	int i, n;
-
-	if (s == NULL) return NULL;
-
-	quote = '\0';
-
-	p = s;
-	while (p[0] != '\0')
-	{
-		/* scan forward */
-		for (i = 0; p[i] != '\0'; i++)
-		{
-			if (quote == '\0')
-			{
-				/* not inside a quoted string: check for delimiters and quotes */
-				if (strchr(delim, p[i]) != NULL) break;
-				else if (p[i] == '\'') quote = p[i];
-				else if (p[i] == '"') quote = p[i];
-			}
-			else
-			{
-				/* inside a quoted string - look for matching quote */
-				if (p[i] == quote) quote = '\0';
-			}
-		}
-
-		n = i;
-		t = malloc(n + 1);
-		if (t == NULL) return NULL;
-
-		for (i = 0; i < n; i++) t[i] = p[i];
-		t[n] = '\0';
-		l = _insertString(t, l, IndexNull);
-		free(t);
-		t = NULL;
-		if (p[i] == '\0') return l;
-		if (p[i + 1] == '\0') l = _insertString("", l, IndexNull);
-		p = p + i + 1;
-	}
-
-	return l;
-}
-
-void
-freeList(char **l)
-{
-	int i;
-
-	if (l == NULL) return;
-	for (i = 0; l[i] != NULL; i++) free(l[i]);
-	free(l);
-}
-
-/*
- * Quotas are maintained using a very fast fixed-size table.
- * We hash into the pid table (quota_table_pid) using the last 10
- * bits of the pid, so the table has 1024 "buckets".  The table is
- * actually just an array with 8 entry slots (for collisions) per bucket.
- * If there are more than 8 pids that hash to the same bucket, we
- * re-use the one with the lowest message usage (highest remaining
- * quota).  This can lead to "generosity: if there are nine or more
- * pids with the same last 10 bits all logging like crazy, we may
- * end up allowing some of them to log more than their quota. 
- * That would be a remarkably rare occurrence.
- */
- 
 static uint32_t
-quota_check(pid_t pid, time_t now, aslmsg msg, uint32_t level)
+kern_quota_check(time_t now, aslmsg msg, uint32_t level)
 {
-	int i, x, maxx, max;
 	char *str, lstr[2];
 
 	if (msg == NULL) return VERIFY_STATUS_INVALID_MESSAGE;
 	if (global.mps_limit == 0) return VERIFY_STATUS_OK;
 
-	if (quota_table_time != now)
+	if (quota_time != now)
 	{
-		memset(quota_table_pid, 0, sizeof(quota_table_pid));
 		kern_quota = global.mps_limit;
 		kern_level = 7;
-		quota_table_time = now;
+		quota_time = now;
 	}
 
-	/* kernel gets it's own quota */
-	if (pid == 0)
+	if (level < kern_level) kern_level = level;
+	if (kern_quota > 0) kern_quota--;
+
+	if (kern_quota > 0) return VERIFY_STATUS_OK;
+	if (kern_quota < 0)	return VERIFY_STATUS_EXCEEDED_QUOTA;
+
+	kern_quota = -1;
+
+	str = NULL;
+	asprintf(&str, QUOTA_KERN_EXCEEDED_MESSAGE, global.mps_limit);
+	if (str != NULL)
 	{
-		if (level < kern_level) kern_level = level;
-		if (kern_quota > 0) kern_quota--;
-
-		if (kern_quota > 0) return VERIFY_STATUS_OK;
-		if (kern_quota < 0)	return VERIFY_STATUS_EXCEEDED_QUOTA;
-
-		kern_quota = -1;
-
-		str = NULL;
-		asprintf(&str, QUOTA_KERN_EXCEEDED_MESSAGE, global.mps_limit);
-		if (str != NULL)
-		{
-			asl_set(msg, ASL_KEY_MSG, str);
-			free(str);
-			lstr[0] = kern_level + '0';
-			lstr[1] = 0;
-			asl_set(msg, ASL_KEY_LEVEL, lstr);
-		}
-
-		return VERIFY_STATUS_OK;
+		asl_set(msg, ASL_KEY_MSG, str);
+		free(str);
+		lstr[0] = kern_level + '0';
+		lstr[1] = 0;
+		asl_set(msg, ASL_KEY_LEVEL, lstr);
 	}
-
-	/* hash is last 10 bits of the pid, shifted up 3 bits to allow 8 slots per bucket */
-	x = (pid & 0x000003ff) << 3;
-	maxx = x;
-	max = quota_table_quota[x];
-
-	for (i = 0; i < QUOTA_TABLE_SLOTS; i++)
-	{
-		if (quota_table_pid[x] == 0)
-		{
-			quota_table_pid[x] = pid;
-			quota_table_quota[x] = global.mps_limit;
-
-			return VERIFY_STATUS_OK;
-		}
-
-		if (quota_table_pid[x] == pid)
-		{
-			quota_table_quota[x] = quota_table_quota[x] - 1;
-
-			if (quota_table_quota[x] == 0)
-			{
-				quota_table_quota[x] = -1;
-
-				str = NULL;
-				asprintf(&str, QUOTA_EXCEEDED_MESSAGE, (int)pid, global.mps_limit);
-				if (str != NULL)
-				{
-					asl_set(msg, ASL_KEY_MSG, str);
-					free(str);
-					asl_set(msg, ASL_KEY_LEVEL, QUOTA_EXCEEDED_LEVEL);
-				}
-
-				return VERIFY_STATUS_OK;
-			}
-
-			if (quota_table_quota[x] < 0)
-			{
-				return VERIFY_STATUS_EXCEEDED_QUOTA;
-			}
-
-			return VERIFY_STATUS_OK;
-		}
-
-		if (quota_table_quota[x] > max)
-		{
-			maxx = x;
-			max = quota_table_quota[x];
-		}
-
-		x += 1;
-	}
-
-	/* can't find the pid and no slots were available - reuse slot with highest remaining quota */
-	asldebug("Quotas: reused slot %d pid %d quota %d for new pid %d\n", maxx, (int)quota_table_pid[maxx], quota_table_quota[maxx], (int)pid);
-	quota_table_pid[maxx] = pid;
-	quota_table_quota[maxx] = global.mps_limit;
 
 	return VERIFY_STATUS_OK;
 }
 
-int
-asl_check_option(aslmsg msg, const char *opt)
-{
-	const char *p;
-	uint32_t len;
-
-	if (msg == NULL) return 0;
-	if (opt == NULL) return 0;
-
-	len = strlen(opt);
-	if (len == 0) return 0;
-
-	p = asl_get(msg, ASL_KEY_OPTION);
-	if (p == NULL) return 0;
-
-	while (*p != '\0')
-	{
-		while ((*p == ' ') || (*p == '\t') || (*p == ',')) p++;
-		if (*p == '\0') return 0;
-
-		if (strncasecmp(p, opt, len) == 0)
-		{
-			p += len;
-			if ((*p == ' ') || (*p == '\t') || (*p == ',') || (*p == '\0')) return 1;
-		}
-
-		while ((*p != ' ') && (*p != '\t') && (*p != ',') && (*p != '\0')) p++;
-	}
-
-	return 0;
-}
-
-const char *
+static const char *
 whatsmyhostname()
 {
 	static dispatch_once_t once;
-	char *dot;
 	int check, status;
 
 	dispatch_once(&once, ^{
@@ -388,6 +168,7 @@ whatsmyhostname()
 	}
 	else
 	{
+		char *dot;
 		dot = strchr(myname, '.');
 		if (dot != NULL) *dot = '\0';
 	}
@@ -400,13 +181,10 @@ asl_client_count_increment()
 {
 	OSSpinLockLock(&count_lock);
 
-#ifndef CONFIG_IPHONE
+#if !TARGET_OS_EMBEDDED
 	if (global.client_count == 0) vproc_trans = vproc_transaction_begin(NULL);
 #endif
 	global.client_count++;
-#ifdef DEBUG
-	asldebug("global.client_count++ (%d)\n", global.client_count);
-#endif
 
 	OSSpinLockUnlock(&count_lock);
 }
@@ -417,11 +195,8 @@ asl_client_count_decrement()
 	OSSpinLockLock(&count_lock);
 
 	if (global.client_count > 0) global.client_count--;
-#ifndef CONFIG_IPHONE
+#if !TARGET_OS_EMBEDDED
 	if (global.client_count == 0) vproc_transaction_end(NULL, vproc_trans);
-#endif
-#ifdef DEBUG
-	asldebug("global.client_count-- (%d)\n", global.client_count);
 #endif
 
 	OSSpinLockUnlock(&count_lock);
@@ -449,8 +224,13 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 	gid_t gid;
 	uint32_t status, level, fnum;
 	pid_t pid;
+	uuid_string_t ustr;
+	struct proc_uniqidentifierinfo pinfo;
 
 	if (msg == NULL) return VERIFY_STATUS_INVALID_MESSAGE;
+
+	/* Time */
+	now = time(NULL);
 
 	if (kern_post_level != NULL) *kern_post_level = -1;
 	if (uid_out != NULL) *uid_out = -2;
@@ -462,15 +242,12 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 	if (val == NULL) asl_set(msg, ASL_KEY_PID, "0");
 	else pid = (pid_t)atoi(val);
 
-	/* if PID is 1 (launchd), use the refpid if there is one */
+	/* if PID is 1 (launchd), use the refpid if provided */
 	if (pid == 1)
 	{
 		val = asl_get(msg, ASL_KEY_REF_PID);
 		if (val != NULL) pid = (pid_t)atoi(val);
 	}
-
-	/* Time */
-	now = time(NULL);
 
 	/* Level */
 	val = asl_get(msg, ASL_KEY_LEVEL);
@@ -479,13 +256,22 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 	snprintf(buf, sizeof(buf), "%d", level);
 	asl_set(msg, ASL_KEY_LEVEL, buf);
 
-	/*
-	 * check quota if no processes are watching
-	 */
-	if (global.watchers_active == 0)
+	/* check kernel quota if enabled and no processes are watching */
+	if ((pid == 0) && (global.mps_limit > 0) && (global.watchers_active == 0))
 	{
-		status = quota_check(pid, now, msg, level);
+		status = kern_quota_check(now, msg, level);
 		if (status != VERIFY_STATUS_OK) return status;
+	}
+
+	if (pid != 0)
+	{
+		/* set Sender_Mach_UUID */
+		uuid_clear(pinfo.p_uuid);
+		if (proc_pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, 1, &pinfo, sizeof(pinfo)) == sizeof(pinfo))
+		{
+			uuid_unparse(pinfo.p_uuid, ustr);
+			asl_set(msg, ASL_KEY_SENDER_MACH_UUID, ustr);
+		}
 	}
 
 	tick = 0;
@@ -499,6 +285,7 @@ aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_
 	snprintf(buf, sizeof(buf) - 1, "%lu", tick);
 	asl_set(msg, ASL_KEY_TIME, buf);
 
+	/* Host */
 	val = asl_get(msg, ASL_KEY_HOST);
 	if (val == NULL) asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
 
@@ -683,13 +470,17 @@ list_append_msg(asl_search_result_t *list, aslmsg msg)
 void
 init_globals(void)
 {
+	asl_out_rule_t *r;
+
 	OSSpinLockLock(&global.lock);
 
+	global.pid = getpid();
 	global.debug = 0;
 	free(global.debug_file);
 	global.debug_file = NULL;
+	global.launchd_enabled = 1;
 
-#ifdef CONFIG_IPHONE
+#if TARGET_OS_EMBEDDED
 	global.dbtype = DB_TYPE_MINI;
 #else
 	global.dbtype = DB_TYPE_FILE;
@@ -703,7 +494,16 @@ init_globals(void)
 	global.mark_time = DEFAULT_MARK_SEC;
 	global.utmp_ttl = DEFAULT_UTMP_TTL_SEC;
 
+	global.asl_out_module = asl_out_module_init();
 	OSSpinLockUnlock(&global.lock);
+
+	if (global.asl_out_module != NULL)
+	{
+		for (r = global.asl_out_module->ruleset; r != NULL; r = r->next)
+		{
+			if ((r->action == ACTION_SET_PARAM) && (r->query == NULL) && (!strncmp(r->options, "debug", 5))) control_set_param(r->options, true);
+		}
+	}
 }
 
 /*
@@ -711,7 +511,7 @@ init_globals(void)
  * Line format "= name value"
  */
 int
-control_set_param(const char *s)
+control_set_param(const char *s, bool eval)
 {
 	char **l;
 	uint32_t intval, count, v32a, v32b, v32c;
@@ -720,7 +520,7 @@ control_set_param(const char *s)
 	if (s[0] == '\0') return 0;
 
 	/* skip '=' and whitespace */
-	s++;
+	if (*s == '=') s++;
 	while ((*s == ' ') || (*s == '\t')) s++;
 
 	l = explode(s, " \t");
@@ -731,56 +531,82 @@ control_set_param(const char *s)
 	/* name is required */
 	if (count == 0)
 	{
-		freeList(l);
+		free_string_list(l);
 		return -1;
+	}
+
+	/* Check variables that allow 0 or 1 / boolean */
+	if (!strcasecmp(l[0], "debug"))
+	{
+		/* = debug [0|1] [file] */
+		if (count == 1)
+		{
+			intval = (eval) ? 1 : 0;
+			config_debug(intval, NULL);
+		}
+		else if (!strcmp(l[1], "0"))
+		{
+			config_debug(0, l[2]);
+		}
+		else if (!strcmp(l[1], "1"))
+		{
+			config_debug(1, l[2]);
+		}
+		else
+		{
+			intval = (eval) ? 1 : 0;
+			config_debug(intval, l[1]);
+		}
+
+		free_string_list(l);
+		return 0;
 	}
 
 	/* value is required */
 	if (count == 1)
 	{
-		freeList(l);
+		free_string_list(l);
 		return -1;
 	}
 
-	if (!strcasecmp(l[0], "debug"))
-	{
-		/* = debug {0|1} [file] */
-		intval = atoi(l[1]);
-		config_debug(intval, l[2]);
-	}
-	else if (!strcasecmp(l[0], "mark_time"))
+	if (!strcasecmp(l[0], "mark_time"))
 	{
 		/* = mark_time seconds */
 		OSSpinLockLock(&global.lock);
-		global.mark_time = atoll(l[1]);
+		if (eval) global.mark_time = atoll(l[1]);
+		else global.mark_time = 0;
 		OSSpinLockUnlock(&global.lock);
 	}
 	else if (!strcasecmp(l[0], "dup_delay"))
 	{
 		/* = bsd_max_dup_time seconds */
 		OSSpinLockLock(&global.lock);
-		global.bsd_max_dup_time = atoll(l[1]);
+		if (eval) global.bsd_max_dup_time = atoll(l[1]);
+		else global.bsd_max_dup_time = DEFAULT_BSD_MAX_DUP_SEC;
 		OSSpinLockUnlock(&global.lock);
 	}
 	else if (!strcasecmp(l[0], "remote_delay"))
 	{
 		/* = remote_delay microseconds */
 		OSSpinLockLock(&global.lock);
-		global.remote_delay_time = atol(l[1]);
+		if (eval) global.remote_delay_time = atol(l[1]);
+		else global.remote_delay_time = DEFAULT_REMOTE_DELAY;
 		OSSpinLockUnlock(&global.lock);
 	}
 	else if (!strcasecmp(l[0], "utmp_ttl"))
 	{
 		/* = utmp_ttl seconds */
 		OSSpinLockLock(&global.lock);
-		global.utmp_ttl = (time_t)atoll(l[1]);
+		if (eval) global.utmp_ttl = (time_t)atoll(l[1]);
+		else global.utmp_ttl = DEFAULT_UTMP_TTL_SEC;
 		OSSpinLockUnlock(&global.lock);
 	}
 	else if (!strcasecmp(l[0], "mps_limit"))
 	{
 		/* = mps_limit number */
 		OSSpinLockLock(&global.lock);
-		global.mps_limit = (uint32_t)atol(l[1]);
+		if (eval) global.mps_limit = (uint32_t)atol(l[1]);
+		else global.mps_limit = DEFAULT_MPS_LIMIT;
 		OSSpinLockUnlock(&global.lock);
 	}
 	else if (!strcasecmp(l[0], "max_file_size"))
@@ -792,7 +618,8 @@ control_set_param(const char *s)
 		{
 			asl_store_close(global.file_db);
 			global.file_db = NULL;
-			global.db_file_max = atoi(l[1]);
+			if (eval) global.db_file_max = atoi(l[1]);
+			else global.db_file_max = DEFAULT_DB_FILE_MAX;
 		}
 
 		pthread_mutex_unlock(global.db_lock);
@@ -801,47 +628,58 @@ control_set_param(const char *s)
 	{
 		/* NB this is private / unpublished */
 		/* = db type [max]... */
-
-		v32a = 0;
-		v32b = 0;
-		v32c = 0;
-
-		if ((l[1][0] >= '0') && (l[1][0] <= '9'))
+		if (eval)
 		{
-			intval = atoi(l[1]);
-			if ((count >= 3) && (strcmp(l[2], "-"))) v32a = atoi(l[2]);
-			if ((count >= 4) && (strcmp(l[3], "-"))) v32b = atoi(l[3]);
-			if ((count >= 5) && (strcmp(l[4], "-"))) v32c = atoi(l[4]);
-		}
-		else if (!strcasecmp(l[1], "file"))
-		{
-			intval = DB_TYPE_FILE;
-			if ((count >= 3) && (strcmp(l[2], "-"))) v32a = atoi(l[2]);
-		}
-		else if (!strncasecmp(l[1], "mem", 3))
-		{
-			intval = DB_TYPE_MEMORY;
-			if ((count >= 3) && (strcmp(l[2], "-"))) v32b = atoi(l[2]);
-		}
-		else if (!strncasecmp(l[1], "min", 3))
-		{
-			intval = DB_TYPE_MINI;
-			if ((count >= 3) && (strcmp(l[2], "-"))) v32c = atoi(l[2]);
+			v32a = 0;
+			v32b = 0;
+			v32c = 0;
+			
+			if ((l[1][0] >= '0') && (l[1][0] <= '9'))
+			{
+				intval = atoi(l[1]);
+				if ((count >= 3) && (strcmp(l[2], "-"))) v32a = atoi(l[2]);
+				if ((count >= 4) && (strcmp(l[3], "-"))) v32b = atoi(l[3]);
+				if ((count >= 5) && (strcmp(l[4], "-"))) v32c = atoi(l[4]);
+			}
+			else if (!strcasecmp(l[1], "file"))
+			{
+				intval = DB_TYPE_FILE;
+				if ((count >= 3) && (strcmp(l[2], "-"))) v32a = atoi(l[2]);
+			}
+			else if (!strncasecmp(l[1], "mem", 3))
+			{
+				intval = DB_TYPE_MEMORY;
+				if ((count >= 3) && (strcmp(l[2], "-"))) v32b = atoi(l[2]);
+			}
+			else if (!strncasecmp(l[1], "min", 3))
+			{
+				intval = DB_TYPE_MINI;
+				if ((count >= 3) && (strcmp(l[2], "-"))) v32c = atoi(l[2]);
+			}
+			else
+			{
+				free_string_list(l);
+				return -1;
+			}
+			
+			if (v32a == 0) v32a = global.db_file_max;
+			if (v32b == 0) v32b = global.db_memory_max;
+			if (v32c == 0) v32c = global.db_mini_max;
+			
+			config_data_store(intval, v32a, v32b, v32c);
 		}
 		else
 		{
-			freeList(l);
-			return -1;
+#if TARGET_OS_EMBEDDED
+			intval = DB_TYPE_MINI;
+#else
+			intval = DB_TYPE_FILE;
+#endif
+			config_data_store(intval, DEFAULT_DB_FILE_MAX, DEFAULT_DB_MEMORY_MAX, DEFAULT_DB_MINI_MAX);
 		}
-
-		if (v32a == 0) v32a = global.db_file_max;
-		if (v32b == 0) v32b = global.db_memory_max;
-		if (v32c == 0) v32c = global.db_mini_max;
-
-		config_data_store(intval, v32a, v32b, v32c);
 	}
 
-	freeList(l);
+	free_string_list(l);
 	return 0;
 }
 
@@ -857,16 +695,17 @@ control_message(aslmsg msg)
 		init_globals();
 		return asl_action_reset();
 	}
-	else if (!strncmp(str, "= rotate", 8))
+	else if (!strncmp(str, "= crash", 7))
 	{
-		const char *p = str + 8;
-		while ((*p == ' ') || (*p == '\t')) p++;
-		if (*p == '\0') p = NULL;
-		return asl_action_file_rotate(p);
+		abort();
+	}
+	else if (!strncmp(str, "@ ", 2))
+	{
+		return asl_action_control_set_param(str);
 	}
 	else if (!strncmp(str, "= ", 2))
 	{
-		return control_set_param(str);
+		return control_set_param(str, true);
 	}
 
 	return 0;
@@ -875,38 +714,44 @@ control_message(aslmsg msg)
 void
 process_message(aslmsg msg, uint32_t source)
 {
-	int32_t kplevel;
-	uint32_t status;
-	uid_t uid;
-
 	if (msg == NULL) return;
 
-	kplevel = -1;
-	uid = -2;
+	OSAtomicIncrement32(&global.work_queue_count);
+	dispatch_async(global.work_queue, ^{
+		int32_t kplevel;
+		uint32_t status;
+		uid_t uid;
 
-	status = aslmsg_verify(msg, source, &kplevel, &uid);
-	if (status == VERIFY_STATUS_OK)
-	{
-		if ((source == SOURCE_KERN) && (kplevel >= 0))
+		kplevel = -1;
+		uid = -2;
+
+		status = aslmsg_verify(msg, source, &kplevel, &uid);
+		if (status == VERIFY_STATUS_OK)
 		{
-			if (kplevel > 7) kplevel = 7;
-			if (kern_notify_token[kplevel] < 0)
+			if ((source == SOURCE_KERN) && (kplevel >= 0))
 			{
-				status = notify_register_plain(kern_notify_key[kplevel], &(kern_notify_token[kplevel]));
-				if (status != 0) asldebug("notify_register_plain(%s) failed status %u\n", status);
+				if (kplevel > 7) kplevel = 7;
+				if (kern_notify_token[kplevel] < 0)
+				{
+					status = notify_register_plain(kern_notify_key[kplevel], &(kern_notify_token[kplevel]));
+					if (status != 0) asldebug("notify_register_plain(%s) failed status %u\n", status);
+				}
+
+				notify_post(kern_notify_key[kplevel]);
 			}
 
-			notify_post(kern_notify_key[kplevel]);
+			if ((uid == 0) && asl_check_option(msg, ASL_OPT_CONTROL)) control_message(msg);
+
+			/* send message to output modules */
+			asl_out_message(msg);
+#if !TARGET_IPHONE_SIMULATOR
+			if (global.bsd_out_enabled) bsd_out_message(msg);
+#endif
 		}
 
-		if ((uid == 0) && asl_check_option(msg, ASL_OPT_CONTROL)) control_message(msg);
-
-		/* send message to output modules */
-		asl_out_message(msg);
-		if (global.bsd_out_enabled) bsd_out_message(msg);
-	}
-
-	asl_free(msg);
+		asl_free(msg);
+		OSAtomicDecrement32(&global.work_queue_count);
+	});
 }
 
 int
@@ -919,7 +764,7 @@ internal_log_message(const char *str)
 	msg = (aslmsg)asl_msg_from_string(str);
 	if (msg == NULL) return 1;
 
-	dispatch_async(global.work_queue, ^{ process_message(msg, SOURCE_INTERNAL); });
+	process_message(msg, SOURCE_INTERNAL);
 
 	return 0;
 }
@@ -948,17 +793,11 @@ asldebug(const char *str, ...)
 void
 asl_mark(void)
 {
-	char *str;
+	char *str = NULL;
 
-	str = NULL;
-	asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [%s -- MARK --] [%s 0] [%s 0] [Facility syslog]",
-			 ASL_KEY_SENDER,
-			 ASL_KEY_LEVEL, ASL_LEVEL_INFO,
-			 ASL_KEY_PID, getpid(),
-			 ASL_KEY_MSG, ASL_KEY_UID, ASL_KEY_GID);
-
+	asprintf(&str, "[Sender syslogd] [Level 6] [PID %u] [Message -- MARK --] [UID 0] [UID 0] [Facility syslog]", global.pid);
 	internal_log_message(str);
-	if (str != NULL) free(str);
+	free(str);
 }
 
 aslmsg 
@@ -1226,32 +1065,15 @@ asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 	return msg;
 }
 
-char *
-get_line_from_file(FILE *f)
-{
-	char *s, *out;
-	size_t len;
-
-	out = fgetln(f, &len);
-	if (out == NULL) return NULL;
-	if (len == 0) return NULL;
-
-	s = malloc(len + 1);
-	if (s == NULL) return NULL;
-
-	memcpy(s, out, len);
-
-	if (s[len - 1] != '\n') len++;
-	s[len - 1] = '\0';
-	return s;
-}
-
+#if !TARGET_IPHONE_SIMULATOR
 void
 launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t sender_uid, gid_t sender_gid, int priority, const char *from_name, const char *about_name, const char *session_name, const char *msg)
 {
 	aslmsg m;
 	char str[256];
 	time_t now;
+
+	if (global.launchd_enabled == 0) return;
 
 /*
 	asldebug("launchd_callback Time %lu %lu PID %u RefPID %u UID %d GID %d PRI %d Sender %s Ref %s Session %s Message %s\n",
@@ -1343,6 +1165,7 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 		asl_set(m, ASL_KEY_MSG, msg);
 	}
 
-	dispatch_async(global.work_queue, ^{ process_message(m, SOURCE_LAUNCHD); });
+	process_message(m, SOURCE_LAUNCHD);
 }
 
+#endif

@@ -1,0 +1,53 @@
+.Dd April 24, 2012
+.Dt systime 1
+.Os Darwin
+.Sh NAME
+.Nm systime
+.Nd gather system-wide time during program execution
+.Sh SYNOPSIS
+.Nm
+.Op Fl P
+.Ar utility Op Ar argument ...
+.Nm
+.Fl p
+.Nm
+.Op Fl P
+.Fl u Ar user
+.Fl s Ar sys
+.Fl i Ar idle
+.Sh DESCRIPTION
+.Nm
+is similar to
+.Xr time 1
+in that it allows you to execute a utility program. However after execution
+completes, it reports the system-wide time that was spent
+during that time period, instead of just the portion directly caused
+by the utility. This can be used to gather information about CPU
+utilization by kernel threads (AIO, networking) and interrupt routines
+on behalf of a program, but not directly attributed to it.
+.Pp
+The
+.Nm
+program can also be used to snapshot counters with
+.Fl p
+and then later used with
+.Fl u Fl s Fl i
+to calculate time spent during a time interval that doesn't correlate
+to a specific command execution. For example:
+.Pp
+.Bd -ragged -offset indent
+$ eval `systime -p`
+.Pp
+$ ... time passes ...
+.Pp
+$ systime -u $systime_user -s $systime_sys -i $systime_idle
+.Pp
+18.79 real 2.03 user 1.04 sys
+.Ed
+.Pp
+.Fl P
+can be used to print time spent as a percentage of overall CPU capacity
+of the system (capped at 100%)
+.Sh SEE ALSO
+.Xr time 1 ,
+.Xr top 1

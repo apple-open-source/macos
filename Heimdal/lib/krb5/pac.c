@@ -310,8 +310,8 @@ krb5_pac_add_buffer(krb5_context context, krb5_pac p,
     offset = p->data.length + PAC_INFO_BUFFER_SIZE;
 
     p->pac->buffers[len].type = type;
-    p->pac->buffers[len].buffersize = data->length;
-    p->pac->buffers[len].offset_lo = offset;
+    p->pac->buffers[len].buffersize = (uint32_t)data->length;
+    p->pac->buffers[len].offset_lo = (uint32_t)offset;
     p->pac->buffers[len].offset_hi = 0;
 
     old_end = p->data.length;
@@ -405,7 +405,7 @@ krb5_pac_get_types(krb5_context context,
 {
     size_t i;
 
-    *types = calloc(p->pac->numbuffers, sizeof(*types));
+    *types = calloc(p->pac->numbuffers, sizeof(**types));
     if (*types == NULL) {
 	*len = 0;
 	return krb5_enomem(context);
@@ -450,6 +450,7 @@ verify_checksum(krb5_context context,
     krb5_storage *sp = NULL;
     uint32_t type;
     krb5_error_code ret;
+    krb5_ssize_t sret;
     Checksum cksum;
 
     memset(&cksum, 0, sizeof(cksum));
@@ -464,14 +465,14 @@ verify_checksum(krb5_context context,
     CHECK(ret, krb5_ret_uint32(sp, &type), out);
     cksum.cksumtype = type;
     cksum.checksum.length =
-	sig->buffersize - krb5_storage_seek(sp, 0, SEEK_CUR);
+	(size_t)(sig->buffersize - krb5_storage_seek(sp, 0, SEEK_CUR));
     cksum.checksum.data = malloc(cksum.checksum.length);
     if (cksum.checksum.data == NULL) {
 	ret = krb5_enomem(context);
 	goto out;
     }
-    ret = krb5_storage_read(sp, cksum.checksum.data, cksum.checksum.length);
-    if (ret != (int)cksum.checksum.length) {
+    sret = krb5_storage_read(sp, cksum.checksum.data, cksum.checksum.length);
+    if (sret != (int)cksum.checksum.length) {
 	ret = EINVAL;
 	krb5_set_error_message(context, ret, "PAC checksum missing checksum");
 	goto out;
@@ -556,6 +557,8 @@ create_checksum(krb5_context context,
     if (cksumtype == (uint32_t)CKSUMTYPE_HMAC_MD5) {
 	ret = HMAC_MD5_any_checksum(context, key, data, datalen,
 				    KRB5_KU_OTHER_CKSUM, &cksum);
+	if (ret)
+	    return ret;
     } else {
 	ret = krb5_crypto_init(context, key, 0, &crypto);
 	if (ret)
@@ -602,6 +605,7 @@ verify_logonname(krb5_context context,
 		 krb5_const_principal principal)
 {
     krb5_error_code ret;
+    krb5_ssize_t sret;
     krb5_principal p2;
     uint32_t time1, time2;
     krb5_storage *sp;
@@ -640,8 +644,8 @@ verify_logonname(krb5_context context,
 	krb5_storage_free(sp);
 	return krb5_enomem(context);
     }
-    ret = krb5_storage_read(sp, s, len);
-    if (ret != len) {
+    sret = krb5_storage_read(sp, s, len);
+    if (sret != len) {
 	krb5_storage_free(sp);
 	krb5_set_error_message(context, EINVAL, "Failed to read PAC logon name");
 	return EINVAL;
@@ -710,6 +714,7 @@ build_logon_name(krb5_context context,
 		 krb5_data *logon)
 {
     krb5_error_code ret;
+    krb5_ssize_t sret;
     krb5_storage *sp;
     uint64_t t;
     char *s, *s2;
@@ -753,9 +758,9 @@ build_logon_name(krb5_context context,
     /* write libwind code here */
 #endif
 
-    ret = krb5_storage_write(sp, s2, len * 2);
+    sret = krb5_storage_write(sp, s2, len * 2);
     free(s2);
-    if (ret != (int)(len * 2)) {
+    if (sret != (len * 2)) {
 	ret = krb5_enomem(context);
 	goto out;
     }
@@ -934,6 +939,7 @@ _krb5_pac_sign(krb5_context context,
 	       krb5_data *data)
 {
     krb5_error_code ret;
+    krb5_ssize_t sret;
     krb5_storage *sp = NULL, *spdata = NULL;
     uint32_t end;
     size_t server_size = 0, priv_size = 0;
@@ -1018,8 +1024,7 @@ _krb5_pac_sign(krb5_context context,
     end = PACTYPE_SIZE + (PAC_INFO_BUFFER_SIZE * p->pac->numbuffers);
 
     for (i = 0; i < p->pac->numbuffers; i++) {
-	uint32_t len;
-	size_t sret;
+	size_t len;
 	void *ptr = NULL;
 
 	/* store data */
@@ -1054,7 +1059,7 @@ _krb5_pac_sign(krb5_context context,
 
 	/* write header */
 	CHECK(ret, krb5_store_uint32(sp, p->pac->buffers[i].type), out);
-	CHECK(ret, krb5_store_uint32(sp, len), out);
+	CHECK(ret, krb5_store_uint32(sp, (uint32_t)len), out);
 	CHECK(ret, krb5_store_uint32(sp, end), out);
 	CHECK(ret, krb5_store_uint32(sp, 0), out);
 
@@ -1080,8 +1085,8 @@ _krb5_pac_sign(krb5_context context,
 	krb5_set_error_message(context, ret, N_("malloc: out of memory", ""));
 	goto out;
     }
-    ret = krb5_storage_write(sp, d.data, d.length);
-    if (ret != (int)d.length) {
+    sret = krb5_storage_write(sp, d.data, d.length);
+    if (sret != (int)d.length) {
 	krb5_data_free(&d);
 	ret = krb5_enomem(context);
 	goto out;

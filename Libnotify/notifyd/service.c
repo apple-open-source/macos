@@ -33,8 +33,6 @@
 #include "pathwatch.h"
 #include "timer.h"
 
-#define ZONEINFO_DIR "/usr/share/zoneinfo/"
-
 #define NOTIFY_PATH_SERVICE "path:"
 #define NOTIFY_PATH_SERVICE_LEN 5
 #define NOTIFY_TIMER_SERVICE "timer:"
@@ -192,7 +190,6 @@ parse_single_arg(const char *arg, int relative_ok, time_t *t)
 {
 	const char *p, *q;
 	time_t now, val;
-	size_t x;
 
 	if (arg == NULL) return -1;
 	p = arg;
@@ -207,10 +204,9 @@ parse_single_arg(const char *arg, int relative_ok, time_t *t)
 
 	if ((*p < '0') || (*p > '9')) return -1;
 
-	x = 0;
 	q = strchr(p, '.');
-	if (q != NULL) x = q - p;
-	else x = strlen(arg) - 1;
+	if (q != NULL) q--;
+	else q = arg + strlen(arg) - 1;
 
 #ifdef __LP64__
 	val = (time_t)atoll(p);
@@ -218,27 +214,30 @@ parse_single_arg(const char *arg, int relative_ok, time_t *t)
 	val = (time_t)atoi(p);
 #endif
 
-	if ((arg[x] >= '0') && (arg[x] <= '9'))
+	if ((*q >= '0') && (*q <= '9'))
 	{}
-	else if (arg[x] == 's')
+	else if (*q == 's')
 	{}
-	else if (arg[x] == 'm')
+	else if (*q == 'm')
 	{
 		val *= 60;
 	}
-	else if (arg[x] == 'h')
+	else if (*q == 'h')
 	{
 		val *= 3600;
 	}
-	else if (arg[x] == 'd')
+	else if (*q == 'd')
 	{
 		val *= 86400;
 	}
-	else return -1;
+	else
+	{
+		return -1;
+	}
 
 	if (*arg == '-') *t = now - val;
 	else *t = now + val;
-	
+
 	return 0;
 }
 

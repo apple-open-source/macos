@@ -123,6 +123,8 @@ public:
     void login(AuthorizationRef authRef, UInt32 nameLength, const char* name);
 	void login(ConstStringPtr name, ConstStringPtr password);
 	void login(UInt32 nameLength, const void *name, UInt32 passwordLength, const void *password);
+    void stashLogin();
+    void stashKeychain();
 	void logout();
 	void changeLoginPassword(ConstStringPtr oldPassword, ConstStringPtr newPassword);
 	void changeLoginPassword(UInt32 oldPasswordLength, const void *oldPassword,  UInt32 newPasswordLength, const void *newPassword);

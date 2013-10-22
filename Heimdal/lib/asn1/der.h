@@ -83,6 +83,9 @@ enum {
 
 #define ASN1_INDEFINITE 0xdce0deed
 
+#define ASN1_CHOICE_ELLIPSIS	(-1)
+#define ASN1_CHOICE_INVALID	(0)
+
 typedef struct heim_der_time_t {
     time_t dt_sec;
     unsigned long dt_nsec;

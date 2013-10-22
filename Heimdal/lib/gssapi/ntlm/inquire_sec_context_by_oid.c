@@ -57,6 +57,11 @@ _gss_ntlm_inquire_sec_context_by_oid(OM_uint32 *minor_status,
         gss_oid_equal(desired_object, GSS_C_INQ_SSPI_SESSION_KEY)) {
 	gss_buffer_desc value;
 
+	if (ctx->sessionkey.length == 0) {
+	    *minor_status = ENOENT;
+	    return GSS_S_FAILURE;
+	}
+
 	value.length = ctx->sessionkey.length;
 	value.value = ctx->sessionkey.data;
 

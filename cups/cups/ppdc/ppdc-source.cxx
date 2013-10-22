@@ -1,9 +1,9 @@
 //
-// "$Id: ppdc-source.cxx 3970 2012-10-24 11:44:57Z msweet $"
+// "$Id: ppdc-source.cxx 4169 2013-02-04 19:32:45Z msweet $"
 //
 //   Source class for the CUPS PPD Compiler.
 //
-//   Copyright 2007-2012 by Apple Inc.
+//   Copyright 2007-2013 by Apple Inc.
 //   Copyright 2002-2007 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -943,7 +943,7 @@ ppdcSource::get_filter(ppdcFile *fp)	// I - File to read
     while (isspace(*ptr))
       ptr ++;
 
-    strcpy(program, ptr);
+    strlcpy(program, ptr, sizeof(program));
   }
   else
   {
@@ -1706,7 +1706,7 @@ ppdcSource::get_po(ppdcFile *fp)	// I - File to read
   if ((baseptr = strrchr(basedir, '/')) != NULL)
     *baseptr = '\0';
   else
-    strcpy(basedir, ".");
+    strlcpy(basedir, ".", sizeof(basedir));
 
   // Find the po file...
   pofilename[0] = '\0';
@@ -2292,7 +2292,7 @@ ppdcSource::quotef(cups_file_t *fp,	// I - File to write to
 	    if ((format - bufformat + 1) > (int)sizeof(tformat))
 	      break;
 
-	    strncpy(tformat, bufformat, format - bufformat);
+	    memcpy(tformat, bufformat, format - bufformat);
 	    tformat[format - bufformat] = '\0';
 
 	    bytes += cupsFilePrintf(fp, tformat, va_arg(ap, double));
@@ -2309,7 +2309,7 @@ ppdcSource::quotef(cups_file_t *fp,	// I - File to write to
 	    if ((format - bufformat + 1) > (int)sizeof(tformat))
 	      break;
 
-	    strncpy(tformat, bufformat, format - bufformat);
+	    memcpy(tformat, bufformat, format - bufformat);
 	    tformat[format - bufformat] = '\0';
 
 #  ifdef HAVE_LONG_LONG
@@ -2327,7 +2327,7 @@ ppdcSource::quotef(cups_file_t *fp,	// I - File to write to
 	    if ((format - bufformat + 1) > (int)sizeof(tformat))
 	      break;
 
-	    strncpy(tformat, bufformat, format - bufformat);
+	    memcpy(tformat, bufformat, format - bufformat);
 	    tformat[format - bufformat] = '\0';
 
 	    bytes += cupsFilePrintf(fp, tformat, va_arg(ap, void *));
@@ -2630,7 +2630,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       if ((baseptr = strrchr(basedir, '/')) != NULL)
 	*baseptr = '\0';
       else
-	strcpy(basedir, ".");
+	strlcpy(basedir, ".", sizeof(basedir));
 
       // Find the include file...
       if (find_include(inctemp, basedir, incname, sizeof(incname)))
@@ -3847,5 +3847,5 @@ ppdcSource::write_file(const char *f)	// I - File to write
 
 
 //
-// End of "$Id: ppdc-source.cxx 3970 2012-10-24 11:44:57Z msweet $".
+// End of "$Id: ppdc-source.cxx 4169 2013-02-04 19:32:45Z msweet $".
 //

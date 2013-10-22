@@ -5,7 +5,7 @@
 #   Perform the complete set of IPP compliance tests specified in the
 #   CUPS Software Test Plan.
 #
-#   Copyright 2007-2012 by Apple Inc.
+#   Copyright 2007-2013 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -100,6 +100,7 @@ case "$testtype" in
 		nprinters2=0
 		pjobs=0
 		pprinters=0
+		loglevel="debug2"
 		;;
 	2)
 		echo "Running the medium tests (2)"
@@ -107,6 +108,7 @@ case "$testtype" in
 		nprinters2=20
 		pjobs=20
 		pprinters=10
+		loglevel="debug"
 		;;
 	3)
 		echo "Running the extreme tests (3)"
@@ -114,6 +116,7 @@ case "$testtype" in
 		nprinters2=1000
 		pjobs=100
 		pprinters=50
+		loglevel="debug"
 		;;
 	4)
 		echo "Running the torture tests (4)"
@@ -121,6 +124,7 @@ case "$testtype" in
 		nprinters2=20000
 		pjobs=200
 		pprinters=100
+		loglevel="debug"
 		;;
 	*)
 		echo "Running the timid tests (1)"
@@ -128,6 +132,7 @@ case "$testtype" in
 		nprinters2=0
 		pjobs=10
 		pprinters=0
+		loglevel="debug2"
 		;;
 esac
 
@@ -252,16 +257,16 @@ echo ""
 
 case "$usedebugprintfs" in
 	Y* | y*)
-		echo "Enabling debug printfs; log files can be found in /tmp/cups-$user/log..."
+		echo "Enabling debug printfs (level 5); log files can be found in /tmp/cups-$user/log..."
 		CUPS_DEBUG_LOG="/tmp/cups-$user/log/debug_printfs.%d"; export CUPS_DEBUG_LOG
 		CUPS_DEBUG_LEVEL=5; export CUPS_DEBUG_LEVEL
 		CUPS_DEBUG_FILTER='^(http|_http|ipp|_ipp|cups.*Request|cupsGetResponse|cupsSend).*$'; export CUPS_DEBUG_FILTER
 		;;
 
 	0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9)
-		echo "Enabling debug printfs; log files can be found in /tmp/cups-$user/log..."
+		echo "Enabling debug printfs (level $usedebugprintfs); log files can be found in /tmp/cups-$user/log..."
 		CUPS_DEBUG_LOG="/tmp/cups-$user/log/debug_printfs.%d"; export CUPS_DEBUG_LOG
-		CUPS_DEBUG_LEVEL=$usedebugprintf; export CUPS_DEBUG_LEVEL
+		CUPS_DEBUG_LEVEL="$usedebugprintfs"; export CUPS_DEBUG_LEVEL
 		CUPS_DEBUG_FILTER='^(http|_http|ipp|_ipp|cups.*Request|cupsGetResponse|cupsSend).*$'; export CUPS_DEBUG_FILTER
 		;;
 
@@ -391,14 +396,16 @@ cat >/tmp/cups-$user/cupsd.conf <<EOF
 StrictConformance Yes
 Browsing Off
 Listen localhost:$port
+Listen /tmp/cups-$user/sock
 PassEnv LOCALEDIR
 PassEnv DYLD_INSERT_LIBRARIES
 MaxSubscriptions 3
 MaxLogSize 0
 AccessLogLevel actions
-LogLevel debug2
+LogLevel $loglevel
 LogTimeFormat usecs
 PreserveJobHistory Yes
+PreserveJobFiles No
 <Policy default>
 <Limit All>
 Order Allow,Deny
@@ -424,6 +431,10 @@ AccessLog /tmp/cups-$user/log/access_log
 ErrorLog /tmp/cups-$user/log/error_log
 PageLog /tmp/cups-$user/log/page_log
 EOF
+
+if test $ssltype != 0 -a `uname` = Darwin; then
+	echo "ServerCertificate $HOME/Library/Keychains/login.keychain" >> /tmp/cups-$user/cups-files.conf
+fi
 
 #
 # Setup lots of test queues - half with PPD files, half without...
@@ -570,6 +581,11 @@ if test "x$testtype" = x0; then
 	echo "LD_PRELOAD=\"$LD_PRELOAD\"; export LD_PRELOAD" >>$runcups
 	echo "LOCALEDIR=\"$LOCALEDIR\"; export LOCALEDIR" >>$runcups
 	echo "SHLIB_PATH=\"$SHLIB_PATH\"; export SHLIB_PATH" >>$runcups
+	if test "x$CUPS_DEBUG_LEVEL" != x; then
+		echo "CUPS_DEBUG_FILTER='$CUPS_DEBUG_FILTER'; export CUPS_DEBUG_FILTER" >>$runcups
+		echo "CUPS_DEBUG_LEVEL=$CUPS_DEBUG_LEVEL; export CUPS_DEBUG_LEVEL" >>$runcups
+		echo "CUPS_DEBUG_LOG='$CUPS_DEBUG_LOG'; export CUPS_DEBUG_LOG" >>$runcups
+	fi
 	echo "" >>$runcups
 	echo "# Run command..." >>$runcups
 	echo "exec \"\$@\"" >>$runcups
@@ -608,7 +624,7 @@ done
 #
 
 date=`date "+%Y-%m-%d"`
-strfile=/tmp/cups-$user/cups-str-1.6-$date-$user.html
+strfile=/tmp/cups-$user/cups-str-1.7-$date-$user.html
 
 rm -f $strfile
 cat str-header.html >$strfile

@@ -21,9 +21,9 @@
 #define ConvertToGCharPrivate_h
 
 #include "KURL.h"
-#include "PlatformString.h"
 #include <wtf/text/CString.h>
 #include <wtf/text/AtomicString.h>
+#include <wtf/text/WTFString.h>
 
 inline gchar* copyAsGchar(WTF::String const& s)
 {
@@ -35,7 +35,7 @@ inline gchar* copyAsGchar(WebCore::KURL const& s)
     return copyAsGchar(s.string());
 }
 
-inline gchar* copyAsGchar(const JSC::UString& s)
+inline gchar* copyAsGchar(const String& s)
 {
     return g_strdup(s.UTF8String().c_str());
 }

@@ -68,6 +68,7 @@ static const char rcsid[] =
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static struct {
 	char *name;

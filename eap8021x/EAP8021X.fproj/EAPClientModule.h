@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -139,5 +139,10 @@ EAPClientModulePluginUserName(EAPClientModuleRef module,
 CFStringRef
 EAPClientModulePluginCopyIdentity(EAPClientModuleRef module,
 				  EAPClientPluginDataRef plugin);
+
+CFStringRef
+EAPClientModulePluginCopyPacketDescription(EAPClientModuleRef module,
+					   const EAPPacketRef packet,
+					   bool * is_valid);
 
 #endif /* _EAP8021X_EAPCLIENTMODULE_H */

@@ -23,29 +23,12 @@
 #define SVGAnimatedPropertyMacros_h
 
 #if ENABLE(SVG)
+#include "SVGAnimatedProperty.h"
 #include "SVGAttributeToPropertyMap.h"
 #include "SVGPropertyTraits.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
-
-// IsDerivedFromSVGElement implementation
-template<typename OwnerType>
-struct IsDerivedFromSVGElement {
-    static const bool value = true;
-};
-
-class SVGTests;
-template<>
-struct IsDerivedFromSVGElement<SVGTests> {
-    static const bool value = false;
-};
-
-class SVGViewSpec;
-template<>
-struct IsDerivedFromSVGElement<SVGViewSpec> {
-    static const bool value = false;
-};
 
 // SVGSynchronizableAnimatedProperty implementation
 template<typename PropertyType>
@@ -53,6 +36,7 @@ struct SVGSynchronizableAnimatedProperty {
     SVGSynchronizableAnimatedProperty()
         : value(SVGPropertyTraits<PropertyType>::initialValue())
         , shouldSynchronize(false)
+        , isValid(false)
     {
     }
 
@@ -60,6 +44,7 @@ struct SVGSynchronizableAnimatedProperty {
     SVGSynchronizableAnimatedProperty(const ConstructorParameter1& value1)
         : value(value1)
         , shouldSynchronize(false)
+        , isValid(false)
     {
     }
 
@@ -67,11 +52,18 @@ struct SVGSynchronizableAnimatedProperty {
     SVGSynchronizableAnimatedProperty(const ConstructorParameter1& value1, const ConstructorParameter2& value2)
         : value(value1, value2)
         , shouldSynchronize(false)
+        , isValid(false)
     {
+    }
+
+    void synchronize(SVGElement* ownerElement, const QualifiedName& attrName, const AtomicString& value)
+    {
+        ownerElement->setSynchronizedLazyAttribute(attrName, value);
     }
 
     PropertyType value;
     bool shouldSynchronize : 1;
+    bool isValid : 1;
 };
 
 // Property registration helpers
@@ -102,6 +94,7 @@ static void registerAnimatedPropertiesFor##OwnerType() \
 const SVGPropertyInfo* OwnerType::LowerProperty##PropertyInfo() { \
     DEFINE_STATIC_LOCAL(const SVGPropertyInfo, s_propertyInfo, \
                         (AnimatedPropertyTypeEnum, \
+                         PropertyIsReadWrite, \
                          DOMAttribute, \
                          SVGDOMAttributeIdentifier, \
                          &OwnerType::synchronize##UpperProperty, \
@@ -124,7 +117,7 @@ public: \
     static const SVGPropertyInfo* LowerProperty##PropertyInfo(); \
     PropertyType& LowerProperty() const \
     { \
-        if (TearOffType* wrapper = SVGAnimatedProperty::lookupWrapper<UseOwnerType, TearOffType, IsDerivedFromSVGElement<UseOwnerType>::value>(this, LowerProperty##PropertyInfo())) { \
+        if (TearOffType* wrapper = SVGAnimatedProperty::lookupWrapper<UseOwnerType, TearOffType>(this, LowerProperty##PropertyInfo())) { \
             if (wrapper->isAnimating()) \
                 return wrapper->currentAnimatedValue(); \
         } \
@@ -136,9 +129,10 @@ public: \
         return m_##LowerProperty.value; \
     } \
 \
-    void set##UpperProperty##BaseValue(const PropertyType& type) \
+    void set##UpperProperty##BaseValue(const PropertyType& type, const bool validValue = true) \
     { \
         m_##LowerProperty.value = type; \
+        m_##LowerProperty.isValid = validValue; \
     } \
 \
     PassRefPtr<TearOffType> LowerProperty##Animated() \
@@ -147,23 +141,28 @@ public: \
         return static_pointer_cast<TearOffType>(lookupOrCreate##UpperProperty##Wrapper(this)); \
     } \
 \
+    bool LowerProperty##IsValid() const \
+    { \
+        return m_##LowerProperty.isValid; \
+    } \
+\
 private: \
     void synchronize##UpperProperty() \
     { \
         if (!m_##LowerProperty.shouldSynchronize) \
             return; \
         AtomicString value(SVGPropertyTraits<PropertyType>::toString(m_##LowerProperty.value)); \
-        SVGAnimatedPropertySynchronizer<IsDerivedFromSVGElement<UseOwnerType>::value>::synchronize(this, LowerProperty##PropertyInfo()->attributeName, value); \
+        m_##LowerProperty.synchronize(this, LowerProperty##PropertyInfo()->attributeName, value); \
     } \
 \
-    static PassRefPtr<SVGAnimatedProperty> lookupOrCreate##UpperProperty##Wrapper(void* maskedOwnerType) \
+    static PassRefPtr<SVGAnimatedProperty> lookupOrCreate##UpperProperty##Wrapper(SVGElement* maskedOwnerType) \
     { \
         ASSERT(maskedOwnerType); \
         UseOwnerType* ownerType = static_cast<UseOwnerType*>(maskedOwnerType); \
-        return SVGAnimatedProperty::lookupOrCreateWrapper<UseOwnerType, TearOffType, PropertyType, IsDerivedFromSVGElement<UseOwnerType>::value>(ownerType, LowerProperty##PropertyInfo(), ownerType->m_##LowerProperty.value); \
+        return SVGAnimatedProperty::lookupOrCreateWrapper<UseOwnerType, TearOffType, PropertyType>(ownerType, LowerProperty##PropertyInfo(), ownerType->m_##LowerProperty.value); \
     } \
 \
-    static void synchronize##UpperProperty(void* maskedOwnerType) \
+    static void synchronize##UpperProperty(SVGElement* maskedOwnerType) \
     { \
         ASSERT(maskedOwnerType); \
         UseOwnerType* ownerType = static_cast<UseOwnerType*>(maskedOwnerType); \
@@ -179,7 +178,7 @@ private: \
 DECLARE_ANIMATED_PROPERTY(TearOffType, PropertyType, UpperProperty, LowerProperty) \
 void detachAnimated##UpperProperty##ListWrappers(unsigned newListSize) \
 { \
-    if (TearOffType* wrapper = SVGAnimatedProperty::lookupWrapper<UseOwnerType, TearOffType, IsDerivedFromSVGElement<UseOwnerType>::value>(this, LowerProperty##PropertyInfo())) \
+    if (TearOffType* wrapper = SVGAnimatedProperty::lookupWrapper<UseOwnerType, TearOffType>(this, LowerProperty##PropertyInfo())) \
         wrapper->detachListWrappers(newListSize); \
 }
 

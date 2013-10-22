@@ -799,7 +799,7 @@ chap_ask_password(struct chap_client_state *cs, int id,
 	memcpy(chap_saved_packet, pkt, len + CHAP_HDRLEN);		
 	ask_password_mode = change;
 	
-	err = chap_invoke_ui(change);
+	err = chap_invoke_ui(/*change*/);
 	if (err != 0) {
 		free(chap_saved_packet);
 		chap_saved_packet = 0;

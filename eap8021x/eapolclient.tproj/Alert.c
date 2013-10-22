@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2002 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,9 +65,8 @@ Alert_response(CFUserNotificationRef alert, CFOptionFlags response_flags)
     Alert *	alert_p;
 
     alert_p = Alert_find(alert);
-
     if (alert_p == NULL) {
-	my_log(LOG_NOTICE, "Alert_find failed!\n");
+	EAPLOG_FL(LOG_NOTICE, "Alert_find failed");
 	return;
     }
     if (alert_p->rls) {
@@ -147,8 +145,7 @@ Alert_update(Alert * alert_p, char * title, char * message)
     error = CFUserNotificationUpdate(alert_p->notif, 0, 0, dict);
     my_CFRelease(&dict);
     if (error != 0) {
-	my_log(LOG_NOTICE, "CFUserNotificationUpdate failed, %d\n",
-	       error);
+	EAPLOG_FL(LOG_NOTICE, "CFUserNotificationUpdate failed, %d", error);
 	goto failed;
     }
     return (TRUE);
@@ -169,27 +166,24 @@ Alert_create(AlertCallback * func,
 
     alert_p = malloc(sizeof(*alert_p));
     if (alert_p == NULL) {
-	my_log(LOG_NOTICE, "Alert_create: malloc failed");
+	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	return (NULL);
     }
     bzero(alert_p, sizeof(*alert_p));
     dict = make_alert_dict(title, message);
     if (dict == NULL) {
-	my_log(LOG_NOTICE, 
-	       "Alert_create: make_alert_dict failed");
+	EAPLOG_FL(LOG_NOTICE, "make_alert_dict failed");
 	goto failed;
     }
     alert = CFUserNotificationCreate(NULL, 0, 0, &error, dict);
     if (alert == NULL) {
-	my_log(LOG_NOTICE, 
-	       "Alert_create: CFUserNotificationCreate failed, %d",
-	       error);
+	EAPLOG_FL(LOG_NOTICE, "CFUserNotificationCreate failed, %d", error);
 	goto failed;
     }
     rls = CFUserNotificationCreateRunLoopSource(NULL, alert, 
 						Alert_response, 0);
     if (rls == NULL) {
-	my_log(LOG_NOTICE, "CFUserNotificationCreateRunLoopSource failed");
+	EAPLOG_FL(LOG_NOTICE, "CFUserNotificationCreateRunLoopSource failed");
 	goto failed;
     }
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);

@@ -26,16 +26,18 @@
 #include "config.h"
 #include "DragClientQt.h"
 
-#include "ClipboardQt.h"
+#include "ChromeClient.h"
+#include "Clipboard.h"
 #include "DragController.h"
+#include "EventHandler.h"
 #include "Frame.h"
 #include "Page.h"
+#include "Pasteboard.h"
 #include "PlatformMouseEvent.h"
-#include "qwebpage.h"
 
 #include <QDrag>
 #include <QMimeData>
-
+#include <QWebPageClient.h>
 
 namespace WebCore {
 
@@ -91,9 +93,9 @@ void DragClientQt::willPerformDragSourceAction(DragSourceAction, const IntPoint&
 void DragClientQt::startDrag(DragImageRef dragImage, const IntPoint&, const IntPoint&, Clipboard* clipboard, Frame* frame, bool)
 {
 #ifndef QT_NO_DRAGANDDROP
-    QMimeData* clipboardData = static_cast<ClipboardQt*>(clipboard)->clipboardData();
-    static_cast<ClipboardQt*>(clipboard)->invalidateWritableData();
-    QWidget* view = m_webPage->view();
+    QMimeData* clipboardData = clipboard->pasteboard().clipboardData();
+    clipboard->pasteboard().invalidateWritableData();
+    QObject* view = m_chromeClient->platformPageClient()->ownerWidget();
     if (view) {
         QDrag* drag = new QDrag(view);
         if (dragImage)
@@ -105,7 +107,7 @@ void DragClientQt::startDrag(DragImageRef dragImage, const IntPoint&, const IntP
         Qt::DropAction actualDropAction = drag->exec(dragOperationsToDropActions(dragOperationMask));
 
         // Send dragEnd event
-        PlatformMouseEvent me(m_webPage->view()->mapFromGlobal(QCursor::pos()), QCursor::pos(), LeftButton, PlatformEvent::MouseMoved, 0, false, false, false, false, 0);
+        PlatformMouseEvent me(m_chromeClient->screenToRootView(QCursor::pos()), QCursor::pos(), LeftButton, PlatformEvent::MouseMoved, 0, false, false, false, false, 0);
         frame->eventHandler()->dragSourceEndedAt(me, dropActionToDragOperation(actualDropAction));
     }
     frame->page()->dragController()->dragEnded();

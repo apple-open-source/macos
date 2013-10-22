@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<!--  Thanks to Adam Legget for providing this example XML -->
+<!DOCTYPE AdamSuite>
+<?xml-stylesheet type="text/xsl" href="../../adam.xsl"?>
+<AdamSuite Name="tgl" Module="tgl" Version="1.5" Description="TGL Test Suite">
+  <adam:target name="applets" install="Suite/GPU" type="dll" />
+  <adam:file name="applets.xml" type="arch" />
+  <adam:include href="/Framework/TCore" />
+  <adam:include href="/Library/Common/inc" />
+  <adam:include href="/Library/Common/tgl" />
+  <adam:library href="/Library/Common/tgl" name="tgl" />
+  <adam:define name="blahblah" />
+  <adam:source href="common.cpp" />
+  <Parameter Name="tWinW">640</Parameter>
+  <Parameter Name="tWinH">480</Parameter>
+  <Parameter Name="d1">640,480,32</Parameter>
+  <!-- jiaeofwaejf -->
+  <adam:if release="qual|jfwa">
+    <Test Id="001" Name="foobar" Description="TGL test">
+      <adam:source href="foobar.c" />
+      <adam:if release="qual">
+        <adam:if release="3">
+          <adam:file name="gfoobarbd3.bmp" type="media" />
+          <adam:file name="bfoobar.fp" type="media" />
+          <adam:file name="bfoobar.vp" type="media" />
+        </adam:if>
+        <adam:file name="gfoobarbd3.bmp" type="media" />
+        <adam:file name="bfoobar.fp" type="media" />
+        <adam:file name="bfoobar.vp" type="media" />
+      </adam:if>
+      <Variation Id="001.001" Name="Default">
+        <Reference Name="CRC32">0x78F84839</Reference>
+        <Reference Name="FOOCRC32">0xC07B38CB</Reference>
+        <Reference Name="BARCRC32">0xB408F7BE</Reference>
+        <Reference Name="BAZCRC32">0x78F84839</Reference>
+        <Reference Name="CAMELCRC32">0xC07B38CB</Reference>
+        <Reference Name="LIZARDCRC32">0xB408F7BE</Reference>
+        <Reference Name="ALPAKACRC32">0xB408F7BE</Reference>
+      </Variation>
+      <Variation Id="001.002" Name="beachfoobar" Description="TGL test">
+        <Parameter Name="tess">1</Parameter>
+        <Parameter Name="shader">BEACHBALL</Parameter>
+        <Parameter Name="tZBformat">x8d24</Parameter>
+        <Reference Name="CRC32">0x096A3BCC</Reference>
+        <Reference Name="FOOCRC32">0x962F2E42</Reference>
+        <Reference Name="BARCRC32">0x962F2E42</Reference>
+        <Reference Name="BAZCRC32">0x096A3BCC</Reference>
+        <Reference Name="CAMELCRC32">0x962F2E42</Reference>
+        <Reference Name="LIZARDCRC32">0x962F2E42</Reference>
+        <Reference Name="ALPAKACRC32">0x962F2E42</Reference>
+      </Variation>
+      <Variation Id="001.003" Name="checkerfoobar" Description="TGL test">
+        <Parameter Name="tess">1</Parameter>
+        <Parameter Name="shader">CHECKERBOARD</Parameter>
+        <Parameter Name="tZBformat">x8d24</Parameter>
+        <Reference Name="CRC32">0x25D49060</Reference>
+        <Reference Name="FOOCRC32">0x25D49060</Reference>
+        <Reference Name="BARCRC32">0x25D49060</Reference>
+        <Reference Name="BAZCRC32">0x25D49060</Reference>
+        <Reference Name="CAMELCRC32">0x25D49060</Reference>
+        <Reference Name="LIZARDCRC32">0x25D49060</Reference>
+        <Reference Name="ALPAKACRC32">0x25D49060</Reference>
+      </Variation>
+    </Test>
+    <Test Id="002" Name="cube" Description="TGL test">
+      <Variation Id="002.001" Name="Default">
+        <Parameter Name="texEnable">0</Parameter>
+        <Parameter Name="texture0">rocks.bmp</Parameter>
+        <Parameter Name="texture1">dogs.bmp</Parameter>
+        <Reference Name="CRC32">0x7D9BDFFA</Reference>
+        <Reference Name="FOOCRC32">0x7D9BDFFA</Reference>
+        <Reference Name="BARCRC32">0x7D9BDFFA</Reference>
+        <Reference Name="BAZCRC32">0x7D9BDFFA</Reference>
+        <Reference Name="CAMELCRC32">0x7D9BDFFA</Reference>
+        <Reference Name="LIZARDCRC32">0x7D9BDFFA</Reference>
+        <Reference Name="ALPAKACRC32">0x7D9BDFFA</Reference>
+      </Variation>
+      <Variation Id="002.002" Name="texcube" Description="TGL test">
+        <Parameter Name="texEnable">1</Parameter>
+        <Parameter Name="texture0">rocks.bmp</Parameter>
+        <Parameter Name="texture1">dogs.bmp</Parameter>
+        <Reference Name="CRC32">0x58CCFA12</Reference>
+        <Reference Name="FOOCRC32">0x58CCFA12</Reference>
+        <Reference Name="BARCRC32">0x58CCFA12</Reference>
+        <Reference Name="BAZCRC32">0x58CCFA12</Reference>
+        <Reference Name="CAMELCRC32">0x58CCFA12</Reference>
+        <Reference Name="LIZARDCRC32">0x58CCFA12</Reference>
+        <Reference Name="ALPAKACRC32">0x58CCFA12</Reference>
+      </Variation>
+    </Test>
+  </adam:if>
+</AdamSuite>

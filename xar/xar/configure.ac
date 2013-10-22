@@ -340,29 +340,6 @@ if test "x${have_libbz2}" = "x1" ; then
 fi
 
 dnl 
-dnl Configure liblzma.
-dnl 
-have_liblzma="1"
-AC_ARG_WITH([lzma], [AS_HELP_STRING([--with-lzma=PATH],
-	  [Compile in lzma support.  PATH is the prefix where liblzma is installed.],
-	  [], [])],
-	[ OLDCFLAGS=$CFLAGS; CFLAGS="-I$withval/include/ $CFLAGS";
-	  OLDLDFLAGS=$LDFLAGS; LDFLAGS="-L$withval/lib/ $LDFLAGS";
-	  OLDCPPFLAGS=$CPPFLAGS; CPPFLAGS="-I$withval/include/ $CPPFLAGS";
-	  AC_CHECK_HEADER([$withval/include/lzma.h], ,
-	    [have_liblzma="0"; CFLAGS=$OLDCFLAGS; LDFLAGS=$OLDLDFLAGS; 
-	    CPPFLAGS=$OLDCPPFLAGS;])
-	  AC_CHECK_LIB([lzma],  [lzma_code], [LIBS="-L$withval/lib/ -llzma $LIBS"], 
-	    [have_liblzma="0"])
-	],
-	[ AC_CHECK_HEADERS([lzma.h], , [have_liblzma="0"])
-	  AC_CHECK_LIB([lzma], [lzma_code], [], [have_liblzma="0"])
-	])
-if test "x${have_liblzma}" = "x1" ; then
-  AC_DEFINE([HAVE_LIBLZMA])
-fi
-
-dnl 
 dnl Process .in files.
 dnl 
 AC_SUBST([cfghdrs])

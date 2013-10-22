@@ -80,7 +80,7 @@ public:
 	MachServer(const char *name, const Bootstrap &bootstrap);
 	virtual ~MachServer();
 	
-	void run(size_t maxSize = 4096, mach_msg_options_t options = 0);
+	void run(mach_msg_size_t maxSize = 4096, mach_msg_options_t options = 0);
 	
 	Time::Interval timeout() const { return workerTimeout; }
 	void timeout(Time::Interval t)	{ workerTimeout = t; }
@@ -190,7 +190,7 @@ protected:
 	ReceivePort mServerPort;		// registered/primary server port
     PortSet mPortSet;				// joint receiver port set
 	
-	size_t mMaxSize;				// maximum message size
+	mach_msg_size_t mMaxSize;				// maximum message size
 	mach_msg_options_t mMsgOptions;	// kernel call options
     
     typedef set<Handler *> HandlerSet;

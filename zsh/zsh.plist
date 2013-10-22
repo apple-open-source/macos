@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>zsh</string>
 	<key>OpenSourceVersion</key>
-	<string>4.3.11</string>
+	<string>5.0.2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.zsh.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.zsh.org/pub/zsh-4.3.11.tar.bz2</string>
+	<string>http://www.zsh.org/pub/zsh-5.0.2.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>25cf0daadc4543d147f6241573d6730b60f16016</string>
+	<string>9f55ecaaae7cdc1495f91237ba2ec087777a4ad9</string>
 	<key>OpenSourceImportDate</key>
-	<string>2011-02-14</string>
+	<string>2013-02-04</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Limit spname processing if too many &apos;/&apos; are input</string>

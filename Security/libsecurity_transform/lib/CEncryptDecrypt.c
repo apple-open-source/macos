@@ -33,12 +33,14 @@
 // corecrypto headers don't like C++ (on a deaper level then extern "C" {} can fix
 // so we need a C "shim" for all our corecrypto use.
 
+#warning "This declaration should be in some headers"
+CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue);
 CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue)
 {
 	cc_unit paddingBuffer[ccn_nof_size(desired_message_length)];
 	bzero(paddingBuffer, sizeof(cc_unit) * ccn_nof_size(desired_message_length)); // XXX needed??
 	static dispatch_once_t randomNumberGenneratorInitialzed;
-	static static struct ccrng_system_state rng;
+	static struct ccrng_system_state rng;
 	dispatch_once(&randomNumberGenneratorInitialzed, ^{
         ccrng_system_init(&rng);
 	});
@@ -53,6 +55,8 @@ CFDataRef oaep_padding_via_c(int desired_message_length, CFDataRef dataValue)
 	return paddedValue ? paddedValue : (void*)GetNoMemoryErrorAndRetain();
 }
 
+#warning "This declaration should be in some headers"
+CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage);
 CFDataRef oaep_unpadding_via_c(CFDataRef encodedMessage)
 {
 	size_t mlen = CFDataGetLength(encodedMessage);

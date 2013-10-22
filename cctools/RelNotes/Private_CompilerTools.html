@@ -1,5 +1,5 @@
 <HTML>
-<!--This file created 5/10/12 4:44 PM by Claris Home Page version 3.0-->
+<!--This file created 9/19/12 4:34 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
@@ -8,14 +8,14 @@
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">Mac OS X Xcode 4.4 Developer Release Copyright
-2012 by Apple, Inc. All Rights Reserved.</FONT></P>
+<P><FONT SIZE="-1">Mac OS X Xcode 5 Developer Release Copyright
+2013 by Apple, Inc. All Rights Reserved.</FONT></P>
 
-<H2>Private Mac OS X Xcode 4.4 Developer Release:<BR>
-Compiler Tools (cctools-829)</H2>
+<H2>Private Mac OS X Xcode 5 Developer Release:<BR>
+Compiler Tools (cctools-845)</H2>
 
-<P>This file contains release notes for the 5.30 release of the
-Compiler Tools for the Mac OS X Xcode 4.3 Developer Release. This
+<P>This file contains release notes for the 5.33 release of the
+Compiler Tools for the Mac OS X Xcode 5 Developer Release. This
 file contains information about the following topics:</P>
 
 <UL>
@@ -25,6 +25,230 @@ file contains information about the following topics:</P>
    
    <LI>Mach-O object tools (<B>nm</B>, <B>otool</B>, and so
    on)&nbsp;</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.33 (Mac OS X Xcode 5 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-844 for
+the 5.33 Mac OS X Xcode 4.5.1 Developer release)</FONT></H5>
+<UL>
+   <LI>Fixed a bug in building libsyminfo.a when cctools was also being built
+   with 64-bit and 32-bit architecures.  Radar bug #13461906.</LI>
+
+   <LI>Changed how the strip(1) is linked so it is linked with libc++ and
+   and not libstdc++.  Radar bug #13470497.</LI>
+
+   <LI>Fixed a bug in otool(1)'s -fv option that incorrectly complained about
+   sizes and offsets being "(past end of file)" when it shouldn't.
+   Radar bug #13545561.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-843 for
+the 5.33 Mac OS X Xcode 4.5.1 Developer release)</FONT></H5>
+<UL>
+   <LI>Changed libmacho.dylib to link against the libsystem_malloc.dylib
+   in addition to libsystem_c.dylib.  Radar bug #13437197.</LI>
+
+   <LI>Fixed a bug in in otool(1) that was picking up the symbol ltmp0 when
+   disassebling code.  Radar bug #13406338.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-842 for
+the 5.33 Mac OS X Xcode 4.5.1 Developer release)</FONT></H5>
+<UL>
+   <LI>Changed libmacho.dylib to link against the libSystem children rather
+   than libSystem directly.  Radar bug #13239126.</LI>
+
+   <LI>Changed the cctools project to have a copy of the i386 xnu headers.
+   Radar bug #13213628.</LI>
+
+   <LI>Fixed a bug in in otool(1) when printing the data in code so there is a
+   space between the address and the data value.  Radar bug #13337414.</LI>
+
+   <LI>Added the slot_name() API from Libc to libmacho.dylib .
+   Radar bug #13239190.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-841 for
+the 5.33 Mac OS X Xcode 4.5.1 Developer release)</FONT></H5>
+<UL>
+   <LI>Changed lipo(1) to atomically create its output file.
+   Radar bug #13045167.</LI>
+
+   <LI>Changed lipo(1) to use 16K pages for arm binaries.
+   Radar bug #13080176.</LI>
+
+   <LI>Fixed a bug in install_name_tool(1) that caused it to produce
+   corrupted files when more than one -add_rpath option was used.
+   Radar bug #13012481.</LI>
+   
+   <LI>Updated otool(1) when disassembling a kext so that it can use
+   the relocation entries to symbolic operands.  Radar bug #12237594.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-840 for
+the 5.33 Mac OS X Xcode 4.5.1 Developer release)</FONT></H5>
+<UL>
+   <LI>Added support for the LC_LINKER_OPTION load command.
+   Radar bug #12906665.</LI>
+   
+   <LI>Change otool(1) to use the llvm disassembler's option to print
+   immediates as hex.  Radar bug #12810901.</LI>
+   
+   <LI>Stopped installing gprof(1).  Radar bug #12206921.</LI>
+   
+   <LI>Changed when building the cctools_ofiles_Sim alias to build
+   libmacho.dylib so the _debug and _profile versions also have _sim
+   in their name.  Radar bug #12639232.</LI>
+   
+   <LI>Added the -mcpu option to otool(1) for use with the llvm
+   disassemblers.  Radar bug #12839170.</LI>
+   
+   <LI>Fixed a crash in otool(1) when disassembling a kext that has
+   a symbol stub section with zero sized stubs in its reserved2 field
+   in its section header.  Radar bug #12924490.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-839 for
+the 5.33 Mac OS X Xcode 4.5.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the cctools headers to use "#ifdef __cplusplus" not
+   "#if __cplusplus".  Radar bug #12476645.</LI>
+   
+   <LI>Fixed otool(1) to correcly disassemble arm sdiv and udiv
+   instructions in binaries marked with cpusubtypes that support
+   them.  Radar bug #12464533.</LI>
+   
+   <LI>Added the new archs: -arch armv6m / armv7m / armv7em .
+   Radar bug #11314463.</LI>
+   
+   <LI>Changed otool(1) to call lto_initialize_disassembler() when
+   using the llvm disassemblers.  Radar bug #12750395.</LI>
+   
+   <LI>Added the environment variable AS_INTEGRATED_ASSEMBLER to
+   the assembler driver as(1) to cause it to run the integrated
+   assembler.  Radar bug #12671669.</LI>
+   
+   <LI>Changed the cctools project to not install its headers into
+   the toolchain's usr/include directory for the install_dev_tools
+   make target.  Radar bug #12467249.</LI>
+   
+   <LI>Switched cctools to use libc++ instead of libstdc++, except
+   for strip(1). Radar bug #12624622.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-838 for
+the 5.33 Mac OS X Xcode 4.5.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the cctools project's source so the Makefile for
+   strip(1) uses libprunetrie from toolchain directory instead of
+   root.  Radar bug #12296255..</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-837 for
+the 5.33 Mac OS X Xcode 4.5.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in otool(1) that would cause it to not use the
+   data in code tables when disassembling a linked executable. Radar
+   bug #12171547.</LI>
+   
+   <LI>Changed the cctools project's source so the Makefile does not
+   include contains internal train names. Radar bug #12000666.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-836 for
+the 5.32 Mac OS X Xcode 4.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the cctools project to use INSTALL_LOCATION and not
+   DT_TOOLCHAIN_DIR when building. Radars 11918869.</LI>
+   
+   <LI>Fixed a bug in otool(1) that would cause it to crash when
+   using the -o option with an object that has bad Objective-C data.
+   Radar bug #12100282.</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.32 (Mac OS X Xcode 4.5 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-835 for
+the 5.32 Mac OS X Xcode 4.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the cctools sources so it contains the header file
+   "mach/arm/_structs.h" to allow it to build on non-iOS trains.
+   Radar bug 12025943.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-834 for
+the 5.32 Mac OS X Xcode 4.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added support for the LC_ENCRYPTION_INFO_64 load command.
+   Radar bug #11862845.</LI>
+   
+   <LI>Fixed a bug in strip(1) that could create a malformed object
+   if the object file had a function starts table. Radar bug
+   #11913911.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-832 for
+the 5.32 Mac OS X Xcode 4.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed strip(1) to always use ld -r on ARM .o files to rename
+   thumb symbols so they don't get stripped. Radar bug
+   #11795809.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-831 for
+the 5.32 Mac OS X Xcode 4.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with the assembler driver, as(1), parsing
+   command line arguments with multiple character's. Radar bug
+   #11754204.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-830 for
+the 5.32 Mac OS X Xcode 4.5 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Improved otool(1)'s use of the data in code table when
+   disassembling arm binaries. Radar bug #11753747.</LI>
+   
+   <LI>Put a copy of mtoc(1) in usr/local/bin as well as
+   usr/local/efi/bin . Radar bug #10715889.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-829 for
+the 5.31 Mac OS X Xcode 4.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the assembler to accept but ignore the .data_region
+   and .end_data_region directives. Radar bug #11459770.</LI>
+   
+   <LI>Fixed a bug in ranlib(1) that was trashing an archive if it's
+   table of contents name was not using the extended name format but
+   had the same entries in the table of contents. Radar bug
+   #10399314.</LI>
+   
+   <LI>Added the -G option to otool(1) to print the data in code
+   table. Radar bug #11498575.</LI>
+   
+   <LI>Changed otool(1) to use the data in code table when
+   disassembling arm binaries. Radar bug #11506042.</LI>
+   
+   <LI>Fixed a bug in nmedit(1) and strip(1) that could create a
+   malformed object if the object file had a data in code table.
+   Radar bug #11554503.</LI>
+   
+   <LI>Changed the code in libmacho to not use static data. Radar bug
+   #11457965.</LI>
 </UL>
 
 <H2>Notes Specific to Release 5.31 (Mac OS X Xcode 4.4 Developer
@@ -1029,7 +1253,7 @@ the 5.27 Mac OS X Xcode 3.2.2 Developer release)</FONT></H5>
    address for the -t option of an x86_64 binary. Radar bug
    #7012357.</LI>
    
-   <LI>Removed the #ifndef __OPEN_SOURCE__ lines around the armv7
+   <LI>Removed the #ifndef __OPEN_SOURCE__
    code. Radar bug #7016121.</LI>
 </UL>
 
@@ -2090,7 +2314,7 @@ the 5.25 Mac OS X Xcode 3.1 Developer release)</FONT></H5>
    parameter as a general register not a xmm register. Radar bug
    #5650346.</LI>
    
-   <LI>Removed the sources changes to #ifndef __OPEN_SOURCE__ to
+   <LI>Removed the sources changes to #ifndef __OPEN_SOURCE__
    isolate arm sections of cctools sources that was put in for Radar
    bug #5326431.</LI>
    
@@ -2298,7 +2522,7 @@ the 5.25 Mac OS X Xcode 3.1 Developer release)</FONT></H5>
 the 5.24 Mac OS X Xcode 3.0 Developer release)</FONT></H5>
 
 <UL>
-   <LI>Changed the sources to #ifndef __OPEN_SOURCE__ to isolate arm
+   <LI>Changed the sources to #ifndef __OPEN_SOURCE__
    sections of cctools sources. Radar bug #5326431.</LI>
 </UL>
 

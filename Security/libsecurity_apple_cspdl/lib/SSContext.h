@@ -90,8 +90,7 @@ private:
 	/* alg-dependent, calculated at init time */
 	CSSM_ALGORITHMS	mSigAlg;		// raw signature alg
 	CSSM_ALGORITHMS mDigestAlg;		// digest
-	CSSM_ALGORITHMS mOrigAlg;		// caller's context alg
-	
+
 	/* exactly one of these is used to collect updates */
 	NullDigest 			*mNullDigest;
 	CssmClient::Digest 	*mDigest;

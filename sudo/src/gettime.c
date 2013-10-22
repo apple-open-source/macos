@@ -24,7 +24,7 @@
 # include <time.h>
 #endif
 
-#include <compat.h>
+#include "missing.h"
 
 /*
  * Get the current time via gettimeofday() for systems with
@@ -41,5 +41,5 @@ gettime(tv)
     rval = (int)time(&tv->tv_sec);
     tv->tv_usec = 0;
 #endif
-    return (rval);
+    return rval;
 }

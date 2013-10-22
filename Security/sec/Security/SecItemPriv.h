@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2006-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,10 +31,9 @@
 #define _SECURITY_SECITEMPRIV_H_
 
 #include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CFError.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*!
     @enum Class Value Constants (Private)
@@ -235,8 +234,8 @@ extern CFTypeRef kSecClassAppleSharePassword;
     @constant kSecAttrCanVerifyRecover Specifies a dictionary key whole value is
         a CFBooleanRef indicating whether the key in question can be used to
         perform verify recovery.
-    @constant kSecAttrSynchronizable Specifies a dictionary key whose value is
-        a CFBooleanRef indicating that the item in question can be synchronized.
+    @constant kSecAttrTombstone Specifies a dictionary key whose value is
+        a CFBooleanRef indicating that the item in question is a tombstone.
 */
 extern CFTypeRef kSecAttrScriptCode;
 extern CFTypeRef kSecAttrAlias;
@@ -257,11 +256,19 @@ extern CFTypeRef kSecAttrIsExtractable;
 extern CFTypeRef kSecAttrWasNeverExtractable;
 extern CFTypeRef kSecAttrCanSignRecover;
 extern CFTypeRef kSecAttrCanVerifyRecover;
-extern CFTypeRef kSecAttrSynchronizable;
+extern CFTypeRef kSecAttrTombstone;
 
 /*!
     @enum Other Constants (Private)
     @discussion Predefined constants used to set values in a dictionary.
+    @constant kSecUseTombstones Specifies a dictionary key whose value is a
+        CFBooleanRef if present this overrides the default behaviour for when
+        we make tombstones.  The default being we create tombstones for
+        synchronizable items unless we are explicitly deleting or updating a
+        tombstone.  Setting this to false when calling SecItemDelete or
+        SecItemUpdate will ensure no tombstones are created.  Setting it to
+        true will ensure we create tombstones even when deleting or updating non
+        synchronizable items.
     @constant kSecUseKeychain Specifies a dictionary key whose value is a
         keychain reference. You use this key to specify a value of type
         SecKeychainRef that indicates the keychain to which SecItemAdd
@@ -273,6 +280,8 @@ extern CFTypeRef kSecAttrSynchronizable;
         explicit kSecUseItemList is also provided.  This key can be used
         for the SecItemCopyMatching, SecItemUpdate and SecItemDelete calls.
 */
+extern CFTypeRef kSecUseTombstones
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 #if defined(MULTIPLE_KEYCHAINS)
 extern CFTypeRef kSecUseKeychain;
 extern CFTypeRef kSecUseKeychainList;
@@ -305,26 +314,6 @@ OSStatus SecItemCopyDisplayNames(CFArrayRef items, CFArrayRef *displayNames);
 */
 OSStatus SecItemDeleteAll(void);
 
-enum {
-    kSecMigrateKeychainImport = -1,
-    kSecMigrateKeychainExport = 0
-};
-
-/* Call this function with a 0 handle_in and NULL data_in to start an export.
-   data_out will be returned if data needs to be transmitted to the client
-   (caller is responsible for CFReleasing returned CFDataRef). If handle_out
-   is set to nonzero on return, then the caller should call this function again
-   with the returned handle passed as handle_in and the response from the
-   importing client on the other end of the connection as data_in.  Caller
-   should continue passing data_out to the importing device and continue
-   providing additional data until handle_out is set to zero.
-
-   When importing, call this function with handle_in set to 0 and data_in to
-   the data to be imported, if more data is expected, handle_out will be
-   non zero upon return. */
-OSStatus _SecMigrateKeychain(int32_t handle_in, CFDataRef data_in,
-    int32_t *handle_out, CFDataRef *data_out);
-
 /*
     Ensure the escrow keybag has been used to unlock the system keybag before
     calling either of these APIs.
@@ -334,11 +323,19 @@ OSStatus _SecMigrateKeychain(int32_t handle_in, CFDataRef data_in,
  */
 CFDataRef _SecKeychainCopyBackup(CFDataRef backupKeybag, CFDataRef password);
 CFDataRef _SecKeychainCopyOTABackup(void);
-bool _SecKeychainRestoreBackup(CFDataRef backup, CFDataRef backupKeybag,
+OSStatus _SecKeychainRestoreBackup(CFDataRef backup, CFDataRef backupKeybag,
     CFDataRef password);
 
-#if defined(__cplusplus)
-}
-#endif
+OSStatus _SecKeychainBackupSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in, CFDictionaryRef *backup_out);
+OSStatus _SecKeychainRestoreSyncable(CFDataRef keybag, CFDataRef password, CFDictionaryRef backup_in);
+
+/* Called by clients to push sync circle and message changes to us.
+   Requires caller to have the kSecEntitlementKeychainSyncUpdates entitlement. */
+bool _SecKeychainSyncUpdate(CFDictionaryRef updates, CFErrorRef *error);
+
+/* Returns an OSStatus value for the given CFErrorRef, returns errSecInternal if the domain of the providied error is not recognized.  Passing NULL returns errSecSuccess (0). */
+OSStatus SecErrorGetOSStatus(CFErrorRef error);
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECITEMPRIV_H_ */

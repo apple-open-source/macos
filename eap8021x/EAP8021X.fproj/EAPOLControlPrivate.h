@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -108,23 +108,6 @@ void
 EAPOLControlSetItemIDForAuthenticator(CFDataRef authenticator,
 				      EAPOLClientItemIDRef itemID);
 
-
-/*
- * Function: EAPOLControlIsUserAutoConnectVerboseEnabled
- * Purpose:
- *   Get whether verbose mode is enabled.
- */
-Boolean
-EAPOLControlIsUserAutoConnectVerboseEnabled(void);
-
-/*
- * Function: EAPOLControlSetUserAutoConnectVerboseEnabled
- * Purpose:
- *   Set whether verbose mode is enabled.
- */
-void
-EAPOLControlSetUserAutoConnectVerboseEnabled(Boolean enable);
-
 /*
  * Const: kEAPOLControlUserSettingsNotifyKey
  * Purpose:
@@ -132,7 +115,6 @@ EAPOLControlSetUserAutoConnectVerboseEnabled(Boolean enable);
  *   EAPOLControl settings have been modified.
  */
 extern const char * kEAPOLControlUserSettingsNotifyKey;
-
 
 #endif /* ! TARGET_OS_EMBEDDED */
 

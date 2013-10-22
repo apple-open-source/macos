@@ -50,7 +50,7 @@ namespace Security {
 // we do not throw errors.
 //
 CFMunge::CFMunge(const char *fmt, va_list arg)
-	: format(fmt), allocator(NULL), error(noErr)
+	: format(fmt), allocator(NULL), error(errSecSuccess)
 {
 	va_copy(args, arg);
 }

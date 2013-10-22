@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -255,7 +255,7 @@ _configset(mach_port_t			server,
 		}
 	}
 
-	if (!hasWriteAccess(mySession)) {
+	if (!hasWriteAccess(mySession, key)) {
 		*sc_status = kSCStatusAccessError;
 		goto done;
 	}
@@ -371,6 +371,8 @@ __SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, 
 	return sc_status;
 }
 
+#define	N_QUICK	32
+
 __private_extern__
 kern_return_t
 _configset_m(mach_port_t		server,
@@ -440,9 +442,65 @@ _configset_m(mach_port_t		server,
 		}
 	}
 
-	if (!hasWriteAccess(mySession)) {
-		*sc_status = kSCStatusAccessError;
-		goto done;
+	if (dict != NULL) {
+		const void *	keys_q[N_QUICK];
+		const void **	keys	= keys_q;
+		CFIndex		i;
+		CFIndex		n;
+		Boolean		writeOK	= TRUE;
+
+		n = CFDictionaryGetCount(dict);
+		if (n > (CFIndex)(sizeof(keys_q) / sizeof(CFStringRef))) {
+			keys   = CFAllocatorAllocate(NULL, n * sizeof(CFStringRef), 0);
+		}
+		CFDictionaryGetKeysAndValues(dict, keys, NULL);
+		for (i = 0; i < n; i++) {
+			CFStringRef	key;
+
+			key = (CFStringRef)keys[i];
+			if (!hasWriteAccess(mySession, key)) {
+				writeOK = FALSE;
+				break;
+			}
+		}
+		if (keys != keys_q) {
+			CFAllocatorDeallocate(NULL, keys);
+		}
+
+		if (!writeOK) {
+			*sc_status = kSCStatusAccessError;
+			goto done;
+		}
+	}
+
+	if (remove != NULL) {
+		CFIndex	i;
+		CFIndex	n	= CFArrayGetCount(remove);
+
+		for (i = 0; i < n; i++) {
+			CFStringRef	key;
+
+			key = CFArrayGetValueAtIndex(remove, i);
+			if (!hasWriteAccess(mySession, key)) {
+				*sc_status = kSCStatusAccessError;
+				goto done;
+			}
+		}
+	}
+
+	if (notify != NULL) {
+		CFIndex	i;
+		CFIndex	n	= CFArrayGetCount(notify);
+
+		for (i = 0; i < n; i++) {
+			CFStringRef	key;
+
+			key = CFArrayGetValueAtIndex(notify, i);
+			if (!hasWriteAccess(mySession, key)) {
+				*sc_status = kSCStatusAccessError;
+				goto done;
+			}
+		}
 	}
 
 	*sc_status = __SCDynamicStoreSetMultiple(mySession->store, dict, remove, notify);

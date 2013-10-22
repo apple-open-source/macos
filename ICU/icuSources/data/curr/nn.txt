@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/nn.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/nn.xml
 // *
 // ***************************************************************************
 /**
@@ -72,7 +72,7 @@ nn{
             "austerriksk schilling",
         }
         AUD{
-            "AU$",
+            "A$",
             "australsk dollar",
         }
         AWG{
@@ -949,11 +949,11 @@ nn{
         }
         VEB{
             "VEB",
-            "venezuelansk bolivar",
+            "venezuelansk bolivar (1871-2008)",
         }
         VEF{
             "VEF",
-            "venezuelansk bolivar fuerte",
+            "venezuelansk bolivar",
         }
         VND{
             "₫",
@@ -1073,6 +1073,10 @@ nn{
         }
         ZMK{
             "ZMK",
+            "zambisk kwacha (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "zambisk kwacha",
         }
         ZRN{
@@ -1802,12 +1806,12 @@ nn{
             other{"usbekiske sum"}
         }
         VEB{
-            one{"venezuelansk bolivar"}
-            other{"venezuelanske bolivar"}
+            one{"venezuelansk bolivar (1871-2008)"}
+            other{"venezuelanske bolivar (1871-2008)"}
         }
         VEF{
-            one{"venezuelansk bolivar fuerte"}
-            other{"venezuelanske bolivar fuerte"}
+            one{"venezuelansk bolivar"}
+            other{"venezuelanske bolivar"}
         }
         VND{
             one{"vietnamesisk dong"}
@@ -1906,7 +1910,8 @@ nn{
             other{"jugoslaviske dinarar (hard)"}
         }
         YUM{
-            one{"jugoslaviske noviy-dinarar"}
+            one{"jugoslavisk noviy-dinarar"}
+            other{"jugoslaviske noviy-dinar"}
         }
         YUN{
             one{"jugoslavisk konvertibel dinar"}
@@ -1917,5 +1922,5 @@ nn{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.47"}
 }

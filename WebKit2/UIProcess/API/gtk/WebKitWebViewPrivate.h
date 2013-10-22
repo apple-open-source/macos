@@ -27,30 +27,38 @@
 #ifndef WebKitWebViewPrivate_h
 #define WebKitWebViewPrivate_h
 
+#include "WebImage.h"
 #include "WebKitWebView.h"
-#include <WebKit2/WebKit2.h>
 #include <wtf/text/CString.h>
 
 void webkitWebViewLoadChanged(WebKitWebView*, WebKitLoadEvent);
 void webkitWebViewLoadFailed(WebKitWebView*, WebKitLoadEvent, const char* failingURI, GError*);
+void webkitWebViewLoadFailedWithTLSErrors(WebKitWebView*, const char* failingURI, GError *, GTlsCertificateFlags, GTlsCertificate*);
 void webkitWebViewSetEstimatedLoadProgress(WebKitWebView*, double estimatedLoadProgress);
 void webkitWebViewSetTitle(WebKitWebView*, const CString&);
 void webkitWebViewUpdateURI(WebKitWebView*);
-WKPageRef webkitWebViewCreateNewPage(WebKitWebView*, WKDictionaryRef wkWindowFeatures);
+WebKit::WebPageProxy* webkitWebViewCreateNewPage(WebKitWebView*, WebKit::ImmutableDictionary* windowFeatures);
 void webkitWebViewReadyToShowPage(WebKitWebView*);
+void webkitWebViewRunAsModal(WebKitWebView*);
 void webkitWebViewClosePage(WebKitWebView*);
 void webkitWebViewRunJavaScriptAlert(WebKitWebView*, const CString& message);
 bool webkitWebViewRunJavaScriptConfirm(WebKitWebView*, const CString& message);
-WKStringRef webkitWebViewRunJavaScriptPrompt(WebKitWebView*, const CString& message, const CString& defaultText);
+CString webkitWebViewRunJavaScriptPrompt(WebKitWebView*, const CString& message, const CString& defaultText);
+void webkitWebViewMakePermissionRequest(WebKitWebView*, WebKitPermissionRequest*);
 void webkitWebViewMakePolicyDecision(WebKitWebView*, WebKitPolicyDecisionType, WebKitPolicyDecision*);
-void webkitWebViewMouseTargetChanged(WebKitWebView*, WKHitTestResultRef, unsigned modifiers);
-void webkitWebViewPrintFrame(WebKitWebView*, WKFrameRef);
-void webkitWebViewResourceLoadStarted(WebKitWebView*, WKFrameRef, uint64_t resourceIdentifier, WebKitURIRequest*, bool isMainResource);
+void webkitWebViewMouseTargetChanged(WebKitWebView*, WebKit::WebHitTestResult*, unsigned modifiers);
+void webkitWebViewPrintFrame(WebKitWebView*, WebKit::WebFrameProxy*);
+void webkitWebViewResourceLoadStarted(WebKitWebView*, WebKit::WebFrameProxy*, uint64_t resourceIdentifier, WebKitURIRequest*);
 void webkitWebViewRunFileChooserRequest(WebKitWebView*, WebKitFileChooserRequest*);
 WebKitWebResource* webkitWebViewGetLoadingWebResource(WebKitWebView*, uint64_t resourceIdentifier);
+void webKitWebViewDidReceiveSnapshot(WebKitWebView*, uint64_t callbackID, WebKit::WebImage*);
 void webkitWebViewRemoveLoadingWebResource(WebKitWebView*, uint64_t resourceIdentifier);
-WebKitWebResource* webkitWebViewResourceLoadFinished(WebKitWebView*, uint64_t resourceIdentifier);
 bool webkitWebViewEnterFullScreen(WebKitWebView*);
 bool webkitWebViewLeaveFullScreen(WebKitWebView*);
+void webkitWebViewPopulateContextMenu(WebKitWebView*, WebKit::ImmutableArray* proposedMenu, WebKit::WebHitTestResult*);
+void webkitWebViewSubmitFormRequest(WebKitWebView*, WebKitFormSubmissionRequest*);
+void webkitWebViewHandleAuthenticationChallenge(WebKitWebView*, WebKit::AuthenticationChallengeProxy*);
+void webkitWebViewInsecureContentDetected(WebKitWebView*, WebKitInsecureContentEvent);
+void webkitWebViewWebProcessCrashed(WebKitWebView*);
 
 #endif // WebKitWebViewPrivate_h

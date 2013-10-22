@@ -45,8 +45,9 @@
 #include <security_asn1/secerr.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/SecCmsRecipientInfo.h>
 
-Boolean
+static Boolean
 nss_cmsrecipientinfo_usessubjectkeyid(SecCmsRecipientInfoRef ri)
 {
     if (ri->recipientInfoType == SecCmsRecipientInfoIDKeyTrans) {
@@ -60,7 +61,7 @@ nss_cmsrecipientinfo_usessubjectkeyid(SecCmsRecipientInfoRef ri)
 }
 
 
-SecCmsRecipientInfoRef
+static SecCmsRecipientInfoRef
 nss_cmsrecipientinfo_create(SecCmsMessageRef cmsg, SecCmsRecipientIDSelector type,
                             SecCertificateRef cert, SecPublicKeyRef pubKey, 
                             CSSM_DATA_PTR subjKeyID)

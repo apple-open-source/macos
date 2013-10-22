@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -211,7 +211,7 @@ auth_type_from_string(const char * value)
     return (-1);
 }
 
-STATIC CFNumberRef
+CF_RETURNS_RETAINED STATIC CFNumberRef
 make_auth_type(const char * str)
 {
     int			type;
@@ -339,8 +339,8 @@ configuration_open(bool need_auth)
 STATIC void
 show_profile(EAPOLClientProfileRef profile)
 {
-    CFArrayRef		eap_types;
     CFDictionaryRef	auth_props;
+    CFArrayRef		eap_types;
     CFStringRef		security_type;
     CFDataRef		ssid;
     CFStringRef		user_defined_name;
@@ -360,6 +360,14 @@ show_profile(EAPOLClientProfileRef profile)
 	fwrite(CFDataGetBytePtr(ssid), CFDataGetLength(ssid), 1, stdout);
 	SCPrint(TRUE, stdout, CFSTR("', SecurityType = '%@'\n"),
 		security_type);
+    }
+    else {
+	CFStringRef	domain;
+
+	domain = EAPOLClientProfileGetWLANDomain(profile);
+	if (domain != NULL) {
+	    SCPrint(TRUE, stdout, CFSTR("\tdomain = '%@'\n"), domain);
+	}
     }
     eap_types = CFDictionaryGetValue(auth_props,
 				     kEAPClientPropAcceptEAPTypes);
@@ -476,11 +484,13 @@ S_profile_show_export_remove(const char * command,
 {
     EAPOLClientConfigurationRef	cfg = NULL;
     int				ch;
+    CFStringRef			domain = NULL;
     struct option 		longopts[] = {
 	{ "profileID",	required_argument,	NULL,	'p' },
 	{ "profileid",	required_argument,	NULL,	'p' },
 	{ "SSID",	required_argument,	NULL,	's' },
 	{ "ssid",	required_argument,	NULL,	's' },
+	{ "domain",	required_argument,	NULL,	'd' },
 	{ NULL,		0,			NULL,	0 }
     };
     EAPOLClientProfileRef	profile;
@@ -488,39 +498,40 @@ S_profile_show_export_remove(const char * command,
     int				ret = 1;
     CFDataRef			ssid = NULL;
 
-    while ((ch = getopt_long(argc, argv, "p:s:", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "d:p:s:", longopts, NULL)) != -1) {
 	switch (ch) {
 	case 'p':
-	    if (profileID != NULL) {
-		fprintf(stderr, "profileID specified twice\n");
-		goto done;
-	    }
-	    if (ssid != NULL) {
-		fprintf(stderr, "can't specify both profileID and SSID\n");
-		goto done;
-	    }
-	    profileID = CFStringCreateWithCString(NULL, optarg,
-						  kCFStringEncodingUTF8);
-	    break;
 	case 's':
-	    if (ssid != NULL) {
-		fprintf(stderr, "SSID specified twice\n");
+	case 'd':
+	    if (domain != NULL || ssid != NULL || profileID != NULL) {
+		fprintf(stderr,
+			"may only specify one of SSID, profileID, or domain\n");
 		goto done;
 	    }
-	    if (profileID != NULL) {
-		fprintf(stderr, "can't specify both profileID and SSID\n");
-		goto done;
-	    }
-	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
 	    break;
 	default:
 	    show_command_usage(command);
 	    goto done;
 	}
+	switch (ch) {
+	case 'p':
+	    profileID = CFStringCreateWithCString(NULL, optarg,
+						  kCFStringEncodingUTF8);
+	    break;
+	case 's':
+	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
+	    break;
+	case 'd':
+	    domain = CFStringCreateWithCString(NULL, optarg,
+					       kCFStringEncodingUTF8);
+	    break;
+	default:
+	    goto done;
+	}
     }
     argc -= optind;
     /* argv += optind; */
-    if (profileID == NULL && ssid == NULL) {
+    if (profileID == NULL && ssid == NULL && domain == NULL) {
 	fprintf(stderr, "No profile specified\n");
 	show_command_usage(command);
 	goto done;
@@ -538,8 +549,11 @@ S_profile_show_export_remove(const char * command,
     if (profileID != NULL) {
 	profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
     }
-    else {
+    else if (ssid != NULL) {
 	profile = EAPOLClientConfigurationGetProfileWithWLANSSID(cfg, ssid);
+    }
+    else if (domain != NULL) {
+	profile = EAPOLClientConfigurationGetProfileWithWLANDomain(cfg, domain);
     }
     if (profile == NULL) {
 	fprintf(stderr, "No such profile\n");
@@ -579,6 +593,7 @@ S_profile_show_export_remove(const char * command,
  done:
     my_CFRelease(&profileID);
     my_CFRelease(&ssid);
+    my_CFRelease(&domain);
     my_CFRelease(&cfg);
     return (ret);
 }
@@ -591,11 +606,13 @@ S_profile_create(const char * command, int argc, char * const * argv)
     CFRange			auth_types_range = { 0, 0 };
     int				ch;
     EAPOLClientConfigurationRef	cfg = NULL;
+    CFStringRef			domain = NULL;
     bool			eapfast_use_pac = FALSE;
     bool			eapfast_provision_pac = FALSE;
     bool			eapfast_provision_pac_anonymously = FALSE;
     struct option 		longopts[] = {
 	{ "authType",	required_argument,		NULL,	'a' },
+	{ "domain", 	required_argument,		NULL,	'd' },
 	{ "userDefinedName", required_argument,		NULL,	'u' },
 	{ "SSID",	required_argument,		NULL,	's' },
 	{ "securityType", required_argument,		NULL,	'S' },
@@ -624,7 +641,7 @@ S_profile_create(const char * command, int argc, char * const * argv)
     CFStringRef			user_defined_name = NULL;
 
     auth_types = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    while ((ch = getopt_long(argc, argv, "a:s:S:c:n:o:O:t:u:p:",
+    while ((ch = getopt_long(argc, argv, "ad::s:S:c:n:o:O:t:u:p:",
 			     longopts, NULL)) != -1) {
 	CFDictionaryRef 	attrs;
 	SecCertificateRef	cert;
@@ -640,6 +657,7 @@ S_profile_create(const char * command, int argc, char * const * argv)
 		goto done;
 	    }
 	    if (CFArrayContainsValue(auth_types, auth_types_range, num)) {
+		CFRelease(num);
 		fprintf(stderr, "auth type '%s' specified multiple times\n",
 			optarg);
 		goto done;
@@ -658,11 +676,19 @@ S_profile_create(const char * command, int argc, char * const * argv)
 					    kCFStringEncodingUTF8);
 	    break;
 	case 's': /* SSID */
-	    if (ssid != NULL) {
-		fprintf(stderr, "SSID specified multiple times\n");
+	case 'd': /* domain */
+	    if (ssid != NULL || domain != NULL) {
+		fprintf(stderr, "may only specify one SSID or domain\n");
 		goto done;
 	    }
-	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
+	    if (ch == 's') {
+		ssid = CFDataCreate(NULL, (const UInt8 *)optarg,
+				    strlen(optarg));
+	    }
+	    else {
+		domain = CFStringCreateWithCString(NULL, optarg,
+						   kCFStringEncodingUTF8);
+	    }
 	    break;
 	case 'S': /* securityType */
 	    if (security_type != NULL) {
@@ -795,7 +821,6 @@ S_profile_create(const char * command, int argc, char * const * argv)
 
     CFDictionarySetValue(auth_props, kEAPClientPropAcceptEAPTypes, auth_types);
 
-    /* SSID and securityType */
     if (trusted_certs != NULL) {
 	CFDictionarySetValue(auth_props, kEAPClientPropTLSTrustedCertificates,
 			     trusted_certs);
@@ -842,6 +867,10 @@ S_profile_create(const char * command, int argc, char * const * argv)
 	if (ssid != NULL) {
 	    user_defined_name = my_CFStringCreateWithData(ssid);
 	}
+	else if (domain != NULL) {
+	    user_defined_name = domain;
+	    CFRetain(user_defined_name);
+	}
 	else {
 	    user_defined_name = EAPOLClientProfileGetID(profile);
 	    CFRetain(user_defined_name);
@@ -851,10 +880,20 @@ S_profile_create(const char * command, int argc, char * const * argv)
 	EAPOLClientProfileSetUserDefinedName(profile, user_defined_name);
     }
     EAPOLClientProfileSetAuthenticationProperties(profile, auth_props);
-    if (EAPOLClientProfileSetWLANSSIDAndSecurityType(profile, ssid,
-						     security_type) == FALSE) {
-	fprintf(stderr, "Profile with same SSID already present\n");
-	goto done;
+    if (ssid != NULL) {
+	if (EAPOLClientProfileSetWLANSSIDAndSecurityType(profile, ssid,
+							 security_type) 
+	    == FALSE) {
+	    fprintf(stderr, "Profile with same SSID already present\n");
+	    goto done;
+	}
+    }
+    else if (domain != NULL) {
+	if (EAPOLClientProfileSetWLANDomain(profile, domain)
+	    == FALSE) {
+	    fprintf(stderr, "Profile with same domain already present\n");
+	    goto done;
+	}
     }
 
     if (EAPOLClientConfigurationSave(cfg) == FALSE) {
@@ -870,6 +909,7 @@ S_profile_create(const char * command, int argc, char * const * argv)
  done:
     my_CFRelease(&user_defined_name);
     my_CFRelease(&ssid);
+    my_CFRelease(&domain);
     my_CFRelease(&security_type);
     my_CFRelease(&outer_identity);
     my_CFRelease(&ttls_inner_auth);
@@ -895,9 +935,11 @@ S_profile_information_set_clear_get(const char * command, int argc,
 	kInfoSet,
 	kInfoClear
     } cmd = kInfoUnspecified;
+    CFStringRef			domain = NULL;
     struct option 		longopts[] = {
 	{ "applicationID", 	required_argument,	NULL,	'a' },
 	{ "applicationid", 	required_argument,	NULL,	'a' },
+	{ "domain", 		required_argument,	NULL,	'd' },
 	{ "information", 	required_argument, 	NULL, 	'i' },
 	{ "profileID",		required_argument,	NULL,	'p' },
 	{ "profileid",		required_argument,	NULL,	'p' },
@@ -925,8 +967,23 @@ S_profile_information_set_clear_get(const char * command, int argc,
 		command);
 	goto done;
     }
-    while ((ch = getopt_long(argc, argv, "a:i:p:s:", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "a:d:i:p:s:", longopts, NULL)) != -1) {
 	CFDataRef		data;
+
+	switch (ch) {
+	case 'd':
+	case 'p':
+	case 's':
+	    if (domain != NULL || profileID != NULL || ssid != NULL) {
+		fprintf(stderr,
+			"may only specify one of SSID, profileID, or domain\n");
+		goto done;
+	    }
+	    break;
+
+	default:
+	    break;
+	}
 
 	switch (ch) {
 	case 'a':
@@ -937,27 +994,15 @@ S_profile_information_set_clear_get(const char * command, int argc,
 	    applicationID = CFStringCreateWithCString(NULL, optarg,
 						      kCFStringEncodingUTF8);
 	    break;
+	case 'd':
+	    domain = CFStringCreateWithCString(NULL, optarg,
+					       kCFStringEncodingUTF8);
+	    break;
 	case 'p':
-	    if (profileID != NULL) {
-		fprintf(stderr, "profileID specified twice\n");
-		goto done;
-	    }
-	    if (ssid != NULL) {
-		fprintf(stderr, "can't specify both profileID and SSID\n");
-		goto done;
-	    }
 	    profileID = CFStringCreateWithCString(NULL, optarg,
 						  kCFStringEncodingUTF8);
 	    break;
 	case 's':
-	    if (ssid != NULL) {
-		fprintf(stderr, "SSID specified twice\n");
-		goto done;
-	    }
-	    if (profileID != NULL) {
-		fprintf(stderr, "can't specify both profileID and SSID\n");
-		goto done;
-	    }
 	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
 	    break;
 	case 'i': /* information plist */
@@ -990,7 +1035,7 @@ S_profile_information_set_clear_get(const char * command, int argc,
     }
     argc -= optind;
     /* argv += optind; */
-    if (profileID == NULL && ssid == NULL) {
+    if (domain == NULL && profileID == NULL && ssid == NULL) {
 	fprintf(stderr, "No profile specified\n");
 	show_command_usage(command);
 	goto done;
@@ -1020,8 +1065,11 @@ S_profile_information_set_clear_get(const char * command, int argc,
     if (profileID != NULL) {
 	profile = EAPOLClientConfigurationGetProfileWithID(cfg, profileID);
     }
-    else {
+    else if (ssid != NULL) {
 	profile = EAPOLClientConfigurationGetProfileWithWLANSSID(cfg, ssid);
+    }
+    else {
+	profile = EAPOLClientConfigurationGetProfileWithWLANDomain(cfg, domain);
     }
     if (profile == NULL) {
 	fprintf(stderr, "No such profile\n");
@@ -1060,6 +1108,7 @@ S_profile_information_set_clear_get(const char * command, int argc,
     ret = 0;
 
  done:
+    my_CFRelease(&domain);
     my_CFRelease(&applicationID);
     my_CFRelease(&plist);
     my_CFRelease(&cfg);
@@ -1168,10 +1217,12 @@ S_profile_import(const char * command, int argc, char * const * argv)
 }
 
 STATIC bool
-S_item_already_specified(bool d_flag, CFStringRef profileID, CFDataRef ssid)
+S_item_already_specified(bool use_default, CFStringRef profileID,
+			 CFDataRef ssid, CFStringRef domain)
 {
-    if (d_flag || profileID != NULL || ssid != NULL) {
-	fprintf(stderr,	"Can't specify --profileID, --SSID, or -default"
+    if (use_default || profileID != NULL || ssid != NULL || domain != NULL) {
+	fprintf(stderr,
+		"Can't specify --domain --profileID, --SSID, or --default"
 		" more than once \n");
 	return (TRUE);
     }
@@ -1179,19 +1230,22 @@ S_item_already_specified(bool d_flag, CFStringRef profileID, CFDataRef ssid)
 }
 
 STATIC bool
-S_ensure_item_specified(bool d_flag, CFStringRef profileID, CFDataRef ssid)
+S_ensure_item_specified(bool use_default, CFStringRef profileID,
+			CFDataRef ssid, CFStringRef domain)
 {
-    if (d_flag == FALSE && profileID == NULL && ssid == NULL) {
-	fprintf(stderr,
-		"Must specify one of --profileID, --SSID, or -default\n");
+    if (use_default == FALSE && profileID == NULL && ssid == NULL
+	&& domain == NULL) {
+	fprintf(stderr,	"Must specify one of"
+		" --domain, --profileID, --SSID, or --default\n");
 	return (FALSE);
     }
     return (TRUE);
 }
 
 STATIC EAPOLClientConfigurationRef
-S_create_cfg_and_item(bool system_flag, bool d_flag,
+S_create_cfg_and_item(bool system_flag, bool use_default,
 		      CFStringRef profileID, CFDataRef ssid,
+		      CFStringRef domain,
 		      EAPOLClientItemIDRef * itemID_p)
 {
     EAPOLClientConfigurationRef		cfg;
@@ -1221,7 +1275,16 @@ S_create_cfg_and_item(bool system_flag, bool d_flag,
 	    itemID = EAPOLClientItemIDCreateWithWLANSSID(ssid);
 	}
     }
-    else if (d_flag) {
+    else if (domain != NULL) {
+	profile = EAPOLClientConfigurationGetProfileWithWLANDomain(cfg, domain);
+	if (profile != NULL) {
+	    itemID = EAPOLClientItemIDCreateWithProfile(profile);
+	}
+	else {
+	    itemID = EAPOLClientItemIDCreateWithWLANDomain(domain);
+	}
+    }
+    else if (use_default) {
 	itemID = EAPOLClientItemIDCreateDefault();
     }
 
@@ -1239,11 +1302,12 @@ S_password_item_set(const char * command, int argc, char * const * argv)
 {
     int				ch;
     EAPOLClientConfigurationRef	cfg = NULL;
-    bool			d_flag = FALSE;
+    CFStringRef			domain = NULL;
     EAPOLClientItemIDRef	itemID = NULL;
     struct option 		longopts[] = {
 	{ "system",	no_argument,		NULL,	'S' },
-	{ "default", 	no_argument,		NULL, 	'd' },
+	{ "default", 	no_argument,		NULL, 	'D' },
+	{ "domain", 	required_argument,	NULL,	'd' },
 	{ "profileID",	required_argument,	NULL,	'p' },
 	{ "profileid",	required_argument,	NULL,	'p' },
 	{ "SSID",	required_argument,	NULL,	's' },
@@ -1260,31 +1324,38 @@ S_password_item_set(const char * command, int argc, char * const * argv)
     int				ret = 1;
     bool			system_flag = FALSE;
     CFDataRef			ssid = NULL;
+    bool			use_default = FALSE;
 
     while ((ch = getopt_long(argc, argv, "dSp:s:P:n:", longopts, NULL)) != -1) {
+	switch (ch) {
+	case 'D':
+	case 'd':
+	case 'p':
+	case 's':
+	    if (S_item_already_specified(use_default, profileID, ssid,
+					 domain)) {
+		goto done;
+	    }
+	    break;
+	default:
+	    break;
+	}
 	switch (ch) {
 	case 'S':
 	    system_flag = TRUE;
 	    break;
+	case 'D':
+	    use_default = TRUE;
+	    break;
 	case 'd':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    d_flag = TRUE;
+	    domain = CFStringCreateWithCString(NULL, optarg,
+					       kCFStringEncodingUTF8);
 	    break;
 	case 'p':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&profileID);
 	    profileID = CFStringCreateWithCString(NULL, optarg,
 						  kCFStringEncodingUTF8);
 	    break;
 	case 's':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&ssid);
 	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
 	    break;
 	case 'P':
@@ -1312,7 +1383,8 @@ S_password_item_set(const char * command, int argc, char * const * argv)
     }
     argc -= optind;
     /* argv += optind; */
-    if (S_ensure_item_specified(d_flag, profileID, ssid) == FALSE) {
+    if (S_ensure_item_specified(use_default, profileID, ssid, domain)
+	== FALSE) {
 	show_command_usage(command);
 	goto done;
     }
@@ -1321,7 +1393,8 @@ S_password_item_set(const char * command, int argc, char * const * argv)
 	show_command_usage(command);
 	goto done;
     }
-    cfg = S_create_cfg_and_item(system_flag, d_flag, profileID, ssid, &itemID);
+    cfg = S_create_cfg_and_item(system_flag, use_default, profileID, ssid,
+				domain, &itemID);
     if (cfg == NULL) {
 	fprintf(stderr, "Can't open configuration\n");
 	goto done;
@@ -1367,6 +1440,7 @@ S_password_item_set(const char * command, int argc, char * const * argv)
     my_CFRelease(&password);
     my_CFRelease(&profileID);
     my_CFRelease(&ssid);
+    my_CFRelease(&domain);
     my_CFRelease(&cfg);
     return (ret);
 }
@@ -1376,11 +1450,12 @@ S_password_item_get(const char * command, int argc, char * const * argv)
 {
     int				ch;
     EAPOLClientConfigurationRef	cfg = NULL;
-    bool			d_flag = FALSE;
+    CFStringRef			domain = NULL;	
     EAPOLClientItemIDRef	itemID = NULL;
     struct option 		longopts[] = {
 	{ "system",	no_argument,		NULL,	'S' },
-	{ "default", 	no_argument,		NULL, 	'd' },
+	{ "default", 	no_argument,		NULL, 	'D' },
+	{ "domain",	required_argument,	NULL,	'd' },
 	{ "profileID",	required_argument,	NULL,	'p' },
 	{ "profileid",	required_argument,	NULL,	'p' },
 	{ "SSID",	required_argument,	NULL,	's' },
@@ -1398,32 +1473,38 @@ S_password_item_get(const char * command, int argc, char * const * argv)
     int				ret = 1;
     bool			system_flag = FALSE;
     CFDataRef			ssid = NULL;
+    bool			use_default = FALSE;
 
-
-    while ((ch = getopt_long(argc, argv, "Sp:s:Pn", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "d:DSp:s:Pn", longopts, NULL)) != -1) {
+	switch (ch) {
+	case 'D':
+	case 'd':
+	case 'p':
+	case 's':
+	    if (S_item_already_specified(use_default, profileID, ssid,
+					 domain)) {
+		goto done;
+	    }
+	    break;
+	default:
+	    break;
+	}
 	switch (ch) {
 	case 'S':
 	    system_flag = TRUE;
 	    break;
+	case 'D':
+	    use_default = TRUE;
+	    break;
 	case 'd':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    d_flag = TRUE;
+	    domain = CFStringCreateWithCString(NULL, optarg,
+					       kCFStringEncodingUTF8);
 	    break;
 	case 'p':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&profileID);
 	    profileID = CFStringCreateWithCString(NULL, optarg,
 						  kCFStringEncodingUTF8);
 	    break;
 	case 's':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&ssid);
 	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
 	    break;
 	case 'P':
@@ -1439,7 +1520,8 @@ S_password_item_get(const char * command, int argc, char * const * argv)
     }
     argc -= optind;
     /* argv += optind; */
-    if (S_ensure_item_specified(d_flag, profileID, ssid) == FALSE) {
+    if (S_ensure_item_specified(use_default, profileID, ssid, domain)
+	== FALSE) {
 	show_command_usage(command);
 	goto done;
     }
@@ -1453,7 +1535,8 @@ S_password_item_get(const char * command, int argc, char * const * argv)
 	show_command_usage(command);
 	goto done;
     }
-    cfg = S_create_cfg_and_item(system_flag, d_flag, profileID, ssid, &itemID);
+    cfg = S_create_cfg_and_item(system_flag, use_default, profileID, ssid,
+				domain, &itemID);
     if (cfg == NULL) {
 	fprintf(stderr, "Can't open configuration\n");
 	goto done;
@@ -1485,6 +1568,7 @@ S_password_item_get(const char * command, int argc, char * const * argv)
     my_CFRelease(&password);
     my_CFRelease(&profileID);
     my_CFRelease(&ssid);
+    my_CFRelease(&domain);
     my_CFRelease(&cfg);
     return (ret);
 }
@@ -1494,11 +1578,12 @@ S_password_item_remove(const char * command, int argc, char * const * argv)
 {
     int				ch;
     EAPOLClientConfigurationRef	cfg = NULL;
-    bool			d_flag = FALSE;
+    CFStringRef			domain = NULL;
     EAPOLClientItemIDRef	itemID = NULL;
     struct option 		longopts[] = {
 	{ "system",	no_argument,		NULL,	'S' },
-	{ "default", 	no_argument,		NULL, 	'd' },
+	{ "default", 	no_argument,		NULL, 	'D' },
+	{ "domain",	required_argument,	NULL,	'd' },
 	{ "profileID",	required_argument,	NULL,	'p' },
 	{ "profileid",	required_argument,	NULL,	'p' },
 	{ "SSID",	required_argument,	NULL,	's' },
@@ -1510,31 +1595,38 @@ S_password_item_remove(const char * command, int argc, char * const * argv)
     int				ret = 1;
     bool			system_flag = FALSE;
     CFDataRef			ssid = NULL;
+    bool			use_default = FALSE;
 
-    while ((ch = getopt_long(argc, argv, "dSp:s:", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "d:DSp:s:", longopts, NULL)) != -1) {
+	switch (ch) {
+	case 'D':
+	case 'd':
+	case 'p':
+	case 's':
+	    if (S_item_already_specified(use_default, profileID, ssid,
+					 domain)) {
+		goto done;
+	    }
+	    break;
+	default:
+	    break;
+	}
 	switch (ch) {
 	case 'S':
 	    system_flag = TRUE;
 	    break;
+	case 'D':
+	    use_default = TRUE;
+	    break;
 	case 'd':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    d_flag = TRUE;
+	    domain = CFStringCreateWithCString(NULL, optarg,
+					       kCFStringEncodingUTF8);
 	    break;
 	case 'p':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&profileID);
 	    profileID = CFStringCreateWithCString(NULL, optarg,
 						  kCFStringEncodingUTF8);
 	    break;
 	case 's':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&ssid);
 	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
 	    break;
 	default:
@@ -1544,7 +1636,8 @@ S_password_item_remove(const char * command, int argc, char * const * argv)
     }
     argc -= optind;
     /* argv += optind; */
-    if (S_ensure_item_specified(d_flag, profileID, ssid) == FALSE) {
+    if (S_ensure_item_specified(use_default, profileID, ssid, domain)
+	== FALSE) {
 	show_command_usage(command);
 	goto done;
     }
@@ -1553,7 +1646,8 @@ S_password_item_remove(const char * command, int argc, char * const * argv)
 	show_command_usage(command);
 	goto done;
     }
-    cfg = S_create_cfg_and_item(system_flag, d_flag, profileID, ssid, &itemID);
+    cfg = S_create_cfg_and_item(system_flag, use_default, profileID, ssid,
+				domain, &itemID);
     if (cfg == NULL) {
 	fprintf(stderr, "Can't open configuration\n");
 	goto done;
@@ -1573,6 +1667,7 @@ S_password_item_remove(const char * command, int argc, char * const * argv)
     my_CFRelease(&itemID);
     my_CFRelease(&profileID);
     my_CFRelease(&ssid);
+    my_CFRelease(&domain);
     return (ret);
 }
 
@@ -1582,13 +1677,14 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
     SecCertificateRef		cert = NULL;
     EAPOLClientConfigurationRef	cfg = NULL;
     int				ch;
-    bool			d_flag = FALSE;
+    CFStringRef			domain = NULL;
     SecIdentityRef		identity = NULL;
     bool			is_set;
     EAPOLClientItemIDRef	itemID = NULL;
     struct option 		longopts[] = {
 	{ "system",		no_argument,		NULL,	'S' },
-	{ "default", 		no_argument,		NULL, 	'd' },
+	{ "default", 		no_argument,		NULL, 	'D' },
+	{ "domain",		required_argument,	NULL,	'd' },
 	{ "profileID",		required_argument,	NULL,	'p' },
 	{ "profileid",		required_argument,	NULL,	'p' },
 	{ "SSID",		required_argument,	NULL,	's' },
@@ -1602,35 +1698,42 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
     CFDataRef			ssid = NULL;
     OSStatus			status;
     bool			system_flag = FALSE;
+    bool			use_default = FALSE;
 
     is_set = (strcmp(command, kCommandSetIdentity) == 0);
-    while ((ch = getopt_long(argc, argv, "cd:Sp:s:", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "cd:D:Sp:s:", longopts, NULL)) != -1) {
 	CFDictionaryRef 	attrs;
 	CFDataRef		data;
 
 	switch (ch) {
+	case 'D':
+	case 'd':
+	case 'p':
+	case 's':
+	    if (S_item_already_specified(use_default, profileID, ssid,
+					 domain)) {
+		goto done;
+	    }
+	    break;
+	default:
+	    break;
+	}
+	switch (ch) {
 	case 'S':
 	    system_flag = TRUE;
 	    break;
+	case 'D':
+	    use_default = TRUE;
+	    break;
 	case 'd':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    d_flag = TRUE;
+	    domain = CFStringCreateWithCString(NULL, optarg,
+					       kCFStringEncodingUTF8);
 	    break;
 	case 'p':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&profileID);
 	    profileID = CFStringCreateWithCString(NULL, optarg,
 						  kCFStringEncodingUTF8);
 	    break;
 	case 's':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&ssid);
 	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
 	    break;
 	case 'c': /* certificate */
@@ -1666,7 +1769,8 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
     }
     argc -= optind;
     /* argv += optind; */
-    if (S_ensure_item_specified(d_flag, profileID, ssid) == FALSE) {
+    if (S_ensure_item_specified(use_default, profileID, ssid, domain)
+	== FALSE) {
 	show_command_usage(command);
 	goto done;
     }
@@ -1692,7 +1796,7 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
     }
     cfg = S_create_cfg_and_item(system_flag
 				&& (strcmp(command, kCommandGetIdentity) != 0),
-				d_flag, profileID, ssid, &itemID);
+				use_default, profileID, ssid, domain, &itemID);
     if (cfg == NULL) {
 	fprintf(stderr, "Can't open configuration\n");
 	goto done;
@@ -1749,6 +1853,7 @@ S_identity_set_clear_get(const char * command, int argc, char * const * argv)
     my_CFRelease(&itemID);
     my_CFRelease(&profileID);
     my_CFRelease(&ssid);
+    my_CFRelease(&domain);
     return (ret);
 }
 
@@ -2285,12 +2390,13 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 {
     EAPOLClientConfigurationRef	cfg = NULL;
     int				ch;
-    bool			d_flag = FALSE;
+    CFStringRef			domain = NULL;
     const char *		ifn = NULL;
     EAPOLClientItemIDRef	itemID = NULL;
     struct option 		longopts[] = {
 	{ "system",		no_argument,		NULL,	'S' },
-	{ "default", 		no_argument,		NULL, 	'd' },
+	{ "default", 		no_argument,		NULL, 	'D' },
+	{ "domain",		required_argument,	NULL,	'd' },
 	{ "interface",		required_argument,	NULL,	'i' },
 	{ "profileID",		required_argument,	NULL,	'p' },
 	{ "profileid",		required_argument,	NULL,	'p' },
@@ -2303,8 +2409,22 @@ S_authentication_start(const char * command, int argc, char * const * argv)
     int				ret = 1;
     CFDataRef			ssid = NULL;
     bool			system_flag = FALSE;
+    bool			use_default = FALSE;
 
-    while ((ch = getopt_long(argc, argv, "di:p:s:S", longopts, NULL)) != -1) {
+    while ((ch = getopt_long(argc, argv, "d:Di:p:s:S", longopts, NULL)) != -1) {
+	switch (ch) {
+	case 'D':
+	case 'd':
+	case 'p':
+	case 's':
+	    if (S_item_already_specified(use_default, profileID, ssid,
+					 domain)) {
+		goto done;
+	    }
+	    break;
+	default:
+	    break;
+	}
 	switch (ch) {
 	case 'S':
 	    system_flag = TRUE;
@@ -2316,26 +2436,21 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 	    }
 	    ifn = optarg;
 	    break;
+	case 'D':
+	    use_default = TRUE;
+	    break;
 	case 'd':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    d_flag = TRUE;
+	    domain = CFStringCreateWithCString(NULL, optarg,
+					       kCFStringEncodingUTF8);
 	    break;
 	case 'p':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
-	    }
-	    my_CFRelease(&profileID);
 	    profileID = CFStringCreateWithCString(NULL, optarg,
 						  kCFStringEncodingUTF8);
 	    break;
 	case 's':
-	    if (S_item_already_specified(d_flag, profileID, ssid)) {
-		goto done;
+	    if (optarg != NULL) {
+		ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
 	    }
-	    my_CFRelease(&ssid);
-	    ssid = CFDataCreate(NULL, (const UInt8 *)optarg, strlen(optarg));
 	    break;
 	default:
 	    show_command_usage(command);
@@ -2344,7 +2459,8 @@ S_authentication_start(const char * command, int argc, char * const * argv)
     }
     argc -= optind;
     /* argv += optind; */
-    if (S_ensure_item_specified(d_flag, profileID, ssid) == FALSE) {
+    if (S_ensure_item_specified(use_default, profileID, ssid, domain)
+	== FALSE) {
 	show_command_usage(command);
 	goto done;
     }
@@ -2358,7 +2474,8 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 	show_command_usage(command);
 	goto done;
     }
-    cfg = S_create_cfg_and_item(FALSE, d_flag, profileID, ssid, &itemID);
+    cfg = S_create_cfg_and_item(FALSE, use_default, profileID, ssid,
+				domain, &itemID);
     if (cfg == NULL) {
 	fprintf(stderr, "Can't open configuration\n");
 	goto done;
@@ -2382,6 +2499,7 @@ S_authentication_start(const char * command, int argc, char * const * argv)
     my_CFRelease(&itemID);
     my_CFRelease(&profileID);
     my_CFRelease(&ssid);
+    my_CFRelease(&domain);
     my_CFRelease(&cfg);
     return (ret);
 }
@@ -2396,13 +2514,13 @@ STATIC struct command_info 	commands[] = {
       "[ --details ]"
     },
     { kCommandShowProfile, S_profile_show_export_remove, 1,
-      "--profileID <profileID> | --SSID <SSID>"
+      "--profileID <profileID> | --SSID <SSID> | --domain <domain>"
     },
     { kCommandExportProfile, S_profile_show_export_remove, 1,
-      "--profileID <profileID> | --SSID <SSID>"
+      "--profileID <profileID> | --SSID <SSID> | --domain <domain>"
     },
     { kCommandRemoveProfile, S_profile_show_export_remove, 1,
-      "--profileID <profileID> | --SSID <SSID>"
+      "--profileID <profileID> | --SSID <SSID> | --domain <domain>"
     },
     { kCommandImportProfile, S_profile_import, 1,
       "[ --replace ] <plist_file>"
@@ -2411,7 +2529,7 @@ STATIC struct command_info 	commands[] = {
       "<options>\nwhere <options> are:\n"
       "--authType <auth_type> [ --authType <auth_type> ... ]\n"
       "[ --userDefinedName <user_defined_name> ]\n"
-      "[ --SSID <SSID> --securityType <security_type> ]\n"
+      "[ --SSID <SSID> --securityType <security_type> | --domain <domain> ]\n"
       "[ --trustedCertificate <cert_file> [ --trustedCertificate <cert_file> ... ] ]\n"
       "[ --trustedServerName <server_name> [ --trustedServerName <server_name> ... ] ]\n"
       "[ --outerIdentity <outer_identity> ]\n"
@@ -2429,36 +2547,36 @@ STATIC struct command_info 	commands[] = {
     },
     { kCommandSetProfileInformation, S_profile_information_set_clear_get, 1,
       "--applicationID <applicationID> --information <plist_file>\n"
-      "( --profileID <profileID> | --SSID <SSID> )"
+      "( --profileID <profileID> | --SSID <SSID> | --domain <domain> )"
     },
     { kCommandGetProfileInformation, S_profile_information_set_clear_get, 1,
       "--applicationID <applicationID>\n"
-      "( --profileID <profileID> | --SSID <SSID> )"
+      "( --profileID <profileID> | --SSID <SSID> | --domain <domain> )"
     },
     { kCommandClearProfileInformation, S_profile_information_set_clear_get, 1,
       "--applicationID <applicationID>\n"
-      "( --profileID <profileID> | --SSID <SSID> )"
+      "( --profileID <profileID> | --SSID <SSID> | --domain <domain> )"
     },
     { kCommandSetPasswordItem, S_password_item_set, 1,
       "[ --system ] [ --name <name>] [ --password <password> | \"-\" ] "
-      "( --profileID <profileID> | --SSID <SSID> | --default )"
+      "( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default )"
     },
     { kCommandGetPasswordItem, S_password_item_get, 1,
       "[ --system ] [ --name ] [ --password ] "
-      "( --profileID <profileID> | --SSID <SSID> | --default )"
+      "( --profileID <profileID> | --SSID <SSID> | --domain <domain> |  --default )"
     },
     { kCommandRemovePasswordItem, S_password_item_remove, 1,
-      "[ --system ] ( --profileID <profileID> | --SSID <SSID> | --default )"
+      "[ --system ] ( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default )"
     },
     { kCommandSetIdentity, S_identity_set_clear_get, 1,
-      "[ --system ] --certificate <cert_file>"
-      "( --profileID <profileID> | --SSID <SSID> | --default )"
+      "[ --system ] --certificate <cert_file> "
+      "( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default )"
     },
     { kCommandClearIdentity, S_identity_set_clear_get, 1,
-      "[ --system ] ( --profileID <profileID> | --SSID <SSID> | --default ) "
+      "[ --system ] ( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default ) "
     },
     { kCommandGetIdentity, S_identity_set_clear_get, 1,
-      "[ --system ] ( --profileID <profileID> | --SSID <SSID> | --default ) "
+      "[ --system ] ( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default ) "
     },
     { kCommandGetLoginWindowProfiles, S_get_clear_loginwindow_profiles, 1, 
       "--interface <ifname>" 
@@ -2488,7 +2606,7 @@ STATIC struct command_info 	commands[] = {
       "--details" },
     { kCommandStartAuthentication, S_authentication_start, 1,
       "[ --system ] --interface <ifname> "
-      "( --profileID <profileID> | --SSID <SSID> | --default )"
+      "( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default )"
     },
     { NULL, NULL, 0, NULL },
 };

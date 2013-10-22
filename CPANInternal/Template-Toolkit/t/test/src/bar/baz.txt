@@ -1,0 +1,3 @@
+[% DEFAULT time = 'now' -%]
+[% INCLUDE bar/baz %]
+The time is $time

@@ -147,6 +147,9 @@ extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_cred_certificate_oid_desc;
 extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_cred_secidentity_oid_desc;
 #define GSS_C_CRED_SecIdentity (&__gss_c_cred_secidentity_oid_desc)
 
+extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_cred_heimbase_oid_desc;
+#define GSS_C_CRED_HEIMBASE (&__gss_c_cred_heimbase_oid_desc)
+
 /* Heimdal mechanisms - 1.2.752.43.14 */
 extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_sasl_digest_md5_mechanism_oid_desc;
 #define GSS_SASL_DIGEST_MD5_MECHANISM (&__gss_sasl_digest_md5_mechanism_oid_desc)

@@ -100,7 +100,7 @@ bool getFieldKeyUsage(
 	/* make a copy - can't modify length in place */
 	CSSM_DATA bitString = *nssObj;
 	clNssBitStringToCssm(bitString);
-	unsigned toCopy = bitString.Length;
+	size_t toCopy = bitString.Length;
 	if(toCopy > 2) {
 		/* I hope I never see this... */
 		clErrorLog("getFieldKeyUsage: KeyUsage larger than 2 bytes!");
@@ -767,7 +767,7 @@ bool getFieldNetscapeCertType(
 	/* make a copy - can't modify length in place */
 	CSSM_DATA bitString = *nssObj;
 	clNssBitStringToCssm(bitString);
-	unsigned toCopy = bitString.Length;
+	size_t toCopy = bitString.Length;
 	if(toCopy > 2) {
 		/* I hope I never see this... */
 		clErrorLog("getFieldKeyUsage: CertType larger than 2 bytes!");

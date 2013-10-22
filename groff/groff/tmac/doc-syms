@@ -607,6 +607,8 @@
 .als doc-str-St--isoC-90 doc-str-St--isoC
 .ds doc-str-St--isoC-99        \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899:1999
 .as doc-str-St--isoC-99        " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^99\*[doc-str-St]\*[Rq])
+.ds doc-str-St--isoC-2011      \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899:2011
+.as doc-str-St--isoC-2011      " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^11\*[doc-str-St]\*[Rq])
 .ds doc-str-St--isoC-amd1       \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899/AMD1:1995
 .as doc-str-St--isoC-amd1       " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^90\*[doc-str-St], Amendment 1\*[Rq])
 .ds doc-str-St--isoC-tcor1      \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899/TCOR1:1994

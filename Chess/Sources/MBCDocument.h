@@ -89,7 +89,7 @@
 - (void) allowTakeback:(BOOL)allow;
 - (void) resign;
 - (void) updateSearchTime;
-- (BOOL) humanTurn;
+- (BOOL) nontrivialHumanTurn;
 - (BOOL) gameDone;
 - (BOOL) brandNewGame;
 - (NSString *)nonLocalPlayerID;

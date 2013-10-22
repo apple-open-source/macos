@@ -6,7 +6,7 @@
 
    This implementation of the PWB library alloca() function,
    which is used to allocate space off the run-time stack so
-   that it is automatically reclaimed upon procedure exit, 
+   that it is automatically reclaimed upon procedure exit,
    was inspired by discussions with J. Q. Johnson of Cornell.
 
    It should work under any C implementation that uses an
@@ -29,7 +29,11 @@
 static char	SCCSid[] = "@(#)alloca.c	1.1";	/* for the "what" utility */
 #endif
 
-#include "config.h"
+#include "ruby/config.h"
+#define X3J11 1		   /* config.h should contain void if needed */
+
+#ifdef C_ALLOCA
+
 #ifdef emacs
 #ifdef static
 /* actually, only want this if static is defined as ""
@@ -50,12 +54,12 @@ typedef void	*pointer;		/* generic pointer type */
 typedef char	*pointer;		/* generic pointer type */
 #endif /* X3J11 */
 
+#ifndef NULL
 #define	NULL	0			/* null pointer constant */
+#endif
 
-#ifdef RUBY_LIB
 #define xmalloc ruby_xmalloc
 #define xfree ruby_xfree
-#endif
 
 extern void	xfree();
 extern pointer	xmalloc();
@@ -192,3 +196,4 @@ alloca (size)			/* returns pointer to storage */
   }
 }
 
+#endif

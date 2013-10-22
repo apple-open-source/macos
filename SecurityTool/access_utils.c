@@ -2,14 +2,14 @@
  * Copyright (c) 2008-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  *  access_utils.c
@@ -46,7 +46,7 @@ create_access(const char *accessName, Boolean allowAny, CFArrayRef trustedApps, 
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR promptSelector;
 	SecACLRef aclRef;
 	OSStatus status;
-	
+
 	if (accessName) {
 		description = CFStringCreateWithCString(NULL, descriptionLabel, kCFStringEncodingUTF8);
 	}
@@ -58,7 +58,7 @@ create_access(const char *accessName, Boolean allowAny, CFArrayRef trustedApps, 
 		result = 1;
 		goto cleanup;
 	}
-	
+
 	// get the access control list for decryption operations (this controls access to an item's data)
 	status = SecAccessCopySelectedACLList(*access, CSSM_ACL_AUTHORIZATION_DECRYPT, &aclList);
 	if (status)
@@ -140,7 +140,7 @@ merge_access(SecAccessRef access, SecAccessRef otherAccess)
 		CFStringRef newPromptDescription=nil;
 		CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR promptSelector;
 		CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR newPromptSelector;
-		
+
 		status = SecACLCopySimpleContents(aclRef, &appList, &promptDescription, &promptSelector);
 		if (!status) {
 			status = SecACLCopySimpleContents(newAclRef, &newAppList, &newPromptDescription, &newPromptSelector);
@@ -168,7 +168,7 @@ merge_access(SecAccessRef access, SecAccessRef otherAccess)
 	}
 	if (aclList) CFRelease(aclList);
 	if (newAclList) CFRelease(newAclList);
-	
+
 	return status;
 }
 

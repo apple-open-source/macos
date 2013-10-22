@@ -48,9 +48,15 @@
 
 #include "FloatConversion.h"
 #include "FloatRect.h"
+#include "GraphicsLayerFactory.h"
 #include "Image.h"
 #include "LayerAnimation.h"
 #include "LayerWebKitThread.h"
+#include "NotImplemented.h"
+
+#if DEBUG_LAYER_ANIMATION
+#include <wtf/text/CString.h>
+#endif
 
 namespace WebCore {
 
@@ -74,6 +80,14 @@ static void clearLayerBackgroundColor(LayerWebKitThread& layer)
     layer.setBackgroundColor(Color::transparent);
 }
 
+PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerFactory* factory, GraphicsLayerClient* client)
+{
+    if (!factory)
+        return adoptPtr(new GraphicsLayerBlackBerry(client));
+
+    return factory->createGraphicsLayer(client);
+}
+
 PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
 {
     return adoptPtr(new GraphicsLayerBlackBerry(client));
@@ -83,7 +97,6 @@ GraphicsLayerBlackBerry::GraphicsLayerBlackBerry(GraphicsLayerClient* client)
     : GraphicsLayer(client)
     , m_suspendTime(0)
     , m_contentsLayerPurpose(NoContentsLayer)
-    , m_contentsLayerHasBackgroundColor(false)
 {
     m_layer = LayerWebKitThread::create(LayerData::Layer, this);
 
@@ -104,6 +117,8 @@ void GraphicsLayerBlackBerry::willBeDestroyed()
         m_contentsLayer->setOwner(0);
     if (m_transformLayer)
         m_transformLayer->setOwner(0);
+
+    GraphicsLayer::willBeDestroyed();
 }
 
 void GraphicsLayerBlackBerry::setName(const String& inName)
@@ -265,15 +280,6 @@ void GraphicsLayerBlackBerry::setReplicatedByLayer(GraphicsLayer* layer)
     primaryLayer()->setReplicaLayer(replicaLayer);
 }
 
-void GraphicsLayerBlackBerry::setFixedPosition(bool fixed)
-{
-    if (fixed == m_fixedPosition)
-        return;
-
-    GraphicsLayer::setFixedPosition(fixed);
-    updateFixedPosition();
-}
-
 void GraphicsLayerBlackBerry::setHasFixedContainer(bool hasFixedContainer)
 {
     if (hasFixedContainer == m_hasFixedContainer)
@@ -292,24 +298,34 @@ void GraphicsLayerBlackBerry::setHasFixedAncestorInDOMTree(bool hasFixedAncestor
     updateHasFixedAncestorInDOMTree();
 }
 
+#if ENABLE(CSS_FILTERS)
+bool GraphicsLayerBlackBerry::setFilters(const FilterOperations& filters)
+{
+    if (m_filters == filters)
+        return true;
+
+    bool canCompositeFilters = LayerWebKitThread::filtersCanBeComposited(filters);
+    if (canCompositeFilters) {
+        m_filters = filters;
+        GraphicsLayer::setFilters(filters);
+        updateFilters();
+    } else {
+        m_filters.clear();
+        notImplemented();
+    }
+
+    return canCompositeFilters;
+}
+#endif
+
 void GraphicsLayerBlackBerry::setBackgroundColor(const Color& color)
 {
-    if (m_backgroundColorSet && m_backgroundColor == color)
+    if (color == m_backgroundColor)
         return;
 
     GraphicsLayer::setBackgroundColor(color);
 
-    m_contentsLayerHasBackgroundColor = true;
     updateLayerBackgroundColor();
-}
-
-void GraphicsLayerBlackBerry::clearBackgroundColor()
-{
-    if (!m_backgroundColorSet)
-        return;
-
-    GraphicsLayer::clearBackgroundColor();
-    clearLayerBackgroundColor(*m_contentsLayer);
 }
 
 void GraphicsLayerBlackBerry::setContentsOpaque(bool opaque)
@@ -413,7 +429,7 @@ bool GraphicsLayerBlackBerry::addAnimation(const KeyframeValueList& values, cons
     RefPtr<LayerAnimation> layerAnimation = LayerAnimation::create(values, boxSize, animation, animationName, timeOffset);
 
 #if DEBUG_LAYER_ANIMATION
-    fprintf(stderr, "LayerAnimation 0x%08x: Adding animation %s for property %d\n", layerAnimation.get(), animationName.latin1().data(), values.property());
+    fprintf(stderr, "LayerAnimation 0x%08x: Adding animation %s for property %d\n", (int)layerAnimation.get(), animationName.latin1().data(), values.property());
 #endif
 
     m_runningAnimations.append(layerAnimation);
@@ -429,7 +445,7 @@ void GraphicsLayerBlackBerry::pauseAnimation(const String& animationName, double
 
     while (RefPtr<LayerAnimation> animation = removeAnimationByName(animationName, m_runningAnimations)) {
 #if DEBUG_LAYER_ANIMATION
-        fprintf(stderr, "LayerAnimation 0x%08x: Pausing animation %s\n", animation.get(), animation->name().latin1().data());
+        fprintf(stderr, "LayerAnimation 0x%08x: Pausing animation %s\n", (int)animation.get(), animation->name().latin1().data());
 #endif
 
         // LayerAnimation is readonly. Create a new animation with the same data except for timeOffset.
@@ -442,7 +458,7 @@ void GraphicsLayerBlackBerry::pauseAnimation(const String& animationName, double
         m_suspendedAnimations.append(animation);
 
 #if DEBUG_LAYER_ANIMATION
-        fprintf(stderr, "LayerAnimation 0x%08x: Paused animation %s\n", animation.get(), animation->name().latin1().data());
+        fprintf(stderr, "LayerAnimation 0x%08x: Paused animation %s\n", (int)animation.get(), animation->name().latin1().data());
 #endif
     };
 
@@ -645,8 +661,9 @@ void GraphicsLayerBlackBerry::updateSublayerList()
 void GraphicsLayerBlackBerry::updateLayerPosition()
 {
     // Position is offset on the layer by the layer anchor point.
-    FloatPoint layerPosition(m_position.x() + m_anchorPoint.x() * m_size.width(),
-                             m_position.y() + m_anchorPoint.y() * m_size.height());
+    FloatPoint layerPosition(
+        m_position.x() + m_anchorPoint.x() * m_size.width(),
+        m_position.y() + m_anchorPoint.y() * m_size.height());
 
     primaryLayer()->setPosition(layerPosition);
 }
@@ -776,11 +793,6 @@ void GraphicsLayerBlackBerry::updateLayerIsDrawable()
     updateDebugIndicators();
 }
 
-void GraphicsLayerBlackBerry::updateFixedPosition()
-{
-    m_layer->setFixedPosition(m_fixedPosition);
-}
-
 void GraphicsLayerBlackBerry::updateHasFixedContainer()
 {
     m_layer->setHasFixedContainer(m_hasFixedContainer);
@@ -793,15 +805,21 @@ void GraphicsLayerBlackBerry::updateHasFixedAncestorInDOMTree()
 
 void GraphicsLayerBlackBerry::updateLayerBackgroundColor()
 {
-    if (!m_contentsLayer)
+    if (m_backgroundColor.isValid())
+        setLayerBackgroundColor(*m_layer, m_backgroundColor);
+    else
+        clearLayerBackgroundColor(*m_layer);
+}
+
+#if ENABLE(CSS_FILTERS)
+void GraphicsLayerBlackBerry::updateFilters()
+{
+    if (!m_filters.size())
         return;
 
-    // We never create the contents layer just for background color yet.
-    if (m_backgroundColorSet)
-        setLayerBackgroundColor(*m_contentsLayer, m_backgroundColor);
-    else
-        clearLayerBackgroundColor(*m_contentsLayer);
+    primaryLayer()->setFilters(m_filters);
 }
+#endif
 
 void GraphicsLayerBlackBerry::updateAnimations()
 {
@@ -865,7 +883,7 @@ void GraphicsLayerBlackBerry::setupContentsLayer(LayerWebKitThread* contentsLaye
 
         updateContentsRect();
 
-        if (showDebugBorders()) {
+        if (isShowingDebugBorder()) {
             setLayerBorderColor(*m_contentsLayer, Color(0, 0, 128, 180));
             m_contentsLayer->setBorderWidth(1);
         }
@@ -877,14 +895,6 @@ void GraphicsLayerBlackBerry::setupContentsLayer(LayerWebKitThread* contentsLaye
 void GraphicsLayerBlackBerry::updateOpacityOnLayer()
 {
     primaryLayer()->setOpacity(m_opacity);
-}
-
-bool GraphicsLayerBlackBerry::contentsVisible(const IntRect& contentRect) const
-{
-    if (!m_client)
-        return false;
-
-    return m_client->contentsVisible(this, contentRect);
 }
 
 } // namespace WebCore

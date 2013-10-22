@@ -1,5 +1,5 @@
 #! /usr/local/bin/ruby
-# -*- ruby -*-
+# -*- mode: ruby; coding: us-ascii -*-
 
 $extension = nil
 $extstatic = nil
@@ -10,12 +10,14 @@ $dryrun = false
 $clean = nil
 $nodynamic = nil
 $extinit = nil
-$extobjs = nil
+$extobjs = []
 $extflags = ""
 $extlibs = nil
 $extpath = nil
 $ignore = nil
 $message = nil
+$command_output = nil
+$configure_only = false
 
 $progname = $0
 alias $PROGRAM_NAME $0
@@ -24,31 +26,46 @@ alias $0 $progname
 $extlist = []
 $compiled = {}
 
-$:.replace([Dir.pwd])
-require 'rbconfig'
+DUMMY_SIGNATURE = "***DUMMY MAKEFILE***"
 
 srcdir = File.dirname(File.dirname(__FILE__))
-
-$:.unshift(srcdir, File.expand_path("lib", srcdir))
+unless defined?(CROSS_COMPILING) and CROSS_COMPILING
+  $:.replace([File.expand_path("lib", srcdir), Dir.pwd])
+end
+$:.unshift(srcdir)
+require 'rbconfig'
 
 $topdir = "."
 $top_srcdir = srcdir
 
-require 'mkmf'
+$" << "mkmf.rb"
+load File.expand_path("lib/mkmf.rb", srcdir)
 require 'optparse/shellwords'
 
+if defined?(File::NULL)
+  @null = File::NULL
+elsif !File.chardev?(@null = "/dev/null")
+  @null = "nul"
+end
+
 def sysquote(x)
-  @quote ||= /human|os2|macos/ =~ (CROSS_COMPILING || RUBY_PLATFORM)
+  @quote ||= /os2/ =~ (CROSS_COMPILING || RUBY_PLATFORM)
   @quote ? x.quote : x
 end
 
-def relative_from(path, base)
-  dir = File.join(path, "")
-  if File.expand_path(dir) == File.expand_path(dir, base)
-    path
-  else
-    File.join(base, path)
+def verbose?
+  $mflags.defined?("V") == "1"
+end
+
+def system(*args)
+  if verbose?
+    if args.size == 1
+      puts args
+    else
+      puts Shellwords.join(args)
+    end
   end
+  super
 end
 
 def extract_makefile(makefile, keep = true)
@@ -57,7 +74,7 @@ def extract_makefile(makefile, keep = true)
     return keep
   end
   installrb = {}
-  m.scan(/^install-rb-default:[ \t]*(\S+)\n\1:[ \t]*(\S+)/) {installrb[$2] = $1}
+  m.scan(/^install-rb-default:.*[ \t](\S+)(?:[ \t].*)?\n\1:[ \t]*(\S+)/) {installrb[$2] = $1}
   oldrb = installrb.keys.sort
   newrb = install_rb(nil, "").collect {|d, *f| f}.flatten.sort
   if target_prefix = m[/^target_prefix[ \t]*=[ \t]*\/(.*)/, 1]
@@ -69,15 +86,23 @@ def extract_makefile(makefile, keep = true)
       unless installrb.empty?
         config = CONFIG.dup
         install_dirs(target_prefix).each {|var, val| config[var] = val}
-        FileUtils.rm_f(installrb.values.collect {|f| Config.expand(f, config)}, :verbose => true)
+        FileUtils.rm_f(installrb.values.collect {|f| RbConfig.expand(f, config)},
+                       :verbose => verbose?)
       end
     end
     return false
   end
+  srcs = Dir[File.join($srcdir, "*.{#{SRC_EXT.join(%q{,})}}")].map {|fn| File.basename(fn)}.sort
+  if !srcs.empty?
+    old_srcs = m[/^ORIG_SRCS[ \t]*=[ \t](.*)/, 1] or return false
+    old_srcs.split.sort == srcs or return false
+  end
   $target = target
   $extconf_h = m[/^RUBY_EXTCONF_H[ \t]*=[ \t]*(\S+)/, 1]
-  $static ||= m[/^EXTSTATIC[ \t]*=[ \t]*(\S+)/, 1] || false
-  /^STATIC_LIB[ \t]*=[ \t]*\S+/ =~ m or $static = nil
+  if $static.nil?
+    $static ||= m[/^EXTSTATIC[ \t]*=[ \t]*(\S+)/, 1] || false
+    /^STATIC_LIB[ \t]*=[ \t]*\S+/ =~ m or $static = false
+  end
   $preload = Shellwords.shellwords(m[/^preload[ \t]*=[ \t]*(.*)/, 1] || "")
   $DLDFLAGS += " " + (m[/^dldflags[ \t]*=[ \t]*(.*)/, 1] || "")
   if s = m[/^LIBS[ \t]*=[ \t]*(.*)/, 1]
@@ -87,22 +112,16 @@ def extract_makefile(makefile, keep = true)
   end
   $objs = (m[/^OBJS[ \t]*=[ \t](.*)/, 1] || "").split
   $srcs = (m[/^SRCS[ \t]*=[ \t](.*)/, 1] || "").split
+  $distcleanfiles = (m[/^DISTCLEANFILES[ \t]*=[ \t](.*)/, 1] || "").split
   $LOCAL_LIBS = m[/^LOCAL_LIBS[ \t]*=[ \t]*(.*)/, 1] || ""
   $LIBPATH = Shellwords.shellwords(m[/^libpath[ \t]*=[ \t]*(.*)/, 1] || "") - %w[$(libdir) $(topdir)]
   true
 end
 
 def extmake(target)
-  print "#{$message} #{target}\n"
-  $stdout.flush
-  if $force_static or $static_ext[target]
-    $static = target
-  else
-    $static = false
-  end
-
-  unless $ignore
-    return true if $nodynamic and not $static
+  unless $configure_only || verbose?
+    print "#{$message} #{target}\n"
+    $stdout.flush
   end
 
   FileUtils.mkpath target unless File.directory?(target)
@@ -121,13 +140,13 @@ def extmake(target)
     $mdir = target
     $srcdir = File.join($top_srcdir, "ext", $mdir)
     $preload = nil
-    $objs = ""
-    $srcs = ""
+    $objs = []
+    $srcs = []
     $compiled[target] = false
     makefile = "./Makefile"
     ok = File.exist?(makefile)
     unless $ignore
-      rbconfig0 = Config::CONFIG
+      rbconfig0 = RbConfig::CONFIG
       mkconfig0 = CONFIG
       rbconfig = {
 	"hdrdir" => $hdrdir,
@@ -135,69 +154,103 @@ def extmake(target)
 	"topdir" => $topdir,
       }
       mkconfig = {
-	"hdrdir" => "$(top_srcdir)",
+	"hdrdir" => ($hdrdir == top_srcdir) ? top_srcdir : "$(top_srcdir)/include",
 	"srcdir" => "$(top_srcdir)/ext/#{$mdir}",
 	"topdir" => $topdir,
       }
       rbconfig0.each_pair {|key, val| rbconfig[key] ||= val.dup}
       mkconfig0.each_pair {|key, val| mkconfig[key] ||= val.dup}
-      Config.module_eval {
+      RbConfig.module_eval {
 	remove_const(:CONFIG)
 	const_set(:CONFIG, rbconfig)
 	remove_const(:MAKEFILE_CONFIG)
 	const_set(:MAKEFILE_CONFIG, mkconfig)
       }
-      Object.class_eval {
+      MakeMakefile.class_eval {
 	remove_const(:CONFIG)
 	const_set(:CONFIG, mkconfig)
       }
       begin
 	$extconf_h = nil
 	ok &&= extract_makefile(makefile)
+	old_objs = $objs
+	old_cleanfiles = $distcleanfiles
 	conf = ["#{$srcdir}/makefile.rb", "#{$srcdir}/extconf.rb"].find {|f| File.exist?(f)}
-	if (($extconf_h && !File.exist?($extconf_h)) ||
+	if (!ok || ($extconf_h && !File.exist?($extconf_h)) ||
 	    !(t = modified?(makefile, MTIMES)) ||
 	    [conf, "#{$srcdir}/depend"].any? {|f| modified?(f, [t])})
         then
 	  ok = false
+          if $configure_only
+            if verbose?
+              print "#{conf}\n" if conf
+            else
+              print "#{$message} #{target}\n"
+            end
+            $stdout.flush
+          end
           init_mkmf
 	  Logging::logfile 'mkmf.log'
 	  rm_f makefile
 	  if conf
-	    load $0 = conf
+            stdout = $stdout.dup
+            stderr = $stderr.dup
+            unless verbose?
+              $stderr.reopen($stdout.reopen(@null))
+            end
+            begin
+              load $0 = conf
+            ensure
+              Logging::log_close
+              $stderr.reopen(stderr)
+              $stdout.reopen(stdout)
+              stdout.close
+              stderr.close
+            end
 	  else
 	    create_makefile(target)
 	  end
 	  $defs << "-DRUBY_EXPORT" if $static
 	  ok = File.exist?(makefile)
 	end
-      rescue SystemExit => e
-        unless e.success?
-          STDERR.puts "Cannot configure module #{$mdir} : status #{e.status}"
-          exit 1
-        end
+      rescue SystemExit
+	# ignore
+      rescue => error
+        ok = false
       ensure
 	rm_f "conftest*"
-	config = $0
 	$0 = $PROGRAM_NAME
       end
     end
+    ok &&= File.open(makefile){|f| !f.gets[DUMMY_SIGNATURE]}
     ok = yield(ok) if block_given?
     unless ok
       open(makefile, "w") do |f|
-	f.print dummy_makefile(CONFIG["srcdir"])
+        f.puts "# " + DUMMY_SIGNATURE
+	f.print(*dummy_makefile(CONFIG["srcdir"]))
       end
+
+      mess = "Failed to configure #{target}. It will not be installed.\n"
+      if error
+        mess = "#{error}\n#{mess}"
+      end
+
+      Logging::message(mess)
+      print(mess)
+      $stdout.flush
       return true
     end
     args = sysquote($mflags)
-    unless $destdir.to_s.empty? or $mflags.include?("DESTDIR")
+    unless $destdir.to_s.empty? or $mflags.defined?("DESTDIR")
       args += [sysquote("DESTDIR=" + relative_from($destdir, "../"+prefix))]
     end
-    if $static
+    if $static and ok and !$objs.empty? and !File.fnmatch?("-*", target)
       args += ["static"] unless $clean
-      $extlist.push [$static, $target, File.basename($target), $preload]
+      $extlist.push [$static, target, $target, $preload]
     end
-    unless system($make, *args)
+    FileUtils.rm_f(old_cleanfiles - $distcleanfiles)
+    FileUtils.rm_f(old_objs - $objs)
+    unless $configure_only or system($make, *args)
       $ignore or $continue or return false
     end
     $compiled[target] = true
@@ -206,27 +259,26 @@ def extmake(target)
       if $clean != true
 	FileUtils.rm_f([makefile, $extconf_h || "extconf.h"])
       end
-      File.unlink(makefile) rescue nil
     end
     if $static
       $extflags ||= ""
       $extlibs ||= []
       $extpath ||= []
       unless $mswin
-        $extflags = ($extflags.split | $DLDFLAGS.split | $LDFLAGS.split).join(" ")
+        $extflags = split_libs($extflags, $DLDFLAGS, $LDFLAGS).uniq.join(" ")
       end
-      $extlibs = merge_libs($extlibs, $libs.split, $LOCAL_LIBS.split)
+      $extlibs = merge_libs($extlibs, split_libs($libs), split_libs($LOCAL_LIBS))
       $extpath |= $LIBPATH
     end
   ensure
     unless $ignore
-      Config.module_eval {
+      RbConfig.module_eval {
 	remove_const(:CONFIG)
 	const_set(:CONFIG, rbconfig0)
 	remove_const(:MAKEFILE_CONFIG)
 	const_set(:MAKEFILE_CONFIG, mkconfig0)
       }
-      Object.class_eval {
+      MakeMakefile.class_eval {
 	remove_const(:CONFIG)
 	const_set(:CONFIG, mkconfig0)
       }
@@ -251,8 +303,8 @@ end
 
 def parse_args()
   $mflags = []
+  $makeflags = [] # for make command to build ruby, so quoted
 
-  opts = nil
   $optparser ||= OptionParser.new do |opts|
     opts.on('-n') {$dryrun = true}
     opts.on('--[no-]extension [EXTS]', Array) do |v|
@@ -280,10 +332,14 @@ def parse_args()
       if arg = v.first
         arg.insert(0, '-') if /\A[^-][^=]*\Z/ =~ arg
       end
+      $makeflags.concat(v.reject {|arg2| /\AMINIRUBY=/ =~ arg2}.quote)
       $mflags.concat(v)
     end
     opts.on('--message [MESSAGE]', String) do |v|
       $message = v
+    end
+    opts.on('--command-output=FILE', String) do |v|
+      $command_output = v
     end
   end
   begin
@@ -291,7 +347,7 @@ def parse_args()
   rescue OptionParser::InvalidOption => e
     retry if /^--/ =~ e.args[0]
     $optparser.warn(e)
-    abort opts.to_s
+    abort $optparser.to_s
   end
 
   $destdir ||= ''
@@ -317,7 +373,7 @@ def parse_args()
   $continue = $mflags.set?(?k)
   if $extout
     $extout = '$(topdir)/'+$extout
-    Config::CONFIG["extout"] = CONFIG["extout"] = $extout
+    RbConfig::CONFIG["extout"] = CONFIG["extout"] = $extout
     $extout_prefix = $extout ? "$(extout)$(target_prefix)/" : ""
     $mflags << "extout=#$extout" << "extout_prefix=#$extout_prefix"
   end
@@ -338,11 +394,13 @@ if target = ARGV.shift and /^[a-z-]+$/ =~ target
     $mflags.unshift("INSTALL_PROG=install -c -p -m 0755",
                     "INSTALL_DATA=install -c -p -m 0644",
                     "MAKEDIRS=mkdir -p") if $dryrun
+  when /configure/
+    $configure_only = true
   end
 end
 unless $message
   if target
-    $message = target.sub(/^(\w+)e?\b/, '\1ing').tr('-', ' ')
+    $message = target.sub(/^(\w+?)e?\b/, '\1ing').tr('-', ' ')
   else
     $message = "compiling"
   end
@@ -360,11 +418,8 @@ $ruby << " -I'$(topdir)'"
 unless CROSS_COMPILING
   $ruby << " -I'$(top_srcdir)/lib'"
   $ruby << " -I'$(extout)/$(arch)' -I'$(extout)/common'" if $extout
-  $ruby << " -I./- -I'$(top_srcdir)/ext' -rpurelib.rb"
   ENV["RUBYLIB"] = "-"
-  ENV["RUBYOPT"] = "-rpurelib.rb"
 end
-$config_h = '$(topdir)/config.h'
 $mflags << "ruby=#$ruby"
 
 MTIMES = [__FILE__, 'rbconfig.rb', srcdir+'/lib/mkmf.rb'].collect {|f| File.mtime(f)}
@@ -372,8 +427,9 @@ MTIMES = [__FILE__, 'rbconfig.rb', srcdir+'/lib/mkmf.rb'].collect {|f| File.mtim
 # get static-link modules
 $static_ext = {}
 if $extstatic
-  $extstatic.each do |target|
-    target = target.downcase if /mswin32|bccwin32/ =~ RUBY_PLATFORM
+  $extstatic.each do |t|
+    target = t
+    target = target.downcase if File::FNM_SYSCASE.nonzero?
     $static_ext[target] = $static_ext.size
   end
 end
@@ -393,7 +449,7 @@ for dir in ["ext", File::join($top_srcdir, "ext")]
 	end
 	next
       end
-      target = target.downcase if /mswin32|bccwin32/ =~ RUBY_PLATFORM
+      target = target.downcase if File::FNM_SYSCASE.nonzero?
       $static_ext[target] = $static_ext.size
     end
     MTIMES << f.mtime
@@ -405,23 +461,28 @@ end unless $extstatic
 
 ext_prefix = "#{$top_srcdir}/ext"
 exts = $static_ext.sort_by {|t, i| i}.collect {|t, i| t}
-if $extension
-  exts |= $extension.select {|d| File.directory?("#{ext_prefix}/#{d}")}
+withes, withouts = %w[--with --without].collect {|w|
+  if !(w = %w[-extensions -ext].collect {|o|arg_config(w+o)}).any?
+    nil
+  elsif (w = w.grep(String)).empty?
+    proc {true}
+  else
+    proc {|c1| w.collect {|o| o.split(/,/)}.flatten.any?(&c1)}
+  end
+}
+if withes
+  withouts ||= proc {true}
 else
-  withes, withouts = %w[--with --without].collect {|w|
-    if not (w = %w[-extensions -ext].collect {|opt|arg_config(w+opt)}).any?
-      proc {false}
-    elsif (w = w.grep(String)).empty?
-      proc {true}
-    else
-      proc {|c1| w.collect {|opt| opt.split(/,/)}.flatten.any?(&c1)}
-    end
-  }
-  cond = proc {|ext|
-    cond1 = proc {|n| File.fnmatch(n, ext, File::FNM_PATHNAME)}
-    withes.call(cond1) or !withouts.call(cond1)
-  }
-  exts |= Dir.glob("#{ext_prefix}/*/**/extconf.rb").collect {|d|
+  withes = proc {false}
+  withouts ||= withes
+end
+cond = proc {|ext, *|
+  cond1 = proc {|n| File.fnmatch(n, ext)}
+  withes.call(cond1) or !withouts.call(cond1)
+}
+($extension || %w[*]).each do |e|
+  e = e.sub(/\A(?:\.\/)+/, '')
+  exts |= Dir.glob("#{ext_prefix}/#{e}/**/extconf.rb").collect {|d|
     d = File.dirname(d)
     d.slice!(0, ext_prefix.length + 1)
     d
@@ -431,7 +492,7 @@ else
 end
 
 if $extout
-  extout = Config.expand("#{$extout}", Config::CONFIG.merge("topdir"=>$topdir))
+  extout = RbConfig.expand("#{$extout}", RbConfig::CONFIG.merge("topdir"=>$topdir))
   unless $ignore
     FileUtils.mkpath(extout)
   end
@@ -442,10 +503,15 @@ FileUtils::makedirs('ext')
 Dir::chdir('ext')
 
 hdrdir = $hdrdir
-$hdrdir = $top_srcdir = relative_from(srcdir, $topdir = "..")
+$hdrdir = ($top_srcdir = relative_from(srcdir, $topdir = "..")) + "/include"
 exts.each do |d|
-  extmake(d) or abort
+  $static = $force_static ? true : $static_ext[target]
+
+  if $ignore or !$nodynamic or $static
+    extmake(d) or abort
+  end
 end
+
 $top_srcdir = srcdir
 $topdir = "."
 $hdrdir = hdrdir
@@ -475,7 +541,7 @@ if $ignore
 end
 
 $extinit ||= ""
-$extobjs ||= ""
+$extobjs ||= []
 $extpath ||= []
 $extflags ||= ""
 $extlibs ||= []
@@ -484,7 +550,7 @@ unless $extlist.empty?
   list = $extlist.dup
   built = []
   while e = list.shift
-    s,t,i,r = e
+    s,t,i,r,os = e
     if r and !(r -= built).empty?
       l = list.size
       if (while l > 0; break true if r.include?(list[l-=1][1]) end)
@@ -492,29 +558,28 @@ unless $extlist.empty?
       end
       next
     end
-    f = format("%s/%s.%s", s, i, $LIBEXT)
-    if File.exist?(f)
-      $extinit << "    init(Init_#{i}, \"#{t}.so\");\n"
-      $extobjs << "ext/#{f} "
-      built << t
-    end
+    $extinit << "    init(Init_#{File.basename i}, \"#{i}.so\");\n"
+    $extobjs << format("ext/%s/%s.%s", t, File.basename(i), $LIBEXT)
+    built << t
   end
 
   src = %{\
-#include "ruby.h"
+#include "ruby/ruby.h"
 
-#define init(func, name) {void func _((void)); ruby_init_ext(name, func);}
+#define init(func, name) {	\\
+    extern void func(void);	\\
+    ruby_init_ext(name, func);	\\
+}
 
-void ruby_init_ext _((const char *name, void (*init)(void)));
+void ruby_init_ext(const char *name, void (*init)(void));
 
-void Init_ext _((void))\n{\n#$extinit}
+void Init_ext(void)\n{\n#$extinit}
 }
   if !modified?(extinit.c, MTIMES) || IO.read(extinit.c) != src
-    open(extinit.c, "w") {|f| f.print src}
+    open(extinit.c, "w") {|fe| fe.print src}
   end
 
-  $extobjs = "ext/#{extinit.o} #{$extobjs}"
-  if RUBY_PLATFORM =~ /m68k-human|beos/
+  if RUBY_PLATFORM =~ /beos/
     $extflags.delete("-L/usr/local/lib")
   end
   $extpath.delete("$(topdir)")
@@ -522,22 +587,22 @@ void Init_ext _((void))\n{\n#$extinit}
   conf = [
     ['LIBRUBY_SO_UPDATE', '$(LIBRUBY_EXTS)'],
     ['SETUP', $setup],
-    [enable_config("shared", $enable_shared) ? 'DLDOBJS' : 'EXTOBJS', $extobjs],
     ['EXTLIBS', $extlibs.join(' ')], ['EXTLDFLAGS', $extflags]
   ].map {|n, v|
     "#{n}=#{v}" if v and !(v = v.strip).empty?
   }.compact
-  puts conf
+  puts(*conf)
   $stdout.flush
   $mflags.concat(conf)
+  $makeflags.concat(conf)
 else
   FileUtils.rm_f(extinit.to_a)
 end
 rubies = []
-%w[RUBY RUBYW STATIC_RUBY].each {|r|
-  n = r
+%w[RUBY RUBYW STATIC_RUBY].each {|n|
+  r = n
   if r = arg_config("--"+r.downcase) || config_string(r+"_INSTALL_NAME")
-    rubies << Config.expand(r+=EXEEXT)
+    rubies << RbConfig.expand(r+=EXEEXT)
     $mflags << "#{n}=#{r}"
   end
 }
@@ -546,23 +611,112 @@ Dir.chdir ".."
 unless $destdir.to_s.empty?
   $mflags.defined?("DESTDIR") or $mflags << "DESTDIR=#{$destdir}"
 end
-puts "making #{rubies.join(', ')}"
-$stdout.flush
-$mflags.concat(rubies)
+$makeflags.uniq!
 
 if $nmake == ?b
   unless (vars = $mflags.grep(/\A\w+=/n)).empty?
     open(mkf = "libruby.mk", "wb") do |tmf|
       tmf.puts("!include Makefile")
       tmf.puts
-      tmf.puts(*vars.map {|v| v.sub(/=/, " = ")})
+      tmf.puts(*vars.map {|v| v.sub(/\=/, " = ")})
       tmf.puts("PRE_LIBRUBY_UPDATE = del #{mkf}")
     end
     $mflags.unshift("-f#{mkf}")
     vars.each {|flag| flag.sub!(/\A/, "-D")}
   end
 end
-system($make, *sysquote($mflags)) or exit($?.exitstatus)
+$mflags.unshift("topdir=#$topdir")
+ENV.delete("RUBYOPT")
+if $configure_only and $command_output
+  exts.map! {|d| "ext/#{d}/."}
+  open($command_output, "wb") do |mf|
+    mf.puts "V = 0"
+    mf.puts "Q1 = $(V:1=)"
+    mf.puts "Q = $(Q1:0=@)"
+    mf.puts "ECHO1 = $(V:1=@:)"
+    mf.puts "ECHO = $(ECHO1:0=@echo)"
+    mf.puts "MFLAGS = -$(MAKEFLAGS)" if $nmake
+    mf.puts
+
+    def mf.macro(name, values, max = 70)
+      print name, " ="
+      w = w0 = name.size + 2
+      h = " \\\n" + "\t" * (w / 8) + " " * (w % 8)
+      values.each do |s|
+        if s.size + w > max
+          print h
+          w = w0
+        end
+        print " ", s
+        w += s.size + 1
+      end
+      puts
+    end
+
+    mf.macro "extensions", exts
+    mf.macro "EXTOBJS", $extlist.empty? ? ["dmyext.#{$OBJEXT}"] : ["ext/extinit.#{$OBJEXT}", *$extobjs]
+    mf.macro "EXTLIBS", $extlibs
+    mf.macro "EXTLDFLAGS", $extflags.split
+    mf.puts
+    targets = %w[all install static install-so install-rb clean distclean realclean]
+    targets.each do |tgt|
+      mf.puts "#{tgt}: $(extensions:/.=/#{tgt})"
+    end
+    mf.puts
+    mf.puts "clean:\n\t-$(Q)$(RM) ext/extinit.#{$OBJEXT}"
+    mf.puts "distclean:\n\t-$(Q)$(RM) ext/extinit.c"
+    mf.puts
+    mf.puts "#{rubies.join(' ')}: $(extensions:/.=/#{$force_static ? 'static' : 'all'})"
+    (["all static"] + rubies).each_with_index do |tgt, i|
+      mf.print "#{tgt}:\n\t$(Q)$(MAKE) "
+      mf.print "$(MFLAGS) "
+      if enable_config("shared", $enable_shared)
+        mf.print %[DLDOBJS="$(EXTOBJS) $(ENCOBJS)" EXTSOLIBS="$(EXTLIBS)" ]
+        mf.print 'LIBRUBY_SO_UPDATE=$(LIBRUBY_EXTS) '
+      else
+        mf.print %[EXTOBJS="$(EXTOBJS) $(ENCOBJS)" EXTLIBS="$(EXTLIBS)" ]
+      end
+      mf.print 'EXTLDFLAGS="$(EXTLDFLAGS)" '
+      if i == 0
+        mf.puts rubies.join(' ')
+      else
+        mf.puts '$@'
+      end
+    end
+    mf.puts
+    exec = config_string("exec") {|str| str + " "}
+    targets.each do |tgt|
+      exts.each do |d|
+        mf.puts "#{d[0..-2]}#{tgt}:\n\t$(Q)cd $(@D) && #{exec}$(MAKE) $(MFLAGS) V=$(V) $(@F)"
+      end
+    end
+  end
+elsif $command_output
+  message = "making #{rubies.join(', ')}"
+  message = "echo #{message}"
+  $mflags.concat(rubies)
+  $makeflags.concat(rubies)
+  cmd = $makeflags.map {|ss|ss.sub(/.*[$(){};\s].*/, %q['\&'])}.join(' ')
+  open($command_output, 'wb') do |ff|
+    case $command_output
+    when /\.sh\z/
+      ff.puts message, "rm -f \"$0\"; exec \"$@\" #{cmd}"
+    when /\.bat\z/
+      ["@echo off", message, "%* #{cmd}", "del %0 & exit %ERRORLEVEL%"].each do |ss|
+        ff.print ss, "\r\n"
+      end
+    else
+      ff.puts cmd
+    end
+    ff.chmod(0755)
+  end
+elsif !$configure_only
+  message = "making #{rubies.join(', ')}"
+  puts message
+  $stdout.flush
+  $mflags.concat(rubies)
+  system($make, *sysquote($mflags)) or exit($?.exitstatus)
+end
 
 #Local variables:
 # mode: ruby

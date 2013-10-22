@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,8 @@
 #include "printdata.h"
 #include "EAPClientModule.h"
 #include "nbo.h"
+#include "myCFUtil.h"
+#include <SystemConfiguration/SCPrivate.h>
 
 int
 EAPCodeValid(EAPCode code)
@@ -85,7 +87,7 @@ EAPTypeStr(EAPType type)
     case kEAPTypeGenericTokenCard:
 	return ("Generic Token Card");
     case kEAPTypeTLS:
-	return ("TLS");
+	return ("EAP-TLS");
     case kEAPTypeCiscoLEAP:
 	return ("LEAP");
     case kEAPTypeEAPSIM:
@@ -93,7 +95,7 @@ EAPTypeStr(EAPType type)
     case kEAPTypeSRPSHA1:
 	return ("SRPSHA1");
     case kEAPTypeTTLS:
-	return ("TTLS");
+	return ("EAP-TTLS");
     case kEAPTypeEAPAKA:
 	return ("EAP-AKA");
     case kEAPTypePEAP:
@@ -110,63 +112,83 @@ EAPTypeStr(EAPType type)
     return ("<unknown>");
 }
 
+static void
+EAPPacketHeaderAppendDescription(EAPPacketRef eap_p, uint32_t length,
+				 CFMutableStringRef str)
+{
+    STRING_APPEND(str, "EAP %s (%d): Identifier %d Length %d\n",
+		  EAPCodeStr(eap_p->code), eap_p->code,
+		  eap_p->identifier, length);
+    return;
+}
+
 static bool
-EAPRequestResponseValid(EAPPacketRef eap_p, uint32_t length, FILE * f)
+EAPRequestResponseValid(EAPPacketRef eap_p, uint32_t length,
+			CFMutableStringRef str)
 {
     EAPNakPacketRef 	nak_p = (EAPNakPacketRef)eap_p;
     EAPRequestPacketRef	rd_p = (EAPRequestPacketRef)eap_p;
 
+#define REQUEST_RESPONSE_LABEL	"EAPRequestResponsePacket"
     if (length < sizeof(*rd_p)) {
-	if (f != NULL) {
-	    fprintf(f, "eap_request_response_valid:"
-		    " length %d < sizeof(*rd_p) %ld\n",
-		    length, sizeof(*rd_p));
+	if (str != NULL) {
+	    STRING_APPEND(str, "%s length %d < %d\n", REQUEST_RESPONSE_LABEL,
+			  length, (int)sizeof(*rd_p));
 	}
 	return (false);
     }
     
     switch (rd_p->type) {
     case kEAPTypeInvalid:
-	if (f != NULL) {
-	    fprintf(f, "EAP type is invalid (0)\n");
+	if (str != NULL) {
+	    EAPPacketHeaderAppendDescription(eap_p, length, str);
+	    STRING_APPEND(str, "%s type is 0\n", REQUEST_RESPONSE_LABEL);
 	}
 	return (false);
 
     case kEAPTypeNak:
-	if (f != NULL) {
-	    fprintf(f, "%s (%d)\n", EAPTypeStr(rd_p->type),
-		    rd_p->type);
-	}
 	if (length < sizeof(*nak_p)) {
-	    if (f != NULL) {
-		fprintf(f, "Nak packet too short\n");
+	    if (str != NULL) {
+		EAPPacketHeaderAppendDescription(eap_p, length, str);
+		STRING_APPEND(str,"EAPNakPacket too short %d < %d\n",
+			      length, (int)sizeof(*nak_p));
 	    }
 	    return (false);
 	}
-	if (f != NULL) {
-	    fprintf(f, "Desired authentication type: %s (%d)\n", 
-		    EAPTypeStr(nak_p->desired_type),
-		    nak_p->desired_type);
+	if (str != NULL) {
+	    EAPPacketHeaderAppendDescription(eap_p, length, str);
+	    STRING_APPEND(str, "%s (%d)\n", EAPTypeStr(rd_p->type),
+			  rd_p->type);
+	    STRING_APPEND(str, "Desired authentication type: %s (%d)\n", 
+			  EAPTypeStr(nak_p->desired_type),
+			  nak_p->desired_type);
 	}
 	break;
 
     default:
-	if (f != NULL) {
-	    bool		printed = FALSE;
+	if (str != NULL) {
+	    CFStringRef		packet_description = NULL;
 	    EAPClientModuleRef	module;
 
 	    module = EAPClientModuleLookup(rd_p->type);
 	    if (module != NULL) {
-		printed
-		    = EAPClientModulePluginPacketDump(module, f,
-						      (const EAPPacketRef)rd_p);
+		bool			is_valid = FALSE;
+		const EAPPacketRef	pkt = (const EAPPacketRef)rd_p;
+
+		packet_description
+		    = EAPClientModulePluginCopyPacketDescription(module, pkt,
+								 &is_valid);
 	    }
-	    if (printed == FALSE) {
-		fprintf(f, "%s (%d)\n", EAPTypeStr(rd_p->type),
-			rd_p->type);
-		fprintf(f, "length %d  - sizeof(*rd_p) %ld = %ld\n",
-			length, sizeof(*rd_p), length - sizeof(*rd_p));
-		fprint_data(f, rd_p->type_data, length - sizeof(*rd_p));
+	    if (packet_description != NULL) {
+		STRING_APPEND(str, "%@", packet_description);
+		CFRelease(packet_description);
+	    }
+	    else {
+		EAPPacketHeaderAppendDescription(eap_p, length, str);
+		STRING_APPEND(str, "%s (%d) Payload Length %d\n",
+			      EAPTypeStr(rd_p->type),rd_p->type,
+			      length - (int)sizeof(*rd_p));
+		print_data_cfstr(str, rd_p->type_data, length - sizeof(*rd_p));
 	    }
 	}
 	break;
@@ -175,48 +197,60 @@ EAPRequestResponseValid(EAPPacketRef eap_p, uint32_t length, FILE * f)
 }
 
 bool
-EAPPacketValid(EAPPacketRef eap_p, uint16_t pkt_length, FILE * f)
+EAPPacketIsValid(EAPPacketRef eap_p, uint16_t pkt_length,
+		 CFMutableStringRef str)
 {
     int			length;
     bool		ret = true;
 
     if (pkt_length < sizeof(*eap_p)) {
-	if (f != NULL) {
-	    fprintf(f, "EAPPacketValid: pkt_length %d < sizeof(*eap_p) %ld\n",
-		    pkt_length, sizeof(*eap_p));
+	if (str != NULL) {
+	    STRING_APPEND(str,
+			  "EAPPacket header truncated %d < %d\n",
+			  pkt_length, (int)sizeof(*eap_p));
 	}
 	return (false);
     }
     length = EAPPacketGetLength(eap_p);
-    if (f != NULL) {
-	fprintf(f, "EAP %s (%d): Identifier %d Length %d\n",
-		EAPCodeStr(eap_p->code), eap_p->code,
-		eap_p->identifier, length);
-    }
     if (pkt_length < length) {
-	if (f != NULL) {
-	    fprintf(f, "EAPPacketValid: pkt_length %d < length %d\n",
-		    pkt_length, length);
+	if (str != NULL) {
+	    EAPPacketHeaderAppendDescription(eap_p, length, str);
+	    STRING_APPEND(str, "EAPPacket truncated %d < %d\n",
+			  pkt_length, length);
 	}
 	return (false);
     }
     switch (eap_p->code) {
     case kEAPCodeRequest:
     case kEAPCodeResponse:
-	ret = EAPRequestResponseValid(eap_p, length, f);
-	break;
-    case kEAPCodeFailure:
-    case kEAPCodeSuccess:
+	ret = EAPRequestResponseValid(eap_p, length, str);
 	break;
     default:
+	if (str != NULL) {
+	    EAPPacketHeaderAppendDescription(eap_p, length, str);
+	}
 	break;
     }
+    if (str != NULL && length < pkt_length) {
+	STRING_APPEND(str, "EAP: %d bytes follow data:\n", pkt_length - length);
+	print_data_cfstr(str, eap_p->data + length, pkt_length - length);
+    }
+    return (ret);
+}
+
+bool
+EAPPacketValid(EAPPacketRef eap_p, uint16_t pkt_length, FILE * f)
+{
+    bool		ret;
+    CFMutableStringRef	str = NULL;
+
     if (f != NULL) {
-	if (length < pkt_length) {
-	    fprintf(f, "EAP: %d bytes follow data:\n", pkt_length - length);
-	    fprint_data(f, eap_p->data + length,
-			pkt_length - length);
-	}
+	str = CFStringCreateMutable(NULL, 0);
+    }
+    ret = EAPPacketIsValid(eap_p, pkt_length, str);
+    if (str != NULL) {
+	SCPrint(TRUE, f, CFSTR("%@"), str);
+	CFRelease(str);
     }
     return (ret);
 }

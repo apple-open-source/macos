@@ -28,12 +28,11 @@
 #include "SecImportExportPem.h"
 #include "SecExternalRep.h"
 #include "SecImportExportUtils.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_utilities/errors.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecItem.h>
-
+#include <Security/SecBase.h>
 using namespace Security;
 using namespace KeychainCore;
 
@@ -108,20 +107,20 @@ OSStatus SecKeychainItemExport(
 	
 	/* some basic input validation */
 	if(keychainItemOrArray == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(keyParams != NULL) {
 		/* can't specify explicit passphrase and ask for secure one */
 		if( (keyParams->passphrase != NULL) &&
-		    (keyParams->flags & kSecKeySecurePassphrase != 0)) {
-			return paramErr;
+		    ((keyParams->flags & kSecKeySecurePassphrase) != 0)) {
+			return errSecParam;
 		}
 	}
 	
 	unsigned numKeys			= 0;
 	unsigned numCerts			= 0;
 	unsigned numTotalExports	= 0;
-	OSStatus ortn				= noErr;
+	OSStatus ortn				= errSecSuccess;
 	SecExportRep *rep			= NULL;				// common temp variable
 	CFMutableDataRef outputData = NULL;
 	const char *pemHeader		= "UNKNOWN";
@@ -148,10 +147,10 @@ OSStatus SecKeychainItemExport(
 		goto errOut;
 	}
 	catch(...) {
-		ortn = paramErr;
+		ortn = errSecParam;
 		goto errOut;
 	}
-	numTotalExports = CFArrayGetCount(exportReps);
+	numTotalExports = (unsigned int)CFArrayGetCount(exportReps);
 	assert((numCerts + numKeys) == numTotalExports);
 	if((numTotalExports > 1) && (outputFormat == kSecFormatUnknown)) {
 		/* default aggregate format is PEM sequence */
@@ -235,7 +234,7 @@ OSStatus SecKeychainItemExport(
 				}
 				if((numTotalExports != 1) || (foundCount != 1)) {
 					SecImpExpDbg("Export single item format with other than one item");
-					ortn = paramErr;
+					ortn = errSecParam;
 					goto errOut;
 				}
 				assert(CFArrayGetCount(exportReps) == 1);
@@ -247,7 +246,7 @@ OSStatus SecKeychainItemExport(
 		default:
 			SecImpExpDbg("SecKeychainItemExport: bad format (%u)", 
 				(unsigned)outputFormat);
-			ortn = paramErr;
+			ortn = errSecParam;
 			goto errOut;
 	}
 	
@@ -257,7 +256,7 @@ OSStatus SecKeychainItemExport(
 	 * if exportRep has a non-NULL pemParamLines (which can only happen if we're
 	 * exporting a single item). 
 	 */
-	if(ortn == noErr) {
+	if(ortn == errSecSuccess) {
 		if(outputFormat == kSecFormatPEMSequence) {
 			*exportedData = outputData;
 			outputData = NULL;		
@@ -297,7 +296,7 @@ errOut:
 		return SecKeychainErrFromOSStatus(ortn);
 	}
 	else {
-		return noErr;
+		return errSecSuccess;
 	}
 	
 	END_IMP_EXP_SECAPI

@@ -82,8 +82,6 @@ Globals
 struct pr_usrreqs 	pppoe_usr;	/* pr_usrreqs extension to the protosw */
 struct protosw 		pppoe;		/* describe the protocol switch */
 
-u_int32_t			pppoe_timer_count;
-
 extern lck_mtx_t	*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
@@ -94,6 +92,37 @@ extern lck_mtx_t	*ppp_domain_mutex;
 --------------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 
+/* -----------------------------------------------------------------------------
+ PPPOE Timer, at 100 ms. Replaces pppoe_slowtimo, which is deprecated.
+ ----------------------------------------------------------------------------- */
+static uint8_t pppoe_timer_thread_is_dying = 0; /* > 0 if dying */
+static uint8_t pppoe_timer_thread_is_dead = 0; /* > 0 if dead */
+
+static void pppoe_timer()
+{
+    struct timespec ts = {0};
+    
+    /* timeout of 1000 ms */
+    ts.tv_nsec = 1000 * 1000 * 1000;
+    ts.tv_sec = 0;
+    
+    lck_mtx_lock(ppp_domain_mutex);
+    while (TRUE) {
+        if (pppoe_timer_thread_is_dying > 0) {
+            break;
+        }
+        
+        pppoe_rfc_timer();
+        
+        msleep(&pppoe_timer_thread_is_dying, ppp_domain_mutex, PSOCK, "pppoe_timer_sleep", &ts);
+    }
+    
+    pppoe_timer_thread_is_dead++;
+    wakeup(&pppoe_timer_thread_is_dead);
+    lck_mtx_unlock(ppp_domain_mutex);
+    
+    thread_terminate(current_thread());
+}
 
 /* -----------------------------------------------------------------------------
 Called when we need to add the PPPoE protocol to the domain
@@ -102,10 +131,9 @@ but we can add the protocol anytime later, if the domain is present
 ----------------------------------------------------------------------------- */
 int pppoe_add(struct domain *domain)
 {
-    int 	err;
-
-    pppoe_timer_count = 0;
-
+    int 	 err;
+    thread_t pppoe_timer_thread = NULL;
+    
     bzero(&pppoe_usr, sizeof(struct pr_usrreqs));
     pppoe_usr.pru_abort 	= pru_abort_notsupp;
     pppoe_usr.pru_accept 	= pppoe_accept;
@@ -136,8 +164,12 @@ int pppoe_add(struct domain *domain)
     pppoe.pr_flags		= PR_ATOMIC|PR_CONNREQUIRED|PR_PROTOLOCK;
     pppoe.pr_ctloutput 	= pppoe_ctloutput;
     pppoe.pr_init		= pppoe_init;
-    pppoe.pr_slowtimo  	= pppoe_slowtimo;
     pppoe.pr_usrreqs 	= &pppoe_usr;
+    
+    pppoe_timer_thread_is_dying = 0;
+    if (kernel_thread_start((thread_continue_t)pppoe_timer, NULL, &pppoe_timer_thread) == KERN_SUCCESS) {
+        thread_deallocate(pppoe_timer_thread);
+    }
 
     err = net_add_proto(&pppoe, domain);
     if (err)
@@ -152,6 +184,15 @@ Called when we need to remove the PPPoE protocol from the domain
 int pppoe_remove(struct domain *domain)
 {
     int err;
+    
+    lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+    
+    /* Cleanup timer thread */
+    if (pppoe_timer_thread_is_dead == 0) {
+        pppoe_timer_thread_is_dying++;           /* Tell thread to die */
+        wakeup(&pppoe_timer_thread_is_dying);    /* Wake thread */
+        msleep(&pppoe_timer_thread_is_dying, ppp_domain_mutex, PSOCK, "pppoe_timer_sleep", 0);
+    }
 
     err = net_del_proto(pppoe.pr_type, pppoe.pr_protocol, domain);
     if (err)
@@ -212,7 +253,7 @@ int pppoe_ctloutput(struct socket *so, struct sockopt *sopt)
                         break;
                     }
                     bzero(str, sizeof(str));
-                    if (error = sooptcopyin(sopt, str, sopt->sopt_valsize, 0))
+                    if ((error = sooptcopyin(sopt, str, sopt->sopt_valsize, 0)))
                         break;
                     val = 0;
                     for (i = IFNAMSIZ - 1; i && !str[i]; i--);
@@ -311,27 +352,6 @@ int pppoe_ctloutput(struct socket *so, struct sockopt *sopt)
 
     }
     return error;
-}
-
-/* -----------------------------------------------------------------------------
-slow timer function, called every 500ms
------------------------------------------------------------------------------ */
-void pppoe_slowtimo()
-{
-	
-	lck_mtx_lock(ppp_domain_mutex);
-    // run the slowtimer only every second
-    if (pppoe_timer_count++ % 2) {
-		lck_mtx_unlock(ppp_domain_mutex);
-        return;
-    }
-
-    // run timer for RFC
-    // is slow_timer called when no socket exist for that proto ?
-    // we should probably used real timer function, directly instantiated from rfc.
-    pppoe_rfc_timer();
-	lck_mtx_unlock(ppp_domain_mutex);
-
 }
 
 /* -----------------------------------------------------------------------------
@@ -595,7 +615,7 @@ int pppoe_send(struct socket *so, int flags, struct mbuf *m,
 
     //IOLog("pppoe_send, so = %p\n", so);
 
-    if (error = pppoe_rfc_output(so->so_pcb, (mbuf_t)m)) {
+    if ((error = pppoe_rfc_output(so->so_pcb, (mbuf_t)m))) {
         mbuf_freem((mbuf_t)m);
     }
 

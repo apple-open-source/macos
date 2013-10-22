@@ -49,13 +49,14 @@ static OM_uint32
 store_ext(krb5_storage *sp, uint16_t type, krb5_data *data)
 {
     krb5_error_code ret;
+    krb5_ssize_t sret;
 
     ret = krb5_store_uint16(sp, type);
     if (ret) return ret;
     ret = krb5_store_uint16(sp, data->length);
     if (ret) return ret;
-    ret = krb5_storage_write(sp, data->data, data->length);
-    if (ret != data->length)
+    sret = krb5_storage_write(sp, data->data, data->length);
+    if (sret != data->length)
 	return ENOMEM;
     return 0;
 }
@@ -81,6 +82,7 @@ _gsskrb5_create_8003_checksum(OM_uint32 *minor_status,
     krb5_error_code ret;
     krb5_storage *sp;
     OM_uint32 maj_stat, junk;
+    krb5_ssize_t sret;
 
     cksum.value = NULL;
     cksum.length = 0;
@@ -104,8 +106,8 @@ _gsskrb5_create_8003_checksum(OM_uint32 *minor_status,
 	    goto out;
 	}
     }
-    ret = krb5_storage_write(sp, channelbindings, sizeof(channelbindings));
-    if (ret != sizeof(channelbindings)) {
+    sret = krb5_storage_write(sp, channelbindings, sizeof(channelbindings));
+    if (sret != sizeof(channelbindings)) {
 	ret = ENOMEM;
 	goto out;
     }
@@ -169,6 +171,7 @@ static krb5_error_code
 read_ext(krb5_storage *sp, uint16_t *type, krb5_data *data)
 {
     krb5_error_code ret;
+    krb5_ssize_t sret;
     uint16_t len;
 
     ret = krb5_ret_uint16(sp, type);
@@ -183,8 +186,8 @@ read_ext(krb5_storage *sp, uint16_t *type, krb5_data *data)
     if (ret)
 	return ret;
 
-    ret = krb5_storage_read(sp, data->data, data->length);
-    if (ret != data->length) {
+    sret = krb5_storage_read(sp, data->data, data->length);
+    if (sret != data->length) {
 	krb5_data_free(data);
 	return HEIM_ERR_EOF;
     }
@@ -208,6 +211,7 @@ _gsskrb5_verify_8003_checksum(OM_uint32 *minor_status,
 {
     unsigned count = 0, verified_checksum = 0;
     krb5_error_code ret;
+    krb5_ssize_t sret;
     krb5_storage *sp;
     unsigned char hash[16], pkthash[16];
     uint32_t length;
@@ -240,8 +244,8 @@ _gsskrb5_verify_8003_checksum(OM_uint32 *minor_status,
 	goto out;
     }
 
-    ret = krb5_storage_read(sp, pkthash, sizeof(pkthash));
-    if (ret != sizeof(pkthash)) {
+    sret = krb5_storage_read(sp, pkthash, sizeof(pkthash));
+    if (sret != sizeof(pkthash)) {
 	ret = ENOMEM;
 	goto out;
     }

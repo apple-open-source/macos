@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2009-2010 ProFUSION embedded systems
     Copyright (C) 2009-2010 Samsung Electronics
+    Copyright (C) 2012 Intel Corporation
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,26 +23,32 @@
 #include "ewk_settings.h"
 
 #include "ApplicationCacheStorage.h"
+#include "CairoUtilitiesEfl.h"
 #include "CrossOriginPreflightResultCache.h"
-#include "DatabaseTracker.h"
-#include "StorageTracker.h"
+#include "DatabaseManager.h"
 #include "FontCache.h"
 #include "FrameView.h"
+#include "GCController.h"
 #include "IconDatabase.h"
 #include "Image.h"
 #include "IntSize.h"
 #include "KURL.h"
+#include "LocalFileSystem.h"
 #include "MemoryCache.h"
 #include "PageCache.h"
+#include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
-#include "ewk_logging.h"
+#include "StorageThread.h"
+#include "StorageTracker.h"
+#include "WebKitVersion.h"
+#include "WorkerThread.h"
 #include "ewk_private.h"
-#include "ewk_util.h"
 #include <Eina.h>
 #include <eina_safety_checks.h>
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenate.h>
 
@@ -59,6 +66,7 @@ static const char* _ewk_icon_database_path = 0;
 
 static const char* s_webDatabasePath = 0;
 static const char* s_localStoragePath = 0;
+static const char* s_cssMediaType = 0;
 static uint64_t s_webDatabaseQuota = 1 * 1024 * 1024; // 1MB.
 
 static WTF::String _ewk_settings_webkit_platform_get()
@@ -76,7 +84,7 @@ static WTF::String _ewk_settings_webkit_os_version_get()
 {
     WTF::String uaOsVersion;
 #if OS(DARWIN)
-#if CPU(X86)
+#if CPU(X86) || CPU(X86_64)
     uaOsVersion = "Intel Mac OS X";
 #else
     uaOsVersion = "PPC Mac OS X";
@@ -106,13 +114,6 @@ void ewk_settings_web_database_default_quota_set(uint64_t maximumSize)
     s_webDatabaseQuota = maximumSize;
 }
 
-void ewk_settings_web_database_clear()
-{
-#if ENABLE(SQL_DATABASE)
-    WebCore::DatabaseTracker::tracker().deleteAllDatabases();
-#endif
-}
-
 void ewk_settings_local_storage_path_set(const char* path)
 {
     WebCore::StorageTracker::tracker().setDatabaseDirectoryPath(WTF::String::fromUTF8(path));
@@ -140,7 +141,7 @@ void ewk_settings_local_storage_database_origin_clear(const char* url)
 void ewk_settings_web_database_path_set(const char* path)
 {
 #if ENABLE(SQL_DATABASE)
-    WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(WTF::String::fromUTF8(path));
+    WebCore::DatabaseManager::manager().setDatabaseDirectoryPath(WTF::String::fromUTF8(path));
     eina_stringshare_replace(&s_webDatabasePath, path);
 #endif
 }
@@ -194,11 +195,6 @@ Eina_Bool ewk_settings_icon_database_path_set(const char* directory)
 
 const char* ewk_settings_icon_database_path_get(void)
 {
-    if (!WebCore::iconDatabase().isEnabled())
-        return 0;
-    if (!WebCore::iconDatabase().isOpen())
-        return 0;
-
     return _ewk_icon_database_path;
 }
 
@@ -218,15 +214,11 @@ cairo_surface_t* ewk_settings_icon_database_icon_surface_get(const char* url)
     EINA_SAFETY_ON_NULL_RETURN_VAL(url, 0);
 
     WebCore::KURL kurl(WebCore::KURL(), WTF::String::fromUTF8(url));
-    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(kurl.string(), WebCore::IntSize(16, 16));
-
-    if (!icon) {
+    RefPtr<cairo_surface_t> icon = WebCore::iconDatabase().synchronousNativeIconForPageURL(kurl.string(), WebCore::IntSize(16, 16));
+    if (!icon)
         ERR("no icon for url %s", url);
-        return 0;
-    }
 
-    WebCore::NativeImageCairo* nativeImage = icon->nativeImageForCurrentFrame();
-    return nativeImage ? nativeImage->surface() : 0;
+    return icon.get();
 }
 
 Evas_Object* ewk_settings_icon_database_icon_object_get(const char* url, Evas* canvas)
@@ -235,15 +227,14 @@ Evas_Object* ewk_settings_icon_database_icon_object_get(const char* url, Evas* c
     EINA_SAFETY_ON_NULL_RETURN_VAL(canvas, 0);
 
     WebCore::KURL kurl(WebCore::KURL(), WTF::String::fromUTF8(url));
-    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(kurl.string(), WebCore::IntSize(16, 16));
+    RefPtr<cairo_surface_t> surface = WebCore::iconDatabase().synchronousNativeIconForPageURL(kurl.string(), WebCore::IntSize(16, 16));
 
-    if (!icon) {
+    if (!surface) {
         ERR("no icon for url %s", url);
         return 0;
     }
 
-    WebCore::NativeImageCairo* nativeImage = icon->nativeImageForCurrentFrame();
-    return nativeImage ? ewk_util_image_from_cairo_surface_add(canvas, nativeImage->surface()) : 0;
+    return surface ? WebCore::evasObjectFromCairoImageSurface(canvas, surface.get()).leakRef() : 0;
 }
 
 void ewk_settings_object_cache_capacity_set(unsigned minDeadCapacity, unsigned maxDeadCapacity, unsigned totalCapacity)
@@ -261,6 +252,37 @@ void ewk_settings_object_cache_enable_set(Eina_Bool enable)
     WebCore::memoryCache()->setDisabled(!enable);
 }
 
+Eina_Bool ewk_settings_shadow_dom_enable_get()
+{
+#if ENABLE(SHADOW_DOM)
+    return WebCore::RuntimeEnabledFeatures::shadowDOMEnabled();
+#else
+    return false;
+#endif
+}
+
+Eina_Bool ewk_settings_shadow_dom_enable_set(Eina_Bool enable)
+{
+#if ENABLE(SHADOW_DOM)
+    enable = !!enable;
+    WebCore::RuntimeEnabledFeatures::setShadowDOMEnabled(enable);
+    return true;
+#else
+    UNUSED_PARAM(enable);
+    return false;
+#endif
+}
+
+unsigned ewk_settings_page_cache_capacity_get()
+{
+    return WebCore::pageCache()->capacity();
+}
+
+void ewk_settings_page_cache_capacity_set(unsigned pages)
+{
+    WebCore::pageCache()->setCapacity(pages);
+}
+
 void ewk_settings_memory_cache_clear()
 {
     // Turn the cache on and off. Disabling the object cache will remove all
@@ -274,7 +296,6 @@ void ewk_settings_memory_cache_clear()
     int pageCapacity = WebCore::pageCache()->capacity();
     // Setting size to 0, makes all pages be released.
     WebCore::pageCache()->setCapacity(0);
-    WebCore::pageCache()->releaseAutoreleasedPagesNow();
     WebCore::pageCache()->setCapacity(pageCapacity);
 
     // Invalidating the font cache and freeing all inactive font data.
@@ -282,6 +303,18 @@ void ewk_settings_memory_cache_clear()
 
     // Empty the Cross-Origin Preflight cache
     WebCore::CrossOriginPreflightResultCache::shared().empty();
+
+    // Drop JIT compiled code from ExecutableAllocator.
+    WebCore::gcController().discardAllCompiledCode();
+    // Garbage Collect to release the references of CachedResource from dead objects.
+    WebCore::gcController().garbageCollectNow();
+
+    // FastMalloc has lock-free thread specific caches that can only be cleared from the thread itself.
+    WebCore::StorageThread::releaseFastMallocFreeMemoryInAllThreads();
+#if ENABLE(WORKERS)
+    WebCore::WorkerThread::releaseFastMallocFreeMemoryInAllThreads();
+#endif
+    WTF::releaseFastMallocFreeMemory();
 }
 
 void ewk_settings_repaint_throttling_set(double deferredRepaintDelay, double initialDeferredRepaintDelayDuringLoading, double maxDeferredRepaintDelayDuringLoading, double deferredRepaintDelayIncrementDuringLoading)
@@ -301,10 +334,27 @@ void ewk_settings_repaint_throttling_set(double deferredRepaintDelay, double ini
  */
 const char* ewk_settings_default_user_agent_get()
 {
-    WTF::String uaVersion = makeString(String::number(WEBKIT_USER_AGENT_MAJOR_VERSION), '.', String::number(WEBKIT_USER_AGENT_MINOR_VERSION), '+');
-    WTF::String staticUa = makeString("Mozilla/5.0 (", _ewk_settings_webkit_platform_get(), "; ", _ewk_settings_webkit_os_version_get(), ") AppleWebKit/", uaVersion) + makeString(" (KHTML, like Gecko) Version/5.0 Safari/", uaVersion);
+    WTF::String uaVersion = String::number(WEBKIT_MAJOR_VERSION) + '.' + String::number(WEBKIT_MINOR_VERSION) + '+';
+    WTF::String staticUa = "Mozilla/5.0 (" + _ewk_settings_webkit_platform_get() + "; " + _ewk_settings_webkit_os_version_get() + ") AppleWebKit/" + uaVersion + " (KHTML, like Gecko) Version/5.0 Safari/" + uaVersion;
 
     return eina_stringshare_add(staticUa.utf8().data());
+}
+
+/**
+ * @internal
+ *
+ * Sets the given path to the directory where WebKit will write for
+ * the HTML5 file system API.
+ *
+ * @param path the new file system directory path
+ */
+void ewk_settings_file_system_path_set(const char* path)
+{
+#if ENABLE(FILE_SYSTEM)
+    WebCore::LocalFileSystem::initializeLocalFileSystem(String::fromUTF8(path));
+#else
+    UNUSED_PARAM(path);
+#endif
 }
 
 void ewk_settings_application_cache_path_set(const char* path)
@@ -338,4 +388,14 @@ void ewk_settings_application_cache_clear()
 double ewk_settings_default_timer_interval_get(void)
 {
     return WebCore::Settings::defaultMinDOMTimerInterval();
+}
+
+void ewk_settings_css_media_type_set(const char* type)
+{
+    eina_stringshare_replace(&s_cssMediaType, type);
+}
+
+const char* ewk_settings_css_media_type_get()
+{
+    return s_cssMediaType;
 }

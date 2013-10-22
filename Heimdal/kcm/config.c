@@ -61,7 +61,6 @@ static const char *ticket_life = NULL;
 int launchd_flag = 0;
 int disallow_getting_krbtgt = 0;
 int use_uid_matching = 0;
-int name_constraints = -1;
 int max_num_requests = 100000;
 int kcm_timeout = -1;
 
@@ -110,10 +109,6 @@ static struct getargs args[] = {
     {
 	"lifetime",	'l', arg_string, &ticket_life,
 	"lifetime of system tickets", "time"
-    },
-    {
-	"name-constraints",	'n', arg_negative_flag, &name_constraints,
-	"disable credentials cache name constraints"
     },
     {
 	"disallow-getting-krbtgt", 0, arg_flag, &disallow_getting_krbtgt,

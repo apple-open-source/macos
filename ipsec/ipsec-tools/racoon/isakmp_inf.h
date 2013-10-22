@@ -34,33 +34,35 @@
 #ifndef _ISAKMP_INF_H
 #define _ISAKMP_INF_H
 
+#include "racoon_types.h"
 #include "proposal.h"
 
 struct saproto;
-extern int isakmp_info_recv __P((struct ph1handle *, vchar_t *));
-extern int isakmp_info_send_d1 __P((struct ph1handle *));
-extern int isakmp_info_send_d2 __P((struct ph2handle *));
-extern int isakmp_info_send_nx __P((struct isakmp *,
-	struct sockaddr_storage *, struct sockaddr_storage *, int, vchar_t *));
-extern int isakmp_info_send_n1 __P((struct ph1handle *, int, vchar_t *));
-extern int isakmp_info_send_n2 __P((struct ph2handle *, int, vchar_t *));
-extern int isakmp_info_send_common __P((struct ph1handle *,
-	vchar_t *, u_int32_t, int));
+extern int isakmp_info_recv (phase1_handle_t *, vchar_t *);
+extern int isakmp_info_send_d1 (phase1_handle_t *);
+extern int isakmp_info_send_d2 (phase2_handle_t *);
+extern int isakmp_info_send_nx (struct isakmp *,
+	struct sockaddr_storage *, struct sockaddr_storage *, int, vchar_t *);
+extern int isakmp_info_send_n1 (phase1_handle_t *, int, vchar_t *);
+extern int isakmp_info_send_n2 (phase2_handle_t *, int, vchar_t *);
+extern int isakmp_info_send_common (phase1_handle_t *,
+	vchar_t *, u_int32_t, int);
 
-extern vchar_t * isakmp_add_pl_n __P((vchar_t *, u_int8_t **, int,
-	struct saproto *, vchar_t *));
+extern vchar_t * isakmp_add_pl_n (vchar_t *, u_int8_t **, int,
+	struct saproto *, vchar_t *);
 
-extern void isakmp_check_notify __P((struct isakmp_gen *, struct ph1handle *));
+extern void isakmp_check_notify (struct isakmp_gen *, phase1_handle_t *);
 
-extern void isakmp_check_ph2_notify __P((struct isakmp_gen *, struct ph2handle *));
+extern void isakmp_check_ph2_notify (struct isakmp_gen *, phase2_handle_t *);
 
 #ifdef ENABLE_DPD
-extern int isakmp_sched_r_u __P((struct ph1handle *, int));
-extern void isakmp_reschedule_info_monitor_if_pending __P((struct ph1handle *, char *));
-extern void isakmp_info_send_r_u __P((void *));
+extern int isakmp_sched_r_u (phase1_handle_t *, int);
+extern void isakmp_reschedule_info_monitor_if_pending (phase1_handle_t *, char *);
+extern void isakmp_info_send_r_u (void *);
 #endif
 
-extern void purge_ipsec_spi __P((struct sockaddr_storage *, int,	u_int32_t *, size_t));
-extern int tunnel_mode_prop __P((struct saprop *));
+extern void purge_ipsec_spi (struct sockaddr_storage *, int,	u_int32_t *, size_t, u_int32_t *, size_t *);
+extern int tunnel_mode_prop (struct saprop *);
+extern void info_recv_initialcontact (phase1_handle_t *);
 
 #endif /* _ISAKMP_INF_H */

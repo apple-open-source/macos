@@ -331,7 +331,7 @@ MAINPROGRAM
 	die "$compile exited funny: $?" unless $status == 0;
 
 	$status = system( <<"LINKERSTEP");
-(cd ${TMPDIR} ; /usr/bin/g++ -o generateErrStrings generateErrStrings.o -framework Foundation )
+(cd ${TMPDIR} ; /usr/bin/clang++ -o generateErrStrings generateErrStrings.o -framework Foundation )
 LINKERSTEP
 	die "$linker exited funny: $?" unless $status == 0;
 

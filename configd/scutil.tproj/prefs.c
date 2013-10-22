@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,7 +69,7 @@ __loadSecurity(void) {
 }
 
 
-__private_extern__ OSStatus
+static OSStatus
 _AuthorizationCreate(const AuthorizationRights *rights, const AuthorizationEnvironment *environment, AuthorizationFlags flags, AuthorizationRef *authorization)
 {
 	#undef AuthorizationCreate
@@ -83,7 +83,7 @@ _AuthorizationCreate(const AuthorizationRights *rights, const AuthorizationEnvir
 #define AuthorizationCreate _AuthorizationCreate
 
 
-__private_extern__ OSStatus
+static OSStatus
 _AuthorizationFree(AuthorizationRef authorization, AuthorizationFlags flags)
 {
 	#undef AuthorizationFree
@@ -99,28 +99,47 @@ _AuthorizationFree(AuthorizationRef authorization, AuthorizationFlags flags)
 
 /* -------------------- */
 
-
-static AuthorizationRef
-_createAuthorization()
+__private_extern__
+AuthorizationRef
+_prefs_AuthorizationCreate()
 {
 	AuthorizationRef	authorization	= NULL;
-	AuthorizationFlags	flags		= kAuthorizationFlagDefaults;
-	OSStatus		status;
 
-	status = AuthorizationCreate(NULL,
-				     kAuthorizationEmptyEnvironment,
-				     flags,
-				     &authorization);
-	if (status != errAuthorizationSuccess) {
-		SCPrint(TRUE,
-			stdout,
-			CFSTR("AuthorizationCreate() failed: status = %d\n"),
-			status);
-		return NULL;
+	if (getenv("SCPREFERENCES_USE_ENTITLEMENTS") != NULL) {
+		authorization = kSCPreferencesUseEntitlementAuthorization;
+	} else {
+		AuthorizationFlags	flags	= kAuthorizationFlagDefaults;
+		OSStatus		status;
+
+		status = AuthorizationCreate(NULL,
+					     kAuthorizationEmptyEnvironment,
+					     flags,
+					     &authorization);
+		if (status != errAuthorizationSuccess) {
+			SCPrint(TRUE,
+				stdout,
+				CFSTR("AuthorizationCreate() failed: status = %d\n"),
+				status);
+			return NULL;
+		}
 	}
 
 	return authorization;
 }
+
+
+__private_extern__
+void
+_prefs_AuthorizationFree(AuthorizationRef authorization)
+{
+	if (authorization != kSCPreferencesUseEntitlementAuthorization) {
+		AuthorizationFree(authorization, kAuthorizationFlagDefaults);
+//		AuthorizationFree(authorization, kAuthorizationFlagDestroyRights);
+	}
+
+	return;
+}
+
 #endif	/* !TARGET_OS_IPHONE */
 
 /* -------------------- */
@@ -144,9 +163,9 @@ _prefs_open(CFStringRef name, CFStringRef prefsID)
 		useHelper = TRUE;
 
 #if	!TARGET_OS_IPHONE
-		authorization = _createAuthorization();
+		authorization = _prefs_AuthorizationCreate();
 #else
-		authorization = (AuthorizationRef)kSCPreferencesUseEntitlementAuthorization;
+		authorization = kSCPreferencesUseEntitlementAuthorization;
 #endif	/* !TARGET_OS_IPHONE */
 	}
 
@@ -228,8 +247,7 @@ _prefs_close()
 
 	if (authorization != NULL) {
 #if	!TARGET_OS_IPHONE
-		AuthorizationFree(authorization, kAuthorizationFlagDefaults);
-//		AuthorizationFree(authorization, kAuthorizationFlagDestroyRights);
+		_prefs_AuthorizationFree(authorization);
 #else	/* !TARGET_OS_IPHONE */
 		// Uh...if authorization isn't NULL, something went horribly wrong.
 #endif	/* !TARGET_OS_IPHONE */
@@ -320,7 +338,12 @@ set_ComputerName(int argc, char **argv)
 	}
 
 	if (argc == 0) {
-		hostname = _copyStringFromSTDIN();
+		CFStringEncoding	old_encoding;
+		CFStringRef		old_hostname;
+
+		old_hostname = SCDynamicStoreCopyComputerName(NULL, &old_encoding);
+		hostname = _copyStringFromSTDIN(CFSTR("ComputerName"), old_hostname);
+		if (old_hostname) CFRelease(old_hostname);
 	} else {
 		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
@@ -400,7 +423,7 @@ set_HostName(int argc, char **argv)
 	}
 
 	if (argc == 0) {
-		hostname = _copyStringFromSTDIN();
+		hostname = _copyStringFromSTDIN(CFSTR("HostName"), SCPreferencesGetHostName(prefs));
 	} else {
 		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
@@ -470,7 +493,11 @@ set_LocalHostName(int argc, char **argv)
 	}
 
 	if (argc == 0) {
-		hostname = _copyStringFromSTDIN();
+		CFStringRef	old_hostname;
+
+		old_hostname = SCDynamicStoreCopyLocalHostName(NULL);
+		hostname = _copyStringFromSTDIN(CFSTR("LocalHostName"), old_hostname);
+		if (old_hostname) CFRelease(old_hostname);
 	} else {
 		hostname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	}
@@ -531,11 +558,37 @@ do_getPref(char *pref, int argc, char **argv)
 {
 	int	i;
 
-	i = findPref(pref);
-	if (i >= 0) {
-		(*pref_keys[i].get)(argc, argv);
+	if (argc == 0) {
+		i = findPref(pref);
+		if (i >= 0) {
+			(*pref_keys[i].get)(argc, argv);
+		}
+		return;
 	}
-	return;
+
+	// Add support to parse out extended get
+	// ie. scutil --get <filename> <prefs path> <key>
+	do_prefs_init();
+	do_prefs_open(argc, argv);
+	do_prefs_get(--argc, ++argv);
+
+	if (value != NULL) {
+		CFStringRef key;
+		CFStringRef prefs_val;
+
+		key = CFStringCreateWithCString(NULL, *(++argv), kCFStringEncodingUTF8);
+		prefs_val = CFDictionaryGetValue(value, key);
+		CFRelease(key);
+
+		if (prefs_val != NULL) {
+			SCPrint(TRUE, stdout, CFSTR("%@\n"), prefs_val);
+		} else {
+			_prefs_close();
+			exit(1);
+		}
+	}
+	_prefs_close();
+	exit(0);
 }
 
 
@@ -917,3 +970,43 @@ do_prefs_remove(int argc, char **argv)
 	CFRelease(path);
 	return;
 }
+
+/* -------------------- */
+
+#include "IPMonitorControlPrefs.h"
+
+__private_extern__
+void
+do_log(char * log, int argc, char **argv)
+{
+	if (strcmp(log, "IPMonitor")) {
+	    exit(0);
+	}
+	if (argc == 0) {
+	    printf("IPMonitor log is %s\n",
+		   IPMonitorControlPrefsIsVerbose() ? "on" : "off");
+	}
+	else {
+	    Boolean	verbose = FALSE;
+
+	    if (strcasecmp(argv[0], "on") == 0) {
+		verbose = TRUE;
+	    }
+	    else if (strcasecmp(argv[0], "off") == 0) {
+		verbose = FALSE;
+	    }
+	    else {
+		fprintf(stderr, "%s invalid, must be 'on' or 'off'\n",
+			argv[0]);
+		exit(1);
+	    }
+	    if (IPMonitorControlPrefsSetVerbose(verbose) == FALSE) {
+		fprintf(stderr, "failed to set preferences\n");
+		exit(2);
+	    }
+	}
+	exit(0);
+	return;
+}
+
+

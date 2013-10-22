@@ -13,6 +13,11 @@ Extra_LD_Flags        = -L${OBJROOT}/libraries -L/usr/local/BerkeleyDB/lib/
 Extra_Environment     = CPPFLAGS="-I/usr/include/sasl -I/usr/local/BerkeleyDB/include"
 Extra_Environment    += AR=${SRCROOT}/ar.sh
 
+ifeq "$(DSS_BUILD_PARALLEL)" "yes"
+ncpus = $(shell sysctl hw.ncpu | awk '{print $$2}')
+Extra_Make_Flags    += -j$(ncpus)
+endif
+
 ifeq "$(RC_ProjectName)" "LDAPFramework"
 GnuAfterInstall = apple_framework
 else
@@ -27,12 +32,12 @@ Extra_Configure_Flags += --prefix=${DSTROOT}/private --sysconfdir=${DSTROOT}/pri
 Extra_Configure_Flags +=  --enable-overlays=yes --enable-dynid=yes --enable-auditlog=yes --enable-unique=yes --enable-odlocales=yes --enable-odusers=yes
 Install_Target = install
 
-Extra_CC_Flags        += -F/System/Library/PrivateFrameworks
-Extra_LD_Libraries    += -framework CoreFoundation -framework Security -framework SystemConfiguration -framework IOKit
+Extra_CC_Flags        += -F/System/Library/PrivateFrameworks -F/System/Library/Frameworks/OpenDirectory.framework/Frameworks
+Extra_LD_Libraries    += -framework CoreFoundation -framework Security -framework SystemConfiguration -framework IOKit 
 ifeq "$(RC_ProjectName)" "LDAPFramework"
 Extra_LD_Libraries    += 
 else
-Extra_LD_Libraries    += -framework Heimdal -framework OpenDirectory -lpac
+Extra_LD_Libraries    += -framework Heimdal -framework OpenDirectory -framework HeimODAdmin -framework CommonAuth -lpac -framework PasswordServer
 endif
 Extra_Configure_Flags += --enable-local --enable-crypt --with-tls --program-transform-name="s/^sl/ni-sl/"
 
@@ -62,12 +67,13 @@ apple_port:
 	cp $(SRCROOT)/AppleExtras/Resources/org.openldap.slapd.plist $(DSTROOT)/System/Library/LaunchDaemons
 	rm -rf ${DSTROOT}/usr/include # remove includes from server target
 	rm -rf ${DSTROOT}/usr/local/include # remove local includes from server target
+	rm -f ${DSTROOT}/private/etc/openldap/slapd.ldif* # remove unused files from server target
 
 apple_framework:
 	rm -rf ${OBJROOT}/libraries/liblber/*test.o
 	rm -rf ${OBJROOT}/libraries/libldap/*test.o
 	rm -rf ${OBJROOT}/libraries/libldap_r/*test.o
-	gcc ${RC_CFLAGS} -install_name /System/Library/Frameworks/LDAP.framework/Versions/A/LDAP -compatibility_version 1.0.0 -current_version 2.4.0 \
+	xcrun cc ${RC_CFLAGS} -install_name /System/Library/Frameworks/LDAP.framework/Versions/A/LDAP -compatibility_version 1.0.0 -current_version 2.4.0 \
 		-o ${SYMROOT}/LDAP ${LDAP_SECTORDER_FLAGS} ${OBJROOT}/libraries/liblber/*.o ${OBJROOT}/libraries/libldap_r/*.o \
 		-lsasl2 -lcrypto -lssl -lresolv ${Extra_LD_Libraries} "-Wl,-exported_symbols_list" \
 		${SRCROOT}/AppleExtras/ldap.exp -twolevel_namespace -dead_strip "-Wl,-single_module" -dynamiclib

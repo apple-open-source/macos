@@ -39,6 +39,7 @@ _SecCodeSetDetachedSignature
 _kSecCodeAttributeArchitecture
 _kSecCodeAttributeBundleVersion
 _kSecCodeAttributeSubarchitecture
+_kSecCodeAttributeUniversalFileOffset
 _SecStaticCodeGetTypeID
 _SecStaticCodeCreateWithPath
 _SecStaticCodeCreateWithPathAndAttributes
@@ -93,6 +94,7 @@ _kSecCodeInfoTime
 _kSecCodeInfoDesignatedRequirement
 _kSecCodeInfoEntitlements
 _kSecCodeInfoEntitlementsDict
+_kSecCodeInfoFlags
 _kSecCodeInfoFormat
 _kSecCodeInfoDigestAlgorithm
 _kSecCodeInfoIdentifier
@@ -131,6 +133,7 @@ _SecTaskCreateWithAuditToken
 _SecTaskCreateFromSelf
 _SecTaskCopyValueForEntitlement
 _SecTaskCopyValuesForEntitlements
+_SecTaskValidateForRequirement
 
 # Assessments
 _SecAssessmentCreate
@@ -156,6 +159,6 @@ _kSecAssessmentAssessmentAuthorityRow
 _kSecAssessmentAssessmentFromCache
 _kSecAssessmentAssessmentOriginator
 _kSecAssessmentAssessmentAuthorityOverride
+_kSecAssessmentAssessmentOriginalVerdict
 _kSecAssessmentAssessmentSource
 _kSecAssessmentAssessmentVerdict
-_kSecAssessmentContextKeyCertificates

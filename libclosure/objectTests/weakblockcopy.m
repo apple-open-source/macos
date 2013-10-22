@@ -19,6 +19,7 @@
 #import <Foundation/Foundation.h>
 #import "Block_private.h"
 #import <objc/objc-auto.h>
+#import <pthread.h>
 #import "test.h"
 
 // provide our own version for testing

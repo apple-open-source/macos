@@ -25,9 +25,15 @@
 #include <libkern/OSThermalNotification.h>
 #include <notify.h>
 
+#define OSThermalAlert      "com.apple.system.thermalalert"
+#define OSThermalDecision   "com.apple.system.thermaldecision"
 #define OSThermalStatusName "com.apple.system.thermalstatus"
+#define OSThermalPressureLevelName		"com.apple.system.thermalpressurelevel"
 
-const char * const kOSThermalNotificationName = OSThermalStatusName; 
+const char * const kOSThermalNotificationAlert    = OSThermalAlert;
+const char * const kOSThermalNotificationDecision = OSThermalDecision;
+const char * const kOSThermalNotificationName     = OSThermalStatusName;
+const char * const kOSThermalNotificationPressureLevelName = OSThermalPressureLevelName;
 
 static const char * const kOSThermalMitigationNames[kOSThermalMitigationCount] = {
 	OSThermalStatusName,

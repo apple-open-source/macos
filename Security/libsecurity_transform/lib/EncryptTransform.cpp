@@ -33,8 +33,8 @@
 
 static CFStringRef kEncryptTransformType = CFSTR("Encrypt Transform");
 static CFStringRef kDecryptTransformType = CFSTR("Decrypt Transform");
-static const char *kEncryptTransformType_cstr = "Encrypt Transform";
-static const char *kDecryptTransformType_cstr = "Decrypt Transform";
+//static const char *kEncryptTransformType_cstr = "Encrypt Transform";
+//static const char *kDecryptTransformType_cstr = "Decrypt Transform";
 static uint8 iv[16] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
 static const CSSM_DATA gKeySalt = {16, iv}; // default Salt for key
 
@@ -132,9 +132,9 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 		return CreateSecTransformErrorRef(kSecTransformErrorAttributeNotFound, "The attribute %@ was not found.", kSecEncryptKey);
 	}
 	
-	OSStatus err = noErr;
+	OSStatus err = errSecSuccess;
 	err = SecKeyGetCSSMKey(key, (const CSSM_KEY **)&m_cssm_key);
-	if (noErr != err)
+	if (errSecSuccess != err)
 	{
 		CFStringRef result = SecCopyErrorMessageString(err, NULL);
 		CFErrorRef retValue = CreateSecTransformErrorRef(err, "CDSA error (%@).", result);
@@ -144,7 +144,7 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 	
 	CSSM_CSP_HANDLE csp;
 	err = SecKeyGetCSPHandle(key, &csp);
-	if (noErr != err)
+	if (errSecSuccess != err)
 	{
 		CFStringRef result = SecCopyErrorMessageString(err, NULL);
 		CFErrorRef retValue = CreateSecTransformErrorRef(err, "CDSA error (%@).", result);
@@ -242,7 +242,7 @@ CFErrorRef EncryptDecryptBase::SerializedTransformStartingExecution()
 								   kSecCredentialTypeDefault,
 								   (const CSSM_ACCESS_CREDENTIALS **)&credPtr);
 		
-		if (noErr != err)
+		if (errSecSuccess != err)
 		{
 			memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 			credPtr = &creds;
@@ -321,6 +321,8 @@ void EncryptDecryptBase::SendCSSMError(CSSM_RETURN retCode)
 	CFRelease(errorRef);
 }
 
+#warning "This declaration should be in some header"
+void xor_bytes(UInt8 *dst, const UInt8 *src1, const UInt8 *src2, CFIndex length);
 void xor_bytes(UInt8 *dst, const UInt8 *src1, const UInt8 *src2, CFIndex length)
 {
 	// NOTE: this can be made faster, but see if we already have a faster version somewhere first.
@@ -509,10 +511,10 @@ CFDataRef EncryptDecryptBase::apply_oaep_padding(CFDataRef dataValue)
 		CFNumberGetValue(desired_message_length_cf, kCFNumberIntType, &desired_message_length);
 	} else {
 		// take RSA (or whatever crypto) block size onto account too
-		RSA_size.SizeInputBlock = CFDataGetLength(dataValue) + 2*hLen +1;
+		RSA_size.SizeInputBlock = (uint32)(CFDataGetLength(dataValue) + 2*hLen +1);
 		RSA_size.SizeOutputBlock = 0;
 		OSStatus status = CSSM_QuerySize(m_handle, CSSM_TRUE, 1, &RSA_size);
-		if (status != noErr) {
+		if (status != errSecSuccess) {
 			CFStringRef errorString = SecCopyErrorMessageString(status, NULL);
 			error = CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "CDSA error (%@).", errorString);
 			CFRelease(errorString);
@@ -559,7 +561,7 @@ CFDataRef EncryptDecryptBase::apply_oaep_padding(CFDataRef dataValue)
 		RSA_size.SizeInputBlock = CFDataGetLength(dataValue) + 2*hLen +1;
 		RSA_size.SizeOutputBlock = 0;
 		OSStatus status = CSSM_QuerySize(m_handle, CSSM_TRUE, 1, &RSA_size);
-		if (status != noErr) {
+		if (status != errSecSuccess) {
 			CFStringRef errorString = SecCopyErrorMessageString(status, NULL);
 			error = CreateSecTransformErrorRef(kSecTransformErrorInvalidOperation, "CDSA error (%@).", errorString);
 			CFRelease(errorString);

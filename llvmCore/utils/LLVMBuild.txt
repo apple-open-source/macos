@@ -15,6 +15,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = TableGen unittest
+
 [component_0]
 type = Group
 name = BuildTools
@@ -24,4 +27,3 @@ parent = $ROOT
 type = Group
 name = UtilityTools
 parent = $ROOT
-

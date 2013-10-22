@@ -26,10 +26,14 @@
 #import "config.h"
 #import "WKContextPrivateMac.h"
 
+#import "ImmutableArray.h"
 #import "ImmutableDictionary.h"
 #import "PluginInfoStore.h"
+#import "PluginInformation.h"
+#import "PluginSandboxProfile.h"
 #import "StringUtilities.h"
 #import "WKAPICast.h"
+#import "WKPluginInformation.h"
 #import "WKSharedAPICast.h"
 #import "WKStringCF.h"
 #import "WebContext.h"
@@ -40,54 +44,83 @@
 
 using namespace WebKit;
 
+bool WKContextGetProcessSuppressionEnabled(WKContextRef contextRef)
+{
+    return toImpl(contextRef)->processSuppressionEnabled();
+}
+
+void WKContextSetProcessSuppressionEnabled(WKContextRef contextRef, bool enabled)
+{
+    toImpl(contextRef)->setProcessSuppressionEnabled(enabled);
+}
+
 bool WKContextIsPlugInUpdateAvailable(WKContextRef contextRef, WKStringRef plugInBundleIdentifierRef)
 {
     return WKIsPluginUpdateAvailable((NSString *)adoptCF(WKStringCopyCFString(kCFAllocatorDefault, plugInBundleIdentifierRef)).get());
 }
 
+WKDictionaryRef WKContextCopyPlugInInfoForBundleIdentifier(WKContextRef contextRef, WKStringRef plugInBundleIdentifierRef)
+{
+    PluginModuleInfo plugin = toImpl(contextRef)->pluginInfoStore().findPluginWithBundleIdentifier(toWTFString(plugInBundleIdentifierRef));
+    if (plugin.path.isNull())
+        return 0;
+
+    RefPtr<ImmutableDictionary> dictionary = createPluginInformationDictionary(plugin);
+    return toAPI(dictionary.release().leakRef());
+}
+
+void WKContextGetInfoForInstalledPlugIns(WKContextRef contextRef, WKContextGetInfoForInstalledPlugInsBlock block)
+{
+    Vector<PluginModuleInfo> plugins = toImpl(contextRef)->pluginInfoStore().plugins();
+
+    Vector<RefPtr<APIObject>> pluginInfoDictionaries;
+    for (const auto& plugin: plugins)
+        pluginInfoDictionaries.append(createPluginInformationDictionary(plugin));
+
+    RefPtr<ImmutableArray> array = ImmutableArray::adopt(pluginInfoDictionaries);
+
+    toImpl(contextRef)->ref();
+    dispatch_async(dispatch_get_main_queue(), ^() {
+        block(toAPI(array.get()), 0);
+    
+        toImpl(contextRef)->deref();
+    });
+}
+
+void WKContextResetHSTSHosts(WKContextRef context)
+{
+    return toImpl(context)->resetHSTSHosts();
+}
+
+
+/* DEPRECATED -  Please use constants from WKPluginInformation instead. */
 
 WKStringRef WKPlugInInfoPathKey()
 {
-    static WebString* key = WebString::createFromUTF8String("WKPlugInInfoPath").leakRef();
-    return toAPI(key);
+    return WKPluginInformationPathKey();
 }
 
 WKStringRef WKPlugInInfoBundleIdentifierKey()
 {
-    static WebString* key = WebString::createFromUTF8String("WKPlugInInfoBundleIdentifier").leakRef();
-    return toAPI(key);
+    return WKPluginInformationBundleIdentifierKey();
 }
 
 WKStringRef WKPlugInInfoVersionKey()
 {
-    static WebString* key = WebString::createFromUTF8String("WKPlugInInfoVersion").leakRef();
-    return toAPI(key);
+    return WKPluginInformationBundleVersionKey();
 }
 
 WKStringRef WKPlugInInfoLoadPolicyKey()
 {
-    static WebString* key = WebString::createFromUTF8String("WKPlugInInfoLoadPolicy").leakRef();
-    return toAPI(key);
+    return WKPluginInformationDefaultLoadPolicyKey();
 }
 
 WKStringRef WKPlugInInfoUpdatePastLastBlockedVersionIsKnownAvailableKey()
 {
-    static WebString* key = WebString::createFromUTF8String("WKPlugInInfoUpdatePastLastBlockedVersionIsKnownAvailable").leakRef();
-    return toAPI(key);
+    return WKPluginInformationUpdatePastLastBlockedVersionIsKnownAvailableKey();
 }
 
-WKDictionaryRef WKContextCopyPlugInInfoForBundleIdentifier(WKContextRef contextRef, WKStringRef plugInBundleIdentifierRef)
+WKStringRef WKPlugInInfoIsSandboxedKey()
 {
-    PluginModuleInfo info = toImpl(contextRef)->pluginInfoStore().findPluginWithBundleIdentifier(toWTFString(plugInBundleIdentifierRef));
-    if (info.path.isNull())
-        return 0;
-
-    ImmutableDictionary::MapType map;
-    map.set(toWTFString(WKPlugInInfoPathKey()), WebString::create(info.path));
-    map.set(toWTFString(WKPlugInInfoBundleIdentifierKey()), WebString::create(info.bundleIdentifier));
-    map.set(toWTFString(WKPlugInInfoVersionKey()), WebString::create(info.versionString));
-    map.set(toWTFString(WKPlugInInfoLoadPolicyKey()), WebUInt64::create(toWKPluginLoadPolicy(PluginInfoStore::policyForPlugin(info))));
-    map.set(toWTFString(WKPlugInInfoUpdatePastLastBlockedVersionIsKnownAvailableKey()), WebBoolean::create(WKIsPluginUpdateAvailable(nsStringFromWebCoreString(info.bundleIdentifier))));
-
-    return toAPI(ImmutableDictionary::adopt(map).leakRef());
+    return WKPluginInformationHasSandboxProfileKey();
 }

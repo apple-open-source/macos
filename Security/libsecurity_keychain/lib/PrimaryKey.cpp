@@ -52,13 +52,13 @@ PrimaryKeyImpl::PrimaryKeyImpl(const DbAttributes &primaryKeyAttrs) : mMutex(Mut
 	}
 
 	// Careful with exceptions
-	Data = mAllocator.alloc<uint8>(Length);
+	Data = mAllocator.alloc<uint8>((UInt32)Length);
 	uint8 *p = Data;
 
 	putUInt32(p, primaryKeyAttrs.recordType());
 	for (uint32 ix = 0; ix < primaryKeyAttrs.size(); ++ix)
 	{
-		uint32 len = primaryKeyAttrs.at(ix).Value[0].Length;
+		UInt32 len = (UInt32)primaryKeyAttrs.at(ix).Value[0].Length;
 		putUInt32(p, len);
 		memcpy(p, primaryKeyAttrs.at(ix).Value[0].Data, len);
 		p += len;
@@ -73,7 +73,7 @@ PrimaryKeyImpl::createCursor(const Keychain &keychain)
 
 	// @@@ Set up cursor to find item with this.
 	uint8 *p = Data;
-	uint32 left = Length;
+	uint32 left = (uint32)Length;
 	if (left < sizeof(*p))
 		MacOSError::throwMe(errSecNoSuchAttr); // XXX Not really but whatever.
 
@@ -129,6 +129,6 @@ CSSM_DB_RECORDTYPE
 PrimaryKeyImpl::recordType() const
 {
 	uint8 *data = Data;
-	uint32 length = Length;
+	uint32 length = (uint32)Length;
 	return getUInt32(data, length);
 }

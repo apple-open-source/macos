@@ -27,18 +27,23 @@
 #include "NodeRenderingContext.h"
 
 #include "ContainerNode.h"
+#include "ContentDistributor.h"
+#include "ElementShadow.h"
 #include "FlowThreadController.h"
 #include "HTMLContentElement.h"
-#include "HTMLContentSelector.h"
+#include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "HTMLShadowElement.h"
 #include "Node.h"
+#include "PseudoElement.h"
 #include "RenderFullScreen.h"
 #include "RenderNamedFlowThread.h"
 #include "RenderObject.h"
+#include "RenderText.h"
 #include "RenderView.h"
 #include "ShadowRoot.h"
-#include "ShadowTree.h"
+#include "StyleInheritedData.h"
+#include "StyleResolver.h"
+#include "Text.h"
 
 #if ENABLE(SVG)
 #include "SVGNames.h"
@@ -48,363 +53,285 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static RenderObject* firstRendererOf(Node*);
-static RenderObject* lastRendererOf(Node*);
-
 NodeRenderingContext::NodeRenderingContext(Node* node)
-    : m_phase(AttachingNotInTree)
-    , m_node(node)
-    , m_parentNodeForRenderingAndStyle(0)
-    , m_visualParentShadowTree(0)
-    , m_insertionPoint(0)
-    , m_style(0)
+    : m_node(node)
     , m_parentFlowRenderer(0)
 {
-    ContainerNode* parent = m_node->parentOrHostNode();
-    if (!parent)
-        return;
-
-    if (parent->isShadowRoot() && toShadowRoot(parent)->isYoungest()) {
-        m_phase = AttachingShadowChild;
-        m_parentNodeForRenderingAndStyle = parent->shadowHost();
-        return;
-    }
-
-    if (parent->isElementNode() || parent->isShadowRoot()) {
-        if (parent->isElementNode() && toElement(parent)->hasShadowRoot())
-            m_visualParentShadowTree = toElement(parent)->shadowTree();
-        else if (parent->isShadowRoot())
-            m_visualParentShadowTree = toShadowRoot(parent)->tree();
-
-        if (m_visualParentShadowTree) {
-            if ((m_insertionPoint = m_visualParentShadowTree->insertionPointFor(m_node))) {
-                if (toShadowRoot(m_insertionPoint->shadowTreeRootNode())->isUsedForRendering()) {
-                    m_phase = AttachingDistributed;
-                    m_parentNodeForRenderingAndStyle = NodeRenderingContext(m_insertionPoint).parentNodeForRenderingAndStyle();
-                    return;
-                }
-            }
-
-            m_phase = AttachingNotDistributed;
-            m_parentNodeForRenderingAndStyle = parent;
-            return;
-        }
-
-        if (isShadowBoundary(parent)) {
-            if (!toShadowRoot(parent->shadowTreeRootNode())->isUsedForRendering()) {
-                m_phase = AttachingNotDistributed;
-                m_parentNodeForRenderingAndStyle = parent;
-                return;
-            }
-
-            if (toInsertionPoint(parent)->hasSelection())
-                m_phase = AttachingNotFallbacked;
-            else
-                m_phase = AttachingFallbacked;
-
-            if (toInsertionPoint(parent)->isActive())
-                m_parentNodeForRenderingAndStyle = NodeRenderingContext(parent).parentNodeForRenderingAndStyle();
-            else
-                m_parentNodeForRenderingAndStyle = parent;
-            return;
-        }
-    }
-
-    m_phase = AttachingStraight;
-    m_parentNodeForRenderingAndStyle = parent;
+    m_renderingParent = NodeRenderingTraversal::parent(node, &m_parentDetails);
 }
 
 NodeRenderingContext::NodeRenderingContext(Node* node, RenderStyle* style)
-    : m_phase(Calculating)
-    , m_node(node)
-    , m_parentNodeForRenderingAndStyle(0)
-    , m_visualParentShadowTree(0)
-    , m_insertionPoint(0)
+    : m_node(node)
+    , m_renderingParent(0)
     , m_style(style)
     , m_parentFlowRenderer(0)
 {
+}
+
+NodeRenderingContext::NodeRenderingContext(Node* node, const Node::AttachContext& context)
+    : m_node(node)
+    , m_style(context.resolvedStyle)
+    , m_parentFlowRenderer(0)
+{
+    m_renderingParent = NodeRenderingTraversal::parent(node, &m_parentDetails);
 }
 
 NodeRenderingContext::~NodeRenderingContext()
 {
 }
 
-void NodeRenderingContext::setStyle(PassRefPtr<RenderStyle> style)
+static bool isRendererReparented(const RenderObject* renderer)
 {
-    m_style = style;
-    moveToFlowThreadIfNeeded();
+    if (!renderer->node()->isElementNode())
+        return false;
+    if (renderer->style() && !renderer->style()->flowThread().isEmpty())
+        return true;
+#if ENABLE(DIALOG_ELEMENT)
+    if (toElement(renderer->node())->isInTopLayer())
+        return true;
+#endif
+    return false;
 }
 
-PassRefPtr<RenderStyle> NodeRenderingContext::releaseStyle()
+RenderObject* NodeRenderingContext::nextRenderer() const
 {
-    return m_style.release();
-}
+    if (RenderObject* renderer = m_node->renderer())
+        return renderer->nextSibling();
 
-static inline RenderObject* nextRendererOfInsertionPoint(InsertionPoint* parent, Node* current)
-{
-    HTMLContentSelection* currentSelection = parent->selections()->find(current);
-    if (!currentSelection)
+#if ENABLE(DIALOG_ELEMENT)
+    Element* element = m_node->isElementNode() ? toElement(m_node) : 0;
+    if (element && element->isInTopLayer()) {
+        const Vector<RefPtr<Element> >& topLayerElements = element->document()->topLayerElements();
+        size_t position = topLayerElements.find(element);
+        ASSERT(position != notFound);
+        for (size_t i = position + 1; i < topLayerElements.size(); ++i) {
+            if (RenderObject* renderer = topLayerElements[i]->renderer())
+                return renderer;
+        }
+        return 0;
+    }
+#endif
+
+    if (m_parentFlowRenderer)
+        return m_parentFlowRenderer->nextRendererForNode(m_node);
+
+    // Avoid an O(N^2) problem with this function by not checking for
+    // nextRenderer() when the parent element hasn't attached yet.
+    if (m_renderingParent && !m_renderingParent->attached())
         return 0;
 
-    for (HTMLContentSelection* selection = currentSelection->next(); selection; selection = selection->next()) {
-        if (RenderObject* renderer = selection->node()->renderer())
+    for (Node* sibling = NodeRenderingTraversal::nextSibling(m_node); sibling; sibling = NodeRenderingTraversal::nextSibling(sibling)) {
+        RenderObject* renderer = sibling->renderer();
+        if (renderer && !isRendererReparented(renderer))
             return renderer;
     }
 
     return 0;
 }
 
-static inline RenderObject* previousRendererOfInsertionPoint(InsertionPoint* parent, Node* current)
-{
-    RenderObject* lastRenderer = 0;
-
-    for (HTMLContentSelection* selection = parent->selections()->first(); selection; selection = selection->next()) {
-        if (selection->node() == current)
-            break;
-        if (RenderObject* renderer = selection->node()->renderer())
-            lastRenderer = renderer;
-    }
-
-    return lastRenderer;
-}
-
-static inline RenderObject* firstRendererOfInsertionPoint(InsertionPoint* parent)
-{
-    if (parent->hasSelection()) {
-        for (HTMLContentSelection* selection = parent->selections()->first(); selection; selection = selection->next()) {
-            if (RenderObject* renderer = selection->node()->renderer())
-                return renderer;
-        }
-
-        return 0;
-    }
-
-    return firstRendererOf(parent->firstChild());
-}
-
-static inline RenderObject* lastRendererOfInsertionPoint(InsertionPoint* parent)
-{
-    if (parent->hasSelection()) {
-        for (HTMLContentSelection* selection = parent->selections()->last(); selection; selection = selection->previous()) {
-            if (RenderObject* renderer = selection->node()->renderer())
-                return renderer;
-        }
-
-        return 0;
-    }
-
-    return lastRendererOf(parent->lastChild());
-}
-
-static inline RenderObject* firstRendererOf(Node* node)
-{
-    for (; node; node = node->nextSibling()) {
-        if (node->renderer()) {
-            // Do not return elements that are attached to a different flow-thread.
-            if (node->renderer()->style() && !node->renderer()->style()->flowThread().isEmpty())
-                continue;
-            return node->renderer();
-        }
-
-        if (isInsertionPoint(node) && toInsertionPoint(node)->isActive()) {
-            if (RenderObject* first = firstRendererOfInsertionPoint(toInsertionPoint(node)))
-                return first;
-        }
-    }
-
-    return 0;
-}
-
-static inline RenderObject* lastRendererOf(Node* node)
-{
-    for (; node; node = node->previousSibling()) {
-        if (node->renderer()) {
-            // Do not return elements that are attached to a different flow-thread.
-            if (node->renderer()->style() && !node->renderer()->style()->flowThread().isEmpty())
-                continue;
-            return node->renderer();
-        }
-        if (isInsertionPoint(node) && toInsertionPoint(node)->isActive()) {
-            if (RenderObject* last = lastRendererOfInsertionPoint(toInsertionPoint(node)))
-                return last;
-        }
-    }
-
-    return 0;
-}
-
-RenderObject* NodeRenderingContext::nextRenderer() const
-{
-    ASSERT(m_node->renderer() || m_phase != Calculating);
-    if (RenderObject* renderer = m_node->renderer())
-        return renderer->nextSibling();
-
-    if (m_parentFlowRenderer)
-        return m_parentFlowRenderer->nextRendererForNode(m_node);
-
-    if (m_phase == AttachingDistributed) {
-        if (RenderObject* found = nextRendererOfInsertionPoint(m_insertionPoint, m_node))
-            return found;
-        return NodeRenderingContext(m_insertionPoint).nextRenderer();
-    }
-
-    // Avoid an O(N^2) problem with this function by not checking for
-    // nextRenderer() when the parent element hasn't attached yet.
-    if (m_node->parentOrHostNode() && !m_node->parentOrHostNode()->attached())
-        return 0;
-
-    return firstRendererOf(m_node->nextSibling());
-}
-
 RenderObject* NodeRenderingContext::previousRenderer() const
 {
-    ASSERT(m_node->renderer() || m_phase != Calculating);
-
     if (RenderObject* renderer = m_node->renderer())
         return renderer->previousSibling();
+
+#if ENABLE(DIALOG_ELEMENT)
+    // FIXME: This doesn't work correctly for things in the top layer that are
+    // display: none. We'd need to duplicate the logic in nextRenderer, but since
+    // nothing needs that yet just assert.
+    ASSERT(!m_node->isElementNode() || !toElement(m_node)->isInTopLayer());
+#endif
 
     if (m_parentFlowRenderer)
         return m_parentFlowRenderer->previousRendererForNode(m_node);
 
-    if (m_phase == AttachingDistributed) {
-        if (RenderObject* found = previousRendererOfInsertionPoint(m_insertionPoint, m_node))
-            return found;
-        return NodeRenderingContext(m_insertionPoint).previousRenderer();
-    }
-
     // FIXME: We should have the same O(N^2) avoidance as nextRenderer does
     // however, when I tried adding it, several tests failed.
-    return lastRendererOf(m_node->previousSibling());
+    for (Node* sibling = NodeRenderingTraversal::previousSibling(m_node); sibling; sibling = NodeRenderingTraversal::previousSibling(sibling)) {
+        RenderObject* renderer = sibling->renderer();
+        if (renderer && !isRendererReparented(renderer))
+            return renderer;
+    }
+
+    return 0;
 }
 
 RenderObject* NodeRenderingContext::parentRenderer() const
 {
-    if (RenderObject* renderer = m_node->renderer()) {
-        ASSERT(m_phase == Calculating);
+    if (RenderObject* renderer = m_node->renderer())
         return renderer->parent();
+
+#if ENABLE(DIALOG_ELEMENT)
+    if (m_node->isElementNode() && toElement(m_node)->isInTopLayer()) {
+        // The parent renderer of top layer elements is the RenderView, but only
+        // if the normal parent would have had a renderer.
+        // FIXME: This behavior isn't quite right as the spec for top layer
+        // only talks about display: none ancestors so putting a <dialog> inside
+        // an <optgroup> seems like it should still work even though this check
+        // will prevent it.
+        if (!m_renderingParent || !m_renderingParent->renderer())
+            return 0;
+        return m_node->document()->renderView();
     }
+#endif
 
     if (m_parentFlowRenderer)
         return m_parentFlowRenderer;
 
-    ASSERT(m_phase != Calculating);
-    return m_parentNodeForRenderingAndStyle ? m_parentNodeForRenderingAndStyle->renderer() : 0;
-}
-
-void NodeRenderingContext::hostChildrenChanged()
-{
-    if (m_phase == AttachingNotDistributed && m_visualParentShadowTree)
-        m_visualParentShadowTree->hostChildrenChanged();
+    return m_renderingParent ? m_renderingParent->renderer() : 0;
 }
 
 bool NodeRenderingContext::shouldCreateRenderer() const
 {
-    ASSERT(m_phase != Calculating);
-    ASSERT(parentNodeForRenderingAndStyle());
-
-    if (m_phase == AttachingNotInTree || m_phase == AttachingNotDistributed || m_phase == AttachingNotFallbacked)
+    if (!m_node->document()->shouldCreateRenderers())
+        return false;
+    if (!m_renderingParent)
         return false;
     RenderObject* parentRenderer = this->parentRenderer();
     if (!parentRenderer)
         return false;
-    if (!parentRenderer->canHaveChildren())
+    if (!parentRenderer->canHaveChildren() && !(m_node->isPseudoElement() && parentRenderer->canHaveGeneratedChildren()))
         return false;
-    if (!m_parentNodeForRenderingAndStyle->childShouldCreateRenderer(*this))
+    if (!m_renderingParent->childShouldCreateRenderer(*this))
         return false;
     return true;
 }
 
+// Check the specific case of elements that are children of regions but are flowed into a flow thread themselves.
+bool NodeRenderingContext::elementInsideRegionNeedsRenderer()
+{
+    bool elementInsideRegionNeedsRenderer = false;
+
+#if ENABLE(CSS_REGIONS)
+    Element* element = toElement(m_node);
+    RenderObject* parentRenderer = this->parentRenderer();
+    if ((parentRenderer && !parentRenderer->canHaveChildren() && parentRenderer->isRenderRegion())
+        || (!parentRenderer && element->parentElement() && element->parentElement()->isInsideRegion())) {
+
+        if (!m_style)
+            m_style = element->styleForRenderer();
+
+        elementInsideRegionNeedsRenderer = element->shouldMoveToFlowThread(m_style.get());
+
+        // Children of this element will only be allowed to be flowed into other flow-threads if display is NOT none.
+        if (element->rendererIsNeeded(*this))
+            element->setIsInsideRegion(true);
+    }
+#endif
+
+    return elementInsideRegionNeedsRenderer;
+}
+
 void NodeRenderingContext::moveToFlowThreadIfNeeded()
 {
-    if (!m_node->document()->cssRegionsEnabled())
+#if ENABLE(CSS_REGIONS)
+    Element* element = toElement(m_node);
+
+    if (!element->shouldMoveToFlowThread(m_style.get()))
         return;
 
-    if (!m_node->isElementNode() || !m_style || m_style->flowThread().isEmpty())
-        return;
-
-    // FIXME: Do not collect elements if they are in shadow tree.
-    if (m_node->isInShadowTree())
-        return;
-
-#if ENABLE(SVG)
-    // Allow only svg root elements to be directly collected by a render flow thread.
-    if (m_node->isSVGElement()
-        && (!(m_node->hasTagName(SVGNames::svgTag) && m_node->parentNode() && !m_node->parentNode()->isSVGElement())))
-        return;
-#endif
-
-    m_flowThread = m_style->flowThread();
     ASSERT(m_node->document()->renderView());
     FlowThreadController* flowThreadController = m_node->document()->renderView()->flowThreadController();
-    m_parentFlowRenderer = flowThreadController->ensureRenderFlowThreadWithName(m_flowThread);
+    m_parentFlowRenderer = flowThreadController->ensureRenderFlowThreadWithName(m_style->flowThread());
     flowThreadController->registerNamedFlowContentNode(m_node, m_parentFlowRenderer);
+#endif
 }
 
-NodeRendererFactory::NodeRendererFactory(Node* node)
-    : m_context(node)
+bool NodeRenderingContext::isOnEncapsulationBoundary() const
 {
+    return isOnUpperEncapsulationBoundary() || isLowerEncapsulationBoundary(m_parentDetails.insertionPoint()) || isLowerEncapsulationBoundary(m_node->parentNode());
 }
 
-RenderObject* NodeRendererFactory::createRenderer()
+bool NodeRenderingContext::isOnUpperEncapsulationBoundary() const
 {
-    Node* node = m_context.node();
-    RenderObject* newRenderer = node->createRenderer(node->document()->renderArena(), m_context.style());
+    return m_node->parentNode() && m_node->parentNode()->isShadowRoot();
+}
+
+void NodeRenderingContext::createRendererForElementIfNeeded()
+{
+    ASSERT(!m_node->renderer());
+
+    Element* element = toElement(m_node);
+
+    element->setIsInsideRegion(false);
+
+    if (!shouldCreateRenderer() && !elementInsideRegionNeedsRenderer())
+        return;
+
+    if (!m_style)
+        m_style = element->styleForRenderer();
+    ASSERT(m_style);
+
+    moveToFlowThreadIfNeeded();
+
+    if (!element->rendererIsNeeded(*this))
+        return;
+
+    RenderObject* parentRenderer = this->parentRenderer();
+    RenderObject* nextRenderer = this->nextRenderer();
+
+    Document* document = element->document();
+    RenderObject* newRenderer = element->createRenderer(document->renderArena(), m_style.get());
     if (!newRenderer)
-        return 0;
-
-    if (!m_context.parentRenderer()->isChildAllowed(newRenderer, m_context.style())) {
+        return;
+    if (!parentRenderer->isChildAllowed(newRenderer, m_style.get())) {
         newRenderer->destroy();
-        return 0;
-    }
-
-    node->setRenderer(newRenderer);
-    newRenderer->setAnimatableStyle(m_context.releaseStyle()); // setAnimatableStyle() can depend on renderer() already being set.
-    return newRenderer;
-}
-
-void NodeRendererFactory::createRendererIfNeeded()
-{
-    Node* node = m_context.node();
-    Document* document = node->document();
-    if (!document->shouldCreateRenderers())
-        return;
-
-    ASSERT(!node->renderer());
-    ASSERT(document->shouldCreateRenderers());
-
-    // FIXME: This side effect should be visible from attach() code.
-    m_context.hostChildrenChanged();
-
-    if (!m_context.shouldCreateRenderer())
-        return;
-
-    Element* element = node->isElementNode() ? toElement(node) : 0;
-    if (element)
-        m_context.setStyle(element->styleForRenderer());
-    else if (RenderObject* parentRenderer = m_context.parentRenderer())
-        m_context.setStyle(parentRenderer->style());
-
-    if (!node->rendererIsNeeded(m_context)) {
-        if (element && m_context.style()->affectedByEmpty())
-            element->setStyleAffectedByEmpty();
         return;
     }
 
-    RenderObject* parentRenderer = m_context.hasFlowThreadParent() ? m_context.parentFlowRenderer() : m_context.parentRenderer();
-    // Do not call m_context.nextRenderer() here in the first clause, because it expects to have
-    // the renderer added to its parent already.
-    RenderObject* nextRenderer = m_context.hasFlowThreadParent() ? m_context.parentFlowRenderer()->nextRendererForNode(node) : m_context.nextRenderer();
-    RenderObject* newRenderer = createRenderer();
+    // Make sure the RenderObject already knows it is going to be added to a RenderFlowThread before we set the style
+    // for the first time. Otherwise code using inRenderFlowThread() in the styleWillChange and styleDidChange will fail.
+    newRenderer->setFlowThreadState(parentRenderer->flowThreadState());
+
+    element->setRenderer(newRenderer);
+    newRenderer->setAnimatableStyle(m_style.release()); // setAnimatableStyle() can depend on renderer() already being set.
 
 #if ENABLE(FULLSCREEN_API)
-    if (document->webkitIsFullScreen() && document->webkitCurrentFullScreenElement() == node)
+    if (document->webkitIsFullScreen() && document->webkitCurrentFullScreenElement() == element) {
         newRenderer = RenderFullScreen::wrapRenderer(newRenderer, parentRenderer, document);
+        if (!newRenderer)
+            return;
+    }
 #endif
+    // Note: Adding newRenderer instead of renderer(). renderer() may be a child of newRenderer.
+    parentRenderer->addChild(newRenderer, nextRenderer);
+}
 
-    if (!newRenderer)
+void NodeRenderingContext::createRendererForTextIfNeeded()
+{
+    ASSERT(!m_node->renderer());
+
+    Text* textNode = toText(m_node);
+
+    if (!shouldCreateRenderer())
         return;
 
-    // Note: Adding newRenderer instead of renderer(). renderer() may be a child of newRenderer.
+    RenderObject* parentRenderer = this->parentRenderer();
+    ASSERT(parentRenderer);
+    Document* document = textNode->document();
+
+    if (resetStyleInheritance())
+        m_style = document->ensureStyleResolver()->defaultStyleForElement();
+    else
+        m_style = parentRenderer->style();
+
+    if (!textNode->textRendererIsNeeded(*this))
+        return;
+    RenderText* newRenderer = textNode->createTextRenderer(document->renderArena(), m_style.get());
+    if (!newRenderer)
+        return;
+    if (!parentRenderer->isChildAllowed(newRenderer, m_style.get())) {
+        newRenderer->destroy();
+        return;
+    }
+
+    // Make sure the RenderObject already knows it is going to be added to a RenderFlowThread before we set the style
+    // for the first time. Otherwise code using inRenderFlowThread() in the styleWillChange and styleDidChange will fail.
+    newRenderer->setFlowThreadState(parentRenderer->flowThreadState());
+
+    RenderObject* nextRenderer = this->nextRenderer();
+    textNode->setRenderer(newRenderer);
+    // Parent takes care of the animations, no need to call setAnimatableStyle.
+    newRenderer->setStyle(m_style.release());
     parentRenderer->addChild(newRenderer, nextRenderer);
 }
 

@@ -67,7 +67,7 @@ void SymmetricKeyInfoProvider::QueryKeySizeInBits(
 {
 	/* FIXME - do we ever need to calculate RC2 effective size here? */
 	keySize.LogicalKeySizeInBits = keySize.EffectiveKeySizeInBits =
-		mKey.length() * 8;
+		(uint32)(mKey.length() * 8);
 }
 
 /* 

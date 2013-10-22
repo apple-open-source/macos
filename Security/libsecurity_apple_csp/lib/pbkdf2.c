@@ -23,7 +23,7 @@
  	Written by:	Michael Brouwer <mb@apple.com>
 */
 #include "pbkdf2.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/ConditionalMacros.h>
+#include <ConditionalMacros.h>
 #include <string.h>
 /* Will write hLen bytes into dataPtr according to PKCS #5 2.0 spec.
    See: http://www.rsa.com/rsalabs/pubs/PKCS/html/pkcs-5.html for details. 

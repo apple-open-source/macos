@@ -146,7 +146,7 @@ sf_dh_compute_key(unsigned char *shared, const BIGNUM * pub, DH *dh)
     if (ret)
 	return 0;
 
-    return 1;
+    return shared_length;
 }
 
 

@@ -1,0 +1,80 @@
+NAME
+    DateTime::Format::W3CDTF - Parse and format W3CDTF datetime strings
+
+SYNOPSIS
+      use DateTime::Format::W3CDTF;
+
+      my $w3c = DateTime::Format::W3CDTF->new;
+      my $dt = $w3c->parse_datetime( '2003-02-15T13:50:05-05:00' );
+
+      # 2003-02-15T13:50:05-05:00
+      $w3c->format_datetime($dt);
+
+DESCRIPTION
+    This module understands the W3CDTF date/time format, an ISO 8601
+    profile, defined at http://www.w3.org/TR/NOTE-datetime. This format as
+    the native date format of RSS 1.0.
+
+    It can be used to parse these formats in order to create the appropriate
+    objects.
+
+METHODS
+    This API is currently experimental and may change in the future.
+
+    *   parse_datetime($string)
+
+        Given a W3CDTF datetime string, this method will return a new
+        "DateTime" object.
+
+        If given an improperly formatted string, this method may die.
+
+    *   format_datetime($datetime)
+
+        Given a "DateTime" object, this methods returns a W3CDTF datetime
+        string.
+
+        NOTE: As of version 0.4, format_datetime no longer attempts to
+        truncate datetimes without a time component. This is due to the fact
+        that "DateTime" doesn't distinguish between a date with no time
+        component, and midnight.
+
+    *   format_date($datetime)
+
+        Given a "DateTime" object, return a W3CDTF datetime string without
+        the time component.
+
+SUPPORT
+    Support for this module is provided via the datetime@perl.org email
+    list. See http://datetime.perl.org/?MailingList for details.
+
+    Please submit bugs to the CPAN RT system at
+    http://rt.cpan.org/NoAuth/ReportBug.html?Queue=datetime-format-w3cdtf or
+    via email at bug-datetime-format-w3cdtf@rt.cpan.org.
+
+AUTHOR
+    Dave Rolsky <autarch@urth.org>
+
+CREDITS
+    This module is maintained by Gregory Todd Williams <gwilliams@cpan.org>.
+    It was originally created by Kellan Elliott-McCrea <kellan@protest.net>.
+
+    This module was inspired by DateTime::Format::ICal
+
+COPYRIGHT
+    Copyright (c) 2009 David Rolsky. All rights reserved. This program is
+    free software; you can redistribute it and/or modify it under the same
+    terms as Perl itself.
+
+    Copyright (c) 2003 Kellan Elliott-McCrea
+
+    Portions of the code in this distribution are derived from other works.
+    Please see the CREDITS file for more details.
+
+    The full text of the license can be found in the LICENSE file included
+    with this module.
+
+SEE ALSO
+    datetime@perl.org mailing list
+
+    http://datetime.perl.org/
+

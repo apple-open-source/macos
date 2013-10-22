@@ -1,0 +1,90 @@
+Revision history for Class-Std
+
+0.0.1  Mon Feb  7 08:50:48 2005
+       Initial release.
+
+
+0.0.2  Wed May 25 22:29:20 2005
+
+    - Full documentation
+    - First public release
+
+
+0.0.3  Sun Aug  7 04:17:42 2005
+
+    - Removed t/lazy.t
+
+    - Fixed bug in initializing attributes with false values
+      (thanks chromatic!)
+
+    - Fixed bugs in CUMULATIVE methods (thanks Dan!)
+
+    - Added much better handling of defaults (thanks Dan!)
+
+    - Added :RESTRICTED and :PRIVATE methods (thanks for the idea Paul)
+
+    - Patched coercions to allow them to act polymorphically (thanks Andrew!)
+
+
+0.0.4  Sun Aug  7 04:19:22 2005
+       No changes logged
+
+
+
+0.0.7  Fri Feb 17 15:46:36 2006
+
+    - Fixed raw << and >> in regex, which were causing problems (thanks Steve)
+
+    - Changed generation of overloaded operators to work around limitations
+      of string eval in 5.6.0 and 5.8.0 (thanks James and Steve and Peter)
+
+    - Fixed subtle bug in :default('val') parsing (thanks Kiffin)
+
+    - Added :name<foo>, which is equivalent to all three of
+      :get<foo> :set<foo> :init_arg<foo> (thanks Ben)
+
+    - Added START blocks (thanks Ben)
+
+    - Fixed UNIVERSAL::can method to handle bizarre edge cases (thanks LMEYER)
+
+    - Fixed MODIFY_X_ATTRIBUTE to fallback on any attribute handler in the
+      new class (which must be defined before using Class::Std)
+
+    - Fixed AUTOMETHOD : RESTRICTED 
+
+    - Fixed numerous doc nits
+
+    - Documented limitations in :ATTR syntax and threaded operation
+
+    - Documented alternative modules
+
+    - Added Class::Std::initialize() and ctor mods to work around CHECK block
+      problems in mod_perl and run-time loading.
+
+
+0.0.8  Mon Feb 20 07:04:13 2006
+
+    - Removed spurious use of Smart::Comments (thanks Patrick)
+
+0.0.9  Mon Mar 24 20:05:46 CDT 2008
+    (git repo a69ea855db33a400499d0b9ddf7cc355a5203efb)
+
+    - Added 'how can I help' POD
+
+    - Applied Andreas 'ac0v' Specht patches for rt 30833
+
+
+0.010  Wed Dec 23 16:09:10 2009
+
+    - Removed git repository information (thanks for all the work, Dan)
+
+    - Fixed incompatibility with Perl 5.11+ label constraints
+      (thanks Andreas)
+
+
+
+0.011  Thu Dec 24 14:06:53 2009
+
+    - Update to remove weird files in previous release
+
+    - Remove unneeded dependency on version.pm

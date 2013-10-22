@@ -49,8 +49,6 @@
 
 #include "localconf.h"
 #include "algorithm.h"
-#include "admin.h"
-#include "privsep.h"
 #include "isakmp_var.h"
 #include "isakmp.h"
 #include "ipsec_doi.h"
@@ -58,7 +56,6 @@
 #include "vendorid.h"
 #include "str2val.h"
 #include "safefile.h"
-#include "admin.h"
 #include "gcmalloc.h"
 #include "session.h"
 
@@ -70,8 +67,9 @@ typedef void * SecKeychainRef;
 #endif
 
 struct localconf *lcconf;
+struct localconf *saved_lcconf;
 
-static void setdefault __P((void));
+static void setdefault (void);
 
 void
 initlcconf()
@@ -99,7 +97,7 @@ flushlcconf()
 			lcconf->pathinfo[i] = NULL;
 		}
 	}
-	for (i = 0; i < LC_IDENTTYPE_MAX; i++) {
+	for (i = 0; i < IDTYPE_MAX; i++) {
 		if (lcconf->ident[i])
 			vfree(lcconf->ident[i]);
 		lcconf->ident[i] = NULL;
@@ -115,7 +113,6 @@ setdefault()
 {
 	lcconf->uid = 0;
 	lcconf->gid = 0;
-	lcconf->chroot = NULL;
 	lcconf->autograbaddr = 1;
 	lcconf->port_isakmp = PORT_ISAKMP;
 	lcconf->port_isakmp_natt = PORT_ISAKMP_NATT;
@@ -133,12 +130,30 @@ setdefault()
 	lcconf->wait_ph2complete = LC_DEFAULT_WAIT_PH2COMPLETE;
 	lcconf->strict_address = FALSE;
 	lcconf->complex_bundle = TRUE; /*XXX FALSE;*/
-	lcconf->gss_id_enc = LC_GSSENC_UTF16LE; /* Windows compatibility */
 	lcconf->natt_ka_interval = LC_DEFAULT_NATT_KA_INTERVAL;
 	lcconf->auto_exit_delay = 0;
 	lcconf->auto_exit_state &= ~LC_AUTOEXITSTATE_SET;
 	lcconf->auto_exit_state |= LC_AUTOEXITSTATE_CLIENT;				/* always auto exit as default */
 }
+
+
+void
+savelcconf(void) 
+{
+    saved_lcconf = lcconf;
+    lcconf = NULL;
+    initlcconf();
+}
+
+void
+restorelcconf(void)
+{
+    flushlcconf();
+    racoon_free(lcconf);
+    lcconf = saved_lcconf;
+    saved_lcconf = NULL;
+}
+
 
 /*
  * get PSK by string.
@@ -150,11 +165,11 @@ getpskbyname(id0)
 	char *id;
 	vchar_t *key = NULL;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key by name.\n");
+	plog(ASL_LEVEL_DEBUG, "Getting pre-shared key by name.\n");
 
 	id = racoon_calloc(1, 1 + id0->l - sizeof(struct ipsecdoi_id_b));
 	if (id == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get psk buffer.\n");
 		goto end;
 	}
@@ -162,11 +177,7 @@ getpskbyname(id0)
 		id0->l - sizeof(struct ipsecdoi_id_b));
 	id[id0->l - sizeof(struct ipsecdoi_id_b)] = '\0';
 
-#ifdef HAVE_OPENSSL
-	key = privsep_getpsk(id, id0->l - sizeof(struct ipsecdoi_id_b));
-#else
 	key = getpsk(id, id0->l - sizeof(struct ipsecdoi_id_b));
-#endif
 
 end:
 	if (id)
@@ -188,11 +199,11 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 	OSStatus status;
 	char serviceName[] = "com.apple.net.racoon";
 
-	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key from keychain.\n");
+	plog(ASL_LEVEL_DEBUG, "Getting pre-shared key from keychain.\n");
 
 	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
 	if (status != noErr) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to set system keychain domain.\n");
 		goto end;
 	}
@@ -200,7 +211,7 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
 					      &keychain);
 	if (status != noErr) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get system keychain domain.\n");
 		goto end;
 	}
@@ -210,7 +221,7 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 		
 		char* peer_id = NULL;
 		int idlen = id_p->l - sizeof(struct ipsecdoi_id_b);
-		u_int8_t id_type = ((struct ipsecdoi_id_b *)(id_p->v))->type;
+		u_int8_t id_type = (ALIGNED_CAST(struct ipsecdoi_id_b *)(id_p->v))->type;
 
 		switch (id_type) {
 			case IPSECDOI_ID_IPV4_ADDR:
@@ -232,7 +243,7 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 					goto end;
 				memcpy(peer_id, id_p->v + sizeof(struct ipsecdoi_id_b), idlen);
 				*(peer_id + idlen) = '\0';
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"getting shared secret from keychain using %s.\n", peer_id);
 
 				break;
@@ -302,8 +313,8 @@ no_id:
 			break;
 
 		default :
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get preshared key from system keychain (error %d).\n", status);
+			plog(ASL_LEVEL_ERR, 
+				"failed to get preshared key from system keychain (error %ld).\n", (long)status);
 	}
 
 end:
@@ -311,7 +322,7 @@ end:
         if (cur_password) {
                 key = vmalloc(cur_password_len);
                 if (key == NULL) {
-                        plog(LLV_ERROR, LOCATION, NULL,
+                        plog(ASL_LEVEL_ERR, 
                                 "failed to allocate key buffer.\n");
                 } else
 					memcpy(key->v, cur_password, cur_password_len);
@@ -335,15 +346,11 @@ getpskbyaddr(remote)
 	vchar_t *key = NULL;
 	char addr[NI_MAXHOST], port[NI_MAXSERV];
 
-	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key by addr.\n");
+	plog(ASL_LEVEL_DEBUG, "Getting pre-shared key by addr.\n");
 
 	GETNAMEINFO((struct sockaddr *)remote, addr, port);
 
-#ifdef HAVE_OPENSSL
-	key = privsep_getpsk(addr, strlen(addr));
-#else
 	key = getpsk(addr, strlen(addr));
-#endif
 
 	return key;
 }
@@ -360,14 +367,14 @@ getpsk(str, len)
 	size_t keylen;
 	char *k = NULL;
 	
-	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key from file.\n");
+	plog(ASL_LEVEL_DEBUG, "Getting pre-shared key from file.\n");
 
 	if (safefile(lcconf->pathinfo[LC_PATHTYPE_PSK], 1) == 0)
 		fp = fopen(lcconf->pathinfo[LC_PATHTYPE_PSK], "r");
 	else
 		fp = NULL;
 	if (fp == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to open pre_share_key file %s\n",
 			lcconf->pathinfo[LC_PATHTYPE_PSK]);
 		return NULL;
@@ -401,7 +408,7 @@ getpsk(str, len)
 			if (strncmp(p, "0x", 2) == 0) {
 				k = str2val(p + 2, 16, &keylen);
 				if (k == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"failed to get psk buffer.\n");
 					goto end;
 				}
@@ -410,7 +417,7 @@ getpsk(str, len)
 
 			key = vmalloc(keylen);
 			if (key == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to allocate key buffer.\n");
 				goto end;
 			}
@@ -440,7 +447,7 @@ getpathname(path, len, type, name)
 		name[0] == '/' ? "" : "/",
 		name);
 
-	plog(LLV_DEBUG, LOCATION, NULL, "filename: %s\n", path);
+	plog(ASL_LEVEL_DEBUG, "filename: %s\n", path);
 }
 
 #if 0 /* DELETEIT */

@@ -1,9 +1,9 @@
 /*
- * "$Id: tbcp.c 6800 2007-08-16 18:28:44Z mike $"
+ * "$Id: tbcp.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   TBCP port monitor for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1993-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -93,11 +93,8 @@ main(int  argc,				/* I - Number of command-line args */
     */
 
     linelen = sizeof(line);
-    if (psgets(line, &linelen, fp) == NULL)
-    {
-      fputs("ERROR: Empty print file!\n", stderr);
-      return (1);
-    }
+    if (!psgets(line, &linelen, fp))
+      break;
 
    /*
     * Handle leading PJL fun...
@@ -281,5 +278,5 @@ pswrite(const char *buf,		/* I - Buffer to write */
 
 
 /*
- * End of "$Id: tbcp.c 6800 2007-08-16 18:28:44Z mike $".
+ * End of "$Id: tbcp.c 11093 2013-07-03 20:48:42Z msweet $".
  */

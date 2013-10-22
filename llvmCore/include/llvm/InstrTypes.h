@@ -88,7 +88,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 class UnaryInstruction : public Instruction {
-  void *operator new(size_t, unsigned);      // Do not implement
+  void *operator new(size_t, unsigned) LLVM_DELETED_FUNCTION;
 
 protected:
   UnaryInstruction(Type *Ty, unsigned iType, Value *V,
@@ -138,14 +138,14 @@ DEFINE_TRANSPARENT_OPERAND_ACCESSORS(UnaryInstruction, Value)
 //===----------------------------------------------------------------------===//
 
 class BinaryOperator : public Instruction {
-  void *operator new(size_t, unsigned); // Do not implement
+  void *operator new(size_t, unsigned) LLVM_DELETED_FUNCTION;
 protected:
   void init(BinaryOps iType);
   BinaryOperator(BinaryOps iType, Value *S1, Value *S2, Type *Ty,
                  const Twine &Name, Instruction *InsertBefore);
   BinaryOperator(BinaryOps iType, Value *S1, Value *S2, Type *Ty,
                  const Twine &Name, BasicBlock *InsertAtEnd);
-  virtual BinaryOperator *clone_impl() const;
+  virtual BinaryOperator *clone_impl() const LLVM_OVERRIDE;
 public:
   // allocate space for exactly two operands
   void *operator new(size_t s) {
@@ -388,6 +388,7 @@ DEFINE_TRANSPARENT_OPERAND_ACCESSORS(BinaryOperator, Value)
 /// if (isa<CastInst>(Instr)) { ... }
 /// @brief Base class of casting instructions.
 class CastInst : public UnaryInstruction {
+  virtual void anchor() LLVM_OVERRIDE;
 protected:
   /// @brief Constructor with insert-before-instruction semantics for subclasses
   CastInst(Type *Ty, unsigned iType, Value *S,
@@ -580,8 +581,8 @@ public:
 
   /// Determine how a pair of casts can be eliminated, if they can be at all.
   /// This is a helper function for both CastInst and ConstantExpr.
-  /// @returns 0 if the CastInst pair can't be eliminated
-  /// @returns Instruction::CastOps value for a cast that can replace
+  /// @returns 0 if the CastInst pair can't be eliminated, otherwise
+  /// returns Instruction::CastOps value for a cast that can replace
   /// the pair, casting SrcTy to DstTy.
   /// @brief Determine if a cast pair is eliminable
   static unsigned isEliminableCastPair(
@@ -626,8 +627,8 @@ public:
 /// This class is the base class for the comparison instructions.
 /// @brief Abstract base class of comparison instructions.
 class CmpInst : public Instruction {
-  void *operator new(size_t, unsigned);  // DO NOT IMPLEMENT
-  CmpInst(); // do not implement
+  void *operator new(size_t, unsigned) LLVM_DELETED_FUNCTION;
+  CmpInst() LLVM_DELETED_FUNCTION;
 protected:
   CmpInst(Type *ty, Instruction::OtherOps op, unsigned short pred,
           Value *LHS, Value *RHS, const Twine &Name = "",
@@ -637,7 +638,7 @@ protected:
           Value *LHS, Value *RHS, const Twine &Name,
           BasicBlock *InsertAtEnd);
 
-  virtual void Anchor() const; // Out of line virtual method.
+  virtual void anchor() LLVM_OVERRIDE; // Out of line virtual method.
 public:
   /// This enumeration lists the possible predicates for CmpInst subclasses.
   /// Values in the range 0-31 are reserved for FCmpInst, while values in the

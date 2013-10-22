@@ -158,6 +158,63 @@ name: sudoRunAsGroup
 schemaIDGUID:: xJhSt/Yd3RGJPTB1VtiVkw==
 objectCategory: CN=Attribute-Schema,CN=Schema,CN=Configuration,DC=X
 
+dn: CN=sudoNotBefore,CN=Schema,CN=Configuration,DC=X
+changetype: add
+objectClass: top
+objectClass: attributeSchema
+cn: sudoNotBefore
+distinguishedName: CN=sudoNotBefore,CN=Schema,CN=Configuration,DC=X
+instanceType: 4
+attributeID: 1.3.6.1.4.1.15953.9.1.8
+attributeSyntax: 2.5.5.11
+isSingleValued: TRUE
+showInAdvancedViewOnly: TRUE
+adminDisplayName: sudoNotBefore
+adminDescription: Start of time interval for which the entry is valid
+oMSyntax: 24
+lDAPDisplayName:  sudoNotBefore
+name: sudoNotBefore
+schemaIDGUID:: dm1HnRfY4RGf4gopYYhwmw==
+objectCategory: CN=Attribute-Schema,CN=Schema,CN=Configuration,DC=X
+
+dn: CN=sudoNotAfter,CN=Schema,CN=Configuration,DC=X
+changetype: add
+objectClass: top
+objectClass: attributeSchema
+cn: sudoNotAfter
+distinguishedName: CN=sudoNotAfter,CN=Schema,CN=Configuration,DC=X
+instanceType: 4
+attributeID: 1.3.6.1.4.1.15953.9.1.9
+attributeSyntax: 2.5.5.11
+isSingleValued: TRUE
+showInAdvancedViewOnly: TRUE
+adminDisplayName: sudoNotAfter
+adminDescription: End of time interval for which the entry is valid
+oMSyntax: 24
+lDAPDisplayName:  sudoNotAfter
+name: sudoNotAfter
+schemaIDGUID:: OAr/pBfY4RG9dBIpYYhwmw==
+objectCategory: CN=Attribute-Schema,CN=Schema,CN=Configuration,DC=X
+
+dn: CN=sudoOrder,CN=Schema,CN=Configuration,DC=X
+changetype: add
+objectClass: top
+objectClass: attributeSchema
+cn: sudoOrder
+distinguishedName: CN=sudoOrder,CN=Schema,CN=Configuration,DC=X
+instanceType: 4
+attributeID: 1.3.6.1.4.1.15953.9.1.10
+attributeSyntax: 2.5.5.9
+isSingleValued: TRUE
+showInAdvancedViewOnly: TRUE
+adminDisplayName: sudoOrder
+adminDescription: an integer to order the sudoRole entries
+oMSyntax: 2
+lDAPDisplayName:  sudoOrder
+name: sudoOrder
+schemaIDGUID:: 0J8yrRfY4RGIYBUpYYhwmw==
+objectCategory: CN=Attribute-Schema,CN=Schema,CN=Configuration,DC=X
+
 dn:
 changetype: modify
 add: schemaUpdateNow
@@ -182,6 +239,9 @@ mayContain: sudoRunAs
 mayContain: sudoRunAsUser
 mayContain: sudoRunAsGroup
 mayContain: sudoUser
+mayContain: sudoNotBefore
+mayContain: sudoNotAfter
+mayContain: sudoOrder
 rDNAttID: cn
 showInAdvancedViewOnly: FALSE
 adminDisplayName: sudoRole

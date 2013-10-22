@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,13 +70,15 @@
 #include "ipconfigd_globals.h"
 #include "timer.h"
 
+static bool S_verbose;
+
 struct bootp_session {
     dynarray_t			clients;
     FDCalloutRef		read_fd;
     int				read_fd_refcount;
     uint16_t			client_port;
-    FILE *			log_file;
     timer_callout_t *		timer_callout;
+    bool			verbose;
 };
 
 struct bootp_client {
@@ -130,7 +132,7 @@ S_open_bootp_socket(uint16_t client_port)
     status = setsockopt(sockfd, IPPROTO_IP, IP_RECVIF, &opt, sizeof(opt));
     if (status < 0) {
 	my_log(LOG_ERR, "setsockopt IP_RECVIF failed, %s", 
-		   strerror(errno));
+	       strerror(errno));
 	goto failed;
     }
 #ifdef SO_TC_CTL
@@ -233,7 +235,7 @@ bootp_client_close_socket(bootp_client_t * client)
 	return;
     }
     if (session->read_fd_refcount <= 0) {
-	my_log(LOG_INFO, "bootp_client_close_socket(%s): refcount %d",
+	my_log(LOG_NOTICE, "bootp_client_close_socket(%s): refcount %d",
 	       if_name(client->if_p), session->read_fd_refcount);
 	return;
     }
@@ -287,7 +289,7 @@ bootp_client_open_socket(bootp_client_t * client)
 	    goto failed;
 	}
 	my_log(LOG_DEBUG, 
-	       "bootp_client_open_socket(): opened bootp socket %d\n",
+	       "bootp_client_open_socket(): opened bootp socket %d",
 	       sockfd);
 	/* register as a reader */
 	session->read_fd = FDCalloutCreate(sockfd,
@@ -381,22 +383,25 @@ bootp_client_transmit(bootp_client_t * client,
 	    bootp_client_bind_socket_to_if(client, if_index);
 	}
     }
-    if (session->log_file != NULL) {
-	fprintf(session->log_file, "============================\n");
+    if (S_verbose) {
+	CFMutableStringRef	str;
+
+	str = CFStringCreateMutable(NULL, 0);
+	dhcp_packet_print_cfstr(str, (struct dhcp *)data, len);
 	if (if_index != 0) {
-	    timestamp_fprintf(session->log_file, 
-			      "[%s] Transmit %d byte packet dest "
-			      IP_FORMAT
-			      " scope %d\n",
-			      if_name(client->if_p), len, 
-			      IP_LIST(&dest_ip), if_index);
+	    my_log(-LOG_DEBUG, 
+		   "[%s] Transmit %d byte packet dest "
+		   IP_FORMAT
+		   " scope %d\n%@",
+		   if_name(client->if_p), len, 
+		   IP_LIST(&dest_ip), if_index, str);
 	}
 	else {
-	    timestamp_fprintf(session->log_file, 
-			      "[%s] Transmit %d byte packet\n",
-			      if_name(client->if_p), len);
+	    my_log(-LOG_DEBUG, 
+		   "[%s] Transmit %d byte packet\n%@",
+		   if_name(client->if_p), len, str);
 	}
-	dhcp_fprint_packet(session->log_file, (struct dhcp *)data, len);
+	CFRelease(str);
     }
     if (session->read_fd != NULL) {
 	sockfd = FDCalloutGetFD(session->read_fd);
@@ -455,12 +460,15 @@ bootp_session_deliver(bootp_session_t * session, const char * ifname,
 	return;
     }
 
-    if (session->log_file != NULL) {
-	fprintf(session->log_file, "----------------------------\n");
-	timestamp_fprintf(session->log_file, 
-			  "[%s] Receive %d byte packet\n", 
-			  ifname, size);
-	dhcp_fprint_packet(session->log_file, (struct dhcp *)data, size);
+    if (S_verbose) {
+	CFMutableStringRef	str;
+
+	str = CFStringCreateMutable(NULL, 0);
+	dhcp_packet_print_cfstr(str, (struct dhcp *)data, size);
+	my_log(-LOG_DEBUG,
+	       "[%s] Receive %d byte packet\n%@", 
+	       ifname, size, str);
+	CFRelease(str);
     }
 
     bzero(&event, sizeof(event));
@@ -557,8 +565,8 @@ bootp_session_read(void * arg1, void * arg2)
 }
 
 void
-bootp_session_set_debug(bootp_session_t * session, FILE * log_file)
+bootp_session_set_verbose(bool verbose)
 {
-    session->log_file = log_file;
+    S_verbose = verbose;
     return;
 }

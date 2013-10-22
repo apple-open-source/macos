@@ -31,14 +31,17 @@
 #include "ScriptHeapSnapshot.h"
 #include "ScriptProfile.h"
 #include "ScriptState.h"
+#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
-
 
 namespace WebCore {
 
-class DOMWrapperVisitor;
+class ExternalArrayVisitor;
+class ExternalStringVisitor;
+class WrappedNodeVisitor;
 class Page;
 class ScriptObject;
+class ScriptValue;
 class WorkerContext;
 
 class ScriptProfiler {
@@ -55,6 +58,7 @@ public:
 
     static void collectGarbage();
     static ScriptObject objectByHeapObjectId(unsigned id);
+    static unsigned getHeapObjectId(const ScriptValue&);
     static void start(ScriptState* state, const String& title);
     static void startForPage(Page*, const String& title);
 #if ENABLE(WORKERS)
@@ -70,8 +74,12 @@ public:
     static bool isSampling() { return false; }
     static bool hasHeapProfiler() { return false; }
     // FIXME: Implement this counter for JSC. See bug 73936 for more details.
-    static void visitJSDOMWrappers(DOMWrapperVisitor*) { }
-    static void visitExternalJSStrings(DOMWrapperVisitor*) { }
+    static void visitNodeWrappers(WrappedNodeVisitor*) { }
+    // FIXME: Support these methods for JSC. See bug 90358.
+    static void visitExternalStrings(ExternalStringVisitor*) { }
+    static void visitExternalArrays(ExternalArrayVisitor*) { }
+    static size_t profilerSnapshotsSize() { return 0; }
+    static HashMap<String, double>* currentProfileNameIdleTimeMap() { return 0; }
 };
 
 } // namespace WebCore

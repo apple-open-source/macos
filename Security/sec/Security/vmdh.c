@@ -16,7 +16,7 @@
 
 #include "vmdh.h"
 #include <CommonCrypto/CommonCryptor.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include <string.h>
 #include <Security/SecInternal.h>
 #include <Security/SecDH.h>

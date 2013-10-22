@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.65 2011/09/07 19:13:49 abe Exp $
+ * $Id: lsof.h,v 1.65 2011/09/07 19:13:49 abe Exp abe $
  */
 
 
@@ -298,57 +298,58 @@ static struct utmp dummy_utmp;		/* to get login name length */
 #define	N_REGLR		0		/* regular file system node */
 #define	N_AFS		1		/* AFS node */
 #define	N_AFPFS		2		/* Apple Darwin AppleShare */
-#define	N_AUSX		3		/* Auspex LFS node */
-#define	N_AUTO		4		/* automount node */
-#define	N_BLK		5		/* block device node */
-#define	N_CACHE		6		/* cached file system node */
-#define	N_CDFS		7		/* CD-ROM node */
-#define	N_CFS		8		/* CFS node */
-#define	N_CHR		9		/* character device node */
-#define	N_COM		10		/* streams common device node */
-#define	N_CTFSADIR	11		/* Solaris CTFS adir node */
-#define	N_CTFSBUND	12		/* Solaris CTFS bundle node */
-#define	N_CTFSCDIR	13		/* Solaris CTFS cdir node */
-#define	N_CTFSCTL	14		/* Solaris CTFS ctl node */
-#define	N_CTFSEVT	15		/* Solaris CTFS events node */
-#define	N_CTFSLATE	16		/* Solaris CTFS latest node */
-#define	N_CTFSROOT	17		/* Solaris CTFS root node */
-#define	N_CTFSSTAT	18		/* Solaris CTFS status node */
-#define	N_CTFSSYM	19		/* Solaris CTFS symbolic node */
-#define	N_CTFSTDIR	20		/* Solaris CTFS type node */
-#define	N_CTFSTMPL	21		/* Solaris CTFS template node */
-#define	N_DEV		22		/* DEV FS node */
-#define	N_DOOR		23		/* DOOR node */
-#define	N_FD		24		/* FD node */
-#define	N_FIFO		25		/* FIFO node */
-#define	N_HSFS		26		/* High Sierra node */
-#define	N_KERN		27		/* BSD /kern node */
-#define	N_LOFS		28		/* loopback node */
-#define	N_MNT		29		/* mount file system device node */
-#define	N_MPC		30		/* multiplexed device node */
-#define	N_MVFS		31		/* multi-volume file system node (?) */
-#define	N_NFS		32		/* NFS node */
-#define	N_NFS4		33		/* NFS version 4 node */
-#define	N_NM		34		/* named file system node */
-#define	N_OBJF		35		/* objfs file system node */
-#define	N_PCFS		36		/* PC file system node */
-#define	N_PIPE		37		/* pipe device node */
-#define	N_PORT		38		/* port node */
-#define	N_PROC		39		/* /proc node */
-#define	N_PSEU		49		/* pseudofs node */
-#define	N_SAMFS		41		/* Solaris SAM-FS */
-#define	N_SANFS		42		/* AIX SANFS */
-#define	N_SDEV		43		/* Solaris sdev file system node */
-#define	N_SHARED	44		/* Solaris sharedfs */
-#define	N_SOCK		45		/* sock_vnodeops node */
-#define	N_SPEC		46		/* spec_vnodeops node */
-#define	N_STREAM	47		/* stream node */
-#define	N_TMP		48		/* tmpfs node */
-#define	N_UFS		49		/* UNIX file system node */
-#define	N_UNKN		50		/* unknown node type */
-#define	N_VXFS		51		/* Veritas file system node */
-#define	N_XFS		52		/* XFS node */
-#define	N_ZFS		53		/* ZFS node */
+#define	N_ANON_INODE	3		/* Linux anon_inodefs node */
+#define	N_AUSX		4		/* Auspex LFS node */
+#define	N_AUTO		5		/* automount node */
+#define	N_BLK		6		/* block device node */
+#define	N_CACHE		7		/* cached file system node */
+#define	N_CDFS		8		/* CD-ROM node */
+#define	N_CFS		9		/* CFS node */
+#define	N_CHR		10		/* character device node */
+#define	N_COM		11		/* streams common device node */
+#define	N_CTFSADIR	12		/* Solaris CTFS adir node */
+#define	N_CTFSBUND	13		/* Solaris CTFS bundle node */
+#define	N_CTFSCDIR	14		/* Solaris CTFS cdir node */
+#define	N_CTFSCTL	15		/* Solaris CTFS ctl node */
+#define	N_CTFSEVT	16		/* Solaris CTFS events node */
+#define	N_CTFSLATE	17		/* Solaris CTFS latest node */
+#define	N_CTFSROOT	18		/* Solaris CTFS root node */
+#define	N_CTFSSTAT	19		/* Solaris CTFS status node */
+#define	N_CTFSSYM	20		/* Solaris CTFS symbolic node */
+#define	N_CTFSTDIR	21		/* Solaris CTFS type node */
+#define	N_CTFSTMPL	22		/* Solaris CTFS template node */
+#define	N_DEV		23		/* DEV FS node */
+#define	N_DOOR		24		/* DOOR node */
+#define	N_FD		25		/* FD node */
+#define	N_FIFO		26		/* FIFO node */
+#define	N_HSFS		27		/* High Sierra node */
+#define	N_KERN		28		/* BSD /kern node */
+#define	N_LOFS		29		/* loopback node */
+#define	N_MNT		30		/* mount file system device node */
+#define	N_MPC		31		/* multiplexed device node */
+#define	N_MVFS		32		/* multi-volume file system node (?) */
+#define	N_NFS		33		/* NFS node */
+#define	N_NFS4		34		/* NFS version 4 node */
+#define	N_NM		35		/* named file system node */
+#define	N_OBJF		36		/* objfs file system node */
+#define	N_PCFS		37		/* PC file system node */
+#define	N_PIPE		38		/* pipe device node */
+#define	N_PORT		39		/* port node */
+#define	N_PROC		40		/* /proc node */
+#define	N_PSEU		41		/* pseudofs node */
+#define	N_SAMFS		42		/* Solaris SAM-FS */
+#define	N_SANFS		43		/* AIX SANFS */
+#define	N_SDEV		44		/* Solaris sdev file system node */
+#define	N_SHARED	45		/* Solaris sharedfs */
+#define	N_SOCK		46		/* sock_vnodeops node */
+#define	N_SPEC		47		/* spec_vnodeops node */
+#define	N_STREAM	48		/* stream node */
+#define	N_TMP		49		/* tmpfs node */
+#define	N_UFS		50		/* UNIX file system node */
+#define	N_UNKN		51		/* unknown node type */
+#define	N_VXFS		52		/* Veritas file system node */
+#define	N_XFS		53		/* XFS node */
+#define	N_ZFS		54		/* ZFS node */
 
 # if	!defined(OFFDECDIG)
 #define	OFFDECDIG	8		/* maximum number of digits in the
@@ -673,6 +674,7 @@ extern int Hdr;
 enum IDType {PGID, PID};
 extern char *InodeFmt_d;
 extern char *InodeFmt_x;
+extern int LastPid;
 
 struct lfile {
 	char access;

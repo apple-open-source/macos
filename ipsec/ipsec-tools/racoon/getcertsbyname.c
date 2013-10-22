@@ -59,8 +59,8 @@
 /* XXX should it use ci_errno to hold errno instead of h_errno ? */
 extern int h_errno;
 
-static struct certinfo *getnewci __P((int, int, int, int, int, 
-			unsigned char *));
+static struct certinfo *getnewci (int, int, int, int, int, 
+			unsigned char *);
 
 static struct certinfo *
 getnewci(qtype, keytag, algorithm, flags, certlen, cert)

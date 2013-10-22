@@ -35,6 +35,7 @@ namespace CodeSigning {
 
 
 #define BUNDLEDISKREP_DIRECTORY		"_CodeSignature"
+#define CODERESOURCES_LINK			"CodeResources"
 #define STORE_RECEIPT_DIRECTORY		"_MASReceipt"
 
 
@@ -50,6 +51,7 @@ class BundleDiskRep : public DiskRep {
 public:
 	BundleDiskRep(const char *path, const Context *ctx = NULL);
 	BundleDiskRep(CFBundleRef ref, const Context *ctx = NULL);
+	~BundleDiskRep();
 	
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
 	CFDataRef identification();

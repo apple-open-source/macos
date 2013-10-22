@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2012, 2013 Research In Motion Limited. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -22,173 +22,129 @@
 #include "AsyncFileSystemBlackBerry.h"
 
 #include "AsyncFileSystemCallbacks.h"
+#include "AsyncFileWriterBlackBerry.h"
+#include "AsyncFileWriterClient.h"
+#include "DOMFileSystemBase.h"
 #include "ExceptionCode.h"
+#include "KURL.h"
 #include "NotImplemented.h"
+#include "PlatformAsyncFileSystemCallbacks.h"
+#include "ScriptExecutionContext.h"
+#include "SecurityOrigin.h"
 
-#include <wtf/UnusedParam.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
 bool AsyncFileSystem::isAvailable()
 {
-    notImplemented();
-    return false;
+    return true;
 }
 
-bool AsyncFileSystem::isValidType(Type type)
+// We don't use this one!
+PassOwnPtr<AsyncFileSystem> AsyncFileSystem::create()
 {
-    UNUSED_PARAM(type);
-
-    notImplemented();
-    return false;
+    ASSERT_NOT_REACHED();
+    return PassOwnPtr<AsyncFileSystem>();
 }
 
-PassOwnPtr<AsyncFileSystem> AsyncFileSystem::create(Type type)
-{
-    return adoptPtr(new AsyncFileSystemBlackBerry(type));
-}
-
-void AsyncFileSystem::openFileSystem(const String& basePath, const String& storageIdentifier, Type type, bool, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+// We don't use this one!
+void AsyncFileSystem::openFileSystem(const String& basePath, const String& storageIdentifier, FileSystemType, bool, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
     UNUSED_PARAM(basePath);
     UNUSED_PARAM(storageIdentifier);
-    UNUSED_PARAM(type);
     UNUSED_PARAM(callbacks);
-
-    notImplemented();
-    callbacks->didFail(NOT_SUPPORTED_ERR);
+    ASSERT_NOT_REACHED();
 }
 
-bool AsyncFileSystem::crackFileSystemURL(const KURL& url, AsyncFileSystem::Type& type, String& filePath)
+void AsyncFileSystemBlackBerry::openFileSystem(const KURL& rootURL, const String& basePath, const String& storageIdentifier, FileSystemType type, long long size, bool create, int playerId, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(url);
-    UNUSED_PARAM(type);
-    UNUSED_PARAM(filePath);
-
-    notImplemented();
-    return false;
+    BlackBerry::Platform::WebFileSystem::openFileSystem(BlackBerry::Platform::webKitThreadMessageClient(), basePath, storageIdentifier, static_cast<BlackBerry::Platform::WebFileSystem::Type>(type), size, create, new PlatformAsyncFileSystemCallbacks(callbacks, rootURL), playerId);
 }
 
-AsyncFileSystemBlackBerry::AsyncFileSystemBlackBerry(AsyncFileSystem::Type type)
-    : AsyncFileSystem(type)
+void AsyncFileSystem::deleteFileSystem(const String& basePath, const String& storageIdentifier, FileSystemType type, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    notImplemented();
+    BlackBerry::Platform::WebFileSystem::deleteFileSystem(BlackBerry::Platform::webKitThreadMessageClient(), basePath, storageIdentifier, static_cast<BlackBerry::Platform::WebFileSystem::Type>(type), new PlatformAsyncFileSystemCallbacks(callbacks));
+}
+
+AsyncFileSystemBlackBerry::AsyncFileSystemBlackBerry(PassOwnPtr<BlackBerry::Platform::WebFileSystem> platformFileSystem)
+    : AsyncFileSystem() // FIXME: type ???
+    , m_platformFileSystem(platformFileSystem)
+{
 }
 
 AsyncFileSystemBlackBerry::~AsyncFileSystemBlackBerry()
 {
-    notImplemented();
 }
 
-String AsyncFileSystemBlackBerry::toURL(const String& originString, const String& fullPath)
+void AsyncFileSystemBlackBerry::move(const KURL& sourcePath, const KURL& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(originString);
-    UNUSED_PARAM(fullPath);
-
-    notImplemented();
-    return String();
+    m_platformFileSystem->move(fileSystemURLToPath(sourcePath), fileSystemURLToPath(destinationPath), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::move(const String& sourcePath, const String& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::copy(const KURL& sourcePath, const KURL& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(sourcePath);
-    UNUSED_PARAM(destinationPath);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->copy(fileSystemURLToPath(sourcePath), fileSystemURLToPath(destinationPath), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::copy(const String& sourcePath, const String& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::remove(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(sourcePath);
-    UNUSED_PARAM(destinationPath);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->remove(fileSystemURLToPath(path), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::remove(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::removeRecursively(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->removeRecursively(fileSystemURLToPath(path), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::removeRecursively(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::readMetadata(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->readMetadata(fileSystemURLToPath(path), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::readMetadata(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::createFile(const KURL& path, bool exclusive, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->createFile(fileSystemURLToPath(path), exclusive, new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::createFile(const String& path, bool exclusive, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::createDirectory(const KURL& path, bool exclusive, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(exclusive);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->createDirectory(fileSystemURLToPath(path), exclusive, new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::createDirectory(const String& path, bool exclusive, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::fileExists(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(exclusive);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->fileExists(fileSystemURLToPath(path), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::fileExists(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::directoryExists(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->directoryExists(fileSystemURLToPath(path), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::directoryExists(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::readDirectory(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->readDirectory(fileSystemURLToPath(path), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::readDirectory(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::createWriter(AsyncFileWriterClient* client, const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    BlackBerry::Platform::WebFileWriter::createWriter(m_platformFileSystem.get(), fileSystemURLToPath(path), new PlatformAsyncFileSystemCallbacks(callbacks, client));
 }
 
-
-void AsyncFileSystemBlackBerry::createWriter(AsyncFileWriterClient* client, const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemBlackBerry::createSnapshotFileAndReadMetadata(const KURL& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    UNUSED_PARAM(client);
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    m_platformFileSystem->createSnapshotFileAndReadMetadata(fileSystemURLToPath(path), new PlatformAsyncFileSystemCallbacks(callbacks));
 }
 
-void AsyncFileSystemBlackBerry::createSnapshotFileAndReadMetadata(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+String AsyncFileSystemBlackBerry::fileSystemURLToPath(const KURL& url)
 {
-    UNUSED_PARAM(path);
-    UNUSED_PARAM(callbacks);
-
-    notImplemented();
+    FileSystemType type;
+    String fullPath;
+    bool result = DOMFileSystemBase::crackFileSystemURL(url, type, fullPath);
+    ASSERT_UNUSED(result, result);
+    return fullPath;
 }
 
 } // namespace WebCore

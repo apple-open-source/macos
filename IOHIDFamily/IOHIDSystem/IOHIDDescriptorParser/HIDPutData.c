@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -77,12 +77,12 @@
 */
 OSStatus
 HIDPutData				   (void *					report,
-							ByteCount				reportLength,
+							IOByteCount				reportLength,
 							UInt32					start,
 							UInt32					size,
 							SInt32 					value)
 {
-	Byte * psReport = (Byte *)report;
+	UInt8 * psReport = (UInt8 *)report;
 	SInt32 data, iShiftedData;
 	UInt32 iStartByte, startBit;
 	UInt32 iLastByte, iLastBit;
@@ -138,14 +138,14 @@ HIDPutData				   (void *					report,
 		data &= iStartMask;
 		iShiftedData = value << startBit;
 		data |= iShiftedData;
-		psReport[iStartByte] = (Byte) data;
+		psReport[iStartByte] = (UInt8) data;
 		iShiftedData >>= 8;
 /*
  *		Store out an intermediate bytes
 */
 		while (++iStartByte < iLastByte)
 		{
-			psReport[iStartByte] = (Byte) iShiftedData;
+			psReport[iStartByte] = (UInt8) iShiftedData;
 			iShiftedData >>= 8;
 		}
 /*
@@ -161,7 +161,7 @@ HIDPutData				   (void *					report,
 /*
  *	Store out the last or only Byte
 */
-	psReport[iStartByte] = (Byte) data;
+	psReport[iStartByte] = (UInt8) data;
 	return kHIDSuccess;
 }
 

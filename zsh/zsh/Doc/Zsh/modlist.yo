@@ -36,6 +36,9 @@ An example of how to write a module.
 item(tt(zsh/files))(
 Some basic file manipulation commands as builtins.
 )
+item(tt(zsh/langinfo))(
+Interface to locale information.
+)
 item(tt(zsh/mapfile))(
 Access to external files via a special associative array.
 )
@@ -132,10 +135,13 @@ includefile(Zsh/mod_deltochar.yo)
 texinode(The zsh/example Module)(The zsh/files Module)(The zsh/deltochar Module)(Zsh Modules)
 sect(The zsh/example Module)
 includefile(Zsh/mod_example.yo)
-texinode(The zsh/files Module)(The zsh/mapfile Module)(The zsh/example Module)(Zsh Modules)
+texinode(The zsh/files Module)(The zsh/langinfo Module)(The zsh/example Module)(Zsh Modules)
 sect(The zsh/files Module)
 includefile(Zsh/mod_files.yo)
-texinode(The zsh/mapfile Module)(The zsh/mathfunc Module)(The zsh/files Module)(Zsh Modules)
+texinode(The zsh/langinfo Module)(The zsh/mapfile Module)(The zsh/files Module)(Zsh Modules)
+sect(The zsh/langinfo Module)
+includefile(Zsh/mod_langinfo.yo)
+texinode(The zsh/mapfile Module)(The zsh/mathfunc Module)(The zsh/langinfo Module)(Zsh Modules)
 sect(The zsh/mapfile Module)
 includefile(Zsh/mod_mapfile.yo)
 texinode(The zsh/mathfunc Module)(The zsh/newuser Module)(The zsh/mapfile Module)(Zsh Modules)

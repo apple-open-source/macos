@@ -44,10 +44,20 @@ LLVMContext::LLVMContext() : pImpl(new LLVMContextImpl(*this)) {
   unsigned ProfID = getMDKindID("prof");
   assert(ProfID == MD_prof && "prof kind id drifted"); (void)ProfID;
 
-  // Create the 'fpaccuracy' metadata kind.
-  unsigned FPAccuracyID = getMDKindID("fpaccuracy");
-  assert(FPAccuracyID == MD_fpaccuracy && "fpaccuracy kind id drifted");
+  // Create the 'fpmath' metadata kind.
+  unsigned FPAccuracyID = getMDKindID("fpmath");
+  assert(FPAccuracyID == MD_fpmath && "fpmath kind id drifted");
   (void)FPAccuracyID;
+
+  // Create the 'range' metadata kind.
+  unsigned RangeID = getMDKindID("range");
+  assert(RangeID == MD_range && "range kind id drifted");
+  (void)RangeID;
+
+  // Create the 'tbaa.struct' metadata kind.
+  unsigned TBAAStructID = getMDKindID("tbaa.struct");
+  assert(TBAAStructID == MD_tbaa_struct && "tbaa.struct kind id drifted");
+  (void)TBAAStructID;
 }
 LLVMContext::~LLVMContext() { delete pImpl; }
 
@@ -83,11 +93,11 @@ void *LLVMContext::getInlineAsmDiagnosticContext() const {
   return pImpl->InlineAsmDiagContext;
 }
 
-void LLVMContext::emitError(StringRef ErrorStr) {
+void LLVMContext::emitError(const Twine &ErrorStr) {
   emitError(0U, ErrorStr);
 }
 
-void LLVMContext::emitError(const Instruction *I, StringRef ErrorStr) {
+void LLVMContext::emitError(const Instruction *I, const Twine &ErrorStr) {
   unsigned LocCookie = 0;
   if (const MDNode *SrcLoc = I->getMetadata("srcloc")) {
     if (SrcLoc->getNumOperands() != 0)
@@ -97,7 +107,7 @@ void LLVMContext::emitError(const Instruction *I, StringRef ErrorStr) {
   return emitError(LocCookie, ErrorStr);
 }
 
-void LLVMContext::emitError(unsigned LocCookie, StringRef ErrorStr) {
+void LLVMContext::emitError(unsigned LocCookie, const Twine &ErrorStr) {
   // If there is no error handler installed, just print the error and exit.
   if (pImpl->InlineAsmDiagHandler == 0) {
     errs() << "error: " << ErrorStr << "\n";

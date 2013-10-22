@@ -65,7 +65,7 @@ enum {
     kEAPTypePEAP = 25,
     kEAPTypeMSCHAPv2 = 26,
     kEAPTypeExtensions = 33,
-    kEAPTypeEAPFAST = 43,
+    kEAPTypeEAPFAST = 43
 };
 typedef uint32_t EAPType;
 

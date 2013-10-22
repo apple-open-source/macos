@@ -110,14 +110,14 @@ _gssapi_msg_order_destroy(struct gss_msg_order **m)
 }
 
 static void
-elem_set(struct gss_msg_order *o, unsigned int slot, OM_uint32 val)
+elem_set(struct gss_msg_order *o, size_t slot, OM_uint32 val)
 {
     o->elem[slot % o->jitter_window] = val;
 }
 
 static void
 elem_insert(struct gss_msg_order *o,
-	    unsigned int after_slot,
+	    size_t after_slot,
 	    OM_uint32 seq_num)
 {
     assert(o->jitter_window > after_slot);

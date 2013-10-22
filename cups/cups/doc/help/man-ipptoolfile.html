@@ -76,6 +76,10 @@ The following directives can be used outside of a test:
 <dd>Defines the named variable to the given value if it does not already have a
 value.
 </dd>
+<dt>FILE-ID "identifier"
+</dt>
+<dd>Specifies an identifier string for the current file.
+</dd>
 <dt>IGNORE-ERRORS yes
 </dt>
 <dd></dd>
@@ -118,6 +122,13 @@ includes a file from the <i>ipptool</i> include directory.
 </dt>
 <dd>Specifies that the remainder of the test file should be skipped when the
 variable is or is not defined.
+</dd>
+<dt>STOP-AFTER-INCLUDE-ERROR no
+</dt>
+<dd></dd>
+<dt>STOP-AFTER-INCLUDE-ERROR yes
+</dt>
+<dd>Specifies whether tests will be stopped after an error in an included file.
 </dd>
 <dt>TRANSFER auto
 </dt>
@@ -170,6 +181,18 @@ character - escape commas using the "" character.
 <dd>Adds a collection attribute to the test request. Member attributes follow the
 same syntax as regular attributes and can themselves be nested collections.
 Multiple collection values can be supplied as needed.
+</dd>
+<dt>COMPRESSION deflate
+</dt>
+<dd></dd>
+<dt>COMPRESSION gzip
+</dt>
+<dd></dd>
+<dt>COMPRESSION none
+</dt>
+<dd></dd>
+<dd>Uses the specified compression on the document data following the attributes in
+a Print-Job or Send-Document request.
 </dd>
 <dt>DELAY seconds
 </dt>
@@ -251,6 +274,10 @@ resulted in an error/failure.
 <dd>Specifies an expected response status-code value. Additional requirements can be
 added as predicates - see the "STATUS PREDICATES" section for more information
 on predicates.
+</dd>
+<dt>TEST-ID "identifier"
+</dt>
+<dd>Specifies an identifier string for the current test.
 </dd>
 <dt>TRANSFER auto
 </dt>
@@ -341,6 +368,27 @@ matches or does not match.
 <dd>Requires the EXPECT attribute to have the same number of values as the specified
 parallel attribute.
 </dd>
+<dt>WITH-ALL-HOSTNAMES "literal string"
+</dt>
+<dd></dd>
+<dt>WITH-ALL-HOSTNAMES "/regular expression/"
+</dt>
+<dd>Requires that all URI values contain a matching hostname.
+</dd>
+<dt>WITH-ALL-RESOURCES "literal string"
+</dt>
+<dd></dd>
+<dt>WITH-ALL-RESOURCES "/regular expression/"
+</dt>
+<dd>Requires that all URI values contain a matching resource (including leading /).
+</dd>
+<dt>WITH-ALL-SCHEMES "literal string"
+</dt>
+<dd></dd>
+<dt>WITH-ALL-SCHEMES "/regular expression/"
+</dt>
+<dd>Requires that all URI values contain a matching scheme.
+</dd>
 <dt>WITH-ALL-VALUES "literal string"
 </dt>
 <dd>Requires that all values of the EXPECT attribute match the literal string. Comparisons are case-sensitive.
@@ -368,6 +416,27 @@ parallel attribute.
 <dt>WITH-ALL-VALUES "/regular expression/"
 </dt>
 <dd>Requires that all values of the EXPECT attribute match the regular expression, which must conform to the POSIX regular expression syntax. Comparisons are case-sensitive.
+</dd>
+<dt>WITH-HOSTNAME "literal string"
+</dt>
+<dd></dd>
+<dt>WITH-HOSTNAME "/regular expression/"
+</dt>
+<dd>Requires that at least one URI value contains a matching hostname.
+</dd>
+<dt>WITH-RESOURCE "literal string"
+</dt>
+<dd></dd>
+<dt>WITH-RESOURCE "/regular expression/"
+</dt>
+<dd>Requires that at least one URI value contains a matching resource (including leading /).
+</dd>
+<dt>WITH-SCHEME "literal string"
+</dt>
+<dd></dd>
+<dt>WITH-SCHEME "/regular expression/"
+</dt>
+<dd>Requires that at least one URI value contains a matching scheme.
 </dd>
 <dt>WITH-VALUE "literal string"
 </dt>
@@ -494,6 +563,7 @@ RFC 2911 and other IPP extension specifications. Here is a complete list:
     Resume-Printer
     Schedule-Job-After
     Send-Document
+    Send-Hardcopy-Document
     Send-Notifications
     Send-URI
     Set-Job-Attributes

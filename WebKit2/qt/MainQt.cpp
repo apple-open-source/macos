@@ -24,19 +24,39 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <qglobal.h>
+
+#if defined(QT_NO_WIDGETS)
+#include <QGuiApplication>
+typedef QGuiApplication ApplicationType;
+#else
 #include <QApplication>
+typedef QApplication ApplicationType;
+#endif
 
 #include <stdio.h>
+#if !defined(NDEBUG) && defined(Q_OS_UNIX)
+#include <signal.h>
+#include <unistd.h>
+#endif
 
 namespace WebKit {
 Q_DECL_IMPORT int WebProcessMainQt(QGuiApplication*);
-Q_DECL_IMPORT void initializeWebKit2Theme();
+#if !defined(QT_NO_WIDGETS)
+Q_DECL_IMPORT void initializeWebKitWidgets();
+#endif
 }
 
-static void messageHandler(QtMsgType type, const char* message)
+#if !defined(NDEBUG) && defined(Q_OS_UNIX)
+static void sigcontHandler(int)
+{
+}
+#endif
+
+static void messageHandler(QtMsgType type, const QMessageLogContext&, const QString& message)
 {
     if (type == QtCriticalMsg) {
-        fprintf(stderr, "%s\n", message);
+        fprintf(stderr, "%s\n", qPrintable(message));
         return;
     }
 
@@ -50,19 +70,32 @@ int main(int argc, char** argv)
 {
 #if !defined(NDEBUG) && defined(Q_OS_UNIX)
     if (qgetenv("QT_WEBKIT_PAUSE_WEB_PROCESS") == "1" || qgetenv("QT_WEBKIT2_DEBUG") == "1") {
-        fprintf(stderr, "Pausing web process, please attach to PID %d and continue... ", getpid());
+        struct sigaction newAction, oldAction;
+        newAction.sa_handler = sigcontHandler;
+        sigemptyset(&newAction.sa_mask);
+        newAction.sa_flags = 0;
+        sigaction(SIGCONT, &newAction, &oldAction);
+        fprintf(stderr, "Pausing UI process, please attach to PID %d and send signal SIGCONT... ", getpid());
         pause();
+        sigaction(SIGCONT, &oldAction, 0);
         fprintf(stderr, " OK\n");
     }
 #endif
-
-    WebKit::initializeWebKit2Theme();
 
     // Has to be done before QApplication is constructed in case
     // QApplication itself produces debug output.
     QByteArray suppressOutput = qgetenv("QT_WEBKIT_SUPPRESS_WEB_PROCESS_OUTPUT");
     if (!suppressOutput.isEmpty() && suppressOutput != "0")
-        qInstallMsgHandler(messageHandler);
+        qInstallMessageHandler(messageHandler);
 
-    return WebKit::WebProcessMainQt(new QApplication(argc, argv));
+    // QApplication must be created before we call initializeWebKitWidgets() so that
+    // the standard pixmaps can be fetched from the style.
+    ApplicationType* appInstance = new ApplicationType(argc, argv);
+
+#if !defined(QT_NO_WIDGETS)
+    if (qgetenv("QT_WEBKIT_THEME_NAME") == "qstyle")
+        WebKit::initializeWebKitWidgets();
+#endif
+
+    return WebKit::WebProcessMainQt(appInstance);
 }

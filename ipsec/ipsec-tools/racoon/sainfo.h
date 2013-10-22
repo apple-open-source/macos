@@ -50,16 +50,15 @@ struct sainfo {
 	vchar_t *group;
 #endif
 
-	time_t lifetime;
-	int lifebyte;
-	int pfs_group;		/* only use when pfs is required. */
-	vchar_t *id_i;		/* identifier of the authorized initiator */
-	struct sainfoalg *algs[MAXALGCLASS];
-	int	dynamic;		/* created through vpn control socket */
-	int to_remove;
-	int to_delete;
-	int linked_to_ph2;
-	LIST_ENTRY(sainfo) chain;
+    time_t lifetime;
+    int lifebyte;
+    int pfs_group;		/* only use when pfs is required. */
+    vchar_t *id_i;		/* identifier of the authorized initiator */
+    struct sainfoalg *algs[MAXALGCLASS];
+    int	dynamic;		/* created through vpn control socket */
+    int in_list;
+    int refcount;
+    LIST_ENTRY(sainfo) chain;
 };
 
 /* algorithm type */
@@ -69,21 +68,21 @@ struct sainfoalg {
 	struct sainfoalg *next;
 };
 
-extern struct sainfo *getsainfo __P((const vchar_t *,
-	const vchar_t *, const vchar_t *, int));
-extern struct sainfo *getsainfo_by_dst_id __P((const vchar_t *, const vchar_t *));
-extern int            link_sainfo_to_ph2 __P((struct sainfo *));
-extern int            unlink_sainfo_from_ph2 __P((struct sainfo *));
-extern struct sainfo *newsainfo __P((void));
-extern void delsainfo __P((struct sainfo *));
-extern void inssainfo __P((struct sainfo *));
-extern void remsainfo __P((struct sainfo *));
-extern void flushsainfo __P((void));
-extern void flushsainfo_dynamic __P((u_int32_t));
-extern void initsainfo __P((void));
-extern struct sainfoalg *newsainfoalg __P((void));
-extern void delsainfoalg __P((struct sainfoalg *));
-extern void inssainfoalg __P((struct sainfoalg **, struct sainfoalg *));
-extern const char * sainfo2str __P((const struct sainfo *));
+extern struct sainfo *getsainfo (const vchar_t *,
+	const vchar_t *, const vchar_t *, int);
+extern struct sainfo *getsainfo_by_dst_id (const vchar_t *, const vchar_t *);
+extern struct sainfo *create_sainfo (void);
+extern void delsainfo (struct sainfo *);
+extern void inssainfo (struct sainfo *);
+extern void remsainfo (struct sainfo *);
+void retain_sainfo(struct sainfo *si);
+void release_sainfo(struct sainfo *si);
+extern void flushsainfo (void);
+extern void flushsainfo_dynamic (u_int32_t);
+extern void initsainfo (void);
+extern struct sainfoalg *newsainfoalg (void);
+extern void delsainfoalg (struct sainfoalg *);
+extern void inssainfoalg (struct sainfoalg **, struct sainfoalg *);
+extern const char * sainfo2str (const struct sainfo *);
 
 #endif /* _SAINFO_H */

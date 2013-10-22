@@ -50,8 +50,8 @@ extern "C" {
 	} \
 	catch (const MacOSError &err) { return err.osStatus(); } \
 	catch (const CommonError &err) { return SecKeychainErrFromOSStatus(err.osStatus()); } \
-	catch (const std::bad_alloc &) { return memFullErr; }\
-	catch (...) { return internalComponentErr; }
+	catch (const std::bad_alloc &) { return errSecAllocate; }\
+	catch (...) { return errSecInternalComponent; }
 
 /* 
  * Debug support.

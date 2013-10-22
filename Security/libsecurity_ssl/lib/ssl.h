@@ -31,6 +31,6 @@
 #include "SecureTransport.h"
 #include "sslPriv.h"
 
-#include <MacErrors.h>
+#include <Security/SecBase.h>
 
 #endif	/* _SSL_SSL_H_ */

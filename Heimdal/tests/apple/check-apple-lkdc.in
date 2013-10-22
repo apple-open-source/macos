@@ -139,19 +139,25 @@ fi
 
 echo "Creating lkdc user"
 
+echo "    delete"
 dscl . -delete /Users/$u 2>/dev/null >/dev/null
+echo "    create"
 dscl . -create /Users/$u
+echo "    RealName"
 dscl . -append /Users/$u RealName "Heimdal testuser"
 dscl . -append /Users/$u RecordName "${mme}"
 dscl . -append /Users/$u dsAttrTypeStandard:AltSecurityIdentities 'X509:<T>C=SE,CN=hx509 Test Root CA<S>CN=pkinit,C=SE'
 dscl . -delete /Users/$u AuthenticationAuthority
 dscl . -append /Users/$u AuthenticationAuthority ';ShadowHash;HASHLIST:<SALTED-SHA1,SMB-NT>'
 dscl . -append /Users/$u UniqueID $uid
+dscl . -append /Users/$u PrimaryGroupID 20
 dscl . -append /Users/$u NFSHomeDirectory "${testdir}/smb"
+echo "    Password"
 dscl . -passwd /Users/$u $pw
+echo "    Check keys"
 (dscl . -read /Users/$u KerberosKeys | grep KerberosKeys > /dev/null) || \
     { echo "KerberosKeys missing" ; exit 1; }
-(dscl . -read /Users/$u dsAttrTypeStandard:AltSecurityIdentities | grep pkinit) || { echo "asi missing" ; exit 1; }
+(dscl . -read /Users/$u dsAttrTypeStandard:AltSecurityIdentities | grep pkinit > /dev/null) || { echo "asi missing" ; exit 1; }
 
 chown -R $u "${testdir}/smb"
 
@@ -159,40 +165,60 @@ echo $pw > ${testdir}/foopassword
 
 echo "Server domain"
 
+echo "    delete"
 dscl . -delete /Users/$o 2>/dev/null >/dev/null
+echo "    create"
 dscl . -create /Users/$o
+dscl . -append /Users/$o UniqueID $(expr $uid + 1)
+dscl . -append /Users/$o PrimaryGroupID 20
 dscl . -append /Users/$o dsAttrTypeNative:KerberosUserName krbtgt/$r2@$r2
 
+echo "    setflags"
 $hodadmin . principal-setflags $o Server Forwardable
 
+echo "    password"
 $hodadmin . password  $o domain || exit 1
 $hodadmin . alias-add $o krbtgt/$r2@$r2  || exit 1
 
 echo "Creating server user"
 
+echo "    delete"
 dscl . -delete /Users/$u2 2>/dev/null >/dev/null
+echo "    create"
 dscl . -create /Users/$u2
+dscl . -append /Users/$u2 UniqueID $(expr $uid + 2)
+dscl . -append /Users/$u2 PrimaryGroupID 20
+echo "    password"
 dscl . -passwd /Users/$u2 $pw
+echo "    checking user"
 (dscl . -read /Users/$u KerberosKeys | grep KerberosKeys > /dev/null) || \
     { echo "KerberosKeys missing" ; exit 1; }
 dscl . -append /Users/$u2 dsAttrTypeNative:KerberosUserName $u2@$r2
 
 echo "Creating server service user"
 
+echo "    delete"
 dscl . -delete /Computers/$s 2>/dev/null >/dev/null
+echo "    create"
 dscl . -create /Computers/$s
+echo "    password"
 dscl . -passwd /Computers/$s $pw
+echo "    realname"
 dscl . -append /Computers/$s RealName "Heimdal test service"
+echo "    servername"
 dscl . -append /Computers/$s dsAttrTypeNative:KerberosServerName $s@$r2
 
+echo "    setflags"
 $hodadmin . principal-setflags /Computers/$s Server
 
+echo "    password"
 $hodadmin . password          /Computers/$s user-password
 #$hodadmin . password --append /Computers/$s host-pw host/$s.$r2@$r2
 #$hodadmin . password --append /Computers/$s cifs-pw cifs/$s.$r2@$r2
 #$hodadmin . password --append /Computers/$s http-pw HTTP/$s.$r2@$r2
 #$hodadmin . password --append /Computers/$s imap-pw imap/$s.$r2@$r2
 
+echo "    aliases"
 for a in host cifs HTTP imap ; do
     $hodadmin . alias-add /Computers/$s $a/$s.$r2@$r2
 done
@@ -202,6 +228,8 @@ if [ "X${foundlines}" = "X" -o "X${foundlines}" = X0 ] ; then
     echo "dumpfile contained nothing"
     exit 1
 fi
+
+echo "done user creation"
 
 toogle_ntlm enable
 
@@ -299,14 +327,13 @@ ${test_context} \
 
 ${kdestroy}
 
-echo "testing IAKERB GSS mech"
-${test_context} \
-    --client-name=heimdaltestuser@WELLKNOWN:COM.APPLE.LKDC \
-    --password="$pw" \
-    --cred-type=iakerb \
-    --mech=iakerb --wrap --verbose \
-    service@localhost || { ec=1 ; eval "${testfailed}"; }
-
+#echo "testing IAKERB GSS mech"
+#${test_context} \
+#    --client-name=heimdaltestuser@WELLKNOWN:COM.APPLE.LKDC \
+#    --password="$pw" \
+#    --cred-type=iakerb \
+#    --mech=iakerb --wrap --verbose \
+#    service@localhost || { ec=1 ; eval "${testfailed}"; }
 
 echo "test_gssntlm"
 
@@ -325,11 +352,11 @@ defaults write /Library/Preferences/com.apple.GSS.NTLM AllowedHosts -array host.
 for a in \
     "0 host@host.local host.local" \
     "0 host@host.local" \
-    "0 host@host.local *.local" \
+    "0 host@host.local \*.local" \
     "1 host@host.local host2.local" \
     "1 host@host.local 2host.local" \
-    "1 host@host.local *.local2" \
-    "1 host@host.local *.2local"
+    "1 host@host.local \*.local2" \
+    "1 host@host.local \*.2local"
 do
     echo "---running test $a"
     set -- $a
@@ -353,7 +380,10 @@ do
         --ret-mech-type=ntlm \
         ${host} > /dev/null 2>&1
     res=$?
-    test "$res" = "$eres" || { echo "test failed"; exit 1; }
+    test "$res" = "$eres" || { \
+	defaults delete /Library/Preferences/com.apple.GSS.NTLM AllowedHosts ; \
+	echo "test failed"; exit 1; \
+    }
 
     echo "   NTLM GSS mech channel bindings"
     ${test_context} \
@@ -365,7 +395,10 @@ do
         --ret-mech-type=ntlm \
         ${host} > /dev/null 2>&1
     res=$?
-    test "$res" = "$eres" || { echo "test failed"; exit 1; }
+    test "$res" = "$eres" ||  { \
+	defaults delete /Library/Preferences/com.apple.GSS.NTLM AllowedHosts ; \
+	echo "test failed"; exit 1; \
+    }
 
 done
 
@@ -470,6 +503,7 @@ toggle_launchd malloc-unset
 
 rm -rf "${testdir}/smb"
 dscl . -delete /Users/$u
+dscl . -delete /Users/$u2
 dscl . -delete /Users/$s
 dscl . -delete /Users/$o
 

@@ -45,10 +45,6 @@ namespace WebCore {
 
 namespace WebKit {
 
-#if PLATFORM(WIN)
-struct WindowGeometry;
-#endif
-
 class PluginController {
 public:
     // Returns false if the plugin has explicitly been hidden. Returns true otherwise (even if the plugin is currently obscured from view on screen.)
@@ -76,6 +72,7 @@ public:
     // Cancels the load of the manual stream.
     virtual void cancelManualStreamLoad() = 0;
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
     // Get the NPObject that corresponds to the window JavaScript object. Returns a retained object.
     virtual NPObject* windowScriptNPObject() = 0;
 
@@ -84,6 +81,7 @@ public:
 
     // Evaluates the given script string in the context of the given NPObject.
     virtual bool evaluate(NPObject*, const String& scriptString, NPVariant* result, bool allowPopups) = 0;
+#endif
 
     // Set the statusbar text.
     virtual void setStatusbarText(const String&) = 0;
@@ -99,15 +97,6 @@ public:
     // Tells the controller that we're about to dispatch an event to the plug-in.
     virtual void willSendEventToPlugin() = 0;
     
-#if PLATFORM(WIN)
-    // The window to use as the parent of the plugin's window.
-    virtual HWND nativeParentWindow() = 0;
-
-    // Tells the controller that the given HWND needs to be positioned and clipped to the given
-    // coordinates sometime soon. The controller will decide exactly when this will happen.
-    virtual void scheduleWindowedPluginGeometryUpdate(const WindowGeometry&) = 0;
-#endif
-
 #if PLATFORM(MAC)
     // Tells the controller that the plug-in focus or window focus did change.
     virtual void pluginFocusOrWindowFocusChanged(bool) = 0;
@@ -117,6 +106,9 @@ public:
 
     // Returns the mach port of the compositing render server.
     virtual mach_port_t compositingRenderServerPort() = 0;
+
+    // Open the preference pane for this plug-in (as stated in the plug-in's Info.plist).
+    virtual void openPluginPreferencePane() = 0;
 #endif
 
     // Returns the contents scale factor.
@@ -136,6 +128,15 @@ public:
 
     // Returns whether private browsing is enabled.
     virtual bool isPrivateBrowsingEnabled() = 0;
+    
+    // Returns whether or not asynchronous plugin initialization is enabled.
+    virtual bool asynchronousPluginInitializationEnabled() const { return false; }
+    
+    // Returns whether or not asynchronous plugin initialization should be attempted for all plugins.
+    virtual bool asynchronousPluginInitializationEnabledForAllPlugins() const { return false; }
+    
+    // Returns the articifical plugin delay to use for testing of asynchronous plugin initialization.
+    virtual bool artificialPluginInitializationDelayEnabled() const { return false; }
 
     // Increments a counter that prevents the plug-in from being destroyed.
     virtual void protectPluginFromDestruction() = 0;
@@ -148,6 +149,12 @@ public:
     virtual uint64_t createPluginContainer() = 0;
     virtual void windowedPluginGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect, uint64_t windowID) = 0;
 #endif
+
+    // Called when the a plug-in instance is successfully initialized, either synchronously or asynchronously.
+    virtual void didInitializePlugin() = 0;
+    
+    // Called when the a plug-in instance fails to initialized, either synchronously or asynchronously.
+    virtual void didFailToInitializePlugin() = 0;
 
     // Helper class for delaying destruction of a plug-in.
     class PluginDestructionProtector {

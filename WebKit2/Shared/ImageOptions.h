@@ -34,9 +34,22 @@ enum ImageOptions {
 
 enum {
     SnapshotOptionsShareable = 1 << 0,
-    SnapshotOptionsExcludeSelectionHighlighting = 1 << 1
+    SnapshotOptionsExcludeSelectionHighlighting = 1 << 1,
+    SnapshotOptionsInViewCoordinates = 1 << 2,
+    SnapshotOptionsPaintSelectionRectangle = 1 << 3
 };
 typedef uint32_t SnapshotOptions;
+
+
+inline ImageOptions snapshotOptionsToImageOptions(SnapshotOptions snapshotOptions)
+{
+    unsigned imageOptions = 0;
+
+    if (snapshotOptions & SnapshotOptionsShareable)
+        imageOptions |= ImageOptionsShareable;
+
+    return static_cast<ImageOptions>(imageOptions);
+}
 
 } // namespace WebKit
 

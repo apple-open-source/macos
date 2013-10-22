@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,142 +26,303 @@
 #include "config.h"
 #include "SelectorQuery.h"
 
+#include "CSSParser.h"
 #include "CSSSelectorList.h"
 #include "Document.h"
+#include "NodeTraversal.h"
+#include "SelectorChecker.h"
+#include "SelectorCheckerFastPath.h"
 #include "StaticNodeList.h"
 #include "StyledElement.h"
 
 namespace WebCore {
 
-SelectorDataList::SelectorDataList()
-{
-}
-
-SelectorDataList::SelectorDataList(const CSSSelectorList& selectorList)
-{
-    initialize(selectorList);
-}
-
 void SelectorDataList::initialize(const CSSSelectorList& selectorList)
 {
     ASSERT(m_selectors.isEmpty());
 
-    for (CSSSelector* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector))
-        m_selectors.append(SelectorData(selector, SelectorChecker::isFastCheckableSelector(selector)));
+    unsigned selectorCount = 0;
+    for (const CSSSelector* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector))
+        selectorCount++;
+
+    m_selectors.reserveInitialCapacity(selectorCount);
+    for (const CSSSelector* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector))
+        m_selectors.uncheckedAppend(SelectorData(selector, SelectorCheckerFastPath::canUse(selector)));
 }
 
-bool SelectorDataList::matches(const SelectorChecker& selectorChecker, Element* targetElement) const
+inline bool SelectorDataList::selectorMatches(const SelectorData& selectorData, Element* element, const Node* rootNode) const
+{
+    if (selectorData.isFastCheckable && !element->isSVGElement()) {
+        SelectorCheckerFastPath selectorCheckerFastPath(selectorData.selector, element);
+        if (!selectorCheckerFastPath.matchesRightmostSelector(SelectorChecker::VisitedMatchDisabled))
+            return false;
+        return selectorCheckerFastPath.matches();
+    }
+
+    SelectorChecker selectorChecker(element->document(), SelectorChecker::QueryingRules);
+    SelectorChecker::SelectorCheckingContext selectorCheckingContext(selectorData.selector, element, SelectorChecker::VisitedMatchDisabled);
+    selectorCheckingContext.behaviorAtBoundary = SelectorChecker::StaysWithinTreeScope;
+    selectorCheckingContext.scope = !rootNode->isDocumentNode() && rootNode->isContainerNode() ? toContainerNode(rootNode) : 0;
+    PseudoId ignoreDynamicPseudo = NOPSEUDO;
+    return selectorChecker.match(selectorCheckingContext, ignoreDynamicPseudo) == SelectorChecker::SelectorMatches;
+}
+
+bool SelectorDataList::matches(Element* targetElement) const
 {
     ASSERT(targetElement);
 
     unsigned selectorCount = m_selectors.size();
     for (unsigned i = 0; i < selectorCount; ++i) {
-        if (selectorChecker.checkSelector(m_selectors[i].selector, targetElement, m_selectors[i].isFastCheckable))
+        if (selectorMatches(m_selectors[i], targetElement, targetElement))
             return true;
     }
 
     return false;
 }
 
-PassRefPtr<NodeList> SelectorDataList::queryAll(const SelectorChecker& selectorChecker, Node* rootNode) const
+PassRefPtr<NodeList> SelectorDataList::queryAll(Node* rootNode) const
 {
     Vector<RefPtr<Node> > result;
-    execute<false>(selectorChecker, rootNode, result);
+    execute<false>(rootNode, result);
     return StaticNodeList::adopt(result);
 }
 
-PassRefPtr<Element> SelectorDataList::queryFirst(const SelectorChecker& selectorChecker, Node* rootNode) const
+PassRefPtr<Element> SelectorDataList::queryFirst(Node* rootNode) const
 {
     Vector<RefPtr<Node> > result;
-    execute<true>(selectorChecker, rootNode, result);
+    execute<true>(rootNode, result);
     if (result.isEmpty())
         return 0;
     ASSERT(result.size() == 1);
     ASSERT(result.first()->isElementNode());
-    return static_cast<Element*>(result.first().get());
+    return toElement(result.first().get());
 }
 
-bool SelectorDataList::canUseIdLookup(Node* rootNode) const
+static const CSSSelector* selectorForIdLookup(const Node* rootNode, const CSSSelector* selector)
 {
-    // We need to return the matches in document order. To use id lookup while there is possiblity of multiple matches
-    // we would need to sort the results. For now, just traverse the document in that case.
-    if (m_selectors.size() != 1)
-        return false;
-    if (m_selectors[0].selector->m_match != CSSSelector::Id)
-        return false;
     if (!rootNode->inDocument())
-        return false;
+        return 0;
     if (rootNode->document()->inQuirksMode())
-        return false;
-    if (rootNode->document()->containsMultipleElementsWithId(m_selectors[0].selector->value()))
-        return false;
-    return true;
+        return 0;
+
+    do {
+        if (selector->m_match == CSSSelector::Id)
+            return selector;
+        if (selector->relation() != CSSSelector::SubSelector)
+            break;
+        selector = selector->tagHistory();
+    } while (selector);
+
+    return 0;
 }
 
-static inline bool isTreeScopeRoot(Node* node)
+static inline bool isTreeScopeRoot(const Node* node)
 {
     ASSERT(node);
     return node->isDocumentNode() || node->isShadowRoot();
 }
 
 template <bool firstMatchOnly>
-void SelectorDataList::execute(const SelectorChecker& selectorChecker, Node* rootNode, Vector<RefPtr<Node> >& matchedElements) const
+ALWAYS_INLINE void SelectorDataList::executeFastPathForIdSelector(const Node* rootNode, const SelectorData& selectorData, const CSSSelector* idSelector, Vector<RefPtr<Node> >& matchedElements) const
 {
-    if (canUseIdLookup(rootNode)) {
-        ASSERT(m_selectors.size() == 1);
-        CSSSelector* selector = m_selectors[0].selector;
-        Element* element = rootNode->treeScope()->getElementById(selector->value());
-        if (!element || !(isTreeScopeRoot(rootNode) || element->isDescendantOf(rootNode)))
-            return;
-        if (selectorChecker.checkSelector(m_selectors[0].selector, element, m_selectors[0].isFastCheckable))
-            matchedElements.append(element);
+    ASSERT(m_selectors.size() == 1);
+    ASSERT(idSelector);
+    const AtomicString& idToMatch = idSelector->value();
+    if (UNLIKELY(rootNode->treeScope()->containsMultipleElementsWithId(idToMatch))) {
+        const Vector<Element*>* elements = rootNode->treeScope()->getAllElementsById(idToMatch);
+        ASSERT(elements);
+        size_t count = elements->size();
+        bool rootNodeIsTreeScopeRoot = isTreeScopeRoot(rootNode);
+        for (size_t i = 0; i < count; ++i) {
+            Element* element = elements->at(i);
+            if ((rootNodeIsTreeScopeRoot || element->isDescendantOf(rootNode)) && selectorMatches(selectorData, element, rootNode)) {
+                matchedElements.append(element);
+                if (firstMatchOnly)
+                    return;
+            }
+        }
         return;
     }
+    Element* element = rootNode->treeScope()->getElementById(idToMatch);
+    if (!element || !(isTreeScopeRoot(rootNode) || element->isDescendantOf(rootNode)))
+        return;
+    if (selectorMatches(selectorData, element, rootNode))
+        matchedElements.append(element);
+}
 
-    unsigned selectorCount = m_selectors.size();
+static bool isSingleTagNameSelector(const CSSSelector* selector)
+{
+    return selector->isLastInTagHistory() && selector->m_match == CSSSelector::Tag;
+}
 
-    Node* n = rootNode->firstChild();
-    while (n) {
-        if (n->isElementNode()) {
-            Element* element = static_cast<Element*>(n);
-            for (unsigned i = 0; i < selectorCount; ++i) {
-                if (selectorChecker.checkSelector(m_selectors[i].selector, element, m_selectors[i].isFastCheckable)) {
-                    matchedElements.append(element);
-                    if (firstMatchOnly)
-                        return;
-                    break;
-                }
-            }
-            if (element->firstChild()) {
-                n = element->firstChild();
-                continue;
-            }
-        }
-        while (!n->nextSibling()) {
-            n = n->parentNode();
-            if (n == rootNode)
+template <bool firstMatchOnly>
+static inline void elementsForLocalName(const Node* rootNode, const AtomicString& localName, Vector<RefPtr<Node> >& matchedElements)
+{
+    for (Element* element = ElementTraversal::firstWithin(rootNode); element; element = ElementTraversal::next(element, rootNode)) {
+        if (element->localName() == localName) {
+            matchedElements.append(element);
+            if (firstMatchOnly)
                 return;
         }
-        n = n->nextSibling();
     }
 }
 
-SelectorQuery::SelectorQuery(Node* rootNode, const CSSSelectorList& selectorList)
-    : m_rootNode(rootNode)
-    , m_selectorChecker(rootNode->document(), !rootNode->document()->inQuirksMode())
-    , m_selectors(selectorList)
+template <bool firstMatchOnly>
+static inline void anyElement(const Node* rootNode, Vector<RefPtr<Node> >& matchedElements)
 {
-    m_selectorChecker.setMode(SelectorChecker::QueryingRules);
+    for (Element* element = ElementTraversal::firstWithin(rootNode); element; element = ElementTraversal::next(element, rootNode)) {
+        matchedElements.append(element);
+        if (firstMatchOnly)
+            return;
+    }
 }
 
-PassRefPtr<NodeList> SelectorQuery::queryAll() const
+
+template <bool firstMatchOnly>
+ALWAYS_INLINE void SelectorDataList::executeSingleTagNameSelectorData(const Node* rootNode, const SelectorData& selectorData, Vector<RefPtr<Node> >& matchedElements) const
 {
-    return m_selectors.queryAll(m_selectorChecker, m_rootNode);
+    ASSERT(m_selectors.size() == 1);
+    ASSERT(isSingleTagNameSelector(selectorData.selector));
+
+    const QualifiedName& tagQualifiedName = selectorData.selector->tagQName();
+    const AtomicString& selectorLocalName = tagQualifiedName.localName();
+    const AtomicString& selectorNamespaceURI = tagQualifiedName.namespaceURI();
+
+    if (selectorNamespaceURI == starAtom) {
+        if (selectorLocalName != starAtom) {
+            // Common case: name defined, selectorNamespaceURI is a wildcard.
+            elementsForLocalName<firstMatchOnly>(rootNode, selectorLocalName, matchedElements);
+        } else {
+            // Other fairly common case: both are wildcards.
+            anyElement<firstMatchOnly>(rootNode, matchedElements);
+        }
+    } else {
+        // Fallback: NamespaceURI is set, selectorLocalName may be starAtom.
+        for (Element* element = ElementTraversal::firstWithin(rootNode); element; element = ElementTraversal::next(element, rootNode)) {
+            if (element->namespaceURI() == selectorNamespaceURI && (selectorLocalName == starAtom || element->localName() == selectorLocalName)) {
+                matchedElements.append(element);
+                if (firstMatchOnly)
+                    break;
+            }
+        }
+    }
+#if !ASSERT_DISABLED
+    for (size_t i = 0; i < matchedElements.size(); ++i) {
+        ASSERT(matchedElements[i]->isElementNode());
+        ASSERT(SelectorChecker::tagMatches(static_cast<const Element*>(matchedElements[i].get()), tagQualifiedName));
+    }
+#endif
 }
 
-PassRefPtr<Element> SelectorQuery::queryFirst() const
+static bool isSingleClassNameSelector(const CSSSelector* selector)
 {
-    return m_selectors.queryFirst(m_selectorChecker, m_rootNode);
+    return selector->isLastInTagHistory() && selector->m_match == CSSSelector::Class;
+}
+
+template <bool firstMatchOnly>
+ALWAYS_INLINE void SelectorDataList::executeSingleClassNameSelectorData(const Node* rootNode, const SelectorData& selectorData, Vector<RefPtr<Node> >& matchedElements) const
+{
+    ASSERT(m_selectors.size() == 1);
+    ASSERT(isSingleClassNameSelector(selectorData.selector));
+
+    const AtomicString& className = selectorData.selector->value();
+    for (Element* element = ElementTraversal::firstWithin(rootNode); element; element = ElementTraversal::next(element, rootNode)) {
+        if (element->hasClass() && element->classNames().contains(className)) {
+            matchedElements.append(element);
+            if (firstMatchOnly)
+                return;
+        }
+    }
+}
+
+template <bool firstMatchOnly>
+ALWAYS_INLINE void SelectorDataList::executeSingleSelectorData(const Node* rootNode, const SelectorData& selectorData, Vector<RefPtr<Node> >& matchedElements) const
+{
+    ASSERT(m_selectors.size() == 1);
+
+    for (Element* element = ElementTraversal::firstWithin(rootNode); element; element = ElementTraversal::next(element, rootNode)) {
+        if (selectorMatches(selectorData, element, rootNode)) {
+            matchedElements.append(element);
+            if (firstMatchOnly)
+                return;
+        }
+    }
+}
+
+template <bool firstMatchOnly>
+ALWAYS_INLINE void SelectorDataList::executeSingleMultiSelectorData(const Node* rootNode, Vector<RefPtr<Node> >& matchedElements) const
+{
+    unsigned selectorCount = m_selectors.size();
+    for (Element* element = ElementTraversal::firstWithin(rootNode); element; element = ElementTraversal::next(element, rootNode)) {
+        for (unsigned i = 0; i < selectorCount; ++i) {
+            if (selectorMatches(m_selectors[i], element, rootNode)) {
+                matchedElements.append(element);
+                if (firstMatchOnly)
+                    return;
+                break;
+            }
+        }
+    }
+}
+
+template <bool firstMatchOnly>
+ALWAYS_INLINE void SelectorDataList::execute(Node* rootNode, Vector<RefPtr<Node> >& matchedElements) const
+{
+    if (m_selectors.size() == 1) {
+        const SelectorData& selectorData = m_selectors[0];
+        if (const CSSSelector* idSelector = selectorForIdLookup(rootNode, selectorData.selector))
+            executeFastPathForIdSelector<firstMatchOnly>(rootNode, selectorData, idSelector, matchedElements);
+        else if (isSingleTagNameSelector(selectorData.selector))
+            executeSingleTagNameSelectorData<firstMatchOnly>(rootNode, selectorData, matchedElements);
+        else if (isSingleClassNameSelector(selectorData.selector))
+            executeSingleClassNameSelectorData<firstMatchOnly>(rootNode, selectorData, matchedElements);
+        else
+            executeSingleSelectorData<firstMatchOnly>(rootNode, selectorData, matchedElements);
+        return;
+    }
+    executeSingleMultiSelectorData<firstMatchOnly>(rootNode, matchedElements);
+}
+
+SelectorQuery::SelectorQuery(const CSSSelectorList& selectorList)
+    : m_selectorList(selectorList)
+{
+    m_selectors.initialize(m_selectorList);
+}
+
+SelectorQuery* SelectorQueryCache::add(const AtomicString& selectors, Document* document, ExceptionCode& ec)
+{
+    HashMap<AtomicString, OwnPtr<SelectorQuery> >::iterator it = m_entries.find(selectors);
+    if (it != m_entries.end())
+        return it->value.get();
+
+    CSSParser parser(document);
+    CSSSelectorList selectorList;
+    parser.parseSelector(selectors, selectorList);
+
+    if (!selectorList.first() || selectorList.hasInvalidSelector()) {
+        ec = SYNTAX_ERR;
+        return 0;
+    }
+
+    // throw a NAMESPACE_ERR if the selector includes any namespace prefixes.
+    if (selectorList.selectorsNeedNamespaceResolution()) {
+        ec = NAMESPACE_ERR;
+        return 0;
+    }
+
+    const int maximumSelectorQueryCacheSize = 256;
+    if (m_entries.size() == maximumSelectorQueryCacheSize)
+        m_entries.remove(m_entries.begin());
+    
+    OwnPtr<SelectorQuery> selectorQuery = adoptPtr(new SelectorQuery(selectorList));
+    SelectorQuery* rawSelectorQuery = selectorQuery.get();
+    m_entries.add(selectors, selectorQuery.release());
+    return rawSelectorQuery;
+}
+
+void SelectorQueryCache::invalidate()
+{
+    m_entries.clear();
 }
 
 }

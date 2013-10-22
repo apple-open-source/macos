@@ -1,0 +1,2 @@
+[% USE Simple -%]
+test 2: [% 'badger' | simple -%]

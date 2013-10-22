@@ -34,9 +34,9 @@ typedef struct conv_struct * conv_t;
  * Data type for conversion multibyte -> unicode
  */
 struct mbtowc_funcs {
-  int (*xxx_mbtowc) (conv_t conv, ucs4_t *pwc, unsigned char const *s, int n);
+  int (*xxx_mbtowc) (conv_t conv, ucs4_t *pwc, unsigned char const *s, size_t n);
   /*
-   * int xxx_mbtowc (conv_t conv, ucs4_t *pwc, unsigned char const *s, int n)
+   * int xxx_mbtowc (conv_t conv, ucs4_t *pwc, unsigned char const *s, size_t n)
    * converts the byte sequence starting at s to a wide character. Up to n bytes
    * are available at s. n is >= 1.
    * Result is number of bytes consumed (if a wide character was read),
@@ -60,16 +60,16 @@ struct mbtowc_funcs {
  * Data type for conversion unicode -> multibyte
  */
 struct wctomb_funcs {
-  int (*xxx_wctomb) (conv_t conv, unsigned char *r, ucs4_t wc, int n);
+  int (*xxx_wctomb) (conv_t conv, unsigned char *r, ucs4_t wc, size_t n);
   /*
-   * int xxx_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+   * int xxx_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
    * converts the wide character wc to the character set xxx, and stores the
    * result beginning at r. Up to n bytes may be written at r. n is >= 1.
    * Result is number of bytes written, or -1 if invalid, or -2 if n too small.
    */
-  int (*xxx_reset) (conv_t conv, unsigned char *r, int n);
+  int (*xxx_reset) (conv_t conv, unsigned char *r, size_t n);
   /*
-   * int xxx_reset (conv_t conv, unsigned char *r, int n)
+   * int xxx_reset (conv_t conv, unsigned char *r, size_t n)
    * stores a shift sequences returning to the initial state beginning at r.
    * Up to n bytes may be written at r. n is >= 0.
    * Result is number of bytes written, or -2 if n too small.

@@ -29,25 +29,31 @@
 #ifndef NetworkInfoClientEfl_h
 #define NetworkInfoClientEfl_h
 
-#include "NetworkInfoClient.h"
-#include "NetworkInfoController.h"
+#if ENABLE(NETWORK_INFO)
+
+#include <NetworkInfoClient.h>
+#include <NetworkInfoProviderEfl.h>
 
 namespace WebCore {
+
 class NetworkInfoClientEfl : public WebCore::NetworkInfoClient {
 public:
     NetworkInfoClientEfl();
     ~NetworkInfoClientEfl();
     
+    virtual void networkInfoControllerDestroyed();
+
     virtual void startUpdating();
     virtual void stopUpdating();
 
-    virtual unsigned int bandwidth() const;
+    virtual double bandwidth() const;
     virtual bool metered() const;
 
 private:
-
-    NetworkInfoController* m_controller;
+    WebCore::NetworkInfoProviderEfl m_provider;
 };
-}
 
+} // namespace WebCore
+
+#endif
 #endif // NetworkInfoClientEfl_h

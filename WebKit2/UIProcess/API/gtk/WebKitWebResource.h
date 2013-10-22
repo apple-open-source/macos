@@ -50,6 +50,11 @@ struct _WebKitWebResource {
 
 struct _WebKitWebResourceClass {
     GObjectClass parent_class;
+
+    void (*_webkit_reserved0) (void);
+    void (*_webkit_reserved1) (void);
+    void (*_webkit_reserved2) (void);
+    void (*_webkit_reserved3) (void);
 };
 
 WEBKIT_API GType
@@ -63,6 +68,7 @@ webkit_web_resource_get_response    (WebKitWebResource  *resource);
 
 WEBKIT_API void
 webkit_web_resource_get_data        (WebKitWebResource  *resource,
+                                     GCancellable       *cancellable,
                                      GAsyncReadyCallback callback,
                                      gpointer            user_data);
 

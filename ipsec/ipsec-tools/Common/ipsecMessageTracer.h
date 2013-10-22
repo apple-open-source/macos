@@ -69,7 +69,7 @@
 #endif
 
 #if 1 //TARGET_OS_EMBEDDED
-#define IPSECLOGASLMSG(format, args...) syslog(LOG_NOTICE, format, ##args);
+#define IPSECLOGASLMSG(format, args...) plog(ASL_LEVEL_NOTICE, format, ##args);
 #else
 #define IPSECLOGASLMSG(format, args...) do {								\
 						aslmsg m = asl_new(ASL_TYPE_MSG);			\

@@ -23,6 +23,7 @@
 #if ENABLE(SVG)
 #include "SVGImageLoader.h"
 
+#include "CachedImage.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "HTMLParserIdioms.h"
@@ -47,12 +48,12 @@ void SVGImageLoader::dispatchLoadEvent()
     }
 }
 
-String SVGImageLoader::sourceURI(const AtomicString& attr) const
+String SVGImageLoader::sourceURI(const AtomicString& attribute) const
 {
     KURL base = element()->baseURI();
     if (base.isValid())
-        return KURL(base, stripLeadingAndTrailingHTMLSpaces(attr)).string();
-    return element()->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(attr));
+        return KURL(base, stripLeadingAndTrailingHTMLSpaces(attribute)).string();
+    return element()->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(attribute));
 }
 
 }

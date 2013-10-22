@@ -44,7 +44,7 @@ $Id: sys_macosx.cpp 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <MacTypes.h>
 #include "pcscexport.h"
 #include "debug.h"
 

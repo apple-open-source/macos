@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -242,6 +242,9 @@ print_ipsecstats(void)
     ipsec_hist(ipsecstat.f, pipsecstat.f, \
         sizeof(ipsecstat.f)/sizeof(ipsecstat.f[0]), (n), (t));
 
+    if (interval && vflag > 0)
+        print_time();
+
 	p(in_success, "\t" LLU " inbound packet%s processed successfully\n");
 	p(in_polvio, "\t" LLU " inbound packet%s violated process security "
 		"policy\n");
@@ -318,6 +321,8 @@ pfkey_stats(uint32_t off __unused, char *name, int af __unused)
 	len = sizeof(struct pfkeystat);
 	if (sysctlbyname("net.key.pfkeystat", &pfkeystat, &len, 0, 0) == -1)
 		return;
+    if (interval && vflag > 0)
+        print_time();
 	printf ("%s:\n", name);
 
 #define	PFKEYDIFF(f) (pfkeystat.f - ppfkeystat.f)

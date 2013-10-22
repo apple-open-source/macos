@@ -909,7 +909,7 @@ list_if_listening(
 	struct interface *	iface
 	)
 {
-	if (awoke()) {
+	if (awake_timer == 0 && awoke()) {
 		awake_timer = current_time;
 	}
 	msyslog(LOG_INFO, "%s on %d %s %s UDP %d",
@@ -1351,6 +1351,19 @@ refresh_interface(
 	} else
 		return 0;	/* invalid sockets are not refreshable */
 #else /* !OS_MISSES_SPECIFIC_ROUTE_UPDATES */
+	if (interface->fd != INVALID_SOCKET) {
+		if (IS_IPV6(&interface->sin)) { /* If address is now deprecated then close fd */
+			struct in6_ifreq ifr6;
+			strlcpy(ifr6.ifr_name, interface->name, sizeof(ifr6.ifr_name));
+			ifr6.ifr_addr = *(struct sockaddr_in6 *)&interface->sin;
+			if (ioctl(interface->fd, SIOCGIFAFLAG_IN6, &ifr6) >= 0) {
+				if (ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_DEPRECATED) {
+					close_and_delete_fd_from_list(interface->fd);
+					interface->fd = INVALID_SOCKET;
+				}
+			}
+		}
+	}
 	return (interface->fd != INVALID_SOCKET);
 #endif /* !OS_MISSES_SPECIFIC_ROUTE_UPDATES */
 }
@@ -3380,7 +3393,7 @@ input_handler(
 		asyncio_reader = asyncio_reader->link;
 	}
 #endif /* HAS_ROUTING_SOCKET */
-	
+	trigger_timer();
 	/*
 	 * Done everything from that select.
 	 */

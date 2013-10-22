@@ -27,19 +27,22 @@
  */
 
 #import <WebCore/InspectorClient.h>
+#import <WebCore/InspectorFrontendChannel.h>
 #import <WebCore/InspectorFrontendClientLocal.h>
-#import <WebCore/PlatformString.h>
 
 #import <wtf/Forward.h>
 #import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/text/StringHash.h>
+#import <wtf/text/WTFString.h>
 
 #ifdef __OBJC__
+@class NSURL;
 @class WebInspectorWindowController;
 @class WebNodeHighlighter;
 @class WebView;
 #else
+class NSURL;
 class WebInspectorWindowController;
 class WebNodeHighlighter;
 class WebView;
@@ -54,13 +57,13 @@ class Page;
 
 class WebInspectorFrontendClient;
 
-class WebInspectorClient : public WebCore::InspectorClient {
+class WebInspectorClient : public WebCore::InspectorClient, public WebCore::InspectorFrontendChannel {
 public:
-    WebInspectorClient(WebView *);
+    explicit WebInspectorClient(WebView *);
 
     virtual void inspectorDestroyed() OVERRIDE;
 
-    virtual void openInspectorFrontend(WebCore::InspectorController*) OVERRIDE;
+    virtual WebCore::InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*) OVERRIDE;
     virtual void closeInspectorFrontend() OVERRIDE;
     virtual void bringFrontendToFront() OVERRIDE;
     virtual void didResizeMainFrame(WebCore::Frame*) OVERRIDE;
@@ -68,15 +71,18 @@ public:
     virtual void highlight() OVERRIDE;
     virtual void hideHighlight() OVERRIDE;
 
-    virtual bool sendMessageToFrontend(const WTF::String&) OVERRIDE;
+    virtual bool sendMessageToFrontend(const String&) OVERRIDE;
 
     bool inspectorStartsAttached();
     void setInspectorStartsAttached(bool);
 
+    bool inspectorAttachDisabled();
+    void setInspectorAttachDisabled(bool);
+
     void releaseFrontend();
 
 private:
-    WTF::PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
+    PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
 
     WebView *m_webView;
     RetainPtr<WebNodeHighlighter> m_highlighter;
@@ -87,27 +93,36 @@ private:
 
 class WebInspectorFrontendClient : public WebCore::InspectorFrontendClientLocal {
 public:
-    WebInspectorFrontendClient(WebView*, WebInspectorWindowController*, WebCore::InspectorController*, WebCore::Page*, WTF::PassOwnPtr<Settings>);
+    WebInspectorFrontendClient(WebView*, WebInspectorWindowController*, WebCore::InspectorController*, WebCore::Page*, PassOwnPtr<Settings>);
+
+    void attachAvailabilityChanged(bool);
 
     virtual void frontendLoaded();
 
-    virtual WTF::String localizedStringsURL();
-    virtual WTF::String hiddenPanels();
+    virtual String localizedStringsURL();
 
     virtual void bringToFront();
     virtual void closeWindow();
     virtual void disconnectFromBackend();
 
-    virtual void attachWindow();
+    virtual void attachWindow(DockSide);
     virtual void detachWindow();
 
     virtual void setAttachedWindowHeight(unsigned height);
-    virtual void inspectedURLChanged(const WTF::String& newURL);
+    virtual void setAttachedWindowWidth(unsigned height);
+    virtual void setToolbarHeight(unsigned) OVERRIDE;
+
+    virtual void inspectedURLChanged(const String& newURL);
 
 private:
     void updateWindowTitle() const;
 
+    virtual bool canSave() OVERRIDE { return true; }
+    virtual void save(const String& url, const String& content, bool forceSaveAs) OVERRIDE;
+    virtual void append(const String& url, const String& content) OVERRIDE;
+
     WebView* m_inspectedWebView;
     RetainPtr<WebInspectorWindowController> m_windowController;
-    WTF::String m_inspectedURL;
+    String m_inspectedURL;
+    HashMap<String, RetainPtr<NSURL>> m_suggestedToActualURLMap;
 };

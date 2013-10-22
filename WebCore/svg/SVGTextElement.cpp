@@ -64,16 +64,16 @@ bool SVGTextElement::isSupportedAttribute(const QualifiedName& attrName)
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGTextElement::parseAttribute(Attribute* attr)
+void SVGTextElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGTextPositioningElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGTextPositioningElement::parseAttribute(name, value);
         return;
     }
 
-    if (attr->name() == SVGNames::transformAttr) {
+    if (name == SVGNames::transformAttr) {
         SVGTransformList newList;
-        newList.parse(attr->value());
+        newList.parse(value);
         detachAnimatedTransformListWrappers(newList.size());
         setTransformBaseValue(newList);
         return;

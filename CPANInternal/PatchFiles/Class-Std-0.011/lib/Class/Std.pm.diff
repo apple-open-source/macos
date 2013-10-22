@@ -1,0 +1,10 @@
+--- Class-Std-0.011/lib/Class/Std.pm.orig	2013-03-05 16:13:33.000000000 -0800
++++ Class-Std-0.011/lib/Class/Std.pm	2013-03-05 16:13:59.000000000 -0800
+@@ -519,6 +519,7 @@
+ 
+     for my $base_class (_hierarchy_of(ref $_[0])) {
+         no strict 'refs';
++        no warnings;
+         if (my $demolish_ref = *{$base_class.'::DEMOLISH'}{CODE}) {
+             &{$demolish_ref};
+         }

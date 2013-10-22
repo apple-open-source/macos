@@ -1,9 +1,9 @@
 /*
- * "$Id: auth.c 7720 2008-07-11 22:46:21Z mike $"
+ * "$Id: auth.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Authentication functions for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -112,7 +112,7 @@ static int	cups_local_auth(http_t *http);
 /*
  * 'cupsDoAuthentication()' - Authenticate a request.
  *
- * This function should be called in response to a @code HTTP_UNAUTHORIZED@
+ * This function should be called in response to a @code HTTP_STATUS_UNAUTHORIZED@
  * status, prior to resubmitting your request.
  *
  * @since CUPS 1.1.20/OS X 10.4@
@@ -164,14 +164,14 @@ cupsDoAuthentication(
       DEBUG_printf(("2cupsDoAuthentication: authstring=\"%s\"",
                     http->authstring));
 
-      if (http->status == HTTP_UNAUTHORIZED)
+      if (http->status == HTTP_STATUS_UNAUTHORIZED)
 	http->digest_tries ++;
 
       return (0);
     }
     else if (localauth == -1)
     {
-      http->status = HTTP_AUTHORIZATION_CANCELED;
+      http->status = HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED;
       return (-1);			/* Error or canceled */
     }
   }
@@ -190,10 +190,17 @@ cupsDoAuthentication(
     * Nope - get a new password from the user...
     */
 
+    char default_username[HTTP_MAX_VALUE];
+					/* Default username */
+
     cg = _cupsGlobals();
 
     if (!cg->lang_default)
       cg->lang_default = cupsLangDefault();
+
+    if (httpGetSubField(http, HTTP_FIELD_WWW_AUTHENTICATE, "username",
+                        default_username))
+      cupsSetUser(default_username);
 
     snprintf(prompt, sizeof(prompt),
              _cupsLangString(cg->lang_default, _("Password for %s on %s? ")),
@@ -205,22 +212,22 @@ cupsDoAuthentication(
 
     if ((password = cupsGetPassword2(prompt, http, method, resource)) == NULL)
     {
-      http->status = HTTP_AUTHORIZATION_CANCELED;
+      http->status = HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED;
       return (-1);
     }
 
     snprintf(http->userpass, sizeof(http->userpass), "%s:%s", cupsUser(),
              password);
   }
-  else if (http->status == HTTP_UNAUTHORIZED)
+  else if (http->status == HTTP_STATUS_UNAUTHORIZED)
     http->digest_tries ++;
 
-  if (http->status == HTTP_UNAUTHORIZED && http->digest_tries >= 3)
+  if (http->status == HTTP_STATUS_UNAUTHORIZED && http->digest_tries >= 3)
   {
     DEBUG_printf(("1cupsDoAuthentication: Too many authentication tries (%d)",
 		  http->digest_tries));
 
-    http->status = HTTP_AUTHORIZATION_CANCELED;
+    http->status = HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED;
     return (-1);
   }
 
@@ -237,7 +244,7 @@ cupsDoAuthentication(
 
     if (_cupsSetNegotiateAuthString(http, method, resource))
     {
-      http->status = HTTP_AUTHORIZATION_CANCELED;
+      http->status = HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED;
       return (-1);
     }
   }
@@ -280,7 +287,7 @@ cupsDoAuthentication(
   {
     DEBUG_printf(("1cupsDoAuthentication: Unknown auth type: \"%s\"",
                   www_auth));
-    http->status = HTTP_AUTHORIZATION_CANCELED;
+    http->status = HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED;
     return (-1);
   }
 
@@ -458,7 +465,7 @@ _cupsSetNegotiateAuthString(
       authsize         = sizeof(http->_authstring);
     }
 
-    strcpy(http->authstring, "Negotiate ");
+    strlcpy(http->authstring, "Negotiate ", authsize);
     httpEncode64_2(http->authstring + 10, authsize - 10, output_token.value,
 		   output_token.length);
 
@@ -660,8 +667,7 @@ cups_local_auth(http_t *http)		/* I - HTTP connection to server */
   int			pid;		/* Current process ID */
   FILE			*fp;		/* Certificate file */
   char			trc[16],	/* Try Root Certificate parameter */
-			filename[1024],	/* Certificate filename */
-			certificate[33];/* Certificate string */
+			filename[1024];	/* Certificate filename */
   _cups_globals_t *cg = _cupsGlobals();	/* Global data */
 #  if defined(HAVE_AUTHORIZATION_H)
   OSStatus		status;		/* Status */
@@ -855,19 +861,25 @@ cups_local_auth(http_t *http)		/* I - HTTP connection to server */
     * Read the certificate from the file...
     */
 
-    fgets(certificate, sizeof(certificate), fp);
+    char	certificate[33],	/* Certificate string */
+		*certptr;		/* Pointer to certificate string */
+
+    certptr = fgets(certificate, sizeof(certificate), fp);
     fclose(fp);
 
-   /*
-    * Set the authorization string and return...
-    */
+    if (certptr)
+    {
+     /*
+      * Set the authorization string and return...
+      */
 
-    httpSetAuthString(http, "Local", certificate);
+      httpSetAuthString(http, "Local", certificate);
 
-    DEBUG_printf(("8cups_local_auth: Returning authstring=\"%s\"",
-		  http->authstring));
+      DEBUG_printf(("8cups_local_auth: Returning authstring=\"%s\"",
+		    http->authstring));
 
-    return (0);
+      return (0);
+    }
   }
 
   return (1);
@@ -876,5 +888,5 @@ cups_local_auth(http_t *http)		/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: auth.c 7720 2008-07-11 22:46:21Z mike $".
+ * End of "$Id: auth.c 11093 2013-07-03 20:48:42Z msweet $".
  */

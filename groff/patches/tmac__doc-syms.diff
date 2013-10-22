@@ -1,5 +1,5 @@
---- tmac/doc-syms.1.19.2	2005-02-03 16:06:11.000000000 -0800
-+++ tmac/doc-syms	2009-11-10 15:36:40.000000000 -0800
+--- tmac/doc-syms.orig	2005-02-03 16:06:11.000000000 -0800
++++ tmac/doc-syms	2012-10-13 22:13:42.000000000 -0700
 @@ -204,13 +204,13 @@
  .as doc-str-At-v7  " \*[doc-Tn-font-size]AT&T UNIX\*[doc-str-At]
  .ds doc-str-At-V   \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V
@@ -89,10 +89,12 @@
  .\" NS Fx user macro
  .\" NS   print FreeBSD
  .\" NS
-@@ -543,6 +607,12 @@
+@@ -543,6 +607,14 @@
  .als doc-str-St--isoC-90 doc-str-St--isoC
  .ds doc-str-St--isoC-99        \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899:1999
  .as doc-str-St--isoC-99        " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^99\*[doc-str-St]\*[Rq])
++.ds doc-str-St--isoC-2011      \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899:2011
++.as doc-str-St--isoC-2011      " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^11\*[doc-str-St]\*[Rq])
 +.ds doc-str-St--isoC-amd1       \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899/AMD1:1995
 +.as doc-str-St--isoC-amd1       " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^90\*[doc-str-St], Amendment 1\*[Rq])
 +.ds doc-str-St--isoC-tcor1      \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899/TCOR1:1994
@@ -102,7 +104,7 @@
  .
  .\" POSIX Part 1: System API
  .ds doc-str-St--p1003.1        \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 1003.1
-@@ -567,6 +637,9 @@
+@@ -567,6 +639,9 @@
  .as doc-str-St--p1003.1-2001   " (\*[Lq]\)\*[Px]\*[doc-str-St].1\*[Rq])
  .ds doc-str-St--p1003.1-2004   \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 1003.1-2004
  .as doc-str-St--p1003.1-2004   " (\*[Lq]\)\*[Px]\*[doc-str-St].1\*[Rq])
@@ -112,7 +114,7 @@
  .
  .\" POSIX Part 2: Shell and Utilities
  .ds doc-str-St--p1003.2        \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 1003.2
-@@ -581,6 +654,8 @@
+@@ -581,6 +656,8 @@
  .\" X/Open
  .ds doc-str-St--susv2          Version\~2 of the Single \*[doc-Tn-font-size]UNIX\*[doc-str-St] Specification
  .as doc-str-St--susv2          " (\*[Lq]\*[doc-Tn-font-size]SUSv2\*[doc-str-St]\*[Rq])
@@ -121,7 +123,7 @@
  .ds doc-str-St--svid4          System\~V Interface Definition, Fourth Edition
  .as doc-str-St--svid4          " (\*[Lq]\*[doc-Tn-font-size]SVID\*[doc-str-St]\^4\*[Rq])
  .ds doc-str-St--xbd5           \*[doc-Tn-font-size]X/Open\*[doc-str-St] System Interface Definitions Issue\~5
-@@ -593,17 +668,23 @@
+@@ -593,17 +670,23 @@
  .as doc-str-St--xns5           " (\*[Lq]\*[doc-Tn-font-size]XNS\*[doc-str-St]\^5\*[Rq])
  .ds doc-str-St--xns5.2         \*[doc-Tn-font-size]X/Open\*[doc-str-St] Networking Services Issue\~5.2
  .as doc-str-St--xns5.2         " (\*[Lq]\*[doc-Tn-font-size]XNS\*[doc-str-St]\^5.2\*[Rq])
@@ -145,7 +147,7 @@
  .ds doc-str-St--iso8802-3      \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 8802-3:1989
  .
  .de St
-@@ -678,6 +759,7 @@
+@@ -678,6 +761,7 @@
  .
  .ds doc-str-Lb-libarm      ARM Architecture Library (libarm, \-larm)
  .ds doc-str-Lb-libarm32    ARM32 Architecture Library (libarm32, \-larm32)
@@ -153,7 +155,7 @@
  .ds doc-str-Lb-libc        Standard C\~Library (libc, \-lc)
  .ds doc-str-Lb-libcdk      Curses Development Kit Library (libcdk, \-lcdk)
  .ds doc-str-Lb-libcompat   Compatibility Library (libcompat, \-lcompat)
-@@ -703,6 +785,7 @@
+@@ -703,6 +787,7 @@
  .ds doc-str-Lb-libpthread  \*[Px] \*[doc-str-Lb]Threads Library (libpthread, \-lpthread)
  .ds doc-str-Lb-libresolv   DNS Resolver Library (libresolv, \-lresolv)
  .ds doc-str-Lb-librt       \*[Px] \*[doc-str-Lb]Real-time Library (librt, \-lrt)

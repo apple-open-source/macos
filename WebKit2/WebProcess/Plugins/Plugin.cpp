@@ -27,48 +27,49 @@
 #include "Plugin.h"
 
 #include "WebCoreArgumentCoders.h"
+#include <WebCore/IntPoint.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-void Plugin::Parameters::encode(CoreIPC::ArgumentEncoder* encoder) const
+void Plugin::Parameters::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
-    encoder->encode(url.string());
-    encoder->encode(names);
-    encoder->encode(values);
-    encoder->encode(mimeType);
-    encoder->encode(isFullFramePlugin);
-    encoder->encode(shouldUseManualLoader);
+    encoder << url.string();
+    encoder << names;
+    encoder << values;
+    encoder << mimeType;
+    encoder << isFullFramePlugin;
+    encoder << shouldUseManualLoader;
 #if PLATFORM(MAC)
-    encoder->encodeEnum(layerHostingMode);
+    encoder.encodeEnum(layerHostingMode);
 #endif
 }
 
-bool Plugin::Parameters::decode(CoreIPC::ArgumentDecoder* decoder, Parameters& parameters)
+bool Plugin::Parameters::decode(CoreIPC::ArgumentDecoder& decoder, Parameters& parameters)
 {
     String urlString;
-    if (!decoder->decode(urlString))
+    if (!decoder.decode(urlString))
         return false;
     // FIXME: We can't assume that the url passed in here is valid.
     parameters.url = KURL(ParsedURLString, urlString);
 
-    if (!decoder->decode(parameters.names))
+    if (!decoder.decode(parameters.names))
         return false;
-    if (!decoder->decode(parameters.values))
+    if (!decoder.decode(parameters.values))
         return false;
-    if (!decoder->decode(parameters.mimeType))
+    if (!decoder.decode(parameters.mimeType))
         return false;
-    if (!decoder->decode(parameters.isFullFramePlugin))
+    if (!decoder.decode(parameters.isFullFramePlugin))
         return false;
-    if (!decoder->decode(parameters.shouldUseManualLoader))
+    if (!decoder.decode(parameters.shouldUseManualLoader))
         return false;
 #if PLATFORM(MAC)
-    if (!decoder->decodeEnum(parameters.layerHostingMode))
+    if (!decoder.decodeEnum(parameters.layerHostingMode))
         return false;
 #endif
     if (parameters.names.size() != parameters.values.size()) {
-        decoder->markInvalid();
+        decoder.markInvalid();
         return false;
     }
 
@@ -103,6 +104,12 @@ void Plugin::destroyPlugin()
 
 void Plugin::updateControlTints(GraphicsContext*)
 {
+}
+
+IntPoint Plugin::convertToRootView(const IntPoint&) const
+{
+    ASSERT_NOT_REACHED();
+    return IntPoint();
 }
 
 } // namespace WebKit

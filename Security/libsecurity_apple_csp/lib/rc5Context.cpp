@@ -60,7 +60,7 @@ void RC5Context::init(
 	}
 
 	/* init the low-level state */
-	RC5_32_set_key(&rc5Key, keyLen, keyData, rounds);
+	RC5_32_set_key(&rc5Key, (int)keyLen, keyData, rounds);
 
 	/* Finally, have BlockCryptor do its setup */
 	setup(RC5_BLOCK_SIZE_BYTES, context);

@@ -32,9 +32,9 @@
 
 #include "IntSize.h"
 #include "NotImplemented.h"
-#include "PlatformString.h"
 #include <QCoreApplication>
 #include <wtf/MathExtras.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -88,6 +88,11 @@ String contextMenuItemTagOpenLinkInNewWindow()
     return QCoreApplication::translate("QWebPage", "Open in New Window", "Open in New Window context menu item");
 }
 
+String contextMenuItemTagOpenLinkInThisWindow()
+{
+    return QCoreApplication::translate("QWebPage", "Open in This Window", "Open in This Window context menu item");
+}
+
 String contextMenuItemTagDownloadLinkToDisk()
 {
     return QCoreApplication::translate("QWebPage", "Save Link...", "Download Linked File context menu item");
@@ -128,6 +133,16 @@ String contextMenuItemTagOpenAudioInNewWindow()
     return QCoreApplication::translate("QWebPage", "Open Audio", "Open Audio in New Window");
 }
 
+String contextMenuItemTagDownloadVideoToDisk()
+{
+    return QCoreApplication::translate("QWebPage", "Download Video", "Download Video context menu item");
+}
+
+String contextMenuItemTagDownloadAudioToDisk()
+{
+    return QCoreApplication::translate("QWebPage", "Download Audio", "Download Audio context menu item");
+}
+
 String contextMenuItemTagCopyVideoLinkToClipboard()
 {
     return QCoreApplication::translate("QWebPage", "Copy Video", "Copy Video Link Location");
@@ -141,6 +156,16 @@ String contextMenuItemTagCopyAudioLinkToClipboard()
 String contextMenuItemTagToggleMediaControls()
 {
     return QCoreApplication::translate("QWebPage", "Toggle Controls", "Toggle Media Controls");
+}
+
+String contextMenuItemTagShowMediaControls()
+{
+    return QCoreApplication::translate("QWebPage", "Show Controls", "Show Media Controls");
+}
+
+String contextMenuItemTagHideMediaControls()
+{
+    return QCoreApplication::translate("QWebPage", "Hide Controls", "Hide Media Controls");
 }
 
 String contextMenuItemTagToggleMediaLoop()
@@ -374,13 +399,25 @@ String AXHeadingText()
     return String();
 }
 
-String AXDefinitionListTermText()
+String AXDefinitionText()
 {
     notImplemented();
     return String();
 }
 
-String AXDefinitionListDefinitionText()
+String AXDescriptionListText()
+{
+    notImplemented();
+    return String();
+}
+
+String AXDescriptionListTermText()
+{
+    notImplemented();
+    return String();
+}
+
+String AXDescriptionListDetailText()
 {
     notImplemented();
     return String();
@@ -440,6 +477,24 @@ String missingPluginText()
 }
 
 String crashedPluginText()
+{
+    notImplemented();
+    return String();
+}
+
+String blockedPluginByContentSecurityPolicyText()
+{
+    notImplemented();
+    return String();
+}
+
+String insecurePluginVersionText()
+{
+    notImplemented();
+    return String();
+}
+
+String inactivePluginText()
 {
     notImplemented();
     return String();
@@ -556,7 +611,7 @@ String localizedMediaControlElementHelpText(const String& name)
 
 String localizedMediaTimeDescription(float time)
 {
-    if (!isfinite(time))
+    if (!std::isfinite(time))
         return QCoreApplication::translate("QWebPage", "Indefinite time", "Media time description");
 
     int seconds = (int)fabsf(time);
@@ -683,6 +738,44 @@ String validationMessageRangeOverflowText(const String& maximum)
 }
 
 String validationMessageStepMismatchText(const String& base, const String& step)
+{
+    notImplemented();
+    return String();
+}
+
+String validationMessageBadInputForNumberText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
+}
+
+#if ENABLE(VIDEO_TRACK)
+String textTrackSubtitlesText()
+{
+    notImplemented();
+    return String();
+}
+
+String textTrackOffText()
+{
+    notImplemented();
+    return String();
+}
+
+String textTrackNoLabelText()
+{
+    notImplemented();
+    return String();
+}
+#endif
+
+String snapshottedPlugInLabelTitle()
+{
+    notImplemented();
+    return String();
+}
+
+String snapshottedPlugInLabelSubtitle()
 {
     notImplemented();
     return String();

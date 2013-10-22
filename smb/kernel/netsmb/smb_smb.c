@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,9 +51,12 @@
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_rq.h>
+#include <netsmb/smb_rq_2.h>
 #include <netsmb/smb_conn.h>
+#include <netsmb/smb_conn_2.h>
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_gss.h>
 #include <smbfs/smbfs_subr.h>
@@ -90,7 +93,9 @@ enum smb_dialects {
 	SMB_DIALECT_LANMAN1_0,		/* MICROSOFT NETWORKS 3.0, LANMAN1.0 */
 	SMB_DIALECT_LANMAN2_0,		/* LM1.2X002, DOS LM1.2X002, Samba */
 	SMB_DIALECT_LANMAN2_1,		/* DOS LANMAN2.1, LANMAN2.1 */
-	SMB_DIALECT_NTLM0_12		/* NT LM 0.12 */
+	SMB_DIALECT_NTLM0_12,		/* NT LM 0.12 */
+	SMB_DIALECT_SMB2_002,		/* SMB 2.002 */
+	SMB_DIALECT_SMB2_000		/* SMB 2.??? */
 };
 
 /* 
@@ -115,9 +120,28 @@ static struct smb_dialect smb_dialects[] = {
 	{SMB_DIALECT_NTLM0_12,	"NT LANMAN 1.0"},
  */
 	{SMB_DIALECT_NTLM0_12,	"NT LM 0.12"},
-	{-1,			NULL}
+	{SMB_DIALECT_SMB2_002,	"SMB 2.002"},
+	{SMB_DIALECT_SMB2_000,	"SMB 2.???"},
+    {-1,			NULL}
 };
 
+static struct smb_dialect smb1_dialects[] = {
+    /*
+     * The following are no longer supported by this
+     * client, but have been left here for historical 
+     * reasons.
+     *
+     {SMB_DIALECT_CORE,	"PC NETWORK PROGRAM 1.0"},
+     {SMB_DIALECT_COREPLUS,	"MICROSOFT NETWORKS 1.03"},
+     {SMB_DIALECT_LANMAN1_0,	"MICROSOFT NETWORKS 3.0"},
+     {SMB_DIALECT_LANMAN1_0,	"LANMAN1.0"},
+     {SMB_DIALECT_LANMAN2_0,	"LM1.2X002"},
+     {SMB_DIALECT_LANMAN2_1,	"LANMAN2.1"},
+     {SMB_DIALECT_NTLM0_12,	"NT LANMAN 1.0"},
+     */
+	{SMB_DIALECT_NTLM0_12,	"NT LM 0.12"},
+    {-1,			NULL}
+};
 	
 /* 
  * Really could be 128K - (SMBHDR + SMBREADANDX RESPONSE HDR), but 126K works better with the Finder.
@@ -249,8 +273,8 @@ smb_vc_maxwrite(struct smb_vc *vcp)
 	return maxmsgsize;
 }
 
-static int
-smb_smb_nomux(struct smb_vc *vcp, vfs_context_t context, const char *name)
+int
+smb_smb_nomux(struct smb_vc *vcp, const char *name, vfs_context_t context)
 {
 	if (context == vcp->vc_iod->iod_context)
 		return 0;
@@ -259,8 +283,8 @@ smb_smb_nomux(struct smb_vc *vcp, vfs_context_t context, const char *name)
 }
 
 int 
-smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context, 
-                  int inReconnect, vfs_context_t context)
+smb1_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
+                   int inReconnect, int onlySMB1, vfs_context_t context)
 {
 	struct smb_dialect *dp;
 	struct smb_sopt *sp = NULL;
@@ -275,7 +299,7 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
 	u_char security_mode;
 	uint32_t	original_caps;
 
-	if (smb_smb_nomux(vcp, context, __FUNCTION__) != 0)
+	if (smb_smb_nomux(vcp, __FUNCTION__, context) != 0)
 		return EINVAL;
 	vcp->vc_hflags = SMB_FLAGS_CASELESS;
 	/* Leave SMB_FLAGS2_UNICODE "off" - no need to do anything */ 
@@ -289,18 +313,41 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
 	smb_rq_wstart(rqp);
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
+    
 	/*
 	 * The dialects are never in UNICODE, so just put the strings in by hand. 
 	 */
-	for(dp = smb_dialects; dp->d_id != -1; dp++) {
-		mb_put_uint8(mbp, SMB_DT_DIALECT);
-		mb_put_mem(mbp, dp->d_name, strlen(dp->d_name), MB_MSYSTEM);
-		mb_put_uint8(mbp, 0);
-	}
+    if (onlySMB1 == 1) {
+        /* only advertise SMB1 dialects */
+        for(dp = smb1_dialects; dp->d_id != -1; dp++) {
+            mb_put_uint8(mbp, SMB_DT_DIALECT);
+            mb_put_mem(mbp, dp->d_name, strlen(dp->d_name), MB_MSYSTEM);
+            mb_put_uint8(mbp, 0);
+        }
+    } 
+    else {
+        /* Advertise SMB1 and SMB2 dialects */
+        for(dp = smb_dialects; dp->d_id != -1; dp++) {
+            mb_put_uint8(mbp, SMB_DT_DIALECT);
+            mb_put_mem(mbp, dp->d_name, strlen(dp->d_name), MB_MSYSTEM);
+            mb_put_uint8(mbp, 0);
+        }
+    }
 	smb_rq_bend(rqp);
+
 	error = smb_rq_simple(rqp);
 	if (error)
 		goto bad;
+
+    if (rqp->sr_extflags & SMB2_RESPONSE) {
+        /* Got a SMB2 response, do SMB2 Negotiate */
+        error = smb2_smb_negotiate(vcp, rqp, inReconnect, user_context, context);
+        smb_rq_done(rqp);
+        return (error);
+    }
+
+    /* SMB 1.x does not support File IDs */
+    vcp->vc_misc_flags &= ~SMBV_HAS_FILEIDS;
 
     /* Now get the response */
 	smb_rq_getreply(rqp, &mdp);
@@ -355,6 +402,17 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
 	error = md_get_uint16le(mdp, &bc);
 	if (error)
 		goto bad;
+	
+	if (vcp->vc_misc_flags & SMBV_CLIENT_SIGNING_REQUIRED) {
+		SMB_LOG_AUTH(" SMB Client requires Signing, server supports 0x%x\n", vcp->vc_flags);
+        if (vcp->vc_flags & (SMBV_SIGNING_REQUIRED | SMBV_SIGNING)) {
+            vcp->vc_flags |= SMBV_SIGNING_REQUIRED;
+        } else {
+            SMBERROR(" SMB Client requires Signing, server doesn't!\n");
+            error = EAUTH;
+            goto bad;
+        }
+    }
 	if (vcp->vc_flags & SMBV_SIGNING_REQUIRED)
 		vcp->vc_hflags2 |= SMB_FLAGS2_SECURITY_SIGNATURE;
  
@@ -418,7 +476,9 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
 	}
 	/* The server does extend security, find out what mech type they support. */
 	if (vcp->vc_hflags2 & SMB_FLAGS2_EXT_SEC) {
-		SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
+        if (vcp->negotiate_token != NULL) {
+            SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
+        }
 		
 		/* 
 		 * We don't currently use the GUID, now if no guid isn't that a 
@@ -624,7 +684,9 @@ parse_server_os_lanman_strings(struct smb_vc *vcp, void *refptr, uint16_t bc)
 			   (vcp->vc_flags & SMBV_SERVER_MODE_MASK));
 	
 done:
-	SMB_FREE(tmpbuf, M_SMBTEMP);
+    if (tmpbuf != NULL) {
+        SMB_FREE(tmpbuf, M_SMBTEMP);
+    }
 }
 
 /*
@@ -642,7 +704,7 @@ done:
  *
  */
 int 
-smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
+smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
@@ -658,14 +720,20 @@ smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	uint8_t lm[24] = {0};
 	uint8_t ntlm[24] = {0};
 	
-	if (smb_smb_nomux(vcp, context, __FUNCTION__) != 0) {
+	if (smb_smb_nomux(vcp, __FUNCTION__, context) != 0) {
 		error = EINVAL;
 		goto ssn_exit;
 	}
 
 	if ((VC_CAPS(vcp) & SMB_CAP_EXT_SECURITY)) {		
 		error = smb_gss_ssnsetup(vcp, context);
-		goto ssn_exit;		
+
+        if (!(inReconnect) && (vcp->vc_flags & SMBV_SMB2)) {
+            /* Not in reconnect, its now safe to start up crediting */
+            smb2_rq_credit_start(vcp, 0);
+        }
+
+        goto ssn_exit;
 	}
 
 	caps = smb_vc_caps(vcp);
@@ -816,7 +884,9 @@ bad:
 	 * and return an error.
 	 */
 	if ((error == 0) && (vcp->vc_flags & SMBV_USER_SECURITY) && 
-		!SMBV_HAS_GUEST_ACCESS(vcp) && (action & SMB_ACT_GUEST)) {
+		!SMBV_HAS_GUEST_ACCESS(vcp) &&
+        !SMBV_HAS_ANONYMOUS_ACCESS(vcp) &&
+        (action & SMB_ACT_GUEST)) {
 		/* 
 		 * Wanted to only login the users as guest if they ask to be login ask guest. Window system will
 		 * login any bad user name as guest if guest is turn on. The problem here is with XPHome. XPHome
@@ -844,7 +914,7 @@ ssn_exit:
 }
 
 int
-smb_smb_ssnclose(struct smb_vc *vcp, vfs_context_t context)
+smb1_smb_ssnclose(struct smb_vc *vcp, vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
@@ -853,7 +923,7 @@ smb_smb_ssnclose(struct smb_vc *vcp, vfs_context_t context)
 	if (vcp->vc_smbuid == SMB_UID_UNKNOWN)
 		return 0;
 
-	if (smb_smb_nomux(vcp, context, __FUNCTION__) != 0)
+	if (smb_smb_nomux(vcp, __FUNCTION__, context) != 0)
 		return EINVAL;
 
 	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_LOGOFF_ANDX, 0, context, &rqp);
@@ -973,8 +1043,12 @@ smb_get_share_fstype(struct smb_vc *vcp, struct smb_share *share,
 	SMBDEBUG("fsname = %s fs_nmlen = %d ss_fstype = %d\n", fsname, 
 			 (int)fs_nmlen, share->ss_fstype);
 
-	SMB_FREE(tmpbuf, M_SMBFSDATA);
-	SMB_FREE(fsname, M_SMBFSDATA);
+    if (tmpbuf != NULL) {
+        SMB_FREE(tmpbuf, M_SMBFSDATA);
+    }
+    if (fsname != NULL) {
+        SMB_FREE(fsname, M_SMBFSDATA);
+    }
 	return;
 }
 
@@ -985,7 +1059,7 @@ smb_get_share_fstype(struct smb_vc *vcp, struct smb_share *share,
 #define SMB_COMM_SHARE_NAME		"COMM"
 
 static int 
-smb_treeconnect_internal(struct smb_vc *vcp, struct smb_share *share,  
+smb1_treeconnect_internal(struct smb_vc *vcp, struct smb_share *share,  
 						 const char *serverName, size_t serverNameLen, 
 						 vfs_context_t context)
 {
@@ -1143,7 +1217,14 @@ smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
 	if (vcp->ipv4DotName[0] == 0) {
 		serverName = vcp->vc_srvname;
 		srvnamelen = strnlen(serverName, SMB_MAX_DNS_SRVNAMELEN+1); 
-		error = smb_treeconnect_internal(vcp, share, serverName, srvnamelen, context);
+        if (vcp->vc_flags & SMBV_SMB2) {
+            error = smb2_smb_tree_connect(vcp, share, serverName, srvnamelen,
+                                          context);
+       }
+        else {
+            error = smb1_treeconnect_internal(vcp, share, serverName, 
+                                              srvnamelen, context);
+        }
 		/* See if we can get the IPv4 presentation format */
 		if (error && (vcp->vc_saddr->sa_family == AF_INET)) {
 			struct sockaddr_in *in = (struct sockaddr_in *)vcp->vc_saddr;
@@ -1155,7 +1236,14 @@ smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
 	if (vcp->ipv4DotName[0] != 0) {
 		serverName = vcp->ipv4DotName;
 		srvnamelen = strnlen(serverName, SMB_MAXNetBIOSNAMELEN+1); 
-		error = smb_treeconnect_internal(vcp, share, serverName, srvnamelen, context);
+        if (vcp->vc_flags & SMBV_SMB2) {
+            error = smb2_smb_tree_connect(vcp, share, serverName, srvnamelen,
+                                          context);
+        }
+        else {
+            error = smb1_treeconnect_internal(vcp, share, serverName, 
+                                              srvnamelen, context);
+        }
 		if (error)
 			vcp->ipv4DotName[0] = 0;	/* We failed don't use it again */		
 	}
@@ -1163,7 +1251,7 @@ smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
 }
 
 int 
-smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context)
+smb1_smb_treedisconnect(struct smb_share *share, vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	int error;
@@ -1190,7 +1278,7 @@ smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context)
  * The calling routine must hold a reference on the share
  */
 static __inline int
-smb_smb_readx(struct smb_share *share, uint16_t fid, user_ssize_t *len, 
+smb_smb_readx(struct smb_share *share, SMBFID fid, user_ssize_t *len, 
 	user_ssize_t *rresid, uint16_t *available, uio_t uio, vfs_context_t context)
 {
 	struct smb_rq *rqp;
@@ -1200,6 +1288,7 @@ smb_smb_readx(struct smb_share *share, uint16_t fid, user_ssize_t *len,
 	int error;
 	uint16_t residhi, residlo, off, doff;
 	uint32_t resid;
+    uint16_t smb1_fid = (uint16_t) fid;
 
 	error = smb_rq_alloc(SSTOCP(share), SMB_COM_READ_ANDX, 0, context, &rqp);
 	if (error)
@@ -1209,7 +1298,7 @@ smb_smb_readx(struct smb_share *share, uint16_t fid, user_ssize_t *len,
 	mb_put_uint8(mbp, 0xff);	/* no secondary command */
 	mb_put_uint8(mbp, 0);		/* MBZ */
 	mb_put_uint16le(mbp, 0);	/* offset to secondary */
-	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
+	mb_put_mem(mbp, (caddr_t)&smb1_fid, sizeof(smb1_fid), MB_MSYSTEM);
 	mb_put_uint32le(mbp, (uint32_t)uio_offset(uio));
 	*len = MIN(SSTOVC(share)->vc_rxmax, *len);
 
@@ -1282,10 +1371,10 @@ smb_smb_readx(struct smb_share *share, uint16_t fid, user_ssize_t *len,
  * The calling routine must hold a reference on the share
  */
 static __inline int
-smb_writex(struct smb_share *share, uint16_t fid, user_ssize_t *len, 
+smb_writex(struct smb_share *share, SMBFID fid, user_ssize_t *len, 
 		   user_ssize_t *rresid, uio_t uio, uint16_t writeMode, vfs_context_t context)
 {
-	int supportsLargeWrites = (VC_CAPS(SSTOVC(share)) & SMB_CAP_LARGE_WRITEX) ? TRUE : FALSE;
+	int supportsLargeWrites = (VC_CAPS(SSTOVC(share)) & SMB_CAP_LARGE_FILES) ? TRUE : FALSE;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
@@ -1293,6 +1382,7 @@ smb_writex(struct smb_share *share, uint16_t fid, user_ssize_t *len,
 	uint8_t wc;
 	uint16_t resid;
 	uint16_t *dataOffsetPtr;
+    uint16_t smb1_fid = (uint16_t) fid;
 	
 	/* vc_wxmax now holds the max buffer size the server supports for writes */
 	*len = MIN(*len, SSTOVC(share)->vc_wxmax);
@@ -1312,7 +1402,7 @@ smb_writex(struct smb_share *share, uint16_t fid, user_ssize_t *len,
 	 *
 	 * NOTE: Currently the fid always stays in the wire format.
 	 */
-	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
+	mb_put_mem(mbp, (caddr_t)&smb1_fid, sizeof(smb1_fid), MB_MSYSTEM);
 	/* 
 	 * [MS-CIFS]
 	 * Offset (4 bytes): If WordCount is 0x0C, this field represents a 32-bit 
@@ -1462,8 +1552,9 @@ done:
 /*
  * The calling routine must hold a reference on the share
  */
-int smb_read(struct smb_share *share, uint16_t fid, uio_t uio, 
-			 vfs_context_t context)
+int 
+smb1_read(struct smb_share *share, SMBFID fid, uio_t uio, 
+          vfs_context_t context)
 {
 	user_ssize_t tsize, len, resid = 0;
 	int error = 0;
@@ -1508,7 +1599,8 @@ int smb_read(struct smb_share *share, uint16_t fid, uio_t uio,
 /*
  * The calling routine must hold a reference on the share
  */
-int smb_write(struct smb_share *share, uint16_t fid, uio_t uio, int ioflag, 
+int 
+smb1_write(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag, 
 			  vfs_context_t context)
 {
 	int error = 0;
@@ -1549,7 +1641,7 @@ int smb_write(struct smb_share *share, uint16_t fid, uio_t uio, int ioflag,
  * if we ever get the request queue to work async.
  */
 int
-smb_echo(struct smb_vc *vcp, int timo, uint32_t EchoCount, 
+smb1_echo(struct smb_vc *vcp, int timo, uint32_t EchoCount, 
          vfs_context_t context)
 {
 	struct smb_rq *rqp;

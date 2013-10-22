@@ -51,26 +51,20 @@ using namespace WebCore;
 - (void)_clearDebuggerCallFrame;
 @end
 
-NSString *toNSString(const UString& s)
+static NSString *toNSString(SourceProvider* sourceProvider)
+{
+    const String& sourceString = sourceProvider->source();
+    if (sourceString.isEmpty())
+        return nil;
+    return sourceString;
+}
+
+// Convert String to NSURL.
+static NSURL *toNSURL(const String& s)
 {
     if (s.isEmpty())
         return nil;
-    return [NSString stringWithCharacters:reinterpret_cast<const unichar*>(s.characters()) length:s.length()];
-}
-
-static NSString *toNSString(SourceProvider* s)
-{
-    if (!s->length())
-        return nil;
-    return [NSString stringWithCharacters:s->data()->characters() length:s->length()];
-}
-
-// convert UString to NSURL
-static NSURL *toNSURL(const UString& s)
-{
-    if (s.isEmpty())
-        return nil;
-    return KURL(ParsedURLString, ustringToString(s));
+    return KURL(ParsedURLString, s);
 }
 
 static WebFrame *toWebFrame(JSGlobalObject* globalObject)
@@ -81,7 +75,7 @@ static WebFrame *toWebFrame(JSGlobalObject* globalObject)
 
 WebScriptDebugger::WebScriptDebugger(JSGlobalObject* globalObject)
     : m_callingDelegate(false)
-    , m_globalObject(globalObject->globalData(), globalObject)
+    , m_globalObject(globalObject->vm(), globalObject)
 {
     attach(globalObject);
     initGlobalCallFrame(globalObject->globalExec());
@@ -93,7 +87,7 @@ void WebScriptDebugger::initGlobalCallFrame(const DebuggerCallFrame& debuggerCal
 
     WebFrame *webFrame = toWebFrame(debuggerCallFrame.dynamicGlobalObject());
 
-    m_topCallFrame.adoptNS([[WebScriptCallFrame alloc] _initWithGlobalObject:core(webFrame)->script()->windowScriptObject() debugger:this caller:m_topCallFrame.get() debuggerCallFrame:debuggerCallFrame]);
+    m_topCallFrame = adoptNS([[WebScriptCallFrame alloc] _initWithGlobalObject:core(webFrame)->script()->windowScriptObject() debugger:this caller:m_topCallFrame.get() debuggerCallFrame:debuggerCallFrame]);
     m_globalCallFrame = m_topCallFrame;
 
     WebView *webView = [webFrame webView];
@@ -105,7 +99,7 @@ void WebScriptDebugger::initGlobalCallFrame(const DebuggerCallFrame& debuggerCal
 }
 
 // callbacks - relay to delegate
-void WebScriptDebugger::sourceParsed(ExecState* exec, SourceProvider* sourceProvider, int errorLine, const UString& errorMsg)
+void WebScriptDebugger::sourceParsed(ExecState* exec, SourceProvider* sourceProvider, int errorLine, const String& errorMsg)
 {
     if (m_callingDelegate)
         return;
@@ -128,7 +122,7 @@ void WebScriptDebugger::sourceParsed(ExecState* exec, SourceProvider* sourceProv
                 CallScriptDebugDelegate(implementations->didParseSourceFunc, webView, @selector(webView:didParseSource:fromURL:sourceId:forWebFrame:), nsSource, [nsURL absoluteString], sourceProvider->asID(), webFrame);
         }
     } else {
-        NSString* nsErrorMessage = toNSString(errorMsg);
+        NSString* nsErrorMessage = nsStringNilIfEmpty(errorMsg);
         NSDictionary *info = [[NSDictionary alloc] initWithObjectsAndKeys:nsErrorMessage, WebScriptErrorDescriptionKey, [NSNumber numberWithUnsignedInt:errorLine], WebScriptErrorLineNumberKey, nil];
         NSError *error = [[NSError alloc] initWithDomain:WebScriptErrorDomain code:WebScriptGeneralErrorCode userInfo:info];
 
@@ -142,7 +136,7 @@ void WebScriptDebugger::sourceParsed(ExecState* exec, SourceProvider* sourceProv
     m_callingDelegate = false;
 }
 
-void WebScriptDebugger::callEvent(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
+void WebScriptDebugger::callEvent(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber, int columnNumber)
 {
     if (m_callingDelegate)
         return;
@@ -151,7 +145,7 @@ void WebScriptDebugger::callEvent(const DebuggerCallFrame& debuggerCallFrame, in
 
     WebFrame *webFrame = toWebFrame(debuggerCallFrame.dynamicGlobalObject());
 
-    m_topCallFrame.adoptNS([[WebScriptCallFrame alloc] _initWithGlobalObject:core(webFrame)->script()->windowScriptObject() debugger:this caller:m_topCallFrame.get() debuggerCallFrame:debuggerCallFrame]);
+    m_topCallFrame = adoptNS([[WebScriptCallFrame alloc] _initWithGlobalObject:core(webFrame)->script()->windowScriptObject() debugger:this caller:m_topCallFrame.get() debuggerCallFrame:debuggerCallFrame]);
 
     WebView *webView = [webFrame webView];
     WebScriptDebugDelegateImplementationCache* implementations = WebViewGetScriptDebugDelegateImplementations(webView);
@@ -161,7 +155,7 @@ void WebScriptDebugger::callEvent(const DebuggerCallFrame& debuggerCallFrame, in
     m_callingDelegate = false;
 }
 
-void WebScriptDebugger::atStatement(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
+void WebScriptDebugger::atStatement(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber, int columnNumber)
 {
     if (m_callingDelegate)
         return;
@@ -180,7 +174,7 @@ void WebScriptDebugger::atStatement(const DebuggerCallFrame& debuggerCallFrame, 
     m_callingDelegate = false;
 }
 
-void WebScriptDebugger::returnEvent(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
+void WebScriptDebugger::returnEvent(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber, int columnNumber)
 {
     if (m_callingDelegate)
         return;
@@ -202,7 +196,7 @@ void WebScriptDebugger::returnEvent(const DebuggerCallFrame& debuggerCallFrame, 
     m_callingDelegate = false;
 }
 
-void WebScriptDebugger::exception(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber, bool hasHandler)
+void WebScriptDebugger::exception(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber, int columnNumber, bool hasHandler)
 {
     if (m_callingDelegate)
         return;
@@ -224,17 +218,17 @@ void WebScriptDebugger::exception(const DebuggerCallFrame& debuggerCallFrame, in
     m_callingDelegate = false;
 }
 
-void WebScriptDebugger::willExecuteProgram(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineno)
+void WebScriptDebugger::willExecuteProgram(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineno, int columnno)
 {
-    callEvent(debuggerCallFrame, sourceID, lineno);
+    callEvent(debuggerCallFrame, sourceID, lineno, columnno);
 }
 
-void WebScriptDebugger::didExecuteProgram(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineno)
+void WebScriptDebugger::didExecuteProgram(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineno, int columnno)
 {
-    returnEvent(debuggerCallFrame, sourceID, lineno);
+    returnEvent(debuggerCallFrame, sourceID, lineno, columnno);
 }
 
-void WebScriptDebugger::didReachBreakpoint(const DebuggerCallFrame&, intptr_t, int)
+void WebScriptDebugger::didReachBreakpoint(const DebuggerCallFrame&, intptr_t, int, int)
 {
     return;
 }

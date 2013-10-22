@@ -53,6 +53,7 @@
 
 static acsp_ext *ext_list;		// list of acsp_ext structs - one for each option type	
 //static struct acsp_plugin *plugin_list;	// list of plugin channels - not currently used
+static bool acsp_plugin_installed = false; //To check ACSP status externally
 
 extern bool	acsp_no_routes;
 extern bool	acsp_no_domains;
@@ -565,7 +566,7 @@ static void acsp_plugin_check_options(void)
         sopt[0] = 0;
         key = SCDynamicStoreKeyCreateNetworkGlobalEntity(0, kSCDynamicStoreDomainState, kSCEntNetIPv4);
         if (key) {
-            if (dictRef = SCDynamicStoreCopyValue(cfgCache, key)) {
+            if ((dictRef = SCDynamicStoreCopyValue(cfgCache, key))) {
                 strRef = CFDictionaryGetValue(dictRef, kSCPropNetIPv4Router);
                 if (strRef && (CFGetTypeID(strRef) == CFStringGetTypeID())) {
                     CFStringGetCString((CFStringRef)strRef, sopt, 32, kCFStringEncodingUTF8);
@@ -979,7 +980,7 @@ static void acsp_plugin_process(void *context, ACSP_Input *acsp_in, ACSP_Output 
         case ACSP_NOTIFICATION_PACKET:
             switch (theContext->state) {                        
                 case PLUGIN_RCVSTATE_LISTEN:
-                    if (ntohs(pkt->flags) & ACSP_FLAG_START == 0) {
+                    if ((ntohs(pkt->flags) & ACSP_FLAG_START) == 0) {
                         error("ACSP plugin: received first packet with no start flag\n");
                         break;
                     } else
@@ -995,6 +996,8 @@ static void acsp_plugin_process(void *context, ACSP_Input *acsp_in, ACSP_Output 
                                 theContext->state = PLUGIN_STATE_DONE;
                                 if (theContext->ip_up)
                                     acsp_plugin_install_config(theContext);
+                                else
+                                    notify(acspdhcpready_notifier, 0);
                             }
                         } else
                             break;					// bad packet or error - send no ack
@@ -1005,13 +1008,16 @@ static void acsp_plugin_process(void *context, ACSP_Input *acsp_in, ACSP_Output 
                     break;
                 
                 case PLUGIN_SENDSTATE_WAITING_ACK:
-                    if (ntohs(pkt->flags) & ACSP_FLAG_ACK)	// if ack - process it - otherwise drop the packet
+                    if (ntohs(pkt->flags) & ACSP_FLAG_ACK) {	// if ack - process it - otherwise drop the packet
                         if (theContext->next_to_send) {
                             acsp_plugin_send(theContext, acsp_in, acsp_out);
                             theContext->next_seq++;
                         }
-                        else
-                            theContext->state = PLUGIN_STATE_DONE;        
+                        else {
+                            theContext->state = PLUGIN_STATE_DONE;
+                            notify(acspdhcpready_notifier, 0);
+                        }
+                    }
                     break;
             }
             break;
@@ -1023,6 +1029,7 @@ static void acsp_plugin_process(void *context, ACSP_Input *acsp_in, ACSP_Output 
                 else {
                     error("ACSP plugin: no acknowlegement from peer\n");
                     theContext->state = PLUGIN_STATE_DONE;
+                    notify(acspdhcpready_notifier, 0);
                 }
             } else
                 error("ACSP plugin: received unexpected timeout\n");
@@ -1033,6 +1040,7 @@ static void acsp_plugin_process(void *context, ACSP_Input *acsp_in, ACSP_Output 
             if (theContext->state == PLUGIN_SENDSTATE_WAITING_ACK)
                 acsp_out->action = ACSP_ACTION_CANCEL_TIMEOUT;
             theContext->state = PLUGIN_STATE_DONE;
+            notify(acspdhcpready_notifier, 0);
             break;
         
         default:
@@ -1253,6 +1261,8 @@ static void acsp_plugin_ip_up(void *arg, uintptr_t phase)
             && context->state == PLUGIN_STATE_DONE 
             && context->config_installed == 0)
         acsp_plugin_install_config(context);
+    else
+        notify(acspdhcpready_notifier, 0);
 }
 
 //------------------------------------------------------------
@@ -1281,6 +1291,10 @@ static void acsp_plugin_install_config(acsp_plugin_context *context)
     else
         acsp_plugin_add_domains(context->list);
     context->config_installed = 1;
+    acsp_plugin_installed = true;
+    
+    /* Signal that acsp info is ready */
+    notify(acspdhcpready_notifier, 0);
 }
 
 //------------------------------------------------------------
@@ -1293,7 +1307,7 @@ static void acsp_plugin_remove_config(acsp_plugin_context *context)
     // we don't remove anything - pppd will cleanup the dynamic store
     if (context->type == CI_ROUTES)
         acsp_plugin_remove_routes(context->list);
-
+    acsp_plugin_installed = false;
     context->config_installed = 0;
 }
 
@@ -1422,7 +1436,7 @@ static void acsp_plugin_add_domains(acsp_domain	*domain)
 	}
 		
     while (domain) {
-        if (str = CFStringCreateWithCString(NULL, domain->name, kCFStringEncodingUTF8)) {
+        if ((str = CFStringCreateWithCString(NULL, domain->name, kCFStringEncodingUTF8))) {
 			err = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSSearchDomains, str, 0, kSCPropNetDNSSupplementalMatchDomains, str, kSCPropNetDNSSupplementalMatchOrders, num, clean);
 #ifndef kSCPropNetProxiesSupplementalMatchDomains			
 #define kSCPropNetProxiesSupplementalMatchDomains kSCPropNetDNSSupplementalMatchDomains
@@ -2101,6 +2115,9 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 	/* dhcp is done */
 	UNTIMEOUT(acsp_ipdata_timeout, dhcp_context);
 	dhcp_context->state = PLUGIN_STATE_DONE;
+    
+    /* Signal that dhcp info is ready */
+    notify(acspdhcpready_notifier, 0);
 }
 
 //------------------------------------------------------------
@@ -2223,6 +2240,7 @@ acsp_ipdata_input(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_int32_t h
 	}
 }
 
+#define DHCP_NOTIFY_STORE_ON_TIMEOUT_COUNT 2
 //------------------------------------------------------------
 // acsp_ipdatre_timeout
 //------------------------------------------------------------
@@ -2237,6 +2255,10 @@ acsp_ipdata_timeout(void *arg)
 		else {
 			dbglog("No DHCP server replied\n");
 			context->state = PLUGIN_STATE_DONE;
+		}
+		
+		if (context->retry_count == DHCP_NOTIFY_STORE_ON_TIMEOUT_COUNT) {
+			notify(acspdhcpready_notifier, 0);
 		}
 	}
 }    

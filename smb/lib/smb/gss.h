@@ -54,6 +54,6 @@ char *smb_gss_principal_from_cred(void *);
 void smb_release_gss_cred(void *, int);
 int smb_acquire_ntlm_cred(const char *, const char *, const char *, void **);
 int smb_acquire_krb5_cred(const char *, const char *, const char *, void **);
-CFStringRef TargetNameCreatedWithHostName(struct smb_ctx *ctx);
+CFStringRef TargetNameCreateWithHostName(struct smb_ctx *ctx);
 void GetTargetNameUsingHostName(struct smb_ctx *);
 int serverSupportsKerberos(CFDictionaryRef);

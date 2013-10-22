@@ -30,6 +30,8 @@ if "%1" == "--enable-install-doc" goto :enable-rdoc
 if "%1" == "--disable-install-doc" goto :disable-rdoc
 if "%1" == "--extout" goto :extout
 if "%1" == "EXTOUT" goto :extout
+if "%1" == "--with-baseruby" goto :baseruby
+if "%1" == "BASERUBY" goto :baseruby
 if "%1" == "--path" goto :path
 if "%1" == "-h" goto :help
 if "%1" == "--help" goto :help
@@ -107,6 +109,14 @@ goto :loop
   shift
   shift
 goto :loop
+:baseruby
+  echo>>confargs.mk !ifndef BASERUBY
+  echo>>confargs.mk BASERUBY = %2
+  echo>>confargs.mk !endif
+  echo>>confargs.tmp 	%1=%2 \
+  shift
+  shift
+goto :loop
 :path
   echo>>pathlist.tmp %2;\
   echo>>confargs.tmp 	%1=%2 \
@@ -122,8 +132,9 @@ goto :loop
   echo System types:
   echo   --target=TARGET         configure for TARGET [i386-bccwin32]
   echo Optional Package:
+  echo   --with-baseruby=RUBY    use RUBY as baseruby [ruby]
   echo   --with-static-linked-ext link external modules statically
-  echo   --disable-install-doc   install rdoc indexes during install
+  echo   --enable-install-doc    install rdoc indexes during install
   del *.tmp
   del ~tmp~.mak
 goto :exit

@@ -25,12 +25,6 @@
 #include <QAccelerometerFilter>
 #include <wtf/RefPtr.h>
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-using QTM_NAMESPACE::QAccelerometer;
-using QTM_NAMESPACE::QAccelerometerFilter;
-using QTM_NAMESPACE::QAccelerometerReading;
-#endif
-
 namespace WebCore {
 
 class DeviceMotionController;
@@ -47,7 +41,7 @@ public:
 
     void start();
     void stop();
-    DeviceMotionData* currentDeviceMotion() const { return m_motion.get(); }
+    DeviceMotionData* lastMotion() const { return m_motion.get(); }
 
 private:
     RefPtr<DeviceMotionData> m_motion;

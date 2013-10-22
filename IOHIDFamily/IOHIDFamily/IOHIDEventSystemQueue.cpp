@@ -31,15 +31,15 @@ OSDefineMetaClassAndStructors( IOHIDEventSystemQueue, super )
 Boolean IOHIDEventSystemQueue::enqueue(void *data, UInt32 dataSize)
 {
     Boolean             result  = false;
-    
+
     _didSendNotificationForLastEnqueue = false;
-    
+
     result = super::enqueue(data, dataSize);
     if (!_didSendNotificationForLastEnqueue) {
         //kprintf("IOHIDEventSystemQueue sending notification for IOSharedDataQueue.\n");
         sendDataAvailableNotification();
     }
-    
+
     return result;
 }
 

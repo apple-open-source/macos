@@ -1,5 +1,5 @@
-Installation instructions for Sudo 1.7
-======================================
+Sudo installation instructions
+==============================
 
 Sudo uses a `configure' script to probe the capabilities and type
 of the system in question.  In this release, `configure' takes many
@@ -99,9 +99,6 @@ Directory and file names:
 	Find the sources in DIR [configure dir or ..]
 
 Special features/options:
-  --with-CC=PATH
-	Specifies path to C compiler you wish to use.
-
   --with-incpath=DIR
 	Adds the specified directory (or directories) to CPPFLAGS
 	so configure and the compiler will look there for include
@@ -337,12 +334,7 @@ Special features/options:
   --with-otp-only
 	This option is now just an alias for --without-passwd.
 
-  --with-stow
-	Properly handle GNU stow packaging.  The sudoers file will
-	physically live in ${prefix}/etc and /etc/sudoers will be
-	a symbolic link.
-
-  --with-selinux 
+  --with-selinux
 	Enable support for role based access control (RBAC) on
 	systems that support SELinux.
 
@@ -355,6 +347,16 @@ Special features/options:
 	The path to search when loading libvas.so (or an alternate
 	name as specified by --with-libvas).  This option only has
 	an effect when --with-libvas is specified.
+
+  --with-man
+	Use the "man" macros for manual pages.  By default, mdoc
+	versions of the manuals are installed.  This can be used
+	to override configure's test for "nroff -mdoc" support.
+
+  --with-mdoc
+	Use the "mdoc" macros for manual pages.  By default, mdoc
+	versions of the manuals are installed.  This can be used
+	to override configure's test for "nroff -mdoc" support.
 
 The following options are also configurable at runtime:
 
@@ -463,6 +465,11 @@ The following options are also configurable at runtime:
   --without-umask
 	Preserves the umask of the user invoking sudo.
 
+  --with-umask-override
+        Use the umask specified in sudoers even if it is less restrictive
+	than the user's.  The default is to use the intersection of the
+	user's umask and the umask specified in sudoers.
+
   --with-runas-default=USER
 	The default user to run commands as if the -u flag is not specified
 	on the command line.  This defaults to "root".
@@ -562,6 +569,16 @@ The following options are also configurable at runtime:
         prompt as an argument and print the received password to
         the standard output.
 
+  --without-iologdir
+	Disable sudo's I/O logging support.  This can be used to allow sudo
+	to be compiled on systems without pseudo-tty support.
+
+  --with-iologdir[=DIR]
+	By default, sudo stores I/O log files in either /var/log/sudo-io,
+	/var/adm/sudo-sudo-io or /usr/log/sudo-io.  If DIR is
+	specified, I/O logs will be stored in the indicated directory
+	instead.
+
   --disable-authentication
 	By default, sudo requires the user to authenticate via a
 	password or similar means.  This options causes sudo to
@@ -603,22 +620,16 @@ The following options are also configurable at runtime:
 	if the executable is simply not in the user's path, sudo will tell
 	the user that they are not allowed to run it, which can be confusing.
 
-  --disable-iologdir
-	Disable sudo's I/O logging support.  This can be used to allow sudo
-	to be compiled on systems without pseudo-tty support.
-
-  --enable-iologdir[=DIR]
-	By default, sudo stores I/O log files in either /var/log/sudo-io,
-	/var/adm/sudo-sudo-io or /usr/log/sudo-io.  If DIR is
-	specified, I/O logs will be stored in the indicated directory
-	instead.
-
-  --enable-zlib[=DIR]
-	Enable the use of the zlib compress library when storing
-	I/O log files.  If specified, DIR is the base directory
-	containing the zlib include and lib directories.  By default
-	zlib is used if it is found on the system and I/O logging
-	support is not disabled.
+  --enable-zlib[=location]
+        Enable the use of the zlib compress library when storing
+        I/O log files.  If specified, location is the base directory
+        containing the zlib include and lib directories.  The special
+        values "system" and "builtin" can be used to indicate that
+        the system version of zlib should be used or that the version
+        of zlib shipped with sudo should be used instead.
+        If this option is not specified, configure will use the
+        system zlib if it is present and I/O logging support has
+        not been disabled.
 
   --disable-zlib
         Disable the use of the zlib compress library when storing
@@ -627,9 +638,27 @@ The following options are also configurable at runtime:
   --enable-warnings
 	Enable compiler warnings when building sudo with gcc.
 
+  --enable-werror
+	Enable the -Werror compiler option when building sudo with gcc.
+
+  --disable-hardening
+	Disable the use of compiler/linker exploit mitigation options
+	which are enabled by default.  This includes compiling with
+	_FORTIFY_SOURCE defined to 2, building with -fstack-protector
+	and linking with -zrelro, where supported.
+
+  --disable-pie
+	Disable the creation of position independent executables (PIE)
+        even when the compiler and linker support them.
+	By default, sudo will be built as a PIE where possible.
+
   --enable-admin-flag
 	Enable the creation of an Ubuntu-style admin flag file
 	the first time sudo is run.
+
+  --disable-env-reset
+        Disable environment resetting.  This sets the default value
+        of the "env_reset" Defaults option in sudoers to false.
 
 Shadow password and C2 support
 ==============================
@@ -690,14 +719,15 @@ Solaris 2.x:
     CD.  You can also get them from various places on the net,
     including http://www.sunfreeware.com/
     NOTE: sudo will *not* build with the sun C compiler in BSD
-	  compatibility mode (/usr/ucb/cc).  Sudo is designed to
-	  compile with the standard C compiler (or gcc) and will
-	  not build correctly with /usr/ucb/cc.  You can use the
-	  `--with-CC' option to point `configure' to the non-ucb
-	  compiler if it is not the first cc in your path.  Some
-	  sites link /usr/ucb/cc to gcc; configure will not notice
-	  this and still refuse to use /usr/ucb/cc, so make sure gcc
-	  is also in your path if your site is setup this way.
+          compatibility mode (/usr/ucb/cc).  Sudo is designed to
+          compile with the standard C compiler (or gcc) and will
+          not build correctly with /usr/ucb/cc.  You can set the
+          CC environment variable to the non-ucb compiler when
+          running `configure' if it is not the first cc in your
+          path.  Some sites link /usr/ucb/cc to gcc; configure will
+          not notice this and still refuse to use /usr/ucb/cc, so
+          make sure gcc is also in your path if your site is setup
+          this way.
     Also: Older versions of Solaris come with a broken syslogd.
 	  If you have having problems with sudo logging you should
 	  make sure you have the latest syslogd patch installed.
@@ -722,6 +752,12 @@ HP-UX:
     you will need to add a line like the following to /etc/pam.conf:
 
     sudo	session	required	libpam_hpsec.so.1 bypass_umask
+
+    If every command run via sudo displays information about the last
+    successful login and the last authentication failure you should
+    make use an /etc/pam.conf line like:
+
+    sudo	session	required	libpam_hpsec.so.1 bypass_umask bypass_last_login
 
 Digital UNIX:
     By default, sudo will use SIA (Security Integration Architecture)

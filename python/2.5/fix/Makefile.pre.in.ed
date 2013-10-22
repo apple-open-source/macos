@@ -18,6 +18,8 @@ EXTRA_CFLAGS=	@EXTRA_CFLAGS@
 		lipo $(BUILDPYTHON) $$a -output $(BUILDPYTHON)
 .
 /\/usr\/bin\/libtool/s//$(LIBTOOL)/
+/-DSVNVERSION/s/\\"/"&/
+s/\\" /\\"" /
 /Terminal/d
 .-1s/ \\$//
 g/cd Mac /s/$/ BUILDEXE=$(BUILDEXE)/

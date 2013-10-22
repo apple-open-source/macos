@@ -30,13 +30,13 @@
 
 namespace WebCore {
 
-PassOwnPtr<HTMLAllCollection> HTMLAllCollection::create(Document* document)
+PassRefPtr<HTMLAllCollection> HTMLAllCollection::create(Node* node, CollectionType type)
 {
-    return adoptPtr(new HTMLAllCollection(document));
+    return adoptRef(new HTMLAllCollection(node, type));
 }
 
-HTMLAllCollection::HTMLAllCollection(Document* document)
-    : HTMLCollection(document, DocAll)
+HTMLAllCollection::HTMLAllCollection(Node* node, CollectionType type)
+    : HTMLCollection(node, type, DoesNotOverrideItemAfter)
 {
 }
 
@@ -46,18 +46,17 @@ HTMLAllCollection::~HTMLAllCollection()
 
 Node* HTMLAllCollection::namedItemWithIndex(const AtomicString& name, unsigned index) const
 {
-    invalidateCacheIfNeeded();
     updateNameCache();
 
-    if (Vector<Element*>* idCache = m_cache.idCache.get(name.impl())) {
-        if (index < idCache->size())
-            return idCache->at(index);
-        index -= idCache->size();
+    if (Vector<Element*>* cache = idCache(name)) {
+        if (index < cache->size())
+            return cache->at(index);
+        index -= cache->size();
     }
 
-    if (Vector<Element*>* nameCache = m_cache.nameCache.get(name.impl())) {
-        if (index < nameCache->size())
-            return nameCache->at(index);
+    if (Vector<Element*>* cache = nameCache(name)) {
+        if (index < cache->size())
+            return cache->at(index);
     }
 
     return 0;

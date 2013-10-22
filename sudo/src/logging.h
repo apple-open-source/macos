@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2005, 2009
+ * Copyright (c) 1999-2005, 2009-2012
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -30,12 +30,12 @@
 #define SLOG_FILE		0x02
 #define SLOG_BOTH		0x03
 
-/* Flags for log_error() */
+/* Flags for log_error()/log_fatal() */
 #define MSG_ONLY		0x01
 #define USE_ERRNO		0x02
 #define NO_MAIL			0x04
-#define NO_EXIT			0x08
-#define NO_STDERR		0x10
+#define NO_STDERR		0x08
+#define NO_LOG			0x10
 
 /*
  * Maximum number of characters to log per entry.  The syslogger
@@ -47,12 +47,22 @@
 # define MAXSYSLOGLEN		960
 #endif
 
+/*
+ * Indentation level for file-based logs when word wrap is enabled.
+ */
+#define LOG_INDENT	"    "
+
 void audit_success		__P((char *[]));
 void audit_failure		__P((char *[], char const * const, ...));
 void log_allowed		__P((int));
+void log_auth_failure		__P((int, int));
 void log_denial			__P((int, int));
+void log_failure		__P((int, int));
 void log_error			__P((int flags, const char *fmt, ...))
 				    __printflike(2, 3);
-RETSIGTYPE reapchild		__P((int));
+void log_fatal			__P((int flags, const char *fmt, ...))
+				    __printflike(2, 3)
+				    __attribute__((__noreturn__));
+void writeln_wrap		__P((FILE *, char *, size_t, size_t));
 
 #endif /* _LOGGING_H */

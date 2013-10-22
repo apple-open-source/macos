@@ -1,10 +1,12 @@
-require 'test_optparse'
+require_relative 'test_optparse'
 
 class TestOptionParser::OptArg < TestOptionParser
   def setup
     super
     @opt.def_option("-x[VAL]") {|x| @flag = x}
     @opt.def_option("--option[=VAL]") {|x| @flag = x}
+    @opt.def_option("--regexp[=REGEXP]", Regexp) {|x| @reopt = x}
+    @reopt = nil
   end
 
   def test_short

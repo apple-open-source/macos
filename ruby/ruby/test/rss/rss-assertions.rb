@@ -2,6 +2,10 @@ require 'erb'
 
 module RSS
   module Assertions
+    def _wrap_assertion
+      yield
+    end
+
     def assert_parse(rss, assert_method, *args)
       __send__("assert_#{assert_method}", *args) do
         ::RSS::Parser.parse(rss)
@@ -10,7 +14,7 @@ module RSS
         ::RSS::Parser.parse(rss, false).validate
       end
     end
-    
+
     def assert_ns(prefix, uri)
       _wrap_assertion do
         begin
@@ -22,7 +26,7 @@ module RSS
         end
       end
     end
-    
+
     def assert_missing_tag(tag, parent)
       _wrap_assertion do
         begin
@@ -34,7 +38,7 @@ module RSS
         end
       end
     end
-    
+
     def assert_too_much_tag(tag, parent)
       _wrap_assertion do
         begin
@@ -46,7 +50,7 @@ module RSS
         end
       end
     end
-    
+
     def assert_missing_attribute(tag, attrname)
       _wrap_assertion do
         begin
@@ -58,7 +62,7 @@ module RSS
         end
       end
     end
-    
+
     def assert_not_expected_tag(tag, uri, parent)
       _wrap_assertion do
         begin
@@ -71,7 +75,7 @@ module RSS
         end
       end
     end
-    
+
     def assert_not_available_value(tag, value, attribute=nil)
       _wrap_assertion do
         begin
@@ -97,7 +101,7 @@ module RSS
         end
       end
     end
-    
+
     def assert_xml_declaration(version, encoding, standalone, rss)
       _wrap_assertion do
         assert_equal(version, rss.version)
@@ -105,7 +109,7 @@ module RSS
         assert_equal(standalone, rss.standalone)
       end
     end
-    
+
     def assert_xml_stylesheet_attrs(attrs, xsl)
       _wrap_assertion do
         n_attrs = normalized_attrs(attrs)
@@ -114,7 +118,7 @@ module RSS
         end
       end
     end
-    
+
     def assert_xml_stylesheet(target, attrs, xsl)
       _wrap_assertion do
         if attrs.has_key?(:href)
@@ -129,7 +133,7 @@ module RSS
         end
       end
     end
-    
+
     def assert_xml_stylesheet_pis(attrs_ary, rss=nil)
       _wrap_assertion do
         if rss.nil?
@@ -563,8 +567,10 @@ EOA
 EOA
 
         png_file = File.join(File.dirname(__FILE__), "dot.png")
-        png = File.open(png_file, "rb") {|file| file.read}
-        base64_content = [png].pack("m")
+        png = File.open(png_file, "rb") do |file|
+          file.read.force_encoding("binary")
+        end
+        base64_content = [png].pack("m").delete("\n")
 
         [false, true].each do |with_space|
           xml_content = base64_content
@@ -800,7 +806,7 @@ EOA
         end
       end
     end
-    
+
     def assert_multiple_dublin_core(elems, target)
       _wrap_assertion do
         elems.each do |name, values, plural|
@@ -810,7 +816,7 @@ EOA
         end
       end
     end
-    
+
     def assert_syndication(elems, target)
       _wrap_assertion do
         elems.each do |name, value|
@@ -820,7 +826,7 @@ EOA
         end
       end
     end
-    
+
     def assert_content(elems, target)
       _wrap_assertion do
         elems.each do |name, value|
@@ -828,7 +834,7 @@ EOA
         end
       end
     end
-    
+
     def assert_trackback(attrs, target)
       _wrap_assertion do
         n_attrs = normalized_attrs(attrs)
@@ -966,7 +972,7 @@ EOA
                                      feed_readers) do |maker|
             yield maker
             targets = chain_reader(maker, maker_readers)
-            target = targets.new_child
+            targets.new_child
           end
         end
 
@@ -1266,22 +1272,32 @@ EOA
                                     invalid_feed_checker=nil)
       _wrap_assertion do
         elements = []
-        invalid_feed = false
-        feed = RSS::Maker.make("atom:#{feed_type}") do |maker|
-          yield maker
-          targets = chain_reader(maker, maker_readers)
-          targets.each do |target|
-            element = maker_extractor.call(target)
-            elements << element if element
+        invalid_feed_exception = nil
+        feed = nil
+        begin
+          feed = RSS::Maker.make("atom:#{feed_type}") do |maker|
+            yield maker
+            targets = chain_reader(maker, maker_readers)
+            targets.each do |target|
+              element = maker_extractor.call(target)
+              elements << element if element
+            end
+            if invalid_feed_checker
+              invalid_feed_exception = invalid_feed_checker.call(targets)
+            end
           end
-          if invalid_feed_checker
-            invalid_feed = invalid_feed_checker.call(targets)
+        rescue RSS::Error
+          if invalid_feed_exception.is_a?(RSS::TooMuchTagError)
+            assert_too_much_tag(invalid_feed_exception.tag,
+                                invalid_feed_exception.parent) do
+              raise
+            end
+          else
+            raise
           end
         end
 
-        if invalid_feed
-          assert_nil(feed)
-        else
+        if invalid_feed_exception.nil?
           actual_elements = chain_reader(feed, feed_readers) || []
           actual_elements = actual_elements.collect do |target|
             feed_extractor.call(target)
@@ -1448,7 +1464,7 @@ EOA
       _assert_maker_atom_element(feed_type, maker_readers, feed_readers,
                                  maker_extractor, feed_extractor,
                                  &block)
-     end
+    end
 
     def assert_maker_atom_generator(feed_type, maker_readers, feed_readers,
                                     not_set_error_name=nil, &block)
@@ -1536,18 +1552,24 @@ EOA
           :length => target.length,
         }
       end
+
+      if feed_readers.first == "entries"
+        parent = "entry"
+      else
+        parent = feed_type
+      end
       invalid_feed_checker = Proc.new do |targets|
         infos = {}
-        invalid = false
+        invalid_exception = nil
         targets.each do |target|
           key = [target.hreflang, target.type]
           if infos.has_key?(key)
-            invalid = true
+            invalid_exception = RSS::TooMuchTagError.new("link", parent)
             break
           end
           infos[key] = true if target.rel.nil? or target.rel == "alternate"
         end
-        invalid
+        invalid_exception
       end
       invalid_feed_checker = nil if allow_duplication
       _assert_maker_atom_elements(feed_type, maker_readers, feed_readers,

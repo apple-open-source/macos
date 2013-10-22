@@ -38,6 +38,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <NetFS/NetFS.h>
 #include <NetFS/NetFSPrivate.h>
+#include <netsmb/smb_dev_2.h>
 
 typedef int32_t refcount_t;
 
@@ -706,6 +707,11 @@ SMBGetServerProperties(
 	if (vc_flags & SMBV_NETWORK_SID) {
         properties->internalFlags |= kHasNtwrkSID;
 	}
+    
+    /* Set the kLanmanOn flag according to the lanman_on preference */
+	if (((struct smb_ctx *)hContext)->prefs.lanman_on) {
+        properties->internalFlags |= kLanmanOn;
+	}
 	
     properties->dialect = kSMBDialectSMB;
 	
@@ -719,6 +725,66 @@ SMBGetServerProperties(
 		strlcpy(properties->serverName, ((struct smb_ctx *)hContext)->serverName, 
 				sizeof(properties->serverName));
 	}
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS
+SMBGetShareAttributes(SMBHANDLE inConnection, void *outAttrs)
+{
+    struct smbioc_vc_properties vc_prop;
+    struct smbioc_share_properties share_prop;
+    NTSTATUS status;
+    struct smb_ctx *ctx;
+    SMBShareAttributes *sattrs = (SMBShareAttributes *)outAttrs;
+    size_t name_len;
+    
+    if (!inConnection || !sattrs)
+        return STATUS_INVALID_PARAMETER;
+    
+    status = SMBServerContext(inConnection, (void **)&ctx);
+    if (!NT_SUCCESS(status)) {
+        smb_log_info("%s: failed to get smb_ctx, syserr = %s",
+					 ASL_LEVEL_ERR, __FUNCTION__, strerror(errno));
+        return status;
+    }
+    
+    memset(&vc_prop, 0, sizeof(vc_prop));
+	vc_prop.ioc_version = SMB_IOC_STRUCT_VERSION;
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_VC_PROPERTIES, &vc_prop) == -1) {
+		smb_log_info("%s: Getting the vc properties failed, syserr = %s",
+					 ASL_LEVEL_ERR, __FUNCTION__, strerror(errno));
+        return errno;
+    }
+    else {
+        sattrs->vc_uid = vc_prop.uid;
+        sattrs->vc_smb1_caps = vc_prop.smb1_caps;
+        sattrs->vc_smb2_caps = vc_prop.smb2_caps;
+        sattrs->vc_flags = vc_prop.flags;
+        sattrs->vc_misc_flags = vc_prop.misc_flags;
+        sattrs->vc_hflags = vc_prop.hflags;
+        sattrs->vc_hflags2 = vc_prop.hflags2;
+    }
+    
+    memset(&share_prop, 0, sizeof(share_prop));
+	share_prop.ioc_version = SMB_IOC_STRUCT_VERSION;
+	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_SHARE_PROPERTIES, &share_prop) == -1) {
+		smb_log_info("%s: Getting the share properties failed, syserr = %s",
+					 ASL_LEVEL_ERR, __FUNCTION__, strerror(errno));
+       return errno;
+    }
+    else {
+        sattrs->ss_flags = share_prop.share_flags;
+        sattrs->ss_type = share_prop.share_type;
+        sattrs->ss_caps = share_prop.share_caps;
+        sattrs->ss_attrs = share_prop.attributes;
+    }
+    
+    sattrs->ss_fstype = ctx->ct_sh.ioc_fstype;
+    
+    memset(sattrs->server_name, 0, kMaxSrvNameLen);
+    name_len = (kMaxSrvNameLen >= strlen(ctx->serverName)) ? kMaxSrvNameLen : strlen(ctx->serverName);
+    strlcpy(sattrs->server_name, ctx->serverName, name_len);
+    
     return STATUS_SUCCESS;
 }
 

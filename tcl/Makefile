@@ -4,6 +4,10 @@
 
 Project = tcl
 
+install_source:: check_for_autoconf
+check_for_autoconf:
+	$(_v) autoconf -V > /dev/null 2>&1 || (echo "installsrc phase needs autoconf installed" && false)
+
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 ## Build settings ##
@@ -64,6 +68,10 @@ build::
 	$(_v) for v in $(AC_VALS); do echo "$$v" >> "$(TCL_CONFIG_DIR)/config.site"; done
 
 install:: $(core84) $(core) install-plist
+
+install1:: build $(core84)
+install2:: build $(core)
+install3:: install-plist
 
 ext ext84:
 	$(_v) $(MAKE) $(ext) $(EXT_MAKE_ARGS) \

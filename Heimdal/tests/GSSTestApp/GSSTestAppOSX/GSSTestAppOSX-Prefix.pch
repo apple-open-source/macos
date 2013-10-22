@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'GSSTestAppOSX' target in the 'GSSTestAppOSX' project
+//
+
+#ifdef __OBJC__
+    #import <Cocoa/Cocoa.h>
+#endif

@@ -168,7 +168,7 @@ int ppp_comp_dispose()
 {
     struct ppp_comp  	*comp;
 
-    while (comp = TAILQ_FIRST(&ppp_comp_head)) {
+    while ((comp = TAILQ_FIRST(&ppp_comp_head))) {
         TAILQ_REMOVE(&ppp_comp_head, comp, next);
     	FREE(comp, M_TEMP);
     }
@@ -286,7 +286,7 @@ int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
     if (nb > sizeof(ccp_option))
         nb = sizeof(ccp_option);
 
-    if (error = copyin(ptr, ccp_option, nb))
+    if ((error = copyin(ptr, ccp_option, nb)))
         return (error);
 
     if (ccp_option[1] < 2)	/* preliminary check on the length byte */
@@ -347,7 +347,7 @@ mbuf points to the ccp payload (doesn't include FF03 and 80FD)
 ----------------------------------------------------------------------------- */
 void ppp_comp_ccp(struct ppp_if *wan, mbuf_t m, int rcvd)
 {
-    u_char 	*p = mbuf_data(m);
+    u_char 	*p = mbuf_data(m);	// no alignment issue as p is *u_char.
     int 	slen;
     
     slen = CCP_LENGTH(p);
@@ -412,7 +412,7 @@ CCP is down; free (de)compressor state if necessary.
 void ppp_comp_close(struct ppp_if *wan)
 {
 
-    wan->sc_flags &= ~(SC_CCP_OPEN || SC_CCP_UP || SC_COMP_RUN || SC_DECOMP_RUN);
+    wan->sc_flags &= ~(SC_CCP_OPEN | SC_CCP_UP | SC_COMP_RUN | SC_DECOMP_RUN);
     if (wan->xc_state) {
 	(*wan->xcomp->comp_free)(wan->xc_state);
 	wan->xc_state = NULL;

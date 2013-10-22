@@ -200,11 +200,10 @@ getsectbyname(
 const char *segname,
 const char *sectname)
 {
-    static struct mach_header *mhp = NULL;
 #ifndef __OPENSTEP__
-	if(mhp == NULL)
-	    mhp = _NSGetMachExecuteHeader();
+    struct mach_header *mhp = _NSGetMachExecuteHeader();
 #else /* defined(__OPENSTEP__) */
+    static struct mach_header *mhp = NULL;
 	DECLARE_VAR(_mh_execute_header, struct mach_header);
         SETUP_VAR(_mh_execute_header);
 	mhp = (struct mach_header *)(& USE_VAR(_mh_execute_header));
@@ -219,10 +218,8 @@ getsectbyname(
 const char *segname,
 const char *sectname)
 {
-    static struct mach_header_64 *mhp = NULL;
+    struct mach_header_64 *mhp = _NSGetMachExecuteHeader();
 
-	if(mhp == NULL)
-	    mhp = _NSGetMachExecuteHeader();
 	return(getsectbynamefromheader_64(mhp, segname, sectname));
 }
 

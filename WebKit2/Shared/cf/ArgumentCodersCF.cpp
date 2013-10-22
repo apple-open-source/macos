@@ -29,11 +29,14 @@
 #include "ArgumentDecoder.h"
 #include "ArgumentEncoder.h"
 #include "DataReference.h"
+#include <WebCore/CFURLExtras.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(MAC)
 #import <Foundation/Foundation.h>
 #endif
+
+using namespace WebCore;
 
 namespace CoreIPC {
 
@@ -53,7 +56,7 @@ enum CFType {
     CFNumber,
     CFString,
     CFURL,
-#if PLATFORM(MAC)
+#if USE(SECURITY_FRAMEWORK)
     SecCertificate,
     SecKeychainItem,
 #endif
@@ -87,7 +90,7 @@ static CFType typeFromCFTypeRef(CFTypeRef type)
         return CFString;
     if (typeID == CFURLGetTypeID())
         return CFURL;
-#if PLATFORM(MAC)
+#if USE(SECURITY_FRAMEWORK)
     if (typeID == SecCertificateGetTypeID())
         return SecCertificate;
     if (typeID == SecKeychainItemGetTypeID())
@@ -98,10 +101,10 @@ static CFType typeFromCFTypeRef(CFTypeRef type)
     return Unknown;
 }
 
-void encode(ArgumentEncoder* encoder, CFTypeRef typeRef)
+void encode(ArgumentEncoder& encoder, CFTypeRef typeRef)
 {
     CFType type = typeFromCFTypeRef(typeRef);
-    encoder->encodeEnum(type);
+    encoder.encodeEnum(type);
 
     switch (type) {
     case CFArray:
@@ -130,7 +133,7 @@ void encode(ArgumentEncoder* encoder, CFTypeRef typeRef)
     case CFURL:
         encode(encoder, static_cast<CFURLRef>(typeRef));
         return;
-#if PLATFORM(MAC)
+#if USE(SECURITY_FRAMEWORK)
     case SecCertificate:
         encode(encoder, (SecCertificateRef)typeRef);
         return;
@@ -147,10 +150,10 @@ void encode(ArgumentEncoder* encoder, CFTypeRef typeRef)
     ASSERT_NOT_REACHED();
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFTypeRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFTypeRef>& result)
 {
     CFType type;
-    if (!decoder->decodeEnum(type))
+    if (!decoder.decodeEnum(type))
         return false;
 
     switch (type) {
@@ -158,74 +161,74 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<CFTypeRef>& result)
         RetainPtr<CFArrayRef> array;
         if (!decode(decoder, array))
             return false;
-        result.adoptCF(array.leakRef());
+        result = adoptCF(array.leakRef());
         return true;
     }
     case CFBoolean: {
         RetainPtr<CFBooleanRef> boolean;
         if (!decode(decoder, boolean))
             return false;
-        result.adoptCF(boolean.leakRef());
+        result = adoptCF(boolean.leakRef());
         return true;
     }
     case CFData: {
         RetainPtr<CFDataRef> data;
         if (!decode(decoder, data))
             return false;
-        result.adoptCF(data.leakRef());
+        result = adoptCF(data.leakRef());
         return true;
     }
     case CFDate: {
         RetainPtr<CFDateRef> date;
         if (!decode(decoder, date))
             return false;
-        result.adoptCF(date.leakRef());
+        result = adoptCF(date.leakRef());
         return true;
     }
     case CFDictionary: {
         RetainPtr<CFDictionaryRef> dictionary;
         if (!decode(decoder, dictionary))
             return false;
-        result.adoptCF(dictionary.leakRef());
+        result = adoptCF(dictionary.leakRef());
         return true;
     }
     case CFNull:
-        result.adoptCF(kCFNull);
+        result = adoptCF(kCFNull);
         return true;
     case CFNumber: {
         RetainPtr<CFNumberRef> number;
         if (!decode(decoder, number))
             return false;
-        result.adoptCF(number.leakRef());
+        result = adoptCF(number.leakRef());
         return true;
     }
     case CFString: {
         RetainPtr<CFStringRef> string;
         if (!decode(decoder, string))
             return false;
-        result.adoptCF(string.leakRef());
+        result = adoptCF(string.leakRef());
         return true;
     }
     case CFURL: {
         RetainPtr<CFURLRef> url;
         if (!decode(decoder, url))
             return false;
-        result.adoptCF(url.leakRef());
+        result = adoptCF(url.leakRef());
         return true;
     }
-#if PLATFORM(MAC)
+#if USE(SECURITY_FRAMEWORK)
     case SecCertificate: {
         RetainPtr<SecCertificateRef> certificate;
         if (!decode(decoder, certificate))
             return false;
-        result.adoptCF(certificate.leakRef());
+        result = adoptCF(certificate.leakRef());
         return true;
     }
     case SecKeychainItem: {
         RetainPtr<SecKeychainItemRef> keychainItem;
         if (!decode(decoder, keychainItem))
             return false;
-        result.adoptCF(keychainItem.leakRef());
+        result = adoptCF(keychainItem.leakRef());
         return true;
     }
 #endif
@@ -240,14 +243,15 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<CFTypeRef>& result)
     return false;
 }
 
-void encode(ArgumentEncoder* encoder, CFArrayRef array)
+void encode(ArgumentEncoder& encoder, CFArrayRef array)
 {
     CFIndex size = CFArrayGetCount(array);
     Vector<CFTypeRef, 32> values(size);
 
     CFArrayGetValues(array, CFRangeMake(0, size), values.data());
 
-    encoder->encodeUInt64(size);
+    encoder << static_cast<uint64_t>(size);
+
     for (CFIndex i = 0; i < size; ++i) {
         ASSERT(values[i]);
 
@@ -255,13 +259,13 @@ void encode(ArgumentEncoder* encoder, CFArrayRef array)
     }
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFArrayRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFArrayRef>& result)
 {
     uint64_t size;
-    if (!decoder->decodeUInt64(size))
+    if (!decoder.decode(size))
         return false;
 
-    RetainPtr<CFMutableArrayRef> array(AdoptCF, CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks));
+    RetainPtr<CFMutableArrayRef> array = adoptCF(CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks));
 
     for (size_t i = 0; i < size; ++i) {
         RetainPtr<CFTypeRef> element;
@@ -271,59 +275,59 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<CFArrayRef>& result)
         CFArrayAppendValue(array.get(), element.get());
     }
 
-    result.adoptCF(array.leakRef());
+    result = adoptCF(array.leakRef());
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, CFBooleanRef boolean)
+void encode(ArgumentEncoder& encoder, CFBooleanRef boolean)
 {
-    encoder->encodeBool(CFBooleanGetValue(boolean));
+    encoder << static_cast<bool>(CFBooleanGetValue(boolean));
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFBooleanRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFBooleanRef>& result)
 {
     bool boolean;
-    if (!decoder->decode(boolean))
+    if (!decoder.decode(boolean))
         return false;
 
-    result.adoptCF(boolean ? kCFBooleanTrue : kCFBooleanFalse);
+    result = adoptCF(boolean ? kCFBooleanTrue : kCFBooleanFalse);
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, CFDataRef data)
+void encode(ArgumentEncoder& encoder, CFDataRef data)
 {
     CFIndex length = CFDataGetLength(data);
     const UInt8* bytePtr = CFDataGetBytePtr(data);
 
-    encoder->encodeVariableLengthByteArray(CoreIPC::DataReference(bytePtr, length));
+    encoder << CoreIPC::DataReference(bytePtr, length);
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFDataRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFDataRef>& result)
 {
     CoreIPC::DataReference dataReference;
-    if (!decoder->decode(dataReference))
+    if (!decoder.decode(dataReference))
         return false;
 
-    result.adoptCF(CFDataCreate(0, dataReference.data(), dataReference.size()));
+    result = adoptCF(CFDataCreate(0, dataReference.data(), dataReference.size()));
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, CFDateRef date)
+void encode(ArgumentEncoder& encoder, CFDateRef date)
 {
-    encoder->encodeDouble(CFDateGetAbsoluteTime(date));
+    encoder << static_cast<double>(CFDateGetAbsoluteTime(date));
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFDateRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFDateRef>& result)
 {
     double absoluteTime;
-    if (!decoder->decodeDouble(absoluteTime))
+    if (!decoder.decode(absoluteTime))
         return false;
 
-    result.adoptCF(CFDateCreate(0, absoluteTime));
+    result = adoptCF(CFDateCreate(0, absoluteTime));
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, CFDictionaryRef dictionary)
+void encode(ArgumentEncoder& encoder, CFDictionaryRef dictionary)
 {
     CFIndex size = CFDictionaryGetCount(dictionary);
     Vector<CFTypeRef, 32> keys(size);
@@ -331,7 +335,7 @@ void encode(ArgumentEncoder* encoder, CFDictionaryRef dictionary)
     
     CFDictionaryGetKeysAndValues(dictionary, keys.data(), values.data());
 
-    encoder->encodeUInt64(size);
+    encoder << static_cast<uint64_t>(size);
 
     for (CFIndex i = 0; i < size; ++i) {
         ASSERT(keys[i]);
@@ -347,13 +351,13 @@ void encode(ArgumentEncoder* encoder, CFDictionaryRef dictionary)
     }
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFDictionaryRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFDictionaryRef>& result)
 {
     uint64_t size;
-    if (!decoder->decodeUInt64(size))
+    if (!decoder.decode(size))
         return false;
 
-    RetainPtr<CFMutableDictionaryRef> dictionary(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    RetainPtr<CFMutableDictionaryRef> dictionary = adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     for (uint64_t i = 0; i < size; ++i) {
         // Try to decode the key name.
         RetainPtr<CFStringRef> key;
@@ -367,11 +371,11 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<CFDictionaryRef>& result)
         CFDictionarySetValue(dictionary.get(), key.get(), value.get());
     }
 
-    result.adoptCF(dictionary.leakRef());
+    result = adoptCF(dictionary.leakRef());
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, CFNumberRef number)
+void encode(ArgumentEncoder& encoder, CFNumberRef number)
 {
     CFNumberType numberType = CFNumberGetType(number);
 
@@ -379,8 +383,8 @@ void encode(ArgumentEncoder* encoder, CFNumberRef number)
     bool result = CFNumberGetValue(number, numberType, buffer.data());
     ASSERT_UNUSED(result, result);
 
-    encoder->encodeEnum(numberType);
-    encoder->encodeVariableLengthByteArray(buffer);
+    encoder.encodeEnum(numberType);
+    encoder << CoreIPC::DataReference(buffer);
 }
 
 static size_t sizeForNumberType(CFNumberType numberType)
@@ -431,14 +435,14 @@ static size_t sizeForNumberType(CFNumberType numberType)
     return 0;
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFNumberRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFNumberRef>& result)
 {
     CFNumberType numberType;
-    if (!decoder->decodeEnum(numberType))
+    if (!decoder.decodeEnum(numberType))
         return false;
 
     CoreIPC::DataReference dataReference;
-    if (!decoder->decode(dataReference))
+    if (!decoder.decode(dataReference))
         return false;
 
     size_t neededBufferSize = sizeForNumberType(numberType);
@@ -447,12 +451,12 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<CFNumberRef>& result)
 
     ASSERT(dataReference.data());
     CFNumberRef number = CFNumberCreate(0, numberType, dataReference.data());
-    result.adoptCF(number);
+    result = adoptCF(number);
 
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, CFStringRef string)
+void encode(ArgumentEncoder& encoder, CFStringRef string)
 {
     CFIndex length = CFStringGetLength(string);
     CFStringEncoding encoding = CFStringGetFastestEncoding(string);
@@ -467,92 +471,92 @@ void encode(ArgumentEncoder* encoder, CFStringRef string)
     numConvertedBytes = CFStringGetBytes(string, range, encoding, 0, false, buffer.data(), buffer.size(), &bufferLength);
     ASSERT(numConvertedBytes == length);
 
-    encoder->encodeEnum(encoding);
-    encoder->encodeVariableLengthByteArray(buffer);
+    encoder.encodeEnum(encoding);
+    encoder << CoreIPC::DataReference(buffer);
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFStringRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFStringRef>& result)
 {
     CFStringEncoding encoding;
-    if (!decoder->decodeEnum(encoding))
+    if (!decoder.decodeEnum(encoding))
         return false;
 
     if (!CFStringIsEncodingAvailable(encoding))
         return false;
     
     CoreIPC::DataReference dataReference;
-    if (!decoder->decode(dataReference))
+    if (!decoder.decode(dataReference))
         return false;
 
     CFStringRef string = CFStringCreateWithBytes(0, dataReference.data(), dataReference.size(), encoding, false);
     if (!string)
         return false;
 
-    result.adoptCF(string);
+    result = adoptCF(string);
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, CFURLRef url)
+void encode(ArgumentEncoder& encoder, CFURLRef url)
 {
     CFURLRef baseURL = CFURLGetBaseURL(url);
-    encoder->encodeBool(baseURL);
+    encoder << static_cast<bool>(baseURL);
     if (baseURL)
         encode(encoder, baseURL);
 
-    encode(encoder, CFURLGetString(url));
+    URLCharBuffer urlBytes;
+    getURLBytes(url, urlBytes);
+    CoreIPC::DataReference dataReference(reinterpret_cast<const uint8_t*>(urlBytes.data()), urlBytes.size());
+    encoder << dataReference;
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<CFURLRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<CFURLRef>& result)
 {
     RetainPtr<CFURLRef> baseURL;
     bool hasBaseURL;
-    if (!decoder->decodeBool(hasBaseURL))
+    if (!decoder.decode(hasBaseURL))
         return false;
     if (hasBaseURL) {
         if (!decode(decoder, baseURL))
             return false;
     }
 
-    RetainPtr<CFStringRef> string;
-    if (!decode(decoder, string))
+    CoreIPC::DataReference urlBytes;
+    if (!decoder.decode(urlBytes))
         return false;
 
 #if PLATFORM(MAC)
     // FIXME: Move this to ArgumentCodersCFMac.mm and change this file back to be C++
     // instead of Objective-C++.
-    if (!CFStringGetLength(string.get())) {
+    if (urlBytes.isEmpty()) {
         // CFURL can't hold an empty URL, unlike NSURL.
+        // FIXME: This discards base URL, which seems incorrect.
         result = reinterpret_cast<CFURLRef>([NSURL URLWithString:@""]);
         return true;
     }
 #endif
-                    
-    CFURLRef url = CFURLCreateWithString(0, string.get(), baseURL.get());
-    if (!url)
-        return false;
 
-    result.adoptCF(url);
-    return true;
+    result = createCFURLFromBuffer(reinterpret_cast<const char*>(urlBytes.data()), urlBytes.size(), baseURL.get());
+    return result;
 }
 
-#if PLATFORM(MAC)
-void encode(ArgumentEncoder* encoder, SecCertificateRef certificate)
+#if USE(SECURITY_FRAMEWORK)
+void encode(ArgumentEncoder& encoder, SecCertificateRef certificate)
 {
-    RetainPtr<CFDataRef> data(AdoptCF, SecCertificateCopyData(certificate));
+    RetainPtr<CFDataRef> data = adoptCF(SecCertificateCopyData(certificate));
     encode(encoder, data.get());
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<SecCertificateRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<SecCertificateRef>& result)
 {
     RetainPtr<CFDataRef> data;
     if (!decode(decoder, data))
         return false;
 
-    result.adoptCF(SecCertificateCreateWithData(0, data.get()));
+    result = adoptCF(SecCertificateCreateWithData(0, data.get()));
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, SecKeychainItemRef keychainItem)
+void encode(ArgumentEncoder& encoder, SecKeychainItemRef keychainItem)
 {
     CFDataRef data;
     if (SecKeychainItemCreatePersistentReference(keychainItem, &data) == errSecSuccess) {
@@ -561,7 +565,7 @@ void encode(ArgumentEncoder* encoder, SecKeychainItemRef keychainItem)
     }
 }
 
-bool decode(ArgumentDecoder* decoder, RetainPtr<SecKeychainItemRef>& result)
+bool decode(ArgumentDecoder& decoder, RetainPtr<SecKeychainItemRef>& result)
 {
     RetainPtr<CFDataRef> data;
     if (!CoreIPC::decode(decoder, data))
@@ -571,10 +575,9 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<SecKeychainItemRef>& result)
     if (SecKeychainItemCopyFromPersistentReference(data.get(), &item) != errSecSuccess || !item)
         return false;
     
-    result.adoptCF(item);
+    result = adoptCF(item);
     return true;
 }
-
 #endif
 
 } // namespace CoreIPC

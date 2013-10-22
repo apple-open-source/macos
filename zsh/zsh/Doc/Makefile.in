@@ -59,7 +59,7 @@ Zsh/mod_attr.yo Zsh/mod_cap.yo Zsh/mod_clone.yo \
 Zsh/mod_compctl.yo Zsh/mod_complete.yo Zsh/mod_complist.yo \
 Zsh/mod_computil.yo Zsh/mod_curses.yo \
 Zsh/mod_datetime.yo Zsh/mod_deltochar.yo \
-Zsh/mod_example.yo Zsh/mod_files.yo \
+Zsh/mod_example.yo Zsh/mod_files.yo Zsh/mod_langinfo.yo \
 Zsh/mod_mapfile.yo Zsh/mod_mathfunc.yo Zsh/mod_newuser.yo \
 Zsh/mod_parameter.yo Zsh/mod_pcre.yo Zsh/mod_regex.yo \
 Zsh/mod_sched.yo Zsh/mod_socket.yo \
@@ -72,7 +72,8 @@ Zsh/mod_zutil.yo
 YODLSRC = zmacros.yo zman.yo ztexi.yo Zsh/arith.yo Zsh/builtins.yo \
 Zsh/compat.yo Zsh/compctl.yo Zsh/compsys.yo Zsh/compwid.yo Zsh/cond.yo \
 Zsh/contrib.yo Zsh/exec.yo Zsh/expn.yo \
-Zsh/filelist.yo Zsh/files.yo Zsh/func.yo Zsh/grammar.yo Zsh/manual.yo \
+Zsh/filelist.yo Zsh/files.yo Zsh/ftp_sites.yo \
+Zsh/func.yo Zsh/grammar.yo Zsh/manual.yo \
 Zsh/index.yo Zsh/intro.yo Zsh/invoke.yo Zsh/jobs.yo Zsh/metafaq.yo \
 Zsh/modules.yo Zsh/modlist.yo Zsh/modmenu.yo Zsh/manmodmenu.yo $(MODDOCSRC) \
 Zsh/options.yo Zsh/params.yo Zsh/prompt.yo Zsh/redirect.yo Zsh/restricted.yo \
@@ -92,7 +93,7 @@ dvi: zsh.dvi
 zsh.dvi: $(sdir)/zsh.texi
 	$(TEXI2DVI) $(sdir)/zsh.texi
 
-pdf: zsh.pdf
+pdf: zsh.pdf intro.a4.pdf intro.us.pdf
 .PHONY: pdf
 
 zsh.pdf: $(sdir)/zsh.texi
@@ -101,6 +102,15 @@ zsh.pdf: $(sdir)/zsh.texi
 	else \
 	  PDFTEX=$(PDFETEX) $(TEXI2DVI) --pdf $(sdir)/zsh.texi; \
 	fi
+
+# Use roff2ps / ps2pdf because pdfroff produces doubled output.
+intro.a4.pdf: $(sdir)/intro.ms
+	roff2ps -ms -P-pa4 < $(sdir)/intro.ms > intro.a4.ps
+	ps2pdf intro.a4.ps
+
+intro.us.pdf: $(sdir)/intro.ms
+	roff2ps -ms -P-pletter < $(sdir)/intro.ms > intro.us.ps
+	ps2pdf intro.us.ps
 
 texi: $(sdir)/zsh.texi
 .PHONY: texi
@@ -160,9 +170,9 @@ zshall.1: zsh.yo
 	    $(YODL) -I$(sdir) -DZSHALL -w zman.yo version.yo zsh.yo | sed -e '1s/\\-/-/g' -e '/^\.'\''/d' > $$target \
 	;; esac; \
 
-../META-FAQ: META-FAQ.yo Zsh/metafaq.yo
+../META-FAQ: META-FAQ.yo Zsh/metafaq.yo Zsh/ftp_sites.yo
 	case '$(YODL)' in :*) touch $(sdir_top)/META-FAQ ;; *) \
-	    $(YODL) -I$(sdir) META-FAQ.yo | sed -e '/NEXTLINE/N' -e '/DELLINE/d' -e '/^SECTHEAD$$/{N;s/^SECTHEAD.//;h;s/./-/g;H;g;}' -e 's/  *$$//' > $(sdir_top)/META-FAQ \
+	    $(YODL) -I$(sdir) META-FAQ.yo | sed -e '/NEXTLINE/N' -e '/DELLINE/d' -e '/^SECTHEAD$$/{N;s/^SECTHEAD.//;h;s/./-/g;H;g;}' -e 's/  *$$//' -e '/comment(.*)/d' > $(sdir_top)/META-FAQ \
 	;; esac
 
 $(YODLDOC): version.yo
@@ -175,7 +185,8 @@ man: $(MAN)
 $(MAN): zmacros.yo zman.yo
 
 zsh.1 zshall.1: Zsh/intro.yo Zsh/metafaq.yo Zsh/invoke.yo Zsh/files.yo \
-                Zsh/filelist.yo Zsh/filelist.yo Zsh/seealso.yo
+                Zsh/filelist.yo Zsh/filelist.yo Zsh/seealso.yo \
+                Zsh/ftp_sites.yo Zsh/compat.yo Zsh/restricted.yo
 
 zshbuiltins.1: Zsh/builtins.yo
 
@@ -191,7 +202,7 @@ zshexpn.1: Zsh/expn.yo
 
 zshmisc.1: Zsh/grammar.yo Zsh/redirect.yo Zsh/exec.yo Zsh/func.yo \
            Zsh/jobs.yo Zsh/arith.yo Zsh/cond.yo Zsh/compat.yo \
-           Zsh/prompt.yo Zsh/restricted.yo
+           Zsh/prompt.yo
 
 zshmodules.1: Zsh/modules.yo Zsh/modlist.yo Zsh/modmenu.yo $(MODDOCSRC)
 

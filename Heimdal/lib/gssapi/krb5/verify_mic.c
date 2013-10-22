@@ -255,6 +255,7 @@ retry:
   ret = krb5_crypto_init(context, key,
 		       ETYPE_DES3_CBC_SHA1, &crypto);
   if (ret) {
+    free(tmp);
     *minor_status = ret;
     HEIMDAL_MUTEX_unlock(&context_handle->ctx_id_mutex);
     return GSS_S_BAD_MIC;

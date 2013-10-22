@@ -1,0 +1,11 @@
+Changes
+Makefile.PL
+Config.PL
+MANIFEST
+README
+Sender.pm
+t/00-load.t
+t/01-create-object.t
+Sender/CType/Ext.pm
+Sender/CType/Win32.pm
+META.yml                                 Module meta-data (added by MakeMaker)

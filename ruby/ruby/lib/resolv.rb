@@ -9,28 +9,28 @@ rescue LoadError
 end
 
 # Resolv is a thread-aware DNS resolver library written in Ruby.  Resolv can
-# handle multiple DNS requests concurrently without blocking.  The ruby
+# handle multiple DNS requests concurrently without blocking the entire ruby
 # interpreter.
 #
-# See also resolv-replace.rb to replace the libc resolver with # Resolv.
-# 
+# See also resolv-replace.rb to replace the libc resolver with Resolv.
+#
 # Resolv can look up various DNS resources using the DNS module directly.
-# 
+#
 # Examples:
-# 
+#
 #   p Resolv.getaddress "www.ruby-lang.org"
 #   p Resolv.getname "210.251.121.214"
-# 
+#
 #   Resolv::DNS.open do |dns|
 #     ress = dns.getresources "www.ruby-lang.org", Resolv::DNS::Resource::IN::A
 #     p ress.map { |r| r.address }
 #     ress = dns.getresources "ruby-lang.org", Resolv::DNS::Resource::IN::MX
 #     p ress.map { |r| [r.exchange.to_s, r.preference] }
 #   end
-# 
-# 
+#
+#
 # == Bugs
-# 
+#
 # * NIS is not supported.
 # * /etc/nsswitch.conf is not supported.
 
@@ -38,14 +38,14 @@ class Resolv
 
   ##
   # Looks up the first IP address for +name+.
-  
+
   def self.getaddress(name)
     DefaultResolver.getaddress(name)
   end
 
   ##
   # Looks up all IP address for +name+.
-  
+
   def self.getaddresses(name)
     DefaultResolver.getaddresses(name)
   end
@@ -87,7 +87,7 @@ class Resolv
 
   ##
   # Looks up the first IP address for +name+.
-  
+
   def getaddress(name)
     each_address(name) {|address| return address}
     raise ResolvError.new("no address for #{name}")
@@ -95,7 +95,7 @@ class Resolv
 
   ##
   # Looks up all IP address for +name+.
-  
+
   def getaddresses(name)
     ret = []
     each_address(name) {|address| ret << address}
@@ -162,10 +162,10 @@ class Resolv
   class ResolvTimeout < TimeoutError; end
 
   ##
-  # DNS::Hosts is a hostname resolver that uses the system hosts file.
+  # Resolv::Hosts is a hostname resolver that uses the system hosts file.
 
   class Hosts
-    if /mswin32|mingw|bccwin/ =~ RUBY_PLATFORM
+    if /mswin|mingw|bccwin/ =~ RUBY_PLATFORM
       require 'win32/resolv'
       DefaultFileName = Win32::Resolv.get_hosts_path
     else
@@ -173,7 +173,7 @@ class Resolv
     end
 
     ##
-    # Creates a new DNS::Hosts, using +filename+ for its data source.
+    # Creates a new Resolv::Hosts, using +filename+ for its data source.
 
     def initialize(filename = DefaultFileName)
       @filename = filename
@@ -290,11 +290,6 @@ class Resolv
     UDPSize = 512
 
     ##
-    # Group of DNS resolver threads (obsolete)
-
-    DNSThreadGroup = ThreadGroup.new
-
-    ##
     # Creates a new DNS resolver.  See Resolv::DNS.new for argument details.
     #
     # Yields the created DNS resolver to the block, if given, otherwise
@@ -314,10 +309,20 @@ class Resolv
     # Creates a new DNS resolver.
     #
     # +config_info+ can be:
-    # 
+    #
     # nil:: Uses /etc/resolv.conf.
     # String:: Path to a file using /etc/resolv.conf's format.
     # Hash:: Must contain :nameserver, :search and :ndots keys.
+    # :nameserver_port can be used to specify port number of nameserver address.
+    #
+    # The value of :nameserver should be an address string or
+    # an array of address strings.
+    # - :nameserver => '8.8.8.8'
+    # - :nameserver => ['8.8.8.8', '8.8.4.4']
+    #
+    # The value of :nameserver_port should be an array of
+    # pair of nameserver address and port number.
+    # - :nameserver_port => [['8.8.8.8', 53], ['8.8.4.4', 53]]
     #
     # Example:
     #
@@ -329,6 +334,21 @@ class Resolv
       @mutex = Mutex.new
       @config = Config.new(config_info)
       @initialized = nil
+    end
+
+    # Sets the resolver timeouts.  This may be a single positive number
+    # or an array of positive numbers representing timeouts in seconds.
+    # If an array is specified, a DNS request will retry and wait for
+    # each successive interval in the array until a successful response
+    # is received.  Specifying +nil+ reverts to the default timeouts:
+    # [ 5, second = 5 * 2 / nameserver_count, 2 * second, 4 * second ]
+    #
+    # Example:
+    #
+    #   dns.timeouts = 3
+    #
+    def timeouts=(values)
+      @config.timeouts = values
     end
 
     def lazy_initialize # :nodoc:
@@ -384,8 +404,20 @@ class Resolv
 
     def each_address(name)
       each_resource(name, Resource::IN::A) {|resource| yield resource.address}
-      each_resource(name, Resource::IN::AAAA) {|resource| yield resource.address}
+      if use_ipv6?
+        each_resource(name, Resource::IN::AAAA) {|resource| yield resource.address}
+      end
     end
+
+    def use_ipv6? # :nodoc:
+      begin
+        list = Socket.ip_address_list
+      rescue NotImplementedError
+        return true
+      end
+      list.any? {|a| a.ipv6? && !a.ipv6_loopback? && !a.ipv6_linklocal? }
+    end
+    private :use_ipv6?
 
     ##
     # Gets the hostname for +address+ from the DNS resolver.
@@ -462,7 +494,7 @@ class Resolv
     ##
     # Looks up all +typeclass+ DNS resources for +name+.  See #getresource for
     # argument details.
-  
+
     def getresources(name, typeclass)
       ret = []
       each_resource(name, typeclass) {|resource| ret << resource}
@@ -472,24 +504,36 @@ class Resolv
     ##
     # Iterates over all +typeclass+ DNS resources for +name+.  See
     # #getresource for argument details.
-  
+
     def each_resource(name, typeclass, &proc)
       lazy_initialize
-      requester = make_requester
+      requester = make_udp_requester
       senders = {}
       begin
-        @config.resolv(name) {|candidate, tout, nameserver|
+        @config.resolv(name) {|candidate, tout, nameserver, port|
           msg = Message.new
           msg.rd = 1
           msg.add_question(candidate, typeclass)
-          unless sender = senders[[candidate, nameserver]]
-            sender = senders[[candidate, nameserver]] =
-              requester.sender(msg, candidate, nameserver)
+          unless sender = senders[[candidate, nameserver, port]]
+            sender = senders[[candidate, nameserver, port]] =
+              requester.sender(msg, candidate, nameserver, port)
           end
           reply, reply_name = requester.request(sender, tout)
           case reply.rcode
           when RCode::NoError
-            extract_resources(reply, reply_name, typeclass, &proc)
+            if reply.tc == 1 and not Requester::TCP === requester
+              requester.close
+              # Retry via TCP:
+              requester = make_tcp_requester(nameserver, port)
+              senders = {}
+              # This will use TCP for all remaining candidates (assuming the
+              # current candidate does not already respond successfully via
+              # TCP).  This makes sense because we already know the full
+              # response will not fit in an untruncated UDP packet.
+              redo
+            else
+              extract_resources(reply, reply_name, typeclass, &proc)
+            end
             return
           when RCode::NXDomain
             raise Config::NXDomain.new(reply_name.to_s)
@@ -502,13 +546,17 @@ class Resolv
       end
     end
 
-    def make_requester # :nodoc:
+    def make_udp_requester # :nodoc:
       nameserver_port = @config.nameserver_port
       if nameserver_port.length == 1
         Requester::ConnectedUDP.new(*nameserver_port[0])
       else
         Requester::UnconnectedUDP.new(*nameserver_port)
       end
+    end
+
+    def make_tcp_requester(host, port) # :nodoc:
+      return Requester::TCP.new(host, port)
     end
 
     def extract_resources(msg, name, typeclass) # :nodoc:
@@ -566,8 +614,8 @@ class Resolv
       base + random(len)
     end
 
-    RequestID = {}
-    RequestIDMutex = Mutex.new
+    RequestID = {} # :nodoc:
+    RequestIDMutex = Mutex.new # :nodoc:
 
     def self.allocate_request_id(host, port) # :nodoc:
       id = nil
@@ -575,7 +623,7 @@ class Resolv
         h = (RequestID[[host, port]] ||= {})
         begin
           id = rangerand(0x0000..0xffff)
-        end while h[id] 
+        end while h[id]
         h[id] = true
       }
       id
@@ -609,19 +657,29 @@ class Resolv
       end
 
       def request(sender, tout)
-        timelimit = Time.now + tout
+        start = Time.now
+        timelimit = start + tout
         sender.send
         while true
-          now = Time.now
-          timeout = timelimit - now
+          before_select = Time.now
+          timeout = timelimit - before_select
           if timeout <= 0
             raise ResolvTimeout
           end
           select_result = IO.select(@socks, nil, nil, timeout)
           if !select_result
+            after_select = Time.now
+            next if after_select < timelimit
             raise ResolvTimeout
           end
-          reply, from = recv_reply(select_result[0])
+          begin
+            reply, from = recv_reply(select_result[0])
+          rescue Errno::ECONNREFUSED, # GNU/Linux, FreeBSD
+                 Errno::ECONNRESET # Windows
+            # No name server running on the server?
+            # Don't wait anymore.
+            raise ResolvTimeout
+          end
           begin
             msg = Message.decode(reply)
           rescue DecodeError
@@ -668,6 +726,7 @@ class Resolv
             end
             next if @socks_hash[bind_host]
             sock = UDPSocket.new(af)
+            sock.do_not_reverse_lookup = true
             sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) if defined? Fcntl::F_SETFD
             DNS.bind_random_port(sock, bind_host)
             @socks << sock
@@ -719,6 +778,7 @@ class Resolv
           is_ipv6 = host.index(':')
           sock = UDPSocket.new(is_ipv6 ? Socket::AF_INET6 : Socket::AF_INET)
           @socks = [sock]
+          sock.do_not_reverse_lookup = true
           sock.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC) if defined? Fcntl::F_SETFD
           DNS.bind_random_port(sock, is_ipv6 ? "::" : "0.0.0.0")
           sock.connect(host, port)
@@ -809,6 +869,20 @@ class Resolv
         @mutex = Mutex.new
         @config_info = config_info
         @initialized = nil
+        @timeouts = nil
+      end
+
+      def timeouts=(values)
+        if values
+          values = Array(values)
+          values.each do |t|
+            Numeric === t or raise ArgumentError, "#{t.inspect} is not numeric"
+            t > 0.0 or raise ArgumentError, "timeout=#{t} must be postive"
+          end
+          @timeouts = values
+        else
+          @timeouts = nil
+        end
       end
 
       def Config.parse_resolv_conf(filename)
@@ -849,7 +923,7 @@ class Resolv
         if File.exist? filename
           config_hash = Config.parse_resolv_conf(filename)
         else
-          if /mswin32|cygwin|mingw|bccwin/ =~ RUBY_PLATFORM
+          if /mswin|cygwin|mingw|bccwin/ =~ RUBY_PLATFORM
             require 'win32/resolv'
             search, nameserver = Win32::Resolv.get_resolv_info
             config_hash = {}
@@ -857,13 +931,13 @@ class Resolv
             config_hash[:search] = [search].flatten if search
           end
         end
-        config_hash
+        config_hash || {}
       end
 
       def lazy_initialize
         @mutex.synchronize {
           unless @initialized
-            @nameserver = []
+            @nameserver_port = []
             @search = nil
             @ndots = 1
             case @config_info
@@ -882,11 +956,18 @@ class Resolv
             else
               raise ArgumentError.new("invalid resolv configuration: #{@config_info.inspect}")
             end
-            @nameserver = config_hash[:nameserver] if config_hash.include? :nameserver
+            if config_hash.include? :nameserver
+              @nameserver_port = config_hash[:nameserver].map {|ns| [ns, Port] }
+            end
+            if config_hash.include? :nameserver_port
+              @nameserver_port = config_hash[:nameserver_port].map {|ns, port| [ns, (port || Port)] }
+            end
             @search = config_hash[:search] if config_hash.include? :search
             @ndots = config_hash[:ndots] if config_hash.include? :ndots
 
-            @nameserver = ['0.0.0.0'] if @nameserver.empty?
+            if @nameserver_port.empty?
+              @nameserver_port << ['0.0.0.0', Port]
+            end
             if @search
               @search = @search.map {|arg| Label.split(arg) }
             else
@@ -898,9 +979,14 @@ class Resolv
               end
             end
 
-            if !@nameserver.kind_of?(Array) ||
-               !@nameserver.all? {|ns| String === ns }
-              raise ArgumentError.new("invalid nameserver config: #{@nameserver.inspect}")
+            if !@nameserver_port.kind_of?(Array) ||
+               @nameserver_port.any? {|ns_port|
+                  !(Array === ns_port) ||
+                  ns_port.length != 2
+                  !(String === ns_port[0]) ||
+                  !(Integer === ns_port[1])
+               }
+              raise ArgumentError.new("invalid nameserver config: #{@nameserver_port.inspect}")
             end
 
             if !@search.kind_of?(Array) ||
@@ -920,16 +1006,14 @@ class Resolv
 
       def single?
         lazy_initialize
-        if @nameserver.length == 1
-          return @nameserver[0]
+        if @nameserver_port.length == 1
+          return @nameserver_port[0]
         else
           return nil
         end
       end
 
       def nameserver_port
-        lazy_initialize
-        @nameserver_port ||= @nameserver.map {|i| [i, Port] }
         @nameserver_port
       end
 
@@ -953,7 +1037,7 @@ class Resolv
 
       def generate_timeouts
         ts = [InitialTimeout]
-        ts << ts[-1] * 2 / @nameserver.length
+        ts << ts[-1] * 2 / @nameserver_port.length
         ts << ts[-1] * 2
         ts << ts[-1] * 2
         return ts
@@ -961,14 +1045,14 @@ class Resolv
 
       def resolv(name)
         candidates = generate_candidates(name)
-        timeouts = generate_timeouts
+        timeouts = @timeouts || generate_timeouts
         begin
           candidates.each {|candidate|
             begin
               timeouts.each {|tout|
-                @nameserver.each {|nameserver|
+                @nameserver_port.each {|nameserver, port|
                   begin
-                    yield candidate, tout, nameserver
+                    yield candidate, tout, nameserver, port
                   rescue ResolvTimeout
                   end
                 }
@@ -1075,7 +1159,7 @@ class Resolv
     # A representation of a DNS name.
 
     class Name
-      
+
       ##
       # Creates a new DNS name from +arg+.  +arg+ can be:
       #
@@ -1386,6 +1470,10 @@ class Resolv
           yield self
         end
 
+        def inspect
+          "\#<#{self.class}: #{@data[0, @index].inspect} #{@data[@index..-1].inspect}>"
+        end
+
         def get_length16
           len, = self.get_unpack('n')
           save_limit = @limit
@@ -1409,6 +1497,7 @@ class Resolv
         def get_unpack(template)
           len = 0
           template.each_byte {|byte|
+            byte = "%c" % byte
             case byte
             when ?c, ?C
               len += 1
@@ -1427,7 +1516,7 @@ class Resolv
         end
 
         def get_string
-          len = @data[@index]
+          len = @data[@index].ord
           raise DecodeError.new("limit exceeded") if @limit < @index + 1 + len
           d = @data[@index + 1, len]
           @index += 1 + len
@@ -1450,7 +1539,7 @@ class Resolv
           limit = @index if !limit || @index < limit
           d = []
           while true
-            case @data[@index]
+            case @data[@index].ord
             when 0
               @index += 1
               return d
@@ -1485,7 +1574,9 @@ class Resolv
           name = self.get_name
           type, klass, ttl = self.get_unpack('nnN')
           typeclass = Resource.get_class(type, klass)
-          return name, ttl, self.get_length16 {typeclass.decode_rdata(self)}
+          res = self.get_length16 { typeclass.decode_rdata self }
+          res.instance_variable_set :@ttl, ttl
+          return name, ttl, res
         end
       end
     end
@@ -1495,11 +1586,11 @@ class Resolv
 
     class Query
       def encode_rdata(msg) # :nodoc:
-        raise EncodeError.new("#{self.class} is query.") 
+        raise EncodeError.new("#{self.class} is query.")
       end
 
       def self.decode_rdata(msg) # :nodoc:
-        raise DecodeError.new("#{self.class} is query.") 
+        raise DecodeError.new("#{self.class} is query.")
       end
     end
 
@@ -1524,10 +1615,16 @@ class Resolv
       end
 
       def ==(other) # :nodoc:
-        return self.class == other.class &&
-          self.instance_variables == other.instance_variables &&
-          self.instance_variables.collect {|name| self.instance_eval name} ==
-            other.instance_variables.collect {|name| other.instance_eval name}
+        return false unless self.class == other.class
+        s_ivars = self.instance_variables
+        s_ivars.sort!
+        s_ivars.delete "@ttl"
+        o_ivars = other.instance_variables
+        o_ivars.sort!
+        o_ivars.delete "@ttl"
+        return s_ivars == o_ivars &&
+          s_ivars.collect {|name| self.instance_variable_get name} ==
+            o_ivars.collect {|name| other.instance_variable_get name}
       end
 
       def eql?(other) # :nodoc:
@@ -1536,8 +1633,10 @@ class Resolv
 
       def hash # :nodoc:
         h = 0
-        self.instance_variables.each {|name|
-          h ^= self.instance_eval("#{name}.hash")
+        vars = self.instance_variables
+        vars.delete "@ttl"
+        vars.each {|name|
+          h ^= self.instance_variable_get(name).hash
         }
         return h
       end
@@ -1966,7 +2065,7 @@ class Resolv
           def initialize(address)
             @address = IPv6.create(address)
           end
-          
+
           ##
           # The Resolv::IPv6 address for this AAAA.
 
@@ -1983,7 +2082,7 @@ class Resolv
 
         ##
         # SRV resource record defined in RFC 2782
-        # 
+        #
         # These records identify the hostname and port that a service is
         # available at.
 
@@ -2091,8 +2190,11 @@ class Resolv
     end
 
     def initialize(address) # :nodoc:
-      unless address.kind_of?(String) && address.length == 4
-        raise ArgumentError.new('IPv4 address must be 4 bytes')
+      unless address.kind_of?(String)
+        raise ArgumentError, 'IPv4 address must be a string'
+      end
+      unless address.length == 4
+        raise ArgumentError, "IPv4 address expects 4 bytes but #{address.length} bytes"
       end
       @address = address
     end

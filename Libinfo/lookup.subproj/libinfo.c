@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2013 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,13 +40,14 @@
 #include <sys/kauth.h>
 #include "netdb_async.h"
 #include <dispatch/dispatch.h>
+#include <mach-o/dyld_priv.h>
 
 #define SOCK_UNSPEC 0
 #define IPPROTO_UNSPEC 0
 #define IPV6_ADDR_LEN 16
 #define IPV4_ADDR_LEN 4
 
-/* The kernel's initgroups call */
+/* kernel syscalls */
 extern int __initgroups(u_int gidsetsize, gid_t *gidset, int gmuid);
 
 /* SPI from long ago */
@@ -600,27 +601,27 @@ static void
 _check_groups(const char *function, int32_t ngroups)
 {
 	static dispatch_once_t once;
-	
+
 	if (ngroups > 0 && ngroups < NGROUPS_MAX) {
 		return;
 	}
-	
+
 	/* only log once per process */
 	dispatch_once(&once, ^(void) {
 		const char *proc_name = getprogname();
 		if (strcmp(proc_name, "id") != 0 && strcmp(proc_name, "smbd") != 0 && strcmp(proc_name, "rpcsvchost") != 0) {
 			aslmsg msg = asl_new(ASL_TYPE_MSG);
 			char buffer[256];
-			
+
 			snprintf(buffer, sizeof(buffer), "%d", (ngroups == 0 ? INT_MAX : ngroups));
 			asl_set(msg, "com.apple.message.value", buffer);
-			
+
 			asl_set(msg, "com.apple.message.domain", "com.apple.system.libinfo");
 			asl_set(msg, "com.apple.message.result", "noop");
 			asl_set(msg, "com.apple.message.signature", function);
-			
+
 			asl_log(NULL, msg, ASL_LEVEL_NOTICE, "%s called triggering group enumeration", function);
-			
+
 			asl_free(msg);
 		}
 	});
@@ -656,7 +657,7 @@ getgrouplist_internal(const char *name, int basegid, gid_t *groups, uint32_t *ng
 
 	groups[0] = basegid;
 	*ngroups = 1;
-	
+
 	item = si_grouplist(si_search(), name, max);
 	LI_set_thread_item(CATEGORY_GROUPLIST, item);
 	if (item == NULL) return 0;
@@ -724,7 +725,7 @@ _getgrouplist_2_internal(const char *name, gid_t basegid, gid_t **groups)
 	if (item == NULL) return -1;
 
 	gl = (si_grouplist_t *) ((uintptr_t) item + sizeof(si_item_t));
-	
+
 	/*
 	 * we can allocate enough up-front, we'll only use what we need
 	 * we add one to the count that was found in case the basegid is not there
@@ -738,9 +739,9 @@ _getgrouplist_2_internal(const char *name, gid_t basegid, gid_t **groups)
 			merge_gid(gids, gl->gl_gid[i], &count);
 		}
 	}
-	
+
 	(*groups) = gids;
-	
+
 	return count;
 }
 
@@ -752,18 +753,18 @@ getgrouplist_2(const char *name, gid_t basegid, gid_t **groups)
 	 * Caller must free the list.
 	 * Returns the number of gids in the list or -1 on failure.
 	 */
-	
+
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %s %d\n", __func__, name, basegid);
 #endif
-	
+
 	if (name == NULL) return 0;
 	if (groups == NULL) return 0;
-	
+
 #if DS_AVAILABLE
 	_check_groups("getgrouplist_2", INT_MAX);
 #endif
-	
+
 	return _getgrouplist_2_internal(name, basegid, groups);
 }
 
@@ -824,10 +825,10 @@ initgroups(const char *name, int basegid)
 
 	/*
 	 * Ignore status.
-	 * A failure either means that user belongs to more than NGROUPS groups 
+	 * A failure either means that user belongs to more than NGROUPS groups
 	 * or no groups at all.
 	 */
-    
+
 	(void) getgrouplist_internal(name, basegid, groups, &ngroups);
 
 	status = __initgroups(ngroups, groups, uid);
@@ -3098,7 +3099,7 @@ getgruuid_r(uuid_t uuid, struct group *grp, char *buffer, size_t bufsize, struct
 	si_item_t *item;
 	struct group *g;
 	int status;
-	
+
 #ifdef CALL_TRACE
 	uuid_string_t uuidstr;
 	uuid_unparse_upper(uuid, uuidstr);
@@ -3108,17 +3109,17 @@ getgruuid_r(uuid_t uuid, struct group *grp, char *buffer, size_t bufsize, struct
 	if (result != NULL) *result = NULL;
 
 	if ((grp == NULL) || (buffer == NULL) || (result == NULL) || (bufsize == 0)) return ERANGE;
-	
+
 	item = si_group_byuuid(si_search(), uuid);
 	if (item == NULL) return 0;
-	
+
 	g = (struct group *)((uintptr_t)item + sizeof(si_item_t));
-	
+
 	status = copy_group_r(g, grp, buffer, bufsize);
 	si_item_release(item);
-	
+
 	if (status != 0) return ERANGE;
-	
+
 	*result = grp;
 	return 0;
 }

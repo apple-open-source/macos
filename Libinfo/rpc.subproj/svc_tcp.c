@@ -421,7 +421,7 @@ svctcp_getargs(xprt, xdr_args, args_ptr)
 	caddr_t args_ptr;
 {
 
-	return ((*xdr_args)(&(((struct tcp_conn *)(xprt->xp_p1))->xdrs), args_ptr));
+	return ((*xdr_args)(&(((struct tcp_conn *)(xprt->xp_p1))->xdrs), args_ptr, 0));
 }
 
 static bool_t
@@ -434,7 +434,7 @@ svctcp_freeargs(xprt, xdr_args, args_ptr)
 	    &(((struct tcp_conn *)(xprt->xp_p1))->xdrs);
 
 	xdrs->x_op = XDR_FREE;
-	return ((*xdr_args)(xdrs, args_ptr));
+	return ((*xdr_args)(xdrs, args_ptr, 0));
 }
 
 static bool_t

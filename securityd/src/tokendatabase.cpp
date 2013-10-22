@@ -161,7 +161,9 @@ TokenDaemon &TokenDatabase::tokend()
 
 const char *TokenDatabase::dbName() const
 {
-	return common().dbName().c_str();
+    //store dbName to ensure that will live outside function scope
+    mDbName = common().dbName();
+	return mDbName.c_str();
 }
 
 bool TokenDatabase::transient() const

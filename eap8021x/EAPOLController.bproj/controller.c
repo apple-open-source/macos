@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,6 @@
  * - created
  */
 
-#include <syslog.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -58,8 +57,6 @@
 #include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCDPlugin.h>
 #include <TargetConditionals.h>
-
-#include "mylog.h"
 #include <EAP8021X/myCFUtil.h>
 #include "controller.h"
 #include "server.h"
@@ -74,6 +71,8 @@
 #include "EAPOLControlTypes.h"
 #include "EAPClientProperties.h"
 #include "eapol_socket.h"
+#include "EAPLog.h"
+#include "EAPOLControlPrefs.h"
 
 #ifndef kSCEntNetRefreshConfiguration
 #define kSCEntNetRefreshConfiguration	CFSTR("RefreshConfiguration")
@@ -189,7 +188,7 @@ login_window_uid(void)
     if (login_window_uid == -1) {
 	struct passwd *	pwd = getpwnam("_securityagent");
 	if (pwd == NULL) {
-	    my_log(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "EAPOLController: getpwnam(_securityagent) failed");
 	    return (92);
 	}
@@ -455,8 +454,8 @@ eapolClientNotify(eapolClientRef client)
 		      0,				/* timeout */
 		      MACH_PORT_NULL);			/* notify */
     if (status != KERN_SUCCESS) {
-	my_log(LOG_NOTICE,  "eapolClientNotify: mach_msg(%s) failed: %s",
-	       client->if_name, mach_error_string(status));
+	EAPLOG_FL(LOG_NOTICE,  "mach_msg(%s) failed: %s",
+		  client->if_name, mach_error_string(status));
     }
     client->notification_sent = TRUE;
     return;
@@ -559,7 +558,7 @@ monitoring_callback(CFSocketRef s, CFSocketCallBackType type,
     n = recv(client->eapol_fd, buf, sizeof(buf), 0);
     if (n < sizeof(*eh_p)) {
 	if (n < 0) {
-	    my_log(LOG_NOTICE, "EAPOLController: monitor %s recv failed %s",
+	    EAPLOG(LOG_NOTICE, "EAPOLController: monitor %s recv failed %s",
 		   client->if_name,
 		   strerror(errno));
 	}
@@ -588,7 +587,7 @@ monitoring_callback(CFSocketRef s, CFSocketCallBackType type,
 	      sizeof(client->authenticator_mac));
 	client->packet_received = TRUE;
 	client->packet_received_time = current_time;
-	syslog(LOG_DEBUG, "EAPOLController: %s requires 802.1X",
+	EAPLOG(LOG_DEBUG, "EAPOLController: %s requires 802.1X",
 	       client->if_name);
 	if (S_store != NULL) {
 	    SCDynamicStoreNotifyValue(S_store, 
@@ -616,7 +615,7 @@ eapolClientStopMonitoring(eapolClientRef client)
     }
     client->eapol_fd = -1;
     client->packet_received = FALSE;
-    syslog(LOG_DEBUG, "EAPOLController: no longer monitoring %s",
+    EAPLOG(LOG_DEBUG, "EAPOLController: no longer monitoring %s",
 	   client->if_name);
     return;
 }
@@ -628,15 +627,15 @@ eapolClientStartMonitoring(eapolClientRef client)
     CFRunLoopSourceRef	rls;
 
     if (client->eapol_fd != -1) {
-	syslog(LOG_DEBUG, "EAPOLController: already monitoring %s",
+	EAPLOG(LOG_DEBUG, "EAPOLController: already monitoring %s",
 	       client->if_name);
 	return;
     }
-    my_log(LOG_DEBUG,
+    EAPLOG(LOG_DEBUG,
 	   "EAPOLController: starting monitoring on %s", client->if_name);
     client->eapol_fd = eapol_socket(client->if_name, FALSE);
     if (client->eapol_fd < 0) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAPOLController: failed to open EAPOL socket over %s",
 	       client->if_name);
 	return;
@@ -649,14 +648,14 @@ eapolClientStartMonitoring(eapolClientRef client)
 				   kCFSocketReadCallBack,
 				   monitoring_callback, &context);
     if (client->eapol_sock == NULL) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAPOLController: failed create CFSocket over %s",
 	       client->if_name);
 	goto failed;
     }
     rls = CFSocketCreateRunLoopSource(NULL, client->eapol_sock, 0);
     if (rls == NULL) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAPOLController: failed create CFRunLoopSource for %s",
 	       client->if_name);
 	goto failed;
@@ -708,7 +707,7 @@ exec_callback(pid_t pid, int status, struct rusage * rusage, void * context)
 	return;
     }
     if (client->state != kEAPOLControlStateIdle) {
-	my_log(LOG_NOTICE, 
+	EAPLOG(LOG_NOTICE, 
 	       "EAPOLController: eapolclient(%s) pid=%d exited with status %d",
 	       client->if_name,  pid, status);
     }
@@ -804,7 +803,7 @@ eapolClientStart(eapolClientRef client, uid_t uid, gid_t gid,
     ec.client = client;
     ec.eapol_fd = open_eapol_socket(client);
     if (ec.eapol_fd < 0) {
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAPOLController: failed to open EAPOL socket over %s",
 	       client->if_name);
 	return (errno);
@@ -1017,7 +1016,7 @@ ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
 		mobile_gid = pwd->pw_gid;
 	    }
 	    else {
-		my_log(LOG_NOTICE,
+		EAPLOG(LOG_NOTICE,
 		       "EAPOLController: getpwnam(mobile) failed");
 	    }
 	}
@@ -1209,77 +1208,6 @@ ControllerRetry(if_name_t if_name, uid_t uid, gid_t gid)
     eapolClientNotify(client);
     client->retry = TRUE;
 
- done:
-    return (status);
-
-}
-
-int
-ControllerSetLogLevel(if_name_t if_name, uid_t uid, gid_t gid,
-		      int32_t level)
-{
-    eapolClientRef 	client;
-    int32_t		cur_level = -1;
-    CFNumberRef		log_prop;
-    int			status = 0;
-
-    client = eapolClientLookupInterface(if_name);
-    if (client == NULL || client->config_dict == NULL) {
-	status = ENOENT;
-	goto done;
-    }
-    if (uid != 0 && uid != client->owner.uid) {
-	status = EPERM;
-	goto done;
-    }
-    switch (client->state) {
-    case kEAPOLControlStateStarting:
-    case kEAPOLControlStateRunning:
-	break;
-    case kEAPOLControlStateIdle:
-	status = ENOENT;
-	goto done;
-    default:
-	status = EBUSY;
-	goto done;
-    }
-    log_prop = CFDictionaryGetValue(client->config_dict, 
-				    kEAPOLControlLogLevel);
-    if (log_prop) {
-	(void)CFNumberGetValue(log_prop, kCFNumberSInt32Type, &cur_level);
-    }
-    if (level < 0) {
-	level = -1;
-    }
-    /* if the log level changed, update it and tell the client */
-    if (cur_level != level) {
-	int			count;
-	CFMutableDictionaryRef	dict = NULL;
-
-	count = CFDictionaryGetCount(client->config_dict);
-	if (level >= 0) {
-	    count++;
-	}
-	dict = CFDictionaryCreateMutableCopy(NULL, count,
-					     client->config_dict);
-	if (level >= 0) {
-	    CFNumberRef		level_prop;
-
-	    level_prop = make_number(level);
-	    CFDictionarySetValue(dict, kEAPOLControlLogLevel, level_prop);
-	    my_CFRelease(&level_prop);
-	}
-	else {
-	    CFDictionaryRemoveValue(dict, kEAPOLControlLogLevel);
-	}
-	my_CFRelease(&client->config_dict);
-	client->config_dict = dict;
-
-	if (client->state == kEAPOLControlStateRunning) {
-	    /* tell the client to re-read */
-	    eapolClientNotify(client);
-	}
-    }
  done:
     return (status);
 
@@ -1682,7 +1610,7 @@ dynamic_store_create(void)
 
     store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLController"), NULL, NULL);
     if (store == NULL) {
-	my_log(LOG_NOTICE, "EAPOLController: SCDynamicStoreCreate() failed, %s",
+	EAPLOG(LOG_NOTICE, "EAPOLController: SCDynamicStoreCreate() failed, %s",
 	       SCErrorString(SCError()));
     }
     return (store);
@@ -1705,18 +1633,18 @@ ControllerBegin(void)
 
     ret = pthread_attr_init(&attr);
     if (ret != 0) {
-	my_log(LOG_NOTICE, "EAPOLController: pthread_attr_init failed %d", ret);
+	EAPLOG(LOG_NOTICE, "EAPOLController: pthread_attr_init failed %d", ret);
 	return;
     }
     ret = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     if (ret != 0) {
-	my_log(LOG_NOTICE, 
+	EAPLOG(LOG_NOTICE, 
 	       "EAPOLController: pthread_attr_setdetachstate failed %d", ret);
 	goto done;
     }
     ret = pthread_create(&thread, &attr, ControllerThread, NULL);
     if (ret != 0) {
-	my_log(LOG_NOTICE, "EAPOLController: pthread_create failed %d", ret);
+	EAPLOG(LOG_NOTICE, "EAPOLController: pthread_create failed %d", ret);
 	goto done;
     }
     
@@ -1985,7 +1913,7 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 		/* interface is no longer in System mode */
 		status = eapolClientStop(scan);
 		if (status != 0) {
-		    my_log(LOG_NOTICE, "EAPOLController handle_config_changed:"
+		    EAPLOG(LOG_NOTICE, "EAPOLController handle_config_changed:"
 			   " eapolClientStop (%s) failed %d", 
 			   scan->if_name, status);
 		}
@@ -1994,7 +1922,7 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 		if (CFEqual(this_config, scan->config_dict) == FALSE) {
 		    status = eapolClientUpdate(scan, this_config);
 		    if (status != 0) {
-			my_log(LOG_NOTICE, 
+			EAPLOG(LOG_NOTICE, 
 			       "EAPOLController handle_config_changed: "
 			       "eapolClientUpdate (%s) failed %d",
 			       scan->if_name, status);
@@ -2008,7 +1936,7 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 					  this_config, MACH_PORT_NULL,
 					  MACH_PORT_NULL);
 		if (status != 0) {
-		    my_log(LOG_NOTICE, 
+		    EAPLOG(LOG_NOTICE, 
 			   "EAPOLController handle_config_changed:"
 			   " eapolClientStart (%s) failed %d",
 			   scan->if_name, status);
@@ -2031,7 +1959,7 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 	    if_name = my_CFStringToCString(if_name_cf, kCFStringEncodingASCII);
 	    client = eapolClientAdd(if_name);
 	    if (client == NULL) {
-		my_log(LOG_NOTICE, 
+		EAPLOG(LOG_NOTICE, 
 		       "EAPOLController handle_config_changed:"
 		       " eapolClientAdd (%s) failed", if_name);
 	    }
@@ -2045,7 +1973,7 @@ update_system_mode_interfaces(CFDictionaryRef system_mode_configurations,
 					  this_config, MACH_PORT_NULL,
 					  MACH_PORT_NULL);
 		if (status != 0) {
-		    my_log(LOG_NOTICE, 
+		    EAPLOG(LOG_NOTICE, 
 			   "EAPOLController handle_config_changed:"
 			   " eapolClientStart (%s) failed %d",
 			   client->if_name, status);
@@ -2094,7 +2022,7 @@ update_monitored_interfaces(CFArrayRef configured_iflist)
 	    if (client == NULL) {
 		client = eapolClientAdd(if_name);
 		if (client == NULL) {
-		    my_log(LOG_NOTICE, 
+		    EAPLOG(LOG_NOTICE, 
 			   "EAPOLController: monitor "
 			   "eapolClientAdd (%s) failed", if_name);
 		}
@@ -2186,7 +2114,7 @@ dynamic_store_create(void)
     store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLController"), 
 				 eapol_handle_change, &context);
     if (store == NULL) {
-	my_log(LOG_NOTICE, "EAPOLController: SCDynamicStoreCreate() failed, %s",
+	EAPLOG(LOG_NOTICE, "EAPOLController: SCDynamicStoreCreate() failed, %s",
 	       SCErrorString(SCError()));
 	return (NULL);
     }
@@ -2240,6 +2168,17 @@ ControllerBegin(void)
 
 #endif /* TARGET_OS_EMBEDDED */
 
+static void
+check_prefs(SCPreferencesRef prefs)
+{
+    uint32_t	log_flags;
+
+    log_flags = EAPOLControlPrefsGetLogFlags();
+    EAPLogSetVerbose(log_flags != 0);
+    EAPOLControlPrefsSynchronize();
+    return;
+}
+
 /*
  * configd plugin-specific routines:
  */
@@ -2248,23 +2187,26 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 {
     Boolean		ok;
     uint8_t		path[MAXPATHLEN];
+    SCPreferencesRef	prefs;
     CFURLRef		url;
 
+    prefs = EAPOLControlPrefsInit(CFRunLoopGetCurrent(), check_prefs);
+    check_prefs(prefs);
     if (server_active()) {
-	my_log(LOG_NOTICE, "ipconfig server already active");
+	EAPLOG(LOG_NOTICE, "EAPOLController server already active");
 	return;
     }
     /* get a path to eapolclient */
     url = CFBundleCopyResourceURL(bundle, CFSTR("eapolclient"), NULL, NULL);
     if (url == NULL) {
-	my_log(LOG_NOTICE, 
+	EAPLOG(LOG_NOTICE, 
 	       "EAPOLController: failed to get URL for eapolclient");
 	return;
     }
     ok = CFURLGetFileSystemRepresentation(url, TRUE, path, sizeof(path));
     CFRelease(url);
     if (ok == FALSE) {
-	my_log(LOG_NOTICE, 
+	EAPLOG(LOG_NOTICE, 
 	       "EAPOLController: failed to get path for eapolclient");
 	return;
     }

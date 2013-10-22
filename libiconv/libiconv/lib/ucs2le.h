@@ -23,7 +23,7 @@
  */
 
 static int
-ucs2le_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+ucs2le_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   if (n >= 2) {
     if (s[1] >= 0xd8 && s[1] < 0xe0) {
@@ -37,7 +37,7 @@ ucs2le_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-ucs2le_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+ucs2le_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (wc < 0x10000 && !(wc >= 0xd800 && wc < 0xe000)) {
     if (n >= 2) {

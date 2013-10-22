@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2012 Samsung Electronics
+    Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -21,17 +22,47 @@
 #include "ProcessLauncher.h"
 
 #include "Connection.h"
+#include "ProcessExecutablePath.h"
+#include <WebCore/AuthenticationChallenge.h>
 #include <WebCore/FileSystem.h>
+#include <WebCore/NetworkingContext.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/RunLoop.h>
-#include <libgen.h>
-#include <unistd.h>
+#include <wtf/OwnArrayPtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 
 namespace WebKit {
+
+static Vector<OwnArrayPtr<char>> createArgsArray(const String& prefix, const String& executablePath, const String& socket, const String& pluginPath)
+{
+    ASSERT(!executablePath.isEmpty());
+    ASSERT(!socket.isEmpty());
+
+    Vector<String> splitArgs;
+    prefix.split(' ', splitArgs);
+
+    splitArgs.append(executablePath);
+    splitArgs.append(socket);
+    if (!pluginPath.isEmpty())
+        splitArgs.append(pluginPath);
+
+    Vector<OwnArrayPtr<char>> args;
+    args.resize(splitArgs.size() + 1); // Extra room for null.
+
+    size_t numArgs = splitArgs.size();
+    for (size_t i = 0; i < numArgs; ++i) {
+        CString param = splitArgs[i].utf8();
+        args[i] = adoptArrayPtr(new char[param.length() + 1]); // Room for the terminating null coming from the CString.
+        strncpy(args[i].get(), param.data(), param.length() + 1); // +1 here so that strncpy copies the ending null.
+    }
+    // execvp() needs the pointers' array to be null-terminated.
+    args[numArgs] = nullptr;
+
+    return args;
+}
 
 void ProcessLauncher::launchProcess()
 {
@@ -41,36 +72,35 @@ void ProcessLauncher::launchProcess()
         return;
     }
 
+    String processCmdPrefix, executablePath, pluginPath;
+    switch (m_launchOptions.processType) {
+    case WebProcess:
+        executablePath = executablePathOfWebProcess();
+        break;
+#if ENABLE(PLUGIN_PROCESS)
+    case PluginProcess:
+        executablePath = executablePathOfPluginProcess();
+        pluginPath = m_launchOptions.extraInitializationData.get("plugin-path");
+        break;
+#endif
+    default:
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+#ifndef NDEBUG
+    if (!m_launchOptions.processCmdPrefix.isEmpty())
+        processCmdPrefix = m_launchOptions.processCmdPrefix;
+#endif
+    Vector<OwnArrayPtr<char>> args = createArgsArray(processCmdPrefix, executablePath, String::number(sockets[0]), pluginPath);
+
+    // Do not perform memory allocation in the middle of the fork()
+    // exec() below. FastMalloc can potentially deadlock because
+    // the fork() doesn't inherit the running threads.
     pid_t pid = fork();
-    if (!pid) { // child process
+    if (!pid) { // Child process.
         close(sockets[1]);
-        String socket = String::format("%d", sockets[0]);
-        String processName;
-        switch (m_launchOptions.processType) {
-        case WebProcess:
-            processName = "WebProcess";
-            break;
-        case PluginProcess:
-            processName = "PluginProcess";
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-            return;
-        }
-
-        String executablePath;
-        char readLinkBuffer[PATH_MAX];
-        memset(readLinkBuffer, 0, PATH_MAX);
-        ssize_t result = readlink("/proc/self/exe", readLinkBuffer, PATH_MAX);
-
-        if (result == -1)
-            executablePath = String("/usr/bin");
-        else {
-            char* executablePathPtr = dirname(readLinkBuffer);
-            executablePath = String(executablePathPtr);
-        }
-        String fullPath = executablePath + "/" + processName;
-        execl(fullPath.utf8().data(), processName.utf8().data(), socket.utf8().data(), static_cast<char*>(0));
+        execvp(args.data()[0].get(), reinterpret_cast<char* const*>(args.data()));
     } else if (pid > 0) { // parent process;
         close(sockets[0]);
         m_processIdentifier = pid;
@@ -80,7 +110,6 @@ void ProcessLauncher::launchProcess()
         ASSERT_NOT_REACHED();
         return;
     }
-
 }
 
 void ProcessLauncher::terminateProcess()

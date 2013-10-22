@@ -25,9 +25,6 @@
 
 #include <libkern/OSTypes.h>
 
-#ifndef __LP64__
-#pragma options align=mac68k
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,57 +33,12 @@ extern "C" {
 #define kIONDRVIgnoreKey        "AAPL,iokit-ignore-ndrv"
 #define kIONDRVForXKey          "AAPL,iokit-ndrv"
 
+
 struct IOTVector {
     void *      pc;
     UInt32      toc;
 };
 typedef struct IOTVector IOTVector;
-
-struct IONDRVInterruptSetMember {
-        void *          setID;
-        UInt32          member;
-};
-typedef struct IONDRVInterruptSetMember IONDRVInterruptSetMember;
-
-typedef SInt32  (*IONDRVInterruptHandler)( IONDRVInterruptSetMember setMember, void *refCon, UInt32 theIntCount);
-typedef void    (*IONDRVInterruptEnabler)( IONDRVInterruptSetMember setMember, void *refCon);
-typedef Boolean (*IONDRVInterruptDisabler)( IONDRVInterruptSetMember setMember, void *refCon);
-
-enum {
-    kIONDRVFirstMemberNumber                    = 1,
-    kIONDRVIsrIsComplete                        = 0,
-    kIONDRVIsrIsNotComplete                     = -1,
-    kIONDRVMemberNumberParent                   = -2
-};
-
-enum {
-    kIONDRVReturnToParentWhenComplete           = 0x00000001,
-    kIONDRVReturnToParentWhenNotComplete        = 0x00000002
-};
-
-enum {
-    kIONDRVISTChipInterruptSource               = 0,
-    kIONDRVISTOutputDMAInterruptSource          = 1,
-    kIONDRVISTInputDMAInterruptSource           = 2,
-    kIONDRVISTPropertyMemberCount               = 3
-};
-
-#define kIONDRVISTPropertyName  "driver-ist" 
-
-IOReturn
-IONDRVInstallInterruptFunctions(void *  setID,
-                                UInt32  member,
-                                void *  refCon,
-                                IOTVector * handler,
-                                IOTVector * enabler,
-                                IOTVector * disabler );
-
-typedef const IOTVector * (*IONDRVUndefinedSymbolHandler)( void * self, 
-                            const char * libraryName, const char * symbolName );
-
-#ifndef __LP64__
-#pragma options align=reset
-#endif
 
 #ifdef __cplusplus
 }

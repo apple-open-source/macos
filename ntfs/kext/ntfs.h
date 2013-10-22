@@ -113,12 +113,15 @@ enum {
 
 // TODO: Constants so ntfs_vfsops.c compiles for now...
 enum {
-	/* One of these must be present, default is ON_ERRORS_CONTINUE. */
+	/* One of these must be present, default is ON_ERRORS_CONTINUE|ON_ERRORS_FAIL_DIRTY. */
 	ON_ERRORS_PANIC		= 0x01,
 	ON_ERRORS_REMOUNT_RO	= 0x02,
 	ON_ERRORS_CONTINUE	= 0x04,
 	/* Optional, can be combined with any of the above. */
 	ON_ERRORS_RECOVER	= 0x10,
+	/* If the volume is dirty, and we attempted to mount read/write, */
+	/* return an error rather than force a read-only mount. */
+	ON_ERRORS_FAIL_DIRTY    = 0x20,
 };
 
 /*

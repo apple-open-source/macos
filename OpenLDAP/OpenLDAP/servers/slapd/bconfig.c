@@ -197,6 +197,7 @@ enum {
     CFG_LTHREADS,
     CFG_TLS_CERT_PASSPHRASE,
 	CFG_PWS_REPLICA_NAME,
+    CFG_TLS_IDENT_REF,
 	
 	CFG_LAST
 };
@@ -776,6 +777,15 @@ static ConfigTable config_back_cf_table[] = {
 		CFG_PWS_REPLICA_NAME|ARG_STRING|ARG_MAGIC, &config_generic,
 		"( OLcfgGlAt:703 NAME 'olcPWSReplicaName' "
 		"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
+    { "olcTLSCertificateIdentityRef", NULL, 0, 0, 0,
+#ifdef HAVE_TLS
+        CFG_TLS_IDENT_REF|ARG_STRING|ARG_MAGIC, &config_tls_option,
+#else
+		ARG_IGNORED, NULL,
+#endif
+		"( OLcfgGlAt:701 NAME 'olcTLSCertificateIdentityRef' "
+		"SYNTAX OMsDirectoryString SINGLE-VALUE )", NULL, NULL },
+    
 	{ NULL,	NULL, 0, 0, 0, ARG_IGNORED,
 		NULL, NULL, NULL, NULL }
 };
@@ -833,7 +843,7 @@ static ConfigOCs cf_ocs[] = {
 		 "olcTCPBuffer $ "
 		 "olcThreads $ olcTimeLimit $ olcTLSCACertificateFile $ "
 		 "olcTLSCACertificatePath $ olcTLSCertificateFile $ "
-        "olcTLSCertificatePassphrase $"
+         "olcTLSCertificatePassphrase $ olcTLSCertificateIdentityRef $ "
 		 "olcTLSCertificateKeyFile $ olcTLSCipherSuite $ olcTLSCRLCheck $ "
 		 "olcTLSRandFile $ olcTLSVerifyClient $ olcTLSDHParamFile $ "
 		 "olcTLSCRLFile $ olcToolThreads $ olcWriteTimeout $ "
@@ -3828,7 +3838,8 @@ config_tls_option(ConfigArgs *c) {
 	case CFG_TLS_CA_PATH:	flag = LDAP_OPT_X_TLS_CACERTDIR;	break;
 	case CFG_TLS_CA_FILE:	flag = LDAP_OPT_X_TLS_CACERTFILE;	break;
 	case CFG_TLS_DH_FILE:	flag = LDAP_OPT_X_TLS_DHFILE;	break;
-    case CFG_TLS_CERT_PASSPHRASE: flag = LDAP_OPT_X_TLS_PASSPHRASE; break;    /*Apple Specific code*/   
+    case CFG_TLS_CERT_PASSPHRASE: flag = LDAP_OPT_X_TLS_PASSPHRASE; break;    /*Apple Specific code*/
+    case CFG_TLS_IDENT_REF:   flag = LDAP_OPT_X_TLS_CERT_IDENTITY; break;
 
 #ifdef HAVE_GNUTLS
 	case CFG_TLS_CRL_FILE:	flag = LDAP_OPT_X_TLS_CRLFILE;	break;

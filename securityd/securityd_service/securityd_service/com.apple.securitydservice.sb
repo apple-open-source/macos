@@ -1,0 +1,31 @@
+(version 1)
+
+(deny default)
+
+(import "system.sb")
+
+(allow file-read*)
+
+(allow file-read*
+        (literal "/usr/libexec")
+        (literal "/usr/libexec/securityd_service")
+        (literal "/usr/sbin")
+        (literal "/usr/sbin/securityd"))
+
+(allow file-read* file-write*
+       (subpath "/private/var/keybags")
+       (regex #"/Keychains/")
+       (subpath "/private/var/db/mds"))
+
+(allow mach-lookup
+       (global-name "com.apple.SecurityServer"))
+
+(allow iokit-open
+       (iokit-user-client-class "AppleFDEKeyStoreUserClient")
+       (iokit-user-client-class "AppleKeyStoreUserClient"))
+
+(allow ipc-posix-shm
+       (ipc-posix-name "apple.shm.notification_center")
+       (ipc-posix-name "com.apple.AppleDatabaseChanged"))
+
+(allow system-audit)

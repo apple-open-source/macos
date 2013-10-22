@@ -41,6 +41,7 @@ public:
     ~WebEditorClient();
 
     virtual void pageDestroyed();
+    virtual void frameWillDetachPage(WebCore::Frame*) { }
 
     virtual bool isContinuousSpellCheckingEnabled();
     virtual void toggleGrammarChecking();
@@ -54,13 +55,14 @@ public:
 
     virtual void didBeginEditing();
     virtual void didEndEditing();
+    virtual void willWriteSelectionToPasteboard(WebCore::Range*);
     virtual void didWriteSelectionToPasteboard();
+    virtual void getClientPasteboardDataForRange(WebCore::Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer> >& pasteboardData);
     virtual void didSetSelectionTypesForPasteboard();
 
     virtual void respondToChangedContents();
     virtual void respondToChangedSelection(WebCore::Frame*);
 
-    bool shouldShowDeleteInterface(WebCore::HTMLElement*);
     bool shouldDeleteRange(WebCore::Range*);
 
     bool shouldInsertNode(WebCore::Node*, WebCore::Range* replacingRange, WebCore::EditorInsertAction);
@@ -97,6 +99,7 @@ public:
     void handleKeyboardEvent(WebCore::KeyboardEvent*);
     void handleInputMethodKeydown(WebCore::KeyboardEvent*);
 
+    virtual bool shouldEraseMarkersAfterChangeSelection(WebCore::TextCheckingType) const;
     virtual void ignoreWordInSpellDocument(const WTF::String&);
     virtual void learnWord(const WTF::String&);
     virtual void checkSpellingOfString(const UChar*, int length, int* misspellingLocation, int* misspellingLength);
@@ -110,7 +113,7 @@ public:
 
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool);
-    virtual void requestCheckingOfString(WebCore::SpellChecker*, const WebCore::TextCheckingRequest&) { }
+    virtual void requestCheckingOfString(WTF::PassRefPtr<WebCore::TextCheckingRequest>) { }
 
     virtual WebCore::TextCheckerClient* textChecker() { return this; }
 

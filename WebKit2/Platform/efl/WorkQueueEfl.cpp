@@ -20,33 +20,28 @@
 #include "config.h"
 #include "WorkQueue.h"
 
+#include <sys/timerfd.h>
 #include <wtf/Assertions.h>
-
-class TimerWorkItem {
-public:
-    TimerWorkItem(int timerID, const Function<void()>& function, WorkQueue* queue)
-        : m_function(function)
-        , m_queue(queue)
-        , m_timerID(timerID)
-    {
-    }
-    ~TimerWorkItem() { }
-
-    Function<void()> function() const { return m_function; }
-    WorkQueue* queue() const { return m_queue; }
-
-    int timerID() const { return m_timerID; }
-
-private:
-    Function<void()> m_function;
-    WorkQueue* m_queue;
-    int m_timerID;
-};
+#include <wtf/CurrentTime.h>
 
 static const int invalidSocketDescriptor = -1;
 static const int threadMessageSize = 1;
 static const char finishThreadMessage[] = "F";
 static const char wakupThreadMessage[] = "W";
+
+PassOwnPtr<WorkQueue::TimerWorkItem> WorkQueue::TimerWorkItem::create(Function<void()> function, double expireTime)
+{
+    if (expireTime < 0)
+        return nullptr;
+
+    return adoptPtr(new TimerWorkItem(function, expireTime));
+}
+
+WorkQueue::TimerWorkItem::TimerWorkItem(Function<void()> function, double expireTime)
+    : m_function(function)
+    , m_expireTime(expireTime)
+{
+}
 
 void WorkQueue::platformInitialize(const char* name)
 {
@@ -73,25 +68,29 @@ void WorkQueue::platformInvalidate()
 
 void WorkQueue::performWork()
 {
-    m_workItemQueueLock.lock();
-
-    while (!m_workItemQueue.isEmpty()) {
+    while (true) {
         Vector<Function<void()> > workItemQueue;
-        m_workItemQueue.swap(workItemQueue);
 
-        m_workItemQueueLock.unlock();
-        for (size_t i = 0; i < workItemQueue.size(); ++i)
+        {
+            MutexLocker locker(m_workItemQueueLock);
+            if (m_workItemQueue.isEmpty())
+                return;
+
+            m_workItemQueue.swap(workItemQueue);
+        }
+
+        for (size_t i = 0; i < workItemQueue.size(); ++i) {
             workItemQueue[i]();
-        m_workItemQueueLock.lock();
+            deref();
+        }
     }
-    m_workItemQueueLock.unlock();
 }
 
 void WorkQueue::performFileDescriptorWork()
 {
     fd_set readFileDescriptorSet = m_fileDescriptorSet;
 
-    if (select(m_maxFileDescriptor + 1, &readFileDescriptorSet, 0, 0, 0) >= 0) {
+    if (select(m_maxFileDescriptor + 1, &readFileDescriptorSet, 0, 0, getNextTimeOut()) >= 0) {
         if (FD_ISSET(m_readFromPipeDescriptor, &readFileDescriptorSet)) {
             char readBuf[threadMessageSize];
             if (read(m_readFromPipeDescriptor, readBuf, threadMessageSize) == -1)
@@ -105,8 +104,73 @@ void WorkQueue::performFileDescriptorWork()
     }
 }
 
+struct timeval* WorkQueue::getNextTimeOut()
+{
+    MutexLocker locker(m_timerWorkItemsLock);
+    if (m_timerWorkItems.isEmpty())
+        return 0;
+
+    static struct timeval timeValue;
+    timeValue.tv_sec = 0;
+    timeValue.tv_usec = 0;
+    double timeOut = m_timerWorkItems[0]->expireTime() - currentTime();
+    if (timeOut > 0) {
+        timeValue.tv_sec = static_cast<long>(timeOut);
+        timeValue.tv_usec = static_cast<long>((timeOut - timeValue.tv_sec) * 1000000);
+    }
+
+    return &timeValue;
+}
+
+void WorkQueue::insertTimerWorkItem(PassOwnPtr<TimerWorkItem> item)
+{
+    if (!item)
+        return;
+
+    size_t position = 0;
+
+    MutexLocker locker(m_timerWorkItemsLock);
+    // m_timerWorkItems should be ordered by expire time.
+    for (; position < m_timerWorkItems.size(); ++position)
+        if (item->expireTime() < m_timerWorkItems[position]->expireTime())
+            break;
+
+    m_timerWorkItems.insert(position, item);
+}
+
+void WorkQueue::performTimerWork()
+{
+    Vector<OwnPtr<TimerWorkItem> > timerWorkItems;
+
+    {
+        // Protects m_timerWorkItems.
+        MutexLocker locker(m_timerWorkItemsLock);
+        if (m_timerWorkItems.isEmpty())
+            return;
+
+        // Copies all the timer work items in m_timerWorkItems to local vector.
+        m_timerWorkItems.swap(timerWorkItems);
+    }
+
+    double current = currentTime();
+
+    for (size_t i = 0; i < timerWorkItems.size(); ++i) {
+        if (!timerWorkItems[i]->expired(current)) {
+            // If a timer work item does not expired, keep it to the m_timerWorkItems.
+            // m_timerWorkItems should be ordered by expire time.
+            insertTimerWorkItem(timerWorkItems[i].release());
+            continue;
+        }
+
+        // If a timer work item expired, dispatch the function of the work item.
+        timerWorkItems[i]->dispatch();
+        deref();
+    }
+}
+
 void WorkQueue::sendMessageToThread(const char* message)
 {
+    MutexLocker locker(m_writeToPipeDescriptorLock);
     if (write(m_writeToPipeDescriptor, message, threadMessageSize) == -1)
         LOG_ERROR("Failed to wake up WorkQueue Thread");
 }
@@ -115,6 +179,7 @@ void* WorkQueue::workQueueThread(WorkQueue* workQueue)
 {
     while (workQueue->m_threadLoop) {
         workQueue->performWork();
+        workQueue->performTimerWork();
         workQueue->performFileDescriptorWork();
     }
 
@@ -148,26 +213,26 @@ void WorkQueue::unregisterSocketEventHandler(int fileDescriptor)
 
 void WorkQueue::dispatch(const Function<void()>& function)
 {
-    MutexLocker locker(m_workItemQueueLock);
-    m_workItemQueue.append(function);
-    sendMessageToThread(wakupThreadMessage);
-}
+    ref();
 
-bool WorkQueue::timerFired(void* data)
-{
-    TimerWorkItem* item = static_cast<TimerWorkItem*>(data);
-    if (item && item->queue()->m_isValid) {
-        item->queue()->dispatch(item->function());
-        item->queue()->m_timers.take(item->timerID());
-        delete item;
+    {
+        MutexLocker locker(m_workItemQueueLock);
+        m_workItemQueue.append(function);
     }
 
-    return ECORE_CALLBACK_CANCEL;
+    sendMessageToThread(wakupThreadMessage);
 }
 
 void WorkQueue::dispatchAfterDelay(const Function<void()>& function, double delay)
 {
-    static int timerId = 0;
-    m_timers.set(timerId, adoptPtr(ecore_timer_add(delay, reinterpret_cast<Ecore_Task_Cb>(timerFired), new TimerWorkItem(timerId, function, this))));
-    timerId++;
+    if (delay < 0)
+        return;
+
+    OwnPtr<TimerWorkItem> timerWorkItem = TimerWorkItem::create(function, currentTime() + delay);
+    if (!timerWorkItem)
+        return;
+
+    ref();
+    insertTimerWorkItem(timerWorkItem.release());
+    sendMessageToThread(wakupThreadMessage);
 }

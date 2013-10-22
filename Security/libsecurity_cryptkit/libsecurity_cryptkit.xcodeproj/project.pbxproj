@@ -534,7 +534,7 @@
 		0FD07C9DFE8A174411CD283A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD33A0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_cryptkit" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -653,6 +653,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB1F9146EF983000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-DCK_SECURITY_BUILD",
@@ -664,6 +665,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB1FB146EF983000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-DCK_SECURITY_BUILD",
@@ -675,6 +677,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB1F9146EF983000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				OTHER_CFLAGS = "-DCK_STANDALONE_BUILD";
 			};
 			name = Debug;
@@ -683,6 +686,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB1FB146EF983000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				OTHER_CFLAGS = "-DCK_STANDALONE_BUILD";
 			};
 			name = Release;
@@ -691,6 +695,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB1F9146EF983000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				OTHER_CFLAGS = "-DCK_MINIMUM_SIG_BUILD";
 			};
 			name = Debug;
@@ -699,6 +704,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB1FB146EF983000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				OTHER_CFLAGS = "-DCK_MINIMUM_SIG_BUILD";
 			};
 			name = Release;
@@ -707,6 +713,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB1FA146EF983000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -714,6 +726,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB1FA146EF983000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

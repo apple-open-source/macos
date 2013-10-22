@@ -2696,6 +2696,7 @@ PUBLIC void rpc_server_use_protseq_ep
                         i < count;
                         i++, p2++)
             {
+#if 0
                 if (*p2 != '\\')
                 {
                     *p1++ = *p2;
@@ -2707,6 +2708,9 @@ PUBLIC void rpc_server_use_protseq_ep
                 {
                     *p1++ = *p2;
                 }
+#else
+                *p1++ = *p2;
+#endif
             }
         }
         endpoint_copy[count] = '\0';

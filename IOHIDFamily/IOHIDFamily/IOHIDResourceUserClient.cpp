@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 2008 Apple, Inc.  All Rights Reserved.
+ * Copyright (c) 2012 Apple, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -41,26 +41,26 @@ OSDefineMetaClassAndStructors( IOHIDResourceDeviceUserClient, IOUserClient )
 // IOHIDResourceDeviceUserClient::_methods
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 const IOExternalMethodDispatch IOHIDResourceDeviceUserClient::_methods[kIOHIDResourceDeviceUserClientMethodCount] = {
-	{   // kIOHIDResourceDeviceUserClientMethodCreate
-		(IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_createDevice,
-		0, -1, /* 1 struct input : the report descriptor */
-		0, 0
-	},
-	{   // kIOHIDResourceDeviceUserClientMethodTerminate
-		(IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_terminateDevice,
-		0, 0,
-		0, 0
-	},
-	{   // kIOHIDResourceDeviceUserClientMethodHandleReport
-		(IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_handleReport,
-		0, -1, /* 1 struct input : the buffer */
-		0, 0
-	},
-	{   // kIOHIDResourceDeviceUserClientMethodPostReportResult
-		(IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_postReportResult,
-		kIOHIDResourceUserClientResponseIndexCount, -1, /* 1 scalar input: the result, 1 struct input : the buffer */
-		0, 0
-	}
+    {   // kIOHIDResourceDeviceUserClientMethodCreate
+        (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_createDevice,
+        0, -1, /* 1 struct input : the report descriptor */
+        0, 0
+    },
+    {   // kIOHIDResourceDeviceUserClientMethodTerminate
+        (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_terminateDevice,
+        0, 0,
+        0, 0
+    },
+    {   // kIOHIDResourceDeviceUserClientMethodHandleReport
+        (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_handleReport,
+        1, -1, /* 1 struct input : the buffer */
+        0, 0
+    },
+    {   // kIOHIDResourceDeviceUserClientMethodPostReportResult
+        (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_postReportResult,
+        kIOHIDResourceUserClientResponseIndexCount, -1, /* 1 scalar input: the result, 1 struct input : the buffer */
+        0, 0
+    }
 };
 
 
@@ -76,15 +76,15 @@ bool IOHIDResourceDeviceUserClient::initWithTask(task_t owningTask, void * secur
 #endif
     
     if (!super::initWithTask(owningTask, security_id, type)) {
-		IOLog("%s failed\n", __FUNCTION__);
-		return false;
-	}
-	
-	_device = NULL;
+        IOLog("%s failed\n", __FUNCTION__);
+        return false;
+    }
+    
+    _device = NULL;
     _lock   = IOLockAlloc();
     _pending = OSSet::withCapacity(4);
 
-	return true;
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -92,15 +92,15 @@ bool IOHIDResourceDeviceUserClient::initWithTask(task_t owningTask, void * secur
 //----------------------------------------------------------------------------------------------------
 bool IOHIDResourceDeviceUserClient::start(IOService * provider)
 {
-	if (!super::start(provider)) {
-		IOLog("%s failed\n", __FUNCTION__);
-		return false;
-	}	
+    if (!super::start(provider)) {
+        IOLog("%s failed\n", __FUNCTION__);
+        return false;
+    }    
 
     _owner = (IOHIDResource *) provider;
-	_device = NULL;
+    _device = NULL;
 
-	return true;
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -125,7 +125,7 @@ void IOHIDResourceDeviceUserClient::free()
     if ( _lock )
         IOLockFree(_lock);
         
-	return super::free();
+    return super::free();
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -212,7 +212,7 @@ IOReturn IOHIDResourceDeviceUserClient::externalMethod(
             target = this;
     }
 
-	return super::externalMethod(selector, arguments, dispatch, target, reference);
+    return super::externalMethod(selector, arguments, dispatch, target, reference);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -239,7 +239,7 @@ IOMemoryDescriptor * IOHIDResourceDeviceUserClient::createMemoryDescriptorFromIn
 //----------------------------------------------------------------------------------------------------
 IOService * IOHIDResourceDeviceUserClient::getService(void)
 {
-	return _owner;
+    return _owner;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -249,7 +249,7 @@ IOReturn IOHIDResourceDeviceUserClient::clientClose(void)
 {
     cleanupPendingReports();
     terminate();
-	return kIOReturnSuccess;
+    return kIOReturnSuccess;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -260,9 +260,8 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(
                                         void *                          reference __unused, 
                                         IOExternalMethodArguments *     arguments)
 {
-	if (_device == NULL)  { // Report descriptor is static and thus can only be set on creation
+    if (_device == NULL)  { // Report descriptor is static and thus can only be set on creation
         
-        IOReturn                ret;
         IOMemoryDescriptor *    propertiesDesc  = NULL;
         OSDictionary *          properties      = NULL;
         
@@ -273,33 +272,31 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(
             return kIOReturnNoMemory;
         }
 
-        ret = propertiesDesc->prepare();
-        if ( ret == kIOReturnSuccess ) {
+        void *         propertiesData;
+        IOByteCount    propertiesLength;
         
-            void *         propertiesData;
-            IOByteCount    propertiesLength;
+        propertiesLength = propertiesDesc->getLength();
+        if ( propertiesLength ) { 
+            propertiesData = IOMalloc(propertiesLength);
+        
+            if ( propertiesData ) { 
+                OSObject * object;
             
-            propertiesLength = propertiesDesc->getLength();
-            if ( propertiesLength ) { 
-                propertiesData = IOMalloc(propertiesLength);
-            
-                if ( propertiesData ) { 
-                    OSObject * object;
-                
-                    propertiesDesc->readBytes(0, propertiesData, propertiesLength);
+                propertiesDesc->readBytes(0, propertiesData, propertiesLength);
 
-                    object = OSUnserializeXML((const char *)propertiesData);
-                    if (object) {
-                        properties = OSDynamicCast(OSDictionary, object);
-                        if( !properties )
-                            object->release();
-                    }
-                    
-                    IOFree(propertiesData, propertiesLength);
+                if (strnlen((const char *) propertiesData, propertiesLength) < propertiesLength) {
+                    object = OSUnserializeXML((const char *)propertiesData, propertiesLength);
+                if (object) {
+                    properties = OSDynamicCast(OSDictionary, object);
+                    if( !properties )
+                        object->release();
                 }
-            
+                }
+                else {
+                    IOLog("%s failed: improperly sized data\n", __FUNCTION__);
+                }
+                IOFree(propertiesData, propertiesLength);
             }
-            propertiesDesc->complete();
         }
         propertiesDesc->release();
         
@@ -310,32 +307,32 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(
         }
 
         
-	} else {/* We already have a device. Close it before opening a new one */
-		IOLog("%s failed : _device already exists\n", __FUNCTION__);
-		return kIOReturnInternalError;
-	}
+    } else {/* We already have a device. Close it before opening a new one */
+        IOLog("%s failed : _device already exists\n", __FUNCTION__);
+        return kIOReturnInternalError;
+    }
 
-	if (_device == NULL) {
-		IOLog("%s failed : _device is NULL\n", __FUNCTION__);
-		return kIOReturnNoResources;
-	}
+    if (_device == NULL) {
+        IOLog("%s failed : _device is NULL\n", __FUNCTION__);
+        return kIOReturnNoResources;
+    }
 
     IOReturn ret = kIOReturnInternalError;
     
-	if (_device->attach(this) ) {
+    if (_device->attach(this) ) {
         if ( _device->start(this) ) {
             ret = kIOReturnSuccess;
         } else {
             IOLog("%s start failed\n", __FUNCTION__);
             _device->detach(this);
         }
-	} else {
-		IOLog("%s attach failed\n", __FUNCTION__);
+    } else {
+        IOLog("%s attach failed\n", __FUNCTION__);
     }
     
     if ( ret != kIOReturnSuccess ) {
-		_device->release();
-		_device = NULL;
+        _device->release();
+        _device = NULL;
     }
 
     return ret;
@@ -349,7 +346,7 @@ IOReturn IOHIDResourceDeviceUserClient::_createDevice(
                                         void *                          reference, 
                                         IOExternalMethodArguments *     arguments)
 {
-	return target->createDevice(target, reference, arguments);
+    return target->createDevice(target, reference, arguments);
 }
 
 struct IOHIDResourceDeviceUserClientAsyncParamBlock {
@@ -379,32 +376,35 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(
                                         void *                          reference __unused, 
                                         IOExternalMethodArguments *     arguments)
 {
-	if (_device == NULL) {
-		IOLog("%s failed : device is NULL\n", __FUNCTION__);
-		return kIOReturnNotOpen;
-	}
+    AbsoluteTime timestamp;
+    
+    if (_device == NULL) {
+        IOLog("%s failed : device is NULL\n", __FUNCTION__);
+        return kIOReturnNotOpen;
+    }
 
-	if (target != this) {
-		IOLog("%s failed : this is not target\n", __FUNCTION__);
-		return kIOReturnInternalError;
-	}
+    if (target != this) {
+        IOLog("%s failed : this is not target\n", __FUNCTION__);
+        return kIOReturnInternalError;
+    }
 
     IOReturn                ret;
     IOMemoryDescriptor *    report;
     
     report = createMemoryDescriptorFromInputArguments(arguments);
     if ( !report ) {
-		IOLog("%s failed : could not create descriptor\n", __FUNCTION__);
-		return kIOReturnNoMemory;
-	}
-
+        IOLog("%s failed : could not create descriptor\n", __FUNCTION__);
+        return kIOReturnNoMemory;
+    }
+    
+    
+    if ( arguments->scalarInput[0] )
+        AbsoluteTime_to_scalar(&timestamp) = arguments->scalarInput[0];
+    else
+        clock_get_uptime( &timestamp );
+    
     if ( !arguments->asyncWakePort ) {
-        ret = report->prepare();
-        if ( ret == kIOReturnSuccess ) {
-            ret = _device->handleReport(report);
-            report->complete();
-        }
-        
+        ret = _device->handleReportWithTime(timestamp, report);
         report->release();
     } else {
         IOHIDCompletion tap;
@@ -425,16 +425,8 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(
         tap.target = target;
         tap.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDResourceDeviceUserClient::ReportComplete);
         tap.parameter = pb;
-        
-        AbsoluteTime   currentTime;
-        
-        clock_get_uptime( &currentTime );
-        
-        ret = report->prepare();
-        if ( ret == kIOReturnSuccess ) {
-            ret = _device->handleReportWithTimeAsync(currentTime, report, kIOHIDReportTypeInput, 0, 0, &tap);
-            report->complete();
-        }
+                        
+        ret = _device->handleReportWithTimeAsync(timestamp, report, kIOHIDReportTypeInput, 0, 0, &tap);
         
         report->release();
         
@@ -450,11 +442,11 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::_handleReport
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDResourceDeviceUserClient::_handleReport(IOHIDResourceDeviceUserClient	*target, 
-											 void						*reference, 
-											 IOExternalMethodArguments	*arguments)
+IOReturn IOHIDResourceDeviceUserClient::_handleReport(IOHIDResourceDeviceUserClient    *target, 
+                                             void                        *reference, 
+                                             IOExternalMethodArguments    *arguments)
 {
-	return target->handleReport(target, reference, arguments);
+    return target->handleReport(target, reference, arguments);
 }
 
 typedef struct {
@@ -581,8 +573,15 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(
             __ReportResult * pResult = (__ReportResult*)data->getBytesNoCopy();
             
             // RY: HIGHLY UNLIKELY > 4K
-            if ( pResult->descriptor && arguments->structureInput )
+            if ( pResult->descriptor && arguments->structureInput ) {
                 pResult->descriptor->writeBytes(0, arguments->structureInput, arguments->structureInputSize);
+
+                // 12978252:  If we get an IOBMD passed in, set the length to be the # of bytes that were transferred
+                IOBufferMemoryDescriptor * buffer = OSDynamicCast(IOBufferMemoryDescriptor, pResult->descriptor);
+                if (buffer)
+                    buffer->setLength((vm_size_t)arguments->structureInputSize);
+            
+            }
                 
             pResult->ret = arguments->scalarInput[kIOHIDResourceUserClientResponseIndexResult];
 
@@ -597,11 +596,11 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::_postReportResult
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDResourceDeviceUserClient::_postReportResult(IOHIDResourceDeviceUserClient	*target, 
-											 void						*reference, 
-											 IOExternalMethodArguments	*arguments)
+IOReturn IOHIDResourceDeviceUserClient::_postReportResult(IOHIDResourceDeviceUserClient    *target, 
+                                             void                        *reference, 
+                                             IOExternalMethodArguments    *arguments)
 {
-	return target->postReportResult(target, reference, arguments);
+    return target->postReportResult(target, reference, arguments);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -627,11 +626,11 @@ void IOHIDResourceDeviceUserClient::cleanupPendingReports()
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::terminateDevice()
 {
-	if (_device) {
-		_device->terminate();
-		_device->release();
-	}
-	_device = NULL;
+    if (_device) {
+        _device->terminate();
+        _device->release();
+    }
+    _device = NULL;
 
     return kIOReturnSuccess;
 }
@@ -640,11 +639,11 @@ IOReturn IOHIDResourceDeviceUserClient::terminateDevice()
 // IOHIDResourceDeviceUserClient::_terminateDevice
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::_terminateDevice(
-                                        IOHIDResourceDeviceUserClient	*target, 
+                                        IOHIDResourceDeviceUserClient    *target, 
                                         void                            *reference __unused, 
                                         IOExternalMethodArguments       *arguments __unused)
 {
-	return target->terminateDevice();
+    return target->terminateDevice();
 }
 
 
@@ -711,7 +710,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
 
             dataQueue->tail += entrySize;
         }
-        else if ( head > entrySize ) 	// Is there enough room at the beginning?
+        else if ( head > entrySize )     // Is there enough room at the beginning?
         {
             // Wrap around to the beginning, but do not allow the tail to catch
             // up to the head.
@@ -734,7 +733,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
         }
         else
         {
-            return false;	// queue is full
+            return false;    // queue is full
         }
     }
     else
@@ -755,7 +754,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
         }
         else
         {
-            return false;	// queue is full
+            return false;    // queue is full
         }
     }
 

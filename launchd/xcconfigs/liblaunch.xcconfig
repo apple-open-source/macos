@@ -13,7 +13,9 @@ DEPLOYMENT_LOCATION = YES
 INSTALL_PATH = /usr/lib/system
 ORDER_FILE[sdk=macosx*] = $(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/liblaunch.order
 ORDER_FILE[sdk=iphonesimulator*] = 
-OTHER_LDFLAGS = -umbrella System $(CRASHREPORTER_LINKER_FLAGS)
+LINK_WITH_STANDARD_LIBRARIES = NO
+OTHER_LDFLAGS = -umbrella System -L/usr/lib/system -ldyld -lcompiler_rt -lsystem_kernel -lsystem_platform -lsystem_pthread -lsystem_malloc -lsystem_c -lquarantine -ldispatch $(CRASHREPORTER_LINKER_FLAGS)
+OTHER_LDFLAGS[sdk=iphone*] = -umbrella System -L/usr/lib/system -ldyld -lcompiler_rt -lsystem_kernel -lsystem_platform -lsystem_pthread -lsystem_malloc -lsystem_c -ldispatch $(CRASHREPORTER_LINKER_FLAGS)
 LD_DYLIB_INSTALL_NAME = $(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)
 MACH_O_TYPE = mh_dylib
 EXECUTABLE_PREFIX = lib

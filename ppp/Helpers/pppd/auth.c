@@ -939,6 +939,38 @@ continue_networks(unit)
 }
 
 /*
+ * Test if all of the waiting protocols have completed or failed.
+ */
+void
+check_protocols_ready(void)
+{
+    int i;
+    struct protent *protp;
+    int state;
+    
+    if (num_np_open == 0) {
+        return;
+    }
+    
+    for (i = 0; (protp = protocols[i]) != NULL; ++i) {
+        if (protp->protocol < 0xC000
+            && protp->protocol != PPP_CCP && protp->protocol != PPP_ECP
+            && protp->enabled_flag && protp->open != NULL) {
+            state = (protp->state)(0);
+            
+            if (state != STOPPED && state != OPENED) {
+                /* Some protocols not yet ready */
+                return;
+            }
+        }
+    }
+    
+    /* If we are here, all protocols are ready */
+    notify(protocolsready_notifier,0);
+    return;
+}
+
+/*
  * The peer has failed to authenticate himself using `protocol'.
  */
 void
@@ -1152,7 +1184,7 @@ np_up(unit, proto)
     int unit, proto;
 {
     int tlim;
-
+   
     if (num_np_up == 0) {
 	/*
 	 * At this point we consider that the link has come up successfully.
@@ -1187,6 +1219,7 @@ np_up(unit, proto)
 	    detach();
     }
     ++num_np_up;
+    check_protocols_ready();
 }
 
 /*
@@ -1221,6 +1254,7 @@ np_finished(unit, proto)
 	/* no further use for the link: shut up shop. */
 	lcp_close(0, "No network protocols running");
     }
+    check_protocols_ready();
 }
 
 #ifdef MAXOCTETS

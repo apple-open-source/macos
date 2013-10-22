@@ -40,22 +40,23 @@
 #include <wtf/RetainPtr.h>
 
 namespace WebCore {
-    class Frame;
-    class HTMLFrameOwnerElement;
-    class KURL;
+class Frame;
+class HTMLFrameOwnerElement;
+class IntPoint;
+class IntRect;
+class KURL;
 }
 
 namespace WebKit {
 
+class InjectedBundleHitTestResult;
 class InjectedBundleNodeHandle;
 class InjectedBundleRangeHandle;
 class InjectedBundleScriptWorld;
 class WebPage;
 
-class WebFrame : public APIObject {
+class WebFrame : public TypedAPIObject<APIObject::TypeBundleFrame> {
 public:
-    static const Type APIType = TypeBundleFrame;
-
     static PassRefPtr<WebFrame> createMainFrame(WebPage*);
     static PassRefPtr<WebFrame> createSubframe(WebPage*, const String& frameName, WebCore::HTMLFrameOwnerElement*);
     ~WebFrame();
@@ -73,7 +74,7 @@ public:
     void didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyAction, uint64_t downloadID);
 
     void startDownload(const WebCore::ResourceRequest&);
-    void convertHandleToDownload(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     String source() const;
     String contentsAsString() const;
@@ -89,7 +90,6 @@ public:
     bool isFrameSet() const;
     WebFrame* parentFrame() const;
     PassRefPtr<ImmutableArray> childFrames();
-    JSValueRef computedStyleIncludingVisitedInfo(JSObjectRef element);
     JSGlobalContextRef jsContext();
     JSGlobalContextRef jsContextForWorld(InjectedBundleScriptWorld*);
     WebCore::IntRect contentBounds() const;
@@ -98,8 +98,12 @@ public:
     WebCore::IntSize scrollOffset() const;
     bool hasHorizontalScrollbar() const;
     bool hasVerticalScrollbar() const;
+    PassRefPtr<InjectedBundleHitTestResult> hitTest(const WebCore::IntPoint) const;
     bool getDocumentBackgroundColor(double* red, double* green, double* blue, double* alpha);
     bool containsAnyFormElements() const;
+    bool containsAnyFormControls() const;
+    void stopLoading();
+    bool handlesPageScaleGesture() const;
 
     static WebFrame* frameForContext(JSContextRef);
 
@@ -107,13 +111,7 @@ public:
     JSValueRef jsWrapperForWorld(InjectedBundleRangeHandle*, InjectedBundleScriptWorld*);
 
     static String counterValue(JSObjectRef element);
-    static String markerText(JSObjectRef element);
 
-    unsigned numberOfActiveAnimations() const;
-    bool pauseAnimationOnElementWithId(const String& animationName, const String& elementID, double time);
-    bool pauseTransitionOnElementWithId(const String& propertyName, const String& elementID, double time);
-    void suspendAnimations();
-    void resumeAnimations();
     String layerTreeAsText() const;
     
     unsigned pendingUnloadCount() const;
@@ -137,7 +135,7 @@ public:
     void setLoadListener(LoadListener* loadListener) { m_loadListener = loadListener; }
     LoadListener* loadListener() const { return m_loadListener; }
     
-#if PLATFORM(MAC) || PLATFORM(WIN)
+#if PLATFORM(MAC)
     typedef bool (*FrameFilterFunction)(WKBundleFrameRef, WKBundleFrameRef subframe, void* context);
     RetainPtr<CFDataRef> webArchiveData(FrameFilterFunction, void* context);
 #endif
@@ -147,8 +145,6 @@ private:
     WebFrame();
 
     void init(WebPage*, const String& frameName, WebCore::HTMLFrameOwnerElement*);
-
-    virtual Type type() const { return APIType; }
 
     WebCore::Frame* m_coreFrame;
 

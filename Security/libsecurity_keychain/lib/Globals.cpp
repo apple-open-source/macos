@@ -64,3 +64,10 @@ const AccessCredentials * Globals::smartcardItemCredentials()
 	
 }	// namespace KeychainCore
 }	// namespace Security
+
+
+
+extern "C" bool GetServerMode()
+{
+	return Security::KeychainCore::gServerMode;
+}

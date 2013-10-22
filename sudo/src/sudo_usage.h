@@ -19,7 +19,8 @@
 #ifndef _SUDO_USAGE_H
 #define _SUDO_USAGE_H
 
-void usage __P((int)) __attribute__((__noreturn__));
+void help __P((void)) __attribute__((__noreturn__));
+void usage __P((int));
 
 /*
  * Usage strings for sudo.  These are here because we
@@ -34,6 +35,6 @@ void usage __P((int)) __attribute__((__noreturn__));
 /*
  * Configure script arguments used to build sudo.
  */
-#define CONFIGURE_ARGS ""
+#define CONFIGURE_ARGS "--with-password-timeout=0 --disable-setreuid --with-env-editor --with-pam --with-libraries=bsm --with-noexec=no --sysconfdir=/private/etc --with-timedir=/var/db/sudo"
 
 #endif /* _SUDO_USAGE_H */

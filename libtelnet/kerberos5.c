@@ -64,6 +64,7 @@
 #ifdef	KRB5
 #include <arpa/telnet.h>
 #include <stdio.h>
+#define KRB5_DEPRECATED 1 /* krb5_auth_con_getremotesubkey */
 #include <krb5.h>
 #include "com_err.h"
 #include <netdb.h>

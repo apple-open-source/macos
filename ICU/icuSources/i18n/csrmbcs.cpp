@@ -9,6 +9,7 @@
 
 #if !UCONFIG_NO_CONVERSION
 
+#include "csmatch.h"
 #include "csrmbcs.h"
 
 #include <math.h>
@@ -186,9 +187,9 @@ CharsetRecog_mbcs::~CharsetRecog_mbcs()
 }
 
 #if U_PLATFORM_IS_DARWIN_BASED
-int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars[], int32_t commonCharsLen, const uint8_t (*keyStrings)[MAX_KEY_STRING_WITH_NULL] ) {
+int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars[], int32_t commonCharsLen, const uint8_t (*keyStrings)[MAX_KEY_STRING_WITH_NULL] ) const {
 #else
-int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars[], int32_t commonCharsLen) {
+int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars[], int32_t commonCharsLen) const {
 #endif
     int32_t singleByteCharCount = 0;
     int32_t doubleByteCharCount = 0;
@@ -312,7 +313,7 @@ CharsetRecog_sjis::~CharsetRecog_sjis()
     // nothing to do
 }
 
-UBool CharsetRecog_sjis::nextChar(IteratedChar* it, InputText* det) {
+UBool CharsetRecog_sjis::nextChar(IteratedChar* it, InputText* det) const {
     it->index = it->nextIndex;
     it->error = FALSE;
 
@@ -340,13 +341,14 @@ UBool CharsetRecog_sjis::nextChar(IteratedChar* it, InputText* det) {
     return TRUE;
 }
 
-int32_t CharsetRecog_sjis::match(InputText* det)
-{
+UBool CharsetRecog_sjis::match(InputText* det, CharsetMatch *results) const {
 #if U_PLATFORM_IS_DARWIN_BASED
-    return match_mbcs(det, commonChars_sjis, ARRAY_SIZE(commonChars_sjis), keyStrings_sjis);
+    int32_t confidence = match_mbcs(det, commonChars_sjis, ARRAY_SIZE(commonChars_sjis), keyStrings_sjis);
 #else
-    return match_mbcs(det, commonChars_sjis, ARRAY_SIZE(commonChars_sjis));
+    int32_t confidence = match_mbcs(det, commonChars_sjis, ARRAY_SIZE(commonChars_sjis));
 #endif
+    results->set(det, this, confidence);
+    return (confidence > 0);
 }
 
 const char *CharsetRecog_sjis::getName() const
@@ -364,7 +366,7 @@ CharsetRecog_euc::~CharsetRecog_euc()
     // nothing to do
 }
 
-UBool CharsetRecog_euc::nextChar(IteratedChar* it, InputText* det) {
+UBool CharsetRecog_euc::nextChar(IteratedChar* it, InputText* det) const {
     int32_t firstByte  = 0;
     int32_t secondByte = 0;
     int32_t thirdByte  = 0;
@@ -443,13 +445,15 @@ const char *CharsetRecog_euc_jp::getLanguage() const
     return "ja";
 }
 
-int32_t CharsetRecog_euc_jp::match(InputText *det)
+UBool CharsetRecog_euc_jp::match(InputText *det, CharsetMatch *results) const
 {
 #if U_PLATFORM_IS_DARWIN_BASED
-    return match_mbcs(det, commonChars_euc_jp, ARRAY_SIZE(commonChars_euc_jp), keyStrings_euc_jp);
+    int32_t confidence = match_mbcs(det, commonChars_euc_jp, ARRAY_SIZE(commonChars_euc_jp), keyStrings_euc_jp);
 #else
-    return match_mbcs(det, commonChars_euc_jp, ARRAY_SIZE(commonChars_euc_jp));
+    int32_t confidence = match_mbcs(det, commonChars_euc_jp, ARRAY_SIZE(commonChars_euc_jp));
 #endif
+    results->set(det, this, confidence);
+    return (confidence > 0);
 }
 
 CharsetRecog_euc_kr::~CharsetRecog_euc_kr()
@@ -467,13 +471,15 @@ const char *CharsetRecog_euc_kr::getLanguage() const
     return "ko";
 }
 
-int32_t CharsetRecog_euc_kr::match(InputText *det)
+UBool CharsetRecog_euc_kr::match(InputText *det, CharsetMatch *results) const
 {
 #if U_PLATFORM_IS_DARWIN_BASED
-    return match_mbcs(det, commonChars_euc_kr, ARRAY_SIZE(commonChars_euc_kr), keyStrings_euc_kr);
+    int32_t confidence =  match_mbcs(det, commonChars_euc_kr, ARRAY_SIZE(commonChars_euc_kr), keyStrings_euc_kr);
 #else
-    return match_mbcs(det, commonChars_euc_kr, ARRAY_SIZE(commonChars_euc_kr));
+    int32_t confidence =  match_mbcs(det, commonChars_euc_kr, ARRAY_SIZE(commonChars_euc_kr));
 #endif
+    results->set(det, this, confidence);
+    return (confidence > 0);
 }
 
 CharsetRecog_big5::~CharsetRecog_big5()
@@ -481,7 +487,7 @@ CharsetRecog_big5::~CharsetRecog_big5()
     // nothing to do
 }
 
-UBool CharsetRecog_big5::nextChar(IteratedChar* it, InputText* det)
+UBool CharsetRecog_big5::nextChar(IteratedChar* it, InputText* det) const
 {
     int32_t firstByte;
 
@@ -521,13 +527,15 @@ const char *CharsetRecog_big5::getLanguage() const
     return "zh";
 }
 
-int32_t CharsetRecog_big5::match(InputText *det)
+UBool CharsetRecog_big5::match(InputText *det, CharsetMatch *results) const
 {
 #if U_PLATFORM_IS_DARWIN_BASED
-    return match_mbcs(det, commonChars_big5, ARRAY_SIZE(commonChars_big5), keyStrings_big5);
+    int32_t confidence = match_mbcs(det, commonChars_big5, ARRAY_SIZE(commonChars_big5), keyStrings_big5);
 #else
-    return match_mbcs(det, commonChars_big5, ARRAY_SIZE(commonChars_big5));
+    int32_t confidence = match_mbcs(det, commonChars_big5, ARRAY_SIZE(commonChars_big5));
 #endif
+    results->set(det, this, confidence);
+    return (confidence > 0);
 }
 
 CharsetRecog_gb_18030::~CharsetRecog_gb_18030()
@@ -535,7 +543,7 @@ CharsetRecog_gb_18030::~CharsetRecog_gb_18030()
     // nothing to do
 }
 
-UBool CharsetRecog_gb_18030::nextChar(IteratedChar* it, InputText* det) {
+UBool CharsetRecog_gb_18030::nextChar(IteratedChar* it, InputText* det) const {
     int32_t firstByte  = 0;
     int32_t secondByte = 0;
     int32_t thirdByte  = 0;
@@ -599,13 +607,15 @@ const char *CharsetRecog_gb_18030::getLanguage() const
     return "zh";
 }
 
-int32_t CharsetRecog_gb_18030::match(InputText *det)
+UBool CharsetRecog_gb_18030::match(InputText *det, CharsetMatch *results) const
 {
 #if U_PLATFORM_IS_DARWIN_BASED
-    return match_mbcs(det, commonChars_gb_18030, ARRAY_SIZE(commonChars_gb_18030), keyStrings_gb_18030);
+    int32_t confidence = match_mbcs(det, commonChars_gb_18030, ARRAY_SIZE(commonChars_gb_18030), keyStrings_gb_18030);
 #else
-    return match_mbcs(det, commonChars_gb_18030, ARRAY_SIZE(commonChars_gb_18030));
+    int32_t confidence = match_mbcs(det, commonChars_gb_18030, ARRAY_SIZE(commonChars_gb_18030));
 #endif
+    results->set(det, this, confidence);
+    return (confidence > 0);
 }
 
 U_NAMESPACE_END

@@ -32,10 +32,10 @@
 
 namespace WebCore {
 
-class SVGCursorElement : public SVGElement,
-                         public SVGTests,
-                         public SVGExternalResourcesRequired,
-                         public SVGURIReference {
+class SVGCursorElement FINAL : public SVGElement,
+                               public SVGTests,
+                               public SVGExternalResourcesRequired,
+                               public SVGURIReference {
 public:
     static PassRefPtr<SVGCursorElement> create(const QualifiedName&, Document*);
 
@@ -51,7 +51,7 @@ private:
     virtual bool isValid() const { return SVGTests::isValid(); }
 
     bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;

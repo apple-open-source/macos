@@ -231,7 +231,7 @@ void pptp_rfc_free_client(void *data)
 		rfc->host = 0;
 		rfc->inputcb = 0;
 		rfc->eventcb = 0;
-		while(recv_elem = TAILQ_FIRST(&rfc->recv_queue)) {
+		while((recv_elem = TAILQ_FIRST(&rfc->recv_queue))) {
 			TAILQ_REMOVE(&rfc->recv_queue, recv_elem, next);
 			mbuf_freem(recv_elem->packet);
 			_FREE(recv_elem, M_TEMP);
@@ -245,7 +245,7 @@ now it's called when slow timer expired because of <rdar://problem/7617885>
 ----------------------------------------------------------------------------- */
 static void pptp_rfc_delayed_ack(struct pptp_rfc *rfc)
 {
-    struct pptp_gre	*p;
+    struct pptp_gre	*p, p_data;
     u_int16_t 		len;
     mbuf_t			m;
 
@@ -261,7 +261,8 @@ static void pptp_rfc_delayed_ack(struct pptp_rfc *rfc)
 
         // probably some of it should move to pptp_ip when we implement 
         // a more modular GRE handler
-        p = mbuf_data(m);
+        p = &p_data;
+	memcpy(p, mbuf_data(m), sizeof(p_data));
         p->flags = PPTP_GRE_FLAGS_K;
         p->flags_vers = PPTP_GRE_VER | PPTP_GRE_FLAGS_A;
         p->proto_type = htons(PPTP_GRE_TYPE);
@@ -270,6 +271,7 @@ static void pptp_rfc_delayed_ack(struct pptp_rfc *rfc)
         /* XXX use seq_num in the structure to put the ack */
         p->seq_num = htonl(rfc->peer_last_seq);
         rfc->state &= ~PPTP_STATE_NEW_SEQUENCE;
+	memcpy(mbuf_data(m), p, sizeof(p_data));
 
         //IOLog("pptp_rfc_delayed_ack, output delayed ACK = %d\n", rfc->peer_last_seq);
         pptp_ip_output(m, rfc->our_address, rfc->peer_address);
@@ -308,7 +310,7 @@ void pptp_rfc_input_recv_queue(struct pptp_rfc *rfc)
 			rfc->recv_timeout = RECV_TIMEOUT_DEF;
 			break;
 		}
-	} while (elem = TAILQ_FIRST(&rfc->recv_queue));
+	} while ((elem = TAILQ_FIRST(&rfc->recv_queue)));
 }
 
 /* -----------------------------------------------------------------------------
@@ -402,7 +404,8 @@ u_int16_t pptp_rfc_output(void *data, mbuf_t m)
         return ENOBUFS;
     d = mbuf_data(m);
 
-    mbuf_setflags(m, mbuf_flags(m) | MBUF_PKTHDR);
+    // No need to set MBUF_PKTHDR, since m must already be a header
+    
     mbuf_pkthdr_setlen(m, len + sizeof(struct pptp_gre));
 
     bzero(&p, sizeof(struct pptp_gre));
@@ -541,12 +544,15 @@ u_int16_t pptp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 ----------------------------------------------------------------------------- */
 u_int16_t handle_data(struct pptp_rfc *rfc, mbuf_t m, u_int32_t from)
 {
-    struct pptp_gre 	*p = mbuf_data(m);
+    struct pptp_gre 	*p, p_data;
     u_int16_t 		size;
     u_int32_t		ack;
     int32_t 		diff;
 	int				qlen;
 	struct pptp_elem 	*elem, *new_elem;
+
+    p = &p_data;
+    memcpy(p, mbuf_data(m), sizeof(p_data));
 
     //IOLog("handle_data, rfc = %p, from 0x%x, known peer address = 0x%x, our callid = 0x%x, target callid = 0x%x\n", rfc, from, rfc->peer_address, rfc->call_id, ntohs(p->call_id));    
     
@@ -651,7 +657,7 @@ u_int16_t handle_data(struct pptp_rfc *rfc, mbuf_t m, u_int32_t from)
 		(*rfc->inputcb)(rfc->host, m); // packet is passed up to the host	
 			
 		/* now check for other packets on the queue that can be sent up.  */
-		while (elem = TAILQ_FIRST(&rfc->recv_queue)) {
+		while ((elem = TAILQ_FIRST(&rfc->recv_queue))) {
 		
 			if (elem->seqno == (rfc->peer_last_seq+1)) {		/* another packet to send up */
 

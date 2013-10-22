@@ -28,19 +28,14 @@
 
 #if ENABLE(THREADED_SCROLLING)
 
-#include "ScrollingTreeState.h"
+#include "ScrollingStateTree.h"
 
 namespace WebCore {
 
-ScrollingTreeNode::ScrollingTreeNode(ScrollingTree* scrollingTree)
+ScrollingTreeNode::ScrollingTreeNode(ScrollingTree* scrollingTree, ScrollingNodeID nodeID)
     : m_scrollingTree(scrollingTree)
-    , m_shouldUpdateScrollLayerPositionOnMainThread(false)
-    , m_horizontalScrollElasticity(ScrollElasticityNone)
-    , m_verticalScrollElasticity(ScrollElasticityNone)
-    , m_hasEnabledHorizontalScrollbar(false)
-    , m_hasEnabledVerticalScrollbar(false)
-    , m_horizontalScrollbarMode(ScrollbarAuto)
-    , m_verticalScrollbarMode(ScrollbarAuto)
+    , m_nodeID(nodeID)
+    , m_parent(0)
 {
 }
 
@@ -48,37 +43,33 @@ ScrollingTreeNode::~ScrollingTreeNode()
 {
 }
 
-void ScrollingTreeNode::update(ScrollingTreeState* state)
+void ScrollingTreeNode::appendChild(PassOwnPtr<ScrollingTreeNode> childNode)
 {
-    if (state->changedProperties() & ScrollingTreeState::ViewportRect)
-        m_viewportRect = state->viewportRect();
+    childNode->setParent(this);
 
-    if (state->changedProperties() & ScrollingTreeState::ContentsSize)
-        m_contentsSize = state->contentsSize();
+    if (!m_children)
+        m_children = adoptPtr(new Vector<OwnPtr<ScrollingTreeNode> >);
 
-    if (state->changedProperties() & ScrollingTreeState::ShouldUpdateScrollLayerPositionOnMainThread)
-        m_shouldUpdateScrollLayerPositionOnMainThread = state->shouldUpdateScrollLayerPositionOnMainThread();
+    m_children->append(childNode);
+}
 
-    if (state->changedProperties() & ScrollingTreeState::HorizontalScrollElasticity)
-        m_horizontalScrollElasticity = state->horizontalScrollElasticity();
+void ScrollingTreeNode::removeChild(ScrollingTreeNode* node)
+{
+    if (!m_children)
+        return;
 
-    if (state->changedProperties() & ScrollingTreeState::VerticalScrollElasticity)
-        m_verticalScrollElasticity = state->verticalScrollElasticity();
+    size_t index = m_children->find(node);
 
-    if (state->changedProperties() & ScrollingTreeState::HasEnabledHorizontalScrollbar)
-        m_hasEnabledHorizontalScrollbar = state->hasEnabledHorizontalScrollbar();
+    // The index will be notFound if the node to remove is a deeper-than-1-level descendant or
+    // if node is the root state node.
+    if (index != notFound) {
+        m_children->remove(index);
+        return;
+    }
 
-    if (state->changedProperties() & ScrollingTreeState::HasEnabledVerticalScrollbar)
-        m_hasEnabledVerticalScrollbar = state->hasEnabledVerticalScrollbar();
-
-    if (state->changedProperties() & ScrollingTreeState::HorizontalScrollbarMode)
-        m_horizontalScrollbarMode = state->horizontalScrollbarMode();
-
-    if (state->changedProperties() & ScrollingTreeState::VerticalScrollbarMode)
-        m_verticalScrollbarMode = state->verticalScrollbarMode();
-
-    if (state->changedProperties() & ScrollingTreeState::ScrollOrigin)
-        m_scrollOrigin = state->scrollOrigin();
+    size_t size = m_children->size();
+    for (size_t i = 0; i < size; ++i)
+        m_children->at(i)->removeChild(node);
 }
 
 } // namespace WebCore

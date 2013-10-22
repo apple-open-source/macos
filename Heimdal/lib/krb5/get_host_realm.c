@@ -260,6 +260,25 @@ get_plugin(krb5_context context, const char *hostname, heim_array_t array)
 }
 
 /*
+ *
+ */
+
+static void
+merge_irealm(heim_array_t array, krb5_realm *irealm)
+{
+    size_t len;
+
+    for (len = 0; irealm[len]; len++) {
+	heim_string_t r = heim_string_create(irealm[len]);
+	if (r) {
+	    if (!heim_array_contains_value(array, r))
+		heim_array_append_value(array, r);
+	    heim_release(r);
+	}
+    }
+}
+
+/*
  * Return the realm(s) of `host' as a NULL-terminated list in
  * `realms'. Free `realms' with krb5_free_host_realm().
  */
@@ -297,11 +316,18 @@ krb5_get_host_realm(krb5_context context,
     if (array == NULL)
 	return ENOMEM;
     
+
+    ret = config_find_realm(context, hostname, &irealm);
+    if (ret == 0 && irealm) {
+	merge_irealm(array, irealm);
+	krb5_free_host_realm(context, irealm);
+    }
+
     /*
      * Check plugins
      */
     
-    get_plugin(context, host, array);
+    get_plugin(context, hostname, array);
     
     /*
      * If our local hostname is without components, don't even try to dns.
@@ -311,12 +337,7 @@ krb5_get_host_realm(krb5_context context,
 
     ret = _krb5_get_host_realm_int (context, hostname, use_dns, &irealm);
     if (ret == 0 && irealm) {
-	for (len = 0; irealm[len]; len++) {
-	    heim_string_t r = heim_string_create(irealm[len]);
-	    if (r)
-		heim_array_append_value(array, r);
-	    heim_release(r);
-	}
+	merge_irealm(array, irealm);
 	krb5_free_host_realm(context, irealm);
     }
     

@@ -57,6 +57,8 @@ enum kIOHIDDebugCodes {
     kIOHIDDebugCode_ExtSetLocation,
     kIOHIDDebugCode_SetCursorPosition,
     kIOHIDDebugCode_PowerStateChangeEvent,
+    kIOHIDDebugCode_DispatchDigitizer,          // 28 0x5230070
+    kIOHIDDebugCode_Scheduling, 
     kIOHIDDebugCode_Invalid
 };
 

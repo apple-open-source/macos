@@ -173,7 +173,7 @@ LinkAddresses_create()
 	struct sockaddr_dl *	sdl;
 	struct sockaddr_dl * 	new_p;
 
-    /* ALIGN: buf is aligned to at least sizeof(int) bytes */
+	/* ALIGN: buf is aligned to at least sizeof(int) bytes */
 	ifm = (struct if_msghdr *)(void *)&buf[offset];
 
 	switch (ifm->ifm_type) {
@@ -206,9 +206,9 @@ LinkAddresses_create()
 	list = NULL;
     }
     else if (list_count < list_size) {
-	list = realloc(list, sizeof(*list) * list_count);
+	list = reallocf(list, sizeof(*list) * list_count);
     }
-    if (list) {
+    if (list != NULL) {
 	ret_list = (void *)malloc(sizeof(*ret_list));
 	if (ret_list) {
 	    ret_list->list = list;
@@ -220,7 +220,7 @@ LinkAddresses_create()
 	}
     }
  failed:
-    if (buf) {
+    if (buf != NULL) {
 	free(buf);
     }
     return (ret_list);

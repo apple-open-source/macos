@@ -3,15 +3,19 @@
 /'name'/s/-[^']*'/'/
 .+1,/}/-1d
 /{/,/^\]/-1d
+/x = re.sub('-arch\\s+\\S+', '', BASE_CFLAGS)/a
+.
+?while True:?,/^$/d
 /root = None/s/root/CC/
 /if root is None:/s/root/CC/
 /'xcode-select -print-path'/s//'xcrun -find %s' % cfg['CC']/
 /root =/s//CC =/
 /CC=os.path.join/d
-/entry\['cflags'\].*/s//cfg['ARCHFLAGS'] + ' -fPIE -pie'/
+/' ' + entry\['cflags'\].*/s//' -fPIE -pie'/
 /'MACOSX_DEPLOYMENT_TARGET'/d
 /os\.system/a
             os.system('strip -Sx "%(dest)s"' % locals())
 .
 /'main-' + arch/s//'main'/
+g/entry\['cc']/d
 w

@@ -122,6 +122,52 @@ public:
     {
         relinkNearCallerToTrampoline(returnAddress, CodeLocationLabel(newCalleeFunction));
     }
+    
+    void replaceWithLoad(CodeLocationConvertibleLoad label)
+    {
+        MacroAssembler::replaceWithLoad(label);
+    }
+    
+    void replaceWithAddressComputation(CodeLocationConvertibleLoad label)
+    {
+        MacroAssembler::replaceWithAddressComputation(label);
+    }
+    
+    void setLoadInstructionIsActive(CodeLocationConvertibleLoad label, bool isActive)
+    {
+        if (isActive)
+            replaceWithLoad(label);
+        else
+            replaceWithAddressComputation(label);
+    }
+
+    static CodeLocationLabel startOfBranchPtrWithPatchOnRegister(CodeLocationDataLabelPtr label)
+    {
+        return MacroAssembler::startOfBranchPtrWithPatchOnRegister(label);
+    }
+    
+    static CodeLocationLabel startOfPatchableBranchPtrWithPatchOnAddress(CodeLocationDataLabelPtr label)
+    {
+        return MacroAssembler::startOfPatchableBranchPtrWithPatchOnAddress(label);
+    }
+    
+    void replaceWithJump(CodeLocationLabel instructionStart, CodeLocationLabel destination)
+    {
+        MacroAssembler::replaceWithJump(instructionStart, destination);
+    }
+    
+    // This is a *bit* of a silly API, since we currently always also repatch the
+    // immediate after calling this. But I'm fine with that, since this just feels
+    // less yucky.
+    void revertJumpReplacementToBranchPtrWithPatch(CodeLocationLabel instructionStart, MacroAssembler::RegisterID reg, void* value)
+    {
+        MacroAssembler::revertJumpReplacementToBranchPtrWithPatch(instructionStart, reg, value);
+    }
+
+    void revertJumpReplacementToPatchableBranchPtrWithPatch(CodeLocationLabel instructionStart, MacroAssembler::Address address, void* value)
+    {
+        MacroAssembler::revertJumpReplacementToPatchableBranchPtrWithPatch(instructionStart, address, value);
+    }
 
 private:
     void* m_start;

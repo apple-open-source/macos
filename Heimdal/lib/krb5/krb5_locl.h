@@ -124,6 +124,7 @@ struct sockaddr_dl;
 
 #include "heimbase.h"
 #include "heimbasepriv.h"
+#include "heimbase_impl.h"
 
 #include <com_err.h>
 
@@ -176,6 +177,7 @@ struct ContentInfo;
 struct AlgorithmIdentifier;
 typedef struct krb5_pk_init_ctx_data *krb5_pk_init_ctx;
 struct krb5_dh_moduli;
+struct _krb5_srv_query_ctx;
 
 /* v4 glue */
 struct _krb5_krb_auth_data;
@@ -271,6 +273,7 @@ typedef struct krb5_context_data {
     heim_array_t default_realms;
     time_t max_skew;
     time_t kdc_timeout;
+    time_t host_timeout;
     unsigned max_retries;
     int32_t kdc_sec_offset;
     int32_t kdc_usec_offset;
@@ -306,7 +309,7 @@ typedef struct krb5_context_data {
     void *mutex;			/* protects error_string */
     int large_msg_size;
     int max_msg_size;
-    int tgs_negative_timeout;		/* timeout for TGS negative cache */
+    krb5_deltat tgs_negative_timeout;		/* timeout for TGS negative cache */
     int flags;
 #define KRB5_CTX_F_DNS_CANONICALIZE_HOSTNAME	1
 #define KRB5_CTX_F_CHECK_PAC			2
@@ -317,6 +320,7 @@ typedef struct krb5_context_data {
 #ifdef PKINIT
     hx509_context hx509ctx;
 #endif
+    unsigned int num_kdc_requests;
 } krb5_context_data;
 
 #ifndef KRB5_USE_PATH_TOKENS
@@ -333,6 +337,7 @@ typedef struct krb5_context_data {
 #define EXTRACT_TICKET_MATCH_REALM			4
 #define EXTRACT_TICKET_AS_REQ				8
 #define EXTRACT_TICKET_TIMESYNC				16
+#define EXTRACT_TICKET_REQUIRE_ENC_PA			32
 
 /*
  * Configurable options
@@ -378,6 +383,31 @@ struct krb5_pk_identity {
 enum krb5_pk_type {
     PKINIT_WIN2K = 1,
     PKINIT_27 = 2
+};
+
+struct srv_reply {
+    krb5_krbhst_info *hi;
+    uint16_t priority;
+    int32_t weight;
+};
+
+struct _krb5_srv_query_ctx {
+    struct heim_base_uniq base;
+    krb5_context context;
+    heim_sema_t sema;
+    struct krb5_krbhst_data *handle;
+    char *domain;
+    int def_port;
+    int proto_num;
+    const char *path;
+
+#ifdef __APPLE__
+    int port;
+
+    /* replys */
+    struct srv_reply *array;
+    size_t len;
+#endif
 };
 
 #endif /* PKINIT */

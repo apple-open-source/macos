@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2013 Apple Inc.
  */
 
 #ifndef __AUTOFS_KERN_H__
@@ -187,13 +187,15 @@ typedef struct fnnode {
 	struct timeval	fn_mtime;
 	struct timeval	fn_ctime;
 	struct autofs_globals *fn_globals;	/* global variables */
+	lck_mtx_t	*fn_mnt_lock;		/* protects race between autofs and homedirmounter */
 } fnnode_t;
 
 #define vntofn(vp)	((struct fnnode *)(vnode_fsnode(vp)))
 #define	fntovn(fnp)	(((fnp)->fn_vnode))
 #define	vfstofni(mp)	((fninfo_t *)(vfs_fsprivate(mp)))
 
-#define	MF_HOMEDIRMOUNT	0x001		/* Home directory mount in progress */
+#define	MF_HOMEDIRMOUNT         0x001	/* Home directory mount in progress */
+#define	MF_HOMEDIRMOUNT_LOCKED	0x002	/* Home directory mount lock taken */
 
 #define	AUTOFS_MODE		0555
 #define	AUTOFS_BLOCKSIZE	1024
@@ -238,7 +240,7 @@ extern int auto_is_automounter(int);
 extern int auto_is_nowait_process(int);
 extern int auto_is_notrigger_process(int);
 extern int auto_is_homedirmounter_process(vnode_t, int);
-extern int auto_mark_vnode_homedirmount(vnode_t, int);
+extern int auto_mark_vnode_homedirmount(vnode_t, int, int);
 extern int auto_is_autofs(mount_t);
 extern int auto_nobrowse(vnode_t);
 extern void auto_get_attributes(vnode_t, struct vnode_attr *);

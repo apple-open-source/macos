@@ -40,6 +40,7 @@
 #include <SystemConfiguration/SCPrivate.h>
 
 #include <notify.h>
+#include "ip_plugin.h"
 
 static SCDynamicStoreRef	store		= NULL;
 static CFRunLoopSourceRef	rls		= NULL;
@@ -63,7 +64,7 @@ set_hostname(CFStringRef hostname)
 		char	new_name[MAXHOSTNAMELEN];
 
 		if (gethostname(old_name, sizeof(old_name)) == -1) {
-			SCLog(TRUE, LOG_ERR, CFSTR("gethostname() failed: %s"), strerror(errno));
+			my_log(LOG_ERR, "gethostname() failed: %s", strerror(errno));
 			old_name[0] = '\0';
 		}
 
@@ -71,7 +72,7 @@ set_hostname(CFStringRef hostname)
 					    new_name,
 					    sizeof(new_name),
 					    kCFStringEncodingUTF8) == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("could not convert [new] hostname"));
+			my_log(LOG_ERR, "could not convert [new] hostname");
 			new_name[0] = '\0';
 		}
 
@@ -81,22 +82,22 @@ set_hostname(CFStringRef hostname)
 			if (sethostname(new_name, strlen(new_name)) == 0) {
 				uint32_t	status;
 
-				SCLog(TRUE, LOG_NOTICE,
-				      CFSTR("setting hostname to \"%s\""),
-				      new_name);
+				my_log(LOG_NOTICE,
+				       "setting hostname to \"%s\"",
+				       new_name);
 
 				status = notify_post(HOSTNAME_NOTIFY_KEY);
 				if (status != NOTIFY_STATUS_OK) {
-					SCLog(TRUE, LOG_ERR,
-					      CFSTR("notify_post(" HOSTNAME_NOTIFY_KEY ") failed: error=%lu"),
-					      status);
+					my_log(LOG_ERR,
+					       "notify_post(" HOSTNAME_NOTIFY_KEY ") failed: error=%lu",
+					       status);
 				}
 			} else {
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("sethostname(%s, %d) failed: %s"),
-				      new_name,
-				      strlen(new_name),
-				      strerror(errno));
+				my_log(LOG_ERR,
+				       "sethostname(%s, %d) failed: %s",
+				       new_name,
+				       strlen(new_name),
+				       strerror(errno));
 			}
 		}
 	}
@@ -319,11 +320,12 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 
 	(void) gettimeofday(&dnsQueryComplete, NULL);
 	timersub(&dnsQueryComplete, &dnsQueryStart, &dnsQueryElapsed);
-	SCLog(_verbose, LOG_INFO,
-	      CFSTR("async DNS complete%s (query time = %d.%3.3d)"),
-	      ((status == 0) && (host != NULL)) ? "" : ", host not found",
-	      dnsQueryElapsed.tv_sec,
-	      dnsQueryElapsed.tv_usec / 1000);
+	if (_verbose) {
+		my_log(LOG_INFO, "async DNS complete%s (query time = %d.%3.3d)",
+		       ((status == 0) && (host != NULL)) ? "" : ", host not found",
+		       dnsQueryElapsed.tv_sec,
+		       dnsQueryElapsed.tv_usec / 1000);
+	}
 
 	// use reverse DNS name, if available
 
@@ -335,7 +337,7 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 			if (host != NULL) {
 				hostname = CFStringCreateWithCString(NULL, host, kCFStringEncodingUTF8);
 				if (hostname != NULL) {
-					SCLog(TRUE, LOG_INFO, CFSTR("hostname (reverse DNS query) = %@"), hostname);
+					my_log(LOG_INFO, "hostname (reverse DNS query) = %@", hostname);
 					set_hostname(hostname);
 					CFRelease(hostname);
 					goto done;
@@ -356,7 +358,7 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 			/*
 			 * Hmmmm...
 			 */
-			SCLog(TRUE, LOG_ERR, CFSTR("getnameinfo() failed: %s"), gai_strerror(status));
+			my_log(LOG_ERR, "getnameinfo() failed: %s", gai_strerror(status));
 	}
 
 	// get local (multicast DNS) name, if available
@@ -365,8 +367,9 @@ reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 	if (hostname != NULL) {
 		CFMutableStringRef	localName;
 
-		SCLog(TRUE, LOG_INFO, CFSTR("hostname (multicast DNS) = %@"), hostname);
+		my_log(LOG_INFO, "hostname (multicast DNS) = %@", hostname);
 		localName = CFStringCreateMutableCopy(NULL, 0, hostname);
+		assert(localName != NULL);
 		CFStringAppend(localName, CFSTR(".local"));
 		set_hostname(localName);
 		CFRelease(localName);
@@ -409,7 +412,7 @@ getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, voi
 		// we've received a callback on the async DNS port but since the
 		// associated CFMachPort doesn't match than the request must have
 		// already been cancelled.
-		SCLog(TRUE, LOG_ERR, CFSTR("getnameinfo_async_handleCFReply(): port != dnsPort"));
+		my_log(LOG_ERR, "getnameinfo_async_handleCFReply(): port != dnsPort");
 		return;
 	}
 
@@ -459,13 +462,13 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 	Boolean				ok;
 
 	if (_SC_cfstring_to_cstring(address, buf, sizeof(buf), kCFStringEncodingASCII) == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("could not convert [primary] address"));
+		my_log(LOG_ERR, "could not convert [primary] address");
 		return;
 	}
 
 	if (_SC_string_to_sockaddr(buf, AF_UNSPEC, (void *)&addr, sizeof(addr)) == NULL) {
 		/* if not an IP[v6] address */
-		SCLog(TRUE, LOG_ERR, CFSTR("could not parse [primary] address"));
+		my_log(LOG_ERR, "could not parse [primary] address");
 		return;
 	}
 
@@ -543,7 +546,7 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	hostname = copy_static_name();
 	if (hostname != NULL) {
-		SCLog(TRUE, LOG_INFO, CFSTR("hostname (static) = %@"), hostname);
+		my_log(LOG_INFO, "hostname (static) = %@", hostname);
 		set_hostname(hostname);
 		goto done;
 	}
@@ -552,7 +555,7 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	hostname = copy_prefs_hostname(store);
 	if (hostname != NULL) {
-		SCLog(TRUE, LOG_INFO, CFSTR("hostname (prefs) = %@"), hostname);
+		my_log(LOG_INFO, "hostname (prefs) = %@", hostname);
 		set_hostname(hostname);
 		goto done;
 	}
@@ -568,7 +571,7 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	hostname = copy_dhcp_hostname(serviceID);
 	if (hostname != NULL) {
-		SCLog(TRUE, LOG_INFO, CFSTR("hostname (DHCP) = %@"), hostname);
+		my_log(LOG_INFO, "hostname (DHCP) = %@", hostname);
 		set_hostname(hostname);
 		goto done;
 	}
@@ -590,8 +593,9 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 	if (hostname != NULL) {
 		CFMutableStringRef	localName;
 
-		SCLog(TRUE, LOG_INFO, CFSTR("hostname (multicast DNS) = %@"), hostname);
+		my_log(LOG_INFO, "hostname (multicast DNS) = %@", hostname);
 		localName = CFStringCreateMutableCopy(NULL, 0, hostname);
+		assert(localName != NULL);
 		CFStringAppend(localName, CFSTR(".local"));
 		set_hostname(localName);
 		CFRelease(localName);
@@ -628,9 +632,9 @@ load_hostname(Boolean verbose)
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("set-hostname"), update_hostname, NULL);
 	if (store == NULL) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStoreCreate() failed: %s"),
-		      SCErrorString(SCError()));
+		my_log(LOG_ERR,
+		       "SCDynamicStoreCreate() failed: %s",
+		       SCErrorString(SCError()));
 		goto error;
 	}
 
@@ -673,17 +677,17 @@ load_hostname(Boolean verbose)
 
 	/* register the keys/patterns */
 	if (!SCDynamicStoreSetNotificationKeys(store, keys, patterns)) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStoreSetNotificationKeys() failed: %s"),
-		      SCErrorString(SCError()));
+		my_log(LOG_ERR,
+		       "SCDynamicStoreSetNotificationKeys() failed: %s",
+		       SCErrorString(SCError()));
 		goto error;
 	}
 
 	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 	if (!rls) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("SCDynamicStoreCreateRunLoopSource() failed: %s"),
-		      SCErrorString(SCError()));
+		my_log(LOG_ERR,
+		       "SCDynamicStoreCreateRunLoopSource() failed: %s",
+		       SCErrorString(SCError()));
 		goto error;
 	}
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);

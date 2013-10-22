@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -403,7 +403,7 @@ flush_dynamic_routes(int s)
 		   strerror(errno));
 	}
 	else if (G_IPConfiguration_verbose) {
-	    my_log(LOG_NOTICE,
+	    my_log(LOG_DEBUG,
 		   "IPConfiguration: removed dynamic route for " IP_FORMAT, 
 		   IP_LIST(&sin->sin_addr));
 	}

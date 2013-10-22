@@ -1,4 +1,4 @@
-/* $OpenBSD: sftp.c,v 1.132 2010/12/04 00:18:01 djm Exp $ */
+/* $OpenBSD: sftp.c,v 1.142 2013/02/08 00:41:12 djm Exp $ */
 /*
  * Copyright (c) 2001-2004 Damien Miller <djm@openbsd.org>
  *
@@ -52,10 +52,6 @@ typedef void EditLine;
 
 #ifdef HAVE_UTIL_H
 # include <util.h>
-#endif
-
-#ifdef HAVE_LIBUTIL_H
-# include <libutil.h>
 #endif
 
 #include "xmalloc.h"
@@ -783,7 +779,6 @@ static int
 do_globbed_ls(struct sftp_conn *conn, char *path, char *strip_path,
     int lflag)
 {
-	Attrib *a = NULL;
 	char *fname, *lname;
 	glob_t g;
 	int err;
@@ -793,7 +788,8 @@ do_globbed_ls(struct sftp_conn *conn, char *path, char *strip_path,
 	memset(&g, 0, sizeof(g));
 
 	if (remote_glob(conn, path,
-	    GLOB_MARK|GLOB_NOCHECK|GLOB_BRACE|GLOB_KEEPSTAT, NULL, &g) ||
+	    GLOB_MARK|GLOB_NOCHECK|GLOB_BRACE|GLOB_KEEPSTAT|GLOB_NOSORT,
+	    NULL, &g) ||
 	    (g.gl_pathc && !g.gl_matchc)) {
 		if (g.gl_pathc)
 			globfree(&g);
@@ -828,7 +824,7 @@ do_globbed_ls(struct sftp_conn *conn, char *path, char *strip_path,
 		colspace = width / columns;
 	}
 
-	for (i = 0; g.gl_pathv[i] && !interrupted; i++, a = NULL) {
+	for (i = 0; g.gl_pathv[i] && !interrupted; i++) {
 		fname = path_strip(g.gl_pathv[i], strip_path);
 		if (lflag & LS_LONG_VIEW) {
 			if (g.gl_statv[i] == NULL) {
@@ -991,6 +987,10 @@ makeargv(const char *arg, int *argcp, int sloppy, char *lastquote,
 	state = MA_START;
 	i = j = 0;
 	for (;;) {
+		if ((size_t)argc >= sizeof(argv) / sizeof(*argv)){
+			error("Too many arguments.");
+			return NULL;
+		}
 		if (isspace(arg[i])) {
 			if (state == MA_UNQUOTED) {
 				/* Terminate current argument */
@@ -1141,7 +1141,7 @@ parse_args(const char **cpp, int *pflag, int *rflag, int *lflag, int *iflag,
 
 	/* Figure out which command we have */
 	for (i = 0; cmds[i].c != NULL; i++) {
-		if (strcasecmp(cmds[i].c, argv[0]) == 0)
+		if (argv[0] != NULL && strcasecmp(cmds[i].c, argv[0]) == 0)
 			break;
 	}
 	cmdnum = cmds[i].n;
@@ -1630,8 +1630,10 @@ complete_cmd_parse(EditLine *el, char *cmd, int lastarg, char quote,
 	}
 	list[count] = NULL;
 
-	if (count == 0)
+	if (count == 0) {
+		xfree(list);
 		return 0;
+	}
 
 	/* Complete ambigious command */
 	tmp = complete_ambiguous(cmd, list, count);
@@ -1693,7 +1695,7 @@ complete_match(EditLine *el, struct sftp_conn *conn, char *remote_path,
 {
 	glob_t g;
 	char *tmp, *tmp2, ins[3];
-	u_int i, hadglob, pwdlen, len, tmplen, filelen;
+	u_int i, hadglob, pwdlen, len, tmplen, filelen, cesc, isesc, isabs;
 	const LineInfo *lf;
 	
 	/* Glob from "file" location */
@@ -1701,6 +1703,9 @@ complete_match(EditLine *el, struct sftp_conn *conn, char *remote_path,
 		tmp = xstrdup("*");
 	else
 		xasprintf(&tmp, "%s*", file);
+
+	/* Check if the path is absolute. */
+	isabs = tmp[0] == '/';
 
 	memset(&g, 0, sizeof(g));
 	if (remote != LOCAL) {
@@ -1736,7 +1741,7 @@ complete_match(EditLine *el, struct sftp_conn *conn, char *remote_path,
 		goto out;
 
 	tmp2 = complete_ambiguous(file, g.gl_pathv, g.gl_matchc);
-	tmp = path_strip(tmp2, remote_path);
+	tmp = path_strip(tmp2, isabs ? NULL : remote_path);
 	xfree(tmp2);
 
 	if (tmp == NULL)
@@ -1745,8 +1750,18 @@ complete_match(EditLine *el, struct sftp_conn *conn, char *remote_path,
 	tmplen = strlen(tmp);
 	filelen = strlen(file);
 
-	if (tmplen > filelen)  {
-		tmp2 = tmp + filelen;
+	/* Count the number of escaped characters in the input string. */
+	cesc = isesc = 0;
+	for (i = 0; i < filelen; i++) {
+		if (!isesc && file[i] == '\\' && i + 1 < filelen){
+			isesc = 1;
+			cesc++;
+		} else
+			isesc = 0;
+	}
+
+	if (tmplen > (filelen - cesc)) {
+		tmp2 = tmp + filelen - cesc;
 		len = strlen(tmp2); 
 		/* quote argument on way out */
 		for (i = 0; i < len; i++) {
@@ -1760,6 +1775,8 @@ complete_match(EditLine *el, struct sftp_conn *conn, char *remote_path,
 			case '\t':
 			case '[':
 			case ' ':
+			case '#':
+			case '*':
 				if (quote == '\0' || tmp2[i] == quote) {
 					if (el_insertstr(el, ins) == -1)
 						fatal("el_insertstr "
@@ -1915,6 +1932,7 @@ interactive_loop(struct sftp_conn *conn, char *file1, char *file2)
 				return (-1);
 			}
 		} else {
+			/* XXX this is wrong wrt quoting */
 			if (file2 == NULL)
 				snprintf(cmd, sizeof cmd, "get %s", dir);
 			else
@@ -1931,13 +1949,8 @@ interactive_loop(struct sftp_conn *conn, char *file1, char *file2)
 		xfree(dir);
 	}
 
-#if defined(HAVE_SETVBUF) && !defined(BROKEN_SETVBUF)
-	setvbuf(stdout, NULL, _IOLBF, 0);
-	setvbuf(infile, NULL, _IOLBF, 0);
-#else
 	setlinebuf(stdout);
 	setlinebuf(infile);
-#endif
 
 	interactive = !batchmode && isatty(STDIN_FILENO);
 	err = 0;

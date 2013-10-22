@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -106,10 +106,15 @@
 #define SMBV_SIGNING				SMB_SM_SIGS		/* 0x04 server does smb signing */
 #define SMBV_SIGNING_REQUIRED		SMB_SM_SIGS_REQ	/* 0x08 serrver requires smb signing */
 #define SMBV_SECURITY_MODE_MASK		0x000000ff		/* Lower byte reserved for the security modes */
+
 #define	SMBV_NT4					0x00000100		/* Tells us the server is a NT4 */
 #define	SMBV_WIN2K_XP				0x00000200		/* Tells us the server is Windows 2000 or XP */
 #define SMBV_DARWIN					0x00000400		/* Mac OS X Server */
+#define SMBV_SMB2                 0x00001000		/* Using some version of SMB 2.x */
+#define SMBV_SMB2002              0x00002000		/* Using SMB 2.002 */
+#define SMBV_SMB21                0x00004000		/* Using SMB 2.1 */
 #define SMBV_SERVER_MODE_MASK		0x0000ff00		/* This nible is reserved for special server types */
+
 #define SMBV_NETWORK_SID			0x00010000		/* The user's sid has been set on the vc */
 #define	SMBV_AUTH_DONE				0x00080000		/* Security compeleted successfully */
 #define SMBV_PRIV_GUEST_ACCESS		0x00100000		/* Guest access is private */
@@ -122,13 +127,34 @@
 #define SMBV_SFS_ACCESS				0x08000000		/* Server is using simple file sharing. All access is forced to guest This is a kernel only flag */
 #define	SMBV_GONE					SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
 
+/*
+ * vc_misc_flags - another flags field since vc_flags is almost full.
+ */
+#define	SMBV_NEG_SMB1_ONLY  0x00000001		/* Only allow SMB1 */
+#define	SMBV_NEG_SMB2_ONLY  0x00000002		/* Only allow SMB2 */
+#define	SMBV_64K_QUERY_DIR  0x00000004		/* Use 64Kb OutputBufLen in Query_Dir */
+#define	SMBV_64K_QUERY_INFO 0x00000008		/* Use 64Kb OutputBufLen in Query_Info */
+#define	SMBV_HAS_FILEIDS    0x00000010		/* Has File IDs that we can use for hash values and inode number */
+#define	SMBV_NO_QUERYINFO   0x00000020		/* Server does not like Query Info for FileAllInformation */
+#define	SMBV_OSX_SERVER     0x00000040		/* Server is OS X based */
+#define	SMBV_OTHER_SERVER   0x00000080		/* Server is not OS X based */
+#define SMBV_CLIENT_SIGNING_REQUIRED	0x00000100
+#define SMBV_NON_COMPOUND_REPLIES       0x00000200    /* Server does not send compound replies */
+#define SMBV_63K_IOCTL      0x00000400      /* Use 63K MaxOutputResponse */
+
 #define SMBV_HAS_GUEST_ACCESS(vcp)		(((vcp)->vc_flags & (SMBV_GUEST_ACCESS | SMBV_SFS_ACCESS)) != 0)
+#define SMBV_HAS_ANONYMOUS_ACCESS(vcp)	(((vcp)->vc_flags & (SMBV_ANONYMOUS_ACCESS | SMBV_SFS_ACCESS)) != 0)
+
+#define kSMB_64K 65536      /* For the QueryDir and QueryInfo limits */
+#define kSMB_63K 65534      /* <14281932> Max Net App can handle in IOCTL */
+
 /*
  * smb_share flags
  */
 #define SMBS_PERMANENT		0x0001
 #define SMBS_RECONNECTING	0x0002
 #define SMBS_CONNECTED		0x0004
+#define SMBS_GOING_AWAY		0x0008
 #define	SMBS_GONE			SMBO_GONE		/* 0x80000000 - Reserved see above for more details */
 
 /*
@@ -139,7 +165,12 @@ struct smb_sopt {
 	uint16_t	sv_maxmux;	/* SMB1 - max number of outstanding rq's */
 	uint16_t 	sv_maxvcs;	/* SMB1 - max number of VCs */
 	uint32_t	sv_skey;	/* session key */
-	uint32_t	sv_caps;	/* capabilites SMB_CAP_ */
+	uint32_t	sv_caps;	/* SMB1 - capabilities, preset for SMB2 */
+	uint16_t	sv_dialect;         /* SMB2 - dialect (non zero for SMB2 */
+	uint32_t	sv_capabilities;	/* SMB2 - capabilities */
+	uint32_t	sv_maxtransact;     /* SMB2 - max transact size */
+	uint32_t	sv_maxread;         /* SMB2 - max read size */
+	uint32_t	sv_maxwrite;        /* SMB2 - max write size */
 };
 
 /*
@@ -166,13 +197,14 @@ enum smb_fs_types {
 	SMB_FS_NTFS_UNKNOWN = 3,	/* NTFS file system, sometimes faked by server no streams support */
 	SMB_FS_NTFS = 4,			/* Real NTFS or fully pretending, NTFS share that also supports STREAMS. */
 	SMB_FS_NTFS_UNIX = 5,		/* Pretending to be NTFS file system, no streams, but it is a UNIX system */
-	SMB_FS_MAC_OS_X = 6			/* Mac OS X Leopard SAMBA Server, Support streams. */
+	SMB_FS_MAC_OS_X = 6			/* Mac OS X Server, SMB2 or greater */
 };
 
 #ifdef _KERNEL
 
 #include <sys/lock.h>
 #include <netsmb/smb_subr.h>
+#include <netsmb/smb_fid.h>
 
 struct smbioc_negotiate;
 struct smbioc_setup;
@@ -265,6 +297,13 @@ struct smb_gss {
 #define	SMBC_ST_LOCK(vcp)	lck_mtx_lock(&(vcp)->vc_stlock)
 #define	SMBC_ST_UNLOCK(vcp)	lck_mtx_unlock(&(vcp)->vc_stlock)
 
+/*
+ * This lock protects vc_credits_ fields
+ */
+#define SMBC_CREDIT_LOCKPTR(vcp)  (&(vcp)->vc_credits_lock)
+#define	SMBC_CREDIT_LOCK(vcp)	lck_mtx_lock(&(vcp)->vc_credits_lock)
+#define	SMBC_CREDIT_UNLOCK(vcp)	lck_mtx_unlock(&(vcp)->vc_credits_lock)
+
 
 struct smb_vc {
 	struct smb_connobj	obj;
@@ -287,8 +326,17 @@ struct smb_vc {
 	struct smb_tran_desc *vc_tdesc;
 	int					vc_chlen;			/* actual challenge length */
 	u_char				vc_ch[SMB_MAXCHALLENGELEN];
-	Boolean				supportHighPID;		/* does the server support returning the high pid */
 	uint32_t			vc_mid;				/* multiplex id, we use the high pid to make the larger */
+    uuid_t              vc_client_guid;     /* SMB2 client Guid for Neg req */
+	uint64_t            vc_message_id;		/* SMB2 request message id */
+	uint32_t            vc_credits_granted; /* SMB2 credits granted */
+	uint32_t            vc_credits_ss_granted; /* SMB2 credits granted from session setup replies */
+	uint32_t            vc_credits_max;     /* SMB2 max amount of credits server has granted us */
+	uint32_t            vc_credits_wait;    /* SMB2 credit wait */
+	lck_mtx_t			vc_credits_lock;
+	uint64_t            vc_session_id;      /* SMB2 session id */
+	uint64_t            vc_prev_session_id; /* SMB2 prev sessID for reconnect */
+	uint64_t            vc_misc_flags;      /* SMB2 misc flags */
 	struct smb_sopt		vc_sopt;			/* server options */
 	uint32_t			vc_txmax;			/* max tx/rx packet size */
 	uint32_t			vc_rxmax;			/* max readx data size */
@@ -307,6 +355,10 @@ struct smb_vc {
 	struct smb_gss		vc_gss;				/* Parameters for gssd */
 	ntsid_t				vc_ntwrk_sid;
 	void				*throttle_info;
+	uint64_t            vc_server_caps;     /* SMB2 server capabilities */
+	uint64_t            vc_volume_caps;     /* SMB2 volume capabilities*/
+	char                *vc_model_info;     /* SMB2 server model string */
+    int32_t             vc_lease_key;       /* SMB2 lease key incrementer to keep it unique */
 };
 
 #define vc_maxmux	vc_sopt.sv_maxmux
@@ -330,7 +382,7 @@ typedef int ss_down_t (struct smb_share *share, int timeToNotify);
 
 struct smb_share {
 	struct smb_connobj obj;
-	lck_mtx_t		ss_stlock;	/* Used to lock the flags fied only */
+	lck_mtx_t		ss_stlock;	/* Used to lock the flags field only */
 	char			*ss_name;
 	struct smbmount	*ss_mount;	/* used for smb up/down */
 	ss_going_away_t	*ss_going_away;
@@ -341,13 +393,24 @@ struct smb_share {
 	uint32_t		ss_dead_timer;	/* Time to wait before this share should be marked dead, zero means never */
 	uint32_t		ss_soft_timer;	/* Time to wait before this share should return time out errors, zero means never */
 	u_short			ss_tid;         /* Tree ID for SMB1 */
-	uint64_t		ss_unix_caps;	/* unix capabilites are per share not VC */
-	enum smb_fs_types ss_fstype;	/* file system type of the  share */
+	uint32_t		ss_tree_id;		/* Tree ID for SMB2 */
+	uint32_t		ss_share_type;	/* Tree share type for SMB2 */
+	uint32_t		ss_share_flags;	/* Tree share flags for SMB2 */
+	uint32_t		ss_share_caps;	/* Tree share capabilities for SMB2 */
+	uint64_t		ss_unix_caps;	/* Unix capabilites are per share not VC */
+	enum smb_fs_types ss_fstype;	/* File system type of the share */
 	uint32_t		ss_attributes;	/* File System Attributes */
 	uint32_t		ss_maxfilenamelen;
 	uint16_t		optionalSupport;
-	uint32_t		maxAccessRights;
+	uint32_t		maxAccessRights;    /* SMB1 and SMB2 */
 	uint32_t		maxGuestAccessRights;
+	
+	/* SMB2 FID mapping support */
+	lck_mtx_t		ss_fid_lock;
+	uint64_t		ss_fid_collisions;
+	uint64_t		ss_fid_inserted;
+	uint64_t		ss_fid_max_iter;
+	FID_HASH_TABLE_SLOT	ss_fid_table[SMB_FID_TABLE_SIZE];
 };
 
 #define	ss_flags	obj.co_flags
@@ -396,17 +459,17 @@ const char * smb_share_getpass(struct smb_share *share);
 /*
  * SMB protocol level functions
  */
-int  smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context, 
-                       int inReconnect, vfs_context_t context);
-int  smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context);
+int  smb1_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context,
+                        int inReconnect, int onlySMB1, vfs_context_t context);
+int  smb_smb_ssnsetup(struct smb_vc *vcp, int inReconnect, vfs_context_t context);
 int  smb_smb_ssnclose(struct smb_vc *vcp, vfs_context_t context);
 int  smb_smb_treeconnect(struct smb_share *share, vfs_context_t context);
 int  smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context);
-int  smb_read(struct smb_share *share, uint16_t fid, uio_t uio, 
+int  smb1_read(struct smb_share *share, SMBFID fid, uio_t uio, 
               vfs_context_t context);
-int  smb_write(struct smb_share *share, uint16_t fid, uio_t uio, int ioflag, 
+int  smb1_write(struct smb_share *share, SMBFID fid, uio_t uio, int ioflag, 
                vfs_context_t context);
-int  smb_echo(struct smb_vc *vcp, int timo, uint32_t EchoCount, 
+int  smb1_echo(struct smb_vc *vcp, int timo, uint32_t EchoCount, 
               vfs_context_t context);
 int  smb_checkdir(struct smb_share *share, struct smbnode *dnp, 
                   const char *name, size_t nmlen, vfs_context_t context);
@@ -454,11 +517,18 @@ int  smb_checkdir(struct smb_share *share, struct smbnode *dnp,
  * smbiod thread
  */
 
+/* 
+ * Event type (ev_type) must be less than 0xff 
+ * Upper bits are used to setting Sync and Processing
+ */
 #define	SMBIOD_EV_NEWRQ		0x0001
 #define	SMBIOD_EV_SHUTDOWN	0x0002
-#define	SMBIOD_EV_DISCONNECT	0x0004
+#define SMBIOD_EV_FORCE_RECONNECT 0x0003
+#define	SMBIOD_EV_DISCONNECT 0x0004
+/* 0x0005 available for use */
 #define	SMBIOD_EV_NEGOTIATE	0x0006
 #define	SMBIOD_EV_SSNSETUP	0x0007
+
 #define	SMBIOD_EV_MASK		0x00ff
 #define	SMBIOD_EV_SYNC		0x0100
 #define	SMBIOD_EV_PROCESSING	0x0200
@@ -477,29 +547,32 @@ struct smbiod_event {
 #define	SMBIOD_VC_NOTRESP		0x0010
 
 struct smbiod {
-	int					iod_id;
-	int					iod_flags;
-	enum smbiod_state	iod_state;
-	lck_mtx_t			iod_flagslock;	/* iod_flags */
-	int					iod_muxcnt;	/* number of active outstanding requests */
-	int					iod_asynccnt;	/* number of active outstanding async requests */
-	struct timespec 	iod_sleeptimespec;
-	struct smb_vc *		iod_vc;
-	lck_mtx_t			iod_rqlock;	/* iod_rqlist, iod_muxwant */
-	struct smb_rqhead	iod_rqlist;	/* list of outstanding requests */
-	int					iod_muxwant;
-	vfs_context_t		iod_context;
-	lck_mtx_t			iod_evlock;	/* iod_evlist */
-	STAILQ_HEAD(,smbiod_event) iod_evlist;
-	struct timespec 	iod_lastrqsent;
-	struct timespec 	iod_lastrecv;
-	int					iod_workflag;	/* should be protected with lock */
-	struct timespec		reconnectStartTime; /* Time when the reconnect was started */
+    int                 iod_id;
+    int                 iod_flags;
+    enum smbiod_state   iod_state;
+    lck_mtx_t           iod_flagslock;  /* iod_flags */
+    /* number of active outstanding requests (keep it signed!) */
+    int64_t             iod_muxcnt;
+    /* number of active outstanding async requests (keep it signed!) */
+    int32_t             iod_asynccnt;	
+    struct timespec     iod_sleeptimespec;
+    struct smb_vc *     iod_vc;
+    lck_mtx_t           iod_rqlock;     /* iod_rqlist, iod_muxwant */
+    struct smb_rqhead   iod_rqlist;     /* list of outstanding requests */
+    int                 iod_muxwant;
+    vfs_context_t       iod_context;
+    lck_mtx_t           iod_evlock;     /* iod_evlist */
+    STAILQ_HEAD(,smbiod_event) iod_evlist;
+    struct timespec     iod_lastrqsent;
+    struct timespec     iod_lastrecv;
+    int                 iod_workflag;   /* should be protected with lock */
+    struct timespec     reconnectStartTime; /* Time when the reconnect was started */
 };
 
 int  smb_iod_nb_intr(struct smb_vc *vcp);
 int  smb_iod_init(void);
 int  smb_iod_done(void);
+int smb_vc_force_reconnect(struct smb_vc *vcp);
 void smb_vc_reset(struct smb_vc *vcp);
 int  smb_iod_create(struct smb_vc *vcp);
 int  smb_iod_destroy(struct smbiod *iod);
@@ -512,21 +585,35 @@ void smb_iod_errorout_share_request(struct smb_share *share, int error);
 extern lck_grp_attr_t *co_grp_attr;
 extern lck_grp_t *co_lck_group;
 extern lck_attr_t *co_lck_attr;
+
+extern lck_grp_attr_t *vc_credits_grp_attr;
+extern lck_grp_t *vc_credits_lck_group;
+extern lck_attr_t *vc_credits_lck_attr;
+
 extern lck_grp_attr_t *vcst_grp_attr;
 extern lck_grp_t *vcst_lck_group;
 extern lck_attr_t *vcst_lck_attr;
+
 extern lck_grp_attr_t *ssst_grp_attr;
 extern lck_grp_t *ssst_lck_group;
 extern lck_attr_t *ssst_lck_attr;
+
+extern lck_grp_attr_t *fid_lck_grp_attr;
+extern lck_grp_t *fid_lck_grp;
+extern lck_attr_t *fid_lck_attr;
+
 extern lck_grp_attr_t *iodflags_grp_attr;
 extern lck_grp_t *iodflags_lck_group;
 extern lck_attr_t *iodflags_lck_attr;
+
 extern lck_grp_attr_t *iodrq_grp_attr;
 extern lck_grp_t *iodrq_lck_group;
 extern lck_attr_t *iodrq_lck_attr;
+
 extern lck_grp_attr_t *iodev_grp_attr;
 extern lck_grp_t *iodev_lck_group;
 extern lck_attr_t *iodev_lck_attr;
+
 extern lck_grp_attr_t *srs_grp_attr;
 extern lck_grp_t *srs_lck_group;
 extern lck_attr_t *srs_lck_attr;

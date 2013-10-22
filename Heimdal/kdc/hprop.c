@@ -73,6 +73,7 @@ open_socket(krb5_context context, const char *hostname, const char *port)
 	s = socket (a->ai_family, a->ai_socktype, a->ai_protocol);
 	if (s < 0)
 	    continue;
+	socket_set_nopipe(s, 1);
 	if (connect (s, a->ai_addr, a->ai_addrlen) < 0) {
 	    warn ("connect(%s)", hostname);
 	    close (s);

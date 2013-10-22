@@ -32,10 +32,10 @@
 #include "SecImportExportCrypto.h"
 #include "SecImportExportOpenSSH.h"
 #include <security_utilities/errors.h>
+#include <Security/SecBase.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecCertificate.h>
 #include <Security/cssmapi.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 using namespace Security;
 using namespace KeychainCore;
@@ -235,7 +235,7 @@ OSStatus SecExport::Key::exportRep(
 	 * Remaining formats just do a NULL key wrap. Figure out the appropriate
 	 * CDSA-specific format and wrap parameters. 
 	 */
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	CSSM_KEYBLOB_FORMAT blobForm;
 	
 	switch(mExternType) {
@@ -388,7 +388,7 @@ OSStatus SecExport::Cert::exportRep(
 	CFDataAppendBytes(outData, CFDataGetBytePtr(cdata), CFDataGetLength(cdata));
 	CFRelease(cdata);
 	*pemHeader = PEM_STRING_X509;
-	return noErr;
+	return errSecSuccess;
 }
 	
 #pragma mark --- SecImportRep: Representation of an external object on import ---
@@ -445,7 +445,7 @@ OSStatus SecImportRep::importRep(
 		   
 	/* app could conceivably botch these with crafty PEM hacking */
 	if((mExternal == NULL) || (CFDataGetLength(mExternal) == 0)) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	/* handle the easy ones first */
@@ -477,7 +477,7 @@ OSStatus SecImportRep::importRep(
 	if((mExternType == kSecItemTypeCertificate) || 
 	   (mExternType == kSecItemTypeAggregate)) {
 		SecImpExpDbg("SecImportRep::importRep screwup");
-		return unimpErr;
+		return errSecUnimplemented;
 	}
 
 	/* 
@@ -500,7 +500,7 @@ OSStatus SecImportRep::importRep(
 			break;
 	}
 	
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	
 	switch(mExternFormat) {
 		case kSecFormatOpenSSL:
@@ -527,7 +527,7 @@ OSStatus SecImportRep::importRep(
 		default:
 			return errSecUnknownFormat;
 	}
-	if((ortn == noErr) && (keyImportState == PIS_AllowOne)) {
+	if((ortn == errSecSuccess) && (keyImportState == PIS_AllowOne)) {
 		/* reached our limit */
 		keyImportState = PIS_NoMore;
 	}

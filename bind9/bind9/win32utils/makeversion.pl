@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# Copyright (C) 2004, 2007, 2012, 2013  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2007, 2012  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2001  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -47,12 +47,7 @@ while (<VERSIONFILE>) {
 	if($data) {
 		($name, $value) = split(/=/,$data);
 		($name) = split(/\s+/, $name);
-                if ($name eq 'PRODUCT' || $name eq 'DESCRIPTION') {
-                        ($value) =~ s/^["\s]+//;
-                        ($value) =~ s/["\s]+$//;
-                } else {
-                        ($value) = split(/\s+/, $value);
-                }
+		($value) = split(/\s+/, $value);
 		$Versions{$name} = $value;
 	}
 }
@@ -97,17 +92,11 @@ print OUTVERSIONFILE '
 
 ';
 
-if ($Versions{'PATCHVER'} != "") {
 $Version = "$Versions{'MAJORVER'}.$Versions{'MINORVER'}.$Versions{'PATCHVER'}";
-} else {
-	$Version = "$Versions{'MAJORVER'}.$Versions{'MINORVER'}";
-}
 $Version = "$Version$Versions{'RELEASETYPE'}$Versions{'RELEASEVER'}";
 print "BIND Version: $Version\n";
 
-print OUTVERSIONFILE "#define VERSION \"$Version\"\n";
-print OUTVERSIONFILE "#define PRODUCT \"$Versions{'PRODUCT'}\"\n\n";
-print OUTVERSIONFILE "#define DESCRIPTION \"$Versions{'DESCRIPTION'}\"\n\n";
+print OUTVERSIONFILE "#define VERSION \"$Version\"\n\n";
 
 foreach $dir (@dirlist) {
 	$apifile = "../lib/$dir/api";

@@ -1,9 +1,9 @@
 /*
- * "$Id: http-addrlist.c 7910 2008-09-06 00:25:17Z mike $"
+ * "$Id: http-addrlist.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   HTTP address list routines for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -14,11 +14,12 @@
  *
  * Contents:
  *
- *   httpAddrConnect()  - Connect to any of the addresses in the list.
+ *   httpAddrConnect()	- Connect to any of the addresses in the list.
  *   httpAddrConnect2() - Connect to any of the addresses in the list with a
- *                        timeout and optional cancel.
+ *			  timeout and optional cancel.
+ *   httpAddrCopyList() - Copy an address list.
  *   httpAddrFreeList() - Free an address list.
- *   httpAddrGetList()  - Get a list of addresses for a hostname.
+ *   httpAddrGetList()	- Get a list of addresses for a hostname.
  */
 
 /*
@@ -33,7 +34,7 @@
 #  include <poll.h>
 #endif /* HAVE_POLL */
 #ifndef WIN32
-#  include <sys/fcntl.h>
+#  include <fcntl.h>
 #endif /* WIN32 */
 
 
@@ -58,7 +59,7 @@ httpAddrConnect(
  * 'httpAddrConnect2()' - Connect to any of the addresses in the list with a
  *                        timeout and optional cancel.
  *
- * @since CUPS 1.6/OS X 10.8@
+ * @since CUPS 1.7/OS X 10.9@
  */
 
 http_addrlist_t *			/* O - Connected address or NULL on failure */
@@ -94,7 +95,7 @@ httpAddrConnect2(
   if (!sock)
   {
     errno = EINVAL;
-    _cupsSetError(IPP_INTERNAL_ERROR, strerror(errno), 0);
+    _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
     return (NULL);
   }
 
@@ -119,7 +120,7 @@ httpAddrConnect2(
 
     DEBUG_printf(("2httpAddrConnect2: Trying %s:%d...",
 		  httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
-		  _httpAddrPort(&(addrlist->addr))));
+		  httpAddrPort(&(addrlist->addr))));
 
     if ((*sock = (int)socket(_httpAddrFamily(&(addrlist->addr)), SOCK_STREAM,
                              0)) < 0)
@@ -138,21 +139,16 @@ httpAddrConnect2(
     */
 
     val = 1;
-#ifdef WIN32
-    setsockopt(*sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&val,
-               sizeof(val));
-#else
-    setsockopt(*sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-#endif /* WIN32 */
+    setsockopt(*sock, SOL_SOCKET, SO_REUSEADDR, CUPS_SOCAST &val, sizeof(val));
 
 #ifdef SO_REUSEPORT
     val = 1;
-    setsockopt(*sock, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(val));
+    setsockopt(*sock, SOL_SOCKET, SO_REUSEPORT, CUPS_SOCAST &val, sizeof(val));
 #endif /* SO_REUSEPORT */
 
 #ifdef SO_NOSIGPIPE
     val = 1;
-    setsockopt(*sock, SOL_SOCKET, SO_NOSIGPIPE, &val, sizeof(val));
+    setsockopt(*sock, SOL_SOCKET, SO_NOSIGPIPE, CUPS_SOCAST &val, sizeof(val));
 #endif /* SO_NOSIGPIPE */
 
    /*
@@ -161,12 +157,7 @@ httpAddrConnect2(
     */
 
     val = 1;
-#ifdef WIN32
-    setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, (const char *)&val,
-               sizeof(val));
-#else
-    setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
-#endif /* WIN32 */
+    setsockopt(*sock, IPPROTO_TCP, TCP_NODELAY, CUPS_SOCAST &val, sizeof(val));
 
 #ifdef FD_CLOEXEC
    /*
@@ -201,7 +192,7 @@ httpAddrConnect2(
     {
       DEBUG_printf(("1httpAddrConnect2: Connected to %s:%d...",
 		    httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
-		    _httpAddrPort(&(addrlist->addr))));
+		    httpAddrPort(&(addrlist->addr))));
 
 #ifdef O_NONBLOCK
       fcntl(*sock, F_SETFL, flags);
@@ -282,7 +273,7 @@ httpAddrConnect2(
           {
 	    DEBUG_printf(("1httpAddrConnect2: Connected to %s:%d...",
 			  httpAddrString(&peer, temp, sizeof(temp)),
-			  _httpAddrPort(&peer)));
+			  httpAddrPort(&peer)));
 
 	    return (addrlist);
 	  }
@@ -295,7 +286,7 @@ httpAddrConnect2(
 
     DEBUG_printf(("1httpAddrConnect2: Unable to connect to %s:%d: %s",
 		  httpAddrString(&(addrlist->addr), temp, sizeof(temp)),
-		  _httpAddrPort(&(addrlist->addr)), strerror(errno)));
+		  httpAddrPort(&(addrlist->addr)), strerror(errno)));
 
 #ifndef WIN32
     if (errno == EINPROGRESS)
@@ -318,12 +309,62 @@ httpAddrConnect2(
 
   if (!addrlist)
 #ifdef WIN32
-    _cupsSetError(IPP_SERVICE_UNAVAILABLE, "Connection failed", 0);
+    _cupsSetError(IPP_STATUS_ERROR_SERVICE_UNAVAILABLE, "Connection failed", 0);
 #else
-    _cupsSetError(IPP_SERVICE_UNAVAILABLE, strerror(errno), 0);
+    _cupsSetError(IPP_STATUS_ERROR_SERVICE_UNAVAILABLE, strerror(errno), 0);
 #endif /* WIN32 */
 
   return (addrlist);
+}
+
+
+
+/*
+ * 'httpAddrCopyList()' - Copy an address list.
+ *
+ * @since CUPS 1.7/OS X 10.9@
+ */
+
+http_addrlist_t	*			/* O - New address list or @code NULL@ on error */
+httpAddrCopyList(
+    http_addrlist_t *src)		/* I - Source address list */
+{
+  http_addrlist_t	*dst = NULL,	/* First list entry */
+			*prev = NULL,	/* Previous list entry */
+			*current = NULL;/* Current list entry */
+
+
+  while (src)
+  {
+    if ((current = malloc(sizeof(http_addrlist_t))) == NULL)
+    {
+      current = dst;
+
+      while (current)
+      {
+        prev    = current;
+        current = current->next;
+
+        free(prev);
+      }
+
+      return (NULL);
+    }
+
+    memcpy(current, src, sizeof(http_addrlist_t));
+
+    current->next = NULL;
+
+    if (prev)
+      prev->next = current;
+    else
+      dst = current;
+
+    prev = current;
+    src  = src->next;
+  }
+
+  return (dst);
 }
 
 
@@ -508,7 +549,7 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 	  if (!temp)
 	  {
 	    httpAddrFreeList(first);
-	    _cupsSetError(IPP_INTERNAL_ERROR, strerror(errno), 0);
+	    _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
 	    return (NULL);
 	  }
 
@@ -543,7 +584,7 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
       if (error == EAI_FAIL)
         cg->need_res_init = 1;
 
-      _cupsSetError(IPP_INTERNAL_ERROR, gai_strerror(error), 0);
+      _cupsSetError(IPP_STATUS_ERROR_INTERNAL, gai_strerror(error), 0);
     }
 
 #else
@@ -667,7 +708,7 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
         if (h_errno == NO_RECOVERY)
           cg->need_res_init = 1;
 
-	_cupsSetError(IPP_INTERNAL_ERROR, hstrerror(h_errno), 0);
+	_cupsSetError(IPP_STATUS_ERROR_INTERNAL, hstrerror(h_errno), 0);
       }
     }
 #endif /* HAVE_GETADDRINFO */
@@ -707,7 +748,7 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
     {
       httpAddrFreeList(first);
 
-      _cupsSetError(IPP_INTERNAL_ERROR, _("Unknown service name."), 1);
+      _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Unknown service name."), 1);
       return (NULL);
     }
 
@@ -730,7 +771,7 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 	temp = (http_addrlist_t *)calloc(1, sizeof(http_addrlist_t));
 	if (!temp)
 	{
-	  _cupsSetError(IPP_INTERNAL_ERROR, strerror(errno), 0);
+	  _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
 	  httpAddrFreeList(first);
 	  return (NULL);
 	}
@@ -759,7 +800,7 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 	temp = (http_addrlist_t *)calloc(1, sizeof(http_addrlist_t));
 	if (!temp)
 	{
-	  _cupsSetError(IPP_INTERNAL_ERROR, strerror(errno), 0);
+	  _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
 	  httpAddrFreeList(first);
 	  return (NULL);
 	}
@@ -791,7 +832,7 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 	temp = (http_addrlist_t *)calloc(1, sizeof(http_addrlist_t));
 	if (!temp)
 	{
-	  _cupsSetError(IPP_INTERNAL_ERROR, strerror(errno), 0);
+	  _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
 	  httpAddrFreeList(first);
 	  return (NULL);
 	}
@@ -815,7 +856,7 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 	temp = (http_addrlist_t *)calloc(1, sizeof(http_addrlist_t));
 	if (!temp)
 	{
-	  _cupsSetError(IPP_INTERNAL_ERROR, strerror(errno), 0);
+	  _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
 	  httpAddrFreeList(first);
 	  return (NULL);
 	}
@@ -841,5 +882,5 @@ httpAddrGetList(const char *hostname,	/* I - Hostname, IP address, or NULL for p
 
 
 /*
- * End of "$Id: http-addrlist.c 7910 2008-09-06 00:25:17Z mike $".
+ * End of "$Id: http-addrlist.c 11093 2013-07-03 20:48:42Z msweet $".
  */

@@ -1,0 +1,57 @@
+#!/usr/local/bin/perl
+
+# simple_client
+# uses mk_req & mk_priv to send an authenticated and encrypted message
+
+use blib; # remove if not in module build directory
+use IO::Socket;
+use Authen::Krb5 (ADDRTYPE_INET,ADDRTYPE_IPPORT);
+
+# replace with your own stuff
+$SERVICE = "sample";
+$SERVER = "server.domain.edu";
+
+Authen::Krb5::init_context();
+
+$ac = new Authen::Krb5::AuthContext;
+
+$s = new IO::Socket::INET(
+	PeerAddr => $SERVER,
+	PeerPort => 12345,
+	Proto => 'tcp'
+);
+defined $s or die $!;
+
+$cc = Authen::Krb5::cc_default();
+$d = Authen::Krb5::mk_req($ac,0,$SERVICE,$SERVER,'testing',$cc);
+unless ($d) {
+	print "mk_req error: ",Authen::Krb5::error(),"\n";
+	exit(1);
+}
+
+# set local and remote addresses, using network byte order
+$addr = new Authen::Krb5::Address(ADDRTYPE_INET,pack("N",$s->sockaddr()));
+$ports = new Authen::Krb5::Address(ADDRTYPE_IPPORT,pack("n",$s->sockport()));
+$ac->setaddrs($addr,undef);
+$ac->setports($ports,undef);
+
+# create the replay cache
+($l,$r) = $ac->getaddrs();
+$lap = Authen::Krb5::gen_portaddr($l,$s->sockport());
+$rcn = Authen::Krb5::gen_replay_name($lap,"foobar");
+$rc = Authen::Krb5::get_server_rcache($rcn);
+$ac->setrcache($rc);
+
+#encrypt the message
+$enc = Authen::Krb5::mk_priv($ac,"There's more than one way to do it.");
+unless ($enc) {
+	print "mk_priv error: ",Authen::Krb5::error(),"\n";
+	exit(1);
+}
+
+print $s $d."__END\n".$enc."__END\n";
+print "Sent authentication info and encrypted message.\n";
+
+close($s);
+
+Authen::Krb5::free_context();

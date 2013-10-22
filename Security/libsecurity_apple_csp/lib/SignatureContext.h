@@ -50,8 +50,7 @@ public:
 			AppleCSPContext(session), 
 			mDigest(digest), 
 			mSigner(signer),
-			mInitFlag(false),
-			mOpStarted(false) { }
+			mInitFlag(false) { }
 			
 	~SignatureContext();
 	
@@ -76,7 +75,6 @@ private:
 	DigestObject	&mDigest;
 	RawSigner		&mSigner;
 	bool			mInitFlag;			// true after init
-	bool			mOpStarted;			// true after update
 };
 
 

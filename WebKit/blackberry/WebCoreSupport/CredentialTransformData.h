@@ -21,36 +21,38 @@
 
 #include "Credential.h"
 #include "HTMLFormElement.h"
+#include "HTMLInputElement.h"
 #include "KURL.h"
 #include "ProtectionSpace.h"
 
-namespace WebCore {
+#include <wtf/RefPtr.h>
 
-class HTMLFormElement;
+namespace WebCore {
 
 struct CredentialTransformData {
     // If the provided form is suitable for password completion, isValid() will
     // return true;
-    CredentialTransformData(HTMLFormElement*);
-    CredentialTransformData(const KURL&, const ProtectionSpace&, const Credential&);
+    CredentialTransformData();
+    CredentialTransformData(HTMLFormElement*, bool isForSaving = false);
+    CredentialTransformData(const ProtectionSpace&, const Credential&);
 
     // If creation failed, return false.
     bool isValid() const { return m_isValid; }
 
-    KURL url() const;
     ProtectionSpace protectionSpace() const { return m_protectionSpace; }
     Credential credential() const;
     void setCredential(const Credential&);
 
 private:
-    bool findPasswordFormFields(HTMLFormElement*);
+    bool findPasswordFormFields(const HTMLFormElement*);
+    bool locateSpecificPasswords(const Vector<HTMLInputElement*>& passwords);
 
-    KURL m_url;
     KURL m_action;
     ProtectionSpace m_protectionSpace;
     mutable Credential m_credential;
-    HTMLInputElement* m_userNameElement;
-    HTMLInputElement* m_passwordElement;
+    RefPtr<HTMLInputElement> m_userNameElement;
+    RefPtr<HTMLInputElement> m_passwordElement;
+    RefPtr<HTMLInputElement> m_oldPasswordElement;
     bool m_isValid;
 };
 

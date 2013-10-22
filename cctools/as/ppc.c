@@ -125,7 +125,7 @@ struct ppc_insn {
     uint32_t opcode;
     expressionS exp;
     expressionS jbsr_exp;
-    enum reloc_type_ppc reloc;
+    int reloc;
     int32_t pcrel;
     int32_t pcrel_reloc;
 };
@@ -1019,8 +1019,6 @@ char *op)
 
 	/* if this instruction requires labels mark it for later */
 	switch(insn.reloc){
-	case NO_RELOC:
-	    break;
 	case PPC_RELOC_HI16:
 	case PPC_RELOC_LO16:
 	case PPC_RELOC_HA16:
@@ -1035,7 +1033,6 @@ char *op)
 		    insn.reloc);
 	    break;
 	case PPC_RELOC_BR14:
-	case PPC_RELOC_BR14_predicted:
 	    fix_new(frag_now,
 		    thisfrag - frag_now->fr_literal,
 		    4,

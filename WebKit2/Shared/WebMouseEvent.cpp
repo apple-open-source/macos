@@ -40,9 +40,6 @@ WebMouseEvent::WebMouseEvent()
     , m_deltaY(0)
     , m_deltaZ(0)
     , m_clickCount(0)
-#if PLATFORM(WIN)
-    , m_didActivateWebView(false)
-#endif
 {
 }
 
@@ -55,52 +52,44 @@ WebMouseEvent::WebMouseEvent(Type type, Button button, const IntPoint& position,
     , m_deltaY(deltaY)
     , m_deltaZ(deltaZ)
     , m_clickCount(clickCount)
-#if PLATFORM(WIN)
-    , m_didActivateWebView(false)
-#endif
 {
     ASSERT(isMouseEventType(type));
 }
 
-#if PLATFORM(WIN)
-WebMouseEvent::WebMouseEvent(Type type, Button button, const IntPoint& position, const IntPoint& globalPosition, float deltaX, float deltaY, float deltaZ, int clickCount, Modifiers modifiers, double timestamp, bool didActivateWebView)
-    : WebEvent(type, modifiers, timestamp)
-    , m_button(button)
-    , m_position(position)
-    , m_globalPosition(globalPosition)
-    , m_deltaX(deltaX)
-    , m_deltaY(deltaY)
-    , m_deltaZ(deltaZ)
-    , m_clickCount(clickCount)
-    , m_didActivateWebView(didActivateWebView)
-{
-    ASSERT(isMouseEventType(type));
-}
-#endif
-
-void WebMouseEvent::encode(CoreIPC::ArgumentEncoder* encoder) const
+void WebMouseEvent::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
     WebEvent::encode(encoder);
 
-#if PLATFORM(WIN)
-    // Include m_didActivateWebView on Windows.
-    encoder->encode(CoreIPC::In(m_button, m_position, m_globalPosition, m_deltaX, m_deltaY, m_deltaZ, m_clickCount, m_didActivateWebView));
-#else
-    encoder->encode(CoreIPC::In(m_button, m_position, m_globalPosition, m_deltaX, m_deltaY, m_deltaZ, m_clickCount));
-#endif
+    encoder << m_button;
+    encoder << m_position;
+    encoder << m_globalPosition;
+    encoder << m_deltaX;
+    encoder << m_deltaY;
+    encoder << m_deltaZ;
+    encoder << m_clickCount;
 }
 
-bool WebMouseEvent::decode(CoreIPC::ArgumentDecoder* decoder, WebMouseEvent& t)
+bool WebMouseEvent::decode(CoreIPC::ArgumentDecoder& decoder, WebMouseEvent& result)
 {
-    if (!WebEvent::decode(decoder, t))
+    if (!WebEvent::decode(decoder, result))
         return false;
 
-#if PLATFORM(WIN)
-    // Include m_didActivateWebView on Windows.
-    return decoder->decode(CoreIPC::Out(t.m_button, t.m_position, t.m_globalPosition, t.m_deltaX, t.m_deltaY, t.m_deltaZ, t.m_clickCount, t.m_didActivateWebView));
-#else
-    return decoder->decode(CoreIPC::Out(t.m_button, t.m_position, t.m_globalPosition, t.m_deltaX, t.m_deltaY, t.m_deltaZ, t.m_clickCount));
-#endif
+    if (!decoder.decode(result.m_button))
+        return false;
+    if (!decoder.decode(result.m_position))
+        return false;
+    if (!decoder.decode(result.m_globalPosition))
+        return false;
+    if (!decoder.decode(result.m_deltaX))
+        return false;
+    if (!decoder.decode(result.m_deltaY))
+        return false;
+    if (!decoder.decode(result.m_deltaZ))
+        return false;
+    if (!decoder.decode(result.m_clickCount))
+        return false;
+
+    return true;
 }
 
 bool WebMouseEvent::isMouseEventType(Type type)

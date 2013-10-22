@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +26,12 @@
 #ifndef MacroAssemblerCodeRef_h
 #define MacroAssemblerCodeRef_h
 
+#include "Disassembler.h"
 #include "ExecutableAllocator.h"
+#include "LLIntData.h"
+#include <wtf/DataLog.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
-#include <wtf/UnusedParam.h>
 
 // ASSERT_VALID_CODE_POINTER checks that ptr is a non-null pointer, and that it is a valid
 // instruction address on the platform (for example, check any alignment requirements).
@@ -119,6 +121,13 @@ public:
 
     template<typename returnType, typename argType1, typename argType2, typename argType3, typename argType4>
     FunctionPtr(returnType(*value)(argType1, argType2, argType3, argType4))
+        : m_value((void*)value)
+    {
+        ASSERT_VALID_CODE_POINTER(m_value);
+    }
+
+    template<typename returnType, typename argType1, typename argType2, typename argType3, typename argType4, typename argType5>
+    FunctionPtr(returnType(*value)(argType1, argType2, argType3, argType4, argType5))
         : m_value((void*)value)
     {
         ASSERT_VALID_CODE_POINTER(m_value);
@@ -280,10 +289,13 @@ public:
         return result;
     }
 
-    static MacroAssemblerCodePtr createLLIntCodePtr(void (*function)())
+#if ENABLE(LLINT)
+    static MacroAssemblerCodePtr createLLIntCodePtr(LLIntCode codeId)
     {
-        return createFromExecutableAddress(bitwise_cast<void*>(function));
+        return createFromExecutableAddress(LLInt::getCodePtr(codeId));
     }
+#endif
+
     explicit MacroAssemblerCodePtr(ReturnAddressPtr ra)
         : m_value(ra.value())
     {
@@ -344,12 +356,14 @@ public:
         return MacroAssemblerCodeRef(codePtr);
     }
     
+#if ENABLE(LLINT)
     // Helper for creating self-managed code refs from LLInt.
-    static MacroAssemblerCodeRef createLLIntCodeRef(void (*function)())
+    static MacroAssemblerCodeRef createLLIntCodeRef(LLIntCode codeId)
     {
-        return createSelfManagedCodeRef(MacroAssemblerCodePtr::createFromExecutableAddress(bitwise_cast<void*>(function)));
+        return createSelfManagedCodeRef(MacroAssemblerCodePtr::createFromExecutableAddress(LLInt::getCodePtr(codeId)));
     }
-    
+#endif
+
     ExecutableMemoryHandle* executableMemory() const
     {
         return m_executableMemory.get();
@@ -365,6 +379,11 @@ public:
         if (!m_executableMemory)
             return 0;
         return m_executableMemory->sizeInBytes();
+    }
+    
+    bool tryToDisassemble(const char* prefix) const
+    {
+        return JSC::tryToDisassemble(m_codePtr, size(), prefix, WTF::dataFile());
     }
     
     bool operator!() const { return !m_codePtr; }

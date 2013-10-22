@@ -1,3 +1,21 @@
+Changes for the 5.33 release (the cctools-844 release):
+- Changed the Makefile to also link against libsystem_malloc, just before
+  libsystem_c.  Radar bug #13437197
+
+Changes for the 5.33 release (the cctools-843 release):
+- Changed the Makefile to link against libSystem children rather than
+  libSystem directly.  Radar bug #13239126.
+- Added the slot_name() API from Libc to libmacho.  Radar bug #13239190.
+
+Changes for the 5.33 release (the cctools-840 release):
+- Added support for new archs: armv6m / armv7m / armv7em . Radar bug #11314463.
+  - Added entries to the ArchInfoTable[] in arch.c .
+
+Changes for the 5.32 release (the cctools-830 release):
+- Changed the use of _NSGetMachExecuteHeader() to not cache its return value in
+  a static variable.  The changes were in get_end.c, getsecbyname.c and
+  getsegbyname.c . Radar bug #11457965.
+
 Changes for the 5.31 release (the cctools-824 release):
 - Changed the Makefile to use platform version of strip via xcrun.  Radar bug
   #10801469.
@@ -6,7 +24,7 @@ Changes for the 5.30 release (the cctools-820 release):
 - Removed the use of vers_string(1) from the Makefile. Radar bug #10596469.
 
 Changes for the 5.27 release (the cctools-800.3 release):
-- Added entries in the ArchInfoTable[] for armv7[fk] to arch.c .  Radar bug
+- Added entries in the ArchInfoTable[] for armv7[fsk] to arch.c .  Radar bug
   #8987684.
 
 Changes for the 5.27 release (the cctools-782 release):
@@ -34,7 +52,7 @@ Changes for the 5.27 release (the cctools-760 release):
   Radar bug #7016121.
   - Changed the Makefile to remove the OPEN macro which was -D__OPEN_SOURCE__
     and removed it from the CFLAGS.
-  - Removed the #ifndef __OPEN_SOURCE__ in arch.c that bracketed armv7
+  - Removed the #ifndef __OPEN_SOURCE__
     references.
 
 Changes for the 5.27 release (the cctools-759 release):
@@ -68,6 +86,11 @@ Changes for the 5.26 release (the cctools-700 release):
   swapped_scattered_relocation_info structures.  Radar bug #5904383.
 
 Changes for the 5.25 release (the cctools-697 release):
+- Changed the sources so the armv7 stuff is not in the open source version.
+  Radar bug #5844124.
+  - Changed the Makefile to add the OPEN macro as -D__OPEN_SOURCE__ and added it
+    to the CFLAGS.
+  - Added #ifndef __OPEN_SOURCE__
 
 Changes for the 5.25 release (the cctools-696 release):
 - Changed the Makefile to use -iwithsysroot as part of the KERN flags.
@@ -81,6 +104,8 @@ Changes for the 5.25 release (the cctools-682 release):
 
 Changes for the 5.25 release (the cctools-681 release):
 - Removed all __OPEN_SOURCE__ references in: Makefile, notes and arch.c .
+- Added support for ARMv7. Radar bug #5490815.
+  - Added "arm7" to ArchInfoTable[] in arch.c .
 
 Changes for the 5.25 release (the cctools-677 release):
 - Changed the Makefile to not use -Wno-long-double and -no-cpp-precomp .
@@ -95,7 +120,7 @@ Changes for the 5.25 release (the cctools-673 release):
 - Changed the sources so the arm stuff is not in the open source version.
   Radar bug #5326431.
   - Changed the Makefile to build with -D__OPEN_SOURCE__ with $(OPEN)
-  - Added #ifndef __OPEN_SOURCE__ to arch.c to bracket arm code.
+  - Added #ifndef __OPEN_SOURCE__
 
 Changes for the 5.24 release (the cctools-652 release):
 - Added creating a vers.c file and linking in the vers.o into the libmacho

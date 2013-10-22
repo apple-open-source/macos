@@ -1535,6 +1535,7 @@ struct frchain *line_section)
   enum dwarf2_format d2f;
   int sizeof_offset, output_something;
 
+  sizeof_offset = 0;
   section_set(line_section);
 
   line_start = symbol_temp_new_now ();
@@ -1895,6 +1896,7 @@ struct frchain *ranges_section)
   struct dwarf2_subprogram_info *subs;
   symbolS *prev_subs_symbol;
 
+  sizeof_offset = 0;
   section_set(info_section);
 
   info_start = symbol_temp_new_now ();

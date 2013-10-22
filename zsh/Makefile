@@ -4,17 +4,17 @@
 
 # Project info
 Project		      = zsh
-ProjectVersion	      = 4.3.11
+ProjectVersion	      = 5.0.2
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
-Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp --enable-multibyte
+Extra_Configure_Flags = --bindir="$(BINDIR)" --with-tcsetpgrp --enable-multibyte \
+                        --enable-max-function-depth=700
 Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist strip-binaries
 
 Patches = utmpx_ut_user.patch no_strip.patch arg_zero.patch \
-          zsh-Doc.patch svn-zsh-complete.patch \
-          svn-12842468.patch
+          zsh-Doc.patch svn-zsh-complete.patch no_auto.patch
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make

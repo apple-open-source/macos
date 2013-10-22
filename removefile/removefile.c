@@ -1,6 +1,8 @@
 #include "removefile.h"
 #include "removefile_priv.h"
 
+#include <TargetConditionals.h>
+
 removefile_state_t
 removefile_state_alloc() {
 	removefile_state_t state = (removefile_state_t)calloc(1, sizeof(struct _removefile_state));
@@ -117,9 +119,6 @@ removefile(const char* path, removefile_state_t state_param, removefile_flags_t 
 		res = -1;
 	}
 
-	if (res == 0) {
-		sync_volume_np(path, SYNC_VOLUME_WAIT | SYNC_VOLUME_FULLSYNC);
-	}
 	// deallocate if allocated locally
 	if (state_param == NULL) {
 		removefile_state_free(state);

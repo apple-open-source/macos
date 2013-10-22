@@ -29,13 +29,14 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "ActiveDOMObject.h"
-#include "DOMStringList.h"
+#include "DOMError.h"
 #include "Event.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
-#include "IDBTransactionBackendInterface.h"
-#include "IDBTransactionCallbacks.h"
+#include "IDBMetadata.h"
+#include "IndexedDB.h"
+#include "ScriptWrappable.h"
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
 
@@ -43,31 +44,47 @@ namespace WebCore {
 
 class IDBCursor;
 class IDBDatabase;
+class IDBDatabaseBackendInterface;
+class IDBDatabaseError;
 class IDBObjectStore;
+class IDBOpenDBRequest;
+struct IDBObjectStoreMetadata;
 
-class IDBTransaction : public IDBTransactionCallbacks, public EventTarget, public ActiveDOMObject {
+class IDBTransaction : public ScriptWrappable, public RefCounted<IDBTransaction>, public EventTarget, public ActiveDOMObject {
 public:
-    static PassRefPtr<IDBTransaction> create(ScriptExecutionContext*, PassRefPtr<IDBTransactionBackendInterface>, IDBDatabase*);
+    static PassRefPtr<IDBTransaction> create(ScriptExecutionContext*, int64_t, const Vector<String>& objectStoreNames, IndexedDB::TransactionMode, IDBDatabase*);
+    static PassRefPtr<IDBTransaction> create(ScriptExecutionContext*, int64_t, IDBDatabase*, IDBOpenDBRequest*, const IDBDatabaseMetadata& previousMetadata);
     virtual ~IDBTransaction();
 
-    enum Mode {
-        READ_ONLY = 0,
-        READ_WRITE = 1,
-        VERSION_CHANGE = 2
-    };
+    static const AtomicString& modeReadOnly();
+    static const AtomicString& modeReadWrite();
+    static const AtomicString& modeVersionChange();
+    static const AtomicString& modeReadOnlyLegacy();
+    static const AtomicString& modeReadWriteLegacy();
 
-    IDBTransactionBackendInterface* backend() const;
-    bool finished() const;
+    static IndexedDB::TransactionMode stringToMode(const String&, ExceptionCode&);
+    static const AtomicString& modeToString(IndexedDB::TransactionMode);
 
-    unsigned short mode() const;
-    IDBDatabase* db() const;
+    IDBDatabaseBackendInterface* backendDB() const;
+
+    int64_t id() const { return m_id; }
+    bool isActive() const { return m_state == Active; }
+    bool isFinished() const { return m_state == Finished; }
+    bool isReadOnly() const { return m_mode == IndexedDB::TransactionReadOnly; }
+    bool isVersionChange() const { return m_mode == IndexedDB::TransactionVersionChange; }
+
+    // Implement the IDBTransaction IDL
+    const String& mode() const;
+    IDBDatabase* db() const { return m_database.get(); }
+    PassRefPtr<DOMError> error() const { return m_error; }
     PassRefPtr<IDBObjectStore> objectStore(const String& name, ExceptionCode&);
-    void abort();
+    void abort(ExceptionCode&);
 
     class OpenCursorNotifier {
     public:
         OpenCursorNotifier(PassRefPtr<IDBTransaction>, IDBCursor*);
         ~OpenCursorNotifier();
+        void cursorFinished();
     private:
         RefPtr<IDBTransaction> m_transaction;
         IDBCursor* m_cursor;
@@ -77,31 +94,34 @@ public:
     void unregisterRequest(IDBRequest*);
     void objectStoreCreated(const String&, PassRefPtr<IDBObjectStore>);
     void objectStoreDeleted(const String&);
+    void setActive(bool);
+    void setError(PassRefPtr<DOMError>, const String& errorMessage);
+    String webkitErrorMessage() const;
 
     DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(complete);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
 
-    // IDBTransactionCallbacks
-    virtual void onAbort();
+    virtual void onAbort(PassRefPtr<IDBDatabaseError>);
     virtual void onComplete();
 
     // EventTarget
     virtual const AtomicString& interfaceName() const;
     virtual ScriptExecutionContext* scriptExecutionContext() const;
-    virtual bool dispatchEvent(PassRefPtr<Event>);
-    bool dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec) { return EventTarget::dispatchEvent(event, ec); }
+
+    using EventTarget::dispatchEvent;
+    virtual bool dispatchEvent(PassRefPtr<Event>) OVERRIDE;
 
     // ActiveDOMObject
     virtual bool hasPendingActivity() const OVERRIDE;
     virtual bool canSuspend() const OVERRIDE;
     virtual void stop() OVERRIDE;
 
-    using RefCounted<IDBTransactionCallbacks>::ref;
-    using RefCounted<IDBTransactionCallbacks>::deref;
+    using RefCounted<IDBTransaction>::ref;
+    using RefCounted<IDBTransaction>::deref;
 
 private:
-    IDBTransaction(ScriptExecutionContext*, PassRefPtr<IDBTransactionBackendInterface>, IDBDatabase*);
+    IDBTransaction(ScriptExecutionContext*, int64_t, const Vector<String>&, IndexedDB::TransactionMode, IDBDatabase*, IDBOpenDBRequest*, const IDBDatabaseMetadata&);
 
     void enqueueEvent(PassRefPtr<Event>);
     void closeOpenCursors();
@@ -115,16 +135,35 @@ private:
     virtual EventTargetData* eventTargetData();
     virtual EventTargetData* ensureEventTargetData();
 
-    RefPtr<IDBTransactionBackendInterface> m_backend;
-    RefPtr<IDBDatabase> m_database;
-    unsigned short m_mode;
-    bool m_transactionFinished; // Is it possible that we'll fire any more events or allow any new requests? If not, we're finished.
-    bool m_contextStopped;
+    enum State {
+        Inactive, // Created or started, but not in an event callback
+        Active, // Created or started, in creation scope or an event callback
+        Finishing, // In the process of aborting or completing.
+        Finished, // No more events will fire and no new requests may be filed.
+    };
 
-    ListHashSet<IDBRequest*> m_childRequests;
+    int64_t m_id;
+    RefPtr<IDBDatabase> m_database;
+    const Vector<String> m_objectStoreNames;
+    IDBOpenDBRequest* m_openDBRequest;
+    const IndexedDB::TransactionMode m_mode;
+    State m_state;
+    bool m_hasPendingActivity;
+    bool m_contextStopped;
+    RefPtr<DOMError> m_error;
+    String m_errorMessage;
+
+    ListHashSet<RefPtr<IDBRequest> > m_requestList;
 
     typedef HashMap<String, RefPtr<IDBObjectStore> > IDBObjectStoreMap;
     IDBObjectStoreMap m_objectStoreMap;
+
+    typedef HashSet<RefPtr<IDBObjectStore> > IDBObjectStoreSet;
+    IDBObjectStoreSet m_deletedObjectStores;
+
+    typedef HashMap<RefPtr<IDBObjectStore>, IDBObjectStoreMetadata> IDBObjectStoreMetadataMap;
+    IDBObjectStoreMetadataMap m_objectStoreCleanupMap;
+    IDBDatabaseMetadata m_previousMetadata;
 
     HashSet<IDBCursor*> m_openCursors;
 

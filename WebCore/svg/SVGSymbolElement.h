@@ -32,20 +32,20 @@
 
 namespace WebCore {
 
-class SVGSymbolElement : public SVGStyledElement,
-                         public SVGLangSpace,
-                         public SVGExternalResourcesRequired,
-                         public SVGFitToViewBox {
+class SVGSymbolElement FINAL : public SVGStyledElement,
+                               public SVGLangSpace,
+                               public SVGExternalResourcesRequired,
+                               public SVGFitToViewBox {
 public:
     static PassRefPtr<SVGSymbolElement> create(const QualifiedName&, Document*);
 
 private:
     SVGSymbolElement(const QualifiedName&, Document*);
 
-    virtual bool supportsFocus() const { return true; }
+    virtual bool supportsFocus() const OVERRIDE { return true; }
 
     bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 

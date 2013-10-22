@@ -1,36 +1,38 @@
 #
-# $Id: config.rb 11708 2007-02-12 23:01:19Z shyouhei $
+# $Id: config.rb 36958 2012-09-13 02:22:10Z zzak $
 # Configuration file for XML-RPC for Ruby
 #
 
-module XMLRPC
+module XMLRPC # :nodoc:
 
   module Config
 
-    DEFAULT_WRITER = XMLWriter::Simple            # or XMLWriter::XMLParser
-    
-    # available parser:
-    #   * XMLParser::NQXMLTreeParser
-    #   * XMLParser::NQXMLStreamParser
-    #   * XMLParser::XMLTreeParser
-    #   * XMLParser::XMLStreamParser (fastest)
-    #   * XMLParser::REXMLStreamParser
-    #   * XMLParser::XMLScanStreamParser
+    # or XMLWriter::XMLParser
+    DEFAULT_WRITER = XMLWriter::Simple
+
+    # === Available parsers
+    #
+    # * XMLParser::NQXMLTreeParser
+    # * XMLParser::NQXMLStreamParser
+    # * XMLParser::XMLTreeParser
+    # * XMLParser::XMLStreamParser (fastest)
+    # * XMLParser::REXMLStreamParser
+    # * XMLParser::XMLScanStreamParser
     DEFAULT_PARSER = XMLParser::REXMLStreamParser
 
-    # enable <nil/> tag
+    # enable <code><nil/></code> tag
     ENABLE_NIL_CREATE    = false
     ENABLE_NIL_PARSER    = false
-    
-    # allows integers greater than 32-bit if true
+
+    # allows integers greater than 32-bit if +true+
     ENABLE_BIGINT        = false
 
     # enable marshalling ruby objects which include XMLRPC::Marshallable
-    ENABLE_MARSHALLING   = true 
+    ENABLE_MARSHALLING   = true
 
     # enable multiCall extension by default
     ENABLE_MULTICALL     = false
-    
+
     # enable Introspection extension by default
     ENABLE_INTROSPECTION = false
 

@@ -29,8 +29,8 @@
 #include "SecImportExportUtils.h"
 #include "SecNetscapeTemplates.h"
 #include "Certificate.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_pkcs12/SecPkcs12.h>
+#include <Security/SecBase.h>
 #include <Security/SecCmsDecoder.h>
 #include <Security/SecCmsEncoder.h>
 #include <Security/SecCmsMessage.h>
@@ -55,7 +55,7 @@ OSStatus impExpPkcs12Export(
 	CFMutableDataRef					outData)		// output appended here
 {
 	SecPkcs12CoderRef   p12Coder;
-	OSStatus			ortn = noErr;
+	OSStatus			ortn = errSecSuccess;
 	CFMutableArrayRef   exportItems;			// SecKeychainItemRefs
 	CFDataRef			tmpData = NULL;
 	CSSM_CSP_HANDLE		cspHand;
@@ -187,14 +187,14 @@ OSStatus impExpPkcs7Export(
 	
 	if(numCerts == 0) {
 		SecImpExpDbg("impExpPkcs7Export: no certs to export");
-		return noErr;
+		return errSecSuccess;
 	}
 	
     /* create the message object */
     SecCmsMessageRef cmsg = SecCmsMessageCreate(NULL);
     if(cmsg == NULL) {
 		SecImpExpDbg("impExpPkcs7Export: SecCmsMessageCreate failure");
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 
 	/* get first cert */
@@ -202,7 +202,7 @@ OSStatus impExpPkcs7Export(
 	assert(exportRep != NULL);
 	if(exportRep->externType() != kSecItemTypeCertificate) {
 		SecImpExpDbg("impExpPkcs7Export: non-cert item");
-		ortn = paramErr;
+		ortn = errSecParam;
 		goto errOut;
 	}
 	certRef = (SecCertificateRef)exportRep->kcItem();
@@ -211,7 +211,7 @@ OSStatus impExpPkcs7Export(
     sigd = SecCmsSignedDataCreateCertsOnly(cmsg, certRef, false);
 	if(sigd == NULL) {
 		SecImpExpDbg("impExpPkcs7Export: SecCmsSignedDataCreateCertsOnly failure");
-		ortn = internalComponentErr;
+		ortn = errSecInternalComponent;
 		goto errOut;
 	}
 
@@ -220,7 +220,7 @@ OSStatus impExpPkcs7Export(
 		assert(exportRep != NULL);
 		if(exportRep->externType() != kSecItemTypeCertificate) {
 			SecImpExpDbg("impExpPkcs7Export: non-cert item");
-			ortn = paramErr;
+			ortn = errSecParam;
 			goto errOut;
 		}
 		certRef = (SecCertificateRef)exportRep->kcItem();
@@ -234,7 +234,7 @@ OSStatus impExpPkcs7Export(
     cinfo = SecCmsMessageGetContentInfo(cmsg);
 	if(cinfo == NULL) {
 		SecImpExpDbg("impExpPkcs7Export: SecCmsMessageGetContentInfo returned NULL");
-		ortn = internalComponentErr;
+		ortn = errSecInternalComponent;
 		goto errOut;
 	}
     ortn = SecCmsContentInfoSetContentSignedData(cmsg, cinfo, sigd);
@@ -245,7 +245,7 @@ OSStatus impExpPkcs7Export(
     cinfo = SecCmsSignedDataGetContentInfo(sigd);
 	if(cinfo == NULL) {
 		SecImpExpDbg("impExpPkcs7Export: SecCmsSignedDataGetContentInfo returned NULL");
-		ortn = internalComponentErr;
+		ortn = errSecInternalComponent;
 		goto errOut;
 	}
     ortn = SecCmsContentInfoSetContentData(cmsg, cinfo, NULL, 
@@ -361,7 +361,7 @@ OSStatus impExpPkcs12Import(
 	}
 	else {
 		if(cspHand == CSSM_INVALID_HANDLE) {
-			ortn = paramErr;
+			ortn = errSecParam;
 			goto errOut;
 		}
 		ortn = SecPkcs12SetCspHandle(p12Coder, cspHand);
@@ -582,7 +582,7 @@ OSStatus impExpPkcs12Import(
 				SecIdentityRef idRef = NULL;
 				ortn = SecIdentityCreateWithCertificate(importKeychain,
 					importedCertRef, &idRef);
-				if(ortn == noErr) {
+				if(ortn == errSecSuccess) {
 					/*
 					 * Got one!
 					 * 
@@ -652,14 +652,14 @@ errOut:
 	*/
 #if 0
 	if(privKeys) {
-		if(ortn == noErr) {		// TBD OR keys are SecKeyRefs
+		if(ortn == errSecSuccess) {		// TBD OR keys are SecKeyRefs
 			numKeys = CFArrayGetCount(privKeys);
 			for(dex=0; dex<numKeys; dex++) {
 				SecKeyRef keyRef;
 				CSSM_KEY_PTR privKey = 
 					(CSSM_KEY_PTR)CFArrayGetValueAtIndex(privKeys, dex);
 				assert(privKey != NULL);
-				if(ortn == noErr) {
+				if(ortn == errSecSuccess) {
 					/* only do this on complete success so far */
 					ortn = SecKeyCreateWithCSSMKey(privKey, &keyRef);
 					if(ortn) {
@@ -707,7 +707,7 @@ OSStatus impExpPkcs7Import(
     int						i;
     SECOidTag				contentTypeTag;
     OSStatus				result;
-	OSStatus				ourRtn = noErr;
+	OSStatus				ourRtn = errSecSuccess;
 
     /* decode the message */
     result = SecCmsDecoderCreate (NULL, NULL, NULL, NULL, NULL, NULL, NULL, &decoderContext);
@@ -836,7 +836,7 @@ OSStatus impExpNetscapeCertImport(
 			return ortn;
 		}
 	} 
-	return noErr;
+	return errSecSuccess;
 }
 
 #pragma mark --- Utilities ---
@@ -846,7 +846,7 @@ OSStatus impExpImportCertCommon(
 	SecKeychainRef		importKeychain, // optional
 	CFMutableArrayRef	outArray)		// optional, append here 
 {
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	SecCertificateRef certRef;
 	
 	if (!cdata)

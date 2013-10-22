@@ -85,6 +85,7 @@ extern void (*fun_krb5_get_init_creds_password)();
 extern void (*fun_krb5_get_kdc_cred)();
 extern void (*fun_krb5_get_kdc_sec_offset)();
 extern void (*fun_krb5_init_context)();
+extern void (*fun_krb5_init_context_flags)();
 extern void (*fun_krb5_make_principal)();
 extern void (*fun_krb5_parse_name)();
 extern void (*fun_krb5_principal_compare)();

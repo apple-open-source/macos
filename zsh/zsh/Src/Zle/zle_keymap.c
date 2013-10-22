@@ -544,6 +544,7 @@ bindkey(Keymap km, char *seq, Thingy bind, char *str)
 	if(km->first[f]) {
 	    char fs[3];
 	    fs[0] = f;
+	    fs[1] = 0;
 	    metafy(fs, 1, META_NOALLOC);
 	    km->multi->addnode(km->multi, ztrdup(fs),
 		makekeynode(km->first[f], NULL));
@@ -911,7 +912,7 @@ bin_bindkey_new(char *name, UNUSED(char *kmname), Keymap km, char **argv, UNUSED
     if(argv[1]) {
 	km = openkeymap(argv[1]);
 	if(!km) {
-	    zwarnnam(name, "no such keymap `%s'", argv[0]);
+	    zwarnnam(name, "no such keymap `%s'", argv[1]);
 	    return 1;
 	}
     } else

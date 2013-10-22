@@ -34,40 +34,83 @@
 
 namespace WebCore {
 
-static struct IDBDatabaseExceptionNameDescription {
+static const struct IDBDatabaseExceptionNameDescription {
     const char* const name;
     const char* const description;
+    const ExceptionCode code;
 } idbDatabaseExceptions[] = {
-    { "UNKNOWN_ERR", "An unknown error occurred within Indexed Database." },
-    { "NON_TRANSIENT_ERR", "NON_TRANSIENT_ERR" }, // FIXME: Write a better message if it's ever possible this is thrown.
-    { "NOT_FOUND_ERR", "The name supplied does not match any existing item." },
-    { "CONSTRAINT_ERR", "The request cannot be completed due to a failed constraint." },
-    { "DATA_ERR", "The data provided does not meet the requirements of the function." },
-    { "NOT_ALLOWED_ERR", "This function is not allowed to be called in such a context." },
-    { "TRANSACTION_INACTIVE_ERR", "A request was placed against a transaction which is either currently not active, or which is finished." },
-    { "ABORT_ERR", "The transaction was aborted, so the request cannot be fulfilled." },
-    { "READ_ONLY_ERR", "A write operation was attempted in a read-only transaction." },
-    { "TIMEOUT_ERR", "A lock for the transaction could not be obtained in a reasonable time." }, // FIXME: This isn't used yet.
-    { "QUOTA_ERR", "The operation failed because there was not enough remaining storage space, or the storage quota was reached and the user declined to give more space to the database." }, // FIXME: This isn't used yet
-    { "VER_ERR", "An attempt was made to open a database using a lower version than the existing version." } // FIXME: This isn't used yet
+    // These are IDB-specific errors from the spec.
+    { "UnknownError", "An unknown error occurred within Indexed Database.", 0 },
+    { "ConstraintError", "A mutation operation in the transaction failed because a constraint was not satisfied.", 0 },
+    { "DataError", "The data provided does not meet requirements.", 0 },
+    { "TransactionInactiveError", "A request was placed against a transaction which is either currently not active, or which is finished.", 0 },
+    { "ReadOnlyError", "A write operation was attempted in a read-only transaction.", 0 },
+    { "VersionError", "An attempt was made to open a database using a lower version than the existing version.", 0 },
+
+    // These are IDB-specific descriptions of generic DOM Exceptions when they are thrown from IDB APIs
+    { "NotFoundError", "An operation failed because the requested database object could not be found.", NOT_FOUND_ERR },
+    { "InvalidStateError", "An operation was called on an object on which it is not allowed or at a time when it is not allowed.", INVALID_STATE_ERR },
+    { "InvalidAccessError", "An invalid operation was performed on an object.", INVALID_ACCESS_ERR },
+    { "AbortError", "The transaction was aborted, so the request cannot be fulfilled.", ABORT_ERR },
+    { "TimeoutError", "A lock for the transaction could not be obtained in a reasonable time.", TIMEOUT_ERR }, // FIXME: This isn't used yet.
+    { "QuotaExceededError", "The operation failed because there was not enough remaining storage space, or the storage quota was reached and the user declined to give more space to the database.", QUOTA_EXCEEDED_ERR },
+    { "SyntaxError", "The keypath argument contains an invalid key path.", SYNTAX_ERR },
+    { "DataCloneError", "The data being stored could not be cloned by the internal structured cloning algorithm.", DATA_CLONE_ERR },
 };
+
+static const IDBDatabaseExceptionNameDescription* getErrorEntry(ExceptionCode ec)
+{
+    if (ec < IDBDatabaseException::IDBDatabaseExceptionOffset || ec > IDBDatabaseException::IDBDatabaseExceptionMax)
+        return 0;
+
+    size_t tableSize = WTF_ARRAY_LENGTH(idbDatabaseExceptions);
+    size_t tableIndex = ec - IDBDatabaseException::UnknownError;
+
+    return tableIndex < tableSize ? &idbDatabaseExceptions[tableIndex] : 0;
+}
 
 bool IDBDatabaseException::initializeDescription(ExceptionCode ec, ExceptionCodeDescription* description)
 {
-    if (ec < IDBDatabaseExceptionOffset || ec > IDBDatabaseExceptionMax)
+    const IDBDatabaseExceptionNameDescription* entry = getErrorEntry(ec);
+    if (!entry)
         return false;
 
     description->typeName = "DOM IDBDatabase";
-    description->code = ec - IDBDatabaseExceptionOffset;
-    description->type = IDBDatabaseExceptionType;
+    description->code = entry->code;
+    description->type = DOMCoreExceptionType;
 
-    size_t tableSize = WTF_ARRAY_LENGTH(idbDatabaseExceptions);
-    size_t tableIndex = ec - UNKNOWN_ERR;
-
-    description->name = tableIndex < tableSize ? idbDatabaseExceptions[tableIndex].name : 0;
-    description->description = tableIndex < tableSize ? idbDatabaseExceptions[tableIndex].description : 0;
+    description->name = entry ? entry->name : 0;
+    description->description = entry ? entry->description : 0;
 
     return true;
+}
+
+String IDBDatabaseException::getErrorName(ExceptionCode ec)
+{
+    const IDBDatabaseExceptionNameDescription* entry = getErrorEntry(ec);
+    ASSERT(entry);
+    if (!entry)
+        return "UnknownError";
+
+    return entry->name;
+}
+
+String IDBDatabaseException::getErrorDescription(ExceptionCode ec)
+{
+    const IDBDatabaseExceptionNameDescription* entry = getErrorEntry(ec);
+    ASSERT(entry);
+    if (!entry)
+        return "Unknown error.";
+
+    return entry->description;
+}
+
+ExceptionCode IDBDatabaseException::getLegacyErrorCode(ExceptionCode ec)
+{
+    const IDBDatabaseExceptionNameDescription* entry = getErrorEntry(ec);
+    ASSERT(entry);
+
+    return (entry && entry->code) ? entry->code : ec - IDBDatabaseExceptionOffset;
 }
 
 } // namespace WebCore

@@ -68,6 +68,7 @@ struct hx509_private_key_ops {
 };
 
 struct hx509_private_key {
+    struct heim_base_uniq base;
     const struct signature_alg *md;
     const heim_oid *signature_alg;
 #define KEYTYPE_RSA	1
@@ -2074,7 +2075,6 @@ private_key_free(void *ptr)
     default:
 	_hx509_abort("unsupported keytype %d", key->keytype);
     }
-    memset(key, 0, sizeof(*key));
 }
 
 int
@@ -2082,7 +2082,7 @@ hx509_private_key_init(hx509_private_key *key,
 			hx509_private_key_ops *ops,
 			void *keydata)
 {
-    *key = heim_alloc(sizeof(**key), "hx509-private-key", private_key_free);
+    *key = heim_uniq_alloc(sizeof(**key), "hx509-private-key", private_key_free);
     if (*key == NULL)
 	return ENOMEM;
 

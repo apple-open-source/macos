@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -80,7 +80,7 @@ OSStatus HIDSetButton  (HIDReportType 			reportType,
 						HIDUsage				usage,
 						HIDPreparsedDataRef		preparsedDataRef,
 						void *					report,
-						ByteCount				reportLength)
+						IOByteCount				reportLength)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
 	HIDCollection *ptCollection;
@@ -209,7 +209,7 @@ HIDSetButtons			   (HIDReportType			reportType,
 							UInt32 *				usageListSize,
 							HIDPreparsedDataRef		preparsedDataRef,
 							void *					report,
-							ByteCount				reportLength)
+							IOByteCount				reportLength)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
 	OSStatus iStatus;

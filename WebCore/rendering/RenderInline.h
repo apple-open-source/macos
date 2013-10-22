@@ -33,18 +33,25 @@ class Position;
 
 class RenderInline : public RenderBoxModelObject {
 public:
-    explicit RenderInline(Node*);
+    explicit RenderInline(Element*);
+
+    static RenderInline* createAnonymous(Document*);
+
+    RenderObject* firstChild() const { ASSERT(children() == virtualChildren()); return children()->firstChild(); }
+    RenderObject* lastChild() const { ASSERT(children() == virtualChildren()); return children()->lastChild(); }
 
     virtual void addChild(RenderObject* newChild, RenderObject* beforeChild = 0);
+
+    Element* node() const { return toElement(RenderBoxModelObject::node()); }
 
     virtual LayoutUnit marginLeft() const;
     virtual LayoutUnit marginRight() const;
     virtual LayoutUnit marginTop() const;
     virtual LayoutUnit marginBottom() const;
-    virtual LayoutUnit marginBefore() const;
-    virtual LayoutUnit marginAfter() const;
-    virtual LayoutUnit marginStart() const;
-    virtual LayoutUnit marginEnd() const;
+    virtual LayoutUnit marginBefore(const RenderStyle* otherStyle = 0) const;
+    virtual LayoutUnit marginAfter(const RenderStyle* otherStyle = 0) const;
+    virtual LayoutUnit marginStart(const RenderStyle* otherStyle = 0) const;
+    virtual LayoutUnit marginEnd(const RenderStyle* otherStyle = 0) const;
 
     virtual void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const;
     virtual void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const;
@@ -72,7 +79,7 @@ public:
 
     virtual void updateDragState(bool dragOn);
     
-    LayoutSize relativePositionedInlineOffset(const RenderBox* child) const;
+    LayoutSize offsetForInFlowPositionedInline(const RenderBox* child) const;
 
     virtual void addFocusRingRects(Vector<IntRect>&, const LayoutPoint&);
     void paintOutline(GraphicsContext*, const LayoutPoint&);
@@ -84,10 +91,14 @@ public:
     void setAlwaysCreateLineBoxes() { m_alwaysCreateLineBoxes = true; }
     void updateAlwaysCreateLineBoxes(bool fullLayout);
 
+    virtual LayoutRect localCaretRect(InlineBox*, int, LayoutUnit* extraWidthToEndOfLine) OVERRIDE;
+
+    bool hitTestCulledInline(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset);
+
 protected:
     virtual void willBeDestroyed();
 
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) OVERRIDE;
 
 private:
     virtual RenderObjectChildList* virtualChildren() { return children(); }
@@ -99,12 +110,14 @@ private:
 
     virtual bool isRenderInline() const { return true; }
 
-    FloatRect culledInlineBoundingBox(const RenderInline* container) const;
     LayoutRect culledInlineVisualOverflowBoundingBox() const;
     InlineBox* culledInlineFirstLineBox() const;
     InlineBox* culledInlineLastLineBox() const;
-    void culledInlineAbsoluteRects(const RenderInline* container, Vector<IntRect>&, const LayoutSize&) const;
-    void culledInlineAbsoluteQuads(const RenderInline* container, Vector<FloatQuad>&) const;
+
+    template<typename GeneratorContext>
+    void generateLineBoxRects(GeneratorContext& yield) const;
+    template<typename GeneratorContext>
+    void generateCulledLineBoxRects(GeneratorContext& yield, const RenderInline* container) const;
 
     void addChildToContinuation(RenderObject* newChild, RenderObject* beforeChild);
     virtual void addChildIgnoringContinuation(RenderObject* newChild, RenderObject* beforeChild = 0);
@@ -118,23 +131,25 @@ private:
 
     virtual void paint(PaintInfo&, const LayoutPoint&);
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) OVERRIDE;
 
-    virtual bool requiresLayer() const { return isRelPositioned() || isTransparent() || hasMask() || hasFilter(); }
+    virtual bool requiresLayer() const { return isInFlowPositioned() || createsGroup() || hasClipPath(); }
 
     virtual LayoutUnit offsetLeft() const;
     virtual LayoutUnit offsetTop() const;
     virtual LayoutUnit offsetWidth() const { return linesBoundingBox().width(); }
     virtual LayoutUnit offsetHeight() const { return linesBoundingBox().height(); }
 
-    virtual LayoutRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer) const;
-    virtual LayoutRect rectWithOutlineForRepaint(RenderBoxModelObject* repaintContainer, LayoutUnit outlineWidth) const;
-    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, LayoutRect&, bool fixed) const;
+    virtual LayoutRect clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const OVERRIDE;
+    virtual LayoutRect rectWithOutlineForRepaint(const RenderLayerModelObject* repaintContainer, LayoutUnit outlineWidth) const OVERRIDE;
+    virtual void computeRectForRepaint(const RenderLayerModelObject* repaintContainer, LayoutRect&, bool fixed) const OVERRIDE;
 
-    virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed, bool useTransforms, TransformState&, ApplyContainerFlipOrNot = ApplyContainerFlip, bool* wasFixed = 0) const;
-    virtual const RenderObject* pushMappingToContainer(const RenderBoxModelObject* ancestorToStopAt, RenderGeometryMap&) const;
+    virtual void mapLocalToContainer(const RenderLayerModelObject* repaintContainer, TransformState&, MapCoordinatesFlags = ApplyContainerFlip, bool* wasFixed = 0) const OVERRIDE;
+    virtual const RenderObject* pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&) const OVERRIDE;
 
     virtual VisiblePosition positionForPoint(const LayoutPoint&);
+
+    virtual LayoutRect frameRectForStickyPositioning() const OVERRIDE { return linesBoundingBox(); }
 
     virtual IntRect borderBoundingBox() const
     {
@@ -147,7 +162,7 @@ private:
     virtual void dirtyLinesFromChangedChild(RenderObject* child) { m_lineBoxes.dirtyLinesFromChangedChild(this, child); }
 
     virtual LayoutUnit lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
-    virtual LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
     
     virtual void childBecameNonInline(RenderObject* child);
 
@@ -155,13 +170,13 @@ private:
 
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
-#if ENABLE(DASHBOARD_SUPPORT)
-    virtual void addDashboardRegions(Vector<DashboardRegionValue>&);
+#if ENABLE(DASHBOARD_SUPPORT) || ENABLE(DRAGGABLE_REGION)
+    virtual void addAnnotatedRegions(Vector<AnnotatedRegionValue>&);
 #endif
     
-    virtual void updateBoxModelInfoFromStyle();
+    virtual void updateFromStyle() OVERRIDE;
     
-    static RenderInline* cloneInline(RenderInline* src);
+    RenderInline* clone() const;
 
     void paintOutlineForLine(GraphicsContext*, const LayoutPoint&, const LayoutRect& prevLine, const LayoutRect& thisLine,
                              const LayoutRect& nextLine, const Color);
@@ -175,13 +190,13 @@ private:
 
 inline RenderInline* toRenderInline(RenderObject* object)
 { 
-    ASSERT(!object || object->isRenderInline());
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderInline());
     return static_cast<RenderInline*>(object);
 }
 
 inline const RenderInline* toRenderInline(const RenderObject* object)
 { 
-    ASSERT(!object || object->isRenderInline());
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderInline());
     return static_cast<const RenderInline*>(object);
 }
 

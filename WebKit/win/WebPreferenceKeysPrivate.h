@@ -53,6 +53,7 @@
 #define WebKitAllowFileAccessFromFileURLsPreferenceKey "WebKitAllowFileAccessFromFileURLs"
 #define WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey "WebKitJavaScriptCanOpenWindowsAutomatically"
 #define WebKitPluginsEnabledPreferenceKey "WebKitPluginsEnabled"
+#define WebKitCSSRegionsEnabledPreferenceKey "WebKitCSSRegionsEnabled"
 #define WebKitDatabasesEnabledPreferenceKey "WebKitDatabasesEnabled"
 #define WebKitLocalStorageEnabledPreferenceKey "WebKitLocalStorageEnabled"
 #define WebKitExperimentalNotificationsEnabledPreferenceKey "WebKitExperimentalNotificationsEnabled"
@@ -82,7 +83,6 @@
 #define WebKitPDFDisplayModePreferenceKey "WebKitPDFDisplayMode"
 #define WebKitPDFScaleFactorPreferenceKey "WebKitPDFScaleFactor"
 #define WebKitEditableLinkBehaviorPreferenceKey "WebKitEditableLinkBehavior"
-#define WebKitEditingBehaviorPreferenceKey "WebKitEditingBehavior"
 #define WebKitShouldInvertColorsPreferenceKey "WebKitShouldInvertColors"
 
 // Window display is throttled to 60 frames per second if WebKitThrottleWindowDisplayPreferenceKey
@@ -112,6 +112,8 @@
 #define WebGrammarCheckingEnabledPreferenceKey "WebGrammarCheckingEnabled" // default: false
 
 #define AllowContinuousSpellCheckingPreferenceKey "AllowContinuousSpellCheckingPreferenceKey" // default: true
+
+#define SeamlessIFramesPreferenceKey "SeamlessIFramesPreferenceKey" // default: false
 
 #define WebKitDOMPasteAllowedPreferenceKey "WebKitDOMPasteAllowedPreferenceKey" // default: false
 
@@ -151,8 +153,6 @@
 
 #define WebKitDNSPrefetchingEnabledPreferenceKey "WebKitDNSPrefetchingEnabled"
 
-#define WebKitMemoryInfoEnabledPreferenceKey "WebKitMemoryInfoEnabled"
-
 #define WebKitFullScreenEnabledPreferenceKey "WebKitFullScreenEnabled"
 
 #define WebKitHixie76WebSocketProtocolEnabledPreferenceKey "WebKitHixie76WebSocketProtocolEnabled"
@@ -162,3 +162,6 @@
 #define WebKitMediaPlaybackAllowsInlinePreferenceKey "WebKitMediaPlaybackAllowsInline"
 
 #define WebKitAVFoundationEnabledPreferenceKey "WebKitAVFoundationEnabled"
+
+#define WebKitRequestAnimationFrameEnabledPreferenceKey "WebKitRequestAnimationFrameEnabled"
+

@@ -1,0 +1,733 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/ms_Arab.xml
+// *
+// ***************************************************************************
+/**
+ *  ICU <specials> source: <path>/xml/main/ms_Arab.xml
+ */
+ms_Arab{
+    AuxExemplarCharacters{"[ ڬ ۑ ]"}
+    ExemplarCharacters{
+        "[ ء آ أ ؤ إ ئ ا ب ة ت ث ج چ ح خ د ذ ر ز س ش ص ض ط ظ ع غ ڠ ف ڤ ق ك ݢ ل م ن ڽ "
+        "ه و ۏ ى ي ]"
+    }
+    LocaleScript{
+        "Arab",
+    }
+    NumberElements{
+        latn{
+            patterns{
+                currencyFormat{"¤#,##0.00;(¤#,##0.00)"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0%"}
+                scientificFormat{"#E0"}
+            }
+            patternsLong{
+                decimalFormat{
+                    1000{
+                        other{"0 ريبو"}
+                    }
+                    10000{
+                        other{"00 ريبو"}
+                    }
+                    100000{
+                        other{"000 ريبو"}
+                    }
+                    1000000{
+                        other{"0 جوتا"}
+                    }
+                    10000000{
+                        other{"00 جوتا"}
+                    }
+                    100000000{
+                        other{"000 جوتا"}
+                    }
+                    1000000000{
+                        other{"0 بيليون"}
+                    }
+                    10000000000{
+                        other{"00 بيليون"}
+                    }
+                    100000000000{
+                        other{"000 بيليون"}
+                    }
+                    1000000000000{
+                        other{"0 تريليون"}
+                    }
+                    10000000000000{
+                        other{"00 تريليون"}
+                    }
+                    100000000000000{
+                        other{"000 تريليون"}
+                    }
+                }
+            }
+            symbols{
+                decimal{"."}
+                exponential{"E"}
+                group{","}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"-"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+            }
+        }
+    }
+    Version{"2.0.82.68"}
+    calendar{
+        buddhist{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE، d MMMM y G",
+                "d MMMM y G",
+                "dd/MM/y G",
+                "d/MM/y G",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E, d"}
+                MEd{"E، d/M"}
+                MMMEd{"E، d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"d/M"}
+                yM{"M/y G"}
+                yMEd{"E، d/M/y G"}
+                yMMM{"MMM y G"}
+                yMMMEd{"E، d MMM y G"}
+                yMMMd{"d MMM y G"}
+            }
+        }
+        chinese{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE، U MMMM dd",
+                "U MMMM d",
+                "U MMM d",
+                "y-M-d",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+        }
+        generic{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE، d MMMM y G",
+                "d MMMM y G",
+                "dd/MM/y G",
+                "d/MM/yy GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"d E"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hmm{"H:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E، d-M"}
+                MMM{"LLL"}
+                MMMEd{"E، d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                MMdd{"dd/MM"}
+                Md{"d-M"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"M-y"}
+                yMEd{"E، d/M/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E، d MMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+            dayNames{
+                format{
+                    wide{
+                        "احد",
+                        "اثنين",
+                        "ثلاث",
+                        "رابو",
+                        "خميس",
+                        "جمعة",
+                        "سبتو",
+                    }
+                }
+            }
+            intervalFormats{
+                H{
+                    H{"HH–HH"}
+                }
+                Hm{
+                    H{"HH:mm–HH:mm"}
+                    m{"HH:mm–HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm–HH:mm v"}
+                    m{"HH:mm–HH:mm v"}
+                }
+                Hv{
+                    H{"HH–HH v"}
+                }
+                M{
+                    M{"M–M"}
+                }
+                MEd{
+                    M{"E، d/M – E، d/M"}
+                    d{"E، d/M – E، d/M"}
+                }
+                MMM{
+                    M{"MMM–MMM"}
+                }
+                MMMEd{
+                    M{"E، d MMM – E، d MMM"}
+                    d{"E، d MMM – E، d MMM"}
+                }
+                MMMd{
+                    M{"d MMM – d MMM"}
+                    d{"d–d MMM"}
+                }
+                Md{
+                    M{"d/M – d/M"}
+                    d{"d/M – d/M"}
+                }
+                d{
+                    d{"d–d"}
+                }
+                fallback{"{0} – {1}"}
+                h{
+                    a{"h a – h a"}
+                    h{"h–h a"}
+                }
+                hm{
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
+                }
+                hmv{
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hv{
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                y{
+                    y{"y–y"}
+                }
+                yM{
+                    M{"M/yy – M/yy"}
+                    y{"M/yy – M/yy"}
+                }
+                yMEd{
+                    M{"E، d/M/yy – E، d/M/yy"}
+                    d{"E، d/M/yy – E، d/M/yy"}
+                    y{"E، d/M/yy – E، d/M/yy"}
+                }
+                yMMM{
+                    M{"MMM–MMM y"}
+                    y{"MMM y – MMM y"}
+                }
+                yMMMEd{
+                    M{"E، d MMM – E، d MMM، y"}
+                    d{"E، d MMM – E، d MMM، y"}
+                    y{"E، d MMM y – E، d MMM y"}
+                }
+                yMMMM{
+                    M{"MMMM–MMMM y"}
+                    y{"MMMM y – MMMM y"}
+                }
+                yMMMd{
+                    M{"d MMM – d MMM، y"}
+                    d{"d–d MMM y"}
+                    y{"d MMM y – d MMM y"}
+                }
+                yMd{
+                    M{"d/M/yy – d/M/yy"}
+                    d{"d/M/yy – d/M/yy"}
+                    y{"d/M/yy – d/M/yy"}
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "سوکو 1",
+                        "سوکو ک-2",
+                        "سوکو ک-3",
+                        "سوکو ک-4",
+                    }
+                    wide{
+                        "سوکو ڤرتام",
+                        "سوکو ک-2",
+                        "سوکو ک-3",
+                        "سوکو ک-4",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "سوکو 1",
+                        "سوکو ک-2",
+                        "سوکو ک-3",
+                        "سوکو ک-4",
+                    }
+                    wide{
+                        "سوکو ڤرتام",
+                        "سوکو ک-2",
+                        "سوکو ک-3",
+                        "سوکو ک-4",
+                    }
+                }
+            }
+        }
+        gregorian{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE، d MMMM y",
+                "d MMMM y",
+                "dd/MM/yyyy",
+                "d/MM/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"d E"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hmm{"H:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E، d-M"}
+                MMM{"LLL"}
+                MMMEd{"E، d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                MMdd{"dd/MM"}
+                Md{"d-M"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"M-y"}
+                yMEd{"E، d/M/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E، d MMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+            dayNames{
+                format{
+                    wide{
+                        "احد",
+                        "اثنين",
+                        "ثلاث",
+                        "رابو",
+                        "خميس",
+                        "جمعة",
+                        "سبتو",
+                    }
+                }
+            }
+            intervalFormats{
+                H{
+                    H{"HH–HH"}
+                }
+                Hm{
+                    H{"HH:mm–HH:mm"}
+                    m{"HH:mm–HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm–HH:mm v"}
+                    m{"HH:mm–HH:mm v"}
+                }
+                Hv{
+                    H{"HH–HH v"}
+                }
+                M{
+                    M{"M–M"}
+                }
+                MEd{
+                    M{"E، d/M – E، d/M"}
+                    d{"E، d/M – E، d/M"}
+                }
+                MMM{
+                    M{"MMM–MMM"}
+                }
+                MMMEd{
+                    M{"E، d MMM – E، d MMM"}
+                    d{"E، d MMM – E، d MMM"}
+                }
+                MMMd{
+                    M{"d MMM – d MMM"}
+                    d{"d–d MMM"}
+                }
+                Md{
+                    M{"d/M – d/M"}
+                    d{"d/M – d/M"}
+                }
+                d{
+                    d{"d–d"}
+                }
+                fallback{"{0} – {1}"}
+                h{
+                    a{"h a – h a"}
+                    h{"h–h a"}
+                }
+                hm{
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
+                }
+                hmv{
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hv{
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                y{
+                    y{"y–y"}
+                }
+                yM{
+                    M{"M/yy – M/yy"}
+                    y{"M/yy – M/yy"}
+                }
+                yMEd{
+                    M{"E، d/M/yy – E، d/M/yy"}
+                    d{"E، d/M/yy – E، d/M/yy"}
+                    y{"E، d/M/yy – E، d/M/yy"}
+                }
+                yMMM{
+                    M{"MMM–MMM y"}
+                    y{"MMM y – MMM y"}
+                }
+                yMMMEd{
+                    M{"E، d MMM – E، d MMM، y"}
+                    d{"E، d MMM – E، d MMM، y"}
+                    y{"E، d MMM y – E، d MMM y"}
+                }
+                yMMMM{
+                    M{"MMMM–MMMM y"}
+                    y{"MMMM y – MMMM y"}
+                }
+                yMMMd{
+                    M{"d MMM – d MMM، y"}
+                    d{"d–d MMM y"}
+                    y{"d MMM y – d MMM y"}
+                }
+                yMd{
+                    M{"d/M/yy – d/M/yy"}
+                    d{"d/M/yy – d/M/yy"}
+                    y{"d/M/yy – d/M/yy"}
+                }
+            }
+            monthNames{
+                format{
+                    wide{
+                        "جانواري",
+                        "فيبواري",
+                        "مچ",
+                        "اڤريل",
+                        "مي",
+                        "جون",
+                        "جولاي",
+                        "ݢوس",
+                        "سيڤتيمبر",
+                        "اوکتوبر",
+                        "نوۏيمبر",
+                        "ديسيمبر",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "سوکو 1",
+                        "سوکو ک-2",
+                        "سوکو ک-3",
+                        "سوکو ک-4",
+                    }
+                    wide{
+                        "سوکو ڤرتام",
+                        "سوکو ک-2",
+                        "سوکو ک-3",
+                        "سوکو ک-4",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "سوکو 1",
+                        "سوکو ک-2",
+                        "سوکو ک-3",
+                        "سوکو ک-4",
+                    }
+                    wide{
+                        "سوکو ڤرتام",
+                        "سوکو ک-2",
+                        "سوکو ک-3",
+                        "سوکو ک-4",
+                    }
+                }
+            }
+        }
+        islamic{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE، d MMMM y G",
+                "d MMMM y G",
+                "dd/MM/y G",
+                "d/MM/y G",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E، d"}
+                MEd{"E، d/M"}
+                MMMEd{"E، d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"d/M"}
+                yyyyM{"M/y G"}
+                yyyyMEd{"E، d/M/y G"}
+                yyyyMMM{"MMM y G"}
+                yyyyMMMEd{"E، d MMM y G"}
+                yyyyMMMd{"d MMM y G"}
+            }
+        }
+        japanese{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE، d MMMM y G",
+                "d MMMM y G",
+                "dd/MM/y G",
+                "d/MM/y G",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E، d"}
+                MEd{"E، d/M"}
+                MMMEd{"E، d MMM"}
+                MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
+                Md{"d/M"}
+                yyyyM{"M/y G"}
+                yyyyMEd{"E، d/M/y G"}
+                yyyyMMM{"MMM y G"}
+                yyyyMMMEd{"E، d MMM y G"}
+                yyyyMMMd{"d MMM y G"}
+            }
+        }
+    }
+    delimiters{
+        alternateQuotationEnd{"‘"}
+        alternateQuotationStart{"’"}
+        quotationEnd{"“"}
+        quotationStart{"”"}
+    }
+    fields{
+        day{
+            dn{"هاري"}
+            relative{
+                "-1"{"سمالم"}
+                "-2"{"هاري سبلوم سمالم"}
+                "0"{"هاري ني"}
+                "1"{"ايسوق"}
+                "2"{"هاري سلڤس ايسوق"}
+            }
+        }
+        era{
+            dn{"ايرا"}
+        }
+        hour{
+            dn{"جم"}
+        }
+        minute{
+            dn{"مينيت"}
+        }
+        month{
+            dn{"بولن"}
+            relative{
+                "-1"{"بولن لالو"}
+                "0"{"بولن ني"}
+                "1"{"بولن ستروسڽ"}
+            }
+        }
+        second{
+            dn{"کدوا"}
+        }
+        week{
+            dn{"ميڠݢو"}
+            relative{
+                "-1"{"ميڠݢو لڤس"}
+                "0"{"ميڠݢو ني"}
+                "1"{"ميڠݢو ستروسڽ"}
+            }
+        }
+        weekday{
+            dn{"هاري دالم ميڠݢو"}
+        }
+        year{
+            dn{"تاهون"}
+            relative{
+                "-1"{"تاهون لڤس"}
+                "0"{"تاهون ني"}
+                "1"{"تاهون هدڤن"}
+            }
+        }
+        zone{
+            dn{"زون وقتو"}
+        }
+    }
+    layout{
+        characters{"right-to-left"}
+    }
+    measurementSystemNames{
+        metric{"ميتريک"}
+    }
+    units{
+        day{
+            other{"{0} هاري"}
+        }
+        day-future{
+            other{"دالم {0} هاري"}
+        }
+        day-past{
+            other{"{0} هاري لالو"}
+        }
+        hour{
+            other{"{0} جم"}
+        }
+        hour-future{
+            other{"دالم {0} جم"}
+        }
+        hour-past{
+            other{"{0} جم لالو"}
+        }
+        minute{
+            other{"{0} مينيت"}
+        }
+        minute-future{
+            other{"دالم {0} مينيت"}
+        }
+        minute-past{
+            other{"{0} مينيت لالو"}
+        }
+        month{
+            other{"{0} بولن"}
+        }
+        month-future{
+            other{"دالم {0} بولن"}
+        }
+        month-past{
+            other{"{0} بولن لالو"}
+        }
+        second{
+            other{"{0} ساعت"}
+        }
+        second-future{
+            other{"دالم {0} ساعت"}
+        }
+        second-past{
+            other{"{0} ساعت لالو"}
+        }
+        week{
+            other{"{0} ميڠݢو"}
+        }
+        week-future{
+            other{"دالم {0} ميڠݢو"}
+        }
+        week-past{
+            other{"{0} ميڠݢو لالو"}
+        }
+        year{
+            other{"{0} تاهون"}
+        }
+        year-future{
+            other{"دالم {0} تاهون"}
+        }
+        year-past{
+            other{"{0} تاهون لالو"}
+        }
+    }
+    unitsShort{
+        day{
+            other{"{0} هاري"}
+        }
+        hour{
+            other{"{0} جم"}
+        }
+        minute{
+            other{"{0} min"}
+        }
+        month{
+            other{"{0} بولن"}
+        }
+        second{
+            other{"{0} ساعت"}
+        }
+        week{
+            other{"{0} ميڠݢو"}
+        }
+        year{
+            other{"{0} thn"}
+        }
+    }
+}

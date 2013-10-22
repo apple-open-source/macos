@@ -27,13 +27,13 @@
 
 #include "Attribute.h"
 #include "Document.h"
+#include "ElementShadow.h"
 #include "FormDataList.h"
 #include "HTMLNames.h"
 #include "HTMLSelectElement.h"
 #include "HTMLOptionElement.h"
 #include "SSLKeyGenerator.h"
 #include "ShadowRoot.h"
-#include "ShadowTree.h"
 #include "Text.h"
 #include <wtf/StdLibExtras.h>
 
@@ -43,23 +43,19 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-class KeygenSelectElement : public HTMLSelectElement {
+class KeygenSelectElement FINAL : public HTMLSelectElement {
 public:
     static PassRefPtr<KeygenSelectElement> create(Document* document)
     {
         return adoptRef(new KeygenSelectElement(document));
     }
 
-    virtual const AtomicString& shadowPseudoId() const
-    {
-        DEFINE_STATIC_LOCAL(AtomicString, pseudoId, ("-webkit-keygen-select"));
-        return pseudoId;
-    }
-
 protected:
     KeygenSelectElement(Document* document)
         : HTMLSelectElement(selectTag, document, 0)
     {
+        DEFINE_STATIC_LOCAL(AtomicString, pseudoId, ("-webkit-keygen-select", AtomicString::ConstructFromLiteral));
+        setPseudo(pseudoId);
     }
 
 private:
@@ -79,16 +75,13 @@ inline HTMLKeygenElement::HTMLKeygenElement(const QualifiedName& tagName, Docume
     getSupportedKeySizes(keys);
 
     RefPtr<HTMLSelectElement> select = KeygenSelectElement::create(document);
-    ExceptionCode ec = 0;
     for (size_t i = 0; i < keys.size(); ++i) {
         RefPtr<HTMLOptionElement> option = HTMLOptionElement::create(document);
-        select->appendChild(option, ec);
-        option->appendChild(Text::create(document, keys[i]), ec);
+        select->appendChild(option, IGNORE_EXCEPTION);
+        option->appendChild(Text::create(document, keys[i]), IGNORE_EXCEPTION);
     }
 
-    ASSERT(!hasShadowRoot());
-    RefPtr<ShadowRoot> root = ShadowRoot::create(this, ShadowRoot::CreatingUserAgentShadowRoot);
-    root->appendChild(select, ec);
+    ensureUserAgentShadowRoot()->appendChild(select, IGNORE_EXCEPTION);
 }
 
 PassRefPtr<HTMLKeygenElement> HTMLKeygenElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
@@ -96,13 +89,13 @@ PassRefPtr<HTMLKeygenElement> HTMLKeygenElement::create(const QualifiedName& tag
     return adoptRef(new HTMLKeygenElement(tagName, document, form));
 }
 
-void HTMLKeygenElement::parseAttribute(Attribute* attr)
+void HTMLKeygenElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     // Reflect disabled attribute on the shadow select element
-    if (attr->name() == disabledAttr)
-        shadowSelect()->setAttribute(attr->name(), attr->value());
+    if (name == disabledAttr)
+        shadowSelect()->setAttribute(name, value);
 
-    HTMLFormControlElement::parseAttribute(attr);
+    HTMLFormControlElement::parseAttribute(name, value);
 }
 
 bool HTMLKeygenElement::appendFormData(FormDataList& encoded_values, bool)
@@ -120,7 +113,7 @@ bool HTMLKeygenElement::appendFormData(FormDataList& encoded_values, bool)
 
 const AtomicString& HTMLKeygenElement::formControlType() const
 {
-    DEFINE_STATIC_LOCAL(const AtomicString, keygen, ("keygen"));
+    DEFINE_STATIC_LOCAL(const AtomicString, keygen, ("keygen", AtomicString::ConstructFromLiteral));
     return keygen;
 }
 
@@ -129,11 +122,15 @@ void HTMLKeygenElement::reset()
     static_cast<HTMLFormControlElement*>(shadowSelect())->reset();
 }
 
+bool HTMLKeygenElement::shouldSaveAndRestoreFormControlState() const
+{
+    return false;
+}
+
 HTMLSelectElement* HTMLKeygenElement::shadowSelect() const
 {
-    ASSERT(hasShadowRoot());
-    ShadowRoot* shadow = shadowTree()->oldestShadowRoot();
-    return shadow ? toHTMLSelectElement(shadow->firstChild()) : 0;
+    ShadowRoot* root = userAgentShadowRoot();
+    return root ? toHTMLSelectElement(root->firstChild()) : 0;
 }
 
 } // namespace

@@ -28,10 +28,25 @@
  *       in which bootcaches.plist files get copied to any Apple_Boots
  */
 
-#include <sys/types.h>      // mode_t
+#ifndef _BOOTROOT_INTERNAL_H_
+#define _BOOTROOT_INTERNAL_H_
+
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "bootroot.h"
+
+// internal options for "update" operations (BROptsNone #def'd in bootroot.h)
+typedef enum {
+    // this first one is orthogonal to the others :P
+    kBRUForceUpdateHelpers = 0x1,   // ignore bootstamps, update helpers
+
+    kBRUCachesOnly         = 0x2,   // only update caches, not helpers
+    kBRUHelpersOptional    = 0x4,   // ignore helper update failures
+    kBRUExpectUpToDate     = 0x8,   // successful updates -> EX_OSFILE
+
+    // kBRAnyBootStamps #def'd to 0x10000 in bootroot.h
+} BRUpdateOpts_t;
+
 
 // in update_boot.c
 
@@ -46,3 +61,5 @@ int checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t flags);
 // only used by volume lockers (kextcache, libBootRoot clients, !kextd)
 int takeVolumeForPath(const char *volPath);
 int putVolumeForPath(const char *path, int status);
+
+#endif  // _BOOTROOT_INTERNAL_H_

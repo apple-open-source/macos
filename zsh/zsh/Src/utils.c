@@ -1,4 +1,3 @@
-
 /*
  * utils.c - miscellaneous utilities
  *
@@ -40,6 +39,11 @@ mod_export char *scriptname;     /* is sometimes a function name */
 
 /**/
 mod_export char *scriptfilename;
+
+/* != 0 if we are in a new style completion function */
+
+/**/
+mod_export int incompfunc;
 
 #ifdef MULTIBYTE_SUPPORT
 struct widechar_array {
@@ -271,9 +275,13 @@ zerrmsg(FILE *file, const char *fmt, va_list ap)
 #endif
     char *errmsg;
 
-    if ((unset(SHINSTDIN) || locallevel) && lineno)
+    if ((unset(SHINSTDIN) || locallevel) && lineno) {
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+	fprintf(file, "%lld: ", lineno);
+#else
 	fprintf(file, "%ld: ", (long)lineno);
-    else
+#endif
+    } else
 	fputc((unsigned char)' ', file);
 
     while (*fmt)
@@ -891,7 +899,8 @@ finddir(char *s)
 {
     static struct nameddir homenode = { {NULL, "", 0}, NULL, 0 };
     static int ffsz;
-    Shfunc func = getshfunc("zsh_directory_name");
+    char **ares;
+    int len;
 
     /* Invalidate directory cache if argument is NULL.  This is called *
      * whenever a node is added to or removed from the hash table, and *
@@ -907,9 +916,16 @@ finddir(char *s)
 	return finddir_last = NULL;
     }
 
-    /* It's not safe to use the cache while we have function transformations.*/
-    if(!func && !strcmp(s, finddir_full) && *finddir_full)
+#if 0
+    /*
+     * It's not safe to use the cache while we have function
+     * transformations, and it's not clear it's worth the
+     * complexity of guessing here whether subst_string_by_hook
+     * is going to turn up the goods.
+     */
+    if (!strcmp(s, finddir_full) && *finddir_full)
 	return finddir_last;
+#endif
 
     if ((int)strlen(s) >= ffsz) {
 	free(finddir_full);
@@ -921,18 +937,15 @@ finddir(char *s)
     finddir_scan(&homenode.node, 0);
     scanhashtable(nameddirtab, 0, 0, 0, finddir_scan, 0);
 
-    if (func) {
-	char **ares = subst_string_by_func(func, "d", finddir_full);
-	int len;
-	if (ares && arrlen(ares) >= 2 &&
-	    (len = (int)zstrtol(ares[1], NULL, 10)) > finddir_best) {
-	    /* better duplicate this string since it's come from REPLY */
-	    finddir_last = (Nameddir)hcalloc(sizeof(struct nameddir));
-	    finddir_last->node.nam = zhtricat("[", dupstring(ares[0]), "]");
-	    finddir_last->dir = dupstrpfx(finddir_full, len);
-	    finddir_last->diff = len - strlen(finddir_last->node.nam);
-	    finddir_best = len;
-	}
+    ares = subst_string_by_hook("zsh_directory_name", "d", finddir_full);
+    if (ares && arrlen(ares) >= 2 &&
+	(len = (int)zstrtol(ares[1], NULL, 10)) > finddir_best) {
+	/* better duplicate this string since it's come from REPLY */
+	finddir_last = (Nameddir)hcalloc(sizeof(struct nameddir));
+	finddir_last->node.nam = zhtricat("[", dupstring(ares[0]), "]");
+	finddir_last->dir = dupstrpfx(finddir_full, len);
+	finddir_last->diff = len - strlen(finddir_last->node.nam);
+	finddir_best = len;
     }
 
     return finddir_last;
@@ -1228,8 +1241,10 @@ callhookfunc(char *name, LinkList lnklst, int arrayp, int *retval)
 	 * to a list of jobs generated in a hook.
 	 */
     int osc = sfcontext, osm = stopmsg, stat = 1, ret = 0;
+    int old_incompfunc = incompfunc;
 
     sfcontext = SFC_HOOK;
+    incompfunc = 0;
 
     if ((shfunc = getshfunc(name))) {
 	ret = doshfunc(shfunc, lnklst, 1);
@@ -1258,6 +1273,7 @@ callhookfunc(char *name, LinkList lnklst, int arrayp, int *retval)
 
     sfcontext = osc;
     stopmsg = osm;
+    incompfunc = old_incompfunc;
 
     if (retval)
 	*retval = ret;
@@ -1292,7 +1308,8 @@ preprompt(void)
 	countprompt(str, &w, 0, -1);
 	opts[PROMPTPERCENT] = percents;
 	zputs(str, shout);
-	fprintf(shout, "%*s\r%*s\r", (int)columns - w - !hasxn, "", w, "");
+	fprintf(shout, "%*s\r%*s\r", (int)zterm_columns - w - !hasxn,
+		"", w, "");
 	fflush(shout);
 	free(str);
     }
@@ -1554,49 +1571,49 @@ mod_export int winchanged;
 static int
 adjustlines(int signalled)
 {
-    int oldlines = lines;
+    int oldlines = zterm_lines;
 
 #ifdef TIOCGWINSZ
-    if (signalled || lines <= 0)
-	lines = shttyinfo.winsize.ws_row;
+    if (signalled || zterm_lines <= 0)
+	zterm_lines = shttyinfo.winsize.ws_row;
     else
-	shttyinfo.winsize.ws_row = lines;
+	shttyinfo.winsize.ws_row = zterm_lines;
 #endif /* TIOCGWINSZ */
-    if (lines <= 0) {
+    if (zterm_lines <= 0) {
 	DPUTS(signalled, "BUG: Impossible TIOCGWINSZ rows");
-	lines = tclines > 0 ? tclines : 24;
+	zterm_lines = tclines > 0 ? tclines : 24;
     }
 
-    if (lines > 2)
+    if (zterm_lines > 2)
 	termflags &= ~TERM_SHORT;
     else
 	termflags |= TERM_SHORT;
 
-    return (lines != oldlines);
+    return (zterm_lines != oldlines);
 }
 
 static int
 adjustcolumns(int signalled)
 {
-    int oldcolumns = columns;
+    int oldcolumns = zterm_columns;
 
 #ifdef TIOCGWINSZ
-    if (signalled || columns <= 0)
-	columns = shttyinfo.winsize.ws_col;
+    if (signalled || zterm_columns <= 0)
+	zterm_columns = shttyinfo.winsize.ws_col;
     else
-	shttyinfo.winsize.ws_col = columns;
+	shttyinfo.winsize.ws_col = zterm_columns;
 #endif /* TIOCGWINSZ */
-    if (columns <= 0) {
+    if (zterm_columns <= 0) {
 	DPUTS(signalled, "BUG: Impossible TIOCGWINSZ cols");
-	columns = tccolumns > 0 ? tccolumns : 80;
+	zterm_columns = tccolumns > 0 ? tccolumns : 80;
     }
 
-    if (columns > 2)
+    if (zterm_columns > 2)
 	termflags &= ~TERM_NARROW;
     else
 	termflags |= TERM_NARROW;
 
-    return (columns != oldcolumns);
+    return (zterm_columns != oldcolumns);
 }
 
 /* check the size of the window and adjust if necessary. *
@@ -1630,8 +1647,8 @@ adjustwinsize(int from)
 	    ttycols = shttyinfo.winsize.ws_col;
 	} else {
 	    /* Set to value from environment on failure */
-	    shttyinfo.winsize.ws_row = lines;
-	    shttyinfo.winsize.ws_col = columns;
+	    shttyinfo.winsize.ws_row = zterm_lines;
+	    shttyinfo.winsize.ws_col = zterm_columns;
 	    resetzle = (from == 1);
 	}
 #else
@@ -1651,9 +1668,9 @@ adjustwinsize(int from)
 	 * but I'm concerned about what happens on race conditions; e.g., *
 	 * suppose the user resizes his xterm during `eval $(resize)'?    */
 	if (adjustlines(from) && zgetenv("LINES"))
-	    setiparam("LINES", lines);
+	    setiparam("LINES", zterm_lines);
 	if (adjustcolumns(from) && zgetenv("COLUMNS"))
-	    setiparam("COLUMNS", columns);
+	    setiparam("COLUMNS", zterm_columns);
 	getwinsz = 1;
 	break;
     case 2:
@@ -1669,7 +1686,7 @@ adjustwinsize(int from)
 	(shttyinfo.winsize.ws_row != ttyrows ||
 	 shttyinfo.winsize.ws_col != ttycols)) {
 	/* shttyinfo.winsize is already set up correctly */
-	ioctl(SHTTY, TIOCSWINSZ, (char *)&shttyinfo.winsize);
+	/* ioctl(SHTTY, TIOCSWINSZ, (char *)&shttyinfo.winsize); */
     }
 #endif /* TIOCGWINSZ */
 
@@ -1678,8 +1695,8 @@ adjustwinsize(int from)
 	winchanged =
 #endif /* TIOCGWINSZ */
 	    resetneeded = 1;
-	zleentry(ZLE_CMD_REFRESH);
 	zleentry(ZLE_CMD_RESET_PROMPT);
+	zleentry(ZLE_CMD_REFRESH);
     }
 }
 
@@ -1797,22 +1814,20 @@ zclose(int fd)
 {
     if (fd >= 0) {
 	/*
-	 * We sometimes zclose() an fd twice where the second
-	 * time is a catch-all in case there was a failure using
-	 * the fd.  This is harmless but we need to trap it
-	 * for the error check here.
+	 * Careful: we allow closing of arbitrary fd's, beyond
+	 * max_zsh_fd.  In that case we don't try anything clever.
 	 */
-	DPUTS2(fd > max_zsh_fd && fdtable[fd] != FDT_UNUSED,
-	       "BUG: fd is %d, max_zsh_fd is %d", fd, max_zsh_fd);
-	if (fdtable[fd] == FDT_FLOCK)
-	    fdtable_flocks--;
-	fdtable[fd] = FDT_UNUSED;
-	while (max_zsh_fd > 0 && fdtable[max_zsh_fd] == FDT_UNUSED)
-	    max_zsh_fd--;
-	if (fd == coprocin)
-	    coprocin = -1;
-	if (fd == coprocout)
-	    coprocout = -1;
+	if (fd <= max_zsh_fd) {
+	    if (fdtable[fd] == FDT_FLOCK)
+		fdtable_flocks--;
+	    fdtable[fd] = FDT_UNUSED;
+	    while (max_zsh_fd > 0 && fdtable[max_zsh_fd] == FDT_UNUSED)
+		max_zsh_fd--;
+	    if (fd == coprocin)
+		coprocin = -1;
+	    if (fd == coprocout)
+		coprocout = -1;
+	}
 	return close(fd);
     }
     return -1;
@@ -2015,13 +2030,20 @@ skipparens(char inpar, char outpar, char **s)
    return level;
 }
 
+/**/
+mod_export zlong
+zstrtol(const char *s, char **t, int base)
+{
+    return zstrtol_underscore(s, t, base, 0);
+}
+
 /* Convert string to zlong (see zsh.h).  This function (without the z) *
  * is contained in the ANSI standard C library, but a lot of them seem *
  * to be broken.                                                       */
 
 /**/
 mod_export zlong
-zstrtol(const char *s, char **t, int base)
+zstrtol_underscore(const char *s, char **t, int base, int underscore)
 {
     const char *inp, *trunc = NULL;
     zulong calc = 0, newcalc = 0;
@@ -2047,22 +2069,24 @@ zstrtol(const char *s, char **t, int base)
     if (base < 2 || base > 36) {
 	zerr("invalid base (must be 2 to 36 inclusive): %d", base);
 	return (zlong)0;
-    } else if (base <= 10)
-	for (; *s >= '0' && *s < ('0' + base); s++) {
-	    if (trunc)
+    } else if (base <= 10) {
+	for (; (*s >= '0' && *s < ('0' + base)) ||
+		 (underscore && *s == '_'); s++) {
+	    if (trunc || *s == '_')
 		continue;
 	    newcalc = calc * base + *s - '0';
 	    if (newcalc < calc)
 	    {
-	      trunc = s;
-	      continue;
+		trunc = s;
+		continue;
 	    }
 	    calc = newcalc;
 	}
-    else
+    } else {
 	for (; idigit(*s) || (*s >= 'a' && *s < ('a' + base - 10))
-	     || (*s >= 'A' && *s < ('A' + base - 10)); s++) {
-	    if (trunc)
+	     || (*s >= 'A' && *s < ('A' + base - 10))
+	     || (underscore && *s == '_'); s++) {
+	    if (trunc || *s == '_')
 		continue;
 	    newcalc = calc*base + (idigit(*s) ? (*s - '0') : (*s & 0x1f) + 9);
 	    if (newcalc < calc)
@@ -2072,6 +2096,7 @@ zstrtol(const char *s, char **t, int base)
 	    }
 	    calc = newcalc;
 	}
+    }
 
     /*
      * Special case: check for a number that was just too long for
@@ -2406,8 +2431,10 @@ getquery(char *valid_chars, int purge)
 	}
 	zbeep();
     }
-    if (c >= 0)
-	write_loop(SHTTY, &c, 1);
+    if (c >= 0) {
+	char buf = (char)c;
+	write_loop(SHTTY, &buf, 1);
+    }
     if (nl)
 	write_loop(SHTTY, "\n", 1);
 
@@ -2485,16 +2512,18 @@ spckword(char **s, int hist, int cmd, int ask)
 	return;
     if (!(*s)[0] || !(*s)[1])
 	return;
-    if (shfunctab->getnode(shfunctab, *s) ||
-	builtintab->getnode(builtintab, *s) ||
-	cmdnamtab->getnode(cmdnamtab, *s) ||
-	aliastab->getnode(aliastab, *s)  ||
-	reswdtab->getnode(reswdtab, *s))
-	return;
-    else if (isset(HASHLISTALL)) {
-	cmdnamtab->filltable(cmdnamtab);
-	if (cmdnamtab->getnode(cmdnamtab, *s))
+    if (cmd) {
+	if (shfunctab->getnode(shfunctab, *s) ||
+	    builtintab->getnode(builtintab, *s) ||
+	    cmdnamtab->getnode(cmdnamtab, *s) ||
+	    aliastab->getnode(aliastab, *s)  ||
+	    reswdtab->getnode(reswdtab, *s))
 	    return;
+	else if (isset(HASHLISTALL)) {
+	    cmdnamtab->filltable(cmdnamtab);
+	    if (cmdnamtab->getnode(cmdnamtab, *s))
+		return;
+	}
     }
     t = *s;
     if (*t == Tilde || *t == Equals || *t == String)
@@ -2608,6 +2637,8 @@ spckword(char **s, int hist, int cmd, int ask)
 		fflush(shout);
 		zbeep();
 		x = getquery("nyae \t", 0);
+		if (cmd && x == 'n')
+		    pathchecked = path;
 	    } else
 		x = 'n';
 	} else
@@ -2856,7 +2887,7 @@ zjoin(char **arr, int delim, int heap)
  * of items into an array of strings.               */
 
 /**/
-char **
+mod_export char **
 colonsplit(char *s, int uniq)
 {
     int ct;
@@ -3093,7 +3124,7 @@ wordcount(char *s, char *sep, int mul)
 	r = 1;
 	sl = strlen(sep);
 	for (; (c = findsep(&s, sep, 0)) >= 0; s += sl)
-	    if ((c && *(s + sl)) || mul)
+	    if ((c || mul) && (sl || *(s + sl)))
 		r++;
     } else {
 	char *t = s;
@@ -3163,6 +3194,10 @@ sepsplit(char *s, char *sep, int allownull, int heap)
     int n, sl;
     char *t, *tt, **r, **p;
 
+    /* Null string?  Treat as empty string. */
+    if (s[0] == Nularg && !s[1])
+	s++;
+
     if (!sep)
 	return spacesplit(s, allownull, heap, 0);
 
@@ -3211,7 +3246,7 @@ getshfunc(char *nam)
 char **
 subst_string_by_func(Shfunc func, char *arg1, char *orig)
 {
-    int osc = sfcontext;
+    int osc = sfcontext, osm = stopmsg, old_incompfunc = incompfunc;
     LinkList l = newlinklist();
     char **ret;
 
@@ -3220,6 +3255,7 @@ subst_string_by_func(Shfunc func, char *arg1, char *orig)
 	addlinknode(l, arg1);
     addlinknode(l, orig);
     sfcontext = SFC_SUBST;
+    incompfunc = 0;
 
     if (doshfunc(func, l, 1))
 	ret = NULL;
@@ -3227,6 +3263,48 @@ subst_string_by_func(Shfunc func, char *arg1, char *orig)
 	ret = getaparam("reply");
 
     sfcontext = osc;
+    stopmsg = osm;
+    incompfunc = old_incompfunc;
+    return ret;
+}
+
+/**
+ * Front end to subst_string_by_func to use hook-like logic.
+ * name can refer to a function, and name + "_hook" can refer
+ * to an array containing a list of functions.  The functions
+ * are tried in order until one returns success.
+ */
+/**/
+char **
+subst_string_by_hook(char *name, char *arg1, char *orig)
+{
+    Shfunc func;
+    char **ret = NULL;
+
+    if ((func = getshfunc(name))) {
+	ret = subst_string_by_func(func, arg1, orig);
+    }
+
+    if (!ret) {
+	char **arrptr;
+	int namlen = strlen(name);
+	VARARR(char, arrnam, namlen + HOOK_SUFFIX_LEN);
+	memcpy(arrnam, name, namlen);
+	memcpy(arrnam + namlen, HOOK_SUFFIX, HOOK_SUFFIX_LEN);
+
+	if ((arrptr = getaparam(arrnam))) {
+	    /* Guard against internal modification of the array */
+	    arrptr = arrdup(arrptr);
+	    for (; *arrptr; arrptr++) {
+		if ((func = getshfunc(*arrptr))) {
+		    ret = subst_string_by_func(func, arg1, orig);
+		    if (ret)
+			break;
+		}
+	    }
+	}
+    }
+
     return ret;
 }
 
@@ -3637,6 +3715,8 @@ spname(char *oldname)
 	thresh = (int)(p - spnameguess) / 4 + 1;
 	if (thresh < 3)
 	    thresh = 3;
+	else if (thresh > 100)
+	    thresh = 100;
 	if ((thisdist = mindist(newname, spnameguess, spnamebest)) >= thresh) {
 	    /* The next test is always true, except for the first path    *
 	     * component.  We could initialize bestdist to some large     *
@@ -3667,16 +3747,22 @@ mindist(char *dir, char *mindistguess, char *mindistbest)
     int mindistd, nd;
     DIR *dd;
     char *fn;
-    char buf[PATH_MAX];
+    char *buf;
 
     if (dir[0] == '\0')
 	dir = ".";
     mindistd = 100;
+
+    buf = zalloc(strlen(dir) + strlen(mindistguess) + 2);
     sprintf(buf, "%s/%s", dir, mindistguess);
+
     if (access(unmeta(buf), F_OK) == 0) {
 	strcpy(mindistbest, mindistguess);
+	free(buf);
 	return 0;
     }
+    free(buf);
+
     if (!(dd = opendir(unmeta(dir))))
 	return mindistd;
     while ((fn = zreaddir(dd, 0))) {
@@ -3887,7 +3973,7 @@ metafy(char *buf, int len, int heap)
 	    if (imeta(*e++))
 		meta++;
 
-    if (meta || heap == META_DUP || heap == META_HEAPDUP) {
+    if (meta || heap == META_DUP || heap == META_HEAPDUP || *e != '\0') {
 	switch (heap) {
 	case META_REALLOC:
 	    buf = zrealloc(buf, len + meta + 1);
@@ -3930,9 +4016,31 @@ metafy(char *buf, int len, int heap)
 		meta--;
 	    }
 	}
+	*e = '\0';
     }
-    *e = '\0';
     return buf;
+}
+
+
+/*
+ * Duplicate a string, metafying it as we go.
+ *
+ * Typically, this is used only for strings imported from outside
+ * zsh, as strings internally are either already metafied or passed
+ * around with an associated length.
+ */
+/**/
+mod_export char *
+ztrdup_metafy(const char *s)
+{
+    /* To mimic ztrdup() behaviour */
+    if (!s)
+	return NULL;
+    /*
+     * metafy() does lots of different things, so the pointer
+     * isn't const.  Using it with META_DUP should be safe.
+     */
+    return metafy((char *)s, -1, META_DUP);
 }
 
 
@@ -4633,11 +4741,11 @@ addunprintable(char *v, const char *u, const char *uend)
 mod_export char *
 quotestring(const char *s, char **e, int instring)
 {
-    const char *u, *tt;
+    const char *u;
     char *v;
     int alloclen;
     char *buf;
-    int sf = 0, shownull;
+    int sf = 0, shownull = 0;
     /*
      * quotesub is used with QT_SINGLE_OPTIONAL.
      * quotesub = 0:  mechanism not active
@@ -4652,14 +4760,12 @@ quotestring(const char *s, char **e, int instring)
     const char *uend;
 
     slen = strlen(s);
-    if (instring == QT_BACKSLASH_SHOWNULL) {
-	shownull = 1;
-	instring = QT_BACKSLASH;
-    } else {
-	shownull = 0;
-    }
     switch (instring)
     {
+    case QT_BACKSLASH_SHOWNULL:
+	shownull = 1;
+	instring = QT_BACKSLASH;
+	/*FALLTHROUGH*/
     case QT_BACKSLASH:
 	/*
 	 * With QT_BACKSLASH we may need to use $'\300' stuff.
@@ -4667,24 +4773,25 @@ quotestring(const char *s, char **e, int instring)
 	 * storage and using heap for correct size at end.
 	 */
 	alloclen = slen * 7 + 1;
-	if (!*s && shownull)
-	    alloclen += 2;	/* for '' */
 	break;
 
     case QT_SINGLE_OPTIONAL:
 	/*
 	 * Here, we may need to add single quotes.
+	 * Always show empty strings.
 	 */
 	alloclen = slen * 4 + 3;
-	quotesub = 1;
+	quotesub = shownull = 1;
 	break;
 
     default:
 	alloclen = slen * 4 + 1;
 	break;
     }
+    if (!*s && shownull)
+	alloclen += 2;	/* for '' */
 
-    tt = quotestart = v = buf = zshcalloc(alloclen);
+    quotestart = v = buf = zshcalloc(alloclen);
 
     DPUTS(instring < QT_BACKSLASH || instring == QT_BACKTICK ||
 	  instring > QT_SINGLE_OPTIONAL,
@@ -5517,6 +5624,8 @@ getkeystring(char *s, int *len, int how, int *misc)
 		    }
 		    *t++ = zstrtol(s + (*s == 'x'), &s,
 				   (*s == 'x') ? 16 : 8);
+		    if ((how & GETKEY_PRINTF_PERCENT) && t[-1] == '%')
+		        *t++ = '%';
 		    if (svchar) {
 			u[3] = svchar;
 			svchar = '\0';

@@ -113,10 +113,10 @@ cnfp_print(const u_char *cp, const u_char *bp _U_)
 	if (ver == 5 || ver == 6) {
 		printf("#%u, ", EXTRACT_32BITS(&nh->sequence));
 		nr = (const struct nfrec *)&nh[1];
-		snaplen -= 24;
+		gndo->ndo_snaplen -= 24;
 	} else {
 		nr = (const struct nfrec *)&nh->sequence;
-		snaplen -= 16;
+		gndo->ndo_snaplen -= 16;
 	}
 
 	printf("%2u recs", nrecs);

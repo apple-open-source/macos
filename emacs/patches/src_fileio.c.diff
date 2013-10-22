@@ -1,0 +1,11 @@
+--- src/fileio.c	2007-03-22 07:27:31.000000000 -0700
++++ src/fileio.c	2012-05-22 17:12:12.000000000 -0700
+@@ -3860,7 +3860,7 @@ actually used.  */)
+ 	     overflow.  The calculations below double the file size
+ 	     twice, so check that it can be multiplied by 4 safely.  */
+ 	  if (XINT (end) != st.st_size
+-	      || ((int) st.st_size * 4) / 4 != st.st_size)
++	      /*	      || ((int) st.st_size * 4) / 4 != st.st_size */)
+ 	    error ("Maximum buffer size exceeded");
+ 
+ 	  /* The file size returned from stat may be zero, but data

@@ -31,21 +31,62 @@
 
 namespace WebCore {
 
+class RenderMultiColumnFlowThread;
+
 class RenderMultiColumnBlock : public RenderBlock {
 public:
-    RenderMultiColumnBlock(Node*);
-    
+    RenderMultiColumnBlock(Element*);
+
+    LayoutUnit columnHeightAvailable() const { return m_columnHeightAvailable; }
+
+    LayoutUnit columnWidth() const { return m_columnWidth; }
+    unsigned columnCount() const { return m_columnCount; }
+
+    RenderMultiColumnFlowThread* flowThread() const { return m_flowThread; }
+
+    bool requiresBalancing() const { return !m_columnHeightAvailable; }
+
 private:
+    virtual bool isRenderMultiColumnBlock() const { return true; }
+    
     virtual const char* renderName() const;
 
-    virtual bool recomputeLogicalWidth();
+    virtual RenderObject* layoutSpecialExcludedChild(bool relayoutChildren) OVERRIDE;
+
+    virtual void styleDidChange(StyleDifference, const RenderStyle*) OVERRIDE;
+    
+    virtual bool updateLogicalWidthAndColumnWidth() OVERRIDE;
+    virtual void checkForPaginationLogicalHeightChange(LayoutUnit& pageLogicalHeight, bool& pageLogicalHeightChanged, bool& hasSpecifiedPageLogicalHeight) OVERRIDE;
+    virtual bool relayoutForPagination(bool hasSpecifiedPageLogicalHeight, LayoutUnit pageLogicalHeight, LayoutStateMaintainer&) OVERRIDE;
+
+    virtual void addChild(RenderObject* newChild, RenderObject* beforeChild = 0) OVERRIDE;
+
     void computeColumnCountAndWidth();
 
-private:
+    void ensureColumnSets();
+
+    RenderMultiColumnFlowThread* m_flowThread;
     unsigned m_columnCount;   // The default column count/width that are based off our containing block width. These values represent only the default,
     LayoutUnit m_columnWidth; // since a multi-column block that is split across variable width pages or regions will have different column counts and widths in each.
                               // These values will be cached (eventually) for multi-column blocks.
+    LayoutUnit m_columnHeightAvailable; // Total height available to columns, or 0 if auto.
+    bool m_inBalancingPass; // Set when relayouting for column balancing.
 };
+
+inline RenderMultiColumnBlock* toRenderMultiColumnBlock(RenderObject* object)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderMultiColumnBlock());
+    return static_cast<RenderMultiColumnBlock*>(object);
+}
+
+inline const RenderMultiColumnBlock* toRenderMultiColumnBlock(const RenderObject* object)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderMultiColumnBlock());
+    return static_cast<const RenderMultiColumnBlock*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderMultiColumnBlock(const RenderMultiColumnBlock*);
 
 } // namespace WebCore
 

@@ -8,7 +8,7 @@
 .Nd report system calls and page faults related to filesystem activity in
 real-time
 .Sh SYNOPSIS
-.Nm fs_usage [-e] [-w] [-f mode [-f mode] ...] [ pid|cmd [pid|cmd] ...]
+.Nm fs_usage [-e] [-w] [-f mode] [-b] [-t seconds] [-R rawfile [-S start_time] [-E end_time]] [pid | cmd [pid | cmd] ...]
 .Sh DESCRIPTION
 The
 .Nm fs_usage
@@ -16,7 +16,7 @@ utility presents an ongoing display of system call usage information
 pertaining to filesystem activity.
 It requires root privileges due to the kernel tracing facility it uses to
 operate.
-By default the activity monitored includes all system processes except the
+By default, the activity monitored includes all system processes except the
 running
 .Nm fs_usage
 process, Terminal, telnetd, sshd, rlogind, tcsh, csh and sh.
@@ -43,8 +43,14 @@ Specifying the
 .Fl e
 option generates output that excludes sampling
 of the running fs_usage tool.
-If a list of process ids or commands is also given,
+If a list of process IDs or commands is also given,
 then those processes are also excluded from the sampled output.
+.\" ==========
+.It Fl w
+Specifying the
+.Fl w
+option forces a wider, more detailed output,
+regardless of the window size.
 .\" ==========
 .It Fl f
 Specifying the
@@ -53,29 +59,36 @@ option turns on output filtering based on the
 .Pa mode
 provided.
 Multiple filtering options can be specified.
-By default no output filtering occurs.
+By default, no output filtering occurs.
 The supported modes are:
 .Pp
 .Pa  network	
-Only network related events are displayed.
+Network-related events are displayed.
 .Pp
 .Pa filesys	
-Only file system related events are displayed.
-.Pp
-.Pa exec		
-Only exec and spawn events are displayed.
+Filesystem-related events are displayed.
 .Pp
 .Pa pathname	
-Only pathname related events are displayed.
+Pathname-related events are displayed.
+.Pp
+.Pa exec		
+Exec and spawn events are displayed.
+.Pp
+.Pa diskio	
+Disk I/O events are displayed.
 .Pp
 .Pa cachehit	
-In addition, display CACHE_HIT output.
+In addition, show cache hits.
 .\" ==========
-.It Fl w
+.It Fl b
 Specifying the
-.Fl w
-option forces a wider, more detailed output,
-regardless of the window size.
+.Fl b
+option annotates disk I/O events with BootCache info (if available).
+.\" ==========
+.It Fl t Ar seconds
+Specifies a run timeout in seconds.  
+.Nm fs_usage
+will run for no longer than the timeout specified.
 .\" ==========
 .It Fl R Ar raw_file
 Specifies a raw trace file to process.
@@ -97,13 +110,13 @@ with timestamps beyond the specified ending time will be
 skipped.
 .\" ==========
 .It  pid | cmd
-The sampled data can be limited to a list of process ids or commands.
+The sampled data can be limited to a list of process IDs or commands.
 When a command name is given, all processes with that name will be sampled.
 Using the
 .Fl e
 option has the opposite effect,
 excluding sampled data relating to the given list
-of process ids or commands.
+of process IDs or commands.
 .El
 .Pp
 If you set the DYLD_IMAGE_SUFFIX environment variable to

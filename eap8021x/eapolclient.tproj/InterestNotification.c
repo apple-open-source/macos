@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include "EAPLog.h"
 #include "InterestNotification.h"
 
 struct InterestNotification {
@@ -106,20 +107,17 @@ InterestNotificationStart(InterestNotificationRef interest_p,
     kr = IOServiceGetMatchingServices(kIOMasterPortDefault,
 				      matching, &list);
     if (kr != KERN_SUCCESS) {
-	fprintf(stderr, "InterestNotificationStart: No such interface %s\n",
-		if_name);
+	EAPLOG_FL(LOG_NOTICE, "No such interface %s\n", if_name);
 	goto done;
     }
     notify = IONotificationPortCreate(kIOMasterPortDefault);
     if (notify == NULL) {
-	fprintf(stderr,	"InterestNotificationStart: IONotificationPortCreate"
-		" failed\n");
+	EAPLOG_FL(LOG_NOTICE, "IONotificationPortCreate failed\n");
 	goto done;
     }
     obj = IOIteratorNext(list);
     if (obj == MACH_PORT_NULL) {
-	fprintf(stderr,
-		"InterestNotificationStart: IOIteratorNext no object\n");
+	EAPLOG_FL(LOG_NOTICE, "IOIteratorNext no object\n");
 	goto done;
     }
     kr = IOServiceAddInterestNotification(notify,
@@ -129,9 +127,8 @@ InterestNotificationStart(InterestNotificationRef interest_p,
 					  (void *)interest_p,
 					  &if_change);
     if (kr != KERN_SUCCESS) {
-	fprintf(stderr,
-		"InterestNotificationStart: IOServiceAddInterestNotification"
-		" failed, 0x%x\n", kr);
+	EAPLOG_FL(LOG_NOTICE, "IOServiceAddInterestNotification failed, 0x%x\n",
+		  kr);
 	goto done;
     }
     CFRunLoopAddSource(CFRunLoopGetCurrent(),

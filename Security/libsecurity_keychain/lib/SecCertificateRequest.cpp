@@ -137,7 +137,7 @@ OSStatus SecCertificateRequestGetResult(
 		switch(numItems) {
 			case 0:
 				certReqDbg("SecCertificateRequestGetResult: import zero items");
-				MacOSError::throwMe(internalComponentErr);
+				MacOSError::throwMe(errSecInternalComponent);
 			default:
 				certReqDbg("SecCertificateRequestGetResult: import %d items", 
 					(int)numItems);

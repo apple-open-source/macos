@@ -1,0 +1,17 @@
+--- HTTP-Proxy-0.25/t/Utils.pm
++++ HTTP-Proxy-0.25/t/Utils.pm
+@@ -80,11 +80,9 @@ sub fork_proxy {
+ 
+ # check that the web connection is working
+ sub web_ok {
+-    my $ua = LWP::UserAgent->new( env_proxy => 1, timeout => 30 );
+-    my $res =
+-      $ua->request(
+-        HTTP::Request->new( GET => shift||'http://www.google.com/intl/en/' ) );
+-    return $res->is_success;
++    # Return 0 to skip tests that require a web connection
++    # <rdar://problem/9559834>
++    return 0;
+ }
+ 
+ # send a simple request without LWP::UA

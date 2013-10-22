@@ -7,10 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2CEC3CF710A23E0300F16843 /* adler32vec.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CEC3CF510A23E0300F16843 /* adler32vec.s */; };
-		2CEC3CF810A23E0300F16843 /* inffast.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CEC3CF610A23E0300F16843 /* inffast.s */; };
-		2CFBE0021098F41E002A3E08 /* adler32vec.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CFBE0001098F41E002A3E08 /* adler32vec.s */; };
-		2CFBE0031098F41E002A3E08 /* inffast.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CFBE0011098F41E002A3E08 /* inffast.s */; };
 		4CE5F21D107AB6D200DCB1EB /* adler32.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F208107AB6D200DCB1EB /* adler32.c */; };
 		4CE5F21E107AB6D200DCB1EB /* compress.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F209107AB6D200DCB1EB /* compress.c */; };
 		4CE5F21F107AB6D200DCB1EB /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F20A107AB6D200DCB1EB /* crc32.c */; };
@@ -40,10 +36,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		2CEC3CF510A23E0300F16843 /* adler32vec.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = adler32vec.s; path = zlib/intel/adler32vec.s; sourceTree = "<group>"; };
-		2CEC3CF610A23E0300F16843 /* inffast.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = inffast.s; path = zlib/intel/inffast.s; sourceTree = "<group>"; };
-		2CFBE0001098F41E002A3E08 /* adler32vec.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = adler32vec.s; path = zlib/arm/adler32vec.s; sourceTree = "<group>"; };
-		2CFBE0011098F41E002A3E08 /* inffast.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = inffast.s; path = zlib/arm/inffast.s; sourceTree = "<group>"; };
 		4CE5F208107AB6D200DCB1EB /* adler32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = adler32.c; path = zlib/adler32.c; sourceTree = "<group>"; };
 		4CE5F209107AB6D200DCB1EB /* compress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = compress.c; path = zlib/compress.c; sourceTree = "<group>"; };
 		4CE5F20A107AB6D200DCB1EB /* crc32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = crc32.c; path = zlib/crc32.c; sourceTree = "<group>"; };
@@ -102,10 +94,6 @@
 				B1EA68D01318904800CB9362 /* gzread.c */,
 				B1EA68D11318904800CB9362 /* gzwrite.c */,
 				B1EA68D21318904800CB9362 /* inffixed.h */,
-				2CEC3CF510A23E0300F16843 /* adler32vec.s */,
-				2CEC3CF610A23E0300F16843 /* inffast.s */,
-				2CFBE0001098F41E002A3E08 /* adler32vec.s */,
-				2CFBE0011098F41E002A3E08 /* inffast.s */,
 				4CE5F208107AB6D200DCB1EB /* adler32.c */,
 				4CE5F209107AB6D200DCB1EB /* compress.c */,
 				4CE5F20A107AB6D200DCB1EB /* crc32.c */,
@@ -233,10 +221,6 @@
 				4CE5F22B107AB6D200DCB1EB /* trees.c in Sources */,
 				4CE5F22D107AB6D200DCB1EB /* uncompr.c in Sources */,
 				4CE5F230107AB6D200DCB1EB /* zutil.c in Sources */,
-				2CFBE0021098F41E002A3E08 /* adler32vec.s in Sources */,
-				2CFBE0031098F41E002A3E08 /* inffast.s in Sources */,
-				2CEC3CF710A23E0300F16843 /* adler32vec.s in Sources */,
-				2CEC3CF810A23E0300F16843 /* inffast.s in Sources */,
 				B1EA68D31318904800CB9362 /* gzclose.c in Sources */,
 				B1EA68D51318904800CB9362 /* gzlib.c in Sources */,
 				B1EA68D61318904800CB9362 /* gzread.c in Sources */,
@@ -257,7 +241,6 @@
 				GCC_ENABLE_PASCAL_STRINGS = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					USE_MMAP,
-					VEC_OPTIMIZE,
 				);
 				INSTALL_PATH = /usr/lib;
 				"INSTALL_PATH[sdk=iphoneos*]" = /usr/lib;

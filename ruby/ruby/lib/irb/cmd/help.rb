@@ -1,28 +1,34 @@
 #
 #   help.rb - helper using ri
-#   	$Release Version: 0.9.5$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38358 $
 #
 # --
 #
-#   
+#
 #
 
-require 'rdoc/ri/ri_driver'
+require 'rdoc/ri/driver'
 
+require "irb/cmd/nop.rb"
+
+# :stopdoc:
 module IRB
   module ExtendCommand
-    module Help
+    class Help<Nop
       begin
-        @ri = RiDriver.new
+        Ri = RDoc::RI::Driver.new
       rescue SystemExit
       else
-        def self.execute(context, *names)
+        def execute(*names)
+          if names.empty?
+            Ri.interactive
+            return
+          end
           names.each do |name|
             begin
-              @ri.get_info_for(name.to_s)
-            rescue RiError
+              Ri.display_name(name.to_s)
+            rescue RDoc::RI::Error
               puts $!.message
             end
           end
@@ -32,3 +38,4 @@ module IRB
     end
   end
 end
+# :startdoc:

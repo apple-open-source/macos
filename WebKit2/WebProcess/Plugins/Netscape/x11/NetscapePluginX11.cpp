@@ -25,7 +25,7 @@
  */
 
 #include "config.h"
-#if PLUGIN_ARCHITECTURE(X11)
+#if PLUGIN_ARCHITECTURE(X11) && ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "NetscapePlugin.h"
 
@@ -37,15 +37,20 @@
 #if PLATFORM(QT)
 #include <WebCore/QtX11ImageConversion.h>
 #elif PLATFORM(GTK)
-#include "PlatformContextCairo.h"
-#include "RefPtrCairo.h"
-#include <cairo/cairo-xlib.h>
 #include <gtk/gtk.h>
 #ifndef GTK_API_VERSION_2
 #include <gtk/gtkx.h>
 #endif
 #include <gdk/gdkx.h>
 #include <WebCore/GtkVersioning.h>
+#elif PLATFORM(EFL) && defined(HAVE_ECORE_X)
+#include <Ecore_X.h>
+#endif
+
+#if USE(CAIRO)
+#include "PlatformContextCairo.h"
+#include "RefPtrCairo.h"
+#include <cairo/cairo-xlib.h>
 #endif
 
 using namespace WebCore;
@@ -84,6 +89,8 @@ static Display* getPluginDisplay()
     // Since we're a gdk/gtk app, we'll (probably?) have the same X connection as any gdk-based
     // plugins, so we can return that. We might want to add other implementations here later.
     return GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+#elif PLATFORM(EFL) && defined(HAVE_ECORE_X)
+    return static_cast<Display*>(ecore_x_display_get());
 #else
     return 0;
 #endif
@@ -95,6 +102,8 @@ static inline int x11Screen()
     return XDefaultScreen(NetscapePlugin::x11HostDisplay());
 #elif PLATFORM(GTK)
     return gdk_screen_get_number(gdk_screen_get_default());
+#elif PLATFORM(EFL) && defined(HAVE_ECORE_X)
+    return ecore_x_screen_index_get(ecore_x_default_screen_get());
 #else
     return 0;
 #endif
@@ -106,6 +115,8 @@ static inline int displayDepth()
     return XDefaultDepth(NetscapePlugin::x11HostDisplay(), x11Screen());
 #elif PLATFORM(GTK)
     return gdk_visual_get_depth(gdk_screen_get_system_visual(gdk_screen_get_default()));
+#elif PLATFORM(EFL) && defined(HAVE_ECORE_X)
+    return ecore_x_default_depth_get(NetscapePlugin::x11HostDisplay(), ecore_x_default_screen_get());
 #else
     return 0;
 #endif
@@ -117,6 +128,8 @@ static inline unsigned long rootWindowID()
     return XDefaultRootWindow(NetscapePlugin::x11HostDisplay());
 #elif PLATFORM(GTK)
     return GDK_ROOT_WINDOW();
+#elif PLATFORM(EFL) && defined(HAVE_ECORE_X)
+    return ecore_x_window_root_first_get();
 #else
     return 0;
 #endif
@@ -144,6 +157,8 @@ Display* NetscapePlugin::x11HostDisplay()
     return dedicatedDisplay;
 #elif PLATFORM(GTK)
     return GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+#elif PLATFORM(EFL) && defined(HAVE_ECORE_X)
+    return static_cast<Display*>(ecore_x_display_get());
 #else
     return 0;
 #endif
@@ -188,6 +203,8 @@ bool NetscapePlugin::platformPostInitializeWindowed(bool needsXEmbed, uint64_t w
     callbackStruct->visual = GDK_VISUAL_XVISUAL(gdk_window_get_visual(window));
     callbackStruct->depth = gdk_visual_get_depth(gdk_window_get_visual(window));
     callbackStruct->colormap = XCreateColormap(display, GDK_ROOT_WINDOW(), callbackStruct->visual, AllocNone);
+#else
+    UNUSED_PARAM(windowID);
 #endif
 
     XFlush(display);
@@ -229,6 +246,10 @@ bool NetscapePlugin::platformPostInitializeWindowless()
     callSetWindow();
 
     return true;
+}
+
+void NetscapePlugin::platformPreInitialize()
+{
 }
 
 bool NetscapePlugin::platformPostInitialize()
@@ -291,9 +312,7 @@ void NetscapePlugin::platformGeometryDidChange()
 #if PLATFORM(GTK)
         windowID = static_cast<uint64_t>(GDK_WINDOW_XID(gtk_plug_get_socket_window(GTK_PLUG(m_platformPluginWidget))));
 #endif
-        IntRect clipRect(m_clipRect);
-        clipRect.move(-m_frameRectInWindowCoordinates.x(), -m_frameRectInWindowCoordinates.y());
-        controller()->windowedPluginGeometryDidChange(m_frameRectInWindowCoordinates, clipRect, windowID);
+        controller()->windowedPluginGeometryDidChange(m_frameRectInWindowCoordinates, m_clipRect, windowID);
         return;
     }
 
@@ -357,7 +376,7 @@ void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirt
     painter->drawImage(QPoint(exposedRect.x(), exposedRect.y()), qimageFromXImage(xImage), exposedRect);
 
     XDestroyImage(xImage);
-#elif PLATFORM(GTK)
+#elif PLATFORM(GTK) || (PLATFORM(EFL) && USE(CAIRO))
     RefPtr<cairo_surface_t> drawableSurface = adoptRef(cairo_xlib_surface_create(m_pluginDisplay,
                                                                                  m_drawable,
                                                                                  static_cast<NPSetWindowCallbackStruct*>(m_npWindow.ws_info)->visual,
@@ -512,6 +531,7 @@ bool NetscapePlugin::platformHandleMouseEvent(const WebMouseEvent& event)
 #if ENABLE(GESTURE_EVENTS)
     case WebEvent::GestureScrollBegin:
     case WebEvent::GestureScrollEnd:
+    case WebEvent::GestureSingleTap:
 #endif
 #if ENABLE(TOUCH_EVENTS)
     case WebEvent::TouchStart:
@@ -622,4 +642,4 @@ bool NetscapePlugin::platformHandleKeyboardEvent(const WebKeyboardEvent& event)
 
 } // namespace WebKit
 
-#endif // PLUGIN_ARCHITECTURE(X11)
+#endif // PLUGIN_ARCHITECTURE(X11) && ENABLE(NETSCAPE_PLUGIN_API)

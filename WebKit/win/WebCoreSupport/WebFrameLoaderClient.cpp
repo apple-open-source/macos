@@ -416,20 +416,21 @@ void WebFrameLoaderClient::dispatchDidFinishLoad()
         frameLoadDelegate->didFinishLoadForFrame(webView, m_webFrame);
 }
 
-void WebFrameLoaderClient::dispatchDidFirstLayout()
+void WebFrameLoaderClient::dispatchDidLayout(LayoutMilestones milestones)
 {
     WebView* webView = m_webFrame->webView();
-    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
-    if (SUCCEEDED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) && frameLoadDelegatePriv)
-        frameLoadDelegatePriv->didFirstLayoutInFrame(webView, m_webFrame);
-}
 
-void WebFrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
-{
-    WebView* webView = m_webFrame->webView();
-    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePrivate;
-    if (SUCCEEDED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePrivate)) && frameLoadDelegatePrivate)
-        frameLoadDelegatePrivate->didFirstVisuallyNonEmptyLayoutInFrame(webView, m_webFrame);
+    if (milestones & DidFirstLayout) {
+        COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePrivate;
+        if (SUCCEEDED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePrivate)) && frameLoadDelegatePrivate)
+            frameLoadDelegatePrivate->didFirstLayoutInFrame(webView, m_webFrame);
+    }
+
+    if (milestones & DidFirstVisuallyNonEmptyLayout) {
+        COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePrivate;
+        if (SUCCEEDED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePrivate)) && frameLoadDelegatePrivate)
+            frameLoadDelegatePrivate->didFirstVisuallyNonEmptyLayoutInFrame(webView, m_webFrame);
+    }
 }
 
 Frame* WebFrameLoaderClient::dispatchCreatePage(const NavigationAction&)
@@ -724,7 +725,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     view->frameRect(&rect);
     bool transparent = view->transparent();
     Color backgroundColor = transparent ? Color::transparent : Color::white;
-    core(m_webFrame)->createView(IntRect(rect).size(), backgroundColor, transparent, IntSize(), false);
+    core(m_webFrame)->createView(IntRect(rect).size(), backgroundColor, transparent);
 }
 
 void WebFrameLoaderClient::didSaveToPageCache()
@@ -783,7 +784,7 @@ void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView* plugin
     if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
         return;
 
-    RetainPtr<CFMutableDictionaryRef> userInfo(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    RetainPtr<CFMutableDictionaryRef> userInfo = adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 
     Frame* frame = core(m_webFrame);
     ASSERT(frame == pluginView->parentFrame());
@@ -792,24 +793,20 @@ void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView* plugin
         KURL pluginPageURL = frame->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(pluginView->pluginsPage()));
         if (pluginPageURL.protocolIsInHTTPFamily()) {
             static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInPageURLStringKey);
-            RetainPtr<CFStringRef> str(AdoptCF, pluginPageURL.string().createCFString());
-            CFDictionarySetValue(userInfo.get(), key, str.get());
+            CFDictionarySetValue(userInfo.get(), key, pluginPageURL.string().createCFString().get());
         }
     }
 
     if (!pluginView->mimeType().isNull()) {
         static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorMIMETypeKey);
-
-        RetainPtr<CFStringRef> str(AdoptCF, pluginView->mimeType().createCFString());
-        CFDictionarySetValue(userInfo.get(), key, str.get());
+        CFDictionarySetValue(userInfo.get(), key, pluginView->mimeType().createCFString().get());
     }
 
     if (pluginView->plugin()) {
         String pluginName = pluginView->plugin()->name();
         if (!pluginName.isNull()) {
             static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInNameKey);
-            RetainPtr<CFStringRef> str(AdoptCF, pluginName.createCFString());
-            CFDictionarySetValue(userInfo.get(), key, str.get());
+            CFDictionarySetValue(userInfo.get(), key, pluginName.createCFString().get());
         }
     }
 
@@ -885,9 +882,8 @@ PassRefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& pluginSize,
 void WebFrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
 {
     // Ideally, this function shouldn't be necessary, see <rdar://problem/4852889>
-
-    if (pluginWidget->isPluginView())
-        m_manualLoader = static_cast<PluginView*>(pluginWidget);
+    if (!pluginWidget || pluginWidget->isPluginView())
+        m_manualLoader = toPluginView(pluginWidget);
     else 
         m_manualLoader = static_cast<EmbeddedWidget*>(pluginWidget);
 }
@@ -900,7 +896,7 @@ WebHistory* WebFrameLoaderClient::webHistory() const
     return WebHistory::sharedHistory();
 }
 
-bool WebFrameLoaderClient::shouldUsePluginDocument(const String& mimeType) const
+bool WebFrameLoaderClient::shouldAlwaysUsePluginDocument(const String& mimeType) const
 {
     WebView* webView = m_webFrame->webView();
     if (!webView)

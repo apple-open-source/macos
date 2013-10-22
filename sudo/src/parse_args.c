@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1993-1996, 1998-2010 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1993-1996, 1998-2012 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -51,8 +51,7 @@
 /*
  * Local functions
  */
-static void usage_excl			__P((int))
-					    __attribute__((__noreturn__));
+static void usage_excl			__P((int));
 
 /*
  * For sudo.c
@@ -122,7 +121,7 @@ parse_args(argc, argv)
 		    break;
 		case 'C':
 		    if ((user_closefrom = atoi(optarg)) < 3) {
-			warningx("the argument to -C must be at least 3");
+			warningx("the argument to -C must be a number greater than or equal to 3");
 			usage(1);
 		    }
 		    break;
@@ -252,13 +251,15 @@ parse_args(argc, argv)
 
     if (!mode) {
 	/* Defer -k mode setting until we know whether it is a flag or not */
-	if (ISSET(flags, MODE_INVALIDATE) && NewArgc == 0) {
-	    mode = MODE_INVALIDATE;	/* -k by itself */
-	    CLR(flags, MODE_INVALIDATE);
-	    valid_flags = 0;
-	} else {
-	    mode = MODE_RUN;		/* running a command */
+	if (ISSET(flags, MODE_INVALIDATE)) {
+	    if (NewArgc == 0 && !(flags & (MODE_SHELL|MODE_LOGIN_SHELL))) {
+		mode = MODE_INVALIDATE;	/* -k by itself */
+		CLR(flags, MODE_INVALIDATE);
+		valid_flags = 0;
+	    }
 	}
+	if (!mode)
+	    mode = MODE_RUN;		/* running a command */
     }
 
     if (NewArgc > 0 && mode == MODE_LIST)
@@ -303,14 +304,21 @@ parse_args(argc, argv)
     if (NewArgc == 0 && mode == MODE_RUN && !ISSET(flags, MODE_SHELL))
 	SET(flags, (MODE_IMPLIED_SHELL | MODE_SHELL));
 
-    return(mode | flags);
+    return mode | flags;
+}
+
+static int
+usage_err(buf)
+    const char *buf;
+{
+    return fputs(buf, stderr);
 }
 
 static int
 usage_out(buf)
     const char *buf;
 {
-    return fputs(buf, stderr);
+    return fputs(buf, stdout);
 }
 
 /*
@@ -318,8 +326,8 @@ usage_out(buf)
  * The actual usage strings are in sudo_usage.h for configure substitution.
  */
 void
-usage(exit_val)
-    int exit_val;
+usage(fatal)
+    int fatal;
 {
     struct lbuf lbuf;
     char *uvec[6];
@@ -345,22 +353,107 @@ usage(exit_val)
      * tty width.
      */
     ulen = (int)strlen(getprogname()) + 8;
-    lbuf_init(&lbuf, usage_out, ulen, NULL);
+    lbuf_init(&lbuf, fatal ? usage_err : usage_out, ulen, NULL);
     for (i = 0; uvec[i] != NULL; i++) {
-	lbuf_append(&lbuf, "usage: ", getprogname(), uvec[i], NULL);
+	lbuf_append(&lbuf, "usage: %s%s", getprogname(), uvec[i]);
 	lbuf_print(&lbuf);
     }
     lbuf_destroy(&lbuf);
-    exit(exit_val);
+    if (fatal)
+	exit(1);
 }
 
 /*
  * Tell which options are mutually exclusive and exit.
  */
 static void
-usage_excl(exit_val)
-    int exit_val;
+usage_excl(fatal)
+    int fatal;
 {
     warningx("Only one of the -e, -h, -i, -K, -l, -s, -v or -V options may be specified");
-    usage(exit_val);
+    usage(fatal);
+}
+
+void
+help()
+{
+    struct lbuf lbuf;
+    int indent = 16;
+    const char *pname = getprogname();
+
+    lbuf_init(&lbuf, usage_out, indent, NULL);
+    if (strcmp(pname, "sudoedit") == 0)
+	lbuf_append(&lbuf, pname,  " - edit files as another user\n\n");
+    else
+	lbuf_append(&lbuf, pname,  " - execute a command as another user\n\n");
+    lbuf_print(&lbuf);
+
+    usage(0);
+
+    lbuf_append(&lbuf, "\nOptions:\n");
+    lbuf_append(&lbuf,
+	"  -A            use helper program for password prompting\n");
+#ifdef HAVE_BSD_AUTH_H
+    lbuf_append(&lbuf,
+	"  -a type       use specified BSD authentication type\n");
+#endif
+    lbuf_append(&lbuf,
+	"  -b            run command in the background\n");
+    lbuf_append(&lbuf,
+	"  -C fd         close all file descriptors >= fd\n");
+#ifdef HAVE_LOGIN_CAP_H
+    lbuf_append(&lbuf,
+	"  -c class      run command with specified login class\n");
+#endif
+    lbuf_append(&lbuf,
+	"  -E            preserve user environment when executing command\n");
+    lbuf_append(&lbuf,
+	"  -e            edit files instead of running a command\n");
+    lbuf_append(&lbuf,
+	"  -g group      execute command as the specified group\n");
+    lbuf_append(&lbuf,
+	"  -H            set HOME variable to target user's home dir.\n");
+    lbuf_append(&lbuf,
+	"  -h            display help message and exit\n");
+    lbuf_append(&lbuf,
+	"  -i [command]  run a login shell as target user\n");
+    lbuf_append(&lbuf,
+	"  -K            remove timestamp file completely\n");
+    lbuf_append(&lbuf,
+	"  -k            invalidate timestamp file\n");
+    lbuf_append(&lbuf,
+	"  -L            list supported sudoers Defaults values\n");
+    lbuf_append(&lbuf,
+	"  -l[l] command list user's available commands\n");
+    lbuf_append(&lbuf,
+	"  -n            non-interactive mode, will not prompt user\n");
+    lbuf_append(&lbuf,
+	"  -P            preserve group vector instead of setting to target's\n");
+    lbuf_append(&lbuf,
+	"  -p prompt     use specified password prompt\n");
+#ifdef HAVE_SELINUX
+    lbuf_append(&lbuf,
+	"  -r role       create SELinux security context with specified role\n");
+#endif
+    lbuf_append(&lbuf,
+	"  -S            read password from standard input\n");
+    lbuf_append(&lbuf,
+	"  -s [command]  run a shell as target user\n");
+#ifdef HAVE_SELINUX
+    lbuf_append(&lbuf,
+	"  -t type       create SELinux security context with specified role\n");
+#endif
+    lbuf_append(&lbuf,
+	"  -U user       when listing, list specified user's privileges\n");
+    lbuf_append(&lbuf,
+	"  -u user       run command (or edit file) as specified user\n");
+    lbuf_append(&lbuf,
+	"  -V            display version information and exit\n");
+    lbuf_append(&lbuf,
+	"  -v            update user's timestamp without running a command\n");
+    lbuf_append(&lbuf,
+	"  --            stop processing command line arguments\n");
+    lbuf_print(&lbuf);
+    lbuf_destroy(&lbuf);
+    exit(0);
 }

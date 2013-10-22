@@ -32,11 +32,13 @@
 #include "sslAlertMessage.h"
 #include "sslSession.h"
 #include "sslDebug.h"
-#include "cipherSpecs.h"
+#include "sslCipherSpecs.h"
 #include "sslUtils.h"
 
 #include <assert.h>
 #include <string.h>
+
+#include <utilities/SecIOFormat.h>
 
 #ifndef	NDEBUG
 static inline void sslIoTrace(
@@ -45,8 +47,8 @@ static inline void sslIoTrace(
 	size_t moved,
 	OSStatus stat)
 {
-	sslLogRecordIo("===%s: req %4lu moved %4lu status %ld",
-		op, req, moved, stat);
+	sslLogRecordIo("===%s: req %4lu moved %4lu status %d",
+		op, req, moved, (int)stat);
 }
 #else
 #define sslIoTrace(op, req, moved, stat)
@@ -57,9 +59,36 @@ extern int kSplitDefaultValue;
 static OSStatus SSLProcessProtocolMessage(SSLRecord *rec, SSLContext *ctx);
 static OSStatus SSLHandshakeProceed(SSLContext *ctx);
 static OSStatus SSLInitConnection(SSLContext *ctx);
-static OSStatus SSLServiceWriteQueue(SSLContext *ctx);
 
-OSStatus
+static Boolean isFalseStartAllowed(SSLContext *ctx)
+{
+    SSL_CipherAlgorithm c=sslCipherSuiteGetSymmetricCipherAlgorithm(ctx->selectedCipher);
+    KeyExchangeMethod kem=sslCipherSuiteGetKeyExchangeMethod(ctx->selectedCipher);
+    
+    
+    /* Whitelisting allowed ciphers, kem and client auth type */
+    return
+        (
+            (c==SSL_CipherAlgorithmAES_128_CBC) ||
+            (c==SSL_CipherAlgorithmAES_128_GCM) ||
+            (c==SSL_CipherAlgorithmAES_256_CBC) ||
+            (c==SSL_CipherAlgorithmAES_256_GCM) ||
+            (c==SSL_CipherAlgorithmRC4_128)
+        ) && (
+            (kem==SSL_ECDHE_ECDSA) ||
+            (kem==SSL_ECDHE_RSA) ||
+            (kem==SSL_DHE_RSA) ||
+            (kem==SSL_DHE_DSS)
+        ) && (
+            (ctx->negAuthType==SSLClientAuthNone) ||
+            (ctx->negAuthType==SSLClientAuth_DSSSign) ||
+            (ctx->negAuthType==SSLClientAuth_RSASign) ||
+            (ctx->negAuthType==SSLClientAuth_ECDSASign)
+        );
+}
+
+
+OSStatus 
 SSLWrite(
 	SSLContext			*ctx,
 	const void *		data,
@@ -73,7 +102,7 @@ SSLWrite(
 
 	sslLogRecordIo("SSLWrite top");
     if((ctx == NULL) || (bytesWritten == NULL)) {
-    	return paramErr;
+    	return errSecParam;
     }
     dataLen = dataLength;
     processed = 0;        /* Initialize in case we return with errSSLWouldBlock */
@@ -92,8 +121,8 @@ SSLWrite(
         default:
 			if(ctx->state < SSL_HdskStateServerHello) {
 				/* not ready for I/O, and handshake not in progress */
-				sslIoTrace("SSLWrite", dataLength, 0, badReqErr);
-				return badReqErr;
+				sslIoTrace("SSLWrite", dataLength, 0, errSecBadReq);
+				return errSecBadReq;
 			}
 			/* handshake in progress; will call SSLHandshakeProceed below */
 			break;
@@ -101,8 +130,12 @@ SSLWrite(
 
     /* First, we have to wait until the session is ready to send data,
         so the encryption keys and such have been established. */
-    err = noErr;
-    while (ctx->writeCipher.ready == 0)
+    err = errSecSuccess; 
+    while (!(
+              (ctx->state==SSL_HdskStateServerReady) ||
+              (ctx->state==SSL_HdskStateClientReady) ||
+              (ctx->writeCipher_ready &&  ctx->falseStartEnabled && isFalseStartAllowed(ctx))
+            ))
     {   if ((err = SSLHandshakeProceed(ctx)) != 0)
             goto exit;
     }
@@ -140,9 +173,8 @@ SSLWrite(
             rec.contents.length = dataLen;
         else
             rec.contents.length = MAX_RECORD_LENGTH;
-
-       assert(ctx->sslTslCalls != NULL);
-       if ((err = ctx->sslTslCalls->writeRecord(rec, ctx)) != 0)
+        
+        if ((err = SSLWriteRecord(rec, ctx)) != 0)
             goto exit;
         processed += rec.contents.length;
         dataLen -= rec.contents.length;
@@ -152,12 +184,13 @@ SSLWrite(
     /* All the data has been advanced to the write queue */
     *bytesWritten = processed;
     if ((err = SSLServiceWriteQueue(ctx)) == 0) {
-		err = noErr;
+		err = errSecSuccess;
 	}
 exit:
 	switch(err) {
-		case noErr:
+		case errSecSuccess:
 		case errSSLWouldBlock:
+        case errSSLUnexpectedRecord:
 		case errSSLServerAuthCompleted: /* == errSSLClientAuthCompleted */
 		case errSSLClientCertRequested:
 		case errSSLClosedGraceful:
@@ -187,7 +220,7 @@ SSLRead	(
 
 	sslLogRecordIo("SSLRead top");
     if((ctx == NULL) || (data == NULL) || (processed == NULL)) {
-    	return paramErr;
+    	return errSecParam;
     }
     bufSize = dataLength;
     *processed = 0;        /* Initialize in case we return with errSSLWouldBlock */
@@ -210,8 +243,8 @@ readRetry:
 
     /* First, we have to wait until the session is ready to receive data,
         so the encryption keys and such have been established. */
-    err = noErr;
-    while (ctx->readCipher.ready == 0) {
+    err = errSecSuccess;
+    while (ctx->readCipher_ready == 0) {
 		if ((err = SSLHandshakeProceed(ctx)) != 0) {
             goto exit;
 		}
@@ -222,7 +255,7 @@ readRetry:
 		if (err != errSSLWouldBlock) {
             goto exit;
 		}
-        err = noErr; /* Write blocking shouldn't stop attempts to read */
+        err = errSecSuccess; /* Write blocking shouldn't stop attempts to read */
     }
 
     remaining = bufSize;
@@ -244,7 +277,7 @@ readRetry:
 
     if (ctx->receivedDataBuffer.data != 0 &&
         ctx->receivedDataPos >= ctx->receivedDataBuffer.length)
-    {   SSLFreeBuffer(&ctx->receivedDataBuffer, ctx);
+    {   SSLFreeBuffer(&ctx->receivedDataBuffer);
         ctx->receivedDataBuffer.data = 0;
         ctx->receivedDataPos = 0;
     }
@@ -268,16 +301,8 @@ readRetry:
                 remaining -= rec.contents.length;
                 charPtr += rec.contents.length;
                 *processed += rec.contents.length;
-                /* COMPILER BUG!
-                 * This:
-                 * if ((err = SSLFreeBuffer(rec.contents, ctx)) != 0)
-                 * passes the address of rec to SSLFreeBuffer, not the address
-                 * of the contents field (which should be offset 8 from the start
-                 * of rec).
-                 */
                 {
-                	SSLBuffer *b = &rec.contents;
-                	if ((err = SSLFreeBuffer(b, ctx)) != 0) {
+                    if ((err = SSLFreeRecord(rec, ctx))) {
                     	goto exit;
                     }
                 }
@@ -295,24 +320,25 @@ readRetry:
             if ((err = SSLProcessProtocolMessage(&rec, ctx)) != 0) {
                 goto exit;
 			}
-            if ((err = SSLFreeBuffer(&rec.contents, ctx)) != 0) {
+            if ((err = SSLFreeRecord(rec, ctx))) {
                 goto exit;
 			}
         }
     }
 
-    err = noErr;
+    err = errSecSuccess;
 
 exit:
 	/* test for renegotiate: loop until something useful happens */
-	if((err == noErr) && (*processed == 0) && !(dataLength == 0)) {
+	if(((err == errSecSuccess)  && (*processed == 0) && dataLength) || (err == errSSLUnexpectedRecord)) {
 		sslLogNegotiateDebug("SSLRead recursion");
 		goto readRetry;
 	}
 	/* shut down on serious errors */
 	switch(err) {
-		case noErr:
+		case errSecSuccess:
 		case errSSLWouldBlock:
+        case errSSLUnexpectedRecord:
 		case errSSLServerAuthCompleted: /* == errSSLClientAuthCompleted */
 		case errSSLClientCertRequested:
 		case errSSLClosedGraceful:
@@ -339,7 +365,7 @@ SSLHandshake(SSLContext *ctx)
 	OSStatus  err;
 
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
     if (ctx->state == SSL_HdskStateGracefulClose)
         return errSSLClosedGraceful;
@@ -359,7 +385,7 @@ SSLHandshake(SSLContext *ctx)
     		return err;
     	}
     }
-    err = noErr;
+    err = errSecSuccess;
 
     if(ctx->isDTLS) {
         if (ctx->timeout_deadline<CFAbsoluteTimeGetCurrent()) {
@@ -367,8 +393,10 @@ SSLHandshake(SSLContext *ctx)
         }
     }
 
-    while (ctx->readCipher.ready == 0 || ctx->writeCipher.ready == 0)
-    {   if ((err = SSLHandshakeProceed(ctx)) != 0)
+    while (ctx->readCipher_ready == 0 || ctx->writeCipher_ready == 0)
+    {
+        err = SSLHandshakeProceed(ctx);
+        if((err != 0) && (err != errSSLUnexpectedRecord))
             return err;
     }
 
@@ -376,7 +404,8 @@ SSLHandshake(SSLContext *ctx)
     if ((err = SSLServiceWriteQueue(ctx)) != 0) {
 		return err;
 	}
-    return noErr;
+
+    return errSecSuccess;
 }
 
 
@@ -413,22 +442,24 @@ SSLHandshakeProceed(SSLContext *ctx)
 
     if ((err = SSLServiceWriteQueue(ctx)) != 0)
         return err;
-    assert(ctx->readCipher.ready == 0);
+
+    assert(ctx->readCipher_ready == 0);
     if ((err = SSLReadRecord(&rec, ctx)) != 0)
         return err;
     if ((err = SSLProcessProtocolMessage(&rec, ctx)) != 0)
-    {   SSLFreeBuffer(&rec.contents, ctx);
+    {
+        SSLFreeRecord(rec, ctx);
         return err;
     }
-    if ((err = SSLFreeBuffer(&rec.contents, ctx)) != 0)
+    if ((err = SSLFreeRecord(rec, ctx)))
         return err;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 static OSStatus
 SSLInitConnection(SSLContext *ctx)
-{   OSStatus      err = noErr;
+{   OSStatus      err = errSecSuccess;
 
     if (ctx->protocolSide == kSSLClientSide) {
         SSLChangeHdskState(ctx, SSL_HdskStateClientUninit);
@@ -464,7 +495,7 @@ SSLInitConnection(SSLContext *ctx)
 			sslLogResumSessDebug("===attempting to resume session");
 		} else {
 			sslLogResumSessDebug("===Resumable session protocol mismatch");
-			SSLFreeBuffer(&ctx->resumableSession, ctx);
+			SSLFreeBuffer(&ctx->resumableSession);
 		}
     }
 
@@ -472,8 +503,8 @@ SSLInitConnection(SSLContext *ctx)
 	 * If we're the client & handshake hasn't yet begun, start it by
 	 *  pretending we just received a hello request
 	 */
-    if (ctx->state == SSL_HdskStateClientUninit && ctx->writeCipher.ready == 0)
-    {
+    if (ctx->state == SSL_HdskStateClientUninit && ctx->writeCipher_ready == 0)
+    {   
 		assert(ctx->negProtocolVersion == SSL_Version_Undetermined);
 #if ENABLE_SSLV2
 		if(!cachedV3OrTls1) {
@@ -490,30 +521,6 @@ SSLInitConnection(SSLContext *ctx)
     return err;
 }
 
-static OSStatus
-SSLServiceWriteQueue(SSLContext *ctx)
-{   OSStatus        err = noErr, werr = noErr;
-    size_t          written = 0;
-    SSLBuffer       buf;
-    WaitingRecord   *rec;
-
-    while (!werr && ((rec = ctx->recordWriteQueue) != 0))
-    {   buf.data = rec->data + rec->sent;
-        buf.length = rec->length - rec->sent;
-        werr = sslIoWrite(buf, &written, ctx);
-        rec->sent += written;
-        if (rec->sent >= rec->length)
-        {   assert(rec->sent == rec->length);
-            assert(err == 0);
-            ctx->recordWriteQueue = rec->next;
-			sslFree(rec);
-        }
-        if (err)
-            return err;
-    }
-
-    return werr;
-}
 
 static OSStatus
 SSLProcessProtocolMessage(SSLRecord *rec, SSLContext *ctx)
@@ -552,19 +559,21 @@ SSLProcessProtocolMessage(SSLRecord *rec, SSLContext *ctx)
 OSStatus
 SSLClose(SSLContext *ctx)
 {
-	OSStatus      err = noErr;
+	OSStatus      err = errSecSuccess;
 
 	sslHdskStateDebug("SSLClose");
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
     if (ctx->negProtocolVersion >= SSL_Version_3_0)
         err = SSLSendAlert(SSL_AlertLevelWarning, SSL_AlertCloseNotify, ctx);
+
     if (err == 0)
         err = SSLServiceWriteQueue(ctx);
+
     SSLChangeHdskState(ctx, SSL_HdskStateGracefulClose);
-    if (err == ioErr)
-        err = noErr;     /* Ignore errors related to closed streams */
+    if (err == errSecIO)
+        err = errSecSuccess;     /* Ignore errors related to closed streams */
     return err;
 }
 
@@ -581,7 +590,7 @@ SSLGetBufferedReadSize(SSLContextRef ctx,
 	size_t *bufSize)      			/* RETURNED */
 {
 	if(ctx == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	if(ctx->receivedDataBuffer.data == NULL) {
 		*bufSize = 0;
@@ -590,5 +599,5 @@ SSLGetBufferedReadSize(SSLContextRef ctx,
 		assert(ctx->receivedDataBuffer.length >= ctx->receivedDataPos);
 		*bufSize = ctx->receivedDataBuffer.length - ctx->receivedDataPos;
 	}
-	return noErr;
+	return errSecSuccess;
 }

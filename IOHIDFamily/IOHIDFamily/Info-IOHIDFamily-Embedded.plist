@@ -83,6 +83,73 @@
 				<string>IOHIDLibUserClient</string>
 			</dict>
 		</dict>
+            <key>StarkPorscheWheel</key>
+            <dict>
+                <key>CFBundleIdentifier</key>
+                <string>com.apple.iokit.IOHIDFamily</string>
+                <key>IOClass</key>
+                <string>IOHIDEventOverrideDriver</string>
+                <key>IOProviderClass</key>
+                <string>IOHIDInterface</string>
+                <key>VendorID</key>
+                <integer>0xeb7</integer>
+                <key>ProductID</key>
+                <integer>0x197</integer>
+                <key>ButtonMaps</key>
+                <array>
+                    <dict>
+                        <key>ButtonNumber</key>
+                        <integer>1</integer>
+                        <key>EventType</key>
+                        <integer>3</integer>
+                        <key>UsagePage</key>
+                        <integer>0xc</integer>
+                        <key>Usage</key>
+                        <integer>0xb2</integer>
+                    </dict>
+                    <dict>
+                        <key>ButtonNumber</key>
+                        <integer>3</integer>
+                        <key>EventType</key>
+                        <integer>3</integer>
+                        <key>UsagePage</key>
+                        <integer>0xc</integer>
+                        <key>Usage</key>
+                        <integer>0xb6</integer>
+                    </dict>
+                    <dict>
+                        <key>ButtonNumber</key>
+                        <integer>4</integer>
+                        <key>EventType</key>
+                        <integer>3</integer>
+                        <key>UsagePage</key>
+                        <integer>0xc</integer>
+                        <key>Usage</key>
+                        <integer>0xb5</integer>
+                    </dict>
+                    <dict>
+                        <key>ButtonNumber</key>
+                        <integer>8</integer>
+                        <key>EventType</key>
+                        <integer>3</integer>
+                        <key>UsagePage</key>
+                        <integer>0xb</integer>
+                        <key>Usage</key>
+                        <integer>0x20</integer>
+                    </dict>
+                    <dict>
+                        <key>ButtonNumber</key>
+                        <integer>0xc</integer>
+                        <key>EventType</key>
+                        <integer>3</integer>
+                        <key>UsagePage</key>
+                        <integer>0xb</integer>
+                        <key>Usage</key>
+                        <integer>0x26</integer>
+                    </dict>
+                </array>
+            </dict>
+
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>

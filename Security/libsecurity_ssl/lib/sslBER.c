@@ -128,7 +128,7 @@ OSStatus sslEncodeRsaBlob(
     encBlob = SEC_ASN1EncodeItem(pool, &dest, &nssPubKey,
         kSecAsn1RSAPublicKeyPKCS1Template);
 	if (!encBlob)
-		srtn = memFullErr;
+		srtn = errSecAllocate;
     else {
         /* copy out to caller */
         srtn = SSLCopyBufferFromData(encBlob->Data, encBlob->Length, blob);
@@ -224,7 +224,7 @@ OSStatus sslEncodeDhParams(
     encBlob = SEC_ASN1EncodeItem(pool, &dest, &dhParams,
         kSecAsn1DHParameterTemplate);
 	if (!encBlob)
-		srtn = memFullErr;
+		srtn = errSecAllocate;
     else {
         /* copy out to caller */
         srtn = SSLCopyBufferFromData(encBlob->Data, encBlob->Length, blob);
@@ -329,7 +329,7 @@ OSStatus sslEcdsaPubKeyBits(
 {
 	SecAsn1CoderRef coder = NULL;
 	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO subjPubKeyInfo;
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 
 	CSSM_KEYHEADER *hdr = &pubKey->KeyHeader;
 	if(hdr->AlgorithmId != CSSM_ALGID_ECDSA) {

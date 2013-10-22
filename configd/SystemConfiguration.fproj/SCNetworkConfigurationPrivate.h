@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -193,6 +193,14 @@ CFArrayRef /* of SCNetworkInterfaceRef's */
 _SCNetworkInterfaceCopyAllWithPreferences		(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
 
 /*!
+	@function _SCNetworkInterfaceCopyBTPANInterface
+	@discussion Returns the SCNetworkInterface associated with the BT-PAN interface
+	@result The BT-PAN interface; NULL if the interface is not (yet) known.
+ */
+SCNetworkInterfaceRef
+_SCNetworkInterfaceCopyBTPANInterface			(void)						__OSX_AVAILABLE_STARTING(__MAC_10_8/*FIXME*/,__IPHONE_NA);
+
+/*!
 	@function _SCNetworkInterfaceCopySlashDevPath
 	@discussion Returns the /dev pathname for the interface.
 	@param interface The network interface.
@@ -312,6 +320,16 @@ CFDataRef
 _SCNetworkInterfaceGetHardwareAddress			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 /*!
+	@function _SCNetworkInterfaceGetIOInterfaceNamePrefix
+	@discussion Returns the IOInterfaceNamePrefix for the interface.
+	@param interface The network interface.
+	@result The IOInterfaceNamePrefix associated with the interface;
+		NULL if no IOInterfaceNamePrefix is available.
+ */
+CFStringRef
+_SCNetworkInterfaceGetIOInterfaceNamePrefix		(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0);
+
+/*!
 	@function _SCNetworkInterfaceGetIOInterfaceType
 	@discussion Returns the IOInterfaceType for the interface.
 	@param interface The network interface.
@@ -325,7 +343,7 @@ _SCNetworkInterfaceGetIOInterfaceType			(SCNetworkInterfaceRef		interface)	__OSX
 	@discussion Returns the IOInterfaceUnit for the interface.
 	@param interface The network interface.
 	@result The IOInterfaceUnit associated with the interface;
-		NULL if no IOLocation is available.
+		NULL if no IOInterfaceUnit is available.
  */
 CFNumberRef
 _SCNetworkInterfaceGetIOInterfaceUnit			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
@@ -414,6 +432,15 @@ _SCNetworkInterfaceIsModemV92				(SCNetworkInterfaceRef		interface)	__OSX_AVAILA
  */
 Boolean
 _SCNetworkInterfaceIsTethered				(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0);
+
+/*!
+	@function _SCNetworkInterfaceIsThunderbolt
+	@discussion Identifies if a network interface is a Thunderbolt device
+	@param interface The network interface.
+	@result TRUE if the interface is a Thunderbolt device.
+ */
+Boolean
+_SCNetworkInterfaceIsThunderbolt			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0);
 
 /*!
 	@function _SCNetworkInterfaceIsPhysicalEthernet
@@ -779,6 +806,30 @@ SCNetworkServiceSetPrimaryRank				(SCNetworkServiceRef		service,
 Boolean
 _SCNetworkServiceIsVPN					(SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
 
+/*!
+	@function SCNetworkServiceSetExternalID
+	@discussion Set the external identifier for a network service.
+	@param service A reference to the network service.
+	@param identifierDomain A service can have multiple external identifiers. This string specifies which external identifier to set.
+	@param identifier The new external identifier to assign to the network service.
+	@result Returns TRUE if the external identifier was set successfully, FALSE if an error occurred.
+ */
+Boolean
+SCNetworkServiceSetExternalID				(SCNetworkServiceRef		service,
+							 CFStringRef			identifierDomain,
+							 CFStringRef identifier);
+
+/*!
+	@function SCNetworkServiceCopyExternalID
+	@discussion Copy the external identifier for a network service.
+	@param service The network service.
+	@param identifierDomain A service can have multiple external identifiers. This string specifies which external identifier to copy.
+	@result Returns the service's external identifier, or NULL if the service does not have an external identifier in the given domain.
+*/
+CFStringRef
+SCNetworkServiceCopyExternalID				(SCNetworkServiceRef		service,
+							 CFStringRef			identifierDomain);
+
 #pragma mark -
 #pragma mark SCNetworkSet configuration (SPI)
 
@@ -794,6 +845,17 @@ isA_SCNetworkSet(CFTypeRef obj)
 	return (isA_CFType(obj, SCNetworkSetGetTypeID()));
 }
 
+
+/*!
+	@function SCNetworkSetCopyAvailableInterfaces
+	@discussion Returns all available interfaces for the set.
+		The interfaces excludes those of bond and bridge members.
+	@param set The network set.
+	@result The list of SCNetworkInterfaces.
+		You must release the returned value.
+ */
+CFArrayRef
+SCNetworkSetCopyAvailableInterfaces			(SCNetworkSetRef		set)		__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
 
 /*!
 	@function SCNetworkSetEstablishDefaultConfiguration
@@ -860,6 +922,86 @@ SCNetworkSetCopySelectedVPNService			(SCNetworkSetRef		set)		__OSX_AVAILABLE_STA
 Boolean
 SCNetworkSetSetSelectedVPNService			(SCNetworkSetRef		set,
 							 SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
+
+/*!
+	@group VPN Service configuration
+ */
+
+#pragma mark -
+#pragma mark VPN Service configuration
+
+typedef SCNetworkServiceRef VPNServiceRef;
+
+/*!
+	@function VPNServiceCopyAllMatchingExternalID
+	@discussion Copy the VPN services with the given external identifier.
+	@param prefs A reference to the prefs where the VPN services are stored.
+	@param identifierDomain A service can have multiple external identifiers. This string specifies which one to match with the given identifier.
+	@param identifier The external identifier of the desired services.
+	@result A array of references to the VPN services with the given identifier, or NULL if no such service exists
+ */
+CFArrayRef
+VPNServiceCopyAllMatchingExternalID		(SCPreferencesRef		prefs,
+						 CFStringRef			identifierDomain,
+						 CFStringRef identifier)		__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+
+/*!
+	@function VPNServiceCopyAll
+	@discussion Copy all VPN services.
+	@param prefs A reference to the prefs where the VPN services are stored.
+	@result An array containing VPNServiceRefs for all the VPN services.
+ */
+CFArrayRef
+VPNServiceCopyAll				(SCPreferencesRef		prefs)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+
+/*!
+	@function VPNServiceCopyAppRuleIDs
+	@discussion Copy all the app rule identifiers for a VPN service.
+	@param service A reference to the VPN service.
+	@result An array of CFStringRefs, each string containing the identifier of a app rule in the given service.
+ */
+CFArrayRef
+VPNServiceCopyAppRuleIDs			(VPNServiceRef			service)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+
+/*!
+	@function VPNServiceSetAppRule
+	@discussion Add or modify an app rule in a VPN service. The ruleSettings dictionary must contain one of the following keys:
+		<pre>kSCValNetVPNAppRuleExecutableMatch</pre>
+		<pre>kSCValNetVPNAppRuleAccountIdentifierMatch</pre>
+	The ruleSettings dictionary may also contain the following keys:
+		<pre>kSCValNetVPNAppRuleDNSDomainMatch</pre>
+	See SCSchemaDefinitionsPrivate.h for more details.
+	@param service A reference to the VPN service.
+	@param ruleIdentifier The identifier of the new app rule.
+	@param ruleSettings The settings for the new app rule. See the dictionary keys defined above.
+	@result TRUE if the app rule was set successfully, FALSE if an error occurred.
+ */
+Boolean
+VPNServiceSetAppRule				(VPNServiceRef			service,
+						 CFStringRef			ruleIdentifier,
+						 CFDictionaryRef		ruleSettings)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+
+/*!
+	@function VPNServiceCopyAppRule
+	@discussion Copy the settings for a app rule in a VPN service.
+	@param service The app tunnel service.
+	@param ruleIdentifier The ID of the app rule.
+	@result The rule settings, or NULL if the app rule could not be found.
+ */
+CFDictionaryRef
+VPNServiceCopyAppRule				(VPNServiceRef			service,
+						 CFStringRef			ruleIdentifier)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
+
+/*!
+	@function VPNServiceRemoveAppRule
+	@discussion Remove an app rule from a VPN service.
+	@param service The VPN service.
+	@param ruleIdentifier The ID of the app rule to remove.
+	@result Returns TRUE if the app rule was removed successfully; FALSE otherwise.
+ */
+Boolean
+VPNServiceRemoveAppRule				(VPNServiceRef			service,
+						 CFStringRef			ruleIdentifier)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
 
 __END_DECLS
 #endif	/* _SCNETWORKCONFIGURATIONPRIVATE_H */

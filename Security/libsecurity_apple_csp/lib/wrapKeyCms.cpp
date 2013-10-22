@@ -151,9 +151,9 @@ void AppleCSPSession::WrapKeyCms(
 		ddLen = 0;
 	}
 	else {
-		ddLen = DescriptiveData->Length;
+		ddLen = (uint32) DescriptiveData->Length;
 	}
-	uint32 pkbLen = 4 +  ddLen + rawBlob.Length;
+	size_t pkbLen = 4 +  ddLen + rawBlob.Length;
 	setUpCssmData(PRIVATE_KEY_BYTES, pkbLen, privAllocator);
 	uint8 *cp = PRIVATE_KEY_BYTES.Data;
 	serializeUint32(ddLen, cp);
@@ -234,7 +234,7 @@ void AppleCSPSession::WrapKeyCms(
 	#endif	/* REUSE_CONTEXT */
 	
 	uint8 *savedIV = IV2.Data;
-	uint32 savedIVLen = IV2.Length;
+	CSSM_SIZE savedIVLen = IV2.Length;
 	IV2.Data = (uint8 *)magicCmsIv;
 	IV2.Length = 8;
 	CssmData &outBlob = CssmData::overlay(WrappedKey.KeyData);
@@ -317,7 +317,7 @@ void AppleCSPSession::UnwrapKeyCms(
 	CssmData &IV1 = Context.get<CssmData>(CSSM_ATTRIBUTE_INIT_VECTOR, 
 				CSSMERR_CSP_MISSING_ATTR_INIT_VECTOR);
 	uint8 *savedIV = IV1.Data;
-	uint32 savedIvLen = IV1.Length;
+	CSSM_SIZE savedIvLen = IV1.Length;
 	IV1.Data = (uint8 *)magicCmsIv;
 	IV1.Length = 8;
 	CssmData TEMP3;
@@ -432,7 +432,7 @@ void AppleCSPSession::UnwrapKeyCms(
 	setUpCssmData(DescriptiveData, ddLen, normAllocator);
 	memcpy(DescriptiveData.Data, cp1, ddLen);
 	cp1 += ddLen;
-	uint32 outBlobLen = PRIVATE_KEY_BYTES.Length - ddLen - 4;
+	size_t outBlobLen = PRIVATE_KEY_BYTES.Length - ddLen - 4;
 	if(ddLen > MAX_MALLOC_SIZE) {
 		dprintf0("UnwrapKeyCms: preposterous outBlobLen in PRIVATE_KEY_BYTES\n");
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);

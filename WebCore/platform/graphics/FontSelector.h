@@ -27,6 +27,7 @@
 #define FontSelector_h
 
 #include <wtf/Forward.h>
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -38,13 +39,15 @@ class FontSelectorClient;
 class FontSelector : public RefCounted<FontSelector> {
 public:
     virtual ~FontSelector() { }
-    virtual FontData* getFontData(const FontDescription&, const AtomicString& familyName) = 0;
+    virtual PassRefPtr<FontData> getFontData(const FontDescription&, const AtomicString& familyName) = 0;
+    virtual bool resolvesFamilyFor(const FontDescription&) const = 0;
 
     virtual void fontCacheInvalidated() { }
 
     virtual void registerForInvalidationCallbacks(FontSelectorClient*) = 0;
     virtual void unregisterForInvalidationCallbacks(FontSelectorClient*) = 0;
-    
+
+    virtual unsigned uniqueId() const = 0;
     virtual unsigned version() const = 0;
 };
 

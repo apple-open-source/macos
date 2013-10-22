@@ -27,6 +27,7 @@
 #include "StructureChain.h"
 
 #include "JSObject.h"
+#include "Operations.h"
 #include "Structure.h"
 #include <wtf/RefPtr.h>
 
@@ -34,14 +35,14 @@ namespace JSC {
     
 ClassInfo StructureChain::s_info = { "StructureChain", 0, 0, 0, CREATE_METHOD_TABLE(StructureChain) };
 
-StructureChain::StructureChain(JSGlobalData& globalData, Structure* structure)
-    : JSCell(globalData, structure)
+StructureChain::StructureChain(VM& vm, Structure* structure)
+    : JSCell(vm, structure)
 {
 }
 
 void StructureChain::destroy(JSCell* cell)
 {
-    jsCast<StructureChain*>(cell)->StructureChain::~StructureChain();
+    static_cast<StructureChain*>(cell)->StructureChain::~StructureChain();
 }
 
 void StructureChain::visitChildren(JSCell* cell, SlotVisitor& visitor)

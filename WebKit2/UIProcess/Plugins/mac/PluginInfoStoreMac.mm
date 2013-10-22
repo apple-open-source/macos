@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,8 @@
 
 #import "config.h"
 #import "PluginInfoStore.h"
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
 
 #import "NetscapePluginModule.h"
 #import "WebKitSystemInterface.h"
@@ -59,7 +61,7 @@ Vector<String> PluginInfoStore::pluginPathsInDirectory(const String& directory)
 {
     Vector<String> pluginPaths;
 
-    RetainPtr<CFStringRef> directoryCFString(AdoptCF, safeCreateCFString(directory));
+    RetainPtr<CFStringRef> directoryCFString = adoptCF(safeCreateCFString(directory));
     
     NSArray *filenames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:(NSString *)directoryCFString.get() error:nil];
     for (NSString *filename in filenames)
@@ -78,36 +80,9 @@ bool PluginInfoStore::getPluginInfo(const String& pluginPath, PluginModuleInfo& 
     return NetscapePluginModule::getPluginInfo(pluginPath, plugin);
 }
 
-static size_t findPluginWithBundleIdentifier(const Vector<PluginModuleInfo>& plugins, const String& bundleIdentifier)
-{
-    for (size_t i = 0; i < plugins.size(); ++i) {
-        if (plugins[i].bundleIdentifier == bundleIdentifier)
-            return i;
-    }
-
-    return notFound;
-}
-
-// Returns true if the given plug-in should be loaded, false otherwise.
-static bool checkForPreferredPlugin(Vector<PluginModuleInfo>& alreadyLoadedPlugins, const PluginModuleInfo& plugin, const String& oldPluginBundleIdentifier, const String& newPluginBundleIdentifier)
-{
-    if (plugin.bundleIdentifier == oldPluginBundleIdentifier) {
-        // If we've already found the new plug-in, we don't want to load the old plug-in.
-        if (findPluginWithBundleIdentifier(alreadyLoadedPlugins, newPluginBundleIdentifier) != notFound)
-            return false;
-    } else if (plugin.bundleIdentifier == newPluginBundleIdentifier) {
-        // If we've already found the old plug-in, remove it from the list of loaded plug-ins.
-        size_t oldPluginIndex = findPluginWithBundleIdentifier(alreadyLoadedPlugins, oldPluginBundleIdentifier);
-        if (oldPluginIndex != notFound)
-            alreadyLoadedPlugins.remove(oldPluginIndex);
-    }
-
-    return true;
-}
-
 static bool shouldBlockPlugin(const PluginModuleInfo& plugin)
 {
-    return PluginInfoStore::policyForPlugin(plugin) == PluginModuleBlocked;
+    return PluginInfoStore::defaultLoadPolicyForPlugin(plugin) == PluginModuleBlocked;
 }
 
 bool PluginInfoStore::shouldUsePlugin(Vector<PluginModuleInfo>& alreadyLoadedPlugins, const PluginModuleInfo& plugin)
@@ -126,41 +101,18 @@ bool PluginInfoStore::shouldUsePlugin(Vector<PluginModuleInfo>& alreadyLoadedPlu
         }
     }
 
-    // Prefer the Oracle Java plug-in over the Apple java plug-in.
-    if (!checkForPreferredPlugin(alreadyLoadedPlugins, plugin, "com.apple.java.JavaAppletPlugin",  oracleJavaAppletPluginBundleIdentifier))
+    if (plugin.bundleIdentifier == "com.apple.java.JavaAppletPlugin")
         return false;
-
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
-    if (plugin.bundleIdentifier == "com.apple.java.JavaAppletPlugin" && shouldBlockPlugin(plugin) && !WKIsJavaPlugInActive()) {
-        // If the Apple Java plug-in is blocked and there's no Java runtime installed, just pretend that the plug-in doesn't exist.
-        return false;
-    }
-#endif
 
     return true;
 }
 
-PluginModuleLoadPolicy PluginInfoStore::policyForPlugin(const PluginModuleInfo& plugin)
+PluginModuleLoadPolicy PluginInfoStore::defaultLoadPolicyForPlugin(const PluginModuleInfo& plugin)
 {
     if (WKShouldBlockPlugin(plugin.bundleIdentifier, plugin.versionString))
         return PluginModuleBlocked;
 
-    if (plugin.bundleIdentifier == oracleJavaAppletPluginBundleIdentifier && !WKIsJavaPlugInActive())
-        return PluginModuleInactive;
-
     return PluginModuleLoadNormally;
-}
-
-bool PluginInfoStore::reactivateInactivePlugin(const PluginModuleInfo& plugin)
-{
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
-    if (plugin.bundleIdentifier == oracleJavaAppletPluginBundleIdentifier) {
-        WKActivateJavaPlugIn();
-        return true;
-    }
-#endif
-
-    return false;
 }
 
 String PluginInfoStore::getMIMETypeForExtension(const String& extension)
@@ -169,7 +121,7 @@ String PluginInfoStore::getMIMETypeForExtension(const String& extension)
     // strength reduced into the callsite once we can safely convert String
     // to CFStringRef off the main thread.
 
-    RetainPtr<CFStringRef> extensionCFString(AdoptCF, safeCreateCFString(extension));
+    RetainPtr<CFStringRef> extensionCFString = adoptCF(safeCreateCFString(extension));
     return WKGetMIMETypeForExtension((NSString *)extensionCFString.get());
 }
 
@@ -186,3 +138,5 @@ PluginModuleInfo PluginInfoStore::findPluginWithBundleIdentifier(const String& b
 }
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

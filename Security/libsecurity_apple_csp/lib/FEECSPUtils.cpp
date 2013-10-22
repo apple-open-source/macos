@@ -215,7 +215,7 @@ feePubKey CryptKit::rawCssmKeyToFee(
 							/* FEE, public key, native byte stream */
 							frtn = feePubKeyInitFromPubBlob(feeKey,
 								cssmKey.KeyData.Data,
-								cssmKey.KeyData.Length);
+								(unsigned int)cssmKey.KeyData.Length);
 							break;
 						default:
 							badFormat = true;
@@ -234,7 +234,7 @@ feePubKey CryptKit::rawCssmKeyToFee(
 							/* FEE, private key, native byte stream */
 							frtn = feePubKeyInitFromPrivBlob(feeKey,
 								cssmKey.KeyData.Data,
-								cssmKey.KeyData.Length);
+								(unsigned int)cssmKey.KeyData.Length);
 							break;
 						default:
 							badFormat = true;

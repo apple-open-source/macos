@@ -84,13 +84,13 @@
 		<key>OpenSourceProject</key>
 		<string>column</string>
 		<key>OpenSourceVersion</key>
-		<string>2006-09-19</string>
+		<string>2011-11-06</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/column/</string>
 		<key>OpenSourceCVS</key>
 		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co column</string>
 		<key>OpenSourceImportDate</key>
-		<string>2006-10-09</string>
+		<string>2012-10-23</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>

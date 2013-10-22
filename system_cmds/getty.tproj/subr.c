@@ -92,7 +92,7 @@ gettable(const char *name)
 				if (sp >= &gettystrs[4] && sp <= &gettystrs[6])
 					l = 2;
 				else
-					l = strlen(sp->value) + 1;
+					l = (int)strlen(sp->value) + 1;
 				if ((p = malloc(l)) != NULL) {
 					strncpy(p, sp->value, l);
 					p[l-1] = '\0';

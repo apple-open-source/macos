@@ -26,6 +26,8 @@
 #ifndef JSNPMethod_h
 #define JSNPMethod_h
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/InternalFunction.h>
 #include <JavaScriptCore/JSGlobalObject.h>
@@ -39,11 +41,11 @@ class JSNPMethod : public JSC::InternalFunction {
 public:
     typedef JSC::InternalFunction Base;
 
-    static JSNPMethod* create(JSC::ExecState* exec, JSC::JSGlobalObject* globalObject, const JSC::Identifier& name, NPIdentifier npIdent)
+    static JSNPMethod* create(JSC::ExecState* exec, JSC::JSGlobalObject* globalObject, const String& name, NPIdentifier npIdent)
     {
-        JSC::Structure* structure = createStructure(exec->globalData(), globalObject, globalObject->functionPrototype());
+        JSC::Structure* structure = createStructure(exec->vm(), globalObject, globalObject->functionPrototype());
         JSNPMethod* method = new (JSC::allocateCell<JSNPMethod>(*exec->heap())) JSNPMethod(globalObject, structure, npIdent);
-        method->finishCreation(exec->globalData(), name);
+        method->finishCreation(exec->vm(), name);
         return method;
     }
 
@@ -52,14 +54,14 @@ public:
     NPIdentifier npIdentifier() const { return m_npIdentifier; }
 
 protected:
-    void finishCreation(JSC::JSGlobalData&, const JSC::Identifier& name);
+    void finishCreation(JSC::VM&, const String& name);
 
 private:    
     JSNPMethod(JSC::JSGlobalObject*, JSC::Structure*, NPIdentifier);
 
-    static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
+    static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
-        return JSC::Structure::create(globalData, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
+        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
     }
 
     static JSC::CallType getCallData(JSC::JSCell*, JSC::CallData&);
@@ -69,5 +71,7 @@ private:
 
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 #endif // JSNPMethod_h

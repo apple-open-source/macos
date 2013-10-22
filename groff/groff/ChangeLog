@@ -6,7 +6,7 @@
 
 	* install-sh, mkinstalldirs: New versions; taken from texinfo CVS.
 
-2005-09-04  Jörgen Grahn <jgrahn@algonet.se>
+2005-09-04  JÃ¶rgen Grahn <jgrahn@algonet.se>
 
 	* tmac/groff_ms.man: Document `PO' better.
 
@@ -142,7 +142,7 @@
 	`clear' with `mark' in /PBEGIN and `cleartomark' in /PEND (I've
 	never found this necessary).
 
-2005-06-20  Jörgen Grahn  <jgrahn@algonet.se>
+2005-06-20  JÃ¶rgen Grahn  <jgrahn@algonet.se>
 
 	* src/preproc/soelim/soelim.cpp (do_file): Append trailing zero
 	earlier to get correct error message.
@@ -781,7 +781,7 @@
 
 	* README.CVS: Updated.
 
-2005-02-09  Alejandro López-Valencia <palopez@etb.net.co> (tiny change)
+2005-02-09  Alejandro LÃ³pez-Valencia <palopez@etb.net.co> (tiny change)
 
 	* doc/groff.texinfo (ms Document Control Registers): Document `HY'
 	and `FAM' registers.
@@ -936,7 +936,7 @@
 	* tmac/s.tmac (TL): Don't set `need_eo_tl'.
 	(cov*tl-au-print): Emit `.eo.tl' tag.
 
-2004-12-05  Alejandro López-Valencia  <dradul@etb.net.co>
+2004-12-05  Alejandro LÃ³pez-Valencia  <dradul@etb.net.co>
 
 	* man/groff_char.man: Minor imrovements.
 
@@ -1434,7 +1434,7 @@
 
 	* NEWS: Updated.
 
-2004-09-28  Heinz-Jürgen Oertel  <hj.oertel@surfeu.de>
+2004-09-28  Heinz-JÃ¼rgen Oertel  <hj.oertel@surfeu.de>
 
 	* tmac/groff_www.man: Revised and updated.
 
@@ -1657,7 +1657,7 @@
 	avoid arrow sticking.
 	(arc_object::print): Take arrow direction into account.
 
-2004-07-03  Heinz-Jürgen Oertel  <hj.oertel@surfeu.de>
+2004-07-03  Heinz-JÃ¼rgen Oertel  <hj.oertel@surfeu.de>
 
 	* tmac/groff_www.man: Update documentation of .MPIMG.
 
@@ -2385,7 +2385,7 @@ Version 1.19.1 released
 	MS Symbol (SYMBOL), Wingdings (WINGDINGS).
 	* NEWS: Document new lj4 fonts and revised hpftodit.
 
-2004-02-17  Paco Andrés Verdú  <pandres@dragonet.es>
+2004-02-17  Paco AndrÃ©s VerdÃº  <pandres@dragonet.es>
 
 	* src/devices/grolbp/lbp.h (vmdvarc): Fix formatting string.
 
@@ -2691,7 +2691,7 @@ Version 1.19.1 released
 
 	* src/include/unicode.h: Remove `extern' keywords.
 
-2003-12-20  Nilgün Belma Bugüner  <nilgun@superonline.com>
+2003-12-20  NilgÃ¼n Belma BugÃ¼ner  <nilgun@superonline.com>
 
 	* tmac/latin5.tmac: New file.
 
@@ -3104,7 +3104,7 @@ Version 1.19.1 released
 	g++ linker is used.  Reported by Mark J. Reed
 	<mark.reed@turner.com>.
 
-2003-08-16  Heinz-Jürgen Oertel  <hj.oertel@surfeu.de>
+2003-08-16  Heinz-JÃ¼rgen Oertel  <hj.oertel@surfeu.de>
 
 	Add key character `x' to tbl which makes tbl call a user-defined
 	macro on a table cell.
@@ -3177,7 +3177,7 @@ Version 1.19.1 released
 	* NEWS, man/groff_diff.man, man/groff.man, doc/groff.texinfo:
 	Document new requests.
 
-2003-07-22  Heinz-Jürgen Oertel  <hj.oertel@surfeu.de>
+2003-07-22  Heinz-JÃ¼rgen Oertel  <hj.oertel@surfeu.de>
 
 	Add option -G to .MPIMG to insert a gap between text and the image.
 
@@ -4642,7 +4642,7 @@ Version 1.19 released
 
 	* NEWS: Updated.
 
-2003-01-16  Jörgen Grahn  <jgrahn@algonet.se>
+2003-01-16  JÃ¶rgen Grahn  <jgrahn@algonet.se>
 
 	* src/preproc/refer/refer.man: Mention REFER environment variable.
 

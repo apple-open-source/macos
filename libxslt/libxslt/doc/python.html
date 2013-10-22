@@ -12,7 +12,8 @@ A:link, A:visited, A:active { text-decoration: underline }
 the list below is not exhaustive. Please contact the <a href="http://mail.gnome.org/mailman/listinfo/xml-bindings">xml-bindings@gnome.org</a>
 (<a href="http://mail.gnome.org/archives/xml-bindings/">archives</a>) in
 order to get updates to this list or to discuss the specific topic of libxml2
-or libxslt wrappers or bindings:</p><ul><li><a href="http://mail.gnome.org/archives/xml/2001-March/msg00014.html">Matt
+or libxslt wrappers or bindings:</p><ul>
+  <li><a href="http://mail.gnome.org/archives/xml/2001-March/msg00014.html">Matt
     Sergeant</a> developped <a href="http://axkit.org/download/">XML::LibXML
     and XML::LibXSLT</a>, Perl wrappers for libxml2/libxslt as part of the <a href="http://axkit.com/">AxKit XML application server</a></li>
   <li><a href="mailto:dkuhlman@cutter.rexx.com">Dave Kuhlman</a> provides and
@@ -46,7 +47,8 @@ of the Python bindings</a>.</p><p>Note to people interested in building bindings
 <a href="libxslt-api.xml">an XML API description file</a> which allows to
 automate a large part of the Python bindings, this includes function
 descriptions, enums, structures, typedefs, etc... The Python script used to
-build the bindings is python/generator.py in the source distribution.</p><p>To install the Python bindings there are 2 options:</p><ul><li>If you use an RPM based distribution, simply install the <a href="http://rpmfind.net/linux/rpm2html/search.php?query=libxml2-python">libxml2-python
+build the bindings is python/generator.py in the source distribution.</p><p>To install the Python bindings there are 2 options:</p><ul>
+  <li>If you use an RPM based distribution, simply install the <a href="http://rpmfind.net/linux/rpm2html/search.php?query=libxml2-python">libxml2-python
     RPM</a> and the <a href="http://rpmfind.net/linux/rpm2html/search.php?query=libxslt-python">libxslt-python
     RPM</a>.</li>
   <li>Otherwise use the <a href="ftp://xmlsoft.org/libxml2/python/">libxml2-python
@@ -69,7 +71,8 @@ style.freeStylesheet()
 doc.freeDoc()
 result.freeDoc()</pre><p>The Python module is called libxslt, you will also need the libxml2 module
 for the operations on XML trees. Let's have a look at the objects manipulated
-in that example and how is the processing done:</p><ul><li><code>styledoc</code> : is a libxml2 document tree. It is obtained by
+in that example and how is the processing done:</p><ul>
+  <li><code>styledoc</code> : is a libxml2 document tree. It is obtained by
     parsing the XML file "test.xsl" containing the stylesheet.</li>
   <li><code>style</code> : this is a precompiled stylesheet ready to be used
     by the following transformations (note the plural form, multiple
@@ -134,7 +137,8 @@ context.</p><pre>styledoc = libxml2.parseDoc("""
   &lt;/xsl:template&gt;
 &lt;/xsl:stylesheet&gt;
 """)</pre><p>Here is a simple example of how to read an XML document from a python
-string with libxml2. Note how this stylesheet:</p><ul><li>Uses a global parameter <code>bar</code></li>
+string with libxml2. Note how this stylesheet:</p><ul>
+  <li>Uses a global parameter <code>bar</code></li>
   <li>Reference the extension function f</li>
   <li>how the Namespace name "http://example.com/foo" has to be bound to a
     prefix</li>

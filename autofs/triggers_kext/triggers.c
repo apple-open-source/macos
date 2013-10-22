@@ -960,8 +960,8 @@ SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 		auto_release_port(automount_port);
 		return (EIO);
 	}
-	ret = vm_map_wire(ipc_kernel_map, vm_map_trunc_page(kmem_buf),
-	    vm_map_round_page(kmem_buf + tbuflen),
+	ret = vm_map_wire(ipc_kernel_map, vm_map_trunc_page(kmem_buf, vm_map_page_mask(ipc_kernel_map)),
+	    vm_map_round_page(kmem_buf + tbuflen, vm_map_page_mask(ipc_kernel_map)),
 	    VM_PROT_READ|VM_PROT_WRITE, FALSE);
 	if (ret != KERN_SUCCESS) {
 		IOLog("autofs: vm_map_wire failed, status 0x%08x\n", ret);
@@ -971,8 +971,8 @@ SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 		return (EIO);
 	}
 	bcopy(ptr, (void *)kmem_buf, len);
-	ret = vm_map_unwire(ipc_kernel_map, vm_map_trunc_page(kmem_buf),
-	    vm_map_round_page(kmem_buf + tbuflen), FALSE);
+	ret = vm_map_unwire(ipc_kernel_map, vm_map_trunc_page(kmem_buf, vm_map_page_mask(ipc_kernel_map)),
+	    vm_map_round_page(kmem_buf + tbuflen, vm_map_page_mask(ipc_kernel_map)), FALSE);
 	if (ret != KERN_SUCCESS) {
 		IOLog("autofs: vm_map_wire failed, status 0x%08x\n", ret);
 		/* XXX - deal with Mach errors */
@@ -1221,7 +1221,7 @@ unmount_triggered_mounts(int unconditional)
 			}
 		}
 
-		if (error == EBUSY) {
+		if (error == EBUSY || error == EIO) {
 			/*
 			 * We deemed that file system to be "recently
 			 * used" (either referred to recently or currently

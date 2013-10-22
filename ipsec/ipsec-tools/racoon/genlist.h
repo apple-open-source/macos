@@ -55,7 +55,7 @@ struct genlist_entry *genlist_append (struct genlist *head, void *data);
 
 /* Create a function with this prototype for use with genlist_foreach().
  * See genlist_foreach() description below for details. */
-typedef void *(genlist_func_t)(void *entry, void *arg);
+typedef void *(genlist_func_t) (void *entry, void *arg);
 
 /* Traverse the list and call 'func' for each entry.  As long as func() returns
  * NULL the list traversal continues, once it returns non-NULL (usually the
@@ -71,7 +71,7 @@ void *genlist_next (struct genlist *head, struct genlist_entry **buf);
 
 /* Create a function with this prototype for use with genlist_free()
  * to free any storage associated with genlist_entry.data */
-typedef void (genlist_freedata_t)(void *entry);
+typedef void (genlist_freedata_t) (void *entry);
 
 /* Free all storage associated with list at head using func to free any
  * alloc()d data in data field of genlist_entry */

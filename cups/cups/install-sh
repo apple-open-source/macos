@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id$"
+# "$Id: install-sh 11093 2013-07-03 20:48:42Z msweet $"
 #
 # Install a program, script, or datafile.
 #

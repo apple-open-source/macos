@@ -1,0 +1,50 @@
+Revision history for Perl extension Heap.
+
+0.01  Sun Apr 26 14:37:24 1998
+	- original version; created by h2xs 1.18
+
+0.50  (about Apr 28 1998)
+	- first general release
+
+0.60  Sun Nov 16 16:58:12 EST 2003
+	- ensured that $elem->heap can be tested for undef
+	  to determine whether it is actually on a heap at
+	  the moment
+	  - requested by Dan Bolser <dmb@mrc-dunn.cam.ac.uk>
+	- fixed bug in Heap::Binary delete
+	  - noted by Arun Bhalla <bhalla@uiuc.edu>
+        - changes to t/test.t
+          - added tests for delete
+	  - made test run against all Heap variants
+	  - made test configurable to get a small test case
+	    for solving bugs
+	- fixed bug in Heap::Binomial delete
+	- Heap::Fibonacci delete worked in tests
+
+0.70  Fri Dec  5 00:55:41 EST 2003
+	- finally got around to renaming minimum and
+	  extract_minimum methods to top and extract_top
+	  - prompted by Steve Lembark <lembark@wrkhors.com>
+	  - old names are still supported, but depracated
+
+0.71  Thu Jun 17 12:25:36 EDT 2004
+	- fixed a memory leak in Heap::Fibonacci
+	  - the DESTROY method did'nt traverse fully
+	- one final reference to extract_minimum in doc for Heap.pm
+	- both issues reported by Christian Plessl <plessl@tik.ee.ethz.ch>
+
+0.72  Fri Jul  8 09:05:04 CET 2005 (Tels)
+	- moved file to lib/ and t/ to remove clutter and simplify build
+	- rewrite most test files to use Test::More
+	- change test files to load this version, not currently installed one
+	- added tests for the various other .pm files
+	- removed unnec. require Autoloader and comments about autoloading
+	- remove "perl extension" from ABSTRACTs
+	- Heap::Elem gets proper heap() and val() routines, the
+	  other subclasses (Heap::Elem::Num etc) now simple inherit them
+
+0.80  Sat Apr 28 12:25:51 EDT 2007
+	- accepted (finally) all of the changes submitted by Tels++
+	- Heap::Elem gets proper new() method too, others all inherit it
+	- made cmp, val and heap methods use @_ for speed (as suggested
+	  by Tels++)

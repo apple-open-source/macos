@@ -1,0 +1,3 @@
+/'BINDIR'/s,: '.*',: '/usr/local/bin',
+/'LINKFORSHARED'/s,Python\.framework,/System/Library/Frameworks/&,
+w

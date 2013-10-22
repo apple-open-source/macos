@@ -572,6 +572,33 @@ ${klistA} > ${testdir}/klist-log.tmp
 grep 'Issued' ${testdir}/klist-log.tmp &> /dev/null || \
 	{ ec=1 ; eval "${testfailed}"; }
 
+echo "checking klist --json"
+python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "--json"]))' || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "checking klist --json -l"
+python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "--list", "--json"]))' || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "checking klist --json -a"
+python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "-a", "--json"]))' || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "checking klist --json --verbose -a"
+python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "-a", "--list", "--json"]))' || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+${kdestroy}
+
+echo "checking klist --json"
+python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "--json"]))' || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "checking klist --json -l"
+python -c 'import subprocess, json; json.loads(subprocess.check_output(["/usr/bin/klist", "--list", "--json"]))' || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+
 echo "testing sendto"
 ${test_sendto} --realm=${R} || \
 	{ ec=1 ; eval "${testfailed}"; }

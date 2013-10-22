@@ -39,6 +39,7 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
+#include <errno.h>
 
 #include "sudo.h"
 #include "parse.h"
@@ -69,7 +70,7 @@ alias_compare(v1, v2)
 	res = 1;
     else if ((res = strcmp(a1->name, a2->name)) == 0)
 	res = a1->type - a2->type;
-    return(res);
+    return res;
 }
 
 /*
@@ -88,17 +89,21 @@ alias_find(name, type)
     key.name = name;
     key.type = type;
     if ((node = rbfind(aliases, &key)) != NULL) {
-	    /*
-	     * Compare the global sequence number with the one stored
-	     * in the alias.  If they match then we've seen this alias
-	     * before and found a loop.
-	     */
-	    a = node->data;
-	    if (a->seqno == alias_seqno)
-		return(NULL);
-	    a->seqno = alias_seqno;
+	/*
+	 * Compare the global sequence number with the one stored
+	 * in the alias.  If they match then we've seen this alias
+	 * before and found a loop.
+	 */
+	a = node->data;
+	if (a->seqno == alias_seqno) {
+	    errno = ELOOP;
+	    return NULL;
+	}
+	a->seqno = alias_seqno;
+    } else {
+	errno = ENOENT;
     }
-    return(a);
+    return a;
 }
 
 /*
@@ -114,17 +119,17 @@ alias_add(name, type, members)
     static char errbuf[512];
     struct alias *a;
 
-    a = emalloc(sizeof(*a));
+    a = ecalloc(1, sizeof(*a));
     a->name = name;
     a->type = type;
-    a->seqno = 0;
+    /* a->seqno = 0; */
     list2tq(&a->members, members);
     if (rbinsert(aliases, a)) {
 	snprintf(errbuf, sizeof(errbuf), "Alias `%s' already defined", name);
 	alias_free(a);
-	return(errbuf);
+	return errbuf;
     }
-    return(NULL);
+    return NULL;
 }
 
 /*
@@ -144,7 +149,7 @@ alias_apply(func, cookie)
 int
 no_aliases()
 {
-    return(rbisempty(aliases));
+    return rbisempty(aliases);
 }
 
 /*
@@ -182,14 +187,15 @@ alias_remove(name, type)
     int type;
 {
     struct rbnode *node;
-    struct alias key, *a;
+    struct alias key;
 
     key.name = name;
     key.type = type;
-    if ((node = rbfind(aliases, &key)) == NULL)
-	return(NULL);
-    a = rbdelete(aliases, node);
-    return(a);
+    if ((node = rbfind(aliases, &key)) == NULL) {
+	errno = ENOENT;
+	return NULL;
+    }
+    return rbdelete(aliases, node);
 }
 
 void

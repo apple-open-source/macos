@@ -1,4 +1,5 @@
 require 'test/unit'
+require 'tmpdir'
 
 begin
   require 'sdbm'
@@ -7,7 +8,9 @@ end
 
 class TestSDBM < Test::Unit::TestCase
   def setup
-    @path = "tmptest_sdbm_"
+    @tmpdir = Dir.mktmpdir("tmptest_sdbm")
+    @prefix = "tmptest_sdbm_#{$$}"
+    @path = "#{@tmpdir}/#{@prefix}_"
     assert_instance_of(SDBM, @sdbm = SDBM.new(@path))
   end
   def teardown
@@ -15,8 +18,7 @@ class TestSDBM < Test::Unit::TestCase
     ObjectSpace.each_object(SDBM) do |obj|
       obj.close unless obj.closed?
     end
-    File.delete *Dir.glob("tmptest_sdbm*").to_a
-    p Dir.glob("tmptest_sdbm*") if $DEBUG
+    FileUtils.remove_entry_secure @tmpdir
   end
 
   def check_size(expect, sdbm=@sdbm)
@@ -47,26 +49,26 @@ class TestSDBM < Test::Unit::TestCase
   def test_s_new_has_no_block
     # SDBM.new ignore the block
     foo = true
-    assert_instance_of(SDBM, sdbm = SDBM.new("tmptest_sdbm") { foo = false })
+    assert_instance_of(SDBM, sdbm = SDBM.new("#{@tmpdir}/#{@prefix}") { foo = false })
     assert_equal(foo, true)
     assert_nil(sdbm.close)
   end
   def test_s_open_no_create
-    assert_nil(sdbm = SDBM.open("tmptest_sdbm", nil))
+    assert_nil(sdbm = SDBM.open("#{@tmpdir}/#{@prefix}", nil))
   ensure
     sdbm.close if sdbm
   end
   def test_s_open_with_block
-    assert_equal(SDBM.open("tmptest_sdbm") { :foo }, :foo)
+    assert_equal(SDBM.open("#{@tmpdir}/#{@prefix}") { :foo }, :foo)
   end
 =begin
   # Is it guaranteed on many OS?
   def test_s_open_lock_one_process
     # locking on one process
-    assert_instance_of(SDBM, sdbm  = SDBM.open("tmptest_sdbm", 0644))
+    assert_instance_of(SDBM, sdbm  = SDBM.open("#{@tmpdir}/#{@prefix}", 0644))
     assert_raise(Errno::EWOULDBLOCK) {
       begin
-	SDBM.open("tmptest_sdbm", 0644)
+	SDBM.open("#{@tmpdir}/#{@prefix}", 0644)
       rescue Errno::EAGAIN
 	raise Errno::EWOULDBLOCK
       end
@@ -81,8 +83,8 @@ class TestSDBM < Test::Unit::TestCase
     end
     return unless have_fork?	# snip this test
 
-    fork() {
-      assert_instance_of(SDBM, sdbm  = SDBM.open("tmptest_sdbm", 0644,
+    pid = fork() {
+      assert_instance_of(SDBM, sdbm  = SDBM.open("#{@tmpdir}/#{@prefix}", 0644,
 						SDBM::NOLOCK))
       sleep 2
     }
@@ -90,17 +92,17 @@ class TestSDBM < Test::Unit::TestCase
     begin
       sdbm2 = nil
       assert_no_exception(Errno::EWOULDBLOCK, Errno::EAGAIN, Errno::EACCES) {
-	assert_instance_of(SDBM, sdbm2 = SDBM.open("tmptest_sdbm", 0644))
+	assert_instance_of(SDBM, sdbm2 = SDBM.open("#{@tmpdir}/#{@prefix}", 0644))
       }
     ensure
-      Process.wait
+      Process.wait pid
       sdbm2.close if sdbm2
     end
 
-    p Dir.glob("tmptest_sdbm*") if $DEBUG
+    p Dir.glob("#{@tmpdir}/#{@prefix}*") if $DEBUG
 
-    fork() {
-      assert_instance_of(SDBM, sdbm  = SDBM.open("tmptest_sdbm", 0644))
+    pid = fork() {
+      assert_instance_of(SDBM, sdbm  = SDBM.open("#{@tmpdir}/#{@prefix}", 0644))
       sleep 2
     }
     begin
@@ -108,26 +110,26 @@ class TestSDBM < Test::Unit::TestCase
       sdbm2 = nil
       assert_no_exception(Errno::EWOULDBLOCK, Errno::EAGAIN, Errno::EACCES) {
 	# this test is failed on Cygwin98 (???)
-	assert_instance_of(SDBM, sdbm2 = SDBM.open("tmptest_sdbm", 0644,
+	assert_instance_of(SDBM, sdbm2 = SDBM.open("#{@tmpdir}/#{@prefix}", 0644,
 						   SDBM::NOLOCK))
       }
     ensure
-      Process.wait
+      Process.wait pid
       sdbm2.close if sdbm2
     end
   end
 
   def test_s_open_error
-    return if /(ms|bcc)win|mingw|djgpp/ =~ RUBY_PLATFORM
-    assert_instance_of(SDBM, sdbm = SDBM.open("tmptest_sdbm", 0))
+    skip "doesn't support to avoid read access by owner on Windows" if /mswin|mingw/ =~ RUBY_PLATFORM
+    assert_instance_of(SDBM, sdbm = SDBM.open("#{@tmpdir}/#{@prefix}", 0))
     assert_raise(Errno::EACCES) {
-      SDBM.open("tmptest_sdbm", 0)
+      SDBM.open("#{@tmpdir}/#{@prefix}", 0)
     }
     sdbm.close
   end
 
   def test_close
-    assert_instance_of(SDBM, sdbm = SDBM.open("tmptest_sdbm"))
+    assert_instance_of(SDBM, sdbm = SDBM.open("#{@tmpdir}/#{@prefix}"))
     assert_nil(sdbm.close)
 
     # closed SDBM file
@@ -198,17 +200,10 @@ class TestSDBM < Test::Unit::TestCase
     }
   end
 
-  def test_index
+  def test_key
     assert_equal('bar', @sdbm['foo'] = 'bar')
-    assert_equal('foo', @sdbm.index('bar'))
+    assert_equal('foo', @sdbm.key('bar'))
     assert_nil(@sdbm['bar'])
-  end
-
-  def test_indexes
-    keys = %w(foo bar baz)
-    values = %w(FOO BAR BAZ)
-    @sdbm[keys[0]], @sdbm[keys[1]], @sdbm[keys[2]] = values
-    assert_equal(values.reverse, @sdbm.indexes(*keys.reverse))
   end
 
   def test_values_at
@@ -283,7 +278,7 @@ class TestSDBM < Test::Unit::TestCase
 
     n = 0
     ret = @sdbm.each_value {|val|
-      assert_not_nil(key = @sdbm.index(val))
+      assert_not_nil(key = @sdbm.key(val))
       assert_not_nil(i = keys.index(key))
       assert_equal(val, values[i])
 
@@ -371,14 +366,11 @@ class TestSDBM < Test::Unit::TestCase
   def test_delete_with_block
     key = 'no called block'
     @sdbm[key] = 'foo'
-    assert_equal('foo', @sdbm.delete(key) {|k| k.replace 'called block'})
-    assert_equal('no called block', key)
+    assert_equal('foo', @sdbm.delete(key) {|k| k.replace 'called block'; :blockval})
     assert_equal(0, @sdbm.size)
 
     key = 'no called block'
-    assert_equal(:blockval,
-		  @sdbm.delete(key) {|k| k.replace 'called block'; :blockval})
-    assert_equal('called block', key)
+    assert_equal(:blockval, @sdbm.delete(key) {|k| k.replace 'called block'; :blockval})
     assert_equal(0, @sdbm.size)
   end
 
@@ -531,4 +523,33 @@ class TestSDBM < Test::Unit::TestCase
       assert_equal(key.to_i, val.to_i)
     }
   end
+
+  def test_closed
+    assert_equal(false, @sdbm.closed?)
+    @sdbm.close
+    assert_equal(true, @sdbm.closed?)
+    @sdbm = SDBM.new(@path)
+  end
+
+  def test_readonly
+    @sdbm["bar"] = "baz"
+    @sdbm.close
+    File.chmod(0444, @path + ".dir")
+    File.chmod(0444, @path + ".pag")
+    @sdbm = SDBM.new(@path)
+    assert_raise(SDBMError) { @sdbm["bar"] = "foo" }
+    assert_raise(SDBMError) { @sdbm.delete("bar") }
+    assert_raise(SDBMError) { @sdbm.delete_if { true } }
+    assert_raise(SDBMError) { @sdbm.clear }
+    assert_nil(@sdbm.store("bar", nil))
+  end
+
+  def test_update2
+    obj = Object.new
+    def obj.each_pair
+      yield []
+    end
+    assert_raise(ArgumentError) { @sdbm.update(obj) }
+  end
 end
+

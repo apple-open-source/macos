@@ -41,11 +41,11 @@
 #include "InspectorFrontendHost.h"
 #include "JSEvent.h"
 #include "MouseEvent.h"
-#include "PlatformString.h"
 #include <runtime/JSArray.h>
 #include <runtime/JSLock.h>
 #include <runtime/JSObject.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 using namespace JSC;
 
@@ -54,74 +54,98 @@ namespace WebCore {
 JSValue JSInspectorFrontendHost::platform(ExecState* execState)
 {
 #if PLATFORM(MAC)
-    DEFINE_STATIC_LOCAL(const String, platform, ("mac"));
+    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("mac")));
 #elif OS(WINDOWS)
-    DEFINE_STATIC_LOCAL(const String, platform, ("windows"));
+    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("windows")));
 #elif OS(LINUX)
-    DEFINE_STATIC_LOCAL(const String, platform, ("linux"));
+    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("linux")));
 #elif OS(FREEBSD)
-    DEFINE_STATIC_LOCAL(const String, platform, ("freebsd"));
+    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("freebsd")));
 #elif OS(OPENBSD)
-    DEFINE_STATIC_LOCAL(const String, platform, ("openbsd"));
+    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("openbsd")));
 #elif OS(SOLARIS)
-    DEFINE_STATIC_LOCAL(const String, platform, ("solaris"));
+    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("solaris")));
 #else
-    DEFINE_STATIC_LOCAL(const String, platform, ("unknown"));
+    DEFINE_STATIC_LOCAL(const String, platform, (ASCIILiteral("unknown")));
 #endif
-    return jsString(execState, platform);
+    return jsStringWithCache(execState, platform);
 }
 
 JSValue JSInspectorFrontendHost::port(ExecState* execState)
 {
 #if PLATFORM(QT)
-    DEFINE_STATIC_LOCAL(const String, port, ("qt"));
+    DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("qt")));
 #elif PLATFORM(GTK)
-    DEFINE_STATIC_LOCAL(const String, port, ("gtk"));
-#elif PLATFORM(WX)
-    DEFINE_STATIC_LOCAL(const String, port, ("wx"));
+    DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("gtk")));
+#elif PLATFORM(EFL)
+    DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("efl")));
 #else
-    DEFINE_STATIC_LOCAL(const String, port, ("unknown"));
+    DEFINE_STATIC_LOCAL(const String, port, (ASCIILiteral("unknown")));
 #endif
-    return jsString(execState, port);
+    return jsStringWithCache(execState, port);
 }
 
-JSValue JSInspectorFrontendHost::showContextMenu(ExecState* exec)
-{
-    if (exec->argumentCount() < 2)
-        return jsUndefined();
 #if ENABLE(CONTEXT_MENUS)
-    Event* event = toEvent(exec->argument(0));
-
-    JSArray* array = asArray(exec->argument(1));
-    Vector<ContextMenuItem*> items;
-
+static void populateContextMenuItems(ExecState* exec, JSArray* array, ContextMenu& menu)
+{
     for (size_t i = 0; i < array->length(); ++i) {
-        JSObject* item = asObject(array->getIndex(i));
+        JSObject* item = asObject(array->getIndex(exec, i));
         JSValue label = item->get(exec, Identifier(exec, "label"));
         JSValue type = item->get(exec, Identifier(exec, "type"));
         JSValue id = item->get(exec, Identifier(exec, "id"));
         JSValue enabled = item->get(exec, Identifier(exec, "enabled"));
         JSValue checked = item->get(exec, Identifier(exec, "checked"));
+        JSValue subItems = item->get(exec, Identifier(exec, "subItems"));
         if (!type.isString())
             continue;
 
-        String typeString = ustringToString(type.toString(exec)->value(exec));
+        String typeString = type.toString(exec)->value(exec);
         if (typeString == "separator") {
-            items.append(new ContextMenuItem(SeparatorType,
-                                             ContextMenuItemCustomTagNoAction,
-                                             String()));
+            ContextMenuItem item(SeparatorType,
+                                 ContextMenuItemCustomTagNoAction,
+                                 String());
+            menu.appendItem(item);
+        } else if (typeString == "subMenu" && subItems.inherits(&JSArray::s_info)) {
+            ContextMenu subMenu;
+            JSArray* subItemsArray = asArray(subItems);
+            populateContextMenuItems(exec, subItemsArray, subMenu);
+            ContextMenuItem item(SubmenuType,
+                                 ContextMenuItemCustomTagNoAction,
+                                 label.toString(exec)->value(exec),
+                                 &subMenu);
+            menu.appendItem(item);
         } else {
             ContextMenuAction typedId = static_cast<ContextMenuAction>(ContextMenuItemBaseCustomTag + id.toInt32(exec));
-            ContextMenuItem* menuItem = new ContextMenuItem((typeString == "checkbox" ? CheckableActionType : ActionType), typedId, ustringToString(label.toString(exec)->value(exec)));
+            ContextMenuItem menuItem((typeString == "checkbox" ? CheckableActionType : ActionType), typedId, label.toString(exec)->value(exec));
             if (!enabled.isUndefined())
-                menuItem->setEnabled(enabled.toBoolean(exec));
+                menuItem.setEnabled(enabled.toBoolean(exec));
             if (!checked.isUndefined())
-                menuItem->setChecked(checked.toBoolean(exec));
-            items.append(menuItem);
+                menuItem.setChecked(checked.toBoolean(exec));
+            menu.appendItem(menuItem);
         }
     }
+}
+#endif
 
+JSValue JSInspectorFrontendHost::showContextMenu(ExecState* exec)
+{
+#if ENABLE(CONTEXT_MENUS)
+    if (exec->argumentCount() < 2)
+        return jsUndefined();
+    Event* event = toEvent(exec->argument(0));
+
+    JSArray* array = asArray(exec->argument(1));
+    ContextMenu menu;
+    populateContextMenuItems(exec, array, menu);
+
+#if !USE(CROSS_PLATFORM_CONTEXT_MENUS)
+    Vector<ContextMenuItem> items = contextMenuItemVector(menu.platformDescription());
+#else
+    Vector<ContextMenuItem> items = menu.items();
+#endif
     impl()->showContextMenu(event, items);
+#else
+    UNUSED_PARAM(exec);
 #endif
     return jsUndefined();
 }

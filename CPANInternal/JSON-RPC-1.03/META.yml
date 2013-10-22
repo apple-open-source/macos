@@ -1,0 +1,39 @@
+---
+abstract: 'JSON RPC 2.0 Server Implementation'
+author:
+  - 'Daisuke Maki'
+build_requires:
+  ExtUtils::MakeMaker: 6.36
+  Plack::Request: 0
+  Plack::Test: 0
+  Test::More: 0
+configure_requires:
+  ExtUtils::MakeMaker: 6.36
+distribution_type: module
+dynamic_config: 1
+generated_by: 'Module::Install version 1.06'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: JSON-RPC
+no_index:
+  directory:
+    - inc
+    - t
+recommends:
+  JSON::XS: 0
+requires:
+  CGI: 0
+  Class::Accessor::Lite: 0
+  HTTP::Request: 0
+  HTTP::Response: 0
+  JSON: 0
+  LWP::UserAgent: 0
+  Plack: 0
+  Router::Simple: 0
+  parent: 0
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: git://github.com/lestrrat/JSON-RPC.git
+version: 1.03

@@ -28,7 +28,7 @@
 #include <securityd/SecOCSPRequest.h>
 #include <Security/SecCertificateInternal.h>
 #include <AssertMacros.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include <security_asn1/SecAsn1Coder.h>
 #include <security_asn1/ocspTemplates.h>
 #include <security_asn1/oidsalg.h>

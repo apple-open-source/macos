@@ -26,6 +26,8 @@
 #include "Attribute.h"
 #include "Document.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
+#include "TextResourceDecoder.h"
 
 namespace WebCore {
 
@@ -42,15 +44,15 @@ PassRefPtr<HTMLBaseElement> HTMLBaseElement::create(const QualifiedName& tagName
     return adoptRef(new HTMLBaseElement(tagName, document));
 }
 
-void HTMLBaseElement::parseAttribute(Attribute* attribute)
+void HTMLBaseElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attribute->name() == hrefAttr || attribute->name() == targetAttr)
+    if (name == hrefAttr || name == targetAttr)
         document()->processBaseElement();
     else
-        HTMLElement::parseAttribute(attribute);
+        HTMLElement::parseAttribute(name, value);
 }
 
-Node::InsertionNotificationRequest HTMLBaseElement::insertedInto(Node* insertionPoint)
+Node::InsertionNotificationRequest HTMLBaseElement::insertedInto(ContainerNode* insertionPoint)
 {
     HTMLElement::insertedInto(insertionPoint);
     if (insertionPoint->inDocument())
@@ -58,21 +60,46 @@ Node::InsertionNotificationRequest HTMLBaseElement::insertedInto(Node* insertion
     return InsertionDone;
 }
 
-void HTMLBaseElement::removedFrom(Node* insertionPoint)
+void HTMLBaseElement::removedFrom(ContainerNode* insertionPoint)
 {
     HTMLElement::removedFrom(insertionPoint);
     if (insertionPoint->inDocument())
         document()->processBaseElement();
 }
 
-bool HTMLBaseElement::isURLAttribute(Attribute* attribute) const
+bool HTMLBaseElement::isURLAttribute(const Attribute& attribute) const
 {
-    return attribute->name() == hrefAttr || HTMLElement::isURLAttribute(attribute);
+    return attribute.name().localName() == hrefAttr || HTMLElement::isURLAttribute(attribute);
 }
 
 String HTMLBaseElement::target() const
 {
     return fastGetAttribute(targetAttr);
+}
+
+KURL HTMLBaseElement::href() const
+{
+    // This does not use the getURLAttribute function because that will resolve relative to the document's base URL;
+    // base elements like this one can be used to set that base URL. Thus we need to resolve relative to the document's
+    // URL and ignore the base URL.
+
+    const AtomicString& attributeValue = fastGetAttribute(hrefAttr);
+    if (attributeValue.isNull())
+        return document()->url();
+
+    KURL url = !document()->decoder() ?
+        KURL(document()->url(), stripLeadingAndTrailingHTMLSpaces(attributeValue)) :
+        KURL(document()->url(), stripLeadingAndTrailingHTMLSpaces(attributeValue), document()->decoder()->encoding());
+
+    if (!url.isValid())
+        return KURL();
+
+    return url;
+}
+
+void HTMLBaseElement::setHref(const AtomicString& value)
+{
+    setAttribute(hrefAttr, value);
 }
 
 }

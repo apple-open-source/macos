@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2009-2010 ProFUSION embedded systems
     Copyright (C) 2009-2010 Samsung Electronics
+    Copyright (C) 2012 Intel Corporation
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -53,15 +54,10 @@ EAPI uint64_t         ewk_settings_web_database_default_quota_get(void);
 EAPI void             ewk_settings_web_database_default_quota_set(uint64_t maximum_size);
 
 /**
- * Removes all HTML5 Web Database databases.
- */
-EAPI void             ewk_settings_web_database_clear(void);
-
-/**
  * Sets the current path to the directory WebKit will write Web
  * Database databases.
  *
- * By default, the value is @c ~/.webkit
+ * By default, the value is @c ~/.cache/WebKitEfl/Databases
  *
  * @param path the new database directory path
  */
@@ -72,7 +68,7 @@ EAPI void             ewk_settings_web_database_path_set(const char *path);
  * HTML5 local storage indexing database (the one keeping track of
  * individual views' local storage databases).
  *
- * By default, the value is @c ~/.webkit
+ * By default, the value is @c ~/.local/share/WebKitEfl/LocalStorage
  *
  * @param path the new local storage database directory path
  *
@@ -89,6 +85,8 @@ EAPI void ewk_settings_local_storage_path_set(const char* path);
  * This is guaranteed to be eina-stringshared, so whenever possible
  * save yourself some cpu cycles and use eina_stringshare_ref()
  * instead of eina_stringshare_add() or strdup().
+ *
+ * By default, the value is @c ~/.local/share/WebKitEfl/LocalStorage
  *
  * @return database path or @c NULL, on errors.
  *
@@ -117,13 +115,13 @@ EAPI void ewk_settings_local_storage_database_origin_clear(const char *url);
 /**
  * Returns directory path where web database is stored.
  *
- * By default, the value is @c ~/.webkit
+ * By default, the value is @c ~/.cache/WebKitEfl/Databases
  *
  * This is guaranteed to be eina_stringshare, so whenever possible
  * save yourself some cpu cycles and use eina_stringshare_ref()
  * instead of eina_stringshare_add() or strdup().
  *
- * @return database path or @c 0 if none or web database is not supported
+ * @return database path or @c NULL if none or web database is not supported
  */
 EAPI const char      *ewk_settings_web_database_path_get(void);
 
@@ -134,7 +132,7 @@ EAPI const char      *ewk_settings_web_database_path_get(void);
  * database is already open, this function returns @c EINA_FALSE.
  *
  * @param directory where to store icon database, must be
- *        write-able, if @c 0 is given, then database is closed
+ *        write-able, if @c NULL is given, then database is closed
  *
  * @return @c EINA_TRUE on success, @c EINA_FALSE on errors
  */
@@ -147,7 +145,7 @@ EAPI Eina_Bool        ewk_settings_icon_database_path_set(const char *path);
  * save yourself some cpu cycles and use eina_stringshare_ref()
  * instead of eina_stringshare_add() or strdup().
  *
- * @return database path or @c 0 if none is set or database is closed
+ * @return database path or @c NULL if none is set
  */
 EAPI const char      *ewk_settings_icon_database_path_get(void);
 
@@ -170,7 +168,7 @@ EAPI Eina_Bool        ewk_settings_icon_database_clear(void);
  *
  * @param url which url to query icon
  *
- * @return cairo surface if any, or @c 0 on failure
+ * @return cairo surface if any, or @c NULL on failure
  */
 EAPI cairo_surface_t *ewk_settings_icon_database_icon_surface_get(const char *url);
 
@@ -190,7 +188,7 @@ EAPI cairo_surface_t *ewk_settings_icon_database_icon_surface_get(const char *ur
  * @param url which url to query icon
  * @param canvas evas instance where to add resulting object
  *
- * @return newly allocated Evas_Object instance or @c 0 on
+ * @return newly allocated Evas_Object instance or @c NULL on
  *         errors. Delete the object with evas_object_del().
  */
 EAPI Evas_Object     *ewk_settings_icon_database_icon_object_get(const char *url, Evas *canvas);
@@ -201,7 +199,8 @@ EAPI Evas_Object     *ewk_settings_icon_database_icon_object_get(const char *url
  * The Offline Application Caching APIs are part of HTML5 and allow applications to store data locally that is accessed
  * when the network cannot be reached.
  *
- * By default, the path is @c ~/.webkit.
+ * By default, the path is @c ~/.cache/WebKitEfl/Applications
+ * Once the path is set, the feature is enabled and the path cannot be changed.
  *
  * @param path where to store cache, must be write-able.
  *
@@ -215,7 +214,7 @@ EAPI void             ewk_settings_application_cache_path_set(const char *path);
  * The Offline Application Caching APIs are part of HTML5 and allow applications to store data locally that is accessed
  * when the network cannot be reached.
  *
- * By default, the path is @c ~/.webkit.
+ * By default, the path is @c ~/.cache/WebKitEfl/Applications
  *
  * @return eina_stringshare'd path value.
  *
@@ -282,6 +281,34 @@ EAPI Eina_Bool        ewk_settings_object_cache_enable_get(void);
 EAPI void             ewk_settings_object_cache_enable_set(Eina_Bool set);
 
 /**
+ * Returns whether Shadow DOM is enabled.
+ *
+ * Shadow DOM is a method of establishing and maintaining functional boundaries between
+ * DOM subtrees and how these subtrees interact with each other within a document tree,
+ * thus enabling better functional encapsulation within DOM.
+ *
+ * By default, Shadow DOM is disabled.
+ *
+ * @return @c EINA_TRUE if Shadow DOM is enabled or @c EINA_FALSE if not
+ *
+ * @sa ewk_settings_shadow_dom_enable_set
+ */
+EAPI Eina_Bool    ewk_settings_shadow_dom_enable_get(void);
+
+/**
+ * Enables/disables Shadow DOM functionality.
+ *
+ * Shadow DOM is a method of establishing and maintaining functional boundaries between
+ * DOM subtrees and how these subtrees interact with each other within a document tree,
+ * thus enabling better functional encapsulation within DOM.
+ *
+ * By default, Shadow DOM is disabled.
+ *
+ * @param set @c EINA_TRUE to enable Shadow DOM, @c EINA_FALSE to disable
+ */
+EAPI Eina_Bool    ewk_settings_shadow_dom_enable_set(Eina_Bool enable);
+
+/**
  * Defines the capacities for the in-memory object cache.
  *
  * The object cache is responsible for holding resources such as scripts, stylesheets
@@ -298,6 +325,29 @@ EAPI void             ewk_settings_object_cache_enable_set(Eina_Bool set);
  * @param capacity the maximum number of bytes that the cache should consume overall
  */
 EAPI void             ewk_settings_object_cache_capacity_set(unsigned min_dead_bytes, unsigned max_dead_bytes, unsigned total_bytes);
+
+/**
+ * Returns the maximum number of pages in the memory page cache.
+ *
+ * By default, maximum number of pages is 3.
+ *
+ * @return  The maximum number of pages in the memory page cache.
+ *
+ * @sa ewk_settings_page_cache_capacity_set
+ */
+EAPI unsigned         ewk_settings_page_cache_capacity_get(void);
+
+/**
+ * Defines the capacity for the memory page cache.
+ *
+ * The page cache is responsible for holding visited web pages in memory. So it improves user experience when navigating forth or back
+ * to pages in the forward/back history as the cached pages do not require to be loaded from server.
+ *
+ * By default, @p pages is 3.
+ *
+ * @param pages The maximum number of pages to keep in the memory page cache.
+ */
+EAPI void             ewk_settings_page_cache_capacity_set(unsigned pages);
 
 /**
  * Clears all memory caches.
@@ -336,6 +386,34 @@ EAPI void             ewk_settings_repaint_throttling_set(double deferred_repain
  * @return default minimum interval for DOMTimers
  */
 EAPI double           ewk_settings_default_timer_interval_get(void);
+
+/**
+ * Sets the CSS media type.
+ *
+ * Setting this will override the normal value of the CSS media property.
+ *
+ * Setting the value to @c NULL will restore the internal default value.
+ *
+ * @param type css media type to be set, must be write-able
+ *
+ * @sa ewk_settings_css_media_type_get
+ */
+EAPI void             ewk_settings_css_media_type_set(const char *type);
+
+/**
+ * Returns the current CSS media type.
+ *
+ * It will only return the value set through ewk_settings_css_media_type_set and not the one used internally.
+ *
+ * This is guaranteed to be eina_stringshare, so whenever possible
+ * save yourself some cpu cycles and use eina_stringshare_ref()
+ * instead of eina_stringshare_add() or strdup().
+ * 
+ * @return css media type set by user or @c NULL if none is set
+ *
+ * @sa ewk_settings_css_media_type_set
+ */
+EAPI const char      *ewk_settings_css_media_type_get(void);
 
 #ifdef __cplusplus
 }

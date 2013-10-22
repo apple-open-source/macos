@@ -331,6 +331,8 @@ local_clock(
 			    fp_offset);
 			report_event(EVNT_SPIK, NULL, tbuf);
 			state = EVNT_SPIK;
+			msyslog(LOG_NOTICE, "SYNC state ignoring %+.6f s",
+						fp_offset);
 			return (0);
 
 		/*
@@ -339,9 +341,12 @@ local_clock(
 		 * the apparent frequency correction and step the phase.
 		 */
 		case EVNT_FREQ:
-			if (mu < clock_minstep)
-				return (0);
+			if (mu < clock_minstep) {
+				msyslog(LOG_NOTICE, "FREQ state ignoring %+.6f s",
+						fp_offset);
 
+				return (0);
+			}
 			clock_frequency = direct_freq(fp_offset);
 
 			/* fall through to S_SPIK */
@@ -352,8 +357,12 @@ local_clock(
 		 * exceeded.
 		 */
 		case EVNT_SPIK:
-			if (mu < clock_minstep)
+			if (mu < clock_minstep) {
+				msyslog(LOG_NOTICE, "SPIK state ignoring %+.6f s",
+						fp_offset);
+
 				return (0);
+			}
 
 			/* fall through to default */
 
@@ -385,6 +394,8 @@ local_clock(
 			    fp_offset);
 			report_event(EVNT_CLOCKRESET, NULL, tbuf);
 			step_systime(fp_offset);
+			msyslog(LOG_NOTICE, "ntpd: time set %+.6f s",
+	   		    fp_offset);
 			reinit_timer();
 			tc_counter = 0;
 			clock_jitter = LOGTOD(sys_precision);
@@ -439,8 +450,11 @@ local_clock(
 		 * update.
 		 */
 		case EVNT_FREQ:
-			if (mu < clock_minstep)
+			if (mu < clock_minstep) {
+				msyslog(LOG_NOTICE, "FREQ state ignoring %+.6f s",
+						fp_offset);
 				return (0);
+			}
 
 			clock_frequency = direct_freq(fp_offset);
 			rstclock(EVNT_SYNC, 0);

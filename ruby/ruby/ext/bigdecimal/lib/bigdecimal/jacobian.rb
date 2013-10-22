@@ -11,7 +11,7 @@
 #
 # f.zero:: returns 0.0
 # f.one:: returns 1.0
-# f.two:: returns 1.0
+# f.two:: returns 2.0
 # f.ten:: returns 10.0
 #
 # f.eps:: returns the convergence criterion (epsilon value) used to determine whether two values are considered equal. If |a-b| < epsilon, the two values are considered equal.
@@ -21,21 +21,23 @@
 # fx is f.values(x).
 #
 module Jacobian
-  #--
+  module_function
+
+  # Determines the equality of two numbers by comparing to zero, or using the epsilon value
   def isEqual(a,b,zero=0.0,e=1.0e-8)
     aa = a.abs
     bb = b.abs
     if aa == zero &&  bb == zero then
-          true
+      true
     else
-          if ((a-b)/(aa+bb)).abs < e then
-             true
-          else
-             false
-          end
+      if ((a-b)/(aa+bb)).abs < e then
+        true
+      else
+        false
+      end
     end
   end
-  #++
+
 
   # Computes the derivative of f[i] at x[i].
   # fx is the value of f at x.
@@ -51,18 +53,19 @@ module Jacobian
     until ok>0 do
       s = f.zero
       deriv = []
-      if(nRetry>100) then
-         raize "Singular Jacobian matrix. No change at x[" + i.to_s + "]"
+      nRetry += 1
+      if nRetry > 100
+        raise "Singular Jacobian matrix. No change at x[" + i.to_s + "]"
       end
       dx = dx*f.two
       x[i] += dx
       fxNew = f.values(x)
       for j in 0...n do
         if !isEqual(fxNew[j],fx[j],f.zero,f.eps) then
-           ok += 1
-           deriv <<= (fxNew[j]-fx[j])/dx
+          ok += 1
+          deriv <<= (fxNew[j]-fx[j])/dx
         else
-           deriv <<= f.zero
+          deriv <<= f.zero
         end
       end
       x[i] = xSave
@@ -77,7 +80,7 @@ module Jacobian
     for i in 0...n do
       df = dfdxi(f,fx,x,i)
       for j in 0...n do
-         dfdx[j*n+i] = df[j]
+        dfdx[j*n+i] = df[j]
       end
     end
     dfdx

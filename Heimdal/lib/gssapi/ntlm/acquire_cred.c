@@ -36,7 +36,7 @@
 #include "ntlm.h"
 #include <gssapi_spi.h>
 
-static OM_uint32
+OM_uint32
 _gss_ntlm_have_cred(OM_uint32 *minor,
 		    const ntlm_name target_name,
 		    ntlm_cred *rcred)

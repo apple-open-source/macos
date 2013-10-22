@@ -180,7 +180,7 @@ public:
             const char *s = tag.c_str(); pub(s);
             uint32 aa = authorizesAnything; pub(aa);
             if (!authorizesAnything) {
-                Endian<uint32> count = authorizations.size(); pub(count);
+                Endian<uint32> count = (uint32)authorizations.size(); pub(count);
                 for (AclAuthorizationSet::iterator it = authorizations.begin();
                     it != authorizations.end(); it++) {
                     Endian<AclAuthorization> auth = *it; pub(auth);

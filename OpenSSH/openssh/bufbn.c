@@ -41,7 +41,11 @@
 
 #include <sys/types.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#else
 #include <openssl/bn.h>
+#endif
 
 #include <string.h>
 #include <stdarg.h>

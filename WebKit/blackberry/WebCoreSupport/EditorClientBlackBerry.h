@@ -37,8 +37,8 @@ class EditorClientBlackBerry : public EditorClient, public TextCheckerClient {
 public:
     EditorClientBlackBerry(BlackBerry::WebKit::WebPagePrivate*);
     virtual void pageDestroyed();
+    virtual void frameWillDetachPage(Frame*) { }
     virtual bool shouldDeleteRange(Range*);
-    virtual bool shouldShowDeleteInterface(HTMLElement*);
     virtual bool smartInsertDeleteEnabled();
     virtual bool isSelectTrailingWhitespaceEnabled();
     virtual bool isContinuousSpellCheckingEnabled();
@@ -58,7 +58,9 @@ public:
     virtual void respondToChangedSelection(Frame*);
     virtual void respondToSelectionAppearanceChange();
     virtual void didEndEditing();
+    virtual void willWriteSelectionToPasteboard(WebCore::Range*);
     virtual void didWriteSelectionToPasteboard();
+    virtual void getClientPasteboardDataForRange(WebCore::Range*, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer> >& pasteboardData);
     virtual void didSetSelectionTypesForPasteboard();
     virtual void registerUndoStep(PassRefPtr<UndoStep>);
     virtual void registerRedoStep(PassRefPtr<UndoStep>);
@@ -78,13 +80,15 @@ public:
     virtual bool doTextFieldCommandFromEvent(Element*, KeyboardEvent*);
     virtual void textWillBeDeletedInTextField(Element*);
     virtual void textDidChangeInTextArea(Element*);
+    virtual bool shouldEraseMarkersAfterChangeSelection(TextCheckingType) const;
     virtual void ignoreWordInSpellDocument(const String&);
     virtual void learnWord(const String&);
     virtual void checkSpellingOfString(const UChar*, int, int*, int*);
     virtual String getAutoCorrectSuggestionForMisspelledWord(const String& misspelledWord);
     virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail, 0u>&, int*, int*);
     virtual void getGuessesForWord(const String&, const String&, Vector<String>&);
-    virtual void requestCheckingOfString(SpellChecker*, const TextCheckingRequest&);
+    virtual void requestCheckingOfString(WTF::PassRefPtr<WebCore::TextCheckingRequest>);
+    virtual void checkTextOfParagraph(const UChar*, int, TextCheckingTypeMask, Vector<TextCheckingResult>&);
 
     virtual TextCheckerClient* textChecker();
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&);

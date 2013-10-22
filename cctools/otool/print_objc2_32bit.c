@@ -760,7 +760,7 @@ char *indent)
 		return;
 	    memset(&m, '\0', sizeof(struct method_t));
 	    if(left < sizeof(struct method_t)){
-		memcpy(&ml, r, left);
+		memcpy(&m, r, left);
 		printf("%s   (method_t entends past the end of the "
 		       "section)\n", indent);
 	    }
@@ -1191,7 +1191,7 @@ uint32_t *nsections,
 uint32_t *database) 
 {
     enum byte_sex host_byte_sex;
-    enum bool swapped, database_set, zerobased, encrypt_found;
+    enum bool swapped, database_set, zerobased, encrypt_found, encrypt64_found;
 
     uint32_t i, j, left, size;
     struct load_command lcmd, *lc;
@@ -1199,6 +1199,7 @@ uint32_t *database)
     struct segment_command sg;
     struct section s;
     struct encryption_info_command encrypt;
+    struct encryption_info_command_64 encrypt64;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1209,6 +1210,7 @@ uint32_t *database)
 	*database = 0;
 	zerobased = FALSE;
 	encrypt_found = FALSE;
+	encrypt64_found = FALSE;
 
 	lc = load_commands;
 	for(i = 0 ; i < ncmds; i++){
@@ -1329,6 +1331,16 @@ uint32_t *database)
 		    swap_encryption_command(&encrypt, host_byte_sex);
 		encrypt_found = TRUE;
 		break;
+	    case LC_ENCRYPTION_INFO_64:
+		memset((char *)&encrypt64, '\0',
+		       sizeof(struct encryption_info_command_64));
+		size = left < sizeof(struct encryption_info_command_64) ?
+		       left : sizeof(struct encryption_info_command_64);
+		memcpy((char *)&encrypt64, (char *)lc, size);
+		if(swapped)
+		    swap_encryption_command_64(&encrypt64, host_byte_sex);
+		encrypt64_found = TRUE;
+		break;
 	    }
 	    if(lcmd.cmdsize == 0){
 		printf("load command %u size zero (can't advance to other "
@@ -1351,6 +1363,24 @@ uint32_t *database)
 		    }
 		    else if((*sections)[i].offset + (*sections)[i].size <
 			encrypt.cryptoff){
+			/* section ends before encryption area */ ;
+		    }
+		    else{
+			/* section has part in the encrypted area */
+			(*sections)[i].protected = TRUE;
+		    }
+		}
+	    }
+	}
+	if(encrypt64_found == TRUE && encrypt64.cryptid != 0){
+	    for(i = 0; i < *nsections; i++){
+		if((*sections)[i].size > 0 && (*sections)[i].zerofill == FALSE){
+		    if((*sections)[i].offset >
+		       encrypt64.cryptoff + encrypt64.cryptsize){
+			/* section starts past encryption area */ ;
+		    }
+		    else if((*sections)[i].offset + (*sections)[i].size <
+			encrypt64.cryptoff){
 			/* section ends before encryption area */ ;
 		    }
 		    else{

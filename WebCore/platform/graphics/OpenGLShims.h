@@ -22,13 +22,9 @@
 
 #if PLATFORM(QT)
 #include <qglobal.h>
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
 #include <qopenglfunctions.h>
 #include <QOpenGLContext>
 #include <QSurface>
-#else
-#include <QGLContext>
-#endif
 #else
 #include <GL/gl.h>
 #endif
@@ -45,98 +41,110 @@ bool initializeOpenGLShims();
 OpenGLFunctionTable* openGLFunctionTable();
 }
 
-typedef void (*glActiveTextureType) (GLenum);
-typedef void (*glAttachShaderType) (GLuint, GLuint);
-typedef void (*glBindAttribLocationType) (GLuint, GLuint, const char*);
-typedef void (*glBindBufferType) (GLenum, GLuint);
-typedef void (*glBindFramebufferType) (GLenum, GLuint);
-typedef void (*glBindRenderbufferType) (GLenum, GLuint);
-typedef void (*glBlendColorType) (GLclampf, GLclampf, GLclampf, GLclampf);
-typedef void (*glBlendEquationType) (GLenum);
-typedef void (*glBlendEquationSeparateType)(GLenum, GLenum);
-typedef void (*glBlendFuncSeparateType)(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
-typedef void (*glBlitFramebufferType) (GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum);
-typedef void (*glBufferDataType) (GLenum, GLsizeiptr, const GLvoid*, GLenum);
-typedef void (*glBufferSubDataType) (GLenum, GLintptr, GLsizeiptr, const GLvoid*);
-typedef GLenum (*glCheckFramebufferStatusType) (GLenum);
-typedef void (*glCompileShaderType) (GLuint);
-typedef GLuint (*glCreateProgramType) ();
-typedef GLuint (*glCreateShaderType) (GLenum);
-typedef void (*glDeleteBuffersType) (GLsizei, const GLuint*);
-typedef void (*glDeleteFramebuffersType) (GLsizei n, const GLuint*);
-typedef void (*glDeleteProgramType) (GLuint);
-typedef void (*glDeleteRenderbuffersType) (GLsizei n, const GLuint*);
-typedef void (*glDeleteShaderType) (GLuint);
-typedef void (*glDetachShaderType) (GLuint, GLuint);
-typedef void (*glDisableVertexAttribArrayType) (GLuint);
-typedef void (*glEnableVertexAttribArrayType) (GLuint);
-typedef void (*glFramebufferRenderbufferType) (GLenum, GLenum, GLenum, GLuint);
-typedef void (*glFramebufferTexture2DType) (GLenum, GLenum, GLenum, GLuint, GLint);
-typedef void (*glGenBuffersType) (GLsizei, GLuint*);
-typedef void (*glGenerateMipmapType) (GLenum target);
-typedef void (*glGenFramebuffersType) (GLsizei, GLuint*);
-typedef void (*glGenRenderbuffersType) (GLsizei, GLuint*);
-typedef void (*glGetActiveAttribType) (GLuint, GLuint, GLsizei, GLsizei*, GLint*, GLenum*, GLchar*);
-typedef void (*glGetActiveUniformType) (GLuint, GLuint, GLsizei, GLsizei*, GLint*, GLenum*, GLchar*);
-typedef void (*glGetAttachedShadersType) (GLuint, GLsizei, GLsizei*, GLuint*);
-typedef GLint (*glGetAttribLocationType) (GLuint, const char*);
-typedef void (*glGetBufferParameterivType) (GLenum, GLenum, GLint*);
-typedef void (*glGetFramebufferAttachmentParameterivType) (GLenum, GLenum, GLenum, GLint* params);
-typedef void (*glGetProgramInfoLogType) (GLuint, GLsizei, GLsizei*, char*);
-typedef void (*glGetProgramivType) (GLuint, GLenum, GLint*);
-typedef void (*glGetRenderbufferParameterivType) (GLenum, GLenum, GLint*);
-typedef void (*glGetShaderInfoLogType) (GLuint, GLsizei, GLsizei*, char*);
-typedef void (*glGetShaderivType) (GLuint, GLenum, GLint*);
-typedef void (*glGetShaderSourceType) (GLuint, GLsizei, GLsizei*, char*);
-typedef GLint (*glGetUniformLocationType) (GLuint, const char*);
-typedef void (*glGetUniformfvType) (GLuint, GLint, GLfloat*);
-typedef void (*glGetUniformivType) (GLuint, GLint, GLint*);
-typedef void (*glGetVertexAttribfvType) (GLuint, GLenum, GLfloat*);
-typedef void (*glGetVertexAttribivType) (GLuint, GLenum, GLint*);
-typedef void (*glGetVertexAttribPointervType) (GLuint, GLenum, GLvoid**);
-typedef GLboolean (*glIsBufferType) (GLuint);
-typedef GLboolean (*glIsFramebufferType) (GLuint);
-typedef GLboolean (*glIsProgramType) (GLuint);
-typedef GLboolean (*glIsRenderbufferType) (GLuint);
-typedef GLboolean (*glIsShaderType) (GLuint);
-typedef void (*glLinkProgramType) (GLuint);
-typedef void (*glRenderbufferStorageType) (GLenum, GLenum, GLsizei, GLsizei);
-typedef void (*glRenderbufferStorageMultisampleType) (GLenum, GLsizei, GLenum, GLsizei, GLsizei);
-typedef void (*glSampleCoverageType) (GLclampf, GLboolean);
-typedef void (*glShaderSourceType) (GLuint, GLsizei, const char**, const GLint*);
-typedef void (*glStencilFuncSeparateType) (GLenum, GLenum, GLint, GLuint);
-typedef void (*glStencilMaskSeparateType) (GLenum, GLuint);
-typedef void (*glStencilOpSeparateType) (GLenum, GLenum, GLenum, GLenum);
-typedef void (*glUniform1fType) (GLint, GLfloat);
-typedef void (*glUniform1fvType) (GLint, GLsizei, const GLfloat*);
-typedef void (*glUniform1iType) (GLint, GLint);
-typedef void (*glUniform1ivType) (GLint, GLsizei, const GLint*);
-typedef void (*glUniform2fType) (GLint, GLfloat, GLfloat);
-typedef void (*glUniform2fvType) (GLint, GLsizei, const GLfloat*);
-typedef void (*glUniform2iType) (GLint, GLint, GLint);
-typedef void (*glUniform2ivType) (GLint, GLsizei, const GLint*);
-typedef void (*glUniform3fType) (GLint, GLfloat, GLfloat, GLfloat);
-typedef void (*glUniform3fvType) (GLint, GLsizei, const GLfloat*);
-typedef void (*glUniform3iType) (GLint, GLint, GLint, GLint);
-typedef void (*glUniform3ivType) (GLint, GLsizei, const GLint*);
-typedef void (*glUniform4fType) (GLint, GLfloat, GLfloat, GLfloat, GLfloat);
-typedef void (*glUniform4fvType) (GLint, GLsizei, const GLfloat*);
-typedef void (*glUniform4iType) (GLint, GLint, GLint, GLint, GLint);
-typedef void (*glUniform4ivType) (GLint, GLsizei, const GLint*);
-typedef void (*glUniformMatrix2fvType) (GLint, GLsizei, GLboolean, const GLfloat*);
-typedef void (*glUniformMatrix3fvType) (GLint, GLsizei, GLboolean, const GLfloat*);
-typedef void (*glUniformMatrix4fvType) (GLint, GLsizei, GLboolean, const GLfloat*);
-typedef void (*glUseProgramType) (GLuint);
-typedef void (*glValidateProgramType) (GLuint);
-typedef void (*glVertexAttrib1fType) (GLuint, const GLfloat);
-typedef void (*glVertexAttrib1fvType) (GLuint, const GLfloat*);
-typedef void (*glVertexAttrib2fType) (GLuint, const GLfloat, const GLfloat);
-typedef void (*glVertexAttrib2fvType) (GLuint, const GLfloat*);
-typedef void (*glVertexAttrib3fType) (GLuint, const GLfloat, const GLfloat, const GLfloat);
-typedef void (*glVertexAttrib3fvType) (GLuint, const GLfloat*);
-typedef void (*glVertexAttrib4fType) (GLuint, const GLfloat, const GLfloat, const GLfloat, const GLfloat);
-typedef void (*glVertexAttrib4fvType) (GLuint, const GLfloat*);
-typedef void (*glVertexAttribPointerType) (GLuint, GLint, GLenum, GLboolean, GLsizei, const GLvoid*);
+#if OS(WINDOWS)
+#define GLAPIENTRY __stdcall
+#else
+#define GLAPIENTRY
+#endif
+
+typedef void (GLAPIENTRY *glActiveTextureType) (GLenum);
+typedef void (GLAPIENTRY *glAttachShaderType) (GLuint, GLuint);
+typedef void (GLAPIENTRY *glBindAttribLocationType) (GLuint, GLuint, const char*);
+typedef void (GLAPIENTRY *glBindBufferType) (GLenum, GLuint);
+typedef void (GLAPIENTRY *glBindFramebufferType) (GLenum, GLuint);
+typedef void (GLAPIENTRY *glBindRenderbufferType) (GLenum, GLuint);
+typedef void (GLAPIENTRY *glBindVertexArrayType) (GLuint);
+typedef void (GLAPIENTRY *glBlendColorType) (GLclampf, GLclampf, GLclampf, GLclampf);
+typedef void (GLAPIENTRY *glBlendEquationType) (GLenum);
+typedef void (GLAPIENTRY *glBlendEquationSeparateType)(GLenum, GLenum);
+typedef void (GLAPIENTRY *glBlendFuncSeparateType)(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);
+typedef void (GLAPIENTRY *glBlitFramebufferType) (GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLint, GLbitfield, GLenum);
+typedef void (GLAPIENTRY *glBufferDataType) (GLenum, GLsizeiptr, const GLvoid*, GLenum);
+typedef void (GLAPIENTRY *glBufferSubDataType) (GLenum, GLintptr, GLsizeiptr, const GLvoid*);
+typedef GLenum (GLAPIENTRY *glCheckFramebufferStatusType) (GLenum);
+typedef void (GLAPIENTRY *glCompileShaderType) (GLuint);
+typedef void (GLAPIENTRY *glCompressedTexImage2DType) (GLenum, GLint, GLenum, GLsizei, GLsizei, GLint, GLsizei, const GLvoid*);
+typedef void (GLAPIENTRY *glCompressedTexSubImage2DType) (GLenum, GLint, GLint, GLint, GLsizei, GLsizei, GLenum, GLsizei, const GLvoid*);
+typedef GLuint (GLAPIENTRY *glCreateProgramType) ();
+typedef GLuint (GLAPIENTRY *glCreateShaderType) (GLenum);
+typedef void (GLAPIENTRY *glDeleteBuffersType) (GLsizei, const GLuint*);
+typedef void (GLAPIENTRY *glDeleteFramebuffersType) (GLsizei n, const GLuint*);
+typedef void (GLAPIENTRY *glDeleteProgramType) (GLuint);
+typedef void (GLAPIENTRY *glDeleteRenderbuffersType) (GLsizei n, const GLuint*);
+typedef void (GLAPIENTRY *glDeleteShaderType) (GLuint);
+typedef void (GLAPIENTRY *glDeleteVertexArraysType) (GLsizei, const GLuint*);
+typedef void (GLAPIENTRY *glDetachShaderType) (GLuint, GLuint);
+typedef void (GLAPIENTRY *glDisableVertexAttribArrayType) (GLuint);
+typedef void (GLAPIENTRY *glEnableVertexAttribArrayType) (GLuint);
+typedef void (GLAPIENTRY *glFramebufferRenderbufferType) (GLenum, GLenum, GLenum, GLuint);
+typedef void (GLAPIENTRY *glFramebufferTexture2DType) (GLenum, GLenum, GLenum, GLuint, GLint);
+typedef void (GLAPIENTRY *glGenBuffersType) (GLsizei, GLuint*);
+typedef void (GLAPIENTRY *glGenerateMipmapType) (GLenum target);
+typedef void (GLAPIENTRY *glGenFramebuffersType) (GLsizei, GLuint*);
+typedef void (GLAPIENTRY *glGenRenderbuffersType) (GLsizei, GLuint*);
+typedef void (GLAPIENTRY *glGenVertexArraysType) (GLsizei, GLuint*);
+typedef void (GLAPIENTRY *glGetActiveAttribType) (GLuint, GLuint, GLsizei, GLsizei*, GLint*, GLenum*, GLchar*);
+typedef void (GLAPIENTRY *glGetActiveUniformType) (GLuint, GLuint, GLsizei, GLsizei*, GLint*, GLenum*, GLchar*);
+typedef void (GLAPIENTRY *glGetAttachedShadersType) (GLuint, GLsizei, GLsizei*, GLuint*);
+typedef GLint (GLAPIENTRY *glGetAttribLocationType) (GLuint, const char*);
+typedef void (GLAPIENTRY *glGetBufferParameterivType) (GLenum, GLenum, GLint*);
+typedef void (GLAPIENTRY *glGetFramebufferAttachmentParameterivType) (GLenum, GLenum, GLenum, GLint* params);
+typedef void (GLAPIENTRY *glGetProgramInfoLogType) (GLuint, GLsizei, GLsizei*, char*);
+typedef void (GLAPIENTRY *glGetProgramivType) (GLuint, GLenum, GLint*);
+typedef void (GLAPIENTRY *glGetRenderbufferParameterivType) (GLenum, GLenum, GLint*);
+typedef void (GLAPIENTRY *glGetShaderInfoLogType) (GLuint, GLsizei, GLsizei*, char*);
+typedef void (GLAPIENTRY *glGetShaderivType) (GLuint, GLenum, GLint*);
+typedef void (GLAPIENTRY *glGetShaderSourceType) (GLuint, GLsizei, GLsizei*, char*);
+typedef GLint (GLAPIENTRY *glGetUniformLocationType) (GLuint, const char*);
+typedef void (GLAPIENTRY *glGetUniformfvType) (GLuint, GLint, GLfloat*);
+typedef void (GLAPIENTRY *glGetUniformivType) (GLuint, GLint, GLint*);
+typedef void (GLAPIENTRY *glGetVertexAttribfvType) (GLuint, GLenum, GLfloat*);
+typedef void (GLAPIENTRY *glGetVertexAttribivType) (GLuint, GLenum, GLint*);
+typedef void (GLAPIENTRY *glGetVertexAttribPointervType) (GLuint, GLenum, GLvoid**);
+typedef GLboolean (GLAPIENTRY *glIsBufferType) (GLuint);
+typedef GLboolean (GLAPIENTRY *glIsFramebufferType) (GLuint);
+typedef GLboolean (GLAPIENTRY *glIsProgramType) (GLuint);
+typedef GLboolean (GLAPIENTRY *glIsRenderbufferType) (GLuint);
+typedef GLboolean (GLAPIENTRY *glIsShaderType) (GLuint);
+typedef GLboolean (GLAPIENTRY *glIsVertexArrayType) (GLuint);
+typedef void (GLAPIENTRY *glLinkProgramType) (GLuint);
+typedef void (GLAPIENTRY *glRenderbufferStorageType) (GLenum, GLenum, GLsizei, GLsizei);
+typedef void (GLAPIENTRY *glRenderbufferStorageMultisampleType) (GLenum, GLsizei, GLenum, GLsizei, GLsizei);
+typedef void (GLAPIENTRY *glSampleCoverageType) (GLclampf, GLboolean);
+typedef void (GLAPIENTRY *glShaderSourceType) (GLuint, GLsizei, const char**, const GLint*);
+typedef void (GLAPIENTRY *glStencilFuncSeparateType) (GLenum, GLenum, GLint, GLuint);
+typedef void (GLAPIENTRY *glStencilMaskSeparateType) (GLenum, GLuint);
+typedef void (GLAPIENTRY *glStencilOpSeparateType) (GLenum, GLenum, GLenum, GLenum);
+typedef void (GLAPIENTRY *glUniform1fType) (GLint, GLfloat);
+typedef void (GLAPIENTRY *glUniform1fvType) (GLint, GLsizei, const GLfloat*);
+typedef void (GLAPIENTRY *glUniform1iType) (GLint, GLint);
+typedef void (GLAPIENTRY *glUniform1ivType) (GLint, GLsizei, const GLint*);
+typedef void (GLAPIENTRY *glUniform2fType) (GLint, GLfloat, GLfloat);
+typedef void (GLAPIENTRY *glUniform2fvType) (GLint, GLsizei, const GLfloat*);
+typedef void (GLAPIENTRY *glUniform2iType) (GLint, GLint, GLint);
+typedef void (GLAPIENTRY *glUniform2ivType) (GLint, GLsizei, const GLint*);
+typedef void (GLAPIENTRY *glUniform3fType) (GLint, GLfloat, GLfloat, GLfloat);
+typedef void (GLAPIENTRY *glUniform3fvType) (GLint, GLsizei, const GLfloat*);
+typedef void (GLAPIENTRY *glUniform3iType) (GLint, GLint, GLint, GLint);
+typedef void (GLAPIENTRY *glUniform3ivType) (GLint, GLsizei, const GLint*);
+typedef void (GLAPIENTRY *glUniform4fType) (GLint, GLfloat, GLfloat, GLfloat, GLfloat);
+typedef void (GLAPIENTRY *glUniform4fvType) (GLint, GLsizei, const GLfloat*);
+typedef void (GLAPIENTRY *glUniform4iType) (GLint, GLint, GLint, GLint, GLint);
+typedef void (GLAPIENTRY *glUniform4ivType) (GLint, GLsizei, const GLint*);
+typedef void (GLAPIENTRY *glUniformMatrix2fvType) (GLint, GLsizei, GLboolean, const GLfloat*);
+typedef void (GLAPIENTRY *glUniformMatrix3fvType) (GLint, GLsizei, GLboolean, const GLfloat*);
+typedef void (GLAPIENTRY *glUniformMatrix4fvType) (GLint, GLsizei, GLboolean, const GLfloat*);
+typedef void (GLAPIENTRY *glUseProgramType) (GLuint);
+typedef void (GLAPIENTRY *glValidateProgramType) (GLuint);
+typedef void (GLAPIENTRY *glVertexAttrib1fType) (GLuint, const GLfloat);
+typedef void (GLAPIENTRY *glVertexAttrib1fvType) (GLuint, const GLfloat*);
+typedef void (GLAPIENTRY *glVertexAttrib2fType) (GLuint, const GLfloat, const GLfloat);
+typedef void (GLAPIENTRY *glVertexAttrib2fvType) (GLuint, const GLfloat*);
+typedef void (GLAPIENTRY *glVertexAttrib3fType) (GLuint, const GLfloat, const GLfloat, const GLfloat);
+typedef void (GLAPIENTRY *glVertexAttrib3fvType) (GLuint, const GLfloat*);
+typedef void (GLAPIENTRY *glVertexAttrib4fType) (GLuint, const GLfloat, const GLfloat, const GLfloat, const GLfloat);
+typedef void (GLAPIENTRY *glVertexAttrib4fvType) (GLuint, const GLfloat*);
+typedef void (GLAPIENTRY *glVertexAttribPointerType) (GLuint, GLint, GLenum, GLboolean, GLsizei, const GLvoid*);
 
 #define FUNCTION_TABLE_ENTRY(FunctionName) FunctionName##Type FunctionName
 
@@ -147,6 +155,7 @@ typedef struct _OpenGLFunctionTable {
     FUNCTION_TABLE_ENTRY(glBindBuffer);
     FUNCTION_TABLE_ENTRY(glBindFramebuffer);
     FUNCTION_TABLE_ENTRY(glBindRenderbuffer);
+    FUNCTION_TABLE_ENTRY(glBindVertexArray);
     FUNCTION_TABLE_ENTRY(glBlendColor);
     FUNCTION_TABLE_ENTRY(glBlendEquation);
     FUNCTION_TABLE_ENTRY(glBlendEquationSeparate);
@@ -156,6 +165,8 @@ typedef struct _OpenGLFunctionTable {
     FUNCTION_TABLE_ENTRY(glBufferSubData);
     FUNCTION_TABLE_ENTRY(glCheckFramebufferStatus);
     FUNCTION_TABLE_ENTRY(glCompileShader);
+    FUNCTION_TABLE_ENTRY(glCompressedTexImage2D);
+    FUNCTION_TABLE_ENTRY(glCompressedTexSubImage2D);
     FUNCTION_TABLE_ENTRY(glCreateProgram);
     FUNCTION_TABLE_ENTRY(glCreateShader);
     FUNCTION_TABLE_ENTRY(glDeleteBuffers);
@@ -163,6 +174,7 @@ typedef struct _OpenGLFunctionTable {
     FUNCTION_TABLE_ENTRY(glDeleteProgram);
     FUNCTION_TABLE_ENTRY(glDeleteRenderbuffers);
     FUNCTION_TABLE_ENTRY(glDeleteShader);
+    FUNCTION_TABLE_ENTRY(glDeleteVertexArrays);
     FUNCTION_TABLE_ENTRY(glDetachShader);
     FUNCTION_TABLE_ENTRY(glDisableVertexAttribArray);
     FUNCTION_TABLE_ENTRY(glEnableVertexAttribArray);
@@ -172,6 +184,7 @@ typedef struct _OpenGLFunctionTable {
     FUNCTION_TABLE_ENTRY(glGenerateMipmap);
     FUNCTION_TABLE_ENTRY(glGenFramebuffers);
     FUNCTION_TABLE_ENTRY(glGenRenderbuffers);
+    FUNCTION_TABLE_ENTRY(glGenVertexArrays);
     FUNCTION_TABLE_ENTRY(glGetActiveAttrib);
     FUNCTION_TABLE_ENTRY(glGetActiveUniform);
     FUNCTION_TABLE_ENTRY(glGetAttachedShaders);
@@ -195,6 +208,7 @@ typedef struct _OpenGLFunctionTable {
     FUNCTION_TABLE_ENTRY(glIsProgram);
     FUNCTION_TABLE_ENTRY(glIsRenderbuffer);
     FUNCTION_TABLE_ENTRY(glIsShader);
+    FUNCTION_TABLE_ENTRY(glIsVertexArray);
     FUNCTION_TABLE_ENTRY(glLinkProgram);
     FUNCTION_TABLE_ENTRY(glRenderbufferStorage);
     FUNCTION_TABLE_ENTRY(glRenderbufferStorageMultisample);
@@ -246,6 +260,8 @@ typedef struct _OpenGLFunctionTable {
 #define glBindFramebuffer                      LOOKUP_GL_FUNCTION(glBindFramebuffer)
 #define glBindRenderbufferEXT                  glBindRenderbuffer
 #define glBindRenderbuffer                     LOOKUP_GL_FUNCTION(glBindRenderbuffer)
+#define glBindVertexArrayOES                   glBindVertexArray
+#define glBindVertexArray                      LOOKUP_GL_FUNCTION(glBindVertexArray)
 #define glBlendColor                           LOOKUP_GL_FUNCTION(glBlendColor)
 #define glBlendEquation                        LOOKUP_GL_FUNCTION(glBlendEquation)
 #define glBlendEquationSeparate                LOOKUP_GL_FUNCTION(glBlendEquationSeparate)
@@ -257,6 +273,8 @@ typedef struct _OpenGLFunctionTable {
 #define glCheckFramebufferStatusEXT            glCheckFramebufferStatus
 #define glCheckFramebufferStatus               LOOKUP_GL_FUNCTION(glCheckFramebufferStatus)
 #define glCompileShader                        LOOKUP_GL_FUNCTION(glCompileShader)
+#define glCompressedTexImage2D                 LOOKUP_GL_FUNCTION(glCompressedTexImage2D)
+#define glCompressedTexSubImage2D              LOOKUP_GL_FUNCTION(glCompressedTexSubImage2D)
 #define glCreateProgram                        LOOKUP_GL_FUNCTION(glCreateProgram)
 #define glCreateShader                         LOOKUP_GL_FUNCTION(glCreateShader)
 #define glDeleteBuffers                        LOOKUP_GL_FUNCTION(glDeleteBuffers)
@@ -266,6 +284,8 @@ typedef struct _OpenGLFunctionTable {
 #define glDeleteRenderbuffersEXT               glDeleteRenderbuffers
 #define glDeleteRenderbuffers                  LOOKUP_GL_FUNCTION(glDeleteRenderbuffers)
 #define glDeleteShader                         LOOKUP_GL_FUNCTION(glDeleteShader)
+#define glDeleteVertexArraysOES                glDeleteVertexArrays
+#define glDeleteVertexArrays                   LOOKUP_GL_FUNCTION(glDeleteVertexArrays)
 #define glDetachShader                         LOOKUP_GL_FUNCTION(glDetachShader)
 #define glDisableVertexAttribArray             LOOKUP_GL_FUNCTION(glDisableVertexAttribArray)
 #define glEnableVertexAttribArray              LOOKUP_GL_FUNCTION(glEnableVertexAttribArray)
@@ -280,6 +300,8 @@ typedef struct _OpenGLFunctionTable {
 #define glGenFramebuffers                      LOOKUP_GL_FUNCTION(glGenFramebuffers)
 #define glGenRenderbuffersEXT                  glGenRenderbuffers
 #define glGenRenderbuffers                     LOOKUP_GL_FUNCTION(glGenRenderbuffers)
+#define glGenVertexArraysOES                   glGenVertexArrays;
+#define glGenVertexArrays                      LOOKUP_GL_FUNCTION(glGenVertexArrays)
 #define glGetActiveAttrib                      LOOKUP_GL_FUNCTION(glGetActiveAttrib)
 #define glGetActiveUniform                     LOOKUP_GL_FUNCTION(glGetActiveUniform)
 #define glGetAttachedShaders                   LOOKUP_GL_FUNCTION(glGetAttachedShaders)
@@ -308,6 +330,8 @@ typedef struct _OpenGLFunctionTable {
 #define glIsRenderbufferEXT                    glIsRenderbuffer
 #define glIsRenderbuffer                       LOOKUP_GL_FUNCTION(glIsRenderbuffer)
 #define glIsShader                             LOOKUP_GL_FUNCTION(glIsShader)
+#define glIsVertexArrayOES                     glIsVertexArray;
+#define glIsVertexArray                        LOOKUP_GL_FUNCTION(glIsVertexArray)
 #define glLinkProgram                          LOOKUP_GL_FUNCTION(glLinkProgram)
 #define glRenderbufferStorageEXT               glRenderbufferStorage
 #define glRenderbufferStorage                  LOOKUP_GL_FUNCTION(glRenderbufferStorage)

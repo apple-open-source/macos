@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,7 +73,7 @@ __SCDynamicStoreCopyDescription(CFTypeRef cf) {
 	result = CFStringCreateMutable(allocator, 0);
 	CFStringAppendFormat(result, NULL, CFSTR("<SCDynamicStore %p [%p]> {"), cf, allocator);
 	if (storePrivate->server != MACH_PORT_NULL) {
-		CFStringAppendFormat(result, NULL, CFSTR("server port = %p"), storePrivate->server);
+		CFStringAppendFormat(result, NULL, CFSTR("server port = 0x%x"), storePrivate->server);
 	} else {
 		CFStringAppendFormat(result, NULL, CFSTR("server not (no longer) available"));
 	}
@@ -236,25 +236,27 @@ __SCDynamicStoreInitialize(void)
 
 
 static mach_port_t
-__SCDynamicStoreServerPort(kern_return_t *status)
+__SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t *status)
 {
 	mach_port_t	server	= MACH_PORT_NULL;
 	char		*server_name;
 
 	server_name = getenv("SCD_SERVER");
-	if (!server_name) {
+
+
+	if (server_name == NULL) {
 		server_name = SCD_SERVER;
 	}
 
-#ifdef	BOOTSTRAP_PRIVILEGED_SERVER
+#if	defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_IPHONE_SIMULATOR
 	*status = bootstrap_look_up2(bootstrap_port,
 				     server_name,
 				     &server,
 				     0,
 				     BOOTSTRAP_PRIVILEGED_SERVER);
-#else	// BOOTSTRAP_PRIVILEGED_SERVER
+#else	// defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_IPHONE_SIMULATOR
 	*status = bootstrap_look_up(bootstrap_port, server_name, &server);
-#endif	// BOOTSTRAP_PRIVILEGED_SERVER
+#endif	// defined(BOOTSTRAP_PRIVILEGED_SERVER) && !TARGET_IPHONE_SIMULATOR
 
 	switch (*status) {
 		case BOOTSTRAP_SUCCESS :
@@ -363,6 +365,31 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 }
 
 
+static void
+updateServerPort(SCDynamicStorePrivateRef storePrivate, mach_port_t *server, int *sc_status_p)
+{
+	pthread_mutex_lock(&_sc_lock);
+	if (_sc_server != MACH_PORT_NULL) {
+		if (*server == _sc_server) {
+			// if the server we tried returned the error, deallocate
+			// our send [or dead name] right
+			(void)mach_port_deallocate(mach_task_self(), _sc_server);
+
+			// and [re-]lookup the name to the server
+			_sc_server = __SCDynamicStoreServerPort(storePrivate, sc_status_p);
+		} else {
+			// another thread has refreshed the SCDynamicStore server port
+		}
+	} else {
+		_sc_server = __SCDynamicStoreServerPort(storePrivate, sc_status_p);
+	}
+	*server = _sc_server;
+	pthread_mutex_unlock(&_sc_lock);
+
+	return;
+}
+
+
 static Boolean
 __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 {
@@ -390,6 +417,11 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 
 	/* open a new session with the server */
 	server = _sc_server;
+
+
+	updateServerPort(storePrivate, &server, &sc_status);
+
+
 	while (TRUE) {
 		if (server != MACH_PORT_NULL) {
 			if (!storePrivate->serverNullSession) {
@@ -427,23 +459,8 @@ __SCDynamicStoreAddSession(SCDynamicStorePrivateRef storePrivate)
 			}
 		}
 
-		pthread_mutex_lock(&_sc_lock);
-		if (_sc_server != MACH_PORT_NULL) {
-			if (server == _sc_server) {
-				// if the server we tried returned the error, deallocate
-				// our send [or dead name] right
-				(void)mach_port_deallocate(mach_task_self(), _sc_server);
 
-				// and [re-]lookup the name to the server
-				_sc_server = __SCDynamicStoreServerPort(&sc_status);
-			} else {
-				// another thread has refreshed the SCDynamicStore server port
-			}
-		} else {
-			_sc_server = __SCDynamicStoreServerPort(&sc_status);
-		}
-		server = _sc_server;
-		pthread_mutex_unlock(&_sc_lock);
+		updateServerPort(storePrivate, &server, &sc_status);
 
 		if (server == MACH_PORT_NULL) {
 			// if SCDynamicStore server not available
@@ -495,6 +512,7 @@ __SCDynamicStoreNullSession(void)
 							     CFSTR("NULL session"),
 							     NULL,
 							     NULL);
+		assert(storePrivate != NULL);
 		storePrivate->server = _sc_server;
 		storePrivate->serverNullSession = TRUE;
 #else
@@ -508,6 +526,7 @@ __SCDynamicStoreNullSession(void)
 							     CFSTR("Thread local session"),
 							     NULL,
 							     NULL);
+		assert(storePrivate != NULL);
 		/*
 		 * Use MACH_PORT_NULL here to trigger the call to
 		 * __SCDynamicStoreAddSession below.
@@ -732,6 +751,7 @@ __SCDynamicStoreReconnectNotifications(SCDynamicStoreRef store)
 const CFStringRef	kSCDynamicStoreUseSessionKeys	= CFSTR("UseSessionKeys");	/* CFBoolean */
 
 
+
 SCDynamicStoreRef
 SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 				CFStringRef		name,
@@ -756,7 +776,10 @@ SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 	}
 
 	// set "options"
-	storePrivate->options = (storeOptions != NULL) ? CFRetain(storeOptions) : NULL;
+
+	if (storeOptions != NULL) {
+		storePrivate->options = CFRetain(storeOptions);
+	}
 
 	// establish SCDynamicStore session
 	ok = __SCDynamicStoreAddSession(storePrivate);

@@ -1,3 +1,0 @@
-/^use UNIVERSAL/d
-g/can(\($[^,]*\), /s//\1->can(/
-w

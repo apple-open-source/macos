@@ -210,50 +210,21 @@ int predisplaylen, postdisplaylen;
 
 static int default_atr_on, special_atr_on;
 
-/* Flags for the region_highlight structure */
-enum {
-    /* Offsets include predisplay */
-    ZRH_PREDISPLAY = 1
-};
-
-/*
- * Attributes used for highlighting regions.
- * and mark.
- */
-struct region_highlight {
-    /* Attributes turned on in the region */
-    int atr;
-    /* Start of the region */
-    int start;
-    /*
-     * End of the region:  position of the first character not highlighted
-     * (the same system as for point and mark).
-     */
-    int end;
-    /*
-     * Any of the flags defined above.
-     */
-    int flags;
-};
 /*
  * Array of region highlights, no special termination.
  * The first element (0) always describes the region between
  * point and mark.  Any other elements are set by the user
  * via the parameter region_highlight.
  */
+
+/**/
 struct region_highlight *region_highlights;
-/*
- * Count of special uses of region highlighting, which account
- * for the first few elements of region_highlights.
- * 0: region between point and mark
- * 1: isearch region
- * 2: suffix
- */
-#define N_SPECIAL_HIGHLIGHTS	(3)
+
 /*
  * Number of elements in region_highlights.
  * This includes the special elements above.
  */
+/**/
 int n_region_highlights;
 
 /*
@@ -261,6 +232,12 @@ int n_region_highlights;
  */
 /**/
 int region_active;
+
+/*
+ * Name of function to use to output termcap values, if defined.
+ */
+/**/
+char *tcout_func_name;
 
 #ifdef HAVE_SELECT
 /* cost of last update */
@@ -370,7 +347,7 @@ zle_set_highlight(void)
 		match_highlight(*atrs + 8, &special_atr_on);
 		special_atr_on_set = 1;
 	    } else if (strpfx("region:", *atrs)) {
-		match_highlight(*atrs + 7, &region_highlights->atr);
+		match_highlight(*atrs + 7, &region_highlights[0].atr);
 		region_atr_on_set = 1;
 	    } else if (strpfx("isearch:", *atrs)) {
 		match_highlight(*atrs + 8, &(region_highlights[1].atr));
@@ -386,7 +363,7 @@ zle_set_highlight(void)
     if (!special_atr_on_set)
 	special_atr_on = TXTSTANDOUT;
     if (!region_atr_on_set)
-	region_highlights->atr = TXTSTANDOUT;
+	region_highlights[0].atr = TXTSTANDOUT;
     if (!isearch_atr_on_set)
 	region_highlights[1].atr = TXTUNDERLINE;
     if (!suffix_atr_on_set)
@@ -717,12 +694,12 @@ resetvideo(void)
 {
     int ln;
  
-    winw = columns;  /* terminal width */
+    winw = zterm_columns;  /* terminal width */
     if (termflags & TERM_SHORT)
 	winh = 1;
     else
-	winh = (lines < 2) ? 24 : lines;
-    rwinh = lines;		/* keep the real number of lines */
+	winh = (zterm_lines < 2) ? 24 : zterm_lines;
+    rwinh = zterm_lines;		/* keep the real number of lines */
     vln = vmaxln = winprompt = 0;
     winpos = -1;
     if (winw_alloc != winw || winh_alloc != winh) {
@@ -1051,14 +1028,14 @@ zrefresh(void)
     /* check for region between point ($CURSOR) and mark ($MARK) */
     if (region_active) {
 	if (zlecs <= mark) {
-	    region_highlights->start = zlecs;
-	    region_highlights->end = mark;
+	    region_highlights[0].start = zlecs;
+	    region_highlights[0].end = mark;
 	} else {
-	    region_highlights->start = mark;
-	    region_highlights->end = zlecs;
+	    region_highlights[0].start = mark;
+	    region_highlights[0].end = zlecs;
 	}
     } else {
-	region_highlights->start = region_highlights->end = -1;
+	region_highlights[0].start = region_highlights[0].end = -1;
     }
     /* check for isearch string to highlight */
     if (isearch_active) {
@@ -1111,7 +1088,7 @@ zrefresh(void)
 
     cleareol = 0;		/* unset */
     more_start = more_end = 0;	/* unset */
-    if (isset(SINGLELINEZLE) || lines < 3
+    if (isset(SINGLELINEZLE) || zterm_lines < 3
 	|| (termflags & (TERM_NOUP | TERM_BAD | TERM_UNKNOWN)))
 	termflags |= TERM_SHORT;
     else
@@ -1167,7 +1144,7 @@ zrefresh(void)
 	}
 	fflush(shout);
 	clearf = clearflag;
-    } else if (winw != columns || rwinh != lines)
+    } else if (winw != zterm_columns || rwinh != zterm_lines)
 	resetvideo();
 
 /* now winw equals columns and winh equals lines 
@@ -2033,7 +2010,7 @@ refreshline(int ln)
 		 * last line lest undesired scrolling occurs due to `illegal'
 		 * characters on screen
 		 */ 
-		if (tccan(TCINS) && (vln != lines - 1)) {
+		if (tccan(TCINS) && (vln != zterm_lines - 1)) {
 		    /* not on last line */
 		    for (i = 1; nl[i].chr; i++) {
 			if (tcinscost(i) < wpfxlen(ol, nl + i)) {
@@ -2300,11 +2277,78 @@ tc_downcurs(int ct)
     return ret;
 }
 
+/*
+ * Output a termcap value using a function defined by "zle -T tc".
+ * Loosely inspired by subst_string_by_func().
+ *
+ * cap is the internal index for the capability; it will be looked up
+ * in the table and the string passed to the function.
+ *
+ * arg is eithr an argument to the capability or -1 if there is none;
+ * if it is not -1 it will be passed as an additional argument to the
+ * function.
+ *
+ * outc is the output function; currently this is always putshout
+ * but in principle it may be used to output to a string.
+ */
+
+/**/
+static void
+tcout_via_func(int cap, int arg, int (*outc)(int))
+{
+    Shfunc tcout_func;
+    int osc, osm, old_incompfunc;
+
+    osc = sfcontext;
+    osm = stopmsg;
+    old_incompfunc = incompfunc;
+
+    sfcontext = SFC_SUBST;
+    incompfunc = 0;
+
+    if ((tcout_func = getshfunc(tcout_func_name))) {
+	LinkList l = newlinklist();
+	char buf[DIGBUFSIZE], *str;
+
+	addlinknode(l, tcout_func_name);
+	addlinknode(l, tccap_get_name(cap));
+
+	if (arg != -1) {
+	    sprintf(buf, "%d", arg);
+	    addlinknode(l, buf);
+	}
+
+	(void)doshfunc(tcout_func, l, 1);
+
+	str = getsparam("REPLY");
+	if (str) {
+	    while (*str) {
+		int chr;
+		if (*str == Meta) {
+		    chr = str[1] ^ 32;
+		    str += 2;
+		} else {
+		    chr = *str++;
+		}
+		(void)outc(chr);
+	    }
+	}
+    }
+
+    sfcontext = osc;
+    stopmsg = osm;
+    incompfunc = old_incompfunc;
+}
+
 /**/
 mod_export void
 tcout(int cap)
 {
-    tputs(tcstr[cap], 1, putshout);
+    if (tcout_func_name) {
+	tcout_via_func(cap, -1, putshout);
+    } else {
+	tputs(tcstr[cap], 1, putshout);
+    }
     SELECT_ADD_COST(tclen[cap]);
 }
 
@@ -2315,7 +2359,11 @@ tcoutarg(int cap, int arg)
     char *result;
 
     result = tgoto(tcstr[cap], arg, arg);
-    tputs(result, 1, putshout);
+    if (tcout_func_name) {
+	tcout_via_func(cap, arg, putshout);
+    } else {
+	tputs(result, 1, putshout);
+    }
     SELECT_ADD_COST(strlen(result));
 }
 
@@ -2447,8 +2495,6 @@ singlerefresh(ZLE_STRING_T tmpline, int tmpll, int tmpcs)
 	all_atr_off = TXT_ATTR_OFF_FROM_ON(all_atr_on);
 
 	if (tmpline[t0] == ZWC('\t')) {
-	    REFRESH_ELEMENT sp = zr_sp;
-	    sp.atr = base_atr_on;
 	    for (*vp++ = zr_sp; (vp - vbuf) & 7; )
 		*vp++ = zr_sp;
 	    vp[-1].atr |= base_atr_off;

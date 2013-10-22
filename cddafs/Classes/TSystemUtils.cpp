@@ -142,5 +142,82 @@ ErrorExit:
 
 
 //-----------------------------------------------------------------------------
+// ReadDataFromURL - Reads data given a file URL.		 [STATIC][PUBLIC]
+//-----------------------------------------------------------------------------
+
+CFDataRef
+TSystemUtils::ReadDataFromURL ( CFURLRef url )
+{
+
+    CFMutableDataRef    data            = NULL;
+    Boolean				result			= false;
+	CFNumberRef         fileSizeNumber  = NULL;
+    CFIndex             fileSize        = 0;
+    UInt8 *             dataPtr         = NULL;
+    UInt8 *             endPtr          = NULL;
+    CFReadStreamRef     readStream      = NULL;
+    CFIndex             bytesRead       = 0;
+    
+    result = CFURLCopyResourcePropertyForKey ( url, kCFURLFileSizeKey, &fileSizeNumber, NULL );
+    require ( result, ErrorExit );
+    
+    result = CFNumberGetValue ( fileSizeNumber, kCFNumberCFIndexType, &fileSize );
+    require ( result, ReleaseNumber );
+    
+    data = CFDataCreateMutable ( kCFAllocatorDefault, fileSize );
+    require ( data, ReleaseNumber );
+    
+    CFDataSetLength ( data, fileSize );
+    
+    dataPtr = CFDataGetMutableBytePtr ( data );
+    require ( dataPtr, ReleaseNumber );
+    
+    readStream = CFReadStreamCreateWithFile ( kCFAllocatorDefault, url );
+    require ( readStream, ErrorExit );
+    
+    result = CFReadStreamOpen ( readStream );
+    require ( result, ReleaseStream );
+    
+    endPtr  = ( UInt8 * ) dataPtr + fileSize;
+    
+    while ( dataPtr < endPtr )
+    {
+
+        bytesRead = CFReadStreamRead ( readStream, dataPtr, endPtr - dataPtr );
+
+        if ( bytesRead > 0 )
+        {
+            
+            dataPtr += bytesRead;
+            
+        }
+        
+    }
+    
+    CFReadStreamClose ( readStream );
+    
+    
+ReleaseStream:
+    
+    
+    CFRelease ( readStream );
+    readStream = NULL;
+    
+    
+ReleaseNumber:
+    
+    
+    CFRelease ( fileSizeNumber );
+    fileSizeNumber = NULL;
+    
+    
+ErrorExit:
+    
+    
+    return data;
+    
+}
+
+//-----------------------------------------------------------------------------
 //					End				Of			File
 //-----------------------------------------------------------------------------

@@ -55,7 +55,7 @@ MD2Digest::MD2Digest() : Digest(kSecDigestMD2, CC_MD2_DIGEST_LENGTH)
 
 void MD2Digest::Update(const void* buffer, size_t length)
 {
-	CC_MD2_Update(&mContext, buffer, length);
+	CC_MD2_Update(&mContext, buffer, (CC_LONG)length);
 }
 
 
@@ -84,7 +84,7 @@ MD4Digest::MD4Digest() : Digest(kSecDigestMD4, CC_MD4_DIGEST_LENGTH)
 
 void MD4Digest::Update(const void* buffer, size_t length)
 {
-	CC_MD4_Update(&mContext, buffer, length);
+	CC_MD4_Update(&mContext, buffer, (CC_LONG)length);
 }
 
 
@@ -116,7 +116,7 @@ MD5Digest::MD5Digest() : Digest(kSecDigestMD5, CC_MD5_DIGEST_LENGTH)
 
 void MD5Digest::Update(const void* buffer, size_t length)
 {
-	CC_MD5_Update(&mContext, buffer, length);
+	CC_MD5_Update(&mContext, buffer, (CC_LONG)length);
 }
 
 
@@ -145,7 +145,7 @@ SHA1Digest::SHA1Digest() : Digest(kSecDigestSHA1, CC_SHA1_DIGEST_LENGTH)
 
 void SHA1Digest::Update(const void* buffer, size_t length)
 {
-	CC_SHA1_Update(&mContext, buffer, length);
+	CC_SHA1_Update(&mContext, buffer, (CC_LONG)length);
 }
 
 
@@ -174,7 +174,7 @@ SHA256Digest::SHA256Digest() : Digest(kSecDigestSHA2, CC_SHA256_DIGEST_LENGTH)
 
 void SHA256Digest::Update(const void* buffer, size_t length)
 {
-	CC_SHA256_Update(&mContext, buffer, length);
+	CC_SHA256_Update(&mContext, buffer, (CC_LONG)length);
 }
 
 
@@ -203,7 +203,7 @@ SHA224Digest::SHA224Digest() : Digest(kSecDigestSHA2, CC_SHA224_DIGEST_LENGTH)
 
 void SHA224Digest::Update(const void* buffer, size_t length)
 {
-	CC_SHA224_Update(&mContext, buffer, length);
+	CC_SHA224_Update(&mContext, buffer, (CC_LONG)length);
 }
 
 
@@ -232,7 +232,7 @@ SHA512Digest::SHA512Digest() : Digest(kSecDigestSHA2, CC_SHA512_DIGEST_LENGTH)
 
 void SHA512Digest::Update(const void* buffer, size_t length)
 {
-	CC_SHA512_Update(&mContext, buffer, length);
+	CC_SHA512_Update(&mContext, buffer, (CC_LONG)length);
 }
 
 
@@ -261,7 +261,7 @@ SHA384Digest::SHA384Digest() : Digest(kSecDigestSHA2, CC_SHA384_DIGEST_LENGTH)
 
 void SHA384Digest::Update(const void* buffer, size_t length)
 {
-	CC_SHA384_Update(&mContext, buffer, length);
+	CC_SHA384_Update(&mContext, buffer, (CC_LONG)length);
 }
 
 
@@ -396,8 +396,8 @@ CFErrorRef DigestTransform::Setup(CFTypeRef dt, CFIndex length)
 		}
 	}
     
-    int lengthInt = mDigest->DigestLength();
-    CFNumberRef lengthNumber = CFNumberCreate(NULL, kCFNumberIntType, &lengthInt);
+    long lengthInt = mDigest->DigestLength();
+    CFNumberRef lengthNumber = CFNumberCreate(NULL, kCFNumberLongType, &lengthInt);
     SendAttribute(kSecDigestLengthAttribute, lengthNumber);
     CFRelease(lengthNumber);
 	return NULL;

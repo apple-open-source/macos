@@ -33,7 +33,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -73,7 +73,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -113,7 +113,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -156,7 +156,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -196,7 +196,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -236,7 +236,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -279,7 +279,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -319,7 +319,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -359,7 +359,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -402,7 +402,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -442,7 +442,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -482,7 +482,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -525,7 +525,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -565,7 +565,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>
@@ -605,7 +605,7 @@
                 <key>Hibernate File</key>
                 <string>/var/vm/sleepimage</string>
                 <key>Hibernate Mode</key>
-                <integer>3</integer>
+                <integer>0</integer>
                 <key>Mobile Motion Module</key>
                 <integer>1</integer>
                 <key>Reduce Processor Speed</key>

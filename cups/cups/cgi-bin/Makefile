@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
+# "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $"
 #
 #   CGI makefile for CUPS.
 #
@@ -120,6 +120,7 @@ install-exec:
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(CGIS); do \
 			cp $$file $(SYMROOT); \
+			dsymutil $(SYMROOT)/$$file; \
 		done \
 	fi
 
@@ -154,6 +155,7 @@ install-libs: $(INSTALLSTATIC)
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		cp $(LIBCUPSCGI) $(SYMROOT); \
+		dsymutil $(SYMROOT)/$(LIBCUPSCGI); \
 	fi
 
 installstatic:
@@ -378,5 +380,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
+# End of "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $".
 #

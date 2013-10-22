@@ -56,6 +56,7 @@ const CFStringRef kSecCodeSignerRequireTimestamp = CFSTR("timestamp-required");
 const CFStringRef kSecCodeSignerTimestampServer = CFSTR("timestamp-url");
 const CFStringRef kSecCodeSignerTimestampAuthentication = CFSTR("timestamp-authentication");
 const CFStringRef kSecCodeSignerTimestampOmitCertificates =	CFSTR("timestamp-omit-certificates");
+const CFStringRef kSecCodeSignerPreserveMetadata = CFSTR("preserve-metadata");
 
 // temporary add-back to bridge B&I build dependencies -- remove soon
 const CFStringRef kSecCodeSignerTSAUse = CFSTR("timestamp-required");
@@ -83,7 +84,13 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 {
 	BEGIN_CSAPI
 		
-	checkFlags(flags, kSecCSRemoveSignature);
+	checkFlags(flags,
+		  kSecCSRemoveSignature
+		| kSecCSSignPreserveSignature
+		| kSecCSSignNestedCode
+		| kSecCSSignOpaque
+		| kSecCSSignV1
+		| kSecCSSignNoV1);
 	SecPointer<SecCodeSigner> signer = new SecCodeSigner(flags);
 	signer->parameters(parameters);
 	CodeSigning::Required(signerRef) = signer->handle();
@@ -105,6 +112,7 @@ OSStatus SecCodeSignerAddSignatureWithErrors(SecCodeSignerRef signerRef,
 	SecStaticCodeRef codeRef, SecCSFlags flags, CFErrorRef *errors)
 {
 	BEGIN_CSAPI
+	checkFlags(flags);
 	SecCodeSigner::required(signerRef)->sign(SecStaticCode::required(codeRef), flags);
     END_CSAPI_ERRORS
 }

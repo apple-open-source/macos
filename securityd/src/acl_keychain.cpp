@@ -90,33 +90,68 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
 			StLock<Mutex> _(process);
 			Server::active().longTermActivity();
 			clientCode = process.currentGuest();
-			if (clientCode)
+			if (clientCode) {
 				validation = SecCodeCheckValidity(clientCode, kSecCSDefaultFlags, NULL);
-			switch (validation) {
-			case noErr:							// client is signed and valid
-				secdebug("kcacl", "client is valid, proceeding");
-				break;
-			case errSecCSUnsigned:				// client is not signed
-				if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED)) {
-					secdebug("kcacl", "client is unsigned, suppressing prompt");
-					return false;
+            }
+			
+			switch (validation)
+			{
+				case noErr:							// client is signed and valid
+				{
+					bool forceAllow = false;
+					secdebug("kcacl", "client is valid, proceeding");
+					CFDictionaryRef codeDictionary = NULL;
+					if (errSecSuccess == SecCodeCopySigningInformation(clientCode, kSecCSDefaultFlags, &codeDictionary)) {
+						CFTypeRef entitlementsDictionary = NULL;
+						entitlementsDictionary = CFDictionaryGetValue(codeDictionary, kSecCodeInfoEntitlementsDict);
+						if (NULL != entitlementsDictionary) {
+							if (CFGetTypeID(entitlementsDictionary) == CFDictionaryGetTypeID()) {
+								CFTypeRef migrationEntitlement = CFDictionaryGetValue((CFDictionaryRef)entitlementsDictionary, CFSTR("com.apple.private.security.allow-migration"));
+								if (NULL != migrationEntitlement) {
+									if (CFGetTypeID(migrationEntitlement) == CFBooleanGetTypeID()) {
+										if (migrationEntitlement == kCFBooleanTrue) {
+											secdebug("kcacl", "client has migration entitlement, allowing");
+											forceAllow = true;
+										}
+									}
+								}
+							}
+						}
+						CFRelease(codeDictionary);
+					}
+					if (forceAllow) {
+						return true;
+					}
 				}
 				break;
-			case errSecCSSignatureFailed:		// client signed but signature is broken
-			case errSecCSGuestInvalid:			// client signed but dynamically invalid
-			case errSecCSStaticCodeNotFound:	// client not on disk (or unreadable)
-				if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_INVALID)) {
-					secdebug("kcacl", "client is invalid, suppressing prompt");
-					Syslog::info("suppressing keychain prompt for invalidly signed client %s(%d)",
+					
+				case errSecCSUnsigned:
+				{			// client is not signed
+					if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED)) {
+						secdebug("kcacl", "client is unsigned, suppressing prompt");
+						return false;
+					}
+				}
+				break;
+				
+				case errSecCSSignatureFailed:		// client signed but signature is broken
+				case errSecCSGuestInvalid:			// client signed but dynamically invalid
+				case errSecCSStaticCodeNotFound:	// client not on disk (or unreadable)
+				{
+					if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_INVALID)) {
+						secdebug("kcacl", "client is invalid, suppressing prompt");
+						Syslog::info("suppressing keychain prompt for invalidly signed client %s(%d)",
+							process.getPath().c_str(), process.pid());
+						return false;
+					}
+					Syslog::info("attempting keychain prompt for invalidly signed client %s(%d)",
 						process.getPath().c_str(), process.pid());
-					return false;
 				}
-				Syslog::info("attempting keychain prompt for invalidly signed client %s(%d)",
-					process.getPath().c_str(), process.pid());
 				break;
-			default:							// something else went wrong
-				secdebug("kcacl", "client validation failed rc=%d, suppressing prompt", int32_t(validation));
-				return false;
+
+				default:							// something else went wrong
+					secdebug("kcacl", "client validation failed rc=%d, suppressing prompt", int32_t(validation));
+					return false;
 			}
 		}
 		

@@ -27,13 +27,13 @@
  * DESC: header for libBootRoot.a
  */
 
-#ifndef BOOTROOT_H
-#define BOOTROOT_H
+#ifndef _BOOTROOT_H_
+#define _BOOTROOT_H_
 
 /*
  * Link to /usr/local/lib/libBootRoot.a via -lBootRoot
  *
- * libBootRoot requires clients to link against:
+ * libBootRoot generally requires clients to link against:
  *  ApplicationServices.framework -> -framework ApplicationServices
  *  CoreFoundation.framework -> -framework CoreFoundation
  *  DiskArbitration.framework -> -framework DiskArbitration
@@ -44,11 +44,15 @@
  *  /usr/lib/libcsfde.dylib -> -lcsfde
  *  EFILogin.framework -> -framework EFILogin
  *
+ * The use of dead code stripping is strongly recommended to
+ * reduce the number of libraries required.
+ *
  * The 10.7 libraries can be weak-linked if clients need to run
- * on 10.6 (which won't be able to see CoreStorage volumes anyway):
+ * on 10.6:
  * Set the "Base SDK" to "Current Mac OS", and set the deployment
  * target to "Mac OS X 10.6".  10.7-only functions should fail
- * cleanly if inadvertantly called on 10.6.
+ * cleanly if inadvertently called on 10.6 (see caveats at 10831618
+ * and related).
  *
  * Several clients
  * 1. basic "kextcache -u" (Installer, kextd, etc)
@@ -74,20 +78,26 @@
 extern "C" {
 #endif
 
-// these functions
+// these bonus functions
 void tool_log(
     OSKextRef aKext,
     OSKextLogSpec logSpec,
     const char * format,
     ...);
 void tool_openlog(const char * name);
-// allow clients to configure libBootRoot to send logs to the
-// system logging facility (ASL) as easily as
-//     OSKextSetLogOutputFunction(&tool_log);
-//     tool_openlog(getprogname() [/ myCFBundleID]);
+/* allow clients to configure libBootRoot to send logs to the
+ * system logging facility (ASL) as easily as
+       OSKextSetLogOutputFunction(&tool_log);
+       tool_openlog(getprogname() [/ myCFBundleID]);
+ */
 
+// and to direct libbless logging to OSKextLog/tool_log
+int32_t BRBLLogFunc(void *refcon, int32_t level, const char *string);
+/* as in:
+       BLContext blctx = { 0, BRBLLogFunc, NULL };
+       BLFuncStuff(&blctx, ...)
+ */
 
-// makes getting libBootRoot's logging into ASL as easy as
 
 /*!
  *  @function   BRUpdateBootFiles()
@@ -145,7 +155,7 @@ CFArrayRef BRCopyActiveBootPartitions(CFURLRef volRoot);
  *  @param  helperBSDName - name (like disk0s7) of helper partition
  *  @param  bootPrefOverrides - [optional] extra info for com.apple.Boot.plist
  *
- *  @result     0 if up to date caches were copied
+ *  @result     0 if up to date caches were copied, else errno-ish
  *              ?? kPOSIXErrorBase could be used to encode errno ??
  *
  *  @discussion
@@ -177,7 +187,8 @@ CFArrayRef BRCopyActiveBootPartitions(CFURLRef volRoot);
  *      assure the system's Boot!=Root that everything is "up to date." 
  *
  *      BR*Update*BootFiles() can be used on a volume with the force
- *      argument to get all helper partition(s) back in sync.
+ *      argument to get all currently-active helper partition(s) back
+ *      in sync with their root volume's content.
 
 [NOT YET: If srcVol and initialRoot are different, BRDisableSystemBootRoot()
  *      should be called on initialRoot so Boot!=Root won't later overwrite
@@ -203,11 +214,11 @@ OSStatus BRCopyBootFiles(CFURLRef srcVol,
  *  @param  bootPrefOverrides - [optional] extra info for com.apple.Boot.plist
  *  @param  targetBSDName - name (like disk0s7) of target partition
  *  @param  targetDir - optional target directory relative to targetBSDName
- *  @param  blessSpec - how to bless the boot bits being copied
+ *  @param  blessSpec - how to bless the files copied; see typedef
  *  @param  pickerLabel - [optional] what the option-picker should show
- *  @param  options - select various optional behaviors (details below)
+ *  @param  options - see BRCopyFilesOpts below
  *
- *  @result     0 if up to date caches were copied
+ *  @result     0 if up to date caches were copied, else errno-ish
  *              ?? kPOSIXErrorBase could be used to encode errno ??
  *
  *  @discussion
@@ -216,62 +227,63 @@ OSStatus BRCopyBootFiles(CFURLRef srcVol,
  *      directory in a helper partition.  Caches are updated if needed,
  *      possibly using the running system's kext infrastructure.
  *
- *      Specifying a target directory will leave the helper partition
- *      mounted.  Specifying either or a target directory or a non-
- *      Boot!=Root-compatible blessSpec will skip updating the
- *      "bootstamps" in the root volume.
- *      
- *      CSFDE still requires that the target partition be an Apple_Boot
- *      following an Apple_CoreStorage.  targetDir cannot be "/"
- *      (which is reserved for the system).  A subsystem identifier
- *      (like com.apple.AppleNetInstall.caches) is good practice.
+ *      If targetDir is specified but does not exist, BRCopyBootFilesToDir()
+ *      will create it only if (exactly) kBRBlessOnce is specified.
+ *      In that case, it will be created within com.apple.boot.once,
+ *      a directory which other libBootRoot calls (including
+ *      Update(force=true) will clean up.
  *
- *      BRCopyBootFilesToDir() requires a bless specification.
- *      Depending on blessSpec, the target files will be "blessed"
- *      in the filesystem and/or pointed to directly or indirectly
- *      through efi-boot-* NVRAM variables.  kBRBlessOnce will create
- *      targetDir under a temporary directory that is cleaned up 
- *      by BREraseBootFiles() and BRUpdateBootFiles(...force=true).
- *      See additional details with the BRBlessStyle typedef.  
+ *      If targetDir does exist, BRCopyBootFilesToDir() will allow all
+ *      bless options.  HOWEVER, BRCopyBootFilesToDir() will still rm -r
+ *      and recreate it (mostly an implementation detail that simplifies
+ *      error handling).  ANY OTHER CONTENT in an existing targetDir WILL
+ *      BE DESTROYED.
+ *
+ *      To facilitate copying files to a directory that is not on a
+ *      helper partition, specifying a target directory will skip
+ *      unmounting targetBSDName.  If the copy leaves the default
+ *      Boot!=Root files "up to date" for srcVol, then the "bootstamps"
+ *      of srcVol will be updated (placating BRUpdateBootFiles()).
+ *      targetDir cannot be "/".  It is recommended to either provide
+ *      an existing directory or use a subsystem identifier
+ *      (like com.apple.AppleNetInstall.caches).
+ *      
+ *      While BRCopyBootFiles() can copy boot files to any volume or
+ *      directory, CoreStorage-based FDE only unlocks properly if the
+ *      the target partition is an Apple_Boot following an
+ *      Apple_CoreStorage.
+ *
+ *      BRCopyBootFilesToDir() requires a bless specification.  This
+ *      blessSpec argument controls whether and how the target files
+ *      will be "blessed" in the filesystem and/or pointed to directly
+ *      or indirectly through efi-boot-* NVRAM variables.
  */
 // XX need proper typedef/enum HeaderDoc
 typedef enum {
     kBRBlessNone      = 0,  // nothing blessed: just copy the files
-                            // (no booting until later blessed)
+                            // (CAUTION: FSDefault is usually better)
     kBRBlessFSDefault = 1,  // fsys: finderinfo[0,1] -> targetDir, boot.efi
                             // (will show up in option-boot picker)
-    // 2-7 reserved
-// XX these two that manipulte NVRAM aren't implementend yet ...
+    // bits 2-7 reserved
     kBRBlessFull    = 0x11, // FSDefault + boot-device->targetPartition
                             // (system will boot these until changed)
-    kBRBlessOnce    = 0x20  // efi-boot-next -> tmpdir/boot.efi
+    kBRBlessOnce    = 0x20  // efi-boot-next -> dev/boot.efi
                             // (system will boot these files once)
+    // kBRBlessFSDefault|kBRBlessOnce will configure the filesystem(s)
+    // always to boot the target (for example, from the option picker)
+    // but will only set NVRAM to boot it once.
 } BRBlessStyle;
-typedef enum {
-    kBRUOptsNone            = 0x0,
-    kBRUForceUpdateHelpers  = 0x1,     // helper partitions MUST be updated
-    kBRUCachesOnly          = 0x2,     // do NOT update helper partitions
-    kBRUHelpersOptional     = 0x4,     // ignore helper update failures
-    kBRUExpectUpToDate      = 0x8,     // successful updates -> EX_OSFILE
-    kBRUAnyBootStamps       = 0x10     // bootstamps written to top level
-} BRUpdateOpts_t;
+typedef uint32_t BRCopyFilesOpts;
+#define  kBROptsNone        0x0
+#define  kBRAnyBootStamps   0x10000   // any bootstamps written to top level
 OSStatus BRCopyBootFilesToDir(CFURLRef srcVol,
                               CFURLRef initialRoot,
                               CFDictionaryRef bootPrefOverrides,
                               CFStringRef targetBSDName,
                               CFURLRef targetDir,
                               BRBlessStyle blessSpec,
-                              CFStringRef pickerLabel);
-
-OSStatus BRCopyBootFilesWithOpts(CFURLRef srcVol,
-                              CFURLRef initialRoot,
-                              CFDictionaryRef bootPrefOverrides,
-                              CFStringRef targetBSDName,
-                              CFURLRef targetDir,
-                              BRBlessStyle blessSpec,
                               CFStringRef pickerLabel,
-                              BRUpdateOpts_t opts);
-
+                              BRCopyFilesOpts opts);
 
 /*!
  *  @function   BREraseBootFiles
@@ -346,4 +358,4 @@ OSStatus BRRestoreSystemBootRoot(CFURLRef sysVolRoot);
 }
 #endif
 
-#endif // BOOTROOT_H
+#endif // _BOOTROOT_H_

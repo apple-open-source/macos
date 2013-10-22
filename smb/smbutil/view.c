@@ -68,23 +68,29 @@ static char *CStringCreateWithCFString(CFStringRef inStr)
 	}
 	CFStringGetCString(inStr, str, maxLen, kCFStringEncodingUTF8);
 	return str;
-}	
+}
 
 /*
  * Given a share dictionary create an array that contains the share entries in
  * the dictionary.
  */
-static CFArrayRef createShareArrayFromShareDictionary(CFDictionaryRef shareDict)
+CFArrayRef createShareArrayFromShareDictionary(CFDictionaryRef shareDict)
 {
-	CFIndex count = CFDictionaryGetCount(shareDict);
+	CFIndex count = 0;
 	CFArrayRef keyArray = NULL;
-	void *shareKeys = CFAllocatorAllocate(kCFAllocatorDefault, count * sizeof(CFStringRef), 0);
-	
+    
+    if (!shareDict)
+        return NULL;
+    count = CFDictionaryGetCount(shareDict);
+    
+    void *shareKeys = CFAllocatorAllocate(kCFAllocatorDefault, count * sizeof(CFStringRef), 0);
 	if (shareKeys) {
-		CFDictionaryGetKeysAndValues(shareDict, shareKeys, NULL);
-		keyArray = CFArrayCreate(kCFAllocatorDefault, shareKeys, count, &kCFTypeArrayCallBacks);
+		CFDictionaryGetKeysAndValues(shareDict, (const void **)shareKeys, NULL);
+		keyArray = CFArrayCreate(kCFAllocatorDefault, (const void **)shareKeys,
+                                 count, &kCFTypeArrayCallBacks);
 		CFAllocatorDeallocate(kCFAllocatorDefault, shareKeys);
 	}
+    
 	return keyArray;
 }
 
@@ -190,9 +196,11 @@ cmd_view(int argc, char *argv[])
 			free(sharetype);
 			free(comments);
 		}
-		fprintf(stdout, "\n%ld shares listed\n", CFArrayGetCount(shareArray));
 		if (shareArray) {
+			fprintf(stdout, "\n%ld shares listed\n", CFArrayGetCount(shareArray));
 			CFRelease(shareArray);
+		} else {
+			fprintf(stdout, "\n0 shares listed\n");
 		}
 		if (shareDict) {
 			CFRelease(shareDict);

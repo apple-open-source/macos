@@ -23,7 +23,7 @@
 
 #include "CSSParserMode.h"
 #include "KURLHash.h"
-#include "PlatformString.h"
+#include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
 
@@ -32,7 +32,6 @@ namespace WebCore {
 class CSSImportRule;
 class MediaList;
 class Node;
-class StyleRuleImport;
 class StyleSheet;
 
 class StyleSheet : public RefCounted<StyleSheet> {

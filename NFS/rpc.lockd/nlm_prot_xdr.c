@@ -458,7 +458,7 @@ xdr_nlm_sm_status(XDR *xdrs, nlm_sm_status *objp)
 		return (FALSE);
 	if (!xdr_int(xdrs, &objp->state))
 		return (FALSE);
-	if (!xdr_opaque(xdrs, objp->priv, 16))
+	if (!xdr_opaque(xdrs, (uint8_t *) objp->priv, 16))
 		return (FALSE);
 	return (TRUE);
 }

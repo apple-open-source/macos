@@ -26,23 +26,26 @@
 #ifndef DFGDriver_h
 #define DFGDriver_h
 
+#include "CallFrame.h"
 #include <wtf/Platform.h>
 
 namespace JSC {
 
 class CodeBlock;
 class JITCode;
-class JSGlobalData;
+class VM;
 class MacroAssemblerCodePtr;
 
 namespace DFG {
 
+JS_EXPORT_PRIVATE unsigned getNumCompilations();
+
 #if ENABLE(DFG_JIT)
-bool tryCompile(JSGlobalData&, CodeBlock*, JITCode&);
-bool tryCompileFunction(JSGlobalData&, CodeBlock*, JITCode&, MacroAssemblerCodePtr& jitCodeWithArityCheck);
+bool tryCompile(ExecState*, CodeBlock*, JITCode&, unsigned bytecodeIndex);
+bool tryCompileFunction(ExecState*, CodeBlock*, JITCode&, MacroAssemblerCodePtr& jitCodeWithArityCheck, unsigned bytecodeIndex);
 #else
-inline bool tryCompile(JSGlobalData&, CodeBlock*, JITCode&) { return false; }
-inline bool tryCompileFunction(JSGlobalData&, CodeBlock*, JITCode&, MacroAssemblerCodePtr&) { return false; }
+inline bool tryCompile(ExecState*, CodeBlock*, JITCode&, unsigned) { return false; }
+inline bool tryCompileFunction(ExecState*, CodeBlock*, JITCode&, MacroAssemblerCodePtr&, unsigned) { return false; }
 #endif
 
 } } // namespace JSC::DFG

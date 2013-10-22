@@ -1,9 +1,9 @@
---- Misc/python.man.orig	2010-01-31 08:09:16.000000000 -0800
-+++ Misc/python.man	2010-03-22 12:44:37.000000000 -0700
-@@ -411,6 +411,49 @@
- If this is set to a non-empty string it is equivalent to specifying
- the \fB\-v\fP option. If set to an integer, it is equivalent to
- specifying \fB\-v\fP multiple times. 
+--- Misc/python.man.orig	2012-04-10 08:32:09.000000000 -0700
++++ Misc/python.man	2012-08-12 23:01:19.000000000 -0700
+@@ -440,6 +440,49 @@
+ The integer must be a decimal number in the range [0,4294967295].  Specifying
+ the value 0 will lead to the same hash values as when hash randomization is
+ disabled.
 +.SH INTERACTIVE INPUT EDITING AND HISTORY SUBSTITUTION
 +The Python inteterpreter supports editing of the current input line and
 +history substitution, similar to facilities found in the Korn shell and

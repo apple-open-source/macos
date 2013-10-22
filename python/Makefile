@@ -8,6 +8,9 @@ DEFAULT = 2.7
 VERSIONS = 2.5 2.6 2.7
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
 REVERSEVERS := $(filter-out $(DEFAULT),$(VERSIONS)) $(DEFAULT)
+
+PYFRAMEWORK = /System/Library/Frameworks/Python.framework
+PYFRAMEWORKVERSIONS = $(PYFRAMEWORK)/Versions
 VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(DSTROOT)$(VERSIONERDIR)/$(Project) -I$(FIX) -framework CoreFoundation
 
 RSYNC = rsync -rlpt
@@ -51,18 +54,14 @@ ifndef RC_ProjectName
 export RC_ProjectName = $(Project)
 endif
 ##---------------------------------------------------------------------
-# 6320664 - when the default gcc compiler version changes, the recorded
-# compiler options for compiler python was originally built with may be
-# incompatible.  So we force python to use a version-specific name for the
-# compiler, which will be recorded, and used in all subsequent extension
-# (and other) builds.
-#
-# 7215121 - for now, we assume cc and c++ are symbolic links to the
-# version-specific name of the compiler.  If/when this changes, this
-# fix will have to be redone.
+# Before, we used the versioned gcc (e.g., gcc-4.2) because newer compiler
+# would occasionally be incompatible with the compiler flags that python
+# records.  With clang, it doesn't use names with versions, so we just go
+# back to using plain cc and c++.  With 11952207, we will automatically
+# get xcrun support.
 ##---------------------------------------------------------------------
-export WITH_GCC = $(shell test -L /usr/bin/cc && basename `readlink /usr/bin/cc` || gcc-`gcc -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/'`)
-export WITH_GXX = $(shell test -L /usr/bin/c++ && basename `readlink /usr/bin/c++` || g++-`g++ -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/'`)
+export MY_CC = cc
+export MY_CXX = c++
 
 ##---------------------------------------------------------------------
 # The "strip" perl script, works around a verification error caused by a
@@ -71,7 +70,7 @@ export WITH_GXX = $(shell test -L /usr/bin/c++ && basename `readlink /usr/bin/c+
 # it not only causes the correct file to be stripped, but also preserves the
 # link.
 #
-# The cc/gcc scripts take a -no64 argument, which causes 64-bit architectures
+# The cc/c++ scripts take a -no64 argument, which causes 64-bit architectures
 # to be removed, before calling the real compiler.
 ##---------------------------------------------------------------------
 export PATH:=$(OBJROOT)/bin:$(PATH)
@@ -87,8 +86,8 @@ VERSIONMANLIST = $(VERSIONERDIR)/$(Project)/usr-share-man.list
 VERSIONERFIX = dummy.py scriptvers.ed
 build::
 	$(RSYNC) '$(SRCROOT)/' '$(OBJROOT)'
-	ln -sf gcc $(OBJROOT)/bin/$(WITH_GCC)
-	ln -sf gcc $(OBJROOT)/bin/$(WITH_GXX)
+	ln -sf _no64 $(OBJROOT)/bin/$(MY_CC)
+	ln -sf _no64 $(OBJROOT)/bin/$(MY_CXX)
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    mkdir -p "$(SYMROOT)/$$vers" && \
@@ -128,12 +127,12 @@ build::
 # will correspond with the default version.
 ##---------------------------------------------------------------------
 MERGELIB = /usr/lib
-merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman
+merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman fixsmptd
 	install -d $(DSTROOT)$(MERGELIB)
 	@set -x && \
 	for vers in $(VERSIONS); do \
-	    ln -sf ../../System/Library/Frameworks/Python.framework/Versions/$$vers/Python $(DSTROOT)$(MERGELIB)/lib$(Project)$$vers.dylib && \
-	    ln -sf ../../System/Library/Frameworks/Python.framework/Versions/$$vers/lib/$(Project)$$vers $(DSTROOT)$(MERGELIB)/$(Project)$$vers || exit 1; \
+	    ln -sf ../..$(PYFRAMEWORKVERSIONS)/$$vers/Python $(DSTROOT)$(MERGELIB)/lib$(Project)$$vers.dylib && \
+	    ln -sf ../..$(PYFRAMEWORKVERSIONS)/$$vers/lib/$(Project)$$vers $(DSTROOT)$(MERGELIB)/$(Project)$$vers || exit 1; \
 	done
 	ln -sf lib$(Project)$(DEFAULT).dylib $(DSTROOT)$(MERGELIB)/lib$(Project).dylib
 
@@ -158,7 +157,7 @@ $(OBJROOT)/wrappers:
 	@set -x && \
 	touch $(OBJROOT)/wrappers && \
 	for vers in $(ORDEREDVERS); do \
-	    pbin=/System/Library/Frameworks/Python.framework/Versions/$$vers/bin && \
+	    pbin=$(PYFRAMEWORKVERSIONS)/$$vers/bin && \
 	    cd $(DSTROOT)$$pbin && \
 	    if [ -e 2to3 ]; then \
 		mv 2to3 2to3$$vers && \
@@ -197,7 +196,6 @@ $(DSTROOT)$(VERSIONHEADER):
 	    echo '};' ) > $@
 
 MERGEDEFAULT = \
-    Developer/Examples \
     usr/local/OpenSourceLicenses
 mergedefault:
 	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
@@ -278,4 +276,14 @@ mergeversions:
 	for vers in $(REVERSEVERS); do \
 	    cd $(OBJROOT)/$$vers/DSTROOT && \
 	    rsync -Ra $(MERGEREVERSEVERSIONS) $(DSTROOT) || exit 1; \
+	done
+
+fixsmptd:
+	set -x && \
+	cd $(DSTROOT)/usr/bin && \
+	mv -f smtpd.py smtpd.py.bak && \
+	cp -pf smtpd.py.bak smtpd.py && \
+	rm -f smtpd.py.bak && \
+	for i in smtpd*.py; do \
+	    ed - $$i < $(FIX)/smtpd.py.ed || exit 1; \
 	done

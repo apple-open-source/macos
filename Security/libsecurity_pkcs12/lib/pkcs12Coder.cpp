@@ -30,9 +30,8 @@
 #include "pkcs12Utils.h"
 #include <Security/cssmerr.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/oidsalg.h>
-
+#include <Security/SecBase.h>
 /*
  * Default encryption parameters
  */
@@ -279,29 +278,29 @@ void P12Coder::setEncrPassKey(
 /* getters */
 unsigned P12Coder::numCerts()
 {
-	return mCerts.size();
+	return (unsigned)mCerts.size();
 }
 
 unsigned P12Coder::numCrls()
 {
-	return mCrls.size();
+	return (unsigned)mCrls.size();
 }
 
 unsigned P12Coder::numKeys()
 {
-	return mKeys.size();
+	return (unsigned)mKeys.size();
 }
 
 unsigned P12Coder::numOpaqueBlobs()
 {
-	return mOpaques.size();
+	return (unsigned)mOpaques.size();
 }
 
 P12CertBag *P12Coder::getCert(
 	unsigned				dex)
 {
 	if(mCerts.size() < (dex + 1)) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	return mCerts[dex];
 }
@@ -310,7 +309,7 @@ P12CrlBag *P12Coder::getCrl(
 	unsigned				dex)
 {
 	if(mCrls.size() < (dex + 1)) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	return mCrls[dex];
 }
@@ -319,7 +318,7 @@ P12KeyBag *P12Coder::getKey(
 	unsigned				dex)
 {
 	if(mKeys.size() < (dex + 1)) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	return mKeys[dex];
 }
@@ -328,7 +327,7 @@ P12OpaqueBag *P12Coder::getOpaque(
 	unsigned				dex)
 {
 	if(mOpaques.size() < (dex + 1)) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	return mOpaques[dex];
 }
@@ -367,7 +366,7 @@ void P12Coder::integrityMode(
 	SecPkcs12Mode			mode)
 {
 	if(mode != kSecPkcs12ModePassword) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	mIntegrityMode = mode;
 }
@@ -376,7 +375,7 @@ void P12Coder::privacyMode(
 	SecPkcs12Mode			mode)
 {
 	if(mode != kSecPkcs12ModePassword) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	mPrivacyMode = mode;
 }

@@ -30,10 +30,10 @@ done
 
 if [ "${RC_ProjectName%_Sim}" == "${RC_ProjectName}" ] ; then
 	mkdir -p $DSTROOT/usr/share/man/man{3,5}
-	gzip -9 <$SRCROOT/doc/editrc.5 >$DSTROOT/usr/share/man/man5/editrc.5.gz 
-	gzip -9 <$SRCROOT/doc/editline.3 >$DSTROOT/usr/share/man/man3/editline.3.gz
-	for m in el_deletestr.3.gz el_end.3.gz el_get.3.gz el_getc.3.gz el_gets.3.gz el_history.3.gz el_history_end.3.gz el_history_init.3.gz el_init.3.gz el_insertstr.3.gz el_line.3.gz el_parse.3.gz el_push.3.gz el_reset.3.gz el_resize.3.gz el_set.3.gz el_source.3.gz el_tok_end.3.gz el_tok_init.3.gz el_tok_line.3.gz el_tok_reset.3.gz el_tok_str.3.gz ; do
-		ln -s editline.3.gz $DSTROOT/usr/share/man/man3/$m
+	install -m 0644 $SRCROOT/doc/editrc.5 $DSTROOT/usr/share/man/man5
+	install -m 0644 $SRCROOT/doc/editline.3 $DSTROOT/usr/share/man/man3
+	for m in el_deletestr.3 el_end.3 el_get.3 el_getc.3 el_gets.3 el_history.3 el_history_end.3 el_history_init.3 el_init.3 el_insertstr.3 el_line.3 el_parse.3 el_push.3 el_reset.3 el_resize.3 el_set.3 el_source.3 el_tok_end.3 el_tok_init.3 el_tok_line.3 el_tok_reset.3 el_tok_str.3 ; do
+		ln -s editline.3 $DSTROOT/usr/share/man/man3/$m
 	done
 fi
 

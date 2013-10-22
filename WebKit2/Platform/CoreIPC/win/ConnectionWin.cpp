@@ -26,14 +26,14 @@
 #include "config.h"
 #include "Connection.h"
 
-#include "ArgumentEncoder.h"
-#include "BinarySemaphore.h"
+#include "DataReference.h"
 #include <wtf/Functional.h>
 #include <wtf/RandomNumber.h>
 #include <wtf/text/WTFString.h>
+#include <wtf/threads/BinarySemaphore.h>
 
 using namespace std;
- 
+
 namespace CoreIPC {
 
 // FIXME: Rename this or use a different constant on windows.
@@ -96,10 +96,10 @@ void Connection::platformInvalidate()
 
     m_isConnected = false;
 
-    m_connectionQueue.unregisterAndCloseHandle(m_readState.hEvent);
+    m_connectionQueue->unregisterAndCloseHandle(m_readState.hEvent);
     m_readState.hEvent = 0;
 
-    m_connectionQueue.unregisterAndCloseHandle(m_writeState.hEvent);
+    m_connectionQueue->unregisterAndCloseHandle(m_writeState.hEvent);
     m_writeState.hEvent = 0;
 
     ::CloseHandle(m_connectionPipe);
@@ -161,18 +161,8 @@ void Connection::readEventHandler()
         if (!m_readBuffer.isEmpty()) {
             // We have a message, let's dispatch it.
 
-            // The messageID is encoded at the end of the buffer.
-            // Note that we assume here that the message is the same size as m_readBuffer. We can
-            // assume this because we always size m_readBuffer to exactly match the size of the message,
-            // either when receiving ERROR_MORE_DATA from ::GetOverlappedResult above or when
-            // ::PeekNamedPipe tells us the size below. We never set m_readBuffer to a size larger
-            // than the message.
-            ASSERT(m_readBuffer.size() >= sizeof(MessageID));
-            size_t realBufferSize = m_readBuffer.size() - sizeof(MessageID);
-
-            unsigned messageID = *reinterpret_cast<unsigned*>(m_readBuffer.data() + realBufferSize);
-
-            processIncomingMessage(MessageID::fromInt(messageID), adoptPtr(new ArgumentDecoder(m_readBuffer.data(), realBufferSize)));
+            OwnPtr<MessageDecoder> decoder = MessageDecoder::create(DataReference(m_readBuffer.data(), m_readBuffer.size()));
+            processIncomingMessage(decoder.release());
         }
 
         // Find out the size of the next message in the pipe (if there is one) so that we can read
@@ -247,9 +237,9 @@ void Connection::writeEventHandler()
         ASSERT_NOT_REACHED();
     }
 
-    // The pending write has finished, so we are now done with its arguments. Clearing this member
+    // The pending write has finished, so we are now done with its encoder. Clearing this member
     // will allow us to send messages again.
-    m_pendingWriteArguments = nullptr;
+    m_pendingWriteEncoder = nullptr;
 
     // Now that the pending write has finished, we can try to send a new message.
     sendOutgoingMessages();
@@ -261,11 +251,11 @@ bool Connection::open()
     m_isConnected = true;
 
     // Start listening for read and write state events.
-    m_connectionQueue.registerHandle(m_readState.hEvent, bind(&Connection::readEventHandler, this));
-    m_connectionQueue.registerHandle(m_writeState.hEvent, bind(&Connection::writeEventHandler, this));
+    m_connectionQueue->registerHandle(m_readState.hEvent, bind(&Connection::readEventHandler, this));
+    m_connectionQueue->registerHandle(m_writeState.hEvent, bind(&Connection::writeEventHandler, this));
 
     // Schedule a read.
-    m_connectionQueue.dispatch(bind(&Connection::readEventHandler, this));
+    m_connectionQueue->dispatch(bind(&Connection::readEventHandler, this));
 
     return true;
 }
@@ -274,24 +264,24 @@ bool Connection::platformCanSendOutgoingMessages() const
 {
     // We only allow sending one asynchronous message at a time. If we wanted to send more than one
     // at once, we'd have to use multiple OVERLAPPED structures and hold onto multiple pending
-    // ArgumentEncoders (one of each for each simultaneous asynchronous message).
-    return !m_pendingWriteArguments;
+    // MessageEncoders (one of each for each simultaneous asynchronous message).
+    return !m_pendingWriteEncoder;
 }
 
-bool Connection::sendOutgoingMessage(MessageID messageID, PassOwnPtr<ArgumentEncoder> arguments)
+bool Connection::sendOutgoingMessage(PassOwnPtr<MessageEncoder> encoder)
 {
-    ASSERT(!m_pendingWriteArguments);
+    ASSERT(!m_pendingWriteEncoder);
 
     // Just bail if the handle has been closed.
     if (m_connectionPipe == INVALID_HANDLE_VALUE)
         return false;
 
     // We put the message ID last.
-    arguments->encodeUInt32(messageID.toInt());
+    *encoder << 0;
 
     // Write the outgoing message.
 
-    if (::WriteFile(m_connectionPipe, arguments->buffer(), arguments->bufferSize(), 0, &m_writeState)) {
+    if (::WriteFile(m_connectionPipe, encoder->buffer(), encoder->bufferSize(), 0, &m_writeState)) {
         // We successfully sent this message.
         return true;
     }
@@ -309,15 +299,15 @@ bool Connection::sendOutgoingMessage(MessageID messageID, PassOwnPtr<ArgumentEnc
         return false;
     }
 
-    // The message will be sent soon. Hold onto the arguments so that they won't be destroyed
+    // The message will be sent soon. Hold onto the encoder so that it won't be destroyed
     // before the write completes.
-    m_pendingWriteArguments = arguments;
+    m_pendingWriteEncoder = encoder;
 
     // We can only send one asynchronous message at a time (see comment in platformCanSendOutgoingMessages).
     return false;
 }
 
-bool Connection::dispatchSentMessagesUntil(const Vector<HWND>& windows, CoreIPC::BinarySemaphore& semaphore, double absoluteTime)
+bool Connection::dispatchSentMessagesUntil(const Vector<HWND>& windows, WTF::BinarySemaphore& semaphore, double absoluteTime)
 {
     if (windows.isEmpty())
         return semaphore.wait(absoluteTime);

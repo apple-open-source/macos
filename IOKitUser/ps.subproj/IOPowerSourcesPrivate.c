@@ -35,6 +35,33 @@
 #include "IOPSKeys.h"
 #include "powermanagement.h"
 
+
+#define kSmartBattRequestUpdateIndex        4
+IOReturn IOPSRequestBatteryUpdate(int type)
+{
+    io_registry_entry_t     battery_reg = IO_OBJECT_NULL;
+    io_connect_t            battery_connect = IO_OBJECT_NULL;
+    uint64_t                utype = (uint64_t)type;
+    IOReturn                ret = kIOReturnSuccess;
+    
+    battery_reg = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                              IOServiceMatching("AppleSmartBatteryManager"));
+    if (IO_OBJECT_NULL != battery_reg)
+    {
+        ret = IOServiceOpen(battery_reg, mach_task_self(), 0, &battery_connect);
+        if (kIOReturnSuccess == ret) {
+            IOConnectCallMethod(battery_connect, kSmartBattRequestUpdateIndex, &utype, 1,
+                                NULL, 0, NULL, NULL, NULL, NULL);
+            IOServiceClose(battery_connect);
+        }
+        IOObjectRelease(battery_reg);
+    } else {
+        return kIOReturnNotFound;
+    }
+    return ret;
+}
+
+
 /* IOPSCopyInternalBatteriesArray
  *
  * Argument: 

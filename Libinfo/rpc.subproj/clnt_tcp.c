@@ -328,12 +328,12 @@ call_again:
 	if ((! XDR_PUTBYTES(xdrs, ct->ct_mcall, ct->ct_mpos)) ||
 	    (! XDR_PUTLONG(xdrs, (int *)&proc)) ||
 	    (! AUTH_MARSHALL(h->cl_auth, xdrs)) ||
-	    (! (*xdr_args)(xdrs, args_ptr)))
+	    (! (*xdr_args)(xdrs, args_ptr, 0)))
 #else
 	if ((! XDR_PUTBYTES(xdrs, ct->ct_mcall, ct->ct_mpos)) ||
 		(! XDR_PUTLONG(xdrs, (long *)&proc)) ||
 		(! AUTH_MARSHALL(h->cl_auth, xdrs)) ||
-		(! (*xdr_args)(xdrs, args_ptr)))
+		(! (*xdr_args)(xdrs, args_ptr, 0)))
 #endif			
 	{
 		if (ct->ct_error.re_status == RPC_SUCCESS)
@@ -381,7 +381,7 @@ call_again:
 		if (! AUTH_VALIDATE(h->cl_auth, &reply_msg.acpted_rply.ar_verf)) {
 			ct->ct_error.re_status = RPC_AUTHERROR;
 			ct->ct_error.re_why = AUTH_INVALIDRESP;
-		} else if (! (*xdr_results)(xdrs, results_ptr)) {
+		} else if (! (*xdr_results)(xdrs, results_ptr, 0)) {
 			if (ct->ct_error.re_status == RPC_SUCCESS)
 				ct->ct_error.re_status = RPC_CANTDECODERES;
 		}
@@ -420,7 +420,7 @@ clnttcp_freeres(cl, xdr_res, res_ptr)
 	register XDR *xdrs = &(ct->ct_xdrs);
 
 	xdrs->x_op = XDR_FREE;
-	return ((*xdr_res)(xdrs, res_ptr));
+	return ((*xdr_res)(xdrs, res_ptr, 0));
 }
 
 static void

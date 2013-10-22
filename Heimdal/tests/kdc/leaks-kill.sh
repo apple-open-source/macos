@@ -24,6 +24,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
 
     perl -e 'my $excluded = 0; my $num = -1; while (<>) {
 if (/Process \d+: (\d+) leaks? for \d+ total leaked bytes?/) { $num = $1;}
+if (/Process \d+: (\d+) leaks? malloced for \d+ total leaked byte?/) { $num = $1;}
 if (/(\d+) leaks? excluded/) { $excluded = $1;}
 }
 exit 1 if ($num != 0 && $num != $excluded);

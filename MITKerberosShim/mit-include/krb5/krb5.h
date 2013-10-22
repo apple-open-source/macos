@@ -63,6 +63,23 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+
+#ifndef __has_extension
+#define __has_extension(x) 0
+#endif
+
+#ifndef KERBEROS_APPLE_DEPRECATED
+#if __has_extension(attribute_deprecated_with_message)
+#define KERBEROS_APPLE_DEPRECATED(x) __attribute__((deprecated(x)))
+#else
+#if !defined(__GNUC__) && !defined(__attribute__)
+#define __attribute__(x)
+#endif
+#define KERBEROS_APPLE_DEPRECATED(x) __attribute__((deprecated))
+#endif
+#endif
+
+
 #ifndef KRB5_GENERAL__
 #define KRB5_GENERAL__
 
@@ -300,7 +317,7 @@ typedef const krb5_principal_data *krb5_const_principal;
 /*
  * Referral-specific functions.
  */
-krb5_boolean KRB5_CALLCONV krb5_is_referral_realm(const krb5_data *);
+krb5_boolean KRB5_CALLCONV krb5_is_referral_realm(const krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /*
  * end "base-defs.h"
@@ -460,55 +477,55 @@ krb5_error_code KRB5_CALLCONV
     krb5_c_encrypt
     (krb5_context context, const krb5_keyblock *key,
 		    krb5_keyusage usage, const krb5_data *cipher_state,
-		    const krb5_data *input, krb5_enc_data *output);
+		    const krb5_data *input, krb5_enc_data *output) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_decrypt
     (krb5_context context, const krb5_keyblock *key,
 		    krb5_keyusage usage, const krb5_data *cipher_state,
-		    const krb5_enc_data *input, krb5_data *output);
+		    const krb5_enc_data *input, krb5_data *output) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_encrypt_length
     (krb5_context context, krb5_enctype enctype,
-		    size_t inputlen, size_t *length);
+		    size_t inputlen, size_t *length) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_block_size
     (krb5_context context, krb5_enctype enctype,
-		    size_t *blocksize);
+		    size_t *blocksize) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_keylengths
     (krb5_context context, krb5_enctype enctype,
-		    size_t *keybytes, size_t *keylength);
+		    size_t *keybytes, size_t *keylength) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 	krb5_c_init_state
 (krb5_context context,
 const krb5_keyblock *key, krb5_keyusage usage,
-krb5_data *new_state);
+krb5_data *new_state) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 	krb5_c_free_state
-(krb5_context context, const krb5_keyblock *key, krb5_data *state);
+(krb5_context context, const krb5_keyblock *key, krb5_data *state) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_prf (krb5_context, const krb5_keyblock *,
-		krb5_data *in, krb5_data *out);
+		krb5_data *in, krb5_data *out) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-    krb5_c_prf_length (krb5_context, krb5_enctype, size_t *outlen);
+    krb5_c_prf_length (krb5_context, krb5_enctype, size_t *outlen) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_make_random_key
     (krb5_context context, krb5_enctype enctype,
-		    krb5_keyblock *k5_random_key);
+		    krb5_keyblock *k5_random_key) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_random_to_key
     (krb5_context context, krb5_enctype enctype,
-		    krb5_data *random_data, krb5_keyblock *k5_random_key);
+		    krb5_data *random_data, krb5_keyblock *k5_random_key) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /* Register a new entropy sample  with the PRNG. may cause
 * the PRNG to be reseeded, although this is not guaranteed.  See previous randsource definitions
@@ -516,12 +533,12 @@ krb5_error_code KRB5_CALLCONV
 */
 krb5_error_code KRB5_CALLCONV
 	krb5_c_random_add_entropy
-(krb5_context context, unsigned int  randsource_id, const krb5_data *data);
+(krb5_context context, unsigned int  randsource_id, const krb5_data *data) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_random_make_octets
-    (krb5_context context, krb5_data *data);
+    (krb5_context context, krb5_data *data) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /*
 * Collect entropy from the OS if possible. strong requests that as strong 
@@ -534,35 +551,35 @@ krb5_error_code KRB5_CALLCONV
 */
 krb5_error_code KRB5_CALLCONV
 krb5_c_random_os_entropy
-(krb5_context context, int strong, int *success);
+(krb5_context context, int strong, int *success) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /*deprecated*/ krb5_error_code KRB5_CALLCONV
     krb5_c_random_seed
-    (krb5_context context, krb5_data *data);
+    (krb5_context context, krb5_data *data) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_string_to_key
     (krb5_context context, krb5_enctype enctype,
 		    const krb5_data *string, const krb5_data *salt,
-		    krb5_keyblock *key);
+		    krb5_keyblock *key) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_c_string_to_key_with_params(krb5_context context,
 				 krb5_enctype enctype,
 				 const krb5_data *string,
 				 const krb5_data *salt,
 				 const krb5_data *params,
-				 krb5_keyblock *key);
+				 krb5_keyblock *key) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_enctype_compare
     (krb5_context context, krb5_enctype e1, krb5_enctype e2,
-		    krb5_boolean *similar);
+		    krb5_boolean *similar) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_make_checksum
     (krb5_context context, krb5_cksumtype cksumtype,
 		    const krb5_keyblock *key, krb5_keyusage usage,
-		    const krb5_data *input, krb5_checksum *cksum);
+		    const krb5_data *input, krb5_checksum *cksum) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
     
 krb5_error_code KRB5_CALLCONV
     krb5_c_verify_checksum
@@ -570,17 +587,17 @@ krb5_error_code KRB5_CALLCONV
 		    const krb5_keyblock *key, krb5_keyusage usage,
 		    const krb5_data *data,
 		    const krb5_checksum *cksum,
-		    krb5_boolean *valid);
+		    krb5_boolean *valid) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
     
 krb5_error_code KRB5_CALLCONV
     krb5_c_checksum_length
     (krb5_context context, krb5_cksumtype cksumtype,
-		    size_t *length);
+		    size_t *length) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
     krb5_c_keyed_checksum_types
     (krb5_context context, krb5_enctype enctype, 
-		    unsigned int *count, krb5_cksumtype **cksumtypes);
+		    unsigned int *count, krb5_cksumtype **cksumtypes) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 #define KRB5_KEYUSAGE_AS_REQ_PA_ENC_TS		1
 #define KRB5_KEYUSAGE_KDC_REP_TICKET		2
@@ -620,13 +637,13 @@ krb5_error_code KRB5_CALLCONV
 #define KRB5_KEYUSAGE_PA_REFERRAL		26 /* XXX note conflict with above */
 
 krb5_boolean KRB5_CALLCONV krb5_c_valid_enctype
-	(krb5_enctype ktype);
+	(krb5_enctype ktype) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_boolean KRB5_CALLCONV krb5_c_valid_cksumtype
-	(krb5_cksumtype ctype);
+	(krb5_cksumtype ctype) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_boolean KRB5_CALLCONV krb5_c_is_coll_proof_cksum
-	(krb5_cksumtype ctype);
+	(krb5_cksumtype ctype) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_boolean KRB5_CALLCONV krb5_c_is_keyed_cksum
-	(krb5_cksumtype ctype);
+	(krb5_cksumtype ctype) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 #ifdef KRB5_OLD_CRYPTO
 /*
@@ -639,66 +656,66 @@ krb5_error_code KRB5_CALLCONV krb5_encrypt
 		krb5_pointer outptr,
 		size_t size,
 		krb5_encrypt_block * eblock,
-		krb5_pointer ivec);
+		krb5_pointer ivec) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_decrypt
 	(krb5_context context,
 		krb5_const_pointer inptr,
 		krb5_pointer outptr,
 		size_t size,
 		krb5_encrypt_block * eblock,
-		krb5_pointer ivec);
+		krb5_pointer ivec) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_process_key
 	(krb5_context context,
 		krb5_encrypt_block * eblock,
-		const krb5_keyblock * key);
+		const krb5_keyblock * key) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_finish_key
 	(krb5_context context,
-		krb5_encrypt_block * eblock);
+		krb5_encrypt_block * eblock) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_string_to_key
 	(krb5_context context,
 		const krb5_encrypt_block * eblock,
 		krb5_keyblock * keyblock,
 		const krb5_data * data,
-		const krb5_data * salt);
+		const krb5_data * salt) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_init_random_key
 	(krb5_context context,
 		const krb5_encrypt_block * eblock,
 		const krb5_keyblock * keyblock,
-		krb5_pointer * ptr);
+		krb5_pointer * ptr) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_finish_random_key
 	(krb5_context context,
 		const krb5_encrypt_block * eblock,
-		krb5_pointer * ptr);
+		krb5_pointer * ptr) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_random_key
 	(krb5_context context,
 		const krb5_encrypt_block * eblock,
 		krb5_pointer ptr,
-		krb5_keyblock ** keyblock);
+		krb5_keyblock ** keyblock) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_enctype KRB5_CALLCONV krb5_eblock_enctype
 	(krb5_context context,
-		const krb5_encrypt_block * eblock);
+		const krb5_encrypt_block * eblock) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_use_enctype
 	(krb5_context context,
 		krb5_encrypt_block * eblock,
-		krb5_enctype enctype);
+		krb5_enctype enctype) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 size_t KRB5_CALLCONV krb5_encrypt_size
 	(size_t length,
-		krb5_enctype crypto);
+		krb5_enctype crypto) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 size_t KRB5_CALLCONV krb5_checksum_size
 	(krb5_context context,
-		krb5_cksumtype ctype);
+		krb5_cksumtype ctype) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_calculate_checksum
 	(krb5_context context,
 		krb5_cksumtype ctype,
 		krb5_const_pointer in, size_t in_length,
 		krb5_const_pointer seed, size_t seed_length,
-		krb5_checksum * outcksum);
+		krb5_checksum * outcksum) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_verify_checksum
 	(krb5_context context,
 		krb5_cksumtype ctype,
 		const krb5_checksum * cksum,
 		krb5_const_pointer in, size_t in_length,
-		krb5_const_pointer seed, size_t seed_length);
+		krb5_const_pointer seed, size_t seed_length) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 #endif /* KRB5_OLD_CRYPTO */
 
@@ -1225,7 +1242,7 @@ typedef struct krb5_replay_data {
 
 typedef krb5_error_code 
 (KRB5_CALLCONV * krb5_mk_req_checksum_func) (krb5_context, krb5_auth_context , void *,
-			       krb5_data **);
+			       krb5_data **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /*
  * end "safepriv.h"
@@ -1266,106 +1283,106 @@ typedef struct _krb5_cccol_cursor *krb5_cccol_cursor;
 #define KRB5_TC_NOTICKET                0x00000002
 
 const char * KRB5_CALLCONV
-krb5_cc_get_name (krb5_context context, krb5_ccache cache);
+krb5_cc_get_name (krb5_context context, krb5_ccache cache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cc_gen_new (krb5_context context, krb5_ccache *cache);
+krb5_cc_gen_new (krb5_context context, krb5_ccache *cache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_initialize(krb5_context context, krb5_ccache cache,
-		   krb5_principal principal);
+		   krb5_principal principal) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cc_destroy (krb5_context context, krb5_ccache cache);
+krb5_cc_destroy (krb5_context context, krb5_ccache cache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cc_close (krb5_context context, krb5_ccache cache);
+krb5_cc_close (krb5_context context, krb5_ccache cache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_store_cred (krb5_context context, krb5_ccache cache,
-		    krb5_creds *creds);
+		    krb5_creds *creds) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_retrieve_cred (krb5_context context, krb5_ccache cache,
 		       krb5_flags flags, krb5_creds *mcreds,
-		       krb5_creds *creds);
+		       krb5_creds *creds) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_get_principal (krb5_context context, krb5_ccache cache,
-		       krb5_principal *principal);
+		       krb5_principal *principal) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_start_seq_get (krb5_context context, krb5_ccache cache,
-		       krb5_cc_cursor *cursor);
+		       krb5_cc_cursor *cursor) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_next_cred (krb5_context context, krb5_ccache cache,
-		   krb5_cc_cursor *cursor, krb5_creds *creds);
+		   krb5_cc_cursor *cursor, krb5_creds *creds) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_end_seq_get (krb5_context context, krb5_ccache cache,
-		     krb5_cc_cursor *cursor);
+		     krb5_cc_cursor *cursor) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_remove_cred (krb5_context context, krb5_ccache cache, krb5_flags flags,
-		     krb5_creds *creds);
+		     krb5_creds *creds) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cc_set_flags (krb5_context context, krb5_ccache cache, krb5_flags flags);
+krb5_cc_set_flags (krb5_context context, krb5_ccache cache, krb5_flags flags) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cc_get_flags (krb5_context context, krb5_ccache cache, krb5_flags *flags);
+krb5_cc_get_flags (krb5_context context, krb5_ccache cache, krb5_flags *flags) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 const char * KRB5_CALLCONV
-krb5_cc_get_type (krb5_context context, krb5_ccache cache);
+krb5_cc_get_type (krb5_context context, krb5_ccache cache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cc_move (krb5_context context, krb5_ccache src, krb5_ccache dst);
+krb5_cc_move (krb5_context context, krb5_ccache src, krb5_ccache dst) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_last_change_time (
     krb5_context context, 
     krb5_ccache ccache, 
-    krb5_timestamp *change_time);
+    krb5_timestamp *change_time) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cc_lock (krb5_context context, krb5_ccache ccache);
+krb5_cc_lock (krb5_context context, krb5_ccache ccache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cc_unlock (krb5_context context, krb5_ccache ccache);
+krb5_cc_unlock (krb5_context context, krb5_ccache ccache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_cache_match (krb5_context context,
 		     krb5_principal client,
-		     krb5_ccache *id);
+		     krb5_ccache *id) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cccol_cursor_new(krb5_context context, krb5_cccol_cursor *cursor);
+krb5_cccol_cursor_new(krb5_context context, krb5_cccol_cursor *cursor) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cccol_cursor_next(
     krb5_context context,
     krb5_cccol_cursor cursor,
-    krb5_ccache *ccache);
+    krb5_ccache *ccache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cccol_cursor_free(krb5_context context, krb5_cccol_cursor *cursor);
+krb5_cccol_cursor_free(krb5_context context, krb5_cccol_cursor *cursor) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cccol_last_change_time(krb5_context context, krb5_timestamp *change_time);
+krb5_cccol_last_change_time(krb5_context context, krb5_timestamp *change_time) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cccol_lock(krb5_context context);
+krb5_cccol_lock(krb5_context context) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
-krb5_cccol_unlock(krb5_context context);
+krb5_cccol_unlock(krb5_context context) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_new_unique(
     krb5_context context,
     const char *type,
     const char *hint,
-    krb5_ccache *id);
+    krb5_ccache *id) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /*
  * end "ccache.h"
@@ -1404,25 +1421,25 @@ struct _krb5_kt;
 typedef struct _krb5_kt *krb5_keytab;
 
 const char * KRB5_CALLCONV
-krb5_kt_get_type (krb5_context, krb5_keytab keytab);
+krb5_kt_get_type (krb5_context, krb5_keytab keytab) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_kt_get_name(krb5_context context, krb5_keytab keytab, char *name,
-		 unsigned int namelen);
+		 unsigned int namelen) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
-krb5_kt_close(krb5_context context, krb5_keytab keytab);
+krb5_kt_close(krb5_context context, krb5_keytab keytab) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_kt_get_entry(krb5_context context, krb5_keytab keytab,
 		  krb5_const_principal principal, krb5_kvno vno,
-		  krb5_enctype enctype, krb5_keytab_entry *entry);
+		  krb5_enctype enctype, krb5_keytab_entry *entry) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_kt_start_seq_get(krb5_context context, krb5_keytab keytab,
-		      krb5_kt_cursor *cursor);
+		      krb5_kt_cursor *cursor) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_kt_next_entry(krb5_context context, krb5_keytab keytab,
-		   krb5_keytab_entry *entry, krb5_kt_cursor *cursor);
+		   krb5_keytab_entry *entry, krb5_kt_cursor *cursor) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_kt_end_seq_get(krb5_context context, krb5_keytab keytab,
-		    krb5_kt_cursor *cursor);
+		    krb5_kt_cursor *cursor) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /*
  * end "keytab.h"
@@ -1433,23 +1450,23 @@ krb5_kt_end_seq_get(krb5_context context, krb5_keytab keytab,
  */
 
 krb5_error_code KRB5_CALLCONV krb5_init_context
-	(krb5_context *);
+	(krb5_context *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_init_secure_context
-	(krb5_context *);
+	(krb5_context *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_context
-	(krb5_context);
+	(krb5_context) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_context
-	(krb5_context, krb5_context *);
+	(krb5_context, krb5_context *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV 
 krb5_set_default_tgs_enctypes
 	(krb5_context,
-		const krb5_enctype *);
+		const krb5_enctype *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_get_permitted_enctypes
-	(krb5_context, krb5_enctype **);
+	(krb5_context, krb5_enctype **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
-krb5_boolean KRB5_CALLCONV krb5_is_thread_safe(void);
+krb5_boolean KRB5_CALLCONV krb5_is_thread_safe(void) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /* libkrb.spec */
 
@@ -1457,11 +1474,11 @@ krb5_error_code KRB5_CALLCONV
 krb5_server_decrypt_ticket_keytab
   	(krb5_context context,
                 const krb5_keytab kt,
-                krb5_ticket  *ticket);
+                krb5_ticket  *ticket) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV krb5_free_tgt_creds
 	(krb5_context,
-	 krb5_creds **); /* XXX too hard to do with const */
+	 krb5_creds **) KERBEROS_APPLE_DEPRECATED("use GSS.framework"); /* XXX too hard to do with const */
 
 #define	KRB5_GC_USER_USER	1	/* want user-user ticket */
 #define	KRB5_GC_CACHED		2	/* want cached ticket only */
@@ -1471,19 +1488,19 @@ krb5_error_code KRB5_CALLCONV krb5_get_credentials
 		krb5_flags,
 		krb5_ccache,
 		krb5_creds *,
-		krb5_creds **);
+		krb5_creds **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_get_credentials_validate
 	(krb5_context,
 		krb5_flags,
 		krb5_ccache,
 		krb5_creds *,
-		krb5_creds **);
+		krb5_creds **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_get_credentials_renew
 	(krb5_context,
 		krb5_flags,
 		krb5_ccache,
 		krb5_creds *,
-		krb5_creds **);
+		krb5_creds **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_mk_req
 	(krb5_context,
 		krb5_auth_context *,
@@ -1492,47 +1509,47 @@ krb5_error_code KRB5_CALLCONV krb5_mk_req
 		char *,
 		krb5_data *,
 		krb5_ccache,
-		krb5_data * );
+		krb5_data * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_mk_req_extended
 	(krb5_context,
 		krb5_auth_context *,
 		krb5_flags,
 		krb5_data *,
 		krb5_creds *,
-		krb5_data * );
+		krb5_data * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_mk_rep
 	(krb5_context,
 		krb5_auth_context,
-		krb5_data *);
+		krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_rd_rep
 	(krb5_context,
 		krb5_auth_context,
 		const krb5_data *,
-		krb5_ap_rep_enc_part **);
+		krb5_ap_rep_enc_part **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_mk_error
 	(krb5_context,
 		const krb5_error *,
-		krb5_data * );
+		krb5_data * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_rd_error
 	(krb5_context,
 		const krb5_data *,
-		krb5_error ** );
+		krb5_error ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_rd_safe
 	(krb5_context,
 		krb5_auth_context,
 		const krb5_data *,
 		krb5_data *,
-		krb5_replay_data *);
+		krb5_replay_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_rd_priv
 	(krb5_context,
 		krb5_auth_context,
 		const krb5_data *,
 		krb5_data *,
-		krb5_replay_data *);
+		krb5_replay_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_parse_name
 	(krb5_context,
 		const char *,
-		krb5_principal * );
+		krb5_principal * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 #define KRB5_PRINCIPAL_PARSE_NO_REALM		0x1
 #define KRB5_PRINCIPAL_PARSE_REQUIRE_REALM	0x2
 #define KRB5_PRINCIPAL_PARSE_ENTERPRISE		0x4
@@ -1540,16 +1557,16 @@ krb5_error_code KRB5_CALLCONV krb5_parse_name_flags
 	(krb5_context,
 		const char *,
 		int,
-		krb5_principal * );
+		krb5_principal * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_unparse_name
 	(krb5_context,
 		krb5_const_principal,
-		char ** );
+		char ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_unparse_name_ext
 	(krb5_context,
 		krb5_const_principal,
 		char **,
-		unsigned int *);
+		unsigned int *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 #define KRB5_PRINCIPAL_UNPARSE_SHORT		0x1
 #define KRB5_PRINCIPAL_UNPARSE_NO_REALM		0x2
 #define KRB5_PRINCIPAL_UNPARSE_DISPLAY		0x4
@@ -1557,40 +1574,40 @@ krb5_error_code KRB5_CALLCONV krb5_unparse_name_flags
 	(krb5_context,
 		krb5_const_principal,
 		int,
-		char **);
+		char **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_unparse_name_flags_ext
 	(krb5_context,
 		krb5_const_principal,
 		int,
 		char **,
-		unsigned int *);
+		unsigned int *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_set_principal_realm
-	(krb5_context, krb5_principal, const char *);
+	(krb5_context, krb5_principal, const char *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_boolean KRB5_CALLCONV_WRONG krb5_address_search
 	(krb5_context,
 		const krb5_address *,
-		krb5_address * const *);
+		krb5_address * const *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_boolean KRB5_CALLCONV krb5_address_compare
 	(krb5_context,
 		const krb5_address *,
-		const krb5_address *);
+		const krb5_address *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 int KRB5_CALLCONV krb5_address_order
 	(krb5_context,
 		const krb5_address *,
-		const krb5_address *);
+		const krb5_address *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_boolean KRB5_CALLCONV krb5_realm_compare
 	(krb5_context,
 		krb5_const_principal,
-		krb5_const_principal);
+		krb5_const_principal) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_boolean KRB5_CALLCONV krb5_principal_compare
 	(krb5_context,
 		krb5_const_principal,
-		krb5_const_principal);
+		krb5_const_principal) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV  krb5_init_keyblock
 		(krb5_context, krb5_enctype enctype,
-		size_t length, krb5_keyblock **out); 
+		size_t length, krb5_keyblock **out) KERBEROS_APPLE_DEPRECATED("use GSS.framework"); 
   		/* Initialize a new keyblock and allocate storage
 		 * for the contents of the key, which will be freed along
 		 * with the keyblock when krb5_free_keyblock is called.
@@ -1600,48 +1617,48 @@ krb5_error_code KRB5_CALLCONV  krb5_init_keyblock
 krb5_error_code KRB5_CALLCONV krb5_copy_keyblock
 	(krb5_context,
 		const krb5_keyblock *,
-		krb5_keyblock **);
+		krb5_keyblock **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_keyblock_contents
 	(krb5_context,
 		const krb5_keyblock *,
-		krb5_keyblock *);
+		krb5_keyblock *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_creds
 	(krb5_context,
 		const krb5_creds *,
-		krb5_creds **);
+		krb5_creds **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_data
 	(krb5_context,
 		const krb5_data *,
-		krb5_data **);
+		krb5_data **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_principal
 	(krb5_context,
 		krb5_const_principal,
-		krb5_principal *);
+		krb5_principal *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_addresses
 	(krb5_context,
 		krb5_address * const *,
-		krb5_address ***);
+		krb5_address ***) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_ticket
 	(krb5_context,
 		const krb5_ticket *,
-		krb5_ticket **);
+		krb5_ticket **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_authdata
 	(krb5_context,
 		krb5_authdata * const *,
-		krb5_authdata ***);
+		krb5_authdata ***) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_authenticator
 	(krb5_context,
 		const krb5_authenticator *,
-		krb5_authenticator **);
+		krb5_authenticator **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_copy_checksum
 	(krb5_context,
 		const krb5_checksum *,
-		krb5_checksum **);
+		krb5_checksum **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_get_server_rcache
 	(krb5_context,
-		const krb5_data *, krb5_rcache *);
+		const krb5_data *, krb5_rcache *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV_C krb5_build_principal_ext
-	(krb5_context, krb5_principal *, unsigned int, const char *, ...);
+	(krb5_context, krb5_principal *, unsigned int, const char *, ...) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV_C krb5_build_principal
 	(krb5_context, krb5_principal *, unsigned int, const char *, ...)
 #if __GNUC__ >= 4
@@ -1651,27 +1668,27 @@ krb5_error_code KRB5_CALLCONV_C krb5_build_principal
 #if KRB5_DEPRECATED
 KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_build_principal_va
 	(krb5_context,
-		krb5_principal, unsigned int, const char *, va_list);
+		krb5_principal, unsigned int, const char *, va_list) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 #endif
 
 /* Version of krb5_build_principal_va which allocates krb5_principal_data */
 krb5_error_code KRB5_CALLCONV krb5_build_principal_alloc_va
-        (krb5_context, krb5_principal *, unsigned int, const char *, va_list);
+        (krb5_context, krb5_principal *, unsigned int, const char *, va_list) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_425_conv_principal
 	(krb5_context,
 		const char *name,
 		const char *instance, const char *realm,
-		krb5_principal *princ);
+		krb5_principal *princ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_524_conv_principal
 	(krb5_context context, krb5_const_principal princ, 
-		char *name, char *inst, char *realm);
+		char *name, char *inst, char *realm) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 struct credentials;
 int KRB5_CALLCONV krb5_524_convert_creds
 	(krb5_context context, krb5_creds *v5creds,
-	 struct credentials *v4creds);
+	 struct credentials *v4creds) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 #if KRB5_DEPRECATED
 #define krb524_convert_creds_kdc krb5_524_convert_creds
 #define krb524_init_ets(x) (0)
@@ -1681,144 +1698,144 @@ int KRB5_CALLCONV krb5_524_convert_creds
 krb5_error_code KRB5_CALLCONV krb5_kt_resolve
 	(krb5_context,
 		const char *,
-		krb5_keytab * );
+		krb5_keytab * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_kt_default_name
 	(krb5_context,
 		char *,
-		int );
+		int ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_kt_default
 	(krb5_context,
-		krb5_keytab * );
+		krb5_keytab * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_free_keytab_entry_contents
 	(krb5_context,
-		krb5_keytab_entry * );
+		krb5_keytab_entry * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 /* remove and add are functions, so that they can return NOWRITE
    if not a writable keytab */
 krb5_error_code KRB5_CALLCONV krb5_kt_remove_entry
 	(krb5_context,
 		krb5_keytab,
-		krb5_keytab_entry * );
+		krb5_keytab_entry * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_kt_add_entry
 	(krb5_context,
 		krb5_keytab,
-		krb5_keytab_entry * );
+		krb5_keytab_entry * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV_WRONG krb5_principal2salt
 	(krb5_context,
-		krb5_const_principal, krb5_data *);
+		krb5_const_principal, krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 /* librc.spec--see rcache.h */
 
 /* libcc.spec */
 krb5_error_code KRB5_CALLCONV krb5_cc_resolve
 	(krb5_context,
 		const char *,
-		krb5_ccache * );
+		krb5_ccache * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 const char * KRB5_CALLCONV krb5_cc_default_name
-	(krb5_context);
+	(krb5_context) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_cc_set_default_name
-	(krb5_context, const char *);
+	(krb5_context, const char *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_cc_default
 	(krb5_context,
-		krb5_ccache *);
+		krb5_ccache *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_cc_copy_creds
 	(krb5_context context,
 			krb5_ccache incc,
-			krb5_ccache outcc);
+			krb5_ccache outcc) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 			
 krb5_error_code KRB5_CALLCONV
 krb5_cc_get_config(krb5_context, krb5_ccache,
 		   krb5_const_principal,
-		   const char *, krb5_data *);
+		   const char *, krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_cc_set_config(krb5_context, krb5_ccache,
 		   krb5_const_principal,
-		   const char *, krb5_data *);
+		   const char *, krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_boolean KRB5_CALLCONV
 krb5_is_config_principal(krb5_context,
-			 krb5_const_principal);
+			 krb5_const_principal) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /* krb5_free.c */
 void KRB5_CALLCONV krb5_free_principal
-	(krb5_context, krb5_principal );
+	(krb5_context, krb5_principal ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_authenticator
-	(krb5_context, krb5_authenticator * );
+	(krb5_context, krb5_authenticator * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_addresses
-	(krb5_context, krb5_address ** );
+	(krb5_context, krb5_address ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_authdata
-	(krb5_context, krb5_authdata ** );
+	(krb5_context, krb5_authdata ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_ticket
-	(krb5_context, krb5_ticket * );
+	(krb5_context, krb5_ticket * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_error
-	(krb5_context, krb5_error * );
+	(krb5_context, krb5_error * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_creds
-	(krb5_context, krb5_creds *);
+	(krb5_context, krb5_creds *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_cred_contents
-	(krb5_context, krb5_creds *);
+	(krb5_context, krb5_creds *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_checksum
-	(krb5_context, krb5_checksum *);
+	(krb5_context, krb5_checksum *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_checksum_contents
-	(krb5_context, krb5_checksum *);
+	(krb5_context, krb5_checksum *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_keyblock
-	(krb5_context, krb5_keyblock *);
+	(krb5_context, krb5_keyblock *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_keyblock_contents
-	(krb5_context, krb5_keyblock *);
+	(krb5_context, krb5_keyblock *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_ap_rep_enc_part
-	(krb5_context, krb5_ap_rep_enc_part *);
+	(krb5_context, krb5_ap_rep_enc_part *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_data
-	(krb5_context, krb5_data *);
+	(krb5_context, krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_data_contents
-	(krb5_context, krb5_data *);
+	(krb5_context, krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_unparsed_name
-	(krb5_context, char *);
+	(krb5_context, char *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_cksumtypes
-	(krb5_context, krb5_cksumtype *);
+	(krb5_context, krb5_cksumtype *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /* From krb5/os but needed but by the outside world */
 krb5_error_code KRB5_CALLCONV krb5_us_timeofday
 	(krb5_context,
 		krb5_timestamp *,
-		krb5_int32 * );
+		krb5_int32 * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_timeofday
 	(krb5_context,
-		krb5_timestamp * );
+		krb5_timestamp * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 		 /* get all the addresses of this host */
 krb5_error_code KRB5_CALLCONV krb5_os_localaddr
 	(krb5_context,
-		krb5_address ***);
+		krb5_address ***) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_get_default_realm
 	(krb5_context,
-		 char ** );
+		 char ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_set_default_realm
 	(krb5_context,
-		   const char * );
+		   const char * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV krb5_free_default_realm
 	(krb5_context,
-		   char * );
+		   char * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_sname_to_principal
 	(krb5_context,
 		const char *,
 		   const char *,
 		   krb5_int32,
-		   krb5_principal *);
+		   krb5_principal *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_change_password
 	(krb5_context context, krb5_creds *creds, char *newpw,
 			int *result_code, krb5_data *result_code_string,
-			krb5_data *result_string);
+			krb5_data *result_string) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_set_password
 	(krb5_context context, krb5_creds *creds, char *newpw, krb5_principal change_password_for,
-			int *result_code, krb5_data *result_code_string, krb5_data *result_string);
+			int *result_code, krb5_data *result_code_string, krb5_data *result_string) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV
 krb5_set_password_using_ccache
 	(krb5_context context, krb5_ccache ccache, char *newpw, krb5_principal change_password_for,
-			int *result_code, krb5_data *result_code_string, krb5_data *result_string);
+			int *result_code, krb5_data *result_code_string, krb5_data *result_string) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_get_profile
-	(krb5_context, struct _profile_t * /* profile_t */ *);
+	(krb5_context, struct _profile_t * /* profile_t */ *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 #if KRB5_DEPRECATED
 KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_get_in_tkt
@@ -1840,7 +1857,7 @@ KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_get_in_tkt
 		krb5_const_pointer,
 		krb5_creds *,
 		krb5_ccache,
-		krb5_kdc_rep ** );
+		krb5_kdc_rep ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_get_in_tkt_with_password
 	(krb5_context,
@@ -1851,7 +1868,7 @@ KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_get_in_tkt_with_password
 		const char *,
 		krb5_ccache,
 		krb5_creds *,
-		krb5_kdc_rep ** );
+		krb5_kdc_rep ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_get_in_tkt_with_skey
 	(krb5_context,
@@ -1862,7 +1879,7 @@ KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_get_in_tkt_with_skey
 		const krb5_keyblock *,
 		krb5_ccache,
 		krb5_creds *,
-		krb5_kdc_rep ** );
+		krb5_kdc_rep ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_get_in_tkt_with_keytab
 	(krb5_context,
@@ -1873,7 +1890,7 @@ KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_get_in_tkt_with_keytab
 		krb5_keytab,
 		krb5_ccache,
 		krb5_creds *,
-		krb5_kdc_rep ** );
+		krb5_kdc_rep ** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 #endif /* KRB5_DEPRECATED */
 
 krb5_error_code KRB5_CALLCONV krb5_rd_req
@@ -1883,7 +1900,7 @@ krb5_error_code KRB5_CALLCONV krb5_rd_req
 		krb5_const_principal,
 		krb5_keytab,
 		krb5_flags *,
-		krb5_ticket **);
+		krb5_ticket **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_kt_read_service_key
 	(krb5_context,
@@ -1891,19 +1908,19 @@ krb5_error_code KRB5_CALLCONV krb5_kt_read_service_key
 		krb5_principal,
 		krb5_kvno,
 		krb5_enctype,
-		krb5_keyblock **);
+		krb5_keyblock **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_mk_safe
 	(krb5_context,
 		krb5_auth_context,
 		const krb5_data *,
 		krb5_data *,
-		krb5_replay_data *);
+		krb5_replay_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_mk_priv
 	(krb5_context,
 		krb5_auth_context,
 		const krb5_data *,
 		krb5_data *,
-		krb5_replay_data *);
+		krb5_replay_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_sendauth 
 	(krb5_context,
@@ -1918,7 +1935,7 @@ krb5_error_code KRB5_CALLCONV krb5_sendauth
 		krb5_ccache,
 		krb5_error **,
 		krb5_ap_rep_enc_part **,
-		krb5_creds **);
+		krb5_creds **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 	
 krb5_error_code KRB5_CALLCONV krb5_recvauth
 	(krb5_context,
@@ -1928,7 +1945,7 @@ krb5_error_code KRB5_CALLCONV krb5_recvauth
 		krb5_principal,
 		krb5_int32, 
 		krb5_keytab,
-		krb5_ticket **);
+		krb5_ticket **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_recvauth_version
 	(krb5_context,
 		krb5_auth_context *,
@@ -1937,28 +1954,28 @@ krb5_error_code KRB5_CALLCONV krb5_recvauth_version
 		krb5_int32, 
 		krb5_keytab,
 		krb5_ticket **,
-		krb5_data *);
+		krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_mk_ncred
 	(krb5_context,
 		krb5_auth_context,
 		krb5_creds **,
 		krb5_data **,
-		krb5_replay_data *);
+		krb5_replay_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_mk_1cred
 	(krb5_context,
 		krb5_auth_context,
 		krb5_creds *,
 		krb5_data **,
-		krb5_replay_data *);
+		krb5_replay_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_rd_cred
 	(krb5_context,
 		krb5_auth_context,
 		krb5_data *,
 		krb5_creds ***,
-		krb5_replay_data *);
+		krb5_replay_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_fwd_tgt_creds
 	(krb5_context, 
@@ -1968,116 +1985,116 @@ krb5_error_code KRB5_CALLCONV krb5_fwd_tgt_creds
 		krb5_principal, 
 		krb5_ccache,
 		int forwardable,
-		krb5_data *);	
+		krb5_data *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");	
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_init
 	(krb5_context,
-		krb5_auth_context *);
+		krb5_auth_context *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_free
 	(krb5_context,
-		krb5_auth_context);
+		krb5_auth_context) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_setflags
 	(krb5_context,
 		krb5_auth_context,
-		krb5_int32);
+		krb5_int32) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_getflags
 	(krb5_context,
 		krb5_auth_context,
-		krb5_int32 *);
+		krb5_int32 *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_auth_con_set_checksum_func (krb5_context, krb5_auth_context,
-				 krb5_mk_req_checksum_func, void *);
+				 krb5_mk_req_checksum_func, void *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_auth_con_get_checksum_func( krb5_context, krb5_auth_context,
-				 krb5_mk_req_checksum_func *, void **);
+				 krb5_mk_req_checksum_func *, void **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV_WRONG krb5_auth_con_setaddrs
 	(krb5_context,
 		krb5_auth_context,
 		krb5_address *,
-		krb5_address *);
+		krb5_address *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_getaddrs
 	(krb5_context,
 		krb5_auth_context,
 		krb5_address **,
-		krb5_address **);
+		krb5_address **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_setports
 	(krb5_context,
 		krb5_auth_context,
 		krb5_address *,
-		krb5_address *);
+		krb5_address *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_setuseruserkey
 	(krb5_context,
 		krb5_auth_context,
-		krb5_keyblock *);
+		krb5_keyblock *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_getkey
 	(krb5_context,
 		krb5_auth_context,
-		krb5_keyblock **);
+		krb5_keyblock **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_getsendsubkey(
-    krb5_context, krb5_auth_context, krb5_keyblock **);
+    krb5_context, krb5_auth_context, krb5_keyblock **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_getrecvsubkey(
-    krb5_context, krb5_auth_context, krb5_keyblock **);
+    krb5_context, krb5_auth_context, krb5_keyblock **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_setsendsubkey(
-    krb5_context, krb5_auth_context, krb5_keyblock *);
+    krb5_context, krb5_auth_context, krb5_keyblock *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_setrecvsubkey(
-    krb5_context, krb5_auth_context, krb5_keyblock *);
+    krb5_context, krb5_auth_context, krb5_keyblock *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 #if KRB5_DEPRECATED
 KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_auth_con_getlocalsubkey
 	(krb5_context,
 		krb5_auth_context,
-		krb5_keyblock **);
+		krb5_keyblock **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_auth_con_getremotesubkey
 	(krb5_context,
 		krb5_auth_context,
-		krb5_keyblock **);
+		krb5_keyblock **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 #endif
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_getlocalseqnumber
 	(krb5_context,
 		krb5_auth_context,
-		krb5_int32 *);
+		krb5_int32 *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_getremoteseqnumber
 	(krb5_context,
 		krb5_auth_context,
-		krb5_int32 *);
+		krb5_int32 *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 #if KRB5_DEPRECATED
 KRB5_ATTR_DEPRECATED krb5_error_code KRB5_CALLCONV krb5_auth_con_initivector
 	(krb5_context,
-		krb5_auth_context);
+		krb5_auth_context) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 #endif
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_setrcache
 	(krb5_context,
 		krb5_auth_context,
-		krb5_rcache);
+		krb5_rcache) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV_WRONG krb5_auth_con_getrcache
 	(krb5_context,
 		krb5_auth_context,
-		krb5_rcache *);
+		krb5_rcache *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_auth_con_getauthenticator
 	(krb5_context,
 		krb5_auth_context,
-		krb5_authenticator **);
+		krb5_authenticator **) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 #define KRB5_REALM_BRANCH_CHAR '.'
 
@@ -2094,59 +2111,59 @@ krb5_error_code KRB5_CALLCONV krb5_read_password
 		const char *,
 		const char *,
 		char *,
-		unsigned int * );
+		unsigned int * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_aname_to_localname
 	(krb5_context,
 		krb5_const_principal,
 		int,
-		char * );
+		char * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_get_host_realm
 	(krb5_context,
 		const char *,
-		char *** );
+		char *** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_get_fallback_host_realm
 	(krb5_context,
 		krb5_data *,
-		char *** );
+		char *** ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_free_host_realm
 	(krb5_context,
-		char * const * );
+		char * const * ) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_boolean KRB5_CALLCONV krb5_kuserok
 	(krb5_context,
-		krb5_principal, const char *);
+		krb5_principal, const char *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_auth_con_genaddrs
 	(krb5_context,
 		krb5_auth_context,
-		int, int);
+		int, int) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_set_real_time
-	(krb5_context, krb5_timestamp, krb5_int32);
+	(krb5_context, krb5_timestamp, krb5_int32) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV krb5_get_time_offsets
-	(krb5_context, krb5_timestamp *, krb5_int32 *);
+	(krb5_context, krb5_timestamp *, krb5_int32 *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /* str_conv.c */
 krb5_error_code KRB5_CALLCONV krb5_string_to_enctype
-	(char *, krb5_enctype *);
+	(char *, krb5_enctype *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_string_to_salttype
-	(char *, krb5_int32 *);
+	(char *, krb5_int32 *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_string_to_cksumtype
-	(char *, krb5_cksumtype *);
+	(char *, krb5_cksumtype *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_string_to_timestamp
-	(char *, krb5_timestamp *);
+	(char *, krb5_timestamp *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_string_to_deltat
-	(char *, krb5_deltat *);
+	(char *, krb5_deltat *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_enctype_to_string
-	(krb5_enctype, char *, size_t);
+	(krb5_enctype, char *, size_t) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_salttype_to_string
-	(krb5_int32, char *, size_t);
+	(krb5_int32, char *, size_t) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_cksumtype_to_string
-	(krb5_cksumtype, char *, size_t);
+	(krb5_cksumtype, char *, size_t) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_timestamp_to_string
-	(krb5_timestamp, char *, size_t);
+	(krb5_timestamp, char *, size_t) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_timestamp_to_sfstring
-	(krb5_timestamp, char *, size_t, char *);
+	(krb5_timestamp, char *, size_t, char *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 krb5_error_code KRB5_CALLCONV krb5_deltat_to_string
-	(krb5_deltat, char *, size_t);
+	(krb5_deltat, char *, size_t) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 
 
@@ -2170,7 +2187,7 @@ typedef krb5_error_code (KRB5_CALLCONV *krb5_prompter_fct)(krb5_context context,
 					     const char *name,
 					     const char *banner,
 					     int num_prompts,
-					     krb5_prompt prompts[]);
+					     krb5_prompt prompts[]) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 
 krb5_error_code KRB5_CALLCONV
@@ -2179,7 +2196,7 @@ krb5_prompter_posix (krb5_context context,
 		const char *name,
 		const char *banner,
 		int num_prompts,
-		krb5_prompt prompts[]);
+		krb5_prompt prompts[]) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 typedef struct _krb5_get_init_creds_opt {
     krb5_flags flags;
@@ -2210,68 +2227,68 @@ typedef struct _krb5_get_init_creds_opt {
 krb5_error_code KRB5_CALLCONV
 krb5_get_init_creds_opt_alloc
 (krb5_context context,
-		krb5_get_init_creds_opt **opt);
+		krb5_get_init_creds_opt **opt) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_free
 (krb5_context context,
-		krb5_get_init_creds_opt *opt);
+		krb5_get_init_creds_opt *opt) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_init
-(krb5_get_init_creds_opt *opt);
+(krb5_get_init_creds_opt *opt) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_tkt_life
 (krb5_get_init_creds_opt *opt,
-		krb5_deltat tkt_life);
+		krb5_deltat tkt_life) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_renew_life
 (krb5_get_init_creds_opt *opt,
-		krb5_deltat renew_life);
+		krb5_deltat renew_life) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_forwardable
 (krb5_get_init_creds_opt *opt,
-		int forwardable);
+		int forwardable) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_proxiable
 (krb5_get_init_creds_opt *opt,
-		int proxiable);
+		int proxiable) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_canonicalize
 (krb5_get_init_creds_opt *opt,
-		int canonicalize);
+		int canonicalize) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_etype_list
 (krb5_get_init_creds_opt *opt,
 		krb5_enctype *etype_list,
-		int etype_list_length);
+		int etype_list_length) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_address_list
 (krb5_get_init_creds_opt *opt,
-		krb5_address **addresses);
+		krb5_address **addresses) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_preauth_list
 (krb5_get_init_creds_opt *opt,
 		krb5_preauthtype *preauth_list,
-		int preauth_list_length);
+		int preauth_list_length) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_salt
 (krb5_get_init_creds_opt *opt,
-		krb5_data *salt);
+		krb5_data *salt) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_get_init_creds_opt_set_change_password_prompt
 (krb5_get_init_creds_opt *opt,
-		int prompt);
+		int prompt) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /* Generic preauth option attribute/value pairs */
 typedef struct _krb5_gic_opt_pa_data {
@@ -2292,16 +2309,16 @@ krb5_get_init_creds_opt_set_pa
 		(krb5_context context,
 		krb5_get_init_creds_opt *opt,
 		const char *attr,
-		const char *value);
+		const char *value) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 typedef krb5_error_code
-(*krb5_gic_process_last_req)(krb5_context, krb5_last_req_entry **, void *);
+(*krb5_gic_process_last_req)(krb5_context, krb5_last_req_entry **, void *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_get_init_creds_opt_set_process_last_req(krb5_context,
 					     krb5_get_init_creds_opt *,
 					     krb5_gic_process_last_req,
-					     void *);
+					     void *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 
 krb5_error_code KRB5_CALLCONV
@@ -2314,7 +2331,7 @@ krb5_get_init_creds_password
 		void *data,
 		krb5_deltat start_time,
 		char *in_tkt_service,
-		krb5_get_init_creds_opt *k5_gic_options);
+		krb5_get_init_creds_opt *k5_gic_options) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_get_init_creds_keytab
@@ -2324,7 +2341,7 @@ krb5_get_init_creds_keytab
 		krb5_keytab arg_keytab,
 		krb5_deltat start_time,
 		char *in_tkt_service,
-		krb5_get_init_creds_opt *k5_gic_options);
+		krb5_get_init_creds_opt *k5_gic_options) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 typedef struct _krb5_verify_init_creds_opt {
     krb5_flags flags;
@@ -2335,11 +2352,11 @@ typedef struct _krb5_verify_init_creds_opt {
 
 void KRB5_CALLCONV
 krb5_verify_init_creds_opt_init
-(krb5_verify_init_creds_opt *k5_vic_options);
+(krb5_verify_init_creds_opt *k5_vic_options) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV
 krb5_verify_init_creds_opt_set_ap_req_nofail
 (krb5_verify_init_creds_opt *k5_vic_options,
-		int ap_req_nofail);
+		int ap_req_nofail) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_verify_init_creds
@@ -2348,7 +2365,7 @@ krb5_verify_init_creds
 		krb5_principal ap_req_server,
 		krb5_keytab ap_req_keytab,
 		krb5_ccache *ccache,
-		krb5_verify_init_creds_opt *k5_vic_options);
+		krb5_verify_init_creds_opt *k5_vic_options) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_get_validated_creds
@@ -2356,7 +2373,7 @@ krb5_get_validated_creds
 		krb5_creds *creds,
 		krb5_principal client,
 		krb5_ccache ccache,
-		char *in_tkt_service);
+		char *in_tkt_service) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_get_renewed_creds
@@ -2364,12 +2381,12 @@ krb5_get_renewed_creds
 		krb5_creds *creds,
 		krb5_principal client,
 		krb5_ccache ccache,
-		char *in_tkt_service);
+		char *in_tkt_service) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 krb5_error_code KRB5_CALLCONV
 krb5_decode_ticket
 (const krb5_data *code, 
-		krb5_ticket **rep);
+		krb5_ticket **rep) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_appdefault_string
@@ -2378,7 +2395,7 @@ krb5_appdefault_string
 	        const krb5_data *realm,
  		const char *option,
 		const char *default_value,
-		char ** ret_value);
+		char ** ret_value) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 void KRB5_CALLCONV
 krb5_appdefault_boolean
@@ -2387,7 +2404,7 @@ krb5_appdefault_boolean
 	        const krb5_data *realm,
  		const char *option,
 		int default_value,
-		int *ret_value);
+		int *ret_value) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /*
  * Prompter enhancements
@@ -2401,7 +2418,7 @@ krb5_appdefault_boolean
 typedef krb5_int32 krb5_prompt_type;
 
 krb5_prompt_type* KRB5_CALLCONV krb5_get_prompt_types
-	(krb5_context context);
+	(krb5_context context) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 /* Error reporting */
 void KRB5_CALLCONV_C
@@ -2427,11 +2444,11 @@ krb5_vset_error_message (krb5_context, krb5_error_code, const char *, va_list)
  * krb5_free_error_message.
  */
 const char * KRB5_CALLCONV
-krb5_get_error_message (krb5_context, krb5_error_code);
+krb5_get_error_message (krb5_context, krb5_error_code) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV
-krb5_free_error_message (krb5_context, const char *);
+krb5_free_error_message (krb5_context, const char *) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 void KRB5_CALLCONV
-krb5_clear_error_message (krb5_context);
+krb5_clear_error_message (krb5_context) KERBEROS_APPLE_DEPRECATED("use GSS.framework");
 
 
 #if TARGET_OS_MAC

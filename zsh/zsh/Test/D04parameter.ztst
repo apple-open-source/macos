@@ -169,11 +169,55 @@
 >a-string-with-slashes
 >a-string-with-slashes
 
+  args=('one' '#foo' '(bar' "'three'" two)
+  mod=('#foo' '(bar' "'three'" sir_not_appearing_in_this_film)
+  print ${args:|mod}
+  print ${args:*mod}
+  print "${(@)args:|mod}"
+  print "${(@)args:*mod}"
+  args=(two words)
+  mod=('one word' 'two words')
+  print "${args:|mod}"
+  print "${args:*mod}"
+  scalar='two words'
+  print ${scalar:|mod}
+  print ${scalar:*mod}
+  print ${args:*nonexistent}
+  empty=
+  print ${args:*empty}
+0:"|" array exclusion and "*" array intersection
+>one two
+>#foo (bar 'three'
+>one two
+>#foo (bar 'three'
+>
+>two words
+>
+>two words
+>
+>
+
   str1='twocubed'
   array=(the number of protons in an oxygen nucleus)
   print $#str1 ${#str1} "$#str1 ${#str1}" $#array ${#array} "$#array ${#array}"
 0:${#...}, $#...
 >8 8 8 8 8 8 8 8
+
+  set 1 2 3 4 5 6 7 8 9
+  print ${##}
+  set 1 2 3 4 5 6 7 8 9 10
+  print ${##}
+  print ${##""}
+  print ${##1}
+  print ${##2}
+  print ${###<->} # oh, for pete's sake...
+0:${##} is length of $#, and other tales of hash horror
+>1
+>2
+>10
+>0
+>10
+>
 
   array=(once bitten twice shy)
   print IF${array}THEN
@@ -239,6 +283,23 @@
 >two
 >words
 
+  (setopt shwordsplit # ensure this doesn't get set in main shell...
+  test_splitting ()
+  {
+    array="one two three"
+    for e in $array; do
+      echo "'$e'"
+    done
+  }
+  test_split_var=
+  echo _${test_split_var:=$(test_splitting)}_
+  echo "_${test_split_var}_")
+0:SH_WORD_SPLIT inside $(...) inside ${...}
+>_'one' 'two' 'three'_
+>_'one'
+>'two'
+>'three'_
+
   print -l "${(f)$(print first line\\nsecond line\\nthird line)}"
 0:${(f)$(...)}
 >first line
@@ -290,6 +351,19 @@
 >Howzat
 >usay
 
+  foo='\u65\123'
+  print -r ${(g:o:)foo}
+  foo='\u65\0123^X\C-x'
+  print -r ${(g::)foo}
+  foo='^X'
+  bar='\C-\130'
+  [[ ${(g:c:)foo} == ${(g:oe:)bar} ]]
+  echo $?
+0:${(g)...}
+>eS
+>eS^X\C-x
+>0
+
   foo='I'\''m nearly out of my mind with tedium'
   bar=foo
   print ${(P)bar}
@@ -338,6 +412,13 @@
 >"playing 'stupid' \"games\" \\w\\i\\t\\h \$quoting."
 >$'playing \'stupid\' "games" \\w\\i\\t\\h $quoting.'
 >'playing '\'stupid\'' "games" \w\i\t\h $quoting.'
+
+  x=( a '' '\b' 'c d' '$e' )
+  print -r ${(q)x}
+  print -r ${(q-)x}
+0:Another ${(q...)...} test
+>a '' \\b c\ d \$e
+>a '' '\b' 'c d' '$e'
 
   print -r -- ${(q-):-foo}
   print -r -- ${(q-):-foo bar}
@@ -1030,6 +1111,16 @@
 >i
 >willJOYCE
 
+  print -l JAMES${(u)${=:-$(echo yes yes she said yes i will yes she said she will and yes she did yes)}}JOYCE
+0:New hash seive unique algorithm for arrays of more than 10 elements
+>JAMESyes
+>she
+>said
+>i
+>will
+>and
+>didJOYCE
+
   foo=
   print "${${foo}/?*/replacement}"
 0:Quoted zero-length strings are handled properly
@@ -1201,7 +1292,7 @@
 >in
 >it
 
-  foo="line:with::missing::fields:in:it"
+  foo="line:with::missing::fields:in:it:"
   print -l "${(@s.:.)foo}"
 0:Retention of empty fields in quoted splitting with "@"
 >line
@@ -1212,6 +1303,20 @@
 >fields
 >in
 >it
+>
+
+  str=abcd
+  print -l ${(s..)str}
+  print -l "${(s..)str}"
+0:splitting of strings into characters
+>a
+>b
+>c
+>d
+>a
+>b
+>c
+>d
 
   array=('%' '$' 'j' '*' '$foo')
   print ${array[(i)*]} "${array[(i)*]}"
@@ -1338,6 +1443,7 @@
    print ${foo:$(echo 3 + 3):`echo 4 - 3`}
    print ${foo: -1}
    print ${foo: -10}
+   print ${foo:5:-2}
 0:Bash-style offsets, scalar
 >456789
 >56789
@@ -1349,6 +1455,7 @@
 >7
 >9
 >123456789
+>67
 
    foo=(1 2 3 4 5 6 7 8 9)
    print ${foo:3}
@@ -1361,6 +1468,7 @@
    print ${foo:$(echo 3 + 3):`echo 4 - 3`}
    print ${foo: -1}
    print ${foo: -10}
+   print ${foo:5:-2}
 0:Bash-style offsets, array
 >4 5 6 7 8 9
 >5 6 7 8 9
@@ -1372,6 +1480,7 @@
 >7
 >9
 >1 2 3 4 5 6 7 8 9
+>6 7
 
    testfn() {
      emulate -L sh
@@ -1401,3 +1510,37 @@
 >a
 >b
 >c
+
+   printf "%n" '[0]'
+1:Regression test for identifier test
+?(eval):1: not an identifier: [0]
+
+   str=rts
+   print ${str:0:}
+1:Regression test for missing length after offset
+?(eval):2: unrecognized modifier
+
+   foo="123456789"
+   print ${foo:5:-6}
+1:Regression test for total length < 0 in string
+?(eval):2: substring expression: 3 < 5
+
+   foo=(1 2 3 4 5 6 7 8 9)
+   print ${foo:5:-6}
+1:Regression test for total length < 0 in array
+?(eval):2: substring expression: 3 < 5
+
+   foo=(${(0)"$(print -n)"})
+   print ${#foo}
+0:Nularg removed from split empty string
+>0
+
+   (set -- a b c
+    setopt shwordsplit
+    IFS=
+    print -rl "$*"
+    unset IFS
+    print -rl "$*")
+0:Regression test for shwordsplit with null or unset IFS and quoted array
+>abc
+>a b c

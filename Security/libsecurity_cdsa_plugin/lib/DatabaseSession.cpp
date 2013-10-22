@@ -322,7 +322,12 @@ DatabaseSession::GetDbNameFromHandle(CSSM_DB_HANDLE inDbHandle,
 	secdebug("dbsession", "********************");
 }
 
+
 #ifndef NDEBUG
+
+#if 0 /* unusued functions */
+
+static
 void DumpAttributeInfo(const CSSM_DB_ATTRIBUTE_INFO &info)
 {
 	const char* attrNameType;
@@ -393,7 +398,7 @@ void DumpAttributeInfo(const CSSM_DB_ATTRIBUTE_INFO &info)
 }
 
 
-
+static
 void DumpAttributes(const CSSM_DB_RECORD_ATTRIBUTE_DATA *inAttributes)
 {
 	if (!inAttributes)
@@ -443,8 +448,8 @@ void DumpAttributes(const CSSM_DB_RECORD_ATTRIBUTE_DATA *inAttributes)
 					break;
 				case CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32:
 				{
-					unsigned j;
-					unsigned numInts = inAttributes->AttributeData[n].Value[i].Length / sizeof(UInt32);
+					unsigned long j;
+					unsigned long numInts = inAttributes->AttributeData[n].Value[i].Length / sizeof(UInt32);
 					for (j = 0; j < numInts; ++j)
 					{
 						uint32* nums = (uint32*) inAttributes->AttributeData[n].Value[i].Data;
@@ -461,15 +466,15 @@ void DumpAttributes(const CSSM_DB_RECORD_ATTRIBUTE_DATA *inAttributes)
 		}
 	}
 }
+#endif 
 
 
-
-void
+static void
 DumpUniqueRecord(const CSSM_DB_UNIQUE_RECORD &record)
 {
+/*
 	const char* s;
 
-/*	
 	switch (record.RecordLocator.IndexType)
 	{
 		case CSSM_DB_INDEX_UNIQUE:
@@ -527,7 +532,7 @@ DumpUniqueRecord(const CSSM_DB_UNIQUE_RECORD &record)
 	
 	secdebug("dbsession", "    RecordIdentifier.Data: %s", output.c_str());
 }
-#endif
+#endif /* NDEBUG */
 
 void
 DatabaseSession::DataInsert(CSSM_DB_HANDLE inDbHandle,

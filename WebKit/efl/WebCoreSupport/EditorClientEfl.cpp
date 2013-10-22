@@ -23,8 +23,10 @@
 #include "config.h"
 #include "EditorClientEfl.h"
 
+#include "Document.h"
 #include "DumpRenderTreeSupportEfl.h"
 #include "Editor.h"
+#include "EflKeyboardUtilities.h"
 #include "EventNames.h"
 #include "FocusController.h"
 #include "Frame.h"
@@ -35,7 +37,9 @@
 #include "Settings.h"
 #include "UndoStep.h"
 #include "WindowsKeyboardCodes.h"
+#include "ewk_frame_private.h"
 #include "ewk_private.h"
+#include "ewk_view_private.h"
 
 using namespace WebCore;
 
@@ -51,15 +55,10 @@ void EditorClientEfl::setInputMethodState(bool active)
     ewk_view_input_method_state_set(m_view, active);
 }
 
-bool EditorClientEfl::shouldDeleteRange(Range*)
+bool EditorClientEfl::shouldDeleteRange(Range* range)
 {
-    notImplemented();
+    evas_object_smart_callback_call(m_view, "editorclient,range,delete", range);
     return true;
-}
-
-bool EditorClientEfl::shouldShowDeleteInterface(HTMLElement*)
-{
-    return false;
 }
 
 bool EditorClientEfl::isContinuousSpellCheckingEnabled()
@@ -80,33 +79,37 @@ int EditorClientEfl::spellCheckerDocumentTag()
     return 0;
 }
 
-bool EditorClientEfl::shouldBeginEditing(Range*)
+bool EditorClientEfl::shouldBeginEditing(Range* range)
 {
-    notImplemented();
+    evas_object_smart_callback_call(m_view, "editorclient,editing,begin", range);
     return true;
 }
 
-bool EditorClientEfl::shouldEndEditing(Range*)
+bool EditorClientEfl::shouldEndEditing(Range* range)
 {
-    notImplemented();
+    evas_object_smart_callback_call(m_view, "editorclient,editing,end", range);
     return true;
 }
 
-bool EditorClientEfl::shouldInsertText(const String&, Range*, EditorInsertAction)
+bool EditorClientEfl::shouldInsertText(const String& text, Range* range, EditorInsertAction action)
 {
-    notImplemented();
+    CString protectedText = text.utf8();
+    Ewk_Should_Insert_Text_Event shouldInsertTextEvent = { protectedText.data(), range, action };
+    evas_object_smart_callback_call(m_view, "editorclient,text,insert", &shouldInsertTextEvent);
     return true;
 }
 
-bool EditorClientEfl::shouldChangeSelectedRange(Range*, Range*, EAffinity, bool)
+bool EditorClientEfl::shouldChangeSelectedRange(Range* fromRange, Range* toRange, EAffinity affinity, bool stillSelecting)
 {
-    notImplemented();
+    Ewk_Should_Change_Selected_Range_Event shouldChangeSelectedRangeEvent = { fromRange, toRange, affinity, stillSelecting };
+    evas_object_smart_callback_call(m_view, "editorclient,selected,range,change", &shouldChangeSelectedRangeEvent);
     return true;
 }
 
-bool EditorClientEfl::shouldApplyStyle(StylePropertySet*, Range*)
+bool EditorClientEfl::shouldApplyStyle(StylePropertySet* style, Range* range)
 {
-    notImplemented();
+    Ewk_Should_Apply_Style_Event shouldApplyStyleEvent = { style, range };
+    evas_object_smart_callback_call(m_view, "editorclient,style,apply", &shouldApplyStyleEvent);
     return true;
 }
 
@@ -118,7 +121,7 @@ bool EditorClientEfl::shouldMoveRangeAfterDelete(Range*, Range*)
 
 void EditorClientEfl::didBeginEditing()
 {
-    notImplemented();
+    evas_object_smart_callback_call(m_view, "editorclient,editing,began", 0);
 }
 
 void EditorClientEfl::respondToChangedContents()
@@ -139,21 +142,31 @@ void EditorClientEfl::respondToChangedSelection(Frame* coreFrame)
     if (!coreFrame)
         return;
 
-    if (coreFrame->editor() && coreFrame->editor()->ignoreCompositionSelectionChange())
+    if (coreFrame->editor().ignoreCompositionSelectionChange())
         return;
 
     Evas_Object* webFrame = EWKPrivate::kitFrame(coreFrame);
     ewk_frame_editor_client_selection_changed(webFrame);
+
+    coreFrame->editor().cancelCompositionIfSelectionIsInvalid();
 }
 
 void EditorClientEfl::didEndEditing()
 {
-    notImplemented();
+    evas_object_smart_callback_call(m_view, "editorclient,editing,ended", 0);
 }
 
 void EditorClientEfl::didWriteSelectionToPasteboard()
 {
     notImplemented();
+}
+
+void EditorClientEfl::willWriteSelectionToPasteboard(WebCore::Range*)
+{
+}
+
+void EditorClientEfl::getClientPasteboardDataForRange(WebCore::Range*, Vector<String>&, Vector<RefPtr<WebCore::SharedBuffer> >&)
+{
 }
 
 void EditorClientEfl::didSetSelectionTypesForPasteboard()
@@ -219,9 +232,10 @@ void EditorClientEfl::redo()
     }
 }
 
-bool EditorClientEfl::shouldInsertNode(Node*, Range*, EditorInsertAction)
+bool EditorClientEfl::shouldInsertNode(Node* node, Range* range, EditorInsertAction action)
 {
-    notImplemented();
+    Ewk_Should_Insert_Node_Event insertNodeEvent = { node, range, action };
+    evas_object_smart_callback_call(m_view, "editorclient,node,insert", &insertNodeEvent);
     return true;
 }
 
@@ -230,28 +244,20 @@ void EditorClientEfl::pageDestroyed()
     delete this;
 }
 
-void EditorClientEfl::setSmartInsertDeleteEnabled(bool enabled)
-{
-    m_smartInsertDeleteEnabled = enabled;
-    if (enabled)
-        setSelectTrailingWhitespaceEnabled(false);
-}
-
 bool EditorClientEfl::smartInsertDeleteEnabled()
 {
-    return m_smartInsertDeleteEnabled;
-}
-
-void EditorClientEfl::setSelectTrailingWhitespaceEnabled(bool enabled)
-{
-    m_selectTrailingWhitespaceEnabled = enabled;
-    if (enabled)
-        setSmartInsertDeleteEnabled(false);
+    WebCore::Page* corePage = EWKPrivate::corePage(m_view);
+    if (!corePage)
+        return false;
+    return corePage->settings()->smartInsertDeleteEnabled();
 }
 
 bool EditorClientEfl::isSelectTrailingWhitespaceEnabled()
 {
-    return m_selectTrailingWhitespaceEnabled;
+    WebCore::Page* corePage = EWKPrivate::corePage(m_view);
+    if (!corePage)
+        return false;
+    return corePage->settings()->selectTrailingWhitespaceEnabled();
 }
 
 void EditorClientEfl::toggleContinuousSpellChecking()
@@ -264,110 +270,14 @@ void EditorClientEfl::toggleGrammarChecking()
     notImplemented();
 }
 
-static const unsigned CtrlKey = 1 << 0;
-static const unsigned AltKey = 1 << 1;
-static const unsigned ShiftKey = 1 << 2;
-
-struct KeyDownEntry {
-    unsigned virtualKey;
-    unsigned modifiers;
-    const char* name;
-};
-
-struct KeyPressEntry {
-    unsigned charCode;
-    unsigned modifiers;
-    const char* name;
-};
-
-static const KeyDownEntry keyDownEntries[] = {
-    { VK_LEFT,   0,                  "MoveLeft"                                    },
-    { VK_LEFT,   ShiftKey,           "MoveLeftAndModifySelection"                  },
-    { VK_LEFT,   CtrlKey,            "MoveWordLeft"                                },
-    { VK_LEFT,   CtrlKey | ShiftKey, "MoveWordLeftAndModifySelection"              },
-    { VK_RIGHT,  0,                  "MoveRight"                                   },
-    { VK_RIGHT,  ShiftKey,           "MoveRightAndModifySelection"                 },
-    { VK_RIGHT,  CtrlKey,            "MoveWordRight"                               },
-    { VK_RIGHT,  CtrlKey | ShiftKey, "MoveWordRightAndModifySelection"             },
-    { VK_UP,     0,                  "MoveUp"                                      },
-    { VK_UP,     ShiftKey,           "MoveUpAndModifySelection"                    },
-    { VK_PRIOR,  ShiftKey,           "MovePageUpAndModifySelection"                },
-    { VK_DOWN,   0,                  "MoveDown"                                    },
-    { VK_DOWN,   ShiftKey,           "MoveDownAndModifySelection"                  },
-    { VK_NEXT,   ShiftKey,           "MovePageDownAndModifySelection"              },
-    { VK_PRIOR,  0,                  "MovePageUp"                                  },
-    { VK_NEXT,   0,                  "MovePageDown"                                },
-    { VK_HOME,   0,                  "MoveToBeginningOfLine"                       },
-    { VK_HOME,   ShiftKey,           "MoveToBeginningOfLineAndModifySelection"     },
-    { VK_HOME,   CtrlKey,            "MoveToBeginningOfDocument"                   },
-    { VK_HOME,   CtrlKey | ShiftKey, "MoveToBeginningOfDocumentAndModifySelection" },
-
-    { VK_END,    0,                  "MoveToEndOfLine"                             },
-    { VK_END,    ShiftKey,           "MoveToEndOfLineAndModifySelection"           },
-    { VK_END,    CtrlKey,            "MoveToEndOfDocument"                         },
-    { VK_END,    CtrlKey | ShiftKey, "MoveToEndOfDocumentAndModifySelection"       },
-
-    { VK_BACK,   0,                  "DeleteBackward"                              },
-    { VK_BACK,   ShiftKey,           "DeleteBackward"                              },
-    { VK_DELETE, 0,                  "DeleteForward"                               },
-    { VK_BACK,   CtrlKey,            "DeleteWordBackward"                          },
-    { VK_DELETE, CtrlKey,            "DeleteWordForward"                           },
-
-    { 'B',       CtrlKey,            "ToggleBold"                                  },
-    { 'I',       CtrlKey,            "ToggleItalic"                                },
-
-    { VK_ESCAPE, 0,                  "Cancel"                                      },
-    { VK_OEM_PERIOD, CtrlKey,        "Cancel"                                      },
-    { VK_TAB,    0,                  "InsertTab"                                   },
-    { VK_TAB,    ShiftKey,           "InsertBacktab"                               },
-    { VK_RETURN, 0,                  "InsertNewline"                               },
-    { VK_RETURN, CtrlKey,            "InsertNewline"                               },
-    { VK_RETURN, AltKey,             "InsertNewline"                               },
-    { VK_RETURN, AltKey | ShiftKey,  "InsertNewline"                               },
-};
-
-static const KeyPressEntry keyPressEntries[] = {
-    { '\t',   0,                  "InsertTab"                                   },
-    { '\t',   ShiftKey,           "InsertBacktab"                               },
-    { '\r',   0,                  "InsertNewline"                               },
-    { '\r',   CtrlKey,            "InsertNewline"                               },
-    { '\r',   AltKey,             "InsertNewline"                               },
-    { '\r',   AltKey | ShiftKey,  "InsertNewline"                               },
-};
-
 const char* EditorClientEfl::interpretKeyEvent(const KeyboardEvent* event)
 {
     ASSERT(event->type() == eventNames().keydownEvent || event->type() == eventNames().keypressEvent);
 
-    static HashMap<int, const char*>* keyDownCommandsMap = 0;
-    static HashMap<int, const char*>* keyPressCommandsMap = 0;
+    if (event->type() == eventNames().keydownEvent)
+        return getKeyDownCommandName(event);
 
-    if (!keyDownCommandsMap) {
-        keyDownCommandsMap = new HashMap<int, const char*>;
-        keyPressCommandsMap = new HashMap<int, const char*>;
-
-        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyDownEntries); ++i)
-            keyDownCommandsMap->set(keyDownEntries[i].modifiers << 16 | keyDownEntries[i].virtualKey, keyDownEntries[i].name);
-
-        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyPressEntries); ++i)
-            keyPressCommandsMap->set(keyPressEntries[i].modifiers << 16 | keyPressEntries[i].charCode, keyPressEntries[i].name);
-    }
-
-    unsigned modifiers = 0;
-    if (event->shiftKey())
-        modifiers |= ShiftKey;
-    if (event->altKey())
-        modifiers |= AltKey;
-    if (event->ctrlKey())
-        modifiers |= CtrlKey;
-
-    if (event->type() == eventNames().keydownEvent) {
-        int mapKey = modifiers << 16 | event->keyCode();
-        return mapKey ? keyDownCommandsMap->get(mapKey) : 0;
-    }
-
-    int mapKey = modifiers << 16 | event->charCode();
-    return mapKey ? keyPressCommandsMap->get(mapKey) : 0;
+    return getKeyPressCommandName(event);
 }
 
 bool EditorClientEfl::handleEditingKeyboardEvent(KeyboardEvent* event)
@@ -414,7 +324,7 @@ bool EditorClientEfl::handleEditingKeyboardEvent(KeyboardEvent* event)
         }
     }
 
-    Editor::Command command = frame->editor()->command(interpretKeyEvent(event));
+    Editor::Command command = frame->editor().command(interpretKeyEvent(event));
 
     if (keyEvent->type() == PlatformEvent::RawKeyDown) {
         // WebKit doesn't have enough information about mode to decide how commands that just insert text if executed via Editor should be treated,
@@ -426,6 +336,10 @@ bool EditorClientEfl::handleEditingKeyboardEvent(KeyboardEvent* event)
     if (command.execute(event))
         return true;
 
+    // Don't allow text insertion for nodes that cannot edit.
+    if (!frame->editor().canEdit())
+        return false;
+
     // Don't insert null or control characters as they can result in unexpected behaviour
     if (event->charCode() < ' ')
         return false;
@@ -434,7 +348,7 @@ bool EditorClientEfl::handleEditingKeyboardEvent(KeyboardEvent* event)
     if (keyEvent->ctrlKey() || keyEvent->altKey())
         return false;
 
-    return frame->editor()->insertText(event->keyEvent()->text(), event);
+    return frame->editor().insertText(event->keyEvent()->text(), event);
 }
 
 void EditorClientEfl::handleKeyboardEvent(KeyboardEvent* event)
@@ -443,15 +357,13 @@ void EditorClientEfl::handleKeyboardEvent(KeyboardEvent* event)
         event->setDefaultHandled();
 }
 
-void EditorClientEfl::handleInputMethodKeydown(KeyboardEvent* event)
+void EditorClientEfl::handleInputMethodKeydown(KeyboardEvent*)
 {
 }
 
 EditorClientEfl::EditorClientEfl(Evas_Object* view)
     : m_isInRedo(false)
     , m_view(view)
-    , m_selectTrailingWhitespaceEnabled(false)
-    , m_smartInsertDeleteEnabled(false)
 {
     notImplemented();
 }
@@ -488,6 +400,11 @@ void EditorClientEfl::textWillBeDeletedInTextField(Element*)
 void EditorClientEfl::textDidChangeInTextArea(Element*)
 {
     notImplemented();
+}
+
+bool EditorClientEfl::shouldEraseMarkersAfterChangeSelection(TextCheckingType) const
+{
+    return true;
 }
 
 void EditorClientEfl::ignoreWordInSpellDocument(const String&)
@@ -537,7 +454,7 @@ bool EditorClientEfl::spellingUIIsShowing()
     return false;
 }
 
-void EditorClientEfl::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses)
+void EditorClientEfl::getGuessesForWord(const String& /*word*/, const String& /*context*/, Vector<String>& /*guesses*/)
 {
     notImplemented();
 }

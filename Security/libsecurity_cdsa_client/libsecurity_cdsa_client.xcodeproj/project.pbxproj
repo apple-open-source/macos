@@ -252,7 +252,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD2D60987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_client" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -327,8 +327,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446164146E94DE00B12992 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_cdsa_client;
 				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
 			};
 			name = Debug;
 		};
@@ -336,8 +341,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446166146E94DE00B12992 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_cdsa_client;
 				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
 			};
 			name = Release;
 		};
@@ -345,6 +355,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446165146E94DE00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -352,6 +368,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446165146E94DE00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

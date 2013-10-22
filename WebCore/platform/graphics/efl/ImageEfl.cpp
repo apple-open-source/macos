@@ -30,16 +30,13 @@
 #include "Image.h"
 
 #include "BitmapImage.h"
+#include "CairoUtilitiesEfl.h"
 #include "SharedBuffer.h"
 
 #include <cairo.h>
 #include <wtf/text/StringConcatenate.h>
 
 namespace WebCore {
-
-void BitmapImage::initPlatformData()
-{
-}
 
 void BitmapImage::invalidatePlatformData()
 {
@@ -64,6 +61,12 @@ PassRefPtr<Image> Image::loadPlatformResource(const char* name)
     RefPtr<SharedBuffer> buffer = loadResourceSharedBuffer(name);
     img->setData(buffer.release(), true);
     return img.release();
+}
+
+Evas_Object* BitmapImage::getEvasObject(Evas* evas)
+{
+    RefPtr<cairo_surface_t> surface = nativeImageForCurrentFrame();
+    return surface ? evasObjectFromCairoImageSurface(evas, surface.get()).leakRef() : 0;
 }
 
 }

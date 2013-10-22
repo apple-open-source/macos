@@ -35,35 +35,24 @@
 
 #include "AsyncFileSystemCallbacks.h"
 #include "ExceptionCode.h"
-#include "FileSystem.h"
 #include "NotImplemented.h"
 
 namespace WebCore {
 
-const char AsyncFileSystem::persistentPathPrefix[] = "persistent";
-const size_t AsyncFileSystem::persistentPathPrefixLength = sizeof(AsyncFileSystem::persistentPathPrefix) - 1;
-const char AsyncFileSystem::temporaryPathPrefix[] = "temporary";
-const size_t AsyncFileSystem::temporaryPathPrefixLength = sizeof(AsyncFileSystem::temporaryPathPrefix) - 1;
-
-#if !PLATFORM(CHROMIUM) && !PLATFORM(GTK) && !PLATFORM(BLACKBERRY)
+#if !PLATFORM(GTK) && !PLATFORM(BLACKBERRY) && !PLATFORM(EFL)
 bool AsyncFileSystem::isAvailable()
 {
     notImplemented();
     return false;
 }
 
-bool AsyncFileSystem::isValidType(Type type)
-{
-    return type == Temporary || type == Persistent;
-}
-
-PassOwnPtr<AsyncFileSystem> AsyncFileSystem::create(Type)
+void AsyncFileSystem::openFileSystem(const String& basePath, const String& storageIdentifier, FileSystemType, bool, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
     notImplemented();
-    return nullptr;
+    callbacks->didFail(NOT_SUPPORTED_ERR);
 }
 
-void AsyncFileSystem::openFileSystem(const String& basePath, const String& storageIdentifier, Type type, bool, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystem::deleteFileSystem(const String& basePath, const String& storageIdentifier, FileSystemType type, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
     notImplemented();
     callbacks->didFail(NOT_SUPPORTED_ERR);

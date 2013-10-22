@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>PayloadContent</key>
+    <array>
+      <dict>
+	<key>PayloadDescription</key>
+	<string>Single Sign On - ADS</string>
+	<key>PayloadDisplayName</key>
+	<string>SSO ADS.APPLE.COM</string>
+	<key>PayloadIdentifier</key>
+	<string>com.apple.ads.sso</string>
+	<key>PayloadType</key>
+	<string>com.apple.sso</string>
+	<key>PayloadUUID</key>
+	<string>D4175F9E-16E2-4E78-A459-BBBFA79C7E2A</string>
+	<key>PayloadVersion</key>
+	<real>1</real>
+	<key>Name</key>
+	<string>ADS Single Sign On</string>
+	<key>AppIdentifierMatches</key>
+	<array>
+	  <string>com.apple.mobilesafari</string>
+	  <string>com.apple.GSSSampleIOS</string>
+	</array>
+	<key>Kerberos</key>
+	<dict>
+	  <key>Realm</key>
+	  <string>ADS.APPLE.COM</string>
+	  <key>URLPrefixMatches</key>
+	  <array>
+	    <string>http://dc03.ads.apple.com/negotiate/</string>
+	  </array>
+	</dict>
+      </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>SSO ADS</string>
+    <key>PayloadIdentifier</key>
+    <string>ennio.apple.com.BFF22BF0-79CE-4C8E-A2C3-3C50681FB2EA</string>
+    <key>PayloadRemovalDisallowed</key>
+    <false/>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>6F0F7E02-4F54-4CC7-826A-EECD4E8335AA</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+  </dict>
+</plist>

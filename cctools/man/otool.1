@@ -1,4 +1,4 @@
-.TH OTOOL 1 "March 30, 2012" "Apple, Inc."
+.TH OTOOL 1 "December 11, 2012" "Apple, Inc."
 .SH NAME
 otool \- object file displaying tool
 .SH SYNOPSIS
@@ -103,6 +103,9 @@ Display the module table of a dynamically linked shared library.
 .TP
 .B \-H
 Display the two-level namespace hints table.
+.TP
+.B \-G
+Display the data in code table.
 
 .PP
 The following options may also be given:
@@ -133,7 +136,12 @@ Don't print leading addresses or headers with disassembly of sections.
 .TP
 .B \-q
 Use the llvm disassembler when doing disassembly, this is available for the x86
-and arm architectures.
+and arm architectures.  This is the default.
+.TP
+.BI \-mcpu= arg
+When doing disassembly using the llvm disassembler use the cpu
+.I arg.
+.TP
 .B \-Q
 Use
 .IR otool (1)'s

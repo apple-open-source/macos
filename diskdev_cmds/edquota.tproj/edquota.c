@@ -191,6 +191,13 @@ main(argc, argv)
 		while (argc-- > 0) {
 			if ((id = getentry(*argv++, quotatype)) == -1)
 				continue;
+			/*
+			 * Set the ID in each disk quota block to match
+			 * the ID it's supposed to go with.
+			 */
+			for (qup = protoprivs; qup; qup = qup->next) {
+				qup->dqblk.dqb_id = id;
+			}
 			putprivs(id, quotatype, protoprivs);
 		}
 		exit(0);

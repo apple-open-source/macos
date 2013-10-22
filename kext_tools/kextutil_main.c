@@ -801,32 +801,27 @@ checkArgs(KextutilArgs * toolArgs)
             goto finish;
         }
         toolArgs->kernelURL = scratchURL;
-        
-        OSKextLog(/* kext */ NULL,
-                  kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                  "No kernel file specified, using '%s' ",
-                  kDefaultKernel);
     }
 
     if (toolArgs->kernelURL) {
-        SInt32 errorCode;
-
-        if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
-            toolArgs->kernelURL, &toolArgs->kernelFile, /* properties */ NULL,
-            /* desiredProperties */ NULL, &errorCode)) {
-
-            if (!CFURLGetFileSystemRepresentation(toolArgs->kernelURL,
-                /* resolveToBase */ false,
-                (u_char *)kernelPathCString,
-                sizeof(kernelPathCString))) {
-                
-                strncpy(kernelPathCString, "(unknown)", sizeof(kernelPathCString));
-            }
-            
+        /* create and fill our CFData object for toolArgs->kernelFile 
+         */
+        if (!CFURLGetFileSystemRepresentation(toolArgs->kernelURL,
+                                              true,
+                                              (uint8_t *)kernelPathCString,
+                                              sizeof(kernelPathCString))) {
+            OSKextLogStringError(/* kext */ NULL);
+            result = EX_OSFILE; 
+            goto finish;
+       }
+        
+        if (!createCFDataFromFile(&toolArgs->kernelFile,
+                                  kernelPathCString)) {
             OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Can't read kernel file %s.", kernelPathCString);
-            result = EX_OSFILE;  // xxx - maybe not the right error?
+                      kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                      "%s: Can't read kernel file '%s'",
+                      __func__, kernelPathCString);
+            result = EX_OSFILE; 
             goto finish;
         }
     }
@@ -930,7 +925,7 @@ createKextsToProcess(
     */
     idCount = CFDictionaryGetCount(toolArgs->loadAddresses);
     if (idCount) {
-        addressKeys = (CFStringRef *)malloc(idCount * sizeof(CFDictionaryRef *));
+        addressKeys = (CFStringRef *)malloc(idCount * sizeof(CFStringRef));
         if (!addressKeys) {
             OSKextLogMemError();
             result = EX_OSERR;
@@ -1131,9 +1126,8 @@ processKexts(
         }
     }
 
-   /*****
-    * Get busy loading kexts.
-    */
+    /* Get busy loading kexts.
+     */
     count = CFArrayGetCount(kextsToProcess);
     for (i = 0; i < count; i++) {
         OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(kextsToProcess, i);
@@ -1190,15 +1184,66 @@ processKext(
     }
 
     if (toolArgs->doLoad) {
+        OSStatus  sigResult = checkKextSignature(aKext, true);
+        if ( sigResult != 0 ) {
+            /* notify kextd we are trying to load a kext with invalid signature.
+             */
+            CFMutableDictionaryRef myAlertInfoDict = NULL; // must release
+            Boolean inLibExtFolder = isInLibraryExtensionsFolder(aKext);
+ 
+            addKextToAlertDict(&myAlertInfoDict, aKext);
+            if (myAlertInfoDict) {
+                if (inLibExtFolder) {
+                    postNoteAboutKexts(CFSTR("No Load Kext Notification"),
+                                       myAlertInfoDict );
+                }
+                else if (sigResult == CSSMERR_TP_CERT_REVOKED) {
+                    postNoteAboutKexts(CFSTR("Revoked Cert Kext Notification"),
+                                       myAlertInfoDict);
+                }
+#if 0 // not yet
+                else if (sigResult == errSecCSUnsigned) {
+                    postNoteAboutKexts( CFSTR("Unsigned Kext Notification"),
+                                       myAlertInfoDict );
+                }
+#endif
+                else {
+                    postNoteAboutKexts( CFSTR("Invalid Signature Kext Notification"),
+                                       myAlertInfoDict );
+                }
+                SAFE_RELEASE(myAlertInfoDict);
+            }
+            
+            /* Do not load if kext has invalid signature and comes from
+             *  /Library/Extensions/
+             */
+            if ( inLibExtFolder || sigResult == CSSMERR_TP_CERT_REVOKED ) {
+                CFStringRef myBundleID;         // do not release
+                
+                myBundleID = OSKextGetIdentifier(aKext);
+                result = kOSKextReturnNotLoadable; // see 13024670
+                OSKextLogCFString(NULL,
+                                  kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                                  CFSTR("ERROR: invalid signature for %@, will not load"),
+                                  myBundleID ? myBundleID : CFSTR("Unknown"));
+                goto finish;
+            }
+            OSKextLogCFString(NULL,
+                kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                CFSTR("WARNING - Invalid signature %ld 0x%02lX for kext \"%s\""),
+                (long)sigResult, (long)sigResult, kextPathCString);
+        }
+        
         result = loadKext(aKext, kextPathCString, toolArgs, fatal);
     }
     if (result != EX_OK) {
         goto finish;
     }
-    
-    /* <rdar://problem/12435992> Message tracing for kext loads
-     */
-    logMTMessage(aKext);
+
+    if (toolArgs->doLoad) {
+        /* <rdar://problem/12435992> Message tracing for kext loads */
+        recordKextLoadForMT(aKext);
+    }
 
    /* Reread loaded kext info to reflect newly-loaded kexts
     * if we need to save symbols (which requires load addresses)
@@ -1263,6 +1308,7 @@ runTestsOnKext(
     Boolean        kextLooksGood = true;
     Boolean        tryLink       = false;
     OSKextLogSpec  logFilter     = OSKextGetLogFilter(/* kernel? */ false);
+    OSStatus        sigResult    = 0;
 
    /* Print message if not loadable in safe boot, but keep going
     * for further test results.
@@ -1322,10 +1368,15 @@ runTestsOnKext(
         kextLooksGood = OSKextDependenciesAreLoadableInSafeBoot(aKext) && kextLooksGood;
     }
 
+    /* Check code signature for diagnotic messages.  
+     * kext signature failures are not fatal in 10.9
+     */
+    sigResult = checkKextSignature(aKext, false); 
+
    /*****
     * Print diagnostics/warnings as needed, set status if kext can't be used.
     */
-    if (!kextLooksGood) {
+    if (!kextLooksGood || sigResult != 0) {
         if ((logFilter & kOSKextLogLevelMask) >= kOSKextLogErrorLevel) {
             OSKextLog(aKext,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -1333,9 +1384,19 @@ runTestsOnKext(
                 kextPathCString);
 
             OSKextLogDiagnostics(aKext, kOSKextDiagnosticsFlagAll);
+            if (sigResult != 0) {
+                OSKextLog(aKext,
+                          kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                          "Code Signing Failure: %s",
+                          (sigResult == errSecCSUnsigned
+                          ? "not code signed"
+                          : "code signature is invalid") );
+            }
         }
-        result = kKextutilExitKextBad;
-        goto finish;
+        if (!kextLooksGood) {
+            result = kKextutilExitKextBad;
+            goto finish;
+        }
     }
 
    /* Print diagnostics/warnings as needed, set status if kext can't be used.
@@ -1399,6 +1460,30 @@ loadKext(
     CFArrayRef         personalityNames = toolArgs->personalityNames;
     OSReturn           loadResult       = kOSReturnError;
     
+    if (OSKextIsInExcludeList(aKext, false)) {
+#if 1 // <rdar://problem/12811081>
+        /* notify kextd we are trying to load an excluded kext.
+         */
+        CFMutableDictionaryRef      myAlertInfoDict = NULL; // must release
+        
+        addKextToAlertDict(&myAlertInfoDict, aKext);
+        if (myAlertInfoDict) {
+            postNoteAboutKexts(CFSTR("Excluded Kext Notification"),
+                               myAlertInfoDict );
+            SAFE_RELEASE(myAlertInfoDict);
+        }
+#endif
+
+        messageTraceExcludedKext(aKext);
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s is in exclude list; omitting.", kextPathCString);
+        result = kOSKextReturnNotLoadable;
+        *fatal = true;
+        goto finish;
+    }
+
    /* INTERACTIVE: ask if ok to load kext and its dependencies
     */
     if (toolArgs->interactiveLevel != kOSKextExcludeNone) {
@@ -1433,7 +1518,7 @@ loadKext(
     if (!toolArgs->doStartMatching) {
         matchExclude = kOSKextExcludeAll;
     }
-
+    
     loadResult = OSKextLoadWithOptions(aKext,
         startExclude, matchExclude, personalityNames,
         /* disableAutounload */ (startExclude != kOSKextExcludeNone));
@@ -1615,6 +1700,7 @@ ExitStatus generateKextSymbols(
 finish:
     SAFE_RELEASE(loadList);
     SAFE_RELEASE(kextSymbols);
+                                        
     return result;
 }
 

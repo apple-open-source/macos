@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +33,7 @@
 #include <EAP8021X/EAP.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <CoreFoundation/CFString.h>
 
 int
 EAPCodeValid(EAPCode code);
@@ -46,6 +46,10 @@ EAPTypeStr(EAPType type);
 
 bool
 EAPPacketValid(EAPPacketRef eap_p, uint16_t pkt_length, FILE * f);
+
+bool
+EAPPacketIsValid(EAPPacketRef eap_p, uint16_t pkt_length,
+		 CFMutableStringRef str);
 
 /*
  * Function: EAPPacketCreate

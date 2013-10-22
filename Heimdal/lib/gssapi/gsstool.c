@@ -78,6 +78,7 @@ usage (int ret)
 #define COL_OPTION	"Option"
 #define COL_SASL	"SASL"
 #define COL_VALUE	"Value"
+#define COL_UUID	"UUID"
 
 int
 supported_mechanisms(struct supported_mechanisms_options *opt, int argc, char **argv)
@@ -226,6 +227,13 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
 
     if (opt->validate_flag)
 	CFDictionarySetValue(attributes, kGSSICVerifyCredential, kCFBooleanTrue);
+    if (opt->kdc_hostname_string) {
+	CFStringRef hn = CFStringCreateWithCString(NULL, opt->kdc_hostname_string, kCFStringEncodingUTF8);
+	if (hn == NULL)
+	    errx(1, "CFStringCreateWithCString");
+	CFDictionarySetValue(attributes, kGSSICLKDCHostname, hn);
+	CFRelease(hn);
+    }
 
     maj_stat = gss_aapl_initial_cred(name,
 				     mech,
@@ -242,7 +250,7 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
 		CFRelease(m);
 	    }
 	}
-	errx(1, "gss_acquire_cred_ext: %s: %d", 
+	errx(1, "gss_aapl_initial_cred: %s: %d", 
 	     msg ? msg : "", (int)maj_stat);
 	free(msg);
     }
@@ -266,6 +274,7 @@ static void
 print_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
 {
     struct print_cred *pc = ctx;
+    gss_buffer_set_t data_set;
     OM_uint32 major, junk;
     gss_buffer_desc buffer;
     gss_name_t name;
@@ -304,6 +313,14 @@ print_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
 	unparse_time_approx(expire, life, sizeof(life));
 	rtbl_add_column_entry(pc->t, COL_EXPIRE, life);
     }
+
+    major = gss_inquire_cred_by_oid(&junk, cred, GSS_C_NT_UUID, &data_set);
+    if (major == GSS_S_COMPLETE && data_set->count == 1)
+	rtbl_add_column_entryv(pc->t, COL_UUID, "%.*s\n", (int)data_set->elements[0].length, (const char *)data_set->elements[0].value);
+    else
+	rtbl_add_column_entry(pc->t, COL_UUID, "");
+
+    gss_release_buffer_set(&junk, &data_set);
 
  out:
     gss_release_cred(&junk, &cred);
@@ -350,6 +367,15 @@ diag_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
     printf("%s\n", delim);
 
     gss_release_buffer_set(&junk, &data_set);
+
+    major = gss_inquire_cred_by_oid(&junk, cred, GSS_C_NT_UUID, &data_set);
+    if (major == GSS_S_COMPLETE || data_set->count == 1) {
+	printf("UUID: %.*s\n", (int)data_set->elements[0].length, (const char *)data_set->elements[0].value);
+	printf("%s\n", delim);
+    }
+    gss_release_buffer_set(&junk, &data_set);
+
+
 }
 
 
@@ -368,7 +394,7 @@ list_credentials(struct list_credentials_options *opt, int argc, char **argv)
 
     if (opt->verbose_flag) {
 
-	gss_iter_creds_f(NULL, 0, NULL, NULL, diag_cred);
+	gss_iter_creds_f(NULL, 0, mech, NULL, diag_cred);
 
     } else {
 
@@ -380,8 +406,9 @@ list_credentials(struct list_credentials_options *opt, int argc, char **argv)
 	rtbl_add_column(pc.t, COL_NAME, 0);
 	rtbl_add_column(pc.t, COL_EXPIRE, 0);
 	rtbl_add_column(pc.t, COL_MECH, 0);
+	rtbl_add_column(pc.t, COL_UUID, 0);
 	
-	gss_iter_creds_f(NULL, 0, NULL, &pc, print_cred);
+	gss_iter_creds_f(NULL, 0, mech, &pc, print_cred);
 	
 	rtbl_format(pc.t, stdout);
 	rtbl_destroy(pc.t);

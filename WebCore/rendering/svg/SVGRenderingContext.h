@@ -27,7 +27,6 @@
 
 #if ENABLE(SVG)
 #include "ImageBuffer.h"
-#include "LayoutTypes.h"
 #include "PaintInfo.h"
 
 namespace WebCore {
@@ -83,7 +82,8 @@ public:
     static void renderSubtreeToImageBuffer(ImageBuffer*, RenderObject*, const AffineTransform&);
     static void clipToImageBuffer(GraphicsContext*, const AffineTransform& absoluteTransform, const FloatRect& targetRect, OwnPtr<ImageBuffer>&, bool safeToClear);
 
-    static void calculateTransformationToOutermostSVGCoordinateSystem(const RenderObject*, AffineTransform& absoluteTransform);
+    static float calculateScreenFontSizeScalingFactor(const RenderObject*);
+    static void calculateTransformationToOutermostCoordinateSystem(const RenderObject*, AffineTransform& absoluteTransform);
     static IntSize clampedAbsoluteSize(const IntSize&);
     static FloatRect clampedAbsoluteTargetRect(const FloatRect& absoluteTargetRect);
     static void clear2DRotation(AffineTransform&);
@@ -92,6 +92,9 @@ public:
     {
         return enclosingIntRect(absoluteTransform.mapRect(targetRect));
     }
+
+    // Support for the buffered-rendering hint.
+    bool bufferForeground(OwnPtr<ImageBuffer>&);
 
 private:
     // To properly revert partially successful initializtions in the destructor, we record all successful steps.
@@ -111,6 +114,7 @@ private:
     RenderObject* m_object;
     PaintInfo* m_paintInfo;
     GraphicsContext* m_savedContext;
+    IntRect m_savedPaintRect;
 #if ENABLE(FILTERS)
     RenderSVGResourceFilter* m_filter;
 #endif

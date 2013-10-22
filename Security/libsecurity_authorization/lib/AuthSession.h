@@ -141,7 +141,7 @@ enum {
         
     @param attributes (output/optional) Receives the attribute bits for the session.
 
-    @result An OSStatus indicating success (noErr) or an error cause.
+    @result An OSStatus indicating success (errSecSuccess) or an error cause.
     
     errSessionInvalidId -60500 Invalid session id specified
 
@@ -176,7 +176,7 @@ OSStatus SessionGetInfo(SecuritySessionId session,
     @param attributes The set of attribute bits to set for the new session.
         Not all bits can be set this way.
     
-    @result An OSStatus indicating success (noErr) or an error cause.
+    @result An OSStatus indicating success (errSecSuccess) or an error cause.
     
     errSessionInvalidAttributes -60501 Attempt to set invalid attribute bits	
     errSessionAuthorizationDenied -60502 Attempt to re-initialize a session

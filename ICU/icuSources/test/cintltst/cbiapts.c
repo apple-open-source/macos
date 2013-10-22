@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2011, International Business Machines Corporation and
+ * Copyright (c) 1997-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -38,7 +38,9 @@ log_data_err("Failure at file %s, line %d, error = %s (Are you missing data?)\n"
 #define TEST_ASSERT(expr) {if ((expr)==FALSE) { \
 log_data_err("Test Failure at file %s, line %d (Are you missing data?)\n", __FILE__, __LINE__);}}
 
+#if !UCONFIG_NO_FILE_IO
 static void TestBreakIteratorSafeClone(void);
+#endif
 static void TestBreakIteratorRules(void);
 static void TestBreakIteratorRuleError(void);
 static void TestBreakIteratorStatusVec(void);
@@ -135,6 +137,7 @@ static void freeToUCharStrings(void **hook) {
 }
 
 
+#if !UCONFIG_NO_FILE_IO
 static void TestBreakIteratorCAPI()
 {
     UErrorCode status = U_ZERO_ERROR;
@@ -499,6 +502,7 @@ static void TestBreakIteratorSafeClone(void)
         ubrk_close(someIterators[i]);
     }
 }
+#endif
 
 
 /*
@@ -768,7 +772,7 @@ typedef struct {
 
 static const RBBITailoringTest tailoringTests[] = {
     { "en", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, sizeof(thTestOffs_thFwd)/sizeof(thTestOffs_thFwd[0]) },
-    { "th", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, sizeof(thTestOffs_thFwd)/sizeof(thTestOffs_thFwd[0]) },
+    { "en_US_POSIX", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, sizeof(thTestOffs_thFwd)/sizeof(thTestOffs_thFwd[0]) },
     { "en", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, sizeof(heTestOffs_heFwd)/sizeof(heTestOffs_heFwd[0]) },
     { "he", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, sizeof(heTestOffs_heFwd)/sizeof(heTestOffs_heFwd[0]) },
     { "en", UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, sizeof(fiTestOffs_enFwd)/sizeof(fiTestOffs_enFwd[0]) },

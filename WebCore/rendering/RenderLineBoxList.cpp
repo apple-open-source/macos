@@ -273,8 +273,7 @@ void RenderLineBoxList::paint(RenderBoxModelObject* renderer, PaintInfo& paintIn
     }
 }
 
-
-bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction) const
+bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction) const
 {
     if (hitTestAction != HitTestForeground)
         return false;
@@ -285,9 +284,10 @@ bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestReq
     if (!firstLineBox())
         return false;
 
+    LayoutPoint point = locationInContainer.point();
     LayoutRect rect = firstLineBox()->isHorizontal() ?
-        IntRect(pointInContainer.x(), pointInContainer.y() - result.topPadding(), 1, result.topPadding() + result.bottomPadding() + 1) :
-        IntRect(pointInContainer.x() - result.leftPadding(), pointInContainer.y(), result.rightPadding() + result.leftPadding() + 1, 1);
+        IntRect(point.x(), point.y() - locationInContainer.topPadding(), 1, locationInContainer.topPadding() + locationInContainer.bottomPadding() + 1) :
+        IntRect(point.x() - locationInContainer.leftPadding(), point.y(), locationInContainer.rightPadding() + locationInContainer.leftPadding() + 1, 1);
 
     if (!anyLineIntersectsRect(renderer, rect, accumulatedOffset))
         return false;
@@ -298,14 +298,14 @@ bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestReq
     for (InlineFlowBox* curr = lastLineBox(); curr; curr = curr->prevLineBox()) {
         RootInlineBox* root = curr->root();
         if (rangeIntersectsRect(renderer, curr->logicalTopVisualOverflow(root->lineTop()), curr->logicalBottomVisualOverflow(root->lineBottom()), rect, accumulatedOffset)) {
-            bool inside = curr->nodeAtPoint(request, result, pointInContainer, accumulatedOffset, root->lineTop(), root->lineBottom());
+            bool inside = curr->nodeAtPoint(request, result, locationInContainer, accumulatedOffset, root->lineTop(), root->lineBottom());
             if (inside) {
-                renderer->updateHitTestResult(result, pointInContainer - toLayoutSize(accumulatedOffset));
+                renderer->updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
                 return true;
             }
         }
     }
-    
+
     return false;
 }
 
@@ -334,7 +334,7 @@ void RenderLineBoxList::dirtyLinesFromChangedChild(RenderObject* container, Rend
     RootInlineBox* box = 0;
     RenderObject* curr = 0;
     for (curr = child->previousSibling(); curr; curr = curr->previousSibling()) {
-        if (curr->isFloatingOrPositioned())
+        if (curr->isFloatingOrOutOfFlowPositioned())
             continue;
 
         if (curr->isReplaced()) {
@@ -386,7 +386,11 @@ void RenderLineBoxList::dirtyLinesFromChangedChild(RenderObject* container, Rend
         if (adjacentBox)
             adjacentBox->markDirty();
         adjacentBox = box->nextRootBox();
-        if (adjacentBox && (adjacentBox->lineBreakObj() == child || child->isBR() || (curr && curr->isBR())))
+        // If |child| has been inserted before the first element in the linebox, but after collapsed leading
+        // space, the search for |child|'s linebox will go past the leading space to the previous linebox and select that
+        // one as |box|. If we hit that situation here, dirty the |box| actually containing the child too. 
+        bool insertedAfterLeadingSpace = box->lineBreakObj() == child->previousSibling();
+        if (adjacentBox && (adjacentBox->lineBreakObj() == child || child->isBR() || (curr && curr->isBR()) || insertedAfterLeadingSpace))
             adjacentBox->markDirty();
     }
 }

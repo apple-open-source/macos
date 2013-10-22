@@ -156,7 +156,11 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestExplicitParents();
     void TestAvailableNumberingSystems();
     void Test9087();
+    void TestFormatFastpaths();
 
+    void TestFormattableSize();
+
+    void TestEnumSet();
 
  private:
 

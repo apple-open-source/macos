@@ -495,16 +495,16 @@ void *ascMalloc(unsigned size)
 	#ifdef	macintosh
 
 	h = nil;
-	err = noErr;
+	err = errSecSuccess;
 
 	h = NewHandleSys(size);		// system heap is not paged
 	do{
 		HLockHi(h);			// will move low in system heap
 		err = MemError();
-		if( err != noErr ) break;
+		if( err != errSecSuccess ) break;
 		p = *h;
 	}while(0);
-	if( err != noErr ){
+	if( err != errSecSuccess ){
 	    return NULL;
 	}
 	return p;

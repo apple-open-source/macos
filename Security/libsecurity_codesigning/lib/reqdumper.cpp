@@ -187,7 +187,7 @@ void Dumper::expr(SyntaxLevel level)
 		expr(slPrimary);
 		break;
 	case opCDHash:
-		print(" cdhash ");
+		print("cdhash ");
 		hashData();
 		break;
 	case opInfoKeyField:

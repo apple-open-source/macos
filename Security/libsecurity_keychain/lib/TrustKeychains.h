@@ -30,10 +30,11 @@
 
 #include <security_utilities/threading.h>
 #include <Security/cssmtype.h>
-
+/*
 #if defined(__cplusplus)
 extern "C" {
 #endif	
+*/
 
 /*!
  @function SecTrustKeychainsGetMutex
@@ -43,11 +44,12 @@ extern "C" {
  common global mutex for managing access to trust keychains (i.e. the root certificate store).
  */
 RecursiveMutex& SecTrustKeychainsGetMutex();
-	
+
+/*
 #if defined(__cplusplus)
 }
 #endif
-
+*/
 
 #endif	/* _TRUST_KEYCHAINS_H_ */
 

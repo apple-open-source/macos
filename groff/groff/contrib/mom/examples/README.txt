@@ -94,7 +94,7 @@ rules for emacs. :)
 
 ***mom.vim***
 
-Christian V. J. Brüssow has kindly contributed a set of mom syntax
+Christian V. J. BrÃ¼ssow has kindly contributed a set of mom syntax
 highlighting rules for use with vim.  Copy the file to your
 ~/.vim/syntax directory, then, if your vim isn't already set up to
 do so, enable mom syntax highlighting with
@@ -106,7 +106,7 @@ or
     :syntax on
 
 Please note: I don't use vim, so I won't be making changes to this
-file myself.  Christian Brüssow is the maintainer of the ruleset,
+file myself.  Christian BrÃ¼ssow is the maintainer of the ruleset,
 which is available on the Web at
 
     http://www.cvjb.de/comp/vim/mom.vim

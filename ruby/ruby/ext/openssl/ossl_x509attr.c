@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_x509attr.c 28367 2010-06-21 09:18:59Z shyouhei $
+ * $Id: ossl_x509attr.c 31103 2011-03-13 09:11:45Z akr $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001 Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -11,20 +11,20 @@
 #include "ossl.h"
 
 #define WrapX509Attr(klass, obj, attr) do { \
-    if (!attr) { \
+    if (!(attr)) { \
 	ossl_raise(rb_eRuntimeError, "ATTR wasn't initialized!"); \
     } \
-    obj = Data_Wrap_Struct(klass, 0, X509_ATTRIBUTE_free, attr); \
+    (obj) = Data_Wrap_Struct((klass), 0, X509_ATTRIBUTE_free, (attr)); \
 } while (0)
 #define GetX509Attr(obj, attr) do { \
-    Data_Get_Struct(obj, X509_ATTRIBUTE, attr); \
-    if (!attr) { \
+    Data_Get_Struct((obj), X509_ATTRIBUTE, (attr)); \
+    if (!(attr)) { \
 	ossl_raise(rb_eRuntimeError, "ATTR wasn't initialized!"); \
     } \
 } while (0)
 #define SafeGetX509Attr(obj, attr) do { \
-    OSSL_Check_Kind(obj, cX509Attr); \
-    GetX509Attr(obj, attr); \
+    OSSL_Check_Kind((obj), cX509Attr); \
+    GetX509Attr((obj), (attr)); \
 } while (0)
 
 /*
@@ -41,7 +41,7 @@ ossl_x509attr_new(X509_ATTRIBUTE *attr)
 {
     X509_ATTRIBUTE *new;
     VALUE obj;
-    
+
     if (!attr) {
 	new = X509_ATTRIBUTE_new();
     } else {
@@ -77,7 +77,7 @@ ossl_x509attr_alloc(VALUE klass)
     X509_ATTRIBUTE *attr;
     VALUE obj;
 
-    if (!(attr = X509_ATTRIBUTE_new())) 
+    if (!(attr = X509_ATTRIBUTE_new()))
 	ossl_raise(eX509AttrError, NULL);
     WrapX509Attr(klass, obj, attr);
 
@@ -92,16 +92,17 @@ static VALUE
 ossl_x509attr_initialize(int argc, VALUE *argv, VALUE self)
 {
     VALUE oid, value;
-    X509_ATTRIBUTE *attr;
-    unsigned char *p;
+    X509_ATTRIBUTE *attr, *x;
+    const unsigned char *p;
 
     GetX509Attr(self, attr);
     if(rb_scan_args(argc, argv, "11", &oid, &value) == 1){
 	oid = ossl_to_der_if_possible(oid);
 	StringValue(oid);
-	p = RSTRING_PTR(oid);
-	if(!d2i_X509_ATTRIBUTE((X509_ATTRIBUTE**)&DATA_PTR(self),
-			       &p, RSTRING_LEN(oid))){
+	p = (unsigned char *)RSTRING_PTR(oid);
+	x = d2i_X509_ATTRIBUTE(&attr, &p, RSTRING_LEN(oid));
+	DATA_PTR(self) = attr;
+	if(!x){
 	    ossl_raise(eX509AttrError, NULL);
 	}
 	return self;
@@ -122,14 +123,14 @@ ossl_x509attr_set_oid(VALUE self, VALUE oid)
     X509_ATTRIBUTE *attr;
     ASN1_OBJECT *obj;
     char *s;
- 
+
     s = StringValuePtr(oid);
     obj = OBJ_txt2obj(s, 0);
     if(!obj) obj = OBJ_txt2obj(s, 1);
     if(!obj) ossl_raise(eX509AttrError, NULL);
     GetX509Attr(self, attr);
     X509_ATTRIBUTE_set1_object(attr, obj);
- 
+
     return oid;
 }
 
@@ -156,7 +157,7 @@ ossl_x509attr_get_oid(VALUE self)
 	i2a_ASN1_OBJECT(out, oid);
 	ret = ossl_membio2str(out);
     }
-  
+
     return ret;
 }
 
@@ -212,7 +213,7 @@ ossl_x509attr_get_value(VALUE self)
     if(OSSL_X509ATTR_IS_SINGLE(attr)){
 	length = i2d_ASN1_TYPE(attr->value.single, NULL);
 	str = rb_str_new(0, length);
-	p = RSTRING_PTR(str);
+	p = (unsigned char *)RSTRING_PTR(str);
 	i2d_ASN1_TYPE(attr->value.single, &p);
 	ossl_str_adjust(str, p);
     }
@@ -221,7 +222,7 @@ ossl_x509attr_get_value(VALUE self)
 			(unsigned char **) NULL, i2d_ASN1_TYPE,
 			V_ASN1_SET, V_ASN1_UNIVERSAL, 0);
 	str = rb_str_new(0, length);
-	p = RSTRING_PTR(str);
+	p = (unsigned char *)RSTRING_PTR(str);
 	i2d_ASN1_SET_OF_ASN1_TYPE(attr->value.set, &p,
 			i2d_ASN1_TYPE, V_ASN1_SET, V_ASN1_UNIVERSAL, 0);
 	ossl_str_adjust(str, p);
@@ -247,10 +248,10 @@ ossl_x509attr_to_der(VALUE self)
     if((len = i2d_X509_ATTRIBUTE(attr, NULL)) <= 0)
 	ossl_raise(eX509AttrError, NULL);
     str = rb_str_new(0, len);
-    p = RSTRING_PTR(str);
+    p = (unsigned char *)RSTRING_PTR(str);
     if(i2d_X509_ATTRIBUTE(attr, &p) <= 0)
 	ossl_raise(eX509AttrError, NULL);
-    rb_str_set_len(str, p - (unsigned char*)RSTRING_PTR(str)); 
+    rb_str_set_len(str, p - (unsigned char*)RSTRING_PTR(str));
 
     return str;
 }

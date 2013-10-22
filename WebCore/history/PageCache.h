@@ -43,7 +43,7 @@ namespace WebCore {
     public:
         friend PageCache* pageCache();
         
-        static bool canCache(Page*);
+        bool canCache(Page*) const;
 
         void setCapacity(int); // number of pages to cache
         int capacity() { return m_capacity; }
@@ -52,25 +52,25 @@ namespace WebCore {
         void remove(HistoryItem*);
         CachedPage* get(HistoryItem* item);
 
-        void releaseAutoreleasedPagesNow();
-        
         int pageCount() const { return m_size; }
         int frameCount() const;
-        int autoreleasedPageCount() const;
 
         void markPagesForVistedLinkStyleRecalc();
 
         // Will mark all cached pages associated with the given page as needing style recalc.
         void markPagesForFullStyleRecalc(Page*);
 
+#if ENABLE(VIDEO_TRACK)
+        void markPagesForCaptionPreferencesChanged();
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
         bool shouldClearBackingStores() const { return m_shouldClearBackingStores; }
         void setShouldClearBackingStores(bool flag) { m_shouldClearBackingStores = flag; }
+        void markPagesForDeviceScaleChanged(Page*);
 #endif
 
     private:
-        typedef HashSet<RefPtr<CachedPage> > CachedPageSet;
-
         PageCache(); // Use pageCache() instead.
         ~PageCache(); // Not implemented to make sure nobody accidentally calls delete -- WebCore does not delete singletons.
         
@@ -81,9 +81,6 @@ namespace WebCore {
 
         void prune();
 
-        void autorelease(PassRefPtr<CachedPage>);
-        void releaseAutoreleasedPagesNowDueToTimer(Timer<PageCache>*);
-
         int m_capacity;
         int m_size;
 
@@ -91,9 +88,6 @@ namespace WebCore {
         HistoryItem* m_head;
         HistoryItem* m_tail;
         
-        Timer<PageCache> m_autoreleaseTimer;
-        CachedPageSet m_autoreleaseSet;
-
 #if USE(ACCELERATED_COMPOSITING)
         bool m_shouldClearBackingStores;
 #endif

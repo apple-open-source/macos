@@ -79,21 +79,19 @@
 #include "pfkey.h"
 #include "policy.h"
 #include "crypto_openssl.h"
-#include "backupsa.h"
 #include "vendorid.h"
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
 #ifndef TARGET_OS_EMBEDDED
 #include <sandbox.h>
 #endif // !TARGET_OS_EMBEDDED
 #include "power_mgmt.h"
+#include "preferences.h"
 
 //#include "package_version.h"
 
 int f_local = 0;	/* local test mode.  behave like a wall. */
 int vflag = 1;		/* for print-isakmp.c */
-static int loading_sa = 0;	/* install sa when racoon boots up. */
 static int dump_config = 0;	/* dump parsed config file. */
 static int exec_done = 0;	/* we've already been exec'd */
 
@@ -103,21 +101,21 @@ static char version[] = "@(#)" TOP_PACKAGE_STRING " (" TOP_PACKAGE_URL ")";
 static char version[] = "@(#) racoon / IPsec-tools";
 #endif /* TOP_PACKAGE */
 
-int main __P((int, char **));
-static void usage __P((void));
-static void parse __P((int, char **));
-static void restore_params __P((void));
-static void save_params __P((void));
-static void saverestore_params __P((int));
-static void cleanup_pidfile __P((void));
+int main (int, char **);
+static void usage (void);
+static void parse (int, char **);
+static void restore_params (void);
+static void save_params (void);
+static void saverestore_params (int);
+static void cleanup_pidfile (void);
 #if 0 // <rdar://problem/9286626>
-int launchedbylaunchd __P((void));
+int launchedbylaunchd (void);
 #endif
 
 pid_t racoon_pid = 0;
 int   launchdlaunched = 0;
 int print_pid = 1;	/* for racoon only */
-char  logFileStr[MAXPATHLEN+1];
+
 
 void
 usage()
@@ -128,14 +126,8 @@ usage()
 #else
 		"",
 #endif
-#ifdef ENABLE_ADMINPORT
-		"[-a (port)] "
-#else
 		""
-#endif
 		);
-	printf("   -B: install SA to the kernel from the file "
-		"specified by the configuration file.\n");
 	printf("   -d: debug level, more -d will generate more debug message.\n");
 	printf("   -D: started by LaunchD (implies daemon mode).\n");
 	printf("   -C: dump parsed config file.\n");
@@ -146,9 +138,6 @@ usage()
 #ifdef INET6
 	printf("   -4: IPv4 mode.\n");
 	printf("   -6: IPv6 mode.\n");
-#endif
-#ifdef ENABLE_ADMINPORT
-	printf("   -a: port number for admin port.\n");
 #endif
 	printf("   -f: pathname for configuration file.\n");
 	printf("   -l: pathname for log file.\n");
@@ -167,14 +156,20 @@ main(ac, av)
 	char *sb_errorbuf = NULL;
 #endif // !TARGET_OS_EMBEDDED
 
+	/*
+	 * Check IPSec plist
+	 */
+	prefsinit();
+	ploginit();
+
 #ifndef TARGET_OS_EMBEDDED
 	if (sandbox_init("racoon", SANDBOX_NAMED, &sb_errorbuf) == -1) {
 		if (sb_errorbuf) {
-			syslog(LOG_ERR, "sandbox_init failed: %s\n", sb_errorbuf);
+			plog(ASL_LEVEL_ERR, "sandbox_init failed: %s\n", sb_errorbuf);
 			sandbox_free_error(sb_errorbuf);
 			sb_errorbuf = NULL;
 		} else {
-			syslog(LOG_ERR, "sandbox_init failed\n");
+			plog(ASL_LEVEL_ERR, "sandbox_init failed\n");
 		}
 	}
 #endif // !TARGET_OS_EMBEDDED
@@ -196,12 +191,6 @@ main(ac, av)
 		/* NOTREACHED*/
 	}
 
-#ifdef DEBUG_RECORD_MALLOCATION
-	DRM_init();
-#endif
-
-	logFileStr[0] = 0;
-
 #ifdef HAVE_OPENSSL
 	eay_init();
 #endif
@@ -212,89 +201,22 @@ main(ac, av)
 	compute_vendorids();
 
 	parse(ac, av);
-	plogmtxinit();
 
-	/*
-	 * Check IPSec plist
-	 */
-	{
-		SCPreferencesRef 	prefs = NULL;
-		CFPropertyListRef	globals;
-		CFStringRef			logFileRef;
-		CFNumberRef			debugLevelRef;
-		
-		int					level = 0;
-		
-		logFileStr[0] = 0;
-		   
-	    if ((prefs = SCPreferencesCreate(0, CFSTR("racoon"), CFSTR("com.apple.ipsec.plist"))) == NULL)
-			goto skip;
-		globals = SCPreferencesGetValue(prefs, CFSTR("Global"));
-		if (!globals || (CFGetTypeID(globals) != CFDictionaryGetTypeID()))
-			goto skip;
-		debugLevelRef = CFDictionaryGetValue(globals, CFSTR("DebugLevel"));
-		if (!debugLevelRef || (CFGetTypeID(debugLevelRef) != CFNumberGetTypeID()))
-			goto skip;
-		CFNumberGetValue(debugLevelRef, kCFNumberSInt32Type, &level);
-		switch (level)
-		{
-			case 0:
-				loglevel = 5;
-				goto skip;
-				break;
-			case 1:
-				loglevel = 6;
-				break;
-			case 2:
-				loglevel = 7;
-				break;
-			default:
-				break; /* invalid - ignore */
-		}
-		
-		logFileRef = CFDictionaryGetValue(globals, CFSTR("DebugLogfile"));
-		if (!logFileRef	|| (CFGetTypeID(logFileRef) != CFStringGetTypeID())) {	
-			goto skip;
-		}
-		CFStringGetCString(logFileRef, logFileStr, MAXPATHLEN, kCFStringEncodingMacRoman);
-skip:
-		if (prefs)
-			CFRelease(prefs);
-	}
-	
-	if (logFileStr[0])
-			plogset(logFileStr);
-	else	
-		if (lcconf->logfile_param)
-			plogset(lcconf->logfile_param);			
-
-	ploginit();
-
-	plog(LLV_INFO, LOCATION, NULL, "***** racoon started: pid=%d  started by: %d, launchdlaunched %d\n", getpid(), getppid(), launchdlaunched);
-	plog(LLV_INFO, LOCATION, NULL, "%s\n", version);
+	plog(ASL_LEVEL_INFO, "***** racoon started: pid=%d  started by: %d, launchdlaunched %d\n", getpid(), getppid(), launchdlaunched);
+	plog(ASL_LEVEL_INFO, "%s\n", version);
 #ifdef HAVE_OPENSSL
-	plog(LLV_INFO, LOCATION, NULL, "@(#)"
+	plog(ASL_LEVEL_INFO, "@(#)"
 	    "This product linked %s (http://www.openssl.org/)"
 	    "\n", eay_version());
 #endif
-	plog(LLV_INFO, LOCATION, NULL, "Reading configuration from \"%s\"\n", 
+	plog(ASL_LEVEL_INFO, "Reading configuration from \"%s\"\n", 
 	    lcconf->racoon_conf);
 
+    //%%%%% this sould probably be moved to session()
 	if (pfkey_init() < 0) {
-		errx(1, "something error happened "
-			"while pfkey initializing.");
+		errx(1, "failed to initialize pfkey.\n");
 		/* NOTREACHED*/
 	}
-
-#ifdef ENABLE_HYBRID
-	if (isakmp_cfg_init(ISAKMP_CFG_INIT_COLD))
-		errx(1, "could not initialize ISAKMP mode config structures");
-#endif
-
-#ifdef HAVE_LIBLDAP
-	if (xauth_ldap_init() != 0)
-		errx(1, "could not initialize libldap");
-#endif
 
 	/*
 	 * in order to prefer the parameters by command line,
@@ -307,7 +229,7 @@ skip:
 	restore_params();
 	
 	if (lcconf->logfile_param == NULL && logFileStr[0] == 0)
-		plogreset(lcconf->pathinfo[LC_PATHTYPE_LOGFILE]);
+		plogresetfile(lcconf->pathinfo[LC_PATHTYPE_LOGFILE]);
 		
 #ifdef ENABLE_NATT
 	/* Tell the kernel which port to use for UDP encapsulation */
@@ -319,12 +241,6 @@ skip:
 	}
 #endif
 
-#ifdef HAVE_LIBRADIUS
-	if (xauth_radius_init() != 0) {
-		errx(1, "could not initialize libradius");
-		/* NOTREACHED*/
-	}
-#endif
 
 #ifdef ENABLE_HYBRID
 	if(isakmp_cfg_config.network4 && isakmp_cfg_config.pool_size == 0)
@@ -339,28 +255,23 @@ skip:
 	 * install SAs from the specified file.  If the file is not specified
 	 * by the configuration file, racoon will exit.
 	 */
-	if (loading_sa && !f_local) {
-		if (backupsa_from_file() != 0)
-			errx(1, "something error happened "
-				"SA recovering.");
-	}
 
 	if (f_foreground)
 		close(0);
 	else {
 		if ( !exec_done && launchdlaunched ){
-			plog(LLV_INFO, LOCATION, NULL,
+			plog(ASL_LEVEL_INFO, 
 				 "racoon launched by launchd.\n");
 			exec_done = 1;
 			if (atexit(cleanup_pidfile) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "cannot register pidfile cleanup");
 			}
 		}else {
 		
 			if (exec_done) {
 				if (atexit(cleanup_pidfile) < 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"cannot register pidfile cleanup");
 				}
 			} else {
@@ -371,7 +282,7 @@ skip:
 				int	i;
 				
 				if (ac > MAX_EXEC_ARGS) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"too many arguments.\n");
 					exit(1);
 				}
@@ -385,12 +296,12 @@ skip:
 				 * when launched by setuid process
 				 */
 				if (setuid(0)) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"cannot set uid.\n");
 					exit(1);
 				}
 				if (setgid(0)) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"cannot set gid.\n");
 					exit(1);
 				}
@@ -403,23 +314,23 @@ skip:
 				args[ac+1] = 0;
 				
 				execve(PATHRACOON, args, env);
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 						"failed to exec racoon. (%s)", strerror(errno));
 				exit(1);
 			}
 		}
 	}
-
+    
+    
+    /* start the session */
 	session();
-	
-	exit(0);
 }
 
 #if 0 // <rdar://problem/9286626>
 int
 launchedbylaunchd(){
 	launch_data_t checkin_response = NULL;
-
+    
 	if ((checkin_response = launch_socket_service_check_in()) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "launch_socket_service_check_in fails.\n");
@@ -480,11 +391,6 @@ parse(ac, av)
 	else
 		pname = *av;
 
-#if 0	/* for debugging */
-	loglevel += 2;
-	plogset("/tmp/racoon.log");
-#endif
-
 	while ((c = getopt(ac, av, "dDLFp:P:a:f:l:vsZBCx"
 #ifdef YYDEBUG
 			"y"
@@ -495,7 +401,7 @@ parse(ac, av)
 			)) != -1) {
 		switch (c) {
 		case 'd':
-			loglevel++;
+			plogsetlevel(ASL_LEVEL_DEBUG);
 			break;
 		case 'D':
 			if (f_foreground) {
@@ -522,14 +428,9 @@ parse(ac, av)
 			lcconf->port_isakmp_natt = atoi(optarg);
 			break;
 		case 'a':
-#ifdef ENABLE_ADMINPORT
-			lcconf->port_admin = atoi(optarg);
-			break;
-#else
 			fprintf(stderr, "%s: the option is disabled "
 			    "in the configuration\n", pname);
 			exit(1);
-#endif
 		case 'f':
 			lcconf->racoon_conf = optarg;
 			break;
@@ -572,9 +473,6 @@ parse(ac, av)
 			lcconf->default_af = AF_INET6;
 			break;
 #endif
-		case 'B':
-			loading_sa++;
-			break;
 		case 'C':
 			dump_config++;
 			break;
@@ -611,20 +509,11 @@ saverestore_params(f)
 	int f;
 {
 	static u_int16_t s_port_isakmp;
-#ifdef ENABLE_ADMINPORT
-	static u_int16_t s_port_admin;
-#endif
 
 	/* 0: save, 1: restore */
 	if (f) {
 		lcconf->port_isakmp = s_port_isakmp;
-#ifdef ENABLE_ADMINPORT
-		lcconf->port_admin = s_port_admin;
-#endif
 	} else {
 		s_port_isakmp = lcconf->port_isakmp;
-#ifdef ENABLE_ADMINPORT
-		s_port_admin = lcconf->port_admin;
-#endif
 	}
 }

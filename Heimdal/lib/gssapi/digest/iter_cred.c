@@ -63,6 +63,7 @@ _gss_scram_iter_creds_f(OM_uint32 flags,
 	uint32_t morep;
 	kcmuuid_t uuid;
 	char *user = NULL;
+	krb5_ssize_t sret;
 
 	ret = krb5_ret_uint32(response, &morep);
 	if (ret) goto out;
@@ -72,8 +73,8 @@ _gss_scram_iter_creds_f(OM_uint32 flags,
 	ret = krb5_ret_stringz(response, &user);
 	if (ret) goto out;
 
-	ret = krb5_storage_read(response, uuid, sizeof(uuid));
-	if (ret != sizeof(uuid))
+	sret = krb5_storage_read(response, uuid, sizeof(uuid));
+	if (sret != sizeof(uuid))
 	    goto out;
 
 	    cred_iter(userctx, GSS_SCRAM_MECHANISM, (gss_cred_id_t)user);

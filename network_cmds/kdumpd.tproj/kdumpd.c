@@ -261,7 +261,7 @@ main(argc, argv)
 			tempaddr = inet_ntoa(from.sin_addr);
 			snprintf(tempchroot, sizeof(tempchroot), "%s/%s", chroot_dir, tempaddr);
 			statret = stat(tempchroot, &sb);
-			if ((sb.st_mode & S_IFDIR) &&
+			if (((sb.st_mode & S_IFMT ) == S_IFDIR) &&
 			    (statret == 0 || (statret == -1 && ipchroot == 1)))
 				chroot_dir = tempchroot;
 		}

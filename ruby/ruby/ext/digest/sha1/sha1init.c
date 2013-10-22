@@ -1,16 +1,14 @@
 /* $RoughId: sha1init.c,v 1.2 2001/07/13 19:49:10 knu Exp $ */
-/* $Id: sha1init.c 11708 2007-02-12 23:01:19Z shyouhei $ */
+/* $Id: sha1init.c 34816 2012-02-25 20:37:12Z naruse $ */
 
 #include "digest.h"
-#if defined(__APPLE__)
-#include "sha1cc.h"
-#elif defined(HAVE_OPENSSL_SHA_H)
+#if defined(HAVE_OPENSSL_SHA_H)
 #include "sha1ossl.h"
 #else
-#include "sha1.h"
+#include "sha1cc.h"
 #endif
 
-static rb_digest_metadata_t sha1 = {
+static const rb_digest_metadata_t sha1 = {
     RUBY_DIGEST_API_VERSION,
     SHA1_DIGEST_LENGTH,
     SHA1_BLOCK_LENGTH,
@@ -29,14 +27,17 @@ void
 Init_sha1()
 {
     VALUE mDigest, cDigest_Base, cDigest_SHA1;
- 
+
     rb_require("digest");
- 
+
+#if 0
+    mDigest = rb_define_module("Digest"); /* let rdoc know */
+#endif
     mDigest = rb_path2class("Digest");
     cDigest_Base = rb_path2class("Digest::Base");
 
     cDigest_SHA1 = rb_define_class_under(mDigest, "SHA1", cDigest_Base);
 
     rb_ivar_set(cDigest_SHA1, rb_intern("metadata"),
-      Data_Wrap_Struct(rb_cObject, 0, 0, &sha1));
+      Data_Wrap_Struct(rb_cObject, 0, 0, (void *)&sha1));
 }

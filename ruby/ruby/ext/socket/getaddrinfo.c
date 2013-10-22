@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -13,7 +13,7 @@
  * 3. Neither the name of the project nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE PROJECT AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -38,14 +38,14 @@
  * - PF_UNSPEC case would be handled in getipnodebyname() with the AI_ALL flag.
  */
 
-#include "config.h"
+#include "ruby/config.h"
 #ifdef RUBY_EXTCONF_H
 #include RUBY_EXTCONF_H
 #endif
 #include <sys/types.h>
-#if !defined(_WIN32) && !defined(__VMS)
+#ifndef _WIN32
 #include <sys/param.h>
-#if defined(__BEOS__)
+#if defined(__BEOS__) && !defined(__HAIKU__) && !defined(BONE)
 # include <net/socket.h>
 #else
 # include <sys/socket.h>
@@ -65,17 +65,9 @@
 #include <resolv.h>
 #endif
 #include <unistd.h>
-#elif defined(__VMS )
-#include <socket.h>
-#include <inet.h>
-#include <in.h>
-#include <netdb.h>
 #else
-#if USE_WINSOCK2
 #include <winsock2.h>
-#else
-#include <winsock.h>
-#endif
+#include <ws2tcpip.h>
 #include <io.h>
 #endif
 #include <string.h>
@@ -91,10 +83,6 @@
 #include "addrinfo.h"
 #include "sockport.h"
 
-#if defined(__KAME__) && defined(INET6)
-# define FAITH
-#endif
-
 #define SUCCESS 0
 #define ANY 0
 #define YES 1
@@ -109,7 +97,7 @@ static const char in_addrany[] = { 0, 0, 0, 0 };
 static const char in6_addrany[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
-static const char in_loopback[] = { 127, 0, 0, 1 }; 
+static const char in_loopback[] = { 127, 0, 0, 1 };
 static const char in6_loopback[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
 };
@@ -126,7 +114,7 @@ static const struct afd {
 	int a_socklen;
 	int a_off;
 	const char *a_addrany;
-	const char *a_loopback;	
+	const char *a_loopback;
 } afdl [] = {
 #ifdef INET6
 #define N_INET6 0
@@ -157,7 +145,7 @@ static int get_name __P((const char *, const struct afd *,
 static int get_addr __P((const char *, int, struct addrinfo **,
 			struct addrinfo *, int));
 static int str_isnumber __P((const char *));
-	
+
 static const char *const ai_errlist[] = {
 	"success.",
 	"address family for hostname not supported.",	/* EAI_ADDRFAMILY */
@@ -194,12 +182,12 @@ if (pai->ai_flags & AI_CANONNAME) {\
 		error = EAI_MEMORY;\
 		goto free;\
 	}\
-	memcpy(ai, pai, sizeof(struct addrinfo));\
+	memcpy((ai), pai, sizeof(struct addrinfo));\
 	(ai)->ai_addr = (struct sockaddr *)((ai) + 1);\
 	memset((ai)->ai_addr, 0, (afd)->a_socklen);\
 	SET_SA_LEN((ai)->ai_addr, (ai)->ai_addrlen = (afd)->a_socklen);\
 	(ai)->ai_addr->sa_family = (ai)->ai_family = (afd)->a_af;\
-	((struct sockinet *)(ai)->ai_addr)->si_port = port;\
+	((struct sockinet *)(ai)->ai_addr)->si_port = (port);\
 	p = (char *)((ai)->ai_addr);\
 	memcpy(p + (afd)->a_off, (addr), (afd)->a_addrlen);\
 }
@@ -211,8 +199,7 @@ if (pai->ai_flags & AI_CANONNAME) {\
 const
 #endif
 char *
-gai_strerror(ecode)
-	int ecode;
+gai_strerror(int ecode)
 {
 	if (ecode < 0 || ecode > EAI_MAX)
 		ecode = EAI_MAX;
@@ -221,8 +208,7 @@ gai_strerror(ecode)
 #endif
 
 void
-freeaddrinfo(ai)
-	struct addrinfo *ai;
+freeaddrinfo(struct addrinfo *ai)
 {
 	struct addrinfo *next;
 
@@ -236,8 +222,7 @@ freeaddrinfo(ai)
 }
 
 static int
-str_isnumber(p)
-	const char *p;
+str_isnumber(const char *p)
 {
 	char *q = (char *)p;
 	while (*q) {
@@ -251,10 +236,7 @@ str_isnumber(p)
 #ifndef HAVE_INET_PTON
 
 static int
-inet_pton(af, hostname, pton)
-	int af;
-	const char *hostname;
-	void *pton;
+inet_pton(int af, const char *hostname, void *pton)
 {
 	struct in_addr in;
 
@@ -282,10 +264,7 @@ inet_pton(af, hostname, pton)
 #endif
 
 int
-getaddrinfo(hostname, servname, hints, res)
-	const char *hostname, *servname;
-	const struct addrinfo *hints;
-	struct addrinfo **res;
+getaddrinfo(const char *hostname, const char *servname, const struct addrinfo *hints, struct addrinfo **res)
 {
 	struct addrinfo sentinel;
 	struct addrinfo *top = NULL;
@@ -323,7 +302,7 @@ getaddrinfo(hostname, servname, hints, res)
 	pai->ai_addr = NULL;
 	pai->ai_next = NULL;
 	port = ANY;
-	
+
 	if (hostname == NULL && servname == NULL)
 		return EAI_NONAME;
 	if (hints) {
@@ -395,6 +374,8 @@ getaddrinfo(hostname, servname, hints, res)
 				pai->ai_protocol = IPPROTO_UDP;
 			}
 			port = htons((unsigned short)atoi(servname));
+                } else if (pai->ai_flags & AI_NUMERICSERV) {
+                        ERR(EAI_NONAME);
 		} else {
 			struct servent *sp;
 			const char *proto;
@@ -428,7 +409,7 @@ getaddrinfo(hostname, servname, hints, res)
 					ERR(EAI_PROTOCOL);	/*xxx*/
 		}
 	}
-	
+
 	/*
 	 * hostname == NULL.
 	 * passive socket -> anyaddr (0.0.0.0 or ::)
@@ -451,7 +432,7 @@ getaddrinfo(hostname, servname, hints, res)
 			s = socket(afd->a_af, SOCK_DGRAM, 0);
 			if (s < 0)
 				continue;
-#if defined(HAVE_CLOSESOCKET)
+#if defined(__BEOS__)
 			closesocket(s);
 #else
 			close(s);
@@ -477,7 +458,7 @@ getaddrinfo(hostname, servname, hints, res)
 		else
 			ERR(EAI_FAMILY);
 	}
-	
+
 	/* hostname as numeric name */
 	for (i = 0; afdl[i].a_af; i++) {
 		if (inet_pton(afdl[i].a_af, hostname, pton)) {
@@ -497,17 +478,13 @@ getaddrinfo(hostname, servname, hints, res)
 				break;
 #ifdef INET6
 			case AF_INET6:
-#ifdef HAVE_ADDR8
-				pfx = ((struct in6_addr *)pton)->s6_addr8[0];
-#else
 				pfx = ((struct in6_addr *)pton)->s6_addr[0];
-#endif
 				if (pfx == 0 || pfx == 0xfe || pfx == 0xff)
 					pai->ai_flags &= ~AI_CANONNAME;
 				break;
 #endif
 			}
-			
+
 			if (pai->ai_family == afdl[i].a_af ||
 			    pai->ai_family == PF_UNSPEC) {
 				if (! (pai->ai_flags & AI_CANONNAME)) {
@@ -525,7 +502,7 @@ getaddrinfo(hostname, servname, hints, res)
 				 */
 				get_name(pton, &afdl[i], &top, pton, pai, port);
 				goto good;
-			} else 
+			} else
 				ERR(EAI_FAMILY);	/*xxx*/
 		}
 	}
@@ -552,13 +529,7 @@ getaddrinfo(hostname, servname, hints, res)
 }
 
 static int
-get_name(addr, afd, res, numaddr, pai, port0)
-	const char *addr;
-	const struct afd *afd;
-	struct addrinfo **res;
-	char *numaddr;
-	struct addrinfo *pai;
-	int port0;
+get_name(const char *addr, const struct afd *afd, struct addrinfo **res, char *numaddr, struct addrinfo *pai, int port0)
 {
 	u_short port = port0 & 0xffff;
 	struct hostent *hp;
@@ -578,7 +549,7 @@ get_name(addr, afd, res, numaddr, pai, port0)
 		GET_CANONNAME(cur, hp->h_name);
 	} else
 		GET_AI(cur, afd, numaddr, port);
-	
+
 #ifdef INET6
 	if (hp)
 		freehostent(hp);
@@ -598,12 +569,7 @@ get_name(addr, afd, res, numaddr, pai, port0)
 }
 
 static int
-get_addr(hostname, af, res, pai, port0)
-	const char *hostname;
-	int af;
-	struct addrinfo **res;
-	struct addrinfo *pai;
-	int port0;
+get_addr(const char *hostname, int af, struct addrinfo **res, struct addrinfo *pai, int port0)
 {
 	u_short port = port0 & 0xffff;
 	struct addrinfo sentinel;
@@ -646,7 +612,7 @@ get_addr(hostname, af, res, pai, port0)
 	if ((hp->h_name == NULL) || (hp->h_name[0] == 0) ||
 	    (hp->h_addr_list[0] == NULL))
 		ERR(EAI_FAIL);
-	
+
 	for (i = 0; (ap = hp->h_addr_list[i]) != NULL; i++) {
 		switch (af) {
 #ifdef INET6
@@ -677,9 +643,10 @@ get_addr(hostname, af, res, pai, port0)
 
 			GET_AI(cur->ai_next, &afdl[N_INET6], ap, port);
 			in6 = &((struct sockaddr_in6 *)cur->ai_next->ai_addr)->sin6_addr;
-			memcpy(&in6->s6_addr32[0], &faith_prefix,
-			    sizeof(struct in6_addr) - sizeof(struct in_addr));
-			memcpy(&in6->s6_addr32[3], ap, sizeof(struct in_addr));
+			memcpy(&in6->s6_addr, &faith_prefix,
+			       sizeof(struct in6_addr) - sizeof(struct in_addr));
+			memcpy(&in6->s6_addr + sizeof(struct in_addr), ap,
+			       sizeof(struct in_addr));
 		} else
 #endif /* FAITH */
 		GET_AI(cur->ai_next, afd, ap, port);

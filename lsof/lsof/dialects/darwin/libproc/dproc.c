@@ -37,7 +37,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005-2007 Apple Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dproc.c,v 1.7 2011/08/07 22:52:30 abe Exp $";
+static char *rcsid = "$Id: dproc.c,v 1.8 2012/04/10 16:41:04 abe Exp abe $";
 #endif
 
 #include "lsof.h"
@@ -318,7 +318,7 @@ gather_proc_info()
 	/*
 	 * Check for process or command exclusion.
 	 */
-	    if (is_proc_excl((int)pid, (int)tai.pbsd.pbi_rgid,
+	    if (is_proc_excl((int)pid, (int)tai.pbsd.pbi_pgid,
 			     (UID_ARG)tai.pbsd.pbi_uid, &pss, &sf))
 	    {
 		continue;
@@ -363,7 +363,7 @@ gather_proc_info()
 	/*
 	 * Allocate local process space.
 	 */
-	    alloc_lproc((int)pid, (int)tai.pbsd.pbi_rgid,
+	    alloc_lproc((int)pid, (int)tai.pbsd.pbi_pgid,
 		(int)tai.pbsd.pbi_ppid, (UID_ARG)tai.pbsd.pbi_uid,
 		(tai.pbsd.pbi_name[0] != '\0') ? tai.pbsd.pbi_name
 					       : tai.pbsd.pbi_comm,

@@ -80,8 +80,8 @@ protected:
     UInt32                  _units;
     
     UInt32                  _transactionState;
-	
-	OSData                 *_dataValue;
+    
+    OSData                 *_dataValue;
     
     IOHIDElementPrivate    *_duplicateReportHandler;
     
@@ -95,6 +95,18 @@ protected:
     bool                    _isInterruptReportHandler;
     
     bool                    _shouldTickleActivity;
+    
+    struct {
+        SInt32     satMin;
+        SInt32     satMax;
+        SInt32     dzMin;
+        SInt32     dzMax;
+        SInt32     min;
+        SInt32     max;
+        IOFixed    gran;
+    } _calibration;
+    
+    UInt32                  _previousValue;
     
     virtual bool init( IOHIDDevice * owner, IOHIDElementType type );
 
@@ -110,13 +122,13 @@ protected:
                                 IOHIDElementPrivate * child,
                                 IOHIDElementPrivate * parent);
 
-	OSDictionary*  createProperties() const;
+    OSDictionary*  createProperties() const;
 
-	virtual IOByteCount		getByteSize();
-	
-	virtual void			setupResolution();
+    virtual IOByteCount        getByteSize();
+    
+    virtual void            setupResolution();
 
-	void setDataBits(OSData *data);
+    void setDataBits(OSData *data);
     
     unsigned int    iteratorSize() const;
     bool            initIterator(void * iterationContext) const;
@@ -163,21 +175,21 @@ public:
                                 IOOptionBits                options = 0 );
 
     virtual bool createReport( UInt8           reportID,
-                               void *		reportData, // report should be allocated outside this method
+                               void *        reportData, // report should be allocated outside this method
                                UInt32 *        reportLength,
                                IOHIDElementPrivate ** next );
                                
-    virtual bool processArrayReport(UInt8		 reportID,
+    virtual bool processArrayReport(UInt8         reportID,
                                     void *               reportData,
                                     UInt32               reportBits,
                                     const AbsoluteTime * timestamp);
 
     virtual bool createDuplicateReport(UInt8           reportID,
-                               void *		reportData, // report should be allocated outside this method
+                               void *        reportData, // report should be allocated outside this method
                                UInt32 *        reportLength);
                                     
     virtual bool createArrayReport(UInt8           reportID,
-                               void *		reportData, // report should be allocated outside this method
+                               void *        reportData, // report should be allocated outside this method
                                UInt32 *        reportLength);
     
     virtual void setArrayElementValue(UInt32 index, UInt32 value);
@@ -224,31 +236,36 @@ public:
     { return _transactionState; }
     
     virtual void setOutOfBoundsValue();
-	
-	virtual bool matchProperties(OSDictionary * matching);
     
-    virtual IOHIDElementCookie			getCookie();
-    virtual IOHIDElementType			getType();
-    virtual IOHIDElementCollectionType  getCollectionType();
-    virtual OSArray *					getChildElements();
-	virtual IOHIDElement *				getParentElement();
-    virtual UInt32						getUsagePage();
-    virtual UInt32						getUsage();
-	virtual UInt32						getReportID();
-    virtual UInt32						getReportSize();
-    virtual UInt32						getReportCount();
-	virtual UInt32						getFlags();
-    virtual UInt32						getLogicalMin();
-    virtual UInt32						getLogicalMax();
-    virtual UInt32						getPhysicalMin();
-    virtual UInt32						getPhysicalMax();
-    virtual UInt32						getUnit();
-    virtual UInt32						getUnitExponent();
-	virtual AbsoluteTime				getTimeStamp();
-    virtual UInt32						getValue();
-	virtual OSData *					getDataValue();
-	virtual void						setValue(UInt32 value);
-	virtual void						setDataValue(OSData * value);
+    virtual bool matchProperties(OSDictionary * matching);
+    
+    virtual IOHIDElementCookie              getCookie();
+    virtual IOHIDElementType                getType();
+    virtual IOHIDElementCollectionType      getCollectionType();
+    virtual OSArray *                       getChildElements();
+    virtual IOHIDElement *                  getParentElement();
+    virtual UInt32                          getUsagePage();
+    virtual UInt32                          getUsage();
+    virtual UInt32                          getReportID();
+    virtual UInt32                          getReportSize();
+    virtual UInt32                          getReportCount();
+    virtual UInt32                          getFlags();
+    virtual UInt32                          getLogicalMin();
+    virtual UInt32                          getLogicalMax();
+    virtual UInt32                          getPhysicalMin();
+    virtual UInt32                          getPhysicalMax();
+    virtual UInt32                          getUnit();
+    virtual UInt32                          getUnitExponent();
+    virtual AbsoluteTime                    getTimeStamp();
+    virtual UInt32                          getValue();
+    virtual UInt32                          getValue(IOOptionBits options);
+    virtual OSData *                        getDataValue();
+    virtual void                            setValue(UInt32 value);
+    virtual void                            setDataValue(OSData * value);
+    virtual bool                            conformsTo(UInt32 usagePage, UInt32 usage=0);
+    virtual void                            setCalibration(UInt32 min=0, UInt32 max=0, UInt32 saturationMin=0, UInt32 saturationMax=0, UInt32 deadZoneMin=0, UInt32 deadZoneMax=0, IOFixed granularity=0);
+    virtual UInt32                          getScaledValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical);
+    virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical);
 
     unsigned int getCount() const;
     unsigned int getCapacity() const;

@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * security.c
@@ -102,7 +102,7 @@ const command commands[] =
 	{ "help", help,
 	  "[command ...]",
 	  "Show all commands, or show usage for a command." },
-    
+
 	{ "list-keychains", keychain_list,
 	  "[-d user|system|common|dynamic] [-s [keychain...]]\n"
 	  "    -d  Use the specified preference domain\n"
@@ -225,7 +225,7 @@ const command commands[] =
 	  "You can remove this default access by explicitly specifying an empty app pathname: -T \"\"\n"
 	  "If no keychain is specified, the password is added to the default keychain.",
 	  "Add a generic password item."},
-      
+
 	{ "add-internet-password", keychain_add_internet_password,
 	  "[-a account] [-s server] [-w password] [options...] [-A|-T appPath] [keychain]\n"
 	  "    -a  Specify account name (required)\n"
@@ -340,7 +340,7 @@ const command commands[] =
 		"    -v  Show valid identities only (default is to show all identities)\n"
 		"If no keychains are specified to search, the default search list is used.",
 	"Find an identity (certificate + private key)."},
-	
+
 	{ "delete-certificate", keychain_delete_certificate,
 	  "[-c name] [-Z hash] [-t] [keychain...]\n"
 	  "    -c  Specify certificate to delete by its common name\n"
@@ -360,7 +360,7 @@ const command commands[] =
 	  "    -u  Specify key usage (optional) - see man page for values\n"
 	  "    -Z  Specify identity by SHA-1 hash of certificate (optional)\n",
 	  "Set the preferred identity to use for a service."},
-	
+
 	{ "get-identity-preference", get_identity_preference,
 		"[-s service] [-u keyUsage] [-p] [-c] [-Z] [keychain...]\n"
 		"    -s  Specify service (may be a URL, RFC822 email address, DNS host, or\n"
@@ -455,7 +455,7 @@ const command commands[] =
 	  "                 10 - certUsageStatusResponder\n"
 	  "                 11 - certUsageAnyCA",
 	  "Encode or decode CMS messages." },
-    
+
 	{ "install-mds" , mds_install,
 	  "",		/* no options */
 	  "Install (or re-install) the MDS database." },
@@ -550,8 +550,10 @@ const command commands[] =
 	  "       authorizationdb write <right-name> [allow|deny|<rulename>]\n"
 	  "If no rulename is specified, write will read a plist from stdin.\n"
 	  "       authorizationdb merge source [destination]\n"
-	  "If no destination path is specified, merge will merge to /etc/authorization.",
-	  "Make changes to the authorization policy database." },
+	  "If no destination path is specified, merge will merge to /etc/authorization.\n"
+      "       authorizationdb smartcard <enable|disable|status>\n"
+      "Enables/disables smartcard login support or report current status.",
+      "Make changes to the authorization policy database.\n" },
 
 	{ "execute-with-privileges" , execute_with_privileges,
 	  "<program> [args...]\n"
@@ -761,7 +763,7 @@ usage(void)
 	return 2;
 }
 
-/* Execute a single command. */ 
+/* Execute a single command. */
 static int
 execute_command(int argc, char * const *argv)
 {

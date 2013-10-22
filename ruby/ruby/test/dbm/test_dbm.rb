@@ -1,4 +1,5 @@
 require 'test/unit'
+require 'tmpdir'
 
 begin
   require 'dbm'
@@ -9,10 +10,10 @@ if defined? DBM
   require 'tmpdir'
   require 'fileutils'
 
-  class TestDBM < Test::Unit::TestCase
-    def TestDBM.uname_s
+  class TestDBM_RDONLY < Test::Unit::TestCase
+    def TestDBM_RDONLY.uname_s
       require 'rbconfig'
-      case Config::CONFIG['target_os']
+      case RbConfig::CONFIG['target_os']
       when 'cygwin'
         require 'Win32API'
         uname = Win32API.new('cygwin1', 'uname', 'P', 'I')
@@ -21,32 +22,57 @@ if defined? DBM
 
         utsname.unpack('A20' * 5)[0]
       else
-        Config::CONFIG['target_os']
+        RbConfig::CONFIG['target_os']
       end
     end
     SYSTEM = uname_s
 
     def setup
-      @path = "tmptest_dbm_"
-      assert_instance_of(DBM, @dbm = DBM.new(@path))
+      @tmpdir = Dir.mktmpdir("tmptest_dbm")
+      @prefix = "tmptest_dbm_#{$$}"
+      @path = "#{@tmpdir}/#{@prefix}_"
 
       # prepare to make readonly DBM file
-      DBM.open("tmptest_dbm_rdonly") {|dbm|
+      DBM.open("#{@tmpdir}/#{@prefix}_rdonly") {|dbm|
         dbm['foo'] = 'FOO'
       }
-      
-      File.chmod(0400, *Dir.glob("tmptest_dbm_rdonly.*"))
 
-      assert_instance_of(DBM, @dbm_rdonly = DBM.new("tmptest_dbm_rdonly", nil))
+      File.chmod(0400, *Dir.glob("#{@tmpdir}/#{@prefix}_rdonly.*"))
+
+      assert_instance_of(DBM, @dbm_rdonly = DBM.new("#{@tmpdir}/#{@prefix}_rdonly", nil))
     end
     def teardown
-      assert_nil(@dbm.close)
       assert_nil(@dbm_rdonly.close)
       ObjectSpace.each_object(DBM) do |obj|
         obj.close unless obj.closed?
       end
-      File.delete *Dir.glob("tmptest_dbm*").to_a
-      p Dir.glob("tmptest_dbm*") if $DEBUG
+      FileUtils.remove_entry_secure @tmpdir
+    end
+
+    def test_delete_rdonly
+      if /^CYGWIN_9/ !~ SYSTEM
+        assert_raise(DBMError) {
+          @dbm_rdonly.delete("foo")
+        }
+
+        assert_nil(@dbm_rdonly.delete("bar"))
+      end
+    end
+  end
+
+  class TestDBM < Test::Unit::TestCase
+    def setup
+      @tmpdir = Dir.mktmpdir("tmptest_dbm")
+      @prefix = "tmptest_dbm_#{$$}"
+      @path = "#{@tmpdir}/#{@prefix}_"
+      assert_instance_of(DBM, @dbm = DBM.new(@path))
+    end
+    def teardown
+      assert_nil(@dbm.close) unless @dbm.closed?
+      ObjectSpace.each_object(DBM) do |obj|
+        obj.close unless obj.closed?
+      end
+      FileUtils.remove_entry_secure @tmpdir
     end
 
     def check_size(expect, dbm=@dbm)
@@ -70,24 +96,79 @@ if defined? DBM
       end
     end
 
+    def test_dbmfile_suffix
+      @dbm.close
+      prefix = File.basename(@path)
+      suffixes = Dir.entries(@tmpdir).grep(/\A#{Regexp.escape prefix}/) { $' }.sort
+      pagname = "#{@path}.pag"
+      dirname = "#{@path}.dir"
+      dbname = "#{@path}.db"
+      case DBM::VERSION
+      when /\bNDBM\b/
+        assert_equal(%w[.dir .pag], suffixes)
+        assert(File.zero?(pagname))
+        assert(File.zero?(dirname))
+      when /\bGDBM\b/
+        assert_equal(%w[.dir .pag], suffixes)
+        assert(!File.zero?(pagname))
+        assert(!File.zero?(dirname))
+        pag = File.binread(pagname, 16)
+        pag_magics = [
+          0x13579ace, # GDBM_OMAGIC
+          0x13579acd, # GDBM_MAGIC32
+          0x13579acf, # GDBM_MAGIC64
+        ]
+        assert_operator(pag_magics, :include?,
+                        pag.unpack("i")[0]) # native endian, native int.
+        if !File.identical?(pagname, dirname)
+          dir = File.binread(dirname, 16)
+          assert_equal("GDBM", dir[0, 4])
+        end
+      when /\bBerkeley DB\b/
+        assert_equal(%w[.db], suffixes)
+        assert(!File.zero?(dbname))
+        db = File.binread(dbname, 16)
+        assert(db[0,4].unpack("N") == [0x00061561] || # Berkeley DB 1
+               db[12,4].unpack("L") == [0x00061561]) # Berkeley DBM 2 or later.
+      when /\bQDBM\b/
+        assert_equal(%w[.dir .pag], suffixes)
+        assert(!File.zero?(pagname))
+        assert(!File.zero?(dirname))
+        dir = File.binread(dirname, 16)
+        assert_equal("[depot]\0\v", dir[0, 9])
+        pag = File.binread(pagname, 16)
+        if [1].pack("s") == "\x00\x01" # big endian
+          assert_equal("[DEPOT]\n\f", pag[0, 9])
+        else # little endian
+          assert_equal("[depot]\n\f", pag[0, 9])
+        end
+      end
+      if suffixes == %w[.db]
+        assert_match(/\bBerkeley DB\b/, DBM::VERSION)
+      end
+    end
+
     def test_s_new_has_no_block
       # DBM.new ignore the block
       foo = true
-      assert_instance_of(DBM, dbm = DBM.new("tmptest_dbm") { foo = false })
+      assert_instance_of(DBM, dbm = DBM.new("#{@tmpdir}/#{@prefix}") { foo = false })
       assert_equal(foo, true)
       assert_nil(dbm.close)
     end
+
     def test_s_open_no_create
-      assert_nil(dbm = DBM.open("tmptest_dbm", nil))
+      skip "dbm_open() is broken on libgdbm 1.8.0 or prior (#{DBM::VERSION})" if /GDBM version 1\.(?:[0-7]\b|8\.0)/ =~ DBM::VERSION
+      assert_nil(dbm = DBM.open("#{@tmpdir}/#{@prefix}", nil))
     ensure
       dbm.close if dbm
     end
+
     def test_s_open_with_block
-      assert_equal(DBM.open("tmptest_dbm") { :foo }, :foo)
+      assert_equal(DBM.open("#{@tmpdir}/#{@prefix}") { :foo }, :foo)
     end
 
     def test_close
-      assert_instance_of(DBM, dbm = DBM.open("tmptest_dbm"))
+      assert_instance_of(DBM, dbm = DBM.open("#{@tmpdir}/#{@prefix}"))
       assert_nil(dbm.close)
 
       # closed DBM file
@@ -158,17 +239,10 @@ if defined? DBM
       }
     end
 
-    def test_index
+    def test_key
       assert_equal('bar', @dbm['foo'] = 'bar')
-      assert_equal('foo', @dbm.index('bar'))
+      assert_equal('foo', @dbm.key('bar'))
       assert_nil(@dbm['bar'])
-    end
-
-    def test_indexes
-      keys = %w(foo bar baz)
-      values = %w(FOO BAR BAZ)
-      @dbm[keys[0]], @dbm[keys[1]], @dbm[keys[2]] = values
-      assert_equal(values.reverse, @dbm.indexes(*keys.reverse))
     end
 
     def test_values_at
@@ -243,7 +317,7 @@ if defined? DBM
 
       n = 0
       ret = @dbm.each_value {|val|
-        assert_not_nil(key = @dbm.index(val))
+        assert_not_nil(key = @dbm.key(val))
         assert_not_nil(i = keys.index(key))
         assert_equal(val, values[i])
 
@@ -327,26 +401,16 @@ if defined? DBM
       assert_equal(2, @dbm.size)
 
       assert_nil(@dbm.delete(key))
-
-      if /^CYGWIN_9/ !~ SYSTEM
-        assert_raise(DBMError) {
-          @dbm_rdonly.delete("foo")
-        }
-
-        assert_nil(@dbm_rdonly.delete("bar"))
-      end
     end
+
     def test_delete_with_block
       key = 'no called block'
       @dbm[key] = 'foo'
-      assert_equal('foo', @dbm.delete(key) {|k| k.replace 'called block'})
-      assert_equal('no called block', key)
+      assert_equal('foo', @dbm.delete(key) {|k| k.replace 'called block'; :blockval})
       assert_equal(0, @dbm.size)
 
       key = 'no called block'
-      assert_equal(:blockval,
-                    @dbm.delete(key) {|k| k.replace 'called block'; :blockval})
-      assert_equal('called block', key)
+      assert_equal(:blockval, @dbm.delete(key) {|k| k.replace 'called block'; :blockval})
       assert_equal(0, @dbm.size)
     end
 
@@ -502,32 +566,59 @@ if defined? DBM
   end
 
   class TestDBM2 < Test::Unit::TestCase
-    TMPROOT = "#{Dir.tmpdir}/ruby-dbm.#{$$}"
-
     def setup
-      Dir.mkdir TMPROOT
+      @tmproot = Dir.mktmpdir('ruby-dbm')
     end
 
     def teardown
-      FileUtils.rm_rf TMPROOT if File.directory?(TMPROOT)
+      FileUtils.remove_entry_secure @tmproot if File.directory?(@tmproot)
+    end
+
+    def test_version
+      assert_instance_of(String, DBM::VERSION)
+    end
+
+    def test_reader_open_notexist
+      assert_raise(Errno::ENOENT) {
+        DBM.open("#{@tmproot}/a", 0666, DBM::READER)
+      }
+    end
+
+    def test_writer_open_notexist
+      skip "dbm_open() is broken on libgdbm 1.8.0 or prior (#{DBM::VERSION})" if /GDBM version 1\.(?:[0-7]\b|8\.0)/ =~ DBM::VERSION
+      assert_raise(Errno::ENOENT) {
+        DBM.open("#{@tmproot}/a", 0666, DBM::WRITER)
+      }
+    end
+
+    def test_wrcreat_open_notexist
+      v = DBM.open("#{@tmproot}/a", 0666, DBM::WRCREAT)
+      assert_instance_of(DBM, v)
+      v.close
+    end
+
+    def test_newdb_open_notexist
+      v = DBM.open("#{@tmproot}/a", 0666, DBM::NEWDB)
+      assert_instance_of(DBM, v)
+      v.close
     end
 
     def test_reader_open
-      DBM.open("#{TMPROOT}/a") {}
-      v = DBM.open("#{TMPROOT}/a", nil, DBM::READER) {|d|
+      DBM.open("#{@tmproot}/a") {} # create a db.
+      v = DBM.open("#{@tmproot}/a", nil, DBM::READER) {|d|
         # Errno::EPERM is raised on Solaris which use ndbm.
-        # DBMError is raised on Debian which use gdbm. 
-        assert_raises(Errno::EPERM, DBMError) { d["k"] = "v" }
+        # DBMError is raised on Debian which use gdbm.
+        assert_raise(Errno::EPERM, DBMError) { d["k"] = "v" }
         true
       }
       assert(v)
     end
 
     def test_newdb_open
-      DBM.open("#{TMPROOT}/a") {|dbm|
+      DBM.open("#{@tmproot}/a") {|dbm|
         dbm["k"] = "v"
       }
-      v = DBM.open("#{TMPROOT}/a", nil, DBM::NEWDB) {|d|
+      v = DBM.open("#{@tmproot}/a", nil, DBM::NEWDB) {|d|
         assert_equal(0, d.length)
         assert_nil(d["k"])
         true
@@ -536,9 +627,9 @@ if defined? DBM
     end
 
     def test_freeze
-      DBM.open("#{TMPROOT}/a") {|d|
+      DBM.open("#{@tmproot}/a") {|d|
         d.freeze
-        assert_raises(TypeError) { d["k"] = "v" }
+        assert_raise(RuntimeError) { d["k"] = "v" }
       }
     end
   end

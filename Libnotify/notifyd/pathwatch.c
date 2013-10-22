@@ -68,9 +68,8 @@
 #include <pwd.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <tzfile.h>
 #include "pathwatch.h"
-
-#define ZONEINFO_DIR "/usr/share/zoneinfo/"
 
 #define forever for(;;)
 #define streq(A,B) (strcmp(A,B)==0)
@@ -114,6 +113,8 @@ static struct
 	dispatch_queue_t pathwatch_queue;
 	uint32_t vnode_count;
 	vnode_t **vnode;
+	char *tzdir;
+	size_t tzdir_len;
 } _global = {0};
 
 /* forward */
@@ -241,10 +242,10 @@ _path_stat_check_access(const char *path, uid_t uid, gid_t gid, uint32_t *ftype)
 	/* skip access control check if uid is zero */
 	if (uid == 0) return 0;
 
-	/* special case: anything in /etc/zoneinfo is OK */
+	/* special case: anything in the timezone directory is OK */
 	memset(buf, 0, sizeof(buf));
 	if (realpath(path, buf) == NULL) return PATH_STAT_FAILED;
-	if (!strncasecmp(buf, ZONEINFO_DIR, sizeof(ZONEINFO_DIR) - 1))
+	if ((_global.tzdir != NULL) && (!strncasecmp(buf, _global.tzdir, _global.tzdir_len)))
 	{
 		return PATH_STAT_OK;
 	}
@@ -594,11 +595,22 @@ _vnode_release_for_node(path_node_t *pnode)
 }
 
 /*
- * Frees a path_node_t object.
+ * Retain a path_node_t object.
  * Dispatched on _global.pathwatch_queue.
  */
 static void
-path_node_free(path_node_t *pnode)
+_path_node_retain(path_node_t *pnode)
+{	
+	if (pnode == NULL) return;
+	pnode->refcount++;
+}
+
+/*
+ * Free a path_node_t object.
+ * Dispatched on _global.pathwatch_queue.
+ */
+static void
+_path_node_free(path_node_t *pnode)
 {
 	uint32_t i, n;
 
@@ -636,15 +648,12 @@ path_node_free(path_node_t *pnode)
 }
 
 /*
- * Frees a path_node_t object.
- * The work is actually done on the global pathwatch_queue to make this safe.
+ * Release a path_node_t object.
  */
-void
-path_node_close(path_node_t *pnode)
+static void
+_path_node_release(path_node_t *pnode)
 {
 	if (pnode == NULL) return;
-
-	if (pnode->src != NULL) dispatch_source_cancel(pnode->src);
 
 	/*
 	 * We need to make sure that the node's event handler isn't currently
@@ -655,16 +664,43 @@ path_node_close(path_node_t *pnode)
 	 */
 	dispatch_async(pnode->src_queue, ^{
 		dispatch_async(_global.pathwatch_queue, ^{
-			path_node_free(pnode);
+			if (pnode->refcount > 0) pnode->refcount--;
+			if (pnode->refcount == 0) _path_node_free(pnode);
 		});
 	});
+}
+
+/*
+ * Frees a path_node_t object.
+ * The work is actually done on the global pathwatch_queue to make this safe.
+ */
+void
+path_node_close(path_node_t *pnode)
+{
+	if (pnode == NULL) return;
+
+	if (pnode->src != NULL) dispatch_source_cancel(pnode->src);
+	_path_node_release(pnode);
 }
 
 static void
 _pathwatch_init()
 {
+	char buf[MAXPATHLEN];
+	
 	/* Create serial queue for node creation / deletion operations */
 	_global.pathwatch_queue = dispatch_queue_create("pathwatch", NULL);
+
+	_global.tzdir = NULL;
+	_global.tzdir_len = 0;
+
+	/* Get the real path to TZDIR */
+	if (realpath(TZDIR, buf) != NULL)
+	{
+		_global.tzdir_len = strlen(buf);
+		_global.tzdir = strdup(buf);
+		if (_global.tzdir == NULL) _global.tzdir_len = 0;
+	}
 }
 
 /*
@@ -798,6 +834,7 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 
 		if (old_type == PATH_NODE_TYPE_GHOST)
 		{
+			/* transition from ghost to non-ghost */
 			if (pnode->type != PATH_NODE_TYPE_GHOST)
 			{
 				data |= PATH_NODE_CREATE;
@@ -807,9 +844,33 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 				data = 0;
 			}
 		}
+		else if (pnode->type == PATH_NODE_TYPE_GHOST)
+		{
+			/* transition from non-ghost to ghost */
+			data |= PATH_NODE_DELETE;
+		}
 
-		data &= pnode->mask;
-		if (data != 0) dispatch_source_merge_data(pnode->src, data);
+		data &= (pnode->flags & PATH_NODE_ALL);
+		if (data != 0)
+		{
+			if ((pnode->flags & PATH_SRC_SUSPENDED) == 0)
+			{
+				/* suspend pnode->src, and fire it after PNODE_COALESCE_TIME */
+				pnode->flags |= PATH_SRC_SUSPENDED;
+				dispatch_suspend(pnode->src);
+
+				dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, PNODE_COALESCE_TIME);
+				_path_node_retain(pnode);
+
+				dispatch_after(delay, _global.pathwatch_queue, ^{
+					pnode->flags &= ~PATH_SRC_SUSPENDED;
+					dispatch_resume(pnode->src);
+					_path_node_release(pnode);
+				});
+			}
+
+			dispatch_source_merge_data(pnode->src, data);
+		}
 	}
 
 	buf = NULL;
@@ -876,6 +937,7 @@ path_node_create(const char *path, uid_t uid, gid_t gid, uint32_t mask, dispatch
 	pnode = _path_node_init(path);
 	if (pnode == NULL) return NULL;
 
+	pnode->refcount = 1;
 	pnode->uid = uid;
 	pnode->gid = gid;
 
@@ -885,7 +947,7 @@ path_node_create(const char *path, uid_t uid, gid_t gid, uint32_t mask, dispatch
 
 	pnode->src = dispatch_source_create(DISPATCH_SOURCE_TYPE_DATA_OR, 0, 0, queue);
 	pnode->src_queue = queue;
-	pnode->mask = mask;
+	pnode->flags = mask & PATH_NODE_ALL;
 
 	return pnode;
 }

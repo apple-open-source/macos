@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2007, 2011 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2007, 2011, 2012 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,14 +44,15 @@ typedef enum {
 } WebTextDirectionSubmenuInclusionBehavior;
 
 typedef enum {
-    WebKitEditingMacBehavior,
-    WebKitEditingWinBehavior,
-    WebKitEditingUnixBehavior
-} WebKitEditingBehavior;
+    WebAllowAllStorage = 0,
+    WebBlockThirdPartyStorage,
+    WebBlockAllStorage
+} WebStorageBlockingPolicy;
 
 extern NSString *WebPreferencesChangedNotification;
 extern NSString *WebPreferencesRemovedNotification;
 extern NSString *WebPreferencesChangedInternalNotification;
+extern NSString *WebPreferencesCacheModelChangedInternalNotification;
 
 @interface WebPreferences (WebPrivate)
 
@@ -62,6 +63,9 @@ extern NSString *WebPreferencesChangedInternalNotification;
 
 - (BOOL)developerExtrasEnabled;
 - (void)setDeveloperExtrasEnabled:(BOOL)flag;
+
+- (BOOL)javaScriptExperimentsEnabled;
+- (void)setJavaScriptExperimentsEnabled:(BOOL)flag;
 
 - (BOOL)authorAndUserStylesEnabled;
 - (void)setAuthorAndUserStylesEnabled:(BOOL)flag;
@@ -148,9 +152,6 @@ extern NSString *WebPreferencesChangedInternalNotification;
 - (WebKitEditableLinkBehavior)editableLinkBehavior;
 - (void)setEditableLinkBehavior:(WebKitEditableLinkBehavior)behavior;
 
-- (WebKitEditingBehavior)editingBehavior;
-- (void)setEditingBehavior:(WebKitEditingBehavior)behavior;
-
 - (WebTextDirectionSubmenuInclusionBehavior)textDirectionSubmenuInclusionBehavior;
 - (void)setTextDirectionSubmenuInclusionBehavior:(WebTextDirectionSubmenuInclusionBehavior)behavior;
 
@@ -192,6 +193,12 @@ extern NSString *WebPreferencesChangedInternalNotification;
 - (BOOL)cssRegionsEnabled;
 - (void)setCSSRegionsEnabled:(BOOL)enabled;
 
+- (BOOL)cssCompositingEnabled;
+- (void)setCSSCompositingEnabled:(BOOL)enabled;
+
+- (BOOL)cssGridLayoutEnabled;
+- (void)setCSSGridLayoutEnabled:(BOOL)enabled;
+
 - (BOOL)showDebugBorders;
 - (void)setShowDebugBorders:(BOOL)show;
 
@@ -209,9 +216,6 @@ extern NSString *WebPreferencesChangedInternalNotification;
 
 - (BOOL)paginateDuringLayoutEnabled;
 - (void)setPaginateDuringLayoutEnabled:(BOOL)flag;
-
-- (BOOL)memoryInfoEnabled;
-- (void)setMemoryInfoEnabled:(BOOL)enabled;
 
 - (BOOL)hyperlinkAuditingEnabled;
 - (void)setHyperlinkAuditingEnabled:(BOOL)enabled;
@@ -232,6 +236,10 @@ extern NSString *WebPreferencesChangedInternalNotification;
 - (BOOL)mockScrollbarsEnabled;
 - (void)setMockScrollbarsEnabled:(BOOL)flag;
 
+// This is a global setting.
+- (BOOL)seamlessIFramesEnabled;
+- (void)setSeamlessIFramesEnabled:(BOOL)enabled;
+
 // Other private methods
 - (void)_postPreferencesChangedNotification;
 - (void)_postPreferencesChangedAPINotification;
@@ -242,6 +250,8 @@ extern NSString *WebPreferencesChangedInternalNotification;
 + (CFStringEncoding)_systemCFStringEncoding;
 + (void)_setInitialDefaultTextEncodingToSystemEncoding;
 + (void)_setIBCreatorID:(NSString *)string;
+
+// For DumpRenderTree use only.
 + (void)_switchNetworkLoaderToNewTestingSession;
 + (void)_setCurrentNetworkLoaderSessionCookieAcceptPolicy:(NSHTTPCookieAcceptPolicy)cookieAcceptPolicy;
 
@@ -269,6 +279,9 @@ extern NSString *WebPreferencesChangedInternalNotification;
 // compiled with USE_AVFOUNDATION.
 - (void)setAVFoundationEnabled:(BOOL)flag;
 - (BOOL)isAVFoundationEnabled;
+
+- (void)setQTKitEnabled:(BOOL)flag;
+- (BOOL)isQTKitEnabled;
 
 // WebSocket support depends on ENABLE(WEB_SOCKETS).
 - (void)setHixie76WebSocketProtocolEnabled:(BOOL)flag;
@@ -298,10 +311,32 @@ extern NSString *WebPreferencesChangedInternalNotification;
 - (void)setShouldRespectImageOrientation:(BOOL)flag;
 - (BOOL)shouldRespectImageOrientation;
 
+- (BOOL)requestAnimationFrameEnabled;
+- (void)setRequestAnimationFrameEnabled:(BOOL)enabled;
+
 - (void)setIncrementalRenderingSuppressionTimeoutInSeconds:(NSTimeInterval)timeout;
 - (NSTimeInterval)incrementalRenderingSuppressionTimeoutInSeconds;
 
 - (BOOL)diagnosticLoggingEnabled;
 - (void)setDiagnosticLoggingEnabled:(BOOL)enabled;
+
+- (BOOL)screenFontSubstitutionEnabled;
+- (void)setScreenFontSubstitutionEnabled:(BOOL)enabled;
+
+- (void)setStorageBlockingPolicy:(WebStorageBlockingPolicy)storageBlockingPolicy;
+- (WebStorageBlockingPolicy)storageBlockingPolicy;
+
+- (BOOL)plugInSnapshottingEnabled;
+- (void)setPlugInSnapshottingEnabled:(BOOL)enabled;
+
+- (BOOL)hiddenPageDOMTimerThrottlingEnabled;
+- (void)setHiddenPageDOMTimerThrottlingEnabled:(BOOL)flag;
+
+- (BOOL)hiddenPageCSSAnimationSuspensionEnabled;
+- (void)setHiddenPageCSSAnimationSuspensionEnabled:(BOOL)flag;
+
+- (BOOL)lowPowerVideoAudioBufferSizeEnabled;
+- (void)setLowPowerVideoAudioBufferSizeEnabled:(BOOL)enabled;
+
 
 @end

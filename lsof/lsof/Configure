@@ -14,7 +14,7 @@
 # shell script, named $LSOF_MK, that places its source modules in this
 # directory.
 #
-# $Id: Configure,v 1.160 2011/09/27 17:27:20 abe Exp $
+# $Id: Configure,v 1.161 2012/04/10 16:35:46 abe Exp abe $
 
 # LSOF_CFLAGS_OVERRIDE=1 may be introduced through the environment to cause
 #	the library Makefile's CFLAGS definition to override any in the
@@ -883,13 +883,16 @@ case $LSOF_TGT in	# {
       11.*)			# Mac OS X 10.7 (Lion)
  	LSOF_VERS=1100
  	;;
-      12.*)			# a coming version of Mac OS?
+      12.*)			# Mac OS X 10.8 (Mountain Lion)
  	LSOF_VERS=1200
+ 	;;
+      13.*)			# Next Mac OS X
+ 	LSOF_VERS=1300
  	;;
       *)
 	echo Unknown Darwin release: `uname -r`
-	echo Assuming Darwin 11.0
-	LSOF_VERS=1100
+	echo Assuming Darwin 12.0
+	LSOF_VERS=1200
 	;;
       esac	# }
     fi	# }
@@ -918,13 +921,17 @@ case $LSOF_TGT in	# {
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1="net/ndrv_var.h net/raw_cb.h netinet/ip_var.h netinet/tcp_var.h sys/eventvar.h sys/file_internal.h sys/mount_internal.h sys/proc_internal.h sys/vnode_internal.h"
       ;;
-    900|1000|1100)
+    900|1000|1100|1200)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1=""
       LSOF_UNSUP=""
       LSOF_TSTBIGF=" "			# enable LTbigf test
+      if test $LSOF_VERS -eq 900	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DNEEDS_MACH_PORT_T"
+      fi	# }
       ;;
-    1200)
+    1300)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1=""
       ;;
@@ -1587,20 +1594,22 @@ kernel generation process.
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=8020
 	;;
+      8.3*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=8030
+	;;
       9*)
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=9000
 	;;
+      10*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=10000
+	;;
       *)
 	echo Unknown FreeBSD release: `uname -r`
-	echo Assuming FreeBSD 2.x
-	LSOF_CFGL="$LSOF_CFGL -lkvm"
-	LSOF_VERS=2000
-	LSOF_N_UNIXV=`/usr/sbin/sysctl -n kern.bootfile`
-	if test "X$LSOF_N_UNIXV" = "X"	# {
-	then
-	  LSOF_N_UNIXV="/kernel"
-	fi	# }
+	rm -f $LSOF_HLP
+	exit 1
 	;;
       esac	# }
     fi	# }
@@ -1608,7 +1617,7 @@ kernel generation process.
     # Clear LSOF_UNSUP message for supported versions of FreeBSD.
     
     case $LSOF_VERS in  # {
-    4090|6040|8000|8020|9000)
+    4090|8020|8030|9000|10000)
       LSOF_UNSUP=""
       ;;
     esac	# }
@@ -1659,6 +1668,21 @@ kernel generation process.
       fi	# }
     fi	# }
 
+    # Test for thread (task) support.
+
+    if test -r ${LSOF_INCLUDE}/sys/user.h	# {
+    then
+      grep -q ki_numthreads ${LSOF_INCLUDE}/sys/user.h
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASTASKS"
+      fi	# }
+    else
+      echo "FATAL: can't find sys/user.h"
+      rm -f $LSOF_HLP
+      exit 1
+    fi	# }
+
     # Do FreeBSD version-specific stuff.
 
     case $LSOF_VERS in	# {
@@ -1694,7 +1718,7 @@ kernel generation process.
 	LSOF_CFGF="$LSOF_CFGF -DHASVMLOCKH"
       fi	# }
       ;;
-    4000|4010|4020|4030|4040|4050|4060|4070|4080|4090|4100|4110|5000|5010|5020|5030|5040|5050|6000|6010|6020|6030|6040|7000|7010|7020|7030|7040|8000|8010|8020|9000)
+    *)
       if test -r ${LSOF_INCLUDE}/nfs/rpcv2.h	# {
       then
 	LSOF_CFGF="$LSOF_CFGF -DHASRPCV2H"
@@ -1744,6 +1768,7 @@ kernel generation process.
 		echo "          in ${LSOF_INCLUDE}/fs/devfs/devfs.h or"
 		echo "          ${FREEBSD_SYS}/fs/devfs/devfs.h.  Consult"
 		echo "          00FAQ for an explanation."
+		rm -f $LSOF_HLP
 		exit 1
 	      fi	# }
 	    fi	# }
@@ -2039,11 +2064,6 @@ LOCKF_OWNER4
 	  fi	# }
 	fi	# }
       fi	# }
-      ;;
-    *)
-      echo "Unknown FreeBSD release: $LSOF_VERS"
-      rm -f $LSOF_HLP
-      exit 1
       ;;
     esac	# }
     LSOF_CFGF="$LSOF_CFGF -DFREEBSDV=$LSOF_VERS"
@@ -4815,7 +4835,15 @@ return(0); }
     esac	# }
     LSOF_CFGF="$LSOF_CFGF -Dsolaris=$LSOF_VERS"
 
+    # Test for <sys/fs/cachefs_fs.h>.
+
+    if test -r ${LSOF_INCLUDE}/sys/fs/cachefs_fs.h	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHASCACHEFS"
+    fi	# }
+
     # Test for <utmpx.h>
+
     if test -r ${LSOF_INCLUDE}/utmpx.h	# {
     then
       LSOF_CFGF="$LSOF_CFGF -DHASUTMPX"

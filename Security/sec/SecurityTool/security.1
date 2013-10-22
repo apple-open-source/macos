@@ -1,0 +1,595 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.Dd Tue May 06 2003               \" DATE 
+.Dt security 1      \" Program name and manual section number 
+.Os Darwin
+.Sh NAME                 \" Section Header - required - don't modify 
+.Nm security
+.\" The following lines are read in generating the apropos(man -k) database. Use only key
+.\" words here as the database is built based on the words here and in the .ND line. 
+.\" Use .Nm macro to designate other names for the documented program.
+.Nd Command line interface to keychains and Security.framework
+.Sh SYNOPSIS             \" Section Header - required - don't modify
+.Nm
+.Op Fl hilqv             \" [-hilqv]
+.Op Fl p Ar prompt       \" [-p prompt] 
+.Op Ar command           \" [command]
+.Op Ar command_options   \" [command_options]
+.Op Ar command_args      \" [command_args]
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+A simple command line interface which lets you administer Keychains,
+manipulate keys and certificates, and do just about anything the
+Security framework is capable of from the command line.  New commands
+are constantly being added over time.
+.Pp
+By default
+.Nm
+will execute the
+.Ar command
+supplied and report if anything went wrong.
+.Pp
+If the
+.Fl i
+or
+.Fl p
+options are provided,
+.Nm
+will enter interactive mode and allow the user to enter multiple commands on stdin.  When EOF is read from stdin
+.Nm
+will exit.
+.Pp
+Here is a complete list of the options available:
+.Bl -tag -width -indent
+.It Fl h
+If no arguments are specified show a list of all commands.  If arguments are provided show usage for each the specified commands.  This options is basically the same as the
+.Nm help
+command.
+.It Fl i
+Run
+.Nm
+in interactive mode.  A prompt 
+.Po
+.Li security>
+by default
+.Pc
+will be displayed and the user will be able to type commands on stdin until an EOF is encountered.
+.It Fl l
+Before
+.Nm
+exits run
+.Dl "/usr/bin/leaks -nocontext"
+on itself to see if the command(s) you executed leaks.
+.It Fl p Ar prompt
+This option implies the
+.Fl i
+option but changes the default prompt to the argument specified instead.
+.It Fl q
+Will make
+.Nm
+less verbose.
+.It Fl v
+Will make
+.Nm
+more verbose.
+.El                      \" Ends the list
+.Pp
+.Sh "SECURITY COMMAND SUMMARY"
+.Nm
+provides a rich variety of commands
+.Po Ar command
+in the
+.Sx SYNOPSIS Pc Ns
+, each of which often has a wealth of options, to allow access to
+the broad functionality provided by the Security framework.  However,
+you don't have to master every detail for
+.Nm
+to be useful to you.
+.Pp
+Here are brief descriptions of all the
+.Nm
+commands:
+.Pp
+.Bl -tag -width find-internet-password -compact
+.It Nm help
+Show all commands. Or show usage for a command.
+.It Nm list-keychains
+Display or manipulate the keychain search list.
+.It Nm default-keychain
+Display or set the default keychain.
+.It Nm login-keychain
+Display or set the login keychain.
+.It Nm create-keychain
+Create keychains and add them to the search list.
+.It Nm delete-keychain
+Delete keychains and remove them from the search list.
+.It Nm lock-keychain
+Lock the specified keychain.
+.It Nm unlock-keychain
+Unlock the specified keychain.
+.It Nm set-keychain-settings
+Set Nm settings for a keychain.
+.It Nm show-keychain-info
+Show the settings for keychain.
+.It Nm dump-keychain
+Dump the contents of one or more keychains.
+.It Nm create-keypair
+Create an assymetric keypair.
+.It Nm add-internet-password
+Add an internet password item.
+.It Nm add-certificates
+Add certificates to a keychain.
+.It Nm find-internet-password
+Find an internet password item.
+.It Nm find-certificate
+Find a certificate item.
+.It Nm create-db
+Create an db using the DL.
+.It Nm import
+Import item(s) into a keychain.
+.It Nm export
+Export item(s) from a keychain.
+.It Nm install-mds
+Install (or re-install) the MDS database.
+.It Nm leaks
+Run
+.Pa /usr/bin/leaks
+on this proccess.
+.El
+.Sh "COMMON COMMAND OPTIONS"
+This section describes the
+.Ar command_options
+that are available across all
+.Nm
+commands.
+.Bl -tag -width -indent
+.It Fl h
+Show a usage message for the specified command.  This option is
+basically the same as the
+.Ar help
+command.
+.El
+.Sh "SECURITY COMMANDS"
+Here (finally) are details on all the
+.Nm
+commands and the options each accepts.
+.Bl -item
+.It
+.Nm help
+.Op Fl h
+.Bl -item -offset -indent
+Show all commands. Or show usage for a command.
+.El
+.It
+.Nm list-keychains
+.Op Fl h
+.Op Fl d Ar user Ns | Ns Ar system Ns | Ns Ar common
+.Op Fl s Op Ar keychain...
+.Bl -item -offset -indent
+Display or set the keychain search list.
+.It
+Options:
+.Bl -tag -compact -width -indent
+.It Fl d Ar user Ns | Ns Ar system Ns | Ns Ar common
+Specify the preferences domain to be used.
+.It Fl s
+Set the search list to the specified keychains
+.El
+.El
+.It
+.Nm default-keychain
+.Op Fl h
+.Op Fl d Ar user Ns | Ns Ar system Ns | Ns Ar common
+.Op Fl s Op Ar keychain
+.Bl -item -offset -indent
+Display or set the default keychain.
+.It
+Options:
+.Bl -tag -compact -width -indent
+.It Fl d Ar user Ns | Ns Ar system Ns | Ns Ar common
+Specify the preferences domain to be used.
+.It Fl s
+Set the default keychain to the specified
+.Ar keychain Ns .
+Unset it if no keychain is specified.
+.El
+.El
+.It
+.Nm login-keychain
+.Op Fl h
+.Op Fl d Ar user Ns | Ns Ar system Ns | Ns Ar common
+.Op Fl s Op Ar keychain
+.Bl -item -offset -indent
+Display or set the login keychain.
+.It
+Options:
+.Bl -tag -compact -width -indent
+.It Fl d Ar user Ns | Ns Ar system Ns | Ns Ar common
+Specify the preferences domain to be used.
+.It Fl s
+Set the login keychain to the specified
+.Ar keychain Ns .
+Unset it if no keychain is specified.
+.El
+.El
+.It
+.Nm create-keychain
+.Op Fl hP
+.Op Fl p Ar password
+.Op Ar keychain...
+.Bl -item -offset -indent
+Create keychains and add them to the search list.  if no keychains are specified the user is prompted for one.
+.It  
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl P
+Prompt the user for a password using the SecurityAgent.
+.It Fl p Ar password
+Use
+.Ar password
+as the password for the keychains being created.
+.El
+.It
+If neither
+.Fl P
+or
+.Fl p Ar password
+are specified the user is prompted for a password.
+.El
+.It
+.Nm delete-keychain
+.Op Fl h
+.Op Ar keychain...
+.Bl -item -offset -indent
+Delete keychains and remove them from the search list.
+.El
+.It
+.Nm lock-keychain
+.Op Fl h
+.Op Fl a Ns | Ns Ar keychain
+.Bl -item -offset -indent
+Lock
+.Ar keychain Ns
+\&. Or the default is none is specified.  If the
+.Fl a
+options is specified all keychains are locked.
+.El
+.It
+.Nm unlock-keychain
+.Op Fl hu
+.Op Fl p Ar password
+.Op Ar keychain
+.Bl -item -offset -indent
+Unlock
+.Ar keychain Ns
+\&. Or the default is none is specified.
+.El
+.It
+.Nm set-keychain-settings
+.Op Fl hlu
+.Op Fl t Ar timeout
+.Op Ar keychain
+.Bl -item -offset -indent
+Set settings for
+.Ar keychain Ns
+\&. Or the default is none is specified.
+.Bl -tag -compact -width -indent-indent
+.It Fl l 
+Lock keychain when the system sleeps
+.It Fl u 
+Lock keychain after certain period of time specified using
+.Fl t Ns
+\&.
+.It Fl t Ar timeout
+Automatically lock keychain after
+.Ar timeout
+seconds of inactivity.
+.El
+.El
+.It
+.Nm show-keychain-info
+.Op Fl h
+.Bl -item -offset -indent
+Show the settings for keychain.
+.El
+.It
+.Nm dump-keychain
+.Op Fl adhir
+.Bl -item -offset -indent
+Dump the contents of one or more keychains.
+.Bl -tag -compact -width -indent-indent
+.It Fl a
+Dump acl of items.
+.It Fl d
+Dump cleartext data of items.
+.It Fl i
+Interactive acl editing mode.
+.It Fl r
+Dump raw (possibly ciphertext) data of items.
+.El
+.El
+.It
+.Nm create-keypair
+.Op Fl h
+.Op Fl a Ar alg
+.Op Fl s Ar size
+.Op Fl f Ar from_date
+.Op Fl t Ar to_date
+.Op Fl v Ar days
+.Op Fl k Ar keychain
+.Op Fl n Ar name
+.Op Fl A Ns | Ns Fl T Ar app1:app2:...
+.Bl -item -offset -indent
+Create an assymetric keypair.
+.El
+.It
+.Nm add-internet-password
+.Op Fl h
+.Op Fl a Ar account_name
+.Op Fl d Ar security_domain
+.Op Fl p Ar path
+.Op Fl P Ar port
+.Op Fl r Ar protocol
+.Op Fl s Ar server_name
+.Op Fl t Ar authentication_type
+.Op Fl w Ar password_data
+.Op Ar keychain
+.Bl -item -offset -indent
+Add an internet password item.
+.El
+.It
+.Nm add-certificates
+.Op Fl h
+.Op Fl k Ar keychain
+.Ar file...
+.Bl -item -offset -indent
+Add certficates contained in the specified
+.Ar files
+to the default keychain.  The files must contain one DER encoded X509 certificate each.
+.Bl -tag -compact -width -indent-indent
+.It Fl k Ar keychain
+Use
+.Ar keychain
+rather than the default keychain.
+.El
+.El
+.It
+.Nm find-internet-password
+.Op Fl gh
+.Op Fl a Ar account_name
+.Op Fl d Ar security_domain
+.Op Fl p Ar path
+.Op Fl P Ar port
+.Op Fl r Ar protocol
+.Op Fl s Ar server_name
+.Op Fl t Ar authentication_type
+.Op Ar keychain...
+.Bl -item -offset -indent
+Find an internet password item.
+.El
+.It
+.Nm find-certificate
+.Op Fl ahmp
+.Op Fl e Ar email_address
+.Op Ar keychain...
+.Bl -item -offset -indent
+Find a certificate item.  If no
+.Ar keychain
+arguments are provided,
+.Nm
+will search the default search list.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl a
+Find all matching certificates, not just the first one.
+.It Fl g Ar dl Ns | Ns Ar cspdl
+Use the AppleDL (default) or AppleCspDL
+.It Fl e Ar email_address
+Match on "email_address" when searching.
+.It Fl m
+Show the email addresses in the certificate.
+.It Fl p
+Output certificate in pem form.  The default is to dump the attributes and keychain the cert is in.
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.Dl security> find-certificate -a -p > allcerts.pem
+Exports all certificates from all keychains into a pem file called allcerts.pem.
+.Dl security> find-certificate -a -e me@foo.com -p > certs.pem
+Exports all certificates from all keychains with the email address
+mb@foo.com into a pem file called certs.pem.
+.El
+.El
+.It
+.Nm create-db
+.Op Fl aho0
+.Op Fl g Ar dl Ns | Ns Ar cspdl
+.Op Fl m Ar mode
+.Op Ar name
+.Bl -item -offset -indent
+Create an db using the DL.  If
+.Ar name
+isn't provided
+.Nm
+will prompt the user to type a name.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl a
+Turn off autocommit
+.It Fl g Ar dl Ns | Ns Ar cspdl
+Use the AppleDL (default) or AppleCspDL
+.It Fl m Ar mode
+Set the file permissions to
+.Ar mode Ns
+\&.
+.It Fl o
+Force using openparams argument
+.It Fl 0
+Force using version 0 openparams
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.Dl security> create-db -m 0644 test.db
+.Dl security> create-db -g cspdl -a test2.db
+.El
+.\"new import/export commands.
+.El
+.It
+.Nm export
+.Op Fl k Ar keychain
+.Op Fl t Ar item_type
+.Op Fl f Ar item_format
+.Op Fl w
+.Op Fl p Ar item_format
+.Op Fl P Ar passphrase
+.Op Fl o Ar outfile
+.Bl -item -offset -indent
+Export one or more items from a keychain to one of a number of external representations.  If
+.Ar keychain
+isn't provided, items will be exported from the user's default keychain.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl k Ar keychain
+Specify keychain from which item(s) will be exported. 
+.It Fl t Ar item_type
+Specify the type of items to export. Possible types are certs, allKeys, pubKeys, privKeys, identities, and all. The default is all. An identity consists of both a certificate and the corresponding provate key. 
+.It Fl f Ar item_format
+Specify the format of the exported data. Possible formats are openssl, bsafe, pkcs7, pkcs8, pkcs12, x509, and pemseq. The default is pemseq if more than one item is being exported. The default is openssl if one key is being exported. The default is x509 if one certificate is being exported.
+.It Fl w
+Specifies that private keys are to be wrapped on export. 
+.It Fl p 
+Specifies that PEM armour is to be applied to the output data.
+.It Fl P Ar passphrase
+Specify the wrapping passphrase immediately. The default is to obtain a secure passphrase via GUI.
+.It Fl o Ar outfile
+Write the output data to 
+.Ar outfile Ns
+\&. Default is to write data to stdout. 
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.Dl security> export -k login.keychain -t certs -o /tmp/certs.pem
+.Dl security> export -k newcert.keychain -t identities -f pkcs12 -o /tmp/mycerts.p12
+.El
+.\"marker.
+.El
+.It
+.Nm import
+inputfile
+.Op Fl k Ar keychain
+.Op Fl t Ar item_type
+.Op Fl f Ar item_format
+.Op Fl w
+.Op Fl P Ar passphrase
+.Bl -item -offset -indent
+Import one or more items from 
+.Ar inputfile Ns
+\& into a keychain. If
+.Ar keychain
+isn't provided, items will be imported into the user's default keychain.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl k Ar keychain
+Specify keychain into which item(s) will be imported. 
+.It Fl t Ar item_type
+Specify the type of items to import. Possible types are cert, pub, priv, session, cert, and agg. Pub, priv, and session refer to keys; agg is one of the aggregate types (pkcs12 and PEM sequence). The command can often figure out what item_type an item contains based in the filename and/or item_format.
+.It Fl f Ar item_format
+Specify the format of the exported data. Possible formats are openssl, bsafe, raw, pkcs7, pkcs8, pkcs12, x509, and pemseq. The command can often figure out what format an item is in based in the filename and/or item_type. 
+.It Fl w
+Specifies that private keys are wrapped and must be unwrapped on import. 
+.It Fl P Ar passphrase
+Specify the unwrapping passphrase immediately. The default is to obtain a secure passphrase via GUI.
+.El
+.It
+.Sy Examples
+.Bl -tag -width -indent
+.Dl security> import /tmp/certs.pem -k 
+.Dl security> import /tmp/mycerts.p12 -t agg -k newcert.keychain
+.Dl security> import /tmp/mycerts.p12 -f pkcs12 -k newcert.keychain
+.El
+.\"end of new import/export commands.
+.It
+.Nm install-mds
+.Bl -item -offset -indent
+Install (or re-install) the Module Directory Services (MDS) database. This is a system tool which is not normally used by users. There are no options. 
+.El
+.It
+.Nm leaks
+.Op Fl h
+.Op Fl cycles
+.Op Fl nocontext
+.Op Fl nostacks
+.Op Fl exclude Ar symbol
+.Bl -item -offset -indent
+Run
+.Li /usr/bin/leaks
+on this proccess.  This is to help find memory leaks after running
+certain commands.
+.It
+Options:
+.Bl -tag -compact -width -indent-indent
+.It Fl cycles
+Use a stricter algorithm (See
+.Xr leaks 1
+for details).
+.It Fl nocontext
+Withhold the hex dumps of the leaked memory.
+.It Fl nostacks
+Don't show stack traces of leaked memory.
+.It Fl exclude Ar symbol
+Ignore leaks called from
+.Ar symbol Ns .
+.El
+.El
+.El
+.El
+.Sh ENVIRONMENT      \" May not be needed
+.Bl -tag -width -indent
+.It Ev MallocStackLogging
+When using the
+.Nm leaks
+command or the
+.Fl l
+option it's probably a good idea to set this environment variable before
+.Nm
+is started.  Doing so will allow leaks to display symbolic backtraces.
+.El                      
+.Sh FILES
+.Bl -tag -width -indent
+.It Pa ~/Library/Preferences/com.apple.security.plist
+.Pp
+Propertylist file containing the current users default keychain and keychain search list.
+.It Pa /Library/Preferences/com.apple.security.plist
+.Pp
+Propertylist file containing the system default keychain and keychain search list.  This is used by processes started at boottime, or those requesting to use the system search domain, such as system daemons.
+.It Pa /Library/Preferences/com.apple.security-common.plist
+.Pp
+Propertylist file containing the a common keychain search list which is appended to every users searchlist and to the system search list as well.
+.El
+.Sh SEE ALSO 
+.\" List links in ascending order by section, alphabetically within a section.
+.\" Please do not reference files that do not exist without filing a bug report
+.Xr certtool 1 ,
+.Xr leaks 1
+.\" .Xr systemkeychain 8 
+.Sh HISTORY
+.Nm
+was first introduced in Mac OS X version 10.3
+.Sh AUTHORS
+.An "Michael Brouwer"
+.Sh BUGS
+.Nm
+still needs a lot more commands before it can be considered complete.
+In particular it should someday supersede both the
+.Li certtool
+and
+.Li systemkeychain
+commands.

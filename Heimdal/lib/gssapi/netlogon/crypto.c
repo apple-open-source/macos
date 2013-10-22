@@ -715,7 +715,7 @@ _netlogon_wrap_size_limit (
     if (req_output_size < iov[0].buffer.length)
         *max_input_size = 0;
     else
-        *max_input_size = req_output_size - iov[0].buffer.length;
+        *max_input_size = (OM_uint32)(req_output_size - iov[0].buffer.length);
 
     return GSS_S_COMPLETE;
 }

@@ -25,10 +25,10 @@
 #include "private/qquickwebview_p.h"
 #include "private/qtwebsecurityorigin_p.h"
 #include "private/qwebdownloaditem_p.h"
+#include "private/qwebkittest_p.h"
 #include "private/qwebnavigationhistory_p.h"
 #include "private/qwebpermissionrequest_p.h"
 #include "private/qwebpreferences_p.h"
-#include "private/qwebviewportinfo_p.h"
 
 #include <QtQml/qqml.h>
 #include <QtQml/qqmlextensionplugin.h>
@@ -43,8 +43,9 @@ public:
     QQuickWebViewExperimental* experimental() { return static_cast<QQuickWebView*>(parent())->experimental(); }
 };
 
-class WebKitQmlExperimentalExtensionPlugin: public QDeclarativeExtensionPlugin {
+class WebKitQmlExperimentalExtensionPlugin: public QQmlExtensionPlugin {
     Q_OBJECT
+    Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QQmlExtensionInterface" FILE "plugin.json")
 public:
     virtual void registerTypes(const char* uri)
     {
@@ -63,8 +64,8 @@ public:
         qmlRegisterExtendedType<QQuickWebView, QQuickWebViewExperimentalExtension>(uri, 1, 0, "WebView");
         qmlRegisterUncreatableType<QQuickWebViewExperimental>(uri, 1, 0, "WebViewExperimental",
             QObject::tr("Cannot create separate instance of WebViewExperimental"));
-        qmlRegisterUncreatableType<QWebViewportInfo>(uri, 1, 0, "QWebViewportInfo",
-            QObject::tr("Cannot create separate instance of QWebViewportInfo"));
+        qmlRegisterUncreatableType<QWebKitTest>(uri, 1, 0, "QWebKitTest",
+            QObject::tr("Cannot create separate instance of QWebKitTest"));
         qmlRegisterType<QQuickUrlSchemeDelegate>(uri, 1, 0, "UrlSchemeDelegate");
         qmlRegisterUncreatableType<QQuickNetworkRequest>(uri, 1, 0, "NetworkRequest",
             QObject::tr("NetworkRequest should not be created from QML"));
@@ -76,5 +77,3 @@ public:
 QT_END_NAMESPACE
 
 #include "plugin.moc"
-
-Q_EXPORT_PLUGIN2(qmlwebkitpluginexperimental, QT_PREPEND_NAMESPACE(WebKitQmlExperimentalExtensionPlugin));

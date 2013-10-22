@@ -35,7 +35,7 @@ enum
 {
     kHIDPage_AppleVendor                        = 0xff00,
     kHIDPage_AppleVendorKeyboard                = 0xff01,
-	kHIDPage_AppleVendorMouse					= 0xff02,
+    kHIDPage_AppleVendorMouse                   = 0xff02,
     kHIDPage_AppleVendorAccelerometer           = 0xff03,
     kHIDPage_AppleVendorAmbientLightSensor      = 0xff04,
     kHIDPage_AppleVendorTemperatureSensor       = 0xff05,
@@ -43,7 +43,7 @@ enum
     kHIDPage_AppleVendorPowerSensor             = 0xff08,
     kHIDPage_AppleVendorSmartCover              = 0xff09,
     kHIDPage_AppleVendorDisplay                 = 0xff92,
-	kHIDPage_AppleVendorTopCase                 = 0x00ff
+    kHIDPage_AppleVendorTopCase                 = 0x00ff
 };
 
 
@@ -57,9 +57,13 @@ enum
     kHIDUsage_AppleVendor_TemperatureSensor     = 0x0005, /* Application Collection */
     kHIDUsage_AppleVendor_Keyboard              = 0x0006, /* Application Collection */
     kHIDUsage_AppleVendor_Headset               = 0x0007, /* Application Collection */
-    kHIDUsage_AppleVendor_ProximitySensor	    = 0x0008, /* Application Collection */
-	kHIDUsage_AppleVendor_Gyro                  = 0x0009, /* Application Collection */
-	kHIDUsage_AppleVendor_Compass               = 0x000A, /* Application Collection */
+    kHIDUsage_AppleVendor_ProximitySensor       = 0x0008, /* Application Collection */
+    kHIDUsage_AppleVendor_Gyro                  = 0x0009, /* Application Collection */
+    kHIDUsage_AppleVendor_Compass               = 0x000A, /* Application Collection */
+    kHIDUsage_AppleVendor_DeviceManagement      = 0x000B, /* Application Collection */
+    kHIDUsage_AppleVendor_Trackpad              = 0x000C, /* Application Collection */
+    kHIDUsage_AppleVendor_TopCaseReserved       = 0x000D, /* Application Collection */
+    kHIDUsage_AppleVendor_Motion                = 0x000E, /* Application Collection */
 };
 
 
@@ -111,10 +115,6 @@ enum
     kHIDUsage_AV_TopCase_IlluminationUp        = 0x0008,
     kHIDUsage_AV_TopCase_IlluminationDown      = 0x0009,
     kHIDUsage_AV_TopCase_ClamshellLatched      = 0x000a,
-    kHIDUsage_AV_TopCase_DeviceManagement      = 0x000b,
-    kHIDUsage_AV_TopCase_Keyboard              = 0x000c,
-    kHIDUsage_AV_TopCase_Trackpad              = 0x000e,
-    kHIDUsage_AV_TopCase_Reserved              = 0x000f,
     kHIDUsage_AV_TopCase_Reserved_MouseData    = 0x00c0
 };
 

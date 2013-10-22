@@ -7,28 +7,28 @@
 	<key>AppleLanguages</key>
 	<array>
 		<string>en</string>
-		<string>ja</string>
 		<string>fr</string>
 		<string>de</string>
-		<string>es</string>
-		<string>it</string>
-		<string>pt</string>
-		<string>pt_PT</string>
-		<string>nl</string>
-		<string>sv</string>
-		<string>nb</string>
-		<string>da</string>
-		<string>fi</string>
-		<string>ru</string>
-		<string>pl</string>
 		<string>zh-Hans</string>
 		<string>zh-Hant</string>
+		<string>ja</string>
+		<string>es</string>
+		<string>it</string>
+		<string>nl</string>
 		<string>ko</string>
+		<string>pt</string>
+		<string>pt-PT</string>
+		<string>da</string>
+		<string>fi</string>
+		<string>nb</string>
+		<string>sv</string>
+		<string>ru</string>
+		<string>pl</string>
+		<string>tr</string>
 		<string>ar</string>
+		<string>th</string>
 		<string>cs</string>
 		<string>hu</string>
-		<string>tr</string>
-		<string>th</string>
 		<string>ca</string>
 		<string>hr</string>
 		<string>el</string>
@@ -36,6 +36,9 @@
 		<string>ro</string>
 		<string>sk</string>
 		<string>uk</string>
+		<string>id</string>
+		<string>ms</string>
+		<string>vi</string>
 	</array>
 </dict>
 </plist>

@@ -29,30 +29,99 @@
 #include "InjectedBundle.h"
 #include "QtBuiltinBundle.h"
 #include "QtNetworkAccessManager.h"
+#include "SeccompFiltersWebProcessQt.h"
 #include "WKBundleAPICast.h"
 #include "WebProcessCreationParameters.h"
 
 #include <QCoreApplication>
 #include <QNetworkAccessManager>
 #include <QNetworkCookieJar>
+#include <QNetworkDiskCache>
 #include <WebCore/CookieJarQt.h>
+#include <WebCore/FileSystem.h>
+#include <WebCore/MemoryCache.h>
 #include <WebCore/PageCache.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
 
 #if defined(Q_OS_MACX)
 #include <dispatch/dispatch.h>
+#include <mach/host_info.h>
+#include <mach/mach.h>
+#include <mach/mach_error.h>
+#elif !defined(Q_OS_WIN)
+#include <unistd.h>
 #endif
 
 using namespace WebCore;
 
 namespace WebKit {
 
-static const int DefaultPageCacheCapacity = 20;
-
-void WebProcess::platformSetCacheModel(CacheModel)
+static uint64_t physicalMemorySizeInBytes()
 {
-    // FIXME: see bug 73918
-    pageCache()->setCapacity(DefaultPageCacheCapacity);
+    static uint64_t physicalMemorySize = 0;
+
+    if (!physicalMemorySize) {
+#if defined(Q_OS_MACX)
+        host_basic_info_data_t hostInfo;
+        mach_port_t host = mach_host_self();
+        mach_msg_type_number_t count = HOST_BASIC_INFO_COUNT;
+        kern_return_t r = host_info(host, HOST_BASIC_INFO, (host_info_t)&hostInfo, &count);
+        mach_port_deallocate(mach_task_self(), host);
+
+        if (r == KERN_SUCCESS)
+            physicalMemorySize = hostInfo.max_mem;
+
+#elif defined(Q_OS_WIN)
+        MEMORYSTATUSEX statex;
+        statex.dwLength = sizeof(statex);
+        GlobalMemoryStatusEx(&statex);
+        physicalMemorySize = static_cast<uint64_t>(statex.ullTotalPhys);
+
+#else
+        long pageSize = sysconf(_SC_PAGESIZE);
+        long numberOfPages = sysconf(_SC_PHYS_PAGES);
+
+        if (pageSize > 0 && numberOfPages > 0)
+            physicalMemorySize = static_cast<uint64_t>(pageSize) * static_cast<uint64_t>(numberOfPages);
+
+#endif
+    }
+    return physicalMemorySize;
+}
+
+void WebProcess::platformSetCacheModel(CacheModel cacheModel)
+{
+    uint64_t physicalMemorySizeInMegabytes = physicalMemorySizeInBytes() / 1024 / 1024;
+
+    // The Mac port of WebKit2 uses a fudge factor of 1000 here to account for misalignment, however,
+    // that tends to overestimate the memory quite a bit (1 byte misalignment ~ 48 MiB misestimation).
+    // We use 1024 * 1023 for now to keep the estimation error down to +/- ~1 MiB.
+    QNetworkDiskCache* diskCache = qobject_cast<QNetworkDiskCache*>(m_networkAccessManager->cache());
+    uint64_t freeVolumeSpace = !diskCache ? 0 : WebCore::getVolumeFreeSizeForPath(diskCache->cacheDirectory().toLocal8Bit().constData()) / 1024 / 1023;
+
+    // The following variables are initialised to 0 because WebProcess::calculateCacheSizes might not
+    // set them in some rare cases.
+    unsigned cacheTotalCapacity = 0;
+    unsigned cacheMinDeadCapacity = 0;
+    unsigned cacheMaxDeadCapacity = 0;
+    double deadDecodedDataDeletionInterval = 0;
+    unsigned pageCacheCapacity = 0;
+    unsigned long urlCacheMemoryCapacity = 0;
+    unsigned long urlCacheDiskCapacity = 0;
+
+    calculateCacheSizes(cacheModel, physicalMemorySizeInMegabytes, freeVolumeSpace,
+                        cacheTotalCapacity, cacheMinDeadCapacity, cacheMaxDeadCapacity, deadDecodedDataDeletionInterval,
+                        pageCacheCapacity, urlCacheMemoryCapacity, urlCacheDiskCapacity);
+
+    if (diskCache)
+        diskCache->setMaximumCacheSize(urlCacheDiskCapacity);
+
+    memoryCache()->setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
+    memoryCache()->setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
+
+    pageCache()->setCapacity(pageCacheCapacity);
+
+    // FIXME: Implement hybrid in-memory- and disk-caching as e.g. the Mac port does.
 }
 
 void WebProcess::platformClearResourceCaches(ResourceCachesToClear)
@@ -66,14 +135,30 @@ static void parentProcessDiedCallback(void*)
 }
 #endif
 
-void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters& parameters, CoreIPC::ArgumentDecoder* arguments)
+void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters& parameters, CoreIPC::MessageDecoder&)
 {
+#if ENABLE(SECCOMP_FILTERS)
+    {
+        WebKit::SeccompFiltersWebProcessQt seccompFilters(parameters);
+        seccompFilters.initialize();
+    }
+#endif
+
     m_networkAccessManager = new QtNetworkAccessManager(this);
-    ASSERT(!parameters.cookieStorageDirectory.isEmpty() && !parameters.cookieStorageDirectory.isNull());
-    WebCore::SharedCookieJarQt* jar = WebCore::SharedCookieJarQt::create(parameters.cookieStorageDirectory);
-    m_networkAccessManager->setCookieJar(jar);
-    // Do not let QNetworkAccessManager delete the jar.
-    jar->setParent(0);
+
+    if (!parameters.cookieStorageDirectory.isEmpty()) {
+        WebCore::SharedCookieJarQt* jar = WebCore::SharedCookieJarQt::create(parameters.cookieStorageDirectory);
+        m_networkAccessManager->setCookieJar(jar);
+        // Do not let QNetworkAccessManager delete the jar.
+        jar->setParent(0);
+    }
+
+    if (!parameters.diskCacheDirectory.isEmpty()) {
+        QNetworkDiskCache* diskCache = new QNetworkDiskCache();
+        diskCache->setCacheDirectory(parameters.diskCacheDirectory);
+        // The m_networkAccessManager takes ownership of the diskCache object upon the following call.
+        m_networkAccessManager->setCache(diskCache);
+    }
 
 #if defined(Q_OS_MACX)
     pid_t ppid = getppid();
@@ -85,14 +170,7 @@ void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters
     }
 #endif
 
-    // Disable runtime enabled features that have no WebKit2 implementation yet.
-#if ENABLE(DEVICE_ORIENTATION)
-    WebCore::RuntimeEnabledFeatures::setDeviceMotionEnabled(false);
-    WebCore::RuntimeEnabledFeatures::setDeviceOrientationEnabled(false);
-#endif
-#if ENABLE(SPEECH_INPUT)
     WebCore::RuntimeEnabledFeatures::setSpeechInputEnabled(false);
-#endif
 
     // We'll only install the Qt builtin bundle if we don't have one given by the UI process.
     // Currently only WTR provides its own bundle.

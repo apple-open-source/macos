@@ -76,7 +76,8 @@ gss_export_cred(OM_uint32 * minor_status,
     }
 
     HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
-
+	krb5_ssize_t sret;
+	
 	major = mc->gmc_mech->gm_export_cred(minor_status,
 					     mc->gmc_cred, &buffer);
 	if (major) {
@@ -84,8 +85,8 @@ gss_export_cred(OM_uint32 * minor_status,
 	    return major;
 	}
 
-	ret = krb5_storage_write(sp, buffer.value, buffer.length);
-	if (ret < 0 || (size_t)ret != buffer.length) {
+	sret = krb5_storage_write(sp, buffer.value, buffer.length);
+	if (sret < 0 || (size_t)sret != buffer.length) {
 	    gss_release_buffer(minor_status, &buffer);
 	    krb5_storage_free(sp);
 	    *minor_status = EINVAL;
@@ -156,7 +157,7 @@ gss_import_cred(OM_uint32 * minor_status,
 	    goto out;
 	}
 	oid.elements = data.data;
-	oid.length = data.length;
+	oid.length = (OM_uint32)data.length;
 
 	m = __gss_get_mechanism(&oid);
 	krb5_data_free(&data);

@@ -46,12 +46,12 @@ except ImportError:
 import os
 
 if int(os.uname()[2].split('.')[0]) > 8:
-    CV_CFLAGS=["-DWITH_CORE_VIDEO", "-isysroot", "/"]
+    CV_CFLAGS=["-DWITH_CORE_VIDEO"]
 else:
     CV_CFLAGS=[]
 
 if int(os.uname()[2].split('.')[0]) > 8:
-    CFLAGS = [ "-isysroot", "/" ]
+    CFLAGS = [  ]
 else:
     CFLAGS=[ "-DNO_OBJC2_RUNTIME", "-DOS_TIGER" ]
 

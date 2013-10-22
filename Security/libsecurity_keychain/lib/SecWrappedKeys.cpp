@@ -34,7 +34,6 @@
 #include <security_asn1/SecNssCoder.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
 #include <security_utilities/devrandom.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 #include <assert.h>
 
@@ -193,7 +192,7 @@ static OSStatus opensslPbeParams(
 			return errSecUnknownFormat;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -230,7 +229,7 @@ static OSStatus deriveKeyOpensslWrap(
 	
 	memset(&seed, 0, sizeof(seed));
 	if(cfPhrase != NULL) {
-		unsigned len = CFDataGetLength(cfPhrase);
+		size_t len = CFDataGetLength(cfPhrase);
 		coder.allocItem(seed.Param, len);
 		memmove(seed.Param.Data, CFDataGetBytePtr(cfPhrase), len);
 		CFRelease(cfPhrase);
@@ -294,7 +293,7 @@ OSStatus SecImportRep::importWrappedKeyOpenssl(
 	assert(cspHand != 0);
 	
 	if(keyParams == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	OSStatus				ortn;
@@ -389,7 +388,7 @@ OSStatus impExpWrappedKeyOpenSslExport(
 	char					ivStr[3];
 	
 	if(keyParams == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	
 	/* we need a CSPDL handle - try to get it from the key */	

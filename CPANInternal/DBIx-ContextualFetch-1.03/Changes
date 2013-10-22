@@ -1,0 +1,17 @@
+Revision history 
+
+1.03 Mon Dec 27 2004
+	- Revert to DBD::SQLite (rather than SQLite2) in tests
+  - no warnings 'uninitialized'
+
+1.02 Mon Dec 27 2004
+	- Fix double execute bug in tests
+
+1.01 Mon Mar 15 2004
+	- Reintroduce workaround for local $sth->{Taint} leaking
+   (Thanks to Colm Dougan)
+
+1.00 Sun Mar 14 2004
+	- Created this from Ima::DBI
+
+

@@ -20,7 +20,7 @@
 #define BackingStore_h
 
 #include "BlackBerryGlobal.h"
-#include <BlackBerryPlatformGraphics.h>
+#include <BlackBerryPlatformMisc.h>
 
 namespace WebCore {
 class ChromeClientBlackBerry;
@@ -33,6 +33,11 @@ class IntRect;
 namespace BlackBerry {
 namespace Platform {
 class IntRect;
+class FloatPoint;
+
+namespace Graphics {
+class Buffer;
+}
 }
 }
 
@@ -53,35 +58,32 @@ public:
 
     void createSurface();
 
-    void suspendScreenAndBackingStoreUpdates();
-    void resumeScreenAndBackingStoreUpdates(ResumeUpdateOperation);
+    void suspendBackingStoreUpdates();
+    void resumeBackingStoreUpdates();
+
+    void suspendGeometryUpdates();
+    void resumeGeometryUpdates();
+
+    void suspendScreenUpdates();
+    void resumeScreenUpdates(BackingStore::ResumeUpdateOperation);
 
     bool isScrollingOrZooming() const;
     void setScrollingOrZooming(bool);
 
-    void blitContents(const BlackBerry::Platform::IntRect& dstRect, const BlackBerry::Platform::IntRect& contents);
+    void blitVisibleContents();
     void repaint(int x, int y, int width, int height, bool contentChanged, bool immediate);
-
-    bool hasRenderJobs() const;
-    void renderOnIdle();
-
-    // In the defers blit mode, any blit requests will just return early, and
-    // a blit job will be queued that is executed by calling blitOnIdle().
-    bool defersBlit() const;
-    void setDefersBlit(bool);
 
     bool hasBlitJobs() const;
     void blitOnIdle();
 
-    bool isDirectRenderingToWindow() const;
+    void acquireBackingStoreMemory();
+    void releaseOwnedBackingStoreMemory();
 
-    void createBackingStoreMemory();
-    void releaseBackingStoreMemory();
-
-    void drawContents(BlackBerry::Platform::Graphics::Drawable*, double /*scale*/, const BlackBerry::Platform::IntRect&);
+    bool drawContents(BlackBerry::Platform::Graphics::Buffer*, const BlackBerry::Platform::IntRect& dstRect, double scale, const BlackBerry::Platform::FloatPoint& documentScrollPosition);
 
 private:
     friend class BlackBerry::WebKit::BackingStoreClient;
+    friend class BlackBerry::WebKit::BackingStorePrivate;
     friend class BlackBerry::WebKit::WebPage;
     friend class BlackBerry::WebKit::WebPagePrivate; // FIXME: For now, we expose our internals to WebPagePrivate. See PR #120301.
     friend class BlackBerry::WebKit::WebPageCompositorPrivate;
@@ -89,6 +91,7 @@ private:
     friend class WebCore::FrameLoaderClientBlackBerry;
     friend class WebCore::GLES2Context;
     BackingStorePrivate *d;
+    DISABLE_COPY(BackingStore)
 };
 }
 }

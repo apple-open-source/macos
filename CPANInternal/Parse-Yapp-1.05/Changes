@@ -1,0 +1,164 @@
+Revision history for Perl extension Yapp.
+
+	- original version; created by h2xs 1.18
+0.01  Thu Jun 25 20:02:09 1998
+0.02  Never released
+0.03  Never released
+0.04  Never released
+	- Fix installation of yapp.pl to $INST_SCRIPT
+	- $VERSION is now in Yapp/Driver to check compatibility
+	- Add debugging driver and debug option
+	- Bug in error recovery fixed: do not shift an $error reduction
+	- Add LeftValue, Curtok and Curval methods
+	- Add driver version compatibility check 
+0.05  Thu Jul 03 20:05:05 1998
+	- Add LeftValue, Curtok and Curval methods
+0.06  Tue Jul 07 20:36:17 GMT 1998
+    - Error token '$error' becomes 'error' (like in yacc)
+    - The '$end' token becomes ''
+0.07  Never released
+    - Default action become a separate entry in states hash
+    - $COMPATIBLE value changed to 0.08
+    - The grammar parser is now a Yapp parser module
+    - Comments can be either Perl (#...\n) or C /* ... */ style
+    - The parser accepts %type, %union and <type> constructs and
+      almost ignore them, except checking consistency between token
+      and non-terminal declarations (warnings)
+    - The parser now has error recovery and consistent error line numbers
+    - The parser now accepts "in rule" actions and generates pseudo
+      empty rules to reduce, named @x-y, where x is a sequential
+      number and y the 'dot position' in the rule for the driver
+      to know how many parameters to pass to semantic action sub
+    - Add "in rule" actions handling in Driver.pm
+    - Empty rhs need not be the first one anymore
+    - Warning if more than one empty rhs for a given lhs
+0.08  Fri Jul 10 22:04:31 GMT 1998
+    - Changed 'print STDERR' to 'warn' in parser.
+    - Use of literal 'error' produces a warning and is treated as
+      the error token
+    - Add prefix 'YY' before each parser object methods to avoid
+      clashes with user written methods
+    - Renamed YYUserData to YYData (shorter and more consistent with
+      other methods names)
+    - Renamed YYLeftVal to YYSemval for same reasons
+    - Modified Driver.pm so Semval(-n..n) reacts like $-n..$n in yacc
+0.09  Never released
+    - Changed test suite to 't/' style and add base tests for semantic
+      actions/values and associativity tests
+    - Check code to be (almost) Perl's -w compatible
+    - Updates to pod section in Yapp.pm reflecting most of those changes
+0.10  Mon Jul 13 20:53:40 GMT 1998
+    - Cosmetic changes
+0.11  Wed Jul 15 19:46:17 GMT 1998
+    - Renamed Yapp::Parse parameters with a leading yy
+    - Updated Yapp.pm pod section
+0.12  Tue Jul 21 22:34:00 GMT 1998
+0.13  Never released. (I'm not supersticious, but who knows...8-))
+    - Renaming to Parse::Yapp for better CPAN entry...
+0.14  Wed Jul 29 21:43:03 GMT 1998
+    - Doc change: empty token is '', not undef (perl -w complains otherwise)
+    - Bug in _ReduceGrammar: used $ruleno instead of $#{$grammar{RULES}}
+      making no-terminal pointing to wrong rhs if useless rules.
+0.15  Mon Aug 17 11:39:01 CEST 1998
+    - YappParse.yp modified to allow empty tail section (not even \n)
+    - YappParse.yp modified to diagnose lack of rules in grammar section
+    - Driver.pm has been modified so there is no performance impact at
+      loading when debugging is not used and to insure thread safety at
+      runtime
+    - Output.pm can now include driver code into the parser module to
+      make it 'standalone'
+    - Copyright notice in Driver has been changed to reflect its use
+      if included in a standalone parser
+    - A -s option has been added to yapp.pl to generate standalone parsers
+    - Usage in yapp.pl reflects this new option 
+    - Updated Yapp.pm pod to add Standalone Parsers item
+0.16  Sun Oct 25 12:36:05 CET 1998
+    - Output.pm modified not to use DATA handle, which seems broken on windows
+      systems when Parse::Yapp module is untarred and Output.pm hasn't its \n
+      converted to \r\n pairs.
+    - Added the %expect declaration, a la bison
+    - Updated Yapp.pm pod to reflect this new option
+    - The core of Parse::Yapp seems very stable now so I change the status from
+      alpha to beta and jump to version 0.20 directly.
+0.20  Sun Dec 20 16:13:21 CET 1998
+    - Added YYExpect method in Parse/Yapp/Driver.pm
+    - Updated Yapp.pm pod to reflect this new method
+    - Modified Makefile.PL for using current Parse::Yapp version if recompiling
+      Parse/Yapp/Parse.pm from YappParse.yp ( $(PERL) -I. )
+    - Modified yapp.pl to add -V option and make output default to final name
+      of package, if -m option is specified. Usage updated.
+    - Added missing $@ check after eval of debugging driver.
+0.21  Thu Dec 24 17:55:47 GMT 1998
+    - Corrected a weird bug in Lalr.pm (_SolveConflicts & _SetDefaults) about
+      shift/reduce conflicts on non-associative tokens
+    - Added a test in base.t to check non-associative conflicts and error
+      token handling
+    - Added some doc to explain YYExpect can include YYCurtok when non-associ-
+      ative errors happen
+0.22  Wed Mar 10 17:03:39 CET 1999
+    - Moved Parse path tree under lib to be conformant with standard Perl
+      modules distributions
+    - Added Parse::Yapp::Options class as parent of Parse::Yapp::Grammar
+      to handle various options.
+    - As the Output method is not really 'public' yet, it now takes its
+      arguments as hash list, like YYParse. Can break code of people not
+      using the yapp.pl front-end.
+      Of course, its arguments are handled by Parse::Yapp::Options
+    - Added #line "inputfile" trace in generated grammar by default for input
+      source line numbers (obvious reason for adding that :-).
+    - Added language, linenumbers, inputfile, classname, standalone and input
+      options which default to ( 'Perl', 1, undef, 'Parser', 0, undef )
+    - Modified yapp.pl for new parameter list
+    - Idem for t/base.t and t/calc.t
+    - Modified Grammar.pm so it uses linenumbers option to know it must output
+      line numbers and inputfile as the filename. If inputfile is undef, then
+      use 'unkown'.
+    - Added a new flag -n to yapp.pl to disable line numbers in parser output
+    - Renamed yapp.pl to yapp (bored of typing .pl)
+    - Wrote pod for yapp frontend (so now there's a man 1 page !)
+    - Added article in copyright notice when using the standalone parser option
+0.30 Sat Apr  3 15:36:58 CEST 1999
+    - Corrected a silly bug in yapp front-end, calling Output method with
+      inputfile parameter, which was already done with the constructor
+    - Change to yapp frontend so the F<*.output> file goes to the same
+      directory than the F<*.yp> source file
+    - Corrected Head method in Parse::Yapp::Grammar so it returns '' if there
+      is no header code, to avoid a warning with perl's -w switch
+    - Same for Tail method, so no line number is output if there is no trailer
+      code
+    - Corrected a bug in Grammar.pm, to make useful rules useless if their lhs
+      are not reachable.
+0.31 Fri May  7 21:06:32 CEST 1999
+    - Won some milliseconds in Driver.pm by not calling an anonymous sub if
+      there is no semantic action: just get the first semantic value as result
+    - Added a patch from Andy Wardley (thanks) which allow people to specify
+      their own template rather than the standard one from Output.pm
+    - Added option C<-b> to yapp to specify a 'shebang'. If value is an empty
+      string, $Config{perlpath} is used.
+1.00 Wed Oct 20 17:52:38 CEST 1999
+    - Corrected a bug in Options.pm to have it run with Perl 5.6.0 
+1.01 Tue Mar 28 18:50:19 CEST 2000
+    - In YappParse.yp, if declaring a token with %left/%right/%nonassoc and
+      later redefining it with token lost precedence/associativity. Now, it
+      emits a warning
+    - In Lalr.pm, _FirstSfx, incorrectly looped when epsilon was in firstset
+      instead of beeing nullable (this one was weird)
+    - In Driver.pm, check for a call to YYErrok after calling error routine
+      to abort error recovery and continue normal parsing 
+    - New method YYLexer added in Driver.pm, to get a reference to the lexer
+      routine
+    - In Driver.pm, $check variable was not always cleaned up
+1.02 Mon May  1 13:42:03 CEST 2000
+    - English corrections in README file (thanks to Donald Lancon)
+	- New email address
+	- Updated copyright boundaries
+	- Various cleanups in Grammar.pm and Lalr.pm
+1.03 Sun Nov  5 13:14:49 CEST 2000
+    - In Lalr.pm, _Preds, recursivity removed
+    - English corrections in Parse::Yapp pod section (thanks to Julian Trudy)
+	- Updated copyright boundaries
+    - Stress test added (compile and check a full C++ grammar)
+1.04 Mon Feb 12 16:46:37 CET 2001
+    - Bug correction in YappParse.yp _Lexer sub to accept '\\' litterals
+      (Thanks to Denis Barbier to catch this one)
+1.05 Sun Nov  4 20:32:32 CET 2001

@@ -35,10 +35,8 @@
 
 #include "MediaStreamCenterGStreamer.h"
 
-#include "IceCandidateDescriptor.h"
 #include "MediaStreamDescriptor.h"
 #include "MediaStreamSourcesQueryClient.h"
-#include "SessionDescriptionDescriptor.h"
 #include <wtf/MainThread.h>
 
 namespace WebCore {
@@ -68,22 +66,22 @@ void MediaStreamCenterGStreamer::didSetMediaStreamTrackEnabled(MediaStreamDescri
 {
 }
 
+bool MediaStreamCenterGStreamer::didAddMediaStreamTrack(MediaStreamDescriptor*, MediaStreamComponent*)
+{
+    return false;
+}
+
+bool MediaStreamCenterGStreamer::didRemoveMediaStreamTrack(MediaStreamDescriptor*, MediaStreamComponent*)
+{
+    return false;
+}
+
 void MediaStreamCenterGStreamer::didStopLocalMediaStream(MediaStreamDescriptor*)
 {
 }
 
-void MediaStreamCenterGStreamer::didConstructMediaStream(MediaStreamDescriptor*)
+void MediaStreamCenterGStreamer::didCreateMediaStream(MediaStreamDescriptor*)
 {
-}
-
-String MediaStreamCenterGStreamer::constructSDP(IceCandidateDescriptor*)
-{
-    return "";
-}
-
-String MediaStreamCenterGStreamer::constructSDP(SessionDescriptionDescriptor*)
-{
-    return "";
 }
 
 } // namespace WebCore

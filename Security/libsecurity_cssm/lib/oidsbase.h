@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 1999-2001,2003-2004,2008 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 1999-2001,2003-2004,2008-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * oidsbase.h -- Basic Object Identifier Macros and Data Types.
@@ -57,21 +57,21 @@ representation is implied */
 #define INTEL_X509_LDAPSTRING_DATATYPE 2
 
 #define OID_ISO_CCITT_DIR_SERVICE 			85
-#define OID_DS              				OID_ISO_CCITT_DIR_SERVICE 
+#define OID_DS              				OID_ISO_CCITT_DIR_SERVICE
 #define OID_DS_LENGTH       				1
-#define OID_ATTR_TYPE        				OID_DS, 4                
+#define OID_ATTR_TYPE        				OID_DS, 4
 #define OID_ATTR_TYPE_LENGTH 				OID_DS_LENGTH + 1
-#define OID_EXTENSION        				OID_DS, 29          
+#define OID_EXTENSION        				OID_DS, 29
 #define OID_EXTENSION_LENGTH 				OID_DS_LENGTH + 1
 #define OID_ISO_STANDARD      	 			40
-#define OID_ISO_MEMBER         				42                     
+#define OID_ISO_MEMBER         				42
 #define OID_US                 				OID_ISO_MEMBER, 134, 72
 
 #define OID_ISO_IDENTIFIED_ORG 				43
 #define OID_OSINET             				OID_ISO_IDENTIFIED_ORG, 4
 #define OID_GOSIP              				OID_ISO_IDENTIFIED_ORG, 5
 #define OID_DOD                				OID_ISO_IDENTIFIED_ORG, 6
-#define OID_OIW                				OID_ISO_IDENTIFIED_ORG, 14 
+#define OID_OIW                				OID_ISO_IDENTIFIED_ORG, 14
 
 #define OID_ITU_RFCDATA_MEMBER_LENGTH		1
 #define OID_ITU_RFCDATA						9
@@ -152,7 +152,7 @@ representation is implied */
 #define OID_ETSI_LENGTH						2
 #define OID_ETSI_QCS						0x04, 0x00, 0x8E, 0x46, 0x01
 #define OID_ETSI_QCS_LENGTH					5
-	
+
 #define OID_OIW_SECSIG        				OID_OIW, 3
 #define OID_OIW_LENGTH       				2
 #define OID_OIW_SECSIG_LENGTH 				OID_OIW_LENGTH +1
@@ -179,11 +179,11 @@ representation is implied */
 /*
  * Apple-specific OID bases
  */
- 
-/* 
+
+/*
  * apple OBJECT IDENTIFIER ::=
  * 	{ iso(1) member-body(2) US(840) 113635 }
- * 
+ *
  * BER = 06 06 2A 86 48 86 F7 63
  */
 #define APPLE_OID				OID_US, 0x86, 0xf7, 0x63
@@ -203,8 +203,8 @@ representation is implied */
  *		{ appleDataSecurity 1 }
  *      { 1 2 840 113635 100 1 }
  *
- * BER = 06 08 2A 86 48 86 F7 63 64 01 
- */ 
+ * BER = 06 08 2A 86 48 86 F7 63 64 01
+ */
 #define APPLE_TP_OID			APPLE_ADS_OID, 1
 #define APPLE_TP_OID_LENGTH		APPLE_ADS_OID_LENGTH + 1
 
@@ -219,7 +219,7 @@ representation is implied */
 #define APPLE_ALG_OID_LENGTH	APPLE_ADS_OID_LENGTH + 1
 
 /*
- * appleDotMacCertificate OBJECT IDENTIFIER ::= 
+ * appleDotMacCertificate OBJECT IDENTIFIER ::=
  *		{ appleDataSecurity 3 }
  *      { 1 2 840 113635 100 3 }
  */
@@ -229,7 +229,7 @@ representation is implied */
 /*
  * Basis of Policy OIDs for .mac TP requests
  *
- * dotMacCertificateRequest OBJECT IDENTIFIER ::= 
+ * dotMacCertificateRequest OBJECT IDENTIFIER ::=
  *		{ appleDotMacCertificate 1 }
  *      { 1 2 840 113635 100 3 1 }
  */
@@ -239,7 +239,7 @@ representation is implied */
 /*
  * Basis of .mac Certificate Extensions
  *
- * dotMacCertificateExtension OBJECT IDENTIFIER ::= 
+ * dotMacCertificateExtension OBJECT IDENTIFIER ::=
  *		{ appleDotMacCertificate 2 }
  *      { 1 2 840 113635 100 3 2 }
  */
@@ -249,7 +249,7 @@ representation is implied */
 /*
  * Basis of .mac Certificate request OID/value identifiers
  *
- * dotMacCertificateRequestValues OBJECT IDENTIFIER ::= 
+ * dotMacCertificateRequestValues OBJECT IDENTIFIER ::=
  *		{ appleDotMacCertificate 3 }
  *      { 1 2 840 113635 100 3 3 }
  */
@@ -259,16 +259,16 @@ representation is implied */
 /*
  * Basis of Apple-specific extended key usages
  *
- * appleExtendedKeyUsage OBJECT IDENTIFIER ::= 
+ * appleExtendedKeyUsage OBJECT IDENTIFIER ::=
  *		{ appleDataSecurity 4 }
  *      { 1 2 840 113635 100 4 }
  */
 #define APPLE_EKU_OID					APPLE_ADS_OID, 4
 #define APPLE_EKU_OID_LENGTH			APPLE_ADS_OID_LENGTH + 1
 
-/* 
+/*
  * Basis of Apple Code Signing extended key usages
- * appleCodeSigning  OBJECT IDENTIFIER ::= 
+ * appleCodeSigning  OBJECT IDENTIFIER ::=
  *		{ appleExtendedKeyUsage 1 }
  *      { 1 2 840 113635 100 4 1 }
  */
@@ -279,7 +279,7 @@ representation is implied */
 
 /*
  * Basis of Apple-specific Certificate Policy identifiers
- * appleCertificatePolicies OBJECT IDENTIFIER ::= 
+ * appleCertificatePolicies OBJECT IDENTIFIER ::=
  *		{ appleDataSecurity 5 }
  *		{ 1 2 840 113635 100 5 }
  */
@@ -288,7 +288,7 @@ representation is implied */
 
 /*
  * Base for MacAppStore Certificate Policy identifiers
- * macAppStoreCertificatePolicyIDs OBJECT IDENTIFIER ::= 
+ * macAppStoreCertificatePolicyIDs OBJECT IDENTIFIER ::=
  *		{ appleCertificatePolicies 6 }
  *		{ 1 2 840 113635 100 5 6 }
  */
@@ -297,7 +297,7 @@ representation is implied */
 
 /*
  * MacAppStore receipt verification Certificate Policy identifier
- * macAppStoreReceiptCertificatePolicyID OBJECT IDENTIFIER ::= 
+ * macAppStoreReceiptCertificatePolicyID OBJECT IDENTIFIER ::=
  *		{ appleCertificatePolicies 6 1 }
  *		{ 1 2 840 113635 100 5 6 1 }
  */
@@ -306,7 +306,7 @@ representation is implied */
 
 /*
  * Base for AppleID Certificate Policy identifiers
- * macAppStoreCertificatePolicyIDs OBJECT IDENTIFIER ::= 
+ * macAppStoreCertificatePolicyIDs OBJECT IDENTIFIER ::=
  *		{ appleCertificatePolicies 7 }
  *		{ 1 2 840 113635 100 5 7 }
  */
@@ -315,18 +315,37 @@ representation is implied */
 
 /*
  * AppleID Sharing Certificate Policy identifier
- * appleIDSharingPolicyID OBJECT IDENTIFIER ::= 
+ * appleIDSharingPolicyID OBJECT IDENTIFIER ::=
  *		{ appleCertificatePolicies 7 1 }
  *		{ 1 2 840 113635 100 5 7 1 }
  */
 #define APPLE_CERT_POLICIES_APPLEID_SHARING		APPLE_CERT_POLICIES_APPLEID, 1
 #define APPLE_CERT_POLICIES_APPLEID_SHARING_LENGTH	APPLE_CERT_POLICIES_APPLEID_LENGTH + 1
 
+/*
+ * Apple Mobile Store Signing Policy identifier
+ *
+ * appleDemoContentReleaseSigningID ::= { appleCertificatePolicies 12}
+ *     { 1 2 840 113635 100 5 12  }
+ */
+#define APPLE_CERT_POLICIES_MOBILE_STORE_SIGNING		APPLE_CERT_POLICIES, 12
+#define APPLE_CERT_POLICIES_MOBILE_STORE_SIGNING_LENGTH	APPLE_CERT_POLICIES_LENGTH + 1
+
+/*
+ * Apple Test Mobile Store Signing Policy identifier
+ *
+ * appleDemoContentTestSigningID ::= { appleDemoContentReleaseSigningID 1}
+ *     { 1 2 840 113635 100 5 12 1 }
+ */
+#define APPLE_CERT_POLICIES_TEST_MOBILE_STORE_SIGNING		APPLE_CERT_POLICIES, 12, 1
+#define APPLE_CERT_POLICIES_TEST_MOBILE_STORE_SIGNING_LENGTH	APPLE_CERT_POLICIES_LENGTH + 2
+
+
 /* -------------------------------------------------------------------------*/
 
 /*
  * Basis of Apple-specific certificate extensions
- * appleCertificateExtensions OBJECT IDENTIFIER ::= 
+ * appleCertificateExtensions OBJECT IDENTIFIER ::=
  *		{ appleDataSecurity 6 }
  *		{ 1 2 840 113635 100 6 }
  */
@@ -335,7 +354,7 @@ representation is implied */
 
 /*
  * Basis of Apple-specific Code Signing certificate extensions
- * appleCertificateExtensionCodeSigning OBJECT IDENTIFIER ::= 
+ * appleCertificateExtensionCodeSigning OBJECT IDENTIFIER ::=
  *		{ appleCertificateExtensions 1 }
  *		{ 1 2 840 113635 100 6 1 }
  */
@@ -353,7 +372,7 @@ representation is implied */
 
 /*
  * Basis of Apple-specific Intermediate Certificate extensions
- * appleCertificateExtensionIntermediateMarker OBJECT IDENTIFIER ::= 
+ * appleCertificateExtensionIntermediateMarker OBJECT IDENTIFIER ::=
  *		{ appleCertificateExtensions 2 }
  *		{ 1 2 840 113635 100 6 2 }
  */
@@ -362,36 +381,36 @@ representation is implied */
 
 /*
  * Marker for the WWDR Intermediate Certificate
- * appleCertificateExtensionWWDRIntermediate OBJECT IDENTIFIER ::= 
+ * appleCertificateExtensionWWDRIntermediate OBJECT IDENTIFIER ::=
  *		{ appleCertificateExtensionIntermediateMarker 1 }
  *		{ 1 2 840 113635 100 6 2 1 }
  */
 #define APPLE_EXTENSION_WWDR_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 1
-#define APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
+#define APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH    APPLE_EXTENSION_INTERMEDIATE_MARKER_LENGTH  + 1
 
 /*
  * Marker for the iTunes Store Intermediate Certificate
- * appleCertificateExtensioniTunesStoreIntermediate OBJECT IDENTIFIER ::= 
+ * appleCertificateExtensioniTunesStoreIntermediate OBJECT IDENTIFIER ::=
  *		{ appleCertificateExtensionIntermediateMarker 2 }
  *		{ 1 2 840 113635 100 6 2 2 }
  */
 #define APPLE_EXTENSION_ITMS_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 2
-#define APPLE_EXTENSION_ITMS_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
+#define APPLE_EXTENSION_ITMS_INTERMEDIATE_LENGTH    APPLE_EXTENSION_INTERMEDIATE_MARKER_LENGTH + 1
 
 /*
  * Marker for the Application Integration Intermediate Certificate
- * appleCertificateExtensionApplicationIntegrationIntermediate OBJECT IDENTIFIER ::= 
+ * appleCertificateExtensionApplicationIntegrationIntermediate OBJECT IDENTIFIER ::=
  *		{ appleCertificateExtensionIntermediateMarker 3 }
  *		{ 1 2 840 113635 100 6 2 3 }
  */
 #define APPLE_EXTENSION_AAI_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 3
-#define APPLE_EXTENSION_AAI_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
+#define APPLE_EXTENSION_AAI_INTERMEDIATE_LENGTH    APPLE_EXTENSION_INTERMEDIATE_MARKER_LENGTH + 1
 
-/* 
- *  Apple Apple ID Intermediate Marker (New subCA, no longer shared with push notification server cert issuer 
+/*
+ *  Apple Apple ID Intermediate Marker (New subCA, no longer shared with push notification server cert issuer
  *
- *  appleCertificateExtensionAppleIDIntermediate ::= 
- *    { appleCertificateExtensionIntermediateMarker 7 }                                
+ *  appleCertificateExtensionAppleIDIntermediate ::=
+ *    { appleCertificateExtensionIntermediateMarker 7 }
  *    { 1 2 840 113635 100 6 2 7 }
  *
  *  shared intermediate OID is APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID
@@ -399,18 +418,37 @@ representation is implied */
  *  Same as APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_2 on iOS
 */
 #define APPLE_EXTENSION_APPLEID_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 7
-#define APPLE_EXTENSION_APPLEID_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
+#define APPLE_EXTENSION_APPLEID_INTERMEDIATE_LENGTH    APPLE_EXTENSION_INTERMEDIATE_MARKER_LENGTH + 1
+
+/*
+ *  Apple System Integration 2 Intermediate Marker (New subCA)
+ *
+ *  appleCertificateExtensionSystemIntegration2Intermediate ::=
+ *    { appleCertificateExtensionIntermediateMarker 10 }
+ *    { 1 2 840 113635 100 6 2 10 }
+*/
+#define APPLE_EXTENSION_SYSINT2_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 10
+#define APPLE_EXTENSION_SYSINT2_INTERMEDIATE_LENGTH    APPLE_EXTENSION_INTERMEDIATE_MARKER_LENGTH + 1
+
+/*
+ *  Apple Secure Escrow Service Marker
+ *
+ *  appleEscrowService ::= { appleCertificateExtensions 23 1 }
+ *    { 1 2 840 113635 100 6 23 1 }
+ */
+#define APPLE_EXTENSION_ESCROW_SERVICE                 APPLE_EXTENSION_OID, 23, 1
+#define APPLE_EXTENSION_ESCROW_SERVICE_LENGTH          APPLE_EXTENSION_OID_LENGTH + 2
 
 /*
  * Marker for the AppleID Sharing Certificate
- * appleID OBJECT IDENTIFIER ::= 
+ * appleID OBJECT IDENTIFIER ::=
  *		{ appleExtendedKeyUsage 7}
  *		{ 1 2 840 113635 100 4 7 }
  */
 
 #define APPLE_EXTENSION_APPLEID_SHARING				APPLE_EKU_OID, 7
 #define APPLE_EXTENSION_APPLEID_SHARING_LENGTH		APPLE_EKU_OID_LENGTH + 1
-	
+
 /*
  * Netscape OIDs.
  */

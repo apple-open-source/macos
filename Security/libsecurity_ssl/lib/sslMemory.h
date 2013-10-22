@@ -22,14 +22,15 @@
  */
 
 /*
- * sslMemory.h - Memory allocator declarations
+ * sslMemory.h - SSLBuffer and Memory allocator declarations
  */
+
+/* This header should be kernel safe */
 
 #ifndef _SSLMEMORY_H_
 #define _SSLMEMORY_H_ 1
 
-#include "sslContext.h"
-#include "sslPriv.h"
+#include "sslTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,27 +46,29 @@ void *sslRealloc(void *oldPtr, size_t oldLen, size_t newLen);
 /*
  * SSLBuffer-oriented allocators
  */
-OSStatus SSLAllocBuffer(SSLBuffer *buf, size_t length, const SSLContext *ctx);
-OSStatus SSLFreeBuffer(SSLBuffer *buf, const SSLContext *ctx);
-OSStatus SSLReallocBuffer(SSLBuffer *buf, size_t newSize, const SSLContext *ctx);
+int SSLAllocBuffer(SSLBuffer *buf, size_t length);
+int SSLFreeBuffer(SSLBuffer *buf);
+int SSLReallocBuffer(SSLBuffer *buf, size_t newSize);
 
 /*
  * Convenience routines
  */
-UInt8 *sslAllocCopy(const UInt8 *src, size_t len);
-OSStatus SSLAllocCopyBuffer(
-	const SSLBuffer *src,
-	SSLBuffer **dst);		// buffer itself and data mallocd and returned
-OSStatus SSLCopyBufferFromData(
+uint8_t *sslAllocCopy(const uint8_t *src, size_t len);
+int SSLAllocCopyBuffer(
+	const SSLBuffer *src, 
+	SSLBuffer **dst);		// buffer itself and data mallocd and returned 
+int SSLCopyBufferFromData(
 	const void *src,
 	size_t len,
-	SSLBuffer *dst);		// data mallocd and returned
-OSStatus SSLCopyBuffer(
-	const SSLBuffer *src,
+	SSLBuffer *dst);		// data mallocd and returned 
+int SSLCopyBuffer(
+	const SSLBuffer *src, 
 	SSLBuffer *dst);		// data mallocd and returned
 
 #ifdef __cplusplus
 }
 #endif
+
+#define SET_SSL_BUFFER(buf, d, l)   do { (buf).data = (d); (buf).length = (l); } while (0)
 
 #endif

@@ -18,10 +18,14 @@
 */
 
 #include "util.h"
-#include "private/qquickwebview_p.h"
-#include "private/qwebloadrequest_p.h"
+
 #include <QtTest/QtTest>
 #include <stdio.h>
+
+#if defined(HAVE_QTQUICK) && HAVE_QTQUICK
+#include "private/qquickwebview_p.h"
+#include "private/qwebloadrequest_p.h"
+#endif
 
 void addQtWebProcessToPath()
 {
@@ -53,26 +57,23 @@ bool waitForSignal(QObject* obj, const char* signal, int timeout)
     return timeoutSpy.isEmpty();
 }
 
-class LoadSpy : public QEventLoop {
-    Q_OBJECT
-public:
-    LoadSpy(QQuickWebView* webView)
-    {
-        connect(webView, SIGNAL(loadingChanged(QWebLoadRequest*)), SLOT(onLoadingChanged(QWebLoadRequest*)));
+static void messageHandler(QtMsgType type, const QMessageLogContext&, const QString& message)
+{
+    if (type == QtCriticalMsg) {
+        fprintf(stderr, "%s\n", qPrintable(message));
+        return;
     }
-signals:
-    void loadSucceeded();
-    void loadFailed();
-private slots:
-    void onLoadingChanged(QWebLoadRequest* loadRequest)
-    {
-        if (loadRequest->status() == QQuickWebView::LoadSucceededStatus)
-            emit loadSucceeded();
-        else if (loadRequest->status() == QQuickWebView::LoadFailedStatus)
-            emit loadFailed();
-    }
-};
+    // Do nothing
+}
 
+void suppressDebugOutput()
+{
+    qInstallMessageHandler(messageHandler); \
+    if (qgetenv("QT_WEBKIT_SUPPRESS_WEB_PROCESS_OUTPUT").isEmpty()) \
+        qputenv("QT_WEBKIT_SUPPRESS_WEB_PROCESS_OUTPUT", "1");
+}
+
+#if defined(HAVE_QTQUICK) && HAVE_QTQUICK
 bool waitForLoadSucceeded(QQuickWebView* webView, int timeout)
 {
     QEventLoop loop;
@@ -105,22 +106,25 @@ bool waitForLoadFailed(QQuickWebView* webView, int timeout)
     return timeoutSpy.isEmpty();
 }
 
-static void messageHandler(QtMsgType type, const char* message)
+bool waitForViewportReady(QQuickWebView* webView, int timeout)
 {
-    if (type == QtCriticalMsg) {
-        fprintf(stderr, "%s\n", message);
-        return;
-    }
-    // Do nothing
+    // The viewport is locked until the first frame of a page load is rendered.
+    // The QQuickView needs to be shown for this to succeed.
+    return waitForSignal(webView->experimental(), SIGNAL(loadVisuallyCommitted()), timeout);
 }
 
-void suppressDebugOutput()
+LoadSpy::LoadSpy(QQuickWebView* webView)
 {
-    qInstallMsgHandler(messageHandler); \
-    if (qgetenv("QT_WEBKIT_SUPPRESS_WEB_PROCESS_OUTPUT").isEmpty()) \
-        qputenv("QT_WEBKIT_SUPPRESS_WEB_PROCESS_OUTPUT", "1");
+    connect(webView, SIGNAL(loadingChanged(QWebLoadRequest*)), SLOT(onLoadingChanged(QWebLoadRequest*)));
 }
 
+void LoadSpy::onLoadingChanged(QWebLoadRequest* loadRequest)
+{
+    if (loadRequest->status() == QQuickWebView::LoadSucceededStatus)
+        emit loadSucceeded();
+    else if (loadRequest->status() == QQuickWebView::LoadFailedStatus)
+        emit loadFailed();
+}
 
 LoadStartedCatcher::LoadStartedCatcher(QQuickWebView* webView)
     : m_webView(webView)
@@ -136,5 +140,4 @@ void LoadStartedCatcher::onLoadingChanged(QWebLoadRequest* loadRequest)
         QCOMPARE(m_webView->loading(), true);
     }
 }
-
-#include "util.moc"
+#endif

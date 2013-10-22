@@ -89,8 +89,8 @@ __removefile_random_char(removefile_state_t state) {
 }
 
 void
-__removefile_randomize_buffer(unsigned char *buffer, unsigned int length, removefile_state_t state) {
-  unsigned int i;
+__removefile_randomize_buffer(unsigned char *buffer, size_t length, removefile_state_t state) {
+  size_t i;
 
 #ifdef USE_ARC4RANDOM
   u_int32_t *p = (u_int32_t *)buffer;

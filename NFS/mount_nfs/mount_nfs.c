@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -141,6 +141,9 @@ struct nfs_conf_client config =
 #define ALTF_VERS4		0x00008000 /* deprecated */
 #define ALTF_WSIZE		0x00010000
 #define ALTF_DEADTIMEOUT	0x00020000
+#define ALTF_REALM		0x00040000
+#define ALTF_PRINCIPAL		0x00080000
+#define ALTF_SVCPRINCIPAL	0x00100000
 
 /* switches */
 #define ALTF_ATTRCACHE		0x00000001
@@ -185,13 +188,16 @@ struct mntopt mopts[] = {
 	{ "maxgroups", 0, ALTF_MAXGROUPS, 1 },
 	{ "mountport", 0, ALTF_MOUNTPORT, 1 },
 	{ "port", 0, ALTF_PORT, 1 },
+	{ "principal", 0, ALTF_PRINCIPAL, 1 },
 	{ "proto", 0, ALTF_PROTO, 1 },
 	{ "readahead", 0, ALTF_READAHEAD, 1 },
+	{ "realm", 0, ALTF_REALM, 1 },
 	{ "retrans", 0, ALTF_RETRANS, 1 },
 	{ "retrycnt", 0, ALTF_RETRYCNT, 1 },
 	{ "rsize", 0, ALTF_RSIZE, 1 },
 	{ "rwsize", 0, ALTF_RSIZE|ALTF_WSIZE, 1 },
 	{ "sec", 0, ALTF_SEC, 1 },
+	{ "sprincipal", 0, ALTF_SVCPRINCIPAL, 1 },
 	{ "timeo", 0, ALTF_TIMEO, 1 },
 	{ "vers", 0, ALTF_VERS, 1 },
 	{ "wsize", 0, ALTF_WSIZE, 1 },
@@ -202,6 +208,7 @@ struct mntopt mopts[] = {
 	{ "nfsvers", 0, ALTF_VERS, 1 }, /* deprecated, use vers=# */
 	{ NULL }
 };
+
 /* on/off switching options */
 struct mntopt mopts_switches[] = {
 	{ "ac", 0, ALTF_ATTRCACHE, 1 },
@@ -248,6 +255,7 @@ int verbose = 0;
 #define DEF_RETRY_BG	10000
 #define DEF_RETRY_FG	1
 int retrycnt = -1;
+int zdebug = 0;		/* Turn on testing flag to make kernel prepend '@' to realm */
 
 /* mount options */
 struct {
@@ -267,6 +275,9 @@ struct {
 	uint32_t	soft_retry_count;			/* soft retrans count */
 	struct timespec	dead_timeout;				/* dead timeout value */
 	fhandle_t	fh;					/* initial file handle */
+	char *		realm;					/* realm of the client. use for setting up kerberos creds */
+	char *		principal;				/* inital GSS pincipal */
+	char *		sprinc;					/* principal of the server */
 } options;
 
 /* convenience macro for setting a mount flag to a particular value (on/off) */
@@ -295,9 +306,12 @@ struct nfs_fs_location {
 };
 
 
+#define AOK	(void *)	// assert alignment is OK
+
 /* function prototypes */
 void	setNFSVersion(uint32_t);
 void	dump_mount_options(struct nfs_fs_location *, char *);
+void	set_krb5_sec_flavor_for_principal();
 void	handle_mntopts(char *);
 void	warn_badoptions(char *);
 int	config_read(struct nfs_conf_client *);
@@ -331,7 +345,7 @@ main(int argc, char *argv[])
 	bzero(&options, sizeof(options));
 	config_read(&config);
 
-	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlo:PR:r:sTt:Uvw:x:")) != EOF)
+	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlo:Pp:R:r:sTt:Uvw:x:z")) != EOF)
 		switch (c) {
 		case '4':
 			setNFSVersion(4);
@@ -408,6 +422,12 @@ main(int argc, char *argv[])
 		case 'P':
 			SETFLAG(NFS_MFLAG_RESVPORT, 1);
 			break;
+		case 'p':
+			options.principal = strdup(optarg);
+			if (!options.principal)
+				err(1, "could not set principal");
+			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_PRINCIPAL);
+			break;
 		case 'R':
 			num = strtol(optarg, &p, 10);
 			if (*p)
@@ -473,6 +493,10 @@ main(int argc, char *argv[])
 		case 'v':
 			verbose++;
 			break;
+		case 'z':
+			/* special secret debug flag */
+			zdebug = 1;
+			break;
 		default:
 			usage();
 			break;
@@ -480,6 +504,8 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
+	set_krb5_sec_flavor_for_principal();
+	
 	/* soft, read-only mount implies ... */
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_SOFT) &&
 	    NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_SOFT) &&
@@ -759,9 +785,9 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 			for (ai = nfss->ns_ailist; ai; ai = ai->ai_next) {
 				/* convert address to universal address string */
 				if (ai->ai_family == AF_INET)
-					sinaddr = &((struct sockaddr_in*)ai->ai_addr)->sin_addr;
+					sinaddr = &((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr;
 				else
-					sinaddr = &((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+					sinaddr = &((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
 				if (inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr)) != uaddr) {
 					warn("unable to convert server address to string");
 					error = errno;
@@ -800,6 +826,17 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		xb_add_32(error, &xb, 0); /* empty fsl info */
 	}
 	xb_add_32(error, &xb, options.mntflags);
+
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_REALM))
+		xb_add_string(error, &xb, options.realm, strlen(options.realm));
+
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_PRINCIPAL))
+		xb_add_string(error, &xb, options.principal, strlen(options.principal));
+
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SVCPRINCIPAL))
+		xb_add_string(error, &xb, options.sprinc, strlen(options.sprinc));
+
+
 	xb_build_done(error, &xb);
 
 	/* update opaque counts */
@@ -909,6 +946,31 @@ get_sec_flavors(const char *flavorlist_orig, struct nfs_sec *sec_flavs)
 		return 0;
 	else
 		return 1;
+}
+
+void
+set_krb5_sec_flavor_for_principal(void)
+{
+	if (options.principal == NULL && options.realm == NULL && options.sprinc == NULL)
+		return;
+	
+	if (options.sec.count == 0) {
+		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SECURITY);
+		options.sec.count = 1;
+		options.sec.flavors[0] = RPCAUTH_KRB5;
+		warnx("no sec flavors specified for principal or realm, assuming kerberos");
+	} else {
+		int i;
+
+		for (i = 0; i < options.sec.count; i++) {
+			if (options.sec.flavors[i] == RPCAUTH_KRB5P ||
+			    options.sec.flavors[i] == RPCAUTH_KRB5I ||
+			    options.sec.flavors[i] == RPCAUTH_KRB5)
+				break;
+		}
+		if (i == options.sec.count)
+			warnx("principal or realm specified but no kerberos is enabled");
+	}
 }
 
 void
@@ -1170,6 +1232,48 @@ handle_mntopts(char *opts)
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_WRITE_SIZE);
 				options.wsize = num;
 			}
+		}
+	}
+	if (altflags & ALTF_PRINCIPAL) {
+		p2 = getmntoptstr(mop, "principal");
+		if (!p2)
+			warnx("missing principal name");
+		else {
+			if (options.principal)
+				warnx("principal is already set to %s. ignoring %s", options.principal, p2);
+			else
+				options.principal = strdup(p2);
+			if (options.principal) {
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_PRINCIPAL);
+			} else
+				err(1, "could not set principal");
+		}
+	}
+	if (altflags & ALTF_REALM) {
+		p2 = getmntoptstr(mop, "realm");
+		if (!p2)
+			warnx("missing realm name");
+		else {
+			if (*p2 == '@' || zdebug)
+				options.realm = strdup(p2);
+			else
+				(void) asprintf(&options.realm, "@%s", p2);
+			if (options.realm)
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_REALM);
+			else
+				err(1, "could not set realm");
+		}
+	}
+	if (altflags & ALTF_SVCPRINCIPAL) {
+		p2 = getmntoptstr(mop, "sprincipal");
+		if (!p2)
+			warnx("missing server's principal");
+		else {
+			options.sprinc = strdup(p2);
+			if (options.sprinc)
+				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SVCPRINCIPAL);
+			else
+				err(1, "could not set server's principal");
 		}
 	}
 	freemntopts(mop);
@@ -1754,9 +1858,9 @@ getaddresslist(struct nfs_fs_server *nfss)
 		aiprev = ai;
 		if (verbose > 2) {
 			if (ai->ai_family == AF_INET)
-				sinaddr = &((struct sockaddr_in*)ai->ai_addr)->sin_addr;
+				sinaddr = &((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr;
 			else
-				sinaddr = &((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+				sinaddr = &((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
 			uap = inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr));
 			printf("usable address: %s %s %s\n",
 				(ai->ai_socktype == SOCK_DGRAM) ? "udp" :
@@ -1776,9 +1880,9 @@ discard:
 		aidiscard = ai;
 		if (verbose > 2) {
 			if (ai->ai_family == AF_INET)
-				sinaddr = &((struct sockaddr_in*)ai->ai_addr)->sin_addr;
+				sinaddr = &((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr;
 			else
-				sinaddr = &((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+				sinaddr = &((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
 			uap = inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr));
 			printf("discard address: %s %s %s\n",
 				(ai->ai_socktype == SOCK_DGRAM) ? "udp" :
@@ -1934,9 +2038,9 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 			printf("  %s\n", nfss->ns_name);
 			for (ai=nfss->ns_ailist; ai; ai=ai->ai_next) {
 				if (ai->ai_family == AF_INET)
-					sinaddr = &((struct sockaddr_in*)ai->ai_addr)->sin_addr;
+					sinaddr = &((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr;
 				else
-					sinaddr = &((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+					sinaddr = &((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
 				uap = inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr));
 				printf("    %s %s\n",
 					(ai->ai_family == AF_INET) ? "inet" :
@@ -2033,6 +2137,13 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 		for (i=1; i < options.sec.count; i++)
 			printf(":%s", sec_flavor_name(options.sec.flavors[i]));
 	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REALM))
+		printf(",realm=%s", options.realm);
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_PRINCIPAL))
+		printf(",principal=%s", options.principal);
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SVCPRINCIPAL))
+		printf(",sprincipal=%s", options.sprinc);
+	
 	printf("\n");
 }
 

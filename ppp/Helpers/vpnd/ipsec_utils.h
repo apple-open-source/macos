@@ -82,5 +82,6 @@ void free_service_routes (struct service	*serv);
 /* creates a directory path from string */
 int makepath( char *path);
 
+int racoon_validate_cfg_str (char *str_buf);
 
 #endif

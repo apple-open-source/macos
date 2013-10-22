@@ -14,7 +14,7 @@ class TestFTP < Test::Unit::TestCase
 
     exp = [
       'ftp',
-      'user:pass', 'host.com', URI::FTP.default_port, 
+      'user:pass', 'host.com', URI::FTP.default_port,
       'abc/def', nil,
     ]
     ary = [
@@ -27,23 +27,27 @@ class TestFTP < Test::Unit::TestCase
     assert_equal('pass', url.password)
   end
 
+  def test_parse_invalid
+    assert_raise(InvalidURIError){URI.parse('ftp:example')}
+  end
+
   def test_paths
-    # If you think what's below is wrong, please read RubyForge bug 2055, 
+    # If you think what's below is wrong, please read RubyForge bug 2055,
     # RFC 1738 section 3.2.2, and RFC 2396.
     u = URI.parse('ftp://ftp.example.com/foo/bar/file.ext')
-    assert_equal(u.path, 'foo/bar/file.ext')
+    assert(u.path == 'foo/bar/file.ext')
     u = URI.parse('ftp://ftp.example.com//foo/bar/file.ext')
-    assert_equal(u.path, '/foo/bar/file.ext')
+    assert(u.path == '/foo/bar/file.ext')
     u = URI.parse('ftp://ftp.example.com/%2Ffoo/bar/file.ext')
-    assert_equal(u.path, '/foo/bar/file.ext')
+    assert(u.path == '/foo/bar/file.ext')
   end
 
   def test_assemble
     # uri/ftp is conservative and uses the older RFC 1738 rules, rather than
     # assuming everyone else has implemented RFC 2396.
-    uri = URI::FTP.build(['user:password', 'ftp.example.com', nil, 
+    uri = URI::FTP.build(['user:password', 'ftp.example.com', nil,
                          '/path/file.zip', 'i'])
-    assert_equal(uri.to_s,
+    assert(uri.to_s ==
            'ftp://user:password@ftp.example.com/%2Fpath/file.zip;type=i')
   end
 
@@ -52,7 +56,7 @@ class TestFTP < Test::Unit::TestCase
     u = URI.parse('ftp://a.b.c/')
     ary = u.component.collect {|c| u.send(c)}
     assert_equal(ary, u.select(*u.component))
-    assert_raises(ArgumentError) do
+    assert_raise(ArgumentError) do
       u.select(:scheme, :host, :not_exist, :port)
     end
   end

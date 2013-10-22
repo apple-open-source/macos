@@ -26,9 +26,11 @@
 #ifndef Plugin_h
 #define Plugin_h
 
+#include <WebCore/FindOptions.h>
 #include <WebCore/GraphicsLayer.h>
 #include <WebCore/KURL.h>
 #include <WebCore/ScrollTypes.h>
+#include <WebCore/SecurityOrigin.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
@@ -36,6 +38,7 @@
 #if PLATFORM(MAC)
 #include "LayerHostingContext.h"
 
+OBJC_CLASS NSObject;
 OBJC_CLASS PDFDocument;
 #endif
 
@@ -48,10 +51,14 @@ namespace CoreIPC {
 
 namespace WebCore {
     class AffineTransform;
+    class FloatPoint;
     class GraphicsContext;
+    class IntPoint;
     class IntRect;
     class IntSize;
+    class FloatPoint;
     class Scrollbar;
+    class SharedBuffer;
 }
 
 namespace WebKit {
@@ -76,12 +83,14 @@ public:
         LayerHostingMode layerHostingMode;
 #endif
 
-        void encode(CoreIPC::ArgumentEncoder*) const;
-        static bool decode(CoreIPC::ArgumentDecoder*, Parameters&);
+        void encode(CoreIPC::ArgumentEncoder&) const;
+        static bool decode(CoreIPC::ArgumentDecoder&, Parameters&);
     };
 
     // Sets the active plug-in controller and initializes the plug-in.
     bool initialize(PluginController*, const Parameters&);
+
+    virtual bool isBeingAsynchronouslyInitialized() const = 0;
 
     // Destroys the plug-in.
     void destroyPlugin();
@@ -110,6 +119,9 @@ public:
     // Invalidate native tintable controls. The passed-in context is in window coordinates.
     virtual void updateControlTints(WebCore::GraphicsContext*);
 
+    // Returns whether the plug-in supports snapshotting or not.
+    virtual bool supportsSnapshotting() const = 0;
+
     // Tells the plug-in to draw itself into a bitmap, and return that.
     virtual PassRefPtr<ShareableBitmap> snapshot() = 0;
 
@@ -117,7 +129,7 @@ public:
     // If a plug-in is using the Core Animation drawing model, this returns its plug-in layer.
     virtual PlatformLayer* pluginLayer() = 0;
 #endif
-    
+
     // Returns whether the plug-in is transparent or not.
     virtual bool isTransparent() = 0;
 
@@ -185,6 +197,21 @@ public:
     // Tells the plug-in to handle the passed in keyboard event. The plug-in should return true if it processed the event.
     virtual bool handleKeyboardEvent(const WebKeyboardEvent&) = 0;
     
+    // Tells the plug-in to handle the passed in editing command. The plug-in should return true if it executed the command.
+    virtual bool handleEditingCommand(const String& commandName, const String& argument) = 0;
+    
+    // Ask the plug-in whether it will be able to handle the given editing command.
+    virtual bool isEditingCommandEnabled(const String&) = 0;
+
+    // Ask the plug-in whether it should be allowed to execute JavaScript or navigate to JavaScript URLs.
+    virtual bool shouldAllowScripting() = 0;
+
+    // Ask the plug-in whether it wants URLs and files dragged onto it to cause navigation.
+    virtual bool shouldAllowNavigationFromDrags() = 0;
+    
+    // Ask the plug-in whether it wants to override full-page zoom.
+    virtual bool handlesPageScaleFactor() = 0;
+    
     // Tells the plug-in about focus changes.
     virtual void setFocus(bool) = 0;
 
@@ -214,6 +241,9 @@ public:
     // Tells the plug-in about scale factor changes.
     virtual void contentsScaleFactorChanged(float) = 0;
 
+    // Called when the storage blocking policy for this plug-in changes.
+    virtual void storageBlockingStateChanged(bool) = 0;
+
     // Called when the private browsing state for this plug-in changes.
     virtual void privateBrowsingStateChanged(bool) = 0;
 
@@ -230,7 +260,22 @@ public:
 
 #if PLATFORM(MAC)
     virtual RetainPtr<PDFDocument> pdfDocumentForPrinting() const { return 0; }
+    virtual NSObject *accessibilityObject() const { return 0; }
 #endif
+
+    virtual unsigned countFindMatches(const String& target, WebCore::FindOptions, unsigned maxMatchCount) = 0;
+
+    virtual bool findString(const String& target, WebCore::FindOptions, unsigned maxMatchCount) = 0;
+
+    virtual WebCore::IntPoint convertToRootView(const WebCore::IntPoint& pointInLocalCoordinates) const;
+
+    virtual bool shouldAlwaysAutoStart() const { return false; }
+
+    virtual PassRefPtr<WebCore::SharedBuffer> liveResourceData() const = 0;
+
+    virtual bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) = 0;
+
+    virtual String getSelectionString() const = 0;
 
 protected:
     Plugin();

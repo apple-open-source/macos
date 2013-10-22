@@ -36,8 +36,8 @@
 #include "SecPolicyPriv.h"
 #include "Certificate.h"
 #include "cssmdatetime.h"
+#include <Security/SecBase.h>
 #include "SecTrustedApplicationPriv.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_utilities/errors.h> 
 #include <security_utilities/debugging.h>
 #include <security_utilities/logging.h>
@@ -314,6 +314,7 @@ static void tsSetModDate(
 }
 
 /* make sure a presumed CFNumber can be converted to a 32-bit number */
+static
 bool tsIsGoodCfNum(CFNumberRef cfn, SInt32 *num = NULL)
 {
 	if(cfn == NULL) {
@@ -372,7 +373,7 @@ OSStatus TrustSettings::CreateTrustSettings(
 
 	Allocator &alloc = Allocator::standard();
 	CSSM_DATA fileData = {0, NULL};
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	struct stat sb;
 	const char *path;
 
@@ -403,7 +404,7 @@ OSStatus TrustSettings::CreateTrustSettings(
 			break;
 		default:
 			delete t;
-			return paramErr;
+			return errSecParam;
 	}
 	if(ortn) {
 		if(create) {
@@ -427,7 +428,7 @@ OSStatus TrustSettings::CreateTrustSettings(
 	t->validatePropList(trim);
 	
 	ts = t;
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -446,7 +447,7 @@ OSStatus TrustSettings::CreateTrustSettings(
 			break;
 		case kSecTrustSettingsDomainSystem:		/* no can do, that implies writing to it */
 		default:
-			return paramErr;
+			return errSecParam;
 	}
 
 	TrustSettings* t = new TrustSettings(domain);
@@ -461,7 +462,7 @@ OSStatus TrustSettings::CreateTrustSettings(
 	t->mDirty = true;
 	
 	ts = t;
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -506,7 +507,7 @@ void TrustSettings::flushToDisk()
 	if(mPropList == NULL) {
 		trustSettingsDbg("flushToDisk, domain %d, trimmed!", (int)mDomain);
 		assert(0);
-		MacOSError::throwMe(internalComponentErr);
+		MacOSError::throwMe(errSecInternalComponent);
 	}
 	switch(mDomain) {
 		case kSecTrustSettingsDomainSystem:
@@ -514,7 +515,7 @@ void TrustSettings::flushToDisk()
 		/* caller shouldn't even try this */
 		default:
 			trustSettingsDbg("flushToDisk, bad domain (%d)", (int)mDomain);
-			MacOSError::throwMe(internalComponentErr);
+			MacOSError::throwMe(errSecInternalComponent);
 		case kSecTrustSettingsDomainUser:
 		case kSecTrustSettingsDomainAdmin:
 			break;
@@ -536,7 +537,7 @@ void TrustSettings::flushToDisk()
 		if(!xmlData) {
 			/* we've been very careful; this should never happen */
 			trustSettingsDbg("flushToDisk, domain %d: error converting to XML", (int)mDomain);
-			MacOSError::throwMe(internalComponentErr);
+			MacOSError::throwMe(errSecInternalComponent);
 		}
 		cssmXmlData.Data = (uint8 *)CFDataGetBytePtr(xmlData);
 		cssmXmlData.Length = CFDataGetLength(xmlData);
@@ -553,7 +554,7 @@ void TrustSettings::flushToDisk()
 	if(ortn) {
 		trustSettingsDbg("flushToDisk, domain %d: AuthorizationCreate returned %ld", 
 			(int)mDomain, (long)ortn);
-		MacOSError::throwMe(internalComponentErr);
+		MacOSError::throwMe(errSecInternalComponent);
 	}
 	AuthorizationExternalForm authExt;
 	CSSM_DATA authBlob = {sizeof(authExt), (uint8 *)&authExt};
@@ -561,7 +562,7 @@ void TrustSettings::flushToDisk()
 	if(ortn) {
 		trustSettingsDbg("flushToDisk, domain %d: AuthorizationMakeExternalForm returned %ld", 
 			(int)mDomain, (long)ortn);
-		ortn = internalComponentErr;
+		ortn = errSecInternalComponent;
 		goto errOut;
 	}
 	
@@ -590,7 +591,7 @@ CFDataRef TrustSettings::createExternal()
 	if(xmlData == NULL) {
 		trustSettingsDbg("createExternal, domain %d: error converting to XML",
 			(int)mDomain);
-		MacOSError::throwMe(internalComponentErr);
+		MacOSError::throwMe(errSecInternalComponent);
 	}
 	return xmlData;
 }
@@ -1040,7 +1041,7 @@ void TrustSettings::setTrustSettings(
 		certDict = CFDictionaryCreateMutable(NULL, kSecTrustRecordNumCertDictKeys,
 			&kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 		if(certDict == NULL) {
-			MacOSError::throwMe(memFullErr);
+			MacOSError::throwMe(errSecAllocate);
 		}
 		CFDictionaryAddValue(certDict, kTrustRecordIssuer, issuer);
 		CFDictionaryAddValue(certDict, kTrustRecordSerialNumber, serial);
@@ -1155,7 +1156,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 		/* trivial case, only valid for roots */
 		if(!isSelfSigned) {
 			trustSettingsDbg("validateApiUsageConstraints: !isSelfSigned, no settings");
-			MacOSError::throwMe(paramErr);
+			MacOSError::throwMe(errSecParam);
 		}
 		return CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
 	}
@@ -1171,13 +1172,13 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 	}
 	else {
 		trustSettingsDbg("validateApiUsageConstraints: bad trustSettingsDictOrArray");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	
 	CFIndex numSpecs = CFArrayGetCount(tmpInArray);
 	CFMutableArrayRef outArray = CFArrayCreateMutable(NULL, numSpecs, &kCFTypeArrayCallBacks);
 	CSSM_OID oid;
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	SecPolicyRef certPolicy;
 	SecTrustedApplicationRef certApp;
 	
@@ -1196,7 +1197,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 		CFDictionaryRef ucDict = (CFDictionaryRef)CFArrayGetValueAtIndex(tmpInArray, dex);
 		if(CFGetTypeID(ucDict) != CFDictionaryGetTypeID()) {
 			trustSettingsDbg("validateAppPolicyArray: malformed usageConstraint dictionary");
-			ortn = paramErr;
+			ortn = errSecParam;
 			break;
 		}
 		
@@ -1205,7 +1206,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 		if(certPolicy != NULL) {
 			if(CFGetTypeID(certPolicy) != SecPolicyGetTypeID()) {
 				trustSettingsDbg("validateAppPolicyArray: malformed certPolicy");
-				ortn = paramErr;
+				ortn = errSecParam;
 				break;
 			}
 			ortn = SecPolicyGetOID(certPolicy, &oid);
@@ -1221,7 +1222,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 		if(certApp != NULL) {
 			if(CFGetTypeID(certApp) != SecTrustedApplicationGetTypeID()) {
 				trustSettingsDbg("validateAppPolicyArray: malformed certApp");
-				ortn = paramErr;
+				ortn = errSecParam;
 				break;
 			}
 			ortn = SecTrustedApplicationCopyExternalRepresentation(certApp, &appData);
@@ -1236,20 +1237,20 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 		if(policyStr != NULL) {
 			if(CFGetTypeID(policyStr) != CFStringGetTypeID()) {
 				trustSettingsDbg("validateAppPolicyArray: malformed policyStr");
-				ortn = paramErr;
+				ortn = errSecParam;
 				break;
 			}
 		}
 		allowedErr = (CFNumberRef)CFDictionaryGetValue(ucDict, kSecTrustSettingsAllowedError);
 		if(!tsIsGoodCfNum(allowedErr)) {
 			trustSettingsDbg("validateAppPolicyArray: malformed allowedErr");
-			ortn = paramErr;
+			ortn = errSecParam;
 			break;
 		}
 		resultType = (CFNumberRef)CFDictionaryGetValue(ucDict, kSecTrustSettingsResult);
 		if(!tsIsGoodCfNum(resultType, &resultNum)) {
 			trustSettingsDbg("validateAppPolicyArray: malformed resultType");
-			ortn = paramErr;
+			ortn = errSecParam;
 			break;
 		}
 		result = resultNum;
@@ -1258,7 +1259,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 		keyUsage   = (CFNumberRef)CFDictionaryGetValue(ucDict, kSecTrustSettingsKeyUsage);
 		if(!tsIsGoodCfNum(keyUsage)) {
 			trustSettingsDbg("validateAppPolicyArray: malformed keyUsage");
-			ortn = paramErr;
+			ortn = errSecParam;
 			break;
 		}
 		
@@ -1292,18 +1293,18 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 			/* let's be really picky on this one */
 			switch(result) {
 				case kSecTrustSettingsResultInvalid:
-					ortn = paramErr;
+					ortn = errSecParam;
 					break;
 				case kSecTrustSettingsResultTrustRoot:
 					if(!isSelfSigned) {
 						trustSettingsDbg("validateAppPolicyArray: TrustRoot, !isSelfSigned");
-						ortn = paramErr;
+						ortn = errSecParam;
 					}
 					break;
 				case kSecTrustSettingsResultTrustAsRoot:
 					if(isSelfSigned) {
 						trustSettingsDbg("validateAppPolicyArray: TrustAsRoot, isSelfSigned");
-						ortn = paramErr;
+						ortn = errSecParam;
 					}
 					break;
 				case kSecTrustSettingsResultDeny:
@@ -1311,7 +1312,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 					break;
 				default:
 					trustSettingsDbg("validateAppPolicyArray: bogus resultType");
-					ortn = paramErr;
+					ortn = errSecParam;
 					break;
 			}
 			if(ortn) {
@@ -1323,7 +1324,7 @@ CFArrayRef TrustSettings::validateApiTrustSettings(
 			/* no resultType; default of TrustRoot only valid for root */
 			if(!isSelfSigned) {
 				trustSettingsDbg("validateAppPolicyArray: default result, !isSelfSigned");
-				ortn = paramErr;
+				ortn = errSecParam;
 				break;
 			}
 		}

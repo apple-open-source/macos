@@ -1249,7 +1249,7 @@ static const ucs4_t cns11643_5_2uni_upages[229] = {
 };
 
 static int
-cns11643_5_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cns11643_5_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c1 = s[0];
   if ((c1 >= 0x21 && c1 <= 0x7c)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,6 @@ extern "C" {
 #define ___GID_UNKNOWN 99
 #define ___UID_UNKNOWN 99
 
-#define _kDAAgentName  "com.apple.DiskArbitration.DiskArbitrationAgent"
 #define _kDADaemonName "com.apple.DiskArbitration.diskarbitrationd"
 
 enum
@@ -62,6 +61,7 @@ enum
     _kDADiskMountCallback,
     _kDADiskMountApprovalCallback,
     _kDADiskPeekCallback,
+    _kDADiskProbeCallback,
     _kDADiskRefreshCallback,
     _kDADiskRenameCallback,
     _kDADiskUnmountCallback,
@@ -76,6 +76,7 @@ enum
     _kDADiskClaim   = _kDADiskClaimCallback,
     _kDADiskEject   = _kDADiskEjectCallback,
     _kDADiskMount   = _kDADiskMountCallback,
+    _kDADiskProbe   = _kDADiskProbeCallback,
     _kDADiskRefresh = _kDADiskRefreshCallback,
     _kDADiskRename  = _kDADiskRenameCallback,
     _kDADiskUnmount = _kDADiskUnmountCallback
@@ -83,41 +84,41 @@ enum
 
 typedef UInt32 _DARequestKind;
 
-__private_extern__ const char * _kDAAuthorizeRightAdopt;
-__private_extern__ const char * _kDAAuthorizeRightEncode;
-__private_extern__ const char * _kDAAuthorizeRightMount;
-__private_extern__ const char * _kDAAuthorizeRightRename;
-__private_extern__ const char * _kDAAuthorizeRightUnmount;
+const char * _kDAAuthorizeRightAdopt;
+const char * _kDAAuthorizeRightEncode;
+const char * _kDAAuthorizeRightMount;
+const char * _kDAAuthorizeRightRename;
+const char * _kDAAuthorizeRightUnmount;
 
-__private_extern__ const CFStringRef _kDACallbackAddressKey;       /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDACallbackArgument0Key;     /* ( CFType       ) */
-__private_extern__ const CFStringRef _kDACallbackArgument1Key;     /* ( CFType       ) */
-__private_extern__ const CFStringRef _kDACallbackContextKey;       /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDACallbackDiskKey;          /* ( DADisk       ) */
-__private_extern__ const CFStringRef _kDACallbackKindKey;          /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDACallbackMatchKey;         /* ( CFDictionary ) */
-__private_extern__ const CFStringRef _kDACallbackOrderKey;         /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDACallbackSessionKey;       /* ( DASession    ) */
-__private_extern__ const CFStringRef _kDACallbackTimeKey;          /* ( CFDate       ) */
-__private_extern__ const CFStringRef _kDACallbackWatchKey;         /* ( CFArray      ) */
+const CFStringRef _kDACallbackAddressKey;       /* ( CFNumber     ) */
+const CFStringRef _kDACallbackArgument0Key;     /* ( CFType       ) */
+const CFStringRef _kDACallbackArgument1Key;     /* ( CFType       ) */
+const CFStringRef _kDACallbackContextKey;       /* ( CFNumber     ) */
+const CFStringRef _kDACallbackDiskKey;          /* ( DADisk       ) */
+const CFStringRef _kDACallbackKindKey;          /* ( CFNumber     ) */
+const CFStringRef _kDACallbackMatchKey;         /* ( CFDictionary ) */
+const CFStringRef _kDACallbackOrderKey;         /* ( CFNumber     ) */
+const CFStringRef _kDACallbackSessionKey;       /* ( DASession    ) */
+const CFStringRef _kDACallbackTimeKey;          /* ( CFDate       ) */
+const CFStringRef _kDACallbackWatchKey;         /* ( CFArray      ) */
 
-__private_extern__ const CFStringRef _kDADiskIDKey;                /* ( CFData       ) */
+const CFStringRef _kDADiskIDKey;                /* ( CFData       ) */
 
-__private_extern__ const CFStringRef _kDADissenterProcessIDKey;    /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDADissenterStatusKey;       /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDADissenterStatusStringKey; /* ( CFString     ) */
+const CFStringRef _kDADissenterProcessIDKey;    /* ( CFNumber     ) */
+const CFStringRef _kDADissenterStatusKey;       /* ( CFNumber     ) */
+const CFStringRef _kDADissenterStatusStringKey; /* ( CFString     ) */
 
-__private_extern__ const CFStringRef _kDARequestArgument1Key;      /* ( CFType       ) */
-__private_extern__ const CFStringRef _kDARequestArgument2Key;      /* ( CFType       ) */
-__private_extern__ const CFStringRef _kDARequestArgument3Key;      /* ( CFType       ) */
-__private_extern__ const CFStringRef _kDARequestCallbackKey;       /* ( DACallback   ) */
-__private_extern__ const CFStringRef _kDARequestDiskKey;           /* ( DADisk       ) */
-__private_extern__ const CFStringRef _kDARequestDissenterKey;      /* ( DADissenter  ) */
-__private_extern__ const CFStringRef _kDARequestKindKey;           /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDARequestLinkKey;           /* ( CFArray      ) */
-__private_extern__ const CFStringRef _kDARequestStateKey;          /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDARequestUserGIDKey;        /* ( CFNumber     ) */
-__private_extern__ const CFStringRef _kDARequestUserUIDKey;        /* ( CFNumber     ) */
+const CFStringRef _kDARequestArgument1Key;      /* ( CFType       ) */
+const CFStringRef _kDARequestArgument2Key;      /* ( CFType       ) */
+const CFStringRef _kDARequestArgument3Key;      /* ( CFType       ) */
+const CFStringRef _kDARequestCallbackKey;       /* ( DACallback   ) */
+const CFStringRef _kDARequestDiskKey;           /* ( DADisk       ) */
+const CFStringRef _kDARequestDissenterKey;      /* ( DADissenter  ) */
+const CFStringRef _kDARequestKindKey;           /* ( CFNumber     ) */
+const CFStringRef _kDARequestLinkKey;           /* ( CFArray      ) */
+const CFStringRef _kDARequestStateKey;          /* ( CFNumber     ) */
+const CFStringRef _kDARequestUserGIDKey;        /* ( CFNumber     ) */
+const CFStringRef _kDARequestUserUIDKey;        /* ( CFNumber     ) */
 
 __private_extern__ int          ___statfs( const char * path, struct statfs * buf, int flags );
 __private_extern__ Boolean      ___CFArrayContainsValue( CFArrayRef array, const void * value );

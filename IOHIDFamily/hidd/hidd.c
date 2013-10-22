@@ -22,22 +22,33 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDEventSystem.h>
+#include <mach/mach.h>
 
 int main (int argc __unused, const char * argv[] __unused) 
 {
     IOHIDEventSystemRef eventSystem = IOHIDEventSystemCreate(kCFAllocatorDefault);
+    struct task_qos_policy qosinfo;
     
     if ( !eventSystem )
         goto finish;
     
     if ( !IOHIDEventSystemOpen(eventSystem, NULL, NULL, NULL, 0) )
         goto finish;
-
+    
+    // Make sure this process remains at tier 0 for maximum timer accuracy, since it provides user input events
+    memset(&qosinfo, 0, sizeof(qosinfo));
+    qosinfo.task_latency_qos_tier = LATENCY_QOS_TIER_0;
+    qosinfo.task_throughput_qos_tier = THROUGHPUT_QOS_TIER_0;
+    kern_return_t kr = task_policy_set(mach_task_self(), TASK_BASE_QOS_POLICY, (task_policy_t)&qosinfo, TASK_QOS_POLICY_COUNT);
+    
+    if ( kr != KERN_SUCCESS )
+        goto finish;
+    
     CFRunLoopRun();
     
 finish:
     if ( eventSystem )
         CFRelease(eventSystem);
-        
+    
     return 0;
 }

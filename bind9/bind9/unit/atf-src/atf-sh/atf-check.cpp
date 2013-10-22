@@ -33,7 +33,6 @@ extern "C" {
 
 #include <limits.h>
 #include <signal.h>
-#include <unistd.h>
 }
 
 #include <cerrno>

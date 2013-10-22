@@ -1,5 +1,5 @@
 /*
- * "$Id: dir.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: dir.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Directory routines for CUPS.
  *
@@ -468,5 +468,5 @@ cupsDirRewind(cups_dir_t *dp)		/* I - Directory pointer */
 #endif /* WIN32 */
 
 /*
- * End of "$Id: dir.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: dir.c 11093 2013-07-03 20:48:42Z msweet $".
  */

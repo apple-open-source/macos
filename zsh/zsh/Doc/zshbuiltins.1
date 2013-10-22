@@ -1,4 +1,4 @@
-.TH "ZSHBUILTINS" "1" "December 20, 2010" "zsh 4\&.3\&.11"
+.TH "ZSHBUILTINS" "1" "December 21, 2012" "zsh 5\&.0\&.2"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
@@ -83,7 +83,7 @@ For more on aliases, include common problems,
 see the section ALIASING in \fIzshmisc\fP(1)\&.
 .RE
 .TP
-\fBautoload\fP [ {\fB+\fP|\fB\-\fP}\fBUXktz\fP ] [ \fB\-w\fP ] [ \fIname\fP \&.\&.\&. ]
+\fBautoload\fP [ {\fB+\fP|\fB\-\fP}\fBUXkmtz\fP ] [ \fB\-w\fP ] [ \fIname\fP \&.\&.\&. ]
 Equivalent to \fBfunctions \-u\fP, with the exception of \fB\-X\fP/\fB+X\fP and
 \fB\-w\fP\&.
 .RS
@@ -105,15 +105,31 @@ undefined and marked for autoloading\&.  If ksh\-style autoloading is
 enabled, the function created will contain the contents of the file
 plus a call to the function itself appended to it, thus giving normal
 ksh autoloading behaviour on the first call to the function\&.
+If the \fB\-m\fP flag is also given each \fIname\fP is treated as a
+pattern and all functions already marked for autoload that match the
+pattern are loaded\&.
 .PP
 With the \fB\-w\fP flag, the \fIname\fPs are taken as names of files compiled
 with the \fBzcompile\fP builtin, and all functions defined in them are
 marked for autoloading\&.
 .PP
-The flags \fB\-z\fP and \fB\-k\fP mark the function to be autoloaded in
-native or ksh emulation, as if the option \fBKSH_AUTOLOAD\fP were
-unset or were set, respectively\&.  The flags override the setting of
-the option at the time the function is loaded\&.
+The flags \fB\-z\fP and \fB\-k\fP mark the function to be autoloaded using the
+zsh or ksh style, as if the option \fBKSH_AUTOLOAD\fP were unset or were
+set, respectively\&.  The flags override the setting of the option at the
+time the function is loaded\&.
+.PP
+Note that the \fBautoload\fP command makes no attempt to ensure the
+shell options set during the loading or execution of the file have
+any particular value\&.  For this, the \fBemulate\fP command can be used:
+.PP
+.RS
+.nf
+\fBemulate zsh \-c \&'autoload \-Uz \fIfunc\fP'\fP
+.fi
+.RE
+.PP
+arranges that when \fIfunc\fP is loaded the shell is in native \fBzsh\fP
+emulation, and this emulation is also applied when \fIfunc\fP is run\&.
 .RE
 .TP
 .PD 0
@@ -387,7 +403,7 @@ See the section `The zsh/termcap Module\&' in \fIzshmodules\fP(1)\&.
 \fBechoti\fP
 See the section `The zsh/terminfo Module\&' in \fIzshmodules\fP(1)\&.
 .TP
-\fBemulate\fP [ \fB\-LR\fP ] [ {\fBzsh\fP|\fBsh\fP|\fBksh\fP|\fBcsh\fP} [ \fB\-c\fP \fBarg\fP ] ]
+\fBemulate\fP [ \fB\-LR\fP ] [ {\fBzsh\fP|\fBsh\fP|\fBksh\fP|\fBcsh\fP} [ \fIflags\fP \&.\&.\&. ] ]
 Without any argument print current emulation mode\&.
 .RS
 .PP
@@ -398,35 +414,53 @@ If the argument is not one of the shells listed above, \fBzsh\fP
 will be used as a default; more precisely, the tests performed on the
 argument are the same as those used to determine the emulation at startup
 based on the shell name, see
-the section `Compatibility\&' in \fIzshmisc\fP(1)
+the section COMPATIBILITY in \fIzsh\fP(1)
 \&.
 .PP
-If the \fB\-R\fP option is given, all options
+If the \fBemulate\fP command occurs inside a function that has been
+marked for execution tracing with \fBfunctions \-t\fP then the \fBxtrace\fP
+option will be turned on regardless of emulation mode or other options\&.
+Note that code executed inside the function by the \fB\&.\fP, \fBsource\fP, or
+\fBeval\fP commands is not considered to be running directly from the
+function, hence does not provoke this behaviour\&.
+.PP
+If the \fB\-R\fP switch is given, all settable options
 are reset to their default value corresponding to the specified emulation
 mode, except for certain options describing the interactive
 environment; otherwise, only those options likely to cause portability
-problems in scripts and functions are altered\&.  If the \fB\-L\fP option is given,
+problems in scripts and functions are altered\&.  If the \fB\-L\fP switch is given,
 the options \fBLOCAL_OPTIONS\fP and \fBLOCAL_TRAPS\fP will be set as
 well, causing the effects of the \fBemulate\fP command and any \fBsetopt\fP and
 \fBtrap\fP commands to be local to the immediately surrounding shell
 function, if any; normally these options are turned off in all emulation
-modes except \fBksh\fP\&. The \fB\-L\fP and \fB\-c\fP are mutually exclusive\&.
+modes except \fBksh\fP\&. The \fB\-L\fP switch is mutually exclusive with the
+use of \fB\-c\fP in \fIflags\fP\&.
 .PP
-If \fB\-c\fP \fBarg\fP is given, evaluate \fBarg\fP while the requested
-emulation is temporarily in effect\&.  The emulation and all options will
-be restored to their original values before \fBemulate\fP returns\&.  The
-\fB\-R\fP flag may be used\&.
+The \fIflags\fP may be any of the invocation\-time flags described in
+the section INVOCATION in \fIzsh\fP(1),
+except that `\fB\-o EMACS\fP\&' and `\fB\-o VI\fP' may not be used\&.  Flags such
+as `\fB+r\fP\&'/`\fB+o RESTRICTED\fP' may be prohibited in some circumstances\&.
+.PP
+If \fB\-c\fP \fIarg\fP appears in \fIflags\fP, \fIarg\fP is evaluated while the
+requested emulation is temporarily in effect\&.  In this case the emulation
+mode and all options are restored to their previous values before
+\fBemulate\fP returns\&.  The \fB\-R\fP switch may precede the name of the shell
+to emulate; note this has a meaning distinct from including \fB\-R\fP in
+\fIflags\fP\&.
 .PP
 Use of \fB\-c\fP enables `sticky\&' emulation mode for functions defined
 within the evaluated expression:  the emulation mode is associated
 thereafter with the function so that whenever the function is executed
-the emulation (respecting the \fB\-R\fP flag, if present) and all
+the emulation (respecting the \fB\-R\fP switch, if present) and all
 options are set before entry to the function, and restored after exit\&.
 If the function is called when the sticky emulation is already in
 effect, either within an `\fBemulate\fP \fIshell\fP \fB\-c\fP\&' expression or
 within another function with the same sticky emulation, entry and exit
 from the function do not cause options to be altered (except due to
-standard processing such as the \fBLOCAL_OPTIONS\fP option)\&.
+standard processing such as the \fBLOCAL_OPTIONS\fP option)\&.  This also
+applies to functions marked for autoload within the sticky emulation;
+the appropriate set of options will be applied at the point the
+function is loaded as well as when it is run\&.
 .PP
 For example:
 .PP
@@ -474,10 +508,16 @@ No special handling is provided for functions marked for
 the \fBzcompile\fP command\&.
 .TP
 4\&.
-The presence or absence of the \fB\-R\fP flag to \fBemulate\fP
+The presence or absence of the \fB\-R\fP switch to \fBemulate\fP
 corresponds to different sticky emulation modes, so for example
 `\fBemulate sh \-c\fP\&', `\fBemulate \-R sh \-c\fP' and `\fBemulate csh \-c\fP'
 are treated as three distinct sticky emulations\&.
+.TP
+5\&.
+Difference in shell options supplied in addition to the
+basic emulation also mean the sticky emulations are different, so for
+example `\fBemulate zsh \-c\fP\&' and `\fBemulate zsh \-o cbases \-c\fP' are
+treated as distinct sticky emulations\&.
 .PD
 .RE
 .TP
@@ -658,7 +698,7 @@ Equivalent to \fBtypeset \-E\fP, except that options irrelevant to floating
 point numbers are not permitted\&.
 .TP
 .PD 0
-\fBfunctions\fP [ {\fB+\fP|\fB\-\fP}\fBUXkmtuz\fP ] [ \fIname\fP \&.\&.\&. ]
+\fBfunctions\fP [ {\fB+\fP|\fB\-\fP}\fBUXkmtTuz\fP ] [ \fIname\fP \&.\&.\&. ]
 .TP
 .PD 0
 \fBfunctions \-M\fP \fImathfn\fP [ \fImin\fP [ \fImax\fP [ \fIshellfn\fP ] ] ]
@@ -679,7 +719,7 @@ see
 the section `Arithmetic Evaluation\&' in \fIzshmisc\fP(1)\&.  By default \fImathfn\fP may take
 any number of comma\-separated arguments\&.  If \fImin\fP is given,
 it must have exactly \fImin\fP args; if \fImin\fP and \fImax\fP are
-both given, it must have at least \fImin\fP and and at most \fImax\fP
+both given, it must have at least \fImin\fP and at most \fImax\fP
 args\&.  \fImax\fP may be \-1 to indicate that there is no upper limit\&.
 .PP
 By default the function is implemented by a shell function of the same
@@ -1018,7 +1058,7 @@ and the new directory stack is not printed\&.  This is useful for calls to
 .RE
 .TP
 .PD 0
-\fBprint\fP [ \fB\-abcDilmnNoOpPrsz\fP ] [ \fB\-u\fP \fIn\fP ] [ \fB\-f\fP \fIformat\fP ] [ \fB\-C\fP \fIcols\fP ]
+\fBprint\fP [ \fB\-abcDilmnNoOpPrsSz\fP ] [ \fB\-u\fP \fIn\fP ] [ \fB\-f\fP \fIformat\fP ] [ \fB\-C\fP \fIcols\fP ]
 .TP
 .PD
   [ \fB\-R\fP [ \fB\-en\fP ]] [ \fIarg\fP \&.\&.\&. ]
@@ -1099,6 +1139,15 @@ newline\&.  Only the \fB\-e\fP and \fB\-n\fP flags are recognized after
 .TP
 \fB\-s\fP
 Place the results in the history list instead of on the standard output\&.
+Each argument to the \fBprint\fP command is treated as a single word in the
+history, regardless of its content\&.
+.TP
+\fB\-S\fP
+Place the results in the history list instead of on the standard output\&.
+In this case only a single argument is allowed; it will be split into
+words as if it were a full shell command line\&.  The effect is
+similar to reading the line from a history file with the
+\fBHIST_LEX_WORDS\fP option active\&.
 .TP
 \fB\-u\fP \fIn\fP
 Print the arguments to file descriptor \fIn\fP\&.
@@ -1404,10 +1453,6 @@ all parameters are printed on the standard output\&.  If the only argument is
 For historical reasons, `\fBset \-\fP\&' is treated as `\fBset +xv\fP'
 and `\fBset \-\fP \fIargs\fP\&' as `\fBset +xv \-\-\fP \fIargs\fP' when in
 any other emulation mode than zsh\&'s native mode\&.
-.PP
-The \fBsched\fP builtin is not made available by default when the shell
-starts in a mode emulating another shell\&.  It can be made available
-with the command `\fBzmodload \-F zsh/sched b:sched\fP\&'\&.
 .RE
 .TP
 \fBsetcap\fP
@@ -1435,6 +1480,11 @@ or without the \fBno\fP prefix remains the same in this case\&.
 If the \fB\-m\fP flag is given the arguments are taken as patterns
 (which should be quoted to protect them from filename expansion), and all
 options with names matching these patterns are set\&.
+.PP
+Note that a bad option name does not cause execution of subsequent shell
+code to be aborted; this is behaviour is different from that of `\fBset
+\-o\fP\&'\&.  This is because \fBset\fP is regarded as a special builtin by the
+POSIX standard, but \fBsetopt\fP is not\&.
 .RE
 .TP
 \fBshift\fP [ \fIn\fP ] [ \fIname\fP \&.\&.\&. ]
@@ -1639,7 +1689,10 @@ an array to \fISCALAR\fP is an error, and assigning a scalar to \fIarray\fP
 sets it to be a single\-element array\&.  Note that both `\fBtypeset \-xT \&.\&.\&.\fP\&'
 and `\fBexport \-T \&.\&.\&.\fP\&' work, but only the scalar will be marked for
 export\&.  Setting the value using the scalar version causes a split on all
-separators (which cannot be quoted)\&.
+separators (which cannot be quoted)\&.  It is possible to use the
+same two tied variables with a different separator character in which
+case the variables remain joined as before but the separator is changed\&.
+This flag has a different meaning when used with \fB\-f\fP; see below\&.
 .PP
 The \fB\-g\fP (global) flag is treated specially: it means that any
 resulting parameter will not be restricted to local scope\&.  Note that this
@@ -1739,16 +1792,18 @@ shown\&.
 .TP
 \fB\-f\fP
 The names refer to functions rather than parameters\&.  No assignments
-can be made, and the only other valid flags are \fB\-t\fP, \fB\-k\fP, \fB\-u\fP,
-\fB\-U\fP and \fB\-z\fP\&.  The flag \fB\-t\fP turns on execution tracing for this
-function\&.  The \fB\-u\fP and \fB\-U\fP flags cause the function to be
-marked for autoloading; \fB\-U\fP also causes alias expansion to be
-suppressed when the function is loaded\&.  The \fBfpath\fP parameter
-will be searched to find the function definition when the function
-is first referenced; see the section `Functions\&'\&. The \fB\-k\fP and \fB\-z\fP flags
-make the function be loaded using ksh\-style or zsh\-style autoloading
-respectively\&. If neither is given, the setting of the KSH_AUTOLOAD option
-determines how the function is loaded\&.
+can be made, and the only other valid flags are \fB\-t\fP, \fB\-T\fP, \fB\-k\fP,
+\fB\-u\fP, \fB\-U\fP and \fB\-z\fP\&.  The flag \fB\-t\fP turns on execution tracing
+for this function; the flag \fB\-T\fP does the same, but turns off tracing
+on any function called from the present one, unless that function also
+has the \fB\-t\fP or \fB\-T\fP flag\&.  The \fB\-u\fP and \fB\-U\fP flags cause the
+function to be marked for autoloading; \fB\-U\fP also causes alias
+expansion to be suppressed when the function is loaded\&.  The \fBfpath\fP
+parameter will be searched to find the function definition when the
+function is first referenced; see the section `Functions\&'\&. The \fB\-k\fP and
+\fB\-z\fP flags make the function be loaded using ksh\-style or zsh\-style
+autoloading respectively\&. If neither is given, the setting of the
+KSH_AUTOLOAD option determines how the function is loaded\&.
 .TP
 \fB\-h\fP
 Hide: only useful for special parameters (those marked `<S>\&' in the table in
@@ -1819,7 +1874,7 @@ the parameter is not made local to the enclosing function\&.  This is for
 compatibility with previous versions of zsh\&.
 .RE
 .TP
-\fBulimit\fP [ [ \fB\-SHacdfilmnpqstvx\fP | \fB\-N\fP \fIresource\fP [ \fIlimit\fP ] \&.\&.\&. ]
+\fBulimit\fP [ [ \fB\-SHacdfilmnpqrstvx\fP | \fB\-N\fP \fIresource\fP [ \fIlimit\fP ] \&.\&.\&. ]
 Set or display resource limits of the shell and the processes started by
 the shell\&.  The value of \fIlimit\fP can be a number in the unit specified
 below or one of the values `\fBunlimited\fP\&', which removes the limit on the
@@ -1841,16 +1896,22 @@ When looping over multiple resources, the shell will abort immediately if
 it detects a badly formed argument\&.  However, if it fails to set a limit
 for some other reason it will continue trying to set the remaining limits\&.
 .PP
+Not all the following resources are supported on all systems\&.  Running
+\fBulimit \-a\fP will show which are supported\&.
+.PP
 .PD 0
 .TP
 \fB\-a\fP
 Lists all of the current resource limits\&.
 .TP
+\fB\-b\fP
+Socket buffer size in bytes (N\&.B\&. not kilobytes)
+.TP
 \fB\-c\fP
 512\-byte blocks on the size of core dumps\&.
 .TP
 \fB\-d\fP
-K\-bytes on the size of the data segment\&.
+Kilobytes on the size of the data segment\&.
 .TP
 \fB\-f\fP
 512\-byte blocks on the size of files written\&.
@@ -1859,10 +1920,10 @@ K\-bytes on the size of the data segment\&.
 The number of pending signals\&.
 .TP
 \fB\-l\fP
-K\-bytes on the size of locked\-in memory\&.
+Kilobytes on the size of locked\-in memory\&.
 .TP
 \fB\-m\fP
-K\-bytes on the size of physical memory\&.
+Kilobytes on the size of physical memory\&.
 .TP
 \fB\-n\fP
 open file descriptors\&.
@@ -1871,16 +1932,19 @@ open file descriptors\&.
 Bytes in POSIX message queues\&.
 .TP
 \fB\-s\fP
-K\-bytes on the size of the stack\&.
+Kilobytes on the size of the stack\&.
 .TP
 \fB\-t\fP
 CPU seconds to be used\&.
 .TP
+\fB\-r\fP
+The number of simultaneous threads available to the user\&.
+.TP
 \fB\-u\fP
-processes available to the user\&.
+The number of processes available to the user\&.
 .TP
 \fB\-v\fP
-K\-bytes on the size of virtual memory\&.  On some systems this
+Kilobytes on the size of virtual memory\&.  On some systems this
 refers to the limit called `address space\&'\&.
 .TP
 \fB\-x\fP

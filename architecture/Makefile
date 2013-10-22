@@ -3,18 +3,21 @@
 #
 
 # Defaults typically set by build system
-RC_ARCHS ?= i386 arm
+
+DEFAULT_ARCHS = i386 
+
+RC_ARCHS ?= $(DEFAULT_ARCHS)
+
 SDKROOT ?= /
 
-# fold all arm subtypes to the family "arm",
-# and map x86_64 -> i386
-SUPPORTED_ARCHS = i386 arm
+# map x86_64 -> i386
+SUPPORTED_ARCHS = i386
 CANONICAL_ARCH_x86_64 = i386
-CANONICAL_ARCH_armv5 = arm
-CANONICAL_ARCH_armv6 = arm
-CANONICAL_ARCH_armv7 = arm
+
 
 ARCHS = $(filter $(SUPPORTED_ARCHS),$(sort $(foreach x,$(RC_ARCHS),$(if $(CANONICAL_ARCH_$(x)),$(CANONICAL_ARCH_$(x)),$(x)))))
+
+
 
 # install machine-independent and per-arch headers
 DIRS = . $(ARCHS)
@@ -36,8 +39,8 @@ all:
 
 install:	all installhdrs
 
-installhdrs: all DSTROOT $(DSTROOT)$(LOCAL_DSTDIR) \
-	$(DSTROOT)$(EXPORT_DSTDIR)
+copyhdrs: all DSTROOT $(DSTROOT)$(LOCAL_DSTDIR) \
+		$(DSTROOT)$(EXPORT_DSTDIR) 
 	for i in ${DIRS};						\
 	do								\
 	    DSTDIR=$(DSTROOT)$(LOCAL_DSTDIR)/$$i;			\
@@ -54,6 +57,10 @@ installhdrs: all DSTROOT $(DSTROOT)$(LOCAL_DSTDIR) \
 		echo Installing *.h;					\
                 install $(INSTALL_FLAGS) *.h $$DSTDIR);			\
 	done
+
+installhdrs: copyhdrs
+
+
 
 .PHONY: clean
 

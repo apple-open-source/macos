@@ -33,11 +33,15 @@
 #include "WebKitBlobBuilder.h"
 
 #include "Blob.h"
+#include "Document.h"
 #include "ExceptionCode.h"
 #include "File.h"
+#include "HistogramSupport.h"
 #include "LineEnding.h"
+#include "ScriptCallStack.h"
 #include "TextEncoding.h"
 #include <wtf/ArrayBuffer.h>
+#include <wtf/ArrayBufferView.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomicString.h>
@@ -45,12 +49,20 @@
 
 namespace WebCore {
 
-WebKitBlobBuilder::WebKitBlobBuilder()
+// FIXME: Move this file to BlobBuilder.cpp
+
+enum BlobConstructorArrayBufferOrView {
+    BlobConstructorArrayBuffer,
+    BlobConstructorArrayBufferView,
+    BlobConstructorArrayBufferOrViewMax,
+};
+
+BlobBuilder::BlobBuilder()
     : m_size(0)
 {
 }
 
-Vector<char>& WebKitBlobBuilder::getBuffer()
+Vector<char>& BlobBuilder::getBuffer()
 {
     // If the last item is not a data item, create one. Otherwise, we simply append the new string to the last data item.
     if (m_items.isEmpty() || m_items[m_items.size() - 1].type != BlobDataItem::Data)
@@ -59,57 +71,62 @@ Vector<char>& WebKitBlobBuilder::getBuffer()
     return *m_items[m_items.size() - 1].data->mutableData();
 }
 
-void WebKitBlobBuilder::append(const String& text, const String& endingType, ExceptionCode& ec)
+void BlobBuilder::append(const String& text, const String& endingType)
 {
-    bool isEndingTypeTransparent = endingType == "transparent";
-    bool isEndingTypeNative = endingType == "native";
-    if (!endingType.isEmpty() && !isEndingTypeTransparent && !isEndingTypeNative) {
-        ec = SYNTAX_ERR;
-        return;
-    }
-
     CString utf8Text = UTF8Encoding().encode(text.characters(), text.length(), EntitiesForUnencodables);
 
     Vector<char>& buffer = getBuffer();
     size_t oldSize = buffer.size();
 
-    if (isEndingTypeNative)
+    if (endingType == "native")
         normalizeLineEndingsToNative(utf8Text, buffer);
-    else
+    else {
+        ASSERT(endingType == "transparent");
         buffer.append(utf8Text.data(), utf8Text.length());
+    }
     m_size += buffer.size() - oldSize;
-}
-
-void WebKitBlobBuilder::append(const String& text, ExceptionCode& ec)
-{
-    append(text, String(), ec);
 }
 
 #if ENABLE(BLOB)
-void WebKitBlobBuilder::append(ArrayBuffer* arrayBuffer)
+void BlobBuilder::append(ArrayBuffer* arrayBuffer)
 {
+    HistogramSupport::histogramEnumeration("WebCore.Blob.constructor.ArrayBufferOrView", BlobConstructorArrayBuffer, BlobConstructorArrayBufferOrViewMax);
+
     if (!arrayBuffer)
         return;
-    Vector<char>& buffer = getBuffer();
-    size_t oldSize = buffer.size();
-    buffer.append(static_cast<const char*>(arrayBuffer->data()), arrayBuffer->byteLength());
-    m_size += buffer.size() - oldSize;
+
+    appendBytesData(arrayBuffer->data(), arrayBuffer->byteLength());
+}
+
+void BlobBuilder::append(ArrayBufferView* arrayBufferView)
+{
+    HistogramSupport::histogramEnumeration("WebCore.Blob.constructor.ArrayBufferOrView", BlobConstructorArrayBufferView, BlobConstructorArrayBufferOrViewMax);
+
+    if (!arrayBufferView)
+        return;
+
+    appendBytesData(arrayBufferView->baseAddress(), arrayBufferView->byteLength());
 }
 #endif
 
-void WebKitBlobBuilder::append(Blob* blob)
+void BlobBuilder::append(Blob* blob)
 {
     if (!blob)
         return;
     if (blob->isFile()) {
+        File* file = toFile(blob);
         // If the blob is file that is not snapshoted, capture the snapshot now.
         // FIXME: This involves synchronous file operation. We need to figure out how to make it asynchronous.
-        File* file = static_cast<File*>(blob);
         long long snapshotSize;
         double snapshotModificationTime;
         file->captureSnapshot(snapshotSize, snapshotModificationTime);
 
         m_size += snapshotSize;
+#if ENABLE(FILE_SYSTEM)
+        if (!file->fileSystemURL().isEmpty())
+            m_items.append(BlobDataItem(file->fileSystemURL(), 0, snapshotSize, snapshotModificationTime));
+        else
+#endif
         m_items.append(BlobDataItem(file->path(), 0, snapshotSize, snapshotModificationTime));
     } else {
         long long blobSize = static_cast<long long>(blob->size());
@@ -118,10 +135,18 @@ void WebKitBlobBuilder::append(Blob* blob)
     }
 }
 
-PassRefPtr<Blob> WebKitBlobBuilder::getBlob(const String& contentType)
+void BlobBuilder::appendBytesData(const void* data, size_t length)
+{
+    Vector<char>& buffer = getBuffer();
+    size_t oldSize = buffer.size();
+    buffer.append(static_cast<const char*>(data), length);
+    m_size += buffer.size() - oldSize;
+}
+
+PassRefPtr<Blob> BlobBuilder::getBlob(const String& contentType)
 {
     OwnPtr<BlobData> blobData = BlobData::create();
-    blobData->setContentType(contentType);
+    blobData->setContentType(Blob::normalizedContentType(contentType));
     blobData->swapItems(m_items);
 
     RefPtr<Blob> blob = Blob::create(blobData.release(), m_size);

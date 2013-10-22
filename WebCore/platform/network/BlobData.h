@@ -31,10 +31,12 @@
 #ifndef BlobData_h
 #define BlobData_h
 
+#include "FileSystem.h"
 #include "KURL.h"
-#include "PlatformString.h"
 #include <wtf/Forward.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -59,14 +61,13 @@ private:
 
 struct BlobDataItem {
     static const long long toEndOfFile;
-    static const double doNotCheckFileChange;
 
     // Default constructor.
     BlobDataItem()
         : type(Data)
         , offset(0)
         , length(toEndOfFile)
-        , expectedModificationTime(doNotCheckFileChange)
+        , expectedModificationTime(invalidFileTime())
     {
     }
 
@@ -76,7 +77,7 @@ struct BlobDataItem {
         , data(data)
         , offset(0)
         , length(toEndOfFile)
-        , expectedModificationTime(doNotCheckFileChange)
+        , expectedModificationTime(invalidFileTime())
     {
     }
 
@@ -86,7 +87,7 @@ struct BlobDataItem {
         , path(path)
         , offset(0)
         , length(toEndOfFile)
-        , expectedModificationTime(doNotCheckFileChange)
+        , expectedModificationTime(invalidFileTime())
     {
     }
 
@@ -99,29 +100,48 @@ struct BlobDataItem {
         , expectedModificationTime(expectedModificationTime)
     {
     }
-    
+
     // Constructor for Blob type.
     BlobDataItem(const KURL& url, long long offset, long long length)
         : type(Blob)
         , url(url)
         , offset(offset)
         , length(length)
-        , expectedModificationTime(doNotCheckFileChange)
+        , expectedModificationTime(invalidFileTime())
     {
     }
+
+#if ENABLE(FILE_SYSTEM)
+    // Constructor for URL type (e.g. FileSystem files).
+    BlobDataItem(const KURL& url, long long offset, long long length, double expectedModificationTime)
+        : type(URL)
+        , url(url)
+        , offset(offset)
+        , length(length)
+        , expectedModificationTime(expectedModificationTime)
+    {
+    }
+#endif
 
     // Detaches from current thread so that it can be passed to another thread.
     void detachFromCurrentThread();
 
-    enum { Data, File, Blob } type;
-    
+    enum {
+        Data,
+        File,
+        Blob
+#if ENABLE(FILE_SYSTEM)
+        , URL
+#endif
+    } type;
+
     // For Data type.
     RefPtr<RawData> data;
 
     // For File type.
     String path;
 
-    // For Blob type.
+    // For Blob or URL type.
     KURL url;
 
     long long offset;
@@ -137,7 +157,7 @@ private:
         , data(data)
         , offset(offset)
         , length(length)
-        , expectedModificationTime(doNotCheckFileChange)
+        , expectedModificationTime(invalidFileTime())
     {
     }
 };
@@ -153,7 +173,7 @@ public:
     void detachFromCurrentThread();
 
     const String& contentType() const { return m_contentType; }
-    void setContentType(const String& contentType) { m_contentType = contentType; }
+    void setContentType(const String&);
 
     const String& contentDisposition() const { return m_contentDisposition; }
     void setContentDisposition(const String& contentDisposition) { m_contentDisposition = contentDisposition; }
@@ -165,6 +185,9 @@ public:
     void appendFile(const String& path);
     void appendFile(const String& path, long long offset, long long length, double expectedModificationTime);
     void appendBlob(const KURL&, long long offset, long long length);
+#if ENABLE(FILE_SYSTEM)
+    void appendURL(const KURL&, long long offset, long long length, double expectedModificationTime);
+#endif
 
 private:
     friend class BlobRegistryImpl;
@@ -178,6 +201,23 @@ private:
     String m_contentType;
     String m_contentDisposition;
     BlobDataItemList m_items;
+};
+
+// FIXME: This class is mostly place holder until I get farther along with
+// https://bugs.webkit.org/show_bug.cgi?id=108733 and more specifically with landing
+// https://codereview.chromium.org/11192017/.
+class BlobDataHandle : public ThreadSafeRefCounted<BlobDataHandle> {
+public:
+    static PassRefPtr<BlobDataHandle> create(PassOwnPtr<BlobData> data, long long size)
+    {
+        return adoptRef(new BlobDataHandle(data, size));
+    }
+
+    ~BlobDataHandle();
+
+private:
+    BlobDataHandle(PassOwnPtr<BlobData>, long long size);
+    KURL m_internalURL;
 };
 
 } // namespace WebCore

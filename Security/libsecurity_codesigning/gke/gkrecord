@@ -141,7 +141,8 @@ for line in file:
 			path=path,
 			type=type,
 			status=status,
-			cdhash=cdhash
+			cdhash=cdhash,
+			version=2
 		)
 	elif cmd == "SIGNATURE":
 		(type, sigpath, path) = args.split(";", 2)

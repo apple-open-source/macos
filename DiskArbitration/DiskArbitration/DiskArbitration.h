@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -303,13 +303,13 @@ typedef DADissenterRef ( *DADiskMountApprovalCallback )( DADiskRef disk, void * 
 /*!
  * @function   DARegisterDiskMountApprovalCallback
  * @abstract   Registers a callback function to be called whenever a volume is to be mounted.
- * @param      session  The approval session object.
+ * @param      session  The session object.
  * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
  * @param      callback The callback function to call when a volume is to be mounted.
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DARegisterDiskMountApprovalCallback( DAApprovalSessionRef        session,
+extern void DARegisterDiskMountApprovalCallback( DASessionRef                session,
                                                  CFDictionaryRef             match,
                                                  DADiskMountApprovalCallback callback,
                                                  void *                      context );
@@ -380,13 +380,13 @@ typedef DADissenterRef ( *DADiskUnmountApprovalCallback )( DADiskRef disk, void 
 /*!
  * @function   DARegisterDiskUnmountApprovalCallback
  * @abstract   Registers a callback function to be called whenever a volume is to be unmounted.
- * @param      session  The approval session object.
+ * @param      session  The session object.
  * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
  * @param      callback The callback function to call when a volume is to be unmounted.
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DARegisterDiskUnmountApprovalCallback( DAApprovalSessionRef          session,
+extern void DARegisterDiskUnmountApprovalCallback( DASessionRef                  session,
                                                    CFDictionaryRef               match,
                                                    DADiskUnmountApprovalCallback callback,
                                                    void *                        context );
@@ -432,13 +432,13 @@ typedef DADissenterRef ( *DADiskEjectApprovalCallback )( DADiskRef disk, void * 
 /*!
  * @function   DARegisterDiskEjectApprovalCallback
  * @abstract   Registers a callback function to be called whenever a volume is to be ejected.
- * @param      session  The approval session object.
+ * @param      session  The session object.
  * @param      match    The disk description keys to match.  Pass NULL for all disk objects.
  * @param      callback The callback function to call when a volume is to be ejected.
  * @param      context  The user-defined context parameter to pass to the callback function.
  */
 
-extern void DARegisterDiskEjectApprovalCallback( DAApprovalSessionRef        session,
+extern void DARegisterDiskEjectApprovalCallback( DASessionRef                session,
                                                  CFDictionaryRef             match,
                                                  DADiskEjectApprovalCallback callback,
                                                  void *                      context );
@@ -564,12 +564,12 @@ extern void DAUnregisterCallback( DASessionRef session, void * callback, void * 
 /*!
  * @function   DAUnregisterApprovalCallback
  * @abstract   Unregisters a registered callback function.
- * @param      session  The approval session object.
+ * @param      session  The session object.
  * @param      callback The registered callback function.
  * @param      context  The user-defined context parameter.
  */
 
-extern void DAUnregisterApprovalCallback( DAApprovalSessionRef session, void * callback, void * context );
+extern void DAUnregisterApprovalCallback( DASessionRef session, void * callback, void * context );
 
 #endif /* !__DISKARBITRATIOND__ */
 

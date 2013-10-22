@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "autotoolsconfig.h"
 #include "test_utils.h"
 
 #include <glib.h>
@@ -24,14 +25,14 @@
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
 
-#if GTK_CHECK_VERSION(2, 14, 0)
-
 #define HTML_DOCUMENT_TITLE "<html><head><title>This is the title</title></head><body></body></html>"
 #define HTML_DOCUMENT_ELEMENTS "<html><body><ul><li>1</li><li>2</li><li>3</li></ul></body></html>"
 #define HTML_DOCUMENT_ELEMENTS_CLASS "<html><body><div class=\"test\"></div><div class=\"strange\"></div><div class=\"test\"></div></body></html>"
 #define HTML_DOCUMENT_ELEMENTS_ID "<html><body><div id=\"testok\"></div><div id=\"testbad\">first</div><div id=\"testbad\">second</div></body></html>"
 #define HTML_DOCUMENT_LINKS "<html><head><title>Title</title></head><body><a href=\"about:blank\">blank</a><a href=\"http://www.google.com\">google</a><a href=\"http://www.webkit.org\">webkit</a></body></html>"
 #define HTML_DOCUMENT_IFRAME "<html><head><title>IFrame</title></head><body><iframe id='iframe'></iframe><div id='test'></div></body></html>"
+#define HTML_DOCUMENT_TABLE "<html><body><table id=\"table\"></table></body></html>"
+#define HTML_DOCUMENT_EVALUATE "<html><head><title></title></head><body><div>First div</div><div>Second div</div></body></html>"
 
 typedef struct {
     GtkWidget* webView;
@@ -185,6 +186,57 @@ static void test_dom_document_get_links(DomDocumentFixture* fixture, gconstpoint
         g_assert_cmpstr(webkit_dom_html_anchor_element_get_href(anchor), ==, uris[i]);
     }
     g_object_unref(collection);
+}
+
+static void test_dom_document_insert_row(DomDocumentFixture* fixture, gconstpointer data)
+{
+    g_assert(fixture);
+    WebKitWebView* view = (WebKitWebView*)fixture->webView;
+    g_assert(view);
+    WebKitDOMDocument* document = webkit_web_view_get_dom_document(view);
+    g_assert(WEBKIT_DOM_IS_DOCUMENT(document));
+    WebKitDOMElement* table = webkit_dom_document_get_element_by_id(document, "table");
+    g_assert(WEBKIT_DOM_IS_HTML_ELEMENT(table));
+    WebKitDOMHTMLCollection* rows = webkit_dom_html_table_element_get_rows(WEBKIT_DOM_HTML_TABLE_ELEMENT(table));
+    g_assert(WEBKIT_DOM_IS_HTML_COLLECTION(rows));
+
+    // Table is initially empty.
+    g_assert_cmpint(webkit_dom_html_collection_get_length(rows), ==, 0);
+    WebKitDOMHTMLElement* row = webkit_dom_html_table_element_insert_row(WEBKIT_DOM_HTML_TABLE_ELEMENT(table), -1, NULL);
+    g_assert(WEBKIT_DOM_IS_HTML_TABLE_ROW_ELEMENT(row));
+    rows = webkit_dom_html_table_element_get_rows(WEBKIT_DOM_HTML_TABLE_ELEMENT(table));
+    g_assert(WEBKIT_DOM_IS_HTML_COLLECTION(rows));
+    g_assert_cmpint(webkit_dom_html_collection_get_length(rows), ==, 1);
+}
+
+static void test_dom_document_evaluate(DomDocumentFixture* fixture, gconstpointer data)
+{
+    g_assert(fixture);
+    WebKitWebView* view = (WebKitWebView*)fixture->webView;
+    g_assert(view);
+    WebKitDOMDocument* document = webkit_web_view_get_dom_document(view);
+    g_assert(WEBKIT_DOM_IS_DOCUMENT(document));
+    WebKitDOMNodeList* list = webkit_dom_document_get_elements_by_tag_name(document, "html");
+    g_assert(list);
+    gulong length = webkit_dom_node_list_get_length(list);
+    g_assert_cmpint(length, ==, 1);
+    WebKitDOMNode* html = webkit_dom_node_list_item(list, 0);
+    g_assert(WEBKIT_DOM_IS_NODE(html));
+
+    WebKitDOMXPathResult* result = webkit_dom_document_evaluate(document, "//div", html, NULL, 0, NULL, NULL);
+    g_assert(WEBKIT_DOM_IS_XPATH_RESULT(result));
+
+    int i = 0;
+    WebKitDOMNode* node;
+    while ( (node = webkit_dom_xpath_result_iterate_next(result, NULL)) != NULL) {
+        g_assert(node);
+        WebKitDOMElement* element = (WebKitDOMElement*)node;
+        g_assert_cmpstr(webkit_dom_element_get_tag_name(element), ==, "DIV");
+        i++;
+    }
+    g_assert_cmpint(i, ==, 2);
+
+    g_object_unref(list);
 }
 
 static void weak_notify(gpointer data, GObject* zombie)
@@ -353,6 +405,18 @@ int main(int argc, char** argv)
                test_dom_document_get_links,
                dom_document_fixture_teardown);
 
+    g_test_add("/webkit/domdocument/test_table_insert_row",
+               DomDocumentFixture, HTML_DOCUMENT_TABLE,
+               dom_document_fixture_setup,
+               test_dom_document_insert_row,
+               dom_document_fixture_teardown);
+
+    g_test_add("/webkit/domdocument/test_document_evaluate",
+               DomDocumentFixture, HTML_DOCUMENT_EVALUATE,
+               dom_document_fixture_setup,
+               test_dom_document_evaluate,
+               dom_document_fixture_teardown);
+
     g_test_add("/webkit/domdocument/test_garbage_collection",
                DomDocumentFixture, HTML_DOCUMENT_LINKS,
                dom_document_fixture_setup,
@@ -362,11 +426,3 @@ int main(int argc, char** argv)
     return g_test_run();
 }
 
-#else
-int main(int argc, char** argv)
-{
-    g_critical("You will gtk-2.14.0 to run the unit tests. Doing nothing now.");
-    return 0;
-}
-
-#endif

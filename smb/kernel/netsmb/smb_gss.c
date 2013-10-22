@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2006 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,10 +36,12 @@
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_gss.h>
+#include <netsmb/smb_gss_2.h>
 
 #include <sys/kauth.h>
 #include <smbfs/smbfs.h>
@@ -54,6 +56,8 @@ extern kern_return_t host_get_special_port(host_priv_t, int, int, ipc_port_t *);
 
 #define kauth_cred_getasid(cred) ((cred)->cr_audit.as_aia_p->ai_asid)
 #define kauth_cred_getauid(cred) ((cred)->cr_audit.as_aia_p->ai_auid)
+
+#define SMB2_KRB5_SESSION_KEYLEN 16
 
 /*
  * smb_gss_negotiate:
@@ -78,7 +82,9 @@ smb_gss_negotiate(struct smb_vc *vcp, vfs_context_t context)
 	if (context == NULL)
 		return EPIPE;
 
-	SMB_FREE(gp->gss_spn, M_SMBTEMP);		
+    if (gp->gss_spn != NULL) {
+        SMB_FREE(gp->gss_spn, M_SMBTEMP);
+    }
 	
 	/*
 	 * Get a mach port to talk to gssd.
@@ -124,8 +130,9 @@ smb_gss_negotiate(struct smb_vc *vcp, vfs_context_t context)
 static void
 smb_gss_reset(struct smb_gss *gp)
 {
-	
-	SMB_FREE(gp->gss_token, M_SMBTEMP);
+	if (gp->gss_token != NULL) {
+        SMB_FREE(gp->gss_token, M_SMBTEMP);
+    }
 	gp->gss_tokenlen = 0;
 	gp->gss_ctx = 0;
 	gp->gss_cred = 0;
@@ -146,10 +153,18 @@ smb_gss_destroy(struct smb_gss *gp)
 	/* Release the mach port by  calling the kernel routine needed to release task special port */
 	if (IPC_PORT_VALID(gp->gss_mp))
 	    ipc_port_release_send(gp->gss_mp);
-	SMB_FREE(gp->gss_cpn, M_SMBTEMP);
-	SMB_FREE(gp->gss_cpn_display, M_SMBTEMP);
-	SMB_FREE(gp->gss_spn, M_SMBTEMP);
-	SMB_FREE(gp->gss_token, M_SMBTEMP);
+    if (gp->gss_cpn) {
+        SMB_FREE(gp->gss_cpn, M_SMBTEMP);
+    }
+    if (gp->gss_cpn_display) {
+        SMB_FREE(gp->gss_cpn_display, M_SMBTEMP);
+    }
+    if (gp->gss_spn) {
+        SMB_FREE(gp->gss_spn, M_SMBTEMP);
+    }
+    if (gp->gss_token) {
+        SMB_FREE(gp->gss_token, M_SMBTEMP);
+    }
 	bzero(gp, sizeof(struct smb_gss));
 }
 
@@ -182,9 +197,12 @@ gss_mach_alloc_buffer(u_char *buf, uint32_t buflen, vm_map_copy_t *addr)
 		return;
 	}
 
-	kr = vm_map_wire(ipc_kernel_map, vm_map_trunc_page(kmem_buf),
-					 vm_map_round_page(kmem_buf + tbuflen),
-					 VM_PROT_READ|VM_PROT_WRITE, FALSE);
+	kr = vm_map_wire(ipc_kernel_map, vm_map_trunc_page(kmem_buf,
+                    vm_map_page_mask(ipc_kernel_map)),
+                    vm_map_round_page(kmem_buf + tbuflen,
+                    vm_map_page_mask(ipc_kernel_map)),
+                    VM_PROT_READ|VM_PROT_WRITE, FALSE);
+
 	if (kr != 0) {
 		SMBERROR("gss_mach_alloc_buffer: vm_map_wire failed kr = %d\n", kr);
 		return;
@@ -192,8 +210,11 @@ gss_mach_alloc_buffer(u_char *buf, uint32_t buflen, vm_map_copy_t *addr)
 
 	bcopy(buf, (void *) kmem_buf, buflen);
 
-	kr = vm_map_unwire(ipc_kernel_map, vm_map_trunc_page(kmem_buf),
-					   vm_map_round_page(kmem_buf + tbuflen), FALSE);
+	kr = vm_map_unwire(ipc_kernel_map,
+        vm_map_trunc_page(kmem_buf, vm_map_page_mask(ipc_kernel_map)),
+        vm_map_round_page(kmem_buf + tbuflen, vm_map_page_mask(ipc_kernel_map)),
+        FALSE);
+
 	if (kr != 0) {
 		SMBERROR("gss_mach_alloc_buffer: vm_map_unwire failed kr = %d\n", kr);
 		return;
@@ -348,6 +369,21 @@ retry:
 			gss_mach_vm_map_copy_discard((vm_map_copy_t)otoken, otokenlen);
 			goto out;
 		}
+        
+        /*
+         * MS-SMB2 3.2.1.3 Per Session
+         * "Session.SessionKey: the first 16 bytes of the cryptographic key
+         * for this authenticated context...."
+         *
+         * So we must truncate the signing key if required.
+         * See <rdar://problem/13591834>.
+         */
+        if (vcp->vc_flags & SMBV_SMB2) {
+            if (vcp->vc_mackeylen > SMB2_KRB5_SESSION_KEYLEN) {
+                vcp->vc_mackeylen = SMB2_KRB5_SESSION_KEYLEN;
+            }
+        }
+        
 		SMBDEBUG("%s keylen = %d seqno = %d\n", vcp->vc_srvname, keylen, vcp->vc_seqno);
 		smb_hexdump(__FUNCTION__, "setting vc_mackey = ", vcp->vc_mackey, vcp->vc_mackeylen);
 		/* 
@@ -369,7 +405,9 @@ retry:
 	}
 
 	/* Free context token used as input */
-	SMB_FREE(cp->gss_token, M_SMBTEMP);
+    if (cp->gss_token != NULL) {
+        SMB_FREE(cp->gss_token, M_SMBTEMP);
+    }
 	cp->gss_tokenlen = 0;
 	
 	if (otokenlen > 0) {
@@ -423,8 +461,8 @@ static uint32_t smb_gss_vc_caps(struct smb_vc *vcp)
  *
  * Send a session setup and x message on vc with cred and caps
  */
-static int
-smb_gss_ssandx(struct smb_vc *vcp, uint32_t caps, uint16_t *action,
+int
+smb1_gss_ssandx(struct smb_vc *vcp, uint32_t caps, uint16_t *action,
                 vfs_context_t context)
 {
 	struct smb_rq *rqp = NULL;
@@ -587,6 +625,7 @@ smb_gss_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	 * value returned from the server in smb_gss_ssandx
 	 */
 	vcp->vc_smbuid = 0;
+	vcp->vc_session_id = 0;
 
 	/* Get our caps from the vc. N.B. Seems only Samba uses this */
 	caps = smb_gss_vc_caps(vcp);
@@ -599,6 +638,17 @@ smb_gss_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 		if (error || (SMB_GSS_ERROR(&vcp->vc_gss))) {
 			SMB_LOG_AUTH("GSSD extended security error = %d gss_major = %d gss_minor = %d\n", 
 					   error, vcp->vc_gss.gss_major, vcp->vc_gss.gss_minor);
+            
+            if ((vcp->vc_session_id != 0) || (vcp->vc_smbuid != 0)) {
+                /* 
+                 * <13687368> If the GSS Auth fails on the client side in the
+                 * middle of SessionSetup exchanges (vc_session_id != 0 and 
+                 * vc_smbuid != 0), then just logout which will tell the server
+                 * that the auth has failed 
+                 */
+                (void)smb_smb_ssnclose(vcp, context);
+            }
+            
 			/* Always return EAUTH unless we want the reconnect code to try again */
 			if (error != EAGAIN)
 				error = EAUTH;
@@ -610,7 +660,9 @@ smb_gss_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 			break;
 	} while (SMB_GSS_CONTINUE_NEEDED(&vcp->vc_gss));
 
-	if ((error == 0) && !SMBV_HAS_GUEST_ACCESS(vcp) && (action & SMB_ACT_GUEST)) {
+	if ((error == 0) && !SMBV_HAS_GUEST_ACCESS(vcp)
+        && !SMBV_HAS_ANONYMOUS_ACCESS(vcp) &&
+        (action & SMB_ACT_GUEST)) {
 		/* 
 		 * We wanted to only login the users as guest if they ask to be login as 
 		 * guest. Window system will login any bad user name as guest if guest is 
@@ -637,8 +689,6 @@ smb_gss_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 		/* And the lying dogs might tells us to do signing when they don't */
 		vcp->vc_hflags2 &= ~SMB_FLAGS2_SECURITY_SIGNATURE;
 		smb_reset_sig(vcp);
-		SMB_FREE(vcp->vc_mackey, M_SMBTEMP);
-		vcp->vc_mackeylen = 0;
 	}
 	if (error)	/* Reset the signature info */
 		smb_reset_sig(vcp);
@@ -648,7 +698,7 @@ smb_gss_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 }
 
 /*
- * The VC needs to hold a reference on the credtials until its destroyed.
+ * The VC needs to hold a reference on the credentials until its destroyed.
  * 
  */
 void smb_gss_ref_cred(struct smb_vc *vcp)

@@ -2,8 +2,7 @@
 
   acosh.c -
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: akr $
   created at: Fri Apr 12 00:34:17 JST 2002
 
   public domain rewrite of acosh(3), asinh(3) and atanh(3)
@@ -13,6 +12,7 @@
 #include <errno.h>
 #include <float.h>
 #include <math.h>
+#include "ruby.h"
 
 /* DBL_MANT_DIG must be less than 4 times of bits of int */
 #ifndef DBL_MANT_DIG
@@ -33,8 +33,7 @@
 
 #ifndef HAVE_ACOSH
 double
-acosh(x)
-    double x;
+acosh(double x)
 {
     if (x < 1)
 	x = -1;			/* NaN */
@@ -50,8 +49,7 @@ acosh(x)
 
 #ifndef HAVE_ASINH
 double
-asinh(x)
-    double x;
+asinh(double x)
 {
     int neg = x < 0;
     double z = fabs(x);
@@ -74,8 +72,7 @@ asinh(x)
 
 #ifndef HAVE_ATANH
 double
-atanh(x)
-    double x;
+atanh(double x)
 {
     int neg = x < 0;
     double z = fabs(x);
@@ -83,6 +80,14 @@ atanh(x)
     if (z < SMALL_CRITERIA) return x;
     z = log(z > 1 ? -1 : (1 + z) / (1 - z)) / 2;
     if (neg) z = -z;
+    if (isinf(z))
+#if defined(ERANGE)
+	errno = ERANGE;
+#elif defined(EDOM)
+	errno = EDOM;
+#else
+	;
+#endif
     return z;
 }
 #endif

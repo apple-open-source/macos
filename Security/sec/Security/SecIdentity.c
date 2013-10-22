@@ -50,11 +50,11 @@ static pthread_once_t kSecIdentityRegisterClass = PTHREAD_ONCE_INIT;
 static CFTypeID kSecIdentityTypeID = _kCFRuntimeNotATypeID;
 
 /* Forward declartions of static functions. */
-static CFStringRef SecIdentityDescribe(CFTypeRef cf);
+static CFStringRef SecIdentityCopyDescription(CFTypeRef cf);
 static void SecIdentityDestroy(CFTypeRef cf);
 
 /* Static functions. */
-static CFStringRef SecIdentityDescribe(CFTypeRef cf) {
+static CFStringRef SecIdentityCopyDescription(CFTypeRef cf) {
     SecIdentityRef identity = (SecIdentityRef)cf;
     return CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
         CFSTR("<SecIdentityRef: %p>"), identity);
@@ -93,7 +93,7 @@ static void SecIdentityRegisterClass(void) {
 		SecIdentityEqual,								/* equal */
 		SecIdentityHash,								/* hash */
 		NULL,											/* copyFormattingDesc */
-		SecIdentityDescribe								/* copyDebugDesc */
+		SecIdentityCopyDescription						/* copyDebugDesc */
 	};
 
     kSecIdentityTypeID = _CFRuntimeRegisterClass(&kSecIdentityClass);

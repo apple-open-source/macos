@@ -65,9 +65,12 @@ namespace SecurityServer {
 }
 
 // pass mandatory or optional CssmData arguments into an IPC call
-#define DATA(arg)			arg.data(), arg.length()
-#define OPTIONALDATA(arg)	(arg ? arg->data() : NULL), (arg ? arg->length() : 0)
+#define DATA(arg)			arg.data(), (mach_msg_type_number_t)(arg.length())
+#define OPTIONALDATA(arg)	(arg ? arg->data() : NULL), (mach_msg_type_number_t)(arg ? arg->length() : 0)
 
+// pass mandatory DataOutput argument into an IPC call
+#define DATA_OUT(arg)                   arg.data(), arg.length()
+    
 // pass structured arguments in/out of IPC calls. See "data walkers" for details
 #define COPY(copy)			copy, copy.length(), copy
 #define COPY_OUT(copy)		&copy, &copy##Length, &copy##Base

@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -47,11 +47,11 @@
 /* One lock for all accesses to TrustSettings files */
 static ModuleNexus<Mutex> gTrustSettingsLock;
 
-/* 
+/*
  * The auth rights we use.
- * This probably will get tweaked: what I'd like to have, I think, for 
+ * This probably will get tweaked: what I'd like to have, I think, for
  * the admin settings is "OK if root, else authenticate as admin". For
- * now just require root. 
+ * now just require root.
  */
 #define TRUST_SETTINGS_RIGHT_USER	"com.apple.trust-settings.user"
 #define TRUST_SETTINGS_RIGHT_ADMIN	"com.apple.trust-settings.admin"
@@ -59,17 +59,17 @@ static ModuleNexus<Mutex> gTrustSettingsLock;
 #define TRUST_SETTINGS_RULE_USER	CFSTR("authenticate-session-owner");
 #define TRUST_SETTINGS_RULE_ADMIN	CFSTR("is-root");
 
-/* 
- * Everyone can look in the settings directory, and hence stat the admin 
- * file (as a quick optimization to avoid an RPC to us if it's not there), 
+/*
+ * Everyone can look in the settings directory, and hence stat the admin
+ * file (as a quick optimization to avoid an RPC to us if it's not there),
  * but the individual files are readable only by root.
  */
 #define TRUST_SETTINGS_PATH_MODE	0755
 #define TRUST_SETTINGS_FILES_MODE	0600
 
-/* 
- * Create a stringified UUID. Caller allocs result, length UUID_STR_LEN + 1. 
- * String has two characters for each UUID byte, plus 4 '-' chars, plus NULL. 
+/*
+ * Create a stringified UUID. Caller allocs result, length UUID_STR_LEN + 1.
+ * String has two characters for each UUID byte, plus 4 '-' chars, plus NULL.
  */
 #define UUID_STR_LEN	((2 * sizeof(uuid_t)) + 5)
 
@@ -97,20 +97,20 @@ static void uuidString(
 	*cp = '\0';
 }
 
-/* 
- * Given the audit_token from an incoming message, cook up the path to the 
- * appropriate settings file. 
- * 
- * We use UUID here to form the file name, not uid, since uids can be reused. 
- * (User Joe, uid 600, has some settings, then quits to company. User Mary joins, 
- * is assigned to the currently unused uid 600. User Mary unwittingly inherits 
+/*
+ * Given the audit_token from an incoming message, cook up the path to the
+ * appropriate settings file.
+ *
+ * We use UUID here to form the file name, not uid, since uids can be reused.
+ * (User Joe, uid 600, has some settings, then quits to company. User Mary joins,
+ * is assigned to the currently unused uid 600. User Mary unwittingly inherits
  * Joe's Trust Settings. Bad.)
- * 
- * I have no idea under which circumstances the mbr_uid_to_uuid() function could 
+ *
+ * I have no idea under which circumstances the mbr_uid_to_uuid() function could
  * fail, but we fall back to uid if it does.
- * 
- * The UUID-based filename is of the same form as UUID are generally 
- * presented: FA36D0A2-D91A-4E36-8156-1A22E8982652.plist, 
+ *
+ * The UUID-based filename is of the same form as UUID are generally
+ * presented: FA36D0A2-D91A-4E36-8156-1A22E8982652.plist,
  */
 static void trustSettingsPath(
 	audit_token_t auditToken,
@@ -133,7 +133,7 @@ static void trustSettingsPath(
 			}
 			else {
 				/* can't get UUID - use the uid */
-				snprintf(path, MAXPATHLEN + 1, "%s/%lu.plist", TRUST_SETTINGS_PATH, 
+				snprintf(path, MAXPATHLEN + 1, "%s/%lu.plist", TRUST_SETTINGS_PATH,
 					(unsigned long)euid);
 			}
 			break;
@@ -142,9 +142,9 @@ static void trustSettingsPath(
 			snprintf(path, MAXPATHLEN + 1, "%s/%s", TRUST_SETTINGS_PATH, ADMIN_TRUST_SETTINGS);
 			break;
 		case kSecTrustSettingsDomainSystem:
-			/* 
+			/*
 			 * The client really should just read this file themselves since it's
-			 * immutable. But, we'll do it if asked. 
+			 * immutable. But, we'll do it if asked.
 			 */
 			strcpy(path, SYSTEM_TRUST_SETTINGS_PATH);
 			break;
@@ -171,17 +171,18 @@ void switchToContext(mach_port_t clientBootstrapPort, audit_token_t auditToken)
 		task_get_bootstrap_port(mach_task_self(), &gBootstrapPort);
 	}
 	kr = task_set_bootstrap_port(mach_task_self(), clientBootstrapPort);
-	if (kr != KERN_SUCCESS)
+	if (kr != KERN_SUCCESS) {
 		ocspdErrorLog("Unable to set client bootstrap port\n");
-
+	}
 	if (gAuditSessionPort == MACH_PORT_NULL) {
 		/* save our own audit session port the first time through (to restore later) */
 		gAuditSessionPort = audit_session_self();
 		mach_port_mod_refs(mach_task_self(), gAuditSessionPort, MACH_PORT_RIGHT_SEND, +1);
 	}
 	tmp_asid = audit_session_join(clientAuditSessionPort);
-	if (tmp_asid == AU_DEFAUDITSID)
+	if (tmp_asid == AU_DEFAUDITSID) {
 		ocspdErrorLog("Unable to join client security session\n");
+	}
 }
 
 void restoreContext()
@@ -189,17 +190,20 @@ void restoreContext()
 	if (gBootstrapPort != MACH_PORT_NULL)
 	{
 		kern_return_t kr = task_set_bootstrap_port(mach_task_self(), gBootstrapPort);
-		if (kr != KERN_SUCCESS)
+		if (kr != KERN_SUCCESS) {
 			ocspdErrorLog("Unable to restore server bootstrap port");
+		}
 	}
 
 	if (gAuditSessionPort != MACH_PORT_NULL)
 	{
 		au_asid_t asid = audit_session_join(gAuditSessionPort);
-		if (asid == AU_DEFAUDITSID)
+		if (asid == AU_DEFAUDITSID) {
 			ocspdErrorLog("Unable to rejoin original security session");
+		}
 	}
 }
+
 
 kern_return_t ocsp_server_trustSettingsRead(
 	mach_port_t serverport,
@@ -209,6 +213,9 @@ kern_return_t ocsp_server_trustSettingsRead(
 	mach_msg_type_number_t *trustSettingsCnt,
 	OSStatus *rcode)
 {
+	ocspdDebug("Processing trustSettingsRead request");
+	ServerActivity();
+
 	StLock<Mutex> _(gTrustSettingsLock());
 	char path[MAXPATHLEN + 1];
 
@@ -248,13 +255,11 @@ kern_return_t ocsp_server_trustSettingsWrite(
 	mach_msg_type_number_t trustSettingsCnt,
 	OSStatus *rcode)
 {
-	StLock<Mutex> _(gTrustSettingsLock());
+	ocspdDebug("Processing trustSettingsWrite request");
+	ServerActivity();
 
 	const char *authRight = NULL;
 	CFStringRef authRule = NULL;
-	char path[MAXPATHLEN + 1];
-
-	trustSettingsPath(auditToken, domain, path);
 
 	switch(domain) {
 		case kSecTrustSettingsDomainUser:
@@ -269,6 +274,9 @@ kern_return_t ocsp_server_trustSettingsWrite(
 			/* this TrustSetting is immutable */
 			*rcode = errSecDataNotModifiable;
 			return 0;
+		default:
+			*rcode = errSecInvalidPrefsDomain;
+			return 0;
 	}
 
 	AuthorizationExternalForm extForm;
@@ -280,12 +288,15 @@ kern_return_t ocsp_server_trustSettingsWrite(
 	}
 
 	/*
-	 * Lazily create auth rights we (and we alone) use 
+	 * Lazily create auth rights we (and we alone) use
 	 */
 	AuthorizationRef authRef;
 	OSStatus ortn;
+	/*
+	 * WARNING: Authorization APIs may cause ocspd to be re-entered!
+	 */
 	if(AuthorizationRightGet(authRight, NULL)) {
-		ortn = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment, 
+		ortn = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment,
 					0, &authRef);
 		if(ortn) {
 			/* should never happen */
@@ -303,8 +314,8 @@ kern_return_t ocsp_server_trustSettingsWrite(
 		AuthorizationFree(authRef, 0);
 	}
 
-	/* 
- 	 * Cook up an auth object from the client's blob 
+	/*
+ 	 * Cook up an auth object from the client's blob
 	 */
 	memmove(&extForm, authBlob, authBlobCnt);
 	ortn = AuthorizationCreateFromExternalForm(&extForm, &authRef);
@@ -313,11 +324,11 @@ kern_return_t ocsp_server_trustSettingsWrite(
 		*rcode = paramErr;
 		return 0;
 	}
-	
+
 	/* now, see if we're authorized to do this thing */
 	AuthorizationItem authItem     = {authRight, 0, NULL, 0};
 	AuthorizationRights authRights = { 1, &authItem };
-	AuthorizationFlags authFlags   = kAuthorizationFlagInteractionAllowed | 
+	AuthorizationFlags authFlags   = kAuthorizationFlagInteractionAllowed |
 								     kAuthorizationFlagExtendRights;
 	/* save and restore context around call which can put up UI */
 	switchToContext(clientport, auditToken);
@@ -325,7 +336,7 @@ kern_return_t ocsp_server_trustSettingsWrite(
 		authFlags, NULL);
 	restoreContext();
 	if(ortn) {
-		ocspdErrorLog("trustSettingsWrite: AuthorizationCopyRights failure\n");		
+		ocspdErrorLog("trustSettingsWrite: AuthorizationCopyRights failure\n");
 	}
 	/* fixme - destroy rights? Really? */
 	AuthorizationFree(authRef, kAuthorizationFlagDestroyRights);
@@ -333,6 +344,15 @@ kern_return_t ocsp_server_trustSettingsWrite(
 		*rcode = ortn;
 		return 0;
 	}
+
+	/*
+	 * Take the trust settings lock only after we've confirmed our authorization
+	 */
+	StLock<Mutex> _(gTrustSettingsLock());
+
+	char path[MAXPATHLEN + 1];
+
+	trustSettingsPath(auditToken, domain, path);
 
 	/*
 	 * Looks like we're good to go.
@@ -343,14 +363,15 @@ kern_return_t ocsp_server_trustSettingsWrite(
 		ocspdTrustDebug("trustSettingsWrite: DELETING %s", path);
 		if(unlink(path)) {
 			/* FIXME maybe we should log this to the console */
-			*rcode = errno;	
-			ocspdErrorLog("trustSettingsWrite: unlink error %d\n", errno);	
+			*rcode = errno;
+			ocspdErrorLog("trustSettingsWrite: unlink error %d\n", errno);
 		}
 		else {
 			*rcode = noErr;
 		}
 		return 0;
 	}
+
 
 	/*
 	 * Create TRUST_SETTINGS_PATH if necessary.

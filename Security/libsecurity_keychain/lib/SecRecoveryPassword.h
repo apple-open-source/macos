@@ -92,7 +92,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 */
     
 CFStringRef
-SecCreateRecoveryPassword()
+SecCreateRecoveryPassword(void)
 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA); 
 
 

@@ -102,13 +102,6 @@ void PositionIterator::decrement()
     }
 }
 
-void PositionIterator::setOffsetInLeafNode(int offset)
-{
-    ASSERT(!m_anchorNode->hasChildNodes());
-    ASSERT(0 <= offset && offset <= lastOffsetForEditing(m_anchorNode));
-    m_offsetInAnchor = offset;
-}
-
 bool PositionIterator::atStart() const
 {
     if (!m_anchorNode)
@@ -167,7 +160,7 @@ bool PositionIterator::isCandidate() const
         return (atStartOfNode() || atEndOfNode()) && !Position::nodeIsUserSelectNone(m_anchorNode->parentNode());
 
     if (!m_anchorNode->hasTagName(htmlTag) && renderer->isBlockFlow()) {
-        if (toRenderBlock(renderer)->height() || m_anchorNode->hasTagName(bodyTag)) {
+        if (toRenderBlock(renderer)->logicalHeight() || m_anchorNode->hasTagName(bodyTag)) {
             if (!Position::hasRenderedNonAnonymousDescendantsWithHeight(renderer))
                 return atStartOfNode() && !Position::nodeIsUserSelectNone(m_anchorNode);
             return m_anchorNode->rendererIsEditable() && !Position::nodeIsUserSelectNone(m_anchorNode) && Position(*this).atEditingBoundary();

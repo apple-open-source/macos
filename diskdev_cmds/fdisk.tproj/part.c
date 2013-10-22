@@ -327,7 +327,7 @@ PRT_print(num, partn)
 		printf(" #: id  cyl  hd sec -  cyl  hd sec [     start -       size]\n");
 		printf("------------------------------------------------------------------------\n");
 	} else {
-		printf("%c%1d: %.2X %4d %3d %3d - %4d %3d %3d [%10d - %10d] %s\n",
+		printf("%c%1d: %.2X %4u %3u %3u - %4u %3u %3u [%10u - %10u] %s\n",
 			(partn->flag == 0x80)?'*':' ',
 			num + 1, partn->id,
 			partn->scyl, partn->shead, partn->ssect,

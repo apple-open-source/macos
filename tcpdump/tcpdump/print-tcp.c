@@ -121,39 +121,29 @@ struct tok tcp_option_values[] = {
         { TCPOPT_CCECHO, "" },
         { TCPOPT_SIGNATURE, "md5" },
         { TCPOPT_AUTH, "enhanced auth" },
+        { TCPOPT_MPTCP, "mp" },
         { TCPOPT_UTO, "uto" },
         { 0, NULL }
+};
+
+struct tok mptcp_subtypes[] = {
+	{ TCPOPT_MPTCP_MP_CAPABLE, "capable" },
+	{ TCPOPT_MPTCP_MP_JOIN, "join" },
+	{ TCPOPT_MPTCP_DSS, "dss" },
+	{ TCPOPT_MPTCP_ADD_ADDR, "addaddr" },
+	{ TCPOPT_MPTCP_REMOVE_ADDR, "removeaddr" },
+	{ TCPOPT_MPTCP_MP_PRIO, "prio" },
+	{ TCPOPT_MPTCP_MP_FAIL, "fail" },
+	{ TCPOPT_MPTCP_MP_FASTCLOSE, "fastclose" },
+	{ 0, NULL }
 };
 
 static int tcp_cksum(register const struct ip *ip,
 		     register const struct tcphdr *tp,
 		     register u_int len)
 {
-        union phu {
-                struct phdr {
-                        u_int32_t src;
-                        u_int32_t dst;
-                        u_char mbz;
-                        u_char proto;
-                        u_int16_t len;
-                } ph;
-                u_int16_t pa[6];
-        } phu;
-        const u_int16_t *sp;
-
-        /* pseudo-header.. */
-        phu.ph.len = htons((u_int16_t)len);
-        phu.ph.mbz = 0;
-        phu.ph.proto = IPPROTO_TCP;
-        memcpy(&phu.ph.src, &ip->ip_src.s_addr, sizeof(u_int32_t));
-        if (IP_HL(ip) == 5)
-                memcpy(&phu.ph.dst, &ip->ip_dst.s_addr, sizeof(u_int32_t));
-        else
-                phu.ph.dst = ip_finddst(ip);
-
-        sp = &phu.pa[0];
-        return in_cksum((u_short *)tp, len,
-                        sp[0]+sp[1]+sp[2]+sp[3]+sp[4]+sp[5]);
+	return (nextproto4_cksum(ip, (const u_int8_t *)tp, len,
+	    IPPROTO_TCP));
 }
 
 void
@@ -294,7 +284,6 @@ tcp_print(register const u_char *bp, register u_int length,
                  * both directions).
                  */
 #ifdef INET6
-                memset(&tha, 0, sizeof(tha));
                 rev = 0;
                 if (ip6) {
                         src = &ip6->ip6_src;
@@ -315,6 +304,27 @@ tcp_print(register const u_char *bp, register u_int length,
                                 tha.port = sport << 16 | dport;
                         }
                 } else {
+                        /*
+                         * Zero out the tha structure; the src and dst
+                         * fields are big enough to hold an IPv6
+                         * address, but we only have IPv4 addresses
+                         * and thus must clear out the remaining 124
+                         * bits.
+                         *
+                         * XXX - should we just clear those bytes after
+                         * copying the IPv4 addresses, rather than
+                         * zeroing out the entire structure and then
+                         * overwriting some of the zeroes?
+                         *
+                         * XXX - this could fail if we see TCP packets
+                         * with an IPv6 address with the lower 124 bits
+                         * all zero and also see TCP packes with an
+                         * IPv4 address with the same 32 bits as the
+                         * upper 32 bits of the IPv6 address in question.
+                         * Can that happen?  Is it likely enough to be
+                         * an issue?
+                         */
+                        memset(&tha, 0, sizeof(tha));
                         src = &ip->ip_src;
                         dst = &ip->ip_dst;
                         if (sport > dport)
@@ -393,34 +403,40 @@ tcp_print(register const u_char *bp, register u_int length,
                 return;
         }
 
-        if (IP_V(ip) == 4 && vflag && !Kflag && !fragmented) {
+        if (vflag && !Kflag && !fragmented) {
+                /* Check the checksum, if possible. */
                 u_int16_t sum, tcp_sum;
-                if (TTEST2(tp->th_sport, length)) {
-                        sum = tcp_cksum(ip, tp, length);
 
-                        (void)printf(", cksum 0x%04x",EXTRACT_16BITS(&tp->th_sum));
-                        if (sum != 0) {
+                if (IP_V(ip) == 4) {
+                        if (TTEST2(tp->th_sport, length)) {
+                                sum = tcp_cksum(ip, tp, length);
                                 tcp_sum = EXTRACT_16BITS(&tp->th_sum);
-                                (void)printf(" (incorrect -> 0x%04x)",in_cksum_shouldbe(tcp_sum, sum));
-                        } else
-                                (void)printf(" (correct)");
+
+                                (void)printf(", cksum 0x%04x", tcp_sum);
+                                if (sum != 0)
+                                        (void)printf(" (incorrect -> 0x%04x)",
+                                            in_cksum_shouldbe(tcp_sum, sum));
+                                else
+                                        (void)printf(" (correct)");
+                        }
                 }
-        }
 #ifdef INET6
-        if (IP_V(ip) == 6 && ip6->ip6_plen && vflag && !Kflag && !fragmented) {
-                u_int16_t sum,tcp_sum;
-                if (TTEST2(tp->th_sport, length)) {
-                        sum = nextproto6_cksum(ip6, (u_short *)tp, length, IPPROTO_TCP);
-                        (void)printf(", cksum 0x%04x",EXTRACT_16BITS(&tp->th_sum));
-                        if (sum != 0) {
+                else if (IP_V(ip) == 6 && ip6->ip6_plen) {
+                        if (TTEST2(tp->th_sport, length)) {
+                                sum = nextproto6_cksum(ip6, (const u_int8_t *)tp, length, IPPROTO_TCP);
                                 tcp_sum = EXTRACT_16BITS(&tp->th_sum);
-                                (void)printf(" (incorrect -> 0x%04x)",in_cksum_shouldbe(tcp_sum, sum));
-                        } else
-                                (void)printf(" (correct)");
 
+                                (void)printf(", cksum 0x%04x", tcp_sum);
+                                if (sum != 0)
+                                        (void)printf(" (incorrect -> 0x%04x)",
+                                            in_cksum_shouldbe(tcp_sum, sum));
+                                else
+                                        (void)printf(" (correct)");
+
+                        }
                 }
-        }
 #endif
+        }
 
         length -= hlen;
         if (vflag > 1 || length > 0 || flags & (TH_SYN | TH_FIN | TH_RST)) {
@@ -593,6 +609,303 @@ tcp_print(register const u_char *bp, register u_int length,
                                 (void)printf(" %u", utoval);
                                 break;
 
+						case TCPOPT_MPTCP: {
+							uint8_t subtype;
+
+							datalen = 1;
+							LENCHECK(datalen);
+							
+							subtype = (*cp) >> 4;
+							
+							printf(" %s ", tok2str(mptcp_subtypes, "Unknown MPTCP subtype %u", subtype));
+
+							switch (subtype) {
+							case TCPOPT_MPTCP_MP_CAPABLE: {
+								uint8_t version = (*cp) & 0x0f;
+								uint8_t mpflags;
+								
+								if (version != 0) {
+									printf(" version %u ", version);
+									for (i = 0; i < datalen; ++i) {
+										LENCHECK(i);
+										(void)printf("%02x", cp[i]);
+									}
+									break;
+								}
+
+								datalen += 1;
+								LENCHECK(datalen);
+								mpflags = cp[1];
+								printf("%s%s%s%s%s%s%s%s%s",
+									   (mpflags) ? "flags:" : "",
+									   (mpflags & 0x80) ? "A" : "",
+									   (mpflags & 0x40) ? "B" : "",
+									   (mpflags & 0x20) ? "C" : "",
+									   (mpflags & 0x10) ? "D" : "",
+									   (mpflags & 0x08) ? "E" : "",
+									   (mpflags & 0x04) ? "F" : "",
+									   (mpflags & 0x02) ? "G" : "",
+									   (mpflags & 0x01) ? "H" : "");
+								
+								if (len == 12 || len == 20) {
+									printf(" sndkey:");
+									for (i = 0; i < 8; ++i) {
+										datalen++;
+										LENCHECK(datalen);
+										(void)printf("%02x", cp[2 + i]);
+									}
+									
+									if (len == 20) {
+										printf(" rcvkey:");
+										for (i = 0; i < 8; ++i) {
+											datalen++;
+											LENCHECK(datalen);
+											(void)printf("%02x", cp[10 + i]);
+										}
+									}
+								} else {
+									printf(" unknown:");
+									datalen = len - 2;
+									for (i = 0; i < datalen; ++i) {
+										LENCHECK(i);
+										(void)printf("%02x", cp[i]);
+									}
+								}
+								
+								break;
+							}
+							case TCPOPT_MPTCP_MP_JOIN: {
+								uint8_t mpflags = (*cp) & 0x0f;
+								
+								/* Flags on SYN only */
+								if (flags & TH_SYN) {
+									printf("%s%s%s%s%s",
+										   (mpflags) ? "flags:" : "",
+										   (mpflags & 0x08) ? "0" : "",
+										   (mpflags & 0x04) ? "1" : "",
+										   (mpflags & 0x02) ? "2" : "",
+										   (mpflags & 0x01) ? "B" : "");
+								}
+								/* Address ID on SYN only, otherwise ignored */
+								datalen += 1;
+								LENCHECK(datalen);
+								if ((flags & TH_SYN))
+									printf(" addrid:%0x", cp[1]);
+								
+								if (flags == TH_SYN && len == 12) {
+									/* Initial SYN */
+									printf(" rcvtok:");
+									for (i = 0; i < 4; ++i) {
+										datalen++;
+										LENCHECK(datalen);
+										(void)printf("%02x", cp[2 + i]);
+									}
+									printf(" sndrand:");
+									for (i = 0; i < 4; ++i) {
+										datalen++;
+										LENCHECK(datalen);
+										(void)printf("%02x", cp[6 + i]);
+									}
+								} else if ((flags & (TH_SYN | TH_ACK)) == (TH_SYN | TH_ACK) && len == 16) {
+									/* Responding SYN/ACK */
+									printf(" sndhmac:");
+									for (i = 0; i < 8; ++i) {
+										datalen++;
+										LENCHECK(datalen);
+										(void)printf("%02x", cp[2 + i]);
+									}
+									printf(" sndrand:");
+									for (i = 0; i < 4; ++i) {
+										datalen++;
+										LENCHECK(datalen);
+										(void)printf("%02x", cp[8 + i]);
+									}
+								} else if ((flags & (TH_SYN | TH_ACK)) == TH_ACK && len == 24) {
+									/* Third ACK */
+									printf(" sndhmac:");
+									for (i = 0; i < 20; ++i) {
+										datalen++;
+										LENCHECK(i);
+										(void)printf("%02x", cp[2 + i]);
+									}
+								} else {
+									datalen = len - 2;
+									for (i = 0; i < datalen; ++i) {
+										LENCHECK(i);
+										(void)printf("%02x", cp[i]);
+									}
+								}
+								break;
+							}
+							case TCPOPT_MPTCP_DSS: {
+								uint8_t mpflags;
+								u_int ack_len = 0;
+								u_int dsn_len = 0;
+								u_int64_t dack;
+								u_int64_t dsn;
+								u_int32_t sfsn;
+								u_int16_t dlen;
+								u_int16_t csum;
+								
+								datalen += 1;
+								LENCHECK(datalen);
+								mpflags = cp[1] & 0x1f;
+								
+								printf("%s%s%s%s%s%s",
+									   (mpflags) ? "flags:" : "",
+									   (mpflags & 0x10) ? "F" : "",
+									   (mpflags & 0x08) ? "m" : "",
+									   (mpflags & 0x04) ? "M" : "",
+									   (mpflags & 0x02) ? "a" : "",
+									   (mpflags & 0x01) ? "A" : "");
+
+								if ((mpflags & MPDSS_FLAG_A)) {
+									if ((mpflags & MPDSS_FLAG_a)) {
+										ack_len = 8;
+										datalen += ack_len;
+										LENCHECK(datalen);
+										dack = EXTRACT_64BITS(cp + 2);
+									} else {
+										ack_len = 4;
+										datalen += ack_len;
+										LENCHECK(datalen);
+										dack = EXTRACT_32BITS(cp + 2);
+									}
+									(void)printf(" dack: %" PRIu64, dack);
+								}
+								if ((mpflags & MPDSS_FLAG_M)) {
+									if ((mpflags & MPDSS_FLAG_m)) {
+										dsn_len = 8;
+										datalen += dsn_len;
+										LENCHECK(datalen);
+										dsn = EXTRACT_64BITS(cp + 2 + ack_len);
+									} else {
+										dsn_len = 4;
+										datalen += dsn_len;
+										LENCHECK(datalen);
+										dsn = EXTRACT_32BITS(cp + 2 + ack_len);
+									}
+									(void)printf(" dsn: %" PRIu64, dsn);
+									
+									datalen += 4;
+									LENCHECK(datalen);
+									sfsn = EXTRACT_32BITS(cp + 2 + ack_len + dsn_len);
+									(void)printf(" sfsn: %" PRIu32, sfsn);
+
+									datalen += 2;
+									LENCHECK(datalen);
+									dlen = EXTRACT_16BITS(cp + 2 + ack_len + dsn_len + 4);
+									(void)printf(" dlen: %" PRIu16, dlen);
+
+									/* 
+									 * Use the length of the option to find out if 
+									 * the checksum is present
+									 */
+									if (datalen < len - 2) {
+										datalen += 2;
+										LENCHECK(datalen);
+										csum = EXTRACT_16BITS(cp + 2 + ack_len + dsn_len + 6);
+										(void)printf(" csum: %" PRIu16, csum);
+									}
+								}
+								break;
+							}
+							case TCPOPT_MPTCP_ADD_ADDR: {
+								uint8_t ipvers;
+								u_int addrlen = 0;
+								u_int16_t port;
+								
+								ipvers = cp[1] & 0xf0;
+								printf(" vers:%u", ipvers);
+								
+								datalen = 2;
+								LENCHECK(datalen);
+								printf(" addrid:%0x", cp[1]);
+
+								switch (ipvers) {
+									case 4: {
+										datalen = 6;
+										LENCHECK(datalen);
+										ipaddr_string(cp + 2);
+										break;
+									}
+									case 6: {
+										datalen = 18;
+										LENCHECK(datalen);
+#ifdef INET6
+										ip6addr_string(cp + 2);
+#endif
+										break;
+									}
+									default:
+										goto bad;
+								}
+								/*
+								 * Use the length of the option to find out if
+								 * the port is present
+								 */
+								if (datalen < len - 2) {
+									datalen += 2;
+									LENCHECK(datalen);
+
+									port = EXTRACT_16BITS(cp + 2 + addrlen);
+
+									printf(" port: %u", port);
+								}
+								break;
+							}
+							case TCPOPT_MPTCP_REMOVE_ADDR:
+								datalen = len - 2;
+								for (i = 0; i < datalen; ++i) {
+									LENCHECK(i);
+									(void)printf(" %u", cp[i]);
+								}
+								break;
+								
+							case TCPOPT_MPTCP_MP_PRIO: {
+								uint8_t mpflags = (*cp) & 0x0f;
+
+								printf("flag %s",
+									   (mpflags & 0x01) ? "B" : "");
+								
+								if (len == 4) {
+									datalen = 2;
+									LENCHECK(i);
+									printf(" addrid:%0x", cp[1]);
+								}
+								break;
+							}
+							case TCPOPT_MPTCP_MP_FAIL:
+								datalen = 10;
+								LENCHECK(datalen);
+								
+								printf(" dsn:");
+								for (i = 0; i < 8; ++i) {
+									(void)printf("%02x", cp[2 + i]);
+								}
+								break;
+								
+							case TCPOPT_MPTCP_MP_FASTCLOSE:
+								datalen = 10;
+								LENCHECK(datalen);
+
+								printf(" rcvrkey:");
+								for (i = 0; i < 8; ++i) {
+									(void)printf("%02x", cp[2 + i]);
+								}
+								break;
+								
+							default:
+								datalen = len - 2;
+								for (i = 0; i < datalen; ++i) {
+									LENCHECK(i);
+									(void)printf("%02x", cp[i]);
+								}
+								break;
+							}
+							break;
+						}
+						
                         default:
                                 datalen = len - 2;
                                 for (i = 0; i < datalen; ++i) {
@@ -661,6 +974,8 @@ tcp_print(register const u_char *bp, register u_int length,
                 ns_print(bp + 2, length - 2, 0);
         } else if (sport == MSDP_PORT || dport == MSDP_PORT) {
                 msdp_print(bp, length);
+        } else if (sport == RPKI_RTR_PORT || dport == RPKI_RTR_PORT) {
+                rpki_rtr_print(bp, length);
         }
         else if (length > 0 && (sport == LDP_PORT || dport == LDP_PORT)) {
                 ldp_print(bp, length);

@@ -2,14 +2,14 @@
  * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This ds contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this ds except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * ds.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -53,21 +53,6 @@
 #include <asl.h>
 #endif
 
-#ifdef __i386__
-/* <rdar://problem/10675978> */
-__attribute__((weak_import))
-void xpc_dictionary_get_audit_token(xpc_object_t xdict, audit_token_t *token);
-
-__attribute__((weak_import))
-xpc_pipe_t xpc_pipe_create(const char *name, uint64_t flags);
-
-__attribute__((weak_import))
-void xpc_pipe_invalidate(xpc_pipe_t pipe);
-
-__attribute__((weak_import))
-int xpc_pipe_routine(xpc_pipe_t pipe, xpc_object_t message, xpc_object_t *reply);
-#endif
-
 #define IPV6_ADDR_LEN 16
 #define IPV4_ADDR_LEN 4
 
@@ -98,7 +83,7 @@ _od_fork_child(void)
 {
 	// re-enable opendirectory interaction since we forked
 	_si_opendirectory_disabled = 0;
-	
+
 	if (__od_pipe != NULL) {
 		xpc_pipe_invalidate(__od_pipe);
 		/* disable release due to 10649340, it will cause a minor leak for each fork without exec */
@@ -140,37 +125,30 @@ _od_xpc_pipe(bool resetPipe)
 {
 	static dispatch_once_t once;
 	xpc_pipe_t result = NULL;
-
-#ifdef __i386__
-	if (xpc_pipe_create == NULL) {
-		_si_disable_opendirectory();
-		return NULL;
-	}
-#endif
-
+	
 	dispatch_once(&once, ^(void) {
-		char *rc_xbs;
-		
+		char *xbs_disable;
+
 		/* if this is a build environment we ignore opendirectoryd */
-		rc_xbs = getenv("RC_XBS");
-		if ((issetugid() == 0) && (rc_xbs != NULL) && (strcmp(rc_xbs, "YES") == 0)) {
+		xbs_disable = getenv("XBS_DISABLE_LIBINFO");
+		if ((issetugid() == 0) && (xbs_disable != NULL) && (strcmp(xbs_disable, "YES") == 0)) {
 			_si_opendirectory_disabled = 1;
 			return;
 		}
 
 		pthread_atfork(_od_fork_prepare, _od_fork_parent, _od_fork_child);
 	});
-	
+
 	if (_si_opendirectory_disabled == 1) {
 		return NULL;
 	}
-	
+
 	pthread_mutex_lock(&mutex);
 	if (resetPipe) {
 		xpc_release(__od_pipe);
 		__od_pipe = NULL;
 	}
-	
+
 	if (__od_pipe == NULL) {
 		if (!issetugid() && getenv("OD_DEBUG_MODE") != NULL) {
 			__od_pipe = xpc_pipe_create(kODMachLibinfoPortNameDebug, 0);
@@ -178,10 +156,10 @@ _od_xpc_pipe(bool resetPipe)
 			__od_pipe = xpc_pipe_create(kODMachLibinfoPortName, XPC_PIPE_FLAG_PRIVILEGED);
 		}
 	}
-	
+
 	if (__od_pipe != NULL) result = xpc_retain(__od_pipe);
 	pthread_mutex_unlock(&mutex);
-	
+
 	return result;
 }
 
@@ -237,13 +215,13 @@ static bool
 _valid_token(xpc_object_t reply)
 {
 	audit_token_t token;
-	
+
 	/*
 	 * This should really call audit_token_to_au32,
 	 * but that's in libbsm, not in a Libsystem library.
 	 */
 	xpc_dictionary_get_audit_token(reply, &token);
-	
+
 	return ((uid_t) token.val[1] == 0);
 }
 
@@ -282,25 +260,25 @@ _ds_get_validation(si_mod_t *si, uint64_t *a, uint64_t *b, int cat)
 }
 
 XPC_RETURNS_RETAINED
-__private_extern__ xpc_object_t 
+__private_extern__ xpc_object_t
 _od_rpc_call(const char *procname, xpc_object_t payload, xpc_pipe_t (*get_pipe)(bool))
 {
 	xpc_object_t result = NULL;
 	xpc_object_t reply;
 	xpc_pipe_t od_pipe;
 	int retries, rc;
-	
+
 	od_pipe = get_pipe(false);
 	if (od_pipe == NULL) return NULL;
-	
+
 	if (payload == NULL) {
 		payload = xpc_dictionary_create(NULL, NULL, 0);
 	}
-	
+
 	// we nest it for backward compatibility so we can do independent submissions
 	xpc_dictionary_set_string(payload, OD_RPC_NAME, procname);
 	xpc_dictionary_set_int64(payload, OD_RPC_VERSION, 2);
-	
+
 	for (retries = 0; od_pipe != NULL && retries < 2; retries++) {
 		rc = xpc_pipe_routine(od_pipe, payload, &reply);
 		switch (rc) {
@@ -308,17 +286,17 @@ _od_rpc_call(const char *procname, xpc_object_t payload, xpc_pipe_t (*get_pipe)(
 				xpc_release(od_pipe);
 				od_pipe = get_pipe(true);
 				break;
-				
+
 			case EAGAIN:
 				/* just loop and try to send again */
 				break;
-				
+
 			case 0:
 				if (_valid_token(reply) == true) {
 					result = reply;
 				}
 				/* fall through since we got a valid response */
-				
+
 			default:
 				/* release and NULL the pipe it'll break the loop */
 				xpc_release(od_pipe);
@@ -326,7 +304,7 @@ _od_rpc_call(const char *procname, xpc_object_t payload, xpc_pipe_t (*get_pipe)(
 				break;
 		}
 	}
-	
+
 	if (od_pipe != NULL) {
 		xpc_release(od_pipe);
 	}
@@ -344,7 +322,7 @@ _ds_list(si_mod_t *si, int cat, const char *procname, const void *extra, od_extr
 	if (procname == NULL) return NULL;
 
 	_ds_get_validation(si, &va, &vb, cat);
-	
+
 	list = NULL;
 	reply = _od_rpc_call(procname, NULL, _od_xpc_pipe);
 	if (reply != NULL) {
@@ -354,11 +332,11 @@ _ds_list(si_mod_t *si, int cat, const char *procname, const void *extra, od_extr
 				si_item_t *item = extract(si, value, extra, va, vb);
 				list = si_list_add(list, item);
 				si_item_release(item);
-				
+
 				return true;
 			});
 		}
-		
+
 		xpc_release(reply);
 	}
 
@@ -371,7 +349,7 @@ _ds_item(si_mod_t *si, int cat, const char *procname, const void *extra, od_extr
 	xpc_object_t result;
 	uint64_t va, vb;
 	si_item_t *item = NULL;
-	
+
 	if (procname == NULL) return NULL;
 
 	result = _od_rpc_call(procname, payload, _od_xpc_pipe);
@@ -380,10 +358,10 @@ _ds_item(si_mod_t *si, int cat, const char *procname, const void *extra, od_extr
 		if (xpc_dictionary_get_int64(result, OD_RPC_ERROR) == 0) {
 			item = extract(si, result, extra, va, vb);
 		}
-		
+
 		xpc_release(result);
 	}
-	
+
 	return item;
 }
 
@@ -394,41 +372,41 @@ _ds_is_valid(si_mod_t *si, si_item_t *item)
 	ds_si_private_t *pp;
 	int status;
 	uint32_t oldval, newval;
-	
+
 	if (si == NULL) return 0;
 	if (item == NULL) return 0;
 	if (si->name == NULL) return 0;
 	if (item->src == NULL) return 0;
-	
+
 	pp = (ds_si_private_t *)si->private;
 	if (pp == NULL) return 0;
-	
+
 	src = (si_mod_t *)item->src;
-	
+
 	if (src->name == NULL) return 0;
 	if (string_not_equal(si->name, src->name)) return 0;
-	
+
 	/* check global invalidation */
 	oldval = item->validation_a;
 	newval = -1;
 	status = notify_peek(pp->notify_token_global, &newval);
 	if (status != NOTIFY_STATUS_OK) return 0;
-	
+
 	newval = ntohl(newval);
 	if (oldval != newval) return 0;
-	
+
 	oldval = item->validation_b;
 	newval = -1;
 	if (item->type == CATEGORY_USER) status = notify_peek(pp->notify_token_user, &newval);
 	else if (item->type == CATEGORY_GROUP) status = notify_peek(pp->notify_token_group, &newval);
 	else if (item->type == CATEGORY_SERVICE) status = notify_peek(pp->notify_token_service, &newval);
 	else return 0;
-	
+
 	if (status != NOTIFY_STATUS_OK) return 0;
-	
+
 	newval = ntohl(newval);
 	if (oldval != newval) return 0;
-	
+
 	return 1;
 }
 
@@ -443,7 +421,7 @@ _free_addr_list(char **l)
 }
 
 /* map ipv4 addresses and append to v6 list */
-static int 
+static int
 _map_v4(char ***v6, uint32_t n6, char **v4, uint32_t n4)
 {
 	struct in6_addr a6;
@@ -482,14 +460,14 @@ static xpc_object_t
 _xpc_query_key_string(const char *key, const char *value)
 {
 	xpc_object_t payload;
-	
+
 	if (value == NULL) return NULL;
-	
+
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return NULL;
-	
+
 	xpc_dictionary_set_string(payload, key, value);
-	
+
 	return payload;
 }
 
@@ -497,12 +475,12 @@ static xpc_object_t
 _xpc_query_key_id(const char *key, id_t idValue)
 {
 	xpc_object_t payload;
-	
+
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return NULL;
-	
+
 	xpc_dictionary_set_int64(payload, key, idValue);
-	
+
 	return payload;
 }
 
@@ -510,12 +488,12 @@ static xpc_object_t
 _xpc_query_key_uuid(const char *key, uuid_t uu)
 {
 	xpc_object_t payload;
-	
+
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return NULL;
-	
+
 	xpc_dictionary_set_uuid(payload, key, uu);
-	
+
 	return payload;
 }
 
@@ -523,329 +501,1141 @@ static xpc_object_t
 _xpc_query_key_int(const char *key, int64_t intValue)
 {
 	xpc_object_t payload;
-	
+
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return NULL;
-	
+
 	xpc_dictionary_set_int64(payload, key, intValue);
-	
+
 	return payload;
 }
 
 #pragma mark -
 
-static char **
-_extract_array(xpc_object_t reply, const char *key, unsigned int *len)
+static int
+_extract_string_from_xpc_array_index(xpc_object_t reply, int index, const char **str)
 {
-	xpc_object_t xpc_array;
-	char **result;
-	
-	xpc_array = xpc_dictionary_get_value(reply, key);
-	if (xpc_array == NULL || xpc_get_type(xpc_array) != XPC_TYPE_ARRAY) {
-		return calloc(1, sizeof(*result));
-	}
-	
-	result = calloc(xpc_array_get_count(xpc_array) + 1, sizeof(*result));
-	if (result == NULL) {
-		return NULL;
-	}
-	
-	if (len != NULL) {
-		/* include trailing NULL */
-		(*len) = xpc_array_get_count(xpc_array) + 1;
-	}
-	
-	xpc_array_apply(xpc_array, ^_Bool(size_t idx, xpc_object_t value) {
-		result[idx] = (char *) xpc_string_get_string_ptr(value);
-		return true;
-	});
-	
-	return result;
+	xpc_object_t value;
+
+	if (xpc_array_get_count(reply) < index) return -1;
+
+	value = xpc_array_get_value(reply, index);
+	if (xpc_get_type(value) != XPC_TYPE_STRING) return -1;
+
+	*str = xpc_string_get_string_ptr(value);
+	return 0;
 }
 
-static const char *
-_extract_string(xpc_object_t reply, const char *key)
+static int
+_extract_string_from_xpc_object(xpc_object_t value, const char **str)
 {
-	xpc_object_t value = xpc_dictionary_get_value(reply, key);
-	xpc_type_t type;
-	const char *result = NULL;
-	
-	if (value == NULL) {
-		return "";
-	}
-	
-	type = xpc_get_type(value);
-	if (type == XPC_TYPE_STRING) {
-		result = xpc_string_get_string_ptr(value);
-	} else if (type == XPC_TYPE_ARRAY && xpc_array_get_count(value) != 0) {
-		result = xpc_array_get_string(value, 0);
-	}
-	
-	if (result == NULL) {
-		result = "";
-	}
-	
-	return result;
-}
-
-static uint32_t
-_extract_uint32(xpc_object_t reply, const char *key)
-{
-	xpc_object_t value = xpc_dictionary_get_value(reply, key);
-	xpc_type_t type;
-	uint32_t result;
-	
-	if (value == NULL) {
+	if (value == NULL) return -1;
+	else if (xpc_get_type(value) == XPC_TYPE_STRING)
+	{
+		*str = xpc_string_get_string_ptr(value);
 		return 0;
 	}
-	
+	else if (xpc_get_type(value) == XPC_TYPE_ARRAY)
+	{
+		return _extract_string_from_xpc_array_index(value, 0, str);
+	}
+
+	return -1;
+}
+
+static int
+_extract_uint32_from_xpc_object(xpc_object_t value, uint32_t *val32)
+{
+	xpc_type_t type;
+
+	if (value == NULL) return -1;
 	type = xpc_get_type(value);
-	if (type == XPC_TYPE_ARRAY && xpc_array_get_count(value) != 0) {
-		value = xpc_array_get_value(value, 0);
-		type = xpc_get_type(value);
+
+	if (type == XPC_TYPE_STRING)
+	{
+		*val32 = atoi(xpc_string_get_string_ptr(value));
+		return 0;
 	}
-	
-	if (type == XPC_TYPE_STRING) {
-		result = (int) strtol(xpc_string_get_string_ptr(value), NULL, 10);
-	} else if (type == XPC_TYPE_INT64) {
-		result = (uint32_t) xpc_int64_get_value(value);
-	} else if (type == XPC_TYPE_BOOL) {
-		result = xpc_bool_get_value(value);
-	} else {
-		result = 0;
+	else if (type == XPC_TYPE_INT64)
+	{
+		*val32 = (uint32_t)xpc_int64_get_value(value);
+		return 0;
 	}
-	
-	return result;
+	else if (type == XPC_TYPE_BOOL)
+	{
+		*val32 = (uint32_t)xpc_bool_get_value(value);
+		return 0;
+	}
+	else if (type == XPC_TYPE_ARRAY)
+	{
+		if (xpc_array_get_count(value) == 0) return -1;
+		return _extract_uint32_from_xpc_object(xpc_array_get_value(value, 0), val32);
+	}
+
+	return -1;
+}
+
+static int
+_extract_string_list_from_xpc_array_index(xpc_object_t reply, int index, unsigned int *len, char ***list)
+{
+	char **result;
+	xpc_object_t xpc_array = xpc_array_get_value(reply, index);
+
+	if ((xpc_array == NULL) || (xpc_get_type(xpc_array) != XPC_TYPE_ARRAY)) return -1;
+
+		result = calloc(xpc_array_get_count(xpc_array) + 1, sizeof(*result));
+	if (result == NULL) return -1;
+
+	/* include trailing NULL */
+	if (len != NULL) (*len) = xpc_array_get_count(xpc_array) + 1;
+
+	xpc_array_apply(xpc_array, ^bool(size_t idx, xpc_object_t value) {
+		result[idx] = (char *)xpc_string_get_string_ptr(value);
+		return true;
+	});
+
+	*list = result;
+	return 0;
+}
+
+static int
+_extract_uint32_from_xpc_array_index(xpc_object_t reply, int index, uint32_t *val32)
+{
+	xpc_object_t value = xpc_array_get_value(reply, index);
+	return _extract_uint32_from_xpc_object(value, val32);
+}
+
+static int
+_extract_string_list_from_xpc_array(xpc_object_t xpc_array, unsigned int *len, char ***list)
+{
+	char **result;
+
+	if ((xpc_array == NULL) || (xpc_get_type(xpc_array) != XPC_TYPE_ARRAY)) return -1;
+
+		result = calloc(xpc_array_get_count(xpc_array) + 1, sizeof(*result));
+	if (result == NULL) return -1;
+
+	/* include trailing NULL */
+	if (len != NULL) (*len) = xpc_array_get_count(xpc_array) + 1;
+
+	xpc_array_apply(xpc_array, ^bool(size_t idx, xpc_object_t value) {
+		result[idx] = (char *)xpc_string_get_string_ptr(value);
+		return true;
+	});
+
+	*list = result;
+	return 0;
+}
+
+static int
+_extract_string_from_xpc_dict(xpc_object_t reply, const char *key, const char **str)
+{
+	xpc_object_t value = xpc_dictionary_get_value(reply, key);
+	const char *result;
+
+	if (value == NULL) return -1;
+
+	if (xpc_get_type(value) != XPC_TYPE_STRING) return -1;
+
+	result = xpc_string_get_string_ptr(value);
+	if (result == NULL) return -1;
+
+	*str = result;
+	return 0;
+}
+
+static int
+_extract_uint32_from_xpc_dict(xpc_object_t reply, const char *key, uint32_t *val32)
+{
+	xpc_object_t value = xpc_dictionary_get_value(reply, key);
+	return _extract_uint32_from_xpc_object(value, val32);
+}
+
+#pragma mark -
+
+/*
+ * user schema
+ *
+ *				name	: string
+ *				passwd	: string
+ *				uid		: uint32
+ *				gid		: uint32
+ *				gecos	: string
+ *				dir		: string
+ *				shell	: string
+ */
+
+static si_item_t *
+_extract_user_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	struct passwd tmp;
+	int i = 0;
+
+	if (xpc_array_get_count(reply) < 7) return NULL;
+
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.pw_name)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.pw_passwd)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.pw_uid)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.pw_gid)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.pw_gecos)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.pw_dir)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.pw_shell)) return NULL;
+
+	/* default values */
+	tmp.pw_change = (time_t)0;
+	tmp.pw_expire = (time_t)0;
+	tmp.pw_class = (char *)"";
+
+	return (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, valid_global, valid_cat, tmp.pw_name, tmp.pw_passwd, tmp.pw_uid, tmp.pw_gid, tmp.pw_change, tmp.pw_class, tmp.pw_gecos, tmp.pw_dir, tmp.pw_shell, tmp.pw_expire);
+}
+
+static si_item_t *
+_extract_user_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	__block struct passwd tmp;
+	__block int status = 0;
+	__block int parts = 3;
+
+	tmp.pw_name = (char *)"";
+	tmp.pw_passwd = (char *)"*";
+	tmp.pw_uid = (uid_t)0;
+	tmp.pw_gid = (gid_t)0;
+	tmp.pw_change = (time_t)0;
+	tmp.pw_expire = (time_t)0;
+	tmp.pw_class = (char *)"";
+	tmp.pw_gecos = (char *)"";
+	tmp.pw_dir = (char *)"/var/empty";
+	tmp.pw_shell = (char *)"/usr/bin/false";
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "pw_name"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.pw_name);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "pw_passwd"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.pw_passwd);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "pw_uid"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.pw_uid);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "pw_gid"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.pw_gid);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "pw_change"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.pw_change);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "pw_expire"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.pw_expire);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "pw_class"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.pw_class);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "pw_gecos"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.pw_gecos);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "pw_dir"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.pw_dir);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "pw_shell"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.pw_shell);
+			/* no parts check - this value is optional */
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0)) return NULL;
+
+	return (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, valid_global, valid_cat, tmp.pw_name, tmp.pw_passwd, tmp.pw_uid, tmp.pw_gid, tmp.pw_change, tmp.pw_class, tmp.pw_gecos, tmp.pw_dir, tmp.pw_shell, tmp.pw_expire);
 }
 
 static si_item_t *
 _extract_user(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
 {
-	struct passwd tmp;
-	
+	xpc_type_t type;
+
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
-	
-	tmp.pw_name = (char *) _extract_string(reply, "pw_name");
-	tmp.pw_passwd = (char *) _extract_string(reply, "pw_passwd");
-	tmp.pw_uid = (uid_t) _extract_uint32(reply, "pw_uid");
-	tmp.pw_gid = (gid_t) _extract_uint32(reply, "pw_gid");
-	tmp.pw_change = (time_t) _extract_uint32(reply, "pw_change");
-	tmp.pw_expire = (time_t) _extract_uint32(reply, "pw_expire");
-	tmp.pw_class = (char *) _extract_string(reply, "pw_class");
-	tmp.pw_gecos = (char *) _extract_string(reply, "pw_gecos");
-	tmp.pw_dir = (char *) _extract_string(reply, "pw_dir");
-	tmp.pw_shell = (char *) _extract_string(reply, "pw_shell");
-	
-	return (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, valid_global, valid_cat, tmp.pw_name, tmp.pw_passwd, tmp.pw_uid, tmp.pw_gid, tmp.pw_change, tmp.pw_class, tmp.pw_gecos, tmp.pw_dir, tmp.pw_shell, tmp.pw_expire);
+
+	type = xpc_get_type(reply);
+
+	if (type == XPC_TYPE_ARRAY) return _extract_user_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_user_dict(si, reply, valid_global, valid_cat);
+
+	return NULL;
+}
+
+/*
+ * group schema
+ *
+ *				name	: string
+ *				gid		: uint32
+ * optional		members	: array of string
+ *
+ */
+
+static si_item_t *
+_extract_group_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	struct group tmp;
+	int i = 0;
+	int arraycount = xpc_array_get_count(reply);
+
+	if ((arraycount < 2) || (arraycount > 3)) return NULL;
+
+	memset(&tmp, 0, sizeof(tmp));
+
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.gr_name)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.gr_gid)) return NULL;
+
+	if (arraycount == 3)
+	{
+		if (0 != _extract_string_list_from_xpc_array_index(reply, i++, NULL, (char ***)&tmp.gr_mem)) return NULL;
+	}
+
+	/* default value */
+	tmp.gr_passwd = (char *)"*";
+
+	item = (si_item_t *) LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1, valid_global, valid_cat, tmp.gr_name, tmp.gr_passwd, tmp.gr_gid, tmp.gr_mem);
+
+	free(tmp.gr_mem);
+
+	return item;
+}
+
+static si_item_t *
+_extract_group_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	__block struct group tmp;
+	__block int status = 0;
+	__block int parts = 2;
+
+	tmp.gr_name = (char *)"";
+	tmp.gr_passwd = (char *)"*";
+	tmp.gr_gid = (gid_t)0;
+	tmp.gr_mem = NULL;
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "gr_name"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.gr_name);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "gr_passwd"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.gr_passwd);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "gr_gid"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.gr_gid);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "gr_mem"))
+		{
+			status |= _extract_string_list_from_xpc_array(value, NULL, (char ***)&tmp.gr_mem);
+			/* no parts check - this value is optional */
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0))
+	{
+		free(tmp.gr_mem);
+		return NULL;
+	}
+
+	item = (si_item_t *) LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1, valid_global, valid_cat, tmp.gr_name, tmp.gr_passwd, tmp.gr_gid, tmp.gr_mem);
+
+	free(tmp.gr_mem);
+
+	return item;
 }
 
 static si_item_t *
 _extract_group(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
 {
-	si_item_t *item;
-	struct group tmp;
-	
+	xpc_type_t type;
+
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
-	
-	tmp.gr_name = (char *) _extract_string(reply, "gr_name");
-	tmp.gr_passwd = (char *) _extract_string(reply, "gr_passwd");
-	tmp.gr_gid = (gid_t) _extract_uint32(reply, "gr_gid");
-	tmp.gr_mem = _extract_array(reply, "gr_mem", NULL);
 
-	item = (si_item_t *) LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1, valid_global, valid_cat, tmp.gr_name, tmp.gr_passwd, tmp.gr_gid, tmp.gr_mem);
-	
-	if (tmp.gr_mem != NULL) {
-		free(tmp.gr_mem); /* have to free because it's allocated */
-	}
-	
-	return item;
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY) return _extract_group_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_group_dict(si, reply, valid_global, valid_cat);
+
+	return NULL;
 }
 
+/*
+ * netgroup schema
+ *
+ *				host	: string
+ *				user	: string
+ *				domain	: string
+ *
+ */
 static si_item_t *
-_extract_netgroup(si_mod_t *si, xpc_object_t reply, const void *ignored, uint64_t valid_global, uint64_t valid_cat)
+_extract_netgroup_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
 {
 	const char *host, *user, *domain;
+	int i = 0;
 
-	if (si == NULL) return NULL;
-	if (reply == NULL) return NULL;
+	if (xpc_array_get_count(reply) != 3) return NULL;
 
-	host = _extract_string(reply, "host");
-	user = _extract_string(reply, "user");
-	domain = _extract_string(reply, "domain");
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&host)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&user)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&domain)) return NULL;
 
 	return (si_item_t *)LI_ils_create("L4488sss", (unsigned long)si, CATEGORY_NETGROUP, 1, valid_global, valid_cat, host, user, domain);
 }
 
 static si_item_t *
-_extract_alias(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
+_extract_netgroup_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
 {
-	struct aliasent tmp;
-	si_item_t *item;
+	__block const char *host = "";
+	__block const char *user = "";
+	__block const char *domain = "";
+	__block int status = 0;
+	__block int parts = 3;
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "host"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&host);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "user"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&user);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "domain"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&domain);
+			if (status == 0) parts--;
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0)) return NULL;
+
+	return (si_item_t *)LI_ils_create("L4488sss", (unsigned long)si, CATEGORY_NETGROUP, 1, valid_global, valid_cat, host, user, domain);
+}
+
+static si_item_t *
+_extract_netgroup(si_mod_t *si, xpc_object_t reply, const void *ignored, uint64_t valid_global, uint64_t valid_cat)
+{
+	xpc_type_t type;
 
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
-	
-	tmp.alias_name = (char *) _extract_string(reply, "alias_name");
-	tmp.alias_local = _extract_uint32(reply, "alias_local");
-	tmp.alias_members = _extract_array(reply, "alias_members", &tmp.alias_members_len);
+
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY) return _extract_netgroup_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_netgroup_dict(si, reply, valid_global, valid_cat);
+
+	return NULL;
+}
+
+/*
+ * alias schema
+ *
+ *				name	: string
+ *				local	: uint32
+ * optional		members	: array of string
+ *
+ */
+
+static si_item_t *
+_extract_alias_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	struct aliasent tmp;
+	int i = 0;
+	int arraycount = xpc_array_get_count(reply);
+
+	if ((arraycount < 2) || (arraycount > 3)) return NULL;
+
+	memset(&tmp, 0, sizeof(tmp));
+
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.alias_name)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.alias_local)) return NULL;
+
+	if (arraycount == 3)
+	{
+		if (0 != _extract_string_list_from_xpc_array_index(reply, i++, NULL, (char ***)&tmp.alias_members)) return NULL;
+	}
 
 	item = (si_item_t *)LI_ils_create("L4488s4*4", (unsigned long)si, CATEGORY_ALIAS, 1, valid_global, valid_cat, tmp.alias_name, tmp.alias_members_len, tmp.alias_members, tmp.alias_local);
-	
-	if (tmp.alias_members != NULL) {
+
+	free(tmp.alias_members);
+
+	return item;
+}
+
+static si_item_t *
+_extract_alias_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	__block struct aliasent tmp;
+	__block int status = 0;
+	__block int parts = 2;
+
+	tmp.alias_name = (char *)"";
+	tmp.alias_local = 0;
+	tmp.alias_members = NULL;
+	tmp.alias_members_len = 0;
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "alias_name"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.alias_name);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "alias_local"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.alias_local);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "alias_members"))
+		{
+			status |= _extract_string_list_from_xpc_array(value, &tmp.alias_members_len, (char ***)&tmp.alias_members);
+			/* no parts check - this value is optional */
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0))
+	{
 		free(tmp.alias_members);
+		return NULL;
 	}
-	
+
+	item = (si_item_t *)LI_ils_create("L4488s4*4", (unsigned long)si, CATEGORY_ALIAS, 1, valid_global, valid_cat, tmp.alias_name, tmp.alias_members_len, tmp.alias_members, tmp.alias_local);
+
+	free(tmp.alias_members);
+
+	return item;
+}
+
+static si_item_t *
+_extract_alias(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
+{
+	xpc_type_t type;
+
+	if (si == NULL) return NULL;
+	if (reply == NULL) return NULL;
+
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY) return _extract_alias_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_alias_dict(si, reply, valid_global, valid_cat);
+
+	return NULL;
+}
+
+/*
+ * network schema
+ *
+ *				name	: string
+ *				net		: uint32
+ * optional		aliases	: array of string
+ *
+ */
+
+static si_item_t *
+_extract_network_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	struct netent tmp;
+	int i = 0;
+	int arraycount = xpc_array_get_count(reply);
+
+	if ((arraycount < 2) || (arraycount > 3)) return NULL;
+
+	memset(&tmp, 0, sizeof(tmp));
+
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.n_name)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.n_net)) return NULL;
+
+	if (arraycount == 3)
+	{
+		if (0 != _extract_string_list_from_xpc_array_index(reply, i++, NULL, (char ***)&tmp.n_aliases)) return NULL;
+	}
+
+	/* default value */
+	tmp.n_addrtype = AF_INET;
+
+	item = (si_item_t *)LI_ils_create("L4488s*44", (unsigned long)si, CATEGORY_NETWORK, 1, valid_global, valid_cat, tmp.n_name, tmp.n_aliases, tmp.n_addrtype, tmp.n_net);
+
+	free(tmp.n_aliases);
+
+	return item;
+}
+
+static si_item_t *
+_extract_network_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	__block struct netent tmp;
+	__block int status = 0;
+	__block int parts = 2;
+
+	if (si == NULL) return NULL;
+	if (reply == NULL) return NULL;
+
+	tmp.n_name = (char *)"";
+	tmp.n_aliases = NULL;
+	tmp.n_net = 0;
+
+	/* default value */
+	tmp.n_addrtype = AF_INET;
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "n_name"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.n_name);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "n_aliases"))
+		{
+			status |= _extract_string_list_from_xpc_array(value, NULL, (char ***)&tmp.n_aliases);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "n_net"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.n_net);
+			if (status == 0) parts--;
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0))
+	{
+		free(tmp.n_aliases);
+		return NULL;
+	}
+
+	item = (si_item_t *)LI_ils_create("L4488s*44", (unsigned long)si, CATEGORY_NETWORK, 1, valid_global, valid_cat, tmp.n_name, tmp.n_aliases, tmp.n_addrtype, tmp.n_net);
+
+	free(tmp.n_aliases);
+
 	return item;
 }
 
 static si_item_t *
 _extract_network(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
 {
-	struct netent tmp;
-	si_item_t *item;
+	xpc_type_t type;
 
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
 
-	tmp.n_name = (char *) _extract_string(reply, "n_name");
-	tmp.n_aliases = _extract_array(reply, "n_aliases", NULL);
-	tmp.n_net = _extract_uint32(reply, "n_net");
-	tmp.n_addrtype = AF_INET; /* opendirectoryd doesn't return this value, only AF_INET is supported */
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY) return _extract_network_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_network_dict(si, reply, valid_global, valid_cat);
 
-	item = (si_item_t *)LI_ils_create("L4488s*44", (unsigned long)si, CATEGORY_NETWORK, 1, valid_global, valid_cat, tmp.n_name, tmp.n_aliases, tmp.n_addrtype, tmp.n_net);
-	
-	if (tmp.n_aliases != NULL) {
-		free(tmp.n_aliases);
+	return NULL;
+}
+
+/*
+ * service schema
+ *
+ *				name	: string
+ *				port	: uint32
+ *				proto	: string
+ * optional		aliases	: array of string
+ *
+ */
+
+static si_item_t *
+_extract_service_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	struct servent tmp;
+	int i = 0;
+	int arraycount = xpc_array_get_count(reply);
+
+	if ((arraycount < 3) || (arraycount > 4)) return NULL;
+
+	memset(&tmp, 0, sizeof(tmp));
+
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.s_name)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.s_port)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.s_proto)) return NULL;
+
+	if (arraycount == 4)
+	{
+		if (0 != _extract_string_list_from_xpc_array_index(reply, i++, NULL, (char ***)&tmp.s_aliases)) return NULL;
 	}
-	
+
+	item = (si_item_t *)LI_ils_create("L4488s*4s", (unsigned long)si, CATEGORY_SERVICE, 1, valid_global, valid_cat, tmp.s_name, tmp.s_aliases, tmp.s_port, tmp.s_proto);
+
+	free(tmp.s_aliases);
+
+	return item;
+}
+
+static si_item_t *
+_extract_service_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	__block struct servent tmp;
+	__block int status = 0;
+	__block int parts = 3;
+
+	if (si == NULL) return NULL;
+	if (reply == NULL) return NULL;
+
+	tmp.s_name = (char *)"";
+	tmp.s_aliases = NULL;
+	tmp.s_port = 0;
+	tmp.s_proto = (char *)"";
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "s_name"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.s_name);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "s_aliases"))
+		{
+			status |= _extract_string_list_from_xpc_array(value, NULL, (char ***)&tmp.s_aliases);
+			/* no parts check - this value is optional */
+		}
+		else if (!strcmp(key, "s_port"))
+		{
+			uint32_t v32;
+			status |= _extract_uint32_from_xpc_object(value, &v32);
+			if (status == 0)
+			{
+				tmp.s_port = (unsigned int)htons(v32); // ugh
+				parts--;
+			}
+		}
+		else if (!strcmp(key, "s_proto"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.s_proto);
+			if (status == 0) parts--;
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0))
+	{
+		free(tmp.s_aliases);
+		return NULL;
+	}
+
+	item = (si_item_t *)LI_ils_create("L4488s*4s", (unsigned long)si, CATEGORY_SERVICE, 1, valid_global, valid_cat, tmp.s_name, tmp.s_aliases, tmp.s_port, tmp.s_proto);
+
+	free(tmp.s_aliases);
+
 	return item;
 }
 
 static si_item_t *
 _extract_service(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
 {
-	struct servent tmp;
-	si_item_t *item;
+	xpc_type_t type;
 
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
-	
-	tmp.s_name = (char *) _extract_string(reply, "s_name");
-	tmp.s_aliases = _extract_array(reply, "s_aliases", NULL);
-	tmp.s_port = (unsigned int) htons(_extract_uint32(reply, "s_port"));
-	tmp.s_proto = (char *) _extract_string(reply, "s_proto");
 
-	item = (si_item_t *)LI_ils_create("L4488s*4s", (unsigned long)si, CATEGORY_SERVICE, 1, valid_global, valid_cat, tmp.s_name, tmp.s_aliases, tmp.s_port, tmp.s_proto);
-	
-	if (tmp.s_aliases != NULL) {
-		free(tmp.s_aliases);
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY) return _extract_service_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_service_dict(si, reply, valid_global, valid_cat);
+
+	return NULL;
+}
+
+/*
+ * protocol schema
+ *
+ *				name	: string
+ *				proto	: uint32
+ * optional		aliases	: array of string
+ *
+ */
+static si_item_t *
+_extract_protocol_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	struct protoent tmp;
+	int i = 0;
+	int arraycount = xpc_array_get_count(reply);
+
+	if ((arraycount < 2) || (arraycount > 3)) return NULL;
+
+	memset(&tmp, 0, sizeof(tmp));
+
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.p_name)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.p_proto)) return NULL;
+
+	if (arraycount == 3)
+	{
+		if (0 != _extract_string_list_from_xpc_array_index(reply, i++, NULL, (char ***)&tmp.p_aliases)) return NULL;
 	}
-	
+
+	item = (si_item_t *)LI_ils_create("L4488s*4", (unsigned long)si, CATEGORY_PROTOCOL, 1, valid_global, valid_cat, tmp.p_name, tmp.p_aliases, tmp.p_proto);
+
+	free(tmp.p_aliases);
+
+	return item;
+}
+
+static si_item_t *
+_extract_protocol_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	__block struct protoent tmp;
+	__block int status = 0;
+	__block int parts = 2;
+
+	tmp.p_name = (char *)"";
+	tmp.p_proto = 0;
+	tmp.p_aliases = NULL;
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "p_name"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.p_name);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "p_proto"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.p_proto);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "p_aliases"))
+		{
+			status |= _extract_string_list_from_xpc_array(value, NULL, (char ***)&tmp.p_aliases);
+			/* no parts check - this value is optional */
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0))
+	{
+		free(tmp.p_aliases);
+		return NULL;
+	}
+
+	item = (si_item_t *)LI_ils_create("L4488s*4", (unsigned long)si, CATEGORY_PROTOCOL, 1, valid_global, valid_cat, tmp.p_name, tmp.p_aliases, tmp.p_proto);
+
+	free(tmp.p_aliases);
+
 	return item;
 }
 
 static si_item_t *
 _extract_protocol(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
 {
-	struct protoent tmp;
-	si_item_t *item;
+	xpc_type_t type;
 
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
 
-	tmp.p_name = (char *) _extract_string(reply, "p_name");
-	tmp.p_proto = (int) _extract_uint32(reply, "p_proto");
-	tmp.p_aliases = _extract_array(reply, "p_aliases", NULL);
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY) return _extract_protocol_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_protocol_dict(si, reply, valid_global, valid_cat);
 
-	item = (si_item_t *)LI_ils_create("L4488s*4", (unsigned long)si, CATEGORY_PROTOCOL, 1, valid_global, valid_cat, tmp.p_name, tmp.p_aliases, tmp.p_proto);
-	if (tmp.p_aliases != NULL) {
-		free(tmp.p_aliases);
+	return NULL;
+}
+
+/*
+ * rpc schema
+ *
+ *				name	: string
+ *				number	: uint32
+ * optional		aliases	: array of string
+ *
+ */
+
+static si_item_t *
+_extract_rpc_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	struct rpcent tmp;
+	int i = 0;
+	int arraycount = xpc_array_get_count(reply);
+
+	if ((arraycount < 2) || (arraycount > 3)) return NULL;
+
+	memset(&tmp, 0, sizeof(tmp));
+
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.r_name)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.r_number)) return NULL;
+
+	if (arraycount == 3)
+	{
+		if (0 != _extract_string_list_from_xpc_array_index(reply, i++, NULL, (char ***)&tmp.r_aliases)) return NULL;
 	}
-	
+
+	item = (si_item_t *)LI_ils_create("L4488s*4", (unsigned long)si, CATEGORY_RPC, 1, valid_global, valid_cat, tmp.r_name, tmp.r_aliases, tmp.r_number);
+
+	free(tmp.r_aliases);
+
+	return item;
+}
+
+static si_item_t *
+_extract_rpc_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	si_item_t *item;
+	__block struct rpcent tmp;
+	__block int status = 0;
+	__block int parts = 2;
+
+	tmp.r_name = (char *)"";
+	tmp.r_number = 0;
+	tmp.r_aliases = NULL;
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "r_name"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.r_name);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "r_number"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.r_number);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "r_aliases"))
+		{
+			status |= _extract_string_list_from_xpc_array(value, NULL, (char ***)&tmp.r_aliases);
+			/* no parts check - this value is optional */
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0))
+	{
+		free(tmp.r_aliases);
+		return NULL;
+	}
+
+	item = (si_item_t *)LI_ils_create("L4488s*4", (unsigned long)si, CATEGORY_RPC, 1, valid_global, valid_cat, tmp.r_name, tmp.r_aliases, tmp.r_number);
+
+	free(tmp.r_aliases);
+
 	return item;
 }
 
 static si_item_t *
 _extract_rpc(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
 {
-	struct rpcent tmp;
-	si_item_t *item;
+	xpc_type_t type;
 
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
 
-	tmp.r_name = (char *) _extract_string(reply, "r_name");
-	tmp.r_number = (int) _extract_uint32(reply, "r_number");
-	tmp.r_aliases = _extract_array(reply, "r_aliases", NULL);
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY) return _extract_rpc_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_rpc_dict(si, reply, valid_global, valid_cat);
 
-	item = (si_item_t *)LI_ils_create("L4488s*4", (unsigned long)si, CATEGORY_RPC, 1, valid_global, valid_cat, tmp.r_name, tmp.r_aliases, tmp.r_number);
-	if (tmp.r_aliases != NULL) {
-		free(tmp.r_aliases);
-	}
-	
-	return item;
+	return NULL;
 }
 
+/*
+ * fstab schema
+ *
+ *				file	: string
+ *				spec	: string
+ *				freq	: uint32
+ *				passno	: uint32
+ *				mntopts	: string
+ *				type	: string
+ *				vfstype	: string
+ */
+
 static si_item_t *
-_extract_fstab(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
+_extract_fstab_array(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
 {
-	struct fstab tmp;
+	__block struct fstab tmp;
+	int i = 0;
 
-	if (si == NULL) return NULL;
-	if (reply == NULL) return NULL;
+	if (xpc_array_get_count(reply) != 7) return NULL;
 
-	tmp.fs_file = (char *) _extract_string(reply, "fs_file");
-	if (tmp.fs_file == NULL) return NULL;
-	
-	tmp.fs_spec = (char *) _extract_string(reply, "fs_spec");
-	tmp.fs_freq = _extract_uint32(reply, "fs_freq");
-	tmp.fs_passno = _extract_uint32(reply, "fs_passno");
-	tmp.fs_mntops = (char *) _extract_string(reply, "fs_mntops");
-	tmp.fs_type = (char *) _extract_string(reply, "fs_type");
-	tmp.fs_vfstype = (char *) _extract_string(reply, "fs_vfstype");
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.fs_file)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.fs_spec)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.fs_freq)) return NULL;
+	if (0 != _extract_uint32_from_xpc_array_index(reply, i++, (uint32_t *)&tmp.fs_passno)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.fs_mntops)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.fs_type)) return NULL;
+	if (0 != _extract_string_from_xpc_array_index(reply, i++, (const char **)&tmp.fs_vfstype)) return NULL;
 
 	return (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, valid_global, valid_cat, tmp.fs_spec, tmp.fs_file, tmp.fs_vfstype, tmp.fs_mntops, tmp.fs_type, tmp.fs_freq, tmp.fs_passno);
 }
 
 static si_item_t *
+_extract_fstab_dict(si_mod_t *si, xpc_object_t reply, uint64_t valid_global, uint64_t valid_cat)
+{
+	__block struct fstab tmp;
+	__block int status = 0;
+	__block int parts = 7;
+
+	tmp.fs_file = NULL;
+	tmp.fs_spec = (char *)"";
+	tmp.fs_freq = 0;
+	tmp.fs_passno = 0;
+	tmp.fs_mntops = (char *)"";
+	tmp.fs_type = (char *)"";
+	tmp.fs_vfstype = (char *)"";
+
+	xpc_dictionary_apply(reply, ^bool(const char *key, xpc_object_t value) {
+		if (key == NULL) return true;
+		else if (!strcmp(key, "fs_file"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.fs_file);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "fs_spec"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.fs_spec);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "fs_freq"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.fs_freq);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "fs_passno"))
+		{
+			status |= _extract_uint32_from_xpc_object(value, (uint32_t *)&tmp.fs_passno);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "fs_mntops"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.fs_mntops);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "fs_type"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.fs_type);
+			if (status == 0) parts--;
+		}
+		else if (!strcmp(key, "fs_vfstype"))
+		{
+			status |= _extract_string_from_xpc_object(value, (const char **)&tmp.fs_vfstype);
+			if (status == 0) parts--;
+		}
+		return true;
+	});
+
+	if ((status != 0) || (parts != 0)) return NULL;
+
+	return (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, valid_global, valid_cat, tmp.fs_spec, tmp.fs_file, tmp.fs_vfstype, tmp.fs_mntops, tmp.fs_type, tmp.fs_freq, tmp.fs_passno);
+}
+
+static si_item_t *
+_extract_fstab(si_mod_t *si, xpc_object_t reply, __unused const void *ignored, uint64_t valid_global, uint64_t valid_cat)
+{
+	xpc_type_t type;
+
+	if (si == NULL) return NULL;
+	if (reply == NULL) return NULL;
+
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY) return _extract_fstab_array(si, reply, valid_global, valid_cat);
+	else if (type == XPC_TYPE_DICTIONARY) return _extract_fstab_dict(si, reply, valid_global, valid_cat);
+
+	return NULL;
+}
+
+static si_item_t *
 _extract_mac_mac(si_mod_t *si, xpc_object_t reply, const void *extra, uint64_t valid_global, uint64_t valid_cat)
 {
-	const char *value;
+	xpc_type_t type;
 	char *cmac;
+	const char *value = NULL;
 	si_item_t *out;
 
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
 	if (extra == NULL) return NULL;
 
-	value = _extract_string(reply, "mac");
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY)
+	{
+		if (xpc_array_get_count(reply) >= 1)
+		{
+			if (0 != _extract_string_from_xpc_array_index(reply, 0, (const char **)&value)) return NULL;
+		}
+	}
+	else if (type == XPC_TYPE_DICTIONARY)
+	{
+		if (0 != _extract_string_from_xpc_dict(reply, "mac", &value)) return NULL;
+	}
+
 	if (value == NULL || value[0] == '\0') return NULL;
-	
+
 	cmac = si_standardize_mac_address(value);
 	if (cmac == NULL) return NULL;
 
 	out = (si_item_t *)LI_ils_create("L4488ss", (unsigned long)si, CATEGORY_MAC, 1, valid_global, valid_cat, extra, cmac);
-	
+
 	free(cmac);
-	
+
 	return out;
 }
 
 static si_item_t *
 _extract_mac_name(si_mod_t *si, xpc_object_t reply, const void *extra, uint64_t valid_global, uint64_t valid_cat)
 {
-	const char *name;
+	xpc_type_t type;
+	const char *name = NULL;
 	si_item_t *out;
 
 	if (si == NULL) return NULL;
 	if (reply == NULL) return NULL;
 	if (extra == NULL) return NULL;
 
-	name = _extract_string(reply, "name");
+	type = xpc_get_type(reply);
+	if (type == XPC_TYPE_ARRAY)
+	{
+		if (xpc_array_get_count(reply) >= 1)
+		{
+			if (0 != _extract_string_from_xpc_array_index(reply, 0, (const char **)&name )) return NULL;
+		}
+	}
+	else if (type == XPC_TYPE_DICTIONARY)
+	{
+		if (0 != _extract_string_from_xpc_dict(reply, "name", &name)) return NULL;
+	}
+
+	if (name == NULL) return NULL;
 
 	out = (si_item_t *)LI_ils_create("L4488ss", (unsigned long)si, CATEGORY_MAC, 1, valid_global, valid_cat, name, extra);
+
 	return out;
 }
 
@@ -932,7 +1722,7 @@ ds_group_bygid(si_mod_t *si, gid_t gid)
 	si_item_t *item;
 
 	if (!_od_running()) return NULL;
-	
+
 	payload = _xpc_query_key_id("gid", gid);
 	if (payload == NULL) return NULL;
 
@@ -949,7 +1739,7 @@ ds_group_byuuid(si_mod_t *si, uuid_t uuid)
 	si_item_t *item;
 
 	if (!_od_running()) return NULL;
-	
+
 	payload = _xpc_query_key_uuid("uuid", uuid);
 	if (payload == NULL) return NULL;
 
@@ -977,31 +1767,34 @@ ds_grouplist(si_mod_t *si, const char *name, uint32_t ngroups)
 
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return NULL;
-	
+
 	xpc_dictionary_set_string(payload, "name", name);
 	xpc_dictionary_set_int64(payload, "ngroups", ngroups);
-	
+
 	reply = _od_rpc_call("getgrouplist", payload, _od_xpc_pipe);
 	if (reply != NULL) {
 		size_t gidptrsz;
 		const gid_t *gidptr = xpc_dictionary_get_data(reply, "groups", &gidptrsz);
-		int32_t count;
+		uint32_t count = 0;
 		uint64_t va, vb;
-		
+
 		_ds_get_validation(si, &va, &vb, CATEGORY_GROUPLIST);
 
 		/* see what we were sent */
-		count = _extract_uint32(reply, "count");
-		if (count != 0) {
-			item = (si_item_t *)LI_ils_create("L4488s4@", (unsigned long)si, CATEGORY_GROUPLIST, 1, va, vb, name, count, 
-											  gidptrsz, gidptr);
+		if (0 == _extract_uint32_from_xpc_dict(reply, "count", &count))
+		{
+			if (count != 0)
+			{
+				item = (si_item_t *)LI_ils_create("L4488s4@", (unsigned long)si, CATEGORY_GROUPLIST, 1, va, vb, name, count,
+												  gidptrsz, gidptr);
+			}
 		}
-		
+
 		xpc_release(reply);
 	}
-	
+
 	xpc_release(payload);
-	
+
 	return item;
 }
 
@@ -1035,10 +1828,10 @@ ds_in_netgroup(si_mod_t *si, const char *group, const char *host, const char *us
 	int is_innetgr;
 
 	if (!_od_running()) return 0;
-	
+
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return 0;
-	
+
 	xpc_dictionary_set_string(payload, "netgroup", (group ? group : ""));
 	xpc_dictionary_set_string(payload, "host", (host ? host : ""));
 	xpc_dictionary_set_string(payload, "user", (user ? user : ""));
@@ -1064,7 +1857,7 @@ ds_alias_byname(si_mod_t *si, const char *name)
 	si_item_t *item;
 
 	if (!_od_running()) return NULL;
-	
+
 	payload = _xpc_query_key_string("name", name);
 	if (payload == NULL) return NULL;
 
@@ -1088,7 +1881,7 @@ ds_network_byname(si_mod_t *si, const char *name)
 	si_item_t *item;
 
 	if (!_od_running()) return NULL;
-	
+
 	payload = _xpc_query_key_string("name", name);
 	if (payload == NULL) return NULL;
 
@@ -1107,7 +1900,7 @@ ds_network_byaddr(si_mod_t *si, uint32_t addr)
 	si_item_t *item;
 
 	if (!_od_running()) return NULL;
-	
+
 	f1 = addr & 0xff;
 	addr >>= 8;
 	f2 = addr & 0xff;
@@ -1155,14 +1948,14 @@ ds_service_byname(si_mod_t *si, const char *name, const char *proto)
 
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return NULL;
-	
+
 	xpc_dictionary_set_string(payload, "name", name);
 	xpc_dictionary_set_string(payload, "proto", proto);
-	
+
 	item = _ds_item(si, CATEGORY_SERVICE, "getservbyname", NULL, _extract_service, payload);
 
 	xpc_release(payload);
-	
+
 	return item;
 }
 
@@ -1176,7 +1969,7 @@ ds_service_byport(si_mod_t *si, int port, const char *proto)
 
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return NULL;
-	
+
 	/* swap to native order, API passes network order */
 	xpc_dictionary_set_int64(payload, "port", ntohs(port));
 	xpc_dictionary_set_string(payload, "proto", (proto ? proto : ""));
@@ -1184,7 +1977,7 @@ ds_service_byport(si_mod_t *si, int port, const char *proto)
 	item = _ds_item(si, CATEGORY_SERVICE, "getservbyport", NULL, _extract_service, payload);
 
 	xpc_release(payload);
-	
+
 	return item;
 }
 
@@ -1282,7 +2075,7 @@ ds_fs_byspec(si_mod_t *si, const char *name)
 	si_item_t *item;
 
 	if (!_od_running()) return NULL;
-	
+
 	payload = _xpc_query_key_string("name", name);
 	if (payload == NULL) return NULL;
 
@@ -1330,7 +2123,7 @@ ds_mac_byname(si_mod_t *si, const char *name)
 	si_item_t *item;
 
 	if (!_od_running()) return NULL;
-	
+
 	payload = _xpc_query_key_string("name", name);
 	if (payload == NULL) return NULL;
 
@@ -1346,7 +2139,7 @@ ds_mac_bymac(si_mod_t *si, const char *mac)
 	xpc_object_t payload;
 	si_item_t *item;
 	char *cmac;
-	
+
 	if (!_od_running()) return NULL;
 
 	cmac = si_standardize_mac_address(mac);
@@ -1354,13 +2147,13 @@ ds_mac_bymac(si_mod_t *si, const char *mac)
 
 	payload = xpc_dictionary_create(NULL, NULL, 0);
 	if (payload == NULL) return NULL;
-	
+
 	payload = _xpc_query_key_string("mac", cmac);
 	item = _ds_item(si, CATEGORY_MAC, "gethostbymac", cmac, _extract_mac_name, payload);
 
 	free(cmac);
 	xpc_release(payload);
-	
+
 	return item;
 }
 
@@ -1460,7 +2253,7 @@ si_module_static_ds(void)
 		{
 			/*
 			 * Errors in registering for cache invalidation notifications are ignored.
-			 * If there are failures, the tokens remain set to -1 which just causes 
+			 * If there are failures, the tokens remain set to -1 which just causes
 			 * cached items to be invalidated.
 			 */
 			notify_register_check(kNotifyDSCacheInvalidation, &(pp->notify_token_global));

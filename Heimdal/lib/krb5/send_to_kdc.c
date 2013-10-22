@@ -3,7 +3,7 @@
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  *
- * Portions Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2010 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,208 +36,22 @@
 #include "krb5_locl.h"
 #include "send_to_kdc_plugin.h"
 
-struct send_to_kdc {
-    krb5_send_to_kdc_func func;
-    void *data;
-};
-
-/*
- * send the data in `req' on the socket `fd' (which is datagram iff udp)
- * waiting `tmout' for a reply and returning the reply in `rep'.
- * iff limit read up to this many bytes
- * returns 0 and data in `rep' if succesful, otherwise -1
+/**
+ * @section send_to_kdc Locating and sending packets to the KDC
+ *
+ * The send to kdc code is responsible to request the list of KDC from
+ * the locate-kdc subsystem and then send requests to each of them.
+ *
+ * - Each second a new hostname is tried.
+ * - If the hostname have several addresses, the first will be tried
+ *   directly then in turn the other will be tried every 3 seconds
+ *   (host_timeout).
+ * - UDP requests are tried 3 times, and it tried with a individual timeout of kdc_timeout / 3.
+ * - TCP and HTTP requests are tried 1 time.
+ *
+ *  Total wait time shorter then (number of addresses * 3) + kdc_timeout seconds.
+ *
  */
-
-static int
-recv_loop (krb5_socket_t fd,
-	   time_t tmout,
-	   int udp,
-	   size_t limit,
-	   krb5_data *rep)
-{
-     fd_set fdset;
-     struct timeval timeout;
-     int ret;
-     int nbytes;
-
-#ifndef NO_LIMIT_FD_SETSIZE
-     if (fd >= FD_SETSIZE) {
-	 return -1;
-     }
-#endif
-
-     krb5_data_zero(rep);
-     do {
-	 FD_ZERO(&fdset);
-	 FD_SET(fd, &fdset);
-	 timeout.tv_sec  = tmout;
-	 timeout.tv_usec = 0;
-	 ret = select (fd + 1, &fdset, NULL, NULL, &timeout);
-	 if (ret < 0) {
-	     if (errno == EINTR)
-		 continue;
-	     return -1;
-	 } else if (ret == 0) {
-	     return 0;
-	 } else {
-	     void *tmp;
-
-	     if (rk_SOCK_IOCTL (fd, FIONREAD, &nbytes) < 0) {
-		 krb5_data_free (rep);
-		 return -1;
-	     }
-	     if(nbytes <= 0)
-		 return 0;
-
-	     if (limit)
-		 nbytes = min((size_t)nbytes, limit - rep->length);
-
-	     tmp = realloc (rep->data, rep->length + nbytes);
-	     if (tmp == NULL) {
-		 krb5_data_free (rep);
-		 return -1;
-	     }
-	     rep->data = tmp;
-	     ret = recv (fd, (char*)tmp + rep->length, nbytes, 0);
-	     if (ret < 0) {
-		 krb5_data_free (rep);
-		 return -1;
-	     }
-	     rep->length += ret;
-	 }
-     } while(!udp && (limit == 0 || rep->length < limit));
-     return 0;
-}
-
-/*
- * Send kerberos requests and receive a reply on a udp or any other kind
- * of a datagram socket.  See `recv_loop'.
- */
-
-static int
-send_and_recv_udp(krb5_socket_t fd,
-		  time_t tmout,
-		  const krb5_data *req,
-		  krb5_data *rep)
-{
-    if (send (fd, req->data, req->length, 0) < 0)
-	return -1;
-
-    return recv_loop(fd, tmout, 1, 0, rep);
-}
-
-/*
- * `send_and_recv' for a TCP (or any other stream) socket.
- * Since there are no record limits on a stream socket the protocol here
- * is to prepend the request with 4 bytes of its length and the reply
- * is similarly encoded.
- */
-
-static int
-send_and_recv_tcp(krb5_socket_t fd,
-		  time_t tmout,
-		  const krb5_data *req,
-		  krb5_data *rep)
-{
-    unsigned char len[4];
-    unsigned long rep_len;
-    krb5_data len_data;
-
-    _krb5_put_int(len, req->length, 4);
-    if(net_write (fd, len, sizeof(len)) < 0)
-	return -1;
-    if(net_write (fd, req->data, req->length) < 0)
-	return -1;
-    if (recv_loop (fd, tmout, 0, 4, &len_data) < 0)
-	return -1;
-    if (len_data.length != 4) {
-	krb5_data_free (&len_data);
-	return -1;
-    }
-    _krb5_get_int(len_data.data, &rep_len, 4);
-    krb5_data_free (&len_data);
-    if (recv_loop (fd, tmout, 0, rep_len, rep) < 0)
-	return -1;
-    if(rep->length != rep_len) {
-	krb5_data_free (rep);
-	return -1;
-    }
-    return 0;
-}
-
-int
-_krb5_send_and_recv_tcp(krb5_socket_t fd,
-			time_t tmout,
-			const krb5_data *req,
-			krb5_data *rep)
-{
-    return send_and_recv_tcp(fd, tmout, req, rep);
-}
-
-/*
- * `send_and_recv' tailored for the HTTP protocol.
- */
-
-static int
-send_and_recv_http(krb5_socket_t fd,
-		   time_t tmout,
-		   const char *prefix,
-		   const krb5_data *req,
-		   krb5_data *rep)
-{
-    char *request = NULL;
-    char *str;
-    int ret;
-    int len = base64_encode(req->data, req->length, &str);
-
-    if(len < 0)
-	return -1;
-    ret = asprintf(&request, "GET %s%s HTTP/1.0\r\n\r\n", prefix, str);
-    free(str);
-    if (ret < 0 || request == NULL)
-	return -1;
-    ret = net_write (fd, request, strlen(request));
-    free (request);
-    if (ret < 0)
-	return ret;
-    ret = recv_loop(fd, tmout, 0, 0, rep);
-    if(ret)
-	return ret;
-    {
-	unsigned long rep_len;
-	char *s, *p;
-
-	s = realloc(rep->data, rep->length + 1);
-	if (s == NULL) {
-	    krb5_data_free (rep);
-	    return -1;
-	}
-	s[rep->length] = 0;
-	p = strstr(s, "\r\n\r\n");
-	if(p == NULL) {
-	    krb5_data_zero(rep);
-	    free(s);
-	    return -1;
-	}
-	p += 4;
-	rep->data = s;
-	rep->length -= p - s;
-	if(rep->length < 4) { /* remove length */
-	    krb5_data_zero(rep);
-	    free(s);
-	    return -1;
-	}
-	rep->length -= 4;
-	_krb5_get_int(p, &rep_len, 4);
-	if (rep_len != rep->length) {
-	    krb5_data_zero(rep);
-	    free(s);
-	    return -1;
-	}
-	memmove(rep->data, p + 4, rep->length);
-    }
-    return 0;
-}
 
 static int
 init_port(const char *s, int fallback)
@@ -251,302 +65,125 @@ init_port(const char *s, int fallback)
 	return fallback;
 }
 
-/*
- * Return 0 if succesful, otherwise 1
- */
+struct send_via_plugin_s {
+    krb5_const_realm realm;
+    krb5_krbhst_info *hi;
+    time_t timeout;
+    const krb5_data *send_data;
+    krb5_data *receive;
+};
+    
 
-static int
-send_via_proxy (krb5_context context,
-		const krb5_krbhst_info *hi,
-		const krb5_data *send_data,
-		krb5_data *receive)
+static krb5_error_code KRB5_LIB_CALL
+kdccallback(krb5_context context, const void *plug, void *plugctx, void *userctx)
 {
-    char *proxy2 = strdup(context->http_proxy);
-    char *proxy  = proxy2;
-    char *prefix = NULL;
-    char *colon;
-    struct addrinfo hints;
-    struct addrinfo *ai, *a;
-    int ret;
-    krb5_socket_t s = rk_INVALID_SOCKET;
-    char portstr[NI_MAXSERV];
+    const krb5plugin_send_to_kdc_ftable *service = (const krb5plugin_send_to_kdc_ftable *)plug;
+    struct send_via_plugin_s *ctx = userctx;
 
-    if (proxy == NULL)
-	return ENOMEM;
-    if (strncmp (proxy, "http://", 7) == 0)
-	proxy += 7;
+    if (service->send_to_kdc == NULL)
+	return KRB5_PLUGIN_NO_HANDLE;
+    return service->send_to_kdc(context, plugctx, ctx->hi, ctx->timeout,
+				ctx->send_data, ctx->receive);
+}
 
-    colon = strchr(proxy, ':');
-    if(colon != NULL)
-	*colon++ = '\0';
-    memset (&hints, 0, sizeof(hints));
-    hints.ai_family   = PF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    snprintf (portstr, sizeof(portstr), "%d",
-	      ntohs(init_port (colon, htons(80))));
-    ret = getaddrinfo (proxy, portstr, &hints, &ai);
-    free (proxy2);
-    if (ret)
-	return krb5_eai_to_heim_errno(ret, errno);
+static krb5_error_code KRB5_LIB_CALL
+realmcallback(krb5_context context, const void *plug, void *plugctx, void *userctx)
+{
+    const krb5plugin_send_to_kdc_ftable *service = (const krb5plugin_send_to_kdc_ftable *)plug;
+    struct send_via_plugin_s *ctx = userctx;
 
-    for (a = ai; a != NULL; a = a->ai_next) {
-	s = socket (a->ai_family, a->ai_socktype | SOCK_CLOEXEC, a->ai_protocol);
-	if (s < 0)
-	    continue;
-	rk_cloexec(s);
-	if (connect (s, a->ai_addr, a->ai_addrlen) < 0) {
-	    rk_closesocket (s);
-	    continue;
-	}
-	break;
-    }
-    if (a == NULL) {
-	freeaddrinfo (ai);
-	return 1;
-    }
-    freeaddrinfo (ai);
-
-    ret = asprintf(&prefix, "http://%s/", hi->hostname);
-    if(ret < 0 || prefix == NULL) {
-	close(s);
-	return 1;
-    }
-    ret = send_and_recv_http(s, context->kdc_timeout,
-			     prefix, send_data, receive);
-    rk_closesocket (s);
-    free(prefix);
-    if(ret == 0 && receive->length != 0)
-	return 0;
-    return 1;
+    if (service->send_to_realm == NULL)
+	return KRB5_PLUGIN_NO_HANDLE;
+    return service->send_to_realm(context, plugctx, ctx->realm, ctx->timeout,
+				  ctx->send_data, ctx->receive);
 }
 
 static krb5_error_code
-send_via_plugin(krb5_context context,
-		krb5_krbhst_info *hi,
-		time_t timeout,
-		const krb5_data *send_data,
-		krb5_data *receive)
+kdc_via_plugin(krb5_context context,
+	       krb5_krbhst_info *hi,
+	       time_t timeout,
+	       const krb5_data *send_data,
+	       krb5_data *receive)
 {
-    struct krb5_plugin *list = NULL, *e;
-    krb5_error_code ret;
+    struct send_via_plugin_s userctx;
 
-    ret = _krb5_plugin_find(context, PLUGIN_TYPE_DATA, KRB5_PLUGIN_SEND_TO_KDC, &list);
-    if(ret != 0 || list == NULL)
-	return KRB5_PLUGIN_NO_HANDLE;
+    userctx.realm = NULL;
+    userctx.hi = hi;
+    userctx.timeout = timeout;
+    userctx.send_data = send_data;
+    userctx.receive = receive;
 
-    for (e = list; e != NULL; e = _krb5_plugin_get_next(e)) {
-	krb5plugin_send_to_kdc_ftable *service;
-	void *ctx;
-
-	service = _krb5_plugin_get_symbol(e);
-	if (service->minor_version != 0)
-	    continue;
-
-	(*service->init)(context, &ctx);
-	ret = (*service->send_to_kdc)(context, ctx, hi,
-				      timeout, send_data, receive);
-	(*service->fini)(ctx);
-	if (ret == 0)
-	    break;
-	if (ret != KRB5_PLUGIN_NO_HANDLE) {
-	    krb5_set_error_message(context, ret,
-				   N_("Plugin send_to_kdc failed to "
-				      "lookup with error: %d", ""), ret);
-	    break;
-	}
-    }
-    _krb5_plugin_free(list);
-    return KRB5_PLUGIN_NO_HANDLE;
+    return krb5_plugin_run_f(context, "krb5", KRB5_PLUGIN_SEND_TO_KDC,
+			     KRB5_PLUGIN_SEND_TO_KDC_VERSION_0, 0,
+			     &userctx, kdccallback);
 }
 
-
-/*
- * Send the data `send' to one host from `handle` and get back the reply
- * in `receive'.
- */
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_sendto (krb5_context context,
-	     const krb5_data *send_data,
-	     krb5_krbhst_handle handle,
-	     krb5_data *receive)
+static krb5_error_code
+realm_via_plugin(krb5_context context,
+		 krb5_const_realm realm,
+		 time_t timeout,
+		 const krb5_data *send_data,
+		 krb5_data *receive)
 {
-     krb5_error_code ret;
-     krb5_socket_t fd;
-     size_t i;
+    struct send_via_plugin_s userctx;
 
-     krb5_data_zero(receive);
+    userctx.realm = realm;
+    userctx.hi = NULL;
+    userctx.timeout = timeout;
+    userctx.send_data = send_data;
+    userctx.receive = receive;
 
-     for (i = 0; i < context->max_retries; ++i) {
-	 krb5_krbhst_info *hi;
-
-	 while (krb5_krbhst_next(context, handle, &hi) == 0) {
-	     struct addrinfo *ai, *a;
-
-	     _krb5_debugx(context, 2,
-			 "trying to communicate with host %s in realm %s",
-			 hi->hostname, _krb5_krbhst_get_realm(handle));
-
-	     if (context->send_to_kdc) {
-		 struct send_to_kdc *s = context->send_to_kdc;
-
-		 ret = (*s->func)(context, s->data, hi,
-				  context->kdc_timeout, send_data, receive);
-		 if (ret == 0 && receive->length != 0)
-		     goto out;
-		 continue;
-	     }
-
-	     ret = send_via_plugin(context, hi, context->kdc_timeout,
-				   send_data, receive);
-	     if (ret == 0 && receive->length != 0)
-		 goto out;
-	     else if (ret != KRB5_PLUGIN_NO_HANDLE)
-		 continue;
-
-	     if(hi->proto == KRB5_KRBHST_HTTP && context->http_proxy) {
-		 if (send_via_proxy (context, hi, send_data, receive) == 0) {
-		     ret = 0;
-		     goto out;
-		 }
-		 continue;
-	     }
-
-	     ret = krb5_krbhst_get_addrinfo(context, hi, &ai);
-	     if (ret)
-		 continue;
-
-	     for (a = ai; a != NULL; a = a->ai_next) {
-		 fd = socket (a->ai_family, a->ai_socktype | SOCK_CLOEXEC, a->ai_protocol);
-		 if (rk_IS_BAD_SOCKET(fd))
-		     continue;
-		 rk_cloexec(fd);
-		 if (connect (fd, a->ai_addr, a->ai_addrlen) < 0) {
-		     rk_closesocket (fd);
-		     continue;
-		 }
-		 switch (hi->proto) {
-		 case KRB5_KRBHST_HTTP :
-		     ret = send_and_recv_http(fd, context->kdc_timeout,
-					      "", send_data, receive);
-		     break;
-		 case KRB5_KRBHST_TCP :
-		     ret = send_and_recv_tcp (fd, context->kdc_timeout,
-					      send_data, receive);
-		     break;
-		 case KRB5_KRBHST_UDP :
-		     ret = send_and_recv_udp (fd, context->kdc_timeout,
-					      send_data, receive);
-		     break;
-		 }
-		 rk_closesocket (fd);
-		 if(ret == 0 && receive->length != 0)
-		     goto out;
-	     }
-	 }
-	 krb5_krbhst_reset(context, handle);
-     }
-     krb5_clear_error_message (context);
-     ret = KRB5_KDC_UNREACH;
-out:
-     _krb5_debugx(context, 2,
-		 "result of trying to talk to realm %s = %d",
-		 _krb5_krbhst_get_realm(handle), ret);
-     return ret;
-}
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_sendto_kdc(krb5_context context,
-		const krb5_data *send_data,
-		const krb5_realm *realm,
-		krb5_data *receive)
-{
-    return krb5_sendto_kdc_flags(context, send_data, realm, receive, 0);
-}
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_sendto_kdc_flags(krb5_context context,
-		      const krb5_data *send_data,
-		      const krb5_realm *realm,
-		      krb5_data *receive,
-		      int flags)
-{
-    krb5_error_code ret;
-    krb5_sendto_ctx ctx;
-
-    ret = krb5_sendto_ctx_alloc(context, &ctx);
-    if (ret)
-	return ret;
-    krb5_sendto_ctx_add_flags(ctx, flags);
-    krb5_sendto_ctx_set_func(ctx, _krb5_kdc_retry, NULL);
-
-    ret = krb5_sendto_context(context, ctx, send_data, *realm, receive);
-    krb5_sendto_ctx_free(context, ctx);
-    return ret;
-}
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_set_send_to_kdc_func(krb5_context context,
-			  krb5_send_to_kdc_func func,
-			  void *data)
-{
-    free(context->send_to_kdc);
-    if (func == NULL) {
-	context->send_to_kdc = NULL;
-	return 0;
-    }
-
-    context->send_to_kdc = malloc(sizeof(*context->send_to_kdc));
-    if (context->send_to_kdc == NULL) {
-	krb5_set_error_message(context, ENOMEM,
-			       N_("malloc: out of memory", ""));
-	return ENOMEM;
-    }
-
-    context->send_to_kdc->func = func;
-    context->send_to_kdc->data = data;
-    return 0;
-}
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-_krb5_copy_send_to_kdc_func(krb5_context context, krb5_context to)
-{
-    if (context->send_to_kdc)
-	return krb5_set_send_to_kdc_func(to,
-					 context->send_to_kdc->func,
-					 context->send_to_kdc->data);
-    else
-	return krb5_set_send_to_kdc_func(to, NULL, NULL);
+    return krb5_plugin_run_f(context, "krb5", KRB5_PLUGIN_SEND_TO_KDC,
+			     KRB5_PLUGIN_SEND_TO_KDC_VERSION_2, 0,
+			     &userctx, realmcallback);
 }
 
 struct krb5_sendto_ctx_data {
+    struct heim_base_uniq base;
     int flags;
     int type;
     krb5_sendto_ctx_func func;
     void *data;
     char *hostname;
+    krb5_krbhst_handle krbhst;
 
     /* context2 */
     const krb5_data *send_data;
     krb5_data response;
     heim_array_t hosts;
+    const char *realm;
     int stateflags;
 #define KRBHST_COMPLETED	1
 
     /* prexmit */
     krb5_sendto_prexmit prexmit_func;
     void *prexmit_ctx;
+
+    /* stats */
+    struct {
+	struct timeval start_time;
+	struct timeval name_resolution;
+	struct timeval krbhst;
+	unsigned long sent_packets;
+	unsigned long num_hosts;
+    } stats;
+    unsigned int stid;
 };
+
+static void
+dealloc_sendto_ctx(void *ptr)
+{
+    krb5_sendto_ctx ctx = (krb5_sendto_ctx)ptr;
+    if (ctx->hostname)
+	free(ctx->hostname);
+    heim_release(ctx->hosts);
+    heim_release(ctx->krbhst);
+}
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_sendto_ctx_alloc(krb5_context context, krb5_sendto_ctx *ctx)
 {
-    *ctx = calloc(1, sizeof(**ctx));
-    if (*ctx == NULL) {
-	krb5_set_error_message(context, ENOMEM,
-			       N_("malloc: out of memory", ""));
-	return ENOMEM;
-    }
+    *ctx = heim_uniq_alloc(sizeof(**ctx), "sendto-context", dealloc_sendto_ctx);
     (*ctx)->hosts = heim_array_create();
 
     return 0;
@@ -569,7 +206,6 @@ krb5_sendto_ctx_set_type(krb5_sendto_ctx ctx, int type)
 {
     ctx->type = type;
 }
-
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_sendto_ctx_set_func(krb5_sendto_ctx ctx,
@@ -605,13 +241,18 @@ krb5_sendto_set_hostname(krb5_context context,
 }
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+_krb5_sendto_ctx_set_krb5hst(krb5_context context,
+			     krb5_sendto_ctx ctx,
+			     krb5_krbhst_handle handle)
+{
+    heim_release(ctx->krbhst);
+    ctx->krbhst = heim_retain(handle);
+}
+
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_sendto_ctx_free(krb5_context context, krb5_sendto_ctx ctx)
 {
-    if (ctx->hostname)
-	free(ctx->hostname);
-    heim_release(ctx->hosts);
-    memset(ctx, 0, sizeof(*ctx));
-    free(ctx);
+    heim_release(ctx);
 }
 
 krb5_error_code
@@ -646,26 +287,50 @@ _krb5_kdc_retry(krb5_context context, krb5_sendto_ctx ctx, void *data,
  *
  */
 
-struct host {
-    enum host_state { CONNECTING, CONNECTED, WAITING_REPLY, DEAD } state;
-    krb5_krbhst_info *hi;
-    struct addrinfo *ai;
-    rk_socket_t fd;
+struct host;
+
+struct host_fun {
     krb5_error_code (*prepare)(krb5_context, struct host *, const krb5_data *);
     krb5_error_code (*send)(krb5_context, struct host *);
     krb5_error_code (*recv)(krb5_context, struct host *, krb5_data *);
+    int ntries;
+};
+
+struct host {
+    struct heim_base_uniq base;
+    krb5_sendto_ctx ctx;
+    enum host_state { CONNECT, CONNECTING, CONNECTED, WAITING_REPLY, DEAD } state;
+    krb5_krbhst_info *hi;
+    struct addrinfo *ai;
+    rk_socket_t fd;
+    rk_socket_t fd2;
+    struct host_fun *fun;
     unsigned int tries;
     time_t timeout;
     krb5_data data;
+    unsigned int tid;
 };
 
 static void
-debug_host(krb5_context context, int level, struct host *host, const char *msg)
+debug_host(krb5_context context, int level, struct host *host, const char *fmt, ...)
+	__attribute__((__format__(__printf__, 4, 5)));
+
+static void
+debug_host(krb5_context context, int level, struct host *host, const char *fmt, ...)
 {
     const char *proto = "unknown";
     char name[NI_MAXHOST], port[NI_MAXSERV];
+    char *text = NULL;
+    va_list ap;
+    int ret;
 
     if (!_krb5_have_debug(context, 5))
+	return;
+
+    va_start(ap, fmt);
+    ret = vasprintf(&text, fmt, ap);
+    va_end(ap);
+    if (ret == -1 || text == NULL)
 	return;
 
     if (host->hi->proto == KRB5_KRBHST_HTTP)
@@ -674,12 +339,20 @@ debug_host(krb5_context context, int level, struct host *host, const char *msg)
 	proto = "tcp";
     else if (host->hi->proto == KRB5_KRBHST_UDP)
 	proto = "udp";
+    else if (host->hi->proto == KRB5_KRBHST_KKDCP)
+	proto = "kkdcp";
 
-    if (getnameinfo(host->ai->ai_addr, host->ai->ai_addrlen,
+    if (host->ai == NULL ||
+	getnameinfo(host->ai->ai_addr, host->ai->ai_addrlen,
 		    name, sizeof(name), port, sizeof(port), NI_NUMERICHOST) != 0)
+    {
 	name[0] = '\0';
+	port[0] = '\0';
+    }
 
-    _krb5_debugx(context, level, "%s: %s %s:%s (%s)", msg, proto, name, port, host->hi->hostname);
+    _krb5_debugx(context, level, "%s: %s %s:%s (%s) tid: %08x",
+		 text, proto, name, port, host->hi->hostname, host->tid);
+    free(text);
 }
 
 
@@ -689,6 +362,8 @@ deallocate_host(void *ptr)
     struct host *host = ptr;
     if (!rk_IS_BAD_SOCKET(host->fd))
 	rk_closesocket(host->fd);
+    if (!rk_IS_BAD_SOCKET(host->fd2))
+	rk_closesocket(host->fd2);
     krb5_data_free(&host->data);
     host->ai = NULL;
 }
@@ -696,7 +371,7 @@ deallocate_host(void *ptr)
 static void
 host_dead(krb5_context context, struct host *host, const char *msg)
 {
-    debug_host(context, 5, host, msg);
+    debug_host(context, 5, host, "%s", msg);
     rk_closesocket(host->fd);
     host->fd = rk_INVALID_SOCKET;
     host->state = DEAD;
@@ -729,8 +404,10 @@ recv_stream(krb5_context context, struct host *host)
     ssize_t sret;
     int nbytes;
 
-    if (rk_SOCK_IOCTL(host->fd, FIONREAD, &nbytes) != 0 || nbytes <= 0)
+    if (rk_SOCK_IOCTL(host->fd, FIONREAD, &nbytes) != 0 || nbytes <= 0) {
+	debug_host(context, 5, host, "failed to get nbytes from socket, no bytes there?");
 	return HEIM_NET_CONN_REFUSED;
+    }
 
     if (context->max_msg_size - host->data.length < nbytes) {
 	krb5_set_error_message(context, KRB5KRB_ERR_FIELD_TOOLONG,
@@ -748,6 +425,7 @@ recv_stream(krb5_context context, struct host *host)
     sret = read(host->fd, ((uint8_t *)host->data.data) + oldlen, nbytes);
     if (sret <= 0) {
 	ret = errno;
+	debug_host(context, 5, host, "failed to read bytes from stream: %d", ret);
 	return ret;
     }
     host->data.length = oldlen + sret;
@@ -757,6 +435,146 @@ recv_stream(krb5_context context, struct host *host)
     return 0;
 }
 
+/*
+ *
+ */
+
+static krb5_error_code
+send_kkdcp(krb5_context context, struct host *host)
+{
+#ifdef __APPLE__
+    dispatch_queue_t q;
+    char *url = NULL;
+    char *path = host->hi->path;
+    __block krb5_data data;
+
+    q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+    heim_retain(host);
+    heim_retain(host->ctx);
+    
+    if (path == NULL)
+	path = "";
+ 
+    if (host->hi->def_port != host->hi->port)
+	asprintf(&url, "https://%s:%d/%s", host->hi->hostname, host->hi->port, path);
+    else
+	asprintf(&url, "https://%s/%s", host->hi->hostname, path);
+    if (url == NULL)
+	return ENOMEM;
+    
+    data = host->data;
+    krb5_data_zero(&host->data);
+
+    debug_host(context, 5, host, "sending request to: %s", url);
+
+    dispatch_async(q, ^{
+	    krb5_error_code ret;
+	    krb5_data retdata;
+ 
+ 	    krb5_data_zero(&retdata);
+ 
+	    ret = _krb5_kkdcp_request(context, host->ctx->realm, url, 
+				      &data, &retdata);
+	    krb5_data_free(&data);
+ 	    free(url);
+ 	    if (ret == 0) {
+		uint8_t length[4];
+
+		debug_host(context, 5, host, "kkdcp: got %d bytes, feeding them back", (int)retdata.length);
+
+		_krb5_put_int(length, retdata.length, 4);
+		krb5_net_write_block(context, &host->fd2, length, sizeof(length), 2);
+		krb5_net_write_block(context, &host->fd2, retdata.data, retdata.length, 2);
+	    }
+ 
+ 	    close(host->fd2);
+	    host->fd2 = -1;
+	    heim_release(host->ctx);
+ 	    heim_release(host);
+ 	});
+     return 0;
+#else
+     close(host->fd2);
+     host->fd2 = -1;
+#endif
+}
+
+/*
+ *
+ */
+
+static void
+host_next_timeout(krb5_context context, struct host *host)
+{
+    host->timeout = context->kdc_timeout / host->fun->ntries;
+    if (host->timeout == 0)
+	host->timeout = 1;
+
+    host->timeout += time(NULL);
+}
+
+/*
+ * connected host
+ */
+
+static void
+host_connected(krb5_context context, krb5_sendto_ctx ctx, struct host *host)
+{
+    krb5_error_code ret;
+
+    host->state = CONNECTED; 
+    /*
+     * Now prepare data to send to host
+     */
+    if (ctx->prexmit_func) {
+	krb5_data data;
+	    
+	krb5_data_zero(&data);
+
+	ret = ctx->prexmit_func(context, host->hi->proto,
+				ctx->prexmit_ctx, host->fd, &data);
+	if (ret == 0) {
+	    if (data.length == 0) {
+		host_dead(context, host, "prexmit function didn't send data");
+		return;
+	    }
+	    ret = host->fun->prepare(context, host, &data);
+	    krb5_data_free(&data);
+	}
+	
+    } else {
+	ret = host->fun->prepare(context, host, ctx->send_data);
+    }
+    if (ret)
+	debug_host(context, 5, host, "failed to prexmit/prepare");
+}
+
+/*
+ * connect host
+ */
+
+static void
+host_connect(krb5_context context, krb5_sendto_ctx ctx, struct host *host)
+{
+    krb5_krbhst_info *hi = host->hi;
+    struct addrinfo *ai = host->ai;
+
+    debug_host(context, 5, host, "connecting to host");
+
+    if (connect(host->fd, ai->ai_addr, ai->ai_addrlen) < 0) {
+	if (errno == EINPROGRESS && (hi->proto == KRB5_KRBHST_HTTP || hi->proto == KRB5_KRBHST_TCP)) {
+	    debug_host(context, 5, host, "connecting to %d", host->fd);
+	    host->state = CONNECTING;
+	} else {
+	    host_dead(context, host, "failed to connect");
+	}
+    } else {
+	host_connected(context, ctx, host);
+    }
+
+    host_next_timeout(context, host);
+}
 
 /*
  * HTTP transport
@@ -769,7 +587,9 @@ prepare_http(krb5_context context, struct host *host, const krb5_data *data)
     krb5_error_code ret;
     int len;
 
-    len = base64_encode(data->data, data->length, &str);
+    heim_assert(host->data.length == 0, "prepare_http called twice");
+
+    len = base64_encode(data->data, (int)data->length, &str);
     if(len < 0)
 	return ENOMEM;
 
@@ -837,6 +657,8 @@ prepare_tcp(krb5_context context, struct host *host, const krb5_data *data)
     krb5_error_code ret;
     krb5_storage *sp;
 
+    heim_assert(host->data.length == 0, "prepare_tcp called twice");
+
     sp = krb5_storage_emem();
     if (sp == NULL)
 	return ENOMEM;
@@ -902,12 +724,16 @@ recv_udp(krb5_context context, struct host *host, krb5_data *data)
 {
     krb5_error_code ret;
     int nbytes;
+    ssize_t sret;
 
-
-    if (rk_SOCK_IOCTL(host->fd, FIONREAD, &nbytes) != 0 || nbytes <= 0)
+    if (rk_SOCK_IOCTL(host->fd, FIONREAD, &nbytes) != 0 || nbytes <= 0) {
+	debug_host(context, 5, host, "failed to get nbytes from socket, no bytes there?");
 	return HEIM_NET_CONN_REFUSED;
+    }
 
-    if (context->max_msg_size < nbytes) {
+    if (nbytes > context->max_msg_size) {
+	debug_host(context, 5, host, "server sent too large message %d (max is %d)",
+		   (int)nbytes, (int)context->max_msg_size);
 	krb5_set_error_message(context, KRB5KRB_ERR_FIELD_TOOLONG,
 			       N_("UDP message from KDC too large %d", ""),
 			       (int)nbytes);
@@ -918,23 +744,50 @@ recv_udp(krb5_context context, struct host *host, krb5_data *data)
     if (ret)
 	return ret;
 
-    ret = recv(host->fd, data->data, data->length, 0);
-    if (ret < 0) {
+    sret = recv(host->fd, data->data, data->length, 0);
+    if (sret < 0) {
+	debug_host(context, 5, host, "read data from nbytes from host: %d", errno);
 	ret = errno;
 	krb5_data_free(data);
 	return ret;
     }
-    data->length = ret;
+    data->length = sret;
 
     return 0;
 }
+
+static struct host_fun http_fun = {
+    prepare_http,
+    send_stream,
+    recv_http,
+    1
+};
+static struct host_fun kkdcp_fun = {
+    prepare_udp,
+    send_kkdcp,
+    recv_tcp,
+    1
+};
+static struct host_fun tcp_fun = {
+    prepare_tcp,
+    send_stream,
+    recv_tcp,
+    1
+};
+static struct host_fun udp_fun = {
+    prepare_udp,
+    send_udp,
+    recv_udp,
+    3
+};
+
 
 /*
  * Host state machine
  */
 
 static int
-eval_host_state(krb5_context context, 
+eval_host_state(krb5_context context,
 		krb5_sendto_ctx ctx,
 		struct host *host,
 		int readable, int writeable)
@@ -942,10 +795,13 @@ eval_host_state(krb5_context context,
     krb5_error_code ret;
 
     if (host->state == CONNECTING && writeable)
-	host->state = CONNECTED;
+	host_connected(context, ctx, host);
 
     if (readable) {
-	ret = host->recv(context, host, &ctx->response);
+
+	debug_host(context, 5, host, "reading packet");
+
+	ret = host->fun->recv(context, host, &ctx->response);
 	if (ret == -1) {
 	    /* not done yet */
 	} else if (ret == 0) {
@@ -960,7 +816,11 @@ eval_host_state(krb5_context context,
     /* check if there is anything to send, state might DEAD after read */
     if (writeable && host->state == CONNECTED) {
 
-	ret = host->send(context, host);
+	ctx->stats.sent_packets++;
+
+	debug_host(context, 5, host, "writing packet");
+
+	ret = host->fun->send(context, host);
 	if (ret == -1) {
 	    /* not done yet */
 	} else if (ret) {
@@ -976,21 +836,75 @@ eval_host_state(krb5_context context,
  *
  */
 
+static struct host *
+host_create(krb5_context context,
+	    krb5_sendto_ctx ctx,
+	    krb5_krbhst_info *hi,
+	    struct addrinfo *ai,
+	    int fd)
+{
+    struct host *host;
+
+    host = heim_uniq_alloc(sizeof(*host), "sendto-host", deallocate_host);
+    if (host == NULL)
+	    return ENOMEM;
+
+    host->hi = hi;
+    host->fd = fd;
+    host->fd2 = -1;
+    host->ai = ai;
+    host->ctx = ctx;
+    /* next version of stid */
+    host->tid = ctx->stid = (ctx->stid & 0xffff0000) | ((ctx->stid & 0xffff) + 1);
+
+    host->state = CONNECT;
+
+    switch (host->hi->proto) {
+    case KRB5_KRBHST_HTTP :
+	host->fun = &http_fun;
+	break;
+    case KRB5_KRBHST_KKDCP :
+	host->fun = &kkdcp_fun;
+	break;
+    case KRB5_KRBHST_TCP :
+	host->fun = &tcp_fun;
+	break;
+    case KRB5_KRBHST_UDP :
+	host->fun = &udp_fun;
+	break;
+    default:
+	heim_abort("undefined transport protocol: %d", (int)host->hi->proto);
+    }
+
+    host->tries = host->fun->ntries;
+    
+    heim_array_append_value(ctx->hosts, host);
+	
+    return host;
+}
+
+
+/*
+ *
+ */
+
 static krb5_error_code
 submit_request(krb5_context context, krb5_sendto_ctx ctx, krb5_krbhst_info *hi)
 {
-    krb5_boolean submitted_host = FALSE, freeai = FALSE;
+    unsigned long submitted_host = 0;
+    krb5_boolean freeai = FALSE;
+    struct timeval nrstart, nrstop;
     krb5_error_code ret;
     struct addrinfo *ai = NULL, *a;
     struct host *host;
 
-    ret = send_via_plugin(context, hi, context->kdc_timeout,
-			  ctx->send_data, &ctx->response);
+    ret = kdc_via_plugin(context, hi, context->kdc_timeout,
+			 ctx->send_data, &ctx->response);
     if (ret == 0) {
 	return 0;
     } else if (ret != KRB5_PLUGIN_NO_HANDLE) {
 	_krb5_debugx(context, 5, "send via plugin failed %s: %d",
-		    hi->hostname, ret);
+		     hi->hostname, ret);
 	return ret;
     }
 
@@ -998,6 +912,8 @@ submit_request(krb5_context context, krb5_sendto_ctx ctx, krb5_krbhst_info *hi)
      * If we have a proxy, let use the address of the proxy instead of
      * the KDC and let the proxy deal with the resolving of the KDC.
      */
+
+    gettimeofday(&nrstart, NULL);
 
     if (hi->proto == KRB5_KRBHST_HTTP && context->http_proxy) {
 	char *proxy2 = strdup(context->http_proxy);
@@ -1033,12 +949,20 @@ submit_request(krb5_context context, krb5_sendto_ctx ctx, krb5_krbhst_info *hi)
 	    return krb5_eai_to_heim_errno(ret, errno);
 	
 	freeai = TRUE;
-
+    } else if (hi->proto == KRB5_KRBHST_KKDCP) {
+	ai = NULL;
     } else {
 	ret = krb5_krbhst_get_addrinfo(context, hi, &ai);
 	if (ret)
 	    return ret;
     }
+
+    /* add up times */
+    gettimeofday(&nrstop, NULL);
+    timevalsub(&nrstop, &nrstart);
+    timevaladd(&ctx->stats.name_resolution, &nrstop);
+
+    ctx->stats.num_hosts++;
 
     for (a = ai; a != NULL; a = a->ai_next) {
 	rk_socket_t fd;
@@ -1047,6 +971,8 @@ submit_request(krb5_context context, krb5_sendto_ctx ctx, krb5_krbhst_info *hi)
 	if (rk_IS_BAD_SOCKET(fd))
 	    continue;
 	rk_cloexec(fd);
+	socket_set_nopipe(fd, 1);
+	socket_set_nonblocking(fd, 1);
 
 #ifndef NO_LIMIT_FD_SETSIZE
 	if (fd >= FD_SETSIZE) {
@@ -1055,99 +981,58 @@ submit_request(krb5_context context, krb5_sendto_ctx ctx, krb5_krbhst_info *hi)
 	    continue;
 	}
 #endif
-	socket_set_nonblocking(fd, 1);
-
-	host = heim_alloc(sizeof(*host), "sendto-host", deallocate_host);
+	host = host_create(context, ctx, hi, a, fd);
 	if (host == NULL) {
 	    rk_closesocket(fd);
-	    return ENOMEM;
+	    continue;
 	}
-	host->hi = hi;
-	host->fd = fd;
-	host->ai = a;
-
-	if (connect(fd, a->ai_addr, a->ai_addrlen) < 0) {
-	    if (errno == EINPROGRESS && (hi->proto == KRB5_KRBHST_HTTP || hi->proto == KRB5_KRBHST_TCP)) {
-		_krb5_debugx(context, 5, "connecting to %d", fd);
-		host->state = CONNECTING;
-	    } else {
-		debug_host(context, 5, host, "failed to connect");
-		heim_release(host);
-		continue;
-	    }
-	} else {
-	    host->state = CONNECTED;
-	}
-	
-	switch (host->hi->proto) {
-	case KRB5_KRBHST_HTTP :
-	    host->prepare = prepare_http;
-	    host->send = send_stream;
-	    host->recv = recv_http;
-	    host->tries = 1;
-	    break;
-	case KRB5_KRBHST_TCP :
-	    host->prepare = prepare_tcp;
-	    host->send = send_stream;
-	    host->recv = recv_tcp;
-	    host->tries = 1;
-	    break;
-	case KRB5_KRBHST_UDP :
-	    host->prepare = prepare_udp;
-	    host->send = send_udp;
-	    host->recv = recv_udp;
-	    host->tries = 3;
-	    break;
-	default:
-	    heim_abort("undefined http transport protocol: %d", (int)host->hi->proto);
-	}
-
-	debug_host(context, 5, host, "connecting to host");
 
 	/*
-	 * Now prepare data to send to host
+	 * Connect directly next host, wait a host_timeout for each next address
 	 */
-	if (ctx->prexmit_func) {
-	    krb5_data data;
-	    
-	    krb5_data_zero(&data);
-
-	    ret = ctx->prexmit_func(context, host->hi->proto,
-				    ctx->prexmit_ctx, fd, &data);
-	    if (ret == 0) {
-		if (data.length == 0) {
-		    debug_host(context, 5, host, "prexmit hook didn't want to send a packet, "
-			       "but also didn't want to abort the tries, just skip this host");
-		    heim_release(host);
-		    continue;
-		}
-		ret = host->prepare(context, host, &data);
-		krb5_data_free(&data);
-	    }
-
-	} else {
-	    ret = host->prepare(context, host, ctx->send_data);
-	}
-	if (ret) {
-	    debug_host(context, 5, host, "failed to prexmit/prepare");
-	    heim_release(host);
-	    /*
-	     * Prepare/prexmit hooks are fatal
-	     */
-	    return ret;
+	if (submitted_host == 0)
+	    host_connect(context, ctx, host);
+	else {
+	    debug_host(context, 5, host,
+		       "Queuing host in future (in %ds), "
+		       "its the %lu address on the same name",
+		       (int)(context->host_timeout * submitted_host),
+		       submitted_host + 1);
+	    host->timeout = time(NULL) + (submitted_host * context->host_timeout);
 	}
 
-	host->timeout = time(NULL) + context->kdc_timeout;
-
-	heim_array_append_value(ctx->hosts, host);
-
-	if (host->state == CONNECTED)
-	    eval_host_state(context, ctx, host, 0, 1);
-
+	submitted_host++;
 	heim_release(host);
-
-	submitted_host = TRUE;
     }
+
+    if (hi->proto == KRB5_KRBHST_KKDCP) {
+	int fds[2];
+
+	heim_assert(ai == NULL, "kkdcp host with ai ?");
+
+	if (socketpair(PF_LOCAL, SOCK_STREAM, 0, fds) < 0)
+	    return KRB5_KDC_UNREACH;
+
+	socket_set_nopipe(fds[0], 1);
+	socket_set_nopipe(fds[1], 1);
+	socket_set_nonblocking(fds[0], 1);
+	socket_set_nonblocking(fds[1], 1);
+
+	host = host_create(context, ctx, hi, NULL, fds[0]);
+	if (host == NULL) {
+	    close(fds[0]);
+	    close(fds[1]);
+	    return ENOMEM;
+	}
+	host->fd2 = fds[1];
+
+	host_next_timeout(context, host);
+	host_connected(context, ctx, host);
+
+	submitted_host++;
+	heim_release(host);
+    }
+
 
     if (freeai)
 	freeaddrinfo(ai);
@@ -1158,11 +1043,39 @@ submit_request(krb5_context context, krb5_sendto_ctx ctx, krb5_krbhst_info *hi)
     return 0;
 }
 
+static void
+set_fd_status(struct host *h, fd_set *rfds, fd_set *wfds, int *max_fd)
+{
+#ifndef NO_LIMIT_FD_SETSIZE
+    heim_assert(h->fd < FD_SETSIZE, "fd too large");
+#endif
+    switch (h->state) {
+    case WAITING_REPLY:
+	FD_SET(h->fd, rfds);
+	break;
+    case CONNECTING:
+    case CONNECTED:
+	FD_SET(h->fd, rfds);
+	FD_SET(h->fd, wfds);
+	break;
+    case DEAD:
+    case CONNECT:
+	break;
+    default:
+	heim_abort("set_fd_status: invalid host state: %d", (int)h->state);
+    }
+    if (h->fd > *max_fd)
+	*max_fd = h->fd + 1;
+}
+
+
+
 static krb5_error_code
 wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 {
+    __block struct host *next_pending = NULL;
     __block fd_set rfds, wfds;
-    __block unsigned max_fd = 0;
+    __block int max_fd = 0;
     __block int ret;
     struct timeval tv;
     time_t timenow;
@@ -1185,6 +1098,20 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 	    if (h->state == DEAD)
 		return;
 
+	    /*
+	     * process submitted by pending hosts here
+	     */
+	    if (h->state == CONNECT) {
+		if (h->timeout < timenow) {
+		    host_connect(context, ctx, h);
+		} else if (next_pending == NULL || next_pending->timeout > h->timeout) {
+		    next_pending = h;
+		    return;
+		} else {
+		    return;
+		}
+	    }
+
 	    /* if host timed out, dec tries and (retry or kill host) */
 	    if (h->timeout < timenow) {
 		heim_assert(h->tries != 0, "tries should not reach 0");
@@ -1194,28 +1121,41 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
 		    return;
 		} else {
 		    debug_host(context, 5, h, "retrying sending to");
-		    h->state = CONNECTED;
+		    host_next_timeout(context, h);
+		    host_connected(context, ctx, h);
 		}
 	    }
 
-#ifndef NO_LIMIT_FD_SETSIZE
-	    heim_assert(h->fd < FD_SETSIZE, "fd too large");
-#endif
-	    switch (h->state) {
-	    case WAITING_REPLY:
-		FD_SET(h->fd, &rfds);
-		break;
-	    case CONNECTING:
-	    case CONNECTED:
-		FD_SET(h->fd, &rfds);
-		FD_SET(h->fd, &wfds);
-		break;
-	    default:
-		heim_abort("invalid sendto host state");
-	    }
-	    if (h->fd > max_fd)
-		max_fd = h->fd;
+	    set_fd_status(h, &rfds, &wfds, &max_fd);
 	});
+
+    /*
+     * We have no host to wait for, but there is one pending, lets
+     * kick that one off.
+     */
+    if (max_fd == 0 && next_pending) {
+	time_t forward = next_pending->timeout - timenow;
+
+	host_connect(context, ctx, next_pending);
+	set_fd_status(next_pending, &rfds, &wfds, &max_fd);
+
+	/* 
+	 * Move all waiting host forward in time too, only if the next
+	 * host didn't happen the same about the same time as the last
+	 * expiration
+	*/
+	if (forward > 0) {
+	    heim_array_iterate(ctx->hosts, ^(heim_object_t obj, int *stop) {
+		    struct host *h = (struct host *)obj;
+		    
+		    if (h->state != CONNECT)
+			return;
+		    h->timeout -= forward;
+		    if (h->timeout < timenow)
+			h->timeout = timenow;
+		});
+	}
+    }
 
     heim_array_filter(ctx->hosts, ^(heim_object_t obj) {
 	    struct host *h = (struct host *)obj;
@@ -1239,8 +1179,11 @@ wait_response(krb5_context context, int *action, krb5_sendto_ctx ctx)
     tv.tv_usec = 0;
 
     ret = select(max_fd + 1, &rfds, &wfds, NULL, &tv);
-    if (ret < 0)
-	return errno;
+    if (ret < 0) {
+	if (errno != EAGAIN || errno != EINTR)
+	    return errno;
+	ret = 0;
+    }
     if (ret == 0) {
 	*action = KRB5_SENDTO_TIMEOUT;
 	return 0;
@@ -1291,17 +1234,18 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_sendto_context(krb5_context context,
 		    krb5_sendto_ctx ctx,
 		    const krb5_data *send_data,
-		    const krb5_realm realm,
+		    krb5_const_realm realm,
 		    krb5_data *receive)
 {
     krb5_error_code ret;
     krb5_krbhst_handle handle = NULL;
+    struct timeval nrstart, nrstop, stop_time;
     int type, freectx = 0;
     int action;
     int numreset = 0;
 
     krb5_data_zero(receive);
-    
+
     HEIM_WARN_BLOCKING("krb5_sendto_context", warn_once);
 
     if (ctx == NULL) {
@@ -1310,6 +1254,12 @@ krb5_sendto_context(krb5_context context,
 	    goto out;
 	freectx = 1;
     }
+
+    memset(&ctx->stats, 0, sizeof(ctx->stats));
+    gettimeofday(&ctx->stats.start_time, NULL);
+
+    ctx->realm = realm;
+    ctx->stid = (context->num_kdc_requests++) << 16;
 
     type = ctx->type;
     if (type == 0) {
@@ -1333,15 +1283,28 @@ krb5_sendto_context(krb5_context context,
 
 	switch (action) {
 	case KRB5_SENDTO_INITIAL:
-	    ret = krb5_krbhst_init_flags(context, realm, type,
-					 ctx->flags, &handle);
-	    if (ret)
-		goto out;
-
-	    if (ctx->hostname) {
-		ret = krb5_krbhst_set_hostname(context, handle, ctx->hostname);
+	    ret = realm_via_plugin(context, realm, context->kdc_timeout,
+				   send_data, receive);
+	    if (ret == 0 || ret != KRB5_PLUGIN_NO_HANDLE) {
+		action = KRB5_SENDTO_DONE;
+		break;
+	    }
+	    action = KRB5_SENDTO_KRBHST;
+	    /* FALLTHOUGH */
+	case KRB5_SENDTO_KRBHST:
+	    if (ctx->krbhst == NULL) {
+		ret = krb5_krbhst_init_flags(context, realm, type,
+					     ctx->flags, &handle);
 		if (ret)
 		    goto out;
+
+		if (ctx->hostname) {
+		    ret = krb5_krbhst_set_hostname(context, handle, ctx->hostname);
+		    if (ret)
+			goto out;
+		}
+	    } else {
+		handle = heim_retain(ctx->krbhst);
 	    }
 	    action = KRB5_SENDTO_TIMEOUT;
 	    /* FALLTHOUGH */
@@ -1359,14 +1322,26 @@ krb5_sendto_context(krb5_context context,
 	    /*
 	     * Pull out next host, if there is no more, close the
 	     * handle and mark as completed.
+	     *
+	     * Collect time spent in krbhst (dns, plugin, etc)
 	     */
 
+
+	    gettimeofday(&nrstart, NULL);
+
 	    ret = krb5_krbhst_next(context, handle, &hi);
+
+	    gettimeofday(&nrstop, NULL);
+	    timevalsub(&nrstop, &nrstart);
+	    timevaladd(&ctx->stats.krbhst, &nrstop);
+
 	    action = KRB5_SENDTO_CONTINUE;
 	    if (ret == 0) {
+		_krb5_debugx(context, 5, "submissing new requests to new host");
 		if (submit_request(context, ctx, hi) != 0)
 		    action = KRB5_SENDTO_TIMEOUT;
 	    } else {
+		_krb5_debugx(context, 5, "out of hosts, waiting for replies");
 		ctx->stateflags |= KRBHST_COMPLETED;
 	    }
 
@@ -1392,7 +1367,7 @@ krb5_sendto_context(krb5_context context,
 	    if (numreset >= 3)
 		action = KRB5_SENDTO_FAILED;
 	    else
-		action = KRB5_SENDTO_INITIAL;
+		action = KRB5_SENDTO_KRBHST;
 
 	    break;
 	case KRB5_SENDTO_FILTER:
@@ -1413,11 +1388,14 @@ krb5_sendto_context(krb5_context context,
 	    ret = 0;
 	    break;
 	default:
-	    heim_abort("invalid krb5_sendto_context state");
+	    heim_abort("invalid krb5_sendto_context action: %d", (int)action);
 	}
     }
 
  out:
+    gettimeofday(&stop_time, NULL);
+    timevalsub(&stop_time, &ctx->stats.start_time);
+    
     if (ret == 0 && ctx->response.length) {
 	*receive = ctx->response;
 	krb5_data_zero(&ctx->response);
@@ -1426,11 +1404,19 @@ krb5_sendto_context(krb5_context context,
 	krb5_clear_error_message (context);
 	ret = KRB5_KDC_UNREACH;
 	krb5_set_error_message(context, ret,
-			       N_("unable to reach any KDC in realm %s", ""),
-			       realm);
+			       N_("unable to reach any KDC in realm %s, tried %lu %s", ""),
+			       realm, ctx->stats.num_hosts,
+			       ctx->stats.num_hosts == 1 ? "KDC" : "KDCs");
     }
 
-    _krb5_debugx(context, 5, "krb5_sendto_context done: %d", ret);
+    _krb5_debugx(context, 1,
+		 "krb5_sendto_context %s done: %d hosts %lu packets %lu wc: %ld.%06d nr: %ld.%06d kh: %ld.%06d tid: %08x",
+		 ctx->realm, ret,
+		 ctx->stats.num_hosts, ctx->stats.sent_packets,
+		 stop_time.tv_sec, stop_time.tv_usec,
+		 ctx->stats.name_resolution.tv_sec, ctx->stats.name_resolution.tv_usec,
+		 ctx->stats.krbhst.tv_sec, ctx->stats.krbhst.tv_usec, ctx->stid);
+
 
     if (freectx)
 	krb5_sendto_ctx_free(context, ctx);

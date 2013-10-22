@@ -20,11 +20,21 @@
 #define MediaPlayerPrivateBlackBerry_h
 
 #if ENABLE(VIDEO)
+#include "AuthenticationChallengeManager.h"
 #include "MediaPlayerPrivate.h"
 
-#include <BlackBerryPlatformMMRPlayer.h>
+#include <BlackBerryPlatformPlayer.h>
 
 namespace BlackBerry {
+
+namespace Platform {
+class IntRect;
+
+namespace Graphics {
+class GLES2Program;
+}
+}
+
 namespace WebKit {
 class WebPageClient;
 }
@@ -32,25 +42,25 @@ class WebPageClient;
 
 namespace WebCore {
 
-class MediaPlayerPrivate : public MediaPlayerPrivateInterface, public BlackBerry::Platform::IMMRPlayerListener {
+class MediaPlayerPrivate : public MediaPlayerPrivateInterface, public AuthenticationChallengeClient, public BlackBerry::Platform::IPlatformPlayerListener {
 public:
     virtual ~MediaPlayerPrivate();
 
     static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static void registerMediaEngine(MediaEngineRegistrar);
-    static void getSupportedTypes(HashSet<String>&);
-    static MediaPlayer::SupportsType supportsType(const String&, const String&);
+    static void getSupportedTypes(HashSet<WTF::String>&);
+    static MediaPlayer::SupportsType supportsType(const WTF::String&, const WTF::String&, const KURL&);
     static void notifyAppActivatedEvent(bool);
-    static void setCertificatePath(const String&);
+    static void setCertificatePath(const WTF::String&);
 
-    virtual void load(const String& url);
+    virtual void load(const WTF::String& url);
     virtual void cancelLoad();
 
     virtual void prepareToPlay();
 #if USE(ACCELERATED_COMPOSITING)
     virtual PlatformMedia platformMedia() const;
     virtual PlatformLayer* platformLayer() const;
-    void drawBufferingAnimation(const TransformationMatrix&, int positionLocation, int texCoordLocation);
+    void drawBufferingAnimation(const TransformationMatrix&, const BlackBerry::Platform::Graphics::GLES2Program&);
 #endif
 
     virtual void play();
@@ -74,8 +84,11 @@ public:
     virtual void setRate(float);
 
     virtual bool paused() const;
+    virtual bool muted() const;
+    virtual bool supportsMuting() const { return true; }
 
     virtual void setVolume(float);
+    virtual void setMuted(bool);
 
     virtual MediaPlayer::NetworkState networkState() const;
     virtual MediaPlayer::ReadyState readyState() const;
@@ -83,17 +96,19 @@ public:
     virtual float maxTimeSeekable() const;
     virtual PassRefPtr<TimeRanges> buffered() const;
 
-    virtual unsigned bytesLoaded() const;
+    virtual bool didLoadingProgress() const;
 
     virtual void setSize(const IntSize&);
 
     virtual void paint(GraphicsContext*, const IntRect&);
 
+    virtual void paintCurrentFrameInContext(GraphicsContext*, const IntRect&);
+
     virtual bool hasAvailableVideoFrame() const;
 
 #if USE(ACCELERATED_COMPOSITING)
     // Whether accelerated rendering is supported by the media engine for the current media.
-    virtual bool supportsAcceleratedRendering() const { return true; }
+    virtual bool supportsAcceleratedRendering() const;
     // Called when the rendering system flips the into or out of accelerated rendering mode.
     virtual void acceleratedRenderingStateChanged() { }
 #endif
@@ -102,21 +117,23 @@ public:
 
     virtual MediaPlayer::MovieLoadType movieLoadType() const;
 
+    virtual void prepareForRendering();
+
     void resizeSourceDimensions();
     void setFullscreenWebPageClient(BlackBerry::WebKit::WebPageClient*);
     BlackBerry::Platform::Graphics::Window* getWindow();
     BlackBerry::Platform::Graphics::Window* getPeerWindow(const char*) const;
-    int getWindowPosition(unsigned& x, unsigned& y, unsigned& width, unsigned& height) const;
+    BlackBerry::Platform::IntRect getWindowScreenRect() const;
     const char* mmrContextName();
     float percentLoaded();
     unsigned sourceWidth();
     unsigned sourceHeight();
     void setAllowPPSVolumeUpdates(bool);
 
-    // IMMRPlayerListener implementation.
-    virtual void onStateChanged(BlackBerry::Platform::MMRPlayer::MpState);
-    virtual void onMediaStatusChanged(BlackBerry::Platform::MMRPlayer::MMRPlayState);
-    virtual void onError(BlackBerry::Platform::MMRPlayer::Error);
+    // IPlatformPlayerListener implementation.
+    virtual void onStateChanged(BlackBerry::Platform::PlatformPlayer::MpState);
+    virtual void onMediaStatusChanged(BlackBerry::Platform::PlatformPlayer::MMRPlayState);
+    virtual void onError(BlackBerry::Platform::PlatformPlayer::Error);
     virtual void onDurationChanged(float);
     virtual void onTimeChanged(float);
     virtual void onRateChanged(float);
@@ -130,23 +147,33 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     virtual void onBuffering(bool);
 #endif
+    virtual void onAuthenticationNeeded(BlackBerry::Platform::MMRAuthChallenge&);
+    virtual void onAuthenticationAccepted(const BlackBerry::Platform::MMRAuthChallenge&) const;
+    virtual void onConditionallyEnterFullscreen();
+    virtual void onExitFullscreen();
+    virtual void onCreateHolePunchRect();
+    virtual void onDestroyHolePunchRect();
 
+    virtual void notifyChallengeResult(const KURL&, const ProtectionSpace&, AuthenticationChallengeResult, const Credential&);
+
+    virtual bool isProcessingUserGesture() const;
     virtual bool isFullscreen() const;
+    virtual bool isElementPaused() const;
     virtual bool isTabVisible() const;
-    virtual int showErrorDialog(BlackBerry::Platform::MMRPlayer::Error);
+    virtual int onShowErrorDialog(BlackBerry::Platform::PlatformPlayer::Error);
     virtual BlackBerry::Platform::Graphics::Window* platformWindow();
+    virtual BlackBerry::Platform::WebMediaStreamDescriptor lookupMediaStream(const BlackBerry::Platform::String& url);
 
 private:
     MediaPlayerPrivate(MediaPlayer*);
 
-    FrameView* frameView() const;
     void updateStates();
-    String userAgent(const String&) const;
+    WTF::String userAgent(const WTF::String&) const;
 
-    virtual String engineDescription() const { return "BlackBerry"; }
+    virtual WTF::String engineDescription() const { return "BlackBerry"; }
 
     MediaPlayer* m_webCorePlayer;
-    BlackBerry::Platform::MMRPlayer* m_platformPlayer;
+    BlackBerry::Platform::PlatformPlayer* m_platformPlayer;
 
     mutable MediaPlayer::NetworkState m_networkState;
     MediaPlayer::ReadyState m_readyState;
@@ -159,12 +186,14 @@ private:
     Timer<MediaPlayerPrivate> m_bufferingTimer;
     RefPtr<PlatformLayer> m_platformLayer;
     bool m_showBufferingImage;
-    bool m_mediaIsBuffering;
 #endif
 
     void userDrivenSeekTimerFired(Timer<MediaPlayerPrivate>*);
     Timer<MediaPlayerPrivate> m_userDrivenSeekTimer;
     float m_lastSeekTime;
+    mutable float m_lastLoadingTime;
+    bool m_lastSeekTimePending;
+    bool m_isAuthenticationChallenging;
     void waitMetadataTimerFired(Timer<MediaPlayerPrivate>*);
     Timer<MediaPlayerPrivate> m_waitMetadataTimer;
     int m_waitMetadataPopDialogCounter;

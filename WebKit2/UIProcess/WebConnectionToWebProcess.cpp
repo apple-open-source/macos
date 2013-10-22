@@ -26,109 +26,54 @@
 #include "config.h"
 #include "WebConnectionToWebProcess.h"
 
-#include "WebConnectionMessageKinds.h"
+#include "WebConnectionMessages.h"
 #include "WebContextUserMessageCoders.h"
 #include "WebProcessProxy.h"
 
-using namespace WebCore;
-
 namespace WebKit {
 
-PassRefPtr<WebConnectionToWebProcess> WebConnectionToWebProcess::create(WebProcessProxy* process, CoreIPC::Connection::Identifier connectionIdentifier, RunLoop* runLoop)
+PassRefPtr<WebConnectionToWebProcess> WebConnectionToWebProcess::create(WebProcessProxy* process)
 {
-    return adoptRef(new WebConnectionToWebProcess(process, connectionIdentifier, runLoop));
+    return adoptRef(new WebConnectionToWebProcess(process));
 }
 
-WebConnectionToWebProcess::WebConnectionToWebProcess(WebProcessProxy* process, CoreIPC::Connection::Identifier connectionIdentifier, RunLoop* runLoop)
+WebConnectionToWebProcess::WebConnectionToWebProcess(WebProcessProxy* process)
     : m_process(process)
-    , m_connection(CoreIPC::Connection::createServerConnection(connectionIdentifier, this, runLoop))
 {
-#if OS(DARWIN)
-    m_connection->setShouldCloseConnectionOnMachExceptions();
-#elif PLATFORM(QT)
-    m_connection->setShouldCloseConnectionOnProcessTermination(process->processIdentifier());
-#endif
+    m_process->addMessageReceiver(Messages::WebConnection::messageReceiverName(), this);
 }
 
 void WebConnectionToWebProcess::invalidate()
 {
-    m_connection->invalidate();
-    m_connection = nullptr;
     m_process = 0;
 }
 
 // WebConnection
 
-void WebConnectionToWebProcess::postMessage(const String& messageName, APIObject* messageBody)
+void WebConnectionToWebProcess::encodeMessageBody(CoreIPC::ArgumentEncoder& encoder, APIObject* messageBody)
 {
-    // We need to check if we have an underlying process here since a user of the API can hold
-    // onto us and call postMessage even after the process has been invalidated.
-    if (!m_process)
-        return;
-
-    m_process->deprecatedSend(WebConnectionLegacyMessage::PostMessage, 0, CoreIPC::In(messageName, WebContextUserMessageEncoder(messageBody)));
+    encoder << WebContextUserMessageEncoder(messageBody);
 }
 
-// CoreIPC::Connection::Client
-
-void WebConnectionToWebProcess::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
+bool WebConnectionToWebProcess::decodeMessageBody(CoreIPC::ArgumentDecoder& decoder, RefPtr<APIObject>& messageBody)
 {
-    if (messageID.is<CoreIPC::MessageClassWebConnectionLegacy>()) {
-        switch (messageID.get<WebConnectionLegacyMessage::Kind>()) {
-            case WebConnectionLegacyMessage::PostMessage: {
-                String messageName;
-                RefPtr<APIObject> messageBody;
-                WebContextUserMessageDecoder messageDecoder(messageBody, m_process->context());
-                if (!arguments->decode(CoreIPC::Out(messageName, messageDecoder)))
-                    return;
-
-                forwardDidReceiveMessageToClient(messageName, messageBody.get());
-                return;
-            }
-        }
-        return;
-    }
-
-    m_process->didReceiveMessage(connection, messageID, arguments);
+    WebContextUserMessageDecoder messageBodyDecoder(messageBody, m_process);
+    return decoder.decode(messageBodyDecoder);
 }
 
-void WebConnectionToWebProcess::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
+bool WebConnectionToWebProcess::hasValidConnection() const
 {
-    m_process->didReceiveSyncMessage(connection, messageID, arguments, reply);
+    return m_process;
 }
 
-void WebConnectionToWebProcess::didClose(CoreIPC::Connection* connection)
+CoreIPC::Connection* WebConnectionToWebProcess::messageSenderConnection()
 {
-    RefPtr<WebConnectionToWebProcess> protector(this);
-
-    m_process->didClose(connection);
-
-    // Tell the API client that the connection closed.
-    m_client.didClose(this);
+    return m_process->connection();
 }
 
-void WebConnectionToWebProcess::didReceiveInvalidMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID)
+uint64_t WebConnectionToWebProcess::messageSenderDestinationID()
 {
-    RefPtr<WebConnectionToWebProcess> protector = this;
-    RefPtr<WebProcessProxy> process = m_process;
-
-    // This will invalidate the CoreIPC::Connection and the WebProcessProxy member
-    // variables, so we should be careful not to use them after this call.
-    process->didReceiveInvalidMessage(connection, messageID);
-
-    // Since we've invalidated the connection we'll never get a CoreIPC::Connection::Client::didClose
-    // callback so we'll explicitly call it here instead.
-    process->didClose(connection);
-
-    // Tell the API client that the connection closed.
-    m_client.didClose(this);
+    return 0;
 }
-
-#if PLATFORM(WIN)
-Vector<HWND> WebConnectionToWebProcess::windowsToReceiveSentMessagesWhileWaitingForSyncReply()
-{
-    return m_process->windowsToReceiveSentMessagesWhileWaitingForSyncReply();
-}
-#endif
 
 } // namespace WebKit

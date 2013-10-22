@@ -24,6 +24,7 @@ install-rc:
 
 install-links:
 	$(_v) $(CP) $(OBJROOT)/tcsh $(SYMROOT)/tcsh
+	$(_v) dsymutil $(SYMROOT)/tcsh
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(BINDIR)
 	$(_v) $(LN) -f $(DSTROOT)$(BINDIR)/tcsh $(DSTROOT)$(BINDIR)/csh
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/share/man/man1

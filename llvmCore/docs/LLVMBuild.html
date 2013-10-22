@@ -3,7 +3,7 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <title>LLVMBuild Documentation</title>
-  <link rel="stylesheet" href="llvm.css" type="text/css">
+  <link rel="stylesheet" href="_static/llvm.css" type="text/css">
 </head>
 <body>
 
@@ -101,7 +101,7 @@ $ROOT of project trees for things which can be checked out separately. -->
 
 <div>
   <p>As mentioned earlier, LLVM projects are organized into
-  logical <em>components</em>. Every component is typically grouped into it's
+  logical <em>components</em>. Every component is typically grouped into its
   own subdirectory. Generally, a component is organized around a coherent group
   of sources which have some kind of clear API separation from other parts of
   the code.</p>
@@ -147,7 +147,7 @@ $ROOT of project trees for things which can be checked out separately. -->
 <i>; Comments start with a semi-colon.</i>
 
 <i>; Sections are declared using square brackets.</i>
-[component 0]
+[component_0]
 
 <i>; Properties are declared using '=' and are contained in the previous section.
 ;
@@ -160,7 +160,7 @@ boolean_property_name = 1 <em>(or 0)</em>
 </pre>
   </div>
 
-  <p>LLVMBuild files are expected to define a strict set of section and
+  <p>LLVMBuild files are expected to define a strict set of sections and
   properties. An typical component description file for a library
   component would look typically look like the following example:</p>
   <div class="doc_code">
@@ -171,10 +171,18 @@ name = Linker
 parent = Libraries
 required_libraries = Archive BitReader Core Support TransformUtils
 </pre>
-  </div class="doc_code">
+  </div>
 
   <p>A full description of the exact sections and properties which are allowed
  follows.</p>
+
+  <p>Each file may define exactly one common component, named "common". The
+  common component may define the following properties:</p>
+  <ul>
+    <li><i>subdirectories</i> <b>[optional]</b>
+      <p>If given, a list of the names of the subdirectories from the current
+        subpath to search for additional LLVMBuild files.</p></li>
+  </ul>
 
   <p>Each file may define multiple components. Each component is described by a
   section who name starts with "component". The remainder of the section name is
@@ -182,8 +190,8 @@ required_libraries = Archive BitReader Core Support TransformUtils
   number in order for files with multiple components ("component_0",
   "component_1", and so on).<p>
 
-  <p><b>Section names not matches this format are currently
-  unused and are disallowed.</b></p>
+  <p><b>Section names not matching this format (or the "common" section) are
+  currently unused and are disallowed.</b></p>
 
   <p>Every component is defined by the properties in the section. The exact list
   of properties that are allowed depends on the component
@@ -204,7 +212,7 @@ required_libraries = Archive BitReader Core Support TransformUtils
     <li><i>parent</i> <b>[required]</b>
       <p>The name of the logical parent of the component. Components are
       organized into a logical tree to make it easier to navigate and organize
-      groups of components. The parent's have no semantics as far as the project
+      groups of components. The parents have no semantics as far as the project
       build is concerned, however. Typically, the parent will be the main
       component of the parent directory.</p>
 
@@ -255,7 +263,7 @@ required_libraries = Archive BitReader Core Support TransformUtils
           <p>If given, a list of the names of Library or LibraryGroup components
           which must also be linked in whenever this library is used. That is,
           the link time dependencies for this component. When tools are built,
-          the build system will include the transitive closer of
+          the build system will include the transitive closure of
           all <i>required_libraries</i> for the components the tool needs.</p></li>
 
         <li><i>add_to_library_groups</i> <b>[optional]</b>
@@ -264,6 +272,11 @@ required_libraries = Archive BitReader Core Support TransformUtils
           components. For example, the <i>X86</i> target might define a library
           group for all of the <i>X86</i> components. That library group might
           then be included in the <i>all-targets</i> library group.</p></li>
+
+        <li><i>installed</i> <b>[optional]</b> <b>[boolean]</b>
+          <p>Whether this library is installed. Libraries that are not installed
+          are only reported by <tt>llvm-config</tt> when it is run as part of a
+          development directory.</p></li>
       </ul>
     </li>
 
@@ -292,6 +305,12 @@ required_libraries = Archive BitReader Core Support TransformUtils
       <p>Components with this type use the LibraryGroup properties in addition
       to:</p>
       <ul>
+        <li><i>has_asmparser</i> <b>[optional]</b> <b>[boolean]</b>
+          <p>Whether this target defines an assembly parser.</p></li>
+        <li><i>has_asmprinter</i> <b>[optional]</b> <b>[boolean]</b>
+          <p>Whether this target defines an assembly printer.</p></li>
+        <li><i>has_disassembler</i> <b>[optional]</b> <b>[boolean]</b>
+          <p>Whether this target defines a disassembler.</p></li>
         <li><i>has_jit</i> <b>[optional]</b> <b>[boolean]</b>
           <p>Whether this target supports JIT compilation.</p></li>
       </ul>

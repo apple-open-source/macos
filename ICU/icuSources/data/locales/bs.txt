@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/bs.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/bs.xml
 // *
 // ***************************************************************************
 /**
@@ -23,8 +23,60 @@ bs{
             }
         }
     }
-    Version{"2.0.64.72"}
+    Version{"2.0.82.45"}
     calendar{
+        generic{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, dd. MMMM y. G",
+                "dd. MMMM y. G",
+                "dd.MM.y. G",
+                "dd.MM.yy. GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E, dd."}
+                Gy{"y. G"}
+                GyMMM{"MMM y. G"}
+                GyMMMEd{"E, dd. MMM y. G"}
+                GyMMMd{"dd. MMM y. G"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, dd.MM."}
+                MMM{"LLL"}
+                MMMEd{"E, dd. MMM"}
+                MMMd{"dd. MMM"}
+                Md{"dd.MM."}
+                d{"d"}
+                hm{"hh:mm a"}
+                hms{"hh:mm:ss a"}
+                ms{"mm:ss"}
+                y{"y. G"}
+                yyyy{"y. G"}
+                yyyyM{"MM.y. G"}
+                yyyyMEd{"E, dd.MM.y. G"}
+                yyyyMMM{"MMM y. G"}
+                yyyyMMMEd{"E, dd. MMM y. G"}
+                yyyyMMMd{"dd. MMM y. G"}
+                yyyyMd{"dd.MM.y. G"}
+                yyyyQQQ{"y G QQQ"}
+                yyyyQQQQ{"y G QQQQ"}
+            }
+            intervalFormats{
+                yM{
+                    M{"M.yy - M.yy"}
+                    y{"M.yy - M.yy"}
+                }
+            }
+        }
         gregorian{
             AmPmMarkers{
                 "pre podne",
@@ -47,6 +99,10 @@ bs{
             }
             availableFormats{
                 Ed{"E, dd."}
+                Gy{"y. G"}
+                GyMMM{"MMM y. G"}
+                GyMMMEd{"E, dd. MMM y. G"}
+                GyMMMd{"dd. MMM y. G"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 M{"L"}
@@ -66,8 +122,8 @@ bs{
                 yMMMEd{"E, dd. MMM y."}
                 yMMMd{"dd. MMM y."}
                 yMd{"dd.MM.y."}
-                yQ{"y Q"}
                 yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
             }
             dayNames{
                 format{
@@ -110,48 +166,6 @@ bs{
                 wide{
                     "Pre nove ere",
                     "Nove ere",
-                }
-            }
-            fields{
-                day{
-                    dn{"dan"}
-                    relative{
-                        "-1"{"juče"}
-                        "-2"{"prekjuče"}
-                        "0"{"danas"}
-                        "1"{"sutra"}
-                        "2"{"prekosutra"}
-                    }
-                }
-                dayperiod{
-                    dn{"pre podne/ popodne"}
-                }
-                era{
-                    dn{"era"}
-                }
-                hour{
-                    dn{"čas"}
-                }
-                minute{
-                    dn{"minut"}
-                }
-                month{
-                    dn{"mesec"}
-                }
-                second{
-                    dn{"sekund"}
-                }
-                week{
-                    dn{"nedelja"}
-                }
-                weekday{
-                    dn{"dan u nedelji"}
-                }
-                year{
-                    dn{"godina"}
-                }
-                zone{
-                    dn{"zona"}
                 }
             }
             intervalFormats{
@@ -262,14 +276,56 @@ bs{
                 yyyyMMMEd{"E, dd. MMM y. G"}
                 yyyyMMMd{"dd. MMM y. G"}
                 yyyyMd{"dd.MM.y. G"}
-                yyyyQ{"y G Q"}
                 yyyyQQQ{"y G QQQ"}
+                yyyyQQQQ{"y G QQQQ"}
             }
             eras{
                 abbreviated{
                     "AH",
                 }
             }
+        }
+    }
+    fields{
+        day{
+            dn{"dan"}
+            relative{
+                "-1"{"juče"}
+                "-2"{"prekjuče"}
+                "0"{"danas"}
+                "1"{"sutra"}
+                "2"{"prekosutra"}
+            }
+        }
+        dayperiod{
+            dn{"pre podne/ popodne"}
+        }
+        era{
+            dn{"era"}
+        }
+        hour{
+            dn{"čas"}
+        }
+        minute{
+            dn{"minut"}
+        }
+        month{
+            dn{"mesec"}
+        }
+        second{
+            dn{"sekund"}
+        }
+        week{
+            dn{"nedelja"}
+        }
+        weekday{
+            dn{"dan u nedelji"}
+        }
+        year{
+            dn{"godina"}
+        }
+        zone{
+            dn{"zona"}
         }
     }
     listPattern{
@@ -327,18 +383,6 @@ bs{
         }
     }
     unitsShort{
-        day{
-            few{"{0} dana"}
-            many{"{0} dana"}
-            one{"{0} dan"}
-            other{"{0} dan"}
-        }
-        hour{
-            few{"{0} sata"}
-            many{"{0} sati"}
-            one{"{0} sat"}
-            other{"{0} sat"}
-        }
         minute{
             few{"{0} min"}
             many{"{0} min"}

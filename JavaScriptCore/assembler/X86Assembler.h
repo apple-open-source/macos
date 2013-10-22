@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -247,6 +247,8 @@ private:
 public:
 
     X86Assembler()
+        : m_indexOfLastWatchpoint(INT_MIN)
+        , m_indexOfTailOfLastWatchpoint(INT_MIN)
     {
     }
 
@@ -302,6 +304,13 @@ public:
     {
         m_formatter.oneByteOp(OP_ADD_GvEv, dst, base, offset);
     }
+    
+#if !CPU(X86_64)
+    void addl_mr(const void* addr, RegisterID dst)
+    {
+        m_formatter.oneByteOp(OP_ADD_GvEv, dst, addr);
+    }
+#endif
 
     void addl_rm(RegisterID src, int offset, RegisterID base)
     {
@@ -334,6 +343,11 @@ public:
     void addq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_ADD_EvGv, src, dst);
+    }
+
+    void addq_mr(int offset, RegisterID base, RegisterID dst)
+    {
+        m_formatter.oneByteOp64(OP_ADD_GvEv, dst, base, offset);
     }
 
     void addq_ir(int imm, RegisterID dst)
@@ -441,6 +455,13 @@ public:
         m_formatter.oneByteOp(OP_GROUP3_Ev, GROUP3_OP_NEG, dst);
     }
 
+#if CPU(X86_64)
+    void negq_r(RegisterID dst)
+    {
+        m_formatter.oneByteOp64(OP_GROUP3_Ev, GROUP3_OP_NEG, dst);
+    }
+#endif
+
     void negl_m(int offset, RegisterID base)
     {
         m_formatter.oneByteOp(OP_GROUP3_Ev, GROUP3_OP_NEG, base, offset);
@@ -519,6 +540,11 @@ public:
             m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_OR, addr);
             m_formatter.immediate32(imm);
         }
+    }
+
+    void orl_rm(RegisterID src, const void* addr)
+    {
+        m_formatter.oneByteOp(OP_OR_EvGv, src, addr);
     }
 #endif
 
@@ -798,6 +824,14 @@ public:
         m_formatter.oneByteOp(OP_GROUP1_EbIb, GROUP1_OP_CMP, base, index, scale, offset);
         m_formatter.immediate8(imm);
     }
+    
+#if CPU(X86)
+    void cmpb_im(int imm, const void* addr)
+    {
+        m_formatter.oneByteOp(OP_GROUP1_EbIb, GROUP1_OP_CMP, addr);
+        m_formatter.immediate8(imm);
+    }
+#endif
 
     void cmpl_im(int imm, int offset, RegisterID base, RegisterID index, int scale)
     {
@@ -948,6 +982,14 @@ public:
         m_formatter.immediate8(imm);
     }
 
+#if CPU(X86)
+    void testb_im(int imm, const void* addr)
+    {
+        m_formatter.oneByteOp(OP_GROUP3_EbIb, GROUP3_OP_TEST, addr);
+        m_formatter.immediate8(imm);
+    }
+#endif
+
     void testl_i32m(int imm, int offset, RegisterID base, RegisterID index, int scale)
     {
         m_formatter.oneByteOp(OP_GROUP3_EvIz, GROUP3_OP_TEST, base, index, scale, offset);
@@ -958,6 +1000,11 @@ public:
     void testq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_TEST_EvGv, src, dst);
+    }
+
+    void testq_rm(RegisterID src, int offset, RegisterID base)
+    {
+        m_formatter.oneByteOp64(OP_TEST_EvGv, src, base, offset);
     }
 
     void testq_i32r(int imm, RegisterID dst)
@@ -1107,6 +1154,15 @@ public:
         m_formatter.oneByteOp(OP_GROUP11_EvIz, GROUP11_MOV, base, index, scale, offset);
         m_formatter.immediate32(imm);
     }
+
+#if !CPU(X86_64)
+    void movb_i8m(int imm, const void* addr)
+    {
+        ASSERT(-128 <= imm && imm < 128);
+        m_formatter.oneByteOp(OP_GROUP11_EvIb, GROUP11_MOV, addr);
+        m_formatter.immediate8(imm);
+    }
+#endif
 
     void movb_i8m(int imm, int offset, RegisterID base)
     {
@@ -1419,6 +1475,12 @@ public:
         return m_formatter.immediateRel32();
     }
 
+    AssemblerLabel jnp()
+    {
+        m_formatter.twoByteOp(jccRel32(ConditionNP));
+        return m_formatter.immediateRel32();
+    }
+
     AssemblerLabel jp()
     {
         m_formatter.twoByteOp(jccRel32(ConditionP));
@@ -1702,10 +1764,30 @@ public:
     {
         return m_formatter.codeSize();
     }
+    
+    AssemblerLabel labelForWatchpoint()
+    {
+        AssemblerLabel result = m_formatter.label();
+        if (static_cast<int>(result.m_offset) != m_indexOfLastWatchpoint)
+            result = label();
+        m_indexOfLastWatchpoint = result.m_offset;
+        m_indexOfTailOfLastWatchpoint = result.m_offset + maxJumpReplacementSize();
+        return result;
+    }
+    
+    AssemblerLabel labelIgnoringWatchpoints()
+    {
+        return m_formatter.label();
+    }
 
     AssemblerLabel label()
     {
-        return m_formatter.label();
+        AssemblerLabel result = m_formatter.label();
+        while (UNLIKELY(static_cast<int>(result.m_offset) < m_indexOfTailOfLastWatchpoint)) {
+            nop();
+            result = m_formatter.label();
+        }
+        return result;
     }
 
     AssemblerLabel align(int alignment)
@@ -1767,7 +1849,7 @@ public:
     
     static void repatchCompact(void* where, int32_t value)
     {
-        ASSERT(value >= 0);
+        ASSERT(value >= std::numeric_limits<int8_t>::min());
         ASSERT(value <= std::numeric_limits<int8_t>::max());
         setInt8(where, value);
     }
@@ -1787,6 +1869,111 @@ public:
         return reinterpret_cast<void**>(where)[-1];
     }
 
+    static void replaceWithJump(void* instructionStart, void* to)
+    {
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(instructionStart);
+        uint8_t* dstPtr = reinterpret_cast<uint8_t*>(to);
+        intptr_t distance = (intptr_t)(dstPtr - (ptr + 5));
+        ptr[0] = static_cast<uint8_t>(OP_JMP_rel32);
+        *reinterpret_cast<int32_t*>(ptr + 1) = static_cast<int32_t>(distance);
+    }
+    
+    static ptrdiff_t maxJumpReplacementSize()
+    {
+        return 5;
+    }
+    
+#if CPU(X86_64)
+    static void revertJumpTo_movq_i64r(void* instructionStart, int64_t imm, RegisterID dst)
+    {
+        const int rexBytes = 1;
+        const int opcodeBytes = 1;
+        ASSERT(rexBytes + opcodeBytes <= maxJumpReplacementSize());
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(instructionStart);
+        ptr[0] = PRE_REX | (1 << 3) | (dst >> 3);
+        ptr[1] = OP_MOV_EAXIv | (dst & 7);
+        
+        union {
+            uint64_t asWord;
+            uint8_t asBytes[8];
+        } u;
+        u.asWord = imm;
+        for (unsigned i = rexBytes + opcodeBytes; i < static_cast<unsigned>(maxJumpReplacementSize()); ++i)
+            ptr[i] = u.asBytes[i - rexBytes - opcodeBytes];
+    }
+#endif
+    
+    static void revertJumpTo_cmpl_ir_force32(void* instructionStart, int32_t imm, RegisterID dst)
+    {
+        const int opcodeBytes = 1;
+        const int modRMBytes = 1;
+        ASSERT(opcodeBytes + modRMBytes <= maxJumpReplacementSize());
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(instructionStart);
+        ptr[0] = OP_GROUP1_EvIz;
+        ptr[1] = (X86InstructionFormatter::ModRmRegister << 6) | (GROUP1_OP_CMP << 3) | dst;
+        union {
+            uint32_t asWord;
+            uint8_t asBytes[4];
+        } u;
+        u.asWord = imm;
+        for (unsigned i = opcodeBytes + modRMBytes; i < static_cast<unsigned>(maxJumpReplacementSize()); ++i)
+            ptr[i] = u.asBytes[i - opcodeBytes - modRMBytes];
+    }
+    
+    static void revertJumpTo_cmpl_im_force32(void* instructionStart, int32_t imm, int offset, RegisterID dst)
+    {
+        ASSERT_UNUSED(offset, !offset);
+        const int opcodeBytes = 1;
+        const int modRMBytes = 1;
+        ASSERT(opcodeBytes + modRMBytes <= maxJumpReplacementSize());
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(instructionStart);
+        ptr[0] = OP_GROUP1_EvIz;
+        ptr[1] = (X86InstructionFormatter::ModRmMemoryNoDisp << 6) | (GROUP1_OP_CMP << 3) | dst;
+        union {
+            uint32_t asWord;
+            uint8_t asBytes[4];
+        } u;
+        u.asWord = imm;
+        for (unsigned i = opcodeBytes + modRMBytes; i < static_cast<unsigned>(maxJumpReplacementSize()); ++i)
+            ptr[i] = u.asBytes[i - opcodeBytes - modRMBytes];
+    }
+    
+    static void replaceWithLoad(void* instructionStart)
+    {
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(instructionStart);
+#if CPU(X86_64)
+        if ((*ptr & ~15) == PRE_REX)
+            ptr++;
+#endif
+        switch (*ptr) {
+        case OP_MOV_GvEv:
+            break;
+        case OP_LEA:
+            *ptr = OP_MOV_GvEv;
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    }
+    
+    static void replaceWithAddressComputation(void* instructionStart)
+    {
+        uint8_t* ptr = reinterpret_cast<uint8_t*>(instructionStart);
+#if CPU(X86_64)
+        if ((*ptr & ~15) == PRE_REX)
+            ptr++;
+#endif
+        switch (*ptr) {
+        case OP_MOV_GvEv:
+            *ptr = OP_LEA;
+            break;
+        case OP_LEA:
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    }
+    
     static unsigned getCallReturnOffset(AssemblerLabel call)
     {
         ASSERT(call.isSet());
@@ -1804,9 +1991,9 @@ public:
         return b.m_offset - a.m_offset;
     }
     
-    PassRefPtr<ExecutableMemoryHandle> executableCopy(JSGlobalData& globalData, void* ownerUID, JITCompilationEffort effort)
+    PassRefPtr<ExecutableMemoryHandle> executableCopy(VM& vm, void* ownerUID, JITCompilationEffort effort)
     {
-        return m_formatter.executableCopy(globalData, ownerUID, effort);
+        return m_formatter.executableCopy(vm, ownerUID, effort);
     }
 
     unsigned debugOffset() { return m_formatter.debugOffset(); }
@@ -1815,6 +2002,9 @@ public:
     {
         m_formatter.oneByteOp(OP_NOP);
     }
+
+    // This is a no-op on x86
+    ALWAYS_INLINE static void cacheFlush(void*, size_t) { }
 
 private:
 
@@ -1846,6 +2036,13 @@ private:
         static const int maxInstructionSize = 16;
 
     public:
+
+        enum ModRmMode {
+            ModRmMemoryNoDisp,
+            ModRmMemoryDisp8,
+            ModRmMemoryDisp32,
+            ModRmRegister,
+        };
 
         // Legacy prefix bytes:
         //
@@ -2152,9 +2349,9 @@ private:
         bool isAligned(int alignment) const { return m_buffer.isAligned(alignment); }
         void* data() const { return m_buffer.data(); }
 
-        PassRefPtr<ExecutableMemoryHandle> executableCopy(JSGlobalData& globalData, void* ownerUID, JITCompilationEffort effort)
+        PassRefPtr<ExecutableMemoryHandle> executableCopy(VM& vm, void* ownerUID, JITCompilationEffort effort)
         {
-            return m_buffer.executableCopy(globalData, ownerUID, effort);
+            return m_buffer.executableCopy(vm, ownerUID, effort);
         }
 
         unsigned debugOffset() { return m_buffer.debugOffset(); }
@@ -2185,6 +2382,9 @@ private:
         // Format a REX prefix byte.
         inline void emitRex(bool w, int r, int x, int b)
         {
+            ASSERT(r >= 0);
+            ASSERT(x >= 0);
+            ASSERT(b >= 0);
             m_buffer.putByteUnchecked(PRE_REX | ((int)w << 3) | ((r>>3)<<2) | ((x>>3)<<1) | (b>>3));
         }
 
@@ -2213,13 +2413,6 @@ private:
         inline void emitRexIf(bool, int, int, int) {}
         inline void emitRexIfNeeded(int, int, int) {}
 #endif
-
-        enum ModRmMode {
-            ModRmMemoryNoDisp,
-            ModRmMemoryDisp8,
-            ModRmMemoryDisp32,
-            ModRmRegister,
-        };
 
         void putModRm(ModRmMode mode, int reg, RegisterID rm)
         {
@@ -2336,6 +2529,8 @@ private:
 
         AssemblerBuffer m_buffer;
     } m_formatter;
+    int m_indexOfLastWatchpoint;
+    int m_indexOfTailOfLastWatchpoint;
 };
 
 } // namespace JSC

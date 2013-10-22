@@ -1,4 +1,4 @@
-/* $OpenBSD: sshd.c,v 1.385 2011/06/23 09:34:13 djm Exp $ */
+/* $OpenBSD: sshd.c,v 1.397 2013/02/11 21:21:58 dtucker Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -72,10 +72,17 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-dh.h"
+#include "ossl-bn.h"
+#include "ossl-md5.h"
+#include "ossl-rand.h"
+#else
 #include <openssl/dh.h>
 #include <openssl/bn.h>
 #include <openssl/md5.h>
 #include <openssl/rand.h>
+#endif
 #include "openbsd-compat/openssl-compat.h"
 
 #ifdef HAVE_SECUREWARE
@@ -243,6 +250,7 @@ int startup_pipe;		/* in child */
 /* variables used for privilege separation */
 int use_privsep = -1;
 struct monitor *pmonitor = NULL;
+int privsep_is_preauth = 1;
 
 /* global authentication context */
 Authctxt *the_authctxt = NULL;
@@ -362,6 +370,15 @@ grace_alarm_handler(int sig)
 	if (use_privsep && pmonitor != NULL && pmonitor->m_pid > 0)
 		kill(pmonitor->m_pid, SIGALRM);
 
+	/*
+	 * Try to kill any processes that we have spawned, E.g. authorized
+	 * keys command helpers.
+	 */
+	if (getpgid(0) == getpid()) {
+		signal(SIGTERM, SIG_IGN);
+		killpg(0, SIGTERM);
+	}
+
 	/* Log error and exit. */
 	sigdie("Timeout before authentication for %s", get_remote_ipaddr());
 }
@@ -422,9 +439,11 @@ sshd_exchange_identification(int sock_in, int sock_out)
 		major = PROTOCOL_MAJOR_1;
 		minor = PROTOCOL_MINOR_1;
 	}
-	snprintf(buf, sizeof buf, "SSH-%d.%d-%.100s%s", major, minor,
-	    SSH_VERSION, newline);
-	server_version_string = xstrdup(buf);
+
+	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s%s",
+	    major, minor, SSH_VERSION,
+	    *options.version_addendum == '\0' ? "" : " ",
+	    options.version_addendum, newline);
 
 	/* Send our protocol version identification. */
 	if (roaming_atomicio(vwrite, sock_out, server_version_string,
@@ -636,7 +655,7 @@ privsep_preauth(Authctxt *authctxt)
 	/* Store a pointer to the kex for later rekeying */
 	pmonitor->m_pkex = &xxx_kex;
 
-	if (use_privsep == PRIVSEP_SANDBOX)
+	if (use_privsep == PRIVSEP_ON)
 		box = ssh_sandbox_init();
 	pid = fork();
 	if (pid == -1) {
@@ -644,9 +663,9 @@ privsep_preauth(Authctxt *authctxt)
 	} else if (pid != 0) {
 		debug2("Network child is on pid %ld", (long)pid);
 
+		pmonitor->m_pid = pid;
 		if (box != NULL)
 			ssh_sandbox_parent_preauth(box, pid);
-		pmonitor->m_pid = pid;
 		monitor_child_preauth(authctxt, pmonitor);
 
 		/* Sync memory */
@@ -654,10 +673,13 @@ privsep_preauth(Authctxt *authctxt)
 
 		/* Wait for the child's exit status */
 		while (waitpid(pid, &status, 0) < 0) {
-			if (errno != EINTR)
-				fatal("%s: waitpid: %s", __func__,
-				    strerror(errno));
+			if (errno == EINTR)
+				continue;
+			pmonitor->m_pid = -1;
+			fatal("%s: waitpid: %s", __func__, strerror(errno));
 		}
+		privsep_is_preauth = 0;
+		pmonitor->m_pid = -1;
 		if (WIFEXITED(status)) {
 			if (WEXITSTATUS(status) != 0)
 				fatal("%s: preauth child exited with status %d",
@@ -1181,7 +1203,10 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 			if (*newsock < 0) {
 				if (errno != EINTR && errno != EAGAIN &&
 				    errno != EWOULDBLOCK)
-					error("accept: %.100s", strerror(errno));
+					error("accept: %.100s",
+					    strerror(errno));
+				if (errno == EMFILE || errno == ENFILE)
+					usleep(100 * 1000);
 				continue;
 			}
 			if (unset_nonblock(*newsock) == -1) {
@@ -1327,14 +1352,15 @@ main(int ac, char **av)
 	int opt, i, j, on = 1;
 	int sock_in = -1, sock_out = -1, newsock = -1;
 	const char *remote_ip;
-	char *test_user = NULL, *test_host = NULL, *test_addr = NULL;
 	int remote_port;
-	char *line, *p, *cp;
+	char *line;
 	int config_s[2] = { -1 , -1 };
+	u_int n;
 	u_int64_t ibytes, obytes;
 	mode_t new_umask;
 	Key *key;
 	Authctxt *authctxt;
+	struct connection_info *connection_info = get_connection_info(0, 0);
 
 #ifdef HAVE_SECUREWARE
 	(void)set_auth_parameters(ac, av);
@@ -1456,20 +1482,9 @@ main(int ac, char **av)
 			test_flag = 2;
 			break;
 		case 'C':
-			cp = optarg;
-			while ((p = strsep(&cp, ",")) && *p != '\0') {
-				if (strncmp(p, "addr=", 5) == 0)
-					test_addr = xstrdup(p + 5);
-				else if (strncmp(p, "host=", 5) == 0)
-					test_host = xstrdup(p + 5);
-				else if (strncmp(p, "user=", 5) == 0)
-					test_user = xstrdup(p + 5);
-				else {
-					fprintf(stderr, "Invalid test "
-					    "mode specification %s\n", p);
-					exit(1);
-				}
-			}
+			if (parse_server_match_testspec(connection_info,
+			    optarg) == -1)
+				exit(1);
 			break;
 		case 'u':
 			utmp_len = (u_int)strtonum(optarg, 0, MAXHOSTNAMELEN+1, NULL);
@@ -1481,7 +1496,7 @@ main(int ac, char **av)
 		case 'o':
 			line = xstrdup(optarg);
 			if (process_server_config_line(&options, line,
-			    "command-line", 0, NULL, NULL, NULL, NULL) != 0)
+			    "command-line", 0, NULL, NULL) != 0)
 				exit(1);
 			xfree(line);
 			break;
@@ -1518,7 +1533,7 @@ main(int ac, char **av)
 	 * root's environment
 	 */
 	if (getenv("KRB5CCNAME") != NULL)
-		unsetenv("KRB5CCNAME");
+		(void) unsetenv("KRB5CCNAME");
 
 #ifdef _UNICOS
 	/* Cray can define user privs drop all privs now!
@@ -1537,13 +1552,10 @@ main(int ac, char **av)
 	 * the parameters we need.  If we're not doing an extended test,
 	 * do not silently ignore connection test params.
 	 */
-	if (test_flag >= 2 &&
-	   (test_user != NULL || test_host != NULL || test_addr != NULL)
-	    && (test_user == NULL || test_host == NULL || test_addr == NULL))
+	if (test_flag >= 2 && server_match_spec_complete(connection_info) == 0)
 		fatal("user, host and addr are all required when testing "
 		   "Match configs");
-	if (test_flag < 2 && (test_user != NULL || test_host != NULL ||
-	    test_addr != NULL))
+	if (test_flag < 2 && server_match_spec_complete(connection_info) >= 0)
 		fatal("Config test connection parameter (-C) provided without "
 		   "test mode (-T)");
 
@@ -1555,7 +1567,7 @@ main(int ac, char **av)
 		load_server_config(config_file_name, &cfg);
 
 	parse_server_config(&options, rexeced_flag ? "rexec" : config_file_name,
-	    &cfg, NULL, NULL, NULL);
+	    &cfg, NULL);
 
 	seed_rng();
 
@@ -1566,6 +1578,33 @@ main(int ac, char **av)
 	if (options.challenge_response_authentication)
 		options.kbd_interactive_authentication = 1;
 
+	/* Check that options are sensible */
+	if (options.authorized_keys_command_user == NULL &&
+	    (options.authorized_keys_command != NULL &&
+	    strcasecmp(options.authorized_keys_command, "none") != 0))
+		fatal("AuthorizedKeysCommand set without "
+		    "AuthorizedKeysCommandUser");
+
+	/*
+	 * Check whether there is any path through configured auth methods.
+	 * Unfortunately it is not possible to verify this generally before
+	 * daemonisation in the presence of Match block, but this catches
+	 * and warns for trivial misconfigurations that could break login.
+	 */
+	if (options.num_auth_methods != 0) {
+		if ((options.protocol & SSH_PROTO_1))
+			fatal("AuthenticationMethods is not supported with "
+			    "SSH protocol 1");
+		for (n = 0; n < options.num_auth_methods; n++) {
+			if (auth2_methods_valid(options.auth_methods[n],
+			    1) == 0)
+				break;
+		}
+		if (n >= options.num_auth_methods)
+			fatal("AuthenticationMethods cannot be satisfied by "
+			    "enabled authentication methods");
+	}
+
 	/* set default channel AF */
 	channel_set_af(options.address_family);
 
@@ -1575,7 +1614,8 @@ main(int ac, char **av)
 		exit(1);
 	}
 
-	debug("sshd version %.100s", SSH_RELEASE);
+	debug("sshd version %s, %s", SSH_VERSION,
+	    SSLeay_version(SSLEAY_VERSION));
 
 	/* Store privilege separation user for later use if required. */
 	if ((privsep_pw = getpwnam(SSH_PRIVSEP_USER)) == NULL) {
@@ -1720,9 +1760,8 @@ main(int ac, char **av)
 	}
 
 	if (test_flag > 1) {
-		if (test_user != NULL && test_addr != NULL && test_host != NULL)
-			parse_server_match_config(&options, test_user,
-			    test_host, test_addr);
+		if (server_match_spec_complete(connection_info) == 1)
+			parse_server_match_config(&options, connection_info);
 		dump_config(&options);
 	}
 
@@ -2477,8 +2516,16 @@ do_ssh2_kex(void)
 void
 cleanup_exit(int i)
 {
-	if (the_authctxt)
+	if (the_authctxt) {
 		do_cleanup(the_authctxt);
+		if (use_privsep && privsep_is_preauth && pmonitor->m_pid > 1) {
+			debug("Killing privsep child %d", pmonitor->m_pid);
+			if (kill(pmonitor->m_pid, SIGKILL) != 0 &&
+			    errno != ESRCH)
+				error("%s: kill(%d): %s", __func__,
+				    pmonitor->m_pid, strerror(errno));
+		}
+	}
 #ifdef SSH_AUDIT_EVENTS
 	/* done after do_cleanup so it can cancel the PAM auth 'thread' */
 	if (!use_privsep || mm_is_monitor())

@@ -72,7 +72,7 @@ public:
     ReadSection(const uint8 *inAddress, size_t inLength) :
 	    mAddress(const_cast<uint8 *>(inAddress)), mLength(inLength) {}
 		
-    uint32 size() const { return mLength; }
+    uint32 size() const { return (uint32)mLength; }
 
     uint32 at(uint32 inOffset) const
     {

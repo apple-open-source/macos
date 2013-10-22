@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2012, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2009  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -136,7 +136,6 @@
 #include <isc/lib.h>
 #include <isc/mem.h>
 #include <isc/sockaddr.h>
-#include <isc/string.h>
 #include <isc/util.h>
 
 #include <dns/client.h>
@@ -480,10 +479,8 @@ getaddrinfo(const char *hostname, const char *servname,
 			err = (net_order[i])(hostname, flags, &ai_list,
 					     socktype, port);
 			if (err != 0) {
-				if (ai_list != NULL) {
+				if (ai_list != NULL)
 					freeaddrinfo(ai_list);
-					ai_list = NULL;
-				}
 				break;
 			}
 		}
@@ -552,7 +549,7 @@ make_resstate(isc_mem_t *mctx, gai_statehead_t *head, const char *hostname,
 
 	/* Construct base domain name */
 	namelen = strlen(domain);
-	isc_buffer_constinit(&b, domain, namelen);
+	isc_buffer_init(&b, domain, namelen);
 	isc_buffer_add(&b, namelen);
 	dns_fixedname_init(&fixeddomain);
 	qdomain = dns_fixedname_name(&fixeddomain);
@@ -564,7 +561,7 @@ make_resstate(isc_mem_t *mctx, gai_statehead_t *head, const char *hostname,
 
 	/* Construct query name */
 	namelen = strlen(hostname);
-	isc_buffer_constinit(&b, hostname, namelen);
+	isc_buffer_init(&b, hostname, namelen);
 	isc_buffer_add(&b, namelen);
 	dns_fixedname_init(&state->fixedname);
 	state->qname = dns_fixedname_name(&state->fixedname);
@@ -784,9 +781,9 @@ process_answer(isc_task_t *task, isc_event_t *event) {
 				switch (family) {
 				case AF_INET:
 					dns_rdataset_current(rdataset, &rdata);
-					result = dns_rdata_tostruct(&rdata, &rdata_a,
-								    NULL);
-					RUNTIME_CHECK(result == ISC_R_SUCCESS);
+					dns_rdata_tostruct(&rdata, &rdata_a,
+							   NULL);
+
 					SIN(ai->ai_addr)->sin_port =
 						resstate->head->ai_port;
 					memcpy(&SIN(ai->ai_addr)->sin_addr,
@@ -795,9 +792,8 @@ process_answer(isc_task_t *task, isc_event_t *event) {
 					break;
 				case AF_INET6:
 					dns_rdataset_current(rdataset, &rdata);
-					result = dns_rdata_tostruct(&rdata, &rdata_aaaa,
-								    NULL);
-					RUNTIME_CHECK(result == ISC_R_SUCCESS);
+					dns_rdata_tostruct(&rdata, &rdata_aaaa,
+							   NULL);
 					SIN6(ai->ai_addr)->sin6_port =
 						resstate->head->ai_port;
 					memcpy(&SIN6(ai->ai_addr)->sin6_addr,
@@ -1147,8 +1143,10 @@ add_ipv6(const char *hostname, int flags, struct addrinfo **aip,
 	UNUSED(flags);
 
 	ai = ai_clone(*aip, AF_INET6); /* don't use ai_clone() */
-	if (ai == NULL)
+	if (ai == NULL) {
+		freeaddrinfo(*aip);
 		return (EAI_MEMORY);
+	}
 
 	*aip = ai;
 	ai->ai_socktype = socktype;
@@ -1188,7 +1186,7 @@ get_local(const char *name, int socktype, struct addrinfo **res) {
 		return (EAI_MEMORY);
 
 	slocal = SLOCAL(ai->ai_addr);
-	strlcpy(slocal->sun_path, name, sizeof(slocal->sun_path));
+	strncpy(slocal->sun_path, name, sizeof(slocal->sun_path));
 
 	ai->ai_socktype = socktype;
 	/*

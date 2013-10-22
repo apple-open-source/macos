@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,9 +26,12 @@
 #define _NETWORK_INFORMATION_H_
 
 #include <stdint.h>
+#include <sys/cdefs.h>
 
 typedef struct _nwi_state * nwi_state_t;
 typedef struct _nwi_ifstate * nwi_ifstate_t;
+
+__BEGIN_DECLS
 
 /*
  * Function: nwi_state_copy
@@ -81,12 +84,20 @@ nwi_state_get_first_ifstate(nwi_state_t state, int af);
 /*
  * Function: nwi_state_get_generation
  * Purpose:
- *   Returns the generation (mach_time) of the nwi_state data.
+ *   Returns the generation of the nwi_state data.
  *   Every time the data is updated due to changes
  *   in the network, this value will change.
  */
 uint64_t
 nwi_state_get_generation(nwi_state_t state);
+
+/*
+ * Function: nwi_ifstate_get_generation
+ * Purpose:
+ *   Returns the generation of the nwi_ifstate data.
+ */
+uint64_t
+nwi_ifstate_get_generation(nwi_ifstate_t ifstate);
 
 /*
  * Function: nwi_state_get_ifstate
@@ -164,5 +175,83 @@ nwi_ifstate_compare_rank(nwi_ifstate_t ifstate1, nwi_ifstate_t ifstate2);
 void
 _nwi_state_ack(nwi_state_t state, const char *bundle_id)
 	__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+
+/*
+ * nwi_state_get_reachability_flags
+ *
+ * returns the global reachability flags for a given address family.
+ * If no address family is passed in, it returns the global reachability
+ * flags for either families.
+ *
+ * The reachability flags returned follow the definition of
+ * SCNetworkReachabilityFlags.
+ *
+ * If the flags are zero (i.e. do not contain kSCNetworkReachabilityFlagsReachable), there is no connectivity.
+ *
+ * Otherwise, at least kSCNetworkReachabilityFlagsReachable is set:
+ *        Reachable only
+ *          No other connection flags are set.
+ *        Reachable and no ConnectionRequired
+ *          If we have connectivity for the specified address family (and we'd
+ *          be returning the reachability flags associated with the default route)
+ *        Reachable and ConnectionRequired
+ *          If we do not currently have an active/primary network but we may
+ *          be able to establish connectivity.
+ *        Reachable and OnDemand
+ *          If we do not currently have an active/primary network but we may
+ *          be able to establish connective on demand.
+ *        Reachable and TransientConnection
+ *          This connection is transient.
+ *        Reachable and WWAN
+ *          This connection will be going over the cellular network.
+ */
+uint32_t
+nwi_state_get_reachability_flags(nwi_state_t nwi_state, int af);
+
+/*
+ * nwi_ifstate_get_vpn_server
+ *
+ * returns a sockaddr representation of the vpn server address.
+ * NULL if PPP/VPN/IPSec server address does not exist.
+ */
+const struct sockaddr *
+nwi_ifstate_get_vpn_server(nwi_ifstate_t ifstate);
+
+/*
+ * nwi_ifstate_get_reachability_flags
+ *
+ * returns the reachability flags for the interface given an address family.
+ * The flags returned are those determined outside of
+ * the routing table.  [None, ConnectionRequired, OnDemand,
+ * Transient Connection, WWAN].
+ */
+uint32_t
+nwi_ifstate_get_reachability_flags(nwi_ifstate_t ifstate);
+
+/*
+ * nwi_ifstate_get_signature
+ *
+ * returns the signature and its length for an ifstate given an address family.
+ * If AF_UNSPEC is passed in, the signature for a given ifstate is returned.
+ *
+ * If the signature does not exist, NULL is returned.
+ */
+const uint8_t *
+nwi_ifstate_get_signature(nwi_ifstate_t ifstate, int af, int * length);
+
+
+/*
+ * nwi_ifstate_get_dns_signature
+ *
+ * returns the signature and its length for given
+ * ifstate with a valid dns configuration.
+ *
+ * If the signature does not exist, NULL is returned.
+ *
+ */
+const uint8_t *
+nwi_ifstate_get_dns_signature(nwi_ifstate_t ifstate, int * length);
+
+__END_DECLS
 
 #endif

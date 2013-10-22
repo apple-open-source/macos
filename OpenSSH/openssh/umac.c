@@ -1,4 +1,4 @@
-/* $OpenBSD: umac.c,v 1.3 2008/05/12 20:52:20 pvalchev Exp $ */
+/* $OpenBSD: umac.c,v 1.4 2011/10/19 10:39:48 djm Exp $ */
 /* -----------------------------------------------------------------------
  * 
  * umac.c -- C Implementation UMAC Message Authentication
@@ -52,7 +52,15 @@
 /* --- User Switches ---------------------------------------------------- */
 /* ---------------------------------------------------------------------- */
 
+#ifndef UMAC_OUTPUT_LEN
 #define UMAC_OUTPUT_LEN     8  /* Alowable: 4, 8, 12, 16                  */
+#endif
+
+#if UMAC_OUTPUT_LEN != 4 && UMAC_OUTPUT_LEN != 8 && \
+    UMAC_OUTPUT_LEN != 12 && UMAC_OUTPUT_LEN != 16
+# error UMAC_OUTPUT_LEN must be defined to 4, 8, 12 or 16
+#endif
+
 /* #define FORCE_C_ONLY        1  ANSI C and 64-bit integers req'd        */
 /* #define AES_IMPLEMENTAION   1  1 = OpenSSL, 2 = Barreto, 3 = Gladman   */
 /* #define SSE2                0  Is SSE2 is available?                   */
@@ -170,7 +178,11 @@ static void STORE_UINT32_REVERSED(void *ptr, UINT32 x)
 /* OpenSSL's AES */
 #include "openbsd-compat/openssl-compat.h"
 #ifndef USE_BUILTIN_RIJNDAEL
-# include <openssl/aes.h>
+# ifdef __APPLE_CRYPTO__
+#  include "ossl-aes.h"
+# else
+#  include <openssl/aes.h>
+# endif
 #endif
 typedef AES_KEY aes_int_key[1];
 #define aes_encryption(in,out,int_key)                  \
@@ -316,7 +328,7 @@ static void pdf_gen_xor(pdf_ctx *pc, UINT8 nonce[8], UINT8 buf[8])
 
 typedef struct {
     UINT8  nh_key [L1_KEY_LEN + L1_KEY_SHIFT * (STREAMS - 1)]; /* NH Key */
-    UINT8  data   [HASH_BUF_BYTES];    /* Incomming data buffer           */
+    UINT8  data   [HASH_BUF_BYTES];    /* Incoming data buffer           */
     int next_data_empty;    /* Bookeeping variable for data buffer.       */
     int bytes_hashed;        /* Bytes (out of L1_KEY_LEN) incorperated.   */
     UINT64 state[STREAMS];               /* on-line state     */
@@ -1199,6 +1211,9 @@ int umac_delete(struct umac_ctx *ctx)
 /* Deallocate the ctx structure */
 {
     if (ctx) {
+#ifdef __APPLE_CRYPTO__
+	AES_destroy_ctx(&ctx->pdf.prf_key);
+#endif
         if (ALLOC_BOUNDARY)
             ctx = (struct umac_ctx *)ctx->free_ptr;
         xfree(ctx);

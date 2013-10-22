@@ -374,15 +374,9 @@ typedef AP_REQ krb5_ap_req;
 
 struct krb5_cc_ops;
 
-#ifdef _WIN32
 #define KRB5_USE_PATH_TOKENS 1
-#endif
 
-#ifdef KRB5_USE_PATH_TOKENS
 #define KRB5_DEFAULT_CCFILE_ROOT "%{TEMP}/krb5cc_"
-#else
-#define KRB5_DEFAULT_CCFILE_ROOT "/tmp/krb5cc_"
-#endif
 
 #define KRB5_DEFAULT_CCROOT "FILE:" KRB5_DEFAULT_CCFILE_ROOT
 
@@ -498,7 +492,7 @@ typedef struct krb5_creds {
 
 typedef struct krb5_cc_cache_cursor_data *krb5_cc_cache_cursor;
 
-#define KRB5_CC_OPS_VERSION 5
+#define KRB5_CC_OPS_VERSION 8
 
 typedef struct krb5_cc_ops {
     int version;
@@ -535,7 +529,12 @@ typedef struct krb5_cc_ops {
     krb5_error_code (KRB5_CALLCONV * unhold)(krb5_context, krb5_ccache);
     krb5_error_code (KRB5_CALLCONV * get_uuid)(krb5_context, krb5_ccache, krb5_uuid);
     krb5_error_code (KRB5_CALLCONV * resolve_by_uuid)(krb5_context, krb5_ccache, krb5_uuid);
+    krb5_error_code (KRB5_CALLCONV * tgt_req)(krb5_context, krb5_ccache, KERB_TGS_REQ_IN *, KERB_TGS_REQ_OUT *);
+    krb5_error_code (KRB5_CALLCONV * tgt_rep)(krb5_context, krb5_ccache, KERB_TGS_REP_IN *, KERB_TGS_REP_OUT *);
+    krb5_error_code (KRB5_CALLCONV * set_acl)(krb5_context, krb5_ccache, const char *, /* heim_object_t */ void *);
 } krb5_cc_ops;
+
+#define KRB5_ACL_BUNDLEID_ARRAY	"kHEIMAttrBundleIdentifierACL"
 
 struct krb5_log_facility;
 
@@ -848,11 +847,15 @@ typedef struct krb5_krbhst_data *krb5_krbhst_handle;
 typedef struct krb5_krbhst_info {
     enum { KRB5_KRBHST_UDP,
 	   KRB5_KRBHST_TCP,
-	   KRB5_KRBHST_HTTP } proto;
+	   KRB5_KRBHST_HTTP,
+	   KRB5_KRBHST_KKDCP,
+    } proto;
     unsigned short port;
     unsigned short def_port;
     struct addrinfo *ai;
     struct krb5_krbhst_info *next;
+    void *__private;
+    char *path;
     char hostname[1]; /* has to come last */
 } krb5_krbhst_info;
 
@@ -893,6 +896,7 @@ typedef struct krb5_sendto_ctx_data *krb5_sendto_ctx;
 #define KRB5_SENDTO_INITIAL	4
 #define KRB5_SENDTO_FILTER	5
 #define KRB5_SENDTO_FAILED	6
+#define KRB5_SENDTO_KRBHST	7
 
 typedef krb5_error_code
 (KRB5_CALLCONV * krb5_sendto_ctx_func)(krb5_context, krb5_sendto_ctx, void *,
@@ -969,6 +973,7 @@ extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_kcm_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_akcm_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_scc_ops;
 extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_kcc_ops;
+extern KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_ops;
 
 extern KRB5_LIB_VARIABLE const krb5_kt_ops krb5_fkt_ops;
 extern KRB5_LIB_VARIABLE const krb5_kt_ops krb5_wrfkt_ops;

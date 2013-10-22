@@ -44,18 +44,6 @@ typedef struct __IOHIDElement * IOHIDElementRef;
 typedef struct __IOHIDValue * IOHIDValueRef;
 
 /*!
-  @typedef IOHIDValueScaleType
-  @abstract Describes different types of scaling that can be performed on element values.
-  @constant kIOHIDValueScaleTypeCalibrated Type for value that is scaled with respect to the calibration properties.
-  @constant kIOHIDValueScaleTypePhysical Type for value that is scaled with respect to the physical min and physical max of the element.
-*/
-enum {
-    kIOHIDValueScaleTypeCalibrated,
-    kIOHIDValueScaleTypePhysical
-};
-typedef uint32_t IOHIDValueScaleType;
-
-/*!
     @typedef    IOHIDTransactionDirectionType
     @abstract   Direction for an IOHIDDeviceTransactionInterface.
     @constant   kIOHIDTransactionDirectionTypeInput Transaction direction used for requesting element values from a device. 

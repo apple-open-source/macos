@@ -65,13 +65,12 @@ ldap_set_search_results_callback LDAP_P((
 	void *context ));
 #endif
 
-int ldap_pvt_test_tls_settings(LDAP *ld);
-
 /* Apple TLSspecific error codes*/
 #define LDAP_TLS_CACERTFILE_NOTFOUND       (-30)
 #define LDAP_TLS_CERTFILE_NOTFOUND     	   (-31)
 #define LDAP_TLS_CERTKEYFILE_NOTFOUND      (-32)
 #define LDAP_TLS_PASSPHRASE_NOTFOUND 	   (-33)
+#define LDAP_TLS_KEYCHAIN_CERT_NOTFOUND	   (-34)
 
 LDAP_END_DECL
 

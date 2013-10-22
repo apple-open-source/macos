@@ -30,8 +30,6 @@
 
 #include "config.h"
 
-#if ENABLE(MUTATION_OBSERVERS)
-
 #include "MutationObserverInterestGroup.h"
 
 #include "MutationObserverRegistration.h"
@@ -41,10 +39,10 @@
 
 namespace WebCore {
 
-PassOwnPtr<MutationObserverInterestGroup> MutationObserverInterestGroup::createIfNeeded(Node* target, WebKitMutationObserver::MutationType type, MutationRecordDeliveryOptions oldValueFlag, const QualifiedName* attributeName)
+PassOwnPtr<MutationObserverInterestGroup> MutationObserverInterestGroup::createIfNeeded(Node* target, MutationObserver::MutationType type, MutationRecordDeliveryOptions oldValueFlag, const QualifiedName* attributeName)
 {
-    ASSERT((type == WebKitMutationObserver::Attributes && attributeName) || !attributeName);
-    HashMap<WebKitMutationObserver*, MutationRecordDeliveryOptions> observers;
+    ASSERT((type == MutationObserver::Attributes && attributeName) || !attributeName);
+    HashMap<MutationObserver*, MutationRecordDeliveryOptions> observers;
     target->getRegisteredMutationObserversOfType(observers, type, attributeName);
     if (observers.isEmpty())
         return nullptr;
@@ -52,7 +50,7 @@ PassOwnPtr<MutationObserverInterestGroup> MutationObserverInterestGroup::createI
     return adoptPtr(new MutationObserverInterestGroup(observers, oldValueFlag));
 }
 
-MutationObserverInterestGroup::MutationObserverInterestGroup(HashMap<WebKitMutationObserver*, MutationRecordDeliveryOptions>& observers, MutationRecordDeliveryOptions oldValueFlag)
+MutationObserverInterestGroup::MutationObserverInterestGroup(HashMap<MutationObserver*, MutationRecordDeliveryOptions>& observers, MutationRecordDeliveryOptions oldValueFlag)
     : m_oldValueFlag(oldValueFlag)
 {
     ASSERT(!observers.isEmpty());
@@ -61,8 +59,8 @@ MutationObserverInterestGroup::MutationObserverInterestGroup(HashMap<WebKitMutat
 
 bool MutationObserverInterestGroup::isOldValueRequested()
 {
-    for (HashMap<WebKitMutationObserver*, MutationRecordDeliveryOptions>::iterator iter = m_observers.begin(); iter != m_observers.end(); ++iter) {
-        if (hasOldValue(iter->second))
+    for (HashMap<MutationObserver*, MutationRecordDeliveryOptions>::iterator iter = m_observers.begin(); iter != m_observers.end(); ++iter) {
+        if (hasOldValue(iter->value))
             return true;
     }
     return false;
@@ -72,9 +70,9 @@ void MutationObserverInterestGroup::enqueueMutationRecord(PassRefPtr<MutationRec
 {
     RefPtr<MutationRecord> mutation = prpMutation;
     RefPtr<MutationRecord> mutationWithNullOldValue;
-    for (HashMap<WebKitMutationObserver*, MutationRecordDeliveryOptions>::iterator iter = m_observers.begin(); iter != m_observers.end(); ++iter) {
-        WebKitMutationObserver* observer = iter->first;
-        if (hasOldValue(iter->second)) {
+    for (HashMap<MutationObserver*, MutationRecordDeliveryOptions>::iterator iter = m_observers.begin(); iter != m_observers.end(); ++iter) {
+        MutationObserver* observer = iter->key;
+        if (hasOldValue(iter->value)) {
             observer->enqueueMutationRecord(mutation);
             continue;
         }
@@ -89,5 +87,3 @@ void MutationObserverInterestGroup::enqueueMutationRecord(PassRefPtr<MutationRec
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(MUTATION_OBSERVERS)

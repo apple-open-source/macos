@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,9 @@ struct smb_prefs {
 	enum smb_min_auth	minAuthAllowed;
 	int32_t				altflags;
 	CFStringRef			NetBIOSDNSName;
+	uint32_t			smb_negotiate; 
+	uint32_t			lanman_on;
+	uint32_t			signing_required;
 };
 
 void getDefaultPreferences(struct smb_prefs *prefs);

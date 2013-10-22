@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
 
 #include <pthread.h>
 #include <unistd.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include <Security/Authorization.h>
 
 CFDictionaryRef kDADiskDescriptionMatchMediaUnformatted   = NULL;
@@ -39,11 +40,10 @@ CFDictionaryRef kDADiskDescriptionMatchVolumeUnrecognized = NULL;
 CFArrayRef kDADiskDescriptionWatchVolumeName = NULL;
 CFArrayRef kDADiskDescriptionWatchVolumePath = NULL;
 
-__private_extern__ DADiskRef    _DADiskCreateFromSerialization( CFAllocatorRef allocator, DASessionRef session, CFDataRef serialization );
-__private_extern__ char *       _DADiskGetID( DADiskRef disk );
-__private_extern__ mach_port_t  _DADiskGetSessionID( DADiskRef disk );
-__private_extern__ void         _DADiskInitialize( void );
-__private_extern__ void         _DADiskSetDescription( DADiskRef disk, CFDictionaryRef description );
+__private_extern__ char *      _DADiskGetID( DADiskRef disk );
+__private_extern__ mach_port_t _DADiskGetSessionID( DADiskRef disk );
+__private_extern__ void        _DADiskInitialize( void );
+__private_extern__ void        _DADiskSetDescription( DADiskRef disk, CFDictionaryRef description );
 
 __private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef session );
 __private_extern__ mach_port_t      _DASessionGetID( DASessionRef session );
@@ -247,19 +247,32 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
 
                 flags = kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagPreAuthorize;
 
-                if ( CFDictionaryGetValue( description, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
                 {
-                    asprintf( &name, "system.volume.removable.%s", right );
-                }
-                else
-                {
-                    if ( CFDictionaryGetValue( description, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
+                    CFTypeRef object;
+
+                    object = CFDictionaryGetValue( description, kDADiskDescriptionDeviceProtocolKey );
+
+                    if ( object && CFEqual( object, CFSTR( kIOPropertyPhysicalInterconnectTypeVirtual ) ) )
                     {
-                        asprintf( &name, "system.volume.internal.%s", right );
+                        asprintf( &name, "system.volume.virtual.%s", right );
                     }
                     else
                     {
-                        asprintf( &name, "system.volume.external.%s", right );
+                        if ( CFDictionaryGetValue( description, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
+                        {
+                            asprintf( &name, "system.volume.removable.%s", right );
+                        }
+                        else
+                        {
+                            if ( CFDictionaryGetValue( description, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
+                            {
+                                asprintf( &name, "system.volume.internal.%s", right );
+                            }
+                            else
+                            {
+                                asprintf( &name, "system.volume.external.%s", right );
+                            }
+                        }
                     }
                 }
 
@@ -789,12 +802,12 @@ void DARegisterDiskDisappearedCallback( DASessionRef              session,
     _DARegisterCallback( session, callback, context, _kDADiskDisappearedCallback, 0, match, NULL );
 }
 
-void DARegisterDiskEjectApprovalCallback( DAApprovalSessionRef        session,
+void DARegisterDiskEjectApprovalCallback( DASessionRef                session,
                                           CFDictionaryRef             match,
                                           DADiskEjectApprovalCallback callback,
                                           void *                      context )
 {
-    _DARegisterCallback( ( void * ) session, callback, context, _kDADiskEjectApprovalCallback, 0, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskEjectApprovalCallback, 0, match, NULL );
 }
 
 void DARegisterDiskPeekCallback( DASessionRef        session,
@@ -806,20 +819,20 @@ void DARegisterDiskPeekCallback( DASessionRef        session,
     _DARegisterCallback( session, callback, context, _kDADiskPeekCallback, order, match, NULL );
 }
 
-void DARegisterDiskMountApprovalCallback( DAApprovalSessionRef        session,
+void DARegisterDiskMountApprovalCallback( DASessionRef                session,
                                           CFDictionaryRef             match,
                                           DADiskMountApprovalCallback callback,
                                           void *                      context )
 {
-    _DARegisterCallback( ( void * ) session, callback, context, _kDADiskMountApprovalCallback, 0, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskMountApprovalCallback, 0, match, NULL );
 }
 
-void DARegisterDiskUnmountApprovalCallback( DAApprovalSessionRef          session,
+void DARegisterDiskUnmountApprovalCallback( DASessionRef                  session,
                                             CFDictionaryRef               match,
                                             DADiskUnmountApprovalCallback callback,
                                             void *                        context )
 {
-    _DARegisterCallback( ( void * ) session, callback, context, _kDADiskUnmountApprovalCallback, 0, match, NULL );
+    _DARegisterCallback( session, callback, context, _kDADiskUnmountApprovalCallback, 0, match, NULL );
 }
 
 void DADiskUnclaim( DADiskRef disk )
@@ -835,7 +848,7 @@ void DAUnregisterCallback( DASessionRef session, void * callback, void * context
     _DAUnregisterCallback( session, callback, context );
 }
 
-void DAUnregisterApprovalCallback( DAApprovalSessionRef session, void * callback, void * context )
+void DAUnregisterApprovalCallback( DASessionRef session, void * callback, void * context )
 {
-    _DAUnregisterCallback( ( void * ) session, callback, context );
+    _DAUnregisterCallback( session, callback, context );
 }

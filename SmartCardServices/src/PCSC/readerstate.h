@@ -33,7 +33,7 @@
 #include "pcsclite.h"
 #include "readerfactory.h"
 #include "eventhandler.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <MacTypes.h>
 
 #ifdef __cplusplus
 extern "C"

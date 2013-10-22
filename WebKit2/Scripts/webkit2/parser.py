@@ -22,21 +22,24 @@
 
 import re
 
-import model
+from webkit2 import model
 
 
 def parse(file):
+    receiver_attributes = None
     destination = None
     messages = []
     condition = None
     master_condition = None
     for line in file:
-        match = re.search(r'messages -> ([A-Za-z_0-9]+) {', line)
+        match = re.search(r'messages -> (?P<destination>[A-Za-z_0-9]+) \s*(?:(?P<attributes>.*?)\s+)?{', line)
         if match:
+            receiver_attributes = parse_attributes_string(match.group('attributes'))
+
             if condition:
                 master_condition = condition
                 condition = None
-            destination = match.group(1)
+            destination = match.group('destination')
             continue
         if line.startswith('#'):
             if line.startswith('#if '):
@@ -66,7 +69,7 @@ def parse(file):
                 reply_parameters = None
 
             messages.append(model.Message(name, parameters, reply_parameters, attributes, condition))
-    return model.MessageReceiver(destination, messages, master_condition)
+    return model.MessageReceiver(destination, receiver_attributes, messages, master_condition)
 
 
 def parse_attributes_string(attributes_string):
@@ -75,9 +78,31 @@ def parse_attributes_string(attributes_string):
     return attributes_string.split()
 
 
+def split_parameters_string(parameters_string):
+    parameters = []
+    current_parameter_string = ''
+
+    nest_level = 0
+    for character in parameters_string:
+        if character == ',' and nest_level == 0:
+            parameters.append(current_parameter_string)
+            current_parameter_string = ''
+            continue
+
+        if character == '<':
+            nest_level += 1
+        elif character == '>':
+            nest_level -= 1
+
+        current_parameter_string += character
+
+    parameters.append(current_parameter_string)
+    return parameters
+
 def parse_parameters_string(parameters_string):
     parameters = []
-    for parameter_string in parameters_string.split(', '):
+
+    for parameter_string in split_parameters_string(parameters_string):
         match = re.search(r'\s*(?:\[(?P<attributes>.*?)\]\s+)?(?P<type_and_name>.*)', parameter_string)
         attributes_string, type_and_name_string = match.group('attributes', 'type_and_name')
         parameter_type, parameter_name = type_and_name_string.rsplit(' ', 1)

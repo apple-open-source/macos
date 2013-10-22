@@ -17,8 +17,9 @@ module REXML
       end
 
       def parse path
+        path = path.dup
         path.gsub!(/([\(\[])\s+/, '\1') # Strip ignorable spaces
-        path.gsub!( /\s+([\]\)])/, '\1' )
+        path.gsub!( /\s+([\]\)])/, '\1')
         parsed = []
         path = OrExpr(path, parsed)
         parsed
@@ -39,10 +40,10 @@ module REXML
           case op
           when :node
           when :attribute
-						string << "/" if string.size > 0
-						string << "@"
+            string << "/" if string.size > 0
+            string << "@"
           when :child
-						string << "/" if string.size > 0
+            string << "/" if string.size > 0
           when :descendant_or_self
             string << "/"
           when :self
@@ -51,10 +52,10 @@ module REXML
             string << ".."
           when :any
             string << "*"
-					when :text
-						string << "text()"
-          when :following, :following_sibling, 
-                :ancestor, :ancestor_or_self, :descendant, 
+          when :text
+            string << "text()"
+          when :following, :following_sibling,
+                :ancestor, :ancestor_or_self, :descendant,
                 :namespace, :preceding, :preceding_sibling
             string << "/" unless string.size == 0
             string << op.to_s.tr("_", "-")
@@ -70,13 +71,13 @@ module REXML
             string << ']'
           when :document
             document = true
-					when :function
-						string << path.shift
-						string << "( "
-						string << predicate_to_string( path.shift[0] ) {|x| abbreviate( x )}
-						string << " )"
-					when :literal
-						string << %Q{ "#{path.shift}" }
+          when :function
+            string << path.shift
+            string << "( "
+            string << predicate_to_string( path.shift[0] ) {|x| abbreviate( x )}
+            string << " )"
+          when :literal
+            string << %Q{ "#{path.shift}" }
           else
             string << "/" unless string.size == 0
             string << "UNKNOWN("
@@ -84,7 +85,7 @@ module REXML
             string << ")"
           end
         end
-				string = "/"+string if document
+        string = "/"+string if document
         return string
       end
 
@@ -97,7 +98,7 @@ module REXML
           case op
           when :node
             string << "node()"
-          when :attribute, :child, :following, :following_sibling, 
+          when :attribute, :child, :following, :following_sibling,
                 :ancestor, :ancestor_or_self, :descendant, :descendant_or_self,
                 :namespace, :preceding, :preceding_sibling, :self, :parent
             string << "/" unless string.size == 0
@@ -249,7 +250,7 @@ module REXML
 
             parsed.concat(n)
           end
-          
+
           if path.size > 0
             if path[0] == ?/
               if path[1] == ?/
@@ -282,7 +283,6 @@ module REXML
       PI        = /^processing-instruction\(/
       def NodeTest path, parsed
         #puts "NodeTest with #{path}"
-        res = nil
         case path
         when /^\*/
           path = $'
@@ -332,12 +332,12 @@ module REXML
           predicates << expr[1..-2] if expr
         end
         #puts "PREDICATES = #{predicates.inspect}"
-        predicates.each{ |expr| 
-          #puts "ORING #{expr}"
+        predicates.each{ |pred|
+          #puts "ORING #{pred}"
           preds = []
           parsed << :predicate
           parsed << preds
-          OrExpr(expr, preds) 
+          OrExpr(pred, preds)
         }
         #puts "PREDICATES = #{predicates.inspect}"
         path
@@ -551,7 +551,7 @@ module REXML
           end
         end
         #puts "BEFORE WITH '#{rest}'"
-        rest = LocationPath(rest, n) if rest =~ /\A[\/\.\@\[\w_*]/
+        rest = LocationPath(rest, n) if rest =~ /\A[\/\.\@\[\w*]/
         parsed.concat(n)
         return rest
       end
@@ -578,7 +578,6 @@ module REXML
       NUMBER              = /^(\d*\.?\d+)/
       NT        = /^comment|text|processing-instruction|node$/
       def PrimaryExpr path, parsed
-        arry = []
         case path
         when VARIABLE_REFERENCE
           varname = $1
@@ -600,13 +599,13 @@ module REXML
           #puts "LITERAL or NUMBER: #$1"
           varname = $1.nil? ? $2 : $1
           path = $'
-          parsed << :literal 
+          parsed << :literal
           parsed << (varname.include?('.') ? varname.to_f : varname.to_i)
         when LITERAL
           #puts "LITERAL or NUMBER: #$1"
           varname = $1.nil? ? $2 : $1
           path = $'
-          parsed << :literal 
+          parsed << :literal
           parsed << varname
         when /^\(/                                               #/
           path, contents = get_group(path)
@@ -649,43 +648,43 @@ module REXML
         return nil unless depth==0
         [string[ind..-1], string[0..ind-1]]
       end
-      
+
       def parse_args( string )
         arguments = []
         ind = 0
-				inquot = false
-				inapos = false
+        inquot = false
+        inapos = false
         depth = 1
         begin
           case string[ind]
           when ?"
-          	inquot = !inquot unless inapos
+            inquot = !inquot unless inapos
           when ?'
-          	inapos = !inapos unless inquot
+            inapos = !inapos unless inquot
           else
-          	unless inquot or inapos
-          		case string[ind]
-							when ?(
-								depth += 1
+            unless inquot or inapos
+              case string[ind]
+              when ?(
+                depth += 1
                 if depth == 1
-                	string = string[1..-1]
-                	ind -= 1
+                  string = string[1..-1]
+                  ind -= 1
                 end
-							when ?)
-								depth -= 1
-								if depth == 0
-									s = string[0,ind].strip
-									arguments << s unless s == ""
-									string = string[ind+1..-1]
-								end
-							when ?,
-								if depth == 1
-									s = string[0,ind].strip
-									arguments << s unless s == ""
-									string = string[ind+1..-1]
-									ind = -1 
-								end
-							end
+              when ?)
+                depth -= 1
+                if depth == 0
+                  s = string[0,ind].strip
+                  arguments << s unless s == ""
+                  string = string[ind+1..-1]
+                end
+              when ?,
+                if depth == 1
+                  s = string[0,ind].strip
+                  arguments << s unless s == ""
+                  string = string[ind+1..-1]
+                  ind = -1
+                end
+              end
             end
           end
           ind += 1

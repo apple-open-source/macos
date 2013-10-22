@@ -25,8 +25,7 @@
 #include "FrameView.h"
 #include "HitTestResult.h"
 #include "KURL.h"
-#include "WebKitDOMBinding.h"
-#include "WebKitDOMNode.h"
+#include "WebKitDOMNodePrivate.h"
 #include "webkitenumtypes.h"
 #include "webkitglobals.h"
 #include "webkitglobalsprivate.h"
@@ -245,28 +244,28 @@ static void webkit_hit_test_result_class_init(WebKitHitTestResultClass* webHitTe
     /**
      * WebKitHitTestResult:x:
      *
-     * The x coordintate of the event relative to the view's window.
+     * The x coordinate of the event relative to the view's window.
      *
      * Since: 1.10
      */
     g_object_class_install_property(objectClass, PROP_X,
                                     g_param_spec_int("x",
                                                      _("X coordinate"),
-                                                     _("The x coordintate of the event relative to the view's window."),
+                                                     _("The x coordinate of the event relative to the view's window."),
                                                      G_MININT, G_MAXINT, 0,
                                                      static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 
     /**
      * WebKitHitTestResult:y:
      *
-     * The x coordintate of the event relative to the view's window.
+     * The x coordinate of the event relative to the view's window.
      *
      * Since: 1.10
      */
     g_object_class_install_property(objectClass, PROP_Y,
                                     g_param_spec_int("y",
                                                      _("Y coordinate"),
-                                                     _("The y coordintate of the event relative to the view's window."),
+                                                     _("The y coordinate of the event relative to the view's window."),
                                                      G_MININT, G_MAXINT, 0,
                                                      static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 
@@ -288,7 +287,7 @@ WebKitHitTestResult* kit(const WebCore::HitTestResult& result)
     GOwnPtr<char> imageURI(0);
     GOwnPtr<char> mediaURI(0);
     WebKitDOMNode* node = 0;
-    WebCore::Frame* targetFrame;
+    WebCore::Frame* innerNodeFrame;
     WebCore::IntPoint point;
 
     if (!result.absoluteLinkURL().isEmpty()) {
@@ -315,12 +314,15 @@ WebKitHitTestResult* kit(const WebCore::HitTestResult& result)
     if (result.innerNonSharedNode())
         node = kit(result.innerNonSharedNode());
 
-    targetFrame = result.targetFrame();
-    if (targetFrame && targetFrame->view()) {
+    innerNodeFrame = result.innerNodeFrame();
+    if (innerNodeFrame && innerNodeFrame->view()) {
         // Convert document coords to widget coords.
-        point = targetFrame->view()->contentsToWindow(result.roundedPoint());
-    } else
-        point = result.roundedPoint();
+        point = innerNodeFrame->view()->contentsToWindow(result.roundedPointInInnerNodeFrame());
+    } else {
+        // FIXME: Main frame coords is not the same as window coords,
+        // but we do not have pointer to  mainframe view here.
+        point = result.roundedPointInMainFrame();
+    }
 
     return WEBKIT_HIT_TEST_RESULT(g_object_new(WEBKIT_TYPE_HIT_TEST_RESULT,
                                                "link-uri", linkURI.get(),

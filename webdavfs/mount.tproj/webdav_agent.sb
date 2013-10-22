@@ -2,18 +2,22 @@
 ;;; Sandbox profile for webdav_agent.
 
 (version 1)
-(import "system.sb")
-
 (deny default)
+(import "system.sb")
+(import "gss-acceptor.sb")
 
-(allow network-outbound
-	(remote tcp "*")
-	(literal "/private/var/run/mDNSResponder"))
-
+(allow network-outbound)
+  
 (allow system-socket)
+
+(allow mach-register
+	(global-name-regex #"^com\.apple\.webdavfs\.msgport..*"))
 
 (allow file-read-metadata
 	(literal "/private/tmp"))
+
+(allow mach-lookup 
+	(global-name-regex #"^com\.apple\.webdavfs\.msgport..*"))
 
 (allow file*
 	(regex #"^/private/tmp/.webdavUDS\..+"))

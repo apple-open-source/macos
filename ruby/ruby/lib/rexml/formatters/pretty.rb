@@ -31,6 +31,7 @@ module REXML
         @level = 0
         @ie_hack = ie_hack
         @width = 80
+        @compact = false
       end
 
       protected
@@ -47,7 +48,7 @@ module REXML
           if @ie_hack
             output << " "
           end
-          output << "/" 
+          output << "/"
         else
           output << ">"
           # If compact and all children are text, and if the formatted output
@@ -87,7 +88,7 @@ module REXML
         s = node.to_s()
         s.gsub!(/\s/,' ')
         s.squeeze!(" ")
-        s = wrap(s, 80-@level)
+        s = wrap(s, @width - @level)
         s = indent_text(s, @level, " ", true)
         output << (' '*@level + s)
       end
@@ -125,11 +126,13 @@ module REXML
       end
 
       def wrap(string, width)
-        # Recursively wrap string at width.
-        return string if string.length <= width
-        place = string.rindex(' ', width) # Position in string with last ' ' before cutoff
-        return string if place.nil?
-        return string[0,place] + "\n" + wrap(string[place+1..-1], width)
+        parts = []
+        while string.length > width and place = string.rindex(' ', width)
+          parts << string[0...place]
+          string = string[place+1..-1]
+        end
+        parts << string
+        parts.join("\n")
       end
 
     end

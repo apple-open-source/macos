@@ -157,12 +157,12 @@ char *BN_bn2dec(const BIGNUM *a)
 		/* We now have a series of blocks, BN_DEC_NUM chars
 		 * in length, where the last one needs truncation.
 		 * The blocks need to be reversed in order. */
-		sprintf(p,BN_DEC_FMT1,*lp);
+		sprintf(p,BN_DEC_FMT1,(unsigned long)*lp);
 		while (*p) p++;
 		while (lp != bn_data)
 			{
 			lp--;
-			sprintf(p,BN_DEC_FMT2,*lp);
+			sprintf(p,BN_DEC_FMT2,(unsigned long)*lp);
 			while (*p) p++;
 			}
 		}

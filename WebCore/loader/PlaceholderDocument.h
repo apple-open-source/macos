@@ -37,10 +37,12 @@ public:
         return adoptRef(new PlaceholderDocument(frame, url));
     }
 
-    virtual void attach();
+    virtual void attach(const AttachContext& = AttachContext()) OVERRIDE;
 
 private:
-    PlaceholderDocument(Frame* frame, const KURL& url) : Document(frame, url, false, false) { }
+    PlaceholderDocument(Frame* frame, const KURL& url)
+        : Document(frame, url)
+    { }
 };
 
 } // namespace WebCore

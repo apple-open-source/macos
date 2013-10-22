@@ -87,7 +87,7 @@ struct NAHSelectionData {
     CFStringRef server;
     CFStringRef servertype;
 
-    SecCertificateRef certificate;
+    SecIdentityRef certificate;
     bool spnego;
 
     CFStringRef inferredLabel;
@@ -149,6 +149,7 @@ NAHCopyMMeUserNameFromCertificate(SecCertificateRef cert)
     unsigned dex;
 
     certData = SecCertificateCopyData(cert);
+    CFRelease(cert);
     if (NULL == certData)
         return NULL;
 
@@ -306,7 +307,8 @@ static struct {
     { CFSTR("PKU2U"), GSS_KERBEROS_PKU2U, GSS_PKU2U_MECHANISM },
     { CFSTR("IAKerb"), GSS_KERBEROS_IAKERB, GSS_IAKERB_MECHANISM },
     { CFSTR("NTLM"), GSS_NTLM, GSS_NTLM_MECHANISM },
-    { CFSTR("SPNEGO"), GSS_SPNEGO, GSS_SPNEGO_MECHANISM }
+    { CFSTR("SPNEGO"), GSS_SPNEGO, GSS_SPNEGO_MECHANISM },
+    { CFSTR("SPENGO"), GSS_SPNEGO, GSS_SPNEGO_MECHANISM }
 };
 
 static enum NAHMechType
@@ -730,49 +732,10 @@ static void
 classic_lkdc(NAHRef na, unsigned long flags)
 {
     NAHSelectionRef nasel;
-    CFStringRef u = NULL;
-    CFIndex n;
     int duplicate;
 
     if (!have_lkdcish_hostname(na, true))
 	return;
-
-    /* if we have certs, lets push those names too */
-    for (n = 0; na->x509identities && n < CFArrayGetCount(na->x509identities); n++) {
-	SecCertificateRef cert = (void *)CFArrayGetValueAtIndex(na->x509identities, n);
-
-	u = NAHCopyMMeUserNameFromCertificate(cert);
-	if (u == NULL)
-	    continue;
-
-	{
-	    CFStringRef label = NULL;
-	    SecCertificateInferLabel(cert, &label);
-	    if (label) {
-		nalog(ASL_LEVEL_DEBUG, CFSTR("Adding classic LKDC for %@"), label);
-		CFRelease(label);
-	    }
-	}
-
-	nasel = addSelection(na,
-			     u, kNAHNTKRB5Principal,
-			     NULL, kNAHNTKRB5PrincipalReferral,
-			     GSS_KERBEROS, &duplicate, flags);
-	CFRELEASE(u);
-	if (nasel == NULL || duplicate)
-	    continue;
-
-	CFRetain(cert);
-	nasel->certificate = cert;
-
-	CFRetain(na);
-	dispatch_async(na->bgq, ^{
-		classic_lkdc_background(nasel);
-		CFRelease(na);
-	    });
-    }
-
-    CFRELEASE(u);
 
     if (na->password) {
 	nasel = addSelection(na,
@@ -931,9 +894,16 @@ use_existing_principals(NAHRef na, int only_lkdc, unsigned long flags)
     while ((ret = krb5_cccol_cursor_next(na->context, cursor, &id)) == 0 && id != NULL) {
 	NAHSelectionRef nasel;
 	int is_lkdc;
+	time_t t;
 
 	ret = krb5_cc_get_principal(na->context, id, &client);
 	if (ret) {
+	    krb5_cc_close(na->context, id);
+	    continue;
+	}
+
+	ret = krb5_cc_get_lifetime(na->context, id, &t);
+	if (ret || t <= 0) {
 	    krb5_cc_close(na->context, id);
 	    continue;
 	}
@@ -1029,9 +999,8 @@ wellknown_lkdc(NAHRef na, enum NAHMechType mechtype, unsigned long flags)
     if (u == NULL)
 	return;
 
-    s = CFStringCreateWithFormat(na->alloc, NULL,
-				 CFSTR("%@/localhost@%@"), na->service,
-				 kWELLKNOWN_LKDC, kWELLKNOWN_LKDC);
+    s = CFStringCreateWithFormat(na->alloc, NULL, CFSTR("%@/localhost@%@"),
+				 na->service, kWELLKNOWN_LKDC);
     if (s == NULL) {
 	CFRELEASE(u);
 	return;
@@ -1044,16 +1013,21 @@ wellknown_lkdc(NAHRef na, enum NAHMechType mechtype, unsigned long flags)
 
     /* if we have certs, lets push those names too */
     for (n = 0; na->x509identities && n < CFArrayGetCount(na->x509identities); n++) {
-	SecCertificateRef cert = (void *)CFArrayGetValueAtIndex(na->x509identities, n);
+	SecIdentityRef identity = (void *)CFArrayGetValueAtIndex(na->x509identities, n);
 	CFStringRef csstr;
+	SecCertificateRef cert = NULL;
+
+	if (SecIdentityCopyCertificate(identity, &cert))
+	    continue;
 
 	csstr = _CSCopyKerberosPrincipalForCertificate(cert);
+	CFRelease(cert);
 	if (csstr == NULL) {
 	    hx509_cert hxcert;
 	    char *str;
 	    int ret;
 
-	    ret = hx509_cert_init_SecFramework(na->hxctx, cert, &hxcert);
+	    ret = hx509_cert_init_SecFramework(na->hxctx, identity, &hxcert);
 	    if (ret)
 		continue;
 
@@ -1078,8 +1052,8 @@ wellknown_lkdc(NAHRef na, enum NAHMechType mechtype, unsigned long flags)
 	NAHSelectionRef nasel = addSelection(na, u, kNAHNTKRB5Principal, s, kNAHNTKRB5PrincipalReferral, mechtype, NULL, flags);
 	CFRELEASE(u);
 	if (nasel) {
-	    CFRetain(cert);
-	    nasel->certificate = cert;
+	    CFRetain(identity);
+	    nasel->certificate = identity;
 	}
     }
 
@@ -1334,6 +1308,37 @@ guess_ntlm(NAHRef na)
 }
 
 /*
+ * Flattern arrays and try 
+ */
+
+static void
+addSecItem(CFMutableArrayRef certs, CFTypeRef item)
+{
+    CFTypeID type = CFGetTypeID(item);
+
+    if (CFArrayGetTypeID() == type) {
+	CFIndex n, count = CFArrayGetCount(item);
+	for (n = 0; n < count; n++) {
+	    CFTypeRef arrayItem = CFArrayGetValueAtIndex(item, n);
+	    addSecItem(certs, arrayItem);
+	}
+    } else if (SecCertificateGetTypeID() == type) {
+	SecIdentityRef identity = NULL;
+	SecIdentityCreateWithCertificate(NULL, (SecCertificateRef)item, &identity);
+	if (identity) {
+	    CFArrayAppendValue(certs, identity);
+	    CFRelease(identity);
+	}
+    } else if (SecIdentityGetTypeID() == type) {
+	CFArrayAppendValue(certs, item);
+    } else {
+	CFStringRef desc = CFCopyDescription(item);
+	nalog(ASL_LEVEL_DEBUG, CFSTR("unknown type of certificates: %@"), desc);
+	CFRELEASE(desc);
+    }
+}
+
+/*
  *
  */
 
@@ -1430,21 +1435,17 @@ NAHCreate(CFAllocatorRef alloc,
 
 	certs = CFDictionaryGetValue(info, kNAHCertificates);
 	if (certs) {
-	    CFTypeID type = CFGetTypeID(certs);
+	    CFMutableArrayRef a = CFArrayCreateMutable(na->alloc, 0, &kCFTypeArrayCallBacks);
 
-	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: %@"), certs);
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: certs %@"), certs);
 
-	    if (CFArrayGetTypeID() == type) {
-		CFRetain(certs);
-		na->x509identities = certs;
-	    } else if (SecCertificateGetTypeID() == type || SecIdentityGetTypeID() == type) {
-		CFMutableArrayRef a = CFArrayCreateMutable(na->alloc, 0, &kCFTypeArrayCallBacks);
-		CFArrayAppendValue(a, certs);
+	    addSecItem(a, certs);
+	    
+	    if (CFArrayGetCount(a)) {
 		na->x509identities = a;
 	    } else {
-		CFStringRef desc = CFCopyDescription(certs);
-		nalog(ASL_LEVEL_DEBUG, CFSTR("unknown type of certificates: %@"), desc);
-		CFRELEASE(desc);
+		CFRelease(a);
+		nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: we got no certs"));
 	    }
 	}
     }
@@ -1468,69 +1469,21 @@ NAHGetSelections(NAHRef na)
     return na->selections;
 }
 
-static CFTypeRef
-searchArray(CFArrayRef array, CFTypeRef key)
-{
-    CFDictionaryRef dict;
-    CFIndex n;
-
-    for (n = 0 ; n < CFArrayGetCount(array); n++) {
-	dict = CFArrayGetValueAtIndex(array, n);
-	if (CFGetTypeID(dict) != CFDictionaryGetTypeID())
-	    continue;
-	CFTypeRef dictkey = CFDictionaryGetValue(dict, kSecPropertyKeyLabel);
-	if (CFEqual(dictkey, key))
-	    return CFDictionaryGetValue(dict, kSecPropertyKeyValue);
-    }
-    return NULL;
-}
-
 static CFStringRef
-copyInferedNameFromCert(SecCertificateRef cert)
+copyInferedNameFromIdentity(SecIdentityRef identity)
 {
-    CFStringRef inferredLabel;
+    CFStringRef inferredLabel = NULL;
+    SecCertificateRef cert = NULL;
 
+    SecIdentityCopyCertificate(identity, &cert);
+    if (cert == NULL)
+	return NULL;
+    
     inferredLabel = _CSCopyAppleIDAccountForAppleIDCertificate(cert, NULL);
-    if (inferredLabel == NULL) {
-	const CFStringRef dotmac = CFSTR(".Mac Sharing Certificate");
-	const CFStringRef mobileMe = CFSTR("MobileMe Sharing Certificate");
-	void *values[4] = { (void *)kSecOIDDescription, (void *)kSecOIDCommonName, (void *)kSecOIDOrganizationalUnitName, (void *)kSecOIDX509V1SubjectName };
-	CFArrayRef attrs = CFArrayCreate(NULL, (const void **)values, sizeof(values) / sizeof(values[0]), &kCFTypeArrayCallBacks);
-
-	if (NULL == attrs)
-	    return NULL;
-
-	CFDictionaryRef certval = SecCertificateCopyValues(cert, attrs, NULL);
-	CFRelease(attrs);
-	if (NULL == certval)
-	    return NULL;
-
-	CFDictionaryRef subject = CFDictionaryGetValue(certval, kSecOIDX509V1SubjectName);
-	if (NULL != subject) {
-
-	    CFArrayRef val = CFDictionaryGetValue(subject, kSecPropertyKeyValue);
-
-	    if (NULL != val) {
-
-		CFStringRef description = searchArray(val, kSecOIDDescription);
-
-		if (NULL != description &&
-		    (kCFCompareEqualTo == CFStringCompare(description, dotmac, 0) || kCFCompareEqualTo == CFStringCompare(description, mobileMe, 0)))
-		{
-		    CFStringRef commonName = searchArray(val, kSecOIDCommonName);
-		    CFStringRef organizationalUnit = searchArray(val, kSecOIDOrganizationalUnitName);
-
-		    if (NULL != commonName && NULL != organizationalUnit) {
-			inferredLabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@@%@"), commonName, organizationalUnit);
-		    }
-		}
-	    }
-	}
-
-	CFRelease(certval);
-    }
     if (inferredLabel == NULL)
 	SecCertificateInferLabel(cert, &inferredLabel);
+
+    CFRELEASE(cert);
 
     return inferredLabel;
 }
@@ -1539,14 +1492,14 @@ copyInferedNameFromCert(SecCertificateRef cert)
 static void
 setFriendlyName(NAHRef na,
 		NAHSelectionRef selection,
-		SecCertificateRef cert,
+		SecIdentityRef cert,
 		krb5_ccache id,
 		int is_lkdc)
 {
     CFStringRef inferredLabel = NULL;
 
     if (cert) {
-	inferredLabel = copyInferedNameFromCert(cert);
+	inferredLabel = copyInferedNameFromIdentity(cert);
 
     } else if (na->specificname || is_lkdc) {
 	inferredLabel = na->username;
@@ -1576,7 +1529,7 @@ static int
 acquire_kerberos(NAHRef na,
 		 NAHSelectionRef selection,
 		 CFStringRef password,
-		 SecCertificateRef cert,
+		 SecIdentityRef cert,
 		 CFErrorRef *error)
 {
     krb5_init_creds_context icc = NULL;
@@ -1636,6 +1589,7 @@ acquire_kerberos(NAHRef na,
     }
 
     krb5_get_init_creds_opt_set_canonicalize(na->context, opt, TRUE);
+    krb5_get_init_creds_opt_set_win2k(na->context, opt, TRUE);
 
     ret = krb5_init_creds_init(na->context, client, NULL, NULL,
 			       0, opt, &icc);
@@ -2026,7 +1980,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	}
 
 	if (selection->certificate)
-	    selection->inferredLabel = copyInferedNameFromCert(selection->certificate);
+	    selection->inferredLabel = copyInferedNameFromIdentity(selection->certificate);
 
 	if (selection->inferredLabel == NULL) {
 	    CFMutableStringRef str = CFStringCreateMutableCopy(NULL, 0, selection->client);
@@ -2152,7 +2106,7 @@ NAHSelectionGetInfoForKey(NAHSelectionRef selection, CFStringRef key)
     } else if (CFStringCompare(kNAHClientPrincipal, key, 0) == kCFCompareEqualTo) {
 	return selection->client;
     } else if (CFStringCompare(kNAHMechanism, key, 0) == kCFCompareEqualTo) {
-	/* if not told otherwise, wrap everything in spengo wrappings */
+	/* if not told otherwise, wrap everything in SPNEGO wrappings */
 	if (!selection->spnego)
 	    return mech2name(selection->mech);
 	return kGSSAPIMechSPNEGO;
@@ -2818,4 +2772,4 @@ CFStringRef kGSSAPIMechKerberosU2U = CFSTR("KerberosUser2User");
 CFStringRef kGSSAPIMechKerberosMicrosoft = CFSTR("KerberosMicrosoft");
 CFStringRef kGSSAPIMechIAKerb = CFSTR("IAKerb");
 CFStringRef kGSSAPIMechPKU2U = CFSTR("PKU2U");
-CFStringRef kGSSAPIMechSPNEGO = CFSTR("SPENGO");
+CFStringRef kGSSAPIMechSPNEGO = CFSTR("SPNEGO");

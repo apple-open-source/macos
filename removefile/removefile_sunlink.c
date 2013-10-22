@@ -164,7 +164,7 @@ void verification_failure(off_t count) {
 
 static void
 overwrite(int stage, removefile_state_t state) {
-  u_int32_t i;
+  ssize_t i;
   off_t count = 0;
   unsigned char *buffptr = state->buffer;
 
@@ -179,17 +179,18 @@ overwrite(int stage, removefile_state_t state) {
       buffptr = align_buffer(state->buffer, count);
     }
     i = write(state->file, buffptr, state->buffsize);
-	count += i;
+    if (i > 0)
+      count += i;
 
-	// break out of the loop early if cancel is detected
-	if (__removefile_state_test_cancel(state)) return;
+    // break out of the loop early if cancel is detected
+    if (__removefile_state_test_cancel(state)) return;
   }
   if (stage == 1 /* W_RANDOM */) {
-    __removefile_randomize_buffer(state->buffer, state->file_size - count, state);
+     __removefile_randomize_buffer(state->buffer, (size_t)(state->file_size - count), state);
   } else if (stage == 2 /* W_TRIPLE */) {
     buffptr = align_buffer(state->buffer, count);
   }
-  i = write(state->file, buffptr, state->file_size - count);
+  i = write(state->file, buffptr, (size_t)(state->file_size - count));
   /*
    * Only flush the data if we're doing more than one pass of writes.
    */
@@ -392,7 +393,7 @@ __removefile_sunlink(const char *path, removefile_state_t state) {
   /* Also overwrite the file's resource fork, if present. */
   {
     static const char *RSRCFORKSPEC = "/..namedfork/rsrc";
-    size_t rsrc_fork_size;
+    off_t rsrc_fork_size;
     size_t rsrc_path_size = strlen(path) + strlen(RSRCFORKSPEC) + 1;
     char *rsrc_path = (char *)alloca(rsrc_path_size);
     if (rsrc_path == NULL) {

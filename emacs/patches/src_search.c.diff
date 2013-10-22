@@ -1,0 +1,208 @@
+--- src/search.c	2007-01-13 19:24:37.000000000 -0800
++++ src/search.c	2012-05-23 11:24:57.000000000 -0700
+@@ -939,8 +939,8 @@ search_command (string, bound, noerror, 
+      int posix;
+ {
+   register int np;
+-  int lim, lim_byte;
+-  int n = direction;
++  EMACS_INT lim, lim_byte;
++  EMACS_INT n = direction;
+ 
+   if (!NILP (count))
+     {
+@@ -1078,18 +1078,18 @@ static int
+ search_buffer (string, pos, pos_byte, lim, lim_byte, n,
+ 	       RE, trt, inverse_trt, posix)
+      Lisp_Object string;
+-     int pos;
+-     int pos_byte;
+-     int lim;
+-     int lim_byte;
+-     int n;
++     EMACS_INT pos;
++     EMACS_INT pos_byte;
++     EMACS_INT lim;
++     EMACS_INT lim_byte;
++     EMACS_INT n;
+      int RE;
+      Lisp_Object trt;
+      Lisp_Object inverse_trt;
+      int posix;
+ {
+-  int len = SCHARS (string);
+-  int len_byte = SBYTES (string);
++  EMACS_INT len = SCHARS (string);
++  EMACS_INT len_byte = SBYTES (string);
+   register int i;
+ 
+   if (running_asynch_code)
+@@ -1406,12 +1406,12 @@ search_buffer (string, pos, pos_byte, li
+ 
+ static int
+ simple_search (n, pat, len, len_byte, trt, pos, pos_byte, lim, lim_byte)
+-     int n;
++     EMACS_INT n;
+      unsigned char *pat;
+-     int len, len_byte;
++     EMACS_INT len, len_byte;
+      Lisp_Object trt;
+-     int pos, pos_byte;
+-     int lim, lim_byte;
++     EMACS_INT pos, pos_byte;
++     EMACS_INT lim, lim_byte;
+ {
+   int multibyte = ! NILP (current_buffer->enable_multibyte_characters);
+   int forward = n > 0;
+@@ -1422,10 +1422,10 @@ simple_search (n, pat, len, len_byte, tr
+ 	while (1)
+ 	  {
+ 	    /* Try matching at position POS.  */
+-	    int this_pos = pos;
+-	    int this_pos_byte = pos_byte;
+-	    int this_len = len;
+-	    int this_len_byte = len_byte;
++	    EMACS_INT this_pos = pos;
++	    EMACS_INT this_pos_byte = pos_byte;
++	    EMACS_INT this_len = len;
++	    EMACS_INT this_len_byte = len_byte;
+ 	    unsigned char *p = pat;
+ 	    if (pos + len > lim)
+ 	      goto stop;
+@@ -1470,8 +1470,8 @@ simple_search (n, pat, len, len_byte, tr
+ 	while (1)
+ 	  {
+ 	    /* Try matching at position POS.  */
+-	    int this_pos = pos;
+-	    int this_len = len;
++	    EMACS_INT this_pos = pos;
++	    EMACS_INT this_len = len;
+ 	    unsigned char *p = pat;
+ 
+ 	    if (pos + len > lim)
+@@ -1508,10 +1508,10 @@ simple_search (n, pat, len, len_byte, tr
+ 	while (1)
+ 	  {
+ 	    /* Try matching at position POS.  */
+-	    int this_pos = pos - len;
+-	    int this_pos_byte = pos_byte - len_byte;
+-	    int this_len = len;
+-	    int this_len_byte = len_byte;
++	    EMACS_INT this_pos = pos - len;
++	    EMACS_INT this_pos_byte = pos_byte - len_byte;
++	    EMACS_INT this_len = len;
++	    EMACS_INT this_len_byte = len_byte;
+ 	    unsigned char *p = pat;
+ 
+ 	    if (this_pos < lim || this_pos_byte < lim_byte)
+@@ -1556,8 +1556,8 @@ simple_search (n, pat, len, len_byte, tr
+ 	while (1)
+ 	  {
+ 	    /* Try matching at position POS.  */
+-	    int this_pos = pos - len;
+-	    int this_len = len;
++	    EMACS_INT this_pos = pos - len;
++	    EMACS_INT this_len = len;
+ 	    unsigned char *p = pat;
+ 
+ 	    if (pos - len < lim)
+@@ -1621,22 +1621,20 @@ simple_search (n, pat, len, len_byte, tr
+ static int
+ boyer_moore (n, base_pat, len, len_byte, trt, inverse_trt,
+ 	     pos, pos_byte, lim, lim_byte, charset_base)
+-     int n;
++     EMACS_INT n;
+      unsigned char *base_pat;
+-     int len, len_byte;
++     EMACS_INT len, len_byte;
+      Lisp_Object trt;
+      Lisp_Object inverse_trt;
+-     int pos, pos_byte;
+-     int lim, lim_byte;
++     EMACS_INT pos, pos_byte;
++     EMACS_INT lim, lim_byte;
+      int charset_base;
+ {
+-  int direction = ((n > 0) ? 1 : -1);
+-  register int dirlen;
+-  int infinity, limit, stride_for_teases = 0;
+-  register int *BM_tab;
+-  int *BM_tab_base;
++  EMACS_INT direction = ((n > 0) ? 1 : -1);
++  EMACS_INT dirlen;
++  EMACS_INT infinity, limit, stride_for_teases = 0;
+   register unsigned char *cursor, *p_limit;
+-  register int i, j;
++  EMACS_INT i, j;
+   unsigned char *pat, *pat_end;
+   int multibyte = ! NILP (current_buffer->enable_multibyte_characters);
+ 
+@@ -1649,12 +1647,8 @@ boyer_moore (n, base_pat, len, len_byte,
+   int translate_prev_byte2 = 0;
+   int translate_prev_byte3 = 0;
+ 
+-#ifdef C_ALLOCA
+-  int BM_tab_space[0400];
+-  BM_tab = &BM_tab_space[0];
+-#else
+-  BM_tab = (int *) alloca (0400 * sizeof (int));
+-#endif
++  EMACS_INT BM_tab[0400];
++
+   /* The general approach is that we are going to maintain that we know */
+   /* the first (closest to the present position, in whatever direction */
+   /* we're searching) character that could possibly be the last */
+@@ -1693,23 +1687,13 @@ boyer_moore (n, base_pat, len, len_byte,
+   if (direction < 0)
+     base_pat = pat_end - 1;
+ 
+-  BM_tab_base = BM_tab;
+-  BM_tab += 0400;
+-  j = dirlen;		/* to get it in a register */
+-  /* A character that does not appear in the pattern induces a */
+-  /* stride equal to the pattern length. */
+-  while (BM_tab_base != BM_tab)
+-    {
+-      *--BM_tab = j;
+-      *--BM_tab = j;
+-      *--BM_tab = j;
+-      *--BM_tab = j;
+-    }
++  for (i = 0; i < 0400; i++) {
++    BM_tab[i] = dirlen;
++  }
+ 
+   /* We use this for translation, instead of TRT itself.
+      We fill this in to handle the characters that actually
+      occur in the pattern.  Others don't matter anyway!  */
+-  bzero (simple_translate, sizeof simple_translate);
+   for (i = 0; i < 0400; i++)
+     simple_translate[i] = i;
+ 
+@@ -1813,7 +1797,7 @@ boyer_moore (n, base_pat, len, len_byte,
+      char if reverse) of pattern would align in a possible match.  */
+   while (n != 0)
+     {
+-      int tail_end;
++      EMACS_INT tail_end;
+       unsigned char *tail_end_ptr;
+ 
+       /* It's been reported that some (broken) compiler thinks that
+@@ -1926,7 +1910,7 @@ boyer_moore (n, base_pat, len, len_byte,
+ 	      cursor += dirlen - i - direction;	/* fix cursor */
+ 	      if (i + direction == 0)
+ 		{
+-		  int position;
++		  EMACS_INT position;
+ 
+ 		  cursor -= direction;
+ 
+@@ -2003,7 +1987,7 @@ boyer_moore (n, base_pat, len, len_byte,
+ 	      pos_byte += dirlen - i- direction;
+ 	      if (i + direction == 0)
+ 		{
+-		  int position;
++		  EMACS_INT position;
+ 		  pos_byte -= direction;
+ 
+ 		  position = pos_byte + ((direction > 0) ? 1 - len_byte : 0);

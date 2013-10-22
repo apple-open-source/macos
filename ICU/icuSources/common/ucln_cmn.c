@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 2001-2011, International Business Machines
+* Copyright (C) 2001-2012, International Business Machines
 *                Corporation and others. All Rights Reserved.
 ******************************************************************************
 *   file name:  ucln_cmn.c
@@ -25,15 +25,25 @@
 #define UCLN_TYPE_IS_COMMON
 #include "ucln_imp.h"
 
-U_CDECL_BEGIN
-
-UBool gICUInitialized = FALSE;
-UMTX  gICUInitMutex   = NULL;
-
-U_CDECL_END
+static UBool gICUInitialized = FALSE;
+static UMutex  gICUInitMutex = U_MUTEX_INITIALIZER;
 
 static cleanupFunc *gCommonCleanupFunctions[UCLN_COMMON_COUNT];
 static cleanupFunc *gLibCleanupFunctions[UCLN_COMMON];
+
+U_CFUNC UBool ucln_mutexedInit(initFunc *func, UErrorCode *status) {
+    UBool initialized = FALSE;
+    umtx_lock(&gICUInitMutex);
+    if (!gICUInitialized && U_SUCCESS(*status)) {
+        if (func != NULL) {
+            func(status);
+        }
+        gICUInitialized = TRUE;    /* TODO:  don't set if U_FAILURE? */
+        initialized = TRUE;
+    }
+    umtx_unlock(&gICUInitMutex);
+    return initialized;
+}
 
 /************************************************
  The cleanup order is important in this function.
@@ -48,7 +58,6 @@ u_cleanup(void)
 
     ucln_lib_cleanup();
 
-    umtx_destroy(&gICUInitMutex);
     umtx_cleanup();
     cmemory_cleanup();       /* undo any heap functions set by u_setMemoryFunctions(). */
     gICUInitialized = FALSE;

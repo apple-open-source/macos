@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2013 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_vnops.c	1.70	05/12/19 SMI"
@@ -1057,7 +1057,13 @@ auto_fsctl(ap)
 	if (ap->a_command != IOCBASECMD(AUTOFS_MARK_HOMEDIRMOUNT))
 		return (EINVAL);
 
-	return (auto_mark_vnode_homedirmount(vp, vfs_context_pid(ap->a_context)));
+        /* 
+         * <13595777> homedirmounter getting ready to do a mount so we 
+         * want to take the mutex
+         */
+	return (auto_mark_vnode_homedirmount(vp,
+                                             vfs_context_pid(ap->a_context),
+                                             1));
 }      
 
 static int 

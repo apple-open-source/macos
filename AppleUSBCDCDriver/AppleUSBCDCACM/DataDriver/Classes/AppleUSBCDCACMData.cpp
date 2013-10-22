@@ -36,7 +36,10 @@
 
 #include <IOKit/pwr_mgt/RootDomain.h>
 
+#if !TARGET_OS_IPHONE
 #include <IOKit/usb/IOUSBBus.h>
+#endif /* TARGET_OS_IPHONE */
+
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -883,7 +886,7 @@ void AppleUSBCDCACMData::dataReadComplete(void *obj, void *param, IOReturn rc, U
         XTRACE(me, 0, rc, "dataReadComplete - error");
 		if (rc != kIOReturnAborted)
         {
-			if (rc == kIOUSBPipeStalled)
+			if ((rc == kIOUSBPipeStalled) || (rc == kIOUSBHighSpeedSplitError))
 			{
 				rc = me->checkPipe(me->fPort.InPipe, true);
 			} else {
@@ -996,7 +999,7 @@ void AppleUSBCDCACMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
         XTRACE(me, 0, rc, "dataWriteComplete - io error");
 		if (rc != kIOReturnAborted)
         {
-			if (rc == kIOUSBPipeStalled)
+			if ((rc == kIOUSBPipeStalled) || (rc == kIOUSBHighSpeedSplitError))
 			{
 				rc = me->checkPipe(me->fPort.InPipe, true);
 			} else {

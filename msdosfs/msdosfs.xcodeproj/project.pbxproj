@@ -14,13 +14,25 @@
 			);
 			dependencies = (
 				4D3DCB7708E084D400C78A0B /* PBXTargetDependency */,
-				4D3DCB7908E084D400C78A0B /* PBXTargetDependency */,
-				4D3DCF2D08E0BC9000C78A0B /* PBXTargetDependency */,
-				4D3DCF2F08E0BC9300C78A0B /* PBXTargetDependency */,
 				4D3DCB7B08E084D400C78A0B /* PBXTargetDependency */,
+				4D9CE48B150080EE00186084 /* PBXTargetDependency */,
 			);
 			name = "msdosfs (Aggregate)";
 			productName = "msdosfs (Aggregate)";
+		};
+		4D9CE47A15007F7000186084 /* executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 4D9CE47B15007F7000186084 /* Build configuration list for PBXAggregateTarget "executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				4D9CE48015007F8C00186084 /* PBXTargetDependency */,
+				4D9CE48215007F8C00186084 /* PBXTargetDependency */,
+				4D9CE48415007F8C00186084 /* PBXTargetDependency */,
+				4D9CE48615007F8C00186084 /* PBXTargetDependency */,
+			);
+			name = executables;
+			productName = executables;
 		};
 /* End PBXAggregateTarget section */
 
@@ -30,7 +42,6 @@
 		4D2B354811C1591F00C5B318 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */; };
 		4D3DCB4C08E084D400C78A0B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */; };
 		4D3DCB6C08E084D400C78A0B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */; };
-		4D3DCB7E08E084D400C78A0B /* msdos.util in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D3DCB7408E084D400C78A0B /* msdos.util */; };
 		4D3DCC1708E0B48600C78A0B /* bootsect.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC0908E0B48600C78A0B /* bootsect.h */; };
 		4D3DCC1808E0B48600C78A0B /* bpb.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC0A08E0B48600C78A0B /* bpb.h */; };
 		4D3DCC1908E0B48600C78A0B /* denode.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC0B08E0B48600C78A0B /* denode.h */; };
@@ -72,13 +83,6 @@
 			remoteGlobalIDString = 4D3DCB2B08E084D300C78A0B;
 			remoteInfo = "msdosfs (Upgraded)";
 		};
-		4D3DCB7808E084D400C78A0B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4D3DCB4708E084D400C78A0B;
-			remoteInfo = "mount_msdos (Upgraded)";
-		};
 		4D3DCB7A08E084D400C78A0B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
@@ -86,26 +90,40 @@
 			remoteGlobalIDString = 4D3DCB5608E084D400C78A0B;
 			remoteInfo = "msdos.fs (Upgraded)";
 		};
-		4D3DCB7C08E084D400C78A0B /* PBXContainerItemProxy */ = {
+		4D9CE47F15007F8C00186084 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4D3DCB6708E084D400C78A0B;
-			remoteInfo = "msdos.util (Upgraded)";
+			remoteInfo = msdos.util;
 		};
-		4D3DCF2C08E0BC9000C78A0B /* PBXContainerItemProxy */ = {
+		4D9CE48115007F8C00186084 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCB4708E084D400C78A0B;
+			remoteInfo = mount_msdos;
+		};
+		4D9CE48315007F8C00186084 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4D3DCC4208E0B73400C78A0B;
 			remoteInfo = newfs_msdos;
 		};
-		4D3DCF2E08E0BC9300C78A0B /* PBXContainerItemProxy */ = {
+		4D9CE48515007F8C00186084 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4D3DCEF608E0BB1B00C78A0B;
 			remoteInfo = fsck_msdos;
+		};
+		4D9CE48A150080EE00186084 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D9CE47A15007F7000186084;
+			remoteInfo = executables;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -119,16 +137,6 @@
 				4D3DCC2C08E0B4EC00C78A0B /* mount_msdos.8 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-		};
-		4D3DCB5C08E084D400C78A0B /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 1;
-			files = (
-				4D3DCB7E08E084D400C78A0B /* msdos.util in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4D3DCB6E08E084D400C78A0B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -460,6 +468,7 @@
 				4D3DCB4B08E084D400C78A0B /* Frameworks */,
 				4D3DCB4D08E084D400C78A0B /* Rez */,
 				4D3DCB4E08E084D400C78A0B /* CopyFiles */,
+				4D42A02B15055E2600720D1A /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -477,7 +486,6 @@
 			buildPhases = (
 				4D3DCB5908E084D400C78A0B /* Headers */,
 				4D3DCB5A08E084D400C78A0B /* Resources */,
-				4D3DCB5C08E084D400C78A0B /* CopyFiles */,
 				4D3DCB5E08E084D400C78A0B /* Sources */,
 				4D3DCB5F08E084D400C78A0B /* Frameworks */,
 				4D3DCB6008E084D400C78A0B /* Rez */,
@@ -485,7 +493,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				4D3DCB7D08E084D400C78A0B /* PBXTargetDependency */,
 			);
 			name = msdos.fs;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
@@ -502,6 +509,7 @@
 				4D3DCB6B08E084D400C78A0B /* Frameworks */,
 				4D3DCB6D08E084D400C78A0B /* Rez */,
 				4D3DCB6E08E084D400C78A0B /* CopyFiles */,
+				4D46756415097ADF00919D75 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -521,6 +529,7 @@
 				4D3DCC4608E0B73400C78A0B /* Frameworks */,
 				4D3DCC4808E0B73400C78A0B /* Rez */,
 				4D3DCC4908E0B73400C78A0B /* CopyFiles */,
+				4D42A02C1505621500720D1A /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -540,6 +549,7 @@
 				4D3DCEFA08E0BB1B00C78A0B /* Frameworks */,
 				4D3DCEFB08E0BB1B00C78A0B /* Rez */,
 				4D3DCEFC08E0BB1B00C78A0B /* CopyFiles */,
+				4D42A02D1505622800720D1A /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -574,9 +584,10 @@
 			projectRoot = "";
 			targets = (
 				4D3DCB2008E084D300C78A0B /* msdosfs (Aggregate) */,
+				4D9CE47A15007F7000186084 /* executables */,
 				4D3DCB2B08E084D300C78A0B /* msdosfs.kext */,
-				4D3DCB6708E084D400C78A0B /* msdos.util */,
 				4D3DCB5608E084D400C78A0B /* msdos.fs */,
+				4D3DCB6708E084D400C78A0B /* msdos.util */,
 				4D3DCB4708E084D400C78A0B /* mount_msdos */,
 				4D3DCC4208E0B73400C78A0B /* newfs_msdos */,
 				4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */,
@@ -656,6 +667,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			showEnvVarsInLog = 0;
 		};
 		4D3DCB4008E084D300C78A0B /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -665,6 +677,71 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			showEnvVarsInLog = 0;
+		};
+		4D42A02B15055E2600720D1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/mount_msdos",
+			);
+			outputPaths = (
+				"$(DSTROOT)/sbin/mount_msdos",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/mount_msdos ${DSTROOT}/sbin/mount_msdos\nchgrp -h wheel ${DSTROOT}/sbin/mount_msdos\n";
+			showEnvVarsInLog = 0;
+		};
+		4D42A02C1505621500720D1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/newfs_msdos",
+			);
+			outputPaths = (
+				"$(DSTROOT)/sbin/newfs_msdos",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/newfs_msdos ${DSTROOT}/sbin/newfs_msdos\nchgrp -h wheel ${DSTROOT}/sbin/newfs_msdos\n";
+			showEnvVarsInLog = 0;
+		};
+		4D42A02D1505622800720D1A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/fsck_msdos",
+			);
+			outputPaths = (
+				"$(DSTROOT)/sbin/fsck_msdos",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_msdos ${DSTROOT}/sbin/fsck_msdos\nchgrp -h wheel ${DSTROOT}/sbin/fsck_msdos\n";
+			showEnvVarsInLog = 0;
+		};
+		4D46756415097ADF00919D75 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/msdos.util",
+			);
+			outputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_PATH)/msdos.util",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_DIR}/msdos.util ${DSTROOT}${FS_BUNDLE_PATH}/msdos.util";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -734,30 +811,35 @@
 			target = 4D3DCB2B08E084D300C78A0B /* msdosfs.kext */;
 			targetProxy = 4D3DCB7608E084D400C78A0B /* PBXContainerItemProxy */;
 		};
-		4D3DCB7908E084D400C78A0B /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4D3DCB4708E084D400C78A0B /* mount_msdos */;
-			targetProxy = 4D3DCB7808E084D400C78A0B /* PBXContainerItemProxy */;
-		};
 		4D3DCB7B08E084D400C78A0B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D3DCB5608E084D400C78A0B /* msdos.fs */;
 			targetProxy = 4D3DCB7A08E084D400C78A0B /* PBXContainerItemProxy */;
 		};
-		4D3DCB7D08E084D400C78A0B /* PBXTargetDependency */ = {
+		4D9CE48015007F8C00186084 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D3DCB6708E084D400C78A0B /* msdos.util */;
-			targetProxy = 4D3DCB7C08E084D400C78A0B /* PBXContainerItemProxy */;
+			targetProxy = 4D9CE47F15007F8C00186084 /* PBXContainerItemProxy */;
 		};
-		4D3DCF2D08E0BC9000C78A0B /* PBXTargetDependency */ = {
+		4D9CE48215007F8C00186084 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCB4708E084D400C78A0B /* mount_msdos */;
+			targetProxy = 4D9CE48115007F8C00186084 /* PBXContainerItemProxy */;
+		};
+		4D9CE48415007F8C00186084 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D3DCC4208E0B73400C78A0B /* newfs_msdos */;
-			targetProxy = 4D3DCF2C08E0BC9000C78A0B /* PBXContainerItemProxy */;
+			targetProxy = 4D9CE48315007F8C00186084 /* PBXContainerItemProxy */;
 		};
-		4D3DCF2F08E0BC9300C78A0B /* PBXTargetDependency */ = {
+		4D9CE48615007F8C00186084 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */;
-			targetProxy = 4D3DCF2E08E0BC9300C78A0B /* PBXContainerItemProxy */;
+			targetProxy = 4D9CE48515007F8C00186084 /* PBXContainerItemProxy */;
+		};
+		4D9CE48B150080EE00186084 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D9CE47A15007F7000186084 /* executables */;
+			targetProxy = 4D9CE48A150080EE00186084 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -886,7 +968,7 @@
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_LDFLAGS = "-lutil";
 				PRODUCT_NAME = mount_msdos;
 			};
@@ -897,7 +979,7 @@
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_LDFLAGS = "-lutil";
 				PRODUCT_NAME = mount_msdos;
 			};
@@ -927,8 +1009,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = msdos.util;
-				SKIP_INSTALL = YES;
 			};
 			name = Debug;
 		};
@@ -936,8 +1018,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = msdos.util;
-				SKIP_INSTALL = YES;
 			};
 			name = Release;
 		};
@@ -945,7 +1027,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = Debug;
@@ -954,7 +1036,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = Release;
@@ -963,7 +1045,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = fsck_msdos;
 			};
 			name = Debug;
@@ -972,8 +1054,29 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = fsck_msdos;
+			};
+			name = Release;
+		};
+		4D9CE47C15007F7000186084 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		4D9CE47D15007F7000186084 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = CodeCoverage;
+		};
+		4D9CE47E15007F7000186084 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -985,14 +1088,15 @@
 					i386,
 					x86_64,
 				);
-				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
@@ -1005,13 +1109,13 @@
 					i386,
 					x86_64,
 				);
-				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=0";
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				WARNING_CFLAGS = "-Wall";
 			};
@@ -1025,14 +1129,15 @@
 					i386,
 					x86_64,
 				);
-				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = CodeCoverage;
@@ -1098,8 +1203,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = msdos.util;
-				SKIP_INSTALL = YES;
 			};
 			name = CodeCoverage;
 		};
@@ -1118,7 +1223,7 @@
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_LDFLAGS = "-lutil";
 				PRODUCT_NAME = mount_msdos;
 			};
@@ -1128,7 +1233,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_DYNAMIC_NO_PIC = NO;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = CodeCoverage;
@@ -1139,7 +1244,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_TEST_COVERAGE_FILES = YES;
 				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;
-				INSTALL_PATH = /sbin;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				OTHER_LDFLAGS = "-lgcov";
 				PRODUCT_NAME = fsck_msdos;
 			};
@@ -1214,6 +1319,16 @@
 				4D3DCEFF08E0BB1B00C78A0B /* Debug */,
 				4DD6995A0D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCF0008E0BB1B00C78A0B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D9CE47B15007F7000186084 /* Build configuration list for PBXAggregateTarget "executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D9CE47C15007F7000186084 /* Debug */,
+				4D9CE47D15007F7000186084 /* CodeCoverage */,
+				4D9CE47E15007F7000186084 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

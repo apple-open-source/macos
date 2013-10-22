@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +26,11 @@
 #include "config.h"
 #include "WebApplicationCacheManager.h"
 
-#include "MessageID.h"
+#include "ChildProcess.h"
 #include "SecurityOriginData.h"
+#include "WebApplicationCacheManagerMessages.h"
 #include "WebApplicationCacheManagerProxyMessages.h"
-#include "WebProcess.h"
+#include "WebCoreArgumentCoders.h"
 #include <WebCore/ApplicationCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/SecurityOrigin.h>
@@ -39,34 +40,28 @@ using namespace WebCore;
 
 namespace WebKit {
 
-WebApplicationCacheManager& WebApplicationCacheManager::shared()
+const char* WebApplicationCacheManager::supplementName()
 {
-    static WebApplicationCacheManager& shared = *new WebApplicationCacheManager;
-    return shared;
+    return "WebApplicationCacheManager";
 }
 
-WebApplicationCacheManager::WebApplicationCacheManager()
+WebApplicationCacheManager::WebApplicationCacheManager(ChildProcess* childProcess)
+    : m_childProcess(childProcess)
 {
-}
-
-void WebApplicationCacheManager::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
-{
-    didReceiveWebApplicationCacheManagerMessage(connection, messageID, arguments);
+    m_childProcess->addMessageReceiver(Messages::WebApplicationCacheManager::messageReceiverName(), this);
 }
 
 void WebApplicationCacheManager::getApplicationCacheOrigins(uint64_t callbackID)
 {
-    WebProcess::LocalTerminationDisabler terminationDisabler(WebProcess::shared());
-
-    HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash> origins;
+    HashSet<RefPtr<SecurityOrigin>> origins;
 
     cacheStorage().getOriginsWithCache(origins);
 
     Vector<SecurityOriginData> identifiers;
     identifiers.reserveCapacity(origins.size());
 
-    HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash>::iterator end = origins.end();
-    HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash>::iterator i = origins.begin();
+    HashSet<RefPtr<SecurityOrigin>>::iterator end = origins.end();
+    HashSet<RefPtr<SecurityOrigin>>::iterator i = origins.begin();
     for (; i != end; ++i) {
         RefPtr<SecurityOrigin> origin = *i;
         
@@ -78,13 +73,11 @@ void WebApplicationCacheManager::getApplicationCacheOrigins(uint64_t callbackID)
         identifiers.uncheckedAppend(originData);
     }
 
-    WebProcess::shared().connection()->send(Messages::WebApplicationCacheManagerProxy::DidGetApplicationCacheOrigins(identifiers, callbackID), 0);
+    m_childProcess->send(Messages::WebApplicationCacheManagerProxy::DidGetApplicationCacheOrigins(identifiers, callbackID), 0);
 }
 
 void WebApplicationCacheManager::deleteEntriesForOrigin(const SecurityOriginData& originData)
 {
-    WebProcess::LocalTerminationDisabler terminationDisabler(WebProcess::shared());
-
     RefPtr<SecurityOrigin> origin = SecurityOrigin::create(originData.protocol, originData.host, originData.port);
     if (!origin)
         return;
@@ -94,15 +87,11 @@ void WebApplicationCacheManager::deleteEntriesForOrigin(const SecurityOriginData
 
 void WebApplicationCacheManager::deleteAllEntries()
 {
-    WebProcess::LocalTerminationDisabler terminationDisabler(WebProcess::shared());
-
     cacheStorage().deleteAllEntries();
 }
 
 void WebApplicationCacheManager::setAppCacheMaximumSize(uint64_t size)
 {
-    WebProcess::LocalTerminationDisabler terminationDisabler(WebProcess::shared());
-
     cacheStorage().setMaximumSize(size);
 }
 

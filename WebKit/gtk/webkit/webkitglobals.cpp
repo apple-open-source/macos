@@ -25,9 +25,8 @@
 #include "Chrome.h"
 #include "ContextMenuItem.h"
 #include "FrameNetworkingContextGtk.h"
-#include "GtkUtilities.h"
 #include "IconDatabase.h"
-#include "Logging.h"
+#include "InitializeLogging.h"
 #include "MemoryCache.h"
 #include "Page.h"
 #include "PageCache.h"
@@ -40,11 +39,11 @@
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceResponse.h"
+#include "SchemeRegistry.h"
 #include "webkitapplicationcache.h"
 #include "webkitfavicondatabase.h"
 #include "webkitglobalsprivate.h"
 #include "webkiticondatabase.h"
-#include "webkitsoupauthdialog.h"
 #include "webkitspellchecker.h"
 #include "webkitspellcheckerenchant.h"
 #include "webkitwebdatabase.h"
@@ -206,32 +205,6 @@ WebKitWebPluginDatabase* webkit_get_web_plugin_database()
     return database;
 }
 
-
-static GtkWidget* currentToplevelCallback(WebKitSoupAuthDialog* feature, SoupMessage* message, gpointer userData)
-{
-    gpointer messageData = g_object_get_data(G_OBJECT(message), "resourceHandle");
-    if (!messageData)
-        return NULL;
-
-    ResourceHandle* handle = static_cast<ResourceHandle*>(messageData);
-    if (!handle)
-        return NULL;
-
-    ResourceHandleInternal* d = handle->getInternal();
-    if (!d)
-        return NULL;
-
-    WebKit::FrameNetworkingContextGtk* context = static_cast<WebKit::FrameNetworkingContextGtk*>(d->m_context.get());
-    if (!context)
-        return NULL;
-
-    if (!context->coreFrame())
-        return NULL;
-
-    GtkWidget* toplevel =  gtk_widget_get_toplevel(GTK_WIDGET(context->coreFrame()->page()->chrome()->platformPageClient()));
-    return widgetIsOnscreenToplevelWindow(toplevel) ? toplevel : 0;
-}
-
 /**
  * webkit_get_icon_database:
  *
@@ -289,7 +262,7 @@ static void webkitExit()
 /**
  * webkit_get_text_checker:
  *
- * Returns: the #WebKitSpellChecker used by WebKit, or %NULL if spell
+ * Returns: (transfer none): the #WebKitSpellChecker used by WebKit, or %NULL if spell
  * checking is not enabled
  *
  * Since: 1.5.1
@@ -491,6 +464,71 @@ WebKitContextMenuAction webkit_context_menu_item_get_action(GtkMenuItem* item)
 #endif
 }
 
+/**
+ * webkit_set_security_policy_for_uri_scheme:
+ * @scheme: a URI scheme
+ * @policy: a #WebKitSecurityPolicy
+ *
+ * Set the security policy for the given URI scheme.
+ *
+ * Since: 2.0
+ */
+void webkit_set_security_policy_for_uri_scheme(const char *scheme, WebKitSecurityPolicy policy)
+{
+    g_return_if_fail(scheme);
+
+    if (!policy)
+        return;
+
+    String urlScheme = String::fromUTF8(scheme);
+
+    if (policy & WEBKIT_SECURITY_POLICY_LOCAL)
+        SchemeRegistry::registerURLSchemeAsLocal(urlScheme);
+    if (policy & WEBKIT_SECURITY_POLICY_NO_ACCESS_TO_OTHER_SCHEME)
+        SchemeRegistry::registerURLSchemeAsNoAccess(urlScheme);
+    if (policy & WEBKIT_SECURITY_POLICY_DISPLAY_ISOLATED)
+        SchemeRegistry::registerURLSchemeAsDisplayIsolated(urlScheme);
+    if (policy & WEBKIT_SECURITY_POLICY_SECURE)
+        SchemeRegistry::registerURLSchemeAsSecure(urlScheme);
+    if (policy & WEBKIT_SECURITY_POLICY_CORS_ENABLED)
+        SchemeRegistry::registerURLSchemeAsCORSEnabled(urlScheme);
+    if (policy & WEBKIT_SECURITY_POLICY_EMPTY_DOCUMENT)
+        SchemeRegistry::registerURLSchemeAsEmptyDocument(urlScheme);
+}
+
+/**
+ * webkit_get_security_policy_for_uri_scheme:
+ * @scheme: a URI scheme
+ *
+ * Get the security policy for the given URI scheme.
+ *
+ * Returns: a #WebKitSecurityPolicy
+ *
+ * Since: 2.0
+ */
+WebKitSecurityPolicy webkit_get_security_policy_for_uri_scheme(const char *scheme)
+{
+    g_return_val_if_fail(scheme, static_cast<WebKitSecurityPolicy>(0));
+
+    guint policy = 0;
+    String urlScheme = String::fromUTF8(scheme);
+
+    if (SchemeRegistry::shouldTreatURLSchemeAsLocal(urlScheme))
+        policy |= WEBKIT_SECURITY_POLICY_LOCAL;
+    if (SchemeRegistry::shouldTreatURLSchemeAsNoAccess(urlScheme))
+        policy |= WEBKIT_SECURITY_POLICY_NO_ACCESS_TO_OTHER_SCHEME;
+    if (SchemeRegistry::shouldTreatURLSchemeAsDisplayIsolated(urlScheme))
+        policy |= WEBKIT_SECURITY_POLICY_DISPLAY_ISOLATED;
+    if (SchemeRegistry::shouldTreatURLSchemeAsSecure(urlScheme))
+        policy |= WEBKIT_SECURITY_POLICY_SECURE;
+    if (SchemeRegistry::shouldTreatURLSchemeAsCORSEnabled(urlScheme))
+        policy |= WEBKIT_SECURITY_POLICY_CORS_ENABLED;
+    if (SchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(urlScheme))
+        policy |= WEBKIT_SECURITY_POLICY_EMPTY_DOCUMENT;
+
+    return static_cast<WebKitSecurityPolicy>(policy);
+}
+
 void webkitInit()
 {
     static bool isInitialized = false;
@@ -504,7 +542,9 @@ void webkitInit()
     JSC::initializeThreading();
     WTF::initializeMainThread();
 
+#if !LOG_DISABLED
     WebCore::initializeLoggingChannelsIfNecessary();
+#endif // !LOG_DISABLED
     PlatformStrategiesGtk::initialize();
 
     // We make sure the text codecs have been initialized, because
@@ -522,16 +562,16 @@ void webkitInit()
     GOwnPtr<gchar> iconDatabasePath(g_build_filename(g_get_user_data_dir(), "webkit", "icondatabase", NULL));
     webkit_icon_database_set_path(webkit_get_icon_database(), iconDatabasePath.get());
 
-    SoupSession* session = webkit_get_default_session();
-
-    SoupSessionFeature* authDialog = static_cast<SoupSessionFeature*>(g_object_new(WEBKIT_TYPE_SOUP_AUTH_DIALOG, NULL));
-    g_signal_connect(authDialog, "current-toplevel", G_CALLBACK(currentToplevelCallback), NULL);
-    soup_session_add_feature(session, authDialog);
-    g_object_unref(authDialog);
+    WebCore::ResourceHandle::setIgnoreSSLErrors(true);
 
 #if USE(CLUTTER)
     gtk_clutter_init(0, 0);
 #endif
 
     atexit(webkitExit);
+}
+
+const char* webkitPageGroupName()
+{
+    return "org.webkit.gtk.WebKitGTK";
 }

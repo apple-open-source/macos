@@ -22,33 +22,31 @@
 #if ENABLE(BATTERY_STATUS)
 
 #include "BatteryController.h"
+#include "WebPage_p.h"
 #include <stdio.h>
 
 namespace WebCore {
 
-BatteryClientBlackBerry::BatteryClientBlackBerry()
-    : m_tracker(0)
-    , m_controller(0)
+BatteryClientBlackBerry::BatteryClientBlackBerry(BlackBerry::WebKit::WebPagePrivate* webPagePrivate)
+    : m_webPagePrivate(webPagePrivate)
+    , m_isActive(false)
 {
-}
-
-void BatteryClientBlackBerry::setController(BatteryController* controller)
-{
-    m_controller = controller;
 }
 
 void BatteryClientBlackBerry::startUpdating()
 {
-    if (m_tracker)
-        m_tracker->resume();
-    else
-        m_tracker = BlackBerry::Platform::BatteryStatusTracker::create(this);
+    if (!m_isActive) {
+        BlackBerry::Platform::BatteryStatusHandler::instance()->addListener(this);
+        m_isActive = true;
+    }
 }
 
 void BatteryClientBlackBerry::stopUpdating()
 {
-    if (m_tracker)
-        m_tracker->suspend();
+    if (m_isActive) {
+        BlackBerry::Platform::BatteryStatusHandler::instance()->removeListener(this);
+        m_isActive = false;
+    }
 }
 
 void BatteryClientBlackBerry::batteryControllerDestroyed()
@@ -56,36 +54,9 @@ void BatteryClientBlackBerry::batteryControllerDestroyed()
     delete this;
 }
 
-void BatteryClientBlackBerry::onLevelChange(bool charging, double chargingTime, double dischargingTime, double level)
+void BatteryClientBlackBerry::onStatusChange(bool charging, double chargingTime, double dischargingTime, double level)
 {
-    if (!m_controller)
-        return;
-
-    m_controller->didChangeBatteryStatus("levelchange", BatteryStatus::create(charging, chargingTime, dischargingTime, level));
-}
-
-void BatteryClientBlackBerry::onChargingChange(bool charging, double chargingTime, double dischargingTime, double level)
-{
-    if (!m_controller)
-        return;
-
-    m_controller->didChangeBatteryStatus("chargingchange", BatteryStatus::create(charging, chargingTime, dischargingTime, level));
-}
-
-void BatteryClientBlackBerry::onChargingTimeChange(bool charging, double chargingTime, double dischargingTime, double level)
-{
-    if (!m_controller)
-        return;
-
-    m_controller->didChangeBatteryStatus("chargingtimechange", BatteryStatus::create(charging, chargingTime, dischargingTime, level));
-}
-
-void BatteryClientBlackBerry::onDischargingTimeChange(bool charging, double chargingTime, double dischargingTime, double level)
-{
-    if (!m_controller)
-        return;
-
-    m_controller->didChangeBatteryStatus("dischargingtimechange", BatteryStatus::create(charging, chargingTime, dischargingTime, level));
+    BatteryController::from(m_webPagePrivate->m_page)->updateBatteryStatus(BatteryStatus::create(charging, chargingTime, dischargingTime, level));
 }
 
 }

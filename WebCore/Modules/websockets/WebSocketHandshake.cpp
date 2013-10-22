@@ -36,7 +36,6 @@
 #include "WebSocketHandshake.h"
 #include "WebSocket.h"
 
-#include "Base64.h"
 #include "Cookie.h"
 #include "CookieJar.h"
 #include "Document.h"
@@ -44,6 +43,7 @@
 #include "HTTPParsers.h"
 #include "KURL.h"
 #include "Logging.h"
+#include "ResourceRequest.h"
 #include "ScriptCallStack.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
@@ -53,6 +53,7 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
+#include <wtf/text/Base64.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
@@ -64,14 +65,18 @@ static const char randomCharacterInSecWebSocketKey[] = "!\"#$%&'()*+,-./:;<=>?@A
 
 static String resourceName(const KURL& url)
 {
-    String name = url.path();
+    StringBuilder name;
+    name.append(url.path());
     if (name.isEmpty())
-        name = "/";
-    if (!url.query().isNull())
-        name += "?" + url.query();
-    ASSERT(!name.isEmpty());
-    ASSERT(!name.contains(' '));
-    return name;
+        name.append('/');
+    if (!url.query().isNull()) {
+        name.append('?');
+        name.append(url.query());
+    }
+    String result = name.toString();
+    ASSERT(!result.isEmpty());
+    ASSERT(!result.contains(' '));
+    return result;
 }
 
 static String hostName(const KURL& url, bool secure)
@@ -81,7 +86,7 @@ static String hostName(const KURL& url, bool secure)
     builder.append(url.host().lower());
     if (url.port() && ((!secure && url.port() != 80) || (secure && url.port() != 443))) {
         builder.append(':');
-        builder.append(String::number(url.port()));
+        builder.appendNumber(url.port());
     }
     return builder.toString();
 }
@@ -93,74 +98,6 @@ static String trimInputSample(const char* p, size_t len)
     if (len > maxInputSampleSize)
         s.append(horizontalEllipsis);
     return s;
-}
-
-static uint32_t randomNumberLessThan(uint32_t n)
-{
-    if (!n)
-        return 0;
-    if (n == std::numeric_limits<uint32_t>::max())
-        return cryptographicallyRandomNumber();
-    uint32_t max = std::numeric_limits<uint32_t>::max() - (std::numeric_limits<uint32_t>::max() % n);
-    ASSERT(!(max % n));
-    uint32_t v;
-    do {
-        v = cryptographicallyRandomNumber();
-    } while (v >= max);
-    return v % n;
-}
-
-static void generateHixie76SecWebSocketKey(uint32_t& number, String& key)
-{
-    uint32_t space = randomNumberLessThan(12) + 1;
-    uint32_t max = 4294967295U / space;
-    number = randomNumberLessThan(max);
-    uint32_t product = number * space;
-
-    String s = String::number(product);
-    int n = randomNumberLessThan(12) + 1;
-    DEFINE_STATIC_LOCAL(String, randomChars, (randomCharacterInSecWebSocketKey));
-    for (int i = 0; i < n; i++) {
-        int pos = randomNumberLessThan(s.length() + 1);
-        int chpos = randomNumberLessThan(randomChars.length());
-        s.insert(randomChars.substring(chpos, 1), pos);
-    }
-    DEFINE_STATIC_LOCAL(String, spaceChar, (" "));
-    for (uint32_t i = 0; i < space; i++) {
-        int pos = randomNumberLessThan(s.length() - 1) + 1;
-        s.insert(spaceChar, pos);
-    }
-    ASSERT(s[0] != ' ');
-    ASSERT(s[s.length() - 1] != ' ');
-    key = s;
-}
-
-static void generateHixie76Key3(unsigned char key3[8])
-{
-    cryptographicallyRandomValues(key3, 8);
-}
-
-static void setChallengeNumber(unsigned char* buf, uint32_t number)
-{
-    unsigned char* p = buf + 3;
-    for (int i = 0; i < 4; i++) {
-        *p = number & 0xFF;
-        --p;
-        number >>= 8;
-    }
-}
-
-static void generateHixie76ExpectedChallengeResponse(uint32_t number1, uint32_t number2, unsigned char key3[8], unsigned char expectedChallenge[16])
-{
-    unsigned char challenge[16];
-    setChallengeNumber(&challenge[0], number1);
-    setChallengeNumber(&challenge[4], number2);
-    memcpy(&challenge[8], key3, 8);
-    MD5 md5;
-    md5.addBytes(challenge, sizeof(challenge));
-    Vector<uint8_t, 16> digest;
-    md5.checksum(digest);
-    memcpy(expectedChallenge, digest.data(), 16);
 }
 
 static String generateSecWebSocketKey()
@@ -184,25 +121,15 @@ String WebSocketHandshake::getExpectedWebSocketAccept(const String& secWebSocket
     return base64Encode(reinterpret_cast<const char*>(hash.data()), sha1HashSize);
 }
 
-WebSocketHandshake::WebSocketHandshake(const KURL& url, const String& protocol, ScriptExecutionContext* context, bool useHixie76Protocol)
+WebSocketHandshake::WebSocketHandshake(const KURL& url, const String& protocol, ScriptExecutionContext* context)
     : m_url(url)
     , m_clientProtocol(protocol)
     , m_secure(m_url.protocolIs("wss"))
     , m_context(context)
-    , m_useHixie76Protocol(useHixie76Protocol)
     , m_mode(Incomplete)
 {
-    if (m_useHixie76Protocol) {
-        uint32_t number1;
-        uint32_t number2;
-        generateHixie76SecWebSocketKey(number1, m_hixie76SecWebSocketKey1);
-        generateHixie76SecWebSocketKey(number2, m_hixie76SecWebSocketKey2);
-        generateHixie76Key3(m_hixie76Key3);
-        generateHixie76ExpectedChallengeResponse(number1, number2, m_hixie76Key3, m_hixie76ExpectedChallengeResponse);
-    } else {
-        m_secWebSocketKey = generateSecWebSocketKey();
-        m_expectedAccept = getExpectedWebSocketAccept(m_secWebSocketKey);
-    }
+    m_secWebSocketKey = generateSecWebSocketKey();
+    m_expectedAccept = getExpectedWebSocketAccept(m_secWebSocketKey);
 }
 
 WebSocketHandshake::~WebSocketHandshake()
@@ -264,10 +191,7 @@ CString WebSocketHandshake::clientHandshakeMessage() const
     builder.append(" HTTP/1.1\r\n");
 
     Vector<String> fields;
-    if (m_useHixie76Protocol)
-        fields.append("Upgrade: WebSocket");
-    else
-        fields.append("Upgrade: websocket");
+    fields.append("Upgrade: websocket");
     fields.append("Connection: Upgrade");
     fields.append("Host: " + hostName(m_url, m_secure));
     fields.append("Origin: " + clientOrigin());
@@ -276,23 +200,28 @@ CString WebSocketHandshake::clientHandshakeMessage() const
 
     KURL url = httpURLForAuthenticationAndCookies();
     if (m_context->isDocument()) {
-        Document* document = static_cast<Document*>(m_context);
+        Document* document = toDocument(m_context);
         String cookie = cookieRequestHeaderFieldValue(document, url);
         if (!cookie.isEmpty())
             fields.append("Cookie: " + cookie);
         // Set "Cookie2: <cookie>" if cookies 2 exists for url?
     }
 
-    if (m_useHixie76Protocol) {
-        fields.append("Sec-WebSocket-Key1: " + m_hixie76SecWebSocketKey1);
-        fields.append("Sec-WebSocket-Key2: " + m_hixie76SecWebSocketKey2);
-    } else {
-        fields.append("Sec-WebSocket-Key: " + m_secWebSocketKey);
-        fields.append("Sec-WebSocket-Version: 13");
-        const String extensionValue = m_extensionDispatcher.createHeaderValue();
-        if (extensionValue.length())
-            fields.append("Sec-WebSocket-Extensions: " + extensionValue);
-    }
+    // Add no-cache headers to avoid compatibility issue.
+    // There are some proxies that rewrite "Connection: upgrade"
+    // to "Connection: close" in the response if a request doesn't contain
+    // these headers.
+    fields.append("Pragma: no-cache");
+    fields.append("Cache-Control: no-cache");
+
+    fields.append("Sec-WebSocket-Key: " + m_secWebSocketKey);
+    fields.append("Sec-WebSocket-Version: 13");
+    const String extensionValue = m_extensionDispatcher.createHeaderValue();
+    if (extensionValue.length())
+        fields.append("Sec-WebSocket-Extensions: " + extensionValue);
+
+    // Add a User-Agent header.
+    fields.append("User-Agent: " + m_context->userAgent(m_context->url()));
 
     // Fields in the handshake are sent by the client in a random order; the
     // order is not meaningful.  Thus, it's ok to send the order we constructed
@@ -305,56 +234,45 @@ CString WebSocketHandshake::clientHandshakeMessage() const
 
     builder.append("\r\n");
 
-    CString handshakeHeader = builder.toString().utf8();
-    // Hybi-10 handshake is complete at this point.
-    if (!m_useHixie76Protocol)
-        return handshakeHeader;
-    // Hixie-76 protocol requires sending eight-byte data (so-called "key3") after the request header fields.
-    char* characterBuffer = 0;
-    CString msg = CString::newUninitialized(handshakeHeader.length() + sizeof(m_hixie76Key3), characterBuffer);
-    memcpy(characterBuffer, handshakeHeader.data(), handshakeHeader.length());
-    memcpy(characterBuffer + handshakeHeader.length(), m_hixie76Key3, sizeof(m_hixie76Key3));
-    return msg;
+    return builder.toString().utf8();
 }
 
-PassRefPtr<WebSocketHandshakeRequest> WebSocketHandshake::clientHandshakeRequest() const
+ResourceRequest WebSocketHandshake::clientHandshakeRequest() const
 {
     // Keep the following consistent with clientHandshakeMessage().
     // FIXME: do we need to store m_secWebSocketKey1, m_secWebSocketKey2 and
-    // m_key3 in WebSocketHandshakeRequest?
-    RefPtr<WebSocketHandshakeRequest> request = WebSocketHandshakeRequest::create("GET", m_url);
-    if (m_useHixie76Protocol)
-        request->addHeaderField("Upgrade", "WebSocket");
-    else
-        request->addHeaderField("Upgrade", "websocket");
-    request->addHeaderField("Connection", "Upgrade");
-    request->addHeaderField("Host", hostName(m_url, m_secure));
-    request->addHeaderField("Origin", clientOrigin());
+    // m_key3 in the request?
+    ResourceRequest request(m_url);
+    request.setHTTPMethod("GET");
+
+    request.addHTTPHeaderField("Connection", "Upgrade");
+    request.addHTTPHeaderField("Host", hostName(m_url, m_secure));
+    request.addHTTPHeaderField("Origin", clientOrigin());
     if (!m_clientProtocol.isEmpty())
-        request->addHeaderField("Sec-WebSocket-Protocol", m_clientProtocol);
+        request.addHTTPHeaderField("Sec-WebSocket-Protocol", m_clientProtocol);
 
     KURL url = httpURLForAuthenticationAndCookies();
     if (m_context->isDocument()) {
-        Document* document = static_cast<Document*>(m_context);
+        Document* document = toDocument(m_context);
         String cookie = cookieRequestHeaderFieldValue(document, url);
         if (!cookie.isEmpty())
-            request->addHeaderField("Cookie", cookie);
+            request.addHTTPHeaderField("Cookie", cookie);
         // Set "Cookie2: <cookie>" if cookies 2 exists for url?
     }
 
-    if (m_useHixie76Protocol) {
-        request->addHeaderField("Sec-WebSocket-Key1", m_hixie76SecWebSocketKey1);
-        request->addHeaderField("Sec-WebSocket-Key2", m_hixie76SecWebSocketKey2);
-        request->setKey3(m_hixie76Key3);
-    } else {
-        request->addHeaderField("Sec-WebSocket-Key", m_secWebSocketKey);
-        request->addHeaderField("Sec-WebSocket-Version", "13");
-        const String extensionValue = m_extensionDispatcher.createHeaderValue();
-        if (extensionValue.length())
-            request->addHeaderField("Sec-WebSocket-Extensions", extensionValue);
-    }
+    request.addHTTPHeaderField("Pragma", "no-cache");
+    request.addHTTPHeaderField("Cache-Control", "no-cache");
 
-    return request.release();
+    request.addHTTPHeaderField("Sec-WebSocket-Key", m_secWebSocketKey);
+    request.addHTTPHeaderField("Sec-WebSocket-Version", "13");
+    const String extensionValue = m_extensionDispatcher.createHeaderValue();
+    if (extensionValue.length())
+        request.addHTTPHeaderField("Sec-WebSocket-Extensions", extensionValue);
+
+    // Add a User-Agent header.
+    request.addHTTPHeaderField("User-Agent", m_context->userAgent(m_context->url()));
+
+    return request;
 }
 
 void WebSocketHandshake::reset()
@@ -380,9 +298,12 @@ int WebSocketHandshake::readServerHandshake(const char* header, size_t len)
         m_mode = Failed; // m_failureReason is set inside readStatusLine().
         return len;
     }
-    LOG(Network, "response code: %d", statusCode);
-    m_response.setStatusCode(statusCode);
-    m_response.setStatusText(statusText);
+    LOG(Network, "WebSocketHandshake %p readServerHandshake() Status code is %d", this, statusCode);
+
+    m_serverHandshakeResponse = ResourceResponse();
+    m_serverHandshakeResponse.setHTTPStatusCode(statusCode);
+    m_serverHandshakeResponse.setHTTPStatusText(statusText);
+
     if (statusCode != 101) {
         m_mode = Failed;
         m_failureReason = "Unexpected response code: " + String::number(statusCode);
@@ -396,36 +317,18 @@ int WebSocketHandshake::readServerHandshake(const char* header, size_t len)
     }
     const char* p = readHTTPHeaders(header + lineLength, header + len);
     if (!p) {
-        LOG(Network, "readHTTPHeaders failed");
+        LOG(Network, "WebSocketHandshake %p readServerHandshake() readHTTPHeaders() failed", this);
         m_mode = Failed; // m_failureReason is set inside readHTTPHeaders().
         return len;
     }
     if (!checkResponseHeaders()) {
-        LOG(Network, "header process failed");
+        LOG(Network, "WebSocketHandshake %p readServerHandshake() checkResponseHeaders() failed", this);
         m_mode = Failed;
         return p - header;
     }
 
-    if (!m_useHixie76Protocol) { // Hybi-10 handshake is complete at this point.
-        m_mode = Connected;
-        return p - header;
-    }
-
-    // In hixie-76 protocol, server's handshake contains sixteen-byte data (called "challenge response")
-    // after the header fields.
-    if (len < static_cast<size_t>(p - header + sizeof(m_hixie76ExpectedChallengeResponse))) {
-        // Just hasn't been received /expected/ yet.
-        m_mode = Incomplete;
-        return -1;
-    }
-
-    m_response.setChallengeResponse(static_cast<const unsigned char*>(static_cast<const void*>(p)));
-    if (memcmp(p, m_hixie76ExpectedChallengeResponse, sizeof(m_hixie76ExpectedChallengeResponse))) {
-        m_mode = Failed;
-        return (p - header) + sizeof(m_hixie76ExpectedChallengeResponse);
-    }
     m_mode = Connected;
-    return (p - header) + sizeof(m_hixie76ExpectedChallengeResponse);
+    return p - header;
 }
 
 WebSocketHandshake::Mode WebSocketHandshake::mode() const
@@ -438,44 +341,34 @@ String WebSocketHandshake::failureReason() const
     return m_failureReason;
 }
 
-String WebSocketHandshake::serverWebSocketOrigin() const
-{
-    return m_response.headerFields().get("sec-websocket-origin");
-}
-
-String WebSocketHandshake::serverWebSocketLocation() const
-{
-    return m_response.headerFields().get("sec-websocket-location");
-}
-
 String WebSocketHandshake::serverWebSocketProtocol() const
 {
-    return m_response.headerFields().get("sec-websocket-protocol");
+    return m_serverHandshakeResponse.httpHeaderFields().get("sec-websocket-protocol");
 }
 
 String WebSocketHandshake::serverSetCookie() const
 {
-    return m_response.headerFields().get("set-cookie");
+    return m_serverHandshakeResponse.httpHeaderFields().get("set-cookie");
 }
 
 String WebSocketHandshake::serverSetCookie2() const
 {
-    return m_response.headerFields().get("set-cookie2");
+    return m_serverHandshakeResponse.httpHeaderFields().get("set-cookie2");
 }
 
 String WebSocketHandshake::serverUpgrade() const
 {
-    return m_response.headerFields().get("upgrade");
+    return m_serverHandshakeResponse.httpHeaderFields().get("upgrade");
 }
 
 String WebSocketHandshake::serverConnection() const
 {
-    return m_response.headerFields().get("connection");
+    return m_serverHandshakeResponse.httpHeaderFields().get("connection");
 }
 
 String WebSocketHandshake::serverWebSocketAccept() const
 {
-    return m_response.headerFields().get("sec-websocket-accept");
+    return m_serverHandshakeResponse.httpHeaderFields().get("sec-websocket-accept");
 }
 
 String WebSocketHandshake::acceptedExtensions() const
@@ -483,9 +376,9 @@ String WebSocketHandshake::acceptedExtensions() const
     return m_extensionDispatcher.acceptedExtensions();
 }
 
-const WebSocketHandshakeResponse& WebSocketHandshake::serverHandshakeResponse() const
+const ResourceResponse& WebSocketHandshake::serverHandshakeResponse() const
 {
-    return m_response;
+    return m_serverHandshakeResponse;
 }
 
 void WebSocketHandshake::addExtensionProcessor(PassOwnPtr<WebSocketExtensionProcessor> processor)
@@ -573,10 +466,9 @@ int WebSocketHandshake::readStatusLine(const char* header, size_t headerLength, 
 
 const char* WebSocketHandshake::readHTTPHeaders(const char* start, const char* end)
 {
-    m_response.clearHeaderFields();
-
     AtomicString name;
     String value;
+    bool sawSecWebSocketExtensionsHeaderField = false;
     bool sawSecWebSocketAcceptHeaderField = false;
     bool sawSecWebSocketProtocolHeaderField = false;
     const char* p = start;
@@ -590,37 +482,38 @@ const char* WebSocketHandshake::readHTTPHeaders(const char* start, const char* e
         if (name.isEmpty())
             break;
 
-        // Sec-WebSocket-Extensions may be split. We parse and check the
-        // header value every time the header appears.
         if (equalIgnoringCase("sec-websocket-extensions", name)) {
+            if (sawSecWebSocketExtensionsHeaderField) {
+                m_failureReason = "The Sec-WebSocket-Extensions header MUST NOT appear more than once in an HTTP response";
+                return 0;
+            }
             if (!m_extensionDispatcher.processHeaderValue(value)) {
                 m_failureReason = m_extensionDispatcher.failureReason();
                 return 0;
             }
+            sawSecWebSocketExtensionsHeaderField = true;
         } else if (equalIgnoringCase("Sec-WebSocket-Accept", name)) {
             if (sawSecWebSocketAcceptHeaderField) {
                 m_failureReason = "The Sec-WebSocket-Accept header MUST NOT appear more than once in an HTTP response";
                 return 0;
             }
-            m_response.addHeaderField(name, value);
+            m_serverHandshakeResponse.addHTTPHeaderField(name, value);
             sawSecWebSocketAcceptHeaderField = true;
         } else if (equalIgnoringCase("Sec-WebSocket-Protocol", name)) {
             if (sawSecWebSocketProtocolHeaderField) {
                 m_failureReason = "The Sec-WebSocket-Protocol header MUST NOT appear more than once in an HTTP response";
                 return 0;
             }
-            m_response.addHeaderField(name, value);
+            m_serverHandshakeResponse.addHTTPHeaderField(name, value);
             sawSecWebSocketProtocolHeaderField = true;
         } else
-            m_response.addHeaderField(name, value);
+            m_serverHandshakeResponse.addHTTPHeaderField(name, value);
     }
     return p;
 }
 
 bool WebSocketHandshake::checkResponseHeaders()
 {
-    const String& serverWebSocketLocation = this->serverWebSocketLocation();
-    const String& serverWebSocketOrigin = this->serverWebSocketOrigin();
     const String& serverWebSocketProtocol = this->serverWebSocketProtocol();
     const String& serverUpgrade = this->serverUpgrade();
     const String& serverConnection = this->serverConnection();
@@ -634,20 +527,9 @@ bool WebSocketHandshake::checkResponseHeaders()
         m_failureReason = "Error during WebSocket handshake: 'Connection' header is missing";
         return false;
     }
-    if (m_useHixie76Protocol) {
-        if (serverWebSocketOrigin.isNull()) {
-            m_failureReason = "Error during WebSocket handshake: 'Sec-WebSocket-Origin' header is missing";
-            return false;
-        }
-        if (serverWebSocketLocation.isNull()) {
-            m_failureReason = "Error during WebSocket handshake: 'Sec-WebSocket-Location' header is missing";
-            return false;
-        }
-    } else {
-        if (serverWebSocketAccept.isNull()) {
-            m_failureReason = "Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing";
-            return false;
-        }
+    if (serverWebSocketAccept.isNull()) {
+        m_failureReason = "Error during WebSocket handshake: 'Sec-WebSocket-Accept' header is missing";
+        return false;
     }
 
     if (!equalIgnoringCase(serverUpgrade, "websocket")) {
@@ -659,35 +541,20 @@ bool WebSocketHandshake::checkResponseHeaders()
         return false;
     }
 
-    if (m_useHixie76Protocol) {
-        if (clientOrigin() != serverWebSocketOrigin) {
-            m_failureReason = "Error during WebSocket handshake: origin mismatch: " + clientOrigin() + " != " + serverWebSocketOrigin;
+    if (serverWebSocketAccept != m_expectedAccept) {
+        m_failureReason = "Error during WebSocket handshake: Sec-WebSocket-Accept mismatch";
+        return false;
+    }
+    if (!serverWebSocketProtocol.isNull()) {
+        if (m_clientProtocol.isEmpty()) {
+            m_failureReason = "Error during WebSocket handshake: Sec-WebSocket-Protocol mismatch";
             return false;
         }
-        if (clientLocation() != serverWebSocketLocation) {
-            m_failureReason = "Error during WebSocket handshake: location mismatch: " + clientLocation() + " != " + serverWebSocketLocation;
+        Vector<String> result;
+        m_clientProtocol.split(String(WebSocket::subProtocolSeperator()), result);
+        if (!result.contains(serverWebSocketProtocol)) {
+            m_failureReason = "Error during WebSocket handshake: Sec-WebSocket-Protocol mismatch";
             return false;
-        }
-        if (!m_clientProtocol.isEmpty() && m_clientProtocol != serverWebSocketProtocol) {
-            m_failureReason = "Error during WebSocket handshake: protocol mismatch: " + m_clientProtocol + " != " + serverWebSocketProtocol;
-            return false;
-        }
-    } else {
-        if (serverWebSocketAccept != m_expectedAccept) {
-            m_failureReason = "Error during WebSocket handshake: Sec-WebSocket-Accept mismatch";
-            return false;
-        }
-        if (!serverWebSocketProtocol.isNull()) {
-            if (m_clientProtocol.isEmpty()) {
-                m_failureReason = "Error during WebSocket handshake: Sec-WebSocket-Protocol mismatch";
-                return false;
-            }
-            Vector<String> result;
-            m_clientProtocol.split(String(WebSocket::subProtocolSeperator()), result);
-            if (!result.contains(serverWebSocketProtocol)) {
-                m_failureReason = "Error during WebSocket handshake: Sec-WebSocket-Protocol mismatch";
-                return false;
-            }
         }
     }
     return true;

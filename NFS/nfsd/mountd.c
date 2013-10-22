@@ -137,12 +137,14 @@ TAILQ_HEAD(,uuidlist) ulhead;
 #define UL_CHECK_MNTON		0x2
 #define UL_CHECK_ALL		0x3
 
+#define AOK	(void *)	// assert alignment is OK
+
 /*
  * Default FSID is just a "hash" of UUID
  */
 #define UUID2FSID(U) \
-	(*((u_int32_t*)(U))     ^ *(((u_int32_t*)(U))+1) ^ \
-	 *(((u_int32_t*)(U))+2) ^ *(((u_int32_t*)(U))+3))
+	(*((u_int32_t*) AOK (U))     ^ *(((u_int32_t*) AOK (U))+1) ^ \
+	 *(((u_int32_t*) AOK (U))+2) ^ *(((u_int32_t*) AOK (U))+3))
 
 /*
  * Structure for keeping the (outstanding) mount list
@@ -823,9 +825,9 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 
 	sa = svc_getcaller_sa(transp);
 	if (sa->sa_family == AF_INET)
-		sport = ntohs(((struct sockaddr_in*)sa)->sin_port);
+		sport = ntohs(((struct sockaddr_in*) AOK sa)->sin_port);
 	else if (sa->sa_family == AF_INET6)
-		sport = ntohs(((struct sockaddr_in6*)sa)->sin6_port);
+		sport = ntohs(((struct sockaddr_in6*) AOK sa)->sin6_port);
 	else
 		sport = 0;
 
@@ -991,7 +993,7 @@ xdr_dir(XDR *xdrsp, char *dirp)
 int
 xdr_fhs(XDR *xdrsp, caddr_t cp)
 {
-	struct fhreturn *fhrp = (struct fhreturn *)cp;
+	struct fhreturn *fhrp = (struct fhreturn *) AOK cp;
 	xdr_long_t ok = 0, len, auth;
 	int32_t i;
 
@@ -2404,7 +2406,7 @@ prepare_offline_export:
 		if (xf == NULL) {
 			xf = get_expfs();
 			if (xf)
-				xf->xf_fsdir = malloc(strlen(mntonname) + 1);
+				xf->xf_fsdir = strdup(mntonname);
 			if (!xf || !xf->xf_fsdir) {
 				export_error(LOG_ERR, "Can't allocate memory to export volume: %s",
 					mntonname);
@@ -2413,7 +2415,6 @@ prepare_offline_export:
 			}
 			bcopy(uuid, xf->xf_uuid, sizeof(uuid));
 			xf->xf_fsid = ulp->ul_fsid;
-			strlcpy(xf->xf_fsdir, mntonname, strlen(mntonname)+1);
 			DEBUG(2, "New expfs uuid=%s", uuidstring(uuid, buf));
 		} else {
 			DEBUG(2, "Found expfs uuid=%s", uuidstring(uuid, buf));
@@ -2944,8 +2945,8 @@ grp_addr(struct grouplist *grp)
 	if (grp->gr_type == GT_HOST) {
 		if ((ai = grp->gr_u.gt_hostinfo.h_ailist)) {
 			sinaddr = (ai->ai_family == AF_INET) ?
-				(void*)&((struct sockaddr_in*)ai->ai_addr)->sin_addr :
-				(void*)&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+				(void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
+				(void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
 			if (inet_ntop(ai->ai_family, sinaddr, grpaddrbuf, sizeof(grpaddrbuf)))
 				s = grpaddrbuf;
 		}
@@ -3233,9 +3234,12 @@ export_error(int level, const char *fmt, ...)
 
 	export_errors++;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	va_start(ap, fmt);
 	vasprintf(&s, fmt, ap);
 	va_end(ap);
+#pragma clang diagnostic pop
 
 	/* check if we've already logged this error */
 	LIST_FOREACH(el, &xerrs, el_next) {
@@ -3979,14 +3983,14 @@ find_host(struct hosttqh *head, struct sockaddr *sa)
 					continue;
 				if (ai->ai_family == AF_INET) {
 					struct sockaddr_in *sin1, *sin2;
-					sin1 = (struct sockaddr_in*)ai->ai_addr;
-					sin2 = (struct sockaddr_in*)sa;
+					sin1 = (struct sockaddr_in*) AOK ai->ai_addr;
+					sin2 = (struct sockaddr_in*) AOK sa;
 					if (!bcmp(&sin1->sin_addr, &sin2->sin_addr, sizeof(sin1->sin_addr)))
 						return (hp);
 				} else if (ai->ai_family == AF_INET6) {
 					struct sockaddr_in6 *sin1, *sin2;
-					sin1 = (struct sockaddr_in6*)ai->ai_addr;
-					sin2 = (struct sockaddr_in6*)sa;
+					sin1 = (struct sockaddr_in6*) AOK ai->ai_addr;
+					sin2 = (struct sockaddr_in6*) AOK sa;
 					if (!bcmp(&sin1->sin6_addr, &sin2->sin6_addr, sizeof(sin1->sin6_addr)))
 						return (hp);
 				}
@@ -3996,11 +4000,11 @@ find_host(struct hosttqh *head, struct sockaddr *sa)
 			if (grp->gr_u.gt_net.nt_family != sa->sa_family)
 				break;
 			if (grp->gr_u.gt_net.nt_family == AF_INET) {
-				in_addr_t ina = ((struct sockaddr_in*)sa)->sin_addr.s_addr;
+				in_addr_t ina = ((struct sockaddr_in*) AOK sa)->sin_addr.s_addr;
 				if ((ina & grp->gr_u.gt_net.nt_mask) == grp->gr_u.gt_net.nt_net)
 					return (hp);
 			} else if (grp->gr_u.gt_net.nt_family == AF_INET6) {
-				struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
+				struct sockaddr_in6 *sa6 = (struct sockaddr_in6*) AOK sa;
 				struct in6_addr ina;
 				for (i=0; i < (int)sizeof(ina.s6_addr); i++)
 					ina.s6_addr[i] = sa6->sin6_addr.s6_addr[i] & grp->gr_u.gt_net.nt_mask6.s6_addr[i];
@@ -4403,10 +4407,11 @@ do_export(
 					continue;
 				INIT_NETARG(na, ai->ai_family);
 				if (ai->ai_family == AF_INET) {
-					sin->sin_addr.s_addr = ((struct sockaddr_in*)ai->ai_addr)->sin_addr.s_addr;
+					sin->sin_addr.s_addr = ((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr.s_addr;
 					imask->sin_len = 0;
 				} else if (ai->ai_family == AF_INET6) {
-					bcopy(&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr, &sin6->sin6_addr, sizeof(sin6->sin6_addr));
+					bcopy(&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr, &sin6->sin6_addr,
+						sizeof(sin6->sin6_addr));
 					imask6->sin6_len = 0;
 				}
 				na++;
@@ -4538,12 +4543,11 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 		} else {
 			name = inet_ntoa(inetaddr);
 		}
-		net->nt_name = malloc(strlen(name) + 1);
+		net->nt_name = strdup(name);
 		if (net->nt_name == NULL) {
 			log(LOG_ERR, "can't allocate memory for net: %s", cp);
 			return (1);
 		}
-		strlcpy(net->nt_name, name, strlen(name)+1);
 		if (family == AF_INET6)
 			net->nt_net6 = inet6addr;
 		else
@@ -5171,8 +5175,8 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 			case GT_HOST:
 				ai = gr->gr_u.gt_hostinfo.h_ailist;
 				sinaddr = (ai->ai_family == AF_INET) ?
-					(void*)&((struct sockaddr_in*)ai->ai_addr)->sin_addr :
-					(void*)&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+					(void*)&((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr :
+					(void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
 				if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
 					s = addrbuf;
 				else
@@ -5182,8 +5186,8 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 				while (ai) {
 					strlcat(buf, " ", sizeof(buf));
 					sinaddr = (ai->ai_family == AF_INET) ?
-						(void*)&((struct sockaddr_in*)ai->ai_addr)->sin_addr :
-						(void*)&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+						(void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
+						(void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
 					if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
 						s = addrbuf;
 					else

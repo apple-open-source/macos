@@ -1,4 +1,4 @@
-# $Id: makefile.in,v 1.28 2007/08/26 14:10:18 tom Exp $
+# $Id: makefile.in,v 1.29 2010/07/15 22:45:54 tom Exp $
 # Makefile-template for 'diffstat'
 
 THIS		= diffstat
@@ -8,11 +8,22 @@ THIS		= diffstat
 srcdir		= @srcdir@
 VPATH		= @srcdir@
 
+DESTDIR		= @DESTDIR@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+
+bindir		= @bindir@
+mandir		= @mandir@
+
 CC		= @CC@
 LINK		= $(CC)
 INSTALL		= @INSTALL@
 INSTALL_PROGRAM	= @INSTALL_PROGRAM@
 INSTALL_DATA	= @INSTALL_DATA@
+
+LINT		= @LINT@
+CTAGS		= @CTAGS@
+ETAGS		= @ETAGS@
 
 CFLAGS		= @CFLAGS@ @EXTRA_CFLAGS@
 CPPFLAGS	= -I. -I$(srcdir) -DHAVE_CONFIG_H @CPPFLAGS@
@@ -23,25 +34,21 @@ LDFLAGS		= @LDFLAGS@
 o		= .@OBJEXT@
 x		= @EXEEXT@
 
-DESTDIR		= @DESTDIR@
-prefix		= @prefix@
-exec_prefix	= @exec_prefix@
-
-bindir		= $(DESTDIR)@bindir@
-mandir		= $(DESTDIR)@mandir@
+BINDIR		= $(DESTDIR)$(bindir)
+MANDIR		= $(DESTDIR)$(mandir)
 
 #### End of system configuration section. ####
 
 SHELL		= /bin/sh
 
-man1dir		= $(mandir)/man1
+man1dir		= $(MANDIR)/man1
 manext		= 1
 
 PROG		= $(THIS)$x
 
 SRC =		CHANGES \
 		README $(THIS).c $(THIS).1 \
-		config_h.in install-sh mkdirs.sh \
+		config_h.in install-sh \
 		makefile.in configure.in aclocal.m4 \
 		makefile.wnt
 
@@ -59,7 +66,7 @@ DISTFILES =	configure config.guess config.sub $(SRC)
 .SUFFIXES: .c $o
 
 .c$o:
-@RULE_CC@
+	@RULE_CC@
 	@ECHO_CC@$(CC) -c $(CPPFLAGS) $(CFLAGS) $<
 
 all :	$(PROG)
@@ -68,14 +75,14 @@ $(PROG) : diffstat$o
 	@ECHO_LD@$(LINK) $(LDFLAGS) -o $@ diffstat$o $(LIBS)
 
 install : all installdirs
-	$(INSTALL_PROGRAM) $(PROG) $(bindir)/$(PROG)
+	$(INSTALL_PROGRAM) $(PROG) $(BINDIR)/$(PROG)
 	$(INSTALL_DATA) $(srcdir)/$(THIS).1 $(man1dir)/$(THIS).$(manext)
 
 installdirs :
-	$(SHELL) ${srcdir}/mkdirs.sh $(bindir) $(libdir) $(man1dir)
+	mkdir -p $(BINDIR) $(libdir) $(man1dir)
 
 uninstall :
-	rm -f $(bindir)/$(PROG) $(man1dir)/$(THIS).$(manext)
+	rm -f $(BINDIR)/$(PROG) $(man1dir)/$(THIS).$(manext)
 
 mostlyclean :
 	rm -f *.o core *~ *.out *.err *.BAK *.atac
@@ -85,22 +92,22 @@ clean : mostlyclean
 
 distclean : clean
 	rm -f makefile config.log config.cache config.status config.h
+	rm -f tags TAGS # don't remove configure!
 
 realclean : distclean
-	rm -f tags TAGS # don't remove configure!
 
 check :	$(PROG)
 	$(SHELL) -c 'PATH=`pwd`:$${PATH}; export PATH; \
 	    $(SHELL) $(srcdir)/testing/run_test.sh $(srcdir)/testing/case*.pat'
 
 lint :
-	lint $(THIS).c
+	$(LINT) $(CPPFLAGS) $(LINTOPTS) $(THIS).c
 
 tags :
-	ctags $(THIS).c $(HDRS)
+	$(CTAGS) $(THIS).c $(HDRS)
 
-TAGS :
-	etags $(THIS).c $(HDRS)
+@MAKE_UPPER_TAGS@TAGS :
+@MAKE_UPPER_TAGS@	$(ETAGS) $(THIS).c $(HDRS)
 
 dist:	makefile $(DISTFILES)
 	# make a list of the files to distribute

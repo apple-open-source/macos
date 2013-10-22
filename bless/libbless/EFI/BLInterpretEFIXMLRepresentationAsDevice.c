@@ -42,14 +42,15 @@
 #endif
 
 static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
-						 char *bsdName);
+						 char *bsdName, int bsdNameLen);
 
 static CFUUIDRef    copyVolUUIDFromDiskArb(BLContextPtr context,
                                           CFStringRef bsdName);
 
 int BLInterpretEFIXMLRepresentationAsDevice(BLContextPtr context,
                                             CFStringRef xmlString,
-                                            char *bsdName)
+                                            char *bsdName,
+                                            int bsdNameLen)
 {
 	CFArrayRef  efiArray = NULL;
     CFIndex     count, i;
@@ -86,7 +87,7 @@ int BLInterpretEFIXMLRepresentationAsDevice(BLContextPtr context,
             return 2;                    
         }
 
-        if(checkForMatch(context, dict, bsdName)) {
+        if(checkForMatch(context, dict, bsdName, bsdNameLen)) {
 			foundDevice = 1;
 			break;
 		}        
@@ -104,7 +105,7 @@ int BLInterpretEFIXMLRepresentationAsDevice(BLContextPtr context,
 
 
 static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
-						 char *bsdName)
+						 char *bsdName, int bsdNameLen)
 {
 	CFStringRef		fsuuid;
 	CFUUIDRef		uuid = NULL;
@@ -134,7 +135,7 @@ static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
 			if(dauuid && CFEqual(uuid, dauuid)) {
 				// found it!
                 CFStringGetCString(lastBSDName, bsdName, 
-                                   MNAMELEN, kCFStringEncodingUTF8);
+                                   bsdNameLen, kCFStringEncodingUTF8);
                 
 				contextprintf(context, kBLLogLevelVerbose, "Found device: %s\n", bsdName);
 				foundDevice = 1;		
@@ -183,7 +184,7 @@ static int checkForMatch(BLContextPtr context, CFDictionaryRef dict,
                         }
 						
                         if(foundDevice) {
-                            CFStringGetCString(name, bsdName, MNAMELEN,kCFStringEncodingUTF8);
+                            CFStringGetCString(name, bsdName, bsdNameLen, kCFStringEncodingUTF8);
                             contextprintf(context, kBLLogLevelVerbose, "Found device: %s\n", bsdName);
                         }
                     }

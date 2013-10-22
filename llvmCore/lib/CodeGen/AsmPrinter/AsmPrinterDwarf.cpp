@@ -25,6 +25,7 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Dwarf.h"
+#include "llvm/Support/ErrorHandling.h"
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -110,7 +111,7 @@ unsigned AsmPrinter::GetSizeOfEncodedValue(unsigned Encoding) const {
     return 0;
   
   switch (Encoding & 0x07) {
-  default: assert(0 && "Invalid encoded value.");
+  default: llvm_unreachable("Invalid encoded value.");
   case dwarf::DW_EH_PE_absptr: return TM.getTargetData()->getPointerSize();
   case dwarf::DW_EH_PE_udata2: return 2;
   case dwarf::DW_EH_PE_udata4: return 4;
@@ -144,9 +145,8 @@ void AsmPrinter::EmitReference(const GlobalValue *GV, unsigned Encoding)const{
 void AsmPrinter::EmitSectionOffset(const MCSymbol *Label,
                                    const MCSymbol *SectionLabel) const {
   // On COFF targets, we have to emit the special .secrel32 directive.
-  if (const char *SecOffDir = MAI->getDwarfSectionOffsetDirective()) {
-    // FIXME: MCize.
-    OutStreamer.EmitRawText(SecOffDir + Twine(Label->getName()));
+  if (MAI->getDwarfSectionOffsetDirective()) {
+    OutStreamer.EmitCOFFSecRel32(Label);
     return;
   }
   

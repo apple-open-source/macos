@@ -229,7 +229,7 @@ ihwaddc(int c)
 	/* Quote un-expanded bangs in the history line. */
 	if (c == bangchar && stophist < 2 && qbang)
 	    /* If qbang is not set, we do not escape this bangchar as it's *
-	     * not mecessary (e.g. it's a bang in !=, or it is followed    *
+	     * not necessary (e.g. it's a bang in !=, or it is followed    *
 	     * by a space). Roughly speaking, qbang is zero only if the    *
 	     * history interpreter has already digested this bang and      *
 	     * found that it is not necessary to escape it.                */
@@ -303,7 +303,7 @@ ihgetc(void)
 	/* If the result is a bangchar which came from history or alias  *
 	 * expansion, we treat it as an escaped bangchar, unless history *
 	 * is disabled. If stophist == 1 it only means that history is   *
-	 * temporarily disabled by a !" which won't appear in in the     *
+	 * temporarily disabled by a !" which won't appear in the        *
 	 * history, so we still have an escaped bang. stophist > 1 if    *
 	 * history is disabled with NOBANGHIST or by someone else (e.g.  *
 	 * when the lexer scans single quoted text).                     */
@@ -573,7 +573,7 @@ histsubchar(int c)
 		} else {
 		    herrflush();
 		    unqueue_signals();
-		    zerr("Ambiguous history reference");
+		    zerr("ambiguous history reference");
 		    return -1;
 		}
 
@@ -876,7 +876,18 @@ hbegin(int dohist)
 	stophist = (!interact || unset(SHINSTDIN)) ? 2 : 0;
     else
 	stophist = 0;
-    if (stophist == 2 || (inbufflags & INP_ALIAS)) {
+    /*
+     * pws: We used to test for "|| (inbufflags & INP_ALIAS)"
+     * in this test, but at this point we don't have input
+     * set up up so this can trigger unnecessarily.
+     * I don't see how the test at this point could ever be
+     * useful, since we only get here when we're initialising
+     * the history mechanism, before we've done any input.
+     *
+     * (I also don't see any point where this function is called with
+     * dohist=0.)
+     */
+    if (stophist == 2) {
 	chline = hptr = NULL;
 	hlinesz = 0;
 	chwords = NULL;
@@ -1344,7 +1355,8 @@ ihwend(void)
 					    (chwordlen += 32) * 
 					    sizeof(short));
 	    }
-	    if (hwgetword > -1) {
+	    if (hwgetword > -1 &&
+		(inbufflags & INP_ALIAS) && !(inbufflags & INP_HIST)) {
 		/* We want to reuse the current word position */
 		chwordpos = hwgetword;
 		/* Start from where previous word ended, if possible */
@@ -1651,6 +1663,11 @@ chrealpath(char **junkptr)
 	if (errno == EINVAL || errno == ELOOP ||
 	    errno == ENAMETOOLONG || errno == ENOMEM)
 	    return 0;
+
+#ifdef HAVE_CANONICALIZE_FILE_NAME
+	if (!real)
+	    return 0;
+#endif
 
 	if (nonreal == *junkptr) {
 	    *real = '\0';
@@ -2208,7 +2225,8 @@ readhistline(int start, char **bufp, int *bufsiz, FILE *in)
 	}
 	else {
 	    buf[len - 1] = '\0';
-	    if (len > 1 && buf[len - 2] == '\\') {
+	    if (len > 1 && buf[len - 2] == '\\' &&
+		(len < 3 || buf[len - 3] != '\\')) {
 		buf[--len - 1] = '\n';
 		if (!feof(in))
 		    return readhistline(len, bufp, bufsiz, in);
@@ -2235,10 +2253,12 @@ readhistfile(char *fn, int err, int readflags)
 
     if (!fn && !(fn = getsparam("HISTFILE")))
 	return;
+    if (stat(unmeta(fn), &sb) < 0 ||
+	sb.st_size == 0)
+	return;
     if (readflags & HFILE_FAST) {
-	if (stat(unmeta(fn), &sb) < 0
-	 || (lasthist.fsiz == sb.st_size && lasthist.mtim == sb.st_mtime)
-	 || lockhistfile(fn, 0))
+	if ((lasthist.fsiz == sb.st_size && lasthist.mtim == sb.st_mtime)
+	    || lockhistfile(fn, 0))
 	    return;
 	lasthist.fsiz = sb.st_size;
 	lasthist.mtim = sb.st_mtime;
@@ -2338,103 +2358,11 @@ readhistfile(char *fn, int err, int readflags)
 	    /*
 	     * Divide up the words.
 	     */
-	    nwordpos = 0;
 	    start = pt;
 	    uselex = isset(HISTLEXWORDS) && !(readflags & HFILE_FAST);
-	    if (uselex) {
-		/*
-		 * Attempt to do this using the lexer.
-		 */
-		LinkList wordlist = bufferwords(NULL, pt, NULL,
-						LEXFLAGS_COMMENTS_KEEP);
-		LinkNode wordnode;
-		int nwords_max;
-		nwords_max = 2 * countlinknodes(wordlist);
-		if (nwords_max > nwords) {
-		    nwords = nwords_max;
-		    words = (short *)realloc(words, nwords*sizeof(short));
-		}
-		for (wordnode = firstnode(wordlist);
-		     wordnode;
-		     incnode(wordnode)) {
-		    char *word = getdata(wordnode);
-
-		    for (;;) {
-			/*
-			 * Not really an oddity: "\\\n" is
-			 * removed from input as if whitespace.
-			 */
-			if (inblank(*pt))
-			    pt++;
-			else if (pt[0] == '\\' && pt[1] == '\n')
-			    pt += 2;
-			else
-			    break;
-		    }
-		    if (!strpfx(word, pt)) {
-			int bad = 0;
-			/*
-			 * Oddity 1: newlines turn into semicolons.
-			 */
-			if (!strcmp(word, ";"))
-			    continue;
-			while (*pt) {
-			    if (!*word) {
-				bad = 1;
-				break;
-			    }
-			    /*
-			     * Oddity 2: !'s turn into |'s.
-			     */
-			    if (*pt == *word ||
-				(*pt == '!' && *word == '|')) {
-				pt++;
-				word++;
-			    } else {
-				bad = 1;
-				break;
-			    }
-			}
-			if (bad) {
-#ifdef DEBUG
-			    dputs(ERRMSG("bad wordsplit reading history: "
-					 "%s\nat: %s\nword: %s"),
-				  start, pt, word);
-#endif
-			    pt = start;
-			    nwordpos = 0;
-			    uselex = 0;
-			    break;
-			}
-		    }
-		    words[nwordpos++] = pt - start;
-		    pt += strlen(word);
-		    words[nwordpos++] = pt - start;
-		}
+	    histsplitwords(pt, &words, &nwords, &nwordpos, uselex);
+	    if (uselex)
 		freeheap();
-	    }
-	    if (!uselex) {
-		do {
-		    for (;;) {
-			if (inblank(*pt))
-			    pt++;
-			else if (pt[0] == '\\' && pt[1] == '\n')
-			    pt += 2;
-			else
-			    break;
-		    }
-		    if (*pt) {
-			if (nwordpos >= nwords)
-			    words = (short *)
-				realloc(words, (nwords += 64)*sizeof(short));
-			words[nwordpos++] = pt - start;
-			while (*pt && !inblank(*pt))
-			    pt++;
-			words[nwordpos++] = pt - start;
-		    }
-		} while (*pt);
-
-	    }
 
 	    he->nwords = nwordpos/2;
 	    if (he->nwords) {
@@ -3132,6 +3060,207 @@ bufferwords(LinkList list, char *buf, int *index, int flags)
 	*index = cur;
 
     return list;
+}
+
+/*
+ * Split up a line into words for use in a history file.
+ *
+ * lineptr is the line to be split.
+ *
+ * *wordsp and *nwordsp are an array already allocated to hold words
+ * and its length.  The array holds both start and end positions,
+ * so *nwordsp actually counts twice the number of words in the
+ * original string.  *nwordsp may be zero in which case the array
+ * will be allocated.
+ *
+ * *nwordposp returns the used length of *wordsp in the same units as
+ * *nwordsp, i.e. twice the number of words in the input line.
+ *
+ * If uselex is 1, attempt to do this using the lexical analyser.
+ * This is more accurate, but slower; for reading history files it's
+ * controlled by the option HISTLEXWORDS.  If this failed (which
+ * indicates a bug in the shell) it falls back to whitespace-separated
+ * strings, printing a message if in debug mode.
+ *
+ * If uselex is 0, just look for whitespace-separated words; the only
+ * special handling is for a backslash-newline combination as used
+ * by the history file format to save multiline buffers.
+ */
+/**/
+mod_export void
+histsplitwords(char *lineptr, short **wordsp, int *nwordsp, int *nwordposp,
+	       int uselex)
+{
+    int nwords = *nwordsp, nwordpos = 0;
+    short *words = *wordsp;
+    char *start = lineptr;
+
+    if (uselex) {
+	LinkList wordlist = bufferwords(NULL, lineptr, NULL,
+					LEXFLAGS_COMMENTS_KEEP);
+	LinkNode wordnode;
+	int nwords_max;
+
+	nwords_max = 2 * countlinknodes(wordlist);
+	if (nwords_max > nwords) {
+	    *nwordsp = nwords = nwords_max;
+	    *wordsp = words = (short *)zrealloc(words, nwords*sizeof(short));
+	}
+	for (wordnode = firstnode(wordlist);
+	     wordnode;
+	     incnode(wordnode)) {
+	    char *word = getdata(wordnode);
+	    char *lptr, *wptr = word;
+	    int loop_next = 0, skipping;
+
+	    /* Skip stuff at the start of the word */
+	    for (;;) {
+		/*
+		 * Not really an oddity: "\\\n" is
+		 * removed from input as if whitespace.
+		 */
+		if (inblank(*lineptr))
+		    lineptr++;
+		else if (lineptr[0] == '\\' && lineptr[1] == '\n') {
+		    /*
+		     * Optimisation: we handle this in the loop below,
+		     * too.
+		     */
+		    lineptr += 2;
+		} else
+		    break;
+	    }
+	    lptr = lineptr;
+	    /*
+	     * Skip chunks of word with possible intervening
+	     * backslash-newline.
+	     *
+	     * To get round C's annoying lack of ability to
+	     * reference the outer loop, we'll break from this
+	     * one with
+	     * loop_next = 0: carry on as normal
+	     * loop_next = 1: break from outer loop
+	     * loop_next = 2: continue round outer loop.
+	     */
+	    do {
+		skipping = 0;
+		if (strpfx(wptr, lptr)) {
+		    /*
+		     * Normal case: word from lexer matches start of
+		     * string from line.  Just advance over it.
+		     */
+		    int len;
+		    if (!strcmp(wptr, ";") && strpfx(";;", lptr)) {
+			/*
+			 * Don't get confused between a semicolon that's
+			 * probably really a newline and a double
+			 * semicolon that's terminating a case.
+			 */
+			loop_next = 2;
+			break;
+		    }
+		    len = strlen(wptr);
+		    lptr += len;
+		    wptr += len;
+		} else {
+		    /*
+		     * Didn't get to the end of the word.
+		     * See what's amiss.
+		     */
+		    int bad = 0;
+		    /*
+		     * Oddity 1: newlines turn into semicolons.
+		     */
+		    if (!strcmp(wptr, ";"))
+		    {
+			loop_next = 2;
+			break;
+		    }
+		    while (*lptr) {
+			if (!*wptr) {
+			    /*
+			     * End of the word before the end of the
+			     * line: not good.
+			     */
+			    bad = 1;
+			    loop_next = 1;
+			    break;
+			}
+			/*
+			 * Oddity 2: !'s turn into |'s.
+			 */
+			if (*lptr == *wptr ||
+			    (*lptr == '!' && *wptr == '|')) {
+			    lptr++;
+			    wptr++;
+			} else if (lptr[0] == '\\' &&
+				   lptr[1] == '\n') {
+			    /*
+			     * \\\n can occur in the middle of a word;
+			     * wptr is already pointing at this, we
+			     * just need to skip over the break
+			     * in lptr and look at the next chunk.
+			     */
+			    lptr += 2;
+			    skipping = 1;
+			    break;
+			} else {
+			    bad = 1;
+			    loop_next = 1;
+			    break;
+			}
+		    }
+		    if (bad) {
+#ifdef DEBUG
+			dputs(ERRMSG("bad wordsplit reading history: "
+				     "%s\nat: %s\nword: %s"),
+			      start, lineptr, word);
+#endif
+			lineptr = start;
+			nwordpos = 0;
+			uselex = 0;
+			loop_next = 1;
+		    }
+		}
+	    } while (skipping);
+	    if (loop_next) {
+		if (loop_next == 1)
+		    break;
+		continue;
+	    }
+	    /* Record position of current word... */
+	    words[nwordpos++] = lineptr - start;
+	    words[nwordpos++] = lptr - start;
+
+	    /* ready for start of next word. */
+	    lineptr = lptr;
+	}
+    }
+    if (!uselex) {
+	do {
+	    for (;;) {
+		if (inblank(*lineptr))
+		    lineptr++;
+		else if (lineptr[0] == '\\' && lineptr[1] == '\n')
+		    lineptr += 2;
+		else
+		    break;
+	    }
+	    if (*lineptr) {
+		if (nwordpos >= nwords) {
+		    *nwordsp = nwords = nwords + 64;
+		    *wordsp = words = (short *)
+			zrealloc(words, nwords*sizeof(*words));
+		}
+		words[nwordpos++] = lineptr - start;
+		while (*lineptr && !inblank(*lineptr))
+		    lineptr++;
+		words[nwordpos++] = lineptr - start;
+	    }
+	} while (*lineptr);
+    }
+
+    *nwordposp = nwordpos;
 }
 
 /* Move the current history list out of the way and prepare a fresh history

@@ -48,7 +48,7 @@
  */
 
 static int
-johab_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+johab_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80) {
@@ -85,7 +85,7 @@ johab_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-johab_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+johab_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char buf[2];
   int ret;

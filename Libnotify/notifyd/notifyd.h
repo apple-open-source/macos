@@ -80,8 +80,6 @@ struct call_statistics_s
 	uint64_t set_state_by_client;
 	uint64_t set_state_by_id;
 	uint64_t set_state_by_client_and_fetch_id;
-	uint64_t get_val;
-	uint64_t set_val;
 	uint64_t get_owner;
 	uint64_t set_owner;
 	uint64_t get_access;

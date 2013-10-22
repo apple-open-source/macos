@@ -26,12 +26,12 @@
 
 namespace CoreIPC {
 
-void encode(ArgumentEncoder*, const WebCore::DragData&);
-bool decode(ArgumentDecoder*, WebCore::DragData&);
+void encode(ArgumentEncoder&, const WebCore::DragData&);
+bool decode(ArgumentDecoder&, WebCore::DragData&);
 
 template<> struct ArgumentCoder<WebCore::DragData> {
-    static void encode(ArgumentEncoder*, const WebCore::DragData&);
-    static bool decode(ArgumentDecoder*, WebCore::DragData&);
+    static void encode(ArgumentEncoder&, const WebCore::DragData&);
+    static bool decode(ArgumentDecoder&, WebCore::DragData&);
 };
 
 }

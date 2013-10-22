@@ -40,7 +40,7 @@ class AlternativeTextUIController;
 namespace WebKit {
 class FindIndicatorWindow;
 
-class PageClientImpl : public PageClient {
+class PageClientImpl FINAL : public PageClient {
 public:
     static PassOwnPtr<PageClientImpl> create(WKView*);
     virtual ~PageClientImpl();
@@ -48,11 +48,12 @@ public:
     void viewWillMoveToAnotherWindow();
 
 private:
-    PageClientImpl(WKView*);
+    explicit PageClientImpl(WKView*);
 
     virtual PassOwnPtr<DrawingAreaProxy> createDrawingAreaProxy();
     virtual void setViewNeedsDisplay(const WebCore::IntRect&);
     virtual void displayView();
+    virtual bool canScrollView();
     virtual void scrollView(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
 
     virtual WebCore::IntSize viewSize();
@@ -61,10 +62,13 @@ private:
     virtual bool isViewVisible();
     virtual bool isViewInWindow();
     virtual LayerHostingMode viewLayerHostingMode() OVERRIDE;
+    virtual ColorSpaceData colorSpace() OVERRIDE;
+    virtual void setAcceleratedCompositingRootLayer(CALayer *) OVERRIDE;
 
     virtual void processDidCrash();
     virtual void pageClosed();
     virtual void didRelaunchProcess();
+    virtual void preferencesDidChange() OVERRIDE;
     virtual void toolTipChanged(const String& oldToolTip, const String& newToolTip);
     virtual void setCursor(const WebCore::Cursor&);
     virtual void setCursorHiddenUntilMouseMoves(bool);
@@ -79,8 +83,9 @@ private:
     virtual void setDragImage(const WebCore::IntPoint& clientPosition, PassRefPtr<ShareableBitmap> dragImage, bool isLinkDrag);
     virtual void setPromisedData(const String& pasteboardName, PassRefPtr<WebCore::SharedBuffer> imageBuffer, const String& filename, const String& extension, const String& title,
                                  const String& url, const String& visibleUrl, PassRefPtr<WebCore::SharedBuffer> archiveBuffer);
-    virtual void updateTextInputState(bool updateSecureInputState);
-    virtual void resetTextInputState();
+    virtual void updateSecureInputState() OVERRIDE;
+    virtual void resetSecureInputState() OVERRIDE;
+    virtual void notifyInputContextAboutDiscardedComposition() OVERRIDE;
 
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&);
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&);
@@ -94,6 +99,10 @@ private:
 
     virtual PassRefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy*);
     virtual PassRefPtr<WebContextMenuProxy> createContextMenuProxy(WebPageProxy*);
+
+#if ENABLE(INPUT_TYPE_COLOR)
+    virtual PassRefPtr<WebColorChooserProxy> createColorChooserProxy(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&);
+#endif
 
     void setFindIndicator(PassRefPtr<FindIndicator>, bool fadeOut, bool animate);
 
@@ -110,8 +119,6 @@ private:
     
     virtual CGContextRef containingWindowGraphicsContext();
 
-    virtual void didChangeScrollbarsForMainFrame() const;
-
     virtual void didCommitLoadForMainFrame(bool useCustomRepresentation);
     virtual void didFinishLoadingDataForCustomRepresentation(const String& suggestedFilename, const CoreIPC::DataReference&);
 
@@ -122,7 +129,7 @@ private:
 
     virtual void flashBackingStoreUpdates(const Vector<WebCore::IntRect>& updateRects);
 
-    virtual void didPerformDictionaryLookup(const String&, double scaleFactor, const DictionaryPopupInfo&);
+    virtual void didPerformDictionaryLookup(const AttributedString&, const DictionaryPopupInfo&);
     virtual void dismissDictionaryLookupPanel();
 
     virtual void showCorrectionPanel(WebCore::AlternativeTextType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings);
@@ -133,18 +140,18 @@ private:
     virtual void recommendedScrollbarStyleDidChange(int32_t newStyle);
 
     virtual WKView* wkView() const { return m_wkView; }
+    virtual void intrinsicContentSizeDidChange(const WebCore::IntSize& intrinsicContentSize) OVERRIDE;
 
 #if USE(DICTATION_ALTERNATIVES)
     virtual uint64_t addDictationAlternatives(const RetainPtr<NSTextAlternatives>&);
     virtual void removeDictationAlternatives(uint64_t dictationContext);
     virtual void showDictationAlternativeUI(const WebCore::FloatRect& boundingBoxOfDictatedText, uint64_t dictationContext);
-    virtual void dismissDictationAlternativeUI();
     virtual Vector<String> dictationAlternatives(uint64_t dictationContext);
 #endif
 
     WKView* m_wkView;
     RetainPtr<WKEditorUndoTargetObjC> m_undoTarget;
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
+#if USE(AUTOCORRECTION_PANEL)
     CorrectionPanel m_correctionPanel;
 #endif
 #if USE(DICTATION_ALTERNATIVES)

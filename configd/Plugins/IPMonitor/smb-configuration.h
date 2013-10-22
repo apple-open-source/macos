@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,6 @@
 
 __BEGIN_DECLS
 
-__private_extern__
 void	load_smb_configuration		(Boolean	verbose);
 
 __END_DECLS

@@ -134,6 +134,7 @@ EXPORTS
 	xsltSaveResultToFd
 
 	xsltMaxDepth
+	xsltMaxVars
 	xsltSetXIncludeDefault
 	xsltLibxmlVersion
 	xsltLibxsltVersion

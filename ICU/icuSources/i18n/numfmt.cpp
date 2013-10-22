@@ -54,7 +54,7 @@
 
 #ifdef FMT_DEBUG
 #include <stdio.h>
-static void debugout(UnicodeString s) {
+static inline void debugout(UnicodeString s) {
     char buf[2000];
     s.extract((int32_t) 0, s.length(), buf);
     printf("%s", buf);
@@ -139,7 +139,7 @@ static const char *gFormatKeys[UNUM_FORMAT_STYLE_COUNT] = {
 // Static hashtable cache of NumberingSystem objects used by NumberFormat
 static UHashtable * NumberingSystem_cache = NULL;
 
-static UMTX nscacheMutex = NULL;
+static UMutex nscacheMutex = U_MUTEX_INITIALIZER;
 
 #if !UCONFIG_NO_SERVICE
 static icu::ICULocaleService* gService = NULL;
@@ -361,6 +361,46 @@ NumberFormat::format(int64_t /* unused number */,
     }
     return toAppendTo;
 }
+
+// ------------------------------------------
+// These functions add the status code, just fall back to the non-status versions
+UnicodeString&
+NumberFormat::format(double number,
+                     UnicodeString& appendTo,
+                     FieldPosition& pos,
+                     UErrorCode &status) const {
+    if(U_SUCCESS(status)) {
+        return format(number,appendTo,pos);
+    } else {
+        return appendTo;
+    }
+}
+
+UnicodeString&
+NumberFormat::format(int32_t number,
+                     UnicodeString& appendTo,
+                     FieldPosition& pos,
+                     UErrorCode &status) const {
+    if(U_SUCCESS(status)) {
+        return format(number,appendTo,pos);
+    } else {
+        return appendTo;
+    }
+}
+
+UnicodeString&
+NumberFormat::format(int64_t number,
+                     UnicodeString& appendTo,
+                     FieldPosition& pos,
+                     UErrorCode &status) const {
+    if(U_SUCCESS(status)) {
+        return format(number,appendTo,pos);
+    } else {
+        return appendTo;
+    }
+}
+
+
 
 // -------------------------------------
 // Decimal Number format() default implementation 
@@ -1100,8 +1140,15 @@ NumberFormat::isStyleSupported(UNumberFormatStyle style) {
 NumberFormat*
 NumberFormat::makeInstance(const Locale& desiredLocale,
                            UNumberFormatStyle style,
-                           UErrorCode& status)
-{
+                           UErrorCode& status) {
+  return makeInstance(desiredLocale, style, false, status);
+}
+
+NumberFormat*
+NumberFormat::makeInstance(const Locale& desiredLocale,
+                           UNumberFormatStyle style,
+                           UBool mustBeDecimalFormat,
+                           UErrorCode& status) {
     if (U_FAILURE(status)) return NULL;
 
     if (style < 0 || style >= UNUM_FORMAT_STYLE_COUNT) {
@@ -1121,33 +1168,34 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
     }
 
 #if U_PLATFORM_USES_ONLY_WIN32_API
-    char buffer[8];
-    int32_t count = desiredLocale.getKeywordValue("compat", buffer, sizeof(buffer), status);
+    if (!mustBeDecimalFormat) {
+        char buffer[8];
+        int32_t count = desiredLocale.getKeywordValue("compat", buffer, sizeof(buffer), status);
 
-    // if the locale has "@compat=host", create a host-specific NumberFormat
-    if (U_SUCCESS(status) && count > 0 && uprv_strcmp(buffer, "host") == 0) {
-        Win32NumberFormat *f = NULL;
-        UBool curr = TRUE;
+        // if the locale has "@compat=host", create a host-specific NumberFormat
+        if (U_SUCCESS(status) && count > 0 && uprv_strcmp(buffer, "host") == 0) {
+            Win32NumberFormat *f = NULL;
+            UBool curr = TRUE;
 
-        switch (style) {
-        case UNUM_DECIMAL:
-            curr = FALSE;
-            // fall-through
+            switch (style) {
+            case UNUM_DECIMAL:
+                curr = FALSE;
+                // fall-through
 
-        case UNUM_CURRENCY:
-        case UNUM_CURRENCY_ISO: // do not support plural formatting here
-        case UNUM_CURRENCY_PLURAL:
-            f = new Win32NumberFormat(desiredLocale, curr, status);
+            case UNUM_CURRENCY:
+            case UNUM_CURRENCY_ISO: // do not support plural formatting here
+            case UNUM_CURRENCY_PLURAL:
+                f = new Win32NumberFormat(desiredLocale, curr, status);
 
-            if (U_SUCCESS(status)) {
-                return f;
+                if (U_SUCCESS(status)) {
+                    return f;
+                }
+
+                delete f;
+                break;
+            default:
+                break;
             }
-
-            delete f;
-            break;
-
-        default:
-            break;
         }
     }
 #endif
@@ -1202,6 +1250,11 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
 
     // check results of getting a numbering system
     if (U_FAILURE(status)) {
+        return NULL;
+    }
+
+    if (mustBeDecimalFormat && ns->isAlgorithmic()) {
+        status = U_UNSUPPORTED_ERROR;
         return NULL;
     }
 

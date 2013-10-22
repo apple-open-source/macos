@@ -2,7 +2,7 @@
  * Copyright (c) 2000, 2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -248,6 +248,7 @@ void mb_consume(mbchain_t mbp, size_t size)
 {
 	mbp->mb_mleft -= size;
 	mbp->mb_count += size;
+	mbp->mb_len += size;
 	mbuf_setlen(mbp->mb_cur, mbuf_len(mbp->mb_cur)+size);
 }
 
@@ -334,6 +335,7 @@ void * mb_reserve(mbchain_t mbp, size_t size)
 	}
 	mbp->mb_mleft -= size;
 	mbp->mb_count += size;
+	mbp->mb_len += size;
 	bpos = (caddr_t)((uint8_t *)mbuf_data(m) + mbuf_len(m));
 	mbuf_setlen(m, mbuf_len(m)+size);
 	return bpos;
@@ -440,6 +442,7 @@ int mb_put_mem(mbchain_t mbp, const char *source, size_t size, int type)
 		mbuf_setlen(m, mbuf_len(m)+cplen);
 		mleft -= cplen;
 		mbp->mb_count += cplen;
+        mbp->mb_len += cplen;
 	}
 	mbp->mb_cur = m;
 	mbp->mb_mleft = mleft;
@@ -451,6 +454,7 @@ int mb_put_mbuf(mbchain_t mbp, mbuf_t m)
 	mbuf_setnext(mbp->mb_cur, m);
 	while (m) {
 		mbp->mb_count += mbuf_len(m);
+        mbp->mb_len += mbuf_len(m);
 		if (mbuf_next(m) == NULL)
 			break;
 		m = mbuf_next(m);
@@ -497,6 +501,7 @@ int mb_put_uio(mbchain_t mbp, uio_t uiop, size_t size)
 		size -= cplen;
 		mbuf_setlen(m, mbuf_len(m)+cplen);
 		mbp->mb_count += cplen;
+        mbp->mb_len += cplen;
 		mleft -= cplen;
 	}
 	mbp->mb_cur = m;
@@ -536,6 +541,7 @@ void md_initm(mdchain_t mdp, mbuf_t m)
 	bzero(mdp, sizeof(*mdp));
 	mdp->md_top = mdp->md_cur = m;
 	mdp->md_pos = mbuf_data(m);
+    mdp->md_len = 0;
 }
 
 int md_init(mdchain_t mdp)
@@ -809,6 +815,8 @@ int md_get_mem(mdchain_t mdp, caddr_t target, size_t size, int type)
 		}
 		target += count;
 	}
+    
+    mdp->md_len += size_request;
 	return 0;
 }
 
@@ -827,6 +835,7 @@ int md_get_mbuf(mdchain_t mdp, size_t size, mbuf_t *ret)
 
 int md_get_uio(mdchain_t mdp, uio_t uiop, int32_t size)
 {
+	size_t size_request = size;
 	int32_t count;
 	int error;
 	mbuf_t m = mdp->md_cur;
@@ -856,6 +865,8 @@ int md_get_uio(mdchain_t mdp, uio_t uiop, int32_t size)
 		if (error)
 			return error;
 	}
+    
+    mdp->md_len += size_request;
 	return 0;
 }
 

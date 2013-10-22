@@ -59,13 +59,13 @@ inline void decode(vector<string> &names, const vector<char> &buffer, size_t siz
 //
 Error::Error(unsigned long err) : error(err)
 {
-	SECURITY_EXCEPTION_THROW_PCSC(this, err);
+	SECURITY_EXCEPTION_THROW_PCSC(this, (unsigned int)err);
 }
 
 
 const char *Error::what() const throw ()
 {
-	return pcsc_stringify_error(error);
+	return pcsc_stringify_error((int32_t)error);
 }
 
 
@@ -101,14 +101,14 @@ void ReaderState::set(const char *name, unsigned long known)
 	clearPod();
 	szReader = name;
 	pvUserData = NULL;
-	dwCurrentState = known;
+	dwCurrentState = (uint32_t)known;
 }
 
 
 void ReaderState::lastKnown(unsigned long s)
 {
 	// clear out CHANGED and UNAVAILABLE
-	dwCurrentState = s & ~(SCARD_STATE_CHANGED | SCARD_STATE_UNAVAILABLE);
+	dwCurrentState = (uint32_t)s & ~(SCARD_STATE_CHANGED | SCARD_STATE_UNAVAILABLE);
 }
 
 
@@ -117,7 +117,7 @@ void ReaderState::setATR(const void *atr, size_t size)
 	if (size > sizeof(rgbAtr))
 		Error::throwMe(SCARD_E_INVALID_ATR);
 	memcpy(rgbAtr, atr, size);
-	cbAtr = size;
+	cbAtr = (uint32_t)size;
 }
 
 
@@ -225,7 +225,7 @@ void Session::statusChange(ReaderState *readers, unsigned int nReaders, long tim
 {
 	if (nReaders == 0)
 		return; // no readers, no foul
-	check(::SCardGetStatusChange(mContext, timeout, readers, nReaders));
+	check(::SCardGetStatusChange(mContext, (uint32_t)timeout, readers, nReaders));
 }
 
 
@@ -262,7 +262,7 @@ void Card::connect(Session &session, const char *reader,
 {
 	uint32_t activeProtocol;
 	Error::check(::SCardConnect(session.mContext,
-		reader, share, protocols, &mHandle, &activeProtocol));
+		reader, (uint32_t)share, (uint32_t)protocols, &mHandle, &activeProtocol));
 	setIOType(activeProtocol);
 	mConnectedState = kConnected;
 }
@@ -271,9 +271,9 @@ void Card::reconnect(unsigned long share, unsigned long protocols, unsigned long
 {
 	assert(mConnectedState != kInitial);
 
-	DWORD activeProtocol;
-	Error::check(::SCardReconnect(mHandle, share, protocols,
-		initialization, &activeProtocol));
+	uint32_t activeProtocol;
+	Error::check(::SCardReconnect(mHandle, (uint32_t)share, (uint32_t)protocols,
+		(uint32_t)initialization, &activeProtocol));
 	setIOType(activeProtocol);
 	mConnectedState = kConnected;
 }
@@ -288,7 +288,7 @@ void Card::disconnect(unsigned long disposition)
 			mTransactionNestLevel = 0;
 		}
 
-		checkReset(::SCardDisconnect(mHandle, disposition));
+		checkReset(::SCardDisconnect(mHandle, (uint32_t)disposition));
 		didDisconnect();
 		mConnectedState = kInitial;
 	}
@@ -329,8 +329,8 @@ Card::transmit(const unsigned char *pbSendBuffer, size_t cbSendLength,
 
 	IFDUMPING("pcsc", dump("->", pbSendBuffer, cbSendLength));
 
-	uint32_t tmpRecvLength = pcbRecvLength;
-	checkReset(::SCardTransmit(mHandle, mIOType, pbSendBuffer, cbSendLength,
+	uint32_t tmpRecvLength = (uint32_t)pcbRecvLength;
+	checkReset(::SCardTransmit(mHandle, mIOType, pbSendBuffer, (uint32_t)cbSendLength,
 		NULL, pbRecvBuffer, &tmpRecvLength));
 	pcbRecvLength = tmpRecvLength;
 	
@@ -366,7 +366,7 @@ void Card::end(unsigned long disposition)
 			reconnect();
 		}
 
-		checkReset(::SCardEndTransaction(mHandle, disposition));
+		checkReset(::SCardEndTransaction(mHandle, (uint32_t)disposition));
 		didDisconnect();
 	}
 	else if (mTransactionNestLevel > 0)
@@ -378,7 +378,7 @@ void Card::end(unsigned long disposition)
 				secdebug("pcsc", "%p: end transaction while disconnected ignored", this);
 			else
 			{
-				checkReset(::SCardEndTransaction(mHandle, disposition));
+				checkReset(::SCardEndTransaction(mHandle, (uint32_t)disposition));
 				didEnd();
 			}
 		}

@@ -35,6 +35,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <TargetConditionals.h>
+
 #include "removefile.h"
 #include "removefile_priv.h"
 
@@ -100,10 +102,6 @@ __removefile_rename_unlink(const char *path, removefile_state_t state) {
 
   if (rename(path, new_name) == -1)
     return -1;
-
-  if ((state->unlink_flags & REMOVEFILE_RECURSIVE) == 0) {
-    sync_volume_np(new_name, 0);
-  }
 
   if (lstat(new_name, &statbuf) == -1) {
 	errno = ENOENT;

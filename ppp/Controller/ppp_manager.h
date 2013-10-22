@@ -33,7 +33,7 @@ int ppp_new_service(struct service *serv);
 int ppp_dispose_service(struct service *serv);
 int ppp_setup_service(struct service *serv);
 
-int ppp_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gid, mach_port_t bootstrap, u_int8_t onTraffic, u_int8_t onDemand);
+int ppp_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gid, mach_port_t bootstrap, mach_port_t au_session, u_int8_t onTraffic, u_int8_t onDemand);
 int ppp_stop(struct service *serv, int signal);
 int ppp_suspend(struct service *serv);
 int ppp_resume(struct service *serv);
@@ -44,7 +44,7 @@ int ppp_copystatistics(struct service *serv, void **reply, u_int16_t *replylen);
 int ppp_getconnectdata(struct service *serv, void **reply, u_int16_t *replylen, int all);
 int ppp_getconnectsystemdata(struct service *serv, void **reply, u_int16_t *replylen);
 
-void ppp_updatephase(struct service *serv, int phase);
+void ppp_updatephase(struct service *serv, int phase, int ifunit);
 void ppp_updatestatus(struct service *serv, int status, int devstatus);
 u_int32_t ppp_translate_error(u_int16_t subtype, u_int32_t native_ppp_error, u_int32_t native_dev_error);
 

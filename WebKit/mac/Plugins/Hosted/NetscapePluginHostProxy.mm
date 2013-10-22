@@ -45,7 +45,6 @@ extern "C" {
 #import "WebKitPluginClientServer.h"
 }
 
-using namespace std;
 using namespace JSC;
 using namespace WebCore;
 
@@ -105,18 +104,18 @@ NetscapePluginHostProxy::NetscapePluginHostProxy(mach_port_t clientPort, mach_po
     
     // FIXME: We should use libdispatch for this.
     CFMachPortContext context = { 0, this, 0, 0, 0 };
-    m_deadNameNotificationPort.adoptCF(CFMachPortCreate(0, deadNameNotificationCallback, &context, 0));
+    m_deadNameNotificationPort = adoptCF(CFMachPortCreate(0, deadNameNotificationCallback, &context, 0));
 
     mach_port_t previous;
     mach_port_request_notification(mach_task_self(), pluginHostPort, MACH_NOTIFY_DEAD_NAME, 0, 
                                    CFMachPortGetPort(m_deadNameNotificationPort.get()), MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous);
     ASSERT(previous == MACH_PORT_NULL);
     
-    RetainPtr<CFRunLoopSourceRef> deathPortSource(AdoptCF, CFMachPortCreateRunLoopSource(0, m_deadNameNotificationPort.get(), 0));
+    RetainPtr<CFRunLoopSourceRef> deathPortSource = adoptCF(CFMachPortCreateRunLoopSource(0, m_deadNameNotificationPort.get(), 0));
     
     CFRunLoopAddSource(CFRunLoopGetCurrent(), deathPortSource.get(), kCFRunLoopDefaultMode);
     
-    m_clientPortSource.adoptCF(WKCreateMIGServerSource((mig_subsystem_t)&WKWebKitPluginClient_subsystem, m_clientPort));
+    m_clientPortSource = adoptCF(WKCreateMIGServerSource((mig_subsystem_t)&WKWebKitPluginClient_subsystem, m_clientPort));
     CFRunLoopAddSource(CFRunLoopGetCurrent(), m_clientPortSource.get(), kCFRunLoopDefaultMode);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), m_clientPortSource.get(), (CFStringRef)NSEventTrackingRunLoopMode);
 }
@@ -144,7 +143,7 @@ void NetscapePluginHostProxy::pluginHostDied()
   
     PluginInstanceMap::const_iterator end = instances.end();
     for (PluginInstanceMap::const_iterator it = instances.begin(); it != end; ++it)
-        it->second->pluginHostDied();
+        it->value->pluginHostDied();
     
     NetscapePluginHostManager::shared().pluginHostDied(this);
     
@@ -175,7 +174,7 @@ void NetscapePluginHostProxy::removePluginInstance(NetscapePluginInstanceProxy* 
 
 NetscapePluginInstanceProxy* NetscapePluginHostProxy::pluginInstance(uint32_t pluginID)
 {
-    NetscapePluginInstanceProxy* result = m_instances.get(pluginID).get();
+    NetscapePluginInstanceProxy* result = m_instances.get(pluginID);
     ASSERT(!result || result->hostProxy() == this);
     return result;
 }
@@ -197,23 +196,14 @@ void NetscapePluginHostProxy::setMenuBarVisible(bool visible)
 
 void NetscapePluginHostProxy::didEnterFullscreen() const
 {
-    SetFrontProcess(&m_pluginHostPSN);
+    makePluginHostProcessFrontProcess();
 }
 
 void NetscapePluginHostProxy::didExitFullscreen() const
 {
     // If the plug-in host is the current application then we should bring ourselves to the front when it exits full-screen mode.
-
-    ProcessSerialNumber frontProcess;
-    GetFrontProcess(&frontProcess);
-    Boolean isSameProcess = 0;
-    SameProcess(&frontProcess, &m_pluginHostPSN, &isSameProcess);
-    if (!isSameProcess)
-        return;
-
-    ProcessSerialNumber currentProcess;
-    GetCurrentProcess(&currentProcess);
-    SetFrontProcess(&currentProcess);
+    if (isPluginHostProcessFrontProcess())
+        makeCurrentProcessFrontProcess();
 }
 
 void NetscapePluginHostProxy::setFullscreenWindowIsShowing(bool isShowing)
@@ -231,7 +221,7 @@ void NetscapePluginHostProxy::setFullscreenWindowIsShowing(bool isShowing)
 
 void NetscapePluginHostProxy::applicationDidBecomeActive()
 {
-    SetFrontProcess(&m_pluginHostPSN);
+    makePluginHostProcessFrontProcess();
 }
 
 void NetscapePluginHostProxy::beginModal()
@@ -239,7 +229,7 @@ void NetscapePluginHostProxy::beginModal()
     ASSERT(!m_placeholderWindow);
     ASSERT(!m_activationObserver);
     
-    m_placeholderWindow.adoptNS([[WebPlaceholderModalWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1) styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES]);
+    m_placeholderWindow = adoptNS([[WebPlaceholderModalWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1) styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES]);
     
     m_activationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationWillBecomeActiveNotification object:NSApp queue:nil
                                                                          usingBlock:^(NSNotification *){ applicationDidBecomeActive(); }];
@@ -264,13 +254,10 @@ void NetscapePluginHostProxy::endModal()
     CFRunLoopRemoveSource(CFRunLoopGetCurrent(), m_clientPortSource.get(), (CFStringRef)NSModalPanelRunLoopMode);
     
     [NSApp stopModal];
-    
-    // Make ourselves the front process.
-    ProcessSerialNumber psn;
-    GetCurrentProcess(&psn);
-    SetFrontProcess(&psn);            
+
+    makeCurrentProcessFrontProcess();
 }
-    
+
 
 void NetscapePluginHostProxy::setModal(bool modal)
 {
@@ -335,6 +322,50 @@ bool NetscapePluginHostProxy::processRequests()
     ASSERT_NOT_REACHED();
     s_processingRequests--;
     return false;
+}
+
+void NetscapePluginHostProxy::makeCurrentProcessFrontProcess()
+{
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+    ProcessSerialNumber psn;
+    GetCurrentProcess(&psn);
+    SetFrontProcess(&psn);
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
+}
+
+void NetscapePluginHostProxy::makePluginHostProcessFrontProcess() const
+{
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+    SetFrontProcess(&m_pluginHostPSN);
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
+}
+
+bool NetscapePluginHostProxy::isPluginHostProcessFrontProcess() const
+{
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+    ProcessSerialNumber frontProcess;
+    GetFrontProcess(&frontProcess);
+
+    Boolean isSameProcess = 0;
+    SameProcess(&frontProcess, &m_pluginHostPSN, &isSameProcess);
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
+
+    return isSameProcess;
 }
 
 } // namespace WebKit
@@ -483,7 +514,7 @@ kern_return_t WKPCBooleanAndDataReply(mach_port_t clientPort, uint32_t pluginID,
     if (!instanceProxy)
         return KERN_FAILURE;
 
-    RetainPtr<CFDataRef> result(AdoptCF, CFDataCreate(0, reinterpret_cast<UInt8*>(resultData), resultLength));
+    RetainPtr<CFDataRef> result = adoptCF(CFDataCreate(0, reinterpret_cast<UInt8*>(resultData), resultLength));
     instanceProxy->setCurrentReply(requestID, new NetscapePluginInstanceProxy::BooleanAndDataReply(returnValue, result));
     
     return KERN_SUCCESS;
@@ -607,7 +638,7 @@ static Identifier identifierFromIdentifierRep(IdentifierRep* identifier)
     ASSERT(identifier->isString());
   
     const char* str = identifier->string();    
-    return Identifier(JSDOMWindow::commonJSGlobalData(), stringToUString(String::fromUTF8WithLatin1Fallback(str, strlen(str))));
+    return Identifier(JSDOMWindow::commonVM(), String::fromUTF8WithLatin1Fallback(str, strlen(str)));
 }
 
 kern_return_t WKPCInvoke(mach_port_t clientPort, uint32_t pluginID, uint32_t requestID, uint32_t objectID, uint64_t serverIdentifier,

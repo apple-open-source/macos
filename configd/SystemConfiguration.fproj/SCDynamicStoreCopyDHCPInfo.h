@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2002, 2004, 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001, 2002, 2004, 2005, 2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -106,11 +106,11 @@ DHCPInfoGetLeaseStartTime	(CFDictionaryRef	info)		__OSX_AVAILABLE_STARTING(__MAC
 		NULL if the lease is infinite i.e. has no expiration, or the
 		configuration method is not DHCP. An infinite lease can be determined
 		by a non-NULL lease start time (see DHCPInfoGetLeaseStartTime above).
-	 
+
 		The return value must NOT be released.
 */
 CFDateRef
-DHCPInfoGetLeaseExpirationTime	(CFDictionaryRef	info)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_NA);
+DHCPInfoGetLeaseExpirationTime	(CFDictionaryRef	info)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/);
 
 __END_DECLS
 

@@ -86,55 +86,46 @@
 #ifdef ENABLE_NATT
 #include "nattraversal.h"
 #endif
+#include "ikev2_rfc.h"
+
 #ifdef ENABLE_HYBRID
 static int switch_authmethod(int);
 #endif
 
-#ifdef HAVE_GSSAPI
-#include <iconv.h>
-#include "gssapi.h"
-#ifdef HAVE_ICONV_2ND_CONST
-#define __iconv_const const
-#else
-#define __iconv_const
-#endif
-#endif
-
 int verbose_proposal_check = 1;
 
-static vchar_t *get_ph1approval __P((struct ph1handle *, struct prop_pair **));
-static struct isakmpsa *get_ph1approvalx __P((struct prop_pair *,
-	struct isakmpsa *, struct isakmpsa *, int));
-static void print_ph1mismatched __P((struct prop_pair *, struct isakmpsa *));
-static int t2isakmpsa __P((struct isakmp_pl_t *, struct isakmpsa *));
-static int cmp_aproppair_i __P((struct prop_pair *, struct prop_pair *));
-static struct prop_pair *get_ph2approval __P((struct ph2handle *,
-	struct prop_pair **));
-static struct prop_pair *get_ph2approvalx __P((struct ph2handle *,
-	struct prop_pair *));
-static void free_proppair0 __P((struct prop_pair *));
+static vchar_t *get_ph1approval (phase1_handle_t *, struct prop_pair **);
+void print_ph1mismatched (struct prop_pair *, struct isakmpsa *);
+static int t2isakmpsa (struct isakmp_pl_t *, struct isakmpsa *);
+static int cmp_aproppair_i (struct prop_pair *, struct prop_pair *);
+static struct prop_pair *get_ph2approval (phase2_handle_t *,
+	struct prop_pair **);
+static struct prop_pair *get_ph2approvalx (phase2_handle_t *,
+	struct prop_pair *);
+static void free_proppair0 (struct prop_pair *);
 
-static int get_transform
-	__P((struct isakmp_pl_p *, struct prop_pair **, int *));
-static u_int32_t ipsecdoi_set_ld __P((vchar_t *));
+static int get_transform (struct isakmp_pl_p *, struct prop_pair **, int *);
+static u_int32_t ipsecdoi_set_ld (vchar_t *);
 
-static int check_doi __P((u_int32_t));
-static int check_situation __P((u_int32_t));
+static int check_doi (u_int32_t);
+static int check_situation (u_int32_t);
 
-static int check_prot_main __P((int));
-static int check_prot_quick __P((int));
-static int (*check_protocol[]) __P((int)) = {
+static int check_prot_main (int);
+static int check_prot_quick (int);
+static int (*check_protocol[]) (int) = {
 	check_prot_main,	/* IPSECDOI_TYPE_PH1 */
 	check_prot_quick,	/* IPSECDOI_TYPE_PH2 */
+	NULL,				/* IPSECDOI_TYPE_IKEV2_PH1 */
+	NULL,				/* IPSECDOI_TYPE_IKEV2_PH2 */
 };
 
-static int check_spi_size __P((int, int));
+int check_spi_size (int, int);
 
-static int check_trns_isakmp __P((int));
-static int check_trns_ah __P((int));
-static int check_trns_esp __P((int));
-static int check_trns_ipcomp __P((int));
-static int (*check_transform[]) __P((int)) = {
+static int check_trns_isakmp (int);
+static int check_trns_ah (int);
+static int check_trns_esp (int);
+static int check_trns_ipcomp (int);
+static int (*check_transform[]) (int) = {
 	0,
 	check_trns_isakmp,	/* IPSECDOI_PROTO_ISAKMP */
 	check_trns_ah,		/* IPSECDOI_PROTO_IPSEC_AH */
@@ -142,12 +133,12 @@ static int (*check_transform[]) __P((int)) = {
 	check_trns_ipcomp,	/* IPSECDOI_PROTO_IPCOMP */
 };
 
-static int check_attr_isakmp __P((struct isakmp_pl_t *));
-static int check_attr_ah __P((struct isakmp_pl_t *));
-static int check_attr_esp __P((struct isakmp_pl_t *));
-static int check_attr_ipsec __P((int, struct isakmp_pl_t *));
-static int check_attr_ipcomp __P((struct isakmp_pl_t *));
-static int (*check_attributes[]) __P((struct isakmp_pl_t *)) = {
+static int check_attr_isakmp (struct isakmp_pl_t *);
+static int check_attr_ah (struct isakmp_pl_t *);
+static int check_attr_esp (struct isakmp_pl_t *);
+static int check_attr_ipsec (int, struct isakmp_pl_t *);
+static int check_attr_ipcomp (struct isakmp_pl_t *);
+static int (*check_attributes[]) (struct isakmp_pl_t *) = {
 	0,
 	check_attr_isakmp,	/* IPSECDOI_PROTO_ISAKMP */
 	check_attr_ah,		/* IPSECDOI_PROTO_IPSEC_AH */
@@ -155,18 +146,14 @@ static int (*check_attributes[]) __P((struct isakmp_pl_t *)) = {
 	check_attr_ipcomp,	/* IPSECDOI_PROTO_IPCOMP */
 };
 
-static int setph1prop __P((struct isakmpsa *, caddr_t));
-static int setph1trns __P((struct isakmpsa *, caddr_t));
-static int setph1attr __P((struct isakmpsa *, caddr_t));
-static vchar_t *setph2proposal0 __P((const struct ph2handle *,
-	const struct saprop *, const struct saproto *));
+int setph1prop (phase1_handle_t *, caddr_t);
+static int setph1trns (struct isakmpsa *, caddr_t);
+static int setph1attr (struct isakmpsa *, caddr_t);
+static vchar_t *setph2proposal0 (const phase2_handle_t *,
+	const struct saprop *, const struct saproto *);
 
-static vchar_t *getidval __P((int, vchar_t *));
+static vchar_t *getidval (int, vchar_t *);
 
-#ifdef HAVE_GSSAPI
-static struct isakmpsa *fixup_initiator_sa __P((struct isakmpsa *,
-	struct isakmpsa *));
-#endif
 
 /*%%%*/
 /*
@@ -181,7 +168,7 @@ static struct isakmpsa *fixup_initiator_sa __P((struct isakmpsa *,
 int
 ipsecdoi_checkph1proposal(sa, iph1)
 	vchar_t *sa;
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 {
 	vchar_t *newsa;		/* new SA payload approved. */
 	struct prop_pair **pair;
@@ -210,7 +197,7 @@ ipsecdoi_checkph1proposal(sa, iph1)
  */
 static vchar_t *
 get_ph1approval(iph1, pair)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	struct prop_pair **pair;
 {
 	vchar_t *newsa;
@@ -259,12 +246,12 @@ get_ph1approval(iph1, pair)
 			}
 		}
 	}
-	plog(LLV_ERROR, LOCATION, NULL, "no suitable proposal found.\n");
+	plog(ASL_LEVEL_ERR, "no suitable proposal found.\n");
 
 	return NULL;
 
 found:
-	plog(LLV_DEBUG, LOCATION, NULL, "an acceptable proposal found.\n");
+	plog(ASL_LEVEL_DEBUG, "an acceptable proposal found.\n");
 
 	/* check DH group settings */
 	if (sa->dhgrp) {
@@ -272,7 +259,7 @@ found:
 			/* it's ok */
 			goto saok;
 		}
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"invalid DH parameter found, use default.\n");
 		oakley_dhgrp_free(sa->dhgrp);
 		sa->dhgrp=NULL;
@@ -285,36 +272,9 @@ found:
 	}
 
 saok:
-#ifdef HAVE_GSSAPI
-	if (sa->gssid != NULL)
-		plog(LLV_DEBUG, LOCATION, NULL, "gss id in new sa '%.*s'\n",
-		    (int)sa->gssid->l, sa->gssid->v);
-	if (iph1-> side == INITIATOR) {
-		if (iph1->rmconf->proposal->gssid != NULL)
-			iph1->gi_i = vdup(iph1->rmconf->proposal->gssid);
-		if (tsa.gssid != NULL)
-			iph1->gi_r = vdup(tsa.gssid);
-		iph1->approval = fixup_initiator_sa(sa, &tsa);
-	} else {
-		if (tsa.gssid != NULL) {
-			iph1->gi_r = vdup(tsa.gssid);
-			iph1->gi_i = gssapi_get_id(iph1);
-			if (sa->gssid == NULL && iph1->gi_i != NULL)
-				sa->gssid = vdup(iph1->gi_i);
-		}
-		iph1->approval = sa;
-	}
-	if (iph1->gi_i != NULL)
-		plog(LLV_DEBUG, LOCATION, NULL, "GIi is %.*s\n",
-		    (int)iph1->gi_i->l, iph1->gi_i->v);
-	if (iph1->gi_r != NULL)
-		plog(LLV_DEBUG, LOCATION, NULL, "GIr is %.*s\n",
-		    (int)iph1->gi_r->l, iph1->gi_r->v);
-#else
 	iph1->approval = sa;
-#endif
 	if(iph1->approval) {
-		plog(LLV_DEBUG, LOCATION, NULL, "agreed on %s auth.\n",
+		plog(ASL_LEVEL_DEBUG, "agreed on %s auth.\n",
 		    s_oakley_attr_method(iph1->approval->authmethod));
 	}
 
@@ -333,7 +293,7 @@ saok:
  * p       : one of peer's proposal.
  * proposal: my proposals.
  */
-static struct isakmpsa *
+struct isakmpsa *
 get_ph1approvalx(p, proposal, sap, check_level)
 	struct prop_pair *p;
 	struct isakmpsa *proposal, *sap;
@@ -345,12 +305,12 @@ get_ph1approvalx(p, proposal, sap, check_level)
 	int authmethod;
     int tsap_authmethod;
 
-	plog(LLV_DEBUG, LOCATION, NULL,
-       		"prop#=%d, prot-id=%s, spi-size=%d, #trns=%d\n",
-		prop->p_no, s_ipsecdoi_proto(prop->proto_id),
-		prop->spi_size, prop->num_t);
+	plog(ASL_LEVEL_DEBUG, 
+		 "prop#=%d, prot-id=%s, spi-size=%d, #trns=%d\n",
+		 prop->p_no, s_ipsecdoi_proto(prop->proto_id),
+		 prop->spi_size, prop->num_t);
 
-	plog(LLV_DEBUG, LOCATION, NULL,
+	plog(ASL_LEVEL_DEBUG, 
 		"trns#=%d, trns-id=%s\n",
 		trns->t_no,
 		s_ipsecdoi_trns(prop->proto_id, trns->t_id));
@@ -368,29 +328,31 @@ get_ph1approvalx(p, proposal, sap, check_level)
 		authmethod = s->authmethod;
         tsap_authmethod = tsap->authmethod;
 #endif
-		plog(LLV_DEBUG, LOCATION, NULL, "Compared: DB:Peer\n");
-		plog(LLV_DEBUG, LOCATION, NULL, "(lifetime = %ld:%ld)\n",
+		plog(ASL_LEVEL_DEBUG, "Compared: DB:Peer\n");
+		plog(ASL_LEVEL_DEBUG, "(version = %d:%d)\n",
+			 s->version, tsap->version);
+		plog(ASL_LEVEL_DEBUG, "(lifetime = %ld:%ld)\n",
 			(long)s->lifetime, (long)tsap->lifetime);
-		plog(LLV_DEBUG, LOCATION, NULL, "(lifebyte = %zu:%zu)\n",
+		plog(ASL_LEVEL_DEBUG, "(lifebyte = %zu:%zu)\n",
 			s->lifebyte, tsap->lifebyte);
-		plog(LLV_DEBUG, LOCATION, NULL, "enctype = %s:%s\n",
+		plog(ASL_LEVEL_DEBUG, "enctype = %s:%s\n",
 			s_oakley_attr_v(OAKLEY_ATTR_ENC_ALG,
 					s->enctype),
 			s_oakley_attr_v(OAKLEY_ATTR_ENC_ALG,
 					tsap->enctype));
-		plog(LLV_DEBUG, LOCATION, NULL, "(encklen = %d:%d)\n",
+		plog(ASL_LEVEL_DEBUG, "(encklen = %d:%d)\n",
 			s->encklen, tsap->encklen);
-		plog(LLV_DEBUG, LOCATION, NULL, "hashtype = %s:%s\n",
+		plog(ASL_LEVEL_DEBUG, "hashtype = %s:%s\n",
 			s_oakley_attr_v(OAKLEY_ATTR_HASH_ALG,
 					s->hashtype),
 			s_oakley_attr_v(OAKLEY_ATTR_HASH_ALG,
 					tsap->hashtype));
-		plog(LLV_DEBUG, LOCATION, NULL, "authmethod = %s:%s\n",
+		plog(ASL_LEVEL_DEBUG, "authmethod = %s:%s\n",
 			s_oakley_attr_v(OAKLEY_ATTR_AUTH_METHOD,
 					s->authmethod),
 			s_oakley_attr_v(OAKLEY_ATTR_AUTH_METHOD,
 					tsap->authmethod));
-		plog(LLV_DEBUG, LOCATION, NULL, "dh_group = %s:%s\n",
+		plog(ASL_LEVEL_DEBUG, "dh_group = %s:%s\n",
 			s_oakley_attr_v(OAKLEY_ATTR_GRP_DESC,
 					s->dh_group),
 			s_oakley_attr_v(OAKLEY_ATTR_GRP_DESC,
@@ -407,8 +369,10 @@ get_ph1approvalx(p, proposal, sap, check_level)
 		    (tsap->authmethod == authmethod || tsap_authmethod == authmethod) &&
 		    tsap->hashtype == s->hashtype &&
 		    tsap->dh_group == s->dh_group &&
-		    tsap->encklen == s->encklen) {
+		    tsap->encklen == s->encklen &&
+			tsap->version == s->version) {
 			switch(check_level) {
+			case PROP_CHECK_IKEV2:
 			case PROP_CHECK_OBEY:
 				goto found;
 				break;
@@ -436,7 +400,7 @@ get_ph1approvalx(p, proposal, sap, check_level)
 				break;
 
 			default:
-				plog(LLV_ERROR, LOCATION, NULL, 
+				plog(ASL_LEVEL_ERR, 
 				    "Unexpected proposal_check value\n");
 				continue;
 				break;
@@ -485,7 +449,7 @@ found:
  * p       : one of peer's proposal.
  * proposal: my proposals.
  */
-static void
+void
 print_ph1mismatched(p, proposal)
 	struct prop_pair *p;
 	struct isakmpsa *proposal;
@@ -497,7 +461,7 @@ print_ph1mismatched(p, proposal)
 		return;
 	for (s = proposal; s ; s = s->next) {
 		if (sa.enctype != s->enctype) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"rejected enctype: "
 				"DB(prop#%d:trns#%d):Peer(prop#%d:trns#%d) = "
 				"%s:%s\n",
@@ -509,7 +473,7 @@ print_ph1mismatched(p, proposal)
 					sa.enctype));
 		}
 		if (sa.authmethod != s->authmethod) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"rejected authmethod: "
 				"DB(prop#%d:trns#%d):Peer(prop#%d:trns#%d) = "
 				"%s:%s\n",
@@ -521,7 +485,7 @@ print_ph1mismatched(p, proposal)
 					sa.authmethod));
 		}
 		if (sa.hashtype != s->hashtype) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"rejected hashtype: "
 				"DB(prop#%d:trns#%d):Peer(prop#%d:trns#%d) = "
 				"%s:%s\n",
@@ -532,8 +496,23 @@ print_ph1mismatched(p, proposal)
 				s_oakley_attr_v(OAKLEY_ATTR_HASH_ALG,
 					sa.hashtype));
 		}
+		if (sa.prf != s->prf ||
+			sa.prfklen != s->prfklen) {
+			plog(ASL_LEVEL_ERR, 
+				 "rejected prf: "
+				 "DB(prop#%d:trns#%d):Peer(prop#%d:trns#%d) = "
+				 "%s.%d:%s.%d\n",
+				 s->prop_no, s->trns_no,
+				 p->prop->p_no, p->trns->t_no,
+				 s_oakley_attr_v(OAKLEY_ATTR_HASH_ALG,
+								 s->prf),
+				 s->prfklen,
+				 s_oakley_attr_v(OAKLEY_ATTR_HASH_ALG,
+								 sa.prf),
+				 sa.prfklen);
+		}
 		if (sa.dh_group != s->dh_group) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"rejected dh_group: "
 				"DB(prop#%d:trns#%d):Peer(prop#%d:trns#%d) = "
 				"%s:%s\n",
@@ -586,7 +565,7 @@ t2isakmpsa(trns, sa)
 		type = ntohs(d->type) & ~ISAKMP_GEN_MASK;
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"type=%s, flag=0x%04x, lorv=%s\n",
 			s_oakley_attr(type), flag,
 			s_oakley_attr_v(type, ntohs(d->lorv)));
@@ -606,7 +585,7 @@ t2isakmpsa(trns, sa)
 			} else {	/*TLV*/
 				len = ntohs(d->lorv);
 				if (len > tlen) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						 "invalid ISAKMP-SA attr, attr-len %d, overall-len %d\n",
 						 len, tlen);
 					return -1;
@@ -707,7 +686,7 @@ t2isakmpsa(trns, sa)
 			if (!prev
 			 || (ntohs(prev->type) & ~ISAKMP_GEN_MASK) !=
 					OAKLEY_ATTR_SA_LD_TYPE) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 				    "life duration must follow ltype\n");
 				break;
 			}
@@ -717,7 +696,7 @@ t2isakmpsa(trns, sa)
 				sa->lifetime = ipsecdoi_set_ld(val);
 				vfree(val);
 				if (sa->lifetime == 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"invalid life duration.\n");
 					goto err;
 				}
@@ -726,14 +705,14 @@ t2isakmpsa(trns, sa)
 				sa->lifebyte = ipsecdoi_set_ld(val);
 				vfree(val);
 				if (sa->lifebyte == 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"invalid life duration.\n");
 					goto err;
 				}
 				break;
 			default:
 				vfree(val);
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid life type: %d\n", life_t);
 				goto err;
 			}
@@ -743,7 +722,7 @@ t2isakmpsa(trns, sa)
 		{
 			int len = ntohs(d->lorv);
 			if (len % 8 != 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"keylen %d: not multiple of 8\n",
 					len);
 				goto err;
@@ -760,103 +739,6 @@ t2isakmpsa(trns, sa)
 		case OAKLEY_ATTR_GRP_ORDER:
 			sa->dhgrp->order = val;
 			break;
-#ifdef HAVE_GSSAPI
-		case OAKLEY_ATTR_GSS_ID:
-		{
-			int error = -1;
-			iconv_t cd = (iconv_t) -1;
-			size_t srcleft, dstleft, rv;
-			__iconv_const char *src;
-			char *dst;
-			int len = ntohs(d->lorv);
-
-			/*
-			 * Older verions of racoon just placed the
-			 * ISO-Latin-1 string on the wire directly.
-			 * Check to see if we are configured to be
-			 * compatible with this behavior.
-			 */
-			if (lcconf->gss_id_enc == LC_GSSENC_LATIN1) {
-				if ((sa->gssid = vmalloc(len)) == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
-					    "failed to allocate memory\n");
-					goto out;
-				}
-				memcpy(sa->gssid->v, d + 1, len);
-				plog(LLV_DEBUG, LOCATION, NULL,
-				    "received old-style gss "
-				    "id '%.*s' (len %zu)\n",
-				    (int)sa->gssid->l, sa->gssid->v, 
-				    sa->gssid->l);
-				error = 0;
-				goto out;
-			}
-
-			/*
-			 * For Windows 2000 compatibility, we expect
-			 * the GSS ID attribute on the wire to be
-			 * encoded in UTF-16LE.  Internally, we work
-			 * in ISO-Latin-1.  Therefore, we should need
-			 * 1/2 the specified length, which should always
-			 * be a multiple of 2 octets.
-			 */
-			cd = iconv_open("latin1", "utf-16le");
-			if (cd == (iconv_t) -1) {
-				plog(LLV_ERROR, LOCATION, NULL,
-				    "unable to initialize utf-16le -> latin1 "
-				    "conversion descriptor: %s\n",
-				    strerror(errno));
-				goto out;
-			}
-
-			if ((sa->gssid = vmalloc(len / 2)) == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
-				    "failed to allocate memory\n");
-				goto out;
-			}
-
-			src = (__iconv_const char *)(d + 1);
-			srcleft = len;
-
-			dst = sa->gssid->v;
-			dstleft = len / 2;
-
-			rv = iconv(cd, (__iconv_const char **)&src, &srcleft, 
-				   &dst, &dstleft);
-			if (rv != 0) {
-				if (rv == -1) {
-					plog(LLV_ERROR, LOCATION, NULL,
-					    "unable to convert GSS ID from "
-					    "utf-16le -> latin1: %s\n",
-					    strerror(errno));
-				} else {
-					plog(LLV_ERROR, LOCATION, NULL,
-					    "%zd character%s in GSS ID cannot "
-					    "be represented in latin1\n",
-					    rv, rv == 1 ? "" : "s");
-				}
-				goto out;
-			}
-
-			/* XXX dstleft should always be 0; assert it? */
-			sa->gssid->l = (len / 2) - dstleft;
-
-			plog(LLV_DEBUG, LOCATION, NULL,
-			    "received gss id '%.*s' (len %zu)\n",
-			    (int)sa->gssid->l, sa->gssid->v, sa->gssid->l);
-
-			error = 0;
-out:
-			if (cd != (iconv_t)-1)
-				(void)iconv_close(cd);
-
-			if ((error != 0) && (sa->gssid != NULL)) {
-				vfree(sa->gssid);
-				sa->gssid = NULL;
-			}
-			break;
-		}
-#endif /* HAVE_GSSAPI */
 
 		default:
 			break;
@@ -876,7 +758,7 @@ out:
 	if (keylen) {
 		if (sa->enctype == OAKLEY_ATTR_ENC_ALG_DES
 		 || sa->enctype == OAKLEY_ATTR_ENC_ALG_3DES) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"keylen must not be specified "
 				"for encryption algorithm %d\n",
 				sa->enctype);
@@ -900,7 +782,7 @@ err:
  */
 int
 ipsecdoi_selectph2proposal(iph2)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 {
 	struct prop_pair **pair;
 	struct prop_pair *ret;
@@ -935,7 +817,7 @@ ipsecdoi_selectph2proposal(iph2)
  */
 int
 ipsecdoi_checkph2proposal(iph2)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 {
 	struct prop_pair **rpair = NULL, **spair = NULL;
 	struct prop_pair *p;
@@ -946,7 +828,7 @@ ipsecdoi_checkph2proposal(iph2)
 	/* get proposal pair of SA sent. */
 	spair = get_proppair(iph2->sa, IPSECDOI_TYPE_PH2);
 	if (spair == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get prop pair.\n");
 		goto end;
 	}
@@ -956,7 +838,7 @@ ipsecdoi_checkph2proposal(iph2)
 	/* get proposal pair of SA replayed */
 	rpair = get_proppair(iph2->sa_ret, IPSECDOI_TYPE_PH2);
 	if (rpair == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get prop pair.\n");
 		goto end;
 	}
@@ -971,30 +853,30 @@ ipsecdoi_checkph2proposal(iph2)
 		}
 	}
 	if (num == 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"no proposal received.\n");
 		goto end;
 	}
 	if (num != 1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"some proposals received.\n");
 		goto end;
 	}
 
 	if (spair[n] == NULL) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"invalid proposal number:%d received.\n", i);
 	}
 	
 
 	if (rpair[n]->tnext != NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"multi transforms replyed.\n");
 		goto end;
 	}
 
 	if (cmp_aproppair_i(rpair[n], spair[n])) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"proposal mismathed.\n");
 		goto end;
 	}
@@ -1054,14 +936,14 @@ cmp_aproppair_i(a, b)
 		}
 		if (!r) {
 			/* no suitable transform found */
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"no suitable transform found.\n");
 			return -1;
 		}
 
 		/* compare prop */
 		if (p->prop->p_no != r->prop->p_no) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"proposal #%d mismatched, "
 				"expected #%d.\n",
 				r->prop->p_no, p->prop->p_no);
@@ -1069,14 +951,14 @@ cmp_aproppair_i(a, b)
 		}
 
 		if (p->prop->proto_id != r->prop->proto_id) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"proto_id mismathed: my:%d peer:%d\n",
 				r->prop->proto_id, p->prop->proto_id);
 			return -1;
 		}
 
 		if (p->prop->proto_id != r->prop->proto_id) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid spi size: %d.\n",
 				p->prop->proto_id);
 			return -1;
@@ -1084,19 +966,19 @@ cmp_aproppair_i(a, b)
 
 		/* check #of transforms */
 		if (p->prop->num_t != 1) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"#of transform is %d, "
 				"but expected 1.\n", p->prop->num_t);
 			/*FALLTHROUGH*/
 		}
 
 		if (p->trns->t_id != r->trns->t_id) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"transform number has been modified.\n");
 			/*FALLTHROUGH*/
 		}
 		if (p->trns->reserved != r->trns->reserved) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"reserved field should be zero.\n");
 			/*FALLTHROUGH*/
 		}
@@ -1104,14 +986,14 @@ cmp_aproppair_i(a, b)
 		/* compare attribute */
 		len = ntohs(r->trns->h.len) - sizeof(*p->trns);
 		if (memcmp(p->trns + 1, r->trns + 1, len) != 0) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"attribute has been modified.\n");
 			/*FALLTHROUGH*/
 		}
 	}
 	if ((p && !q) || (!p && q)) {
 		/* # of protocols mismatched */
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"#of protocols mismatched.\n");
 		return -1;
 	}
@@ -1125,7 +1007,7 @@ cmp_aproppair_i(a, b)
  */
 static struct prop_pair *
 get_ph2approval(iph2, pair)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 	struct prop_pair **pair;
 {
 	struct prop_pair *ret;
@@ -1133,15 +1015,15 @@ get_ph2approval(iph2, pair)
 
 	iph2->approval = NULL;
 
-	plog(LLV_DEBUG, LOCATION, NULL,
+	plog(ASL_LEVEL_DEBUG, 
 		"begin compare proposals.\n");
 
 	for (i = 0; i < MAXPROPPAIRLEN; i++) {
 		if (pair[i] == NULL)
 			continue;
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"pair[%d]: %p\n", i, pair[i]);
-		print_proppair(LLV_DEBUG, pair[i]);;
+		print_proppair(ASL_LEVEL_DEBUG, pair[i]);;
 
 		/* compare proposal and select one */
 		ret = get_ph2approvalx(iph2, pair[i]);
@@ -1151,7 +1033,7 @@ get_ph2approval(iph2, pair)
 		}
 	}
 
-	plog(LLV_ERROR, LOCATION, NULL, "no suitable policy found.\n");
+	plog(ASL_LEVEL_ERR, "no suitable policy found.\n");
 
 	return NULL;
 }
@@ -1162,7 +1044,7 @@ get_ph2approval(iph2, pair)
  */
 static struct prop_pair *
 get_ph2approvalx(iph2, pp)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 	struct prop_pair *pp;
 {
 	struct prop_pair *ret = NULL;
@@ -1175,18 +1057,18 @@ get_ph2approvalx(iph2, pp)
 
 	for (q1 = pr0; q1; q1 = q1->next) {
 		for (q2 = iph2->proposal; q2; q2 = q2->next) {
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"peer's single bundle:\n");
-			printsaprop0(LLV_DEBUG, q1);
-			plog(LLV_DEBUG, LOCATION, NULL,
+			printsaprop0(ASL_LEVEL_DEBUG, q1);
+			plog(ASL_LEVEL_DEBUG, 
 				"my single bundle:\n");
-			printsaprop0(LLV_DEBUG, q2);
+			printsaprop0(ASL_LEVEL_DEBUG, q2);
 
 			pr = cmpsaprop_alloc(iph2->ph1, q1, q2, iph2->side);
 			if (pr != NULL)
 				goto found;
 
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"not matched\n");
 		}
 	}
@@ -1197,7 +1079,7 @@ err:
 
 found:
 	flushsaprop(pr0);
-	plog(LLV_DEBUG, LOCATION, NULL, "matched\n");
+	plog(ASL_LEVEL_DEBUG, "matched\n");
 	iph2->approval = pr;
 
     {
@@ -1229,7 +1111,7 @@ found:
 
 		n = racoon_calloc(1, sizeof(struct prop_pair));
 		if (n == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to get buffer.\n");
 			goto err;
 		}
@@ -1305,36 +1187,42 @@ get_proppair(sa, mode)
 	int tlen;
 	caddr_t bp;
 	int i;
-	struct ipsecdoi_sa_b *sab = ALIGNED_CAST(struct ipsecdoi_sa_b *)sa->v;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "total SA len=%zu\n", sa->l);
-	plogdump(LLV_DEBUG, sa->v, sa->l);
+	//plogdump(ASL_LEVEL_DEBUG, sa->v, sa->l, "total SA len=%zu\n", sa->l);
 
-	/* check SA payload size */
-	if (sa->l < sizeof(*sab)) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"Invalid SA length = %zu.\n", sa->l);
-		goto bad;
+	if (mode == IPSECDOI_TYPE_PH1 || mode == IPSECDOI_TYPE_PH2) {
+		// IKEv1
+		struct ipsecdoi_sa_b *sab = ALIGNED_CAST(__typeof__(sab))sa->v;
+
+
+		/* check SA payload size */
+		if (sa->l < sizeof(*sab)) {
+			plog(ASL_LEVEL_ERR, 
+				 "Invalid SA length = %zu.\n", sa->l);
+			goto bad;
+		}
+
+		/* check DOI */
+		if (check_doi(ntohl(sab->doi)) < 0)
+			goto bad;
+
+		/* check SITUATION */
+		if (check_situation(ntohl(sab->sit)) < 0)
+			goto bad;
+
+		bp = (caddr_t)(sab + 1);
+		tlen = sa->l - sizeof(*sab);
+	} else {
+		bp = (__typeof__(bp))sa->v;
+		tlen = sa->l;
 	}
-
-	/* check DOI */
-	if (check_doi(ntohl(sab->doi)) < 0)
-		goto bad;
-
-	/* check SITUATION */
-	if (check_situation(ntohl(sab->sit)) < 0)
-		goto bad;
 
 	pair = racoon_calloc(1, MAXPROPPAIRLEN * sizeof(*pair));
 	if (pair == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get buffer.\n");
 		goto bad;
 	}
-	memset(pair, 0, sizeof(pair));
-
-	bp = (caddr_t)(sab + 1);
-	tlen = sa->l - sizeof(*sab);
 
     {
 	struct isakmp_pl_p *prop;
@@ -1351,7 +1239,7 @@ get_proppair(sa, mode)
 	     pa++) {
 		/* check the value of next payload */
 		if (pa->type != ISAKMP_NPTYPE_P) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"Invalid payload type=%u\n", pa->type);
 			vfree(pbuf);
 			goto bad;
@@ -1360,11 +1248,11 @@ get_proppair(sa, mode)
 		prop = (struct isakmp_pl_p *)pa->ptr;
 		proplen = pa->len;
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"proposal #%u len=%d\n", prop->p_no, proplen);
 
 		if (proplen == 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid proposal with length %d\n", proplen);
 			vfree(pbuf);
 			goto bad;
@@ -1372,7 +1260,7 @@ get_proppair(sa, mode)
 
 		/* check Protocol ID */
 		if (!check_protocol[mode]) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"unsupported mode %d\n", mode);
 			continue;
 		}
@@ -1403,8 +1291,8 @@ get_proppair(sa, mode)
 		if (!pair[i])
 			continue;
 
-		plog(LLV_DEBUG, LOCATION, NULL, "pair %d:\n", i);
-		print_proppair(LLV_DEBUG, pair[i]);
+		plog(ASL_LEVEL_DEBUG, "pair %d:\n", i);
+		print_proppair(ASL_LEVEL_DEBUG, pair[i]);
 
 		notrans = nprop = 0;
 		for (p = pair[i]; p; p = p->next) {
@@ -1422,7 +1310,7 @@ get_proppair(sa, mode)
 		 * with multiple proposals.  this should be fixed.
 		 */
 		if (pair[i]->next) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"proposal #%u ignored "
 				"(multiple proposal not supported)\n",
 				pair[i]->prop->p_no);
@@ -1438,7 +1326,7 @@ get_proppair(sa, mode)
 			pair[i] = NULL;
 			num_p--;
 		} else {
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"proposal #%u: %d transform\n",
 				pair[i]->prop->p_no, nprop);
 		}
@@ -1447,7 +1335,7 @@ get_proppair(sa, mode)
 
 	/* bark if no proposal is found. */
 	if (num_p <= 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"no Proposal found.\n");
 		goto bad;
 	}
@@ -1497,7 +1385,7 @@ get_transform(prop, pair, num_p)
 
 		/* check the value of next payload */
 		if (pa->type != ISAKMP_NPTYPE_T) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"Invalid payload type=%u\n", pa->type);
 			break;
 		}
@@ -1505,18 +1393,18 @@ get_transform(prop, pair, num_p)
 		trns = (struct isakmp_pl_t *)pa->ptr;
 		trnslen = pa->len;
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"transform #%u len=%u\n", trns->t_no, trnslen);
 
 		/* check transform ID */
 		if (prop->proto_id >= ARRAYLEN(check_transform)) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"unsupported proto_id %u\n",
 				prop->proto_id);
 			continue;
 		}
 		if (prop->proto_id >= ARRAYLEN(check_attributes)) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"unsupported proto_id %u\n",
 				prop->proto_id);
 			continue;
@@ -1524,7 +1412,7 @@ get_transform(prop, pair, num_p)
 
 		if (!check_transform[prop->proto_id]
 		 || !check_attributes[prop->proto_id]) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"unsupported proto_id %u\n",
 				prop->proto_id);
 			continue;
@@ -1538,7 +1426,7 @@ get_transform(prop, pair, num_p)
 
 		p = racoon_calloc(1, sizeof(*p));
 		if (p == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to get buffer.\n");
 			vfree(pbuf);
 			return -1;
@@ -1570,12 +1458,12 @@ get_transform(prop, pair, num_p)
 
 /*
  * make a new SA payload from prop_pair.
- * NOTE: this function make spi value clear.
+ * NOTE: this function clears the spi value.
  */
 vchar_t *
 get_sabyproppair(pair, iph1)
 	struct prop_pair *pair;
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 {
 	vchar_t *newsa;
 	int newtlen;
@@ -1584,7 +1472,11 @@ get_sabyproppair(pair, iph1)
 	int prophlen, trnslen;
 	caddr_t bp;
 
-	newtlen = sizeof(struct ipsecdoi_sa_b);
+	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+		newtlen = sizeof(struct ipsecdoi_sa_b);
+	} else {
+		newtlen = 0;
+	}
 	for (p = pair; p; p = p->next) {
 		newtlen += sizeof(struct isakmp_pl_p);
 		newtlen += p->prop->spi_size;
@@ -1593,17 +1485,19 @@ get_sabyproppair(pair, iph1)
 
 	newsa = vmalloc(newtlen);
 	if (newsa == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "failed to get newsa.\n");
+		plog(ASL_LEVEL_ERR, "failed to get newsa.\n");
 		return NULL;
 	}
 	bp = newsa->v;
 
 	((struct isakmp_gen *)bp)->len = htons(newtlen);
 
-	/* update some of values in SA header */
-	(ALIGNED_CAST(struct ipsecdoi_sa_b *)bp)->doi = htonl(iph1->rmconf->doitype);
-	(ALIGNED_CAST(struct ipsecdoi_sa_b *)bp)->sit = htonl(iph1->rmconf->sittype);
-	bp += sizeof(struct ipsecdoi_sa_b);
+	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+		/* update some of values in SA header */
+		(ALIGNED_CAST(struct ipsecdoi_sa_b *)bp)->doi = htonl(iph1->rmconf->doitype);
+		(ALIGNED_CAST(struct ipsecdoi_sa_b *)bp)->sit = htonl(iph1->rmconf->sittype);
+		bp += sizeof(struct ipsecdoi_sa_b);
+	}
 
 	/* create proposal payloads */
 	for (p = pair; p; p = p->next) {
@@ -1639,7 +1533,7 @@ get_sabyproppair(pair, iph1)
  */
 int
 ipsecdoi_updatespi(iph2)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 {
 	struct prop_pair **pair, *p;
 	struct saprop *pp;
@@ -1743,7 +1637,7 @@ get_sabysaprop(pp0, sa0)
 
 	newsa = vmalloc(newtlen);
 	if (newsa == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "failed to get newsa.\n");
+		plog(ASL_LEVEL_ERR, "failed to get newsa.\n");
 		goto out;
 	}
 	bp = newsa->v;
@@ -1828,7 +1722,7 @@ ipsecdoi_set_ld(buf)
 		ld = ntohl(*ALIGNED_CAST(u_int32_t *)buf->v);
 		break;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"length %zu of life duration "
 			"isn't supported.\n", buf->l);
 		return 0;
@@ -1849,7 +1743,7 @@ check_doi(doi)
 	case IPSEC_DOI:
 		return 0;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid value of DOI 0x%08x.\n", doi);
 		return -1;
 	}
@@ -1869,12 +1763,12 @@ check_situation(sit)
 
 	case IPSECDOI_SIT_SECRECY:
 	case IPSECDOI_SIT_INTEGRITY:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"situation 0x%08x unsupported yet.\n", sit);
 		return -1;
 
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid situation 0x%08x.\n", sit);
 		return -1;
 	}
@@ -1893,7 +1787,7 @@ check_prot_main(proto_id)
 		return 0;
 
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"Illegal protocol id=%u.\n", proto_id);
 		return -1;
 	}
@@ -1916,14 +1810,14 @@ check_prot_quick(proto_id)
 		return 0;
 
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid protocol id %d.\n", proto_id);
 		return -1;
 	}
 	/* NOT REACHED */
 }
 
-static int
+int
 check_spi_size(proto_id, size)
 	int proto_id, size;
 {
@@ -1931,7 +1825,7 @@ check_spi_size(proto_id, size)
 	case IPSECDOI_PROTO_ISAKMP:
 		if (size != 0) {
 			/* WARNING */
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"SPI size isn't zero, but IKE proposal.\n");
 		}
 		return 0;
@@ -1939,7 +1833,7 @@ check_spi_size(proto_id, size)
 	case IPSECDOI_PROTO_IPSEC_AH:
 	case IPSECDOI_PROTO_IPSEC_ESP:
 		if (size != 4) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid SPI size=%d for IPSEC proposal.\n",
 				size);
 			return -1;
@@ -1948,7 +1842,7 @@ check_spi_size(proto_id, size)
 
 	case IPSECDOI_PROTO_IPCOMP:
 		if (size != 2 && size != 4) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid SPI size=%d for IPCOMP proposal.\n",
 				size);
 			return -1;
@@ -1973,7 +1867,7 @@ check_trns_isakmp(t_id)
 	case IPSECDOI_KEY_IKE:
 		return 0;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid transform-id=%u in proto_id=%u.\n",
 			t_id, IPSECDOI_KEY_IKE);
 		return -1;
@@ -1996,11 +1890,11 @@ check_trns_ah(t_id)
 	case IPSECDOI_AH_SHA512:
 		return 0;
 	case IPSECDOI_AH_DES:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"not support transform-id=%u in AH.\n", t_id);
 		return -1;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid transform-id=%u in AH.\n", t_id);
 		return -1;
 	}
@@ -2029,11 +1923,11 @@ check_trns_esp(t_id)
 	case IPSECDOI_ESP_IDEA:
 	case IPSECDOI_ESP_3IDEA:
 	case IPSECDOI_ESP_RC4:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"not support transform-id=%u in ESP.\n", t_id);
 		return -1;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid transform-id=%u in ESP.\n", t_id);
 		return -1;
 	}
@@ -2053,7 +1947,7 @@ check_trns_ipcomp(t_id)
 	case IPSECDOI_IPCOMP_LZS:
 		return 0;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid transform-id=%u in IPCOMP.\n", t_id);
 		return -1;
 	}
@@ -2080,7 +1974,7 @@ check_attr_isakmp(trns)
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
 		lorv = ntohs(d->lorv);
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"type=%s, flag=0x%04x, lorv=%s\n",
 			s_oakley_attr(type), flag,
 			s_oakley_attr_v(type, lorv));
@@ -2100,7 +1994,7 @@ check_attr_isakmp(trns)
 		case OAKLEY_ATTR_KEY_LEN:
 		case OAKLEY_ATTR_FIELD_SIZE:
 			if (!flag) {	/* TLV*/
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"oakley attribute %d must be TV.\n",
 					type);
 				return -1;
@@ -2110,7 +2004,7 @@ check_attr_isakmp(trns)
 
 		/* sanity check for TLV.  length must be specified. */
 		if (!flag && lorv == 0) {	/*TLV*/
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid length %d for TLV attribute %d.\n",
 				lorv, type);
 			return -1;
@@ -2119,7 +2013,7 @@ check_attr_isakmp(trns)
 		switch (type) {
 		case OAKLEY_ATTR_ENC_ALG:
 			if (!alg_oakley_encdef_ok(lorv)) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalied encryption algorithm=%d.\n",
 					lorv);
 				return -1;
@@ -2128,7 +2022,7 @@ check_attr_isakmp(trns)
 
 		case OAKLEY_ATTR_HASH_ALG:
 			if (!alg_oakley_hashdef_ok(lorv)) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalied hash algorithm=%d.\n",
 					lorv);
 				return -1;
@@ -2164,12 +2058,12 @@ check_attr_isakmp(trns)
 #endif
 			case OAKLEY_ATTR_AUTH_METHOD_RSAENC:
 			case OAKLEY_ATTR_AUTH_METHOD_RSAREV:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"auth method %s isn't supported.\n",
 					s_oakley_attr_method(lorv));
 				return -1;
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid auth method %d.\n",
 					lorv);
 				return -1;
@@ -2178,7 +2072,7 @@ check_attr_isakmp(trns)
 
 		case OAKLEY_ATTR_GRP_DESC:
 			if (!alg_oakley_dhdef_ok(lorv)) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid DH group %d.\n",
 					lorv);
 				return -1;
@@ -2190,7 +2084,7 @@ check_attr_isakmp(trns)
 			case OAKLEY_ATTR_GRP_TYPE_MODP:
 				break;
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"unsupported DH group type %d.\n",
 					lorv);
 				return -1;
@@ -2205,7 +2099,7 @@ check_attr_isakmp(trns)
 		case OAKLEY_ATTR_GRP_GEN_TWO:
 		case OAKLEY_ATTR_GRP_CURVE_A:
 		case OAKLEY_ATTR_GRP_CURVE_B:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"attr type=%u isn't supported.\n", type);
 			return -1;
 
@@ -2215,7 +2109,7 @@ check_attr_isakmp(trns)
 			case OAKLEY_ATTR_SA_LD_TYPE_KB:
 				break;
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid life type %d.\n", lorv);
 				return -1;
 			}
@@ -2230,7 +2124,7 @@ check_attr_isakmp(trns)
 			break;
 
 		case OAKLEY_ATTR_FIELD_SIZE:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"attr type=%u isn't supported.\n", type);
 			return -1;
 
@@ -2241,7 +2135,7 @@ check_attr_isakmp(trns)
 			break;
 
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid attribute type %d.\n", type);
 			return -1;
 		}
@@ -2297,7 +2191,7 @@ check_attr_ipsec(proto_id, trns)
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
 		lorv = ntohs(d->lorv);
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"type=%s, flag=0x%04x, lorv=%s\n",
 			s_ipsecdoi_attr(type), flag,
 			s_ipsecdoi_attr_v(type, lorv));
@@ -2308,7 +2202,7 @@ check_attr_ipsec(proto_id, trns)
 		switch (type) {
 		case IPSECDOI_ATTR_ENC_MODE:
 			if (! flag) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"must be TV when ENC_MODE.\n");
 				return -1;
 			}
@@ -2322,12 +2216,12 @@ check_attr_ipsec(proto_id, trns)
 			case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC:
 			case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT:
 			case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT:
-				plog(LLV_DEBUG, LOCATION, NULL,
+				plog(ASL_LEVEL_DEBUG, 
 				     "UDP encapsulation requested\n");
 				break;
 #endif
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid encryption mode=%u.\n",
 					lorv);
 				return -1;
@@ -2336,7 +2230,7 @@ check_attr_ipsec(proto_id, trns)
 
 		case IPSECDOI_ATTR_AUTH:
 			if (! flag) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"must be TV when AUTH.\n");
 				return -1;
 			}
@@ -2346,7 +2240,7 @@ check_attr_ipsec(proto_id, trns)
 				if (proto_id == IPSECDOI_PROTO_IPSEC_AH &&
 				    trns->t_id != IPSECDOI_AH_MD5) {
 ahmismatch:
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"auth algorithm %u conflicts "
 						"with transform %u.\n",
 						lorv, trns->t_id);
@@ -2379,12 +2273,12 @@ ahmismatch:
  				break;
 			case IPSECDOI_ATTR_AUTH_DES_MAC:
 			case IPSECDOI_ATTR_AUTH_KPDK:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"auth algorithm %u isn't supported.\n",
 					lorv);
 				return -1;
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid auth algorithm=%u.\n",
 					lorv);
 				return -1;
@@ -2393,7 +2287,7 @@ ahmismatch:
 
 		case IPSECDOI_ATTR_SA_LD_TYPE:
 			if (! flag) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"must be TV when LD_TYPE.\n");
 				return -1;
 			}
@@ -2403,7 +2297,7 @@ ahmismatch:
 			case IPSECDOI_ATTR_SA_LD_TYPE_KB:
 				break;
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid life type %d.\n", lorv);
 				return -1;
 			}
@@ -2412,12 +2306,12 @@ ahmismatch:
 		case IPSECDOI_ATTR_SA_LD:
 			if (flag) {
 				/* i.e. ISAKMP_GEN_TV */
-				plog(LLV_DEBUG, LOCATION, NULL,
+				plog(ASL_LEVEL_DEBUG, 
 					"life duration was in TLV.\n");
 			} else {
 				/* i.e. ISAKMP_GEN_TLV */
 				if (lorv == 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"invalid length of LD\n");
 					return -1;
 				}
@@ -2426,13 +2320,13 @@ ahmismatch:
 
 		case IPSECDOI_ATTR_GRP_DESC:
 			if (! flag) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"must be TV when GRP_DESC.\n");
 				return -1;
 			}
 
 			if (!alg_oakley_dhdef_ok(lorv)) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid group description=%u.\n",
 					lorv);
 				return -1;
@@ -2441,7 +2335,7 @@ ahmismatch:
 
 		case IPSECDOI_ATTR_KEY_LENGTH:
 			if (! flag) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"must be TV when KEY_LENGTH.\n");
 				return -1;
 			}
@@ -2450,12 +2344,12 @@ ahmismatch:
 		case IPSECDOI_ATTR_KEY_ROUNDS:
 		case IPSECDOI_ATTR_COMP_DICT_SIZE:
 		case IPSECDOI_ATTR_COMP_PRIVALG:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"attr type=%u isn't supported.\n", type);
 			return -1;
 
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid attribute type %d.\n", type);
 			return -1;
 		}
@@ -2473,7 +2367,7 @@ ahmismatch:
 
 	if (proto_id == IPSECDOI_PROTO_IPSEC_AH &&
 	    !attrseen[IPSECDOI_ATTR_AUTH]) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"attr AUTH must be present for AH.\n");
 		return -1;
 	}
@@ -2481,7 +2375,7 @@ ahmismatch:
 	if (proto_id == IPSECDOI_PROTO_IPSEC_ESP &&
 	    trns->t_id == IPSECDOI_ESP_NULL &&
 	    !attrseen[IPSECDOI_ATTR_AUTH]) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 		    "attr AUTH must be present for ESP NULL encryption.\n");
 		return -1;
 	}
@@ -2508,7 +2402,7 @@ check_attr_ipcomp(trns)
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
 		lorv = ntohs(d->lorv);
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"type=%d, flag=0x%04x, lorv=0x%04x\n",
 			type, flag, lorv);
 
@@ -2518,7 +2412,7 @@ check_attr_ipcomp(trns)
 		switch (type) {
 		case IPSECDOI_ATTR_ENC_MODE:
 			if (! flag) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"must be TV when ENC_MODE.\n");
 				return -1;
 			}
@@ -2532,12 +2426,12 @@ check_attr_ipcomp(trns)
 			case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC:
 			case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT:
 			case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT:
-				plog(LLV_DEBUG, LOCATION, NULL,
+				plog(ASL_LEVEL_DEBUG, 
 				     "UDP encapsulation requested\n");
 				break;
 #endif
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid encryption mode=%u.\n",
 					lorv);
 				return -1;
@@ -2546,7 +2440,7 @@ check_attr_ipcomp(trns)
 
 		case IPSECDOI_ATTR_SA_LD_TYPE:
 			if (! flag) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"must be TV when LD_TYPE.\n");
 				return -1;
 			}
@@ -2556,7 +2450,7 @@ check_attr_ipcomp(trns)
 			case IPSECDOI_ATTR_SA_LD_TYPE_KB:
 				break;
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid life type %d.\n", lorv);
 				return -1;
 			}
@@ -2565,12 +2459,12 @@ check_attr_ipcomp(trns)
 		case IPSECDOI_ATTR_SA_LD:
 			if (flag) {
 				/* i.e. ISAKMP_GEN_TV */
-				plog(LLV_DEBUG, LOCATION, NULL,
+				plog(ASL_LEVEL_DEBUG, 
 					"life duration was in TLV.\n");
 			} else {
 				/* i.e. ISAKMP_GEN_TLV */
 				if (lorv == 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"invalid length of LD\n");
 					return -1;
 				}
@@ -2579,13 +2473,13 @@ check_attr_ipcomp(trns)
 
 		case IPSECDOI_ATTR_GRP_DESC:
 			if (! flag) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"must be TV when GRP_DESC.\n");
 				return -1;
 			}
 
 			if (!alg_oakley_dhdef_ok(lorv)) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid group description=%u.\n",
 					lorv);
 				return -1;
@@ -2593,7 +2487,7 @@ check_attr_ipcomp(trns)
 			break;
 
 		case IPSECDOI_ATTR_AUTH:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid attr type=%u.\n", type);
 			return -1;
 
@@ -2601,12 +2495,12 @@ check_attr_ipcomp(trns)
 		case IPSECDOI_ATTR_KEY_ROUNDS:
 		case IPSECDOI_ATTR_COMP_DICT_SIZE:
 		case IPSECDOI_ATTR_COMP_PRIVALG:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"attr type=%u isn't supported.\n", type);
 			return -1;
 
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid attribute type %d.\n", type);
 			return -1;
 		}
@@ -2625,7 +2519,7 @@ check_attr_ipcomp(trns)
 #if 0
 	if (proto_id == IPSECDOI_PROTO_IPCOMP &&
 	    !attrseen[IPSECDOI_ATTR_AUTH]) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"attr AUTH must be present for AH.\n", type);
 		return -1;
 	}
@@ -2640,73 +2534,94 @@ check_attr_ipcomp(trns)
  * NOT INCLUDING isakmp general header of SA payload
  */
 vchar_t *
-ipsecdoi_setph1proposal(props)
-	struct isakmpsa *props;
+ipsecdoi_setph1proposal (phase1_handle_t *iph1)
 {
 	vchar_t *mysa;
 	int sablen;
-
+    
+    if (!iph1) return NULL;
+    
+    struct isakmpsa *props = iph1->rmconf->proposal;
+    unsigned int version = iph1->version;
+    
 	/* count total size of SA minus isakmp general header */
 	/* not including isakmp general header of SA payload */
-	sablen = sizeof(struct ipsecdoi_sa_b);
-	sablen += setph1prop(props, NULL);
-
+	if (version == ISAKMP_VERSION_NUMBER_IKEV1) {
+		sablen = sizeof(struct ipsecdoi_sa_b);
+	} else {
+		sablen = 0;
+	}
+	sablen += setph1prop(iph1, NULL);
+    
 	mysa = vmalloc(sablen);
 	if (mysa == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate my sa buffer\n");
+		plog(ASL_LEVEL_ERR,
+             "failed to allocate my sa buffer\n");
 		return NULL;
 	}
-
+    
 	/* create SA payload */
-	/* not including isakmp general header */
-	(ALIGNED_CAST(struct ipsecdoi_sa_b *)mysa->v)->doi = htonl(props->rmconf->doitype);
-	(ALIGNED_CAST(struct ipsecdoi_sa_b *)mysa->v)->sit = htonl(props->rmconf->sittype);
-
-	(void)setph1prop(props, mysa->v + sizeof(struct ipsecdoi_sa_b));
-
+	if (version == ISAKMP_VERSION_NUMBER_IKEV1) {
+		/* not including isakmp general header */
+		(ALIGNED_CAST(struct ipsecdoi_sa_b *)mysa->v)->doi = htonl(props->rmconf->doitype);
+		(ALIGNED_CAST(struct ipsecdoi_sa_b *)mysa->v)->sit = htonl(props->rmconf->sittype);
+        
+		(void)setph1prop(iph1, mysa->v + sizeof(struct ipsecdoi_sa_b));
+	} else {
+		(void)setph1prop(iph1, mysa->v);
+	}
+    
 	return mysa;
 }
 
-static int
-setph1prop(props, buf)
-	struct isakmpsa *props;
-	caddr_t buf;
+int
+setph1prop (phase1_handle_t *iph1,
+			caddr_t buf)
 {
+    struct isakmpsa *props = iph1->rmconf->proposal;
+    unsigned int version = iph1->version;
+    
 	struct isakmp_pl_p *prop = NULL;
 	struct isakmpsa *s = NULL;
 	int proplen, trnslen;
 	u_int8_t *np_t; /* pointer next trns type in previous header */
 	int trns_num;
 	caddr_t p = buf;
+	u_int16_t tmplen;
+    int spi_size = 0;
+    cookie_t *my_cookie = (iph1->side == INITIATOR) ? &iph1->index.i_ck : &iph1->index.r_ck;
+    
 
-	proplen = sizeof(*prop);
+	proplen = sizeof(*prop) + spi_size;
 	if (buf) {
 		/* create proposal */
 		prop = (struct isakmp_pl_p *)p;
 		prop->h.np = ISAKMP_NPTYPE_NONE;
+		prop->h.reserved = 0;
 		prop->p_no = props->prop_no;
 		prop->proto_id = IPSECDOI_PROTO_ISAKMP;
-		prop->spi_size = 0;
-		p += sizeof(*prop);
+        prop->spi_size = spi_size;
+        p += sizeof(*prop);
 	}
 
 	np_t = NULL;
 	trns_num = 0;
 
 	for (s = props; s != NULL; s = s->next) {
-		if (np_t)
-			*np_t = ISAKMP_NPTYPE_T;
+        {
+			if (np_t)
+				*np_t = ISAKMP_NPTYPE_T;
+			
+			trnslen = setph1trns(s, p);
+			proplen += trnslen;
+			if (buf) {
+				/* save buffer to pre-next payload */
+				np_t = &((struct isakmp_pl_t *)p)->h.np;
+				p += trnslen;
 
-		trnslen = setph1trns(s, p);
-		proplen += trnslen;
-		if (buf) {
-			/* save buffer to pre-next payload */
-			np_t = &((struct isakmp_pl_t *)p)->h.np;
-			p += trnslen;
-
-			/* count up transform length */
-			trns_num++;
+				/* count up transform length */
+				trns_num++;
+			}
 		}
 	}
 
@@ -2720,9 +2635,8 @@ setph1prop(props, buf)
 }
 
 static int
-setph1trns(sa, buf)
-	struct isakmpsa *sa;
-	caddr_t buf;
+setph1trns (struct isakmpsa *sa,
+			caddr_t buf)
 {
 	struct isakmp_pl_t *trns = NULL;
 	int trnslen, attrlen;
@@ -2750,9 +2664,8 @@ setph1trns(sa, buf)
 }
 
 static int
-setph1attr(sa, buf)
-	struct isakmpsa *sa;
-	caddr_t buf;
+setph1attr (struct isakmpsa *sa,
+			caddr_t buf)
 {
 	caddr_t p = buf;
 	int attrlen = 0;
@@ -2855,89 +2768,13 @@ setph1attr(sa, buf)
 	default:
 		break;
 	}
-
-#ifdef HAVE_GSSAPI
-	if (sa->authmethod == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB &&
-	    sa->gssid != NULL) {
-		attrlen += sizeof(struct isakmp_data);
-		/*
-		 * Older versions of racoon just placed the ISO-Latin-1
-		 * string on the wire directly.  Check to see if we are
-		 * configured to be compatible with this behavior.  Otherwise,
-		 * we encode the GSS ID as UTF-16LE for Windows 2000
-		 * compatibility, which requires twice the number of octets.
-		 */
-		if (lcconf->gss_id_enc == LC_GSSENC_LATIN1)
-			attrlen += sa->gssid->l;
-		else
-			attrlen += sa->gssid->l * 2;
-		if (buf) {
-			plog(LLV_DEBUG, LOCATION, NULL, "gss id attr: len %zu, "
-			    "val '%.*s'\n", sa->gssid->l, (int)sa->gssid->l,
-			    sa->gssid->v);
-			if (lcconf->gss_id_enc == LC_GSSENC_LATIN1) {
-				p = isakmp_set_attr_v(p, OAKLEY_ATTR_GSS_ID,
-					(caddr_t)sa->gssid->v,
-					sa->gssid->l);
-			} else {
-				size_t dstleft = sa->gssid->l * 2;
-				size_t srcleft = sa->gssid->l;
-				const char *src = (const char *)sa->gssid->v;
-				char *odst, *dst = racoon_malloc(dstleft);
-				iconv_t cd;
-				size_t rv;
-
-				cd = iconv_open("utf-16le", "latin1");
-				if (cd == (iconv_t) -1) {
-					plog(LLV_ERROR, LOCATION, NULL,
-					    "unable to initialize "
-					    "latin1 -> utf-16le "
-					    "converstion descriptor: %s\n",
-					    strerror(errno));
-					attrlen -= sa->gssid->l * 2;
-					goto gssid_done;
-				}
-				odst = dst;
-				rv = iconv(cd, (__iconv_const char **)&src, 
-				    &srcleft, &dst, &dstleft);
-				if (rv != 0) {
-					if (rv == -1) {
-						plog(LLV_ERROR, LOCATION, NULL,
-						    "unable to convert GSS ID "
-						    "from latin1 -> utf-16le: "
-						    "%s\n", strerror(errno));
-					} else {
-						/* should never happen */
-						plog(LLV_ERROR, LOCATION, NULL,
-						    "%zd character%s in GSS ID "
-						    "cannot be represented "
-						    "in utf-16le\n",
-						    rv, rv == 1 ? "" : "s");
-					}
-					(void) iconv_close(cd);
-					attrlen -= sa->gssid->l * 2;
-					goto gssid_done;
-				}
-				(void) iconv_close(cd);
-
-				/* XXX Check srcleft and dstleft? */
-
-				p = isakmp_set_attr_v(p, OAKLEY_ATTR_GSS_ID,
-					odst, sa->gssid->l * 2);
-
-				racoon_free(odst);
-			}
-		}
-	}
- gssid_done:
-#endif /* HAVE_GSSAPI */
-
+    
 	return attrlen;
 }
 
 static vchar_t *
 setph2proposal0(iph2, pp, pr)
-	const struct ph2handle *iph2;
+	const phase2_handle_t *iph2;
 	const struct saprop *pp;
 	const struct saproto *pr;
 {
@@ -3032,7 +2869,7 @@ setph2proposal0(iph2, pp, pr)
 			break;
 		case IPSECDOI_PROTO_IPSEC_AH:
 			if (tr->authtype == IPSECDOI_ATTR_AUTH_NONE) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"no authentication algorithm found "
 					"but protocol is AH.\n");
 				vfree(p);
@@ -3043,7 +2880,7 @@ setph2proposal0(iph2, pp, pr)
 		case IPSECDOI_PROTO_IPCOMP:
 			break;
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid protocol: %d\n", pr->proto_id);
 			vfree(p);
 			return NULL;
@@ -3117,7 +2954,7 @@ setph2proposal0(iph2, pp, pr)
 	}
 
 	if (np_t == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"no suitable proposal was created.\n");
 		return NULL;
 	}
@@ -3128,80 +2965,107 @@ setph2proposal0(iph2, pp, pr)
 	return p;
 }
 
+
 /*
  * create phase2 proposal from policy configuration.
  * NOT INCLUDING isakmp general header of SA payload.
  * This function is called by initiator only.
  */
 int
-ipsecdoi_setph2proposal(iph2)
-	struct ph2handle *iph2;
+ipsecdoi_setph2proposal(phase2_handle_t *iph2, int return_sa)
 {
 	struct saprop *proposal, *a;
 	struct saproto *b = NULL;
-	vchar_t *q;
-	struct ipsecdoi_sa_b *sab;
+	vchar_t *q, *sa = NULL;
 	struct isakmp_pl_p *prop;
 	size_t propoff;	/* for previous field of type of next payload. */
 
-	proposal = iph2->proposal;
+    if (return_sa)
+        proposal = iph2->approval;
+    else
+        proposal = iph2->proposal;
 
-	iph2->sa = vmalloc(sizeof(*sab));
-	if (iph2->sa == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to allocate my sa buffer\n");
-		return -1;
+	if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+		struct ipsecdoi_sa_b *sab;
+
+		sa = vmalloc(sizeof(*sab));
+		if (sa == NULL) {
+			plog(ASL_LEVEL_ERR, 
+				 "failed to allocate my sa buffer\n");
+			return -1;
+		}
+
+		/* create SA payload */
+		sab = ALIGNED_CAST(struct ipsecdoi_sa_b *)sa->v;
+		sab->doi = htonl(IPSEC_DOI);
+		sab->sit = htonl(IPSECDOI_SIT_IDENTITY_ONLY);	/* XXX configurable ? */
+
 	}
-
-	/* create SA payload */
-	sab = ALIGNED_CAST(struct ipsecdoi_sa_b *)iph2->sa->v;
-	sab->doi = htonl(IPSEC_DOI);
-	sab->sit = htonl(IPSECDOI_SIT_IDENTITY_ONLY);	/* XXX configurable ? */
-
+    
 	prop = NULL;
 	propoff = 0;
 	for (a = proposal; a; a = a->next) {
 		for (b = a->head; b; b = b->next) {
+            if (b->proto_id == IPSECDOI_PROTO_IPCOMP) {
+                // %%%%% todo - IKEv2 uses ipcomp notification
+                // skip this - not specified in the SA
+                // Need to set this in iph2 ???
+                continue;
+            }
+            // IKEv1 sends encode mode in SA - uses diferent codes when NATT being used
+            // IKEv2 does not send encode mode in SA
 #ifdef ENABLE_NATT
-			if (iph2->ph1->natt_flags & NAT_DETECTED) {
-			  int udp_diff = iph2->ph1->natt_options->mode_udp_diff;
-			  plog (LLV_INFO, LOCATION, NULL,
-				"NAT detected -> UDP encapsulation "
-				"(ENC_MODE %d->%d).\n",
-				b->encmode,
-				b->encmode+udp_diff);
-			  /* Tunnel -> UDP-Tunnel, Transport -> UDP_Transport */
-			  b->encmode += udp_diff;
-			  b->udp_encap = 1;
-			}
+            if (iph2->ph1->natt_flags & NAT_DETECTED) {
+                plog (ASL_LEVEL_INFO, "NAT detected -> UDP encapsulation\n");
+                b->udp_encap = 1;
+                if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+                    int udp_diff = iph2->ph1->natt_options->mode_udp_diff;
+                    /* Tunnel -> UDP-Tunnel, Transport -> UDP_Transport */
+                    b->encmode += udp_diff;
+                }
+            }
 #endif
-
-			q = setph2proposal0(iph2, a, b);
+            switch (iph2->version) {
+                case ISAKMP_VERSION_NUMBER_IKEV1:
+                    q = setph2proposal0(iph2, a, b);
+                    break;
+                default:
+                    plog(ASL_LEVEL_ERR, "Invalid IKE version detected\n");
+                    q = NULL;
+                    break;
+            }
 			if (q == NULL) {
-				VPTRINIT(iph2->sa);
+				VPTRINIT(sa);
 				return -1;
 			}
-
-			iph2->sa = vrealloc(iph2->sa, iph2->sa->l + q->l);
-			if (iph2->sa == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+            if (sa != NULL)
+                sa = vrealloc(sa, sa->l + q->l);
+            else
+                sa = vmalloc(q->l);
+			
+			if (sa == NULL) {
+				plog(ASL_LEVEL_ERR, 
 					"failed to allocate my sa buffer\n");
 				if (q)
 					vfree(q);
 				return -1;
 			}
-			memcpy(iph2->sa->v + iph2->sa->l - q->l, q->v, q->l);
+			memcpy(sa->v + sa->l - q->l, q->v, q->l);
 			if (propoff != 0) {
-				prop = (struct isakmp_pl_p *)(iph2->sa->v +
+				prop = (struct isakmp_pl_p *)(sa->v +
 					propoff);
-				prop->h.np = ISAKMP_NPTYPE_P;
+                if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1)
+                    prop->h.np = ISAKMP_NPTYPE_P;
 			}
-			propoff = iph2->sa->l - q->l;
+			propoff = sa->l - q->l;
 
 			vfree(q);
 		}
 	}
-
+    if (return_sa)
+        iph2->sa_ret = sa;
+    else
+        iph2->sa = sa;
 	return 0;
 }
 
@@ -3210,7 +3074,7 @@ ipsecdoi_setph2proposal(iph2)
  */
 int
 ipsecdoi_tunnelmode(iph2)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 {
 	struct saprop *pp;
 	struct saproto *pr = NULL;
@@ -3281,7 +3145,7 @@ ipsecdoi_checkalgtypes(proto_id, enc, auth, comp)
 	switch (proto_id) {
 	case IPSECDOI_PROTO_IPSEC_ESP:
 		if (enc == 0 || comp != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"illegal algorithm defined "
 				"ESP enc=%s auth=%s comp=%s.\n",
 				TMPALGTYPE2STR(enc),
@@ -3292,7 +3156,7 @@ ipsecdoi_checkalgtypes(proto_id, enc, auth, comp)
 		break;
 	case IPSECDOI_PROTO_IPSEC_AH:
 		if (enc != 0 || auth == 0 || comp != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"illegal algorithm defined "
 				"AH enc=%s auth=%s comp=%s.\n",
 				TMPALGTYPE2STR(enc),
@@ -3303,7 +3167,7 @@ ipsecdoi_checkalgtypes(proto_id, enc, auth, comp)
 		break;
 	case IPSECDOI_PROTO_IPCOMP:
 		if (enc != 0 || auth != 0 || comp == 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"illegal algorithm defined "
 				"IPcomp enc=%s auth=%s comp=%s.\n",
 				TMPALGTYPE2STR(enc),
@@ -3313,7 +3177,7 @@ ipsecdoi_checkalgtypes(proto_id, enc, auth, comp)
 		}
 		break;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid ipsec protocol %d\n", proto_id);
 		return -1;
 	}
@@ -3436,13 +3300,13 @@ ipsecdoi_chkcmpids( idt, ids, exact )
 	{
 		if( !exact )
 		{
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"check and compare ids : values matched (ANONYMOUS)\n" );
 			return 0;
 		}
 		else
 		{
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"check and compare ids : value mismatch (ANONYMOUS)\n" );
 			return -1;
 		}
@@ -3491,7 +3355,7 @@ ipsecdoi_chkcmpids( idt, ids, exact )
 			goto cmpid_result;
 		}
 #endif
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"check and compare ids : id type mismatch %s != %s\n",
 			s_ipsecdoi_ident(id_bs->type),
 			s_ipsecdoi_ident(id_bt->type));
@@ -3500,7 +3364,7 @@ ipsecdoi_chkcmpids( idt, ids, exact )
 	}
 
 	if(id_bs->proto_id != id_bt->proto_id){
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"check and compare ids : proto_id mismatch %d != %d\n",
 			id_bs->proto_id, id_bt->proto_id);
 
@@ -3553,7 +3417,7 @@ ipsecdoi_chkcmpids( idt, ids, exact )
 			break;
 
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"Unhandled id type %i specified for comparison\n",
 				id_bt->type);
 			return -1;
@@ -3568,21 +3432,21 @@ ipsecdoi_chkcmpids( idt, ids, exact )
 cmpid_result:
 
 	/* debug level output */
-	if(loglevel >= LLV_DEBUG) {
+	if(loglevel >= ASL_LEVEL_DEBUG) {
 		char *idstrt = ipsecdoi_id2str(idt);
 		char *idstrs = ipsecdoi_id2str(ids);
 
 		if (!result)
-	 		plog(LLV_DEBUG, LOCATION, NULL,
+	 		plog(ASL_LEVEL_DEBUG, 
 				"check and compare ids : values matched (%s)\n",
 				 s_ipsecdoi_ident(id_bs->type) );
 		else
- 			plog(LLV_DEBUG, LOCATION, NULL,
+ 			plog(ASL_LEVEL_DEBUG, 
 				"check and compare ids : value mismatch (%s)\n",
 				 s_ipsecdoi_ident(id_bs->type));
 
-		plog(LLV_DEBUG, LOCATION, NULL, "cmpid target: \'%s\'\n", idstrt );
-		plog(LLV_DEBUG, LOCATION, NULL, "cmpid source: \'%s\'\n", idstrs );
+		plog(ASL_LEVEL_DEBUG, "cmpid target: \'%s\'\n", idstrt );
+		plog(ASL_LEVEL_DEBUG, "cmpid source: \'%s\'\n", idstrs );
 
 		racoon_free(idstrs);
 		racoon_free(idstrt);
@@ -3597,10 +3461,10 @@ cmpid_result:
 cmpid_invalid:
 
 	/* id integrity error */
-	plog(LLV_DEBUG, LOCATION, NULL, "check and compare ids : %s integrity error\n",
+	plog(ASL_LEVEL_DEBUG, "check and compare ids : %s integrity error\n",
 		s_ipsecdoi_ident(id_bs->type));
-	plog(LLV_DEBUG, LOCATION, NULL, "cmpid target: length = \'%zu\'\n", ident_t.l );
-	plog(LLV_DEBUG, LOCATION, NULL, "cmpid source: length = \'%zu\'\n", ident_s.l );
+	plog(ASL_LEVEL_DEBUG, "cmpid target: length = \'%zu\'\n", ident_t.l );
+	plog(ASL_LEVEL_DEBUG, "cmpid source: length = \'%zu\'\n", ident_s.l );
 
 	return -1;
 }
@@ -3618,19 +3482,19 @@ cmpid_invalid:
  */
 int
 ipsecdoi_checkid1(iph1)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 {
 	struct ipsecdoi_id_b *id_b;
 	struct sockaddr_storage *sa;
 	caddr_t sa1, sa2;
 
 	if (iph1->id_p == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid iph1 passed id_p == NULL\n");
 		return ISAKMP_INTERNAL_ERROR;
 	}
 	if (iph1->id_p->l < sizeof(*id_b)) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid value passed as \"ident\" (len=%lu)\n",
 			(u_long)iph1->id_p->l);
 		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
@@ -3642,7 +3506,8 @@ ipsecdoi_checkid1(iph1)
 	 *	If NAT Traversal being used and peer is behind nat and 
 	 *	natt version = 02 - allow non-address ID type.  	
 	 */
-	if (iph1->etype == ISAKMP_ETYPE_IDENT
+	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1
+	 && iph1->etype == ISAKMP_ETYPE_IDENT
 	 && iph1->approval->authmethod == OAKLEY_ATTR_AUTH_METHOD_PSKEY
 #ifdef ENABLE_NATT	
 	 && (iph1->natt_flags & NAT_DETECTED_PEER) == 0
@@ -3650,7 +3515,7 @@ ipsecdoi_checkid1(iph1)
 		) {
 		 if (id_b->type != IPSECDOI_ID_IPV4_ADDR
 		  && id_b->type != IPSECDOI_ID_IPV6_ADDR) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"Expecting IP address type in main mode, "
 				"but %s.\n", s_ipsecdoi_ident(id_b->type));
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
@@ -3663,7 +3528,7 @@ ipsecdoi_checkid1(iph1)
 	case IPSECDOI_ID_IPV6_ADDR_SUBNET:
 	case IPSECDOI_ID_IPV4_ADDR_RANGE:
 	case IPSECDOI_ID_IPV6_ADDR_RANGE:
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"such ID type %s is not proper.\n",
 			s_ipsecdoi_ident(id_b->type));
 		/*FALLTHROUGH*/
@@ -3674,7 +3539,7 @@ ipsecdoi_checkid1(iph1)
 	    id_b->type == IPSECDOI_ID_IPV6_ADDR) {
 
 		if (id_b->proto_id == 0 && ntohs(id_b->port) != 0) {
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(ASL_LEVEL_WARNING, 
 				"protocol ID and Port mismatched. "
 				"proto_id:%d port:%d\n",
 				id_b->proto_id, ntohs(id_b->port));
@@ -3699,13 +3564,13 @@ ipsecdoi_checkid1(iph1)
 					break;
 #endif
 				default:
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"invalid family: %d\n",
 						iph1->remote->ss_family);
 					return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 				}
 				if (ntohs(id_b->port) != port) {
-					plog(LLV_WARNING, LOCATION, NULL,
+					plog(ASL_LEVEL_WARNING, 
 						"port %d expected, but %d\n",
 						port, ntohs(id_b->port));
 					/*FALLTHROUGH*/
@@ -3743,7 +3608,7 @@ ipsecdoi_checkid1(iph1)
 				if (eay_cmp_asn1dn(ident0, &ident) == 0)
 					goto matched;
 #else
-					plog(LLV_WARNING, LOCATION, NULL, "ASN1DN ID matching not implemented - passed.\n");
+					plog(ASL_LEVEL_WARNING, "ASN1DN ID matching not implemented - passed.\n");
 					goto matched;	//%%%%%% hack for now until we have code to do this.
 #endif
 				break;
@@ -3781,7 +3646,7 @@ ipsecdoi_checkid1(iph1)
 			vfree(ident0);
 			ident0 = NULL;
 		}
-		plog(LLV_WARNING, LOCATION, NULL, "No ID match.\n");
+		plog(ASL_LEVEL_DEBUG, "No ID match.\n");
 		if (iph1->rmconf->verify_identifier)
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 matched: /* ID value match */
@@ -3792,6 +3657,9 @@ matched: /* ID value match */
 	return 0;
 }
 
+/* HACK!!! - temporary until this prototype gets moved */
+extern CFDataRef SecCertificateCopySubjectSequence( SecCertificateRef certificate);
+
 /*
  * create ID payload for phase 1 and set into iph1->id.
  * NOT INCLUDING isakmp general header.
@@ -3799,7 +3667,7 @@ matched: /* ID value match */
  */
 int
 ipsecdoi_setid1(iph1)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 {
 	vchar_t *ret = NULL;
 	struct ipsecdoi_id_b id_b;
@@ -3807,10 +3675,8 @@ ipsecdoi_setid1(iph1)
 	struct sockaddr_storage *ipid = NULL;
 
 	/* init */
-	id_b.proto_id = 0;
-	id_b.port = 0;
+    bzero(&id_b, sizeof(id_b));
 	ident = NULL;
-
 	switch (iph1->rmconf->idvtype) {
 	case IDTYPE_FQDN:
 		id_b.type = IPSECDOI_ID_FQDN;
@@ -3832,48 +3698,42 @@ ipsecdoi_setid1(iph1)
 			ident = vdup(iph1->rmconf->idv);
 		} else {
 			if (oakley_getmycert(iph1) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to get own CERT.\n");
 				goto err;
 			}
-#if TARGET_OS_EMBEDDED
-			{
-				SecCertificateRef certificate;
-				CFDataRef subject;
-				UInt8* namePtr;
-				int len;
-				
-				certificate = crypto_cssm_x509cert_get_SecCertificateRef(&iph1->cert->cert);
-				if (certificate == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
-						 "failed to get SecCertificateRef\n");
-					break;
-				}
-				subject = SecCertificateCopySubjectSequence(certificate);
-				if (subject == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
-						 "failed to get subjectName\n");
-					CFRelease(certificate);
-					break;
-				}
-				len = CFDataGetLength(subject);
-				namePtr = CFDataGetBytePtr(subject);
-				ident = vmalloc(len);
-				if (ident == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
-						 "failed to get subjectName\n");
-					CFRelease(certificate);
-					CFRelease(subject);
-					break;
-				}
-				memcpy(ident->v, namePtr, len);
-				CFRelease(certificate);
-				CFRelease(subject);
-				break;
-			}
-#else
-			ident = eay_get_x509asn1subjectname(&iph1->cert->cert);
-#endif
+
+            SecCertificateRef certificate;
+            CFDataRef subject;
+            UInt8* namePtr;
+            int len;
+            
+            certificate = crypto_cssm_x509cert_CreateSecCertificateRef(&iph1->cert->cert);
+            if (certificate == NULL) {
+                plog(ASL_LEVEL_ERR, 
+                     "failed to get SecCertificateRef\n");
+                break;
+            }
+            subject = crypto_cssm_CopySubjectSequence(certificate);
+            if (subject == NULL) {
+                plog(ASL_LEVEL_ERR, 
+                     "failed to get subjectName\n");
+                CFRelease(certificate);
+                break;
+            }
+            len = CFDataGetLength(subject);
+            namePtr = (UInt8*)CFDataGetBytePtr(subject);
+            ident = vmalloc(len);
+            if (ident == NULL) {
+                plog(ASL_LEVEL_ERR, 
+                     "failed to get subjectName\n");
+                CFRelease(certificate);
+                CFRelease(subject);
+                break;
+            }
+            memcpy(ident->v, namePtr, len);
+            CFRelease(certificate);
+            CFRelease(subject);
 		}
 		break;
 	case IDTYPE_ADDRESS:
@@ -3908,15 +3768,18 @@ ipsecdoi_setid1(iph1)
 			break;
 #endif
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid address family.\n");
 			goto err;
 		}
-		id_b.proto_id = IPPROTO_UDP;
-		id_b.port = htons(PORT_ISAKMP);
+        if(iph1->version == ISAKMP_VERSION_NUMBER_IKEV1){
+            id_b.proto_id = IPPROTO_UDP;
+            id_b.port = htons(PORT_ISAKMP);
+            
+        }
 		ident = vmalloc(l);
 		if (!ident) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to get ID buffer.\n");
 			return 0;
 		}
@@ -3924,14 +3787,14 @@ ipsecdoi_setid1(iph1)
 	    }
 	}
 	if (!ident) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get ID buffer.\n");
 		return 0;
 	}
 
 	ret = vmalloc(sizeof(id_b) + ident->l);
 	if (ret == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get ID buffer.\n");
 		goto err;
 	}
@@ -3941,9 +3804,7 @@ ipsecdoi_setid1(iph1)
 
 	iph1->id = ret;
 
-	plog(LLV_DEBUG, LOCATION, NULL,
-		"use ID type of %s\n", s_ipsecdoi_ident(id_b.type));
-	plogdump(LLV_DEBUG, iph1->id->v, iph1->id->l);
+	plogdump(ASL_LEVEL_DEBUG, iph1->id->v, iph1->id->l, "use ID type of %s\n", s_ipsecdoi_ident(id_b.type));
 	if (ident)
 		vfree(ident);
 	return 0;
@@ -3951,7 +3812,7 @@ ipsecdoi_setid1(iph1)
 err:
 	if (ident)
 		vfree(ident);
-	plog(LLV_ERROR, LOCATION, NULL, "failed get my ID\n");
+	plog(ASL_LEVEL_ERR, "failed get my ID\n");
 	return -1;
 }
 
@@ -3990,7 +3851,7 @@ set_identifier_qual(vpp, type, value, qual)
 	/* simply return if value is null. */
 	if (!value){
 		if( type == IDTYPE_FQDN || type == IDTYPE_USERFQDN){
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "No %s\n", type == IDTYPE_FQDN ? "fqdn":"user fqdn");
 			return -1;
 		}
@@ -4001,7 +3862,7 @@ set_identifier_qual(vpp, type, value, qual)
 	case IDTYPE_FQDN:
 	case IDTYPE_USERFQDN:
 		if(value->l <= 1){
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "Empty %s\n", type == IDTYPE_FQDN ? "fqdn":"user fqdn");
 			return -1;
 		}
@@ -4029,7 +3890,7 @@ set_identifier_qual(vpp, type, value, qual)
 
 			fp = fopen(value->v, "r");
 			if (fp == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"can not open %s\n", value->v);
 				return -1;
 			}
@@ -4050,7 +3911,7 @@ set_identifier_qual(vpp, type, value, qual)
 		case IDQUAL_TAG:
 			new = vmalloc(value->l - 1);
 			if (new == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"can not allocate memory");
 				return -1;
 			}
@@ -4058,7 +3919,7 @@ set_identifier_qual(vpp, type, value, qual)
 			break;
 
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"unknown qualifier");
 			return -1;
 		}
@@ -4073,7 +3934,7 @@ set_identifier_qual(vpp, type, value, qual)
 
 		sa = str2saddr(value->v, NULL);
 		if (sa == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid ip address %s\n", value->v);
 			return -1;
 		}
@@ -4088,40 +3949,8 @@ set_identifier_qual(vpp, type, value, qual)
 		break;
 	}
 	case IDTYPE_ASN1DN:
-#ifdef HAVE_OPENSSL
-		if (value->v[0] == '~')
-			/* Hex-encoded ASN1 strings */
-			new = eay_hex2asn1dn(value->v + 1, - 1);
-		else
-			/* DN encoded strings */
-			new = eay_str2asn1dn(value->v, value->l - 1);
-
-		if (new == NULL)
-			return -1;
-
-		if (loglevel >= LLV_DEBUG) {
-			X509_NAME *xn;
-			BIO *bio;
-			unsigned char *ptr = (unsigned char *) new->v, *buf;
-			size_t len;
-			char save;
-
-			xn = d2i_X509_NAME(NULL, (void *)&ptr, new->l);
-			bio = BIO_new(BIO_s_mem());
-			
-			X509_NAME_print_ex(bio, xn, 0, 0);
-			len = BIO_get_mem_data(bio, &ptr);
-			save = ptr[len];
-			ptr[len] = 0;
-			plog(LLV_DEBUG, LOCATION, NULL, "Parsed DN: %s\n", ptr);
-			ptr[len] = save;
-			X509_NAME_free(xn);
-			BIO_free(bio);
-		}
-#else
-			plog(LLV_DEBUG, LOCATION, NULL, "Setting ID type ASN1DN from string not supported\n");
-			return -1;
-#endif
+        plog(ASL_LEVEL_DEBUG, "Setting ID type ASN1DN from string not supported\n");
+        return -1;
 
 		break;
 	}
@@ -4140,14 +3969,14 @@ set_identifier_qual(vpp, type, value, qual)
  */
 int
 ipsecdoi_setid2(iph2)
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 {
 	struct secpolicy *sp;
 
 	/* check there is phase 2 handler ? */
 	sp = getspbyspid(iph2->spid);
 	if (sp == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"no policy found for spid:%u.\n", iph2->spid);
 		return -1;
 	}
@@ -4155,11 +3984,12 @@ ipsecdoi_setid2(iph2)
 	iph2->id = ipsecdoi_sockaddr2id(&sp->spidx.src,
 					sp->spidx.prefs, sp->spidx.ul_proto);
 	if (iph2->id == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get ID for %s\n",
 			spidx2str(&sp->spidx));
 		return -1;
 	}
+#ifdef ENABLE_NATT
 	if (((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v)->type == IPSECDOI_ID_IPV4_ADDR || 
 		(ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v)->type == IPSECDOI_ID_IPV4_ADDR_SUBNET) &&
 		iph2->side == RESPONDER &&
@@ -4170,24 +4000,22 @@ ipsecdoi_setid2(iph2)
 			return -1;
 		}
 	}
-	plog(LLV_DEBUG, LOCATION, NULL, "use local ID type %s\n",
-		s_ipsecdoi_ident((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v)->type));
-	plogdump(LLV_DEBUG, iph2->id->v, iph2->id->l);
+#endif
+	plogdump(ASL_LEVEL_DEBUG, iph2->id->v, iph2->id->l, "use local ID type %s\n",
+			 s_ipsecdoi_ident((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v)->type));
 
 	/* remote side */
 	iph2->id_p = ipsecdoi_sockaddr2id(&sp->spidx.dst,
 				sp->spidx.prefd, sp->spidx.ul_proto);
 	if (iph2->id_p == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get ID for %s\n",
 			spidx2str(&sp->spidx));
 		VPTRINIT(iph2->id);
 		return -1;
 	}
-	plog(LLV_DEBUG, LOCATION, NULL,
-		"use remote ID type %s\n",
-		s_ipsecdoi_ident((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id_p->v)->type));
-	plogdump(LLV_DEBUG, iph2->id->v, iph2->id->l);
+	plogdump(ASL_LEVEL_DEBUG, iph2->id->v, iph2->id->l, "use remote ID type %s\n",
+			 s_ipsecdoi_ident((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id_p->v)->type));
 
 	return 0;
 }
@@ -4239,7 +4067,7 @@ ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
 		break;
 #endif
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid family: %d.\n", saddr->ss_family);
 		return NULL;
 	}
@@ -4247,7 +4075,7 @@ ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
 	/* get ID buffer */
 	new = vmalloc(sizeof(struct ipsecdoi_id_b) + len1 + len2);
 	if (new == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get ID buffer.\n");
 		return NULL;
 	}
@@ -4298,7 +4126,7 @@ ipsecdoi_sockrange2id(laddr, haddr, ul_proto)
 	u_short port;
 
 	if (laddr->ss_family != haddr->ss_family) {
-	    plog(LLV_ERROR, LOCATION, NULL, "Address family mismatch\n");
+	    plog(ASL_LEVEL_ERR, "Address family mismatch\n");
 	    return NULL;
 	}
 
@@ -4316,7 +4144,7 @@ ipsecdoi_sockrange2id(laddr, haddr, ul_proto)
 		break;
 #endif
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid family: %d.\n", laddr->ss_family);
 		return NULL;
 	}
@@ -4324,7 +4152,7 @@ ipsecdoi_sockrange2id(laddr, haddr, ul_proto)
 	/* get ID buffer */
 	new = vmalloc(sizeof(struct ipsecdoi_id_b) + len1 + len2);
 	if (new == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get ID buffer.\n");
 		return NULL;
 	}
@@ -4359,11 +4187,11 @@ ipsecdoi_sockrange2id(laddr, haddr, ul_proto)
  * see, RFC2407 4.6.2.1
  */
 int
-ipsecdoi_id2sockaddr(buf, saddr, prefixlen, ul_proto)
-	vchar_t *buf;
-	struct sockaddr_storage *saddr;
-	u_int8_t *prefixlen;
-	u_int16_t *ul_proto;
+ipsecdoi_id2sockaddr(vchar_t *buf,
+                    struct sockaddr_storage *saddr,
+                    u_int8_t *prefixlen,
+                    u_int16_t *ul_proto,
+                    int version)
 {
 	struct ipsecdoi_id_b *id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)buf->v;
 	u_int plen = 0;
@@ -4401,7 +4229,7 @@ ipsecdoi_id2sockaddr(buf, saddr, prefixlen, ul_proto)
 		break;
 #endif
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"unsupported ID type %d\n", id_b->type);
 		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 	}
@@ -4471,9 +4299,9 @@ ipsecdoi_id2sockaddr(buf, saddr, prefixlen, ul_proto)
 	}
 
 	*prefixlen = plen;
-	*ul_proto = id_b->proto_id == 0
-				? IPSEC_ULPROTO_ANY
-				: id_b->proto_id;	/* see sockaddr2id() */
+    if (version == ISAKMP_VERSION_NUMBER_IKEV1) {
+        *ul_proto = id_b->proto_id == 0 ? IPSEC_ULPROTO_ANY : id_b->proto_id;	/* see sockaddr2id() */
+    }
 
 	return 0;
 }
@@ -4660,7 +4488,7 @@ ipsecdoi_id2str(id)
 #endif
 		{
 		
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"unable to extract asn1dn from id\n");
 
 			len = snprintf(buf, sizeof(buf), "<ASN1-DN>");
@@ -4675,7 +4503,7 @@ ipsecdoi_id2str(id)
 		break;
 
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"unknown ID type %d\n", id_b->type);
 	}
 
@@ -4726,7 +4554,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 		type = ntohs(d->type) & ~ISAKMP_GEN_MASK;
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"type=%s, flag=0x%04x, lorv=%s\n",
 			s_ipsecdoi_attr(type), flag,
 			s_ipsecdoi_attr_v(type, ntohs(d->lorv)));
@@ -4741,7 +4569,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				life_t = type;
 				break;
 			default:
-				plog(LLV_WARNING, LOCATION, NULL,
+				plog(ASL_LEVEL_WARNING, 
 					"invalid life duration type. "
 					"use default\n");
 				life_t = IPSECDOI_ATTR_SA_LD_TYPE_DEFAULT;
@@ -4753,7 +4581,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 			if (prev == NULL
 			 || (ntohs(prev->type) & ~ISAKMP_GEN_MASK) !=
 					IPSECDOI_ATTR_SA_LD_TYPE) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 				    "life duration must follow ltype\n");
 				break;
 			}
@@ -4766,7 +4594,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				/* i.e. ISAKMP_GEN_TV */
 				ld_buf = vmalloc(sizeof(d->lorv));
 				if (ld_buf == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 					    "failed to get LD buffer.\n");
 					goto end;
 				}
@@ -4776,7 +4604,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				/* i.e. ISAKMP_GEN_TLV */
 				ld_buf = vmalloc(len);
 				if (ld_buf == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 					    "failed to get LD buffer.\n");
 					goto end;
 				}
@@ -4787,7 +4615,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				t = ipsecdoi_set_ld(ld_buf);
 				vfree(ld_buf);
 				if (t == 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"invalid life duration.\n");
 					goto end;
 				}
@@ -4795,7 +4623,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				if (pp->lifetime == IPSECDOI_ATTR_SA_LD_SEC_DEFAULT)
 					pp->lifetime = t;
 				else if (pp->lifetime != t) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"lifetime mismatched "
 						"in a proposal, "
 						"prev:%ld curr:%u.\n",
@@ -4807,7 +4635,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				t = ipsecdoi_set_ld(ld_buf);
 				vfree(ld_buf);
 				if (t == 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"invalid life duration.\n");
 					goto end;
 				}
@@ -4815,7 +4643,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				if (pp->lifebyte == 0)
 					pp->lifebyte = t;
 				else if (pp->lifebyte != t) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"lifebyte mismatched "
 						"in a proposal, "
 						"prev:%d curr:%u.\n",
@@ -4825,7 +4653,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				break;
 			default:
 				vfree(ld_buf);
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid life type: %d\n", life_t);
 				goto end;
 			}
@@ -4842,7 +4670,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 			if (pp->pfs_group == 0)
 				pp->pfs_group = (u_int16_t)ntohs(d->lorv);
 			else if (pp->pfs_group != (u_int16_t)ntohs(d->lorv)) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"pfs_group mismatched "
 					"in a proposal.\n");
 				goto end;
@@ -4852,7 +4680,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 		case IPSECDOI_ATTR_ENC_MODE:
 			if (pr->encmode &&
 			    pr->encmode != (u_int16_t)ntohs(d->lorv)) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"multiple encmode exist "
 					"in a transform.\n");
 				goto end;
@@ -4862,7 +4690,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 
 		case IPSECDOI_ATTR_AUTH:
 			if (tr->authtype != IPSECDOI_ATTR_AUTH_NONE) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"multiple authtype exist "
 					"in a transform.\n");
 				goto end;
@@ -4872,7 +4700,7 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 
 		case IPSECDOI_ATTR_KEY_LENGTH:
 			if (pr->proto_id != IPSECDOI_PROTO_IPSEC_ESP) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"key length defined but not ESP");
 				goto end;
 			}
@@ -4921,23 +4749,11 @@ ipsecdoi_authalg2trnsid(alg)
 	case IPSECDOI_ATTR_AUTH_KPDK:
 		return IPSECDOI_AH_MD5;	/* XXX */
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid authentication algorithm:%d\n", alg);
 	}
 	return -1;
 }
-
-#ifdef HAVE_GSSAPI
-struct isakmpsa *
-fixup_initiator_sa(match, received)
-	struct isakmpsa *match, *received;
-{
-	if (received->gssid != NULL)
-		match->gssid = vdup(received->gssid);
-
-	return match;
-}
-#endif
 
 static int rm_idtype2doi[] = {
 	255,				/* IDTYPE_UNDEFINED, 0 */
@@ -4982,7 +4798,7 @@ doi2idtype(doi)
 	case IPSECDOI_ID_IPV6_ADDR_SUBNET:
 		return(IDTYPE_ADDRESS);
 	default:
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"Inproper idtype:%s in this function.\n",
 			s_ipsecdoi_ident(doi));
 		return(IDTYPE_ADDRESS);	/* XXX */

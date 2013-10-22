@@ -26,8 +26,6 @@
 #include "config.h"
 #include "DynamicLinkerEnvironmentExtractor.h"
 
-#ifndef BUILDING_ON_SNOW_LEOPARD
-
 #include "EnvironmentVariables.h"
 #include <mach-o/loader.h>
 #include <mach-o/swap.h>
@@ -88,7 +86,7 @@ void DynamicLinkerEnvironmentExtractor::processEnvironmentVariable(const char* e
         return;
 
     CString value(equalsLocation + 1);
-    m_extractedVariables.append(make_pair(name.latin1(), value));
+    m_extractedVariables.append(std::make_pair(name.latin1(), value));
 }
 
 size_t DynamicLinkerEnvironmentExtractor::processLoadCommand(const void* data, size_t length, bool shouldByteSwap)
@@ -200,5 +198,3 @@ void DynamicLinkerEnvironmentExtractor::getExtractedEnvironmentVariables(Environ
 }
 
 } // namespace WebKit
-
-#endif // BUILDING_ON_SNOW_LEOPARD

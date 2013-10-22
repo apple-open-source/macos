@@ -1,0 +1,139 @@
+#this loads up the equivalent of t/038XML-DOM1.t
+
+#ldapadd -x -D 'uid=admin,ou=Administrators,ou=TopologyManagement,o=NetscapeRoot' -W -f testload.ldif
+
+
+dn: dc=l4ptest,dc=system,dc=goess,dc=org
+dc: l4ptest
+objectClass: dcObject
+	
+	
+#log4j.appender.A1 = Log::Log4perl::Appender::TestBuffer
+dn:name=A1,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlAppender
+objectclass: log4perlTestBufferAppender
+name:A1
+log4perlClass:Log::Log4perl::Appender::TestBuffer
+#log4j.appender.A1.layout = Log::Log4perl::Layout::SimpleLayout
+dn:name=layout,name=A1,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLayout
+name: layout
+log4perlLayoutClass:Log::Log4perl::Layout::SimpleLayout
+
+#
+#log4j.appender.A2 = Log::Log4perl::Appender::TestBuffer
+dn:name=A2,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlAppender
+objectclass: log4perlTestBufferAppender
+name:A2
+log4perlClass:Log::Log4perl::Appender::TestBuffer
+#log4j.appender.A2.layout = Log::Log4perl::Layout::SimpleLayout
+dn:name=layout,name=A2,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLayout
+name: layout
+log4perlLayoutClass:Log::Log4perl::Layout::SimpleLayout
+
+
+#log4j.appender.BUF0 = Log::Log4perl::Appender::TestBuffer
+#log4j.appender.BUF0.Threshold = ERROR
+dn:name=BUF0,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlTestBufferAppender
+name:BUF0
+log4perlClass:Log::Log4perl::Appender::TestBuffer
+log4perlThreshold:ERROR
+#log4j.appender.BUF0.layout = Log::Log4perl::Layout::SimpleLayout
+dn:name=layout,name=BUF0,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLayout
+name: layout
+log4perlLayoutClass:Log::Log4perl::Layout::SimpleLayout
+
+dn:name=layout,name=BUF0,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLayout
+name=layout
+log4perlLayoutClass:Log::Log4perl::Layout::SimpleLayout
+
+#
+#log4j.appender.FileAppndr1 = org.apache.log4j.FileAppender
+#log4j.appender.FileAppndr1.layout = Log::Log4perl::Layout::PatternLayout
+#log4j.appender.FileAppndr1.layout.ConversionPattern = %d %4r [%t] %-5p %c %t - %m%n
+#log4j.appender.FileAppndr1.File = t/tmp/DOMtest
+#log4j.appender.FileAppndr1.Append = false
+dn:name=FileAppndr1,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlFileAppender
+name:FileAppndr1
+log4perlClass:Log::Log4perl::Appender::FileAppender
+log4perlfilename:t/tmp/DOMtest
+log4perlmode:append
+log4perlautoflush:true
+#log4perlumask:0222 DEBUG
+
+dn:name=layout,name=FileAppndr1,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlPatternLayout
+name:layout
+log4perlLayoutClass:Log::Log4perl::Layout::PatternLayout
+log4perlConversionPattern:%d %4r [%t] %-5p %c %t - %m%n
+
+
+
+#
+#log4j.category.a.b.c.d = WARN, A1
+dn:log4perlCategoryName=a.b.c.d,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLogger
+log4perlCategoryName:a.b.c.d
+log4perlLevel: WARN
+log4perlAppenderName: A1 
+
+#log4j.category.a.b = INFO, A1
+dn:log4perlCategoryName=a.b,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLogger
+log4perlCategoryName:a.b
+log4perlLevel: INFO
+log4perlAppenderName: A1 
+
+#
+#log4j.category.xa.b.c.d = INFO, A2
+dn:log4perlCategoryName=xa.b.c.d,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLogger
+log4perlCategoryName:xa.b.c.d
+log4perlLevel: INFO
+log4perlAppenderName: A2 
+log4perlAppenderName: BUF0 
+
+
+#log4j.category.xa.b = WARN, A2
+dn:log4perlCategoryName=xa.b,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLogger
+log4perlCategoryName:xa.b
+log4perlLevel: WARN
+log4perlAppenderName: A2 
+
+#
+#log4j.category.animal = INFO, FileAppndr1
+dn:log4perlCategoryName=animal,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLogger
+log4perlCategoryName:animal
+log4perlLevel: INFO
+log4perlAppenderName: FileAppndr1 
+
+#log4j.category.animal.dog = INFO, FileAppndr1,A2
+dn:log4perlCategoryName=animal.dog,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlLogger
+log4perlCategoryName:animal.dog
+log4perlLevel: INFO
+log4perlAppenderName: FileAppndr1 
+log4perlAppenderName: A2
+
+#
+#log4j.category = WARN, FileAppndr1
+dn:log4perlCategoryName=rootLogger,dc=l4ptest,dc=system,dc=goess,dc=org
+objectclass: log4perlRootLogger
+log4perlCategoryName:rootLogger
+log4perlLevel: WARN
+log4perlAppenderName: FileAppndr1 
+
+#
+#log4j.threshold = DEBUG
+#
+#log4j.additivity.a.b.c.d = 0
+
+

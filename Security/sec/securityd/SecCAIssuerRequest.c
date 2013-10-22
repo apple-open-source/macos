@@ -40,7 +40,7 @@
 #include <Security/SecInternal.h>
 #include <CoreFoundation/CFURL.h>
 #include <CFNetwork/CFHTTPMessage.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include <Security/SecCertificateInternal.h>
 #include <securityd/asynchttp.h>
 #include <stdlib.h>
@@ -76,8 +76,10 @@ static bool SecCAIssuerRequestIssue(SecCAIssuerRequestRef request) {
                     secdebug("caissuer", "%@", msg);
                     bool done = asynchttp_request(msg, &request->http);
                     CFRelease(msg);
-                    if (done == false)
+                    if (done == false) {
+                        CFRelease(scheme);
                         return done;
+                    }
                 }
                 secdebug("caissuer", "failed to get %@", issuer);
             } else {
@@ -159,6 +161,7 @@ static CFArrayRef SecCAIssuerRequestCacheCopyParents(SecCertificateRef cert,
                     SecCAIssuerCacheCopyMatching(issuer));
                 if (parents) {
                     secdebug("caissuer", "cache hit, for %@ no request issued", issuer);
+		    CFRelease(scheme);
                     return parents;
                 }
             }
@@ -168,7 +171,7 @@ static CFArrayRef SecCAIssuerRequestCacheCopyParents(SecCertificateRef cert,
     return NULL;
 }
 
-bool SecCAIssuerCopyParents(SecCertificateRef certificate,
+bool SecCAIssuerCopyParents(SecCertificateRef certificate, dispatch_queue_t queue,
     void *context, void (*callback)(void *, CFArrayRef)) {
     CFArrayRef issuers = SecCertificateGetCAIssuers(certificate);
     if (!issuers) {
@@ -187,6 +190,7 @@ bool SecCAIssuerCopyParents(SecCertificateRef certificate,
     /* Cache miss, let's issue a network request. */
     SecCAIssuerRequestRef request =
         (SecCAIssuerRequestRef)calloc(1, sizeof(*request));
+    request->http.queue = queue;
     request->http.completed = SecCAIssuerRequestCompleted;
     CFRetain(certificate);
     request->certificate = certificate;

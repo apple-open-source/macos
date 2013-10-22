@@ -209,6 +209,7 @@ int l2tp_recv(int fd, u_int8_t* buf, int len, int *outlen, struct sockaddr *from
 
 int l2tp_set_ouraddress(int fd, struct sockaddr *addr);
 int l2tp_set_peeraddress(int fd, struct sockaddr *addr);
+int l2tp_set_delegated_process(int fd, int pid);
 int l2tp_new_tunnelid(int fd, u_int16_t *tunnelid);
 int l2tp_set_ourparams(int fd, struct l2tp_parameters *our_params);
 int l2tp_set_peerparams(int fd, struct l2tp_parameters *peer_params);

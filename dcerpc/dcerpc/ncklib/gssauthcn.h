@@ -112,7 +112,11 @@
 #endif
 
 #if HAVE_KERBEROS_FRAMEWORK
+#if TARGET_OS_EMBEDDED || TARGET_OS_IPHONE
+#include <Heimdal/krb5.h>
+#else
 #include <Kerberos/krb5.h>
+#endif
 #else
 #if HAVE_KRB5_H
 #include <krb5.h>

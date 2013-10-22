@@ -32,16 +32,18 @@
 
 #include "Chrome.h"
 #include "ChromeClientQt.h"
+#include "QWebPageAdapter.h"
+#include "qwebhistoryinterface.h"
+#include "qwebpluginfactory.h"
+
 #include <IntSize.h>
-#include "NotImplemented.h"
+#include <NotImplemented.h>
 #include <Page.h>
 #include <PageGroup.h>
+#include <PlatformCookieJar.h>
 #include <PluginDatabase.h>
 #include <QCoreApplication>
 #include <QLocale>
-#include <qwebhistoryinterface.h>
-#include <qwebpage.h>
-#include <qwebpluginfactory.h>
 #include <wtf/MathExtras.h>
 
 using namespace WebCore;
@@ -63,12 +65,12 @@ CookiesStrategy* PlatformStrategiesQt::createCookiesStrategy()
     return this;
 }
 
-PluginStrategy* PlatformStrategiesQt::createPluginStrategy()
+DatabaseStrategy* PlatformStrategiesQt::createDatabaseStrategy()
 {
     return this;
 }
 
-VisitedLinkStrategy* PlatformStrategiesQt::createVisitedLinkStrategy()
+LoaderStrategy* PlatformStrategiesQt::createLoaderStrategy()
 {
     return this;
 }
@@ -78,8 +80,54 @@ PasteboardStrategy* PlatformStrategiesQt::createPasteboardStrategy()
     return 0;
 }
 
-void PlatformStrategiesQt::notifyCookiesChanged()
+PluginStrategy* PlatformStrategiesQt::createPluginStrategy()
 {
+    return this;
+}
+
+SharedWorkerStrategy* PlatformStrategiesQt::createSharedWorkerStrategy()
+{
+    return this;
+}
+
+StorageStrategy* PlatformStrategiesQt::createStorageStrategy()
+{
+    return this;
+}
+
+VisitedLinkStrategy* PlatformStrategiesQt::createVisitedLinkStrategy()
+{
+    return this;
+}
+
+String PlatformStrategiesQt::cookiesForDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookiesForDOM(session, firstParty, url);
+}
+
+void PlatformStrategiesQt::setCookiesFromDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, const String& cookieString)
+{
+    WebCore::setCookiesFromDOM(session, firstParty, url, cookieString);
+}
+
+bool PlatformStrategiesQt::cookiesEnabled(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookiesEnabled(session, firstParty, url);
+}
+
+String PlatformStrategiesQt::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
+}
+
+bool PlatformStrategiesQt::getRawCookies(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, Vector<Cookie>& rawCookies)
+{
+    return WebCore::getRawCookies(session, firstParty, url, rawCookies);
+}
+
+void PlatformStrategiesQt::deleteCookie(const NetworkStorageSession& session, const KURL& url, const String& cookieName)
+{
+    WebCore::deleteCookie(session, url, cookieName);
 }
 
 void PlatformStrategiesQt::refreshPlugins()
@@ -89,9 +137,12 @@ void PlatformStrategiesQt::refreshPlugins()
 
 void PlatformStrategiesQt::getPluginInfo(const WebCore::Page* page, Vector<WebCore::PluginInfo>& outPlugins)
 {
-    QWebPage* qPage = static_cast<ChromeClientQt*>(page->chrome()->client())->m_webPage;
+    QWebPageAdapter* qPage = 0;
+    if (!page->chrome().client()->isEmptyChromeClient())
+        qPage = static_cast<ChromeClientQt*>(page->chrome().client())->m_webPage;
+
     QWebPluginFactory* factory;
-    if (qPage && (factory = qPage->pluginFactory())) {
+    if (qPage && (factory = qPage->pluginFactory)) {
 
         QList<QWebPluginFactory::Plugin> qplugins = factory->plugins();
         for (int i = 0; i < qplugins.count(); ++i) {
@@ -107,7 +158,7 @@ void PlatformStrategiesQt::getPluginInfo(const WebCore::Page* page, Vector<WebCo
                 mimeInfo.type = mimeType.name;
                 mimeInfo.desc = mimeType.description;
                 for (int k = 0; k < mimeType.fileExtensions.count(); ++k)
-                  mimeInfo.extensions.append(mimeType.fileExtensions.at(k));
+                    mimeInfo.extensions.append(mimeType.fileExtensions.at(k));
 
                 info.mimes.append(mimeInfo);
             }
@@ -120,7 +171,7 @@ void PlatformStrategiesQt::getPluginInfo(const WebCore::Page* page, Vector<WebCo
 
     outPlugins.resize(plugins.size());
 
-    for (unsigned int i = 0; i < plugins.size(); ++i) {
+    for (int i = 0; i < plugins.size(); ++i) {
         PluginInfo info;
         PluginPackage* package = plugins[i];
 
@@ -133,8 +184,8 @@ void PlatformStrategiesQt::getPluginInfo(const WebCore::Page* page, Vector<WebCo
         for (MIMEToDescriptionsMap::const_iterator it = mimeToDescriptions.begin(); it != end; ++it) {
             MimeClassInfo mime;
 
-            mime.type = it->first;
-            mime.desc = it->second;
+            mime.type = it->key;
+            mime.desc = it->value;
             mime.extensions = package->mimeToExtensions().get(mime.type);
 
             info.mimes.append(mime);

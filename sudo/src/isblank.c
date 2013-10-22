@@ -15,12 +15,15 @@
  */
 
 #include <config.h>
-#include <compat.h>
+
+#include <sys/types.h>
+
+#include "missing.h"
 
 #undef isblank
 int
 isblank(ch)
     int ch;
 {
-    return(ch == ' ' || ch == '\t');
+    return ch == ' ' || ch == '\t';
 }

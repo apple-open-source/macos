@@ -1147,7 +1147,7 @@ static const unsigned short gbkext2_2uni_pagea8[8272] = {
 };
 
 static int
-gbkext2_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+gbkext2_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c1 = s[0];
   if ((c1 >= 0xa8 && c1 <= 0xfe)) {

@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 7929 2008-09-10 22:23:59Z mike $"
+# "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $"
 #
 #   System V commands makefile for CUPS.
 #
@@ -110,6 +110,7 @@ install-exec:
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(TARGETS); do \
 			cp $$file $(SYMROOT); \
+			dsymutil $(SYMROOT)/$$file; \
 		done \
 	fi
 
@@ -289,5 +290,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 7929 2008-09-10 22:23:59Z mike $".
+# End of "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $".
 #

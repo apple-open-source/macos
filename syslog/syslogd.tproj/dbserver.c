@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include <TargetConditionals.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -44,6 +46,10 @@
 #include <pthread.h>
 #include <notify.h>
 #include <sys/time.h>
+#include <xpc/xpc.h>
+#include <xpc/private.h>
+#include <libproc.h>
+#include <uuid/uuid.h>
 #include "daemon.h"
 #include "asl_ipc.h"
 #include "asl_ipcServer.h"
@@ -60,7 +66,13 @@
 
 #define MAX_AGAIN 100
 
+#define ASL_ENTITLEMENT_KEY "com.apple.asl.access_as_root"
+#define ASL_ENTITLEMENT_UID_KEY "com.apple.asl.access_as_uid"
+#define ASL_ENTITLEMENT_GID_KEY "com.apple.asl.access_as_gid"
+
 static dispatch_queue_t asl_server_queue;
+static dispatch_queue_t watch_queue;
+static dispatch_once_t watch_init_once;
 
 extern char *asl_list_to_string(asl_search_result_t *list, uint32_t *outlen);
 extern asl_search_result_t *asl_list_from_string(const char *buf);
@@ -142,7 +154,7 @@ db_asl_open(uint32_t dbtype)
 		else
 		{
 			if (global.db_file_max != 0) asl_store_max_file_size(global.file_db, global.db_file_max);
-			asl_store_signal_sweep(global.file_db);
+			asl_trigger_aslmanager();
 		}
 	}
 
@@ -166,7 +178,118 @@ db_asl_open(uint32_t dbtype)
 }
 
 void
-send_to_direct_watchers(asl_msg_t *msg)
+add_lockdown_session(int fd)
+{
+	dispatch_once(&watch_init_once, ^{
+		watch_queue = dispatch_queue_create("Direct Watch Queue", NULL);
+	});
+
+	dispatch_async(watch_queue, ^{
+		if (global.lockdown_session_count == 0) global.lockdown_session_fds = NULL;
+
+		global.lockdown_session_fds = reallocf(global.lockdown_session_fds, global.lockdown_session_count + 1 * sizeof(int));
+
+		if (global.lockdown_session_fds == NULL)
+		{
+			asldebug("add_lockdown_session: realloc failed\n");
+			global.lockdown_session_count = 0;
+		}
+		else
+		{
+			global.lockdown_session_fds[global.lockdown_session_count++] = fd;
+		}
+
+		global.watchers_active = direct_watch_count + global.lockdown_session_count;
+	});
+}
+
+void
+remove_lockdown_session(int fd)
+{
+	dispatch_once(&watch_init_once, ^{
+		watch_queue = dispatch_queue_create("Direct Watch Queue", NULL);
+	});
+
+	dispatch_async(watch_queue, ^{
+		int i, n;
+
+		for (i = 0, n = 0; i < global.lockdown_session_count; i++)
+		{
+			if (global.lockdown_session_fds[i] == fd)
+			{
+			}
+			else
+			{
+				if (i != n) global.lockdown_session_fds[n] = global.lockdown_session_fds[i];
+				n++;
+			}
+		}
+
+		if (n == 0)
+		{
+			free(global.lockdown_session_fds);
+			global.lockdown_session_fds = NULL;
+			global.lockdown_session_count = 0;
+		}
+		else
+		{
+			global.lockdown_session_fds = reallocf(global.lockdown_session_fds, n * sizeof(int));
+			if (global.lockdown_session_fds == NULL)
+			{
+				asldebug("remove_lockdown_session: realloc failed\n");
+				global.lockdown_session_count = 0;
+			}
+			else
+			{
+				global.lockdown_session_count = n;
+			}
+		}
+
+		global.watchers_active = direct_watch_count + global.lockdown_session_count;
+	});
+}
+
+#ifdef LOCKDOWN
+static void
+sweep_lockdown_session_fds()
+{
+	int i, n;
+
+	for (i = 0, n = 0; i < global.lockdown_session_count; i++)
+	{
+		if (global.lockdown_session_fds[i] >= 0)
+		{
+			if (i != n) global.lockdown_session_fds[n] = global.lockdown_session_fds[i];
+ 			n++;
+		}
+	}
+
+	if (n == 0)
+	{
+		free(global.lockdown_session_fds);
+		global.lockdown_session_fds = NULL;
+		global.lockdown_session_count = 0;
+	}
+	else
+	{
+		global.lockdown_session_fds = reallocf(global.lockdown_session_fds, n * sizeof(int));
+		if (global.lockdown_session_fds == NULL)
+		{
+			asldebug("sweep_lockdown_session_fds: realloc failed\n");
+			global.lockdown_session_count = 0;
+		}
+		else
+		{
+			global.lockdown_session_count = n;
+		}
+	}
+
+	global.watchers_active = direct_watch_count + global.lockdown_session_count;
+}
+#endif
+
+static void
+_internal_send_to_direct_watchers(asl_msg_t *msg)
 {
 	uint32_t i, j, nlen, outlen, cleanup, total_sent, again;
 	ssize_t sent;
@@ -175,13 +298,15 @@ send_to_direct_watchers(asl_msg_t *msg)
 #ifdef LOCKDOWN
 	static struct timeval last_time;
 
-	if (global.lockdown_session_fd >= 0)
+	cleanup = 0;
+
+	if (global.lockdown_session_count > 0)
 	{
 		if (global.remote_delay_time > 0)
 		{
 			struct timeval now;
 			uint64_t delta;
-			
+
 			if (gettimeofday(&now, NULL) == 0)
 			{
 				if (last_time.tv_sec != 0)
@@ -191,7 +316,7 @@ send_to_direct_watchers(asl_msg_t *msg)
 						now.tv_sec -= 1;
 						now.tv_usec += 1000000;
 					}
-					
+
 					delta = now.tv_sec - last_time.tv_sec;
 					delta *= 1000000;
 					delta += (now.tv_usec - last_time.tv_usec);
@@ -212,17 +337,22 @@ send_to_direct_watchers(asl_msg_t *msg)
 		}
 
 		out = asl_format_message(msg, ASL_MSG_FMT_STD, ASL_TIME_FMT_LCL, ASL_ENCODE_SAFE, &outlen);
-		if ((write(global.lockdown_session_fd, out, outlen) < 0) || (write(global.lockdown_session_fd, "\n", 1) < 0))
+
+		for (i = 0; i < global.lockdown_session_count; i++)
 		{
-			asldebug("send_to_direct_watchers: lockdown write error: %d %s\n", errno, strerror(errno));
-			close(global.lockdown_session_fd);
-			global.lockdown_session_fd = -1;
-			global.watchers_active = direct_watch_count + ((global.lockdown_session_fd < 0) ? 0 : 1);
+			if (write(global.lockdown_session_fds[i], out, outlen) < 0)
+			{
+				asldebug("send_to_direct_watchers: lockdown %d write error: %d %s\n", global.lockdown_session_fds[i], errno, strerror(errno));
+				close(global.lockdown_session_fds[i]);
+				global.lockdown_session_fds[i] = -1;
+				cleanup = 1;
+			}
 		}
 
 		free(out);
-
 	}
+
+	if (cleanup != 0) sweep_lockdown_session_fds();
 #endif
 
 	if (direct_watch_count == 0)
@@ -333,6 +463,21 @@ send_to_direct_watchers(asl_msg_t *msg)
 			direct_watch_count = 0;
 		}
 	}
+}
+
+void
+send_to_direct_watchers(asl_msg_t *msg)
+{
+	dispatch_once(&watch_init_once, ^{
+		watch_queue = dispatch_queue_create("Direct Watch Queue", NULL);
+	});
+
+	asl_msg_retain(msg);
+
+	dispatch_async(watch_queue, ^{
+		_internal_send_to_direct_watchers(msg);
+		asl_msg_release(msg);
+	});
 }
 
 /*
@@ -446,7 +591,7 @@ db_save_message(aslmsg msg)
 	if (armed == 0)
 	{
 		armed = 1;
-		dispatch_source_set_timer(timer_src, dispatch_walltime(NULL, NSEC_PER_SEC / 2), DISPATCH_TIME_FOREVER, 0);
+		dispatch_source_set_timer(timer_src, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 2), DISPATCH_TIME_FOREVER, 0);
 		dispatch_resume(timer_src);
 	}
 }
@@ -474,10 +619,13 @@ disaster_message(aslmsg msg)
  * Do a database search.
  */
 uint32_t
-db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int flags, uint64_t *lastid, int32_t ruid, int32_t rgid)
+db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int flags, uint64_t *lastid, int32_t ruid, int32_t rgid, int raccess)
 {
 	uint32_t status, ucount;
 	int32_t dir;
+	uuid_string_t ustr;
+	struct proc_uniqidentifierinfo pinfo;
+	const char *str = NULL;
 
 	/*
 	 * Special case: if count is -1, we return ASL_STATUS_OK to indicate that the store is
@@ -485,8 +633,19 @@ db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int f
 	 */
 	if (count == -1)
 	{
-		if ((global.dbtype & DB_TYPE_MEMORY) || (global.dbtype & DB_TYPE_MINI)) return ASL_STATUS_OK;
-		else return ASL_STATUS_INVALID_STORE;
+		if (global.dbtype & DB_TYPE_FILE) return ASL_STATUS_INVALID_STORE;
+		return ASL_STATUS_OK;
+	}
+
+	if (raccess != 0)
+	{
+		str = "NO ACCESS";
+		uuid_clear(pinfo.p_uuid);
+		if (proc_pidinfo(raccess, PROC_PIDUNIQIDENTIFIERINFO, 1, &pinfo, sizeof(pinfo)) == sizeof(pinfo))
+		{
+			uuid_unparse(pinfo.p_uuid, ustr);
+			str = (const char *)ustr;
+		}
 	}
 
 	ucount = count;
@@ -497,16 +656,16 @@ db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int f
 
 	if (global.dbtype & DB_TYPE_MEMORY)
 	{
-		status = asl_memory_match(global.memory_db, query, res, lastid, startid, ucount, dir, ruid, rgid);
+		status = asl_memory_match_restricted_uuid(global.memory_db, query, res, lastid, startid, ucount, dir, ruid, rgid, str);
 	}
 	else if (global.dbtype & DB_TYPE_MINI)
 	{
-		status = asl_mini_memory_match(global.mini_db, query, res, lastid, startid, ucount, dir);
+		status = asl_mini_memory_match_restricted_uuid(global.mini_db, query, res, lastid, startid, ucount, dir, ruid, rgid, str);
 	}
 	else if (global.disaster_occurred != 0)
 	{
 		/* KernelEventAgent calls us to get the kernel disaster messages. */
-		status = asl_mini_memory_match(global.mini_db, query, res, lastid, startid, ucount, dir);
+		status = asl_mini_memory_match_restricted_uuid(global.mini_db, query, res, lastid, startid, ucount, dir, ruid, rgid, str);
 	}
 
 	return status;
@@ -585,7 +744,7 @@ cancel_session(task_name_t task_name)
 static uint32_t
 register_direct_watch(uint16_t port)
 {
-#ifdef CONFIG_IPHONE
+#if TARGET_OS_EMBEDDED
 	uint32_t i;
 	int sock, flags;
 	struct sockaddr_in address;
@@ -636,7 +795,7 @@ register_direct_watch(uint16_t port)
 
 		direct_watch_count = 0;
 		global.watchers_active = 0;
-		if (global.lockdown_session_fd >= 0) global.watchers_active = 1;
+		if (global.lockdown_session_count > 0) global.watchers_active = 1;
 
 		return ASL_STATUS_FAILED;
 	}
@@ -644,7 +803,7 @@ register_direct_watch(uint16_t port)
 	direct_watch[direct_watch_count] = sock;
 	direct_watch_port[direct_watch_count] = port;
 	direct_watch_count++;
-	global.watchers_active = direct_watch_count + ((global.lockdown_session_fd < 0) ? 0 : 1);
+	global.watchers_active = direct_watch_count + global.lockdown_session_count;
 
 	return ASL_STATUS_OK;
 #else
@@ -655,7 +814,7 @@ register_direct_watch(uint16_t port)
 static void
 cancel_direct_watch(uint16_t port)
 {
-#ifdef CONFIG_IPHONE
+#if TARGET_OS_EMBEDDED
 	uint32_t i;
 
 	for (i = 0; (i < direct_watch_count) && (port != direct_watch_port[i]); i++);
@@ -672,7 +831,7 @@ cancel_direct_watch(uint16_t port)
 
 		direct_watch_count = 0;
 		global.watchers_active = 0;
-		if (global.lockdown_session_fd >= 0) global.watchers_active = 1;
+		if (global.lockdown_session_count > 0) global.watchers_active = 1;
 	}
 	else
 	{
@@ -683,7 +842,7 @@ cancel_direct_watch(uint16_t port)
 		}
 
 		direct_watch_count--;
-		global.watchers_active = direct_watch_count + ((global.lockdown_session_fd < 0) ? 0 : 1);
+		global.watchers_active = direct_watch_count + global.lockdown_session_count;
 
 		direct_watch = (int *)reallocf(direct_watch, direct_watch_count * sizeof(int));
 		direct_watch_port = (uint16_t *)reallocf(direct_watch_port, direct_watch_count * sizeof(uint16_t));
@@ -698,10 +857,219 @@ cancel_direct_watch(uint16_t port)
 
 			direct_watch_count = 0;
 			global.watchers_active = 0;
-			if (global.lockdown_session_fd >= 0) global.watchers_active = 1;
+			if (global.lockdown_session_count > 0) global.watchers_active = 1;
 		}
 	}
 #endif
+}
+
+static int
+syslogd_state_query(asl_msg_t *q, aslresponse *res, uid_t uid)
+{
+	asl_search_result_t *out;
+	uint32_t i, n;
+	bool all = false;
+	aslmsg m;
+	char val[256];
+	const char *mval;
+	asl_out_module_t *om;
+
+	if (res == NULL) return ASL_STATUS_INVALID_ARG;
+	*res = NULL;
+
+	out = (asl_search_result_t *)calloc(1, sizeof(asl_search_result_t));
+	if (out == NULL) return ASL_STATUS_NO_MEMORY;
+
+	m = asl_new(ASL_TYPE_MSG);
+	if (m == NULL)
+	{
+		free(out);
+		return ASL_STATUS_NO_MEMORY;
+	}
+
+	out->count = 1;
+	out->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
+	if (out->msg == NULL)
+	{
+		free(out);
+		asl_free(m);
+		return ASL_STATUS_NO_MEMORY;
+	}
+
+	out->msg[0] = (asl_msg_t *)m;
+
+	/* q must have [ASLOption control], so a "null" query really has count == 1 */
+	if (asl_msg_count(q) == 1) all = true;
+
+	if (all || (0 == asl_msg_lookup(q, "debug", NULL, NULL)))
+	{
+		if (global.debug == 0) snprintf(val, sizeof(val), "0");
+		else snprintf(val, sizeof(val), "1 %s", global.debug_file);
+		asl_set(m, "debug", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "dbtype", NULL, NULL)))
+	{
+		n = 0;
+		if (global.dbtype & DB_TYPE_FILE) n++;
+		if (global.dbtype & DB_TYPE_MEMORY) n++;
+		if (global.dbtype & DB_TYPE_MINI) n++;
+
+		if (n == 0)
+		{
+			asl_set(m, "dbtype", "unknown");
+		}
+		else
+		{
+			i = 0;
+			memset(val, 0, sizeof(val));
+
+			if (global.dbtype & DB_TYPE_FILE)
+			{
+				i++;
+				strncat(val, "file", 4);
+				if (i < n) strncat(val, " ", 1);
+			}
+
+			if (global.dbtype & DB_TYPE_MEMORY)
+			{
+				i++;
+				strncat(val, "memory", 6);
+				if (i < n) strncat(val, " ", 1);
+			}
+
+			if (global.dbtype & DB_TYPE_MINI)
+			{
+				strncat(val, "mini-memory", 11);
+			}
+
+			asl_set(m, "dbtype", val);
+		}
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "db_file_max", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%u", global.db_file_max);
+		asl_set(m, "db_file_max", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "db_memory_max", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%u", global.db_memory_max);
+		asl_set(m, "db_memory_max", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "db_mini_max", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%u", global.db_mini_max);
+		asl_set(m, "db_mini_max", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "mps_limit", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%u", global.mps_limit);
+		asl_set(m, "mps_limit", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "bsd_max_dup_time", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%llu", global.bsd_max_dup_time);
+		asl_set(m, "bsd_max_dup_time", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "mark_time", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%llu", global.mark_time);
+		asl_set(m, "mark_time", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "utmp_ttl", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%lu", global.utmp_ttl);
+		asl_set(m, "utmp_ttl", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "work_queue_count", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%d", global.work_queue_count);
+		asl_set(m, "work_queue_count", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "asl_queue_count", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%d", global.asl_queue_count);
+		asl_set(m, "asl_queue_count", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "bsd_queue_count", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%d", global.bsd_queue_count);
+		asl_set(m, "bsd_queue_count", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "client_count", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%d", global.client_count);
+		asl_set(m, "client_count", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "disaster_occurred", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%d", global.disaster_occurred);
+		asl_set(m, "disaster_occurred", val);
+	}
+
+#ifdef LOCKDOWN
+	if (all || (0 == asl_msg_lookup(q, "lockdown_session_count", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%d", global.lockdown_session_count);
+		asl_set(m, "lockdown_session_count", val);
+	}
+
+	if (all || (0 == asl_msg_lookup(q, "remote_delay_time", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%u", global.remote_delay_time);
+		asl_set(m, "remote_delay_time", val);
+	}
+
+#endif
+
+	if (all || (0 == asl_msg_lookup(q, "watchers_active", NULL, NULL)))
+	{
+		snprintf(val, sizeof(val), "%d", global.watchers_active);
+		asl_set(m, "watchers_active", val);
+	}
+
+	for (i = 0; i < global.module_count; i++)
+	{
+		if (all || (0 == asl_msg_lookup(q, global.module[i]->name, NULL, NULL)))
+		{
+			snprintf(val, sizeof(val), "%s", global.module[i]->enabled ? "enabled" : "disabled");
+			asl_set(m, global.module[i]->name, val);
+		}
+	}
+
+	for (om = global.asl_out_module; om != NULL; om = om->next)
+	{
+		if (all || (0 == asl_msg_lookup(q, om->name, NULL, NULL)))
+		{
+			snprintf(val, sizeof(val), "%s", om->flags & MODULE_FLAG_ENABLED ? "enabled" : "disabled");
+			if (om->name == NULL) asl_set(m, "asl.conf", val);
+			else asl_set(m, om->name, val);
+		}
+	}
+
+	/* synchronous actions use queries, since messages are simpleroutines */
+	if (0 == asl_msg_lookup(q, "action", &mval, NULL))
+	{
+		int res = -1;
+		if (uid == 0) res = asl_action_control_set_param(mval);
+		snprintf(val, sizeof(val), "%d", res);
+		asl_set(m, "action", val);
+	}
+
+	*res = out;
+	return ASL_STATUS_OK;
 }
 
 /*
@@ -760,7 +1128,7 @@ database_server()
 		dispatch_async(asl_server_queue, ^{
 			kern_return_t ks;
 			asl_reply_msg *reply = calloc(1, sizeof(asl_reply_msg) + MAX_TRAILER_SIZE);
-			
+
 			asl_ipc_server(&(request->head), &(reply->head));
 			ks = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
 			free(reply);
@@ -775,8 +1143,66 @@ database_server()
 	}
 }
 
-kern_return_t
-__asl_server_query
+static void
+caller_get_read_entitlement(pid_t pid, uid_t *uid, gid_t *gid)
+{
+#if TARGET_OS_EMBEDDED
+	xpc_object_t edata, entitlements, val;
+	bool bval = false;
+	int64_t ival = -2;
+	size_t len;
+	const void *ptr;
+
+	edata = xpc_copy_entitlements_for_pid(pid);
+	if (edata == NULL) return;
+
+	ptr = xpc_data_get_bytes_ptr(edata);
+	len = xpc_data_get_length(edata);
+
+	entitlements = xpc_create_from_plist(ptr, len);
+	xpc_release(edata);
+	if (entitlements == NULL) return;
+
+	if (xpc_get_type(entitlements) != XPC_TYPE_DICTIONARY)
+	{
+		asldebug("xpc_copy_entitlements_for_pid has non-dictionary data for pid %d\n", pid);
+		return;
+	}
+
+	bval = xpc_dictionary_get_bool(entitlements, ASL_ENTITLEMENT_KEY);
+	if (bval && (uid != NULL))
+	{
+		*uid = 0;
+		xpc_release(entitlements);
+		return;
+	}
+
+	val = xpc_dictionary_get_value(entitlements, ASL_ENTITLEMENT_UID_KEY);
+	if (val != NULL)
+	{
+		if ((xpc_get_type(val) == XPC_TYPE_INT64) && (uid != NULL))
+		{
+			ival = xpc_int64_get_value(val);
+			*uid = ival;
+		}
+	}
+
+	val = xpc_dictionary_get_value(entitlements, ASL_ENTITLEMENT_GID_KEY);
+	if (val != NULL)
+	{
+		if ((xpc_get_type(val) == XPC_TYPE_INT64) && (gid != NULL))
+		{
+			ival = xpc_int64_get_value(val);
+			*gid = ival;
+		}
+	}
+
+	xpc_release(entitlements);
+#endif
+}
+
+static kern_return_t
+__asl_server_query_internal
 (
 	mach_port_t server,
 	caddr_t request,
@@ -788,7 +1214,9 @@ __asl_server_query
 	mach_msg_type_number_t *replyCnt,
 	uint64_t *lastid,
 	int *status,
-	security_token_t *token
+	uid_t uid,
+	gid_t gid,
+	pid_t pid
 )
 {
 	aslresponse query;
@@ -810,7 +1238,27 @@ __asl_server_query
 	if (request != NULL) vm_deallocate(mach_task_self(), (vm_address_t)request, requestCnt);
 	res = NULL;
 
-	*status = db_query(query, &res, startid, count, flags, lastid, token->val[0], token->val[1]);
+	/* A query list containing a single query, which itself contains
+	 * [ASLOption control] is an internal state query */
+	if ((query != NULL) && (query->count == 1) && asl_check_option((aslmsg)query->msg[0], ASL_OPT_CONTROL))
+	{
+		*status = syslogd_state_query(query->msg[0], &res, uid);
+	}
+	else
+	{
+		int x = 0;
+#if TARGET_OS_EMBEDDED
+		x = pid;
+#endif
+
+		if (pid > 0)
+		{
+			caller_get_read_entitlement(pid, &uid, &gid);
+			if (uid == 0) x = 0;
+		}
+
+		*status = db_query(query, &res, startid, count, flags, lastid, uid, gid, x);
+	}
 
 	aslresponse_free(query);
 	if (*status != ASL_STATUS_INVALID_STORE)
@@ -846,6 +1294,49 @@ __asl_server_query
 	return KERN_SUCCESS;
 }
 
+kern_return_t
+__asl_server_query_2
+(
+	mach_port_t server,
+	caddr_t request,
+	mach_msg_type_number_t requestCnt,
+	uint64_t startid,
+	int count,
+	int flags,
+	caddr_t *reply,
+	mach_msg_type_number_t *replyCnt,
+	uint64_t *lastid,
+	int *status,
+	audit_token_t token
+)
+{
+	uid_t uid = (uid_t)-1;
+	gid_t gid = (gid_t)-1;
+	pid_t pid = (pid_t)-1;
+
+	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
+
+	return __asl_server_query_internal(server, request, requestCnt, startid, count, flags, reply, replyCnt, lastid, status, uid, gid, pid);
+}
+kern_return_t
+__asl_server_query
+(
+	mach_port_t server,
+	caddr_t request,
+	mach_msg_type_number_t requestCnt,
+	uint64_t startid,
+	int count,
+	int flags,
+	caddr_t *reply,
+	mach_msg_type_number_t *replyCnt,
+	uint64_t *lastid,
+	int *status,
+	security_token_t *token
+)
+{
+	return __asl_server_query_internal(server, request, requestCnt, startid, count, flags, reply, replyCnt, lastid, status, (uid_t)token->val[0], (gid_t)token->val[1], (pid_t)-1);
+}
+
 
 kern_return_t
 __asl_server_query_timeout
@@ -861,9 +1352,9 @@ __asl_server_query_timeout
 	uint64_t *lastid,
 	int *status,
 	security_token_t *token
- )
+)
 {
-	return __asl_server_query(server, request, requestCnt, startid, count, flags, reply, replyCnt, lastid, status, token);
+	return __asl_server_query_internal(server, request, requestCnt, startid, count, flags, reply, replyCnt, lastid, status, (uid_t)token->val[0], (gid_t)token->val[1], (pid_t)-1);
 }
 
 kern_return_t
@@ -932,7 +1423,7 @@ __asl_server_message
 	snprintf(tmp, sizeof(tmp), "%d", pid);
 	asl_set(msg, ASL_KEY_PID, tmp);
 
-	dispatch_async(global.work_queue, ^{ process_message(msg, SOURCE_ASL_MESSAGE); });
+	process_message(msg, SOURCE_ASL_MESSAGE);
 
 	return KERN_SUCCESS;
 }
@@ -1040,9 +1531,9 @@ __asl_server_create_aux_link
 
 	memmove(vmbuffer, url, *newurlCnt);
 	free(url);
-	
-	*newurl = vmbuffer;	
-	
+
+	*newurl = vmbuffer;
+
 	return KERN_SUCCESS;
 }
 
@@ -1061,7 +1552,11 @@ __asl_server_register_direct_watch
 
 	asldebug("__asl_server_register_direct_watch: pid %u port %hu\n", pid, ntohs(p16));
 
-	register_direct_watch(p16);
+	dispatch_once(&watch_init_once, ^{
+		watch_queue = dispatch_queue_create("Direct Watch Queue", NULL);
+	});
+
+	dispatch_async(watch_queue, ^{ register_direct_watch(p16); });
 
 	return KERN_SUCCESS;
 }
@@ -1078,7 +1573,11 @@ __asl_server_cancel_direct_watch
 
 	asldebug("__asl_server_cancel_direct_watch: %hu\n", ntohs(p16));
 
-	cancel_direct_watch(p16);
+	dispatch_once(&watch_init_once, ^{
+		watch_queue = dispatch_queue_create("Direct Watch Queue", NULL);
+	});
+
+	dispatch_async(watch_queue, ^{ cancel_direct_watch(p16); });
 
 	return KERN_SUCCESS;
 }

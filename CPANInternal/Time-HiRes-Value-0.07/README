@@ -1,0 +1,97 @@
+NAME
+    "Time::HiRes::Value" - a class representing a time value or interval in
+    exact microseconds
+
+DESCRIPTION
+    The "Time::HiRes" module allows perl to access the system's clock to
+    microsecond accuracy. However, floating point numbers are not suitable
+    for manipulating such time values, as rounding errors creep in to
+    calculations performed on floating-point representations of UNIX time.
+    This class provides a solution to this problem, by storing the seconds
+    and miliseconds in separate integer values, in an array. In this way,
+    the value can remain exact, and no rounding errors result.
+
+FUNCTIONS
+  $time = Time::HiRes::Value->new( $sec, $usec )
+    This function returns a new instance of a "Time::HiRes::Value" object.
+    This object is immutable, and represents the time passed in to the
+    "*$sec*" and "*$usec*" parameters.
+
+    If the "*$usec*" value is provided then the new "Time::HiRes::Value"
+    object will store the values passed directly, which must both be
+    integers. Negative values are represented in "additive" form; that is, a
+    value of -1.5 seconds would be represented by
+
+     Time::HiRes::Value->new( -2, 500000 );
+
+    If the "*$usec*" value is not provided, then the "*$sec*" value will be
+    parsed as a decimal string, attempting to match out a decimal point to
+    split seconds and microseconds. This method avoids rounding errors
+    introduced by floating-point maths.
+
+  $time = Time::HiRes::Value->now()
+    This function returns a new instance of "Time::HiRes::Value" containing
+    the current system time, as returned by the system's "gettimeofday()"
+    call.
+
+OPERATORS
+    Each of the methods here overloads an operator
+
+  $self->STRING()
+  "$self"
+    This method returns a string representation of the time, in the form of
+    a decimal string with 6 decimal places. For example
+
+     15.000000
+     -3.000000
+      4.235996
+
+    A leading "-" sign will be printed if the stored time is negative, and
+    the "*$usec*" part will always contain 6 digits.
+
+  $self->add( $other )
+  $self->sum( $other )
+  $self + $other
+    This method returns a new "Time::HiRes::Value" value, containing the sum
+    of the passed values. If a string is passed, it will be parsed according
+    to the same rules as for the "new()" constructor.
+
+    Note that "sum" is provided as an alias to "add".
+
+  $self->sub( $other )
+  $self->diff( $other )
+  $self - $other
+    This method returns a new "Time::HiRes::Value" value, containing the
+    difference of the passed values. If a string is passed, it will be
+    parsed according to the same rules as for the "new()" constructor.
+
+    Note that "diff" is provided as an alias to "sub".
+
+  $self->mult( $other )
+  $self * $other
+    This method returns a new "Time::HiRes::Value" value, containing the
+    product of the passed values. $other must not itself be a
+    "Time::HiRes::Value" object; it is an error to attempt to multiply two
+    times together.
+
+  $self->div( $other )
+  $self / $other
+    This method returns a new "Time::HiRes::Value" value, containing the
+    quotient of the passed values. $other must not itself be a
+    "Time::HiRes::Value" object; it is an error for a time to be used as a
+    divisor.
+
+  $self->cmp( $other )
+  $self <=> $other
+    This method compares the two passed values, and returns a number that is
+    positive, negative or zero, as per the usual rules for the "<=>"
+    operator. If a string is passed, it will be parsed according to the same
+    rules as for the "new()" constructor.
+
+SEE ALSO
+    *   Time::HiRes - Obtain system timers in resolution greater than 1
+        second
+
+AUTHOR
+    Paul Evans <leonerd@leonerd.org.uk>
+

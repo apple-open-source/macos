@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2000, 2003, 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2000, 2003, 2005, 2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -126,6 +126,8 @@ static u_short	 fts_stat(FTS *, FTSENT *, int);
 #define F_STATDIRSYM	(1 << F_SHIFT)	/* only stat directories and symlinks (and unknowns) */
 #define F_ALWAYSSTAT	(2 << F_SHIFT)	/* always stat */
 #define F_STATDIR	(3 << F_SHIFT)	/* only stat directories (and unknowns) */
+#define F_D_TYPE	(4 << F_SHIFT)	/* only stat directories but use d_type */
+#define F_D_TYPESYM	(5 << F_SHIFT)	/* only stat directories and symlinks but use d_type */
 
 static FTS *
 __fts_open(argv, sp)
@@ -233,6 +235,7 @@ fts_open(argv, options, compar)
 		errno = EINVAL;
 		return (NULL);
 	}
+	if (options & FTS_NOSTAT_TYPE) options |= FTS_NOSTAT;
 
 	/* Allocate/initialize the stream */
 	if ((sp = malloc((u_int)sizeof(FTS))) == NULL)
@@ -258,6 +261,7 @@ fts_open_b(argv, options, compar)
 		errno = EINVAL;
 		return (NULL);
 	}
+	if (options & FTS_NOSTAT_TYPE) options |= FTS_NOSTAT;
 
 	/* Allocate/initialize the stream */
 	if ((sp = malloc((u_int)sizeof(FTS))) == NULL)
@@ -392,12 +396,14 @@ fts_read(sp)
 	if (instr == FTS_FOLLOW &&
 	    (p->fts_info == FTS_SL || p->fts_info == FTS_SLNONE)) {
 		p->fts_info = fts_stat(sp, p, 1);
-		if (p->fts_info == FTS_D && !ISSET(FTS_NOCHDIR))
+		if (p->fts_info == FTS_D && !ISSET(FTS_NOCHDIR)) {
 			if ((p->fts_symfd = open(".", O_RDONLY, 0)) < 0) {
 				p->fts_errno = errno;
 				p->fts_info = FTS_ERR;
-			} else
+			} else {
 				p->fts_flags |= FTS_SYMFOLLOW;
+			}
+		}
 		return (p);
 	}
 
@@ -405,7 +411,7 @@ fts_read(sp)
 	if (p->fts_info == FTS_D) {
 		/* If skipped or crossed mount point, do post-order visit. */
 		if (instr == FTS_SKIP ||
-		    ISSET(FTS_XDEV) && p->fts_dev != sp->fts_dev) {
+		    (ISSET(FTS_XDEV) && p->fts_dev != sp->fts_dev)) {
 			if (p->fts_flags & FTS_SYMFOLLOW)
 				(void)close(p->fts_symfd);
 			if (sp->fts_child) {
@@ -414,7 +420,7 @@ fts_read(sp)
 			}
 			p->fts_info = FTS_DP;
 			return (p);
-		} 
+		}
 
 		/* Rebuild if only read the names and now traversing. */
 		if (sp->fts_child && sp->fts_options & FTS_NAMEONLY) {
@@ -455,7 +461,7 @@ fts_read(sp)
 
 	/* Move to the next node on this level. */
 next:	tmp = p;
-	if (p = p->fts_link) {
+	if ((p = p->fts_link)) {
 		/*
 		 * If reached the top, return to the original directory, and
 		 * load the paths for the next root.
@@ -481,13 +487,15 @@ next:	tmp = p;
 		}
 		if (p->fts_instr == FTS_FOLLOW) {
 			p->fts_info = fts_stat(sp, p, 1);
-			if (p->fts_info == FTS_D && !ISSET(FTS_NOCHDIR))
+			if (p->fts_info == FTS_D && !ISSET(FTS_NOCHDIR)) {
 				if ((p->fts_symfd =
 				    open(".", O_RDONLY, 0)) < 0) {
 					p->fts_errno = errno;
 					p->fts_info = FTS_ERR;
-				} else
+				} else {
 					p->fts_flags |= FTS_SYMFOLLOW;
+				}
+			}
 			p->fts_instr = FTS_NOINSTR;
 		}
 
@@ -500,13 +508,13 @@ name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 
 	/* Move up to the parent node. */
 	p = tmp->fts_parent;
-	free(tmp);
 
 	if (p->fts_level == FTS_ROOTPARENTLEVEL) {
 		/*
 		 * Done; free everything up and set errno to 0 so the user
 		 * can distinguish between error and EOF.
 		 */
+		free(tmp);
 		free(p);
 		errno = 0;
 		return (sp->fts_cur = NULL);
@@ -540,6 +548,7 @@ name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 			return (NULL);
 		}
 	}
+	free(tmp);
 	p->fts_info = p->fts_errno ? FTS_ERR : FTS_DP;
 	return (sp->fts_cur = p);
 }
@@ -683,6 +692,8 @@ fts_build(sp, type)
 
 	if (type == BNAMES)
 		dostat = F_NOSTAT;
+	else if (ISSET(FTS_NOSTAT_TYPE))
+		dostat = ISSET(FTS_PHYSICAL) ? F_D_TYPE : F_D_TYPESYM;
 	else if (ISSET(FTS_NOSTAT))
 		dostat = ISSET(FTS_PHYSICAL) ? F_STATDIR : F_STATDIRSYM;
 	else
@@ -742,7 +753,7 @@ fts_build(sp, type)
 
 	/* Read the directory, attaching each entry to the `link' pointer. */
 	adjaddr = NULL;
-	for (head = tail = NULL, nitems = 0; dp = readdir(dirp);) {
+	for (head = tail = NULL, nitems = 0; (dp = readdir(dirp)) ; ) {
 		if (!ISSET(FTS_SEEDOT) && ISDOT(dp->d_name))
 			continue;
 
@@ -806,6 +817,11 @@ mem1:				saved_errno = errno;
 			case (F_ALWAYSSTAT | DT_LNK):
 			case (F_ALWAYSSTAT | DT_SOCK):
 			case (F_ALWAYSSTAT | DT_WHT):
+			case (F_D_TYPE | DT_UNKNOWN):
+			case (F_D_TYPE | DT_DIR):
+			case (F_D_TYPESYM | DT_UNKNOWN):
+			case (F_D_TYPESYM | DT_DIR):
+			case (F_D_TYPESYM | DT_LNK):
 				/* Build a file name for fts_stat to stat. */
 				if (ISSET(FTS_NOCHDIR)) {
 					p->fts_accpath = p->fts_path;
@@ -815,11 +831,33 @@ mem1:				saved_errno = errno;
 				/* Stat it. */
 				p->fts_info = fts_stat(sp, p, 0);
 				break;
+			case (F_D_TYPE | DT_FIFO):
+			case (F_D_TYPE | DT_CHR):
+			case (F_D_TYPE | DT_BLK):
+			case (F_D_TYPE | DT_SOCK):
+			case (F_D_TYPESYM | DT_FIFO):
+			case (F_D_TYPESYM | DT_CHR):
+			case (F_D_TYPESYM | DT_BLK):
+			case (F_D_TYPESYM | DT_SOCK):
+				p->fts_info = FTS_DEFAULT;
+				goto common_no_stat;
+			case (F_D_TYPE | DT_REG):
+			case (F_D_TYPESYM | DT_REG):
+				p->fts_info = FTS_F;
+				goto common_no_stat;
+			case (F_D_TYPE | DT_LNK):
+				p->fts_info = FTS_SL;
+				goto common_no_stat;
+			case (F_D_TYPE | DT_WHT):
+			case (F_D_TYPESYM | DT_WHT):
+				p->fts_info = FTS_W;
+				goto common_no_stat;
 			default:
 				/* No stat necessary */
+				p->fts_info = FTS_NSOK;
+common_no_stat:
 				p->fts_accpath =
 				    ISSET(FTS_NOCHDIR) ? p->fts_path : p->fts_name;
-				p->fts_info = FTS_NSOK;
 				break;
 			}
 		}
@@ -1058,7 +1096,7 @@ fts_lfree(head)
 	register FTSENT *p;
 
 	/* Free a linked list of structures. */
-	while (p = head) {
+	while ((p = head)) {
 		head = head->fts_link;
 		free(p);
 	}
@@ -1068,7 +1106,7 @@ fts_lfree(head)
  * Allow essentially unlimited paths; find, rm, ls should all work on any tree.
  * Most systems will allow creation of paths much longer than MAXPATHLEN, even
  * though the kernel won't resolve them.  Add the size (not just what's needed)
- * plus 256 bytes so don't realloc the path 2 bytes at a time. 
+ * plus 256 bytes so don't realloc the path 2 bytes at a time.
  */
 static int
 fts_palloc(sp, more)

@@ -1,9 +1,9 @@
 /*
 
     cparse.c -- Racc Runtime Core
-  
+
     Copyright (c) 1999-2006 Minero Aoki
-  
+
     This library is free software.
     You can distribute/modify this program under the same terms of ruby.
 
@@ -11,8 +11,14 @@
 
 */
 
-#include "ruby.h"
-#include "version.h"
+#include "ruby/ruby.h"
+
+#ifndef FALSE
+#define FALSE 0
+#endif
+#ifndef TRUE
+#define TRUE 1
+#endif
 
 /* -----------------------------------------------------------------------
                         Important Constants
@@ -65,9 +71,6 @@ static ID id_d_e_pop;
 #ifndef LONG2NUM
 #  define LONG2NUM(i) INT2NUM(i)
 #endif
-#if RUBY_VERSION_CODE >= 190
-#  define HAVE_RB_BLOCK_CALL 1
-#endif
 
 static ID value_to_id _((VALUE v));
 static inline long num_to_long _((VALUE n));
@@ -88,7 +91,7 @@ num_to_long(VALUE n)
 }
 
 #define AREF(s, idx) \
-    ((0 <= idx && idx < RARRAY(s)->len) ? RARRAY(s)->ptr[idx] : Qnil)
+    ((0 <= idx && idx < RARRAY_LEN(s)) ? RARRAY_PTR(s)[idx] : Qnil)
 
 /* -----------------------------------------------------------------------
                         Parser Stack Interfaces
@@ -101,8 +104,8 @@ static VALUE
 get_stack_tail(VALUE stack, long len)
 {
     if (len < 0) return Qnil;  /* system error */
-    if (len > RARRAY(stack)->len) len = RARRAY(stack)->len;
-    return rb_ary_new4(len, RARRAY(stack)->ptr + RARRAY(stack)->len - len);
+    if (len > RARRAY_LEN(stack)) len = RARRAY_LEN(stack);
+    return rb_ary_new4(len, RARRAY_PTR(stack) + RARRAY_LEN(stack) - len);
 }
 
 static void
@@ -116,10 +119,10 @@ cut_stack_tail(VALUE stack, long len)
 
 #define STACK_INIT_LEN 64
 #define NEW_STACK() rb_ary_new2(STACK_INIT_LEN)
-#define PUSH(s, i) rb_ary_store(s, RARRAY(s)->len, i)
+#define PUSH(s, i) rb_ary_store(s, RARRAY_LEN(s), i)
 #define POP(s) rb_ary_pop(s)
 #define LAST_I(s) \
-    ((RARRAY(s)->len > 0) ? RARRAY(s)->ptr[RARRAY(s)->len - 1] : Qnil)
+    ((RARRAY_LEN(s) > 0) ? RARRAY_PTR(s)[RARRAY_LEN(s) - 1] : Qnil)
 #define GET_TAIL(s, len) get_stack_tail(s, len)
 #define CUT_TAIL(s, len) cut_stack_tail(s, len)
 
@@ -225,7 +228,7 @@ racc_cparse(VALUE parser, VALUE arg, VALUE sysdebug)
     D_puts("starting cparse");
     v->sys_debug = RTEST(sysdebug);
     vparams = initialize_params(vparams, parser, arg, Qnil, Qnil);
-    v->lex_is_iterator = Qfalse;
+    v->lex_is_iterator = FALSE;
     parse_main(v, Qnil, Qnil, 0);
 
     return v->retval;
@@ -242,7 +245,7 @@ racc_yyparse(VALUE parser, VALUE lexer, VALUE lexmid, VALUE arg, VALUE sysdebug)
     v->sys_debug = RTEST(sysdebug);
     D_puts("start C yyparse");
     vparams = initialize_params(vparams, parser, arg, lexer, lexmid);
-    v->lex_is_iterator = Qtrue;
+    v->lex_is_iterator = TRUE;
     D_puts("params initialized");
     parse_main(v, Qnil, Qnil, 0);
     call_lexer(v);
@@ -290,7 +293,7 @@ lexer_i(VALUE block_args, VALUE data, VALUE self)
     extract_user_token(v, block_args, &tok, &val);
     parse_main(v, tok, val, 1);
     if (v->fin && v->fin != CP_FIN_ACCEPT)
-       rb_iter_break(); 
+       rb_iter_break();
     return Qnil;
 }
 
@@ -329,26 +332,26 @@ initialize_params(VALUE vparams, VALUE parser, VALUE arg, VALUE lexer, VALUE lex
     v->debug = RTEST(rb_ivar_get(parser, id_yydebug));
 
     Check_Type(arg, T_ARRAY);
-    if (!(13 <= RARRAY(arg)->len && RARRAY(arg)->len <= 14))
-        rb_raise(RaccBug, "[Racc Bug] wrong arg.size %ld", RARRAY(arg)->len);
-    v->action_table   = assert_array  (RARRAY(arg)->ptr[ 0]);
-    v->action_check   = assert_array  (RARRAY(arg)->ptr[ 1]);
-    v->action_default = assert_array  (RARRAY(arg)->ptr[ 2]);
-    v->action_pointer = assert_array  (RARRAY(arg)->ptr[ 3]);
-    v->goto_table     = assert_array  (RARRAY(arg)->ptr[ 4]);
-    v->goto_check     = assert_array  (RARRAY(arg)->ptr[ 5]);
-    v->goto_default   = assert_array  (RARRAY(arg)->ptr[ 6]);
-    v->goto_pointer   = assert_array  (RARRAY(arg)->ptr[ 7]);
-    v->nt_base        = assert_integer(RARRAY(arg)->ptr[ 8]);
-    v->reduce_table   = assert_array  (RARRAY(arg)->ptr[ 9]);
-    v->token_table    = assert_hash   (RARRAY(arg)->ptr[10]);
-    v->shift_n        = assert_integer(RARRAY(arg)->ptr[11]);
-    v->reduce_n       = assert_integer(RARRAY(arg)->ptr[12]);
-    if (RARRAY(arg)->len > 13) {
-        v->use_result_var = RTEST(RARRAY(arg)->ptr[13]);
+    if (!(13 <= RARRAY_LEN(arg) && RARRAY_LEN(arg) <= 14))
+        rb_raise(RaccBug, "[Racc Bug] wrong arg.size %ld", RARRAY_LEN(arg));
+    v->action_table   = assert_array  (RARRAY_PTR(arg)[ 0]);
+    v->action_check   = assert_array  (RARRAY_PTR(arg)[ 1]);
+    v->action_default = assert_array  (RARRAY_PTR(arg)[ 2]);
+    v->action_pointer = assert_array  (RARRAY_PTR(arg)[ 3]);
+    v->goto_table     = assert_array  (RARRAY_PTR(arg)[ 4]);
+    v->goto_check     = assert_array  (RARRAY_PTR(arg)[ 5]);
+    v->goto_default   = assert_array  (RARRAY_PTR(arg)[ 6]);
+    v->goto_pointer   = assert_array  (RARRAY_PTR(arg)[ 7]);
+    v->nt_base        = assert_integer(RARRAY_PTR(arg)[ 8]);
+    v->reduce_table   = assert_array  (RARRAY_PTR(arg)[ 9]);
+    v->token_table    = assert_hash   (RARRAY_PTR(arg)[10]);
+    v->shift_n        = assert_integer(RARRAY_PTR(arg)[11]);
+    v->reduce_n       = assert_integer(RARRAY_PTR(arg)[12]);
+    if (RARRAY_LEN(arg) > 13) {
+        v->use_result_var = RTEST(RARRAY_PTR(arg)[13]);
     }
     else {
-        v->use_result_var = Qtrue;
+        v->use_result_var = TRUE;
     }
 
     v->tstack = v->debug ? NEW_STACK() : Qnil;
@@ -364,7 +367,7 @@ initialize_params(VALUE vparams, VALUE parser, VALUE arg, VALUE lexer, VALUE lex
     v->retval = Qnil;
     v->fin = 0;
 
-    v->lex_is_iterator = Qfalse;
+    v->lex_is_iterator = FALSE;
 
     rb_iv_set(parser, "@vstack", v->vstack);
     if (v->debug) {
@@ -413,19 +416,19 @@ extract_user_token(struct cparse_params *v, VALUE block_args,
         return;
     }
 
-    if (TYPE(block_args) != T_ARRAY) {
+    if (!RB_TYPE_P(block_args, T_ARRAY)) {
         rb_raise(rb_eTypeError,
                  "%s() %s %s (must be Array[2])",
                  v->lex_is_iterator ? rb_id2name(v->lexmid) : "next_token",
                  v->lex_is_iterator ? "yielded" : "returned",
                  rb_class2name(CLASS_OF(block_args)));
     }
-    if (RARRAY(block_args)->len != 2) {
+    if (RARRAY_LEN(block_args) != 2) {
         rb_raise(rb_eArgError,
                  "%s() %s wrong size of array (%ld for 2)",
                  v->lex_is_iterator ? rb_id2name(v->lexmid) : "next_token",
                  v->lex_is_iterator ? "yielded" : "returned",
-                 RARRAY(block_args)->len);
+                 RARRAY_LEN(block_args));
     }
     *tok = AREF(block_args, 0);
     *val = AREF(block_args, 1);
@@ -457,7 +460,7 @@ parse_main(struct cparse_params *v, VALUE tok, VALUE val, int resume)
 
     if (resume)
         goto resume;
-    
+
     while (1) {
         D_puts("");
         D_puts("---- enter new loop ----");
@@ -516,7 +519,7 @@ parse_main(struct cparse_params *v, VALUE tok, VALUE val, int resume)
       act_fixed:
         D_printf("act=%ld\n", act);
         goto handle_act;
-    
+
       notfound:
         D_puts("(act) not found: use default");
         act_value = AREF(v->action_default, v->curstate);
@@ -561,7 +564,7 @@ parse_main(struct cparse_params *v, VALUE tok, VALUE val, int resume)
 
   accept:
     if (v->debug) rb_funcall(v->parser, id_d_accept, 0);
-    v->retval = RARRAY(v->vstack)->ptr[0];
+    v->retval = RARRAY_PTR(v->vstack)[0];
     v->fin = CP_FIN_ACCEPT;
     return;
 
@@ -617,11 +620,11 @@ parse_main(struct cparse_params *v, VALUE tok, VALUE val, int resume)
 
         D_puts("(err) found: can handle error token");
         break;
-          
+
       error_pop:
         D_puts("(err) act not found: can't handle error token; pop");
 
-        if (RARRAY(v->state)->len <= 1) {
+        if (RARRAY_LEN(v->state) <= 1) {
             v->retval = Qnil;
             v->fin = CP_FIN_CANTPOP;
             return;
@@ -690,9 +693,9 @@ reduce0(VALUE val, VALUE data, VALUE self)
     VALUE goto_state;
 
     Data_Get_Struct(data, struct cparse_params, v);
-    reduce_len = RARRAY(v->reduce_table)->ptr[v->ruleno];
-    reduce_to  = RARRAY(v->reduce_table)->ptr[v->ruleno+1];
-    method_id  = RARRAY(v->reduce_table)->ptr[v->ruleno+2];
+    reduce_len = RARRAY_PTR(v->reduce_table)[v->ruleno];
+    reduce_to  = RARRAY_PTR(v->reduce_table)[v->ruleno+1];
+    method_id  = RARRAY_PTR(v->reduce_table)[v->ruleno+2];
     len = NUM2LONG(reduce_len);
     mid = value_to_id(method_id);
 
@@ -707,10 +710,10 @@ reduce0(VALUE val, VALUE data, VALUE self)
     else {
         if (mid != id_noreduce) {
             tmp_v = GET_TAIL(v->vstack, len);
-            tmp = RARRAY(tmp_v)->ptr[0];
+            tmp = RARRAY_PTR(tmp_v)[0];
         }
         else {
-            tmp = RARRAY(v->vstack)->ptr[ RARRAY(v->vstack)->len - len ];
+            tmp = RARRAY_PTR(v->vstack)[ RARRAY_LEN(v->vstack) - len ];
         }
         CUT_TAIL(v->vstack, len);
         if (v->debug) {
@@ -739,7 +742,7 @@ reduce0(VALUE val, VALUE data, VALUE self)
     }
 
     /* calculate transition state */
-    if (RARRAY(v->state)->len == 0)
+    if (RARRAY_LEN(v->state) == 0)
         rb_raise(RaccBug, "state stack unexpectedly empty");
     k2 = num_to_long(LAST_I(v->state));
     k1 = num_to_long(reduce_to) - v->nt_base;

@@ -28,18 +28,20 @@
 #include <QVideoWidget>
 #endif
 
+QT_BEGIN_NAMESPACE
 class QListWidgetItem;
 class QListWidget;
+QT_END_NAMESPACE
 
 class Popup : public QDialog {
     Q_OBJECT
 public:
     Popup(const QWebSelectData& data) : m_data(data) { setModal(true); }
 
-signals:
+Q_SIGNALS:
     void itemClicked(int idx);
 
-protected slots:
+protected Q_SLOTS:
     void onItemSelected(QListWidgetItem* item);
 
 protected:
@@ -75,7 +77,7 @@ public:
     virtual void setGeometry(const QRect&) { }
     virtual void setFont(const QFont&) { }
 
-private slots:
+private Q_SLOTS:
     void popupClosed();
     void itemClicked(int idx);
 
@@ -137,6 +139,7 @@ class WebPlugin : public QObject, public QWebKitPlatformPlugin
 {
     Q_OBJECT
     Q_INTERFACES(QWebKitPlatformPlugin)
+    Q_PLUGIN_METADATA(IID "org.qt-project.QtWebKit.PlatformPluginInterface")
 public:
     virtual bool supportsExtension(Extension extension) const;
     virtual QObject* createExtension(Extension extension) const;

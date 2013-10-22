@@ -168,7 +168,7 @@ void CryptKit::FEEDContext::encryptBlock(
 	assert(mFeeFeed != NULL);
 	frtn = feeFEEDEncryptBlock(mFeeFeed,
 		(unsigned char *)plainText,
-		plainTextLen,
+		(unsigned int)plainTextLen,
 		(unsigned char *)cipherText,
 		&actMoved,
 		final ? 1 : 0);
@@ -195,7 +195,7 @@ void CryptKit::FEEDContext::decryptBlock(
 	assert(mFeeFeed != NULL);
 	frtn = feeFEEDDecryptBlock(mFeeFeed,
 		(unsigned char *)cipherText,
-		inBlockSize(),
+		(unsigned int)inBlockSize(),
 		(unsigned char *)plainText,
 		&actMoved,
 		final ? 1 : 0);
@@ -229,10 +229,10 @@ size_t CryptKit::FEEDContext::inputSize(
 	 */
 	unsigned inSize;
 	if(encoding()) {
-		inSize = feeFEEDPlainTextSize(mFeeFeed, outSize, 0);
+		inSize = feeFEEDPlainTextSize(mFeeFeed, (unsigned int)outSize, 0);
 	}
 	else {
-		inSize = feeFEEDCipherTextSize(mFeeFeed, outSize, 0);
+		inSize = feeFEEDCipherTextSize(mFeeFeed, (unsigned int)outSize, 0);
 	}
 	
 	/* account for possible pending buffered input */
@@ -242,8 +242,8 @@ size_t CryptKit::FEEDContext::inputSize(
 	
 	/* round up to next block size, then lop off one...anything from
 	 * blockSize*n to (blockSize*n)-1 has same effect */
-	unsigned inBlocks = ((inSize + inBlockSize()) / inBlockSize());
-	inSize = (inBlocks * inBlockSize()) - 1;
+	unsigned inBlocks = (unsigned int)((inSize + inBlockSize()) / inBlockSize());
+	inSize = (unsigned int)(inBlocks * inBlockSize()) - 1;
 	bprintf(("--- FEEDContext::inputSize  inSize 0x%x outSize 0x%x\n",
 		inSize, outSize));
 	return inSize;
@@ -255,10 +255,10 @@ size_t CryptKit::FEEDContext::outputSize(
 {
 	size_t rtn;
 	if(encoding()) {
-		rtn = feeFEEDCipherTextSize(mFeeFeed, inSize + inBufSize(), final ? 1 : 0);
+		rtn = feeFEEDCipherTextSize(mFeeFeed, (unsigned int)(inSize + inBufSize()), final ? 1 : 0);
 	}
 	else {
-		rtn = feeFEEDPlainTextSize(mFeeFeed, inSize + inBufSize(), final ? 1 : 0);
+		rtn = feeFEEDPlainTextSize(mFeeFeed, (unsigned int)(inSize + inBufSize()), final ? 1 : 0);
 	}
 	bprintf(("--- FEEDContext::outputSize inSize 0x%x outSize 0x%x final %d\n",
 		inSize, rtn, final));
@@ -398,7 +398,7 @@ void CryptKit::FEEDExpContext::encryptBlock(
 	assert(mFeeFeedExp != NULL);
 	frtn = feeFEEDExpEncryptBlock(mFeeFeedExp,
 		(unsigned char *)plainText,
-		plainTextLen,
+		(unsigned int)plainTextLen,
 		(unsigned char *)cipherText,
 		&actMoved,
 		final ? 1 : 0);
@@ -425,7 +425,7 @@ void CryptKit::FEEDExpContext::decryptBlock(
 	assert(mFeeFeedExp != NULL);
 	frtn = feeFEEDExpDecryptBlock(mFeeFeedExp,
 		(unsigned char *)cipherText,
-		inBlockSize(),
+		(unsigned int)inBlockSize(),
 		(unsigned char *)plainText,
 		&actMoved,
 		final ? 1 : 0);
@@ -484,14 +484,14 @@ static feeReturn ecdhKdf(
 		int32ToBytes(counter, counterBytes);
 		CC_SHA1_Update(&sha1, counterBytes, 4);
 		if(sharedInfoLen) {
-			CC_SHA1_Update(&sha1, sharedInfo, sharedInfoLen);
+			CC_SHA1_Update(&sha1, sharedInfo, (CC_LONG)sharedInfoLen);
 		}
 		CC_SHA1_Final(digOut, &sha1);
 		
 		/* digest --> output */
 		unsigned toMove = CC_SHA1_DIGEST_LENGTH;
 		if(toMove > bytesToGo) {
-			toMove = bytesToGo;
+			toMove = (unsigned int)bytesToGo;
 		}
 		memmove(outp, digOut, toMove);
 		

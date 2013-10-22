@@ -264,7 +264,7 @@ vslprintf(buf, buflen, fmt, args)
 	    switch (c) {
 	    case 'd':
 		val = va_arg(args, long);
-		if (val < 0) {
+		if ((long)val < 0) {
 		    neg = 1;
 		    val = -val;
 		}
@@ -1405,7 +1405,7 @@ check_vpn_interface_or_service_unrecoverable (SCDynamicStoreRef dynamicStoreRef,
 			} else if (CFStringHasSuffix(s_key, kSCEntNetAirPort)) {
 				// Interface/<vpn_if>/Airport entity
 				if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainSetup)) {
-					CFBooleanRef powerEnable = CFDictionaryGetValue(s_dict, kSCPropNetAirPortPowerEnabled);
+					CFBooleanRef powerEnable = CFDictionaryGetValue(s_dict, SC_AIRPORT_POWERENABLED_KEY);
 					if (isA_CFBoolean(powerEnable) &&
 					    CFEqual(powerEnable, kCFBooleanFalse)) {
 						notice("%s: detected AirPort, PowerEnable == FALSE", location);
@@ -1414,7 +1414,7 @@ check_vpn_interface_or_service_unrecoverable (SCDynamicStoreRef dynamicStoreRef,
 					}
 				} else if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainState)) {
 					UInt16      temp;
-					CFNumberRef airStatus = CFDictionaryGetValue(s_dict, CFSTR("Power Status"));
+					CFNumberRef airStatus = CFDictionaryGetValue(s_dict, SC_AIRPORT_POWERSTATUS_KEY);
 					if (isA_CFNumber(airStatus) &&
 					    CFNumberGetValue(airStatus, kCFNumberShortType, &temp)) {
 						if (temp ==0) {

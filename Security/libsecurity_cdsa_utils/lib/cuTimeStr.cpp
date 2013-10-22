@@ -39,7 +39,7 @@ int cuTimeStringToTm(
 	char 		szTemp[5];
 	unsigned 	isUtc = 0;
 	unsigned	noSeconds = 0;
-	unsigned 	x;
+	int             x;
 	unsigned 	i;
 	char 		*cp;
 
@@ -233,7 +233,7 @@ char *cuX509TimeToCssmTimestring(
 	const CSSM_X509_TIME 	*x509Time,
 	unsigned				*rtnLen)		// for caller's convenience
 {
-	int len = x509Time->time.Length;
+	int len = (int)x509Time->time.Length;
 	const char *inStr = (char *)x509Time->time.Data;	
 											// not NULL terminated!
 	char *rtn;

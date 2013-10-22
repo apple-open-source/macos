@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -2159,6 +2159,24 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
         case DKIOCUNLOCKPHYSICALEXTENTS:                               // (void)
         {
             minor->media->unlockPhysicalExtents( minor->client );
+
+        } break;
+
+        case DKIOCGETMAXPRIORITYCOUNT:                           // (uint32_t *)
+        {
+            //
+            // This ioctl returns the maximum priority depth of the device.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumPriorityCountKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(uint32_t *)data = number->unsigned32BitValue();
+            else
+                *(uint32_t *)data = 0;
 
         } break;
 

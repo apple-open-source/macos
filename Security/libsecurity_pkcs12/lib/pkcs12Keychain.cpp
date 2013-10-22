@@ -33,7 +33,6 @@
 #include <Security/cssmerr.h>
 #include <security_cdsa_utils/cuDbUtils.h>			// cuAddCrlToDb()
 #include <security_asn1/nssUtils.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_cdsa_utilities/KeySchema.h>			/* private API */
 #include <security_keychain/SecImportExportCrypto.h>	/* private API */
 
@@ -56,7 +55,7 @@ void P12Coder::storeDecodeResults()
 			OSStatus ortn = SecCertificateAddToKeychain(secCert, mKeychain);
 			CFRelease(secCert);
 			switch(ortn) {
-				case noErr:					// normal 
+				case errSecSuccess:					// normal
 					p12DecodeLog("cert added to keychain");
 					break;
 				case errSecDuplicateItem:	// dup cert, OK< skip
@@ -162,7 +161,7 @@ void P12Coder::notifyKeyImport()
 		CssmData &labelData = CssmData::overlay(keyBag->label());
 		OSStatus ortn = impExpKeyNotify(mKeychain, labelData, *keyBag->key());
 		if(ortn) {
-			p12ErrorLog("notifyKeyImport: impExpKeyNotify returned %ld\n", ortn);
+			p12ErrorLog("notifyKeyImport: impExpKeyNotify returned %ld\n", (unsigned long)ortn);
 			MacOSError::throwMe(ortn);
 		}
 	}
@@ -202,7 +201,7 @@ void P12Coder::exportKeychainItems(
 		const void *item = CFArrayGetValueAtIndex(items, dex);
 		if(item == NULL) {
 			p12ErrorLog("exportKeychainItems: NULL item\n");
-			MacOSError::throwMe(paramErr);
+			MacOSError::throwMe(errSecParam);
 		}
 		CFTypeID itemType = CFGetTypeID(item);
 		if(itemType == SecCertificateGetTypeID()) {
@@ -213,7 +212,7 @@ void P12Coder::exportKeychainItems(
 		}
 		else {
 			p12ErrorLog("exportKeychainItems: unknown item\n");
-			MacOSError::throwMe(paramErr);		
+			MacOSError::throwMe(errSecParam);		
 		}
 	}
 }
@@ -246,10 +245,10 @@ static OSStatus attrNameToInt(
 		const CSSM_DB_SCHEMA_ATTRIBUTE_INFO *info = &attrList[dex];
 		if(!strcmp(name, info->AttributeName)) {
 			*attrInt = info->AttributeId;
-			return noErr;
+			return errSecSuccess;
 		}
 	}
-	return paramErr;
+	return errSecParam;
 }
 
 void P12Coder::addSecKey(
@@ -315,7 +314,7 @@ void P12Coder::addSecKey(
 		}
 		else {
 			p12ErrorLog("addSecKey: unexpected attr tag\n");
-			MacOSError::throwMe(paramErr);		
+			MacOSError::throwMe(errSecParam);		
 			
 		}
 	}
@@ -412,7 +411,7 @@ void P12Coder::addSecCert(
 				break;
 			default:
 				p12ErrorLog("addSecCert: unexpected attr tag\n");
-				MacOSError::throwMe(paramErr);		
+				MacOSError::throwMe(errSecParam);		
 			
 		}
 	}

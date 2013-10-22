@@ -23,61 +23,17 @@ sites are kept frequently up to date.  The sites marked with (H) may be
 mirroring ftp.cs.elte.hu instead of the primary site.
 
       Primary site
-            ftp://ftp.zsh.org/pub/zsh/
-            http://www.zsh.org/pub/zsh/
+            ftp://ftp.zsh.org/pub/
+            http://www.zsh.org/pub/
 
       Australia
-            ftp://ftp.zsh.org/pub/zsh/
-            http://www.zsh.org/pub/zsh/
-
-      Finland
-            ftp://ftp.funet.fi/pub/unix/shells/zsh/
-
-      Germany
-            ftp://ftp.fu-berlin.de/pub/unix/shells/zsh/  (H)
-            ftp://ftp.gmd.de/packages/zsh/
-            ftp://ftp.uni-trier.de/pub/unix/shell/zsh/
+            ftp://ftp.zsh.org/pub/
+            http://www.zsh.org/pub/
+            http://mirror.dejanseo.com.au/pub/zsh/
 
       Hungary
             ftp://ftp.cs.elte.hu/pub/zsh/
             http://www.cs.elte.hu/pub/zsh/
-            ftp://ftp.kfki.hu/pub/packages/zsh/
-
-      Israel
-            ftp://ftp.math.technion.ac.il/pub/zsh/
-            http://www.math.technion.ac.il/pub/zsh/
-
-      Japan
-            ftp://ftp.win.ne.jp/pub/shell/zsh/
-
-      Korea
-            ftp://linux.sarang.net/mirror/system/shell/zsh/
-
-      Netherlands
-            ftp://ftp.demon.nl/pub/mirrors/zsh/
-
-      Norway
-            ftp://ftp.uit.no/pub/unix/shells/zsh/
-
-      Poland
-            ftp://sunsite.icm.edu.pl/pub/unix/shells/zsh/
-
-      Romania
-            ftp://ftp.roedu.net/pub/mirrors/ftp.zsh.org/pub/zsh/
-            ftp://ftp.kappa.ro/pub/mirrors/ftp.zsh.org/pub/zsh/
-
-      Slovenia
-            ftp://ftp.siol.net/mirrors/zsh/
-
-      Sweden
-            ftp://ftp.lysator.liu.se/pub/unix/zsh/
-
-      UK
-            ftp://ftp.net.lut.ac.uk/zsh/
-            ftp://sunsite.org.uk/packages/zsh/
-
-      USA
-            http://zsh.open-mirror.com/
 
 The up-to-date source code is available via anonymous CVS and Git from
 Sourceforge.  See http://sourceforge.net/projects/zsh/ for details.

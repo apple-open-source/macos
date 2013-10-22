@@ -1,0 +1,27 @@
+--- #YAML:1.0
+name:               Graph
+version:            0.94
+abstract:           ~
+author:
+    - Jarkko Hietaniemi <jhi@iki.fi>
+license:            perl
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
+requires:
+    List::Util:     0
+    Math::Complex:  0
+    Safe:           0
+    Scalar::Util:   0
+    Storable:       2.05
+    Test::More:     0
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.55_02
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4

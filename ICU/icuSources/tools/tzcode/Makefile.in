@@ -1,4 +1,4 @@
-# Some Portions Copyright (c) 2006-2010 IBM and others. All Rights Reserved.
+# Some Portions Copyright (c) 2006-2012 IBM and others. All Rights Reserved.
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -114,11 +114,14 @@ CPPFLAGS+= -DTZDIR=\"$(TZDIR)\"
 XDATA=zone.tab yearistype.sh leapseconds iso3166.tab
 ICUDATA=ZoneMetaData.java icu_zone.txt tz2icu zoneinfo64.txt zoneinfo.txt
 
+# create modified CXXFLAGS without -fXXX, -Wxxxx (the settings for these don't work for tz2icu)
+TZCODE_CXXFLAGS=$(patsubst -W%,,$(patsubst -f%,,$(CXXFLAGS)))
+
 $(ZICTARG):		$(OBJECTS) $(TDATA) yearistype $(srcdir)/tz2icu.h
 		$(CC) $(CFLAGS) $(TZORIG_EXTRA_CFLAGS) $(LFLAGS) -I$(srcdir) $(OBJECTS) $(LDLIBS) -o $@
 
 $(TZ2ICUTARG):	$(srcdir)/tz2icu.cpp $(srcdir)/tz2icu.h
-		$(CXX) -W -Wall $(TZ_EXTRA_CXXFLAGS) -I$(srcdir) -I$(top_srcdir)/common -pedantic $(srcdir)/tz2icu.cpp -o $@
+		$(CXX) -W -Wall $(TZCODE_CXXFLAGS) -I$(srcdir) -I$(top_srcdir)/common -pedantic $(srcdir)/tz2icu.cpp -o $@
 
 $(ICUZDUMPTARG):	$(srcdir)/icuzdump.cpp
 		$(LINK.cc)  -I$(srcdir) -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(top_srcdir)/tools/toolutil -I$(top_srcdir)/io  -pedantic $(srcdir)/icuzdump.cpp $(LIBICUUC) $(LIBICUDT) $(LIBICUI18N) $(LIBICUIO) $(LIBICUTOOLUTIL) -o $@
@@ -127,7 +130,7 @@ $(ICUZDUMPTARG):	$(srcdir)/icuzdump.cpp
 $(TDATA): tdatamarker
 
 tdatamarker: $(TZDATA)
-	gunzip -d < $(TZDATA) | tar xf -
+	gunzip -d < $(TZDATA) | tar xf - --exclude=Makefile
 	touch $@
 
 yearistype:	yearistype.sh
@@ -149,7 +152,7 @@ clean:
 		-rm -rf $(TZDIR)
 		-$(RMV) $(ICUZDUMPTARG) tzorig ./zdumpout/ ./icuzdumpout/
 ifneq ($(TZDATA),)
-		-rm -rf `gunzip -d < $(TZDATA) | tar tf - | grep -o '[^ ]*$$' | tr '\n' ' '`
+		-rm -rf `gunzip -d < $(TZDATA) | tar tf - --exclude=Makefile | grep -o '[^ ]*$$' | tr '\n' ' '`
 		-rm tdatamarker
 endif
 

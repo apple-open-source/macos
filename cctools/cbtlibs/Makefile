@@ -1,26 +1,12 @@
 RC_OS = macos
 OFLAG = -Os
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
 endif
 	
-ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -gccinc -I$(SRCROOT)/../include $(SDK)
-else
-  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall $(X_CFLAGS) $(SDK)
-endif
-
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
-else
-  MKDIRS = /bin/mkdir -p
-endif
-
+CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall $(SDK)
+MKDIRS = /bin/mkdir -p
 SRCROOT = .
 SYMROOT = .
 OBJROOT = .
@@ -37,20 +23,13 @@ all: $(OFILE_DIR) $(SYMROOT) lib_ofiles
 
 lib_ofiles: $(OFILE_DIR) $(SYMROOT) libsyminfo.a 
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
-		-MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 clean shlib_clean:
 	-rm -r -f $(OFILE_DIRS)
 	-rm -f libsyminfo.a
+	-rm -r -f *dSYM
 
 install: all
 
@@ -64,15 +43,8 @@ $(SYMROOT):
 	$(MKDIRS) $@
 
 libsyminfo.o: libsyminfo.c
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c \
 		-o $(OFILE_DIR)/$*.o $(SRCROOT)/libsyminfo.c -DLIBRARY_API
-else
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c \
-		-MD -dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o \
-		$(SRCROOT)/libsyminfo.c -DLIBRARY_API
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 libsyminfo.a: libsyminfo.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -87,8 +59,6 @@ lib_ofiles_install: lib_ofiles
 	install -p -c -m 444 $(SYMROOT)/libsyminfo.a \
 		$(DSTROOT)$(LOCLIBDIR)/libsyminfo.a
 	ranlib $(DSTROOT)$(LOCLIBDIR)/libsyminfo.a
-
--include $(OFILE_DIR)/Makedep
 
 $(OFILE_DIR) $(SYMROOT):
 	$(MKDIRS) $@

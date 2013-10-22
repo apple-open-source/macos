@@ -205,12 +205,18 @@ ldap_int_tls_init_ctx( struct ldapoptions *lo, int is_server )
 		return 0;
 
 	tls_init( ti );
-
+#ifdef __APPLE__
+    if(is_server && !lts.lt_server_ident_ref_name)
+    {
+        return LDAP_NOT_SUPPORTED;
+    }
+#else
 	if ( is_server && !lts.lt_certfile && !lts.lt_keyfile &&
 		!lts.lt_cacertfile && !lts.lt_cacertdir ) {
 		/* minimum configuration not provided */
 		return LDAP_NOT_SUPPORTED;
 	}
+#endif
 
 #ifdef HAVE_EBCDIC
 	/* This ASCII/EBCDIC handling is a real pain! */
@@ -685,6 +691,14 @@ ldap_pvt_tls_get_option( LDAP *ld, int option, void *arg )
 	case LDAP_OPT_X_TLS_CONNECT_ARG:
 		*(void **)arg = lo->ldo_tls_connect_arg;
 		break;
+            
+#ifdef __APPLE__
+    case LDAP_OPT_X_TLS_CERT_IDENTITY:
+        *(char **)arg = lo->ldo_tls_server_ident_ref_name ?
+            LDAP_STRDUP( lo->ldo_tls_server_ident_ref_name) : NULL;
+            break;
+#endif
+            
 	default:
 		return -1;
 	}
@@ -806,12 +820,17 @@ ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
 		if ( lo->ldo_tls_randfile ) LDAP_FREE (lo->ldo_tls_randfile );
 		lo->ldo_tls_randfile = arg ? LDAP_STRDUP( (char *) arg ) : NULL;
 		break;
-/*Apple Specific code*/            
+#ifdef __APPLE__
+    case LDAP_OPT_X_TLS_CERT_IDENTITY:
+        if( lo->ldo_tls_server_ident_ref_name) LDAP_FREE(lo->ldo_tls_server_ident_ref_name);
+        lo->ldo_tls_server_ident_ref_name = arg ? LDAP_STRDUP( (char*) arg) : NULL;
+        return 0;
+            
     case LDAP_OPT_X_TLS_PASSPHRASE:
         if( lo->ldo_tls_passphrase) LDAP_FREE(lo->ldo_tls_passphrase);
         lo->ldo_tls_passphrase = arg ? LDAP_STRDUP( (char*) arg) : NULL;
         return 0;
-/*Apple Specific code*/            
+#endif
 	case LDAP_OPT_X_TLS_NEWCTX:
 		if ( !arg ) return -1;
 		if ( lo->ldo_tls_ctx )
@@ -1325,6 +1344,14 @@ tls_get_cert_from_keychain( char *host )
 	struct ldapoptions *lo = LDAP_INT_GLOBAL_OPT();
 	if ( !lo ) return;
 
+        /* If the server identity option is set, don't need to do anything
+         * as the certificate will get set in the SSL context during context
+         * initialization. 
+         */
+        if (lo->ldo_tls_server_ident_ref_name) {
+                return;
+        }
+
 	/* If the cert is set in the options, don't override it. */
 	if ( lo->ldo_tls_cacertfile || lo->ldo_tls_certfile ) {
 		Debug( LDAP_DEBUG_ANY,
@@ -1432,129 +1459,6 @@ tls_get_cert_from_keychain( char *host )
 	Debug( LDAP_DEBUG_ANY,
 	       "TLS: %s certificate in keychain for host \"%s\"\n",
 	       lo->ldo_tls_cert_ref ? "found" : "did not find", host, 0 );
-}
-
-int ldap_pvt_test_tls_settings(LDAP *ld)
-{
-    int rc = 0;
-    struct ldapoptions *lo;
-    
-	if( ld != NULL ) {
-		assert( LDAP_VALID( ld ) );
-        
-		if( !LDAP_VALID( ld ) ) {
-			return LDAP_OPT_ERROR;
-		}
-        
-		lo = &ld->ld_options;
-        
-	} else {
-		/* Get pointer to global option structure */
-		lo = LDAP_INT_GLOBAL_OPT();   
-		if ( lo == NULL ) {
-			return LDAP_NO_MEMORY;
-		}
-	}
-    if (lo->ldo_tls_cacertfile != NULL )
-    {
-        struct stat sb;
-        rc = lstat( lo->ldo_tls_cacertfile, &sb );
-        if ( rc != 0 )
-        {
-            Debug( LDAP_DEBUG_ANY, "TLS: "
-                  "could not load verify ca location (file:`%s').\n",
-                  lo->ldo_tls_cacertfile ? lo->ldo_tls_cacertfile : "",0,0 );
-            return LDAP_TLS_CACERTFILE_NOTFOUND;
-        }
-    }
-    if ( lo->ldo_tls_certfile != NULL)
-	{
-		struct stat sb;
-        rc = lstat( lo->ldo_tls_certfile, &sb );
-        if ( rc != 0 )
-        {
-            Debug( LDAP_DEBUG_ANY, "TLS: "
-                  "could not load verify cert location (file:`%s').\n",
-                  lo->ldo_tls_certfile ? lo->ldo_tls_certfile : "",0,0 );
-            return LDAP_TLS_CERTFILE_NOTFOUND; 
-        }
-	}
-    
-	/* Key validity is checked automatically if cert has already been set */
-	if ( lo->ldo_tls_keyfile )
-	{
-        struct stat sb;
-        rc = lstat( lo->ldo_tls_keyfile, &sb );
-        if ( rc != 0 )
-        {
-            Debug( LDAP_DEBUG_ANY, "TLS: "
-                  "could not load verify key location (file:`%s').\n",
-                  lo->ldo_tls_keyfile ? lo->ldo_tls_keyfile : "",0,0 );
-            return LDAP_TLS_CERTKEYFILE_NOTFOUND;
-        }
-	}
-    struct ldapoptions *global_lo = LDAP_INT_GLOBAL_OPT();
-	/*
-     * When a remembered passphrase is available, use it
-     */
-    if (global_lo->ldo_tls_passphrase != NULL) {
-        
-        SecKeychainRef keychainRef = NULL;
-        OSStatus status = SecKeychainOpen( SYSTEM_KEYCHAIN_PATH, &keychainRef );
-        if ( status != errSecSuccess ) {
-            Debug( LDAP_DEBUG_ANY, "TLS: SecKeychainOpen failed for keychain %s: %d",
-                  SYSTEM_KEYCHAIN_PATH, (int)status, 0 );
-            syslog( LOG_ERR, "TLS: SecKeychainOpen failed for keychain %s: %d",
-                   SYSTEM_KEYCHAIN_PATH, (int)status, 0 );
-            cssmPerror( "SecKeychainOpen", status );
-            return -1;
-        }
-        char *keychain_identifier = LDAP_STRDUP(global_lo->ldo_tls_passphrase);
-        CFStringRef keychainCFName = CFStringCreateWithCString(NULL, keychain_identifier, kCFStringEncodingUTF8);
-        if(keychainCFName)
-        {
-            CFRange foundRange;
-            if(CFStringFindWithOptions(keychainCFName, CFSTR("."), CFRangeMake(0, CFStringGetLength(keychainCFName)), kCFCompareCaseInsensitive, &foundRange) == true)
-            {
-                CFStringRef itemName = CFStringCreateWithSubstring(NULL, keychainCFName, CFRangeMake(0, foundRange.location));
-                CFStringRef accountName = CFStringCreateWithSubstring(NULL, keychainCFName, CFRangeMake(foundRange.location + 1, CFStringGetLength(keychainCFName) - foundRange.location));
-                char *item_name, *account_name;
-                void *passphraseBytes = nil;
-                UInt32 passphraseLength = 0;
-                
-                if(itemName)
-                {
-                    int length = CFStringGetLength(itemName);
-                    item_name = (char*)calloc(1, length + 1);
-                    CFStringGetCString(itemName, item_name, length +1, kCFStringEncodingUTF8);
-                }
-                if(accountName)
-                {
-                    int length = CFStringGetLength(accountName);
-                    account_name = (char*)calloc(1, length + 1);
-                    CFStringGetCString(accountName, account_name, length +1, kCFStringEncodingUTF8);
-                }
-                rc = SecKeychainFindGenericPassword(keychainRef, 
-                                                    strlen(item_name),item_name ,
-                                                    strlen(account_name), account_name,
-                                                    NULL, NULL, nil);
-                if(item_name)
-                    free(item_name);
-                if(account_name)
-                    free(account_name);
-                if(keychain_identifier)
-                    LDAP_FREE(keychain_identifier);
-                if(rc != 0)
-                {
-                    Debug( LDAP_DEBUG_ANY, "TLS: "
-                          "could not load verify passphrase in keychain.\n",0,0,0 );
-                    return LDAP_TLS_PASSPHRASE_NOTFOUND;
-                    
-                }
-            }
-        }
-    }
-    return rc;
 }
 
 #endif /* __APPLE__ */

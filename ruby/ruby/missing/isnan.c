@@ -1,17 +1,17 @@
 /* public domain rewrite of isnan(3) */
 
-static int double_ne();
+#include "ruby/missing.h"
+
+static int double_ne(double n1, double n2);
 
 int
-isnan(n)
-    double n;
+isnan(double n)
 {
     return double_ne(n, n);
 }
 
 static int
-double_ne(n1, n2)
-    double n1, n2;
+double_ne(double n1, double n2)
 {
     return n1 != n2;
 }

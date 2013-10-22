@@ -41,7 +41,10 @@
 		05AE954A0AA748580076501C /* SecImportExportOpenSSH.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05AE95480AA748570076501C /* SecImportExportOpenSSH.cpp */; };
 		05FB016805E54A3A00A5194C /* SecNetscapeTemplates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05FB016605E54A3A00A5194C /* SecNetscapeTemplates.cpp */; };
 		05FB016905E54A3A00A5194C /* SecNetscapeTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 05FB016705E54A3A00A5194C /* SecNetscapeTemplates.h */; };
+		0CBD509A16C3246D00713B6C /* kc-40-seckey.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBD509816C3246D00713B6C /* kc-40-seckey.c */; };
+		0CBD509B16C3246D00713B6C /* kc-41-sececkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CBD509916C3246D00713B6C /* kc-41-sececkey.c */; };
 		182BB5CD146FF72B000BF1F3 /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5297A731112CB13800EAA0C0 /* libDER.a */; };
+		188BB546171DD8B5009D22CE /* si-33-keychain-backup.c in Sources */ = {isa = PBXBuildFile; fileRef = 188BB53F171DD774009D22CE /* si-33-keychain-backup.c */; };
 		1B11967B062F4C1800F3B659 /* SecKeychainSearchPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B11967A062F4C1800F3B659 /* SecKeychainSearchPriv.h */; settings = {ATTRIBUTES = (); }; };
 		30E17F5B062B0A25004208EB /* SecIdentitySearchPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 30E17F5A062B0A25004208EB /* SecIdentitySearchPriv.h */; settings = {ATTRIBUTES = (); }; };
 		407AC2C0066661620030E07D /* SecPassword.h in Headers */ = {isa = PBXBuildFile; fileRef = 407AC2BE066661620030E07D /* SecPassword.h */; settings = {ATTRIBUTES = (); }; };
@@ -88,7 +91,6 @@
 		521DC5801125FEE300937BF2 /* SecCertificateP.h in Headers */ = {isa = PBXBuildFile; fileRef = 521DC57E1125FEE300937BF2 /* SecCertificateP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52200F8B14F2B87F00F7F6E7 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA31456E134B716B00133245 /* CoreFoundation.framework */; };
 		5261C28A112F0D570047EF8B /* SecFrameworkP.c in Sources */ = {isa = PBXBuildFile; fileRef = 5261C289112F0D570047EF8B /* SecFrameworkP.c */; };
-		5261C2E2112F19BA0047EF8B /* debuggingP.c in Sources */ = {isa = PBXBuildFile; fileRef = 5261C2E1112F19BA0047EF8B /* debuggingP.c */; };
 		5261C310112F1C560047EF8B /* SecBase64P.c in Sources */ = {isa = PBXBuildFile; fileRef = 5261C30F112F1C560047EF8B /* SecBase64P.c */; };
 		52B609D914F55B6800134209 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52B609D814F55B6800134209 /* Foundation.framework */; };
 		52B609E314F55BFA00134209 /* timestampclient.m in Sources */ = {isa = PBXBuildFile; fileRef = 52B609E214F55BFA00134209 /* timestampclient.m */; };
@@ -100,7 +102,6 @@
 		52C23EF81135AE5100E079D2 /* SecCertificatePrivP.h in Headers */ = {isa = PBXBuildFile; fileRef = 52C23EF71135AE5100E079D2 /* SecCertificatePrivP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52E950CD1509B47000DA6511 /* tsaDERUtilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 52E950CC1509B47000DA6511 /* tsaDERUtilities.c */; };
 		52E950D61509B48D00DA6511 /* tsaDERUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 52E950D51509B48D00DA6511 /* tsaDERUtilities.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		52FB42C2113F056D006D3B0A /* debuggingP.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FB42C1113F056D006D3B0A /* debuggingP.h */; };
 		52FB44A91146D769006D3B0A /* SecCertificateOIDs.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FB44A81146D769006D3B0A /* SecCertificateOIDs.h */; settings = {ATTRIBUTES = (); }; };
 		AA31456F134B716B00133245 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA31456E134B716B00133245 /* CoreFoundation.framework */; };
 		BE296DBF0EAC299C00FD22BE /* SecImportExport.c in Sources */ = {isa = PBXBuildFile; fileRef = BE296DBE0EAC299C00FD22BE /* SecImportExport.c */; };
@@ -252,11 +253,16 @@
 		05AE95480AA748570076501C /* SecImportExportOpenSSH.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecImportExportOpenSSH.cpp; sourceTree = "<group>"; };
 		05FB016605E54A3A00A5194C /* SecNetscapeTemplates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecNetscapeTemplates.cpp; sourceTree = "<group>"; };
 		05FB016705E54A3A00A5194C /* SecNetscapeTemplates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecNetscapeTemplates.h; sourceTree = "<group>"; };
+		0CBD509716C3242200713B6C /* libsecurity_keychain_regressions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_keychain_regressions.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		0CBD509816C3246D00713B6C /* kc-40-seckey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-40-seckey.c"; path = "regressions/kc-40-seckey.c"; sourceTree = "<group>"; };
+		0CBD509916C3246D00713B6C /* kc-41-sececkey.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-41-sececkey.c"; path = "regressions/kc-41-sececkey.c"; sourceTree = "<group>"; };
+		0CBD509C16C324B100713B6C /* keychain_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = keychain_regressions.h; path = regressions/keychain_regressions.h; sourceTree = "<group>"; };
 		182BB224146F063C000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		182BB225146F063C000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
 		182BB226146F063C000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		182BB227146F063C000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		182BB30C146F0AE6000BF1F3 /* libsecurity_utilities.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_utilities.xcodeproj; path = ../libsecurity_utilities/libsecurity_utilities.xcodeproj; sourceTree = "<group>"; };
+		188BB53F171DD774009D22CE /* si-33-keychain-backup.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "si-33-keychain-backup.c"; path = "regressions/si-33-keychain-backup.c"; sourceTree = "<group>"; };
 		1B11967A062F4C1800F3B659 /* SecKeychainSearchPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecKeychainSearchPriv.h; sourceTree = "<group>"; };
 		30E17F5A062B0A25004208EB /* SecIdentitySearchPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecIdentitySearchPriv.h; path = lib/SecIdentitySearchPriv.h; sourceTree = SOURCE_ROOT; };
 		407AC2BE066661620030E07D /* SecPassword.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecPassword.h; sourceTree = "<group>"; };
@@ -652,6 +658,17 @@
 			name = Import/Export;
 			sourceTree = "<group>";
 		};
+		0CBD4FF916C323E800713B6C /* regressions */ = {
+			isa = PBXGroup;
+			children = (
+				0CBD509C16C324B100713B6C /* keychain_regressions.h */,
+				0CBD509816C3246D00713B6C /* kc-40-seckey.c */,
+				0CBD509916C3246D00713B6C /* kc-41-sececkey.c */,
+				188BB53F171DD774009D22CE /* si-33-keychain-backup.c */,
+			);
+			name = regressions;
+			sourceTree = "<group>";
+		};
 		182BB223146F063C000BF1F3 /* config */ = {
 			isa = PBXGroup;
 			children = (
@@ -687,6 +704,7 @@
 			children = (
 				182BB30C146F0AE6000BF1F3 /* libsecurity_utilities.xcodeproj */,
 				5297A586112B78BB00EAA0C0 /* libDER.xcodeproj */,
+				0CBD4FF916C323E800713B6C /* regressions */,
 				C2AA2B41052E099D006D0211 /* lib */,
 				182BB223146F063C000BF1F3 /* config */,
 				52200F9914F2B93700F7F6E7 /* xpc-tsa */,
@@ -701,6 +719,7 @@
 				4CA1FEBE052A3C8100F22E42 /* libsecurity_keychain.a */,
 				4C5719C812FB5E9E00B31F85 /* XPCKeychainSandboxCheck.xpc */,
 				52200F8F14F2B88000F7F6E7 /* XPCTimeStampingService.xpc */,
+				0CBD509716C3242200713B6C /* libsecurity_keychain_regressions.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -809,7 +828,6 @@
 				52BA735E112231C70012875E /* CertificateValues.h in Headers */,
 				521DC5801125FEE300937BF2 /* SecCertificateP.h in Headers */,
 				52C23EF81135AE5100E079D2 /* SecCertificatePrivP.h in Headers */,
-				52FB42C2113F056D006D3B0A /* debuggingP.h in Headers */,
 				52E950D61509B48D00DA6511 /* tsaDERUtilities.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -817,6 +835,21 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		0CBD500016C3242200713B6C /* libsecurity_keychain_regressions */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CBD509416C3242200713B6C /* Build configuration list for PBXNativeTarget "libsecurity_keychain_regressions" */;
+			buildPhases = (
+				0CBD504416C3242200713B6C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_keychain_regressions;
+			productName = libsecurity_keychain;
+			productReference = 0CBD509716C3242200713B6C /* libsecurity_keychain_regressions.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		4C5719C712FB5E9E00B31F85 /* XPCKeychainSandboxCheck */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4C5719CF12FB5E9F00B31F85 /* Build configuration list for PBXNativeTarget "XPCKeychainSandboxCheck" */;
@@ -874,7 +907,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD3810987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_keychain" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -904,6 +937,7 @@
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_keychain */,
 				4C5719C712FB5E9E00B31F85 /* XPCKeychainSandboxCheck */,
 				52200F8714F2B87F00F7F6E7 /* XPCTimeStampingService */,
+				0CBD500016C3242200713B6C /* libsecurity_keychain_regressions */,
 			);
 		};
 /* End PBXProject section */
@@ -954,6 +988,16 @@
 /* End PBXReferenceProxy section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0CBD504416C3242200713B6C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0CBD509B16C3246D00713B6C /* kc-41-sececkey.c in Sources */,
+				188BB546171DD8B5009D22CE /* si-33-keychain-backup.c in Sources */,
+				0CBD509A16C3246D00713B6C /* kc-40-seckey.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4C5719C512FB5E9E00B31F85 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1038,7 +1082,6 @@
 				52BA735D112231C70012875E /* CertificateValues.cpp in Sources */,
 				521DC57F1125FEE300937BF2 /* SecCertificateP.c in Sources */,
 				5261C28A112F0D570047EF8B /* SecFrameworkP.c in Sources */,
-				5261C2E2112F19BA0047EF8B /* debuggingP.c in Sources */,
 				5261C310112F1C560047EF8B /* SecBase64P.c in Sources */,
 				4885CFF811C8182D0093ECF6 /* SecRecoveryPassword.c in Sources */,
 				52B88DFB11DD0D2D005BCA6B /* SecFDERecoveryAsymmetricCrypto.cpp in Sources */,
@@ -1072,14 +1115,39 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0CBD509516C3242200713B6C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB225146F063C000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
+			};
+			name = Debug;
+		};
+		0CBD509616C3242200713B6C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB227146F063C000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
+			};
+			name = Release;
+		};
 		4C5719CB12FB5E9F00B31F85 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB225146F063C000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "xpc/XPCKeychainSandboxCheck-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/XPCServices/";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/XPCServices";
 				PRODUCT_NAME = XPCKeychainSandboxCheck;
+				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = NO;
 				WRAPPER_EXTENSION = xpc;
 			};
@@ -1089,10 +1157,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB227146F063C000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "xpc/XPCKeychainSandboxCheck-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/XPCServices/";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/XPCServices";
 				PRODUCT_NAME = XPCKeychainSandboxCheck;
+				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = NO;
 				WRAPPER_EXTENSION = xpc;
 			};
@@ -1102,10 +1173,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB225146F063C000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "xpc-tsa/XPCTimeStampingService-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/XPCServices/";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/XPCServices";
 				PRODUCT_NAME = XPCTimeStampingService;
+				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = NO;
 				WRAPPER_EXTENSION = xpc;
 			};
@@ -1115,10 +1189,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB227146F063C000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = "xpc-tsa/XPCTimeStampingService-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/XPCServices/";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/${FRAMEWORK_VERSION}/XPCServices";
 				PRODUCT_NAME = XPCTimeStampingService;
+				PROVISIONING_PROFILE = "";
 				SKIP_INSTALL = NO;
 				WRAPPER_EXTENSION = xpc;
 			};
@@ -1128,9 +1205,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB225146F063C000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/libDER",
+				);
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
 				);
 			};
 			name = Debug;
@@ -1139,9 +1221,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB227146F063C000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/libDER",
+				);
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
 				);
 			};
 			name = Release;
@@ -1150,6 +1237,13 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB226146F063C000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -1157,12 +1251,28 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB226146F063C000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0CBD509416C3242200713B6C /* Build configuration list for PBXNativeTarget "libsecurity_keychain_regressions" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CBD509516C3242200713B6C /* Debug */,
+				0CBD509616C3242200713B6C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		4C5719CF12FB5E9F00B31F85 /* Build configuration list for PBXNativeTarget "XPCKeychainSandboxCheck" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

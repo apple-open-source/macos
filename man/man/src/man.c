@@ -437,11 +437,13 @@ static void
 add_directive (const char *d, const char *file, char *buf, int buflen) {
      if ((d = getval(d)) != 0 && *d) {
 	  if (*buf == 0) {
-	       if (strlen(d) + strlen(file) + 2 > buflen)
+	       if (strlen(d) + strlen(file) + 2 + 2 > buflen) // 2 extra for the single quotes
 		    return;
 	       strcpy (buf, d);
 	       strcat (buf, " ");
-	       strcat (buf, file);
+	       char *fileq = my_xsprintf("'%Q'", file);
+	       strcat (buf, fileq);
+	       free(fileq);
 	  } else {
 	       if (strlen(d) + strlen(buf) + 4 > buflen)
 		    return;

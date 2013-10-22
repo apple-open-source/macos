@@ -1,0 +1,14 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Ima-DBI
+version:      0.35
+version_from: lib/Ima/DBI.pm
+installdirs:  site
+requires:
+    Class::Data::Inheritable:      0.02
+    DBI:                           1.2
+    DBIx::ContextualFetch:         1
+    Test::More:                    0.18
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

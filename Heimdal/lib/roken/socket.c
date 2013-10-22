@@ -127,7 +127,7 @@ socket_addr_size (const struct sockaddr *sa)
  * Return the size of a `struct sockaddr' in `sa'.
  */
 
-ROKEN_LIB_FUNCTION size_t ROKEN_LIB_CALL
+ROKEN_LIB_FUNCTION socklen_t ROKEN_LIB_CALL
 socket_sockaddr_size (const struct sockaddr *sa)
 {
     switch (sa->sa_family) {
@@ -281,6 +281,19 @@ socket_set_nonblocking(rk_socket_t sock, int nonblock)
     return ioctl(sock, FIOBIO, &flags);
 #endif
 }
+
+/*
+ * Set the non-blocking-ness of the socket.
+ */
+
+ROKEN_LIB_FUNCTION void ROKEN_LIB_CALL
+socket_set_nopipe(rk_socket_t sock, int nopipe)
+{
+#if defined(SOL_SOCKET) && defined(SO_NOSIGPIPE)
+    setsockopt (sock, SOL_SOCKET, SO_NOSIGPIPE, (void *) &nopipe, sizeof(int));
+#endif
+}
+
 
 
 /*

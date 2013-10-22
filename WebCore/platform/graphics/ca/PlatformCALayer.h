@@ -31,7 +31,6 @@
 #include "GraphicsContext.h"
 #include "PlatformCAAnimation.h"
 #include "PlatformCALayerClient.h"
-#include "PlatformString.h"
 #include <QuartzCore/CABase.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/HashMap.h>
@@ -40,6 +39,9 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
+
+OBJC_CLASS AVPlayerLayer;
 
 namespace WebCore {
 
@@ -59,8 +61,10 @@ public:
         LayerTypeWebLayer,
         LayerTypeTransformLayer,
         LayerTypeWebTiledLayer,
-        LayerTypeTileCacheLayer,
+        LayerTypeTiledBackingLayer,
+        LayerTypePageTiledBackingLayer,
         LayerTypeRootLayer,
+        LayerTypeAVPlayerLayer,
         LayerTypeCustom
     };
     enum FilterType { Linear, Nearest, Trilinear };
@@ -71,6 +75,8 @@ public:
     // is defined differently for Obj C and C++. This allows callers from both languages.
     static PassRefPtr<PlatformCALayer> create(void* platformLayer, PlatformCALayerClient*);
 
+    PassRefPtr<PlatformCALayer> clone(PlatformCALayerClient*) const;
+
     ~PlatformCALayer();
     
     // This function passes the layer as a void* rather than a PlatformLayer because PlatformLayer
@@ -78,6 +84,12 @@ public:
     static PlatformCALayer* platformCALayer(void* platformLayer);
     
     PlatformLayer* platformLayer() const;
+
+#if PLATFORM(WIN)
+    bool usesTiledBackingLayer() const { return false; }
+#else
+    bool usesTiledBackingLayer() const { return m_layerType == LayerTypePageTiledBackingLayer || m_layerType == LayerTypeTiledBackingLayer; }
+#endif
 
     PlatformCALayer* rootLayer() const;
     
@@ -186,6 +198,7 @@ public:
 #if ENABLE(CSS_FILTERS)
     void setFilters(const FilterOperations&);
     static bool filtersCanBeComposited(const FilterOperations&);
+    void copyFiltersFrom(const PlatformCALayer*);
 #endif
 
     String name() const;
@@ -213,14 +226,16 @@ public:
     void printTree() const;
 #endif
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if PLATFORM(MAC) && (PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
     void synchronouslyDisplayTilesInRect(const FloatRect&);
 #endif
 
 protected:
     PlatformCALayer(LayerType, PlatformLayer*, PlatformCALayerClient*);
-    
+
 private:
+    AVPlayerLayer* playerLayer() const;
+
     PlatformCALayerClient* m_owner;
     LayerType m_layerType;
     

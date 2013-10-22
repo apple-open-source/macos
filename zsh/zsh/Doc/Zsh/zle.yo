@@ -370,6 +370,7 @@ xitem(tt(zle) tt(-U) var(string))
 xitem(tt(zle) tt(-K) var(keymap))
 xitem(tt(zle) tt(-F) [ tt(-L) ] [ var(fd) [ var(handler) ] ])
 xitem(tt(zle) tt(-I))
+xitem(tt(zle) tt(-T) [ tt(tc) var(function) | tt(-r) tt(tc) | tt(-L) ] )
 item(tt(zle) var(widget) tt([ -n) var(num) tt(]) tt([ -Nw ] [ -K) var(keymap) tt(]) var(args) ...)(
 The tt(zle) builtin performs a number of different actions concerning
 ZLE.
@@ -392,11 +393,16 @@ commands to create the widgets.
 When combined with the tt(-a) option, all widget names are listed,
 including the builtin ones. In this case the tt(-L) option is ignored.
 
-If at least one var(string) is given, nothing will be printed but the
-return status will be zero if all var(string)s are names of existing
-widgets (or of user-defined widgets if the tt(-a) flag is not given)
-and non-zero if at least one var(string) is not a name of an defined
-widget.
+If at least one var(string) is given, and tt(-a) is present or tt(-L) is
+not used, nothing will be printed.  The return status will be zero if
+all var(string)s are names of existing widgets and non-zero if at least one
+var(string) is not a name of a defined widget.  If tt(-a) is also
+present, all widget names are used for the comparison including builtin
+widgets, else only user-defined widgets are used.
+
+If at least one var(string) is present and the tt(-L) option is used,
+user-defined widgets matching any var(string) are listed in the form of
+tt(zle) commands to create the widgets.
 )
 item(tt(-D) var(widget) ...)(
 Delete the named var(widget)s.
@@ -566,6 +572,33 @@ The returned status is zero if zle was invalidated, even though
 this may have been by a previous call to `tt(zle -I)' or by a system
 notification.  To test if a zle widget may be called at this point, execute
 tt(zle) with no arguments and examine the return status.
+)
+item(tt(-T))(
+This is used to add, list or remove internal transformations on the
+processing performed by the line editor.  It is typically used only for
+debugging or testing and is therefore of little interest to the general
+user.
+
+`tt(zle -T) var(transformation) var(func)' specifies that the
+given var(transformation) (see below) is effected by shell function
+var(func).
+
+`tt(zle -Tr) var(transformation)' removes the given var(transformation)
+if it was present (it is not an error if none was).
+
+`tt(zle -TL)' can be used to list all transformations currently in
+operation.
+
+Currently the only transformation is tt(tc).  This is used instead
+of outputting termcap codes to the terminal.  When the transformation is
+in operation the shell function is passed the termcap code that would be
+output as its first argument; if the operation required a numeric
+argument, that is passed as a second argument.  The function should set
+the shell variable tt(REPLY) to the transformed termcap code.  Typically
+this is used to produce some simply formatted version of the code and
+optional argument for debugging or testing.  Note that this
+transformation is not applied to other non-printing characters such as
+carriage returns and newlines.
 )
 item(var(widget) tt([ -n) var(num) tt(]) tt([ -Nw ] [ -K) var(keymap) tt(]) var(args) ...)(
 Invoke the specified widget.  This can only be done when ZLE is
@@ -842,10 +875,13 @@ specifies that the first twenty characters of the text including
 any predisplay string should be highlighted in bold.
 
 Note that the effect of tt(region_highlight) is not saved and disappears
-as soon as the line is accepted.  The line editor makes no attempt to
-keep the highlighting effect synchronised with the line as it is edited;
-hence region highlighting is best limited to static effects within
-user widgets.
+as soon as the line is accepted.
+)
+vindex(UNDO_CHANGE_NO)
+item(tt(UNDO_CHANGE_NO) (integer))(
+A number representing the state of the undo history.  The only use
+of this is passing as an argument to the tt(undo) widget in order to
+undo back to the recorded point.  Read-only.
 )
 vindex(WIDGET)
 item(tt(WIDGET) (scalar))(
@@ -857,7 +893,7 @@ The name of the shell function that implements a widget defined with
 either tt(zle -N) or tt(zle -C).  In the former case, this is the second
 argument to the tt(zle -N) command that defined the widget, or
 the first argument if there was no second argument.  In the latter case
-this is the the third argument to the tt(zle -C) command that defined the
+this is the third argument to the tt(zle -C) command that defined the
 widget.  Read-only.
 )
 vindex(WIDGETSTYLE)
@@ -872,11 +908,20 @@ item(tt(ZLE_STATE) (scalar))(
 Contains a set of space-separated words that describe the current tt(zle)
 state.
 
-Currently, the only state shown is the insert mode as set by the
-tt(overwrite-mode) or tt(vi-replace) widgets.  The string contains
-`tt(insert)' if characters to be inserted on the command line move existing
-characters to the right, `tt(overwrite)' if characters to be inserted
-overwrite existing characters.
+Currently, the states shown are the insert mode as set by the
+tt(overwrite-mode) or tt(vi-replace) widgets and whether history commands
+will visit imported entries as controlled by the set-local-history widget.
+The string contains `tt(insert)' if characters to be inserted on the
+command line move existing characters to the right or `tt(overwrite)'
+if characters to be inserted overwrite existing characters. It contains
+`tt(localhistory)' if only local history commands will be visited or
+`tt(globalhistory)' if imported history commands will also be visited.
+
+The substrings are sorted in alphabetical order so that if you want to
+test for two specific substrings in a future-proof way, you can do match
+by doing:
+
+example(if [[ $ZLE_STATE == *insert*globalhistory* ]]; then ...; fi)
 )
 enditem()
 
@@ -925,6 +970,10 @@ tindex(zle-line-finish)
 item(tt(zle-line-finish))(
 This is similar to tt(zle-line-init) but is executed every time the
 line editor has finished reading a line of input.
+)
+tindex(zle-history-line-set)
+item(tt(zle-history-line-set))(
+Executed when the history line changes.
 )
 tindex(zle-keymap-select)
 item(tt(zle-keymap-select))(
@@ -1430,6 +1479,13 @@ Search forward in the history for a line beginning with the current
 line up to the cursor.
 This leaves the cursor in its original position.
 )
+tindex(set-local-history)
+item(tt(set-local-history))(
+By default, history movement commands visit the imported lines as well as
+the local lines. This widget lets you toggle this on and off, or set it with
+the numeric argument. Zero for both local and imported lines and nonzero for
+only local lines.
+)
 enditem()
 texinode(Modifying Text)(Arguments)(History Control)(Zle Widgets)
 subsect(Modifying Text)
@@ -1865,7 +1921,7 @@ executed as a shell command.
 tindex(accept-line-and-down-history)
 item(tt(accept-line-and-down-history) (^O) (unbound) (unbound))(
 Execute the current line, and push the next history
-event on the the buffer stack.
+event on the buffer stack.
 )
 tindex(auto-suffix-remove)
 item(tt(auto-suffix-remove))(
@@ -2130,7 +2186,10 @@ command is typed.  By default it beeps.
 )
 tindex(undo)
 item(tt(undo) (^_ ^Xu ^X^U) (unbound) (unbound))(
-Incrementally undo the last text modification.
+Incrementally undo the last text modification.  When called from a
+user-defined widget, takes an optional argument indicating a previous state
+of the undo history as returned by the tt(UNDO_CHANGE_NO) variable;
+modifications are undone until that state is reached.
 )
 tindex(redo)
 item(tt(redo))(
@@ -2149,7 +2208,7 @@ column of the cursor in the current line.
 )
 tindex(where-is)
 item(tt(where-is))(
-Read the name of an editor command and and print the listing of key
+Read the name of an editor command and print the listing of key
 sequences that invoke the specified command.
 A restricted set of editing functions is available in the
 mini-buffer.  Keys are looked up in the special
@@ -2349,6 +2408,11 @@ character set.
 Not all systems support this: for it to work, the system's representation of
 wide characters must be code values from the Universal Character Set,
 as defined by IS0 10646 (also known as Unicode).
+)
+item(Wrapped double-width characters)(
+When a double-width character appears in the final column of a line, it
+is instead shown on the next line. The empty space left in the original
+position is highlighted as a special character.
 )
 enditem()
 

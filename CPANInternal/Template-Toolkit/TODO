@@ -1,0 +1,289 @@
+#========================================================================
+#
+# TODO
+#
+# DESCRIPTION
+#   TODO list for the Template Toolkit version 2.20, containing
+#   known bugs, limitations, planned enhancements, long term visions 
+#   and a few whacky ideas.  Development on TT2 has effectively 
+#   ceased for everything but bug fixes.  All new features and general
+#   enhancements are being saved for TT3.
+#
+# AUTHOR
+#   Andy Wardley   <abw@wardley.org>
+#
+#========================================================================
+
+
+#------------------------------------------------------------------------
+# Miscellaneous
+#------------------------------------------------------------------------
+
+* The 'eval' filter leaks memory, as reported by Colin Johnson.  The
+  filter subroutine created contains a reference to the context and then
+  gets cached in the FILTER_CACHE item of the context.  Hey presto -
+  circular references.  The reset() method should probably clear the
+  FILTER_CACHE.  Also need to check the plugins cache for similar
+  problems.  UPDATE: this may now have been fixed.
+
+* The handling of the DELIMITER parameter could be improved.  At the 
+  moments it's hardcoded and hacked to Do The Right Thing for Win32
+  but I'd prefer it to Do The Good Thing.
+
+* If you use 'ttree' with a COMPILE_EXT or COMPILE_DIR option then
+  templates in the 'lib' directories will be compiled, but those in
+  the src directories will not.  This is because ttree does a chdir()
+  to the src directory and processes files as './myfile'.  TT doesn't
+  compile RELATIVE files by default.
+
+* No recursion checking is performed for BLOCKs, only
+  Template::Document instances.  This is probably the way it will stay
+  (unless anyone shouts loudly enough) but it should be documented
+  anyway.  STOP PRESS: I had an idea that bare BLOCK subs should be
+  blessed into Template::Document class to allow $template->process()
+  to be called regardless.  Template::Document methods would need to
+  test $self for CODE/HASH and Do The Right Thing.  This would then
+  allow recursion testing for BLOCKs as well as Template::Document
+  objects.
+
+* It would be nice if there was an option so that the files generated
+  under the COMPILE_DIR are relative to the INCLUDE_PATH and not absolute.
+  This could cause potential conflicts (e.g. if INCLUDE_PATH changes
+  between sessions and the same files in different INCLUDE_PATH dirs
+  maps to the samed compiled version) but is convenient for those times
+  when you know that's not going to be a problem.
+
+* Craig Barratt notes, in fixing the problem with NEXT not working 
+  inside SWITCH (see Changes v2.04):
+
+    By the way, I came across another arcane bug:
+
+	NEXT FOREACH k = [1];
+
+    is legal syntax but is an infinite loop, since $_[0]->{ INFOR } in
+    Parser.yp is not set when the NEXT is parsed, so it generates a
+    plain "next;" rather than calling $factor->next().  I don't see an
+    easy, clean fix.
+
+
+#------------------------------------------------------------------------
+# Documentation
+#------------------------------------------------------------------------
+
+* Extend the FAQ.
+
+
+#------------------------------------------------------------------------
+# Directives
+#------------------------------------------------------------------------
+
+* A 'FOR', like 'FOREACH' but without using an iterator.  You wouldn't get 
+  the 'loop' reference to test 'first', 'last', etc., against, but it would
+  be faster for those cases when you didn't need it.  This will likely 
+  be implemented as a facility feature (see later).
+
+* PRINT should be defined as a new directive, doing what the print() 
+  method of Template::View currently does (the Right Thing).
+
+    [% PRINT node %]    ===    [% tt.view.print(node) %]
+
+  NOTE TO SELF: this is a Very Good Idea [tm].  PRINT becomes the way to 
+  display a data structure (e.g. hash, list, XML element, MyThingy, database
+  record, etc.) in an "intelligent" fashion.  Implemented underneath via 
+  the current default VIEW.
+
+* ARGS.  There may be a requirement for reusable template components
+  to define what variables they plan to use.  This would allow some
+  optimisation and also possibly help to avoid global variable clashes.
+  Would also be a useful "comment" directive for human readers and maybe
+  also help in debugging (WARNING: expected 'title' argument).
+
+    [% ARGS title		# no default
+	    bgcol='#ffffff'	# default value
+    %]
+
+
+#------------------------------------------------------------------------
+# Parser
+#------------------------------------------------------------------------
+
+* Lists don't accept arbitrary expressions as elements, although 
+  function arguments now do.  So you can do this: [% foo(bar + 1) %],
+  but you can't do this: [% foo = [bar + 1] %].  This has been fixed in 
+  the v3 parser.  
+
+* The parser isn't as intelligent as it could be about blocks of template
+  code commented out en masse.  The pre-scanner find the first terminating 
+  END_TAG after an opening tag, regardless of it being on a 
+  commented line or not.
+  e.g.
+    [%#
+      # 
+      #  [% INCLUDE blah %] <- directive ends here
+      #  foo                <- this gets printed
+    %]
+
+* Craig Barratt reports the following:
+
+  I looked at Parse.yp to see how hard it would be to push FILTER
+  evaluation down into the expr rule, so that you could put filters
+  inside expressions (eg: using repeat() just like &quot;x&quot; in
+  perl).  More about that later.
+
+  In browsing through Parser.yp I noticed several issues:
+
+  - The operator precedence is very different to perl, C etc.
+    For example, these expressions evaluate differently in
+    TT2 versus perl, C etc:
+
+      + "1 || 0 && 0" evaluates to 0 in TT2 and 1 in perl or C.  
+        TT2 parses it as (1||0) && 0; in perl and C && is higher
+        precedence than ||.
+
+      + "1 + !0 + 1" evaluates to 1 in TT2 and 3 in perl or C.
+        TT2 parses it as 1 + !(0 + 1); in perl and C ! is higher
+        precedence than +.
+
+      + Many other expressions parse incorrectly, but the effect
+        is benign since most rules return flat text that perl
+        correctly re-parses.  Eg, 2 * 3 + 4 is incorrectly parsed
+        as (2 * (3 + 4)), but happily just the string "2 * 3 + 4"
+        is compiled by perl, which correctly evaluates it as
+        (2 * 3) + 4.
+
+  - There is no unary minus and the NUMBER token is signed. So you can
+    write "x = -2;" but not "x = -y;". Moreover, "x = 1 -1;" is a syntax
+    error (since "1 -1" returns just two tokens NUMBER, NUMBER). (As a
+    workaround you can rewrite these as "x = 0-y;" and "x = 1 - 1".)
+
+  - You cannot have expressions in lists ([..]) and function arguments.
+
+  I have modified the Parser.pm (to make NUMBER unsigned) and modified
+  Grammar.pm.skel and Parser.yp to fix most of these issues (improved
+  operator precedence, unary minus and plus), and also to allow
+  expressions in a few more places (eg: range).  But the last item
+  has me stuck.
+
+  The parse rules for lists and function arguments make COMMA optional,
+  so you can equivalently write [1 2 3 4] or [1,,,,,2 3 4] or [1,2,3,4].
+  This makes it very difficult to make each term an expression, because
+  the resulting grammar has many ambiguities.  For example, is [1 -1]
+  two elements [1, -1] or a single element [0]?  One partial solution is
+  to move the bracketed expression rule '(' expr ')' to the term rule,
+  allowing expressions to be included via parens.  But there are also
+  ambiguities, eg: does [foo (1+1)] have 2 elements or is it a function
+  call to foo?
+
+  Without allowing expressions in lists or function arguments, the unary
+  minus change I've made means that the NUMBER token is unsigned, so with
+  my changes you cannot write [-1, 2, 3].  Not a good thing.
+
+  One solution is to change the grammar so that COMMAs are required in
+  lists and arguments, but that would break several test cases and
+  probably break lots of old templates.  But this might be the only
+  way to produce a grammar that is a lot more similar to perl.
+
+  Another solution is to ignore these issues altogether and use temporary
+  variables to precompute expressions that you need in lists or function
+  arguments, or use explicit lvalue assignments, eg:
+
+    foo(x + 2);             becomes    temp = x + 2;
+                                       foo(temp);
+
+  or
+
+    List = [x+1,x+2,x+4];   becomes    List   = [];
+                                       List.0 = x+1;
+                                       List.1 = x+2;
+                                       List.2 = x+4;
+
+  Both of these look ugly to me.
+
+  Back to the FILTER issues. Ultimately I'd like to be able to embed filters
+  as low precedence operators in expressions, and write:
+
+    List = [
+        "foo" | repeat(10),
+        "bar" | repeat(10)
+    ];
+
+  but I doubt there is a non-ambiguous upward compatible grammar that
+  supports this.
+
+  Comments?
+
+
+#------------------------------------------------------------------------
+# Plugins
+#------------------------------------------------------------------------
+
+* We need a way to easily enable/disable certain plugins.  This should
+  be addressed by facility provision.  Probably something for v3.
+
+* The Template::Plugin DBI iterator first/last() methods don't behave 
+  the same as list first/last().  Randal also reports that get_all()
+  doesn't work as it should - may be a conflict in code/docs?  Again,
+  this is a problem to solve in TT3.
+
+* PLUGINS could accept a reference to an object which is used as a 
+  singleton factory for a plugin.  (NOTE: 2.01 includes PLUGIN_FACTORY
+  to implement this, but currently undocumented because it's likely to
+  change).
+
+* A more general solution for XML (e.g. DOM, XPath, etc) would be for
+  TT to support a PerlSAX handler which generates the appropriate
+  callbacks to the view.  This should make it possible to easily
+  display XML content from XML::DOM, XML::XPath, or any other SAX
+  compliant source.
+
+  Something like this:
+
+    # define a view
+    [% VIEW my_view 
+         prefix="my/xml/dom/path/" ;
+       END
+    %]
+
+    # get some XML
+    [% USE dom = XML.DOM %]
+    [% doc = dom.parser(my.files.xmldata) %]
+    
+    # ask the view to print the data
+    [% my_view.print(doc) %]
+
+  The view print() method will call the relevant 2SAX method on the 
+  XML node, passing a SAX2TTView handler to make the relevant calls 
+  back to the view to display parts of the XML data model as SAX events
+  are received.
+
+
+#------------------------------------------------------------------------
+# Views
+#------------------------------------------------------------------------
+
+The current implementation is there to get me (and anybody else who's
+interested) using it and trying to identify the problems, requirements
+and general issues involved.  I've got a better idea now about what a
+VIEW should be in notional terms, but I'm still not quite sure about
+the syntax and API.
+
+General thoughts:
+
+* A view defines a set of templates.  Things like prefix, suffix, 
+  default, etc., can be specified to customise template selection.
+  In this sense, it is like a custom provider of those templates.
+  It implements the template() method to fetch a template according
+  to those rules.
+
+* It is also a custom processor of those templates.  It implements the 
+  process() method.  In this sense, it is like a custom context.
+
+* It also implements dispatch logic to apply the right template to the
+  right kind of data.  It does this via the print() method.  It may 
+  have all kinds of custom dispatch logic.
+
+* A view takes responsiblity for things template related as opposed 
+  to anything data related (stash) or application logic related
+  (plugins, runtime code, etc).  It is the user interface facility
+  within the engine.
+

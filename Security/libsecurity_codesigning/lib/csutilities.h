@@ -130,6 +130,7 @@ private:
 class MessageTrace {
 public:
 	MessageTrace(const char *domain, const char *signature);
+	~MessageTrace() { ::asl_free(mAsl); }
 	void add(const char *key, const char *format, ...);
 	void send(const char *format, ...);
 

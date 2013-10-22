@@ -139,7 +139,7 @@ void P12SafeBag::friendlyName(
 	}
 	
 	/* convert unicode to byte array */
-	unsigned flen = len * sizeof(UniChar);
+	unsigned flen = (unsigned)(len * sizeof(UniChar));
 	mCoder.allocItem(mFriendlyName, flen);
 	unsigned char *cp = mFriendlyName.Data;
 	for(CFIndex dex=0; dex<len; dex++) {
@@ -206,7 +206,7 @@ CFStringRef P12SafeBag::friendlyName()
 	assert((mFriendlyName.Length & 1) == 0);
 	
 	/* convert byte array to unicode */
-	unsigned strLen = mFriendlyName.Length / 2;
+	unsigned long strLen = mFriendlyName.Length / 2;
 	UniChar *uc = (UniChar *)malloc(strLen * sizeof(UniChar));
 	const uint8 *inp = mFriendlyName.Data;
 	UniChar *outp = uc;

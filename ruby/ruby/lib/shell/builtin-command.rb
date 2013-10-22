@@ -1,13 +1,12 @@
 #
-#   shell/builtin-command.rb - 
-#   	$Release Version: 0.6.0 $
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
-#   	by Keiju ISHITSUKA(Nihon Rational Software Co.,Ltd)
+#   shell/builtin-command.rb -
+#       $Release Version: 0.7 $
+#       $Revision: 31641 $
+#       by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
+#
 #
 
 require "shell/filter"
@@ -22,16 +21,26 @@ class Shell
     end
   end
 
+  class Void < BuiltInCommand
+    def initialize(sh, *opts)
+      super sh
+    end
+
+    def each(rs = nil)
+      # do nothing
+    end
+  end
+
   class Echo < BuiltInCommand
     def initialize(sh, *strings)
       super sh
       @strings = strings
     end
-    
+
     def each(rs = nil)
       rs =  @shell.record_separator unless rs
       for str  in @strings
-	yield str + rs
+        yield str + rs
       end
     end
   end
@@ -44,11 +53,11 @@ class Shell
 
     def each(rs = nil)
       if @cat_files.empty?
-	super
+        super
       else
-	for src in @cat_files
-	  @shell.foreach(src, rs){|l| yield l}
-	end
+        for src in @cat_files
+          @shell.foreach(src, rs){|l| yield l}
+        end
       end
     end
   end
@@ -58,21 +67,18 @@ class Shell
       super sh
 
       @pattern = pattern
-      Thread.critical = true
-      back = Dir.pwd
-      begin
-	Dir.chdir @shell.cwd
-	@files = Dir[pattern]
-      ensure
-	Dir.chdir back
-	Thread.critical = false
-      end
     end
 
     def each(rs = nil)
+      if @pattern[0] == ?/
+        @files = Dir[@pattern]
+      else
+        prefix = @shell.pwd+"/"
+        @files = Dir[prefix+@pattern].collect{|p| p.sub(prefix, "")}
+      end
       rs =  @shell.record_separator unless rs
-      for f  in @files
-	yield f+rs
+      for f in @files
+        yield f+rs
       end
     end
   end
@@ -84,9 +90,9 @@ class Shell
 #
 #     def each(rs = nil)
 #       ary = []
-#       super{|l|	ary.push l}
+#       super{|l|       ary.push l}
 #       for l in ary.sort!
-# 	yield l
+#       yield l
 #       end
 #     end
 #   end
@@ -101,7 +107,7 @@ class Shell
     def input=(filter)
       @input.input=filter
       for l in @input
-	@io << l
+        @io << l
       end
     end
 
@@ -116,9 +122,9 @@ class Shell
 
     def input=(filter)
       begin
-	super
+        super
       ensure
-	@io.close
+        @io.close
       end
     end
   end
@@ -132,9 +138,9 @@ class Shell
     def each(rs = nil)
       to = @shell.open(@to_filename, "w")
       begin
-	super{|l| to << l; yield l}
+        super{|l| to << l; yield l}
       ensure
-	to.close
+        to.close
       end
     end
   end
@@ -147,7 +153,7 @@ class Shell
 
     def each(rs = nil)
       while job = @jobs.shift
-	job.each{|l| yield l}
+        job.each{|l| yield l}
       end
     end
   end

@@ -926,7 +926,7 @@ IOReturn IOKernelDebugger::message( UInt32 type, IOService * provider,
 
             retain();
             if ( thread_call_enter1( _activationChangeThreadCall,
-                                     (void *) type ) == TRUE )
+                                     (void *)(uintptr_t) type ) == TRUE )
                 release();
 
             break;

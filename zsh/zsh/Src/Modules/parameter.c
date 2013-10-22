@@ -289,7 +289,7 @@ setfunction(char *name, char *val, int dis)
     shf = (Shfunc) zshcalloc(sizeof(*shf));
     shf->funcdef = dupeprog(prog, 0);
     shf->node.flags = dis;
-    shf->emulation = sticky_emulation;
+    shfunc_set_sticky(shf);
 
     if (!strncmp(name, "TRAP", 4) &&
 	(sn = getsignum(name + 4)) != -1) {
@@ -531,7 +531,11 @@ functracegetfn(UNUSED(Param pm))
 	char *colonpair;
 
 	colonpair = zhalloc(strlen(f->caller) + (f->lineno > 9999 ? 24 : 6));
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+	sprintf(colonpair, "%s:%lld", f->caller, f->lineno);
+#else
 	sprintf(colonpair, "%s:%ld", f->caller, (long)f->lineno);
+#endif
 
 	*p = colonpair;
     }
@@ -559,7 +563,11 @@ funcsourcetracegetfn(UNUSED(Param pm))
 	char *fname = f->filename ? f->filename : "";
 
 	colonpair = zhalloc(strlen(fname) + (f->flineno > 9999 ? 24 : 6));
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+	sprintf(colonpair, "%s:%lld", fname, f->flineno);
+#else
 	sprintf(colonpair, "%s:%ld", fname, (long)f->flineno);
+#endif
 
 	*p = colonpair;
     }
@@ -594,7 +602,11 @@ funcfiletracegetfn(UNUSED(Param pm))
 	     */
 	    colonpair = zhalloc(strlen(f->caller) +
 				(f->lineno > 9999 ? 24 : 6));
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+	    sprintf(colonpair, "%s:%lld", f->caller, f->lineno);
+#else
 	    sprintf(colonpair, "%s:%ld", f->caller, (long)f->lineno);
+#endif
 	} else {
 	    /*
 	     * Calling context is a function or eval; we need to find
@@ -604,7 +616,7 @@ funcfiletracegetfn(UNUSED(Param pm))
 	     * together with the $functrace line number for the current
 	     * context.
 	     */
-	    long flineno = (long)(f->prev->flineno + f->lineno);
+	    zlong flineno = f->prev->flineno + f->lineno;
 	    /*
 	     * Line numbers in eval start from 1, not zero,
 	     * so offset by one to get line in file.
@@ -614,7 +626,11 @@ funcfiletracegetfn(UNUSED(Param pm))
 	    fname = f->prev->filename ? f->prev->filename : "";
 
 	    colonpair = zhalloc(strlen(fname) + (flineno > 9999 ? 24 : 6));
-	    sprintf(colonpair, "%s:%ld", fname, flineno);
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+	    sprintf(colonpair, "%s:%lld", fname, flineno);
+#else
+	    sprintf(colonpair, "%s:%ld", fname, (long)flineno);
+#endif
 	}
 
 	*p = colonpair;
@@ -755,7 +771,7 @@ setpmoption(Param pm, char *value)
 	zwarn("invalid value: %s", value);
     else if (!(n = optlookup(pm->node.nam)))
 	zwarn("no such option: %s", pm->node.nam);
-    else if (dosetopt(n, (value && strcmp(value, "off")), 0))
+    else if (dosetopt(n, (value && strcmp(value, "off")), 0, opts))
 	zwarn("can't change option: %s", pm->node.nam);
     zsfree(value);
 }
@@ -768,7 +784,7 @@ unsetpmoption(Param pm, UNUSED(int exp))
 
     if (!(n = optlookup(pm->node.nam)))
 	zwarn("no such option: %s", pm->node.nam);
-    else if (dosetopt(n, 0, 0))
+    else if (dosetopt(n, 0, 0, opts))
 	zwarn("can't change option: %s", pm->node.nam);
 }
 
@@ -796,7 +812,7 @@ setpmoptions(UNUSED(Param pm), HashTable ht)
 	    if (!val || (strcmp(val, "on") && strcmp(val, "off")))
 		zwarn("invalid value: %s", val);
 	    else if (dosetopt(optlookup(hn->nam),
-			      (val && strcmp(val, "off")), 0))
+			      (val && strcmp(val, "off")), 0, opts))
 		zwarn("can't change option: %s", hn->nam);
 	}
     deleteparamtable(ht);
@@ -1820,6 +1836,141 @@ scanpmdissaliases(HashTable ht, ScanFunc func, int flags)
     scanaliases(sufaliastab, ht, func, flags, ALIAS_SUFFIX|DISABLED);
 }
 
+
+/* Functions for the usergroups special parameter */
+
+/*
+ * Get GID and names for groups of which the current user is a member.
+ */
+
+/**/
+static Groupset get_all_groups(void)
+{
+    Groupset gs = zhalloc(sizeof(*gs));
+    Groupmap gaptr;
+    gid_t *list, *lptr, egid;
+    int add_egid;
+    struct group *grptr;
+
+    egid = getegid();
+    add_egid = 1;
+    gs->num = getgroups(0, NULL);
+    if (gs->num > 0) {
+	list = zhalloc(gs->num * sizeof(*list));
+	if (getgroups(gs->num, list) < 0) {
+	    return NULL;
+	}
+
+	/*
+	 * It's unspecified whether $EGID is included in the
+	 * group set, so check.
+	 */
+	for (lptr = list; lptr < list + gs->num; lptr++) {
+	    if (*lptr == egid) {
+		add_egid = 0;
+		break;
+	    }
+	}
+	gs->array = zhalloc((gs->num + add_egid) * sizeof(*gs->array));
+	/* Put EGID if needed first */
+	gaptr = gs->array + add_egid;
+	for (lptr = list; lptr < list + gs->num; lptr++) {
+	    gaptr->gid = *lptr;
+	    gaptr++;
+	}
+	gs->num += add_egid;
+    } else {
+	/* Just use effective GID */
+	gs->num = 1;
+	gs->array = zhalloc(sizeof(*gs->array));
+    }
+    if (add_egid) {
+	gs->array->gid = egid;
+    }
+
+    /* Get group names */
+    for (gaptr = gs->array; gaptr < gs->array + gs->num; gaptr++) {
+	grptr = getgrgid(gaptr->gid);
+	if (!grptr) {
+	    return NULL;
+	}
+	gaptr->name = dupstring(grptr->gr_name);
+    }
+
+    return gs;
+}
+
+/* Standard hash element lookup. */
+
+/**/
+static HashNode
+getpmusergroups(UNUSED(HashTable ht), const char *name)
+{
+    Param pm = NULL;
+    Groupset gs = get_all_groups();
+    Groupmap gaptr;
+
+    pm = (Param)hcalloc(sizeof(struct param));
+    pm->node.nam = dupstring(name);
+    pm->node.flags = PM_SCALAR | PM_READONLY;
+    pm->gsu.s = &nullsetscalar_gsu;
+
+    if (!gs) {
+	zerr("failed to retrieve groups for user: %e", errno);
+	pm->u.str = dupstring("");
+	pm->node.flags |= PM_UNSET;
+	return &pm->node;
+    }
+
+    for (gaptr = gs->array; gaptr < gs->array + gs->num; gaptr++) {
+	if (!strcmp(name, gaptr->name)) {
+	    char buf[DIGBUFSIZE];
+
+	    sprintf(buf, "%d", (int)gaptr->gid);
+	    pm->u.str = dupstring(buf);
+	    return &pm->node;
+	}
+    }
+
+    pm->u.str = dupstring("");
+    pm->node.flags |= PM_UNSET;
+    return &pm->node;
+}
+
+/* Standard hash scan. */
+
+/**/
+static void
+scanpmusergroups(UNUSED(HashTable ht), ScanFunc func, int flags)
+{
+    struct param pm;
+    Groupset gs = get_all_groups();
+    Groupmap gaptr;
+
+    if (!gs) {
+	zerr("failed to retrieve groups for user: %e", errno);
+	return;
+    }
+
+    memset((void *)&pm, 0, sizeof(pm));
+    pm.node.flags = PM_SCALAR | PM_READONLY;
+    pm.gsu.s = &nullsetscalar_gsu;
+
+    for (gaptr = gs->array; gaptr < gs->array + gs->num; gaptr++) {
+	pm.node.nam = gaptr->name;
+	if (func != scancountparams &&
+	    ((flags & (SCANPM_WANTVALS|SCANPM_MATCHVAL)) ||
+	     !(flags & SCANPM_WANTKEYS))) {
+	    char buf[DIGBUFSIZE];
+
+	    sprintf(buf, "%d", (int)gaptr->gid);
+	    pm.u.str = dupstring(buf);
+	}
+	func(&pm.node, flags);
+    }
+}
+
+
 /* Table for defined parameters. */
 
 struct pardef {
@@ -1926,7 +2077,9 @@ static struct paramdef partab[] = {
     SPECIALPMDEF("saliases", 0,
 	    &pmsaliases_gsu, getpmsalias, scanpmsaliases),
     SPECIALPMDEF("userdirs", PM_READONLY,
-	    NULL, getpmuserdir, scanpmuserdirs)
+	    NULL, getpmuserdir, scanpmuserdirs),
+    SPECIALPMDEF("usergroups", PM_READONLY,
+	    NULL, getpmusergroups, scanpmusergroups)
 };
 
 static struct features module_features = {

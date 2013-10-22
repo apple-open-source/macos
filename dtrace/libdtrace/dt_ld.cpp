@@ -50,9 +50,9 @@ extern "C" {
 #include <string>
 #include <vector>
 #include <sstream>
-#include <tr1/unordered_set>
-#include <tr1/unordered_map>
-#include <tr1/memory>
+#include <unordered_set>
+#include <unordered_map>
+#include <memory>
 
 #define dtrace_separator			"$"
 #define dtrace_separator_char			'$'
@@ -77,7 +77,7 @@ extern "C" {
 static std::string dt_ld_encode_string(const char* string)
 {
         size_t input_length = strlen(string);
-        std::tr1::shared_ptr<char> results((char*)malloc(input_length * 2 + 1), &::free);
+        std::shared_ptr<char> results((char*)malloc(input_length * 2 + 1), &::free);
         for (int i = 0; i < input_length; i++) {
                 sprintf(&results.get()[i*2],"%02x", (unsigned int)string[i]);
         }
@@ -89,7 +89,7 @@ static std::string dt_ld_encode_string(const char* string)
 static std::string dt_ld_decode_string(const char* string)
 {
         size_t input_length = strlen(string) / 2;
-        std::tr1::shared_ptr<char> results((char*)malloc(input_length * 2 + 1), &::free);
+        std::shared_ptr<char> results((char*)malloc(input_length * 2 + 1), &::free);
         for (int i = 0; i < input_length; i++) {
                 unsigned int value;
                 sscanf(&string[i*2],"%2x", &value);
@@ -263,7 +263,7 @@ std::string dt_ld_decode_stability(std::string encoding)
 // an existing type, and fails the link. This method creates
 // a dictionary of types to ignore when encoding.
 
-typedef std::tr1::unordered_set<std::string> ExclusionTypeSet;
+typedef std::unordered_set<std::string> ExclusionTypeSet;
 
 static ExclusionTypeSet* base_dtrace_typeset() {
         ExclusionTypeSet* typeset = new ExclusionTypeSet();
@@ -317,7 +317,7 @@ static ctf_id_t dt_ld_strip_pointers(ctf_file_t *file, ctf_id_t type) {
 //    original:   typedef float*** foo_t
 //    encoded:    typedef int foo_t
 
-typedef std::tr1::unordered_map< std::string, std::string > TypeEncodingMap;
+typedef std::unordered_map< std::string, std::string > TypeEncodingMap;
 
 static int dt_ld_probe_encode_typedef_iter(dt_idhash_t *dhp, dt_ident_t *idp, void *data)
 {
@@ -524,7 +524,7 @@ std::string dt_ld_decode_script(std::string stability, std::string typedefs, std
         script += split(stability, dtrace_separator_char)[1]; // provider name
         script += " {\n";
 
-        std::tr1::unordered_set<std::string> uniqued_probes;
+        std::unordered_set<std::string> uniqued_probes;
         for (std::vector<std::string>::iterator it = probes.begin(); it < probes.end(); ++it) {
                 std::vector<std::string> components = split(*it, dtrace_separator_char);
 

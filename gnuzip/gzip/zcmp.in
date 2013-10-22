@@ -1,3 +1,0 @@
-#!/bin/sh
-PATH=BINDIR:$PATH
-exec zdiff --__cmp "$@"

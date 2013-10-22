@@ -87,7 +87,7 @@ DbIndexKey::operator < (const DbIndexKey &other) const
 {
 	// compare the values of the attributes in the keys
 	
-	uint32 numAttributes = mIndex.mAttributes.size();
+	uint32 numAttributes = (uint32) mIndex.mAttributes.size();
 	uint32 valueOffset1 = 0, valueOffset2 = 0;
 	
 	for (uint32 i = 0; i < numAttributes; i++) {
@@ -204,7 +204,7 @@ DbConstIndex::matchesQuery(const CSSM_QUERY &query, DbQueryKey *&queryKey) const
 	// check that the query predicates form a prefix of the index key, which means that
 	// the first N index components are the N query predicates in some order
 	
-	uint32 lastIndex;
+	long lastIndex;
 	for (lastIndex = mAttributes.size() - 1; (lastIndex >= 0) && (attributeUsed[lastIndex] == ~(uint32)0);
 		lastIndex--);
 		
@@ -311,8 +311,8 @@ DbMutableIndex::DbMutableIndex(const DbConstIndex &index)
 	
 	const ReadSection &tableSection = index.mTable.getTableSection();
 	
-	uint32 numRecords = index.mKeyOffsetVector.size();
-	for (uint32 i = 0; i < numRecords; i++) {
+	size_t numRecords = index.mKeyOffsetVector.size();
+	for (size_t i = 0; i < numRecords; i++) {
 		uint32 recordNumber = index.mRecordNumberVector.at(i);
 		uint32 keyOffset = index.mKeyOffsetVector.at(i);
 		uint32 keySize = tableSection.at(keyOffset);
@@ -356,10 +356,10 @@ DbMutableIndex::insertRecord(uint32 recordNumber, const ReadSection &packedRecor
 	// the record; detect and handle this separately since we can avoid an
 	// expensive recursive technique.
 	
-	uint32 numAttributes = mAttributes.size();
+	size_t numAttributes = mAttributes.size();
 	bool allSingleValued = true;
 	
-	for (uint32 i = 0; i < numAttributes; i++) {
+	for (size_t i = 0; i < numAttributes; i++) {
 		uint32 numValues = mAttributes[i]->getNumberOfValues(packedRecord);
 		if (numValues == 0) {
 			// record does not have value required by index; for a unique index,
@@ -447,11 +447,11 @@ DbMutableIndex::writeIndex(WriteSection &ws, uint32 offset)
 	offset = ws.put(offset, mIndexId);
 	offset = ws.put(offset, mIsUniqueIndex ? 1 : 0);
 	
-	offset = ws.put(offset, mAttributes.size());
+	offset = ws.put(offset, (uint32)mAttributes.size());
 	for (uint32 i = 0; i < mAttributes.size(); i++)
 		offset = ws.put(offset, mAttributes[i]->attributeId());
 
-	offset = ws.put(offset, mMap.size());
+	offset = ws.put(offset, (uint32)mMap.size());
 	
 	// reserve space for the array of offsets to key data
 	uint32 keyPtrOffset = offset;

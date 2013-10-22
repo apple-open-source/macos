@@ -42,11 +42,7 @@
     [self setAcceptsMouseMovedEvents:YES];
     [self setReleasedWhenClosed:NO];
     [self setHasShadow:NO];
-#ifndef BUILDING_ON_LEOPARD
     [self setMovable:NO];
-#else
-    [self setMovableByWindowBackground:NO];
-#endif
 
     return self;
 }
@@ -66,6 +62,11 @@
 - (void)cancelOperation:(id)sender
 {
     [[self windowController] cancelOperation:sender];
+}
+
+- (void)performClose:(id)sender
+{
+    [[self windowController] performClose:sender];
 }
 @end
 

@@ -223,7 +223,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
                     ipstr = CFArrayGetValueAtIndex(array, i);
                     if (isString(ipstr)) {
                         if (CFStringGetCString(ipstr, ipcstr, sizeof(ipcstr), kCFStringEncodingMacRoman)) {
-                            if (ip = validate_ip_string(ipcstr, ip_addr, sizeof(ip_addr))) {
+                            if ((ip = validate_ip_string(ipcstr, ip_addr, sizeof(ip_addr)))) {
                                 if (add_address(ip)) {
                                     vpnlog(LOG_ERR, "Error while processing ip address %s\n", ip);
                                     return -1;
@@ -701,7 +701,7 @@ int ppp_check_conflicts(struct vpn_params *params)
                     kSCCompNetwork, kRASRemoteAccessServer, ".*", kRASEntInterface);
 
     if (pattern) {
-        if (array = SCDynamicStoreCopyKeyList(params->storeRef, pattern)) {
+        if ((array = SCDynamicStoreCopyKeyList(params->storeRef, pattern))) {
             count = CFArrayGetCount(array);
             for (i = 0; i < count; i++) {
                 key = CFArrayGetValueAtIndex(array, i);
@@ -750,7 +750,7 @@ int ppp_kill_orphans(struct vpn_params* params)
                     kSCCompNetwork, kSCCompService, ".*", kSCEntNetInterface);
     
     if (pattern) {
-        if (array = SCDynamicStoreCopyKeyList(params->storeRef, pattern)) {
+        if ((array = SCDynamicStoreCopyKeyList(params->storeRef, pattern))) {
             count = CFArrayGetCount(array);
             // for each pppd - check if server id is the same as ours
             for (i = 0; i < count; i++) {

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -13,7 +13,7 @@
  * 3. Neither the name of the project nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE PROJECT AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -34,11 +34,14 @@
  *   but INRIA implementation returns EAI_xxx defined for getaddrinfo().
  */
 
-#include "config.h"
+#include "ruby/config.h"
+#ifdef RUBY_EXTCONF_H
+#include RUBY_EXTCONF_H
+#endif
 #include <stdio.h>
 #include <sys/types.h>
 #ifndef _WIN32
-#if defined(__BEOS__)
+#if defined(__BEOS__) && !defined(__HAIKU__) && !defined(BONE)
 # include <net/socket.h>
 #else
 # include <sys/socket.h>
@@ -56,11 +59,8 @@
 #endif
 #endif
 #ifdef _WIN32
-#if USE_WINSOCK2
 #include <winsock2.h>
-#else
-#include <winsock.h>
-#endif
+#include <ws2tcpip.h>
 #define snprintf _snprintf
 #endif
 
@@ -116,11 +116,7 @@ static struct afd {
 
 #ifndef HAVE_INET_NTOP
 static const char *
-inet_ntop(af, addr, numaddr, numaddr_len)
-	int af;
-	const void *addr;
-	char *numaddr;
-	size_t numaddr_len;
+inet_ntop(int af, const void *addr, char *numaddr, size_t numaddr_len)
 {
 #ifdef HAVE_INET_NTOA
 	struct in_addr in;
@@ -137,17 +133,9 @@ inet_ntop(af, addr, numaddr, numaddr_len)
 #endif
 
 int
-getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
-	const struct sockaddr *sa;
-	size_t salen;
-	char *host;
-	size_t hostlen;
-	char *serv;
-	size_t servlen;
-	int flags;
+getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, socklen_t hostlen, char *serv, socklen_t servlen, int flags)
 {
 	struct afd *afd;
-	struct servent *sp;
 	struct hostent *hp;
 	u_short port;
 	int family, len, i;
@@ -165,7 +153,7 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 
 	len = SA_LEN(sa);
 	if (len != salen) return ENI_SALEN;
-	
+
 	family = sa->sa_family;
 	for (i = 0; afdl[i].a_af; i++)
 		if (afdl[i].a_af == family) {
@@ -173,10 +161,10 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 			goto found;
 		}
 	return ENI_FAMILY;
-	
+
  found:
 	if (len != afd->a_socklen) return ENI_SALEN;
-	
+
 	port = ((struct sockinet *)sa)->si_port; /* network byte order */
 	addr = (char *)sa + afd->a_off;
 
@@ -189,7 +177,7 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 		strcpy(serv, numserv);
 	} else {
 #if defined(HAVE_GETSERVBYPORT)
-		sp = getservbyport(port, (flags & NI_DGRAM) ? "udp" : "tcp");
+		struct servent *sp = getservbyport(port, (flags & NI_DGRAM) ? "udp" : "tcp");
 		if (sp) {
 			if (strlen(sp->s_name) + 1 > servlen)
 				return ENI_MEMORY;
@@ -208,7 +196,7 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 			flags |= NI_NUMERICHOST;
 		v4a >>= IN_CLASSA_NSHIFT;
 		if (v4a == 0)
-			flags |= NI_NUMERICHOST;			
+			flags |= NI_NUMERICHOST;
 		break;
 #ifdef INET6
 	case AF_INET6:

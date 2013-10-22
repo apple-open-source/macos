@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -16,6 +16,8 @@
 		2D5B7F8408F71AEC0031C32D /* ioss.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A0147846011B0EC802CA285C /* ioss.h */; };
 		2D5B7F8608F71AF70031C32D /* IOSerialBSDClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 021C9E33000BD0CF11CA285C /* IOSerialBSDClient.cpp */; };
 		2D5B7F8708F71AF70031C32D /* IOSerialStreamSync.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 021C9E35000BD0CF11CA285C /* IOSerialStreamSync.cpp */; };
+		721D4D151641EFD500C4FA5A /* ioss.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A0147846011B0EC802CA285C /* ioss.h */; };
+		721D4D161641EFD500C4FA5A /* IOSerialKeys.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 021C9E38000BD0CF11CA285C /* IOSerialKeys.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,6 +46,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		721D4D081641EFA300C4FA5A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/serial";
+			dstSubfolderSpec = 0;
+			files = (
+				721D4D151641EFD500C4FA5A /* ioss.h in CopyFiles */,
+				721D4D161641EFD500C4FA5A /* IOSerialKeys.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -58,6 +71,7 @@
 		2D5B7F6908F71A610031C32D /* IOSerialFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOSerialFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D5B7F6A08F71A610031C32D /* IOSerialFamily-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "IOSerialFamily-Info.plist"; path = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist"; sourceTree = "<group>"; };
 		69BD17100E1C31E40070DD84 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+		721D4D0A1641EFA300C4FA5A /* InstallHeaders */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = InstallHeaders; sourceTree = BUILT_PRODUCTS_DIR; };
 		A0147846011B0EC802CA285C /* ioss.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = ioss.h; path = IOSerialFamily.kmodproj/ioss.h; sourceTree = "<group>"; };
 		C6FCFEA00E8D5B2B00B002E3 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
@@ -87,6 +101,7 @@
 			isa = PBXGroup;
 			children = (
 				2D5B7F6908F71A610031C32D /* IOSerialFamily.kext */,
+				721D4D0A1641EFA300C4FA5A /* InstallHeaders */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -111,13 +126,31 @@
 			productReference = 2D5B7F6908F71A610031C32D /* IOSerialFamily.kext */;
 			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
+		721D4D091641EFA300C4FA5A /* IOSerialFamily_Sim */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 721D4D111641EFA300C4FA5A /* Build configuration list for PBXNativeTarget "IOSerialFamily_Sim" */;
+			buildPhases = (
+				721D4D081641EFA300C4FA5A /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IOSerialFamily_Sim;
+			productName = IOSerialFamily_headers_sim;
+			productReference = 721D4D0A1641EFA300C4FA5A /* InstallHeaders */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		021C9E2B000BD0CF11CA285C /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0500;
+			};
 			buildConfigurationList = 2D5B7F6108F71A3A0031C32D /* Build configuration list for PBXProject "IOSerialFamily" */;
-			compatibilityVersion = "Xcode 3.0";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -132,6 +165,7 @@
 			projectRoot = "";
 			targets = (
 				2D5B7F6808F71A610031C32D /* IOSerialFamily */,
+				721D4D091641EFA300C4FA5A /* IOSerialFamily_Sim */,
 			);
 		};
 /* End PBXProject section */
@@ -152,7 +186,6 @@
 		2D5B7F6208F71A3A0031C32D /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -176,7 +209,6 @@
 		2D5B7F6308F71A3A0031C32D /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
@@ -193,7 +225,7 @@
 		2D5B7F6C08F71A610031C32D /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -212,7 +244,7 @@
 		2D5B7F6D08F71A610031C32D /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -224,11 +256,97 @@
 			};
 			name = Deployment;
 		};
+		721D4D121641EFA300C4FA5A /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_GROUP = staff;
+				INSTALL_OWNER = local;
+				INSTALL_PATH = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = "";
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = InstallHeaders;
+				PUBLIC_HEADERS_FOLDER_PATH = "";
+				SDKROOT = "";
+			};
+			name = Development;
+		};
+		721D4D131641EFA300C4FA5A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_GROUP = staff;
+				INSTALL_OWNER = local;
+				INSTALL_PATH = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = "";
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = InstallHeaders;
+				PUBLIC_HEADERS_FOLDER_PATH = "";
+				SDKROOT = "";
+			};
+			name = Deployment;
+		};
+		721D4D141641EFA300C4FA5A /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_GROUP = staff;
+				INSTALL_OWNER = local;
+				INSTALL_PATH = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = "";
+				ONLY_ACTIVE_ARCH = NO;
+				PRODUCT_NAME = InstallHeaders;
+				PUBLIC_HEADERS_FOLDER_PATH = "";
+				SDKROOT = "";
+			};
+			name = Embedded;
+		};
 		C6FCFEAE0E8D5BDC00B002E3 /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C6FCFEA00E8D5B2B00B002E3 /* AspenSDK.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_MODEL_TUNING = G5;
@@ -249,6 +367,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C6FCFEA00E8D5B2B00B002E3 /* AspenSDK.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				INFOPLIST_FILE = "IOSerialFamily.kmodproj/IOSerialFamily-Info.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -281,6 +400,16 @@
 				2D5B7F6C08F71A610031C32D /* Development */,
 				2D5B7F6D08F71A610031C32D /* Deployment */,
 				C6FCFEAF0E8D5BDC00B002E3 /* Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		721D4D111641EFA300C4FA5A /* Build configuration list for PBXNativeTarget "IOSerialFamily_Sim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				721D4D121641EFA300C4FA5A /* Development */,
+				721D4D131641EFA300C4FA5A /* Deployment */,
+				721D4D141641EFA300C4FA5A /* Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

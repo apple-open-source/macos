@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,14 @@
  */
 
 
+/* "server" defines */
+#if	!TARGET_IPHONE_SIMULATOR
+#define _SC_SERVER_PROG			"configd"
+#else	// !TARGET_IPHONE_SIMULATOR
+#define _SC_SERVER_PROG			"configd_sim"
+#endif	// !TARGET_IPHONE_SIMULATOR
+
+
 /* atomic operations */
 #define _SC_ATOMIC_CMPXCHG(p, o, n)	__sync_bool_compare_and_swap((p), (o), (n))
 #define _SC_ATOMIC_INC(p)		__sync_fetch_and_add((p), 1)		// return (n++);
@@ -74,6 +82,20 @@ extern int	_sc_verbose;	/* non-zero if verbose logging enabled */
 extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 				   1 if SC messages should be logged w/asl(3),
 				   2 if SC messages should be written to stdout/stderr AND logged */
+
+/* notify(3) keys */
+
+#if	!TARGET_IPHONE_SIMULATOR
+#define _SC_NOTIFY_PREFIX	"com.apple.system.config"
+#else	// !TARGET_IPHONE_SIMULATOR
+#define _SC_NOTIFY_PREFIX	"com.apple.iOS_Simulator.config"
+#endif	// !TARGET_IPHONE_SIMULATOR
+
+#define _SC_NOTIFY_NETWORK_CHANGE	_SC_NOTIFY_PREFIX ".network_change"
+#define _SC_NOTIFY_NETWORK_CHANGE_DNS	_SC_NOTIFY_NETWORK_CHANGE ".dns"
+#define _SC_NOTIFY_NETWORK_CHANGE_NWI	_SC_NOTIFY_NETWORK_CHANGE ".nwi"
+#define _SC_NOTIFY_NETWORK_CHANGE_PROXY	_SC_NOTIFY_PREFIX ".proxy_change"
+
 
 /*!
 	@group SCNetworkReachabilityCreateWithOptions #defines
@@ -105,28 +127,12 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 #define kSCNetworkReachabilityOptionRemoteAddress		CFSTR("remote-address")
 
 /*!
-	@constant kSCNetworkReachabilityOptionServName
-	@discussion A CFString that will be passed to getaddrinfo(3).  An acceptable
-		value is either a decimal port number or a service name listed in
-		services(5).
- */
-#define kSCNetworkReachabilityOptionServName			CFSTR("servname")
-
-/*!
-	@constant kSCNetworkReachabilityOptionHints
-	@discussion A CFData wrapping a "struct addrinfo" that will be passed to
-		getaddrinfo(3).  The caller can supply any of the ai_family,
-		ai_socktype, ai_protocol, and ai_flags structure elements.  All
-		other elements must be 0 or the null pointer.
- */
-#define kSCNetworkReachabilityOptionHints			CFSTR("hints")
-
-/*!
 	@constant kSCNetworkReachabilityOptionInterface
 	@discussion A CFString specifying that the reachability query should be
 		limited to the provided network interface (e.g. "en0", "en1", ...).
  */
 #define kSCNetworkReachabilityOptionInterface			CFSTR("interface")
+
 
 /*!
 	@constant kSCNetworkReachabilityOptionConnectionOnDemandBypass
@@ -144,19 +150,14 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 
 
 /*!
-	@constant kSCNetworkReachabilityOptionLongLivedQueryBypass
-	@discussion A CFBoolean that indicates if we should bypass usage of any
-		long-lived-queries (w/DNSServiceCreateConnection) when resolving
-		hostnames for this target.
- */
-#define kSCNetworkReachabilityOptionLongLivedQueryBypass	CFSTR("LongLivedQueryBypass")
-
-/*!
 	@constant kSCNetworkReachabilityOptionServerBypass
 	@discussion A CFBoolean that indicates if we should bypass usage of the
 		SCNetworkReachability "server" for this target.
  */
 #define kSCNetworkReachabilityOptionServerBypass		CFSTR("ServerBypass")
+
+
+
 
 /*!
 	@group
@@ -404,7 +405,57 @@ void		SCLog				(Boolean		condition,
 						 CFStringRef		formatString,
 						 ...);
 
+enum {
+	kSCLoggerFlagsNone		= 0x0,
+	kSCLoggerFlagsDefault	= 0x1,
+	kSCLoggerFlagsFile		= 0x2
+};
+typedef uint32_t	SCLoggerFlags;
 
+typedef struct SCLogger * SCLoggerRef;
+
+
+/*!
+	@function SCLoggerLog
+	@discussion Logs messages using SCLoggerRef
+	@param	logger A SCLoggerRef which keeps information about how logging
+		needs to be done. Passing NULL uses the default logger instance.
+	@param level An asl(3) logging priority. Passing the complement of a logging
+		priority (e.g. ~ASL_LEVEL_NOTICE) will result in log message lines
+		NOT being split by a "\n".
+	@param formatString The format string followed by format arguments
+	@result The specified message will be written to the system message
+		logger (See syslogd(8)). If logger is in verbose mode, the message
+		will be also written to a file specified in the ASL Module
+ */
+void		SCLoggerLog			(SCLoggerRef	logger,
+						 int		level,
+						 CFStringRef	formatString,
+						 ...)			__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0);
+
+/*!
+	@function SCLoggerVLog
+	@discussion Logs messages using SCLoggerRef
+	@param logger A SCLoggerRef which keeps information about how logging
+		needs to be done. Passing NULL uses the default logger instance.
+	@param level An asl(3) logging priority. Passing the complement of a logging
+		priority (e.g. ~ASL_LEVEL_NOTICE) will result in log message lines
+		NOT being split by a "\n".
+	@param formatString The format string
+	@param args The va_list representing the arguments
+	@result The specified message will be written to the system message
+		logger (See syslogd(8)). If logger is in verbose mode, the message
+		will be also written to a file specified in the ASL Module
+ */
+void		SCLoggerVLog			(SCLoggerRef	logger,
+						 int		level,
+						 CFStringRef	formatString,
+						 va_list	args)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0);
+
+
+#ifdef	USE_NEW_SCLOG
+#define SCLOG(sclogger, level, __string, ...)	SCLoggerLog(sclogger, level, CFSTR(__string), ## __VA_ARGS__)	// temporary, remove once all "old" clients have migrated
+#else
 /*!
 	@function SCLOG
 	@discussion Issue a log message.
@@ -426,6 +477,8 @@ void		SCLOG				(aslclient		asl,
 						 ...);
 
 
+#endif
+
 /*!
 	@function SCPrint
 	@discussion Conditionally issue a debug message.
@@ -440,6 +493,8 @@ void		SCPrint				(Boolean		condition,
 						 CFStringRef		formatString,
 						 ...);
 
+
+
 /*!
 	@function SCTrace
 	@discussion Conditionally issue a debug message with a time stamp.
@@ -453,6 +508,35 @@ void		SCTrace				(Boolean		condition,
 						 FILE			*stream,
 						 CFStringRef		formatString,
 						 ...);
+
+/*!
+	@function SCLoggerCreate
+	@discussion Create a reference to logger which stores information like verbose mode or not, loggerID, etc.
+			loggerID and moduleName both need to be non NULL, or else the function returns NULL.
+			If the moduleName points to a module which doesn't exist, then SCLoggerCreate will fail and
+			return NULL;
+	@param loggerID CFStringRef which will be appended to the log message when in verbose mode. It will also be
+			used to identify the module where the rules are being defined.
+ */
+SCLoggerRef
+SCLoggerCreate					(CFStringRef loggerID);
+
+/*!
+	@function SCLoggerGetFlags
+	@discussion Returns the log flags for the logging reference
+	@param	logger Reference which points to the logger information
+ */
+SCLoggerFlags
+SCLoggerGetFlags				(SCLoggerRef logger);
+
+/*!
+	@function SCLoggerSetFlags
+	@discussion Sets the log flags for the logger reference
+	@param	logger A reference to the logger
+	@param	flags SCLoggerFlags value determining where the logs from the logger will be directed
+ */
+void		SCLoggerSetFlags		(SCLoggerRef logger,
+						 SCLoggerFlags flags);
 
 #pragma mark -
 #pragma mark Proxies
@@ -478,6 +562,29 @@ CFArrayRef
 SCNetworkProxiesCopyMatching			(CFDictionaryRef	globalConfiguration,
 						 CFStringRef		server,
 						 CFStringRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+
+extern const CFStringRef	kSCProxiesNoGlobal;
+
+/*!
+ @function SCDynamicStoreCopyProxiesWithOptions
+ @discussion
+
+	@param	store An SCDynamicStoreRef representing the dynamic store
+		session that should be used for communication with the server.
+		If NULL, a temporary session will be used.
+	@param	options  A dictionary of proxy options which can include 1 (or more) of the following :
+		key				value		description
+		---------------------------------------------------------------------------------------
+		kSCProxiesNoGlobal		CFBoolean	Bypass any "global" proxy configuration
+		...
+	@result Returns a dictionary containing key-value pairs that represent
+		the current internet proxy settings;
+		NULL if no proxy settings have been defined or if an error
+		was encountered.
+		You must release the returned value.
+*/
+CFDictionaryRef
+SCDynamicStoreCopyProxiesWithOptions(SCDynamicStoreRef store, CFDictionaryRef options)	__OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/);
 
 #pragma mark -
 #pragma mark Reachability
@@ -546,9 +653,9 @@ _SC_checkResolverReachabilityByAddress		(SCDynamicStoreRef		*storeP,
 int
 SCNetworkReachabilityGetInterfaceIndex		(SCNetworkReachabilityRef	target);
 
+
 #pragma mark -
 #pragma mark Domain
-
 /*!
 	@function    _SC_domainEndsWithDomain
 	@discussion  Checks if one domain is a subset of another
@@ -727,6 +834,13 @@ void
 _SC_crash					(const char		*crash_info,
 						 CFStringRef		notifyHeader,
 						 CFStringRef		notifyMessage);
+
+Boolean
+_SC_getconninfo					(int				socket,
+						 struct sockaddr_storage	*src_addr,
+						 struct sockaddr_storage	*dest_addr,
+						 int				*if_index,
+						 uint32_t			*flags);
 
 __END_DECLS
 

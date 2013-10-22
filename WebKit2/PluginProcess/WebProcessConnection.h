@@ -30,6 +30,8 @@
 
 #include "Connection.h"
 #include "Plugin.h"
+#include "WebProcessConnectionMessages.h"
+#include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
 
 namespace WebKit {
@@ -60,20 +62,25 @@ private:
     void destroyPluginControllerProxy(PluginControllerProxy*);
 
     // CoreIPC::Connection::Client
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
     virtual void didClose(CoreIPC::Connection*);
-    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
+    virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::StringReference messageReceiverName, CoreIPC::StringReference messageName);
 
     // Message handlers.
-    void didReceiveSyncWebProcessConnectionMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
-    void createPlugin(const PluginCreationParameters&, bool& result, bool& wantsWheelEvents, uint32_t& remoteLayerClientID);
-    void destroyPlugin(uint64_t pluginInstanceID);
+    void didReceiveWebProcessConnectionMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    void didReceiveSyncWebProcessConnectionMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
+    void createPlugin(const PluginCreationParameters&, PassRefPtr<Messages::WebProcessConnection::CreatePlugin::DelayedReply>);
+    void createPluginAsynchronously(const PluginCreationParameters&);
+    void destroyPlugin(uint64_t pluginInstanceID, bool asynchronousCreationIncomplete);
+    
+    void createPluginInternal(const PluginCreationParameters&, bool& result, bool& wantsWheelEvents, uint32_t& remoteLayerClientID);
 
     RefPtr<CoreIPC::Connection> m_connection;
 
-    HashMap<uint64_t, PluginControllerProxy*> m_pluginControllers;
+    HashMap<uint64_t, OwnPtr<PluginControllerProxy>> m_pluginControllers;
     RefPtr<NPRemoteObjectMap> m_npRemoteObjectMap;
+    HashSet<uint64_t> m_asynchronousInstanceIDsToIgnore;
 };
 
 } // namespace WebKit

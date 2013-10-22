@@ -1001,7 +1001,7 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 		else if (type == ns_t_aaaa) ctx->host = reply->h6;
 		else if (type == ns_t_ptr && reply->h4) ctx->host = reply->h4;
 		else if (type == ns_t_ptr && reply->h6) ctx->host = reply->h6;
-		else if (type != ns_t_srv && type != ns_t_cname) abort();
+		else if (type != ns_t_srv && type != ns_t_cname) return -1;
 	}
 
 	uint32_t iface = 0;
@@ -1055,7 +1055,7 @@ _mdns_query_is_complete(mdns_query_context_t *ctx)
 			}
 			break;
 		default:
-			abort();
+			return 0;
 	}
 	return 0;
 }

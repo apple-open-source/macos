@@ -159,15 +159,36 @@ typedef struct __rpc_xdr {
  * The opaque pointer generally points to a structure of the data type
  * to be decoded.  If this pointer is 0, then the type routines should
  * allocate dynamic storage of the appropriate size and return it.
+ *
+ *
+ * IMPORTANT NOTE: Apple iOS and OS X
+ * 
+ * Previous versions of this header file defined the xdrproc_t prototype as 
+ *     typedef bool_t (*xdrproc_t)(XDR *, ...); 
+ * 
+ * This prototype is incorrect.  One may not use a varargs function pointer
+ * in place of pointer to a function with positional parameters.
+ * This mistake has been masked by the fact that clients of this API would
+ * generally cast their xdr functions as (xdrproc_t), and thus silence compiler
+ * warnings.  The code worked because the ABI for varargs routines that pass a
+ * small number of arguments has been the same as the ABI for routines with a
+ * few positional parameters.  However, if the ABI differs this will cause the
+ * compiled code to fail.
+ *
+ * Historically, some client xdr routines expected three parameters.  This 
+ * does not seem to be the case in more recent code, but we have decided to
+ * retain this definition in the XDR library in case some legacy code still
+ * expects three parameters.  The library will pass zero as the third
+ * parameter.  Routines that expect two parameters will work correctly.
+ *
+ * If your client-side xdr routine is of the form:
+ *   bool_t xdr_my_datatype(XDR *, void *);
+ * and you pass your function pointer to routines like xdr_pointer or
+ * xdr_reference using "(xdrproc_t)xdr_my_datatype", then your code will
+ * compile and run correctly.  If your code invokes an xdrproc_t callback,
+ * it must be modified to pass a third parameter, which may simply be zero.
  */
-#ifdef _KERNEL
 typedef	bool_t (*xdrproc_t)(XDR *, void *, unsigned int);
-#else
-/*
- * XXX can't actually prototype it, because some take three args!!!
- */
-typedef	bool_t (*xdrproc_t)(XDR *, ...);
-#endif
 
 /*
  * Operations defined on a XDR handle

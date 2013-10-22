@@ -1,0 +1,83 @@
+#!/usr/bin/perl -w
+# xpg_archive_command
+#
+# Author:: Apple Inc.
+# Documentation:: Apple Inc.
+# Copyright (c) 2013 Apple Inc. All Rights Reserved.
+#
+# IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+# computers and is subject to the terms and conditions of the Apple Software
+# License Agreement accompanying the package this file is a part of.
+# You may not port this file to another platform without Apple's written consent.
+# License:: All rights reserved.
+#
+# This tool is intended to be used as the 'archive_command' target for postgres
+# instances that are launched by xpostgres.
+
+use strict;
+use Getopt::Std;
+
+my $MY_NAME = 'xpg_archive_command';
+
+sub usage
+{
+	print "$MY_NAME : Apple script for postgres \'archive_command\' target.\n";
+	print "\tThis script is intended to be invoked by Apple's server backup / restore tools and\n";
+	print "\tis not intended for direct use by customers.\n";
+	print "\t\n";
+	print "Usage:\n";
+	print "\t$MY_NAME [options]\n";
+	print "Options:\n";
+	print "\t-h, -?: Show this message\n";
+	print "\t-D <directory path>: Specify the data directory used by postgres. (REQUIRED)\n";
+	print "\t-w <directory path>: Specify the directory where WAL segment files will be archived to. (REQUIRED)\n";
+	print "\t-f <file name>:      Specify the name of the postgres WAL log file to be archived. (REQUIRED)\n";
+	print "\n";
+}
+
+my $postgres_data_directory;
+my $archived_logs_directory;
+my $log_file;
+
+my %opts;
+getopts('h?D:w:f:', \%opts);
+
+if (defined $opts{'?'} || defined $opts{'h'}) {
+	usage();
+	exit 1;
+}
+
+if (defined $opts{'D'}) {
+	$postgres_data_directory = $opts{'D'};
+}
+
+if (defined $opts{'w'}) {
+	$archived_logs_directory = $opts{'w'};
+}
+
+if (defined $opts{'f'}) {
+	$log_file = $opts{'f'};
+}
+
+if (! ((defined $postgres_data_directory) && (defined $archived_logs_directory) && (defined $log_file))) {
+	print "Error: insufficient arguments provided.\n";
+	usage();
+	exit 2;
+}
+
+if (-e "$archived_logs_directory/$log_file") {
+	print "Error: target for 'ln' already exists\n";
+	exit 3;
+}
+
+if (! link "$postgres_data_directory/pg_xlog/$log_file", "$archived_logs_directory/$log_file") {
+	print "Error: link returned error: $!\n";
+	exit 4;
+}
+
+if (! -e "$archived_logs_directory/$log_file") {
+	print "Error: link succeeded but target file does not exist\n";
+	exit 5;
+}
+
+exit 0;

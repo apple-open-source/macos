@@ -1,0 +1,21 @@
+Changes
+inc/Module/Install.pm
+inc/Module/Install/Base.pm
+inc/Module/Install/Can.pm
+inc/Module/Install/Fetch.pm
+inc/Module/Install/GithubMeta.pm
+inc/Module/Install/Makefile.pm
+inc/Module/Install/Metadata.pm
+inc/Module/Install/Package.pm
+inc/Module/Install/Win32.pm
+inc/Module/Install/WriteAll.pm
+inc/Module/Package.pm
+inc/Pod/Markdown.pm
+lib/ok.pm
+lib/Test/use/ok.pm
+Makefile.PL
+MANIFEST			This list of files
+META.yml
+README
+README.mkdn
+t/01-basic.t

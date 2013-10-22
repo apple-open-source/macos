@@ -37,7 +37,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
-#include <System/net/pfkeyv2.h>
+#include <net/pfkeyv2.h>
 #include <netinet/in.h>
 #ifdef HAVE_NETINET6_IPSEC
 #  include <netinet6/ipsec.h>
@@ -56,7 +56,7 @@
 #include "y.tab.h"
 #define yylval __libipseclval	/* XXX */
 
-int yylex __P((void));
+int yylex (void);
 %}
 
 %option noyywrap
@@ -164,8 +164,8 @@ unique		{ yylval.num = IPSEC_LEVEL_UNIQUE; return(LEVEL); }
 
 %%
 
-void __policy__strbuffer__init__ __P((char *));
-void __policy__strbuffer__free__ __P((void));
+void __policy__strbuffer__init__ (char *);
+void __policy__strbuffer__free__ (void);
 
 static YY_BUFFER_STATE strbuffer;
 

@@ -80,8 +80,11 @@ free_type (const char *name, const Type *t, int preserve)
 	if ((t->type == TSequence || t->type == TChoice) && preserve)
 	    fprintf(codefile, "der_free_octet_string(&data->_save);\n");
 
-	if(t->type == TChoice)
+	if(t->type == TChoice) {
 	    fprintf(codefile, "switch((%s)->element) {\n", name);
+	    fprintf(codefile,
+		    "case ASN1_CHOICE_INVALID: break;\n");
+	}
 
 	ASN1_TAILQ_FOREACH(m, t->members, members) {
 	    char *s;

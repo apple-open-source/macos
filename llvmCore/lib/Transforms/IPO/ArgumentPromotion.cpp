@@ -245,10 +245,7 @@ static bool IsPrefix(const ArgPromotion::IndicesVector &Prefix,
                      const ArgPromotion::IndicesVector &Longer) {
   if (Prefix.size() > Longer.size())
     return false;
-  for (unsigned i = 0, e = Prefix.size(); i != e; ++i)
-    if (Prefix[i] != Longer[i])
-      return false;
-  return true;
+  return std::equal(Prefix.begin(), Prefix.end(), Longer.begin());
 }
 
 
@@ -595,14 +592,6 @@ CallGraphNode *ArgPromotion::DoPromotion(Function *F,
 
   Type *RetTy = FTy->getReturnType();
 
-  // Work around LLVM bug PR56: the CWriter cannot emit varargs functions which
-  // have zero fixed arguments.
-  bool ExtraArgHack = false;
-  if (Params.empty() && FTy->isVarArg()) {
-    ExtraArgHack = true;
-    Params.push_back(Type::getInt32Ty(F->getContext()));
-  }
-
   // Construct the new function type using the new arguments.
   FunctionType *NFTy = FunctionType::get(RetTy, Params, FTy->isVarArg());
 
@@ -616,8 +605,7 @@ CallGraphNode *ArgPromotion::DoPromotion(Function *F,
   
   // Recompute the parameter attributes list based on the new arguments for
   // the function.
-  NF->setAttributes(AttrListPtr::get(AttributesVec.begin(),
-                                     AttributesVec.end()));
+  NF->setAttributes(AttrListPtr::get(AttributesVec));
   AttributesVec.clear();
 
   F->getParent()->getFunctionList().insert(F, NF);
@@ -715,9 +703,6 @@ CallGraphNode *ArgPromotion::DoPromotion(Function *F,
         }
       }
 
-    if (ExtraArgHack)
-      Args.push_back(Constant::getNullValue(Type::getInt32Ty(F->getContext())));
-
     // Push any varargs arguments on the list.
     for (; AI != CS.arg_end(); ++AI, ++ArgIndex) {
       Args.push_back(*AI);
@@ -734,13 +719,11 @@ CallGraphNode *ArgPromotion::DoPromotion(Function *F,
       New = InvokeInst::Create(NF, II->getNormalDest(), II->getUnwindDest(),
                                Args, "", Call);
       cast<InvokeInst>(New)->setCallingConv(CS.getCallingConv());
-      cast<InvokeInst>(New)->setAttributes(AttrListPtr::get(AttributesVec.begin(),
-                                                          AttributesVec.end()));
+      cast<InvokeInst>(New)->setAttributes(AttrListPtr::get(AttributesVec));
     } else {
       New = CallInst::Create(NF, Args, "", Call);
       cast<CallInst>(New)->setCallingConv(CS.getCallingConv());
-      cast<CallInst>(New)->setAttributes(AttrListPtr::get(AttributesVec.begin(),
-                                                        AttributesVec.end()));
+      cast<CallInst>(New)->setAttributes(AttrListPtr::get(AttributesVec));
       if (cast<CallInst>(Call)->isTailCall())
         cast<CallInst>(New)->setTailCall();
     }
@@ -876,15 +859,8 @@ CallGraphNode *ArgPromotion::DoPromotion(Function *F,
     }
 
     // Increment I2 past all of the arguments added for this promoted pointer.
-    for (unsigned i = 0, e = ArgIndices.size(); i != e; ++i)
-      ++I2;
+    std::advance(I2, ArgIndices.size());
   }
-
-  // Notify the alias analysis implementation that we inserted a new argument.
-  if (ExtraArgHack)
-    AA.copyValue(Constant::getNullValue(Type::getInt32Ty(F->getContext())), 
-                 NF->arg_begin());
-
 
   // Tell the alias analysis that the old function is about to disappear.
   AA.replaceWithNewValue(F, NF);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,7 +60,7 @@ typedef DHCPv6SocketReceiveFunc * DHCPv6SocketReceiveFuncPtr;
 typedef struct DHCPv6Socket * DHCPv6SocketRef;
 
 void
-DHCPv6SocketSetLogFile(FILE * log_file);
+DHCPv6SocketSetVerbose(bool verbose);
 
 void
 DHCPv6SocketSetPorts(uint16_t client_port, uint16_t server_port);

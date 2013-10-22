@@ -282,7 +282,7 @@ static int addLegacyTypeForBSDName(BLContextPtr context,
             io_name_t name;
             
             kret = IORegistryEntryGetNameInPlane(service, kIOServicePlane, name);
-            if(kret) strcpy(name, "unknown");
+            if(kret) strlcpy(name, "unknown", sizeof name);
             contextprintf(context, kBLLogLevelVerbose, "%*s%s\n", spaces, "", name);        
             
             if(IOObjectConformsTo(service, kIOUSBInterfaceClassName)) {

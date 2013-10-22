@@ -29,7 +29,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2012 Apple Inc.
  */
 
 #include <stdio.h>
@@ -307,7 +307,7 @@ od_match(const char *map, const char *key, char **od_line, int *od_len)
 
 	if (trace > 1) {
 		trace_prt(1, "od_match called\n");
-		trace_prt(1, "od_match: key =[ %s ]\n", key);
+		trace_prt(1, "od_match: key =[ %s ] map = %s\n", key, map);
 	}
 
 	/* Construct the string value to search for. */
@@ -340,7 +340,7 @@ od_match(const char *map, const char *key, char **od_line, int *od_len)
 
 	if (verbose) {
 		if (ret == __NSW_NOTFOUND)
-			pr_msg("od_search failed");
+			pr_msg("od_search for %s in %s failed", key, map);
 	}
 
 done:

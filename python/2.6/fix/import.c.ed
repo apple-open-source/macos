@@ -1,0 +1,10 @@
+/^check_compiled_module/a
+.
+/pyc_mtime =/a
+    if (strncmp(cpathname, "/System/", 8) != 0) {
+.
+.+1,/}/s/^/    /
+a
+    }
+.
+w

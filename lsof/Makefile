@@ -38,7 +38,7 @@ LSOF_CONFIGURE  = $(OBJROOT)/Configure
 install-patched-source: shadow_source
 	$(_v) echo "*** patching Configure"
 	$(_v) $(CAT) $(LSOF_CONFIGURE)						>  /tmp/build.lsof.$(UNIQUE)
-	$(_v) echo '/^[ 	]*900|1000|1100)/n'				>  /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*900|1000|1100|1200)/n'			>  /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      if [ -n "$${SDKROOT}" ]; then'			>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_CC="`xcrun -sdk $${SDKROOT} -find cc`"'	>> /tmp/build.lsof.$(UNIQUE)-ed
@@ -47,7 +47,7 @@ install-patched-source: shadow_source
 	$(_v) echo '        LSOF_CC="`xcrun -sdk / -find cc`"'			>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      fi'							>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '.'								>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '/^[ 	]*1200)/n'					>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*1300)/n'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_UNSUP=""'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_TSTBIGF=" "'					>> /tmp/build.lsof.$(UNIQUE)-ed
@@ -60,6 +60,10 @@ install-patched-source: shadow_source
 	$(_v) echo '.'								>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^.* -mdynamic-no-pic/d'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '.,$$s/DARWIN_XNU_HEADERS/SDKROOT/'				>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^#include <time.h>/n'					>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^main(){/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo 'int'							>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '.'								>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo 'w'								>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) ed - /tmp/build.lsof.$(UNIQUE)					<  /tmp/build.lsof.$(UNIQUE)-ed	\
 										>  /dev/null
@@ -75,7 +79,6 @@ LSOF_MAKEFILE   = $(OBJROOT)/Makefile
 LSOF_MAKEFILE2  = $(OBJROOT)/lib/Makefile
 LSOF_MACHINE_H1 = $(OBJROOT)/dialects/darwin/kmem/machine.h
 LSOF_MACHINE_H2 = $(OBJROOT)/dialects/darwin/libproc/machine.h
-LSOF_MANPAGE    = $(OBJROOT)/lsof.8
 
 ConfigStamp2 = $(ConfigStamp)2
 
@@ -83,15 +86,16 @@ configure:: $(ConfigStamp2)
 
 $(ConfigStamp2): $(ConfigStamp)
 	$(_v) echo "*** patching Makefile"
-	$(_v) $(CAT) $(LSOF_MAKEFILE) |						\
-		$(SED)	-e 's@^\(DEBUG=\).*@\1 -Os -g@'				\
+	$(_v) $(CAT) $(LSOF_MAKEFILE) |								\
+		$(SED)	-e 's@^\(DEBUG=	\).*@\1 -Os -g@'					\
+			-e 's@^\(DS=	\).*@\1 '`xcrun -sdk $${SDKROOT} -find dsymutil`'@'	\
 		> /tmp/build.lsof.$(UNIQUE)
 	$(_v) $(RM) $(LSOF_MAKEFILE)
 	$(_v) $(MV) /tmp/build.lsof.$(UNIQUE) $(LSOF_MAKEFILE)
 
 	$(_v) echo "*** patching lib/Makefile"
 	$(_v) $(CAT) $(LSOF_MAKEFILE2) |					\
-		$(SED)	-e 's@^\(DEBUG=\).*@\1 -Os -g@'				\
+		$(SED)	-e 's@^\(DEBUG=	\).*@\1 -Os -g@'			\
 		> /tmp/build.lsof.$(UNIQUE)
 	$(_v) $(RM) $(LSOF_MAKEFILE2)
 	$(_v) $(MV) /tmp/build.lsof.$(UNIQUE) $(LSOF_MAKEFILE2)
@@ -110,19 +114,6 @@ $(ConfigStamp2): $(ConfigStamp)
 		> /tmp/build.lsof.$(UNIQUE)
 	$(_v) $(RM) $(LSOF_MACHINE_H2)
 	$(_v) $(MV) /tmp/build.lsof.$(UNIQUE) $(LSOF_MACHINE_H2)
-
-	$(_v) echo "*** patching lsof.8"
-	$(_v) $(CAT) $(LSOF_MANPAGE)						>  /tmp/build.lsof.$(UNIQUE)
-	$(_v) echo '/^[ 	]*Apple Darwin .*/d'				>  /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '/^[ 	]*Solaris 9, 10 and .*/i'			>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '	Mac OS X 10.5 for PowerPC and Intel systems'		>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '	Mac OS X 10.6 and above for Intel systems'		>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '.'								>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo 'w'								>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) ed - /tmp/build.lsof.$(UNIQUE)					<  /tmp/build.lsof.$(UNIQUE)-ed	\
-										>  /dev/null
-	$(_v) $(RM) /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) $(MV) /tmp/build.lsof.$(UNIQUE) $(LSOF_MANPAGE)
 
 	$(_v) $(TOUCH) $(ConfigStamp2)
 

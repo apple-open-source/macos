@@ -45,6 +45,7 @@ END_REGISTER_ANIMATED_PROPERTIES
 
 inline SVGViewElement::SVGViewElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
+    , m_zoomAndPan(SVGZoomAndPanMagnify)
     , m_viewTarget(SVGNames::viewTargetAttr)
 {
     ASSERT(hasTagName(SVGNames::viewTag));
@@ -68,23 +69,23 @@ bool SVGViewElement::isSupportedAttribute(const QualifiedName& attrName)
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGViewElement::parseAttribute(Attribute* attr)
+void SVGViewElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGStyledElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGStyledElement::parseAttribute(name, value);
         return;
     }
 
-    if (attr->name() == SVGNames::viewTargetAttr) {
-        viewTarget().reset(attr->value());
+    if (name == SVGNames::viewTargetAttr) {
+        viewTarget().reset(value);
         return;
     }
 
-    if (SVGExternalResourcesRequired::parseAttribute(attr))
+    if (SVGExternalResourcesRequired::parseAttribute(name, value))
         return;
-    if (SVGFitToViewBox::parseAttribute(document(), attr))
+    if (SVGFitToViewBox::parseAttribute(this, name, value))
         return;
-    if (SVGZoomAndPan::parseAttribute(attr))
+    if (SVGZoomAndPan::parseAttribute(this, name, value))
         return;
 
     ASSERT_NOT_REACHED();

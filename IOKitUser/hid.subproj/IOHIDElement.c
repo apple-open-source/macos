@@ -547,7 +547,7 @@ IOHIDElementRef IOHIDElementGetParent(IOHIDElementRef element)
         CFArrayRef              elementArray;
         
         matchingDict = CFDictionaryCreateMutable(
-                                            kCFAllocatorDefault,
+                                            CFGetAllocator(element),
                                             1, 
                                             &kCFTypeDictionaryKeyCallBacks, 
                                             &kCFTypeDictionaryValueCallBacks);
@@ -555,7 +555,7 @@ IOHIDElementRef IOHIDElementGetParent(IOHIDElementRef element)
         if ( matchingDict ) {                       
             uint32_t cookie = (uint32_t)element->elementStructPtr->parentCookie;
             CFNumberRef cookieNumber = CFNumberCreate(
-                                            kCFAllocatorDefault, 
+                                            CFGetAllocator(element),
                                             kCFNumberIntType, 
                                             &cookie);
                                             
@@ -594,7 +594,7 @@ CFArrayRef IOHIDElementGetChildren(IOHIDElementRef element)
         CFMutableDictionaryRef matchingDict;
         
         matchingDict = CFDictionaryCreateMutable(
-                                            kCFAllocatorDefault, 
+                                            CFGetAllocator(element),
                                             1, 
                                             &kCFTypeDictionaryKeyCallBacks, 
                                             &kCFTypeDictionaryValueCallBacks);
@@ -603,7 +603,7 @@ CFArrayRef IOHIDElementGetChildren(IOHIDElementRef element)
             uint32_t cookie = (uint32_t)IOHIDElementGetCookie(element);
             
             CFNumberRef cookieNumber = CFNumberCreate(
-                                            kCFAllocatorDefault, 
+                                            CFGetAllocator(element),
                                             kCFNumberIntType, &cookie);
                                             
             CFDictionarySetValue(   matchingDict, 
@@ -650,7 +650,7 @@ void _IOHIDElementAttach(IOHIDElementRef element, IOHIDElementRef toAttach, Bool
 {
     if ( !element->attachedElements )
         element->attachedElements = CFArrayCreateMutable(   
-                                        kCFAllocatorDefault, 
+                                        CFGetAllocator(element),
                                         0, 
                                         &kCFTypeArrayCallBacks);
              
@@ -699,7 +699,7 @@ void _IOHIDElementDetach(IOHIDElementRef element, IOHIDElementRef toDetach, Bool
 CFArrayRef IOHIDElementCopyAttached(IOHIDElementRef element)
 {
     return element->attachedElements ? 
-            CFArrayCreateCopy(kCFAllocatorDefault, element->attachedElements) :
+            CFArrayCreateCopy(CFGetAllocator(element), element->attachedElements) :
             NULL;
 }
 
@@ -751,7 +751,7 @@ Boolean IOHIDElementSetProperty(            IOHIDElementRef         element,
                                             CFTypeRef               property)
 {
     if ( !element->properties ) {
-        element->properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 
+        element->properties = CFDictionaryCreateMutable(CFGetAllocator(element), 
                                                         0, 
                                                         &kCFTypeDictionaryKeyCallBacks, 
                                                         &kCFTypeDictionaryValueCallBacks);
@@ -827,7 +827,7 @@ CFStringRef __IOHIDElementGetRootKey(IOHIDElementRef element)
         long int type = (long int)IOHIDElementGetType(element);
         
         element->rootKey = CFStringCreateWithFormat(NULL, NULL, 
-                                                    CFSTR("%@#%04lx#%04lx#%016llx#%ld"), 
+                                                    CFSTR("%@#%04lx#%04lx#%016lx#%ld"), 
                                                     device,
                                                     usagePage,
                                                     usage,

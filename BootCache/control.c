@@ -1556,11 +1556,7 @@ generate_playlist(const char *pfname, const char *root)
 				.l2p_contigbytes = remaining, //As an IN parameter to F_LOG2PHYS_EXT, this is the number of bytes to be queried
 			};
 			
-#if __LP64__
-			int ret = syscall(SYS_fcntl, fd, F_LOG2PHYS_EXT, &l2p);
-#else
 			int ret = fcntl(fd, F_LOG2PHYS_EXT, &l2p);
-#endif
 			if (ret != 0) {
 				errx(1, "fcntl(%d (%s), F_LOG2PHYS_EXT, &{.offset: %lld, .bytes: %lld}) => %d (errno: %d %s)",
 					 fd, path, l2p.l2p_devoffset, l2p.l2p_contigbytes, ret, errno, strerror(errno));
@@ -1577,7 +1573,7 @@ generate_playlist(const char *pfname, const char *root)
 				break;
 			}
 			
-			if (l2p.l2p_contigbytes == 0) {
+			if (l2p.l2p_contigbytes <= 0) {
 				//RLOG(INFO, "%"PRIdoff":%"PRIdoff" returned %"PRIdoff":%"PRIdoff"\n", position, remaining, l2p.l2p_devoffset, l2p.l2p_contigbytes);
 				break;
 			}

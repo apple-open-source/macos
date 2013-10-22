@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,9 +31,9 @@
 
 namespace WebKit {
 
-static WorkQueue& processLauncherWorkQueue()
+static WorkQueue* processLauncherWorkQueue()
 {
-    DEFINE_STATIC_LOCAL(WorkQueue, processLauncherWorkQueue, ("com.apple.WebKit.ProcessLauncher"));
+    static WorkQueue* processLauncherWorkQueue = WorkQueue::create("com.apple.WebKit.ProcessLauncher").leakRef();
     return processLauncherWorkQueue;
 }
 
@@ -44,7 +44,7 @@ ProcessLauncher::ProcessLauncher(Client* client, const LaunchOptions& launchOpti
 {
     // Launch the process.
     m_isLaunching = true;
-    processLauncherWorkQueue().dispatch(bind(&ProcessLauncher::launchProcess, this));
+    processLauncherWorkQueue()->dispatch(bind(&ProcessLauncher::launchProcess, this));
 }
 
 void ProcessLauncher::didFinishLaunchingProcess(PlatformProcessIdentifier processIdentifier, CoreIPC::Connection::Identifier identifier)
@@ -53,7 +53,18 @@ void ProcessLauncher::didFinishLaunchingProcess(PlatformProcessIdentifier proces
     m_isLaunching = false;
     
     if (!m_client) {
-        // FIXME: Dispose of the connection identifier.
+        // FIXME: Make Identifier a move-only object and release port rights/connections in the destructor.
+#if PLATFORM(MAC)
+        if (identifier.port)
+            mach_port_mod_refs(mach_task_self(), identifier.port, MACH_PORT_RIGHT_RECEIVE, -1);
+
+#if HAVE(XPC)
+        if (identifier.xpcConnection) {
+            xpc_release(identifier.xpcConnection);
+            identifier.xpcConnection = 0;
+        }
+#endif
+#endif
         return;
     }
     
@@ -71,8 +82,18 @@ const char* ProcessLauncher::processTypeAsString(ProcessType processType)
     switch (processType) {
     case WebProcess:
         return "webprocess";
+#if ENABLE(PLUGIN_PROCESS)
     case PluginProcess:
         return "pluginprocess";
+#endif
+#if ENABLE(NETWORK_PROCESS)
+    case NetworkProcess:
+        return "networkprocess";
+#endif
+#if ENABLE(SHARED_WORKER_PROCESS)
+    case SharedWorkerProcess:
+        return "sharedworkerprocess";
+#endif
     }
 
     ASSERT_NOT_REACHED();
@@ -86,10 +107,26 @@ bool ProcessLauncher::getProcessTypeFromString(const char* string, ProcessType& 
         return true;
     }
 
+#if ENABLE(PLUGIN_PROCESS)
     if (!strcmp(string, "pluginprocess")) {
         processType = PluginProcess;
         return true;
     }
+#endif
+
+#if ENABLE(NETWORK_PROCESS)
+    if (!strcmp(string, "networkprocess")) {
+        processType = NetworkProcess;
+        return true;
+    }
+#endif
+
+#if ENABLE(SHARED_WORKER_PROCESS)
+    if (!strcmp(string, "sharedworkerprocess")) {
+        processType = SharedWorkerProcess;
+        return true;
+    }
+#endif
 
     return false;
 }

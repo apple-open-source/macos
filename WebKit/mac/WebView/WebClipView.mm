@@ -52,12 +52,10 @@ using namespace WebCore;
 - (void)_immediateScrollToPoint:(NSPoint)newOrigin;
 @end
 
-#ifndef BUILDING_ON_LEOPARD
 @interface NSWindow (WebNSWindowDetails)
 - (void)_disableDelayedWindowDisplay;
 - (void)_enableDelayedWindowDisplay;
 @end
-#endif
 
 @implementation WebClipView
 
@@ -105,15 +103,11 @@ using namespace WebCore;
 {
     _isScrolling = YES;
 
-#ifndef BUILDING_ON_LEOPARD
     [[self window] _disableDelayedWindowDisplay];
-#endif
 
     [super _immediateScrollToPoint:newOrigin];
 
-#ifndef BUILDING_ON_LEOPARD
     [[self window] _enableDelayedWindowDisplay];
-#endif
 
     _isScrolling = NO;
 }

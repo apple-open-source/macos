@@ -213,7 +213,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD26A0987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_apple_cspdl" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -282,28 +282,38 @@
 /* Begin XCBuildConfiguration section */
 		C27AD2640987FCDC001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 184460CD146E7B7B00B12992 /* debug.xcconfig */;
+			baseConfigurationReference = 184460CE146E7B7B00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
 			};
 			name = Debug;
 		};
 		C27AD2690987FCDC001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 184460CF146E7B7B00B12992 /* release.xcconfig */;
+			baseConfigurationReference = 184460CE146E7B7B00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
 			};
 			name = Release;
 		};
 		C27AD26B0987FCDC001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 184460CE146E7B7B00B12992 /* lib.xcconfig */;
+			baseConfigurationReference = 184460CD146E7B7B00B12992 /* debug.xcconfig */;
 			buildSettings = {
 			};
 			name = Debug;
 		};
 		C27AD2700987FCDC001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 184460CE146E7B7B00B12992 /* lib.xcconfig */;
+			baseConfigurationReference = 184460CF146E7B7B00B12992 /* release.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;

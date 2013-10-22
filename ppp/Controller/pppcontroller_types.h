@@ -38,6 +38,7 @@
  * Mach server port name
  */
 #define PPPCONTROLLER_SERVER		"com.apple.SystemConfiguration.PPPController"
+#define PPPCONTROLLER_SERVER_PRIV	"com.apple.SystemConfiguration.PPPController-priv"
 
 /*
  * installed events values
@@ -57,5 +58,9 @@ typedef const char * xmlData_t;
  */
 typedef char * xmlDataOut_t;
 
+typedef const uint8_t * uchar_ptr_t;
+typedef uint8_t * uchar_ptr_out_t;
+typedef const char * char_ptr_t;
+typedef char * char_ptr_out_t;
 
 #endif /* _PPPOLCONTROLLER_TYPES_H */

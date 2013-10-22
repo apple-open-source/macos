@@ -38,13 +38,13 @@ namespace WebCore {
         enum Type {
             JSEventListenerType, 
             ImageEventListenerType, 
-            InspectorDOMStorageResourceType,
             ObjCEventListenerType,
             CPPEventListenerType,
             ConditionEventListenerType,
             GObjectEventListenerType,
             NativeEventListenerType,
-            SVGTRefTargetEventListenerType
+            SVGTRefTargetEventListenerType,
+            MediaControlsAppleEventListenerType 
         };
 
         virtual ~EventListener() { }
@@ -52,15 +52,13 @@ namespace WebCore {
         virtual void handleEvent(ScriptExecutionContext*, Event*) = 0;
         virtual bool wasCreatedFromMarkup() const { return false; }
 
-#if USE(JSC)
         virtual void visitJSFunction(JSC::SlotVisitor&) { }
-#endif
 
         bool isAttribute() const { return virtualisAttribute(); }
         Type type() const { return m_type; }
 
     protected:
-        EventListener(Type type)
+        explicit EventListener(Type type)
             : m_type(type)
         {
         }

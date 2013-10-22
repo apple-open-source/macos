@@ -1,0 +1,7 @@
+Still to do:
+
+o write some test code for make test
+o implement mk_safe & rd_safe
+o investigate net_read & net_write -- does Perl really need them?
+o finalize exported constants
+o support Win2K clients

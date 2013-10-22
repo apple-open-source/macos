@@ -48,7 +48,7 @@ typedef enum kcm_operation {
     KCM_OP_NOOP,
     KCM_OP_GET_NAME,
     KCM_OP_RESOLVE,
-    KCM_OP_GEN_NEW,
+    KCM_OP_DEPRECATED_GEN_NEW,
     KCM_OP_INITIALIZE,
     KCM_OP_DESTROY,
     KCM_OP_STORE,

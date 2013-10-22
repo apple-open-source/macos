@@ -1,12 +1,12 @@
 /*
  * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
- * 
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
  * You may not use this file except in compliance with the License. Please obtain
  * a copy of the License at http://www.apple.com/publicsource and read it before
  * using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
  * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
@@ -19,7 +19,7 @@
 /*
 	certGroupUtils.cpp
 
-	Created 10/9/2000 by Doug Mitchell. 
+	Created 10/9/2000 by Doug Mitchell.
 */
 
 #include <Security/cssmtype.h>
@@ -31,7 +31,7 @@
 #include <Security/SecAsn1Coder.h>
 #include <Security/keyTemplates.h>
 
-#include "certGroupUtils.h" 
+#include "certGroupUtils.h"
 #include "tpdebugging.h"
 #include "tpTime.h"
 
@@ -39,7 +39,7 @@
 
 
 /*
- * Copy one CSSM_DATA to another, mallocing destination. 
+ * Copy one CSSM_DATA to another, mallocing destination.
  */
 void tpCopyCssmData(
 	Allocator		&alloc,
@@ -92,8 +92,8 @@ void tpFreeCssmData(
 CSSM_BOOL tpCompareCssmData(
 	const CSSM_DATA *data1,
 	const CSSM_DATA *data2)
-{	
-	if((data1 == NULL) || (data1->Data == NULL) || 
+{
+	if((data1 == NULL) || (data1->Data == NULL) ||
 	   (data2 == NULL) || (data2->Data == NULL) ||
 	   (data1->Length != data2->Length)) {
 		return CSSM_FALSE;
@@ -129,14 +129,14 @@ void tpFreePluginMemory(
 /*
  * Obtain the public key blob from a cert.
  */
-CSSM_DATA_PTR tp_CertGetPublicKey( 
+CSSM_DATA_PTR tp_CertGetPublicKey(
     TPCertInfo *cert,
 	CSSM_DATA_PTR *valueToFree)			// used in tp_CertFreePublicKey
 {
 	CSSM_RETURN crtn;
 	CSSM_DATA_PTR val;
 	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *keyInfo;
-	
+
 	*valueToFree = NULL;
 	crtn = cert->fetchField(&CSSMOID_X509V1SubjectPublicKeyCStruct, &val);
 	if(crtn) {
@@ -158,13 +158,13 @@ void tp_CertFreePublicKey(
 /*
  * Obtain signature algorithm info from a cert.
  */
-CSSM_X509_ALGORITHM_IDENTIFIER_PTR tp_CertGetAlgId( 
+CSSM_X509_ALGORITHM_IDENTIFIER_PTR tp_CertGetAlgId(
     TPCertInfo	 	*cert,
 	CSSM_DATA_PTR 	*valueToFree)			// used in tp_CertFreeAlgId
 {
 	CSSM_RETURN crtn;
 	CSSM_DATA_PTR val;
-	
+
 	*valueToFree = NULL;
 	crtn = cert->fetchField(&CSSMOID_X509V1SignatureAlgorithm, &val);
 	if(crtn) {
@@ -183,7 +183,7 @@ void tp_CertFreeAlgId(
 }
 
 /*
- * Determine if two certs - passed in encoded form - are equivalent. 
+ * Determine if two certs - passed in encoded form - are equivalent.
  */
 CSSM_BOOL tp_CompareCerts(
 	const CSSM_DATA			*cert1,
@@ -209,7 +209,7 @@ void tpToLower(
  * Normalize an RFC822 addr-spec. This consists of converting
  * all characters following the '@' character to lower case.
  * A true normalizeAll results in lower-casing all characters
- * (e.g. for iChat). 
+ * (e.g. for iChat).
  */
 void tpNormalizeAddrSpec(
 	char		*addr,
@@ -235,15 +235,15 @@ void tpNormalizeAddrSpec(
 
 /***
  *** dnsName compare support.
- *** Please do not make any changes to this code without talking to 
+ *** Please do not make any changes to this code without talking to
  *** dmitch about updating (if necessary) and running (always)
  *** regression tests which specifically test this logic.
  ***/
- 
+
 /*
  * Max length of a distinguished name component (label) we handle.
  * Various RFCs spec this out at 63 bytes; we're just allocating space
- * for these on the stack, so why not cut some slack. 
+ * for these on the stack, so why not cut some slack.
  */
 #define MAX_DNS_COMP_LEN	128
 
@@ -262,7 +262,7 @@ static bool tpNextDnsComp(
 	if(inBufLen == 0) {
 		return false;
 	}
-	
+
 	/* skip over leading '.' */
 	if(*inBuf == '.') {
 		inBuf++;
@@ -270,7 +270,7 @@ static bool tpNextDnsComp(
 			return false;
 		}
 	}
-	
+
 	/* copy chars until out of data or next '.' found */
 	do {
 		if(*inBuf == '.') {
@@ -313,21 +313,21 @@ static const char *tpSubStr(
 			}
 			if(!memcmp(bigstr+1, substr+1, substrLen - 1)) {
 				return bigstr;
-			} 
+			}
 		}
 		bigstr++;
-	} 
+	}
 	return NULL;
 }
 
 /*
  * Compare two DNS components, with full wildcard check. We assume
- * that no '.' chars exist (per the processing performed in 
+ * that no '.' chars exist (per the processing performed in
  * tpNextDnsComp()). Returns CSSM_TRUE on match, else CSSM_FALSE.
  */
 static CSSM_BOOL tpCompareComps(
 	const char 	*hostComp, 			// no wildcards
-	uint32 		hostCompLen, 
+	uint32 		hostCompLen,
 	const char 	*certComp, 			// wildcards OK here
 	uint32		certCompLen)
 {
@@ -347,13 +347,13 @@ static CSSM_BOOL tpCompareComps(
 				return CSSM_FALSE;
 			}
 		}
-		
+
 		if(wildCard != certComp) {
-			/* 
+			/*
 			 * Require literal match of hostComp with certComp
 			 * up until (but not including) the wildcard
 			 */
-			uint32 subStrLen = wildCard - certComp;
+			ptrdiff_t subStrLen = wildCard - certComp;
 			if(subStrLen > hostCompLen) {
 				/* out of host name chars */
 				return CSSM_FALSE;
@@ -369,48 +369,48 @@ static CSSM_BOOL tpCompareComps(
 			certCompLen -= subStrLen;
 			continue;
 		}
-		
+
 		/*
 		 * Currently looking at a wildcard.
 		 *
 		 * Find substring in hostComp which matches from the char after
 		 * the wildcard up to whichever of these comes next:
 		 *
-		 *  -- end of certComp 
+		 *  -- end of certComp
 		 *  -- another wildcard
 		 */
-		wildCard++;		
+		wildCard++;
 		if(wildCard == endCertComp) {
-			/* 
+			/*
 			 * -- Wild card at end of cert's DNS
 			 * -- nothing else to match - rest of hostComp is the wildcard
 			 *    match
-			 * -- done, success 
+			 * -- done, success
 			 */
 			return CSSM_TRUE;
 		}
-		
+
 		const char *afterSubStr;		// in certComp
-		afterSubStr = tpSubStr(wildCard, endCertComp - wildCard,
+		afterSubStr = tpSubStr(wildCard, (uint32)(endCertComp - wildCard),
 			"*", 1);
 		if(afterSubStr == NULL) {
 			/* no more wildcards - use end of certComp */
 			afterSubStr = endCertComp;
 		}
-		uint32 subStrLen = afterSubStr - wildCard;
+		uint32 subStrLen = (uint32)(afterSubStr - wildCard);
 		const char *foundSub = tpSubStr(hostComp, hostCompLen,
 			wildCard, subStrLen);
 		if(foundSub == NULL) {
 			/* No match of explicit chars */
 			return CSSM_FALSE;
 		}
-		
+
 		/* found it - skip past this substring */
 		hostComp    = foundSub + subStrLen;
-		hostCompLen = endHostComp - hostComp;
+		hostCompLen = (uint32)(endHostComp - hostComp);
 		certComp    = afterSubStr;
-		certCompLen = endCertComp - afterSubStr;
-		
+		certCompLen = (uint32)(endCertComp - afterSubStr);
+
 	} while((hostCompLen != 0) || (certCompLen != 0));
 	if((hostCompLen == 0) && (certCompLen == 0)) {
 		return CSSM_TRUE;
@@ -422,13 +422,13 @@ static CSSM_BOOL tpCompareComps(
 }
 
 /*
- * Compare hostname, is presented to the TP in 
+ * Compare hostname, is presented to the TP in
  * CSSM_APPLE_TP_SSL_OPTIONS.ServerName, to a server name obtained
  * from the server's cert (i.e., from subjectAltName or commonName).
- * Limited wildcard checking is performed here. 
+ * Limited wildcard checking is performed here.
  *
  * The incoming hostname is assumed to have been processed by tpToLower();
- * we'll perform that processing on certName here. 
+ * we'll perform that processing on certName here.
  *
  * Trailing '.' characters in both host names will be ignored per Radar 3996792.
  *
@@ -449,7 +449,7 @@ CSSM_BOOL tpCompareHostNames(
 	if(certNameLen && (certName[certNameLen - 1] == '\0')) {
 		certNameLen--;
 	}
-	
+
 	if((hostNameLen == 0) || (certNameLen == 0)) {
 		/* trivial case with at least one empty name */
 		if(hostNameLen == certNameLen) {
@@ -459,7 +459,7 @@ CSSM_BOOL tpCompareHostNames(
 			return CSSM_FALSE;
 		}
 	}
-	
+
 	/* trim off trailing dots */
 	if(hostName[hostNameLen - 1] == '.') {
 		hostNameLen--;
@@ -467,16 +467,16 @@ CSSM_BOOL tpCompareHostNames(
 	if(certName[certNameLen - 1] == '.') {
 		certNameLen--;
 	}
-	
+
 	/* Case 1: exact match */
 	if((certNameLen == hostNameLen) &&
 	    !memcmp(certName, hostName, certNameLen)) {
 		return CSSM_TRUE;
 	}
-	
-	/* 
+
+	/*
 	 * Case 2: Compare one component at a time, handling wildcards in
-	 * cert's server name. The characters implicitly matched by a 
+	 * cert's server name. The characters implicitly matched by a
 	 * wildcard span only one component of a dnsName.
 	 */
 	do {
@@ -485,7 +485,7 @@ CSSM_BOOL tpCompareHostNames(
 		char certComp[MAX_DNS_COMP_LEN];
 		uint32 hostCompLen;
 		uint32 certCompLen;
-		
+
 		bool foundHost = tpNextDnsComp(hostName, hostNameLen,
 				hostComp, hostCompLen);
 		bool foundCert = tpNextDnsComp(certName, certNameLen,
@@ -499,14 +499,14 @@ CSSM_BOOL tpCompareHostNames(
 			/* normal successful termination */
 			return CSSM_TRUE;
 		}
-		
+
 		/* compare individual components */
-		if(!tpCompareComps(hostComp, hostCompLen, 
+		if(!tpCompareComps(hostComp, hostCompLen,
 				certComp, certCompLen)) {
 			tpPolicyError("tpCompareHostNames: wildcard mismatch (2)");
 			return CSSM_FALSE;
 		}
-		
+
 		/* skip over this component
 		 * (note: since tpNextDnsComp will first skip over a leading '.',
 		 * we must make sure to skip over it here as well.)
@@ -522,14 +522,14 @@ CSSM_BOOL tpCompareHostNames(
 }
 
 /*
- * Compare email address, is presented to the TP in 
+ * Compare email address, is presented to the TP in
  * CSSM_APPLE_TP_SMIME_OPTIONS.SenderEmail, to a string obtained
  * from the sender's cert (i.e., from subjectAltName or Subject DN).
  *
  * Returns CSSM_TRUE on match, else CSSM_FALSE.
  *
  * Incoming appEmail string has already been tpNormalizeAddrSpec'd.
- * We do that for certEmail string here. 
+ * We do that for certEmail string here.
  */
 CSSM_BOOL tpCompareEmailAddr(
 	const char	 	*appEmail,		// spec'd by app, normalized
@@ -559,9 +559,9 @@ CSSM_BOOL tpCompareEmailAddr(
 	}
 }
 
-/* 
+/*
  * Following a CSSMOID_ECDSA_WithSpecified algorithm is an encoded
- * ECDSA_SigAlgParams containing the digest agorithm OID. Decode and return 
+ * ECDSA_SigAlgParams containing the digest agorithm OID. Decode and return
  * a unified ECDSA/digest alg (e.g. CSSM_ALGID_SHA512WithECDSA).
  * Returns nonzero on error.
  */

@@ -34,7 +34,7 @@
 
 #include <exception>
 
-
+#ifndef _LIBCPPABI_VERSION
 
 void
 std::terminate ()
@@ -69,6 +69,8 @@ std::unexpected_handler std::set_unexpected (std::unexpected_handler func) throw
   return old;
 }
 
+#endif  // _LIBCPPABI_VERSION
+
 namespace __gnu_cxx
 {
 	void __verbose_terminate_handler()
@@ -80,4 +82,3 @@ namespace __gnu_cxx
 		abort();
 	}
 }
-

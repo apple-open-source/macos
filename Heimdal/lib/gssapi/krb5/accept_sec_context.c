@@ -335,6 +335,38 @@ gsskrb5_acceptor_ready(OM_uint32 * minor_status,
     return GSS_S_COMPLETE;
 }
 
+OM_uint32
+_gsskrb5_error_token(OM_uint32 *minor_status,
+		     gss_OID mech,
+		     krb5_context context,
+		     krb5_error_code error_code,
+		     krb5_data *e_data,
+		     krb5_principal server,
+		     gss_buffer_t output_token)
+{
+    krb5_error_code ret;
+    krb5_data outbuf;
+
+    ret = krb5_mk_error(context, error_code, NULL, e_data, NULL,
+			server, NULL, NULL, &outbuf);
+    if (ret) {
+	*minor_status = ret;
+	return GSS_S_FAILURE;
+    }
+
+    ret = _gsskrb5_encapsulate(minor_status,
+			       &outbuf,
+			       output_token,
+			       "\x03\x00",
+			       mech);
+    krb5_data_free (&outbuf);
+    if (ret)
+	return ret;
+
+    *minor_status = 0;
+    return GSS_S_COMPLETE;
+}
+
 static OM_uint32
 send_error_token(OM_uint32 *minor_status,
 		 krb5_context context,
@@ -346,7 +378,7 @@ send_error_token(OM_uint32 *minor_status,
 {
     krb5_principal ap_req_server = NULL;
     krb5_error_code ret;
-    krb5_data outbuf;
+    OM_uint32 maj_stat;
     /* this e_data value encodes KERB_AP_ERR_TYPE_SKEW_RECOVERY which
        tells windows to try again with the corrected timestamp. See
        [MS-KILE] 2.2.1 KERB-ERROR-DATA */
@@ -373,23 +405,14 @@ send_error_token(OM_uint32 *minor_status,
 	server = ap_req_server;
     }
 
-    ret = krb5_mk_error(context, kret, NULL, &e_data, NULL,
-			server, NULL, NULL, &outbuf);
+    maj_stat = _gsskrb5_error_token(minor_status, mech, context, kret,
+				    &e_data, server,  output_token);
     if (ap_req_server)
 	krb5_free_principal(context, ap_req_server);
-    if (ret) {
+    if (maj_stat) {
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
-
-    ret = _gsskrb5_encapsulate(minor_status,
-			       &outbuf,
-			       output_token,
-			       "\x03\x00",
-			       mech);
-    krb5_data_free (&outbuf);
-    if (ret)
-	return ret;
 
     *minor_status = 0;
     return GSS_S_CONTINUE_NEEDED;
@@ -450,6 +473,8 @@ iakerb_acceptor_start(OM_uint32 * minor_status,
 	kret = heim_ipc_call(ictx, &indata, &outdata, NULL);
 	heim_ipc_free_context(ictx);
 	if (kret) {
+	    _gsskrb5_error_token(minor_status, ctx->mech, context, kret,
+				 NULL, NULL, output_token);
 	    *minor_status = kret;
 	    return GSS_S_FAILURE;
 	}

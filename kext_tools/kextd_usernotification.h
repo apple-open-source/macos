@@ -38,8 +38,20 @@ ExitStatus startMonitoringConsoleUser(
     unsigned int * sourcePriority);
 void stopMonitoringConsoleUser(void);
 
+#define INVALID_SIGNATURE_KEXT_ALERT       1
+#define NO_LOAD_KEXT_ALERT                 2
+#define REVOKED_SIG_KEXT_ALERT             3
+#define EXCLUDED_KEXT_ALERT                4
+//#define UNSIGNED_KEXT_ALERT                5
+
 Boolean recordNonsecureKexts(CFArrayRef kextList);
+Boolean recordNonSignedKextPath(CFStringRef theKextPath);
 void    resetUserNotifications(Boolean dismissAlert);
+void    sendNonsignedKextNotification(void);
+
+void writeKextAlertPlist(CFDictionaryRef theDict, int theAlertType);
+void writeKextLoadPlist(CFArrayRef theArray);
+void sendRevokedCertAlert(CFDictionaryRef theDict);
 
 void kextd_raise_notification(
     CFStringRef alertHeader,

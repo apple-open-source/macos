@@ -1,0 +1,27 @@
+---
+abstract: 'OpenSSL support for LWP'
+author:
+  - 'A. Sinan Unur <nanis@cpan.org>'
+  - 'David Landgren'
+  - 'Joshua Chamas'
+  - 'Gisle Aas'
+build_requires:
+  Test::More: 0.88
+  Try::Tiny: 0.09
+configure_requires:
+  ExtUtils::MakeMaker: 0
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.120921'
+license: artistic_2
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Crypt-SSLeay
+no_index:
+  directory:
+    - t
+    - inc
+requires:
+  LWP::Protocol::https: 6.02
+  MIME::Base64: 0
+version: 0.64

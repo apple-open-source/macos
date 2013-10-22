@@ -192,7 +192,7 @@ static giant cssmDataToGiant(
 	const CSSM_DATA 	&cdata)
 {
 	char *rawOcts = (char *)cdata.Data;
-	unsigned numBytes = cdata.Length;
+	unsigned numBytes = (unsigned)cdata.Length;
 	unsigned numGiantDigits;
 	int sign = 1;
 	giant grtn;
@@ -467,8 +467,8 @@ feeReturn feeDEREncodeElGamalSignature(
 	}
 
 	/* copy out  to caller */
-	*encodedSig = (unsigned char *)fmalloc(encBlob.Length);
-	*encodedSigLen = encBlob.Length;
+	*encodedSig = (unsigned char *)fmalloc((unsigned)encBlob.Length);
+	*encodedSigLen = (unsigned)encBlob.Length;
 	memmove(*encodedSig, encBlob.Data, encBlob.Length); 
 	
 	#if	PRINT_SIG_GIANTS
@@ -507,8 +507,8 @@ feeReturn feeDEREncodeECDSASignature(
 	}
 
 	/* copy out  to caller */
-	*encodedSig = (unsigned char *)fmalloc(encBlob.Length);
-	*encodedSigLen = encBlob.Length;
+	*encodedSig = (unsigned char *)fmalloc((unsigned)encBlob.Length);
+	*encodedSigLen = (unsigned)encBlob.Length;
 	memmove(*encodedSig, encBlob.Data, encBlob.Length); 
 	
 	#if	PRINT_SIG_GIANTS
@@ -630,8 +630,8 @@ feeReturn feeDEREncodePublicKey(
 	}
 
 	/* copy out */
-	*keyBlob = (unsigned char *)fmalloc(encBlob.Length);
-	*keyBlobLen = encBlob.Length;
+	*keyBlob = (unsigned char *)fmalloc((unsigned)encBlob.Length);
+	*keyBlobLen = (unsigned)encBlob.Length;
 	memmove(*keyBlob, encBlob.Data, encBlob.Length); 
 	return FR_Success;
 }
@@ -666,8 +666,8 @@ feeReturn feeDEREncodePrivateKey(
 	}
 
 	/* copy out */
-	*keyBlob = (unsigned char *)fmalloc(encBlob.Length);
-	*keyBlobLen = encBlob.Length;
+	*keyBlob = (unsigned char *)fmalloc((unsigned)encBlob.Length);
+	*keyBlobLen = (unsigned)encBlob.Length;
 	memmove(*keyBlob, encBlob.Data, encBlob.Length); 
 	return FR_Success;
 }
@@ -885,8 +885,8 @@ feeReturn feeDEREncodeX509PublicKey(
 	}
 
 	/* copy out */
-	*x509Blob = (unsigned char *)fmalloc(encBlob.Length);
-	*x509BlobLen = encBlob.Length;
+	*x509Blob = (unsigned char *)fmalloc((unsigned)encBlob.Length);
+	*x509BlobLen = (unsigned)encBlob.Length;
 	memmove(*x509Blob, encBlob.Data, encBlob.Length); 
 	return FR_Success;
 }
@@ -918,7 +918,7 @@ feeReturn feeDERDecodeX509PublicKey(
 	
 	/* copy public key string - it's in bits here */
 	CSSM_DATA *pubKey = &nssPubKeyInfo.subjectPublicKey;
-	unsigned keyLen = (pubKey->Length + 7) / 8;
+	unsigned keyLen =(unsigned) (pubKey->Length + 7) / 8;
 	*pubBlob = (unsigned char *)fmalloc(keyLen);
 	if(*pubBlob == NULL) {
 		return FR_Memory;
@@ -988,8 +988,8 @@ feeReturn feeDEREncodeOpenSSLPrivateKey(
 	}
 
 	/* copy out */
-	*openBlob = (unsigned char *)fmalloc(encPriv.Length);
-	*openBlobLen = encPriv.Length;
+	*openBlob = (unsigned char *)fmalloc((unsigned)encPriv.Length);
+	*openBlobLen = (unsigned)encPriv.Length;
 	memmove(*openBlob, encPriv.Data, encPriv.Length); 
 	return FR_Success;
 }
@@ -1012,7 +1012,7 @@ feeReturn feeDERDecodeOpenSSLKey(
 		return FR_BadKeyBlob;
 	}
 	
-	unsigned keyLen = ecdsaPrivKey.privateKey.Length;
+	unsigned keyLen = (unsigned)ecdsaPrivKey.privateKey.Length;
 	if(keyLen == 0) {
 		dbgLog(("NULL priv key data in PKCS8\n"));
 	}
@@ -1039,7 +1039,7 @@ feeReturn feeDERDecodeOpenSSLKey(
 
 	/* Public key, if it's there and caller wants it */
 	if((ecdsaPrivKey.pubKey.Length != 0) && (pubBlob != NULL)) {
-		*pubBlobLen = (ecdsaPrivKey.pubKey.Length + 7) / 8;
+		*pubBlobLen = (unsigned)(ecdsaPrivKey.pubKey.Length + 7) / 8;
 		*pubBlob = (unsigned char *)fmalloc(*pubBlobLen);
 		memmove(*pubBlob, ecdsaPrivKey.pubKey.Data, *pubBlobLen);
 	}
@@ -1100,8 +1100,8 @@ feeReturn feeDEREncodePKCS8PrivateKey(
 	}
 
 	/* copy out */
-	*pkcs8Blob = (unsigned char *)fmalloc(encPrivInfo.Length);
-	*pkcs8BlobLen = encPrivInfo.Length;
+	*pkcs8Blob = (unsigned char *)fmalloc((unsigned)encPrivInfo.Length);
+	*pkcs8BlobLen = (unsigned)encPrivInfo.Length;
 	memmove(*pkcs8Blob, encPrivInfo.Data, encPrivInfo.Length); 
 errOut:
 	if(encPriv) {
@@ -1141,7 +1141,7 @@ feeReturn feeDERDecodePKCS8PrivateKey(
 	 * NSS_ECDSA_PrivateKey. 
 	 */
 	frtn = feeDERDecodeOpenSSLKey((const unsigned char *)nssPrivKeyInfo.privateKey.Data,
-		nssPrivKeyInfo.privateKey.Length, depth, 
+		(unsigned)nssPrivKeyInfo.privateKey.Length, depth, 
 		privBlob, privBlobLen,
 		pubBlob, pubBlobLen);
 		

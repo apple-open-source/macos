@@ -33,12 +33,13 @@ colgroup interfaceName=HTMLTableColElement
 command interfaceName=HTMLElement
 content interfaceName=HTMLContentElement, conditional=SHADOW_DOM, runtimeConditional=shadowDOM
 webkitShadowContent interfaceName=HTMLElement, noConstructor
-datalist interfaceName=HTMLDataListElement, conditional=DATALIST
+datalist interfaceName=HTMLDataListElement, conditional=DATALIST_ELEMENT
 dd interfaceName=HTMLElement
 del interfaceName=HTMLModElement
-details conditional=DETAILS
+details conditional=DETAILS_ELEMENT
 dfn interfaceName=HTMLElement
 dir interfaceName=HTMLDirectoryElement
+dialog conditional=DIALOG_ELEMENT, contextConditional=dialogElement
 div
 dl interfaceName=HTMLDListElement
 dt interfaceName=HTMLElement
@@ -78,12 +79,13 @@ legend
 li interfaceName=HTMLLIElement
 link constructorNeedsCreatedByParser
 listing interfaceName=HTMLPreElement
+main interfaceName=HTMLElement
 map
 mark interfaceName=HTMLElement
 marquee
 menu
 meta
-meter interfaceName=HTMLMeterElement, conditional=METER_TAG
+meter interfaceName=HTMLMeterElement, conditional=METER_ELEMENT
 nav interfaceName=HTMLElement
 nobr interfaceName=HTMLElement
 noembed interfaceName=HTMLElement
@@ -94,12 +96,11 @@ ol interfaceName=HTMLOListElement
 optgroup interfaceName=HTMLOptGroupElement
 option
 output constructorNeedsFormElement
-shadow interfaceName=HTMLShadowElement, conditional=SHADOW_DOM, runtimeConditional=shadowDOM
 p interfaceName=HTMLParagraphElement
 param
 plaintext interfaceName=HTMLElement
 pre
-progress interfaceName=HTMLProgressElement, conditional=PROGRESS_TAG
+progress interfaceName=HTMLProgressElement, conditional=PROGRESS_ELEMENT
 q interfaceName=HTMLQuoteElement
 rp interfaceName=HTMLElement
 rt interfaceName=HTMLElement
@@ -116,11 +117,12 @@ strike interfaceName=HTMLElement
 strong interfaceName=HTMLElement
 style constructorNeedsCreatedByParser
 sub interfaceName=HTMLElement
-summary interfaceName=HTMLSummaryElement, JSInterfaceName=HTMLElement, conditional=DETAILS
+summary interfaceName=HTMLSummaryElement, JSInterfaceName=HTMLElement, conditional=DETAILS_ELEMENT
 sup interfaceName=HTMLElement
 table
 tbody interfaceName=HTMLTableSectionElement
 td interfaceName=HTMLTableCellElement
+template conditional=TEMPLATE_ELEMENT
 textarea interfaceName=HTMLTextAreaElement, constructorNeedsFormElement
 tfoot interfaceName=HTMLTableSectionElement
 th interfaceName=HTMLTableCellElement

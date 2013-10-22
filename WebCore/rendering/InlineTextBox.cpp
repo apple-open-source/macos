@@ -47,12 +47,19 @@
 #include "SVGTextRunRenderingContext.h"
 #include "Text.h"
 #include "break_lines.h"
-#include <wtf/AlwaysInline.h>
 #include <wtf/text/CString.h>
 
 using namespace std;
 
 namespace WebCore {
+
+struct SameSizeAsInlineTextBox : public InlineBox {
+    unsigned variables[1];
+    unsigned short variables2[2];
+    void* pointers[2];
+};
+
+COMPILE_ASSERT(sizeof(InlineTextBox) == sizeof(SameSizeAsInlineTextBox), InlineTextBox_should_stay_small);
 
 typedef WTF::HashMap<const InlineTextBox*, LayoutRect> InlineTextBoxOverflowMap;
 static InlineTextBoxOverflowMap* gTextBoxesWithOverflow;
@@ -88,7 +95,7 @@ void InlineTextBox::setLogicalOverflowRect(const LayoutRect& rect)
     gTextBoxesWithOverflow->add(this, rect);
 }
 
-LayoutUnit InlineTextBox::baselinePosition(FontBaseline baselineType) const
+int InlineTextBox::baselinePosition(FontBaseline baselineType) const
 {
     if (!isText() || !parent())
         return 0;
@@ -173,13 +180,13 @@ RenderObject::SelectionState InlineTextBox::selectionState()
     return state;
 }
 
-static void adjustCharactersAndLengthForHyphen(BufferForAppendingHyphen& charactersWithHyphen, RenderStyle* style, const UChar*& characters, int& length)
+static void adjustCharactersAndLengthForHyphen(BufferForAppendingHyphen& charactersWithHyphen, RenderStyle* style, String& string, int& length)
 {
     const AtomicString& hyphenString = style->hyphenString();
     charactersWithHyphen.reserveCapacity(length + hyphenString.length());
-    charactersWithHyphen.append(characters, length);
+    charactersWithHyphen.append(string);
     charactersWithHyphen.append(hyphenString);
-    characters = charactersWithHyphen.characters();
+    string = charactersWithHyphen.toString();
     length += hyphenString.length();
 }
 
@@ -205,7 +212,12 @@ LayoutRect InlineTextBox::localSelectionRect(int startPos, int endPos)
     if (respectHyphen)
         endPos = textRun.length();
 
-    LayoutRect r = enclosingIntRect(font.selectionRectForText(textRun, FloatPoint(logicalLeft(), selTop), selHeight, sPos, ePos));
+    FloatPoint startingPoint = FloatPoint(logicalLeft(), selTop);
+    LayoutRect r;
+    if (sPos || ePos != static_cast<int>(m_len))
+        r = enclosingIntRect(font.selectionRectForText(textRun, startingPoint, selHeight, sPos, ePos));
+    else // Avoid computing the font width when the entire line box is selected as an optimization.
+        r = enclosingIntRect(FloatRect(startingPoint, FloatSize(m_logicalWidth, selHeight)));
 
     LayoutUnit logicalWidth = r.width();
     if (r.x() > logicalRight())
@@ -242,7 +254,7 @@ void InlineTextBox::attachLine()
     toRenderText(renderer())->attachTextBox(this);
 }
 
-float InlineTextBox::placeEllipsisBox(bool flowIsLTR, float visibleLeftEdge, float visibleRightEdge, float ellipsisWidth, bool& foundBox)
+float InlineTextBox::placeEllipsisBox(bool flowIsLTR, float visibleLeftEdge, float visibleRightEdge, float ellipsisWidth, float &truncatedWidth, bool& foundBox)
 {
     if (foundBox) {
         m_truncation = cFullTruncation;
@@ -284,7 +296,8 @@ float InlineTextBox::placeEllipsisBox(bool flowIsLTR, float visibleLeftEdge, flo
             // No characters should be rendered.  Set ourselves to full truncation and place the ellipsis at the min of our start
             // and the ellipsis edge.
             m_truncation = cFullTruncation;
-            return min(ellipsisX, x());
+            truncatedWidth += ellipsisWidth;
+            return flowIsLTR ? min(ellipsisX, x()) : max(ellipsisX, right() - ellipsisWidth);
         }
 
         // Set the truncation index on the text run.
@@ -299,11 +312,13 @@ float InlineTextBox::placeEllipsisBox(bool flowIsLTR, float visibleLeftEdge, flo
         // box directionality.
         // e.g. In the case of an LTR inline box truncated in an RTL flow then we can
         // have a situation such as |Hello| -> |...He|
+        truncatedWidth += widthOfVisibleText + ellipsisWidth;
         if (flowIsLTR)
             return left() + widthOfVisibleText;
         else
             return right() - widthOfVisibleText - ellipsisWidth;
     }
+    truncatedWidth += logicalWidth();
     return -1;
 }
 
@@ -355,17 +370,33 @@ bool InlineTextBox::isLineBreak() const
     return renderer()->isBR() || (renderer()->style()->preserveNewline() && len() == 1 && (*textRenderer()->text())[start()] == '\n');
 }
 
-bool InlineTextBox::nodeAtPoint(const HitTestRequest&, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit /* lineTop */, LayoutUnit /*lineBottom*/)
+bool InlineTextBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit /* lineTop */, LayoutUnit /*lineBottom*/)
 {
+    if (!visibleToHitTesting())
+        return false;
+
     if (isLineBreak())
         return false;
 
-    FloatPoint boxOrigin = locationIncludingFlipping();
-    boxOrigin.moveBy(accumulatedOffset);
-    FloatRect rect(boxOrigin, size());
-    if (m_truncation != cFullTruncation && visibleToHitTesting() && rect.intersects(result.rectForPoint(pointInContainer))) {
-        renderer()->updateHitTestResult(result, flipForWritingMode(pointInContainer - toLayoutSize(accumulatedOffset)));
-        if (!result.addNodeToRectBasedTestResult(renderer()->node(), pointInContainer, rect))
+    if (m_truncation == cFullTruncation)
+        return false;
+
+    FloatRect rect(locationIncludingFlipping(), size());
+    // Make sure truncated text is ignored while hittesting.
+    if (m_truncation != cNoTruncation) {
+        LayoutUnit widthOfVisibleText = toRenderText(renderer())->width(m_start, m_truncation, textPos(), isFirstLineStyle());
+
+        if (isHorizontal())
+            renderer()->style()->isLeftToRightDirection() ? rect.setWidth(widthOfVisibleText) : rect.shiftXEdgeTo(right() - widthOfVisibleText);
+        else
+            rect.setHeight(widthOfVisibleText);
+    }
+
+    rect.moveBy(accumulatedOffset);
+
+    if (locationInContainer.intersects(rect)) {
+        renderer()->updateHitTestResult(result, flipForWritingMode(locationInContainer.point() - toLayoutSize(accumulatedOffset)));
+        if (!result.addNodeToRectBasedTestResult(renderer()->node(), request, locationInContainer, rect))
             return true;
     }
     return false;
@@ -380,21 +411,21 @@ FloatSize InlineTextBox::applyShadowToGraphicsContext(GraphicsContext* context, 
     int shadowX = horizontal ? shadow->x() : shadow->y();
     int shadowY = horizontal ? shadow->y() : -shadow->x();
     FloatSize shadowOffset(shadowX, shadowY);
-    int shadowBlur = shadow->blur();
+    int shadowRadius = shadow->radius();
     const Color& shadowColor = shadow->color();
 
     if (shadow->next() || stroked || !opaque) {
         FloatRect shadowRect(textRect);
-        shadowRect.inflate(shadowBlur);
+        shadowRect.inflate(shadow->paintingExtent());
         shadowRect.move(shadowOffset);
         context->save();
         context->clip(shadowRect);
 
-        extraOffset = FloatSize(0, 2 * textRect.height() + max(0.0f, shadowOffset.height()) + shadowBlur);
+        extraOffset = FloatSize(0, 2 * textRect.height() + max(0.0f, shadowOffset.height()) + shadowRadius);
         shadowOffset -= extraOffset;
     }
 
-    context->setShadow(shadowOffset, shadowBlur, shadowColor, context->fillColorSpace());
+    context->setShadow(shadowOffset, shadowRadius, shadowColor, context->fillColorSpace());
     return extraOffset;
 }
 
@@ -425,7 +456,8 @@ static void paintTextWithShadows(GraphicsContext* context, const Font& font, con
                     context->drawText(font, textRun, textOrigin + extraOffset,  0, endOffset);
                 else
                     context->drawEmphasisMarks(font, textRun, emphasisMark, textOrigin + extraOffset + IntSize(0, emphasisMarkOffset),  0, endOffset);
-            } if (startOffset < truncationPoint) {
+            }
+            if (startOffset < truncationPoint) {
                 if (emphasisMark.isEmpty())
                     context->drawText(font, textRun, textOrigin + extraOffset, startOffset, truncationPoint);
                 else
@@ -517,7 +549,6 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
             // truncated string i.e.  |Hello|CBA| -> |...lo|CBA|
             LayoutUnit widthOfVisibleText = toRenderText(renderer())->width(m_start, m_truncation, textPos(), isFirstLineStyle());
             LayoutUnit widthOfHiddenText = m_logicalWidth - widthOfVisibleText;
-            // FIXME: The hit testing logic also needs to take this translation into account.
             LayoutSize truncationOffset(isLeftToRightDirection() ? widthOfHiddenText : -widthOfHiddenText, 0);
             adjustedPaintOffset.move(isHorizontal() ? truncationOffset : truncationOffset.transposedSize());
         }
@@ -540,56 +571,17 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
         context->concatCTM(rotation(boxRect, Clockwise));
 
     // Determine whether or not we have composition underlines to draw.
-    bool containsComposition = renderer()->node() && renderer()->frame()->editor()->compositionNode() == renderer()->node();
-    bool useCustomUnderlines = containsComposition && renderer()->frame()->editor()->compositionUsesCustomUnderlines();
+    bool containsComposition = renderer()->node() && renderer()->frame()->editor().compositionNode() == renderer()->node();
+    bool useCustomUnderlines = containsComposition && renderer()->frame()->editor().compositionUsesCustomUnderlines();
 
-    // Set our font.
-    const Font& font = styleToUse->font();
-
-    FloatPoint textOrigin = FloatPoint(boxOrigin.x(), boxOrigin.y() + font.fontMetrics().ascent());
-
-    if (combinedText)
-        combinedText->adjustTextOrigin(textOrigin, boxRect);
-
-    // 1. Paint backgrounds behind text if needed. Examples of such backgrounds include selection
-    // and composition underlines.
-    if (paintInfo.phase != PaintPhaseSelection && paintInfo.phase != PaintPhaseTextClip && !isPrinting) {
-#if PLATFORM(MAC)
-        // Custom highlighters go behind everything else.
-        if (styleToUse->highlight() != nullAtom && !context->paintingDisabled())
-            paintCustomHighlight(adjustedPaintOffset, styleToUse->highlight());
-#endif
-
-        if (containsComposition && !useCustomUnderlines)
-            paintCompositionBackground(context, boxOrigin, styleToUse, font,
-                renderer()->frame()->editor()->compositionStart(),
-                renderer()->frame()->editor()->compositionEnd());
-
-        paintDocumentMarkers(context, boxOrigin, styleToUse, font, true);
-
-        if (haveSelection && !useCustomUnderlines)
-            paintSelection(context, boxOrigin, styleToUse, font);
-    }
-
-    if (Frame* frame = renderer()->frame()) {
-        if (Page* page = frame->page()) {
-            // FIXME: Right now, InlineTextBoxes never call addRelevantUnpaintedObject() even though they might 
-            // legitimately be unpainted if they are waiting on a slow-loading web font. We should fix that, and
-            // when we do, we will have to account for the fact the InlineTextBoxes do not always have unique
-            // renderers and Page currently relies on each unpainted object having a unique renderer.
-            if (paintInfo.phase == PaintPhaseForeground)
-                page->addRelevantRepaintedObject(renderer(), IntRect(boxOrigin.x(), boxOrigin.y(), logicalWidth(), logicalHeight()));
-        }
-    }
-
-    // 2. Now paint the foreground, including text and decorations like underline/overline (in quirks mode only).
+    // Determine the text colors and selection colors.
     Color textFillColor;
     Color textStrokeColor;
     Color emphasisMarkColor;
     float textStrokeWidth = styleToUse->textStrokeWidth();
-    const ShadowData* textShadow = paintInfo.forceBlackText ? 0 : styleToUse->textShadow();
+    const ShadowData* textShadow = paintInfo.forceBlackText() ? 0 : styleToUse->textShadow();
 
-    if (paintInfo.forceBlackText) {
+    if (paintInfo.forceBlackText()) {
         textFillColor = Color::black;
         textStrokeColor = Color::black;
         emphasisMarkColor = Color::black;
@@ -631,14 +623,14 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
     const ShadowData* selectionShadow = textShadow;
     if (haveSelection) {
         // Check foreground color first.
-        Color foreground = paintInfo.forceBlackText ? Color::black : renderer()->selectionForegroundColor();
+        Color foreground = paintInfo.forceBlackText() ? Color::black : renderer()->selectionForegroundColor();
         if (foreground.isValid() && foreground != selectionFillColor) {
             if (!paintSelectedTextOnly)
                 paintSelectedTextSeparately = true;
             selectionFillColor = foreground;
         }
 
-        Color emphasisMarkForeground = paintInfo.forceBlackText ? Color::black : renderer()->selectionEmphasisMarkColor();
+        Color emphasisMarkForeground = paintInfo.forceBlackText() ? Color::black : renderer()->selectionEmphasisMarkColor();
         if (emphasisMarkForeground.isValid() && emphasisMarkForeground != selectionEmphasisMarkColor) {
             if (!paintSelectedTextOnly)
                 paintSelectedTextSeparately = true;
@@ -646,7 +638,7 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
         }
 
         if (RenderStyle* pseudoStyle = renderer()->getCachedPseudoStyle(SELECTION)) {
-            const ShadowData* shadow = paintInfo.forceBlackText ? 0 : pseudoStyle->textShadow();
+            const ShadowData* shadow = paintInfo.forceBlackText() ? 0 : pseudoStyle->textShadow();
             if (shadow != selectionShadow) {
                 if (!paintSelectedTextOnly)
                     paintSelectedTextSeparately = true;
@@ -660,7 +652,7 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
                 selectionStrokeWidth = strokeWidth;
             }
 
-            Color stroke = paintInfo.forceBlackText ? Color::black : pseudoStyle->visitedDependentColor(CSSPropertyWebkitTextStrokeColor);
+            Color stroke = paintInfo.forceBlackText() ? Color::black : pseudoStyle->visitedDependentColor(CSSPropertyWebkitTextStrokeColor);
             if (stroke != selectionStrokeColor) {
                 if (!paintSelectedTextOnly)
                     paintSelectedTextSeparately = true;
@@ -669,19 +661,63 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
         }
     }
 
+    // Set our font.
+    const Font& font = styleToUse->font();
+
+    FloatPoint textOrigin = FloatPoint(boxOrigin.x(), boxOrigin.y() + font.fontMetrics().ascent());
+
+    if (combinedText)
+        combinedText->adjustTextOrigin(textOrigin, boxRect);
+
+    // 1. Paint backgrounds behind text if needed. Examples of such backgrounds include selection
+    // and composition underlines.
+    if (paintInfo.phase != PaintPhaseSelection && paintInfo.phase != PaintPhaseTextClip && !isPrinting) {
+#if PLATFORM(MAC)
+        // Custom highlighters go behind everything else.
+        if (styleToUse->highlight() != nullAtom && !context->paintingDisabled())
+            paintCustomHighlight(adjustedPaintOffset, styleToUse->highlight());
+#endif
+
+        if (containsComposition && !useCustomUnderlines)
+            paintCompositionBackground(context, boxOrigin, styleToUse, font,
+                renderer()->frame()->editor().compositionStart(),
+                renderer()->frame()->editor().compositionEnd());
+
+        paintDocumentMarkers(context, boxOrigin, styleToUse, font, true);
+
+        if (haveSelection && !useCustomUnderlines)
+            paintSelection(context, boxOrigin, styleToUse, font, selectionFillColor);
+    }
+
+    if (Frame* frame = renderer()->frame()) {
+        if (Page* page = frame->page()) {
+            // FIXME: Right now, InlineTextBoxes never call addRelevantUnpaintedObject() even though they might
+            // legitimately be unpainted if they are waiting on a slow-loading web font. We should fix that, and
+            // when we do, we will have to account for the fact the InlineTextBoxes do not always have unique
+            // renderers and Page currently relies on each unpainted object having a unique renderer.
+            if (paintInfo.phase == PaintPhaseForeground)
+                page->addRelevantRepaintedObject(renderer(), IntRect(boxOrigin.x(), boxOrigin.y(), logicalWidth(), logicalHeight()));
+        }
+    }
+
+    // 2. Now paint the foreground, including text and decorations like underline/overline (in quirks mode only).
     int length = m_len;
     int maximumLength;
-    const UChar* characters;
+    String string;
     if (!combinedText) {
-        characters = textRenderer()->text()->characters() + m_start;
+        string = textRenderer()->text();
+        if (static_cast<unsigned>(length) != string.length() || m_start) {
+            ASSERT_WITH_SECURITY_IMPLICATION(static_cast<unsigned>(m_start + length) <= string.length());
+            string = string.substringSharingImpl(m_start, length);
+        }
         maximumLength = textRenderer()->textLength() - m_start;
     } else {
-        combinedText->charactersToRender(m_start, characters, length);
+        combinedText->getStringToRender(m_start, string, length);
         maximumLength = length;
     }
 
     BufferForAppendingHyphen charactersWithHyphen;
-    TextRun textRun = constructTextRun(styleToUse, font, characters, length, maximumLength, hasHyphen() ? &charactersWithHyphen : 0);
+    TextRun textRun = constructTextRun(styleToUse, font, string, maximumLength, hasHyphen() ? &charactersWithHyphen : 0);
     if (hasHyphen())
         length = textRun.length();
 
@@ -758,17 +794,21 @@ void InlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, 
     }
 
     // Paint decorations
-    int textDecorations = styleToUse->textDecorationsInEffect();
-    if (textDecorations != TDNONE && paintInfo.phase != PaintPhaseSelection) {
+    TextDecoration textDecorations = styleToUse->textDecorationsInEffect();
+    if (textDecorations != TextDecorationNone && paintInfo.phase != PaintPhaseSelection) {
         updateGraphicsContext(context, textFillColor, textStrokeColor, textStrokeWidth, styleToUse->colorSpace());
-        paintDecoration(context, boxOrigin, textDecorations, textShadow);
+        if (combinedText)
+            context->concatCTM(rotation(boxRect, Clockwise));
+        paintDecoration(context, boxOrigin, textDecorations, styleToUse->textDecorationStyle(), textShadow);
+        if (combinedText)
+            context->concatCTM(rotation(boxRect, Counterclockwise));
     }
 
     if (paintInfo.phase == PaintPhaseForeground) {
         paintDocumentMarkers(context, boxOrigin, styleToUse, font, false);
 
         if (useCustomUnderlines) {
-            const Vector<CompositionUnderline>& underlines = renderer()->frame()->editor()->customCompositionUnderlines();
+            const Vector<CompositionUnderline>& underlines = renderer()->frame()->editor().customCompositionUnderlines();
             size_t numUnderlines = underlines.size();
 
             for (size_t index = 0; index < numUnderlines; ++index) {
@@ -815,7 +855,14 @@ void InlineTextBox::selectionStartEnd(int& sPos, int& ePos)
     ePos = min(endPos - m_start, (int)m_len);
 }
 
-void InlineTextBox::paintSelection(GraphicsContext* context, const FloatPoint& boxOrigin, RenderStyle* style, const Font& font)
+void alignSelectionRectToDevicePixels(FloatRect& rect)
+{
+    float maxX = floorf(rect.maxX());
+    rect.setX(floorf(rect.x()));
+    rect.setWidth(roundf(maxX - rect.x()));
+}
+
+void InlineTextBox::paintSelection(GraphicsContext* context, const FloatPoint& boxOrigin, RenderStyle* style, const Font& font, Color textColor)
 {
     if (context->paintingDisabled())
         return;
@@ -826,13 +873,12 @@ void InlineTextBox::paintSelection(GraphicsContext* context, const FloatPoint& b
     if (sPos >= ePos)
         return;
 
-    Color textColor = style->visitedDependentColor(CSSPropertyColor);
     Color c = renderer()->selectionBackgroundColor();
     if (!c.isValid() || c.alpha() == 0)
         return;
 
     // If the text color ends up being the same as the selection background, invert the selection
-    // background.  This should basically never happen, since the selection has transparency.
+    // background.
     if (textColor == c)
         c = Color(0xff - c.red(), 0xff - c.green(), 0xff - c.blue());
 
@@ -842,26 +888,29 @@ void InlineTextBox::paintSelection(GraphicsContext* context, const FloatPoint& b
     // If the text is truncated, let the thing being painted in the truncation
     // draw its own highlight.
     int length = m_truncation != cNoTruncation ? m_truncation : m_len;
-    const UChar* characters = textRenderer()->text()->characters() + m_start;
+    String string = textRenderer()->text();
+
+    if (string.length() != static_cast<unsigned>(length) || m_start) {
+        ASSERT_WITH_SECURITY_IMPLICATION(static_cast<unsigned>(m_start + length) <= string.length());
+        string = string.substringSharingImpl(m_start, length);
+    }
 
     BufferForAppendingHyphen charactersWithHyphen;
     bool respectHyphen = ePos == length && hasHyphen();
-    TextRun textRun = constructTextRun(style, font, characters, length, textRenderer()->textLength() - m_start, respectHyphen ? &charactersWithHyphen : 0);
+    TextRun textRun = constructTextRun(style, font, string, textRenderer()->textLength() - m_start, respectHyphen ? &charactersWithHyphen : 0);
     if (respectHyphen)
         ePos = textRun.length();
 
     LayoutUnit selectionBottom = root()->selectionBottom();
     LayoutUnit selectionTop = root()->selectionTopAdjustedForPrecedingBlock();
 
-    int deltaY = renderer()->style()->isFlippedLinesWritingMode() ? selectionBottom - logicalBottom() : logicalTop() - selectionTop;
-    int selHeight = max<LayoutUnit>(0, selectionBottom - selectionTop);
+    int deltaY = roundToInt(renderer()->style()->isFlippedLinesWritingMode() ? selectionBottom - logicalBottom() : logicalTop() - selectionTop);
+    int selHeight = max(0, roundToInt(selectionBottom - selectionTop));
 
     FloatPoint localOrigin(boxOrigin.x(), boxOrigin.y() - deltaY);
-
     FloatRect clipRect(localOrigin, FloatSize(m_logicalWidth, selHeight));
-    float maxX = floorf(clipRect.maxX());
-    clipRect.setX(floorf(clipRect.x()));
-    clipRect.setWidth(maxX - clipRect.x());
+    alignSelectionRectToDevicePixels(clipRect);
+
     context->clip(clipRect);
 
     context->drawHighlightForText(font, textRun, localOrigin, selHeight, c, style->colorSpace(), sPos, ePos);
@@ -903,13 +952,193 @@ void InlineTextBox::paintCustomHighlight(const LayoutPoint& paintOffset, const A
     FloatRect rootRect(paintOffset.x() + r->x(), paintOffset.y() + selectionTop(), r->logicalWidth(), selectionHeight());
     FloatRect textRect(paintOffset.x() + x(), rootRect.y(), logicalWidth(), rootRect.height());
 
-    page->chrome()->client()->paintCustomHighlight(renderer()->node(), type, textRect, rootRect, true, false);
+    page->chrome().client()->paintCustomHighlight(renderer()->node(), type, textRect, rootRect, true, false);
 }
 
 #endif
 
-void InlineTextBox::paintDecoration(GraphicsContext* context, const FloatPoint& boxOrigin, int deco, const ShadowData* shadow)
+static StrokeStyle textDecorationStyleToStrokeStyle(TextDecorationStyle decorationStyle)
 {
+    StrokeStyle strokeStyle = SolidStroke;
+    switch (decorationStyle) {
+    case TextDecorationStyleSolid:
+        strokeStyle = SolidStroke;
+        break;
+#if ENABLE(CSS3_TEXT)
+    case TextDecorationStyleDouble:
+        strokeStyle = DoubleStroke;
+        break;
+    case TextDecorationStyleDotted:
+        strokeStyle = DottedStroke;
+        break;
+    case TextDecorationStyleDashed:
+        strokeStyle = DashedStroke;
+        break;
+    case TextDecorationStyleWavy:
+        strokeStyle = WavyStroke;
+        break;
+#endif // CSS3_TEXT
+    }
+
+    return strokeStyle;
+}
+
+#if ENABLE(CSS3_TEXT)
+static int computeUnderlineOffset(const TextUnderlinePosition underlinePosition, const FontMetrics& fontMetrics, const InlineTextBox* inlineTextBox, const int textDecorationThickness)
+{
+    // Compute the gap between the font and the underline. Use at least one
+    // pixel gap, if underline is thick then use a bigger gap.
+    const int gap = max<int>(1, ceilf(textDecorationThickness / 2.0));
+
+    // According to the specification TextUnderlinePositionAuto should default to 'alphabetic' for horizontal text
+    // and to 'under Left' for vertical text (e.g. japanese). We support only horizontal text for now.
+    switch (underlinePosition) {
+    case TextUnderlinePositionAlphabetic:
+    case TextUnderlinePositionAuto:
+        return fontMetrics.ascent() + gap; // Position underline near the alphabetic baseline.
+    case TextUnderlinePositionUnder: {
+        // Position underline relative to the under edge of the lowest element's content box.
+        const float offset = inlineTextBox->root()->maxLogicalTop() - inlineTextBox->logicalTop();
+        if (offset > 0)
+            return inlineTextBox->logicalHeight() + gap + offset;
+        return inlineTextBox->logicalHeight() + gap;
+    }
+    }
+
+    ASSERT_NOT_REACHED();
+    return fontMetrics.ascent() + gap;
+}
+#endif // CSS3_TEXT
+
+#if ENABLE(CSS3_TEXT)
+static void adjustStepToDecorationLength(float& step, float& controlPointDistance, float length)
+{
+    ASSERT(step > 0);
+
+    if (length <= 0)
+        return;
+
+    unsigned stepCount = static_cast<unsigned>(length / step);
+
+    // Each Bezier curve starts at the same pixel that the previous one
+    // ended. We need to subtract (stepCount - 1) pixels when calculating the
+    // length covered to account for that.
+    float uncoveredLength = length - (stepCount * step - (stepCount - 1));
+    float adjustment = uncoveredLength / stepCount;
+    step += adjustment;
+    controlPointDistance += adjustment;
+}
+
+/*
+ * Draw one cubic Bezier curve and repeat the same pattern long the the decoration's axis.
+ * The start point (p1), controlPoint1, controlPoint2 and end point (p2) of the Bezier curve
+ * form a diamond shape:
+ *
+ *                              step
+ *                         |-----------|
+ *
+ *                   controlPoint1
+ *                         +
+ *
+ *
+ *                  . .
+ *                .     .
+ *              .         .
+ * (x1, y1) p1 +           .            + p2 (x2, y2) - <--- Decoration's axis
+ *                          .         .               |
+ *                            .     .                 |
+ *                              . .                   | controlPointDistance
+ *                                                    |
+ *                                                    |
+ *                         +                          -
+ *                   controlPoint2
+ *
+ *             |-----------|
+ *                 step
+ */
+static void strokeWavyTextDecoration(GraphicsContext* context, FloatPoint& p1, FloatPoint& p2, float strokeThickness)
+{
+    context->adjustLineToPixelBoundaries(p1, p2, strokeThickness, context->strokeStyle());
+
+    Path path;
+    path.moveTo(p1);
+
+    // Distance between decoration's axis and Bezier curve's control points.
+    // The height of the curve is based on this distance. Use a minimum of 6 pixels distance since
+    // the actual curve passes approximately at half of that distance, that is 3 pixels.
+    // The minimum height of the curve is also approximately 3 pixels. Increases the curve's height
+    // as strockThickness increases to make the curve looks better.
+    float controlPointDistance = 3 * max<float>(2, strokeThickness);
+
+    // Increment used to form the diamond shape between start point (p1), control
+    // points and end point (p2) along the axis of the decoration. Makes the
+    // curve wider as strockThickness increases to make the curve looks better.
+    float step = 2 * max<float>(2, strokeThickness);
+
+    bool isVerticalLine = (p1.x() == p2.x());
+
+    if (isVerticalLine) {
+        ASSERT(p1.x() == p2.x());
+
+        float xAxis = p1.x();
+        float y1;
+        float y2;
+
+        if (p1.y() < p2.y()) {
+            y1 = p1.y();
+            y2 = p2.y();
+        } else {
+            y1 = p2.y();
+            y2 = p1.y();
+        }
+
+        adjustStepToDecorationLength(step, controlPointDistance, y2 - y1);
+        FloatPoint controlPoint1(xAxis + controlPointDistance, 0);
+        FloatPoint controlPoint2(xAxis - controlPointDistance, 0);
+
+        for (float y = y1; y + 2 * step <= y2;) {
+            controlPoint1.setY(y + step);
+            controlPoint2.setY(y + step);
+            y += 2 * step;
+            path.addBezierCurveTo(controlPoint1, controlPoint2, FloatPoint(xAxis, y));
+        }
+    } else {
+        ASSERT(p1.y() == p2.y());
+
+        float yAxis = p1.y();
+        float x1;
+        float x2;
+
+        if (p1.x() < p2.x()) {
+            x1 = p1.x();
+            x2 = p2.x();
+        } else {
+            x1 = p2.x();
+            x2 = p1.x();
+        }
+
+        adjustStepToDecorationLength(step, controlPointDistance, x2 - x1);
+        FloatPoint controlPoint1(0, yAxis + controlPointDistance);
+        FloatPoint controlPoint2(0, yAxis - controlPointDistance);
+
+        for (float x = x1; x + 2 * step <= x2;) {
+            controlPoint1.setX(x + step);
+            controlPoint2.setX(x + step);
+            x += 2 * step;
+            path.addBezierCurveTo(controlPoint1, controlPoint2, FloatPoint(x, yAxis));
+        }
+    }
+
+    context->setShouldAntialias(true);
+    context->strokePath(path);
+}
+#endif // CSS3_TEXT
+
+void InlineTextBox::paintDecoration(GraphicsContext* context, const FloatPoint& boxOrigin, TextDecoration deco, TextDecorationStyle decorationStyle, const ShadowData* shadow)
+{
+    // FIXME: We should improve this rule and not always just assume 1.
+    const float textDecorationThickness = 1.f;
+
     if (m_truncation == cFullTruncation)
         return;
 
@@ -925,12 +1154,14 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, const FloatPoint& 
     // Get the text decoration colors.
     Color underline, overline, linethrough;
     renderer()->getTextDecorationColors(deco, underline, overline, linethrough, true);
+    if (isFirstLineStyle())
+        renderer()->getTextDecorationColors(deco, underline, overline, linethrough, true, true);
     
     // Use a special function for underlines to get the positioning exactly right.
     bool isPrinting = textRenderer()->document()->printing();
-    context->setStrokeThickness(1.0f); // FIXME: We should improve this rule and not always just assume 1.
+    context->setStrokeThickness(textDecorationThickness);
 
-    bool linesAreOpaque = !isPrinting && (!(deco & UNDERLINE) || underline.alpha() == 255) && (!(deco & OVERLINE) || overline.alpha() == 255) && (!(deco & LINE_THROUGH) || linethrough.alpha() == 255);
+    bool linesAreOpaque = !isPrinting && (!(deco & TextDecorationUnderline) || underline.alpha() == 255) && (!(deco & TextDecorationOverline) || overline.alpha() == 255) && (!(deco & TextDecorationLineThrough) || linethrough.alpha() == 255);
 
     RenderStyle* styleToUse = renderer()->style(isFirstLineStyle());
     int baseline = styleToUse->fontMetrics().ascent();
@@ -940,13 +1171,14 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, const FloatPoint& 
     if (!linesAreOpaque && shadow && shadow->next()) {
         FloatRect clipRect(localOrigin, FloatSize(width, baseline + 2));
         for (const ShadowData* s = shadow; s; s = s->next()) {
+            int shadowExtent = s->paintingExtent();
             FloatRect shadowRect(localOrigin, FloatSize(width, baseline + 2));
-            shadowRect.inflate(s->blur());
+            shadowRect.inflate(shadowExtent);
             int shadowX = isHorizontal() ? s->x() : s->y();
             int shadowY = isHorizontal() ? s->y() : -s->x();
             shadowRect.move(shadowX, shadowY);
             clipRect.unite(shadowRect);
-            extraOffset = max(extraOffset, max(0, shadowY) + s->blur());
+            extraOffset = max(extraOffset, max(0, shadowY) + shadowExtent);
         }
         context->save();
         context->clip(clipRect);
@@ -957,7 +1189,7 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, const FloatPoint& 
 
     ColorSpace colorSpace = renderer()->style()->colorSpace();
     bool setShadow = false;
-    
+
     do {
         if (shadow) {
             if (!shadow->next()) {
@@ -967,26 +1199,77 @@ void InlineTextBox::paintDecoration(GraphicsContext* context, const FloatPoint& 
             }
             int shadowX = isHorizontal() ? shadow->x() : shadow->y();
             int shadowY = isHorizontal() ? shadow->y() : -shadow->x();
-            context->setShadow(FloatSize(shadowX, shadowY - extraOffset), shadow->blur(), shadow->color(), colorSpace);
+            context->setShadow(FloatSize(shadowX, shadowY - extraOffset), shadow->radius(), shadow->color(), colorSpace);
             setShadow = true;
             shadow = shadow->next();
         }
 
-        if (deco & UNDERLINE) {
+#if ENABLE(CSS3_TEXT)
+        // Offset between lines - always non-zero, so lines never cross each other.
+        float doubleOffset = textDecorationThickness + 1.f;
+#endif // CSS3_TEXT
+        context->setStrokeStyle(textDecorationStyleToStrokeStyle(decorationStyle));
+        if (deco & TextDecorationUnderline) {
             context->setStrokeColor(underline, colorSpace);
-            context->setStrokeStyle(SolidStroke);
+#if ENABLE(CSS3_TEXT)
+            TextUnderlinePosition underlinePosition = styleToUse->textUnderlinePosition();
+            const int underlineOffset = computeUnderlineOffset(underlinePosition, styleToUse->fontMetrics(), this, textDecorationThickness);
+
+            switch (decorationStyle) {
+            case TextDecorationStyleWavy: {
+                FloatPoint start(localOrigin.x(), localOrigin.y() + underlineOffset + doubleOffset);
+                FloatPoint end(localOrigin.x() + width, localOrigin.y() + underlineOffset + doubleOffset);
+                strokeWavyTextDecoration(context, start, end, textDecorationThickness);
+                break;
+            }
+            default:
+                context->drawLineForText(FloatPoint(localOrigin.x(), localOrigin.y() + underlineOffset), width, isPrinting);
+
+                if (decorationStyle == TextDecorationStyleDouble)
+                    context->drawLineForText(FloatPoint(localOrigin.x(), localOrigin.y() + underlineOffset + doubleOffset), width, isPrinting);
+            }
+#else
             // Leave one pixel of white between the baseline and the underline.
             context->drawLineForText(FloatPoint(localOrigin.x(), localOrigin.y() + baseline + 1), width, isPrinting);
+#endif // CSS3_TEXT
         }
-        if (deco & OVERLINE) {
+        if (deco & TextDecorationOverline) {
             context->setStrokeColor(overline, colorSpace);
-            context->setStrokeStyle(SolidStroke);
-            context->drawLineForText(localOrigin, width, isPrinting);
+#if ENABLE(CSS3_TEXT)
+            switch (decorationStyle) {
+            case TextDecorationStyleWavy: {
+                FloatPoint start(localOrigin.x(), localOrigin.y() - doubleOffset);
+                FloatPoint end(localOrigin.x() + width, localOrigin.y() - doubleOffset);
+                strokeWavyTextDecoration(context, start, end, textDecorationThickness);
+                break;
+            }
+            default:
+#endif // CSS3_TEXT
+                context->drawLineForText(localOrigin, width, isPrinting);
+#if ENABLE(CSS3_TEXT)
+                if (decorationStyle == TextDecorationStyleDouble)
+                    context->drawLineForText(FloatPoint(localOrigin.x(), localOrigin.y() - doubleOffset), width, isPrinting);
+            }
+#endif // CSS3_TEXT
         }
-        if (deco & LINE_THROUGH) {
+        if (deco & TextDecorationLineThrough) {
             context->setStrokeColor(linethrough, colorSpace);
-            context->setStrokeStyle(SolidStroke);
-            context->drawLineForText(FloatPoint(localOrigin.x(), localOrigin.y() + 2 * baseline / 3), width, isPrinting);
+#if ENABLE(CSS3_TEXT)
+            switch (decorationStyle) {
+            case TextDecorationStyleWavy: {
+                FloatPoint start(localOrigin.x(), localOrigin.y() + 2 * baseline / 3);
+                FloatPoint end(localOrigin.x() + width, localOrigin.y() + 2 * baseline / 3);
+                strokeWavyTextDecoration(context, start, end, textDecorationThickness);
+                break;
+            }
+            default:
+#endif // CSS3_TEXT
+                context->drawLineForText(FloatPoint(localOrigin.x(), localOrigin.y() + 2 * baseline / 3), width, isPrinting);
+#if ENABLE(CSS3_TEXT)
+                if (decorationStyle == TextDecorationStyleDouble)
+                    context->drawLineForText(FloatPoint(localOrigin.x(), localOrigin.y() + doubleOffset + 2 * baseline / 3), width, isPrinting);
+            }
+#endif // CSS3_TEXT
         }
     } while (shadow);
 
@@ -1099,7 +1382,7 @@ void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, const FloatPoint& 
     toRenderedDocumentMarker(marker)->setRenderedRect(markerRect);
     
     // Optionally highlight the text
-    if (renderer()->frame()->editor()->markedTextMatchesAreHighlighted()) {
+    if (renderer()->frame()->editor().markedTextMatchesAreHighlighted()) {
         Color color = marker->activeMatch() ?
             renderer()->theme()->platformActiveTextSearchHighlightColor() :
             renderer()->theme()->platformInactiveTextSearchHighlightColor();
@@ -1137,7 +1420,7 @@ void InlineTextBox::paintDocumentMarkers(GraphicsContext* pt, const FloatPoint& 
 
     // Give any document markers that touch this run a chance to draw before the text has been drawn.
     // Note end() points at the last char, not one past it like endOffset and ranges do.
-    for ( ; markerIt != markers.end(); markerIt++) {
+    for ( ; markerIt != markers.end(); ++markerIt) {
         DocumentMarker* marker = *markerIt;
         
         // Paint either the background markers or the foreground markers, but not both
@@ -1322,26 +1605,36 @@ TextRun InlineTextBox::constructTextRun(RenderStyle* style, const Font& font, Bu
 
     RenderText* textRenderer = this->textRenderer();
     ASSERT(textRenderer);
-    ASSERT(textRenderer->characters());
+    ASSERT(textRenderer->text());
 
-    return constructTextRun(style, font, textRenderer->characters() + start(), len(), textRenderer->textLength() - start(), charactersWithHyphen);
+    String string = textRenderer->text();
+    unsigned startPos = start();
+    unsigned length = len();
+
+    if (string.length() != length || startPos)
+        string = string.substringSharingImpl(startPos, length);
+
+    return constructTextRun(style, font, string, textRenderer->textLength() - startPos, charactersWithHyphen);
 }
 
-TextRun InlineTextBox::constructTextRun(RenderStyle* style, const Font& font, const UChar* characters, int length, int maximumLength, BufferForAppendingHyphen* charactersWithHyphen) const
+TextRun InlineTextBox::constructTextRun(RenderStyle* style, const Font& font, String string, int maximumLength, BufferForAppendingHyphen* charactersWithHyphen) const
 {
     ASSERT(style);
 
     RenderText* textRenderer = this->textRenderer();
     ASSERT(textRenderer);
 
+    int length = string.length();
+
     if (charactersWithHyphen) {
-        adjustCharactersAndLengthForHyphen(*charactersWithHyphen, style, characters, length);
+        adjustCharactersAndLengthForHyphen(*charactersWithHyphen, style, string, length);
         maximumLength = length;
     }
 
     ASSERT(maximumLength >= length);
 
-    TextRun run(characters, length, textRenderer->allowTabs(), textPos(), expansion(), expansionBehavior(), direction(), dirOverride() || style->rtlOrdering() == VisualOrder, !textRenderer->canUseSimpleFontCodePath());
+    TextRun run(string, textPos(), expansion(), expansionBehavior(), direction(), dirOverride() || style->rtlOrdering() == VisualOrder, !textRenderer->canUseSimpleFontCodePath());
+    run.setTabSize(!style->collapseWhiteSpace(), style->tabSize());
     if (textRunNeedsRenderingContext(font))
         run.setRenderingContext(SVGTextRunRenderingContext::create(textRenderer));
 
@@ -1363,8 +1656,8 @@ void InlineTextBox::showBox(int printedCharacters) const
     const RenderText* obj = toRenderText(renderer());
     String value = obj->text();
     value = value.substring(start(), len());
-    value.replace('\\', "\\\\");
-    value.replace('\n', "\\n");
+    value.replaceWithLiteral('\\', "\\\\");
+    value.replaceWithLiteral('\n', "\\n");
     printedCharacters += fprintf(stderr, "%s\t%p", boxName(), this);
     for (; printedCharacters < showTreeCharacterOffset; printedCharacters++)
         fputc(' ', stderr);

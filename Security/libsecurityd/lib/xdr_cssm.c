@@ -66,7 +66,7 @@ bool_t xdr_CSSM_DATA(XDR *xdrs, CSSM_DATA *objp)
     if (xdrs->x_op == XDR_ENCODE) {
         if (objp->Length > (u_int)~0)
             return (FALSE);
-        valueLength = objp->Length;
+        valueLength = (u_int)objp->Length;
     }
     if (!sec_xdr_bytes(xdrs, &objp->Data, &valueLength, ~0))
         return (FALSE);
@@ -127,7 +127,7 @@ bool_t xdr_CSSM_CRYPTO_DATA(XDR *xdrs, CSSM_CRYPTO_DATA *objp)
         CSSM_CALLBACK func = objp->Callback; 
         CSSM_DATA data;
         CSSM_RETURN err;
-        if (err = func(&data, objp->CallerCtx))
+        if ((err = func(&data, objp->CallerCtx)))
             return (FALSE); // XXX/cs meaningfully return err
         if (!xdr_CSSM_DATA(xdrs, &data))
             return (FALSE);
@@ -516,6 +516,7 @@ bool_t xdr_CSSM_DB_ATTRIBUTE_INFO(XDR *xdrs, CSSM_DB_ATTRIBUTE_INFO *objp)
     return (TRUE);
 }
 
+static
 bool_t xdr_CSSM_DATA_FLIPPED(XDR *xdrs, CSSM_DATA *objp)
 {
 	bool_t size_alloc = sec_xdr_arena_size_allocator(xdrs);

@@ -598,7 +598,7 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 			goto error_exit;
 		}
 		
-		uint32_t maxcluster = (block_count - pmp->pm_firstcluster) / SecPerClust + 1;
+		uint32_t maxcluster = (uint32_t)((block_count - pmp->pm_firstcluster) / SecPerClust + 1);
 		if (maxcluster < pmp->pm_maxcluster)
 		{
 			printf("msdosfs_mount: device sector count (%llu) is less than volume sector count (%u); limiting maximum cluster to %u (was %u)\n",
@@ -1284,7 +1284,7 @@ int msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context
 	{
 	    struct buf *bp = NULL;
 	    size_t i;
-	    int len;
+	    size_t len;
 	    size_t unichars;
 		u_int16_t c;
 	    u_int16_t volName[SHORT_NAME_LEN];

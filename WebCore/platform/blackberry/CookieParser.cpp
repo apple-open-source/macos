@@ -29,15 +29,16 @@
 
 #include "Logging.h"
 #include "ParsedCookie.h"
+#include <network/DomainTools.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
-#define LOG_AND_DELETE(format, ...) \
+#define LOG_ERROR_AND_RETURN(format, ...) \
     { \
         LOG_ERROR(format, ## __VA_ARGS__); \
-        delete res; \
         return 0; \
     }
 
@@ -54,17 +55,24 @@ static inline bool isLightweightSpace(UChar c)
 CookieParser::CookieParser(const KURL& defaultCookieURL)
     : m_defaultCookieURL(defaultCookieURL)
 {
+    m_defaultCookieHost = defaultCookieURL.host();
+    m_defaultDomainIsIPAddress = false;
+    BlackBerry::Platform::String hostDomainCanonical = BlackBerry::Platform::getCanonicalIPFormat(m_defaultCookieHost);
+    if (!hostDomainCanonical.empty()) {
+        m_defaultCookieHost = hostDomainCanonical;
+        m_defaultDomainIsIPAddress = true;
+    }
 }
 
 CookieParser::~CookieParser()
 {
 }
 
-Vector<ParsedCookie*> CookieParser::parse(const String& cookies)
+Vector<RefPtr<ParsedCookie> > CookieParser::parse(const String& cookies)
 {
     unsigned cookieStart, cookieEnd = 0;
     double curTime = currentTime();
-    Vector<ParsedCookie*, 4> parsedCookies;
+    Vector<RefPtr<ParsedCookie>, 4> parsedCookies;
 
     unsigned cookiesLength = cookies.length();
     if (!cookiesLength) // Code below doesn't handle this case
@@ -87,21 +95,26 @@ Vector<ParsedCookie*> CookieParser::parse(const String& cookies)
         if (cookieEnd < cookiesLength && isCookieHeaderSeparator(cookies[cookieEnd]))
             ++cookieEnd;
 
-        ParsedCookie* cookie = parseOneCookie(cookies, cookieStart, cookieEnd - 1, curTime);
+        RefPtr<ParsedCookie> cookie = parseOneCookie(cookies, cookieStart, cookieEnd - 1, curTime);
         if (cookie)
             parsedCookies.append(cookie);
     }
     return parsedCookies;
 }
 
+PassRefPtr<ParsedCookie> CookieParser::parseOneCookie(const String& cookie)
+{
+    return parseOneCookie(cookie, 0, cookie.length() - 1, currentTime());
+}
+
 // The cookie String passed into this method will only contian the name value pairs as well as other related cookie
 // attributes such as max-age and domain. Set-Cookie should never be part of this string.
-ParsedCookie* CookieParser::parseOneCookie(const String& cookie, unsigned start, unsigned end, double curTime)
+PassRefPtr<ParsedCookie> CookieParser::parseOneCookie(const String& cookie, unsigned start, unsigned end, double curTime)
 {
-    ParsedCookie* res = new ParsedCookie(curTime);
+    RefPtr<ParsedCookie> res = ParsedCookie::create(curTime);
 
     if (!res)
-        LOG_AND_DELETE("Out of memory");
+        LOG_ERROR_AND_RETURN("Out of memory");
 
     res->setProtocol(m_defaultCookieURL.protocol());
 
@@ -109,23 +122,27 @@ ParsedCookie* CookieParser::parseOneCookie(const String& cookie, unsigned start,
     unsigned tokenEnd = start; // Token end contains the position of the '=' or the end of a token
     unsigned pairEnd = start; // Pair end contains always the position of the ';'
 
-    // find the *first* ';' and the '=' (if they exist)
-    bool quoteFound = false;
+    // Find the first ';' which is not double-quoted and the '=' (if they exist).
     bool foundEqual = false;
-    while (pairEnd < end && (cookie[pairEnd] != ';' || quoteFound)) {
-        if (tokenEnd == start && cookie[pairEnd] == '=') {
-            tokenEnd = pairEnd;
-            foundEqual = true;
+    while (pairEnd < end && cookie[pairEnd] != ';') {
+        if (cookie[pairEnd] == '=') {
+            if (tokenEnd == start) {
+                tokenEnd = pairEnd;
+                foundEqual = true;
+            }
+        } else if (cookie[pairEnd] == '"') {
+            size_t secondQuotePosition = cookie.find('"', pairEnd + 1);
+            if (secondQuotePosition != notFound && secondQuotePosition <= end) {
+                pairEnd = secondQuotePosition + 1;
+                continue;
+            }
         }
-        if (cookie[pairEnd] == '"')
-            quoteFound = !quoteFound;
         pairEnd++;
     }
 
     unsigned tokenStart = start;
 
-    bool hasName = false; // This is a hack to avoid changing too much in this
-                          // brutally brittle code.
+    bool hasName = false; // This is a hack to avoid changing too much in this brutally brittle code.
     if (tokenEnd != start) {
         // There is a '=' so parse the NAME
         unsigned nameEnd = tokenEnd;
@@ -141,7 +158,7 @@ ParsedCookie* CookieParser::parseOneCookie(const String& cookie, unsigned start,
             tokenStart++;
 
         if (nameEnd + 1 <= tokenStart)
-            LOG_AND_DELETE("Empty name. Rejecting the cookie");
+            LOG_ERROR_AND_RETURN("Empty name. Rejecting the cookie");
 
         String name = cookie.substring(tokenStart, nameEnd + 1 - start);
         res->setName(name);
@@ -170,10 +187,9 @@ ParsedCookie* CookieParser::parseOneCookie(const String& cookie, unsigned start,
 
     if (hasName)
         res->setValue(value);
-    else if (foundEqual) {
-        delete res;
+    else if (foundEqual)
         return 0;
-    } else
+    else
         res->setName(value); // No NAME=VALUE, only NAME
 
     while (pairEnd < end) {
@@ -215,66 +231,120 @@ ParsedCookie* CookieParser::parseOneCookie(const String& cookie, unsigned start,
             length = pairEnd - tokenStart;
         }
 
-       // Detect which "cookie-av" is parsed
-       // Look at the first char then parse the whole for performance issue
+        // Detect which "cookie-av" is parsed
+        // Look at the first char then parse the whole for performance issue
         switch (cookie[tokenStartSvg]) {
         case 'P':
         case 'p' : {
-            if (length >= 4 && cookie.find("ath", tokenStartSvg + 1, false)) {
+            if (length >= 4 && ((cookie.find("ath", tokenStartSvg + 1, false) - tokenStartSvg) == 1)) {
                 // We need the path to be decoded to match those returned from KURL::path().
                 // The path attribute may or may not include percent-encoded characters. Fortunately
                 // if there are no percent-encoded characters, decoding the url is a no-op.
                 res->setPath(decodeURLEscapeSequences(parsedValue));
+
+                // We have to disable the following check because sites like Facebook and
+                // Gmail currently do not follow the spec.
+#if 0
+                // Check if path attribute is a prefix of the request URI.
+                if (!m_defaultCookieURL.path().startsWith(res->path()))
+                    LOG_ERROR_AND_RETURN("Invalid cookie attribute %s (path): it does not math the URL", cookie.ascii().data());
+#endif
             } else
-                LOG_AND_DELETE("Invalid cookie %s (path)", cookie.ascii().data());
+                LOG_ERROR("Invalid cookie attribute %s (path)", cookie.ascii().data());
             break;
         }
 
         case 'D':
         case 'd' : {
-            if (length >= 6 && cookie.find("omain", tokenStartSvg + 1, false)) {
+            if (length >= 6 && ((cookie.find("omain", tokenStartSvg + 1, false) - tokenStartSvg) == 1)) {
                 if (parsedValue.length() > 1 && parsedValue[0] == '"' && parsedValue[parsedValue.length() - 1] == '"')
                     parsedValue = parsedValue.substring(1, parsedValue.length() - 2);
-                // If the domain does not start with a dot, add one for security checks,
+
+                // Check if the domain contains an embedded dot.
+                size_t dotPosition = parsedValue.find(".", 1);
+                if (dotPosition == notFound || dotPosition == parsedValue.length())
+                    LOG_ERROR_AND_RETURN("Invalid cookie attribute %s (domain): it does not contain an embedded dot", cookie.ascii().data());
+
+                // If the domain does not start with a dot, add one for security checks and to distinguish it from host-only domains
                 // For example: ab.c.com dose not domain match b.c.com;
-                String realDomain = parsedValue[0] == '.' ? parsedValue : "." + parsedValue;
-                res->setDomain(realDomain);
+                StringBuilder parsedValueBuilder;
+                if (parsedValue[0] != '.')
+                    parsedValueBuilder.appendLiteral(".");
+                parsedValueBuilder.append(parsedValue);
+                String realDomain = parsedValueBuilder.toString();
+
+                StringBuilder defaultHostBuilder;
+                defaultHostBuilder.appendLiteral(".");
+                defaultHostBuilder.append(m_defaultCookieHost);
+                String defaultHost = defaultHostBuilder.toString();
+
+                // Try to return an canonical ip address if the domain is an ip
+
+                bool isIPAddress = false;
+                // We only check if the current domain is an IP address when the default domain is an IP address
+                // We know if the default domain is not an IP address and the current domain is, it won't suffix match
+                // If it is an IP Address, we should treat it only if it matches the host exactly
+                // We determine the canonical IP format before comparing because IPv6 could be represented in multiple formats
+                if (m_defaultDomainIsIPAddress) {
+                    String realDomainCanonical = BlackBerry::Platform::getCanonicalIPFormat(realDomain);
+                    if (realDomainCanonical.isEmpty() || realDomainCanonical != defaultHost)
+                        LOG_ERROR_AND_RETURN("Invalid cookie attribute %s (domain): domain is IP but does not match host's IP", cookie.ascii().data());
+                    realDomain = realDomainCanonical;
+                    isIPAddress = true;
+                } else {
+                    // The request host should domain match the Domain attribute.
+                    // Domain string starts with a dot, so a.b.com should domain match .a.b.com.
+                    // add a "." at beginning of host name, because it can handle many cases such as
+                    // a.b.com matches b.com, a.b.com matches .B.com and a.b.com matches .A.b.Com
+                    // and so on.
+                    if (!defaultHost.endsWith(realDomain, false))
+                        LOG_ERROR_AND_RETURN("Invalid cookie attribute %s (domain): it does not domain match the host", cookie.ascii().data());
+
+                    // We should check for an embedded dot in the portion of string in the host not in the domain
+                    // but to match firefox behaviour we do not.
+
+                    // Check whether the domain is a top level domain, if it is throw it out
+                    // http://publicsuffix.org/list/
+                    if (BlackBerry::Platform::isTopLevelDomain(realDomain))
+                        LOG_ERROR_AND_RETURN("Invalid cookie attribute %s (domain): it did not pass the top level domain check", cookie.ascii().data());
+                }
+                res->setDomain(realDomain, isIPAddress);
             } else
-                LOG_AND_DELETE("Invalid cookie %s (domain)", cookie.ascii().data());
+                LOG_ERROR("Invalid cookie attribute %s (domain)", cookie.ascii().data());
             break;
         }
 
         case 'E' :
         case 'e' : {
-            if (length >= 7 && cookie.find("xpires", tokenStartSvg + 1, false))
+            if (length >= 7 && ((cookie.find("xpires", tokenStartSvg + 1, false) - tokenStartSvg) == 1))
                 res->setExpiry(parsedValue);
             else
-                LOG_AND_DELETE("Invalid cookie %s (expires)", cookie.ascii().data());
+                LOG_ERROR("Invalid cookie attribute %s (expires)", cookie.ascii().data());
             break;
         }
 
         case 'M' :
         case 'm' : {
-            if (length >= 7 && cookie.find("ax-age", tokenStartSvg + 1, false))
+            if (length >= 7 && ((cookie.find("ax-age", tokenStartSvg + 1, false) - tokenStartSvg) == 1))
                 res->setMaxAge(parsedValue);
             else
-                LOG_AND_DELETE("Invalid cookie %s (max-age)", cookie.ascii().data());
+                LOG_ERROR("Invalid cookie attribute %s (max-age)", cookie.ascii().data());
             break;
         }
 
         case 'C' :
         case 'c' : {
-            if (length >= 7 && cookie.find("omment", tokenStartSvg + 1, false))
+            if (length >= 7 && ((cookie.find("omment", tokenStartSvg + 1, false) - tokenStartSvg) == 1))
                 // We do not have room for the comment part (and so do Mozilla) so just log the comment.
                 LOG(Network, "Comment %s for ParsedCookie : %s\n", parsedValue.ascii().data(), cookie.ascii().data());
             else
-                LOG_AND_DELETE("Invalid cookie %s (comment)", cookie.ascii().data());
+                LOG_ERROR("Invalid cookie attribute %s (comment)", cookie.ascii().data());
             break;
         }
 
         case 'V' :
         case 'v' : {
-            if (length >= 7 && cookie.find("ersion", tokenStartSvg + 1, false)) {
+            if (length >= 7 && ((cookie.find("ersion", tokenStartSvg + 1, false) - tokenStartSvg) == 1)) {
                 // Although the out-of-dated Cookie Spec(RFC2965, http://tools.ietf.org/html/rfc2965) defined
                 // the value of version can only contain DIGIT, some random sites, e.g. https://devforums.apple.com
                 // would use double quotation marks to quote the digit. So we need to get rid of them for compliance.
@@ -282,28 +352,28 @@ ParsedCookie* CookieParser::parseOneCookie(const String& cookie, unsigned start,
                     parsedValue = parsedValue.substring(1, parsedValue.length() - 2);
 
                 if (parsedValue.toInt() != 1)
-                    LOG_AND_DELETE("ParsedCookie version %d not supported (only support version=1)", parsedValue.toInt());
+                    LOG_ERROR_AND_RETURN("ParsedCookie version %d not supported (only support version=1)", parsedValue.toInt());
             } else
-                LOG_AND_DELETE("Invalid cookie %s (version)", cookie.ascii().data());
+                LOG_ERROR("Invalid cookie attribute %s (version)", cookie.ascii().data());
             break;
         }
 
         case 'S' :
         case 's' : {
             // Secure is a standalone token ("Secure;")
-            if (length >= 6 && cookie.find("ecure", tokenStartSvg + 1, false))
+            if (length >= 6 && ((cookie.find("ecure", tokenStartSvg + 1, false) - tokenStartSvg) == 1))
                 res->setSecureFlag(true);
             else
-                LOG_AND_DELETE("Invalid cookie %s (secure)", cookie.ascii().data());
+                LOG_ERROR("Invalid cookie attribute %s (secure)", cookie.ascii().data());
             break;
         }
         case 'H':
         case 'h': {
             // HttpOnly is a standalone token ("HttpOnly;")
-            if (length >= 8 && cookie.find("ttpOnly", tokenStartSvg + 1, false))
+            if (length >= 8 && ((cookie.find("ttpOnly", tokenStartSvg + 1, false) - tokenStartSvg) == 1))
                 res->setIsHttpOnly(true);
             else
-                LOG_AND_DELETE("Invalid cookie %s (HttpOnly)", cookie.ascii().data());
+                LOG_ERROR("Invalid cookie attribute %s (HttpOnly)", cookie.ascii().data());
             break;
         }
 
@@ -317,14 +387,14 @@ ParsedCookie* CookieParser::parseOneCookie(const String& cookie, unsigned start,
 
     // Check if the cookie is valid with respect to the size limit.
     if (!res->isUnderSizeLimit())
-        LOG_AND_DELETE("ParsedCookie %s is above the 4kb in length : REJECTED", cookie.ascii().data());
+        LOG_ERROR_AND_RETURN("ParsedCookie %s is above the 4kb in length : REJECTED", cookie.ascii().data());
 
     // If some pair was not provided, during parsing then apply some default value
     // the rest has been done in the constructor.
 
     // If no domain was provided, set it to the host
     if (!res->domain())
-        res->setDomain(m_defaultCookieURL.host());
+        res->setDomain(m_defaultCookieHost, m_defaultDomainIsIPAddress);
 
     // According to the Cookie Specificaiton (RFC6265, section 4.1.2.4 and 5.2.4, http://tools.ietf.org/html/rfc6265),
     // If no path was provided or the first character of the path value is not '/', set it to the host's path
@@ -362,7 +432,7 @@ ParsedCookie* CookieParser::parseOneCookie(const String& cookie, unsigned start,
         // so we must remove the escape sequences.
         res->setPath(decodeURLEscapeSequences(path));
     }
- 
+
     return res;
 }
 

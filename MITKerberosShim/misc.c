@@ -57,7 +57,7 @@ int krb5_use_broken_arcfour_string2key = 0;
 static int do_log = 0;
 
 static CFTypeRef
-GetKeyFromFile(CFStringRef domain, CFStringRef key)
+CopyKeyFromFile(CFStringRef domain, CFStringRef key)
 {
     CFReadStreamRef s;
     CFDictionaryRef d;
@@ -66,7 +66,7 @@ GetKeyFromFile(CFStringRef domain, CFStringRef key)
     CFURLRef url;
     CFTypeRef val;
     
-    file = CFStringCreateWithFormat(NULL, 0, CFSTR("/Library/Preferences/%s.plist"), domain);
+    file = CFStringCreateWithFormat(NULL, 0, CFSTR("/Library/Preferences/%@.plist"), domain);
     if (file == NULL)
 	return NULL;
     
@@ -108,7 +108,7 @@ init_log(void)
     static dispatch_once_t once = 0;
     dispatch_once(&once, ^{
 	    CFBooleanRef b;
-	    b = GetKeyFromFile(CFSTR("com.apple.MITKerberosShim"),
+	    b = CopyKeyFromFile(CFSTR("com.apple.MITKerberosShim"),
 			       CFSTR("EnableDebugging"));
 	    if (b && CFGetTypeID(b) == CFBooleanGetTypeID())
 		do_log = CFBooleanGetValue(b);
@@ -151,7 +151,7 @@ mshim_ctx(void)
 {
     static dispatch_once_t once;
     static pthread_key_t key;
-    krb5_context ctx;
+    krb5_context ctx = NULL;
 
     dispatch_once(&once, ^{
 	if (pthread_key_create(&key, destroy_ctx) != 0)
@@ -163,8 +163,15 @@ mshim_ctx(void)
 	krb5_error_code ret;
 
 	ret = heim_krb5_init_context(&ctx);
-	if (ret == 0)
-	    pthread_setspecific(key, ctx);
+	if (ret)
+	    ret = heim_krb5_init_context_flags(KRB5_CONTEXT_FLAG_NO_CONFIG, &ctx);
+
+	if (ret) {
+	    syslog(LOG_ERR, "Failed to create kerberos context for thread (milcontext): %d", ret);
+	    abort();
+	}
+
+	pthread_setspecific(key, ctx);
     }
     return ctx;
 }
@@ -576,8 +583,8 @@ krb5_free_enc_tkt_part(mit_krb5_context context, krb5_enc_tkt_part *enc_part2)
 	krb5_free_keyblock(context, enc_part2->session);
     if (enc_part2->client)
 	krb5_free_principal(context, enc_part2->client);
-    free(enc_part2);
     memset(enc_part2, 0, sizeof(*enc_part2));
+    free(enc_part2);
 }
 
 void KRB5_CALLCONV
@@ -714,6 +721,8 @@ krb5_os_localaddr(mit_krb5_context context, mit_krb5_address ***addresses)
 	memcpy(a[i]->contents, addrs.val[i].address.data, addrs.val[i].address.length);
     }
     a[i] = NULL;
+    
+    *addresses = a;
 
     return 0;
 }

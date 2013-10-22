@@ -40,13 +40,17 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <CoreFoundation/CFString.h>
+#include "EAPSIMAKA.h"
 
-#define SIM_KC_SIZE		8
-#define SIM_SRES_SIZE		4
-#define SIM_RAND_SIZE		16
+CFStringRef
+SIMCopyIMSI(void);
+
+CFStringRef
+SIMCopyRealm(void);
 
 /*
- * Function: SIMProcessRAND
+ * Function: SIMAuthenticateGSM
  * Purpose:
  *   Communicate with SIM to retrieve the (SRES, Kc) pairs for the given
  *   set of RANDs.
@@ -63,8 +67,51 @@
  *   FALSE on failure.
  */
 bool
-SIMProcessRAND(const uint8_t * rand_p, int count,
-	       uint8_t * kc_p, uint8_t * sres_p);
+SIMAuthenticateGSM(const uint8_t * rand_p, int count,
+		   uint8_t * kc_p, uint8_t * sres_p);
+
+typedef struct {
+    CFDataRef	ck;
+    CFDataRef	ik;
+    CFDataRef	res;
+    CFDataRef	auts;
+} AKAAuthResults, * AKAAuthResultsRef;
+
+void
+AKAAuthResultsSetCK(AKAAuthResultsRef results, CFDataRef ck);
+
+void
+AKAAuthResultsSetIK(AKAAuthResultsRef results, CFDataRef ik);
+
+void
+AKAAuthResultsSetRES(AKAAuthResultsRef results, CFDataRef res);
+
+void
+AKAAuthResultsSetAUTS(AKAAuthResultsRef results, CFDataRef auts);
+
+void
+AKAAuthResultsInit(AKAAuthResultsRef results);
+
+void
+AKAAuthResultsRelease(AKAAuthResultsRef results);
+
+/*
+ * Function: SIMAuthenticateAKA
+ * Purpose:
+ *   Run the AKA algorithms on the AT_RAND data.
+ *
+ * Returns:
+ *   FALSE if the request could not be completed (SIM unavailable).
+ *
+ *   TRUE if results are available:
+ *   - if authentication was successful, AKAAuthResultsRef contains non-NULL
+ *     res, ck, and ik values.
+ *   - if there's a sync failure, AKAAuthResultsRef will contain non-NULL
+ *     auts value.
+ *   - otherwise, there was an auth reject.
+ */
+bool
+SIMAuthenticateAKA(CFDataRef rand, CFDataRef autn, AKAAuthResultsRef results);
 
 #endif /* _EAP8021X_SIMACCESS_H */
 

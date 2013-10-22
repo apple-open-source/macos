@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2011, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,35 +34,40 @@
 #if ENABLE(INSPECTOR) && ENABLE(FILE_SYSTEM)
 
 #include "InspectorBaseAgent.h"
-#include "InspectorFrontend.h"
 
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
-class DOMFileSystem;
+
 class InspectorFrontend;
-class InspectorState;
-class InstrumentingAgents;
+class InspectorPageAgent;
+class ScriptExecutionContext;
+class SecurityOrigin;
 
 class InspectorFileSystemAgent : public InspectorBaseAgent<InspectorFileSystemAgent>, public InspectorBackendDispatcher::FileSystemCommandHandler {
 public:
-    static PassOwnPtr<InspectorFileSystemAgent> create(InstrumentingAgents*, InspectorState*);
+    static PassOwnPtr<InspectorFileSystemAgent> create(InstrumentingAgents*, InspectorPageAgent*, InspectorCompositeState*);
     virtual ~InspectorFileSystemAgent();
 
-    void didOpenFileSystem(PassRefPtr<DOMFileSystem>);
-    void fileSystemInvalidated(PassRefPtr<DOMFileSystem>);
+    virtual void enable(ErrorString*) OVERRIDE;
+    virtual void disable(ErrorString*) OVERRIDE;
 
-    virtual void enable(ErrorString*);
-    virtual void disable(ErrorString*);
+    virtual void requestFileSystemRoot(ErrorString*, const String& origin, const String& typeString, PassRefPtr<RequestFileSystemRootCallback>) OVERRIDE;
+    virtual void requestDirectoryContent(ErrorString*, const String& url, PassRefPtr<RequestDirectoryContentCallback>) OVERRIDE;
+    virtual void requestMetadata(ErrorString*, const String& url, PassRefPtr<RequestMetadataCallback>) OVERRIDE;
+    virtual void requestFileContent(ErrorString*, const String& url, bool readAsText, const int* start, const int* end, const String* charset, PassRefPtr<RequestFileContentCallback>) OVERRIDE;
+    virtual void deleteEntry(ErrorString*, const String& url, PassRefPtr<DeleteEntryCallback>) OVERRIDE;
 
-    virtual void setFrontend(InspectorFrontend*);
-    virtual void clearFrontend();
-    virtual void restore();
+    virtual void clearFrontend() OVERRIDE;
+    virtual void restore() OVERRIDE;
+
 private:
-    InspectorFileSystemAgent(InstrumentingAgents*, InspectorState*);
+    InspectorFileSystemAgent(InstrumentingAgents*, InspectorPageAgent*, InspectorCompositeState*);
+    bool assertEnabled(ErrorString*);
+    ScriptExecutionContext* assertScriptExecutionContextForOrigin(ErrorString*, SecurityOrigin*);
 
-    InspectorFrontend::FileSystem* m_frontend;
+    InspectorPageAgent* m_pageAgent;
     bool m_enabled;
 };
 

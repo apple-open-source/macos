@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,8 @@ class MediaPlayerPrivateAVFoundationCF : public MediaPlayerPrivateAVFoundation {
 public:
     virtual ~MediaPlayerPrivateAVFoundationCF();
 
+    virtual void tracksChanged() OVERRIDE;
+
     static void registerMediaEngine(MediaEngineRegistrar);
 
 private:
@@ -46,7 +48,7 @@ private:
     // Engine support
     static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static void getSupportedTypes(HashSet<String>& types);
-    static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
+    static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs, const KURL&);
     static bool isAvailable();
 
     virtual void cancelLoad();
@@ -74,14 +76,14 @@ private:
     virtual void checkPlayability();
     virtual void updateRate();
     virtual float rate() const;
-    virtual void seekToTime(float time);
+    virtual void seekToTime(double time);
     virtual unsigned totalBytes() const;
     virtual PassRefPtr<TimeRanges> platformBufferedTimeRanges() const;
-    virtual float platformMaxTimeSeekable() const;
+    virtual double platformMinTimeSeekable() const;
+    virtual double platformMaxTimeSeekable() const;
     virtual float platformDuration() const;
     virtual float platformMaxTimeLoaded() const;
     virtual void beginLoadingMetadata();
-    virtual void tracksChanged();
     virtual void sizeChanged();
 
     virtual bool hasAvailableVideoFrame() const;
@@ -97,9 +99,23 @@ private:
 
     virtual void contentsNeedsDisplay();
 
+    virtual String languageOfPrimaryAudioTrack() const OVERRIDE;
+
+#if HAVE(AVFOUNDATION_MEDIA_SELECTION_GROUP)
+    void processMediaSelectionOptions();
+#endif
+
+    virtual void setCurrentTrack(InbandTextTrackPrivateAVF*) OVERRIDE;
+    virtual InbandTextTrackPrivateAVF* currentTrack() const OVERRIDE;
+
+#if !HAVE(AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT)
+    void processLegacyClosedCaptionsTracks();
+#endif
+
     friend class AVFWrapper;
     AVFWrapper* m_avfWrapper;
     
+    mutable String m_languageOfPrimaryAudioTrack;
     bool m_videoFrameHasDrawn;
 };
 

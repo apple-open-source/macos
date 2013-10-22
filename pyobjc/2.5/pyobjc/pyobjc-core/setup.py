@@ -28,6 +28,16 @@ USE_SYSTEM_FFI = False
 if int(os.uname()[2].split('.')[0]) >= 10:
 	USE_SYSTEM_FFI = True
 
+SDKROOT = os.environ.get('SDKROOT')
+if SDKROOT is None or SDKROOT is '':
+    SDKROOT = '/'
+def fixsdk(arg):
+    if arg.startswith('-I/'):
+        arg = '-I' + os.path.join(SDKROOT, arg[3:])
+    elif arg.startswith('-L/'):
+        arg = '-L' + os.path.join(SDKROOT, arg[3:])
+    return arg
+
 
 # Some PiPy stuff
 LONG_DESCRIPTION="""
@@ -198,14 +208,14 @@ CFLAGS.extend([
 
 OBJC_LDFLAGS = frameworks('CoreFoundation', 'Foundation', 'Carbon')
 
-if not os.path.exists('/usr/include/objc/runtime.h'):
+if not os.path.exists(os.path.join(SDKROOT, 'usr/include/objc/runtime.h')):
     CFLAGS.append('-DNO_OBJC2_RUNTIME')
 
 else:
     # Force compilation with the local SDK, compilation of PyObC will result in
     # a binary that runs on other releases of the OS without using a particular SDK.
-    CFLAGS.extend(['-isysroot', '/'])
-    OBJC_LDFLAGS.extend(['-isysroot', '/'])
+    CFLAGS.extend([])
+    OBJC_LDFLAGS.extend([])
 
 
 # We're using xml2, check for the flags to use:
@@ -214,7 +224,7 @@ def xml2config(arg):
     ln = os.popen('xml2-config %s'%(arg,), 'r').readline()
     ln = ln.strip()
 
-    return shlex.split(ln)
+    return map(fixsdk, shlex.split(ln))
 
 CFLAGS.extend(xml2config('--cflags'))
 OBJC_LDFLAGS.extend(xml2config('--libs'))
@@ -259,7 +269,7 @@ if USE_SYSTEM_FFI:
 	ExtensionList =  [ 
 	    Extension("objc._objc",
 		list(glob.glob(os.path.join('Modules', 'objc', '*.m'))),
-		extra_compile_args=CFLAGS + ["-I/usr/include/ffi"],
+		extra_compile_args=CFLAGS + ['-I' + os.path.join(SDKROOT, "usr/include/ffi")],
 		extra_link_args=OBJC_LDFLAGS + ["-lffi"],
 	    )
 	]

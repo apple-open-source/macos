@@ -439,6 +439,14 @@ uint32_t nfat_archs)
 	       cpusubtype == CPU_SUBTYPE_ARM_V7K){
 		for(i = 0; i < nfat_archs; i++){
 		    if(fat_archs[i].cputype == cputype &&
+		       fat_archs[i].cpusubtype == CPU_SUBTYPE_ARM_V7S)
+			return(fat_archs + i);
+		}
+	    }
+	    if(cpusubtype == CPU_SUBTYPE_ARM_ALL ||
+	       cpusubtype == CPU_SUBTYPE_ARM_V7S){
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype == cputype &&
 		       fat_archs[i].cpusubtype == CPU_SUBTYPE_ARM_V7F)
 			return(fat_archs + i);
 		}
@@ -480,6 +488,21 @@ uint32_t nfat_archs)
 	    for(i = 0; i < nfat_archs; i++){
 		if(fat_archs[i].cputype == cputype &&
 		   fat_archs[i].cpusubtype == CPU_SUBTYPE_ARM_V4T)
+		    return(fat_archs + i);
+	    }
+	    for(i = 0; i < nfat_archs; i++){
+		if(fat_archs[i].cputype == cputype &&
+		   fat_archs[i].cpusubtype == CPU_SUBTYPE_ARM_V6M)
+		    return(fat_archs + i);
+	    }
+	    for(i = 0; i < nfat_archs; i++){
+		if(fat_archs[i].cputype == cputype &&
+		   fat_archs[i].cpusubtype == CPU_SUBTYPE_ARM_V7M)
+		    return(fat_archs + i);
+	    }
+	    for(i = 0; i < nfat_archs; i++){
+		if(fat_archs[i].cputype == cputype &&
+		   fat_archs[i].cpusubtype == CPU_SUBTYPE_ARM_V7EM)
 		    return(fat_archs + i);
 	    }
 	    for(i = 0; i < nfat_archs; i++){

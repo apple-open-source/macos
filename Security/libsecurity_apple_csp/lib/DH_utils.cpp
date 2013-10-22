@@ -164,11 +164,11 @@ DH *rawCssmKeyToDh(
     {
         if(isPub) {
             crtn = DHPublicKeyDecode(dhKey, hdr->Format,
-                cssmKey.KeyData.Data, cssmKey.KeyData.Length);
+                cssmKey.KeyData.Data, (unsigned)cssmKey.KeyData.Length);
         }
         else {
             crtn = DHPrivateKeyDecode(dhKey, hdr->Format,
-                cssmKey.KeyData.Data, cssmKey.KeyData.Length);
+                cssmKey.KeyData.Data, (unsigned)cssmKey.KeyData.Length);
         }
     }
     

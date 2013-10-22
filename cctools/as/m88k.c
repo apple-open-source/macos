@@ -74,7 +74,7 @@ struct m88k_insn {
         uint32_t opcode;
         expressionS exp;
 #ifdef NeXT_MOD
-        enum reloc_type_m88k reloc;
+        int reloc;
 #else
         enum reloc_type reloc;
 #endif
@@ -600,10 +600,6 @@ char *op)
 
 	/* if this instruction requires labels mark it for later */
 	switch (insn.reloc) {
-
-		case NO_RELOC:
-				break;
-
 		case M88K_RELOC_LO16:
 		case M88K_RELOC_HI16:
 				fix_new(

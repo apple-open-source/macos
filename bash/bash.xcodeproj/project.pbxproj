@@ -719,6 +719,7 @@
 		59C496F40FE18B1900B4278B /* bashrc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bashrc; sourceTree = "<group>"; };
 		59C496FC0FE18D1B00B4278B /* bash.info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = bash.info; sourceTree = "<group>"; };
 		59DC3C1D1120BE9300B033EC /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
+		59EAF53C162CEA5200753814 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = ../../config.h; sourceTree = "<group>"; };
 		723F1FB90FE16B2E00CA2753 /* bashbug.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = bashbug.1; sourceTree = "<group>"; };
 		723F1FC30FE16C8900CA2753 /* article.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; name = article.pdf; path = doc/article.pdf; sourceTree = "<group>"; };
 		723F1FC40FE16C8900CA2753 /* bash.pdf */ = {isa = PBXFileReference; lastKnownFileType = image.pdf; name = bash.pdf; path = doc/bash.pdf; sourceTree = "<group>"; };
@@ -954,6 +955,7 @@
 		59926DC20FE0692C005D5BC8 /* include */ = {
 			isa = PBXGroup;
 			children = (
+				59EAF53C162CEA5200753814 /* config.h */,
 			);
 			name = include;
 			path = "bash-3.2/include";
@@ -1923,6 +1925,7 @@
 					SHELL,
 					HAVE_CONFIG_H,
 				);
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "";

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008,2010-2011,2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -185,7 +185,7 @@ int msdosfs_pcbmap_internal(struct denode *dep, uint32_t findcn, uint32_t numclu
 int msdosfs_clusteralloc(struct msdosfsmount *pmp, uint32_t start, uint32_t count, uint32_t fillwith, uint32_t *retcluster, uint32_t *got);
 int msdosfs_fatentry(int function, struct msdosfsmount *pmp, uint32_t cluster, uint32_t *oldcontents, uint32_t newcontents);
 int msdosfs_freeclusterchain(struct msdosfsmount *pmp, uint32_t startchain);
-int msdosfs_extendfile(struct denode *dep, uint32_t count);
+int msdosfs_extendfile(struct denode *dep, uint32_t count, uint32_t *numAllocated);
 
 /* [2753891]
  * Routine to mark a FAT16 or FAT32 volume as "clean" or "dirty" by manipulating the upper bit

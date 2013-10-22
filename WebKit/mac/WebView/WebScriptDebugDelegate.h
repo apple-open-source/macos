@@ -28,11 +28,7 @@
 
 #import <Foundation/Foundation.h>
 
-#ifdef BUILDING_ON_LEOPARD
-typedef int WebSourceId;
-#else
 typedef intptr_t WebSourceId;
-#endif
 
 @class WebView;
 @class WebFrame;

@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,13 +28,18 @@
 #include "WebPageProxy.h"
 
 #include "PageClient.h"
-#include "QtNetworkReplyData.h"
-#include "QtPageClient.h"
-#include "qquicknetworkreply_p.h"
+#include "UserAgentQt.h"
+#include "WebKitVersion.h"
 #include "WebPageMessages.h"
 #include "WebProcessProxy.h"
 #include <WebCore/Editor.h>
 #include <WebCore/NotImplemented.h>
+
+#if HAVE(QTQUICK)
+#include "QtNetworkReplyData.h"
+#include "QtPageClient.h"
+#include "qquicknetworkreply_p.h"
+#endif
 
 using namespace WebCore;
 
@@ -41,8 +47,7 @@ namespace WebKit {
 
 String WebPageProxy::standardUserAgent(const String& applicationNameForUserAgent)
 {
-    // FIXME: This should not be hard coded.
-    return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6) AppleWebKit/531.4 (KHTML, like Gecko) Version/4.0.3 Safari/531.4";
+    return UserAgentQt::standardUserAgent(applicationNameForUserAgent, WEBKIT_MAJOR_VERSION, WEBKIT_MINOR_VERSION);
 }
 
 void WebPageProxy::saveRecentSearches(const String&, const Vector<String>&)
@@ -55,31 +60,6 @@ void WebPageProxy::loadRecentSearches(const String&, Vector<String>&)
     notImplemented();
 }
 
-void WebPageProxy::setComposition(const String& text, Vector<CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
-{
-    // FIXME: We need to find out how to proper handle the crashes case.
-    if (!isValid())
-        return;
-
-    process()->send(Messages::WebPage::SetComposition(text, underlines, selectionStart, selectionEnd, replacementRangeStart, replacementRangeEnd), m_pageID);
-}
-
-void WebPageProxy::confirmComposition(const String& compositionString, int64_t selectionStart, int64_t selectionLength)
-{
-    if (!isValid())
-        return;
-
-    process()->send(Messages::WebPage::ConfirmComposition(compositionString, selectionStart, selectionLength), m_pageID);
-}
-
-void WebPageProxy::cancelComposition()
-{
-    if (!isValid())
-        return;
-
-    process()->send(Messages::WebPage::CancelComposition(), m_pageID);
-}
-
 void WebPageProxy::registerApplicationScheme(const String& scheme)
 {
     process()->send(Messages::WebPage::RegisterApplicationScheme(scheme), m_pageID);
@@ -87,19 +67,51 @@ void WebPageProxy::registerApplicationScheme(const String& scheme)
 
 void WebPageProxy::resolveApplicationSchemeRequest(QtNetworkRequestData request)
 {
+#if HAVE(QTQUICK)
     RefPtr<QtRefCountedNetworkRequestData> requestData = adoptRef(new QtRefCountedNetworkRequestData(request));
     m_applicationSchemeRequests.add(requestData);
     static_cast<QtPageClient*>(m_pageClient)->handleApplicationSchemeRequest(requestData);
+#endif
 }
 
 void WebPageProxy::sendApplicationSchemeReply(const QQuickNetworkReply* reply)
 {
+#if HAVE(QTQUICK)
     RefPtr<QtRefCountedNetworkRequestData> requestData = reply->networkRequestData();
     if (m_applicationSchemeRequests.contains(requestData)) {
         RefPtr<QtRefCountedNetworkReplyData> replyData = reply->networkReplyData();
         process()->send(Messages::WebPage::ApplicationSchemeReply(replyData->data()), pageID());
         m_applicationSchemeRequests.remove(requestData);
     }
+#endif
+}
+
+void WebPageProxy::didFindZoomableArea(const IntPoint& target, const IntRect& area)
+{
+    m_pageClient->didFindZoomableArea(target, area);
+}
+
+void WebPageProxy::findZoomableAreaForPoint(const IntPoint& point, const IntSize& area)
+{
+    if (!isValid())
+        return;
+
+    m_process->send(Messages::WebPage::FindZoomableAreaForPoint(point, area), m_pageID);
+}
+
+void WebPageProxy::authenticationRequiredRequest(const String& hostname, const String& realm, const String& prefilledUsername, String& username, String& password)
+{
+    m_pageClient->handleAuthenticationRequiredRequest(hostname, realm, prefilledUsername, username, password);
+}
+
+void WebPageProxy::proxyAuthenticationRequiredRequest(const String& hostname, uint16_t port, const String& prefilledUsername, String& username, String& password)
+{
+    m_pageClient->handleProxyAuthenticationRequiredRequest(hostname, port, prefilledUsername, username, password);
+}
+
+void WebPageProxy::certificateVerificationRequest(const String& hostname, bool& ignoreErrors)
+{
+    m_pageClient->handleCertificateVerificationRequest(hostname, ignoreErrors);
 }
 
 #if PLUGIN_ARCHITECTURE(X11)
@@ -113,5 +125,20 @@ void WebPageProxy::windowedPluginGeometryDidChange(const WebCore::IntRect& frame
     notImplemented();
 }
 #endif
+
+void WebPageProxy::changeSelectedIndex(int32_t selectedIndex)
+{
+    process()->send(Messages::WebPage::SelectedIndex(selectedIndex), m_pageID);
+}
+
+void WebPageProxy::closePopupMenu()
+{
+    process()->send(Messages::WebPage::HidePopupMenu(), m_pageID);
+}
+
+void WebPageProxy::willSetInputMethodState()
+{
+    m_pageClient->handleWillSetInputMethodState();
+}
 
 } // namespace WebKit

@@ -4,15 +4,15 @@
         <key>OpenSourceProject</key>
         <string>python</string>
         <key>OpenSourceVersion</key>
-        <string>2.7.2</string>
+        <string>2.7.5</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.python.org/</string>
         <key>OpenSourceURL</key>
-        <string>http://www.python.org/ftp/python/2.7.2/Python-2.7.2.tar.bz2</string>
+        <string>http://www.python.org/ftp/python/2.7.5/Python-2.7.5.tar.bz2</string>
         <key>OpenSourceMD5</key>
-        <string>ba7b2f11ffdbf195ee0d111b9455a5bd</string>
+        <string>6334b666b7ff2038c761d7b27ba699c1</string>
         <key>OpenSourceImportDate</key>
-        <string>2011-11-09</string>
+        <string>2013-05-18</string>
         <key>OpenSourceLicense</key>
         <string>PSFL</string>
         <key>OpenSourceLicenseFile</key>

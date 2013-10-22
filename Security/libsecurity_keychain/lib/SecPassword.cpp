@@ -30,7 +30,8 @@
 #include <Security/Authorization.h>
 #include <Security/AuthorizationTagsPriv.h>
 
-CFTypeID
+#if 0
+static CFTypeID
 SecPasswordGetTypeID(void)
 {
 	BEGIN_SECAPI
@@ -39,6 +40,7 @@ SecPasswordGetTypeID(void)
     
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
+#endif
 
 OSStatus
 SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList, SecPasswordRef *itemRef)
@@ -70,7 +72,7 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
     Password passwordRef = PasswordImpl::required(itemRef);
     
     void *passwordData = NULL;
-    uint32_t passwordLength = 0;
+    UInt32 passwordLength = 0;
 	bool gotPassword = false;
 
     // no flags has no meaning, and there is no apparent default
@@ -108,7 +110,7 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
             
                 // check mItem whether it's got data
                 if (passwordRef->getData(length, data))
-                    return noErr;
+                    return errSecSuccess;
             }
             
             // User might cancel here, immediately return that too (it will be thrown)            
@@ -121,6 +123,11 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
     {
         AuthorizationRef authRef;
         OSStatus status = AuthorizationCreate(NULL,NULL,0,&authRef);
+        if (status != errSecSuccess)
+        {
+            MacOSError::throwMe(status);
+        }
+        
         AuthorizationItem right = { NULL, 0, NULL, 0 };
         AuthorizationItemSet rightSet = { 1, &right };
         uint32_t reason, tries;
@@ -161,9 +168,12 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
         else
             right.name = "com.apple.builtin.generic-unlock";
 
-        AuthorizationItem envRights[5] = { { AGENT_HINT_RETRY_REASON, sizeof(reason), &reason, 0 },
+        bool showPassword = false;
+        
+        AuthorizationItem envRights[6] = { { AGENT_HINT_RETRY_REASON, sizeof(reason), &reason, 0 },
                                             { AGENT_HINT_TRIES, sizeof(tries), &tries, 0 },
                                             { AGENT_HINT_CUSTOM_PROMPT, messageData ? strlen(messageData) : 0, const_cast<char*>(messageData), 0 },
+                                            { AGENT_HINT_ALLOW_SHOW_PASSWORD, showPassword ? strlen("YES") : strlen("NO"), const_cast<char *>(showPassword ? "YES" : "NO"), 0 },
                                             { AGENT_HINT_SHOW_ADD_TO_KEYCHAIN, keychain ? strlen("YES") : strlen("NO"), const_cast<char *>(keychain ? "YES" : "NO"), 0 },
                                             { AGENT_ADD_TO_KEYCHAIN, addToKeychain ? strlen("YES") : strlen("NO"), const_cast<char *>(addToKeychain ? "YES" : "NO"), 0 } };
                                             
@@ -199,7 +209,7 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                 if (!strcmp(AGENT_PASSWORD, item.name))
                 {
 					gotPassword = true;
-                    passwordLength = item.valueLength;
+                    passwordLength = (UInt32)item.valueLength;
 
                     if (passwordLength)
                     {
@@ -214,7 +224,7 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
                     if (data) 
                         *data = passwordData;
 						
-					secdebug("SecPassword", "Got password (%d,%p).", passwordLength, passwordData);
+					secdebug("SecPassword", "Got password (%u,%p).", (unsigned int)passwordLength, passwordData);
                 }
                 else if (!strcmp(AGENT_ADD_TO_KEYCHAIN, item.name))
                 {
@@ -238,9 +248,17 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
             if (gotPassword)
 				passwordRef->setData(passwordLength, passwordData);
 			if (flags & kSecPasswordSet)
+            {
 				passwordRef->save();
+                gotPassword = true;
+            }
 		}
     }
 
+    if (!gotPassword)
+    {
+        return errAuthorizationDenied;
+    }
+    
     END_SECAPI
 }

@@ -3,6 +3,15 @@ require "stringio"
 require "test/unit"
 
 class TestWEBrickHTTPRequest < Test::Unit::TestCase
+  def test_simple_request
+    msg = <<-_end_of_message_
+GET /
+    _end_of_message_
+    req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
+    req.parse(StringIO.new(msg))
+    assert(req.meta_vars) # fails if @header was not initialized and iteration is attempted on the nil reference
+  end
+
   def test_parse_09
     msg = <<-_end_of_message_
       GET /
@@ -56,6 +65,16 @@ class TestWEBrickHTTPRequest < Test::Unit::TestCase
     assert(req.query.empty?)
   end
 
+  def test_request_uri_too_large
+    msg = <<-_end_of_message_
+      GET /#{"a"*2084} HTTP/1.1
+    _end_of_message_
+    req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
+    assert_raise(WEBrick::HTTPStatus::RequestURITooLarge){
+      req.parse(StringIO.new(msg.gsub(/^ {6}/, "")))
+    }
+  end
+
   def test_parse_headers
     msg = <<-_end_of_message_
       GET /path HTTP/1.1
@@ -69,6 +88,7 @@ class TestWEBrickHTTPRequest < Test::Unit::TestCase
       Accept-Language: ja
       Content-Type: text/plain
       Content-Length: 7
+      X-Empty-Header:
 
       foobar
     _end_of_message_
@@ -87,6 +107,8 @@ class TestWEBrickHTTPRequest < Test::Unit::TestCase
     assert_equal(7, req.content_length)
     assert_equal("text/plain", req.content_type)
     assert_equal("foobar\n", req.body)
+    assert_equal("", req["x-empty-header"])
+    assert_equal(nil, req["x-no-header"])
     assert(req.query.empty?)
   end
 
@@ -228,6 +250,123 @@ class TestWEBrickHTTPRequest < Test::Unit::TestCase
     assert_equal(File.read(__FILE__), req.body)
   end
 
+  def test_forwarded
+    msg = <<-_end_of_message_
+      GET /foo HTTP/1.1
+      Host: localhost:10080
+      User-Agent: w3m/0.5.2
+      X-Forwarded-For: 123.123.123.123
+      X-Forwarded-Host: forward.example.com
+      X-Forwarded-Server: server.example.com
+      Connection: Keep-Alive
+
+    _end_of_message_
+    msg.gsub!(/^ {6}/, "")
+    req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
+    req.parse(StringIO.new(msg))
+    assert_equal("server.example.com", req.server_name)
+    assert_equal("http://forward.example.com/foo", req.request_uri.to_s)
+    assert_equal("forward.example.com", req.host)
+    assert_equal(80, req.port)
+    assert_equal("123.123.123.123", req.remote_ip)
+    assert(!req.ssl?)
+
+    msg = <<-_end_of_message_
+      GET /foo HTTP/1.1
+      Host: localhost:10080
+      User-Agent: w3m/0.5.2
+      X-Forwarded-For: 192.168.1.10, 172.16.1.1, 123.123.123.123
+      X-Forwarded-Host: forward.example.com:8080
+      X-Forwarded-Server: server.example.com
+      Connection: Keep-Alive
+
+    _end_of_message_
+    msg.gsub!(/^ {6}/, "")
+    req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
+    req.parse(StringIO.new(msg))
+    assert_equal("server.example.com", req.server_name)
+    assert_equal("http://forward.example.com:8080/foo", req.request_uri.to_s)
+    assert_equal("forward.example.com", req.host)
+    assert_equal(8080, req.port)
+    assert_equal("123.123.123.123", req.remote_ip)
+    assert(!req.ssl?)
+
+    msg = <<-_end_of_message_
+      GET /foo HTTP/1.1
+      Host: localhost:10080
+      Client-IP: 234.234.234.234
+      X-Forwarded-Proto: https
+      X-Forwarded-For: 192.168.1.10, 10.0.0.1, 123.123.123.123
+      X-Forwarded-Host: forward.example.com
+      X-Forwarded-Server: server.example.com
+      X-Requested-With: XMLHttpRequest
+      Connection: Keep-Alive
+
+    _end_of_message_
+    msg.gsub!(/^ {6}/, "")
+    req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
+    req.parse(StringIO.new(msg))
+    assert_equal("server.example.com", req.server_name)
+    assert_equal("https://forward.example.com/foo", req.request_uri.to_s)
+    assert_equal("forward.example.com", req.host)
+    assert_equal(443, req.port)
+    assert_equal("234.234.234.234", req.remote_ip)
+    assert(req.ssl?)
+
+    msg = <<-_end_of_message_
+      GET /foo HTTP/1.1
+      Host: localhost:10080
+      Client-IP: 234.234.234.234
+      X-Forwarded-Proto: https
+      X-Forwarded-For: 192.168.1.10
+      X-Forwarded-Host: forward1.example.com:1234, forward2.example.com:5678
+      X-Forwarded-Server: server1.example.com, server2.example.com
+      X-Requested-With: XMLHttpRequest
+      Connection: Keep-Alive
+
+    _end_of_message_
+    msg.gsub!(/^ {6}/, "")
+    req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
+    req.parse(StringIO.new(msg))
+    assert_equal("server1.example.com", req.server_name)
+    assert_equal("https://forward1.example.com:1234/foo", req.request_uri.to_s)
+    assert_equal("forward1.example.com", req.host)
+    assert_equal(1234, req.port)
+    assert_equal("234.234.234.234", req.remote_ip)
+    assert(req.ssl?)
+  end
+
+  def test_continue_sent
+    msg = <<-_end_of_message_
+      POST /path HTTP/1.1
+      Expect: 100-continue
+
+    _end_of_message_
+    msg.gsub!(/^ {6}/, "")
+    req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
+    req.parse(StringIO.new(msg))
+    assert req['expect']
+    l = msg.size
+    req.continue
+    assert_not_equal l, msg.size
+    assert_match /HTTP\/1.1 100 continue\r\n\r\n\z/, msg
+    assert !req['expect']
+  end
+
+  def test_continue_not_sent
+    msg = <<-_end_of_message_
+      POST /path HTTP/1.1
+
+    _end_of_message_
+    msg.gsub!(/^ {6}/, "")
+    req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
+    req.parse(StringIO.new(msg))
+    assert !req['expect']
+    l = msg.size
+    req.continue
+    assert_equal l, msg.size
+  end
+
   def test_bad_messages
     param = "foo=1;foo=2;foo=3;bar=x"
     msg = <<-_end_of_message_
@@ -237,7 +376,7 @@ class TestWEBrickHTTPRequest < Test::Unit::TestCase
 
       #{param}
     _end_of_message_
-    assert_raises(WEBrick::HTTPStatus::LengthRequired){
+    assert_raise(WEBrick::HTTPStatus::LengthRequired){
       req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
       req.parse(StringIO.new(msg.gsub(/^ {6}/, "")))
       req.body
@@ -250,7 +389,7 @@ class TestWEBrickHTTPRequest < Test::Unit::TestCase
 
       body is too short.
     _end_of_message_
-    assert_raises(WEBrick::HTTPStatus::BadRequest){
+    assert_raise(WEBrick::HTTPStatus::BadRequest){
       req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
       req.parse(StringIO.new(msg.gsub(/^ {6}/, "")))
       req.body
@@ -263,7 +402,7 @@ class TestWEBrickHTTPRequest < Test::Unit::TestCase
 
       body is too short.
     _end_of_message_
-    assert_raises(WEBrick::HTTPStatus::NotImplemented){
+    assert_raise(WEBrick::HTTPStatus::NotImplemented){
       req = WEBrick::HTTPRequest.new(WEBrick::Config::HTTP)
       req.parse(StringIO.new(msg.gsub(/^ {6}/, "")))
       req.body

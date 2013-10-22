@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/ca.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/ca.xml
 // *
 // ***************************************************************************
 /**
@@ -28,7 +28,7 @@ ca{
             "afgani afganès",
         }
         ALK{
-            "ALK" /** ===  */,
+            "ALK",
             "lek albanès (1946-1965)",
         }
         ALL{
@@ -66,6 +66,10 @@ ca{
         ARL{
             "ARL",
             "peso ley argentí (1970-1983)",
+        }
+        ARM{
+            "ARM",
+            "peso argentí (1981-1970)",
         }
         ARP{
             "ARP",
@@ -188,7 +192,7 @@ ca{
             "cruzeiro brasiler (1990-1993)",
         }
         BRL{
-            "R$",
+            "BRL",
             "real brasiler",
         }
         BRN{
@@ -198,6 +202,10 @@ ca{
         BRR{
             "BRR",
             "cruzeiro brasiler",
+        }
+        BRZ{
+            "BRZ",
+            "antic cruzeiro brasiler",
         }
         BSD{
             "BSD",
@@ -247,6 +255,10 @@ ca{
             "CHW",
             "franc WIR",
         }
+        CLE{
+            "CLE",
+            "escut xilè",
+        }
         CLF{
             "CLF",
             "unidad de fomento xilena",
@@ -256,7 +268,7 @@ ca{
             "peso xilè",
         }
         CNY{
-            "CN¥",
+            "¥",
             "iuan renmimbi xinès",
         }
         COP{
@@ -355,10 +367,7 @@ ca{
             "₧",
             "pesseta espanyola",
             {
-                /**
-                 * Duplicated from NumberPatterns resource
-                 */
-                "#,##0.00 ¤",
+                "¤ #,##0.00",
                 ",",
                 ".",
             }
@@ -484,7 +493,7 @@ ca{
             "lliura israeliana",
         }
         ILR{
-            "ILR" /** ===  */,
+            "ILR",
             "xéquel israelià",
         }
         ILS{
@@ -504,7 +513,7 @@ ca{
             "rial iranià",
         }
         ISJ{
-            "ISJ" /** ===  */,
+            "ISJ",
             "corona islandesa antiga",
         }
         ISK{
@@ -546,6 +555,14 @@ ca{
         KPW{
             "KPW",
             "won nord-coreà",
+        }
+        KRH{
+            "KRH",
+            "hwan sud-coreà (1953-1962)",
+        }
+        KRO{
+            "KRO",
+            "antic won sud-coreà",
         }
         KRW{
             "₩",
@@ -623,6 +640,14 @@ ca{
             "MAF",
             "franc marroquí",
         }
+        MCF{
+            "MCF",
+            "franc monegasc",
+        }
+        MDC{
+            "MDC",
+            "cupó moldau",
+        }
         MDL{
             "MDL",
             "leu moldau",
@@ -684,7 +709,7 @@ ca{
             "kwacha malawià",
         }
         MXN{
-            "MX$",
+            "MXN",
             "peso mexicà",
         }
         MXP{
@@ -1001,11 +1026,11 @@ ca{
         }
         VEB{
             "VEB",
-            "bolívar veneçolà",
+            "bolívar veneçolà (1871-2008)",
         }
         VEF{
             "VEF",
-            "bolívar fort veneçolà",
+            "bolívar veneçolà",
         }
         VND{
             "₫",
@@ -1024,7 +1049,7 @@ ca{
             "tala samoà",
         }
         XAF{
-            "FCFA",
+            "XAF",
             "franc CFA BEAC",
         }
         XAG{
@@ -1052,7 +1077,7 @@ ca{
             "unitat de compte europea (XBD)",
         }
         XCD{
-            "EC$",
+            "XCD",
             "dòlar del Carib Oriental",
         }
         XDR{
@@ -1072,7 +1097,7 @@ ca{
             "franc UIC francès",
         }
         XOF{
-            "CFA",
+            "XOF",
             "franc CFA BCEAO",
         }
         XPD{
@@ -1080,7 +1105,7 @@ ca{
             "pal·ladi",
         }
         XPF{
-            "CFPF",
+            "XPF",
             "franc CFP",
         }
         XPT{
@@ -1119,6 +1144,10 @@ ca{
             "YUN",
             "dinar convertible iugoslau",
         }
+        YUR{
+            "YUR",
+            "dinar iugoslau reformat (1992-1993)",
+        }
         ZAL{
             "ZAL",
             "rand sud-africà (financer)",
@@ -1129,6 +1158,10 @@ ca{
         }
         ZMK{
             "ZMK",
+            "kwacha zambià (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "kwacha zambià",
         }
         ZRN{
@@ -1208,6 +1241,10 @@ ca{
         ARL{
             one{"peso ley argentí (1970-1983)"}
             other{"pesos ley argentins (1970-1983)"}
+        }
+        ARM{
+            one{"peso argentí moneda nacional"}
+            other{"pesos argentins moneda nacional"}
         }
         ARP{
             one{"peso argentí (1983-1985)"}
@@ -1341,6 +1378,10 @@ ca{
             one{"cruzeiro brasiler"}
             other{"cruzeiros brasilers"}
         }
+        BRZ{
+            one{"antic cruzeiro brasiler"}
+            other{"antics cruzeiros brasilers"}
+        }
         BSD{
             one{"dòlar de les Bahames"}
             other{"dòlars de les Bahames"}
@@ -1389,6 +1430,10 @@ ca{
             one{"franc WIR"}
             other{"francs WIR"}
         }
+        CLE{
+            one{"escudo xilè"}
+            other{"escudos xilens"}
+        }
         CLF{
             one{"unidad de fomento xilena"}
             other{"unidades de fomento xilenes"}
@@ -1396,6 +1441,10 @@ ca{
         CLP{
             one{"peso xilè"}
             other{"pesos xilens"}
+        }
+        CNX{
+            one{"dòlar del Banc Popular Xinès"}
+            other{"dòlars del Banc Popular Xinès"}
         }
         CNY{
             one{"iuan xinès"}
@@ -1681,6 +1730,14 @@ ca{
             one{"won nord-coreà"}
             other{"wons nord-coreans"}
         }
+        KRH{
+            one{"hwan sud-coreà"}
+            other{"hwans sud-coreans"}
+        }
+        KRO{
+            one{"antic won sud-coreà"}
+            other{"antics wons sud-coreans"}
+        }
         KRW{
             one{"won sud-coreà"}
             other{"wons sud-coreans"}
@@ -1756,6 +1813,14 @@ ca{
         MAF{
             one{"franc marroquí"}
             other{"francs marroquins"}
+        }
+        MCF{
+            one{"franc monegasc"}
+            other{"francs monegascos"}
+        }
+        MDC{
+            one{"cupó moldau"}
+            other{"cupons moldaus"}
         }
         MDL{
             one{"leu moldau"}
@@ -2017,6 +2082,10 @@ ca{
             one{"florí de Surinam"}
             other{"florins de Surinam"}
         }
+        SSP{
+            one{"lliura del Sudan del Sud"}
+            other{"lliures del Sudan del Sud"}
+        }
         STD{
             one{"dobra de São Tomé i Príncipe"}
             other{"dobras de São Tomé i Príncipe"}
@@ -2134,12 +2203,12 @@ ca{
             other{"soms uzbeks"}
         }
         VEB{
-            one{"bolívar veneçolà"}
-            other{"bolívars veneçolans"}
+            one{"bolívar veneçolà (1871-2008)"}
+            other{"bolívars veneçolans (1871-2008)"}
         }
         VEF{
-            one{"bolívar fort veneçolà"}
-            other{"bolívars forts veneçolans"}
+            one{"bolívar veneçolà"}
+            other{"bolívars veneçolans"}
         }
         VND{
             one{"dong vietnamita"}
@@ -2253,6 +2322,10 @@ ca{
             one{"dinar convertible iugoslau"}
             other{"dinars convertibles iugoslaus"}
         }
+        YUR{
+            one{"dinar reformat iugoslau"}
+            other{"dinars reformats iugoslaus"}
+        }
         ZAL{
             one{"rand sud-africà (financer)"}
             other{"rands sud-africans (financers)"}
@@ -2262,6 +2335,10 @@ ca{
             other{"rands sud-africans"}
         }
         ZMK{
+            one{"kwacha zambià (1968-2012)"}
+            other{"kwacha zambians (1968-2012)"}
+        }
+        ZMW{
             one{"kwacha zambià"}
             other{"kwacha zambians"}
         }
@@ -2290,5 +2367,5 @@ ca{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.57"}
 }

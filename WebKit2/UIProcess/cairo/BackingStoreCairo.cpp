@@ -31,15 +31,33 @@
 #include "UpdateInfo.h"
 #include "WebPageProxy.h"
 #include <WebCore/GraphicsContext.h>
-#include <cairo/cairo.h>
+#include <WebCore/WidgetBackingStoreCairo.h>
+#include <cairo.h>
+
+#if PLATFORM(GTK) && defined(GDK_WINDOWING_X11)
+#include <WebCore/GtkWidgetBackingStoreX11.h>
+#include <gdk/gdkx.h>
+#endif
 
 #if PLATFORM(EFL)
-#include "ewk_private.h"
+#include "EwkView.h"
 #endif
 
 using namespace WebCore;
 
 namespace WebKit {
+
+#if PLATFORM(GTK)
+static OwnPtr<WidgetBackingStore> createBackingStoreForGTK(GtkWidget* widget, const IntSize& size)
+{
+#ifdef GDK_WINDOWING_X11
+    GdkDisplay* display = gdk_display_manager_get_default_display(gdk_display_manager_get());
+    if (GDK_IS_X11_DISPLAY(display))
+        return WebCore::WidgetBackingStoreGtkX11::create(widget, size);
+#endif
+    return WebCore::WidgetBackingStoreCairo::create(widget, size);
+}
+#endif
 
 void BackingStore::paint(cairo_t* context, const IntRect& rect)
 {
@@ -54,7 +72,11 @@ void BackingStore::paint(cairo_t* context, const IntRect& rect)
 void BackingStore::incorporateUpdate(ShareableBitmap* bitmap, const UpdateInfo& updateInfo)
 {
     if (!m_backingStore)
-        m_backingStore = WidgetBackingStore::create(m_webPageProxy->viewWidget(), size());
+#if PLATFORM(EFL)
+        m_backingStore = WidgetBackingStoreCairo::create(EwkView::toEvasObject(toAPI(m_webPageProxy)), size());
+#else
+        m_backingStore = createBackingStoreForGTK(m_webPageProxy->viewWidget(), size());
+#endif
 
     scroll(updateInfo.scrollRect, updateInfo.scrollOffset);
 
@@ -68,11 +90,6 @@ void BackingStore::incorporateUpdate(ShareableBitmap* bitmap, const UpdateInfo& 
         srcRect.move(-updateRectLocation.x(), -updateRectLocation.y());
         bitmap->paint(graphicsContext, updateRect.location(), srcRect);
     }
-
-#if PLATFORM(EFL)
-    // Update ewk_view with new backingStore image.
-    ewk_view_image_data_set(m_webPageProxy->viewWidget(), cairo_image_surface_get_data(m_backingStore->cairoSurface()), m_size);
-#endif
 }
 
 void BackingStore::scroll(const IntRect& scrollRect, const IntSize& scrollOffset)

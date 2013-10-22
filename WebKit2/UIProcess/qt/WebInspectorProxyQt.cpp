@@ -49,6 +49,11 @@ void WebInspectorProxy::platformDidClose()
     notImplemented();
 }
 
+void WebInspectorProxy::platformHide()
+{
+    notImplemented();
+}
+
 void WebInspectorProxy::platformBringToFront()
 {
     notImplemented();
@@ -71,6 +76,12 @@ unsigned WebInspectorProxy::platformInspectedWindowHeight()
     return 0;
 }
 
+unsigned WebInspectorProxy::platformInspectedWindowWidth()
+{
+    notImplemented();
+    return 0;
+}
+
 void WebInspectorProxy::platformAttach()
 {
     notImplemented();
@@ -81,7 +92,32 @@ void WebInspectorProxy::platformDetach()
     notImplemented();
 }
 
+void WebInspectorProxy::platformAttachAvailabilityChanged(bool)
+{
+    notImplemented();
+}
+
 void WebInspectorProxy::platformSetAttachedWindowHeight(unsigned)
+{
+    notImplemented();
+}
+
+void WebInspectorProxy::platformSetAttachedWindowWidth(unsigned)
+{
+    notImplemented();
+}
+
+void WebInspectorProxy::platformSetToolbarHeight(unsigned)
+{
+    notImplemented();
+}
+
+void WebInspectorProxy::platformSave(const String&, const String&, bool)
+{
+    notImplemented();
+}
+
+void WebInspectorProxy::platformAppend(const String&, const String&)
 {
     notImplemented();
 }

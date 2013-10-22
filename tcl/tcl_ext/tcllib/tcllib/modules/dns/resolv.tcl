@@ -83,8 +83,10 @@ proc ::resolv::init { {defaultdns ""} {search {}}} {
     # hostname to get a chance to get back some (full) information on
     # ourselves.  A previous version was using 127.0.0.1, not sure
     # what is best.
-    set res [catch [list exec nslookup [info hostname]] lkup]
+    set res [catch {open "/etc/resolv.conf" "r"} f]
     if { $res == 0 } {
+	set lkup [read $f]
+	close $f
 	set l [split $lkup]
 	set nl ""
 	foreach e $l {
@@ -94,16 +96,12 @@ proc ::resolv::init { {defaultdns ""} {search {}}} {
 	}
 
         # Now, a lot of mixture to arrange so that hostname points at the
-        # DNS server that we should use for any further request.  This
-        # code is complex, but was actually tested behind a firewall
-        # during the SITI Winter Conference 2003.  There, strangly,
-        # nslookup returned an error but a DNS server was actually setup
-        # correctly...
+        # DNS server that we should use for any further request.
         set hostname ""
 	set len [llength $nl]
 	for { set i 0 } { $i < $len } { incr i } {
 	    set e [lindex $nl $i]
-	    if { [string match -nocase "*server*" $e] } {
+	    if { [string match -nocase "nameserver" $e] } {
 		set hostname [lindex $nl [expr {$i + 1}]]
                 if { [string match -nocase "UnKnown" $hostname] } {
                     set hostname ""
@@ -115,16 +113,7 @@ proc ::resolv::init { {defaultdns ""} {search {}}} {
 	if { $hostname != "" } {
 	    set R(dns) $hostname
 	} else {
-            for { set i 0 } { $i < $len } { incr i } {
-                set e [lindex $nl $i]
-                if { [string match -nocase "*address*" $e] } {
-                    set hostname [lindex $nl [expr {$i + 1}]]
-                    break
-                }
-            }
-            if { $hostname != "" } {
-                set R(dns) $hostname
-            }
+	    set R(dns) "127.0.0.1"
 	}
     }
 
@@ -133,35 +122,7 @@ proc ::resolv::init { {defaultdns ""} {search {}}} {
     }
 
 
-    # Start again to find our full name
-    set ourhost ""
-    if {$res == 0} {
-        set dot [string first "." [info hostname]]
-        if { $dot < 0 } {
-            for { set i 0 } { $i < $len } { incr i } {
-                set e [lindex $nl $i]
-                if { [string match -nocase "*name*" $e] } {
-                    set ourhost [lindex $nl [expr {$i + 1}]]
-                    break
-                }
-            }
-            if { $ourhost == "" } {
-                if { ! [regexp {\d+\.\d+\.\d+\.\d+} $hostname] } {
-                    set dot [string first "." $hostname]
-                    set ourhost [format "%s%s" [info hostname] \
-                                     [string range $hostname $dot end]]
-                }
-            }
-        } else {
-            set ourhost [info hostname]
-        }
-    }
-
-    if {$ourhost == ""} {
-        set R(ourhost) [info hostname]
-    } else {
-        set R(ourhost) $ourhost
-    }
+    set R(ourhost) [info hostname]
 
 
     set R(initdone) 1

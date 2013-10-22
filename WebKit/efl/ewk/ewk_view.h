@@ -46,6 +46,8 @@
  *  - "icon,received", void: main frame received an icon.
  *  - "inputmethod,changed", Eina_Bool: reports that input method was changed and
  *    it gives a boolean value whether it's enabled or not as an argument.
+ *  - "inspector,view,close", Evas_Object*: request to close the view for inspector.
+ *  - "inspector,view,create", void: request to create the new view for inspector.
  *  - "js,windowobject,clear", void: Report that the JS window object has been cleared.
  *  - "link,hover,in", const char *link[2]: reports mouse is over a link.
  *    It gives the url in link[0] and link's title in link[1] as an argument.
@@ -60,6 +62,7 @@
  *  - "load,progress", double*: load progress is changed (overall value
  *    from 0.0 to 1.0, connect to individual frames for fine grained).
  *  - "load,provisional", void: view started provisional load.
+ *  - "load,provisional,failed", Ewk_Frame_Load_Error*: view provisional load failed.
  *  - "load,resource,finished", unsigned long*: reports resource load finished and it gives
  *    a pointer to its identifier.
  *  - "load,resource,failed", Ewk_Frame_Load_Error*: reports resource load failure and it
@@ -70,7 +73,14 @@
  *  - "menubar,visible,set", Eina_Bool: sets menubar visibility.
  *  - "mixedcontent,displayed", void: any of the containing frames has loaded and displayed mixed content.
  *  - "mixedcontent,run", void: any of the containing frames has loaded and run mixed content.
+ *  - "navigate,with,data", Ewk_View_Navigation_Data*: reports that view did navigation and gives the navigation details.
+ *  - "perform,client,redirect", Ewk_View_Redirection_Data*: reports that view performed a client redirect and gives the redirection details.
+ *  - "perform,server,redirect", Ewk_View_Redirection_Data*: reports that view performed a server redirect and gives the redirection details.
+ *  - "protocolhandler,registration,requested", Ewk_Custom_Handler_Data: add a handler url for the given protocol.
+ *  - "protocolhandler,isregistered", Ewk_Custom_Handler_Data: query whether the handler is registered or not.
+ *  - "protocolhandler,unregistration,requested", Ewk_Custom_Handler_Data: remove a handler url for the given protocol.
  *  - "onload,event", Evas_Object*: a frame onload event has been received.
+ *  - "populate,visited,links": tells the client to fill the visited links set.
  *  - "ready", void: page is fully loaded.
  *  - "resource,request,new", Ewk_Frame_Resource_Request*: reports that
  *    there's a new resource request.
@@ -84,7 +94,7 @@
  *  - "statusbar,visible,get", Eina_Bool *: expects a @c EINA_TRUE if statusbar is
  *    visible; @c EINA_FALSE, otherwise.
  *  - "statusbar,visible,set", Eina_Bool: sets statusbar visibility.
- *  - "title,changed", const char*: title of the main frame was changed.
+ *  - "title,changed", Ewk_Text_With_Direction*: title of the main frame was changed.
  *  - "toolbars,visible,get", Eina_Bool *: expects a @c EINA_TRUE if toolbar
  *    is visible; @c EINA_FALSE, otherwise.
  *  - "toolbars,visible,set", Eina_Bool: sets toolbar visibility.
@@ -93,7 +103,8 @@
  *    will be deleted.
  *  - "restore", Evas_Object *: reports that view should be restored to default conditions
  *    and it gives a frame that originated restore as an argument.
- *  - "tooltip,text,set", const char*: sets tooltip text and displays if it is currently hidden.
+ *  - "tooltip,text,set", const char*: tooltip was set.
+ *  - "tooltip,text,unset", void: tooltip was unset.
  *  - "uri,changed", const char*: uri of the main frame was changed.
  *  - "view,resized", void: view object's size was changed.
  *  - "viewport,changed", void: reports that viewport was changed.
@@ -103,6 +114,8 @@
 #ifndef ewk_view_h
 #define ewk_view_h
 
+#include "ewk_contextmenu.h"
+#include "ewk_file_chooser.h"
 #include "ewk_frame.h"
 #include "ewk_history.h"
 #include "ewk_js.h"
@@ -110,7 +123,7 @@
 
 #include <Evas.h>
 #include <cairo.h>
-#include <libsoup/soup-session.h>
+#include <libsoup/soup.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -162,6 +175,8 @@ struct _Ewk_View_Smart_Class {
     //  - if overridden, have to call parent method if desired
     Eina_Bool (*focus_in)(Ewk_View_Smart_Data *sd);
     Eina_Bool (*focus_out)(Ewk_View_Smart_Data *sd);
+    Eina_Bool (*fullscreen_enter)(Ewk_View_Smart_Data *sd);
+    Eina_Bool (*fullscreen_exit)(Ewk_View_Smart_Data *sd);
     Eina_Bool (*mouse_wheel)(Ewk_View_Smart_Data *sd, const Evas_Event_Mouse_Wheel *ev);
     Eina_Bool (*mouse_down)(Ewk_View_Smart_Data *sd, const Evas_Event_Mouse_Down *ev);
     Eina_Bool (*mouse_up)(Ewk_View_Smart_Data *sd, const Evas_Event_Mouse_Up *ev);
@@ -172,13 +187,15 @@ struct _Ewk_View_Smart_Class {
     void (*add_console_message)(Ewk_View_Smart_Data *sd, const char *message, unsigned int lineNumber, const char *sourceID);
     void (*run_javascript_alert)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *message);
     Eina_Bool (*run_javascript_confirm)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *message);
-    Eina_Bool (*run_javascript_prompt)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *message, const char *defaultValue, char **value);
+    Eina_Bool (*run_before_unload_confirm)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *message);
+    Eina_Bool (*run_javascript_prompt)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *message, const char *defaultValue, const char **value);
     Eina_Bool (*should_interrupt_javascript)(Ewk_View_Smart_Data *sd);
+    int64_t (*exceeded_application_cache_quota)(Ewk_View_Smart_Data *sd, Ewk_Security_Origin* origin, int64_t defaultOriginQuota, int64_t totalSpaceNeeded);
     uint64_t (*exceeded_database_quota)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *databaseName, uint64_t current_size, uint64_t expected_size);
 
-    Eina_Bool (*run_open_panel)(Ewk_View_Smart_Data *sd, Evas_Object *frame, Eina_Bool allows_multiple_files, Eina_List *accept_types, Eina_List **selected_filenames);
+    Eina_Bool (*run_open_panel)(Ewk_View_Smart_Data *sd, Evas_Object *frame, Ewk_File_Chooser *file_chooser, Eina_List **selected_filenames);
 
-    Eina_Bool (*navigation_policy_decision)(Ewk_View_Smart_Data *sd, Ewk_Frame_Resource_Request *request);
+    Eina_Bool (*navigation_policy_decision)(Ewk_View_Smart_Data *sd, Ewk_Frame_Resource_Request *request, Ewk_Navigation_Type navigation_type);
     Eina_Bool (*focus_can_cycle)(Ewk_View_Smart_Data *sd, Ewk_Focus_Direction direction);
 };
 
@@ -186,7 +203,7 @@ struct _Ewk_View_Smart_Class {
  * The version you have to put into the version field
  * in the @a Ewk_View_Smart_Class structure.
  */
-#define EWK_VIEW_SMART_CLASS_VERSION 4UL
+#define EWK_VIEW_SMART_CLASS_VERSION 7UL
 
 /**
  * Initializes a whole @a Ewk_View_Smart_Class structure.
@@ -198,7 +215,7 @@ struct _Ewk_View_Smart_Class {
  * @see EWK_VIEW_SMART_CLASS_INIT_VERSION
  * @see EWK_VIEW_SMART_CLASS_INIT_NAME_VERSION
  */
-#define EWK_VIEW_SMART_CLASS_INIT(smart_class_init) {smart_class_init, EWK_VIEW_SMART_CLASS_VERSION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define EWK_VIEW_SMART_CLASS_INIT(smart_class_init) {smart_class_init, EWK_VIEW_SMART_CLASS_VERSION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 /**
  * Initializes to zero a whole @a Ewk_View_Smart_Class structure.
@@ -287,15 +304,39 @@ typedef struct _Ewk_Download Ewk_Download;
 /// Contains Download data.
 struct _Ewk_Download {
     const char *url; /**< URL of resource. */
+    const char *suggested_name; /**< suggested name from download attributes */
     /* to be extended */
 };
 
-/// Creates a type name for @a _Ewk_Scroll_Request.
-typedef struct _Ewk_Scroll_Request Ewk_Scroll_Request;
-/// Contains the scroll request that should be processed by subclass implementations.
-struct _Ewk_Scroll_Request {
-    Evas_Coord dx, dy;
-    Evas_Coord x, y, w, h, x2, y2;
+/// Creates a type name for @a _Ewk_View_Navigation_Data.
+typedef struct _Ewk_View_Navigation_Data Ewk_View_Navigation_Data;
+
+/**
+ * @brief Structure containing details about a view navigation.
+ *
+ * Details of a view navigation. It is used in "navigate,with,data" signal.
+ */
+struct _Ewk_View_Navigation_Data {
+    const char *url;  /**< URL for the history. */
+    const char *title;  /**< Title of the navigated page. */
+    Ewk_Frame_Resource_Request *request;  /**< Navigation request. */
+    Ewk_Frame_Resource_Response *response;  /**< Navigation response. */
+    Eina_Bool has_substitute_data;  /**< Data substitution flag. */
+    const char *client_redirect_source;  /**< Client redirect source URL. */
+};
+
+
+/// Creates a type name for @a _Ewk_View_Redirection_Data.
+typedef struct _Ewk_View_Redirection_Data Ewk_View_Redirection_Data;
+
+/**
+ * @brief Structure containing details about a view redirection.
+ *
+ * Details of a client or server redirection. It is used in "perform,client,redirect" and "perform,server,redirect" signals.
+ */
+struct _Ewk_View_Redirection_Data {
+    const char *source_url;  /**< Redirect source URL. */
+    const char *destination_url;  /**< Redirect destination URL. */ 
 };
 
 /// Creates a type name for @a _Ewk_Color.
@@ -306,6 +347,27 @@ struct _Ewk_Color {
     unsigned char g; /**< Green channel. */
     unsigned char b; /**< Blue channel. */
     unsigned char a; /**< Alpha channel. */
+};
+
+/// Defines the handler states.
+enum _Ewk_Custom_Handlers_State {
+    EWK_CUSTOM_HANDLERS_NEW,
+    EWK_CUSTOM_HANDLERS_REGISTERED,
+    EWK_CUSTOM_HANDLERS_DECLINED
+};
+/// Creates a type name for @a _Ewk_Custom_Handlers_State.
+typedef enum _Ewk_Custom_Handlers_State Ewk_Custom_Handlers_State;
+
+/// Creates a type name for @a _Ewk_Custom_Handler_Data.
+typedef struct _Ewk_Custom_Handler_Data Ewk_Custom_Handler_Data;
+/// Contains the target scheme and the url which take care of the target.
+struct _Ewk_Custom_Handler_Data {
+    Evas_Object *ewkView; /**< Reference to the view object. */
+    const char *scheme; /**< Reference to the scheme that will be handled. (eg. "application/x-soup") */
+    const char *base_url; /**< Reference to the resolved url if the url is relative url. (eg. "https://www.example.com/") */
+    const char *url; /**< Reference to the url which will handle the given protocol. (eg. "soup?url=%s") */
+    const char *title; /**< Reference to the descriptive title of the handler. (eg. "SoupWeb") */
+    Ewk_Custom_Handlers_State result; /**< Result of the query that the protocol handler is registered or not. */
 };
 
 /**
@@ -371,6 +433,72 @@ enum _Ewk_Font_Family {
 };
 /// Creates a type name for @a _Ewk_Font_Family.
 typedef enum _Ewk_Font_Family Ewk_Font_Family;
+
+/// Contains commands to execute.
+enum _Ewk_Editor_Command {
+    EWK_EDITOR_COMMAND_NONE = -1,
+    EWK_EDITOR_COMMAND_UNDO = 0,
+    EWK_EDITOR_COMMAND_REDO,
+    EWK_EDITOR_COMMAND_TOGGLE_BOLD,
+    EWK_EDITOR_COMMAND_TOGGLE_ITALIC,
+    EWK_EDITOR_COMMAND_TOGGLE_UNDERLINE,
+    EWK_EDITOR_COMMAND_TOGGLE_STRIKETHROUGH,
+    EWK_EDITOR_COMMAND_TOGGLE_SUBSCRIPT,
+    EWK_EDITOR_COMMAND_TOGGLE_SUPERSCRIPT,
+    EWK_EDITOR_COMMAND_INDENT,
+    EWK_EDITOR_COMMAND_OUTDENT,
+    EWK_EDITOR_COMMAND_INSERT_ORDEREDLIST,
+    EWK_EDITOR_COMMAND_INSERT_UNORDEREDLIST,
+    EWK_EDITOR_COMMAND_INSERT_IMAGE,
+    EWK_EDITOR_COMMAND_INSERT_TEXT,
+    EWK_EDITOR_COMMAND_INSERT_HTML,
+    EWK_EDITOR_COMMAND_INSERT_PARAGRAPH,
+    EWK_EDITOR_COMMAND_INSERT_PARAGRAPH_SEPARATOR,
+    EWK_EDITOR_COMMAND_INSERT_LINE_SEPARATOR,
+    EWK_EDITOR_COMMAND_BACK_COLOR,
+    EWK_EDITOR_COMMAND_FORE_COLOR,
+    EWK_EDITOR_COMMAND_HILITE_COLOR,
+    EWK_EDITOR_COMMAND_FONT_SIZE,
+    EWK_EDITOR_COMMAND_ALIGN_CENTER,
+    EWK_EDITOR_COMMAND_ALIGN_JUSTIFIED,
+    EWK_EDITOR_COMMAND_ALIGN_LEFT,
+    EWK_EDITOR_COMMAND_ALIGN_RIGHT,
+    EWK_EDITOR_COMMAND_MOVE_TO_NEXT_CHAR,
+    EWK_EDITOR_COMMAND_MOVE_TO_PREVIOUS_CHAR,
+    EWK_EDITOR_COMMAND_MOVE_TO_NEXT_WORD,
+    EWK_EDITOR_COMMAND_MOVE_TO_PREVIOUS_WORD,
+    EWK_EDITOR_COMMAND_MOVE_TO_NEXT_LINE,
+    EWK_EDITOR_COMMAND_MOVE_TO_PREVIOUS_LINE,
+    EWK_EDITOR_COMMAND_MOVE_TO_BEGINNING_OF_LINE,
+    EWK_EDITOR_COMMAND_MOVE_TO_END_OF_LINE,
+    EWK_EDITOR_COMMAND_MOVE_TO_BEGINNING_OF_PARAGRAPH,
+    EWK_EDITOR_COMMAND_MOVE_TO_END_OF_PARAGRAPH,
+    EWK_EDITOR_COMMAND_MOVE_TO_BEGINNING_OF_DOCUMENT,
+    EWK_EDITOR_COMMAND_MOVE_TO_END_OF_DOCUMENT,
+    EWK_EDITOR_COMMAND_SELECT_NONE,
+    EWK_EDITOR_COMMAND_SELECT_ALL,
+    EWK_EDITOR_COMMAND_SELECT_PARAGRAPH,
+    EWK_EDITOR_COMMAND_SELECT_SENTENCE,
+    EWK_EDITOR_COMMAND_SELECT_LINE,
+    EWK_EDITOR_COMMAND_SELECT_WORD,
+    EWK_EDITOR_COMMAND_SELECT_NEXT_CHAR,
+    EWK_EDITOR_COMMAND_SELECT_PREVIOUS_CHAR,
+    EWK_EDITOR_COMMAND_SELECT_NEXT_WORD,
+    EWK_EDITOR_COMMAND_SELECT_PREVIOUS_WORD,
+    EWK_EDITOR_COMMAND_SELECT_NEXT_LINE,
+    EWK_EDITOR_COMMAND_SELECT_PREVIOUS_LINE,
+    EWK_EDITOR_COMMAND_SELECT_START_OF_LINE,
+    EWK_EDITOR_COMMAND_SELECT_END_OF_LINE,
+    EWK_EDITOR_COMMAND_SELECT_START_OF_PARAGRAPH,
+    EWK_EDITOR_COMMAND_SELECT_END_OF_PARAGRAPH,
+    EWK_EDITOR_COMMAND_SELECT_START_OF_DOCUMENT,
+    EWK_EDITOR_COMMAND_SELECT_END_OF_DOCUMENT,
+    EWK_EDITOR_COMMAND_DELETE_WORD_BACKWARD,
+    EWK_EDITOR_COMMAND_DELETE_WORD_FORWARD
+};
+
+/// Creates a type name for @a _Ewk_Editor_Command.
+typedef enum _Ewk_Editor_Command Ewk_Editor_Command;
 
 /**
  * @brief Creates a type name for @a _Ewk_Tile_Unused_Cache.
@@ -456,7 +584,7 @@ EAPI void   ewk_tile_unused_cache_auto_flush(Ewk_Tile_Unused_Cache *tuc);
  *
  * @param api class definition to set, all members with the
  *        exception of @a Evas_Smart_Class->data may be overridden, must
- *        @b not be @c 0
+ *        @b not be @c NULL
  *
  * @note @a Evas_Smart_Class->data is used to implement type checking and
  *       is not supposed to be changed/overridden. If you need extra
@@ -477,7 +605,7 @@ EAPI Eina_Bool    ewk_view_base_smart_set(Ewk_View_Smart_Class *api);
  *
  * @param api class definition to set, all members with the
  *        exception of @a Evas_Smart_Class->data may be overridden, must
- *        @b not be @c 0
+ *        @b not be @c NULL
  *
  * @note @a Evas_Smart_Class->data is used to implement type checking and
  *       is not supposed to be changed/overridden. If you need extra
@@ -497,7 +625,7 @@ EAPI Eina_Bool    ewk_view_single_smart_set(Ewk_View_Smart_Class *api);
  *
  * @param api class definition to set, all members with the
  *        exception of @a Evas_Smart_Class->data may be overridden, must
- *        @b not be @c 0
+ *        @b not be @c NULL
  *
  * @note @a Evas_Smart_Class->data is used to implement type checking and
  *       is not supposed to be changed/overridden. If you need extra
@@ -523,7 +651,7 @@ EAPI Eina_Bool    ewk_view_tiled_smart_set(Ewk_View_Smart_Class *api);
  *
  * @param e canvas object where to create the view object
  *
- * @return view object on success or @c 0 on failure
+ * @return view object on success or @c NULL on failure
  *
  * @see ewk_view_uri_set()
  */
@@ -541,7 +669,7 @@ EAPI Evas_Object *ewk_view_single_add(Evas *e);
  *
  * @param e canvas object where to create the view object
  *
- * @return the view object on success or @c 0 on failure
+ * @return the view object on success or @c NULL on failure
  *
  * @see ewk_view_uri_set()
  */
@@ -552,7 +680,7 @@ EAPI Evas_Object *ewk_view_tiled_add(Evas *e);
  *
  * @param o the view object to get the cache object
  *
- * @return the cache object of unused tiles or @c 0 on failure
+ * @return the cache object of unused tiles or @c NULL on failure
  */
 EAPI Ewk_Tile_Unused_Cache *ewk_view_tiled_unused_cache_get(const Evas_Object *o);
 
@@ -563,7 +691,7 @@ EAPI Ewk_Tile_Unused_Cache *ewk_view_tiled_unused_cache_get(const Evas_Object *o
  * The tiles from one view will not be used by the other!
  * This is just to limit the group with amount of unused memory.
  *
- * @note If @c 0 is provided as a @a cache, then a new one is created.
+ * @note If @c NULL is provided as a @a cache, then a new one is created.
  *
  * @param o the view object to set the cache object
  * @param the cache object of unused tiles
@@ -591,9 +719,9 @@ EAPI void         ewk_view_fixed_layout_size_set(Evas_Object *o, Evas_Coord w, E
  * Gets fixed layout size.
  *
  * @param o view object to get fixed layout size
- * @param w the pointer to store fixed width, returns @c 0 on failure or if there is no
+ * @param w the pointer to store fixed width, returns @c NULL on failure or if there is no
  *        fixed layout in use
- * @param h the pointer to store fixed height, returns @c 0 on failure or if there is no
+ * @param h the pointer to store fixed height, returns @c NULL on failure or if there is no
  *        fixed layout in use
  */
 EAPI void         ewk_view_fixed_layout_size_get(const Evas_Object *o, Evas_Coord *w, Evas_Coord *h);
@@ -606,7 +734,7 @@ EAPI void         ewk_view_fixed_layout_size_get(const Evas_Object *o, Evas_Coor
  * use this one.
  *
  * @param o view object to change theme
- * @param path theme path, may be @c 0 to reset to the default theme
+ * @param path theme path
  */
 EAPI void         ewk_view_theme_set(Evas_Object *o, const char *path);
 
@@ -617,7 +745,7 @@ EAPI void         ewk_view_theme_set(Evas_Object *o, const char *path);
  *
  * @param o view object to get theme path
  *
- * @return the theme path, may be @c 0 if not set
+ * @return the theme path, may be @c NULL if not set
  */
 EAPI const char  *ewk_view_theme_get(const Evas_Object *o);
 
@@ -626,7 +754,7 @@ EAPI const char  *ewk_view_theme_get(const Evas_Object *o);
  *
  * @param o view object to get main frame
  *
- * @return frame smart object or @c 0 if none yet
+ * @return frame smart object or @c NULL if none yet
  */
 EAPI Evas_Object *ewk_view_frame_main_get(const Evas_Object *o);
 
@@ -635,7 +763,7 @@ EAPI Evas_Object *ewk_view_frame_main_get(const Evas_Object *o);
  *
  * @param o view object to get focused frame
  *
- * @return frame smart object or @c 0 if none yet
+ * @return frame smart object or @c NULL if none yet
  */
 EAPI Evas_Object *ewk_view_frame_focused_get(const Evas_Object *o);
 
@@ -657,7 +785,7 @@ EAPI Eina_Bool    ewk_view_uri_set(Evas_Object *o, const char *uri);
  *
  * @param o view object to get current uri.
  *
- * @return current uri on success or @c 0 on failure
+ * @return current uri on success or @c NULL on failure
  */
 EAPI const char  *ewk_view_uri_get(const Evas_Object *o);
 
@@ -669,9 +797,9 @@ EAPI const char  *ewk_view_uri_get(const Evas_Object *o);
  *
  * @param o view object to get current title
  *
- * @return current title on success or @c 0 on failure
+ * @return current title on success or @c NULL on failure
  */
-EAPI const char  *ewk_view_title_get(const Evas_Object *o);
+EAPI const Ewk_Text_With_Direction  *ewk_view_title_get(const Evas_Object *o);
 
 /**
  * Queries if the main frame is editable.
@@ -730,13 +858,13 @@ EAPI void         ewk_view_bg_color_get(const Evas_Object *o, int *r, int *g, in
 /**
  * Gets the copy of the selected text.
  *
- * The returned string @b should be freed after use.
+ * The returned string @b should be freed by eina_stringshare_del() after use.
  *
  * @param o view object to get selected text
  *
- * @return a newly allocated string or @c 0 if nothing is selected or on failure
+ * @return a newly allocated string or @c NULL if nothing is selected or on failure
  */
-EAPI char        *ewk_view_selection_get(const Evas_Object *o);
+EAPI const char        *ewk_view_selection_get(const Evas_Object *o);
 
 /**
  * Forwards a request of a new Context Menu to WebCore.
@@ -748,20 +876,6 @@ EAPI char        *ewk_view_selection_get(const Evas_Object *o);
  */
 EAPI Eina_Bool    ewk_view_context_menu_forward_event(Evas_Object *o, const Evas_Event_Mouse_Down *ev);
 
-/// Contains commands to execute.
-enum _Ewk_Editor_Command {
-    EWK_EDITOR_COMMAND_INSERT_IMAGE = 0,
-    EWK_EDITOR_COMMAND_INSERT_TEXT,
-    EWK_EDITOR_COMMAND_SELECT_NONE,
-    EWK_EDITOR_COMMAND_SELECT_ALL,
-    EWK_EDITOR_COMMAND_SELECT_PARAGRAPH,
-    EWK_EDITOR_COMMAND_SELECT_SENTENCE,
-    EWK_EDITOR_COMMAND_SELECT_LINE,
-    EWK_EDITOR_COMMAND_SELECT_WORD
-};
-/// Creates a type name for @a _Ewk_Editor_Command.
-typedef enum _Ewk_Editor_Command Ewk_Editor_Command;
-
 /**
  * Executes editor command.
  *
@@ -771,7 +885,7 @@ typedef enum _Ewk_Editor_Command Ewk_Editor_Command;
  *
  * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
  */
-EAPI Eina_Bool    ewk_view_execute_editor_command(Evas_Object *o, const Ewk_Editor_Command command, const char *value);
+EAPI Eina_Bool    ewk_view_editor_command_execute(const Evas_Object *o, const Ewk_Editor_Command command, const char *value);
 
 /**
  * Destroys a previously created color chooser.
@@ -1027,12 +1141,25 @@ EAPI Eina_Bool    ewk_view_history_enable_set(Evas_Object *o, Eina_Bool enable);
  * @param o view object to get navigation history
  *
  * @return the history instance handle associated with this
- *         view on succes or @c 0 on failure (including when the history
+ *         view on succes or @c NULL on failure (including when the history
  *         navigation is not enabled with ewk_view_history_enable_set())
  *
  * @see ewk_view_history_enable_set()
  */
 EAPI Ewk_History *ewk_view_history_get(const Evas_Object *o);
+
+/**
+ * Adds @a visited_url to the view's visited links cache.
+ *
+ * This function is to be invoked by the client managing persistent history storage
+ * when "populate,visited,links" signal is received.
+ *
+ * @param o view object to add visited links data.
+ * @param visited_url visited url.
+ *
+ * @return @c EINA_TRUE on success, @c EINA_FALSE on failure.
+ */
+EAPI Eina_Bool  ewk_view_visited_link_add(Evas_Object *o, const char *visited_url);
 
 /**
  * Gets the current page zoom level of the main frame.
@@ -1555,6 +1682,30 @@ EAPI Eina_Bool    ewk_view_setting_scripts_can_close_windows_get(const Evas_Obje
 EAPI Eina_Bool    ewk_view_setting_scripts_can_close_windows_set(Evas_Object *o, Eina_Bool allow);
 
 /**
+ * Returns whether scripts can access clipboard.
+ *
+ * @param o View whose settings to check.
+ *
+ * @return @c EINA_TRUE if scripts can access clipboard, @c EINA_FALSE otherwise.
+ */
+EAPI Eina_Bool    ewk_view_setting_scripts_can_access_clipboard_get(const Evas_Object *o);
+
+/**
+ * Sets whether scripts are allowed to access clipboard.
+ *
+ * The default value is @c EINA_FALSE. If set to @c EINA_TRUE, document.execCommand()
+ * allows cut, copy and paste commands. 
+ *
+ * @param o View whose settings to change.
+ * @param allow @c EINA_TRUE to allow scripts access clipboard,
+ *              @c EINA_FALSE otherwise.
+ *
+ * @return @c EINA_TRUE if the setting could be changed successfully,
+ *         @c EINA_FALSE in case an error occurred.
+ */
+EAPI Eina_Bool    ewk_view_setting_scripts_can_access_clipboard_set(Evas_Object *o, Eina_Bool allow);
+
+/**
  * Queries if HTML elements @c textarea can be resizable.
  *
  * @param o view object to query if the textarea elements can be resizable
@@ -1696,7 +1847,7 @@ EAPI Eina_Bool    ewk_view_setting_caret_browsing_set(Evas_Object *o, Eina_Bool 
  * @param o view object to get the current encoding
  *
  * @return @c eina_strinshare containing the current encoding, or
- *         @c 0 if it's not set
+ *         @c NULL if it's not set
  */
 EAPI const char  *ewk_view_setting_encoding_custom_get(const Evas_Object *o);
 
@@ -1704,7 +1855,7 @@ EAPI const char  *ewk_view_setting_encoding_custom_get(const Evas_Object *o);
  * Sets the encoding and reloads the page.
  *
  * @param o view to set the encoding
- * @param encoding the new encoding to set or @c 0 to restore the default one
+ * @param encoding the new encoding to set or @c NULL to restore the default one
  *
  * @return @c EINA_TRUE on success @c EINA_FALSE otherwise
  */
@@ -1716,7 +1867,7 @@ EAPI Eina_Bool    ewk_view_setting_encoding_custom_set(Evas_Object *o, const cha
  * @param o view object to get the default encoding
  *
  * @return @c eina_strinshare containing the default encoding, or
- *         @c 0 if it's not set
+ *         @c NULL if it's not set
  */
 EAPI const char  *ewk_view_setting_encoding_default_get(const Evas_Object *o);
 
@@ -1886,7 +2037,7 @@ EAPI Eina_Bool    ewk_view_setting_local_storage_set(Evas_Object *o, Eina_Bool e
  * @param o view object to get the database path to the local storage feature
  *
  * @return @c eina_stringshare containing the database path to the local storage feature, or
- *         @c 0 if it's not set
+ *         @c NULL if it's not set
  *
  * @sa ewk_view_setting_local_storage_database_path_set
  */
@@ -1989,7 +2140,7 @@ EAPI Eina_Bool    ewk_view_setting_minimum_timer_interval_set(Evas_Object *o, do
  *
  * @param o view object to get the minimum interval
  *
- * @return the minimum interval on success or @c 0 on failure
+ * @return the minimum interval on success or @c -1.0 on failure
  */
 EAPI double       ewk_view_setting_minimum_timer_interval_get(const Evas_Object *o);
 
@@ -2075,13 +2226,65 @@ EAPI Eina_Bool ewk_view_setting_enable_hyperlink_auditing_get(const Evas_Object 
 EAPI Eina_Bool ewk_view_setting_enable_hyperlink_auditing_set(Evas_Object *o, Eina_Bool enable);
 
 /**
+ * Enables/disables allowing universal access from file URLs.
+ *
+ * This setting specifies whether locally loaded documents are allowed to access remote urls.
+ * By default this setting is enabled.
+ *
+ * @param o view object to set allowing universal access from file URLs
+ * @param enable @c EINA_TRUE to enable universal access from file URLs,
+ *        @c EINA_FALSE to disable
+ *
+ * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
+ */
+EAPI Eina_Bool    ewk_view_setting_allow_universal_access_from_file_urls_set(Evas_Object *o, Eina_Bool flag);
+
+/**
+ * Gets if allowing universal access from file URLs is enabled.
+ *
+ * @param o view object to query if allowing universal access from file URLs is enabled.
+ *
+ * @return @c EINA_TRUE if allowing universal access from file URLs is enabled, @c EINA_FALSE
+ *         otherwise
+ *
+ * @see ewk_view_setting_allow_universal_access_from_file_urls_set()
+ */
+EAPI Eina_Bool    ewk_view_setting_allow_universal_access_from_file_urls_get(const Evas_Object *o);
+
+/**
+ * Enables/disables allowing file access from file URLs.
+ *
+ * This setting specifies whether locally loaded documents are allowed to access other local urls.
+ * By default this setting is enabled.
+ *
+ * @param o view object to set allowing file access from file URLs
+ * @param enable @c EINA_TRUE to enable file access from file URLs,
+ *        @c EINA_FALSE to disable
+ *
+ * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
+ */
+EAPI Eina_Bool    ewk_view_setting_allow_file_access_from_file_urls_set(Evas_Object *o, Eina_Bool flag);
+
+/**
+ * Gets if allowing file access from file URLs is enabled.
+ *
+ * @param o view object to query if allowing file access from file URLs is enabled.
+ *
+ * @return @c EINA_TRUE if allowing file access from file URLs is enabled, @c EINA_FALSE
+ *         otherwise
+ *
+ * @see ewk_view_setting_allow_file_access_from_file_urls_set()
+ */
+EAPI Eina_Bool    ewk_view_setting_allow_file_access_from_file_urls_get(const Evas_Object *o);
+
+/**
  * Gets the internal data of @a o.
  *
  * This is similar to evas_object_smart_data_get(), but additionally does type checking.
  *
  * @param o view object to get the internal data
  *
- * @return the internal data of @a o, or @c 0 on failure
+ * @return the internal data of @a o, or @c NULL on failure
  */
 EAPI Ewk_View_Smart_Data *ewk_view_smart_data_get(const Evas_Object *o);
 
@@ -2094,135 +2297,6 @@ EAPI Ewk_View_Smart_Data *ewk_view_smart_data_get(const Evas_Object *o);
  *       to define their own backing store.
  */
 EAPI void ewk_view_scrolls_process(Ewk_View_Smart_Data *sd);
-
-/// Creates a type name for @a _Ewk_View_Paint_Context.
-typedef struct _Ewk_View_Paint_Context Ewk_View_Paint_Context;
-
-/**
- * Creates a new paint context using the view as source and cairo as output.
- *
- * @param priv the pointer to the private data of the view to use as paint source
- * @param cr cairo context to use as paint destination, a new
- *        reference is taken, so it's safe to call @c cairo_destroy()
- *        after this function returns.
- *
- * @return a newly allocated instance of @c Ewk_View_Paint_Context on success,
- *         or @c 0 on failure
- *
- * @note This is not for general use but just for subclasses that want
- *       to define their own backing store.
- */
-EAPI Ewk_View_Paint_Context *ewk_view_paint_context_new(Ewk_View_Private_Data *priv, cairo_t *cr);
-
-/**
- * Destroys the previously created the paint context.
- *
- * @param ctxt the paint context to destroy, must @b not be @c 0
- *
- * @note This is not for general use but just for subclasses that want
- *       to define their own backing store.
- */
-EAPI void ewk_view_paint_context_free(Ewk_View_Paint_Context *ctxt);
-
-/**
- * Saves (push to stack) the paint context status.
- *
- * @param ctxt the paint context to save, must @b not be @c 0
- *
- * @see ewk_view_paint_context_restore()
- *
- * @note This is not for general use but just for subclasses that want
- *       to define their own backing store.
- */
-EAPI void ewk_view_paint_context_save(Ewk_View_Paint_Context *ctxt);
-
-/**
- * Restores (pop from stack) the paint context status.
- *
- * @param ctxt the paint context to restore, must @b not be @c 0
- *
- * @see ewk_view_paint_context_save()
- *
- * @note This is not for general use but just for subclasses that want
- *       to define their own backing store.
- */
-EAPI void ewk_view_paint_context_restore(Ewk_View_Paint_Context *ctxt);
-
-/**
- * Clips the paint context drawings to the given area.
- *
- * @param ctxt the paint context to clip, must @b not be @c 0
- * @param area clip area to use, must @b not be @c 0
- *
- * @see ewk_view_paint_context_save()
- * @see ewk_view_paint_context_restore()
- *
- * @note This is not for general use but just for subclasses that want
- *       to define their own backing store.
- */
-EAPI void ewk_view_paint_context_clip(Ewk_View_Paint_Context *ctxt, const Eina_Rectangle *area);
-
-/**
- * Paints the context using given area.
- *
- * @param ctxt the paint context to paint, must @b not be @c 0
- * @param area the paint area to use, coordinates are relative to current viewport,
- *        thus "scrolled", must @b not be @c 0
- *
- * @note One may use cairo functions on the cairo context to
- *       translate, scale or any modification that may fit his desires.
- *
- * @see ewk_view_paint_context_clip()
- * @see ewk_view_paint_context_paint_contents()
- *
- * @note This is not for general use but just for subclasses that want
- *       to define their own backing store.
- */
-EAPI void ewk_view_paint_context_paint(Ewk_View_Paint_Context *ctxt, const Eina_Rectangle *area);
-
-/**
- * Paints just contents using context using given area.
- *
- * Unlike ewk_view_paint_context_paint(), this function paint just
- * bare contents and ignores any scrolling, scrollbars and extras. It
- * will walk the rendering tree and paint contents inside the given
- * area to the cairo context specified in @a ctxt.
- *
- * @param ctxt the paint context to paint, must @b not be @c 0.
- * @param area the paint area to use, coordinates are absolute to page, must @b not be @c 0
- *
- * @note One may use cairo functions on the cairo context to
- *       translate, scale or any modification that may fit his desires.
- *
- * @see ewk_view_paint_context_clip()
- * @see ewk_view_paint_context_paint()
- *
- * @note This is not for general use but just for subclasses that want
- *       to define their own backing store.
- */
-EAPI void ewk_view_paint_context_paint_contents(Ewk_View_Paint_Context *ctxt, const Eina_Rectangle *area);
-
-/**
- * Scales the contents by the given factors.
- *
- * This function applies a scaling transformation using Cairo.
- *
- * @param ctxt the paint context to scale, must @b not be @c 0
- * @param scale_x the scale factor for the X dimension
- * @param scale_y the scale factor for the Y dimension
- */
-EAPI void ewk_view_paint_context_scale(Ewk_View_Paint_Context *ctxt, float scale_x, float scale_y);
-
-/**
- * Performs a translation of the origin coordinates.
- *
- * This function moves the origin coordinates by @a x and @a y pixels.
- *
- * @param ctxt the paint context to translate, must @b not be @c 0
- * @param x amount of pixels to translate in the X dimension
- * @param y amount of pixels to translate in the Y dimension
- */
-EAPI void ewk_view_paint_context_translate(Ewk_View_Paint_Context *ctxt, float x, float y);
 
 /**
  * Paints using given graphics context the given area.
@@ -2283,7 +2357,7 @@ EAPI Eina_Bool ewk_view_paint_contents(Ewk_View_Private_Data *priv, cairo_t *cr,
 /**
  * Gets the attributes of the viewport meta tag.
  *
- * Properties are returned in the respective pointers. Passing @c 0 to any of
+ * Properties are returned in the respective pointers. Passing @c NULL to any of
  * these pointers will make that property to not be returned.
  *
  * @param o view object to get the viewport attributes
@@ -2304,7 +2378,7 @@ EAPI void ewk_view_viewport_attributes_get(const Evas_Object *o, int *w, int *h,
  * @param min_scale the minimum value of the zoom range
  * @param max_scale the maximum value of the zoom range
  *
- * @return @c EINA_TRUE if zoom range is changed, @c EINA_FALSE if not or on failure
+ * @return @c EINA_TRUE on success, @c EINA_FALSE on failure
  */
 EAPI Eina_Bool ewk_view_zoom_range_set(Evas_Object *o, float min_scale, float max_scale);
 
@@ -2357,6 +2431,14 @@ EAPI Eina_Bool ewk_view_user_scalable_get(const Evas_Object *o);
 EAPI float ewk_view_device_pixel_ratio_get(const Evas_Object *o);
 
 /**
+ * Changes the text direction of the selected input node.
+ *
+ * @param o view object to set text direction.
+ * @param direction text direction.
+ */
+EAPI void ewk_view_text_direction_set(Evas_Object *o, Ewk_Text_Direction direction);
+
+/**
  * Sets the view mode.
  *
  * The view-mode media feature describes the mode in which the
@@ -2398,7 +2480,7 @@ enum _Ewk_Page_Visibility_State {
     EWK_PAGE_VISIBILITY_STATE_VISIBLE,
     EWK_PAGE_VISIBILITY_STATE_HIDDEN,
     EWK_PAGE_VISIBILITY_STATE_PRERENDER,
-    EWK_PAGE_VISIBILITY_STATE_PREVIEW
+    EWK_PAGE_VISIBILITY_STATE_UNLOADED
 };
 /// Creates a type name for @a _Ewk_Page_Visibility_State.
 typedef enum _Ewk_Page_Visibility_State Ewk_Page_Visibility_State;
@@ -2529,6 +2611,8 @@ EAPI void ewk_view_setting_enable_xss_auditor_set(Evas_Object *o, Eina_Bool enab
 /**
  * Returns whether video captions display feature is enabled.
  *
+ * Video captions display is disabled by default.
+ *
  * @param o view object to query whether video captions display feature is enabled.
  *
  * @return @c EINA_TRUE if the video captions display feature is enabled,
@@ -2549,6 +2633,8 @@ EAPI void ewk_view_setting_should_display_captions_set(Evas_Object *o, Eina_Bool
 
 /**
  * Returns whether video subtitles display feature is enabled.
+ *
+ * Video subtitles display is disabled by default.
  *
  * @param o view object to query whether video subtitles display feature is enabled.
  *
@@ -2571,6 +2657,8 @@ EAPI void ewk_view_setting_should_display_subtitles_set(Evas_Object *o, Eina_Boo
 /**
  * Returns whether video text descriptions display feature is enabled.
  *
+ * Video text descriptions display is disabled by default.
+ *
  * @param o view object to query whether video text descriptions display feature is enabled.
  *
  * @return @c EINA_TRUE if the video text descriptions display feature is enabled,
@@ -2590,25 +2678,106 @@ EAPI Eina_Bool ewk_view_setting_should_display_text_descriptions_get(const Evas_
 EAPI void ewk_view_setting_should_display_text_descriptions_set(Evas_Object *o, Eina_Bool enable);
 
 /**
- * Queries if the web audio feature of HTML5 is enabled.
+ * Show the inspector to debug a web page.
  *
- * @param o view object to query if the web audio feature is enabled
+ * The following signals are emiited.
+ * "inspector,view,create" and "inspector,view,close"
+ * The first one will be called to request the view for inspector on view that will be inspected.
+ * This callback should create the view for inspector and set the view with ewk_view_inspector_view_set().
+ * The second one will be called to close the view for inspector on view having the inspector after disconnecting frontend
+ * This callback should remove the view for inspector.
  *
- * @return @c EINA_TRUE if web audio is enabled,
- *         @c EINA_FALSE if not or on failure
+ * When the view having the inspector is removed,
+ * please emit the "inspector,view,destroy" signal on view for inspector.
+ *
+ * @param o The view to show the inspector.
+ *
+ * @see ewk_view_inspector_close()
+ * @see ewk_view_inspector_view_set()
  */
-EAPI Eina_Bool    ewk_view_setting_web_audio_get(const Evas_Object *o);
+EAPI void ewk_view_inspector_show(const Evas_Object *o);
 
 /**
- * Enables/disables the web audio feature of HTML5.
+ * Close the inspector view
  *
- * @param o view object to set the web audio
- * @param enable @c EINA_TRUE to enable the web audio feature,
- *        @c EINA_FALSE to disable
+ * @param o The view to close the inspector.
+ *
+ * @see ewk_view_inspector_show()
+ * @see ewk_view_inspector_view_get()
+ */
+EAPI void ewk_view_inspector_close(const Evas_Object *o);
+
+/**
+ * Get the view of inspector.
+ *
+ * @param o The view that is inspected.
+ *
+ * @return view object on success or @c NULL on failure
+ */
+EAPI Evas_Object* ewk_view_inspector_view_get(const Evas_Object *o);
+
+/**
+ * Set the view of inspector.
+ *
+ * @param o The view that is inspected.
+ * @param inspector_view The view of inspector.
+ */
+EAPI void ewk_view_inspector_view_set(Evas_Object *o, Evas_Object *inspector_view);
+
+/**
+ * Enables/disables the fullscreen mode by javascript fullscreen API.
+ * The javascript API allows to request full screen mode, for more information see:
+ * http://dvcs.w3.org/hg/fullscreen/raw-file/tip/Overview.html
+ *
+ * Default value for javascript fullscreen API setting is @c EINA_TRUE.
+ *
+ * @param o view object to enable javascript fullscreen API
+ * @param enable @c EINA_TRUE to enable javascript fullscreen API or
+ *               @c EINA_FALSE to disable
  *
  * @return @c EINA_TRUE on success or @c EINA_FALSE on failure
  */
-EAPI Eina_Bool    ewk_view_setting_web_audio_set(Evas_Object *o, Eina_Bool enable);
+EAPI Eina_Bool ewk_view_setting_enable_fullscreen_set(Evas_Object *o, Eina_Bool enable);
+
+/**
+ * Queries if the fullscreen mode is enabled.
+ *
+ * @param o view object to query whether javascript fullscreen API is enabled
+ *
+ * @return @c EINA_TRUE if the javascript fullscreen API is enabled
+ *         @c EINA_FALSE if not or on failure
+ */
+EAPI Eina_Bool ewk_view_setting_enable_fullscreen_get(const Evas_Object *o);
+
+/**
+ * Enables/disables the WebCore's tiled backing store.
+ *
+ * @param o view object
+ * @oaram enable Enable or Disable WebCore's tiled backing store for given View
+ *
+ * @return true on success, or false on failure
+ *
+ * @note this is not for general use. It should be used for single view only.
+ */
+EAPI Eina_Bool ewk_view_setting_tiled_backing_store_enabled_set(Evas_Object *o, Eina_Bool enable);
+
+/**
+ * Queries if the WebCore's tiled backing store is enabled.
+ *
+ * @param o view object to query
+ *
+ * @return @c EINA_TRUE if the WebCore's tiled backing store is enabled
+ *         @c EINA_FALSE if not or on failure
+ */
+EAPI Eina_Bool ewk_view_setting_tiled_backing_store_enabled_get(Evas_Object *o);
+
+/**
+ * Gets the context menu object.
+ * @param o The view that contains context menu.
+ *
+ * @return context menu structure on success or @c NULL on failure
+ */
+EAPI Ewk_Context_Menu *ewk_view_context_menu_get(const Evas_Object *o);
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,11 @@
+/Fortran I\/O blocks/a
+.
+/"static /s/static /%s/
+.+1s/L->/localauto ? "" : "static ", &/
+/Local variables/a
+.
+/case STGBSS:/a
+			if (localauto) break;
+			/* drop through */
+.
+w

@@ -34,8 +34,13 @@
 # SUCH DAMAGE. 
 
 env_setup="@env_setup@"
+testdir="@testdir@"
+confdir="@confdir@"
 
 . ${env_setup}
+
+KRB5_CONFIG="${1-${confdir}/krb5.conf}"
+export KRB5_CONFIG
 
 echo "checking for od.apple.com"
 (dscl /LDAPv3/od.apple.com -read /Users/smbtest  | grep 'RealName: smbtest' > /dev/null ) || \
@@ -47,13 +52,14 @@ cat > ${kinitpty} <<EOF
 expect Password
 password smbtest\n
 EOF
-   ${rkpty} ${kinitpty} ${kinit} smbtest@OD.APPLE.COM >/dev/null || exit 1
+   ${rkpty} ${kinitpty} ${kinit} smbtest@OD.APPLE.COM >/dev/null || { echo "kinit failed with: $?" ; exit 1; }
 ${kdestroy}
 
 
 echo "checking ntlm"
 ${test_context} --mech-type=ntlm --cred-type=ntlm \
-	--client-name='smbtest@\targetname' --password='smbtest' service@host || exit 1
+	--client-name='smbtest@\targetname' --password='smbtest' service@host || \
+	{ echo "ntlm check failed with: $?" ; exit 1; }
 
 echo "checking signing is disabled"
 ${gsstool} supporte --opt| \

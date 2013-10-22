@@ -1335,7 +1335,7 @@ regular_string_type:
 	    struct subitem *subitem;
 	    unsigned long len;
 
-	    PORT_Assert (item->Length == 0 && item->Data == NULL);
+	    PORT_Assert (item != NULL && item->Length == 0 && item->Data == NULL);
 	    /*
 	     * Check for and handle an ANY which has stashed aside the
 	     * header (identifier and length) bytes for us to include

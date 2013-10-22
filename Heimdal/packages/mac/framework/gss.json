@@ -271,6 +271,11 @@
 		"ios" : "5_0",
 		"macos" : "10_7"
 	},
+	"gss_userok" : {
+		"export" : true,
+		"ios" : "7_0",
+		"macos" : "10_9"
+	},
 	"gss_unseal" : {
 		"export" : true,
 		"ios" : "5_0",

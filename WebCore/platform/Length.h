@@ -24,7 +24,7 @@
 #define Length_h
 
 #include "AnimationUtilities.h"
-#include "LayoutTypes.h"
+#include <string.h>
 #include <wtf/Assertions.h>
 #include <wtf/FastAllocBase.h>
 #include <wtf/Forward.h>
@@ -34,8 +34,15 @@
 
 namespace WebCore {
 
-enum LengthType { Auto, Relative, Percent, Fixed, Intrinsic, MinIntrinsic, Calculated, ViewportPercentageWidth, ViewportPercentageHeight, ViewportPercentageMin, Undefined };
- 
+enum LengthType {
+    Auto, Relative, Percent, Fixed,
+    Intrinsic, MinIntrinsic,
+    MinContent, MaxContent, FillAvailable, FitContent,
+    Calculated,
+    ViewportPercentageWidth, ViewportPercentageHeight, ViewportPercentageMin, ViewportPercentageMax,
+    Undefined
+};
+
 class CalculationValue;    
     
 struct Length {
@@ -49,21 +56,25 @@ public:
     Length(LengthType t)
         : m_intValue(0), m_quirk(false), m_type(t), m_isFloat(false)
     {
+        ASSERT(t != Calculated);
     }
 
     Length(int v, LengthType t, bool q = false)
         : m_intValue(v), m_quirk(q), m_type(t), m_isFloat(false)
     {
+        ASSERT(t != Calculated);
     }
     
-    Length(FractionalLayoutUnit v, LengthType t, bool q = false)
+    Length(LayoutUnit v, LengthType t, bool q = false)
         : m_floatValue(v.toFloat()), m_quirk(q), m_type(t), m_isFloat(true)
     {
+        ASSERT(t != Calculated);
     }
     
     Length(float v, LengthType t, bool q = false)
-    : m_floatValue(v), m_quirk(q), m_type(t), m_isFloat(true)
+        : m_floatValue(v), m_quirk(q), m_type(t), m_isFloat(true)
     {
+        ASSERT(t != Calculated);
     }
 
     Length(double v, LengthType t, bool q = false)
@@ -91,7 +102,7 @@ public:
             decrementCalculatedRef();
     }  
     
-    bool operator==(const Length& o) const { return (m_type == o.m_type) && (m_quirk == o.m_quirk) && (isUndefined() || (getFloatValue() == o.getFloatValue())); }
+    bool operator==(const Length& o) const { return (m_type == o.m_type) && (m_quirk == o.m_quirk) && (isUndefined() || (getFloatValue() == o.getFloatValue()) || isCalculatedEqual(o)); }
     bool operator!=(const Length& o) const { return !(*this == o); }
 
     const Length& operator*=(float v)
@@ -109,20 +120,18 @@ public:
         return *this;
     }
     
-    int value() const
+    inline float value() const
     {
+        return getFloatValue();
+    }
+
+     int intValue() const
+     {
         if (isCalculated()) {
             ASSERT_NOT_REACHED();
             return 0;
         }
         return getIntValue();
-    }
-
-    // FIXME: When we switch to sub-pixel layout, value will return float by default, and this will inherit
-    // the current implementation of value().
-    int intValue() const
-    {
-        return value();
     }
 
     float percent() const
@@ -164,7 +173,7 @@ public:
         m_isFloat = true;    
     }
 
-    void setValue(LengthType t, FractionalLayoutUnit value)
+    void setValue(LengthType t, LayoutUnit value)
     {
         m_type = t;
         m_floatValue = value;
@@ -211,15 +220,24 @@ public:
     bool isRelative() const { return type() == Relative; }
     bool isPercent() const { return type() == Percent || type() == Calculated; }
     bool isFixed() const { return type() == Fixed; }
-    bool isIntrinsicOrAuto() const { return type() == Auto || type() == MinIntrinsic || type() == Intrinsic; }
+    bool isIntrinsicOrAuto() const { return type() == Auto || isLegacyIntrinsic() || isIntrinsic(); }
+    bool isLegacyIntrinsic() const { return type() == Intrinsic || type() == MinIntrinsic; }
+    bool isIntrinsic() const { return type() == MinContent || type() == MaxContent || type() == FillAvailable || type() == FitContent; }
     bool isSpecified() const { return type() == Fixed || type() == Percent || type() == Calculated || isViewportPercentage(); }
+    bool isSpecifiedOrIntrinsic() const { return isSpecified() || isIntrinsic(); }
     bool isCalculated() const { return type() == Calculated; }
+    bool isCalculatedEqual(const Length&) const;
+    bool isMinContent() const { return type() == MinContent; }
+    bool isMaxContent() const { return type() == MaxContent; }
 
     Length blend(const Length& from, double progress) const
     {
         // Blend two lengths to produce a new length that is in between them.  Used for animation.
+        if (from.type() == Calculated || type() == Calculated)
+            return blendMixedTypes(from, progress);
+        
         if (!from.isZero() && !isZero() && from.type() != type())
-            return *this;
+            return blendMixedTypes(from, progress);
 
         if (from.isZero() && isZero())
             return *this;
@@ -249,7 +267,7 @@ public:
     bool isViewportPercentage() const
     {
         LengthType lengthType = type();
-        return lengthType >= ViewportPercentageWidth && lengthType <= ViewportPercentageMin;
+        return lengthType >= ViewportPercentageWidth && lengthType <= ViewportPercentageMax;
     }
     float viewportPercentageLength() const
     {
@@ -262,20 +280,14 @@ private:
         ASSERT(!isUndefined());
         return m_isFloat ? static_cast<int>(m_floatValue) : m_intValue;
     }
-    void initFromLength(const Length &length) 
+    void initFromLength(const Length& length)
     {
-        m_quirk = length.m_quirk;
-        m_type = length.m_type;
-        m_isFloat = length.m_isFloat;
-        
-        if (m_isFloat)
-            m_floatValue = length.m_floatValue;
-        else
-            m_intValue = length.m_intValue;
-        
+        memcpy(this, &length, sizeof(Length));
         if (isCalculated())
             incrementCalculatedRef();
     }
+
+    Length blendMixedTypes(const Length& from, double progress) const;
 
     int calculationHandle() const
     {

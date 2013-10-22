@@ -174,6 +174,7 @@
 @interface DOMElement : DOMNode WEBKIT_VERSION_1_3
 @property(readonly, copy) NSString *tagName;
 @property(readonly, retain) DOMCSSStyleDeclaration *style;
+@property(copy) NSString *className;
 @property(readonly) int offsetLeft;
 @property(readonly) int offsetTop;
 @property(readonly) int offsetWidth;
@@ -410,7 +411,7 @@
 @property(readonly, retain) DOMHTMLFormElement *form;
 @property BOOL disabled;
 @property(copy) NSString *name;
-@property(readonly, copy) NSString *type;
+@property(copy) NSString *type;
 @property(copy) NSString *value;
 @property BOOL autofocus AVAILABLE_IN_WEBKIT_VERSION_4_0;
 @property(readonly) BOOL willValidate AVAILABLE_IN_WEBKIT_VERSION_4_0;
@@ -472,7 +473,6 @@
 @property(copy) NSString *idName;
 @property(copy) NSString *lang;
 @property(copy) NSString *dir;
-@property(copy) NSString *className;
 @property(copy) NSString *innerHTML;
 @property(copy) NSString *innerText;
 @property(copy) NSString *outerHTML;
@@ -622,7 +622,7 @@
 @property BOOL autofocus AVAILABLE_IN_WEBKIT_VERSION_4_0;
 @property BOOL multiple AVAILABLE_IN_WEBKIT_VERSION_4_0;
 @property(readonly) BOOL willValidate AVAILABLE_IN_WEBKIT_VERSION_4_0;
-@property(readonly, retain) DOMFileList *files AVAILABLE_IN_WEBKIT_VERSION_4_0;
+@property(retain) DOMFileList *files AVAILABLE_IN_WEBKIT_VERSION_4_0;
 - (void)select;
 - (void)click;
 - (void)setSelectionRange:(int)start end:(int)end AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
@@ -978,7 +978,7 @@
 - (void)setProperty:(NSString *)propertyName :(NSString *)value :(NSString *)priority;
 - (void)setProperty:(NSString *)propertyName value:(NSString *)value priority:(NSString *)priority AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
 - (NSString *)item:(unsigned)index;
-- (NSString *)getPropertyShorthand:(NSString *)propertyName AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
+- (NSString *)getPropertyShorthand:(NSString *)propertyName AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER_BUT_DEPRECATED;
 - (BOOL)isPropertyImplicit:(NSString *)propertyName AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
 @end
 
@@ -1082,23 +1082,11 @@
 - (void)initOverflowEvent:(unsigned short)orient horizontalOverflow:(BOOL)horizontalOverflow verticalOverflow:(BOOL)verticalOverflow;
 @end
 
-@interface DOMWheelEvent : DOMUIEvent WEBKIT_VERSION_3_0
-@property(readonly) int screenX;
-@property(readonly) int screenY;
-@property(readonly) int clientX;
-@property(readonly) int clientY;
-@property(readonly) BOOL ctrlKey;
-@property(readonly) BOOL shiftKey;
-@property(readonly) BOOL altKey;
-@property(readonly) BOOL metaKey;
+@interface DOMWheelEvent : DOMMouseEvent WEBKIT_VERSION_3_0
 @property(readonly) BOOL isHorizontal;
 @property(readonly) int wheelDelta;
 @property(readonly) int wheelDeltaX AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
 @property(readonly) int wheelDeltaY AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
-@property(readonly) int offsetX AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
-@property(readonly) int offsetY AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
-@property(readonly) int x AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
-@property(readonly) int y AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
 - (void)initWheelEvent:(int)wheelDeltaX wheelDeltaY:(int)wheelDeltaY view:(DOMAbstractView *)view screenX:(int)screenX screenY:(int)screenY clientX:(int)clientX clientY:(int)clientY ctrlKey:(BOOL)ctrlKey altKey:(BOOL)altKey shiftKey:(BOOL)shiftKey metaKey:(BOOL)metaKey AVAILABLE_WEBKIT_VERSION_3_0_AND_LATER;
 @end
 

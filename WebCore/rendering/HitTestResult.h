@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,8 +22,11 @@
 #ifndef HitTestResult_h
 #define HitTestResult_h
 
+#include "FloatQuad.h"
 #include "FloatRect.h"
-#include "LayoutTypes.h"
+#include "HitTestLocation.h"
+#include "HitTestRequest.h"
+#include "LayoutRect.h"
 #include "TextDirection.h"
 #include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
@@ -42,8 +46,6 @@ class Node;
 class RenderRegion;
 class Scrollbar;
 
-enum ShadowContentFilterPolicy { DoNotAllowShadowContent, AllowShadowContent };
-
 class HitTestResult {
 public:
     typedef ListHashSet<RefPtr<Node> > NodeSet;
@@ -51,31 +53,41 @@ public:
     HitTestResult();
     HitTestResult(const LayoutPoint&);
     // Pass non-negative padding values to perform a rect-based hit test.
-    HitTestResult(const LayoutPoint& centerPoint, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding, ShadowContentFilterPolicy);
+    HitTestResult(const LayoutPoint& centerPoint, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
+    HitTestResult(const HitTestLocation&);
     HitTestResult(const HitTestResult&);
     ~HitTestResult();
     HitTestResult& operator=(const HitTestResult&);
 
     Node* innerNode() const { return m_innerNode.get(); }
+    Element* innerElement() const;
     Node* innerNonSharedNode() const { return m_innerNonSharedNode.get(); }
-    LayoutPoint point() const { return m_point; }
-    IntPoint roundedPoint() const { return roundedIntPoint(m_point); }
-    LayoutPoint localPoint() const { return m_localPoint; }
     Element* URLElement() const { return m_innerURLElement.get(); }
     Scrollbar* scrollbar() const { return m_scrollbar.get(); }
     bool isOverWidget() const { return m_isOverWidget; }
 
-    RenderRegion* region() const { return m_region; }
-    void setRegion(RenderRegion* region) { m_region = region; }
+    // Forwarded from HitTestLocation
+    bool isRectBasedTest() const { return m_hitTestLocation.isRectBasedTest(); }
+
+    // The hit-tested point in the coordinates of the main frame.
+    const LayoutPoint& pointInMainFrame() const { return m_hitTestLocation.point(); }
+    IntPoint roundedPointInMainFrame() const { return roundedIntPoint(pointInMainFrame()); }
+
+    // The hit-tested point in the coordinates of the innerNode frame, the frame containing innerNode.
+    const LayoutPoint& pointInInnerNodeFrame() const { return m_pointInInnerNodeFrame; }
+    IntPoint roundedPointInInnerNodeFrame() const { return roundedIntPoint(pointInInnerNodeFrame()); }
+    Frame* innerNodeFrame() const;
+
+    // The hit-tested point in the coordinates of the inner node.
+    const LayoutPoint& localPoint() const { return m_localPoint; }
+    void setLocalPoint(const LayoutPoint& p) { m_localPoint = p; }
 
     void setToNonShadowAncestor();
 
-    ShadowContentFilterPolicy shadowContentFilterPolicy() const { return m_shadowContentFilterPolicy; }
+    const HitTestLocation& hitTestLocation() const { return m_hitTestLocation; }
 
     void setInnerNode(Node*);
     void setInnerNonSharedNode(Node*);
-    void setPoint(const LayoutPoint& p) { m_point = p; }
-    void setLocalPoint(const LayoutPoint& p) { m_localPoint = p; }
     void setURLElement(Element*);
     void setScrollbar(Scrollbar*);
     void setIsOverWidget(bool b) { m_isOverWidget = b; }
@@ -96,9 +108,12 @@ public:
     KURL absoluteLinkURL() const;
     String textContent() const;
     bool isLiveLink() const;
+    bool isOverLink() const;
     bool isContentEditable() const;
     void toggleMediaControlsDisplay() const;
     void toggleMediaLoopPlayback() const;
+    bool mediaIsInFullscreen() const;
+    void toggleMediaFullscreenState() const;
     void enterFullscreenForVideo() const;
     bool mediaControlsEnabled() const;
     bool mediaLoopEnabled() const;
@@ -110,19 +125,10 @@ public:
     bool mediaMuted() const;
     void toggleMediaMuteState() const;
 
-    // Rect-based hit test related methods.
-    bool isRectBasedTest() const { return m_isRectBased; }
-    IntRect rectForPoint(const LayoutPoint&) const;
-    static IntRect rectForPoint(const LayoutPoint&, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
-    int topPadding() const { return m_topPadding; }
-    int rightPadding() const { return m_rightPadding; }
-    int bottomPadding() const { return m_bottomPadding; }
-    int leftPadding() const { return m_leftPadding; }
-
     // Returns true if it is rect-based hit test and needs to continue until the rect is fully
     // enclosed by the boundaries of a node.
-    bool addNodeToRectBasedTestResult(Node*, const LayoutPoint& pointInContainer, const IntRect& = IntRect());
-    bool addNodeToRectBasedTestResult(Node*, const LayoutPoint& pointInContainer, const FloatRect&);
+    bool addNodeToRectBasedTestResult(Node*, const HitTestRequest&, const HitTestLocation& pointInContainer, const LayoutRect& = LayoutRect());
+    bool addNodeToRectBasedTestResult(Node*, const HitTestRequest&, const HitTestLocation& pointInContainer, const FloatRect&);
     void append(const HitTestResult&);
 
     // If m_rectBasedTestResult is 0 then set it to a new NodeSet. Return *m_rectBasedTestResult. Lazy allocation makes
@@ -132,42 +138,27 @@ public:
 
     Vector<String> dictationAlternatives() const;
 
+    Node* targetNode() const;
+
 private:
     NodeSet& mutableRectBasedTestResult(); // See above.
 
 #if ENABLE(VIDEO)
     HTMLMediaElement* mediaElement() const;
 #endif
+    HitTestLocation m_hitTestLocation;
 
     RefPtr<Node> m_innerNode;
     RefPtr<Node> m_innerNonSharedNode;
-    LayoutPoint m_point;
+    LayoutPoint m_pointInInnerNodeFrame; // The hit-tested point in innerNode frame coordinates.
     LayoutPoint m_localPoint; // A point in the local coordinate space of m_innerNonSharedNode's renderer. Allows us to efficiently
                               // determine where inside the renderer we hit on subsequent operations.
     RefPtr<Element> m_innerURLElement;
     RefPtr<Scrollbar> m_scrollbar;
     bool m_isOverWidget; // Returns true if we are over a widget (and not in the border/padding area of a RenderWidget for example).
-    bool m_isRectBased;
-    int m_topPadding;
-    int m_rightPadding;
-    int m_bottomPadding;
-    int m_leftPadding;
-    ShadowContentFilterPolicy m_shadowContentFilterPolicy;
-    
-    RenderRegion* m_region; // The region we're inside.
 
     mutable OwnPtr<NodeSet> m_rectBasedTestResult;
 };
-
-// Formula:
-// x = p.x() - rightPadding
-// y = p.y() - topPadding
-// width = leftPadding + rightPadding + 1
-// height = topPadding + bottomPadding + 1
-inline IntRect HitTestResult::rectForPoint(const LayoutPoint& point) const
-{
-    return rectForPoint(point, m_topPadding, m_rightPadding, m_bottomPadding, m_leftPadding);
-}
 
 String displayString(const String&, const Node*);
 

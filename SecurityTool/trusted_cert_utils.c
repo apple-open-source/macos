@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * trusted_cert_utils.c
@@ -116,7 +116,7 @@ void printCfStr(
 
 /* print a CFDateRef */
 static const char *months[12] = {
-	"Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
@@ -173,7 +173,7 @@ void printResultType(
 			sprintf(bogus, "Unknown SecTrustSettingsResult (%d)", (int)n);
 			s = bogus;
 			break;
-	}	
+	}
 	printf("%s", s);
 }
 
@@ -235,7 +235,7 @@ SecPolicyRef oidToPolicy(
 {
 	OSStatus ortn;
 	SecPolicyRef policyRef = NULL;
-	
+
 	ortn = SecPolicyCopy(CSSM_CERT_X_509v3, oid, &policyRef);
 	if(ortn) {
 		cssmPerror("SecPolicyCopy", ortn);
@@ -249,7 +249,7 @@ typedef struct {
 	const char *oidStr;
 } OidString;
 
-static OidString oidStrings[] = 
+static OidString oidStrings[] =
 {
 	{ &CSSMOID_APPLE_ISIGN, "iSign" },
 	{ &CSSMOID_APPLE_X509_BASIC, "Apple X509 Basic" },
@@ -276,7 +276,7 @@ SecPolicyRef oidStringToPolicy(
 	/* OID string to an OID pointer */
 	const CSSM_OID *oid = NULL;
 	unsigned dex;
-	
+
 	for(dex=0; dex<NUM_OID_STRINGS; dex++) {
 		OidString *os = &oidStrings[dex];
 		if(!strcmp(oidStr, os->oidStr)) {
@@ -298,7 +298,7 @@ const char *oidToOidString(
 {
 	unsigned dex;
 	static char unknownOidString[200];
-	
+
 	for(dex=0; dex<NUM_OID_STRINGS; dex++) {
 		OidString *os = &oidStrings[dex];
 		if(compareOids(oid, os->oid)) {
@@ -311,7 +311,7 @@ const char *oidToOidString(
 		sprintf(tmp, "%02X ", oid->Data[dex]);
 		strcat(unknownOidString, tmp);
 	}
-	strcat(unknownOidString, " }"); 
+	strcat(unknownOidString, " }");
 	return unknownOidString;
 }
 
@@ -338,7 +338,7 @@ SecTrustedApplicationRef appPathToAppRef(
 {
 	SecTrustedApplicationRef appRef = NULL;
 	OSStatus ortn;
-	
+
 	if(appPath == NULL) {
 		return NULL;
 	}
@@ -377,7 +377,7 @@ int readCertFile(
 		certData.Length = len;
 		certData.Data = cp;
 	}
-	ortn = SecCertificateCreateFromData(&certData, 
+	ortn = SecCertificateCreateFromData(&certData,
 			CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER, certRef);
 	free(cp);
 	if(decoded) {

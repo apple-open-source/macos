@@ -35,21 +35,21 @@
 /**/
 mod_export int emulation;
  
-/* current sticky emulation:  0 means none */
+/* current sticky emulation:  sticky = NULL means none */
 
 /**/
-mod_export int sticky_emulation;
+mod_export Emulation_options sticky;
 
 /* the options; e.g. if opts[SHGLOB] != 0, SH_GLOB is turned on */
- 
+
 /**/
 mod_export char opts[OPT_SIZE];
- 
+
 /* Option name hash table */
 
 /**/
 mod_export HashTable optiontab;
- 
+
 /* The canonical option name table */
 
 #define OPT_CSH		EMULATE_CSH
@@ -70,7 +70,7 @@ mod_export HashTable optiontab;
 /* option is an alias to an other option */
 #define OPT_ALIAS	(EMULATE_UNUSED<<2)
 
-#define defset(X) (!!((X)->node.flags & emulation))
+#define defset(X, my_emulation) (!!((X)->node.flags & my_emulation))
 
 /*
  * Note that option names should usually be fewer than 20 characters long
@@ -113,6 +113,7 @@ static struct optname optns[] = {
 {{NULL, "combiningchars",     0},			 COMBININGCHARS},
 {{NULL, "completealiases",    0},			 COMPLETEALIASES},
 {{NULL, "completeinword",     0},			 COMPLETEINWORD},
+{{NULL, "continueonerror",    0},                        CONTINUEONERROR},
 {{NULL, "correct",	      0},			 CORRECT},
 {{NULL, "correctall",	      0},			 CORRECTALL},
 {{NULL, "cshjunkiehistory",   OPT_EMULATE|OPT_CSH},	 CSHJUNKIEHISTORY},
@@ -140,6 +141,7 @@ static struct optname optns[] = {
 {{NULL, "globsubst",	      OPT_EMULATE|OPT_NONZSH},	 GLOBSUBST},
 {{NULL, "hashcmds",	      OPT_ALL},			 HASHCMDS},
 {{NULL, "hashdirs",	      OPT_ALL},			 HASHDIRS},
+{{NULL, "hashexecutablesonly", 0},                       HASHEXECUTABLESONLY},
 {{NULL, "hashlistall",	      OPT_ALL},			 HASHLISTALL},
 {{NULL, "histallowclobber",   0},			 HISTALLOWCLOBBER},
 {{NULL, "histbeep",	      OPT_ALL},			 HISTBEEP},
@@ -159,6 +161,7 @@ static struct optname optns[] = {
 {{NULL, "histverify",	      0},			 HISTVERIFY},
 {{NULL, "hup",		      OPT_EMULATE|OPT_ZSH},	 HUP},
 {{NULL, "ignorebraces",	      OPT_EMULATE|OPT_SH},	 IGNOREBRACES},
+{{NULL, "ignoreclosebraces",  OPT_EMULATE},		 IGNORECLOSEBRACES},
 {{NULL, "ignoreeof",	      0},			 IGNOREEOF},
 {{NULL, "incappendhistory",   0},			 INCAPPENDHISTORY},
 {{NULL, "interactive",	      OPT_SPECIAL},		 INTERACTIVE},
@@ -437,11 +440,11 @@ printoptionnode(HashNode hn, int set)
     if (optno < 0)
 	optno = -optno;
     if (isset(KSHOPTIONPRINT)) {
-	if (defset(on))
+	if (defset(on, emulation))
 	    printf("no%-19s %s\n", on->node.nam, isset(optno) ? "off" : "on");
 	else
 	    printf("%-21s %s\n", on->node.nam, isset(optno) ? "on" : "off");
-    } else if (set == (isset(optno) ^ defset(on))) {
+    } else if (set == (isset(optno) ^ defset(on, emulation))) {
 	if (set ^ isset(optno))
 	    fputs("no", stdout);
 	puts(on->node.nam);
@@ -473,6 +476,15 @@ createoptiontable(void)
 	optiontab->addnode(optiontab, on->node.nam, on);
 }
 
+/* Emulation appropriate to the setemulate function */
+
+static int setemulate_emulation;
+
+/* Option array manipulated within the setemulate function */
+
+/**/
+static char *setemulate_opts;
+
 /* Setting of default options */
 
 /**/
@@ -488,20 +500,22 @@ setemulate(HashNode hn, int fully)
     if (!(on->node.flags & OPT_ALIAS) &&
 	((fully && !(on->node.flags & OPT_SPECIAL)) ||
 	 (on->node.flags & OPT_EMULATE)))
-	opts[on->optno] = defset(on);
+	setemulate_opts[on->optno] = defset(on, setemulate_emulation);
 }
 
 /**/
 void
-installemulation(void)
+installemulation(int new_emulation, char *new_opts)
 {
+    setemulate_emulation = new_emulation;
+    setemulate_opts = new_opts;
     scanhashtable(optiontab, 0, 0, 0, setemulate,
-		  !!(emulation & EMULATE_FULLY));
+		  !!(new_emulation & EMULATE_FULLY));
 }
 
 /**/
 void
-emulate(const char *zsh_name, int fully)
+emulate(const char *zsh_name, int fully, int *new_emulation, char *new_opts)
 {
     char ch = *zsh_name;
 
@@ -510,17 +524,31 @@ emulate(const char *zsh_name, int fully)
 
     /* Work out the new emulation mode */
     if (ch == 'c')
-	emulation = EMULATE_CSH;
+	*new_emulation = EMULATE_CSH;
     else if (ch == 'k')
-	emulation = EMULATE_KSH;
+	*new_emulation = EMULATE_KSH;
     else if (ch == 's' || ch == 'b')
-	emulation = EMULATE_SH;
+	*new_emulation = EMULATE_SH;
     else
-	emulation = EMULATE_ZSH;
+	*new_emulation = EMULATE_ZSH;
 
     if (fully)
-	emulation |= EMULATE_FULLY;
-    installemulation();
+	*new_emulation |= EMULATE_FULLY;
+    installemulation(*new_emulation, new_opts);
+
+    if (funcstack && funcstack->tp == FS_FUNC) {
+	/*
+	 * We are inside a function.  Decide if it's traced.
+	 * Pedantic note: the function in the function table isn't
+	 * guaranteed to be what we're executing, but it's
+	 * close enough.
+	 */
+	Shfunc shf = (Shfunc)shfunctab->getnode(shfunctab, funcstack->name);
+	if (shf && (shf->node.flags & (PM_TAGGED|PM_TAGGED_LOCAL))) {
+	    /* Tracing is on, so set xtrace */
+	    new_opts[XTRACE] = 1;
+	}
+    }
 }
 
 /* setopt, unsetopt */
@@ -529,7 +557,7 @@ emulate(const char *zsh_name, int fully)
 static void
 setoption(HashNode hn, int value)
 {
-    dosetopt(((Optname) hn)->optno, value, 0);
+    dosetopt(((Optname) hn)->optno, value, 0, opts);
 }
 
 /**/
@@ -566,7 +594,7 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 		}
 		if(!(optno = optlookup(*args)))
 		    zwarnnam(nam, "no such option: %s", *args);
-		else if(dosetopt(optno, action, 0))
+		else if(dosetopt(optno, action, 0, opts))
 		    zwarnnam(nam, "can't change option: %s", *args);
 		break;
 	    } else if(**args == 'm') {
@@ -574,7 +602,7 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 	    } else {
 	    	if (!(optno = optlookupc(**args)))
 		    zwarnnam(nam, "bad option: -%c", **args);
-		else if(dosetopt(optno, action, 0))
+		else if(dosetopt(optno, action, 0, opts))
 		    zwarnnam(nam, "can't change option: -%c", **args);
 	    }
 	}
@@ -587,7 +615,7 @@ bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 	while (*args) {
 	    if(!(optno = optlookup(*args++)))
 		zwarnnam(nam, "no such option: %s", args[-1]);
-	    else if(dosetopt(optno, !isun, 0))
+	    else if(dosetopt(optno, !isun, 0, opts))
 		zwarnnam(nam, "can't change option: %s", args[-1]);
 	}
     } else {
@@ -697,7 +725,7 @@ static char *rparams[] = {
 
 /**/
 mod_export int
-dosetopt(int optno, int value, int force)
+dosetopt(int optno, int value, int force, char *new_opts)
 {
     if(!optno)
 	return -1;
@@ -719,7 +747,7 @@ dosetopt(int optno, int value, int force)
 	return -1;
     } else if(!force && (optno == INTERACTIVE || optno == SHINSTDIN ||
 	    optno == SINGLECOMMAND)) {
-	if (opts[optno] == value)
+	if (new_opts[optno] == value)
 	    return 0;
 	/* it is not permitted to change the value of these options */
 	return -1;
@@ -735,7 +763,7 @@ dosetopt(int optno, int value, int force)
 #endif /* HAVE_SETUID */
 #ifdef JOB_CONTROL
     } else if (!force && optno == MONITOR && value) {
-	if (opts[optno] == value)
+	if (new_opts[optno] == value)
 	    return 0;
 	if (SHTTY != -1) {
 	    origpgrp = GETPGRP();
@@ -751,13 +779,15 @@ dosetopt(int optno, int value, int force)
 	    return -1;
 #endif /* GETPWNAM_FAKED */
     } else if ((optno == EMACSMODE || optno == VIMODE) && value) {
+	if (sticky && sticky->emulation)
+	    return -1;
 	zleentry(ZLE_CMD_SET_KEYMAP, optno);
-	opts[(optno == EMACSMODE) ? VIMODE : EMACSMODE] = 0;
+	new_opts[(optno == EMACSMODE) ? VIMODE : EMACSMODE] = 0;
     } else if (optno == SUNKEYBOARDHACK) {
 	/* for backward compatibility */
 	keyboardhackchar = (value ? '`' : '\0');
     }
-    opts[optno] = value;
+    new_opts[optno] = value;
     if (optno == BANGHIST || optno == SHINSTDIN)
 	inittyptab();
     return 0;
@@ -799,10 +829,11 @@ printoptionnodestate(HashNode hn, int hadplus)
     int optno = on->optno;
 
     if (hadplus) {
-        if (defset(on) != isset(optno))
-	    printf("set -o %s%s\n", defset(on) ? "no" : "", on->node.nam);
+        if (defset(on, emulation) != isset(optno))
+	    printf("set -o %s%s\n", defset(on, emulation) ?
+		   "no" : "", on->node.nam);
     } else {
-	if (defset(on))
+	if (defset(on, emulation))
 	    printf("no%-19s %s\n", on->node.nam, isset(optno) ? "off" : "on");
 	else
 	    printf("%-21s %s\n", on->node.nam, isset(optno) ? "on" : "off");

@@ -1,28 +1,15 @@
-RC_OS = macos
-OFLAG = -Os
-LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
-
-ifneq "clang" "$(notdir $(CC))"
-  GCC_FLAGS = $(X_CFLAGS)
-endif
-
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "clang" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
-
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
-endif
-CFLAGS = $(OFLAG) -g -I../include -Wall $(GCC_FLAGS) -DNeXT_MOD -DDEBUG $(SDK)
-
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
+  DSYMUTIL = $(shell xcrun -find -sdk ${SDKROOT} dsymutil)
 else
-  MKDIRS = /bin/mkdir -p
+  DSYMUTIL = dsymutil
 endif
 
+OFLAG = -Os
+CFLAGS = $(OFLAG) -g -I../include -Wall -DNeXT_MOD -DDEBUG $(SDK)
+LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
+MKDIRS = /bin/mkdir -p
 OBJROOT = .
 OFILE_DIR = $(OBJROOT)
 VPATH = $(OFILE_DIR)
@@ -30,9 +17,7 @@ SYMROOT = .
 
 BINDIR = /usr/ucb
 USRBINDIR = /usr/bin
-nextstep_LIBDIR = /usr/lib
-teflon_LIBDIR   = /usr/share
-macos_LIBDIR    = /usr/share
+LIBDIR    = /usr/share
 
 HFILES = gprof.h m68k.h vax.h
 CFILES = gprof.c arcs.c dfn.c lookup.c calls.c hertz.c printgprof.c \
@@ -47,41 +32,28 @@ $(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(SYMROOT)/$@.private.o $(OBJS) $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/$@ $(SYMROOT)/$@.private.o
+	$(DSYMUTIL) $(SYMROOT)/$@
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 clean: shlib_clean
 	-rm -f $(SYMROOT)/$(PRODUCT).NEW
 	-rm -f $(SYMROOT)/$(PRODUCT).NEW.private.o
+	-rm -r -f *dSYM
 
 shlib_clean:
 	-cd $(OFILE_DIR); rm -f $(OBJS)
-	-rm -f $(OFILE_DIR)/Makedep make.out
+	-rm -f make.out
 
-install: all common_install $(RC_OS)_install
-
-teflon_install macos_install:
-	$(MKDIRS) $(DSTROOT)$(USRBINDIR)
-	install -c -s -m 555 $(SYMROOT)/$(PRODUCT).NEW \
-		$(DSTROOT)$(USRBINDIR)/$(PRODUCT)
-
-nextstep_install:
-	$(MKDIRS) $(DSTROOT)$(BINDIR)
-	install -c -s -m 555 $(SYMROOT)/$(PRODUCT).NEW \
-		$(DSTROOT)$(BINDIR)/$(PRODUCT)
-
-common_install:
-	$(MKDIRS) $(DSTROOT)$($(RC_OS)_LIBDIR)
-	install -c -m 444 gprof.flat $(DSTROOT)$($(RC_OS)_LIBDIR)
-	install -c -m 444 gprof.callg $(DSTROOT)$($(RC_OS)_LIBDIR)
+install: all
+# No longer install gprof and its files.
+#	$(MKDIRS) $(DSTROOT)$(USRBINDIR)
+#	install -c -s -m 555 $(SYMROOT)/$(PRODUCT).NEW \
+#		$(DSTROOT)$(USRBINDIR)/$(PRODUCT)
+#	$(MKDIRS) $(DSTROOT)$(LIBDIR)
+#	install -c -m 444 gprof.flat $(DSTROOT)$(LIBDIR)
+#	install -c -m 444 gprof.callg $(DSTROOT)$(LIBDIR)
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)
@@ -91,5 +63,3 @@ installsrc:
 
 $(OFILE_DIR) $(SYMROOT):
 	$(MKDIRS) $@
-
--include $(OFILE_DIR)/Makedep

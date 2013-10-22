@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -156,6 +156,12 @@ void
 linklocal_set_needs_attention(void);
 
 void
+linklocal_set_address(ServiceRef ll_service_p, struct in_addr ll_addr);
+
+struct in_addr
+linklocal_get_address(ServiceRef ll_service_p);
+
+void
 netboot_addresses(struct in_addr * ip, struct in_addr * server_ip);
 
 /* 
@@ -210,6 +216,9 @@ ServiceGetActiveIPAddress(ServiceRef service_p);
 struct in_addr
 ServiceGetActiveSubnetMask(ServiceRef service_p);
 
+CFStringRef
+ServiceGetSSID(ServiceRef service_p);
+
 void
 service_set_requested_ip_addr(ServiceRef service_p, struct in_addr ip);
 
@@ -233,9 +242,6 @@ service_is_address_set(ServiceRef service_p);
 
 ServiceRef
 service_parent_service(ServiceRef service_p);
-
-boolean_t
-service_should_do_router_arp(ServiceRef service_p);
 
 int
 service_enable_autoaddr(ServiceRef service_p);

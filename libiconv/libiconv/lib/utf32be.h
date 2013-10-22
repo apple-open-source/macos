@@ -25,7 +25,7 @@
 /* Specification: Unicode 3.1 Standard Annex #19 */
 
 static int
-utf32be_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+utf32be_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   if (n >= 4) {
     ucs4_t wc = (s[0] << 24) + (s[1] << 16) + (s[2] << 8) + s[3];
@@ -39,7 +39,7 @@ utf32be_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-utf32be_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+utf32be_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (wc < 0x110000 && !(wc >= 0xd800 && wc < 0xe000)) {
     if (n >= 4) {

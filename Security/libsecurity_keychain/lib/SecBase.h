@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2000-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,19 +17,26 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*!
 	@header SecBase
-	SecBase contains common declarations for the Security functions. 
+	SecBase contains common declarations for the Security functions.
 */
 
 #ifndef _SECURITY_SECBASE_H_
 #define _SECURITY_SECBASE_H_
 
 #include <CoreFoundation/CFBase.h>
+#include <AvailabilityMacros.h>
+
+#if defined(__clang__)
+#define SEC_DEPRECATED_ATTRIBUTE DEPRECATED_ATTRIBUTE
+#else
+#define SEC_DEPRECATED_ATTRIBUTE
+#endif
 
 #if defined(__cplusplus)
 extern "C" {
@@ -64,12 +71,12 @@ typedef OSType SecKeychainAttrType;
 
 /*!
     @struct SecKeychainAttribute
-    @abstract Contains keychain attributes. 
+    @abstract Contains keychain attributes.
     @field tag A 4-byte attribute tag.
     @field length The length of the buffer pointed to by data.
     @field data A pointer to the attribute data.
 */
-struct SecKeychainAttribute 
+struct SecKeychainAttribute
 {
     SecKeychainAttrType	tag;
     UInt32 length;
@@ -89,7 +96,7 @@ typedef SecKeychainAttribute *SecKeychainAttributePtr;
     @field count An unsigned 32-bit integer that represents the number of keychain attributes in the array.
     @field attr A pointer to the first keychain attribute in the array.
 */
-struct SecKeychainAttributeList 
+struct SecKeychainAttributeList
 {
     UInt32 count;
     SecKeychainAttribute *attr;
@@ -153,11 +160,11 @@ typedef struct OpaqueSecPasswordRef *SecPasswordRef;
 
 /*!
     @typedef SecKeychainAttributeInfo
-    @abstract Represents an attribute. 
-    @field count The number of tag-format pairs in the respective arrays. 
+    @abstract Represents an attribute.
+    @field count The number of tag-format pairs in the respective arrays.
     @field tag A pointer to the first attribute tag in the array.
     @field format A pointer to the first CSSM_DB_ATTRIBUTE_FORMAT in the array.
-    @discussion Each tag and format item form a pair.  
+    @discussion Each tag and format item form a pair.
 */
 struct SecKeychainAttributeInfo
 {
@@ -177,12 +184,19 @@ typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
 CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved);
 
 /*!
-@enum Security Error Codes 
+@enum Security Error Codes
 @abstract Result codes returned from Security framework functions.
 @constant errSecSuccess No error.
 @constant errSecUnimplemented Function or operation not implemented.
+@constant errSecDskFull Disk Full error.
+@constant errSecIO I/O error.
 @constant errSecParam One or more parameters passed to a function were not valid.
+@constant errSecWrPerm	Write permissions error.
 @constant errSecAllocate Failed to allocate memory.
+@constant errSecUserCanceled User canceled the operation.
+@constant errSecBadReq Bad parameter or invalid state for operation.
+@constant errSecInternalComponent
+@constant errSecCoreFoundationUnknown
 @constant errSecNotAvailable No keychain is available.
 @constant errSecReadOnly Read only error.
 @constant errSecAuthFailed Authorization/Authentication failed.
@@ -224,7 +238,7 @@ CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved);
 @constant errSecPassphraseRequired Passphrase is required for import/export.
 @constant errSecInvalidPasswordRef The password reference was invalid.
 @constant errSecInvalidTrustSettings The Trust Settings Record was corrupted.
-@constant errSecNoTrustSettings No Trust Settings were found. 
+@constant errSecNoTrustSettings No Trust Settings were found.
 @constant errSecPkcs12VerifyFailure MAC verification failed during PKCS12 Import.
 @constant errSecDecode Unable to decode the provided data.
 
@@ -242,8 +256,17 @@ enum
 {
     errSecSuccess                = 0,       /* No error. */
     errSecUnimplemented          = -4,      /* Function or operation not implemented. */
+    errSecDskFull                = -34,
+    errSecIO                     = -36,     /*I/O error (bummers)*/
+
     errSecParam                  = -50,     /* One or more parameters passed to a function were not valid. */
+    errSecWrPerm                 = -61,     /* write permissions error*/
     errSecAllocate               = -108,    /* Failed to allocate memory. */
+    errSecUserCanceled           = -128,    /* User canceled the operation. */
+    errSecBadReq                 = -909,    /* Bad parameter or invalid state for operation. */
+
+    errSecInternalComponent      = -2070,
+    errSecCoreFoundationUnknown  = -4960,
 
     errSecNotAvailable           = -25291,	/* No keychain is available. You may need to restart your computer. */
     errSecReadOnly               = -25292,	/* This keychain cannot be modified. */
@@ -274,8 +297,8 @@ enum
     errSecDataNotModifiable      = -25317,	/* The contents of this item cannot be modified. */
     errSecCreateChainFailed      = -25318,	/* One or more certificates required to validate this certificate cannot be found. */
     errSecInvalidPrefsDomain     = -25319,	/* The specified preferences domain is not valid. */
-    errSecInDarkWake		 = -25320,	/* In dark wake, no UI possible */
-	
+    errSecInDarkWake             = -25320,	/* In dark wake, no UI possible */
+
 	errSecACLNotSimple           = -25240,	/* The specified access control list is not in standard (simple) form. */
 	errSecPolicyNotFound         = -25241,	/* The specified policy cannot be found. */
 	errSecInvalidTrustSetting    = -25242,	/* The specified trust setting is invalid. */
@@ -292,7 +315,7 @@ enum
 	errSecNoTrustSettings        = -25263,	/* No Trust Settings were found. */
 	errSecPkcs12VerifyFailure    = -25264,	/* MAC verification failed during PKCS12 import (wrong password?) */
 	errSecNotSigner              = -26267,	/* A certificate was not signed by its proposed parent. */
-	
+
 	errSecDecode                 = -26275,	/* Unable to decode the provided data. */
 
 	errSecServiceNotAvailable			= -67585,	/* The required service is not available. */
@@ -311,8 +334,8 @@ enum
 	errSecFileTooBig						= -67597,	/* The file is too big. */
 	errSecInvalidDatabaseBlob			= -67598,	/* The specified database has an invalid blob. */
 	errSecInvalidKeyBlob					= -67599,	/* The specified database has an invalid key blob. */
-	errSecIncompatibleDatabaseBlob		= -67600,	/* The specified database has an incompatible blob. */ 
-	errSecIncompatibleKeyBlob			= -67601,	/* The specified database has an incompatible key blob. */   
+	errSecIncompatibleDatabaseBlob		= -67600,	/* The specified database has an incompatible blob. */
+	errSecIncompatibleKeyBlob			= -67601,	/* The specified database has an incompatible key blob. */
 	errSecHostNameMismatch				= -67602,	/* A host name mismatch has occurred. */
 	errSecUnknownCriticalExtensionFlag	= -67603,	/* There is an unknown critical extension flag. */
 	errSecNoBasicConstraints			= -67604,	/* No basic constraints were found. */
@@ -381,7 +404,7 @@ enum
 	errSecNotInitialized						= -67667,	/* A function was called without initializing CSSM. */
 	errSecInvalidHandleUsage				= -67668,	/* The CSSM handle does not match with the service type. */
 	errSecPVCReferentNotFound				= -67669,	/* A reference to the calling module was not found in the list of authorized callers. */
-	errSecFunctionIntegrityFail				= -67670,	/* A function address was not within the verified module. */	
+	errSecFunctionIntegrityFail				= -67670,	/* A function address was not within the verified module. */
 	errSecInternalError						= -67671,	/* An internal error has occurred. */
 	errSecMemoryError							= -67672,	/* A memory error has occurred. */
 	errSecInvalidData							= -67673,	/* Invalid data was encountered. */

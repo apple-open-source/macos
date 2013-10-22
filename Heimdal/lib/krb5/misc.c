@@ -126,3 +126,55 @@ _krb5_einval(krb5_context context, const char *func, unsigned long argn)
 #endif
     return EINVAL;
 }
+
+static const char hexchar[16] = "0123456789ABCDEF";
+
+char * KRB5_LIB_FUNCTION
+krb5_uuid_to_string(krb5_uuid uuid)
+{
+    char *string, *p;
+    size_t n;
+
+    string = malloc((sizeof(krb5_uuid) * 2) + 5);
+    if (string == NULL)
+	return NULL;
+
+    for (n = 0, p = string; n < sizeof(krb5_uuid); n++) {
+	if (n == 4 || n == 6 || n == 8 || n == 10)
+	    *p++ = '-';
+	*p++ = hexchar[uuid[n] >> 4];
+	*p++ = hexchar[uuid[n] & 0xf];
+    }
+    *p = '\0';
+    return string;
+}
+
+static int
+pos(char c)
+{
+    const char *p;
+    c = toupper((unsigned char)c);
+    for (p = hexchar; *p; p++)
+	if (*p == c)
+	    return (int)(p - hexchar);
+    return -1;
+}
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_string_to_uuid(const char *str, krb5_uuid uuid)
+{
+    size_t n;
+
+    if (strlen(str) != 36)
+	return EINVAL;
+
+    for (n = 0; n < sizeof(krb5_uuid); n++) {
+	if (n == 4 || n == 6 || n == 8 || n == 10) {
+	    if (*str++ != '-')
+		return EINVAL;
+	}
+	uuid[n] = pos(str[0]) << 4 | pos(str[1]);
+	str += 2;
+    }
+    return 0;
+}

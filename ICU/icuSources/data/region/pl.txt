@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/pl.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/pl.xml
 // *
 // ***************************************************************************
 /**
@@ -29,7 +29,7 @@ pl{
         034{"Azja Południowa"}
         035{"Azja Południowo-Wschodnia"}
         039{"Europa Południowa"}
-        053{"Australia i Nowa Zelandia"}
+        053{"Australazja"}
         054{"Melanezja"}
         057{"Mikronezja"}
         061{"Polinezja"}
@@ -68,10 +68,11 @@ pl{
         BH{"Bahrajn"}
         BI{"Burundi"}
         BJ{"Benin"}
-        BL{"Saint Barthélemy"}
+        BL{"Saint-Barthélemy"}
         BM{"Bermudy"}
         BN{"Brunei Darussalam"}
         BO{"Boliwia"}
+        BQ{"Niderlandy Karaibskie"}
         BR{"Brazylia"}
         BS{"Bahamy"}
         BT{"Bhutan"}
@@ -93,7 +94,6 @@ pl{
         CO{"Kolumbia"}
         CP{"Clipperton"}
         CR{"Kostaryka"}
-        CS{"Serbia i Czarnogóra"}
         CU{"Kuba"}
         CV{"Republika Zielonego Przylądka"}
         CW{"Curaçao"}
@@ -256,6 +256,7 @@ pl{
         SN{"Senegal"}
         SO{"Somalia"}
         SR{"Surinam"}
+        SS{"Sudan Południowy"}
         ST{"Wyspy Świętego Tomasza i Książęca"}
         SV{"Salwador"}
         SX{"Sint Maarten"}
@@ -298,7 +299,7 @@ pl{
         ZA{"Republika Południowej Afryki"}
         ZM{"Zambia"}
         ZW{"Zimbabwe"}
-        ZZ{"Nieznany lub nieprawidłowy region"}
+        ZZ{"Nieznany region"}
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
 }

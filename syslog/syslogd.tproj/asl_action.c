@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -36,359 +38,137 @@
 #include <notify.h>
 #include <pthread.h>
 #include <sys/acl.h>
+#include <dirent.h>
+#include <time.h>
 #include <membership.h>
+#include <configuration_profile.h>
 #include "daemon.h"
-#include <dispatch/private.h>
+#include <xpc/private.h>
 
 #define _PATH_WALL "/usr/bin/wall"
-#define _PATH_ASL_CONF "/etc/asl.conf"
+#define NOTIFY_PATH_SERVICE "com.apple.system.notify.service.path:0x87:"
+
 #define MY_ID "asl_action"
+
+/* XXX add to asl.h */
+#define ASL_KEY_MODULE "ASLModule"
 
 #define MAX_FAILURES 5
 
-#define ACTION_NONE      0
-#define ACTION_IGNORE    1
-#define ACTION_NOTIFY    2
-#define ACTION_BROADCAST 3
-#define ACTION_ACCESS    4
-#define ACTION_ASL_STORE 5 /* Save in main ASL Database */
-#define ACTION_ASL_FILE  6 /* Save in an ASL format data file */
-#define ACTION_ASL_DIR   7 /* Save in an ASL directory */
-#define ACTION_FILE      8
-#define ACTION_FORWARD   9
+#define ACTION_STATUS_ERROR  -1
+#define ACTION_STATUS_OK      0
+
+#define IDLE_CLOSE 300
 
 #define forever for(;;)
 
-#define ACT_FLAG_HAS_LOGGED   0x80000000
-#define ACT_FLAG_CLEAR_LOGGED 0x7fffffff
-
-#define ACT_STORE_FLAG_STAY_OPEN 0x00000001
-#define ACT_STORE_FLAG_CONTINUE  0x00000002
-
-#define ACT_FILE_FLAG_DUP_SUPRESS 0x00000001
-#define ACT_FILE_FLAG_ROTATE      0x00000002
-
 static dispatch_queue_t asl_action_queue;
-static time_t last_file_day;
+static dispatch_source_t checkpoint_timer;
+static time_t sweep_time = 0;
 
-typedef struct action_rule_s
-{
-	asl_msg_t *query;
-	int action;
-	char *options;
-	void *data;
-	struct action_rule_s *next;
-} action_rule_t;
+#if TARGET_OS_EMBEDDED
+static dispatch_queue_t crashlog_queue;
+static dispatch_source_t crashlog_sentinel_src;
+static int crashlog_sentinel_fd = -1;
+static time_t crashmover_state = 0;
+static int crashmover_token = -1;
+#endif
 
-struct store_data
+typedef struct store_data
 {
 	asl_file_t *store;
 	FILE *storedata;
-	char *dir;
-	char *path;
-	mode_t mode;
-	uid_t uid;
-	gid_t gid;
 	uint64_t next_id;
-	uint32_t fails;
-	uint32_t flags;
-	uint32_t refcount;
+	time_t last_time;
 	uint32_t p_year;
 	uint32_t p_month;
 	uint32_t p_day;
-};
+	dispatch_source_t monitor;
+} asl_action_store_data_t;
 
-struct file_data
+typedef struct file_data
 {
 	int fd;
-	char *path;
-	char *fmt;
-	const char *tfmt;
-	mode_t mode;
-	uid_t *uid;
-	uint32_t nuid;
-	gid_t *gid;
-	uint32_t ngid;
-	size_t max_size;
-	uint32_t fails;
-	uint32_t flags;
-	uint32_t refcount;
-	time_t stamp;
 	uint32_t last_hash;
 	uint32_t last_count;
 	time_t last_time;
-	dispatch_source_t dup_timer;
 	char *last_msg;
-};
+	dispatch_source_t dup_timer;
+	dispatch_source_t monitor;
+} asl_action_file_data_t;
 
-static action_rule_t *asl_action_rule = NULL;
-static action_rule_t *asl_datastore_rule = NULL;
+typedef struct set_param_data
+{
+	int token;
+} asl_action_set_param_data_t;
 
-static int _parse_config_file(const char *);
+static int action_asl_store_count;
+static bool store_has_logged;
+
 extern void db_save_message(aslmsg m);
 
 /* forward */
-int _act_file_open(struct file_data *fdata);
-static void _act_file_init(action_rule_t *r);
-static void _act_store_init(action_rule_t *r);
+static int _act_file_checkpoint_all(uint32_t force);
+static void _asl_action_post_process_rule(asl_out_module_t *m, asl_out_rule_t *r);
+static void _asl_action_close_idle_files(time_t idle_time);
 
-static char *
-_next_word(char **s)
+static void
+_act_out_set_param(asl_out_module_t *m, char *x, bool eval)
 {
-	char *a, *p, *e, *out;
-	int quote, len;
+	char *s = x;
+	char **l;
+	uint32_t count, intval;
 
-	if (s == NULL) return NULL;
-	if (*s == NULL) return NULL;
+	l = explode(s, " \t");
+	if (l == NULL) return;
 
-	quote = 0;
-
-	p = *s;
-	a = p;
-	e = p;
-
-	while (*p != '\0')
+	for (count = 0; l[count] != NULL; count++);
+	if (count == 0)
 	{
-		if (*p == '\\')
-		{
-			p++;
-			e = p;
-
-			if (*p == '\0')
-			{
-				p--;
-				break;
-			}
-
-			p++;
-			e = p;
-			continue;
-		}
-
-		if (*p == '"')
-		{
-			if (quote == 0) quote = 1;
-			else quote = 0;
-		}
-
-		if (((*p == ' ') || (*p == '\t')) && (quote == 0))
-		{
-			e = p + 1;
-			break;
-		}
-
-		p++;
-		e = p;
+		free_string_list(l);
+		return;
 	}
 
-	*s = e;
-
-	len = p - a;
-	if (len == 0) return NULL;
-
-	out = malloc(len + 1);
-	if (out == NULL) return NULL;
-
-	memcpy(out, a, len);
-	out[len] = '\0';
-	return out;
-}
-
-/*
- * Config File format:
- * Set parameter rule - initializes a parameter.
- *		= param args...
- * Query rule - if a message matches the query, then the action is invoked.
- * The rule may be identified by either "?" or "Q".
- *		? [k v] [k v] ... action args...
- *		Q [k v] [k v] ... action args...
- * Universal match rule - the action is invoked for all messages
- *		* action args...
- */
-
-/* Skip over query */
-static char *
-_find_action(char *s)
-{
-	char *p;
-
-	p = s;
-	if (p == NULL) return NULL;
-	if ((*p != 'Q') && (*p != '?') && (*p != '*')) return NULL;
-
-	p++;
-
-	forever
+	if (!strcasecmp(l[0], "enable"))
 	{
-		/* Find next [ */
-		while ((*p == ' ') || (*p == '\t')) p++;
+		/* = enable [1|0] */
+		if (count < 2) intval = 1;
+		else intval = atoi(l[1]);
 
-		if (*p == '\0') return NULL;
-		if (*p != '[') return p;
+		if (!eval) intval = (intval == 0) ? 1 : 0;
 
-		/* skip to closing ] */
-		while (*p != ']')
-		{
-			p++;
-			if (*p == '\\')
-			{
-				p++;
-				if (*p == ']') p++;
-			}
-		}
+		if (intval == 0) m->flags &= ~MODULE_FLAG_ENABLED;
+		else m->flags|= MODULE_FLAG_ENABLED;
+		return;
+	}
+	else if (!strcasecmp(l[0], "disable"))
+	{
+		/* = disable [1|0] */
+		if (count < 2) intval = 1;
+		else intval = atoi(l[1]);
 
-		if (*p == ']') p++;
+		if (!eval) intval = (intval == 0) ? 1 : 0;
+
+		if (intval != 0) m->flags &= ~MODULE_FLAG_ENABLED;
+		else m->flags|= MODULE_FLAG_ENABLED;
+		return;
 	}
 
-	return NULL;
-}
+	free_string_list(l);
 
-static int
-_parse_query_action(char *s)
-{
-	char *act, *p;
-	action_rule_t *out, *rule;
-
-	act = _find_action(s);
-	if (act == NULL) return -1;
-
-	out = (action_rule_t *)calloc(1, sizeof(action_rule_t));
-	if (out == NULL) return -1;
-
-	p = strchr(act, ' ');
-	if (p != NULL) *p = '\0';
-
-	if (!strcasecmp(act, "ignore"))               out->action = ACTION_IGNORE;
-	else if (!strcasecmp(act, "notify"))          out->action = ACTION_NOTIFY;
-	else if (!strcasecmp(act, "broadcast"))       out->action = ACTION_BROADCAST;
-	else if (!strcasecmp(act, "access"))          out->action = ACTION_ACCESS;
-	else if (!strcasecmp(act, "store"))           out->action = ACTION_ASL_STORE;
-	else if (!strcasecmp(act, "save"))            out->action = ACTION_ASL_STORE;
-	else if (!strcasecmp(act, "store_file"))      out->action = ACTION_ASL_FILE;
-	else if (!strcasecmp(act, "store_directory")) out->action = ACTION_ASL_DIR;
-	else if (!strcasecmp(act, "store_dir"))       out->action = ACTION_ASL_DIR;
-	else if (!strcasecmp(act, "file"))            out->action = ACTION_FILE;
-	else if (!strcasecmp(act, "forward"))         out->action = ACTION_FORWARD;
-
-	if (p != NULL)
+	if (!strcmp(m->name, ASL_MODULE_NAME))
 	{
-		out->options = strdup(p+1);
-
-		if (out->options == NULL)
-		{
-			free(out);
-			return -1;
-		}
+		/* Other parameters may be set by com.apple.asl module */
+		control_set_param(x, eval);
 	}
-
-	p = act - 1;
-
-	*p = '\0';
-
-	if (s[0] == '*') out->query = asl_msg_new(ASL_TYPE_QUERY);
-	else
-	{
-		s[0] = 'Q';
-		out->query = asl_msg_from_string(s);
-	}
-
-	if (out->query == NULL)
-	{
-		asldebug("out->query is NULL (ERROR)\n");
-		free(out->options);
-		free(out);
-		return -1;
-	}
-
-	/* store /some/path means save to a file */
-	if ((out->action == ACTION_ASL_STORE) && (out->options != NULL)) out->action = ACTION_ASL_FILE;
-
-	if (out->action == ACTION_FILE) _act_file_init(out);
-	else if ((out->action == ACTION_ASL_FILE) || (out->action == ACTION_ASL_DIR)) _act_store_init(out);
-
-	if (out->action == ACTION_ASL_STORE)
-	{
-		asldebug("action = ACTION_ASL_STORE\n");
-		if (asl_datastore_rule == NULL) asl_datastore_rule = out;
-		else
-		{
-			for (rule = asl_datastore_rule; rule->next != NULL; rule = rule->next);
-			rule->next = out;
-		}
-	}
-	else
-	{
-		asldebug("action = %d options = %s\n", out->action, out->options);
-		if (asl_action_rule == NULL) asl_action_rule = out;
-		else
-		{
-			for (rule = asl_action_rule; rule->next != NULL; rule = rule->next);
-			rule->next = out;
-		}
-	}
-
-	return 0;
-}
-
-static int
-_parse_line(char *s)
-{
-	char *str;
-	int status;
-
-	if (s == NULL) return -1;
-	while ((*s == ' ') || (*s == '\t')) s++;
-
-	/* First non-whitespace char is the rule type */
-	switch (*s)
-	{
-		case '\0':
-		case '#':
-		{
-			/* Blank Line or Comment */
-			return 0;
-		}
-		case 'Q':
-		case '?':
-		case '*':
-		{
-			/* Query-match action */
-			status = _parse_query_action(s);
-			break;
-		}
-		case '=':
-		{
-			/* Set parameter */
-			status = control_set_param(s);
-			break;
-		}
-		default:
-		{
-			status = -1;
-			break;
-		}
-	}
-
-	if (status != 0)
-	{
-		str = NULL;
-		asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [%s Ignoring unrecognized entry in %s: %s] [%s 0] [%s 0] [Facility syslog]",
-				 ASL_KEY_SENDER,
-				 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-				 ASL_KEY_PID, getpid(),
-				 ASL_KEY_MSG, _PATH_ASL_CONF, s,
-				 ASL_KEY_UID, ASL_KEY_GID);
-
-		internal_log_message(str);
-		free(str);
-	}
-
-	return status;
 }
 
 static void
-_act_notify(action_rule_t *r)
+_act_notify(asl_out_module_t *m, asl_out_rule_t *r)
 {
+	if (m == NULL) return;
+	if ((m->flags & MODULE_FLAG_ENABLED) == 0) return;
+
 	if (r == NULL) return;
 	if (r->options == NULL) return;
 
@@ -396,21 +176,28 @@ _act_notify(action_rule_t *r)
 }
 
 static void
-_act_broadcast(action_rule_t *r, aslmsg msg)
+_act_broadcast(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
 {
-#ifndef CONFIG_IPHONE
+#if !TARGET_OS_EMBEDDED
 	FILE *pw;
 	const char *val;
 
+	if (m == NULL) return;
+	if ((m->flags & MODULE_FLAG_ENABLED) == 0) return;
+
+	if (m->name == NULL) return;
 	if (r == NULL) return;
 	if (msg == NULL) return;
+
+	/* only base module (asl.conf) may broadcast */
+	if (strcmp(m->name, ASL_MODULE_NAME)) return;
 
 	val = r->options;
 	if (val == NULL) val = asl_get(msg, ASL_KEY_MSG);
 	if (val == NULL) return;
 
 	pw = popen(_PATH_WALL, "w");
-	if (pw < 0)
+	if (pw == NULL)
 	{
 		asldebug("%s: error sending wall message: %s\n", MY_ID, strerror(errno));
 		return;
@@ -422,10 +209,18 @@ _act_broadcast(action_rule_t *r, aslmsg msg)
 }
 
 static void
-_act_access_control(action_rule_t *r, aslmsg msg)
+_act_access_control(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
 {
 	int32_t ruid, rgid;
 	char *p;
+
+	if (m == NULL) return;
+	if (m->name == NULL) return;
+	if (r == NULL) return;
+	if (msg == NULL) return;
+
+	/* only base module (asl.conf) may set access controls */
+	if (strcmp(m->name, ASL_MODULE_NAME)) return;
 
 	ruid = atoi(r->options);
 	rgid = -1;
@@ -447,26 +242,218 @@ _act_access_control(action_rule_t *r, aslmsg msg)
 	}
 }
 
+#if TARGET_OS_EMBEDDED
+static void
+_crashlog_sentinel_init(void)
+{
+	char path[MAXPATHLEN];
+
+	if (crashlog_sentinel_src != NULL) return;
+
+	snprintf(path, sizeof(path), "%s/com.apple.asl.%ld", _PATH_CRASHREPORTER, time(NULL));
+
+	crashlog_sentinel_fd = open(path, O_WRONLY | O_CREAT);
+	if (crashlog_sentinel_fd < 0)
+	{
+		char *str = NULL;
+		asprintf(&str, "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message Sentinel %s create/open failed (%s)]", global.pid, path, strerror(errno));
+		internal_log_message(str);
+		free(str);
+		return;
+	}
+
+	close(crashlog_sentinel_fd);
+
+	crashlog_sentinel_fd = open(path, O_EVTONLY, 0);
+	if (crashlog_sentinel_fd < 0)
+	{
+		char *str = NULL;
+		asprintf(&str, "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message Sentinel %s event/open failed (%s)]", global.pid, path, strerror(errno));
+		internal_log_message(str);
+		free(str);
+		return;
+	}
+
+	crashlog_sentinel_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE, (uintptr_t)crashlog_sentinel_fd, DISPATCH_VNODE_DELETE, asl_action_queue);
+	if (crashlog_sentinel_src == NULL)
+	{
+		char *str = NULL;
+		asprintf(&str, "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message Sentinel %s dispatch_source_create failed]", global.pid, path);
+		internal_log_message(str);
+		free(str);
+		close(crashlog_sentinel_fd);
+		crashlog_sentinel_fd = -1;
+		return;
+	}
+
+	dispatch_source_set_event_handler(crashlog_sentinel_src, ^{
+		if (crashmover_state != 0)
+		{
+			asldebug("CrashMover inactive / sentinel deleted: resuming crashlog queue\n");
+			dispatch_resume(crashlog_queue);
+			crashmover_state = 0;
+		}
+
+		if (crashlog_sentinel_src != NULL)
+		{
+			dispatch_source_cancel(crashlog_sentinel_src);
+			dispatch_release(crashlog_sentinel_src);
+		}
+
+		crashlog_sentinel_src = NULL;
+
+		close(crashlog_sentinel_fd);
+		crashlog_sentinel_fd = -1;
+		_crashlog_sentinel_init();
+	});
+
+	dispatch_resume(crashlog_sentinel_src);
+	asldebug("Created CrashLog Sentinel: %s\n", path);
+}
+
+static void
+_crashlog_queue_check(void)
+{
+	/*
+	 * Check whether the crashlog queue has been suspended for too long.
+	 * We allow the crashlog quque to be suspended for 60 seconds.
+	 * After that, we start logging again.  This prevents syslogd from
+	 * filling memory due to a suspended queue.  CrashMover really shoud
+	 * take no more than a second or two to finish.
+	 */
+	if (crashmover_state == 0) return;
+	if ((time(NULL) - crashmover_state) <= 60) return;
+
+	asldebug("CrashMover timeout: resuming crashlog queue\n");
+	dispatch_resume(crashlog_queue);
+	crashmover_state = 0;
+
+	/*
+	 * crashlog_sentinel_src should never be NULL, but if
+	 * _crashlog_sentinel_init failed for some strange reason,
+	 * it will be NULL here.
+	 */
+	if (crashlog_sentinel_src != NULL)
+	{
+		dispatch_source_cancel(crashlog_sentinel_src);
+		dispatch_release(crashlog_sentinel_src);
+	}
+
+	crashlog_sentinel_src = NULL;
+
+	close(crashlog_sentinel_fd);
+	crashlog_sentinel_fd = -1;
+	_crashlog_sentinel_init();
+}
+#endif
+
+static void
+_act_dst_close(asl_out_rule_t *r)
+{
+	if (r == NULL) return;
+	if (r->dst == NULL) return;
+	if (r->dst->private == NULL) return;
+
+	if ((r->action == ACTION_ASL_DIR) || (r->action == ACTION_ASL_FILE))
+	{
+		asl_action_store_data_t *sdata = (asl_action_store_data_t *)r->dst->private;
+		if (sdata->store != NULL) asl_file_close(sdata->store);
+		sdata->store = NULL;
+
+		if (sdata->storedata != NULL) fclose(sdata->storedata);
+		sdata->storedata = NULL;
+
+		if (sdata->monitor != NULL)
+		{
+			dispatch_source_cancel(sdata->monitor);
+			dispatch_release(sdata->monitor);
+			sdata->monitor = NULL;
+		}
+	}
+	else if (r->action == ACTION_FILE)
+	{
+		asl_action_file_data_t *fdata = (asl_action_file_data_t *)r->dst->private;
+		if (fdata->fd >= 0) close(fdata->fd);
+		fdata->fd = -1;
+
+		if (fdata->monitor != NULL)
+		{
+			dispatch_source_cancel(fdata->monitor);
+			dispatch_release(fdata->monitor);
+			fdata->monitor = NULL;
+		}
+	}
+}
+
 static uint32_t
-_act_store_file_setup(struct store_data *sd)
+_act_store_file_setup(asl_out_module_t *m, asl_out_rule_t *r)
 {
 	uint32_t status;
+	asl_action_store_data_t *sdata;
+	char dstpath[MAXPATHLEN];
 
-	if (sd == NULL) return ASL_STATUS_INVALID_STORE;
-	if (sd->store == NULL) return ASL_STATUS_INVALID_STORE;
-	if (sd->store->store == NULL) return ASL_STATUS_INVALID_STORE;
+	if (r == NULL) return ASL_STATUS_INVALID_STORE;
+	if (r->dst == NULL) return ASL_STATUS_INVALID_STORE;
+	if (r->dst->private == NULL) return ASL_STATUS_INVALID_STORE;
 
-	status = asl_file_read_set_position(sd->store, ASL_FILE_POSITION_LAST);
-	if (status != ASL_STATUS_OK) return status;
+	sdata = (asl_action_store_data_t *)r->dst->private;
+	if (sdata->store == NULL)
+	{
+		/* create path if necessary */
+		asl_out_mkpath(r);
 
-	sd->next_id = sd->store->cursor_xid + 1;
-	if (fseek(sd->store->store, 0, SEEK_END) != 0) return ASL_STATUS_ACCESS_DENIED;
+		int fd = asl_out_dst_file_create_open(r->dst);
+		if (fd < 0)
+		{
+			asldebug("_act_store_file_setup: asl_out_dst_file_create_open failed %d %s\n", errno, strerror(errno));
+			return ASL_STATUS_WRITE_FAILED;
+		}
+		close(fd);
+
+		asl_make_dst_filename(r->dst, dstpath, sizeof(dstpath));
+		status = asl_file_open_write(dstpath, 0, -1, -1, &(sdata->store));
+		if (status != ASL_STATUS_OK) return status;
+
+		sdata->monitor = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE, fileno(sdata->store->store), DISPATCH_VNODE_DELETE, asl_action_queue);
+		if (sdata->monitor != NULL)
+		{
+			dispatch_source_set_event_handler(sdata->monitor, ^{ _act_dst_close(r); });
+			dispatch_resume(sdata->monitor);
+		}
+
+		status = asl_file_read_set_position(sdata->store, ASL_FILE_POSITION_LAST);
+		if (status != ASL_STATUS_OK)
+		{
+			asldebug("_act_store_file_setup: asl_file_read_set_position failed %d %s\n", status, asl_core_error(status));
+			return status;
+		}
+
+		sdata->next_id = sdata->store->cursor_xid + 1;
+		if (fseek(sdata->store->store, 0, SEEK_END) != 0)
+		{
+			asldebug("_act_store_file_setup: fseek failed %d %s\n", errno, strerror(errno));
+			return ASL_STATUS_WRITE_FAILED;
+		}
+	}
+	else
+	{
+		sdata->next_id++;
+	}
 
 	return ASL_STATUS_OK;
 }
 
+/*
+ * _act_store_dir_setup
+ *
+ * Creates store directory if it does not exist
+ * Creates StoreData file if it does not exist
+ * Reads ASL Message ID from StoreData file
+ * Writes ASL Message ID + 1 to StoreData file
+ * Opens current day file (e.g. "/foo/bar/2012.04.06.asl")
+ */
 static uint32_t
-_act_store_dir_setup(struct store_data *sd, time_t tick)
+_act_store_dir_setup(asl_out_module_t *m, asl_out_rule_t *r, time_t tick)
 {
 	struct tm ctm;
 	char *path;
@@ -474,17 +461,22 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 	uint64_t xid;
 	int status;
 	mode_t mask;
+	asl_action_store_data_t *sdata;
 
-	if (sd == NULL) return ASL_STATUS_INVALID_STORE;
-	if (sd->dir == NULL) return ASL_STATUS_INVALID_STORE;
+	if (r == NULL) return ASL_STATUS_INVALID_STORE;
+	if (r->dst == NULL) return ASL_STATUS_INVALID_STORE;
+	if (r->dst->private == NULL) return ASL_STATUS_INVALID_STORE;
+	if (r->dst->path == NULL) return ASL_STATUS_INVALID_STORE;
+
+	sdata = (asl_action_store_data_t *)r->dst->private;
 
 	/* get / set message id from StoreData file */
 	xid = 0;
 
-	if (sd->storedata == NULL)
+	if (sdata->storedata == NULL)
 	{
 		memset(&sb, 0, sizeof(struct stat));
-		status = stat(sd->dir, &sb);
+		status = stat(r->dst->path, &sb);
 		if (status == 0)
 		{
 			/* must be a directory */
@@ -493,12 +485,15 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 		else if (errno == ENOENT)
 		{
 			/* doesn't exist - create it */
-			mask = umask(0);
-			status = mkdir(sd->dir, sd->mode);
+			mask = umask(S_IWGRP | S_IWOTH);
+			status = mkpath_np(r->dst->path, 0755);
+			if (status == 0) status = chmod(r->dst->path, r->dst->mode);
 			umask(mask);
 
 			if (status != 0) return ASL_STATUS_WRITE_FAILED;
-			if (chown(sd->dir, sd->uid, sd->gid) != 0) return ASL_STATUS_WRITE_FAILED;
+#if !TARGET_IPHONE_SIMULATOR
+			if (chown(r->dst->path, r->dst->uid[0], r->dst->gid[0]) != 0) return ASL_STATUS_WRITE_FAILED;
+#endif
 		}
 		else
 		{
@@ -507,7 +502,7 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 		}
 
 		path = NULL;
-		asprintf(&path, "%s/%s", sd->dir, FILE_ASL_STORE_DATA);
+		asprintf(&path, "%s/%s", r->dst->path, FILE_ASL_STORE_DATA);
 		if (path == NULL) return ASL_STATUS_NO_MEMORY;
 
 		memset(&sb, 0, sizeof(struct stat));
@@ -515,36 +510,38 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 		if (status == 0)
 		{
 			/* StoreData exists: open and read last xid */
-			sd->storedata = fopen(path, "r+");
-			if (sd->storedata == NULL)
+			sdata->storedata = fopen(path, "r+");
+			if (sdata->storedata == NULL)
 			{
 				free(path);
 				return ASL_STATUS_FAILED;
 			}
 
-			if (fread(&xid, sizeof(uint64_t), 1, sd->storedata) != 1)
+			if (fread(&xid, sizeof(uint64_t), 1, sdata->storedata) != 1)
 			{
 				free(path);
-				fclose(sd->storedata);
-				sd->storedata = NULL;
+				fclose(sdata->storedata);
+				sdata->storedata = NULL;
 				return ASL_STATUS_READ_FAILED;
 			}
 		}
 		else if (errno == ENOENT)
 		{
 			/* StoreData does not exist: create it */
-			sd->storedata = fopen(path, "w");
-			if (sd->storedata == NULL)
+			sdata->storedata = fopen(path, "w");
+			if (sdata->storedata == NULL)
 			{
 				free(path);
 				return ASL_STATUS_FAILED;
 			}
 
-			if (chown(path, sd->uid, sd->gid) != 0)
+#if !TARGET_IPHONE_SIMULATOR
+			if (chown(path, r->dst->uid[0], r->dst->gid[0]) != 0)
 			{
 				free(path);
 				return ASL_STATUS_WRITE_FAILED;
 			}
+#endif
 		}
 		else
 		{
@@ -553,147 +550,250 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 			return ASL_STATUS_FAILED;
 		}
 
+		sdata->monitor = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE, fileno(sdata->storedata), DISPATCH_VNODE_DELETE, asl_action_queue);
+		if (sdata->monitor != NULL)
+		{
+			dispatch_source_set_event_handler(sdata->monitor, ^{ _act_dst_close(r); });
+			dispatch_resume(sdata->monitor);
+		}
+
 		free(path);
 	}
 	else
 	{
-		rewind(sd->storedata);
-		if (fread(&xid, sizeof(uint64_t), 1, sd->storedata) != 1)
+		rewind(sdata->storedata);
+		if (fread(&xid, sizeof(uint64_t), 1, sdata->storedata) != 1)
 		{
-			fclose(sd->storedata);
-			sd->storedata = NULL;
+			fclose(sdata->storedata);
+			sdata->storedata = NULL;
 			return ASL_STATUS_READ_FAILED;
 		}
 	}
 
 	xid = asl_core_ntohq(xid);
 	xid++;
-	sd->next_id = xid;
+	sdata->next_id = xid;
 
 	xid = asl_core_htonq(xid);
-	rewind(sd->storedata);
-	status = fwrite(&xid, sizeof(uint64_t), 1, sd->storedata);
+	rewind(sdata->storedata);
+	status = fwrite(&xid, sizeof(uint64_t), 1, sdata->storedata);
 	if (status != 1)
 	{
-		fclose(sd->storedata);
-		sd->storedata = NULL;
+		fclose(sdata->storedata);
+		sdata->storedata = NULL;
 		return ASL_STATUS_WRITE_FAILED;
-	}
-
-	if ((sd->flags & ACT_STORE_FLAG_STAY_OPEN) == 0)
-	{
-		fclose(sd->storedata);
-		sd->storedata = NULL;
 	}
 
 	memset(&ctm, 0, sizeof(struct tm));
 
 	if (localtime_r((const time_t *)&tick, &ctm) == NULL) return ASL_STATUS_FAILED;
-	if ((sd->p_year == ctm.tm_year) && (sd->p_month == ctm.tm_mon) && (sd->p_day == ctm.tm_mday) && (sd->path != NULL)) return ASL_STATUS_OK;
+	if ((sdata->store != NULL) && (sdata->p_year == ctm.tm_year) && (sdata->p_month == ctm.tm_mon) && (sdata->p_day == ctm.tm_mday))
+	{
+		return ASL_STATUS_OK;
+	}
 
-	if (sd->store != NULL) asl_file_close(sd->store);
-	sd->store = NULL;
+	if (sdata->store != NULL) asl_file_close(sdata->store);
+	sdata->store = NULL;
+	free(r->dst->fname);
+	r->dst->fname = NULL;
 
-	sd->p_year = 0;
-	sd->p_month = 0;
-	sd->p_day = 0;
+    r->dst->stamp = tick;
 
-	free(sd->path);
-	sd->path = NULL;
+	sdata->p_year = ctm.tm_year;
+	sdata->p_month = ctm.tm_mon;
+	sdata->p_day = ctm.tm_mday;
 
-	asprintf(&(sd->path), "%s/%d.%02d.%02d.asl", sd->dir, ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
-	if (sd->path == NULL) return ASL_STATUS_NO_MEMORY;
+	asprintf(&(r->dst->fname), "%s/%d.%02d.%02d.asl", r->dst->path, ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+	if (r->dst->fname == NULL) return ASL_STATUS_NO_MEMORY;
+	mask = umask(0);
 
-	sd->p_year = ctm.tm_year;
-	sd->p_month = ctm.tm_mon;
-	sd->p_day = ctm.tm_mday;
+	status = ASL_STATUS_OK;
+	if (sdata->store == NULL) {
+#if TARGET_IPHONE_SIMULATOR
+		uid_t uid = -1;
+		gid_t gid = -1;
+#else
+		uid_t uid = r->dst->uid[0];
+		gid_t gid = r->dst->gid[0];
+#endif
+		status = asl_file_open_write(r->dst->fname, (r->dst->mode & 0666), uid, gid, &(sdata->store));
+	}
+	umask(mask);
+
+	if (status != ASL_STATUS_OK) return status;
+
+	if (fseek(sdata->store->store, 0, SEEK_END) != 0) return ASL_STATUS_FAILED;
 
 	return ASL_STATUS_OK;
 }
 
 static void
-_act_store_init(action_rule_t *r)
+_asl_action_store_data_free(asl_action_store_data_t *sdata)
 {
-	struct store_data *sd, *xd;
-	char *str, *opts, *p, *path;
-	action_rule_t *x;
+	if (sdata == NULL) return;
 
-	/* check if the store data is already set up */
-	if (r->data != NULL) return;
+	if (sdata->store != NULL) asl_file_close(sdata->store);
+	sdata->store = NULL;
 
-	opts = r->options;
-	path = _next_word(&opts);
+	if (sdata->storedata != NULL) fclose(sdata->storedata);
+	sdata->storedata = NULL;
 
-	if ((path == NULL) || (path[0] != '/'))
+	free(sdata);
+}
+
+static void
+_asl_action_file_data_free(asl_action_file_data_t *fdata)
+{
+	if (fdata == NULL) return;
+
+	if (fdata->dup_timer != NULL)
 	{
-		str = NULL;
-		asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Invalid path for \"%s\" action: %s]",
-				 ASL_KEY_SENDER,
-				 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-				 ASL_KEY_PID, getpid(),
-				 ASL_KEY_MSG,
-				 (r->action == ACTION_ASL_FILE) ? "store" : "store_directory",
-				 (path == NULL) ? "no path specified" : path);
+		if (fdata->last_count == 0)
+		{
+			/*
+			 * The timer exists, but last_count is zero, so the timer is suspended.
+			 * Sources must not be released in when suspended.
+			 * So we resume it so that we can release it.
+			 */
+			dispatch_resume(fdata->dup_timer);
+		}
 
+		dispatch_release(fdata->dup_timer);
+	}
+
+	free(fdata->last_msg);
+	if (fdata->fd >= 0) close(fdata->fd);
+	free(fdata);
+}
+
+static void
+_asl_action_set_param_data_free(asl_action_set_param_data_t *spdata)
+{
+	if (spdata != NULL) notify_cancel(spdata->token);
+	free(spdata);
+}
+
+static void
+_asl_action_save_failed(const char *where, asl_out_module_t *m, asl_out_rule_t *r, uint32_t status)
+{
+	if (r->dst->flags & MODULE_FLAG_SOFT_WRITE) return;
+
+	r->dst->fails++;
+	asldebug("%s: %s save to %s failed: %s\n", where, m->name, r->dst->path, asl_core_error(status));
+
+	/* disable further activity after multiple failures */
+	if (r->dst->fails > MAX_FAILURES)
+	{
+		char *str = NULL;
+		asprintf(&str, "[Sender syslogd] [Level 3] [PID %u] [Facility syslog] [Message Disabling module %s writes to %s following %u failures (%s)]", global.pid, m->name, r->dst->path, r->dst->fails, asl_core_error(status));
 		internal_log_message(str);
 		free(str);
+
+		if (r->action == ACTION_FILE) _asl_action_file_data_free((asl_action_file_data_t *)r->dst->private);
+		else _asl_action_store_data_free((asl_action_store_data_t *)r->dst->private);
+
+		r->dst->private = NULL;
 		r->action = ACTION_NONE;
-		free(path);
-		return;
 	}
+}
 
-	/* check if a previous rule has set up this path (ACTION_ASL_FILE) or dir (ACTION_ASL_DIR) */
-	for (x = asl_action_rule; x != NULL; x = x->next)
+static int
+_act_store_file(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
+{
+	asl_action_store_data_t *sdata;
+	uint32_t status;
+	uint64_t mid;
+
+	if (r == NULL) return ACTION_STATUS_ERROR;
+	if (r->dst == NULL) return ACTION_STATUS_ERROR;
+	if (r->dst->private == NULL) return ACTION_STATUS_ERROR;
+
+	sdata = (asl_action_store_data_t *)r->dst->private;
+
+	/* check dst for file_max & etc */
+	if (r->dst->flags & MODULE_FLAG_ROTATE)
 	{
-		if ((x->action == r->action) && (x->data != NULL))
+		if (asl_out_dst_checkpoint(r->dst, CHECKPOINT_TEST) != 0)
 		{
-			xd = (struct store_data *)x->data;
-			p = xd->path;
-			if (r->action == ACTION_ASL_DIR) p = xd->dir;
-
-			if ((p != NULL) && (!strcmp(path, p)))
-			{
-				free(path);
-				xd->refcount++;
-				r->data = x->data;
-				return;
-			}
+			_act_dst_close(r);
+			asl_trigger_aslmanager();
 		}
 	}
 
-	/* set up store data */
-	sd = (struct store_data *)calloc(1, sizeof(struct store_data));
-	if (sd == NULL) return;
-
-	sd->refcount = 1;
-	sd->mode = 0755;
-	sd->next_id = 0;
-	sd->uid = 0;
-	sd->gid = 0;
-	sd->flags = 0;
-
-	if (r->action == ACTION_ASL_DIR) sd->dir = path;
-	else sd->path = path;
-
-	while (NULL != (p = _next_word(&opts)))
+	status = _act_store_file_setup(m, r);
+	if (status == ASL_STATUS_OK)
 	{
-		if (!strcmp(p, "stayopen"))
-		{
-			sd->flags |= ACT_STORE_FLAG_STAY_OPEN;
-		}
-		else if (!strcmp(p, "continue"))
-		{
-			sd->flags |= ACT_STORE_FLAG_CONTINUE;
-		}
-		else if (!strncmp(p, "mode=", 5)) sd->mode = strtol(p+5, NULL, 0);
-		else if (!strncmp(p, "uid=", 4)) sd->uid = atoi(p+4);
-		else if (!strncmp(p, "gid=", 4)) sd->gid = atoi(p+4);
+		sdata->last_time = time(NULL);
 
-		free(p);
-		p = NULL;
+		r->dst->fails = 0;
+		mid = sdata->next_id;
+
+		/* save message to file and update dst size */
+		status = asl_file_save(sdata->store, msg, &mid);
+		if (status == ASL_STATUS_OK) r->dst->size = sdata->store->file_size;
 	}
 
-	r->data = sd;
+	if (status != ASL_STATUS_OK)
+	{
+		_asl_action_save_failed("_act_store_file", m, r, status);
+		return ACTION_STATUS_ERROR;
+	}
+
+	return ACTION_STATUS_OK;
+}
+
+static int
+_act_store_dir(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
+{
+	asl_action_store_data_t *sdata;
+	uint32_t status;
+	uint64_t mid;
+	const char *val;
+	time_t tick;
+
+	if (r == NULL) return ACTION_STATUS_ERROR;
+	if (r->dst == NULL) return ACTION_STATUS_ERROR;
+	if (r->dst->private == NULL) return ACTION_STATUS_ERROR;
+
+	sdata = (asl_action_store_data_t *)r->dst->private;
+
+	val = asl_get(msg, ASL_KEY_TIME);
+	if (val == NULL) return ACTION_STATUS_ERROR;
+
+	/* check dst for file_max & etc */
+	if (asl_out_dst_checkpoint(r->dst, CHECKPOINT_TEST) != 0)
+	{
+		_act_dst_close(r);
+		asl_trigger_aslmanager();
+	}
+
+	tick = atol(val);
+
+	status = _act_store_dir_setup(m, r, tick);
+	if (status == ASL_STATUS_OK)
+	{
+		sdata->last_time = time(NULL);
+
+		r->dst->fails = 0;
+		mid = sdata->next_id;
+		status = asl_file_save(sdata->store, msg, &mid);
+		if (status == ASL_STATUS_OK) r->dst->size = sdata->store->file_size;
+	}
+
+	if (status != ASL_STATUS_OK)
+	{
+		_asl_action_save_failed("_act_store_dir", m, r, status);
+		return ACTION_STATUS_ERROR;
+	}
+
+	return ACTION_STATUS_OK;
+}
+
+static void
+_act_store_final(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
+{
+	if (r->action == ACTION_ASL_DIR) _act_store_dir(m, r, msg);
+	else _act_store_file(m, r, msg);
 }
 
 /*
@@ -701,206 +801,46 @@ _act_store_init(action_rule_t *r)
  * or to an ASL directory (ACTION_ASL_DIR).
  */
 static void
-_act_store(action_rule_t *r, aslmsg msg)
+_act_store(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
 {
-	struct store_data *sd;
-	asl_file_t *s;
-	uint32_t status;
-	uint64_t mid;
-	mode_t mask;
-	char *str, *opts;
-	const char *val;
-	time_t tick;
+	if (r == NULL) return;
+	if (msg == NULL) return;
+	if (m == NULL) return;
+	if ((m->flags & MODULE_FLAG_ENABLED) == 0) return;
+	if (r->dst == NULL) return;
 
-	s = NULL;
+	if (r->dst->flags & MODULE_FLAG_HAS_LOGGED) return;
+	r->dst->flags |= MODULE_FLAG_HAS_LOGGED;
 
-	if (r->data == NULL) return;
-
-	sd = (struct store_data *)r->data;
-
-	if (sd->flags & ACT_FLAG_HAS_LOGGED) return;
-	sd->flags |= ACT_FLAG_HAS_LOGGED;
-
-	if (r->action == ACTION_ASL_DIR)
+#if TARGET_OS_EMBEDDED
+	if (r->dst->flags & MODULE_FLAG_CRASHLOG)
 	{
-		val = asl_get(msg, ASL_KEY_TIME);
-		if (val == NULL) return;
-
-		tick = atol(val);
-		status = _act_store_dir_setup(sd, tick);
-		if (status != ASL_STATUS_OK)
-		{
-			asldebug("_act_store_dir_setup %s failed: %s\n", sd->path, asl_core_error(status));
-
-			sd->fails++;
-
-			/* disable further activity after multiple failures */
-			if (sd->fails > MAX_FAILURES)
-			{
-				char *str = NULL;
-				asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Disabling writes to path %s following %u failures (%s)]",
-						 ASL_KEY_SENDER,
-						 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-						 ASL_KEY_PID, getpid(),
-						 ASL_KEY_MSG, sd->path, sd->fails, asl_core_error(status));
-
-				internal_log_message(str);
-				free(str);
-
-				asl_file_close(sd->store);
-				sd->store = NULL;
-				r->action = ACTION_NONE;
-				return;
-			}
-		}
-		else
-		{
-			sd->fails = 0;
-		}
+		_crashlog_queue_check();
+		asl_msg_retain((asl_msg_t *)msg);
+		dispatch_async(crashlog_queue, ^{
+			_act_store_final(m, r, msg);
+			asl_msg_release((asl_msg_t *)msg);
+		});
+		return;
 	}
+#endif
 
-	if (sd->store == NULL)
-	{
-		s = NULL;
-
-		mask = umask(0);
-		status = asl_file_open_write(sd->path, (sd->mode & 0666), sd->uid, sd->gid, &s);
-		umask(mask);
-
-		if ((status != ASL_STATUS_OK) || (s == NULL))
-		{
-			asldebug("asl_file_open_write %s failed: %s\n", sd->path, asl_core_error(status));
-
-			sd->fails++;
-
-			/* disable further activity after multiple failures */
-			if (sd->fails > MAX_FAILURES)
-			{
-				char *str = NULL;
-				asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Disabling writes to path %s following %u failures (%s)]",
-						 ASL_KEY_SENDER,
-						 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-						 ASL_KEY_PID, getpid(),
-						 ASL_KEY_MSG, sd->path, sd->fails, asl_core_error(status));
-
-				internal_log_message(str);
-				free(str);
-
-				asl_file_close(sd->store);
-				sd->store = NULL;
-				r->action = ACTION_NONE;
-				return;
-			}
-		}
-		else if (status == ASL_STATUS_OK)
-		{
-			sd->fails = 0;
-		}
-
-		sd->store = s;
-	}
-
-	if (r->action != ACTION_ASL_DIR)
-	{
-		status = _act_store_file_setup(sd);
-		if (status != ASL_STATUS_OK)
-		{
-			asldebug("_act_store_file_setup %s failed: %s\n", sd->path, asl_core_error(status));
-
-			sd->fails++;
-
-			/* disable further activity after multiple failures */
-			if (sd->fails > MAX_FAILURES)
-			{
-				char *str = NULL;
-				asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Disabling writes to path %s following %u failures (%s)]",
-						 ASL_KEY_SENDER,
-						 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-						 ASL_KEY_PID, getpid(),
-						 ASL_KEY_MSG, sd->path, sd->fails, asl_core_error(status));
-
-				internal_log_message(str);
-				free(str);
-
-				asl_file_close(sd->store);
-				sd->store = NULL;
-				r->action = ACTION_NONE;
-				return;
-			}
-		}
-		else
-		{
-			sd->fails = 0;
-		}
-	}
-
-	mid = sd->next_id;
-
-	status = asl_file_save(sd->store, msg, &mid);
-	if (status != ASL_STATUS_OK)
-	{
-		asldebug("asl_file_save %s failed: %s\n", sd->path, asl_core_error(status));
-
-		sd->fails++;
-
-		/* disable further activity after multiple failures */
-		if (sd->fails > MAX_FAILURES)
-		{
-			char *str = NULL;
-			asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Disabling writes to path %s following %u failures (%s)]",
-					 ASL_KEY_SENDER,
-					 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-					 ASL_KEY_PID, getpid(),
-					 ASL_KEY_MSG, sd->path, sd->fails, asl_core_error(status));
-
-			internal_log_message(str);
-			free(str);
-
-			asl_file_close(sd->store);
-			sd->store = NULL;
-			r->action = ACTION_NONE;
-			return;
-		}
-	}
-	else
-	{
-		sd->fails = 0;
-	}
-
-	if ((sd->flags & ACT_STORE_FLAG_STAY_OPEN) == 0)
-	{
-		asl_file_close(sd->store);
-		sd->store = NULL;
-	}
-
-	if ((sd->flags & ACT_STORE_FLAG_CONTINUE) == 0)
-	{
-		opts = (char *)asl_get(msg, ASL_KEY_OPTION);
-		if (opts == NULL)
-		{
-			asl_set(msg, ASL_KEY_OPTION, ASL_OPT_IGNORE);
-		}
-		else
-		{
-			str = NULL;
-			asprintf(&str, "%s %s", ASL_OPT_IGNORE, opts);
-			if (str != NULL)
-			{
-				asl_set(msg, ASL_KEY_OPTION, str);
-				free(str);
-			}
-		}
-	}
+	_act_store_final(m, r, msg);
 }
 
 static int
-_act_file_send_repeat_msg(struct file_data *fdata)
+_send_repeat_msg(asl_out_rule_t *r)
 {
+	asl_action_file_data_t *fdata;
 	char vt[32], *msg;
-	int len, status, closeit;
+	int len, status;
 	time_t now = time(NULL);
 
-	if (fdata == NULL) return -1;
+	if (r == NULL) return -1;
+	if (r->dst == NULL) return -1;
+	if (r->dst->private == NULL) return -1;
+
+	fdata = (asl_action_file_data_t *)r->dst->private;
 
 	free(fdata->last_msg);
 	fdata->last_msg = NULL;
@@ -917,464 +857,207 @@ _act_file_send_repeat_msg(struct file_data *fdata)
 	msg = NULL;
 	asprintf(&msg, "%s --- last message repeated %u time%s ---\n", vt + 4, fdata->last_count, (fdata->last_count == 1) ? "" : "s");
 	fdata->last_count = 0;
+	fdata->last_time = now;
 	if (msg == NULL) return -1;
 
-	closeit = 0;
-	if (fdata->fd < 0)
-	{
-		closeit = 1;
-		fdata->fd = _act_file_open(fdata);
-		if (fdata->fd < 0)
-		{
-			asldebug("%s: error opening for repeat message (%s): %s\n", MY_ID, fdata->path, strerror(errno));
-			return -1;
-		}
-	}
+	if (fdata->fd < 0) fdata->fd = asl_out_dst_file_create_open(r->dst);
 
 	len = strlen(msg);
 	status = write(fdata->fd, msg, len);
 	free(msg);
-	if (closeit != 0)
-	{
-		close(fdata->fd);
-		fdata->fd = -1;
-	}
 
 	if ((status < 0) || (status < len))
 	{
-		asldebug("%s: error writing repeat message (%s): %s\n", MY_ID, fdata->path, strerror(errno));
+		asldebug("%s: error writing repeat message (%s): %s\n", MY_ID, r->dst->path, strerror(errno));
 		return -1;
 	}
 
 	return 0;
 }
 
-/*
- * N.B. This is basic file rotation support.
- * More rotation options will be added in the future, along
- * with support in aslmanager for compression and deletion.
- */
-static void
-_act_file_rotate_file_data(struct file_data *fdata, time_t now)
+static int
+_act_file_open(asl_out_module_t *m, asl_out_rule_t *r)
 {
-	char str[MAXPATHLEN];
-	size_t len;
-	int width;
+	asl_action_file_data_t *fdata;
 
-	if (now == 0) now = time(NULL);
+	if (r == NULL) return -1;
+	if (r->dst == NULL) return -1;
+	if (r->dst->private == NULL) return -1;
 
-	/* flush duplicates if pending */
-	_act_file_send_repeat_msg(fdata);
-
-	/* sleep to prevent a sub-second rotation */
-	while (now == fdata->stamp)
+	fdata = (asl_action_file_data_t *)r->dst->private;
+	if (fdata->fd < 0)
 	{
-		sleep(1);
-		now = time(NULL);
-	}
-
-	len = strlen(fdata->path);
-	width = len - 4;
-	if ((len > 4) && (!strcasecmp(fdata->path + width, ".log")))
-	{
-		/* ".log" rename: abc.log -> abc.timestamp.log */
-		snprintf(str, sizeof(str), "%.*s.%lu.log", width, fdata->path, fdata->stamp);
-	}
-	else
-	{
-		snprintf(str, sizeof(str), "%s.%lu", fdata->path, fdata->stamp);
-	}
-
-	rename(fdata->path, str);
-
-	fdata->stamp = now;
-}
-
-int
-_act_file_open(struct file_data *fdata)
-{
-	acl_t acl;
-	uuid_t uuid;
-	acl_entry_t entry;
-	acl_permset_t perms;
-	int status;
-	int fd = -1;
-	mode_t mask;
-	struct stat sb;
-	uint32_t i;
-
-	memset(&sb, 0, sizeof(struct stat));
-	status = stat(fdata->path, &sb);
-	if (status == 0)
-	{
-		/* must be a regular file */
-		if (!S_ISREG(sb.st_mode)) return -1;
-
-		/* use st_birthtimespec if stamp is zero */
-		if (fdata->stamp == 0) fdata->stamp = sb.st_birthtimespec.tv_sec;
-
-		/* rotate if over size limit */
-		if ((fdata->max_size > 0) && (sb.st_size > fdata->max_size))
+		fdata->fd = asl_out_dst_file_create_open(r->dst);
+		if (fdata->fd < 0)
 		{
-			_act_file_rotate_file_data(fdata, 0);
-		}
-		else
-		{
-			/* open existing file */
-			fd = open(fdata->path, O_RDWR | O_APPEND | O_EXCL, 0);
-			return fd;
-		}
-	}
-	else if (errno != ENOENT)
-	{
-		return -1;
-	}
-
-#if TARGET_OS_EMBEDDED
-	return open(fdata->path, O_RDWR | O_CREAT | O_EXCL, (fdata->mode & 0666));
-#else
-
-	acl = acl_init(1);
-
-	for (i = 0; i < fdata->ngid; i++)
-	{
-		status = mbr_gid_to_uuid(fdata->gid[i], uuid);
-		if (status != 0)
-		{
-			char *str = NULL;
-			asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Unknown GID %d for \"file\" action: %s]",
-					 ASL_KEY_SENDER,
-					 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-					 ASL_KEY_PID, getpid(),
-					 ASL_KEY_MSG, fdata->gid[i], fdata->path);
-
-			internal_log_message(str);
-			free(str);
-			continue;
+			/*
+			 * lazy path creation: create path and retry
+			 * asl_out_dst_file_create_open doesn not create the path
+			 * so we do it here.
+			 */
+			asl_out_mkpath(r);
+			fdata->fd = asl_out_dst_file_create_open(r->dst);
 		}
 
-		status = acl_create_entry_np(&acl, &entry, ACL_FIRST_ENTRY);
-		if (status != 0) goto asl_file_create_return;
-
-		status = acl_set_tag_type(entry, ACL_EXTENDED_ALLOW);
-		if (status != 0) goto asl_file_create_return;
-
-		status = acl_set_qualifier(entry, &uuid);
-		if (status != 0) goto asl_file_create_return;
-
-		status = acl_get_permset(entry, &perms);
-		if (status != 0) goto asl_file_create_return;
-
-		status = acl_add_perm(perms, ACL_READ_DATA);
-		if (status != 0) goto asl_file_create_return;
-	}
-
-	for (i = 0; i < fdata->nuid; i++)
-	{
-		status = mbr_uid_to_uuid(fdata->uid[i], uuid);
-		if (status != 0)
+		if (fdata->fd >= 0)
 		{
-			char *str = NULL;
-			asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Unknown UID %d for \"file\" action: %s]",
-					 ASL_KEY_SENDER,
-					 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-					 ASL_KEY_PID, getpid(),
-					 ASL_KEY_MSG, fdata->uid[i], fdata->path);
-
-			internal_log_message(str);
-			free(str);
-			continue;
-		}
-
-		status = acl_create_entry_np(&acl, &entry, ACL_FIRST_ENTRY);
-		if (status != 0) goto asl_file_create_return;
-
-		status = acl_set_tag_type(entry, ACL_EXTENDED_ALLOW);
-		if (status != 0) goto asl_file_create_return;
-
-		status = acl_set_qualifier(entry, &uuid);
-		if (status != 0) goto asl_file_create_return;
-
-		status = acl_get_permset(entry, &perms);
-		if (status != 0) goto asl_file_create_return;
-
-		status = acl_add_perm(perms, ACL_READ_DATA);
-		if (status != 0) goto asl_file_create_return;
-	}
-
-	mask = umask(0);
-	fd = open(fdata->path, O_RDWR | O_CREAT | O_EXCL, (fdata->mode & 0666));
-	umask(mask);
-	if (fd < 0) goto asl_file_create_return;
-
-	errno = 0;
-	status = acl_set_fd(fd, acl);
-
-	if (status != 0)
-	{
-		close(fd);
-		fd = -1;
-		unlink(fdata->path);
-	}
-
-asl_file_create_return:
-
-	acl_free(acl);
-	return fd;
-#endif
-}
-
-static void
-_act_file_rotate(const char *path)
-{
-	action_rule_t *r;
-	struct file_data *fdata;
-	time_t now = time(NULL);
-
-	for (r = asl_action_rule; r != NULL; r = r->next)
-	{
-		if (r->action == ACTION_FILE)
-		{
-			fdata = (struct file_data *)r->data;
-			if (fdata->flags & ACT_FILE_FLAG_ROTATE)
+			fdata->monitor = dispatch_source_create(DISPATCH_SOURCE_TYPE_VNODE, fdata->fd, DISPATCH_VNODE_DELETE, asl_action_queue);
+			if (fdata->monitor != NULL)
 			{
-				if ((path == NULL) || ((fdata->path != NULL) && !strcmp(fdata->path, path)))
+				dispatch_source_set_event_handler(fdata->monitor, ^{ _act_dst_close(r); });
+				dispatch_resume(fdata->monitor);
+			}
+		}
+	}
+
+	return fdata->fd;
+}
+
+static void
+_start_cycling()
+{
+	struct timespec midnight;
+	struct tm t;
+	time_t x;
+
+	x = time(NULL);
+
+	if (checkpoint_timer != NULL) return;
+
+	localtime_r(&x, &t);
+
+	t.tm_sec = 0;
+	t.tm_min = 0;
+	t.tm_hour = 0;
+	t.tm_mday++;
+
+	x = mktime(&t);
+	midnight.tv_sec = x;
+	midnight.tv_nsec = 0;
+
+	checkpoint_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, asl_action_queue);
+	dispatch_source_set_timer(checkpoint_timer, dispatch_walltime(&midnight, 0), NSEC_PER_SEC * SEC_PER_DAY, 0);
+	dispatch_source_set_event_handler(checkpoint_timer, ^{ _act_file_checkpoint_all(CHECKPOINT_FORCE); });
+	dispatch_resume(checkpoint_timer);
+}
+
+/* check if a module path (mpath) matches a user path (upath) */
+static bool
+_act_file_equal(const char *mpath, const char *upath)
+{
+	const char *slash;
+
+	/* NULL upath means user wants to match all files */
+	if (upath == NULL) return true;
+
+	if (mpath == NULL) return false;
+
+	/* check for exact match */
+	if (!strcmp(mpath, upath)) return true;
+
+	/* upath may be the last component of mpath */
+	slash = strrchr(mpath, '/');
+	if (slash == NULL) return false;
+
+	if (!strcmp(slash + 1, upath)) return true;
+	return false;
+}
+
+static int
+_act_file_checkpoint(asl_out_module_t *m, const char *path, uint32_t force)
+{
+	asl_out_rule_t *r;
+	int did_checkpoint = 0;
+
+	if (m == NULL) return 0;
+
+
+	for (r = m->ruleset; r != NULL; r = r->next)
+	{
+		if ((r->action == ACTION_FILE) || (r->action == ACTION_ASL_FILE))
+		{
+			if (r->dst->flags & MODULE_FLAG_ROTATE)
+			{
+				if (_act_file_equal(r->dst->path, path))
 				{
-					_act_file_rotate_file_data(fdata, now);
+					if (force & CHECKPOINT_CRASH)
+					{
+						if (r->dst->flags & MODULE_FLAG_CRASHLOG)
+						{
+							if (asl_out_dst_checkpoint(r->dst, CHECKPOINT_FORCE) > 0)
+							{
+								did_checkpoint = 1;
+								_act_dst_close(r);
+							}
+						}
+					}
+					else
+					{
+						if (asl_out_dst_checkpoint(r->dst, force) > 0)
+						{
+							did_checkpoint = 1;
+							_act_dst_close(r);
+						}
+					}
 				}
 			}
 		}
 	}
+
+	return did_checkpoint;
 }
 
-static char *
-_act_file_format_string(char *s)
+static int
+_act_file_checkpoint_all(uint32_t force)
 {
-	char *fmt;
-	size_t i, len, n;
+	asl_out_module_t *m;
+	int did_checkpoint = 0;
 
-	if (s == NULL) return NULL;
+	for (m = global.asl_out_module; m != NULL; m = m->next)
+	{
+		if (_act_file_checkpoint(m, NULL, force) > 0) did_checkpoint = 1;
+	}
 
-	len = strlen(s);
-	n = 0;
-	for (i = 0; i < len; i++) if (s[i] == '\\') n++;
+	asl_trigger_aslmanager();
 
-	fmt = malloc(1 + len - n);
-	if (fmt == NULL) return NULL;
-
-	for (i = 0, n = 0; i < len; i++) if (s[i] != '\\') fmt[n++] = s[i];
-	fmt[n] = '\0';
-	return fmt;
-}
-
-static size_t
-_act_file_max_size(char *s)
-{
-	size_t len, n, max;
-	char x;
-
-	if (s == NULL) return 0;
-
-	len = strlen(s);
-	if (len == 0) return 0;
-
-	n = 1;
-	x = s[len - 1];
-	if (x > 90) x -= 32;
-	if (x == 'K') n = 1ll << 10;
-	else if (x == 'M') n = 1ll << 20;
-	else if (x == 'G') n = 1ll << 30;
-	else if (x == 'T') n = 1ll << 40;
-
-	max = atoll(s) * n;
-	return max;
+	return did_checkpoint;
 }
 
 static void
-_act_file_add_uid(struct file_data *fdata, char *s)
+_act_file_final(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
 {
-	if (fdata == NULL) return;
-	if (s == NULL) return;
-
-	fdata->uid = reallocf(fdata->uid, (fdata->nuid + 1) * sizeof(uid_t));
-	if (fdata->uid == NULL)
-	{
-		fdata->nuid = 0;
-		return;
-	}
-
-	fdata->uid[fdata->nuid++] = atoi(s);
-}
-
-static void
-_act_file_add_gid(struct file_data *fdata, char *s)
-{
-	if (fdata == NULL) return;
-	if (s == NULL) return;
-
-	fdata->gid = reallocf(fdata->gid, (fdata->ngid + 1) * sizeof(gid_t));
-	if (fdata->gid == NULL)
-	{
-		fdata->ngid = 0;
-		return;
-	}
-
-	fdata->gid[fdata->ngid++] = atoi(s);
-}
-
-static void
-_act_file_init(action_rule_t *r)
-{
-	struct file_data *fdata, *xdata;
-	char *str, *opts, *p, *path;
-	action_rule_t *x;
-
-	/* check if the file data is already set up */
-	if (r->data != NULL) return;
-
-	/* requires at least a path */
-	if (r->options == NULL) return;
-	opts = r->options;
-	path = _next_word(&opts);
-
-	if ((path == NULL) || (path[0] != '/'))
-	{
-		str = NULL;
-		asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Invalid path for \"file\" action: %s]",
-				 ASL_KEY_SENDER,
-				 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-				 ASL_KEY_PID, getpid(),
-				 ASL_KEY_MSG, (path == NULL) ? "no path specified" : path);
-
-		internal_log_message(str);
-		free(str);
-		free(path);
-		r->action = ACTION_NONE;
-		return;
-	}
-
-	/* check if a previous rule has set up this path */
-	for (x = asl_action_rule; x != NULL; x = x->next)
-	{
-		if ((x->action == ACTION_FILE) && (x->data != NULL))
-		{
-			xdata = (struct file_data *)x->data;
-			if ((xdata->path != NULL) && (!strcmp(path, xdata->path)))
-			{
-				free(path);
-				xdata->refcount++;
-				r->data = x->data;
-				return;
-			}
-		}
-	}
-
-	/* set up file data */
-	fdata = (struct file_data *)calloc(1, sizeof(struct file_data));
-	if (fdata == NULL) return;
-
-	fdata->refcount = 1;
-	fdata->path = path;
-
-	/*
-	 * options:
-	 * mode=			set file creation mode
-	 * uid=				user added to read ACL
-	 * gid=				group added to read ACL
-	 * format=			format string (also fmt=)
-	 * no_dup_supress	no duplicate supression
-	 *
-	 * rotate			automatic daily rotation
-	 *					this is basic rotation - more support is TBD
-	 */
-	fdata->mode = 0644;
-	fdata->flags = ACT_FILE_FLAG_DUP_SUPRESS;
-
-	while (NULL != (p = _next_word(&opts)))
-	{
-		if (!strncmp(p, "mode=", 5)) fdata->mode = strtol(p+5, NULL, 0);
-		else if (!strncmp(p, "uid=", 4)) _act_file_add_uid(fdata, p+4);
-		else if (!strncmp(p, "gid=", 4)) _act_file_add_gid(fdata, p+4);
-		else if (!strncmp(p, "fmt=", 4)) fdata->fmt = _act_file_format_string(p+4);
-		else if (!strncmp(p, "format=", 7)) fdata->fmt = _act_file_format_string(p+7);
-		else if (!strncmp(p, "no_dup_supress", 14)) fdata->flags &= ~ACT_FILE_FLAG_DUP_SUPRESS;
-		else if (!strncmp(p, "rotate", 6)) fdata->flags |= ACT_FILE_FLAG_ROTATE;
-		else if (!strncmp(p, "max_size=", 9)) fdata->max_size = _act_file_max_size(p+9);
-
-		free(p);
-		p = NULL;
-	}
-
-	if (fdata->fmt == NULL) fdata->fmt = strdup("std");
-
-	/* duplicate compression is only possible for std and bsd formats */
-	if (strcmp(fdata->fmt, "std") && strcmp(fdata->fmt, "bsd")) fdata->flags &= ~ACT_FILE_FLAG_DUP_SUPRESS;
-
-	/* set time format for raw output */
-	if (!strcmp(fdata->fmt, "raw")) fdata->tfmt = "sec";
-
-	r->data = fdata;
-}
-
-static void
-_act_file(action_rule_t *r, aslmsg msg)
-{
-	struct file_data *fdata;
+	asl_action_file_data_t *fdata;
 	int is_dup;
 	uint32_t len, msg_hash = 0;
 	char *str;
-	time_t now, today;
-	struct tm ctm;
-
-	if (r->data == NULL) return;
-
-	fdata = (struct file_data *)r->data;
-
-	now = time(NULL);
-	today = now;
-
-	memset(&ctm, 0, sizeof(struct tm));
-	if (localtime_r((const time_t *)&now, &ctm) != NULL)
-	{
-		ctm.tm_sec = 0;
-		ctm.tm_min = 0;
-		ctm.tm_hour = 0;
-		today = mktime(&ctm);
-	}
-
-	/* check for rotation */
-	if ((last_file_day != 0) && (last_file_day != today))
-	{
-		_act_file_rotate(NULL);
-	}
-
-	last_file_day = today;
-
+	time_t now;
 
 	/*
-	 * asl.conf may contain multuple rules for the same file, eg:
-	 *    ? [= Facility zippy] /var/log/abc.log
-	 *    ? [= Color purple] /var/log/abc.log
-	 *
-	 * To prevent duplicates we set a flag bit when a message is logged
-	 * to this file, and bail out if it has already been logged.
-	 * Note that asl_out_message clears the flag bit in all file_data
-	 * structures before processing each message.
+	 * If print format is std, bsd, or msg, then skip messages with
+	 * no ASL_KEY_MSG, or without a value for it.
 	 */
-	if (fdata->flags & ACT_FLAG_HAS_LOGGED) return;
-	fdata->flags |= ACT_FLAG_HAS_LOGGED;
+	if (r->dst->flags & MODULE_FLAG_STD_BSD_MSG)
+	{
+		const char *msgval = NULL;
+		if (asl_msg_lookup((asl_msg_t *)msg, ASL_KEY_MSG, &msgval, NULL) != 0) return;
+		if (msgval == NULL) return;
+	}
+
+	fdata = (asl_action_file_data_t *)r->dst->private;
+
+	now = time(NULL);
 
 	is_dup = 0;
 
-	str = asl_format_message((asl_msg_t *)msg, fdata->fmt, fdata->tfmt, ASL_ENCODE_SAFE, &len);
+	str = asl_format_message((asl_msg_t *)msg, r->dst->fmt, r->dst->tfmt, ASL_ENCODE_SAFE, &len);
 
-	if (fdata->flags & ACT_FILE_FLAG_DUP_SUPRESS)
+	if (r->dst->flags & MODULE_FLAG_COALESCE)
 	{
 		if (fdata->dup_timer == NULL)
 		{
 			/* create a timer to flush dups on this file */
 			fdata->dup_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, asl_action_queue);
-			dispatch_source_set_event_handler(fdata->dup_timer, ^{ _act_file_send_repeat_msg((struct file_data *)r->data); });
+			dispatch_source_set_event_handler(fdata->dup_timer, ^{ _send_repeat_msg(r); });
 		}
 
 		if ((global.bsd_max_dup_time > 0) && (str != NULL) && (fdata->last_msg != NULL))
@@ -1400,50 +1083,53 @@ _act_file(action_rule_t *r, aslmsg msg)
 	}
 	else
 	{
-		fdata->fd = _act_file_open(fdata);
-		if (fdata->fd < 0)
+		if (_act_file_open(m, r) < 0)
 		{
-			asldebug("_act_file_open %s failed: %s\n", fdata->path, strerror(errno));
-
-			fdata->fails++;
-
-			/* disable further activity after multiple failures */
-			if (fdata->fails > MAX_FAILURES)
-			{
-				char *tmp = NULL;
-				asprintf(&tmp, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Disabling writes to path %s following %u failures (%s)]",
-						 ASL_KEY_SENDER,
-						 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
-						 ASL_KEY_PID, getpid(),
-						 ASL_KEY_MSG, fdata->path, fdata->fails, strerror(errno));
-
-				internal_log_message(tmp);
-				free(tmp);
-
-				r->action = ACTION_NONE;
-				free(str);
-				return;
-			}
+			_asl_action_save_failed("_act_file", m, r, ASL_STATUS_FAILED);
+			free(str);
+			return;
 		}
 		else
 		{
-			fdata->fails = 0;
+			r->dst->fails = 0;
 		}
 
 		/*
 		 * The current message is not a duplicate.  If fdata->last_count > 0
 		 * we need to write a "last message repeated N times" log entry.
-		 * _act_file_send_repeat_msg will free last_msg and do nothing if
+		 * _send_repeat_msg will free last_msg and do nothing if
 		 * last_count == 0, but we test and free here to avoid a function call.
 		 */
 		if (fdata->last_count > 0)
 		{
-			_act_file_send_repeat_msg(fdata);
+			_send_repeat_msg(r);
 		}
 		else
 		{
 			free(fdata->last_msg);
 			fdata->last_msg = NULL;
+		}
+
+		/* check dst for file_max & etc */
+		if (r->dst->flags & MODULE_FLAG_ROTATE)
+		{
+			int ckpt = asl_out_dst_checkpoint(r->dst, CHECKPOINT_TEST);
+			if (ckpt != 0)
+			{
+				_act_dst_close(r);
+				asl_trigger_aslmanager();
+
+				if (_act_file_open(m, r) < 0)
+				{
+					_asl_action_save_failed("_act_file", m, r, ASL_STATUS_FAILED);
+					free(str);
+					return;
+				}
+				else
+				{
+					r->dst->fails = 0;
+				}
+			}
 		}
 
 		if (str != NULL) fdata->last_msg = strdup(str + 16);
@@ -1452,128 +1138,541 @@ _act_file(action_rule_t *r, aslmsg msg)
 		fdata->last_count = 0;
 		fdata->last_time = now;
 
-		if ((str != NULL) && (len > 1)) write(fdata->fd, str, len - 1);
-		close(fdata->fd);
-		fdata->fd = -1;
+		if ((str != NULL) && (len > 1))
+		{
+			/* write line to file and update dst size */
+			size_t bytes = write(fdata->fd, str, len - 1);
+			if (bytes > 0) r->dst->size += bytes;
+		}
 	}
 
 	free(str);
 }
 
 static void
-_act_forward(action_rule_t *r, aslmsg msg)
+_act_file(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
+{
+	if (r == NULL) return;
+	if (msg == NULL) return;
+	if (m == NULL) return;
+	if ((m->flags & MODULE_FLAG_ENABLED) == 0) return;
+	if (r->dst == NULL) return;
+	if (r->dst->private == NULL) return;
+
+	if (r->dst->flags & MODULE_FLAG_HAS_LOGGED) return;
+
+	r->dst->flags |= MODULE_FLAG_HAS_LOGGED;
+
+#if TARGET_OS_EMBEDDED
+	if (r->dst->flags & MODULE_FLAG_CRASHLOG)
+	{
+		_crashlog_queue_check();
+		asl_msg_retain((asl_msg_t *)msg);
+		dispatch_async(crashlog_queue, ^{
+			_act_file_final(m, r, msg);
+			asl_msg_release((asl_msg_t *)msg);
+		});
+		return;
+	}
+#endif
+
+	_act_file_final(m, r, msg);
+}
+
+static void
+_act_forward(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
 {
 	/* To do: <rdar://problem/6130747> Add a "forward" action to asl.conf */
 }
 
 static void
-_send_to_asl_store(aslmsg msg)
+_act_control(asl_out_module_t *m, asl_out_rule_t *r, aslmsg msg)
 {
-	int log_me;
-	action_rule_t *r;
+	const char *p;
 
-	/* ASLOption "store" forces a message to be saved */
-	log_me = asl_check_option(msg, ASL_OPT_STORE);
-	if (log_me == 1)
+	if (m == NULL) return;
+	if (r == NULL) return;
+	p = asl_get(msg, ASL_KEY_MODULE);
+
+	if (r->options == NULL) return;
+
+	if (!strcmp(r->options, "enable"))
 	{
-		db_save_message(msg);
-		return;
+		m->flags |= MODULE_FLAG_ENABLED;
 	}
-
-	/* if there are no rules, save the message */
-	if (asl_datastore_rule == NULL)
+	else if (!strcmp(r->options, "disable"))
 	{
-		db_save_message(msg);
-		return;
+		m->flags &= ~MODULE_FLAG_ENABLED;
 	}
-
-	for (r = asl_datastore_rule; r != NULL; r = r->next)
+	else if ((!strcmp(r->options, "checkpoint")) || (!strcmp(r->options, "rotate")))
 	{
-		if (asl_msg_cmp(r->query, (asl_msg_t *)msg) == 1)
-		{
-			/* if any rule matches, save the message (once!) */
-			db_save_message(msg);
-			return;
-		}
+		_act_file_checkpoint(m, NULL, CHECKPOINT_FORCE);
 	}
 }
 
 static void
-_asl_action_message(aslmsg msg)
+_send_to_asl_store(aslmsg msg)
 {
-	action_rule_t *r;
+	if ((global.asl_out_module != NULL) && ((global.asl_out_module->flags & MODULE_FLAG_ENABLED) == 0)) return;
 
-	if (msg == NULL) return;
+	if (store_has_logged) return;
+	store_has_logged = true;
 
-	/* reset flag bit used for file duplicate avoidance */
-	for (r = asl_action_rule; r != NULL; r = r->next)
+	db_save_message(msg);
+}
+
+static int
+_asl_out_process_message(asl_out_module_t *m, aslmsg msg)
+{
+	asl_out_rule_t *r;
+
+	if (m == NULL) return 1;
+	if (msg == NULL) return 1;
+
+	/* reset flag bit used for duplicate avoidance */
+	for (r = m->ruleset; r != NULL; r = r->next)
 	{
-		if ((r->action == ACTION_FILE) && (r->data != NULL))
+		if ((r->action == ACTION_FILE) || (r->action == ACTION_ASL_DIR) || (r->action == ACTION_ASL_FILE))
 		{
-			((struct file_data *)(r->data))->flags &= ACT_FLAG_CLEAR_LOGGED;
-		}
-		else if (((r->action == ACTION_ASL_DIR) || (r->action == ACTION_ASL_FILE)) && (r->data != NULL))
-		{
-			((struct store_data *)(r->data))->flags &= ACT_FLAG_CLEAR_LOGGED;
+			if (r->dst != NULL) r->dst->flags &= MODULE_FLAG_CLEAR_LOGGED;
 		}
 	}
 
-	for (r = asl_action_rule; r != NULL; r = r->next)
+	for (r = m->ruleset; r != NULL; r = r->next)
 	{
-		if (asl_msg_cmp(r->query, (asl_msg_t *)msg) == 1)
-		{
-			if ((r->action == ACTION_ASL_FILE) || (r->action == ACTION_ASL_DIR))
-			{
-				_act_store(r, msg);
-				if (asl_check_option(msg, ASL_OPT_IGNORE) != 0) return;
-			}
+		if (r->query == NULL) continue;
 
+		/* ACTION_SET_FILE, ACTION_SET_PLIST, and ACTION_SET_PROF are handled independently  */
+		if ((r->action == ACTION_SET_FILE) || (r->action == ACTION_SET_PLIST) || (r->action == ACTION_SET_PROF)) continue;
+
+		/*
+		 * ACTION_CLAIM during processing is a filter.  It will only be here if the option "only"
+		 * was supplied.  In this case we test the message against the query.  If it does not
+		 * match, we skip the message.
+		 */
+		if (r->action == ACTION_CLAIM)
+		{
+			if ((asl_msg_cmp(r->query, (asl_msg_t *)msg) != 1)) return 0;
+		}
+
+		if ((asl_msg_cmp(r->query, (asl_msg_t *)msg) == 1))
+		{
 			if (r->action == ACTION_NONE) continue;
-			else if (r->action == ACTION_IGNORE) return;
-			else if (r->action == ACTION_ACCESS) _act_access_control(r, msg);
-			else if (r->action == ACTION_NOTIFY) _act_notify(r);
-			else if (r->action == ACTION_BROADCAST) _act_broadcast(r, msg);
-			else if (r->action == ACTION_FILE) _act_file(r, msg);
-			else if (r->action == ACTION_FORWARD) _act_forward(r, msg);
+			else if (r->action == ACTION_IGNORE) return 1;
+			else if (r->action == ACTION_SKIP) return 0;
+			else if (r->action == ACTION_ASL_STORE) _send_to_asl_store(msg);
+			else if (r->action == ACTION_ACCESS) _act_access_control(m, r, msg);
+			else if (r->action == ACTION_NOTIFY) _act_notify(m, r);
+			else if (r->action == ACTION_BROADCAST) _act_broadcast(m, r, msg);
+			else if (r->action == ACTION_FORWARD) _act_forward(m, r, msg);
+			else if (r->action == ACTION_CONTROL) _act_control(m, r, msg);
+			else if (r->action == ACTION_SET_PARAM) _act_out_set_param(m, r->options, true);
+			else if ((r->action == ACTION_ASL_FILE) || (r->action == ACTION_ASL_DIR)) _act_store(m, r, msg);
+			else if (r->action == ACTION_FILE) _act_file(m, r, msg);
 		}
 	}
 
-	if (asl_check_option(msg, ASL_OPT_IGNORE) != 0) return;
-
-	_send_to_asl_store(msg);
+	return 0;
 }
 
 void
 asl_out_message(aslmsg msg)
 {
-	dispatch_flush_continuation_cache();
-
+	OSAtomicIncrement32(&global.asl_queue_count);
 	asl_msg_retain((asl_msg_t *)msg);
 
 	dispatch_async(asl_action_queue, ^{
-		_asl_action_message(msg);
+		int ignore = 0;
+		const char *p;
+		time_t now = time(NULL);
+		asl_out_module_t *m = global.asl_out_module;
+
+		store_has_logged = false;
+
+		p = asl_get(msg, ASL_KEY_MODULE);
+		if (p == NULL)
+		{
+			if ((action_asl_store_count == 0) || (asl_check_option(msg, ASL_OPT_STORE) == 1)) _send_to_asl_store(msg);
+
+			ignore = _asl_out_process_message(m, msg);
+			if (ignore == 0)
+			{
+				if (m != NULL) m = m->next;
+				while (m != NULL)
+				{
+					_asl_out_process_message(m, msg);
+					m = m->next;
+				}
+			}
+		}
+		else 
+		{
+			if (m != NULL) m = m->next;
+			while (m != NULL)
+			{
+				if (!strcmp(p, m->name)) _asl_out_process_message(m, msg);
+				m = m->next;
+			}
+		}
+
 		asl_msg_release((asl_msg_t *)msg);
+		OSAtomicDecrement32(&global.asl_queue_count);
+
+		if ((now - sweep_time) >= IDLE_CLOSE)
+		{
+			_asl_action_close_idle_files(IDLE_CLOSE);
+			sweep_time = now;
+		}
 	});
 }
 
-static int
-_parse_config_file(const char *name)
+static char *
+_asl_action_profile_test(asl_out_module_t *m, asl_out_rule_t *r)
 {
-	FILE *cf;
-	char *line;
+	const char *ident;
+	asl_msg_t *profile;
+	bool eval;
 
-	cf = fopen(name, "r");
-	if (cf == NULL) return 1;
-
-	while (NULL != (line = get_line_from_file(cf)))
+	/* ident is first message key */
+	asl_msg_fetch((asl_msg_t *)r->query, 0, &ident, NULL, NULL);
+	if (ident == NULL)
 	{
-		_parse_line(line);
-		free(line);
+		r->action = ACTION_NONE;
+		return NULL;
 	}
 
-	fclose(cf);
+	profile = configuration_profile_to_asl_msg(ident);
+	eval = (asl_msg_cmp(r->query, profile) == 1);
+	_act_out_set_param(m, r->options, eval);
+	asl_msg_release(profile);
 
-	return 0;
+	return strdup(ident);
+}
+
+static const char *
+_asl_action_file_test(asl_out_module_t *m, asl_out_rule_t *r)
+{
+	const char *path;
+	struct stat sb;
+	int status;
+	bool eval;
+
+	/* path is first message key */
+	asl_msg_fetch((asl_msg_t *)r->query, 0, &path, NULL, NULL);
+	if (path == NULL)
+	{
+		r->action = ACTION_NONE;
+		return NULL;
+	}
+
+	memset(&sb, 0, sizeof(struct stat));
+	status = stat(path, &sb);
+	eval = (status == 0);
+	_act_out_set_param(m, r->options, eval);
+
+	return path;
+}
+
+static void
+_asl_action_handle_file_change_notification(int t)
+{
+	asl_out_module_t *m;
+	asl_out_rule_t *r;
+
+	for (m = global.asl_out_module; m != NULL; m = m->next)
+	{
+		for (r = m->ruleset; r != NULL; r = r->next)
+		{
+			if (r->action == ACTION_SET_FILE)
+			{
+				asl_action_set_param_data_t *spdata = (asl_action_set_param_data_t *)r->private;
+				if ((spdata != NULL) && (spdata->token == t))
+				{
+					_asl_action_file_test(m, r);
+					return;
+				}
+			}
+			else if (r->action == ACTION_SET_PLIST)
+			{
+				asl_action_set_param_data_t *spdata = (asl_action_set_param_data_t *)r->private;
+				if ((spdata != NULL) && (spdata->token == t))
+				{
+					char *str = _asl_action_profile_test(m, r);
+					free(str);
+					return;
+				}
+			}
+			else if (r->action == ACTION_SET_PROF)
+			{
+				asl_action_set_param_data_t *spdata = (asl_action_set_param_data_t *)r->private;
+				if ((spdata != NULL) && (spdata->token == t))
+				{
+					char *str = _asl_action_profile_test(m, r);
+					free(str);
+					return;
+				}
+			}
+		}
+	}
+
+	asl_out_module_free(m);
+}
+
+static void
+_asl_action_post_process_rule(asl_out_module_t *m, asl_out_rule_t *r)
+{
+	if ((m == NULL) || (r == NULL)) return;
+
+	if (m != global.asl_out_module)
+	{
+		/* check if any previous module has used this destination */
+		asl_out_module_t *n;
+		bool search = true;
+
+		if ((r->dst != NULL) && (r->dst->path != NULL))
+		{
+			for (n = global.asl_out_module; search && (n != NULL) && (n != m); n = n->next)
+			{
+				asl_out_rule_t *s;
+				for (s = n->ruleset; search && (s != NULL); s = s->next)
+				{
+					if (s->action == ACTION_OUT_DEST)
+					{
+						if ((s->dst != NULL) && (s->dst->path != NULL) && (!strcmp(r->dst->path, s->dst->path)))
+						{
+							/* rule r of module m is using previously used dst of rule s of module n */
+							asl_out_dst_data_release(r->dst);
+							r->dst = NULL;
+
+							if (r->action == ACTION_OUT_DEST)
+							{
+								char *str = NULL;
+								asprintf(&str, "[Sender syslogd] [Level 5] [PID %u] [Message Configuration Notice:\nASL Module \"%s\" sharing output destination \"%s\" with ASL Module \"%s\".\nOutput parameters from ASL Module \"%s\" override any specified in ASL Module \"%s\".] [UID 0] [GID 0] [Facility syslog]", global.pid, m->name, s->dst->path, n->name, n->name, m->name);
+								internal_log_message(str);
+								free(str);
+							}
+							else
+							{
+								r->dst = asl_out_dst_data_retain(s->dst);
+							}
+
+							search = false;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (r->action == ACTION_SET_PARAM)
+	{
+		if (r->query == NULL) _act_out_set_param(m, r->options, true);
+	}
+	else if (r->action == ACTION_CLAIM)
+	{
+		/* becomes ACTION_SKIP in com.apple.asl config */
+		if (m != global.asl_out_module)
+		{
+			asl_out_rule_t *rule = (asl_out_rule_t *)calloc(1, sizeof(asl_out_rule_t));
+			if (rule != NULL)
+			{
+				char *str = NULL;
+				asprintf(&str, "[Sender syslogd] [Level 5] [PID %u] [Message Configuration Notice:\nASL Module \"%s\" claims selected messages.\nThose messages may not appear in standard system log files or in the ASL database.] [UID 0] [GID 0] [Facility syslog]", global.pid, m->name);
+				internal_log_message(str);
+				free(str);
+
+				rule->query = asl_msg_copy(r->query);
+				rule->action = ACTION_SKIP;
+				rule->next = global.asl_out_module->ruleset;
+				global.asl_out_module->ruleset = rule;
+			}
+
+			/*
+			 * After adding ACTION_SKIP to com.apple.asl module, the claim becomes a no-op in this module
+			 * UNLESS the claim includes the option "only".  In that case, the claim becomes a filter:
+			 * any messages that DO NOT match the claim are skipped by this module.
+			 */
+			if (r->options == NULL) r->action = ACTION_NONE;
+			else if (strcmp(r->options, "only") != 0) r->action = ACTION_NONE;
+		}
+	}
+	else if (r->action == ACTION_ASL_STORE)
+	{
+		action_asl_store_count++;
+	}
+	else if (r->action == ACTION_ASL_DIR)
+	{
+		if (r->dst->private == NULL) r->dst->private = (asl_action_store_data_t *)calloc(1, sizeof(asl_action_store_data_t));
+	}
+	else if (r->action == ACTION_ASL_FILE)
+	{
+		if (r->dst->private == NULL)r->dst->private = (asl_action_store_data_t *)calloc(1, sizeof(asl_action_store_data_t));
+	}
+	else if (r->action == ACTION_FILE)
+	{
+		if (r->dst->private == NULL) r->dst->private = (asl_action_file_data_t *)calloc(1, sizeof(asl_action_file_data_t));
+		if (r->dst->private != NULL) ((asl_action_file_data_t *)(r->dst->private))->fd = -1;
+	}
+	else if (r->action == ACTION_SET_PLIST)
+	{
+		char *ident =_asl_action_profile_test(m, r);
+		char *notify_key = configuration_profile_create_notification_key(ident);
+		free(ident);
+
+		if (notify_key != NULL)
+		{
+			int status, token;
+			asl_action_set_param_data_t *spdata;
+
+			status = notify_register_dispatch(notify_key, &token, asl_action_queue, ^(int t){
+				_asl_action_handle_file_change_notification(t);
+			});
+
+			free(notify_key);
+
+			spdata = (asl_action_set_param_data_t *)calloc(1, sizeof(asl_action_set_param_data_t));
+			if (spdata == NULL)
+			{
+				notify_cancel(token);
+			}
+			else
+			{
+				spdata->token = token;
+				r->private = spdata;
+			}
+		}
+	}
+	else if (r->action == ACTION_SET_PROF)
+	{
+		char *ident =_asl_action_profile_test(m, r);
+		char *notify_key = configuration_profile_create_notification_key(ident);
+		free(ident);
+
+		if (notify_key != NULL)
+		{
+			int status, token;
+			asl_action_set_param_data_t *spdata;
+
+			status = notify_register_dispatch(notify_key, &token, asl_action_queue, ^(int t){
+				_asl_action_handle_file_change_notification(t);
+			});
+
+			free(notify_key);
+
+			spdata = (asl_action_set_param_data_t *)calloc(1, sizeof(asl_action_set_param_data_t));
+			if (spdata == NULL)
+			{
+				notify_cancel(token);
+			}
+			else
+			{
+				spdata->token = token;
+				r->private = spdata;
+			}
+		}
+	}
+	else if (r->action == ACTION_SET_FILE)
+	{
+		char *notify_key;
+		const char *path =_asl_action_file_test(m, r);
+
+		if (path != NULL)
+		{
+			asprintf(&notify_key, "%s%s", NOTIFY_PATH_SERVICE, path);
+			if (notify_key != NULL)
+			{
+				int status, token;
+				asl_action_set_param_data_t *spdata;
+
+				status = notify_register_dispatch(notify_key, &token, asl_action_queue, ^(int t){
+					_asl_action_handle_file_change_notification(t);
+				});
+
+				free(notify_key);
+
+				spdata = (asl_action_set_param_data_t *)calloc(1, sizeof(asl_action_set_param_data_t));
+				if (spdata == NULL)
+				{
+					notify_cancel(token);
+				}
+				else
+				{
+					spdata->token = token;
+					r->private = spdata;
+				}
+			}
+		}
+	}
+}
+
+static void
+_asl_action_configure()
+{
+	asl_out_rule_t *r;
+	asl_out_module_t *m;
+	uint32_t flags = 0;
+
+	if (global.asl_out_module == NULL) global.asl_out_module = asl_out_module_init();
+	if (global.asl_out_module == NULL) return;
+
+	if (global.debug != 0)
+	{
+		FILE *dfp;
+		if (global.debug_file == NULL) dfp = fopen(_PATH_SYSLOGD_LOG, "a");
+		else dfp = fopen(global.debug_file, "a");
+		if (dfp != NULL)
+		{
+			for (m = global.asl_out_module; m != NULL; m = m->next)
+			{
+				fprintf(dfp, "module: %s%s\n", (m->name == NULL) ? "<unknown>" : m->name, (m->flags & MODULE_FLAG_LOCAL) ? " (local)" : "");
+				asl_out_module_print(dfp, m);
+				fprintf(dfp, "\n");
+			}
+			fclose(dfp);
+		}
+	}
+
+	asldebug("%s: init\n", MY_ID);
+
+	action_asl_store_count = 0;
+
+	for (m = global.asl_out_module; m != NULL; m = m->next)
+	{
+		for (r = m->ruleset; r != NULL; r = r->next)
+		{
+			_asl_action_post_process_rule(m, r);
+			if (r->dst != NULL) flags |= (r->dst->flags & (MODULE_FLAG_ROTATE | MODULE_FLAG_CRASHLOG));
+		}
+	}
+
+	if (global.debug != 0)
+	{
+		FILE *dfp;
+		if (global.debug_file == NULL) dfp = fopen(_PATH_SYSLOGD_LOG, "a");
+		else dfp = fopen(global.debug_file, "a");
+		if (dfp != NULL)
+		{
+			for (m = global.asl_out_module; m != NULL; m = m->next)
+			{
+				fprintf(dfp, "module: %s%s\n", (m->name == NULL) ? "<unknown>" : m->name, (m->flags & MODULE_FLAG_LOCAL) ? " (local)" : "");
+				asl_out_module_print(dfp, m);
+				fprintf(dfp, "\n");
+			}
+			fclose(dfp);
+		}
+	}
+
+	sweep_time = time(NULL);
+
+	if (flags & MODULE_FLAG_ROTATE)
+	{
+		_act_file_checkpoint_all(CHECKPOINT_TEST);
+		if (checkpoint_timer == NULL) _start_cycling();
+	}
+
+#if TARGET_OS_EMBEDDED
+	if (flags & MODULE_FLAG_CRASHLOG) _crashlog_sentinel_init();
+#endif
 }
 
 int
@@ -1581,90 +1680,143 @@ asl_action_init(void)
 {
 	static dispatch_once_t once;
 
-	asldebug("%s: init\n", MY_ID);
-	_parse_config_file(_PATH_ASL_CONF);
-
 	dispatch_once(&once, ^{
 		asl_action_queue = dispatch_queue_create("ASL Action Queue", NULL);
+#if TARGET_OS_EMBEDDED
+		crashlog_queue = dispatch_queue_create("iOS CrashLog Queue", NULL);
+		notify_register_dispatch(CRASH_MOVER_WILL_START_NOTIFICATION, &crashmover_token, asl_action_queue, ^(int unused){
+			if (crashmover_state == 0)
+			{
+				asldebug("CrashMover active: suspending crashlog queue and closing files\n");
+				crashmover_state = time(NULL);
+				dispatch_suspend(crashlog_queue);
+				_asl_action_close_idle_files(0);
+			}
+		});
+#endif
 	});
+
+	_asl_action_configure();
 
 	return 0;
 }
 
-int
-_asl_action_close_internal(void)
+/*
+ * Free a module.
+ */
+static void
+_asl_action_free_modules(asl_out_module_t *m)
 {
-	action_rule_t *r, *n;
-	struct store_data *sd;
-	struct file_data *fdata;
-	n = NULL;
-	for (r = asl_action_rule; r != NULL; r = n)
-	{
-		n = r->next;
-		if (r->data != NULL)
-		{
-			if (((r->action == ACTION_ASL_FILE) || (r->action == ACTION_ASL_DIR) || (r->action == ACTION_NONE)))
-			{
-				sd = (struct store_data *)r->data;
-				if (sd->refcount > 0) sd->refcount--;
-				if (sd->refcount == 0)
-				{
-					if (sd->store != NULL) asl_file_close(sd->store);
-					if (sd->storedata != NULL) fclose(sd->storedata);
+	asl_out_rule_t *r;
+	asl_out_module_t *x;
 
-					free(sd->dir);
-					free(sd->path);
-					free(sd);
+	/*
+	 * asl_common frees a list of modules with asl_out_module_free.
+	 * This loop frees the private data attached some modules.
+	 */
+	for (x = m; x != NULL; x = x->next)
+	{
+		for (r = x->ruleset; r != NULL; r = r->next)
+		{
+			if ((r->action == ACTION_ASL_FILE) || (r->action == ACTION_ASL_DIR))
+			{
+				if (r->dst != NULL)
+				{
+					_asl_action_store_data_free((asl_action_store_data_t *)r->dst->private);
+					r->dst->private = NULL;
 				}
 			}
-
-			if (r->action == ACTION_FILE)
+			else if (r->action == ACTION_FILE)
 			{
-				fdata = (struct file_data *)r->data;
-				if (fdata->refcount > 0) fdata->refcount--;
-				if (fdata->refcount == 0)
+				if (r->dst != NULL)
 				{
-					_act_file_send_repeat_msg(fdata);
-
-					if (fdata->dup_timer != NULL)
+					asl_action_file_data_t *fdata = (asl_action_file_data_t *)r->dst->private;
+					if (fdata != NULL)
 					{
-						dispatch_source_cancel(fdata->dup_timer);
-						dispatch_resume(fdata->dup_timer);
-						dispatch_release(fdata->dup_timer);
+						/* flush repeat message if necessary */
+						if (fdata->last_count > 0) _send_repeat_msg(r);
+						_asl_action_file_data_free(fdata);
+						r->dst->private = NULL;
 					}
+				}
+			}
+			else if (r->action == ACTION_SET_PLIST)
+			{
+				_asl_action_set_param_data_free((asl_action_set_param_data_t *)r->private);
+			}
+			else if (r->action == ACTION_SET_PROF)
+			{
+				_asl_action_set_param_data_free((asl_action_set_param_data_t *)r->private);
+			}
+		}
+	}
 
-					free(fdata->path);
-					free(fdata->fmt);
-					free(fdata->uid);
-					free(fdata->gid);
-					free(fdata->last_msg);
-					free(fdata);
+	asl_out_module_free(m);
+}
+
+static int
+_asl_action_close_internal(void)
+{
+#if TARGET_OS_EMBEDDED
+	dispatch_source_cancel(crashlog_sentinel_src);
+	dispatch_release(crashlog_sentinel_src);
+	crashlog_sentinel_src = NULL;
+	close(crashlog_sentinel_fd);
+	if (crashmover_state != 0)
+	{
+		dispatch_resume(crashlog_queue);
+		crashmover_state = 0;
+	}
+
+	/* wait for the crashlog_queue to flush before _asl_action_free_modules() */
+	dispatch_sync(crashlog_queue, ^{ crashlog_sentinel_fd = -1; });
+#endif
+
+	_asl_action_free_modules(global.asl_out_module);
+	global.asl_out_module = NULL;
+	sweep_time = time(NULL);
+
+	return 0;
+}
+
+static void
+_asl_action_close_idle_files(time_t idle_time)
+{
+	asl_out_module_t *m;
+	time_t now = time(NULL);
+
+	for (m = global.asl_out_module; m != NULL; m = m->next)
+	{
+		asl_out_rule_t *r;
+
+		for (r = m->ruleset; r != NULL; r = r->next)
+		{
+			if (idle_time == 0)
+			{
+				if ((r->dst != NULL) && (r->dst->flags & MODULE_FLAG_CRASHLOG))
+				{
+					_act_dst_close(r);
+					if (r->action != ACTION_ASL_DIR) asl_out_dst_checkpoint(r->dst, CHECKPOINT_FORCE);
+				}
+			}
+			else if ((r->action == ACTION_ASL_DIR) || (r->action == ACTION_ASL_FILE))
+			{
+				if (r->dst != NULL)
+				{
+					asl_action_store_data_t *sdata = (asl_action_store_data_t *)r->dst->private;
+					if ((sdata != NULL) && (sdata->store != NULL) && ((now - sdata->last_time) >= idle_time)) _act_dst_close(r);
+				}
+			}
+			else if (r->action == ACTION_FILE)
+			{
+				if (r->dst != NULL)
+				{
+					asl_action_file_data_t *fdata = (asl_action_file_data_t *)r->dst->private;
+					if ((fdata != NULL) && (fdata->fd >= 0) && ((now - fdata->last_time) >= idle_time)) _act_dst_close(r);
 				}
 			}
 		}
-
-		if (r->query != NULL) asl_msg_release(r->query);
-		free(r->options);
-
-		free(r);
 	}
-
-	asl_action_rule = NULL;
-
-	n = NULL;
-	for (r = asl_datastore_rule; r != NULL; r = n)
-	{
-		n = r->next;
-
-		if (r->query != NULL) asl_msg_release(r->query);
-		free(r->options);
-
-		free(r);
-	}
-
-	asl_datastore_rule = NULL;
-
-	return 0;
 }
 
 int
@@ -1688,17 +1840,157 @@ asl_action_reset(void)
 	return 0;
 }
 
-int
-asl_action_file_rotate(const char *path)
+asl_out_module_t *
+_asl_action_module_with_name(const char *name)
 {
-	/*
-	 * The caller may want to know when the rotation has been completed,
-	 * so this is synchronous. Also ensures the string stays intact while we work.
-	 */
+	asl_out_module_t *m;
+
+	if (global.asl_out_module == NULL) return NULL;
+	if (name == NULL) return global.asl_out_module;
+
+	for (m = global.asl_out_module; m != NULL; m = m->next)
+	{
+		if ((m->name != NULL) && (!strcmp(m->name, name))) return m;
+	}
+
+	return NULL;
+}
+
+/*
+ * called from control_message 
+ * Used to control modules dynamically.
+ * Line format "@ module param [value ...]"
+ *
+ * Note this is synchronous on asl_action queue.
+ */
+int
+asl_action_control_set_param(const char *s)
+{
+	__block char **l;
+	__block char *p;
+	uint32_t count = 0;
+
+	if (s == NULL) return -1;
+	if (s[0] == '\0') return 0;
+
+	/* skip '@' and whitespace */
+	if (*s == '@') s++;
+	while ((*s == ' ') || (*s == '\t')) s++;
+
+	l = explode(s, " \t");
+	if (l != NULL) for (count = 0; l[count] != NULL; count++);
+
+	/* at least 2 parameters (l[0] = module, l[1] = param) required */
+	if (count < 2) return -1;
+
+	if (global.asl_out_module == NULL)
+	{
+		asldebug("asl_action_control_set_param: no modules loaded\n");
+		return -1;
+	}
+
+	/* create / modify a module */
+	if ((!strcasecmp(l[1], "define")) && (strcmp(l[0], "*")))
+	{
+		p = strdup(s);
+		if (p == NULL)
+		{
+			asldebug("asl_action_control_set_param: memory allocation failed\n");
+			return -1;
+		}
+
+		dispatch_sync(asl_action_queue, ^{
+			asl_out_module_t *m;
+			asl_out_rule_t *r;
+
+			/* skip name, whitespace, "define" */
+			while ((*p != ' ') && (*p != '\t')) p++;
+			while ((*p == ' ') || (*p == '\t')) p++;
+			while ((*p != ' ') && (*p != '\t')) p++;
+
+			m = _asl_action_module_with_name(l[0]);
+			if (m == NULL)
+			{
+				asl_out_module_t *x;
+
+				m = asl_out_module_new(l[0]);
+				for (x = global.asl_out_module; x->next != NULL; x = x->next);
+				x->next = m;
+			}
+
+			r = asl_out_module_parse_line(m, p);
+			if (r != NULL)
+			{
+				_asl_action_post_process_rule(m, r);
+				if ((r->dst != NULL) && (r->dst->flags & MODULE_FLAG_ROTATE)) 
+				{
+					_act_file_checkpoint_all(CHECKPOINT_TEST);
+					if (checkpoint_timer == NULL) _start_cycling();
+				}
+			}
+		});
+
+		free(p);
+		free_string_list(l);
+		return 0;
+	}
+
 	dispatch_sync(asl_action_queue, ^{
-		_act_file_rotate(path);
+		uint32_t intval;
+		int do_all = 0;
+		asl_out_module_t *m;
+
+		if (!strcmp(l[0], "*"))
+		{
+			do_all = 1;
+			m = _asl_action_module_with_name(NULL);
+		}
+		else
+		{
+			m = _asl_action_module_with_name(l[0]);
+		}
+
+		while (m != NULL) 
+		{
+			if (!strcasecmp(l[1], "enable"))
+			{
+				intval = 1;
+
+				/* don't do enable for ASL_MODULE_NAME if input name is "*" */
+				if ((do_all == 0) || (strcmp(m->name, ASL_MODULE_NAME)))
+				{
+					/* @ module enable {0|1} */
+					if (count > 2) intval = atoi(l[2]);
+
+					if (intval == 0) m->flags &= ~MODULE_FLAG_ENABLED;
+					else m->flags |= MODULE_FLAG_ENABLED;
+				}
+			}
+			else if (!strcasecmp(l[1], "checkpoint"))
+			{
+				/* @ module checkpoint [file] */
+				if (count > 2) _act_file_checkpoint(m, l[2], CHECKPOINT_FORCE);
+				else _act_file_checkpoint(m, NULL, CHECKPOINT_FORCE);
+			}
+
+			if (do_all == 1) m = m->next;
+			else m = NULL;
+		}
+
+	});
+
+	free_string_list(l);
+	return 0;
+}
+
+int
+asl_action_file_checkpoint(const char *module, const char *path)
+{
+	/* Note this is synchronous on asl_action queue */
+	dispatch_sync(asl_action_queue, ^{
+		asl_out_module_t *m = _asl_action_module_with_name(module);
+		_act_file_checkpoint(m, path, CHECKPOINT_FORCE);
 	});
 
 	return 0;
 }
-

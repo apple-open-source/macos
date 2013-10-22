@@ -29,6 +29,7 @@
 #include <parse_url.h>
 #include <netsmb/smb_conn.h>
 #include <NetFS/NetFS.h>
+#include <NetFS/NetFSUtilPrivate.h>
 #include <netsmb/netbios.h>
 #include <netsmb/nb_lib.h>
 
@@ -77,6 +78,8 @@ char *CStringCreateWithCFString(CFStringRef inStr)
 	CFIndex maxLen;
 	char *str;
 	
+    if(inStr == NULL)
+        return NULL;
 	maxLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(inStr), 
 											   kCFStringEncodingUTF8) + 1;
 	str = malloc(maxLen);
@@ -191,18 +194,36 @@ static CFArrayRef CreateWrkgrpUserArray(CFURLRef url)
 
 
 /* 
- * Get the server name out of the URL. CFURLCopyHostName will escape out the server name
- * for us. So just convert it to the correct code page encoding.
+ * Get the server name out of the URL. CFURLCopyHostName will escape out the 
+ * server name for us. So just convert it to the correct code page encoding.
  *
- * Note: Currently we put the server name into a c-style string. In the future it would be 
- * nice to keep this as a CFString.
+ * Note: Currently we put the server name into a c-style string. In the future 
+ * it would be nice to keep this as a CFString.
  */
 static int SetServerFromURL(struct smb_ctx *ctx, CFURLRef url)
 {
 	CFIndex maxlen;
 	CFStringRef serverNameRef = CFURLCopyHostName(url);
+	char *ipV6Name = NULL;
 
-	/*
+	ipV6Name = CStringCreateWithCFString(serverNameRef);
+	if (ipV6Name && isIPv6NumericName(ipV6Name)) {
+        /* CFURLCopyHostName removed the [] so put them back in */
+        CFMutableStringRef newServer = CFStringCreateMutableCopy(NULL, 1024, CFSTR("["));
+        if (newServer) {
+            CFStringAppend(newServer, serverNameRef);
+            CFStringAppend(newServer, CFSTR("]"));
+            CFRelease(serverNameRef);
+            serverNameRef = newServer;
+        }
+    }
+
+	/* Free up the buffer we allocated */
+	if (ipV6Name) {
+		free(ipV6Name);
+    }
+    
+    /*
 	 * Every time we parse the URL we end up replacing the server name. In the 
 	 * future we should skip replacing the server name if we already have one and
 	 * the one return CFURLCopyHostName matches it.
@@ -510,35 +531,50 @@ static int SetShareAndPathFromURL(struct smb_ctx *ctx, CFURLRef url)
 	int error;
 
 	error = GetShareAndPathFromURL(url, &share, &path);
-	if (error)
+	if (error) {
 		return error;
+    }
 
 	/* Since there is no share name we have nothing left to do. */
-	if (!share)
+	if (share == NULL) {
+        if (path != NULL) {
+            CFRelease(path);
+        }
+        
 		return 0;
+    }
+    
 	DebugLogCFString(share, "Share", __FUNCTION__, __LINE__);
     
 	CreateStringByReplacingPercentEscapesUTF8(&share, CFSTR(""));
 	
-	if (ctx->ct_origshare)
+	if (ctx->ct_origshare) {
 		free(ctx->ct_origshare);
+    }
 	
-	if (ctx->mountPath)
+	if (ctx->mountPath) {
 		CFRelease(ctx->mountPath);
+    }
 	ctx->mountPath = NULL;
 	
 	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(share), kCFStringEncodingUTF8) + 1;
 	ctx->ct_origshare = malloc(maxlen);
 	if (!ctx->ct_origshare) {
-		CFRelease(share);		
-		CFRelease(path);
+		CFRelease(share);
+        
+        if (path != NULL) {
+            CFRelease(path);
+        }
+        
 		return ENOMEM;
 	}
+
 	CFStringGetCString(share, ctx->ct_origshare, maxlen, kCFStringEncodingUTF8);
 	str_upper(ctx->ct_sh.ioc_share, sizeof(ctx->ct_sh.ioc_share), share); 
 	CFRelease(share);
 	
 	ctx->mountPath = path;
+
 	return 0;
 }
 
@@ -594,22 +630,27 @@ CFURLRef CreateURLFromReferral(CFStringRef inStr)
 	CFMutableStringRef urlString = CFStringCreateMutableCopy(NULL, 0, CFSTR("smb:/"));
 	CFStringRef escapeStr = inStr;
 	
+    /* 
+     * CreateStringByAddingPercentEscapesUTF8() will either create a new string
+     * or return the original with ref count incremented. Either way we have to
+     * call CFRelease on the returned string 
+     */
 	CreateStringByAddingPercentEscapesUTF8(&escapeStr, NULL, NULL, FALSE);
-	if (!escapeStr) {
-		escapeStr = inStr; /* Something fail try with the original referral */
-	}
 
 	if (urlString) {
 		CFStringAppend(urlString, escapeStr);
 		ct_url = CFURLCreateWithString(kCFAllocatorDefault, urlString, NULL);
 		CFRelease(urlString);	/* We create it now release it */
 	}
+    
 	if (!ct_url) {
 		LogCFString(inStr, "creating url failed", __FUNCTION__, __LINE__);
 	}
-	if (escapeStr != inStr) {
-		CFRelease(escapeStr);
-	}
+    
+    if (escapeStr) {
+        CFRelease(escapeStr);
+    }
+   
 	return ct_url;
 }
 
@@ -731,7 +772,7 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	CFStringRef Password = NULL;
 	CFStringRef Share = NULL;
 	CFStringRef Path = NULL;
-	SInt32 PortNumber;
+	CFStringRef Port = NULL;
 	
 	/* Make sure its a good URL, better be at this point */
 	if ((!CFURLCanBeDecomposed(url)) || (SMBSchemeLength(url) < 0)) {
@@ -757,24 +798,25 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 	 */
 	CFDictionarySetValue (mutableDict, kNetFSSchemeKey, CFSTR(SMB_SCHEME_STRING));
 
-	Server = CFURLCopyHostName(url);
-	if (! Server)
+    error = NetFSCopyHostAndPort(url, &Server, &Port);
+	if ((Server == NULL) || (error != noErr)) {
+        if (Port != NULL) {
+            CFRelease(Port);
+        }
 		goto ErrorOut; /* Server name is required */
+    }
 	
 	LogCFString(Server, "Server String", __FUNCTION__, __LINE__);
 	CFDictionarySetValue (mutableDict, kNetFSHostKey, Server);
 	CFRelease(Server);
 	Server = NULL;
 	
-	PortNumber = CFURLGetPortNumber(url);
-	if (PortNumber != -1) {
-		CFStringRef tempString = CFStringCreateWithFormat( NULL, NULL, CFSTR( "%d" ), PortNumber );
-		if (tempString) {
-			CFDictionarySetValue (mutableDict, kNetFSAlternatePortKey, tempString);
-			CFRelease(tempString);
-		}
-	}
-	
+    if (Port != NULL) {
+        CFDictionarySetValue (mutableDict, kNetFSAlternatePortKey, Port);
+        CFRelease(Port);
+        Port = NULL;
+    }
+
 	Username = CopyUserAndWorkgroupFromURL(&DomainWrkgrp, url);
 	LogCFString(Username, "Username String", __FUNCTION__, __LINE__);
 	LogCFString(DomainWrkgrp, "DomainWrkgrp String", __FUNCTION__, __LINE__);
@@ -807,8 +849,7 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 			CFRelease(Username);
 			Username = tempString;
 		}
-		CFRelease(DomainWrkgrp);
-	} 
+	}
 
 	if (Username)
 	{
@@ -816,6 +857,10 @@ int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict)
 		CFRelease(Username);				
 	}	
 
+    if (DomainWrkgrp) {
+		CFRelease(DomainWrkgrp);
+    }
+    
 	Password = CFURLCopyPassword(url);
 	if (Password) {
 		if (CFStringGetLength(Password) >= SMB_MAXPASSWORDLEN) {
@@ -895,7 +940,7 @@ ErrorOut:
  */
 static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef *urlReturnString)
 {
-	int error  = 0;
+	int error = 0;
 	CFMutableStringRef urlStringM = NULL;
 	CFStringRef DomainWrkgrp = NULL;
 	CFStringRef Username = NULL;
@@ -903,8 +948,8 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	CFStringRef Server = NULL;
 	CFStringRef PortNumber = NULL;
 	CFStringRef Path = NULL;
-	Boolean		releaseUsername = FALSE;
-	char		*ipV6Name = NULL;
+	Boolean	releaseUsername = FALSE;
+	char *ipV6Name = NULL;
 	
 	urlStringM = CFStringCreateMutableCopy(NULL, 1024, CFSTR("smb://"));
 	if (urlStringM == NULL) {
@@ -916,7 +961,14 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 		 
 	/* Get the server name, required value */
 	Server = CFDictionaryGetValue(dict, kNetFSHostKey);
-	/* 
+	if (Server == NULL) {
+		error = EINVAL;
+		smb_log_info("%s: no server name, syserr = %s", ASL_LEVEL_ERR,
+					 __FUNCTION__, strerror(error));
+		goto WeAreDone;
+	}
+
+	/*
 	 * So we have three basic server names to cover here. 
 	 *
 	 * 1. Bonjour Name requires these /@:,?=;&+$ extra characters to be percent 
@@ -926,40 +978,37 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	 *	  percent escape out.
 	 *
 	 * 3. DNS Names requires the DOT IPv6 Notification address to be enclosed in 
-	 *	  square barckets and that the colon not to be escaped out.
+	 *	  square brackets and that the colon not to be escaped out.
 	 *					 
-	 * Note that CFURLCopyHostName will remove the square barckets from the DOT  
-	 * IPv6 Notification address. So smb_url_to_dictionary will put the IPv6
-	 * address in the dictionary without the square barckets. We expect this
-	 * behavior so anyone changing the dictionary server field will need to make
-	 * it doesn't have square barckets.
+	 * Note that CFURLCopyHostName will remove the square brackets from the DOT  
+	 * IPv6 Notification address. smb_url_to_dictionary will put the brackets
+     * back into the IPv6 address in the dictionary. We expect this behavior so 
+     * anyone changing the dictionary server field will need to make sure
+	 * it does have square brackets.
 	 */ 
 	ipV6Name = CStringCreateWithCFString(Server);
-	/* Is this an IPv6 numeric name, then put the square barckets around it */
+    
+	/* Is this an IPv6 numeric name, then leave the square brackets around it */
 	if (ipV6Name && isIPv6NumericName(ipV6Name)) {
-		CFMutableStringRef newServer = CFStringCreateMutableCopy(NULL, 1024, CFSTR("["));
-		if (newServer) {
-			CFStringAppend(newServer, Server);
-			CFStringAppend(newServer, CFSTR("]"));
-			/* Just do the normal percent escape, but don't escape out the square barckets */
-			Server = newServer;
-			CreateStringByAddingPercentEscapesUTF8(&Server, CFSTR("[]"), NULL, TRUE);
-		} else
-			Server = NULL;		/* Something bad happen error out down below */
-	} else {
+        CreateStringByAddingPercentEscapesUTF8(&Server, CFSTR("[]"), NULL, FALSE);
+    }
+    else {
 		/* Some other name make sure we percent escape all the characters needed */
 		CreateStringByAddingPercentEscapesUTF8(&Server, NULL, CFSTR("~!'()/@:,?=;&+$"), FALSE);
 	}
+    
 	/* Free up the buffer we allocated */
-	if (ipV6Name)
+	if (ipV6Name) {
 		free(ipV6Name);
+    }
 	
 	if (Server == NULL) {
 		error = EINVAL;
-		smb_log_info("%s: no server name, syserr = %s", ASL_LEVEL_ERR, 
+		smb_log_info("%s: still no server name, syserr = %s", ASL_LEVEL_ERR, 
 					 __FUNCTION__, strerror(error));	
 		goto WeAreDone;
 	}
+    
 	/* Now get all the other parts of the url. */
 	Username = CFDictionaryGetValue(dict, kNetFSUserNameKey);
 	/* We have a user name see if they entered a domain also. */
@@ -1087,12 +1136,13 @@ int smb_dictionary_to_url(CFDictionaryRef dict, CFURLRef *url)
 	
 }
 
-CFStringRef CreateURLCFString(CFStringRef Domain, CFStringRef Username, CFStringRef Password, 
-					  CFStringRef ServerName, CFStringRef Path, CFStringRef PortNumber)
+CFStringRef CreateURLCFString(CFStringRef Domain, CFStringRef Username,
+                              CFStringRef Password, CFStringRef ServerName,
+                              CFStringRef Path, CFStringRef PortNumber)
 {
 	CFMutableDictionaryRef mutableDict = NULL;
 	int error;
-	CFMutableStringRef urlString;
+	CFMutableStringRef urlString = NULL;
 	
 	mutableDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
 											&kCFTypeDictionaryValueCallBacks);
@@ -1109,33 +1159,42 @@ CFStringRef CreateURLCFString(CFStringRef Domain, CFStringRef Username, CFString
 			CFStringAppend(tempString, CFSTR("\\"));
 			CFStringAppend(tempString, Username);
 			Username = tempString;
-		} else {
+		}
+        else {
 			CFRetain(Username);
 		}
 	} else if (Username) {
 		CFRetain(Username);
 	}
+    
 	if (Username) {
 		CFDictionarySetValue(mutableDict, kNetFSUserNameKey, Username);
 		CFRelease(Username);
 	}
+    
 	if (Password) {
 		CFDictionarySetValue(mutableDict, kNetFSPasswordKey, Password);
 	}
+    
 	if (ServerName) {
 		CFDictionarySetValue(mutableDict, kNetFSHostKey, ServerName);
 	}
+    
 	if (Path) {
 		CFDictionarySetValue (mutableDict, kNetFSPathKey, Path);
 	}
+    
 	if (PortNumber) {
 		CFDictionarySetValue (mutableDict, kNetFSAlternatePortKey, PortNumber);
 	}
+    
 	error = smb_dictionary_to_urlstring(mutableDict, &urlString);
 	CFRelease(mutableDict);
+    
 	if (error) {
 		errno = error;
 	}
+    
 	return urlString;
 }
 

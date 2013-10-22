@@ -1,0 +1,4 @@
+#include "security.xcconfig"
+
+HEADER_SEARCH_PATHS = $(PROJECT_DIR) $(PROJECT_DIR)/regressions/
+

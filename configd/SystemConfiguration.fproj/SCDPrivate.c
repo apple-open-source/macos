@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <netinet/in.h>
@@ -56,9 +57,9 @@
 #include <dlfcn.h>
 
 
-#if	TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+#if	TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
 #include <CoreFoundation/CFUserNotification.h>
-#endif	// TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+#endif	// TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
 
 #define	N_QUICK	32
 
@@ -161,15 +162,6 @@ _SC_sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
 			}
 			break;
 		}
-		case AF_LINK :
-			if (addr.sdl->sdl_len < bufLen) {
-				bufLen = addr.sdl->sdl_len;
-			} else {
-				bufLen = bufLen - 1;
-			}
-
-			bcopy(addr.sdl->sdl_data, buf, bufLen);
-			break;
 		default :
 			snprintf(buf, bufLen, "unexpected address family %d", address->sa_family);
 			break;
@@ -542,6 +534,7 @@ _SCUnserializeData(CFDataRef *data, void *dataRef, CFIndex dataLen)
 CF_RETURNS_RETAINED CFDictionaryRef
 _SCSerializeMultiple(CFDictionaryRef dict)
 {
+	CFIndex			i;
 	const void *		keys_q[N_QUICK];
 	const void **		keys		= keys_q;
 	CFIndex			nElements;
@@ -553,17 +546,16 @@ _SCSerializeMultiple(CFDictionaryRef dict)
 
 	nElements = CFDictionaryGetCount(dict);
 	if (nElements > 0) {
-		CFIndex	i;
-
 		if (nElements > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
 			keys   = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 			values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
-			pLists = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+			pLists = CFAllocatorAllocate(NULL, nElements * sizeof(CFDataRef), 0);
 		}
-		bzero(pLists, nElements * sizeof(CFTypeRef));
+		bzero(pLists, nElements * sizeof(CFDataRef));
 
 		CFDictionaryGetKeysAndValues(dict, keys, values);
 		for (i = 0; i < nElements; i++) {
+			pLists[i] = NULL;
 			if (!_SCSerialize((CFPropertyListRef)values[i], (CFDataRef *)&pLists[i], NULL, NULL)) {
 				goto done;
 			}
@@ -580,10 +572,8 @@ _SCSerializeMultiple(CFDictionaryRef dict)
     done :
 
 	if (nElements > 0) {
-		CFIndex	i;
-
 		for (i = 0; i < nElements; i++) {
-			if (pLists[i])	CFRelease(pLists[i]);
+			if (pLists[i] != NULL)	CFRelease((CFDataRef)pLists[i]);
 		}
 
 		if (keys != keys_q) {
@@ -892,6 +882,7 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 {
 	CFDataRef	data	= NULL;
 	SInt32		errCode	= 0;
+	Boolean		ok;
 	CFURLRef	resourcesURL;
 	CFStringRef	str	= NULL;
 	CFURLRef	url;
@@ -921,12 +912,16 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 		CFRelease(fileName);
 		CFRelease(resourcesURL);
 
-		if (!CFURLCreateDataAndPropertiesFromResource(NULL,
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
+		ok = CFURLCreateDataAndPropertiesFromResource(NULL,
 							      url,
 							      &data,
 							      NULL,
 							      NULL,
-							      &errCode)) {
+							      &errCode);
+#pragma GCC diagnostic pop
+		if (!ok) {
 			/*
 			 * Failed to get the data using a manually-constructed URL
 			 * for the given strings table. Fall back to using
@@ -944,12 +939,16 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 							     NULL,
 							     CFSTR("English"));
 		if (url != NULL) {
-			if (!CFURLCreateDataAndPropertiesFromResource(NULL,
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
+			ok = CFURLCreateDataAndPropertiesFromResource(NULL,
 								      url,
 								      &data,
 								      NULL,
 								      NULL,
-								      &errCode)) {
+								      &errCode);
+#pragma GCC diagnostic pop
+			if (!ok) {
 				data = NULL;
 			}
 			CFRelease(url);
@@ -1018,7 +1017,8 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 						       portDescription);
 		}
 		crash_info = _SC_cfstring_to_cstring(err, NULL, 0, kCFStringEncodingASCII);
-		CFRelease(err);
+		if (err != NULL) CFRelease(err);
+
 
 		err = CFStringCreateWithFormat(NULL,
 					       NULL,
@@ -1197,7 +1197,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 		static int	is_configd	= -1;
 
 		if (is_configd == -1) {
-			is_configd = (strcmp(getprogname(), "configd") == 0);
+			is_configd = (strcmp(getprogname(), _SC_SERVER_PROG) == 0);
 		}
 		if (is_configd == 1) {
 			// if "configd", add indication if this is the M[ain] or [P]lugin thread
@@ -1359,11 +1359,11 @@ asm(".desc ___crashreporter_info__, 0x10");
 static Boolean
 _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
 {
-	Boolean	ok											= FALSE;
+	Boolean	ok	= FALSE;
 
 #if ! TARGET_IPHONE_SIMULATOR
 	static bool	(*dyfunc_SimulateCrash)(pid_t, mach_exception_data_type_t, CFStringRef)	= NULL;
-	static void	*image											= NULL;
+	static void	*image									= NULL;
 
 	if ((dyfunc_SimulateCrash == NULL) && (image == NULL)) {
 		const char	*framework	= "/System/Library/PrivateFrameworks/CrashReporterSupport.framework/CrashReporterSupport";
@@ -1394,28 +1394,30 @@ _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef 
 		CFRelease(str);
 	}
 
-#if	TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
-	if (ok) {
+#if	TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
+	if (ok && (notifyHeader != NULL) && (notifyMessage != NULL)) {
 		static Boolean	warned	= FALSE;
 
 		if (!warned) {
-			notifyMessage = CFStringCreateWithFormat(NULL,
-								 NULL,
-								 CFSTR("%@\n\nPlease collect the crash report and file a Radar."),
-								 notifyMessage);
+			CFStringRef	displayMessage;
+
+			displayMessage = CFStringCreateWithFormat(NULL,
+								  NULL,
+								  CFSTR("%@\n\nPlease collect the crash report and file a Radar."),
+								  notifyMessage);
 			CFUserNotificationDisplayNotice(0,
 							kCFUserNotificationStopAlertLevel,
 							NULL,
 							NULL,
 							NULL,
 							notifyHeader,
-							notifyMessage,
+							displayMessage,
 							NULL);
-			CFRelease(notifyMessage);
+			CFRelease(displayMessage);
 			warned = TRUE;
 		}
 	}
-#endif	// TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+#endif	// TARGET_OS_EMBEDDED && !defined(DO_NOT_INFORM)
 #endif /* ! TARGET_IPHONE_SIMULATOR */
 
 	return ok;
@@ -1446,4 +1448,42 @@ _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMe
 
 	__crashreporter_info__ = NULL;
 	return;
+}
+
+
+Boolean
+_SC_getconninfo(int socket, struct sockaddr_storage *src_addr, struct sockaddr_storage *dest_addr, int *if_index, uint32_t *flags)
+{
+	struct so_cinforeq	request;
+
+	memset(&request, 0, sizeof(request));
+
+	if (src_addr != NULL) {
+		memset(src_addr, 0, sizeof(*src_addr));
+		request.scir_src = (struct sockaddr *)src_addr;
+		request.scir_src_len = sizeof(*src_addr);
+	}
+
+	if (dest_addr != NULL) {
+		memset(dest_addr, 0, sizeof(*dest_addr));
+		request.scir_dst = (struct sockaddr *)dest_addr;
+		request.scir_dst_len = sizeof(*dest_addr);
+	}
+
+	if (ioctl(socket, SIOCGCONNINFO, &request) != 0) {
+		SCLog(TRUE, LOG_WARNING, CFSTR("SIOCGCONNINFO failed: %s"), strerror(errno));
+		return FALSE;
+	}
+
+	if (if_index != NULL) {
+		*if_index = 0;
+		*if_index = request.scir_ifindex;
+	}
+
+	if (flags != NULL) {
+		*flags = 0;
+		*flags = request.scir_flags;
+	}
+
+	return TRUE;
 }

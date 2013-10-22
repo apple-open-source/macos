@@ -42,7 +42,7 @@ krb5_write_message (krb5_context context,
     uint8_t buf[4];
     int ret;
 
-    len = data->length;
+    len = (uint32_t)data->length;
     _krb5_put_int(buf, len, 4);
     if (krb5_net_write (context, p_fd, buf, 4) != 4
 	|| krb5_net_write (context, p_fd, data->data, len) != len) {

@@ -1,0 +1,4 @@
+/^sub is_heimdal {/a
+   return 1;
+.
+w

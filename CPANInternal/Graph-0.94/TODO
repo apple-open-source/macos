@@ -1,0 +1,41 @@
+Note that these are possibilities, not plans nor promises.
+
+- graph periphery: the subgraph of graph center vertices
+- finding the shortest cycle: easy for directed (*), but how about undirected?
+  (*) http://www.cs.auckland.ac.nz/~ute/220ft/graphalg/node14.html
+  do a BFS, when sees an already seen vertex, a cycle of length of at most
+  twice the current depth of the BFS has been found; no cycles => V + 1 (Inf)
+- bipartite aka 2-colourable: again, BFS:
+  http://www.cs.auckland.ac.nz/~ute/220ft/graphalg/node15.html
+- Eulerian circuit: Fleury's algorithm:
+  http://planetmath.org/encyclopedia/FleurysAlgorithm.html
+- could_be_isomorphic() - go second degree?
+
+1. separate external and internal attributes?
+2. biconn: add next_root
+3. DAG SSSP
+4. flow: Ford-Fulkerson/Edmonds-Karp/preflow-push?  Floyd-Warshall variant?
+
+-- Classics --
+
+Undirected graphs
+- connectivity
+  - given two vertices are they on a cycle
+  - find_all_paths($u, $v)?
+  - find_all_cycles()? NP-complete; equivalent to finding all Hamiltonians
+- Euler tour
+- bipartite matching: Hopcroft - Kraft
+- 2-colorability (see above)
+- planarity
+
+Digraphs
+- disallow_selfloops => 1?
+- odd-length cycle
+- shortest paths (bfs)
+- squaring a graph: for (u,v)(v,w) add (u,w) unless already there
+
+- graph union, graph difference?
+
+Various specialized graph constructors?
+- n-dim grid (with wraps and connectors -> wheels (webs), cones),
+  circle, star, platonic solids, trees, etc.

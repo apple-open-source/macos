@@ -27,9 +27,9 @@
  * SUCH DAMAGE.
  */
 
-#if defined(VARIANT_CANCELABLE) || defined(VARIANT_PRE1050)
-#undef __DARWIN_NON_CANCELABLE
-#endif /* VARIANT_CANCELABLE */
+#if (defined(VARIANT_CANCELABLE) || defined(VARIANT_PRE1050)) && __DARWIN_NON_CANCELABLE != 0
+#error cancellable call vs. __DARWIN_NON_CANCELABLE mismatch
+#endif
 
 #ifdef VARIANT_DARWINEXTSN
 #define _DARWIN_UNLIMITED_SELECT
@@ -49,6 +49,9 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pselect.c,v 1.6 2002/10/12 16:13:37 mike Ex
 #include "un-namespace.h"
 
 __weak_reference(__pselect, pselect);
+
+// Returns -1 and sets errno in contrast to pthread_sigmask which returns errno
+extern int __pthread_sigmask(int, const sigset_t *, sigset_t *);
 
 /*
  * Emulate the POSIX 1003.1g-2000 `pselect' interface.  This is the
@@ -72,7 +75,7 @@ __pselect(int count, fd_set * __restrict rfds, fd_set * __restrict wfds,
 		tvp = 0;
 
 	if (mask != 0) {
-		rv = _sigprocmask(SIG_SETMASK, mask, &omask);
+		rv = __pthread_sigmask(SIG_SETMASK, mask, &omask);
 		if (rv != 0)
 			return rv;
 	}
@@ -80,7 +83,7 @@ __pselect(int count, fd_set * __restrict rfds, fd_set * __restrict wfds,
 	rv = _select(count, rfds, wfds, efds, tvp);
 	if (mask != 0) {
 		sverrno = errno;
-		_sigprocmask(SIG_SETMASK, &omask, (sigset_t *)0);
+		__pthread_sigmask(SIG_SETMASK, &omask, (sigset_t *)0);
 		errno = sverrno;
 	}
 

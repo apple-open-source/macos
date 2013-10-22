@@ -25,7 +25,6 @@
 #define SVGRenderSupport_h
 
 #if ENABLE(SVG)
-#include "LayoutTypes.h"
 #include "PaintInfo.h"
 
 namespace WebCore {
@@ -33,7 +32,10 @@ namespace WebCore {
 class FloatPoint;
 class FloatRect;
 class ImageBuffer;
+class LayoutRect;
 class RenderBoxModelObject;
+class RenderGeometryMap;
+class RenderLayerModelObject;
 class RenderObject;
 class RenderStyle;
 class RenderSVGRoot;
@@ -64,10 +66,11 @@ public:
 
     // Important functions used by nearly all SVG renderers centralizing coordinate transformations / repaint rect calculations
     static FloatRect repaintRectForRendererInLocalCoordinatesExcludingSVGShadow(const RenderObject*);
-    static LayoutRect clippedOverflowRectForRepaint(const RenderObject*, RenderBoxModelObject* repaintContainer);
-    static void computeFloatRectForRepaint(const RenderObject*, RenderBoxModelObject* repaintContainer, FloatRect&, bool fixed);
-    static void mapLocalToContainer(const RenderObject*, RenderBoxModelObject* repaintContainer, TransformState&, bool* wasFixed = 0);
-    static const RenderObject* pushMappingToContainer(const RenderObject*, const RenderBoxModelObject* ancestorToStopAt, RenderGeometryMap&);
+    static LayoutRect clippedOverflowRectForRepaint(const RenderObject*, const RenderLayerModelObject* repaintContainer);
+    static void computeFloatRectForRepaint(const RenderObject*, const RenderLayerModelObject* repaintContainer, FloatRect&, bool fixed);
+    static void mapLocalToContainer(const RenderObject*, const RenderLayerModelObject* repaintContainer, TransformState&, bool* wasFixed = 0);
+    static const RenderObject* pushMappingToContainer(const RenderObject*, const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&);
+    static bool checkForSVGRepaintDuringLayout(RenderObject*);
 
     // Shared between SVG renderers and resources.
     static void applyStrokeStyleToContext(GraphicsContext*, const RenderStyle*, const RenderObject*);

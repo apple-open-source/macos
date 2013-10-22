@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/my.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/my.xml
 // *
 // ***************************************************************************
 /**
  *  ICU <specials> source: <path>/xml/main/my.xml
  */
 my{
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
     zoneStrings{
         "America:Anchorage"{
             ec{"အန်ကာရေ့ဂျ်"}
@@ -136,7 +136,9 @@ my{
             ls{"အဇာဘိုင်ဂျန် စံတော်ချိန်"}
         }
         "meta:Bangladesh"{
-            ls{"ဘင်္ဂလားဒေ့ရှ် အချိန်"}
+            ld{"ဘင်္ဂလားဒေ့ရှ် နွေရာသီ အချိန်"}
+            lg{"ဘင်္ဂလားဒေ့ရှ် အချိန်"}
+            ls{"ဘင်္ဂလားဒေ့ရှ် စံတော်ချိန်"}
         }
         "meta:Bhutan"{
             ls{"ဘူတန် အချိန်"}
@@ -171,9 +173,6 @@ my{
             ld{"ကျူးဘား နွေရာသီ အချိန်"}
             lg{"ကျူးဘား အချိန်"}
             ls{"ကျူးဘား စံတော်ချိန်"}
-        }
-        "meta:Dutch_Guiana"{
-            ls{"ဒတ်ချ် ဂီယာနာ အချိန်"}
         }
         "meta:East_Timor"{
             ls{"အရှေ့တီမော အချိန်"}
@@ -211,11 +210,6 @@ my{
             ld{"ဂျော်ဂျီယာ နွေရာသီ အချိန်"}
             lg{"ဂျော်ဂျီယာ အချိန်"}
             ls{"ဂျော်ဂျီယာ စံတော်ချိန်"}
-        }
-        "meta:Greenland_Central"{
-            ld{"အလယ်ဂရင်းလန်း နွေရာသီ အချိန်"}
-            lg{"အလယ်ဂရင်းလန်း အချိန်"}
-            ls{"အလယ်ဂရင်းလန်း စံတော်ချိန်"}
         }
         "meta:Greenland_Eastern"{
             ld{"အရှေ့ဂရင်းလန်း နွေရာသီ အချိန်"}
@@ -336,11 +330,6 @@ my{
         }
         "meta:South_Georgia"{
             ls{"တောင်ဂျော်ဂျီယာ အချိန်"}
-        }
-        "meta:Turkey"{
-            ld{"တူရကီ နွေရာသီ အချိန်"}
-            lg{"တူရကီ အချိန်"}
-            ls{"တူရကီ စံတော်ချိန်"}
         }
         "meta:Uruguay"{
             ld{"ဥရုဂွေး နွေရာသီ အချိန်"}

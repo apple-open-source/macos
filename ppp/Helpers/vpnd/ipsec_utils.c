@@ -48,6 +48,7 @@
 #include <net/route.h>
 #include <net/if_dl.h>
 #include <netinet6/ipsec.h>
+#include <SystemConfiguration/SCPrivate.h>      // for SCLog()
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <sys/param.h>
@@ -61,7 +62,6 @@
 #include "RASSchemaDefinitions.h"
 #include "vpnoptions.h"
 #include "scnc_main.h"
-#include <SystemConfiguration/SCPrivate.h>      // for SCLog()
 
 
 /* -----------------------------------------------------------------------------
@@ -216,15 +216,6 @@ static int EncodeDataUsingBase64(CFDataRef inputData, char *outputData, int maxO
     
 	outp[pos] = 0;
 	return pos;
-}
-
-/* -----------------------------------------------------------------------------
-simple max function
------------------------------------------------------------------------------ */
-static inline u_int
-max(u_int a, u_int b)
-{
-	return (a > b ? a : b);
 }
 
 /* -----------------------------------------------------------------------------
@@ -539,8 +530,8 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		modes = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecExchangeMode);
 		if (isArray(modes)) {		
 			
-			nb = max(CFArrayGetCount(modes), 3);
-			for (i = 0; i < nb; i++) {
+			nb = CFArrayGetCount(modes);
+			for (i = 0; i < nb && i < 3; i++) {
 			
 				mode = CFArrayGetValueAtIndex(modes, i);
 				if (!isString(mode))
@@ -634,9 +625,15 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 				strlcpy(str1, "asn1dn", sizeof(str1));
 			else 
 				strlcpy(str1, "", sizeof(str1));
+			if (!racoon_validate_cfg_str(str1)) {
+				FAIL("invalid LocalIdentifierType");
+			}
 		}
 		
 		if (GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), "")) {
+			if (!racoon_validate_cfg_str(str)) {
+				FAIL("invalid LocalIdentifier");
+			}
 			snprintf(text, sizeof(text), "my_identifier %s \"%s\";\n", str1[0] ? str1 : "fqdn", str);
 			WRITE(text);
 		}
@@ -695,12 +692,15 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 				*/
 				if (!GetStrFromDict(ipsec_dict, kRASPropIPSecRemoteIdentifier, str, sizeof(str), ""))
 					FAIL("no remote identifier found");
+				if (!racoon_validate_cfg_str(str)) {
+					FAIL("invalid RemoteIdentifier");
+				}
 				snprintf(text, sizeof(text), "peers_identifier fqdn \"%s\";\n", str);
 				WRITE(text);
 
 				if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate) ||
-                    CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid))
-					cert_verification_option = CERT_VERIFICATION_OPTION_PEERS_ID;
+					CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid))
+					cert_verification_option = CERT_VERIFICATION_OPTION_PEERS_ID;					
 			}
 			else if (CFEqual(string, kRASValIPSecIdentifierVerificationUseOpenDirectory)) {
 				/* 
@@ -738,6 +738,9 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 			
 			if (!GetStrFromDict(ipsec_dict, kRASPropIPSecSharedSecret, str, sizeof(str), ""))
 				FAIL("no shared secret found");
+			if (!racoon_validate_cfg_str(str)) {
+				FAIL("invalid SharedSecret");
+			}
 				
 			/* 
 				Shared Secrets are stored in the KeyChain, in the plist or in the racoon keys file 
@@ -754,6 +757,15 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 			}
 			snprintf(text, sizeof(text), "shared_secret %s \"%s\";\n", str1, str);
 			WRITE(text);
+			
+			/*
+			 Hybrid authentication method only
+			*/
+			if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid)) {
+				//WRITE("verify_cert on;\n");	// Should we set this??
+				snprintf(text, sizeof(text), "certificate_verification sec_framework use_peers_identifier;\n");
+				WRITE(text);
+			}
 		}
 		/* 
 			Certificates authentication method 
@@ -784,17 +796,9 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 			snprintf(text, sizeof(text), "certificate_verification sec_framework%s;\n", option_str);
 			WRITE(text);
 		}
-		/*
-			Hybrid authentication method
-		*/
-		if (CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid)) {
-			//WRITE("verify_cert on;\n");	// Should we set this??
-			snprintf(text, sizeof(text), "certificate_verification sec_framework use_peers_identifier;\n");
-			WRITE(text);
-		}
 	}
 	
-	/*
+    /* 
 		Nonce size key is OPTIONAL 
 	*/
 	{
@@ -906,6 +910,9 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		char	str[256];
 
 		if (GetStrFromDict(ipsec_dict, kRASPropIPSecXAuthName, str, sizeof(str), "")) {
+			if (!racoon_validate_cfg_str(str)) {
+				FAIL("invalid XauthName");
+			}
 			snprintf(text, sizeof(text), "xauth_login \"%s\";\n", str);
 			WRITE(text);
 		}
@@ -1575,7 +1582,8 @@ Return code:
 int 
 IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr) 
 {
-    int			nread, nread_size=sizeof(nread), num_policies = 0, num_drained = 0;
+    int			nread, num_policies = 0, num_drained = 0;
+    socklen_t	nread_size=sizeof(nread);
     int			s = -1, err, seq = 0, i, nb;
     char		policystr_in[64], policystr_out[64], src_address[32], dst_address[32], str[32], *msg;
     caddr_t		policy_in = 0, policy_out = 0;
@@ -1761,7 +1769,7 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 	        /* Drain the receiving buffer otherwise it's never read. */
 	        while (((err = getsockopt(s, SOL_SOCKET, SO_NREAD, &nread, &nread_size)) >= 0) && (nread > 0)) {
 		
-		    if (msg = (char *)pfkey_recv(s)) {
+		    if ((msg = (char *)pfkey_recv(s))) {
 			num_drained++;
 			free(msg);
 		    }
@@ -1792,8 +1800,59 @@ fail:
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static int 
-install_remove_routes(struct service *serv, int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
+
+static void
+domask(char *dst, uint32_t addr, uint32_t mask)
+{
+	int b, i;
+	if (!mask) {
+		*dst = '\0';
+		return;
+	}
+	i = 0;
+	for (b = 0; b < 32; b++)
+		if (mask & (1 << b)) {
+			int bb;
+			i = b;
+			for (bb = b+1; bb < 32; bb++)
+				if (!(mask & (1 << bb))) {
+					i = -1;        /* noncontig */
+					break;
+				}
+			break;
+		}
+	if (i == -1)
+		snprintf(dst, sizeof(dst), "&0x%x", mask);
+	else
+		snprintf(dst, sizeof(dst), "/%d", 32-i);
+}
+
+static char *
+netname(uint32_t in, uint32_t mask)
+{
+	static char line[MAXHOSTNAMELEN];
+	in = ntohl(in);
+	mask = ntohl(mask);
+
+	if ((in & IN_CLASSA_HOST) == 0) {
+		snprintf(line, sizeof(line), "%u", (uint8_t)(in >> 24));
+	} else if ((in & IN_CLASSB_HOST) == 0) {
+		snprintf(line, sizeof(line), "%u.%u",
+				 (uint8_t)(in >> 24), (uint8_t)(in >> 16));
+	} else if ((in & IN_CLASSC_HOST) == 0) {
+		snprintf(line, sizeof(line), "%u.%u.%u",
+				 (uint8_t)(in >> 24), (uint8_t)(in >> 16), (uint8_t)(in >> 8));
+	} else {
+		snprintf(line, sizeof(line), "%u.%u.%u.%u",
+				 (uint8_t)(in >> 24), (uint8_t)(in >> 16), (uint8_t)(in >> 8), (uint8_t)(in));
+	}
+
+	domask(line+strlen(line), in, mask);
+	return (line);
+}
+
+static int
+install_remove_routes(struct service *serv, int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway)
 {
     int			s = -1, i, nb;
     char		src_address[32], dst_address[32], str[32];
@@ -1812,10 +1871,16 @@ install_remove_routes(struct service *serv, int cmd, CFDictionaryRef ipsec_dict,
         struct sockaddr_in	mask;
     } rtmsg;
 	char                    remote_addr_str[INET_ADDRSTRLEN];
-	char                    gateway_addr_str[INET_ADDRSTRLEN];		
+	char                    gateway_addr_str[INET_ADDRSTRLEN];
+	CFMutableStringRef	installedRoutesList = CFStringCreateMutable(kCFAllocatorDefault, 0);
+	CFIndex				installedRoutesListLen = 0;
+	char			   *installed_routes_str = NULL;
 	
-    s = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE);
-    if (s < 0) 
+	if (installedRoutesList == NULL)
+		FAIL("cannot allocate CFString");
+
+	s = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE);
+	if (s < 0)
 		FAIL("cannot open a routing socket");
     
 	if (!GetStrAddrFromDict(ipsec_dict, kRASPropIPSecLocalAddress, src_address, sizeof(src_address)))
@@ -1951,14 +2016,30 @@ install_remove_routes(struct service *serv, int cmd, CFDictionaryRef ipsec_dict,
 								 remote_net.sin_addr.s_addr, ntohl(rtmsg.mask.sin_addr.s_addr),
 								 gateway.s_addr, 0,
 								 (cmd == RTM_ADD));
+			
+			CFStringAppendFormat(installedRoutesList, 0, CFSTR("%s, "), netname(remote_net.sin_addr.s_addr, rtmsg.mask.sin_addr.s_addr));
 		}
 		
 	}
+	
+	installedRoutesListLen = CFStringGetLength(installedRoutesList);
+	if (installedRoutesListLen > 0) {
+		installed_routes_str = calloc(1, installedRoutesListLen + 1);
+		if (installed_routes_str) {
+			CFStringGetCString(installedRoutesList, installed_routes_str, installedRoutesListLen + 1, kCFStringEncodingASCII);
+			addr2ascii(AF_INET, (struct in_addr *)&gateway, sizeof(gateway), gateway_addr_str);
+			syslog(LOG_NOTICE, "installed routes: addresses %sgateway %s\n", installed_routes_str, gateway_addr_str);
+			free (installed_routes_str);
+		}
+	}
 
+	CFRelease(installedRoutesList);
 	close(s);
 	return 0;
 
 fail:
+	if (installedRoutesList)
+		CFRelease(installedRoutesList);
 	if (s != -1)
 		close(s);
     return -1;
@@ -2425,15 +2506,14 @@ u_int32_t
 get_if_mtu(char *if_name)
 {
 	struct ifreq ifr;
-	int s, err;
+	int s;
 
     ifr.ifr_mtu = 1500;
 
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s >= 0) {
 		strlcpy(ifr.ifr_name, if_name, sizeof (ifr.ifr_name));
-		if ((err = ioctl(s, SIOCGIFMTU, (caddr_t) &ifr)) < 0)
-			;
+		ioctl(s, SIOCGIFMTU, (caddr_t) &ifr);
 		close(s);
 	}
 	return ifr.ifr_mtu;
@@ -2855,7 +2935,7 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in
 	//int i, dh_group[] = { 1, 2, 5, 0 };
 	int i, dh_group[] = { 2, 0 }; 
 	
-	for (i = 0; val = dh_group[i]; i++) {	
+	for (i = 0; (val = dh_group[i]); i++) {
 
 		dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
 
@@ -3265,8 +3345,6 @@ update_service_route (struct service	*serv,
 					  int				installed)
 {
 	service_route_t *p, *route = NULL;
-	char             dest_addr_str[INET_ADDRSTRLEN];
-	char             gtwy_addr_str[INET_ADDRSTRLEN];		
 
 	for (p = serv->u.ipsec.routes; p != NULL; p = p->next) {
 		if (p->local_address.s_addr == local_addr &&
@@ -3292,12 +3370,7 @@ update_service_route (struct service	*serv,
 	route->gtwy_address.s_addr = gtwy_addr;
 	route->flags = flags;
 	route->installed = installed;
-	addr2ascii(AF_INET, (struct in_addr *)&dest_addr, sizeof(dest_addr), dest_addr_str);
-	addr2ascii(AF_INET, (struct in_addr *)&gtwy_addr, sizeof(gtwy_addr), gtwy_addr_str);
 
-	if (installed) {
-		syslog(LOG_NOTICE, "installed route: (address %s, gateway %s)\n", dest_addr_str, gtwy_addr_str);
-	}
 }
 
 service_route_t *
@@ -3327,3 +3400,56 @@ free_service_routes (struct service	*serv)
 	}
 	serv->u.ipsec.routes = NULL;
 }
+
+int
+find_injection(CFStringRef str, CFStringRef invalidStr, CFIndex strLen)
+{
+    CFRange theRange, searchRange;
+    
+    theRange = CFStringFind(str, invalidStr, 0);
+    if (theRange.length != 0) {
+        searchRange.location = theRange.location + theRange.length; // start after the string
+        searchRange.length = strLen - searchRange.location;
+        if (CFStringFindWithOptions(str, CFSTR(";"), searchRange, 0, NULL))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+
+/* Look for injection attempts in user supplied strings */
+int
+racoon_validate_cfg_str (char *str_buf)
+{
+    
+    CFStringRef theString = NULL;
+    CFIndex theLength;
+    
+    theString = CFStringCreateWithCString(NULL, str_buf, kCFStringEncodingUTF8);
+    if (theString == NULL)
+        goto failed;
+    theLength = CFStringGetLength(theString);
+    
+    if (find_injection(theString, CFSTR("include "), theLength))
+        goto failed;
+    if (find_injection(theString, CFSTR("privsep "), theLength))
+        goto failed;
+    if (find_injection(theString, CFSTR("path "), theLength))
+        goto failed;
+    if (find_injection(theString, CFSTR("timer "), theLength))
+        goto failed;
+    if (find_injection(theString, CFSTR("listen "), theLength))
+        goto failed;
+    if (find_injection(theString, CFSTR("remote "), theLength))
+        goto failed;
+    if (find_injection(theString, CFSTR("sainfo "), theLength))
+        goto failed;
+    CFRelease(theString);
+    return TRUE;
+    
+failed:
+    CFRelease(theString);
+    return FALSE; // trying to inject additional config data
+    
+}
+

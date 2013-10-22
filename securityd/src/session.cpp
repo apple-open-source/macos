@@ -44,6 +44,7 @@
 #include "database.h"
 #include "server.h"
 #include <security_utilities/logging.h>
+#include <agentquery.h>
 
 using namespace CommonCriteria;
 
@@ -63,7 +64,7 @@ const char Session::kRealname[] = "realname";
 // Create a Session object from initial parameters (create)
 //
 Session::Session(const AuditInfo &audit, Server &server)
-	: mAudit(audit), mSecurityAgent(NULL), mAuthHost(NULL)
+	: mAudit(audit), mSecurityAgent(NULL), mAuthHost(NULL), mKeybagState(0)
 {
 	// link to Server as the global nexus in the object mesh
 	parent(server);
@@ -129,14 +130,32 @@ Session &Session::find(pid_t id, bool create)
 void Session::destroy(SessionId id)
 {
     // remove session from session map
-    StLock<Mutex> _(mSessionLock);
-    SessionMap::iterator it = mSessions.find(id);
-	if (it != mSessions.end()) {
-		RefPointer<Session> session = it->second;
-		assert(session->sessionId() == id);
-		mSessions.erase(it);
-		session->kill();
-	}
+    bool unlocked = false;
+    RefPointer<Session> session = NULL;
+    {
+        StLock<Mutex> _(mSessionLock);
+        SessionMap::iterator it = mSessions.find(id);
+        if (it != mSessions.end()) {
+            session = it->second;
+            assert(session->sessionId() == id);
+            mSessions.erase(it);
+
+            for (SessionMap::iterator kb_it = mSessions.begin(); kb_it != mSessions.end(); kb_it++) {
+                RefPointer<Session> kb_session = kb_it->second;
+                if (kb_session->originatorUid() == session->originatorUid()) {
+                    if (kb_session->keybagGetState(session_keybag_unlocked)) unlocked = true;
+                }
+            }
+        }
+    }
+
+    if (session.get()) {
+        if (!unlocked) {
+            service_context_t context = session->get_current_service_context();
+            service_client_kb_lock(&context);
+        }
+        session->kill();
+    }
 }
 
 
@@ -173,13 +192,65 @@ void Session::kill()
 void Session::updateAudit() const
 {
     CommonCriteria::AuditInfo info;
-	StLock<Mutex> _(mSessionLock);
     try {
         info.get(mAudit.sessionId());
     } catch (...) {
         return;
     }
     mAudit = info;
+}
+
+void Session::verifyKeyStorePassphrase(int32_t retries)
+{
+    QueryKeybagPassphrase keybagQuery(*this, retries);
+    keybagQuery.inferHints(Server::process());
+    if (keybagQuery.query() != SecurityAgent::noReason) {
+        CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+    }
+}
+
+void Session::changeKeyStorePassphrase()
+{
+    service_context_t context = get_current_service_context();
+    QueryKeybagNewPassphrase keybagQuery(*this);
+    keybagQuery.inferHints(Server::process());
+    CssmAutoData pass(Allocator::standard(Allocator::sensitive));
+    CssmAutoData oldPass(Allocator::standard(Allocator::sensitive));
+    SecurityAgent::Reason queryReason = keybagQuery.query(oldPass, pass);
+    if (queryReason == SecurityAgent::noReason) {
+        service_client_kb_change_secret(&context, oldPass.data(), (int)oldPass.length(), pass.data(), (int)pass.length());
+    } else {
+        CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+    }
+}
+
+void Session::resetKeyStorePassphrase(const CssmData &passphrase)
+{
+    service_context_t context = get_current_service_context();
+    service_client_kb_reset(&context, passphrase.data(), (int)passphrase.length());
+}
+
+service_context_t Session::get_current_service_context()
+{
+    // if this gets called from a timer there is no connection() object.
+    // need to check for valid connection object and pass the audit token along
+    service_context_t context = { sessionId(), originatorUid(), {} }; //*Server::connection().auditToken()
+    return context;
+}
+
+void Session::keybagClearState(int state)
+{
+    mKeybagState &= ~state;
+}
+
+void Session::keybagSetState(int state)
+{
+    mKeybagState |= state;
+}
+
+bool Session::keybagGetState(int state)
+{
+    return mKeybagState & state;
 }
 
 
@@ -210,7 +281,7 @@ void Session::invalidateAuthHosts()
 //
 void Session::processSystemSleep()
 {
-    SecurityAgent::Clients::killAllClients();
+    SecurityAgentXPCQuery::killAllXPCClients();
 
 	StLock<Mutex> _(mSessionLock);
 	for (SessionMap::const_iterator it = mSessions.begin(); it != mSessions.end(); it++)
@@ -420,6 +491,14 @@ void Session::setupAttributes(SessionCreationFlags flags, SessionAttributeBits a
 	MacOSError::throwMe(errSessionAuthorizationDenied);
 }
 
+uid_t Session::originatorUid()
+{
+    if (mAudit.uid() == AU_DEFAUDITID) {
+        StLock<Mutex> _(*this);
+        updateAudit();
+    }
+    return mAudit.uid();
+}
 
 //
 // Authorization database I/O

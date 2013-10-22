@@ -38,6 +38,7 @@ gss_export_name(OM_uint32 *minor_status,
 	struct _gss_name *name = (struct _gss_name *) input_name;
 	struct _gss_mechanism_name *mn;
 
+	_gss_mg_check_name(input_name);
 	_mg_buffer_zero(exported_name);
 
 	/*

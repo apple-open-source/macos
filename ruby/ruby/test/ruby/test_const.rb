@@ -1,3 +1,4 @@
+# -*- coding: us-ascii -*-
 require 'test/unit'
 
 class TestConst < Test::Unit::TestCase
@@ -15,19 +16,43 @@ class TestConst < Test::Unit::TestCase
   end
 
   def test_const
+    assert defined?(TEST1)
+    assert_equal 1, TEST1
+    assert defined?(TEST2)
+    assert_equal 2, TEST2
+
     self.class.class_eval {
       include Const
     }
-    assert_equal([1,2,3,4], [TEST1,TEST2,TEST3,TEST4])
+    assert defined?(TEST1)
+    assert_equal 1, TEST1
+    assert defined?(TEST2)
+    assert_equal 2, TEST2
+    assert defined?(TEST3)
+    assert_equal 3, TEST3
+    assert defined?(TEST4)
+    assert_equal 4, TEST4
 
     self.class.class_eval {
       include Const2
     }
     STDERR.print "intentionally redefines TEST3, TEST4\n" if $VERBOSE
-    assert_equal([1,2,6,8], [TEST1,TEST2,TEST3,TEST4])
+    assert defined?(TEST1)
+    assert_equal 1, TEST1
+    assert defined?(TEST2)
+    assert_equal 2, TEST2
+    assert defined?(TEST3)
+    assert_equal 6, TEST3
+    assert defined?(TEST4)
+    assert_equal 8, TEST4
+  end
 
-    assert_equal(-1, (String <=> Object))
-    assert_equal(1, (Object <=> String))
-    assert_equal(nil, (Array <=> String))
+  def test_redefinition
+    c = Class.new
+    c.const_set(:X, 1)
+    assert_output(nil, <<-WARNING) {c.const_set(:X, 2)}
+#{__FILE__}:#{__LINE__-1}: warning: already initialized constant #{c}::X
+#{__FILE__}:#{__LINE__-3}: warning: previous definition of X was here
+WARNING
   end
 end

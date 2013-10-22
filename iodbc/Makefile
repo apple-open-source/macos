@@ -21,7 +21,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 export LIBTOOL_CMD_SEP = +
 
 # For building fat
-export MACOSX_DEPLOYMENT_TARGET = 10.8
+export MACOSX_DEPLOYMENT_TARGET = 10.9
 export LD_TWOLEVEL_NAMESPACE = 1
 # We want to create dSYM files in fixup, which means we can't strip until then; so make
 # strip a no-op.
@@ -40,6 +40,8 @@ CFLAGS += -Wl,-framework,CoreFoundation
 # which results in incomplete .dSYM files. 
 # Rather than try to change the actual build process, this just reconstructs the filesystem 
 # layout to make dsymutil happy.
+# The last part of fixup is the stuff we need to get rid of everything but the actual libraries.
+# Somewhere in the middle is the stuff I inherited, plus stripping.
 fixup:
 	${MKDIR} "$(OBJROOT)/iodbc/.libs/libiodbc.lax/libiodbctrace.a";\
 	${MKDIR} "$(OBJROOT)/iodbc/.libs/libiodbc.lax/libiodbc_common.a";\
@@ -73,3 +75,8 @@ fixup:
 	${CP} $(SRCROOT)/iodbc.txt $(RC_Install_Prefix)/local/OpenSourceLicenses/; \
 	${CHOWN} root:wheel $(RC_Install_Prefix)/local/OpenSourceLicenses/iodbc.txt; \
 	${CHMOD} 644 $(RC_Install_Prefix)/local/OpenSourceLicenses/iodbc.txt; \
+	${RM} -rf $(RC_Install_Prefix)/include; \
+	${RM} -rf $(RC_Install_Prefix)/share; \
+	${RM} -rf $(RC_Install_Prefix)/bin; \
+	${RM} $(RC_Install_Prefix)/lib/*.a; \
+

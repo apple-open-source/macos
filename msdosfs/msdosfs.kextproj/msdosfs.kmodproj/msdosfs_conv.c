@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008,2010-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008,2010-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -143,7 +143,7 @@ void msdosfs_unix2dostime(struct timespec *tsp, u_int16_t *ddp, u_int16_t *dtp, 
 	 * If the time from the last conversion is the same as now, then
 	 * skip the computations and use the saved result.
 	 */
-	t = tsp->tv_sec - msdos_secondsWest;
+	t = (uint32_t)(tsp->tv_sec - msdos_secondsWest);
 	t &= ~1;	/* Round down to multiple of 2 seconds */
 	if (lasttime != t) {
 		lasttime = t;
@@ -645,7 +645,7 @@ int msdosfs_unicode_to_dos_name(const uint16_t *unicode,
 	 * characters will have already been replaced with alternate characters
 	 * according to the Services For Macintosh conversions.
 	 */
-	for (cp = unicode, i = unicode_length; --i >= 0; cp++)
+	for (cp = unicode, i = (int)unicode_length; --i >= 0; cp++)
 		if (msdosfs_unicode2dos(*cp) == 0)
 			return 0;
 	
@@ -657,7 +657,7 @@ int msdosfs_unicode_to_dos_name(const uint16_t *unicode,
 	 * but we don't (and didn't previously) do that.
 	 */
 	dp = dp1 = NULL;
-	for (cp = unicode + 1, i = unicode_length - 1; --i >= 0;) {
+	for (cp = unicode + 1, i = (int)unicode_length - 1; --i >= 0;) {
 		switch (*cp++) {
 			case '.':
 				if (!dp1)
@@ -678,9 +678,9 @@ int msdosfs_unicode_to_dos_name(const uint16_t *unicode,
 		int l;		/* The length of the extension (in UTF-16 code points). */
 
 		if (dp1)
-			l = dp1 - dp;					/* Ignore trailing dots. */
+			l = (int)(dp1 - dp);            /* Ignore trailing dots. */
 		else
-			l = unicode_length - (dp - unicode);
+			l = (int)(unicode_length - (dp - unicode));
 		
 		/*
 		 * Convert up to 3 characters of the extension.
@@ -942,16 +942,37 @@ static inline u_int16_t case_fold(u_int16_t ch)
 
 
 /*
- * Compare our filename to the one in the Win95 entry
- * Returns the checksum or -1 if no match
+ * Compare a single long name entry to the corresponding portion of a
+ * filename.  If the name matches, we return the on-disk name and a
+ * flag indicating whether the name needed to be case folded.
+ *
+ * We also make sure all long name entries have the same checksum
+ * value; if not, the long name is invalid and is not a match.
+ *
+ * Inputs:
+ *	un[]		The name being looked up (the search name).
+ *	ucslen		The number of code points in the name (length of un[] in elements).
+ *	wep			The current long name entry being compared.
+ *	chksum		The checksum field from previous long name entries.
+ *
+ * Outputs:
+ *	found_name	The actual on-disk name that matched.  OPTIONAL.  MAY BE NULL.
+ *	case_folded	Set to true if the on-disk name is a case variant of un[] (that is
+ *				NOT a case-sensitive match), or if the on-disk name is not a match
+ *				to un[].  Unchanged if the on-disk name is exactly equal to un[].
+ *
+ * Function result:
+ *	-1			The name or checksums did not match
+ * <checksum>	The name matched.  <checksum> is the checksum stored in all
+ *				of the long name entries.
  */
-int msdosfs_winChkName(const u_int16_t *un, int ucslen, struct winentry *wep, int chksum)
+int msdosfs_winChkName(const u_int16_t *un, int ucslen, struct winentry *wep, int chksum,
+					   u_int16_t *found_name, boolean_t *case_folded)
 {
 	u_int8_t *cp;
 	int i;
 	u_int16_t code;
-//	u_int8_t c1, c2;
-
+	
 	/*
 	 * First compare checksums
 	 */
@@ -967,7 +988,9 @@ int msdosfs_winChkName(const u_int16_t *un, int ucslen, struct winentry *wep, in
 	 */
 	i = ((wep->weCnt&WIN_CNT) - 1) * WIN_CHARS;
 	un += i;
-
+	if (found_name)
+		found_name += i;
+	
 	if ((ucslen -= i) < 0)	/* Was "<=".  See below. */
 		return -1;	/* More long name entries than the name would need */
 	if ((wep->weCnt&WIN_LAST) && ucslen > WIN_CHARS)
@@ -991,38 +1014,65 @@ int msdosfs_winChkName(const u_int16_t *un, int ucslen, struct winentry *wep, in
 	 * Compare the name parts
 	 */
 	for (cp = wep->wePart1, i = sizeof(wep->wePart1)/2; --i >= 0;) {
-		if (--ucslen < 0) {
-			if (!*cp++ && !*cp)
-				return chksum;
-			return -1;
-		}
 		code = (cp[1] << 8) | cp[0];
-		if (case_fold(code) != case_fold(*un))
-			return (-1);
+		if (--ucslen < 0) {
+			/* Got to end of input name.  Are we also at end of on-disk name? */
+			if (code == 0)
+				return chksum;
+			else
+				return -1;
+		}
+		if (found_name)
+			*found_name++ = code;
+		if (code != *un)
+		{
+			/* Not an exact match.  Try case-insensitive match. */
+			*case_folded = TRUE;
+			if (case_fold(code) != case_fold(*un))
+				return (-1);
+		}
 		cp += 2;
 		un++;
 	}
 	for (cp = wep->wePart2, i = sizeof(wep->wePart2)/2; --i >= 0;) {
-		if (--ucslen < 0) {
-			if (!*cp++ && !*cp)
-				return chksum;
-			return -1;
-		}
 		code = (cp[1] << 8) | cp[0];
-		if (case_fold(code) != case_fold(*un))
-			return (-1);
+		if (--ucslen < 0) {
+			/* Got to end of input name.  Are we also at end of on-disk name? */
+			if (code == 0)
+				return chksum;
+			else
+				return -1;
+		}
+		if (found_name)
+			*found_name++ = code;
+		if (code != *un)
+		{
+			/* Not an exact match.  Try case-insensitive match. */
+			*case_folded = TRUE;
+			if (case_fold(code) != case_fold(*un))
+				return (-1);
+		}
 		cp += 2;
 		un++;
 	}
 	for (cp = wep->wePart3, i = sizeof(wep->wePart3)/2; --i >= 0;) {
-		if (--ucslen < 0) {
-			if (!*cp++ && !*cp)
-				return chksum;
-			return -1;
-		}
 		code = (cp[1] << 8) | cp[0];
-		if (case_fold(code) != case_fold(*un))
-			return (-1);
+		if (--ucslen < 0) {
+			/* Got to end of input name.  Are we also at end of on-disk name? */
+			if (code == 0)
+				return chksum;
+			else
+				return -1;
+		}
+		if (found_name)
+			*found_name++ = code;
+		if (code != *un)
+		{
+			/* Not an exact match.  Try case-insensitive match. */
+			*case_folded = TRUE;
+			if (case_fold(code) != case_fold(*un))
+				return (-1);
+		}
 		cp += 2;
 		un++;
 	}
@@ -1031,112 +1081,108 @@ int msdosfs_winChkName(const u_int16_t *un, int ucslen, struct winentry *wep, in
 
 
 /*
- * Collect Win95 filename Unicode chars into buf.
- * Returns the checksum or -1 if impossible
+ * Collect Win95 filename Unicode chars into ucfn.  Stores the number
+ * of characters in *unichars.  Returns the checksum, or -1 if impossible.
  */
-int msdosfs_getunicodefn(struct winentry *wep, u_int16_t *ucfn, u_int16_t *unichars, int chksum)
+int msdosfs_getunicodefn(struct winentry *wep, u_int16_t ucfn[WIN_MAXLEN], u_int16_t *unichars, int chksum)
 {
 	u_int8_t *cp;
-	u_int16_t *np, *ep = ucfn + WIN_MAXLEN;
+	u_int16_t *np;
+	u_int16_t *ep = &ucfn[WIN_MAXLEN];
 	u_int16_t code;
 	int i;
 
 	if ((wep->weCnt&WIN_CNT) > howmany(WIN_MAXLEN, WIN_CHARS)
 	    || !(wep->weCnt&WIN_CNT))
+	{
 		return -1;
+	}
 
 	/*
 	 * First compare checksums
 	 */
-	if (wep->weCnt&WIN_LAST) {
+	if (wep->weCnt&WIN_LAST)
+	{
+		/*
+		 * The "last" entry is the one we encounter first in the directory,
+		 * so save off the checksum to compare against the other entries.
+		 *
+		 * The length we return here assumes the name is an exact multiple
+		 * of WIN_CHARS long, and therefore has no terminator in the "last"
+		 * entry.  If we in fact find a terminator, we'll adjust the length.
+		 */
 		chksum = wep->weChksum;
 		*unichars = (wep->weCnt&WIN_CNT) * WIN_CHARS;
-	} else if (chksum != wep->weChksum)
+	}
+	else if (chksum != wep->weChksum)
+	{
 		chksum = -1;
+	}
 	if (chksum == -1)
 		return -1;
 
 	/*
-	 * Offset of this entry
+	 * Find the offset within ucfn where the first character of this
+	 * long name entry should get stored.
 	 */
-	i = ((wep->weCnt&WIN_CNT) - 1) * WIN_CHARS;
-	np = ucfn + i;
+	np = &ucfn[((wep->weCnt&WIN_CNT) - 1) * WIN_CHARS];
 
 	/*
-	 * Convert the name parts
+	 * Extract the characters from the three discontiguous parts.
+	 *
+	 * A maximum name (255 characters) will occupy 19 full entries
+	 * with 13 characters per entry, and a partial (20th) entry
+	 * containing 8 characters.  In that case, we'd better see the
+	 * terminating 0-character in wePart2.  We only need to check
+	 * for maximum name length while checking wePart2.
 	 */
-	for (cp = wep->wePart1, i = sizeof(wep->wePart1)/2; --i >= 0;) {
+	for (cp = wep->wePart1, i = sizeof(wep->wePart1)/2; --i >= 0;)
+	{
 		code = (cp[1] << 8) | cp[0];
 		switch (code) {
 		case 0:
-			*np = '\0';
-			*unichars -= sizeof(wep->wePart2)/2
-			    + sizeof(wep->wePart3)/2 + i + 1;
+			*unichars = np - ucfn;
 			return chksum;
 		case '/':
-			*np = '\0';
 			return -1;
 		default:
 			*np++ = code;
 			break;
-		}
-		/*
-		 * The size comparison should result in the compiler
-		 * optimizing the whole if away
-		 */
-		if (WIN_MAXLEN % WIN_CHARS < sizeof(wep->wePart1) / 2
-		    && np > ep) {
-			np[-1] = 0;
-			return -1;
 		}
 		cp += 2;
 	}
-	for (cp = wep->wePart2, i = sizeof(wep->wePart2)/2; --i >= 0;) {
+	for (cp = wep->wePart2, i = sizeof(wep->wePart2)/2; --i >= 0;)
+	{
 		code = (cp[1] << 8) | cp[0];
 		switch (code) {
 		case 0:
-			*np = '\0';
-			*unichars -= sizeof(wep->wePart3)/2 + i + 1;
+			*unichars = np - ucfn;
 			return chksum;
 		case '/':
-			*np = '\0';
 			return -1;
 		default:
+			if (np >= ep)
+			{
+				/* The name is too long.  Return error. */
+				return -1;
+			}
 			*np++ = code;
 			break;
-		}
-		/*
-		 * The size comparisons should be optimized away
-		 */
-		if (WIN_MAXLEN % WIN_CHARS >= sizeof(wep->wePart1) / 2
-		    && WIN_MAXLEN % WIN_CHARS < (sizeof(wep->wePart1) + sizeof(wep->wePart2)) / 2
-		    && np > ep) {
-			np[-1] = 0;
-			return -1;
 		}
 		cp += 2;
 	}
-	for (cp = wep->wePart3, i = sizeof(wep->wePart3)/2; --i >= 0;) {
+	for (cp = wep->wePart3, i = sizeof(wep->wePart3)/2; --i >= 0;)
+	{
 		code = (cp[1] << 8) | cp[0];
 		switch (code) {
 		case 0:
-			*np = '\0';
-			*unichars -= i + 1;
+			*unichars = np - ucfn;
 			return chksum;
 		case '/':
-			*np = '\0';
 			return -1;
 		default:
 			*np++ = code;
 			break;
-		}
-		/*
-		 * See above
-		 */
-		if (WIN_MAXLEN % WIN_CHARS >= (sizeof(wep->wePart1) + sizeof(wep->wePart2)) / 2
-		    && np > ep) {
-			np[-1] = 0;
-			return -1;
 		}
 		cp += 2;
 	}

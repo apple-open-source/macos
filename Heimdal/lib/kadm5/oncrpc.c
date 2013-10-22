@@ -52,6 +52,7 @@ krb5_error_code
 _kadm5_xdr_store_data_xdr(krb5_storage *sp, krb5_data data)
 {
     krb5_error_code ret;
+    ssize_t sret;
     size_t res;
 
     ret = krb5_store_data(sp, data);
@@ -61,9 +62,9 @@ _kadm5_xdr_store_data_xdr(krb5_storage *sp, krb5_data data)
     if (res != 4) {
 	static const char zero[4] = { 0, 0, 0, 0 };
 
-	ret = krb5_storage_write(sp, zero, res);
-	if(ret != res)
-	    return (ret < 0)? errno : krb5_storage_get_eof_code(sp);
+	sret = krb5_storage_write(sp, zero, res);
+	if(sret != res)
+	    return (sret < 0)? errno : krb5_storage_get_eof_code(sp);
     }
     return 0;
 }
@@ -72,6 +73,8 @@ krb5_error_code
 _kadm5_xdr_ret_data_xdr(krb5_storage *sp, krb5_data *data)
 {
     krb5_error_code ret;
+    ssize_t sret;
+
     ret = krb5_ret_data(sp, data);
     if (ret)
 	return ret;
@@ -82,9 +85,9 @@ _kadm5_xdr_ret_data_xdr(krb5_storage *sp, krb5_data *data)
 
 	res = 4 - (data->length % 4);
 	if (res != 4) {
-	    ret = krb5_storage_read(sp, buf, res);
-	    if(ret != res)
-		return (ret < 0)? errno : krb5_storage_get_eof_code(sp);
+	    sret = krb5_storage_read(sp, buf, res);
+	    if(sret != res)
+		return (sret < 0)? errno : krb5_storage_get_eof_code(sp);
 	}
     }
     return 0;
@@ -283,28 +286,28 @@ _kadm5_xdr_store_principal_ent(krb5_context context,
     size_t i;
 
     CHECK(_kadm5_xdr_store_principal_xdr(context, sp, ent->principal));
-    CHECK(krb5_store_uint32(sp, ent->princ_expire_time));
-    CHECK(krb5_store_uint32(sp, ent->pw_expiration));
-    CHECK(krb5_store_uint32(sp, ent->last_pwd_change));
-    t = ent->max_life;
+    CHECK(krb5_store_uint32(sp, (uint32_t)ent->princ_expire_time));
+    CHECK(krb5_store_uint32(sp, (uint32_t)ent->pw_expiration));
+    CHECK(krb5_store_uint32(sp, (uint32_t)ent->last_pwd_change));
+    t = (int32_t)ent->max_life;
     if (t == 0)
 	t = LARGETIME;
     CHECK(krb5_store_uint32(sp, t));
     CHECK(krb5_store_int32(sp, ent->mod_name == NULL));
     if (ent->mod_name)
 	CHECK(_kadm5_xdr_store_principal_xdr(context, sp, ent->mod_name));
-    CHECK(krb5_store_uint32(sp, ent->mod_date));
+    CHECK(krb5_store_uint32(sp, (uint32_t)ent->mod_date));
     CHECK(krb5_store_uint32(sp, ent->attributes));
     CHECK(krb5_store_uint32(sp, ent->kvno));
     CHECK(krb5_store_uint32(sp, ent->mkvno));
     CHECK(_kadm5_xdr_store_string_xdr(sp, ent->policy));
     CHECK(krb5_store_int32(sp, ent->aux_attributes));
-    t = ent->max_renewable_life;
+    t = (int32_t)ent->max_renewable_life;
     if (t == 0)
 	t = LARGETIME;
     CHECK(krb5_store_int32(sp, t));
-    CHECK(krb5_store_int32(sp, ent->last_success));
-    CHECK(krb5_store_int32(sp, ent->last_failed));
+    CHECK(krb5_store_int32(sp, (int32_t)ent->last_success));
+    CHECK(krb5_store_int32(sp, (int32_t)ent->last_failed));
     CHECK(krb5_store_int32(sp, ent->fail_auth_count));
     CHECK(krb5_store_int32(sp, ent->n_key_data));
     CHECK(krb5_store_int32(sp, ent->n_tl_data));

@@ -15366,7 +15366,7 @@ static const Summary16 cns11643_inv_uni2indx_page2f8[34] = {
 };
 
 static int
-cns11643_inv_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+cns11643_inv_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -85,7 +85,7 @@ struct DHCPv6Socket {
     void *			receive_arg2;
 };
 
-STATIC FILE *			S_log_file;
+STATIC FILE *			S_verbose;
 STATIC uint16_t			S_client_port = DHCPV6_CLIENT_PORT;
 STATIC uint16_t			S_server_port = DHCPV6_SERVER_PORT;
 STATIC DHCPv6SocketGlobalsRef	S_globals;
@@ -105,7 +105,8 @@ open_dhcpv6_socket(uint16_t client_port)
 
     sockfd = socket(AF_INET6, SOCK_DGRAM, 0);
     if (sockfd < 0) {
-	my_log(LOG_ERR, "DHCPv6Socket: socket failed, %m");
+	my_log(LOG_ERR, "DHCPv6Socket: socket failed, %s",
+	       strerror(errno));
 	return (sockfd);
     }
     bzero(&me, sizeof(me));
@@ -113,18 +114,21 @@ open_dhcpv6_socket(uint16_t client_port)
     me.sin6_port = htons(client_port);
 
     if (bind(sockfd, (struct sockaddr *)&me, sizeof(me)) != 0) {
-	my_log(LOG_ERR, "DHCPv6Socket: bind failed, %m");
+	my_log(LOG_ERR, "DHCPv6Socket: bind failed, %s",
+	       strerror(errno));
 	goto failed;
     }
     /* set non-blocking I/O */
     if (ioctl(sockfd, FIONBIO, &opt) < 0) {
-	my_log(LOG_ERR, "DHCPv6Socket: ioctl FIONBIO failed, %m");
+	my_log(LOG_ERR, "DHCPv6Socket: ioctl FIONBIO failed, %s",
+	       strerror(errno));
 	goto failed;
     }
     /* ask for packet info */
     if (setsockopt(sockfd, IPPROTO_IPV6, 
 		   IPCONFIG_SOCKOPT_PKTINFO, &opt, sizeof(opt)) < 0) {
-	my_log(LOG_ERR, "DHCPv6Socket: setsockopt(IPV6_PKTINFO) failed, %m");
+	my_log(LOG_ERR, "DHCPv6Socket: setsockopt(IPV6_PKTINFO) failed, %s",
+	       strerror(errno));
 	goto failed;
     }
 
@@ -237,15 +241,17 @@ DHCPv6SocketDemux(int if_index, const DHCPv6PacketRef pkt, int pkt_len)
 	if (if_index != if_link_index(DHCPv6SocketGetInterface(client))) {
 	    continue;
 	}
-	if (S_log_file != NULL) {
-	    fprintf(S_log_file, "----------------------------\n");
-	    timestamp_fprintf(S_log_file, "[%s] Receive\n", 
-			      if_name(DHCPv6SocketGetInterface(client)));
-	    DHCPv6PacketFPrint(S_log_file, pkt, pkt_len);
+	if (S_verbose) {
+	    CFMutableStringRef	str;
+	    
+	    str = CFStringCreateMutable(NULL, 0);
+	    DHCPv6PacketPrintToString(str, pkt, pkt_len);
 	    if (data.options != NULL) {
-		DHCPv6OptionListFPrint(S_log_file, data.options);
+		DHCPv6OptionListPrintToString(str, data.options);
 	    }
-	    fflush(S_log_file);
+	    my_log(-LOG_DEBUG, "[%s] Receive %@", 
+		   if_name(DHCPv6SocketGetInterface(client)), str);
+	    CFRelease(str);
 	}
 	if (client->receive_func != NULL) {
 	    (*client->receive_func)(client->receive_arg1, client->receive_arg2,
@@ -257,9 +263,9 @@ DHCPv6SocketDemux(int if_index, const DHCPv6PacketRef pkt, int pkt_len)
 }
 
 void
-DHCPv6SocketSetLogFile(FILE * log_file)
+DHCPv6SocketSetVerbose(bool verbose)
 {
-    S_log_file = log_file;
+    S_verbose = verbose;
     return;
 }
 
@@ -459,11 +465,12 @@ DHCPv6SocketOpenSocket(DHCPv6SocketRef sock)
 	sockfd = open_dhcpv6_socket(S_client_port);
 	if (sockfd < 0) {
 	    my_log(LOG_ERR, 
-		   "DHCPv6SocketOpenSocket: socket() failed, %m");
+		   "DHCPv6SocketOpenSocket: socket() failed, %s",
+		   strerror(errno));
 	    goto failed;
 	}
 	my_log(LOG_DEBUG, 
-	       "DHCPv6SocketOpenSocket(): opened DHCPv6 socket %d\n",
+	       "DHCPv6SocketOpenSocket(): opened DHCPv6 socket %d",
 	       sockfd);
 	/* register as a reader */
 	S_globals->read_fd = FDCalloutCreate(sockfd,
@@ -563,27 +570,28 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
     if (sock->fd_open == FALSE) {
 	/* open the DHCPv6 socket in case it's needed */
 	if (DHCPv6SocketOpenSocket(sock) == FALSE) {
-	    my_log(LOG_ERR, "DHCPv6Socket: failed to open socket\n");
+	    my_log(LOG_ERR, "DHCPv6Socket: failed to open socket");
 	    return (FALSE);
 	}
 	needs_close = TRUE;
     }
-    if (S_log_file != NULL) {
+    if (S_verbose) {
 	DHCPv6OptionListRef	options;
-
-	fprintf(S_log_file, "============================\n");
-	timestamp_fprintf(S_log_file, "[%s] Transmit\n",
-			  if_name(sock->if_p));
-	DHCPv6PacketFPrint(S_log_file, pkt, pkt_len);
+	CFMutableStringRef	str;
+	
+	str = CFStringCreateMutable(NULL, 0);
+	DHCPv6PacketPrintToString(str, pkt, pkt_len);
 	options = DHCPv6OptionListCreateWithPacket(pkt, pkt_len, &err);
 	if (options == NULL) {
-	    my_log(LOG_NOTICE, "DHCPv6SocketTransmit: parse options failed, %s",
-		   err.str);
-	    return (FALSE);
+	    my_log_fl(LOG_DEBUG, "parse options failed, %s",
+		      err.str);
 	}
-	DHCPv6OptionListFPrint(S_log_file, options);
-	DHCPv6OptionListRelease(&options);
-	fflush(S_log_file);
+	else {
+	    DHCPv6OptionListPrintToString(str, options);
+	    DHCPv6OptionListRelease(&options);
+	}
+	my_log(-LOG_DEBUG,"[%s] Transmit %@", if_name(sock->if_p), str);
+	CFRelease(str);
     }
     ret = S_send_packet(FDCalloutGetFD(S_globals->read_fd),
 			if_link_index(sock->if_p), pkt, pkt_len);
@@ -592,4 +600,3 @@ DHCPv6SocketTransmit(DHCPv6SocketRef sock,
     }
     return (ret);
 }
-		       

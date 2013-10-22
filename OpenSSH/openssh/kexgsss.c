@@ -28,8 +28,13 @@
 
 #include <string.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-crypto.h"
+#include "ossl-bn.h"
+#else
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
+#endif
 
 #include "xmalloc.h"
 #include "buffer.h"

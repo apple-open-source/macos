@@ -203,10 +203,9 @@ AppleSmartBatteryManagerUserClient::externalMethod(
             break;
             
         case kSBSetPollingInterval:
-            // 1 scalar in, no out
-            return fOwner->setPollingInterval((int)arguments->scalarInput[0]);
-            break;
-            
+            // Deprecated. AppleSmartBattery doesn't have a polling interval.
+            return kIOReturnBadArgument;
+
         case kSBSMBusReadWriteWord:
             if ((kSBExclusiveSMBusAccessType != fUserClientType) && fOwner->hasExclusiveClient())
             {
@@ -222,10 +221,12 @@ AppleSmartBatteryManagerUserClient::externalMethod(
                                             (IOByteCount *)&arguments->structureOutputSize);
             break;
 
+        case kSBRequestPoll:
+            // 1 scalar in; 0 scalar out
+            return fOwner->requestPoll(arguments->scalarInput[0]);
+            
         default:
-            // Unknown selector.
-            // With a very distinct return type.
-            return kIOReturnMessageTooLarge;
+            return kIOReturnBadArgument;
     }
 }
 

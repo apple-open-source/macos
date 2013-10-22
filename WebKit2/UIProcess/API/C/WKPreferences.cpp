@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #include "WKPreferencesPrivate.h"
 
 #include "WKAPICast.h"
+#include "WebContext.h"
 #include "WebPreferences.h"
 #include <WebCore/Settings.h>
 #include <wtf/PassRefPtr.h>
@@ -66,6 +67,16 @@ void WKPreferencesSetJavaScriptEnabled(WKPreferencesRef preferencesRef, bool jav
 bool WKPreferencesGetJavaScriptEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->javaScriptEnabled();
+}
+
+void WKPreferencesSetJavaScriptMarkupEnabled(WKPreferencesRef preferencesRef, bool javaScriptMarkupEnabled)
+{
+    toImpl(preferencesRef)->setJavaScriptMarkupEnabled(javaScriptMarkupEnabled);
+}
+
+bool WKPreferencesGetJavaScriptMarkupEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->javaScriptMarkupEnabled();
 }
 
 void WKPreferencesSetLoadsImagesAutomatically(WKPreferencesRef preferencesRef, bool loadsImagesAutomatically)
@@ -288,6 +299,16 @@ uint32_t WKPreferencesGetMinimumFontSize(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->minimumFontSize();
 }
 
+void WKPreferencesSetScreenFontSubstitutionEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setScreenFontSubstitutionEnabled(enabled);
+}
+
+bool WKPreferencesGetScreenFontSubstitutionEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->screenFontSubstitutionEnabled();
+}
+
 void WKPreferencesSetCookieEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
     toImpl(preferencesRef)->setCookieEnabled(enabled);
@@ -336,6 +357,16 @@ void WKPreferencesSetDeveloperExtrasEnabled(WKPreferencesRef preferencesRef, boo
 bool WKPreferencesGetDeveloperExtrasEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->developerExtrasEnabled();
+}
+
+void WKPreferencesSetJavaScriptExperimentsEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setJavaScriptExperimentsEnabled(enabled);
+}
+
+bool WKPreferencesGetJavaScriptExperimentsEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->javaScriptExperimentsEnabled();
 }
 
 void WKPreferencesSetTextAreasAreResizable(WKPreferencesRef preferencesRef, bool resizable)
@@ -388,6 +419,16 @@ bool WKPreferencesGetAcceleratedCompositingEnabled(WKPreferencesRef preferencesR
     return toImpl(preferencesRef)->acceleratedCompositingEnabled();
 }
 
+void WKPreferencesSetAcceleratedCompositingForOverflowScrollEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setAcceleratedCompositingForOverflowScrollEnabled(flag);
+}
+
+bool WKPreferencesGetAcceleratedCompositingForOverflowScrollEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->acceleratedCompositingForOverflowScrollEnabled();
+}
+
 void WKPreferencesSetCompositingBordersVisible(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setCompositingBordersVisible(flag);
@@ -406,6 +447,16 @@ void WKPreferencesSetCompositingRepaintCountersVisible(WKPreferencesRef preferen
 bool WKPreferencesGetCompositingRepaintCountersVisible(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->compositingRepaintCountersVisible();
+}
+
+void WKPreferencesSetTiledScrollingIndicatorVisible(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setTiledScrollingIndicatorVisible(flag);
+}
+
+bool WKPreferencesGetTiledScrollingIndicatorVisible(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->tiledScrollingIndicatorVisible();
 }
 
 void WKPreferencesSetCSSCustomFilterEnabled(WKPreferencesRef preferencesRef, bool flag)
@@ -428,6 +479,16 @@ bool WKPreferencesGetWebGLEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->webGLEnabled();
 }
 
+void WKPreferencesSetAccelerated2DCanvasEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setAccelerated2dCanvasEnabled(flag);
+}
+
+bool WKPreferencesGetAccelerated2DCanvasEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->accelerated2dCanvasEnabled();
+}
+
 void WKPreferencesSetCSSRegionsEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setCSSRegionsEnabled(flag);
@@ -436,6 +497,16 @@ void WKPreferencesSetCSSRegionsEnabled(WKPreferencesRef preferencesRef, bool fla
 bool WKPreferencesGetCSSRegionsEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->cssRegionsEnabled();
+}
+
+void WKPreferencesSetCSSGridLayoutEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setCSSGridLayoutEnabled(flag);
+}
+
+bool WKPreferencesGetCSSGridLayoutEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->cssGridLayoutEnabled();
 }
 
 void WKPreferencesSetRegionBasedColumnsEnabled(WKPreferencesRef preferencesRef, bool flag)
@@ -598,6 +669,16 @@ bool WKPreferencesGetFullScreenEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->fullScreenEnabled();
 }
 
+void WKPreferencesSetAsynchronousSpellCheckingEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setAsynchronousSpellCheckingEnabled(enabled);
+}
+
+bool WKPreferencesGetAsynchronousSpellCheckingEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->asynchronousSpellCheckingEnabled();
+}
+
 void WKPreferencesSetAVFoundationEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
     toImpl(preferencesRef)->setAVFoundationEnabled(enabled);
@@ -638,14 +719,13 @@ bool WKPreferencesGetFileAccessFromFileURLsAllowed(WKPreferencesRef preferencesR
     return toImpl(preferencesRef)->allowFileAccessFromFileURLs();
 }
 
-void WKPreferencesSetHixie76WebSocketProtocolEnabled(WKPreferencesRef preferencesRef, bool enabled)
+void WKPreferencesSetHixie76WebSocketProtocolEnabled(WKPreferencesRef, bool /*enabled*/)
 {
-    toImpl(preferencesRef)->setHixie76WebSocketProtocolEnabled(enabled);
 }
 
-bool WKPreferencesGetHixie76WebSocketProtocolEnabled(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetHixie76WebSocketProtocolEnabled(WKPreferencesRef)
 {
-    return toImpl(preferencesRef)->hixie76WebSocketProtocolEnabled();
+    return false;
 }
 
 void WKPreferencesSetMediaPlaybackRequiresUserGesture(WKPreferencesRef preferencesRef, bool flag)
@@ -798,6 +878,26 @@ bool WKPreferencesGetShouldRespectImageOrientation(WKPreferencesRef preferencesR
     return toImpl(preferencesRef)->shouldRespectImageOrientation();
 }
 
+void WKPreferencesSetRequestAnimationFrameEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setRequestAnimationFrameEnabled(flag);
+}
+
+bool WKPreferencesGetRequestAnimationFrameEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->requestAnimationFrameEnabled();
+}
+
+void WKPreferencesSetStorageBlockingPolicy(WKPreferencesRef preferencesRef, WKStorageBlockingPolicy policy)
+{
+    toImpl(preferencesRef)->setStorageBlockingPolicy(toStorageBlockingPolicy(policy));
+}
+
+WKStorageBlockingPolicy WKPreferencesGetStorageBlockingPolicy(WKPreferencesRef preferencesRef)
+{
+    return toAPI(static_cast<WebCore::SecurityOrigin::StorageBlockingPolicy>(toImpl(preferencesRef)->storageBlockingPolicy()));
+}
+
 void WKPreferencesResetTestRunnerOverrides(WKPreferencesRef preferencesRef)
 {
     // Currently we reset the overrides on the web process when preferencesDidChange() is called. Since WTR preferences
@@ -813,4 +913,234 @@ void WKPreferencesSetDiagnosticLoggingEnabled(WKPreferencesRef preferencesRef, b
 bool WKPreferencesGetDiagnosticLoggingEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->diagnosticLoggingEnabled();
+}
+
+void WKPreferencesSetAsynchronousPluginInitializationEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setAsynchronousPluginInitializationEnabled(enabled);
+}
+
+bool WKPreferencesGetAsynchronousPluginInitializationEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->asynchronousPluginInitializationEnabled();
+}
+
+void WKPreferencesSetAsynchronousPluginInitializationEnabledForAllPlugins(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setAsynchronousPluginInitializationEnabledForAllPlugins(enabled);
+}
+
+bool WKPreferencesGetAsynchronousPluginInitializationEnabledForAllPlugins(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->asynchronousPluginInitializationEnabledForAllPlugins();
+}
+
+void WKPreferencesSetArtificialPluginInitializationDelayEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setArtificialPluginInitializationDelayEnabled(enabled);
+}
+
+bool WKPreferencesGetArtificialPluginInitializationDelayEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->artificialPluginInitializationDelayEnabled();
+}
+
+void WKPreferencesSetTabToLinksEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setTabToLinksEnabled(enabled);
+}
+
+bool WKPreferencesGetTabToLinksEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->tabToLinksEnabled();
+}
+
+void WKPreferencesSetInteractiveFormValidationEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setInteractiveFormValidationEnabled(enabled);
+}
+
+bool WKPreferencesGetInteractiveFormValidationEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->interactiveFormValidationEnabled();
+}
+
+void WKPreferencesSetScrollingPerformanceLoggingEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setScrollingPerformanceLoggingEnabled(enabled);
+}
+
+bool WKPreferencesGetScrollingPerformanceLoggingEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->scrollingPerformanceLoggingEnabled();
+}
+
+void WKPreferencesSetPlugInSnapshottingEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setPlugInSnapshottingEnabled(enabled);
+}
+
+bool WKPreferencesGetPlugInSnapshottingEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->plugInSnapshottingEnabled();
+}
+
+void WKPreferencesSetSnapshotAllPlugIns(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setSnapshotAllPlugIns(enabled);
+}
+
+bool WKPreferencesGetSnapshotAllPlugIns(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->snapshotAllPlugIns();
+}
+
+void WKPreferencesSetAutostartOriginPlugInSnapshottingEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setAutostartOriginPlugInSnapshottingEnabled(enabled);
+}
+
+bool WKPreferencesGetAutostartOriginPlugInSnapshottingEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->autostartOriginPlugInSnapshottingEnabled();
+}
+
+void WKPreferencesSetPrimaryPlugInSnapshotDetectionEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setPrimaryPlugInSnapshotDetectionEnabled(enabled);
+}
+
+bool WKPreferencesGetPrimaryPlugInSnapshotDetectionEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->primaryPlugInSnapshotDetectionEnabled();
+}
+
+void WKPreferencesSetPDFPluginEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setPDFPluginEnabled(enabled);
+}
+
+bool WKPreferencesGetPDFPluginEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->pdfPluginEnabled();
+}
+
+void WKPreferencesSetEncodingDetectorEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setUsesEncodingDetector(enabled);
+}
+
+bool WKPreferencesGetEncodingDetectorEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->usesEncodingDetector();
+}
+
+void WKPreferencesSetTextAutosizingEnabled(WKPreferencesRef preferencesRef, bool textAutosizingEnabled)
+{
+    toImpl(preferencesRef)->setTextAutosizingEnabled(textAutosizingEnabled);
+}
+
+bool WKPreferencesGetTextAutosizingEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->textAutosizingEnabled();
+}
+
+void WKPreferencesSetAggressiveTileRetentionEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setAggressiveTileRetentionEnabled(enabled);
+}
+
+bool WKPreferencesGetAggressiveTileRetentionEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->aggressiveTileRetentionEnabled();
+}
+
+void WKPreferencesSetQTKitEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setQTKitEnabled(enabled);
+}
+
+bool WKPreferencesGetQTKitEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->isQTKitEnabled();
+}
+
+void WKPreferencesSetLogsPageMessagesToSystemConsoleEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setLogsPageMessagesToSystemConsoleEnabled(enabled);
+}
+
+bool WKPreferencesGetLogsPageMessagesToSystemConsoleEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->logsPageMessagesToSystemConsoleEnabled();
+}
+
+void WKPreferencesSetPageVisibilityBasedProcessSuppressionEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setPageVisibilityBasedProcessSuppressionEnabled(enabled);
+}
+
+bool WKPreferencesGetPageVisibilityBasedProcessSuppressionEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->pageVisibilityBasedProcessSuppressionEnabled();
+}
+
+void WKPreferencesSetSmartInsertDeleteEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setSmartInsertDeleteEnabled(enabled);
+}
+
+bool WKPreferencesGetSmartInsertDeleteEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->smartInsertDeleteEnabled();
+}
+
+void WKPreferencesSetSelectTrailingWhitespaceEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setSelectTrailingWhitespaceEnabled(enabled);
+}
+
+bool WKPreferencesGetSelectTrailingWhitespaceEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->selectTrailingWhitespaceEnabled();
+}
+
+void WKPreferencesSetShowsURLsInToolTipsEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setShowsURLsInToolTipsEnabled(enabled);
+}
+
+bool WKPreferencesGetShowsURLsInToolTipsEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->showsURLsInToolTipsEnabled();
+}
+
+void WKPreferencesSetHiddenPageDOMTimerThrottlingEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setHiddenPageDOMTimerThrottlingEnabled(enabled);
+}
+
+bool WKPreferencesGetHiddenPageDOMTimerThrottlingEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->hiddenPageDOMTimerThrottlingEnabled();
+}
+
+void WKPreferencesSetHiddenPageCSSAnimationSuspensionEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setHiddenPageCSSAnimationSuspensionEnabled(enabled);
+}
+
+bool WKPreferencesGetHiddenPageCSSAnimationSuspensionEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->hiddenPageCSSAnimationSuspensionEnabled();
+}
+
+void WKPreferencesSetIncrementalRenderingSuppressionTimeout(WKPreferencesRef preferencesRef, double timeout)
+{
+    toImpl(preferencesRef)->setIncrementalRenderingSuppressionTimeout(timeout);
+}
+
+double WKPreferencesGetIncrementalRenderingSuppressionTimeout(WKPreferencesRef preferencesRef)
+{
+    return toAPI(toImpl(preferencesRef)->incrementalRenderingSuppressionTimeout());
 }

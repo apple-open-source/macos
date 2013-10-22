@@ -73,6 +73,7 @@ struct clean_args {
 };
 
 void* idle_thread(void* param __attribute__((unused)));
+void* clean_thread(void *);
 
 int file_check(const char* path, int mode, int uid, int gid, uid_t* owner, gid_t* group);
 #define is_file(x) file_check((x), S_IFREG, -1, -1, NULL, NULL)
@@ -180,7 +181,7 @@ idle_thread(void* param __attribute__((unused))) {
 		long delta = (now.tv_sec - idle_globals.lastmsg.tv_sec);
 		if (delta < idle_globals.timeout) {
 			// sleep for remainder of timeout	
-			sleep(idle_globals.timeout - delta);
+			sleep((int)(idle_globals.timeout - delta));
 		} else {
 			// timeout has elapsed, attempt to idle exit
 			__dirhelper_idle_exit(idle_globals.mp);
@@ -494,7 +495,7 @@ main(int argc, char* argv[]) {
 	launch_data_t tmv;
 	tmv = launch_data_dict_lookup(config, LAUNCH_JOBKEY_TIMEOUT);
 	if (tmv) {
-		idle_timeout = launch_data_get_integer(tmv);
+		idle_timeout = (long)launch_data_get_integer(tmv);
 		asl_log(NULL, NULL, ASL_LEVEL_DEBUG,
 			"idle timeout set: %ld seconds", idle_timeout);
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,9 +59,8 @@ static CFMutableSetRef        __gDiskArbUnmountList                 = NULL;
 
 __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOptions options, DADiskRef disk, const char * right );
 
-__private_extern__ DADiskRef    _DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
-__private_extern__ char *       _DADiskGetID( DADiskRef disk );
-__private_extern__ mach_port_t  _DADiskGetSessionID( DADiskRef disk );
+__private_extern__ char *      _DADiskGetID( DADiskRef disk );
+__private_extern__ mach_port_t _DADiskGetSessionID( DADiskRef disk );
 
 __private_extern__ void _DARegisterCallback( DASessionRef    session,
                                              void *          callback,
@@ -1093,14 +1092,6 @@ static DADissenterRef __DiskArbDiskEjectApprovalCallback( DADiskRef disk, void *
                                             {
                                                 break;
                                             }
-///w:start
-                                            case kDiskArbRequireAuthentication:
-                                            {
-                                                dissenter = DADissenterCreate( kCFAllocatorDefault, 0xF8DAFF01, NULL );
-
-                                                break;
-                                            }
-///w:stop
                                             default:
                                             {
                                                 dissenter = DADissenterCreate( kCFAllocatorDefault, kDAReturnNotPermitted, NULL );
@@ -1516,14 +1507,6 @@ static DADissenterRef __DiskArbDiskUnmountApprovalCallback( DADiskRef disk, void
                         {
                             break;
                         }
-///w:start
-                        case kDiskArbRequireAuthentication:
-                        {
-                            dissenter = DADissenterCreate( kCFAllocatorDefault, 0xF8DAFF01, NULL );
-
-                            break;
-                        }
-///w:stop
                         default:
                         {
                             dissenter = DADissenterCreate( kCFAllocatorDefault, kDAReturnNotPermitted, NULL );
@@ -2531,11 +2514,6 @@ DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding )
     }
 
     return status;
-}
-
-DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path )
-{
-    return _DADiskCreateFromVolumePath( allocator, session, path );
 }
 
 void DARegisterIdleCallback( DASessionRef session, DAIdleCallback callback, void * context )

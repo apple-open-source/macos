@@ -1,4 +1,4 @@
-GCC_PREPROCESSOR_DEFINITIONS = NDEBUG=1 $(inherited)
-COPY_PHASE_STRIP = YES
+#include "base.xcconfig"
 
-GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*] = NO_SERVER=1 $(inherited)
+GCC_PREPROCESSOR_DEFINITIONS = $(inherited) NDEBUG=1
+GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*] = $(inherited) NO_SERVER=1

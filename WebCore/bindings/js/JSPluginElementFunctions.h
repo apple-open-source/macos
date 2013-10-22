@@ -38,13 +38,13 @@ namespace WebCore {
     JSC::Bindings::Instance* pluginInstance(Node*);
     JSC::JSObject* pluginScriptObject(JSC::ExecState* exec, JSHTMLElement* jsHTMLElement);
 
-    JSC::JSValue runtimeObjectPropertyGetter(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
-    bool runtimeObjectCustomGetOwnPropertySlot(JSC::ExecState*, const JSC::Identifier&, JSC::PropertySlot&, JSHTMLElement*);
-    bool runtimeObjectCustomGetOwnPropertyDescriptor(JSC::ExecState*, const JSC::Identifier&, JSC::PropertyDescriptor&, JSHTMLElement*);
-    bool runtimeObjectCustomPut(JSC::ExecState*, const JSC::Identifier&, JSC::JSValue, JSHTMLElement*, JSC::PutPropertySlot&);
+    JSC::JSValue runtimeObjectPropertyGetter(JSC::ExecState*, JSC::JSValue, JSC::PropertyName);
+    bool runtimeObjectCustomGetOwnPropertySlot(JSC::ExecState*, JSC::PropertyName, JSC::PropertySlot&, JSHTMLElement*);
+    bool runtimeObjectCustomGetOwnPropertyDescriptor(JSC::ExecState*, JSC::PropertyName, JSC::PropertyDescriptor&, JSHTMLElement*);
+    bool runtimeObjectCustomPut(JSC::ExecState*, JSC::PropertyName, JSC::JSValue, JSHTMLElement*, JSC::PutPropertySlot&);
     JSC::CallType runtimeObjectGetCallData(JSHTMLElement*, JSC::CallData&);
 
-    template <class Type, class Base> bool pluginElementCustomGetOwnPropertySlot(JSC::ExecState* exec, const JSC::Identifier& propertyName, JSC::PropertySlot& slot, Type* element)
+    template <class Type, class Base> bool pluginElementCustomGetOwnPropertySlot(JSC::ExecState* exec, JSC::PropertyName propertyName, JSC::PropertySlot& slot, Type* element)
     {
         if (!element->globalObject()->world()->isNormal()) {
             if (JSC::getStaticValueSlot<Type, Base>(exec, element->s_info.staticPropHashTable, element, propertyName, slot))
@@ -58,7 +58,7 @@ namespace WebCore {
         return runtimeObjectCustomGetOwnPropertySlot(exec, propertyName, slot, element);
     }
 
-    template <class Type, class Base> bool pluginElementCustomGetOwnPropertyDescriptor(JSC::ExecState* exec, const JSC::Identifier& propertyName, JSC::PropertyDescriptor& descriptor, Type* element)
+    template <class Type, class Base> bool pluginElementCustomGetOwnPropertyDescriptor(JSC::ExecState* exec, JSC::PropertyName propertyName, JSC::PropertyDescriptor& descriptor, Type* element)
     {
         if (!element->globalObject()->world()->isNormal()) {
             if (JSC::getStaticValueDescriptor<Type, Base>(exec, element->s_info.staticPropHashTable, element, propertyName, descriptor))

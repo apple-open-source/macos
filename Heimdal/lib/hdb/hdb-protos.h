@@ -241,7 +241,7 @@ hdb_free_key (Key */*key*/);
 void
 hdb_free_keys (
 	krb5_context /*context*/,
-	int /*len*/,
+	size_t /*len*/,
 	Key */*keys*/);
 
 void

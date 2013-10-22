@@ -30,6 +30,7 @@
 
 #include "sslBuildFlags.h"
 #include "SecureTransportPriv.h"
+#include "sslTypes.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,39 +46,7 @@ extern "C" {
 #define SSL_ECDSA_SERVER	0
 
 /*
- * For ease of porting, we'll keep this around for internal use.
- * It's used extensively; eventually we'll convert over to
- * CFData, as in the public API.
- */
-typedef struct
-{   size_t  length;
-    uint8_t *data;
-} SSLBuffer;
-
-/*
- * We can make this more Mac-like as well...
- */
-typedef struct
-{   uint32_t  high;
-    uint32_t  low;
-}   sslUint64;
-
-
-typedef enum
-{
-	/* This value never appears in the actual protocol */
-	SSL_Version_Undetermined = 0,
-	/* actual protocol values */
-    SSL_Version_2_0 = 0x0002,
-    SSL_Version_3_0 = 0x0300,
-	TLS_Version_1_0 = 0x0301,		/* TLS 1.0 == SSL 3.1 */
-    TLS_Version_1_1 = 0x0302,
-    TLS_Version_1_2 = 0x0303,
-    DTLS_Version_1_0 = 0xfeff,
-} SSLProtocolVersion;
-
-/*
- * Clients see an opaque SSLContextRef; internal code uses the
+ * Clients see an opaque SSLContextRef; internal code uses the 
  * following typedef.
  */
 typedef struct SSLContext SSLContext;

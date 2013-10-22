@@ -51,34 +51,37 @@ private:
     DrawingAreaImpl(WebPage*, const WebPageCreationParameters&);
 
     // DrawingArea
-    virtual void setNeedsDisplay(const WebCore::IntRect&);
-    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
+    virtual void setNeedsDisplay() OVERRIDE;
+    virtual void setNeedsDisplayInRect(const WebCore::IntRect&) OVERRIDE;
+    virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta);
+    virtual void pageBackgroundTransparencyChanged() OVERRIDE;
     virtual void setLayerTreeStateIsFrozen(bool);
     virtual bool layerTreeStateIsFrozen() const { return m_layerTreeStateIsFrozen; }
     virtual LayerTreeHost* layerTreeHost() const { return m_layerTreeHost.get(); }
     virtual void forceRepaint();
+    virtual bool forceRepaintAsync(uint64_t callbackID);
 
-    virtual void didInstallPageOverlay();
-    virtual void didUninstallPageOverlay();
-    virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&);
-    virtual void setPageOverlayOpacity(float);
+    virtual void didInstallPageOverlay(PageOverlay*);
+    virtual void didUninstallPageOverlay(PageOverlay*);
+    virtual void setPageOverlayNeedsDisplay(PageOverlay*, const WebCore::IntRect&);
+    virtual void setPageOverlayOpacity(PageOverlay*, float);
     virtual bool pageOverlayShouldApplyFadeWhenPainting() const;
 
     virtual void setPaintingEnabled(bool);
+    virtual void updatePreferences(const WebPreferencesStore&) OVERRIDE;
 
-    virtual void setRootCompositingLayer(WebCore::GraphicsLayer*);
-    virtual void scheduleCompositingLayerSync();
-
-#if PLATFORM(WIN)
-    virtual void scheduleChildWindowGeometryUpdate(const WindowGeometry&);
+#if USE(ACCELERATED_COMPOSITING)
+    virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() OVERRIDE;
+    virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) OVERRIDE;
+    virtual void scheduleCompositingLayerFlush() OVERRIDE;
 #endif
 
 #if PLATFORM(MAC)
     virtual void setLayerHostingMode(uint32_t) OVERRIDE;
 #endif
 
-#if USE(UI_SIDE_COMPOSITING)
-    virtual void didReceiveLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+#if USE(COORDINATED_GRAPHICS)
+    virtual void didReceiveCoordinatedLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
 #endif
 
     // CoreIPC message handlers.
@@ -100,7 +103,6 @@ private:
     void displayTimerFired();
     void display();
     void display(UpdateInfo&);
-    PassOwnPtr<WebCore::GraphicsContext> createGraphicsContext(ShareableBitmap*);
 
     uint64_t m_backingStoreStateID;
 

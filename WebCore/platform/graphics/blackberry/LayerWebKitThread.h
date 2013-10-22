@@ -36,6 +36,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "GraphicsLayerBlackBerry.h"
+#include "LayerAnimation.h"
 #include "LayerData.h"
 #include "LayerTiler.h"
 
@@ -43,8 +44,6 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
-
-class SkBitmap;
 
 namespace WebCore {
 
@@ -57,9 +56,11 @@ public:
     virtual ~LayerWebKitThread();
 
     void addSublayer(PassRefPtr<LayerWebKitThread>);
-    void insertSublayer(PassRefPtr<LayerWebKitThread>, size_t index);
+    void insertSublayer(PassRefPtr<LayerWebKitThread> layer, size_t index) { insert(m_sublayers, layer, index); }
     void replaceSublayer(LayerWebKitThread* reference, PassRefPtr<LayerWebKitThread> newLayer);
     void removeFromSuperlayer();
+
+    void addOverlay(PassRefPtr<LayerWebKitThread>);
 
     void setAnchorPoint(const FloatPoint& anchorPoint) { m_anchorPoint = anchorPoint; setNeedsCommit(); }
 
@@ -73,6 +74,8 @@ public:
 
     void setBounds(const IntSize&);
 
+    void setSizeIsScaleInvariant(bool invariant) { m_sizeIsScaleInvariant = invariant; setNeedsCommit(); }
+
     void setDoubleSided(bool doubleSided) { m_doubleSided = doubleSided; setNeedsCommit(); }
 
     void setFrame(const FloatRect&);
@@ -81,6 +84,8 @@ public:
 
     void setMaskLayer(LayerWebKitThread* maskLayer) { m_maskLayer = maskLayer; }
     LayerWebKitThread* maskLayer() const { return m_maskLayer.get(); }
+
+    bool isMask() const { return m_isMask; }
     void setIsMask(bool);
 
     void setReplicaLayer(LayerWebKitThread* layer) { m_replicaLayer = layer; }
@@ -95,17 +100,22 @@ public:
 
     void setOpacity(float opacity) { m_opacity = opacity; setNeedsCommit(); }
 
+#if ENABLE(CSS_FILTERS)
+    void setFilters(const FilterOperations& filters) { m_filters = filters; m_filtersChanged = true; setNeedsCommit(); }
+    static bool filtersCanBeComposited(const FilterOperations& filters);
+#endif
+
     void setOpaque(bool isOpaque) { m_isOpaque = isOpaque; setNeedsCommit(); }
 
     void setPosition(const FloatPoint& position) { m_position = position; setNeedsCommit(); }
 
     const LayerWebKitThread* rootLayer() const;
 
-    void removeAllSublayers();
+    void removeAllSublayers() { removeAll(m_sublayers); }
 
     void setSublayers(const Vector<RefPtr<LayerWebKitThread> >&);
 
-    const Vector<RefPtr<LayerWebKitThread> >& getSublayers() const { return m_sublayers; }
+    const Vector<RefPtr<LayerWebKitThread> >& sublayers() const { return m_sublayers; }
 
     void setSublayerTransform(const TransformationMatrix& transform) { m_sublayerTransform = transform; setNeedsCommit(); }
 
@@ -115,70 +125,129 @@ public:
 
     void setPreserves3D(bool preserves3D) { m_preserves3D = preserves3D; setNeedsCommit(); }
 
-    void setFixedPosition(bool fixed) { m_isFixedPosition = fixed; setNeedsCommit(); }
+    void setFixedPosition(bool fixed)
+    {
+        if (m_isFixedPosition == fixed)
+            return;
+        m_isFixedPosition = fixed;
+        setNeedsCommit();
+    }
+
     void setHasFixedContainer(bool fixed) { m_hasFixedContainer = fixed; setNeedsCommit(); }
     void setHasFixedAncestorInDOMTree(bool fixed) { m_hasFixedAncestorInDOMTree = fixed; setNeedsCommit(); }
+
+    void setIsContainerForFixedPositionLayers(bool fixed)
+    {
+        if (m_isContainerForFixedPositionLayers == fixed)
+            return;
+        m_isContainerForFixedPositionLayers = fixed;
+        setNeedsCommit();
+    }
+
+    void setFixedToTop(bool fixedToTop)
+    {
+        if (m_isFixedToTop == fixedToTop)
+            return;
+        m_isFixedToTop = fixedToTop;
+        setNeedsCommit();
+    }
+
+    void setFixedToLeft(bool fixedToLeft)
+    {
+        if (m_isFixedToLeft == fixedToLeft)
+            return;
+        m_isFixedToLeft = fixedToLeft;
+        setNeedsCommit();
+    }
+
+    void setFrameVisibleRect(const IntRect& rect)
+    {
+        if (m_frameVisibleRect == rect)
+            return;
+        m_frameVisibleRect = rect;
+        setNeedsCommit();
+    }
+
+    void setFrameContentsSize(const IntSize& size)
+    {
+        if (m_frameContentsSize == size)
+            return;
+        m_frameContentsSize = size;
+        setNeedsCommit();
+    }
 
     void setContents(Image*);
     Image* contents() const { return m_contents.get(); }
 
     void setOwner(GraphicsLayerBlackBerry* owner) { m_owner = owner; }
+    // NOTE: Can be 0.
+    GraphicsLayerBlackBerry* owner() const { return m_owner; }
 
     bool drawsContent() const { return m_owner && m_owner->drawsContent(); }
     void setDrawable(bool);
 
+    // 1. Commit on WebKit thread
     void commitOnWebKitThread(double scale);
+
+    // 2. Commit on Compositing thread
     void commitOnCompositingThread();
+    bool startAnimations(double time);
+
+    // 3. Notify when returning to WebKit thread
+    void notifyAnimationsStarted(double time);
+
     LayerCompositingThread* layerCompositingThread() const { return m_layerCompositingThread.get(); }
 
     // Only used when this layer is the root layer of a frame.
     void setAbsoluteOffset(const FloatSize& offset) { m_absoluteOffset = offset; }
 
-    double contentsScale() const { return m_scale; }
-
-    SkBitmap paintContents(const IntRect& transformedContentsRect, double scale, bool* isSolidColor = 0, Color* = 0);
-    bool contentsVisible(const IntRect& contentsRect) const;
+    void paintContents(BlackBerry::Platform::Graphics::Buffer*, const IntRect& transformedContentsRect, double scale);
 
     void setNeedsCommit();
-    void notifyAnimationStarted(double time);
 
-    void setRunningAnimations(const Vector<RefPtr<LayerAnimation> >& animations) { m_runningAnimations = animations; setNeedsCommit(); }
-    void setSuspendedAnimations(const Vector<RefPtr<LayerAnimation> >& animations) { m_suspendedAnimations = animations; setNeedsCommit(); }
+    void setRunningAnimations(const Vector<RefPtr<LayerAnimation> >&);
+    void setSuspendedAnimations(const Vector<RefPtr<LayerAnimation> >&);
+
+    // Allows you to clear the LayerCompositingThread::overrides from the WK thread
+    void clearOverride() { m_clearOverrideOnCommit = true; setNeedsCommit(); }
+
+    void releaseLayerResources();
+
+    static IntRect mapFromTransformed(const IntRect&, double scale);
 
 protected:
     LayerWebKitThread(LayerType, GraphicsLayerBlackBerry* owner);
 
     void setNeedsTexture(bool needsTexture) { m_needsTexture = needsTexture; }
-    void setLayerProgramShader(LayerData::LayerProgramShader shader) { m_layerProgramShader = shader; }
-    void createFrontBufferLock();
+    void setLayerProgram(LayerData::LayerProgram layerProgram) { m_layerProgram = layerProgram; }
     bool isDrawable() const { return m_isDrawable; }
 
-    void startAnimations(double time);
     void updateVisibility();
     void updateTextureContents(double scale);
 
     virtual void boundsChanged() { }
     virtual void updateTextureContentsIfNeeded();
+    virtual void commitPendingTextureUploads();
+    virtual void deleteTextures() { }
 
 private:
     void updateLayerHierarchy();
 
     void setSuperlayer(LayerWebKitThread* superlayer) { m_superlayer = superlayer; }
 
-    size_t numSublayers() const
-    {
-        return m_sublayers.size();
-    }
-
-    // Returns the index of the sublayer or -1 if not found.
-    int indexOfSublayer(const LayerWebKitThread*);
-
     // This should only be called from removeFromSuperlayer.
-    void removeSublayer(LayerWebKitThread*);
+    void removeSublayerOrOverlay(LayerWebKitThread*);
+    void remove(Vector<RefPtr<LayerWebKitThread> >&, LayerWebKitThread*);
+    void removeAll(Vector<RefPtr<LayerWebKitThread> >&);
+    void insert(Vector<RefPtr<LayerWebKitThread> >&, PassRefPtr<LayerWebKitThread>, size_t index);
 
     GraphicsLayerBlackBerry* m_owner;
 
+    Vector<RefPtr<LayerAnimation> > m_runningAnimations;
+    Vector<RefPtr<LayerAnimation> > m_suspendedAnimations;
+
     Vector<RefPtr<LayerWebKitThread> > m_sublayers;
+    Vector<RefPtr<LayerWebKitThread> > m_overlays;
     LayerWebKitThread* m_superlayer;
     RefPtr<LayerWebKitThread> m_maskLayer;
     RefPtr<LayerWebKitThread> m_replicaLayer;
@@ -188,9 +257,14 @@ private:
     RefPtr<LayerCompositingThread> m_layerCompositingThread;
     RefPtr<LayerTiler> m_tiler;
     FloatSize m_absoluteOffset;
-    double m_scale; // Scale applies only to content layers
-    bool m_isDrawable;
-    bool m_isMask;
+    unsigned m_isDrawable : 1;
+    unsigned m_isMask : 1;
+    unsigned m_animationsChanged : 1;
+    unsigned m_clearOverrideOnCommit : 1;
+#if ENABLE(CSS_FILTERS)
+    unsigned m_filtersChanged : 1;
+#endif
+    unsigned m_didStartAnimations : 1;
 };
 
 }

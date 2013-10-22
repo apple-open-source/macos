@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <arpa/inet.h>
+#include <CoreFoundation/CFString.h>
 #include "nbo.h"
 #include "symbol_scope.h"
 
@@ -92,7 +93,8 @@ DHCPDUIDSetType(DHCPDUIDRef duid, uint16_t duid_type)
 }
 
 void
-DHCPDUIDFPrint(FILE * file, const DHCPDUIDRef duid, int duid_len);
+DHCPDUIDPrintToString(CFMutableStringRef str,
+		      const DHCPDUIDRef duid, int duid_len);
 
 INLINE uint16_t
 DHCPDUID_LLTGetHardwareType(const DHCPDUID_LLTRef llt)

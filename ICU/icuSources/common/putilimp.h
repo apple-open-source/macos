@@ -65,7 +65,8 @@
  *
  * Do not use ptrdiff_t since it is signed. size_t is unsigned.
  */
-#if !defined(__intptr_t_defined) && !defined(UINTPTR_MAX)
+/* TODO: This check fails on some z environments. Filed a ticket #9357 for this. */
+#if !defined(__intptr_t_defined) && !defined(UINTPTR_MAX) && (U_PLATFORM != U_PF_OS390)
 typedef size_t uintptr_t;
 #endif
 
@@ -112,10 +113,17 @@ typedef size_t uintptr_t;
 
 #ifdef U_TIMEZONE
     /* Use the predefined value. */
+#elif U_PLATFORM == U_PF_ANDROID
+#   define U_TIMEZONE timezone
 #elif U_PLATFORM_IS_LINUX_BASED
-#   define U_TIMEZONE __timezone
+#   if !defined(__UCLIBC__)
+    /* __timezone is only available in glibc */
+#       define U_TIMEZONE __timezone
+#   endif
 #elif U_PLATFORM_USES_ONLY_WIN32_API
 #   define U_TIMEZONE _timezone
+#elif U_PLATFORM == U_PF_BSD && !defined(__NetBSD__)
+   /* not defined */
 #elif U_PLATFORM == U_PF_OS400
    /* not defined */
 #else
@@ -175,7 +183,7 @@ typedef size_t uintptr_t;
  */
 #ifdef U_HAVE_GCC_ATOMICS
     /* Use the predefined value. */
-#elif defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 401)
+#elif U_GCC_MAJOR_MINOR >= 404
 #   define U_HAVE_GCC_ATOMICS 1
 #else
 #   define U_HAVE_GCC_ATOMICS 0

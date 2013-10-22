@@ -135,7 +135,7 @@ static size_t SecBase64Encode_(  unsigned char const *src
 
     if(lineLen > 0)
     {
-        unsigned    numLines    =   (total + (lineLen - 1)) / lineLen;
+        size_t    numLines    =   (total + (lineLen - 1)) / lineLen;
 
         total += 2 * (numLines - 1);
     }

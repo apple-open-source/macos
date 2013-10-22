@@ -1081,6 +1081,11 @@ addparamdef(Paramdef d)
 	    pm->gsu.i = d->gsu ? (GsuInteger)d->gsu : &varinteger_gsu;
 	    break;
 
+	case PM_FFLOAT:
+	case PM_EFLOAT:
+	    pm->gsu.f = d->gsu;
+	    break;
+
 	case PM_ARRAY:
 	    pm->gsu.a = d->gsu ? (GsuArray)d->gsu : &vararray_gsu;
 	    break;
@@ -1592,7 +1597,8 @@ do_load_module(char const *name, int silent)
     ret = try_load_module(name);
     if (!ret && !silent) {
 #ifdef HAVE_DLERROR
-	zwarn("failed to load module `%s': %s", name, dlerror());
+	zwarn("failed to load module `%s': %s", name,
+	      metafy(dlerror(), -1, META_USEHEAP));
 #else
 	zwarn("failed to load module: %s", name);
 #endif

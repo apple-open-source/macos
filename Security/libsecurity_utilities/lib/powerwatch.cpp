@@ -103,37 +103,48 @@ IOPowerWatcher::setupDarkWake()
     
     mInDarkWake = false;
 
-    mIOPMqueue = dispatch_queue_create("com.apple.security.IOPowerWatcher", NULL);
-    if (mIOPMqueue == NULL)
-	return;
-
     ret = ::IOPMConnectionCreate(CFSTR("IOPowerWatcher"),
 				 kIOPMSystemPowerStateCapabilityDisk 
 				 | kIOPMSystemPowerStateCapabilityNetwork
 				 | kIOPMSystemPowerStateCapabilityAudio 
 				 | kIOPMSystemPowerStateCapabilityVideo,
 				 &mIOPMconn);
-    if (ret != kIOReturnSuccess)
-	return;
-	
-    ret = ::IOPMConnectionSetNotification(mIOPMconn, this,
-					  (IOPMEventHandlerType)iopmcallback);
-    if (ret != kIOReturnSuccess)
-	return;
+    if (ret == kIOReturnSuccess) {
+        ret = ::IOPMConnectionSetNotification(mIOPMconn, this,
+                          (IOPMEventHandlerType)iopmcallback);
+        if (ret == kIOReturnSuccess) {
+            ::IOPMConnectionSetDispatchQueue(mIOPMconn, mIOPMqueue);
+        }
+    }
 
-    ::IOPMConnectionSetDispatchQueue(mIOPMconn, mIOPMqueue);
+    dispatch_group_leave(mDarkWakeGroup);
 }
 
 IOPowerWatcher::IOPowerWatcher()
 {
-    if (!(mKernelPort = ::IORegisterForSystemPower(this, &mPortRef, ioCallback, &mHandle)))
-        UnixError::throwMe(EINVAL);	// no clue
+	if (!(mKernelPort = ::IORegisterForSystemPower(this, &mPortRef, ioCallback, &mHandle)))
+		UnixError::throwMe(EINVAL);	// no clue
 
-	setupDarkWake();
+	mIOPMqueue = dispatch_queue_create("com.apple.security.IOPowerWatcher", NULL);
+	if (mIOPMqueue == NULL)
+		return;
+
+	// Running in background since this will wait for the power
+	// management in configd and we are not willing to block on
+	// that, power events will come in when they do.
+	mDarkWakeGroup = dispatch_group_create();
+	dispatch_group_enter(mDarkWakeGroup);
+	dispatch_async(mIOPMqueue, ^ { setupDarkWake(); });
 }
 
 IOPowerWatcher::~IOPowerWatcher()
 {
+	// Make sure to wait until the asynchronous method
+	// finishes, to avoid <rdar://problem/14355434>
+	if (mDarkWakeGroup) {
+		::dispatch_group_wait(mDarkWakeGroup, DISPATCH_TIME_FOREVER);
+		::dispatch_release(mDarkWakeGroup);
+	}
 	if (mKernelPort)
 		::IODeregisterForSystemPower(&mHandle);
 

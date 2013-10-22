@@ -606,6 +606,7 @@ void IOAudioEngine::stop(IOService *provider)
     stopAudioEngine ();
     audioDebugIOLog(3, "  about to detachAudioStreams ()\n" );
 
+	removeTimer();													//	<rdar://14198236>
     detachAudioStreams ();
     audioDebugIOLog(3, "  about to removeAllDefaultAudioControls ()\n" );
     removeAllDefaultAudioControls ();
@@ -1701,7 +1702,7 @@ IOReturn IOAudioEngine::startAudioEngine()
 {
     IOReturn result = kIOReturnSuccess;
     
-    audioDebugIOLog(3, "+ IOAudioEngine[%p]::startAudioEngine()\n", this);
+    audioDebugIOLog(3, "+ IOAudioEngine[%p]::startAudioEngine(state = %d)\n", this, getState());
 
     switch(getState()) {
         case kIOAudioEnginePaused:
@@ -1871,7 +1872,7 @@ IOAudioEngineState IOAudioEngine::setState(IOAudioEngineState newState)
 {
     IOAudioEngineState oldState;
 
-    audioDebugIOLog(3, "+-IOAudioEngine[%p]::setState(0x%x)\n", this, newState);
+    audioDebugIOLog(3, "+-IOAudioEngine[%p]::setState(0x%x. oldState=%#x)\n", this, newState, state);
 
     oldState = state;
     state = newState;
@@ -2476,10 +2477,10 @@ IOReturn IOAudioEngine::removeDefaultAudioControl(IOAudioControl *defaultAudioCo
                 
                 defaultAudioControls->removeObject(defaultAudioControl);
                 
+                defaultAudioControl->detach(this); // <rdar://14347861>
+                
                 if (defaultAudioControl->getProvider() == this) {
                     defaultAudioControl->terminate();
-                } else {
-                    defaultAudioControl->detach(this);
                 }
                 
                 defaultAudioControl->release();
@@ -2514,10 +2515,10 @@ void IOAudioEngine::removeAllDefaultAudioControls()
                 IOAudioControl *control;
                 
                 while ( (control = (IOAudioControl *)controlIterator->getNextObject()) ) {
+                    control->detach(this); // <rdar://14347861>
+                    
                     if (control->getProvider() == this) {
                         control->terminate();
-                    } else {
-                        control->detach(this);
                     }
                 }
             

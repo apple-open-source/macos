@@ -15,10 +15,10 @@
 #ifndef LLVM_TARGET_POWERPC_PPC32ISELLOWERING_H
 #define LLVM_TARGET_POWERPC_PPC32ISELLOWERING_H
 
-#include "llvm/Target/TargetLowering.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 #include "PPC.h"
 #include "PPCSubtarget.h"
+#include "llvm/Target/TargetLowering.h"
+#include "llvm/CodeGen/SelectionDAG.h"
 
 namespace llvm {
   namespace PPCISD {
@@ -95,7 +95,9 @@ namespace llvm {
       EXTSW_32,
 
       /// CALL - A direct function call.
-      CALL_Darwin, CALL_SVR4,
+      /// CALL_NOP_SVR4 is a call with the special  NOP which follows 64-bit
+      /// SVR4 calls.
+      CALL_Darwin, CALL_SVR4, CALL_NOP_SVR4,
 
       /// NOP - Special NOP which follows 64-bit SVR4 calls.
       NOP,
@@ -171,6 +173,10 @@ namespace llvm {
       ///   operand #2 stack adjustment
       ///   operand #3 optional in flag
       TC_RETURN,
+
+      /// ch, gl = CR6[UN]SET ch, inglue - Toggle CR bit 6 for SVR4 vararg calls
+      CR6SET,
+      CR6UNSET,
 
       /// STD_32 - This is the STD instruction for use with "32-bit" registers.
       STD_32 = ISD::FIRST_TARGET_MEMORY_OPCODE,
@@ -279,6 +285,7 @@ namespace llvm {
     bool SelectAddressRegImmShift(SDValue N, SDValue &Disp, SDValue &Base,
                                   SelectionDAG &DAG) const;
 
+    Sched::Preference getSchedulingPreference(SDNode *N) const;
 
     /// LowerOperation - Provide custom lowering hooks for some operations.
     ///
@@ -293,7 +300,6 @@ namespace llvm {
     virtual SDValue PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const;
 
     virtual void computeMaskedBitsForTargetNode(const SDValue Op,
-                                                const APInt &Mask,
                                                 APInt &KnownZero,
                                                 APInt &KnownOne,
                                                 const SelectionDAG &DAG,
@@ -364,6 +370,12 @@ namespace llvm {
                         bool IsZeroVal, bool MemcpyStrSrc,
                         MachineFunction &MF) const;
 
+    /// isFMAFasterThanMulAndAdd - Return true if an FMA operation is faster than
+    /// a pair of mul and add instructions. fmuladd intrinsics will be expanded to
+    /// FMAs when this method returns true (and FMAs are legal), otherwise fmuladd
+    /// is expanded to mul + add.
+    virtual bool isFMAFasterThanMulAndAdd(EVT VT) const;
+
   private:
     SDValue getFramePointerFrameIndex(SelectionDAG & DAG) const;
     SDValue getReturnAddrFrameIndex(SelectionDAG & DAG) const;
@@ -387,6 +399,7 @@ namespace llvm {
     SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerGlobalTLSAddress(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
@@ -437,12 +450,7 @@ namespace llvm {
                            SmallVectorImpl<SDValue> &InVals) const;
 
     virtual SDValue
-      LowerCall(SDValue Chain, SDValue Callee,
-                CallingConv::ID CallConv, bool isVarArg, bool &isTailCall,
-                const SmallVectorImpl<ISD::OutputArg> &Outs,
-                const SmallVectorImpl<SDValue> &OutVals,
-                const SmallVectorImpl<ISD::InputArg> &Ins,
-                DebugLoc dl, SelectionDAG &DAG,
+      LowerCall(TargetLowering::CallLoweringInfo &CLI,
                 SmallVectorImpl<SDValue> &InVals) const;
 
     virtual bool
@@ -459,29 +467,30 @@ namespace llvm {
                   DebugLoc dl, SelectionDAG &DAG) const;
 
     SDValue
-      LowerFormalArguments_Darwin(SDValue Chain,
+      LowerFormalArguments_Darwin_Or_64SVR4(SDValue Chain,
                                   CallingConv::ID CallConv, bool isVarArg,
                                   const SmallVectorImpl<ISD::InputArg> &Ins,
                                   DebugLoc dl, SelectionDAG &DAG,
                                   SmallVectorImpl<SDValue> &InVals) const;
     SDValue
-      LowerFormalArguments_SVR4(SDValue Chain,
-                                CallingConv::ID CallConv, bool isVarArg,
-                                const SmallVectorImpl<ISD::InputArg> &Ins,
-                                DebugLoc dl, SelectionDAG &DAG,
-                                SmallVectorImpl<SDValue> &InVals) const;
+      LowerFormalArguments_32SVR4(SDValue Chain,
+                                  CallingConv::ID CallConv, bool isVarArg,
+                                  const SmallVectorImpl<ISD::InputArg> &Ins,
+                                  DebugLoc dl, SelectionDAG &DAG,
+                                  SmallVectorImpl<SDValue> &InVals) const;
 
     SDValue
-      LowerCall_Darwin(SDValue Chain, SDValue Callee,
-                       CallingConv::ID CallConv, bool isVarArg, bool isTailCall,
+      LowerCall_Darwin_Or_64SVR4(SDValue Chain, SDValue Callee,
+                       CallingConv::ID CallConv,
+                       bool isVarArg, bool isTailCall,
                        const SmallVectorImpl<ISD::OutputArg> &Outs,
                        const SmallVectorImpl<SDValue> &OutVals,
                        const SmallVectorImpl<ISD::InputArg> &Ins,
                        DebugLoc dl, SelectionDAG &DAG,
                        SmallVectorImpl<SDValue> &InVals) const;
     SDValue
-      LowerCall_SVR4(SDValue Chain, SDValue Callee,
-                     CallingConv::ID CallConv, bool isVarArg, bool isTailCall,
+    LowerCall_32SVR4(SDValue Chain, SDValue Callee, CallingConv::ID CallConv,
+                     bool isVarArg, bool isTailCall,
                      const SmallVectorImpl<ISD::OutputArg> &Outs,
                      const SmallVectorImpl<SDValue> &OutVals,
                      const SmallVectorImpl<ISD::InputArg> &Ins,

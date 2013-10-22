@@ -122,6 +122,6 @@ int
 heim_number_get_int(heim_number_t number)
 {
     if (heim_base_is_tagged_object(number))
-	return heim_base_tagged_object_value(number);
+	return (int)heim_base_tagged_object_value(number);
     return *(int *)number;
 }

@@ -44,6 +44,7 @@
 
 static int use_server_domain = 0;
 static int verbose_flag = 0;
+static int broken_session_key_flag = 0;
 
 #ifdef ENABLE_NTLM
 
@@ -53,38 +54,6 @@ static int verbose_flag = 0;
 #define HC_DEPRECATED_CRYPTO
 
 #include "crypto-headers.h"
-
-static void
-verify_session_key(gss_ctx_id_t ctx,
-		   struct ntlm_buf *sessionkey,
-		   const char *version)
-{
-    OM_uint32 maj_stat, min_stat;
-    gss_buffer_set_t key;
-
-    maj_stat = gss_inquire_sec_context_by_oid(&min_stat,
-					      ctx,
-					      GSS_NTLM_GET_SESSION_KEY_X,
-					      &key);
-    if (maj_stat != GSS_S_COMPLETE || key->count != 1)
-	errx(1, "GSS_NTLM_GET_SESSION_KEY_X: %s", version);
-    
-    if (key->elements[0].length == 0) {
-	warnx("no session not negotiated");
-	goto out;
-    }
-
-    if (key->elements[0].length != sessionkey->length)
-	errx(1, "key length wrong: %d version: %s",
-	     (int)key->elements[0].length, version);
-    
-    if(memcmp(key->elements[0].value,
-	      sessionkey->data, sessionkey->length) != 0)
-	errx(1, "session key wrong: version: %s", version);
-    
- out:
-    gss_release_buffer_set(&min_stat, &key);
-}
 
 static void
 dump_packet(const char *name, const void *data, size_t len)
@@ -113,6 +82,42 @@ dump_pac(gss_ctx_id_t ctx)
 	dump_packet("Win2K PAC", pac->elements[0].value, pac->elements[0].length);
 	gss_release_buffer_set(&min_stat, &pac);
     }
+}
+
+static void
+verify_session_key(gss_ctx_id_t ctx,
+		   struct ntlm_buf *sessionkey,
+		   const char *version)
+{
+    OM_uint32 maj_stat, min_stat;
+    gss_buffer_set_t key;
+
+    maj_stat = gss_inquire_sec_context_by_oid(&min_stat,
+					      ctx,
+					      GSS_NTLM_GET_SESSION_KEY_X,
+					      &key);
+    if (maj_stat != GSS_S_COMPLETE || key->count != 1)
+	errx(1, "GSS_NTLM_GET_SESSION_KEY_X: %s", version);
+    
+    if (key->elements[0].length == 0) {
+	warnx("no session not negotiated");
+	goto out;
+    }
+
+    if (key->elements[0].length != sessionkey->length)
+	errx(1, "key length wrong: %d version: %s",
+	     (int)key->elements[0].length, version);
+    
+    if(memcmp(key->elements[0].value,
+	      sessionkey->data, sessionkey->length) != 0) {
+	dump_packet("AD    session key", key->elements[0].value, key->elements[0].length);
+	dump_packet("local session key", sessionkey->data, sessionkey->length);
+	if (!broken_session_key_flag)
+	    errx(1, "session key wrong: version: %s", version);
+    }
+    
+ out:
+    gss_release_buffer_set(&min_stat, &key);
 }
 
 static int
@@ -255,12 +260,15 @@ test_libntlm_v1(const char *test_name, int flags,
     if (verbose_flag)
 	dump_pac(ctx);
 
+    /* check that we have a source name */
+
     if (src_name == GSS_C_NO_NAME)
 	errx(1, "no source name!");
 
     gss_display_name(&min_stat, src_name, &output, NULL);
 
-    printf("src_name: %.*s\n", (int)output.length, (char*)output.value);
+    if (verbose_flag)
+      printf("src_name: %.*s\n", (int)output.length, (char*)output.value);
 
     gss_release_name(&min_stat, &src_name);
     gss_release_buffer(&min_stat, &output);
@@ -278,6 +286,7 @@ test_libntlm_v2(const char *test_name, int flags,
 {
     OM_uint32 maj_stat, min_stat;
     gss_ctx_id_t ctx = GSS_C_NO_CONTEXT;
+    gss_name_t src_name = GSS_C_NO_NAME;
     gss_buffer_desc input, output;
     struct ntlm_type1 type1;
     struct ntlm_type2 type2;
@@ -371,6 +380,9 @@ test_libntlm_v2(const char *test_name, int flags,
 
 	heim_ntlm_nt_key(password, &key);
 
+	if (verbose_flag)
+	    dump_packet("user key", key.data, key.length);
+
         heim_ntlm_calculate_lm2(key.data, key.length,
                                 user,
                                 type3.targetname,
@@ -381,9 +393,8 @@ test_libntlm_v2(const char *test_name, int flags,
         chal.length = 8;
         chal.data = type2.challenge;
 
-        heim_ntlm_v2_base_session(ntlmv2, sizeof(ntlmv2),
-                                  &type3.lm,
-                                  &tempsession);
+	if (verbose_flag)
+	    dump_packet("lm", type3.lm.data, type3.lm.length);
 
 	heim_ntlm_calculate_ntlm2(key.data, key.length,
 				  user,
@@ -393,9 +404,15 @@ test_libntlm_v2(const char *test_name, int flags,
 				  ntlmv2,
 				  &type3.ntlm);
 
+	if (verbose_flag)
+	    dump_packet("ntlm", type3.ntlm.data, type3.ntlm.length);
+
 	heim_ntlm_v2_base_session(ntlmv2, sizeof(ntlmv2),
 				  &type3.ntlm,
 				  &tempsession);
+	if (verbose_flag)
+	    dump_packet("base session key", tempsession.data, tempsession.length);
+
 	heim_ntlm_free_buf(&key);
 
 	if (type3.flags & NTLM_NEG_KEYEX) {
@@ -405,6 +422,9 @@ test_libntlm_v2(const char *test_name, int flags,
 	    sessionkey = tempsession;
 	}
 	memset(ntlmv2, 0, sizeof(ntlmv2));
+
+	if (verbose_flag)
+	    dump_packet("session key", sessionkey.data, sessionkey.length);
     }
 
     ret = heim_ntlm_encode_type3(&type3, &data, NULL);
@@ -422,7 +442,7 @@ test_libntlm_v2(const char *test_name, int flags,
 				      GSS_C_NO_CREDENTIAL,
 				      &input,
 				      GSS_C_NO_CHANNEL_BINDINGS,
-				      NULL,
+				      &src_name,
 				      NULL,
 				      &output,
 				      NULL,
@@ -435,6 +455,8 @@ test_libntlm_v2(const char *test_name, int flags,
 	return 1;
     }
 
+    gss_release_buffer(&min_stat, &output);
+
     verify_session_key(ctx, &sessionkey,
 		       (flags & NTLM_NEG_KEYEX) ? "v2-keyex" : "v2");
 
@@ -442,6 +464,19 @@ test_libntlm_v2(const char *test_name, int flags,
 
     if (verbose_flag)
 	dump_pac(ctx);
+
+    /* check that we have a source name */
+
+    if (src_name == GSS_C_NO_NAME)
+	errx(1, "no source name!");
+
+    gss_display_name(&min_stat, src_name, &output, NULL);
+
+    if (verbose_flag)
+      printf("src_name: %.*s\n", (int)output.length, (char*)output.value);
+
+    gss_release_name(&min_stat, &src_name);
+    gss_release_buffer(&min_stat, &output);
 
     gss_delete_sec_context(&min_stat, &ctx, NULL);
 
@@ -467,6 +502,7 @@ static struct getargs args[] = {
     {"password",0,	arg_string,	&password_string, "password", "password" },
     {"ntlm1", 0,	arg_negative_flag, &ntlmv1, "don't test NTLMv1", NULL},
     {"ntlm2", 0,	arg_negative_flag, &ntlmv2, "don't test NTLMv2", NULL},
+    {"session-key-broken",0,arg_flag,	&broken_session_key_flag, "session key is broken, we know", NULL },
     {"verbose",	0,	arg_flag,	&verbose_flag, "verbose debug output", NULL },
     {"version",	0,	arg_flag,	&version_flag, "print version", NULL },
     {"help",	0,	arg_flag,	&help_flag,  NULL, NULL }

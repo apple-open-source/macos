@@ -2,27 +2,24 @@
 
   pack.c -
 
-  $Author: shyouhei $
-  $Date: 2010-06-08 17:42:55 +0900 (Tue, 08 Jun 2010) $
+  $Author: eregon $
   created at: Thu Feb 10 15:17:05 JST 1994
 
-  Copyright (C) 1993-2003 Yukihiro Matsumoto
+  Copyright (C) 1993-2007 Yukihiro Matsumoto
 
 **********************************************************************/
 
-#include "ruby.h"
+#include "ruby/ruby.h"
+#include "ruby/encoding.h"
 #include <sys/types.h>
 #include <ctype.h>
+#include <errno.h>
 
 #define GCC_VERSION_SINCE(major, minor, patchlevel) \
   (defined(__GNUC__) && !defined(__INTEL_COMPILER) && \
    ((__GNUC__ > (major)) ||  \
     (__GNUC__ == (major) && __GNUC_MINOR__ > (minor)) || \
     (__GNUC__ == (major) && __GNUC_MINOR__ == (minor) && __GNUC_PATCHLEVEL__ >= (patchlevel))))
-
-#define SIZE16 2
-#define SIZE32 4
-
 #if SIZEOF_SHORT != 2 || SIZEOF_LONG != 4
 # define NATINT_PACK
 #endif
@@ -65,8 +62,7 @@
 
 #define define_swapx(x, xtype)		\
 static xtype				\
-TOKEN_PASTE(swap,x)(z)			\
-    xtype z;				\
+TOKEN_PASTE(swap,x)(xtype z)		\
 {					\
     xtype r;				\
     xtype *zp;				\
@@ -81,8 +77,8 @@ TOKEN_PASTE(swap,x)(z)			\
 	t[sizeof(xtype)-i-1] = s[i];	\
     }					\
     r = *(xtype *)t;			\
-    free(t);				\
-    free(zp);				\
+    xfree(t);				\
+    xfree(zp);				\
     return r;				\
 }
 
@@ -92,50 +88,50 @@ TOKEN_PASTE(swap,x)(z)			\
 #endif
 
 #ifndef swap16
-# define swap16(x)	((((x)&0xFF)<<8) | (((x)>>8)&0xFF))
+# define swap16(x)	((uint16_t)((((x)&0xFF)<<8) | (((x)>>8)&0xFF)))
 #endif
 
 #ifndef swap32
-# define swap32(x)      ((((x)&0xFF)<<24)       \
+# define swap32(x)	((uint32_t)((((x)&0xFF)<<24)	\
 			|(((x)>>24)&0xFF)	\
 			|(((x)&0x0000FF00)<<8)	\
-			|(((x)&0x00FF0000)>>8)	)
+			|(((x)&0x00FF0000)>>8)	))
 #endif
 
 #ifndef swap64
 # ifdef HAVE_INT64_T
 #  define byte_in_64bit(n) ((uint64_t)0xff << (n))
-#  define swap64(x)       ((((x)&byte_in_64bit(0))<<56)         \
-                           |(((x)>>56)&0xFF)                    \
-                           |(((x)&byte_in_64bit(8))<<40)        \
-                           |(((x)&byte_in_64bit(48))>>40)       \
-                           |(((x)&byte_in_64bit(16))<<24)       \
-                           |(((x)&byte_in_64bit(40))>>24)       \
-                           |(((x)&byte_in_64bit(24))<<8)        \
-                           |(((x)&byte_in_64bit(32))>>8))
+#  define swap64(x)       ((uint64_t)((((x)&byte_in_64bit(0))<<56) 	\
+			   |(((x)>>56)&0xFF)	                \
+			   |(((x)&byte_in_64bit(8))<<40)	\
+			   |(((x)&byte_in_64bit(48))>>40)	\
+			   |(((x)&byte_in_64bit(16))<<24)	\
+			   |(((x)&byte_in_64bit(40))>>24)	\
+			   |(((x)&byte_in_64bit(24))<<8)	\
+			   |(((x)&byte_in_64bit(32))>>8)))
 # endif
 #endif
 
 #if SIZEOF_SHORT == 2
-# define swaps(x)       swap16(x)
+# define swaps(x)	swap16(x)
 #elif SIZEOF_SHORT == 4
-# define swaps(x)       swap32(x)
+# define swaps(x)	swap32(x)
 #else
   define_swapx(s,short)
 #endif
 
 #if SIZEOF_INT == 2
-# define swapi(x)       swap16(x)
+# define swapi(x)	swap16(x)
 #elif SIZEOF_INT == 4
-# define swapi(x)       swap32(x)
+# define swapi(x)	swap32(x)
 #else
   define_swapx(i,int)
 #endif
 
 #if SIZEOF_LONG == 4
-# define swapl(x)       swap32(x)
+# define swapl(x)	swap32(x)
 #elif SIZEOF_LONG == 8
-# define swapl(x)       swap64(x)
+# define swapl(x)        swap64(x)
 #else
   define_swapx(l,long)
 #endif
@@ -148,61 +144,35 @@ TOKEN_PASTE(swap,x)(z)			\
 # endif
 #endif
 
-#if SIZEOF_FLOAT == 4
-# ifdef HAVE_UINT32_T
-#  define swapf(x)     swap32(x)
-#  define FLOAT_SWAPPER        uint32_t
-# else /* SIZEOF_FLOAT == 4 but undivide by known size of int */
-   define_swapx(f,float)
-# endif
-#else	/* SIZEOF_FLOAT != 4 */
-  define_swapx(f,float)
-#endif	/* #if SIZEOF_FLOAT == 4 */
+#if SIZEOF_FLOAT == 4 && defined(HAVE_INT32_T)
+#   define swapf(x)	swap32(x)
+#   define FLOAT_SWAPPER	uint32_t
+#else
+    define_swapx(f,float)
+#endif
 
-#if SIZEOF_DOUBLE == 8
-# ifdef HAVE_UINT64_T  /* SIZEOF_DOUBLE == 8 == SIZEOF_UINT64_T */
-#  define swapd(x)     swap64(x)
-#  define DOUBLE_SWAPPER       uint64_t
-# else
-#  if SIZEOF_LONG == 4 /* SIZEOF_DOUBLE == 8 && 4 == SIZEOF_LONG */
+#if SIZEOF_DOUBLE == 8 && defined(HAVE_INT64_T)
+#   define swapd(x)	swap64(x)
+#   define DOUBLE_SWAPPER	uint64_t
+#elif SIZEOF_DOUBLE == 8 && defined(HAVE_INT32_T)
     static double
     swapd(const double d)
     {
-        double dtmp = d;
-        unsigned long utmp[2];
-        unsigned long utmp0;
+	double dtmp = d;
+	uint32_t utmp[2];
+	uint32_t utmp0;
 
-        utmp[0] = 0; utmp[1] = 0;
-        memcpy(utmp,&dtmp,sizeof(double));
-        utmp0 = utmp[0];
-        utmp[0] = swapl(utmp[1]);
-        utmp[1] = swapl(utmp0);
-        memcpy(&dtmp,utmp,sizeof(double));
-        return dtmp;
+	utmp[0] = 0; utmp[1] = 0;
+	memcpy(utmp,&dtmp,sizeof(double));
+	utmp0 = utmp[0];
+	utmp[0] = swap32(utmp[1]);
+	utmp[1] = swap32(utmp0);
+	memcpy(&dtmp,utmp,sizeof(double));
+	return dtmp;
     }
-#  elif SIZEOF_SHORT == 4      /* SIZEOF_DOUBLE == 8 && 4 == SIZEOF_SHORT */
-    static double
-    swapd(const double d)
-    {
-        double dtmp = d;
-        unsigned short utmp[2];
-        unsigned short utmp0;
-
-        utmp[0] = 0; utmp[1] = 0;
-        memcpy(utmp,&dtmp,sizeof(double));
-        utmp0 = utmp[0];
-        utmp[0] = swaps(utmp[1]);
-        utmp[1] = swaps(utmp0);
-        memcpy(&dtmp,utmp,sizeof(double));
-        return dtmp;
-    }
-#  else        /* SIZEOF_DOUBLE == 8 but undivide by known size of int */
+#else
     define_swapx(d, double)
-#  endif
-# endif        /* #if SIZEOF_LONG == 8 */
-#else	/* SIZEOF_DOUBLE != 8 */
-  define_swapx(d, double)
-#endif	/* #if SIZEOF_DOUBLE == 8 */
+#endif
 
 #undef define_swapx
 
@@ -216,101 +186,85 @@ TOKEN_PASTE(swap,x)(z)			\
 #define rb_vtohd(x) (BIGENDIAN_P()?swapd(x):(x))
 
 #ifdef FLOAT_SWAPPER
-#define FLOAT_CONVWITH(y)	FLOAT_SWAPPER y;
-#define HTONF(x,y)	(memcpy(&y,&x,sizeof(float)),	\
-			 y = rb_htonf((FLOAT_SWAPPER)y),	\
-			 memcpy(&x,&y,sizeof(float)),	\
-			 x)
-#define HTOVF(x,y)	(memcpy(&y,&x,sizeof(float)),	\
-			 y = rb_htovf((FLOAT_SWAPPER)y),	\
-			 memcpy(&x,&y,sizeof(float)),	\
-			 x)
-#define NTOHF(x,y)	(memcpy(&y,&x,sizeof(float)),	\
-			 y = rb_ntohf((FLOAT_SWAPPER)y),	\
-			 memcpy(&x,&y,sizeof(float)),	\
-			 x)
-#define VTOHF(x,y)	(memcpy(&y,&x,sizeof(float)),	\
-			 y = rb_vtohf((FLOAT_SWAPPER)y),	\
-			 memcpy(&x,&y,sizeof(float)),	\
-			 x)
+# define FLOAT_CONVWITH(y)	FLOAT_SWAPPER y;
+# define HTONF(x,y)	(memcpy(&(y),&(x),sizeof(float)),	\
+			 (y) = rb_htonf((FLOAT_SWAPPER)(y)),	\
+			 memcpy(&(x),&(y),sizeof(float)),	\
+			 (x))
+# define HTOVF(x,y)	(memcpy(&(y),&(x),sizeof(float)),	\
+			 (y) = rb_htovf((FLOAT_SWAPPER)(y)),	\
+			 memcpy(&(x),&(y),sizeof(float)),	\
+			 (x))
+# define NTOHF(x,y)	(memcpy(&(y),&(x),sizeof(float)),	\
+			 (y) = rb_ntohf((FLOAT_SWAPPER)(y)),	\
+			 memcpy(&(x),&(y),sizeof(float)),	\
+			 (x))
+# define VTOHF(x,y)	(memcpy(&(y),&(x),sizeof(float)),	\
+			 (y) = rb_vtohf((FLOAT_SWAPPER)(y)),	\
+			 memcpy(&(x),&(y),sizeof(float)),	\
+			 (x))
 #else
-#define FLOAT_CONVWITH(y)
-# define HTONF(x,y)    rb_htonf(x)
-# define HTOVF(x,y)    rb_htovf(x)
-# define NTOHF(x,y)    rb_ntohf(x)
-# define VTOHF(x,y)    rb_vtohf(x)
+# define FLOAT_CONVWITH(y)
+# define HTONF(x,y)	rb_htonf(x)
+# define HTOVF(x,y)	rb_htovf(x)
+# define NTOHF(x,y)	rb_ntohf(x)
+# define VTOHF(x,y)	rb_vtohf(x)
 #endif
 
 #ifdef DOUBLE_SWAPPER
-#define DOUBLE_CONVWITH(y)	DOUBLE_SWAPPER y;
-#define HTOND(x,y)	(memcpy(&y,&x,sizeof(double)),	\
-			 y = rb_htond((DOUBLE_SWAPPER)y),	\
-			 memcpy(&x,&y,sizeof(double)),	\
-			 x)
-#define HTOVD(x,y)	(memcpy(&y,&x,sizeof(double)),	\
-			 y = rb_htovd((DOUBLE_SWAPPER)y),	\
-			 memcpy(&x,&y,sizeof(double)),	\
-			 x)
-#define NTOHD(x,y)	(memcpy(&y,&x,sizeof(double)),	\
-			 y = rb_ntohd((DOUBLE_SWAPPER)y),	\
-			 memcpy(&x,&y,sizeof(double)),	\
-			 x)
-#define VTOHD(x,y)	(memcpy(&y,&x,sizeof(double)),	\
-			 y = rb_vtohd((DOUBLE_SWAPPER)y),	\
-			 memcpy(&x,&y,sizeof(double)),	\
-			 x)
+# define DOUBLE_CONVWITH(y)	DOUBLE_SWAPPER y;
+# define HTOND(x,y)	(memcpy(&(y),&(x),sizeof(double)),	\
+			 (y) = rb_htond((DOUBLE_SWAPPER)(y)),	\
+			 memcpy(&(x),&(y),sizeof(double)),	\
+			 (x))
+# define HTOVD(x,y)	(memcpy(&(y),&(x),sizeof(double)),	\
+			 (y) = rb_htovd((DOUBLE_SWAPPER)(y)),	\
+			 memcpy(&(x),&(y),sizeof(double)),	\
+			 (x))
+# define NTOHD(x,y)	(memcpy(&(y),&(x),sizeof(double)),	\
+			 (y) = rb_ntohd((DOUBLE_SWAPPER)(y)),	\
+			 memcpy(&(x),&(y),sizeof(double)),	\
+			 (x))
+# define VTOHD(x,y)	(memcpy(&(y),&(x),sizeof(double)),	\
+			 (y) = rb_vtohd((DOUBLE_SWAPPER)(y)),	\
+			 memcpy(&(x),&(y),sizeof(double)),	\
+			 (x))
 #else
-#define DOUBLE_CONVWITH(y)
-# define HTOND(x,y)    rb_htond(x)
-# define HTOVD(x,y)    rb_htovd(x)
-# define NTOHD(x,y)    rb_ntohd(x)
-# define VTOHD(x,y)    rb_vtohd(x)
+# define DOUBLE_CONVWITH(y)
+# define HTOND(x,y)	rb_htond(x)
+# define HTOVD(x,y)	rb_htovd(x)
+# define NTOHD(x,y)	rb_ntohd(x)
+# define VTOHD(x,y)	rb_vtohd(x)
 #endif
 
-unsigned long rb_big2ulong_pack _((VALUE x));
-
 static unsigned long
-num2i32(x)
-    VALUE x;
+num2i32(VALUE x)
 {
     x = rb_to_int(x); /* is nil OK? (should not) */
 
     if (FIXNUM_P(x)) return FIX2LONG(x);
-    if (TYPE(x) == T_BIGNUM) {
+    if (RB_TYPE_P(x, T_BIGNUM)) {
 	return rb_big2ulong_pack(x);
     }
     rb_raise(rb_eTypeError, "can't convert %s to `integer'", rb_obj_classname(x));
-    return 0;			/* not reached */
+
+    UNREACHABLE;
 }
 
-#if SIZEOF_LONG == SIZE32
-# define EXTEND32(x) 
-#else
-/* invariant in modulo 1<<31 */
-# define EXTEND32(x) do { if (!natint) {(x) = (((1L<<31)-1-(x))^~(~0L<<31));}} while(0)
-#endif
-#if SIZEOF_SHORT == SIZE16
-# define EXTEND16(x) 
-#else
-# define EXTEND16(x) do { if (!natint) {(x) = (short)(((1<<15)-1-(x))^~(~0<<15));}} while(0)
-#endif
-
-#define QUAD_SIZE 8
 #define MAX_INTEGER_PACK_SIZE 8
 /* #define FORCE_BIG_PACK */
 
 static const char toofew[] = "too few arguments";
 
-static void encodes _((VALUE,const char*,long,int));
-static void qpencode _((VALUE,VALUE,long));
+static void encodes(VALUE,const char*,long,int,int);
+static void qpencode(VALUE,VALUE,long);
 
-static int uv_to_utf8 _((char*,unsigned long));
-static unsigned long utf8_to_uv _((char*,long*));
+static unsigned long utf8_to_uv(const char*,long*);
 
 /*
  *  call-seq:
  *     arr.pack ( aTemplateString ) -> aBinaryString
- *  
+ *
  *  Packs the contents of <i>arr</i> into a binary sequence according to
  *  the directives in <i>aTemplateString</i> (see the table below)
  *  Directives ``A,'' ``a,'' and ``Z'' may be followed by a count,
@@ -319,112 +273,129 @@ static unsigned long utf8_to_uv _((char*,long*));
  *  elements to convert. If the count is an asterisk
  *  (``<code>*</code>''), all remaining array elements will be
  *  converted. Any of the directives ``<code>sSiIlL</code>'' may be
- *  followed by an underscore (``<code>_</code>'') to use the underlying
+ *  followed by an underscore (``<code>_</code>'') or
+ *  exclamation mark (``<code>!</code>'') to use the underlying
  *  platform's native size for the specified type; otherwise, they use a
  *  platform-independent size. Spaces are ignored in the template
  *  string. See also <code>String#unpack</code>.
- *     
+ *
  *     a = [ "a", "b", "c" ]
  *     n = [ 65, 66, 67 ]
  *     a.pack("A3A3A3")   #=> "a  b  c  "
  *     a.pack("a3a3a3")   #=> "a\000\000b\000\000c\000\000"
  *     n.pack("ccc")      #=> "ABC"
- *     
+ *
  *  Directives for +pack+.
  *
- *   Integer   | Array   |
- *   Directive | Element | Meaning
- *   ------------------------------------------------------------------------
- *      C      | Integer | 8-bit unsigned integer (unsigned char)
- *      S      | Integer | 16-bit unsigned integer, native endian (uint16_t)
- *      L      | Integer | 32-bit unsigned integer, native endian (uint32_t)
- *      Q      | Integer | 64-bit unsigned integer, native endian (uint64_t)
- *             |         |
- *      c      | Integer | 8-bit signed integer (char)
- *      s      | Integer | 16-bit signed integer, native endian (int16_t)
- *      l      | Integer | 32-bit signed integer, native endian (int32_t)
- *      q      | Integer | 64-bit signed integer, native endian (int64_t)
- *             |         | 
- *      S_     | Integer | unsigned short, native endian
- *      I, I_  | Integer | unsigned int, native endian
- *      L_     | Integer | unsigned long, native endian
- *             |         |
- *      s_     | Integer | signed short, native endian
- *      i, i_  | Integer | signed int, native endian
- *      l_     | Integer | signed long, native endian
- *             |         |
- *      n      | Integer | 16-bit unsigned integer, network (big-endian) byte order
- *      N      | Integer | 32-bit unsigned integer, network (big-endian) byte order
- *      v      | Integer | 16-bit unsigned integer, VAX (little-endian) byte order
- *      V      | Integer | 32-bit unsigned integer, VAX (little-endian) byte order
- *             |         |
- *      U      | Integer | UTF-8 character
- *      w      | Integer | BER-compressed integer
- *                        
- *   Float     |         |
- *   Directive |         | Meaning
- *   ------------------------------------------------------------------------
- *      D, d   | Float   | double-precision float, native format
- *      F, f   | Float   | single-precision float, native format
- *      E      | Float   | double-precision float, little-endian byte order
- *      e      | Float   | single-precision float, little-endian byte order
- *      G      | Float   | double-precision float, network (big-endian) byte order
- *      g      | Float   | single-precision float, network (big-endian) byte order
- *                        
- *   String    |         |
- *   Directive |         | Meaning
- *   ------------------------------------------------------------------------
- *      A      | String  | arbitrary binary string (space padded, count is width)
- *      a      | String  | arbitrary binary string (null padded, count is width)
- *      Z      | String  | same as ``a'', except that null is added with *
- *      B      | String  | bit string (MSB first)
- *      b      | String  | bit string (LSB first)
- *      H      | String  | hex string (high nibble first)
- *      h      | String  | hex string (low nibble first)
- *      u      | String  | UU-encoded string
- *      M      | String  | quoted printable, MIME encoding (see RFC2045)
- *      m      | String  | base64 encoded string (see RFC 2045, count is width)
- *      P      | String  | pointer to a structure (fixed-length string)
- *      p      | String  | pointer to a null-terminated string
- *                        
- *   Misc.     |         |
- *   Directive |         | Meaning
- *   ------------------------------------------------------------------------
- *      @      | ---     | moves to absolute position
- *      X      | ---     | back up a byte
- *      x      | ---     | null byte
+ *   Integer      | Array   |
+ *   Directive    | Element | Meaning
+ *   ---------------------------------------------------------------------------
+ *      C         | Integer | 8-bit unsigned (unsigned char)
+ *      S         | Integer | 16-bit unsigned, native endian (uint16_t)
+ *      L         | Integer | 32-bit unsigned, native endian (uint32_t)
+ *      Q         | Integer | 64-bit unsigned, native endian (uint64_t)
+ *                |         |
+ *      c         | Integer | 8-bit signed (signed char)
+ *      s         | Integer | 16-bit signed, native endian (int16_t)
+ *      l         | Integer | 32-bit signed, native endian (int32_t)
+ *      q         | Integer | 64-bit signed, native endian (int64_t)
+ *                |         |
+ *      S_, S!    | Integer | unsigned short, native endian
+ *      I, I_, I! | Integer | unsigned int, native endian
+ *      L_, L!    | Integer | unsigned long, native endian
+ *                |         |
+ *      s_, s!    | Integer | signed short, native endian
+ *      i, i_, i! | Integer | signed int, native endian
+ *      l_, l!    | Integer | signed long, native endian
+ *                |         |
+ *      S> L> Q>  | Integer | same as the directives without ">" except
+ *      s> l> q>  |         | big endian
+ *      S!> I!>   |         | (available since Ruby 1.9.3)
+ *      L!>       |         | "S>" is same as "n"
+ *      s!> i!>   |         | "L>" is same as "N"
+ *      l!>       |         |
+ *                |         |
+ *      S< L< Q<  | Integer | same as the directives without "<" except
+ *      s< l< q<  |         | little endian
+ *      S!< I!<   |         | (available since Ruby 1.9.3)
+ *      L!<       |         | "S<" is same as "v"
+ *      s!< i!<   |         | "L<" is same as "V"
+ *      l!<       |         |
+ *                |         |
+ *      n         | Integer | 16-bit unsigned, network (big-endian) byte order
+ *      N         | Integer | 32-bit unsigned, network (big-endian) byte order
+ *      v         | Integer | 16-bit unsigned, VAX (little-endian) byte order
+ *      V         | Integer | 32-bit unsigned, VAX (little-endian) byte order
+ *                |         |
+ *      U         | Integer | UTF-8 character
+ *      w         | Integer | BER-compressed integer
+ *
+ *   Float        |         |
+ *   Directive    |         | Meaning
+ *   ---------------------------------------------------------------------------
+ *      D, d      | Float   | double-precision, native format
+ *      F, f      | Float   | single-precision, native format
+ *      E         | Float   | double-precision, little-endian byte order
+ *      e         | Float   | single-precision, little-endian byte order
+ *      G         | Float   | double-precision, network (big-endian) byte order
+ *      g         | Float   | single-precision, network (big-endian) byte order
+ *
+ *   String       |         |
+ *   Directive    |         | Meaning
+ *   ---------------------------------------------------------------------------
+ *      A         | String  | arbitrary binary string (space padded, count is width)
+ *      a         | String  | arbitrary binary string (null padded, count is width)
+ *      Z         | String  | same as ``a'', except that null is added with *
+ *      B         | String  | bit string (MSB first)
+ *      b         | String  | bit string (LSB first)
+ *      H         | String  | hex string (high nibble first)
+ *      h         | String  | hex string (low nibble first)
+ *      u         | String  | UU-encoded string
+ *      M         | String  | quoted printable, MIME encoding (see RFC2045)
+ *      m         | String  | base64 encoded string (see RFC 2045, count is width)
+ *                |         | (if count is 0, no line feed are added, see RFC 4648)
+ *      P         | String  | pointer to a structure (fixed-length string)
+ *      p         | String  | pointer to a null-terminated string
+ *
+ *   Misc.        |         |
+ *   Directive    |         | Meaning
+ *   ---------------------------------------------------------------------------
+ *      @         | ---     | moves to absolute position
+ *      X         | ---     | back up a byte
+ *      x         | ---     | null byte
  */
 
 static VALUE
-pack_pack(ary, fmt)
-    VALUE ary, fmt;
+pack_pack(VALUE ary, VALUE fmt)
 {
     static const char nul10[] = "\0\0\0\0\0\0\0\0\0\0";
     static const char spc10[] = "          ";
-    char *p, *pend;
+    const char *p, *pend;
     VALUE res, from, associates = 0;
     char type;
     long items, len, idx, plen;
     const char *ptr;
+    int enc_info = 1;		/* 0 - BINARY, 1 - US-ASCII, 2 - UTF-8 */
 #ifdef NATINT_PACK
     int natint;		/* native integer */
 #endif
-    int signed_p, integer_size, bigendian_p;
+    int integer_size, bigendian_p;
 
     StringValue(fmt);
-    p = RSTRING(fmt)->ptr;
-    pend = p + RSTRING(fmt)->len;
+    p = RSTRING_PTR(fmt);
+    pend = p + RSTRING_LEN(fmt);
     res = rb_str_buf_new(0);
 
-    items = RARRAY(ary)->len;
+    items = RARRAY_LEN(ary);
     idx = 0;
 
 #define TOO_FEW (rb_raise(rb_eArgError, toofew), 0)
-#define THISFROM (items > 0 ? RARRAY(ary)->ptr[idx] : TOO_FEW)
-#define NEXTFROM (items-- > 0 ? RARRAY(ary)->ptr[idx++] : TOO_FEW)
+#define THISFROM (items > 0 ? RARRAY_PTR(ary)[idx] : TOO_FEW)
+#define NEXTFROM (items-- > 0 ? RARRAY_PTR(ary)[idx++] : TOO_FEW)
 
     while (p < pend) {
-	if (RSTRING(fmt)->ptr + RSTRING(fmt)->len != pend) {
+	int explicit_endian = 0;
+	if (RSTRING_PTR(fmt) + RSTRING_LEN(fmt) != pend) {
 	    rb_raise(rb_eRuntimeError, "format string modified");
 	}
 	type = *p++;		/* get data type */
@@ -439,19 +410,39 @@ pack_pack(ary, fmt)
 	    }
 	    continue;
 	}
-        if (*p == '_' || *p == '!') {
-	    const char *natstr = "sSiIlL";
 
-	    if (strchr(natstr, type)) {
+	{
+	    static const char natstr[] = "sSiIlL";
+	    static const char endstr[] = "sSiIlLqQ";
+
+          modifiers:
+	    switch (*p) {
+	      case '_':
+	      case '!':
+		if (strchr(natstr, type)) {
 #ifdef NATINT_PACK
-		natint = 1;
+		    natint = 1;
 #endif
-		p++;
-	    }
-	    else {
-		rb_raise(rb_eArgError, "'%c' allowed only after types %s", *p, natstr);
+		    p++;
+		}
+		else {
+		    rb_raise(rb_eArgError, "'%c' allowed only after types %s", *p, natstr);
+		}
+		goto modifiers;
+
+	      case '<':
+	      case '>':
+		if (!strchr(endstr, type)) {
+		    rb_raise(rb_eArgError, "'%c' allowed only after types %s", *p, endstr);
+		}
+		if (explicit_endian) {
+		    rb_raise(rb_eRangeError, "Can't use both '<' and '>'");
+		}
+		explicit_endian = *p++;
+		goto modifiers;
 	    }
 	}
+
 	if (*p == '*') {	/* set data length */
 	    len = strchr("@Xxu", type) ? 0
                 : strchr("PMm", type) ? 1
@@ -459,12 +450,29 @@ pack_pack(ary, fmt)
 	    p++;
 	}
 	else if (ISDIGIT(*p)) {
-	    len = strtoul(p, (char**)&p, 10);
+	    errno = 0;
+	    len = STRTOUL(p, (char**)&p, 10);
+	    if (errno) {
+		rb_raise(rb_eRangeError, "pack length too big");
+	    }
 	}
 	else {
 	    len = 1;
 	}
 
+	switch (type) {
+	  case 'U':
+	    /* if encoding is US-ASCII, upgrade to UTF-8 */
+	    if (enc_info == 1) enc_info = 2;
+	    break;
+	  case 'm': case 'M': case 'u':
+	    /* keep US-ASCII (do nothing) */
+	    break;
+	  default:
+	    /* fall back to BINARY */
+	    enc_info = 0;
+	    break;
+	}
 	switch (type) {
 	  case 'A': case 'a': case 'Z':
 	  case 'B': case 'b':
@@ -476,8 +484,8 @@ pack_pack(ary, fmt)
 	    }
 	    else {
 		StringValue(from);
-		ptr = RSTRING(from)->ptr;
-		plen = RSTRING(from)->len;
+		ptr = RSTRING_PTR(from);
+		plen = RSTRING_LEN(from);
 		OBJ_INFECT(res, from);
 	    }
 
@@ -486,8 +494,8 @@ pack_pack(ary, fmt)
 
 	    switch (type) {
 	      case 'a':		/* arbitrary binary string (null padded)  */
-	      case 'A':		/* ASCII string (space padded) */
-	      case 'Z':		/* null terminated ASCII string  */
+	      case 'A':         /* arbitrary binary string (ASCII space padded) */
+	      case 'Z':         /* null terminated string  */
 		if (plen >= len) {
 		    rb_str_buf_cat(res, ptr, len);
 		    if (p[-1] == '*' && type == 'Z')
@@ -504,6 +512,8 @@ pack_pack(ary, fmt)
 		}
 		break;
 
+#define castchar(from) (char)((from) & 0xff)
+
 	      case 'b':		/* bit string (ascending) */
 		{
 		    int byte = 0;
@@ -519,7 +529,7 @@ pack_pack(ary, fmt)
 			if (i & 7)
 			    byte >>= 1;
 			else {
-			    char c = byte & 0xff;
+			    char c = castchar(byte);
 			    rb_str_buf_cat(res, &c, 1);
 			    byte = 0;
 			}
@@ -527,7 +537,7 @@ pack_pack(ary, fmt)
 		    if (len & 7) {
 			char c;
 			byte >>= 7 - (len & 7);
-			c = byte & 0xff;
+			c = castchar(byte);
 			rb_str_buf_cat(res, &c, 1);
 		    }
 		    len = j;
@@ -549,7 +559,7 @@ pack_pack(ary, fmt)
 			if (i & 7)
 			    byte <<= 1;
 			else {
-			    char c = byte & 0xff;
+			    char c = castchar(byte);
 			    rb_str_buf_cat(res, &c, 1);
 			    byte = 0;
 			}
@@ -557,7 +567,7 @@ pack_pack(ary, fmt)
 		    if (len & 7) {
 			char c;
 			byte <<= 7 - (len & 7);
-			c = byte & 0xff;
+			c = castchar(byte);
 			rb_str_buf_cat(res, &c, 1);
 		    }
 		    len = j;
@@ -582,13 +592,13 @@ pack_pack(ary, fmt)
 			if (i & 1)
 			    byte >>= 4;
 			else {
-			    char c = byte & 0xff;
+			    char c = castchar(byte);
 			    rb_str_buf_cat(res, &c, 1);
 			    byte = 0;
 			}
 		    }
 		    if (len & 1) {
-			char c = byte & 0xff;
+			char c = castchar(byte);
 			rb_str_buf_cat(res, &c, 1);
 		    }
 		    len = j;
@@ -613,13 +623,13 @@ pack_pack(ary, fmt)
 			if (i & 1)
 			    byte <<= 4;
 			else {
-			    char c = byte & 0xff;
+			    char c = castchar(byte);
 			    rb_str_buf_cat(res, &c, 1);
 			    byte = 0;
 			}
 		    }
 		    if (len & 1) {
-			char c = byte & 0xff;
+			char c = castchar(byte);
 			rb_str_buf_cat(res, &c, 1);
 		    }
 		    len = j;
@@ -635,134 +645,126 @@ pack_pack(ary, fmt)
 		char c;
 
 		from = NEXTFROM;
-		c = num2i32(from);
+		c = (char)num2i32(from);
 		rb_str_buf_cat(res, &c, sizeof(char));
 	    }
 	    break;
 
 	  case 's':		/* signed short */
-            signed_p = 1;
             integer_size = NATINT_LEN(short, 2);
             bigendian_p = BIGENDIAN_P();
             goto pack_integer;
 
 	  case 'S':		/* unsigned short */
-            signed_p = 0;
             integer_size = NATINT_LEN(short, 2);
             bigendian_p = BIGENDIAN_P();
             goto pack_integer;
 
 	  case 'i':		/* signed int */
-            signed_p = 1;
             integer_size = (int)sizeof(int);
             bigendian_p = BIGENDIAN_P();
             goto pack_integer;
 
 	  case 'I':		/* unsigned int */
-            signed_p = 0;
             integer_size = (int)sizeof(int);
             bigendian_p = BIGENDIAN_P();
             goto pack_integer;
 
 	  case 'l':		/* signed long */
-            signed_p = 1;
             integer_size = NATINT_LEN(long, 4);
             bigendian_p = BIGENDIAN_P();
             goto pack_integer;
 
 	  case 'L':		/* unsigned long */
-            signed_p = 0;
             integer_size = NATINT_LEN(long, 4);
             bigendian_p = BIGENDIAN_P();
             goto pack_integer;
 
 	  case 'q':		/* signed quad (64bit) int */
-            signed_p = 1;
-            integer_size = 8;
+	    integer_size = 8;
             bigendian_p = BIGENDIAN_P();
             goto pack_integer;
 
 	  case 'Q':		/* unsigned quad (64bit) int */
-            signed_p = 0;
-            integer_size = 8;
+	    integer_size = 8;
             bigendian_p = BIGENDIAN_P();
             goto pack_integer;
 
 	  case 'n':		/* unsigned short (network byte-order)  */
-            signed_p = 0;
             integer_size = 2;
             bigendian_p = 1;
             goto pack_integer;
 
 	  case 'N':		/* unsigned long (network byte-order) */
-            signed_p = 0;
             integer_size = 4;
             bigendian_p = 1;
             goto pack_integer;
 
 	  case 'v':		/* unsigned short (VAX byte-order) */
-            signed_p = 0;
             integer_size = 2;
             bigendian_p = 0;
             goto pack_integer;
 
 	  case 'V':		/* unsigned long (VAX byte-order) */
-            signed_p = 0;
             integer_size = 4;
             bigendian_p = 0;
             goto pack_integer;
 
           pack_integer:
+	    if (explicit_endian) {
+		bigendian_p = explicit_endian == '>';
+	    }
+
             switch (integer_size) {
 #if defined(HAVE_INT16_T) && !defined(FORCE_BIG_PACK)
               case SIZEOF_INT16_T:
-                while (len-- > 0) {
+		while (len-- > 0) {
                     union {
                         int16_t i;
                         char a[sizeof(int16_t)];
                     } v;
 
-                    from = NEXTFROM;
-                    v.i = (int16_t)num2i32(from);
-                    if (bigendian_p != BIGENDIAN_P()) v.i = swap16(v.i);
-                    rb_str_buf_cat(res, v.a, sizeof(int16_t));
-                }
-                break;
+		    from = NEXTFROM;
+		    v.i = (int16_t)num2i32(from);
+		    if (bigendian_p != BIGENDIAN_P()) v.i = swap16(v.i);
+		    rb_str_buf_cat(res, v.a, sizeof(int16_t));
+		}
+		break;
 #endif
 
 #if defined(HAVE_INT32_T) && !defined(FORCE_BIG_PACK)
               case SIZEOF_INT32_T:
-                while (len-- > 0) {
-                    union {
+		while (len-- > 0) {
+		    union {
                         int32_t i;
                         char a[sizeof(int32_t)];
                     } v;
 
-                    from = NEXTFROM;
-                    v.i = (int32_t)num2i32(from);
-                    if (bigendian_p != BIGENDIAN_P()) v.i = swap32(v.i);
-                    rb_str_buf_cat(res, v.a, sizeof(int32_t));
-                }
-                break;
+		    from = NEXTFROM;
+		    v.i = (int32_t)num2i32(from);
+		    if (bigendian_p != BIGENDIAN_P()) v.i = swap32(v.i);
+		    rb_str_buf_cat(res, v.a, sizeof(int32_t));
+		}
+		break;
 #endif
 
 #if defined(HAVE_INT64_T) && SIZEOF_LONG == SIZEOF_INT64_T && !defined(FORCE_BIG_PACK)
               case SIZEOF_INT64_T:
-                while (len-- > 0) {
-                    union {
+		while (len-- > 0) {
+		    union {
                         int64_t i;
                         char a[sizeof(int64_t)];
                     } v;
 
-                    from = NEXTFROM;
-                    v.i = num2i32(from); /* can return 64bit value if SIZEOF_LONG == SIZEOF_INT64_T */
-                    if (bigendian_p != BIGENDIAN_P()) v.i = swap64(v.i);
-                    rb_str_buf_cat(res, v.a, sizeof(int64_t));
-                }
-                break;
+		    from = NEXTFROM;
+		    v.i = num2i32(from); /* can return 64bit value if SIZEOF_LONG == SIZEOF_INT64_T */
+		    if (bigendian_p != BIGENDIAN_P()) v.i = swap64(v.i);
+		    rb_str_buf_cat(res, v.a, sizeof(int64_t));
+		}
+		break;
 #endif
 
-              default:
+	      default:
                 if (integer_size > MAX_INTEGER_PACK_SIZE)
                     rb_bug("unexpected intger size for pack: %d", integer_size);
                 while (len-- > 0) {
@@ -774,9 +776,6 @@ pack_pack(ary, fmt)
                     int i;
 
                     from = NEXTFROM;
-                    from = rb_to_int(from);
-                    if (integer_size == QUAD_SIZE)
-                        rb_quad_pack(v.a, from); /* RangeError compatibility for Ruby 1.8. */
                     rb_big_pack(from, v.i, num_longs);
                     if (bigendian_p) {
                         for (i = 0; i < num_longs/2; i++) {
@@ -785,7 +784,7 @@ pack_pack(ary, fmt)
                             v.i[num_longs-1-i] = t;
                         }
                     }
-                    if (bigendian_p != BIGENDIAN_P()) {
+		    if (bigendian_p != BIGENDIAN_P()) {
                         for (i = 0; i < num_longs; i++)
                             v.i[i] = swapl(v.i[i]);
                     }
@@ -796,8 +795,8 @@ pack_pack(ary, fmt)
                                    integer_size);
                 }
                 break;
-            }
-            break;
+	    }
+	    break;
 
 	  case 'f':		/* single precision float in native format */
 	  case 'F':		/* ditto */
@@ -805,7 +804,7 @@ pack_pack(ary, fmt)
 		float f;
 
 		from = NEXTFROM;
-		f = RFLOAT(rb_Float(from))->value;
+		f = (float)RFLOAT_VALUE(rb_to_float(from));
 		rb_str_buf_cat(res, (char*)&f, sizeof(float));
 	    }
 	    break;
@@ -816,7 +815,7 @@ pack_pack(ary, fmt)
 		FLOAT_CONVWITH(ftmp);
 
 		from = NEXTFROM;
-		f = RFLOAT(rb_Float(from))->value;
+		f = (float)RFLOAT_VALUE(rb_to_float(from));
 		f = HTOVF(f,ftmp);
 		rb_str_buf_cat(res, (char*)&f, sizeof(float));
 	    }
@@ -828,7 +827,7 @@ pack_pack(ary, fmt)
 		DOUBLE_CONVWITH(dtmp);
 
 		from = NEXTFROM;
-		d = RFLOAT(rb_Float(from))->value;
+		d = RFLOAT_VALUE(rb_to_float(from));
 		d = HTOVD(d,dtmp);
 		rb_str_buf_cat(res, (char*)&d, sizeof(double));
 	    }
@@ -840,7 +839,7 @@ pack_pack(ary, fmt)
 		double d;
 
 		from = NEXTFROM;
-		d = RFLOAT(rb_Float(from))->value;
+		d = RFLOAT_VALUE(rb_to_float(from));
 		rb_str_buf_cat(res, (char*)&d, sizeof(double));
 	    }
 	    break;
@@ -851,7 +850,7 @@ pack_pack(ary, fmt)
 		FLOAT_CONVWITH(ftmp);
 
 		from = NEXTFROM;
-		f = RFLOAT(rb_Float(from))->value;
+		f = (float)RFLOAT_VALUE(rb_to_float(from));
 		f = HTONF(f,ftmp);
 		rb_str_buf_cat(res, (char*)&f, sizeof(float));
 	    }
@@ -863,7 +862,7 @@ pack_pack(ary, fmt)
 		DOUBLE_CONVWITH(dtmp);
 
 		from = NEXTFROM;
-		d = RFLOAT(rb_Float(from))->value;
+		d = RFLOAT_VALUE(rb_to_float(from));
 		d = HTOND(d,dtmp);
 		rb_str_buf_cat(res, (char*)&d, sizeof(double));
 	    }
@@ -880,15 +879,14 @@ pack_pack(ary, fmt)
 
 	  case 'X':		/* back up byte */
 	  shrink:
-	    plen = RSTRING(res)->len;
+	    plen = RSTRING_LEN(res);
 	    if (plen < len)
 		rb_raise(rb_eArgError, "X outside of string");
-	    RSTRING(res)->len = plen - len;
-	    RSTRING(res)->ptr[plen - len] = '\0';
+	    rb_str_set_len(res, plen - len);
 	    break;
 
 	  case '@':		/* null fill to absolute position */
-	    len -= RSTRING(res)->len;
+	    len -= RSTRING_LEN(res);
 	    if (len > 0) goto grow;
 	    len = -len;
 	    if (len > 0) goto shrink;
@@ -900,17 +898,17 @@ pack_pack(ary, fmt)
 
 	  case 'U':		/* Unicode character */
 	    while (len-- > 0) {
-		long l;
+		SIGNED_VALUE l;
 		char buf[8];
 		int le;
 
 		from = NEXTFROM;
 		from = rb_to_int(from);
-		l = NUM2INT(from);
+		l = NUM2LONG(from);
 		if (l < 0) {
 		    rb_raise(rb_eRangeError, "pack(U): value out of range");
 		}
-		le = uv_to_utf8(buf, l);
+		le = rb_uv_to_utf8(buf, l);
 		rb_str_buf_cat(res, (char*)buf, le);
 	    }
 	    break;
@@ -919,11 +917,18 @@ pack_pack(ary, fmt)
 	  case 'm':		/* base64 encoded string */
 	    from = NEXTFROM;
 	    StringValue(from);
-	    ptr = RSTRING(from)->ptr;
-	    plen = RSTRING(from)->len;
+	    ptr = RSTRING_PTR(from);
+	    plen = RSTRING_LEN(from);
 
+	    if (len == 0 && type == 'm') {
+		encodes(res, ptr, plen, type, 0);
+		ptr += plen;
+		break;
+	    }
 	    if (len <= 2)
 		len = 45;
+	    else if (len > 63 && type == 'u')
+		len = 63;
 	    else
 		len = len / 3 * 3;
 	    while (plen > 0) {
@@ -933,7 +938,7 @@ pack_pack(ary, fmt)
 		    todo = len;
 		else
 		    todo = plen;
-		encodes(res, ptr, todo, type);
+		encodes(res, ptr, todo, type, 1);
 		plen -= todo;
 		ptr += todo;
 	    }
@@ -950,9 +955,9 @@ pack_pack(ary, fmt)
 	    from = THISFROM;
 	    if (!NIL_P(from)) {
 		StringValue(from);
-		if (RSTRING(from)->len < len) {
+		if (RSTRING_LEN(from) < len) {
 		    rb_raise(rb_eArgError, "too short buffer for P(%ld for %ld)",
-			     RSTRING(from)->len, len);
+			     RSTRING_LEN(from), len);
 		}
 	    }
 	    len = 1;
@@ -983,13 +988,13 @@ pack_pack(ary, fmt)
 		char c, *bufs, *bufe;
 
 		from = NEXTFROM;
-		if (TYPE(from) == T_BIGNUM) {
+		if (RB_TYPE_P(from, T_BIGNUM)) {
 		    VALUE big128 = rb_uint2big(128);
-		    while (TYPE(from) == T_BIGNUM) {
+		    while (RB_TYPE_P(from, T_BIGNUM)) {
 			from = rb_big_divmod(from, big128);
-			c = NUM2INT(RARRAY(from)->ptr[1]) | 0x80; /* mod */
+			c = castchar(NUM2INT(RARRAY_PTR(from)[1]) | 0x80); /* mod */
 			rb_str_buf_cat(buf, &c, sizeof(char));
-			from = RARRAY(from)->ptr[0]; /* div */
+			from = RARRAY_PTR(from)[0]; /* div */
 		    }
 		}
 
@@ -1002,21 +1007,21 @@ pack_pack(ary, fmt)
 		}
 
 		while (ul) {
-		    c = ((ul & 0x7f) | 0x80);
+		    c = castchar((ul & 0x7f) | 0x80);
 		    rb_str_buf_cat(buf, &c, sizeof(char));
 		    ul >>=  7;
 		}
 
-		if (RSTRING(buf)->len) {
-		    bufs = RSTRING(buf)->ptr;
-		    bufe = bufs + RSTRING(buf)->len - 1;
+		if (RSTRING_LEN(buf)) {
+		    bufs = RSTRING_PTR(buf);
+		    bufe = bufs + RSTRING_LEN(buf) - 1;
 		    *bufs &= 0x7f; /* clear continue bit */
 		    while (bufs < bufe) { /* reverse */
 			c = *bufs;
 			*bufs++ = *bufe;
 			*bufe-- = c;
 		    }
-		    rb_str_buf_cat(res, RSTRING(buf)->ptr, RSTRING(buf)->len);
+		    rb_str_buf_cat(res, RSTRING_PTR(buf), RSTRING_LEN(buf));
 		}
 		else {
 		    c = 0;
@@ -1026,6 +1031,8 @@ pack_pack(ary, fmt)
 	    break;
 
 	  default:
+	    rb_warning("unknown pack directive '%c' in '%s'",
+		type, RSTRING_PTR(fmt));
 	    break;
 	}
     }
@@ -1034,6 +1041,17 @@ pack_pack(ary, fmt)
 	rb_str_associate(res, associates);
     }
     OBJ_INFECT(res, fmt);
+    switch (enc_info) {
+      case 1:
+	ENCODING_CODERANGE_SET(res, rb_usascii_encindex(), ENC_CODERANGE_7BIT);
+	break;
+      case 2:
+	rb_enc_set_index(res, rb_utf8_encindex());
+	break;
+      default:
+	/* do nothing, keep ASCII-8BIT */
+	break;
+    }
     return res;
 }
 
@@ -1043,32 +1061,35 @@ static const char b64_table[] =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 static void
-encodes(str, s, len, type)
-    VALUE str;
-    const char *s;
-    long len;
-    int type;
+encodes(VALUE str, const char *s, long len, int type, int tail_lf)
 {
-    char *buff = ALLOCA_N(char, len * 4 / 3 + 6);
+    char buff[4096];
     long i = 0;
     const char *trans = type == 'u' ? uu_table : b64_table;
-    int padding;
+    char padding;
 
     if (type == 'u') {
-	buff[i++] = len + ' ';
+	buff[i++] = (char)len + ' ';
 	padding = '`';
     }
     else {
 	padding = '=';
     }
     while (len >= 3) {
-	buff[i++] = trans[077 & (*s >> 2)];
-	buff[i++] = trans[077 & (((*s << 4) & 060) | ((s[1] >> 4) & 017))];
-	buff[i++] = trans[077 & (((s[1] << 2) & 074) | ((s[2] >> 6) & 03))];
-	buff[i++] = trans[077 & s[2]];
-	s += 3;
-	len -= 3;
+        while (len >= 3 && sizeof(buff)-i >= 4) {
+            buff[i++] = trans[077 & (*s >> 2)];
+            buff[i++] = trans[077 & (((*s << 4) & 060) | ((s[1] >> 4) & 017))];
+            buff[i++] = trans[077 & (((s[1] << 2) & 074) | ((s[2] >> 6) & 03))];
+            buff[i++] = trans[077 & s[2]];
+            s += 3;
+            len -= 3;
+        }
+        if (sizeof(buff)-i < 4) {
+            rb_str_buf_cat(str, buff, i);
+            i = 0;
+        }
     }
+
     if (len == 2) {
 	buff[i++] = trans[077 & (*s >> 2)];
 	buff[i++] = trans[077 & (((*s << 4) & 060) | ((s[1] >> 4) & 017))];
@@ -1081,21 +1102,19 @@ encodes(str, s, len, type)
 	buff[i++] = padding;
 	buff[i++] = padding;
     }
-    buff[i++] = '\n';
+    if (tail_lf) buff[i++] = '\n';
     rb_str_buf_cat(str, buff, i);
 }
 
-static char hex_table[] = "0123456789ABCDEF";
+static const char hex_table[] = "0123456789ABCDEF";
 
 static void
-qpencode(str, from, len)
-    VALUE str, from;
-    long len;
+qpencode(VALUE str, VALUE from, long len)
 {
     char buff[1024];
     long i = 0, n = 0, prev = EOF;
-    unsigned char *s = (unsigned char*)RSTRING(from)->ptr;
-    unsigned char *send = s + RSTRING(from)->len;
+    unsigned char *s = (unsigned char*)RSTRING_PTR(from);
+    unsigned char *send = s + RSTRING_LEN(from);
 
     while (s < send) {
         if ((*s > 126) ||
@@ -1143,55 +1162,51 @@ qpencode(str, from, len)
 }
 
 static inline int
-hex2num(c)
-    char c;
+hex2num(char c)
 {
     switch (c) {
-    case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9':
+      case '0': case '1': case '2': case '3': case '4':
+      case '5': case '6': case '7': case '8': case '9':
         return c - '0';
-    case 'a': case 'b': case 'c':
-    case 'd': case 'e': case 'f':
+      case 'a': case 'b': case 'c':
+      case 'd': case 'e': case 'f':
 	return c - 'a' + 10;
-    case 'A': case 'B': case 'C':
-    case 'D': case 'E': case 'F':
+      case 'A': case 'B': case 'C':
+      case 'D': case 'E': case 'F':
 	return c - 'A' + 10;
-    default:
+      default:
 	return -1;
     }
 }
 
 #define PACK_LENGTH_ADJUST_SIZE(sz) do {	\
     tmp_len = 0;				\
-    if (len > (long)((send-s)/sz)) {		\
+    if (len > (long)((send-s)/(sz))) {		\
         if (!star) {				\
-	    tmp_len = len-(send-s)/sz;		\
+	    tmp_len = len-(send-s)/(sz);		\
         }					\
-	len = (send-s)/sz;			\
+	len = (send-s)/(sz);			\
     }						\
 } while (0)
 
 #define PACK_ITEM_ADJUST() do { \
-    if (tmp_len > 0) \
-        rb_ary_store(ary, RARRAY_LEN(ary)+tmp_len-1, Qnil); \
+    if (tmp_len > 0 && !block_p) \
+	rb_ary_store(ary, RARRAY_LEN(ary)+tmp_len-1, Qnil); \
 } while (0)
 
 static VALUE
-infected_str_new(ptr, len, str)
-    const char *ptr;
-    long len;
-    VALUE str;
+infected_str_new(const char *ptr, long len, VALUE str)
 {
     VALUE s = rb_str_new(ptr, len);
 
     OBJ_INFECT(s, str);
     return s;
 }
-    
+
 /*
  *  call-seq:
- *     str.unpack(format)   => anArray
- *  
+ *     str.unpack(format)    ->  anArray
+ *
  *  Decodes <i>str</i> (which may contain binary data) according to the
  *  format string, returning an array of each value extracted. The
  *  format string consists of a sequence of single-character directives,
@@ -1200,11 +1215,12 @@ infected_str_new(ptr, len, str)
  *  by a number, indicating the number of times to repeat with this
  *  directive. An asterisk (``<code>*</code>'') will use up all
  *  remaining elements. The directives <code>sSiIlL</code> may each be
- *  followed by an underscore (``<code>_</code>'') to use the underlying
+ *  followed by an underscore (``<code>_</code>'') or
+ *  exclamation mark (``<code>!</code>'') to use the underlying
  *  platform's native size for the specified type; otherwise, it uses a
  *  platform-independent consistent size. Spaces are ignored in the
  *  format string. See also <code>Array#pack</code>.
- *     
+ *
  *     "abc \0\0abc \0\0".unpack('A6Z6')   #=> ["abc", "abc "]
  *     "abc \0\0".unpack('a3a3')           #=> ["abc", " \000\000"]
  *     "abc \0abc \0".unpack('Z*Z*')       #=> ["abc ", "abc "]
@@ -1216,121 +1232,89 @@ infected_str_new(ptr, len, str)
  *
  *  This table summarizes the various formats and the Ruby classes
  *  returned by each.
- *     
- *     Format | Returns | Function
- *     -------+---------+-----------------------------------------
- *       A    | String  | with trailing nulls and spaces removed
- *     -------+---------+-----------------------------------------
- *       a    | String  | string
- *     -------+---------+-----------------------------------------
- *       B    | String  | extract bits from each character (msb first)
- *     -------+---------+-----------------------------------------
- *       b    | String  | extract bits from each character (lsb first)
- *     -------+---------+-----------------------------------------
- *       C    | Fixnum  | extract a character as an unsigned integer
- *     -------+---------+-----------------------------------------
- *       c    | Fixnum  | extract a character as an integer
- *     -------+---------+-----------------------------------------
- *       d,D  | Float   | treat sizeof(double) characters as
- *            |         | a native double
- *     -------+---------+-----------------------------------------
- *       E    | Float   | treat sizeof(double) characters as
- *            |         | a double in little-endian byte order
- *     -------+---------+-----------------------------------------
- *       e    | Float   | treat sizeof(float) characters as
- *            |         | a float in little-endian byte order
- *     -------+---------+-----------------------------------------
- *       f,F  | Float   | treat sizeof(float) characters as
- *            |         | a native float
- *     -------+---------+-----------------------------------------
- *       G    | Float   | treat sizeof(double) characters as
- *            |         | a double in network byte order
- *     -------+---------+-----------------------------------------
- *       g    | Float   | treat sizeof(float) characters as a
- *            |         | float in network byte order
- *     -------+---------+-----------------------------------------
- *       H    | String  | extract hex nibbles from each character
- *            |         | (most significant first)
- *     -------+---------+-----------------------------------------
- *       h    | String  | extract hex nibbles from each character
- *            |         | (least significant first)
- *     -------+---------+-----------------------------------------
- *       I    | Integer | treat sizeof(int) (modified by _)
- *            |         | successive characters as an unsigned
- *            |         | native integer
- *     -------+---------+-----------------------------------------
- *       i    | Integer | treat sizeof(int) (modified by _)
- *            |         | successive characters as a signed
- *            |         | native integer
- *     -------+---------+-----------------------------------------
- *       L    | Integer | treat four (modified by _) successive
- *            |         | characters as an unsigned native
- *            |         | long integer
- *     -------+---------+-----------------------------------------
- *       l    | Integer | treat four (modified by _) successive
- *            |         | characters as a signed native
- *            |         | long integer
- *     -------+---------+-----------------------------------------
- *       M    | String  | quoted-printable
- *     -------+---------+-----------------------------------------
- *       m    | String  | base64-encoded
- *     -------+---------+-----------------------------------------
- *       N    | Integer | treat four characters as an unsigned
- *            |         | long in network byte order
- *     -------+---------+-----------------------------------------
- *       n    | Fixnum  | treat two characters as an unsigned
- *            |         | short in network byte order
- *     -------+---------+-----------------------------------------
- *       P    | String  | treat sizeof(char *) characters as a
- *            |         | pointer, and  return \emph{len} characters
- *            |         | from the referenced location
- *     -------+---------+-----------------------------------------
- *       p    | String  | treat sizeof(char *) characters as a
- *            |         | pointer to a  null-terminated string
- *     -------+---------+-----------------------------------------
- *       Q    | Integer | treat 8 characters as an unsigned 
- *            |         | quad word (64 bits)
- *     -------+---------+-----------------------------------------
- *       q    | Integer | treat 8 characters as a signed 
- *            |         | quad word (64 bits)
- *     -------+---------+-----------------------------------------
- *       S    | Fixnum  | treat two (different if _ used)
- *            |         | successive characters as an unsigned
- *            |         | short in native byte order
- *     -------+---------+-----------------------------------------
- *       s    | Fixnum  | Treat two (different if _ used) 
- *            |         | successive characters as a signed short
- *            |         | in native byte order
- *     -------+---------+-----------------------------------------
- *       U    | Integer | UTF-8 characters as unsigned integers
- *     -------+---------+-----------------------------------------
- *       u    | String  | UU-encoded
- *     -------+---------+-----------------------------------------
- *       V    | Fixnum  | treat four characters as an unsigned
- *            |         | long in little-endian byte order
- *     -------+---------+-----------------------------------------
- *       v    | Fixnum  | treat two characters as an unsigned
- *            |         | short in little-endian byte order
- *     -------+---------+-----------------------------------------
- *       w    | Integer | BER-compressed integer (see Array.pack)
- *     -------+---------+-----------------------------------------
- *       X    | ---     | skip backward one character
- *     -------+---------+-----------------------------------------
- *       x    | ---     | skip forward one character
- *     -------+---------+-----------------------------------------
- *       Z    | String  | with trailing nulls removed
- *            |         | upto first null with *
- *     -------+---------+-----------------------------------------
- *       @    | ---     | skip to the offset given by the 
- *            |         | length argument
- *     -------+---------+-----------------------------------------
+ *
+ *   Integer      |         |
+ *   Directive    | Returns | Meaning
+ *   -----------------------------------------------------------------
+ *      C         | Integer | 8-bit unsigned (unsigned char)
+ *      S         | Integer | 16-bit unsigned, native endian (uint16_t)
+ *      L         | Integer | 32-bit unsigned, native endian (uint32_t)
+ *      Q         | Integer | 64-bit unsigned, native endian (uint64_t)
+ *                |         |
+ *      c         | Integer | 8-bit signed (signed char)
+ *      s         | Integer | 16-bit signed, native endian (int16_t)
+ *      l         | Integer | 32-bit signed, native endian (int32_t)
+ *      q         | Integer | 64-bit signed, native endian (int64_t)
+ *                |         |
+ *      S_, S!    | Integer | unsigned short, native endian
+ *      I, I_, I! | Integer | unsigned int, native endian
+ *      L_, L!    | Integer | unsigned long, native endian
+ *                |         |
+ *      s_, s!    | Integer | signed short, native endian
+ *      i, i_, i! | Integer | signed int, native endian
+ *      l_, l!    | Integer | signed long, native endian
+ *                |         |
+ *      S> L> Q>  | Integer | same as the directives without ">" except
+ *      s> l> q>  |         | big endian
+ *      S!> I!>   |         | (available since Ruby 1.9.3)
+ *      L!> Q!>   |         | "S>" is same as "n"
+ *      s!> i!>   |         | "L>" is same as "N"
+ *      l!> q!>   |         |
+ *                |         |
+ *      S< L< Q<  | Integer | same as the directives without "<" except
+ *      s< l< q<  |         | little endian
+ *      S!< I!<   |         | (available since Ruby 1.9.3)
+ *      L!< Q!<   |         | "S<" is same as "v"
+ *      s!< i!<   |         | "L<" is same as "V"
+ *      l!< q!<   |         |
+ *                |         |
+ *      n         | Integer | 16-bit unsigned, network (big-endian) byte order
+ *      N         | Integer | 32-bit unsigned, network (big-endian) byte order
+ *      v         | Integer | 16-bit unsigned, VAX (little-endian) byte order
+ *      V         | Integer | 32-bit unsigned, VAX (little-endian) byte order
+ *                |         |
+ *      U         | Integer | UTF-8 character
+ *      w         | Integer | BER-compressed integer (see Array.pack)
+ *
+ *   Float        |         |
+ *   Directive    | Returns | Meaning
+ *   -----------------------------------------------------------------
+ *      D, d      | Float   | double-precision, native format
+ *      F, f      | Float   | single-precision, native format
+ *      E         | Float   | double-precision, little-endian byte order
+ *      e         | Float   | single-precision, little-endian byte order
+ *      G         | Float   | double-precision, network (big-endian) byte order
+ *      g         | Float   | single-precision, network (big-endian) byte order
+ *
+ *   String       |         |
+ *   Directive    | Returns | Meaning
+ *   -----------------------------------------------------------------
+ *      A         | String  | arbitrary binary string (remove trailing nulls and ASCII spaces)
+ *      a         | String  | arbitrary binary string
+ *      Z         | String  | null-terminated string
+ *      B         | String  | bit string (MSB first)
+ *      b         | String  | bit string (LSB first)
+ *      H         | String  | hex string (high nibble first)
+ *      h         | String  | hex string (low nibble first)
+ *      u         | String  | UU-encoded string
+ *      M         | String  | quoted-printable, MIME encoding (see RFC2045)
+ *      m         | String  | base64 encoded string (RFC 2045) (default)
+ *                |         | base64 encoded string (RFC 4648) if followed by 0
+ *      P         | String  | pointer to a structure (fixed-length string)
+ *      p         | String  | pointer to a null-terminated string
+ *
+ *   Misc.        |         |
+ *   Directive    | Returns | Meaning
+ *   -----------------------------------------------------------------
+ *      @         | ---     | skip to the offset given by the length argument
+ *      X         | ---     | skip backward one byte
+ *      x         | ---     | skip forward one byte
  */
 
 static VALUE
-pack_unpack(str, fmt)
-    VALUE str, fmt;
+pack_unpack(VALUE str, VALUE fmt)
 {
-    static const char hexdigits[] = "0123456789abcdef0123456789ABCDEFx";
+    static const char hexdigits[] = "0123456789abcdef";
     char *s, *send;
     char *p, *pend;
     VALUE ary;
@@ -1340,17 +1324,28 @@ pack_unpack(str, fmt)
 #ifdef NATINT_PACK
     int natint;			/* native integer */
 #endif
+    int block_p = rb_block_given_p();
     int signed_p, integer_size, bigendian_p;
+#define UNPACK_PUSH(item) do {\
+	VALUE item_val = (item);\
+	if (block_p) {\
+	    rb_yield(item_val);\
+	}\
+	else {\
+	    rb_ary_push(ary, item_val);\
+	}\
+    } while (0)
 
     StringValue(str);
     StringValue(fmt);
-    s = RSTRING(str)->ptr;
-    send = s + RSTRING(str)->len;
-    p = RSTRING(fmt)->ptr;
-    pend = p + RSTRING(fmt)->len;
+    s = RSTRING_PTR(str);
+    send = s + RSTRING_LEN(str);
+    p = RSTRING_PTR(fmt);
+    pend = p + RSTRING_LEN(fmt);
 
-    ary = rb_ary_new();
+    ary = block_p ? Qnil : rb_ary_new();
     while (p < pend) {
+	int explicit_endian = 0;
 	type = *p++;
 #ifdef NATINT_PACK
 	natint = 0;
@@ -1363,20 +1358,41 @@ pack_unpack(str, fmt)
 	    }
 	    continue;
 	}
-	star = 0;
-	if (*p == '_' || *p == '!') {
-	    static const char natstr[] = "sSiIlL";
 
-	    if (strchr(natstr, type)) {
+	star = 0;
+	{
+	    static const char natstr[] = "sSiIlL";
+	    static const char endstr[] = "sSiIlLqQ";
+
+          modifiers:
+	    switch (*p) {
+	      case '_':
+	      case '!':
+
+		if (strchr(natstr, type)) {
 #ifdef NATINT_PACK
-		natint = 1;
+		    natint = 1;
 #endif
-		p++;
-	    }
-	    else {
-		rb_raise(rb_eArgError, "'%c' allowed only after types %s", *p, natstr);
+		    p++;
+		}
+		else {
+		    rb_raise(rb_eArgError, "'%c' allowed only after types %s", *p, natstr);
+		}
+		goto modifiers;
+
+	      case '<':
+	      case '>':
+		if (!strchr(endstr, type)) {
+		    rb_raise(rb_eArgError, "'%c' allowed only after types %s", *p, endstr);
+		}
+		if (explicit_endian) {
+		    rb_raise(rb_eRangeError, "Can't use both '<' and '>'");
+		}
+		explicit_endian = *p++;
+		goto modifiers;
 	    }
 	}
+
 	if (p >= pend)
 	    len = 1;
 	else if (*p == '*') {
@@ -1385,7 +1401,11 @@ pack_unpack(str, fmt)
 	    p++;
 	}
 	else if (ISDIGIT(*p)) {
-	    len = strtoul(p, (char**)&p, 10);
+	    errno = 0;
+	    len = STRTOUL(p, (char**)&p, 10);
+	    if (errno) {
+		rb_raise(rb_eRangeError, "pack length too big");
+	    }
 	}
 	else {
 	    len = (type != '@');
@@ -1406,7 +1426,7 @@ pack_unpack(str, fmt)
 		    if (*t != ' ' && *t != '\0') break;
 		    t--; len--;
 		}
-		rb_ary_push(ary, infected_str_new(s, len, str));
+		UNPACK_PUSH(infected_str_new(s, len, str));
 		s += end;
 	    }
 	    break;
@@ -1417,7 +1437,7 @@ pack_unpack(str, fmt)
 
 		if (len > send-s) len = send-s;
 		while (t < s+len && *t) t++;
-		rb_ary_push(ary, infected_str_new(s, t-s, str));
+		UNPACK_PUSH(infected_str_new(s, t-s, str));
 		if (t < send) t++;
 		s = star ? t : s+len;
 	    }
@@ -1425,7 +1445,7 @@ pack_unpack(str, fmt)
 
 	  case 'a':
 	    if (len > send - s) len = send - s;
-	    rb_ary_push(ary, infected_str_new(s, len, str));
+	    UNPACK_PUSH(infected_str_new(s, len, str));
 	    s += len;
 	    break;
 
@@ -1439,8 +1459,8 @@ pack_unpack(str, fmt)
 		if (p[-1] == '*' || len > (send - s) * 8)
 		    len = (send - s) * 8;
 		bits = 0;
-		rb_ary_push(ary, bitstr = rb_str_new(0, len));
-		t = RSTRING(bitstr)->ptr;
+		UNPACK_PUSH(bitstr = rb_usascii_str_new(0, len));
+		t = RSTRING_PTR(bitstr);
 		for (i=0; i<len; i++) {
 		    if (i & 7) bits >>= 1;
 		    else bits = *s++;
@@ -1459,8 +1479,8 @@ pack_unpack(str, fmt)
 		if (p[-1] == '*' || len > (send - s) * 8)
 		    len = (send - s) * 8;
 		bits = 0;
-		rb_ary_push(ary, bitstr = rb_str_new(0, len));
-		t = RSTRING(bitstr)->ptr;
+		UNPACK_PUSH(bitstr = rb_usascii_str_new(0, len));
+		t = RSTRING_PTR(bitstr);
 		for (i=0; i<len; i++) {
 		    if (i & 7) bits <<= 1;
 		    else bits = *s++;
@@ -1479,8 +1499,8 @@ pack_unpack(str, fmt)
 		if (p[-1] == '*' || len > (send - s) * 2)
 		    len = (send - s) * 2;
 		bits = 0;
-		rb_ary_push(ary, bitstr = rb_str_new(0, len));
-		t = RSTRING(bitstr)->ptr;
+		UNPACK_PUSH(bitstr = rb_usascii_str_new(0, len));
+		t = RSTRING_PTR(bitstr);
 		for (i=0; i<len; i++) {
 		    if (i & 1)
 			bits >>= 4;
@@ -1501,8 +1521,8 @@ pack_unpack(str, fmt)
 		if (p[-1] == '*' || len > (send - s) * 2)
 		    len = (send - s) * 2;
 		bits = 0;
-		rb_ary_push(ary, bitstr = rb_str_new(0, len));
-		t = RSTRING(bitstr)->ptr;
+		UNPACK_PUSH(bitstr = rb_usascii_str_new(0, len));
+		t = RSTRING_PTR(bitstr);
 		for (i=0; i<len; i++) {
 		    if (i & 1)
 			bits <<= 4;
@@ -1518,7 +1538,7 @@ pack_unpack(str, fmt)
 	    while (len-- > 0) {
                 int c = *s++;
                 if (c > (char)127) c-=256;
-		rb_ary_push(ary, INT2FIX(c));
+		UNPACK_PUSH(INT2FIX(c));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1527,188 +1547,191 @@ pack_unpack(str, fmt)
 	    PACK_LENGTH_ADJUST_SIZE(sizeof(unsigned char));
 	    while (len-- > 0) {
 		unsigned char c = *s++;
-		rb_ary_push(ary, INT2FIX(c));
+		UNPACK_PUSH(INT2FIX(c));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
 
 	  case 's':
-            signed_p = 1;
-            integer_size = NATINT_LEN(short, 2);
-            bigendian_p = BIGENDIAN_P();
-            goto unpack_integer;
+	    signed_p = 1;
+	    integer_size = NATINT_LEN(short, 2);
+	    bigendian_p = BIGENDIAN_P();
+	    goto unpack_integer;
 
 	  case 'S':
-            signed_p = 0;
-            integer_size = NATINT_LEN(short, 2);
-            bigendian_p = BIGENDIAN_P();
-            goto unpack_integer;
+	    signed_p = 0;
+	    integer_size = NATINT_LEN(short, 2);
+	    bigendian_p = BIGENDIAN_P();
+	    goto unpack_integer;
 
 	  case 'i':
-            signed_p = 1;
-            integer_size = (int)sizeof(int);
-            bigendian_p = BIGENDIAN_P();
-            goto unpack_integer;
+	    signed_p = 1;
+	    integer_size = (int)sizeof(int);
+	    bigendian_p = BIGENDIAN_P();
+	    goto unpack_integer;
 
 	  case 'I':
-            signed_p = 0;
-            integer_size = (int)sizeof(int);
-            bigendian_p = BIGENDIAN_P();
-            goto unpack_integer;
+	    signed_p = 0;
+	    integer_size = (int)sizeof(int);
+	    bigendian_p = BIGENDIAN_P();
+	    goto unpack_integer;
 
 	  case 'l':
-            signed_p = 1;
-            integer_size = NATINT_LEN(long, 4);
-            bigendian_p = BIGENDIAN_P();
-            goto unpack_integer;
+	    signed_p = 1;
+	    integer_size = NATINT_LEN(long, 4);
+	    bigendian_p = BIGENDIAN_P();
+	    goto unpack_integer;
 
-          case 'L':
-            signed_p = 0;
-            integer_size = NATINT_LEN(long, 4);
-            bigendian_p = BIGENDIAN_P();
-            goto unpack_integer;
+	  case 'L':
+	    signed_p = 0;
+	    integer_size = NATINT_LEN(long, 4);
+	    bigendian_p = BIGENDIAN_P();
+	    goto unpack_integer;
 
-          case 'q':
-            signed_p = 1;
-            integer_size = QUAD_SIZE;
-            bigendian_p = BIGENDIAN_P();
-            goto unpack_integer;
+	  case 'q':
+	    signed_p = 1;
+	    integer_size = 8;
+	    bigendian_p = BIGENDIAN_P();
+	    goto unpack_integer;
 
-          case 'Q':
-            signed_p = 0;
-            integer_size = QUAD_SIZE;
-            bigendian_p = BIGENDIAN_P();
-            goto unpack_integer;
+	  case 'Q':
+	    signed_p = 0;
+	    integer_size = 8;
+	    bigendian_p = BIGENDIAN_P();
+	    goto unpack_integer;
 
-          case 'n':
-            signed_p = 0;
-            integer_size = 2;
-            bigendian_p = 1;
-            goto unpack_integer;
+	  case 'n':
+	    signed_p = 0;
+	    integer_size = 2;
+	    bigendian_p = 1;
+	    goto unpack_integer;
 
-          case 'N':
-            signed_p = 0;
-            integer_size = 4;
-            bigendian_p = 1;
-            goto unpack_integer;
+	  case 'N':
+	    signed_p = 0;
+	    integer_size = 4;
+	    bigendian_p = 1;
+	    goto unpack_integer;
 
-          case 'v':
-            signed_p = 0;
-            integer_size = 2;
-            bigendian_p = 0;
-            goto unpack_integer;
+	  case 'v':
+	    signed_p = 0;
+	    integer_size = 2;
+	    bigendian_p = 0;
+	    goto unpack_integer;
 
-          case 'V':
-            signed_p = 0;
-            integer_size = 4;
-            bigendian_p = 0;
-            goto unpack_integer;
+	  case 'V':
+	    signed_p = 0;
+	    integer_size = 4;
+	    bigendian_p = 0;
+	    goto unpack_integer;
 
-          unpack_integer:
-            switch (integer_size) {
+	  unpack_integer:
+	    if (explicit_endian) {
+		bigendian_p = explicit_endian == '>';
+	    }
+
+	    switch (integer_size) {
 #if defined(HAVE_INT16_T) && !defined(FORCE_BIG_PACK)
-              case SIZEOF_INT16_T:
-                if (signed_p) {
-                    PACK_LENGTH_ADJUST_SIZE(sizeof(int16_t));
-                    while (len-- > 0) {
-                        union {
+	      case SIZEOF_INT16_T:
+		if (signed_p) {
+		    PACK_LENGTH_ADJUST_SIZE(sizeof(int16_t));
+		    while (len-- > 0) {
+			union {
                             int16_t i;
                             char a[sizeof(int16_t)];
                         } v;
-                        memcpy(v.a, s, sizeof(int16_t));
-                        if (bigendian_p != BIGENDIAN_P()) v.i = swap16(v.i);
-                        s += sizeof(int16_t);
-                        rb_ary_push(ary, INT2FIX(v.i));
-                    }
-                    PACK_ITEM_ADJUST();
-                }
-                else {
-                    PACK_LENGTH_ADJUST_SIZE(sizeof(uint16_t));
-                    while (len-- > 0) {
-                        union {
+			memcpy(v.a, s, sizeof(int16_t));
+			if (bigendian_p != BIGENDIAN_P()) v.i = swap16(v.i);
+			s += sizeof(int16_t);
+			UNPACK_PUSH(INT2FIX(v.i));
+		    }
+		    PACK_ITEM_ADJUST();
+		}
+		else {
+		    PACK_LENGTH_ADJUST_SIZE(sizeof(uint16_t));
+		    while (len-- > 0) {
+			union {
                             uint16_t i;
                             char a[sizeof(uint16_t)];
                         } v;
-                        memcpy(v.a, s, sizeof(uint16_t));
-                        if (bigendian_p != BIGENDIAN_P()) v.i = swap16(v.i);
-                        s += sizeof(uint16_t);
-                        rb_ary_push(ary, INT2FIX(v.i));
-                    }
-                    PACK_ITEM_ADJUST();
-                }
-                break;
+			memcpy(v.a, s, sizeof(uint16_t));
+			if (bigendian_p != BIGENDIAN_P()) v.i = swap16(v.i);
+			s += sizeof(uint16_t);
+			UNPACK_PUSH(INT2FIX(v.i));
+		    }
+		    PACK_ITEM_ADJUST();
+		}
+		break;
 #endif
 
 #if defined(HAVE_INT32_T) && !defined(FORCE_BIG_PACK)
-              case SIZEOF_INT32_T:
-                if (signed_p) {
-                    PACK_LENGTH_ADJUST_SIZE(sizeof(int32_t));
-                    while (len-- > 0) {
-                        union {
+	      case SIZEOF_INT32_T:
+		if (signed_p) {
+		    PACK_LENGTH_ADJUST_SIZE(sizeof(int32_t));
+		    while (len-- > 0) {
+			union {
                             int32_t i;
                             char a[sizeof(int32_t)];
                         } v;
-                        memcpy(v.a, s, sizeof(int32_t));
-                        if (bigendian_p != BIGENDIAN_P()) v.i = swap32(v.i);
-                        s += sizeof(int32_t);
-                        rb_ary_push(ary, INT2NUM(v.i));
-                    }
-                    PACK_ITEM_ADJUST();
-                }
-                else {
-                    PACK_LENGTH_ADJUST_SIZE(sizeof(uint32_t));
-                    while (len-- > 0) {
-                        union {
+			memcpy(v.a, s, sizeof(int32_t));
+			if (bigendian_p != BIGENDIAN_P()) v.i = swap32(v.i);
+			s += sizeof(int32_t);
+			UNPACK_PUSH(INT2NUM(v.i));
+		    }
+		    PACK_ITEM_ADJUST();
+		}
+		else {
+		    PACK_LENGTH_ADJUST_SIZE(sizeof(uint32_t));
+		    while (len-- > 0) {
+			union {
                             uint32_t i;
                             char a[sizeof(uint32_t)];
                         } v;
-                        memcpy(v.a, s, sizeof(uint32_t));
-                        if (bigendian_p != BIGENDIAN_P()) v.i = swap32(v.i);
-                        s += sizeof(uint32_t);
-                        rb_ary_push(ary, UINT2NUM(v.i));
-                    }
-                    PACK_ITEM_ADJUST();
-                }
-                break;
+			memcpy(v.a, s, sizeof(uint32_t));
+			if (bigendian_p != BIGENDIAN_P()) v.i = swap32(v.i);
+			s += sizeof(uint32_t);
+			UNPACK_PUSH(UINT2NUM(v.i));
+		    }
+		    PACK_ITEM_ADJUST();
+		}
+		break;
 #endif
 
 #if defined(HAVE_INT64_T) && !defined(FORCE_BIG_PACK)
-              case SIZEOF_INT64_T:
-                if (signed_p) {
-                    PACK_LENGTH_ADJUST_SIZE(sizeof(int64_t));
-                    while (len-- > 0) {
-                        union {
+	      case SIZEOF_INT64_T:
+		if (signed_p) {
+		    PACK_LENGTH_ADJUST_SIZE(sizeof(int64_t));
+		    while (len-- > 0) {
+			union {
                             int64_t i;
                             char a[sizeof(int64_t)];
                         } v;
-                        memcpy(v.a, s, sizeof(int64_t));
-                        if (bigendian_p != BIGENDIAN_P()) v.i = swap64(v.i);
-                        s += sizeof(int64_t);
-                        rb_ary_push(ary, INT64toNUM(v.i));
-                    }
-                    PACK_ITEM_ADJUST();
-                }
-                else {
-                    PACK_LENGTH_ADJUST_SIZE(sizeof(uint64_t));
-                    while (len-- > 0) {
-                        union {
+			memcpy(v.a, s, sizeof(int64_t));
+			if (bigendian_p != BIGENDIAN_P()) v.i = swap64(v.i);
+			s += sizeof(int64_t);
+			UNPACK_PUSH(INT64toNUM(v.i));
+		    }
+		    PACK_ITEM_ADJUST();
+		}
+		else {
+		    PACK_LENGTH_ADJUST_SIZE(sizeof(uint64_t));
+		    while (len-- > 0) {
+			union {
                             uint64_t i;
                             char a[sizeof(uint64_t)];
                         } v;
-                        memcpy(v.a, s, sizeof(uint64_t));
-                        if (bigendian_p != BIGENDIAN_P()) v.i = swap64(v.i);
-                        s += sizeof(uint64_t);
-                        rb_ary_push(ary, UINT64toNUM(v.i));
-                    }
-                    PACK_ITEM_ADJUST();
-                }
-                break;
+			memcpy(v.a, s, sizeof(uint64_t));
+			if (bigendian_p != BIGENDIAN_P()) v.i = swap64(v.i);
+			s += sizeof(uint64_t);
+			UNPACK_PUSH(UINT64toNUM(v.i));
+		    }
+		    PACK_ITEM_ADJUST();
+		}
+		break;
 #endif
-
 
               default:
                 if (integer_size > MAX_INTEGER_PACK_SIZE)
-                    rb_bug("unexpected intger size for pack: %d", integer_size);
+                    rb_bug("unexpected integer size for pack: %d", integer_size);
                 PACK_LENGTH_ADJUST_SIZE(integer_size);
                 while (len-- > 0) {
                     union {
@@ -1738,11 +1761,11 @@ pack_unpack(str, fmt)
                             v.i[i] = swapl(v.i[i]);
                     }
                     s += integer_size;
-                    rb_ary_push(ary, rb_big_unpack(v.i, num_longs));
+                    UNPACK_PUSH(rb_big_unpack(v.i, num_longs));
                 }
                 PACK_ITEM_ADJUST();
-                break;
-            }
+		break;
+	    }
             break;
 
 	  case 'f':
@@ -1752,7 +1775,7 @@ pack_unpack(str, fmt)
 		float tmp;
 		memcpy(&tmp, s, sizeof(float));
 		s += sizeof(float);
-		rb_ary_push(ary, rb_float_new((double)tmp));
+		UNPACK_PUSH(DBL2NUM((double)tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1766,11 +1789,11 @@ pack_unpack(str, fmt)
 		memcpy(&tmp, s, sizeof(float));
 		s += sizeof(float);
 		tmp = VTOHF(tmp,ftmp);
-		rb_ary_push(ary, rb_float_new((double)tmp));
+		UNPACK_PUSH(DBL2NUM((double)tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
-	    
+
 	  case 'E':
 	    PACK_LENGTH_ADJUST_SIZE(sizeof(double));
 	    while (len-- > 0) {
@@ -1780,11 +1803,11 @@ pack_unpack(str, fmt)
 		memcpy(&tmp, s, sizeof(double));
 		s += sizeof(double);
 		tmp = VTOHD(tmp,dtmp);
-		rb_ary_push(ary, rb_float_new(tmp));
+		UNPACK_PUSH(DBL2NUM(tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
-	    
+
 	  case 'D':
 	  case 'd':
 	    PACK_LENGTH_ADJUST_SIZE(sizeof(double));
@@ -1792,7 +1815,7 @@ pack_unpack(str, fmt)
 		double tmp;
 		memcpy(&tmp, s, sizeof(double));
 		s += sizeof(double);
-		rb_ary_push(ary, rb_float_new(tmp));
+		UNPACK_PUSH(DBL2NUM(tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
@@ -1801,16 +1824,16 @@ pack_unpack(str, fmt)
 	    PACK_LENGTH_ADJUST_SIZE(sizeof(float));
 	    while (len-- > 0) {
 	        float tmp;
-		FLOAT_CONVWITH(ftmp;)
+		FLOAT_CONVWITH(ftmp);
 
 		memcpy(&tmp, s, sizeof(float));
 		s += sizeof(float);
 		tmp = NTOHF(tmp,ftmp);
-		rb_ary_push(ary, rb_float_new((double)tmp));
+		UNPACK_PUSH(DBL2NUM((double)tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
-	    
+
 	  case 'G':
 	    PACK_LENGTH_ADJUST_SIZE(sizeof(double));
 	    while (len-- > 0) {
@@ -1820,11 +1843,11 @@ pack_unpack(str, fmt)
 		memcpy(&tmp, s, sizeof(double));
 		s += sizeof(double);
 		tmp = NTOHD(tmp,dtmp);
-		rb_ary_push(ary, rb_float_new(tmp));
+		UNPACK_PUSH(DBL2NUM(tmp));
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
-	    
+
 	  case 'U':
 	    if (len > send - s) len = send - s;
 	    while (len > 0 && s < send) {
@@ -1833,14 +1856,14 @@ pack_unpack(str, fmt)
 
 		l = utf8_to_uv(s, &alen);
 		s += alen; len--;
-		rb_ary_push(ary, ULONG2NUM(l));
+		UNPACK_PUSH(ULONG2NUM(l));
 	    }
 	    break;
 
 	  case 'u':
 	    {
 		VALUE buf = infected_str_new(0, (send - s)*3/4, str);
-		char *ptr = RSTRING(buf)->ptr;
+		char *ptr = RSTRING_PTR(buf);
 		long total = 0;
 
 		while (s < send && *s > ' ' && *s < 'a') {
@@ -1850,9 +1873,9 @@ pack_unpack(str, fmt)
 		    hunk[3] = '\0';
 		    len = (*s++ - ' ') & 077;
 		    total += len;
-		    if (total > RSTRING(buf)->len) {
-			len -= total - RSTRING(buf)->len;
-			total = RSTRING(buf)->len;
+		    if (total > RSTRING_LEN(buf)) {
+			len -= total - RSTRING_LEN(buf);
+			total = RSTRING_LEN(buf);
 		    }
 
 		    while (len > 0) {
@@ -1874,9 +1897,9 @@ pack_unpack(str, fmt)
 			    d = (*s++ - ' ') & 077;
 			else
 			    d = 0;
-			hunk[0] = a << 2 | b >> 4;
-			hunk[1] = b << 4 | c >> 2;
-			hunk[2] = c << 6 | d;
+			hunk[0] = (char)(a << 2 | b >> 4);
+			hunk[1] = (char)(b << 4 | c >> 2);
+			hunk[2] = (char)(c << 6 | d);
 			memcpy(ptr, hunk, mlen);
 			ptr += mlen;
 			len -= mlen;
@@ -1886,101 +1909,131 @@ pack_unpack(str, fmt)
 		    else if (s < send && (s+1 == send || s[1] == '\n'))
 			s += 2;	/* possible checksum byte */
 		}
-		
-		RSTRING(buf)->ptr[total] = '\0';
-		RSTRING(buf)->len = total;
-		rb_ary_push(ary, buf);
+
+		rb_str_set_len(buf, total);
+		UNPACK_PUSH(buf);
 	    }
 	    break;
 
 	  case 'm':
 	    {
 		VALUE buf = infected_str_new(0, (send - s)*3/4, str);
-		char *ptr = RSTRING(buf)->ptr;
-		int a = -1,b = -1,c = 0,d;
-		static int first = 1;
-		static int b64_xtable[256];
+		char *ptr = RSTRING_PTR(buf);
+		int a = -1,b = -1,c = 0,d = 0;
+		static signed char b64_xtable[256];
 
-		if (first) {
+		if (b64_xtable['/'] <= 0) {
 		    int i;
-		    first = 0;
 
 		    for (i = 0; i < 256; i++) {
 			b64_xtable[i] = -1;
 		    }
 		    for (i = 0; i < 64; i++) {
-			b64_xtable[(int)b64_table[i]] = i;
+			b64_xtable[(unsigned char)b64_table[i]] = (char)i;
 		    }
 		}
-		while (s < send) {
-		    a = b = c = d = -1;
-		    while((a = b64_xtable[(int)(*(unsigned char*)s)]) == -1 && s < send) { s++; }
-		    if( s >= send ) break;
-		    s++;
-		    while((b = b64_xtable[(int)(*(unsigned char*)s)]) == -1 && s < send) { s++; }
-		    if( s >= send ) break;
-		    s++;
-		    while((c = b64_xtable[(int)(*(unsigned char*)s)]) == -1 && s < send) { if( *s == '=' ) break; s++; }
-		    if( *s == '=' || s >= send ) break;
-		    s++;
-		    while((d = b64_xtable[(int)(*(unsigned char*)s)]) == -1 && s < send) { if( *s == '=' ) break; s++; }
-		    if( *s == '=' || s >= send ) break;
-		    s++;
-		    *ptr++ = a << 2 | b >> 4;
-		    *ptr++ = b << 4 | c >> 2;
-		    *ptr++ = c << 6 | d;
-		}
-		if (a != -1 && b != -1) {
-		    if (c == -1 && *s == '=')
-			*ptr++ = a << 2 | b >> 4;
-		    else if (c != -1 && *s == '=') {
-			*ptr++ = a << 2 | b >> 4;
-			*ptr++ = b << 4 | c >> 2;
+		if (len == 0) {
+		    while (s < send) {
+			a = b = c = d = -1;
+			a = b64_xtable[(unsigned char)*s++];
+			if (s >= send || a == -1) rb_raise(rb_eArgError, "invalid base64");
+			b = b64_xtable[(unsigned char)*s++];
+			if (s >= send || b == -1) rb_raise(rb_eArgError, "invalid base64");
+			if (*s == '=') {
+			    if (s + 2 == send && *(s + 1) == '=') break;
+			    rb_raise(rb_eArgError, "invalid base64");
+			}
+			c = b64_xtable[(unsigned char)*s++];
+			if (s >= send || c == -1) rb_raise(rb_eArgError, "invalid base64");
+			if (s + 1 == send && *s == '=') break;
+			d = b64_xtable[(unsigned char)*s++];
+			if (d == -1) rb_raise(rb_eArgError, "invalid base64");
+			*ptr++ = castchar(a << 2 | b >> 4);
+			*ptr++ = castchar(b << 4 | c >> 2);
+			*ptr++ = castchar(c << 6 | d);
+		    }
+		    if (c == -1) {
+			*ptr++ = castchar(a << 2 | b >> 4);
+			if (b & 0xf) rb_raise(rb_eArgError, "invalid base64");
+		    }
+		    else if (d == -1) {
+			*ptr++ = castchar(a << 2 | b >> 4);
+			*ptr++ = castchar(b << 4 | c >> 2);
+			if (c & 0x3) rb_raise(rb_eArgError, "invalid base64");
 		    }
 		}
-		*ptr = '\0';
-		RSTRING(buf)->len = ptr - RSTRING(buf)->ptr;
-		rb_ary_push(ary, buf);
+		else {
+		    while (s < send) {
+			a = b = c = d = -1;
+			while ((a = b64_xtable[(unsigned char)*s]) == -1 && s < send) {s++;}
+			if (s >= send) break;
+			s++;
+			while ((b = b64_xtable[(unsigned char)*s]) == -1 && s < send) {s++;}
+			if (s >= send) break;
+			s++;
+			while ((c = b64_xtable[(unsigned char)*s]) == -1 && s < send) {if (*s == '=') break; s++;}
+			if (*s == '=' || s >= send) break;
+			s++;
+			while ((d = b64_xtable[(unsigned char)*s]) == -1 && s < send) {if (*s == '=') break; s++;}
+			if (*s == '=' || s >= send) break;
+			s++;
+			*ptr++ = castchar(a << 2 | b >> 4);
+			*ptr++ = castchar(b << 4 | c >> 2);
+			*ptr++ = castchar(c << 6 | d);
+		    }
+		    if (a != -1 && b != -1) {
+			if (c == -1 && *s == '=')
+			    *ptr++ = castchar(a << 2 | b >> 4);
+			else if (c != -1 && *s == '=') {
+			    *ptr++ = castchar(a << 2 | b >> 4);
+			    *ptr++ = castchar(b << 4 | c >> 2);
+			}
+		    }
+		}
+		rb_str_set_len(buf, ptr - RSTRING_PTR(buf));
+		UNPACK_PUSH(buf);
 	    }
 	    break;
 
 	  case 'M':
 	    {
 		VALUE buf = infected_str_new(0, send - s, str);
-		char *ptr = RSTRING(buf)->ptr;
+		char *ptr = RSTRING_PTR(buf), *ss = s;
 		int c1, c2;
 
 		while (s < send) {
 		    if (*s == '=') {
 			if (++s == send) break;
-                       if (s+1 < send && *s == '\r' && *(s+1) == '\n')
-                         s++;
+			if (s+1 < send && *s == '\r' && *(s+1) == '\n')
+			    s++;
 			if (*s != '\n') {
 			    if ((c1 = hex2num(*s)) == -1) break;
 			    if (++s == send) break;
 			    if ((c2 = hex2num(*s)) == -1) break;
-			    *ptr++ = c1 << 4 | c2;
+			    *ptr++ = castchar(c1 << 4 | c2);
 			}
 		    }
 		    else {
 			*ptr++ = *s;
 		    }
 		    s++;
+		    ss = s;
 		}
-		*ptr = '\0';
-		RSTRING(buf)->len = ptr - RSTRING(buf)->ptr;
-		rb_ary_push(ary, buf);
+		rb_str_set_len(buf, ptr - RSTRING_PTR(buf));
+		rb_str_buf_cat(buf, ss, send-ss);
+		ENCODING_CODERANGE_SET(buf, rb_ascii8bit_encindex(), ENC_CODERANGE_VALID);
+		UNPACK_PUSH(buf);
 	    }
 	    break;
 
 	  case '@':
-	    if (len > RSTRING(str)->len)
+	    if (len > RSTRING_LEN(str))
 		rb_raise(rb_eArgError, "@ outside of string");
-	    s = RSTRING(str)->ptr + len;
+	    s = RSTRING_PTR(str) + len;
 	    break;
 
 	  case 'X':
-	    if (len > s - RSTRING(str)->ptr)
+	    if (len > s - RSTRING_PTR(str))
 		rb_raise(rb_eArgError, "X outside of string");
 	    s -= len;
 	    break;
@@ -2005,11 +2058,11 @@ pack_unpack(str, fmt)
 		    if (!(a = rb_str_associated(str))) {
 			rb_raise(rb_eArgError, "no associated pointer");
 		    }
-		    p = RARRAY(a)->ptr;
-		    pend = p + RARRAY(a)->len;
+		    p = RARRAY_PTR(a);
+		    pend = p + RARRAY_LEN(a);
 		    while (p < pend) {
-			if (TYPE(*p) == T_STRING && RSTRING(*p)->ptr == t) {
-			    if (len < RSTRING(*p)->len) {
+			if (RB_TYPE_P(*p, T_STRING) && RSTRING_PTR(*p) == t) {
+			    if (len < RSTRING_LEN(*p)) {
 				tmp = rb_tainted_str_new(t, len);
 				rb_str_associate(tmp, a);
 			    }
@@ -2024,12 +2077,12 @@ pack_unpack(str, fmt)
 			rb_raise(rb_eArgError, "non associated pointer");
 		    }
 		}
-		rb_ary_push(ary, tmp);
+		UNPACK_PUSH(tmp);
 	    }
 	    break;
 
 	  case 'p':
-	    if (len > (send - s) / sizeof(char *))
+	    if (len > (long)((send - s) / sizeof(char *)))
 		len = (send - s) / sizeof(char *);
 	    while (len-- > 0) {
 		if ((size_t)(send - s) < sizeof(char *))
@@ -2047,10 +2100,10 @@ pack_unpack(str, fmt)
 			if (!(a = rb_str_associated(str))) {
 			    rb_raise(rb_eArgError, "no associated pointer");
 			}
-			p = RARRAY(a)->ptr;
-			pend = p + RARRAY(a)->len;
+			p = RARRAY_PTR(a);
+			pend = p + RARRAY_LEN(a);
 			while (p < pend) {
-			    if (TYPE(*p) == T_STRING && RSTRING(*p)->ptr == t) {
+			    if (RB_TYPE_P(*p, T_STRING) && RSTRING_PTR(*p) == t) {
 				tmp = *p;
 				break;
 			    }
@@ -2060,7 +2113,7 @@ pack_unpack(str, fmt)
 			    rb_raise(rb_eArgError, "non associated pointer");
 			}
 		    }
-		    rb_ary_push(ary, tmp);
+		    UNPACK_PUSH(tmp);
 		}
 	    }
 	    break;
@@ -2074,7 +2127,7 @@ pack_unpack(str, fmt)
 		    ul <<= 7;
 		    ul |= (*s & 0x7f);
 		    if (!(*s++ & 0x80)) {
-			rb_ary_push(ary, ULONG2NUM(ul));
+			UNPACK_PUSH(ULONG2NUM(ul));
 			len--;
 			ul = 0;
 		    }
@@ -2085,7 +2138,7 @@ pack_unpack(str, fmt)
 			    big = rb_big_mul(big, big128);
 			    big = rb_big_plus(big, rb_uint2big(*s & 0x7f));
 			    if (!(*s++ & 0x80)) {
-				rb_ary_push(ary, big);
+				UNPACK_PUSH(big);
 				len--;
 				ul = 0;
 				break;
@@ -2097,6 +2150,8 @@ pack_unpack(str, fmt)
 	    break;
 
 	  default:
+	    rb_warning("unknown unpack directive '%c' in '%s'",
+		type, RSTRING_PTR(fmt));
 	    break;
 	}
     }
@@ -2106,51 +2161,51 @@ pack_unpack(str, fmt)
 
 #define BYTEWIDTH 8
 
-static int
-uv_to_utf8(buf, uv)
-    char *buf;
-    unsigned long uv;
+int
+rb_uv_to_utf8(char buf[6], unsigned long uv)
 {
     if (uv <= 0x7f) {
 	buf[0] = (char)uv;
 	return 1;
     }
     if (uv <= 0x7ff) {
-	buf[0] = ((uv>>6)&0xff)|0xc0;
-	buf[1] = (uv&0x3f)|0x80;
+	buf[0] = castchar(((uv>>6)&0xff)|0xc0);
+	buf[1] = castchar((uv&0x3f)|0x80);
 	return 2;
     }
     if (uv <= 0xffff) {
-	buf[0] = ((uv>>12)&0xff)|0xe0;
-	buf[1] = ((uv>>6)&0x3f)|0x80;
-	buf[2] = (uv&0x3f)|0x80;
+	buf[0] = castchar(((uv>>12)&0xff)|0xe0);
+	buf[1] = castchar(((uv>>6)&0x3f)|0x80);
+	buf[2] = castchar((uv&0x3f)|0x80);
 	return 3;
     }
     if (uv <= 0x1fffff) {
-	buf[0] = ((uv>>18)&0xff)|0xf0;
-	buf[1] = ((uv>>12)&0x3f)|0x80;
-	buf[2] = ((uv>>6)&0x3f)|0x80;
-	buf[3] = (uv&0x3f)|0x80;
+	buf[0] = castchar(((uv>>18)&0xff)|0xf0);
+	buf[1] = castchar(((uv>>12)&0x3f)|0x80);
+	buf[2] = castchar(((uv>>6)&0x3f)|0x80);
+	buf[3] = castchar((uv&0x3f)|0x80);
 	return 4;
     }
     if (uv <= 0x3ffffff) {
-	buf[0] = ((uv>>24)&0xff)|0xf8;
-	buf[1] = ((uv>>18)&0x3f)|0x80;
-	buf[2] = ((uv>>12)&0x3f)|0x80;
-	buf[3] = ((uv>>6)&0x3f)|0x80;
-	buf[4] = (uv&0x3f)|0x80;
+	buf[0] = castchar(((uv>>24)&0xff)|0xf8);
+	buf[1] = castchar(((uv>>18)&0x3f)|0x80);
+	buf[2] = castchar(((uv>>12)&0x3f)|0x80);
+	buf[3] = castchar(((uv>>6)&0x3f)|0x80);
+	buf[4] = castchar((uv&0x3f)|0x80);
 	return 5;
     }
     if (uv <= 0x7fffffff) {
-	buf[0] = ((uv>>30)&0xff)|0xfc;
-	buf[1] = ((uv>>24)&0x3f)|0x80;
-	buf[2] = ((uv>>18)&0x3f)|0x80;
-	buf[3] = ((uv>>12)&0x3f)|0x80;
-	buf[4] = ((uv>>6)&0x3f)|0x80;
-	buf[5] = (uv&0x3f)|0x80;
+	buf[0] = castchar(((uv>>30)&0xff)|0xfc);
+	buf[1] = castchar(((uv>>24)&0x3f)|0x80);
+	buf[2] = castchar(((uv>>18)&0x3f)|0x80);
+	buf[3] = castchar(((uv>>12)&0x3f)|0x80);
+	buf[4] = castchar(((uv>>6)&0x3f)|0x80);
+	buf[5] = castchar((uv&0x3f)|0x80);
 	return 6;
     }
     rb_raise(rb_eRangeError, "pack(U): value out of range");
+
+    UNREACHABLE;
 }
 
 static const unsigned long utf8_limits[] = {
@@ -2164,9 +2219,7 @@ static const unsigned long utf8_limits[] = {
 };
 
 static unsigned long
-utf8_to_uv(p, lenp)
-    char *p;
-    long *lenp;
+utf8_to_uv(const char *p, long *lenp)
 {
     int c = *p++ & 0xff;
     unsigned long uv = c;
@@ -2191,7 +2244,7 @@ utf8_to_uv(p, lenp)
 	rb_raise(rb_eArgError, "malformed UTF-8 character");
     }
     if (n > *lenp) {
-	rb_raise(rb_eArgError, "malformed UTF-8 character (expected %d bytes, given %d bytes)",
+	rb_raise(rb_eArgError, "malformed UTF-8 character (expected %ld bytes, given %ld bytes)",
 		 n, *lenp);
     }
     *lenp = n--;
@@ -2216,7 +2269,7 @@ utf8_to_uv(p, lenp)
 }
 
 void
-Init_pack()
+Init_pack(void)
 {
     rb_define_method(rb_cArray, "pack", pack_pack, 1);
     rb_define_method(rb_cString, "unpack", pack_unpack, 1);

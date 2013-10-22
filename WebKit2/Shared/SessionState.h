@@ -45,8 +45,8 @@ public:
 
     bool isEmpty() const;
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, SessionState&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, SessionState&);
 
 private:
     BackForwardListItemVector m_list;

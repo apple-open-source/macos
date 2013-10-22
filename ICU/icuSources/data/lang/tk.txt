@@ -1,0 +1,43 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/tk.xml
+// *
+// ***************************************************************************
+/**
+ *  ICU <specials> source: <path>/xml/main/tk.xml
+ */
+tk{
+    Languages{
+        ar{"arapça"}
+        az{"azerbaýjança"}
+        de{"nemisçe"}
+        en{"iňlisçe"}
+        es{"ispança"}
+        fa{"parsça"}
+        fr{"fransuzça"}
+        hy{"ermençe"}
+        it{"italýança"}
+        ja{"ýaponça"}
+        ka{"gruzinçe"}
+        kk{"gazakça"}
+        ky{"gyrgyzça"}
+        nl{"golland dilini"}
+        ps{"paştoça"}
+        ru{"orusça"}
+        tg{"täjikçe"}
+        tk{"türkmençe"}
+        tr{"türkçe"}
+        uk{"ukrainça"}
+        uz{"özbekçe"}
+        zh{"hytaýça"}
+    }
+    Scripts{
+        Arab{"arap"}
+        Cyrl{"kiril"}
+        Latn{"latin"}
+    }
+    Version{"2.0.82.15"}
+}

@@ -43,6 +43,6 @@ rk_random_init(void)
 #elif defined(HAVE_RANDOM)
     srandom(time(NULL));
 #else
-    srand (time(NULL));
+    srand ((int)time(NULL));
 #endif
 }

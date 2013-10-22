@@ -30,15 +30,24 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QLibraryInfo>
 
 namespace WebKit {
 
 static String executablePath(QString baseName)
 {
+#if OS(WINDOWS)
+    baseName.append(QStringLiteral(".exe"));
+#endif
     QString expectedPath = QCoreApplication::applicationDirPath() + QDir::separator() + baseName;
     if (QFile::exists(expectedPath))
-        return String(expectedPath);
-    return String(QString(baseName));
+        return expectedPath;
+
+    expectedPath = QLibraryInfo::location(QLibraryInfo::LibraryExecutablesPath) + QDir::separator() + baseName;
+    if (QFile::exists(expectedPath))
+        return expectedPath;
+
+    return baseName;
 }
 
 String executablePathOfWebProcess()

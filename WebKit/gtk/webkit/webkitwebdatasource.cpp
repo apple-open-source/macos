@@ -25,7 +25,7 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
 #include "KURL.h"
-#include "PlatformString.h"
+#include "ResourceBuffer.h"
 #include "ResourceRequest.h"
 #include "SharedBuffer.h"
 #include "SubstituteData.h"
@@ -36,8 +36,9 @@
 #include "webkitwebframeprivate.h"
 #include "webkitwebresource.h"
 #include "webkitwebviewprivate.h"
-#include "wtf/Assertions.h"
 #include <glib.h>
+#include <wtf/Assertions.h>
+#include <wtf/text/WTFString.h>
 
 /**
  * SECTION:webkitwebdatasource
@@ -336,7 +337,7 @@ GString* webkit_web_data_source_get_data(WebKitWebDataSource* webDataSource)
 
     WebKitWebDataSourcePrivate* priv = webDataSource->priv;
 
-    RefPtr<SharedBuffer> mainResourceData = priv->loader->mainResourceData();
+    RefPtr<ResourceBuffer> mainResourceData = priv->loader->mainResourceData();
 
     if (!mainResourceData)
         return NULL;

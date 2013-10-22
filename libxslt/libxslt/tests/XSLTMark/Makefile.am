@@ -1,5 +1,4 @@
 ## Process this file with automake to produce Makefile.in
-%.out : %
 
 EXTRA_DIST = \
   dbgen.pl \
@@ -53,22 +52,23 @@ ALL_TESTS=	alphabetize attsets avts axis backwards bottles breadth brutal chart 
   priority products queens reverser stringsort summarize total tower trend \
   union xpath xslbench1 xslbench2 xslbench3
 
+dummy $(ALL_TESTS:=.out):
+	$(MAKE) $(@:.out=)
 
-$(top_builddir)/xsltproc/xsltproc:
-	@(cd ../../xsltproc ; $(MAKE) xsltproc)
+xsltproc = $(top_builddir)/xsltproc/xsltproc
 
-all:
+$(xsltproc):
+	cd ../../xsltproc && $(MAKE) xsltproc
 
 test tests:
 	@echo '## Running XSLTMark tests'
-	@for i in $(ALL_TESTS); do $(MAKE) $$i; done
+	@$(MAKE) $(ALL_TESTS)
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
 	$(MAKE) CHECKER='valgrind -q' tests
 
-clean:
-	rm -f *.tmp *~ core db100.xml db1000.xml db10000.xml
+CLEANFILES = *.tmp *~ .memdump core db100.xml db1000.xml db10000.xml
 
 
 if WITH_PERL
@@ -81,9 +81,9 @@ db1000.xml: $(srcdir)/dbgen.pl
 db10000.xml: $(srcdir)/dbgen.pl
 	$(PERL) $(srcdir)/dbgen.pl 10000 > db10000.xml
 
-alphabetize:	db100.xml
+alphabetize:	db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -93,13 +93,13 @@ alphabetize:	db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-avts:			db100.xml
+avts:			db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -109,13 +109,13 @@ avts:			db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-creation:		db100.xml
+creation:		db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -125,13 +125,13 @@ creation:		db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-dbonerow:		db10000.xml
+dbonerow:		db10000.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -141,13 +141,13 @@ dbonerow:		db10000.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-dbtail:		db100.xml
+dbtail:		db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -157,13 +157,13 @@ dbtail:		db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-decoy:		db100.xml
+decoy:		db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -173,13 +173,13 @@ decoy:		db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-encrypt:		db100.xml
+encrypt:		db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -189,13 +189,13 @@ encrypt:		db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-functions:		db100.xml
+functions:		db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -205,13 +205,13 @@ functions:		db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-identity:		db1000.xml
+identity:		db1000.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -221,13 +221,13 @@ identity:		db1000.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-patterns:		db100.xml
+patterns:		db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -237,13 +237,13 @@ patterns:		db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-prettyprint:	db100.xml
+prettyprint:	db100.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -253,13 +253,13 @@ prettyprint:	db100.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-stringsort:		db1000.xml
+stringsort:		db1000.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -269,7 +269,7 @@ stringsort:		db1000.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 else
@@ -289,9 +289,9 @@ stringsort:
 
 endif
 
-attsets:		chart.xml
+attsets:		chart.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -301,13 +301,13 @@ attsets:		chart.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-axis:			axis.xml
+axis:			axis.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -317,13 +317,13 @@ axis:			axis.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-backwards:		game.xml
+backwards:		game.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -333,13 +333,13 @@ backwards:		game.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-bottles:		bottles.xml
+bottles:		bottles.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -349,13 +349,13 @@ bottles:		bottles.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-brutal:		brutal.xml
+brutal:		brutal.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -365,13 +365,13 @@ brutal:		brutal.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-chart:		chart.xml
+chart:		chart.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -381,13 +381,13 @@ chart:		chart.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-current:		current.xml
+current:		current.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -397,13 +397,13 @@ current:		current.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-game:			game.xml
+game:			game.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -413,13 +413,13 @@ game:			game.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-html:			html.xml
+html:			html.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -429,13 +429,13 @@ html:			html.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-inventory:		inventory.xml
+inventory:		inventory.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -445,13 +445,13 @@ inventory:		inventory.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-metric:		metric.xml
+metric:		metric.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -461,13 +461,13 @@ metric:		metric.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-number:		number.xml
+number:		number.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -477,13 +477,13 @@ number:		number.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-oddtemplate:	oddtemplate.xml
+oddtemplate:	oddtemplate.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -493,13 +493,13 @@ oddtemplate:	oddtemplate.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-priority:		priority.xml
+priority:		priority.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -509,13 +509,13 @@ priority:		priority.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-products:		products.xml
+products:		products.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -525,13 +525,13 @@ products:		products.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-queens:		queens.xml
+queens:		queens.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -541,13 +541,13 @@ queens:		queens.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-reverser:		gettysburg.xml
+reverser:		gettysburg.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -557,13 +557,13 @@ reverser:		gettysburg.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-summarize:		queens.xsl
+summarize:		queens.xsl $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -573,13 +573,13 @@ summarize:		queens.xsl
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-total:		chart.xml
+total:		chart.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -589,13 +589,13 @@ total:		chart.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-tower:		tower.xml
+tower:		tower.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -605,13 +605,13 @@ tower:		tower.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-trend:		trend.xml
+trend:		trend.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -621,13 +621,13 @@ trend:		trend.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-union:		union.xml
+union:		union.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -637,13 +637,13 @@ union:		union.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-xpath:		xpath.xml
+xpath:		xpath.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -653,13 +653,13 @@ xpath:		xpath.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-xslbench1:		xslbench1.xml
+xslbench1:		xslbench1.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -669,13 +669,13 @@ xslbench1:		xslbench1.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-xslbench2:		xslbenchdream.xml
+xslbench2:		xslbenchdream.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -685,13 +685,13 @@ xslbench2:		xslbenchdream.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-xslbench3:		xslbenchdream.xml
+xslbench3:		xslbenchdream.xml $(xsltproc)
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/$@.xsl $< > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -701,13 +701,14 @@ xslbench3:		xslbenchdream.xml
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-breadth:		
+breadth: $(xsltproc)
+	@test -f breadth.xml || $(LN_S) $(srcdir)/breadth.xml .
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/find.xsl $@.xml > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -717,13 +718,14 @@ breadth:
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-depth:		
+depth: $(xsltproc)
+	@test -f depth.xml || $(LN_S) $(srcdir)/depth.xml .
 	@(echo > .memdump)
-	@log=`$(CHECKER) $(top_builddir)/xsltproc/xsltproc \
+	@log=`$(CHECKER) $(xsltproc) \
 		$(srcdir)/find.xsl $@.xml > $@.tmp; \
 	  if [ ! -f $(srcdir)/$@.out ] ; then \
 		cp $@.tmp $(srcdir)/$@.out ; \
@@ -733,8 +735,8 @@ depth:
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`
 	@if [ -n "$$log" ] ; then \
 	  	echo $@ result ; \
-		echo $$log ; \
+		echo "$$log" ; \
 	fi
 	@rm -f $@.tmp
 
-
+.PHONY: test tests valgrind $(ALL_TESTS)

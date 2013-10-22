@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2012 Apple Inc.
+ * Portions Copyright 2007-2013 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_main.c	1.69	05/06/08 SMI"
@@ -74,8 +74,6 @@ static int do_mount_subtrigger(autofs_pathname, autofs_pathname,
     autofs_pathname, autofs_opts, autofs_pathname, autofs_pathname,
     autofs_component, uint32_t, uint32_t, int32_t, fsid_t *, boolean_t *);
 
-#define	CTIME_BUF_LEN 26
-
 /*
  * XXX - this limit is the same as Solaris, although we don't have the
  * System V binary compatibility problem that limits their standard
@@ -112,6 +110,7 @@ time_t timenow;
 int verbose = 0;
 int trace = 0;
 int automountd_nobrowse = 0;
+int automountd_nosuid = TRUE;
 char *automountd_defopts = NULL;
 
 /*
@@ -204,6 +203,12 @@ main(argc, argv)
 				exit(2);
 			}
 		}
+		if ((defval = defread("AUTOMOUNTD_NOSUID=")) != NULL) {
+			if (strncasecmp("true", defval, 4) == 0)
+				automountd_nosuid = TRUE;
+			else
+				automountd_nosuid = FALSE;
+		}
 
 		/* close defaults file */
 		defopen(NULL);
@@ -235,6 +240,9 @@ main(argc, argv)
 
 	openlog(myname, LOG_PID, LOG_DAEMON);
 	(void) setlocale(LC_ALL, "");
+
+	if (trace > 0)
+		trace_prt(1, "%s running", myname);
 
 	/*
 	 * This is platform-dependent; for now, we just say
@@ -385,6 +393,9 @@ main(argc, argv)
 	 */
 	if (ioctl(autofs_fd, AUTOFS_NOTIFYCHANGE, 0) == -1)
 		pr_msg("AUTOFS_NOTIFYCHANGE failed: %m");
+
+	if (trace > 0)
+		trace_prt(1, "%s exited", myname);
 
 	return (EXIT_SUCCESS);
 }
@@ -620,8 +631,7 @@ autofs_readdir(__unused mach_port_t server, autofs_pathname rda_map,
 	}
 
 	if (trace > 0)
-		trace_prt(1, "READDIR REQUEST   : %s @ %llu\n",
-		rda_map, rda_offset);
+		trace_prt(1, "READDIR REQUEST   : %s @ %llu\n", rda_map, rda_offset);
 
 	*status = do_readdir(rda_map, rda_offset, rda_count, rddir_offset,
 	    rddir_eof, rddir_entries, rddir_entriesCnt);
@@ -676,7 +686,7 @@ autofs_readsubdir(__unused mach_port_t server, autofs_pathname rda_map,
 	key[rda_nameCnt] = '\0';
 
 	if (trace > 0)
-		trace_prt(1, "READSUBDIR REQUEST   : name=%s[%s] map=%s @ %llu\n",
+		trace_prt(1, "READSUBDIR REQUEST : name=%s[%s] map=%s @ %llu\n",
 		key, rda_subdir, rda_map, rda_offset);
 
 	*status = do_readsubdir(rda_map, key, rda_subdir, rda_mntopts,
@@ -685,7 +695,7 @@ autofs_readsubdir(__unused mach_port_t server, autofs_pathname rda_map,
 	free(key);
 
 	if (trace > 0)
-		trace_prt(1, "READSUBDIR REPLY	: status=%d\n", *status);
+		trace_prt(1, "READSUBDIR REPLY   : status=%d\n", *status);
 
 	end_worker_thread();
 
@@ -713,17 +723,8 @@ autofs_unmount(__unused mach_port_t server, fsid_t mntpnt_fsid,
 	}
 
 	if (trace > 0) {
-		char ctime_buf[CTIME_BUF_LEN];
-		if (ctime_r(&timenow, ctime_buf) == NULL)
-			ctime_buf[0] = '\0';
-
-		trace_prt(1, "UNMOUNT REQUEST: %s", ctime_buf);
-		trace_prt(1, " resource=%s fstype=%s mntpnt=%s"
-			" mntopts=%s\n",
-			mntresource,
-			fstype,
-			mntpnt,
-			mntopts);
+		trace_prt(1, "UNMOUNT REQUEST: resource=%s fstype=%s mntpnt=%s mntopts=%s\n",
+			mntresource, fstype, mntpnt, mntopts);
 	}
 
 	*status = do_unmount1(mntpnt_fsid, mntresource, mntpnt, fstype,
@@ -785,13 +786,8 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	key[nameCnt] = '\0';
 
 	if (trace > 0) {
-		char ctime_buf[CTIME_BUF_LEN];
-		if (ctime_r(&timenow, ctime_buf) == NULL)
-			ctime_buf[0] = '\0';
-
-		trace_prt(1, "LOOKUP REQUEST: %s", ctime_buf);
-		trace_prt(1, "  name=%s[%s] map=%s opts=%s path=%s direct=%d\n",
-			key, subdir, map, opts, path, isdirect);
+		trace_prt(1, "LOOKUP REQUEST: name=%s[%s] map=%s opts=%s path=%s direct=%d uid=%u\n",
+			key, subdir, map, opts, path, isdirect, sendereuid);
 	}
 
 	*err = do_lookup1(map, key, subdir, opts, isdirect, sendereuid,
@@ -800,7 +796,7 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	free(key);
 
 	if (trace > 0)
-		trace_prt(1, "LOOKUP REPLY    : status=%d\n", *err);
+		trace_prt(1, "LOOKUP REPLY  : status=%d\n", *err);
 
 	end_worker_thread();
 
@@ -818,6 +814,7 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 {
 	char *key;
 	int status;
+	static time_t prevmsg = 0;
 
 	new_worker_thread();
 
@@ -860,12 +857,7 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	key[nameCnt] = '\0';
 
 	if (trace > 0) {
-		char ctime_buf[CTIME_BUF_LEN];
-		if (ctime_r(&timenow, ctime_buf) == NULL)
-			ctime_buf[0] = '\0';
-
-		trace_prt(1, "MOUNT REQUEST:   %s", ctime_buf);
-		trace_prt(1, "  name=%s[%s] map=%s opts=%s path=%s direct=%d\n",
+		trace_prt(1, "MOUNT  REQUEST: name=%s [%s] map=%s opts=%s path=%s direct=%d\n",
 			key, subdir, map, opts, path, isdirect);
 	}
 
@@ -884,31 +876,32 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	if (trace > 0) {
 		switch (*mr_type) {
 		case AUTOFS_ACTION:
-			trace_prt(1,
-				"MOUNT REPLY    : status=%d, AUTOFS_ACTION\n",
-				status);
+			trace_prt(1, "MOUNT  REPLY  : status=%d, AUTOFS_ACTION\n", status);
 			break;
 		case AUTOFS_DONE:
-			trace_prt(1,
-				"MOUNT REPLY    : status=%d, AUTOFS_DONE\n",
-				status);
+			trace_prt(1, "MOUNT  REPLY  : status=%d, AUTOFS_DONE\n", status);
 			break;
 		default:
-			trace_prt(1, "MOUNT REPLY    : status=%d, UNKNOWN\n",
-				status);
+			trace_prt(1, "MOUNT  REPLY  : status=%d, UNKNOWN\n", status);
 		}
 	}
 
-	if (status && verbose) {
+	/*
+	 * Report a failed mount.
+	 * Failed mounts can come in bursts of dozens of
+	 * these messages - so limit to one in 5 sec interval.
+	 */
+	if (status && prevmsg < time((time_t) NULL)) {
+		prevmsg = time((time_t) NULL) + 5;
 		if (isdirect) {
 			/* direct mount */
-			syslog(LOG_ERR, "mount of %s%s failed", path,
-				issubtrigger ? "" : subdir);
+			syslog(LOG_ERR, "mount of %s%s failed: %s", path,
+				issubtrigger ? "" : subdir, strerror(status));
 		} else {
 			/* indirect mount */
 			syslog(LOG_ERR,
-				"mount of %s/%s%s failed", path, key,
-				issubtrigger ? "" : subdir);
+				"mount of %s/%s%s failed: %s", path, key,
+				issubtrigger ? "" : subdir, strerror(status));
 		}
 	}
 	free(key);
@@ -1054,13 +1047,7 @@ autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
 	}
 
 	if (trace > 0) {
-		char ctime_buf[CTIME_BUF_LEN];
-		if (ctime_r(&timenow, ctime_buf) == NULL)
-			ctime_buf[0] = '\0';
-
-		trace_prt(1, "MOUNT_URL REQUEST:   %s", ctime_buf);
-		trace_prt(1, "  url=%s mountpoint=%s\n",
-			url, mountpoint);
+		trace_prt(1, "MOUNT_URL REQUEST: url=%s mountpoint=%s\n", url, mountpoint);
 	}
 
 	status = mount_generic(url, "url", opts, 0, mountpoint, FALSE,
@@ -1069,9 +1056,7 @@ autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
 	*err = status;
 
 	if (trace > 0) {
-		trace_prt(1,
-			"MOUNT_URL REPLY    : status=%d\n",
-			status);
+		trace_prt(1, "MOUNT_URL REPLY    : status=%d\n", status);
 	}
 
 	if (status && verbose)
@@ -1110,11 +1095,7 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 	}
 
 	if (trace > 0) {
-		char ctime_buf[CTIME_BUF_LEN];
-		if (ctime_r(&timenow, ctime_buf) == NULL)
-			ctime_buf[0] = '\0';
-
-		trace_prt(1, "SMB_REMOUNT_SERVER REQUEST:   %s\n", ctime_buf);
+		trace_prt(1, "SMB_REMOUNT_SERVER REQUEST:\n");
 	}
 
 	/*
@@ -1243,8 +1224,7 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 done:
 
 	if (trace > 0) {
-		trace_prt(1,
-			"SMB_REMOUNT_SERVER REPLY\n");
+		trace_prt(1, "SMB_REMOUNT_SERVER REPLY\n");
 	}
 
 	end_worker_thread();

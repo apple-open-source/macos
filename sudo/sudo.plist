@@ -4,26 +4,25 @@
         <key>OpenSourceProject</key>
         <string>sudo</string>
         <key>OpenSourceVersion</key>
-        <string>1.7.4p6</string>
+        <string>1.7.10p7</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.sudo.ws/</string>
         <key>OpenSourceURL</key>
-        <string>http://www.sudo.ws/sudo/dist/sudo-1.7.4p6.tar.gz</string>
+        <string>http://www.sudo.ws/sudo/dist/sudo-1.7.10p7.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>a306863b8bde9bfe2430ac1daaa6f45ccb842ed4</string>
+        <string>b5beb1a470d1f03b3940aff612f5089244dd773a</string>
         <key>OpenSourceImportDate</key>
-        <string>2011-01-20</string>
+        <string>2013-03-04</string>
         <key>OpenSourceModifications</key>
         <array>
         	<string>Add BSM auditing support.</string>
         	<string>Disable sudoedit.</string>
         	<string>Disable sudoreplay.</string>
-		<string>Disable tty_tickets by default.</string>
+            <string>Disable tty_tickets by default.</string>
         	<string>Remove login_cap reference from man page.</string>
         	<string>Allow admin group by default.</string>
         	<string>Friendlier warning on first usage.</string>
         	<string>Clean the environment.</string>
-		<string>Apply fix for CVE-2013-1775.</string>
         </array>
         <key>OpenSourceLicense</key>
         <string>other|bsd</string>

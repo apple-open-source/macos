@@ -80,7 +80,6 @@ LayerFlushController::LayerFlushController(WebView* webView)
     allowsUndo = YES;
     usesPageCache = YES;
     shouldUpdateWhileOffscreen = YES;
-    cssAnimationsSuspended = NO;
 
     zoomMultiplier = 1;
     zoomsTextOnly = NO;
@@ -94,10 +93,6 @@ LayerFlushController::LayerFlushController(WebView* webView)
 #endif
 
     shouldCloseWithWindow = objc_collectingEnabled();
-
-    smartInsertDeleteEnabled = ![[NSUserDefaults standardUserDefaults] objectForKey:WebSmartInsertDeleteEnabled]
-        || [[NSUserDefaults standardUserDefaults] boolForKey:WebSmartInsertDeleteEnabled];
-
 
     pluginDatabaseClientCount++;
 

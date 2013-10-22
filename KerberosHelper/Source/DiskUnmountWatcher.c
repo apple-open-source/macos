@@ -22,10 +22,9 @@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFXPCBridge.h>
 #include <DiskArbitration/DiskArbitration.h>
-#include <ApplicationServices/ApplicationServicesPriv.h>
 
-#include "UserEventAgentInterface.h"
 #include "NetworkAuthenticationHelper.h"
 
 #include <sys/types.h>
@@ -33,15 +32,7 @@
 #include <stdlib.h>
 #include <asl.h>
 
-typedef struct {
-    UserEventAgentInterfaceStruct *agentInterface;
-    CFUUIDRef factoryID;
-    UInt32 refCount;
-
-    dispatch_queue_t queue;
-    DASessionRef session;
-} DiskUnmountWatcher;
-
+#include <xpc/xpc.h>
 
 static char *
 cf2cstring(CFStringRef inString)
@@ -51,183 +42,86 @@ cf2cstring(CFStringRef inString)
     
     string = (char *) CFStringGetCStringPtr(inString, kCFStringEncodingUTF8);
     if (string)
-	return strdup(string);
-
-    length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(inString), 
-					       kCFStringEncodingUTF8) + 1;
+        return strdup(string);
+    
+    length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(inString),
+                                               kCFStringEncodingUTF8) + 1;
     string = malloc (length);
     if (string == NULL)
-	return NULL;
+        return NULL;
     if (!CFStringGetCString(inString, string, length, kCFStringEncodingUTF8)) {
-	free (string);
-	return NULL;
+        free (string);
+        return NULL;
     }
     return string;
 }
 
-
 static void
-callback(DADiskRef disk, void *context)
+callback(xpc_object_t disk)
 {
+    CFDictionaryRef dict = NULL;
     CFStringRef path, ident;
-    CFURLRef url;
-    CFDictionaryRef dict;
-    size_t len;
     char *str, *str2;
-
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "UserEventAgentFactory: %s", __func__);
-
-    dict = DADiskCopyDescription(disk);
+    CFURLRef url;
+    size_t len;
+    
+    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "DiskUnmountWatcher: %s", __func__);
+    
+    xpc_object_t desc = xpc_dictionary_get_value(disk, "Description");
+    if (desc == NULL)
+        goto out;
+    
+    dict = _CFXPCCreateCFObjectFromXPCObject(desc);
     if (dict == NULL)
-	return;
-
+        goto out;
+    
     url = (CFURLRef)CFDictionaryGetValue(dict, kDADiskDescriptionVolumePathKey);
     if (url == NULL)
-	goto out;
-
+        goto out;
+    
     path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
     if (path == NULL)
-	goto out;
-
+        goto out;
+    
     str = cf2cstring(path);
     CFRelease(path);
     if (str == NULL)
-	goto out;
-
+        goto out;
+    
     /* remove trailing / */
     len = strlen(str);
     if (len > 0 && str[len - 1] == '/')
-	len--;
-
+        len--;
+    
     asprintf(&str2, "fs:%.*s", (int)len, str);
     free(str);
-
+    
     ident = CFStringCreateWithCString(NULL, str2, kCFStringEncodingUTF8);
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "UserEventAgentFactory: %s find and release %s", __func__, str2);
+    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "DiskUnmountWatcher: %s find and release %s", __func__, str2);
     free(str2);
     if (ident) {
-	NAHFindByLabelAndRelease(ident);
-	CFRelease(ident);
+        NAHFindByLabelAndRelease(ident);
+        CFRelease(ident);
     }
- out:
-    CFRelease(dict);
+out:
+    if (dict)
+        CFRelease(dict);
 }
 
-
-static void
-DiskUnmountWatcherDelete(DiskUnmountWatcher *instance) {
-
-    CFUUIDRef factoryID = instance->factoryID;
-
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "UserEventAgentFactory: %s", __func__);
-
-    DASessionSetDispatchQueue(instance->session, NULL);
-
-    CFRelease(instance->session);
-    dispatch_release(instance->queue);
-
-    if (factoryID) {
-	CFPlugInRemoveInstanceForFactory(factoryID);
-	CFRelease(factoryID);
-    }
-    free(instance);
-}
-
-
-static void
-DiskUnmountWatcherInstall(void *pinstance)
+int
+main(int argc, char **argv)
 {
-    DiskUnmountWatcher *instance = pinstance;
+    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "DiskUnmountWatcher: %s", __func__);
+    
+    xpc_set_event_stream_handler("com.apple.diskarbitration", dispatch_get_main_queue(),
+                                 ^(xpc_object_t disk) {
+                                     callback(disk);
+                                 });
+    
+    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "DiskUnmountWatcher: %s", __func__);
 
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "UserEventAgentFactory: %s", __func__);
-
-    instance->session = DASessionCreate(kCFAllocatorDefault);
-
-    DARegisterDiskDisappearedCallback(instance->session, NULL, callback, NULL);
-    DASessionSetDispatchQueue(instance->session, instance->queue);
+    dispatch_main();
+    
+    return 0;
 }
 
-
-static HRESULT
-DiskUnmountWatcherQueryInterface(void *pinstance, REFIID iid, LPVOID *ppv)
-{
-    CFUUIDRef interfaceID = CFUUIDCreateFromUUIDBytes(NULL, iid);
-    DiskUnmountWatcher *instance = pinstance;
-        
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "UserEventAgentFactory: %s", __func__);
-
-    if (CFEqual(interfaceID, kUserEventAgentInterfaceID) || CFEqual(interfaceID, IUnknownUUID)) {
-	instance->agentInterface->AddRef(instance);
-	*ppv = instance;
-	CFRelease(interfaceID);
-	return S_OK;
-    }
-
-    *ppv = NULL;
-    CFRelease(interfaceID);
-    return E_NOINTERFACE;
-}
-
-static ULONG
-DiskUnmountWatcherAddRef(void *pinstance) 
-{
-    DiskUnmountWatcher *instance = pinstance;
-    return ++instance->refCount;
-}
-
-static ULONG
-DiskUnmountWatcherRelease(void *pinstance) 
-{
-    DiskUnmountWatcher *instance = pinstance;
-    if (instance->refCount == 1) {
-	DiskUnmountWatcherDelete(instance);
-	return 0;
-    }
-    return --instance->refCount;
-}
-
-
-
-static UserEventAgentInterfaceStruct UserEventAgentInterfaceFtbl = {
-    NULL,
-    DiskUnmountWatcherQueryInterface,
-    DiskUnmountWatcherAddRef,
-    DiskUnmountWatcherRelease,
-    DiskUnmountWatcherInstall
-}; 
-
-
-static DiskUnmountWatcher *
-DiskUnmountWatcherCreate(CFAllocatorRef allocator, CFUUIDRef factoryID)
-{
-    DiskUnmountWatcher *instance;
-
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "UserEventAgentFactory: %s", __func__);
-
-    instance = calloc(1, sizeof(*instance));
-    if (instance == NULL)
-	return NULL;
-
-    instance->agentInterface = &UserEventAgentInterfaceFtbl;
-    if (factoryID) {
-	instance->factoryID = (CFUUIDRef)CFRetain(factoryID);
-	CFPlugInAddInstanceForFactory(factoryID);
-    }
-
-    instance->queue = dispatch_queue_create("com.apple.GSS.DiskUnmounterWatcher", NULL);
-
-    instance->refCount = 1;
-    return instance;
-}
-
-
-void *
-UserEventAgentFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
-{
-    asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "UserEventAgentFactory: %s", __func__);
-
-    if (CFEqual(typeID, kUserEventAgentTypeID))
-	return DiskUnmountWatcherCreate(allocator, kUserEventAgentFactoryID);
-
-    return NULL;
-}

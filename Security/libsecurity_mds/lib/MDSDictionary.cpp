@@ -63,7 +63,7 @@ MDSDictionary::MDSDictionary(
 		NULL,		// desiredProperties
 		&uerr);
 	if(!brtn) {
-		Syslog::alert("Error reading MDS file %s: %d", mUrlPath, uerr);
+		Syslog::alert("Error reading MDS file %s: %d", mUrlPath, (int)uerr);
 		CssmError::throwMe(CSSMERR_CSSM_MDS_ERROR);
 	}
 	
@@ -250,7 +250,7 @@ bool MDSDictionary::lookupToDbAttr(
 				break;
 			}
 			CFArrayRef cfArray = (CFArrayRef)value;
-			numValues = CFArrayGetCount(cfArray);
+			numValues = (uint32)CFArrayGetCount(cfArray);
 			if(numValues == 0) {
 				/* degenerate case, legal - right? Can AppleDatabase do this? */
 				srcPtr = NULL;

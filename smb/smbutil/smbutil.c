@@ -69,6 +69,7 @@ static struct commands {
 	{"view",		cmd_view,		view_usage},
 	{"dfs",			cmd_dfs,		dfs_usage},
 	{"identity",	cmd_identity,	identity_usage},
+    {"statshares",        cmd_statshares,   statshares_usage},
 	{NULL, NULL, NULL}
 };
 
@@ -107,7 +108,7 @@ ntstatus_to_err(NTSTATUS status)
 			err(EX_UNAVAILABLE, "no memory, internal error");
 			break;
 		case STATUS_INVALID_PARAMETER:
-			err(EX_USAGE, "Invalid parameter. Please correct the URL and try again");
+			err(EX_USAGE, "Invalid parameter. Please correct the URL/Path and try again");
 			break;
 		case STATUS_BAD_NETWORK_NAME:
 			err(EX_NOHOST, "share name doesn't exist");
@@ -188,6 +189,7 @@ help(void) {
 	" view		list resources on specified host\n"
 	" dfs		list DFS referrals\n"
 	" identity	identity of the user as known by the specified host\n"
+    " statshares	list the attributes of mounted share(s)\n"
 	"\n");
 	exit(1);
 }

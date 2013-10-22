@@ -58,6 +58,7 @@
 #include <Security/SecCertificatePriv.h>
 
 #include "SecCMS.h"
+#include <Security/SecTrustPriv.h>
 
 
 #include <security_asn1/secasn1.h>
@@ -78,6 +79,8 @@ CFTypeRef kSecCMSCertChainMode = CFSTR("kSecCMSCertChainMode");
 CFTypeRef kSecCMSCertChainModeNone = CFSTR("0");
 CFTypeRef kSecCMSAdditionalCerts = CFSTR("kSecCMSAdditionalCerts");
 CFTypeRef kSecCMSSignedAttributes = CFSTR("kSecCMSSignedAttributes");
+CFTypeRef kSecCMSSignDate = CFSTR("kSecCMSSignDate");
+CFTypeRef kSecCMSAllCerts = CFSTR("kSecCMSAllCerts");
 
 OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof, 
     CFDictionaryRef params, CFDataRef data, CFMutableDataRef enveloped_data)
@@ -130,7 +133,7 @@ OSStatus SecCMSCreateEnvelopedData(CFTypeRef recipient_or_cfarray_thereof,
     }
     require_noerr(SecCmsMessageEncode(cmsg, (data && input.Length) ? &input : NULL, enveloped_data), out);
     
-    status = noErr;
+    status = errSecSuccess;
 out:
     if (cmsg) SecCmsMessageDestroy(cmsg);
     return status;
@@ -163,10 +166,10 @@ OSStatus SecCMSDecryptEnvelopedData(CFDataRef message,
     if (content)
         CFDataAppendBytes(data, content->Data, content->Length);
     if (recipient) {
-        CFRetain(used_recipient);
+        CFRetainSafe(used_recipient);
         *recipient = used_recipient;
     }
-    status = noErr;
+    status = errSecSuccess;
 out:
     if (cmsg) SecCmsMessageDestroy(cmsg);
     return status;
@@ -292,7 +295,7 @@ static OSStatus SecCMSSignDataOrDigestAndAttributes(SecIdentityRef identity,
     else
         require_noerr(SecCmsMessageEncode(cmsg, (data && input.Length) ? &input : NULL, signed_data), out);
     
-    status = noErr;
+    status = errSecSuccess;
 out:
     if (cmsg) SecCmsMessageDestroy(cmsg);
     return status;
@@ -355,7 +358,7 @@ OSStatus SecCMSCreateSignedData(SecIdentityRef identity, CFDataRef data,
 }
 
 
-static CFMutableArrayRef signed_attribute_values(SecCmsAttribute *attr)
+static CFMutableArrayRef copy_signed_attribute_values(SecCmsAttribute *attr)
 {
     CFMutableArrayRef array = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     SecAsn1Item **item = attr->values;
@@ -371,7 +374,7 @@ static CFMutableArrayRef signed_attribute_values(SecCmsAttribute *attr)
 }
 
 static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef detached_contents,
-    SecPolicyRef policy, SecTrustRef *trustref, CFArrayRef additional_certs,
+    CFTypeRef policy, SecTrustRef *trustref, CFArrayRef additional_certs,
     CFDataRef *attached_contents, CFDictionaryRef *signed_attributes)
 {
     SecCmsMessageRef cmsg = NULL;
@@ -408,7 +411,7 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
             out, status = errSecAuthFailed);
     }
     
-#if 0
+    #if 0
     if (nsigners > 1)
         trustrefs = CFArrayCreateMutable(kCFAllocatorDefault, nsigners, &kCFTypeArrayCallBacks);
         
@@ -429,7 +432,7 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
     trustrefs = NULL;
 #endif
 
-    status = noErr;
+    status = errSecSuccess;
 
     if (attached_contents) {
         const SecAsn1Item *content = SecCmsMessageGetContent(cmsg);
@@ -447,7 +450,7 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
         if (signed_attrs) while (*signed_attrs) {
             CFDataRef type = CFDataCreate(kCFAllocatorDefault, (*signed_attrs)->type.Data, (*signed_attrs)->type.Length);
             if (type) {
-                CFMutableArrayRef attr = signed_attribute_values(*signed_attrs);
+                CFMutableArrayRef attr = copy_signed_attribute_values(*signed_attrs);
                 if (attr) {
                     CFMutableArrayRef existing_attrs = (CFMutableArrayRef)CFDictionaryGetValue(attrs, type);
                     if (existing_attrs) {
@@ -462,8 +465,35 @@ static OSStatus SecCMSVerifySignedData_internal(CFDataRef message, CFDataRef det
             }
             signed_attrs++;
         }
+        CFMutableArrayRef certs = NULL;
+        
+        SecAsn1Item **cert_datas = SecCmsSignedDataGetCertificateList(sigd);
+        certs = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        SecAsn1Item *cert_data;
+        if (cert_datas) while ((cert_data = *cert_datas) != NULL) {
+            SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, cert_data->Data, cert_data->Length);
+            if (cert) {
+                CFArrayAppendValue(certs, cert);
+                CFRelease(cert);
+            }
+            cert_datas++;
+        }
+        
+        CFDictionaryAddValue(attrs, kSecCMSAllCerts, certs);
+
+        /* Add "cooked" values separately */
+        CFAbsoluteTime signing_time;
+        if (errSecSuccess == SecCmsSignerInfoGetSigningTime(sigd->signerInfos[0], &signing_time)) {
+                CFDateRef signing_date = CFDateCreate(kCFAllocatorDefault, signing_time);
+            if (signing_date){
+                CFDictionarySetValue(attrs, kSecCMSSignDate, signing_date);
+                CFReleaseSafe(signing_date);
+            }
+        }
+
         *signed_attributes = attrs;
     }
+    
     
 out:
     if (cmsg) SecCmsMessageDestroy(cmsg);
@@ -471,14 +501,16 @@ out:
 }
 
 OSStatus SecCMSVerifyCopyDataAndAttributes(CFDataRef message, CFDataRef detached_contents,
-    SecPolicyRef policy, SecTrustRef *trustref,
+    CFTypeRef policy, SecTrustRef *trustref,
     CFDataRef *attached_contents, CFDictionaryRef *signed_attributes)
 {
-    return SecCMSVerifySignedData_internal(message, detached_contents, policy, trustref, NULL, attached_contents, signed_attributes);
+    OSStatus status = SecCMSVerifySignedData_internal(message, detached_contents, policy, trustref, NULL, attached_contents, signed_attributes);
+    
+    return status;
 }
 
 OSStatus SecCMSVerifySignedData(CFDataRef message, CFDataRef detached_contents,
-    SecPolicyRef policy, SecTrustRef *trustref, CFArrayRef additional_certificates,
+    CFTypeRef policy, SecTrustRef *trustref, CFArrayRef additional_certificates,
     CFDataRef *attached_contents, CFDictionaryRef *message_attributes)
 {
     CFDictionaryRef signed_attributes = NULL;
@@ -487,12 +519,12 @@ OSStatus SecCMSVerifySignedData(CFDataRef message, CFDataRef detached_contents,
         *message_attributes = CFDictionaryCreate(kCFAllocatorDefault, &kSecCMSSignedAttributes, (const void **)&signed_attributes, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     }
     CFReleaseSafe(signed_attributes);
-
+   
     return status;
 }
 
 OSStatus SecCMSVerify(CFDataRef message, CFDataRef detached_contents,
-    SecPolicyRef policy, SecTrustRef *trustref,
+    CFTypeRef policy, SecTrustRef *trustref,
     CFDataRef *attached_contents) {
         return SecCMSVerifySignedData_internal(message, detached_contents, policy, trustref, NULL, attached_contents, NULL);
 }
@@ -591,7 +623,7 @@ CFDataRef SecCMSCreateCertificatesOnlyMessage(CFTypeRef cert_or_array_thereof) {
     CFDataAppendBytes(cert_only_signed_data, cert_only_signed_data_item.Data, 
         cert_only_signed_data_item.Length);
     
-    status = noErr;
+    status = errSecSuccess;
 out:
     CFReleaseSafe(cert_array);
     if (status) CFReleaseSafe(cert_only_signed_data);

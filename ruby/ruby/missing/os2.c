@@ -17,11 +17,36 @@ chown(char *path, int owner, int group)
 	return 0;
 }
 
+#if 0
 int
 link(char *from, char *to)
 {
 	return -1;
 }
+#endif
+
+#if defined(EMX_REPLACE_GETCWD) && (EMX_REPLACE_GETCWD)  \
+ || defined(EMX_REPLACE_CHDIR)  && (EMX_REPLACE_CHDIR)
+#include <unistd.h>
+
+#if defined(EMX_REPLACE_GETCWD) && (EMX_REPLACE_GETCWD)
+/* to handle the drive letter and DBCS characters within a given path */
+char *
+getcwd(char *path, size_t len)
+{
+    return _getcwd2(path, (int)len);
+}
+#endif
+
+#if defined(EMX_REPLACE_CHDIR) && (EMX_REPLACE_CHDIR)
+/* to handle the drive letter and DBCS characters within a given path */
+int
+chdir(__const__ char *path)
+{
+    return _chdir2(path);
+}
+#endif
+#endif
 
 typedef char* CHARP;
 
@@ -69,14 +94,14 @@ char *cmd;
     if (*s == '=')
     goto doshell; */
     for (s = cmd; *s; s++) {
-	if (*sw == '-' && *s != ' ' && 
+	if (*sw == '-' && *s != ' ' &&
 	    !isalpha(*s) && index("$&*(){}[]'\";\\|?<>~`\n",*s)) {
 	    if (*s == '\n' && !s[1]) {
 		*s = '\0';
 		break;
 	    }
 	    goto doshell;
-	} else if (*sw == '/' && *s != ' ' && 
+	} else if (*sw == '/' && *s != ' ' &&
 	    !isalpha(*s) && index("^()<>|&\n",*s)) {
 	    if (*s == '\n' && !s[1]) {
 		*s = '\0';

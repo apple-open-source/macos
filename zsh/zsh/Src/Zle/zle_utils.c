@@ -179,6 +179,8 @@ zlecharasstring(ZLE_CHAR_T inchar, char *buf)
  * string length, without the NULL byte.
  *
  * If outcsp is non-NULL, assign the new character position.
+ * If outcsp is &zlemetacs, update the positions in the region_highlight
+ * array, too.  This is a bit of a hack.
  *
  * If useheap is 1, memory is returned from the heap, else is allocated
  * for later freeing.
@@ -189,7 +191,8 @@ mod_export char *
 zlelineasstring(ZLE_STRING_T instr, int inll, int incs, int *outllp,
 		int *outcsp, int useheap)
 {
-    int outcs, outll;
+    int outcs, outll, sub;
+    struct region_highlight *rhp;
 
 #ifdef MULTIBYTE_SUPPORT
     char *s;
@@ -201,9 +204,26 @@ zlelineasstring(ZLE_STRING_T instr, int inll, int incs, int *outllp,
 
     outcs = 0;
     memset(&mbs, 0, sizeof(mbs));
-    for (i=0; i < inll; i++, incs--) {
+    for (i=0; i < inll; i++) {
 	if (incs == 0)
 	    outcs = mb_len;
+	incs--;
+	if (region_highlights && outcsp == &zlemetacs) {
+	    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+		 rhp < region_highlights + n_region_highlights;
+		 rhp++) {
+		if (rhp->flags & ZRH_PREDISPLAY)
+		    sub = predisplaylen;
+		else
+		    sub = 0;
+		if (rhp->start - sub == 0)
+		    rhp->start_meta = sub + mb_len;
+		rhp->start--;
+		if (rhp->end - sub == 0)
+		    rhp->end_meta = sub + mb_len;
+		rhp->end--;
+	    }
+	}
 #ifdef __STDC_ISO_10646__
 	if (ZSH_INVALID_WCHAR_TEST(instr[i])) {
 	    s[mb_len++] = ZSH_INVALID_WCHAR_TO_CHAR(instr[i]);
@@ -222,12 +242,34 @@ zlelineasstring(ZLE_STRING_T instr, int inll, int incs, int *outllp,
     }
     if (incs == 0)
 	outcs = mb_len;
+    if (region_highlights && outcsp == &zlemetacs) {
+	for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+	     rhp < region_highlights + n_region_highlights;
+	     rhp++) {
+	    if (rhp->flags & ZRH_PREDISPLAY)
+		sub = predisplaylen;
+	    else
+		sub = 0;
+	    if (rhp->start - sub == 0)
+		rhp->start_meta = sub + mb_len;
+	    if (rhp->end - sub == 0)
+		rhp->end_meta = sub + mb_len;
+	}
+    }
     s[mb_len] = '\0';
 
     outll = mb_len;
 #else
     outll = inll;
     outcs = incs;
+    if (region_highlights && outcsp == &zlemetacs) {
+	for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+	     rhp < region_highlights + n_region_highlights;
+	     rhp++) {
+	    rhp->start_meta = rhp->start;
+	    rhp->end_meta = rhp->end;
+	}
+    }
 #endif
 
     /*
@@ -243,11 +285,37 @@ zlelineasstring(ZLE_STRING_T instr, int inll, int incs, int *outllp,
 #endif
 	char *stopcs = strp + outcs;
 	char *stopll = strp + outll;
+	char *startp = strp;
 
+	if (region_highlights && outcsp == &zlemetacs) {
+	    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+		 rhp < region_highlights + n_region_highlights;
+		 rhp++) {
+		/* Used as temporary storage */
+		rhp->start = rhp->start_meta;
+		rhp->end = rhp->end_meta;
+	    }
+	}
 	while (strp < stopll) {
 	    if (imeta(*strp)) {
 		if (strp < stopcs)
 		    outcs++;
+		if (region_highlights && outcsp == &zlemetacs) {
+		    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+			 rhp < region_highlights + n_region_highlights;
+			 rhp++) {
+			if (rhp->flags & ZRH_PREDISPLAY)
+			    sub = predisplaylen;
+			else
+			    sub = 0;
+			if (strp < startp + rhp->start - sub) {
+			    rhp->start_meta++;
+			}
+			if (strp < startp + rhp->end - sub) {
+			    rhp->end_meta++;
+			}
+		    }
+		}
 		outll++;
 	    }
 	    strp++;
@@ -290,6 +358,9 @@ zlelineasstring(ZLE_STRING_T instr, int inll, int incs, int *outllp,
  * each metafied character) is converted into the corresponding
  * character position in *outcs.
  *
+ * If, further, outcs is &zlecs, we update the positions in the
+ * region_highlight array, too.  (This is a bit of a hack.)
+ *
  * Note that instr is modified in place, hence should be copied
  * first if necessary;
  *
@@ -303,7 +374,8 @@ mod_export ZLE_STRING_T
 stringaszleline(char *instr, int incs, int *outll, int *outsz, int *outcs)
 {
     ZLE_STRING_T outstr;
-    int ll, sz;
+    int ll, sz, sub;
+    struct region_highlight *rhp;
 #ifdef MULTIBYTE_SUPPORT
     mbstate_t mbs;
 #endif
@@ -316,10 +388,36 @@ stringaszleline(char *instr, int incs, int *outll, int *outsz, int *outcs)
 	 * is all the processing required to calculate outcs.
 	 */
 	char *inptr = instr, *cspos = instr + incs;
-	while (*inptr && inptr < cspos) {
+	if (region_highlights && outcs == &zlecs) {
+	    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+		 rhp < region_highlights + n_region_highlights;
+		 rhp++) {
+		rhp->start = rhp->start_meta;
+		rhp->end = rhp->end_meta;
+	    }
+	}
+	while (*inptr) {
 	    if (*inptr == Meta) {
+		if (inptr < cspos) {
+		    incs--;
+		}
+		if (region_highlights && outcs == &zlecs) {
+		    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+			 rhp < region_highlights + n_region_highlights;
+			 rhp++) {
+			if (rhp->flags & ZRH_PREDISPLAY)
+			    sub = predisplaylen;
+			else
+			    sub = 0;
+			if (inptr - instr < rhp->start - sub) {
+			    rhp->start_meta--;
+			}
+			if (inptr - instr < rhp->end - sub) {
+			    rhp->end_meta--;
+			}
+		    }
+		}
 		inptr++;
-		incs--;
 	    }
 	    inptr++;
 	}
@@ -385,6 +483,24 @@ stringaszleline(char *instr, int incs, int *outll, int *outsz, int *outcs)
 		int offs = inptr - instr;
 		if (offs <= incs && incs < offs + (int)cnt)
 		    *outcs = outptr - outstr;
+		if (region_highlights && outcs == &zlecs) {
+		    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+			 rhp < region_highlights + n_region_highlights;
+			 rhp++) {
+			if (rhp->flags & ZRH_PREDISPLAY)
+			    sub = predisplaylen;
+			else
+			    sub = 0;
+			if (offs <= rhp->start_meta - sub &&
+			    rhp->start_meta - sub < offs + (int)cnt) {
+			    rhp->start = outptr - outstr + sub;
+			}
+			if (offs <= rhp->end_meta - sub &&
+			    rhp->end_meta - sub < offs + (int)cnt) {
+			    rhp->end = outptr - outstr + sub;
+			}
+		    }
+		}
 	    }
 
 	    inptr += cnt;
@@ -404,6 +520,14 @@ stringaszleline(char *instr, int incs, int *outll, int *outsz, int *outcs)
     *outll = ll;
     if (outcs)
 	*outcs = incs;
+    if (region_highlights && outcs == &zlecs) {
+	for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+	     rhp < region_highlights + n_region_highlights;
+	     rhp++) {
+	    rhp->start = rhp->start_meta;
+	    rhp->end = rhp->end_meta;
+	}
+    }
 #endif
 
     return outstr;
@@ -432,6 +556,158 @@ zlegetline(int *ll, int *cs)
 }
 
 
+/* Forward reference */
+struct zle_region;
+
+/* A non-special entry in region_highlight */
+struct zle_region  {
+    struct zle_region *next;
+    /* Entries of region_highlight, as needed */
+    int atr;
+    int start;
+    int end;
+    int flags;
+};
+
+/* Forward reference */
+struct zle_position;
+
+/* A saved set of position information */
+struct zle_position {
+    /* Link pointer */
+    struct zle_position *next;
+    /* Cursor position */
+    int cs;
+    /* Mark */
+    int mk;
+    /* Line length */
+    int ll;
+    struct zle_region *regions;
+};
+
+/* LIFO stack of positions */
+struct zle_position *zle_positions;
+
+/*
+ * Save positions including cursor, end-of-line and
+ * (non-special) region highlighting.
+ *
+ * Must be matched by a subsequent zle_restore_positions().
+ */
+
+/**/
+mod_export void
+zle_save_positions(void)
+{
+    struct region_highlight *rhp;
+    struct zle_position *newpos;
+    struct zle_region **newrhpp, *newrhp;
+
+    newpos = (struct zle_position *)zalloc(sizeof(*newpos));
+
+    newpos->mk = mark;
+    if (zlemetaline) {
+	/* Use metafied information */
+	newpos->cs = zlemetacs;
+	newpos->ll = zlemetall;
+    } else {
+	/* Use unmetafied information */
+	newpos->cs = zlecs;
+	newpos->ll = zlell;
+
+    }
+
+    newrhpp = &newpos->regions;
+    *newrhpp = NULL;
+    if (region_highlights) {
+	for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+	     rhp < region_highlights + n_region_highlights;
+	     rhp++) {
+	    /*
+	     * This is a FIFO stack, so we preserve the order
+	     * of entries when we restore region_highlights.
+	     */
+	    newrhp = *newrhpp = (struct zle_region *)zalloc(sizeof(**newrhpp));
+	    newrhp->next = NULL;
+	    newrhp->atr = rhp->atr;
+	    newrhp->flags = rhp->flags;
+	    if (zlemetaline) {
+		newrhp->start = rhp->start_meta;
+		newrhp->end = rhp->end_meta;
+	    } else {
+		newrhp->start = rhp->start;
+		newrhp->end = rhp->end;
+	    }
+	    newrhpp = &newrhp->next;
+	}
+    }
+
+    newpos->next = zle_positions;
+    zle_positions = newpos;
+}
+
+/*
+ * Restore positions previously saved.
+ * Relies on zlemetaline being restored correctly beforehand,
+ * so that it can tell whether to use metafied positions or not.
+ */
+
+/**/
+mod_export void
+zle_restore_positions(void)
+{
+    struct zle_position *oldpos = zle_positions;
+    struct zle_region *oldrhp;
+    struct region_highlight *rhp;
+    int nreg;
+
+    zle_positions = oldpos->next;
+
+    mark = oldpos->mk;
+    if (zlemetaline) {
+	/* Use metafied information */
+	zlemetacs = oldpos->cs;
+	zlemetall = oldpos->ll;
+    } else {
+	/* Use unmetafied information */
+	zlecs = oldpos->cs;
+	zlell = oldpos->ll;
+    }
+
+    /* Count number of regions and see if the array needs resizing */
+    for (nreg = 0, oldrhp = oldpos->regions;
+	 oldrhp;
+	 nreg++, oldrhp = oldrhp->next)
+	;
+    if (nreg + N_SPECIAL_HIGHLIGHTS != n_region_highlights) {
+	n_region_highlights = nreg + N_SPECIAL_HIGHLIGHTS;
+	region_highlights = (struct region_highlight *)
+	    zrealloc(region_highlights,
+		     sizeof(struct region_highlight) * n_region_highlights);
+    }
+    oldrhp = oldpos->regions;
+    rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+    while (oldrhp) {
+	struct zle_region *nextrhp = oldrhp->next;
+
+	rhp->atr = oldrhp->atr;
+	rhp->flags = oldrhp->flags;
+	if (zlemetaline) {
+	    rhp->start_meta = oldrhp->start;
+	    rhp->end_meta = oldrhp->end;
+	} else {
+	    rhp->start = oldrhp->start;
+	    rhp->end = oldrhp->end;
+	}
+
+	zfree(oldrhp, sizeof(*oldrhp));
+	oldrhp = nextrhp;
+	rhp++;
+    }
+
+    zfree(oldpos, sizeof(*oldpos));
+}
+
 /*
  * Basic utility functions for adding to line or removing from line.
  * At this level the counts supplied are raw character counts, so
@@ -449,7 +725,8 @@ zlegetline(int *ll, int *cs)
 mod_export void
 spaceinline(int ct)
 {
-    int i;
+    int i, sub;
+    struct region_highlight *rhp;
 
     if (zlemetaline) {
 	sizeline(ct + zlemetall);
@@ -460,6 +737,23 @@ spaceinline(int ct)
 
 	if (mark > zlemetacs)
 	    mark += ct;
+
+	if (region_highlights) {
+	    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+		 rhp < region_highlights + n_region_highlights;
+		 rhp++) {
+		if (rhp->flags & ZRH_PREDISPLAY)
+		    sub = predisplaylen;
+		else
+		    sub = 0;
+		if (rhp->start_meta - sub >= zlemetacs) {
+		    rhp->start_meta += ct;
+		}
+		if (rhp->end_meta - sub >= zlemetacs) {
+		    rhp->end_meta += ct;
+		}
+	    }
+	}
     } else {
 	sizeline(ct + zlell);
 	for (i = zlell; --i >= zlecs;)
@@ -469,26 +763,98 @@ spaceinline(int ct)
 
 	if (mark > zlecs)
 	    mark += ct;
+
+	if (region_highlights) {
+	    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+		 rhp < region_highlights + n_region_highlights;
+		 rhp++) {
+		if (rhp->flags & ZRH_PREDISPLAY)
+		    sub = predisplaylen;
+		else
+		    sub = 0;
+		if (rhp->start - sub >= zlecs) {
+		    rhp->start += ct;
+		}
+		if (rhp->end - sub >= zlecs) {
+		    rhp->end += ct;
+		}
+	    }
+	}
     }
     region_active = 0;
 }
+
+/*
+ * Within the ZLE line, cut the "cnt" characters from position "to".
+ */
 
 /**/
 void
 shiftchars(int to, int cnt)
 {
+    struct region_highlight *rhp;
+    int sub;
+
     if (mark >= to + cnt)
 	mark -= cnt;
     else if (mark > to)
 	mark = to;
 
     if (zlemetaline) {
+	/* before to is updated... */
+	if (region_highlights) {
+	    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+		 rhp < region_highlights + n_region_highlights;
+		 rhp++) {
+		if (rhp->flags & ZRH_PREDISPLAY)
+		    sub = predisplaylen;
+		else
+		    sub = 0;
+		if (rhp->start_meta - sub > to) {
+		    if (rhp->start_meta - sub > to + cnt)
+			rhp->start_meta -= cnt;
+		    else
+			rhp->start_meta = to;
+		}
+		if (rhp->end_meta - sub > to) {
+		    if (rhp->end_meta - sub > to + cnt)
+			rhp->end_meta -= cnt;
+		    else
+			rhp->end_meta = to;
+		}
+	    }
+	}
+
 	while (to + cnt < zlemetall) {
 	    zlemetaline[to] = zlemetaline[to + cnt];
 	    to++;
 	}
 	zlemetaline[zlemetall = to] = '\0';
     } else {
+	/* before to is updated... */
+	if (region_highlights) {
+	    for (rhp = region_highlights + N_SPECIAL_HIGHLIGHTS;
+		 rhp < region_highlights + n_region_highlights;
+		 rhp++) {
+		if (rhp->flags & ZRH_PREDISPLAY)
+		    sub = predisplaylen;
+		else
+		    sub = 0;
+		if (rhp->start - sub > to) {
+		    if (rhp->start - sub > to + cnt)
+			rhp->start -= cnt;
+		    else
+			rhp->start = to;
+		}
+		if (rhp->end - sub > to) {
+		    if (rhp->end - sub > to + cnt)
+			rhp->end -= cnt;
+		    else
+			rhp->end = to;
+		}
+	    }
+	}
+
 	while (to + cnt < zlell) {
 	    zleline[to] = zleline[to + cnt];
 	    to++;
@@ -891,7 +1257,7 @@ showmsg(char const *msg)
 	    p++;
 
 	    putc('\n', shout);
-	    up += 1 + cc / columns;
+	    up += 1 + cc / zterm_columns;
 	    cc = 0;
 	} else {
 	    /*
@@ -942,7 +1308,7 @@ showmsg(char const *msg)
 	    c = *++p ^ 32;
 	if(c == '\n') {
 	    putc('\n', shout);
-	    up += 1 + cc / columns;
+	    up += 1 + cc / zterm_columns;
 	    cc = 0;
 	} else {
 	    char const *n = nicechar(c);
@@ -951,7 +1317,7 @@ showmsg(char const *msg)
 	}
     }
 #endif
-    up += cc / columns;
+    up += cc / zterm_columns;
 
     if (clearflag) {
 	putc('\r', shout);
@@ -993,6 +1359,14 @@ static struct change *changes, *curchange;
 
 static struct change *nextchanges, *endnextchanges;
 
+/* incremented to provide a unique change number */
+
+static zlong undo_changeno;
+
+/* If non-zero, the last increment to undo_changeno was for the variable */
+
+static int undo_set_by_variable;
+
 /**/
 void
 initundo(void)
@@ -1002,6 +1376,8 @@ initundo(void)
     curchange->prev = curchange->next = NULL;
     curchange->del = curchange->ins = NULL;
     curchange->dell = curchange->insl = 0;
+    curchange->changeno = undo_changeno = 0;
+    undo_set_by_variable = 0;
     lastline = zalloc((lastlinesz = linesz) * ZLE_CHAR_SIZE);
     ZS_memcpy(lastline, zleline, (lastll = zlell));
     lastcs = zlecs;
@@ -1085,8 +1461,10 @@ mkundoent(void)
     struct change *ch;
 
     UNMETACHECK();
-    if(lastll == zlell && !ZS_memcmp(lastline, zleline, zlell))
+    if(lastll == zlell && !ZS_memcmp(lastline, zleline, zlell)) {
+	lastcs = zlecs;
 	return;
+    }
     for(pre = 0; pre < sh && zleline[pre] == lastline[pre]; )
 	pre++;
     for(suf = 0; suf < sh - pre &&
@@ -1124,6 +1502,8 @@ mkundoent(void)
 	ch->flags = 0;
 	ch->prev = NULL;
     }
+    ch->changeno = ++undo_changeno;
+    undo_set_by_variable = 0;
     endnextchanges = ch;
 }
 
@@ -1144,17 +1524,27 @@ setlastline(void)
 
 /**/
 int
-undo(UNUSED(char **args))
+undo(char **args)
 {
+    zlong last_change;
+
+    if (*args)
+	last_change = zstrtol(*args, NULL, 0);
+    else
+	last_change = (zlong)-1;
+
     handleundo();
     do {
-	if(!curchange->prev)
+	struct change *prev = curchange->prev;
+	if(!prev)
 	    return 1;
-	if (unapplychange(curchange->prev))
-	    curchange = curchange->prev;
+	if (prev->changeno < last_change)
+	    break;
+	if (unapplychange(prev))
+	    curchange = prev;
 	else
 	    break;
-    } while(curchange->flags & CH_PREV);
+    } while (last_change >= (zlong)0 || (curchange->flags & CH_PREV));
     setlastline();
     return 0;
 }
@@ -1268,4 +1658,26 @@ zlecallhook(char *name, char *arg)
 
     errflag = saverrflag;
     retflag = savretflag;
+}
+
+/*
+ * Return the number corresponding to the last change made.
+ */
+
+/**/
+zlong
+get_undo_current_change(UNUSED(Param pm))
+{
+    if (undo_set_by_variable) {
+	/* We were the last to increment this, doesn't need another one. */
+	return undo_changeno;
+    }
+    undo_set_by_variable = 1;
+    /*
+     * Increment the number in case a change is in progress;
+     * we don't want to back off what's already been done when
+     * we return to this change number.  This eliminates any
+     * problem about the point where a change is numbered.
+     */
+    return ++undo_changeno;
 }

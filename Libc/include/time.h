@@ -67,25 +67,10 @@
 
 #define __need_struct_timespec
 #include <_structs.h>
-
-#ifndef NULL
-#define NULL __DARWIN_NULL
-#endif /* ! NULL */
-
-#ifndef	_CLOCK_T
-#define _CLOCK_T
-typedef	__darwin_clock_t	clock_t;
-#endif
-
-#ifndef	_SIZE_T
-#define	_SIZE_T
-typedef	__darwin_size_t		size_t;
-#endif
-
-#ifndef	_TIME_T
-#define	_TIME_T
-typedef	__darwin_time_t		time_t;
-#endif
+#include <sys/_types/_null.h>
+#include <sys/_types/_clock_t.h>
+#include <sys/_types/_size_t.h>
+#include <sys/_types/_time_t.h>
 
 struct tm {
 	int	tm_sec;		/* seconds after the minute [0-60] */

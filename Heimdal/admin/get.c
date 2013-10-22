@@ -219,7 +219,7 @@ kt_get(struct get_options *opt, int argc, char **argv)
 		entry.principal = princ_ent;
 		entry.vno = princ.kvno;
 		entry.keyblock = keys[j];
-		entry.timestamp = time (NULL);
+		entry.timestamp = (uint32_t)time (NULL);
 		ret = krb5_kt_add_entry(context, keytab, &entry);
 		if (ret)
 		    krb5_warn(context, ret, "krb5_kt_add_entry");

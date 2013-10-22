@@ -17,12 +17,15 @@
  */
 
 #include "config.h"
-#if ENABLE(WEBGL) || defined(QT_OPENGL_SHIMS)
+#if USE(3D_GRAPHICS) || defined(QT_OPENGL_SHIMS)
 
 #define DISABLE_SHIMS
 #include "OpenGLShims.h"
 
+#if !PLATFORM(QT)
 #include <dlfcn.h>
+#endif
+
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -34,19 +37,10 @@ OpenGLFunctionTable* openGLFunctionTable()
     return &table;
 }
 
-#if PLATFORM(QT) && defined(QT_OPENGL_ES_2)
-#define ASSIGN_FUNCTION_TABLE_ENTRY(FunctionName, success) \
-    openGLFunctionTable()->FunctionName = ::FunctionName
-#else
-
 #if PLATFORM(QT)
 static void* getProcAddress(const char* procName)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
     return reinterpret_cast<void*>(QOpenGLContext::currentContext()->getProcAddress(procName));
-#else
-    return reinterpret_cast<void*>(QGLContext::currentContext()->getProcAddress(QString::fromLatin1(procName)));
-#endif
 }
 #else
 typedef void* (*glGetProcAddressType) (const char* procName);
@@ -67,9 +61,9 @@ static void* getProcAddress(const char* procName)
 }
 #endif
 
-static void* lookupOpenGLFunctionAddress(const char* functionName, bool& success)
+static void* lookupOpenGLFunctionAddress(const char* functionName, bool* success = 0)
 {
-    if (!success)
+    if (success && !*success)
         return 0;
 
     void* target = getProcAddress(functionName);
@@ -86,16 +80,40 @@ static void* lookupOpenGLFunctionAddress(const char* functionName, bool& success
     fullFunctionName.append("EXT");
     target = getProcAddress(fullFunctionName.utf8().data());
 
+#if defined(GL_ES_VERSION_2_0)
+    fullFunctionName = functionName;
+    fullFunctionName.append("ANGLE");
+    target = getProcAddress(fullFunctionName.utf8().data());
+    if (target)
+        return target;
+
+    fullFunctionName = functionName;
+    fullFunctionName.append("APPLE");
+    target = getProcAddress(fullFunctionName.utf8().data());
+#endif
+
     // A null address is still a failure case.
-    if (!target)
-        success = false;
+    if (!target && success)
+        *success = false;
 
     return target;
 }
 
+#if PLATFORM(QT) && defined(QT_OPENGL_ES_2)
+
+// With Angle only EGL/GLES2 extensions are available through eglGetProcAddress, not the regular standardized functions.
 #define ASSIGN_FUNCTION_TABLE_ENTRY(FunctionName, success) \
-    openGLFunctionTable()->FunctionName = reinterpret_cast<FunctionName##Type>(lookupOpenGLFunctionAddress(#FunctionName, success))
+    openGLFunctionTable()->FunctionName = reinterpret_cast<FunctionName##Type>(::FunctionName)
+
+#else
+
+#define ASSIGN_FUNCTION_TABLE_ENTRY(FunctionName, success) \
+    openGLFunctionTable()->FunctionName = reinterpret_cast<FunctionName##Type>(lookupOpenGLFunctionAddress(#FunctionName, &success))
+
 #endif
+
+#define ASSIGN_FUNCTION_TABLE_ENTRY_EXT(FunctionName) \
+    openGLFunctionTable()->FunctionName = reinterpret_cast<FunctionName##Type>(lookupOpenGLFunctionAddress(#FunctionName))
 
 bool initializeOpenGLShims()
 {
@@ -111,18 +129,14 @@ bool initializeOpenGLShims()
     ASSIGN_FUNCTION_TABLE_ENTRY(glBindBuffer, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glBindFramebuffer, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glBindRenderbuffer, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY_EXT(glBindVertexArray);
     ASSIGN_FUNCTION_TABLE_ENTRY(glBlendColor, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glBlendEquation, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glBlendEquationSeparate, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glBlendFuncSeparate, success);
+    // In GLES2 there is optional an ANGLE extension for glBlitFramebuffer
 #if defined(GL_ES_VERSION_2_0)
-
-#if defined(GL_ANGLE_framebuffer_blit)
-    openGLFunctionTable()->glBlitFramebuffer = ::GL_ANGLE_framebuffer_blit;
-#else
-    openGLFunctionTable()->glBlitFramebuffer = 0;
-#endif
-
+    ASSIGN_FUNCTION_TABLE_ENTRY_EXT(glBlitFramebuffer);
 #else
     ASSIGN_FUNCTION_TABLE_ENTRY(glBlitFramebuffer, success);
 #endif
@@ -130,6 +144,8 @@ bool initializeOpenGLShims()
     ASSIGN_FUNCTION_TABLE_ENTRY(glBufferSubData, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glCheckFramebufferStatus, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glCompileShader, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY(glCompressedTexImage2D, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY(glCompressedTexSubImage2D, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glCreateProgram, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glCreateShader, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glDeleteBuffers, success);
@@ -137,6 +153,7 @@ bool initializeOpenGLShims()
     ASSIGN_FUNCTION_TABLE_ENTRY(glDeleteProgram, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glDeleteRenderbuffers, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glDeleteShader, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY_EXT(glDeleteVertexArrays);
     ASSIGN_FUNCTION_TABLE_ENTRY(glDetachShader, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glDisableVertexAttribArray, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glEnableVertexAttribArray, success);
@@ -146,6 +163,7 @@ bool initializeOpenGLShims()
     ASSIGN_FUNCTION_TABLE_ENTRY(glGenerateMipmap, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glGenFramebuffers, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glGenRenderbuffers, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY_EXT(glGenVertexArrays);
     ASSIGN_FUNCTION_TABLE_ENTRY(glGetActiveAttrib, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glGetActiveUniform, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glGetAttachedShaders, success);
@@ -169,18 +187,12 @@ bool initializeOpenGLShims()
     ASSIGN_FUNCTION_TABLE_ENTRY(glIsProgram, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glIsRenderbuffer, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glIsShader, success);
+    ASSIGN_FUNCTION_TABLE_ENTRY_EXT(glIsVertexArray);
     ASSIGN_FUNCTION_TABLE_ENTRY(glLinkProgram, success);
     ASSIGN_FUNCTION_TABLE_ENTRY(glRenderbufferStorage, success);
+    // In GLES2 there are optional ANGLE and APPLE extensions for glRenderbufferStorageMultisample.
 #if defined(GL_ES_VERSION_2_0)
-
-#if defined(GL_APPLE_framebuffer_multisample)
-    openGLFunctionTable()->glRenderbufferStorageMultisample = ::glRenderbufferStorageMultisampleAPPLE;
-#elif defined(GL_ANGLE_framebuffer_multisample)
-    openGLFunctionTable()->glRenderbufferStorageMultisample = ::glRenderbufferStorageMultisampleANGLE;
-#else
-    openGLFunctionTable()->glRenderbufferStorageMultisample = 0;
-#endif
-
+    ASSIGN_FUNCTION_TABLE_ENTRY_EXT(glRenderbufferStorageMultisample);
 #else
     ASSIGN_FUNCTION_TABLE_ENTRY(glRenderbufferStorageMultisample, success);
 #endif
@@ -227,4 +239,4 @@ bool initializeOpenGLShims()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEBGL)
+#endif // USE(3D_GRAPHICS)

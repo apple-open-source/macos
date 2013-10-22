@@ -30,10 +30,11 @@
 #ifndef FileSystem_h
 #define FileSystem_h
 
-#include "PlatformString.h"
 #include <time.h>
 #include <wtf/Forward.h>
+#include <wtf/MathExtras.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 #if USE(CF)
 #include <wtf/RetainPtr.h>
@@ -45,11 +46,6 @@
 #if defined(Q_OS_WIN32)
 #include <windows.h>
 #endif
-#endif
-
-#if PLATFORM(WX)
-#include <wx/defs.h>
-#include <wx/file.h>
 #endif
 
 #if USE(CF) || (PLATFORM(QT) && defined(Q_WS_MAC))
@@ -70,13 +66,19 @@ typedef struct _GFileIOStream GFileIOStream;
 typedef struct _GModule GModule;
 #endif
 
+#if PLATFORM(EFL)
+typedef struct _Eina_Module Eina_Module;
+#endif
+
 namespace WebCore {
 
 // PlatformModule
-#if PLATFORM(GTK)
-typedef GModule* PlatformModule;
-#elif OS(WINDOWS)
+#if OS(WINDOWS)
 typedef HMODULE PlatformModule;
+#elif PLATFORM(GTK)
+typedef GModule* PlatformModule;
+#elif PLATFORM(EFL)
+typedef Eina_Module* PlatformModule;
 #elif PLATFORM(QT)
 #if defined(Q_WS_MAC)
 typedef CFBundleRef PlatformModule;
@@ -126,9 +128,6 @@ typedef HANDLE PlatformFileHandle;
 // FIXME: -1 is INVALID_HANDLE_VALUE, defined in <winbase.h>. Chromium tries to
 // avoid using Windows headers in headers.  We'd rather move this into the .cpp.
 const PlatformFileHandle invalidPlatformFileHandle = reinterpret_cast<HANDLE>(-1);
-#elif PLATFORM(WX)
-typedef wxFile* PlatformFileHandle;
-const PlatformFileHandle invalidPlatformFileHandle = 0;
 #else
 typedef int PlatformFileHandle;
 const PlatformFileHandle invalidPlatformFileHandle = -1;
@@ -145,18 +144,26 @@ enum FileSeekOrigin {
     SeekFromEnd
 };
 
+enum FileLockMode {
+    LockShared = 1,
+    LockExclusive = 2,
+    LockNonBlocking = 4
+};
+
 #if OS(WINDOWS)
 static const char PlatformFilePathSeparator = '\\';
 #else
 static const char PlatformFilePathSeparator = '/';
 #endif
 
-void revealFolderInOS(const String&);
+struct FileMetadata;
+
 bool fileExists(const String&);
 bool deleteFile(const String&);
 bool deleteEmptyDirectory(const String&);
 bool getFileSize(const String&, long long& result);
 bool getFileModificationTime(const String&, time_t& result);
+bool getFileMetadata(const String&, FileMetadata&);
 String pathByAppendingComponent(const String& path, const String& component);
 bool makeAllDirectories(const String& path);
 String homeDirectoryPath();
@@ -172,6 +179,9 @@ CString fileSystemRepresentation(const String&);
 
 inline bool isHandleValid(const PlatformFileHandle& handle) { return handle != invalidPlatformFileHandle; }
 
+inline double invalidFileTime() { return std::numeric_limits<double>::quiet_NaN(); }
+inline bool isValidFileTime(double time) { return std::isfinite(time); }
+
 // Prefix is what the filename should be prefixed with, not the full path.
 String openTemporaryFile(const String& prefix, PlatformFileHandle&);
 PlatformFileHandle openFile(const String& path, FileOpenMode);
@@ -183,6 +193,10 @@ bool truncateFile(PlatformFileHandle, long long offset);
 int writeToFile(PlatformFileHandle, const char* data, int length);
 // Returns number of bytes actually written if successful, -1 otherwise.
 int readFromFile(PlatformFileHandle, char* data, int length);
+#if USE(FILE_LOCK)
+bool lockFile(PlatformFileHandle, FileLockMode);
+bool unlockFile(PlatformFileHandle);
+#endif
 
 // Functions for working with loadable modules.
 bool unloadModule(PlatformModule);
@@ -203,16 +217,14 @@ String filenameToString(const char*);
 String filenameForDisplay(const String&);
 CString applicationDirectoryPath();
 CString sharedResourcesPath();
+#endif
+#if USE(SOUP) || PLATFORM(QT)
 uint64_t getVolumeFreeSizeForPath(const char*);
 #endif
 
 #if PLATFORM(WIN) && !OS(WINCE)
 String localUserSpecificStorageDirectory();
 String roamingUserSpecificStorageDirectory();
-#endif
-
-#if PLATFORM(WIN) && USE(CF)
-bool safeCreateFile(const String&, CFDataRef);
 #endif
 
 } // namespace WebCore

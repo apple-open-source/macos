@@ -27,6 +27,10 @@
 #endif
 
 #include "slap.h"
+#ifdef __APPLE__
+#include "applehelpers.h"
+#include "psauth.h"
+#endif
 
 #include <lber_pvt.h>
 #include <lutil.h>
@@ -58,15 +62,25 @@ int passwd_extop(
 	BackendDB *op_be;
 	int freenewpw = 0;
 	struct berval dn = BER_BVNULL, ndn = BER_BVNULL;
+#ifdef __APPLE__
+	CFDictionaryRef policy = NULL;
+	int isChangingOwnPassword = 0;
+	bool isldapi = false;
+	if((op->o_conn->c_listener->sl_url.bv_len == strlen("ldapi://%2Fvar%2Frun%2Fldapi")) && (strncmp(op->o_conn->c_listener->sl_url.bv_val, "ldapi://%2Fvar%2Frun%2Fldapi", op->o_conn->c_listener->sl_url.bv_len) == 0)) {
+		isldapi = true;
+	}
+#endif
 
 	assert( ber_bvcmp( &slap_EXOP_MODIFY_PASSWD, &op->ore_reqoid ) == 0 );
 
+#ifndef __APPLE__
 	if( op->o_dn.bv_len == 0 ) {
 		Statslog( LDAP_DEBUG_STATS, "%s PASSMOD\n",
 			op->o_log_prefix, 0, 0, 0, 0 );
 		rs->sr_text = "only authenticated users may change passwords";
 		return LDAP_STRONG_AUTH_REQUIRED;
 	}
+#endif
 
 	qpw->rs_old.bv_len = 0;
 	qpw->rs_old.bv_val = NULL;
@@ -224,6 +238,7 @@ int passwd_extop(
 		goto error_return;
 	}
 
+#ifndef __APPLE__
 	if ( qpw->rs_old.bv_val != NULL ) {
 		Entry *e = NULL;
 
@@ -244,8 +259,39 @@ int passwd_extop(
 		rc = LDAP_UNWILLING_TO_PERFORM;
 		goto error_return;
 	}
+#else
+	if( !isldapi && op->o_dn.bv_len == 0 ) {
+		if ( qpw->rs_old.bv_val != NULL ) {
+			char *recname = odusers_copy_recname(op);
+			// nul terminated version of the old password
+			char *tmpoldpass = ch_calloc(qpw->rs_old.bv_len + 1, 1);
+			memcpy(tmpoldpass, qpw->rs_old.bv_val, qpw->rs_old.bv_len);
+			op->o_conn->c_sasl_bindop = op;
+			rc = (DoPSAuth(recname, tmpoldpass, NULL, op->o_conn, op->o_req_dn.bv_val) == kAuthNoError) ? LDAP_SUCCESS : LDAP_INVALID_CREDENTIALS;
+			op->o_conn->c_sasl_bindop = NULL;
+			free(tmpoldpass);
+			free(recname);
+			if(rc == LDAP_SUCCESS) {
+				isChangingOwnPassword = 1;
+				goto old_good;
+			}
+			rs->sr_text = "unwilling to verify old password";
+			rc = LDAP_UNWILLING_TO_PERFORM;
+			goto error_return;
+		}
 
-old_good:
+		rs->sr_text = "only authenticated users may change passwords";
+		rc = LDAP_STRONG_AUTH_REQUIRED;
+		goto error_return;
+	} else {
+		if(ber_bvstrcasecmp(&op->o_req_dn, &op->o_dn) == 0) {
+			isChangingOwnPassword = 1;
+		}
+	}
+#endif
+
+old_good:;
+#ifndef __APPLE__
 	ml = ch_malloc( sizeof(Modifications) );
 	if ( !qpw->rs_modtail ) qpw->rs_modtail = &ml->sml_next;
 
@@ -306,11 +352,134 @@ old_good:
 		op->o_tag = LDAP_REQ_EXTENDED;
 		op->o_callback = sc;
 	}
-
 	rc = rs->sr_err;
+#else
+	bool isadmin = false;
+	bool isowner = false;
+	bool iscomputer = false;
+	char *tmppass = ch_calloc(qpw->rs_new.bv_len + 1, 1);
+	memcpy(tmppass, qpw->rs_new.bv_val, qpw->rs_new.bv_len);
+
+	if(strnstr(op->o_req_dn.bv_val, "cn=computer", op->o_req_dn.bv_len) != NULL) {
+		iscomputer = true;
+	}
+
+	// Always get the policy so odusers_store_history() can decide if it
+	// should store the password.  But in general, policy is only checked
+	// for non-ldapi connections.
+	//
+	// If the connection isn't authenticated (they supplied the old password),
+	// then they are changing their own password.
+	if(op->o_dn.bv_len) {
+		policy = odusers_copy_effectiveuserpoldict(&op->o_conn->c_dn);
+	} else {
+		policy = odusers_copy_effectiveuserpoldict(&op->o_req_dn);
+	}
+
+	if(isldapi == false) {
+		if(!policy) {
+			Debug(LDAP_DEBUG_ANY, "%s: Unable to retrieve policy for %s, failing password change for %s\n", __func__, op->o_conn->c_dn.bv_val, op->o_req_ndn.bv_val);
+			rs->sr_text = "unable to retrieve policy";
+			rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
+			free(tmppass);
+			goto error_return;
+		}
+
+		int disableReason = odusers_isdisabled(policy);
+		if(disableReason && (disableReason != kDisabledNewPasswordRequired)) {
+			Debug(LDAP_DEBUG_ANY, "%s: User %s is disabled, denying password change for %s\n", __func__, op->o_conn->c_dn.bv_val, op->o_req_ndn.bv_val);
+			rs->sr_text = "user is disabled";
+			rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
+			free(tmppass);
+			goto error_return;
+		}
+
+		if( op->o_dn.bv_len && (ber_bvcmp(&op->o_req_ndn, &op->o_conn->c_dn) != 0) ) {
+			if(!odusers_isadmin(policy)) {
+				char *ownername = odusers_copy_owner(&op->o_req_ndn);
+				if(ownername && strncmp(ownername, op->o_conn->c_dn.bv_val, op->o_conn->c_dn.bv_len) == 0) {
+					isowner = true;
+				} else {
+					Debug(LDAP_DEBUG_ANY, "%s: non-admin user %s denied attempt to change password for %s.\n", __func__, op->o_conn->c_dn.bv_val, op->o_req_ndn.bv_val);
+					rs->sr_text = "permission denied";
+					rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
+					free(tmppass);
+					free(ownername);
+					goto error_return;
+				}
+				free(ownername);
+			} else {
+				isadmin = true;
+			}
+		} else {
+			CFNumberRef canchange = CFDictionaryGetValue(policy, CFSTR("canModifyPasswordforSelf"));
+			if(canchange) {
+				short tmpshort = 0;
+				CFNumberGetValue(canchange, kCFNumberShortType, &tmpshort);
+				if(!tmpshort) {
+					Debug(LDAP_DEBUG_ANY, "%s: canModifyPasswordforSelf on %s denied attempt to change password for %s.\n", __func__, op->o_conn->c_dn.bv_val, op->o_req_ndn.bv_val);
+					rs->sr_text = "policy violation";
+					rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
+					free(tmppass);
+					goto error_return;
+				}
+			} else {
+				Debug(LDAP_DEBUG_ANY, "%s: No canModifyPasswordforSelf policy found in user %s dictionary", __func__, op->o_req_ndn.bv_val, 0);
+			}
+		}
+	}
+
+	/* ldapi and admins and computers skip policy checks */
+	if(!isldapi && !isadmin && !isowner && !iscomputer) {
+		char *recname = odusers_copy_recname(op);
+		if(!recname) {
+			Debug(LDAP_DEBUG_ANY, "%s: Could not locate record name for %s\n", __func__, op->o_req_ndn.bv_val, 0);
+			rs->sr_text = "Couldn't locate recname";
+			rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
+			free(tmppass);
+			goto error_return;
+		}
+
+		if(odusers_verify_passwordquality(tmppass, recname, policy, rs) != 0) {
+			Debug(LDAP_DEBUG_ANY, "%s: password quality check failed for %s\n", __func__, op->o_req_ndn.bv_val, 0);
+			free(recname);
+			free(tmppass);
+			rc = rs->sr_err;
+			goto error_return;
+		}
+		free(recname);
+
+		if(odusers_check_history(&op->o_req_dn, tmppass, policy) != 0) {
+			Debug(LDAP_DEBUG_ANY, "%s: password history check failed for %s\n", __func__, op->o_req_dn.bv_val, 0);
+			free(tmppass);
+			rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
+			goto error_return;
+		}
+	}
+
+
+	if(odusers_set_password(&op->o_req_dn, tmppass, isChangingOwnPassword) != 0) {
+		Debug(LDAP_DEBUG_ANY, "%s: set password for user %s failed\n", __func__, op->o_req_ndn.bv_val, 0);
+		rs->sr_err = rc = LDAP_UNWILLING_TO_PERFORM;
+		rs->sr_text = "Error setting password";
+		free(tmppass);
+		goto error_return;
+	}
+
+	// Will only store if the policy has been set
+	odusers_store_history(&op->o_req_dn, tmppass, policy);
+
+	Debug(LDAP_DEBUG_ANY, "%s: %s changed password for %s\n", __func__, op->o_conn->c_dn.bv_val, op->o_req_ndn.bv_val);
+	free(tmppass);
+	rs->sr_err = rc = LDAP_SUCCESS;
+	rs->sr_text = NULL;
+	
+#endif
+
 	op->oq_extended = qext;
 
 error_return:;
+	if(policy) CFRelease(policy);
 	if ( qpw->rs_mods ) {
 		slap_mods_free( qpw->rs_mods, 1 );
 	}

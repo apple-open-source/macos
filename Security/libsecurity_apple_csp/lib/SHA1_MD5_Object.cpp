@@ -48,7 +48,7 @@ void MD5Object::digestUpdate(
 	if(mIsDone) {
 		throw std::runtime_error("MD5 digestUpdate after final");
 	}
-	CC_MD5_Update(&mCtx, data, len);
+	CC_MD5_Update(&mCtx, data, (CC_LONG)len);
 }
 
 void MD5Object::digestFinal(
@@ -85,7 +85,7 @@ void SHA1Object::digestUpdate(
 	const void 	*data, 
 	size_t 		len)
 {
-	CC_SHA1_Update(&mCtx, (const unsigned char *)data, len);
+	CC_SHA1_Update(&mCtx, (const unsigned char *)data, (CC_LONG)len);
 }
 
 void SHA1Object::digestFinal(

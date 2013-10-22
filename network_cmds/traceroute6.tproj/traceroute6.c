@@ -682,6 +682,8 @@ main(argc, argv)
 	rcvmhdr.msg_control = (caddr_t) rcvcmsgbuf;
 	rcvmhdr.msg_controllen = rcvcmsglen;
 
+	(void) setsockopt(rcvsock, SOL_SOCKET, SO_RECV_ANYIF, (char *)&on,
+	    sizeof(on));
 	if (options & SO_DEBUG)
 		(void) setsockopt(rcvsock, SOL_SOCKET, SO_DEBUG,
 		    (char *)&on, sizeof(on));
@@ -1394,7 +1396,7 @@ inetname(sa)
 		first = 0;
 		if (gethostname(domain, sizeof(domain)) == 0 &&
 		    (cp = strchr(domain, '.')))
-			(void) strlcpy(domain, cp + 1, sizeof(domain));
+			(void) memmove(domain, cp + 1, strlen(cp + 1) + 1);
 		else
 			domain[0] = 0;
 	}

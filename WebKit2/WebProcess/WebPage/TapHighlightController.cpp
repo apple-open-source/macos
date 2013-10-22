@@ -97,7 +97,7 @@ static Color highlightColor(Color baseColor, float fractionFadedIn)
     return Color(baseColor.red(), baseColor.green(), baseColor.blue(), int(baseColor.alpha() * fractionFadedIn));
 }
 
-void TapHighlightController::drawRect(PageOverlay* pageOverlay, GraphicsContext& context, const IntRect& dirtyRect)
+void TapHighlightController::drawRect(PageOverlay* pageOverlay, GraphicsContext& context, const IntRect& /*dirtyRect*/)
 {
     if (m_path.isEmpty())
         return;
@@ -105,9 +105,9 @@ void TapHighlightController::drawRect(PageOverlay* pageOverlay, GraphicsContext&
     {
         GraphicsContextStateSaver stateSaver(context);
         if (m_webPage->drawingArea()->pageOverlayShouldApplyFadeWhenPainting())
-            context.setFillColor(highlightColor(m_color, pageOverlay->fractionFadedIn()), ColorSpaceSRGB);
+            context.setFillColor(highlightColor(m_color, pageOverlay->fractionFadedIn() * 0.5f), ColorSpaceSRGB);
         else
-            context.setFillColor(m_color, ColorSpaceSRGB);
+            context.setFillColor(highlightColor(m_color, 0.5f), ColorSpaceSRGB);
         context.fillPath(m_path);
     }
 }

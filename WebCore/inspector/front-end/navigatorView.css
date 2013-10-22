@@ -40,8 +40,26 @@
     content: url(Images/resourceJSIcon.png);
 }
 
+.navigator-stylesheet-tree-item .icon {
+    content: url(Images/resourceCSSIcon.png);
+}
+
+.navigator-document-tree-item .icon {
+    content: url(Images/resourceDocumentIcon.png);
+}
+
+.navigator-other-tree-item .icon {
+    content: url(Images/resourcePlainIcon.png);
+}
+
+.navigator > ol {
+    min-height: 100%;
+    display: inline-block;
+}
+
 .navigator li {
-    height: 17px;
+    height: 18px;
+    line-height: 17px;
     white-space: nowrap;
 }
 
@@ -50,7 +68,7 @@
 }
 
 .navigator li.selected .selection {
-    height: 17px;
+    height: 18px;
     background-color: rgb(180, 180, 180);
 }
 
@@ -78,11 +96,9 @@
 }
 
 .navigator .base-navigator-tree-element-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: inline-block;
     position: relative;
     padding-left: 2px;
-    top: 1px;
 }
 
 .navigator .base-navigator-tree-element-title.editing {
@@ -116,8 +132,7 @@
 }
 
 .navigator-tabbed-pane .navigator-container {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: auto;
 }
 
 .navigator-tabbed-pane .navigator {
@@ -129,6 +144,6 @@
 }
 
 .navigator-tabbed-pane .tabbed-pane-header-contents {
-    margin-left: 20px;
+    margin-left: 2px;
     margin-right: 28px;
 }

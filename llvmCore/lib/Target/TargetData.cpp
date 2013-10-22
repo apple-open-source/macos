@@ -117,8 +117,8 @@ TargetAlignElem::operator==(const TargetAlignElem &rhs) const {
           && TypeBitWidth == rhs.TypeBitWidth);
 }
 
-const TargetAlignElem TargetData::InvalidAlignmentElem =
-                TargetAlignElem::get((AlignTypeEnum) -1, 0, 0, 0);
+const TargetAlignElem
+TargetData::InvalidAlignmentElem = { (AlignTypeEnum)0xFF, 0, 0, 0 };
 
 //===----------------------------------------------------------------------===//
 //                       TargetData Class Implementation
@@ -147,8 +147,10 @@ void TargetData::init() {
   setAlignment(INTEGER_ALIGN,   2,  2, 16);  // i16
   setAlignment(INTEGER_ALIGN,   4,  4, 32);  // i32
   setAlignment(INTEGER_ALIGN,   4,  8, 64);  // i64
+  setAlignment(FLOAT_ALIGN,     2,  2, 16);  // half
   setAlignment(FLOAT_ALIGN,     4,  4, 32);  // float
   setAlignment(FLOAT_ALIGN,     8,  8, 64);  // double
+  setAlignment(FLOAT_ALIGN,    16, 16, 128); // ppcf128, quad, ...
   setAlignment(VECTOR_ALIGN,    8,  8, 64);  // v2i32, v1i64, ...
   setAlignment(VECTOR_ALIGN,   16, 16, 128); // v16i8, v8i16, v4i32, ...
   setAlignment(AGGREGATE_ALIGN, 0,  8,  0);  // struct
@@ -312,6 +314,8 @@ void
 TargetData::setAlignment(AlignTypeEnum align_type, unsigned abi_align,
                          unsigned pref_align, uint32_t bit_width) {
   assert(abi_align <= pref_align && "Preferred alignment worse than ABI!");
+  assert(pref_align < (1 << 16) && "Alignment doesn't fit in bitfield");
+  assert(bit_width < (1 << 24) && "Bit width doesn't fit in bitfield");
   for (unsigned i = 0, e = Alignments.size(); i != e; ++i) {
     if (Alignments[i].AlignType == align_type &&
         Alignments[i].TypeBitWidth == bit_width) {
@@ -371,7 +375,7 @@ unsigned TargetData::getAlignmentInfo(AlignTypeEnum AlignType,
       // If the alignment is not a power of 2, round up to the next power of 2.
       // This happens for non-power-of-2 length vectors.
       if (Align & (Align-1))
-        Align = llvm::NextPowerOf2(Align);
+        Align = NextPowerOf2(Align);
       return Align;
     }
   }
@@ -477,6 +481,8 @@ uint64_t TargetData::getTypeSizeInBits(Type *Ty) const {
     return cast<IntegerType>(Ty)->getBitWidth();
   case Type::VoidTyID:
     return 8;
+  case Type::HalfTyID:
+    return 16;
   case Type::FloatTyID:
     return 32;
   case Type::DoubleTyID:
@@ -493,9 +499,7 @@ uint64_t TargetData::getTypeSizeInBits(Type *Ty) const {
     return cast<VectorType>(Ty)->getBitWidth();
   default:
     llvm_unreachable("TargetData::getTypeSizeInBits(): Unsupported type");
-    break;
   }
-  return 0;
 }
 
 /*!
@@ -534,6 +538,7 @@ unsigned TargetData::getAlignment(Type *Ty, bool abi_or_pref) const {
   case Type::VoidTyID:
     AlignType = INTEGER_ALIGN;
     break;
+  case Type::HalfTyID:
   case Type::FloatTyID:
   case Type::DoubleTyID:
   // PPC_FP128TyID and FP128TyID have different data contents, but the
@@ -549,7 +554,6 @@ unsigned TargetData::getAlignment(Type *Ty, bool abi_or_pref) const {
     break;
   default:
     llvm_unreachable("Bad type for getAlignment!!!");
-    break;
   }
 
   return getAlignmentInfo((AlignTypeEnum)AlignType, getTypeSizeInBits(Ty),

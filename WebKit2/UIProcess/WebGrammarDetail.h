@@ -35,9 +35,8 @@ namespace WebKit {
 
 class ImmutableArray;
 
-class WebGrammarDetail : public APIObject {
+class WebGrammarDetail : public TypedAPIObject<APIObject::TypeGrammarDetail> {
 public:
-    static const Type APIType = TypeGrammarDetail;
     static PassRefPtr<WebGrammarDetail> create(int location, int length, ImmutableArray* guesses, const String& userDescription);
     static PassRefPtr<WebGrammarDetail> create(const WebCore::GrammarDetail&);
 
@@ -50,9 +49,7 @@ public:
 
 private:
     WebGrammarDetail(int location, int length, ImmutableArray* guesses, const String& userDescription);
-    WebGrammarDetail(const WebCore::GrammarDetail&);
-
-    virtual Type type() const { return APIType; }
+    explicit WebGrammarDetail(const WebCore::GrammarDetail&);
 
     WebCore::GrammarDetail m_grammarDetail;
 };

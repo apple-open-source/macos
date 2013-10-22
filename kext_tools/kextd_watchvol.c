@@ -73,21 +73,22 @@
 
 // system includes
 #include <asl.h>
-#include <notify.h> // yay notify_monitor_file (well, someday in the header ;)
-#include <string.h> // strerror()
+#include <notify.h>     // note notify_monitor_file below
+#include <string.h>     // strerror()
 #include <sysexits.h>
 #include <errno.h>
 #include <sys/stat.h>
-#include <sys/wait.h>   // " "
-#include <stdlib.h> // daemon(3)
+#include <sys/wait.h>   // waitpid(2)
+#include <stdlib.h>     // daemon(3)
 #include <signal.h>
-#include <unistd.h> // e.g. execv
+#include <unistd.h>     // e.g. execv
 
 #include <bless.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 #include <DiskArbitration/DiskArbitrationPrivate.h>
 #include <IOKit/kext/kextmanager_types.h>
+#include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>   // LVGChanged
 
 #include <IOKit/kext/OSKextPrivate.h>
 #ifndef kOSKextLogCacheFlag
@@ -102,10 +103,12 @@ extern uint32_t notify_get_event(int token, int *ev, char *buf, int *len);
 // project includes
 #include "kextd_main.h"                 // handleSignal()
 #include "kextd_watchvol.h"             // kextd_watch_volumes
-#include "bootcaches.h"                 // struct bootCaches
 #include "kextd_globals.h"              // gClientUID
 #include "kextd_usernotification.h"     // kextd_raise_notification
+#include "bootcaches.h"                 // struct bootCaches
+#include "bootroot.h"                   // BRBLLogFunc (only, for now)
 #include "kextmanager_async.h"          // lock_*_reply()
+#include "safecalls.h"                  // sdeepunlink
 
 
 // constants
@@ -128,7 +131,7 @@ extern uint32_t notify_get_event(int token, int *ev, char *buf, int *len);
 #define kMTEndShutdownDelay         "endShutdownDelay"
 
 
-// the type: struct watchedVol's (struct bootCaches in bootroot.h)
+// the type: struct watchedVol's (struct bootCaches in bootcaches.h)
 // created/destroyed with volumes coming/going; stored in sFsysWatchDict
 // use notify_set_state on our notifications to point to these objects
 struct watchedVol {
@@ -186,11 +189,12 @@ static CFMachPortRef createWatchedPort(mach_port_t mport, void *ctx);
 static void vol_appeared(DADiskRef disk, void *ctx);
 static void vol_changed(DADiskRef, CFArrayRef keys, void* ctx);
 static void vol_disappeared(DADiskRef, void* ctx);
-static DADissenterRef is_dadisk_busy(DADiskRef, void *ctx);
+CF_RETURNS_RETAINED static DADissenterRef is_dadisk_busy(DADiskRef, void *ctx);
 static Boolean check_vol_busy(struct watchedVol *watched);
 
 // notification processing delay scheme
 static void fsys_changed(CFMachPortRef p, void *msg, CFIndex size, void *info);
+static void checkScheduleUpdate(struct watchedVol *watched);
 static void check_now(CFRunLoopTimerRef timer, void *ctx);    // notify timer cb
 
 // check and act
@@ -510,7 +514,14 @@ finish:
 
 
 // helper: caller must remove port from other structures (e.g. waiters queue)
-static int cleanupPort(CFMachPortRef *port)
+// The CFRelease() is releasing a CFMachPort created by createWatchedPort().
+// While the volume lock waiters queue is a CFArray (which takes its own
+// reference), every element has an extra retain count so that we can
+// release the non-CF-contained objects here.  The analyzer doesn't know
+// that and thinks we shouldn't be releasing those references in the case
+// where *port = (CFMachPortRef)CFArrayGetValueAtIndex(watched->waiters,i);
+static int
+cleanupPort(CFMachPortRef *port) 
 {
     mach_port_t lport;
 
@@ -742,7 +753,16 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
      * cache paths are relative; WATCH() makes absolute */
     WATCH(watched, path, kBootCachesPath, fsPort);
     WATCH(watched, path, kInstallCommitPath, fsPort);
-    WATCH(watched, path, caches->exts, fsPort);
+    
+    /* support multiple extensions directories - 11860417 */
+    char    *bufptr;
+    bufptr = caches->exts;
+    for (i = 0; i < caches->nexts; i++) {
+        WATCH(watched, path, bufptr, fsPort);
+        bufptr += (strlen(bufptr) + 1);
+    }
+
+    
     WATCH(watched, path, caches->kernel, fsPort);
     WATCH(watched, path, caches->locSource, fsPort);
     // XXX commenting out until 9498428 makes watching this file
@@ -813,47 +833,6 @@ finish:
  * with just using vol_changed to see when the volume is mounted.
  *****************************************************************************/
 
-// inspired by bless/setboot.c (mostly setit())
-static kern_return_t
-setEFIBootDevice(CFStringRef bsdName)
-{
-    kern_return_t rval = KERN_FAILURE;
-    char *errmsg;
-    char bsdname[DEVMAXPATHSIZE];
-    CFStringRef xmlString = NULL;
-    io_registry_entry_t optionsNode = IO_OBJECT_NULL;
-
-    errmsg = "unable to create objects";
-    if (!CFStringGetFileSystemRepresentation(bsdName, bsdname, DEVMAXPATHSIZE))
-        goto finish;
-    // switch to ProgressLevel once setting NVRAM is reliable (8401249, etc)
-    OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                "setting NVRAM to boot from %s", bsdname);
-    if (BLCreateEFIXMLRepresentationForDevice(NULL, bsdname, NULL,&xmlString,0))
-        goto finish;
-
-    errmsg = "unable to find /options node";
-    optionsNode = IORegistryEntryFromPath(kIOMasterPortDefault,
-                                          kIODeviceTreePlane ":/options");
-    if (IO_OBJECT_NULL == optionsNode)   goto finish;
-    
-    errmsg = "error setting efi-boot-device";
-    rval = IORegistryEntrySetCFProperty(optionsNode,
-                                        CFSTR("efi-boot-device"), xmlString);
-    
-finish:
-    if (rval != KERN_SUCCESS) {
-        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-                  "setEFIBootDevice(): %s", errmsg);
-    }
-
-    if (optionsNode != IO_OBJECT_NULL)
-        IOObjectRelease(optionsNode);
-    if (xmlString)      CFRelease(xmlString);
-        
-    return rval;
-}
-
 static void
 check_boots_set_nvram(struct watchedVol *watched)
 {
@@ -863,6 +842,8 @@ check_boots_set_nvram(struct watchedVol *watched)
     Boolean curSDPreferred = true;      // XXX 8011916
     char *s;
     CFStringRef firstPart;
+    char bsdName[DEVMAXPATHSIZE];
+    BLContext blctx = { 0, BRBLLogFunc, NULL };
 
     // logs errors
     hasBoots = hasBootRootBoots(watched->caches, &bparts, &dparts, NULL);
@@ -880,7 +861,11 @@ check_boots_set_nvram(struct watchedVol *watched)
             // and if it was the root volume, re-point NVRAM
             if (0 == strcmp(watched->caches->root, "/") && curSDPreferred) {
                 firstPart = CFArrayGetValueAtIndex(bparts, 0);
-                (void)setEFIBootDevice(firstPart);
+                if (!firstPart)     goto finish;
+                if (CFStringGetFileSystemRepresentation(firstPart, bsdName,
+                                                        DEVMAXPATHSIZE)) {
+                    (void)BLSetEFIBootDevice(&blctx, bsdName);
+                }
             }
         }
     } else { // !hasBoots
@@ -897,7 +882,11 @@ check_boots_set_nvram(struct watchedVol *watched)
             if (0 == strcmp(watched->caches->root, "/") && curSDPreferred &&
                     CFArrayGetCount(dparts) == 1) {
                 firstPart = CFArrayGetValueAtIndex(dparts, 0);
-                (void)setEFIBootDevice(firstPart);
+                if (!firstPart)     goto finish;
+                if (CFStringGetFileSystemRepresentation(firstPart, bsdName,
+                                                      DEVMAXPATHSIZE)) {
+                    (void)BLSetEFIBootDevice(&blctx, bsdName);
+                }
             }
         }
     }
@@ -1055,7 +1044,9 @@ finish:
  * note: dissenter callback is called when root initiates an unmount,
  * but the result is ignored.
  *****************************************************************************/
-static DADissenterRef is_dadisk_busy(DADiskRef disk, void *ctx)
+CF_RETURNS_RETAINED
+static DADissenterRef
+is_dadisk_busy(DADiskRef disk, void *ctx)
 {
     int result = 0;     // ignore weird requests for now (4528851)
     DADissenterRef rval = NULL;
@@ -1145,17 +1136,14 @@ finish:
  * fsys_changed gets the mach messages from notifyd
  * - schedule a timer (urgency detected elsewhere calls direct, canceling timer)
  *****************************************************************************/
-static void fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
+static void
+fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
 {
     uint64_t nstate;
     struct watchedVol *watched;
     int notify_status = NOTIFY_STATUS_OK;
     int token;
-    FILE *f;
     mach_msg_empty_rcv_t *msg = (mach_msg_empty_rcv_t*)m;
-
-    char path[PATH_MAX];
-    struct stat sb;
 
     // msg_id==token -> notify_get_state() -> watchedVol*
     // XX if (token == 0, perhaps a force-rebuild message?)
@@ -1181,11 +1169,24 @@ static void fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
         goto finish;
     }
 
+    checkScheduleUpdate(watched);
+
+finish:
+    return;
+}
+
+static void
+checkScheduleUpdate(struct watchedVol *watched)
+{
+    char path[PATH_MAX];
+    struct stat sb;
+    FILE *f;
+
     // ignore unwatched volumes (notification should have been canceled?)
     if (!CFDictionaryGetCountOfValue(sFsysWatchDict, watched)) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Invalid token/volume: %d, %p.", token, watched);
+            "Invalid volume: %p.", watched);
         goto finish;
     }
 
@@ -1331,7 +1332,6 @@ static Boolean check_rebuild(struct watchedVol *watched)
         goto finish;
     }
 
-
     // stat stuff to see if a rebuild is needed
     // (it was 'goto' or ever-deeper nesting)
     if ((rebuild = check_kext_boot_cache_file(watched->caches,
@@ -1340,7 +1340,7 @@ static Boolean check_rebuild(struct watchedVol *watched)
 
         goto dorebuild;
     }
-
+    
     // updates isBootRoot and modifies NVRAM if needed
     check_boots_set_nvram(watched);
 
@@ -1393,6 +1393,7 @@ static void check_locked(const void *key, const void *val, void *ctx)
 
     // report this one if:
     // it's already locked or if it needs a rebuild
+    // check_vol_busy() ensures checks for excessive errors
     if (check_vol_busy(watched)) {
         strlcpy(busyVol, watched->caches->root, sizeof(mountpoint_t));
     }
@@ -1665,7 +1666,8 @@ kern_return_t _kextmanager_lock_volume(mach_port_t p, mach_port_t replyPort,
             goto finish;
         }
 
-        // store waiter, replyPort; cleanupPort releases waiter create above
+        // store waiter, replyPort
+        // cleanupPort() CFRelease()s all waiter objects
         CFArrayAppendValue(watched->waiters, waiter);
         CFDictionarySetValue(sReplyPorts, waiter, (void*)(intptr_t)replyPort);
 
@@ -1876,7 +1878,7 @@ static void port_died(CFMachPortRef cfport, void *info)
         if (watched->lock) {
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-                "%d (kextcache) exited without unlocking '%s'.",
+                "helper pid %d exited without unlocking '%s'.",
                 CFMachPortGetPort(watched->lock), watched->caches->root);
             watched->updterrs++;
             handleWatchedHandoff(watched);      // cleans up watched->lock
@@ -1901,6 +1903,9 @@ static void port_died(CFMachPortRef cfport, void *info)
             waiter = (CFMachPortRef)CFArrayGetValueAtIndex(watched->waiters,i);
             if (mport == CFMachPortGetPort(waiter)) {
                 cleanupPort(&waiter);       // --retainCount
+                // (dropping the "extra" reference left by createWatchedPort() in 
+                // _kextmanager_lock_volume().  CFArray doesn't require the extra
+                // reference, but we also use this for watched->lock, sReboot*, etc.
                 CFArrayRemoveValueAtIndex(watched->waiters, i); // release
                 goto finish;      // success
             }
@@ -1974,7 +1979,8 @@ finish:
     return rval;
 }
 
-static Boolean reconsiderVolumes(mountpoint_t busyVol)
+static Boolean
+reconsiderVolumes(mountpoint_t busyVol)
 {
     Boolean rval = false;
     char *errmsg = NULL;
@@ -1989,7 +1995,7 @@ static Boolean reconsiderVolumes(mountpoint_t busyVol)
     if (-1 == (nfsys = getfsstat(NULL, 0, MNT_NOWAIT))) goto finish;
     bufsz = nfsys * sizeof(struct statfs);
     if (!(mounts = malloc(bufsz)))                  goto finish;
-    if (-1 == getfsstat(mounts, bufsz, MNT_NOWAIT)) goto finish;
+    if (-1 == getfsstat(mounts, (int)bufsz, MNT_NOWAIT)) goto finish;
 
     errmsg = NULL;  // let reconsiderVolume() take it from here
     for (i = 0; i < nfsys; i++) {
@@ -2017,29 +2023,21 @@ finish:
     return rval;
 }
 
-/*******************************************************************************
-* updateRAIDSet() -- Something on a RAID set has changed, so we may need to
-* update its boot partition info.
-*******************************************************************************/
-#define RAID_MATCH_SIZE   (2)
-
-void updateRAIDSet(
-    CFNotificationCenterRef center,
-    void * observer,
-    CFStringRef name,
-    const void * object,
-    CFDictionaryRef userInfo)
+/*
+ * helpers to deal with I/O Kit notifications, bootstamps removal
+ */
+#define kBRNormalUpdate false
+#define kBRInvalidateStamps true        // cf. kBRUForceUpdateHelpers
+static void
+updateVolForMedia(const void *object, char *mediaDesc, int matchSize,
+                  CFStringRef matchingKeys[], CFTypeRef matchingValues[],
+                  bool invalidateStamps)
 {
     char * errorMessage = NULL;
-    CFStringRef matchingKeys[RAID_MATCH_SIZE] = {
-        CFSTR("RAID"),
-        CFSTR("UUID") };
-    CFTypeRef matchingValues[RAID_MATCH_SIZE] = {
-        (CFTypeRef)kCFBooleanTrue,
-        (CFTypeRef)object };
+
     CFDictionaryRef matchPropertyDict = NULL;
     CFMutableDictionaryRef matchingDict = NULL;
-    io_service_t theRAIDSet = MACH_PORT_NULL;
+    io_service_t theMedia = MACH_PORT_NULL;
     DADiskRef dadisk = NULL;
     CFDictionaryRef dadesc = NULL;
     CFUUIDRef volUUID;          // part of dadesc; not released
@@ -2048,16 +2046,14 @@ void updateRAIDSet(
     // nothing to do if we're not watching yet
     if (!sFsysWatchDict)    goto finish;    
 
-    errorMessage = "No RAID set named in RAID set changed notification.";
+    errorMessage = "change notification missing object.";
     if (!object) {
         goto finish;
     }
 
-    errorMessage = "Unable to create matching dictionary for RAID set.";
+    errorMessage = "error creating matching dictionary.";
     matchPropertyDict = CFDictionaryCreate(kCFAllocatorDefault,
-        (const void **)&matchingKeys,
-        (const void **)&matchingValues,
-        RAID_MATCH_SIZE,
+        (void*)matchingKeys, matchingValues, matchSize,
         &kCFTypeDictionaryKeyCallBacks,
         &kCFTypeDictionaryValueCallBacks);
     if (!matchPropertyDict) {
@@ -2072,18 +2068,18 @@ void updateRAIDSet(
         goto finish;
     }
     CFDictionarySetValue(matchingDict, CFSTR(kIOPropertyMatchKey), 
-        matchPropertyDict);
+                         matchPropertyDict);
 
-    errorMessage = NULL;    // maybe the RAID just went away
-    theRAIDSet  = IOServiceGetMatchingService(kIOMasterPortDefault,
-        matchingDict);
+    errorMessage = NULL;    // it might have gone away
+    theMedia  = IOServiceGetMatchingService(kIOMasterPortDefault,
+                                            matchingDict);
     matchingDict = NULL;  // IOServiceGetMatchingService() consumes reference!
-    if (!theRAIDSet) {
+    if (!theMedia) {
         goto finish;
     }
 
-    errorMessage = "Unable to get DiskArb info for raid set object.";
-    dadisk = DADiskCreateFromIOMedia(nil, sDASession, theRAIDSet);
+    errorMessage = "unable to get DiskArb info.";
+    dadisk = DADiskCreateFromIOMedia(nil, sDASession, theMedia);
     if (!dadisk)    goto finish;
     dadesc = DADiskCopyDescription(dadisk);
     if (!dadesc)    goto finish;
@@ -2092,7 +2088,21 @@ void updateRAIDSet(
 
     watched = (void*)CFDictionaryGetValue(sFsysWatchDict, volUUID);
     if (watched) {
-        (void)launch_rebuild_all(watched->caches->root, true /* force rebuild */, false);
+        // instead of passing -f, directly invalidate the caches
+        if (invalidateStamps) {
+            char stampsdir[PATH_MAX];
+            errorMessage = "error unlinking bootstamps";
+            if (strlcpy(stampsdir,watched->caches->root,PATH_MAX)>=PATH_MAX ||
+                    strlcat(stampsdir, kTSCacheDir, PATH_MAX) >= PATH_MAX) {
+                goto finish;
+            }
+            if (sdeepunlink(watched->caches->cachefd, stampsdir)) {
+                goto finish;
+            }
+        }
+
+        // might decide not to do the update right now
+        checkScheduleUpdate(watched);
     }
 
     errorMessage = NULL;
@@ -2101,11 +2111,11 @@ finish:
     if (errorMessage) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "%s", errorMessage);
+            "%s: %s", mediaDesc, errorMessage);
     }
     if (dadesc)             CFRelease(dadesc);
     if (dadisk)             CFRelease(dadisk);
-    if (theRAIDSet)         IOObjectRelease(theRAIDSet);
+    if (theMedia)           IOObjectRelease(theMedia);
     if (matchingDict)       CFRelease(matchingDict);
     if (matchPropertyDict)  CFRelease(matchPropertyDict);
 
@@ -2113,11 +2123,33 @@ finish:
 }
 
 /*******************************************************************************
+* updateRAIDSet() -- Something on a RAID set has changed, so we update all
+* Apple_Boot partitions.
+*******************************************************************************/
+#define RAID_MATCH_SIZE   (2)
+void updateRAIDSet(
+    CFNotificationCenterRef center,
+    void * observer,
+    CFStringRef name,
+    const void * object,
+    CFDictionaryRef userInfo)
+{
+    CFStringRef matchingKeys[RAID_MATCH_SIZE] = {
+        CFSTR("RAID"),
+        CFSTR("UUID") };
+    CFTypeRef matchingValues[RAID_MATCH_SIZE] = {
+        (CFTypeRef)kCFBooleanTrue,
+        (CFTypeRef)object };
+
+    updateVolForMedia(object, "RAID Volume", RAID_MATCH_SIZE, matchingKeys,
+                      matchingValues, kBRInvalidateStamps);
+}
+
+/*******************************************************************************
 * updateCoreStorageVolume() -- Something on a CoreStorage logical volume has
 * changed, so we may need to update its boot partition info.
 *******************************************************************************/
 #define CSLV_MATCH_SIZE   (2)
-
 void updateCoreStorageVolume(
    CFNotificationCenterRef center,
    void * observer,
@@ -2125,86 +2157,21 @@ void updateCoreStorageVolume(
    const void * object,
    CFDictionaryRef userInfo)
 {
-    char * errorMessage = NULL;
     CFStringRef matchingKeys[CSLV_MATCH_SIZE] = {
         CFSTR("CoreStorage"),
         CFSTR("UUID") };
     CFTypeRef matchingValues[CSLV_MATCH_SIZE] = {
         (CFTypeRef)kCFBooleanTrue,
         (CFTypeRef)object };
-    CFDictionaryRef matchPropertyDict = NULL;
-    CFMutableDictionaryRef matchingDict = NULL;
-    io_service_t theLogicalVolume = MACH_PORT_NULL;
-    DADiskRef dadisk = NULL;
-    CFDictionaryRef dadesc = NULL;
-    CFUUIDRef volUUID;          // part of dadesc; not released
-    struct watchedVol * watched = NULL;  // do not free
+    bool invalidateStamps = false;
 
-    // nothing to do if we're not watching yet
-    if (!sFsysWatchDict)    goto finish;    
-
-    errorMessage = "No logical volume named in corestorage changed notification.";
-    if (!object) {
-        goto finish;
+    if (CFEqual(name, CFSTR(kCoreStorageNotificationLVGChanged))) {
+OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+"LVG changed");
+        invalidateStamps = true;
     }
-
-    errorMessage = "Unable to create matching dictionary for the CoreStorage volume.";
-    matchPropertyDict = CFDictionaryCreate(kCFAllocatorDefault,
-        (const void **)&matchingKeys,
-        (const void **)&matchingValues,
-        CSLV_MATCH_SIZE,
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!matchPropertyDict) {
-        goto finish;
-    }
-
-    matchingDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
-        0,
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!matchingDict) {
-        goto finish;
-    }
-    CFDictionarySetValue(matchingDict, CFSTR(kIOPropertyMatchKey), 
-        matchPropertyDict);
-
-    errorMessage = NULL;    // maybe the volume just went away
-    theLogicalVolume  = IOServiceGetMatchingService(kIOMasterPortDefault,
-        matchingDict);
-    matchingDict = NULL;  // IOServiceGetMatchingService() consumes reference!
-    if (!theLogicalVolume) {
-        goto finish;
-    }
-
-    errorMessage = "Unable to get DiskArb info for corestorage logical volume object.";
-    dadisk = DADiskCreateFromIOMedia(nil, sDASession, theLogicalVolume);
-    if (!dadisk)    goto finish;
-    dadesc = DADiskCopyDescription(dadisk);
-    if (!dadesc)    goto finish;
-    volUUID = CFDictionaryGetValue(dadesc, kDADiskDescriptionVolumeUUIDKey);
-    if (!volUUID)   goto finish;
-
-    watched = (void*)CFDictionaryGetValue(sFsysWatchDict, volUUID);
-    if (watched) {
-        (void)launch_rebuild_all(watched->caches->root, false, false);
-    }
-
-    errorMessage = NULL;
-
-finish:
-    if (errorMessage) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "%s", errorMessage);
-    }
-    if (dadesc)             CFRelease(dadesc);
-    if (dadisk)             CFRelease(dadisk);
-    if (theLogicalVolume)   IOObjectRelease(theLogicalVolume);
-    if (matchingDict)       CFRelease(matchingDict);
-    if (matchPropertyDict)  CFRelease(matchPropertyDict);
-
-    return;
+    updateVolForMedia(object, "CoreStorage Volume", CSLV_MATCH_SIZE,
+                      matchingKeys, matchingValues, invalidateStamps);
 }
 
 

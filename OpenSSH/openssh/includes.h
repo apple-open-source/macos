@@ -137,8 +137,10 @@
 # include <tmpdir.h>
 #endif
 
-#ifdef HAVE_LIBUTIL_H
-# include <libutil.h> /* Openpty on FreeBSD at least */
+#if defined(HAVE_BSD_LIBUTIL_H)
+# include <bsd/libutil.h>
+#elif defined(HAVE_LIBUTIL_H)
+# include <libutil.h>
 #endif
 
 #if defined(KRB5) && defined(USE_AFS)
@@ -162,7 +164,11 @@
 # endif
 #endif
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-crypto.h"
+#else
 #include <openssl/opensslv.h> /* For OPENSSL_VERSION_NUMBER */
+#endif
 
 #include "defines.h"
 

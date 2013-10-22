@@ -1,1 +1,0 @@
-/* this empty file is here to fool libtool and automake */

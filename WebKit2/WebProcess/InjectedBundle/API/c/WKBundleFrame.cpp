@@ -27,11 +27,15 @@
 #include "WKBundleFrame.h"
 #include "WKBundleFramePrivate.h"
 
+#include "InjectedBundleHitTestResult.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
 #include "WKData.h"
 #include "WebFrame.h"
+#include "WebSecurityOrigin.h"
+#include <WebCore/Document.h>
 #include <WebCore/Frame.h>
+#include <WebCore/FrameLoader.h>
 #include <WebCore/FrameView.h>
 
 using namespace WebCore;
@@ -90,31 +94,6 @@ WKArrayRef WKBundleFrameCopyChildFrames(WKBundleFrameRef frameRef)
     return toAPI(toImpl(frameRef)->childFrames().leakRef());    
 }
 
-unsigned WKBundleFrameGetNumberOfActiveAnimations(WKBundleFrameRef frameRef)
-{
-    return toImpl(frameRef)->numberOfActiveAnimations();
-}
-
-bool WKBundleFramePauseAnimationOnElementWithId(WKBundleFrameRef frameRef, WKStringRef animationName, WKStringRef elementID, double time)
-{
-    return toImpl(frameRef)->pauseAnimationOnElementWithId(toImpl(animationName)->string(), toImpl(elementID)->string(), time);
-}
-
-bool WKBundleFramePauseTransitionOnElementWithId(WKBundleFrameRef frameRef, WKStringRef propertyName, WKStringRef elementID, double time)
-{
-    return toImpl(frameRef)->pauseTransitionOnElementWithId(toImpl(propertyName)->string(), toImpl(elementID)->string(), time);
-}
-
-void WKBundleFrameSuspendAnimations(WKBundleFrameRef frameRef)
-{
-    toImpl(frameRef)->suspendAnimations();
-}
-
-void WKBundleFrameResumeAnimations(WKBundleFrameRef frameRef)
-{
-    toImpl(frameRef)->resumeAnimations();
-}
-
 JSGlobalContextRef WKBundleFrameGetJavaScriptContext(WKBundleFrameRef frameRef)
 {
     return toImpl(frameRef)->jsContext();
@@ -145,19 +124,9 @@ WKStringRef WKBundleFrameCopyName(WKBundleFrameRef frameRef)
     return toCopiedAPI(toImpl(frameRef)->name());
 }
 
-JSValueRef WKBundleFrameGetComputedStyleIncludingVisitedInfo(WKBundleFrameRef frameRef, JSObjectRef element)
-{
-    return toImpl(frameRef)->computedStyleIncludingVisitedInfo(element);
-}
-
 WKStringRef WKBundleFrameCopyCounterValue(WKBundleFrameRef frameRef, JSObjectRef element)
 {
     return toCopiedAPI(toImpl(frameRef)->counterValue(element));
-}
-
-WKStringRef WKBundleFrameCopyMarkerText(WKBundleFrameRef frameRef, JSObjectRef element)
-{
-    return toCopiedAPI(toImpl(frameRef)->markerText(element));
 }
 
 WKStringRef WKBundleFrameCopyInnerText(WKBundleFrameRef frameRef)
@@ -182,6 +151,11 @@ void WKBundleFrameClearOpener(WKBundleFrameRef frameRef)
         coreFrame->loader()->setOpener(0);
 }
 
+void WKBundleFrameStopLoading(WKBundleFrameRef frameRef)
+{
+    toImpl(frameRef)->stopLoading();
+}
+
 WKStringRef WKBundleFrameCopyLayerTreeAsText(WKBundleFrameRef frameRef)
 {
     return toCopiedAPI(toImpl(frameRef)->layerTreeAsText());
@@ -189,7 +163,12 @@ WKStringRef WKBundleFrameCopyLayerTreeAsText(WKBundleFrameRef frameRef)
 
 bool WKBundleFrameAllowsFollowingLink(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return toImpl(frameRef)->allowsFollowingLink(WebCore::KURL(WebCore::KURL(), toImpl(urlRef)->string()));
+    return toImpl(frameRef)->allowsFollowingLink(WebCore::KURL(WebCore::KURL(), toWTFString(urlRef)));
+}
+
+bool WKBundleFrameHandlesPageScaleGesture(WKBundleFrameRef frameRef)
+{
+    return toAPI(toImpl(frameRef)->handlesPageScaleGesture());
 }
 
 WKRect WKBundleFrameGetContentBounds(WKBundleFrameRef frameRef)
@@ -229,12 +208,12 @@ bool WKBundleFrameGetDocumentBackgroundColor(WKBundleFrameRef frameRef, double* 
 
 WKStringRef WKBundleFrameCopySuggestedFilenameForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return toCopiedAPI(toImpl(frameRef)->suggestedFilenameForResourceWithURL(WebCore::KURL(WebCore::KURL(), toImpl(urlRef)->string())));
+    return toCopiedAPI(toImpl(frameRef)->suggestedFilenameForResourceWithURL(WebCore::KURL(WebCore::KURL(), toWTFString(urlRef))));
 }
 
 WKStringRef WKBundleFrameCopyMIMETypeForResourceWithURL(WKBundleFrameRef frameRef, WKURLRef urlRef)
 {
-    return toCopiedAPI(toImpl(frameRef)->mimeTypeForResourceWithURL(WebCore::KURL(WebCore::KURL(), toImpl(urlRef)->string())));
+    return toCopiedAPI(toImpl(frameRef)->mimeTypeForResourceWithURL(WebCore::KURL(WebCore::KURL(), toWTFString(urlRef))));
 }
 
 bool WKBundleFrameContainsAnyFormElements(WKBundleFrameRef frameRef)
@@ -242,9 +221,14 @@ bool WKBundleFrameContainsAnyFormElements(WKBundleFrameRef frameRef)
     return toImpl(frameRef)->containsAnyFormElements();
 }
 
+bool WKBundleFrameContainsAnyFormControls(WKBundleFrameRef frameRef)
+{
+    return toImpl(frameRef)->containsAnyFormControls();
+}
+
 void WKBundleFrameSetTextDirection(WKBundleFrameRef frameRef, WKStringRef directionRef)
 {
-    toImpl(frameRef)->setTextDirection(toImpl(directionRef)->string());
+    toImpl(frameRef)->setTextDirection(toWTFString(directionRef));
 }
 
 WKDataRef WKBundleFrameCopyWebArchive(WKBundleFrameRef frameRef)
@@ -254,11 +238,38 @@ WKDataRef WKBundleFrameCopyWebArchive(WKBundleFrameRef frameRef)
 
 WKDataRef WKBundleFrameCopyWebArchiveFilteringSubframes(WKBundleFrameRef frameRef, WKBundleFrameFrameFilterCallback frameFilterCallback, void* context)
 {
-#if PLATFORM(MAC) || PLATFORM(WIN)
+#if PLATFORM(MAC)
     RetainPtr<CFDataRef> data = toImpl(frameRef)->webArchiveData(frameFilterCallback, context);
     if (data)
         return WKDataCreate(CFDataGetBytePtr(data.get()), CFDataGetLength(data.get()));
+#else
+    UNUSED_PARAM(frameRef);
+    UNUSED_PARAM(frameFilterCallback);
+    UNUSED_PARAM(context);
 #endif
     
     return 0;
+}
+
+bool WKBundleFrameCallShouldCloseOnWebView(WKBundleFrameRef frameRef)
+{
+    Frame* coreFrame = toImpl(frameRef)->coreFrame();
+    if (!coreFrame)
+        return true;
+
+    return coreFrame->loader()->shouldClose();
+}
+
+WKBundleHitTestResultRef WKBundleFrameCreateHitTestResult(WKBundleFrameRef frameRef, WKPoint point)
+{
+    return toAPI(toImpl(frameRef)->hitTest(toIntPoint(point)).leakRef());
+}
+
+WKSecurityOriginRef WKBundleFrameCopySecurityOrigin(WKBundleFrameRef frameRef)
+{
+    Frame* coreFrame = toImpl(frameRef)->coreFrame();
+    if (!coreFrame)
+        return 0;
+
+    return toCopiedAPI(coreFrame->document()->securityOrigin());
 }

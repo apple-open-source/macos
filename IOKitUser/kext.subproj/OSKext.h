@@ -1486,7 +1486,7 @@ OSKextCopyExecutableForArchitecture(OSKextRef aKext,
  *                         such as <code>jpg</code>.
  *                         Pass <code>NULL</code> if you don't need
  *                         to search by type.
- * 
+ *
  * @result
  * A <code>CFData</code> object containing the resource file's contents,
  * or <code>NULL</code> if the resource can't be found.
@@ -1502,10 +1502,41 @@ OSKextCopyExecutableForArchitecture(OSKextRef aKext,
  */
 CF_EXPORT CFDataRef
 OSKextCopyResource(
-    OSKextRef   aKext,
-    CFStringRef resourceName,
-    CFStringRef resourceType)
+                   OSKextRef   aKext,
+                   CFStringRef resourceName,
+                   CFStringRef resourceType)
                 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+
+/*!
+ * @function OSKextIsInExcludeList
+ * @abstract Return true if given kext is in the kext exclude list.
+ *
+ * @param    aKext         The kext to check against exclude list.
+ * @param    useCache      Tells us whether or not to use the cached exclude 
+ *                         list dictionary.
+ *
+ * @result
+ * <code>true</code> if <code>aKext</code> is in the kext exclude list,
+ * <code>false</code> otherwise.
+ *
+ * @discussion
+ * Checks to see if the given kext is in the kext exclude list (see:
+ * /System/Library/Extensions/AppleKextExcludeList.kext)
+ * If useCache is TRUE, we will use the cached copy of the exclude list.
+ * If useCache is FALSE, we will refresh the cache from disk.  The
+ * kext exclude list rarely changes but to insure you have the most
+ * recent copy in the cache you may pass FALSE for the first call and TRUE for
+ * subsequent calls (when dealing with a large list of kexts).
+ * aKext can be NULL with useCache set to FALSE if you wish the invalidate the
+ * cache without passing in a kext.
+ */
+#ifdef __MAC_10_9
+CF_EXPORT Boolean
+OSKextIsInExcludeList(
+                      OSKextRef aKext,
+                      Boolean   useCache)
+__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
+#endif // __MAC_10_9
 
 #pragma mark Dependency Resolution
 /*********************************************************************
@@ -2044,6 +2075,7 @@ OSKextLoadWithOptions(
  * This function calls @link OSKextResolveDependencies@/link to find
  * dependencies.
  */
+CF_RETURNS_RETAINED
 CF_EXPORT CFDictionaryRef
 OSKextGenerateDebugSymbols(
     OSKextRef aKext,
@@ -2771,6 +2803,26 @@ OSKextValidateDependencies(OSKextRef aKext)
 CF_EXPORT Boolean
 OSKextAuthenticate(OSKextRef aKext)
                 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+
+#ifdef __MAC_10_9
+/*!
+ * @function OSKextIsSigned
+ * @abstract
+ * Returns whether a kext is code signed or not.
+ *
+ * @param    aKext  The kext to examine.
+ * @result
+ * <code>true</code> if <code>aKext</code> is signed,
+ * <code>false</code> otherwise.
+ *
+ * @discussion
+ * This function checks to see if code signing resources are in place in the
+ * kext bundle.
+ */
+CF_EXPORT Boolean
+OSKextIsSigned(OSKextRef aKext)
+            __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_NA);
+#endif // __MAC_10_9
 
 /*!
  * @function OSKextIsAuthentic

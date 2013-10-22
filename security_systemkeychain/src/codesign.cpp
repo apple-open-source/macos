@@ -51,7 +51,7 @@ Operation operation = doNothing;
 //
 // Command-line arguments and options
 //
-int pagesize = pagesizeUnspecified;	// signing page size (-1 => not specified)
+size_t pagesize = pagesizeUnspecified; // signing page size (-1 => not specified)
 SecIdentityRef signer = NULL;		// signer identity
 SecKeychainRef keychain = NULL;		// source keychain for signer identity
 const char *internalReq = NULL;		// internal requirement (raw optarg)
@@ -68,6 +68,7 @@ const char *sdkRoot = NULL;			// alternate root for looking up sub-components
 const char *featureCheck = NULL;	// feature support check
 SecCSFlags staticVerifyOptions = kSecCSCheckAllArchitectures; // option flags to static verifications
 SecCSFlags dynamicVerifyOptions = kSecCSDefaultFlags; // option flags to static verifications
+SecCSFlags signOptions = kSecCSDefaultFlags; // option flags to signing operations
 uint32_t digestAlgorithm = 0;		// digest algorithm to be used when signing
 CFDateRef signingTime;				// explicit signing time option
 size_t signatureSize = 0;			// override CMS blob estimate
@@ -78,7 +79,8 @@ const char *bundleVersion;			// specific version string requested (from a versio
 bool noMachO = false;				// force non-MachO operation
 bool dryrun = false;				// do not actually change anything
 bool allArchitectures = false;		// process all architectures in a universal (aka fat) code file
-int preserveMetadata = 0;			// what metadata to keep from previous signature
+bool nested = false;				// nested code processing (--deep)
+uint32_t preserveMetadata = 0;		// what metadata to keep from previous signature
 CFBooleanRef timestampRequest = NULL; // timestamp service request
 bool noTSAcerts = false;			// Don't request certificates with ts request
 const char *tsaURL = NULL;			// TimeStamping Authority URL
@@ -91,6 +93,8 @@ static const char *features[] = {
 	"hash-identities",				// supports -s hash-of-certificate
 	"identity-preferences",		// supports -s identity-preference-name
 	"deep-verify",					// supports --deep-verify
+	"numeric-errors",				// supports --numeric-errors
+	"deep-signing",					// supports "deep" (recursive) signing
 	NULL							// sentinel
 };
 
@@ -115,18 +119,22 @@ enum {
 	optCheckExpiration,
 	optCheckRevocation,
 	optContinue,
-	optDeepVerify,
+	optDeep,
 	optDetachedDatabase,
 	optDigestAlgorithm,
 	optDryRun,
 	optExtractCerts,
 	optEntitlements,
 	optFeatures,
+	optFMJ,
 	optFileList,
 	optIdentifierPrefix,
 	optIgnoreResources,
 	optKeychain,
+	optLegacy,
+	optNoLegacy,
 	optNoMachO,
+	optNumeric,
 	optPreserveMetadata,
 	optProcInfo,
 	optProcAction,
@@ -161,7 +169,8 @@ const struct option options[] = {
 	{ "check-expiration", no_argument,		NULL, optCheckExpiration },
 	{ "check-revocation", no_argument,		NULL, optCheckRevocation },
 	{ "continue",	no_argument,			NULL, optContinue },
-	{ "deep-verify", no_argument,			NULL, optDeepVerify },
+	{ "deep",		no_argument,			NULL, optDeep },
+	{ "deep-verify", no_argument,			NULL, optDeep },	// legacy
 	{ "detached-database", optional_argument, NULL, optDetachedDatabase },
 	{ "digest-algorithm", required_argument, NULL, optDigestAlgorithm },
 	{ "dryrun",		no_argument,			NULL, optDryRun },
@@ -170,9 +179,13 @@ const struct option options[] = {
 	{ "extract-certificates", optional_argument, NULL, optExtractCerts },
 	{ "features",	optional_argument,		NULL, optFeatures },
 	{ "file-list",	required_argument,		NULL, optFileList },
+	{ "full-metal-jacket", no_argument,		NULL, optFMJ },
 	{ "ignore-resources", no_argument,		NULL, optIgnoreResources },
 	{ "keychain",	required_argument,		NULL, optKeychain },
+	{ "legacy-signing", no_argument,		NULL, optLegacy },
+	{ "no-legacy-signing", no_argument,		NULL, optNoLegacy },
 	{ "no-macho",	no_argument,			NULL, optNoMachO },
+	{ "numeric-errors", no_argument,		NULL, optNumeric },
 	{ "prefix",		required_argument,		NULL, optIdentifierPrefix },
 	{ "preserve-metadata", optional_argument, NULL, optPreserveMetadata },
 	{ "procaction",	required_argument,		NULL, optProcAction },
@@ -270,7 +283,9 @@ int main(int argc, char *argv[])
 			case optContinue:
 				continueOnError = true;
 				break;
-			case optDeepVerify:
+			case optDeep:
+				nested = true;
+				signOptions |= kSecCSSignNestedCode;
 				staticVerifyOptions |= kSecCSCheckNestedCode;
 				break;
 			case optDetachedDatabase:
@@ -315,8 +330,20 @@ int main(int argc, char *argv[])
 			case optKeychain:
 				MacOSError::check(keychain_open(optarg, keychain));
 				break;
+			case optLegacy:
+				signOptions |= kSecCSSignV1;
+				break;
+			case optFMJ:
+				signOptions |= kSecCSSignOpaque;	// no need for V2 signature for FMJ
+				break;
+			case optNoLegacy:
+				signOptions = kSecCSSignNoV1;
+				break;
 			case optNoMachO:
 				noMachO = true;
+				break;
+			case optNumeric:
+				numericErrors = true;
 				break;
 			case optTimestamp:
 				if (optarg && !strcmp(optarg, "none")) {	// explicit defeat
@@ -388,6 +415,8 @@ int main(int argc, char *argv[])
 		case doVerify:
 			prepareToVerify();
 			break;
+		default:
+			break;
 		}
 	} catch (...) {
 		diagnose(NULL, exitFailure);
@@ -416,6 +445,8 @@ int main(int argc, char *argv[])
 			case doProcAction:
 				procaction(target);
 				break;
+			default:
+				break;
 			}
 		} catch (...) {
 			diagnose(target);
@@ -432,7 +463,7 @@ int main(int argc, char *argv[])
 void usage()
 {
 	fprintf(stderr, "Usage: codesign -s identity [-fv*] [-o flags] [-r reqs] [-i ident] path ... # sign\n"
-		"       codesign -v [-v*] [-R testreq] path|pid ... # verify\n"
+		"       codesign -v [-v*] [-R testreq] path|[+]pid ... # verify\n"
 		"       codesign -d [options] path ... # display contents\n"
 		"       codesign -h pid ... # display hosting paths\n"
 	);
@@ -502,16 +533,17 @@ void chooseArchitecture(const char *arg)
 static uint32_t parseMetadataFlags(const char *arg)
 {
 	static const SecCodeDirectoryFlagTable metadataFlags[] = {
-		{ "identifier",	kPreserveIdentifier,		true },
-		{ "requirements", kPreserveRequirements,	true },
-		{ "entitlements", kPreserveEntitlements,	true },
-		{ "resource-rules", kPreserveResourceRules,	true },
+		{ "identifier",	kSecCodeSignerPreserveIdentifier,		true },
+		{ "requirements", kSecCodeSignerPreserveRequirements,	true },
+		{ "entitlements", kSecCodeSignerPreserveEntitlements,	true },
+		{ "resource-rules", kSecCodeSignerPreserveResourceRules,true },
+		{ "flags", kSecCodeSignerPreserveFlags,					true },
 		{ NULL }
 	};
 	if (arg == NULL) {	// --preserve-metadata compatibility default
-		uint32_t flags = kPreserveRequirements | kPreserveEntitlements | kPreserveResourceRules;
+		uint32_t flags = kSecCodeSignerPreserveRequirements | kSecCodeSignerPreserveEntitlements | kSecCodeSignerPreserveResourceRules | kSecCodeSignerPreserveFlags;
 		if (!getenv("RC_XBS") || getenv("RC_BUILDIT"))	// if we're NOT in real B&I...
-			flags |= kPreserveIdentifier;				// ... then preserve identifier too
+			flags |= kSecCodeSignerPreserveIdentifier;				// ... then preserve identifier too
 		return flags;
 	} else {
 		return parseOptionTable(arg, metadataFlags);

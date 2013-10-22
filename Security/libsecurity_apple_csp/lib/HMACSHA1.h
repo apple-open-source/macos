@@ -25,7 +25,6 @@
 #ifndef __HMACSHA1__
 #define __HMACSHA1__
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <Security/cssmtype.h>
 #include <pbkdDigest.h>
 #include <CommonCrypto/CommonDigest.h>

@@ -1,3 +1,29 @@
+.\" Copyright (c) 1999-2013 Apple Inc. All rights reserved.
+.\"
+.\" @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+.\" 
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+.\" Version 2.0 (the 'License'). You may not use this file except in
+.\" compliance with the License. The rights granted to you under the License
+.\" may not be used to create, or enable the creation or redistribution of,
+.\" unlawful or unlicensed copies of an Apple operating system, or to
+.\" circumvent, violate, or enable the circumvention or violation of, any
+.\" terms of an Apple operating system software license agreement.
+.\" 
+.\" Please obtain a copy of the License at
+.\" http://www.opensource.apple.com/apsl/ and read it before using this file.
+.\"
+.\" The Original Code and all software distributed under the License are
+.\" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\" Please see the License for the specific language governing rights and
+.\" limitations under the License.
+.\" 
+.\" @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+.\"
 .\" Copyright (c) 1985, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -26,9 +52,8 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)ping.8	8.2 (Berkeley) 12/11/93
-.\" $FreeBSD: src/sbin/ping/ping.8,v 1.51.8.2 2006/08/10 10:48:21 glebius Exp $
 .\"
-.Dd April 4, 2006
+.Dd March 29, 2013
 .Dt PING 8
 .Os
 .Sh NAME
@@ -159,17 +184,18 @@ This can be very hard on a network and should be used with caution.
 Specify the maximum size of
 .Tn ICMP
 payload when sending sweeping pings.
-This option is required for ping sweeps. 
+This option is required for ping sweeps.
 .It Fl g Ar sweepminsize
 Specify the size of
 .Tn ICMP
-payload to start with when sending sweeping pings. 
+payload to start with when sending sweeping pings.
 The default value is 0.
 .It Fl h Ar sweepincrsize
 Specify the number of bytes to increment the size of
 .Tn ICMP
 payload after
-each sweep when sending sweeping pings. The default value is 1.
+each sweep when sending sweeping pings.
+The default value is 1.
 .It Fl I Ar iface
 Source multicast packets with the given interface address.
 This flag only applies if the ping destination is a multicast address.
@@ -180,7 +206,7 @@ seconds
 .Em between sending each packet .
 The default is to wait for one second between each packet.
 The wait time may be fractional, but only the super-user may specify
-values less than 1 second.
+values less than 0.1 second.
 This option is incompatible with the
 .Fl f
 option.
@@ -337,8 +363,8 @@ When the specified number of packets have been sent
 or if the program is terminated with a
 .Dv SIGINT ,
 a brief summary is displayed, showing the number of packets sent and
-received, and the minimum, mean, maximum, and the population standard 
-deviation of the round-trip times.
+received, and the minimum, mean, maximum, and standard deviation of
+the round-trip times.
 .Pp
 If
 .Nm
@@ -509,17 +535,21 @@ packets that they use for
 packets, for example either 30 or 60.
 Others may use completely wild values.
 .El
-.Sh RETURN VALUES
+.Sh EXIT STATUS
 The
 .Nm
-utility returns an exit status of zero if at least one response was
-heard from the specified
-.Ar host ;
-a status of two if the transmission was successful but no responses
-were received; or another value
-(from
-.In sysexits.h )
-if an error occurred.
+utility exits with one of the following values:
+.Bl -tag -width indent
+.It 0
+At least one response was heard from the specified
+.Ar host .
+.It 2
+The transmission was successful but no responses were received.
+.It any other value
+An error occurred.
+These values are defined in
+.In sysexits.h .
+.El
 .Sh SEE ALSO
 .Xr netstat 1 ,
 .Xr ifconfig 8 ,

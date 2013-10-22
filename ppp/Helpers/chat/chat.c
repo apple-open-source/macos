@@ -333,7 +333,7 @@ main(argc, argv)
     program_name = *argv;
     tzset();
 	
-    while (option = switch_option(&argc, &argv)) {
+    while ((option = switch_option(&argc, &argv))) {
 				
 		switch (option) {
 			case 'e':

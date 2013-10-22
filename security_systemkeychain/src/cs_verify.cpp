@@ -25,10 +25,12 @@
 // cs_verify - codesign verification operations
 //
 #include "codesign.h"
+#include <Security/SecStaticCodePriv.h>
 #include <Security/SecRequirementPriv.h>
 #include <Security/SecCodePriv.h>
 
 using namespace UnixPlusPlus;
+
 
 static void displayGuestChain(SecCodeRef code);
 
@@ -53,16 +55,27 @@ void prepareToVerify()
 void verify(const char *target)
 {
 	CFRef<SecCodeRef> code = dynamicCodePath(target);		// set if the target is dynamic
-	CFRef<SecStaticCodeRef> staticCode;
+	CFCopyRef<SecStaticCodeRef> staticCode;
 	if (code)
 		MacOSError::check(SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &staticCode.aref()));
 	else
 		staticCode.take(staticCodePath(target, architecture, bundleVersion));
-	if (detached)
+	if (detached) {
 		if (CFRef<CFDataRef> dsig = cfLoadFile(detached))
 			MacOSError::check(SecCodeSetDetachedSignature(staticCode, dsig, kSecCSDefaultFlags));
 		else
 			fail("%s: cannot load detached signature", detached);
+	}
+
+	MacOSError::check(SecStaticCodeSetCallback(staticCode, kSecCSDefaultFlags, NULL, ^(SecStaticCodeRef code, CFStringRef stage, CFDictionaryRef info) {
+		if (code != staticCode) {
+			CFRef<CFURLRef> path;
+			MacOSError::check(SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()));
+			note(2, "--%s:%s", cfString(stage).c_str(), cfString(path).c_str());
+		}
+		return CFTypeRef(NULL);
+	}));
+
 	if (code) {
 		ErrorCheck check;
 		check(SecCodeCheckValidityWithErrors(code, kSecCSDefaultFlags, NULL, check));
@@ -76,13 +89,15 @@ void verify(const char *target)
 		else
 			note(1, "%s: valid on disk", target);
 	}
+	MacOSError::check(SecStaticCodeSetCallback(staticCode, kSecCSDefaultFlags, NULL, NULL));
 
 	if (verbose > 0) {		// self-check designated requirement
 		CFRef<SecRequirementRef> designated = NULL;
-		if (OSStatus rc = SecCodeCopyDesignatedRequirement(staticCode, kSecCSDefaultFlags, &designated.aref())) {
+		OSStatus rc;
+		if ((rc = SecCodeCopyDesignatedRequirement(staticCode, kSecCSDefaultFlags, &designated.aref()))) {
 			cssmPerror(target, rc);
 			fail("%s: cannot retrieve designated requirement", target);
-		} else if (rc = SecStaticCodeCheckValidity(staticCode, kSecCSBasicValidateOnly, designated)) {
+		} else if ((rc = SecStaticCodeCheckValidity(staticCode, kSecCSBasicValidateOnly, designated))) {
 			note(0, "%s: does not satisfy its designated Requirement", target);
 			if (!exitcode)
 				exitcode = exitNoverify;
@@ -92,6 +107,8 @@ void verify(const char *target)
 	
     if (testReqs) {			// check explicit test requirement
         if (OSStatus rc = SecStaticCodeCheckValidity(staticCode, staticVerifyOptions, testReqs)) {
+			if (numericErrors)
+				printf("%ld\n", long(errSecCSReqFailed));
             cssmPerror("test-requirement", rc);
             if (!exitcode)
                 exitcode = exitNoverify;

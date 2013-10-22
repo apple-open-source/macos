@@ -1,4 +1,5 @@
-/* $OpenBSD: servconf.c,v 1.222 2011/06/22 21:57:01 djm Exp $ */
+
+/* $OpenBSD: servconf.c,v 1.234 2013/02/06 00:20:42 dtucker Exp $ */
 /*
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  *                    All rights reserved
@@ -45,6 +46,10 @@
 #include "match.h"
 #include "channels.h"
 #include "groupaccess.h"
+#include "canohost.h"
+#include "packet.h"
+#include "hostfile.h"
+#include "auth.h"
 
 static void add_listen_addr(ServerOptions *, char *, int);
 static void add_one_listen_addr(ServerOptions *, char *, int);
@@ -135,12 +140,15 @@ initialize_server_options(ServerOptions *options)
 	options->num_permitted_opens = -1;
 	options->adm_forced_command = NULL;
 	options->chroot_directory = NULL;
+	options->authorized_keys_command = NULL;
+	options->authorized_keys_command_user = NULL;
 	options->zero_knowledge_password_authentication = -1;
 	options->revoked_keys_file = NULL;
 	options->trusted_user_ca_keys = NULL;
 	options->authorized_principals_file = NULL;
 	options->ip_qos_interactive = -1;
 	options->ip_qos_bulk = -1;
+	options->version_addendum = NULL;
 }
 
 void
@@ -251,17 +259,17 @@ fill_default_server_options(ServerOptions *options)
 	if (options->compression == -1)
 		options->compression = COMP_DELAYED;
 	if (options->allow_tcp_forwarding == -1)
-		options->allow_tcp_forwarding = 1;
+		options->allow_tcp_forwarding = FORWARD_ALLOW;
 	if (options->allow_agent_forwarding == -1)
 		options->allow_agent_forwarding = 1;
 	if (options->gateway_ports == -1)
 		options->gateway_ports = 0;
 	if (options->max_startups == -1)
-		options->max_startups = 10;
+		options->max_startups = 100;
 	if (options->max_startups_rate == -1)
-		options->max_startups_rate = 100;		/* 100% */
+		options->max_startups_rate = 30;		/* 30% */
 	if (options->max_startups_begin == -1)
-		options->max_startups_begin = options->max_startups;
+		options->max_startups_begin = 10;
 	if (options->max_authtries == -1)
 		options->max_authtries = DEFAULT_AUTH_FAIL_MAX;
 	if (options->max_sessions == -1)
@@ -286,13 +294,14 @@ fill_default_server_options(ServerOptions *options)
 		options->ip_qos_interactive = IPTOS_LOWDELAY;
 	if (options->ip_qos_bulk == -1)
 		options->ip_qos_bulk = IPTOS_THROUGHPUT;
-
+	if (options->version_addendum == NULL)
+		options->version_addendum = xstrdup("");
 	/* Turn privilege separation on by default */
 	if (use_privsep == -1)
 #ifdef	__APPLE_SANDBOX_NAMED_EXTERNAL__
-		use_privsep = PRIVSEP_SANDBOX;
-#else
 		use_privsep = PRIVSEP_ON;
+#else
+		use_privsep = PRIVSEP_NOSANDBOX;
 #endif
 
 #ifndef HAVE_MMAP
@@ -341,7 +350,9 @@ typedef enum {
 	sSACLSupport,
 #endif
 	sRevokedKeys, sTrustedUserCAKeys, sAuthorizedPrincipalsFile,
-	sKexAlgorithms, sIPQoS,
+	sKexAlgorithms, sIPQoS, sVersionAddendum,
+	sAuthorizedKeysCommand, sAuthorizedKeysCommandUser,
+	sAuthenticationMethods,
 	sDeprecated, sUnsupported
 } ServerOpCodes;
 
@@ -443,10 +454,10 @@ static struct {
 	{ "keepalive", sTCPKeepAlive, SSHCFG_GLOBAL },	/* obsolete alias */
 	{ "allowtcpforwarding", sAllowTcpForwarding, SSHCFG_ALL },
 	{ "allowagentforwarding", sAllowAgentForwarding, SSHCFG_ALL },
-	{ "allowusers", sAllowUsers, SSHCFG_GLOBAL },
-	{ "denyusers", sDenyUsers, SSHCFG_GLOBAL },
-	{ "allowgroups", sAllowGroups, SSHCFG_GLOBAL },
-	{ "denygroups", sDenyGroups, SSHCFG_GLOBAL },
+	{ "allowusers", sAllowUsers, SSHCFG_ALL },
+	{ "denyusers", sDenyUsers, SSHCFG_ALL },
+	{ "allowgroups", sAllowGroups, SSHCFG_ALL },
+	{ "denygroups", sDenyGroups, SSHCFG_ALL },
 	{ "ciphers", sCiphers, SSHCFG_GLOBAL },
 	{ "macs", sMacs, SSHCFG_GLOBAL },
 	{ "protocol", sProtocol, SSHCFG_GLOBAL },
@@ -467,7 +478,7 @@ static struct {
 	{ "authorizedkeysfile", sAuthorizedKeysFile, SSHCFG_ALL },
 	{ "authorizedkeysfile2", sDeprecated, SSHCFG_ALL },
 	{ "useprivilegeseparation", sUsePrivilegeSeparation, SSHCFG_GLOBAL},
-	{ "acceptenv", sAcceptEnv, SSHCFG_GLOBAL },
+	{ "acceptenv", sAcceptEnv, SSHCFG_ALL },
 	{ "permittunnel", sPermitTunnel, SSHCFG_ALL },
 	{ "match", sMatch, SSHCFG_ALL },
 	{ "permitopen", sPermitOpen, SSHCFG_ALL },
@@ -479,6 +490,10 @@ static struct {
 	{ "authorizedprincipalsfile", sAuthorizedPrincipalsFile, SSHCFG_ALL },
 	{ "kexalgorithms", sKexAlgorithms, SSHCFG_GLOBAL },
 	{ "ipqos", sIPQoS, SSHCFG_ALL },
+	{ "authorizedkeyscommand", sAuthorizedKeysCommand, SSHCFG_ALL },
+	{ "authorizedkeyscommanduser", sAuthorizedKeysCommandUser, SSHCFG_ALL },
+	{ "versionaddendum", sVersionAddendum, SSHCFG_GLOBAL },
+	{ "authenticationmethods", sAuthenticationMethods, SSHCFG_ALL },
 	{ NULL, sBadOption, 0 }
 };
 
@@ -567,6 +582,20 @@ add_one_listen_addr(ServerOptions *options, char *addr, int port)
 	options->listen_addrs = aitop;
 }
 
+struct connection_info *
+get_connection_info(int populate, int use_dns)
+{
+	static struct connection_info ci;
+
+	if (!populate)
+		return &ci;
+	ci.host = get_canonical_hostname(use_dns);
+	ci.address = get_remote_ipaddr();
+	ci.laddress = get_local_ipaddr(packet_get_connection_in());
+	ci.lport = get_local_port();
+	return &ci;
+}
+
 /*
  * The strategy for the Match blocks is that the config file is parsed twice.
  *
@@ -628,20 +657,26 @@ out:
 	return result;
 }
 
+/*
+ * All of the attributes on a single Match line are ANDed together, so we need
+ * to check every * attribute and set the result to zero if any attribute does
+ * not match.
+ */
 static int
-match_cfg_line(char **condition, int line, const char *user, const char *host,
-    const char *address)
+match_cfg_line(char **condition, int line, struct connection_info *ci)
 {
-	int result = 1;
+	int result = 1, port;
 	char *arg, *attrib, *cp = *condition;
 	size_t len;
 
-	if (user == NULL)
+	if (ci == NULL)
 		debug3("checking syntax for 'Match %s'", cp);
 	else
-		debug3("checking match for '%s' user %s host %s addr %s", cp,
-		    user ? user : "(null)", host ? host : "(null)",
-		    address ? address : "(null)");
+		debug3("checking match for '%s' user %s host %s addr %s "
+		    "laddr %s lport %d", cp, ci->user ? ci->user : "(null)",
+		    ci->host ? ci->host : "(null)",
+		    ci->address ? ci->address : "(null)",
+		    ci->laddress ? ci->laddress : "(null)", ci->lport);
 
 	while ((attrib = strdelim(&cp)) && *attrib != '\0') {
 		if ((arg = strdelim(&cp)) == NULL || *arg == '\0') {
@@ -650,37 +685,45 @@ match_cfg_line(char **condition, int line, const char *user, const char *host,
 		}
 		len = strlen(arg);
 		if (strcasecmp(attrib, "user") == 0) {
-			if (!user) {
+			if (ci == NULL || ci->user == NULL) {
 				result = 0;
 				continue;
 			}
-			if (match_pattern_list(user, arg, len, 0) != 1)
+			if (match_pattern_list(ci->user, arg, len, 0) != 1)
 				result = 0;
 			else
 				debug("user %.100s matched 'User %.100s' at "
-				    "line %d", user, arg, line);
+				    "line %d", ci->user, arg, line);
 		} else if (strcasecmp(attrib, "group") == 0) {
-			switch (match_cfg_line_group(arg, line, user)) {
+			if (ci == NULL || ci->user == NULL) {
+				result = 0;
+				continue;
+			}
+			switch (match_cfg_line_group(arg, line, ci->user)) {
 			case -1:
 				return -1;
 			case 0:
 				result = 0;
 			}
 		} else if (strcasecmp(attrib, "host") == 0) {
-			if (!host) {
+			if (ci == NULL || ci->host == NULL) {
 				result = 0;
 				continue;
 			}
-			if (match_hostname(host, arg, len) != 1)
+			if (match_hostname(ci->host, arg, len) != 1)
 				result = 0;
 			else
 				debug("connection from %.100s matched 'Host "
-				    "%.100s' at line %d", host, arg, line);
+				    "%.100s' at line %d", ci->host, arg, line);
 		} else if (strcasecmp(attrib, "address") == 0) {
-			switch (addr_match_list(address, arg)) {
+			if (ci == NULL || ci->address == NULL) {
+				result = 0;
+				continue;
+			}
+			switch (addr_match_list(ci->address, arg)) {
 			case 1:
 				debug("connection from %.100s matched 'Address "
-				    "%.100s' at line %d", address, arg, line);
+				    "%.100s' at line %d", ci->address, arg, line);
 				break;
 			case 0:
 			case -1:
@@ -689,12 +732,47 @@ match_cfg_line(char **condition, int line, const char *user, const char *host,
 			case -2:
 				return -1;
 			}
+		} else if (strcasecmp(attrib, "localaddress") == 0){
+			if (ci == NULL || ci->laddress == NULL) {
+				result = 0;
+				continue;
+			}
+			switch (addr_match_list(ci->laddress, arg)) {
+			case 1:
+				debug("connection from %.100s matched "
+				    "'LocalAddress %.100s' at line %d",
+				    ci->laddress, arg, line);
+				break;
+			case 0:
+			case -1:
+				result = 0;
+				break;
+			case -2:
+				return -1;
+			}
+		} else if (strcasecmp(attrib, "localport") == 0) {
+			if ((port = a2port(arg)) == -1) {
+				error("Invalid LocalPort '%s' on Match line",
+				    arg);
+				return -1;
+			}
+			if (ci == NULL || ci->lport == 0) {
+				result = 0;
+				continue;
+			}
+			/* TODO support port lists */
+			if (port == ci->lport)
+				debug("connection from %.100s matched "
+				    "'LocalPort %d' at line %d",
+				    ci->laddress, port, line);
+			else
+				result = 0;
 		} else {
 			error("Unsupported Match attribute %s", attrib);
 			return -1;
 		}
 	}
-	if (user != NULL)
+	if (ci != NULL)
 		debug3("match %sfound", result ? "" : "not ");
 	*condition = cp;
 	return result;
@@ -733,16 +811,25 @@ static const struct multistate multistate_gatewayports[] = {
 	{ NULL, -1 }
 };
 static const struct multistate multistate_privsep[] = {
-	{ "sandbox",			PRIVSEP_SANDBOX },
-	{ "yes",			PRIVSEP_ON },
+	{ "yes",			PRIVSEP_NOSANDBOX },
+	{ "sandbox",			PRIVSEP_ON },
+	{ "nosandbox",			PRIVSEP_NOSANDBOX },
 	{ "no",				PRIVSEP_OFF },
+	{ NULL, -1 }
+};
+static const struct multistate multistate_tcpfwd[] = {
+	{ "yes",			FORWARD_ALLOW },
+	{ "all",			FORWARD_ALLOW },
+	{ "no",				FORWARD_DENY },
+	{ "remote",			FORWARD_REMOTE },
+	{ "local",			FORWARD_LOCAL },
 	{ NULL, -1 }
 };
 
 int
 process_server_config_line(ServerOptions *options, char *line,
-    const char *filename, int linenum, int *activep, const char *user,
-    const char *host, const char *address)
+    const char *filename, int linenum, int *activep,
+    struct connection_info *connectinfo)
 {
 	char *cp, **charptr, *arg, *p;
 	int cmdline = 0, *intptr, value, value2, n;
@@ -773,7 +860,7 @@ process_server_config_line(ServerOptions *options, char *line,
 	if (*activep && opcode != sMatch)
 		debug3("%s:%d setting %s %s", filename, linenum, arg, cp);
 	if (*activep == 0 && !(flags & SSHCFG_MATCH)) {
-		if (user == NULL) {
+		if (connectinfo == NULL) {
 			fatal("%s line %d: Directive '%s' is not allowed "
 			    "within a Match block", filename, linenum, arg);
 		} else { /* this is a directive we have already processed */
@@ -1112,7 +1199,8 @@ process_server_config_line(ServerOptions *options, char *line,
 
 	case sAllowTcpForwarding:
 		intptr = &options->allow_tcp_forwarding;
-		goto parse_flag;
+		multistate_ptr = multistate_tcpfwd;
+		goto parse_multistate;
 
 	case sAllowAgentForwarding:
 		intptr = &options->allow_agent_forwarding;
@@ -1128,6 +1216,8 @@ process_server_config_line(ServerOptions *options, char *line,
 			if (options->num_allow_users >= MAX_ALLOW_USERS)
 				fatal("%s line %d: too many allow users.",
 				    filename, linenum);
+			if (!*activep)
+				continue;
 			options->allow_users[options->num_allow_users++] =
 			    xstrdup(arg);
 		}
@@ -1138,6 +1228,8 @@ process_server_config_line(ServerOptions *options, char *line,
 			if (options->num_deny_users >= MAX_DENY_USERS)
 				fatal("%s line %d: too many deny users.",
 				    filename, linenum);
+			if (!*activep)
+				continue;
 			options->deny_users[options->num_deny_users++] =
 			    xstrdup(arg);
 		}
@@ -1148,6 +1240,8 @@ process_server_config_line(ServerOptions *options, char *line,
 			if (options->num_allow_groups >= MAX_ALLOW_GROUPS)
 				fatal("%s line %d: too many allow groups.",
 				    filename, linenum);
+			if (!*activep)
+				continue;
 			options->allow_groups[options->num_allow_groups++] =
 			    xstrdup(arg);
 		}
@@ -1158,7 +1252,10 @@ process_server_config_line(ServerOptions *options, char *line,
 			if (options->num_deny_groups >= MAX_DENY_GROUPS)
 				fatal("%s line %d: too many deny groups.",
 				    filename, linenum);
-			options->deny_groups[options->num_deny_groups++] = xstrdup(arg);
+			if (!*activep)
+				continue;
+			options->deny_groups[options->num_deny_groups++] =
+			    xstrdup(arg);
 		}
 		break;
 
@@ -1332,7 +1429,7 @@ process_server_config_line(ServerOptions *options, char *line,
 				fatal("%s line %d: too many allow env.",
 				    filename, linenum);
 			if (!*activep)
-				break;
+				continue;
 			options->accept_env[options->num_accept_env++] =
 			    xstrdup(arg);
 		}
@@ -1361,7 +1458,7 @@ process_server_config_line(ServerOptions *options, char *line,
 		if (cmdline)
 			fatal("Match directive not supported as a command-line "
 			   "option");
-		value = match_cfg_line(&cp, linenum, user, host, address);
+		value = match_cfg_line(&cp, linenum, connectinfo);
 		if (value < 0)
 			fatal("%s line %d: Bad Match condition", filename,
 			    linenum);
@@ -1381,6 +1478,13 @@ process_server_config_line(ServerOptions *options, char *line,
 			}
 			break;
 		}
+		if (strcmp(arg, "none") == 0) {
+			if (*activep && n == -1) {
+				options->num_permitted_opens = 1;
+				channel_disable_adm_local_opens();
+			}
+			break;
+		}
 		if (*activep && n == -1)
 			channel_clear_adm_permitted_opens();
 		for (; arg != NULL && *arg != '\0'; arg = strdelim(&cp)) {
@@ -1389,7 +1493,7 @@ process_server_config_line(ServerOptions *options, char *line,
 				fatal("%s line %d: missing host in PermitOpen",
 				    filename, linenum);
 			p = cleanhostname(p);
-			if (arg == NULL || (port = a2port(arg)) <= 0)
+			if (arg == NULL || ((port = permitopen_port(arg)) < 0))
 				fatal("%s line %d: bad port number in "
 				    "PermitOpen", filename, linenum);
 			if (*activep && n == -1)
@@ -1443,6 +1547,59 @@ process_server_config_line(ServerOptions *options, char *line,
 		}
 		break;
 
+	case sVersionAddendum:
+		if (cp == NULL)
+			fatal("%.200s line %d: Missing argument.", filename,
+			    linenum);
+		len = strspn(cp, WHITESPACE);
+		if (*activep && options->version_addendum == NULL) {
+			if (strcasecmp(cp + len, "none") == 0)
+				options->version_addendum = xstrdup("");
+			else if (strchr(cp + len, '\r') != NULL)
+				fatal("%.200s line %d: Invalid argument",
+				    filename, linenum);
+			else
+				options->version_addendum = xstrdup(cp + len);
+		}
+		return 0;
+
+	case sAuthorizedKeysCommand:
+		len = strspn(cp, WHITESPACE);
+		if (*activep && options->authorized_keys_command == NULL) {
+			if (cp[len] != '/' && strcasecmp(cp + len, "none") != 0)
+				fatal("%.200s line %d: AuthorizedKeysCommand "
+				    "must be an absolute path",
+				    filename, linenum);
+			options->authorized_keys_command = xstrdup(cp + len);
+		}
+		return 0;
+
+	case sAuthorizedKeysCommandUser:
+		charptr = &options->authorized_keys_command_user;
+
+		arg = strdelim(&cp);
+		if (*activep && *charptr == NULL)
+			*charptr = xstrdup(arg);
+		break;
+
+	case sAuthenticationMethods:
+		if (*activep && options->num_auth_methods == 0) {
+			while ((arg = strdelim(&cp)) && *arg != '\0') {
+				if (options->num_auth_methods >=
+				    MAX_AUTH_METHODS)
+					fatal("%s line %d: "
+					    "too many authentication methods.",
+					    filename, linenum);
+				if (auth2_methods_valid(arg, 0) != 0)
+					fatal("%s line %d: invalid "
+					    "authentication method list.",
+					    filename, linenum);
+				options->auth_methods[
+				    options->num_auth_methods++] = xstrdup(arg);
+			}
+		}
+		return 0;
+
 	case sDeprecated:
 		logit("%s line %d: Deprecated option %s",
 		    filename, linenum, arg);
@@ -1472,8 +1629,9 @@ process_server_config_line(ServerOptions *options, char *line,
 void
 load_server_config(const char *filename, Buffer *conf)
 {
-	char line[1024], *cp;
+	char line[4096], *cp;
 	FILE *f;
+	int lineno = 0;
 
 	debug2("%s: filename %s", __func__, filename);
 	if ((f = fopen(filename, "r")) == NULL) {
@@ -1482,6 +1640,9 @@ load_server_config(const char *filename, Buffer *conf)
 	}
 	buffer_clear(conf);
 	while (fgets(line, sizeof(line), f)) {
+		lineno++;
+		if (strlen(line) == sizeof(line) - 1)
+			fatal("%s line %d too long", filename, lineno);
 		/*
 		 * Trim out comments and strip whitespace
 		 * NB - preserve newlines, they are needed to reproduce
@@ -1499,14 +1660,56 @@ load_server_config(const char *filename, Buffer *conf)
 }
 
 void
-parse_server_match_config(ServerOptions *options, const char *user,
-    const char *host, const char *address)
+parse_server_match_config(ServerOptions *options,
+   struct connection_info *connectinfo)
 {
 	ServerOptions mo;
 
 	initialize_server_options(&mo);
-	parse_server_config(&mo, "reprocess config", &cfg, user, host, address);
+	parse_server_config(&mo, "reprocess config", &cfg, connectinfo);
 	copy_set_server_options(options, &mo, 0);
+}
+
+int parse_server_match_testspec(struct connection_info *ci, char *spec)
+{
+	char *p;
+
+	while ((p = strsep(&spec, ",")) && *p != '\0') {
+		if (strncmp(p, "addr=", 5) == 0) {
+			ci->address = xstrdup(p + 5);
+		} else if (strncmp(p, "host=", 5) == 0) {
+			ci->host = xstrdup(p + 5);
+		} else if (strncmp(p, "user=", 5) == 0) {
+			ci->user = xstrdup(p + 5);
+		} else if (strncmp(p, "laddr=", 6) == 0) {
+			ci->laddress = xstrdup(p + 6);
+		} else if (strncmp(p, "lport=", 6) == 0) {
+			ci->lport = a2port(p + 6);
+			if (ci->lport == -1) {
+				fprintf(stderr, "Invalid port '%s' in test mode"
+				   " specification %s\n", p+6, p);
+				return -1;
+			}
+		} else {
+			fprintf(stderr, "Invalid test mode specification %s\n",
+			   p);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * returns 1 for a complete spec, 0 for partial spec and -1 for an
+ * empty spec.
+ */
+int server_match_spec_complete(struct connection_info *ci)
+{
+	if (ci->user && ci->host && ci->address)
+		return 1;	/* complete */
+	if (!ci->user && !ci->host && !ci->address)
+		return -1;	/* empty */
+	return 0;	/* partial */
 }
 
 /* Helper macros */
@@ -1547,6 +1750,8 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 	M_CP_INTOPT(hostbased_uses_name_from_packet_only);
 	M_CP_INTOPT(kbd_interactive_authentication);
 	M_CP_INTOPT(zero_knowledge_password_authentication);
+	M_CP_STROPT(authorized_keys_command);
+	M_CP_STROPT(authorized_keys_command_user);
 	M_CP_INTOPT(permit_root_login);
 	M_CP_INTOPT(permit_empty_passwd);
 
@@ -1582,7 +1787,7 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 
 void
 parse_server_config(ServerOptions *options, const char *filename, Buffer *conf,
-    const char *user, const char *host, const char *address)
+    struct connection_info *connectinfo)
 {
 	int active, linenum, bad_options = 0;
 	char *cp, *obuf, *cbuf;
@@ -1590,11 +1795,11 @@ parse_server_config(ServerOptions *options, const char *filename, Buffer *conf,
 	debug2("%s: config %s len %d", __func__, filename, buffer_len(conf));
 
 	obuf = cbuf = xstrdup(buffer_ptr(conf));
-	active = user ? 0 : 1;
+	active = connectinfo ? 0 : 1;
 	linenum = 1;
 	while ((cp = strsep(&cbuf, "\n")) != NULL) {
 		if (process_server_config_line(options, cp, filename,
-		    linenum++, &active, user, host, address) != 0)
+		    linenum++, &active, connectinfo) != 0)
 			bad_options++;
 	}
 	xfree(obuf);
@@ -1631,6 +1836,8 @@ fmt_intarg(ServerOpCodes code, int val)
 		return fmt_multistate_int(val, multistate_compression);
 	case sUsePrivilegeSeparation:
 		return fmt_multistate_int(val, multistate_privsep);
+	case sAllowTcpForwarding:
+		return fmt_multistate_int(val, multistate_tcpfwd);
 	case sProtocol:
 		switch (val) {
 		case SSH_PROTO_1:
@@ -1809,6 +2016,9 @@ dump_config(ServerOptions *o)
 	dump_cfg_string(sRevokedKeys, o->revoked_keys_file);
 	dump_cfg_string(sAuthorizedPrincipalsFile,
 	    o->authorized_principals_file);
+	dump_cfg_string(sVersionAddendum, o->version_addendum);
+	dump_cfg_string(sAuthorizedKeysCommand, o->authorized_keys_command);
+	dump_cfg_string(sAuthorizedKeysCommandUser, o->authorized_keys_command_user);
 
 	/* string arguments requiring a lookup */
 	dump_cfg_string(sLogLevel, log_level_name(o->log_level));
@@ -1826,6 +2036,8 @@ dump_config(ServerOptions *o)
 	dump_cfg_strarray(sAllowGroups, o->num_allow_groups, o->allow_groups);
 	dump_cfg_strarray(sDenyGroups, o->num_deny_groups, o->deny_groups);
 	dump_cfg_strarray(sAcceptEnv, o->num_accept_env, o->accept_env);
+	dump_cfg_strarray_oneline(sAuthenticationMethods,
+	    o->num_auth_methods, o->auth_methods);
 
 	/* other arguments */
 	for (i = 0; i < o->num_subsystems; i++)

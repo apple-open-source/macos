@@ -21,8 +21,8 @@ module REXML
       def write( node, output )
         case node
 
-        when Document 
-          if node.xml_decl.encoding != "UTF-8" && !output.kind_of?(Output)
+        when Document
+          if node.xml_decl.encoding != 'UTF-8' && !output.kind_of?(Output)
             output = Output.new( output, node.xml_decl.encoding )
           end
           write_document( node, output )
@@ -63,14 +63,16 @@ module REXML
       def write_element( node, output )
         output << "<#{node.expanded_name}"
 
-        node.attributes.each_attribute do |attr|
+        node.attributes.to_a.map { |a|
+          Hash === a ? a.values : a
+        }.flatten.sort_by {|attr| attr.name}.each do |attr|
           output << " "
           attr.write( output )
         end unless node.attributes.empty?
 
         if node.children.empty?
           output << " " if @ie_hack
-          output << "/" 
+          output << "/"
         else
           output << ">"
           node.children.each { |child|

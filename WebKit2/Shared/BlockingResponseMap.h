@@ -33,11 +33,18 @@
 
 template<typename T>
 class BlockingResponseMap {
+WTF_MAKE_NONCOPYABLE(BlockingResponseMap);
 public:
+    BlockingResponseMap() : m_canceled(false) { }
+    ~BlockingResponseMap() { ASSERT(m_responses.isEmpty()); }
+
     PassOwnPtr<T> waitForResponse(uint64_t requestID)
     {
         while (true) {
             MutexLocker locker(m_mutex);
+
+            if (m_canceled)
+                return nullptr;
 
             if (OwnPtr<T> response = m_responses.take(requestID))
                 return response.release();
@@ -54,14 +61,24 @@ public:
         ASSERT(!m_responses.contains(requestID));
 
         m_responses.set(requestID, response);
-        m_condition.signal();
+        // FIXME: Waking up all threads is quite inefficient.
+        m_condition.broadcast();
+    }
+
+    void cancel()
+    {
+        m_canceled = true;
+
+        // FIXME: Waking up all threads is quite inefficient.
+        m_condition.broadcast();
     }
 
 private:
     Mutex m_mutex;
     ThreadCondition m_condition;
 
-    HashMap<uint64_t, OwnPtr<T> > m_responses;
+    HashMap<uint64_t, OwnPtr<T>> m_responses;
+    bool m_canceled;
 };
 
 #endif // BlockingResponseMap_h

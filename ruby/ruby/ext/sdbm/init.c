@@ -2,8 +2,7 @@
 
   sdbminit.c -
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: naruse $
   created at: Fri May  7 08:34:24 JST 1999
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
@@ -15,6 +14,55 @@
 #include "sdbm.h"
 #include <fcntl.h>
 #include <errno.h>
+
+/*
+ * Document-class: SDBM
+ *
+ * SDBM provides a simple file-based key-value store, which can only store
+ * String keys and values.
+ *
+ * Note that Ruby comes with the source code for SDBM, while the DBM and GDBM
+ * standard libraries rely on external libraries and headers.
+ *
+ * === Examples
+ *
+ * Insert values:
+ *
+ *   require 'sdbm'
+ *
+ *   SDBM.open 'my_database' do |db|
+ *     db['apple'] = 'fruit'
+ *     db['pear'] = 'fruit'
+ *     db['carrot'] = 'vegetable'
+ *     db['tomato'] = 'vegetable'
+ *   end
+ *
+ * Bulk update:
+ *
+ *   require 'sdbm'
+ *
+ *   SDBM.open 'my_database' do |db|
+ *     db.update('peach' => 'fruit', 'tomato' => 'fruit')
+ *   end
+ *
+ * Retrieve values:
+ *
+ *   require 'sdbm'
+ *
+ *   SDBM.open 'my_database' do |db|
+ *     db.each do |key, value|
+ *       puts "Key: #{key}, Value: #{value}"
+ *     end
+ *   end
+ *
+ * Outputs:
+ *
+ *   Key: apple, Value: fruit
+ *   Key: pear, Value: fruit
+ *   Key: carrot, Value: vegetable
+ *   Key: peach, Value: fruit
+ *   Key: tomato, Value: fruit
+ */
 
 static VALUE rb_cDBM, rb_eDBMError;
 
@@ -30,28 +78,34 @@ closed_sdbm()
 }
 
 #define GetDBM(obj, dbmp) {\
-    Data_Get_Struct(obj, struct dbmdata, dbmp);\
-    if (dbmp == 0) closed_sdbm();\
-    if (dbmp->di_dbm == 0) closed_sdbm();\
+    Data_Get_Struct((obj), struct dbmdata, (dbmp));\
+    if ((dbmp) == 0) closed_sdbm();\
+    if ((dbmp)->di_dbm == 0) closed_sdbm();\
 }
 
 #define GetDBM2(obj, data, dbm) {\
-    GetDBM(obj, data);\
+    GetDBM((obj), (data));\
     (dbm) = dbmp->di_dbm;\
 }
 
 static void
-free_sdbm(dbmp)
-    struct dbmdata *dbmp;
+free_sdbm(struct dbmdata *dbmp)
 {
 
     if (dbmp->di_dbm) sdbm_close(dbmp->di_dbm);
-    free(dbmp);
+    ruby_xfree(dbmp);
 }
 
+/*
+ * call-seq:
+ *   sdbm.close -> nil
+ *
+ * Closes the database file.
+ *
+ * Raises SDBMError if the database is already closed.
+ */
 static VALUE
-fsdbm_close(obj)
-    VALUE obj;
+fsdbm_close(VALUE obj)
 {
     struct dbmdata *dbmp;
 
@@ -62,9 +116,14 @@ fsdbm_close(obj)
     return Qnil;
 }
 
+/*
+* call-seq:
+*   sdbm.closed? -> true or false
+*
+* Returns +true+ if the database is closed.
+*/
 static VALUE
-fsdbm_closed(obj)
-    VALUE obj;
+fsdbm_closed(VALUE obj)
 {
     struct dbmdata *dbmp;
 
@@ -77,21 +136,31 @@ fsdbm_closed(obj)
     return Qfalse;
 }
 
-static VALUE fsdbm_alloc _((VALUE));
 static VALUE
-fsdbm_alloc(klass)
-    VALUE klass;
+fsdbm_alloc(VALUE klass)
 {
     return Data_Wrap_Struct(klass, 0, free_sdbm, 0);
 }
-
+/*
+* call-seq:
+*   SDBM.new(filename, mode = 0666)
+*
+* Creates a new database handle by opening the given +filename+. SDBM actually
+* uses two physical files, with extensions '.dir' and '.pag'. These extensions
+* will automatically be appended to the +filename+.
+*
+* If the file does not exist, a new file will be created using the given
+* +mode+, unless +mode+ is explicitly set to nil. In the latter case, no
+* database will be created.
+*
+* If the file exists, it will be opened in read/write mode. If this fails, it
+* will be opened in read-only mode.
+*/
 static VALUE
-fsdbm_initialize(argc, argv, obj)
-    int argc;
-    VALUE *argv;
-    VALUE obj;
+fsdbm_initialize(int argc, VALUE *argv, VALUE obj)
 {
-    VALUE file, vmode;
+    volatile VALUE file;
+    VALUE vmode;
     DBM *dbm;
     struct dbmdata *dbmp;
     int mode;
@@ -105,19 +174,19 @@ fsdbm_initialize(argc, argv, obj)
     else {
 	mode = NUM2INT(vmode);
     }
-    SafeStringValue(file);
+    FilePathValue(file);
 
     dbm = 0;
     if (mode >= 0)
-	dbm = sdbm_open(RSTRING(file)->ptr, O_RDWR|O_CREAT, mode);
+	dbm = sdbm_open(RSTRING_PTR(file), O_RDWR|O_CREAT, mode);
     if (!dbm)
-	dbm = sdbm_open(RSTRING(file)->ptr, O_RDWR, 0);
+	dbm = sdbm_open(RSTRING_PTR(file), O_RDWR, 0);
     if (!dbm)
-	dbm = sdbm_open(RSTRING(file)->ptr, O_RDONLY, 0);
+	dbm = sdbm_open(RSTRING_PTR(file), O_RDONLY, 0);
 
     if (!dbm) {
 	if (mode == -1) return Qnil;
-	rb_sys_fail(RSTRING(file)->ptr);
+	rb_sys_fail_str(file);
     }
 
     dbmp = ALLOC(struct dbmdata);
@@ -128,11 +197,26 @@ fsdbm_initialize(argc, argv, obj)
     return obj;
 }
 
+/*
+ * call-seq:
+ *   SDBM.open(filename, mode = 0666)
+ *   SDBM.open(filename, mode = 0666) { |sdbm| ... }
+ *
+ * If called without a block, this is the same as SDBM.new.
+ *
+ * If a block is given, the new database will be passed to the block and
+ * will be safely closed after the block has executed.
+ *
+ * Example:
+ *
+ *     require 'sdbm'
+ *
+ *     SDBM.open('my_database') do |db|
+ *       db['hello'] = 'world'
+ *     end
+ */
 static VALUE
-fsdbm_s_open(argc, argv, klass)
-    int argc;
-    VALUE *argv;
-    VALUE klass;
+fsdbm_s_open(int argc, VALUE *argv, VALUE klass)
 {
     VALUE obj = Data_Wrap_Struct(klass, 0, free_sdbm, 0);
 
@@ -148,39 +232,56 @@ fsdbm_s_open(argc, argv, klass)
 }
 
 static VALUE
-fsdbm_fetch(obj, keystr, ifnone)
-    VALUE obj, keystr, ifnone;
+fsdbm_fetch(VALUE obj, VALUE keystr, VALUE ifnone)
 {
     datum key, value;
     struct dbmdata *dbmp;
     DBM *dbm;
 
-    StringValue(keystr);
-    key.dptr = RSTRING(keystr)->ptr;
-    key.dsize = RSTRING(keystr)->len;
+    ExportStringValue(keystr);
+    key.dptr = RSTRING_PTR(keystr);
+    key.dsize = RSTRING_LENINT(keystr);
 
     GetDBM2(obj, dbmp, dbm);
     value = sdbm_fetch(dbm, key);
     if (value.dptr == 0) {
 	if (ifnone == Qnil && rb_block_given_p())
-	    return rb_yield(rb_tainted_str_new(key.dptr, key.dsize));
+	    return rb_yield(rb_external_str_new(key.dptr, key.dsize));
 	return ifnone;
     }
-    return rb_tainted_str_new(value.dptr, value.dsize);
+    return rb_external_str_new(value.dptr, value.dsize);
 }
 
+/*
+ * call-seq:
+ *   sdbm[key] -> value or nil
+ *
+ * Returns the +value+ in the database associated with the given +key+ string.
+ *
+ * If no value is found, returns +nil+.
+ */
 static VALUE
-fsdbm_aref(obj, keystr)
-    VALUE obj, keystr;
+fsdbm_aref(VALUE obj, VALUE keystr)
 {
     return fsdbm_fetch(obj, keystr, Qnil);
 }
 
+/*
+ * call-seq:
+ *   sdbm.fetch(key) -> value or nil
+ *   sdbm.fetch(key) { |key| ... }
+ *
+ * Returns the +value+ in the database associated with the given +key+ string.
+ *
+ * If a block is provided, the block will be called when there is no
+ * +value+ associated with the given +key+. The +key+ will be passed in as an
+ * argument to the block.
+ *
+ * If no block is provided and no value is associated with the given +key+,
+ * then an IndexError will be raised.
+ */
 static VALUE
-fsdbm_fetch_m(argc, argv, obj)
-    int argc;
-    VALUE *argv;
-    VALUE obj;
+fsdbm_fetch_m(int argc, VALUE *argv, VALUE obj)
 {
     VALUE keystr, valstr, ifnone;
 
@@ -192,91 +293,95 @@ fsdbm_fetch_m(argc, argv, obj)
     return valstr;
 }
 
+/*
+ * call-seq:
+ *   sdbm.key(value) -> key
+ *
+ * Returns the +key+ associated with the given +value+. If more than one
+ * +key+ corresponds to the given +value+, then the first key to be found
+ * will be returned. If no keys are found, +nil+ will be returned.
+ */
 static VALUE
-fsdbm_index(obj, valstr)
-    VALUE obj, valstr;
+fsdbm_key(VALUE obj, VALUE valstr)
 {
     datum key, val;
     struct dbmdata *dbmp;
     DBM *dbm;
 
-    StringValue(valstr);
-    val.dptr = RSTRING(valstr)->ptr;
-    val.dsize = RSTRING(valstr)->len;
+    ExportStringValue(valstr);
+    val.dptr = RSTRING_PTR(valstr);
+    val.dsize = RSTRING_LENINT(valstr);
 
     GetDBM2(obj, dbmp, dbm);
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	if (val.dsize == RSTRING(valstr)->len &&
-	    memcmp(val.dptr, RSTRING(valstr)->ptr, val.dsize) == 0)
-	    return rb_tainted_str_new(key.dptr, key.dsize);
+	if (val.dsize == RSTRING_LEN(valstr) &&
+	    memcmp(val.dptr, RSTRING_PTR(valstr), val.dsize) == 0)
+	    return rb_external_str_new(key.dptr, key.dsize);
     }
     return Qnil;
 }
 
+/*
+ * :nodoc:
+ */
 static VALUE
-fsdbm_indexes(argc, argv, obj)
-    int argc;
-    VALUE *argv;
-    VALUE obj;
+fsdbm_index(VALUE hash, VALUE value)
 {
-    VALUE new;
-    int i;
-
-    new = rb_ary_new2(argc);
-    for (i=0; i<argc; i++) {
-	rb_ary_push(new, fsdbm_fetch(obj, argv[i], Qnil));
-    }
-
-    return new;
+    rb_warn("SDBM#index is deprecated; use SDBM#key");
+    return fsdbm_key(hash, value);
 }
 
+/* call-seq:
+ *   sdbm.select { |key, value| ... } -> Array
+ *
+ * Returns a new Array of key-value pairs for which the block returns +true+.
+ *
+ * Example:
+ *
+ *    require 'sdbm'
+ *
+ *    SDBM.open 'my_database' do |db|
+ *      db['apple'] = 'fruit'
+ *      db['pear'] = 'fruit'
+ *      db['spinach'] = 'vegetable'
+ *
+ *      veggies = db.select do |key, value|
+ *        value == 'vegetable'
+ *      end #=> [["apple", "fruit"], ["pear", "fruit"]]
+ *    end
+ */
 static VALUE
-fsdbm_select(argc, argv, obj)
-    int argc;
-    VALUE *argv;
-    VALUE obj;
+fsdbm_select(VALUE obj)
 {
-    VALUE new = rb_ary_new2(argc);
-    int i;
+    VALUE new = rb_ary_new();
+    datum key, val;
+    DBM *dbm;
+    struct dbmdata *dbmp;
 
-    if (rb_block_given_p()) {
-        datum key, val;
-        DBM *dbm;
-        struct dbmdata *dbmp;
-
-	if (argc > 0) {
-	    rb_raise(rb_eArgError, "wrong number of arguments (%d for 0)", argc);
+    GetDBM2(obj, dbmp, dbm);
+    for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
+	VALUE assoc, v;
+	val = sdbm_fetch(dbm, key);
+	assoc = rb_assoc_new(rb_external_str_new(key.dptr, key.dsize),
+			     rb_external_str_new(val.dptr, val.dsize));
+	v = rb_yield(assoc);
+	if (RTEST(v)) {
+	    rb_ary_push(new, assoc);
 	}
-        GetDBM2(obj, dbmp, dbm);
-        for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
-            VALUE assoc, v;
-            val = sdbm_fetch(dbm, key);
-            assoc = rb_assoc_new(rb_tainted_str_new(key.dptr, key.dsize),
-                                 rb_tainted_str_new(val.dptr, val.dsize));
-	    v = rb_yield(assoc);
-	    if (RTEST(v)) {
-		rb_ary_push(new, assoc);
-	    }
-	    GetDBM2(obj, dbmp, dbm);
-        }
-    }
-    else {
-	rb_warn("SDBM#select(index..) is deprecated; use SDBM#values_at");
-
-        for (i=0; i<argc; i++) {
-            rb_ary_push(new, fsdbm_fetch(obj, argv[i], Qnil));
-        }
+	GetDBM2(obj, dbmp, dbm);
     }
 
     return new;
 }
 
+/* call-seq:
+ *   sdbm.values_at(key, ...) -> Array
+ *
+ * Returns an Array of values corresponding to the given keys.
+ */
 static VALUE
-fsdbm_values_at(argc, argv, obj)
-    int argc;
-    VALUE *argv;
-    VALUE obj;
+fsdbm_values_at(int argc, VALUE *argv, VALUE obj)
 {
     VALUE new = rb_ary_new2(argc);
     int i;
@@ -289,16 +394,26 @@ fsdbm_values_at(argc, argv, obj)
 }
 
 static void
-fdbm_modify(obj)
-    VALUE obj;
+fdbm_modify(VALUE obj)
 {
     rb_secure(4);
     if (OBJ_FROZEN(obj)) rb_error_frozen("SDBM");
 }
 
+/*
+ * call-seq:
+ *   sdbm.delete(key) -> value or nil
+ *   sdbm.delete(key) { |key, value| ... }
+ *
+ * Deletes the key-value pair corresponding to the given +key+. If the
+ * +key+ exists, the deleted value will be returned, otherwise +nil+.
+ *
+ * If a block is provided, the deleted +key+ and +value+ will be passed to
+ * the block as arguments. If the +key+ does not exist in the database, the
+ * value will be +nil+.
+ */
 static VALUE
-fsdbm_delete(obj, keystr)
-    VALUE obj, keystr;
+fsdbm_delete(VALUE obj, VALUE keystr)
 {
     datum key, value;
     struct dbmdata *dbmp;
@@ -306,9 +421,9 @@ fsdbm_delete(obj, keystr)
     VALUE valstr;
 
     fdbm_modify(obj);
-    StringValue(keystr);
-    key.dptr = RSTRING(keystr)->ptr;
-    key.dsize = RSTRING(keystr)->len;
+    ExportStringValue(keystr);
+    key.dptr = RSTRING_PTR(keystr);
+    key.dsize = RSTRING_LENINT(keystr);
 
     GetDBM2(obj, dbmp, dbm);
     dbmp->di_size = -1;
@@ -320,7 +435,7 @@ fsdbm_delete(obj, keystr)
     }
 
     /* need to save value before sdbm_delete() */
-    valstr = rb_tainted_str_new(value.dptr, value.dsize);
+    valstr = rb_external_str_new(value.dptr, value.dsize);
 
     if (sdbm_delete(dbm, key)) {
 	dbmp->di_size = -1;
@@ -332,9 +447,15 @@ fsdbm_delete(obj, keystr)
     return valstr;
 }
 
+/*
+ * call-seq:
+ *   sdbm.shift -> Array or nil
+ *
+ * Removes a key-value pair from the database and returns them as an
+ * Array. If the database is empty, returns +nil+.
+ */
 static VALUE
-fsdbm_shift(obj)
-    VALUE obj;
+fsdbm_shift(VALUE obj)
 {
     datum key, val;
     struct dbmdata *dbmp;
@@ -343,11 +464,11 @@ fsdbm_shift(obj)
 
     fdbm_modify(obj);
     GetDBM2(obj, dbmp, dbm);
-    key = sdbm_firstkey(dbm); 
+    key = sdbm_firstkey(dbm);
     if (!key.dptr) return Qnil;
     val = sdbm_fetch(dbm, key);
-    keystr = rb_tainted_str_new(key.dptr, key.dsize);
-    valstr = rb_tainted_str_new(val.dptr, val.dsize);
+    keystr = rb_external_str_new(key.dptr, key.dsize);
+    valstr = rb_external_str_new(val.dptr, val.dsize);
     sdbm_delete(dbm, key);
     if (dbmp->di_size >= 0) {
 	dbmp->di_size--;
@@ -356,9 +477,16 @@ fsdbm_shift(obj)
     return rb_assoc_new(keystr, valstr);
 }
 
+/*
+ * call-seq:
+ *   sdbm.delete_if { |key, value| ... } -> self
+ *   sdbm.reject!   { |key, value| ... } -> self
+ *
+ * Iterates over the key-value pairs in the database, deleting those for
+ * which the block returns +true+.
+ */
 static VALUE
-fsdbm_delete_if(obj)
-    VALUE obj;
+fsdbm_delete_if(VALUE obj)
 {
     datum key, val;
     struct dbmdata *dbmp;
@@ -373,32 +501,37 @@ fsdbm_delete_if(obj)
     dbmp->di_size = -1;
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	keystr = rb_tainted_str_new(key.dptr, key.dsize);
-	valstr = rb_tainted_str_new(val.dptr, val.dsize);
+	keystr = rb_external_str_new(key.dptr, key.dsize);
+	valstr = rb_external_str_new(val.dptr, val.dsize);
         ret = rb_protect(rb_yield, rb_assoc_new(rb_str_dup(keystr), valstr), &status);
         if (status != 0) break;
 	if (RTEST(ret)) rb_ary_push(ary, keystr);
 	GetDBM2(obj, dbmp, dbm);
     }
 
-    for (i = 0; i < RARRAY(ary)->len; i++) {
-	keystr = RARRAY(ary)->ptr[i];
-	StringValue(keystr);
-	key.dptr = RSTRING(keystr)->ptr;
-	key.dsize = RSTRING(keystr)->len;
+    for (i = 0; i < RARRAY_LEN(ary); i++) {
+	keystr = RARRAY_PTR(ary)[i];
+	ExportStringValue(keystr);
+	key.dptr = RSTRING_PTR(keystr);
+	key.dsize = RSTRING_LENINT(keystr);
 	if (sdbm_delete(dbm, key)) {
 	    rb_raise(rb_eDBMError, "sdbm_delete failed");
 	}
     }
     if (status) rb_jump_tag(status);
-    if (n > 0) dbmp->di_size = n - RARRAY(ary)->len;
+    if (n > 0) dbmp->di_size = n - RARRAY_LENINT(ary);
 
     return obj;
 }
 
+/*
+ * call-seq:
+ *   sdbm.clear -> self
+ *
+ * Deletes all data from the database.
+ */
 static VALUE
-fsdbm_clear(obj)
-    VALUE obj;
+fsdbm_clear(VALUE obj)
 {
     datum key;
     struct dbmdata *dbmp;
@@ -417,9 +550,24 @@ fsdbm_clear(obj)
     return obj;
 }
 
+/*
+ * call-seq:
+ *   sdbm.invert -> Hash
+ *
+ * Returns a Hash in which the key-value pairs have been inverted.
+ *
+ * Example:
+ *
+ *   require 'sdbm'
+ *
+ *   SDBM.open 'my_database' do |db|
+ *     db.update('apple' => 'fruit', 'spinach' => 'vegetable')
+ *
+ *     db.invert  #=> {"fruit" => "apple", "vegetable" => "spinach"}
+ *   end
+ */
 static VALUE
-fsdbm_invert(obj)
-    VALUE obj;
+fsdbm_invert(VALUE obj)
 {
     datum key, val;
     struct dbmdata *dbmp;
@@ -430,56 +578,27 @@ fsdbm_invert(obj)
     GetDBM2(obj, dbmp, dbm);
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	keystr = rb_tainted_str_new(key.dptr, key.dsize);
-	valstr = rb_tainted_str_new(val.dptr, val.dsize);
+	keystr = rb_external_str_new(key.dptr, key.dsize);
+	valstr = rb_external_str_new(val.dptr, val.dsize);
 	rb_hash_aset(hash, valstr, keystr);
     }
     return hash;
 }
 
-static VALUE each_pair _((VALUE));
-
+/*
+ * call-seq:
+ *   sdbm[key] = value      -> value
+ *   sdbm.store(key, value) -> value
+ *
+ * Stores a new +value+ in the database with the given +key+ as an index.
+ *
+ * If the +key+ already exists, this will update the +value+ associated with
+ * the +key+.
+ *
+ * Returns the given +value+.
+ */
 static VALUE
-each_pair(obj)
-    VALUE obj;
-{
-    return rb_funcall(obj, rb_intern("each_pair"), 0, 0);
-}
-
-static VALUE fsdbm_store _((VALUE,VALUE,VALUE));
-
-static VALUE
-update_i(pair, dbm)
-    VALUE pair, dbm;
-{
-    Check_Type(pair, T_ARRAY);
-    if (RARRAY(pair)->len < 2) {
-	rb_raise(rb_eArgError, "pair must be [key, value]");
-    }
-    fsdbm_store(dbm, RARRAY(pair)->ptr[0], RARRAY(pair)->ptr[1]);
-    return Qnil;
-}
-
-static VALUE
-fsdbm_update(obj, other)
-    VALUE obj, other;
-{
-    rb_iterate(each_pair, other, update_i, obj);
-    return obj;
-}
-
-static VALUE
-fsdbm_replace(obj, other)
-    VALUE obj, other;
-{
-    fsdbm_clear(obj);
-    rb_iterate(each_pair, other, update_i, obj);
-    return obj;
-}
-
-static VALUE
-fsdbm_store(obj, keystr, valstr)
-    VALUE obj, keystr, valstr;
+fsdbm_store(VALUE obj, VALUE keystr, VALUE valstr)
 {
     datum key, val;
     struct dbmdata *dbmp;
@@ -491,14 +610,14 @@ fsdbm_store(obj, keystr, valstr)
     }
 
     fdbm_modify(obj);
-    StringValue(keystr);
-    StringValue(valstr);
+    ExportStringValue(keystr);
+    ExportStringValue(valstr);
 
-    key.dptr = RSTRING(keystr)->ptr;
-    key.dsize = RSTRING(keystr)->len;
+    key.dptr = RSTRING_PTR(keystr);
+    key.dsize = RSTRING_LENINT(keystr);
 
-    val.dptr = RSTRING(valstr)->ptr;
-    val.dsize = RSTRING(valstr)->len;
+    val.dptr = RSTRING_PTR(valstr);
+    val.dsize = RSTRING_LENINT(valstr);
 
     GetDBM2(obj, dbmp, dbm);
     dbmp->di_size = -1;
@@ -514,8 +633,58 @@ fsdbm_store(obj, keystr, valstr)
 }
 
 static VALUE
-fsdbm_length(obj)
-    VALUE obj;
+update_i(VALUE pair, VALUE dbm)
+{
+    Check_Type(pair, T_ARRAY);
+    if (RARRAY_LEN(pair) < 2) {
+	rb_raise(rb_eArgError, "pair must be [key, value]");
+    }
+    fsdbm_store(dbm, RARRAY_PTR(pair)[0], RARRAY_PTR(pair)[1]);
+    return Qnil;
+}
+
+/*
+ * call-seq:
+ *   sdbm.update(pairs) -> self
+ *
+ * Insert or update key-value pairs.
+ *
+ * This method will work with any object which implements an each_pair
+ * method, such as a Hash.
+ */
+static VALUE
+fsdbm_update(VALUE obj, VALUE other)
+{
+    rb_block_call(other, rb_intern("each_pair"), 0, 0, update_i, obj);
+    return obj;
+}
+
+/*
+ * call-seq:
+ *   sdbm.replace(pairs) -> self
+ *
+ * Empties the database, then inserts the given key-value pairs.
+ *
+ * This method will work with any object which implements an each_pair
+ * method, such as a Hash.
+ */
+static VALUE
+fsdbm_replace(VALUE obj, VALUE other)
+{
+    fsdbm_clear(obj);
+    rb_block_call(other, rb_intern("each_pair"), 0, 0, update_i, obj);
+    return obj;
+}
+
+/*
+ * call-seq:
+ *   sdbm.length -> integer
+ *   sdbm.size -> integer
+ *
+ * Returns the number of keys in the database.
+ */
+static VALUE
+fsdbm_length(VALUE obj)
 {
     datum key;
     struct dbmdata *dbmp;
@@ -533,77 +702,113 @@ fsdbm_length(obj)
     return INT2FIX(i);
 }
 
+/*
+ * call-seq:
+ *   sdbm.empty? -> true or false
+ *
+ * Returns +true+ if the database is empty.
+ */
 static VALUE
-fsdbm_empty_p(obj)
-    VALUE obj;
+fsdbm_empty_p(VALUE obj)
 {
     datum key;
     struct dbmdata *dbmp;
     DBM *dbm;
-    int i = 0;
 
     GetDBM(obj, dbmp);
     if (dbmp->di_size < 0) {
 	dbm = dbmp->di_dbm;
 
 	for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
-	    i++;
+	    return Qfalse;
 	}
     }
     else {
-	i = dbmp->di_size;
+	if (dbmp->di_size)
+	    return Qfalse;
     }
-    if (i == 0) return Qtrue;
-    return Qfalse;
+    return Qtrue;
 }
 
+/*
+ * call-seq:
+ *   sdbm.each_value
+ *   sdbm.each_value { |value| ... }
+ *
+ * Iterates over each +value+ in the database.
+ *
+ * If no block is given, returns an Enumerator.
+ */
 static VALUE
-fsdbm_each_value(obj)
-    VALUE obj;
+fsdbm_each_value(VALUE obj)
 {
     datum key, val;
     struct dbmdata *dbmp;
     DBM *dbm;
 
+    RETURN_ENUMERATOR(obj, 0, 0);
+
     GetDBM2(obj, dbmp, dbm);
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	rb_yield(rb_tainted_str_new(val.dptr, val.dsize));
+	rb_yield(rb_external_str_new(val.dptr, val.dsize));
 	GetDBM2(obj, dbmp, dbm);
     }
     return obj;
 }
 
+/*
+ * call-seq:
+ *   sdbm.each_key
+ *   sdbm.each_key { |key| ... }
+ *
+ * Iterates over each +key+ in the database.
+ *
+ * If no block is given, returns an Enumerator.
+ */
 static VALUE
-fsdbm_each_key(obj)
-    VALUE obj;
+fsdbm_each_key(VALUE obj)
 {
     datum key;
     struct dbmdata *dbmp;
     DBM *dbm;
 
+    RETURN_ENUMERATOR(obj, 0, 0);
+
     GetDBM2(obj, dbmp, dbm);
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
-	rb_yield(rb_tainted_str_new(key.dptr, key.dsize));
+	rb_yield(rb_external_str_new(key.dptr, key.dsize));
 	GetDBM2(obj, dbmp, dbm);
     }
     return obj;
 }
 
+/*
+ * call-seq:
+ *   sdbm.each
+ *   sdbm.each { |key, value| ... }
+ *   sdbm.each_pair
+ *   sdbm.each_pair { |key, value| ... }
+ *
+ * Iterates over each key-value pair in the database.
+ *
+ * If no block is given, returns an Enumerator.
+ */
 static VALUE
-fsdbm_each_pair(obj)
-    VALUE obj;
+fsdbm_each_pair(VALUE obj)
 {
     datum key, val;
     DBM *dbm;
     struct dbmdata *dbmp;
     VALUE keystr, valstr;
 
+    RETURN_ENUMERATOR(obj, 0, 0);
+
     GetDBM2(obj, dbmp, dbm);
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	keystr = rb_tainted_str_new(key.dptr, key.dsize);
-	valstr = rb_tainted_str_new(val.dptr, val.dsize);
+	keystr = rb_external_str_new(key.dptr, key.dsize);
+	valstr = rb_external_str_new(val.dptr, val.dsize);
 	rb_yield(rb_assoc_new(keystr, valstr));
 	GetDBM2(obj, dbmp, dbm);
     }
@@ -611,9 +816,14 @@ fsdbm_each_pair(obj)
     return obj;
 }
 
+/*
+ * call-seq:
+ *   sdbm.keys -> Array
+ *
+ * Returns a new Array containing the keys in the database.
+ */
 static VALUE
-fsdbm_keys(obj)
-    VALUE obj;
+fsdbm_keys(VALUE obj)
 {
     datum key;
     struct dbmdata *dbmp;
@@ -623,15 +833,20 @@ fsdbm_keys(obj)
     GetDBM2(obj, dbmp, dbm);
     ary = rb_ary_new();
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
-	rb_ary_push(ary, rb_tainted_str_new(key.dptr, key.dsize));
+	rb_ary_push(ary, rb_external_str_new(key.dptr, key.dsize));
     }
 
     return ary;
 }
 
+/*
+ * call-seq:
+ *   sdbm.values -> Array
+ *
+ * Returns a new Array containing the values in the database.
+ */
 static VALUE
-fsdbm_values(obj)
-    VALUE obj;
+fsdbm_values(VALUE obj)
 {
     datum key, val;
     struct dbmdata *dbmp;
@@ -642,23 +857,31 @@ fsdbm_values(obj)
     ary = rb_ary_new();
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	rb_ary_push(ary, rb_tainted_str_new(val.dptr, val.dsize));
+	rb_ary_push(ary, rb_external_str_new(val.dptr, val.dsize));
     }
 
     return ary;
 }
 
+/*
+ * call-seq:
+ *   sdbm.include?(key) -> true or false
+ *   sdbm.key?(key) -> true or false
+ *   sdbm.member?(key) -> true or false
+ *   sdbm.has_key?(key) -> true or false
+ *
+ * Returns +true+ if the database contains the given +key+.
+ */
 static VALUE
-fsdbm_has_key(obj, keystr)
-    VALUE obj, keystr;
+fsdbm_has_key(VALUE obj, VALUE keystr)
 {
     datum key, val;
     struct dbmdata *dbmp;
     DBM *dbm;
 
-    StringValue(keystr);
-    key.dptr = RSTRING(keystr)->ptr;
-    key.dsize = RSTRING(keystr)->len;
+    ExportStringValue(keystr);
+    key.dptr = RSTRING_PTR(keystr);
+    key.dsize = RSTRING_LENINT(keystr);
 
     GetDBM2(obj, dbmp, dbm);
     val = sdbm_fetch(dbm, key);
@@ -666,31 +889,52 @@ fsdbm_has_key(obj, keystr)
     return Qfalse;
 }
 
+/*
+ * call-seq:
+ *   sdbm.value?(key) -> true or false
+ *   sdbm.has_value?(key) -> true or false
+ *
+ * Returns +true+ if the database contains the given +value+.
+ */
 static VALUE
-fsdbm_has_value(obj, valstr)
-    VALUE obj, valstr;
+fsdbm_has_value(VALUE obj, VALUE valstr)
 {
     datum key, val;
     struct dbmdata *dbmp;
     DBM *dbm;
 
-    StringValue(valstr);
-    val.dptr = RSTRING(valstr)->ptr;
-    val.dsize = RSTRING(valstr)->len;
+    ExportStringValue(valstr);
+    val.dptr = RSTRING_PTR(valstr);
+    val.dsize = RSTRING_LENINT(valstr);
 
     GetDBM2(obj, dbmp, dbm);
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	if (val.dsize == RSTRING(valstr)->len &&
-	    memcmp(val.dptr, RSTRING(valstr)->ptr, val.dsize) == 0)
+	if (val.dsize == RSTRING_LENINT(valstr) &&
+	    memcmp(val.dptr, RSTRING_PTR(valstr), val.dsize) == 0)
 	    return Qtrue;
     }
     return Qfalse;
 }
 
+/*
+ * call-seq:
+ *   sdbm.to_a -> Array
+ *
+ * Returns a new Array containing each key-value pair in the database.
+ *
+ * Example:
+ *
+ *   require 'sdbm'
+ *
+ *   SDBM.open 'my_database' do |db|
+ *     db.update('apple' => 'fruit', 'spinach' => 'vegetable')
+ *
+ *     db.to_a  #=> [["apple", "fruit"], ["spinach", "vegetable"]]
+ *   end
+ */
 static VALUE
-fsdbm_to_a(obj)
-    VALUE obj;
+fsdbm_to_a(VALUE obj)
 {
     datum key, val;
     struct dbmdata *dbmp;
@@ -701,16 +945,21 @@ fsdbm_to_a(obj)
     ary = rb_ary_new();
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	rb_ary_push(ary, rb_assoc_new(rb_tainted_str_new(key.dptr, key.dsize),
-				      rb_tainted_str_new(val.dptr, val.dsize)));
+	rb_ary_push(ary, rb_assoc_new(rb_external_str_new(key.dptr, key.dsize),
+				      rb_external_str_new(val.dptr, val.dsize)));
     }
 
     return ary;
 }
 
+/*
+ * call-seq:
+ *   sdbm.to_hash -> Hash
+ *
+ * Returns a new Hash containing each key-value pair in the database.
+ */
 static VALUE
-fsdbm_to_hash(obj)
-    VALUE obj;
+fsdbm_to_hash(VALUE obj)
 {
     datum key, val;
     struct dbmdata *dbmp;
@@ -721,16 +970,23 @@ fsdbm_to_hash(obj)
     hash = rb_hash_new();
     for (key = sdbm_firstkey(dbm); key.dptr; key = sdbm_nextkey(dbm)) {
 	val = sdbm_fetch(dbm, key);
-	rb_hash_aset(hash, rb_tainted_str_new(key.dptr, key.dsize),
-		           rb_tainted_str_new(val.dptr, val.dsize));
+	rb_hash_aset(hash, rb_external_str_new(key.dptr, key.dsize),
+		           rb_external_str_new(val.dptr, val.dsize));
     }
 
     return hash;
 }
 
+/*
+ * call-seq:
+ *   sdbm.reject { |key, value| ... } -> Hash
+ *
+ * Creates a new Hash using the key-value pairs from the database, then
+ * calls Hash#reject with the given block, which returns a Hash with
+ * only the key-value pairs for which the block returns +false+.
+ */
 static VALUE
-fsdbm_reject(obj)
-    VALUE obj;
+fsdbm_reject(VALUE obj)
 {
     return rb_hash_delete_if(fsdbm_to_hash(obj));
 }
@@ -740,6 +996,9 @@ Init_sdbm()
 {
     rb_cDBM = rb_define_class("SDBM", rb_cObject);
     rb_eDBMError = rb_define_class("SDBMError", rb_eStandardError);
+    /* Document-class: SDBMError
+     * Exception class used to return errors from the sdbm library.
+     */
     rb_include_module(rb_cDBM, rb_mEnumerable);
 
     rb_define_alloc_func(rb_cDBM, fsdbm_alloc);
@@ -753,9 +1012,8 @@ Init_sdbm()
     rb_define_method(rb_cDBM, "[]=", fsdbm_store, 2);
     rb_define_method(rb_cDBM, "store", fsdbm_store, 2);
     rb_define_method(rb_cDBM, "index",  fsdbm_index, 1);
-    rb_define_method(rb_cDBM, "indexes",  fsdbm_indexes, -1);
-    rb_define_method(rb_cDBM, "indices",  fsdbm_indexes, -1);
-    rb_define_method(rb_cDBM, "select",  fsdbm_select, -1);
+    rb_define_method(rb_cDBM, "key",  fsdbm_key, 1);
+    rb_define_method(rb_cDBM, "select",  fsdbm_select, 0);
     rb_define_method(rb_cDBM, "values_at",  fsdbm_values_at, -1);
     rb_define_method(rb_cDBM, "length", fsdbm_length, 0);
     rb_define_method(rb_cDBM, "size", fsdbm_length, 0);
@@ -776,11 +1034,11 @@ Init_sdbm()
     rb_define_method(rb_cDBM,"update", fsdbm_update, 1);
     rb_define_method(rb_cDBM,"replace", fsdbm_replace, 1);
 
-    rb_define_method(rb_cDBM, "include?", fsdbm_has_key, 1);
     rb_define_method(rb_cDBM, "has_key?", fsdbm_has_key, 1);
+    rb_define_method(rb_cDBM, "include?", fsdbm_has_key, 1);
+    rb_define_method(rb_cDBM, "key?", fsdbm_has_key, 1);
     rb_define_method(rb_cDBM, "member?", fsdbm_has_key, 1);
     rb_define_method(rb_cDBM, "has_value?", fsdbm_has_value, 1);
-    rb_define_method(rb_cDBM, "key?", fsdbm_has_key, 1);
     rb_define_method(rb_cDBM, "value?", fsdbm_has_value, 1);
 
     rb_define_method(rb_cDBM, "to_a", fsdbm_to_a, 0);

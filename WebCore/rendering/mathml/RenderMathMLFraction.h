@@ -41,16 +41,33 @@ public:
     
     virtual RenderMathMLOperator* unembellishedOperator();
     
-    virtual LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const; 
+    virtual int firstLineBoxBaseline() const OVERRIDE;
+    float lineThickness() const { return m_lineThickness; }
     virtual void paint(PaintInfo&, const LayoutPoint&);
 protected:
     virtual void layout();
     
 private:
+    virtual bool isRenderMathMLFraction() const { return true; }
+    void fixChildStyle(RenderObject* child);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle) OVERRIDE;
+
     virtual const char* renderName() const { return "RenderMathMLFraction"; }
     
     float m_lineThickness;
 };
+    
+inline RenderMathMLFraction* toRenderMathMLFraction(RenderObject* object)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || (object->isRenderMathMLBlock() && toRenderMathMLBlock(object)->isRenderMathMLFraction()));
+    return static_cast<RenderMathMLFraction*>(object);
+}
+
+inline const RenderMathMLFraction* toRenderMathMLFraction(const RenderObject* object)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || (object->isRenderMathMLBlock() && toRenderMathMLBlock(object)->isRenderMathMLFraction()));
+    return static_cast<const RenderMathMLFraction*>(object);
+}
 
 }
 

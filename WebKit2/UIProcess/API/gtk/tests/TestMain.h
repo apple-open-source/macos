@@ -20,6 +20,7 @@
 #ifndef TestMain_h
 #define TestMain_h
 
+#include <cairo.h>
 #include <glib-object.h>
 #include <wtf/HashSet.h>
 #include <wtf/gobject/GOwnPtr.h>
@@ -39,6 +40,12 @@
         GOwnPtr<gchar> testPath(g_strdup_printf("/webkit2/%s/%s", suiteName, testName)); \
         g_test_add(testPath.get(), ClassName, 0, ClassName::setUp, testFunc, ClassName::tearDown); \
     }
+
+#define ASSERT_CMP_CSTRING(s1, cmp, s2) \
+    do { CString __s1 = (s1); CString __s2 = (s2); \
+        if (g_strcmp0(__s1.data(), __s2.data()) cmp 0) ; else \
+            g_assertion_message_cmpstr(G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC, \
+                #s1 " " #cmp " " #s2, __s1.data(), #cmp, __s2.data()); } while (0)
 
 class Test {
 public:
@@ -73,6 +80,37 @@ public:
     {
         GOwnPtr<char> resourcesDir(g_build_filename(WEBKIT_SRC_DIR, "Source", "WebKit", "gtk", "tests", "resources", NULL));
         return resourcesDir.get();
+    }
+
+    static CString getResourcesDir()
+    {
+        GOwnPtr<char> resourcesDir(g_build_filename(WEBKIT_SRC_DIR, "Source", "WebKit2", "UIProcess", "API", "gtk", "tests", "resources", NULL));
+        return resourcesDir.get();
+    }
+
+    void addLogFatalFlag(unsigned flag)
+    {
+        unsigned fatalMask = g_log_set_always_fatal(static_cast<GLogLevelFlags>(G_LOG_FATAL_MASK));
+        fatalMask |= flag;
+        g_log_set_always_fatal(static_cast<GLogLevelFlags>(fatalMask));
+    }
+
+    void removeLogFatalFlag(unsigned flag)
+    {
+        unsigned fatalMask = g_log_set_always_fatal(static_cast<GLogLevelFlags>(G_LOG_FATAL_MASK));
+        fatalMask &= ~flag;
+        g_log_set_always_fatal(static_cast<GLogLevelFlags>(fatalMask));
+    }
+
+    static bool cairoSurfacesEqual(cairo_surface_t* s1, cairo_surface_t* s2)
+    {
+        return (cairo_image_surface_get_format(s1) == cairo_image_surface_get_format(s2)
+            && cairo_image_surface_get_width(s1) == cairo_image_surface_get_width(s2)
+            && cairo_image_surface_get_height(s1) == cairo_image_surface_get_height(s2)
+            && cairo_image_surface_get_stride(s1) == cairo_image_surface_get_stride(s2)
+            && !memcmp(const_cast<const void*>(reinterpret_cast<void*>(cairo_image_surface_get_data(s1))),
+                const_cast<const void*>(reinterpret_cast<void*>(cairo_image_surface_get_data(s2))),
+                cairo_image_surface_get_height(s1)*cairo_image_surface_get_stride(s1)));
     }
 
     HashSet<GObject*> m_watchedObjects;

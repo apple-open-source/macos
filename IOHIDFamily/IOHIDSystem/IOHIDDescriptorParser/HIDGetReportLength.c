@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -66,11 +66,11 @@
 */
 OSStatus HIDGetReportLength(HIDReportType reportType,
 							UInt8 reportID,
-							ByteCount * reportLength,
+							IOByteCount * reportLength,
 							HIDPreparsedDataRef preparsedDataRef)
 {
 	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr)preparsedDataRef;
-	ByteCount dataLength = 0;
+	IOByteCount dataLength = 0;
 	OSStatus iStatus = kHIDUsageNotFoundErr;
 	int iR;
 
@@ -111,7 +111,7 @@ OSStatus HIDGetReportLength(HIDReportType reportType,
 
 	if (((reportID == 0) && (dataLength > 0)) || dataLength > 1)
 	{
-		iStatus = noErr;
+		iStatus = 0;
 	}
 	else
 	{

@@ -33,6 +33,7 @@
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/Page.h>
 #include <WebCore/ScrollbarTheme.h>
+#include <wtf/CurrentTime.h>
 
 using namespace WebCore;
 
@@ -49,7 +50,7 @@ PassRefPtr<PageOverlay> PageOverlay::create(Client* client)
 PageOverlay::PageOverlay(Client* client)
     : m_client(client)
     , m_webPage(0)
-    , m_fadeAnimationTimer(WebProcess::shared().runLoop(), this, &PageOverlay::fadeAnimationTimerFired)
+    , m_fadeAnimationTimer(RunLoop::main(), this, &PageOverlay::fadeAnimationTimerFired)
     , m_fadeAnimationStartTime(0.0)
     , m_fadeAnimationDuration(fadeAnimationDuration)
     , m_fadeAnimationType(NoAnimation)
@@ -94,8 +95,8 @@ void PageOverlay::setNeedsDisplay(const IntRect& dirtyRect)
 {
     if (m_webPage) {
         if (!m_pageOverlayShouldApplyFadeWhenPainting)
-            m_webPage->drawingArea()->setPageOverlayOpacity(m_fractionFadedIn);
-        m_webPage->drawingArea()->setPageOverlayNeedsDisplay(dirtyRect);
+            m_webPage->drawingArea()->setPageOverlayOpacity(this, m_fractionFadedIn);
+        m_webPage->drawingArea()->setPageOverlayNeedsDisplay(this, dirtyRect);
     }
 }
 
@@ -129,6 +130,16 @@ bool PageOverlay::mouseEvent(const WebMouseEvent& mouseEvent)
     return m_client->mouseEvent(this, mouseEvent);
 }
 
+WKTypeRef PageOverlay::copyAccessibilityAttributeValue(WKStringRef attribute, WKTypeRef parameter)
+{
+    return m_client->copyAccessibilityAttributeValue(this, attribute, parameter);
+}
+
+WKArrayRef PageOverlay::copyAccessibilityAttributeNames(bool parameterizedNames)
+{
+    return m_client->copyAccessibilityAttributeNames(this, parameterizedNames);
+}
+
 void PageOverlay::startFadeInAnimation()
 {
     m_fractionFadedIn = 0.0;
@@ -143,6 +154,12 @@ void PageOverlay::startFadeOutAnimation()
     m_fadeAnimationType = FadeOutAnimation;
 
     startFadeAnimation();
+}
+
+void PageOverlay::stopFadeOutAnimation()
+{
+    m_fractionFadedIn = 1.0;
+    m_fadeAnimationTimer.stop();
 }
 
 void PageOverlay::startFadeAnimation()
@@ -168,7 +185,7 @@ void PageOverlay::fadeAnimationTimerFired()
     if (m_pageOverlayShouldApplyFadeWhenPainting)
         setNeedsDisplay();
     else
-        m_webPage->drawingArea()->setPageOverlayOpacity(m_fractionFadedIn);
+        m_webPage->drawingArea()->setPageOverlayOpacity(this, m_fractionFadedIn);
 
     if (animationProgress == 1.0) {
         m_fadeAnimationTimer.stop();

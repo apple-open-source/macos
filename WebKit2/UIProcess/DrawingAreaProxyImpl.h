@@ -39,7 +39,7 @@ class Region;
 
 namespace WebKit {
 
-class LayerTreeHostProxy;
+class CoordinatedLayerTreeHostProxy;
 
 class DrawingAreaProxyImpl : public DrawingAreaProxy {
 public:
@@ -47,6 +47,12 @@ public:
     virtual ~DrawingAreaProxyImpl();
 
     void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&, WebCore::Region& unpaintedRegion);
+
+#if USE(ACCELERATED_COMPOSITING)
+    bool isInAcceleratedCompositingMode() const { return !m_layerTreeContext.isEmpty(); }
+#endif
+
+    bool hasReceivedFirstUpdate() const { return m_hasReceivedFirstUpdate; }
 
 private:
     explicit DrawingAreaProxyImpl(WebPageProxy*);
@@ -78,12 +84,8 @@ private:
     void enterAcceleratedCompositingMode(const LayerTreeContext&);
     void exitAcceleratedCompositingMode();
     void updateAcceleratedCompositingMode(const LayerTreeContext&);
-
-    bool isInAcceleratedCompositingMode() const { return !m_layerTreeContext.isEmpty(); }
-
-#if USE(UI_SIDE_COMPOSITING)
-    virtual void setVisibleContentsRect(const WebCore::IntRect& visibleContentsRect, float scale, const WebCore::FloatPoint& trajectory, const WebCore::FloatPoint& accurateVisibleContentsPosition = WebCore::FloatPoint());
-    void didReceiveLayerTreeHostProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+#if USE(COORDINATED_GRAPHICS)
+    virtual void setVisibleContentsRect(const WebCore::FloatRect& visibleContentsRect, const WebCore::FloatPoint& trajectory) OVERRIDE;
 #endif
 #else
     bool isInAcceleratedCompositingMode() const { return false; }

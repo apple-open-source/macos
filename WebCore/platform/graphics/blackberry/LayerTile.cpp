@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Research In Motion Limited. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,7 +27,9 @@
 namespace WebCore {
 
 LayerTile::LayerTile()
-    : m_contentsDirty(false)
+    : m_scale(0)
+    , m_contentsDirty(false)
+    , m_visible(false)
 {
 }
 
@@ -37,23 +39,21 @@ LayerTile::~LayerTile()
     setVisible(false);
 }
 
-void LayerTile::setContents(const SkBitmap& contents, const IntRect& tileRect, const TileIndex& index, bool isOpaque)
+void LayerTile::setContents(BlackBerry::Platform::Graphics::Buffer* contents)
 {
-    setTexture(textureCacheCompositingThread()->textureForTiledContents(contents, tileRect, index, isOpaque));
+    m_scale = 0; // Resolution independent
+    setTexture(textureCacheCompositingThread()->textureForContents(contents));
 }
 
-void LayerTile::setContentsToColor(const Color& color)
+void LayerTile::updateContents(BlackBerry::Platform::Graphics::Buffer* contents, double scale)
 {
-    setTexture(textureCacheCompositingThread()->textureForColor(color));
-}
-
-void LayerTile::updateContents(const SkBitmap& contents, const IntRect& dirtyRect, const IntRect& tileRect, bool isOpaque)
-{
-    setTexture(textureCacheCompositingThread()->updateContents(m_texture, contents, dirtyRect, tileRect, isOpaque));
+    m_scale = scale;
+    setTexture(textureCacheCompositingThread()->updateContents(m_texture, contents));
 }
 
 void LayerTile::discardContents()
 {
+    m_scale = 0; // Unknown scale
     setTexture(0);
 }
 
@@ -75,7 +75,7 @@ void LayerTile::setVisible(bool visible)
         m_texture->unprotect();
 }
 
-void LayerTile::setTexture(PassRefPtr<Texture> texture)
+void LayerTile::setTexture(PassRefPtr<LayerTexture> texture)
 {
     // Clear this flag regardless of the value of the texture parameter.
     // If it's 0, isDirty() will return true anyway.

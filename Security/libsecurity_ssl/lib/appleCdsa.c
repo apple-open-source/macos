@@ -59,8 +59,8 @@
 #include <Security/oidsalg.h>
 #include <Security/oidscert.h>
 
-#pragma mark -
-#pragma mark Utilities
+// MARK: -
+// MARK: Utilities
 
 /*
  * Set up a Raw symmetric key with specified algorithm and key bits.
@@ -99,7 +99,7 @@ OSStatus sslSetUpSymmKey(
 	hdr->KeyAttr = CSSM_KEYATTR_MODIFIABLE | CSSM_KEYATTR_EXTRACTABLE;
 	hdr->KeyUsage = keyUse;
 	hdr->WrapAlgorithmId = CSSM_ALGID_NONE;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -129,7 +129,7 @@ OSStatus sslFreeKey(
 		*kcItem = NULL;
 	}
 	#endif
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -160,7 +160,7 @@ OSStatus attachToCsp(SSLContext *ctx)
 {
 	assert(ctx != NULL);
 	if(ctx->cspHand != 0) {
-		return noErr;
+		return errSecSuccess;
 	}
 	else {
 		return errSSLModuleAttach;
@@ -174,7 +174,7 @@ OSStatus attachToCl(SSLContext *ctx)
 {
 	assert(ctx != NULL);
 	if(ctx->clHand != 0) {
-		return noErr;
+		return errSecSuccess;
 	}
 	else {
 		return errSSLModuleAttach;
@@ -185,7 +185,7 @@ OSStatus attachToTp(SSLContext *ctx)
 {
 	assert(ctx != NULL);
 	if(ctx->tpHand != 0) {
-		return noErr;
+		return errSecSuccess;
 	}
 	else {
 		return errSSLModuleAttach;
@@ -205,7 +205,7 @@ OSStatus attachToAll(SSLContext *ctx)
 	   return errSSLModuleAttach;
 	}
 	else {
-		return noErr;
+		return errSecSuccess;
 	}
 }
 
@@ -227,7 +227,7 @@ OSStatus detachFromAll(SSLContext *ctx)
 		ctx->clHand = 0;
 	}
 	#endif	/* 0 */
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -300,8 +300,8 @@ static OSStatus sslGetKeyParts(
     return NULL;
 }
 
-#pragma mark -
-#pragma mark CSSM_DATA routines
+// MARK: -
+// MARK: CSSM_DATA routines
 
 CSSM_DATA_PTR stMallocCssmData(
 	size_t size)
@@ -350,15 +350,15 @@ OSStatus stSetUpCssmData(
 	if(data->Length == 0) {
 		data->Data = (uint8 *)stAppMalloc(length, NULL);
 		if(data->Data == NULL) {
-			return memFullErr;
+			return errSecAllocate;
 		}
 	}
 	else if(data->Length < length) {
 		sslErrorLog("stSetUpCssmData: length too small\n");
-		return memFullErr;
+		return errSecAllocate;
 	}
 	data->Length = length;
-	return noErr;
+	return errSecSuccess;
 }
 
 /* All signature ops are "raw", with digest step done by us */
@@ -367,7 +367,7 @@ static OSStatus sslKeyToSigAlg(
 	CSSM_ALGORITHMS *sigAlg)	/* RETURNED */
 
 {
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	switch(cssmKey->KeyHeader.AlgorithmId) {
 		case CSSM_ALGID_RSA:
 			*sigAlg = CSSM_ALGID_RSA;
@@ -385,8 +385,8 @@ static OSStatus sslKeyToSigAlg(
 	return ortn;
 }
 
-#pragma mark -
-#pragma mark Public CSP Functions
+// MARK: -
+// MARK: Public CSP Functions
 
 /*
  * Raw RSA/DSA sign/verify.
@@ -485,7 +485,7 @@ OSStatus sslRawSign(
 	}
 	else {
 		*actualBytes = sigData.Length;
-		serr = noErr;
+		serr = errSecSuccess;
 	}
 	if(sigHand != 0) {
 		CSSM_DeleteContext(sigHand);
@@ -552,7 +552,7 @@ OSStatus sslRawVerify(
 		serr = errSSLCrypto;
 	}
 	else {
-		serr = noErr;
+		serr = errSecSuccess;
 	}
 	if(sigHand != 0) {
 		CSSM_DeleteContext(sigHand);
@@ -657,7 +657,7 @@ OSStatus sslRsaEncrypt(
 				memmove(cipherText + toMoveCtext, remData.Data,
 					toMoveRem);
 			}
-			serr = noErr;
+			serr = errSecSuccess;
 		}
 	}
 	else {
@@ -794,7 +794,7 @@ OSStatus sslRsaDecrypt(
 				memmove(plainText + toMovePtext, remData.Data,
 					toMoveRem);
 			}
-			serr = noErr;
+			serr = errSecSuccess;
 		}
 	}
 	else {
@@ -851,7 +851,7 @@ OSStatus sslGetMaxSigSize(
 	const CSSM_KEY	*privKey,
 	uint32_t		*maxSigSize)
 {
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	assert(privKey != NULL);
 	assert(privKey->KeyHeader.KeyClass == CSSM_KEYCLASS_PRIVATE_KEY);
 	switch(privKey->KeyHeader.AlgorithmId) {
@@ -1021,7 +1021,7 @@ OSStatus sslGetPubKeyFromBits(
 	/* the rest is boilerplate, cook up a good-looking public key */
 	key = (CSSM_KEY_PTR)sslMalloc(sizeof(CSSM_KEY));
 	if(key == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	memset(key, 0, sizeof(CSSM_KEY));
 	hdr = &key->KeyHeader;
@@ -1059,7 +1059,7 @@ OSStatus sslGetPubKeyFromBits(
     hdr->LogicalKeySizeInBits = keySize.EffectiveKeySizeInBits;
     *pubKey = key;
     *cspHand = ctx->cspHand;
-	return noErr;
+	return errSecSuccess;
 
 abort:
 	/* note this frees the blob */
@@ -1082,7 +1082,7 @@ static OSStatus sslNullUnwrapKey(
 	CSSM_ACCESS_CREDENTIALS	creds;
 	CSSM_DATA labelData = {4, (uint8 *)"none"};
 	uint32 keyAttr;
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 
 	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 	memset(refKey, 0, sizeof(CSSM_KEY));
@@ -1142,7 +1142,7 @@ static OSStatus sslNullWrapKey(
 	CSSM_CC_HANDLE ccHand;
 	CSSM_ACCESS_CREDENTIALS	creds;
 	uint32 keyAttr;
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 
 	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 	memset(rawKey, 0, sizeof(CSSM_KEY));
@@ -1180,8 +1180,8 @@ static OSStatus sslNullWrapKey(
 	return crtn;
 }
 
-#pragma mark -
-#pragma mark Public Certificate Functions
+// MARK: -
+// MARK: Public Certificate Functions
 
 /*
  * Given a DER-encoded cert, obtain its public key as a CSSM_KEY_PTR.
@@ -1225,7 +1225,7 @@ OSStatus sslPubKeyFromCert(
 	}
 	else {
 		pubKey->cspHand = ctx->cspHand;
-		return noErr;
+		return errSecSuccess;
 	}
 }
 
@@ -1295,7 +1295,7 @@ static void sslReleaseArray(
 	CFMutableArrayRef certGroup = CFArrayCreateMutable(NULL, numCerts,
 		&kCFTypeArrayCallBacks);
 	if(certGroup == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	/* subsequent errors to errOut: */
 
@@ -1402,7 +1402,7 @@ static void sslReleaseArray(
 	kcList = CFArrayCreateMutable(NULL, 0, NULL);
 	if(kcList == NULL) {
 		sslErrorLog("***sslVerifyCertChain: error creating null kcList\n");
-		serr = memFullErr;
+		serr = errSecAllocate;
 		goto errOut;
 	}
 	serr = SecTrustSetKeychains(theTrust, kcList);
@@ -1426,7 +1426,7 @@ static void sslReleaseArray(
 
 	if(!ctx->enableCertVerify) {
 		/* trivial case, this is caller's responsibility */
-		serr = noErr;
+		serr = errSecSuccess;
 		goto errOut;
 	}
 
@@ -1436,7 +1436,7 @@ static void sslReleaseArray(
 	if(ctx->trustedLeafCerts) {
 		if (sslGetMatchingCertInArray((SecCertificateRef)CFArrayGetValueAtIndex(certGroup, 0),
 			ctx->trustedLeafCerts)) {
-			serr = noErr;
+			serr = errSecSuccess;
 			goto errOut;
 		}
 	}
@@ -1483,7 +1483,7 @@ static void sslReleaseArray(
 			case CSSMERR_TP_INVALID_ANCHOR_CERT:
 				/* root found but we don't trust it */
 				if(ctx->allowAnyRoot) {
-					serr = noErr;
+					serr = errSecSuccess;
 					sslErrorLog("***Warning: accepting unknown root cert\n");
 				}
 				else {
@@ -1494,7 +1494,7 @@ static void sslReleaseArray(
 				/* no root, not even in implicit SSL roots */
 				if(ctx->allowAnyRoot) {
 					sslErrorLog("***Warning: accepting unverified cert chain\n");
-					serr = noErr;
+					serr = errSecSuccess;
 				}
 				else {
 					serr = errSSLNoRootCert;
@@ -1562,8 +1562,8 @@ void stPrintCdsaError(const char *op, CSSM_RETURN crtn)
 }
 #endif
 
-#pragma mark -
-#pragma mark Diffie-Hellman Support
+// MARK: -
+// MARK: Diffie-Hellman Support
 
 /*
  * Generate a Diffie-Hellman key pair. Algorithm parameters always
@@ -1593,7 +1593,7 @@ OSStatus sslDhGenKeyPairClient(
 		return ortn;
 	}
 	ortn = sslDhGenerateKeyPair(ctx, &sParam, prime->length * 8, publicKey, privateKey);
-	SSLFreeBuffer(&sParam, ctx);
+	SSLFreeBuffer(&sParam);
 	return ortn;
 }
 
@@ -1607,7 +1607,7 @@ OSStatus sslDhGenerateKeyPair(
 	CSSM_RETURN		crtn;
 	CSSM_CC_HANDLE 	ccHandle;
 	CSSM_DATA		labelData = {8, (uint8 *)"tempKey"};
-	OSStatus		ortn = noErr;
+	OSStatus		ortn = errSecSuccess;
 	CSSM_DATA		cParamBlob;
 
 	assert(ctx != NULL);
@@ -1672,7 +1672,7 @@ OSStatus sslDhKeyExchange(
 	CSSM_CC_HANDLE			ccHandle;
 	CSSM_DATA				labelData = {8, (uint8 *)"tempKey"};
 	CSSM_KEY				derivedKey;
-	OSStatus				ortn = noErr;
+	OSStatus				ortn = errSecSuccess;
 
 	assert(ctx != NULL);
 	assert(ctx->cspHand != 0);
@@ -1723,8 +1723,8 @@ OSStatus sslDhKeyExchange(
 	return ortn;
 }
 
-#pragma mark -
-#pragma mark *** ECDSA support ***
+// MARK: -
+// MARK: *** ECDSA support ***
 
 /* specify either 32-bit integer or a pointer as an added attribute value */
 typedef enum {
@@ -1776,14 +1776,14 @@ OSStatus sslEcdhGenerateKeyPair(
 	CSSM_RETURN		crtn;
 	CSSM_CC_HANDLE 	ccHandle = 0;
 	CSSM_DATA		labelData = {8, (uint8 *)"ecdsaKey"};
-	OSStatus		ortn = noErr;
+	OSStatus		ortn = errSecSuccess;
 	CSSM_KEY		pubKey;
 	uint32			keySizeInBits;
 
 	assert(ctx != NULL);
 	assert(ctx->cspHand != 0);
 	sslFreeKey(ctx->ecdhPrivCspHand, &ctx->ecdhPrivate, NULL);
-    SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
+    SSLFreeBuffer(&ctx->ecdhExchangePublic);
 
 	switch(namedCurve) {
 		case SSL_Curve_secp256r1:
@@ -1890,7 +1890,7 @@ OSStatus sslEcdhKeyExchange(
 	CSSM_CC_HANDLE			ccHandle;
 	CSSM_DATA				labelData = {8, (uint8 *)"tempKey"};
 	CSSM_KEY				derivedKey;
-	OSStatus				ortn = noErr;
+	OSStatus				ortn = errSecSuccess;
 	CSSM_KEY				rawKey;
 	bool					useRefKeys = false;
 	uint32					keyAttr;
@@ -2046,7 +2046,7 @@ errOut:
 	CSSM_DeleteContext(ccHandle);
 	if(useRefKeys) {
 		if(pubKeyBits.length) {
-			SSLFreeBuffer(&pubKeyBits, ctx);
+			SSLFreeBuffer(&pubKeyBits);
 		}
 		if(rawKey.KeyData.Length) {
 			CSSM_FreeKey(ctx->ecdhPrivCspHand, NULL, &rawKey, CSSM_FALSE);
@@ -2072,13 +2072,13 @@ OSStatus sslVerifySelectedCipher(
 	const SSLCipherSpec *selectedCipherSpec)
 {
 	if(ctx->protocolSide == kSSLClientSide) {
-		return noErr;
+		return errSecSuccess;
 	}
 	#if 	SSL_PAC_SERVER_ENABLE
 	if((ctx->masterSecretCallback != NULL) &&
 	   (ctx->sessionTicket.data != NULL)) {
 		/* EAP via PAC resumption; we can do it */
-		return noErr;
+		return errSecSuccess;
 	}
 	#endif	/* SSL_PAC_SERVER_ENABLE */
 
@@ -2119,7 +2119,7 @@ OSStatus sslVerifySelectedCipher(
 			return errSSLInternal;
     }
 	if(requireAlg == CSSM_ALGID_NONE) {
-		return noErr;
+		return errSecSuccess;
 	}
 
 	/* private signing key required */
@@ -2140,7 +2140,7 @@ OSStatus sslVerifySelectedCipher(
 			return errSSLBadConfiguration;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 #endif /* USE_CDSA_CRYPTO */

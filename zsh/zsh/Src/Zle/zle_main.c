@@ -53,11 +53,6 @@ mod_export int zlecs, zlell;
 /**/
 mod_export int incompctlfunc;
 
-/* != 0 if we are in a new style completion function */
-
-/**/
-mod_export int incompfunc;
-
 /* != 0 if completion module is loaded */
 
 /**/
@@ -633,7 +628,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 	    /*
 	     * Make sure a user interrupt gets passed on straight away.
 	     */
-	    if (selret < 0 && errflag)
+	    if (selret < 0 && (errflag || retflag || breaks || exit_pending))
 		break;
 	    /*
 	     * Try to avoid errors on our special fd's from
@@ -875,7 +870,7 @@ getbyte(long do_keytmout, int *timeout)
 	    icnt = 0;
 	    if (errno == EINTR) {
 		die = 0;
-		if (!errflag && !retflag && !breaks)
+		if (!errflag && !retflag && !breaks && !exit_pending)
 		    continue;
 		errflag = 0;
 		breaks = obreaks;
@@ -1205,6 +1200,18 @@ zleread(char **lp, char **rp, int flags, int context)
 	putc('\r', shout);
     if (tmout)
 	alarm(tmout);
+
+    /*
+     * On some windowing systems we may enter this function before the
+     * terminal is fully opened and sized, resulting in an infinite
+     * series of SIGWINCH when the handler prints the prompt before we
+     * have done so here.  Therefore, hold any such signal until the
+     * first full refresh has completed.  The important bit is that the
+     * handler must not see zleactive = 1 until ZLE really is active.
+     * See the end of adjustwinsize() in Src/utils.c
+     */
+    queue_signals();
+
     zleactive = 1;
     resetneeded = 1;
     errflag = retflag = 0;
@@ -1213,6 +1220,8 @@ zleread(char **lp, char **rp, int flags, int context)
     prefixflag = 0;
 
     zrefresh();
+
+    unqueue_signals();	/* Should now be safe to acknowledge SIGWINCH */
 
     zlecallhook("zle-line-init", NULL);
 
@@ -1233,7 +1242,7 @@ zleread(char **lp, char **rp, int flags, int context)
     alarm(0);
 
     freeundo();
-    if (eofsent) {
+    if (eofsent || errflag) {
 	s = NULL;
     } else {
 	zleline[zlell++] = ZWC('\n');
@@ -1918,7 +1927,7 @@ zle_main_entry(int cmd, va_list ap)
 static struct builtin bintab[] = {
     BUILTIN("bindkey", 0, bin_bindkey, 0, -1, 0, "evaM:ldDANmrsLRp", NULL),
     BUILTIN("vared",   0, bin_vared,   1,  1, 0, "aAcehM:m:p:r:t:", NULL),
-    BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDFgGIKlLmMNRU", NULL),
+    BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDFgGIKlLmMNrRTU", NULL),
 };
 
 /* The order of the entries in this table has to match the *HOOK

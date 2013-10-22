@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,6 +95,7 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config);
  *     kEAPClientPropUserName
  *     kEAPClientPropUserPassword
  *     kEAPClientPropTLSIdentityHandle
+ *     kEAPClientPropSaveCredentialsOnSuccessfulAuthentication
  *   If properties not in this list are specified in 'auth_info", EINVAL
  *   is returned.
  *   
@@ -190,8 +191,7 @@ EAPOLControlCopyStateAndStatus(const char * interface_name,
 /*
  * Function: EAPOLControlSetLogLevel
  * Purpose:
- *   Set the log level.  If (level >= 0), logging is enabled,
- *   otherwise logging is disabled.
+ *   Deprecated.
  */
 int
 EAPOLControlSetLogLevel(const char * interface_name, int32_t level);

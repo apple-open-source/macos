@@ -45,6 +45,7 @@ class Time
   end
 end
 
+
 require "English"
 require "rss/utils"
 require "rss/converter"
@@ -52,7 +53,7 @@ require "rss/xml-stylesheet"
 
 module RSS
 
-  VERSION = "0.2.4"
+  VERSION = "0.2.7"
 
   URI = "http://purl.org/rss/1.0/"
 
@@ -69,6 +70,9 @@ module RSS
 
   class InvalidRSSError < Error; end
 
+  ##
+  # Raised if no matching tag is found.
+
   class MissingTagError < InvalidRSSError
     attr_reader :tag, :parent
     def initialize(tag, parent)
@@ -76,6 +80,9 @@ module RSS
       super("tag <#{tag}> is missing in tag <#{parent}>")
     end
   end
+
+  ##
+  # Raised if there are more occurrences of the tag than expected.
 
   class TooMuchTagError < InvalidRSSError
     attr_reader :tag, :parent
@@ -85,6 +92,9 @@ module RSS
     end
   end
 
+  ##
+  # Raised if a required attribute is missing.
+
   class MissingAttributeError < InvalidRSSError
     attr_reader :tag, :attribute
     def initialize(tag, attribute)
@@ -93,6 +103,9 @@ module RSS
     end
   end
 
+  ##
+  # Raised when an unknown tag is found.
+
   class UnknownTagError < InvalidRSSError
     attr_reader :tag, :uri
     def initialize(tag, uri)
@@ -100,6 +113,9 @@ module RSS
       super("tag <#{tag}> is unknown in namespace specified by uri <#{uri}>")
     end
   end
+
+  ##
+  # Raised when an unexpected tag is encountered.
 
   class NotExpectedTagError < InvalidRSSError
     attr_reader :tag, :uri, :parent
@@ -110,6 +126,9 @@ module RSS
   end
   # For backward compatibility :X
   NotExceptedTagError = NotExpectedTagError
+
+  ##
+  # Raised when an incorrect value is used.
 
   class NotAvailableValueError < InvalidRSSError
     attr_reader :tag, :value, :attribute
@@ -122,6 +141,9 @@ module RSS
     end
   end
 
+  ##
+  # Raised when an unknown conversion error occurs.
+
   class UnknownConversionMethodError < Error
     attr_reader :to, :from
     def initialize(to, from)
@@ -133,6 +155,9 @@ module RSS
   # for backward compatibility
   UnknownConvertMethod = UnknownConversionMethodError
 
+  ##
+  # Raised when a conversion failure occurs.
+
   class ConversionError < Error
     attr_reader :string, :to, :from
     def initialize(string, to, from)
@@ -143,6 +168,9 @@ module RSS
     end
   end
 
+  ##
+  # Raised when a required variable is not set.
+
   class NotSetError < Error
     attr_reader :name, :variables
     def initialize(name, variables)
@@ -151,6 +179,9 @@ module RSS
       super("required variables of #{@name} are not set: #{@variables.join(', ')}")
     end
   end
+
+  ##
+  # Raised when a RSS::Maker attempts to use an unknown maker.
 
   class UnsupportedMakerVersionError < Error
     attr_reader :version
@@ -228,7 +259,7 @@ EOC
           else
             rv << value
           end
-    	    rv << "</#{elem_name}>"
+            rv << "</#{elem_name}>"
           rv
         else
           ''
@@ -248,7 +279,7 @@ EOC
       # accessor
       convert_attr_reader name
       date_writer(name, type, disp_name)
-      
+
       install_element(name) do |n, elem_name|
         <<-EOC
         if @#{n}
@@ -259,7 +290,7 @@ EOC
           else
             rv << value
           end
-    	    rv << "</#{elem_name}>"
+            rv << "</#{elem_name}>"
           rv
         else
           ''
@@ -633,7 +664,7 @@ EOC
     include SetupMaker
 
     INDENT = "  "
-    
+
     MUST_CALL_VALIDATORS = {}
     MODELS = []
     GET_ATTRIBUTES = []
@@ -670,18 +701,18 @@ EOC
       end
 
       def inherited(klass)
-        klass.const_set("MUST_CALL_VALIDATORS", {})
-        klass.const_set("MODELS", [])
-        klass.const_set("GET_ATTRIBUTES", [])
-        klass.const_set("HAVE_CHILDREN_ELEMENTS", [])
-        klass.const_set("TO_ELEMENT_METHODS", [])
-        klass.const_set("NEED_INITIALIZE_VARIABLES", [])
-        klass.const_set("PLURAL_FORMS", {})
+        klass.const_set(:MUST_CALL_VALIDATORS, {})
+        klass.const_set(:MODELS, [])
+        klass.const_set(:GET_ATTRIBUTES, [])
+        klass.const_set(:HAVE_CHILDREN_ELEMENTS, [])
+        klass.const_set(:TO_ELEMENT_METHODS, [])
+        klass.const_set(:NEED_INITIALIZE_VARIABLES, [])
+        klass.const_set(:PLURAL_FORMS, {})
 
         tag_name = klass.name.split(/::/).last
         tag_name[0, 1] = tag_name[0, 1].downcase
-        klass.instance_variable_set("@tag_name", tag_name)
-        klass.instance_variable_set("@have_content", false)
+        klass.instance_variable_set(:@tag_name, tag_name)
+        klass.instance_variable_set(:@have_content, false)
       end
 
       def install_must_call_validator(prefix, uri)
@@ -829,7 +860,7 @@ EOC
     def full_name
       tag_name
     end
-    
+
     def converter=(converter)
       @converter = converter
       targets = children.dup
@@ -864,7 +895,7 @@ EOC
     ensure
       @do_validate = do_validate
     end
-    
+
     def validate_for_stream(tags, ignore_unknown_element=true)
       validate_attribute
       __validate(ignore_unknown_element, tags, false)
@@ -984,7 +1015,7 @@ EOC
           end_tag = "\n#{indent}</#{full_name}>"
         end
       end
-      
+
       start_tag + content.join("\n") + end_tag
     end
 
@@ -1009,7 +1040,7 @@ EOC
       end
       attrs
     end
-    
+
     def tag_name_with_prefix(prefix)
       "#{prefix}:#{tag_name}"
     end
@@ -1092,9 +1123,8 @@ EOC
         tags = tags.sort_by {|x| element_names.index(x) || tags_size}
       end
 
-      _tags = tags.dup if tags
       models.each_with_index do |model, i|
-        name, model_uri, occurs, getter = model
+        name, _, occurs, = model
 
         if DEBUG
           p "before"
@@ -1200,7 +1230,7 @@ EOC
         __send__(self.class.xml_getter).to_s
       else
         _content = content
-        _content = Base64.encode64(_content) if need_base64_encode?
+        _content = [_content].pack("m").delete("\n") if need_base64_encode?
         h(_content)
       end
     end
@@ -1209,7 +1239,7 @@ EOC
   module RootElementMixin
 
     include XMLStyleSheetMixin
-    
+
     attr_reader :output_encoding
     attr_reader :feed_type, :feed_subtype, :feed_version
     attr_accessor :version, :encoding, :standalone
@@ -1295,7 +1325,7 @@ EOC
       rv << "?>\n"
       rv
     end
-    
+
     def ns_declarations
       decls = {}
       self.class::NSPOOL.collect do |prefix, uri|

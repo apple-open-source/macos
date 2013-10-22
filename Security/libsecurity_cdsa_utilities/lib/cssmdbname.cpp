@@ -72,7 +72,7 @@ void DbName::CanonicalizeName()
 			// we will pull the path apart and try again.
 			
 			// search backward for the delimiter
-			int n = mDbName.length() - 1;
+			ptrdiff_t n = mDbName.length() - 1;
 			
 			// all subpaths must be tested, because there may be more than just
 			// the file name that doesn't exist.

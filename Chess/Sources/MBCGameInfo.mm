@@ -418,6 +418,7 @@ const int kNumFixedMenuItems = 2;
 
 - (IBAction) updateProperties:(id)sender
 {
+	[self willChangeValueForKey:@"gameTitle"];
     NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
    
     //
@@ -439,6 +440,7 @@ const int kNumFixedMenuItems = 2;
 
 	[NSApp endSheet:[sender window]];
     [fEditedProperties release];
+	[self didChangeValueForKey:@"gameTitle"];
 }
 
 - (IBAction) updateVoices:(id)sender;
@@ -467,6 +469,16 @@ const int kNumFixedMenuItems = 2;
 
 	[self setValue:boardStyle forKey:kMBCBoardStyle];
 	[self setValue:pieceStyle forKey:kMBCPieceStyle];
+}
+
+//
+//     If there is no document anymore, fBoard can't be trusted either
+//
+- (void)setDocument:(MBCDocument *)document
+{
+    fDocument = document;
+    if (!fDocument)
+        fBoard = nil;
 }
 
 - (int)numberOfRowsInTableView:(NSTableView *)aTableView

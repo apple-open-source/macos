@@ -1,4 +1,4 @@
-.Dd March 6, 2009
+.Dd November 14, 2012
 .Os Darwin
 .Dt KEXTCACHE 8
 .Sh NAME
@@ -109,7 +109,7 @@ See
 .It Fl system-prelinked-kernel
 This option is a convenience to update the prelinked kernel
 used for startup on the root volume,
-with all kexts in the system extensions folder
+with all kexts in /System/Library/Extensions and /Library/Extensions
 that have been loaded to date.
 This option implies
 .Fl all-loaded .
@@ -302,7 +302,7 @@ of a prelinked kernel file (the default is
 Quiet mode; print no informational or error messages.
 .It Fl r , Fl all-loaded
 When creating a prelinked kernel,
-include all kexts in the system extensions folder
+include all kexts in /System/Library/Extensions and /Library/Extensions
 that have been loaded by the machine running
 this command during this startup session.
 This include kexts loaded and later unloaded.
@@ -390,6 +390,8 @@ End of all options. Only kext or directory names follow.
 .Bl -tag -width
 .It Pa /System/Library/Extensions/
 The standard system repository of kernel extensions.
+.It Pa /Library/Extensions/
+The standard repository of non Apple kernel extensions.
 .It Pa /System/Library/Caches/com.apple.kext.caches/
 Contains all kext caches for a Mac OS X 10.6 system: prelinked kernel,
 mkext, and system kext info caches.

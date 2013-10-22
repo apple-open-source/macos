@@ -28,22 +28,28 @@
 
 namespace WebCore {
 
+class FormControlState;
+
 class HTMLFormControlElementWithState : public HTMLFormControlElement {
 public:
     virtual ~HTMLFormControlElementWithState();
 
     virtual bool canContainRangeEndPoint() const { return false; }
 
-    bool shouldSaveAndRestoreFormControlState() const;
-    virtual bool saveFormControlState(String&) const { return false; }
-    virtual void restoreFormControlState(const String&) { }
+    virtual bool shouldSaveAndRestoreFormControlState() const;
+    virtual FormControlState saveFormControlState() const;
+    // The specified FormControlState must have at least one string value.
+    virtual void restoreFormControlState(const FormControlState&) { }
+    void notifyFormStateChanged();
 
 protected:
     HTMLFormControlElementWithState(const QualifiedName& tagName, Document*, HTMLFormElement*);
 
     virtual bool shouldAutocomplete() const;
     virtual void finishParsingChildren();
-    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
+    virtual bool isFormControlElementWithState() const OVERRIDE;
 };
 
 } // namespace

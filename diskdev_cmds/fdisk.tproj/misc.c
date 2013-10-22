@@ -83,10 +83,10 @@ ask_cmd(cmd_t *cmd)
 }
 
 int
-ask_num(const char *str, int flags, int dflt, int low, int high, void (*help) __P((void)))
+ask_num(const char *str, int flags, unsigned int dflt, unsigned int low, unsigned int high, void (*help) __P((void)))
 {
 	char lbuf[100], *cp;
-	int num;
+	unsigned int num;
 
 	do {
 again:
@@ -94,7 +94,7 @@ again:
 		if (flags == ASK_HEX)
 			printf("%s [%X - %X]: [%X] ", str, low, high, num);
 		else
-			printf("%s [%d - %d]: [%d] ", str, low, high, num);
+			printf("%s [%u - %u]: [%u] ", str, low, high, num);
 		if (help)
 			printf("(? for help) ");
 
@@ -109,7 +109,7 @@ again:
 
 		/* Convert */
 		cp = lbuf;
-		num = strtol(lbuf, &cp, ((flags==ASK_HEX)?16:10));
+		num = strtoul(lbuf, &cp, ((flags==ASK_HEX)?16:10));
 
 		/* Make sure only number present */
 		if (cp == lbuf)
@@ -118,7 +118,7 @@ again:
 			printf("'%s' is not a valid number.\n", lbuf);
 			num = low - 1;
 		} else if (num < low || num > high) {
-			printf("'%d' is out of range.\n", num);
+			printf("'%u' is out of range.\n", num);
 		}
 	} while (num < low || num > high);
 

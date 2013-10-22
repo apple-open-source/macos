@@ -2,14 +2,14 @@
  * Copyright (c) 2006-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,64 +17,64 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * trust_cert_add.c
  */
 
 /*
- * This command is fairly versatile and hence the usage might be a bit confusing. 
+ * This command is fairly versatile and hence the usage might be a bit confusing.
  * The standard usage of this command is to add one or more certs to a Trust
  * Settings domain, along with optional usage constraints. Often, but not
  * necessarily, you'd also add the cert to a keychain while you're adding
  * it to Trust Settings.
  *
- * -- To add someRoot.cer to your login keychain and to your Trust Settings as 
+ * -- To add someRoot.cer to your login keychain and to your Trust Settings as
  *    an unrestricted root cert:
  *
- *    % security add-trusted-cert -k login.keychain someRoot.cer  
+ *    % security add-trusted-cert -k login.keychain someRoot.cer
  *
- * -- To add anotherRoot.cer to the local admin trust settings, only for policy 
- *    ssl, without adding it to a keychain (presumably because it's already in 
+ * -- To add anotherRoot.cer to the local admin trust settings, only for policy
+ *    ssl, without adding it to a keychain (presumably because it's already in
  *    a keychain somewhere else):
  *
  *    % security add-trusted-cert -p ssl -d anotherRoot.cer
  *
- * The more obscure uses involve default settings and trust settings files. 
+ * The more obscure uses involve default settings and trust settings files.
  *
- * Specifying a default trust setting precludes specifying a cert. Other 
- * options apply as usual; note that if the domain for which you are 
- * specifying a default setting already has a default setting, the old default 
+ * Specifying a default trust setting precludes specifying a cert. Other
+ * options apply as usual; note that if the domain for which you are
+ * specifying a default setting already has a default setting, the old default
  * will be replaced by the new one you specify.
  *
  * -- To specify a default of "deny" for policy SMIME for the admin domain:
  *
  *    % security add-trusted-cert -p smime -r deny -D
  *
- * This command can also operate on trust settings as files instead of 
+ * This command can also operate on trust settings as files instead of
  * modifying an actual on-disk Trust Settings record. One standard use for
- * this function is in the creation of the system Trust Settings, which 
- * are immutable at runtime via the SecTrustSettings API. You provide a 
- * file name for this option via -f settingsFile. If the file does not 
+ * this function is in the creation of the system Trust Settings, which
+ * are immutable at runtime via the SecTrustSettings API. You provide a
+ * file name for this option via -f settingsFile. If the file does not
  * exist, a new empty Trust Settings will be created, and certs and/or
- * a default will be added to that record, and the record will be written 
- * out to the filename you provide (infile = outfile, always). 
+ * a default will be added to that record, and the record will be written
+ * out to the filename you provide (infile = outfile, always).
  *
- * -- To create Trust Settings record with one cert in it, restricted to 
+ * -- To create Trust Settings record with one cert in it, restricted to
  *    policy SSL:
  *
  *    % security add-trusted-cert -p ssl -f someTrustSettingsFile.plist -r someRoot.cer
  *
  * You can also use the -f option and specify no certs, in which case an empty
- * Trust Settings record will be created. This can be useful if you want to 
- * quickly reset the Trust Settings in a given domain to "empty"; the 
+ * Trust Settings record will be created. This can be useful if you want to
+ * quickly reset the Trust Settings in a given domain to "empty"; the
  * empty Trust Settings record can be imported via the trust-settings-import
- * command. 
+ * command.
  *
  * -- To reset the admin trust settings to "empty":
- * 
- *    % security add-trusted-cert -f emptySettingsFile.plist 
+ *
+ *    % security add-trusted-cert -f emptySettingsFile.plist
  *    % security trust-settings-import -d emptySettingsFile.plist
  */
 
@@ -108,7 +108,7 @@ static CFDataRef readFileData(
 }
 
 static int writeFileData(
-	const char *fileName, 
+	const char *fileName,
 	CFDataRef cfd)
 {
 	unsigned long l = (unsigned long)CFDataGetLength(cfd);
@@ -126,15 +126,15 @@ static int appendConstraintsToDict(
 	const char *appPath,			/* optional */
 	const char *policy,				/* optional - smime, ssl, etc. */
 	const char *policyStr,			/* optional policy string */
-	SecTrustSettingsResult resultType,	
+	SecTrustSettingsResult resultType,
 	CSSM_RETURN allowErr,			/* optional allowed error */
 	SecTrustSettingsKeyUsage keyUse,/* optional key use */
 	CFMutableDictionaryRef *dict)	/* result RETURNED here, created if necessary */
 {
 	if(*dict == NULL) {
-		*dict = CFDictionaryCreateMutable(NULL, 
-			0,		// capacity 
-			&kCFTypeDictionaryKeyCallBacks, 
+		*dict = CFDictionaryCreateMutable(NULL,
+			0,		// capacity
+			&kCFTypeDictionaryKeyCallBacks,
 			&kCFTypeDictionaryValueCallBacks);
 	}
 
@@ -145,7 +145,7 @@ static int appendConstraintsToDict(
 		if(oid == NULL) {
 			return 2;
 		}
-		
+
 		/* OID to SecPolicyRef */
 		SecPolicyRef policyRef = oidToPolicy(oid);
 		if(policyRef == NULL) {
@@ -154,7 +154,7 @@ static int appendConstraintsToDict(
 		CFDictionaryAddValue(*dict, kSecTrustSettingsPolicy, policyRef);
 		CFRelease(policyRef);
 	}
-	
+
 	/* app string to SecTrustedApplicationRef */
 	if(appPath != NULL) {
 		SecTrustedApplicationRef appRef;
@@ -166,13 +166,13 @@ static int appendConstraintsToDict(
 		CFDictionaryAddValue(*dict, kSecTrustSettingsApplication, appRef);
 		CFRelease(appRef);
 	}
-	
+
 	if(policyStr != NULL) {
 		CFStringRef pstr = CFStringCreateWithCString(NULL, policyStr, kCFStringEncodingUTF8);
 		CFDictionaryAddValue(*dict, kSecTrustSettingsPolicyString, pstr);
 		CFRelease(pstr);
 	}
-	
+
 	if(allowErr) {
 		SInt32 ae = (SInt32)allowErr;
 		CFNumberRef cfNum = CFNumberCreate(NULL, kCFNumberSInt32Type, &ae);
@@ -186,14 +186,14 @@ static int appendConstraintsToDict(
 		CFDictionaryAddValue(*dict, kSecTrustSettingsKeyUsage, cfNum);
 		CFRelease(cfNum);
 	}
-	
+
 	if(resultType != kSecTrustSettingsResultTrustRoot) {
 		SInt32 rt = (SInt32)resultType;
 		CFNumberRef cfNum = CFNumberCreate(NULL, kCFNumberSInt32Type, &rt);
 		CFDictionaryAddValue(*dict, kSecTrustSettingsResult, cfNum);
 		CFRelease(cfNum);
 	}
-	
+
 	return 0;
 }
 
@@ -227,7 +227,7 @@ trusted_cert_add(int argc, char * const *argv)
 	SecTrustSettingsKeyUsage keyUse = 0;
 	CFMutableArrayRef trustSettings = NULL;
 	int haveConstraints = 0;
-	
+
 	const int maxPolicies = 16; // upper limit on policies that can be set in one invocation
 	char *policyNames[maxPolicies];
 	char *policyStrings[maxPolicies];
@@ -237,7 +237,7 @@ trusted_cert_add(int argc, char * const *argv)
 	if(argc < 2) {
 		return 2; /* @@@ Return 2 triggers usage message. */
 	}
-	
+
 	optind = 1;
 	while ((arg = getopt(argc, argv, "dr:a:p:s:e:u:k:i:o:Dh")) != -1) {
 		switch (arg) {
@@ -352,7 +352,7 @@ trusted_cert_add(int argc, char * const *argv)
 	if((certFile == NULL) && (settingsFileOut == NULL) && !defaultSetting) {
 		/* no cert file - only legal for r/w file or for default settings */
 		fprintf(stderr, "No cert file specified.\n");
-		ourRtn = 2; 
+		ourRtn = 2;
 		goto errOut;
 	}
 	if((settingsFileOut != NULL) && (domain != kSecTrustSettingsDomainUser)) {
@@ -402,7 +402,7 @@ trusted_cert_add(int argc, char * const *argv)
 							CFArrayAppendValue(trustSettings, constraintDict);
 							CFRelease(constraintDict); // array retains it
 						}
-						
+
 					}
 				}
 			} else { // no policy strings
@@ -439,7 +439,7 @@ trusted_cert_add(int argc, char * const *argv)
 			}
 		}
 	}
-	
+
 	/* handle the case where no policies were specified */
 	if(haveConstraints && !trustSettings) {
 		CFMutableDictionaryRef constraintDict = NULL;
@@ -474,7 +474,7 @@ trusted_cert_add(int argc, char * const *argv)
 			goto errOut;
 		}
 	}
-		
+
 	/* optional cert file */
 	if(defaultSetting) {
 		/* we don't have a cert; use this instead... */
@@ -506,7 +506,7 @@ trusted_cert_add(int argc, char * const *argv)
 		/*
 		 * Operating on file data, not actual domain.
 		 * At this point settingsIn is the current settings data; it
-		 * may be empty but it's valid nonetheless. 
+		 * may be empty but it's valid nonetheless.
 		 */
 		if(certRef != NULL) {
 			ortn = SecTrustSettingsSetTrustSettingsExternal(settingsIn,
@@ -565,7 +565,7 @@ trusted_cert_remove(int argc, char * const *argv)
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	
+
 	optind = 1;
 	while ((arg = getopt(argc, argv, "dDh")) != -1) {
 		switch (arg) {
@@ -580,7 +580,7 @@ trusted_cert_remove(int argc, char * const *argv)
 				return 2; /* @@@ Return 2 triggers usage message. */
 		}
 	}
-	
+
 	switch(argc - optind) {
 		case 0:
 			/* no certs */
@@ -600,7 +600,7 @@ trusted_cert_remove(int argc, char * const *argv)
 		fprintf(stderr, "Can't specify cert when manipulating default setting.\n");
 		return 2;
 	}
-	
+
 	if(defaultSetting) {
 		/* we don't have a cert; use this instead... */
 		certRef = kSecTrustSettingsDefaultRootCertSetting;
@@ -621,6 +621,6 @@ trusted_cert_remove(int argc, char * const *argv)
 	if((certRef != NULL) & (certRef != kSecTrustSettingsDefaultRootCertSetting)) {
 		CFRelease(certRef);
 	}
-	
+
 	return ourRtn;
 }

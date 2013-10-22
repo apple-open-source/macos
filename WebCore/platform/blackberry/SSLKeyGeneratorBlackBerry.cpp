@@ -21,8 +21,8 @@
 
 #include "KURL.h"
 #include "NotImplemented.h"
-#include "PlatformString.h"
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -31,7 +31,7 @@ void getSupportedKeySizes(Vector<String>&)
     notImplemented();
 }
 
-String signedPublicKeyAndChallengeString(unsigned int, String const&, KURL const&)
+String signedPublicKeyAndChallengeString(unsigned, String const&, KURL const&)
 {
     notImplemented();
     return String();

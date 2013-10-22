@@ -116,7 +116,7 @@ trap "kill ${kdcpid}; echo signal killing kdc; exit 1;" EXIT
 exitcode=0
 
 echo "initial ticket"
-${kinit} --password-file=${testdir}/foopassword user@${R} || exitcode=1
+${kinit} --password-file=${testdir}/foopassword user@${R} || exit 1
 
 echo "keytab"
 ${acquire_cred} \
@@ -199,6 +199,12 @@ ${acquire_cred} \
     --acquire-type=initiate \
     --acquire-name=user@${R} || exit 1
 
+echo "init using existing cc (domain only)"
+${acquire_cred} \
+    --name-type=user-name \
+    --acquire-type=initiate \
+    --acquire-name=@${R} || exit 1
+
 KRB5CCNAME=${nocache}
 
 echo "fail init using existing cc"
@@ -206,6 +212,12 @@ ${acquire_cred} \
     --name-type=user-name \
     --acquire-type=initiate \
     --acquire-name=user@${R} 2>/dev/null && exit 1
+
+echo "init using existing cc (domain only)"
+${acquire_cred} \
+    --name-type=user-name \
+    --acquire-type=initiate \
+    --acquire-name=@${R} 2>/dev/null && exit 1
 
 echo "use gss_krb5_ccache_name for user"
 ${acquire_cred} \

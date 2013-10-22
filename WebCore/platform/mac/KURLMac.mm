@@ -26,65 +26,49 @@
 #import "config.h"
 #import "KURL.h"
 
+#import "CFURLExtras.h"
 #import "FoundationExtras.h"
-#import <CoreFoundation/CFURL.h>
+#import <wtf/text/CString.h>
 
 namespace WebCore {
-
-#if !USE(WTFURL)
-
-typedef Vector<char, 512> CharBuffer;
-extern CFURLRef createCFURLFromBuffer(const CharBuffer& buffer);
 
 KURL::KURL(NSURL *url)
 {
     if (!url) {
-        parse(0);
+        invalidate();
         return;
     }
 
-    CFIndex bytesLength = CFURLGetBytes(reinterpret_cast<CFURLRef>(url), 0, 0);
-    Vector<char, 512> buffer(bytesLength + 1);
-    char* bytes = &buffer[0];
-    CFURLGetBytes(reinterpret_cast<CFURLRef>(url), reinterpret_cast<UInt8*>(bytes), bytesLength);
-    bytes[bytesLength] = '\0';
-    parse(bytes);
+    // FIXME: Why is it OK to ignore base URL here?
+    CString urlBytes;
+    getURLBytes(reinterpret_cast<CFURLRef>(url), urlBytes);
+    parse(urlBytes.data());
 }
 
 KURL::operator NSURL *() const
 {
-    return HardAutorelease(createCFURL());
+    // Creating a toll-free bridged CFURL, because a real NSURL would not preserve the original string.
+    // We'll need fidelity when round-tripping via CFURLGetBytes().
+    return HardAutorelease(createCFURL().leakRef());
 }
 
-// We use the toll-free bridge between NSURL and CFURL to
-// create a CFURLRef supporting both empty and null values.
-CFURLRef KURL::createCFURL() const
+RetainPtr<CFURLRef> KURL::createCFURL() const
 {
     if (isNull())
         return 0;
 
-    if (isEmpty())
-        return reinterpret_cast<CFURLRef>([[NSURL alloc] initWithString:@""]);
+    if (isEmpty()) {
+        // We use the toll-free bridge between NSURL and CFURL to
+        // create a CFURLRef supporting both empty and null values.
+        RetainPtr<NSURL> emptyNSURL = adoptNS([[NSURL alloc] initWithString:@""]);
+        return reinterpret_cast<CFURLRef>(emptyNSURL.get());
+    }
 
-    CharBuffer buffer;
+    URLCharBuffer buffer;
     copyToBuffer(buffer);
-    return createCFURLFromBuffer(buffer);
+    return createCFURLFromBuffer(buffer.data(), buffer.size());
 }
 
-#else
 
-KURL::KURL(NSURL *)
-{
-    // FIXME: Add WTFURL Implementation.
-    invalidate();
-}
-
-KURL::operator NSURL *() const
-{
-    // FIXME: Add WTFURL Implementation.
-    return nil;
-}
-
-#endif
 
 }

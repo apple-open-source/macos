@@ -53,10 +53,12 @@ public:
 	
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
 	
+	bool fullSignature() const { return mFull; }
 	const std::string &source() const { return mSource; }
 
 private:
-	CFRef<CFDataRef> mSig, mGSig;
+	CFCopyRef<CFDataRef> mSig, mGSig;
+	bool mFull;								// full detached signature (explicitly given)
 	const EmbeddedSignatureBlob *mArch;		// current architecture; points into mSignature
 	const EmbeddedSignatureBlob *mGlobal;	// shared elements; points into mSignature
 	std::string mSource;					// source description (readable)

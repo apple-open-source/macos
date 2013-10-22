@@ -22,9 +22,20 @@
 .Op Fl t Ar key
 .Op Fl v Ar variable
 .Op Fl V Ar variable
+.Sh "Note on OS X operation"
+The version of
+.Nm
+on OS X does not adjust the system clock.
+That task is performed by the
+.Nm pacemaker
+daemon, which utilizes OS X specific features to reduce power consumption
+and improve battery life.
+See the
+.Xr pacemaker 8
+manual page for details.
 .Sh DESCRIPTION
 The
-.Nm
+.Nm ntpd
 utility is an operating system daemon which sets
 and maintains the system time of day in synchronism with Internet
 standard time servers.
@@ -89,8 +100,6 @@ Disable authentication mode.
 Synchronize using NTP broadcast messages.
 .It Fl c Ar conffile
 Specify the name and path of the configuration file.
-(Disable
-netinfo?)
 .It Fl d
 Specify debugging mode.
 This flag may occur multiple times,

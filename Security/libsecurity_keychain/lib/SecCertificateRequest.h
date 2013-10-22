@@ -82,7 +82,7 @@ CFTypeID SecCertificateRequestGetTypeID(void);
 	   kSecAppleKeyItemClass.
 	@param attributeList An optional list of OIDs for the certificate request.
 	@param certRequest A returned reference to the certificate request. Call CFRelease when done with this certificate request.
-	@result noErr 0 No error.
+	@result errSecSuccess 0 No error.
 */
 OSStatus SecCertificateRequestCreate(
         const CSSM_OID *policy,
@@ -104,7 +104,7 @@ OSStatus SecCertificateRequestCreate(
 	@param certRequest A reference to the certificate request.
 	@param estimatedTime The number of estimated seconds before the result 
 	   can be retrieved.
-	@result noErr 0 No error.
+	@result errSecSuccess 0 No error.
 */
 OSStatus SecCertificateRequestSubmit(
         SecCertificateRequestRef certRequest,
@@ -116,7 +116,7 @@ OSStatus SecCertificateRequestSubmit(
 	certificate request item reference.
     @param certRequestRef A reference to a submitted request.
 	@param requestType The returned request type.
-    @result noErr 0 No error.
+    @result errSecSuccess 0 No error.
 */
 OSStatus SecCertificateRequestGetType(
         SecCertificateRequestRef certRequestRef,
@@ -136,7 +136,7 @@ OSStatus SecCertificateRequestGetType(
 	@param certficateRef The returned certificate reference for a 
 	   CSSM_TP_AUTHORITY_REQUEST_CERTISSUE only. All other request types return 
 	   NULL here. Call CFRelease when done with this certificate reference.
-    @result noErr 0 No error.
+    @result errSecSuccess 0 No error.
 */
 OSStatus SecCertificateRequestGetResult(
         SecCertificateRequestRef certRequestRef,
@@ -177,7 +177,7 @@ OSStatus SecCertificateFindRequest(
 	Get policy-specific data following a SecCertificateRequestSubmit.
     @param certRequestRef A reference for the submitted request.
     @param data Policy-specific data.
-    @result noErr 0 No error.
+    @result errSecSuccess 0 No error.
 */
 
 OSStatus SecCertificateRequestGetData(

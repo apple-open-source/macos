@@ -55,10 +55,10 @@ public:
 	// Return a bufferedFile containing current version of the file for reading.
 	RefPointer<AtomicBufferedFile> read();
 
-	string path() const { return mPath; }
-	string dir() const { return mDir; }
-	string file() const { return mFile; }
-	string lockFileName() { return mLockFilePath; }
+	const string& path() const { return mPath; }
+	const string& dir() const { return mDir; }
+	const string& file() const { return mFile; }
+	const string& lockFileName() { return mLockFilePath; }
 
 	mode_t mode() const;
 	bool isOnLocalFileSystem() {return mIsLocalFileSystem;}

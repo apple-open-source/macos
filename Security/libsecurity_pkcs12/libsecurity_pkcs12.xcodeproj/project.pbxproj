@@ -198,7 +198,7 @@
 		0592AC85041551E100003D05 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD3C80987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_pkcs12" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -267,6 +267,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB3D8146F1F86000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Debug;
 		};
@@ -274,6 +275,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB3DA146F1F86000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Release;
 		};
@@ -281,6 +283,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB3D9146F1F86000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -288,6 +296,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB3D9146F1F86000BF1F3 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

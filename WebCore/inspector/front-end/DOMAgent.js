@@ -55,6 +55,9 @@ WebInspector.DOMNode = function(domAgent, doc, isInShadowTree, payload) {
     if (payload.attributes)
         this._setAttributesPayload(payload.attributes);
 
+    this._userProperties = {};
+    this._descendantUserPropertyCounters = {};
+
     this._childNodeCount = payload.childNodeCount;
     this.children = null;
 
@@ -64,6 +67,17 @@ WebInspector.DOMNode = function(domAgent, doc, isInShadowTree, payload) {
     this.lastChild = null;
     this.parentNode = null;
 
+    if (payload.shadowRoots && WebInspector.settings.showShadowDOM.get()) {
+        for (var i = 0; i < payload.shadowRoots.length; ++i) {
+            var root = payload.shadowRoots[i];
+            var node = new WebInspector.DOMNode(this._domAgent, this.ownerDocument, true, root);
+            this._shadowRoots.push(node);
+        }
+    }
+
+    if (payload.templateContent)
+        this._templateContent = new WebInspector.DOMNode(this._domAgent, this.ownerDocument, true, payload.templateContent);
+
     if (payload.children)
         this._setChildrenPayload(payload.children);
 
@@ -71,14 +85,6 @@ WebInspector.DOMNode = function(domAgent, doc, isInShadowTree, payload) {
         this._contentDocument = new WebInspector.DOMDocument(domAgent, payload.contentDocument);
         this.children = [this._contentDocument];
         this._renumber();
-    }
-
-    if (payload.shadowRoots && WebInspector.experimentsSettings.showShadowDOM.isEnabled()) {
-        for (var i = 0; i < payload.shadowRoots.length; ++i) {
-            var root = payload.shadowRoots[i];
-            var node = new WebInspector.DOMNode(this._domAgent, this.ownerDocument, true, root);
-            this._shadowRoots.push(node);
-        }
     }
 
     if (this._nodeType === Node.ELEMENT_NODE) {
@@ -129,7 +135,15 @@ WebInspector.DOMNode.prototype = {
      */
     hasChildNodes: function()
     {
-        return this._childNodeCount > 0 || !!this._shadowRoots.length;
+        return this._childNodeCount > 0 || !!this._shadowRoots.length || !!this._templateContent;
+    },
+
+    /**
+     * @return {boolean}
+     */
+    hasShadowRoots: function()
+    {
+        return !!this._shadowRoots.length;
     },
 
     /**
@@ -283,7 +297,26 @@ WebInspector.DOMNode.prototype = {
                 callback(this.children);
         }
 
-        DOMAgent.requestChildNodes(this.id, mycallback.bind(this));
+        DOMAgent.requestChildNodes(this.id, undefined, mycallback.bind(this));
+    },
+
+    /**
+     * @param {number} depth
+     * @param {function(Array.<WebInspector.DOMNode>)=} callback
+     */
+    getSubtree: function(depth, callback)
+    {
+        /**
+         * @this {WebInspector.DOMNode}
+         * @param {?Protocol.Error} error
+         */
+        function mycallback(error)
+        {
+            if (callback)
+                callback(error ? null : this.children);                
+        }
+
+        DOMAgent.requestChildNodes(this.id, depth, mycallback.bind(this));
     },
 
     /**
@@ -330,11 +363,12 @@ WebInspector.DOMNode.prototype = {
     },
 
     /**
+     * @param {string} objectGroupId
      * @param {function(?Protocol.Error)=} callback
      */
-    eventListeners: function(callback)
+    eventListeners: function(objectGroupId, callback)
     {
-        DOMAgent.getEventListenersForNode(this.id, callback);
+        DOMAgent.getEventListenersForNode(this.id, objectGroupId, callback);
     },
 
     /**
@@ -442,7 +476,11 @@ WebInspector.DOMNode.prototype = {
         if (!prev) {
             if (!this.children) {
                 // First node
-                this.children = this._shadowRoots.concat([ node ]);
+                this.children = this._shadowRoots.slice();
+                if (this._templateContent)
+                    this.children.push(this._templateContent);
+
+                this.children.push(node);
             } else
                 this.children.unshift(node);
         } else
@@ -458,6 +496,7 @@ WebInspector.DOMNode.prototype = {
     {
         this.children.splice(this.children.indexOf(node), 1);
         node.parentNode = null;
+        node._updateChildUserPropertyCountsOnRemoval(this);
         this._renumber();
     },
 
@@ -471,6 +510,9 @@ WebInspector.DOMNode.prototype = {
             return;
 
         this.children = this._shadowRoots.slice();
+        if (this._templateContent)
+            this.children.push(this._templateContent);
+
         for (var i = 0; i < payloads.length; ++i) {
             var payload = payloads[i];
             var node = new WebInspector.DOMNode(this._domAgent, this.ownerDocument, this._isInShadowTree, payload);
@@ -669,6 +711,84 @@ WebInspector.DOMNode.prototype = {
             }
         }
         return -1; // An error occurred: |this| not found in parent's children.
+    },
+
+    _updateChildUserPropertyCountsOnRemoval: function(parentNode)
+    {
+        var result = {};
+        if (this._userProperties) {
+            for (var name in this._userProperties)
+                result[name] = (result[name] || 0) + 1;
+        }
+
+        if (this._descendantUserPropertyCounters) {
+            for (var name in this._descendantUserPropertyCounters) {
+                var counter = this._descendantUserPropertyCounters[name];
+                result[name] = (result[name] || 0) + counter;
+            }
+        }
+
+        for (var name in result)
+            parentNode._updateDescendantUserPropertyCount(name, -result[name]);
+    },
+
+    _updateDescendantUserPropertyCount: function(name, delta)
+    {
+        if (!this._descendantUserPropertyCounters.hasOwnProperty(name))
+            this._descendantUserPropertyCounters[name] = 0;
+        this._descendantUserPropertyCounters[name] += delta;
+        if (!this._descendantUserPropertyCounters[name])
+            delete this._descendantUserPropertyCounters[name];
+        if (this.parentNode)
+            this.parentNode._updateDescendantUserPropertyCount(name, delta);
+    },
+
+    setUserProperty: function(name, value)
+    {
+        if (value === null) {
+            this.removeUserProperty(name);
+            return;
+        }
+
+        if (this.parentNode && !this._userProperties.hasOwnProperty(name))
+            this.parentNode._updateDescendantUserPropertyCount(name, 1);
+
+        this._userProperties[name] = value;
+    },
+
+    removeUserProperty: function(name)
+    {
+        if (!this._userProperties.hasOwnProperty(name))
+            return;
+
+        delete this._userProperties[name];
+        if (this.parentNode)
+            this.parentNode._updateDescendantUserPropertyCount(name, -1);
+    },
+
+    getUserProperty: function(name)
+    {
+        return this._userProperties ? this._userProperties[name] : null;
+    },
+
+    descendantUserPropertyCount: function(name)
+    {
+        return this._descendantUserPropertyCounters && this._descendantUserPropertyCounters[name] ? this._descendantUserPropertyCounters[name] : 0;
+    },
+
+    /**
+     * @param {string} url
+     * @return {?string}
+     */
+    resolveURL: function(url)
+    {
+        if (!url)
+            return url;
+        for (var frameOwnerCandidate = this; frameOwnerCandidate; frameOwnerCandidate = frameOwnerCandidate.parentNode) {
+            if (frameOwnerCandidate.baseURL)
+                return WebInspector.ParsedURL.completeURL(frameOwnerCandidate.baseURL, url);
+        }
+        return null;
     }
 }
 
@@ -682,11 +802,15 @@ WebInspector.DOMDocument = function(domAgent, payload)
 {
     WebInspector.DOMNode.call(this, domAgent, this, false, payload);
     this.documentURL = payload.documentURL || "";
+    this.baseURL = /** @type {string} */ (payload.baseURL);
+    console.assert(this.baseURL);
     this.xmlVersion = payload.xmlVersion;
     this._listeners = {};
 }
 
-WebInspector.DOMDocument.prototype.__proto__ = WebInspector.DOMNode.prototype;
+WebInspector.DOMDocument.prototype = {
+    __proto__: WebInspector.DOMNode.prototype
+}
 
 /**
  * @extends {WebInspector.Object}
@@ -712,7 +836,6 @@ WebInspector.DOMAgent.Events = {
     DocumentUpdated: "DocumentUpdated",
     ChildNodeCountUpdated: "ChildNodeCountUpdated",
     InspectElementRequested: "InspectElementRequested",
-    StyleInvalidated: "StyleInvalidated",
     UndoRedoRequested: "UndoRedoRequested",
     UndoRedoCompleted: "UndoRedoCompleted"
 }
@@ -758,12 +881,20 @@ WebInspector.DOMAgent.prototype = {
     },
 
     /**
+     * @return {WebInspector.DOMDocument?}
+     */
+    existingDocument: function()
+    {
+        return this._document;
+    },
+
+    /**
      * @param {RuntimeAgent.RemoteObjectId} objectId
      * @param {function(?DOMAgent.NodeId)=} callback
      */
     pushNodeToFrontend: function(objectId, callback)
     {
-        var callbackCast = /** @type {function(*)} */ callback;
+        var callbackCast = /** @type {function(*)} */(callback);
         this._dispatchWhenDocumentAvailable(DOMAgent.requestNode.bind(DOMAgent, objectId), callbackCast);
     },
 
@@ -773,7 +904,7 @@ WebInspector.DOMAgent.prototype = {
      */
     pushNodeByPathToFrontend: function(path, callback)
     {
-        var callbackCast = /** @type {function(*)} */ callback;
+        var callbackCast = /** @type {function(*)} */(callback);
         this._dispatchWhenDocumentAvailable(DOMAgent.pushNodeByPathToFrontend.bind(DOMAgent, path), callbackCast);
     },
 
@@ -802,7 +933,7 @@ WebInspector.DOMAgent.prototype = {
      */
     _dispatchWhenDocumentAvailable: function(func, callback)
     {
-        var callbackWrapper = /** @type {function(?Protocol.Error, *=)} */ this._wrapClientCallback(callback);
+        var callbackWrapper = /** @type {function(?Protocol.Error, *=)} */(this._wrapClientCallback(callback));
 
         function onDocumentAvailable()
         {
@@ -826,12 +957,9 @@ WebInspector.DOMAgent.prototype = {
         var node = this._idToDOMNode[nodeId];
         if (!node)
             return;
-        var issueStyleInvalidated = name === "style" && value !== node.getAttribute("style");
 
         node._setAttribute(name, value);
         this.dispatchEventToListeners(WebInspector.DOMAgent.Events.AttrModified, { node: node, name: name });
-        if (issueStyleInvalidated)
-          this.dispatchEventToListeners(WebInspector.DOMAgent.Events.StyleInvalidated, node)
     },
 
     /**
@@ -875,10 +1003,8 @@ WebInspector.DOMAgent.prototype = {
             }
             var node = this._idToDOMNode[nodeId];
             if (node) {
-                if (node._setAttributesPayload(attributes)) {
+                if (node._setAttributesPayload(attributes))
                     this.dispatchEventToListeners(WebInspector.DOMAgent.Events.AttrModified, { node: node, name: "style" });
-                    this.dispatchEventToListeners(WebInspector.DOMAgent.Events.StyleInvalidated, node);
-                }
             }
         }
 
@@ -990,7 +1116,7 @@ WebInspector.DOMAgent.prototype = {
         var node = this._idToDOMNode[nodeId];
         parent._removeChild(node);
         this._unbind(node);
-        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.NodeRemoved, {node:node, parent:parent});
+        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.NodeRemoved, {node: node, parent: parent});
     },
 
     /**
@@ -1001,7 +1127,7 @@ WebInspector.DOMAgent.prototype = {
     },
 
     /**
-     * @param {DOMAgent.Node} node
+     * @param {WebInspector.DOMNode} node
      */
     _unbind: function(node)
     {
@@ -1084,7 +1210,7 @@ WebInspector.DOMAgent.prototype = {
      */
     querySelector: function(nodeId, selectors, callback)
     {
-        var callbackCast = /** @type {function(*)|undefined} */callback;
+        var callbackCast = /** @type {function(*)|undefined} */(callback);
         DOMAgent.querySelector(nodeId, selectors, this._wrapClientCallback(callbackCast));
     },
 
@@ -1095,24 +1221,24 @@ WebInspector.DOMAgent.prototype = {
      */
     querySelectorAll: function(nodeId, selectors, callback)
     {
-        var callbackCast = /** @type {function(*)|undefined} */callback;
+        var callbackCast = /** @type {function(*)|undefined} */(callback);
         DOMAgent.querySelectorAll(nodeId, selectors, this._wrapClientCallback(callbackCast));
     },
 
     /**
-     * @param {?number} nodeId
+     * @param {DOMAgent.NodeId=} nodeId
      * @param {string=} mode
+     * @param {RuntimeAgent.RemoteObjectId=} objectId
      */
-    highlightDOMNode: function(nodeId, mode)
+    highlightDOMNode: function(nodeId, mode, objectId)
     {
         if (this._hideDOMNodeHighlightTimeout) {
             clearTimeout(this._hideDOMNodeHighlightTimeout);
             delete this._hideDOMNodeHighlightTimeout;
         }
 
-        this._highlightedDOMNodeId = nodeId;
-        if (nodeId)
-            DOMAgent.highlightNode(nodeId, this._buildHighlightConfig(mode));
+        if (objectId || nodeId)
+            DOMAgent.highlightNode(this._buildHighlightConfig(mode), objectId ? undefined : nodeId, objectId);
         else
             DOMAgent.hideHighlight();
     },
@@ -1123,7 +1249,7 @@ WebInspector.DOMAgent.prototype = {
     },
 
     /**
-     * @param {?DOMAgent.NodeId} nodeId
+     * @param {DOMAgent.NodeId} nodeId
      */
     highlightDOMNodeForTwoSeconds: function(nodeId)
     {
@@ -1146,7 +1272,7 @@ WebInspector.DOMAgent.prototype = {
     _buildHighlightConfig: function(mode)
     {
         mode = mode || "all";
-        var highlightConfig = { showInfo: mode === "all" };
+        var highlightConfig = { showInfo: mode === "all", showRulers: WebInspector.settings.showMetricsRulers.get() };
         if (mode === "all" || mode === "content")
             highlightConfig.contentColor = WebInspector.Color.PageHighlight.Content.toProtocolRGBA();
 
@@ -1184,18 +1310,19 @@ WebInspector.DOMAgent.prototype = {
     {
         const injectedFunction = function() {
             const touchEvents = ["ontouchstart", "ontouchend", "ontouchmove", "ontouchcancel"];
+            var recepients = [window.__proto__, document.__proto__];
             for (var i = 0; i < touchEvents.length; ++i) {
-                if (!(touchEvents[i] in window.__proto__))
-                    Object.defineProperty(window.__proto__, touchEvents[i], { value: null, writable: true, configurable: true, enumerable: true });
-                if (!(touchEvents[i] in document.__proto__))
-                    Object.defineProperty(document.__proto__, touchEvents[i], { value: null, writable: true, configurable: true, enumerable: true });
+                for (var j = 0; j < recepients.length; ++j) {
+                    if (!(touchEvents[i] in recepients[j]))
+                        Object.defineProperty(recepients[j], touchEvents[i], { value: null, writable: true, configurable: true, enumerable: true });
+                }
             }
         }
 
         var emulationEnabled = WebInspector.settings.emulateTouchEvents.get();
         if (emulationEnabled && !this._addTouchEventsScriptInjecting) {
             this._addTouchEventsScriptInjecting = true;
-            PageAgent.addScriptToEvaluateOnLoad("(" + injectedFunction.toString() + ")", scriptAddedCallback.bind(this));
+            PageAgent.addScriptToEvaluateOnLoad("(" + injectedFunction.toString() + ")()", scriptAddedCallback.bind(this));
         } else {
             if (typeof this._addTouchEventsScriptId !== "undefined") {
                 PageAgent.removeScriptToEvaluateOnLoad(this._addTouchEventsScriptId);
@@ -1211,7 +1338,7 @@ WebInspector.DOMAgent.prototype = {
             this._addTouchEventsScriptId = scriptId;
         }
 
-        DOMAgent.setTouchEmulationEnabled(emulationEnabled);
+        PageAgent.setTouchEmulationEnabled(emulationEnabled);
     },
 
     markUndoableState: function()
@@ -1247,10 +1374,10 @@ WebInspector.DOMAgent.prototype = {
 
         this.dispatchEventToListeners(WebInspector.DOMAgent.Events.UndoRedoRequested);
         DOMAgent.redo(callback);
-    }
-}
+    },
 
-WebInspector.DOMAgent.prototype.__proto__ = WebInspector.Object.prototype;
+    __proto__: WebInspector.Object.prototype
+}
 
 /**
  * @constructor

@@ -1,0 +1,22 @@
+SQL-Abstract-Limit
+
+Portability layer for LIMIT emulation.
+
+INSTALLATION
+
+To install this module, run the following commands:
+
+    perl Build.PL
+    ./Build
+    ./Build test
+    ./Build install
+
+
+COPYRIGHT AND LICENCE
+
+Put the correct copyright and licence information here.
+
+Copyright (C) 2004 David Baird
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.

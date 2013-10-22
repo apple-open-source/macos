@@ -4,7 +4,9 @@ _acpi
 _acpitool
 _analyseplugin
 _brctl
+_btrfs
 _chrt
+_cryptsetup
 _ethtool
 _fusermount
 _ionice
@@ -17,8 +19,10 @@ _mdadm
 _mii-tool
 _modutils
 _mondo
+_nmcli
 _pkgtool
 _rpmbuild
+_schedtool
 _sshfs
 _strace
 _tpb
@@ -27,5 +31,6 @@ _tune2fs
 _uml
 _valgrind
 _vserver
+_wpa_cli
 _yast
 '

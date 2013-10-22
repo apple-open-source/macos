@@ -98,7 +98,7 @@ void SharedMemoryClient::ReadData (void* buffer, SegmentOffsetType length)
 
 	u_int8_t* bptr = (u_int8_t*) buffer;
 
-	SegmentOffsetType bytesToEnd = mDataMax - mDataPtr;
+	SegmentOffsetType bytesToEnd = (SegmentOffsetType)(mDataMax - mDataPtr);
 	
 	// figure out how many bytes we can read
 	SegmentOffsetType bytesToRead = (length <= bytesToEnd) ? length : bytesToEnd;

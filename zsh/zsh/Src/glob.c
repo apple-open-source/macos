@@ -422,13 +422,13 @@ insert(char *s, int checked)
 	    matchptr->_ctime = buf2.st_ctime;
 	    matchptr->_links = buf2.st_nlink;
 #ifdef GET_ST_ATIME_NSEC
-	    matchptr->_ansec = GET_ST_ATIME_NSEC(buf);
+	    matchptr->_ansec = GET_ST_ATIME_NSEC(buf2);
 #endif
 #ifdef GET_ST_MTIME_NSEC
-	    matchptr->_mnsec = GET_ST_MTIME_NSEC(buf);
+	    matchptr->_mnsec = GET_ST_MTIME_NSEC(buf2);
 #endif
 #ifdef GET_ST_CTIME_NSEC
-	    matchptr->_cnsec = GET_ST_CTIME_NSEC(buf);
+	    matchptr->_cnsec = GET_ST_CTIME_NSEC(buf2);
 #endif
 	}
 	matchptr++;
@@ -997,7 +997,9 @@ gmatchcmp(Gmatch a, Gmatch b)
 	    break;
 	}
 	if (r)
-	    return (int) ((s->tp & GS_DESC) ? -r : r);
+	    return (s->tp & GS_DESC) ?
+	      (r < 0L ? 1 : -1) :
+	      (r > 0L ? 1 : -1);
     }
     return 0;
 }
@@ -1111,7 +1113,7 @@ zglob(LinkList list, LinkNode np, int nountok)
     struct globdata saved;		/* saved glob state              */
     int nobareglob = !isset(BAREGLOBQUAL);
 
-    if (unset(GLOBOPT) || !haswilds(ostr)) {
+    if (unset(GLOBOPT) || !haswilds(ostr) || unset(EXECOPT)) {
 	if (!nountok)
 	    untokenize(ostr);
 	return;
@@ -1530,6 +1532,8 @@ zglob(LinkList list, LinkNode np, int nountok)
 			    g_units = TT_MONTHS, ++s;
 			else if (*s == 's')
 			    g_units = TT_SECONDS, ++s;
+			else if (*s == 'd')
+			    ++s;
 		    }
 		    /* See if it's greater than, equal to, or less than */
 		    if ((g_range = *s == '+' ? 1 : *s == '-' ? -1 : 0))
@@ -1801,7 +1805,7 @@ zglob(LinkList list, LinkNode np, int nountok)
 		    Eprog prog;
 
 		    if ((prog = parse_string(sortp->exec, 0))) {
-			int ef = errflag, lv = lastval, ret;
+			int ef = errflag, lv = lastval;
 
 			/* Parsed OK, execute for each name */
 			for (tmpptr = matchbuf; tmpptr < matchptr; tmpptr++) {
@@ -1814,7 +1818,6 @@ zglob(LinkList list, LinkNode np, int nountok)
 				tmpptr->sortstrs[iexec] = tmpptr->name;
 			}
 
-			ret = lastval;
 			errflag = ef;
 			lastval = lv;
 		    } else {
@@ -2000,7 +2003,7 @@ hasbraces(char *str)
 
 /**/
 int
-xpandredir(struct redir *fn, LinkList tab)
+xpandredir(struct redir *fn, LinkList redirtab)
 {
     char *nam;
     struct redir *ff;
@@ -2010,7 +2013,7 @@ xpandredir(struct redir *fn, LinkList tab)
     /* Stick the name in a list... */
     init_list1(fake, fn->name);
     /* ...which undergoes all the usual shell expansions */
-    prefork(&fake, isset(MULTIOS) ? 0 : PF_SINGLE);
+    prefork(&fake, isset(MULTIOS) ? 0 : PREFORK_SINGLE);
     /* Globbing is only done for multios. */
     if (!errflag && isset(MULTIOS))
 	globlist(&fake, 0);
@@ -2048,7 +2051,7 @@ xpandredir(struct redir *fn, LinkList tab)
 	    ff = (struct redir *) zhalloc(sizeof *ff);
 	    *ff = *fn;
 	    ff->name = nam;
-	    addlinknode(tab, ff);
+	    addlinknode(redirtab, ff);
 	    ret = 1;
 	}
     }
@@ -2088,7 +2091,8 @@ xpandbraces(LinkList list, LinkNode *np)
 	char *dots, *p, *dots2 = NULL;
 	LinkNode olast = last;
 	/* Get the first number of the range */
-	int rstart = zstrtol(str+1,&dots,10), rend = 0, err = 0, rev = 0, rincr = 1;
+	zlong rstart = zstrtol(str+1,&dots,10), rend = 0;
+	int err = 0, rev = 0, rincr = 1;
 	int wid1 = (dots - str) - 1, wid2 = (str2 - dots) - 2, wid3 = 0;
 	int strp = str - str3;
 
@@ -2133,7 +2137,7 @@ xpandbraces(LinkList list, LinkNode *np)
 	    }
 	    if (rstart > rend) {
 		/* Handle decreasing ranges correctly. */
-		int rt = rend;
+		zlong rt = rend;
 		rend = rstart;
 		rstart = rt;
 		rev = !rev;
@@ -2146,7 +2150,11 @@ xpandbraces(LinkList list, LinkNode *np)
 	    for (; rend >= rstart; rend -= rincr) {
 		/* Node added in at end, so do highest first */
 		p = dupstring(str3);
-		sprintf(p + strp, "%0*d", minw, rend);
+#if defined(ZLONG_IS_LONG_LONG) && defined(PRINTF_HAS_LLD)
+		sprintf(p + strp, "%0*lld", minw, rend);
+#else
+		sprintf(p + strp, "%0*ld", minw, (long)rend);
+#endif
 		strcat(p + strp, str2 + 1);
 		insertlinknode(list, last, p);
 		if (rev)	/* decreasing:  add in reverse order. */

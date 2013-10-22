@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,16 +26,13 @@
 #ifndef WebGeolocationManager_h
 #define WebGeolocationManager_h
 
-#include "MessageID.h"
+#include "MessageReceiver.h"
 #include "WebGeolocationPosition.h"
-#include <wtf/HashSet.h>
+#include "WebProcessSupplement.h"
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
-
-namespace CoreIPC {
-class ArgumentDecoder;
-class Connection;
-}
 
 namespace WebCore {
 class Geolocation;
@@ -46,25 +43,25 @@ namespace WebKit {
 class WebProcess;
 class WebPage;
 
-class WebGeolocationManager {
+class WebGeolocationManager : public WebProcessSupplement, public CoreIPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebGeolocationManager);
 public:
     explicit WebGeolocationManager(WebProcess*);
     ~WebGeolocationManager();
+
+    static const char* supplementName();
 
     void registerWebPage(WebPage*);
     void unregisterWebPage(WebPage*);
 
     void requestPermission(WebCore::Geolocation*);
 
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-
 private:
-    // Implemented in generated WebGeolocationManagerMessageReceiver.cpp
-    void didReceiveWebGeolocationManagerMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    // CoreIPC::MessageReceiver
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
 
     void didChangePosition(const WebGeolocationPosition::Data&);
-    void didFailToDeterminePosition();
+    void didFailToDeterminePosition(const String& errorMessage);
 
     WebProcess* m_process;
     HashSet<WebPage*> m_pageSet;

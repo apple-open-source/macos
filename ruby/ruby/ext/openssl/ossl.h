@@ -1,5 +1,5 @@
 /*
- * $Id: ossl.h 28367 2010-06-21 09:18:59Z shyouhei $
+ * $Id: ossl.h 36355 2012-07-10 13:57:11Z nobu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -29,7 +29,8 @@ extern "C" {
 #  undef RFILE
 #endif
 #include <ruby.h>
-#include <rubyio.h>
+#include <ruby/io.h>
+#include <ruby/thread.h>
 
 /*
  * Check the OpenSSL version
@@ -45,12 +46,12 @@ extern "C" {
 #endif
 
 #if defined(_WIN32)
+#  include <openssl/e_os2.h>
 #  define OSSL_NO_CONF_API 1
-#  ifdef USE_WINSOCK2
-#    include <winsock2.h>
-#  else
-#    include <winsock.h>
+#  if !defined(OPENSSL_SYS_WIN32)
+#    define OPENSSL_SYS_WIN32 1
 #  endif
+#  include <winsock2.h>
 #endif
 #include <errno.h>
 #include <openssl/err.h>
@@ -74,6 +75,11 @@ extern "C" {
 #  include <openssl/ocsp.h>
 #endif
 
+/* OpenSSL requires passwords for PEM-encoded files to be at least four
+ * characters long
+ */
+#define OSSL_MIN_PWD_LEN 4
+
 /*
  * Common Module
  */
@@ -88,21 +94,21 @@ extern VALUE eOSSLError;
  * CheckTypes
  */
 #define OSSL_Check_Kind(obj, klass) do {\
-  if (!rb_obj_is_kind_of(obj, klass)) {\
+  if (!rb_obj_is_kind_of((obj), (klass))) {\
     ossl_raise(rb_eTypeError, "wrong argument (%s)! (Expected kind of %s)",\
                rb_obj_classname(obj), rb_class2name(klass));\
   }\
 } while (0)
 
 #define OSSL_Check_Instance(obj, klass) do {\
-  if (!rb_obj_is_instance_of(obj, klass)) {\
+  if (!rb_obj_is_instance_of((obj), (klass))) {\
     ossl_raise(rb_eTypeError, "wrong argument (%s)! (Expected instance of %s)",\
                rb_obj_classname(obj), rb_class2name(klass));\
   }\
 } while (0)
 
 #define OSSL_Check_Same_Class(obj1, obj2) do {\
-  if (!rb_obj_is_instance_of(obj1, rb_obj_class(obj2))) {\
+  if (!rb_obj_is_instance_of((obj1), rb_obj_class(obj2))) {\
     ossl_raise(rb_eTypeError, "wrong argument type");\
   }\
 } while (0)
@@ -117,7 +123,7 @@ extern VALUE eOSSLError;
 /*
  * String to HEXString conversion
  */
-int string2hex(char *, int, char **, int *);
+int string2hex(const unsigned char *, int, char **, int *);
 
 /*
  * Data Conversion
@@ -127,19 +133,27 @@ STACK_OF(X509) *ossl_x509_ary2sk(VALUE);
 STACK_OF(X509) *ossl_protect_x509_ary2sk(VALUE,int*);
 VALUE ossl_x509_sk2ary(STACK_OF(X509) *certs);
 VALUE ossl_x509crl_sk2ary(STACK_OF(X509_CRL) *crl);
+VALUE ossl_x509name_sk2ary(STACK_OF(X509_NAME) *names);
 VALUE ossl_buf2str(char *buf, int len);
 #define ossl_str_adjust(str, p) \
 do{\
-    int len = RSTRING_LEN(str);\
-    int newlen = (p) - (unsigned char*)RSTRING_PTR(str);\
+    int len = RSTRING_LENINT(str);\
+    int newlen = rb_long2int((p) - (unsigned char*)RSTRING_PTR(str));\
     assert(newlen <= len);\
-    rb_str_set_len(str, newlen);\
+    rb_str_set_len((str), newlen);\
 }while(0)
 
 /*
  * our default PEM callback
  */
 int ossl_pem_passwd_cb(char *, int, int, void *);
+
+/*
+ * Clear BIO* with this in PEM/DER fallback scenarios to avoid decoding
+ * errors piling up in OpenSSL::Errors
+ */
+#define OSSL_BIO_reset(bio)	(void)BIO_reset((bio)); \
+				ERR_clear_error();
 
 /*
  * ERRor messages
@@ -184,13 +198,13 @@ extern VALUE dOSSL;
 } while (0)
 
 #define OSSL_Warning(fmt, ...) do { \
-  OSSL_Debug(fmt, ##__VA_ARGS__); \
-  rb_warning(fmt, ##__VA_ARGS__); \
+  OSSL_Debug((fmt), ##__VA_ARGS__); \
+  rb_warning((fmt), ##__VA_ARGS__); \
 } while (0)
 
 #define OSSL_Warn(fmt, ...) do { \
-  OSSL_Debug(fmt, ##__VA_ARGS__); \
-  rb_warn(fmt, ##__VA_ARGS__); \
+  OSSL_Debug((fmt), ##__VA_ARGS__); \
+  rb_warn((fmt), ##__VA_ARGS__); \
 } while (0)
 #else
 void ossl_debug(const char *, ...);

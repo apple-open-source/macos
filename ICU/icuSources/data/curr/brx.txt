@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/brx.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/brx.xml
 // *
 // ***************************************************************************
 /**
@@ -72,7 +72,7 @@ brx{
             "ऑस्ट्रियन शीलींग",
         }
         AUD{
-            "AU$",
+            "A$",
             "ऑस्ट्रेलियन डॉलर",
         }
         AWG{
@@ -941,11 +941,11 @@ brx{
         }
         VEB{
             "VEB",
-            "वेनेज़ुएलाई बोलिवार",
+            "वेनेज़ुएलाई बोलिवार (1871-2008)",
         }
         VEF{
             "VEF",
-            "वेनेज़ुएलाई फुएर्ते बोलिवार",
+            "वेनेज़ुएलाई बोलिवार",
         }
         VND{
             "₫",
@@ -1061,6 +1061,10 @@ brx{
         }
         ZMK{
             "ZMK",
+            "ज़ाम्बियाई क्वाचा (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "ज़ाम्बियाई क्वाचा",
         }
         ZRN{
@@ -1076,5 +1080,5 @@ brx{
             "ज़ीम्बाबवेई डॉलर",
         }
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
 }

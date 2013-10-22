@@ -436,7 +436,7 @@ _hx509_name_ds_cmp(const DirectoryString *ds1,
     }
 
     if (ds1len != ds2len)
-	*diff = ds1len - ds2len;
+	*diff = (int)(ds1len - ds2len);
     else {
 	for (i = 0; i < ds1len; i++) {
 	    *diff = ds1lp[i] - ds2lp[i];

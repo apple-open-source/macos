@@ -32,7 +32,7 @@
 #include <wtf/HashMap.h>
 
 namespace WebCore {
-    
+
 class ConditionEventListener;
 class SMILTimeContainer;
 
@@ -45,18 +45,18 @@ public:
     static bool isSMILElement(Node*);
 
     bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&) OVERRIDE;
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void removedFrom(Node*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
     
     virtual bool hasValidAttributeType() = 0;
+    virtual bool hasValidAttributeName();
     virtual void animationAttributeChanged() = 0;
 
     SMILTimeContainer* timeContainer() const { return m_timeContainer.get(); }
 
-    SVGElement* targetElement();
-    void resetTargetElement();
+    SVGElement* targetElement() const { return m_targetElement; }
     const QualifiedName& attributeName() const { return m_attributeName; }
 
     void beginByLinkActivation();
@@ -90,7 +90,7 @@ public:
     SMILTime simpleDuration() const;
 
     void seekToIntervalCorrespondingToTime(SMILTime elapsed);
-    void progress(SMILTime elapsed, SVGSMILElement* resultsElement, bool seekToTime);
+    bool progress(SMILTime elapsed, SVGSMILElement* resultsElement, bool seekToTime);
     SMILTime nextProgressTime() const;
 
     void reset();
@@ -106,7 +106,8 @@ public:
     void setDocumentOrderIndex(unsigned index) { m_documentOrderIndex = index; }
 
     virtual bool isAdditive() const = 0;
-    virtual void resetToBaseValue() = 0;
+    virtual void resetAnimatedType() = 0;
+    virtual void clearAnimatedType(SVGElement* targetElement) = 0;
     virtual void applyResultsToTarget() = 0;
 
 protected:
@@ -116,11 +117,15 @@ protected:
     void setInactive() { m_activeState = Inactive; }
 
     // Sub-classes may need to take action when the target is changed.
-    virtual void targetElementWillChange(SVGElement* currentTarget, SVGElement* newTarget);
-    virtual void endedActiveInterval();
+    virtual void setTargetElement(SVGElement*);
+    virtual void setAttributeName(const QualifiedName&);
 
 private:
+    void buildPendingResource();
+    void clearResourceReferences();
+
     virtual void startedActiveInterval() = 0;
+    void endedActiveInterval();
     virtual void updateAnimation(float percent, unsigned repeat, SVGSMILElement* resultElement) = 0;
 
     enum BeginOrEnd {
@@ -137,7 +142,6 @@ private:
     void checkRestart(SMILTime elapsed);
     void beginListChanged(SMILTime eventTime);
     void endListChanged(SMILTime eventTime);
-    void reschedule();
 
     // This represents conditions on elements begin or end list that need to be resolved on runtime
     // for example <animate begin="otherElement.begin + 8s; button.click" ... />

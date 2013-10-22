@@ -1,9 +1,9 @@
 /*
- * "$Id: mime.c 9750 2011-05-06 22:53:53Z mike $"
+ * "$Id: mime.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   MIME database file routines for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -134,7 +134,7 @@ mimeDeleteFilter(mime_t        *mime,	/* I - MIME database */
 		filter ? filter->dst->super : "???",
 		filter ? filter->cost : -1,
 		filter ? CUPS_LLCAST filter->maxsize : CUPS_LLCAST -1));
-		
+
   if (!mime || !filter)
     return;
 
@@ -798,7 +798,7 @@ mime_load_convs(
       if (!mime_add_fcache(filtercache, filter, filterpath))
       {
         DEBUG_printf(("mime_load_convs: Filter %s not found in %s.", filter,
-	              filterpath)); 
+	              filterpath));
         _mimeError(mime, "Filter \"%s\" not found.", filter);
         continue;
       }
@@ -836,8 +836,8 @@ mime_load_convs(
       * Force * / * to be "application/octet-stream"...
       */
 
-      strcpy(super, "application");
-      strcpy(type, "octet-stream");
+      strlcpy(super, "application", sizeof(super));
+      strlcpy(type, "octet-stream", sizeof(type));
     }
 
    /*
@@ -956,5 +956,5 @@ mime_load_types(mime_t     *mime,	/* I - MIME database */
 
 
 /*
- * End of "$Id: mime.c 9750 2011-05-06 22:53:53Z mike $".
+ * End of "$Id: mime.c 11093 2013-07-03 20:48:42Z msweet $".
  */

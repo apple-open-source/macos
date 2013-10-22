@@ -23,7 +23,6 @@
 #ifndef	_MD2_OBJECT_H_
 #define _MD2_OBJECT_H_
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <security_cdsa_utilities/digestobject.h>
 #include <CommonCrypto/CommonDigest.h>
 

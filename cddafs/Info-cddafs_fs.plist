@@ -46,7 +46,7 @@
 			<key>FSMountArguments</key>
 			<string></string>
 			<key>FSMountExecutable</key>
-			<string>../../../../../../sbin/mount_cddafs</string>
+			<string>mount_cddafs</string>
 			<key>FSName</key>
 			<string>CD Audio</string>
 		</dict>

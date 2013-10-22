@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,6 @@
 #include <unistd.h>
 #include <sys/loadable_fs.h>
 #include <sys/mount.h>
-#include <IOKit/storage/IOMedia.h>
 
 static CFRunLoopSourceRef __gDAStageRunLoopSource = NULL;
 
@@ -55,8 +54,6 @@ static void               __DAStagePeekCallback( CFTypeRef response, void * cont
 static CFComparisonResult __DAStagePeekCompare( const void * value1, const void * value2, void * context );
 static void               __DAStageProbe( DADiskRef disk );
 static void               __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef name, CFUUIDRef uuid, void * context );
-static void               __DAStageRepair( DADiskRef disk );
-static void               __DAStageRepairCallback( int status, void * context );
 
 static void __DAStageAppeared( DADiskRef disk )
 {
@@ -111,11 +108,7 @@ static void __DAStageDispatch( void * info )
 ///w:start
             else if ( DADiskGetState( disk, kDADiskStateRequireRepair ) == FALSE )
             {
-                if ( DADiskGetState( disk, kDADiskStateStagedRepair ) == FALSE )
-                {
-                    __DAStageRepair( disk );
-                }
-                else if ( DADiskGetState( disk, kDADiskStateStagedApprove ) == FALSE )
+                if ( DADiskGetState( disk, kDADiskStateStagedApprove ) == FALSE )
                 {
                     __DAStageMountApproval( disk );
                 }
@@ -156,7 +149,6 @@ static void __DAStageDispatch( void * info )
 ///w:stop
             else if ( DADiskGetState( disk, kDADiskStateStagedAppear ) == FALSE )
             {
-///w:start
                 /*
                  * We stall the "appeared" stage if the conditions are not right.
                  */
@@ -194,63 +186,11 @@ static void __DAStageDispatch( void * info )
                     if ( subindex == subcount )
                     {
                         __DAStageAppeared( disk );
-
-                        __DAStageRepair( disk );
-                    }
-                }
-                else
-///w:stop
-                __DAStageAppeared( disk );
-            }
-            else if ( DADiskGetState( disk, kDADiskStateStagedRepair ) == FALSE )
-            {
-                /*
-                 * We stall the "repair" stage if the conditions are not right.
-                 */
-
-                if ( DADiskGetState( disk, kDADiskStateRequireRepair ) )
-                {
-                    CFIndex subcount;
-                    CFIndex subindex;
-
-                    subcount = CFArrayGetCount( gDADiskList );
-
-                    for ( subindex = 0; subindex < subcount; subindex++ )
-                    {
-                        DADiskRef subdisk;
-
-                        subdisk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, subindex );
-
-                        if ( DADiskGetBSDUnit( disk ) == DADiskGetBSDUnit( subdisk ) )
-                        {
-                            if ( DADiskGetState( subdisk, kDADiskStateStagedProbe ) == FALSE )
-                            {
-                                break;
-                            }
-
-                            if ( DADiskGetState( subdisk, kDADiskStateStagedMount ) == FALSE )
-                            {
-                                if ( DADiskGetState( subdisk, kDADiskStateRequireRepair ) == FALSE )
-                                {
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if ( subindex == subcount )
-                    {
-                        if ( gDAExit )
-                        {
-                            continue;
-                        }
-
-                        __DAStageRepair( disk );
                     }
                 }
                 else
                 {
-                    __DAStageRepair( disk );
+                    __DAStageAppeared( disk );
                 }
             }
             else if ( DADiskGetState( disk, kDADiskStateStagedApprove ) == FALSE )
@@ -263,6 +203,11 @@ static void __DAStageDispatch( void * info )
             }
             else if ( DADiskGetState( disk, kDADiskStateStagedMount ) == FALSE )
             {
+                if ( gDAExit )
+                {
+                    continue;
+                }
+
                 __DAStageMount( disk );
             }
             else
@@ -494,8 +439,6 @@ static void __DAStageMount( DADiskRef disk )
      * We commence the "mount" stage if the conditions are right.
      */
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
     if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
     {
         /*
@@ -510,8 +453,6 @@ static void __DAStageMount( DADiskRef disk )
 
         DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
 
-        DALogDebug( "  mounted disk, id = %@, ongoing.", disk );
-
         DAMountWithArguments( disk, NULL, __DAStageMountCallback, disk, CFSTR( "automatic" ), NULL );
     }
 }
@@ -520,26 +461,7 @@ static void __DAStageMountCallback( int status, CFURLRef mountpoint, void * cont
 {
     DADiskRef disk = context;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
-    if ( status )
-    {
-        /*
-         * We were unable to mount the volume.
-         */
-
-        if ( status == ECANCELED )
-        {
-            DALogDebug( "  mounted disk, id = %@, deferred.", disk );
-        }
-        else
-        {
-            DALogDebug( "  mounted disk, id = %@, failure.", disk );
-
-            DALogError( "unable to mount %@ (status code 0x%08X).", disk, status );
-        }
-    }
-    else
+    if ( status == 0 )
     {
         /*
          * We were able to mount the volume.
@@ -548,8 +470,6 @@ static void __DAStageMountCallback( int status, CFURLRef mountpoint, void * cont
         DADiskSetBypath( disk, mountpoint );
 
         DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
-
-        DALogDebug( "  mounted disk, id = %@, success.", disk );
 
         if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
         {
@@ -668,18 +588,43 @@ static void __DAStageMountAuthorization( DADiskRef disk )
     if ( DADiskGetState( disk, _kDADiskStateRequireAuthorize ) )
 ///w:stop
     {
+        DASessionRef session;
+        CFArrayRef   sessionList;
+        CFIndex      sessionListCount;
+        CFIndex      sessionListIndex;
+
         CFRetain( disk );
 
         DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
 
-        DAAuthorizeWithCallback( NULL,
-                                 _kDAAuthorizeOptionAuthenticateAdministrator,
-                                 disk,
-                                 ___UID_ROOT,
-                                 ___GID_WHEEL,
-                                 __DAStageMountAuthorizationCallback,
-                                 disk,
-                                 _kDAAuthorizeRightMount );
+        sessionList      = gDASessionList;
+        sessionListCount = CFArrayGetCount( sessionList );
+
+        for ( sessionListIndex = 0; sessionListIndex < sessionListCount; sessionListIndex++ )
+        {
+            session = ( void * ) CFArrayGetValueAtIndex( sessionList, sessionListIndex );
+
+            if ( strcmp( _DASessionGetName( session ), "SystemUIServer" ) == 0 )
+            {
+                break;
+            }
+        }
+
+        if ( sessionListIndex < sessionListCount )
+        {
+            DAAuthorizeWithCallback( session,
+                                     _kDAAuthorizeOptionAuthenticateAdministrator,
+                                     disk,
+                                     ___UID_ROOT,
+                                     ___GID_WHEEL,
+                                     __DAStageMountAuthorizationCallback,
+                                     disk,
+                                     _kDAAuthorizeRightMount );
+        }
+        else
+        {
+            __DAStageMountAuthorizationCallback( kDAReturnNotPrivileged, disk );
+        }
     }
     else
     {
@@ -979,11 +924,12 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
 
         kind = DAFileSystemGetKind( DADiskGetFileSystem( disk ) );
 
+///w:start
         if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
         {
             clean = kCFBooleanTrue;
         }
-
+///w:stop
         if ( clean == kCFBooleanFalse )
         {
             DADiskSetState( disk, kDADiskStateRequireRepair,       TRUE );
@@ -998,21 +944,6 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
     if ( keys )
     {
         CFTypeRef object;
-///w:start
-        object = IORegistryEntryCreateCFProperty( DADiskGetIOMedia( disk ), CFSTR( kIOMediaWritableKey ), kCFAllocatorDefault, 0 ); 
-
-        if ( object )
-        {
-            if ( DADiskCompareDescription( disk, kDADiskDescriptionMediaWritableKey, object ) )
-            {
-                DADiskSetDescription( disk, kDADiskDescriptionMediaWritableKey, object );
-
-                CFArrayAppendValue( keys, kDADiskDescriptionMediaWritableKey );
-            }
-
-            CFRelease( object );
-        }
-///w:stop
 
         object = kind ? kCFBooleanTrue : kCFBooleanFalse;
 
@@ -1123,81 +1054,6 @@ static void __DAStageProbeCallback( int status, CFBooleanRef clean, CFStringRef 
     DADiskSetContext( disk, NULL );
 
     DAStageSignal( );
-
-    CFRelease( disk );
-}
-
-static void __DAStageRepair( DADiskRef disk )
-{
-    /*
-     * We commence the "repair" stage if the conditions are right.
-     */
-
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
-    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
-    {
-        /*
-         * Commence the repair.
-         */
-
-        DADiskSetState( disk, kDADiskStateStagedRepair, TRUE );
-
-        if ( DADiskGetState( disk, kDADiskStateRequireRepair ) )
-        {
-            CFRetain( disk );
-
-            DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
-
-            DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
-
-            DALogDebug( "  repaired disk, id = %@, ongoing.", disk );
-
-            DAFileSystemRepair( DADiskGetFileSystem( disk ), DADiskGetDevice( disk ), __DAStageRepairCallback, disk );
-        }
-        else
-        {
-            DAStageSignal( );
-        }
-    }
-}
-
-static void __DAStageRepairCallback( int status, void * context )
-{
-    DADiskRef disk = context;
-
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
-    if ( status )
-    {
-        /*
-         * We were unable to repair the volume.
-         */
-
-        DALogDebug( "  repaired disk, id = %@, failure.", disk );
-
-        DALogError( "unable to repair %@ (status code 0x%08X).", disk, status );
-    }
-    else
-    {
-        /*
-         * We were able to repair the volume.
-         */
-
-        DADiskSetState( disk, kDADiskStateRequireRepair, FALSE );
-
-        DALogDebug( "  repaired disk, id = %@, success.", disk );
-    }
-
-    DAUnitSetState( disk, kDAUnitStateCommandActive, FALSE );
-
-    DADiskSetState( disk, kDADiskStateCommandActive, FALSE );
-
-    DAStageSignal( );
-
-    /*
-     * Release our resources.
-     */
 
     CFRelease( disk );
 }

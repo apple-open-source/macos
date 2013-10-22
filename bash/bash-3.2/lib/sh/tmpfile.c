@@ -109,22 +109,20 @@ sh_mktmpname (nameroot, flags)
      char *nameroot;
      int flags;
 {
-  char *filename, *tdir, *lroot;
+  char filename[PATH_MAX+1], *tdir, *lroot;
   struct stat sb;
   int r, tdlen;
 
-  filename = (char *)xmalloc (PATH_MAX + 1);
   tdir = get_tmpdir (flags);
   tdlen = strlen (tdir);
 
   lroot = nameroot ? nameroot : DEFAULT_NAMEROOT;
 
 #ifdef USE_MKTEMP
-  sprintf (filename, "%s/%s.XXXXXX", tdir, lroot);
+  snprintf (filename, sizeof(filename), "%s/%s.XXXXXX", tdir, lroot);
   if (mktemp (filename) == 0)
     {
-      free (filename);
-      filename = NULL;
+        return NULL;
     }
 #else  /* !USE_MKTEMP */
   while (1)
@@ -133,7 +131,7 @@ sh_mktmpname (nameroot, flags)
 		(unsigned long) time ((time_t *)0) ^
 		(unsigned long) dollar_dollar_pid ^
 		(unsigned long) ((flags & MT_USERANDOM) ? get_random_number () : ntmpfiles++);
-      sprintf (filename, "%s/%s-%lu", tdir, lroot, filenum);
+      snprintf (filename, sizeof(filename), "%s/%s-%lu", tdir, lroot, filenum);
       if (tmpnamelen > 0 && tmpnamelen < 32)
 	filename[tdlen + 1 + tmpnamelen] = '\0';
 #  ifdef HAVE_LSTAT
@@ -146,7 +144,7 @@ sh_mktmpname (nameroot, flags)
     }
 #endif /* !USE_MKTEMP */
 
-  return filename;
+    return strdup(filename);
 }
 
 int
@@ -155,25 +153,19 @@ sh_mktmpfd (nameroot, flags, namep)
      int flags;
      char **namep;
 {
-  char *filename, *tdir, *lroot;
+  char filename[PATH_MAX+1], *tdir, *lroot;
   int fd, tdlen;
 
-  filename = (char *)xmalloc (PATH_MAX + 1);
   tdir = get_tmpdir (flags);
   tdlen = strlen (tdir);
 
   lroot = nameroot ? nameroot : DEFAULT_NAMEROOT;
 
 #ifdef USE_MKSTEMP
-  sprintf (filename, "%s/%s.XXXXXX", tdir, lroot);
+  snprintf (filename, sizeof(filename), "%s/%s.XXXXXX", tdir, lroot);
   fd = mkstemp (filename);
-  if (fd < 0 || namep == 0)
-    {
-      free (filename);
-      filename = NULL;
-    }
   if (namep)
-    *namep = filename;
+      *namep = (fd >= 0) ? strdup(filename) : NULL;
   return fd;
 #else /* !USE_MKSTEMP */
   do
@@ -182,7 +174,7 @@ sh_mktmpfd (nameroot, flags, namep)
 		(unsigned long) time ((time_t *)0) ^
 		(unsigned long) dollar_dollar_pid ^
 		(unsigned long) ((flags & MT_USERANDOM) ? get_random_number () : ntmpfiles++);
-      sprintf (filename, "%s/%s-%lu", tdir, lroot, filenum);
+      snprintf (filename, sizeof(filename), "%s/%s-%lu", tdir, lroot, filenum);
       if (tmpnamelen > 0 && tmpnamelen < 32)
 	filename[tdlen + 1 + tmpnamelen] = '\0';
       fd = open (filename, BASEOPENFLAGS | ((flags & MT_READWRITE) ? O_RDWR : O_WRONLY), 0600);
@@ -190,9 +182,7 @@ sh_mktmpfd (nameroot, flags, namep)
   while (fd < 0 && errno == EEXIST);
 
   if (namep)
-    *namep = filename;
-  else
-    free (filename);
+    *namep = strdup(filename);
 
   return fd;
 #endif /* !USE_MKSTEMP */

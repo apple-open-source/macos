@@ -44,7 +44,7 @@ int timeStringToCfDate(
 	bool		isLocal = false;		// trailing timezone offset
 	bool		isCssmTime = false;		// no trailing 'Z'
 	bool		noSeconds = false;
-	unsigned 	x;
+	int             x;
 	unsigned 	i;
 	char 		*cp;
 	CFGregorianDate		gd;

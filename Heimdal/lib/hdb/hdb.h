@@ -75,6 +75,8 @@ enum hdb_lockop{ HDB_RLOCK, HDB_WLOCK };
 #define HDB_AUTH_WRONG_PASSWORD		1
 #define HDB_AUTH_INVALID_SIGNATURE	2
 
+#define HDB_PWD_CONDITIONAL		1
+
 /* key usage for master key */
 #define HDB_KU_MKEY	0x484442
 
@@ -232,8 +234,9 @@ typedef struct HDB{
      * all other operations, increasing the kvno, and update
      * modification timestamp.
      *
-     * The backend needs to call _kadm5_set_keys() and perform password
-     * quality checks.
+     * The backend needs to call _kadm5_set_keys() and perform
+     * password quality checks. The password quality should only be
+     * performed when the flag argument have HDB_PWD_CONDITIONAL set.
      */
     krb5_error_code (*hdb_password)(krb5_context, struct HDB*, hdb_entry_ex*, const char *, int);
 

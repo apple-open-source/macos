@@ -8,7 +8,7 @@ root:/smx7MYTQIi2M:0:0::0:0:System Administrator:/var/root:/bin/sh
 mobile:/smx7MYTQIi2M:501:501::0:0:Mobile User:/var/mobile:/bin/sh
 daemon:*:1:1::0:0:System Services:/var/root:/usr/bin/false
 _ftp:*:98:-2::0:0:FTP Daemon:/var/empty:/usr/bin/false
-_networkd:*:24:24::0:0:Network Services:/var/empty:/usr/bin/false
+_networkd:*:24:24::0:0:Network Services:/var/networkd:/usr/bin/false
 _wireless:*:25:25::0:0:Wireless Services:/var/wireless:/usr/bin/false
 _securityd:*:64:64::0:0:securityd:/var/empty:/usr/bin/false
 _mdnsresponder:*:65:65::0:0:mDNSResponder:/var/empty:/usr/bin/false

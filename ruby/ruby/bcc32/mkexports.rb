@@ -1,27 +1,26 @@
 #!./miniruby -s
 
-$name = $library = $description = nil
+$:.unshift(File.expand_path("../..", __FILE__))
+require 'win32/mkexports'
 
-SYM = {}
-STDIN.reopen(open("nul"))
-ARGV.each do |obj|
-  IO.foreach("|tdump -q -oiPUBDEF -oiPUBD32 #{obj.tr('/', '\\')}") do |l|
-    next unless /(?:PUBDEF|PUBD32)/ =~ l
-    SYM[$1] = true if /'(.*?)'/ =~ l
+class Exports::Bcc < Exports
+  def forwarding(internal, export)
+    internal[/\A_?/]+export
   end
-end
 
-exports = []
-if $name
-  exports << "Name " + $name
-elsif $library
-  exports << "Library " + $library
-end
-exports << "Description " + $description.dump if $description
-exports << "EXPORTS" << SYM.keys.sort
+  def each_line(objs, &block)
+    objs.each do |obj|
+      opt = /\.(?:so|dll)\z/i =~ obj ? "-ee" : "-oiPUBDEF -oiPUBD32"
+      IO.foreach("|tdump -q #{opt} #{obj.tr('/', '\\')} < nul", &block)
+    end
+  end
 
-if $output
-  open($output, 'w') {|f| f.puts exports.join("\n")}
-else
-  puts exports.join("\n")
+  def each_export(objs)
+    objdump(objs) do |l|
+      next unless /(?:PUBDEF|PUBD32|EXPORT)/ =~ l
+      yield $1 if /'(.*?)'/ =~ l
+    end
+    yield "_strcasecmp", "_stricmp"
+    yield "_strncasecmp", "_strnicmp"
+  end
 end

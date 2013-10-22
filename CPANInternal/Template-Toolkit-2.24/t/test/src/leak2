@@ -1,0 +1,3 @@
+<leak2>
+[% USE h = holler('Goodbye') -%]
+</leak2>

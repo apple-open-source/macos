@@ -22,12 +22,13 @@
 
 #include "BackForwardListImpl.h"
 #include "HistoryItem.h"
+#include "qwebkitglobal.h"
 #include <QtCore/qglobal.h>
 #include <QtCore/qshareddata.h>
 
-class QWebPagePrivate;
+class QWebPageAdapter;
 
-class Q_AUTOTEST_EXPORT QWebHistoryItemPrivate : public QSharedData {
+class QWEBKIT_EXPORT QWebHistoryItemPrivate : public QSharedData {
 public:
     static QExplicitlySharedDataPointer<QWebHistoryItemPrivate> get(QWebHistoryItem* q)
     {
@@ -62,7 +63,7 @@ public:
         lst->deref();
     }
 
-    QWebPagePrivate* page();
+    QWebPageAdapter* page();
 
     WebCore::BackForwardListImpl* lst;
 };

@@ -37,7 +37,7 @@
 #include <pthread.h>
 #include <string.h>
 
-#pragma mark *** Memory ***
+// MARK: *** Memory ***
 
 NSPR_API(void *) PR_Malloc(PRSize size)
 {
@@ -56,7 +56,7 @@ NSPR_API(void) PR_Free(void *ptr)
 	return free(ptr);
 }
 
-#pragma mark *** locks ***
+// MARK: *** locks ***
 
 NSPR_API(PRLock*) PR_NewLock(void)
 {
@@ -97,7 +97,7 @@ NSPR_API(PRStatus) PR_Unlock(PRLock *lock)
 	return PR_SUCCESS;
 }
 
-#pragma mark *** get/set error ***
+// MARK: *** get/set error ***
 
 /* 
  * key for pthread_{set,get}specific and a lock to ensure it gets 
@@ -235,7 +235,7 @@ PR_IMPLEMENT(void) PR_SetError(PRErrorCode code, PRInt32 osErr)
 	/* else per-thread logic uninitialized */
 }
 
-#pragma mark *** misc. ***
+// MARK: *** misc. ***
 
 /*
 ** Compute the log of the least power of 2 greater than or equal to n

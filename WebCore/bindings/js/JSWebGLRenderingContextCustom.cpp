@@ -29,23 +29,32 @@
 
 #include "JSWebGLRenderingContext.h"
 
+#include "EXTDrawBuffers.h"
 #include "EXTTextureFilterAnisotropic.h"
 #include "ExceptionCode.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLImageElement.h"
+#include "JSEXTDrawBuffers.h"
 #include "JSEXTTextureFilterAnisotropic.h"
 #include "JSFloat32Array.h"
 #include "JSHTMLCanvasElement.h"
 #include "JSHTMLImageElement.h"
 #include "JSImageData.h"
 #include "JSInt32Array.h"
+#include "JSOESElementIndexUint.h"
 #include "JSOESStandardDerivatives.h"
 #include "JSOESTextureFloat.h"
+#include "JSOESTextureHalfFloat.h"
 #include "JSOESVertexArrayObject.h"
 #include "JSUint32Array.h"
 #include "JSUint8Array.h"
 #include "JSWebGLBuffer.h"
+#include "JSWebGLCompressedTextureATC.h"
+#include "JSWebGLCompressedTexturePVRTC.h"
 #include "JSWebGLCompressedTextureS3TC.h"
+#include "JSWebGLDebugRendererInfo.h"
+#include "JSWebGLDebugShaders.h"
+#include "JSWebGLDepthTexture.h"
 #include "JSWebGLFramebuffer.h"
 #include "JSWebGLLoseContext.h"
 #include "JSWebGLProgram.h"
@@ -56,13 +65,18 @@
 #include "JSWebGLVertexArrayObjectOES.h"
 #include "JSWebKitCSSMatrix.h"
 #include "NotImplemented.h"
+#include "OESElementIndexUint.h"
 #include "OESStandardDerivatives.h"
 #include "OESTextureFloat.h"
+#include "OESTextureHalfFloat.h"
 #include "OESVertexArrayObject.h"
 #include "WebGLBuffer.h"
+#include "WebGLCompressedTextureATC.h"
+#include "WebGLCompressedTexturePVRTC.h"
 #include "WebGLCompressedTextureS3TC.h"
 #include "WebGLDebugRendererInfo.h"
 #include "WebGLDebugShaders.h"
+#include "WebGLDepthTexture.h"
 #include "WebGLExtension.h"
 #include "WebGLFramebuffer.h"
 #include "WebGLGetInfo.h"
@@ -96,7 +110,7 @@ static JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, const WebG
         const Vector<bool>& value = info.getBoolArray();
         for (size_t ii = 0; ii < value.size(); ++ii)
             list.append(jsBoolean(value[ii]));
-        return constructArray(exec, globalObject, list);
+        return constructArray(exec, 0, globalObject, list);
     }
     case WebGLGetInfo::kTypeFloat:
         return jsNumber(info.getFloat());
@@ -105,7 +119,7 @@ static JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, const WebG
     case WebGLGetInfo::kTypeNull:
         return jsNull();
     case WebGLGetInfo::kTypeString:
-        return jsString(exec, info.getString());
+        return jsStringWithCache(exec, info.getString());
     case WebGLGetInfo::kTypeUnsignedInt:
         return jsNumber(info.getUnsignedInt());
     case WebGLGetInfo::kTypeWebGLBuffer:
@@ -188,22 +202,34 @@ static JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, WebGLExten
     if (!extension)
         return jsNull();
     switch (extension->getName()) {
-    case WebGLExtension::WebKitWebGLLoseContextName:
+    case WebGLExtension::WebGLLoseContextName:
         return toJS(exec, globalObject, static_cast<WebGLLoseContext*>(extension));
+    case WebGLExtension::EXTDrawBuffersName:
+        return toJS(exec, globalObject, static_cast<EXTDrawBuffers*>(extension));
     case WebGLExtension::EXTTextureFilterAnisotropicName:
         return toJS(exec, globalObject, static_cast<EXTTextureFilterAnisotropic*>(extension));
     case WebGLExtension::OESStandardDerivativesName:
         return toJS(exec, globalObject, static_cast<OESStandardDerivatives*>(extension));
     case WebGLExtension::OESTextureFloatName:
         return toJS(exec, globalObject, static_cast<OESTextureFloat*>(extension));
+    case WebGLExtension::OESTextureHalfFloatName:
+        return toJS(exec, globalObject, static_cast<OESTextureHalfFloat*>(extension));
     case WebGLExtension::OESVertexArrayObjectName:
         return toJS(exec, globalObject, static_cast<OESVertexArrayObject*>(extension));
+    case WebGLExtension::OESElementIndexUintName:
+        return toJS(exec, globalObject, static_cast<OESElementIndexUint*>(extension));
     case WebGLExtension::WebGLDebugRendererInfoName:
         return toJS(exec, globalObject, static_cast<WebGLDebugRendererInfo*>(extension));
     case WebGLExtension::WebGLDebugShadersName:
         return toJS(exec, globalObject, static_cast<WebGLDebugShaders*>(extension));
-    case WebGLExtension::WebKitWebGLCompressedTextureS3TCName:
+    case WebGLExtension::WebGLCompressedTextureATCName:
+        return toJS(exec, globalObject, static_cast<WebGLCompressedTextureATC*>(extension));
+    case WebGLExtension::WebGLCompressedTexturePVRTCName:
+        return toJS(exec, globalObject, static_cast<WebGLCompressedTexturePVRTC*>(extension));
+    case WebGLExtension::WebGLCompressedTextureS3TCName:
         return toJS(exec, globalObject, static_cast<WebGLCompressedTextureS3TC*>(extension));
+    case WebGLExtension::WebGLDepthTextureName:
+        return toJS(exec, globalObject, static_cast<WebGLDepthTexture*>(extension));
     }
     ASSERT_NOT_REACHED();
     return jsNull();
@@ -241,7 +267,7 @@ JSValue JSWebGLRenderingContext::getAttachedShaders(ExecState* exec)
     MarkedArgumentBuffer list;
     for (size_t ii = 0; ii < shaders.size(); ++ii)
         list.append(toJS(exec, globalObject(), shaders[ii].get()));
-    return constructArray(exec, globalObject(), list);
+    return constructArray(exec, 0, globalObject(), list);
 }
 
 JSValue JSWebGLRenderingContext::getExtension(ExecState* exec)
@@ -250,7 +276,7 @@ JSValue JSWebGLRenderingContext::getExtension(ExecState* exec)
         return throwError(exec, createNotEnoughArgumentsError(exec));
 
     WebGLRenderingContext* context = static_cast<WebGLRenderingContext*>(impl());
-    const String& name = ustringToString(exec->argument(0).toString(exec)->value(exec));
+    const String name = exec->argument(0).toString(exec)->value(exec);
     if (exec->hadException())
         return jsUndefined();
     WebGLExtension* extension = context->getExtension(name);
@@ -359,8 +385,8 @@ JSValue JSWebGLRenderingContext::getSupportedExtensions(ExecState* exec)
     Vector<String> value = context->getSupportedExtensions();
     MarkedArgumentBuffer list;
     for (size_t ii = 0; ii < value.size(); ++ii)
-        list.append(jsString(exec, value[ii]));
-    return constructArray(exec, globalObject(), list);
+        list.append(jsStringWithCache(exec, value[ii]));
+    return constructArray(exec, 0, globalObject(), list);
 }
 
 JSValue JSWebGLRenderingContext::getTexParameter(ExecState* exec)
@@ -403,7 +429,7 @@ bool toVector(JSC::ExecState* exec, JSC::JSValue value, Vector<T, inlineCapacity
         return false;
 
     JSC::JSObject* object = asObject(value);
-    int32_t length = object->get(exec, JSC::Identifier(exec, "length")).toInt32(exec);
+    int32_t length = object->get(exec, exec->vm().propertyNames->length).toInt32(exec);
 
     if (!vector.tryReserveCapacity(length))
         return false;

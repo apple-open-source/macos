@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012, 2013 Research In Motion Limited. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,8 +23,10 @@
 
 #include "LayerCompositingThread.h"
 #include "LayerRenderer.h"
+#include "LayerRendererClient.h"
+#include "WebPageCompositor.h"
 
-#include <BlackBerryPlatformAnimation.h>
+#include <BlackBerryPlatformAnimationFrameRateController.h>
 #include <BlackBerryPlatformGLES2Context.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
@@ -41,7 +43,10 @@ class WebPageCompositorClient;
 class WebPagePrivate;
 
 // This class may only be used on the compositing thread. So it does not need to be threadsaferefcounted.
-class WebPageCompositorPrivate : public RefCounted<WebPageCompositorPrivate>, public Platform::AnimationFrameRateClient {
+class WebPageCompositorPrivate
+    : public RefCounted<WebPageCompositorPrivate>
+    , public WebCore::LayerRendererClient
+    , public Platform::AnimationFrameRateClient {
 public:
     static PassRefPtr<WebPageCompositorPrivate> create(WebPagePrivate* page, WebPageCompositorClient* client)
     {
@@ -50,7 +55,10 @@ public:
 
     ~WebPageCompositorPrivate();
 
-    bool hardwareCompositing() const;
+    // Public API
+    void setChildWindowPlacement(WebPageCompositor::ChildWindowPlacement placement) { m_childWindowPlacement = placement; }
+    void prepareFrame(double animationTime);
+    void render(const WebCore::IntRect& targetRect, const WebCore::IntRect& clipRect, const WebCore::TransformationMatrix&, const WebCore::FloatRect& documentSrcRect);
 
     Platform::Graphics::GLES2Context* context() const { return m_context; }
     void setContext(Platform::Graphics::GLES2Context*);
@@ -58,48 +66,70 @@ public:
     WebCore::LayerCompositingThread* rootLayer() const { return m_rootLayer.get(); }
     void setRootLayer(WebCore::LayerCompositingThread*);
 
-    void commit(WebCore::LayerWebKitThread* rootLayerProxy);
+    WebCore::LayerCompositingThread* overlayLayer() const { return m_overlayLayer.get(); }
+    void setOverlayLayer(WebCore::LayerCompositingThread*);
 
-    // This is mapped from the public API, thus takes transformed contents
-    void render(const WebCore::IntRect& dstRect, const WebCore::IntRect& transformedContents);
+    WebCore::LayerCompositingThread* compositingThreadOverlayLayer() const { return m_compositingThreadOverlayLayer.get(); }
 
-    // Returns true if the WebPageCompositor draws the root layer, false if the BackingStore draws the root layer
     bool drawsRootLayer() const;
     void setDrawsRootLayer(bool drawsRootLayer) { m_drawsRootLayer = drawsRootLayer; }
 
     // Render everything but the root layer, or everything if drawsRootLayer() is true.
     bool drawLayers(const WebCore::IntRect& dstRect, const WebCore::FloatRect& contents);
 
-    WebCore::IntRect layoutRectForCompositing() const { return m_layoutRectForCompositing; }
-    void setLayoutRectForCompositing(const WebCore::IntRect& rect) { m_layoutRectForCompositing = rect; }
+    WebCore::IntRect layoutRect() const { return m_layoutRect; }
+    void setLayoutRect(const WebCore::IntRect& rect) { m_layoutRect = rect; }
 
-    WebCore::IntSize contentsSizeForCompositing() const { return m_contentsSizeForCompositing; }
-    void setContentsSizeForCompositing(const WebCore::IntSize& size) { m_contentsSizeForCompositing = size; }
+    WebCore::IntRect documentRect() const { return m_documentRect; }
+    void setDocumentRect(const WebCore::IntRect& rect) { m_documentRect = rect; }
 
     WebCore::LayerRenderingResults lastCompositingResults() const { return m_lastCompositingResults; }
     void setLastCompositingResults(const WebCore::LayerRenderingResults& results) { m_lastCompositingResults = results; }
 
+    WebCore::Color backgroundColor() const { return m_backgroundColor; }
+    void setBackgroundColor(const WebCore::Color&);
+
     void releaseLayerResources();
 
     WebPagePrivate* page() const { return m_webPage; }
+    void setPage(WebPagePrivate*);
+    void detach();
     WebPageCompositorClient* client() const { return m_client; }
     void compositorDestroyed();
+
+    void addOverlay(WebCore::LayerCompositingThread*);
+    void removeOverlay(WebCore::LayerCompositingThread*);
+
+    void findFixedElementRect(WebCore::LayerCompositingThread*, WebCore::IntRect&);
 
 protected:
     WebPageCompositorPrivate(WebPagePrivate*, WebPageCompositorClient*);
 
 private:
-    void animationFrameChanged();
+    void compositeLayers(const WebCore::TransformationMatrix&);
+    void attachOverlays() { attachOverlays(m_compositingThreadOverlayLayer.get(), m_webPage); }
+    void detachOverlays() { attachOverlays(m_compositingThreadOverlayLayer.get(), 0); }
+    static void attachOverlays(WebCore::LayerCompositingThread* overlayRoot, WebPagePrivate*);
+
+    // LayerRendererClient
+    virtual bool shouldChildWindowsUseDocumentCoordinates();
+
+    // AnimationFrameRateClient
+    virtual void animationFrameChanged();
 
     WebPageCompositorClient* m_client;
     WebPagePrivate* m_webPage;
     Platform::Graphics::GLES2Context* m_context;
     OwnPtr<WebCore::LayerRenderer> m_layerRenderer;
     RefPtr<WebCore::LayerCompositingThread> m_rootLayer;
-    WebCore::IntRect m_layoutRectForCompositing;
-    WebCore::IntSize m_contentsSizeForCompositing;
+    RefPtr<WebCore::LayerCompositingThread> m_overlayLayer;
+    RefPtr<WebCore::LayerCompositingThread> m_compositingThreadOverlayLayer;
+    WebCore::IntRect m_layoutRect;
+    WebCore::IntRect m_documentRect;
     WebCore::LayerRenderingResults m_lastCompositingResults;
+    WebCore::Color m_backgroundColor;
     bool m_drawsRootLayer;
+    WebPageCompositor::ChildWindowPlacement m_childWindowPlacement;
 };
 
 } // namespace WebKit

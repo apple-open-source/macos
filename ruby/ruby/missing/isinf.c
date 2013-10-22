@@ -6,8 +6,7 @@
 #include <nan.h>
 
 int
-isinf(n)
-    double n;
+isinf(double n)
 {
     if (IsNANorINF(n) && IsINF(n)) {
 	return 1;
@@ -19,7 +18,7 @@ isinf(n)
 
 #else
 
-#include "config.h"
+#include "ruby/config.h"
 
 #if defined(HAVE_FINITE) && defined(HAVE_ISNAN)
 
@@ -28,15 +27,14 @@ isinf(n)
 #include <ieeefp.h>
 #endif
 
-/* 
+/*
  * isinf may be provided only as a macro.
  * ex. HP-UX, Solaris 10
  * http://www.gnu.org/software/automake/manual/autoconf/Function-Portability.html
  */
 #ifndef isinf
 int
-isinf(n)
-    double n;
+isinf(double n)
 {
     return (!finite(n) && !isnan(n));
 }
@@ -50,13 +48,12 @@ isinf(n)
 # include <strings.h>
 #endif
 
-static double zero()	{ return 0.0; }
-static double one()	{ return 1.0; }
-static double inf()	{ return one() / zero(); }
+static double zero(void) { return 0.0; }
+static double one (void) { return 1.0; }
+static double inf (void) { return one() / zero(); }
 
 int
-isinf(n)
-    double n;
+isinf(double n)
 {
     static double pinf = 0.0;
     static double ninf = 0.0;

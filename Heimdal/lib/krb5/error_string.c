@@ -33,8 +33,8 @@
 
 #include "krb5_locl.h"
 
-#undef __attribute__
-#define __attribute__(x)
+#undef HEIMDAL_PRINTF_ATTRIBUTE
+#define HEIMDAL_PRINTF_ATTRIBUTE(x)
 
 /**
  * Clears the error message from the Kerberos 5 context.
@@ -72,7 +72,7 @@ krb5_clear_error_message(krb5_context context)
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_set_error_message(krb5_context context, krb5_error_code ret,
 		       const char *fmt, ...)
-    __attribute__ ((format (printf, 3, 4)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
 {
     va_list ap;
 
@@ -98,7 +98,7 @@ krb5_set_error_message(krb5_context context, krb5_error_code ret,
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_vset_error_message (krb5_context context, krb5_error_code ret,
 			 const char *fmt, va_list args)
-    __attribute__ ((format (printf, 3, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 0))
 {
     int r;
 
@@ -136,7 +136,7 @@ krb5_vset_error_message (krb5_context context, krb5_error_code ret,
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_prepend_error_message(krb5_context context, krb5_error_code ret,
 			   const char *fmt, ...)
-    __attribute__ ((format (printf, 3, 4)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 4))
 {
     va_list ap;
 
@@ -161,7 +161,7 @@ krb5_prepend_error_message(krb5_context context, krb5_error_code ret,
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_vprepend_error_message(krb5_context context, krb5_error_code ret,
 			    const char *fmt, va_list args)
-    __attribute__ ((format (printf, 3, 0)))
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 3, 0))
 {
     char *str = NULL, *str2 = NULL;
 
@@ -308,3 +308,56 @@ krb5_get_err_text(krb5_context context, krb5_error_code code)
     return p;
 }
 
+#ifdef __APPLE__
+
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+_krb5_vset_cf_error_message (krb5_context context,
+			    krb5_error_code ret,
+			    CFErrorRef error,
+			    const char *fmt,
+			    va_list args)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 0))
+{
+    char *str = NULL, *error_string = NULL;
+    CFStringRef description = NULL;
+    int r;
+
+    if (error) {
+	description = CFErrorCopyDescription(error);
+	if (description) {
+	    str = rk_cfstring2cstring(description);
+	    CFRelease(description);
+	}
+    }
+
+    r = vasprintf(&error_string, fmt, args);
+    if (r < 0 || error_string == NULL) {
+	free(str);
+	return;
+    }
+
+    if (str) {
+	krb5_set_error_message(context, ret, "%s: %s", error_string, str);
+	free(str);
+    } else {
+	krb5_set_error_message(context, ret, "%s", error_string);
+    }
+    free(error_string);
+}
+
+
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+_krb5_set_cf_error_message(krb5_context context,
+			   krb5_error_code ret,
+			   CFErrorRef error,
+			   const char *fmt, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 4, 5))
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    _krb5_vset_cf_error_message(context, ret, error, fmt, ap);
+    va_end(ap);
+}
+
+#endif /* __APPLE__ */

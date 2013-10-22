@@ -43,6 +43,8 @@
 #include <security_asn1/secerr.h>
 #include <Security/cssmapi.h>
 
+#include <Security/SecCmsDigestContext.h>
+
 
 struct SecCmsDigestContextStr {
     Boolean		saw_contents;
@@ -90,8 +92,15 @@ SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
 	 * but we cannot know that until later.
 	 */
 	if (digobj)
-	    CSSM_DigestDataInit(digobj);
-
+        {
+            CSSM_RETURN result;
+	    result = CSSM_DigestDataInit(digobj);
+            if (result != CSSM_OK)
+            {
+                goto loser;
+            }
+        }
+        
 	cmsdigcx->digobjs[cmsdigcx->digcnt] = digobj;
 	cmsdigcx->digcnt++;
     }
@@ -156,7 +165,7 @@ SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx)
  *  into an array of CSSM_DATAs (allocated on poolp)
  */
 OSStatus
-SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, PLArenaPool *poolp,
+SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolRef poolp,
 			    CSSM_DATA_PTR **digestsp)
 {
     CSSM_CC_HANDLE digobj;
@@ -176,11 +185,11 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, PLArenaPool *
 	goto cleanup;
     }
 
-    mark = PORT_ArenaMark (poolp);
+    mark = PORT_ArenaMark ((PLArenaPool *)poolp);
 
     /* allocate digest array & CSSM_DATAs on arena */
-    digests = (CSSM_DATA_PTR *)PORT_ArenaAlloc(poolp, (cmsdigcx->digcnt+1) * sizeof(CSSM_DATA_PTR));
-    digest = (CSSM_DATA_PTR)PORT_ArenaZAlloc(poolp, cmsdigcx->digcnt * sizeof(CSSM_DATA));
+    digests = (CSSM_DATA_PTR *)PORT_ArenaAlloc((PLArenaPool *)poolp, (cmsdigcx->digcnt+1) * sizeof(CSSM_DATA_PTR));
+    digest = (CSSM_DATA_PTR)PORT_ArenaZAlloc((PLArenaPool *)poolp, cmsdigcx->digcnt * sizeof(CSSM_DATA));
     if (digests == NULL || digest == NULL) {
 	goto loser;
     }
@@ -188,16 +197,26 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, PLArenaPool *
     for (i = 0; i < cmsdigcx->digcnt; i++, digest++) {
 	digobj = cmsdigcx->digobjs[i];
 	CSSM_QUERY_SIZE_DATA dataSize;
-	CSSM_QuerySize(digobj, CSSM_FALSE, 1, &dataSize);
+	rv = CSSM_QuerySize(digobj, CSSM_FALSE, 1, &dataSize);
+        if (rv != CSSM_OK)
+        {
+            goto loser;
+        }
+        
 	int diglength = dataSize.SizeOutputBlock;
 	
 	if (digobj)
 	{
-	    digest->Data = (unsigned char*)PORT_ArenaAlloc(poolp, diglength);
+	    digest->Data = (unsigned char*)PORT_ArenaAlloc((PLArenaPool *)poolp, diglength);
 	    if (digest->Data == NULL)
 		goto loser;
 	    digest->Length = diglength;
-	    CSSM_DigestDataFinal(digobj, digest);
+	    rv = CSSM_DigestDataFinal(digobj, digest);
+            if (rv != CSSM_OK)
+            {
+                goto loser;
+            }
+            
 	    CSSM_DeleteContext(digobj);
 	}
 	else
@@ -215,9 +234,9 @@ SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, PLArenaPool *
 
 loser:
     if (rv == SECSuccess)
-	PORT_ArenaUnmark(poolp, mark);
+	PORT_ArenaUnmark((PLArenaPool *)poolp, mark);
     else
-	PORT_ArenaRelease(poolp, mark);
+	PORT_ArenaRelease((PLArenaPool *)poolp, mark);
 
 cleanup:
     if (cmsdigcx->digcnt > 0) {
@@ -244,7 +263,7 @@ SecCmsDigestContextFinishSingle(SecCmsDigestContextRef cmsdigcx, SecArenaPoolRef
 	goto loser;
 
     /* get the digests into arena, then copy the first digest into poolp */
-    if (SecCmsDigestContextFinishMultiple(cmsdigcx, arena, &dp) != SECSuccess)
+    if (SecCmsDigestContextFinishMultiple(cmsdigcx, (SecArenaPoolRef)arena, &dp) != SECSuccess)
 	goto loser;
 
     /* now copy it into poolp */

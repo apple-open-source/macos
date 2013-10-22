@@ -1,4 +1,4 @@
-/* $OpenBSD: packet.h,v 1.56 2011/05/06 21:14:05 djm Exp $ */
+/* $OpenBSD: packet.h,v 1.57 2012/01/25 19:40:09 markus Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -18,10 +18,14 @@
 
 #include <termios.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#else
 #include <openssl/bn.h>
 #ifdef OPENSSL_HAS_ECC
 #include <openssl/ec.h>
 #endif
+#endif /* __APPLE_CRYPTO__ */
 
 void     packet_set_connection(int, int);
 void     packet_set_timeout(int, int);
@@ -55,7 +59,6 @@ void     packet_send(void);
 
 int      packet_read(void);
 void     packet_read_expect(int type);
-int      packet_read_poll(void);
 void     packet_process_incoming(const char *buf, u_int len);
 int      packet_read_seqnr(u_int32_t *seqnr_p);
 int      packet_read_poll_seqnr(u_int32_t *seqnr_p);

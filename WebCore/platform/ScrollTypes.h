@@ -106,7 +106,7 @@ namespace WebCore {
         ScrollByPage,
         ScrollByDocument,
         ScrollByPixel,
-        ScrollByPixelVelocity
+        ScrollByPrecisePixel
     };
 
     enum ScrollElasticity {
@@ -159,6 +159,11 @@ namespace WebCore {
     
     typedef unsigned ScrollbarControlPartMask;
 
+    enum ScrollPinningBehavior {
+        DoNotPin,
+        PinToTop,
+        PinToBottom
+    };
 }
 
 #endif

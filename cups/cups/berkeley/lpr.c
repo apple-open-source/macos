@@ -1,9 +1,9 @@
 /*
- * "$Id: lpr.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: lpr.c 11110 2013-07-08 21:17:10Z msweet $"
  *
  *   "lpr" command for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -61,6 +61,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   for (i = 1; i < argc; i ++)
     if (argv[i][0] == '-')
+    {
       switch (ch = argv[i][1])
       {
         case 'E' : /* Encrypt */
@@ -226,6 +227,14 @@ main(int  argc,				/* I - Number of command-line arguments */
 		                              dest->options[j].value,
 					      num_options, &options);
 	    }
+	    else if (cupsLastError() == IPP_STATUS_ERROR_BAD_REQUEST ||
+		     cupsLastError() == IPP_STATUS_ERROR_VERSION_NOT_SUPPORTED)
+	    {
+	      _cupsLangPrintf(stderr,
+			      _("%s: Error - add '/version=1.1' to server "
+				"name."), argv[0]);
+	      return (1);
+	    }
 	    break;
 
 	case '#' : /* Number of copies */
@@ -275,6 +284,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 			    argv[i][1]);
 	    return (1);
       }
+    }
     else if (num_files < 1000)
     {
      /*
@@ -319,6 +329,14 @@ main(int  argc,				/* I - Number of command-line arguments */
 	  num_options = cupsAddOption(dest->options[j].name,
 		                      dest->options[j].value,
 				      num_options, &options);
+    }
+    else if (cupsLastError() == IPP_STATUS_ERROR_BAD_REQUEST ||
+	     cupsLastError() == IPP_STATUS_ERROR_VERSION_NOT_SUPPORTED)
+    {
+      _cupsLangPrintf(stderr,
+		      _("%s: Error - add '/version=1.1' to server "
+			"name."), argv[0]);
+      return (1);
     }
   }
 
@@ -418,5 +436,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: lpr.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: lpr.c 11110 2013-07-08 21:17:10Z msweet $".
  */

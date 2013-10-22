@@ -1,0 +1,27 @@
+---
+name: Tree-Simple
+version: 1.18
+author:
+  - 'Stevan Little, E<lt>stevan@iinteractive.comE<gt>'
+  - 'Rob Kinyon, E<lt>rob@iinteractive.comE<gt>'
+abstract: A simple tree object
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+requires:
+  Scalar::Util: 1.18
+  perl: 5.6.0
+build_requires:
+  Test::Exception: 0.15
+  Test::More: 0.47
+provides:
+  Tree::Simple:
+    file: lib/Tree/Simple.pm
+    version: 1.18
+  Tree::Simple::Visitor:
+    file: lib/Tree/Simple/Visitor.pm
+    version: 1.11
+generated_by: Module::Build version 0.2805
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2

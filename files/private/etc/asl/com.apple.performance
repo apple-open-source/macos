@@ -1,0 +1,3 @@
+# redirect com.apple.performance* messages to /var/log/performance
+? [A= Facility com.apple.performance] claim only
+* store_dir /var/log/performance

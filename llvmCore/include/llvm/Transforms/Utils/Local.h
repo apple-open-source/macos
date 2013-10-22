@@ -15,6 +15,11 @@
 #ifndef LLVM_TRANSFORMS_UTILS_LOCAL_H
 #define LLVM_TRANSFORMS_UTILS_LOCAL_H
 
+#include "llvm/IRBuilder.h"
+#include "llvm/Operator.h"
+#include "llvm/Support/GetElementPtrTypeIterator.h"
+#include "llvm/Target/TargetData.h"
+
 namespace llvm {
 
 class User;
@@ -31,6 +36,7 @@ class PHINode;
 class AllocaInst;
 class ConstantExpr;
 class TargetData;
+class TargetLibraryInfo;
 class DIBuilder;
 
 template<typename T> class SmallVectorImpl;
@@ -46,7 +52,8 @@ template<typename T> class SmallVectorImpl;
 /// Also calls RecursivelyDeleteTriviallyDeadInstructions() on any branch/switch
 /// conditions and indirectbr addresses this might make dead if
 /// DeleteDeadConditions is true.
-bool ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions = false);
+bool ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions = false,
+                            const TargetLibraryInfo *TLI = 0);
 
 //===----------------------------------------------------------------------===//
 //  Local dead code elimination.
@@ -55,20 +62,21 @@ bool ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions = false);
 /// isInstructionTriviallyDead - Return true if the result produced by the
 /// instruction is not used, and the instruction has no side effects.
 ///
-bool isInstructionTriviallyDead(Instruction *I);
+bool isInstructionTriviallyDead(Instruction *I, const TargetLibraryInfo *TLI=0);
 
 /// RecursivelyDeleteTriviallyDeadInstructions - If the specified value is a
 /// trivially dead instruction, delete it.  If that makes any of its operands
 /// trivially dead, delete them too, recursively.  Return true if any
 /// instructions were deleted.
-bool RecursivelyDeleteTriviallyDeadInstructions(Value *V);
+bool RecursivelyDeleteTriviallyDeadInstructions(Value *V,
+                                                const TargetLibraryInfo *TLI=0);
 
 /// RecursivelyDeleteDeadPHINode - If the specified value is an effectively
 /// dead PHI node, due to being a def-use chain of single-use nodes that
 /// either forms a cycle or is terminated by a trivially dead instruction,
 /// delete it.  If that makes any of its operands trivially dead, delete them
 /// too, recursively.  Return true if a change was made.
-bool RecursivelyDeleteDeadPHINode(PHINode *PN);
+bool RecursivelyDeleteDeadPHINode(PHINode *PN, const TargetLibraryInfo *TLI=0);
 
   
 /// SimplifyInstructionsInBlock - Scan the specified basic block and try to
@@ -76,7 +84,8 @@ bool RecursivelyDeleteDeadPHINode(PHINode *PN);
 ///
 /// This returns true if it changed the code, note that it can delete
 /// instructions in other blocks as well in this block.
-bool SimplifyInstructionsInBlock(BasicBlock *BB, const TargetData *TD = 0);
+bool SimplifyInstructionsInBlock(BasicBlock *BB, const TargetData *TD = 0,
+                                 const TargetLibraryInfo *TLI = 0);
     
 //===----------------------------------------------------------------------===//
 //  Control Flow Graph Restructuring.
@@ -158,6 +167,65 @@ unsigned getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
 /// getKnownAlignment - Try to infer an alignment for the specified pointer.
 static inline unsigned getKnownAlignment(Value *V, const TargetData *TD = 0) {
   return getOrEnforceKnownAlignment(V, 0, TD);
+}
+
+/// EmitGEPOffset - Given a getelementptr instruction/constantexpr, emit the
+/// code necessary to compute the offset from the base pointer (without adding
+/// in the base pointer).  Return the result as a signed integer of intptr size.
+/// When NoAssumptions is true, no assumptions about index computation not
+/// overflowing is made.
+template<typename IRBuilderTy>
+Value *EmitGEPOffset(IRBuilderTy *Builder, const TargetData &TD, User *GEP,
+                     bool NoAssumptions = false) {
+  gep_type_iterator GTI = gep_type_begin(GEP);
+  Type *IntPtrTy = TD.getIntPtrType(GEP->getContext());
+  Value *Result = Constant::getNullValue(IntPtrTy);
+
+  // If the GEP is inbounds, we know that none of the addressing operations will
+  // overflow in an unsigned sense.
+  bool isInBounds = cast<GEPOperator>(GEP)->isInBounds() && !NoAssumptions;
+
+  // Build a mask for high order bits.
+  unsigned IntPtrWidth = TD.getPointerSizeInBits();
+  uint64_t PtrSizeMask = ~0ULL >> (64-IntPtrWidth);
+
+  for (User::op_iterator i = GEP->op_begin() + 1, e = GEP->op_end(); i != e;
+       ++i, ++GTI) {
+    Value *Op = *i;
+    uint64_t Size = TD.getTypeAllocSize(GTI.getIndexedType()) & PtrSizeMask;
+    if (ConstantInt *OpC = dyn_cast<ConstantInt>(Op)) {
+      if (OpC->isZero()) continue;
+
+      // Handle a struct index, which adds its field offset to the pointer.
+      if (StructType *STy = dyn_cast<StructType>(*GTI)) {
+        Size = TD.getStructLayout(STy)->getElementOffset(OpC->getZExtValue());
+
+        if (Size)
+          Result = Builder->CreateAdd(Result, ConstantInt::get(IntPtrTy, Size),
+                                      GEP->getName()+".offs");
+        continue;
+      }
+
+      Constant *Scale = ConstantInt::get(IntPtrTy, Size);
+      Constant *OC = ConstantExpr::getIntegerCast(OpC, IntPtrTy, true /*SExt*/);
+      Scale = ConstantExpr::getMul(OC, Scale, isInBounds/*NUW*/);
+      // Emit an add instruction.
+      Result = Builder->CreateAdd(Result, Scale, GEP->getName()+".offs");
+      continue;
+    }
+    // Convert to correct type.
+    if (Op->getType() != IntPtrTy)
+      Op = Builder->CreateIntCast(Op, IntPtrTy, true, Op->getName()+".c");
+    if (Size != 1) {
+      // We'll let instcombine(mul) convert this to a shl if possible.
+      Op = Builder->CreateMul(Op, ConstantInt::get(IntPtrTy, Size),
+                              GEP->getName()+".idx", isInBounds /*NUW*/);
+    }
+
+    // Emit an add instruction.
+    Result = Builder->CreateAdd(Op, Result, GEP->getName()+".offs");
+  }
+  return Result;
 }
 
 ///===---------------------------------------------------------------------===//

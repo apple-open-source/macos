@@ -34,18 +34,12 @@
 
 input:not([type]), 
 input[type="color"],
-input[type="date"],
-input[type="datetime"],
-input[type="datetime-local"],
 input[type="email"],
-input[type="month"],
 input[type="number"],
 input[type="password"],
 input[type="tel"],
-input[type="text"],
-input[type="time"],
 input[type="url"],
-input[type="week"] {
+input[type="text"] {
     padding:1px 0;
 }
 
@@ -59,6 +53,10 @@ input[type="checkbox"] {
 
 input[type="radio"] {
     margin:3px 3px 0 5px;
+}
+
+input[type="range"] {
+    color: #c4c4c4;
 }
 
 /* Not sure this is the right color. #EBEBE4 is what Firefox uses.
@@ -92,11 +90,11 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 input[type="search"]::-webkit-search-results-decoration {
-    margin: 0 3px 0 2px;
+    margin: auto 3px auto 2px;
 }
 
 input[type="search"]::-webkit-search-results-button {
-    margin: 0 3px 0 2px;
+    margin: auto 3px auto 2px;
 }
 
 input::-webkit-outer-spin-button {
@@ -112,7 +110,7 @@ keygen,
 select, 
 select[size="0"],
 select[size="1"] {
-    -webkit-border-radius: 0;
+    border-radius: 0;
 }
 
 /* Option font must be inherited because we depend on computing the size of the

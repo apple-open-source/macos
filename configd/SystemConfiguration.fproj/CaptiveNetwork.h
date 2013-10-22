@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -106,8 +106,6 @@ CNMarkPortalOffline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_
 CFArrayRef
 CNCopySupportedInterfaces	(void)				__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_1);
 
-#if	TARGET_OS_EMBEDDED
-
 /*!
  @constant kCNNetworkInfoKeySSIDData
  @discussion NetworkInfo Dictionary key for SSID in CFData format
@@ -147,8 +145,6 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID			__OSX_AVAILABLE_STARTING(__MAC
  */
 CFDictionaryRef
 CNCopyCurrentNetworkInfo	(CFStringRef interfaceName)	__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
-
-#endif	// TARGET_OS_EMBEDDED
 
 __END_DECLS
 

@@ -26,8 +26,11 @@
 #import "config.h"
 #import "NetscapePlugin.h"
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #import "NetscapeBrowserFuncs.h"
 #import "PluginController.h"
+#import "WKNPAPIPlugInContainerInternal.h"
 #import "WebEvent.h"
 #import <Carbon/Carbon.h>
 #import <WebCore/GraphicsContext.h>
@@ -176,6 +179,19 @@ mach_port_t NetscapePlugin::compositingRenderServerPort()
     return controller()->compositingRenderServerPort();
 }
 
+void NetscapePlugin::openPluginPreferencePane()
+{
+    controller()->openPluginPreferencePane();
+}
+
+WKNPAPIPlugInContainer* NetscapePlugin::plugInContainer()
+{
+    if (!m_plugInContainer)
+        m_plugInContainer = adoptNS([[WKNPAPIPlugInContainer alloc] _initWithNetscapePlugin:this]);
+
+    return m_plugInContainer.get();
+}
+
 #ifndef NP_NO_CARBON
 typedef HashMap<WindowRef, NetscapePlugin*> WindowMap;
 
@@ -186,6 +202,24 @@ static WindowMap& windowMap()
     return windowMap;
 }
 #endif
+
+static void NSException_release(id, SEL)
+{
+    // Do nothing.
+}
+
+void NetscapePlugin::platformPreInitialize()
+{
+    if (m_pluginModule->pluginQuirks().contains(PluginQuirks::LeakAllThrownNSExceptions)) {
+        // Patch -[NSException release] to not release the object.
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{
+            Class exceptionClass = [NSException class];
+            Method exceptionReleaseMethod = class_getInstanceMethod(exceptionClass, @selector(release));
+            class_replaceMethod(exceptionClass, @selector(release), reinterpret_cast<IMP>(NSException_release), method_getTypeEncoding(exceptionReleaseMethod));
+        });
+    }
+}
 
 bool NetscapePlugin::platformPostInitialize()
 {
@@ -252,6 +286,8 @@ bool NetscapePlugin::platformPostInitialize()
 
 void NetscapePlugin::platformDestroy()
 {
+    [m_plugInContainer _invalidate];
+
 #ifndef NP_NO_CARBON
     if (m_eventModel == NPEventModelCarbon) {
         if (WindowRef window = windowRef()) {
@@ -1107,7 +1143,7 @@ void NetscapePlugin::updatePluginLayer()
     if (m_pluginReturnsNonretainedLayer)
         m_pluginLayer = reinterpret_cast<CALayer *>(value);
     else
-        m_pluginLayer.adoptNS(reinterpret_cast<CALayer *>(value));
+        m_pluginLayer = adoptNS(reinterpret_cast<CALayer *>(value));
 
     if (m_pluginModule->pluginQuirks().contains(PluginQuirks::MakeOpaqueUnlessTransparentSilverlightBackgroundAttributeExists) &&
         !m_isTransparent)
@@ -1134,3 +1170,5 @@ void NetscapePlugin::nullEventTimerFired()
 #endif
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

@@ -1,7 +1,27 @@
 #!/usr/bin/perl -w
 
 # Test Apple's BDAT/CHUNKING/BINARYMIME extension to postfix.
-# Not for distribution outside Apple.
+
+# Copyright (c) 2013 Apple Inc.  All Rights Reserved.
+# 
+# @APPLE_LICENSE_HEADER_START@
+# 
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License').  You may not use this file except in
+# compliance with the License.  Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.  Please
+# see the License for the specific language governing rights and
+# limitations under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
 
 use strict;
 use IO::Socket::INET;
@@ -60,7 +80,6 @@ local $SIG{__DIE__} = sub {
 	kill(9, $smtppid) if defined $smtppid;
 	kill(9, $imappid) if defined $imappid;
 };
-local $SIG{INT} = $SIG{__DIE__};
 
 my $reply;
 
@@ -256,7 +275,7 @@ while ($reply = $from_imap->getline()) {
 	imap_printS($reply) if $opts{verbose};
 	$reply =~ s/[\r\n]+$//;
 	if ($reply =~ /^a /) {
-		if ($reply !~ /a OK (\[.*\] )?Logged in/) {
+		if ($reply !~ /a OK /) {
 			die "Login failed: <$reply>\n";
 		}
 		last;
@@ -603,7 +622,7 @@ sub deliver
 	}
 	my $format = $formats[$r];
 	if (int(rand(20)) == 0) {
-		failif(1, "sent no MAIL command");
+		failif(1, "sent no MAIL Fail: command");
 	} else {
 		print "$dtag (mail)...\n" unless $opts{quiet};
 		smtp_send_data("mail from: $dtag$format\r\n");
@@ -633,15 +652,15 @@ sub deliver
 			if ($reply =~ /^\d+ /) {
 				if ($expect_OK) {
 					if ($reply !~ /^250 /) {
-						print STDERR "Rcpt failed but should have succeeded: <$reply>\n";
+						print STDERR "Fail: Rcpt failed but should have succeeded: <$reply>\n";
 						return -1;
 					}
 				} else {
 					if ($reply =~ /^250 /) {
-						print STDERR "Rcpt command succeeded but should have failed ($explanation): <$reply>\n";
+						print STDERR "Fail: Rcpt command succeeded but should have failed ($explanation): <$reply>\n";
 						return -1;
 					} else {
-						print "Rcpt command failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
+						print "Success: Rcpt command failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
 						return 0;
 					}
 				}
@@ -692,7 +711,7 @@ sub deliver
 				$remaining = substr($remaining, $cut);
 				$consumed .= $fragment;
 				push @fragments, $fragment;
-				$stuck = 0 if length($fragment) > 0;
+				$stuck = 0;
 			} else {
 				print "NOT cutting: |$linestart|<-HERE->|$linecont|\n...".substr($consumed,-20)."|<-HERE->|".substr($remaining,0,20)."...\n" if $opts{debug};
 				if (++$stuck >= 1000) {
@@ -741,15 +760,15 @@ sub deliver
 				if ($reply =~ /^\d+ /) {
 					if ($expect_OK) {
 						if ($reply !~ /^3\d\d /) {
-							print STDERR "Data failed but should have succeeded: <$reply>\n";
+							print STDERR "Fail: Data failed but should have succeeded: <$reply>\n";
 							return -1;
 						}
 					} else {
 						if ($reply =~ /^[23]\d\d /) {
-							print STDERR "Data succeeded but should have failed ($explanation): <$reply>\n";
+							print STDERR "Fail: Data succeeded but should have failed ($explanation): <$reply>\n";
 							return -1;
 						} else {
-							print "Data failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
+							print "Success: Data failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
 							return 0;
 						}
 					}
@@ -770,15 +789,15 @@ sub deliver
 				if ($reply =~ /^\d+ /) {
 					if ($expect_OK) {
 						if ($reply !~ /^250 /) {
-							print STDERR "Data transaction failed but should have succeeded: <$reply>\n";
+							print STDERR "Fail: Data transaction failed but should have succeeded: <$reply>\n";
 							return -1;
 						}
 					} else {
 						if ($reply =~ /^250 /) {
-							print STDERR "Data transaction succeeded but should have failed ($explanation): <$reply>\n";
+							print STDERR "Fail: Data transaction succeeded but should have failed ($explanation): <$reply>\n";
 							return -1;
 						} else {
-							print "Data transaction failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
+							print "Success: Data transaction failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
 							return 0;
 						}
 					}
@@ -879,15 +898,15 @@ sub deliver
 				if ($reply =~ /^\d+ /) {
 					if ($expect_OK) {
 						if ($reply !~ /^250 /) {
-							print STDERR "Burl failed but should have succeeded: <$reply>\n";
+							print STDERR "Fail: Burl failed but should have succeeded: <$reply>\n";
 							return -1;
 						}
 					} else {
 						if ($reply =~ /^250 /) {
-							print STDERR "Burl succeeded but should have failed ($explanation): <$reply>\n";
+							print STDERR "Fail: Burl succeeded but should have failed ($explanation): <$reply>\n";
 							return -1;
 						} else {
-							print "Burl failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
+							print "Success: Burl failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
 							return 0;
 						}
 					}
@@ -910,15 +929,15 @@ sub deliver
 				if ($reply =~ /^\d+ /) {
 					if ($expect_OK) {
 						if ($reply !~ /^250 /) {
-							print STDERR "Bdat failed but should have succeeded: <$reply>\n";
+							print STDERR "Fail: Bdat failed but should have succeeded: <$reply>\n";
 							return -1;
 						}
 					} else {
 						if ($reply =~ /^250 /) {
-							print STDERR "Bdat succeeded but should have failed ($explanation): <$reply>\n";
+							print STDERR "Fail: Bdat succeeded but should have failed ($explanation): <$reply>\n";
 							return -1;
 						} else {
-							print "Bdat failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
+							print "Success: Bdat failed as it should have ($explanation): <$reply>\n" unless $opts{quiet};
 							return 0;
 						}
 					}
@@ -947,7 +966,7 @@ sub deliver
 			$reply =~ s/[\r\n]+$//;
 			if ($reply =~ /^\d+ /) {
 				if ($reply =~ /^250 /) {
-					print STDERR "Extra bdat/burl succeeded but should have failed ($explanation): <$reply>\n";
+					print STDERR "Fail: Extra bdat/burl succeeded but should have failed ($explanation): <$reply>\n";
 					return -1;
 				}
 				last;
@@ -1025,7 +1044,7 @@ sub deliver
 			if !defined($exists);
 	}
 	if ($exists <= $inbox_message_count) {
-		print STDERR "Message not delivered.  (EXISTS $exists now, $inbox_message_count before)\n";
+		print STDERR "Fail: Message not delivered.  (EXISTS $exists now, $inbox_message_count before)\n";
 		return -1;
 	}
 	$inbox_message_count = $exists;
@@ -1060,7 +1079,7 @@ sub deliver
 	$verify =~ s/\)\r\n$//;
 	if ($verify_size < $cleaned_len ||
 	    !message_fuzzy_equal($verify, $cleaned)) {
-		print STDERR "Fetched data does not match delivered message.\nFormat: $format\nOriginal:\n$message\nExpected:\n$cleaned\nGot:\n$verify\n";
+		print STDERR "Fail: Fetched data does not match delivered message.\nFormat: $format\nOriginal:\n$message\nExpected:\n$cleaned\nGot:\n$verify\n";
 		return -1;
 	}
 
@@ -1079,7 +1098,7 @@ sub deliver
 	}
 	die "I/O error\n" if $from_imap->error;
 
-	print "Delivery and fetch succeeded and matched.\n" unless $opts{quiet};
+	print "Success: Delivery and fetch succeeded and matched.\n" unless $opts{quiet};
 	return $expect_OK;
 }
 

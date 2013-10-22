@@ -1,0 +1,15 @@
+0.08 Wed Jul 21 15:54:27 BST 2004
+    * qualified 'require' as 'CORE::require' to prevent warnings when using
+      UNIVERSAL::require
+0.07 Tue Feb 24 18:07:50 GMT 2004
+    * added this Changes file; I never would have guessed that I needed one for
+      such a small module.
+    * Included a performance improvement from Elizabeth Mattijsen.  Thanks.
+0.06 Fri Sep 05 sometime 2003
+    * make the tests pass if Lingua::EN::Inflect isn't installed.
+0.05 Thu Sep 04 sometime 2003
+    * removed Lingua::EN::Inflect from the prerequisite list; if you want
+      plurals, you must install it yourself.
+0.04 ???
+    * removed the "use warnings" so it will work with older Perl versions;
+      Thanks to Schwern and Miyagawa.

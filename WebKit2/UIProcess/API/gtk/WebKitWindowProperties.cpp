@@ -20,11 +20,16 @@
 #include "config.h"
 #include "WebKitWindowProperties.h"
 
+#include "ImmutableDictionary.h"
 #include "WebKitPrivate.h"
 #include "WebKitWindowPropertiesPrivate.h"
+#include "WebNumber.h"
 #include "WebURLRequest.h"
 #include <WebCore/IntRect.h>
 #include <glib/gi18n-lib.h>
+
+using namespace WebKit;
+using namespace WebCore;
 
 /**
  * SECTION: WebKitWindowProperties
@@ -101,10 +106,6 @@ enum {
     PROP_FULLSCREEN
 };
 
-using namespace WebCore;
-
-G_DEFINE_TYPE(WebKitWindowProperties, webkit_window_properties, G_TYPE_OBJECT)
-
 struct _WebKitWindowPropertiesPrivate {
     GdkRectangle geometry;
 
@@ -118,11 +119,7 @@ struct _WebKitWindowPropertiesPrivate {
     bool fullscreen : 1;
 };
 
-static void webkitWindowPropertiesFinalize(GObject* object)
-{
-    WEBKIT_WINDOW_PROPERTIES(object)->priv->~WebKitWindowPropertiesPrivate();
-    G_OBJECT_CLASS(webkit_window_properties_parent_class)->finalize(object);
-}
+WEBKIT_DEFINE_TYPE(WebKitWindowProperties, webkit_window_properties, G_TYPE_OBJECT)
 
 static void webkitWindowPropertiesGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -196,8 +193,6 @@ static void webkitWindowPropertiesSetProperty(GObject* object, guint propId, con
 static void webkit_window_properties_class_init(WebKitWindowPropertiesClass* requestClass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(requestClass);
-
-    objectClass->finalize = webkitWindowPropertiesFinalize;
     objectClass->get_property = webkitWindowPropertiesGetProperty;
     objectClass->set_property = webkitWindowPropertiesSetProperty;
 
@@ -305,15 +300,6 @@ static void webkit_window_properties_class_init(WebKitWindowPropertiesClass* req
                                                          _("Whether window will be displayed fullscreen."),
                                                          FALSE,
                                                          paramFlags));
-
-    g_type_class_add_private(requestClass, sizeof(WebKitWindowPropertiesPrivate));
-}
-
-static void webkit_window_properties_init(WebKitWindowProperties* request)
-{
-    WebKitWindowPropertiesPrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(request, WEBKIT_TYPE_WINDOW_PROPERTIES, WebKitWindowPropertiesPrivate);
-    request->priv = priv;
-    new (priv) WebKitWindowPropertiesPrivate();
 }
 
 WebKitWindowProperties* webkitWindowPropertiesCreate()
@@ -388,56 +374,54 @@ void webkitWindowPropertiesSetFullscreen(WebKitWindowProperties* windowPropertie
     g_object_notify(G_OBJECT(windowProperties), "fullscreen");
 }
 
-void webkitWindowPropertiesUpdateFromWKWindowFeatures(WebKitWindowProperties* windowProperties, WKDictionaryRef wkFeatures)
+void webkitWindowPropertiesUpdateFromWebWindowFeatures(WebKitWindowProperties* windowProperties, ImmutableDictionary* features)
 {
     GdkRectangle geometry = windowProperties->priv->geometry;
 
-    WKDoubleRef doubleValue;
-    WKRetainPtr<WKStringRef> xKey(AdoptWK, WKStringCreateWithUTF8CString("x"));
-    if (doubleValue = static_cast<WKDoubleRef>(WKDictionaryGetItemForKey(wkFeatures, xKey.get())))
-        geometry.x = WKDoubleGetValue(doubleValue);
+    WebDouble* doubleValue = static_cast<WebDouble*>(features->get("x"));
+    if (doubleValue)
+        geometry.x = doubleValue->value();
 
-    WKRetainPtr<WKStringRef> yKey(AdoptWK, WKStringCreateWithUTF8CString("y"));
-    if (doubleValue = static_cast<WKDoubleRef>(WKDictionaryGetItemForKey(wkFeatures, yKey.get())))
-        geometry.y = WKDoubleGetValue(doubleValue);
+    doubleValue = static_cast<WebDouble*>(features->get("y"));
+    if (doubleValue)
+        geometry.y = doubleValue->value();
 
-    WKRetainPtr<WKStringRef> widthKey(AdoptWK, WKStringCreateWithUTF8CString("width"));
-    if (doubleValue = static_cast<WKDoubleRef>(WKDictionaryGetItemForKey(wkFeatures, widthKey.get())))
-        geometry.width = WKDoubleGetValue(doubleValue);
+    doubleValue = static_cast<WebDouble*>(features->get("width"));
+    if (doubleValue)
+        geometry.width = doubleValue->value();
 
-    WKRetainPtr<WKStringRef> heightKey(AdoptWK, WKStringCreateWithUTF8CString("height"));
-    if (doubleValue = static_cast<WKDoubleRef>(WKDictionaryGetItemForKey(wkFeatures, heightKey.get())))
-        geometry.height = WKDoubleGetValue(doubleValue);
+    doubleValue = static_cast<WebDouble*>(features->get("height"));
+    if (doubleValue)
+        geometry.height = doubleValue->value();
     webkitWindowPropertiesSetGeometry(windowProperties, &geometry);
 
-    WKBooleanRef booleanValue;
-    WKRetainPtr<WKStringRef> menuBarVisibleKey(AdoptWK, WKStringCreateWithUTF8CString("menuBarVisible"));
-    if (booleanValue = static_cast<WKBooleanRef>(WKDictionaryGetItemForKey(wkFeatures, menuBarVisibleKey.get())))
-        webkitWindowPropertiesSetMenubarVisible(windowProperties, WKBooleanGetValue(booleanValue));
+    WebBoolean* booleanValue = static_cast<WebBoolean*>(features->get("menuBarVisible"));
+    if (booleanValue)
+        webkitWindowPropertiesSetMenubarVisible(windowProperties, booleanValue->value());
 
-    WKRetainPtr<WKStringRef> statusBarVisibleKey(AdoptWK, WKStringCreateWithUTF8CString("statusBarVisible"));
-    if (booleanValue = static_cast<WKBooleanRef>(WKDictionaryGetItemForKey(wkFeatures, statusBarVisibleKey.get())))
-        webkitWindowPropertiesSetStatusbarVisible(windowProperties, WKBooleanGetValue(booleanValue));
+    booleanValue = static_cast<WebBoolean*>(features->get("statusBarVisible"));
+    if (booleanValue)
+        webkitWindowPropertiesSetStatusbarVisible(windowProperties, booleanValue->value());
 
-    WKRetainPtr<WKStringRef> toolBarVisibleKey(AdoptWK, WKStringCreateWithUTF8CString("toolBarVisible"));
-    if (booleanValue = static_cast<WKBooleanRef>(WKDictionaryGetItemForKey(wkFeatures, toolBarVisibleKey.get())))
-        webkitWindowPropertiesSetToolbarVisible(windowProperties, WKBooleanGetValue(booleanValue));
+    booleanValue = static_cast<WebBoolean*>(features->get("toolBarVisible"));
+    if (booleanValue)
+        webkitWindowPropertiesSetToolbarVisible(windowProperties, booleanValue->value());
 
-    WKRetainPtr<WKStringRef> locationBarVisibleKey(AdoptWK, WKStringCreateWithUTF8CString("locationBarVisible"));
-    if (booleanValue = static_cast<WKBooleanRef>(WKDictionaryGetItemForKey(wkFeatures, locationBarVisibleKey.get())))
-        webkitWindowPropertiesSetLocationbarVisible(windowProperties, WKBooleanGetValue(booleanValue));
+    booleanValue = static_cast<WebBoolean*>(features->get("locationBarVisible"));
+    if (booleanValue)
+        webkitWindowPropertiesSetLocationbarVisible(windowProperties, booleanValue->value());
 
-    WKRetainPtr<WKStringRef> scrollbarsVisibleKey(AdoptWK, WKStringCreateWithUTF8CString("scrollbarsVisible"));
-    if (booleanValue = static_cast<WKBooleanRef>(WKDictionaryGetItemForKey(wkFeatures, scrollbarsVisibleKey.get())))
-        webkitWindowPropertiesSetScrollbarsVisible(windowProperties, WKBooleanGetValue(booleanValue));
+    booleanValue = static_cast<WebBoolean*>(features->get("scrollbarsVisible"));
+    if (booleanValue)
+        webkitWindowPropertiesSetScrollbarsVisible(windowProperties, booleanValue->value());
 
-    WKRetainPtr<WKStringRef> resizableKey(AdoptWK, WKStringCreateWithUTF8CString("resizable"));
-    if (booleanValue = static_cast<WKBooleanRef>(WKDictionaryGetItemForKey(wkFeatures, resizableKey.get())))
-        webkitWindowPropertiesSetResizable(windowProperties, WKBooleanGetValue(booleanValue));
+    booleanValue = static_cast<WebBoolean*>(features->get("resizable"));
+    if (booleanValue)
+        webkitWindowPropertiesSetResizable(windowProperties, booleanValue->value());
 
-    WKRetainPtr<WKStringRef> fullscreenKey(AdoptWK, WKStringCreateWithUTF8CString("fullscreen"));
-    if (booleanValue = static_cast<WKBooleanRef>(WKDictionaryGetItemForKey(wkFeatures, fullscreenKey.get())))
-        webkitWindowPropertiesSetFullscreen(windowProperties, WKBooleanGetValue(booleanValue));
+    booleanValue = static_cast<WebBoolean*>(features->get("fullscreen"));
+    if (booleanValue)
+        webkitWindowPropertiesSetFullscreen(windowProperties, booleanValue->value());
 }
 
 /**

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 #
 # $RoughId: test.rb,v 1.4 2001/07/13 15:38:27 knu Exp $
-# $Id: test_digest.rb 11708 2007-02-12 23:01:19Z shyouhei $
+# $Id: test_digest.rb 36588 2012-08-01 13:30:51Z eregon $
 
 require 'test/unit'
 
@@ -17,15 +17,35 @@ module TestDigest
   Data1 = "abc"
   Data2 = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
 
+  def test_s_new
+    self.class::DATA.each do |str, hexdigest|
+      assert_raise(ArgumentError) { self.class::ALGO.new("") }
+    end
+  end
+
   def test_s_hexdigest
-    self.class::DATA.each do |str, digest|
-      assert_equal(digest, self.class::ALGO.hexdigest(str))
+    self.class::DATA.each do |str, hexdigest|
+      actual = self.class::ALGO.hexdigest(str)
+      assert_equal(hexdigest, actual)
+      assert_equal(Encoding::US_ASCII, actual.encoding)
+    end
+  end
+
+  def test_s_base64digest
+    self.class::DATA.each do |str, hexdigest|
+      digest = [hexdigest].pack("H*")
+      actual = self.class::ALGO.base64digest(str)
+      assert_equal([digest].pack("m0"), actual)
+      assert_equal(Encoding::US_ASCII, actual.encoding)
     end
   end
 
   def test_s_digest
-    self.class::DATA.each do |str, digest|
-      assert_equal([digest].pack("H*"), self.class::ALGO.digest(str))
+    self.class::DATA.each do |str, hexdigest|
+      digest = [hexdigest].pack("H*")
+      actual = self.class::ALGO.digest(str)
+      assert_equal(digest, actual)
+      assert_equal(Encoding::BINARY, actual.encoding)
     end
   end
 
@@ -51,7 +71,7 @@ module TestDigest
     md2 = self.class::ALGO.new
     md2 << "A"
 
-    assert(md1 != md2, self.class::ALGO)
+    assert_not_equal(md1, md2, self.class::ALGO)
 
     md2 << "BC"
 
@@ -61,6 +81,15 @@ module TestDigest
   def test_instance_eval
     assert_nothing_raised {
       self.class::ALGO.new.instance_eval { update "a" }
+    }
+  end
+
+  def test_alignment
+    md = self.class::ALGO.new
+    assert_nothing_raised('#4320') {
+      md.update('a' * 97)
+      md.update('a' * 97)
+      md.hexdigest
     }
   end
 
@@ -117,4 +146,11 @@ module TestDigest
       Data2 => "12a053384a9c0c88e405a06c27dcf49ada62eb2b",
     }
   end if defined?(Digest::RMD160)
+
+  class TestBase < Test::Unit::TestCase
+    def test_base
+      bug3810 = '[ruby-core:32231]'
+      assert_raise(NotImplementedError, bug3810) {Digest::Base.new}
+    end
+  end
 end

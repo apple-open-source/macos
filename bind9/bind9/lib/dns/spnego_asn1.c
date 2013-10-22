@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2012, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2006, 2007  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -53,10 +53,10 @@ typedef struct oid {
       (R) = ENOMEM;                                            \
     } else {                                                   \
       (R) = encode_##T(((unsigned char*)(B)) + (BL) - 1, (BL), \
-		       (S), (L));                              \
+                       (S), (L));                              \
       if((R) != 0) {                                           \
-	free((B));                                             \
-	(B) = NULL;                                            \
+        free((B));                                             \
+        (B) = NULL;                                            \
       }                                                        \
     }                                                          \
   } while (0)
@@ -171,31 +171,33 @@ static void free_NegTokenResp(NegTokenResp *);
 /* Do not edit */
 
 
-#define BACK if (e) return e; p -= l; len -= l; ret += l; POST(p); POST(len); POST(ret)
+#define BACK if (e) return e; p -= l; len -= l; ret += l
 
 static int
 encode_MechType(unsigned char *p, size_t len, const MechType * data, size_t * size)
 {
 	size_t ret = 0;
 	size_t l;
-	int e;
+	int i, e;
 
+	i = 0;
 	e = encode_oid(p, len, data, &l);
 	BACK;
 	*size = ret;
 	return 0;
 }
 
-#define FORW if(e) goto fail; p += l; len -= l; ret += l; POST(p); POST(len); POST(ret)
+#define FORW if(e) goto fail; p += l; len -= l; ret += l
 
 static int
 decode_MechType(const unsigned char *p, size_t len, MechType * data, size_t * size)
 {
-	size_t ret = 0;
+	size_t ret = 0, reallen;
 	size_t l;
 	int e;
 
 	memset(data, 0, sizeof(*data));
+	reallen = 0;
 	e = decode_oid(p, len, data, &l);
 	FORW;
 	if (size)
@@ -221,6 +223,8 @@ free_MechType(MechType * data)
 /* Do not edit */
 
 
+#define BACK if (e) return e; p -= l; len -= l; ret += l
+
 static int
 encode_MechTypeList(unsigned char *p, size_t len, const MechTypeList * data, size_t * size)
 {
@@ -228,6 +232,7 @@ encode_MechTypeList(unsigned char *p, size_t len, const MechTypeList * data, siz
 	size_t l;
 	int i, e;
 
+	i = 0;
 	for (i = (data)->len - 1; i >= 0; --i) {
 		int oldret = ret;
 		ret = 0;
@@ -240,6 +245,8 @@ encode_MechTypeList(unsigned char *p, size_t len, const MechTypeList * data, siz
 	*size = ret;
 	return 0;
 }
+
+#define FORW if(e) goto fail; p += l; len -= l; ret += l
 
 static int
 decode_MechTypeList(const unsigned char *p, size_t len, MechTypeList * data, size_t * size)
@@ -262,14 +269,8 @@ decode_MechTypeList(const unsigned char *p, size_t len, MechTypeList * data, siz
 		(data)->len = 0;
 		(data)->val = NULL;
 		while (ret < origlen) {
-			void *old = (data)->val;
 			(data)->len++;
 			(data)->val = realloc((data)->val, sizeof(*((data)->val)) * (data)->len);
-			if ((data)->val == NULL) {
-				(data)->val = old;
-				(data)->len--;
-				return ENOMEM;
-			}
 			e = decode_MechType(p, len, &(data)->val[(data)->len - 1], &l);
 			FORW;
 			len = origlen - ret;
@@ -304,13 +305,16 @@ free_MechTypeList(MechTypeList * data)
 /* Do not edit */
 
 
+#define BACK if (e) return e; p -= l; len -= l; ret += l
+
 static int
 encode_ContextFlags(unsigned char *p, size_t len, const ContextFlags * data, size_t * size)
 {
 	size_t ret = 0;
 	size_t l;
-	int e;
+	int i, e;
 
+	i = 0;
 	{
 		unsigned char c = 0;
 		*p-- = c;
@@ -351,6 +355,8 @@ encode_ContextFlags(unsigned char *p, size_t len, const ContextFlags * data, siz
 	return 0;
 }
 
+#define FORW if(e) goto fail; p += l; len -= l; ret += l
+
 static int
 decode_ContextFlags(const unsigned char *p, size_t len, ContextFlags * data, size_t * size)
 {
@@ -375,6 +381,8 @@ decode_ContextFlags(const unsigned char *p, size_t len, ContextFlags * data, siz
 	data->anonFlag = (*p >> 3) & 1;
 	data->confFlag = (*p >> 2) & 1;
 	data->integFlag = (*p >> 1) & 1;
+	p += reallen;
+	len -= reallen;
 	ret += reallen;
 	if (size)
 		*size = ret;
@@ -410,13 +418,16 @@ free_ContextFlags(ContextFlags * data)
 /* Do not edit */
 
 
+#define BACK if (e) return e; p -= l; len -= l; ret += l
+
 static int
 encode_NegTokenInit(unsigned char *p, size_t len, const NegTokenInit * data, size_t * size)
 {
 	size_t ret = 0;
 	size_t l;
-	int e;
+	int i, e;
 
+	i = 0;
 	if ((data)->mechListMIC) {
 		int oldret = ret;
 		ret = 0;
@@ -457,6 +468,8 @@ encode_NegTokenInit(unsigned char *p, size_t len, const NegTokenInit * data, siz
 	*size = ret;
 	return 0;
 }
+
+#define FORW if(e) goto fail; p += l; len -= l; ret += l
 
 static int
 decode_NegTokenInit(const unsigned char *p, size_t len, NegTokenInit * data, size_t * size)
@@ -633,13 +646,16 @@ free_NegTokenInit(NegTokenInit * data)
 /* Do not edit */
 
 
+#define BACK if (e) return e; p -= l; len -= l; ret += l
+
 static int
 encode_NegTokenResp(unsigned char *p, size_t len, const NegTokenResp * data, size_t * size)
 {
 	size_t ret = 0;
 	size_t l;
-	int e;
+	int i, e;
 
+	i = 0;
 	if ((data)->mechListMIC) {
 		int oldret = ret;
 		ret = 0;
@@ -681,6 +697,8 @@ encode_NegTokenResp(unsigned char *p, size_t len, const NegTokenResp * data, siz
 	*size = ret;
 	return 0;
 }
+
+#define FORW if(e) goto fail; p += l; len -= l; ret += l
 
 static int
 decode_NegTokenResp(const unsigned char *p, size_t len, NegTokenResp * data, size_t * size)

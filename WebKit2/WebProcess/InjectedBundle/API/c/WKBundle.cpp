@@ -25,11 +25,13 @@
 
 #include "config.h"
 #include "WKBundle.h"
-#include "WKBundlePrivate.h"
 
+#include "ImmutableArray.h"
 #include "InjectedBundle.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
+#include "WKBundlePrivate.h"
+#include "WebData.h"
 
 using namespace WebKit;
 
@@ -45,13 +47,13 @@ void WKBundleSetClient(WKBundleRef bundleRef, WKBundleClient * wkClient)
 
 void WKBundlePostMessage(WKBundleRef bundleRef, WKStringRef messageNameRef, WKTypeRef messageBodyRef)
 {
-    toImpl(bundleRef)->postMessage(toImpl(messageNameRef)->string(), toImpl(messageBodyRef));
+    toImpl(bundleRef)->postMessage(toWTFString(messageNameRef), toImpl(messageBodyRef));
 }
 
 void WKBundlePostSynchronousMessage(WKBundleRef bundleRef, WKStringRef messageNameRef, WKTypeRef messageBodyRef, WKTypeRef* returnDataRef)
 {
     RefPtr<APIObject> returnData;
-    toImpl(bundleRef)->postSynchronousMessage(toImpl(messageNameRef)->string(), toImpl(messageBodyRef), returnData);
+    toImpl(bundleRef)->postSynchronousMessage(toWTFString(messageNameRef), toImpl(messageBodyRef), returnData);
     if (returnDataRef)
         *returnDataRef = toAPI(returnData.release().leakRef());
 }
@@ -76,6 +78,11 @@ void WKBundleActivateMacFontAscentHack(WKBundleRef bundleRef)
     toImpl(bundleRef)->activateMacFontAscentHack();
 }
 
+void WKBundleSetCacheModel(WKBundleRef bundleRef, uint32_t cacheModel)
+{
+    toImpl(bundleRef)->setCacheModel(cacheModel);
+}
+
 void WKBundleGarbageCollectJavaScriptObjects(WKBundleRef bundleRef)
 {
     toImpl(bundleRef)->garbageCollectJavaScriptObjects();
@@ -89,6 +96,11 @@ void WKBundleGarbageCollectJavaScriptObjectsOnAlternateThreadForDebugging(WKBund
 size_t WKBundleGetJavaScriptObjectsCount(WKBundleRef bundleRef)
 {
     return toImpl(bundleRef)->javaScriptObjectsCount();
+}
+
+void WKBundleSetAlwaysAcceptCookies(WKBundleRef bundleRef, bool accept)
+{
+    toImpl(bundleRef)->setAlwaysAcceptCookies(accept);
 }
 
 void WKBundleAddUserScript(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, WKBundleScriptWorldRef scriptWorldRef, WKStringRef sourceRef, WKURLRef urlRef, WKArrayRef whitelistRef, WKArrayRef blacklistRef, WKUserScriptInjectionTime injectionTimeRef, WKUserContentInjectedFrames injectedFramesRef)
@@ -128,7 +140,7 @@ void WKBundleRemoveAllUserContent(WKBundleRef bundleRef, WKBundlePageGroupRef pa
 
 void WKBundleOverrideBoolPreferenceForTestRunner(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, WKStringRef preference, bool enabled)
 {
-    toImpl(bundleRef)->overrideBoolPreferenceForTestRunner(toImpl(pageGroupRef), toImpl(preference)->string(), enabled);
+    toImpl(bundleRef)->overrideBoolPreferenceForTestRunner(toImpl(pageGroupRef), toWTFString(preference), enabled);
 }
 
 void WKBundleSetAllowUniversalAccessFromFileURLs(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
@@ -141,14 +153,19 @@ void WKBundleSetAllowFileAccessFromFileURLs(WKBundleRef bundleRef, WKBundlePageG
     toImpl(bundleRef)->setAllowFileAccessFromFileURLs(toImpl(pageGroupRef), enabled);
 }
 
+void WKBundleSetMinimumLogicalFontSize(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, int size)
+{
+    toImpl(bundleRef)->setMinimumLogicalFontSize(toImpl(pageGroupRef), size);
+}
+
 void WKBundleSetFrameFlatteningEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
 {
     toImpl(bundleRef)->setFrameFlatteningEnabled(toImpl(pageGroupRef), enabled);
 }
 
-void WKBundleSetGeolocationPermission(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+void WKBundleSetPluginsEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
 {
-    toImpl(bundleRef)->setGeoLocationPermission(toImpl(pageGroupRef), enabled);
+    toImpl(bundleRef)->setPluginsEnabled(toImpl(pageGroupRef), enabled);
 }
 
 void WKBundleSetJavaScriptCanAccessClipboard(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
@@ -176,19 +193,29 @@ void WKBundleSetAuthorAndUserStylesEnabled(WKBundleRef bundleRef, WKBundlePageGr
     toImpl(bundleRef)->setAuthorAndUserStylesEnabled(toImpl(pageGroupRef), enabled);
 }
 
+void WKBundleSetSpatialNavigationEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+{
+    toImpl(bundleRef)->setSpatialNavigationEnabled(toImpl(pageGroupRef), enabled);
+}
+
 void WKBundleAddOriginAccessWhitelistEntry(WKBundleRef bundleRef, WKStringRef sourceOrigin, WKStringRef destinationProtocol, WKStringRef destinationHost, bool allowDestinationSubdomains)
 {
-    toImpl(bundleRef)->addOriginAccessWhitelistEntry(toImpl(sourceOrigin)->string(), toImpl(destinationProtocol)->string(), toImpl(destinationHost)->string(), allowDestinationSubdomains);
+    toImpl(bundleRef)->addOriginAccessWhitelistEntry(toWTFString(sourceOrigin), toWTFString(destinationProtocol), toWTFString(destinationHost), allowDestinationSubdomains);
 }
 
 void WKBundleRemoveOriginAccessWhitelistEntry(WKBundleRef bundleRef, WKStringRef sourceOrigin, WKStringRef destinationProtocol, WKStringRef destinationHost, bool allowDestinationSubdomains)
 {
-    toImpl(bundleRef)->removeOriginAccessWhitelistEntry(toImpl(sourceOrigin)->string(), toImpl(destinationProtocol)->string(), toImpl(destinationHost)->string(), allowDestinationSubdomains);
+    toImpl(bundleRef)->removeOriginAccessWhitelistEntry(toWTFString(sourceOrigin), toWTFString(destinationProtocol), toWTFString(destinationHost), allowDestinationSubdomains);
 }
 
 void WKBundleResetOriginAccessWhitelists(WKBundleRef bundleRef)
 {
     toImpl(bundleRef)->resetOriginAccessWhitelists();
+}
+
+void WKBundleSetAsynchronousSpellCheckingEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+{
+    toImpl(bundleRef)->setAsynchronousSpellCheckingEnabled(toImpl(pageGroupRef), enabled);
 }
 
 void WKBundleReportException(JSContextRef context, JSValueRef exception)
@@ -211,9 +238,41 @@ void WKBundleClearApplicationCache(WKBundleRef bundleRef)
     toImpl(bundleRef)->clearApplicationCache();
 }
 
+void WKBundleClearApplicationCacheForOrigin(WKBundleRef bundleRef, WKStringRef origin)
+{
+    toImpl(bundleRef)->clearApplicationCacheForOrigin(toWTFString(origin));
+}
+
 void WKBundleSetAppCacheMaximumSize(WKBundleRef bundleRef, uint64_t size)
 {
     toImpl(bundleRef)->setAppCacheMaximumSize(size);
+}
+
+uint64_t WKBundleGetAppCacheUsageForOrigin(WKBundleRef bundleRef, WKStringRef origin)
+{
+    return toImpl(bundleRef)->appCacheUsageForOrigin(toWTFString(origin));
+}
+
+void WKBundleSetApplicationCacheOriginQuota(WKBundleRef bundleRef, WKStringRef origin, uint64_t bytes)
+{
+    toImpl(bundleRef)->setApplicationCacheOriginQuota(toWTFString(origin), bytes);
+}
+
+void WKBundleResetApplicationCacheOriginQuota(WKBundleRef bundleRef, WKStringRef origin)
+{
+    toImpl(bundleRef)->resetApplicationCacheOriginQuota(toWTFString(origin));
+}
+
+WKArrayRef WKBundleCopyOriginsWithApplicationCache(WKBundleRef bundleRef)
+{
+    RefPtr<ImmutableArray> origins = toImpl(bundleRef)->originsWithApplicationCache();
+    return toAPI(origins.release().leakRef());
+}
+
+WKDataRef WKBundleCreateWKDataFromUInt8Array(WKBundleRef bundle, JSContextRef context, JSValueRef data)
+{
+    RefPtr<WebData> webData = toImpl(bundle)->createWebDataFromUint8Array(context, data);
+    return toAPI(webData.release().leakRef());
 }
 
 int WKBundleNumberOfPages(WKBundleRef bundleRef, WKBundleFrameRef frameRef, double pageWidthInPixels, double pageHeightInPixels)
@@ -223,7 +282,7 @@ int WKBundleNumberOfPages(WKBundleRef bundleRef, WKBundleFrameRef frameRef, doub
 
 int WKBundlePageNumberForElementById(WKBundleRef bundleRef, WKBundleFrameRef frameRef, WKStringRef idRef, double pageWidthInPixels, double pageHeightInPixels)
 {
-    return toImpl(bundleRef)->pageNumberForElementById(toImpl(frameRef), toImpl(idRef)->string(), pageWidthInPixels, pageHeightInPixels);
+    return toImpl(bundleRef)->pageNumberForElementById(toImpl(frameRef), toWTFString(idRef), pageWidthInPixels, pageHeightInPixels);
 }
 
 WKStringRef WKBundlePageSizeAndMarginsInPixels(WKBundleRef bundleRef, WKBundleFrameRef frameRef, int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft)
@@ -241,7 +300,47 @@ bool WKBundleIsProcessingUserGesture(WKBundleRef)
     return InjectedBundle::isProcessingUserGesture();
 }
 
-void WKBundleSetPageVisibilityState(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, int state, bool isInitialState)
+void WKBundleSetUserStyleSheetLocation(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, WKStringRef location)
 {
-    toImpl(bundleRef)->setPageVisibilityState(toImpl(pageGroupRef), state, isInitialState);
+    toImpl(bundleRef)->setUserStyleSheetLocation(toImpl(pageGroupRef), toWTFString(location));
+}
+
+void WKBundleSetWebNotificationPermission(WKBundleRef bundleRef, WKBundlePageRef pageRef, WKStringRef originStringRef, bool allowed)
+{
+    toImpl(bundleRef)->setWebNotificationPermission(toImpl(pageRef), toWTFString(originStringRef), allowed);
+}
+
+void WKBundleRemoveAllWebNotificationPermissions(WKBundleRef bundleRef, WKBundlePageRef pageRef)
+{
+    toImpl(bundleRef)->removeAllWebNotificationPermissions(toImpl(pageRef));
+}
+
+uint64_t WKBundleGetWebNotificationID(WKBundleRef bundleRef, JSContextRef context, JSValueRef notification)
+{
+    return toImpl(bundleRef)->webNotificationID(context, notification);
+}
+
+void WKBundleSetTabKeyCyclesThroughElements(WKBundleRef bundleRef, WKBundlePageRef pageRef, bool enabled)
+{
+    toImpl(bundleRef)->setTabKeyCyclesThroughElements(toImpl(pageRef), enabled);
+}
+
+void WKBundleSetSerialLoadingEnabled(WKBundleRef bundleRef, bool enabled)
+{
+    toImpl(bundleRef)->setSerialLoadingEnabled(enabled);
+}
+
+void WKBundleSetShadowDOMEnabled(WKBundleRef bundleRef, bool enabled)
+{
+    toImpl(bundleRef)->setShadowDOMEnabled(enabled);
+}
+
+void WKBundleSetSeamlessIFramesEnabled(WKBundleRef bundleRef, bool enabled)
+{
+    toImpl(bundleRef)->setSeamlessIFramesEnabled(enabled);
+}
+
+void WKBundleDispatchPendingLoadRequests(WKBundleRef bundleRef)
+{
+    toImpl(bundleRef)->dispatchPendingLoadRequests();
 }

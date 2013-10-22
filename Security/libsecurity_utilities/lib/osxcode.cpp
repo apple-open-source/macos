@@ -200,9 +200,9 @@ void Bundle::resources(vector<string> &paths, const char *type, const char *subd
 {
 	CFRef<CFArrayRef> cfList = CFBundleCopyResourceURLsOfType(cfBundle(),
 		CFTempString(type), CFTempString(subdir));
-	UInt32 size = CFArrayGetCount(cfList);
+	CFIndex size = CFArrayGetCount(cfList);
 	paths.reserve(size);
-	for (UInt32 n = 0; n < size; n++)
+	for (CFIndex n = 0; n < size; n++)
 		paths.push_back(cfString(CFURLRef(CFArrayGetValueAtIndex(cfList, n))));
 }
 

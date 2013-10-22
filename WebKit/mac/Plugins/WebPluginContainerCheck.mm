@@ -37,12 +37,13 @@
 #import <Foundation/NSDictionary.h>
 #import <Foundation/NSURL.h>
 #import <Foundation/NSURLRequest.h>
+#import <WebCore/Document.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/SecurityOrigin.h>
 #import <wtf/Assertions.h>
-#import <objc/objc-runtime.h>
+#import <wtf/ObjcRuntimeExtras.h>
 
 using namespace WebCore;
 
@@ -87,9 +88,9 @@ using namespace WebCore;
 - (void)_continueWithPolicy:(PolicyAction)policy
 {
     if (_contextInfo)
-        ((void (*)(id, SEL, BOOL, id))objc_msgSend)(_resultObject, _resultSelector, (policy == PolicyUse), _contextInfo);
+        wtfObjcMsgSend<void>(_resultObject, _resultSelector, (policy == PolicyUse), _contextInfo);
     else     
-        ((void (*)(id, SEL, BOOL))objc_msgSend)(_resultObject, _resultSelector, (policy == PolicyUse));
+        wtfObjcMsgSend<void>(_resultObject, _resultSelector, (policy == PolicyUse));
 
     // this will call indirectly call cancel
     [_controller _webPluginContainerCancelCheckIfAllowedToLoadRequest:self];

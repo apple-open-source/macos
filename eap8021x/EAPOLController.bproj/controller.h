@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,10 +64,6 @@ ControllerRetry(if_name_t if_name, uid_t uid, gid_t gid);
 
 int
 ControllerStop(if_name_t if_name, uid_t uid, gid_t gid);
-
-int
-ControllerSetLogLevel(if_name_t if_name, uid_t uid, gid_t gid,
-		      int32_t level);
 
 #if ! TARGET_OS_EMBEDDED
 int 

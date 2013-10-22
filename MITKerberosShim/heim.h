@@ -2602,6 +2602,9 @@ heim_krb5_hmac (
 krb5_error_code KRB5_LIB_FUNCTION
 heim_krb5_init_context (krb5_context */*context*/);
 
+krb5_error_code KRB5_LIB_FUNCTION
+heim_krb5_init_context_flags(unsigned int /*flags*/, krb5_context */*context*/);
+
 void KRB5_LIB_FUNCTION
 heim_krb5_init_creds_free (
 	krb5_context /*context*/,

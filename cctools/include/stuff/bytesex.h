@@ -347,6 +347,14 @@ __private_extern__ void swap_encryption_command(
     struct encryption_info_command *ec,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_encryption_command_64(
+    struct encryption_info_command_64 *ec,
+    enum byte_sex target_byte_sex);
+
+__private_extern__ void swap_linker_option_command(
+    struct linker_option_command *lo,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_dyld_info_command(
     struct dyld_info_command *dc, 
     enum byte_sex target_byte_sex);
@@ -407,6 +415,11 @@ __private_extern__ void swap_dylib_table_of_contents(
 __private_extern__ void swap_twolevel_hint(
     struct twolevel_hint *hints,
     uint32_t nhints,
+    enum byte_sex target_byte_sex);
+
+__private_extern__ void swap_data_in_code_entry(
+    struct data_in_code_entry *dices,
+    uint32_t ndices,
     enum byte_sex target_byte_sex);
 
 /*

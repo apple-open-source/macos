@@ -516,9 +516,7 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
     return 0;
 }
 
-#ifndef kIOPropertyPhysicalInterconnectTypePCI
-#define kIOPropertyPhysicalInterconnectTypePCI	"PCI"
-#endif
+
 
 static bool _isPreferredSystemPartition(BLContextPtr context, io_service_t service)
 {

@@ -44,11 +44,13 @@ using LowLevelMemoryUtilities::increment;
 //
 void FileDesc::open(const char *path, int flags, mode_t mode)
 {
-	if ((mFd = ::open(path, flags, mode & ~S_IFMT)) == -1)
-		if (errno == ENOENT && (mode & S_IFMT) == modeMissingOk)
+	if ((mFd = ::open(path, flags, mode & ~S_IFMT)) == -1) {
+		if (errno == ENOENT && (mode & S_IFMT) == modeMissingOk) {
 			return;
-		else
+		} else {
 			UnixError::throwMe();
+        }
+    }
 	mAtEnd = false;
     secdebug("unixio", "open(%s,0x%x,0x%x) = %d", path, flags, mode, mFd);
 }
@@ -103,12 +105,12 @@ size_t FileDesc::write(const void *addr, size_t length)
 // These don't affect file position and the atEnd() flag; and they
 // don't make allowances for asynchronous I/O.
 //
-size_t FileDesc::read(void *addr, size_t length, off_t position)
+size_t FileDesc::read(void *addr, size_t length, size_t position)
 {
 	return checkError(::pread(mFd, addr, length, position));
 }
 
-size_t FileDesc::write(const void *addr, size_t length, off_t position)
+size_t FileDesc::write(const void *addr, size_t length, size_t position)
 {
 	return checkError(::pwrite(mFd, addr, length, position));
 }
@@ -157,21 +159,23 @@ void FileDesc::writeAll(const void *addr, size_t length)
 //
 // Seeking
 //
-size_t FileDesc::seek(off_t position, int whence)
+#warning Cast to size_t may loose precision, only a problem for large files.
+
+size_t FileDesc::seek(size_t position, int whence)
 {
-    return checkError(::lseek(mFd, position, whence));
+    return (size_t)checkError(::lseek(mFd, position, whence));
 }
 
 size_t FileDesc::position() const
 {
-	return checkError(::lseek(mFd, 0, SEEK_CUR));
+	return (size_t)checkError(::lseek(mFd, 0, SEEK_CUR));
 }
 
 
 //
 // Mmap support
 //
-void *FileDesc::mmap(int prot, size_t length, int flags, off_t offset, void *addr)
+void *FileDesc::mmap(int prot, size_t length, int flags, size_t offset, void *addr)
 {
 	if (!(flags & (MAP_PRIVATE | MAP_SHARED)))	// one is required
 		flags |= MAP_PRIVATE;
@@ -352,7 +356,7 @@ size_t FileDesc::fileSize() const
 {
     struct stat st;
     fstat(st);
-    return st.st_size;
+    return (size_t)st.st_size;
 }
 
 bool FileDesc::isA(int mode) const

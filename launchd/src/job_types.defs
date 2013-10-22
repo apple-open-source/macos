@@ -23,8 +23,10 @@
  * Copyright, 1990.  All rights reserved.
  */
 
-/* This really should be a part of the standard types... */
+/* These really should be a part of the standard types... */
 type mach_port_move_send_array_t = array[] of mach_port_move_send_t
+	ctype: mach_port_array_t;
+type mach_port_make_send_array_t = array[] of mach_port_make_send_t
 	ctype: mach_port_array_t;
 
 type pid_t = integer_t;

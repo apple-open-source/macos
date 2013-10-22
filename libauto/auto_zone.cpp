@@ -23,6 +23,8 @@
     Copyright (c) 2002-2011 Apple Inc. All rights reserved.
  */
 
+#include <CoreFoundation/CoreFoundation.h>
+
 #include "auto_zone.h"
 #include "auto_impl_utilities.h"
 #include "auto_weak.h"
@@ -39,6 +41,7 @@
 #include <mach-o/dyld.h>
 #include <stdlib.h>
 #include <libc.h>
+#include <dlfcn.h>
 #include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/event.h>
@@ -713,24 +716,42 @@ static void * volatile queues[__PTK_FRAMEWORK_GC_KEY9-__PTK_FRAMEWORK_GC_KEY0+1]
 static void * volatile pressure_sources[__PTK_FRAMEWORK_GC_KEY9-__PTK_FRAMEWORK_GC_KEY0+1];
 static void * volatile compaction_timers[__PTK_FRAMEWORK_GC_KEY9-__PTK_FRAMEWORK_GC_KEY0+1];
 
+static void _auto_zone_log_usage(void *_unused) {
+	void *cf_lib = dlopen("/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation",
+			RTLD_LAZY|RTLD_NOLOAD);
+
+	if (!cf_lib) return;
+
+	auto CFBundleGetMainBundle_ = (typeof(CFBundleGetMainBundle) *)dlsym(cf_lib, "CFBundleGetMainBundle");
+	auto CFBundleGetIdentifier_ = (typeof(CFBundleGetIdentifier) *)dlsym(cf_lib, "CFBundleGetIdentifier");
+	auto CFStringGetCString_    = (typeof(CFStringGetCString) *)   dlsym(cf_lib, "CFStringGetCString");
+
+	if (!CFBundleGetMainBundle_ || !CFBundleGetIdentifier_ || !CFStringGetCString_) return;
+
+	CFBundleRef bundle = CFBundleGetMainBundle_();
+	if (!bundle) return;
+	CFStringRef string = CFBundleGetIdentifier_(bundle);
+	if (!string) return;
+	char bundle_name[1024];
+	bool got_bundle_name = CFStringGetCString_(string, bundle_name, sizeof(bundle_name), kCFStringEncodingUTF8);
+	if (!got_bundle_name) return;
+
+#define STRN_EQ(x, y) (strncmp((x), (y), strlen(y)) == 0)
+	if (STRN_EQ(bundle_name, "com.apple.")) return;
+
+	msgtracer_log_with_keys("com.apple.runtime.gcusage", ASL_LEVEL_NOTICE,
+							"com.apple.message.signature", bundle_name,
+							"com.apple.message.summarize", "YES", NULL);
+}
+
 // there can be several autonomous auto_zone's running, in theory at least.
 auto_zone_t *auto_zone_create(const char *name) {
-    char exec_path[PATH_MAX];
-    uint32_t exec_path_sz = PATH_MAX;
-
     aux_init();
     pthread_key_t key = Zone::allocate_thread_key();
     if (key == 0) return NULL;
 
-#define STRNEQ(x, y) (strncmp((x), (y), strlen(y)) == 0)
-    if (_NSGetExecutablePath(exec_path, &exec_path_sz) == 0 && strstr(exec_path, ".app/")) {
-        if (STRNEQ(exec_path, "/System/Library/Extensions/")
-                || (!STRNEQ(exec_path, "/System/") && !STRNEQ(exec_path, "/Applications/Xcode.app/")))
-        {
-            msgtracer_log_with_keys("com.apple.runtime.gcusage", ASL_LEVEL_NOTICE,
-                                    "com.apple.message.summarize", "YES", NULL);
-        }
-    }
+	// CoreFoundation is not up and running yet, therefore defer this work.
+	dispatch_async_f(dispatch_get_main_queue(), NULL, _auto_zone_log_usage);
 
     Zone  *azone = new Zone(key);
     azone->basic_zone.size = auto_zone_size;

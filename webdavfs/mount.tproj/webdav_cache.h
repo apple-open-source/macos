@@ -36,6 +36,8 @@ LIST_HEAD(node_head, node_entry);
 struct webdav_stat_attr {
 	struct stat				attr_stat;			/* stat attributes */
 	struct	timespec		attr_create_time;	/* time file was created */
+	void* data;
+	Boolean start;
 };
 
 struct node_entry
@@ -225,6 +227,10 @@ CFURLRef nodecache_get_baseURL(void);
 
 CFArrayRef nodecache_get_locktokens(
 	struct node_entry *a_node);		/* node or directory node */
+
+void lock_node_cache(void);
+void unlock_node_cache(void);
+
 
 /*****************************************************************************/
 

@@ -3,7 +3,7 @@
 ##
 
 Project               = python
-Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/Library/Frameworks --enable-toolbox-glue --enable-dtrace --with-system-ffi --with-gcc=$(WITH_GCC) CC=$(WITH_GCC) CXX=$(WITH_GXX)
+Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/Library/Frameworks --enable-toolbox-glue --enable-dtrace --with-system-ffi
 # Define the environment variable DEBUG to YES, to build without optimization
 ifeq ($(DEBUG),YES)
 Extra_Configure_Flags += --with-pydebug
@@ -26,11 +26,12 @@ Extra_Environment     = CCSHARED='$(RC_CFLAGS)' EXTRA_CFLAGS='-DMACOSX -I/usr/in
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
+# Override compiler setting from GNUSource.make to use those set in GNUmakefile
+override CC = $(MY_CC)
+override CXX = $(MY_CXX)
+
 Install_Flags := $(shell echo $(Install_Flags) | sed 's/prefix=[^ ]* *//')
 Install_Target = frameworkinstall
-
-# Override the CC and CXX overrides in Common.make (9967906)
-Make_Flags += CC=$(WITH_GCC) CXX=$(WITH_GXX)
 
 FIX = '$(SRCROOT)/fix'
 
@@ -99,15 +100,22 @@ strip-64-bit:
 	    ditto `lipo -info "$$i" | sed 's/^.*: //' | perl -ane 'for(@F){print "-arch $$_\n" unless /64$$/}'` "$(SYMROOT)/$$f" "$$i" || exit 1; \
 	done
 
+# We now need to create the .dSYM bundles ourselves
+# ($(DSTROOT)$(PYTHONAPP) is already stripped, so copy an unstripped binary)
 strip-installed-files:
-	$(CP) '$(DSTROOT)$(VERSIONSVERS)/Python' '$(SYMROOT)'
-	strip -x '$(DSTROOT)$(VERSIONSVERS)/Python'
+	ditto '$(DSTROOT)$(PYTHONAPP)' '$(SYMROOT)/$(PYTHONAPPNAME)'
+	ditto '$(OBJROOT)/python.exe' '$(SYMROOT)/$(PYTHONAPPNAME)/Contents/MacOS/Python'
+	$(DSYMUTIL) -o '$(SYMROOT)/$(PYTHONAPPNAME).dSYM' '$(SYMROOT)/$(PYTHONAPPNAME)/Contents/MacOS/Python'
+	$(STRIP) -x '$(DSTROOT)$(PAMACOS)/Python'
+	ditto '$(OBJROOT)/Python.framework' '$(SYMROOT)/Python.framework'
+	$(DSYMUTIL) -o '$(SYMROOT)/Python.framework.dSYM' '$(SYMROOT)/Python.framework/Python'
+	$(STRIP) -x '$(DSTROOT)$(VERSIONSVERS)/Python'
 	ditto '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so '$(SYMROOT)/lib-dynload/'
 	cd '$(SYMROOT)/lib-dynload' && \
 	for so in *.so; do \
 	    $(DSYMUTIL) $$so || exit 1; \
 	done
-	strip -x '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so
+	$(STRIP) -x '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so
 
 fix-PAInfo:
 	sed 's/==VERSION==/$(PYTHON_CURRENT_VERSION)/' $(FIX)/painfo.ed \

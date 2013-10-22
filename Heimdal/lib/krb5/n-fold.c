@@ -36,8 +36,8 @@ static krb5_error_code
 rr13(unsigned char *buf, size_t len)
 {
     unsigned char *tmp;
-    int bytes = (len + 7) / 8;
-    int i;
+    size_t bytes = (len + 7) / 8;
+    size_t i;
     if(len == 0)
 	return 0;
     {
@@ -55,8 +55,8 @@ rr13(unsigned char *buf, size_t len)
 		tmp[bytes - 1] |= buf[0] >> i;
 	}
 	for(i = 0; i < bytes; i++) {
-	    int bb;
-	    int b1, s1, b2, s2;
+	    ssize_t bb;
+	    ssize_t b1, s1, b2, s2;
 	    /* calculate first bit position of this byte */
 	    bb = 8 * i - bits;
 	    while(bb < 0)
@@ -82,7 +82,7 @@ rr13(unsigned char *buf, size_t len)
 static void
 add1(unsigned char *a, unsigned char *b, size_t len)
 {
-    int i;
+    ssize_t i;
     int carry = 0;
     for(i = len - 1; i >= 0; i--){
 	int x = a[i] + b[i] + carry;

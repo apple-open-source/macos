@@ -155,7 +155,8 @@ bool IOPCIDevice::attach( IOService * provider )
 	uint32_t               idx;
 	bool                   hasPS;
 
-	if ((device = (IOACPIPlatformDevice *) reserved->configEntry->acpiDevice) 
+	if (reserved->configEntry 
+	 && (device = (IOACPIPlatformDevice *) reserved->configEntry->acpiDevice) 
 	 && !device->metaCast("IOACPIPlatformDevice")) device = 0;
 
 	for (idx = kIOPCIDeviceOffState, hasPS = false; idx <= kIOPCIDeviceOnState; idx++)
@@ -191,7 +192,7 @@ bool IOPCIDevice::attach( IOService * provider )
     // clamp power on
     temporaryPowerClampOn();
     // register as controlling driver
-    IOPCIRegisterPowerDriver(this);
+    IOPCIRegisterPowerDriver(this, false);
 
     // join the tree
 	reserved->pmState = true;
@@ -336,6 +337,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 	IOACPIPlatformDevice * device;
 	int8_t  idx;
 	IOReturn ret;
+	uint64_t time;
 	if ((idx = reserved->psMethods[powerState]) >= 0)
 	{
 		if ((idx != reserved->lastPSMethod) && !(kMachineRestoreDehibernate & options))
@@ -356,8 +358,12 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 			}
 			device = (IOACPIPlatformDevice *) reserved->configEntry->acpiDevice;
 			DLOG("%s::evaluateObject(%s)\n", getName(), gIOPCIPSMethods[idx]->getCStringNoCopy());
+			time = mach_absolute_time();
 			ret = device->evaluateObject(gIOPCIPSMethods[idx]);
-			DLOG("%s::evaluateObject(%s) ret 0x%x\n", getName(), gIOPCIPSMethods[idx]->getCStringNoCopy(), ret);
+			time = mach_absolute_time() - time;
+			absolutetime_to_nanoseconds(time, &time);
+			DLOG("%s::evaluateObject(%s) ret 0x%x %qd ms\n", 
+				getName(), gIOPCIPSMethods[idx]->getCStringNoCopy(), ret, time / 1000000ULL);
 		}
 		reserved->lastPSMethod = idx;
 	}
@@ -374,11 +380,13 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 	prevState = reserved->pciPMState;
 	if (powerState == prevState) return (kIOReturnSuccess);
 	reserved->pciPMState = powerState;
+	if (isInactive())            return (kIOReturnSuccess);
 
     switch (powerState)
     {
         case kIOPCIDeviceOffState:
         case kIOPCIDeviceDozeState:
+
             if (pmSleepEnabled && pmControlStatus && sleepControlBits)
             {
                 UInt16 bits = sleepControlBits;
@@ -396,7 +404,6 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
             
         case kIOPCIDevicePausedState:
         case kIOPCIDeviceOnState:
-
 			pmeState = pmControlStatus ? extendedConfigRead16(pmControlStatus) : 0;
             if (pmSleepEnabled && pmControlStatus && sleepControlBits)
             {
@@ -423,7 +430,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 			enum { kDidWake = kPCIPMCSPMEStatus | kPCIPMCSPMEEnable };
 			if ((kIOPCIDeviceOffState == prevState)
 			  && (kDidWake == (kDidWake & pmeState)) 
-			  && (0xFFFF != pmeState)
+			  && (0xFFFF != pmeState) 
 			  && !(kMachineRestoreDehibernate & options))
 			{
 				parent->updateWakeReason(this);
@@ -431,7 +438,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
             break;
     }
 
-    return IOPMAckImplied;
+    return (kIOReturnSuccess);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -529,8 +536,9 @@ void IOPCIDevice::configWrite8( IOPCIAddressSpace _space,
 
 bool IOPCIDevice::configAccess(bool write)
 {
-	bool ok = 
-		(reserved && (0 == ((write ? VM_PROT_WRITE : VM_PROT_READ) & reserved->configProt)));
+	bool ok = (!isInactive()
+			&& reserved
+			&& (0 == ((write ? VM_PROT_WRITE : VM_PROT_READ) & reserved->configProt)));
 	if (!ok)
 	{
 		OSReportWithBacktrace("config protect fail(2) for device %u:%u:%u\n",
@@ -908,6 +916,8 @@ IOPCIDevice::setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds)
 				reserved->ltrDevice = next;
 				uint64_t off = *((uint64_t *)data->getBytesNoCopy());
 				reserved->ltrOffset = off;
+				reserved->ltrReg1 = reserved->ltrDevice->extendedConfigRead32(reserved->ltrOffset);
+				reserved->ltrReg2 = reserved->ltrDevice->extendedConfigRead8(reserved->ltrOffset + 4);
 				break;
 			}
 			next = OSDynamicCast(IOPCIDevice, next->getParentEntry(gIODTPlane));
@@ -925,8 +935,8 @@ IOPCIDevice::setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds)
 	
 	if (idx >= arrayCount(ltrScales)) return (kIOReturnMessageTooLarge);
 
-	reg1 = reserved->ltrDevice->extendedConfigRead32(reserved->ltrOffset);
-	reg2 = reserved->ltrDevice->extendedConfigRead8(reserved->ltrOffset + 4);
+	reg1 = reserved->ltrReg1;
+	reg2 = reserved->ltrReg2;
 	reg3 = reg2;
 
 	if (kIOPCILatencySnooped & type)
@@ -946,6 +956,8 @@ IOPCIDevice::setLatencyTolerance(IOOptionBits type, uint64_t nanoseconds)
 	reserved->ltrDevice->extendedConfigWrite32(reserved->ltrOffset, reg1);
 	reserved->ltrDevice->extendedConfigWrite8(reserved->ltrOffset + 4, reg2);
 	reserved->ltrDevice->extendedConfigWrite8(reserved->ltrOffset + 4, reg3);
+	reserved->ltrReg1 = reg1;
+	reserved->ltrReg2 = reg3;
 
 #if 0
 	DLOG("%s: ltr 0x%x = 0x%x, 0x%x\n",

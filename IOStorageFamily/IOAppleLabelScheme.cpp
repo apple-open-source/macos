@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -204,6 +204,11 @@ IOMedia * IOAppleLabelScheme::scan(SInt32 * score)
     labelCheck = OSSwapBigToHostInt32(headerMap->al_checksum);
     labelSize  = OSSwapBigToHostInt32(headerMap->al_size);
 
+    if ( labelSize > 131072 )
+    {
+        goto scanErr;
+    }
+
     // Allocate a buffer large enough to hold one map, rounded to a media block.
 
     buffer->release();
@@ -235,7 +240,7 @@ IOMedia * IOAppleLabelScheme::scan(SInt32 * score)
 
     // Obtain the properties.
 
-    properties = (OSDictionary *) OSUnserializeXML(labelMap);
+    properties = (OSDictionary *) OSUnserializeXML(labelMap, labelSize);
 
     if ( OSDynamicCast(OSDictionary, properties) == 0 )
     {

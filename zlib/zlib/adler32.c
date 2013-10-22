@@ -11,10 +11,6 @@
 
 #include "zutil.h"
 
-#if defined VEC_OPTIMIZE && (defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
-#include <stdint.h> // For uintptr_t.
-extern uLong   adler32_vec(unsigned int adler, unsigned int sum2, const Bytef *buf, int len);
-#endif
 
 #define local static
 
@@ -72,9 +68,6 @@ uLong ZEXPORT adler32(adler, buf, len)
     uInt len;
 {
     unsigned long sum2;
-#if !defined VEC_OPTIMIZE || !(defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
-    unsigned n;
-#endif
 
     /* split Adler-32 into component sums */
     sum2 = (adler >> 16) & 0xffff;
@@ -107,20 +100,8 @@ uLong ZEXPORT adler32(adler, buf, len)
         return adler | (sum2 << 16);
     }
 
-#if defined VEC_OPTIMIZE && (defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
 
-	/* align buf to 16-byte boundary */
-    while (((uintptr_t)buf)&15) { /* not on a 16-byte boundary */
-        len--;
-        adler += *buf++;
-        sum2 += adler;
-        if (adler >= BASE) adler -= BASE;
-        MOD4(sum2);             /* only added so many BASE's */
-    }
-
-    return adler32_vec(adler, sum2, buf, len);
-
-#else	// defined VEC_OPTIMIZE && (defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
+    unsigned n;
 
     /* do length NMAX blocks -- requires just one modulo operation */
     while (len >= NMAX) {
@@ -151,7 +132,6 @@ uLong ZEXPORT adler32(adler, buf, len)
 
     /* return recombined sums */
     return adler | (sum2 << 16);
-#endif	// defined VEC_OPTIMIZE && (defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
 }
 
 /* ========================================================================= */

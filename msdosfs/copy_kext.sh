@@ -61,7 +61,7 @@ do
     scp -r "$BUILT_PRODUCTS_DIR/${kext}.kext" root@$m:"/var/tmp"
     ssh root@$m chgrp -R wheel "/var/tmp/${kext}.kext"
     ssh root@$m touch /System/Library/Extensions
-    ssh root@$m kextutil -s /tmp "/var/tmp/${kext}.kext" || exit
+    ssh root@$m kextutil -c -s /tmp "/var/tmp/${kext}.kext" || exit
     mkdir -p /tmp/$m
     scp root@$m:/tmp/"com.apple.*.sym" /tmp/$m
     rm -rf /tmp/$m/${kext}.kext{,.dSYM}

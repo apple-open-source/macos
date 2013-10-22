@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/gl.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/gl.xml
 // *
 // ***************************************************************************
 /**
@@ -48,7 +48,7 @@ gl{
             "Peso arxentino",
         }
         AUD{
-            "AU$",
+            "A$",
             "Dólar australiano",
         }
         AWG{
@@ -255,9 +255,6 @@ gl{
             "₧",
             "Peseta española",
             {
-                /**
-                 * Duplicated from NumberPatterns resource
-                 */
                 "#,##0.00 ¤",
                 ",",
                 ".",
@@ -535,6 +532,10 @@ gl{
             "MYR",
             "Ringgit malaio",
         }
+        MZN{
+            "MZN",
+            "Metical de Mozambique",
+        }
         NAD{
             "NAD",
             "Dólar namibio",
@@ -615,6 +616,10 @@ gl{
             "QAR",
             "Rial qatarí",
         }
+        RON{
+            "RON",
+            "Leu romanés",
+        }
         RSD{
             "RSD",
             "Dinar serbio",
@@ -670,6 +675,10 @@ gl{
         SRD{
             "SRD",
             "Dólar surinamés",
+        }
+        SSP{
+            "SSP",
+            "Libra sursudanesa",
         }
         STD{
             "STD",
@@ -757,11 +766,11 @@ gl{
         }
         VEB{
             "VEB",
-            "Bolívar venezolano",
+            "Bolívar venezolano (1871-2008)",
         }
         VEF{
             "VEF",
-            "Bolívar forte venezolano",
+            "Bolívar venezolano",
         }
         VND{
             "₫",
@@ -821,6 +830,10 @@ gl{
         }
         ZMK{
             "ZMK",
+            "Kwacha zambiano (1968-2012)",
+        }
+        ZMW{
+            "ZMW",
             "Kwacha zambiano",
         }
     }
@@ -945,6 +958,10 @@ gl{
             one{"peso mexicano"}
             other{"pesos mexicanos"}
         }
+        MZN{
+            one{"metical de Mozambique"}
+            other{"meticais de Mozambique"}
+        }
         PTE{
             one{"escudo portugués"}
             other{"escudos portugueses"}
@@ -953,9 +970,17 @@ gl{
             one{"Guaraní paraguaio"}
             other{"Guaranís paraguaios"}
         }
+        RON{
+            one{"leu romanés"}
+            other{"lei romanés"}
+        }
         RUB{
             one{"rublo ruso"}
             other{"rublos rusos"}
+        }
+        SSP{
+            one{"libra sursudanesa"}
+            other{"libras sursudanesa"}
         }
         SUR{
             one{"rublo soviético"}
@@ -974,12 +999,12 @@ gl{
             other{"pesos uruguaios"}
         }
         VEB{
-            one{"bolívar venezolano"}
-            other{"bolívares venezolanos"}
+            one{"bolívar venezolano (1871-2008)"}
+            other{"bolívares venezolanos (1871-2008)"}
         }
         VEF{
-            one{"bolívar forte venezolano"}
-            other{"bolívares fortes venezolanos"}
+            one{"bolívar venezolano"}
+            other{"bolívares venezolanos"}
         }
         XXX{
             one{"unidade monetaria descoñecida ou non válida"}
@@ -990,5 +1015,5 @@ gl{
         one{"{0} {1}"}
         other{"{0} {1}"}
     }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
 }

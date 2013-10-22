@@ -186,7 +186,7 @@
 #include "gb18030uni.h"
 
 static int
-gb18030_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+gb18030_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   int ret;
 
@@ -304,7 +304,7 @@ static const unsigned short gb18030_pua2charset[32*3] = {
 };
 
 static int
-gb18030_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+gb18030_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   int ret;
 

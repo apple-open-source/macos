@@ -230,7 +230,7 @@ OSStatus CMSDecoderCopySignerStatus(
  * Obtain the email address of signer 'signerIndex' of a CMS message, if
  * present. 
  *
- * Returns paramErr if the CMS message was not signed or if signerIndex
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
  * is greater than the number of signers of the message minus one. 
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
@@ -245,7 +245,7 @@ OSStatus CMSDecoderCopySignerEmailAddress(
  * Obtain the certificate of signer 'signerIndex' of a CMS message, if
  * present. 
  *
- * Returns paramErr if the CMS message was not signed or if signerIndex
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
  * is greater than the number of signers of the message minus one. 
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
@@ -259,7 +259,7 @@ OSStatus CMSDecoderCopySignerCert(
 /* 
  * Determine whether a CMS message was encrypted. Returns TRUE if so, FALSE if not.
  * Note that if the message was encrypted, and the decoding succeeded, (i.e.,
- * CMSDecoderFinalizeMessage() returned noErr), then the message was successfully 
+ * CMSDecoderFinalizeMessage() returned errSecSuccess), then the message was successfully
  * decrypted. 
  * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
  */
@@ -285,7 +285,7 @@ OSStatus CMSDecoderCopyEncapsulatedContentType(
  * returned array are SecCertificateRefs. The caller must CFRelease the returned 
  * array. If a message does not contain any certificates (which is the case for
  * a message which is encrypted but not signed), the returned *certs value 
- * is NULL. The function will return noErr in this case.
+ * is NULL. The function will return errSecSuccess in this case.
  * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
  */
 OSStatus CMSDecoderCopyAllCerts(
@@ -309,7 +309,7 @@ OSStatus CMSDecoderCopyContent(
  * present. This is an unauthenticate time, although it is part of the
  * signed attributes of the message.
  *
- * Returns paramErr if the CMS message was not signed or if signerIndex
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
  * is greater than the number of signers of the message minus one. 
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
@@ -325,7 +325,7 @@ OSStatus CMSDecoderCopySignerSigningTime(
  * present. This timestamp is an authenticated timestamp provided by
  * a timestamping authority.
  *
- * Returns paramErr if the CMS message was not signed or if signerIndex
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
  * is greater than the number of signers of the message minus one. 
  *
  * This cannot be called until after CMSDecoderFinalizeMessage() is called. 
@@ -342,7 +342,7 @@ OSStatus CMSDecoderCopySignerTimestamp(
  * array. This timestamp is an authenticated timestamp provided by
  * a timestamping authority.
  *
- * Returns paramErr if the CMS message was not signed or if signerIndex
+ * Returns errSecParam if the CMS message was not signed or if signerIndex
  * is greater than the number of signers of the message minus one. It returns
  * errSecItemNotFound if no certificates were found.
  *

@@ -23,8 +23,9 @@
 #ifndef HTMLCollection_h
 #define HTMLCollection_h
 
-#include "Node.h"
 #include "CollectionType.h"
+#include "LiveNodeList.h"
+#include "ScriptWrappable.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/PassOwnPtr.h>
@@ -32,83 +33,63 @@
 
 namespace WebCore {
 
-class Document;
-class Element;
-class NodeList;
-
-class HTMLCollection {
+class HTMLCollection : public LiveNodeListBase {
 public:
-    static PassOwnPtr<HTMLCollection> create(Node* base, CollectionType);
+    static PassRefPtr<HTMLCollection> create(Node* base, CollectionType);
     virtual ~HTMLCollection();
 
-    void ref() { m_base->ref(); }
-    void deref() { m_base->deref(); }
-
-    unsigned length() const;
-
-    virtual Node* item(unsigned index) const;
-    virtual Node* nextItem() const;
-
+    // DOM API
     virtual Node* namedItem(const AtomicString& name) const;
-
-    Node* firstItem() const;
-
-    bool hasNamedItem(const AtomicString& name) const;
-    void namedItems(const AtomicString& name, Vector<RefPtr<Node> >&) const;
-
     PassRefPtr<NodeList> tags(const String&);
 
-    Node* base() const { return m_base; }
-    CollectionType type() const { return static_cast<CollectionType>(m_type); }
+    // Non-DOM API
+    virtual bool hasNamedItem(const AtomicString& name) const;
+    void namedItems(const AtomicString& name, Vector<RefPtr<Node> >&) const;
+    bool isEmpty() const
+    {
+        if (isLengthCacheValid())
+            return !cachedLength();
+        if (isItemCacheValid())
+            return !cachedItem();
+        return !item(0);
+    }
+    bool hasExactlyOneItem() const
+    {
+        if (isLengthCacheValid())
+            return cachedLength() == 1;
+        if (isItemCacheValid())
+            return cachedItem() && !cachedItemOffset() && !item(1);
+        return item(0) && !item(1);
+    }
+
+    virtual Element* virtualItemAfter(unsigned& offsetInArray, Element*) const;
+
+    Element* traverseFirstElement(unsigned& offsetInArray, ContainerNode* root) const;
+    Element* traverseForwardToOffset(unsigned offset, Element* currentElement, unsigned& currentOffset, unsigned& offsetInArray, ContainerNode* root) const;
 
 protected:
-    HTMLCollection(Node* base, CollectionType);
-
-    void invalidateCacheIfNeeded() const;
+    HTMLCollection(Node* base, CollectionType, ItemAfterOverrideType);
 
     virtual void updateNameCache() const;
-    virtual Element* itemAfter(Element*) const;
 
     typedef HashMap<AtomicStringImpl*, OwnPtr<Vector<Element*> > > NodeCacheMap;
-    static void append(NodeCacheMap&, const AtomicString&, Element*);
-
-    mutable struct {
-        NodeCacheMap idCache;
-        NodeCacheMap nameCache;
-        uint64_t version;
-        Element* current;
-        unsigned position;
-        unsigned length;
-        int elementsArrayPosition;
-        bool hasLength;
-        bool hasNameCache;
-
-        void clear()
-        {
-            idCache.clear();
-            nameCache.clear();
-            version = 0;
-            current = 0;
-            position = 0;
-            length = 0;
-            elementsArrayPosition = 0;
-            hasLength = false;
-            hasNameCache = false;
-        }
-    } m_cache;
+    Vector<Element*>* idCache(const AtomicString& name) const { return m_idCache.get(name.impl()); }
+    Vector<Element*>* nameCache(const AtomicString& name) const { return m_nameCache.get(name.impl()); }
+    void appendIdCache(const AtomicString& name, Element* element) const { append(m_idCache, name, element); }
+    void appendNameCache(const AtomicString& name, Element* element) const { append(m_nameCache, name, element); }
 
 private:
-    static bool shouldIncludeChildren(CollectionType);
-    bool checkForNameMatch(Element*, bool checkName, const AtomicString& name) const;
+    Element* traverseNextElement(unsigned& offsetInArray, Element* previous, ContainerNode* root) const;
 
-    virtual unsigned calcLength() const;
+    virtual bool isLiveNodeList() const OVERRIDE { ASSERT_NOT_REACHED(); return true; }
 
-    bool isAcceptableElement(Element*) const;
+    static void append(NodeCacheMap&, const AtomicString&, Element*);
 
-    bool m_includeChildren : 1;
-    unsigned m_type : 5; // CollectionType
+    mutable NodeCacheMap m_idCache;
+    mutable NodeCacheMap m_nameCache;
+    mutable unsigned m_cachedElementsArrayOffset;
 
-    Node* m_base;
+    friend class LiveNodeListBase;
 };
 
 } // namespace

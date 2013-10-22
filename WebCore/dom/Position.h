@@ -144,7 +144,6 @@ public:
     bool isOrphan() const { return m_anchorNode && !m_anchorNode->inDocument(); }
 
     Element* element() const;
-    PassRefPtr<CSSComputedStyleDeclaration> computedStyle() const;
 
     // Move up or down the DOM by one position.
     // Offsets are computed using render text for nodes that have renderers - but note that even when
@@ -189,6 +188,14 @@ public:
 
     static bool hasRenderedNonAnonymousDescendantsWithHeight(RenderObject*);
     static bool nodeIsUserSelectNone(Node*);
+#if ENABLE(USERSELECT_ALL)
+    static bool nodeIsUserSelectAll(const Node*);
+    static Node* rootUserSelectAllForNode(Node*);
+#else
+    static bool nodeIsUserSelectAll(const Node*) { return false; }
+    static Node* rootUserSelectAllForNode(Node*) { return 0; }
+#endif
+    static ContainerNode* findParent(const Node*);
     
     void debugPosition(const char* msg = "") const;
 
@@ -203,6 +210,7 @@ private:
 
     int renderedOffset() const;
 
+    
     Position previousCharacterPosition(EAffinity) const;
     Position nextCharacterPosition(EAffinity) const;
 
@@ -244,13 +252,13 @@ inline Position positionInParentBeforeNode(const Node* node)
     // At least one caller currently hits this ASSERT though, which indicates
     // that the caller is trying to make a position relative to a disconnected node (which is likely an error)
     // Specifically, editing/deleting/delete-ligature-001.html crashes with ASSERT(node->parentNode())
-    return Position(node->nonShadowBoundaryParentNode(), node->nodeIndex(), Position::PositionIsOffsetInAnchor);
+    return Position(Position::findParent(node), node->nodeIndex(), Position::PositionIsOffsetInAnchor);
 }
 
 inline Position positionInParentAfterNode(const Node* node)
 {
-    ASSERT(node->nonShadowBoundaryParentNode());
-    return Position(node->nonShadowBoundaryParentNode(), node->nodeIndex() + 1, Position::PositionIsOffsetInAnchor);
+    ASSERT(Position::findParent(node));
+    return Position(Position::findParent(node), node->nodeIndex() + 1, Position::PositionIsOffsetInAnchor);
 }
 
 // positionBeforeNode and positionAfterNode return neighbor-anchored positions, construction is O(1)

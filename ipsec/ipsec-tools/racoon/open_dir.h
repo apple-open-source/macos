@@ -23,7 +23,7 @@
 #ifndef __OPEN_DIR_H__
 #define __OPEN_DIR_H__
 
-extern int open_dir_authorize_id(vchar_t *id, vchar_t *group);
+extern int open_dir_authorize_id (vchar_t *id, vchar_t *group);
 
 
 #endif /* __OPEN_DIR_H__ */

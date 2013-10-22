@@ -21,6 +21,7 @@
 #include "WebKitSoupRequestGeneric.h"
 
 #include "WebProcess.h"
+#include "WebSoupRequestManager.h"
 #include <wtf/text/CString.h>
 
 using namespace WebKit;
@@ -48,10 +49,10 @@ static void webkit_soup_request_generic_init(WebKitSoupRequestGeneric* request)
 static void webkitSoupRequestGenericSendAsync(SoupRequest* request, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData)
 {
     GSimpleAsyncResult* result = g_simple_async_result_new(G_OBJECT(request), callback, userData, reinterpret_cast<void*>(webkitSoupRequestGenericSendAsync));
-    WebProcess::shared().soupRequestManager().send(result);
+    WebProcess::shared().supplement<WebSoupRequestManager>()->send(result, cancellable);
 }
 
-static GInputStream* webkitSoupRequestGenericSendFinish(SoupRequest* request, GAsyncResult* result, GError** error)
+static GInputStream* webkitSoupRequestGenericSendFinish(SoupRequest*, GAsyncResult* result, GError** error)
 {
     GSimpleAsyncResult* simpleResult = G_SIMPLE_ASYNC_RESULT(result);
     g_warn_if_fail(g_simple_async_result_get_source_tag(simpleResult) == webkitSoupRequestGenericSendAsync);
@@ -59,7 +60,7 @@ static GInputStream* webkitSoupRequestGenericSendFinish(SoupRequest* request, GA
     if (g_simple_async_result_propagate_error(simpleResult, error))
         return 0;
 
-    return WebProcess::shared().soupRequestManager().finish(simpleResult);
+    return WebProcess::shared().supplement<WebSoupRequestManager>()->finish(simpleResult);
 }
 
 static goffset webkitSoupRequestGenericGetContentLength(SoupRequest* request)

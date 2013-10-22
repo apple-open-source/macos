@@ -145,6 +145,7 @@ gss_mo_set					,private
 gss_mo_get					,private
 gss_mo_name					,private
 gss_mo_list					,private
+gss_userok
 gss_unseal
 gss_unwrap
 gss_unwrap_iov					,private
@@ -210,6 +211,7 @@ decode_NegotiationTokenWin
 &__kGSSOperationGetGSSCredential
 &__kGSSOperationCredentialDiagnostics
 &__kGSSOperationDestoryTransient
+&__kGSSOperationDestroyTransient
 &__kGSSOperationChangePassword
 &__kGSSOperationSetDefault
 &__kGSSOperationRenewCredential
@@ -225,3 +227,18 @@ GSSItemUpdate
 GSSItemOperation
 GSSItemGetValue
 GSSItemGetTypeID
+#
+GSSCredentialCopyUUID
+GSSCreateCredentialFromUUID
+#
+GSSRuleAddMatch
+GSSRuleGetMatch
+#
+GSSCreateName
+GSSNameCreateDisplayString
+#
+GSSCredentialCopyName
+GSSCredentialGetLifetime
+#
+GSSCredCopyName
+GSSCredGetLifetime

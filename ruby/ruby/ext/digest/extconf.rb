@@ -1,10 +1,10 @@
 # $RoughId: extconf.rb,v 1.6 2001/07/13 15:38:27 knu Exp $
-# $Id: extconf.rb 11708 2007-02-12 23:01:19Z shyouhei $
+# $Id: extconf.rb 25189 2009-10-02 12:04:37Z akr $
 
 require "mkmf"
 
 $INSTALLFILES = {
-  "digest.h" => "$(RUBYARCHDIR)"
+  "digest.h" => "$(HDRDIR)"
 }
 
 create_makefile("digest")

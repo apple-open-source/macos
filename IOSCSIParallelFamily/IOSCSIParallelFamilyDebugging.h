@@ -82,7 +82,7 @@ IOSCSIParallelFamilyDebugAssert ( 	const char * componentNameString,
 #endif	/* KERNEL */
 
 
-#include </usr/include/AssertMacros.h>
+#include <AssertMacros.h>
 
 
 // Other helpful macros (maybe some day these will make

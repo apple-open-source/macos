@@ -57,8 +57,7 @@ SecKeyGetTypeID(void)
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
 
-OSStatus
-SecKeyCreatePair(
+static OSStatus SecKeyCreatePairInternal(
 	SecKeychainRef keychainRef,
 	CSSM_ALGORITHMS algorithm,
 	uint32 keySizeInBits,
@@ -77,6 +76,9 @@ SecKeyCreatePair(
 	SecPointer<Access> theAccess(initialAccess ? Access::required(initialAccess) : new Access("<key>"));
 	SecPointer<KeyItem> pubItem, privItem;
 
+    Mutex *keychainMutex = keychain->getKeychainMutex();
+    StLock<Mutex> _(*keychainMutex);
+    
 	KeyItem::createPair(keychain,
         algorithm,
         keySizeInBits,
@@ -97,6 +99,28 @@ SecKeyCreatePair(
 
 	END_SECAPI
 }
+
+OSStatus
+SecKeyCreatePair(
+	SecKeychainRef keychainRef,
+	CSSM_ALGORITHMS algorithm,
+	uint32 keySizeInBits,
+	CSSM_CC_HANDLE contextHandle,
+	CSSM_KEYUSE publicKeyUsage,
+	uint32 publicKeyAttr,
+	CSSM_KEYUSE privateKeyUsage,
+	uint32 privateKeyAttr,
+	SecAccessRef initialAccess,
+	SecKeyRef* publicKeyRef,
+	SecKeyRef* privateKeyRef)
+{
+    OSStatus result = SecKeyCreatePairInternal(keychainRef, algorithm, keySizeInBits, contextHandle, publicKeyUsage,
+                                               publicKeyAttr, privateKeyUsage, privateKeyAttr, initialAccess, publicKeyRef, privateKeyRef);
+    
+    return result;
+}
+
+
 
 OSStatus
 SecKeyGetCSSMKey(SecKeyRef key, const CSSM_KEY **cssmKey)
@@ -142,7 +166,7 @@ SecKeyGetAlgorithmId(SecKeyRef key)
 {
 	const CSSM_KEY *cssmKey;
 
-	if (SecKeyGetCSSMKey(key, &cssmKey) != noErr)
+	if (SecKeyGetCSSMKey(key, &cssmKey) != errSecSuccess)
 		return kSecNullAlgorithmID;
 
 	switch (cssmKey->KeyHeader.AlgorithmId) {
@@ -215,7 +239,7 @@ SecKeyImportPair(
 	END_SECAPI
 }
 
-OSStatus
+static OSStatus
 SecKeyGenerateWithAttributes(
 	SecKeychainAttributeList* attrList,
 	SecKeychainRef keychainRef,
@@ -285,12 +309,12 @@ SecKeyCreate(CFAllocatorRef allocator,
 	try {
 		//FIXME: needs implementation
 
-		__secapiresult=noErr;
+		__secapiresult=errSecSuccess;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
-	catch (...) { __secapiresult=internalComponentErr; }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
 	return keyRef;
 }
 
@@ -324,11 +348,11 @@ static u_int32_t ConvertCFStringToInteger(CFStringRef ref)
 	}
 
 	// figure out the size of the string
-	int numChars = CFStringGetMaximumSizeForEncoding(CFStringGetLength(ref), kCFStringEncodingUTF8);
+	CFIndex numChars = CFStringGetMaximumSizeForEncoding(CFStringGetLength(ref), kCFStringEncodingUTF8);
 	char buffer[numChars];
 	if (!CFStringGetCString(ref, buffer, numChars, kCFStringEncodingUTF8))
 	{
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 
 	return atoi(buffer);
@@ -347,16 +371,17 @@ static OSStatus CheckAlgorithmType(CFDictionaryRef parameters, CSSM_ALGORITHMS &
 
 	if (CFEqual(ktype, kSecAttrKeyTypeRSA)) {
 		algorithms = CSSM_ALGID_RSA;
-		return noErr;
-	} else if(CFEqual(ktype, kSecAttrKeyTypeECDSA)) {
+		return errSecSuccess;
+       } else if(CFEqual(ktype, kSecAttrKeyTypeECDSA) ||
+                       CFEqual(ktype, kSecAttrKeyTypeEC)) {
 		algorithms = CSSM_ALGID_ECDSA;
-		return noErr;
+		return errSecSuccess;
 	} else if(CFEqual(ktype, kSecAttrKeyTypeAES)) {
 		algorithms = CSSM_ALGID_AES;
-		return noErr;
+		return errSecSuccess;
 	} else if(CFEqual(ktype, kSecAttrKeyType3DES)) {
 		algorithms = CSSM_ALGID_3DES;
-		return noErr;
+		return errSecSuccess;
 	} else {
 		return errSecUnsupportedAlgorithm;
 	}
@@ -383,20 +408,20 @@ static OSStatus GetKeySize(CFDictionaryRef parameters, CSSM_ALGORITHMS algorithm
     switch (algorithms) {
     case CSSM_ALGID_ECDSA:
         if(keySizeInBits == kSecDefaultKeySize) keySizeInBits = kSecp256r1;
-        if(keySizeInBits == kSecp192r1 || keySizeInBits == kSecp256r1 || keySizeInBits == kSecp384r1 || keySizeInBits == kSecp521r1 ) return noErr;
+        if(keySizeInBits == kSecp192r1 || keySizeInBits == kSecp256r1 || keySizeInBits == kSecp384r1 || keySizeInBits == kSecp521r1 ) return errSecSuccess;
         break;
     case CSSM_ALGID_RSA:
 			  if(keySizeInBits % 8) return errSecParam;
         if(keySizeInBits == kSecDefaultKeySize) keySizeInBits = 2048;
-        if(keySizeInBits >= kSecRSAMin && keySizeInBits <= kSecRSAMax) return noErr;
+        if(keySizeInBits >= kSecRSAMin && keySizeInBits <= kSecRSAMax) return errSecSuccess;
         break;
     case CSSM_ALGID_AES:
         if(keySizeInBits == kSecDefaultKeySize) keySizeInBits = kSecAES128;
-        if(keySizeInBits == kSecAES128 || keySizeInBits == kSecAES192 || keySizeInBits == kSecAES256) return noErr;
+        if(keySizeInBits == kSecAES128 || keySizeInBits == kSecAES192 || keySizeInBits == kSecAES256) return errSecSuccess;
         break;
     case CSSM_ALGID_3DES:
         if(keySizeInBits == kSecDefaultKeySize) keySizeInBits = kSec3DES192;
-        if(keySizeInBits == kSec3DES192) return noErr;
+        if(keySizeInBits == kSec3DES192) return errSecSuccess;
         break;
     default:
         break;
@@ -502,7 +527,7 @@ static OSStatus ScanDictionaryForParameters(CFDictionaryRef parameters, void* at
 		}
 	}
 
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -528,7 +553,7 @@ static OSStatus GetKeyParameters(CFDictionaryRef parameters, int keySize, bool i
 
 	// look for modifiers in the general dictionary
 	OSStatus result = ScanDictionaryForParameters(parameters, attributePointers);
-	if (result != noErr)
+	if (result != errSecSuccess)
 	{
 		return result;
 	}
@@ -554,8 +579,8 @@ static OSStatus GetKeyParameters(CFDictionaryRef parameters, int keySize, bool i
 		}
 
 		// pull any additional parameters out of this dictionary
-		result = ScanDictionaryForParameters(parameters, attributePointers);
-		if (result != noErr)
+		result = ScanDictionaryForParameters((CFDictionaryRef)dType, attributePointers);
+		if (result != errSecSuccess)
 		{
 			return result;
 		}
@@ -605,7 +630,7 @@ static OSStatus GetKeyParameters(CFDictionaryRef parameters, int keySize, bool i
 
 	attrs |= CSSM_KEYATTR_PERMANENT;
 
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -626,25 +651,25 @@ static OSStatus MakeKeyGenParametersFromDictionary(CFDictionaryRef parameters,
 	OSStatus result;
 
 	result = CheckAlgorithmType(parameters, algorithms);
-	if (result != noErr)
+	if (result != errSecSuccess)
 	{
 		return result;
 	}
 
 	result = GetKeySize(parameters, algorithms, keySizeInBits);
-	if (result != noErr)
+	if (result != errSecSuccess)
 	{
 		return result;
 	}
 
-	result = GetKeyParameters(parameters, keySizeInBits, false, privateKeyUse, privateKeyAttr, publicKeyLabelRef, publicKeyAttributeTagRef);
-	if (result != noErr)
+	result = GetKeyParameters(parameters, keySizeInBits, false, privateKeyUse, privateKeyAttr, privateKeyLabelRef, privateKeyAttributeTagRef);
+	if (result != errSecSuccess)
 	{
 		return result;
 	}
 
-	result = GetKeyParameters(parameters, keySizeInBits, true, publicKeyUse, publicKeyAttr, privateKeyLabelRef, privateKeyAttributeTagRef);
-	if (result != noErr)
+	result = GetKeyParameters(parameters, keySizeInBits, true, publicKeyUse, publicKeyAttr, publicKeyLabelRef, publicKeyAttributeTagRef);
+	if (result != errSecSuccess)
 	{
 		return result;
 	}
@@ -655,10 +680,10 @@ static OSStatus MakeKeyGenParametersFromDictionary(CFDictionaryRef parameters,
 	}
 	else if (SecAccessGetTypeID() != CFGetTypeID(initialAccess))
 	{
-		return paramErr;
+		return errSecParam;
 	}
 
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -678,7 +703,7 @@ static OSStatus SetKeyLabelAndTag(SecKeyRef keyRef, CFTypeRef label, CFDataRef t
 
 	if (numToModify == 0)
 	{
-		return noErr;
+		return errSecSuccess;
 	}
 
 	SecKeychainAttributeList attrList;
@@ -699,18 +724,18 @@ static OSStatus SetKeyLabelAndTag(SecKeyRef keyRef, CFTypeRef label, CFDataRef t
 					UnixError::throwMe(ENOMEM);
 				}
 				if (!CFStringGetCString(label_string, static_cast<char *>(attributes[i].data), buffer_length, kCFStringEncodingUTF8)) {
-					MacOSError::throwMe(paramErr);
+					MacOSError::throwMe(errSecParam);
 				}
 			}
-			attributes[i].length = strlen(static_cast<char *>(attributes[i].data));
+			attributes[i].length = (UInt32)strlen(static_cast<char *>(attributes[i].data));
 		} else if (CFDataGetTypeID() == CFGetTypeID(label)) {
 			// 10.6 bug compatibility
 			CFDataRef label_data = static_cast<CFDataRef>(label);
 			attributes[i].tag = kSecKeyLabel;
 			attributes[i].data = (void*) CFDataGetBytePtr(label_data);
-			attributes[i].length = CFDataGetLength(label_data);
+			attributes[i].length = (UInt32)CFDataGetLength(label_data);
 		} else {
-			MacOSError::throwMe(paramErr);
+			MacOSError::throwMe(errSecParam);
 		}
 		i++;
 	}
@@ -719,7 +744,7 @@ static OSStatus SetKeyLabelAndTag(SecKeyRef keyRef, CFTypeRef label, CFDataRef t
 	{
 		attributes[i].tag = kSecKeyApplicationTag;
 		attributes[i].data = (void*) CFDataGetBytePtr(tag);
-		attributes[i].length = CFDataGetLength(tag);
+		attributes[i].length = (UInt32)CFDataGetLength(tag);
 		i++;
 	}
 
@@ -762,7 +787,7 @@ SecKeyGeneratePair(
 														 publicKeyAttributeTagRef, privateKeyUse, privateKeyAttr, privateKeyLabelRef, privateKeyAttributeTagRef,
 														 initialAccess);
 
-	if (result != noErr)
+	if (result != errSecSuccess)
 	{
 		return result;
 	}
@@ -776,7 +801,7 @@ SecKeyGeneratePair(
 
 	// do the key generation
 	result = SecKeyCreatePair(keychain, algorithms, keySizeInBits, 0, publicKeyUse, publicKeyAttr, privateKeyUse, privateKeyAttr, initialAccess, publicKey, privateKey);
-	if (result != noErr)
+	if (result != errSecSuccess)
 	{
 		return result;
 	}
@@ -818,6 +843,17 @@ SecKeyRawSign(
 	*sigLen = output.Length;
 
 	END_SECAPI
+}
+
+OSStatus SecKeyRawVerifyOSX(
+    SecKeyRef           key,            /* Public key */
+	SecPadding          padding,		/* kSecPaddingNone or kSecPaddingPKCS1 */
+	const uint8_t       *signedData,	/* signature over this data */
+	size_t              signedDataLen,	/* length of dataToSign */
+	const uint8_t       *sig,			/* signature */
+	size_t              sigLen)
+{
+    return SecKeyRawVerify(key,padding,signedData,signedDataLen,sig,sigLen);
 }
 
 /* new in 10.6 */
@@ -950,12 +986,12 @@ SecKeyGetBlockSize(SecKeyRef key)
 				blockSize = 16; /* FIXME: revisit this */
 				break;
 		}
-		__secapiresult=noErr;
+		__secapiresult=errSecSuccess;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
-	catch (...) { __secapiresult=internalComponentErr; }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
 	return blockSize;
 }
 
@@ -1034,7 +1070,8 @@ utilGetKeyParametersFromCFDict(CFDictionaryRef parameters, CSSM_ALGORITHMS *algo
         *algorithm = CSSM_ALGID_DSA;
         *keySizeInBits = 128;
          *keyClass = CSSM_KEYCLASS_PRIVATE_KEY;
-    } else if(CFEqual(algorithmDictValue, kSecAttrKeyTypeECDSA)) {
+    } else if(CFEqual(algorithmDictValue, kSecAttrKeyTypeECDSA) ||
+            CFEqual(algorithmDictValue, kSecAttrKeyTypeEC)) {
         *algorithm = CSSM_ALGID_ECDSA;
         *keySizeInBits = 128;
         *keyClass = CSSM_KEYCLASS_PRIVATE_KEY;
@@ -1093,7 +1130,7 @@ utilCopyDefaultKeyLabel(void)
 SecKeyRef
 SecKeyGenerateSymmetric(CFDictionaryRef parameters, CFErrorRef *error)
 {
-	OSStatus result = paramErr; // default result for an early exit
+	OSStatus result = errSecParam; // default result for an early exit
 	SecKeyRef key = NULL;
 	SecKeychainRef keychain = NULL;
 	SecAccessRef access;
@@ -1193,9 +1230,9 @@ SecKeyGenerateSymmetric(CFDictionaryRef parameters, CFErrorRef *error)
 			appTagBuf[0]=0;
 
 		SecKeychainAttribute attrs[] = {
-			{ kSecKeyPrintName, strlen(labelBuf), (char *)labelBuf },
-			{ kSecKeyLabel, strlen(appLabelBuf), (char *)appLabelBuf },
-			{ kSecKeyApplicationTag, strlen(appTagBuf), (char *)appTagBuf }	};
+			{ kSecKeyPrintName, (UInt32)strlen(labelBuf), (char *)labelBuf },
+			{ kSecKeyLabel, (UInt32)strlen(appLabelBuf), (char *)appLabelBuf },
+			{ kSecKeyApplicationTag, (UInt32)strlen(appTagBuf), (char *)appTagBuf }	};
 		SecKeychainAttributeList attributes = { sizeof(attrs) / sizeof(attrs[0]), attrs };
 		if (!appTag) --attributes.count;
 
@@ -1283,7 +1320,7 @@ SecKeyGeneratePairAsync(CFDictionaryRef parametersWhichMightBeMutiable, dispatch
 		OSStatus status = SecKeyGeneratePair(parameters, &publicKey, &privateKey);
 		dispatch_async(deliveryQueue, ^{
 			CFErrorRef error = NULL;
-			if (noErr != status) {
+			if (errSecSuccess != status) {
 				error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, status, NULL);
 			}
 			result(publicKey, privateKey, error);
@@ -1368,6 +1405,9 @@ SecKeyDeriveFromPassword(CFStringRef password, CFDictionaryRef parameters, CFErr
         algorithm = kCCPRFHmacAlgSHA384;
     } else if(CFEqual(algorithmDictValue, kSecAttrPRFHmacAlgSHA512)) {
         algorithm = kCCPRFHmacAlgSHA512;
+    } else {
+#warning "This else clause is here to prevent the use of unitialized variable, but really, this should return an error, without leaking."
+        algorithm = kCCPRFHmacAlgSHA1;
     }
 
     if(rounds == 0) {
@@ -1376,6 +1416,7 @@ SecKeyDeriveFromPassword(CFStringRef password, CFDictionaryRef parameters, CFErr
 
 
     if(CCKeyDerivationPBKDF(kCCPBKDF2, thePassword, passwordLen, salt, saltLen, algorithm, rounds, derivedKey, derivedKeyLen)) {
+#warning "Aren't we leaking salt and thePassword when this fail???"
         *error = CFErrorCreate(NULL, kCFErrorDomainOSStatus, errSecInternalError, NULL);
         return NULL;
     }
@@ -1637,17 +1678,17 @@ static OSStatus SecKeyGetDigestInfo(SecKeyRef key, const SecAsn1AlgId *algId,
 
     if (digestData) {
         if(dataLen>UINT32_MAX) /* Check for overflow with CC_LONG cast */
-            return paramErr;
+            return errSecParam;
         digestFcn(data, (CC_LONG)dataLen, &digestInfo[offset]);
         *digestInfoLen = offset + digestLen;
     } else {
         if (dataLen != digestLen)
-            return paramErr;
+            return errSecParam;
         memcpy(&digestInfo[offset], data, dataLen);
         *digestInfoLen = offset + dataLen;
     }
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus SecKeyVerifyDigest(
@@ -1761,7 +1802,7 @@ void secdump(const unsigned char *data, unsigned long len)
 }
 #endif
 
-OSStatus _SecKeyCopyPublicBytes(SecKeyRef key, CFDataRef* publicBytes)
+OSStatus SecKeyCopyPublicBytes(SecKeyRef key, CFDataRef* publicBytes)
 {
 	CFIndex keyAlgId;
 #if TARGET_OS_EMBEDDED
@@ -1769,114 +1810,155 @@ OSStatus _SecKeyCopyPublicBytes(SecKeyRef key, CFDataRef* publicBytes)
 #else
 	keyAlgId = SecKeyGetAlgorithmId(key);
 #endif
-	if (kSecRSAAlgorithmID == keyAlgId) {
+
+	OSStatus ecStatus = errSecParam;
+	CFDataRef tempPublicData = NULL;
+	CFDataRef headerlessPublicData = NULL;
+	CFIndex headerLength = 0;
+    const UInt8* pData_Ptr = NULL;
+
+	if (kSecRSAAlgorithmID == keyAlgId) 
+	{
 		return SecItemExport(key, kSecFormatBSAFE, 0, NULL, publicBytes);
 	}
-	if (kSecECDSAAlgorithmID == keyAlgId) {
-		OSStatus ecStatus = errSecParam;
-		*publicBytes = NULL;
-		uint8 headerBytes[] = { 0x30,0x59,0x30,0x13,0x06,0x07,0x2a,0x86,
-		                        0x48,0xce,0x3d,0x02,0x01,0x06,0x08,0x2a,
-		                        0x86,0x48,0xce,0x3d,0x03,0x01,0x07,0x03,
-		                        0x42,0x00 };
-		uint8 altHdrBytes[] = { 0x30,0x81,0x9b,0x30,0x10,0x06,0x07,0x2a,
-		                        0x86,0x48,0xce,0x3d,0x02,0x01,0x06,0x05,
-		                        0x2b,0x81,0x04,0x00,0x23,0x03,0x81,0x86,
-		                        0x00};
 
-		const size_t headerLen = sizeof(headerBytes);
-		const size_t altHdrLen = sizeof(altHdrBytes);
-		CFDataRef requiredPublicHeader = NULL;
-		CFDataRef tempPublicData = NULL;
-		CFDataRef publicDataHeader = NULL;
-		CFDataRef headerlessPublicData = NULL;
+	if (kSecECDSAAlgorithmID == keyAlgId) 
+	{	
+		// First export the key so there is access to the underlying key material
 		ecStatus = SecItemExport(key, kSecFormatOpenSSL, 0, NULL, &tempPublicData);
-		if(ecStatus != errSecSuccess) {
+		if(ecStatus != errSecSuccess)
+		{
 			secdebug("key", "SecKeyCopyPublicBytes: SecItemExport error (%d) for ECDSA public key %p",
 					ecStatus, (uintptr_t)key);
-			goto failEC;
-		}
-		requiredPublicHeader = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, headerBytes, headerLen, kCFAllocatorNull);
-		if (!requiredPublicHeader) {
-			secdebug("key", "SecKeyCopyPublicBytes: requiredPublicHeader is nil (1)");
-			goto failEC;
-		}
-		publicDataHeader = _CFDataCreateReferenceFromRange(kCFAllocatorDefault,
-				tempPublicData, CFRangeMake(0, headerLen));
-		if (!publicDataHeader) {
-			secdebug("key", "SecKeyCopyPublicBytes: publicDataHeader is nil (1)");
-			goto failEC;
-		}
-		headerlessPublicData = _CFDataCreateCopyFromRange(kCFAllocatorDefault,
-				tempPublicData, CFRangeMake(headerLen, CFDataGetLength(tempPublicData) - headerLen));
-		if (!headerlessPublicData) {
-			secdebug("key", "SecKeyCopyPublicBytes: headerlessPublicData is nil (1)");
-			goto failEC;
-		}
-		if(!_CFDataEquals(publicDataHeader, requiredPublicHeader)) {
-			CFRelease(publicDataHeader);
-			CFRelease(headerlessPublicData);
-			CFRelease(requiredPublicHeader);
-			requiredPublicHeader = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, altHdrBytes, altHdrLen, kCFAllocatorNull);
-			if (!requiredPublicHeader) {
-				secdebug("key", "SecKeyCopyPublicBytes: requiredPublicHeader is nil (2)");
-				goto failEC;
-			}
-			publicDataHeader = _CFDataCreateReferenceFromRange(kCFAllocatorDefault,
-					tempPublicData, CFRangeMake(0, altHdrLen));
-			if (!publicDataHeader) {
-				secdebug("key", "SecKeyCopyPublicBytes: publicDataHeader is nil (2)");
-				goto failEC;
-			}
-			headerlessPublicData = _CFDataCreateCopyFromRange(kCFAllocatorDefault,
-					tempPublicData, CFRangeMake(altHdrLen, CFDataGetLength(tempPublicData) - altHdrLen));
-			if (!headerlessPublicData) {
-				secdebug("key", "SecKeyCopyPublicBytes: headerlessPublicData is nil (2)");
-				goto failEC;
-			}
-		}
-		if(!_CFDataEquals(publicDataHeader, requiredPublicHeader)) {
-			#if ECDSA_DEBUG
-			CFIndex dataLen = CFDataGetLength(tempPublicData);
-			const UInt8 *dataPtr = CFDataGetBytePtr(tempPublicData);
-			syslog(LOG_NOTICE, "Public key data (with header):");
-			secdump((const unsigned char *)dataPtr,(unsigned long)dataLen);
-			dataLen = CFDataGetLength(requiredPublicHeader);
-			dataPtr = CFDataGetBytePtr(requiredPublicHeader);
-			syslog(LOG_NOTICE, "Required header:");
-			secdump((const unsigned char *)dataPtr,(unsigned long)dataLen);
-			dataLen = CFDataGetLength(publicDataHeader);
-			dataPtr = CFDataGetBytePtr(publicDataHeader);
-			syslog(LOG_NOTICE, "Actual header:");
-			secdump((const unsigned char *)dataPtr,(unsigned long)dataLen);
-			#endif
-			secdebug("key", "_SecKeyCopyPublicBytes: public data header mismatch");
-			goto failEC;
-		}
-		if(publicBytes) {
-			*publicBytes = headerlessPublicData;
-			ecStatus = errSecSuccess;
-		}
+					
+	        return ecStatus;
+        }
 
-failEC:
-		if(requiredPublicHeader) CFRelease(requiredPublicHeader);
-		if(publicDataHeader) CFRelease(publicDataHeader);
-		if(tempPublicData) CFRelease(tempPublicData);
-		return ecStatus;
-	}
-	return errSecParam;
+		
+        // Get a pointer to the first byte of the exported data
+        pData_Ptr = CFDataGetBytePtr(tempPublicData);
+
+        // the first byte should be a sequence 0x30
+        if (*pData_Ptr != 0x30)
+        {
+            secdebug("key", "SecKeyCopyPublicBytes: exported data is invalid");
+             if (NULL != tempPublicData)
+	            CFRelease(tempPublicData);
+
+			ecStatus = errSecParam;
+	        return ecStatus;
+        }
+
+        // move past the sequence byte
+        pData_Ptr++;
+
+        // Check to see if the high bit is set which
+        // indicates that the length will be at least 
+        // two bytes.  If the high bit is set then
+        // The lower seven bits specifies the number of
+    	// bytes used for the length.  The additonal 1
+    	// is for the current byte. Otherwise just move past the 
+    	// single length byte
+        pData_Ptr += (*pData_Ptr & 0x80) ? ((*pData_Ptr & 0x7F) + 1) : 1;
+
+        // The current byte should be a sequence 0x30
+        if (*pData_Ptr != 0x30)
+        {
+        	secdebug("key", "SecKeyCopyPublicBytes: Could not find the key sequence");
+             if (NULL != tempPublicData)
+	            CFRelease(tempPublicData);
+	
+			ecStatus = errSecParam;
+
+	        return ecStatus;
+        }
+
+        // The next bytes will always be the same
+        // 0x30 = SEQUENCE
+        // XX Length Byte
+        // 0x06 OBJECT ID
+        // 0x07 Length Byte
+        // ECDSA public KEY OID value 0x2a,0x86,0x48,0xce,0x3d,0x02,0x01
+        // 0x06 OBJECT ID
+        // This is a total of 12 bytes
+        pData_Ptr += 12;
+
+        // Next byte is the length of the ECDSA curve OID
+        // Move past the length byte and the curve OID
+        pData_Ptr += (((int)*pData_Ptr) + 1);
+
+        // Should be at a BINARY String which is specifed by a 0x3
+        if (*pData_Ptr != 0x03)
+        {
+        	secdebug("key", "SecKeyCopyPublicBytes: Invalid key structure");
+             if (NULL != tempPublicData)
+	            CFRelease(tempPublicData);
+	
+			ecStatus = errSecParam;
+
+	        return ecStatus;
+        }
+
+        // Move past the BINARY String specifier 0x03
+        pData_Ptr++;
+
+
+        // Check to see if the high bit is set which
+        // indicates that the length will be at least 
+        // two bytes.  If the high bit is set then
+        // The lower seven bits specifies the number of
+    	// bytes used for the length.  The additonal 1
+    	// is for the current byte. Otherwise just move past the 
+    	// single length byte
+        pData_Ptr += (*pData_Ptr & 0x80) ? ((*pData_Ptr & 0x7F) + 1) : 1;
+
+        // Move past the beginning marker for the BINARY String 0x00
+        pData_Ptr++;
+
+        // pData_Ptr now points to the first bytes of the key material
+        headerLength = (CFIndex)(((intptr_t)pData_Ptr) -  ((intptr_t)CFDataGetBytePtr(tempPublicData)));       
+        
+        headerlessPublicData = _CFDataCreateCopyFromRange(kCFAllocatorDefault,
+            tempPublicData, CFRangeMake(headerLength, CFDataGetLength(tempPublicData) - headerLength));
+        
+        if (!headerlessPublicData)
+        {
+			printf("SecKeyCopyPublicBytes: headerlessPublicData is nil (1)\n");
+		 if (NULL != tempPublicData)
+	            CFRelease(tempPublicData);
+	
+			ecStatus = errSecParam;
+
+	        return ecStatus;
+		}
+        
+        if (publicBytes)
+        {
+        	*publicBytes = headerlessPublicData;
+        }
+
+        ecStatus = errSecSuccess;
+        
+        if (NULL != tempPublicData)
+            CFRelease(tempPublicData);
+            
+        return ecStatus;
+      }
+
+  return errSecParam;
 }
+
 
 CFDataRef SecECKeyCopyPublicBits(SecKeyRef key)
 {
     CFDataRef exportedKey;
-    if(_SecKeyCopyPublicBytes(key, &exportedKey) != noErr) {
+    if(SecKeyCopyPublicBytes(key, &exportedKey) != errSecSuccess) {
         exportedKey = NULL;
     }
     return exportedKey;
 }
 
-SecKeyRef _SecKeyCreateFromPublicData(CFAllocatorRef allocator, CFIndex algorithmID, CFDataRef publicBytes)
+SecKeyRef SecKeyCreateFromPublicData(CFAllocatorRef allocator, CFIndex algorithmID, CFDataRef publicBytes)
 {
     SecExternalFormat externalFormat = kSecFormatOpenSSL;
     SecExternalItemType externalItemType = kSecItemTypePublicKey;
@@ -1939,14 +2021,6 @@ SecKeyRef SecKeyCreateRSAPublicKey(CFAllocatorRef allocator,
 
     } else if(kSecKeyEncodingRSAPublicParams == encoding) {
         /* SecRSAPublicKeyParams format; we must encode as PKCS1. */
-    #if !TARGET_OS_EMBEDDED
-        typedef struct SecRSAPublicKeyParams {
-            uint8_t             *modulus;			/* modulus */
-            CFIndex             modulusLength;
-            uint8_t             *exponent;			/* public exponent */
-            CFIndex             exponentLength;
-        } SecRSAPublicKeyParams;
-    #endif
 		SecRSAPublicKeyParams *params = (SecRSAPublicKeyParams *)keyData;
 		DERSize m_size = params->modulusLength;
 		DERSize e_size = params->exponentLength;
@@ -1986,7 +2060,7 @@ SecKeyRef SecKeyCreateRSAPublicKey(CFAllocatorRef allocator,
         /* unsupported encoding */
         return NULL;
     }
-    SecKeyRef publicKey = _SecKeyCreateFromPublicData(allocator, kSecRSAAlgorithmID, pubKeyData);
+    SecKeyRef publicKey = SecKeyCreateFromPublicData(allocator, kSecRSAAlgorithmID, pubKeyData);
     CFRelease(pubKeyData);
     return publicKey;
 }
@@ -1996,6 +2070,7 @@ SecKeyRef SecKeyCreateRSAPublicKey(CFAllocatorRef allocator,
 // Given a CSSM public key, copy its modulus and/or exponent data.
 // Caller is responsible for releasing the returned CFDataRefs.
 //
+static
 OSStatus _SecKeyCopyRSAPublicModulusAndExponent(SecKeyRef key, CFDataRef *modulus, CFDataRef *exponent)
 {
 	const CSSM_KEY          *pubKey;
@@ -2004,7 +2079,7 @@ OSStatus _SecKeyCopyRSAPublicModulusAndExponent(SecKeyRef key, CFDataRef *modulu
 	OSStatus                result;
 
     result = SecKeyGetCSSMKey(key, &pubKey);
-	if(result != noErr) {
+	if(result != errSecSuccess) {
 		return result;
 	}
 	hdr = &pubKey->KeyHeader;
@@ -2105,5 +2180,60 @@ CFDataRef SecKeyCopyExponent(SecKeyRef key)
 #endif
 
     return exponentData;
+}
+
+SecKeyRef SecKeyCreatePublicFromPrivate(SecKeyRef privateKey) {
+    OSStatus status = errSecParam;
+    
+    CFDataRef serializedPublic = NULL;
+
+    status = SecKeyCopyPublicBytes(privateKey, &serializedPublic);
+    if ((status == errSecSuccess) && (serializedPublic != NULL)) {
+        SecKeyRef publicKeyRef = SecKeyCreateFromPublicData(kCFAllocatorDefault, SecKeyGetAlgorithmId(privateKey), serializedPublic);
+        CFRelease(serializedPublic);
+        if (publicKeyRef != NULL) {
+            return publicKeyRef;
+        }
+    }
+
+    const void *keys[]      = { kSecClass, kSecValueRef, kSecReturnAttributes };
+    const void *values[]    = { kSecClassKey, privateKey,  kCFBooleanTrue };
+    CFDictionaryRef query= CFDictionaryCreate(NULL, keys, values,
+                                              (sizeof(values) / sizeof(*values)),
+                                              &kCFTypeDictionaryKeyCallBacks,
+                                              &kCFTypeDictionaryValueCallBacks);
+    CFTypeRef foundItem = NULL;
+    status = SecItemCopyMatching(query, &foundItem);
+    
+    if (status == errSecSuccess) {
+        if (CFGetTypeID(foundItem) == CFDictionaryGetTypeID()) {
+            CFMutableDictionaryRef query2 = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+            CFDictionaryAddValue(query2, kSecClass, kSecClassKey);
+            CFDictionaryAddValue(query2, kSecAttrKeyClass, kSecAttrKeyClassPublic);
+            CFDictionaryAddValue(query2, kSecAttrApplicationLabel, CFDictionaryGetValue((CFDictionaryRef)foundItem, kSecAttrApplicationLabel));
+            CFDictionaryAddValue(query2, kSecReturnRef, kCFBooleanTrue);
+
+            CFTypeRef foundKey = NULL;
+            status = SecItemCopyMatching(query2, &foundKey);
+            if (status == errSecSuccess) {
+                if (CFGetTypeID(foundKey) == SecKeyGetTypeID()) {
+                    CFRelease(query);
+                    CFRelease(query2);
+                    CFRelease(foundItem);
+                    return (SecKeyRef)foundKey;
+                } else {
+                    status = errSecItemNotFound;
+                }
+            }
+            CFRelease(query2);
+            
+        } else {
+            status = errSecItemNotFound;
+        }
+        CFRelease(foundItem);
+    }
+   
+    CFRelease(query);
+    return NULL;
 }
 

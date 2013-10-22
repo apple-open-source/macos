@@ -29,7 +29,6 @@
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
 #import "WebHTMLViewInternal.h"
-#import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
 #import <WebKitSystemInterface.h>
 
@@ -186,6 +185,36 @@ static Class customScrollerClass;
 - (BOOL)verticalScrollingAllowed
 {
     return _private->verticalScrollingAllowedButScrollerHidden || [self hasVerticalScroller];
+}
+
+static BOOL shouldRoundScrollOrigin(WebDynamicScrollBarsView *view)
+{
+    NSView *documentView = [view documentView];
+    if (![documentView isKindOfClass:[WebHTMLView class]])
+        return NO;
+
+    Frame* frame = core([(WebHTMLView *)documentView _frame]);
+    if (!frame)
+        return NO;
+    
+    FrameView *frameView = frame->view();
+    if (!frameView)
+        return NO;
+
+    return frameView->hasViewportConstrainedObjects();
+}
+
+- (void)scrollClipView:(NSClipView *)clipView toPoint:(NSPoint)point
+{
+    if (shouldRoundScrollOrigin(self)) {
+        // WebCore isn't yet able to handle subpixel scrolling, as can happen on Retina displays. For
+        // now we'll round to the nearest pixel. Once subpixel layout is enabled in WebCore we may be
+        // able to remove this method entirely.
+        point.x = round(point.x);
+        point.y = round(point.y);
+    }
+
+    [super scrollClipView:clipView toPoint:point];
 }
 
 @end
@@ -412,15 +441,6 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
     // position to 0 (the left) when the view is initially displayed.
     // This call updates the initial position correctly.
     [self adjustForScrollOriginChange];
-
-#if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)
-    NSView *documentView = [self documentView];
-    if ([documentView isKindOfClass:[WebHTMLView class]]) {
-        WebHTMLView *htmlView = (WebHTMLView *)documentView;
-        if ([htmlView _isUsingAcceleratedCompositing])
-            [htmlView _updateLayerHostingViewPosition];
-    }
-#endif
 }
 
 - (BOOL)allowsHorizontalScrolling
@@ -522,7 +542,7 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
     BOOL isContinuous;
     WKGetWheelEventDeltas(event, &deltaX, &deltaY, &isContinuous);
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     NSEventPhase momentumPhase = [event momentumPhase];
     BOOL isLatchingEvent = momentumPhase & NSEventPhaseBegan || momentumPhase & NSEventPhaseStationary;
 #else

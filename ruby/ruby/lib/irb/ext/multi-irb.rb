@@ -1,56 +1,72 @@
 #
 #   irb/multi-irb.rb - multiple irb module
-#   	$Release Version: 0.9.5$
-#   	$Revision: 25814 $
-#   	$Date: 2009-11-17 15:51:29 +0900 (Tue, 17 Nov 2009) $
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38515 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
+#
 #
 IRB.fail CantShiftToMultiIrbMode unless defined?(Thread)
 require "thread"
 
 module IRB
-  # job management class
   class JobManager
-    @RCS_ID='-$Id: multi-irb.rb 25814 2009-11-17 06:51:29Z shyouhei $-'
+    @RCS_ID='-$Id: multi-irb.rb 38515 2012-12-21 05:45:50Z zzak $-'
 
+    # Creates a new JobManager object
     def initialize
       # @jobs = [[thread, irb],...]
       @jobs = []
       @current_job = nil
     end
 
+    # The active irb session
     attr_accessor :current_job
 
+    # The total number of irb sessions, used to set +irb_name+ of the current
+    # Context.
     def n_jobs
       @jobs.size
     end
 
+    # Returns the thread for the given +key+ object, see #search for more
+    # information.
     def thread(key)
-      th, irb = search(key)
+      th, = search(key)
       th
     end
 
+    # Returns the irb session for the given +key+ object, see #search for more
+    # information.
     def irb(key)
-      th, irb = search(key)
+      _, irb = search(key)
       irb
     end
 
+    # Returns the top level thread.
     def main_thread
       @jobs[0][0]
     end
 
+    # Returns the top level irb session.
     def main_irb
       @jobs[0][1]
     end
 
+    # Add the given +irb+ session to the jobs Array.
     def insert(irb)
       @jobs.push [Thread.current, irb]
     end
 
+    # Changes the current active irb session to the given +key+ in the jobs
+    # Array.
+    #
+    # Raises an IrbAlreadyDead exception if the given +key+ is no longer alive.
+    #
+    # If the given irb session is already active, an IrbSwitchedToCurrentThread
+    # exception is raised.
     def switch(key)
       th, irb = search(key)
       IRB.fail IrbAlreadyDead unless th.alive?
@@ -61,14 +77,34 @@ module IRB
       @current_job = irb(Thread.current)
     end
 
+    # Terminates the irb sessions specified by the given +keys+.
+    #
+    # Raises an IrbAlreadyDead exception if one of the given +keys+ is already
+    # terminated.
+    #
+    # See Thread#exit for more information.
     def kill(*keys)
       for key in keys
-	th, irb = search(key)
+	th, _ = search(key)
 	IRB.fail IrbAlreadyDead unless th.alive?
 	th.exit
       end
-    end    
+    end
 
+    # Returns the associated job for the given +key+.
+    #
+    # If given an Integer, it will return the +key+ index for the jobs Array.
+    #
+    # When an instance of Irb is given, it will return the irb session
+    # associated with +key+.
+    #
+    # If given an instance of Thread, it will return the associated thread
+    # +key+ using Object#=== on the jobs Array.
+    #
+    # Otherwise returns the irb session with the same top-level binding as the
+    # given +key+.
+    #
+    # Raises a NoSuchJob exception if no job can be found with the given +key+.
     def search(key)
       job = case key
       when Integer
@@ -84,6 +120,7 @@ module IRB
       job
     end
 
+    # Deletes the job at the given +key+.
     def delete(key)
       case key
       when Integer
@@ -107,6 +144,7 @@ module IRB
       @jobs.push assoc
     end
 
+    # Outputs a list of jobs, see the irb command +irb_jobs+, or +jobs+.
     def inspect
       ary = []
       @jobs.each_index do
@@ -124,8 +162,8 @@ module IRB
 	  t_status = "exited"
 	end
 	ary.push format("#%d->%s on %s (%s: %s)",
-			i, 
-			irb.context.irb_name, 
+			i,
+			irb.context.irb_name,
 			irb.context.main,
 			th,
 			t_status)
@@ -136,22 +174,27 @@ module IRB
 
   @JobManager = JobManager.new
 
+  # The current JobManager in the session
   def IRB.JobManager
     @JobManager
   end
 
+  # The current Context in this session
   def IRB.CurrentContext
     IRB.JobManager.irb(Thread.current).context
   end
 
-  # invoke multi-irb 
+  # Creates a new IRB session, see Irb.new.
+  #
+  # The optional +file+ argument is given to Context.new, along with the
+  # workspace created with the remaining arguments, see WorkSpace.new
   def IRB.irb(file = nil, *main)
     workspace = WorkSpace.new(*main)
     parent_thread = Thread.current
     Thread.start do
       begin
 	irb = Irb.new(workspace, file)
-      rescue 
+      rescue
 	print "Subirb can't start with context(self): ", workspace.main.inspect, "\n"
 	print "return to main irb\n"
 	Thread.pass
@@ -173,12 +216,14 @@ module IRB
       ensure
 	unless system_exit
 	  @JobManager.delete(irb)
-	  if parent_thread.alive?
-	    @JobManager.current_job = @JobManager.irb(parent_thread)
-	    parent_thread.run
-	  else
-	    @JobManager.current_job = @JobManager.main_irb
-	    @JobManager.main_thread.run
+	  if @JobManager.current_job == irb
+	    if parent_thread.alive?
+	      @JobManager.current_job = @JobManager.irb(parent_thread)
+	      parent_thread.run
+	    else
+	      @JobManager.current_job = @JobManager.main_irb
+	      @JobManager.main_thread.run
+	    end
 	  end
 	end
       end

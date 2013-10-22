@@ -22,6 +22,7 @@
 #include "webkitviewportattributes.h"
 
 #include "Chrome.h"
+#include "Document.h"
 #include "Frame.h"
 #include "Page.h"
 #include "webkitglobalsprivate.h"
@@ -32,8 +33,7 @@
 /**
  * SECTION:webkitviewportattributes
  * @short_description: Represents the viewport properties of a web page
- * @see_also: #WebKitWebView::viewport-attributes-recompute-requested
- * @see_also: #WebKitWebView::viewport-attributes-changed
+ * @see_also: #WebKitWebView::viewport-attributes-recompute-requested, #WebKitWebView::viewport-attributes-changed
  *
  * #WebKitViewportAttributes offers the viewport properties to user agents to
  * control the viewport layout. It contains the viewport size, initial scale with limits,
@@ -44,9 +44,9 @@
  * when the viewport attributes are updated in the case of loading web pages contain
  * the viewport properties and calling webkit_viewport_attributes_recompute.
  *
- * If the device size, available size, desktop width, or device DPI needs to be changed due to 
+ * If the device size, available size, desktop width, or device DPI needs to be changed due to
  * a consequence of an explicit browser request (caused by screen rotation, resizing, or similar reasons),
- * You should call #webkit_viewport_attributes_recompute to recompute the viewport properties and 
+ * You should call #webkit_viewport_attributes_recompute to recompute the viewport properties and
  * override those values in the handler of #WebKitWebView::viewport-attributes-recompute-requested signal.
  *
  * For more information on the viewport properties, refer to the Safari reference library at
@@ -68,21 +68,21 @@
  * }
  *
  * /<!-- -->* Handle the viewport-attributes-changed signal to recompute the initial scale factor *<!-- -->/
- * static void 
+ * static void
  * viewport_changed_cb (WebKitWebView* web_view, WebKitViewportAttributes* attributes, gpointer data)
  * {
  *     gfloat initialScale;
  *     g_object_get (G_OBJECT (atributes), "initial-scale-factor", &initialScale, NULL);
  *     webkit_web_view_set_zoom_level (web_view, initialScale);
  * }
- * 
+ *
  * /<!-- -->* Handle the notify::valid signal to initialize the zoom level *<!-- -->/
  * static void
  * viewport_valid_changed_cb (WebKitViewportAttributes* attributes, GParamSpec* pspec, WebKitWebView* web_view)
  * {
  *     gboolean is_valid;
  *     g_object_get (attributes, "valid", &is_valid, NULL);
- *     if (!is_valid) 
+ *     if (!is_valid)
  *         webkit_web_view_set_zoom_level (web_view, 1.0);
  * }
  * </programlisting></informalexample>
@@ -216,10 +216,10 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
     /**
      * WebKitViewportAttributs:desktop-width:
      *
-     * The width of viewport that works well for most web pages designed for 
-     * desktop. This value is initialized to 980 pixels by default and used 
+     * The width of viewport that works well for most web pages designed for
+     * desktop. This value is initialized to 980 pixels by default and used
      * during a viewport attributes recomputation. Also, it can be overriden by 
-     * the handler of WebKitWebView::viewport-attributes-recompute-requested. 
+     * the handler of WebKitWebView::viewport-attributes-recompute-requested.
      * You should not do that unless you have a very good reason.
      *
      * Since: 1.3.8
@@ -238,11 +238,11 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
     /**
      * WebKitViewportAttributs:device-dpi:
      *
-     * The number of dots per inch of the screen. This value is 
-     * initialized to 160 dpi by default and used during a viewport 
-     * attributes recomputation, because it is the dpi of the original 
-     * iPhone and Android devices. Also, it can be overriden by the 
-     * handler of WebKitWebView::viewport-attributes-recompute-requested. 
+     * The number of dots per inch of the screen. This value is
+     * initialized to 160 dpi by default and used during a viewport
+     * attributes recomputation, because it is the dpi of the original
+     * iPhone and Android devices. Also, it can be overriden by the
+     * handler of WebKitWebView::viewport-attributes-recompute-requested.
      * You should not do that unless you have a very good reason.
      *
      * Since: 1.3.8
@@ -261,9 +261,9 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
     /**
      * WebKitViewportAttributs:width:
      *
-     * The width of the viewport. Before getting this property, 
+     * The width of the viewport. Before getting this property,
      * you need to make sure that #WebKitViewportAttributes is valid.
-     * 
+     *
      * Since: 1.3.8
      */
     g_object_class_install_property(gobjectClass,
@@ -318,7 +318,7 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
     /**
      * WebKitViewportAttributs:minimum-scale-factor:
      *
-     * The minimum scale of the viewport. Before getting this property, 
+     * The minimum scale of the viewport. Before getting this property,
      * you need to make sure that #WebKitViewportAttributes is valid.
      *
      * Since: 1.3.8
@@ -337,7 +337,7 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
     /**
      * WebKitViewportAttributs:maximum-scale-factor:
      *
-     * The maximum scale of the viewport. Before getting this property, 
+     * The maximum scale of the viewport. Before getting this property,
      * you need to make sure that #WebKitViewportAttributes is valid.
      *
      * Since: 1.3.8
@@ -376,7 +376,7 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
      * WebKitViewportAttributs:user-scalable:
      *
      * Determines whether or not the user can zoom in and out.
-     * Before getting this property, you need to make sure that 
+     * Before getting this property, you need to make sure that
      * #WebKitViewportAttributes is valid.
      *
      * Since: 1.3.8
@@ -384,7 +384,7 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
     g_object_class_install_property(gobjectClass,
                                     PROP_USER_SCALABLE,
                                     g_param_spec_boolean(
-                                    _("user-scalable"),
+                                    "user-scalable",
                                     _("User Scalable"),
                                     _("Determines whether or not the user can zoom in and out."),
                                     TRUE,
@@ -393,9 +393,9 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
     /**
      * WebKitViewportAttributs:valid:
      *
-     * Determines whether or not the attributes are valid. 
-     * #WebKitViewportAttributes are only valid on pages 
-     * which have a viewport meta tag, and have already 
+     * Determines whether or not the attributes are valid.
+     * #WebKitViewportAttributes are only valid on pages
+     * which have a viewport meta tag, and have already
      * had the attributes calculated.
      *
      * Since: 1.3.8
@@ -403,7 +403,7 @@ static void webkit_viewport_attributes_class_init(WebKitViewportAttributesClass*
     g_object_class_install_property(gobjectClass,
                                     PROP_VALID,
                                     g_param_spec_boolean(
-                                    _("valid"),
+                                    "valid",
                                     _("Valid"),
                                     _("Determines whether or not the attributes are valid, and can be used."),
                                     FALSE,
@@ -521,11 +521,11 @@ void webkitViewportAttributesRecompute(WebKitViewportAttributes* viewportAttribu
     WebKitViewportAttributesPrivate* priv = viewportAttributes->priv;
     WebKitWebView* webView = priv->webView;
 
-    IntRect windowRect(webView->priv->corePage->chrome()->windowRect());
+    IntRect windowRect(webView->priv->corePage->chrome().windowRect());
     priv->deviceWidth = windowRect.width();
     priv->deviceHeight = windowRect.height();
 
-    IntRect rect(webView->priv->corePage->chrome()->pageRect());
+    IntRect rect(webView->priv->corePage->chrome().pageRect());
     priv->availableWidth = rect.width();
     priv->availableHeight = rect.height();
 
@@ -534,8 +534,9 @@ void webkitViewportAttributesRecompute(WebKitViewportAttributes* viewportAttribu
 
     ViewportArguments arguments = webView->priv->corePage->mainFrame()->document()->viewportArguments();
 
-    ViewportAttributes attributes = computeViewportAttributes(arguments, priv->desktopWidth, priv->deviceWidth, priv->deviceHeight, priv->deviceDPI, IntSize(priv->availableWidth, priv->availableHeight));
-    restrictMinimumScaleFactorToViewportSize(attributes, IntSize(priv->availableWidth, priv->availableHeight));
+    float devicePixelRatio = priv->deviceDPI / ViewportArguments::deprecatedTargetDPI;
+    ViewportAttributes attributes = computeViewportAttributes(arguments, priv->desktopWidth, priv->deviceWidth, priv->deviceHeight, devicePixelRatio, IntSize(priv->availableWidth, priv->availableHeight));
+    restrictMinimumScaleFactorToViewportSize(attributes, IntSize(priv->availableWidth, priv->availableHeight), devicePixelRatio);
     restrictScaleFactorToInitialScaleIfNotUserScalable(attributes);
 
     priv->width = attributes.layoutSize.width();
@@ -543,8 +544,8 @@ void webkitViewportAttributesRecompute(WebKitViewportAttributes* viewportAttribu
     priv->initialScaleFactor = attributes.initialScale;
     priv->minimumScaleFactor = attributes.minimumScale;
     priv->maximumScaleFactor = attributes.maximumScale;
-    priv->devicePixelRatio = attributes.devicePixelRatio;
-    priv->userScalable = static_cast<bool>(arguments.userScalable);
+    priv->devicePixelRatio = devicePixelRatio;
+    priv->userScalable = static_cast<bool>(arguments.userZoom);
 
     if (!priv->isValid) {
         priv->isValid = TRUE;
@@ -559,8 +560,8 @@ void webkitViewportAttributesRecompute(WebKitViewportAttributes* viewportAttribu
  * webkit_viewport_attributes_recompute:
  * @viewportAttributes: a #WebKitViewportAttributes
  *
- * Recompute the optimal viewport attributes and emit the viewport-attribute-changed signal. 
- * The viewport-attributes-recompute-requested signal also will be handled to override 
+ * Recompute the optimal viewport attributes and emit the viewport-attribute-changed signal.
+ * The viewport-attributes-recompute-requested signal also will be handled to override
  * the device size, available size, desktop width, or device DPI.
  *
  * Since: 1.3.8

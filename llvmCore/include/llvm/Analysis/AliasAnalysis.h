@@ -46,14 +46,17 @@ class LoadInst;
 class StoreInst;
 class VAArgInst;
 class TargetData;
+class TargetLibraryInfo;
 class Pass;
 class AnalysisUsage;
 class MemTransferInst;
 class MemIntrinsic;
+class DominatorTree;
 
 class AliasAnalysis {
 protected:
   const TargetData *TD;
+  const TargetLibraryInfo *TLI;
 
 private:
   AliasAnalysis *AA;       // Previous Alias Analysis to chain to.
@@ -72,7 +75,7 @@ protected:
 
 public:
   static char ID; // Class identification, replacement for typeinfo
-  AliasAnalysis() : TD(0), AA(0) {}
+  AliasAnalysis() : TD(0), TLI(0), AA(0) {}
   virtual ~AliasAnalysis();  // We want to be subclassed
 
   /// UnknownSize - This is a special value which can be used with the
@@ -84,6 +87,11 @@ public:
   /// null if no TargetData object is available.
   ///
   const TargetData *getTargetData() const { return TD; }
+
+  /// getTargetLibraryInfo - Return a pointer to the current TargetLibraryInfo
+  /// object, or null if no TargetLibraryInfo object is available.
+  ///
+  const TargetLibraryInfo *getTargetLibraryInfo() const { return TLI; }
 
   /// getTypeStoreSize - Return the TargetData store size for the given type,
   /// if known, or a conservative value otherwise.
@@ -184,6 +192,11 @@ public:
   bool isNoAlias(const Value *V1, uint64_t V1Size,
                  const Value *V2, uint64_t V2Size) {
     return isNoAlias(Location(V1, V1Size), Location(V2, V2Size));
+  }
+  
+  /// isNoAlias - A convenience wrapper.
+  bool isNoAlias(const Value *V1, const Value *V2) {
+    return isNoAlias(Location(V1), Location(V2));
   }
   
   /// isMustAlias - A convenience wrapper.
@@ -462,6 +475,18 @@ public:
   virtual ModRefResult getModRefInfo(ImmutableCallSite CS1,
                                      ImmutableCallSite CS2);
 
+  /// callCapturesBefore - Return information about whether a particular call 
+  /// site modifies or reads the specified memory location.
+  ModRefResult callCapturesBefore(const Instruction *I,
+                                  const AliasAnalysis::Location &MemLoc,
+                                  DominatorTree *DT);
+
+  /// callCapturesBefore - A convenience wrapper.
+  ModRefResult callCapturesBefore(const Instruction *I, const Value *P,
+                                  uint64_t Size, DominatorTree *DT) {
+    return callCapturesBefore(I, Location(P, Size), DT);
+  }
+
   //===--------------------------------------------------------------------===//
   /// Higher level methods for querying mod/ref information.
   ///
@@ -567,6 +592,11 @@ bool isNoAliasCall(const Value *V);
 ///    NoAlias returns
 ///
 bool isIdentifiedObject(const Value *V);
+
+/// isKnownNonNull - Return true if this pointer couldn't possibly be null by
+/// its definition.  This returns true for allocas, non-extern-weak globals and
+/// byval arguments.
+bool isKnownNonNull(const Value *V);
 
 } // End llvm namespace
 

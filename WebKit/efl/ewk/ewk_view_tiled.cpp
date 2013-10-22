@@ -21,61 +21,32 @@
 #include "config.h"
 #include "ewk_view.h"
 
-#include "ewk_logging.h"
 #include "ewk_private.h"
-
+#include "ewk_tiled_backing_store_private.h"
+#include "ewk_view_private.h"
 #include <Evas.h>
-#include <RefPtrCairo.h>
 #include <eina_safety_checks.h>
-#include <ewk_tiled_backing_store.h>
 
 static Ewk_View_Smart_Class _parent_sc = EWK_VIEW_SMART_CLASS_INIT_NULL;
 
-static Eina_Bool _ewk_view_tiled_render_cb(void* data, Ewk_Tile* tile, const Eina_Rectangle* area)
+static bool _ewk_view_tiled_render_cb(void* data, Ewk_Tile* tile, const Eina_Rectangle* area)
 {
     Ewk_View_Private_Data* priv = static_cast<Ewk_View_Private_Data*>(data);
-    Eina_Rectangle rect = {area->x + tile->x, area->y + tile->y, area->w, area->h};    
-    int stride;
-    cairo_format_t format;
-
-    if (tile->cspace == EVAS_COLORSPACE_ARGB8888) {
-        stride = tile->width * 4;
-        format = CAIRO_FORMAT_ARGB32;
-    } else if (tile->cspace == EVAS_COLORSPACE_RGB565_A5P) {
-        stride = tile->width * 2;
-        format = CAIRO_FORMAT_RGB16_565;
-    } else {
-        ERR("unknown color space: %d", tile->cspace);
-        return false;
-    }
+    Eina_Rectangle rect = {area->x + tile->x, area->y + tile->y, area->w, area->h};
 
     uint8_t* pixels = static_cast<uint8_t*>(evas_object_image_data_get(tile->image, true));
-    if (!pixels) {
-        ERR("fail to get the pixel data from the image object");
-        return false;
-    }
-    RefPtr<cairo_surface_t> surface = adoptRef(cairo_image_surface_create_for_data(pixels, format, tile->width, tile->height, stride));
-    cairo_status_t status = cairo_surface_status(surface.get());
-    if (status != CAIRO_STATUS_SUCCESS) {
-        ERR("failed to create cairo surface: %s", cairo_status_to_string(status));
-        return false;
-    }
+    Ewk_Paint_Context* context = ewk_paint_context_from_image_data_new(pixels, tile->width, tile->height, tile->cspace);
 
-    RefPtr<cairo_t> cairo = adoptRef(cairo_create(surface.get()));
-    status = cairo_status(cairo.get());
-    if (status != CAIRO_STATUS_SUCCESS) {
-        ERR("failed to create cairo: %s", cairo_status_to_string(status));
-        return false;
-    }
+    ewk_paint_context_translate(context, -tile->x, -tile->y);
+    bool result = ewk_view_paint_contents(priv, context, &rect);
+    ewk_paint_context_free(context);
 
-    cairo_translate(cairo.get(), -tile->x, -tile->y);
-
-    bool result = ewk_view_paint_contents(priv, cairo.get(), &rect);
     evas_object_image_data_set(tile->image, pixels);
+
     return result;
 }
 
-static void* _ewk_view_tiled_updates_process_pre(void* data, Evas_Object* ewkView)
+static void* _ewk_view_tiled_updates_process_pre(void* data, Evas_Object*)
 {
     Ewk_View_Private_Data* priv = static_cast<Ewk_View_Private_Data*>(data);
     ewk_view_layout_if_needed_recursive(priv);
@@ -85,15 +56,14 @@ static void* _ewk_view_tiled_updates_process_pre(void* data, Evas_Object* ewkVie
 static Evas_Object* _ewk_view_tiled_smart_backing_store_add(Ewk_View_Smart_Data* smartData)
 {
     Evas_Object* backingStore = ewk_tiled_backing_store_add(smartData->base.evas);
-    ewk_tiled_backing_store_render_cb_set
-        (backingStore, _ewk_view_tiled_render_cb, smartData->_priv);
+    ewk_tiled_backing_store_render_cb_set(backingStore, _ewk_view_tiled_render_cb, smartData->_priv);
     ewk_tiled_backing_store_updates_process_pre_set
         (backingStore, _ewk_view_tiled_updates_process_pre, smartData->_priv);
     return backingStore;
 }
 
 static void
-_ewk_view_tiled_contents_size_changed_cb(void* data, Evas_Object* ewkView, void* eventInfo)
+_ewk_view_tiled_contents_size_changed_cb(void* data, Evas_Object*, void* eventInfo)
 {
     Evas_Coord* size = static_cast<Evas_Coord*>(eventInfo);
     Ewk_View_Smart_Data* smartData = static_cast<Ewk_View_Smart_Data*>(data);
@@ -119,17 +89,9 @@ static void _ewk_view_tiled_smart_add(Evas_Object* ewkView)
 
 static Eina_Bool _ewk_view_tiled_smart_scrolls_process(Ewk_View_Smart_Data* smartData)
 {
-    const Ewk_Scroll_Request* scrollRequest;
-    const Ewk_Scroll_Request* endOfScrollRequest;
-    size_t count;
-    Evas_Coord contentsWidth, contentsHeight;
-
-    ewk_frame_contents_size_get(smartData->main_frame, &contentsWidth, &contentsHeight);
-
-    scrollRequest = ewk_view_scroll_requests_get(smartData->_priv, &count);
-    endOfScrollRequest = scrollRequest + count;
-    for (; scrollRequest < endOfScrollRequest; scrollRequest++)
-        ewk_tiled_backing_store_scroll_full_offset_add(smartData->backing_store, scrollRequest->dx, scrollRequest->dy);
+    const WTF::Vector<WebCore::IntSize>& scrollOffset = ewk_view_scroll_offsets_get(smartData->_priv);
+    for (size_t i = 0; i < scrollOffset.size(); ++i)
+        ewk_tiled_backing_store_scroll_full_offset_add(smartData->backing_store, scrollOffset[i].width(), scrollOffset[i].height());
 
     return true;
 }
@@ -193,7 +155,7 @@ static void _ewk_view_tiled_smart_zoom_weak_smooth_scale_set(Ewk_View_Smart_Data
     ewk_tiled_backing_store_zoom_weak_smooth_scale_set(smartData->backing_store, smoothScale);
 }
 
-static void _ewk_view_tiled_smart_bg_color_set(Ewk_View_Smart_Data* smartData, unsigned char red, unsigned char green, unsigned char blue, unsigned char alpha)
+static void _ewk_view_tiled_smart_bg_color_set(Ewk_View_Smart_Data* smartData, unsigned char /*red*/, unsigned char /*green*/, unsigned char /*blue*/, unsigned char alpha)
 {
     ewk_tiled_backing_store_alpha_set(smartData->backing_store, alpha < 255);
 }

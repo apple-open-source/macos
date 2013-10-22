@@ -100,8 +100,8 @@ public:
         return m_remoteNPObjectIDValue;
     }
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, NPVariantData&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, NPVariantData&);
 
 private:
     uint32_t m_type;

@@ -95,9 +95,9 @@ static int
 mem_trunc(krb5_storage *sp, off_t offset)
 {
     mem_storage *s = (mem_storage*)sp->data;
-    if((size_t)offset > s->size)
+    if(offset > SIZE_T_MAX || (size_t)offset > s->size)
 	return ERANGE;
-    s->size = offset;
+    s->size = (size_t)offset;
     if ((s->ptr - s->base) > offset)
 	s->ptr = s->base + offset;
     return 0;

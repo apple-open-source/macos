@@ -456,11 +456,12 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(private);
   KEYWORD(linker_private);
   KEYWORD(linker_private_weak);
-  KEYWORD(linker_private_weak_def_auto);
+  KEYWORD(linker_private_weak_def_auto); // FIXME: For backwards compatibility.
   KEYWORD(internal);
   KEYWORD(available_externally);
   KEYWORD(linkonce);
   KEYWORD(linkonce_odr);
+  KEYWORD(linkonce_odr_auto_hide);
   KEYWORD(weak);
   KEYWORD(weak_odr);
   KEYWORD(appending);
@@ -474,6 +475,9 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(extern_weak);
   KEYWORD(external);
   KEYWORD(thread_local);
+  KEYWORD(localdynamic);
+  KEYWORD(initialexec);
+  KEYWORD(localexec);
   KEYWORD(zeroinitializer);
   KEYWORD(undef);
   KEYWORD(null);
@@ -481,6 +485,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(tail);
   KEYWORD(target);
   KEYWORD(triple);
+  KEYWORD(unwind);
   KEYWORD(deplibs);
   KEYWORD(datalayout);
   KEYWORD(volatile);
@@ -505,6 +510,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(asm);
   KEYWORD(sideeffect);
   KEYWORD(alignstack);
+  KEYWORD(inteldialect);
   KEYWORD(gc);
 
   KEYWORD(ccc);
@@ -519,6 +525,9 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(msp430_intrcc);
   KEYWORD(ptx_kernel);
   KEYWORD(ptx_device);
+  KEYWORD(spir_kernel);
+  KEYWORD(spir_func);
+  KEYWORD(intel_ocl_bicc);
 
   KEYWORD(cc);
   KEYWORD(c);
@@ -548,6 +557,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(noimplicitfloat);
   KEYWORD(naked);
   KEYWORD(nonlazybind);
+  KEYWORD(address_safety);
 
   KEYWORD(type);
   KEYWORD(opaque);
@@ -574,6 +584,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   if (Len == strlen(STR) && !memcmp(StartChar, STR, strlen(STR))) { \
     TyVal = LLVMTY; return lltok::Type; }
   TYPEKEYWORD("void",      Type::getVoidTy(Context));
+  TYPEKEYWORD("half",      Type::getHalfTy(Context));
   TYPEKEYWORD("float",     Type::getFloatTy(Context));
   TYPEKEYWORD("double",    Type::getDoubleTy(Context));
   TYPEKEYWORD("x86_fp80",  Type::getX86_FP80Ty(Context));
@@ -620,7 +631,6 @@ lltok::Kind LLLexer::LexIdentifier() {
   INSTKEYWORD(indirectbr,  IndirectBr);
   INSTKEYWORD(invoke,      Invoke);
   INSTKEYWORD(resume,      Resume);
-  INSTKEYWORD(unwind,      Unwind);
   INSTKEYWORD(unreachable, Unreachable);
 
   INSTKEYWORD(alloca,      Alloca);
@@ -671,11 +681,12 @@ lltok::Kind LLLexer::LexIdentifier() {
 ///    HexFP80Constant   0xK[0-9A-Fa-f]+
 ///    HexFP128Constant  0xL[0-9A-Fa-f]+
 ///    HexPPC128Constant 0xM[0-9A-Fa-f]+
+///    HexHalfConstant   0xH[0-9A-Fa-f]+
 lltok::Kind LLLexer::Lex0x() {
   CurPtr = TokStart + 2;
 
   char Kind;
-  if (CurPtr[0] >= 'K' && CurPtr[0] <= 'M') {
+  if ((CurPtr[0] >= 'K' && CurPtr[0] <= 'M') || CurPtr[0] == 'H') {
     Kind = *CurPtr++;
   } else {
     Kind = 'J';
@@ -693,7 +704,7 @@ lltok::Kind LLLexer::Lex0x() {
   if (Kind == 'J') {
     // HexFPConstant - Floating point constant represented in IEEE format as a
     // hexadecimal number for when exponential notation is not precise enough.
-    // Float and double only.
+    // Half, Float, and double only.
     APFloatVal = APFloat(BitsToDouble(HexIntToVal(TokStart+2, CurPtr)));
     return lltok::APFloat;
   }
@@ -715,6 +726,9 @@ lltok::Kind LLLexer::Lex0x() {
     // PPC128HexFPConstant - PowerPC 128-bit in hexadecimal format (16 bytes)
     HexToIntPair(TokStart+3, CurPtr, Pair);
     APFloatVal = APFloat(APInt(128, Pair));
+    return lltok::APFloat;
+  case 'H':
+    APFloatVal = APFloat(APInt(16,HexIntToVal(TokStart+3, CurPtr)));
     return lltok::APFloat;
   }
 }

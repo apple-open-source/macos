@@ -129,30 +129,44 @@ zstyle ':vcs_info:*+*:*' debug false
 ### Truncate Long Hashes
 
 ### Truncate a long hash to 12 characters (which is usually unique enough)
-# NOTE: On Mercurial this will hide the second parent hash during a merge
-# (see an example below on how to retain both parents)
 # Use zformat syntax (remember %i is the hash): %12.12i
 
 # git:
 zstyle ':vcs_info:git*' formats "(%s)-[%12.12i %b]-" # hash & branch
 
-# hg:
-# First, remove the hash from the default 'branchformat':
-zstyle ':vcs_info:hg:*' branchformat '%b'
-# Then add the hash to 'formats' as %i and truncate it to 12 chars:
-zstyle ':vcs_info:hg:*' formats ' (%s)-[%12.12i %b]-'
 
-### hg: Truncate long hash to 12-chars but also allow for multiple parents
-# Hashes are joined with a + to mirror the output of `hg id`.
-zstyle ':vcs_info:hg+set-hgrev-format:*' hooks hg-shorthash
-function +vi-hg-shorthash() {
-    local -a parents
+### Fetch the full 40-character Mercurial revision id
+# There is no great way to obtain branch, local rev, and untracked changes in
+# addition to the full 40-character global rev id with a single invocation of
+# Mercurial. This hook obtains the full global rev id using hexdump (in the
+# same way the use-simple flag does) while retaining all the other vcs_info
+# default functionality and information.
+zstyle ':vcs_info:hg*+set-message:*' hooks hg-fullglobalrev
 
-    parents=( ${(s:+:)hook_com[hash]} )
-    parents=( ${(@r:12:)parents} )
-    hook_com[rev-replace]=${(j:+:)parents}
+# Output the full 40-char global rev id
+function +vi-hg-fullglobalrev() {
+    local dirstatefile="${hook_com[base]}/.hg/dirstate"
+    local grevid="$(hexdump -n 20 -e '1/1 "%02x"' ${dirstatefile})"
+    # Omit %h from your hgrevformat since it will be included below
+    hook_com[revision]="${hook_com[revision]} ${grevid}"
+}
 
-    ret=1
+
+### Display the existence of files not yet known to VCS
+
+### git: Show marker (T) if there are untracked files in repository
+# Make sure you have added staged to your 'formats':  %c
+zstyle ':vcs_info:git*+set-message:*' hooks git-untracked
+
++vi-git-untracked(){
+    if [[ $(git rev-parse --is-inside-work-tree 2> /dev/null) == 'true' ]] && \
+        git status --porcelain | grep '??' &> /dev/null ; then
+        # This will show the marker if there are any untracked files in repo.
+        # If instead you want to show the marker only if there are untracked
+        # files in $PWD, use:
+        #[[ -n $(git ls-files --others --exclude-standard) ]] ; then
+        hook_com[staged]+='T'
+    fi
 }
 
 
@@ -188,7 +202,11 @@ function +vi-git-remotebranch() {
     remote=${$(git rev-parse --verify ${hook_com[branch]}@{upstream} \
         --symbolic-full-name 2>/dev/null)/refs\/remotes\/}
 
+    # The first test will show a tracking branch whenever there is one. The
+    # second test, however, will only show the remote branch's name if it
+    # differs from the local one.
     if [[ -n ${remote} ]] ; then
+    #if [[ -n ${remote} && ${remote#*/} != ${hook_com[branch]} ]] ; then
         hook_com[branch]="${hook_com[branch]} [${remote}]"
     fi
 }
@@ -371,9 +389,9 @@ function foobar() {
 }
 
 # In standalone-mode, vcs_info pretends as if quilt actually was a VCS.
-# Well, kind of. The vcs string is set to '-quilt-'. So let's define a
-# format just for that mode:
-zstyle ':vcs_info:-quilt-:*' formats " [%s%Q]-"
+# Well, kind of. The vcs string is set to '-quilt-.quilt-standalone'. So let's
+# define a format just for that mode:
+zstyle ':vcs_info:-quilt-.quilt-standalone:*' formats " [%s%Q]-"
 
 # As with other format insertions, you got total control over what is being
 # inserted. The `%Q' insertion is controlled by the `quiltformat' and
@@ -390,16 +408,16 @@ zstyle ':vcs_info:-quilt-:*' formats " [%s%Q]-"
 # There are two hooks you can use to setup what these contain. Those would be
 # `gen-applied-string' and `gen-unapplied-string'. We'll go with the default
 # here... ...no need to go into every insane detail.
-zstyle ':vcs_info:*' quiltformat '#%p [%n|%c]'
+zstyle ':vcs_info:*' patch-format '#%p [%n|%c]'
 
 # quilt-nopatch-format (default: "no patch applied")
-zstyle ':vcs_info:*' quilt-nopatch-format '#cleeaaaaan!1!!'
+zstyle ':vcs_info:*' nopatch-format '#cleeaaaaan!1!!'
 
 # To retrieve information about unapplied patches, vcs_info invokes `quilt'
 # itself. Even though that's pretty quick, it's not needed for the default
 # behaviour. If we want to have `%c' and `%u' to contain meaningful data,
 # we have to enable retrieval of unapplied data:
-zstyle ':vcs_info:*' quilt-get-unapplied true
+zstyle ':vcs_info:*' get-unapplied true
 
 # With quilt, the location of its patches are configurable. It's either
 # $QUILT_PATCHES or `patches' if that's unset. Let's assume we're a debian

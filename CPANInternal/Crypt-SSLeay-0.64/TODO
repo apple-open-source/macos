@@ -1,0 +1,6 @@
+TODO for Crypt::SSLeay
+
+1. Look at the modules that use Crypt::SSLeay, and see if any useful tests can
+   be created to test functionality they depend on.
+
+2. Threading support (bug #41007 and more).

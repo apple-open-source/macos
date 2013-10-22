@@ -352,8 +352,9 @@ int szerofile(int fdvol, const char *toErase)
     int bsderr = -1;
     int zfd = -1;
     struct stat sb;
-    off_t bytesLeft;
-    ssize_t bufsize, thisTime;
+    uint64_t bytesLeft;     // why is off_t signed?
+    size_t bufsize;
+    ssize_t thisTime;
     void *buf = NULL;
 
     zfd = sopen(fdvol, toErase, O_WRONLY, 0);
@@ -368,12 +369,12 @@ int szerofile(int fdvol, const char *toErase)
         bsderr = 0;
         goto finish;
     }
-    bufsize = MIN(sb.st_size, MAXBSIZE);
+    bufsize = (size_t)MIN(sb.st_size, MAXBSIZE);
     if (!(buf = calloc(1, bufsize)))        goto finish;
 
     // and loop writing the zeros
     for (bytesLeft = sb.st_size; bytesLeft > 0; bytesLeft -= thisTime) {
-        thisTime = MIN(bytesLeft, (unsigned int)bufsize);
+        thisTime = (ssize_t)MIN(bytesLeft, bufsize);
 
         if (write(zfd, buf, thisTime) != thisTime)    goto finish;
     }
@@ -509,7 +510,8 @@ _copyfiledata(int srcfd, struct stat *srcsb, int dstfdvol, const char *dstpath)
     int bsderr = -1;
     int dstfd = -1;
     void *buf = NULL;       // up to MAXBSIZE on the stack is a bad idea
-    ssize_t bufsize, thisTime;
+    size_t bufsize;
+    ssize_t thisTime;
     off_t bytesLeft;
 
     // nuke/open the destination
@@ -518,10 +520,10 @@ _copyfiledata(int srcfd, struct stat *srcsb, int dstfdvol, const char *dstpath)
     if (dstfd == -1)        goto finish;
 
     // and loop with our handy buffer
-    bufsize = MIN(srcsb->st_size, MAXBSIZE);
+    bufsize = (size_t)MIN(srcsb->st_size, MAXBSIZE);
     if (!(buf = malloc(bufsize)))      goto finish;;
     for (bytesLeft = srcsb->st_size; bytesLeft > 0; bytesLeft -= thisTime) {
-        thisTime = MIN(bytesLeft, (unsigned int)bufsize);
+        thisTime = (ssize_t)MIN(bytesLeft, (unsigned int)bufsize);
 
         if (read(srcfd, buf, thisTime) != thisTime)     goto finish;
         if (write(dstfd, buf, thisTime) != thisTime)    goto finish;

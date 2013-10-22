@@ -107,17 +107,19 @@ void ResourceHandle::platformSetDefersLoading(bool defersLoading)
     NetworkManager::instance()->setDefersLoading(this, defersLoading);
 }
 
-bool ResourceHandle::start(NetworkingContext* context)
+bool ResourceHandle::start()
 {
-    if (!context || !context->isValid())
+    if (!d->m_context || !d->m_context->isValid())
         return false;
 
     // FIXME: clean up use of Frame now that we have NetworkingContext (see RIM Bug #1515)
-    Frame* frame = static_cast<FrameNetworkingContextBlackBerry*>(context)->frame();
+    Frame* frame = static_cast<FrameNetworkingContextBlackBerry*>(d->m_context.get())->frame();
     if (!frame || !frame->loader() || !frame->loader()->client() || !client())
         return false;
     int playerId = static_cast<FrameLoaderClientBlackBerry*>(frame->loader()->client())->playerId();
-    return NetworkManager::instance()->startJob(playerId, this, *frame, d->m_defersLoading);
+    if (NetworkManager::instance()->startJob(playerId, this, frame, d->m_defersLoading) != BlackBerry::Platform::FilterStream::StatusSuccess)
+        scheduleFailure(InvalidURLFailure);
+    return true;
 }
 
 void ResourceHandle::pauseLoad(bool pause)
@@ -126,18 +128,13 @@ void ResourceHandle::pauseLoad(bool pause)
         NetworkManager::instance()->pauseLoad(this, pause);
 }
 
-bool ResourceHandle::willLoadFromCache(ResourceRequest&, Frame*)
-{
-    notImplemented();
-    return false;
-}
-
 void ResourceHandle::cancel()
 {
     NetworkManager::instance()->stopJob(this);
+    setClient(0);
 }
 
-void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentials, ResourceError& error, ResourceResponse& response, Vector<char>& data)
+void ResourceHandle::platformLoadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentials, ResourceError& error, ResourceResponse& response, Vector<char>& data)
 {
     if (!context || !context->isValid()) {
         ASSERT(false && "loadResourceSynchronously called with invalid networking context");
@@ -161,8 +158,13 @@ void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const
     bool defersLoading = false;
     bool shouldContentSniff = false;
 
-    RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(request, &syncLoader, defersLoading, shouldContentSniff));
-    NetworkManager::instance()->startJob(playerId, handle, *frame, defersLoading);
+    RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(context, request, &syncLoader, defersLoading, shouldContentSniff));
+    int status = NetworkManager::instance()->startJob(playerId, handle, frame, defersLoading);
+    if (status != BlackBerry::Platform::FilterStream::StatusSuccess) {
+        handle->cancel();
+        error = ResourceError(ResourceError::platformErrorDomain, status, request.url().string(), BlackBerry::Platform::String::emptyString());
+        return;
+    }
 
     const double syncLoadTimeOut = 60; // seconds
 

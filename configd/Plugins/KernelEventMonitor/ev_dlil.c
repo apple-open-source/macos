@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006, 2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2006, 2009, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -189,6 +189,66 @@ done:
 #endif /* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
 
 
+#ifdef	KEV_DL_ISSUES
+static CFStringRef
+create_link_issues_key(const char * if_name)
+{
+	CFStringRef	interface;
+	CFStringRef	key;
+
+	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    interface,
+							    kSCEntNetLinkIssues);
+	CFRelease(interface);
+	return (key);
+}
+
+
+__private_extern__
+void
+interface_update_link_issues(const char		*if_name,
+			     uint64_t		timestamp,
+			     uint8_t		*modid,
+			     size_t		modid_size,
+			     uint8_t		*info,
+			     size_t		info_size)
+{
+	CFDataRef		infoData;
+	CFStringRef		key;
+	CFDataRef		modidData;
+	CFMutableDictionaryRef	newDict;
+	CFDateRef		timeStamp;
+
+	key = create_link_issues_key(if_name);
+
+	newDict = copy_entity(key);
+
+	modidData = CFDataCreate(NULL, modid, modid_size);
+	CFDictionarySetValue(newDict, kSCPropNetLinkIssuesModuleID, modidData);
+	CFRelease(modidData);
+
+	if (info_size != 0) {
+		infoData = CFDataCreate(NULL, info, info_size);
+		CFDictionarySetValue(newDict, kSCPropNetLinkIssuesInfo, infoData);
+		CFRelease(infoData);
+	} else {
+		CFDictionaryRemoveValue(newDict, kSCPropNetLinkIssuesInfo);
+	}
+
+	timeStamp = CFDateCreate(NULL, timestamp);
+	CFDictionarySetValue(newDict, kSCPropNetLinkIssuesTimeStamp, timeStamp);
+	CFRelease(timeStamp);
+
+	cache_SCDynamicStoreSetValue(store, key, newDict);
+	CFRelease(newDict);
+	CFRelease(key);
+	return;
+}
+#endif	/* KEV_DL_ISSUES */
+
+
 __private_extern__
 void
 interface_detaching(const char *if_name)
@@ -206,6 +266,7 @@ interface_detaching(const char *if_name)
 	return;
 }
 
+
 static void
 interface_remove(const char *if_name)
 {
@@ -215,11 +276,17 @@ interface_remove(const char *if_name)
 	cache_SCDynamicStoreRemoveValue(store, key);
 	CFRelease(key);
 
-#ifdef KEV_DL_LINK_QUALITY_METRIC_CHANGED
+#ifdef	KEV_DL_LINK_QUALITY_METRIC_CHANGED
 	key = create_linkquality_key(if_name);
 	cache_SCDynamicStoreRemoveValue(store, key);
 	CFRelease(key);
-#endif /* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
+#endif	/* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
+
+#ifdef	KEV_DL_ISSUES
+	key = create_link_issues_key(if_name);
+	cache_SCDynamicStoreRemoveValue(store, key);
+	CFRelease(key);
+#endif	/* KEV_DL_ISSUES */
 
 	return;
 }
@@ -268,7 +335,6 @@ link_update_status(const char *if_name, boolean_t attach)
 		close(sock);
 	return;
 }
-
 
 __private_extern__
 void

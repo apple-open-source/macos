@@ -19,8 +19,9 @@ CFStringRef kSecKeyAttributeName = CFSTR("KEY"), kSecSignatureAttributeName = CF
 // Internally we force kSecInputIsAttributeName to one of these 3 things, you can use == rather then CFStringCompare once that happens
 CFStringRef kSecInputIsPlainText = CFSTR("PlainText"), kSecInputIsDigest = CFSTR("Digest"), kSecInputIsRaw = CFSTR("Raw");
 
+static
 CFErrorRef do_sec_fail(OSStatus code, const char *func, const char *file, int line) {
-	CFStringRef msg = CFStringCreateWithFormat(NULL, NULL, CFSTR("Internal error #%x at %s %s:%d"), code, func, file, line);
+	CFStringRef msg = CFStringCreateWithFormat(NULL, NULL, CFSTR("Internal error #%x at %s %s:%d"), (unsigned)code, func, file, line);
 	CFErrorRef err = fancy_error(CFSTR("Internal CSSM error"), code, msg);
 	CFRelease(msg);
 	
@@ -32,6 +33,7 @@ CFErrorRef do_sec_fail(OSStatus code, const char *func, const char *file, int li
 }
 #define GET_SEC_FAIL(err) do_sec_fail(err, __func__, __FILE__, __LINE__)
 
+static
 CFErrorRef accumulate_data(CFMutableArrayRef *a, CFDataRef d) {
 	if (!*a) {
 		*a = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -53,6 +55,7 @@ CFErrorRef accumulate_data(CFMutableArrayRef *a, CFDataRef d) {
 	return NULL;
 }
 
+static
 CFErrorRef fetch_and_clear_accumulated_data(CFMutableArrayRef *a, CFDataRef *data_out) {
 	if (!*a) {
 		*data_out = CFDataCreate(NULL, NULL, 0);
@@ -109,6 +112,7 @@ struct digest_mapping {
 	CSSM_ALGORITHMS plain_text_algo, digest_algo;
 };
 
+static
 Boolean digest_mapping_equal(struct digest_mapping *a, struct digest_mapping *b) {
 	if (a == b) {
 		return TRUE;
@@ -121,10 +125,12 @@ Boolean digest_mapping_equal(struct digest_mapping *a, struct digest_mapping *b)
 	return FALSE;
 }
 
+static
 CFHashCode digest_mapping_hash(struct digest_mapping *dm) {
 	return CFHash(dm->digest_name) + dm->kclass + dm->digest_length;
 }
 
+static
 CSSM_ALGORITHMS alg_for_signature_context(CFStringRef input_is, const struct digest_mapping *dm) {
 	if (!CFStringCompare(kSecInputIsPlainText, input_is, 0)) {
 		return dm->plain_text_algo;
@@ -135,6 +141,7 @@ CSSM_ALGORITHMS alg_for_signature_context(CFStringRef input_is, const struct dig
 	}
 }
 
+static
 CFErrorRef pick_sign_alg(CFStringRef digest, int digest_length, const CSSM_KEY *ckey, struct digest_mapping **picked) {
 	static dispatch_once_t once = 0;
 	static CFMutableSetRef algos = NULL;
@@ -554,8 +561,9 @@ static SecTransformInstanceBlock VerifyTransform(CFStringRef name,
 					CSSM_DATA c_d;
 					c_d.Data = (void*)CFDataGetBytePtr(alldata);
 					c_d.Length = CFDataGetLength(alldata);
-					
 					rc = CSSM_VerifyData(cch, &c_d, 1, (input_is == kSecInputIsDigest) ? verify_alg->digest_algo : CSSM_ALGID_NONE, &sig);
+                    CFRelease(alldata);
+
 				}
 				CSSM_DeleteContext(cch);
 				if (rc == 0 || rc == CSSMERR_CSP_VERIFY_FAILED) {

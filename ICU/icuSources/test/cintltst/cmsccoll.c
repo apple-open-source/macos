@@ -1,7 +1,7 @@
 
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 2001-2012, International Business Machines Corporation and
+ * Copyright (c) 2001-2013, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*******************************************************************************
@@ -653,6 +653,7 @@ static void testCollator(UCollator *coll, UErrorCode *status) {
       }
     }
     uprv_free(src.source);
+    uprv_free(src.reorderCodes);
   }
 }
 
@@ -1000,6 +1001,7 @@ static void testAgainstUCA(UCollator *coll, UCollator *UCA, const char *refName,
       log_verbose("No immediate difference with Win32!\n");
     }
     uprv_free(src.source);
+    uprv_free(src.reorderCodes);
   }
 }
 
@@ -1287,6 +1289,7 @@ static void testCEs(UCollator *coll, UErrorCode *status) {
             lastContCE = currContCE & 0xFFFFFFBF;
         }
         uprv_free(src.source);
+        uprv_free(src.reorderCodes);
     }
     ucol_close(UCA);
     uprv_delete_collIterate(c);
@@ -1398,12 +1401,20 @@ static void RamsRulesTest(void) {
                 continue;
             }
             if (uprv_strcmp("bn", locName)==0 ||
+                uprv_strcmp("bs", locName)==0 ||            /* Add due to import per cldrbug 5647 */
+                uprv_strcmp("bs_Cyrl", locName)==0 ||       /* Add due to import per cldrbug 5647 */
                 uprv_strcmp("en_US_POSIX", locName)==0 ||
+                uprv_strcmp("fa_AF", locName)==0 ||         /* Add due to import per cldrbug 5647 */
+                uprv_strcmp("he", locName)==0 ||            /* Add due to new tailoring of \u05F3 vs \u0027 per cldrbug 5576 */
+                uprv_strcmp("he_IL", locName)==0 ||         /* Add due to new tailoring of \u05F3 vs \u0027 per cldrbug 5576 */
                 uprv_strcmp("km", locName)==0 ||
                 uprv_strcmp("km_KH", locName)==0 ||
                 uprv_strcmp("my", locName)==0 ||
                 uprv_strcmp("si", locName)==0 ||
                 uprv_strcmp("si_LK", locName)==0 ||
+                uprv_strcmp("sr_Latn", locName)==0 ||       /* Add due to import per cldrbug 5647 */
+                uprv_strcmp("th", locName)==0 ||
+                uprv_strcmp("th_TH", locName)==0 ||
                 uprv_strcmp("zh", locName)==0 ||
                 uprv_strcmp("zh_Hant", locName)==0
             ) {
@@ -4674,7 +4685,7 @@ static void TestBeforeTightening(void) {
 
 }
 
-#if 0
+/*
 &m < a
 &[before 1] a < x <<< X << q <<< Q < z
 assert: m <<< M < x <<< X << q <<< Q < z < a < n
@@ -4732,7 +4743,7 @@ assert:  x <<< X << q <<< Q << m <<< \u24DC <<< M < z < n
 
 &[before 3] \u24DC <<< x <<< X << q <<< Q < z
 assert: m <<< x <<< X <<< \u24DC <<< M  << q <<< Q < z < n
-#endif
+*/
 
 
 #if 0
@@ -5170,7 +5181,7 @@ TestTailor6179(void)
         }
         log_err("\n");
     }
-if(isICUVersionAtLeast(50, 0, 0)) {  /* TODO: debug & fix, see ticket #8982 */
+if(isICUVersionAtLeast(52, 0, 1)) {  /* TODO: debug & fix, see ticket #8982 */
     tLen = u_strlen(tData2[1]);
     rLen = ucol_getSortKey(coll, tData2[1], tLen, resColl, 100);
     if (rLen != LEN(firstSecondaryIgnCE) || uprv_memcmp(resColl, firstSecondaryIgnCE, rLen) != 0) {
@@ -6494,9 +6505,9 @@ static void TestHaniReorderWithOtherRules(void)
     const char* strRules[] = {
         "[reorder Hani] &b<a"
     };
-    const int32_t apiRules[] = {
+    /*const int32_t apiRules[] = {
         USCRIPT_HAN
-    };
+    };*/
 
     const static OneTestCase privateUseCharacterStrings[] = {
         { {0x4e00}, {0x0041}, UCOL_LESS },
@@ -6539,7 +6550,7 @@ static void TestMultipleReorder(void)
 /*
  * Test that covers issue reported in ticket 8814
  */
-static void TestReorderWithNumericCollation()
+static void TestReorderWithNumericCollation(void)
 {
     UErrorCode status = U_ZERO_ERROR;
     UCollator  *myCollation;
@@ -6559,7 +6570,6 @@ static void TestReorderWithNumericCollation()
     int32_t fortyThreeP_sortKey_reorder_Length;
     UCollationResult collResult;
     UCollationResult collResultReorder;
-    int i;
 
     log_verbose("Testing reordering with and without numeric collation\n");
 
@@ -6654,6 +6664,7 @@ static void TestImportRulesDeWithPhonebook(void)
   doTestOneTestCase(importTests, LEN(importTests), importRules, LEN(importRules));
 }
 
+#if 0
 static void TestImportRulesFiWithEor(void)
 {
   /* DUCET. */
@@ -6720,6 +6731,7 @@ static void TestImportRulesFiWithEor(void)
   /* doTestOneTestCase(fiEorTests, LEN(fiEorTests), fiEorRules, LEN(fiEorRules)); */
 
 }
+#endif
 
 #if 0
 /*
@@ -7158,8 +7170,7 @@ void addMiscCollTest(TestNode** root)
     TEST(TestHaniReorderWithOtherRules);
     TEST(TestMultipleReorder);
     TEST(TestReorderingAcrossCloning);
-    /* test for ticket 8814 - disabled until resolved */
-    /*TEST(TestReorderWithNumericCollation);*/
+    TEST(TestReorderWithNumericCollation);
     
     TEST(TestCaseLevelBufferOverflow);
 }

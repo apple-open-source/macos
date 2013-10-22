@@ -628,9 +628,12 @@ KLStatus KLCacheHasValidTickets (KLPrincipal         inPrincipal,
                                  char              **outCredCacheName)
 {
     krb5_error_code ret;
-    krb5_creds *ocreds;
+    krb5_creds *ocreds = NULL;
 
     LOG_ENTRY();
+
+    if (outPrincipal)
+	*outPrincipal = NULL;
 
     if (CHECK_VERSION(inKerberosVersion))
 	return LOG_FAILURE(klInvalidVersionErr, "wrong version");
@@ -644,6 +647,9 @@ KLStatus KLCacheHasValidTickets (KLPrincipal         inPrincipal,
 	*outFoundValidTickets =
 	       (ocreds->times.starttime - 10 < t)
 	    && (t < ocreds->times.endtime);
+
+	if (outPrincipal)
+	    (void)heim_krb5_copy_principal(milcontext, ocreds->client, outPrincipal);
 	heim_krb5_free_creds(milcontext, ocreds);
     } else {
 	LOG_FAILURE(ret, "fetch tickets failed");
@@ -651,8 +657,6 @@ KLStatus KLCacheHasValidTickets (KLPrincipal         inPrincipal,
 	*outFoundValidTickets = 0;
     }
 
-    if (outPrincipal)
-	*outPrincipal = NULL;
 
     return LOG_FAILURE(ret, "KLCacheHasValidTickets");
 }
@@ -960,19 +964,31 @@ KLGetTripletFromPrincipal(KLPrincipal inPrincipal,
 			  char **outRealm)
 {
     LOG_ENTRY();
-    *outInstance = NULL;
+
+    if (outName)
+	*outName = NULL;
+    if (outInstance)
+	*outInstance = NULL;
+    if (outRealm)
+	*outInstance = NULL;
+
     if (inPrincipal == NULL)
 	return klParameterErr;
+
     switch (inPrincipal->name.name_string.len) {
     case 2:
-	*outInstance = strdup(inPrincipal->name.name_string.val[1]);
+	if (outInstance)
+	    *outInstance = strdup(inPrincipal->name.name_string.val[1]);
     case 1:
-	*outName = strdup(inPrincipal->name.name_string.val[0]);
+	if (outName)
+	    *outName = strdup(inPrincipal->name.name_string.val[0]);
 	break;
     default:
 	return klInvalidOptionErr;
     }
-    *outRealm = strdup(inPrincipal->realm);
+    if (outRealm)
+	*outRealm = strdup(inPrincipal->realm);
+
     return klNoErr;
 }
 

@@ -53,6 +53,11 @@ PassRefPtr<HTMLButtonElement> HTMLButtonElement::create(const QualifiedName& tag
     return adoptRef(new HTMLButtonElement(tagName, document, form));
 }
 
+void HTMLButtonElement::setType(const AtomicString& type)
+{
+    setAttribute(typeAttr, type);
+}
+
 RenderObject* HTMLButtonElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderButton(this);
@@ -62,15 +67,15 @@ const AtomicString& HTMLButtonElement::formControlType() const
 {
     switch (m_type) {
         case SUBMIT: {
-            DEFINE_STATIC_LOCAL(const AtomicString, submit, ("submit"));
+            DEFINE_STATIC_LOCAL(const AtomicString, submit, ("submit", AtomicString::ConstructFromLiteral));
             return submit;
         }
         case BUTTON: {
-            DEFINE_STATIC_LOCAL(const AtomicString, button, ("button"));
+            DEFINE_STATIC_LOCAL(const AtomicString, button, ("button", AtomicString::ConstructFromLiteral));
             return button;
         }
         case RESET: {
-            DEFINE_STATIC_LOCAL(const AtomicString, reset, ("reset"));
+            DEFINE_STATIC_LOCAL(const AtomicString, reset, ("reset", AtomicString::ConstructFromLiteral));
             return reset;
         }
     }
@@ -90,30 +95,33 @@ bool HTMLButtonElement::isPresentationAttribute(const QualifiedName& name) const
     return HTMLFormControlElement::isPresentationAttribute(name);
 }
 
-void HTMLButtonElement::parseAttribute(Attribute* attr)
+void HTMLButtonElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attr->name() == typeAttr) {
-        if (equalIgnoringCase(attr->value(), "reset"))
+    if (name == typeAttr) {
+        if (equalIgnoringCase(value, "reset"))
             m_type = RESET;
-        else if (equalIgnoringCase(attr->value(), "button"))
+        else if (equalIgnoringCase(value, "button"))
             m_type = BUTTON;
         else
             m_type = SUBMIT;
         setNeedsWillValidateCheck();
     } else
-        HTMLFormControlElement::parseAttribute(attr);
+        HTMLFormControlElement::parseAttribute(name, value);
 }
 
 void HTMLButtonElement::defaultEventHandler(Event* event)
 {
-    if (event->type() == eventNames().DOMActivateEvent && !disabled()) {
+    if (event->type() == eventNames().DOMActivateEvent && !isDisabledFormControl()) {
         if (form() && m_type == SUBMIT) {
             m_isActivatedSubmit = true;
             form()->prepareForSubmission(event);
+            event->setDefaultHandled();
             m_isActivatedSubmit = false; // Do this in case submission was canceled.
         }
-        if (form() && m_type == RESET)
+        if (form() && m_type == RESET) {
             form()->reset();
+            event->setDefaultHandled();
+        }
     }
 
     if (event->isKeyboardEvent()) {
@@ -145,11 +153,18 @@ void HTMLButtonElement::defaultEventHandler(Event* event)
     HTMLFormControlElement::defaultEventHandler(event);
 }
 
+bool HTMLButtonElement::willRespondToMouseClickEvents()
+{
+    if (!isDisabledFormControl() && form() && (m_type == SUBMIT || m_type == RESET))
+        return true;
+    return HTMLFormControlElement::willRespondToMouseClickEvents();
+}
+
 bool HTMLButtonElement::isSuccessfulSubmitButton() const
 {
     // HTML spec says that buttons must have names to be considered successful.
     // However, other browsers do not impose this constraint.
-    return m_type == SUBMIT && !disabled();
+    return m_type == SUBMIT && !isDisabledFormControl();
 }
 
 bool HTMLButtonElement::isActivatedSubmit() const
@@ -173,13 +188,13 @@ bool HTMLButtonElement::appendFormData(FormDataList& formData, bool)
 void HTMLButtonElement::accessKeyAction(bool sendMouseEvents)
 {
     focus();
-    // Send the mouse button events if the caller specified sendMouseEvents
-    dispatchSimulatedClick(0, sendMouseEvents);
+
+    dispatchSimulatedClick(0, sendMouseEvents ? SendMouseUpDownEvents : SendNoEvents);
 }
 
-bool HTMLButtonElement::isURLAttribute(Attribute* attr) const
+bool HTMLButtonElement::isURLAttribute(const Attribute& attribute) const
 {
-    return attr->name() == formactionAttr || HTMLFormControlElement::isURLAttribute(attr);
+    return attribute.name() == formactionAttr || HTMLFormControlElement::isURLAttribute(attribute);
 }
 
 String HTMLButtonElement::value() const

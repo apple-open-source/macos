@@ -22,6 +22,16 @@
 #define __APPLE_UTMPX__
 #define __APPLE_LAUNCHD__
 
+/*
+ * Define '__APPLE_CRYPTO__' to use libosslshim instead of libcrypto (OpenSSL).
+ * You must also change '-lcrypto' to '-losslshim in
+ * openssh.xcodeproj/project.pbxproj (XCode).
+ */
+#ifndef FORCE_USE_OPENSSL
+#define	__APPLE_CRYPTO__
+#endif
+
+
 #if TARGET_OS_EMBEDDED
 #  define _FORTIFY_SOURCE 2
 #  define __APPLE_PRIVPTY__

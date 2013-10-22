@@ -32,6 +32,7 @@
 #ifndef _IO_MIG_MACH_PORT_H_
 #define _IO_MIG_MACH_PORT_H_
 
+#include <dispatch/dispatch.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach/mach.h>
 
@@ -63,6 +64,12 @@ void IOMIGMachPortScheduleWithRunLoop(IOMIGMachPortRef server, CFRunLoopRef runL
 
 CF_EXPORT
 void IOMIGMachPortUnscheduleFromRunLoop(IOMIGMachPortRef server, CFRunLoopRef runLoop, CFStringRef runLoopMode);
+
+CF_EXPORT
+void IOMIGMachPortScheduleWithDispatchQueue(IOMIGMachPortRef server, dispatch_queue_t queue);
+
+CF_EXPORT
+void IOMIGMachPortUnscheduleFromDispatchQueue(IOMIGMachPortRef server, dispatch_queue_t queue);
 
 // PORT CACHE SUPPORT
 CF_EXPORT

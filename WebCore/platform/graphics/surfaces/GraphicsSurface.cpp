@@ -25,25 +25,24 @@
 #if USE(GRAPHICS_SURFACE)
 namespace WebCore {
 
-PassRefPtr<GraphicsSurface> GraphicsSurface::create(const IntSize& size, Flags flags, uint32_t token)
+PassRefPtr<GraphicsSurface> GraphicsSurface::create(const IntSize& size, Flags flags, const GraphicsSurfaceToken& token)
 {
-    RefPtr<GraphicsSurface> surface = adoptRef(new GraphicsSurface(size, flags));
-    if (!surface->platformImport(token))
-        return PassRefPtr<GraphicsSurface>();
-    return surface;
+    return platformImport(size, flags, token);
 }
 
-PassRefPtr<GraphicsSurface> GraphicsSurface::create(const IntSize& size, GraphicsSurface::Flags flags)
+PassRefPtr<GraphicsSurface> GraphicsSurface::create(const IntSize& size, GraphicsSurface::Flags flags, const PlatformGraphicsContext3D shareContext)
 {
-    RefPtr<GraphicsSurface> surface = adoptRef(new GraphicsSurface(size, flags));
-    if (!surface->platformCreate(size, flags))
-        return PassRefPtr<GraphicsSurface>();
-    return surface;
+    return platformCreate(size, flags, shareContext);
 }
 
-uint32_t GraphicsSurface::exportToken()
+GraphicsSurfaceToken GraphicsSurface::exportToken()
 {
     return platformExport();
+}
+
+uint32_t GraphicsSurface::getTextureID()
+{
+    return platformGetTextureID();
 }
 
 PassOwnPtr<GraphicsContext> GraphicsSurface::beginPaint(const IntRect& rect, LockOptions lockOptions)
@@ -59,13 +58,41 @@ void GraphicsSurface::copyToGLTexture(uint32_t target, uint32_t texture, const I
     platformCopyToGLTexture(target, texture, targetRect, offset);
 }
 
-GraphicsSurface::GraphicsSurface(const IntSize& size, Flags flags)
-    : m_size(size)
-    , m_flags(flags)
-    , m_platformSurface(0)
-    , m_texture(0)
-    , m_fbo(0)
+void GraphicsSurface::copyFromTexture(uint32_t texture, const IntRect& sourceRect)
 {
+    platformCopyFromTexture(texture, sourceRect);
+}
+
+void GraphicsSurface::paintToTextureMapper(TextureMapper* textureMapper, const FloatRect& targetRect, const TransformationMatrix& transform, float opacity)
+{
+    platformPaintToTextureMapper(textureMapper, targetRect, transform, opacity);
+}
+
+uint32_t GraphicsSurface::frontBuffer()
+{
+    return platformFrontBuffer();
+}
+
+uint32_t GraphicsSurface::swapBuffers()
+{
+    return platformSwapBuffers();
+}
+
+IntSize GraphicsSurface::size() const
+{
+    return platformSize();
+}
+
+GraphicsSurface::GraphicsSurface(const IntSize&, Flags flags)
+    : m_flags(flags)
+    , m_fbo(0)
+    , m_private(0)
+{
+}
+
+GraphicsSurface::~GraphicsSurface()
+{
+    platformDestroy();
 }
 
 }

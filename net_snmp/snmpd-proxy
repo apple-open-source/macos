@@ -1,0 +1,5 @@
+#!/bin/sh
+
+echo "waiting for the network"
+/usr/sbin/ipconfig waitall
+exec /usr/libexec/snmpd $@

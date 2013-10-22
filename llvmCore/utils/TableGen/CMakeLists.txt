@@ -3,7 +3,6 @@ set(LLVM_REQUIRES_RTTI 1)
 set(LLVM_LINK_COMPONENTS Support)
 
 add_tablegen(llvm-tblgen LLVM
-  ARMDecoderEmitter.cpp
   AsmMatcherEmitter.cpp
   AsmWriterEmitter.cpp
   AsmWriterInst.cpp
@@ -12,26 +11,27 @@ add_tablegen(llvm-tblgen LLVM
   CodeGenDAGPatterns.cpp
   CodeGenInstruction.cpp
   CodeGenRegisters.cpp
+  CodeGenSchedule.cpp
   CodeGenTarget.cpp
   DAGISelEmitter.cpp
   DAGISelMatcherEmitter.cpp
   DAGISelMatcherGen.cpp
   DAGISelMatcherOpt.cpp
   DAGISelMatcher.cpp
+  DFAPacketizerEmitter.cpp
   DisassemblerEmitter.cpp
   EDEmitter.cpp
   FastISelEmitter.cpp
   FixedLenDecoderEmitter.cpp
-  InstrEnumEmitter.cpp
   InstrInfoEmitter.cpp
   IntrinsicEmitter.cpp
   PseudoLoweringEmitter.cpp
   RegisterInfoEmitter.cpp
   SetTheory.cpp
-  StringMatcher.cpp
   SubtargetEmitter.cpp
   TGValueTypes.cpp
   TableGen.cpp
   X86DisassemblerTables.cpp
+  X86ModRMFilters.cpp
   X86RecognizableInstr.cpp
   )

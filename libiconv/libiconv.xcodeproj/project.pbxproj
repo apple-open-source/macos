@@ -7,6 +7,17 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		3F8E80E816A720070006DBE5 /* libiconv_executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 3F8E80F716A720070006DBE5 /* Build configuration list for PBXAggregateTarget "libiconv_executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				3F8E80EB16A720070006DBE5 /* PBXTargetDependency */,
+			);
+			name = libiconv_executables;
+			productName = default;
+		};
 		5976A98B1007BF2D000AD30B /* default */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 5976A9901007BF5F000AD30B /* Build configuration list for PBXAggregateTarget "default" */;
@@ -18,7 +29,6 @@
 			);
 			dependencies = (
 				5976ACFF1007D6B1000AD30B /* PBXTargetDependency */,
-				59004B5F1007D96E00B358A9 /* PBXTargetDependency */,
 				597793CB1007E099001CF0EC /* PBXTargetDependency */,
 			);
 			name = default;
@@ -52,7 +62,6 @@
 		594FCA58100BE61B009FDDA8 /* libcharset.txt in OS licenses */ = {isa = PBXBuildFile; fileRef = 594FCA55100BE609009FDDA8 /* libcharset.txt */; };
 		594FCA59100BE61B009FDDA8 /* libiconv.txt in OS licenses */ = {isa = PBXBuildFile; fileRef = 594FCA56100BE609009FDDA8 /* libiconv.txt */; };
 		594FCA6C100C0026009FDDA8 /* charset.alias in charset.alias */ = {isa = PBXBuildFile; fileRef = 594FCA6B100C0019009FDDA8 /* charset.alias */; };
-		5976AD061007D6C4000AD30B /* libiconv.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5976ACFC1007D6A5000AD30B /* libiconv.2.dylib */; };
 		597793CE1007E249001CF0EC /* libcharset.h in Headers */ = {isa = PBXBuildFile; fileRef = 597793CD1007E228001CF0EC /* libcharset.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		597793DD1007E338001CF0EC /* iconv.c in Sources */ = {isa = PBXBuildFile; fileRef = 5976ABC41007C197000AD30B /* iconv.c */; };
 		597793E21007E4D5001CF0EC /* localcharset.c in Sources */ = {isa = PBXBuildFile; fileRef = 5976AADF1007C196000AD30B /* localcharset.c */; };
@@ -85,19 +94,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		59004B5E1007D96E00B358A9 /* PBXContainerItemProxy */ = {
+		3F8E80EC16A720070006DBE5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 5976A9801007BEBD000AD30B /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 5976AD021007D6B9000AD30B;
 			remoteInfo = iconv;
-		};
-		596D9A18100D3F2A00252A5C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5976A9801007BEBD000AD30B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5976ACFB1007D6A5000AD30B;
-			remoteInfo = libiconv;
 		};
 		5976ACFE1007D6B1000AD30B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -740,7 +742,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5976AD061007D6C4000AD30B /* libiconv.2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1593,7 +1594,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				596D9A19100D3F2A00252A5C /* PBXTargetDependency */,
 			);
 			name = iconv;
 			productName = iconv;
@@ -1714,6 +1714,7 @@
 				59DEB7BD10167B5400E1EAF6 /* table-from */,
 				59B70EBE10168522008739F2 /* genutf8 */,
 				59B70ED010168582008739F2 /* gengb18030z */,
+				3F8E80E816A720070006DBE5 /* libiconv_executables */,
 			);
 		};
 /* End PBXProject section */
@@ -1834,15 +1835,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		59004B5F1007D96E00B358A9 /* PBXTargetDependency */ = {
+		3F8E80EB16A720070006DBE5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 5976AD021007D6B9000AD30B /* iconv */;
-			targetProxy = 59004B5E1007D96E00B358A9 /* PBXContainerItemProxy */;
-		};
-		596D9A19100D3F2A00252A5C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5976ACFB1007D6A5000AD30B /* libiconv */;
-			targetProxy = 596D9A18100D3F2A00252A5C /* PBXContainerItemProxy */;
+			targetProxy = 3F8E80EC16A720070006DBE5 /* PBXContainerItemProxy */;
 		};
 		5976ACFF1007D6B1000AD30B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1887,6 +1883,13 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		3F8E80F816A720070006DBE5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "default copy";
+			};
+			name = Release;
+		};
 		59004B661007D97C00B358A9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F2E308B134150F900D933CA /* libcharset.xcconfig */;
@@ -1930,6 +1933,7 @@
 			buildSettings = {
 				HEADER_SEARCH_PATHS = libiconv;
 				INSTALL_PATH = /usr/bin;
+				OTHER_LDFLAGS = "-liconv";
 				PRODUCT_NAME = iconv;
 			};
 			name = Release;
@@ -1996,6 +2000,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3F8E80F716A720070006DBE5 /* Build configuration list for PBXAggregateTarget "libiconv_executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3F8E80F816A720070006DBE5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		59004B671007D99A00B358A9 /* Build configuration list for PBXNativeTarget "charset" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -49,7 +49,7 @@
 
 /*$OrigId: md5c.c,v 1.2 2001/03/26 08:57:14 matz Exp $ */
 /*$RoughId: md5.c,v 1.2 2001/07/13 19:48:41 knu Exp $ */
-/*$Id: md5.c 11708 2007-02-12 23:01:19Z shyouhei $ */
+/*$Id: md5.c 25189 2009-10-02 12:04:37Z akr $ */
 
 #include "md5.h"
 
@@ -60,6 +60,7 @@
  * A.5 of RFC 1321, reproduced below.
  */
 #include <string.h>
+int
 main()
 {
     static const char *const test[7*2] = {
@@ -100,6 +101,7 @@ main()
  */
 #ifdef COMPUTE_T_VALUES
 #include <math.h>
+int
 main()
 {
     int i;

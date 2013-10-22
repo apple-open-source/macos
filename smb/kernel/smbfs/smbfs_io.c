@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,12 +46,17 @@
 
 #include <sys/smb_apple.h>
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
+#include <netsmb/smb_rq.h>
+#include <netsmb/smb_rq_2.h>
 #include <netsmb/smb_conn.h>
+#include <netsmb/smb_conn_2.h>
 #include <netsmb/smb_subr.h>
 
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
+#include <smbfs/smbfs_subr_2.h>
 #include <netsmb/smb_converter.h>
 
 static int smbfs_fastlookup = 1;
@@ -179,6 +184,7 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 	uint32_t delen;
 	int error = 0;
 	struct smb_share * share = NULL;
+    uint64_t node_ino;
 		
 	/* Do we need to start or restarting the directory listing */
 	offset = uio_offset(uio);
@@ -215,7 +221,14 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 		int ii;
 		
 		for (ii=0; ii < 2; ii++) {
-			uint64_t node_ino = (ii == 0) ? dnp->n_ino : (dnp->n_parent ? dnp->n_parent->n_ino : 2);
+            if (ii == 0) {
+                node_ino = dnp->n_ino;
+            } else {
+                /* Lock protects dnp->n_parent. See <rdar://problem/11824956> */
+                lck_rw_lock_shared(&dnp->n_name_rwlock);
+                node_ino = (dnp->n_parent) ? dnp->n_parent->n_ino : SMBFS_ROOT_INO;
+                lck_rw_unlock_shared(&dnp->n_name_rwlock);
+            }
 
 			delen = smbfs_fill_direntry(&de, "..", ii + 1, DT_DIR, node_ino, flags);
 			/* 
@@ -255,71 +268,65 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 	/* Loop until we end the search or we don't have enough room for the max element */
 	while (uio_resid(uio)) {
 		error = smbfs_findnext(ctx, context);
-		if (error)
+		if (error) {
 			break;
+        }
+        
+        /*
+         * <14430881> If file IDs are supported by this server, skip any
+         * child that has the same id as the current parent that we are
+         * enumerating. Seems like snapshot dirs have the same id as the parent
+         * and that will cause us to deadlock when we find the vnode with same
+         * id and then try to lock it again (deadlock on parent id).
+         */
+        if (SSTOVC(share)->vc_misc_flags & SMBV_HAS_FILEIDS) {
+            if (ctx->f_attr.fa_ino == dnp->n_ino) {
+                SMBDEBUG("Skipping <%s> as it has same ID as parent\n",
+                         ctx->f_LocalName);
+                continue;
+            }
+        }
+        
 		dtype = (ctx->f_attr.fa_attr & SMB_EFA_DIRECTORY) ? DT_DIR : DT_REG;
 		delen = smbfs_fill_direntry(&de, ctx->f_LocalName, ctx->f_LocalNameLen, 
 									dtype, ctx->f_attr.fa_ino, flags);
 		if (smbfs_fastlookup) {
 			vnode_t vp = NULL;
 			
-			error = smbfs_nget(ctx->f_share, vnode_mount(dvp), dvp, ctx->f_LocalName, 
-								ctx->f_LocalNameLen, &ctx->f_attr, &vp, 
-								MAKEENTRY, context);
+			error = smbfs_nget(ctx->f_share, vnode_mount(dvp),
+                               dvp, ctx->f_LocalName, ctx->f_LocalNameLen,
+                               &ctx->f_attr, &vp,
+                               MAKEENTRY, SMBFS_NGET_CREATE_VNODE,
+                               context);
 			if (error == 0) {
 				struct smbnode *np = VTOSMB(vp);
 
 				/* 
 				 * Some applications use the inode as a marker and expect it to 
-				 * be presistent. Currently our inode numbers are create by 
-				 * hashing the name and adding the parent inode number. Once a node
-				 * is create we should try to keep the same inode number though 
-				 * out its life. The smbfs_nget will either create the node or 
+				 * be persistent. If file IDs are not supported by the server, 
+                 * then our inode numbers are created by hashing the name and 
+                 * adding the parent inode number. Once a node is created we 
+                 * should try to keep the same inode number through out its 
+                 * life. The smbfs_nget will either create the node or 
 				 * return one found in the hash table. The one that gets created 
 				 * will use ctx->f_attr.fa_ino, but if its in our hash table it 
 				 * will have its original number. So in either case set the file 
-				 * number to the inode number that was used when the node was created.
+				 * number to the inode number that was used when the node was 
+                 * created.
 				 */
 				if (flags & VNODE_READDIR_EXTENDED)
 					de.de64.d_fileno = np->n_ino;
 				else
 					de.de32.d_fileno = (ino_t)np->n_ino;
-				/*
-				 * The server should always return the correct case of the name
-				 * in the directory listing. We currently assume the remote file 
-				 * system is case insensitive, since we have no way of telling 
-				 * using the protocol. Someday I would like to detect and if the 
-				 * server is case sensitive. So if the node name doesn't match 
-				 * the direcotry listing name, then update the name to match.
-				 * The smbfs_nget routine has already made sure its a case
-				 * insensitive match, this includes the length field.
-				 */
-				if (bcmp(ctx->f_LocalName, np->n_name, ctx->f_LocalNameLen) != 0) {
-					struct componentname cnp;
-					char *new_name;
-					
-					SMBWARNING("Case changed was %s now %s\n", np->n_name, ctx->f_LocalName);
-					/* Different case, update the node */
-					new_name = smb_strndup(ctx->f_LocalName, ctx->f_LocalNameLen);
-					if (new_name) {
-						char *old_name = np->n_name;
-
-						lck_rw_lock_exclusive(&np->n_name_rwlock);
-						np->n_name = new_name;
-						np->n_nmlen = ctx->f_LocalNameLen;
-						lck_rw_unlock_exclusive(&np->n_name_rwlock);
-						/* Reset the cache node */
-						bzero(&cnp, sizeof(cnp));
-						cnp.cn_nameptr = (char *)np->n_name;
-						cnp.cn_namelen = (int)np->n_nmlen;
-						cnp.cn_flags = MAKEENTRY;
-						 /* Remove old entry, wrong case */
-						cache_purge(vp);
-						/* Added new entry, correct case */
-						cache_enter(dvp, vp, &cnp);
-						SMB_FREE(old_name, M_SMBNODENAME);
-					}
-				}
+                
+                /* 
+                 * Enumerates alway return the correct case of the name.
+                 * Update the name and parent if needed.
+                 */
+                smbfs_update_name_par(ctx->f_share, dvp, vp,
+                                      &ctx->f_attr.fa_reqtime,
+                                      ctx->f_LocalName, ctx->f_LocalNameLen);
+                
 				smbnode_unlock(np);	/* Release the smbnode lock */
 				vnode_put(vp);
 			} else  {
@@ -372,7 +379,7 @@ done:
 static char smbzeroes[4096] = { 0 };
 
 static int
-smbfs_zero_fill(struct smb_share *share, uint16_t fid, u_quad_t from, 
+smbfs_zero_fill(struct smb_share *share, SMBFID fid, u_quad_t from,
                 u_quad_t to, int ioflag, vfs_context_t context)
 {
 	user_size_t len;
@@ -388,7 +395,7 @@ smbfs_zero_fill(struct smb_share *share, uint16_t fid, u_quad_t from,
 		len = MIN((to - from), sizeof(smbzeroes));
 		uio_reset(uio, from, UIO_SYSSPACE, UIO_WRITE );
 		uio_addiov(uio, CAST_USER_ADDR_T(&smbzeroes[0]), len);
-		error = smb_write(share, fid, uio, ioflag, context);
+		error = smb_smb_write(share, fid, uio, ioflag, context);
 		if (error)
 			break;
 			/* nothing written */
@@ -413,7 +420,7 @@ smbfs_zero_fill(struct smb_share *share, uint16_t fid, u_quad_t from,
  *
  */
 int 
-smbfs_0extend(struct smb_share *share, uint16_t fid, u_quad_t from, 
+smbfs_0extend(struct smb_share *share, SMBFID fid, u_quad_t from,
               u_quad_t to, int ioflag, vfs_context_t context)
 {
 	int error;
@@ -426,12 +433,12 @@ smbfs_0extend(struct smb_share *share, uint16_t fid, u_quad_t from,
 	if (UNIX_SERVER(SSTOVC(share)))
 		return(0);
 	/* 
-	 * We always zero fill the whole amount if the share is not NTFS. We always 
+	 * We always zero fill the whole amount if the share is FAT based. We always 
 	 * zero fill NT4 servers and Windows 2000 servers. For all others just write 
 	 * one byte of zero data at the eof of file. This will cause the NTFS windows
 	 * servers to zero fill.
 	 */
-	if ((share->ss_fstype != SMB_FS_NTFS) || 
+	if ((share->ss_fstype == SMB_FS_FAT) || 
 		((SSTOVC(share)->vc_flags & SMBV_NT4)) || 
 		((SSTOVC(share)->vc_flags & SMBV_WIN2K_XP))) {
 		error = smbfs_zero_fill(share, fid, from, to, ioflag, context);
@@ -443,7 +450,7 @@ smbfs_0extend(struct smb_share *share, uint16_t fid, u_quad_t from,
 		/* Writing one byte of zero before the eof will force NTFS to zero fill. */
 		uio = uio_create(1, (to - 1) , UIO_SYSSPACE, UIO_WRITE);
 		uio_addiov(uio, CAST_USER_ADDR_T(&onezero), len);
-		error = smb_write(share, fid, uio, ioflag, context);
+		error = smb_smb_write(share, fid, uio, ioflag, context);
 		uio_free(uio);
 	}
 	return(error);
@@ -453,8 +460,8 @@ smbfs_0extend(struct smb_share *share, uint16_t fid, u_quad_t from,
  * The calling routine must hold a reference on the share
  */
 int 
-smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
-             uint16_t fid, vfs_context_t context)
+smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop, 
+             SMBFID fid, vfs_context_t context)
 {
 	int error;
 	user_ssize_t requestsize;
@@ -475,7 +482,7 @@ smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
 	/* adjust size of read */
 	uio_setresid(uiop, requestsize);
 	
-	error = smb_read(share, fid, uiop, context);
+	error = smb_smb_read(share, fid, uiop, context);
 	
 	/* set remaining uio_resid */
 	uio_setresid(uiop, (uio_resid(uiop) + remainder));
@@ -495,7 +502,7 @@ exit:
  */
 int 
 smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop, 
-              uint16_t fid, int ioflag, vfs_context_t context)
+              SMBFID fid, int ioflag, vfs_context_t context)
 {
 	int error = 0;
 
@@ -515,7 +522,7 @@ smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop,
 	}
 
 	if (!error) {
-		error = smb_write(share, fid, uiop, ioflag, context);
+		error = smb_smb_write(share, fid, uiop, ioflag, context);
 	}
 
 	return error;

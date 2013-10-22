@@ -3,7 +3,7 @@ SUBDIRS = \
 	libexslt \
 	xsltproc \
 	doc \
-	@PYTHON_SUBDIR@ \
+	$(PYTHON_SUBDIR) \
 	tests
 
 DIST_SUBDIRS = libxslt libexslt xsltproc python doc tests
@@ -14,6 +14,9 @@ confexec_DATA = xsltConf.sh
 bin_SCRIPTS = xslt-config
 
 dist-hook: cleanup libxslt.spec
+	touch $(distdir)/doc/*.xml
+	touch $(distdir)/doc/EXSLT/*.xml
+	touch $(distdir)/libxslt/*.syms
 	(cd $(srcdir) ; tar -cf - --exclude CVS --exclude .svn win32 vms examples) | (cd $(distdir); tar xf -)
 
 CVS_EXTRA_DIST =
@@ -34,7 +37,7 @@ xsltConf.sh: xsltConf.sh.in Makefile
 	sed -e 's?\@XSLT_LIBDIR\@?$(XSLT_LIBDIR)?g' \
 	    -e 's?\@XSLT_INCLUDEDIR\@?$(XSLT_INCLUDEDIR)?g' \
 	    -e 's?\@VERSION\@?$(VERSION)?g' \
-	    -e 's?\@XSLT_LIBS\@?$(XSLT_LIBS)?g' \
+	    -e 's?\@XSLT_LIBS\@?$(XSLT_LIBS) $(EXTRA_LIBS)?g' \
 	       < $(srcdir)/xsltConf.sh.in > xsltConf.tmp \
 	&& mv xsltConf.tmp xsltConf.sh
 
@@ -46,9 +49,9 @@ dummy:
 
 tests: dummy
 	@echo '## Running the regression test suite'
-	@(cd tests ; $(MAKE) MAKEFLAGS+=--silent tests)
-	@(cd xsltproc ; $(MAKE) MAKEFLAGS+=--silent tests)
-	@(if [ "@PYTHON_SUBDIR@" != "" ] ; then cd python ; $(MAKE) MAKEFLAGS+=--silent tests ; fi)
+	@(cd tests ; $(MAKE) tests)
+	@(cd xsltproc ; $(MAKE) tests)
+	@(if [ "$(PYTHON_SUBDIR)" != "" ] ; then cd python ; $(MAKE) tests ; fi)
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'

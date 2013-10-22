@@ -1,12 +1,11 @@
-/* -*- C -*-
- * $Id: dl.h 11708 2007-02-12 23:01:19Z shyouhei $
- */
-
 #ifndef RUBY_DL_H
 #define RUBY_DL_H
 
 #include <ruby.h>
-#include <dlconfig.h>
+
+#if !defined(FUNC_CDECL)
+#  define FUNC_CDECL(x) x
+#endif
 
 #if defined(HAVE_DLFCN_H)
 # include <dlfcn.h>
@@ -21,293 +20,198 @@
 #define RTLD_NOW 0
 #endif
 #else
-# if defined(HAVE_WINDOWS_H)
+# if defined(_WIN32)
 #   include <windows.h>
-#   define dlclose(ptr) FreeLibrary((HINSTANCE)ptr)
 #   define dlopen(name,flag) ((void*)LoadLibrary(name))
-#   define dlerror()    "unknown error"
-#   define dlsym(handle,name) ((void*)GetProcAddress(handle,name))
+#   define dlerror() strerror(rb_w32_map_errno(GetLastError()))
+#   define dlsym(handle,name) ((void*)GetProcAddress((handle),(name)))
 #   define RTLD_LAZY -1
 #   define RTLD_NOW  -1
 #   define RTLD_GLOBAL -1
 # endif
 #endif
 
-#if !defined(StringValue)
-# define StringValue(v) if(TYPE(v) != T_STRING) v = rb_str_to_str(v)
-#endif
-#if !defined(StringValuePtr)
-# define StringValuePtr(v) RSTRING((TYPE(v) == T_STRING) ? (v) : rb_str_to_str(v))->ptr
-#endif
+#define MAX_CALLBACK 5
+#define DLSTACK_TYPE SIGNED_VALUE
+#define DLSTACK_SIZE (20)
+#define DLSTACK_PROTO \
+    DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,\
+    DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,\
+    DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,\
+    DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE,DLSTACK_TYPE
+#define DLSTACK_ARGS(stack) \
+    (stack)[0],(stack)[1],(stack)[2],(stack)[3],(stack)[4],\
+    (stack)[5],(stack)[6],(stack)[7],(stack)[8],(stack)[9],\
+    (stack)[10],(stack)[11],(stack)[12],(stack)[13],(stack)[14],\
+    (stack)[15],(stack)[16],(stack)[17],(stack)[18],(stack)[19]
 
-#ifdef DEBUG
-#define DEBUG_CODE(b) {printf("DEBUG:%d\n",__LINE__);b;}
-#define DEBUG_CODE2(b1,b2) {printf("DEBUG:%d\n",__LINE__);b1;}
-#else
-#define DEBUG_CODE(b)
-#define DEBUG_CODE2(b1,b2) b2
-#endif
+#define DLSTACK_PROTO0_ void
+#define DLSTACK_PROTO1_ DLSTACK_TYPE
+#define DLSTACK_PROTO2_ DLSTACK_PROTO1_, DLSTACK_TYPE
+#define DLSTACK_PROTO3_ DLSTACK_PROTO2_, DLSTACK_TYPE
+#define DLSTACK_PROTO4_ DLSTACK_PROTO3_, DLSTACK_TYPE
+#define DLSTACK_PROTO4_ DLSTACK_PROTO3_, DLSTACK_TYPE
+#define DLSTACK_PROTO5_ DLSTACK_PROTO4_, DLSTACK_TYPE
+#define DLSTACK_PROTO6_ DLSTACK_PROTO5_, DLSTACK_TYPE
+#define DLSTACK_PROTO7_ DLSTACK_PROTO6_, DLSTACK_TYPE
+#define DLSTACK_PROTO8_ DLSTACK_PROTO7_, DLSTACK_TYPE
+#define DLSTACK_PROTO9_ DLSTACK_PROTO8_, DLSTACK_TYPE
+#define DLSTACK_PROTO10_ DLSTACK_PROTO9_, DLSTACK_TYPE
+#define DLSTACK_PROTO11_ DLSTACK_PROTO10_, DLSTACK_TYPE
+#define DLSTACK_PROTO12_ DLSTACK_PROTO11_, DLSTACK_TYPE
+#define DLSTACK_PROTO13_ DLSTACK_PROTO12_, DLSTACK_TYPE
+#define DLSTACK_PROTO14_ DLSTACK_PROTO13_, DLSTACK_TYPE
+#define DLSTACK_PROTO14_ DLSTACK_PROTO13_, DLSTACK_TYPE
+#define DLSTACK_PROTO15_ DLSTACK_PROTO14_, DLSTACK_TYPE
+#define DLSTACK_PROTO16_ DLSTACK_PROTO15_, DLSTACK_TYPE
+#define DLSTACK_PROTO17_ DLSTACK_PROTO16_, DLSTACK_TYPE
+#define DLSTACK_PROTO18_ DLSTACK_PROTO17_, DLSTACK_TYPE
+#define DLSTACK_PROTO19_ DLSTACK_PROTO18_, DLSTACK_TYPE
+#define DLSTACK_PROTO20_ DLSTACK_PROTO19_, DLSTACK_TYPE
 
-#define VOID_DLTYPE   0x00
-#define CHAR_DLTYPE   0x01
-#define SHORT_DLTYPE  0x02
-#define INT_DLTYPE    0x03
-#define LONG_DLTYPE   0x04
-#define FLOAT_DLTYPE  0x05
-#define DOUBLE_DLTYPE 0x06
-#define VOIDP_DLTYPE  0x07
+/*
+ * Add ",..." as the last argument.
+ * This is required for variable argument functions such
+ * as fprintf() on x86_64-linux.
+ *
+ * http://refspecs.linuxfoundation.org/elf/x86_64-abi-0.95.pdf
+ * page 19:
+ *
+ *   For calls that may call functions that use varargs or stdargs
+ *   (prototype-less calls or calls to functions containing ellipsis
+ *   (...) in the declaration) %al is used as hidden argument to
+ *   specify the number of SSE registers used.
+ */
+#define DLSTACK_PROTO0 void
+#define DLSTACK_PROTO1 DLSTACK_PROTO1_, ...
+#define DLSTACK_PROTO2 DLSTACK_PROTO2_, ...
+#define DLSTACK_PROTO3 DLSTACK_PROTO3_, ...
+#define DLSTACK_PROTO4 DLSTACK_PROTO4_, ...
+#define DLSTACK_PROTO4 DLSTACK_PROTO4_, ...
+#define DLSTACK_PROTO5 DLSTACK_PROTO5_, ...
+#define DLSTACK_PROTO6 DLSTACK_PROTO6_, ...
+#define DLSTACK_PROTO7 DLSTACK_PROTO7_, ...
+#define DLSTACK_PROTO8 DLSTACK_PROTO8_, ...
+#define DLSTACK_PROTO9 DLSTACK_PROTO9_, ...
+#define DLSTACK_PROTO10 DLSTACK_PROTO10_, ...
+#define DLSTACK_PROTO11 DLSTACK_PROTO11_, ...
+#define DLSTACK_PROTO12 DLSTACK_PROTO12_, ...
+#define DLSTACK_PROTO13 DLSTACK_PROTO13_, ...
+#define DLSTACK_PROTO14 DLSTACK_PROTO14_, ...
+#define DLSTACK_PROTO14 DLSTACK_PROTO14_, ...
+#define DLSTACK_PROTO15 DLSTACK_PROTO15_, ...
+#define DLSTACK_PROTO16 DLSTACK_PROTO16_, ...
+#define DLSTACK_PROTO17 DLSTACK_PROTO17_, ...
+#define DLSTACK_PROTO18 DLSTACK_PROTO18_, ...
+#define DLSTACK_PROTO19 DLSTACK_PROTO19_, ...
+#define DLSTACK_PROTO20 DLSTACK_PROTO20_, ...
 
-#define ARG_TYPE(x,i) (((x) & (0x07 << ((i)*3))) >> ((i)*3))
-#define PUSH_ARG(x,t) do{x <<= 3; x |= t;}while(0)
-#define PUSH_0(x) PUSH_ARG(x,VOID_DLTYPE)
-
-#if SIZEOF_INT == SIZEOF_LONG
-# define PUSH_I(x) PUSH_ARG(x,LONG_DLTYPE)
-# define ANY2I(x)  x.l
-# define DLINT(x)  (long)x
-#else
-# define PUSH_I(x) PUSH_ARG(x,INT_DLTYPE)
-# define ANY2I(x)  x.i
-# define DLINT(x)  (int)x
-#endif
-#define PUSH_L(x) PUSH_ARG(x,LONG_DLTYPE)
-#define ANY2L(x)  x.l
-#define DLLONG(x) (long)x
-
-#if defined(WITH_TYPE_FLOAT)
-# if SIZEOF_FLOAT == SIZEOF_DOUBLE
-#   define PUSH_F(x) PUSH_ARG(x,DOUBLE_DLTYPE)
-#   define ANY2F(x)  (x.d)
-#   define DLFLOAT(x) ((double)x)
-# else
-#   define PUSH_F(x) PUSH_ARG(x,FLOAT_DLTYPE)
-#   define ANY2F(x)  (x.f)
-#   define DLFLOAT(x) ((float)x)
-# endif
-#else
-# define PUSH_F(x) PUSH_ARG(x,DOUBLE_DLTYPE)
-# define ANY2F(x)  (x.d)
-# define DLFLOAT(x) ((double)x)
-#endif
-#define PUSH_D(x) PUSH_ARG(x,DOUBLE_DLTYPE)
-#define ANY2D(x)  (x.d)
-#define DLDOUBLE(x) ((double)x)
-
-#if SIZEOF_INT == SIZEOF_VOIDP && SIZEOF_INT != SIZEOF_LONG
-# define PUSH_P(x) PUSH_ARG(x,INT_DLTYPE)
-# define ANY2P(x)  (x.i)
-# define DLVOIDP(x) ((int)x)
-#elif SIZEOF_LONG == SIZEOF_VOIDP
-# define PUSH_P(x) PUSH_ARG(x,LONG_DLTYPE)
-# define ANY2P(x)  (x.l)
-# define DLVOIDP(x) ((long)x)
-#else
-# define PUSH_P(x) PUSH_ARG(x,VOIDP_DLTYPE)
-# define ANY2P(x)  (x.p)
-# define DLVOIDP(x) ((void*)p)
-#endif
-
-#if defined(WITH_TYPE_CHAR)
-# define PUSH_C(x) PUSH_ARG(x,CHAR_DLTYPE)
-# define ANY2C(x)  (x.c)
-# define DLCHAR(x) ((char)x)
-#else
-# define PUSH_C(x) PUSH_I(x)
-# define ANY2C(x)  ANY2I(x)
-# define DLCHAR(x) DLINT(x)
-#endif
-
-#if defined(WITH_TYPE_SHORT)
-# define PUSH_H(x) PUSH_ARG(x,SHORT_DLTYPE)
-# define ANY2H(x)  (x.h)
-# define DLSHORT(x) ((short)x)
-#else
-# define PUSH_H(x) PUSH_I(x)
-# define ANY2H(x)  ANY2I(x)
-# define DLSHORT(x) DLINT(x)
-#endif
-
-#define PUSH_S(x) PUSH_P(x)
-#define ANY2S(x) ANY2P(x)
-#define DLSTR(x) DLVOIDP(x)
-
-#define CBPUSH_0(x) PUSH_0(x)
-#define CBPUSH_C(x) PUSH_C(x)
-#define CBPUSH_H(x) PUSH_H(x)
-#define CBPUSH_I(x) PUSH_I(x)
-#define CBPUSH_L(x) PUSH_L(x)
-#define CBPUSH_F(x) PUSH_F(x)
-#define CBPUSH_D(x) PUSH_D(x)
-#if defined(WITH_CBTYPE_VOIDP)
-# define CBPUSH_P(x) PUSH_ARG(x,VOIDP_DLTYPE)
-#else
-# define CBPUSH_P(x) PUSH_P(x)
-#endif
-
-
-#if defined(USE_INLINE_ASM)
-# if defined(__i386__) && defined(__GNUC__)
-#   define DLSTACK
-#   define DLSTACK_METHOD "asm"
-#   define DLSTACK_REVERSE
-#   define DLSTACK_PROTO
-#   define DLSTACK_ARGS
-#   define DLSTACK_START(sym)
-#   define DLSTACK_END(sym)
-#   define DLSTACK_PUSH_C(x) asm volatile ("pushl %0" :: "g" (x));
-#   define DLSTACK_PUSH_H(x) asm volatile ("pushl %0" :: "g" (x));
-#   define DLSTACK_PUSH_I(x) asm volatile ("pushl %0" :: "g" (x));
-#   define DLSTACK_PUSH_L(x) asm volatile ("pushl %0" :: "g" (x));
-#   define DLSTACK_PUSH_P(x) asm volatile ("pushl %0" :: "g" (x));
-#   define DLSTACK_PUSH_F(x) asm volatile ("flds %0"::"g"(x));\
-                             asm volatile ("subl $4,%esp");\
-                             asm volatile ("fstps (%esp)");
-#   define DLSTACK_PUSH_D(x) asm volatile ("fldl %0"::"g"(x));\
-                             asm volatile ("subl $8,%esp");\
-                             asm volatile ("fstpl (%esp)")
-# else
-# error --with-asm is not supported on this machine
-# endif
-#elif defined(USE_DLSTACK)
-# define DLSTACK
-# define DLSTACK_GUARD
-# define DLSTACK_METHOD "dl"
-# define DLSTACK_PROTO long,long,long,long,long,\
-                       long,long,long,long,long,\
-                       long,long,long,long,long
-# define DLSTACK_ARGS  stack[0],stack[1],stack[2],stack[3],stack[4],\
-                       stack[5],stack[6],stack[7],stack[8],stack[9],\
-                       stack[10],stack[11],stack[12],stack[13],stack[14]
-# define DLSTACK_SIZE  (sizeof(long)*15)
-# define DLSTACK_START(sym)
-# define DLSTACK_END(sym)
-# define DLSTACK_PUSH_C(x)  {long v=(long)x; memcpy(sp,&v,sizeof(long)); sp++;}
-# define DLSTACK_PUSH_H(x)  {long v=(long)x; memcpy(sp,&v,sizeof(long)); sp++;}
-# define DLSTACK_PUSH_I(x)  {long v=(long)x; memcpy(sp,&v,sizeof(long)); sp++;}
-# define DLSTACK_PUSH_L(x)  memcpy(sp,&x,sizeof(long)); sp++;
-# define DLSTACK_PUSH_P(x)  memcpy(sp,&x,sizeof(void*)); sp++;
-# define DLSTACK_PUSH_F(x)  memcpy(sp,&x,sizeof(float)); sp+=sizeof(float)/sizeof(long);
-# define DLSTACK_PUSH_D(x)  memcpy(sp,&x,sizeof(double)); sp+=sizeof(double)/sizeof(long);
-#else
-# define DLSTACK_METHOD "none"
-#endif
+#define DLSTACK_ARGS0(stack)
+#define DLSTACK_ARGS1(stack) (stack)[0]
+#define DLSTACK_ARGS2(stack) DLSTACK_ARGS1(stack), (stack)[1]
+#define DLSTACK_ARGS3(stack) DLSTACK_ARGS2(stack), (stack)[2]
+#define DLSTACK_ARGS4(stack) DLSTACK_ARGS3(stack), (stack)[3]
+#define DLSTACK_ARGS5(stack) DLSTACK_ARGS4(stack), (stack)[4]
+#define DLSTACK_ARGS6(stack) DLSTACK_ARGS5(stack), (stack)[5]
+#define DLSTACK_ARGS7(stack) DLSTACK_ARGS6(stack), (stack)[6]
+#define DLSTACK_ARGS8(stack) DLSTACK_ARGS7(stack), (stack)[7]
+#define DLSTACK_ARGS9(stack) DLSTACK_ARGS8(stack), (stack)[8]
+#define DLSTACK_ARGS10(stack) DLSTACK_ARGS9(stack), (stack)[9]
+#define DLSTACK_ARGS11(stack) DLSTACK_ARGS10(stack), (stack)[10]
+#define DLSTACK_ARGS12(stack) DLSTACK_ARGS11(stack), (stack)[11]
+#define DLSTACK_ARGS13(stack) DLSTACK_ARGS12(stack), (stack)[12]
+#define DLSTACK_ARGS14(stack) DLSTACK_ARGS13(stack), (stack)[13]
+#define DLSTACK_ARGS15(stack) DLSTACK_ARGS14(stack), (stack)[14]
+#define DLSTACK_ARGS16(stack) DLSTACK_ARGS15(stack), (stack)[15]
+#define DLSTACK_ARGS17(stack) DLSTACK_ARGS16(stack), (stack)[16]
+#define DLSTACK_ARGS18(stack) DLSTACK_ARGS17(stack), (stack)[17]
+#define DLSTACK_ARGS19(stack) DLSTACK_ARGS18(stack), (stack)[18]
+#define DLSTACK_ARGS20(stack) DLSTACK_ARGS19(stack), (stack)[19]
 
 extern VALUE rb_mDL;
-extern VALUE rb_mDLMemorySpace;
 extern VALUE rb_cDLHandle;
 extern VALUE rb_cDLSymbol;
-extern VALUE rb_cDLPtrData;
-extern VALUE rb_cDLStructData;
-
 extern VALUE rb_eDLError;
 extern VALUE rb_eDLTypeError;
 
-#if defined(LONG2NUM) && (SIZEOF_LONG == SIZEOF_VOIDP)
-# define DLLONG2NUM(x) LONG2NUM((long)x)
-# define DLNUM2LONG(x) (long)(NUM2LONG(x))
+#define ALIGN_OF(type) offsetof(struct {char align_c; type align_x;}, align_x)
+
+#define ALIGN_VOIDP  ALIGN_OF(void*)
+#define ALIGN_SHORT  ALIGN_OF(short)
+#define ALIGN_CHAR   ALIGN_OF(char)
+#define ALIGN_INT    ALIGN_OF(int)
+#define ALIGN_LONG   ALIGN_OF(long)
+#if HAVE_LONG_LONG
+#define ALIGN_LONG_LONG ALIGN_OF(LONG_LONG)
+#endif
+#define ALIGN_FLOAT  ALIGN_OF(float)
+#define ALIGN_DOUBLE ALIGN_OF(double)
+
+#define DLALIGN(ptr,offset,align) \
+    ((offset) += ((align) - ((uintptr_t)((char *)(ptr) + (offset))) % (align)) % (align))
+
+
+#define DLTYPE_VOID  0
+#define DLTYPE_VOIDP 1
+#define DLTYPE_CHAR  2
+#define DLTYPE_SHORT 3
+#define DLTYPE_INT   4
+#define DLTYPE_LONG  5
+#if HAVE_LONG_LONG
+#define DLTYPE_LONG_LONG 6
+#endif
+#define DLTYPE_FLOAT 7
+#define DLTYPE_DOUBLE 8
+#define MAX_DLTYPE 9
+
+#if SIZEOF_VOIDP == SIZEOF_LONG
+# define PTR2NUM(x)   (ULONG2NUM((unsigned long)(x)))
+# define NUM2PTR(x)   ((void*)(NUM2ULONG(x)))
 #else
-# define DLLONG2NUM(x) INT2NUM((long)x)
-# define DLNUM2LONG(x) (long)(NUM2INT(x))
+/* # error --->> Ruby/DL2 requires sizeof(void*) == sizeof(long) to be compiled. <<--- */
+# define PTR2NUM(x)   (ULL2NUM((unsigned long long)(x)))
+# define NUM2PTR(x)   ((void*)(NUM2ULL(x)))
 #endif
 
-typedef struct { char c; void *x; } s_voidp;
-typedef struct { char c; short x; } s_short;
-typedef struct { char c; int x; } s_int;
-typedef struct { char c; long x; } s_long;
-typedef struct { char c; float x; } s_float;
-typedef struct { char c; double x; } s_double;
+#define BOOL2INT(x)  (((x) == Qtrue)?1:0)
+#define INT2BOOL(x)  ((x)?Qtrue:Qfalse)
 
-#define ALIGN_VOIDP  (sizeof(s_voidp) - sizeof(void *))
-#define ALIGN_SHORT  (sizeof(s_short) - sizeof(short))
-#define ALIGN_INT    (sizeof(s_int) - sizeof(int))
-#define ALIGN_LONG   (sizeof(s_long) - sizeof(long))
-#define ALIGN_FLOAT  (sizeof(s_float) - sizeof(float))
-#define ALIGN_DOUBLE (sizeof(s_double) - sizeof(double))
-
-/* for compatibility */
-#define VOIDP_ALIGN  ALIGN_VOIDP
-#define SHORT_ALIGN  ALIGN_SHORT
-#define INT_ALIGN    ALIGN_INT
-#define LONG_ALIGN   ALIGN_LONG
-#define FLOAT_ALIGN  ALIGN_FLOAT
-#define DOUBLE_ALIGN ALIGN_DOUBLE
-
-#define DLALIGN(ptr,offset,align) {\
-  while( (((unsigned long)((char *)ptr + offset)) % align) != 0 ) offset++;\
-}
-
-typedef void (*freefunc_t)(void *);
-#define DLFREEFUNC(func) ((freefunc_t)(func))
-
-typedef union {
-  void*  p;
-  char   c;
-  short  h;
-  int    i;
-  long   l;
-  float  f;
-  double d;
-  char  *s;
-} ANY_TYPE;
+typedef void (*freefunc_t)(void*);
 
 struct dl_handle {
-  void *ptr;
-  int  open;
-  int  enable_close;
+    void *ptr;
+    int  open;
+    int  enable_close;
 };
 
-struct sym_data {
-  void *func;
-  char *name;
-  char *type;
-  int  len;
-};
 
-enum DLPTR_CTYPE {
-  DLPTR_CTYPE_UNKNOWN,
-  DLPTR_CTYPE_STRUCT,
-  DLPTR_CTYPE_UNION
+struct cfunc_data {
+    void *ptr;
+    char *name;
+    int  type;
+    ID   calltype;
+    VALUE wrap;
 };
+extern ID rbdl_id_cdecl;
+extern ID rbdl_id_stdcall;
+#define CFUNC_CDECL   (rbdl_id_cdecl)
+#define CFUNC_STDCALL (rbdl_id_stdcall)
 
 struct ptr_data {
-  void *ptr;       /* a pointer to the data */
-  freefunc_t free; /* free() */
-  char *stype;      /* array of type specifiers */
-  int  *ssize;      /* size[i] = sizeof(type[i]) > 0 */
-  int  slen;   /* the number of type specifiers */
-  ID   *ids;
-  int  ids_num;
-  int  ctype; /* DLPTR_CTYPE_UNKNOWN, DLPTR_CTYPE_STRUCT, DLPTR_CTYPE_UNION */
-  long size;
+    void *ptr;
+    long size;
+    freefunc_t free;
+    VALUE wrap[2];
 };
 
-#define RDLPTR(obj)  ((struct ptr_data *)(DATA_PTR(obj)))
-#define RDLSYM(obj)  ((struct sym_data *)(DATA_PTR(obj)))
+#define RDL_HANDLE(obj) ((struct dl_handle *)(DATA_PTR(obj)))
+#define RCFUNC_DATA(obj) ((struct cfunc_data *)(DATA_PTR(obj)))
+#define RPTR_DATA(obj) ((struct ptr_data *)(DATA_PTR(obj)))
 
-void dlfree(void*);
-void *dlmalloc(size_t);
-void *dlrealloc(void*,size_t);
-char *dlstrdup(const char *);
-size_t dlsizeof(const char *);
-
-void *rb_ary2cary(char t, VALUE ary, long *size);
-
-/*
-void rb_dlmem_delete(void *ptr);
-void rb_dlmem_aset(void *ptr, VALUE obj);
-VALUE rb_dlmem_aref(void *ptr);
-*/
-
-void dlptr_free(struct ptr_data *data);
-void dlptr_init(VALUE val);
-
+VALUE rb_dlcfunc_new(void (*func)(), int dltype, const char * name, ID calltype);
+int rb_dlcfunc_kind_p(VALUE func);
 VALUE rb_dlptr_new(void *ptr, long size, freefunc_t func);
 VALUE rb_dlptr_new2(VALUE klass, void *ptr, long size, freefunc_t func);
 VALUE rb_dlptr_malloc(long size, freefunc_t func);
-void *rb_dlptr2cptr(VALUE val);
 
-VALUE rb_dlsym_new(void (*func)(), const char *name, const char *type);
-freefunc_t rb_dlsym2csym(VALUE val);
-
-
-#endif /* RUBY_DL_H */
+#endif

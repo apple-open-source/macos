@@ -34,9 +34,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*!
     @typedef SecRandomRef
@@ -58,8 +56,6 @@ extern const SecRandomRef kSecRandomDefault
 int SecRandomCopyBytes(SecRandomRef rnd, size_t count, uint8_t *bytes)
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECRANDOM_H_ */

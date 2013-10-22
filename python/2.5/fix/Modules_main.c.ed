@@ -1,0 +1,6 @@
+/BASE_OPTS/s/Q:S/Q:RS/
+/case 'S':/i
+                case 'R': break; // Ignore
+
+.
+w

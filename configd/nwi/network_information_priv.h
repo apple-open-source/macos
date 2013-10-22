@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,9 @@
 #ifndef _NETWORK_INFORMATION_PRIV_H_
 #define _NETWORK_INFORMATION_PRIV_H_
 
+#include <CommonCrypto/CommonDigest.h>
 #include <net/if.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 #include <netinet/in.h>
@@ -32,25 +34,40 @@
 
 #include "network_information.h"
 
-__private_extern__
-sa_family_t nwi_af_list[2];
+extern const sa_family_t nwi_af_list[2];
 
 #define NWI_IFSTATE_FLAGS_NOT_IN_LIST	0x8
+#define NWI_IFSTATE_FLAGS_HAS_SIGNATURE	0x10
+
+#define	NWI_PTR(type, name)				\
+	union {						\
+		type		name;			\
+		uint64_t	_ ## name ## _p;	\
+	}
 
 typedef uint32_t        Rank;
 
+#pragma pack(4)
 typedef struct _nwi_ifstate {
-	char ifname[IFNAMSIZ];
-	uint64_t flags;
-	nwi_ifstate_t af_alias;
-	Rank rank;
-	int af;
+	char			ifname[IFNAMSIZ];
+	uint64_t		flags;
+	NWI_PTR(nwi_ifstate_t,	af_alias);
+	Rank			rank;
+	sa_family_t		af;
 	union {
-		struct in_addr iaddr;
-		struct in6_addr iaddr6;
+	    struct in_addr	iaddr;
+	    struct in6_addr	iaddr6;
 	};
-	const char* diff_ch;
+	NWI_PTR(const char *,	diff_str);
+	uint64_t		if_generation_count;
+	uint32_t		reach_flags;
+	union {
+	    struct sockaddr_in	vpn_server_address4;
+	    struct sockaddr_in6	vpn_server_address6;
+	} vpn_server_address;
+	unsigned char		signature[CC_SHA1_DIGEST_LENGTH];
 } nwi_ifstate;
+#pragma pack()
 
 /*
  * nwi_state
@@ -71,7 +88,16 @@ typedef struct _nwi_ifstate {
  *| ipv6_start                                  |-------+
  *|                                             |       |
  *|---------------------------------------------+       |ipv6_start stores the index of the start of the v6 list.
- *| ref                                         |       |
+ *| ref (reference count)                       |       |
+ *|                                             |       |
+ *|---------------------------------------------+       |
+ *| svr (TRUE if copied from server)            |       |
+ *|                                             |       |
+ *|---------------------------------------------+       |
+ *| reach_flags_v4                              |       |
+ *|                                             |       |
+ *|---------------------------------------------+       |
+ *| reach_flags_v6                              |       |
  *|                                             |       |
  *|---------------------------------------------+       |
  *| IPv4 nwi_ifstates                           |       |
@@ -92,21 +118,26 @@ typedef struct _nwi_ifstate {
  *|---------------------------------------------+
  *
  */
+#pragma pack(4)
 typedef struct _nwi_state {
-	uint64_t generation_count;
-	uint32_t size;
-	uint32_t ipv4_count;
-	uint32_t ipv6_count;
-	uint32_t ipv6_start;
-	uint32_t ref;
-	nwi_ifstate nwi_ifstates[0];
+	uint64_t	generation_count;
+	uint32_t	size;
+	uint32_t	ipv4_count;
+	uint32_t	ipv6_count;
+	uint32_t	ipv6_start;
+	uint32_t	ref;
+	_Bool		svr;
+	uint32_t	reach_flags_v4;
+	uint32_t	reach_flags_v6;
+	nwi_ifstate	nwi_ifstates[0];
 } nwi_state;
+#pragma pack()
 
 static __inline__ int
 uint32_cmp(uint32_t a, uint32_t b)
 {
 	int		ret;
-	
+
 	if (a == b) {
 		ret = 0;
 	}
@@ -203,50 +234,73 @@ nwi_state_get_ifstate_with_name(nwi_state_t state,
 	return (NULL);
 }
 
-__private_extern__
+static __inline__
+void
+_nwi_ifstate_set_vpn_server(nwi_ifstate_t ifstate, struct sockaddr *serv_addr)
+{
+	size_t len;
+
+	if (serv_addr == NULL) {
+		bzero(&ifstate->vpn_server_address,
+		      sizeof(ifstate->vpn_server_address));
+		return;
+	}
+
+	len = serv_addr->sa_len;
+
+	if (len == 0 || len > sizeof(ifstate->vpn_server_address)) {
+		return;
+	}
+
+	memcpy(&ifstate->vpn_server_address,
+	       serv_addr,
+	       len);
+	return;
+
+}
+
+static __inline__
+void
+_nwi_state_set_reachability_flags(nwi_state_t state, uint32_t reach_flags_v4, uint32_t reach_flags_v6)
+{
+	state->reach_flags_v4 = reach_flags_v4;
+	state->reach_flags_v6 = reach_flags_v6;
+	return;
+}
+
 nwi_state_t
 nwi_state_new(nwi_state_t old_state, int elems);
 
-__private_extern__
 nwi_state_t
 nwi_state_copy_priv(nwi_state_t old_state);
 
-__private_extern__
-void
+nwi_ifstate_t
 nwi_insert_ifstate(nwi_state_t state, const char* ifname, int af,
 		   uint64_t flags, Rank rank,
-		   void * ifa);
+		   void * ifa, struct sockaddr * vpn_server_addr, uint32_t reach_flags);
 
-__private_extern__
+void
+nwi_ifstate_set_signature(nwi_ifstate_t ifstate, uint8_t * signature);
+
 void
 nwi_state_clear(nwi_state_t state, int af);
 
-__private_extern__
 void
 nwi_state_set_last(nwi_state_t state, int af);
 
-__private_extern__
 nwi_state_t
 nwi_state_diff(nwi_state_t old_state, nwi_state_t new_state);
 
-__private_extern__
 void *
 nwi_ifstate_get_address(nwi_ifstate_t ifstate);
 
-__private_extern__
 const char *
 nwi_ifstate_get_diff_str(nwi_ifstate_t ifstate);
 
-__private_extern__
-_Bool
-_nwi_state_store(nwi_state_t state);
-
-__private_extern__
-nwi_state_t
-_nwi_state_copy(void);
-
-__private_extern__
 void
-_nwi_state_dump(int level, nwi_state_t state);
+_nwi_state_update_interface_generations(nwi_state_t old_state, nwi_state_t state, nwi_state_t changes);
+
+void
+_nwi_state_force_refresh();
 
 #endif

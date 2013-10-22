@@ -69,7 +69,9 @@ namespace {
 
 const foo *null_foo = NULL;
 
+bar B;
 extern bar &B1;
+bar &B1 = B;
 extern const bar *B2;
 // test various configurations of const
 const bar &B3 = B1;
@@ -93,8 +95,9 @@ TEST(CastingTest, cast) {
   EXPECT_NE(&F5, null_foo);
   const foo *F6 = cast<foo>(B4);
   EXPECT_NE(F6, null_foo);
-  foo *F7 = cast<foo>(fub());
-  EXPECT_EQ(F7, null_foo);
+  // Can't pass null pointer to cast<>.
+  // foo *F7 = cast<foo>(fub());
+  // EXPECT_EQ(F7, null_foo);
   foo *F8 = B1.baz();
   EXPECT_NE(F8, null_foo);
 }
@@ -119,7 +122,8 @@ TEST(CastingTest, dyn_cast) {
   EXPECT_NE(F2, null_foo);
   const foo *F3 = dyn_cast<foo>(B4);
   EXPECT_NE(F3, null_foo);
-  // foo *F4 = dyn_cast<foo>(fub()); // not permittible
+  // Can't pass null pointer to dyn_cast<>.
+  // foo *F4 = dyn_cast<foo>(fub());
   // EXPECT_EQ(F4, null_foo);
   foo *F5 = B1.daz();
   EXPECT_NE(F5, null_foo);
@@ -145,9 +149,6 @@ TEST(CastingTest, dyn_cast_or_null) {
 //foo &F23 = cast_or_null<foo>(B1);
 //const foo &F24 = cast_or_null<foo>(B3);
 
-
-bar B;
-bar &B1 = B;
 const bar *B2 = &B;
 }  // anonymous namespace
 

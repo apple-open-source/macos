@@ -48,7 +48,7 @@ CodeDirectory::Builder::Builder(HashAlgorithm digestAlgorithm)
 	  mScatterSize(0),
 	  mDir(NULL)
 {
-	mDigestLength = MakeHash<Builder>(this)->digestLength();
+	mDigestLength = (uint32_t)MakeHash<Builder>(this)->digestLength();
 	mSpecial = (unsigned char *)calloc(cdSlotMax, mDigestLength);
 }
 
@@ -160,9 +160,9 @@ CodeDirectory *CodeDirectory::Builder::build()
 	mDir->initialize(total);
 	mDir->version = currentVersion;
 	mDir->flags = mFlags;
-	mDir->nSpecialSlots = mSpecialSlots;
-	mDir->nCodeSlots = mCodeSlots;
-	mDir->codeLimit = mExecLength;
+	mDir->nSpecialSlots = (uint32_t)mSpecialSlots;
+	mDir->nCodeSlots = (uint32_t)mCodeSlots;
+	mDir->codeLimit = (uint32_t)mExecLength;
 	mDir->hashType = mHashType;
 	mDir->hashSize = mDigestLength;
 	if (mPageSize) {
@@ -178,25 +178,25 @@ CodeDirectory *CodeDirectory::Builder::build()
 	size_t offset = sizeof(CodeDirectory);
 
 	if (mScatter) {
-		mDir->scatterOffset = offset;
+		mDir->scatterOffset = (uint32_t)offset;
 		memcpy(mDir->scatterVector(), mScatter, mScatterSize);
 		offset += mScatterSize;
 	}
 
-	mDir->identOffset = offset;
+	mDir->identOffset = (uint32_t)offset;
 	memcpy(mDir->identifier(), mIdentifier.c_str(), identLength);
 	offset += identLength;
 
 	// (add new flexibly-allocated fields here)
 
-	mDir->hashOffset = offset + mSpecialSlots * mDigestLength;
+	mDir->hashOffset = (uint32_t)(offset + mSpecialSlots * mDigestLength);
 	offset += (mSpecialSlots + mCodeSlots) * mDigestLength;
 	assert(offset == total);	// matches allocated size
 	
 	// fill special slots
-	memset((*mDir)[-mSpecialSlots], 0, mDigestLength * mSpecialSlots);
+	memset((*mDir)[(int)-mSpecialSlots], 0, mDigestLength * mSpecialSlots);
 	for (size_t slot = 1; slot <= mSpecialSlots; ++slot)
-		memcpy((*mDir)[-slot], specialSlot(slot), mDigestLength);
+		memcpy((*mDir)[(int)-slot], specialSlot((SpecialSlot)slot), mDigestLength);
 	
 	// fill code slots
 	mExec.seek(mExecOffset);

@@ -7,12 +7,9 @@
 TEMPLATE = lib
 TARGET = WebKit2
 
-load(features)
-
 include(WebKit2.pri)
 
 WEBKIT += wtf javascriptcore webcore
-QT += declarative quick quick-private
 
 CONFIG += staticlib
 
@@ -23,13 +20,16 @@ HEADERS += \
     Platform/CoreIPC/ArgumentEncoder.h \
     Platform/CoreIPC/Arguments.h \
     Platform/CoreIPC/Attachment.h \
-    Platform/CoreIPC/BinarySemaphore.h \
     Platform/CoreIPC/Connection.h \
-    Platform/CoreIPC/CoreIPCMessageKinds.h \
     Platform/CoreIPC/DataReference.h \
     Platform/CoreIPC/HandleMessage.h \
-    Platform/CoreIPC/MessageID.h \
+    Platform/CoreIPC/MessageDecoder.h \
+    Platform/CoreIPC/MessageEncoder.h \
+    Platform/CoreIPC/MessageFlags.h \
+    Platform/CoreIPC/MessageReceiver.h \
+    Platform/CoreIPC/MessageReceiverMap.h \
     Platform/CoreIPC/MessageSender.h \
+    Platform/CoreIPC/StringReference.h \
     Platform/Logging.h \
     Platform/Module.h \
     Platform/PlatformProcessIdentifier.h \
@@ -39,19 +39,24 @@ HEADERS += \
     PluginProcess/PluginCreationParameters.h \
     PluginProcess/PluginProcess.h \
     PluginProcess/WebProcessConnection.h \
+    Shared/API/c/WKArray.h \
     Shared/API/c/WKBase.h \
     Shared/API/c/WKCertificateInfo.h \
     Shared/API/c/WKConnectionRef.h \
     Shared/API/c/WKContextMenuItem.h \
     Shared/API/c/WKContextMenuItemTypes.h \
+    Shared/API/c/WKData.h \
     Shared/API/c/WKDictionary.h \
     Shared/API/c/WKError.h \
     Shared/API/c/WKGeometry.h \
     Shared/API/c/WKGraphicsContext.h \
     Shared/API/c/WKImage.h \
+    Shared/API/c/WKMutableArray.h \
     Shared/API/c/WKMutableDictionary.h \
     Shared/API/c/WKNumber.h \
     Shared/API/c/WKPageLoadTypes.h \
+    Shared/API/c/WKPageVisibilityTypes.h \
+    Shared/API/c/WKPluginInformation.h \
     Shared/API/c/WKRenderLayer.h \
     Shared/API/c/WKRenderObject.h \
     Shared/API/c/WKSecurityOrigin.h \
@@ -66,11 +71,17 @@ HEADERS += \
     Shared/API/c/WKUserContentURLPattern.h \
     Shared/API/c/qt/WKImageQt.h \
     Shared/APIClientTraits.h \
+    Shared/Authentication/AuthenticationManager.h \
     Shared/ShareableBitmap.h \
-    Shared/ShareableSurface.h \
     Shared/CacheModel.h \
+    Shared/ActivityAssertion.h \
     Shared/ChildProcess.h \
+    Shared/ChildProcessProxy.h \
+    Shared/ConnectionStack.h \
     Shared/DictionaryPopupInfo.h \
+    Shared/Downloads/Download.h \
+    Shared/Downloads/DownloadManager.h \
+    Shared/Downloads/qt/QtFileDownloader.h \
     Shared/EditorState.h \
     Shared/FontInfo.h \
     Shared/ImageOptions.h \
@@ -82,6 +93,7 @@ HEADERS += \
     Shared/NativeWebKeyboardEvent.h \
     Shared/NativeWebMouseEvent.h \
     Shared/NativeWebWheelEvent.h \
+    Shared/Network/NetworkProcessSupplement.h \
     Shared/OriginAndDatabases.h \
     Shared/PlatformPopupMenuData.h \
     Shared/PrintInfo.h \
@@ -90,13 +102,12 @@ HEADERS += \
     Shared/SecurityOriginData.h \
     Shared/SessionState.h \
     Shared/StatisticsData.h \
-    Shared/StringPairVector.h \
-    Shared/SurfaceUpdateInfo.h \
     Shared/UpdateInfo.h \
     Shared/UserMessageCoders.h \
     Shared/VisitedLinkTable.h \
     Shared/WebCoreArgumentCoders.h \
     Shared/WebBackForwardListItem.h \
+    Shared/WebBatteryStatus.h \
     Shared/WebCertificateInfo.h \
     Shared/WebConnection.h \
     Shared/WebConnectionClient.h \
@@ -111,7 +122,6 @@ HEADERS += \
     Shared/WebGraphicsContext.h \
     Shared/WebHitTestResult.h \
     Shared/WebImage.h \
-    Shared/WebLayerTreeInfo.h \
     Shared/WebNavigationDataStore.h \
     Shared/WebNumber.h \
     Shared/WebOpenPanelParameters.h \
@@ -125,7 +135,10 @@ HEADERS += \
     Shared/WebURLRequest.h \
     Shared/WebURLResponse.h \
     Shared/WebUserContentURLPattern.h \
+    Shared/CoordinatedGraphics/CoordinatedGraphicsArgumentCoders.h \
+    Shared/CoordinatedGraphics/WebCoordinatedSurface.h \
     Shared/Plugins/Netscape/NetscapePluginModule.h \
+    Shared/Plugins/Netscape/PluginInformation.h \
     Shared/Plugins/NPRemoteObjectMap.h \
     Shared/Plugins/NPIdentifierData.h \
     Shared/Plugins/NPObjectMessageReceiver.h \
@@ -144,6 +157,9 @@ HEADERS += \
     UIProcess/API/C/WKAuthenticationDecisionListener.h \
     UIProcess/API/C/WKBackForwardList.h \
     UIProcess/API/C/WKBackForwardListItem.h \
+    UIProcess/API/C/WKBatteryManager.h \
+    UIProcess/API/C/WKBatteryStatus.h \
+    UIProcess/API/C/WKColorPickerResultListener.h \
     UIProcess/API/C/WKContext.h \
     UIProcess/API/C/WKContextPrivate.h \
     UIProcess/API/C/WKCredential.h \
@@ -155,12 +171,15 @@ HEADERS += \
     UIProcess/API/C/WKGeolocationManager.h \
     UIProcess/API/C/WKGeolocationPermissionRequest.h \
     UIProcess/API/C/WKGeolocationPosition.h \
+    UIProcess/API/C/WKGrammarDetail.h \
     UIProcess/API/C/WKHitTestResult.h \
     UIProcess/API/C/WKIconDatabase.h \
     UIProcess/API/C/WKInspector.h \
     UIProcess/API/C/WKOpenPanelParameters.h \
     UIProcess/API/C/WKOpenPanelResultListener.h \
     UIProcess/API/C/WKNavigationData.h \
+    UIProcess/API/C/WKNetworkInfo.h \
+    UIProcess/API/C/WKNetworkInfoManager.h \
     UIProcess/API/C/WKNotification.h \
     UIProcess/API/C/WKNotificationManager.h \
     UIProcess/API/C/WKNotificationPermissionRequest.h \
@@ -173,66 +192,61 @@ HEADERS += \
     UIProcess/API/C/WKPreferencesPrivate.h \
     UIProcess/API/C/WKProtectionSpace.h \
     UIProcess/API/C/WKProtectionSpaceTypes.h \
-    UIProcess/API/C/WebKit2.h \
+    UIProcess/API/C/WKTextChecker.h \
+    UIProcess/API/C/WKVibration.h \
+    UIProcess/API/C/WebKit2_C.h \
     UIProcess/API/C/qt/WKNativeEvent.h \
+    UIProcess/API/C/qt/WKIconDatabaseQt.h \
     UIProcess/API/cpp/WKRetainPtr.h \
     UIProcess/API/cpp/qt/WKStringQt.h \
     UIProcess/API/cpp/qt/WKURLQt.h \
-    UIProcess/API/qt/qwebpreferences_p.h \
-    UIProcess/API/qt/qwebpreferences_p_p.h \
-    UIProcess/API/qt/qwebdownloaditem_p.h \
-    UIProcess/API/qt/qwebdownloaditem_p_p.h \
-    UIProcess/API/qt/qwebpermissionrequest_p.h \
-    UIProcess/API/qt/qtwebsecurityorigin_p.h \
-    UIProcess/API/qt/qwebloadrequest_p.h \
-    UIProcess/API/qt/qwebnavigationrequest_p.h \
-    UIProcess/API/qt/qquickwebpage_p.h \
-    UIProcess/API/qt/qquickwebpage_p_p.h \
-    UIProcess/API/qt/qwebnavigationhistory_p.h \
-    UIProcess/API/qt/qwebnavigationhistory_p_p.h \
-    UIProcess/API/qt/qquickwebview_p.h \
-    UIProcess/API/qt/qquickwebview_p_p.h \
-    UIProcess/API/qt/qquicknetworkreply_p.h \
-    UIProcess/API/qt/qquicknetworkrequest_p.h \
-    UIProcess/API/qt/qquickurlschemedelegate_p.h \
-    UIProcess/API/qt/qwebviewportinfo_p.h \
+    UIProcess/API/qt/raw/qrawwebview_p.h \
+    UIProcess/API/qt/raw/qrawwebview_p_p.h \
     UIProcess/Authentication/AuthenticationChallengeProxy.h \
     UIProcess/Authentication/AuthenticationDecisionListener.h \
     UIProcess/Authentication/WebCredential.h \
     UIProcess/Authentication/WebProtectionSpace.h \
     UIProcess/BackingStore.h \
     UIProcess/Downloads/DownloadProxy.h \
+    UIProcess/CoordinatedGraphics/CoordinatedLayerTreeHostProxy.h \
+    UIProcess/DefaultUndoController.h \
     UIProcess/DrawingAreaProxy.h \
     UIProcess/DrawingAreaProxyImpl.h \
     UIProcess/FindIndicator.h \
     UIProcess/GenericCallback.h \
     UIProcess/GeolocationPermissionRequestManagerProxy.h \
     UIProcess/GeolocationPermissionRequestProxy.h \
-    UIProcess/InspectorServer/WebInspectorServer.h \
-    UIProcess/InspectorServer/WebSocketServer.h \
-    UIProcess/InspectorServer/WebSocketServerClient.h \
-    UIProcess/InspectorServer/WebSocketServerConnection.h \
-    UIProcess/InspectorServer/qt/WebSocketServerQt.h \
     UIProcess/Launcher/ProcessLauncher.h \
-    UIProcess/Launcher/ThreadLauncher.h \
-    UIProcess/LayerTreeHostProxy.h \
     UIProcess/Notifications/NotificationPermissionRequest.h \
     UIProcess/Notifications/NotificationPermissionRequestManagerProxy.h \
     UIProcess/Notifications/WebNotification.h \
     UIProcess/Notifications/WebNotificationManagerProxy.h \
     UIProcess/Notifications/WebNotificationProvider.h \
     UIProcess/PageClient.h \
+    UIProcess/PageViewportController.h \
+    UIProcess/PageViewportControllerClient.h \
+    UIProcess/Plugins/PlugInAutoStartProvider.h \
     UIProcess/Plugins/PluginInfoStore.h \
     UIProcess/Plugins/PluginProcessProxy.h \
     UIProcess/Plugins/PluginProcessManager.h \
     UIProcess/ProcessModel.h \
     UIProcess/ResponsivenessTimer.h \
+    UIProcess/StatisticsRequest.h \
+    UIProcess/Storage/LocalStorageDatabase.h \
+    UIProcess/Storage/LocalStorageDatabaseTracker.h \
+    UIProcess/Storage/StorageManager.h \
     UIProcess/TextChecker.h \
+    UIProcess/TextCheckerCompletion.h \
     UIProcess/VisitedLinkProvider.h \
     UIProcess/WebApplicationCacheManagerProxy.h \
     UIProcess/WebBackForwardList.h \
+    UIProcess/WebBatteryManagerProxy.h \
+    UIProcess/WebBatteryProvider.h \
+    UIProcess/WebColorChooserProxy.h \
+    UIProcess/WebColorPickerResultListenerProxy.h \
     UIProcess/WebConnectionToWebProcess.h \
     UIProcess/WebContext.h \
+    UIProcess/WebContextClient.h \
     UIProcess/WebContextConnectionClient.h \
     UIProcess/WebContextInjectedBundleClient.h \
     UIProcess/WebContextMenuProxy.h \
@@ -252,12 +266,12 @@ HEADERS += \
     UIProcess/WebFullScreenManagerProxy.h \
     UIProcess/WebGeolocationManagerProxy.h \
     UIProcess/WebGeolocationProvider.h \
+    UIProcess/WebGrammarDetail.h \
     UIProcess/WebHistoryClient.h \
     UIProcess/WebIconDatabase.h \
     UIProcess/WebIconDatabaseClient.h \
     UIProcess/WebInspectorProxy.h \
-    UIProcess/WebKeyValueStorageManagerProxy.h \
-    UIProcess/WebLayerTreeRenderer.h \
+    UIProcess/WebKeyValueStorageManager.h \
     UIProcess/WebLoaderClient.h \
     UIProcess/WebMediaCacheManagerProxy.h \
     UIProcess/WebNavigationData.h \
@@ -269,35 +283,14 @@ HEADERS += \
     UIProcess/WebPreferences.h \
     UIProcess/WebProcessProxy.h \
     UIProcess/WebResourceCacheManagerProxy.h \
-    UIProcess/WebResourceLoadClient.h \
+    UIProcess/WebTextChecker.h \
+    UIProcess/WebTextCheckerClient.h \
     UIProcess/WebUIClient.h \
-    UIProcess/qt/LayerBackingStore.h \
-    UIProcess/qt/QtWebContext.h \
-    UIProcess/qt/QtWebPageEventHandler.h \
-    UIProcess/qt/QtGestureRecognizer.h \
-    UIProcess/qt/QtPanGestureRecognizer.h \
-    UIProcess/qt/QtPinchGestureRecognizer.h \
-    UIProcess/qt/QtTapGestureRecognizer.h \
-    UIProcess/qt/QtWebError.h \
-    UIProcess/qt/QtDialogRunner.h \
-    UIProcess/qt/QtDownloadManager.h \
-    UIProcess/qt/QtPageClient.h \
-    UIProcess/qt/QtWebPageLoadClient.h \
-    UIProcess/qt/QtWebPagePolicyClient.h \
-    UIProcess/qt/QtWebPageSGNode.h \
-    UIProcess/qt/QtWebPageUIClient.h \
-    UIProcess/qt/QtViewportInteractionEngine.h \
-    UIProcess/qt/QtWebUndoController.h \
-    UIProcess/qt/QtWebIconDatabaseClient.h \
-    UIProcess/qt/WebContextMenuProxyQt.h \
-    UIProcess/qt/WebGeolocationProviderQt.h \
-    UIProcess/qt/WebPopupMenuProxyQt.h \
+    UIProcess/WebVibrationProvider.h \
+    UIProcess/WebVibrationProxy.h \
     WebProcess/ApplicationCache/WebApplicationCacheManager.h \
-    WebProcess/Authentication/AuthenticationManager.h \
+    WebProcess/Battery/WebBatteryManager.h \
     WebProcess/Cookies/WebCookieManager.h \
-    WebProcess/Downloads/Download.h \
-    WebProcess/Downloads/DownloadManager.h \
-    WebProcess/Downloads/qt/QtFileDownloader.h \
     WebProcess/FullScreen/WebFullScreenManager.h \
     WebProcess/Geolocation/GeolocationPermissionRequestManager.h \
     WebProcess/Geolocation/WebGeolocationManager.h \
@@ -317,6 +310,7 @@ HEADERS += \
     WebProcess/InjectedBundle/InjectedBundleClient.h \
     WebProcess/InjectedBundle/InjectedBundleDOMWindowExtension.h \
     WebProcess/InjectedBundle/InjectedBundleHitTestResult.h \
+    WebProcess/InjectedBundle/InjectedBundleHitTestResultMediaType.h \
     WebProcess/InjectedBundle/InjectedBundleNavigationAction.h \
     WebProcess/InjectedBundle/InjectedBundlePageContextMenuClient.h \
     WebProcess/InjectedBundle/InjectedBundlePageDiagnosticLoggingClient.h \
@@ -326,8 +320,8 @@ HEADERS += \
     WebProcess/InjectedBundle/InjectedBundlePageUIClient.h \
     WebProcess/InjectedBundle/InjectedBundleScriptWorld.h \
     WebProcess/InjectedBundle/InjectedBundleUserMessageCoders.h \
-    WebProcess/KeyValueStorage/WebKeyValueStorageManager.h \
     WebProcess/MediaCache/WebMediaCacheManager.h \
+    WebProcess/NetworkInfo/WebNetworkInfoManager.h \
     WebProcess/Notifications/NotificationPermissionRequestManager.h \
     WebProcess/Notifications/WebNotificationManager.h \
     WebProcess/ResourceCache/WebResourceCacheManager.h \
@@ -345,7 +339,9 @@ HEADERS += \
     WebProcess/Plugins/PluginProxy.h \
     WebProcess/Plugins/PluginProcessConnection.h \
     WebProcess/Plugins/PluginProcessConnectionManager.h \
+    WebProcess/WebCoreSupport/WebBatteryClient.h \
     WebProcess/WebCoreSupport/WebChromeClient.h \
+    WebProcess/WebCoreSupport/WebColorChooser.h \
     WebProcess/WebCoreSupport/WebContextMenuClient.h \
     WebProcess/WebCoreSupport/WebDatabaseManager.h \
     WebProcess/WebCoreSupport/WebDragClient.h \
@@ -353,21 +349,24 @@ HEADERS += \
     WebProcess/WebCoreSupport/WebErrors.h \
     WebProcess/WebCoreSupport/WebFrameLoaderClient.h \
     WebProcess/WebCoreSupport/WebGeolocationClient.h \
-    WebProcess/WebCoreSupport/WebGraphicsLayer.h \
     WebProcess/WebCoreSupport/WebInspectorClient.h \
     WebProcess/WebCoreSupport/WebInspectorFrontendClient.h \
+    WebProcess/WebCoreSupport/WebNetworkInfoClient.h \
     WebProcess/WebCoreSupport/WebNotificationClient.h \
     WebProcess/WebCoreSupport/WebPlatformStrategies.h \
+    WebProcess/WebCoreSupport/WebPlugInClient.h \
     WebProcess/WebCoreSupport/WebPopupMenu.h \
     WebProcess/WebCoreSupport/WebSearchPopupMenu.h \
+    WebProcess/WebCoreSupport/WebVibrationClient.h \
     WebProcess/WebCoreSupport/qt/WebFrameNetworkingContext.h \
     WebProcess/WebPage/DrawingArea.h \
     WebProcess/WebPage/DrawingAreaImpl.h \
     WebProcess/WebPage/EventDispatcher.h \
     WebProcess/WebPage/FindController.h \
+    WebProcess/WebPage/CoordinatedGraphics/CoordinatedLayerTreeHost.h \
     WebProcess/WebPage/TapHighlightController.h \
+    WebProcess/WebPage/PageBanner.h \
     WebProcess/WebPage/PageOverlay.h \
-    WebProcess/WebPage/UpdateAtlas.h \
     WebProcess/WebPage/WebContextMenu.h \
     WebProcess/WebPage/WebFrame.h \
     WebProcess/WebPage/WebInspector.h \
@@ -375,8 +374,8 @@ HEADERS += \
     WebProcess/WebPage/WebPage.h \
     WebProcess/WebPage/WebPageGroupProxy.h \
     WebProcess/WebPage/WebUndoStep.h \
-    WebProcess/WebPage/qt/LayerTreeHostQt.h \
     WebProcess/WebConnectionToUIProcess.h \
+    WebProcess/WebProcessSupplement.h \
     WebProcess/WebProcess.h \
     WebProcess/qt/QtBuiltinBundle.h \
     WebProcess/qt/QtBuiltinBundlePage.h \
@@ -388,12 +387,17 @@ SOURCES += \
     Platform/CoreIPC/ArgumentDecoder.cpp \
     Platform/CoreIPC/ArgumentEncoder.cpp \
     Platform/CoreIPC/Attachment.cpp \
-    Platform/CoreIPC/BinarySemaphore.cpp \
     Platform/CoreIPC/Connection.cpp \
     Platform/CoreIPC/DataReference.cpp \
+    Platform/CoreIPC/MessageDecoder.cpp \
+    Platform/CoreIPC/MessageEncoder.cpp \
+    Platform/CoreIPC/MessageReceiverMap.cpp \
+    Platform/CoreIPC/MessageSender.cpp \
+    Platform/CoreIPC/StringReference.cpp \
     Platform/Logging.cpp \
     Platform/Module.cpp \
     Platform/WorkQueue.cpp \
+    Platform/qt/LoggingQt.cpp \
     Platform/qt/ModuleQt.cpp \
     PluginProcess/PluginControllerProxy.cpp \
     PluginProcess/PluginCreationParameters.cpp \
@@ -406,13 +410,16 @@ SOURCES += \
     Shared/API/c/WKCertificateInfo.cpp \
     Shared/API/c/WKConnectionRef.cpp \
     Shared/API/c/WKContextMenuItem.cpp \
+    Shared/API/c/WKData.cpp \
     Shared/API/c/WKDictionary.cpp \
     Shared/API/c/WKError.cpp \
     Shared/API/c/WKGeometry.cpp \
     Shared/API/c/WKGraphicsContext.cpp \
     Shared/API/c/WKImage.cpp \
+    Shared/API/c/WKMutableArray.cpp \
     Shared/API/c/WKMutableDictionary.cpp \
     Shared/API/c/WKNumber.cpp \
+    Shared/API/c/WKPluginInformation.cpp \
     Shared/API/c/WKRenderLayer.cpp \
     Shared/API/c/WKRenderObject.cpp \
     Shared/API/c/WKSecurityOrigin.cpp \
@@ -426,11 +433,14 @@ SOURCES += \
     Shared/API/c/qt/WKImageQt.cpp \
     Shared/APIClientTraits.cpp \
     Shared/APIObject.cpp \
+    Shared/ActivityAssertion.cpp \
+    Shared/Authentication/AuthenticationManager.cpp \
+    Shared/Plugins/Netscape/PluginInformation.cpp \
     Shared/Plugins/Netscape/NetscapePluginModule.cpp \
     Shared/Plugins/Netscape/NetscapePluginModuleNone.cpp \
     Shared/Plugins/Netscape/x11/NetscapePluginModuleX11.cpp \
+    Shared/CacheModel.cpp \
     Shared/ShareableBitmap.cpp \
-    Shared/ShareableSurface.cpp \
     Shared/Plugins/NPRemoteObjectMap.cpp \
     Shared/Plugins/NPIdentifierData.cpp \
     Shared/Plugins/NPObjectMessageReceiver.cpp \
@@ -439,7 +449,13 @@ SOURCES += \
     Shared/Plugins/PluginModuleInfo.cpp \
     Shared/Plugins/PluginProcessCreationParameters.cpp \
     Shared/ChildProcess.cpp \
+    Shared/ChildProcessProxy.cpp \
+    Shared/ConnectionStack.cpp \
     Shared/DictionaryPopupInfo.cpp \
+    Shared/Downloads/Download.cpp \
+    Shared/Downloads/DownloadManager.cpp \
+    Shared/Downloads/qt/DownloadQt.cpp \
+    Shared/Downloads/qt/QtFileDownloader.cpp \
     Shared/EditorState.cpp \
     Shared/FontInfo.cpp \
     Shared/ImmutableArray.cpp \
@@ -452,10 +468,10 @@ SOURCES += \
     Shared/SecurityOriginData.cpp \
     Shared/SessionState.cpp \
     Shared/StatisticsData.cpp \
-    Shared/SurfaceUpdateInfo.cpp \
     Shared/UpdateInfo.cpp \
     Shared/VisitedLinkTable.cpp \
     Shared/WebBackForwardListItem.cpp \
+    Shared/WebBatteryStatus.cpp \
     Shared/WebConnection.cpp \
     Shared/WebConnectionClient.cpp \
     Shared/WebContextMenuItem.cpp \
@@ -469,9 +485,10 @@ SOURCES += \
     Shared/WebGraphicsContext.cpp \
     Shared/WebHitTestResult.cpp \
     Shared/WebKeyboardEvent.cpp \
+    Shared/WebKit2Initialize.cpp \
     Shared/WebImage.cpp \
-    Shared/WebLayerTreeInfo.cpp \
     Shared/WebMouseEvent.cpp \
+    Shared/WebNetworkInfo.cpp \
     Shared/WebOpenPanelParameters.cpp \
     Shared/WebPageCreationParameters.cpp \
     Shared/WebPageGroupData.cpp \
@@ -485,6 +502,9 @@ SOURCES += \
     Shared/WebURLRequest.cpp \
     Shared/WebURLResponse.cpp \
     Shared/WebWheelEvent.cpp \
+    Shared/CoordinatedGraphics/CoordinatedGraphicsArgumentCoders.cpp \
+    Shared/CoordinatedGraphics/WebCoordinatedSurface.cpp \
+    Shared/CoordinatedGraphics/WebCustomFilterProgramProxy.cpp \
     Shared/qt/ArgumentCodersQt.cpp \
     Shared/qt/LayerTreeContextQt.cpp \
     Shared/qt/ShareableBitmapQt.cpp \
@@ -502,6 +522,9 @@ SOURCES += \
     UIProcess/API/C/WKAuthenticationDecisionListener.cpp \
     UIProcess/API/C/WKBackForwardList.cpp \
     UIProcess/API/C/WKBackForwardListItem.cpp \
+    UIProcess/API/C/WKBatteryManager.cpp \
+    UIProcess/API/C/WKBatteryStatus.cpp \
+    UIProcess/API/C/WKColorPickerResultListener.cpp \
     UIProcess/API/C/WKContext.cpp \
     UIProcess/API/C/WKCredential.cpp \
     UIProcess/API/C/WKDatabaseManager.cpp \
@@ -511,6 +534,7 @@ SOURCES += \
     UIProcess/API/C/WKGeolocationManager.cpp \
     UIProcess/API/C/WKGeolocationPermissionRequest.cpp \
     UIProcess/API/C/WKGeolocationPosition.cpp \
+    UIProcess/API/C/WKGrammarDetail.cpp \
     UIProcess/API/C/WKHitTestResult.cpp \
     UIProcess/API/C/WKIconDatabase.cpp \
     UIProcess/API/C/WKInspector.cpp \
@@ -520,56 +544,45 @@ SOURCES += \
     UIProcess/API/C/WKOpenPanelParameters.cpp \
     UIProcess/API/C/WKOpenPanelResultListener.cpp \
     UIProcess/API/C/WKNavigationData.cpp \
+    UIProcess/API/C/WKNetworkInfo.cpp \
+    UIProcess/API/C/WKNetworkInfoManager.cpp \
     UIProcess/API/C/WKPage.cpp \
     UIProcess/API/C/WKPageGroup.cpp \
     UIProcess/API/C/WKPluginSiteDataManager.cpp \
     UIProcess/API/C/WKPreferences.cpp \
     UIProcess/API/C/WKProtectionSpace.cpp \
     UIProcess/API/C/WKResourceCacheManager.cpp \
+    UIProcess/API/C/WKTextChecker.cpp \
+    UIProcess/API/C/WKVibration.cpp \
+    UIProcess/API/C/qt/WKIconDatabaseQt.cpp \
     UIProcess/API/cpp/qt/WKStringQt.cpp \
     UIProcess/API/cpp/qt/WKURLQt.cpp \
-    UIProcess/API/qt/qwebdownloaditem.cpp \
-    UIProcess/API/qt/qwebpermissionrequest.cpp \
-    UIProcess/API/qt/qtwebsecurityorigin.cpp \
-    UIProcess/API/qt/qwebloadrequest.cpp \
-    UIProcess/API/qt/qwebnavigationrequest.cpp \
-    UIProcess/API/qt/qquickwebpage.cpp \
-    UIProcess/API/qt/qwebnavigationhistory.cpp \
-    UIProcess/API/qt/qquickwebview.cpp \
-    UIProcess/API/qt/qwebiconimageprovider.cpp \
-    UIProcess/API/qt/qquicknetworkreply.cpp \
-    UIProcess/API/qt/qquicknetworkrequest.cpp \
-    UIProcess/API/qt/qquickurlschemedelegate.cpp \
-    UIProcess/API/qt/qwebpreferences.cpp \
-    UIProcess/API/qt/qwebviewportinfo.cpp \
+    UIProcess/API/qt/raw/qrawwebview.cpp \
     UIProcess/Authentication/AuthenticationChallengeProxy.cpp \
     UIProcess/Authentication/AuthenticationDecisionListener.cpp \
     UIProcess/Authentication/WebCredential.cpp \
     UIProcess/Authentication/WebProtectionSpace.cpp \
     UIProcess/BackingStore.cpp \
     UIProcess/qt/BackingStoreQt.cpp \
+    UIProcess/CoordinatedGraphics/CoordinatedLayerTreeHostProxy.cpp \
+    UIProcess/DefaultUndoController.cpp \
     UIProcess/Downloads/DownloadProxy.cpp \
+    UIProcess/Downloads/DownloadProxyMap.cpp \
     UIProcess/DrawingAreaProxy.cpp \
     UIProcess/DrawingAreaProxyImpl.cpp \
-    UIProcess/qt/QtWebUndoController.cpp \
     UIProcess/FindIndicator.cpp \
     UIProcess/GeolocationPermissionRequestManagerProxy.cpp \
     UIProcess/GeolocationPermissionRequestProxy.cpp \
-    UIProcess/InspectorServer/WebInspectorServer.cpp \
-    UIProcess/InspectorServer/WebSocketServer.cpp \
-    UIProcess/InspectorServer/WebSocketServerConnection.cpp \
-    UIProcess/InspectorServer/qt/WebInspectorServerQt.cpp \
-    UIProcess/InspectorServer/qt/WebSocketServerQt.cpp \
+    UIProcess/TextCheckerCompletion.cpp \
     UIProcess/Launcher/ProcessLauncher.cpp \
-    UIProcess/Launcher/ThreadLauncher.cpp \
     UIProcess/Launcher/qt/ProcessLauncherQt.cpp \
-    UIProcess/Launcher/qt/ThreadLauncherQt.cpp \
-    UIProcess/LayerTreeHostProxy.cpp \
     UIProcess/Notifications/NotificationPermissionRequest.cpp \
     UIProcess/Notifications/NotificationPermissionRequestManagerProxy.cpp \
     UIProcess/Notifications/WebNotification.cpp \
     UIProcess/Notifications/WebNotificationManagerProxy.cpp \
     UIProcess/Notifications/WebNotificationProvider.cpp \
+    UIProcess/PageViewportController.cpp \
+    UIProcess/Plugins/PlugInAutoStartProvider.cpp \
     UIProcess/Plugins/PluginInfoStore.cpp \
     UIProcess/Plugins/PluginProcessProxy.cpp \
     UIProcess/Plugins/PluginProcessManager.cpp \
@@ -577,11 +590,20 @@ SOURCES += \
     UIProcess/Plugins/qt/PluginProcessProxyQt.cpp \
     UIProcess/Plugins/unix/PluginInfoStoreUnix.cpp \
     UIProcess/ResponsivenessTimer.cpp \
+    UIProcess/StatisticsRequest.cpp \
+    UIProcess/Storage/LocalStorageDatabase.cpp \
+    UIProcess/Storage/LocalStorageDatabaseTracker.cpp \
+    UIProcess/Storage/StorageManager.cpp \
     UIProcess/VisitedLinkProvider.cpp \
     UIProcess/WebApplicationCacheManagerProxy.cpp \
     UIProcess/WebBackForwardList.cpp \
+    UIProcess/WebBatteryManagerProxy.cpp \
+    UIProcess/WebBatteryProvider.cpp \
+    UIProcess/WebColorChooserProxy.cpp \
+    UIProcess/WebColorPickerResultListenerProxy.cpp \
     UIProcess/WebConnectionToWebProcess.cpp \
     UIProcess/WebContext.cpp \
+    UIProcess/WebContextClient.cpp \
     UIProcess/WebContextConnectionClient.cpp \
     UIProcess/WebContextInjectedBundleClient.cpp \
     UIProcess/WebContextMenuProxy.cpp \
@@ -600,15 +622,17 @@ SOURCES += \
     UIProcess/WebFullScreenManagerProxy.cpp \
     UIProcess/WebGeolocationManagerProxy.cpp \
     UIProcess/WebGeolocationProvider.cpp \
+    UIProcess/WebGrammarDetail.cpp \
     UIProcess/WebHistoryClient.cpp \
     UIProcess/WebIconDatabase.cpp \
     UIProcess/WebIconDatabaseClient.cpp \
     UIProcess/WebInspectorProxy.cpp \
-    UIProcess/WebKeyValueStorageManagerProxy.cpp \
-    UIProcess/WebLayerTreeRenderer.cpp \
+    UIProcess/WebKeyValueStorageManager.cpp \
     UIProcess/WebLoaderClient.cpp \
     UIProcess/WebMediaCacheManagerProxy.cpp \
     UIProcess/WebNavigationData.cpp \
+    UIProcess/WebNetworkInfoManagerProxy.cpp \
+    UIProcess/WebNetworkInfoProvider.cpp \
     UIProcess/WebOpenPanelResultListenerProxy.cpp \
     UIProcess/WebPageContextMenuClient.cpp \
     UIProcess/WebPageGroup.cpp \
@@ -617,42 +641,22 @@ SOURCES += \
     UIProcess/WebPreferences.cpp \
     UIProcess/WebProcessProxy.cpp \
     UIProcess/WebResourceCacheManagerProxy.cpp \
-    UIProcess/WebResourceLoadClient.cpp \
+    UIProcess/WebTextChecker.cpp \
+    UIProcess/WebTextCheckerClient.cpp \
     UIProcess/WebUIClient.cpp \
-    UIProcess/qt/QtWebContext.cpp \
-    UIProcess/qt/LayerBackingStore.cpp \
-    UIProcess/qt/QtWebPageEventHandler.cpp \
-    UIProcess/qt/QtGestureRecognizer.cpp \
-    UIProcess/qt/QtPanGestureRecognizer.cpp \
-    UIProcess/qt/QtPinchGestureRecognizer.cpp \
-    UIProcess/qt/QtTapGestureRecognizer.cpp \
-    UIProcess/qt/QtWebError.cpp \
-    UIProcess/qt/QtDialogRunner.cpp \
-    UIProcess/qt/QtDownloadManager.cpp \
-    UIProcess/qt/QtPageClient.cpp \
-    UIProcess/qt/QtWebPageLoadClient.cpp \
-    UIProcess/qt/QtWebPagePolicyClient.cpp \
-    UIProcess/qt/QtWebPageSGNode.cpp \
-    UIProcess/qt/QtWebPageUIClient.cpp \
+    UIProcess/WebVibrationProvider.cpp \
+    UIProcess/WebVibrationProxy.cpp \
     UIProcess/qt/TextCheckerQt.cpp \
-    UIProcess/qt/QtViewportInteractionEngine.cpp \
-    UIProcess/qt/WebContextMenuProxyQt.cpp \
     UIProcess/qt/WebContextQt.cpp \
-    UIProcess/qt/WebGeolocationProviderQt.cpp \
     UIProcess/qt/WebFullScreenManagerProxyQt.cpp \
     UIProcess/qt/WebInspectorProxyQt.cpp \
     UIProcess/qt/WebPageProxyQt.cpp \
-    UIProcess/qt/WebPopupMenuProxyQt.cpp \
     UIProcess/qt/WebPreferencesQt.cpp \
-    UIProcess/qt/QtWebIconDatabaseClient.cpp \
+    UIProcess/qt/WebProcessProxyQt.cpp \
     WebProcess/ApplicationCache/WebApplicationCacheManager.cpp \
-    WebProcess/Authentication/AuthenticationManager.cpp \
+    WebProcess/Battery/WebBatteryManager.cpp \
     WebProcess/Cookies/WebCookieManager.cpp \
     WebProcess/Cookies/qt/WebCookieManagerQt.cpp \
-    WebProcess/Downloads/Download.cpp \
-    WebProcess/Downloads/DownloadManager.cpp \
-    WebProcess/Downloads/qt/DownloadQt.cpp \
-    WebProcess/Downloads/qt/QtFileDownloader.cpp \
     WebProcess/FullScreen/WebFullScreenManager.cpp \
     WebProcess/Geolocation/GeolocationPermissionRequestManager.cpp \
     WebProcess/Geolocation/WebGeolocationManager.cpp \
@@ -690,8 +694,8 @@ SOURCES += \
     WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp \
     WebProcess/InjectedBundle/InjectedBundleScriptWorld.cpp \
     WebProcess/InjectedBundle/qt/InjectedBundleQt.cpp \
-    WebProcess/KeyValueStorage/WebKeyValueStorageManager.cpp \
     WebProcess/MediaCache/WebMediaCacheManager.cpp \
+    WebProcess/NetworkInfo/WebNetworkInfoManager.cpp \
     WebProcess/Notifications/NotificationPermissionRequestManager.cpp \
     WebProcess/Notifications/WebNotificationManager.cpp \
     WebProcess/ResourceCache/WebResourceCacheManager.cpp \
@@ -711,20 +715,27 @@ SOURCES += \
     WebProcess/Plugins/PluginProxy.cpp \
     WebProcess/Plugins/PluginProcessConnection.cpp \
     WebProcess/Plugins/PluginProcessConnectionManager.cpp \
+    WebProcess/Storage/StorageAreaImpl.cpp \
+    WebProcess/Storage/StorageAreaMap.cpp \
+    WebProcess/Storage/StorageNamespaceImpl.cpp \
+    WebProcess/WebCoreSupport/WebBatteryClient.cpp \
     WebProcess/WebCoreSupport/WebChromeClient.cpp \
+    WebProcess/WebCoreSupport/WebColorChooser.cpp \
     WebProcess/WebCoreSupport/WebContextMenuClient.cpp \
     WebProcess/WebCoreSupport/WebDatabaseManager.cpp \
     WebProcess/WebCoreSupport/WebDragClient.cpp \
     WebProcess/WebCoreSupport/WebEditorClient.cpp \
     WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp \
     WebProcess/WebCoreSupport/WebGeolocationClient.cpp \
-    WebProcess/WebCoreSupport/WebGraphicsLayer.cpp \
     WebProcess/WebCoreSupport/WebInspectorClient.cpp \
     WebProcess/WebCoreSupport/WebInspectorFrontendClient.cpp \
+    WebProcess/WebCoreSupport/WebNetworkInfoClient.cpp \
     WebProcess/WebCoreSupport/WebNotificationClient.cpp \
     WebProcess/WebCoreSupport/WebPlatformStrategies.cpp \
+    WebProcess/WebCoreSupport/WebPlugInClient.cpp \
     WebProcess/WebCoreSupport/WebPopupMenu.cpp \
     WebProcess/WebCoreSupport/WebSearchPopupMenu.cpp \
+    WebProcess/WebCoreSupport/WebVibrationClient.cpp \
     WebProcess/WebCoreSupport/qt/WebContextMenuClientQt.cpp \
     WebProcess/WebCoreSupport/qt/WebErrorsQt.cpp \
     WebProcess/WebCoreSupport/qt/WebDragClientQt.cpp \
@@ -736,11 +747,11 @@ SOURCES += \
     WebProcess/WebPage/EncoderAdapter.cpp \
     WebProcess/WebPage/EventDispatcher.cpp \
     WebProcess/WebPage/FindController.cpp \
+    WebProcess/WebPage/CoordinatedGraphics/CoordinatedLayerTreeHost.cpp \
     WebProcess/WebPage/TapHighlightController.cpp \
     WebProcess/WebPage/LayerTreeHost.cpp \
+    WebProcess/WebPage/PageBanner.cpp \
     WebProcess/WebPage/PageOverlay.cpp \
-    WebProcess/WebPage/TiledBackingStoreRemoteTile.cpp \
-    WebProcess/WebPage/UpdateAtlas.cpp \
     WebProcess/WebPage/WebBackForwardListProxy.cpp \
     WebProcess/WebPage/WebContextMenu.cpp \
     WebProcess/WebPage/WebFrame.cpp \
@@ -750,7 +761,6 @@ SOURCES += \
     WebProcess/WebPage/WebPageGroupProxy.cpp \
     WebProcess/WebPage/WebUndoStep.cpp \
     WebProcess/WebPage/qt/WebInspectorQt.cpp \
-    WebProcess/WebPage/qt/LayerTreeHostQt.cpp \
     WebProcess/WebPage/qt/WebPageQt.cpp \
     WebProcess/WebConnectionToUIProcess.cpp \
     WebProcess/WebProcess.cpp \
@@ -760,6 +770,86 @@ SOURCES += \
     WebProcess/qt/QtNetworkReply.cpp \
     WebProcess/qt/WebProcessMainQt.cpp \
     WebProcess/qt/WebProcessQt.cpp
+
+have?(QTQUICK) {
+    QT += qml quick quick-private
+
+    HEADERS += \
+        UIProcess/API/qt/qwebpreferences_p.h \
+        UIProcess/API/qt/qwebpreferences_p_p.h \
+        UIProcess/API/qt/qwebdownloaditem_p.h \
+        UIProcess/API/qt/qwebdownloaditem_p_p.h \
+        UIProcess/API/qt/qwebpermissionrequest_p.h \
+        UIProcess/API/qt/qtwebsecurityorigin_p.h \
+        UIProcess/API/qt/qwebloadrequest_p.h \
+        UIProcess/API/qt/qwebnavigationrequest_p.h \
+        UIProcess/API/qt/qquickwebpage_p.h \
+        UIProcess/API/qt/qquickwebpage_p_p.h \
+        UIProcess/API/qt/qquickwebview_p.h \
+        UIProcess/API/qt/qquickwebview_p_p.h \
+        UIProcess/API/qt/qquicknetworkreply_p.h \
+        UIProcess/API/qt/qquicknetworkrequest_p.h \
+        UIProcess/API/qt/qquickurlschemedelegate_p.h \
+        UIProcess/API/qt/qwebkittest_p.h \
+        UIProcess/qt/PageViewportControllerClientQt.h \
+        UIProcess/qt/QtWebContext.h \
+        UIProcess/qt/QtWebPageEventHandler.h \
+        UIProcess/qt/QtGestureRecognizer.h \
+        UIProcess/qt/QtPanGestureRecognizer.h \
+        UIProcess/qt/QtPinchGestureRecognizer.h \
+        UIProcess/qt/QtTapGestureRecognizer.h \
+        UIProcess/qt/QtWebError.h \
+        UIProcess/qt/QtDialogRunner.h \
+        UIProcess/qt/QtDownloadManager.h \
+        UIProcess/qt/QtPageClient.h \
+        UIProcess/qt/QtWebPagePolicyClient.h \
+        UIProcess/qt/QtWebPageSGNode.h \
+        UIProcess/qt/QtWebPageUIClient.h \
+        UIProcess/qt/QtWebIconDatabaseClient.h \
+        UIProcess/qt/WebContextMenuProxyQt.h \
+        UIProcess/qt/WebGeolocationProviderQt.h \
+        UIProcess/qt/WebPopupMenuProxyQt.h
+
+    SOURCES += \
+        UIProcess/API/qt/qwebdownloaditem.cpp \
+        UIProcess/API/qt/qwebpermissionrequest.cpp \
+        UIProcess/API/qt/qtwebsecurityorigin.cpp \
+        UIProcess/API/qt/qwebloadrequest.cpp \
+        UIProcess/API/qt/qwebnavigationrequest.cpp \
+        UIProcess/API/qt/qquickwebpage.cpp \
+        UIProcess/API/qt/qquickwebview.cpp \
+        UIProcess/API/qt/qwebiconimageprovider.cpp \
+        UIProcess/API/qt/qquicknetworkreply.cpp \
+        UIProcess/API/qt/qquicknetworkrequest.cpp \
+        UIProcess/API/qt/qquickurlschemedelegate.cpp \
+        UIProcess/API/qt/qwebpreferences.cpp \
+        UIProcess/API/qt/qwebkittest.cpp \
+        UIProcess/qt/PageViewportControllerClientQt.cpp \
+        UIProcess/qt/QtDialogRunner.cpp \
+        UIProcess/qt/QtDownloadManager.cpp \
+        UIProcess/qt/QtPageClient.cpp \
+        UIProcess/qt/QtWebPagePolicyClient.cpp \
+        UIProcess/qt/QtWebPageSGNode.cpp \
+        UIProcess/qt/QtWebPageEventHandler.cpp \
+        UIProcess/qt/QtGestureRecognizer.cpp \
+        UIProcess/qt/QtPanGestureRecognizer.cpp \
+        UIProcess/qt/QtPinchGestureRecognizer.cpp \
+        UIProcess/qt/QtTapGestureRecognizer.cpp \
+        UIProcess/qt/QtWebContext.cpp \
+        UIProcess/qt/QtWebError.cpp \
+        UIProcess/qt/WebContextMenuProxyQt.cpp \
+        UIProcess/qt/WebGeolocationProviderQt.cpp \
+        UIProcess/qt/WebPopupMenuProxyQt.cpp \
+        UIProcess/qt/QtWebIconDatabaseClient.cpp \
+        UIProcess/qt/QtWebPageUIClient.cpp
+
+    enable?(INPUT_TYPE_COLOR) {
+        HEADERS += \
+            UIProcess/qt/WebColorChooserProxyQt.h
+        SOURCES += \
+            UIProcess/qt/WebColorChooserProxyQt.cpp
+    }
+}
 
 mac: {
     INCLUDEPATH += \
@@ -776,6 +866,11 @@ mac: {
         Platform/mac/WorkQueueMac.cpp \
         Platform/mac/SharedMemoryMac.cpp
 
+} else:win32 {
+    SOURCES += \
+        Platform/CoreIPC/win/ConnectionWin.cpp \
+        Platform/win/WorkQueueWin.cpp \
+        Platform/win/SharedMemoryWin.cpp
 } else {
     SOURCES += \
         Platform/CoreIPC/unix/AttachmentUnix.cpp \
@@ -784,16 +879,61 @@ mac: {
         Platform/unix/SharedMemoryUnix.cpp
 }
 
-contains(DEFINES, ENABLE_TOUCH_EVENTS=1) {
+enable?(SECCOMP_FILTERS) {
+    HEADERS += \
+        Shared/linux/SeccompFilters/OpenSyscall.h \
+        Shared/linux/SeccompFilters/SeccompBroker.h \
+        Shared/linux/SeccompFilters/SeccompFilters.h \
+        Shared/linux/SeccompFilters/SigactionSyscall.h \
+        Shared/linux/SeccompFilters/SigprocmaskSyscall.h \
+        Shared/linux/SeccompFilters/Syscall.h \
+        Shared/linux/SeccompFilters/SyscallPolicy.h \
+        WebProcess/qt/SeccompFiltersWebProcessQt.h
+
+    SOURCES += \
+        Shared/linux/SeccompFilters/OpenSyscall.cpp \
+        Shared/linux/SeccompFilters/SeccompBroker.cpp \
+        Shared/linux/SeccompFilters/SeccompFilters.cpp \
+        Shared/linux/SeccompFilters/SigactionSyscall.cpp \
+        Shared/linux/SeccompFilters/SigprocmaskSyscall.cpp \
+        Shared/linux/SeccompFilters/Syscall.cpp \
+        Shared/linux/SeccompFilters/SyscallPolicy.cpp \
+        WebProcess/qt/SeccompFiltersWebProcessQt.cpp
+
+    DEFINES += SOURCE_DIR=\\\"$${ROOT_WEBKIT_DIR}\\\"
+}
+
+enable?(INSPECTOR_SERVER) {
+    HEADERS += \
+        UIProcess/InspectorServer/HTTPRequest.h \
+        UIProcess/InspectorServer/WebInspectorServer.h \
+        UIProcess/InspectorServer/WebSocketServer.h \
+        UIProcess/InspectorServer/WebSocketServerClient.h \
+        UIProcess/InspectorServer/WebSocketServerConnection.h \
+        UIProcess/InspectorServer/qt/WebSocketServerQt.h
+
+    SOURCES += \
+        UIProcess/InspectorServer/HTTPRequest.cpp \
+        UIProcess/InspectorServer/WebInspectorServer.cpp \
+        UIProcess/InspectorServer/WebSocketServer.cpp \
+        UIProcess/InspectorServer/WebSocketServerConnection.cpp \
+        UIProcess/InspectorServer/qt/WebInspectorServerQt.cpp \
+        UIProcess/InspectorServer/qt/WebSocketServerQt.cpp
+}
+
+enable?(TOUCH_EVENTS) {
     HEADERS += \
         Shared/NativeWebTouchEvent.h
     SOURCES += \
         Shared/qt/NativeWebTouchEventQt.cpp
 }
 
-contains(DEFINES, ENABLE_GEOLOCATION=1): QT += location
 
-plugin_backend_xlib {
+have?(qtlocation):enable?(GEOLOCATION): QT += location
+
+use?(3D_GRAPHICS): WEBKIT += angle
+
+use?(PLUGIN_BACKEND_XLIB) {
     DEFINES += XP_UNIX
     PKGCONFIG += x11
     DEFINES += MOZ_X11

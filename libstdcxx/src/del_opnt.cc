@@ -22,10 +22,15 @@
  */
 
 #include <new>
+#include <cxxabi.h>
 
+#ifndef _LIBCPPABI_VERSION
+ 
 __attribute__((__weak__, __visibility__("default")))
 void
 operator delete (void* ptr, const std::nothrow_t&) throw ()
 {
     ::operator delete(ptr);
 }
+
+#endif  // _LIBCPPABI_VERSION

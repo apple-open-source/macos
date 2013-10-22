@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecKeychainPriv.h>
 #include <security_utilities/threading.h>
@@ -51,7 +52,7 @@ SecCopyErrorMessageString(OSStatus status, void *reserved)
 			else
 			{
 				// no error message found, so format a faked-up error message from the status
-				result = CFStringCreateWithFormat(NULL, NULL, CFSTR("OSStatus %d"), status);
+				result = CFStringCreateWithFormat(NULL, NULL, CFSTR("OSStatus %d"), (int)status);
 			}
 		}
 		
@@ -136,7 +137,7 @@ copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName)
         goto xit;
 	
     // Convert status to Int32 string representation, e.g. "-25924"
-    keyString = CFStringCreateWithFormat (kCFAllocatorDefault,NULL,CFSTR("%d"),status);
+    keyString = CFStringCreateWithFormat (kCFAllocatorDefault,NULL,CFSTR("%d"),(int)status);
     if (!keyString)
         goto xit;
 
@@ -165,7 +166,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 			case CSSM_ERRCODE_SERVICE_NOT_AVAILABLE:
 				return errSecNotAvailable;
 			case CSSM_ERRCODE_USER_CANCELED:
-				return userCanceledErr;
+				return errSecUserCanceled;
 			case CSSM_ERRCODE_OPERATION_AUTH_DENIED:
 				return errSecAuthFailed;
 			case CSSM_ERRCODE_NO_USER_INTERACTION:
@@ -173,7 +174,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 			case CSSM_ERRCODE_IN_DARK_WAKE:
 				return errSecInDarkWake;
 			case CSSM_ERRCODE_OS_ACCESS_DENIED:
-                return wrPermErr;
+                return errSecWrPerm;
 			case CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION:
 				return errSecInsufficientClientID;
 			case CSSM_ERRCODE_DEVICE_RESET:
@@ -296,7 +297,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 		case CSSMERR_DL_DATASTORE_ALREADY_EXISTS:
 			return errSecDuplicateKeychain;
 		case CSSMERR_APPLEDL_DISK_FULL:
-			return dskFulErr;
+			return errSecDskFull;
 		case CSSMERR_DL_INVALID_OPEN_PARAMETERS: 
 		case CSSMERR_APPLEDL_INVALID_OPEN_PARAMETERS:
 		case CSSMERR_APPLE_DOTMAC_REQ_SERVER_PARAM:
@@ -309,7 +310,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 		case CSSMERR_TP_OS_ACCESS_DENIED: 
 		case CSSMERR_AC_OS_ACCESS_DENIED: 
 		case CSSMERR_CL_OS_ACCESS_DENIED:
-			return wrPermErr;
+			return errSecWrPerm;
 		case CSSMERR_CSSM_BUFFER_TOO_SMALL:
 			return errSecBufferTooSmall;
 		case CSSMERR_CSSM_FUNCTION_NOT_IMPLEMENTED:
@@ -450,7 +451,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
 		case CSSMERR_AC_USER_CANCELED:
 		case CSSMERR_CL_USER_CANCELED:
 		case CSSMERR_DL_USER_CANCELED:
-			return userCanceledErr;
+			return errSecUserCanceled;
 		case CSSMERR_CSSM_NO_USER_INTERACTION:
 		case CSSMERR_CSP_NO_USER_INTERACTION:
 		case CSSMERR_TP_NO_USER_INTERACTION:

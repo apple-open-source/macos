@@ -12,6 +12,13 @@ OSF1*)
 	BIN_SH=xpg4
 	export BIN_SH
 	;;
+CYGWIN_NT-5.0)
+	os=cygwin
+	TEST_SSH_IPV6=no
+	;;
+CYGWIN*)
+	os=cygwin
+	;;
 esac
 
 if [ ! -z "$TEST_SSH_PORT" ]; then
@@ -132,6 +139,10 @@ esac
 if [ "x$TEST_SSH_LOGFILE" = "x" ]; then
 	TEST_SSH_LOGFILE=/dev/null
 fi
+
+# Some data for test copies
+DATA=$OBJ/testdata
+cat $SSHD${EXEEXT} $SSHD${EXEEXT} $SSHD${EXEEXT} $SSHD${EXEEXT} >$DATA
 
 # these should be used in tests
 export SSH SSHD SSHAGENT SSHADD SSHKEYGEN SSHKEYSCAN SFTP SFTPSERVER SCP

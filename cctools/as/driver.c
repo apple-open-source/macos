@@ -37,7 +37,7 @@ char **envp)
     char **new_argv;
     const char *CLANG = "clang";
     char *prefix, buf[MAXPATHLEN], resolved_name[PATH_MAX];
-    unsigned long bufsize;
+    uint32_t bufsize;
     struct arch_flag arch_flag;
     const struct arch_flag *arch_flags, *family_arch_flag;
     enum bool oflag_specified, qflag, Qflag;
@@ -109,9 +109,29 @@ char **envp)
 		    case 'N':	/* -NEXTSTEP-deployment-target */
 			if(p[1] == '\0')
 			    i++;
+			p = " "; /* Finished with this arg. */
 			break;
-
+	    	    case 'g':
+			if(strcmp(p, "gstabs") == 0 ||
+	    		   strcmp(p, "gdwarf2") == 0 ||
+			   strcmp(p, "gdwarf-2") == 0){
+			    p = " "; /* Finished with this arg. */
+			}
+			break;
+		    case 'd':
+			if(strcmp(p, "dynamic") == 0){
+			    p = " "; /* Finished with this arg. */
+			}
+			break;
+		    case 's':
+			if(strcmp(p, "static") == 0){
+			    p = " "; /* Finished with this arg. */
+			}
+			break;
 		    case 'a':
+		        if(strcmp(p, "arch_multiple") == 0){
+			    p = " "; /* Finished with this arg. */
+			}
 			if(strcmp(p, "arch") == 0){
 			    if(i + 1 >= argc)
 				fatal("missing argument to %s option", argv[i]);
@@ -119,12 +139,17 @@ char **envp)
 				fatal("more than one %s option (not allowed, "
 				      "use cc(1) instead)", argv[i]);
 			    arch_name = argv[i+1];
+			    p = " "; /* Finished with this arg. */
+			    i++;
 			    break;
 			}
 			/* fall through for non "-arch" */
 		    case 'f':
+			if(strcmp(p, "force_cpusubtype_ALL") == 0){
+			    p = " "; /* Finished with this arg. */
+			    break;
+			}
 		    case 'k':
-		    case 'g':
 		    case 'v':
 		    case 'W':
 		    case 'L':
@@ -184,6 +209,18 @@ char **envp)
 	if(qflag == TRUE && Qflag == TRUE){
 	    printf("%s: can't specifiy both -q and -Q\n", progname);
 	    exit(1);
+	}
+	/*
+	 * If the environment variable AS_INTEGRATED_ASSEMBLER is set then set
+	 * the qflag to call clang(1) with -integrated-as unless the -Q flag is
+	 * set and do this for the supported architectures.
+	 */
+	if(Qflag == FALSE &&
+           getenv("AS_INTEGRATED_ASSEMBLER") != NULL &&
+	   (arch_flag.cputype == CPU_TYPE_X86_64 ||
+	    arch_flag.cputype == CPU_TYPE_I386 ||
+	    arch_flag.cputype == CPU_TYPE_ARM)){
+	    qflag = TRUE;
 	}
 	if(qflag == TRUE &&
 	   (arch_flag.cputype != CPU_TYPE_X86_64 &&

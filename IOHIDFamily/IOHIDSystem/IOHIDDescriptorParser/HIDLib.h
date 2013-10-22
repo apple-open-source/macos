@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -63,8 +63,8 @@
 
 struct HIDReportDescriptor
 {
-	Byte *				descriptor;
-	ByteCount			descriptorLength;
+	UInt8 *				descriptor;
+	IOByteCount 		descriptorLength;
 	UInt32				index;
 	SInt32 *			collectionStack;
 	SInt32				collectionNesting;

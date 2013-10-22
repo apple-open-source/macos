@@ -42,22 +42,24 @@ public:
         // We need to pass in the right global object for "array".
         Structure* domStructure = WebCore::deprecatedGetDOMStructure<RuntimeArray>(exec);
         RuntimeArray* runtimeArray = new (NotNull, allocateCell<RuntimeArray>(*exec->heap())) RuntimeArray(exec, domStructure);
-        runtimeArray->finishCreation(exec->globalData(), array);
+        runtimeArray->finishCreation(exec->vm(), array);
+        exec->vm().heap.addFinalizer(runtimeArray, destroy);
         return runtimeArray;
     }
 
     typedef Bindings::Array BindingsArray;
     ~RuntimeArray();
     static void destroy(JSCell*);
+    static const bool needsDestruction = false;
 
     static void getOwnPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
-    static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier&, PropertySlot&);
+    static bool getOwnPropertySlot(JSCell*, ExecState*, PropertyName, PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned, PropertySlot&);
-    static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);
-    static void put(JSCell*, ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
+    static bool getOwnPropertyDescriptor(JSObject*, ExecState*, PropertyName, PropertyDescriptor&);
+    static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
     static void putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
     
-    static bool deleteProperty(JSCell*, ExecState*, const Identifier &propertyName);
+    static bool deleteProperty(JSCell*, ExecState*, PropertyName);
     static bool deletePropertyByIndex(JSCell*, ExecState*, unsigned propertyName);
     
     unsigned getLength() const { return m_array->getLength(); }
@@ -71,24 +73,24 @@ public:
         return globalObject->arrayPrototype();
     }
 
-    static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info, ArrayClass);
     }
 
 protected:
-    void finishCreation(JSGlobalData&, Bindings::Array*);
+    void finishCreation(VM&, Bindings::Array*);
 
-    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSArray::StructureFlags;
+    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | OverridesGetPropertyNames | JSArray::StructureFlags;
 
 private:
     RuntimeArray(ExecState*, Structure*);
-    static JSValue lengthGetter(ExecState*, JSValue, const Identifier&);
+    static JSValue lengthGetter(ExecState*, JSValue, PropertyName);
     static JSValue indexGetter(ExecState*, JSValue, unsigned);
 
     BindingsArray* m_array;
 };
-    
+
 } // namespace JSC
 
 #endif // RUNTIME_ARRAY_H_

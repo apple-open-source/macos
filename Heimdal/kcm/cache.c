@@ -33,6 +33,12 @@
  */
 
 #include "kcm_locl.h"
+
+#ifdef HAVE_NOTIFY_H
+#include <mach/mach.h>
+#include <mach/mach_time.h>
+#endif
+
 #include <uuid/uuid.h>
 #include <bsm/libbsm.h>
 #include <vproc.h>
@@ -46,6 +52,68 @@ HEIMDAL_MUTEX ccache_mutex = HEIMDAL_MUTEX_INITIALIZER;
 TAILQ_HEAD(ccache_head, kcm_ccache_data);
 static struct ccache_head ccache_head = TAILQ_HEAD_INITIALIZER(ccache_head);
 static uint32_t ccache_nextid = 0;
+
+#ifdef HAVE_NOTIFY_H
+
+static uint64_t
+relative_nano_time(void)
+{
+     static uint64_t factor;
+     uint64_t now;
+
+    now = mach_absolute_time();
+
+    if (factor == 0) {
+	mach_timebase_info_data_t base;
+	(void)mach_timebase_info(&base);
+	factor = base.numer / base.denom;
+    }
+
+    return now * factor;
+}
+
+#endif
+
+/*
+ * Deliver a notification every NOTIFY_TIME_LIMIT
+ */
+
+static void
+notify_changed_caches(void)
+{
+#ifdef HAVE_NOTIFY_H
+    static uint64_t last_change;
+    static int notify_pending;
+
+#define NOTIFY_TIME_LIMIT (NSEC_PER_SEC / 2)
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+	    uint64_t now, diff;
+
+	    if (notify_pending)
+		return;
+
+	    now = relative_nano_time();
+	    if (now < last_change)
+		diff = NOTIFY_TIME_LIMIT;
+	    else
+		diff = now - last_change;
+
+	    if (diff >= NOTIFY_TIME_LIMIT) {
+		notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
+		last_change = now;
+	    } else {
+		notify_pending = 1;
+		/* wait up to deliver the event */
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NOTIFY_TIME_LIMIT - diff), dispatch_get_main_queue(), ^{
+			notify_pending = 0;
+			last_change = relative_nano_time();
+			notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
+		    });
+	    }
+	});
+#endif
+}
 
 char *
 kcm_ccache_nextid(pid_t pid, uid_t uid)
@@ -244,9 +312,7 @@ kcm_ccache_destroy(krb5_context context, const char *name)
     if (p == NULL)
 	return KRB5_FCC_NOFILE;
 
-#ifdef HAVE_NOTIFY_H
-    notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
-#endif
+    notify_changed_caches();
 
     /* XXX blocking */
     heim_ipc_event_cancel(p->renew_event);
@@ -283,10 +349,6 @@ kcm_update_renew_time(kcm_ccache ccache)
 
     heim_ipc_event_set_time(ccache->renew_event, renewtime);
     ccache->renew_time = renewtime;
-
-#ifdef HAVE_NOTIFY_H
-    notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
-#endif
 }
 
 void
@@ -335,6 +397,9 @@ renew_func(heim_event_t event, void *ptr)
 	kcm_data_changed = 1;
 	cache->expire = expire;
 	kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_SUCCESS, 0);
+
+	notify_changed_caches();
+
 	break;
     default: {
 	const char *msg = krb5_get_error_message(kcm_context, ret);
@@ -384,18 +449,18 @@ expire_func(heim_event_t event, void *ptr)
 
 	    cache->expire = expire;
 	    kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_SUCCESS, 0);
+	    notify_changed_caches();
 	    break;
 	default:
 	    kcm_data_changed = 1;
 	    kcm_update_expire_time(cache, time(NULL) + 300);
 	    kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_FAILED, ret);
+	    notify_changed_caches();
 	    break;
 	}
     } else {
 	kcm_log(0, "cache: %s expired", cache->name);
-#ifdef HAVE_NOTIFY_H
-	notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
-#endif
+	notify_changed_caches();
     }
     HEIMDAL_MUTEX_unlock(&cache->mutex);
 }
@@ -511,13 +576,15 @@ kcm_ccache_update_acquire_status(krb5_context context,
     case KCM_STATUS_ACQUIRE_SUCCESS: {
 	time_t next_refresh, now = time(NULL);
 
-	heim_assert(ccache->expire > now, "c->expire is in the past, someone forgot to set it");
-	next_refresh = ccache->expire;
-	/* try to acquire credential just before */
-	if (ccache->expire - now > 300)
-	    next_refresh -= 300;
-	kcm_update_expire_time(ccache, next_refresh + 300);
-
+	if (ccache->expire > now) {
+	    next_refresh = ccache->expire;
+	    /* try to acquire credential just before */
+	    if (ccache->expire - now > 300)
+		next_refresh -= 300;
+	    kcm_update_expire_time(ccache, next_refresh + 300);
+	} else {
+	    ccache->next_refresh_time = 0;
+	}
 	break;
     }
     default:
@@ -568,6 +635,9 @@ kcm_ccache_enqueue_default(krb5_context context,
 	cache->expire = newcred->times.endtime;
 	kcm_update_expire_time(cache, newcred->times.endtime);
     }
+
+    notify_changed_caches();
+
     return 0;
 }
 
@@ -589,9 +659,7 @@ kcm_ccache_remove_creds_internal(krb5_context context,
     }
     ccache->creds = NULL;
 
-#ifdef HAVE_NOTIFY_H
-    notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
-#endif
+    notify_changed_caches();
 
     return 0;
 }
@@ -782,10 +850,11 @@ kcm_ccache_store_cred_internal(krb5_context context,
 	ret = 0;
     }
 
-
-#ifdef HAVE_NOTIFY_H
-    notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
-#endif
+    /*
+     * Only push notification when the krbtgt in the cache changes.
+     */
+    if ((*c)->cred.server && krb5_principal_is_root_krbtgt(context, (*c)->cred.server))
+	notify_changed_caches();
 
     return ret;
 }
@@ -814,9 +883,7 @@ kcm_ccache_remove_cred_internal(krb5_context context,
 	}
     }
 
-#ifdef HAVE_NOTIFY_H
-    notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
-#endif
+    notify_changed_caches();
 
     return ret;
 }
@@ -1064,9 +1131,9 @@ unparse_krb5_cache(krb5_context context, krb5_storage *sp, kcm_ccache c, time_t 
 
     CHECK(ret = krb5_store_stringz(sp, c->name));
     CHECK(ret = krb5_store_uuid(sp, c->uuid));
-    CHECK(ret = krb5_store_uint32(sp, c->renew_time));
-    CHECK(ret = krb5_store_uint32(sp, c->next_refresh_time));
-    CHECK(ret = krb5_store_uint32(sp, c->holdcount));
+    CHECK(ret = krb5_store_uint32(sp, (uint32_t)c->renew_time));
+    CHECK(ret = krb5_store_uint32(sp, (uint32_t)c->next_refresh_time));
+    CHECK(ret = krb5_store_uint32(sp, (uint32_t)c->holdcount));
     CHECK(ret = krb5_store_uint32(sp, c->flags));
     CHECK(ret = krb5_store_int32(sp, c->uid));
     CHECK(ret = krb5_store_int32(sp, c->session));

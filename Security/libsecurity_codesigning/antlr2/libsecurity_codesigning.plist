@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceLicense</key>
+		<string>public domain</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>libsecurity_codesigning.txt</string>
+		<key>OpenSourceModifications</key>
+		<string>none</string>
+		<key>OpenSourceProject</key>
+		<string>antlr2</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.antlr2.org/download/antlr-2.7.7.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>antlr2-2.7.7</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.antlr2.org/</string>
+		<key>OpenSourceImportDate</key>
+		<string>2012-12-21</string>
+	</dict>
+</array>
+</plist>

@@ -42,6 +42,7 @@
 (allow mach-lookup
        (global-name "com.apple.networkd")
        (global-name "com.apple.SystemConfiguration.configd")
+       (global-name "com.apple.SystemConfiguration.DNSConfiguration")
        (global-name "com.apple.SystemConfiguration.SCNetworkReachability"))
 
 (allow system-set-time)

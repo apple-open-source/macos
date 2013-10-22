@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,6 +70,7 @@
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #include <TargetConditionals.h>
 
@@ -204,6 +205,7 @@ int main (int argc, char** argv) {
 	int ch;
 	int ret;
 	
+
 	sync();
 	while ((ch = getopt(argc, argv, "dfpqnNyYl:")) != EOF) {
 		switch (ch) {

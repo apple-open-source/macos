@@ -1838,6 +1838,11 @@ ccmakehookfn(UNUSED(Hookdef dummy), struct ccmakedat *dat)
 	    diffmatches = odm;
 	    validlist = 1;
 	    amatches = lastmatches;
+#ifdef ZSH_HEAP_DEBUG
+	    if (memory_validate(amatches->heap_id)) {
+		HEAP_ERROR(amatches->heap_id);
+	    }
+#endif
 	    lmatches = lastlmatches;
 	    if (pmatches) {
 		freematches(pmatches, 1);
@@ -1891,7 +1896,7 @@ cccleanuphookfn(UNUSED(Hookdef dummy), UNUSED(void *dat))
 
 /* This adds a match to the list of matches.  The string to add is given   *
  * in s, the type of match is given in the global variable addwhat and     *
- * the parameter t (if not NULL) is a pointer to a hash node node which    *
+ * the parameter t (if not NULL) is a pointer to a hash node which         *
  * may be used to give other information to this function.                 *
  *                                                                         *
  * addwhat contains either one of the special values (negative, see below) *

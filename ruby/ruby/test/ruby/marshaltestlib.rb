@@ -1,5 +1,6 @@
+# coding: utf-8
 module MarshalTestLib
-  # include this module to a Test::Unit::TestCase and definde encode(o) and
+  # include this module to a Test::Unit::TestCase and define encode(o) and
   # decode(s) methods.  e.g.
   #
   # def encode(o)
@@ -17,7 +18,7 @@ module MarshalTestLib
 
   def marshaltest(o1)
     str = encode(o1)
-    print str, "\n" if $DEBUG
+    print str.dump, "\n" if $DEBUG
     o2 = decode(str)
     o2
   end
@@ -29,8 +30,8 @@ module MarshalTestLib
     iv1 = o1.instance_variables.sort
     iv2 = o2.instance_variables.sort
     assert_equal(iv1, iv2)
-    val1 = iv1.map {|var| o1.instance_eval {eval var}}
-    val2 = iv1.map {|var| o2.instance_eval {eval var}}
+    val1 = iv1.map {|var| o1.instance_eval {eval var.to_s}}
+    val2 = iv1.map {|var| o2.instance_eval {eval var.to_s}}
     assert_equal(val1, val2, msg)
     if block_given?
       assert_equal(yield(o1), yield(o2), msg)
@@ -128,7 +129,7 @@ module MarshalTestLib
 
   def test_hash_default_proc
     h = Hash.new {}
-    assert_raises(TypeError) { marshaltest(h) }
+    assert_raise(TypeError) { marshaltest(h) }
   end
 
   def test_hash_ivar
@@ -177,28 +178,6 @@ module MarshalTestLib
     marshal_equal(0x3fff_ffff)
   end
 
-  def test_fixnum_ivar
-    o1 = 1
-    o1.instance_eval { @iv = 2 }
-    marshal_equal(o1) {|o| o.instance_eval { @iv }}
-  ensure
-    1.instance_eval { remove_instance_variable("@iv") }
-  end
-
-  def test_fixnum_ivar_self
-    o1 = 1
-    o1.instance_eval { @iv = 1 }
-    marshal_equal(o1) {|o| o.instance_eval { @iv }}
-  ensure
-    1.instance_eval { remove_instance_variable("@iv") }
-  end
-
-  def test_fixnum_64bit
-    obj = [1220278665, 1220278662, 1220278661, 1220278661, 1220278656]
-
-    marshal_equal(obj)
-  end
-
   def test_float
     marshal_equal(-1.0)
     marshal_equal(0.0)
@@ -210,30 +189,6 @@ module MarshalTestLib
     marshal_equal(-1.0/0.0)
     marshal_equal(0.0/0.0) {|o| o.nan?}
     marshal_equal(NegativeZero) {|o| 1.0/o}
-  end
-
-  def test_float_ivar
-    o1 = 1.23
-    o1.instance_eval { @iv = 1 }
-    marshal_equal(o1) {|o| o.instance_eval { @iv }}
-  end
-
-  def test_float_ivar_self
-    o1 = 5.5
-    o1.instance_eval { @iv = o1 }
-    marshal_equal(o1) {|o| o.instance_eval { @iv }}
-  end
-
-  def test_float_extend
-    o1 = 0.0/0.0
-    o1.extend(Mod1)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
-    o1.extend(Mod2)
-    marshal_equal(o1) { |o|
-      (class << self; self; end).ancestors
-    }
   end
 
   class MyRange < Range; def initialize(v, *args) super(*args); @v = v; end end
@@ -251,6 +206,12 @@ module MarshalTestLib
     marshal_equal(/a/)
     marshal_equal(/A/i)
     marshal_equal(/A/mx)
+    marshal_equal(/a\u3042/)
+    marshal_equal(/aあ/)
+    assert_equal(Regexp.new("あ".force_encoding("ASCII-8BIT")),
+                 Marshal.load("\004\b/\b\343\201\202\000"))
+    assert_equal(/au3042/, Marshal.load("\004\b/\fa\\u3042\000"))
+    #assert_equal(/au3042/u, Marshal.load("\004\b/\fa\\u3042@")) # spec
   end
 
   def test_regexp_subclass
@@ -285,8 +246,8 @@ module MarshalTestLib
     o = "abc"
     o.extend(Mod1)
     str = MyString.new(o, "c")
-    marshal_equal(str) { |o|
-      assert(o.instance_eval { @v }).kind_of?(Mod1)
+    marshal_equal(str) { |v|
+      assert(v.instance_eval { @v }.kind_of?(Mod1))
     }
   end
 
@@ -296,7 +257,7 @@ module MarshalTestLib
     class MyStruct
       def ==(rhs)
 	return true if __id__ == rhs.__id__
-	return false unless rhs.is_a?(::Struct) 
+	return false unless rhs.is_a?(::Struct)
 	return false if self.class != rhs.class
 	members.each do |member|
 	  return false if self.__send__(member) != rhs.__send__(member)
@@ -389,6 +350,11 @@ module MarshalTestLib
     marshal_equal(o1) {|o| o.instance_eval { @iv }}
   end
 
+  def test_time_in_array
+    t = Time.now
+    assert_equal([t,t], Marshal.load(Marshal.dump([t, t])), "[ruby-dev:34159]")
+  end
+
   def test_true
     marshal_equal(true)
   end
@@ -419,16 +385,21 @@ module MarshalTestLib
   def test_singleton
     o = Object.new
     def o.m() end
-    assert_raises(TypeError) { marshaltest(o) }
+    assert_raise(TypeError) { marshaltest(o) }
+
+    bug8043 = '[ruby-core:53206] [Bug #8043]'
+    class << o; prepend Mod1; end
+    assert_raise(TypeError, bug8043) {marshaltest(o)}
+
     o = Object.new
     c = class << o
       @v = 1
       class C; self; end
     end
-    assert_raises(TypeError) { marshaltest(o) }
-    assert_raises(TypeError) { marshaltest(c) }
-    assert_raises(TypeError) { marshaltest(ARGF) }
-    assert_raises(TypeError) { marshaltest(ENV) }
+    assert_raise(TypeError) { marshaltest(o) }
+    assert_raise(TypeError) { marshaltest(c) }
+    assert_raise(TypeError) { marshaltest(ARGF) }
+    assert_raise(TypeError) { marshaltest(ENV) }
   end
 
   def test_extend
@@ -441,7 +412,7 @@ module MarshalTestLib
     marshal_equal(o) {|obj| class << obj; ancestors end}
     o = Object.new
     o.extend Module.new
-    assert_raises(TypeError) { marshaltest(o) }
+    assert_raise(TypeError) { marshaltest(o) }
   end
 
   def test_extend_string
@@ -454,16 +425,16 @@ module MarshalTestLib
     marshal_equal(o) {|obj| class << obj; ancestors end}
     o = ""
     o.extend Module.new
-    assert_raises(TypeError) { marshaltest(o) }
+    assert_raise(TypeError) { marshaltest(o) }
   end
 
   def test_anonymous
     c = Class.new
-    assert_raises(TypeError) { marshaltest(c) }
+    assert_raise(TypeError) { marshaltest(c) }
     o = c.new
-    assert_raises(TypeError) { marshaltest(o) }
+    assert_raise(TypeError) { marshaltest(o) }
     m = Module.new
-    assert_raises(TypeError) { marshaltest(m) }
+    assert_raise(TypeError) { marshaltest(m) }
   end
 
   def test_string_empty
@@ -484,7 +455,7 @@ module MarshalTestLib
     class MyStruct2
       def ==(rhs)
 	return true if __id__ == rhs.__id__
-	return false unless rhs.is_a?(::Struct) 
+	return false unless rhs.is_a?(::Struct)
 	return false if self.class != rhs.class
 	members.each do |member|
 	  return false if self.__send__(member) != rhs.__send__(member)

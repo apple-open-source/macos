@@ -37,29 +37,32 @@ OSDefineMetaClassAndAbstractStructors( AppleEmbeddedHIDEventService, IOHIDEventS
 //====================================================================================================
 bool AppleEmbeddedHIDEventService::handleStart(IOService * provider)
 {
-	uint32_t value;
+    uint32_t value;
+    
+    if ( !super::handleStart(provider) )
+        return FALSE;
+    
+    value = getOrientation();
+    if ( value )
+        setProperty(kIOHIDOrientationKey, value, 32);
 
-	if ( !super::handleStart(provider) )
-		return FALSE;
-	
-	value = getOrientation();
-	if ( value )
-		setProperty(kIOHIDOrientationKey, value, 32);
-
-	value = getPlacement();
-	if ( value )
-		setProperty(kIOHIDPlacementKey, value, 32);
-	
-	return TRUE;
+    value = getPlacement();
+    if ( value )
+        setProperty(kIOHIDPlacementKey, value, 32);
+    
+    // RY: all embedded services are built-in
+    setProperty(kIOHIDBuiltInKey, true);
+    
+    return TRUE;
 }
 
 
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchAccelerometerEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type, IOHIDAccelerometerSubType subType, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDMotionType type, IOHIDMotionPath subType, UInt32 sequence, IOOptionBits options)
 {
-    IOHIDEvent * event = IOHIDEvent::accelerometerEvent(timestamp, x, y, z, type, subType, options);
+    IOHIDEvent * event = IOHIDEvent::accelerometerEvent(timestamp, x, y, z, type, subType, sequence, options);
     
     if ( event ) {
         dispatchEvent(event);
@@ -71,9 +74,9 @@ void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime times
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchGyroEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type, IOHIDGyroSubType subType, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDMotionType type, IOHIDMotionPath subType, UInt32 sequence, IOOptionBits options)
 {
-    IOHIDEvent * event = IOHIDEvent::gyroEvent(timestamp, x, y, z, type, subType, options);
+    IOHIDEvent * event = IOHIDEvent::gyroEvent(timestamp, x, y, z, type, subType, sequence, options);
     
     if ( event ) {
         dispatchEvent(event);
@@ -84,9 +87,9 @@ void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOF
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchCompassEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchCompassEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDCompassType type, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchCompassEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDMotionType type, IOHIDMotionPath subType, UInt32 sequence, IOOptionBits options)
 {
-    IOHIDEvent * event = IOHIDEvent::compassEvent(timestamp, x, y, z, type, options);
+    IOHIDEvent * event = IOHIDEvent::compassEvent(timestamp, x, y, z, type, subType, sequence, options);
     
     if ( event ) {
         dispatchEvent(event);
@@ -136,9 +139,35 @@ void AppleEmbeddedHIDEventService::dispatchTemperatureEvent(AbsoluteTime timesta
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchPowerEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchPowerEvent(AbsoluteTime timestamp, IOFixed measurement, IOHIDPowerType powerType, IOHIDPowerSubType powerSubType, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchPowerEvent(AbsoluteTime timestamp, int64_t measurement, IOHIDPowerType powerType, IOHIDPowerSubType powerSubType, IOOptionBits options)
 {
     IOHIDEvent * event = IOHIDEvent::powerEvent(timestamp, measurement, powerType, powerSubType, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+//====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchVendorDefinedEvent
+//====================================================================================================
+void AppleEmbeddedHIDEventService::dispatchVendorDefinedEvent(AbsoluteTime timeStamp, UInt32 usagePage, UInt32 usage, UInt32 version, UInt8 * data, UInt32 length, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::vendorDefinedEvent(timeStamp, usagePage, usage, version, data, length, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+//====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchBiometricEvent
+//====================================================================================================
+void AppleEmbeddedHIDEventService::dispatchBiometricEvent(AbsoluteTime timeStamp, IOFixed level, IOHIDBiometricEventType eventType, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::biometricEvent(timeStamp, level, eventType, options);
     
     if ( event ) {
         dispatchEvent(event);
@@ -151,7 +180,7 @@ void AppleEmbeddedHIDEventService::dispatchPowerEvent(AbsoluteTime timestamp, IO
 //====================================================================================================
 IOHIDOrientationType AppleEmbeddedHIDEventService::getOrientation()
 {
-	return 0;
+    return 0;
 }
 
 //====================================================================================================
@@ -159,6 +188,6 @@ IOHIDOrientationType AppleEmbeddedHIDEventService::getOrientation()
 //====================================================================================================
 IOHIDPlacementType AppleEmbeddedHIDEventService::getPlacement()
 {
-	return 0;
+    return 0;
 }
 

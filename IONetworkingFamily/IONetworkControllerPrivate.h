@@ -41,4 +41,11 @@
 #define kMessageDebuggerActivationChange \
         iokit_family_msg(sub_iokit_networking, 0x1F0)
 
+// kIONetworkEventTypeLink message payload
+struct IONetworkLinkEventData {
+    uint64_t    linkSpeed;
+    uint32_t    linkStatus;
+    uint32_t    linkType;
+};
+
 #endif /* !_IONETWORKCONTROLLERPRIVATE_H */

@@ -9,12 +9,6 @@
 /* Define if you enable support for the libsmi. */
 /* #undef LIBSMI */
 
-/* define if you have struct __res_state_ext */
-/* #undef HAVE_RES_STATE_EXT */
-
-/* define if your struct __res_state has the nsort member */
-/* #undef HAVE_NEW_RES_STATE */
-
 /* define if you have the addrinfo function. */
 #define HAVE_ADDRINFO 1
 
@@ -23,15 +17,6 @@
 
 /* define ifyou have the h_errno variable. */
 #define HAVE_H_ERRNO 1
-
-/* define if IN6ADDRSZ is defined (XXX not used!) */
-/* #undef HAVE_IN6ADDRSZ */
-
-/* define if INADDRSZ is defined (XXX not used!) */
-/* #undef HAVE_INADDRSZ */
-
-/* define if RES_USE_INET6 is defined */
-#define HAVE_RES_USE_INET6 1
 
 /* define if you have struct sockaddr_storage */
 #define HAVE_SOCKADDR_STORAGE 1
@@ -68,9 +53,6 @@
 
 /* define if you have getrpcbynumber() */
 #define HAVE_GETRPCBYNUMBER 1
-
-/* AIX hack. */
-/* #undef _SUN */
 
 /* Workaround for missing 64-bit formats */
 /* #undef PRId64 */
@@ -109,9 +91,9 @@
 /* Define to 1 if you have the <fcntl.h> header file. */
 #define HAVE_FCNTL_H 1
 
-/* Define to 1 if you have the getaddrinfo function. */
-#define HAVE_GETADDRINFO 1
-   
+/* Define to 1 if you have the `fork' function. */
+#define HAVE_FORK 1
+
 /* Define to 1 if you have the `getnameinfo' function. */
 #define HAVE_GETNAMEINFO 1
 
@@ -175,6 +157,9 @@
 /* Define to 1 if you have the `pcap_lib_version' function. */
 #define HAVE_PCAP_LIB_VERSION 1
 
+/* Define to 1 if you have the `pcap_set_tstamp_type' function. */
+#define HAVE_PCAP_SET_TSTAMP_TYPE 1
+
 /* Define to 1 if you have the <pcap/usb.h> header file. */
 #define HAVE_PCAP_USB_H 1
 
@@ -183,6 +168,9 @@
 
 /* Define to 1 if you have the <rpc/rpcent.h> header file. */
 /* #undef HAVE_RPC_RPCENT_H */
+
+/* Define to 1 if you have the <rpc/rpc.h> header file. */
+#define HAVE_RPC_RPC_H 1
 
 /* Define to 1 if you have the `setlinebuf' function. */
 #define HAVE_SETLINEBUF 1
@@ -247,6 +235,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
+/* Define to 1 if you have the `vfork' function. */
+#define HAVE_VFORK 1
+
 /* Define to 1 if you have the `vfprintf' function. */
 #define HAVE_VFPRINTF 1
 
@@ -286,21 +277,6 @@
 /* return value of signal handlers */
 #define RETSIGVAL 
 
-/* The size of `char', as computed by sizeof. */
-#define SIZEOF_CHAR 1
-
-/* The size of `int', as computed by sizeof. */
-#define SIZEOF_INT 4
-
-/* The size of `long', as computed by sizeof. */
-#define SIZEOF_LONG 8
-
-/* The size of `long long', as computed by sizeof. */
-#define SIZEOF_LONG_LONG 8
-
-/* The size of `short', as computed by sizeof. */
-#define SIZEOF_SHORT 2
-
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
@@ -312,6 +288,9 @@
 
 /* needed on HP-UX */
 /* #undef _HPUX_SOURCE */
+
+/* define on AIX to get certain functions */
+/* #undef _SUN */
 
 /* define if your compiler allows __attribute__((format)) to be applied to
    function pointers */

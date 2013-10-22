@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -379,6 +379,8 @@ SCPreferencesPathCreateUniqueChild(SCPreferencesRef	prefs,
 				     NULL, NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
+	assert(newDict != NULL);
+
 	if (!setPath(prefs, newPath, newDict)) {
 		CFRelease(newPath);
 		newPath = NULL;

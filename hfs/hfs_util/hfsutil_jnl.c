@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -340,287 +340,298 @@ get_embedded_offset(char *devname)
 static const char *journal_fname = ".journal";
 static const char *jib_fname = ".journal_info_block";
 
-int
-DoMakeJournaled(char *volname, int jsize)
-{
-    int              fd, i, block_size, journal_size = 8*1024*1024;
-    char            *buf;
-    int              ret;
-    fstore_t         fst;
-    int32_t          jstart_block, jinfo_block;
-    int              sysctl_info[8];
-    JournalInfoBlock jib;
-    struct statfs    sfs;
-    static char      tmpname[MAXPATHLEN];
-    off_t            start_block, embedded_offset;
+int 
+DoMakeJournaled(char *volname, int jsize) {
+	int              fd, i, block_size, journal_size = 8*1024*1024;
+	char            *buf;
+	int              ret;
+	fstore_t         fst;
+	int32_t          jstart_block, jinfo_block;
+	int              sysctl_info[8];
+	JournalInfoBlock jib;
+	struct statfs    sfs;
+	static char      tmpname[MAXPATHLEN];
+	off_t            start_block, embedded_offset;
 
-    if (statfs(volname, &sfs) != 0) {
-	fprintf(stderr, "Can't stat volume %s (%s).\n", volname, strerror(errno));
-	return 10;
-    }
-
-    // Make sure that we're HFS+.  First we check the fstypename.
-    // If that's ok then we try to create a symlink (which won't
-    // work on plain hfs volumes but will work on hfs+ volumes).
-    //
-    if (strcmp(sfs.f_fstypename, "devfs") == 0) {
-    	fprintf (stderr, "%s is a device node.  Journal enable only works on a mounted HFS+ volume.\n", volname);
+	if (statfs(volname, &sfs) != 0) {
+		fprintf(stderr, "Can't stat volume %s (%s).\n", volname, strerror(errno));
 		return 10;
-    }
-    snprintf(tmpname, sizeof(tmpname), "%s/is_vol_hfs_plus", volname);
-    if (strcmp(sfs.f_fstypename, "hfs") != 0 ||
-	((ret = symlink(tmpname, tmpname)) != 0 && errno == ENOTSUP)) {
-	fprintf(stderr, "%s is not an HFS+ volume.  Journaling only works on HFS+ volumes.\n",
-		volname);
-	return 10;
-    }
-    unlink(tmpname);
-
-    if (sfs.f_flags & MNT_JOURNALED) {
-	fprintf(stderr, "Volume %s is already journaled.\n", volname);
-	return 1;
-    }
-
-    if (jsize != 0) {
-	journal_size = jsize;
-    } else {
-	int scale;
-
-	//
-	// we want at least 8 megs of journal for each 100 gigs of
-	// disk space.  We cap the size at 512 megs though.
-	//
-	scale = ((long long)sfs.f_bsize * (long long)((unsigned int)sfs.f_blocks)) / (100*1024*1024*1024ULL);
-	journal_size *= (scale + 1);
-	if (journal_size > 512 * 1024 * 1024) {
-	    journal_size = 512 * 1024 * 1024;
 	}
-    }
 
-    if (chdir(volname) != 0) {
-	fprintf(stderr, "Can't locate volume %s to make it journaled (%s).\n",
-		volname, strerror(errno));
-	return 10;
-    }
+	// Make sure that we're HFS+.  First we check the fstypename.
+	// If that's ok then we try to create a symlink (which won't
+	// work on plain hfs volumes but will work on hfs+ volumes).
+	//
+	if (strcmp(sfs.f_fstypename, "devfs") == 0) {
+		fprintf (stderr, "%s is a device node.  Journal enable only works on a mounted HFS+ volume.\n", volname);
+		return 10;
+	}
+	snprintf(tmpname, sizeof(tmpname), "%s/is_vol_hfs_plus", volname);
+	if (strcmp(sfs.f_fstypename, "hfs") != 0 ||
+			((ret = symlink(tmpname, tmpname)) != 0 && errno == ENOTSUP)) {
+		fprintf(stderr, "%s is not an HFS+ volume.  Journaling only works on HFS+ volumes.\n",
+				volname);
+		return 10;
+	}
+	unlink(tmpname);
 
+	if (sfs.f_flags & MNT_JOURNALED) {
+		fprintf(stderr, "Volume %s is already journaled.\n", volname);
+		return 1;
+	}
 
-    embedded_offset = get_embedded_offset(volname);
-    if (embedded_offset < 0) {
-	fprintf(stderr, "Can't calculate the embedded offset (if any) for %s.\n", volname);
-	fprintf(stderr, "Journal creation failure.\n");
-	return 15;
-    }
-    // printf("Embedded offset == 0x%llx\n", embedded_offset);
-
-    fd = open(journal_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
-    if (fd < 0) {
-	fprintf(stderr, "Can't create journal file on volume %s (%s)\n",
-		volname, strerror(errno));
-	return 5;
-    }
-
-    // make sure that it has no r/w/x privs (only could happen if
-    // the file already existed since open() doesn't reset the mode
-    // bits).
-    //
-    fchmod(fd, 0);
-
-    block_size = sfs.f_bsize;
-    if ((journal_size % block_size) != 0) {
-	fprintf(stderr, "Journal size %dk is not a multiple of volume %s block size (%d).\n",
-		journal_size/1024, volname, block_size);
-	close(fd);
-	unlink(journal_fname);
-	return 5;
-    }
-
-  retry:
-    memset(&fst, 0, sizeof(fst));
-    fst.fst_flags   = F_ALLOCATECONTIG|F_ALLOCATEALL;
-    fst.fst_length  = journal_size;
-    fst.fst_posmode = F_PEOFPOSMODE;
-    
-    ret = fcntl(fd, F_PREALLOCATE, &fst);
-    if (ret < 0) {
-	if (journal_size >= 2*1024*1024) {
-	    fprintf(stderr, "Not enough contiguous space for a %d k journal.  Retrying.\n",
-		    journal_size/1024);
-	    journal_size /= 2;
-	    ftruncate(fd, 0);     // make sure the file is zero bytes long.
-	    goto retry;
+	if (jsize != 0) {
+		journal_size = jsize;
 	} else {
-	    fprintf(stderr, "Disk too fragmented to enable journaling.\n");
-	    fprintf(stderr, "Please run a defragmenter on %s.\n", volname);
-	    close(fd);
-	    unlink(journal_fname);
-	    return 10;
+		int scale;
+
+		//
+		// we want at least 8 megs of journal for each 100 gigs of
+		// disk space.  We cap the size at 512 megs though.
+		//
+		scale = ((long long)sfs.f_bsize * (long long)((unsigned int)sfs.f_blocks)) / (100*1024*1024*1024ULL);
+		journal_size *= (scale + 1);
+		if (journal_size > 512 * 1024 * 1024) {
+			journal_size = 512 * 1024 * 1024;
+		}
 	}
-    }
 
-    printf("Allocated %lldK for journal file.\n", fst.fst_bytesalloc/1024LL);
-    buf = (char *)calloc(block_size, 1);
-    if (buf) {
-	for(i=0; i < journal_size/block_size; i++) {
-	    ret = write(fd, buf, block_size);
-	    if (ret != block_size) {
-		break;
-	    }
+	if (chdir(volname) != 0) {
+		fprintf(stderr, "Can't locate volume %s to make it journaled (%s).\n",
+				volname, strerror(errno));
+		return 10;
 	}
-		
-	if (i*block_size != journal_size) {
-	    fprintf(stderr, "Failed to write %dk to journal on volume %s (%s)\n",
-		    journal_size/1024, volname, strerror(errno));
+
+
+	embedded_offset = get_embedded_offset(volname);
+	if (embedded_offset < 0) {
+		fprintf(stderr, "Can't calculate the embedded offset (if any) for %s.\n", volname);
+		fprintf(stderr, "Journal creation failure.\n");
+		return 15;
 	}
-    } else {
-	printf("Could not allocate memory to write to the journal on volume %s (%s)\n",
-	       volname, strerror(errno));
-    }
+	// printf("Embedded offset == 0x%llx\n", embedded_offset);
 
-    fsync(fd);
-    close(fd);
-    hide_file(journal_fname);
+	fd = open(journal_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
+	if (fd < 0) {
+		fprintf(stderr, "Can't create journal file on volume %s (%s)\n",
+				volname, strerror(errno));
+		return 5;
+	}
 
-    start_block = get_start_block(journal_fname, block_size);
-    if (start_block == (off_t)-1) {
-	fprintf(stderr, "Failed to get start block for %s (%s)\n",
-		journal_fname, strerror(errno));
-	unlink(journal_fname);
-	return 20;
-    }
-    jstart_block = (start_block / block_size) - (embedded_offset / block_size);
-
-    memset(&jib, 'Z', sizeof(jib));
-    jib.flags  = kJIJournalInFSMask;
-    jib.offset = (off_t)((unsigned int)jstart_block) * (off_t)((unsigned int)block_size);
-    jib.size   = (off_t)((unsigned int)journal_size);
-
-    fd = open(jib_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
-    if (fd < 0) {
-	fprintf(stderr, "Could not create journal info block file on volume %s (%s)\n",
-		volname, strerror(errno));
-	unlink(journal_fname);
-	return 5;
-    }
-    
-    // swap the data before we copy it
-    jib.flags  = OSSwapBigToHostInt32(jib.flags);
-    jib.offset = OSSwapBigToHostInt64(jib.offset);
-    jib.size   = OSSwapBigToHostInt64(jib.size);
-    
-    memcpy(buf, &jib, sizeof(jib));
-
-    // now put it back the way it was
-    jib.size   = OSSwapBigToHostInt64(jib.size);
-    jib.offset = OSSwapBigToHostInt64(jib.offset);
-    jib.flags  = OSSwapBigToHostInt32(jib.flags);
-
-    if (write(fd, buf, block_size) != block_size) {
-	fprintf(stderr, "Failed to write journal info block on volume %s (%s)!\n",
-		volname, strerror(errno));
-	unlink(journal_fname);
-	return 10;
-    }
-
-    fsync(fd);
-    close(fd);
-    hide_file(jib_fname);
-
-    start_block = get_start_block(jib_fname, block_size);
-    if (start_block == (off_t)-1) {
-	fprintf(stderr, "Failed to get start block for %s (%s)\n",
-		jib_fname, strerror(errno));
-	unlink(journal_fname);
-	unlink(jib_fname);
-	return 20;
-    }
-    jinfo_block = (start_block / block_size) - (embedded_offset / block_size);
+	if (fcntl(fd, F_NOCACHE, 1)) {
+		fprintf(stderr, "Can't create journal file (NC)  on volume %s (%s)\n",
+				volname, strerror(errno));
+		return 5;	
+	}
 
 
-    //
-    // Now make the volume journaled!
-    //
-    memset(sysctl_info, 0, sizeof(sysctl_info));
-    sysctl_info[0] = CTL_VFS;
-    sysctl_info[1] = sfs.f_fsid.val[1];
-    sysctl_info[2] = HFS_ENABLE_JOURNALING;
-    sysctl_info[3] = jinfo_block;
-    sysctl_info[4] = jstart_block;
-    sysctl_info[5] = journal_size;
-     
-    //printf("fs type: 0x%x\n", sysctl_info[1]);
-    //printf("jinfo block : 0x%x\n", jinfo_block);
-    //printf("jstart block: 0x%x\n", jstart_block);
-    //printf("journal size: 0x%x\n", journal_size);
+	// make sure that it has no r/w/x privs (only could happen if
+	// the file already existed since open() doesn't reset the mode
+	// bits).
+	//
+	fchmod(fd, 0);
 
-    ret = sysctl((void *)sysctl_info, 6, NULL, NULL, NULL, 0);
-    if (ret != 0) {
-	fprintf(stderr, "Failed to make volume %s journaled (%s)\n",
-		volname, strerror(errno));
-	unlink(journal_fname);
-	unlink(jib_fname);
-	return 20;
-    }
-    
-    return 0;
+	block_size = sfs.f_bsize;
+	if ((journal_size % block_size) != 0) {
+		fprintf(stderr, "Journal size %dk is not a multiple of volume %s block size (%d).\n",
+				journal_size/1024, volname, block_size);
+		close(fd);
+		unlink(journal_fname);
+		return 5;
+	}
+
+retry:
+	memset(&fst, 0, sizeof(fst));
+	fst.fst_flags   = F_ALLOCATECONTIG|F_ALLOCATEALL;
+	fst.fst_length  = journal_size;
+	fst.fst_posmode = F_PEOFPOSMODE;
+
+	ret = fcntl(fd, F_PREALLOCATE, &fst);
+	if (ret < 0) {
+		if (journal_size >= 2*1024*1024) {
+			fprintf(stderr, "Not enough contiguous space for a %d k journal.  Retrying.\n",
+					journal_size/1024);
+			journal_size /= 2;
+			ftruncate(fd, 0);     // make sure the file is zero bytes long.
+			goto retry;
+		} else {
+			fprintf(stderr, "Disk too fragmented to enable journaling.\n");
+			fprintf(stderr, "Please run a defragmenter on %s.\n", volname);
+			close(fd);
+			unlink(journal_fname);
+			return 10;
+		}
+	}
+
+	printf("Allocated %lldK for journal file.\n", fst.fst_bytesalloc/1024LL);
+	buf = (char *)calloc(block_size, 1);
+	if (buf) {
+		for(i=0; i < journal_size/block_size; i++) {
+			ret = write(fd, buf, block_size);
+			if (ret != block_size) {
+				break;
+			}
+		}
+
+		if (i*block_size != journal_size) {
+			fprintf(stderr, "Failed to write %dk to journal on volume %s (%s)\n",
+					journal_size/1024, volname, strerror(errno));
+		}
+	} else {
+		printf("Could not allocate memory to write to the journal on volume %s (%s)\n",
+				volname, strerror(errno));
+	}
+
+	fsync(fd);
+	close(fd);
+	hide_file(journal_fname);
+
+	start_block = get_start_block(journal_fname, block_size);
+	if (start_block == (off_t)-1) {
+		fprintf(stderr, "Failed to get start block for %s (%s)\n",
+				journal_fname, strerror(errno));
+		unlink(journal_fname);
+		return 20;
+	}
+	jstart_block = (start_block / block_size) - (embedded_offset / block_size);
+
+	memset(&jib, 'Z', sizeof(jib));
+	jib.flags  = kJIJournalInFSMask;
+	jib.offset = (off_t)((unsigned int)jstart_block) * (off_t)((unsigned int)block_size);
+	jib.size   = (off_t)((unsigned int)journal_size);
+
+	fd = open(jib_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
+	if (fd < 0) {
+		fprintf(stderr, "Could not create journal info block file on volume %s (%s)\n",
+				volname, strerror(errno));
+		unlink(journal_fname);
+		return 5;
+	}
+
+	if (fcntl(fd, F_NOCACHE, 1)) {
+		fprintf(stderr, "Could not create journal info block (NC) file on volume %s (%s)\n",
+				volname, strerror(errno));
+		return 5;	
+	} 
+
+	// swap the data before we copy it
+	jib.flags  = OSSwapBigToHostInt32(jib.flags);
+	jib.offset = OSSwapBigToHostInt64(jib.offset);
+	jib.size   = OSSwapBigToHostInt64(jib.size);
+
+	memcpy(buf, &jib, sizeof(jib));
+
+	// now put it back the way it was
+	jib.size   = OSSwapBigToHostInt64(jib.size);
+	jib.offset = OSSwapBigToHostInt64(jib.offset);
+	jib.flags  = OSSwapBigToHostInt32(jib.flags);
+
+	if (write(fd, buf, block_size) != block_size) {
+		fprintf(stderr, "Failed to write journal info block on volume %s (%s)!\n",
+				volname, strerror(errno));
+		unlink(journal_fname);
+		return 10;
+	}
+
+	fsync(fd);
+	close(fd);
+	hide_file(jib_fname);
+
+	start_block = get_start_block(jib_fname, block_size);
+	if (start_block == (off_t)-1) {
+		fprintf(stderr, "Failed to get start block for %s (%s)\n",
+				jib_fname, strerror(errno));
+		unlink(journal_fname);
+		unlink(jib_fname);
+		return 20;
+	}
+	jinfo_block = (start_block / block_size) - (embedded_offset / block_size);
+
+
+	//
+	// Now make the volume journaled!
+	//
+	memset(sysctl_info, 0, sizeof(sysctl_info));
+	sysctl_info[0] = CTL_VFS;
+	sysctl_info[1] = sfs.f_fsid.val[1];
+	sysctl_info[2] = HFS_ENABLE_JOURNALING;
+	sysctl_info[3] = jinfo_block;
+	sysctl_info[4] = jstart_block;
+	sysctl_info[5] = journal_size;
+
+	//printf("fs type: 0x%x\n", sysctl_info[1]);
+	//printf("jinfo block : 0x%x\n", jinfo_block);
+	//printf("jstart block: 0x%x\n", jstart_block);
+	//printf("journal size: 0x%x\n", journal_size);
+
+	ret = sysctl((void *)sysctl_info, 6, NULL, NULL, NULL, 0);
+	if (ret != 0) {
+		fprintf(stderr, "Failed to make volume %s journaled (%s)\n",
+				volname, strerror(errno));
+		unlink(journal_fname);
+		unlink(jib_fname);
+		return 20;
+	}
+
+	return 0;
 }
 
 
 int
-DoUnJournal(char *volname)
-{
-    int           result;
-    int           sysctl_info[8];
-    struct statfs sfs;
-    char          jbuf[MAXPATHLEN];
-	
-    if (statfs(volname, &sfs) != 0) {
-	fprintf(stderr, "Can't stat volume %s (%s).\n", volname, strerror(errno));
-	return 10;
-    }
+DoUnJournal(char *volname) {
+	int           result;
+	int           sysctl_info[8];
+	struct statfs sfs;
+	char          jbuf[MAXPATHLEN];
 
-    if (strcmp(sfs.f_fstypename, "hfs") != 0) {
-    	fprintf(stderr, "Volume %s (%s) is not a HFS volume.\n", volname, sfs.f_mntfromname);
+	if (statfs(volname, &sfs) != 0) {
+		fprintf(stderr, "Can't stat volume %s (%s).\n", volname, strerror(errno));
+		return 10;
+	}
+
+	if (strcmp(sfs.f_fstypename, "hfs") != 0) {
+		fprintf(stderr, "Volume %s (%s) is not a HFS volume.\n", volname, sfs.f_mntfromname);
 		return 1;
-    }
+	}
 
-    if ((sfs.f_flags & MNT_JOURNALED) == 0) {
-	fprintf(stderr, "Volume %s (%s) is not journaled.\n", volname, sfs.f_mntfromname);
-	return 1;
-    }
+	if ((sfs.f_flags & MNT_JOURNALED) == 0) {
+		fprintf(stderr, "Volume %s (%s) is not journaled.\n", volname, sfs.f_mntfromname);
+		return 1;
+	}
 
-    if (chdir(volname) != 0) {
-	fprintf(stderr, "Can't locate volume %s to turn off journaling (%s).\n",
-		volname, strerror(errno));
-	return 10;
-    }
-	
-    memset(sysctl_info, 0, sizeof(sysctl_info));
-    sysctl_info[0] = CTL_VFS;
-    sysctl_info[1] = sfs.f_fsid.val[1];
-    sysctl_info[2] = HFS_DISABLE_JOURNALING;
-	
-    result = sysctl((void *)sysctl_info, 3, NULL, NULL, NULL, 0);
-    if (result != 0) {
-	fprintf(stderr, "Failed to make volume %s UN-journaled (%s)\n",
-		volname, strerror(errno));
-	return 20;
-    }
+	if (chdir(volname) != 0) {
+		fprintf(stderr, "Can't locate volume %s to turn off journaling (%s).\n",
+				volname, strerror(errno));
+		return 10;
+	}
 
-    snprintf(jbuf, sizeof(jbuf), "%s/%s", volname, journal_fname);
-    if (unlink(jbuf) != 0) {
-	fprintf(stderr, "Failed to remove the journal %s (%s)\n",
-		jbuf, strerror(errno));
-    }
+	memset(sysctl_info, 0, sizeof(sysctl_info));
+	sysctl_info[0] = CTL_VFS;
+	sysctl_info[1] = sfs.f_fsid.val[1];
+	sysctl_info[2] = HFS_DISABLE_JOURNALING;
 
-    snprintf(jbuf, sizeof(jbuf), "%s/%s", volname, jib_fname);
-    if (unlink(jbuf) != 0) {
-	fprintf(stderr, "Failed to remove the journal info block %s (%s)\n",
-		jbuf, strerror(errno));
-    }
+	result = sysctl((void *)sysctl_info, 3, NULL, NULL, NULL, 0);
+	if (result != 0) {
+		fprintf(stderr, "Failed to make volume %s UN-journaled (%s)\n",
+				volname, strerror(errno));
+		return 20;
+	}
 
-    printf("Journaling disabled on %s mounted at %s.\n", sfs.f_mntfromname, volname);
-	    
-    return 0;
+	snprintf(jbuf, sizeof(jbuf), "%s/%s", volname, journal_fname);
+	if (unlink(jbuf) != 0) {
+		fprintf(stderr, "Failed to remove the journal %s (%s)\n",
+				jbuf, strerror(errno));
+	}
+
+	snprintf(jbuf, sizeof(jbuf), "%s/%s", volname, jib_fname);
+	if (unlink(jbuf) != 0) {
+		fprintf(stderr, "Failed to remove the journal info block %s (%s)\n",
+				jbuf, strerror(errno));
+	}
+
+	printf("Journaling disabled on %s mounted at %s.\n", sfs.f_mntfromname, volname);
+
+	return 0;
 }
 
 

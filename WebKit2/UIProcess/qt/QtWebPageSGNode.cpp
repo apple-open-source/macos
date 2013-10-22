@@ -21,9 +21,12 @@
 #include "config.h"
 #include "QtWebPageSGNode.h"
 
-#include "WebLayerTreeRenderer.h"
 #include <QtGui/QPolygonF>
+#include <QtQuick/QQuickItem>
+#include <QtQuick/QQuickWindow>
 #include <QtQuick/QSGSimpleRectNode>
+#include <WebCore/CoordinatedGraphicsScene.h>
+#include <WebCore/TransformationMatrix.h>
 #include <private/qsgrendernode_p.h>
 
 using namespace WebCore;
@@ -32,10 +35,10 @@ namespace WebKit {
 
 class ContentsSGNode : public QSGRenderNode {
 public:
-    ContentsSGNode(PassRefPtr<WebLayerTreeRenderer> renderer)
-        : m_renderer(renderer)
+    ContentsSGNode(PassRefPtr<CoordinatedGraphicsScene> scene)
+        : m_scene(scene)
     {
-        layerTreeRenderer()->setActive(true);
+        coordinatedGraphicsScene()->setActive(true);
     }
 
     virtual StateFlags changedStates()
@@ -45,7 +48,13 @@ public:
 
     virtual void render(const RenderState& state)
     {
-        QMatrix4x4 renderMatrix = matrix() ? *matrix() : QMatrix4x4();
+        TransformationMatrix renderMatrix;
+        if (pageNode()->devicePixelRatio() != 1.0) {
+            renderMatrix.scale(pageNode()->devicePixelRatio());
+            if (matrix())
+                renderMatrix.multiply(*matrix());
+        } else if (matrix())
+            renderMatrix = *matrix();
 
         // When rendering to an intermediate surface, Qt will
         // mirror the projection matrix to fit on the destination coordinate system.
@@ -53,15 +62,22 @@ public:
         bool mirrored = projection && (*projection)(0, 0) * (*projection)(1, 1) - (*projection)(0, 1) * (*projection)(1, 0) > 0;
 
         // FIXME: Support non-rectangular clippings.
-        layerTreeRenderer()->paintToCurrentGLContext(renderMatrix, inheritedOpacity(), clipRect(), mirrored ? TextureMapper::PaintingMirrored : 0);
+        coordinatedGraphicsScene()->paintToCurrentGLContext(renderMatrix, inheritedOpacity(), clipRect(), mirrored ? TextureMapper::PaintingMirrored : 0);
     }
 
     ~ContentsSGNode()
     {
-        layerTreeRenderer()->purgeGLResources();
+        coordinatedGraphicsScene()->purgeGLResources();
     }
 
-    WebLayerTreeRenderer* layerTreeRenderer() const { return m_renderer.get(); }
+    const QtWebPageSGNode* pageNode() const
+    {
+        const QtWebPageSGNode* parent = static_cast<QtWebPageSGNode*>(this->parent());
+        ASSERT(parent);
+        return parent;
+    }
+
+    WebCore::CoordinatedGraphicsScene* coordinatedGraphicsScene() const { return m_scene.get(); }
 
 private:
     QRectF clipRect() const
@@ -71,8 +87,13 @@ private:
 
         for (const QSGClipNode* clip = clipList(); clip; clip = clip->clipList()) {
             QMatrix4x4 clipMatrix;
-            if (clip->matrix())
+            if (pageNode()->devicePixelRatio() != 1.0) {
+                clipMatrix.scale(pageNode()->devicePixelRatio());
+                if (clip->matrix())
+                    clipMatrix *= (*clip->matrix());
+            } else if (clip->matrix())
                 clipMatrix = *clip->matrix();
+
             QRectF currentClip;
 
             if (clip->isRectangular())
@@ -105,12 +126,13 @@ private:
         return resultRect;
     }
 
-    RefPtr<WebLayerTreeRenderer> m_renderer;
+    RefPtr<WebCore::CoordinatedGraphicsScene> m_scene;
 };
 
 QtWebPageSGNode::QtWebPageSGNode()
     : m_contentsNode(0)
     , m_backgroundNode(new QSGSimpleRectNode)
+    , m_devicePixelRatio(1)
 {
     appendChildNode(m_backgroundNode);
 }
@@ -128,13 +150,14 @@ void QtWebPageSGNode::setScale(float scale)
     setMatrix(matrix);
 }
 
-void QtWebPageSGNode::setRenderer(PassRefPtr<WebLayerTreeRenderer> renderer)
+void QtWebPageSGNode::setCoordinatedGraphicsScene(PassRefPtr<WebCore::CoordinatedGraphicsScene> scene)
 {
-    if (m_contentsNode && m_contentsNode->layerTreeRenderer() == renderer)
+    if (m_contentsNode && m_contentsNode->coordinatedGraphicsScene() == scene)
         return;
 
     delete m_contentsNode;
-    m_contentsNode = new ContentsSGNode(renderer);
+    m_contentsNode = new ContentsSGNode(scene);
+    // This sets the parent node of the content to QtWebPageSGNode.
     appendChildNode(m_contentsNode);
 }
 

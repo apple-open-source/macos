@@ -114,6 +114,7 @@ int l2tpvpn_listen(void);
 int l2tpvpn_accept(void);
 int l2tpvpn_refuse(void);
 void l2tpvpn_close(void);
+int l2tp_set_delegated_process(int fd, int pid);
 
 static u_long load_kext(char *kext, int byBundleID);
 
@@ -145,12 +146,12 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                 break;
         if (listen_sockfd < 0) {
             vpnlog(LOG_DEBUG, "L2TP plugin: first call to socket failed - attempting to load kext\n");
-            if (url = CFBundleCopyBundleURL(pppref)) {
+            if ((url = CFBundleCopyBundleURL(pppref))) {
                 name[0] = 0;
                 CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                 CFRelease(url);
                 strlcat(name, "/", sizeof(name));
-                if (url = CFBundleCopyBuiltInPlugInsURL(pppref)) {
+                if ((url = CFBundleCopyBuiltInPlugInsURL(pppref))) {
                     CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                                 MAXPATHLEN - strlen(name) - strlen(L2TP_NKE) - 1);
                     CFRelease(url);
@@ -531,6 +532,14 @@ u_long load_kext(char *kext, int byBundleID)
     return 0;
 }
 
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+int l2tp_set_delegated_process(int fd, int pid)
+{
+    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_SETDELEGATEDPID, &pid, sizeof(pid));
+    return 0;
+}
+
 /* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
 int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
@@ -557,6 +566,7 @@ int l2tpvpn_listen(void)
     //set_flag(listen_sockfd, kerneldebug & 1, L2TP_FLAG_DEBUG);
     set_flag(listen_sockfd, 1, L2TP_FLAG_CONTROL);
     set_flag(listen_sockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
+    l2tp_set_delegated_process(listen_sockfd, getpid());  // must be set before calling l2tp_set_ouraddress
 
     /* unknown src and dst addresses */
     any_address.sin_len = sizeof(any_address);
@@ -589,7 +599,7 @@ int l2tpvpn_listen(void)
 		GetIntFromDict(ipsec_settings, kRASPropIPSecNattMultipleUsersEnabled, &natt_multiple_users, 1);
 			
 		ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
-			(struct sockaddr *)&our_address, (struct sockaddr *)&any_address, NULL, 
+			&our_address, &any_address, NULL, 
 			auth_method, 0, natt_multiple_users, 0); 
 
 		/* set the authentication information */

@@ -162,52 +162,50 @@ ts_print(register const struct timeval *tvp)
 	register int s;
 	struct tm *tm;
 	time_t Time;
-	static unsigned b_sec;
-	static unsigned b_usec;
 	int d_usec;
 	int d_sec;
 
-	switch (tflag) {
-
-	case 0: /* Default */
+	/* Default */
+	if (tflag == 0 || t0flag) {
 		s = (tvp->tv_sec + thiszone) % 86400;
-                (void)printf("%s ", ts_format(s, tvp->tv_usec));
-		break;
-
-	case 1: /* No time stamp */
-		break;
-
-	case 2: /* Unix timeval style */
+		(void)printf("%s ", ts_format(s, tvp->tv_usec));
+	}
+	
+	/* Unix timeval style */
+	if (tflag == 2 || t2flag) {
 		(void)printf("%u.%06u ",
-			     (unsigned)tvp->tv_sec,
-			     (unsigned)tvp->tv_usec);
-		break;
+					 (unsigned)tvp->tv_sec,
+					 (unsigned)tvp->tv_usec);
+	}
+	
+	/* Microseconds since previous packet */
+	if (tflag == 3 || t3flag) {
+		static unsigned p_sec = 0;
+		static unsigned p_usec = 0;
 
-	case 3: /* Microseconds since previous packet */
-        case 5: /* Microseconds since first packet */
-		if (b_sec == 0) {
-                        /* init timestamp for first packet */
-                        b_usec = tvp->tv_usec;
-                        b_sec = tvp->tv_sec;                        
-                }
+		if (p_sec == 0) {
+			/* init timestamp for first packet */
+			p_usec = tvp->tv_usec;
+			p_sec = tvp->tv_sec;
+		}
+		
+		d_usec = tvp->tv_usec - p_usec;
+		d_sec = tvp->tv_sec - p_sec;
+		
+		while (d_usec < 0) {
+			d_usec += 1000000;
+			p_sec--;
+		}
+		
+		(void)printf("%s ", ts_format(d_sec, d_usec));
+	
+		/* set timestamp for last packet */
+		p_sec = tvp->tv_sec;
+		p_usec = tvp->tv_usec;
+	}
 
-                d_usec = tvp->tv_usec - b_usec;
-                d_sec = tvp->tv_sec - b_sec;
-                
-                while (d_usec < 0) {
-                    d_usec += 1000000;
-                    d_sec--;
-                }
-
-                (void)printf("%s ", ts_format(d_sec, d_usec));
-
-                if (tflag == 3) { /* set timestamp for last packet */
-                    b_sec = tvp->tv_sec;
-                    b_usec = tvp->tv_usec;
-                }
-		break;
-
-	case 4: /* Default + Date*/
+	/* Default + Date */
+	if (tflag == 4 || t4flag) {
 		s = (tvp->tv_sec + thiszone) % 86400;
 		Time = (tvp->tv_sec + thiszone) - s;
 		tm = gmtime (&Time);
@@ -215,9 +213,30 @@ ts_print(register const struct timeval *tvp)
 			printf("Date fail  ");
 		else
 			printf("%04d-%02d-%02d %s ",
-                               tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
-                               ts_format(s, tvp->tv_usec));
-		break;
+				   tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday,
+				   ts_format(s, tvp->tv_usec));
+	}
+
+	/* Microseconds since first packet */
+	if (tflag == 5 || t5flag) {
+		static unsigned b_sec = 0;
+		static unsigned b_usec = 0;
+
+		/* init timestamp for first packet */
+		if (b_sec == 0 && b_usec == 0) {
+			b_usec = tvp->tv_usec;
+			b_sec = tvp->tv_sec;
+		}
+		
+		d_usec = tvp->tv_usec - b_usec;
+		d_sec = tvp->tv_sec - b_sec;
+		
+		while (d_usec < 0) {
+			d_usec += 1000000;
+			d_sec--;
+		}
+		
+		(void)printf("%s ", ts_format(d_sec, d_usec));
 	}
 }
 

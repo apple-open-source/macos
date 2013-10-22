@@ -34,6 +34,8 @@
 #include "charsets.h"
 #include "parse_url.h"
 #include "remount.h"
+#include <netsmb/upi_mbuf.h>
+#include <sys/mchain.h>
 #include "msdfs.h"
 #include <smbfs/smbfs.h>
 
@@ -508,23 +510,26 @@ SMBGetDfsReferral(const char * url, CFMutableDictionaryRef dfsReferralDict)
 		return -1;
 	}
     
-	status = SMBOpenServerEx(url, &serverConnection,kSMBOptionSessionOnly);
+	status = SMBOpenServerEx(url, &serverConnection, kSMBOptionSessionOnly);
 	/* SMBOpenServerEx sets errno, */
 	if (!NT_SUCCESS(status)) {
 		return -1;
 	}
+    
 	status = SMBServerContext(serverConnection, &hContext);
 	if (!NT_SUCCESS(status)) {
 		/* Couldn't get the context? */
 		SMBReleaseServer(serverConnection);	
 		return -1;
 	}
+    
 	error = getDfsReferralList(hContext, dfsReferralDict);
 	if (error) {
 		SMBReleaseServer(serverConnection);	
 		errno = error;
 		return -1;
 	}
+    
 	SMBReleaseServer(serverConnection);	
 	return 0;
 }

@@ -59,20 +59,10 @@
 #define	_STRING_H_
 
 #include <_types.h>
-
 #include <sys/cdefs.h>
 #include <Availability.h>
-
-#ifndef	_SIZE_T
-#define	_SIZE_T
-typedef	__darwin_size_t		size_t;
-#endif
-
-#ifndef NULL
-#define NULL __DARWIN_NULL
-#endif /* ! NULL */
-
-
+#include <sys/_types/_size_t.h>
+#include <sys/_types/_null.h>
 
 /* ANSI-C */
 
@@ -153,15 +143,21 @@ char	*strsignal(int sig);
 __END_DECLS
 #endif /* __DARWIN_C_LEVEL >= 200809L */
 
+/* C11 Annex K */
 
+#if defined(__STDC_WANT_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__ >= 1
+#include <sys/_types/_rsize_t.h>
+#include <sys/_types/_errno_t.h>
+
+__BEGIN_DECLS
+errno_t	memset_s(void *, rsize_t, int, rsize_t) __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+__END_DECLS
+#endif
 
 /* Darwin extensions */
 
 #if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
-#ifndef _SSIZE_T
-#define _SSIZE_T
-typedef __darwin_ssize_t	ssize_t;
-#endif
+#include <sys/_types/_ssize_t.h>
 
 __BEGIN_DECLS
 void	*memmem(const void *, size_t, const void *, size_t) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);

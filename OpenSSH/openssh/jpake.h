@@ -20,7 +20,11 @@
 
 #include <sys/types.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#else
 #include <openssl/bn.h>
+#endif
 
 /* Set JPAKE_DEBUG in CFLAGS for privacy-violating debugging */
 #ifndef JPAKE_DEBUG

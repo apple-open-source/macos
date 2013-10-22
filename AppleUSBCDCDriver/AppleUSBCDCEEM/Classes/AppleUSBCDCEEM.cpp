@@ -38,7 +38,10 @@
 
 #include <IOKit/pwr_mgt/RootDomain.h>
 
+#if !TARGET_OS_IPHONE
 #include <IOKit/usb/IOUSBBus.h>
+#endif /* TARGET_OS_IPHONE */
+
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBPipe.h>

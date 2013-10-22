@@ -1,0 +1,16 @@
+--- #YAML:1.0
+name:                Class-Std
+version:             0.011
+abstract:            Support for creating standard "inside-out" classes
+license:             ~
+author:              
+    - Damian Conway <DCONWAY@cpan.org>
+generated_by:        ExtUtils::MakeMaker version 6.42
+distribution_type:   module
+requires:     
+    Data::Dumper:                  0
+    Scalar::Util:                  0
+    Test::More:                    0
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.3.html
+    version: 1.3

@@ -1,4 +1,4 @@
-.Dd October 26, 2007
+.Dd May 24, 2013
 .Os "Mac OS X"
 .Dt BLESS 8
 .Sh NAME
@@ -10,14 +10,9 @@
 .Pp
 .Nm bless
 .Fl -folder Ar directory
-.Op Fl -folder9 Ar directory
 .Op Fl -file Ar file
 .Op Fl -bootinfo Op Ar file
 .Op Fl -bootefi Op Ar file
-.Op Fl -bootBlockFile Ar file
-.Op Fl -save9
-.Op Fl -saveX
-.Op Fl -use9
 .Op Fl -label Ar name | Fl -labelfile Ar file
 .Op Fl -setBoot
 .Op Fl -openfolder Ar directory
@@ -123,19 +118,6 @@ Folder Mode has the following options:
 Set this directory to be the Mac OS X/Darwin blessed directory, containing a
 .Pa BootX
 secondary loader for New World machines.
-.It Fl -folder9 Ar directory
-Set this directory to be the Mac OS 9/Classic system folder. If both
-.Fl -folder
-and
-.Fl -folder9
-are given, preference can be given to boot into Mac OS 9
-by also using the
-.Fl -use9
-flag. By default, Mac OS X will be the default OS if both
-.Fl -folder
-and
-.Fl -folder9
-are provided. This option is obsolete.
 .It Fl -file Ar file
 Set this file to be the Mac OS X/Darwin blessed boot file, containing a booter
 for EFI-based systems. If this option is not provided, a default boot file
@@ -164,27 +146,6 @@ to the mountpoint you are blessing. This attempts to ensure that a
 is used that is compatible with the OS on the target volume. If
 .Fl -file
 is also provided, the new file will be created at that path instead.
-.It Fl -bootBlockFile Ar file
-Set the boot blocks on the volume using the contents of
-.Ar file
-\&. This is required for volumes that will boot Mac OS 9.
-.It Fl -save9
-Used if no
-.Fl -folder9
-flag was given, but if the pre\-existing Mac OS 9 blessed system folder
-should be preserved. This option is obsolete.
-.It Fl -saveX
-Used if no
-.Fl -folder
-flag was given, but if the pre\-existing Mac OS X/Darwin blessed directory
-should be preserved. This option is obsolete.
-.It Fl -use9
-Used if both
-.Fl -folder
-and
-.Fl -folder9
-were given, but Mac OS 9 should be the default for the volume.
-This option is obsolete.
 .It Fl -label Ar name
 Render a text label used in the firmware-based OS picker
 .It Fl -labelfile Ar file
@@ -387,15 +348,6 @@ Typical blessed folder for Mac OS X and Darwin
 .El
 .Sh EXAMPLES
 .Ss FOLDER MODE
-To bless a volume with only Mac OS 9:
-.Bd -ragged -offset indent
-.Nm bless
-.Fl -folder9
-.Qo /Volumes/Mac OS 9/System Folder Qc
-.Fl -bootBlockFile
-.Qo /usr/share/misc/bootblockdata Qc
-.Ed
-.Pp
 To bless a volume with only Mac OS X or Darwin, and create the BootX and
 boot.efi files as needed:
 .Bd -ragged -offset indent

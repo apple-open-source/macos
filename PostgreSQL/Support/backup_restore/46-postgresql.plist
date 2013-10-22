@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ServiceName</key>
+	<string>postgresql</string>
+	<key>BackupBinaryPath</key>
+	<string/>
+	<key>BackupLog</key>
+	<string/>
+	<key>BackupActions</key>
+	<dict/>
+	<key>PreBackupServiceCommands</key>
+	<array/>
+	<key>PostBackupServiceCommands</key>
+	<array/>
+	<key>RestoreBinaryPath</key>
+	<string/>
+	<key>RestoreLog</key>
+	<string/>
+	<key>RestoreActions</key>
+	<dict/>
+	<key>PreRestoreServiceCommands</key>
+	<array>
+        <string>mkdir -m 0755 /Library/Logs/PostgreSQL</string>
+        <string>chown _postgres:_postgres /Library/Logs/PostgreSQL</string>
+	</array>
+	<key>PostRestoreServiceCommands</key>
+	<array/>
+	<key>VerifyBinaryPath</key>
+	<string/>
+	<key>VerifyLog</key>
+	<string/>
+	<key>VerifyActions</key>
+	<dict/>
+	<key>ConfigurationFiles</key>
+	<array/>
+	<key>DataFiles</key>
+	<array/>
+	<key>ExclusionPaths</key>
+	<array/>
+	<key>Version</key>
+	<string>10.9</string>
+</dict>
+</plist>

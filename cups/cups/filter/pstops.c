@@ -1,5 +1,5 @@
 /*
- * "$Id: pstops.c 9394 2010-11-30 22:36:08Z mike $"
+ * "$Id: pstops.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   PostScript filter for CUPS.
  *
@@ -1303,7 +1303,8 @@ copy_page(cups_file_t  *fp,		/* I - File to read from */
 
   if (doc->ap_input_slot || doc->ap_manual_feed)
   {
-    if (doc->page == 1)
+    if ((doc->page == 1 && (!doc->slow_order || !Duplex)) ||
+        (doc->page == 2 && doc->slow_order && Duplex))
     {
      /*
       * First page/sheet gets AP_FIRSTPAGE_* options...
@@ -3429,5 +3430,5 @@ write_options(
 
 
 /*
- * End of "$Id: pstops.c 9394 2010-11-30 22:36:08Z mike $".
+ * End of "$Id: pstops.c 11093 2013-07-03 20:48:42Z msweet $".
  */

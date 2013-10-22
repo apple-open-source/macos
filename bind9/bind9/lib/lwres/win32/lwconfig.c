@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2007, 2012, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2006, 2007, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -70,10 +70,6 @@ get_win32_searchlist(lwres_context_t *ctx) {
 	}
 
 	confdata->searchnxt = 0;
-
-	if (!keyFound)
-		return;
-
 	cp = strtok((char *)searchlist, ", \0");
 	while (cp != NULL) {
 		if (confdata->searchnxt == LWRES_CONFMAXSEARCH)
@@ -89,7 +85,8 @@ get_win32_searchlist(lwres_context_t *ctx) {
 
 lwres_result_t
 lwres_conf_parse(lwres_context_t *ctx, const char *filename) {
-	lwres_result_t ret;
+	lwres_result_t ret = LWRES_R_SUCCESS;
+	lwres_result_t res;
 	lwres_conf_t *confdata;
 	FIXED_INFO * FixedInfo;
 	ULONG    BufLen = sizeof(FIXED_INFO);
@@ -140,11 +137,11 @@ lwres_conf_parse(lwres_context_t *ctx, const char *filename) {
 		if (confdata->nsnext >= LWRES_CONFMAXNAMESERVERS)
 			break;
 
-		ret = lwres_create_addr(pIPAddr->IpAddress.String,
+		res = lwres_create_addr(pIPAddr->IpAddress.String,
 				&confdata->nameservers[confdata->nsnext++], 1);
-		if (ret != LWRES_R_SUCCESS) {
+		if (res != LWRES_R_SUCCESS) {
 			GlobalFree(FixedInfo);
-			return (ret);
+			return (res);
 		}
 		pIPAddr = pIPAddr ->Next;
 	}

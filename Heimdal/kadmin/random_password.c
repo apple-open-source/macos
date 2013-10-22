@@ -113,11 +113,11 @@ generate_password(char **pw, int num_classes, ...)
 {
     struct {
 	const char *str;
-	int len;
+	size_t len;
 	int freq;
     } *classes;
     va_list ap;
-    int len, i;
+    size_t len, i;
     unsigned char rbuf[8]; /* random buffer */
     int rleft = 0;
 

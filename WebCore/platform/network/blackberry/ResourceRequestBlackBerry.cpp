@@ -21,7 +21,6 @@
 
 #include "BlobRegistryImpl.h"
 #include "CookieManager.h"
-#include <BlackBerryPlatformClient.h>
 #include <network/NetworkRequest.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/CString.h>
@@ -55,6 +54,8 @@ static inline NetworkRequest::TargetType platformTargetTypeForRequest(const Reso
 {
     if (request.isXMLHTTPRequest())
         return NetworkRequest::TargetIsXMLHTTPRequest;
+    if (request.forceDownload())
+        return NetworkRequest::TargetIsDownload;
 
     switch (request.targetType()) {
     case ResourceRequest::TargetIsMainFrame:
@@ -85,8 +86,6 @@ static inline NetworkRequest::TargetType platformTargetTypeForRequest(const Reso
     case ResourceRequest::TargetIsFavicon:
         return NetworkRequest::TargetIsImage;
     case ResourceRequest::TargetIsPrefetch:
-        return NetworkRequest::TargetIsSubresource;
-    case ResourceRequest::TargetIsPrerender:
         return NetworkRequest::TargetIsSubresource;
     case ResourceRequest::TargetIsXHR:
         return NetworkRequest::TargetIsSubresource;
@@ -139,25 +138,30 @@ ResourceRequest::TargetType ResourceRequest::targetTypeFromMimeType(const String
     if (iter == map.end())
         return ResourceRequest::TargetIsUnspecified;
 
-    return iter->second;
+    return iter->value;
 }
 
-void ResourceRequest::initializePlatformRequest(NetworkRequest& platformRequest, bool cookiesEnabled, bool isInitial, bool isRedirect) const
+void ResourceRequest::initializePlatformRequest(NetworkRequest& platformRequest, bool cookiesEnabled, bool isInitial, bool rereadCookies) const
 {
     // If this is the initial load, skip the request body and headers.
     if (isInitial)
         platformRequest.setRequestInitial(timeoutInterval());
     else {
-        platformRequest.setRequestUrl(url().string().utf8().data(),
-                httpMethod().latin1().data(),
+        platformRequest.setRequestUrl(url().string(),
+            httpMethod(),
                 platformCachePolicyForRequest(*this),
                 platformTargetTypeForRequest(*this),
                 timeoutInterval());
 
         platformRequest.setConditional(isConditional());
+        platformRequest.setSuggestedSaveName(suggestedSaveName());
 
         if (httpBody() && !httpBody()->isEmpty()) {
-            const Vector<FormDataElement>& elements = httpBody()->elements();
+            RefPtr<FormData> formData = httpBody();
+#if ENABLE(BLOB)
+            formData = formData->resolveBlobReferences();
+#endif
+            const Vector<FormDataElement>& elements = formData->elements();
             // Use setData for simple forms because it is slightly more efficient.
             if (elements.size() == 1 && elements[0].m_type == FormDataElement::data)
                 platformRequest.setData(elements[0].m_data.data(), elements[0].m_data.size());
@@ -168,41 +172,30 @@ void ResourceRequest::initializePlatformRequest(NetworkRequest& platformRequest,
                         platformRequest.addMultipartData(element.m_data.data(), element.m_data.size());
                     else if (element.m_type == FormDataElement::encodedFile)
                         platformRequest.addMultipartFilename(element.m_filename.characters(), element.m_filename.length());
-#if ENABLE(BLOB)
-                    else if (element.m_type == FormDataElement::encodedBlob) {
-                        RefPtr<BlobStorageData> blobData = static_cast<BlobRegistryImpl&>(blobRegistry()).getBlobDataFromURL(KURL(ParsedURLString, element.m_blobURL));
-                        if (blobData) {
-                            for (size_t j = 0; j < blobData->items().size(); ++j) {
-                                const BlobDataItem& blobItem = blobData->items()[j];
-                                if (blobItem.type == BlobDataItem::Data)
-                                    platformRequest.addMultipartData(blobItem.data->data() + static_cast<int>(blobItem.offset), static_cast<int>(blobItem.length));
-                                else {
-                                    ASSERT(blobItem.type == BlobDataItem::File);
-                                    platformRequest.addMultipartFilename(blobItem.path.characters(), blobItem.path.length(), blobItem.offset, blobItem.length, blobItem.expectedModificationTime);
-                                }
-                            }
-                        }
-                    }
-#endif
                     else
-                        ASSERT_NOT_REACHED(); // unknown type
+                        ASSERT_NOT_REACHED(); // Blobs should be resolved at this point.
                 }
             }
         }
 
         // When ResourceRequest is reused by CacheResourceLoader, page refreshing or redirection, its cookies may be dirtied. We won't use these cookies any more.
-        bool cookieHeaderMayBeDirty = isRedirect || cachePolicy() == WebCore::ReloadIgnoringCacheData || cachePolicy() == WebCore::ReturnCacheDataElseLoad;
+        bool cookieHeaderMayBeDirty = rereadCookies || cachePolicy() == WebCore::ReloadIgnoringCacheData || cachePolicy() == WebCore::ReturnCacheDataElseLoad;
 
         for (HTTPHeaderMap::const_iterator it = httpHeaderFields().begin(); it != httpHeaderFields().end(); ++it) {
-            String key = it->first;
-            String value = it->second;
+            String key = it->key;
+            String value = it->value;
             if (!key.isEmpty()) {
-                // We need to check the encoding and encode the cookie's value using latin1 or utf8 to support unicode characters.
-                // We wo't use the old cookies of resourceRequest for new location because these cookies may be changed by redirection.
-                if (!equalIgnoringCase(key, "Cookie"))
-                    platformRequest.addHeader(key.latin1().data(), value.latin1().data());
-                else if (!cookieHeaderMayBeDirty)
-                    platformRequest.addHeader(key.latin1().data(), value.containsOnlyLatin1() ? value.latin1().data() : value.utf8().data());
+                if (equalIgnoringCase(key, "Cookie")) {
+                    // We won't use the old cookies of resourceRequest for new location because these cookies may be changed by redirection.
+                    if (cookieHeaderMayBeDirty)
+                        continue;
+                    // We need to check the encoding and encode the cookie's value using latin1 or utf8 to support unicode data.
+                    if (!value.containsOnlyLatin1()) {
+                        platformRequest.addHeader("Cookie", value.utf8().data());
+                        continue;
+                    }
+                }
+                platformRequest.addHeader(key, value);
             }
         }
 
@@ -215,17 +208,8 @@ void ResourceRequest::initializePlatformRequest(NetworkRequest& platformRequest,
                 platformRequest.addHeader("Cookie", cookiePairs.containsOnlyLatin1() ? cookiePairs.latin1().data() : cookiePairs.utf8().data());
         }
 
-        if (!httpHeaderFields().contains("Accept-Language")) {
-            // Locale has the form "en-US". Construct accept language like "en-US, en;q=0.8".
-            std::string locale = BlackBerry::Platform::Client::get()->getLocale();
-            // POSIX locale has '_' instead of '-'.
-            // Replace to conform to HTTP spec.
-            size_t underscore = locale.find('_');
-            if (underscore != std::string::npos)
-                locale.replace(underscore, 1, "-");
-            std::string acceptLanguage = locale + ", " + locale.substr(0, 2) + ";q=0.8";
-            platformRequest.addHeader("Accept-Language", acceptLanguage.c_str());
-        }
+        if (!httpHeaderFields().contains("Accept-Language"))
+            platformRequest.addAcceptLanguageHeader();
     }
 }
 
@@ -234,9 +218,9 @@ PassOwnPtr<CrossThreadResourceRequestData> ResourceRequest::doPlatformCopyData(P
     data->m_token = m_token;
     data->m_anchorText = m_anchorText;
     data->m_overrideContentType = m_overrideContentType;
+    data->m_suggestedSaveName = m_suggestedSaveName;
     data->m_isXMLHTTPRequest = m_isXMLHTTPRequest;
     data->m_mustHandleInternally = m_mustHandleInternally;
-    data->m_isRequestedByPlugin = m_isRequestedByPlugin;
     data->m_forceDownload = m_forceDownload;
     data->m_targetType = m_targetType;
     return data;
@@ -247,9 +231,9 @@ void ResourceRequest::doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData>
     m_token = data->m_token;
     m_anchorText = data->m_anchorText;
     m_overrideContentType = data->m_overrideContentType;
+    m_suggestedSaveName = data->m_suggestedSaveName;
     m_isXMLHTTPRequest = data->m_isXMLHTTPRequest;
     m_mustHandleInternally = data->m_mustHandleInternally;
-    m_isRequestedByPlugin = data->m_isRequestedByPlugin;
     m_forceDownload = data->m_forceDownload;
     m_targetType = data->m_targetType;
 }
@@ -260,7 +244,7 @@ void ResourceRequest::clearHTTPContentLength()
 
     m_httpHeaderFields.remove("Content-Length");
 
-    if (url().protocolInHTTPFamily())
+    if (url().protocolIsInHTTPFamily())
         m_platformRequestUpdated = false;
 }
 
@@ -270,7 +254,7 @@ void ResourceRequest::clearHTTPContentType()
 
     m_httpHeaderFields.remove("Content-Type");
 
-    if (url().protocolInHTTPFamily())
+    if (url().protocolIsInHTTPFamily())
         m_platformRequestUpdated = false;
 }
 

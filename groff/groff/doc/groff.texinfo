@@ -434,27 +434,27 @@ Software Foundation raise funds for GNU development.''
 @c We map some latin-1 characters to corresponding texinfo macros.
 
 @tex
-\global\catcode`^^e4\active % ä
+\global\catcode`^^e4\active % Ã¤
 \gdef^^e4{\"a}
-\global\catcode`^^c4\active % Ä
+\global\catcode`^^c4\active % Ã„
 \gdef^^c4{\"A}
-\global\catcode`^^e9\active % é
+\global\catcode`^^e9\active % Ã©
 \gdef^^e9{\'e}
-\global\catcode`^^c9\active % É
+\global\catcode`^^c9\active % Ã‰
 \gdef^^c9{\'E}
-\global\catcode`^^f6\active % ö
+\global\catcode`^^f6\active % Ã¶
 \gdef^^f6{\"o}
-\global\catcode`^^d6\active % Ö
+\global\catcode`^^d6\active % Ã–
 \gdef^^d6{\"O}
-\global\catcode`^^fc\active % ü
+\global\catcode`^^fc\active % Ã¼
 \gdef^^fc{\"u}
-\global\catcode`^^dc\active % Ü
+\global\catcode`^^dc\active % Ãœ
 \gdef^^dc{\"U}
-\global\catcode`^^e6\active % æ
+\global\catcode`^^e6\active % Ã¦
 \gdef^^e6{\ae}
-\global\catcode`^^c6\active % Æ
+\global\catcode`^^c6\active % Ã†
 \gdef^^c6{\AE}
-\global\catcode`^^df\active % ß
+\global\catcode`^^df\active % ÃŸ
 \gdef^^df{\ss}
 @end tex
 
@@ -668,7 +668,7 @@ Since there are several things which cannot be done easily in
 transform certain parts of a document into @code{troff}, which made a
 very natural use of pipes in @acronym{UNIX}.
 
-The @code{eqn} preprocessor allowed mathematical formulæ to be
+The @code{eqn} preprocessor allowed mathematical formulÃ¦ to be
 specified in a much simpler and more intuitive manner.  @code{tbl} is a
 preprocessor for formatting tables.  The @code{refer} preprocessor (and
 the similar program, @code{bib}) processes citations in a document
@@ -4254,7 +4254,7 @@ Upside-down exclamation point.
 @endDefstr
 
 @Defstr {8, ms}
-German ß ligature.
+German ÃŸ ligature.
 @endDefstr
 
 @Defstr {3, ms}
@@ -4282,11 +4282,11 @@ Hooked o.
 @endDefstr
 
 @Defstr {ae, ms}
-Lowercase æ ligature.
+Lowercase Ã¦ ligature.
 @endDefstr
 
 @Defstr {Ae, ms}
-Uppercase Æ ligature.
+Uppercase Ã† ligature.
 @endDefstr
 
 @c ---------------------------------------------------------------------
@@ -5611,7 +5611,7 @@ e\'
 
 
 in Paris
-  @result{} A café in Paris
+  @result{} A cafÃ© in Paris
 @endExample
 
 @noindent
@@ -6959,23 +6959,23 @@ same way as the word `foo' is hyphenated, and this is what @code{hcode}
 is good for.  Words which contain other letters won't be hyphenated
 properly if the corresponding hyphenation patterns actually do contain
 them.  For example, the following @code{hcode} requests are necessary to
-assign hyphenation codes to the letters @samp{ÄäÖöÜüß} (this is needed
+assign hyphenation codes to the letters @samp{Ã„Ã¤Ã–Ã¶ÃœÃ¼ÃŸ} (this is needed
 for German):
 
 @Example
-.hcode ä ä  Ä ä
-.hcode ö ö  Ö ö
-.hcode ü ü  Ü ü
-.hcode ß ß
+.hcode Ã¤ Ã¤  Ã„ Ã¤
+.hcode Ã¶ Ã¶  Ã– Ã¶
+.hcode Ã¼ Ã¼  Ãœ Ã¼
+.hcode ÃŸ ÃŸ
 @endExample
 
 Without those assignments, groff treats German words like
-@w{`Kindergärten'} (the plural form of `kindergarten') as two
+@w{`KindergÃ¤rten'} (the plural form of `kindergarten') as two
 substrings @w{`kinderg'} and @w{`rten'} because the hyphenation code
 of the umlaut@tie{}a is zero by default.  There is a German
 hyphenation pattern which covers @w{`kinder'}, so groff finds the
 hyphenation `kin-der'.  The other two hyphenation points
-(`kin-der-gär-ten') are missed.
+(`kin-der-gÃ¤r-ten') are missed.
 
 This request is ignored if it has no parameter.
 @endDefreq
@@ -7849,11 +7849,11 @@ if the @code{tr} request isn't handled properly.
 Consider the following translation:
 
 @Example
-.tr éÉ
+.tr Ã©Ã‰
 @endExample
 
 @noindent
-This maps input character @code{é} onto glyph @code{É}, which is
+This maps input character @code{Ã©} onto glyph @code{Ã‰}, which is
 identical to glyph @code{char201}.  But this glyph intentionally
 doesn't exist!  Instead, @code{\[char201]} is treated as an input
 character entity and is by default mapped onto @code{\['E]}, and
@@ -7862,7 +7862,7 @@ character entity and is by default mapped onto @code{\['E]}, and
 The right way to write the above translation is
 
 @Example
-.tr é\['E]
+.tr Ã©\['E]
 @endExample
 
 @noindent
@@ -13379,7 +13379,7 @@ Macro and request arguments preserve the compatibility mode:
 ..
 .cp 0     \" switch compatibility mode off
 .xx caf\['e]
-    @result{} café
+    @result{} cafÃ©
 @endExample
 
 @noindent

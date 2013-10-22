@@ -252,7 +252,7 @@ static CSSM_RETURN ssh1DES3Crypt(
 		return CSSMERR_CSP_INTERNAL_ERROR;
 	}
 
-	*outTextLen = moved;	
+	*outTextLen = (unsigned)moved;
 	return CSSM_OK;
 }
 
@@ -306,7 +306,7 @@ void AppleCSPSession::DeriveKey_OpenSSH1(
 	}
 
 	/* here it is */
-	CC_MD5(pwd.Data, pwd.Length, keyData->Data);
+	CC_MD5(pwd.Data, (CC_LONG)pwd.Length, keyData->Data);
 
 }
 
@@ -389,9 +389,9 @@ CSSM_RETURN encodeOpenSSHv1PrivKey(
 	appendBigNum(ptext, rsa->p);
 	
 	/* pad to block boundary */
-	unsigned ptextLen = CFDataGetLength(ptext);
+	CFIndex ptextLen = CFDataGetLength(ptext);
 	unsigned padding = 0;
-	unsigned rem = ptextLen & 0x7;
+	unsigned rem = (unsigned)ptextLen & 0x7;
 	if(rem) {
 		padding = 8 - rem;
 	}
@@ -405,7 +405,7 @@ CSSM_RETURN encodeOpenSSHv1PrivKey(
 	unsigned char ctext[ptextLen];
 	unsigned ctextLen;
 	ourRtn = ssh1DES3Crypt(cipherSpec, true, 
-		(unsigned char *)CFDataGetBytePtr(ptext), ptextLen, 
+		(unsigned char *)CFDataGetBytePtr(ptext), (unsigned)ptextLen,
 		encryptKey, encryptKey ? CC_MD5_DIGEST_LENGTH : 0,
 		ctext, &ctextLen);
 	if(ourRtn != 0) {
@@ -470,7 +470,7 @@ void AppleCSPSession::WrapKeyOpenSSH1(
 	unsigned commentLen = 0;
 	if((DescriptiveData != NULL) && (DescriptiveData->Length != 0)) {
 		comment = (const UInt8 *)DescriptiveData->Data;
-		commentLen = DescriptiveData->Length;
+		commentLen = (unsigned)DescriptiveData->Length;
 	}
 
 	/* generate the encrypted blob */
@@ -480,7 +480,7 @@ void AppleCSPSession::WrapKeyOpenSSH1(
 	}
 	
 	/* allocate key data in session's memory space */
-	unsigned len = CFDataGetLength(cfOut);
+	CFIndex len = CFDataGetLength(cfOut);
 	setUpData(WrappedKey.KeyData, len, normAllocator);
 	memmove(WrappedKey.KeyData.Data, CFDataGetBytePtr(cfOut), len);
 	CFRelease(cfOut);
@@ -507,7 +507,7 @@ CSSM_RETURN decodeOpenSSHv1PrivKey(
 	uint8 **comment,			/* optional, mallocd and RETURNED */
 	unsigned *commentLen)		/* RETURNED */
 {
-	unsigned len = strlen(authfile_id_string);
+	unsigned len = (unsigned)strlen(authfile_id_string);
 	const unsigned char *cp = encodedKey;
 	unsigned remLen = encodedKeyLen;
 	CSSM_RETURN ourRtn = CSSM_OK;
@@ -701,7 +701,7 @@ void AppleCSPSession::UnwrapKeyOpenSSH1(
 	RSABinaryKey *binKey = NULL;
 	
 	ourRtn = decodeOpenSSHv1PrivKey((const unsigned char *)WrappedKey.KeyData.Data,
-		WrappedKey.KeyData.Length,
+		(unsigned)WrappedKey.KeyData.Length,
 		rsa, unwrapKey, &comment, &commentLen);
 	if(ourRtn) {
 		goto errOut;

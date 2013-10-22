@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * key_create.c
@@ -71,7 +71,7 @@ do_key_create_pair(const char *keychainName, SecAccessRef access, CSSM_ALGORITHM
         privateKeyUsage,
         privateKeyAttr,
         access,
-        &publicKey, 
+        &publicKey,
         &privateKey);
 	if (status)
 	{
@@ -94,14 +94,14 @@ do_key_create_pair(const char *keychainName, SecAccessRef access, CSSM_ALGORITHM
 			result = 1;
 			goto loser;
 		}
-	
+
 		if (info.count != attrList->count)
 		{
 			sec_error("info count: %ld != attribute count: %ld", info.count, attrList->count);
 			result = 1;
 			goto loser;
 		}
-	
+
 		if (tag != attrList->attr[0].tag)
 		{
 			sec_error("attribute info tag: %ld != attribute tag: %ld", tag, attrList->attr[0].tag);
@@ -302,7 +302,7 @@ key_create_pair(int argc, char * const *argv)
 	if (result)
 		goto loser;
 
-	result = do_key_create_pair(keychainName, access, algorithm, keySizeInBits, from_time, to_time, print_hash);	
+	result = do_key_create_pair(keychainName, access, algorithm, keySizeInBits, from_time, to_time, print_hash);
 
 loser:
 	if (description)
@@ -327,16 +327,16 @@ createCertCsr(
 	const CSSM_OID		*sigOid,
 	/*
 	 * Issuer's RDN is obtained from the issuer cert, if present, or is
-	 * assumed to be the same as the subject name (i.e., we're creating 
+	 * assumed to be the same as the subject name (i.e., we're creating
 	 * a self-signed root cert).
-	 */ 
+	 */
 	CSSM_BOOL			useAllDefaults,
 	CSSM_DATA_PTR		csrData)			// CSR: mallocd and RETURNED
 {
 	CE_DataAndType 				exts[2];
 	CE_DataAndType 				*extp = exts;
 	unsigned					numExts;
-	
+
 	CSSM_DATA					refId;		// mallocd by CSSM_TP_SubmitCredRequest
 	CSSM_APPLE_TP_CERT_REQUEST	certReq;
 	CSSM_TP_REQUEST_SET			reqSet;
@@ -348,20 +348,20 @@ createCertCsr(
 	uint32						numNames;
 	CSSM_TP_CALLERAUTH_CONTEXT 	CallerAuthContext;
 	CSSM_FIELD					policyId;
-	
-	/* Note a lot of the CSSM_APPLE_TP_CERT_REQUEST fields are not 
+
+	/* Note a lot of the CSSM_APPLE_TP_CERT_REQUEST fields are not
 	 * used for the createCsr option, but we'll fill in as much as is practical
 	 * for either case.
 	 */
 	numExts = 0;
-	
+
 	char challengeBuf[400];
 	if(useAllDefaults) {
 		strcpy(challengeBuf, ZDEF_CHALLENGE);
 	}
 	else {
 		while(1) {
-			getStringWithPrompt("Enter challenge string: ", 
+			getStringWithPrompt("Enter challenge string: ",
 				challengeBuf, sizeof(challengeBuf));
 			if(challengeBuf[0] != '\0') {
 				break;
@@ -385,15 +385,15 @@ createCertCsr(
 	else {
 		getNameOids(subjectNames, &numNames);
 	}
-	
+
 	/* certReq */
 	certReq.cspHand = cspHand;
 	certReq.clHand = clHand;
-	certReq.serialNumber = 0x12345678;		// TBD - random? From user? 
+	certReq.serialNumber = 0x12345678;		// TBD - random? From user?
 	certReq.numSubjectNames = numNames;
 	certReq.subjectNames = subjectNames;
-	
-	/* TBD - if we're passed in a signing cert, certReq.issuerNameX509 will 
+
+	/* TBD - if we're passed in a signing cert, certReq.issuerNameX509 will
 	 * be obtained from that cert. For now we specify "self-signed" cert
 	 * by not providing an issuer name at all. */
 	certReq.numIssuerNames = 0;				// root for now
@@ -407,10 +407,10 @@ createCertCsr(
 	certReq.notAfter = 60 * 60 * 24 * 30;	// seconds from now
 	certReq.numExtensions = numExts;
 	certReq.extensions = exts;
-	
+
 	reqSet.NumberOfRequests = 1;
 	reqSet.Requests = &certReq;
-	
+
 	/* a CSSM_TP_CALLERAUTH_CONTEXT to specify an OID */
 	memset(&CallerAuthContext, 0, sizeof(CSSM_TP_CALLERAUTH_CONTEXT));
 	memset(&policyId, 0, sizeof(CSSM_FIELD));
@@ -425,12 +425,12 @@ createCertCsr(
 		&CallerAuthContext,
 		&estTime,
 		&refId);
-		
+
 	/* before proceeding, free resources allocated thus far */
 	if(!useAllDefaults) {
 		freeNameOids(subjectNames, numNames);
 	}
-	
+
 	if(crtn) {
 		printError("***Error submitting credential request","CSSM_TP_SubmitCredRequest",crtn);
 		return crtn;
@@ -451,7 +451,7 @@ createCertCsr(
 	}
 	encCert = (CSSM_ENCODED_CERT *)resultSet->Results;
 	*csrData = encCert->CertBlob;
-	
+
 	/* free resources allocated by TP */
 	APP_FREE(refId.Data);
 	APP_FREE(encCert);
@@ -601,7 +601,7 @@ csr_create(int argc, char * const *argv)
 	if (result)
 		goto loser;
 
-	result = do_csr_create(keychainName, access, algorithm, keySizeInBits, from_time, to_time);	
+	result = do_csr_create(keychainName, access, algorithm, keySizeInBits, from_time, to_time);
 
 loser:
 	if (description)

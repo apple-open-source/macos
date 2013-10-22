@@ -27,16 +27,20 @@
 #include <QLineEdit>
 #include <QMainWindow>
 #include <QMenu>
+#include <QMimeDatabase>
 #include <QPushButton>
 #include <QStateMachine>
 #include <QStyle>
 #include <QtTest/QtTest>
 #include <QTextCharFormat>
+#include <private/qinputmethod_p.h>
 #include <qgraphicsscene.h>
 #include <qgraphicsview.h>
 #include <qgraphicswebview.h>
 #include <qnetworkcookiejar.h>
+#include <qnetworkreply.h>
 #include <qnetworkrequest.h>
+#include <qpa/qplatforminputcontext.h>
 #include <qwebdatabase.h>
 #include <qwebelement.h>
 #include <qwebframe.h>
@@ -58,20 +62,36 @@ static void removeRecursive(const QString& dirname)
     QDir().rmdir(dirname);
 }
 
-class EventSpy : public QObject, public QList<QEvent::Type>
+class TestInputContext : public QPlatformInputContext
 {
-    Q_OBJECT
 public:
-    EventSpy(QObject* objectToSpy)
+    TestInputContext()
+    : m_visible(false)
     {
-        objectToSpy->installEventFilter(this);
+        QInputMethodPrivate* inputMethodPrivate = QInputMethodPrivate::get(qApp->inputMethod());
+        inputMethodPrivate->testContext = this;
     }
 
-    virtual bool eventFilter(QObject* receiver, QEvent* event)
+    ~TestInputContext()
     {
-        append(event->type());
-        return false;
+        QInputMethodPrivate* inputMethodPrivate = QInputMethodPrivate::get(qApp->inputMethod());
+        inputMethodPrivate->testContext = 0;
     }
+
+    virtual void showInputPanel()
+    {
+        m_visible = true;
+    }
+    virtual void hideInputPanel()
+    {
+        m_visible = false;
+    }
+    virtual bool isInputPanelVisible() const
+    {
+        return m_visible;
+    }
+
+    bool m_visible;
 };
 
 class tst_QWebPage : public QObject
@@ -82,17 +102,15 @@ public:
     tst_QWebPage();
     virtual ~tst_QWebPage();
 
-public slots:
+public Q_SLOTS:
     void init();
     void cleanup();
     void cleanupFiles();
 
-private slots:
+private Q_SLOTS:
     void initTestCase();
     void cleanupTestCase();
-#if QT_VERSION >= 0x040800
     void thirdPartyCookiePolicy();
-#endif
     void contextMenuCopy();
     void contextMenuPopulatedOnce();
     void acceptNavigationRequest();
@@ -141,6 +159,7 @@ private slots:
     void errorPageExtensionLoadFinished();
     void userAgentApplicationName();
     void userAgentNewlineStripping();
+    void undoActionHaveCustomText();
 
     void viewModes();
 
@@ -155,6 +174,8 @@ private slots:
 #endif
 
     void originatingObjectInNetworkRequests();
+    void networkReplyParentDidntChange();
+    void destroyQNAMBeforeAbortDoesntCrash();
     void testJSPrompt();
     void showModalDialog();
     void testStopScheduledPageRefresh();
@@ -168,6 +189,9 @@ private slots:
     void renderOnRepaintRequestedShouldNotRecurse();
     void loadSignalsOrder_data();
     void loadSignalsOrder();
+    void openWindowDefaultSize();
+    void cssMediaTypeGlobalSetting();
+    void cssMediaTypePageSetting();
 
 #ifdef Q_OS_MAC
     void macCopyUnicodeToClipboard();
@@ -264,10 +288,11 @@ public:
     JSTestPage(QObject* parent = 0)
     : QWebPage(parent) {}
 
-public slots:
-    bool shouldInterruptJavaScript() {
+    virtual bool shouldInterruptJavaScript()
+    {
         return true;
     }
+public Q_SLOTS:
     void requestPermission(QWebFrame* frame, QWebPage::Feature feature)
     {
         if (m_allowGeolocation)
@@ -391,19 +416,23 @@ void tst_QWebPage::consoleOutput()
     QCOMPARE(page.lineNumbers.at(0), 1);
 }
 
-class TestPage : public QWebPage
-{
+class TestPage : public QWebPage {
+    Q_OBJECT
 public:
-    TestPage(QObject* parent = 0) : QWebPage(parent) {}
+    TestPage(QObject* parent = 0) : QWebPage(parent)
+    {
+        connect(this, SIGNAL(geometryChangeRequested(QRect)), this, SLOT(slotGeometryChangeRequested(QRect)));
+    }
 
     struct Navigation {
-        QWeakPointer<QWebFrame> frame;
+        QPointer<QWebFrame> frame;
         QNetworkRequest request;
         NavigationType type;
     };
 
     QList<Navigation> navigations;
-    QList<QWebPage*> createdWindows;
+    QList<TestPage*> createdWindows;
+    QRect requestedGeometry;
 
     virtual bool acceptNavigationRequest(QWebFrame* frame, const QNetworkRequest &request, NavigationType type) {
         Navigation n;
@@ -415,9 +444,14 @@ public:
     }
 
     virtual QWebPage* createWindow(WebWindowType) {
-        QWebPage* page = new TestPage(this);
+        TestPage* page = new TestPage(this);
         createdWindows.append(page);
         return page;
+    }
+
+private Q_SLOTS:
+    void slotGeometryChangeRequested(const QRect& geom) {
+        requestedGeometry = geom;
     }
 };
 
@@ -531,7 +565,7 @@ void tst_QWebPage::loadHtml5Video()
     QByteArray url("http://does.not/exist?a=1%2Cb=2");
     m_view->setHtml("<p><video id ='video' src='" + url + "' autoplay/></p>");
     QTest::qWait(2000);
-    QUrl mUrl = DumpRenderTreeSupportQt::mediaContentUrlByElementId(m_page->mainFrame(), "video");
+    QUrl mUrl = DumpRenderTreeSupportQt::mediaContentUrlByElementId(m_page->mainFrame()->handle(), "video");
     QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65452", Continue);
     QCOMPARE(mUrl.toEncoded(), url);
 #else
@@ -545,15 +579,12 @@ void tst_QWebPage::viewModes()
     m_page->setProperty("_q_viewMode", "minimized");
 
     QVariant empty = m_page->mainFrame()->evaluateJavaScript("window.styleMedia.matchMedium(\"(-webkit-view-mode)\")");
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65531", Continue);
     QVERIFY(empty.type() == QVariant::Bool && empty.toBool());
 
     QVariant minimized = m_page->mainFrame()->evaluateJavaScript("window.styleMedia.matchMedium(\"(-webkit-view-mode: minimized)\")");
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65531", Continue);
     QVERIFY(minimized.type() == QVariant::Bool && minimized.toBool());
 
     QVariant maximized = m_page->mainFrame()->evaluateJavaScript("window.styleMedia.matchMedium(\"(-webkit-view-mode: maximized)\")");
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65531", Continue);
     QVERIFY(maximized.type() == QVariant::Bool && !maximized.toBool());
 }
 
@@ -895,7 +926,7 @@ void tst_QWebPage::createPluginWithPluginsDisabled()
 class PluginCounterPage : public QWebPage {
 public:
     int m_count;
-    QWeakPointer<QObject> m_widget;
+    QPointer<QObject> m_widget;
     QObject* m_pluginParent;
     PluginCounterPage(QObject* parent = 0)
         : QWebPage(parent)
@@ -1012,12 +1043,12 @@ void tst_QWebPage::multiplePageGroupsAndLocalStorage()
 
     view1.page()->settings()->setAttribute(QWebSettings::LocalStorageEnabled, true);
     view1.page()->settings()->setLocalStoragePath(QDir::toNativeSeparators(tmpDirPath() + "/path1"));
-    DumpRenderTreeSupportQt::webPageSetGroupName(view1.page(), "group1");
+    DumpRenderTreeSupportQt::webPageSetGroupName(view1.page()->handle(), "group1");
     view2.page()->settings()->setAttribute(QWebSettings::LocalStorageEnabled, true);    
     view2.page()->settings()->setLocalStoragePath(QDir::toNativeSeparators(tmpDirPath() + "/path2"));
-    DumpRenderTreeSupportQt::webPageSetGroupName(view2.page(), "group2");
-    QCOMPARE(DumpRenderTreeSupportQt::webPageGroupName(view1.page()), QString("group1"));
-    QCOMPARE(DumpRenderTreeSupportQt::webPageGroupName(view2.page()), QString("group2"));
+    DumpRenderTreeSupportQt::webPageSetGroupName(view2.page()->handle(), "group2");
+    QCOMPARE(DumpRenderTreeSupportQt::webPageGroupName(view1.page()->handle()), QString("group1"));
+    QCOMPARE(DumpRenderTreeSupportQt::webPageGroupName(view2.page()->handle()), QString("group2"));
 
 
     view1.setHtml(QString("<html><body> </body></html>"), QUrl("http://www.myexample.com"));
@@ -1642,14 +1673,14 @@ void tst_QWebPage::inputMethods()
     } else
         QVERIFY2(false, "Unknown view type");
 
-    page->settings()->setFontFamily(QWebSettings::SerifFont, "FooSerifFont");
+    page->settings()->setFontFamily(QWebSettings::SerifFont, page->settings()->fontFamily(QWebSettings::FixedFont));
     page->mainFrame()->setHtml("<html><body>" \
                                             "<input type='text' id='input1' style='font-family: serif' value='' maxlength='20'/><br>" \
                                             "<input type='password'/>" \
                                             "</body></html>");
     page->mainFrame()->setFocus();
 
-    EventSpy viewEventSpy(container);
+    TestInputContext testContext;
 
     QWebElementCollection inputs = page->mainFrame()->documentElement().findAll("input");
     QPoint textInputCenter = inputs.at(0).geometry().center();
@@ -1674,22 +1705,23 @@ void tst_QWebPage::inputMethods()
     // and the RequestSoftwareInputPanel event is called. For these two situations
     // this part of the test can verified as the checks below.
     if (inputPanel)
-        QVERIFY(viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
+        QVERIFY(testContext.isInputPanelVisible());
     else
-        QVERIFY(!viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
-    viewEventSpy.clear();
+        QVERIFY(!testContext.isInputPanelVisible());
+    testContext.hideInputPanel();
 
     clickOnPage(page, textInputCenter);
-    QVERIFY(viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
+    QVERIFY(testContext.isInputPanelVisible());
 
     //ImMicroFocus
     QVariant variant = page->inputMethodQuery(Qt::ImMicroFocus);
     QVERIFY(inputs.at(0).geometry().contains(variant.toRect().topLeft()));
 
-    //ImFont
+    // We assigned the serif font famility to be the same as the fixef font family.
+    // Then test ImFont on a serif styled element, we should get our fixef font family.
     variant = page->inputMethodQuery(Qt::ImFont);
     QFont font = variant.value<QFont>();
-    QCOMPARE(page->settings()->fontFamily(QWebSettings::SerifFont), font.family());
+    QCOMPARE(page->settings()->fontFamily(QWebSettings::FixedFont), font.family());
 
     QList<QInputMethodEvent::Attribute> inputAttributes;
 
@@ -1885,12 +1917,12 @@ void tst_QWebPage::inputMethods()
     QVERIFY(!(inputMethodHints(view) & Qt::ImhHiddenText));
 
     page->mainFrame()->setHtml("<html><body><p>nothing to input here");
-    viewEventSpy.clear();
+    testContext.hideInputPanel();
 
     QWebElement para = page->mainFrame()->findFirstElement("p");
     clickOnPage(page, para.geometry().center());
 
-    QVERIFY(!viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
+    QVERIFY(!testContext.isInputPanelVisible());
 
     //START - Test for sending empty QInputMethodEvent
     page->mainFrame()->setHtml("<html><body>" \
@@ -2222,7 +2254,7 @@ void tst_QWebPage::inputMethods()
     QWebElement inputElement = page->mainFrame()->findFirstElement("div");
     clickOnPage(page, inputElement.geometry().center());
 
-    QVERIFY(!viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
+    QVERIFY(!testContext.isInputPanelVisible());
 
     // START - Newline test for textarea
     qApp->processEvents();
@@ -2283,6 +2315,20 @@ void tst_QWebPage::inputMethods()
 
     QKeyEvent keyEnterWithLFCR(QEvent::KeyPress, Qt::Key_Enter, Qt::NoModifier, "\n\r");
     page->event(&keyEnterWithLFCR);
+    page->event(&eventText);
+    page->event(&eventText2);
+    qApp->processEvents();
+
+    inputValue2 = page->mainFrame()->evaluateJavaScript("document.getElementById('input5').value").toString();
+    QCOMPARE(inputValue2, QString("\n\nthird line"));
+
+    // Return Key without key text
+    page->mainFrame()->evaluateJavaScript("var inputEle = document.getElementById('input5'); inputEle.value = ''; inputEle.focus(); inputEle.select();");
+    inputValue2 = page->mainFrame()->evaluateJavaScript("document.getElementById('input5').value").toString();
+    QCOMPARE(inputValue2, QString(""));
+
+    QKeyEvent keyReturn(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier);
+    page->event(&keyReturn);
     page->event(&eventText);
     page->event(&eventText2);
     qApp->processEvents();
@@ -2473,7 +2519,7 @@ void tst_QWebPage::testLocalStorageVisibility()
     webPage.currentFrame()->setHtml(QString("<html><body>test</body></html>"), QUrl("file:///"));
 
     QCOMPARE(checkLocalStorageVisibility(webPage, false), false);
-    QCOMPARE(checkLocalStorageVisibility(webPage, true), false);
+    QCOMPARE(checkLocalStorageVisibility(webPage, true), true);
 
     webPage.currentFrame()->setHtml(QString("<html><body>test</body></html>"), QUrl("http://www.example.com"));
 
@@ -2817,6 +2863,32 @@ void tst_QWebPage::originatingObjectInNetworkRequests()
         QVERIFY(qobject_cast<QWebFrame*>(networkManager->requests.at(i).originatingObject()) == childFrames.at(i));
 }
 
+void tst_QWebPage::networkReplyParentDidntChange()
+{
+    TestNetworkManager* networkManager = new TestNetworkManager(m_page);
+    m_page->setNetworkAccessManager(networkManager);
+    networkManager->requests.clear();
+
+    // Trigger a load and check that pending QNetworkReplies haven't been reparented before returning to the event loop.
+    m_view->load(QUrl("qrc:///resources/content.html"));
+
+    QVERIFY(networkManager->requests.count() > 0);
+    QVERIFY(networkManager->findChildren<QNetworkReply*>().size() > 0);
+}
+
+void tst_QWebPage::destroyQNAMBeforeAbortDoesntCrash()
+{
+    QNetworkAccessManager* networkManager = new QNetworkAccessManager;
+    m_page->setNetworkAccessManager(networkManager);
+
+    m_view->load(QUrl("qrc:///resources/content.html"));
+    delete networkManager;
+    // This simulates what PingLoader does with its QNetworkReply when it times out.
+    // PingLoader isn't attached to a QWebPage and can be kept alive
+    // for 60000 seconds (~16.7 hours) to then cancel its ResourceHandle.
+    m_view->stop();
+}
+
 /**
  * Test fixups for https://bugs.webkit.org/show_bug.cgi?id=30914
  *
@@ -2900,9 +2972,9 @@ public:
 void tst_QWebPage::showModalDialog()
 {
     TestModalPage page;
+    page.settings()->setAttribute(QWebSettings::JavascriptCanOpenWindows, true);
     page.mainFrame()->setHtml(QString("<html></html>"));
     QString res = page.mainFrame()->evaluateJavaScript("window.showModalDialog('javascript:window.returnValue=dialogArguments; window.close();', 'This is a test');").toString();
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=63244", Continue);
     QCOMPARE(res, QString("This is a test"));
 }
 
@@ -2915,10 +2987,8 @@ void tst_QWebPage::testStopScheduledPageRefresh()
                                 "<meta http-equiv=\"refresh\"content=\"0;URL=qrc:///resources/index.html\">"
                                 "</head><body><h1>Page redirects immediately...</h1>"
                                 "</body></html>");
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=63245", Continue);
     QVERIFY(::waitForSignal(&page1, SIGNAL(loadFinished(bool))));
     QTest::qWait(500);
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=63245", Continue);
     QCOMPARE(page1.mainFrame()->url(), QUrl(QLatin1String("qrc:///resources/index.html")));
     
     // With QWebPage::StopScheduledPageRefresh
@@ -2943,91 +3013,53 @@ void tst_QWebPage::findText()
     QVERIFY(m_page->selectedText().isEmpty());
     QVERIFY(m_page->selectedHtml().isEmpty());
     QStringList words = (QStringList() << "foo" << "bar");
-    QRegExp regExp(" style=\".*\"");
-    regExp.setMinimal(true);
     foreach (QString subString, words) {
         m_page->findText(subString, QWebPage::FindWrapsAroundDocument);
         QCOMPARE(m_page->selectedText(), subString);
-        QCOMPARE(m_page->selectedHtml().trimmed().replace(regExp, ""), QString("<span>%1</span>").arg(subString));
+        QVERIFY(m_page->selectedHtml().contains(subString));
         m_page->findText("");
         QVERIFY(m_page->selectedText().isEmpty());
         QVERIFY(m_page->selectedHtml().isEmpty());
     }
 }
 
-struct ImageExtensionMap {
-    const char* extension;
-    const char* mimeType;
-};
-
-static const ImageExtensionMap extensionMap[] = {
-    { "bmp", "image/bmp" },
-    { "css", "text/css" },
-    { "gif", "image/gif" },
-    { "html", "text/html" },
-    { "htm", "text/html" },
-    { "ico", "image/x-icon" },
-    { "jpeg", "image/jpeg" },
-    { "jpg", "image/jpeg" },
-    { "js", "application/x-javascript" },
-    { "mng", "video/x-mng" },
-    { "pbm", "image/x-portable-bitmap" },
-    { "pgm", "image/x-portable-graymap" },
-    { "pdf", "application/pdf" },
-    { "png", "image/png" },
-    { "ppm", "image/x-portable-pixmap" },
-    { "rss", "application/rss+xml" },
-    { "svg", "image/svg+xml" },
-    { "text", "text/plain" },
-    { "tif", "image/tiff" },
-    { "tiff", "image/tiff" },
-    { "txt", "text/plain" },
-    { "xbm", "image/x-xbitmap" },
-    { "xml", "text/xml" },
-    { "xpm", "image/x-xpm" },
-    { "xsl", "text/xsl" },
-    { "xhtml", "application/xhtml+xml" },
-    { "wml", "text/vnd.wap.wml" },
-    { "wmlc", "application/vnd.wap.wmlc" },
-    { 0, 0 }
-};
-
 static QString getMimeTypeForExtension(const QString &ext)
 {
-    const ImageExtensionMap *e = extensionMap;
-    while (e->extension) {
-        if (ext.compare(QLatin1String(e->extension), Qt::CaseInsensitive) == 0)
-            return QLatin1String(e->mimeType);
-        ++e;
-    }
+    QMimeType mimeType = QMimeDatabase().mimeTypeForFile(QStringLiteral("filename.") + ext.toLower(), QMimeDatabase::MatchExtension);
+    if (mimeType.isValid() && !mimeType.isDefault())
+        return mimeType.name();
 
     return QString();
 }
 
 void tst_QWebPage::supportedContentType()
 {
-   QStringList contentTypes;
+    QStringList contentTypes;
 
-   // Add supported non image types...
-   contentTypes << "text/html" << "text/xml" << "text/xsl" << "text/plain" << "text/"
-                << "application/xml" << "application/xhtml+xml" << "application/vnd.wap.xhtml+xml"
-                << "application/rss+xml" << "application/atom+xml" << "application/json";
+    // Add supported non image types...
+    contentTypes << "text/html" << "text/xml" << "text/xsl" << "text/plain" << "text/"
+                 << "application/xml" << "application/xhtml+xml" << "application/vnd.wap.xhtml+xml"
+                 << "application/rss+xml" << "application/atom+xml" << "application/json";
 
-   // Add supported image types...
-   Q_FOREACH(const QByteArray& imageType, QImageWriter::supportedImageFormats()) {
-      const QString mimeType = getMimeTypeForExtension(imageType);
-      if (!mimeType.isEmpty())
-          contentTypes << mimeType;
-   }
+#if ENABLE_MHTML
+    contentTypes << "application/x-mimearchive";
+#endif
 
-   // Get the mime types supported by webkit...
-   const QStringList supportedContentTypes = m_page->supportedContentTypes();
+    // Add supported image types...
+    Q_FOREACH(const QByteArray& imageType, QImageWriter::supportedImageFormats()) {
+        const QString mimeType = getMimeTypeForExtension(imageType);
+        if (!mimeType.isEmpty())
+            contentTypes << mimeType;
+    }
 
-   Q_FOREACH(const QString& mimeType, contentTypes)
-      QVERIFY2(supportedContentTypes.contains(mimeType), QString("'%1' is not a supported content type!").arg(mimeType).toLatin1());
+    // Get the mime types supported by webkit...
+    const QStringList supportedContentTypes = m_page->supportedContentTypes();
+
+    Q_FOREACH(const QString& mimeType, contentTypes)
+        QVERIFY2(supportedContentTypes.contains(mimeType), QString("'%1' is not a supported content type!").arg(mimeType).toLatin1());
       
-   Q_FOREACH(const QString& mimeType, contentTypes)
-      QVERIFY2(m_page->supportsContentType(mimeType), QString("Cannot handle content types '%1'!").arg(mimeType).toLatin1());
+    Q_FOREACH(const QString& mimeType, contentTypes)
+        QVERIFY2(m_page->supportsContentType(mimeType), QString("Cannot handle content types '%1'!").arg(mimeType).toLatin1());
 }
 
 
@@ -3042,7 +3074,6 @@ void tst_QWebPage::navigatorCookieEnabled()
     QVERIFY(m_page->mainFrame()->evaluateJavaScript("navigator.cookieEnabled").toBool());
 }
 
-#if QT_VERSION >= 0x040800
 void tst_QWebPage::thirdPartyCookiePolicy()
 {
     QWebSettings::globalSettings()->setThirdPartyCookiePolicy(QWebSettings::AlwaysBlockThirdPartyCookies);
@@ -3050,38 +3081,37 @@ void tst_QWebPage::thirdPartyCookiePolicy()
     QVERIFY(m_page->networkAccessManager()->cookieJar());
 
     // These are all first-party cookies, so should pass.
-    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://www.example.com"), QUrl("http://example.com")));
-    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://www.example.com"), QUrl("http://doc.example.com")));
-    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://aaa.www.example.com"), QUrl("http://doc.example.com")));
-    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://example.com"), QUrl("http://www.example.com")));
-    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://www.example.co.uk"), QUrl("http://example.co.uk")));
-    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://www.example.co.uk"), QUrl("http://doc.example.co.uk")));
-    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://aaa.www.example.co.uk"), QUrl("http://doc.example.co.uk")));
-    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://example.co.uk"), QUrl("http://www.example.co.uk")));
 
     // These are all third-party cookies, so should fail.
-    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://www.example.com"), QUrl("http://slashdot.org")));
-    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://example.com"), QUrl("http://anotherexample.com")));
-    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://anotherexample.com"), QUrl("http://example.com")));
-    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://www.example.co.uk"), QUrl("http://slashdot.co.uk")));
-    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://example.co.uk"), QUrl("http://anotherexample.co.uk")));
-    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page,
+    QVERIFY(!DumpRenderTreeSupportQt::thirdPartyCookiePolicyAllows(m_page->handle(),
             QUrl("http://anotherexample.co.uk"), QUrl("http://example.co.uk")));
 }
-#endif
 
 #ifdef Q_OS_MAC
 void tst_QWebPage::macCopyUnicodeToClipboard()
@@ -3158,8 +3188,7 @@ void tst_QWebPage::deleteQWebViewTwice()
         mainWindow.setCentralWidget(webView);
         webView->load(QUrl("qrc:///resources/frame_a.html"));
         mainWindow.show();
-        connect(webView, SIGNAL(loadFinished(bool)), &mainWindow, SLOT(close()));
-        QApplication::instance()->exec();
+        QVERIFY(::waitForSignal(webView, SIGNAL(loadFinished(bool))));
     }
 }
 
@@ -3174,10 +3203,10 @@ public:
         connect(m_page, SIGNAL(repaintRequested(QRect)), this, SLOT(onRepaintRequested(QRect)));
     }
 
-signals:
+Q_SIGNALS:
     void finished();
 
-private slots:
+private Q_SLOTS:
     void onRepaintRequested(const QRect& rect)
     {
         QCOMPARE(m_recursionCount, 0);
@@ -3242,7 +3271,7 @@ public Q_SLOTS:
         if (progress == 100)
             emit lastLoadProgress();
     }
-signals:
+Q_SIGNALS:
     void lastLoadProgress();
 };
 
@@ -3262,6 +3291,98 @@ void tst_QWebPage::loadSignalsOrder()
     waitForSignal(&loadSpy, SIGNAL(started()));
     page.mainFrame()->load(url);
     QTRY_VERIFY(loadSpy.isFinished());
+}
+
+void tst_QWebPage::undoActionHaveCustomText()
+{
+    m_page->mainFrame()->setHtml("<div id=test contenteditable></div>");
+    m_page->mainFrame()->evaluateJavaScript("document.getElementById('test').focus()");
+
+    m_page->mainFrame()->evaluateJavaScript("document.execCommand('insertText', true, 'Test');");
+    QString typingActionText = m_page->action(QWebPage::Undo)->text();
+
+    m_page->mainFrame()->evaluateJavaScript("document.execCommand('indent', true);");
+    QString alignActionText = m_page->action(QWebPage::Undo)->text();
+
+    QVERIFY(typingActionText != alignActionText);
+}
+
+void tst_QWebPage::openWindowDefaultSize()
+{
+    TestPage page;
+    page.settings()->setAttribute(QWebSettings::JavascriptCanOpenWindows, true);
+    // Open a default window.
+    page.mainFrame()->evaluateJavaScript("window.open()");
+    // Open a too small window.
+    page.mainFrame()->evaluateJavaScript("window.open('', '', 'width=10,height=10')");
+
+    QTest::qWait(500);
+    // The number of popups created should be two.
+    QVERIFY(page.createdWindows.size() == 2);
+
+    QRect requestedGeometry = page.createdWindows[0]->requestedGeometry;
+    // Check default size has been requested.
+    QVERIFY(requestedGeometry.width() == 0);
+    QVERIFY(requestedGeometry.height() == 0);
+
+    requestedGeometry = page.createdWindows[1]->requestedGeometry;
+    // Check minimum size has been requested.
+    QVERIFY(requestedGeometry.width() == 100);
+    QVERIFY(requestedGeometry.height() == 100);
+}
+
+void tst_QWebPage::cssMediaTypeGlobalSetting()
+{
+    QString testHtml("<style>@media tv {body{background-color:red;}}@media handheld {body{background-color:green;}}@media screen {body{background-color:blue;}}</style>");
+    QSignalSpy loadSpy(m_view, SIGNAL(loadFinished(bool)));
+
+    QWebSettings::globalSettings()->setCSSMediaType("tv");
+    // Clear page specific setting to read from global setting
+    m_view->page()->settings()->setCSSMediaType(QString());
+    m_view->setHtml(testHtml);
+    QTRY_COMPARE(loadSpy.count(), 1);
+    QVERIFY(m_view->page()->mainFrame()->evaluateJavaScript("window.matchMedia('tv').matches == true").toBool()); 
+    QVERIFY(QWebSettings::globalSettings()->cssMediaType() == "tv");
+
+    QWebSettings::globalSettings()->setCSSMediaType("handheld");
+    // Clear page specific setting to read from global setting
+    m_view->page()->settings()->setCSSMediaType(QString());
+    m_view->setHtml(testHtml);
+    QTRY_COMPARE(loadSpy.count(), 2);
+    QVERIFY(m_view->page()->mainFrame()->evaluateJavaScript("window.matchMedia('handheld').matches == true").toBool());
+    QVERIFY(QWebSettings::globalSettings()->cssMediaType() == "handheld");
+
+    QWebSettings::globalSettings()->setCSSMediaType("screen");
+    // Clear page specific setting to read from global setting
+    m_view->page()->settings()->setCSSMediaType(QString());
+    m_view->setHtml(testHtml);
+    QTRY_COMPARE(loadSpy.count(), 3);
+    QVERIFY(m_view->page()->mainFrame()->evaluateJavaScript("window.matchMedia('screen').matches == true").toBool()); 
+    QVERIFY(QWebSettings::globalSettings()->cssMediaType() == "screen"); 
+}
+
+void tst_QWebPage::cssMediaTypePageSetting()
+{
+    QString testHtml("<style>@media tv {body{background-color:red;}}@media handheld {body{background-color:green;}}@media screen {body{background-color:blue;}}</style>");
+    QSignalSpy loadSpy(m_view, SIGNAL(loadFinished(bool)));
+
+    m_view->page()->settings()->setCSSMediaType("tv");
+    m_view->setHtml(testHtml);
+    QTRY_COMPARE(loadSpy.count(), 1);
+    QVERIFY(m_view->page()->mainFrame()->evaluateJavaScript("window.matchMedia('tv').matches == true").toBool()); 
+    QVERIFY(m_view->page()->settings()->cssMediaType() == "tv"); 
+
+    m_view->page()->settings()->setCSSMediaType("handheld");
+    m_view->setHtml(testHtml);
+    QTRY_COMPARE(loadSpy.count(), 2);
+    QVERIFY(m_view->page()->mainFrame()->evaluateJavaScript("window.matchMedia('handheld').matches == true").toBool());
+    QVERIFY(m_view->page()->settings()->cssMediaType() == "handheld");
+
+    m_view->page()->settings()->setCSSMediaType("screen");
+    m_view->setHtml(testHtml);
+    QTRY_COMPARE(loadSpy.count(), 3);
+    QVERIFY(m_view->page()->mainFrame()->evaluateJavaScript("window.matchMedia('screen').matches == true").toBool()); 
+    QVERIFY(m_view->page()->settings()->cssMediaType() == "screen"); 
 }
 
 QTEST_MAIN(tst_QWebPage)

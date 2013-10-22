@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2008, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -28,72 +28,95 @@
 
 #include <TargetConditionals.h>	// for TARGET_OS_EMBEDDED
 
+#include <pthread.h>
+#include <pthread/private.h>
 #include <_libkernel_init.h>
+#include <stdlib.h>
 #include <dlfcn.h>
 #include <errno.h>
+#include <TargetConditionals.h>
 
 struct ProgramVars; /* forward reference */
 
 // system library initialisers
 extern void bootstrap_init(void);		// from liblaunch.dylib
-extern void mach_init(void);			// from libsystem_mach.dylib
-extern void pthread_init(void);			// from libc.a
-extern void __libc_init(const struct ProgramVars *vars, void (*atfork_prepare)(void), void (*atfork_parent)(void), void (*atfork_child)(void), const char *apple[]);	// from libc.a
-extern void __keymgr_initializer(void);		// from libkeymgr.a
-extern void _dyld_initializer(void);		// from libdyld.a
-extern void libdispatch_init(void);		// from libdispatch.a
-extern void _libxpc_initializer(void);		// from libxpc
+extern void mach_init(void);			// from libsystem_kernel.dylib
+extern void __libplatform_init(void *future_use, const char *envp[], const char *apple[], const struct ProgramVars *vars);
+extern void __pthread_init(const struct _libpthread_functions *libpthread_funcs, const char *envp[], const char *apple[], const struct ProgramVars *vars);	// from libsystem_pthread.dylib
+extern void __libc_init(const struct ProgramVars *vars, void (*atfork_prepare)(void), void (*atfork_parent)(void), void (*atfork_child)(void), const char *apple[]);	// from libsystem_c.dylib
+extern void __malloc_init(const char *apple[]); // from libsystem_malloc.dylib
+extern void __keymgr_initializer(void);		// from libkeymgr.dylib
+extern void _dyld_initializer(void);		// from libdyld.dylib
+extern void libdispatch_init(void);		// from libdispatch.dylib
+extern void _libxpc_initializer(void);		// from libxpc.dylib
 
 // signal malloc stack logging that initialisation has finished
 extern void __stack_logging_early_finished(void); // form libsystem_c.dylib
 
 // system library atfork handlers
-extern void _cthread_fork_prepare(void);
-extern void _cthread_fork_parent(void);
-extern void _cthread_fork_child(void);
-extern void _cthread_fork_child_postinit(void);
+extern void _pthread_fork_prepare(void);
+extern void _pthread_fork_parent(void);
+extern void _pthread_fork_child(void);
+extern void _pthread_fork_child_postinit(void);
+
+extern void dispatch_atfork_prepare(void);
+extern void dispatch_atfork_parent(void);
+extern void dispatch_atfork_child(void);
+
+extern void _malloc_fork_prepare(void);
+extern void _malloc_fork_parent(void);
+extern void _malloc_fork_child(void);
 
 extern void _mach_fork_child(void);
-extern void _cproc_fork_child(void);
 extern void _libc_fork_child(void);
 extern void _notify_fork_child(void);
 extern void _dyld_fork_child(void);
 extern void xpc_atfork_prepare(void);
 extern void xpc_atfork_parent(void);
 extern void xpc_atfork_child(void);
+extern void _libSC_info_fork_prepare(void);
+extern void _libSC_info_fork_parent(void);
+extern void _libSC_info_fork_child(void);
+extern void _asl_fork_child(void);
 
 // advance decls for below;
 void libSystem_atfork_prepare(void);
 void libSystem_atfork_parent(void);
 void libSystem_atfork_child(void);
 
-// from mig_support.c in libc
-mach_port_t _mig_get_reply_port(void);
-void _mig_set_reply_port(mach_port_t);
-
-void cthread_set_errno_self(int);
+void _pthread_exit_if_canceled(int);
 
 /*
  * libsyscall_initializer() initializes all of libSystem.dylib <rdar://problem/4892197>
  */
-static __attribute__((constructor)) 
+static __attribute__((constructor))
 void libSystem_initializer(int argc, const char* argv[], const char* envp[], const char* apple[], const struct ProgramVars* vars)
 {
-	_libkernel_functions_t libkernel_funcs = {
-		.get_reply_port = _mig_get_reply_port,
-		.set_reply_port = _mig_set_reply_port,
-		.get_errno = __error,
-		.set_errno = cthread_set_errno_self,
+	static const struct _libkernel_functions libkernel_funcs = {
+		.version = 1,
 		.dlsym = dlsym,
+		.malloc = malloc,
+		.free = free,
+		.realloc = realloc,
+		._pthread_exit_if_canceled = _pthread_exit_if_canceled,
 	};
 
-	_libkernel_init(libkernel_funcs);
+	static const struct _libpthread_functions libpthread_funcs = {
+		.version = 1,
+		.exit = exit,
+	};
+
+	__libkernel_init(&libkernel_funcs, envp, apple, vars);
 
 	bootstrap_init();
-	mach_init();
-	pthread_init();
+	__libplatform_init(NULL, envp, apple, vars);
+
+	__pthread_init(&libpthread_funcs, envp, apple, vars);
 	__libc_init(vars, libSystem_atfork_prepare, libSystem_atfork_parent, libSystem_atfork_child, apple);
-	__keymgr_initializer();
+
+	// TODO: Move __malloc_init before __libc_init after breaking malloc's upward link to Libc
+	__malloc_init(apple);
+
 	_dyld_initializer();
 	libdispatch_init();
 	_libxpc_initializer();
@@ -114,29 +137,38 @@ void libSystem_initializer(int argc, const char* argv[], const char* envp[], con
  */
 void libSystem_atfork_prepare(void)
 {
+	_libSC_info_fork_prepare();
 	xpc_atfork_prepare();
-	_cthread_fork_prepare();
+	dispatch_atfork_prepare();
+	_pthread_fork_prepare();
+	_malloc_fork_prepare();
 }
 
 void libSystem_atfork_parent(void)
 {
-	_cthread_fork_parent();
+	_malloc_fork_parent();
+	_pthread_fork_parent();
+	dispatch_atfork_parent();
 	xpc_atfork_parent();
+	_libSC_info_fork_parent();
 }
 
 void libSystem_atfork_child(void)
 {
 	_dyld_fork_child();
-	_cthread_fork_child();
+	_pthread_fork_child();
+	_malloc_fork_child();
+	dispatch_atfork_child();
 	
 	bootstrap_init();
 	_mach_fork_child();
-	_cproc_fork_child();
 	_libc_fork_child();
+	_asl_fork_child();
 	_notify_fork_child();
 	xpc_atfork_child();
+	_libSC_info_fork_child();
 
-	_cthread_fork_child_postinit();
+	_pthread_fork_child_postinit();
 }
 
 /*  

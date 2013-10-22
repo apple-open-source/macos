@@ -35,7 +35,7 @@ void MD2Object::digestUpdate(
 	if(isDone()) {
 		throw std::runtime_error("MD2 digestUpdate after final");
 	}
-	CC_MD2_Update(&mCtx, (unsigned char *)data, len);
+	CC_MD2_Update(&mCtx, (unsigned char *)data, (CC_LONG)len);
 }
 
 void MD2Object::digestFinal(

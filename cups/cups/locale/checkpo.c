@@ -1,10 +1,10 @@
 /*
- * "$Id: checkpo.c 9048 2010-03-24 08:07:15Z mike $"
+ * "$Id: checkpo.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Verify that translations in the .po file have the same number and type of
  *   printf-style format strings.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -338,7 +338,7 @@ abbreviate(const char *s,		/* I - String to abbreviate */
   }
 
   if (*s)
-    strcpy(bufptr, "...");
+    memcpy(bufptr, "...", 4);
   else
     *bufptr = '\0';
 
@@ -409,5 +409,5 @@ free_formats(cups_array_t *fmts)	/* I - Array of format strings */
 
 
 /*
- * End of "$Id: checkpo.c 9048 2010-03-24 08:07:15Z mike $".
+ * End of "$Id: checkpo.c 11093 2013-07-03 20:48:42Z msweet $".
  */

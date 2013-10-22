@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <syslog.h>
 #include <Security/SecureTransport.h>
 #include <Security/SecCertificate.h>
 #include <sys/param.h>
@@ -55,6 +54,7 @@
 #include <EAP8021X/EAP.h>
 #include <EAP8021X/EAPUtil.h>
 #include <EAP8021X/EAPClientModule.h>
+#include "EAPLog.h"
 #include "myCFUtil.h"
 #include "nbo.h"
 #include "printdata.h"
@@ -194,8 +194,8 @@ static EAPClientPluginFuncFreePacket peap_free_packet;
 static EAPClientPluginFuncSessionKey peap_session_key;
 static EAPClientPluginFuncServerKey peap_server_key;
 static EAPClientPluginFuncRequireProperties peap_require_props;
-static EAPClientPluginFuncPublishProperties peap_publish_props;
-static EAPClientPluginFuncPacketDump peap_packet_dump;
+static EAPClientPluginFuncPublishProperties peap_publish_props_copy;
+static EAPClientPluginFuncCopyPacketDescription peap_copy_packet_description;
 
 typedef enum {
     kRequestTypeStart,
@@ -203,7 +203,7 @@ typedef enum {
     kRequestTypeData,
 } RequestType;
 
-static int inner_auth_types[3] = {
+static int inner_auth_types[] = {
     kEAPTypeMSCHAPv2,
     kEAPTypeMD5Challenge,
     kEAPTypeGenericTokenCard,
@@ -233,12 +233,12 @@ typedef int PEAPInnerAuthState;
 typedef struct {
     SSLContextRef		ssl_context;
     memoryBuffer		read_buffer;
-    int				last_read_size;
     memoryBuffer		write_buffer;
     int				last_write_size;
     int				previous_identifier;
     memoryIO			mem_io;
     EAPClientState		plugin_state;
+    bool			cert_is_required;
     CFArrayRef			certs;
     int				mtu;
     int				peap_version;
@@ -256,6 +256,7 @@ typedef struct {
     bool			trust_proceed;
     bool			key_data_valid;
     char			key_data[128];
+    bool			server_auth_completed;
     CFArrayRef			server_certs;
     bool			resume_sessions;
     bool			session_was_resumed;
@@ -352,7 +353,7 @@ eap_client_init(EAPClientPluginDataRef plugin, EAPType type)
     context->eap.last_type_name = NULL;
 
     if (context->eap.module != NULL) {
-	printf("eap_client_init: already initialized\n");
+	EAPLOG(LOG_NOTICE, "eap_client_init: already initialized\n");
 	return (TRUE);
     }
     module = EAPClientModuleLookup(type);
@@ -435,25 +436,6 @@ eap_client_free_packet(PEAPPluginDataRef context, EAPPacketRef out_pkt_p)
  ** eap_client end
  **/
  
-static bool
-module_packet_dump(FILE * out_f, const EAPRequestPacketRef req_p)
-{
-    bool			logged = FALSE;
-    EAPClientModuleRef		module;
-
-    switch (req_p->code) {
-    case kEAPCodeRequest:
-    case kEAPCodeResponse:
-	module = EAPClientModuleLookup(req_p->type);
-	if (module != NULL) {
-	    logged = EAPClientModulePluginPacketDump(module, out_f, 
-						     (EAPPacketRef)req_p);
-	}
-	break;
-    }
-    return (logged);
-}
-
 /*
  * According to the PEAP version 1 spec, the label should be
  * "client PEAP encryption", but apparently it's not actually used
@@ -473,9 +455,9 @@ peap_compute_session_key(PEAPPluginDataRef context)
 				  context->key_data,
 				  sizeof(context->key_data));
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "peap_compute_session_key: EAPTLSComputeSessionKey failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, 
+		  "EAPTLSComputeSessionKey failed, %s",
+		  EAPSSLErrorString(status));
 	return (FALSE);
     }
     context->key_data_valid = TRUE;
@@ -488,7 +470,7 @@ peap_free_context(PEAPPluginDataRef context)
     eap_client_free(context);
     free_last_packet(context);
     if (context->ssl_context != NULL) {
-	SSLDisposeContext(context->ssl_context);
+	CFRelease(context->ssl_context);
 	context->ssl_context = NULL;
     }
     my_CFRelease(&context->certs);
@@ -509,7 +491,7 @@ peap_start(EAPClientPluginDataRef plugin)
     free_last_packet(context);
     context->last_eap_type_index = 0;
     if (context->ssl_context != NULL) {
-	SSLDisposeContext(context->ssl_context);
+	CFRelease(context->ssl_context);
 	context->ssl_context = NULL;
     }
     my_CFRelease(&context->server_certs);
@@ -517,30 +499,36 @@ peap_start(EAPClientPluginDataRef plugin)
     ssl_context = EAPTLSMemIOContextCreate(FALSE, &context->mem_io, NULL, 
 					   &status);
     if (ssl_context == NULL) {
-	syslog(LOG_NOTICE, "peap_start: EAPTLSMemIOContextCreate failed, %s",
-	       EAPSSLErrorString(status));
-	goto failed;
-    }
-    status = SSLSetEnableCertVerify(ssl_context, FALSE);
-    if (status != noErr) {
-	syslog(LOG_NOTICE, "peap_start: SSLSetEnableCertVerify failed, %s",
-	       EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, "EAPTLSMemIOContextCreate failed, %s",
+		  EAPSSLErrorString(status));
 	goto failed;
     }
     if (context->resume_sessions && plugin->unique_id != NULL) {
 	status = SSLSetPeerID(ssl_context, plugin->unique_id,
 			      plugin->unique_id_length);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SSLSetPeerID failed, %s", EAPSSLErrorString(status));
 	    goto failed;
 	}
     }
-    if (context->certs != NULL) {
+    if (context->cert_is_required) {
+	if (context->certs == NULL) {
+	    status = EAPTLSCopyIdentityTrustChain(plugin->sec_identity,
+						  plugin->properties,
+						  &context->certs);
+	    if (status != noErr) {
+		EAPLOG_FL(LOG_NOTICE, 
+			  "failed to find client cert/identity, %s (%ld)",
+			  EAPSSLErrorString(status), (long)status);
+		goto failed;
+	    }
+	}
 	status = SSLSetCertificate(ssl_context, context->certs);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, 
-		   "SSLSetCertificate failed, %s", EAPSSLErrorString(status));
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SSLSetCertificate failed, %s",
+		      EAPSSLErrorString(status));
 	    goto failed;
 	}
     }
@@ -551,17 +539,17 @@ peap_start(EAPClientPluginDataRef plugin)
     context->last_client_status = kEAPClientStatusOK;
     context->handshake_complete = FALSE;
     context->trust_proceed = FALSE;
+    context->server_auth_completed = FALSE;
     context->inner_auth_state = kPEAPInnerAuthStateUnknown;
     context->key_data_valid = FALSE;
     context->last_write_size = 0;
-    context->last_read_size = 0;
     context->peap_version = BAD_VERSION;
     context->bogus_l_bit = FALSE;
     context->session_was_resumed = FALSE;
     return (status);
  failed:
     if (ssl_context != NULL) {
-	SSLDisposeContext(ssl_context);
+	CFRelease(ssl_context);
     }
     return (status);
 }
@@ -571,15 +559,13 @@ peap_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	  EAPClientDomainSpecificError * error)
 {
     PEAPPluginDataRef	context = NULL;
-    EAPClientStatus	result = kEAPClientStatusOK;
-    OSStatus		status = noErr;
 
-    *error = 0;
     context = malloc(sizeof(*context));
-    if (context == NULL) {
-	goto failed;
-    }
     bzero(context, sizeof(*context));
+    context->cert_is_required 
+	= my_CFDictionaryGetBooleanValue(plugin->properties,
+					 kEAPClientPropTLSCertificateIsRequired,
+					 FALSE);
     context->mtu = plugin->mtu;
     context->resume_sessions
 	= my_CFDictionaryGetBooleanValue(plugin->properties, 
@@ -590,20 +576,8 @@ peap_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 		 &context->write_buffer);
     //memoryIOSetDebug(&context->mem_io, TRUE);
     plugin->private = context;
-    status = peap_start(plugin);
-    if (status != noErr) {
-	result = kEAPClientStatusSecurityError;
-	*error = status;
-	goto failed;
-    }
-    return (result);
-
- failed:
-    plugin->private = NULL;
-    if (context != NULL) {
-	peap_free_context(context);
-    }
-    return (result);
+    *error = 0;
+    return (kEAPClientStatusOK);
 }
 
 static void
@@ -648,9 +622,9 @@ peap_process_extensions(PEAPPluginDataRef context,
 
     in_length = EAPPacketGetLength((EAPPacketRef)in_pkt_p);
     if (in_length < sizeof(EAPExtensionsPacket)) {
-	syslog(LOG_NOTICE, 
-	       "peap_process_extensions: packet too short %d < %ld",
-	       in_length, sizeof(EAPExtensionsPacket));
+	EAPLOG_FL(LOG_NOTICE, 
+		  "packet too short %d < %ld",
+		  in_length, sizeof(EAPExtensionsPacket));
 	return (NULL);
     }
     avp_type = EAPExtensionsPacketGetAVPType(in_pkt_p);
@@ -746,9 +720,9 @@ peap_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 	    if (eap_client_init(plugin, in_pkt_p->type) == FALSE) {
 		if (context->eap.last_status 
 		    != kEAPClientStatusUserInputRequired) {
-		    syslog(LOG_NOTICE, 
-			   "peap_eap_process: eap_client_init type %d failed",
-			   in_pkt_p->type);
+		    EAPLOG_FL(LOG_NOTICE, 
+			      "eap_client_init type %d failed",
+			      in_pkt_p->type);
 		    *client_status = context->eap.last_status;
 		    context->plugin_state = kEAPClientStateFailure;
 		    goto done;
@@ -807,7 +781,7 @@ peap_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 	/* authentication method failed */
 	context->inner_auth_state = kPEAPInnerAuthStateFailure;
 	*client_status = context->eap.last_status;
-	context->plugin_state = kEAPClientStateFailure;
+	//context->plugin_state = kEAPClientStateFailure;
 	break;
     }
 
@@ -852,12 +826,15 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	in_pkt_p = (EAPRequestPacketRef)context->last_packet;
     }
     else {
+	bool			is_valid;
+	CFMutableStringRef	log_msg = NULL;
+
 	read_buf->offset = 0;
 	status = SSLRead(context->ssl_context, in_buf + offset, 
 			 sizeof(in_buf) - offset, &in_data_size);
 	if (status != noErr) {
-	    syslog(LOG_NOTICE, "peap_eap: SSLRead failed, %s (%d)",
-		   EAPSSLErrorString(status), (int)status);
+	    EAPLOG_FL(LOG_NOTICE, "SSLRead failed, %s (%d)",
+		      EAPSSLErrorString(status), (int)status);
 	    context->plugin_state = kEAPClientStateFailure;
 	    context->last_ssl_error = status;
 	    goto done;
@@ -884,20 +861,19 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	default:
 	    break;
 	}
-	if (EAPPacketValid((EAPPacketRef)in_pkt_p, in_data_size, NULL)
-	    == FALSE) {
-	    if (plugin->log_enabled) {
-		(void)EAPPacketValid((EAPPacketRef)in_pkt_p, 
-				     in_data_size, stdout);
+	log_msg = plugin->log_enabled ? CFStringCreateMutable(NULL, 0) : NULL;
+	is_valid = EAPPacketIsValid((EAPPacketRef)in_pkt_p, in_data_size,
+				    log_msg);
+	if (log_msg != NULL) {
+	    EAPLOG(-LOG_DEBUG, "PEAP Receive EAP Payload%s:\n%@",
+		   is_valid ? "" : " Invalid", log_msg);
+	    CFRelease(log_msg);
+	}
+	if (is_valid == FALSE) {
+	    if (plugin->log_enabled == FALSE) {
+		EAPLOG(-LOG_NOTICE, "PEAP Receive EAP Payload Invalid");
 	    }
 	    goto done;
-	}
-	if (plugin->log_enabled) {
-	    printf("Receive packet:\n");
-	    if (module_packet_dump(stdout, in_pkt_p)  == FALSE) {
-		(void)EAPPacketValid((EAPPacketRef)in_pkt_p, 
-				     in_data_size, stdout);
-	    }
 	}
     }
     switch (in_pkt_p->code) {
@@ -967,10 +943,14 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	goto done;
     }
     if (plugin->log_enabled) {
-	printf("\nSend packet:\n");
-	if (module_packet_dump(stdout, out_pkt_p) == FALSE) {
-	    (void)EAPPacketValid((EAPPacketRef)out_pkt_p, out_pkt_size, stdout);
-	}
+	CFMutableStringRef		log_msg;
+
+	log_msg = CFStringCreateMutable(NULL, 0);
+	EAPPacketIsValid((const EAPPacketRef)out_pkt_p,
+			 EAPPacketGetLength((const EAPPacketRef)out_pkt_p),
+			 log_msg);
+	EAPLOG(-LOG_DEBUG, "PEAP Send EAP Payload:\n%@", log_msg);
+	CFRelease(log_msg);
     }
     switch (context->peap_version) {
     case kPEAPVersion0:
@@ -996,8 +976,8 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 	}
     }
     if (status != noErr) {
-	syslog(LOG_NOTICE, 
-	       "peap_eap: SSLWrite failed, %s", EAPSSLErrorString(status));
+	EAPLOG_FL(LOG_NOTICE, 
+		  "SSLWrite failed, %s", EAPSSLErrorString(status));
     }
     else {
 	ret = TRUE;
@@ -1020,15 +1000,13 @@ peap_verify_server(EAPClientPluginDataRef plugin,
 					     context->server_certs,
 					     &context->trust_ssl_error);
     if (context->trust_status != kEAPClientStatusOK) {
-	syslog(LOG_NOTICE, 
-	       "peap_verify_server: server certificate not trusted"
-	       ", status %d %d", context->trust_status,
-	       (int)context->trust_ssl_error);
+	EAPLOG_FL(LOG_NOTICE, "server certificate not trusted status %d %d",
+		  context->trust_status,
+		  (int)context->trust_ssl_error);
     }
     switch (context->trust_status) {
     case kEAPClientStatusOK:
 	context->trust_proceed = TRUE;
-	peap_compute_session_key(context);
 	break;
     case kEAPClientStatusUserInputRequired:
 	/* ask user whether to proceed or not */
@@ -1057,26 +1035,8 @@ peap_tunnel(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 {
     PEAPPluginDataRef 	context = (PEAPPluginDataRef)plugin->private;
     EAPPacketRef	pkt = NULL;
-    memoryBufferRef	read_buf = &context->read_buffer; 
     memoryBufferRef	write_buf = &context->write_buffer; 
 
-    if (context->trust_proceed == FALSE) {
-	if (eaptls_in->identifier == context->previous_identifier) {
-	    /* we've already seen this packet, discard buffer contents */
-	    memoryBufferClear(read_buf);
-	}
-	pkt = peap_verify_server(plugin, eaptls_in->identifier, 
-				 client_status);
-	if (context->trust_proceed == TRUE) {
-	    pkt = EAPTLSPacketCreate(kEAPCodeResponse,
-				     kEAPTypePEAP,
-				     eaptls_in->identifier,
-				     context->mtu,
-				     write_buf,
-				     &context->last_write_size);
-	}
-	return (pkt);
-    }
     if (peap_eap(plugin, eaptls_in, client_status)) {
 	pkt = EAPTLSPacketCreate2(kEAPCodeResponse,
 				  kEAPTypePEAP,
@@ -1115,24 +1075,51 @@ peap_handshake(EAPClientPluginDataRef plugin, int identifier,
 {
     PEAPPluginDataRef 	context = (PEAPPluginDataRef)plugin->private;
     EAPPacketRef	eaptls_out = NULL;
-    memoryBufferRef	read_buf = &context->read_buffer;
     OSStatus		status = noErr;
     memoryBufferRef	write_buf = &context->write_buffer; 
 
-    read_buf->offset = 0;
+    if (context->server_auth_completed && context->trust_proceed == FALSE) {
+	eaptls_out
+	    = peap_verify_server(plugin, identifier, client_status);
+	if (context->trust_proceed == FALSE) {
+	    goto done;
+	}
+    }
     status = SSLHandshake(context->ssl_context);
+    if (status == errSSLServerAuthCompleted) {
+	if (context->server_auth_completed) {
+	    /* this should not happen */
+	    EAPLOG_FL(LOG_NOTICE, "AuthCompleted again?");
+	    goto done;
+	}
+	context->server_auth_completed = TRUE;
+	my_CFRelease(&context->server_certs);
+	(void)EAPSSLCopyPeerCertificates(context->ssl_context,
+					 &context->server_certs);
+	eaptls_out = peap_verify_server(plugin, identifier, client_status);
+	if (context->trust_proceed == FALSE) {
+	    goto done;
+	}
+	/* handshake again to get past the AuthCompleted status */
+	status = SSLHandshake(context->ssl_context);
+    }
     switch (status) {
     case noErr:
 	/* handshake complete, tunnel established */
-	context->handshake_complete = TRUE;
-	peap_set_session_was_resumed(context);
-	my_CFRelease(&context->server_certs);
-	(void) EAPSSLCopyPeerCertificates(context->ssl_context,
-					  &context->server_certs);
-	eaptls_out = peap_verify_server(plugin, identifier, client_status);
 	if (context->trust_proceed == FALSE) {
-	    break;
+	    my_CFRelease(&context->server_certs);
+	    (void)EAPSSLCopyPeerCertificates(context->ssl_context,
+					     &context->server_certs);
+	    eaptls_out = peap_verify_server(plugin, identifier, client_status);
+	    if (context->trust_proceed == FALSE) {
+		/* this should not happen */
+		EAPLOG_FL(LOG_NOTICE, "trust_proceed is FALSE?");
+		break;
+	    }
 	}
+	context->handshake_complete = TRUE;
+	peap_compute_session_key(context);
+	peap_set_session_was_resumed(context);
 	eaptls_out = EAPTLSPacketCreate(kEAPCodeResponse,
 					kEAPTypePEAP,
 					identifier,
@@ -1141,8 +1128,8 @@ peap_handshake(EAPClientPluginDataRef plugin, int identifier,
 					&context->last_write_size);
 	break;
     default:
-	syslog(LOG_NOTICE, "peap_handshake: SSLHandshake failed, %s (%d)",
-	       EAPSSLErrorString(status), (int)status);
+	EAPLOG_FL(LOG_NOTICE, "SSLHandshake failed, %s (%d)",
+		  EAPSSLErrorString(status), (int)status);
 	context->last_ssl_error = status;
 	my_CFRelease(&context->server_certs);
 	(void) EAPSSLCopyPeerCertificates(context->ssl_context,
@@ -1169,33 +1156,46 @@ peap_handshake(EAPClientPluginDataRef plugin, int identifier,
 	}
 	break;
     }
+
+ done:
     return (eaptls_out);
 }
 
 
 static EAPPacketRef
-peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
+peap_request(EAPClientPluginDataRef plugin,
 	     const EAPPacketRef in_pkt, EAPClientStatus * client_status)
 {
     PEAPPluginDataRef 	context = (PEAPPluginDataRef)plugin->private;
     EAPTLSPacket * 	eaptls_in = (EAPTLSPacket *)in_pkt; 
-    EAPTLSLengthIncludedPacket * eaptls_in_l;
+    EAPTLSLengthIncludedPacketRef eaptls_in_l;
     EAPPacketRef	eaptls_out = NULL;
     int			in_data_length;
     void *		in_data_ptr = NULL;
     u_int16_t		in_length = EAPPacketGetLength(in_pkt);
     memoryBufferRef	write_buf = &context->write_buffer; 
     memoryBufferRef	read_buf = &context->read_buffer;
+    SSLSessionState	ssl_state = kSSLIdle;
     OSStatus		status = noErr;
     u_int32_t		tls_message_length = 0;
     RequestType		type;
 
     /* ALIGN: void * cast OK, we don't expect proper alignment */
-    eaptls_in_l = (EAPTLSLengthIncludedPacket *)(void *)in_pkt;
+    eaptls_in_l = (EAPTLSLengthIncludedPacketRef)(void *)in_pkt;
     if (in_length < sizeof(*eaptls_in)) {
-	syslog(LOG_NOTICE, "peap_request: length %d < %ld",
-	       in_length, sizeof(*eaptls_in));
-	goto ignore;
+	EAPLOG_FL(LOG_NOTICE, "length %d < %ld",
+		  in_length, sizeof(*eaptls_in));
+	goto done;
+    }
+    if (context->ssl_context != NULL) {
+	status = SSLGetSessionState(context->ssl_context, &ssl_state);
+	if (status != noErr) {
+	    EAPLOG_FL(LOG_NOTICE, "SSLGetSessionState failed, %s",
+		      EAPSSLErrorString(status));
+	    context->plugin_state = kEAPClientStateFailure;
+	    context->last_ssl_error = status;
+	    goto done;
+	}
     }
     in_data_ptr = eaptls_in->tls_data;
     tls_message_length = in_data_length = in_length - sizeof(EAPTLSPacket);
@@ -1203,13 +1203,10 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     type = kRequestTypeData;
     if ((eaptls_in->flags & kEAPTLSPacketFlagsStart) != 0) {
 	type = kRequestTypeStart;
-	if (ssl_state != kSSLIdle) {
-	    /* reinitialize */
-	    status = peap_start(plugin);
-	    if (status != noErr) {
-		context->last_ssl_error = status;
-		goto ignore;
-	    }
+	/* only reset our state if this is not a re-transmitted Start packet */
+	if (ssl_state != kSSLHandshake
+	    || write_buf->data == NULL
+	    || in_pkt->identifier != context->previous_identifier) {
 	    ssl_state = kSSLIdle;
 	}
     }
@@ -1218,19 +1215,19 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     }
     else if ((eaptls_in->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
 	if (in_length < sizeof(EAPTLSLengthIncludedPacket)) {
-	    syslog(LOG_NOTICE, 
-		   "peap_request: packet too short %d < %ld",
-		   in_length, sizeof(EAPTLSLengthIncludedPacket));
-	    goto ignore;
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "packet too short %d < %ld",
+		      in_length, sizeof(EAPTLSLengthIncludedPacket));
+	    goto done;
 	}
 	tls_message_length 
 	    = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_in_l);
 	if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
 	    if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
-		syslog(LOG_NOTICE, 
-		       "peap_request: received message too large, %d > %d",
-		       tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
-		goto ignore;
+		EAPLOG_FL(LOG_NOTICE, 
+			  "received message too large, %d > %d",
+			  tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
+		goto done;
 	    }
 	    else {
 		tls_message_length = in_data_length;
@@ -1254,18 +1251,24 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     case kSSLIdle:
 	if (type != kRequestTypeStart) {
 	    /* ignore it: XXX should this be an error? */
-	    syslog(LOG_NOTICE, 
-		   "peap_request: ignoring non PEAP start frame");
-	    goto ignore;
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "ignoring non PEAP start frame");
+	    goto done;
+	}
+	status = peap_start(plugin);
+	if (status != noErr) {
+	    context->last_ssl_error = status;
+	    context->plugin_state = kEAPClientStateFailure;
+	    goto done;
 	}
 	status = SSLHandshake(context->ssl_context);
 	if (status != errSSLWouldBlock) {
-	    syslog(LOG_NOTICE, 
-		   "peap_request: SSLHandshake failed, %s (%d)",
-		   EAPSSLErrorString(status), (int)status);
+	    EAPLOG_FL(LOG_NOTICE, 
+		      "SSLHandshake failed, %s (%d)",
+		      EAPSSLErrorString(status), (int)status);
 	    context->last_ssl_error = status;
 	    context->plugin_state = kEAPClientStateFailure;
-	    goto ignore;
+	    goto done;
 	}
 	eaptls_out = EAPTLSPacketCreate(kEAPCodeResponse,
 					kEAPTypePEAP,
@@ -1305,46 +1308,38 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 	    context->last_write_size = 0;
 	}
 	if (type != kRequestTypeData) {
-	    syslog(LOG_NOTICE, "peap_request: unexpected %s frame",
-		   type == kRequestTypeAck ? "Ack" : "Start");
-	    goto ignore;
+	    EAPLOG_FL(LOG_NOTICE, "unexpected %s frame",
+		      type == kRequestTypeAck ? "Ack" : "Start");
+	    goto done;
 	}
-	if (read_buf->data == NULL) {
-	    read_buf->data = malloc(tls_message_length);
-	    read_buf->length = tls_message_length;
-	    read_buf->offset = 0;
-	}
-	else if (in_pkt->identifier == context->previous_identifier) {
-	    if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) == 0) {
-		syslog(LOG_NOTICE, "peap_request: re-sent packet does not"
-		       " have more fragments bit set, ignoring");
-		goto ignore;
+	if (in_pkt->identifier == context->previous_identifier) {
+	    if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
+		/* just ack it, we've already seen the fragment */
+		eaptls_out = PEAPPacketCreateAck(eaptls_in->identifier);
+		break;
 	    }
-	    /* just ack it, we've already seen the fragment */
-	    eaptls_out = PEAPPacketCreateAck(eaptls_in->identifier);
-	    break;
 	}
-	if ((read_buf->offset + in_data_length) > read_buf->length) {
-	    syslog(LOG_NOTICE, 
-		   "peap_request: fragment too large %ld + %d > %ld",
-		   read_buf->offset, in_data_length, read_buf->length);
-	    goto ignore;
-	}
-	if ((read_buf->offset + in_data_length) < read_buf->length
-	    && (eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) == 0) {
-	    syslog(LOG_NOTICE, 
-		   "peap_request: expecting more data but "
-		   "more fragments bit is not set, ignoring");
-	    goto ignore;
-	}
-	bcopy(in_data_ptr,
-	      read_buf->data + read_buf->offset, in_data_length);
-	read_buf->offset += in_data_length;
-	context->last_read_size = in_data_length;
-	if (read_buf->offset < read_buf->length) {
-	    /* we haven't received the entire TLS message */
-	    eaptls_out = PEAPPacketCreateAck(eaptls_in->identifier);
-	    break;
+	else {
+	    if (read_buf->data == NULL) {
+		memoryBufferAllocate(read_buf, tls_message_length);
+	    }
+	    if (memoryBufferAddData(read_buf, in_data_ptr, in_data_length)
+		== FALSE) {
+		EAPLOG_FL(LOG_NOTICE, 
+			  "fragment too large %d", in_data_length);
+		goto done;
+	    }
+	    if (memoryBufferIsComplete(read_buf) == FALSE) {
+		if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) == 0) {
+		    EAPLOG_FL(LOG_NOTICE, 
+			      "expecting more data but "
+			      "more fragments bit is not set, ignoring");
+		    goto done;
+		}
+		/* we haven't received the entire TLS message */
+		eaptls_out = PEAPPacketCreateAck(eaptls_in->identifier);
+		break;
+	    }
 	}
 	/* we've got the whole TLS message, process it */
 	if (context->handshake_complete) {
@@ -1376,7 +1371,7 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 				  context->peap_version);
     }
 
- ignore:
+ done:
     return (eaptls_out);
 }
 
@@ -1388,26 +1383,14 @@ peap_process(EAPClientPluginDataRef plugin,
 	     EAPClientDomainSpecificError * error)
 {
     PEAPPluginDataRef	context = (PEAPPluginDataRef)plugin->private;
-    SSLSessionState	ssl_state = kSSLIdle;
-    OSStatus		status = noErr;
 
     *client_status = kEAPClientStatusOK;
     *error = 0;
     context->bogus_l_bit = FALSE;
-
-    status = SSLGetSessionState(context->ssl_context, &ssl_state);
-    if (status != noErr) {
-	syslog(LOG_NOTICE, "peap_process: SSLGetSessionState failed, %s",
-	       EAPSSLErrorString(status));
-	context->plugin_state = kEAPClientStateFailure;
-	context->last_ssl_error = status;
-	goto done;
-    }
-
     *out_pkt_p = NULL;
     switch (in_pkt->code) {
     case kEAPCodeRequest:
-	*out_pkt_p = peap_request(plugin, ssl_state, in_pkt, client_status);
+	*out_pkt_p = peap_request(plugin, in_pkt, client_status);
 	break;
     case kEAPCodeSuccess:
 	if (context->inner_auth_state == kPEAPInnerAuthStateSuccess) {
@@ -1431,7 +1414,6 @@ peap_process(EAPClientPluginDataRef plugin,
     default:
 	break;
     }
- done:
     if (context->plugin_state == kEAPClientStateFailure) {
 	if (context->last_ssl_error == noErr) {
 	    switch (context->last_client_status) {
@@ -1518,7 +1500,7 @@ dictInsertEAPTypeInfo(CFMutableDictionaryRef dict, EAPType type,
 }
 
 static CFDictionaryRef
-peap_publish_props(EAPClientPluginDataRef plugin)
+peap_publish_props_copy(EAPClientPluginDataRef plugin)
 {
     CFArrayRef			cert_list;
     SSLCipherSuite		cipher = SSL_NULL_WITH_NULL_NULL;
@@ -1549,9 +1531,10 @@ peap_publish_props(EAPClientPluginDataRef plugin)
 			 : kCFBooleanFalse);
     (void)SSLGetNegotiatedCipher(context->ssl_context, &cipher);
     if (cipher != SSL_NULL_WITH_NULL_NULL) {
+	int		cipher_int = cipher;
 	CFNumberRef	c;
 	
-	c = CFNumberCreate(NULL, kCFNumberIntType, &cipher);
+	c = CFNumberCreate(NULL, kCFNumberIntType, &cipher_int);
 	CFDictionarySetValue(dict, kEAPClientPropTLSNegotiatedCipher, c);
 	CFRelease(c);
     }
@@ -1594,16 +1577,18 @@ peap_require_props(EAPClientPluginDataRef plugin)
     return (array);
 }
 
-static bool
-peap_packet_dump(FILE * out_f, const EAPPacketRef pkt)
-{
+static CFStringRef
+peap_copy_packet_description(const EAPPacketRef pkt, bool * packet_is_valid)
+{ 
     EAPTLSPacket * 	eaptls_pkt = (EAPTLSPacket *)pkt;
-    EAPTLSLengthIncludedPacket * eaptls_pkt_l;
+    EAPTLSLengthIncludedPacketRef eaptls_pkt_l;
     int			data_length;
     void *		data_ptr = NULL;
     u_int16_t		length = EAPPacketGetLength(pkt);
+    CFMutableStringRef	str;
     u_int32_t		tls_message_length = 0;
 
+    *packet_is_valid = FALSE;
     switch (pkt->code) {
     case kEAPCodeRequest:
     case kEAPCodeResponse:
@@ -1613,25 +1598,26 @@ peap_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	return (FALSE);
 	break;
     }
+    str = CFStringCreateMutable(NULL, 0);
     if (length < sizeof(*eaptls_pkt)) {
-	fprintf(out_f, "invalid packet: length %d < min length %ld",
-		length, sizeof(*eaptls_pkt));
+	STRING_APPEND(str, "EAPTLSPacket header truncated %d < %d\n",
+		      length, (int)sizeof(*eaptls_pkt));
 	goto done;
     }
-    fprintf(out_f, "PEAP Version %d %s: Identifier %d Length %d Flags 0x%x%s",
-	    PEAPPacketFlagsVersion(eaptls_pkt->flags),
-	    pkt->code == kEAPCodeRequest ? "Request" : "Response",
-	    pkt->identifier, length, eaptls_pkt->flags,
-	    (PEAPPacketFlagsFlags(eaptls_pkt->flags) != 0) ? " [" : "");
-
+    STRING_APPEND(str, "PEAP Version %d %s: Identifier %d Length %d Flags 0x%x%s",
+		  PEAPPacketFlagsVersion(eaptls_pkt->flags),
+		  pkt->code == kEAPCodeRequest ? "Request" : "Response",
+		  pkt->identifier, length, eaptls_pkt->flags,
+		  (PEAPPacketFlagsFlags(eaptls_pkt->flags) != 0) ? " [" : "");
+    
     /* ALIGN: void * cast OK, we don't expect proper alignment */ 
-    eaptls_pkt_l = (EAPTLSLengthIncludedPacket *)(void *)pkt;
+    eaptls_pkt_l = (EAPTLSLengthIncludedPacketRef)(void *)pkt;
     
     data_ptr = eaptls_pkt->tls_data;
     tls_message_length = data_length = length - sizeof(EAPTLSPacket);
 
     if ((eaptls_pkt->flags & kEAPTLSPacketFlagsStart) != 0) {
-	fprintf(out_f, " start");
+	STRING_APPEND(str, " start");
     }
     if ((eaptls_pkt->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
 	if (length >= sizeof(EAPTLSLengthIncludedPacket)) {
@@ -1639,27 +1625,28 @@ peap_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	    data_length = length - sizeof(EAPTLSLengthIncludedPacket);
 	    tls_message_length 
 		= EAPTLSLengthIncludedPacketGetMessageLength(eaptls_pkt_l);
-	    fprintf(out_f, " length=%u", tls_message_length);
+	    STRING_APPEND(str, " length=%u", tls_message_length);
 	
 	}
     }
     if ((eaptls_pkt->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
-	fprintf(out_f, " more");
+	STRING_APPEND(str, " more");
     }
-    fprintf(out_f, "%s Data Length %d\n", 
-	    PEAPPacketFlagsFlags(eaptls_pkt->flags) != 0 ? " ]" : "",
-	    data_length);
+    STRING_APPEND(str, "%s Data Length %d\n", 
+		  PEAPPacketFlagsFlags(eaptls_pkt->flags) != 0 ? " ]" : "",
+		  data_length);
     if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
-	fprintf(out_f, "potential DOS attack %u > %d\n",
-		tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
-	fprintf(out_f, "bogus EAP Packet:\n");
-	fprint_data(out_f, (void *)pkt, length);
+	STRING_APPEND(str, "potential DOS attack %u > %d\n",
+		      tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
+	STRING_APPEND(str, "bogus EAP Packet:\n");
+	print_data_cfstr(str, (void *)pkt, length);
 	goto done;
     }
-    fprint_data(out_f, data_ptr, data_length);
+    print_data_cfstr(str, data_ptr, data_length);
+    *packet_is_valid = TRUE;
 
  done:
-    return (TRUE);
+    return (str);
 }
 
 static EAPType 
@@ -1672,8 +1659,7 @@ peap_type()
 static const char *
 peap_name()
 {
-    return ("PEAP");
-
+    return (EAPTypeStr(kEAPTypePEAP));
 }
 
 static EAPClientPluginVersion 
@@ -1700,8 +1686,9 @@ static struct func_table_ent {
     { kEAPClientPluginFuncNameSessionKey, peap_session_key },
     { kEAPClientPluginFuncNameServerKey, peap_server_key },
     { kEAPClientPluginFuncNameRequireProperties, peap_require_props },
-    { kEAPClientPluginFuncNamePublishProperties, peap_publish_props },
-    { kEAPClientPluginFuncNamePacketDump, peap_packet_dump },
+    { kEAPClientPluginFuncNamePublishProperties, peap_publish_props_copy },
+    { kEAPClientPluginFuncNameCopyPacketDescription, 
+      peap_copy_packet_description },
     { NULL, NULL},
 };
 

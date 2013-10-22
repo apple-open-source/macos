@@ -233,7 +233,7 @@ Tbl
 ---
 
 o New key character `x' to make tbl call a user-defined macro on a table
-  cell.  Patch by Heinz-Jürgen Oertel <hj.oertel@surfeu.de>.
+  cell.  Patch by Heinz-JÃ¼rgen Oertel <hj.oertel@surfeu.de>.
 
 Grap2graph
 ----------

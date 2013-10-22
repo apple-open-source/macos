@@ -94,10 +94,16 @@ static int
 sf_setnonblock(pcap_t *p, int nonblock, char *errbuf)
 {
 	/*
-	 * This is a savefile, not a live capture file, so ignore
-	 * requests to put it in non-blocking mode.
+	 * This is a savefile, not a live capture file, so reject
+	 * requests to put it in non-blocking mode.  (If it's a
+	 * pipe, it could be put in non-blocking mode, but that
+	 * would significantly complicate the code to read packets,
+	 * as it would have to handle reading partial packets and
+	 * keeping the state of the read.)
 	 */
-	return (0);
+	snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+	    "Savefiles cannot be put into non-blocking mode");
+	return (-1);
 }
 
 static int
@@ -161,10 +167,13 @@ sf_cleanup(pcap_t *p)
 		(void)fclose(p->sf.rfile);
 	if (p->buffer != NULL)
 		free(p->buffer);
+	pcap_freecode(&p->fcode);
 }
 
-pcap_t *
-pcap_open_offline(const char *fname, char *errbuf)
+static pcap_t * pcap_fopen_offline_internal(FILE *, char *, int );
+
+static pcap_t *
+pcap_open_offline_internal(const char *fname, char *errbuf, int isng)
 {
 	FILE *fp;
 	pcap_t *p;
@@ -192,12 +201,24 @@ pcap_open_offline(const char *fname, char *errbuf)
 			return (NULL);
 		}
 	}
-	p = pcap_fopen_offline(fp, errbuf);
+	p = pcap_fopen_offline_internal(fp, errbuf, isng);
 	if (p == NULL) {
 		if (fp != stdin)
 			fclose(fp);
 	}
 	return (p);
+}
+
+pcap_t *
+pcap_open_offline(const char *fname, char *errbuf)
+{
+	return pcap_open_offline_internal(fname, errbuf, 0);
+}
+
+pcap_t *
+pcap_ng_open_offline(const char *fname, char *errbuf)
+{
+	return pcap_open_offline_internal(fname, errbuf, 1);
 }
 
 #ifdef WIN32
@@ -224,7 +245,7 @@ pcap_t* pcap_hopen_offline(intptr_t osfd, char *errbuf)
 }
 #endif
 
-static int (*check_headers[])(pcap_t *, bpf_u_int32, FILE *, char *) = {
+static int (*check_headers[])(pcap_t *, bpf_u_int32, FILE *, char *, int) = {
 	pcap_check_header,
 	pcap_ng_check_header
 };
@@ -235,7 +256,7 @@ static int (*check_headers[])(pcap_t *, bpf_u_int32, FILE *, char *) = {
 static
 #endif
 pcap_t *
-pcap_fopen_offline(FILE *fp, char *errbuf)
+pcap_fopen_offline_internal(FILE *fp, char *errbuf, int isng)
 {
 	register pcap_t *p;
 	bpf_u_int32 magic;
@@ -269,10 +290,27 @@ pcap_fopen_offline(FILE *fp, char *errbuf)
 	}
 
 	/*
+	 * When using the PCAP-NG extension APIs we are expected a PCAP-NG file
+	 */
+	if (isng) {
+		switch (pcap_ng_check_header(p, magic, fp, errbuf, isng)) {
+			case 1:
+				/*
+				 * Yup, that's a PCAP-NG file.
+				 */
+				goto found;
+			default:
+				/*
+				 * That's not a PCAP-NG file
+				 */
+				goto bad;
+		}
+	}
+	/*
 	 * Try all file types.
 	 */
 	for (i = 0; i < N_FILE_TYPES; i++) {
-		switch ((*check_headers[i])(p, magic, fp, errbuf)) {
+		switch ((*check_headers[i])(p, magic, fp, errbuf, isng)) {
 
 		case -1:
 			/*
@@ -313,7 +351,7 @@ found:
 	p->selectable_fd = fileno(fp);
 #endif
 
-	p->read_op = pcap_offline_read;
+	p->read_op = isng ? pcap_ng_offline_read : pcap_offline_read;
 	p->inject_op = sf_inject;
 	p->setfilter_op = install_bpf_program;
 	p->setdirection_op = sf_setdirection;
@@ -333,6 +371,21 @@ found:
  bad:
 	free(p);
 	return (NULL);
+}
+
+#ifdef WIN32
+static
+#endif
+pcap_t *
+pcap_fopen_offline(FILE *fp, char *errbuf)
+{
+	return pcap_fopen_offline_internal(fp, errbuf, 0);
+}
+
+pcap_t *
+pcap_ng_fopen_offline(FILE *fp, char *errbuf)
+{
+	return pcap_fopen_offline_internal(fp, errbuf, 1);
 }
 
 /*
@@ -376,7 +429,7 @@ pcap_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 		}
 
 		if ((fcode = p->fcode.bf_insns) == NULL ||
-		    bpf_filter(fcode, p->buffer, h.len, h.caplen)) {
+		    bpf_filter(fcode, data, h.len, h.caplen)) {
 			(*callback)(user, &h, data);
 			if (++n >= cnt && cnt > 0)
 				break;
@@ -385,3 +438,64 @@ pcap_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 	/*XXX this breaks semantics tcpslice expects */
 	return (n);
 }
+
+/*
+ * Read blocks from a capture file, and call the callback for each
+ * packet.
+ * If cnt > 0, return after 'cnt' packets, otherwise continue until eof.
+ */
+int
+pcap_ng_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
+{
+	struct bpf_insn *fcode;
+	int status = 0;
+	int n = 0;
+	u_char *data;
+	
+	while (status == 0) {
+		struct pcap_pkthdr h;
+		
+		/*
+		 * Has "pcap_breakloop()" been called?
+		 * If so, return immediately - if we haven't read any
+		 * packets, clear the flag and return -2 to indicate
+		 * that we were told to break out of the loop, otherwise
+		 * leave the flag set, so that the *next* call will break
+		 * out of the loop without having read any packets, and
+		 * return the number of packets we've processed so far.
+		 */
+		if (p->break_loop) {
+			if (n == 0) {
+				p->break_loop = 0;
+				return (-2);
+			} else
+				return (n);
+		}
+		
+        /*
+         * The begining of the block is always returned into p->buffer 
+         * even when data is NULL (because it's not a data block)
+         */
+		status = p->sf.next_packet_op(p, &h, &data);
+		if (status) {
+			if (status == 1)
+				return (0);
+			return (status);
+		}
+		
+		/*
+		 * TBD
+		 * Have one filter per link type 
+		 */
+		if ((fcode = p->fcode.bf_insns) == NULL ||
+			data == NULL || 
+		    bpf_filter(fcode, data, h.len, h.caplen)) {
+			(*callback)(user, &h, p->buffer);
+			if (++n >= cnt && cnt > 0)
+				break;
+		}
+	}
+	/*XXX this breaks semantics tcpslice expects */
+	return (n);
+}
+

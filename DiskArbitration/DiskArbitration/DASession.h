@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,21 +86,21 @@ extern void DASessionUnscheduleFromRunLoop( DASessionRef session, CFRunLoopRef r
 
 extern void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue );
 
-/*!
+/*
  * @typedef   DAApprovalSessionRef
  * Type of a reference to DAApprovalSession instances.
  */
 
 typedef struct __DASession * DAApprovalSessionRef;
 
-/*!
+/*
  * @function   DAApprovalSessionGetTypeID
  * @abstract   Returns the type identifier of all DAApprovalSession instances.
  */
 
 extern CFTypeID DAApprovalSessionGetTypeID( void );
 
-/*!
+/*
  * @function   DAApprovalSessionCreate
  * @abstract   Creates a new approval session.
  * @result     A reference to a new DAApprovalSession.
@@ -111,7 +111,7 @@ extern CFTypeID DAApprovalSessionGetTypeID( void );
 
 extern DAApprovalSessionRef DAApprovalSessionCreate( CFAllocatorRef allocator );
 
-/*!
+/*
  * @function   DAApprovalSessionScheduleWithRunLoop
  * @abstract   Schedules the approval session on a run loop.
  * @param      session     The approval session which is being scheduled.
@@ -121,7 +121,7 @@ extern DAApprovalSessionRef DAApprovalSessionCreate( CFAllocatorRef allocator );
 
 extern void DAApprovalSessionScheduleWithRunLoop( DAApprovalSessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode );
 
-/*!
+/*
  * @function   DAApprovalSessionUnscheduleFromRunLoop
  * @abstract   Unschedules the approval session from a run loop.
  * @param      session     The approval session which is being unscheduled.

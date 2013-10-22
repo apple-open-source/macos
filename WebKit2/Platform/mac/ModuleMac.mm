@@ -30,19 +30,18 @@ namespace WebKit {
 
 bool Module::load()
 {
-    RetainPtr<CFStringRef> bundlePath(AdoptCF, m_path.createCFString());
-    RetainPtr<CFURLRef> bundleURL(AdoptCF, CFURLCreateWithFileSystemPath(kCFAllocatorDefault, bundlePath.get(), kCFURLPOSIXPathStyle, FALSE));
+    RetainPtr<CFURLRef> bundleURL = adoptCF(CFURLCreateWithFileSystemPath(kCFAllocatorDefault, m_path.createCFString().get(), kCFURLPOSIXPathStyle, FALSE));
     if (!bundleURL)
         return false;
 
-    RetainPtr<CFBundleRef> bundle(AdoptCF, CFBundleCreate(kCFAllocatorDefault, bundleURL.get()));
+    RetainPtr<CFBundleRef> bundle = adoptCF(CFBundleCreate(kCFAllocatorDefault, bundleURL.get()));
     if (!bundle)
         return false;
 
     if (!CFBundleLoadExecutable(bundle.get()))
         return false;
 
-    m_bundle.adoptCF(bundle.leakRef());
+    m_bundle = adoptCF(bundle.leakRef());
     return true;
 }
 
@@ -65,7 +64,7 @@ void* Module::platformFunctionPointer(const char* functionName) const
 {
     if (!m_bundle)
         return 0;
-    RetainPtr<CFStringRef> functionNameString(AdoptCF, CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, functionName, kCFStringEncodingASCII, kCFAllocatorNull));
+    RetainPtr<CFStringRef> functionNameString = adoptCF(CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, functionName, kCFStringEncodingASCII, kCFAllocatorNull));
     return CFBundleGetFunctionPointerForName(m_bundle.get(), functionNameString.get());
 }
 

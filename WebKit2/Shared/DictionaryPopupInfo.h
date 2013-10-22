@@ -26,7 +26,6 @@
 #ifndef DictionaryPopupInfo_h
 #define DictionaryPopupInfo_h
 
-#include "FontInfo.h"
 #include <WebCore/FloatPoint.h>
 
 #if PLATFORM(MAC)
@@ -41,18 +40,11 @@ namespace CoreIPC {
 namespace WebKit {
 
 struct DictionaryPopupInfo {
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, DictionaryPopupInfo&);
-
-    enum Type {
-        ContextMenu,
-        HotKey
-    };
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, DictionaryPopupInfo&);
 
     WebCore::FloatPoint origin;
-    FontInfo fontInfo;
-    Type type;
-#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if PLATFORM(MAC)
     RetainPtr<CFDictionaryRef> options;
 #endif
 };

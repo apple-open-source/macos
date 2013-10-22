@@ -21,6 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
+#if TARGET_IPHONE_SIMULATOR
+struct _not_empty;
+#else
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -97,7 +103,7 @@ udp_in_acceptmsg(int fd)
 	if (p != NULL) *p = '\0';
 
 	m = asl_input_parse(uline, len, r, SOURCE_UDP_SOCKET);
-	dispatch_async(global.work_queue, ^{ process_message(m, SOURCE_UDP_SOCKET); });
+	process_message(m, SOURCE_UDP_SOCKET);
 }
 
 int
@@ -212,3 +218,5 @@ udp_in_reset(void)
 	if (udp_in_close() != 0) return -1;
 	return udp_in_init();
 }
+
+#endif /* TARGET_IPHONE_SIMULATOR */

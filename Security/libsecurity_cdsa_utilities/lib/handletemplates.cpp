@@ -32,7 +32,7 @@
 // aren't linked in everywhere.  
 //
 
-template class TypedHandle<CSSM_HANDLE>;        // HandledObject
+template struct TypedHandle<CSSM_HANDLE>;        // HandledObject
 
 template class MappingHandle<CSSM_HANDLE>;      // HandleObject
 

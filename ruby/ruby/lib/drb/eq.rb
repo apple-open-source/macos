@@ -1,7 +1,5 @@
-require 'drb/drb'
-
 module DRb
-  class DRbObject
+  class DRbObject # :nodoc:
     def ==(other)
       return false unless DRbObject === other
      (@ref == other.__drbref) && (@uri == other.__drburi)

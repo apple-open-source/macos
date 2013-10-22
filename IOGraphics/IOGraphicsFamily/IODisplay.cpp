@@ -420,7 +420,7 @@ bool IODisplay::start( IOService * provider )
 
     enum
     {
-        kMaxKeyLen = 512,
+        kMaxKeyLen = 1024,
         kMaxKeyVendorProduct = 20 /* "-12345678-12345678" */
     };
     int pathLen = kMaxKeyLen - kMaxKeyVendorProduct;

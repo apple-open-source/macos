@@ -25,10 +25,12 @@
 
 #include "FrameView.h"
 #include "GraphicsContext3D.h"
+#include "GraphicsLayerTextureMapper.h"
 #include "HostWindow.h"
 #include "PageClientEfl.h"
 #include "TextureMapperGL.h"
 #include "TextureMapperLayer.h"
+#include "ewk_view_private.h"
 
 namespace WebCore {
 
@@ -67,9 +69,9 @@ bool AcceleratedCompositingContext::initialize(HostWindow* hostWindow)
 void AcceleratedCompositingContext::syncLayersNow()
 {
     if (m_rootGraphicsLayer)
-        m_rootGraphicsLayer->syncCompositingStateForThisLayerOnly();
+        m_rootGraphicsLayer->flushCompositingStateForThisLayerOnly();
 
-    ewk_view_core_page_get(m_view)->mainFrame()->view()->syncCompositingStateIncludingSubframes();
+    EWKPrivate::corePage(m_view)->mainFrame()->view()->flushCompositingStateIncludingSubframes();
 }
 
 void AcceleratedCompositingContext::renderLayers()
@@ -87,6 +89,7 @@ void AcceleratedCompositingContext::renderLayers()
 
     m_textureMapper->beginPainting();
     m_rootTextureMapperLayer->paint();
+    m_fpsCounter.updateFPSAndDisplay(m_textureMapper.get());
     m_textureMapper->endPainting();
 }
 
@@ -108,7 +111,7 @@ void AcceleratedCompositingContext::attachRootGraphicsLayer(GraphicsLayer* rootL
     m_textureMapper = TextureMapperGL::create();
     m_rootTextureMapperLayer->setTextureMapper(m_textureMapper.get());
 
-    m_rootGraphicsLayer->syncCompositingStateForThisLayerOnly();
+    m_rootGraphicsLayer->flushCompositingStateForThisLayerOnly();
 }
 
 GraphicsContext3D* AcceleratedCompositingContext::context()

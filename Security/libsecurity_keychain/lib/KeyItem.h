@@ -123,6 +123,8 @@ public:
 	void RawVerify(SecPadding padding, CSSM_DATA dataToVerify, const AccessCredentials *credentials, CSSM_DATA signature);
 	void Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, const AccessCredentials *credentials, CSSM_DATA& encryptedData);
 	void Decrypt(SecPadding padding, CSSM_DATA dataToEncrypt, const AccessCredentials *credentials, CSSM_DATA& encryptedData);
+	
+	virtual CFHashCode hash();
 
 protected:
 	virtual PrimaryKey add(Keychain &keychain);

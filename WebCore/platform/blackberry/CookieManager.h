@@ -29,14 +29,10 @@
 
 #include "CookieMap.h"
 #include "ParsedCookie.h"
-#include "PlatformString.h"
 #include "Timer.h"
 #include <BlackBerryPlatformGuardedPointer.h>
 #include <wtf/HashMap.h>
-
-namespace WTF {
-class String;
-}
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -47,11 +43,6 @@ enum BackingStoreRemovalPolicy {
     RemoveFromBackingStore,
     BackingStoreCookieEntry,
     DoNotRemoveFromBackingStore
-};
-
-enum CookieFilter {
-    NoHttpOnlyCookie,
-    WithHttpOnlyCookies,
 };
 
 enum CookieStorageAcceptPolicy {
@@ -79,7 +70,8 @@ public:
     bool canLocalAccessAllCookies() const { return m_shouldDumpAllCookies; }
     void setCanLocalAccessAllCookies(bool enabled) { m_shouldDumpAllCookies = enabled; }
 
-    void setCookies(const KURL&, const String& value);
+    void setCookies(const KURL&, const String& value, CookieFilter = WithHttpOnlyCookies);
+    void setCookies(const KURL&, const Vector<String>& cookies, CookieFilter);
 
     void removeAllCookies(BackingStoreRemovalPolicy);
     void removeCookieWithName(const KURL&, const String& cookieName);
@@ -101,29 +93,26 @@ public:
 
     void setCookiePolicy(CookieStorageAcceptPolicy policy) { m_policy = policy; }
     CookieStorageAcceptPolicy cookiePolicy() const { return m_policy; }
-    void setPrivateMode(const bool);
+    void setPrivateMode(bool);
 
     String generateHtmlFragmentForCookies();
     String getCookie(const KURL& requestURL, CookieFilter) const;
 
     // Returns all cookies that are associated with the specified URL as raw cookies.
-    void getRawCookies(Vector<ParsedCookie*>& stackOfCookies, const KURL& requestURL, CookieFilter = WithHttpOnlyCookies) const;
-
-    void flushCookiesToBackingStore();
+    void getRawCookies(Vector<RefPtr<ParsedCookie> >& stackOfCookies, const KURL& requestURL, CookieFilter = WithHttpOnlyCookies) const;
 
 private:
     friend CookieManager& cookieManager();
+    friend class CookieDatabaseBackingStore;
 
     CookieManager();
     virtual ~CookieManager();
 
-    void checkAndTreatCookie(ParsedCookie*, BackingStoreRemovalPolicy);
+    void checkAndTreatCookie(PassRefPtr<ParsedCookie> prpCandidateCookie, BackingStoreRemovalPolicy, CookieFilter = WithHttpOnlyCookies);
 
-    bool shouldRejectForSecurityReason(const ParsedCookie*, const KURL&);
+    void addCookieToMap(CookieMap* targetMap, PassRefPtr<ParsedCookie> prpCandidateCookie, BackingStoreRemovalPolicy postToBackingStore, CookieFilter = WithHttpOnlyCookies);
 
-    void addCookieToMap(CookieMap* targetMap, ParsedCookie* candidateCookie, BackingStoreRemovalPolicy postToBackingStore);
-
-    CookieMap* findOrCreateCookieMap(CookieMap* protocolMap, const String& domain, bool findOnly);
+    CookieMap* findOrCreateCookieMap(CookieMap* protocolMap, const PassRefPtr<ParsedCookie> candidateCookie);
 
     void initiateCookieLimitCleanUp();
     void cookieLimitCleanUp(Timer<CookieManager>*);
@@ -134,6 +123,7 @@ private:
 
     bool m_privateMode;
     bool m_shouldDumpAllCookies;
+    bool m_syncedWithDatabase;
 
     String m_cookieJarFileName;
 
@@ -148,6 +138,7 @@ private:
     CookieDatabaseBackingStore* m_cookieBackingStore;
     Timer<CookieManager> m_limitTimer;
 
+    DISABLE_COPY(CookieManager)
 };
 
 // Get the global instance.

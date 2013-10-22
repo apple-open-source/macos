@@ -1,9 +1,0 @@
-Build.PL
-MANIFEST
-META.yml
-bin/sample.pl
-lib/Sample.pm
-lib/Sample/Docs.pod
-lib/Sample/NoPod.pm
-script
-test.pl

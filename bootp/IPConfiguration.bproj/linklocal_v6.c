@@ -52,20 +52,10 @@ linklocal_v6_address_changed(ServiceRef service_p,
 {
     inet6_addrinfo_t *	linklocal_p = NULL;
 
-    if (addr_list_p != NULL && addr_list_p->count != 0) {
-	int			i;
-	inet6_addrinfo_t *	scan;
-
-	/* find our linklocal address */
-	for (i = 0, scan = addr_list_p->list; 
-	     i < addr_list_p->count; i++, scan++) {
-	    if ((scan->addr_flags & IN6_IFF_NOTREADY) != 0) {
-		continue;
-	    }
-	    if (IN6_IS_ADDR_LINKLOCAL(&scan->addr)) {
-		linklocal_p = scan;
-		break;
-	    }
+    linklocal_p = inet6_addrlist_get_linklocal(addr_list_p);
+    if (linklocal_p != NULL) {
+	if ((linklocal_p->addr_flags & IN6_IFF_NOTREADY) != 0) {
+	    linklocal_p = NULL;
 	}
     }
     if (linklocal_p == NULL) {

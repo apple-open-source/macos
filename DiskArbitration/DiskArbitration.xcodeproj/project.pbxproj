@@ -23,7 +23,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		60077BAB12E63A8B00D4AE4F /* DiskArbitrationAgent.c in Sources */ = {isa = PBXBuildFile; fileRef = 60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.c */; };
+		60077BAB12E63A8B00D4AE4F /* DiskArbitrationAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.m */; };
 		60077BD112E6403F00D4AE4F /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 60077BD012E6403F00D4AE4F /* ApplicationServices.framework */; };
 		60077C5012E64C9100D4AE4F /* com.apple.DiskArbitrationAgent.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60077C4712E6468D00D4AE4F /* com.apple.DiskArbitrationAgent.plist */; };
 		60295B4D12EF48E800B9D989 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 60295B4C12EF48E800B9D989 /* CoreFoundation.framework */; };
@@ -97,6 +97,11 @@
 		603C882208EC8117004474CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D676E8604068D3200A87B01 /* CoreFoundation.framework */; };
 		603C882308EC8117004474CD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D1811B20438DC5D00A87B01 /* IOKit.framework */; };
 		603C882408EC8117004474CD /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D1811B40438DCB300A87B01 /* Security.framework */; };
+		605A422B169506A300959114 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 605A422A169506A300959114 /* DiskArbitration.framework */; };
+		605A422F1695070C00959114 /* DAAgent.c in Sources */ = {isa = PBXBuildFile; fileRef = 605A422D1695070C00959114 /* DAAgent.c */; };
+		605A42301695070C00959114 /* DAAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 605A422E1695070C00959114 /* DAAgent.h */; };
+		605A42351695074300959114 /* DAAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42311695074300959114 /* DAAgent.m */; };
+		605A42361695074300959114 /* DADialog.m in Sources */ = {isa = PBXBuildFile; fileRef = 605A42331695074300959114 /* DADialog.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -194,7 +199,7 @@
 		12EFD4EB038AE27403A87B01 /* DALog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DALog.h; path = diskarbitrationd/DALog.h; sourceTree = "<group>"; };
 		12EFD4EC038AE27403A87B01 /* DALog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DALog.c; path = diskarbitrationd/DALog.c; sourceTree = "<group>"; };
 		60077B8112E630AF00D4AE4F /* DiskArbitrationAgent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DiskArbitrationAgent; sourceTree = BUILT_PRODUCTS_DIR; };
-		60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DiskArbitrationAgent.c; path = DiskArbitrationAgent/DiskArbitrationAgent.c; sourceTree = "<group>"; };
+		60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = DiskArbitrationAgent.m; path = DiskArbitrationAgent/DiskArbitrationAgent.m; sourceTree = "<group>"; };
 		60077BD012E6403F00D4AE4F /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
 		60077C4712E6468D00D4AE4F /* com.apple.DiskArbitrationAgent.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.DiskArbitrationAgent.plist; path = DiskArbitrationAgent/com.apple.DiskArbitrationAgent.plist; sourceTree = "<group>"; };
 		60295B4C12EF48E800B9D989 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
@@ -203,6 +208,15 @@
 		603C882A08EC8117004474CD /* DiskArbitration.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DiskArbitration.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		603C883C08EC8262004474CD /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info.plist; path = DiskArbitration/Info.plist; sourceTree = "<group>"; };
 		604D7A7B07528AC5007E0745 /* autodiskmount.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = autodiskmount.8; path = autodiskmount/autodiskmount.8; sourceTree = "<group>"; };
+		605A422A169506A300959114 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
+		605A422D1695070C00959114 /* DAAgent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DAAgent.c; path = diskarbitrationd/DAAgent.c; sourceTree = "<group>"; };
+		605A422E1695070C00959114 /* DAAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DAAgent.h; path = diskarbitrationd/DAAgent.h; sourceTree = "<group>"; };
+		605A42311695074300959114 /* DAAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = DAAgent.m; path = DiskArbitrationAgent/DAAgent.m; sourceTree = "<group>"; };
+		605A42321695074300959114 /* DAAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DAAgent.h; path = DiskArbitrationAgent/DAAgent.h; sourceTree = "<group>"; };
+		605A42331695074300959114 /* DADialog.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = DADialog.m; path = DiskArbitrationAgent/DADialog.m; sourceTree = "<group>"; };
+		605A42341695074300959114 /* DADialog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DADialog.h; path = DiskArbitrationAgent/DADialog.h; sourceTree = "<group>"; };
+		60D0C1B41695F6CF0074B7BF /* DiskArbitrationAgent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DiskArbitrationAgent.h; path = DiskArbitrationAgent/DiskArbitrationAgent.h; sourceTree = "<group>"; };
+		60D0C1CF16964B2D0074B7BF /* DiskArbitrationAgent.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = DiskArbitrationAgent.entitlements; path = DiskArbitrationAgent/DiskArbitrationAgent.entitlements; sourceTree = "<group>"; };
 		6D0B6E2903DC776600A87B01 /* fstab.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = fstab.c; path = diskarbitrationd/fstab.c; sourceTree = "<group>"; };
 		6D1811B20438DC5D00A87B01 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		6D1811B40438DCB300A87B01 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
@@ -255,6 +269,7 @@
 			files = (
 				60077BD112E6403F00D4AE4F /* ApplicationServices.framework in Frameworks */,
 				60295B4D12EF48E800B9D989 /* CoreFoundation.framework in Frameworks */,
+				605A422B169506A300959114 /* DiskArbitration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -341,6 +356,8 @@
 				6D0B6E2903DC776600A87B01 /* fstab.c */,
 				6DA40B2303F8314600A87B01 /* vsdb.c */,
 				6DA40B2203F8314600A87B01 /* vsdb.h */,
+				605A422D1695070C00959114 /* DAAgent.c */,
+				605A422E1695070C00959114 /* DAAgent.h */,
 				122EA6BE032CFB7C03A87B01 /* DABase.c */,
 				122EA6BD032CFB7C03A87B01 /* DABase.h */,
 				6DABC495044C36A300A87B01 /* DACallback.c */,
@@ -386,8 +403,8 @@
 		124AF905030AE18503A87B01 /* diskarbitrationd */ = {
 			isa = PBXGroup;
 			children = (
-				12363823031AA75703A87B01 /* diskarbitrationd.8 */,
 				6D312A16046302EC00A87B01 /* com.apple.diskarbitrationd.plist */,
+				12363823031AA75703A87B01 /* diskarbitrationd.8 */,
 				6D676E9D0406DCE100A87B01 /* DAServer.defs */,
 				6DC05AF6047D66D400A87B01 /* DAServer.defs.h */,
 			);
@@ -437,7 +454,12 @@
 		60077B9812E6353500D4AE4F /* DiskArbitrationAgent */ = {
 			isa = PBXGroup;
 			children = (
-				60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.c */,
+				60D0C1B41695F6CF0074B7BF /* DiskArbitrationAgent.h */,
+				60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.m */,
+				605A42321695074300959114 /* DAAgent.h */,
+				605A42311695074300959114 /* DAAgent.m */,
+				605A42341695074300959114 /* DADialog.h */,
+				605A42331695074300959114 /* DADialog.m */,
 			);
 			name = DiskArbitrationAgent;
 			sourceTree = "<group>";
@@ -447,6 +469,7 @@
 			children = (
 				60077BD012E6403F00D4AE4F /* ApplicationServices.framework */,
 				60295B4C12EF48E800B9D989 /* CoreFoundation.framework */,
+				605A422A169506A300959114 /* DiskArbitration.framework */,
 			);
 			name = DiskArbitrationAgent;
 			sourceTree = "<group>";
@@ -455,6 +478,7 @@
 			isa = PBXGroup;
 			children = (
 				60077C4712E6468D00D4AE4F /* com.apple.DiskArbitrationAgent.plist */,
+				60D0C1CF16964B2D0074B7BF /* DiskArbitrationAgent.entitlements */,
 			);
 			name = DiskArbitrationAgent;
 			sourceTree = "<group>";
@@ -519,6 +543,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				603C87C108EC8117004474CD /* vsdb.h in Headers */,
+				605A42301695070C00959114 /* DAAgent.h in Headers */,
 				603C87C208EC8117004474CD /* DABase.h in Headers */,
 				603C87C308EC8117004474CD /* DACallback.h in Headers */,
 				603C87C408EC8117004474CD /* DACommand.h in Headers */,
@@ -698,7 +723,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				60077BAB12E63A8B00D4AE4F /* DiskArbitrationAgent.c in Sources */,
+				60077BAB12E63A8B00D4AE4F /* DiskArbitrationAgent.m in Sources */,
+				605A42351695074300959114 /* DAAgent.m in Sources */,
+				605A42361695074300959114 /* DADialog.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -716,6 +743,7 @@
 			files = (
 				603C87D708EC8117004474CD /* fstab.c in Sources */,
 				603C87D808EC8117004474CD /* vsdb.c in Sources */,
+				605A422F1695070C00959114 /* DAAgent.c in Sources */,
 				603C87D908EC8117004474CD /* DABase.c in Sources */,
 				603C87DA08EC8117004474CD /* DACallback.c in Sources */,
 				603C87DB08EC8117004474CD /* DACommand.c in Sources */,
@@ -788,17 +816,25 @@
 		60077B8312E630B000D4AE4F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = DiskArbitrationAgent/DiskArbitrationAgent.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DiskArbitration.framework/Versions/A/Support";
 				PRODUCT_NAME = DiskArbitrationAgent;
+				PROVISIONING_PROFILE = "";
 			};
 			name = Debug;
 		};
 		60077B8412E630B000D4AE4F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = DiskArbitrationAgent/DiskArbitrationAgent.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DiskArbitration.framework/Versions/A/Support";
 				PRODUCT_NAME = DiskArbitrationAgent;
+				PROVISIONING_PROFILE = "";
 			};
 			name = Release;
 		};
@@ -840,7 +876,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
-				INSTALL_PATH = /usr/sbin;
+				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = diskarbitrationd;
 				VALID_ARCHS = x86_64;
 			};
@@ -850,7 +886,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
-				INSTALL_PATH = /usr/sbin;
+				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = diskarbitrationd;
 				VALID_ARCHS = x86_64;
 			};

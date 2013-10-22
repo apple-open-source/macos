@@ -31,9 +31,18 @@
 #ifndef ScriptGCEvent_h
 #define ScriptGCEvent_h
 
-#if ENABLE(INSPECTOR)
-
 namespace WebCore {
+
+struct HeapInfo {
+    HeapInfo()
+        : usedJSHeapSize(0)
+        , totalJSHeapSize(0)
+    {
+    }
+
+    size_t usedJSHeapSize;
+    size_t totalJSHeapSize;
+};
 
 class ScriptGCEventListener;
 
@@ -42,10 +51,9 @@ class ScriptGCEvent
 public:
     static void addEventListener(ScriptGCEventListener*) { }
     static void removeEventListener(ScriptGCEventListener*) { }
-    static void getHeapSize(size_t& usedHeapSize, size_t& totalHeapSize, size_t& heapSizeLimit);
+    static void getHeapSize(HeapInfo&);
 };
 
 } // namespace WebCore
 
-#endif // !ENABLE(INSPECTOR)
 #endif // !defined(ScriptGCEvent_h)

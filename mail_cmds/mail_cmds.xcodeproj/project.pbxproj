@@ -49,7 +49,6 @@
 		FC5B092C1497CF02007519B8 /* quit.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09051497CF02007519B8 /* quit.c */; };
 		FC5B092D1497CF02007519B8 /* send.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09071497CF02007519B8 /* send.c */; };
 		FC5B092E1497CF02007519B8 /* strings.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09081497CF02007519B8 /* strings.c */; };
-		FC5B092F1497CF02007519B8 /* strlcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09091497CF02007519B8 /* strlcpy.c */; };
 		FC5B09301497CF02007519B8 /* temp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B090A1497CF02007519B8 /* temp.c */; };
 		FC5B09311497CF02007519B8 /* tty.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B090B1497CF02007519B8 /* tty.c */; };
 		FC5B09331497CF02007519B8 /* v7.local.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09191497CF02007519B8 /* v7.local.c */; };
@@ -230,7 +229,6 @@
 		FC5B09061497CF02007519B8 /* rcv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rcv.h; sourceTree = "<group>"; };
 		FC5B09071497CF02007519B8 /* send.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = send.c; sourceTree = "<group>"; };
 		FC5B09081497CF02007519B8 /* strings.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strings.c; sourceTree = "<group>"; };
-		FC5B09091497CF02007519B8 /* strlcpy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strlcpy.c; sourceTree = "<group>"; };
 		FC5B090A1497CF02007519B8 /* temp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = temp.c; sourceTree = "<group>"; };
 		FC5B090B1497CF02007519B8 /* tty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tty.c; sourceTree = "<group>"; };
 		FC5B09191497CF02007519B8 /* v7.local.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = v7.local.c; sourceTree = "<group>"; };
@@ -347,7 +345,6 @@
 				FC5B09061497CF02007519B8 /* rcv.h */,
 				FC5B09071497CF02007519B8 /* send.c */,
 				FC5B09081497CF02007519B8 /* strings.c */,
-				FC5B09091497CF02007519B8 /* strlcpy.c */,
 				FC5B090A1497CF02007519B8 /* temp.c */,
 				FC5B090B1497CF02007519B8 /* tty.c */,
 				FC5B09191497CF02007519B8 /* v7.local.c */,
@@ -622,7 +619,6 @@
 				FC5B092C1497CF02007519B8 /* quit.c in Sources */,
 				FC5B092D1497CF02007519B8 /* send.c in Sources */,
 				FC5B092E1497CF02007519B8 /* strings.c in Sources */,
-				FC5B092F1497CF02007519B8 /* strlcpy.c in Sources */,
 				FC5B09301497CF02007519B8 /* temp.c in Sources */,
 				FC5B09311497CF02007519B8 /* tty.c in Sources */,
 				FC5B09331497CF02007519B8 /* v7.local.c in Sources */,
@@ -827,6 +823,7 @@
 				FCD73C7C1497F6A00043B232 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

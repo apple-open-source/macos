@@ -26,39 +26,45 @@
 #include "config.h"
 #include "DrawingAreaProxy.h"
 
+#include "DrawingAreaProxyMessages.h"
 #include "WebPageProxy.h"
+#include "WebProcessProxy.h"
 
-#if USE(UI_SIDE_COMPOSITING)
-#include "LayerTreeHostProxy.h"
-#include <CoreIPC/MessageID.h>
+#if USE(COORDINATED_GRAPHICS)
+#include "CoordinatedLayerTreeHostProxy.h"
 #endif
 
 using namespace WebCore;
 
 namespace WebKit {
 
+const double DrawingAreaProxy::didUpdateBackingStoreStateTimeout = 0.5;
+
 DrawingAreaProxy::DrawingAreaProxy(DrawingAreaType type, WebPageProxy* webPageProxy)
     : m_type(type)
     , m_webPageProxy(webPageProxy)
     , m_size(webPageProxy->viewSize())
 {
+    m_webPageProxy->process()->addMessageReceiver(Messages::DrawingAreaProxy::messageReceiverName(), webPageProxy->pageID(), this);
 }
 
 DrawingAreaProxy::~DrawingAreaProxy()
 {
+    m_webPageProxy->process()->removeMessageReceiver(Messages::DrawingAreaProxy::messageReceiverName(), m_webPageProxy->pageID());
 }
 
-void DrawingAreaProxy::setSize(const IntSize& size, const IntSize& scrollOffset)
+void DrawingAreaProxy::setSize(const IntSize& size, const IntSize& layerPosition, const IntSize& scrollOffset)
 { 
-    if (m_size == size && scrollOffset.isZero())
+    if (m_size == size && m_layerPosition == layerPosition && scrollOffset.isZero())
         return;
 
     m_size = size;
+    m_layerPosition = layerPosition;
     m_scrollOffset += scrollOffset;
     sizeDidChange();
 }
 
-#if USE(UI_SIDE_COMPOSITING)
+#if USE(COORDINATED_GRAPHICS)
 void DrawingAreaProxy::updateViewport()
 {
     m_webPageProxy->setViewNeedsDisplay(viewportVisibleRect());
@@ -67,10 +73,6 @@ void DrawingAreaProxy::updateViewport()
 WebCore::IntRect DrawingAreaProxy::contentsRect() const
 {
     return IntRect(IntPoint::zero(), m_webPageProxy->viewSize());
-}
-
-void DrawingAreaProxy::didReceiveLayerTreeHostProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
-{
 }
 #endif
 

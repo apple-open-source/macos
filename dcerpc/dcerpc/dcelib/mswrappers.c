@@ -91,6 +91,8 @@
 RPC_STATUS WideChar16ToMultiByte(PWSTR input, idl_char **output);
 RPC_STATUS MultiByteToWideChar16(idl_char *input, PWSTR *output);
 RPC_STATUS RpcCompatReturnLastCode(void);
+extern idl_char *awc16stombs(PWSTR input);
+extern PWSTR ambstowc16s(idl_char *input);
 
 RPC_STATUS WideChar16ToMultiByte(PWSTR input, idl_char **output)
 {

@@ -61,15 +61,15 @@
 #define _LIBC_PRIVATE_H_
 
 #ifdef __APPLE__
-#define	__isthreaded	__is_threaded
-#endif // __APPLE__
-
+#define	__isthreaded	1
+#else
 /*
  * This global flag is non-zero when a process has created one
  * or more threads. It is used to avoid calling locking functions
  * when they are not required.
  */
 extern int	__isthreaded;
+#endif // __APPLE__
 
 /*
  * File lock contention is difficult to diagnose without knowing

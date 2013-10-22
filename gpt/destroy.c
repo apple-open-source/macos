@@ -54,9 +54,11 @@ static void
 destroy(int fd)
 {
 	map_t *pri_hdr, *sec_hdr;
+	map_t *pmbr;
 
 	pri_hdr = map_find(MAP_TYPE_PRI_GPT_HDR);
 	sec_hdr = map_find(MAP_TYPE_SEC_GPT_HDR);
+	pmbr = map_find(MAP_TYPE_PMBR);
 
 	if (pri_hdr == NULL && sec_hdr == NULL) {
 		warnx("%s: error: device doesn't contain a GPT", device_name);
@@ -76,6 +78,11 @@ destroy(int fd)
 	if (!recoverable && sec_hdr != NULL) {
 		bzero(sec_hdr->map_data, secsz);
 		gpt_write(fd, sec_hdr);
+	}
+
+	if (!recoverable && pmbr != NULL) {
+		bzero(pmbr->map_data, secsz);
+		gpt_write(fd, pmbr);
 	}
 }
 

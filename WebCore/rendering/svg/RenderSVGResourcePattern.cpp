@@ -27,6 +27,7 @@
 #include "GraphicsContext.h"
 #include "PatternAttributes.h"
 #include "RenderSVGRoot.h"
+#include "SVGFitToViewBox.h"
 #include "SVGRenderSupport.h"
 #include "SVGRenderingContext.h"
 
@@ -65,7 +66,7 @@ PatternData* RenderSVGResourcePattern::buildPattern(RenderObject* object, unsign
         return 0;
 
     if (m_shouldCollectPatternAttributes) {
-        patternElement->updateAnimatedSVGAttribute(anyQName());
+        patternElement->synchronizeAnimatedSVGAttribute(anyQName());
 
         m_attributes = PatternAttributes();
         patternElement->collectPatternAttributes(m_attributes);
@@ -76,6 +77,10 @@ PatternData* RenderSVGResourcePattern::buildPattern(RenderObject* object, unsign
     if (!m_attributes.patternContentElement())
         return 0;
 
+    // An empty viewBox disables rendering.
+    if (m_attributes.hasViewBox() && m_attributes.viewBox().isEmpty())
+        return 0;
+
     // Compute all necessary transformations to build the tile image & the pattern.
     FloatRect tileBoundaries;
     AffineTransform tileImageTransform;
@@ -83,7 +88,7 @@ PatternData* RenderSVGResourcePattern::buildPattern(RenderObject* object, unsign
         return 0;
 
     AffineTransform absoluteTransformIgnoringRotation;
-    SVGRenderingContext::calculateTransformationToOutermostSVGCoordinateSystem(object, absoluteTransformIgnoringRotation);
+    SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem(object, absoluteTransformIgnoringRotation);
 
     // Ignore 2D rotation, as it doesn't affect the size of the tile.
     SVGRenderingContext::clear2DRotation(absoluteTransformIgnoringRotation);
@@ -119,13 +124,15 @@ PatternData* RenderSVGResourcePattern::buildPattern(RenderObject* object, unsign
     // Account for text drawing resetting the context to non-scaled, see SVGInlineTextBox::paintTextWithShadows.
     if (resourceMode & ApplyToTextMode) {
         AffineTransform additionalTextTransformation;
+        if (shouldTransformOnTextPainting(object, additionalTextTransformation))
+            patternData->transform *= additionalTextTransformation;
     }
     patternData->pattern->setPatternSpaceTransform(patternData->transform);
 
     // Various calls above may trigger invalidations in some fringe cases (ImageBuffer allocation
     // failures in the SVG image cache for example). To avoid having our PatternData deleted by
     // removeAllClientsFromCache(), we only make it visible in the cache at the very end.
-    return m_patternMap.set(object, patternData.release()).iterator->second.get();
+    return m_patternMap.set(object, patternData.release()).iterator->value.get();
 }
 
 bool RenderSVGResourcePattern::applyResource(RenderObject* object, RenderStyle* style, GraphicsContext*& context, unsigned short resourceMode)
@@ -144,7 +151,7 @@ bool RenderSVGResourcePattern::applyResource(RenderObject* object, RenderStyle* 
     PatternData* patternData = buildPattern(object, resourceMode);
     if (!patternData)
         return false;
-        
+
     // Draw pattern
     context->save();
 
@@ -225,7 +232,7 @@ bool RenderSVGResourcePattern::buildTileImageTransform(RenderObject* renderer,
     if (patternBoundaries.width() <= 0 || patternBoundaries.height() <= 0)
         return false;
 
-    AffineTransform viewBoxCTM = patternElement->viewBoxToViewTransform(attributes.viewBox(), attributes.preserveAspectRatio(), patternBoundaries.width(), patternBoundaries.height());
+    AffineTransform viewBoxCTM = SVGFitToViewBox::viewBoxToViewTransform(attributes.viewBox(), attributes.preserveAspectRatio(), patternBoundaries.width(), patternBoundaries.height());
 
     // Apply viewBox/objectBoundingBox transformations.
     if (!viewBoxCTM.isIdentity())
@@ -266,7 +273,7 @@ PassOwnPtr<ImageBuffer> RenderSVGResourcePattern::createTileImage(const PatternA
 
     // Draw the content into the ImageBuffer.
     for (Node* node = attributes.patternContentElement()->firstChild(); node; node = node->nextSibling()) {
-        if (!node->isSVGElement() || !static_cast<SVGElement*>(node)->isStyled() || !node->renderer())
+        if (!node->isSVGElement() || !toSVGElement(node)->isSVGStyledElement() || !node->renderer())
             continue;
         if (node->renderer()->needsLayout())
             return nullptr;

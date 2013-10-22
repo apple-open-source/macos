@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,7 @@
 
 /*
  * eapmschapv2_plugin.c
- * - EAP/MSCHAPv2 plug-in
+ * - EAP-MSCHAPv2 plug-in
  */
 
 /* 
@@ -41,7 +41,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <syslog.h>
+#include "EAPLog.h"
 #include <EAP8021X/EAP.h>
 #include <EAP8021X/EAPUtil.h>
 #include <EAP8021X/EAPClientModule.h>
@@ -64,9 +64,9 @@ static EAPClientPluginFuncProcess eapmschapv2_process;
 static EAPClientPluginFuncFreePacket eapmschapv2_free_packet;
 static EAPClientPluginFuncRequireProperties eapmschapv2_require_props;
 static EAPClientPluginFuncPublishProperties eapmschapv2_publish_props;
-static EAPClientPluginFuncPacketDump eapmschapv2_packet_dump;
 static EAPClientPluginFuncSessionKey eapmschapv2_session_key;
 static EAPClientPluginFuncServerKey eapmschapv2_server_key;
+static EAPClientPluginFuncCopyPacketDescription eapmschapv2_copy_packet_description;
 
 typedef struct {
     NTPasswordBlock		encrypted_password;
@@ -75,18 +75,14 @@ typedef struct {
     uint8_t			reserved[MSCHAP2_RESERVED_SIZE];
     uint8_t			nt_response[MSCHAP_NT_RESPONSE_SIZE];
     uint8_t			flags[2];
-} EAPMSCHAPv2ChangePasswordResponse, * EAPMSCHAPv2ChangePasswordResponseRef;
+} MSCHAPv2ChangePasswordResponse, * MSCHAPv2ChangePasswordResponseRef;
 
 enum {
     kMSCHAPv2ChangePasswordVersion = 3
 };
 
-#define EAP_MSCHAP2_CHANGE_PASSWORD_RESPONSE_LENGTH (NT_PASSWORD_BLOCK_SIZE \
-				 + NT_PASSWORD_HASH_SIZE \
-				 + MSCHAP2_CHALLENGE_SIZE \
-				 + MSCHAP2_RESERVED_SIZE \
-				 + MSCHAP_NT_RESPONSE_SIZE \
-				 + 2)
+#define MSCHAP2_CHANGE_PASSWORD_RESPONSE_LENGTH sizeof(MSCHAPv2ChangePasswordResponse)
+
 enum {
     kMSCHAPv2OpCodeChallenge = 1,
     kMSCHAPv2OpCodeResponse = 2,
@@ -208,7 +204,7 @@ typedef struct EAPMSCHAPv2ChangePasswordPacket_s {
     uint8_t		op_code;
     uint8_t		mschapv2_id;
     uint8_t		ms_length[2];	/* pkt.length - 5 */
-    uint8_t		data[EAP_MSCHAP2_CHANGE_PASSWORD_RESPONSE_LENGTH];
+    uint8_t		data[MSCHAP2_CHANGE_PASSWORD_RESPONSE_LENGTH];
 } EAPMSCHAPv2ChangePasswordPacket, *EAPMSCHAPv2ChangePasswordPacketRef;
 
 static __inline__ void
@@ -333,11 +329,13 @@ EAPMSCHAPv2ResponsePacketCreate(EAPClientPluginDataRef plugin,
     if (client_challenge != NULL) {
 	if (CFDataGetLength(client_challenge)
 	    != sizeof(context->peer_challenge)) {
-	    syslog(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "EAPMSCHAPv2ResponsePacketCreate: internal error %ld != %ld",
 		   CFDataGetLength(client_challenge),
 		   sizeof(context->peer_challenge));
-	    *client_status = kEAPClientStatusInternalError;
+	    if (client_status != NULL) {
+		*client_status = kEAPClientStatusInternalError;
+	    }
 	    context->plugin_state = kEAPClientStateFailure;
 	    return (NULL);
 	}
@@ -387,7 +385,7 @@ eapmschapv2_challenge(EAPClientPluginDataRef plugin,
     CFDataRef				server_challenge;
 
     if (in_length < sizeof(*challenge_p)) {
-	syslog(LOG_NOTICE, "eapmschapv2_challenge: length %d < %ld",
+	EAPLOG(LOG_NOTICE, "eapmschapv2_challenge: length %d < %ld",
 	       in_length, sizeof(*challenge_p));
 	goto done;
     }
@@ -409,7 +407,7 @@ eapmschapv2_challenge(EAPClientPluginDataRef plugin,
     if (server_challenge != NULL) {
 	if (CFDataGetLength(server_challenge) 
 	    != sizeof(context->auth_challenge)) {
-	    syslog(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "eapmschapv2_challenge: internal error %ld != %ld",
 		   CFDataGetLength(server_challenge),
 		   sizeof(context->auth_challenge));
@@ -439,14 +437,13 @@ eapmschapv2_challenge(EAPClientPluginDataRef plugin,
 }
 
 static void
-eapmschapv2_compute_session_key(EAPClientPluginDataRef plugin)
+eapmschapv2_compute_session_key(EAPMSCHAPv2PluginDataRef context,
+				const char * password,
+				int password_length)
 {
-    EAPMSCHAPv2PluginDataRef 		context;
     uint8_t				master_key[NT_MASTER_KEY_SIZE];
 
-    context = (EAPMSCHAPv2PluginDataRef)plugin->private;
-
-    MSChap2_MPPEGetMasterKey(plugin->password, plugin->password_length,
+    MSChap2_MPPEGetMasterKey((const uint8_t *)password, password_length,
 			     context->nt_response,
 			     master_key);
     MSChap2_MPPEGetAsymetricStartKey(master_key,
@@ -469,36 +466,53 @@ eapmschapv2_success_request(EAPClientPluginDataRef plugin,
 			    EAPClientDomainSpecificError * error)
 {
     EAPMSCHAPv2PluginDataRef 		context;
-    EAPMSCHAPv2SuccessRequestPacketRef	r_p;
+    char *				new_password = NULL;
+    CFStringRef				new_password_cf;
     EAPMSCHAPv2SuccessResponsePacketRef	out_pkt_p = NULL;
-
+    const char *			password;
+    int					password_length;
+    EAPMSCHAPv2SuccessRequestPacketRef	r_p;
+    Boolean				valid;
+		
     if (in_length < sizeof(*r_p)) {
-	syslog(LOG_NOTICE, "eapmschapv2_success_request: length %d < %ld",
-	       in_length, sizeof(*r_p));
+	EAPLOG_FL(LOG_NOTICE, "length %d < %ld", in_length, sizeof(*r_p));
 	goto done;
     }
     context = (EAPMSCHAPv2PluginDataRef)plugin->private;
     switch (context->state) {
-    case kMSCHAPv2ClientStateResponseSent:
     case kMSCHAPv2ClientStateChangePasswordSent:
+	new_password_cf 
+	    = CFDictionaryGetValue(plugin->properties,
+				   kEAPClientPropNewPassword);
+	if (new_password_cf == NULL) {
+	    EAPLOG_FL(LOG_NOTICE, "NewPassword is missing");
+	    goto done;
+	}
+	new_password = my_CFStringToCString(new_password_cf,
+					    kCFStringEncodingUTF8);
+	password = new_password;
+	password_length = strlen(new_password);
 	break;
+    case kMSCHAPv2ClientStateResponseSent:
     case kMSCHAPv2ClientStateSuccess:
+	password = (const char *)plugin->password;
+	password_length = plugin->password_length;
 	break;
     case kMSCHAPv2ClientStateFailure:
     default:
 	goto done;
     }
-    r_p = (EAPMSCHAPv2SuccessRequestPacketRef)in_pkt_p;
     /* process success request */
-    if (MSChap2AuthResponseValid((const uint8_t *)plugin->password,
-				 plugin->password_length,
-				 context->nt_response,
-				 context->peer_challenge,
-				 context->auth_challenge,
-				 (const uint8_t *)plugin->username,
-				 r_p->auth_response) 
-	== FALSE) {
-	syslog(LOG_NOTICE,
+    r_p = (EAPMSCHAPv2SuccessRequestPacketRef)in_pkt_p;
+    valid = MSChap2AuthResponseValid((const uint8_t *)password,
+				     password_length,
+				     context->nt_response,
+				     context->peer_challenge,
+				     context->auth_challenge,
+				     (const uint8_t *)plugin->username,
+				     r_p->auth_response);
+    if (valid == FALSE) {
+	EAPLOG(LOG_NOTICE,
 	       "eapmschapv2_success_request: invalid server auth response");
 	context->plugin_state = kEAPClientStateFailure;
 	context->state = kMSCHAPv2ClientStateFailure;
@@ -507,17 +521,17 @@ eapmschapv2_success_request(EAPClientPluginDataRef plugin,
     }
     switch (context->state) {
     case kMSCHAPv2ClientStateResponseSent:
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_DEBUG,
 	       "eapmschapv2_success_request: successfully authenticated");
 	break;
     case kMSCHAPv2ClientStateChangePasswordSent:
-	syslog(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "eapmschapv2_success_request: change password succeeded");
 	break;
     default:
 	break;
     }
-    eapmschapv2_compute_session_key(plugin);
+    eapmschapv2_compute_session_key(context, password, password_length);
     context->state = kMSCHAPv2ClientStateSuccess;
     out_pkt_p = (EAPMSCHAPv2SuccessResponsePacketRef)
 	EAPPacketCreate(context->pkt_buffer, sizeof(context->pkt_buffer),
@@ -526,17 +540,14 @@ eapmschapv2_success_request(EAPClientPluginDataRef plugin,
 			sizeof(*out_pkt_p) - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE,
 			NULL);
     out_pkt_p->op_code = kMSCHAPv2OpCodeSuccess;
-    return ((EAPMSCHAPv2PacketRef)out_pkt_p);
-
  done:
-    if (out_pkt_p != NULL) {
-	free(out_pkt_p);
+    if (new_password != NULL) {
+	free(new_password);
     }
-    return (NULL);
+    return ((EAPMSCHAPv2PacketRef)out_pkt_p);
 }
 
 
-#if 0
 enum {
     kMSCHAP2FailureMessageFlagError = 0x1,
     kMSCHAP2FailureMessageFlagRetry = 0x2,
@@ -546,7 +557,7 @@ enum {
 };
 
 static bool
-mschap2_message_int32_attr(const uint8_t * message, uint16_t message_length,
+mschap2_message_int32_attr(const char * message, uint16_t message_length,
 			   const char * attr, int attr_len, 
 			   int32_t * int_value)
 {
@@ -564,7 +575,7 @@ mschap2_message_int32_attr(const uint8_t * message, uint16_t message_length,
 }
 
 static bool
-mschap2_message_challenge_attr(const uint8_t * message, uint16_t message_length,
+mschap2_message_challenge_attr(const char * message, uint16_t message_length,
 			       const char * attr,  int attr_len,
 			       uint8_t challenge[MSCHAP2_CHALLENGE_SIZE])
 {
@@ -590,12 +601,66 @@ mschap2_message_challenge_attr(const uint8_t * message, uint16_t message_length,
     return (present);
 }
 
+static EAPMSCHAPv2ChangePasswordPacketRef
+EAPMSCHAPv2ChangePasswordPacketCreate(EAPClientPluginDataRef plugin, 
+				      int identifier, int mschapv2_id,
+				      const char * new_password,
+				      int new_password_length,
+				      EAPClientStatus * client_status)
+{
+    MSCHAPv2ChangePasswordResponseRef	change_p;
+    EAPMSCHAPv2PluginDataRef 		context;
+    EAPMSCHAPv2ChangePasswordPacketRef	out_pkt_p;
+    int					out_length;
+
+    context = (EAPMSCHAPv2PluginDataRef)plugin->private;
+    out_length = sizeof(*out_pkt_p);
+    out_pkt_p = (EAPMSCHAPv2ChangePasswordPacketRef)
+	EAPPacketCreate(context->pkt_buffer, sizeof(context->pkt_buffer),
+			kEAPCodeResponse, identifier,
+			kEAPTypeMSCHAPv2, NULL, 
+			out_length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE,
+			NULL);
+    MSChapFillWithRandom(context->peer_challenge,
+			 sizeof(context->peer_challenge));
+    /* compute nt_response using challenge from error packet and new password */
+    MSChap2(context->auth_challenge, context->peer_challenge,
+	    plugin->username,
+	    (const uint8_t *)new_password, new_password_length,
+	    context->nt_response);
+
+    /* fill in the packet */
+    out_pkt_p->op_code = kMSCHAPv2OpCodeChangePassword;
+    out_pkt_p->mschapv2_id = mschapv2_id;
+    EAPMSCHAPv2PacketSetMSLength((EAPMSCHAPv2PacketRef)out_pkt_p,
+				 out_length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE);
+    change_p = (MSCHAPv2ChangePasswordResponseRef)out_pkt_p->data;
+    memcpy(change_p->peer_challenge, context->peer_challenge, 
+	   sizeof(context->peer_challenge));
+    memset(change_p->reserved, 0, sizeof(change_p->reserved));
+    memcpy(change_p->nt_response, context->nt_response, 
+	   sizeof(context->nt_response));
+    NTPasswordBlockEncryptNewPasswordWithOldHash((const uint8_t *)new_password,
+						 new_password_length,
+						 plugin->password,
+						 plugin->password_length,
+						 &change_p->encrypted_password);
+    NTPasswordHashEncryptOldWithNew((const uint8_t *)new_password,
+				    new_password_length,
+				    plugin->password,
+				    plugin->password_length,
+				    change_p->encrypted_hash);
+    change_p->flags[0] = 0;
+    change_p->flags[1] = 0;
+    return (out_pkt_p);
+}
+
 static uint8_t
-MSCHAPv2ParseFailureMessage(const uint8_t * message, 
+MSCHAPv2ParseFailureMessage(const char * message, 
 			    uint16_t message_length,
 			    int32_t * error, int32_t * retry,
 			    uint8_t challenge[MSCHAP2_CHALLENGE_SIZE],
-			    int32_t * version, uint8_t * * ret_message)
+			    int32_t * version, char * * ret_message)
 {
     uint32_t	flags = 0;
     char *	val;
@@ -626,7 +691,6 @@ MSCHAPv2ParseFailureMessage(const uint8_t * message,
     }
     return (flags);
 }
-#endif /* 0 */
 
 static EAPMSCHAPv2PacketRef
 eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
@@ -638,19 +702,17 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
     EAPMSCHAPv2PluginDataRef 		context;
     bool				handled = FALSE;
     char *				message = NULL;
-#if 0
     int					message_length;
     uint32_t				flags = 0;
     int32_t				r_error;
     int32_t				r_retry = 0;
     int32_t				r_version = 0;
-    uint8_t *				r_message;
-#endif /* 0 */
+    char *				r_message;
     EAPMSCHAPv2FailureRequestPacketRef	r_p;
     EAPMSCHAPv2PacketRef		out_pkt_p = NULL;
 
     if (in_length < sizeof(*r_p)) {
-	syslog(LOG_NOTICE, "eapmschapv2_failure_request: length %d < %ld",
+	EAPLOG(LOG_NOTICE, "eapmschapv2_failure_request: length %d < %ld",
 	       in_length, sizeof(*r_p));
 	goto done;
     }
@@ -665,7 +727,6 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
     default:
 	goto done;
     }
-#if 0
     r_p = (EAPMSCHAPv2FailureRequestPacketRef)in_pkt_p;
     do { /* something to break out of */
 	/* allocate a message buffer that's guaranteed to be nul-terminated */
@@ -686,19 +747,19 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
 	if ((flags & kMSCHAP2FailureMessageFlagError) == 0) {
 	    break;
 	}
-	syslog(LOG_NOTICE, "MSCHAPv2 Error = %d, Retry = %d, Version = %d", 
+	EAPLOG(LOG_NOTICE, "MSCHAPv2 Error = %d, Retry = %d, Version = %d", 
 	       r_error, r_retry, r_version);
 
-	if (r_retry == 0) {
-	    /* can't retry, acknowledge the error */
-	    break;
-	}
 	if ((flags & kMSCHAP2FailureMessageFlagChallenge) == 0) {
-	    syslog(LOG_NOTICE, 
+	    EAPLOG(LOG_NOTICE, 
 		   "MSCHAPv2 Failure Request does not contain challenge");
 	    break;
 	}
 	if (r_error != kMSCHAP2_ERROR_PASSWD_EXPIRED) {
+	    if (r_retry == 0) {
+		/* can't retry, acknowledge the error */
+		break;
+	    }
 	    if (context->last_generation == plugin->generation
 		|| plugin->password == NULL) {
 		context->need_password = TRUE;
@@ -708,7 +769,8 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
 		out_pkt_p = (EAPMSCHAPv2PacketRef)
 		    EAPMSCHAPv2ResponsePacketCreate(plugin, 
 						    r_p->identifier,
-						    r_p->mschapv2_id);
+						    r_p->mschapv2_id,
+						    NULL);
 		if (out_pkt_p == NULL) {
 		    break;
 		}
@@ -733,16 +795,18 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
 					   kEAPClientPropNewPassword);
 		if (new_password_cf != NULL) {
 		    new_password = my_CFStringToCString(new_password_cf,
-							kCFStringEncodingASCII);
+							kCFStringEncodingUTF8);
 		}
 	    }
 	    if (new_password != NULL) {
-		out_pkt_p 
-		    = EAPMSCHAPv2ChangePasswordPacketCreate(plugin,
-							    r_p->identifer,
-							    r_p->mschapv2_id,
-							    new_password,
-							    strlen(new_password));
+		out_pkt_p = (EAPMSCHAPv2PacketRef)
+		    EAPMSCHAPv2ChangePasswordPacketCreate(plugin,
+							  r_p->identifier,
+							  r_p->mschapv2_id + 1,
+							  new_password,
+							  strlen(new_password),
+							  NULL);
+		free(new_password);
 		if (out_pkt_p == NULL) {
 		    break;
 		}
@@ -752,13 +816,9 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
 		context->need_new_password = TRUE;
 		*client_status = kEAPClientStatusUserInputRequired;
 	    }
-	    if (new_password != NULL) {
-		free(new_password);
-	    }
 	}
 	handled = TRUE;
     } while (0); /* something to break out of */
-#endif /* 0 */
 
     if (handled == FALSE) {
 	context->state = kMSCHAPv2ClientStateFailure;
@@ -772,8 +832,11 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
 			    sizeof(*out_pkt_p) - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE,
 			    NULL);
 	out_pkt_p->op_code = kMSCHAPv2OpCodeFailure;
+	out_pkt_p->mschapv2_id = r_p->mschapv2_id;
+	EAPMSCHAPv2PacketSetMSLength((EAPMSCHAPv2PacketRef)out_pkt_p,
+				     (sizeof(*out_pkt_p)
+				      - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
     }
-
     if (message != NULL) {
 	free(message);
     }
@@ -801,7 +864,7 @@ eapmschapv2_request(EAPClientPluginDataRef plugin,
 
     mschap_in_p = (EAPMSCHAPv2PacketRef)in_pkt;
     if (in_length < sizeof(*mschap_in_p)) {
-	syslog(LOG_NOTICE, "eapmschapv2_request: length %d < %ld",
+	EAPLOG(LOG_NOTICE, "eapmschapv2_request: length %d < %ld",
 	       in_length, sizeof(*mschap_in_p));
 	goto done;
     }
@@ -898,165 +961,243 @@ eapmschapv2_require_props(EAPClientPluginDataRef plugin)
     return (array);
 }
 
-static void
-eapmschapv2_challenge_dump(FILE * out_f, const EAPPacketRef pkt,
-			   int length)
+static bool
+eapmschapv2_challenge_append(CFMutableStringRef str, const EAPPacketRef pkt,
+			     int length)
 {
     EAPMSCHAPv2ChallengePacketRef	challenge_p;
     int					name_length;
+    bool				packet_is_valid = FALSE;
 
     if (length < sizeof(*challenge_p)) {
-	fprintf(out_f, "Error: length %d < %d\n", length, 
-		(int)sizeof(*challenge_p));
-	return;
+	STRING_APPEND(str, "Error: length %d < %d\n", length, 
+		      (int)sizeof(*challenge_p));
+	goto done;
     }
     challenge_p = (EAPMSCHAPv2ChallengePacketRef)pkt;
-    fprintf(out_f, "MS-CHAPv2-ID %d MS-Length %d Value-Size %d\n",
-	    challenge_p->mschapv2_id, 
-	    EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt),
-	    challenge_p->value_size);
-
+    STRING_APPEND(str, "MS-CHAPv2-ID %d MS-Length %d Value-Size %d\n",
+		  challenge_p->mschapv2_id, 
+		  EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt),
+		  challenge_p->value_size);
+    
     if (challenge_p->value_size != sizeof(challenge_p->challenge)) {
-	fprintf(out_f, "Error: Value-Size should be %d\n",
-		(int)sizeof(challenge_p->challenge));
+	STRING_APPEND(str, "Error: Value-Size should be %d\n",
+		      (int)sizeof(challenge_p->challenge));
     }
     if (EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt) 
 	!= (length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE)) {
-	fprintf(out_f, "Error: MS-Length should be %d\n",
-		(int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
+	STRING_APPEND(str, "Error: MS-Length should be %d\n",
+		      (int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
+	goto done;
     }
-    fprintf(out_f, "Challenge: ");
-    fprint_bytes(out_f, challenge_p->challenge, sizeof(challenge_p->challenge));
-    fprintf(out_f, "\n");
+    STRING_APPEND(str, "Challenge: ");
+    print_bytes_cfstr(str, challenge_p->challenge,
+		      sizeof(challenge_p->challenge));
+    STRING_APPEND(str, "\n");
     name_length = length - sizeof(*challenge_p);
     if (name_length > 0) {
-	fprintf(out_f, "Name: %.*s\n", name_length, challenge_p->name);
+	STRING_APPEND(str, "Name: %.*s\n", name_length, challenge_p->name);
     }
-    return;
-}
-
-static void
-eapmschapv2_response_dump(FILE * out_f, const EAPPacketRef pkt,
-			   int length)
-{
-    EAPMSCHAPv2ResponsePacketRef	r_p;
-    int					name_length;
-    MSCHAP2ResponseRef		resp_p;
-
-    if (length < sizeof(*r_p)) {
-	fprintf(out_f, "Error: length %d < %d\n", length, 
-		(int)sizeof(*r_p));
-	return;
-    }
-    r_p = (EAPMSCHAPv2ResponsePacketRef)pkt;
-    fprintf(out_f, "MS-CHAPv2-ID %d MS-Length %d Value-Size %d\n",
-	    r_p->mschapv2_id, 
-	    EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt),
-	    r_p->value_size);
-
-    if (r_p->value_size != sizeof(r_p->response)) {
-	fprintf(out_f, "Error: Value-Size should be %d\n",
-		(int)sizeof(r_p->response));
-    }
-    if (EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt) 
-	!= (length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE)) {
-	fprintf(out_f, "Error: MS-Length should be %d\n",
-		(int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
-    }
-    resp_p = (MSCHAP2ResponseRef)r_p->response;
-    fprintf(out_f, "Response:\n");
-    fprintf(out_f, 
-	    "Peer Challenge: ");
-    fprint_bytes(out_f, 
-		 resp_p->peer_challenge, sizeof(resp_p->peer_challenge));
-    fprintf(out_f, "\n"
-	    "Reserved:       ");
-    fprint_bytes(out_f, 
-		 resp_p->reserved, sizeof(resp_p->reserved));
-    fprintf(out_f, "\n"
-	    "NT Response:    ");
-    fprint_bytes(out_f, 
-		 resp_p->nt_response, sizeof(resp_p->nt_response));
-    fprintf(out_f, "\n"
-	    "Flags:          ");
-    fprint_bytes(out_f, 
-		 resp_p->flags, sizeof(resp_p->flags));
-    name_length = length - sizeof(*r_p);
-    if (name_length > 0) {
-	fprintf(out_f, "\n"
-		"Name:           %.*s\n", name_length, r_p->name);
-    }
-    return;
-}
-
-static void
-eapmschapv2_success_request_dump(FILE * out_f, const EAPPacketRef pkt,
-				 int length)
-{
-    EAPMSCHAPv2SuccessRequestPacketRef	r_p;
-    int					message_length;
-
-    if (length < sizeof(*r_p)) {
-	fprintf(out_f, "Error: length %d < %d\n", length, (int)sizeof(*r_p));
-	return;
-    }
-    r_p = (EAPMSCHAPv2SuccessRequestPacketRef)pkt;
-    fprintf(out_f, "MS-CHAPv2-ID %d MS-Length %d\n",
-	    r_p->mschapv2_id, 
-	    EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt));
-    if (EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt)
-	!= (length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE)) {
-	fprintf(out_f, "Error: MS-Length should be %d\n",
-		(int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
-    }
-    fprintf(out_f, 
-	    "Auth Response: %.*s\n", (int)sizeof(r_p->auth_response), 
-	    r_p->auth_response);
-    message_length = length - sizeof(*r_p);
-    if (message_length > 1) {
-	/* skip the space when we print it out */
-	fprintf(out_f, 
-		"Message:       %.*s\n", message_length - 1,
-		r_p->message + 1);
-    }
-    return;
-}
-
-static void
-eapmschapv2_failure_request_dump(FILE * out_f, const EAPPacketRef pkt,
-				 int length)
-{
-    EAPMSCHAPv2FailureRequestPacketRef	r_p;
-    int					message_length;
-
-    if (length < sizeof(*r_p)) {
-	fprintf(out_f, "Error: length %d < %d\n", length, (int)sizeof(*r_p));
-	return;
-    }
-    r_p = (EAPMSCHAPv2FailureRequestPacketRef)pkt;
-    fprintf(out_f, "MS-CHAPv2-ID %d MS-Length %d\n",
-	    r_p->mschapv2_id, 
-	    EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt));
-    if (EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt) 
-	!= (length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE)) {
-	fprintf(out_f, "Error: MS-Length should be %d\n",
-		(int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
-    }
-    message_length = length - sizeof(*r_p);
-    if (message_length > 0) {
-	fprintf(out_f, 
-		"Message:       %.*s\n", message_length, r_p->message);
-    }
-    return;
+    packet_is_valid = TRUE;
+    
+ done:
+    return (packet_is_valid);
 }
 
 static bool
-eapmschapv2_packet_dump(FILE * out_f, const EAPPacketRef pkt)
+eapmschapv2_response_append(CFMutableStringRef str, const EAPPacketRef pkt,
+			    int length)
 {
-    EAPMSCHAPv2PacketRef	ms_pkt_p = (EAPMSCHAPv2PacketRef)pkt;
-    int				data_length;
-    u_int16_t			length = EAPPacketGetLength(pkt);
+    int					name_length;
+    bool				packet_is_valid = FALSE;
+    EAPMSCHAPv2ResponsePacketRef	r_p;
+    MSCHAP2ResponseRef			resp_p;
 
+    if (length < sizeof(*r_p)) {
+	STRING_APPEND(str, "Error: length %d < %d\n", length, 
+		      (int)sizeof(*r_p));
+	goto done;
+    }
+    r_p = (EAPMSCHAPv2ResponsePacketRef)pkt;
+    STRING_APPEND(str, "MS-CHAPv2-ID %d MS-Length %d Value-Size %d\n",
+		  r_p->mschapv2_id, 
+		  EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt),
+		  r_p->value_size);
+
+    if (r_p->value_size != sizeof(r_p->response)) {
+	STRING_APPEND(str, "Error: Value-Size should be %d\n",
+		      (int)sizeof(r_p->response));
+    }
+    if (EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt) 
+	!= (length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE)) {
+	STRING_APPEND(str, "Error: MS-Length should be %d\n",
+		      (int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
+	goto done;
+    }
+    resp_p = (MSCHAP2ResponseRef)r_p->response;
+    STRING_APPEND(str, "Response:\n");
+    STRING_APPEND(str, 
+		  "Peer Challenge: ");
+    print_bytes_cfstr(str, resp_p->peer_challenge,
+		      sizeof(resp_p->peer_challenge));
+    STRING_APPEND(str, "\n"
+		  "Reserved:       ");
+    print_bytes_cfstr(str, resp_p->reserved, sizeof(resp_p->reserved));
+    STRING_APPEND(str, "\n"
+		  "NT Response:    ");
+    print_bytes_cfstr(str, resp_p->nt_response, sizeof(resp_p->nt_response));
+    STRING_APPEND(str, "\n"
+		  "Flags:          ");
+    print_bytes_cfstr(str, resp_p->flags, sizeof(resp_p->flags));
+    name_length = length - sizeof(*r_p);
+    if (name_length > 0) {
+	STRING_APPEND(str, "\n"
+		      "Name:           %.*s\n", name_length, r_p->name);
+    }
+    packet_is_valid = TRUE;
+
+ done:
+    return (packet_is_valid);
+}
+
+static bool
+eapmschapv2_success_request_append(CFMutableStringRef str,
+				   const EAPPacketRef pkt, int length)
+{
+    int					message_length;
+    EAPMSCHAPv2SuccessRequestPacketRef	r_p;
+    bool				packet_is_valid = FALSE;
+
+    if (length < sizeof(*r_p)) {
+	STRING_APPEND(str,
+		      "Error: length %d < %d\n", length, (int)sizeof(*r_p));
+	goto done;
+    }
+    r_p = (EAPMSCHAPv2SuccessRequestPacketRef)pkt;
+    STRING_APPEND(str, "MS-CHAPv2-ID %d MS-Length %d\n",
+		  r_p->mschapv2_id, 
+		  EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt));
+    if (EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt)
+	!= (length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE)) {
+	STRING_APPEND(str, "Error: MS-Length should be %d\n",
+		      (int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
+	goto done;
+    }
+    STRING_APPEND(str, 
+		  "Auth Response: %.*s\n", (int)sizeof(r_p->auth_response), 
+		  r_p->auth_response);
+    message_length = length - sizeof(*r_p);
+    if (message_length > 1) {
+	/* skip the space when we print it out */
+	STRING_APPEND(str, 
+		      "Message:       %.*s\n", message_length - 1,
+		      r_p->message + 1);
+    }
+    packet_is_valid = TRUE;
+
+ done:
+    return (packet_is_valid);
+}
+
+static bool
+eapmschapv2_failure_request_append(CFMutableStringRef str,
+				   const EAPPacketRef pkt, int length)
+{
+    int					message_length;
+    bool				packet_is_valid = FALSE;
+    EAPMSCHAPv2FailureRequestPacketRef	r_p;
+
+    if (length < sizeof(*r_p)) {
+	STRING_APPEND(str,
+		      "Error: length %d < %d\n", length, (int)sizeof(*r_p));
+	goto done;
+    }
+    r_p = (EAPMSCHAPv2FailureRequestPacketRef)pkt;
+    STRING_APPEND(str, "MS-CHAPv2-ID %d MS-Length %d\n",
+		  r_p->mschapv2_id, 
+		  EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt));
+    if (EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt) 
+	!= (length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE)) {
+	STRING_APPEND(str, "Error: MS-Length should be %d\n",
+		      (int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
+	goto done;
+    }
+    message_length = length - sizeof(*r_p);
+    if (message_length > 0) {
+	STRING_APPEND(str, 
+		      "Message:       %.*s\n", message_length, r_p->message);
+    }
+    packet_is_valid = TRUE;
+
+ done:
+    return (packet_is_valid);
+}
+
+static bool
+eapmschapv2_change_password_append(CFMutableStringRef str,
+				   const EAPPacketRef pkt, int length)
+{
+    MSCHAPv2ChangePasswordResponseRef	change_p;
+    bool				packet_is_valid = FALSE;
+    EAPMSCHAPv2ChangePasswordPacketRef	r_p;
+
+    if (length < sizeof(*r_p)) {
+	STRING_APPEND(str,
+		      "Error: length %d < %d\n", length, (int)sizeof(*r_p));
+	goto done;
+    }
+    r_p = (EAPMSCHAPv2ChangePasswordPacketRef)pkt;
+    STRING_APPEND(str, "MS-CHAPv2-ID %d MS-Length %d\n",
+		  r_p->mschapv2_id, 
+		  EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt));
+    if (EAPMSCHAPv2PacketGetMSLength((EAPMSCHAPv2PacketRef)pkt) 
+	!= (length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE)) {
+	STRING_APPEND(str, "Error: MS-Length should be %d\n",
+		      (int)(length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE));
+	goto done;
+    }
+    change_p = (MSCHAPv2ChangePasswordResponseRef)(r_p->data);
+    STRING_APPEND(str, "Encrypted Password:\n");
+    print_data_cfstr(str, (void *)&change_p->encrypted_password,
+		     sizeof(change_p->encrypted_password));
+    STRING_APPEND(str, "Encrypted Hash: ");
+    print_bytes_cfstr(str, change_p->encrypted_hash,
+		      sizeof(change_p->encrypted_hash));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "Peer Challenge: ");
+    print_bytes_cfstr(str, change_p->peer_challenge,
+		      sizeof(change_p->peer_challenge));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "Reserved: ");
+    print_bytes_cfstr(str, change_p->reserved,
+		      sizeof(change_p->reserved));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "NT Response: ");
+    print_bytes_cfstr(str, change_p->nt_response,
+		      sizeof(change_p->nt_response));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "NT Flags: ");
+    print_bytes_cfstr(str, change_p->flags,
+		      sizeof(change_p->flags));
+    STRING_APPEND(str, "\n");
+
+    packet_is_valid = TRUE;
+
+ done:
+    return (packet_is_valid);
+}
+
+static CFStringRef
+eapmschapv2_copy_packet_description(const EAPPacketRef pkt,
+				    bool * packet_is_valid)
+{ 
+    int				data_length;
+    EAPMSCHAPv2PacketRef	ms_pkt_p = (EAPMSCHAPv2PacketRef)pkt;
+    u_int16_t			length = EAPPacketGetLength(pkt);
+    CFMutableStringRef		str = NULL;
+    bool			valid;
+
+    valid = FALSE;
     switch (pkt->code) {
     case kEAPCodeRequest:
 	break;
@@ -1064,70 +1205,61 @@ eapmschapv2_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	break;
     default:
 	/* don't handle it */
-	return (FALSE);
+	goto done;
     }
+    str = CFStringCreateMutable(NULL, 0);
     if (length < sizeof(EAPMSCHAPv2SuccessResponsePacket)) {
-	fprintf(out_f, "invalid packet: length %d < min length %ld",
-		length, sizeof(*ms_pkt_p));
+	STRING_APPEND(str, "invalid packet: length %d < min length %ld\n",
+		      length, sizeof(*ms_pkt_p));
 	goto done;
     }
     data_length = length - sizeof(EAPMSCHAPv2SuccessResponsePacket);
-    fprintf(out_f, 
-	    "EAP/MSCHAPv2 %s: Identifier %d Length %d OpCode %s ",
-	    EAPCodeStr(pkt->code), pkt->identifier, length,
-	    MSCHAPv2OpCodeStr(ms_pkt_p->op_code));
-    if (pkt->code == kEAPCodeRequest) {
-	/* Request */
-	switch (ms_pkt_p->op_code) {
-	case kMSCHAPv2OpCodeChallenge:
-	    eapmschapv2_challenge_dump(out_f, pkt, length);
-	    break;
-	case kMSCHAPv2OpCodeResponse:
-	    eapmschapv2_response_dump(out_f, pkt, length);
-	    fprintf(out_f, 
-		    "EAP Request contains MSCHAPv2 Response (invalid)\n");
-	    break;
-	case kMSCHAPv2OpCodeSuccess:
-	    eapmschapv2_success_request_dump(out_f, pkt, length);
-	    break;
-	case kMSCHAPv2OpCodeFailure:
-	    eapmschapv2_failure_request_dump(out_f, pkt, length);
-	    break;
-	default:
-	    if (data_length > 0) {
-		fprintf(out_f, "Unknown data:\n");
-		fprint_data(out_f, &ms_pkt_p->mschapv2_id,
-			    data_length);
-	    }
-	    break;
+    STRING_APPEND(str, "EAP-MSCHAPv2 %s: Identifier %d Length %d OpCode %s ",
+		  EAPCodeStr(pkt->code), pkt->identifier, length,
+		  MSCHAPv2OpCodeStr(ms_pkt_p->op_code));
+    /* Request */
+    switch (ms_pkt_p->op_code) {
+    case kMSCHAPv2OpCodeChallenge:
+	valid = eapmschapv2_challenge_append(str, pkt, length);
+	if (pkt->code == kEAPCodeResponse) {
+	    valid = FALSE;
+	    STRING_APPEND(str, "EAP Response contains "
+			  "MSCHAPv2 Challenge (invalid)\n");
 	}
-    }
-    else {
-	/* Response */
-	switch (ms_pkt_p->op_code) {
-	case kMSCHAPv2OpCodeChallenge:
-	    eapmschapv2_challenge_dump(out_f, pkt, length);
-	    fprintf(out_f, 
-		    "EAP Response contains MSCHAPv2 Challenge (invalid)\n");
-	    break;
-	case kMSCHAPv2OpCodeResponse:
-	    eapmschapv2_response_dump(out_f, pkt, length);
-	    break;
-	case kMSCHAPv2OpCodeSuccess:
-	case kMSCHAPv2OpCodeFailure:
-	    fprintf(out_f, "\n");
-	    break;
-	default:
-	    if (data_length > 0) {
-		fprintf(out_f, "Unknown data:\n");
-		fprint_data(out_f, &ms_pkt_p->mschapv2_id,
-			    data_length);
-	    }
-	    break;
+	break;
+    case kMSCHAPv2OpCodeResponse:
+	valid = eapmschapv2_response_append(str, pkt, length);
+	if (pkt->code == kEAPCodeRequest) {
+	    valid = FALSE;
+	    STRING_APPEND(str, "EAP Request contains "
+			  "MSCHAPv2 Response (invalid)\n");
 	}
+	break;
+    case kMSCHAPv2OpCodeSuccess:
+	if (pkt->code == kEAPCodeRequest) {
+	    valid = eapmschapv2_success_request_append(str, pkt, length);
+	}
+	break;
+    case kMSCHAPv2OpCodeFailure:
+	if (pkt->code == kEAPCodeRequest) {
+	    valid = eapmschapv2_failure_request_append(str, pkt, length);
+	}
+	break;
+    case kMSCHAPv2OpCodeChangePassword:
+	valid = eapmschapv2_change_password_append(str, pkt, length);
+	break;
+    default:
+	STRING_APPEND(str, "Unknown code %d\n", ms_pkt_p->op_code);
+	if (data_length > 0) {
+	    print_data_cfstr(str, &ms_pkt_p->mschapv2_id,
+			     data_length);
+	}
+	break;
     }
+
  done:
-    return (TRUE);
+    *packet_is_valid = valid;
+    return (str);
 }
 
 static EAPType 
@@ -1197,7 +1329,8 @@ static struct func_table_ent {
     { kEAPClientPluginFuncNameServerKey, eapmschapv2_server_key },
     { kEAPClientPluginFuncNameRequireProperties, eapmschapv2_require_props },
     { kEAPClientPluginFuncNamePublishProperties, eapmschapv2_publish_props },
-    { kEAPClientPluginFuncNamePacketDump, eapmschapv2_packet_dump },
+    { kEAPClientPluginFuncNameCopyPacketDescription,
+      eapmschapv2_copy_packet_description },
     { NULL, NULL},
 };
 

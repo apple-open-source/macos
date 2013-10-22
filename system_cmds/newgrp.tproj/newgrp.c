@@ -41,6 +41,9 @@ __FBSDID("$FreeBSD: src/usr.bin/newgrp/newgrp.c,v 1.5 2009/12/13 03:14:06 delphi
 #ifndef __APPLE__
 #include <login_cap.h>
 #endif /* !__APPLE__ */
+#ifdef __APPLE__
+#include <membership.h>
+#endif /* __APPLE__ */
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>

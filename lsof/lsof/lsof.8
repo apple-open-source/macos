@@ -1,4 +1,4 @@
-.ds VN 4.85
+.ds VN 4.87
 .TH LSOF 8 Revision-\*(VN
 .if !\n()P .nr )P 1v
 .SH NAME
@@ -66,10 +66,9 @@ revision \*(VN lists on its standard output file information about files
 opened by processes for the following UNIX dialects:
 .PP
 .nf
-	AIX 5.3
-	Apple Darwin 9 and Mac OS X 10.[56]
+	Apple Darwin 9 and Mac OS X 10.[567]
 	FreeBSD 4.9 and 6.4 for x86-based systems
-	FreeBSD 8.[02] and 9.0 for AMD64-based systems
+	FreeBSD 8.2, 9.0 and 10.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	Solaris 9, 10 and 11
 .fi
@@ -965,25 +964,28 @@ Here are some sample addresses:
 .fi
 .TP \w'names'u+4
 .B \-K
-selects the listing of tasks of processes, on dialects
-where task reporting is supported.
+selects the listing of tasks (threads) of processes, on dialects
+where task (thread) reporting is supported.
 (If help output \- i.e., the output of the
 .B \-h
 or
 .B \-?
-options \- shows this option, then task reporting is supported by
-the dialect.)
+options \- shows this option, then task (thread) reporting is
+supported by the dialect.)
 .IP
 When
 .B \-K
 and
 .B \-a
-are both specified and the tasks of a main process are selected
-by other options, the main process will also be listed as though
-it were a task, but without a task ID.
+are both specified on Linux, and the tasks of a main process are
+selected by other options, the main process will also be listed
+as though it were a task, but without a task ID.
 (See the description of the TID column in the
 .B OUTPUT
 section.)
+.IP
+Where the FreeBSD version supports threads, all threads will be
+listed with their IDs.
 .TP \w'names'u+4
 .BI \-k " k"
 specifies a kernel name list file,
@@ -2257,16 +2259,17 @@ PID
 is the Process IDentification number of the process.
 .TP
 TID
-is the task IDentification number, if a task reporting is supported
-by the dialect and a task is being listed.
+is the task (thread) IDentification number, if task (thread)
+reporting is supported by the dialect and a task (thread) is
+being listed.
 (If help output \- i.e., the output of the
 .B \-h
 or
 .B \-?
-options \- shows this option, then task reporting is supported by
-the dialect.)
+options \- shows this option, then task (thread) reporting is
+supported by the dialect.)
 .IP
-A blank TID column indicates a process \- i.e., a non\-task.
+A blank TID column in Linux indicates a process \- i.e., a non\-task.
 .TP
 ZONE
 is the Solaris 10 and higher zone name.
@@ -2981,7 +2984,10 @@ by the transmit and receive queue sizes, and the connection state;
 or ``dgram'' or ``stream'' for the type UnixWare 7.1.1 and above in\-kernel
 UNIX domain sockets, followed by a colon (':') and the local path name
 when available, followed by ``->'' and the remote path name or kernel
-socket address in hexadecimal when available.
+socket address in hexadecimal when available;
+.IP
+or the association value, association index, endpoint value, local address,
+local port, remote address and remote port for Linux SCTP sockets.
 .PP
 For dialects that support a ``namefs'' file system, allowing one
 file to be attached to another with
@@ -3065,8 +3071,8 @@ process IDentifier (PID)).
 It extends to the beginning of the next PID field or the beginning
 of the first file set of the process, whichever comes first.
 Included in the process set are fields that identify the command,
-the process group IDentification (PGID) number, the task number and
-the user ID (UID) number or login name.
+the process group IDentification (PGID) number, the task (thread)
+ID (TID), and the user ID (UID) number or login name.
 .PP
 A file set begins with a field whose identifier is `f' (for
 file descriptor).

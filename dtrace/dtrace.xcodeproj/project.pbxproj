@@ -18,7 +18,6 @@
 				D21C2E110A2E9012002F65B9 /* PBXTargetDependency */,
 				D21C2E130A2E9012002F65B9 /* PBXTargetDependency */,
 				D22922CA0B61825E001DEA67 /* PBXTargetDependency */,
-				18B54B8F0AF6788E00509A71 /* PBXTargetDependency */,
 				7E7728700BB18F3D00D4EAEA /* PBXTargetDependency */,
 				183C01F10F80BB0A0061FD4F /* PBXTargetDependency */,
 			);
@@ -42,8 +41,6 @@
 
 /* Begin PBXBuildFile section */
 		180BCA2D0F4FF4FA00889012 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 180BCA2C0F4FF4FA00889012 /* CoreSymbolication.framework */; };
-		181A8E5210978F8000C15D65 /* ip.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 181A8E4410978E6800C15D65 /* ip.d */; };
-		181A8E5310978F8000C15D65 /* tcp.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 181A8E4510978E6800C15D65 /* tcp.d */; };
 		181DA75F151ED48300E0103B /* libctf.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EBC9760099BFB2C0001019C /* libctf.a */; };
 		181DA760151ED48C00E0103B /* libelf.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EBC977E099BFB670001019C /* libelf.a */; };
 		181DA761151ED49100E0103B /* libdwarf.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D2DF085D0A683FE100384A72 /* libdwarf.a */; };
@@ -56,10 +53,6 @@
 		1864EB1D11473DCC00EE2C49 /* dt_module_apple.c in Sources */ = {isa = PBXBuildFile; fileRef = 1864EB1C11473DCC00EE2C49 /* dt_module_apple.c */; };
 		1880D2970B49348A00A50B29 /* dt_ld.h in Headers */ = {isa = PBXBuildFile; fileRef = 1880D2950B49348A00A50B29 /* dt_ld.h */; };
 		1880D2980B49348A00A50B29 /* dt_ld.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1880D2960B49348A00A50B29 /* dt_ld.cpp */; };
-		1892F8910A111CF9004957F8 /* errno.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6EBC9887099D415F0001019C /* errno.d */; };
-		1892F8920A111CFE004957F8 /* regs.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6EBC988A099D415F0001019C /* regs.d */; };
-		1892F8930A111D02004957F8 /* signal.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6EBC988C099D415F0001019C /* signal.d */; };
-		1892F8940A111D05004957F8 /* unistd.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6EBC988D099D415F0001019C /* unistd.d */; };
 		18A210340AE44A230040C3CB /* dt_pid_apple.c in Sources */ = {isa = PBXBuildFile; fileRef = 185F562A0A4230FC0025BAD6 /* dt_pid_apple.c */; };
 		18C94FCB0ADB7248007AA893 /* libproc.c in Sources */ = {isa = PBXBuildFile; fileRef = 182033630ADB335300E67753 /* libproc.c */; };
 		18D79D9F0B2E60FC005BEE83 /* dt_isadep_x86.c in Sources */ = {isa = PBXBuildFile; fileRef = 18D79D9D0B2E60FC005BEE83 /* dt_isadep_x86.c */; };
@@ -365,7 +358,6 @@
 		D260E5F909D2529800F650C0 /* st_bugs.c in Sources */ = {isa = PBXBuildFile; fileRef = D2E5F04F09D0DC430035AE2D /* st_bugs.c */; };
 		D26C8C390BA6558D00179352 /* dt_proc_apple.c in Sources */ = {isa = PBXBuildFile; fileRef = D26C8C380BA6558D00179352 /* dt_proc_apple.c */; };
 		D26C8C4B0BA657D800179352 /* libproc_apple.h in Headers */ = {isa = PBXBuildFile; fileRef = D26C8C4A0BA657D800179352 /* libproc_apple.h */; };
-		D27D5FAF0BE91AF5009744A3 /* sched.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6EBC988B099D415F0001019C /* sched.d */; };
 		D28EF8420B73FB8200C7A3AE /* cpuwalk_example.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D28EF8210B73FB8200C7A3AE /* cpuwalk_example.txt */; };
 		D28EF8430B73FB8200C7A3AE /* creatbyproc_example.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D28EF8220B73FB8200C7A3AE /* creatbyproc_example.txt */; };
 		D28EF8440B73FB8200C7A3AE /* dappprof_example.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D28EF8230B73FB8200C7A3AE /* dappprof_example.txt */; };
@@ -409,7 +401,6 @@
 		D2984F080C20CB3300146D06 /* iopending_example.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2984F050C20CB1900146D06 /* iopending_example.txt */; };
 		D2984F090C20CB3300146D06 /* iosnoop_example.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2984F060C20CB1900146D06 /* iosnoop_example.txt */; };
 		D2984F0A0C20CB3300146D06 /* iotop_example.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2984F070C20CB1900146D06 /* iotop_example.txt */; };
-		D2A030250BCD6083008210FF /* io.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6EBC9888099D415F0001019C /* io.d */; };
 		D2D3BC7F0AAF7164001CC470 /* _libelf.h in Headers */ = {isa = PBXBuildFile; fileRef = D2D3BC7E0AAF7164001CC470 /* _libelf.h */; };
 		D2D3BC820AAF720C001CC470 /* getphnum.c in Sources */ = {isa = PBXBuildFile; fileRef = D2D3BC810AAF720B001CC470 /* getphnum.c */; };
 		D2DF08740A6840BC00384A72 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = D2DF08610A6840BC00384A72 /* config.h */; };
@@ -501,7 +492,6 @@
 		D2DF090F0A68416900384A72 /* pro_vars.c in Sources */ = {isa = PBXBuildFile; fileRef = D2DF08E90A68416900384A72 /* pro_vars.c */; };
 		D2DF09100A68416900384A72 /* pro_weaks.c in Sources */ = {isa = PBXBuildFile; fileRef = D2DF08EA0A68416900384A72 /* pro_weaks.c */; };
 		D2DF09120A68419D00384A72 /* dwarf_addr_finder.h in Headers */ = {isa = PBXBuildFile; fileRef = D2DF09110A68419D00384A72 /* dwarf_addr_finder.h */; };
-		D2E1A17A0A9419B900196E8C /* darwin.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2E1A1790A9419B900196E8C /* darwin.d */; };
 		D2E5F05E09D0DC430035AE2D /* ctfconvert.c in Sources */ = {isa = PBXBuildFile; fileRef = D2E5F04209D0DC430035AE2D /* ctfconvert.c */; };
 		D2FAD5970BCC596200EDD5A2 /* dtrace.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2FAD5950BCC593A00EDD5A2 /* dtrace.plist */; };
 		D2FAD59F0BCC599D00EDD5A2 /* dtrace.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2FAD5960BCC593A00EDD5A2 /* dtrace.txt */; };
@@ -528,13 +518,6 @@
 			containerPortal = 18B54B660AF6772C00509A71 /* dtrace_dof.xcodeproj */;
 			proxyType = 2;
 			remoteGlobalIDString = 32D94FD00562CBF700B6AF17;
-			remoteInfo = dtrace_dof;
-		};
-		18B54B8E0AF6788E00509A71 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 18B54B660AF6772C00509A71 /* dtrace_dof.xcodeproj */;
-			proxyType = 1;
-			remoteGlobalIDString = 32D94FC30562CBF700B6AF17;
 			remoteInfo = dtrace_dof;
 		};
 		6EBC987E099D3F770001019C /* PBXContainerItemProxy */ = {
@@ -654,16 +637,7 @@
 			dstPath = /usr/lib/dtrace/;
 			dstSubfolderSpec = 0;
 			files = (
-				181A8E5210978F8000C15D65 /* ip.d in CopyFiles */,
-				181A8E5310978F8000C15D65 /* tcp.d in CopyFiles */,
 				E1A86B1B0EB7978B00E30655 /* coreprofile.d in CopyFiles */,
-				D2E1A17A0A9419B900196E8C /* darwin.d in CopyFiles */,
-				1892F8910A111CF9004957F8 /* errno.d in CopyFiles */,
-				D2A030250BCD6083008210FF /* io.d in CopyFiles */,
-				1892F8920A111CFE004957F8 /* regs.d in CopyFiles */,
-				D27D5FAF0BE91AF5009744A3 /* sched.d in CopyFiles */,
-				1892F8930A111D02004957F8 /* signal.d in CopyFiles */,
-				1892F8940A111D05004957F8 /* unistd.d in CopyFiles */,
 				7EF9CBDC0B94F7FA007FDEDC /* dt_cpp.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -861,8 +835,6 @@
 
 /* Begin PBXFileReference section */
 		180BCA2C0F4FF4FA00889012 /* CoreSymbolication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSymbolication.framework; path = /System/Library/PrivateFrameworks/CoreSymbolication.framework; sourceTree = "<absolute>"; };
-		181A8E4410978E6800C15D65 /* ip.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = ip.d; path = scripts/ip.d; sourceTree = "<group>"; };
-		181A8E4510978E6800C15D65 /* tcp.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tcp.d; path = scripts/tcp.d; sourceTree = "<group>"; };
 		182033630ADB335300E67753 /* libproc.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = libproc.c; path = libproc/libproc.c; sourceTree = "<group>"; };
 		1824E64B0A9ACFF400F794DD /* dis_tables.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dis_tables.c; path = disassembler/dis_tables.c; sourceTree = "<group>"; };
 		1824E6560A9AD08100F794DD /* dis_tables.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dis_tables.h; path = sys/dis_tables.h; sourceTree = "<group>"; };
@@ -1029,13 +1001,7 @@
 		6EBC982A099BFBBF0001019C /* dt_xlator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dt_xlator.h; path = libdtrace/dt_xlator.h; sourceTree = "<group>"; };
 		6EBC982B099BFBBF0001019C /* mkerrtags.sh */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = mkerrtags.sh; path = libdtrace/mkerrtags.sh; sourceTree = "<group>"; };
 		6EBC982C099BFBBF0001019C /* mknames.sh */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = mknames.sh; path = libdtrace/mknames.sh; sourceTree = "<group>"; };
-		6EBC9887099D415F0001019C /* errno.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = errno.d; path = scripts/errno.d; sourceTree = "<group>"; };
-		6EBC9888099D415F0001019C /* io.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = io.d; path = scripts/io.d; sourceTree = "<group>"; };
 		6EBC9889099D415F0001019C /* procfs.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = procfs.d; path = scripts/procfs.d; sourceTree = "<group>"; };
-		6EBC988A099D415F0001019C /* regs.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = regs.d; path = scripts/regs.d; sourceTree = "<group>"; };
-		6EBC988B099D415F0001019C /* sched.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sched.d; path = scripts/sched.d; sourceTree = "<group>"; };
-		6EBC988C099D415F0001019C /* signal.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = signal.d; path = scripts/signal.d; sourceTree = "<group>"; };
-		6EBC988D099D415F0001019C /* unistd.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = unistd.d; path = scripts/unistd.d; sourceTree = "<group>"; };
 		7ED3A2CF0C5016F20076905C /* plockstat.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = plockstat.1; sourceTree = "<group>"; };
 		7EE82F960BB092D30037B667 /* plockstat.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = plockstat.c; path = plockstat/plockstat.c; sourceTree = "<group>"; };
 		7EE82FBA0BB094BF0037B667 /* plockstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = plockstat; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1260,7 +1226,6 @@
 		D2DF08E90A68416900384A72 /* pro_vars.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pro_vars.c; path = libdwarf/pro_vars.c; sourceTree = "<group>"; };
 		D2DF08EA0A68416900384A72 /* pro_weaks.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pro_weaks.c; path = libdwarf/pro_weaks.c; sourceTree = "<group>"; };
 		D2DF09110A68419D00384A72 /* dwarf_addr_finder.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dwarf_addr_finder.h; path = libdwarf/cmplrs/dwarf_addr_finder.h; sourceTree = "<group>"; };
-		D2E1A1790A9419B900196E8C /* darwin.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = darwin.d; path = scripts/darwin.d; sourceTree = "<group>"; };
 		D2E5F03309D0DB2B0035AE2D /* ctfconvert */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ctfconvert; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2E5F03C09D0DC430035AE2D /* alist.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = alist.c; path = tools/ctfconvert/alist.c; sourceTree = "<group>"; };
 		D2E5F03D09D0DC430035AE2D /* alist.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = alist.h; path = tools/ctfconvert/alist.h; sourceTree = "<group>"; };
@@ -1683,18 +1648,9 @@
 		6EBC9886099D41360001019C /* scripts */ = {
 			isa = PBXGroup;
 			children = (
-				181A8E4410978E6800C15D65 /* ip.d */,
-				181A8E4510978E6800C15D65 /* tcp.d */,
 				7EF9CBD90B94F7AB007FDEDC /* dt_cpp.h */,
 				E1A86B1A0EB7978B00E30655 /* coreprofile.d */,
-				D2E1A1790A9419B900196E8C /* darwin.d */,
-				6EBC9887099D415F0001019C /* errno.d */,
-				6EBC9888099D415F0001019C /* io.d */,
 				6EBC9889099D415F0001019C /* procfs.d */,
-				6EBC988A099D415F0001019C /* regs.d */,
-				6EBC988B099D415F0001019C /* sched.d */,
-				6EBC988C099D415F0001019C /* signal.d */,
-				6EBC988D099D415F0001019C /* unistd.d */,
 			);
 			name = scripts;
 			sourceTree = "<group>";
@@ -2459,7 +2415,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "mv $DSTROOT/usr/lib/dtrace/regs.d $DSTROOT/usr/lib/dtrace/regs_x86_64.d";
+			shellScript = "";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -2766,11 +2722,6 @@
 			target = 183C01C70F80B95C0061FD4F /* dtrace_dyld */;
 			targetProxy = 183C01F00F80BB0A0061FD4F /* PBXContainerItemProxy */;
 		};
-		18B54B8F0AF6788E00509A71 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = dtrace_dof;
-			targetProxy = 18B54B8E0AF6788E00509A71 /* PBXContainerItemProxy */;
-		};
 		6EBC987F099D3F770001019C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 6EBC97ED099BFB9E0001019C /* libdtrace.so */;
@@ -2880,7 +2831,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 96;
+				CURRENT_PROJECT_VERSION = 118;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -2910,7 +2861,7 @@
 		1DEB928708733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 96;
+				CURRENT_PROJECT_VERSION = 118;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -2938,6 +2889,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_VERSION = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -2951,6 +2904,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_VERSION = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -2983,6 +2938,7 @@
 				PRODUCT_NAME = ctf;
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Debug;
@@ -3005,6 +2961,7 @@
 				PRODUCT_NAME = ctf;
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Release;
@@ -3026,6 +2983,7 @@
 				PRODUCT_NAME = elf;
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Debug;
@@ -3047,6 +3005,7 @@
 				PRODUCT_NAME = elf;
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				VALID_ARCHS = "x86_64 i386";
 			};
 			name = Release;
@@ -3056,7 +3015,7 @@
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 2;
-				DYLIB_CURRENT_VERSION = 96;
+				DYLIB_CURRENT_VERSION = 118;
 				EXPORTED_SYMBOLS_FILE = libdtrace/exports;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3088,7 +3047,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 96;
+				DYLIB_CURRENT_VERSION = 118;
 				EXPORTED_SYMBOLS_FILE = libdtrace/exports;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3120,7 +3079,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 96;
+				CURRENT_PROJECT_VERSION = 118;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -3150,7 +3109,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CURRENT_PROJECT_VERSION = 96;
+				CURRENT_PROJECT_VERSION = 118;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -3345,6 +3304,7 @@
 				PRODUCT_NAME = dwarf;
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				VALID_ARCHS = "x86_64 i386";
 				ZERO_LINK = YES;
 			};
@@ -3361,6 +3321,7 @@
 				PRODUCT_NAME = dwarf;
 				SEPARATE_STRIP = NO;
 				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
 				VALID_ARCHS = "x86_64 i386";
 				ZERO_LINK = NO;
 			};

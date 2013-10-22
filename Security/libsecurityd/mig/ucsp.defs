@@ -109,7 +109,6 @@ routine lockAll(UCSP_PORTS; in forSleep: boolean_t);
 routine unlockDb(UCSP_PORTS; in db: IPCDbHandle);
 routine unlockDbWithPassphrase(UCSP_PORTS; in db: IPCDbHandle; in passPhrase: Data);
 routine isLocked(UCSP_PORTS; in db: IPCDbHandle; out locked: boolean_t);
-
 	
 //
 // Key management
@@ -329,3 +328,11 @@ routine verifyPrivileged(UCSP_PORTS);
 // The original verifyPrivileged is subject to a Mach service in the middle attack (6986198).
 //
 routine verifyPrivileged2(UCSP_PORTS; out originPort: mach_port_make_send_t);
+
+// Internal Database call additions
+routine stashDb(UCSP_PORTS; in db: IPCDbHandle);
+routine stashDbCheck(UCSP_PORTS; in db: IPCDbHandle);
+
+routine verifyKeyStorePassphrase(UCSP_PORTS; in retries: uint32_t);
+routine resetKeyStorePassphrase(UCSP_PORTS; in passPhrase: Data);
+routine changeKeyStorePassphrase(UCSP_PORTS);

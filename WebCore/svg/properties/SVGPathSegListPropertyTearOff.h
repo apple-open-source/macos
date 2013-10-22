@@ -57,7 +57,7 @@ public:
     void removeItemFromList(size_t itemIndex, bool shouldSynchronizeWrappers)
     {
         ASSERT(m_values);
-        ASSERT(itemIndex < m_values->size());
+        ASSERT_WITH_SECURITY_IMPLICATION(itemIndex < m_values->size());
 
         m_values->remove(itemIndex);
 
@@ -125,10 +125,25 @@ private:
 
     using Base::m_role;
 
+    virtual bool isReadOnly() const
+    {
+        if (m_role == AnimValRole)
+            return true;
+        if (m_animatedProperty && m_animatedProperty->isReadOnly())
+            return true;
+        return false;
+    }
+
     virtual void commitChange()
     {
         ASSERT(m_values);
-        m_values->commitChange(m_animatedProperty->contextElement());
+        m_values->commitChange(m_animatedProperty->contextElement(), ListModificationUnknown);
+    }
+
+    virtual void commitChange(ListModification listModification)
+    {
+        ASSERT(m_values);
+        m_values->commitChange(m_animatedProperty->contextElement(), listModification);
     }
 
     virtual bool processIncomingListItemValue(const ListItemType& newItem, unsigned* indexToModify) OVERRIDE;

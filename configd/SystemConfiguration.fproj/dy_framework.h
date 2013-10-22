@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008, 2010-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -204,6 +204,15 @@ CFTypeRef _kSecMatchSearchList();
 CFTypeRef _kSecReturnRef();
 #define kSecReturnRef _kSecReturnRef()
 
+CFTypeRef _kSecGuestAttributePid();
+#define kSecGuestAttributePid _kSecGuestAttributePid()
+
+CFTypeRef _kSecCodeInfoIdentifier();
+#define kSecCodeInfoIdentifier _kSecCodeInfoIdentifier()
+
+CFTypeRef _kSecCodeInfoUnique();
+#define kSecCodeInfoUnique _kSecCodeInfoUnique()
+
 OSStatus
 _AuthorizationMakeExternalForm		(
 					AuthorizationRef		authorization,
@@ -354,6 +363,8 @@ _SecCertificateCreateWithData		(
 					CFDataRef			data
 					);
 #define SecCertificateCreateWithData _SecCertificateCreateWithData
+
+
 
 __END_DECLS
 

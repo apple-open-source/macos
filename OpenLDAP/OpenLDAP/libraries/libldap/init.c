@@ -191,7 +191,7 @@ void _unlock_init(void)
 	if (unlock_me == 1) pthread_mutex_unlock(&_init_lock_main_);
 }
 
-pthread_once_t ldap_global_opts_initialized = PTHREAD_ONCE_INIT;
+dispatch_once_t ldap_global_opts_initialized = 0;
 void ldap_int_init_global_opts(void)
 {
 	struct ldapoptions	*gopts;

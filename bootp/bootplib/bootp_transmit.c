@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2000, 2010-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2000, 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,14 +49,11 @@
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
-#include <syslog.h>
+#include "IPConfigurationLog.h"
 
 #include "bootp_transmit.h"
 #include "bpflib.h"
 #include "in_cksum.h"
-
-extern void
-my_log(int priority, const char *message, ...);
 
 typedef struct {
     struct ip 		ip;
@@ -80,20 +77,20 @@ get_bpf_fd(const char * if_name)
     bpf_fd = bpf_new();
     if (bpf_fd < 0) {
 	/* BPF transmit unavailable */
-	my_log(LOG_ERR, "Transmitter: bpf_fd() failed, %s (%d)",
-	       strerror(errno), errno);
+	IPConfigLog(LOG_ERR, "Transmitter: bpf_fd() failed, %s (%d)",
+		    strerror(errno), errno);
     }
     else if (bpf_filter_receive_none(bpf_fd) < 0) {
-	my_log(LOG_ERR,  "Transmitter: failed to set filter, %s (%d)",
-	       strerror(errno), errno);
+	IPConfigLog(LOG_ERR,  "Transmitter: failed to set filter, %s (%d)",
+		    strerror(errno), errno);
 	bpf_dispose(bpf_fd);
 	bpf_fd = -1;
     }
     else if (bpf_setif(bpf_fd, if_name) < 0) {
 	if (errno != ENXIO) {
-	    my_log(LOG_ERR, "Transmitter: bpf_setif(%s) failed: %s (%d)",
-		   if_name,
-		   strerror(errno), errno);
+	    IPConfigLog(LOG_ERR, "Transmitter: bpf_setif(%s) failed: %s (%d)",
+			if_name,
+			strerror(errno), errno);
 	}
 	bpf_dispose(bpf_fd);
 	bpf_fd = -1;
@@ -211,9 +208,9 @@ bootp_transmit(int sockfd, void * sendbuf,
 	    
 	    status = bpf_write(bpf_fd, sendbuf, frame_length);
 	    if (status < 0) {
-		my_log(LOG_ERR, 
-		       "bootp_session_transmit: bpf_write(%s) failed: %s (%d)",
-		       if_name, strerror(errno), errno);
+		IPConfigLogFL(LOG_ERR, 
+			      "bpf_write(%s) failed: %s (%d)",
+			      if_name, strerror(errno), errno);
 	    }
 	}
     }
@@ -234,8 +231,7 @@ bootp_transmit(int sockfd, void * sendbuf,
 
     }
     else {
-	my_log(LOG_ERR, 
-	       "bootp_session_transmit: neither bpf nor socket send available");
+	IPConfigLogFL(LOG_ERR, "neither bpf nor socket send available");
     }
 
     if (bpf_fd >= 0) {

@@ -369,7 +369,7 @@ static inline UInt64 getDebugFlagsTable(OSDictionary *props)
 #define IOLogCond(cond, args...) do { if (cond) kprintf(args); } while (0)
 
 #define SAFE_PORTRELEASE(provider) do {			\
-    if (fAcquired)					\
+    if (fAcquired && provider)					\
     	{ provider->releasePort(); fAcquired = false; }	\
 } while (0)
 
@@ -533,7 +533,12 @@ registerTTY(dev_t dev, IOSerialBSDClient *client)
 IOSerialBSDClient *IOSerialBSDClientGlobals::getClient(dev_t dev)
 {
     //debug(MULTI,"begin");
-    return fClients[TTY_UNIT(dev)];
+    unsigned int i = TTY_UNIT(dev);
+    assert(i < LastMinor);
+    if (i < fLastMinor) {
+        return fClients[TTY_UNIT(dev)];
+    }
+    return NULL;
 }
 
 const OSSymbol *IOSerialBSDClientGlobals::
@@ -2469,7 +2474,7 @@ void
 IOSerialBSDClient::convertFlowCtrl(Session *sp, struct termios *t)
 {
     IOReturn rtn;
-    UInt32 flowCtrl;
+    UInt32 flowCtrl = 0;
 #if JLOG	
 	kprintf("IOSerialBSDClient::convertFlowCtrl\n");
 #endif
@@ -2813,7 +2818,7 @@ rxFunc()
 #endif
 
     IOLockLock(fThreadLock);
-    frxThread = NULL;
+    frxThread = THREAD_NULL;
     IOLockWakeup(fThreadLock, &frxThread, true);	// wakeup the thread killer
 	debug(FLOW, "fisCallout is: %d, fwantCallout is: %d, fisBlueTooth is: %d", fisCallout, fwantCallout, fisBlueTooth);
 	debug(FLOW, "fPreemptAllowed is: %d", fPreemptAllowed);
@@ -3080,7 +3085,7 @@ txFunc()
 	tty_unlock(tp);
 
     IOLockLock(fThreadLock);
-    ftxThread = NULL;
+    ftxThread = THREAD_NULL;
     IOLockWakeup(fThreadLock, &ftxThread, true);	// wakeup the thread killer
 	debug(FLOW, "fisCallout is: %d, fwantCallout is: %d, fisBlueTooth is: %d", fisCallout, fwantCallout, fisBlueTooth);
 	debug(FLOW, "fPreemptAllowed is: %d", fPreemptAllowed);
@@ -3151,7 +3156,7 @@ launchThreads()
 
     IOLockLock(fThreadLock);
 
-    ftxThread = frxThread = 0;
+    ftxThread = frxThread = THREAD_NULL;
 
     // Now launch the receive and transmitter threads
 #if JLOG	

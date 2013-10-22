@@ -4222,16 +4222,18 @@ decode_prompt_string (string)
 		      {
 			t = strrchr (t_string, '/');
 			if (t)
-			  strcpy (t_string, t + 1);
+			  memmove (t_string, t + 1, strlen(t));
 		      }
 		  }
 #undef ROOT_PATH
 #undef DOUBLE_SLASH_ROOT
-		else
+		else {
 		  /* polite_directory_format is guaranteed to return a string
 		     no longer than PATH_MAX - 1 characters. */
-		  strcpy (t_string, polite_directory_format (t_string));
-
+		  char *s = polite_directory_format (t_string);
+		  if (s != t_string)
+		    strcpy (t_string, s);
+                }
 		/* If we're going to be expanding the prompt string later,
 		   quote the directory name. */
 		if (promptvars || posixly_correct)

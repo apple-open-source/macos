@@ -26,9 +26,15 @@
 
 #ifndef HAVE_ARC4RANDOM
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-rand.h"
+#include "ossl-rc4.h"
+#include "ossl-err.h"
+#else
 #include <openssl/rand.h>
 #include <openssl/rc4.h>
 #include <openssl/err.h>
+#endif
 
 /* Size of key to use */
 #define SEED_SIZE 20

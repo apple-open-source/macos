@@ -1,0 +1,11 @@
+--- src/roff/troff/node.cpp.orig	2013-02-27 16:47:58.000000000 -0800
++++ src/roff/troff/node.cpp	2013-02-27 16:48:05.000000000 -0800
+@@ -4935,7 +4935,7 @@
+   case charinfo::TRANSLATE_DUMMY:
+     return new dummy_node;
+   case charinfo::TRANSLATE_HYPHEN_INDICATOR:
+-    error("translation to \\% ignored in this context");
++    error("translation to \\%% ignored in this context");
+     break;
+   }
+   charinfo *tem = ci->get_translation();

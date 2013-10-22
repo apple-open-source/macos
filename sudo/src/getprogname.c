@@ -18,11 +18,14 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
+#include <config.h>
+
+#include <sys/types.h>
+
 #include <stdio.h>
 #include <string.h>
 
-#include <config.h>
-#include <compat.h>
+#include "missing.h"
 
 const char *
 getprogname()
@@ -39,5 +42,5 @@ getprogname()
 	else
 	    progname = Argv[0];
     }
-    return(progname);
+    return progname;
 }

@@ -14,7 +14,7 @@ Install_Target  = install
 
 install-strip:
 	$(CP) $(DSTROOT)/usr/lib/libhunspell-1.2.0.0.0.dylib $(SYMROOT)/libhunspell-1.2.0.0.0.dylib
-	/usr/bin/dsymutil -o $(SYMROOT)/libhunspell-1.2.0.0.0.dSYM $(SYMROOT)/libhunspell-1.2.0.0.0.dylib
+	xcrun dsymutil -o $(SYMROOT)/libhunspell-1.2.0.0.0.dSYM $(SYMROOT)/libhunspell-1.2.0.0.0.dylib
 	$(STRIP) -S $(DSTROOT)/usr/lib/libhunspell-1.2.dylib
 
 move-files:

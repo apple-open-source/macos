@@ -122,7 +122,7 @@ CFDataRef createMkext1ForArch(const NXArchInfo * arch, CFArrayRef archiveKexts,
 
     context.mkext = result;
     context.kextIndex = 0;
-    context.compressOffset = CFDataGetLength(result);
+    context.compressOffset = (uint32_t)CFDataGetLength(result);
     context.arch = arch;
     context.fatal = false;
     context.compress = compress;
@@ -145,7 +145,7 @@ CFDataRef createMkext1ForArch(const NXArchInfo * arch, CFArrayRef archiveKexts,
     adler_point = (UInt8 *)&mkextHeader->version;
     mkextHeader->adler32 = OSSwapHostToBigInt32(local_adler32(
         (UInt8 *)&mkextHeader->version,
-        CFDataGetLength(result) - (adler_point - (uint8_t *)mkextHeader)));
+        (int)(CFDataGetLength(result) - (adler_point - (uint8_t *)mkextHeader))));
 
     OSKextLog(/* kext */ NULL, kOSKextLogProgressLevel | kOSKextLogArchiveFlag,
         "Created mkext for %s containing %lu kexts.",
@@ -166,11 +166,11 @@ void addToMkext1(
 {
     OSKextRef       aKext            = (OSKextRef)vValue;
     Mkext1Context * context          = (Mkext1Context *)vContext;
+    
     CFBundleRef     kextBundle       = NULL;  // must release
     CFURLRef        infoDictURL      = NULL;  // must release
     CFDataRef       rawInfoDict      = NULL;  // must release
     CFDataRef       executable       = NULL;  // must release
-    SInt32          error;
     char            kextPath[PATH_MAX];
 
     if (context->fatal) {
@@ -208,14 +208,25 @@ void addToMkext1(
         goto finish;
     }
     
-    if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
-        infoDictURL, &rawInfoDict, /* properties */ NULL,
-        /* desiredProperties */ NULL, &error)) {
+    /* create and fill infoDictPath 
+     */
+    char            infoDictPath[PATH_MAX];
+    
+    if (!CFURLGetFileSystemRepresentation(infoDictURL,
+                                          true,
+                                          (uint8_t *)infoDictPath,
+                                          sizeof(infoDictPath))) {
+        OSKextLogStringError(/* kext */ NULL);
+        context->fatal = true;
+        goto finish;
+    }
 
-        OSKextLog(aKext,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Can't read info dict of %s - CFError %d.",
-            kextPath, (int)error);
+    if (!createCFDataFromFile(&rawInfoDict,
+                              infoDictPath)) {
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "%s: Can't read info dictoionary file '%s'",
+                  __func__, infoDictPath);
         context->fatal = true;
         goto finish;
     }
@@ -282,7 +293,7 @@ Boolean addDataToMkext(
     * If the file can't be compressed, we'll just copy it in; if it can
     * be compressed, we'll set the mkext buffer length to fit exactly.
     */
-    addedDataFullLength = CFDataGetLength(data);
+    addedDataFullLength = (uint32_t)CFDataGetLength(data);
     newMkextLength = CFDataGetLength(context->mkext) + addedDataFullLength;
     CFDataSetLength(context->mkext, newMkextLength);
     if (CFDataGetLength(context->mkext) != newMkextLength) {
@@ -317,7 +328,7 @@ Boolean addDataToMkext(
     } else {
         size_t checkLength;
 
-        compressedLength = addedDataEnd - addedDataStart;
+        compressedLength = (uint32_t)(addedDataEnd - addedDataStart);
         context->compressOffset += compressedLength;
 
         checkBuffer = (uint8_t *)malloc(addedDataFullLength);

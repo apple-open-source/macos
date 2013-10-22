@@ -1,0 +1,46 @@
+{
+   "abstract" : "OpenSSL support for LWP",
+   "author" : [
+      "A. Sinan Unur <nanis@cpan.org>",
+      "David Landgren",
+      "Joshua Chamas",
+      "Gisle Aas"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.120921",
+   "license" : [
+      "artistic_2"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Crypt-SSLeay",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "inc"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Test::More" : "0.88",
+            "Try::Tiny" : "0.09"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "0"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "LWP::Protocol::https" : "6.02",
+            "MIME::Base64" : "0"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "version" : "0.64"
+}

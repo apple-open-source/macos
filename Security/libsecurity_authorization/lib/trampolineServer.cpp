@@ -28,7 +28,7 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <Security/Authorization.h>
-
+#include <Security/SecBase.h>
 
 //
 // In a tool launched via AuthorizationCopyPrivilegedReference, retrieve a copy
@@ -64,5 +64,5 @@ OSStatus AuthorizationCopyPrivilegedReference(AuthorizationRef *authorization,
 
 	// well, here you go
 	*authorization = auth;
-	return noErr;
+	return errSecSuccess;
 }

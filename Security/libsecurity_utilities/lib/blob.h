@@ -62,7 +62,7 @@ public:
 	size_t length() const { return mLength; }
 	
 	void initialize(Magic magic, size_t length = 0)
-	{ mMagic = magic; mLength = length; }
+	{ mMagic = magic; mLength = (uint32_t)length; }
 	
 	bool validateBlob(Magic magic, size_t minSize = 0, size_t maxSize = 0) const;
 
@@ -87,7 +87,7 @@ public:
 
 	void *data()						{ return this; }
 	const void *data() const			{ return this; }
-	void length(size_t size)			{ mLength = size; }
+	void length(size_t size)			{ mLength = (uint32_t)size; }
 
 	BlobCore *clone() const
 	{
@@ -149,7 +149,7 @@ public:
 	{ return BlobCore::validateBlob(_magic, sizeof(BlobType)); }
 	
 	bool validateBlob(size_t extLength) const
-	{ return validateBlob() && mLength == extLength; }
+	{ return extLength >= sizeof(BlobType) && validateBlob() && mLength == extLength; }
 	
 	static BlobType *specific(BlobCore *blob, bool unalloc = false)
 	{

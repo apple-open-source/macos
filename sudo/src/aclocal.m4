@@ -1,6 +1,6 @@
 dnl Local m4 macros for autoconf (used by sudo)
 dnl
-dnl Copyright (c) 1994-1996, 1998-2005, 2007-2009
+dnl Copyright (c) 1994-1996, 1998-2005, 2007-2011
 dnl	Todd C. Miller <Todd.Miller@courtesan.com>
 dnl
 dnl XXX - should cache values in all cases!!!
@@ -10,7 +10,7 @@ dnl checks for programs
 dnl
 dnl check for sendmail in well-known locations
 dnl
-AC_DEFUN(SUDO_PROG_SENDMAIL, [AC_MSG_CHECKING([for sendmail])
+AC_DEFUN([SUDO_PROG_SENDMAIL], [AC_MSG_CHECKING([for sendmail])
 found=no
 for p in "/usr/sbin/sendmail" "/usr/lib/sendmail" "/usr/etc/sendmail" "/usr/ucblib/sendmail" "/usr/local/lib/sendmail" "/usr/local/bin/sendmail"; do
     if test -f "$p"; then
@@ -28,7 +28,7 @@ fi
 dnl
 dnl check for vi in well-known locations
 dnl
-AC_DEFUN(SUDO_PROG_VI, [AC_MSG_CHECKING([for vi])
+AC_DEFUN([SUDO_PROG_VI], [AC_MSG_CHECKING([for vi])
 found=no
 for editor in "/usr/bin/vi" "/bin/vi" "/usr/ucb/vi" "/usr/bsd/vi" "/usr/local/bin/vi"; do
     if test -f "$editor"; then
@@ -46,7 +46,7 @@ fi
 dnl
 dnl check for mv in well-known locations
 dnl
-AC_DEFUN(SUDO_PROG_MV, [AC_MSG_CHECKING([for mv])
+AC_DEFUN([SUDO_PROG_MV], [AC_MSG_CHECKING([for mv])
 found=no
 for p in "/usr/bin/mv" "/bin/mv" "/usr/ucb/mv" "/usr/sbin/mv"; do
     if test -f "$p"; then
@@ -64,7 +64,7 @@ fi
 dnl
 dnl check for bourne shell in well-known locations
 dnl
-AC_DEFUN(SUDO_PROG_BSHELL, [AC_MSG_CHECKING([for bourne shell])
+AC_DEFUN([SUDO_PROG_BSHELL], [AC_MSG_CHECKING([for bourne shell])
 found=no
 for p in "/bin/sh" "/usr/bin/sh" "/sbin/sh" "/usr/sbin/sh" "/bin/ksh" "/usr/bin/ksh" "/bin/bash" "/usr/bin/bash"; do
     if test -f "$p"; then
@@ -82,7 +82,7 @@ fi
 dnl
 dnl Where the log file goes, use /var/log if it exists, else /{var,usr}/adm
 dnl
-AC_DEFUN(SUDO_LOGFILE, [AC_MSG_CHECKING(for log file location)
+AC_DEFUN([SUDO_LOGFILE], [AC_MSG_CHECKING(for log file location)
 if test -n "$with_logpath"; then
     AC_MSG_RESULT($with_logpath)
     SUDO_DEFINE_UNQUOTED(_PATH_SUDO_LOGFILE, "$with_logpath")
@@ -103,7 +103,7 @@ fi
 dnl
 dnl Where the timestamp files go.
 dnl
-AC_DEFUN(SUDO_TIMEDIR, [AC_MSG_CHECKING(for timestamp file location)
+AC_DEFUN([SUDO_TIMEDIR], [AC_MSG_CHECKING(for timestamp file location)
 timedir="$with_timedir"
 if test -z "$timedir"; then
     for d in /var/db /var/lib /var/adm /usr/adm; do
@@ -121,73 +121,27 @@ dnl
 dnl Where the I/O log files go, use /var/log/sudo-io if
 dnl /var/log exists, else /{var,usr}/adm/sudo-io
 dnl
-AC_DEFUN(SUDO_IO_LOGDIR, [
+AC_DEFUN([SUDO_IO_LOGDIR], [
     AC_MSG_CHECKING(for I/O log dir location)
     if test "${with_iologdir-yes}" != "yes"; then
-	:
+	iolog_dir="$with_iologdir"
     elif test -d "/var/log"; then
-	with_iologdir="/var/log/sudo-io"
+	iolog_dir="/var/log/sudo-io"
     elif test -d "/var/adm"; then
-	with_iologdir="/var/adm/sudo-io"
+	iolog_dir="/var/adm/sudo-io"
     else
-	with_iologdir="/usr/adm/sudo-io"
+	iolog_dir="/usr/adm/sudo-io"
     fi
-    if test "${with_iologdir-yes}" != "no"; then
-	SUDO_DEFINE_UNQUOTED(_PATH_SUDO_IO_LOGDIR, "$with_iologdir")
+    if test "${with_iologdir}" != "no"; then
+	SUDO_DEFINE_UNQUOTED(_PATH_SUDO_IO_LOGDIR, "$iolog_dir")
     fi
-    AC_MSG_RESULT($with_iologdir)
+    AC_MSG_RESULT($iolog_dir)
 ])dnl
-
-dnl
-dnl SUDO_CHECK_TYPE(TYPE, DEFAULT)
-dnl XXX - should require the check for unistd.h...
-dnl
-AC_DEFUN(SUDO_CHECK_TYPE,
-[AC_REQUIRE([AC_HEADER_STDC])dnl
-AC_MSG_CHECKING(for $1)
-AC_CACHE_VAL(sudo_cv_type_$1,
-[AC_EGREP_CPP($1, [#include <sys/types.h>
-#include <stdio.h>
-#if STDC_HEADERS
-#include <stdlib.h>
-#endif
-#if HAVE_UNISTD_H
-#include <unistd.h>
-#endif], sudo_cv_type_$1=yes, sudo_cv_type_$1=no)])dnl
-AC_MSG_RESULT($sudo_cv_type_$1)
-if test $sudo_cv_type_$1 = no; then
-  AC_DEFINE($1, $2, [Define if your system lacks the $1 type.])
-fi
-])
-
-dnl
-dnl Check for size_t declation
-dnl
-AC_DEFUN(SUDO_TYPE_SIZE_T,
-[SUDO_CHECK_TYPE(size_t, int)])
-
-dnl
-dnl Check for ssize_t declation
-dnl
-AC_DEFUN(SUDO_TYPE_SSIZE_T,
-[SUDO_CHECK_TYPE(ssize_t, int)])
-
-dnl
-dnl Check for dev_t declation
-dnl
-AC_DEFUN(SUDO_TYPE_DEV_T,
-[SUDO_CHECK_TYPE(dev_t, int)])
-
-dnl
-dnl Check for ino_t declation
-dnl
-AC_DEFUN(SUDO_TYPE_INO_T,
-[SUDO_CHECK_TYPE(ino_t, unsigned int)])
 
 dnl
 dnl check for working fnmatch(3)
 dnl
-AC_DEFUN(SUDO_FUNC_FNMATCH,
+AC_DEFUN([SUDO_FUNC_FNMATCH],
 [AC_MSG_CHECKING([for working fnmatch with FNM_CASEFOLD])
 AC_CACHE_VAL(sudo_cv_func_fnmatch,
 [rm -f conftestdata; > conftestdata
@@ -211,6 +165,28 @@ AC_DEFUN([SUDO_FUNC_ISBLANK],
   else
     AC_LIBOBJ(isblank)
   fi
+])
+
+AC_DEFUN([SUDO_CHECK_LIB], [
+    _sudo_check_lib_extras=`echo "$5"|sed -e 's/[ 	]*//g' -e 's/-l/_/g'`
+    AC_MSG_CHECKING([for $2 in -l$1${5+ }$5])
+    AC_CACHE_VAL([sudo_cv_lib_$1''_$2$_sudo_check_lib_extras], [
+	SUDO_CHECK_LIB_OLIBS="$LIBS"
+	LIBS="$LIBS -l$1${5+ }$5"
+	AC_LINK_IFELSE(
+	    [AC_LANG_CALL([], [$2])],
+	    [eval sudo_cv_lib_$1''_$2$_sudo_check_lib_extras=yes],
+	    [eval sudo_cv_lib_$1''_$2$_sudo_check_lib_extras=no]
+	)
+	LIBS="$SUDO_CHECK_LIB_OLIBS"
+    ])
+    if eval test \$sudo_cv_lib_$1''_$2$_sudo_check_lib_extras = "yes"; then
+	AC_MSG_RESULT([yes])
+	$3
+    else
+	AC_MSG_RESULT([no])
+	$4
+    fi
 ])
 
 dnl
@@ -253,7 +229,7 @@ int putenv(const char *string) {return 0;}], [])],
 dnl
 dnl check for sa_len field in struct sockaddr
 dnl
-AC_DEFUN(SUDO_SOCK_SA_LEN, [
+AC_DEFUN([SUDO_SOCK_SA_LEN], [
     AC_CHECK_MEMBER([struct sockaddr.sa_len], 
 	[AC_DEFINE(HAVE_SA_LEN, 1, [Define if your struct sockadr has an sa_len field.])],    
 	[],
@@ -266,7 +242,7 @@ dnl check for max length of uid_t in string representation.
 dnl we can't really trust UID_MAX or MAXUID since they may exist
 dnl only for backwards compatibility.
 dnl
-AC_DEFUN(SUDO_UID_T_LEN,
+AC_DEFUN([SUDO_UID_T_LEN],
 [AC_REQUIRE([AC_TYPE_UID_T])
 AC_MSG_CHECKING(max length of uid_t)
 AC_CACHE_VAL(sudo_cv_uid_t_len,
@@ -299,7 +275,7 @@ AC_DEFINE_UNQUOTED(MAX_UID_T_LEN, $sudo_cv_uid_t_len, [Define to the max length 
 dnl
 dnl append a libpath to an LDFLAGS style variable
 dnl
-AC_DEFUN(SUDO_APPEND_LIBPATH, [
+AC_DEFUN([SUDO_APPEND_LIBPATH], [
     if test X"$with_rpath" = X"yes"; then
 	case "$host" in
 	    *-*-hpux*)	$1="${$1} -L$2 -Wl,+b,$2"
@@ -319,12 +295,12 @@ dnl
 dnl Determine the mail spool location
 dnl NOTE: must be run *after* check for paths.h
 dnl
-AC_DEFUN(SUDO_MAILDIR, [
+AC_DEFUN([SUDO_MAILDIR], [
 maildir=no
 if test X"$ac_cv_header_paths_h" = X"yes"; then
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT
-#include <paths.h>
-int main() {char *p = _PATH_MAILDIR;}], [])], [maildir=yes], [])
+#include <paths.h>],
+[char *p = _PATH_MAILDIR;])], [maildir=yes], [])
 fi
 if test $maildir = no; then
     # Solaris has maillock.h which defines MAILDIR
@@ -373,3 +349,8 @@ m4_include([ltoptions.m4])
 m4_include([ltsugar.m4])
 m4_include([ltversion.m4])
 m4_include([lt~obsolete.m4])
+dnl
+dnl Pull in other non-standard macros
+dnl
+m4_include([ax_check_compile_flag.m4])
+m4_include([ax_check_link_flag.m4])

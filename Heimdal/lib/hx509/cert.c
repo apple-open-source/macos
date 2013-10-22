@@ -77,6 +77,7 @@ struct _hx509_cert_attrs {
 };
 
 struct hx509_cert_data {
+    struct heim_base_uniq base;
     char *friendlyname;
     heim_octet_string persistent;
     Certificate *data;
@@ -260,7 +261,7 @@ hx509_cert_init(hx509_context context, const Certificate *c, hx509_cert *cert)
 {
     int ret;
 
-    *cert = heim_alloc(sizeof(**cert), "hx509-cert", cert_free);
+    *cert = heim_uniq_alloc(sizeof(**cert), "hx509-cert", cert_free);
     if (*cert == NULL)
 	return ENOMEM;
     (*cert)->friendlyname = NULL;
@@ -1644,6 +1645,8 @@ _hx509_Time2time_t(const Time *t)
 	return t->u.utcTime;
     case choice_Time_generalTime:
 	return t->u.generalTime;
+    case invalid_choice_Time:
+	return 0;
     }
     return 0;
 }
@@ -1660,7 +1663,7 @@ _hx509_evaluate_alloc(void)
 {
     hx509_evaluate eval;
 
-    eval = heim_alloc(sizeof(*eval), "hx509-evaluate", evaluate_free);
+    eval = heim_uniq_alloc(sizeof(*eval), "hx509-evaluate", evaluate_free);
     if (eval == NULL)
 	return NULL;
 
@@ -2473,6 +2476,31 @@ hx509_verify_path(hx509_context context,
     return hx509_evaluate_cert(context, ctx, cert, pool, NULL);
 }
 
+#ifdef __APPLE_TARGET_EMBEDDED__
+#include <Security/Security.h>
+
+static SecCertificateRef
+HXCreateCertificateFromHX509Certificate(hx509_context context, hx509_cert cert)
+{
+    SecCertificateRef c = NULL;
+    heim_octet_string os;
+    int r;
+
+    r = hx509_cert_binary(context, cert, &os);
+    if (r)
+	return NULL;
+
+    CFDataRef refdata = CFDataCreateWithBytesNoCopy(NULL, os.data, os.length, kCFAllocatorNull);
+    if (refdata) {
+	c = SecCertificateCreateWithData(NULL, refdata);
+	CFRelease(refdata);
+    }
+    hx509_xfree(os.data);
+    return c;
+}
+
+#endif
+
 
 int
 hx509_evaluate_cert(hx509_context context,
@@ -2481,6 +2509,98 @@ hx509_evaluate_cert(hx509_context context,
 		    hx509_certs pool,
 		    hx509_evaluate *validate)
 {
+#ifdef __APPLE_TARGET_EMBEDDED__
+    __block CFMutableArrayRef certs;
+    __block SecCertificateRef c;
+    int ret;
+
+    certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    heim_assert(certs != NULL, "out of memory");
+    
+    c = HXCreateCertificateFromHX509Certificate(context, cert);
+    CFArrayAppendValue(certs, c);
+    CFRelease(c);
+
+    hx509_certs_iter(context, pool, ^(hx509_cert pc) {
+	    c = HXCreateCertificateFromHX509Certificate(context, pc);
+	    CFArrayAppendValue(certs, c);
+	    CFRelease(c);
+	    return 0;
+	});
+
+    /* XXX pkinit policy */
+    SecPolicyRef policy = SecPolicyCreateBasicX509();
+
+    SecTrustRef trust = NULL;
+
+    OSStatus status = SecTrustCreateWithCertificates(certs, policy, &trust);
+    CFRelease(policy);
+    CFRelease(certs);
+    if (status) {
+	ret = HX509_ISSUER_NOT_FOUND;
+	hx509_set_error_string(context, 0, ret, "Failed to create trust");
+	CFRelease(trust);
+    }
+
+    SecTrustResultType result;
+
+    status = SecTrustEvaluate(trust, &result);
+    if (status) {
+	ret = HX509_ISSUER_NOT_FOUND;
+	hx509_set_error_string(context, 0, ret, "Failed to validate trust: %d", (int)status);
+	CFRelease(trust);
+	return ret;
+    }
+
+    switch (result) {
+    case kSecTrustResultUnspecified:
+    case kSecTrustResultProceed:
+	break;
+    default:
+	ret = HX509_ISSUER_NOT_FOUND;
+	hx509_set_error_string(context, 0, ret, "Failed to validate trust");
+	CFRelease(trust);
+	return ret;
+    }
+
+    if (validate) {
+	CFIndex count, n;
+
+	count = SecTrustGetCertificateCount(trust);
+
+	*validate = _hx509_evaluate_alloc();
+	if (*validate == NULL) {
+	    CFRelease(trust);
+	    return ENOMEM;
+	}
+
+	for (n = 0; n < count; n++) {
+	    SecCertificateRef tc = SecTrustGetCertificateAtIndex(trust, n);
+	    heim_assert(tc != NULL, "SecTrustGetCertificateAtIndex didn't return a cert");
+
+	    CFDataRef data = SecCertificateCopyData(tc);
+	    heim_assert(data != NULL, "cert w/o data ?");
+
+	    hx509_cert tcert = NULL;
+
+	    ret = hx509_cert_init_data(context, CFDataGetBytePtr(data), CFDataGetLength(data), &tcert);
+	    CFRelease(data);
+	    if (ret) {
+		CFRelease(trust);
+		hx509_evaluate_free(*validate);
+		*validate = NULL;
+		return ret;
+	    }
+	    heim_array_append_value((*validate)->path, tcert);
+	    hx509_cert_free(tcert);
+	}
+    }
+
+    CFRelease(trust);
+
+    return 0;
+
+#else /* !__APPLE_TARGET_EMBEDDED__ */
 #ifdef HAVE_TRUSTEVALUATIONAGENT
     TEACertificateChainRef in, out;
     TEAErrorRef e = NULL;
@@ -2577,6 +2697,7 @@ hx509_evaluate_cert(hx509_context context,
     if (validate)
 	*validate = NULL;
     return _hx509_verify_path_internal(context, ctx, cert, pool, validate);
+#endif /* !__APPLE_TARGET_EMBEDDED__ */
 }
 
 
@@ -3628,7 +3749,7 @@ _hx509_cert_to_env(hx509_context context, hx509_cert cert, hx509_env *env)
 	if (ret != 0)
 	    goto out;
 
-	ret = hex_encode(sig.data, sig.length, &buf);
+	ret = (int)hex_encode(sig.data, sig.length, &buf);
 	der_free_octet_string(&sig);
 	if (ret < 0) {
 	    ret = ENOMEM;

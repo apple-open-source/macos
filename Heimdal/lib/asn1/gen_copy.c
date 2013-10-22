@@ -96,6 +96,7 @@ copy_type (const char *from, const char *to, const Type *t, int preserve)
 	if(t->type == TChoice) {
 	    fprintf(codefile, "(%s)->element = (%s)->element;\n", to, from);
 	    fprintf(codefile, "switch((%s)->element) {\n", from);
+	    fprintf(codefile, "case ASN1_CHOICE_INVALID: goto fail;\n");
 	}
 
 	ASN1_TAILQ_FOREACH(m, t->members, members) {

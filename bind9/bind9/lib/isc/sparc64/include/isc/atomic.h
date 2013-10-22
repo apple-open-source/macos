@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2007, 2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -72,9 +72,9 @@ isc_atomic_xadd(isc_int32_t *p, isc_int32_t val) {
 	for (prev = *(volatile isc_int32_t *)p; ; prev = swapped) {
 		swapped = prev + val;
 		__asm__ volatile(
-			"casa [%2] %3, %4, %0"
-			: "+r"(swapped), "=m"(*p)
-			: "r"(p), "n"(ASI_P), "r"(prev), "m"(*p));
+			"casa [%1] %2, %3, %0"
+			: "+r"(swapped)
+			: "r"(p), "n"(ASI_P), "r"(prev));
 		if (swapped == prev)
 			break;
 	}
@@ -92,9 +92,10 @@ isc_atomic_store(isc_int32_t *p, isc_int32_t val) {
 	for (prev = *(volatile isc_int32_t *)p; ; prev = swapped) {
 		swapped = val;
 		__asm__ volatile(
-			"casa [%2] %3, %4, %0"
-			: "+r"(swapped), "=m"(*p)
-			: "r"(p), "n"(ASI_P), "r"(prev), "m"(*p));
+			"casa [%1] %2, %3, %0"
+			: "+r"(swapped)
+			: "r"(p), "n"(ASI_P), "r"(prev)
+			: "memory");
 		if (swapped == prev)
 			break;
 	}
@@ -110,9 +111,9 @@ isc_atomic_cmpxchg(isc_int32_t *p, isc_int32_t cmpval, isc_int32_t val) {
 	isc_int32_t temp = val;
 
 	__asm__ volatile(
-		"casa [%2] %3, %4, %0"
-		: "+r"(temp), "=m"(*p)
-		: "r"(p), "n"(ASI_P), "r"(cmpval), "m"(*p));
+		"casa [%1] %2, %3, %0"
+		: "+r"(temp)
+		: "r"(p), "n"(ASI_P), "r"(cmpval));
 
 	return (temp);
 }

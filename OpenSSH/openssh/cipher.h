@@ -1,4 +1,4 @@
-/* $OpenBSD: cipher.h,v 1.37 2009/01/26 09:58:15 markus Exp $ */
+/* $OpenBSD: cipher.h,v 1.39 2013/01/08 18:49:04 markus Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -37,7 +37,11 @@
 #ifndef CIPHER_H
 #define CIPHER_H
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#else
 #include <openssl/evp.h>
+#endif
 /*
  * Cipher types for SSH-1.  New types can be added, but old types should not
  * be removed for compatibility.  The maximum allowed value is 31.
@@ -64,6 +68,7 @@ typedef struct CipherContext CipherContext;
 struct Cipher;
 struct CipherContext {
 	int	plaintext;
+	int	encrypt;
 	EVP_CIPHER_CTX evp;
 	Cipher *cipher;
 };
@@ -76,11 +81,14 @@ char	*cipher_name(int);
 int	 ciphers_valid(const char *);
 void	 cipher_init(CipherContext *, Cipher *, const u_char *, u_int,
     const u_char *, u_int, int);
-void	 cipher_crypt(CipherContext *, u_char *, const u_char *, u_int);
+void	 cipher_crypt(CipherContext *, u_char *, const u_char *,
+    u_int, u_int, u_int);
 void	 cipher_cleanup(CipherContext *);
 void	 cipher_set_key_string(CipherContext *, Cipher *, const char *, int);
 u_int	 cipher_blocksize(const Cipher *);
 u_int	 cipher_keylen(const Cipher *);
+u_int	 cipher_authlen(const Cipher *);
+u_int	 cipher_ivlen(const Cipher *);
 u_int	 cipher_is_cbc(const Cipher *);
 
 u_int	 cipher_get_number(const Cipher *);

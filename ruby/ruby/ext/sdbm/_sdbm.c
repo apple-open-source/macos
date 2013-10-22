@@ -7,12 +7,14 @@
  * core routines
  */
 
-#ifndef lint
-/*char sdbm_rcsid[] = "$Id: _sdbm.c 12800 2007-07-15 13:24:51Z nobu $";*/
+#include "ruby/config.h"
+#include "ruby/defines.h"
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 
 #include "sdbm.h"
-#include "config.h"
 
 /*
  * sdbm - ndbm work-alike hashed database library
@@ -22,24 +24,25 @@
 
 #define BYTESIZ		8
 
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
 #ifdef BSD42
 #define SEEK_SET	L_SET
-#define	memset(s,c,n)	bzero(s, n)		/* only when c is zero */
-#define	memcpy(s1,s2,n)	bcopy(s2, s1, n)
-#define	memcmp(s1,s2,n)	bcmp(s1,s2,n)
+#define	memset(s,c,n)	bzero((s), (n))		/* only when c is zero */
+#define	memcpy(s1,s2,n)	bcopy((s2), (s1), (n))
+#define	memcmp(s1,s2,n)	bcmp((s1),(s2),(n))
 #endif
 
 /*
  * important tuning parms (hah)
  */
 
-#define SEEDUPS		/* always detect duplicates */
-#define BADMESS		/* generate a message for worst case:
+#ifndef SEEDUPS
+#define SEEDUPS 1	/* always detect duplicates */
+#endif
+#ifndef BADMESS
+#define BADMESS 1	/* generate a message for worst case:
 			   cannot make room after SPLTMAX splits */
+#endif
+
 /*
  * misc
  */
@@ -53,8 +56,8 @@
 #define GET_SHORT(p, i)	(((unsigned)((unsigned char *)(p))[(i)*2] << 8) + (((unsigned char *)(p))[(i)*2 + 1]))
 #define PUT_SHORT(p, i, s) (((unsigned char *)(p))[(i)*2] = (unsigned char)((s) >> 8), ((unsigned char *)(p))[(i)*2 + 1] = (unsigned char)(s))
 #else
-#define GET_SHORT(p, i)	((p)[i])
-#define PUT_SHORT(p, i, s)	((p)[i] = (s))
+#define GET_SHORT(p, i)	((p)[(i)])
+#define PUT_SHORT(p, i, s)	((p)[(i)] = (s))
 #endif
 
 /*#include "pair.h"*/
@@ -65,7 +68,7 @@ static int   delpair proto((char *, datum));
 static int   chkpage proto((char *));
 static datum getnkey proto((char *, int));
 static void  splpage proto((char *, char *, long));
-#ifdef SEEDUPS
+#if SEEDUPS
 static int   duppair proto((char *, datum));
 #endif
 
@@ -103,7 +106,7 @@ static int   duppair proto((char *, datum));
 /*
  * externals
  */
-#if !defined sun && !defined MSDOS && !defined _WIN32 && !defined __CYGWIN__ && !defined(errno)
+#if !defined(__sun) && !defined(_WIN32) && !defined(__CYGWIN__) && !defined(errno)
 extern int errno;
 #endif
 
@@ -143,15 +146,12 @@ static long masks[] = {
 datum nullitem = {NULL, 0};
 
 DBM *
-sdbm_open(file, flags, mode)
-register char *file;
-register int flags;
-register int mode;
+sdbm_open(register char *file, register int flags, register int mode)
 {
 	register DBM *db;
 	register char *dirname;
 	register char *pagname;
-	register int n;
+	register size_t n;
 
 	if (file == NULL || !*file)
 		return errno = EINVAL, (DBM *) NULL;
@@ -160,7 +160,7 @@ register int mode;
  */
 	n = strlen(file) * 2 + strlen(DIRFEXT) + strlen(PAGFEXT) + 2;
 
-	if ((dirname = malloc((unsigned) n)) == NULL)
+	if ((dirname = malloc(n)) == NULL)
 		return errno = ENOMEM, (DBM *) NULL;
 /*
  * build the file names
@@ -174,12 +174,31 @@ register int mode;
 	return db;
 }
 
+static int
+fd_set_cloexec(int fd)
+{
+  /* MinGW don't have F_GETFD and FD_CLOEXEC.  [ruby-core:40281] */
+#ifdef F_GETFD
+    int flags, ret;
+    flags = fcntl(fd, F_GETFD); /* should not fail except EBADF. */
+    if (flags == -1) {
+        return -1;
+    }
+    if (2 < fd) {
+        if (!(flags & FD_CLOEXEC)) {
+            flags |= FD_CLOEXEC;
+            ret = fcntl(fd, F_SETFD, flags);
+            if (ret == -1) {
+                return -1;
+            }
+        }
+    }
+#endif
+    return 0;
+}
+
 DBM *
-sdbm_prep(dirname, pagname, flags, mode)
-char *dirname;
-char *pagname;
-int flags;
-int mode;
+sdbm_prep(char *dirname, char *pagname, int flags, int mode)
 {
 	register DBM *db;
 	struct stat dstat;
@@ -187,12 +206,14 @@ int mode;
 	if ((db = (DBM *) malloc(sizeof(DBM))) == NULL)
 		return errno = ENOMEM, (DBM *) NULL;
 
+        db->pagf = -1;
+        db->dirf = -1;
         db->flags = 0;
         db->hmask = 0;
         db->blkptr = 0;
         db->keyptr = 0;
 /*
- * adjust user flags so that WRONLY becomes RDWR, 
+ * adjust user flags so that WRONLY becomes RDWR,
  * as required by this package. Also set our internal
  * flag for RDONLY.
  */
@@ -205,38 +226,44 @@ int mode;
  * If we fail anywhere, undo everything, return NULL.
  */
 	flags |= O_BINARY;
-	if ((db->pagf = open(pagname, flags, mode)) > -1) {
-		if ((db->dirf = open(dirname, flags, mode)) > -1) {
+#ifdef O_CLOEXEC
+        flags |= O_CLOEXEC;
+#endif
+
+	if ((db->pagf = open(pagname, flags, mode)) == -1) goto err;
+        if (fd_set_cloexec(db->pagf) == -1) goto err;
+        if ((db->dirf = open(dirname, flags, mode)) == -1) goto err;
+        if (fd_set_cloexec(db->dirf) == -1) goto err;
 /*
  * need the dirfile size to establish max bit number.
  */
-			if (fstat(db->dirf, &dstat) == 0) {
+        if (fstat(db->dirf, &dstat) == -1) goto err;
 /*
  * zero size: either a fresh database, or one with a single,
  * unsplit data page: dirpage is all zeros.
  */
-				db->dirbno = (!dstat.st_size) ? 0 : -1;
-				db->pagbno = -1;
-				db->maxbno = dstat.st_size * (long) BYTESIZ;
+        db->dirbno = (!dstat.st_size) ? 0 : -1;
+        db->pagbno = -1;
+        db->maxbno = dstat.st_size * (long) BYTESIZ;
 
-				(void) memset(db->pagbuf, 0, PBLKSIZ);
-				(void) memset(db->dirbuf, 0, DBLKSIZ);
-			/*
-			 * success
-			 */
-				return db;
-			}
-			(void) close(db->dirf);
-		}
-		(void) close(db->pagf);
-	}
+        (void) memset(db->pagbuf, 0, PBLKSIZ);
+        (void) memset(db->dirbuf, 0, DBLKSIZ);
+/*
+ * success
+ */
+        return db;
+
+    err:
+        if (db->pagf != -1)
+                (void) close(db->pagf);
+        if (db->dirf != -1)
+                (void) close(db->dirf);
 	free((char *) db);
 	return (DBM *) NULL;
 }
 
 void
-sdbm_close(db)
-register DBM *db;
+sdbm_close(register DBM *db)
 {
 	if (db == NULL)
 		errno = EINVAL;
@@ -248,9 +275,7 @@ register DBM *db;
 }
 
 datum
-sdbm_fetch(db, key)
-register DBM *db;
-datum key;
+sdbm_fetch(register DBM *db, datum key)
 {
 	if (db == NULL || bad(key))
 		return errno = EINVAL, nullitem;
@@ -262,9 +287,7 @@ datum key;
 }
 
 int
-sdbm_delete(db, key)
-register DBM *db;
-datum key;
+sdbm_delete(register DBM *db, datum key)
 {
 	if (db == NULL || bad(key))
 		return errno = EINVAL, -1;
@@ -288,11 +311,7 @@ datum key;
 }
 
 int
-sdbm_store(db, key, val, flags)
-register DBM *db;
-datum key;
-datum val;
-int flags;
+sdbm_store(register DBM *db, datum key, datum val, int flags)
 {
 	int need;
 	register long hash;
@@ -316,7 +335,7 @@ int flags;
  */
 		if (flags == DBM_REPLACE)
 			(void) delpair(db->pagbuf, key);
-#ifdef SEEDUPS
+#if SEEDUPS
 		else if (duppair(db->pagbuf, key))
 			return 1;
 #endif
@@ -350,14 +369,11 @@ int flags;
  * giving up.
  */
 static int
-makroom(db, hash, need)
-register DBM *db;
-long hash;
-int need;
+makroom(register DBM *db, long int hash, int need)
 {
 	long newp;
 	char twin[PBLKSIZ];
-#if defined MSDOS || (defined _WIN32 && !defined __CYGWIN__)
+#if defined _WIN32 && !defined __CYGWIN__
 	char zer[PBLKSIZ];
 	long oldtail;
 #endif
@@ -384,7 +400,7 @@ int need;
  * here, as sdbm_store will do so, after it inserts the incoming pair.
  */
 
-#if defined MSDOS || (defined _WIN32 && !defined __CYGWIN__)
+#if defined _WIN32 && !defined __CYGWIN__
 	/*
 	 * Fill hole with 0 if made it.
 	 * (hole is NOT read as 0)
@@ -425,7 +441,7 @@ int need;
  * need to read in anything. BUT we have to write the current
  * [deferred] page out, as the window of failure is too great.
  */
-		db->curbit = 2 * db->curbit + 
+		db->curbit = 2 * db->curbit +
 			((hash & (db->hmask + 1)) ? 2 : 1);
 		db->hmask |= (db->hmask + 1);
 
@@ -438,8 +454,8 @@ int need;
  * if we are here, this is real bad news. After SPLTMAX splits,
  * we still cannot fit the key. say goodnight.
  */
-#ifdef BADMESS
-	(void) write(2, "sdbm: cannot insert after SPLTMAX attempts.\n", 44);
+#if BADMESS
+	(void) (write(2, "sdbm: cannot insert after SPLTMAX attempts.\n", 44) < 0);
 #endif
 	return 0;
 
@@ -450,8 +466,7 @@ int need;
  * deletions aren't taken into account. (ndbm bug)
  */
 datum
-sdbm_firstkey(db)
-register DBM *db;
+sdbm_firstkey(register DBM *db)
 {
 	if (db == NULL)
 		return errno = EINVAL, nullitem;
@@ -470,8 +485,7 @@ register DBM *db;
 }
 
 datum
-sdbm_nextkey(db)
-register DBM *db;
+sdbm_nextkey(register DBM *db)
 {
 	if (db == NULL)
 		return errno = EINVAL, nullitem;
@@ -482,9 +496,7 @@ register DBM *db;
  * all important binary trie traversal
  */
 static int
-getpage(db, hash)
-register DBM *db;
-register long hash;
+getpage(register DBM *db, register long int hash)
 {
 	register int hbit;
 	register long dbit;
@@ -505,7 +517,7 @@ register long hash;
  * see if the block we need is already in memory.
  * note: this lookaside cache has about 10% hit rate.
  */
-	if (pagb != db->pagbno) { 
+	if (pagb != db->pagbno) {
 /*
  * note: here, we assume a "hole" is read as 0s.
  * if not, must zero pagbuf first.
@@ -526,9 +538,7 @@ register long hash;
 }
 
 static int
-getdbit(db, dbit)
-register DBM *db;
-register long dbit;
+getdbit(register DBM *db, register long int dbit)
 {
 	register long c;
 	register long dirb;
@@ -549,9 +559,7 @@ register long dbit;
 }
 
 static int
-setdbit(db, dbit)
-register DBM *db;
-register long dbit;
+setdbit(register DBM *db, register long int dbit)
 {
 	register long c;
 	register long dirb;
@@ -585,8 +593,7 @@ register long dbit;
  * the page, try the next page in sequence
  */
 static datum
-getnext(db)
-register DBM *db;
+getnext(register DBM *db)
 {
 	datum key;
 
@@ -625,18 +632,14 @@ register DBM *db;
  * page-level routines
  */
 
-#ifndef lint
-/*char pair_rcsid[] = "$Id: _sdbm.c 12800 2007-07-15 13:24:51Z nobu $";*/
-#endif
-
 #ifndef BSD42
 /*#include <memory.h>*/
 #endif
 
 #define exhash(item)	sdbm_hash((item).dptr, (item).dsize)
 
-/* 
- * forward 
+/*
+ * forward
  */
 static int seepair proto((char *, int, char *, int));
 
@@ -661,9 +664,7 @@ static int seepair proto((char *, int, char *, int));
  */
 
 static int
-fitpair(pag, need)
-char *pag;
-int need;
+fitpair(char *pag, int need)
 {
 	register int n;
 	register int off;
@@ -671,8 +672,8 @@ int need;
 	register short *ino = (short *) pag;
 
 	off = ((n = GET_SHORT(ino,0)) > 0) ? GET_SHORT(ino,n) : PBLKSIZ;
-	free = off - (n + 1) * sizeof(short);
-	need += 2 * sizeof(short);
+	free = off - (n + 1) * (int)sizeof(short);
+	need += 2 * (int)sizeof(short);
 
 	debug(("free %d need %d\n", free, need));
 
@@ -680,10 +681,7 @@ int need;
 }
 
 static void
-putpair(pag, key, val)
-char *pag;
-datum key;
-datum val;
+putpair(char *pag, datum key, datum val)
 {
 	register int n;
 	register int off;
@@ -711,9 +709,7 @@ datum val;
 }
 
 static datum
-getpair(pag, key)
-char *pag;
-datum key;
+getpair(char *pag, datum key)
 {
 	register int i;
 	register int n;
@@ -731,11 +727,9 @@ datum key;
 	return val;
 }
 
-#ifdef SEEDUPS
+#if SEEDUPS
 static int
-duppair(pag, key)
-char *pag;
-datum key;
+duppair(char *pag, datum key)
 {
 	register short *ino = (short *) pag;
 	return GET_SHORT(ino,0) > 0 &&
@@ -744,9 +738,7 @@ datum key;
 #endif
 
 static datum
-getnkey(pag, num)
-char *pag;
-int num;
+getnkey(char *pag, int num)
 {
 	datum key;
 	register int off;
@@ -765,9 +757,7 @@ int num;
 }
 
 static int
-delpair(pag, key)
-char *pag;
-datum key;
+delpair(char *pag, datum key)
 {
 	register int n;
 	register int i;
@@ -789,9 +779,9 @@ datum key;
 		register int m;
 		register char *dst = pag + (i == 1 ? PBLKSIZ : GET_SHORT(ino,i - 1));
 		register char *src = pag + GET_SHORT(ino,i + 1);
-		register int   zoo = dst - src;
+		register ptrdiff_t   zoo = dst - src;
 
-		debug(("free-up %d ", zoo));
+		debug(("free-up %"PRIdPTRDIFF" ", zoo));
 /*
  * shift data/keys down
  */
@@ -837,11 +827,7 @@ datum key;
  * return 0 if not found.
  */
 static int
-seepair(pag, n, key, siz)
-char *pag;
-register int n;
-register char *key;
-register int siz;
+seepair(char *pag, register int n, register char *key, register int siz)
 {
 	register int i;
 	register int off = PBLKSIZ;
@@ -857,10 +843,7 @@ register int siz;
 }
 
 static void
-splpage(pag, new, sbit)
-char *pag;
-char *new;
-long sbit;
+splpage(char *pag, char *new, long int sbit)
 {
 	datum key;
 	datum val;
@@ -876,7 +859,7 @@ long sbit;
 
 	n = GET_SHORT(ino,0);
 	for (ino++; n > 0; ino += 2) {
-		key.dptr = cur + GET_SHORT(ino,0); 
+		key.dptr = cur + GET_SHORT(ino,0);
 		key.dsize = off - GET_SHORT(ino,0);
 		val.dptr = cur + GET_SHORT(ino,1);
 		val.dsize = GET_SHORT(ino,0) - GET_SHORT(ino,1);
@@ -889,26 +872,25 @@ long sbit;
 		n -= 2;
 	}
 
-	debug(("%d split %d/%d\n", ((short *) cur)[0] / 2, 
+	debug(("%d split %d/%d\n", ((short *) cur)[0] / 2,
 	       ((short *) new)[0] / 2,
 	       ((short *) pag)[0] / 2));
 }
 
 /*
- * check page sanity: 
+ * check page sanity:
  * number of entries should be something
  * reasonable, and all offsets in the index should be in order.
  * this could be made more rigorous.
  */
 static int
-chkpage(pag)
-char *pag;
+chkpage(char *pag)
 {
 	register int n;
 	register int off;
 	register short *ino = (short *) pag;
 
-	if ((n = GET_SHORT(ino,0)) < 0 || n > PBLKSIZ / sizeof(short))
+	if ((n = GET_SHORT(ino,0)) < 0 || n > PBLKSIZ / (int)sizeof(short))
 		return 0;
 
 	if (n > 0) {
@@ -939,12 +921,10 @@ char *pag;
  * [this seems to work remarkably well, in fact better
  * then the ndbm hash function. Replace at your own risk]
  * use: 65599	nice.
- *      65587   even better. 
+ *      65587   even better.
  */
 long
-sdbm_hash(str, len)
-register char *str;
-register int len;
+sdbm_hash(register char *str, register int len)
 {
 	register unsigned long n = 0;
 

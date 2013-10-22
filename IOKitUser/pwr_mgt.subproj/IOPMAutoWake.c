@@ -83,14 +83,8 @@ __private_extern__ IOReturn _copyPMServerObject(int selector, int assertionID, C
 IOReturn _pm_connect(mach_port_t *newConnection);
 IOReturn _pm_disconnect(mach_port_t connection);
 
-#if TARGET_OS_EMBEDDED
 #define ROUND_SCHEDULE_TIME	(5.0)
 #define MIN_SCHEDULE_TIME	(5.0)
-#else
-#define ROUND_SCHEDULE_TIME	(5.0)
-#define MIN_SCHEDULE_TIME	(5.0)
-#endif  /* TARGET_OS_EMBEDDED */
-
 
 static CFAbsoluteTime roundOffDate(CFAbsoluteTime time)
 {
@@ -367,6 +361,7 @@ IOReturn IOPMSchedulePowerEvent(
     CFAbsoluteTime          abs_time_to_wake;
     CFDataRef               flatPackage = NULL;
     kern_return_t           rc = KERN_SUCCESS;
+    mach_port_t       		pm_server = MACH_PORT_NULL;
 
     //  verify inputs
     if(!inputsValid(time_to_wake, my_id, type))
@@ -441,9 +436,7 @@ IOReturn IOPMSchedulePowerEvent(
         ret = kIOReturnNotReady;
         goto exit;
     }
-    
-    mach_port_t         pm_server = MACH_PORT_NULL;
-    
+        
     if(kIOReturnSuccess != _pm_connect(&pm_server)) {
         ret = kIOReturnInternalError;
         goto exit;

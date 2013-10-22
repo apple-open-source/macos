@@ -570,7 +570,7 @@ void *l2tp_resolver_thread(void *arg)
     if (pthread_detach(pthread_self()) == 0) {
         
         // try to resolve the name
-        if (host = gethostbyname(remoteaddress)) {
+        if ((host = gethostbyname(remoteaddress))) {
 
 			for (count = 0; host->h_addr_list[count]; count++);
 		
@@ -628,7 +628,7 @@ void *l2tp_edge_thread(void *arg)
        
 		edgeConnection = _CTServerConnectionCreate(kCFAllocatorDefault, callbackEDGE, &ctxt);
 		if (edgeConnection) {
-			_CTServerConnectionSetPacketContextActive(edgeConnection, 0, TRUE);		// Zero is the main PDP context.
+			_CTServerConnectionSetPacketContextActiveByServiceType(edgeConnection, kCTDataConnectionServiceTypeInternet, TRUE);
 
 			count = PPPD_WWAN_INTERFACE_TIMEOUT;
 			cterror = _CTServerConnectionGetPacketContextActive(edgeConnection, 0, &active);
@@ -998,8 +998,8 @@ int l2tp_connect(int *errorcode)
     bzero(&peer_params, sizeof(peer_params));
     
     our_params.tunnel_id = 0;					/* our tunnel ID - will be assigned later */
-    our_params.session_id = getpid();				/* our session ID - use pid as unique number */
-    our_params.window_size = opt_windowsize;			/* our receive window size */
+    our_params.session_id = getpid();			/* our session ID - use pid as unique number */
+    our_params.window_size = opt_windowsize;	/* our receive window size */
     our_params.seq_required = 0;				/* sequencing required - not used for now */
     our_params.call_serial_num = 1; 				/* our call serial number - always 1 for now */
     our_params.framing_caps = L2TP_SYNC_FRAMING|L2TP_ASYNC_FRAMING;
@@ -1015,9 +1015,9 @@ int l2tp_connect(int *errorcode)
         dict = SCDynamicStoreCopyValue(cfgCache, key);
 	CFRelease(key);
         if (dict) {
-            if (string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router))
+            if ((string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router)))
                 CFStringGetCString(string, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
-            if (string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface))
+            if ((string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)))
                 CFStringGetCString(string, (char*)interface, sizeof(interface), kCFStringEncodingUTF8);
             CFRelease(dict);
         }
@@ -1069,12 +1069,12 @@ int l2tp_connect(int *errorcode)
         ctrlsockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP);
         if (ctrlsockfd < 0) {
             if (!opt_noload) {
-                if (url = CFBundleCopyBundleURL(bundle)) {
+                if ((url = CFBundleCopyBundleURL(bundle))) {
                     name[0] = 0;
                     CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
                     CFRelease(url);
                     strlcat(name, "/", sizeof(name));
-                    if (url = CFBundleCopyBuiltInPlugInsURL(bundle)) {
+                    if ((url = CFBundleCopyBuiltInPlugInsURL(bundle))) {
                         CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                                 MAXPATHLEN - strlen(name) - strlen(L2TP_NKE) - 1);
                         CFRelease(url);
@@ -1100,6 +1100,7 @@ int l2tp_connect(int *errorcode)
     l2tp_set_flag(ctrlsockfd, 1, L2TP_FLAG_CONTROL);
     l2tp_set_flag(ctrlsockfd, our_params.seq_required, L2TP_FLAG_SEQ_REQ);
     l2tp_set_flag(ctrlsockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
+    l2tp_set_delegated_process(ctrlsockfd, getpid());  // must be set before calling l2tp_set_ouraddress
 
     /* ask the kernel extension to make and assign a new tunnel id to the tunnel */
     optlen = 2;
@@ -1239,7 +1240,7 @@ int l2tp_connect(int *errorcode)
         /* bind the socket in the kernel with take an ephemeral port */
         /* on return, it ouraddress will contain actual port selected */
         our_address.sin_port = htons(opt_udpport);
-        l2tp_set_ouraddress(ctrlsockfd, (struct sockaddr *)&our_address);
+        l2tp_set_ouraddress(ctrlsockfd, (struct sockaddr *)&our_address);        
         
         /* set our peer address */
         l2tp_set_peeraddress(ctrlsockfd, (struct sockaddr *)&peer_address);
@@ -1427,7 +1428,7 @@ int l2tp_connect(int *errorcode)
                 ipsec_status = 0;
 
                 /* get the source address that will be used to reach the peer */
-                if (err = l2tp_change_peeraddress(ctrlsockfd, (struct sockaddr *)&alt_peer_address[num_connect_retries++])) {
+                if ((err = l2tp_change_peeraddress(ctrlsockfd, (struct sockaddr *)&alt_peer_address[num_connect_retries++]))) {
                     error("L2TP: cannot try alternate server...\n");
                     goto fail;
                 }
@@ -1469,6 +1470,8 @@ int l2tp_connect(int *errorcode)
             l2tp_set_flag(listenfd, kdebugflag & 1, L2TP_FLAG_DEBUG);
             l2tp_set_flag(listenfd, 1, L2TP_FLAG_CONTROL);
 			l2tp_set_flag(listenfd, !opt_noipsec, L2TP_FLAG_IPSEC);
+            l2tp_set_delegated_process(listenfd, getpid());  // must be set before calling l2tp_set_ouraddress
+
     
             /* bind the socket in the kernel with L2TP port */
             listen_address.sin_len = sizeof(peer_address);
@@ -1640,6 +1643,14 @@ void l2tp_disconnect()
 int l2tp_set_baudrate(int fd, u_int32_t baudrate)
 {
 	setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_BAUDRATE, &baudrate, 4);
+    return 0;
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+int l2tp_set_delegated_process(int fd, int pid)
+{
+    setsockopt(fd, PPPPROTO_L2TP, L2TP_OPT_SETDELEGATEDPID, &pid, sizeof(pid));
     return 0;
 }
 
@@ -1927,7 +1938,7 @@ int l2tp_establish_ppp(int fd)
         return -1;
     }
 
-    new_fd = generic_establish_ppp(fd);
+    new_fd = generic_establish_ppp(fd, interface);
     if (new_fd == -1)
         return -1;
 

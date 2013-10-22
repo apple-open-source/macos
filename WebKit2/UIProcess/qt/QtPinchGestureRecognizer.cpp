@@ -26,7 +26,8 @@
 #include "config.h"
 #include "QtPinchGestureRecognizer.h"
 
-#include "QtViewportInteractionEngine.h"
+
+#include "PageViewportControllerClientQt.h"
 #include "QtWebPageEventHandler.h"
 #include <QtCore/QLineF>
 
@@ -47,7 +48,6 @@ QtPinchGestureRecognizer::QtPinchGestureRecognizer(QtWebPageEventHandler* eventH
 
 bool QtPinchGestureRecognizer::update(const QTouchEvent::TouchPoint& point1, const QTouchEvent::TouchPoint& point2)
 {
-    ASSERT(interactionEngine());
     const qreal currentFingerDistance = QLineF(point1.screenPos(), point2.screenPos()).length();
     switch (m_state) {
     case NoGesture:
@@ -59,7 +59,8 @@ bool QtPinchGestureRecognizer::update(const QTouchEvent::TouchPoint& point1, con
         if (pinchDistance < pinchInitialTriggerDistanceThreshold)
             return false;
         m_state = GestureRecognized;
-        interactionEngine()->pinchGestureStarted(computePinchCenter(point1, point2));
+        if (viewportController())
+            viewportController()->pinchGestureStarted(computePinchCenter(point1, point2));
 
         // We reset the initial span distance to the current distance of the
         // touch points in order to avoid the jump caused by the events which
@@ -71,7 +72,8 @@ bool QtPinchGestureRecognizer::update(const QTouchEvent::TouchPoint& point1, con
     case GestureRecognized:
         const qreal totalScaleFactor = currentFingerDistance / m_initialFingerDistance;
         const QPointF touchCenterInViewCoordinates = computePinchCenter(point1, point2);
-        interactionEngine()->pinchGestureRequestUpdate(touchCenterInViewCoordinates, totalScaleFactor);
+        if (viewportController())
+            viewportController()->pinchGestureRequestUpdate(touchCenterInViewCoordinates, totalScaleFactor);
         return true;
         break;
     }
@@ -85,8 +87,8 @@ void QtPinchGestureRecognizer::finish()
     if (m_state == NoGesture)
         return;
 
-    ASSERT(interactionEngine());
-    interactionEngine()->pinchGestureEnded();
+    if (viewportController())
+        viewportController()->pinchGestureEnded();
     reset();
 }
 
@@ -95,8 +97,8 @@ void QtPinchGestureRecognizer::cancel()
     if (m_state == NoGesture)
         return;
 
-    ASSERT(interactionEngine());
-    interactionEngine()->pinchGestureCancelled();
+    if (viewportController())
+        viewportController()->pinchGestureCancelled();
     reset();
 }
 

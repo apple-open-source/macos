@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/bn_IN.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/bn_IN.xml
 // *
 // ***************************************************************************
 bn_IN{
@@ -27,9 +27,18 @@ bn_IN{
         en_GB{"ব্রিটিশ ইংরেজী"}
         fr_CA{"ক্যানাডিয়ান ফরাসী"}
         map{"অস্ট্রোনেসিয়ান"}
+        rm{"রেটো-রোমানীয়"}
         rup{"আরমেনিয়ান"}
         tut{"আলটাইক"}
         zbl{"ব্লিসসিম্বলস"}
     }
-    Version{"2.0.59.53"}
+    Types{
+        numbers{
+            taml{"তামিল সংখ্যা"}
+        }
+    }
+    Version{"2.0.82.45"}
+    localeDisplayPattern{
+        keyTypePattern{"{0}: {1}"}
+    }
 }

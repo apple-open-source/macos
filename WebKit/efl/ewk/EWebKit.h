@@ -32,6 +32,7 @@
 #include "ewk_auth.h"
 #include "ewk_contextmenu.h"
 #include "ewk_cookies.h"
+#include "ewk_file_chooser.h"
 #include "ewk_frame.h"
 #include "ewk_history.h"
 #include "ewk_js.h"
@@ -41,8 +42,9 @@
 #include "ewk_security_policy.h"
 #include "ewk_settings.h"
 #include "ewk_view.h"
+#include "ewk_web_database.h"
 #include "ewk_window_features.h"
 
-#include <Evas.h>
+#include <Evas.h> 
 
 #endif // EWebKit_h

@@ -14,10 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <config.h>
+
 #include <sys/types.h>
 
-#include <config.h>
-#include <compat.h>
+#include "missing.h"
 
 /*
  * Like bzero(3) but with a volatile pointer.  The hope is that

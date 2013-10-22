@@ -246,12 +246,12 @@ int BLInterpretEFIXMLRepresentationAsNetworkPath(BLContextPtr context,
 
     if(foundserver) {
 
-        strcpy(path, "");
+        path[0] = '\0';
     } else {
         // if no server, there can't be a TFTP path
         
-        strcpy(host, "255.255.255.255");
-        strcpy(path, "");
+        strlcpy(host, "255.255.255.255", NS_MAXDNAME);
+        path[0] = '\0';
     }
     
     if(foundPXE) {

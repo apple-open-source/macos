@@ -25,6 +25,8 @@
 #include "PluginLayerWebKitThread.h"
 #endif
 #include "NPCallbacksBlackBerry.h"
+#include <BlackBerryPlatformExecutableMessage.h>
+#include <BlackBerryPlatformMessageClient.h>
 #include <wtf/MainThread.h>
 
 static unsigned s_counter = 0;
@@ -110,7 +112,7 @@ void PluginViewPrivate::setVisibleRects(const NPRect rects[], int32_t count)
 
     // Adjust the rect to the parent window and then adjust for scrolling.
     m_keepVisibleRect = m_view->convertToContainingWindow(m_keepVisibleRect);
-    FrameView* frameView = static_cast<FrameView*>(m_view->parent());
+    FrameView* frameView = toFrameView(m_view->parent());
     m_keepVisibleRect.move(frameView->scrollPosition().x(), frameView->scrollPosition().y());
 
     frameView->hostWindow()->platformPageClient()->ensureContentVisible();
@@ -124,13 +126,13 @@ void PluginViewPrivate::clearVisibleRects()
 
 void PluginViewPrivate::showKeyboard(bool value)
 {
-    FrameView* frameView = static_cast<FrameView*>(m_view->parent());
+    FrameView* frameView = toFrameView(m_view->parent());
     frameView->hostWindow()->platformPageClient()->showVirtualKeyboard(value);
 }
 
 void PluginViewPrivate::requestFullScreen()
 {
-    if (FrameView* frameView = static_cast<FrameView*>(m_view->parent()))
+    if (FrameView* frameView = toFrameView(m_view->parent()))
         if (frameView->hostWindow()->platformPageClient()->shouldPluginEnterFullScreen(m_view, m_pluginUniquePrefix.c_str()))
             m_view->handleFullScreenAllowedEvent();
 }
@@ -142,7 +144,7 @@ void PluginViewPrivate::exitFullScreen()
 
 void PluginViewPrivate::requestCenterFitZoom()
 {
-    FrameView* frameView = static_cast<FrameView*>(m_view->parent());
+    FrameView* frameView = toFrameView(m_view->parent());
 
     if (!frameView)
         return;
@@ -152,7 +154,7 @@ void PluginViewPrivate::requestCenterFitZoom()
 
 void PluginViewPrivate::lockOrientation(bool landscape)
 {
-    FrameView* frameView = static_cast<FrameView*>(m_view->parent());
+    FrameView* frameView = toFrameView(m_view->parent());
 
     if (!frameView)
         return;
@@ -166,7 +168,7 @@ void PluginViewPrivate::unlockOrientation()
     if (!m_orientationLocked)
         return;
 
-    FrameView* frameView = static_cast<FrameView*>(m_view->parent());
+    FrameView* frameView = toFrameView(m_view->parent());
 
     if (!frameView)
         return;
@@ -180,7 +182,7 @@ void PluginViewPrivate::preventIdle(bool preventIdle)
     if (preventIdle == m_idlePrevented)
         return;
 
-    FrameView* frameView = static_cast<FrameView*>(m_view->parent());
+    FrameView* frameView = toFrameView(m_view->parent());
     if (!frameView)
         return;
 
@@ -277,8 +279,10 @@ bool PluginViewPrivate::createBuffers(NPSurfaceFormat format, int width, int hei
     PthreadMutexLocker backLock(&m_backBufferMutex);
     PthreadWriteLocker frontLock(&m_frontBufferRwLock);
 
+    bool didDestroyBuffers = false;
     for (int i = 0; i < PLUGIN_BUFFERS; i++) {
         if (m_pluginBuffers[i]) {
+            didDestroyBuffers = true;
             BlackBerry::Platform::Graphics::destroyBuffer(m_pluginBuffers[i]);
             m_pluginBuffers[i] = 0;
         }
@@ -298,6 +302,11 @@ bool PluginViewPrivate::createBuffers(NPSurfaceFormat format, int width, int hei
     if (success) {
         m_pluginBufferSize = IntSize(width, height);
         m_pluginBufferType = toBufferType(format);
+
+        if (didDestroyBuffers) {
+            BlackBerry::Platform::userInterfaceThreadMessageClient()->dispatchSyncMessage(
+                BlackBerry::Platform::createFunctionCallMessage(&BlackBerry::Platform::Graphics::collectThreadSpecificGarbage));
+        }
     } else {
         m_pluginBufferSize = IntSize();
         m_pluginBufferType = BlackBerry::Platform::Graphics::PluginBufferWithAlpha;
@@ -355,16 +364,26 @@ bool PluginViewPrivate::resizeBuffers(NPSurfaceFormat format, int width, int hei
 
 bool PluginViewPrivate::destroyBuffers()
 {
-    PthreadMutexLocker backLock(&m_backBufferMutex);
-    PthreadWriteLocker frontLock(&m_frontBufferRwLock);
+    bool didDestroyBuffers = false;
 
-    for (int i = 0; i < PLUGIN_BUFFERS; i++) {
-        if (m_pluginBuffers[i]) {
-            BlackBerry::Platform::Graphics::destroyBuffer(m_pluginBuffers[i]);
-            m_pluginBuffers[i] = 0;
+    {
+        PthreadMutexLocker backLock(&m_backBufferMutex);
+        PthreadWriteLocker frontLock(&m_frontBufferRwLock);
+
+        for (int i = 0; i < PLUGIN_BUFFERS; i++) {
+            if (m_pluginBuffers[i]) {
+                didDestroyBuffers = true;
+                BlackBerry::Platform::Graphics::destroyBuffer(m_pluginBuffers[i]);
+                m_pluginBuffers[i] = 0;
+            }
         }
+        m_pluginBufferSize = IntSize();
     }
-    m_pluginBufferSize = IntSize();
+
+    if (didDestroyBuffers) {
+        BlackBerry::Platform::userInterfaceThreadMessageClient()->dispatchSyncMessage(
+            BlackBerry::Platform::createFunctionCallMessage(&BlackBerry::Platform::Graphics::collectThreadSpecificGarbage));
+    }
 
     return true;
 }

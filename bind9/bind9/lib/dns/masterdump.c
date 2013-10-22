@@ -1545,8 +1545,7 @@ dns_master_dumptostream2(isc_mem_t *mctx, dns_db_t *db,
 }
 
 static isc_result_t
-opentmp(isc_mem_t *mctx, dns_masterformat_t format, const char *file,
-	char **tempp, FILE **fp) {
+opentmp(isc_mem_t *mctx, const char *file, char **tempp, FILE **fp) {
 	FILE *f = NULL;
 	isc_result_t result;
 	char *tempname = NULL;
@@ -1561,10 +1560,7 @@ opentmp(isc_mem_t *mctx, dns_masterformat_t format, const char *file,
 	if (result != ISC_R_SUCCESS)
 		goto cleanup;
 
-	if (format == dns_masterformat_text)
-		result = isc_file_openunique(tempname, &f);
-	else
-		result = isc_file_bopenunique(tempname, &f);
+	result = isc_file_openunique(tempname, &f);
 	if (result != ISC_R_SUCCESS) {
 		isc_log_write(dns_lctx, ISC_LOGCATEGORY_GENERAL,
 			      DNS_LOGMODULE_MASTERDUMP, ISC_LOG_ERROR,
@@ -1608,7 +1604,7 @@ dns_master_dumpinc2(isc_mem_t *mctx, dns_db_t *db, dns_dbversion_t *version,
 	if (file == NULL)
 		return (ISC_R_NOMEMORY);
 
-	result = opentmp(mctx, format, filename, &tempname, &f);
+	result = opentmp(mctx, filename, &tempname, &f);
 	if (result != ISC_R_SUCCESS)
 		goto cleanup;
 
@@ -1662,7 +1658,7 @@ dns_master_dump2(isc_mem_t *mctx, dns_db_t *db, dns_dbversion_t *version,
 	char *tempname;
 	dns_dumpctx_t *dctx = NULL;
 
-	result = opentmp(mctx, format, filename, &tempname, &f);
+	result = opentmp(mctx, filename, &tempname, &f);
 	if (result != ISC_R_SUCCESS)
 		return (result);
 

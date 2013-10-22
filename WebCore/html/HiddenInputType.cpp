@@ -32,9 +32,11 @@
 #include "config.h"
 #include "HiddenInputType.h"
 
+#include "FormController.h"
 #include "FormDataList.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "InputTypeNames.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
@@ -51,15 +53,18 @@ const AtomicString& HiddenInputType::formControlType() const
     return InputTypeNames::hidden();
 }
 
-bool HiddenInputType::saveFormControlState(String& result) const
+FormControlState HiddenInputType::saveFormControlState() const
 {
-    result = element()->value();
-    return true;
+    // valueAttributeWasUpdatedAfterParsing() never be true for form
+    // controls create by createElement() or cloneNode(). It's ok for
+    // now because we restore values only to form controls created by
+    // parsing.
+    return element()->valueAttributeWasUpdatedAfterParsing() ? FormControlState(element()->value()) : FormControlState();
 }
 
-void HiddenInputType::restoreFormControlState(const String& string)
+void HiddenInputType::restoreFormControlState(const FormControlState& state)
 {
-    element()->setAttribute(valueAttr, string);
+    element()->setAttribute(valueAttr, state[0]);
 }
 
 bool HiddenInputType::supportsValidation() const

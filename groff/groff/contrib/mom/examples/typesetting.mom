@@ -74,27 +74,27 @@ and multi-columns"
 \#
 .TAB 1                 \" Notice that this tab gets set line-for-line
 \*[IT]Peelee Island    \" Set italic
-\*[PREV]Gewürztraminer \" Revert to former font (roman)
+\*[PREV]GewÃ¼rztraminer \" Revert to former font (roman)
 2000
 (Canada)
 .MCR           \" Return to top of column
 .TAB 2         \" Call tab 2; in multi-column mode, don't use .TN
-Jaune pâle.
+Jaune pÃ¢le.
 .MCR
 .TB 3          \" Notice that from here on, we use the alias TB instead of TAB
-Frais, fruité, ci\%tronné, arômes fortes de lichee et de fruits
+Frais, fruitÃ©, ci\%tronnÃ©, arÃ´mes fortes de lichee et de fruits
 tropicaux.
 .MCR
 .TB 4
-Doux, fruité, bien équilibré avec une bonne acidité.
+Doux, fruitÃ©, bien Ã©quilibrÃ© avec une bonne aciditÃ©.
 .MCR
 .TB 5
-Bon apéro.  Servir avec des plats
+Bon apÃ©ro.  Servir avec des plats
 .RW .1         \" Reduce Whitespace between letters to tighten this line
 indiens ou \%chinois.
 .RW 0          \" Back to normal spacing between letters
 .BR
-Excellent rapport qualité/prix.
+Excellent rapport qualitÃ©/prix.
 .MCX 8p        \" Multi-column mode off; advance an extra 8 points
 .MCO           \" Re-invoke multi-columns for next wine description
 .TB 1
@@ -104,11 +104,11 @@ Excellent rapport qualité/prix.
 (Uraguay)
 .MCR
 .TB 2
-Rubis foncé, vio\%lacée, presque opaque.
+Rubis foncÃ©, vio\%lacÃ©e, presque opaque.
 .MCR
 .TB 3
-Belles arômes de fruits foncés (prunes, cerises noires, cassis).
-Odeurs tertiares de cuir, cèdre, violets, eucalyptus, avec une trace
+Belles arÃ´mes de fruits foncÃ©s (prunes, cerises noires, cassis).
+Odeurs tertiares de cuir, cÃ¨dre, violets, eucalyptus, avec une trace
 exotique de Band-Aid*\*[BU 12].
 \#
 \# The \*[BU 12], above, pulls the period back so that it falls
@@ -117,11 +117,11 @@ exotique de Band-Aid*\*[BU 12].
 \#
 .MCR
 .TB 4
-Très rond, tannins mûres et veloutés, avec un long finis fruité et
+TrÃ¨s rond, tannins mÃ»res et veloutÃ©s, avec un long finis fruitÃ© et
 doucement alcoolique.
 .MCR
 .TB 5
-Superbe\|!  Une aubaine à ne pas manquer.  Prêt à boire maintenant.
+Superbe\|!  Une aubaine Ã  ne pas manquer.  PrÃªt Ã  boire maintenant.
 .MCX 1v  \" Multi-columns off; advance an extra linespace
 \#
 \# Now, an example of a hanging indent.  This is excessively fussy

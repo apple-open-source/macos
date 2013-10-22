@@ -28,29 +28,62 @@
 
 #if USE(CFURLCACHE)
 
-#if PLATFORM(WIN)
-#include <WebKitSystemInterface/WebKitSystemInterface.h>
-#elif PLATFORM(MAC)
+#if ENABLE(CACHE_PARTITIONING)
+#include <WebCore/PublicSuffix.h>
+#include <wtf/text/CString.h>
+#endif
+
+#if PLATFORM(MAC)
 #include "WebKitSystemInterface.h"
 #endif
 
 
 namespace WebKit {
 
-#if PLATFORM(WIN)
-// The Windows version of WKSI defines these functions as capitalized, while the Mac version defines them as lower case.
-static inline CFArrayRef WKCFURLCacheCopyAllHostNamesInPersistentStore() { return wkCFURLCacheCopyAllHostNamesInPersistentStore(); }
-static inline void WKCFURLCacheDeleteHostNamesInPersistentStore(CFArrayRef hostNames) { return wkCFURLCacheDeleteHostNamesInPersistentStore(hostNames); }
+#if ENABLE(CACHE_PARTITIONING)
+static RetainPtr<CFStringRef> partitionName(CFStringRef domain)
+{
+#if ENABLE(PUBLIC_SUFFIX_LIST)
+    String highLevel = WebCore::topPrivatelyControlledDomain(domain);
+    if (highLevel.isNull())
+        return 0;
+    CString utf8String = highLevel.utf8();
+    return adoptCF(CFStringCreateWithBytes(0, reinterpret_cast<const UInt8*>(utf8String.data()), utf8String.length(), kCFStringEncodingUTF8, false));
+#else
+    return domain;
+#endif
+}
 #endif
 
 RetainPtr<CFArrayRef> WebResourceCacheManager::cfURLCacheHostNames()
 {
-    return RetainPtr<CFArrayRef>(AdoptCF, WKCFURLCacheCopyAllHostNamesInPersistentStore());
+    return adoptCF(WKCFURLCacheCopyAllHostNamesInPersistentStore());
 }
+
+#if ENABLE(CACHE_PARTITIONING)
+void WebResourceCacheManager::cfURLCacheHostNamesWithCallback(CacheCallback callback)
+{
+    WKCFURLCacheCopyAllPartitionNames(^(CFArrayRef partitionNames) {
+        CFMutableArrayRef hostNames = CFArrayCreateMutableCopy(0, 0, WKCFURLCacheCopyAllHostNamesInPersistentStoreForPartition(CFSTR("")));
+        CFArrayAppendArray(hostNames, partitionNames, CFRangeMake(0, CFArrayGetCount(partitionNames)));
+        CFRelease(partitionNames);
+        callback(adoptCF(hostNames));
+    });
+}
+#endif
 
 void WebResourceCacheManager::clearCFURLCacheForHostNames(CFArrayRef hostNames)
 {
     WKCFURLCacheDeleteHostNamesInPersistentStore(hostNames);
+
+#if ENABLE(CACHE_PARTITIONING)
+    CFIndex size = CFArrayGetCount(hostNames);
+    for (CFIndex i = 0; i < size; ++i) {
+        RetainPtr<CFStringRef> partition = partitionName(static_cast<CFStringRef>(CFArrayGetValueAtIndex(hostNames, i)));
+        RetainPtr<CFArrayRef> partitionHostNames = adoptCF(WKCFURLCacheCopyAllHostNamesInPersistentStoreForPartition(partition.get()));
+        WKCFURLCacheDeleteHostNamesInPersistentStoreForPartition(partitionHostNames.get(), partition.get());
+    }
+#endif
 }
 
 } // namespace WebKit

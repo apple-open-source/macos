@@ -97,14 +97,15 @@ read_file(const char * filename, size_t * data_length)
 }
 
 static int
-write_file(const char * filename, const void * data, size_t data_length)
+write_file(const char * filename, const void * data, size_t data_length,
+	   mode_t permissions)
 {
     char		path[MAXPATHLEN];
     int			fd = -1;
     int			ret = 0;
 
     snprintf(path, sizeof(path), "%s-", filename);
-    fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, permissions);
     if (fd < 0) {
 	ret = -1;
 	goto done;
@@ -150,7 +151,8 @@ my_CFPropertyListCreateFromFile(const char * filename)
 }
 
 PRIVATE_EXTERN int
-my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename)
+my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename,
+			   mode_t permissions)
 {
     CFDataRef	data;
     int		ret;
@@ -163,7 +165,9 @@ my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename)
 	return (0);
     }
     ret = write_file(filename, 
-		     (const void *)CFDataGetBytePtr(data), CFDataGetLength(data));
+		     (const void *)CFDataGetBytePtr(data),
+		     CFDataGetLength(data),
+		     permissions);
     CFRelease(data);
     return (ret);
 }

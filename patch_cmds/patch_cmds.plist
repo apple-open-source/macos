@@ -6,15 +6,15 @@
 		<key>OpenSourceProject</key>
 		<string>diffstat</string>
 		<key>OpenSourceVersion</key>
-		<string>1.51</string>
+		<string>1.55</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://invisible-island.net/diffstat/</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://invisible-island.net/diffstat/diffstat-1.51.tgz</string>
+		<string>ftp://invisible-island.net/diffstat/diffstat-1.55.tgz</string>
 		<key>OpenSourceSHA1</key>
-		<string>4d0d3a3a2dae4d4a53f5a2a913d4c349d79fdd83</string>
+		<string>625650a9f1a27edbb98316adb3013e57c8e2e23a</string>
 		<key>OpenSourceImportDate</key>
-		<string>2009-11-10</string>
+		<string>2012-11-29</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Added manually-generated config.h file.</string>

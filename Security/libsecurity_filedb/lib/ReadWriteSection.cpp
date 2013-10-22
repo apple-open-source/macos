@@ -45,7 +45,7 @@ uint32 WriteSection::put(uint32 inOffset, uint32 inLength, const uint8 *inData)
 
 void WriteSection::grow(size_t inNewCapacity)
 {
-	size_t n = CheckUInt32Multiply(mCapacity, 2);
+	size_t n = CheckUInt32Multiply((uint32)mCapacity, 2);
 	size_t aNewCapacity = max(n, inNewCapacity);
 	mAddress = reinterpret_cast<uint8 *>(mAllocator.realloc(mAddress, aNewCapacity));
 	memset(mAddress + mCapacity, 0, aNewCapacity - mCapacity);

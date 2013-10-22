@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: print.c,v 1.53 2011/09/07 19:13:49 abe Exp $";
+static char *rcsid = "$Id: print.c,v 1.54 2012/04/10 16:30:51 abe Exp abe $";
 #endif
 
 
@@ -680,7 +680,7 @@ print_file()
 #if	defined(HASTASKS)
 	    if (TaskPrtFl)
 		(void) printf(" %*s", TidColW, TIDTTL);
-#endif	/* defined(HASTASKS)
+#endif	/* defined(HASTASKS) */
 
 #if	defined(HASZONES)
 	    if (Fzone)
@@ -1273,7 +1273,16 @@ addr_too_long:
 void
 print_init()
 {
+
+/*
+ * Preset standard values.
+ */
 	PrPass = (Ffield || Fterse) ? 1 : 0;
+	LastPid = -1;
+	TaskPrtFl = 0;
+/*
+ * Size columns by their titles.
+ */
 	CmdColW = strlen(CMDTTL);
 	DevColW = strlen(DEVTTL);
 	FdColW = strlen(FDTTL);
@@ -1290,7 +1299,6 @@ print_init()
 	    SzOffColW = strlen(OFFTTL);
 	else
 	    SzOffColW = strlen(SZOFFTTL);
-	TaskPrtFl = 0;
 
 #if	defined(HASTASKS)
 	TidColW = strlen(TIDTTL);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -232,21 +232,26 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 }
 
 
+#define N_QUICK	64
+
+
 __private_extern__
 void
 pushNotifications(FILE *_configd_trace)
 {
-	const void			**sessionsToNotify;
 	CFIndex				notifyCnt;
 	int				server;
-	serverSessionRef		theSession;
+	const void *			sessionsToNotify_q[N_QUICK];
+	const void **			sessionsToNotify	= sessionsToNotify_q;
 	SCDynamicStorePrivateRef	storePrivate;
+	serverSessionRef		theSession;
 
 	if (needsNotification == NULL)
 		return;		/* if no sessions need to be kicked */
 
 	notifyCnt = CFSetGetCount(needsNotification);
-	sessionsToNotify = malloc(notifyCnt * sizeof(CFNumberRef));
+	if (notifyCnt > (CFIndex)(sizeof(sessionsToNotify_q) / sizeof(CFNumberRef)))
+		sessionsToNotify = CFAllocatorAllocate(NULL, notifyCnt * sizeof(CFNumberRef), 0);
 	CFSetGetValues(needsNotification, sessionsToNotify);
 	while (--notifyCnt >= 0) {
 		(void) CFNumberGetValue(sessionsToNotify[notifyCnt],
@@ -361,7 +366,7 @@ pushNotifications(FILE *_configd_trace)
 			}
 	       }
 	}
-	free(sessionsToNotify);
+	if (sessionsToNotify != sessionsToNotify_q) CFAllocatorDeallocate(NULL, sessionsToNotify);
 
 	/*
 	 * this list of notifications have been posted, wait for some more.

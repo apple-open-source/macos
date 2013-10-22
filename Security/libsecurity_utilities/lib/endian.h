@@ -125,8 +125,10 @@ public:
     Endian() : mValue(Type(0)) { }
     Endian(Value v) : mValue(h2n(v)) { }
     
-    operator Value () const		{ return n2h(mValue); }
+    Type get ()	const			{ return n2h(mValue); }
+    operator Value () const		{ return this->get(); }
     Endian &operator = (Value v)	{ mValue = h2n(v); return *this; }
+
     
 private:
     Value mValue;

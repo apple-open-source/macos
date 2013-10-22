@@ -60,13 +60,14 @@ xpc_object_t home = NULL;
 extern xpc_object_t
 xpc_create_reply_with_format(xpc_object_t original, const char * format, ...);
 
+static
 xpc_object_t create_keychain_search_list_for(xpc_connection_t peer, SecPreferencesDomain domain)
 {
     CFArrayRef keychains = NULL;
     pid_t peer_pid = xpc_connection_get_pid(peer);
     OSStatus status = SecKeychainCopyDomainSearchListFunctionPointer(domain, &keychains);
-    if (noErr != status) {
-        syslog(LOG_ERR, "Unable to get keychain search list (domain=%d) on behalf of %d, status=0x%lx", domain, peer_pid, status);
+    if (errSecSuccess != status) {
+        syslog(LOG_ERR, "Unable to get keychain search list (domain=%d) on behalf of %d, status=0x%lx", domain, peer_pid, (unsigned long)status);
         return NULL;
     }
     
@@ -79,8 +80,8 @@ xpc_object_t create_keychain_search_list_for(xpc_connection_t peer, SecPreferenc
         SecKeychainRef keychain = (SecKeychainRef)CFArrayGetValueAtIndex(keychains, i);
         UInt32 length = MAXPATHLEN;
         OSStatus status = SecKeychainGetPathFunctionPointer(keychain, &length, path);
-        if (noErr != status) {
-            syslog(LOG_ERR, "Unable to get path for keychain#%ld of %ld on behalf of %d, status=0x%lx", i, n_keychains, peer_pid, status);
+        if (errSecSuccess != status) {
+            syslog(LOG_ERR, "Unable to get path for keychain#%ld of %ld on behalf of %d, status=0x%lx", i, n_keychains, peer_pid, (unsigned long)status);
             continue;
         }
         xpc_object_t path_as_xpc_string = xpc_string_create(path);
@@ -91,11 +92,13 @@ xpc_object_t create_keychain_search_list_for(xpc_connection_t peer, SecPreferenc
     return paths;
 }
 
+static
 bool keychain_domain_needs_writes(const char *domain_name)
 {
 	return (0 == strcmp("kSecPreferencesDomainUser", domain_name) || 0 == strcmp("kSecPreferencesDomainDynamic", domain_name));
 }
 
+static
 void _set_keychain_search_lists_for_domain(xpc_connection_t peer, xpc_object_t all_domains, char *domain_name, SecPreferencesDomain domain_enum)
 {
     xpc_object_t keychains_for_domain = create_keychain_search_list_for(peer, domain_enum);
@@ -109,6 +112,7 @@ void _set_keychain_search_lists_for_domain(xpc_connection_t peer, xpc_object_t a
 
 #define SET_KEYCHAIN_SEARCH_LISTS_FOR_DOMAIN(peer, all_domains, domain) _set_keychain_search_lists_for_domain(peer, all_domains, #domain, domain);
 
+static
 xpc_object_t create_keychain_search_lists(xpc_connection_t peer)
 {
 	xpc_object_t all_domains = xpc_dictionary_create(NULL, NULL, 0);
@@ -122,6 +126,7 @@ xpc_object_t create_keychain_search_lists(xpc_connection_t peer)
 }
 
 
+static
 xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t keychain_path_dict)
 {
 	pid_t peer_pid = xpc_connection_get_pid(peer);
@@ -161,7 +166,7 @@ xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t 
             strcpy(buffer, path);
             
             if (path != NULL) {
-                int i = strlen(buffer) - 1;
+                ptrdiff_t i = strlen(buffer) - 1;
                 while (i >= 0 && buffer[i] != '/') {
                     i -= 1;
                 }
@@ -191,7 +196,7 @@ xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t 
 
             CC_SHA1_CTX sha1Context;
             CC_SHA1_Init(&sha1Context);
-            CC_SHA1_Update(&sha1Context, base, strlen(base));
+            CC_SHA1_Update(&sha1Context, base, (CC_LONG)strlen(base));
             
             unsigned char sha1_result_bytes[CC_SHA1_DIGEST_LENGTH];
             
@@ -211,6 +216,7 @@ xpc_object_t create_keychain_and_lock_paths(xpc_connection_t peer, xpc_object_t 
 	return return_paths_dict;
 }
 
+static
 xpc_object_t create_one_sandbox_extension(xpc_object_t path, uint64_t extension_flags)
 {
 	char *sandbox_extension = NULL;
@@ -225,6 +231,7 @@ xpc_object_t create_one_sandbox_extension(xpc_object_t path, uint64_t extension_
 	return NULL;
 }
 
+static
 xpc_object_t create_all_sandbox_extensions(xpc_object_t path_dict)
 {
     xpc_object_t extensions = xpc_array_create(NULL, 0);
@@ -254,6 +261,7 @@ xpc_object_t create_all_sandbox_extensions(xpc_object_t path_dict)
     return extensions;
 }
 
+static
 void handle_request_event(struct connection_info *info, xpc_object_t event)
 {
     xpc_connection_t peer = xpc_dictionary_get_connection(event);
@@ -322,6 +330,7 @@ void handle_request_event(struct connection_info *info, xpc_object_t event)
     }
 }
 
+static
 void finalize_connection(void *not_used)
 {
 #ifdef XPC_HANDLES_IDLE_TIMEOUT
@@ -329,7 +338,8 @@ void finalize_connection(void *not_used)
 #endif
 }
 
-void handle_connection_event(const xpc_connection_t peer) 
+static
+void handle_connection_event(const xpc_connection_t peer)
 {
 #ifndef XPC_HANDLES_IDLE_TIMEOUT
     __sync_add_and_fetch(&current_connections, 1);
@@ -376,10 +386,10 @@ int main(int argc, const char *argv[])
         home_dir = pwd->pw_dir; // look it up in directory services, sort of...
     }
 
-    int home_dir_length = strlen(home_dir);
-    int path_to_plist_length = strlen(g_path_to_plist);
+    size_t home_dir_length = strlen(home_dir);
+    size_t path_to_plist_length = strlen(g_path_to_plist);
     
-    int total_length = home_dir_length + path_to_plist_length + 1; // compensate for terminating zero
+    size_t total_length = home_dir_length + path_to_plist_length + 1; // compensate for terminating zero
     if (total_length > PATH_MAX) {
         // someone is spoofing us, just exit
         return -1;

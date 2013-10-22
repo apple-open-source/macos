@@ -39,14 +39,14 @@ WebInspector.RequestCookiesView = function(request)
     this.element.addStyleClass("resource-cookies-view");
 
     this._request = request;
-
-    request.addEventListener(WebInspector.NetworkRequest.Events.RequestHeadersChanged, this._refreshCookies, this);
-    request.addEventListener(WebInspector.NetworkRequest.Events.ResponseHeadersChanged, this._refreshCookies, this);
 }
 
 WebInspector.RequestCookiesView.prototype = {
     wasShown: function()
     {
+        this._request.addEventListener(WebInspector.NetworkRequest.Events.RequestHeadersChanged, this._refreshCookies, this);
+        this._request.addEventListener(WebInspector.NetworkRequest.Events.ResponseHeadersChanged, this._refreshCookies, this);
+
         if (!this._gotCookies) {
             if (!this._emptyView) {
                 this._emptyView = new WebInspector.EmptyView(WebInspector.UIString("This request has no cookies."));
@@ -59,18 +59,26 @@ WebInspector.RequestCookiesView.prototype = {
             this._buildCookiesTable();
     },
 
+    willHide: function()
+    {
+        this._request.removeEventListener(WebInspector.NetworkRequest.Events.RequestHeadersChanged, this._refreshCookies, this);
+        this._request.removeEventListener(WebInspector.NetworkRequest.Events.ResponseHeadersChanged, this._refreshCookies, this);
+    },
+
     get _gotCookies()
     {
-        return !!(this._request.requestCookies || this._request.responseCookies);
+        return (this._request.requestCookies && this._request.requestCookies.length) || (this._request.responseCookies && this._request.responseCookies.length);
     },
 
     _buildCookiesTable: function()
     {
         this.detachChildViews();
 
-        this._cookiesTable = new WebInspector.CookiesTable(null, true);
-        this._cookiesTable.addCookiesFolder(WebInspector.UIString("Request Cookies"), this._request.requestCookies);
-        this._cookiesTable.addCookiesFolder(WebInspector.UIString("Response Cookies"), this._request.responseCookies);
+        this._cookiesTable = new WebInspector.CookiesTable(true);
+        this._cookiesTable.setCookieFolders([
+            {folderName: WebInspector.UIString("Request Cookies"), cookies: this._request.requestCookies},
+            {folderName: WebInspector.UIString("Response Cookies"), cookies: this._request.responseCookies}
+        ]);
         this._cookiesTable.show(this.element);
     },
 
@@ -81,7 +89,7 @@ WebInspector.RequestCookiesView.prototype = {
             return;
         this._buildCookiesTable();
         this._cookiesTable.updateWidths();
-    }
-}
+    },
 
-WebInspector.RequestCookiesView.prototype.__proto__ = WebInspector.View.prototype;
+    __proto__: WebInspector.View.prototype
+}

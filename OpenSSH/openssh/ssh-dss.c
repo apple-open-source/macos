@@ -27,8 +27,13 @@
 
 #include <sys/types.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#include "ossl-evp.h"
+#else
 #include <openssl/bn.h>
 #include <openssl/evp.h>
+#endif
 
 #include <stdarg.h>
 #include <string.h>

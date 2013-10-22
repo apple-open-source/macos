@@ -173,7 +173,7 @@ CSSM_CSP_CreateRandomGenContext (CSSM_CSP_HANDLE CSPHandle,
     maker.setup(Length, CSSMERR_CSP_INVALID_ATTR_OUTPUT_SIZE);
     maker.make();
     maker.put(CSSM_ATTRIBUTE_SEED, Seed);
-    maker.put(CSSM_ATTRIBUTE_OUTPUT_SIZE, Length);
+    maker.put(CSSM_ATTRIBUTE_OUTPUT_SIZE, (uint32_t)Length);
     Required(NewContextHandle) = maker(CSSM_ALGCLASS_RANDOMGEN, AlgorithmID);
     END_API(CSSM)
 }
@@ -291,7 +291,8 @@ CSSM_GetContext (CSSM_CC_HANDLE CCHandle,
                  CSSM_CONTEXT_PTR *ContextP)
 {
     BEGIN_API
-    HandleContext &context = HandleObject::find<HandleContext>(CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
+    HandleContext &context = HandleObject::find<HandleContext>((CSSM_HANDLE)CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
     Context *newContext = new(context.attachment) Context(context.type(), context.algorithm());
     try {
         newContext->CSPHandle = context.attachment.handle();
@@ -325,7 +326,8 @@ CSSM_SetContext (CSSM_CC_HANDLE CCHandle,
 {
     BEGIN_API
     const Context &source = Context::required(ContextP);
-    HandleContext &context = HandleObject::find<HandleContext>(CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
+    HandleContext &context = HandleObject::find<HandleContext>((CSSM_HANDLE)CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
 
     CSSM_CONTEXT_ATTRIBUTE *oldAttributes = context.ContextAttributes;
     uint32 oldCount = context.NumberOfAttributes;
@@ -390,7 +392,8 @@ CSSM_UpdateContextAttributes (CSSM_CC_HANDLE CCHandle,
                               const CSSM_CONTEXT_ATTRIBUTE *ContextAttributes)
 {
     BEGIN_API
-    HandleContext &context = HandleObject::find<HandleContext>(CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
+    HandleContext &context = HandleObject::find<HandleContext>((CSSM_HANDLE)CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
     context.mergeAttributes(ContextAttributes, NumberAttributes);
     END_API(CSSM)
 }
@@ -405,7 +408,8 @@ CSSM_DeleteContextAttributes (CSSM_CC_HANDLE CCHandle,
     if (NumberOfAttributes == 0)
         return CSSM_OK;	// I suppose
     Required(ContextAttributes); // preflight
-    HandleContext &context = HandleObject::find<HandleContext>(CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
+    HandleContext &context = HandleObject::find<HandleContext>((CSSM_HANDLE)CCHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
     for (uint32 n = 0; n < NumberOfAttributes; n++)
         context.deleteAttribute(ContextAttributes[n].AttributeType);
     END_API(CSSM)
@@ -421,7 +425,8 @@ CSSM_DigestDataClone (CSSM_CC_HANDLE ccHandle,
                       CSSM_CC_HANDLE *newCCHandle)
 {
 	BEGIN_API
-    HandleContext &context = HandleObject::findAndLock<HandleContext>(ccHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
+    HandleContext &context = HandleObject::findAndLock<HandleContext>((CSSM_HANDLE)ccHandle, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
 	TransitLock _(context.attachment);
     HandleContext *newContext =
     	new(context.attachment) HandleContext(context.attachment, context.type(), context.algorithm());

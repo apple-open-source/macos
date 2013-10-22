@@ -24,4 +24,5 @@
 extern int join_session(au_asid_t);
 
 extern int automountd_nobrowse;
+extern int automountd_nosuid;
 extern char *automountd_defopts;

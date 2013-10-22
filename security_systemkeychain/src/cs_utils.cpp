@@ -35,7 +35,6 @@
 #include <security_codesigning/reqdumper.h>
 #include <security_codesigning/cdbuilder.h>
 #include <security_codesigning/reqparser.h>
-#include <security_codesigning/renum.h>
 #include <Security/CMSEncoder.h>
 #include <cstdio>
 #include <cmath>
@@ -52,6 +51,7 @@ using namespace UnixPlusPlus;
 unsigned verbose = 0;				// verbosity level
 bool force = false;					// force overwrite flag
 bool continueOnError = false;		// continue processing targets on error(s)
+bool numericErrors = false;			// display errors as numbers (for mechanized callers)
 
 int exitcode = exitSuccess;			// cumulative exit code
 
@@ -63,8 +63,6 @@ int exitcode = exitSuccess;			// cumulative exit code
 static const HashType hashTypes[] = {
 	{ "sha1",			kSecCodeSignatureHashSHA1,						SHA1::digestLength },
 	{ "sha256",			kSecCodeSignatureHashSHA256,					256 / 8 },
-	{ "skein160x256",	kSecCodeSignatureHashPrestandardSkein160x256,	160 / 8 },
-	{ "skein256x512",	kSecCodeSignatureHashPrestandardSkein256x512,	256 / 8 },
 	{ NULL }
 };
 
@@ -72,13 +70,15 @@ const HashType *findHashType(const char *hashName)
 {
 	size_t length = strlen(hashName);
 	const HashType *match = NULL;
-	for (const HashType *h = hashTypes; h->name; h++)
-		if (!strncmp(hashName, h->name, length))	// prefix match
-			if (match)
+	for (const HashType *h = hashTypes; h->name; h++) {
+		if (!strncmp(hashName, h->name, length)) {	// prefix match
+			if (match) {
 				fail("%s: ambiguous hash specification (%s or %s)",
 					hashName, match->name, h->name);
-			else
+			} else
 				match = h;
+        }
+    }
 	if (match)
 		return match;
 	fail("%s: unknown hash specification", hashName);
@@ -106,7 +106,10 @@ CFTypeRef readRequirement(const string &source, SecCSFlags flags)
 	CFTypeRef result;
 	ErrorCheck check;
 	if (source[0] == '=') {	// =text
-		check(SecRequirementsCreateWithString(CFTempString(source.substr(1)), flags, &result, check));
+		if (flags)
+			check(SecRequirementsCreateWithString(CFTempString(source.substr(1)), flags, &result, check));
+		else
+			result = makeCFString(source.substr(1));
 		return result;
 	}
 	FILE *f;
@@ -133,9 +136,12 @@ CFTypeRef readRequirement(const string &source, SecCSFlags flags)
 		::free(blob);
 	} else {									// presumably text
 		char buffer[10240];		// arbitrary size
-		int length = fread(buffer, 1, sizeof(buffer) - 1, f);
+		size_t length = fread(buffer, 1, sizeof(buffer) - 1, f);
 		buffer[length] = '\0';
-		check(SecRequirementsCreateWithString(CFTempString(buffer), flags, &result, check));
+		if (flags)
+			check(SecRequirementsCreateWithString(CFTempString(buffer), flags, &result, check));
+		else
+			result = makeCFString(buffer);
 	}
 	if (f != stdin)
 		fclose(f);
@@ -355,7 +361,7 @@ uint32_t parseCdFlags(const char *arg)
 	// if it's numeric, Just Do It
 	if (isdigit(arg[0])) {		// numeric - any form of number
 		char *remain;
-		uint32_t flags = strtol(arg, &remain, 0);
+		uint32_t flags = uint32_t(strtol(arg, &remain, 0));
 		if (remain[0])
 			fail("%s: invalid flag(s)", arg);
 		return flags;
@@ -394,8 +400,7 @@ std::string cleanPath(const char *path)
 	char answer[PATH_MAX];
 	if (const char *r = realpath(path, answer))
 		return r;
-	perror(path);
-	exit(1);
+	UnixError::throwMe();
 }
 
 
@@ -492,11 +497,13 @@ void diagnose(const char *context /* = NULL */, int stop /* = 0 */)
 
 void diagnose(const char *context, CFErrorRef err)
 {
-	diagnose(context, CFErrorGetCode(err), CFErrorCopyUserInfo(err));
+	diagnose(context, OSStatus(CFErrorGetCode(err)), CFErrorCopyUserInfo(err));
 }
 
 static void diagnose1(const char *context, OSStatus rc)
 {
+	if (numericErrors)
+		printf("%ld\n", long(rc));
 	if (rc >= errSecErrnoBase && rc < errSecErrnoLimit) {
 		errno = rc - errSecErrnoBase;
 		perror(context);
@@ -519,11 +526,11 @@ void diagnose(const char *context, OSStatus rc, CFDictionaryRef info)
 
 	if (verbose) {
 		if (CFTypeRef detail = CFDictionaryGetValue(info, kSecCFErrorResourceAdded))
-			diagnose1("resource added", detail);
+			diagnose1("file added", detail);
 		if (CFTypeRef detail = CFDictionaryGetValue(info, kSecCFErrorResourceAltered))
-			diagnose1("resource modified", detail);
+			diagnose1("file modified", detail);
 		if (CFTypeRef detail = CFDictionaryGetValue(info, kSecCFErrorResourceMissing))
-			diagnose1("resource missing", detail);
+			diagnose1("file missing", detail);
 	}
 }
 
@@ -635,15 +642,25 @@ static void parseAttribute(CFMutableDictionaryRef attrs, string form);
 
 SecCodeRef dynamicCodePath(const char *target)
 {
+    CFRef<CFMutableDictionaryRef> dict = NULL;
+    
+    if (target[0] == '+') {
+		dict = cfmake<CFMutableDictionaryRef>("{%O=#T}", kSecGuestAttributeDynamicCode);
+		target++;
+    } else
+		dict = makeCFMutableDictionary();
+    
 	if (!isdigit(target[0]))
 		return NULL;	// not a dynamic spec
 	
 	char *path;
-	int pid = strtol(target, &path, 10);
+	int pid = (int)strtol(target, &path, 10);
+    if (pid == 0)
+        return NULL;
 	
 	return descend(NULL,
-		cfmake<CFMutableDictionaryRef>("{%O=%d}", kSecGuestAttributePid, pid),
-		path);
+                   cfmake<CFMutableDictionaryRef>("{+%O,%O=%d}", dict.get(), kSecGuestAttributePid, pid),
+                   path);
 }
 
 

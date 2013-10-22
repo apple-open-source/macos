@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDC</string>
 	<key>CFBundleGetInfoString</key>
-	<string>4.1.23, USB CDC driver</string>
+	<string>4.2.1b2, USB CDC driver</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.1.23</string>
+	<string>4.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>4.1.23</string>
+	<string>4.2.1b2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AlcatelECMPreferred</key>
@@ -171,40 +171,6 @@
 			<string>com.apple.driver.AppleUSBCDC</string>
 			<key>IOClass</key>
 			<string>AppleUSBCDC</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-		</dict>
-		<key>AppleUSBCDCDeviceNCM</key>
-		<dict>
-			<key>bDeviceClass</key>
-			<integer>2</integer>
-			<key>bDeviceProtocol</key>
-			<integer>0</integer>
-			<key>bDeviceSubClass</key>
-			<integer>13</integer>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBCDC</string>
-			<key>IOClass</key>
-			<string>AppleUSBCDC</string>
-			<key>IOProbeScore</key>
-			<integer>10000</integer>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-		</dict>
-		<key>AppleUSBCDCDeviceMBIM</key>
-		<dict>
-			<key>bDeviceClass</key>
-			<integer>2</integer>
-			<key>bDeviceProtocol</key>
-			<integer>0</integer>
-			<key>bDeviceSubClass</key>
-			<integer>14</integer>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBCDC</string>
-			<key>IOClass</key>
-			<string>AppleUSBCDC</string>
-			<key>IOProbeScore</key>
-			<integer>10000</integer>
 			<key>IOProviderClass</key>
 			<string>IOUSBDevice</string>
 		</dict>
@@ -528,6 +494,42 @@
 			<dict>
 				<key>Preferred Configuration</key>
 				<integer>1</integer>
+			</dict>
+		</dict>
+		<key>RealTekUSB3Preferred</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>idProduct</key>
+			<integer>33107</integer>
+			<key>idVendor</key>
+			<integer>3034</integer>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>Preferred Configuration</key>
+				<integer>2</integer>
+			</dict>
+		</dict>
+		<key>Novatel 0x1410/0x7031</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>idProduct</key>
+			<integer>28721</integer>
+			<key>idVendor</key>
+			<integer>5136</integer>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>Preferred Configuration</key>
+				<integer>2</integer>
 			</dict>
 		</dict>
 		<key>EchoSmartPenDoNotMatch</key>

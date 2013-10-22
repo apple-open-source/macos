@@ -32,13 +32,15 @@
 #ifndef _ISAKMP_AGG_H
 #define _ISAKMP_AGG_H
 
-extern int agg_i1send __P((struct ph1handle *, vchar_t *));
-extern int agg_i2recv __P((struct ph1handle *, vchar_t *));
-extern int agg_i2send __P((struct ph1handle *, vchar_t *));
+#include "racoon_types.h"
 
-extern int agg_r1recv __P((struct ph1handle *, vchar_t *));
-extern int agg_r1send __P((struct ph1handle *, vchar_t *));
-extern int agg_r2recv __P((struct ph1handle *, vchar_t *));
-extern int agg_r2send __P((struct ph1handle *, vchar_t *));
+extern int agg_i1send (phase1_handle_t *, vchar_t *);
+extern int agg_i2recv (phase1_handle_t *, vchar_t *);
+extern int agg_i3send (phase1_handle_t *, vchar_t *);
+
+extern int agg_r1recv (phase1_handle_t *, vchar_t *);
+extern int agg_r2send (phase1_handle_t *, vchar_t *);
+extern int agg_r3recv (phase1_handle_t *, vchar_t *);
+extern int agg_rfinalize (phase1_handle_t *, vchar_t *);
 
 #endif /* _ISAKMP_AGG_H */

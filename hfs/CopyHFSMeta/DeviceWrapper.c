@@ -46,24 +46,37 @@ writeExtent(struct IOWrapper *context, DeviceInfo_t *devp, off_t start, off_t le
 {
 	const size_t bufSize = 1024 * 1024;
 	struct DeviceWrapperContext *ctx = (struct DeviceWrapperContext*)context->context;
-	uint8_t buffer[bufSize];
+	uint8_t *buffer = NULL;
+	ssize_t retval = 0;
 	off_t total = 0;
 
 	if (debug) printf("Writing extent <%lld, %lld> to device %s", start, len, ctx->pathname);
 
+	buffer = malloc(bufSize);
+	if (buffer == NULL) {
+		warn("%s(%s): Could not allocate %zu bytes for buffer", __FILE__, __FUNCTION__, bufSize);
+		retval = -1;
+		goto done;
+	}
+
 	while (total < len) {
 		ssize_t nread;
 		size_t amt = MIN(bufSize, len - total);
+		// XXX - currently, DeviceWrapepr isn't used, but it needs to deal wit unaligned I/O when it is.
 		nread = pread(devp->fd, buffer, amt, start + total);
 		if (nread == -1) {
 			warn("Cannot read from device at offset %lld", start + total);
-			return -1;
+			retval = -1;
+			goto done;
 		}
 		(void)pwrite(ctx->fd, (char*)buffer, nread, start + total);
 		bp(nread);
 		total += nread;
 	}
-	return 0;
+done:
+	if (buffer)
+		free(buffer);
+	return retval;
 }
 
 /*

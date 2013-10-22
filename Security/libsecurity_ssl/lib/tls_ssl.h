@@ -22,8 +22,8 @@
  */
 
 /*
- * tls_ssl.h - Declarations of callout struct to provide indirect calls to
- *     SSLv3 and TLS routines.
+ * tls_ssl.h - Declarations of handshake layer callout struct to provide indirect calls to
+ *     SSLv3 and TLS routines. 
  */
 
 #ifndef	_TLS_SSL_H_
@@ -37,41 +37,10 @@ extern "C" {
 #include "sslPriv.h"
 #include "sslContext.h"
 #include "sslRecord.h"
-#include "cryptType.h"
 
 /***
  *** Each of {TLS, SSLv3} implements each of these functions.
  ***/
-
-/* unpack, decrypt, validate one record */
-typedef OSStatus (*decryptRecordFcn) (
-	UInt8 type,
-	SSLBuffer *payload,
-	SSLContext *ctx);
-
-/* pack, encrypt, mac, queue one outgoing record */
-typedef OSStatus (*writeRecordFcn) (
-	SSLRecord rec,
-	SSLContext *ctx);
-
-/* initialize a per-CipherContext HashHmacContext for use in MACing each record */
-typedef OSStatus (*initMacFcn) (
-	CipherContext *cipherCtx,		// macRef, macSecret valid on entry
-									// macCtx valid on return
-	SSLContext *ctx);
-
-/* free per-CipherContext HashHmacContext */
-typedef OSStatus (*freeMacFcn) (
-	CipherContext *cipherCtx);
-
-/* compute MAC on one record */
-typedef OSStatus (*computeMacFcn) (
-	UInt8 type,
-	SSLBuffer data,
-	SSLBuffer mac, 					// caller mallocs data
-	CipherContext *cipherCtx,		// assumes macCtx, macRef
-	sslUint64 seqNo,
-	SSLContext *ctx);
 
 typedef OSStatus (*generateKeyMaterialFcn) (
 	SSLBuffer key, 					// caller mallocs and specifies length of
@@ -104,28 +73,19 @@ typedef OSStatus (*computeCertVfyMacFcn) (
     SSLBuffer *finished,		// output - mallocd by caller
     SSL_HashAlgorithm hash);    //only used in TLS 1.2
 
+
 typedef struct _SslTlsCallouts {
-	decryptRecordFcn			decryptRecord;
-	writeRecordFcn				writeRecord;
-	initMacFcn					initMac;
-	freeMacFcn					freeMac;
-	computeMacFcn				computeMac;
 	generateKeyMaterialFcn		generateKeyMaterial;
-	generateExportKeyAndIvFcn	generateExportKeyAndIv;
 	generateMasterSecretFcn		generateMasterSecret;
 	computeFinishedMacFcn		computeFinishedMac;
 	computeCertVfyMacFcn		computeCertVfyMac;
 } SslTlsCallouts;
 
+
 /* From ssl3Callouts.c and tls1Callouts.c */
 extern const SslTlsCallouts	Ssl3Callouts;
 extern const SslTlsCallouts	Tls1Callouts;
 extern const SslTlsCallouts Tls12Callouts;
-
-/* one callout routine used in common (for now) */
-OSStatus ssl3WriteRecord(
-	SSLRecord rec,
-	SSLContext *ctx);
 
 #ifdef	__cplusplus
 }

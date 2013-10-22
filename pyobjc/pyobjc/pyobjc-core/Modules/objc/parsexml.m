@@ -264,10 +264,12 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 	char* s;
 	int r;
 
+	BOOL typeIsBlock = NO;
 	s = attribute_string(node, "type", "type64");
 	typestr2typestr(s);
 
 	if (s && *s) {
+		typeIsBlock = (strcmp(s, "@?") == 0);
 		v = PyBytes_InternFromString(s);
 		if (v == NULL) {
 			xmlFree(s);
@@ -498,7 +500,7 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 		
 		xmlNode* al;
 		int idx = 0;
-		if (attribute_bool(node, "block", NULL, NO)) {
+		if (attribute_bool(node, "block", NULL, NO) || typeIsBlock) {
 			/* Blocks have an implict first argument, include that in the 
 			 * argument list.
 			 */

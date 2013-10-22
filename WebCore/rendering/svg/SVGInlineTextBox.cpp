@@ -44,6 +44,15 @@ using namespace std;
 
 namespace WebCore {
 
+struct ExpectedSVGInlineTextBoxSize : public InlineTextBox {
+    float float1;
+    uint32_t bitfields : 5;
+    void* pointer;
+    Vector<SVGTextFragment> vector;
+};
+
+COMPILE_ASSERT(sizeof(SVGInlineTextBox) == sizeof(ExpectedSVGInlineTextBoxSize), SVGInlineTextBox_is_not_of_expected_size);
+
 SVGInlineTextBox::SVGInlineTextBox(RenderObject* object)
     : InlineTextBox(object)
     , m_logicalHeight(0)
@@ -309,10 +318,10 @@ void SVGInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint&, LayoutUni
 
         // Spec: All text decorations except line-through should be drawn before the text is filled and stroked; thus, the text is rendered on top of these decorations.
         int decorations = style->textDecorationsInEffect();
-        if (decorations & UNDERLINE)
-            paintDecoration(paintInfo.context, UNDERLINE, fragment);
-        if (decorations & OVERLINE)
-            paintDecoration(paintInfo.context, OVERLINE, fragment);
+        if (decorations & TextDecorationUnderline)
+            paintDecoration(paintInfo.context, TextDecorationUnderline, fragment);
+        if (decorations & TextDecorationOverline)
+            paintDecoration(paintInfo.context, TextDecorationOverline, fragment);
 
         // Fill text
         if (hasFill) {
@@ -327,8 +336,8 @@ void SVGInlineTextBox::paint(PaintInfo& paintInfo, const LayoutPoint&, LayoutUni
         }
 
         // Spec: Line-through should be drawn after the text is filled and stroked; thus, the line-through is rendered on top of the text.
-        if (decorations & LINE_THROUGH)
-            paintDecoration(paintInfo.context, LINE_THROUGH, fragment);
+        if (decorations & TextDecorationLineThrough)
+            paintDecoration(paintInfo.context, TextDecorationLineThrough, fragment);
 
         m_paintingResourceMode = ApplyToDefaultMode;
     }
@@ -422,7 +431,6 @@ TextRun SVGInlineTextBox::constructTextRun(RenderStyle* style, const SVGTextFrag
 
     TextRun run(text->characters() + fragment.characterOffset
                 , fragment.length
-                , false /* allowTabs */
                 , 0 /* xPos, only relevant with allowTabs=true */
                 , 0 /* padding, only relevant for justified text, not relevant for SVG */
                 , TextRun::AllowTrailingExpansion
@@ -470,22 +478,22 @@ bool SVGInlineTextBox::mapStartEndPositionsIntoFragmentCoordinates(const SVGText
     return true;
 }
 
-static inline float positionOffsetForDecoration(ETextDecoration decoration, const FontMetrics& fontMetrics, float thickness)
+static inline float positionOffsetForDecoration(TextDecoration decoration, const FontMetrics& fontMetrics, float thickness)
 {
     // FIXME: For SVG Fonts we need to use the attributes defined in the <font-face> if specified.
     // Compatible with Batik/Opera.
-    if (decoration == UNDERLINE)
+    if (decoration == TextDecorationUnderline)
         return fontMetrics.floatAscent() + thickness * 1.5f;
-    if (decoration == OVERLINE)
+    if (decoration == TextDecorationOverline)
         return thickness;
-    if (decoration == LINE_THROUGH)
+    if (decoration == TextDecorationLineThrough)
         return fontMetrics.floatAscent() * 5 / 8.0f;
 
     ASSERT_NOT_REACHED();
     return 0.0f;
 }
 
-static inline float thicknessForDecoration(ETextDecoration, const Font& font)
+static inline float thicknessForDecoration(TextDecoration, const Font& font)
 {
     // FIXME: For SVG Fonts we need to use the attributes defined in the <font-face> if specified.
     // Compatible with Batik/Opera
@@ -499,7 +507,7 @@ static inline RenderObject* findRenderObjectDefininingTextDecoration(InlineFlowB
     while (parentBox) {
         renderer = parentBox->renderer();
 
-        if (renderer->style() && renderer->style()->textDecoration() != TDNONE)
+        if (renderer->style() && renderer->style()->textDecoration() != TextDecorationNone)
             break;
 
         parentBox = parentBox->parent();
@@ -509,9 +517,9 @@ static inline RenderObject* findRenderObjectDefininingTextDecoration(InlineFlowB
     return renderer;
 }
 
-void SVGInlineTextBox::paintDecoration(GraphicsContext* context, ETextDecoration decoration, const SVGTextFragment& fragment)
+void SVGInlineTextBox::paintDecoration(GraphicsContext* context, TextDecoration decoration, const SVGTextFragment& fragment)
 {
-    if (textRenderer()->style()->textDecorationsInEffect() == TDNONE)
+    if (textRenderer()->style()->textDecorationsInEffect() == TextDecorationNone)
         return;
 
     // Find out which render style defined the text-decoration, as its fill/stroke properties have to be used for drawing instead of ours.
@@ -539,30 +547,7 @@ void SVGInlineTextBox::paintDecoration(GraphicsContext* context, ETextDecoration
     }
 }
 
-static inline void normalizeTransform(AffineTransform& transform)
-{
-    // Obtain consistent numerical results for the AffineTransform on both 32/64bit platforms.
-    // Tested with SnowLeopard on Core Duo vs. Core 2 Duo.
-    static const float s_floatEpsilon = std::numeric_limits<float>::epsilon();
-
-    if (fabs(transform.a() - 1) <= s_floatEpsilon)
-        transform.setA(1);
-    else if (fabs(transform.a() + 1) <= s_floatEpsilon)
-        transform.setA(-1);
-
-    if (fabs(transform.d() - 1) <= s_floatEpsilon)
-        transform.setD(1);
-    else if (fabs(transform.d() + 1) <= s_floatEpsilon)
-        transform.setD(-1);
-
-    if (fabs(transform.e()) <= s_floatEpsilon)
-        transform.setE(0);
-
-    if (fabs(transform.f()) <= s_floatEpsilon)
-        transform.setF(0);
-}
-
-void SVGInlineTextBox::paintDecorationWithStyle(GraphicsContext* context, ETextDecoration decoration, const SVGTextFragment& fragment, RenderObject* decorationRenderer)
+void SVGInlineTextBox::paintDecorationWithStyle(GraphicsContext* context, TextDecoration decoration, const SVGTextFragment& fragment, RenderObject* decorationRenderer)
 {
     ASSERT(!m_paintingResource);
     ASSERT(m_paintingResourceMode != ApplyToDefaultMode);
@@ -589,12 +574,7 @@ void SVGInlineTextBox::paintDecorationWithStyle(GraphicsContext* context, ETextD
     if (scalingFactor != 1) {
         width *= scalingFactor;
         decorationOrigin.scale(scalingFactor, scalingFactor);
-
-        AffineTransform newTransform = context->getCTM();
-        newTransform.scale(1 / scalingFactor);
-        normalizeTransform(newTransform);
-
-        context->setCTM(newTransform);
+        context->scale(FloatSize(1 / scalingFactor, 1 / scalingFactor));
     }
 
     decorationOrigin.move(0, -scaledFontMetrics.floatAscent() + positionOffsetForDecoration(decoration, scaledFontMetrics, thickness));
@@ -635,21 +615,12 @@ void SVGInlineTextBox::paintTextWithShadows(GraphicsContext* context, RenderStyl
         if (shadow)
             extraOffset = applyShadowToGraphicsContext(context, shadow, shadowRect, false /* stroked */, true /* opaque */, true /* horizontal */);
 
-        AffineTransform originalTransform;
-        if (scalingFactor != 1) {
-            originalTransform = context->getCTM();
-
-            AffineTransform newTransform = originalTransform;
-            newTransform.scale(1 / scalingFactor);
-            normalizeTransform(newTransform);
-
-            context->setCTM(newTransform);
-        }
+        context->save();
+        context->scale(FloatSize(1 / scalingFactor, 1 / scalingFactor));
 
         scaledFont.drawText(context, textRun, textOrigin + extraOffset, startPosition, endPosition);
 
-        if (scalingFactor != 1)
-            context->setCTM(originalTransform);
+        context->restore();
 
         restoreGraphicsContextAfterTextPainting(context, textRun);
 
@@ -730,7 +701,7 @@ FloatRect SVGInlineTextBox::calculateBoundaries() const
     return textRect;
 }
 
-bool SVGInlineTextBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit, LayoutUnit)
+bool SVGInlineTextBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit, LayoutUnit)
 {
     // FIXME: integrate with InlineTextBox::nodeAtPoint better.
     ASSERT(!isLineBreak());
@@ -743,9 +714,9 @@ bool SVGInlineTextBox::nodeAtPoint(const HitTestRequest& request, HitTestResult&
             FloatPoint boxOrigin(x(), y());
             boxOrigin.moveBy(accumulatedOffset);
             FloatRect rect(boxOrigin, size());
-            if (rect.intersects(result.rectForPoint(pointInContainer))) {
-                renderer()->updateHitTestResult(result, pointInContainer - toLayoutSize(accumulatedOffset));
-                if (!result.addNodeToRectBasedTestResult(renderer()->node(), pointInContainer, rect))
+            if (locationInContainer.intersects(rect)) {
+                renderer()->updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
+                if (!result.addNodeToRectBasedTestResult(renderer()->node(), request, locationInContainer, rect))
                     return true;
              }
         }

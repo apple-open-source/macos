@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright(c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +48,7 @@
 
 #include <fcntl.h>
 #include <pthread.h>
+#include <sandbox.h>
 #include <unistd.h>
 #include <sys/errno.h>
 
@@ -84,7 +85,7 @@ __SCPreferencesCopyDescription(CFTypeRef cf) {
 		CFStringAppendFormat(result, NULL, CFSTR(", locked"));
 	}
 	if (prefsPrivate->helper_port != MACH_PORT_NULL) {
-		CFStringAppendFormat(result, NULL, CFSTR(", helper port = %p"), prefsPrivate->helper_port);
+		CFStringAppendFormat(result, NULL, CFSTR(", helper port = 0x%x"), prefsPrivate->helper_port);
 	}
 	CFStringAppendFormat(result, NULL, CFSTR("}"));
 
@@ -209,6 +210,7 @@ __SCPreferencesCreatePrivate(CFAllocatorRef	allocator)
 	prefsPrivate->changed				= FALSE;
 	prefsPrivate->isRoot				= (geteuid() == 0);
 	prefsPrivate->authorizationData			= NULL;
+	prefsPrivate->authorizationRequired		= FALSE;
 	prefsPrivate->helper_port			= MACH_PORT_NULL;
 
 	return prefsPrivate;
@@ -355,7 +357,7 @@ __SCPreferencesAccess_helper(SCPreferencesRef prefs)
 	}
 
 	if ((serverPrefs == NULL) || (serverSignature == NULL)) {
-		CFRelease(serverDict);
+		if (serverDict != NULL) CFRelease(serverDict);
 		goto fail;
 	}
 
@@ -390,7 +392,6 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		      CFDataRef		authorizationData,
 		      CFDictionaryRef	options)
 {
-	int				fd		= -1;
 	SCPreferencesPrivateRef		prefsPrivate;
 	int				sc_status	= kSCStatusOK;
 
@@ -426,87 +427,90 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		goto error;
 	}
 
-	/*
-	 * open file
-	 */
-	fd = open(prefsPrivate->path, O_RDONLY, 0644);
-	if (fd != -1) {
-		(void) close(fd);
-	} else {
-		switch (errno) {
-			case ENOENT :
-				/* no prefs file */
-				if ((prefsID == NULL) || !CFStringHasPrefix(prefsID, CFSTR("/"))) {
-					/* if default preference ID or relative path */
-					if (prefsPrivate->newPath == NULL) {
-						/*
-						 * we've looked in the "new" prefs directory
-						 * without success.  Save the "new" path and
-						 * look in the "old" prefs directory.
-						 */
-						prefsPrivate->newPath = prefsPrivate->path;
-						goto retry;
-					} else {
-						/*
-						 * we've looked in both the "new" and "old"
-						 * prefs directories without success.  Use
-						 * the "new" path.
-						 */
-						CFAllocatorDeallocate(NULL, prefsPrivate->path);
-						prefsPrivate->path = prefsPrivate->newPath;
-						prefsPrivate->newPath = NULL;
-					}
-				}
-
-				/* no preference data, start fresh */
-				sc_status = kSCStatusNoConfigFile;
-				goto done;
-			case EACCES :
-				if (prefsPrivate->authorizationData != NULL) {
-					/* no problem, we'll be using the helper */
-					goto done;
-				}
-
-				SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
-				sc_status = kSCStatusAccessError;
-				break;
-			default :
-				SCLog(TRUE, LOG_ERR, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
-				sc_status = kSCStatusFailed;
-				break;
-		}
-		goto error;
+	if (access(prefsPrivate->path, R_OK) == 0) {
+		goto done;
 	}
+
+	switch (errno) {
+		case ENOENT :
+			/* no prefs file */
+			if ((prefsID == NULL) || !CFStringHasPrefix(prefsID, CFSTR("/"))) {
+				/* if default preference ID or relative path */
+				if (prefsPrivate->newPath == NULL) {
+					/*
+					 * we've looked in the "new" prefs directory
+					 * without success.  Save the "new" path and
+					 * look in the "old" prefs directory.
+					 */
+					prefsPrivate->newPath = prefsPrivate->path;
+					goto retry;
+				} else {
+					/*
+					 * we've looked in both the "new" and "old"
+					 * prefs directories without success.  Use
+					 * the "new" path.
+					 */
+					CFAllocatorDeallocate(NULL, prefsPrivate->path);
+					prefsPrivate->path = prefsPrivate->newPath;
+					prefsPrivate->newPath = NULL;
+				}
+			}
+
+			/* no preference data, start fresh */
+			sc_status = kSCStatusNoConfigFile;
+			goto done;
+		case EPERM  :
+		case EACCES :
+			if (prefsPrivate->authorizationData != NULL) {
+				/* no problem, we'll be using the helper */
+				goto done;
+			}
+
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
+			sc_status = kSCStatusAccessError;
+			break;
+		default :
+			SCLog(TRUE, LOG_ERR, CFSTR("__SCPreferencesCreate open() failed: %s"), strerror(errno));
+			sc_status = kSCStatusFailed;
+			break;
+	}
+
+    error:
+
+	CFRelease(prefsPrivate);
+	_SCErrorSet(sc_status);
+	return NULL;
 
     done :
 
 	/* all OK */
 	_SCErrorSet(sc_status);
 	return prefsPrivate;
-
-    error :
-
-	if (fd != -1) (void) close(fd);
-	CFRelease(prefsPrivate);
-	_SCErrorSet(sc_status);
-	return NULL;
 }
 
 
 __private_extern__ void
 __SCPreferencesAccess(SCPreferencesRef	prefs)
 {
-	CFAllocatorRef			allocator	= CFGetAllocator(prefs);
-	int				fd		= -1;
-	SCPreferencesPrivateRef		prefsPrivate	= (SCPreferencesPrivateRef)prefs;
-	struct  stat			statBuf;
+	CFAllocatorRef		allocator	= CFGetAllocator(prefs);
+	int			fd		= -1;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	struct stat		statBuf;
 
 	if (prefsPrivate->accessed) {
 		// if preference data has already been accessed
 		return;
 	}
 
-	fd = open(prefsPrivate->path, O_RDONLY, 0644);
+	if (!prefsPrivate->authorizationRequired) {
+		if (access(prefsPrivate->path, R_OK) == 0) {
+			fd = open(prefsPrivate->path, O_RDONLY, 0644);
+		} else {
+			fd = -1;
+		}
+	} else {
+		errno = EACCES;
+	}
 	if (fd != -1) {
 		// create signature
 		if (fstat(fd, &statBuf) == -1) {
@@ -518,6 +522,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 			case ENOENT :
 				/* no preference data, start fresh */
 				break;
+			case EPERM  :
 			case EACCES :
 				if (prefsPrivate->authorizationData != NULL) {
 					if (__SCPreferencesAccess_helper(prefs)) {
@@ -672,7 +677,7 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 							       &kCFTypeDictionaryValueCallBacks);
 #if	!TARGET_OS_IPHONE
 		if (authorization != kSCPreferencesUseEntitlementAuthorization) {
-			CFDataRef 			authorizationRefData;
+			CFDataRef			data;
 			AuthorizationExternalForm	extForm;
 			OSStatus			os_status;
 
@@ -684,11 +689,11 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 				return NULL;
 			}
 
-			authorizationRefData = CFDataCreate(NULL, (const UInt8 *)extForm.bytes, sizeof(extForm.bytes));
+			data = CFDataCreate(NULL, (const UInt8 *)extForm.bytes, sizeof(extForm.bytes));
 			CFDictionaryAddValue(authorizationDict,
 					     kSCHelperAuthAuthorization,
-					     authorizationRefData);
-			CFRelease(authorizationRefData);
+					     data);
+			CFRelease(data);
 		}
 #endif
 
@@ -860,7 +865,7 @@ SCPreferencesSetCallback(SCPreferencesRef       prefs,
 		(*prefsPrivate->rlsContext.release)(prefsPrivate->rlsContext.info);
 	}
 
-	prefsPrivate->rlsFunction   			= callout;
+	prefsPrivate->rlsFunction 			= callout;
 	prefsPrivate->rlsContext.info			= NULL;
 	prefsPrivate->rlsContext.retain			= NULL;
 	prefsPrivate->rlsContext.release		= NULL;

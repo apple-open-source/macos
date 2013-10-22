@@ -88,7 +88,6 @@
 		60416D1F1402EE7300C190AA /* domain.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B0FB8E91241FE3F00383109 /* domain.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		7215DE4C0EFAF2EC00ABD81E /* libauditd.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */; };
 		726055EC0EA7EC2400D65FE7 /* mach_exc.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC36291F0E9349410054F1A3 /* mach_exc.defs */; settings = {ATTRIBUTES = (Server, ); }; };
-		726056090EA7FCF200D65FE7 /* ktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 72FDB15D0EA7D7B200B2AC84 /* ktrace.c */; };
 		72AFE8090EFAF3D9004BDA46 /* libauditd.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */; };
 		72FDB15F0EA7D7B200B2AC84 /* ktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 72FDB15D0EA7D7B200B2AC84 /* ktrace.c */; };
 		72FDB1C00EA7E21C00B2AC84 /* job_forward.defs in Sources */ = {isa = PBXBuildFile; fileRef = 72FDB1BF0EA7E21C00B2AC84 /* job_forward.defs */; };
@@ -395,7 +394,6 @@
 		4B949DD4143D010F008712B9 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = usr/local/lib/libCrashReporterClient.a; sourceTree = SDKROOT; };
 		4B9EDCA10EAFC77E00A78496 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		4BA2F5FC1243063D00C2AADD /* init.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = init.defs; path = usr/local/include/xpc/init.defs; sourceTree = SDKROOT; };
-		4BC868A8143CFD0300B46F40 /* osx_redirect_name */ = {isa = PBXFileReference; lastKnownFileType = text; name = osx_redirect_name; path = xcsupport/osx_redirect_name; sourceTree = "<group>"; };
 		7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libauditd.dylib; path = /usr/lib/libauditd.dylib; sourceTree = "<absolute>"; };
 		721FBEA50EA7ABC40057462B /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = src/config.h; sourceTree = "<group>"; };
 		72FDB15D0EA7D7B200B2AC84 /* ktrace.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ktrace.c; path = src/ktrace.c; sourceTree = "<group>"; };
@@ -655,7 +653,6 @@
 		4BC868A6143CFC8C00B46F40 /* xcsupport */ = {
 			isa = PBXGroup;
 			children = (
-				4BC868A8143CFD0300B46F40 /* osx_redirect_name */,
 			);
 			name = xcsupport;
 			sourceTree = "<group>";
@@ -916,7 +913,7 @@
 		FC59A03F0E8C87FD00D41150 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0450;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = FC59A0420E8C87FD00D41150 /* Build configuration list for PBXProject "launchd" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1099,7 +1096,6 @@
 				FC59A0F40E8C8AA600D41150 /* liblaunch.c in Sources */,
 				FC59A0F00E8C8AA600D41150 /* libvproc.c in Sources */,
 				FC59A0F70E8C8AA600D41150 /* libbootstrap.c in Sources */,
-				726056090EA7FCF200D65FE7 /* ktrace.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1221,7 +1217,6 @@
 		FC59A0410E8C87FD00D41150 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;

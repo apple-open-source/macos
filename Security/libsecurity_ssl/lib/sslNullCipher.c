@@ -21,63 +21,53 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "sslContext.h"
+/* THIS FILE CONTAINS KERNEL CODE */
+
+#include "symCipher.h"
 
 #include <string.h>
 
-static OSStatus NullInit(
-	uint8_t *key,
-	uint8_t *iv,
-	CipherContext *cipherCtx,
-	SSLContext *ctx);
-static OSStatus NullCrypt(
-	const uint8_t *src,
-	uint8_t *dest,
-    size_t len,
-	CipherContext *cipherCtx,
-	SSLContext *ctx);
-static OSStatus NullFinish(
-	CipherContext *cipherCtx,
-	SSLContext *ctx);
-
-extern const SSLSymmetricCipher SSLCipherNull;
-
-const SSLSymmetricCipher SSLCipherNull = {
-    0,          /* Key size in bytes (ignoring parity) */
-    0,          /* Secret key size */
-    0,          /* IV size */
-    0,          /* Block size */
-    -1,         /* CC cipher (unused by Null*) */
-    NullInit,
-    NullCrypt,
-    NullCrypt,
-    NullFinish
+const SSLSymmetricCipherParams SSLCipherNullParams = {
+    .keyAlg = SSL_CipherAlgorithmNull,
+    .ivSize = 0,
+    .blockSize = 0,
+    .keySize = 0,
+    .cipherType = streamCipherType,
 };
 
-static OSStatus NullInit(
+static int NullInit(
+    const SSLSymmetricCipherParams *cipher,
+    int encrypting,
 	uint8_t *key,
 	uint8_t *iv,
-	CipherContext *cipherCtx,
-	SSLContext *ctx)
+	SymCipherContext *cipherCtx)
 {
- 	return noErr;
+	return 0;
 }
 
-static OSStatus NullCrypt(
-	const uint8_t *src,
+static int NullCrypt(
+	const uint8_t *src, 
 	uint8_t *dest,
     size_t len,
-	CipherContext *cipherCtx,
-	SSLContext *ctx)
-{
+	SymCipherContext cipherCt)
+{   
 	if (src != dest)
         memcpy(dest, src, len);
-    return noErr;
+    return 0;
 }
 
-static OSStatus NullFinish(
-	CipherContext *cipherCtx,
-	SSLContext *ctx)
-{
-	return noErr;
+static int NullFinish(
+	SymCipherContext cipherCtx)
+{   
+	return 0;
 }
+
+const SSLSymmetricCipher SSLCipherNull = {
+    .params = &SSLCipherNullParams,
+    .c.cipher = {
+        .initialize = NullInit,
+        .encrypt = NullCrypt,
+        .decrypt = NullCrypt
+    },
+    .finish = NullFinish
+};

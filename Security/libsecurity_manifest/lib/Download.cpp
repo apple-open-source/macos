@@ -26,7 +26,6 @@
 
 #include <Security/Security.h>
 #include <security_utilities/security_utilities.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_cdsa_utilities/cssmbridge.h>
 #include <Security/cssmapplePriv.h>
 
@@ -132,13 +131,13 @@ SecPolicyRef Download::GetPolicy ()
 
 	// get the policy for resource signing
 	result = SecPolicySearchCreate (CSSM_CERT_X_509v3, &CSSMOID_APPLE_TP_RESOURCE_SIGN, NULL, &search);
-	if (result != noErr)
+	if (result != errSecSuccess)
 	{
 		MacOSError::throwMe (result);
 	}
 	
 	result = SecPolicySearchCopyNext (search, &policy);
-	if (result != noErr)
+	if (result != errSecSuccess)
 	{
 		MacOSError::throwMe (result);
 	}
@@ -276,7 +275,7 @@ void Download::Initialize (CFDataRef ticket,
 			}
 			
 			result = SecTrustEvaluate (trustRef, &resultType);
-			if (result != noErr)
+			if (result != errSecSuccess)
 			{
 				MacOSError::throwMe (errSecureDownloadInvalidTicket);
 			}
@@ -335,7 +334,7 @@ SecCmsMessageRef Download::GetCmsMessageFromData (CFDataRef data)
 }
 
 
-
+static 
 size_t MinSizeT (size_t a, size_t b)
 {
 	// return the smaller of a and b
@@ -376,7 +375,7 @@ void Download::UpdateWithData (CFDataRef data)
 		size_t bytesToHash = MinSizeT (bytesLeftToHash, dataLength);
 		
 		// hash the data
-		CC_SHA256_Update (&mSHA256Context, finger, bytesToHash);
+		CC_SHA256_Update (&mSHA256Context, finger, (CC_LONG)bytesToHash);
 		
 		// update the pointers
 		mBytesInCurrentDigest += bytesToHash;

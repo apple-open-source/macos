@@ -24,8 +24,6 @@
 #include "oalContext.h"
 #include "oalSource.h"
 
-#define LOG_VERBOSE             0
-
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // OALContexts
@@ -33,8 +31,11 @@
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #pragma mark ***** OALContexts - Public Methods *****
 OALContext::OALContext (const uintptr_t	inSelfToken, OALDevice    *inOALDevice, const ALCint *inAttributeList, UInt32  &inBusCount, Float64	&inMixerRate)
-	: 	mSelfToken (inSelfToken),
-		mProcessingActive(true),
+	:
+#if LOG_CONTEXT_VERBOSE
+        mSelfToken (inSelfToken),
+#endif
+//		mProcessingActive(true),
 		mOwningDevice(inOALDevice),
 		mMixerNode(0), 
 		mMixerUnit (0),
@@ -51,7 +52,6 @@ OALContext::OALContext (const uintptr_t	inSelfToken, OALDevice    *inOALDevice, 
 		mAttributeList(NULL),
 		mDistanceScalingRequired(false),
 		mCalculateDistance(true),
-		mStoredInverseAttenuation(1.0),
 		mRenderQuality(ALC_MAC_OSX_SPATIAL_RENDERING_QUALITY_LOW),
 		mSpatialSetting(0),
 		mBusCount(inBusCount),
@@ -74,7 +74,7 @@ OALContext::OALContext (const uintptr_t	inSelfToken, OALDevice    *inOALDevice, 
 		mStereoSourcesConnected(0)
 #endif
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::OALContext() - OALContext = %ld", (long int) mSelfToken);
 #endif
 		mBusInfo = (BusInfo *) calloc (1, sizeof(BusInfo) * mBusCount);
@@ -164,7 +164,7 @@ OALContext::OALContext (const uintptr_t	inSelfToken, OALDevice    *inOALDevice, 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OALContext::~OALContext()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::~OALContext() - OALContext = %ld", (long int) mSelfToken);
 #endif
     
@@ -208,7 +208,7 @@ OALContext::~OALContext()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALContext::CleanUpDeadSourceList()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::CleanUpDeadSourceList() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	if (mDeadSourceMap)
@@ -255,7 +255,7 @@ void	OALContext::CleanUpDeadSourceList()
 
 void		OALContext::InitializeMixer(UInt32	inStereoBusCount)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::InitializeMixer() - OALContext:inStereoBusCount = %ld:%d", (long int) mSelfToken, inStereoBusCount);
 #endif
     OSStatus	result = noErr;
@@ -406,7 +406,7 @@ void		OALContext::InitializeMixer(UInt32	inStereoBusCount)
 // should only be called when the mixer is NOT connected
 void	OALContext::ConfigureMixerFormat()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::ConfigureMixerFormat() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	// Set the Output Format of the Mixer AU
@@ -427,7 +427,7 @@ void	OALContext::ConfigureMixerFormat()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALContext::CopyAttributeList( ALCint*	outAttrList)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::CopyAttributeList() - OALContext = %ld", (long int) mSelfToken);
 #endif    
 	memcpy(outAttrList, mAttributeList, mAttributeListSize*sizeof(ALCint));
@@ -436,7 +436,7 @@ void	OALContext::CopyAttributeList( ALCint*	outAttrList)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::AddSource(ALuint	inSourceToken)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::AddSource() - OALContext:inSourceToken = %ld:%d", (long int) mSelfToken, inSourceToken);
 #endif
 	try {
@@ -460,7 +460,7 @@ void		OALContext::AddSource(ALuint	inSourceToken)
 // You MUST call ReleaseSource after you have completed use of the source object
 OALSource*		OALContext::ProtectSource(ALuint	inSourceToken)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::ProtectSource() - OALContext:inSourceToken = %ld:%d", (long int) mSelfToken, inSourceToken);
 #endif
 	OALSource *newSource = NULL;
@@ -479,7 +479,7 @@ OALSource*		OALContext::ProtectSource(ALuint	inSourceToken)
 // You MUST call ReleaseSource after you have completed use of the source object
 OALSource*		OALContext::GetSourceForRender(ALuint	inSourceToken)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::GetSourceForRender() - OALContext:inSourceToken = %ld:%d", (long int) mSelfToken, inSourceToken);
 #endif  
 	OALSource *newSource = NULL;
@@ -501,7 +501,7 @@ OALSource*		OALContext::GetSourceForRender(ALuint	inSourceToken)
 // You MUST call ReleaseSource after you have completed use of the dead source object
 OALSource*		OALContext::GetDeadSourceForRender(ALuint	inSourceToken)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::GetDeadSourceForRender() - OALContext:inSourceToken = %ld:%d", (long int) mSelfToken, inSourceToken);
 #endif
 	OALSource *deadSource = NULL;
@@ -522,7 +522,7 @@ OALSource*		OALContext::GetDeadSourceForRender(ALuint	inSourceToken)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void OALContext::ReleaseSource(OALSource* inSource)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::ReleaseSource() - OALContext:inSource = %ld:%d", (long int) mSelfToken, inSource->GetToken());
 #endif
 	if (inSource) 
@@ -532,7 +532,7 @@ void OALContext::ReleaseSource(OALSource* inSource)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::RemoveSource(ALuint	inSourceToken)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::RemoveSource() - OALContext:inSourceToken = %ld:%d", (long int) mSelfToken, inSourceToken);
 #endif
 	OALSource	*oalSource = mSourceMap->Get(inSourceToken);
@@ -555,7 +555,7 @@ void		OALContext::RemoveSource(ALuint	inSourceToken)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::ProcessContext()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::ProcessContext() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	return; // NO OP
@@ -576,7 +576,7 @@ void		OALContext::ProcessContext()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::SuspendContext()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::SuspendContext() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	return; // NO OP
@@ -596,7 +596,7 @@ void		OALContext::SuspendContext()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::ConnectMixerToDevice()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::ConnectMixerToDevice() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	mOwningDevice->ConnectContext(this);
@@ -642,7 +642,7 @@ void		OALContext::DisconnectMixerFromDevice()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::SetDistanceModel(UInt32	inDistanceModel)
 {
-#if LOG_VERBOSE || LOG_GRAPH_AND_MIXER_CHANGES
+#if LOG_CONTEXT_VERBOSE || LOG_GRAPH_AND_MIXER_CHANGES
 	DebugMessageN2("OALContext::SetDistanceModel() - OALContext:inDistanceModel = %ld:%d", (long int) mSelfToken, inDistanceModel);
 #endif
 	OSStatus	result = noErr;
@@ -748,7 +748,7 @@ void		OALContext::SetDistanceModel(UInt32	inDistanceModel)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::SetDopplerFactor(Float32		inDopplerFactor)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetDopplerFactor() - OALContext:inDopplerFactor = %ld:%f", (long int) mSelfToken, inDopplerFactor);
 #endif
 	if (mDopplerFactor != inDopplerFactor)
@@ -765,7 +765,7 @@ void		OALContext::SetDopplerFactor(Float32		inDopplerFactor)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::SetDopplerVelocity(Float32	inDopplerVelocity)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetDopplerVelocity() - OALContext:inDopplerVelocity = %ld:%f", (long int) mSelfToken, inDopplerVelocity);
 #endif
 	if (mDopplerVelocity != inDopplerVelocity)
@@ -779,7 +779,7 @@ void		OALContext::SetDopplerVelocity(Float32	inDopplerVelocity)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::SetSpeedOfSound(Float32	inSpeedOfSound)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetSpeedOfSound() - OALContext:inSpeedOfSound = %ld:%f", (long int) mSelfToken, inSpeedOfSound);
 #endif
 	if (mSpeedOfSound != inSpeedOfSound)
@@ -796,7 +796,7 @@ void		OALContext::SetSpeedOfSound(Float32	inSpeedOfSound)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::SetListenerGain(Float32	inGain)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetListenerGain() - OALContext:inGain = %ld:%f", (long int) mSelfToken, inGain);
 #endif
 	if (inGain < 0.0f)
@@ -814,7 +814,7 @@ void		OALContext::SetListenerGain(Float32	inGain)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 UInt32		OALContext::GetSourceCount()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::GetSourceCount() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	UInt32 count = 0;
@@ -831,7 +831,7 @@ UInt32		OALContext::GetSourceCount()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::SetListenerPosition(Float32	posX, Float32	posY, Float32	posZ) 
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN4("OALContext::SetListenerPosition() - OALContext:posX:posY:posZ = %ld:%f:%f:%f", (long int) mSelfToken, posX, posY, posZ);
 #endif
 	if (isnan(posX) || isnan(posY) || isnan(posZ))
@@ -860,7 +860,7 @@ void		OALContext::SetListenerPosition(Float32	posX, Float32	posY, Float32	posZ)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void		OALContext::SetListenerVelocity(Float32	posX, Float32	posY, Float32	posZ) 
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN4("OALContext::SetListenerVelocity() - OALContext:posX:posY:posZ = %ld:%f:%f:%f", (long int) mSelfToken, posX, posY, posZ);
 #endif
 	mListenerVelocity[0] = posX;
@@ -882,7 +882,7 @@ void		OALContext::SetListenerVelocity(Float32	posX, Float32	posY, Float32	posZ)
 void	OALContext::SetListenerOrientation( Float32	forwardX, 	Float32	forwardY,	Float32	forwardZ,
 											Float32	 upX, 		Float32	 upY, 		Float32	 upZ)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN7("OALContext::SetListenerOrientation() - OALContext:forwardX:forwardY:forwardZ:upX:upY:upZ = %ld:%f:%f:%f:%f:%f:%f", (long int) mSelfToken, forwardX, forwardY, forwardZ, upX, upY, upZ);
 #endif
 
@@ -918,7 +918,7 @@ void	OALContext::SetListenerOrientation( Float32	forwardX, 	Float32	forwardY,	Fl
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 UInt32	OALContext::GetDesiredRenderChannels(UInt32	inDeviceChannels)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::GetDesiredRenderChannels() - OALContext:inDeviceChannels = %ld:%d", (long int) mSelfToken, inDeviceChannels);
 #endif
     UInt32	returnValue = inDeviceChannels;
@@ -951,7 +951,7 @@ UInt32	OALContext::GetDesiredRenderChannels(UInt32	inDeviceChannels)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void OALContext::InitRenderQualityOnBusses()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::InitRenderQualityOnBusses() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	UInt32		channelCount = mOwningDevice->GetDesiredRenderChannelCount();
@@ -1013,7 +1013,7 @@ void OALContext::InitRenderQualityOnBusses()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void OALContext::SetRenderQuality (UInt32 inRenderQuality)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetRenderQuality() - OALContext:inRenderQuality = %ld:%d", (long int) mSelfToken, inRenderQuality);
 #endif
 	if (mRenderQuality == inRenderQuality)
@@ -1056,7 +1056,7 @@ void    OALContext::SetDistanceAttenuation(UInt32    inBusIndex, Float64 inRefDi
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 UInt32		OALContext::GetAvailableMonoBus (ALuint inSourceToken)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::GetAvailableMonoBus() - OALContext:inSourceToken = %ld:%d", (long int) mSelfToken, inSourceToken);
 #endif
 	// look for a bus already set for mono
@@ -1124,7 +1124,7 @@ UInt32		OALContext::GetAvailableMonoBus (ALuint inSourceToken)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 UInt32		OALContext::GetAvailableStereoBus (ALuint inSourceToken)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::GetAvailableStereoBus() - OALContext:inSourceToken = %ld:%d", (long int) mSelfToken, inSourceToken);
 #endif
 	for (UInt32 i = 0; i < mBusCount; i++)
@@ -1187,7 +1187,7 @@ UInt32		OALContext::GetAvailableStereoBus (ALuint inSourceToken)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALContext::SetBusAsAvailable (UInt32 inBusIndex)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetBusAsAvailable() - OALContext:inBusIndex = %ld:%d", (long int) mSelfToken, inBusIndex);
 #endif
 	mBusInfo[inBusIndex].mSourceAttached = kNoSourceAttached;
@@ -1207,7 +1207,7 @@ void	OALContext::SetBusAsAvailable (UInt32 inBusIndex)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALContext::SetReverbRoomType(UInt32 inRoomType)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetReverbRoomType() - OALContext:inRoomType = %ld:%d", (long int) mSelfToken, inRoomType);
 #endif
 	if (mASAReverbRoomType == inRoomType)
@@ -1222,7 +1222,7 @@ void	OALContext::SetReverbRoomType(UInt32 inRoomType)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALContext::SetReverbLevel(Float32 inReverbLevel)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetReverbLevel() - OALContext:inReverbLevel = %ld:%f", (long int) mSelfToken, inReverbLevel);
 #endif
 
@@ -1238,7 +1238,7 @@ void	OALContext::SetReverbLevel(Float32 inReverbLevel)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALContext::SetReverbState(UInt32 inReverbState)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetReverbState() - OALContext:inReverbState = %ld:%d", (long int) mSelfToken, inReverbState);
 #endif
 	if (mASAReverbState == inReverbState)
@@ -1254,7 +1254,7 @@ void	OALContext::SetReverbState(UInt32 inReverbState)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void			OALContext::SetReverbQuality(UInt32 inQuality)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetReverbQuality() - OALContext:inQuality = %ld:%d", (long int) mSelfToken, inQuality);
 #endif
 	if (mASAReverbQuality == inQuality)
@@ -1268,7 +1268,7 @@ void			OALContext::SetReverbQuality(UInt32 inQuality)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void			OALContext::SetReverbEQGain(Float32 inGain)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetReverbEQGain() - OALContext:inGain = %ld:%f", (long int) mSelfToken, inGain);
 #endif
 	if (mASAReverbEQGain != inGain)
@@ -1282,7 +1282,7 @@ void			OALContext::SetReverbEQGain(Float32 inGain)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void			OALContext::SetReverbEQBandwidth(Float32 inBandwidth)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetReverbEQBandwidth() - OALContext:inBandwidth = %ld:%f", (long int) mSelfToken, inBandwidth);
 #endif
 	if (mASAReverbEQBandwidth != inBandwidth)
@@ -1296,7 +1296,7 @@ void			OALContext::SetReverbEQBandwidth(Float32 inBandwidth)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void			OALContext::SetReverbEQFrequency(Float32 inFrequency)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN2("OALContext::SetReverbEQFrequency() - OALContext:inFrequency = %ld:%f", (long int) mSelfToken, inFrequency);
 #endif
 	if (mASAReverbEQFrequency != inFrequency)
@@ -1310,7 +1310,7 @@ void			OALContext::SetReverbEQFrequency(Float32 inFrequency)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 UInt32			OALContext::GetReverbQuality()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::GetReverbQuality() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	return mASAReverbQuality;
@@ -1319,7 +1319,7 @@ UInt32			OALContext::GetReverbQuality()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Float32			OALContext::GetReverbEQGain()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::GetReverbEQGain() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	OSStatus	result = AudioUnitGetParameter(mMixerUnit, 20000 + 16 /*kReverbParam_FilterGain*/,kAudioUnitScope_Global,0, &mASAReverbEQGain);
@@ -1332,7 +1332,7 @@ Float32			OALContext::GetReverbEQGain()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Float32			OALContext::GetReverbEQBandwidth()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::GetReverbEQBandwidth() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	OSStatus	result = AudioUnitGetParameter(mMixerUnit, 20000 + 15 /*kReverbParam_FilterBandwidth*/,kAudioUnitScope_Global,0, &mASAReverbEQBandwidth);
@@ -1345,7 +1345,7 @@ Float32			OALContext::GetReverbEQBandwidth()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Float32			OALContext::GetReverbEQFrequency()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::GetReverbEQFrequency() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	OSStatus	result =  AudioUnitGetParameter(mMixerUnit, 20000 + 14 /*kReverbParam_FilterFrequency*/,kAudioUnitScope_Global,0, &mASAReverbEQFrequency);
@@ -1358,7 +1358,7 @@ Float32			OALContext::GetReverbEQFrequency()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	OALContext::SetReverbPreset (FSRef* inRef)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::SetReverbPreset() - OALContext = %ld", (long int) mSelfToken);
 #endif
 	try {
@@ -1419,7 +1419,7 @@ OSStatus	OALContext::ContextNotificationProc (	void 						*inRefCon,
 													UInt32 						inNumberFrames, 
 													AudioBufferList 			*ioData)
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessage("OALContext::ContextNotificationProc()");
 #endif
 	OALContext* THIS = (OALContext*)inRefCon;
@@ -1440,7 +1440,7 @@ OSStatus	OALContext::ContextNotificationProc (	void 						*inRefCon,
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OSStatus OALContext::DoPreRender ()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::DoPreRender() - OALContext = %ld", (long int) mSelfToken);
 #endif
 #if	LOG_MESSAGE_QUEUE					
@@ -1463,7 +1463,7 @@ OSStatus OALContext::DoPreRender ()
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 OSStatus OALContext::DoPostRender ()
 {
-#if LOG_VERBOSE
+#if LOG_CONTEXT_VERBOSE
 	DebugMessageN1("OALContext::DoPostRender() - OALContext = %ld", (long int) mSelfToken);
 #endif
 #if	LOG_MESSAGE_QUEUE					

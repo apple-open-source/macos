@@ -7,8 +7,7 @@ LAUNCHD_PLISTS = shell.plist
 
 Extra_CC_Flags = -Wall -Werror -fPIE
 Extra_CC_Flags += -D__FBSDID=__RCSID
-Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
-ifeq ($(Embedded),YES)
+ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 PAM=
 else
 PAM=-lpam
@@ -19,7 +18,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
 
 after_install:
-ifeq ($(Embedded),YES)
+ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 	/usr/libexec/PlistBuddy -x \
 		-c "Delete :Disabled" \
 		-c "Delete :SessionCreate" \

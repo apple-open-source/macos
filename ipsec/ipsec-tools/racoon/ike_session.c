@@ -31,6 +31,7 @@
 #include "plog.h"
 #include "sockmisc.h"
 #include "debug.h"
+#include "fsm.h"
 
 #include "isakmp_var.h"
 #include "isakmp.h"
@@ -69,8 +70,14 @@ const char *ike_session_stopped_by_idle           = "Stopped by Idle";
 const char *ike_session_stopped_by_xauth_timeout  = "Stopped by XAUTH timeout";
 const char *ike_session_stopped_by_sleepwake      = "Stopped by Sleep-Wake";
 const char *ike_session_stopped_by_assert         = "Stopped by Assert";
+const char *ike_session_stopped_by_peer           = "Stopped by Peer";
 
-static LIST_HEAD(_ike_session_tree_, ike_session) ike_session_tree = { NULL };
+LIST_HEAD(_ike_session_tree_, ike_session) ike_session_tree = { NULL };
+
+static void ike_session_bindph12(phase1_handle_t *, phase2_handle_t *);
+static void ike_session_rebindph12(phase1_handle_t *, phase2_handle_t *);
+static void ike_session_unbind_all_ph2_from_ph1 (phase1_handle_t *);
+static void ike_session_rebind_all_ph12_to_new_ph1 (phase1_handle_t *, phase1_handle_t *);
 
 static ike_session_t *
 new_ike_session (ike_session_id_t *id)
@@ -78,19 +85,17 @@ new_ike_session (ike_session_id_t *id)
 	ike_session_t *session;
 
 	if (!id) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
-
-	plog(LLV_DEBUG, LOCATION, NULL, "new parent session.\n");
+    
 	session = racoon_calloc(1, sizeof(*session));
 	if (session) {
 		bzero(session, sizeof(*session));
 		memcpy(&session->session_id, id, sizeof(*id));
-		LIST_INIT(&session->ikev1_state.ph1tree);
-		LIST_INIT(&session->ikev1_state.ph2tree);	
+		LIST_INIT(&session->ph1tree);
+		LIST_INIT(&session->ph2tree);	
 		LIST_INSERT_HEAD(&ike_session_tree, session, chain);
-		session->version = IKE_VERSION_1; // hard-coded for now
 		IPSECSESSIONTRACERSTART(session);
 	}
 	return session;
@@ -119,7 +124,7 @@ free_ike_session (ike_session_t *session)
 								   session->term_reason);
 		}
 		// do MessageTracer cleanup here
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			 "Freeing IKE-Session to %s.\n",
 			 saddr2str((struct sockaddr *)&session->session_id.remote));
 		LIST_REMOVE(session, chain);
@@ -127,48 +132,6 @@ free_ike_session (ike_session_t *session)
 	}
 }
 
-struct ph1handle *
-ike_session_get_established_or_negoing_ph1 (ike_session_t *session)
-{
-	struct ph1handle *p, *iph1 = NULL;
-
-	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
-		return NULL;
-	}
-
-	// look for the most mature ph1 under the session
-	for (p = LIST_FIRST(&session->ikev1_state.ph1tree); p; p = LIST_NEXT(p, ph1ofsession_chain)) {
-		if (!p->is_dying && p->status >= PHASE1ST_START && p->status <= PHASE1ST_ESTABLISHED) {
-			if (!iph1 || p->status > iph1->status) {
-				iph1 = p;
-			} else if (iph1 && p->status == iph1->status) {
-				// TODO: pick better one based on farthest rekey/expiry remaining
-			}
-		}
-	}
-
-	return iph1;
-}
-
-struct ph1handle *
-ike_session_get_established_ph1 (ike_session_t *session)
-{
-	struct ph1handle *p;
-    
-	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
-		return NULL;
-	}
-    
-	for (p = LIST_FIRST(&session->ikev1_state.ph1tree); p; p = LIST_NEXT(p, ph1ofsession_chain)) {
-		if (!p->is_dying && p->status == PHASE1ST_ESTABLISHED) {
-            return p;
-		}
-	}
-    
-	return NULL;
-}
 
 void
 ike_session_init (void)
@@ -195,18 +158,43 @@ ike_session_get_rekey_lifetime (int local_spi_is_higher, u_int expiry_lifetime)
 		}
 	}
 	if (rekey_lifetime < expiry_lifetime) {
-		return (rekey_lifetime);
+		return rekey_lifetime;
 	}
-	return(0);
+	return 0;
 }
 
-// TODO: optimize this mess later
+ike_session_t *
+ike_session_create_session (ike_session_id_t *session_id)
+{
+    if (!session_id)
+        return NULL;
+    
+    plog(ASL_LEVEL_DEBUG, "New IKE Session to %s.\n", saddr2str((struct sockaddr *)&session_id->remote));
+    
+    return new_ike_session(session_id);
+}
+
+void
+ike_session_release_session (ike_session_t *session)
+{
+    while (!LIST_EMPTY(&session->ph2tree)) {
+        phase2_handle_t *phase2 = LIST_FIRST(&session->ph2tree);
+        ike_session_unlink_phase2(phase2);
+    }
+    
+    while (!LIST_EMPTY(&session->ph1tree)) {
+        phase1_handle_t *phase1 = LIST_FIRST(&session->ph1tree);
+        ike_session_unlink_phase1(phase1);
+    }
+}
+
+// %%%%%%%%% re-examine this - keep both floated and unfloated port when behind nat
 ike_session_t *
 ike_session_get_session (struct sockaddr_storage *local,
 						 struct sockaddr_storage *remote,
 						 int              alloc_if_absent)
 {
-	ike_session_t    *p;
+	ike_session_t    *p = NULL;
 	ike_session_id_t  id;
 	ike_session_id_t  id_default;
 	ike_session_id_t  id_floated_default;
@@ -216,7 +204,7 @@ ike_session_get_session (struct sockaddr_storage *local,
 	int               is_isakmp_remote_port;
 
 	if (!local || !remote) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
 
@@ -261,36 +249,35 @@ ike_session_get_session (struct sockaddr_storage *local,
 	set_port(&id_floated_default.remote, PORT_ISAKMP_NATT);
 	set_port(&id_wop.remote, 0);
 
-	plog(LLV_DEBUG, LOCATION, local,
+	plog(ASL_LEVEL_DEBUG,
 		 "start search for IKE-Session. target %s.\n",
 		 saddr2str((struct sockaddr *)remote));			
 
-	for (p = LIST_FIRST(&ike_session_tree); p; p = LIST_NEXT(p, chain)) {
-		plog(LLV_DEBUG, LOCATION, local,
+	LIST_FOREACH(p, &ike_session_tree, chain) {
+		plog(ASL_LEVEL_DEBUG,
 			 "still search for IKE-Session. this %s.\n",
 			 saddr2str((struct sockaddr *)&p->session_id.remote));
 
 		// for now: ignore any stopped sessions as they will go down
 		if (p->is_dying || p->stopped_by_vpn_controller || p->stop_timestamp.tv_sec || p->stop_timestamp.tv_usec) {
-			plog(LLV_DEBUG, LOCATION, local,
-				 "still searching. skipping... session to %s is already stopped, active ph1 %d ph2 %d.\n",
+			plog(ASL_LEVEL_DEBUG, "still searching. skipping... session to %s is already stopped, active ph1 %d ph2 %d.\n",
 				 saddr2str((struct sockaddr *)&p->session_id.remote),
 				 p->ikev1_state.active_ph1cnt, p->ikev1_state.active_ph2cnt);
 			continue;
 		}
 
 		if (memcmp(&p->session_id, &id, sizeof(id)) == 0) {
-			plog(LLV_DEBUG, LOCATION, local,
+			plog(ASL_LEVEL_DEBUG,
 				 "Pre-existing IKE-Session to %s. case 1.\n",
 				 saddr2str((struct sockaddr *)remote));			
 			return p;
 		} else if (is_isakmp_remote_port && memcmp(&p->session_id, &id_default, sizeof(id_default)) == 0) {
-			plog(LLV_DEBUG, LOCATION, local,
+			plog(ASL_LEVEL_DEBUG,
 				 "Pre-existing IKE-Session to %s. case 2.\n",
 				 saddr2str((struct sockaddr *)remote));	
 			return p;
 		} else if (is_isakmp_remote_port && p->ports_floated && memcmp(&p->session_id, &id_floated_default, sizeof(id_floated_default)) == 0) {
-			plog(LLV_DEBUG, LOCATION, local,
+			plog(ASL_LEVEL_DEBUG,
 				 "Pre-existing IKE-Session to %s. case 3.\n",
 				 saddr2str((struct sockaddr *)remote));			
 			return p;
@@ -299,13 +286,13 @@ ike_session_get_session (struct sockaddr_storage *local,
 		}
 	}
 	if (best_match) {
-		plog(LLV_DEBUG, LOCATION, local,
+		plog(ASL_LEVEL_DEBUG,
 			 "Best-match IKE-Session to %s.\n",
 			 saddr2str((struct sockaddr *)&best_match->session_id.remote));
 		return best_match;
 	}
 	if (alloc_if_absent) {
-		plog(LLV_DEBUG, LOCATION, local,
+		plog(ASL_LEVEL_DEBUG,
 			 "New IKE-Session to %s.\n",
 			 saddr2str((struct sockaddr *)&id.remote));			
 		return new_ike_session(&id);
@@ -315,7 +302,7 @@ ike_session_get_session (struct sockaddr_storage *local,
 }
 
 void
-ike_session_init_traffic_cop_params (struct ph1handle *iph1)
+ike_session_init_traffic_cop_params (phase1_handle_t *iph1)
 {
     if (!iph1 ||
         !iph1->rmconf ||
@@ -355,69 +342,17 @@ ike_session_init_traffic_cop_params (struct ph1handle *iph1)
     }
 }
 
-int
-ike_session_link_ph1_to_session (struct ph1handle *iph1)
-{
-	ike_session_t *session;
-
-	if (!iph1) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
-		return -1;
-	}
-
-	session = ike_session_get_session(iph1->local, iph1->remote, TRUE);
-	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "failed to get session in %s.\n", __FUNCTION__);
-		return -1;
-	}
-
-	// already linked
-	if (iph1->parent_session) {
-		if (session == iph1->parent_session) {
-			return 0;
-		}
-		// undo previous session
-		if (ike_session_unlink_ph1_from_session(iph1) == 0) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "failed to unlink ph1 in %s.\n", __FUNCTION__);
-			free_ike_session(session);
-			return -1;
-		}
-	} else {
-		gettimeofday(&session->start_timestamp, NULL);
-	}
-
-
-	if (iph1->started_by_api) {
-		session->is_cisco_ipsec = 1;
-        session->is_l2tpvpn_ipsec = 0;
-        session->is_btmm_ipsec = 0;
-	}
-	iph1->parent_session = session;
-	LIST_INSERT_HEAD(&session->ikev1_state.ph1tree, iph1, ph1ofsession_chain);
-	session->ikev1_state.active_ph1cnt++;
-    if ((!session->ikev1_state.ph1cnt &&
-         iph1->side == INITIATOR) ||
-        iph1->started_by_api) {
-        // client initiates the first phase1 or, is started by controller api
-        session->is_client = 1;
-    }
-	if (session->established &&
-		session->ikev1_state.ph1cnt) {
-		iph1->is_rekey = 1;
-	}
-	session->ikev1_state.ph1cnt++;
-    ike_session_init_traffic_cop_params(iph1);
-
-	return 0;
-}
-
 void
-ike_session_update_mode (struct ph2handle *iph2)
+ike_session_update_mode (phase2_handle_t *iph2)
 {
 	if (!iph2 || !iph2->parent_session) {
 		return;
 	}
-
+    if (iph2->phase2_type != PHASE2_TYPE_SA)
+        return;
+	if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV2) {
+		return; // for now
+	}
 	// exit early if we already detected cisco-ipsec
 	if (iph2->parent_session->is_cisco_ipsec) {
 		return;
@@ -469,73 +404,120 @@ ike_session_cleanup_xauth_timeout (void *arg)
 }
 
 int
-ike_session_link_ph2_to_session (struct ph2handle *iph2)
+ike_session_link_phase1 (ike_session_t *session, phase1_handle_t *iph1)
 {
-	struct sockaddr_storage *local;
-	struct sockaddr_storage *remote;
-	ike_session_t   *session;
+    
+	if (!session || !iph1) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		return -1;
+	}
+    
+    gettimeofday(&session->start_timestamp, NULL);
+	
+	if (iph1->started_by_api) {
+		session->is_cisco_ipsec = 1;
+        session->is_l2tpvpn_ipsec = 0;
+        session->is_btmm_ipsec = 0;
+	}
+	iph1->parent_session = session;
+	LIST_INSERT_HEAD(&session->ph1tree, iph1, ph1ofsession_chain);
+	session->ikev1_state.active_ph1cnt++;
+    if ((!session->ikev1_state.ph1cnt &&
+         iph1->side == INITIATOR) ||
+        iph1->started_by_api) {
+        // client initiates the first phase1 or, is started by controller api
+        session->is_client = 1;
+    }
+	if (session->established &&
+		session->ikev1_state.ph1cnt &&
+        iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+		iph1->is_rekey = 1;
+	}
+	session->ikev1_state.ph1cnt++;
+    ike_session_init_traffic_cop_params(iph1);
+    
+	return 0;
+}
 
+int
+ike_session_link_phase2 (ike_session_t *session, phase2_handle_t *iph2)
+{
 	if (!iph2) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
-
-    local = iph2->src;
-    remote = iph2->dst;
-
-	session = ike_session_get_session(local, remote, TRUE);
-	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "failed to get session in %s.\n", __FUNCTION__);
-		return -1;
-	}
-
-	// already linked
-	if (iph2->parent_session) {
-		if (session == iph2->parent_session) {
-			return 0;
-		}
-		// undo previous session
-		if (ike_session_unlink_ph2_from_session(iph2) == 0) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "failed to unlink ph2 in %s.\n", __FUNCTION__);
-			free_ike_session(session);
-			return -1;
-		}
+    if (iph2->parent_session) {
+		plog(ASL_LEVEL_ERR, "Phase 2 already linked to session %s.\n", __FUNCTION__);
 	}
 
 	iph2->parent_session = session;
-	LIST_INSERT_HEAD(&session->ikev1_state.ph2tree, iph2, ph2ofsession_chain);
+	LIST_INSERT_HEAD(&session->ph2tree, iph2, ph2ofsession_chain);
 	session->ikev1_state.active_ph2cnt++;
     if (!session->ikev1_state.ph2cnt &&
         iph2->side == INITIATOR) {
         // client initiates the first phase2
         session->is_client = 1;
     }
-	if (session->established &&
-		session->ikev1_state.ph2cnt) {
+	if (iph2->phase2_type == PHASE2_TYPE_SA &&
+        session->established &&
+		session->ikev1_state.ph2cnt &&
+        iph2->version == ISAKMP_VERSION_NUMBER_IKEV1) {
 		iph2->is_rekey = 1;
 	}
 	session->ikev1_state.ph2cnt++;
-
 	ike_session_update_mode(iph2);
 
 	return 0;
 }
 
 int
-ike_session_unlink_ph1_from_session (struct ph1handle *iph1)
+ike_session_link_ph2_to_ph1 (phase1_handle_t *iph1, phase2_handle_t *iph2)
+{
+    struct sockaddr_storage *local;
+	struct sockaddr_storage *remote;
+    int error = 0;
+    
+	if (!iph2) {
+		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
+		return -1;
+	}
+    if (iph2->ph1) {
+		plog(ASL_LEVEL_ERR, "Phase 2 already linked %s.\n", __FUNCTION__);	
+        if (iph2->ph1 == iph1)
+            return 0;
+        else 
+            return -1;  // This shouldn't happen
+	}
+
+    local = iph2->src;
+    remote = iph2->dst;
+    
+    if (iph2->parent_session == NULL)
+        if ((error = ike_session_link_phase2(iph1->parent_session, iph2)))
+            return error;
+	
+	ike_session_bindph12(iph1, iph2);
+    return 0;
+}
+
+int
+ike_session_unlink_phase1 (phase1_handle_t *iph1)
 {
 	ike_session_t *session;
 	
 	if (!iph1 || !iph1->parent_session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
 
-    if (LIST_FIRST(&iph1->ph2tree)) {
-        // reparent any phase2 that may be hanging on to this phase1
-        ike_session_update_ph1_ph2tree(iph1);
+    if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+        if (LIST_FIRST(&iph1->bound_ph2tree)) {        
+            // reparent any phase2 that may be hanging on to this phase1
+            ike_session_update_ph1_ph2tree(iph1);
+        } 
     }
 
+    sched_scrub_param(iph1);
 	session = iph1->parent_session;
 	LIST_REMOVE(iph1, ph1ofsession_chain);
 	iph1->parent_session = NULL;
@@ -544,183 +526,42 @@ ike_session_unlink_ph1_from_session (struct ph1handle *iph1)
 		session->is_dying = 1;
 		free_ike_session(session);
 	}
-
+    ike_session_delph1(iph1);
 	return 0;
 }
 
 int
-ike_session_unlink_ph2_from_session (struct ph2handle *iph2)
+ike_session_unlink_phase2 (phase2_handle_t *iph2)
 {
 	ike_session_t *session;
 	
 	if (!iph2 || !iph2->parent_session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
-	
-	LIST_REMOVE(iph2, ph2ofsession_chain);
-	session = iph2->parent_session;
-	iph2->parent_session = NULL;
-	session->ikev1_state.active_ph2cnt--;
-	if (session->ikev1_state.active_ph1cnt == 0 && session->ikev1_state.active_ph2cnt == 0) {
-		session->is_dying = 1;
-		free_ike_session(session);
-	}
-	
+    sched_scrub_param(iph2);
+    ike_session_unbindph12(iph2);
+    
+    LIST_REMOVE(iph2, ph2ofsession_chain);
+    session = iph2->parent_session;
+    iph2->parent_session = NULL;
+    session->ikev1_state.active_ph2cnt--;
+    if (session->ikev1_state.active_ph1cnt == 0 && session->ikev1_state.active_ph2cnt == 0) {
+        session->is_dying = 1;
+        free_ike_session(session);
+    }
+	ike_session_delph2(iph2);
 	return 0;
 }
 
-int
-ike_session_has_other_established_ph1 (ike_session_t *session, struct ph1handle *iph1)
+
+phase1_handle_t *
+ike_session_update_ph1_ph2tree (phase1_handle_t *iph1)
 {
-	struct ph1handle *p;
-
-	if (!session) {
-		return 0;
-	}
-
-	for (p = LIST_FIRST(&session->ikev1_state.ph1tree); p; p = LIST_NEXT(p, ph1ofsession_chain)) {
-		if (iph1 != p && !p->is_dying) {
-			if (p->status == PHASE1ST_ESTABLISHED && p->sce_rekey) {
-				return 1;
-			}
-		}
-	}
-
-	return 0;
-}
-
-int
-ike_session_has_other_negoing_ph1 (ike_session_t *session, struct ph1handle *iph1)
-{
-	struct ph1handle *p;
-	
-	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
-		return 0;
-	}
-	
-	for (p = LIST_FIRST(&session->ikev1_state.ph1tree); p; p = LIST_NEXT(p, ph1ofsession_chain)) {
-		if (iph1 != p && !p->is_dying) {
-			if (p->status >= PHASE1ST_START && p->status <= PHASE1ST_ESTABLISHED) {
-				return 1;
-			}
-		}
-	}
-	
-	return 0;
-}
-
-int
-ike_session_has_other_established_ph2 (ike_session_t *session, struct ph2handle *iph2)
-{
-	struct ph2handle *p;
-	
-	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
-		return 0;
-	}
-	
-	for (p = LIST_FIRST(&session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
-		if (iph2 != p && !p->is_dying && iph2->spid == p->spid) {
-			if (p->status == PHASE2ST_ESTABLISHED) {
-				return 1;
-			}
-		}
-	}
-	
-	return 0;
-}
-
-int
-ike_session_has_other_negoing_ph2 (ike_session_t *session, struct ph2handle *iph2)
-{
-	struct ph2handle *p;
-	
-	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
-		return 0;
-	}
-	
-	for (p = LIST_FIRST(&session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "%s: ph2 sub spid %d, db spid %d\n", __FUNCTION__, iph2->spid, p->spid);
-		if (iph2 != p && !p->is_dying && iph2->spid == p->spid) {
-			if (p->status >= PHASE2ST_START && p->status <= PHASE2ST_ESTABLISHED) {
-				return 1;
-			}
-		}
-	}
-	
-	return 0;
-}
-
-static void
-ike_session_unbindph12_from_ph1 (struct ph1handle *iph1)
-{
-	struct ph2handle *p, *next;
-
-	for (p = LIST_FIRST(&iph1->ph2tree); p; p = next) {
-		// take next pointer now, since unbind and rebind may change the underlying ph2tree list
-		next = LIST_NEXT(p, ph1bind);
-		unbindph12(p);
-	}
-}
-
-static void
-ike_session_rebindph12_from_old_ph1_to_new_ph1 (struct ph1handle *old_iph1,
-												struct ph1handle *new_iph1)
-{
-	struct ph2handle *p, *next;
-	
-	if (old_iph1 == new_iph1 || !old_iph1 || !new_iph1) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
-		return;
-	}
-	
-	if (old_iph1->parent_session != new_iph1->parent_session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parent sessions in %s.\n", __FUNCTION__);
-		return;
-	}
-	
-	for (p = LIST_FIRST(&old_iph1->ph2tree); p; p = next) {
-		// take next pointer now, since rebind may change the underlying ph2tree list
-		next = LIST_NEXT(p, ph1bind);
-		if (p->parent_session != new_iph1->parent_session) {
-			plog(LLV_ERROR, LOCATION, NULL, "mismatched parent session in ph1bind replacement.\n");
-		}
-		if (p->ph1 == new_iph1) {
-			plog(LLV_ERROR, LOCATION, NULL, "same phase1 in ph1bind replacement in %s.\n",__FUNCTION__);
-		}
-		rebindph12(new_iph1, p);
-	}
-}
-
-int
-ike_session_verify_ph2_parent_session (struct ph2handle *iph2)
-{
-	if (!iph2) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
-		return -1;
-	}
-
-	if (!iph2->parent_session) {
-		plog(LLV_DEBUG, LOCATION, NULL, "NULL parent session.\n");
-		if (ike_session_link_ph2_to_session(iph2)) {
-			plog(LLV_DEBUG, LOCATION, NULL, "NULL parent session... still failed to link to session.\n");
-			// failed to bind ph2 to session 
-			return 1;
-		}
-	}
-	return 0;
-}
-
-struct ph1handle *
-ike_session_update_ph1_ph2tree (struct ph1handle *iph1)
-{
-	struct ph1handle *new_iph1 = NULL;
+	phase1_handle_t *new_iph1 = NULL;
 
 	if (!iph1) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
 
@@ -728,45 +569,174 @@ ike_session_update_ph1_ph2tree (struct ph1handle *iph1)
 		new_iph1 = ike_session_get_established_ph1(iph1->parent_session);
 
 		if (!new_iph1) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "no ph1bind replacement found. NULL ph1.\n");
-			ike_session_unbindph12_from_ph1(iph1);
+			plog(ASL_LEVEL_DEBUG, "no ph1bind replacement found. NULL ph1.\n");
+			ike_session_unbind_all_ph2_from_ph1(iph1);
 		} else if (iph1 == new_iph1) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "no ph1bind replacement found. same ph1.\n");
-			ike_session_unbindph12_from_ph1(iph1);
+			plog(ASL_LEVEL_DEBUG, "no ph1bind replacement found. same ph1.\n");
+			ike_session_unbind_all_ph2_from_ph1(iph1);
 		} else {
-			ike_session_rebindph12_from_old_ph1_to_new_ph1(iph1, new_iph1);
+			ike_session_rebind_all_ph12_to_new_ph1(iph1, new_iph1);
 		}
 	} else {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parent session in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parent session in %s.\n", __FUNCTION__);
 	}
 	return new_iph1;
 }
 
-struct ph1handle *
-ike_session_update_ph2_ph1bind (struct ph2handle *iph2)
+phase1_handle_t *
+ike_session_update_ph2_ph1bind (phase2_handle_t *iph2)
 {
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	
-	if (!iph2) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+	if (!iph2 || iph2->phase2_type != PHASE2_TYPE_SA) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return NULL;
 	}
 	
 	iph1 = ike_session_get_established_ph1(iph2->parent_session);
 	if (iph1 && iph2->ph1 && iph1 != iph2->ph1) {
-		rebindph12(iph1, iph2);
+		ike_session_rebindph12(iph1, iph2);
 	} else if (iph1 && !iph2->ph1) {
-		bindph12(iph1, iph2);
+		ike_session_bindph12(iph1, iph2);
 	}
 	
 	return iph1;
 }
 
+phase1_handle_t *
+ike_session_get_established_or_negoing_ph1 (ike_session_t *session)
+{
+	phase1_handle_t *p, *iph1 = NULL;
+    
+	if (!session) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		return NULL;
+	}
+    
+	// look for the most mature ph1 under the session
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (!p->is_dying && (FSM_STATE_IS_ESTABLISHED(p->status) || FSM_STATE_IS_NEGOTIATING(p->status))) {
+			if (!iph1 || p->status > iph1->status) {
+				iph1 = p;
+			} else if (iph1 && p->status == iph1->status) {
+				// TODO: pick better one based on farthest rekey/expiry remaining
+			}
+		}
+	}
+    
+	return iph1;
+}
+
+phase1_handle_t *
+ike_session_get_established_ph1 (ike_session_t *session)
+{
+	phase1_handle_t *p;
+    
+	if (!session) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		return NULL;
+	}
+    
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (!p->is_dying && FSM_STATE_IS_ESTABLISHED(p->status)) {
+            return p;
+		}
+	}
+    
+	return NULL;
+}
+
+
+int
+ike_session_has_other_established_ph1 (ike_session_t *session, phase1_handle_t *iph1)
+{
+	phase1_handle_t *p;
+    
+	if (!session) {
+		return 0;
+	}
+    
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (iph1 != p && !p->is_dying) {
+			if (FSM_STATE_IS_ESTABLISHED(p->status) && p->sce_rekey) {
+				return 1;
+			}
+		}
+	}
+    
+	return 0;
+}
+
+int
+ike_session_has_other_negoing_ph1 (ike_session_t *session, phase1_handle_t *iph1)
+{
+	phase1_handle_t *p;
+	
+	if (!session) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		return 0;
+	}
+	
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (iph1 != p && !p->is_dying) {
+			if (FSM_STATE_IS_NEGOTIATING(p->status)) {
+				return 1;
+			}
+		}
+	}
+	
+	return 0;
+}
+
+int
+ike_session_has_other_established_ph2 (ike_session_t *session, phase2_handle_t *iph2)
+{
+	phase2_handle_t *p;
+	
+	if (!session) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		return 0;
+	}
+	
+	LIST_FOREACH(p, &session->ph2tree, ph2ofsession_chain) {
+		if (p->phase2_type == PHASE2_TYPE_SA && iph2 != p && !p->is_dying && iph2->spid == p->spid) {
+			if (FSM_STATE_IS_ESTABLISHED(p->status)) {
+				return 1;
+			}
+		}
+	}
+	
+	return 0;
+}
+
+int
+ike_session_has_other_negoing_ph2 (ike_session_t *session, phase2_handle_t *iph2)
+{
+	phase2_handle_t *p;
+	
+	if (!session) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		return 0;
+	}
+	
+	LIST_FOREACH(p, &session->ph2tree, ph2ofsession_chain) {
+		plog(ASL_LEVEL_DEBUG, "%s: ph2 sub spid %d, db spid %d\n", __FUNCTION__, iph2->spid, p->spid);
+		if (p->phase2_type == PHASE2_TYPE_SA && iph2 != p && !p->is_dying && iph2->spid == p->spid) {
+			if (FSM_STATE_IS_NEGOTIATING(p->status)) {
+				return 1;
+			}
+		}
+	}
+	
+	return 0;
+}
+
+
 void
-ike_session_ikev1_float_ports (struct ph1handle *iph1)
+ike_session_ikev1_float_ports (phase1_handle_t *iph1)
 {
 	struct sockaddr_storage  *local, *remote;
-	struct ph2handle *p;
+	phase2_handle_t *p;
 
 	if (iph1->parent_session) {
 		local  = &iph1->parent_session->session_id.local;
@@ -776,7 +746,7 @@ ike_session_ikev1_float_ports (struct ph1handle *iph1)
         set_port(remote, extract_port(iph1->remote));
 		iph1->parent_session->ports_floated = 1;
 
-		for (p = LIST_FIRST(&iph1->parent_session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
+		LIST_FOREACH(p, &iph1->parent_session->ph2tree, ph2ofsession_chain) {
 
             local  = p->src;
             remote = p->dst;
@@ -785,7 +755,7 @@ ike_session_ikev1_float_ports (struct ph1handle *iph1)
             set_port(remote, extract_port(iph1->remote));
 		}
 	} else {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parent session in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parent session in %s.\n", __FUNCTION__);
 	}
 }
 
@@ -800,18 +770,18 @@ ike_session_traffic_cop (void *arg)
         /* get traffic query from kernel */
         if (pk_sendget_inbound_sastats(session) < 0) {
             // log message
-            plog(LLV_DEBUG2, LOCATION, NULL, "pk_sendget_inbound_sastats failed in %s.\n", __FUNCTION__);
+            plog(ASL_LEVEL_DEBUG, "pk_sendget_inbound_sastats failed in %s.\n", __FUNCTION__);
         }
         if (pk_sendget_outbound_sastats(session) < 0) {
             // log message
-            plog(LLV_DEBUG2, LOCATION, NULL, "pk_sendget_outbound_sastats failed in %s.\n", __FUNCTION__);
+            plog(ASL_LEVEL_DEBUG, "pk_sendget_outbound_sastats failed in %s.\n", __FUNCTION__);
         }
         session->traffic_monitor.sc_mon = sched_new(session->traffic_monitor.interv_mon,
                                                     ike_session_traffic_cop,
                                                     session);
     } else {
         // log message
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
     }
 }
 
@@ -830,7 +800,7 @@ ike_session_monitor_idle (ike_session_t *session)
     if (session->traffic_monitor.dir_idle == IPSEC_DIR_INBOUND ||
         session->traffic_monitor.dir_idle == IPSEC_DIR_ANY) {
         if (session->peer_sent_data_sc_idle) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "%s: restart idle-timeout because peer sent data. monitoring dir %d.\n",
+			plog(ASL_LEVEL_DEBUG, "%s: restart idle-timeout because peer sent data. monitoring dir %d.\n",
 				 __FUNCTION__, session->traffic_monitor.dir_idle);
             SCHED_KILL(session->traffic_monitor.sc_idle);
 			if (session->traffic_monitor.interv_idle) {
@@ -846,7 +816,7 @@ ike_session_monitor_idle (ike_session_t *session)
     if (session->traffic_monitor.dir_idle == IPSEC_DIR_OUTBOUND ||
         session->traffic_monitor.dir_idle == IPSEC_DIR_ANY) {
         if (session->i_sent_data_sc_idle) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "%s: restart idle-timeout because i sent data. monitoring dir %d.\n",
+			plog(ASL_LEVEL_DEBUG, "%s: restart idle-timeout because i sent data. monitoring dir %d.\n",
 				 __FUNCTION__, session->traffic_monitor.dir_idle);
             SCHED_KILL(session->traffic_monitor.sc_idle);
 			if (session->traffic_monitor.interv_idle) {
@@ -877,10 +847,10 @@ ike_session_start_traffic_mon (ike_session_t *session)
 }
 
 void
-ike_session_ph2_established (struct ph2handle *iph2)
+ike_session_ph2_established (phase2_handle_t *iph2)
 {
-	if (!iph2->parent_session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+	if (!iph2->parent_session || iph2->phase2_type != PHASE2_TYPE_SA) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 	SCHED_KILL(iph2->parent_session->sc_xauth);
@@ -897,24 +867,26 @@ ike_session_ph2_established (struct ph2handle *iph2)
     iph2->parent_session->term_reason = NULL;
 
 	ike_session_update_mode(iph2);
+    if (iph2->version == ISAKMP_VERSION_NUMBER_IKEV1)
+        ike_session_unbindph12(iph2);
 
 #ifdef ENABLE_VPNCONTROL_PORT
 	vpncontrol_notify_peer_resp_ph2(1, iph2);
 #endif /* ENABLE_VPNCONTROL_PORT */
-	plog(LLV_DEBUG2, LOCATION, NULL, "%s: ph2 established, spid %d\n", __FUNCTION__, iph2->spid);
+	plog(ASL_LEVEL_DEBUG, "%s: ph2 established, spid %d\n", __FUNCTION__, iph2->spid);
 }
 
 void
-ike_session_cleanup_ph1 (struct ph1handle *iph1)
+ike_session_cleanup_ph1 (phase1_handle_t *iph1)
 {
-    if (iph1->status == PHASE1ST_EXPIRED) {
+    if (FSM_STATE_IS_EXPIRED(iph1->status)) {
 		// since this got here via ike_session_cleanup_other_established_ph1s, assumes LIST_FIRST(&iph1->ph2tree) == NULL
 		iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
 		return;
     }
     
 	/* send delete information */
-	if (iph1->status == PHASE1ST_ESTABLISHED) {
+	if (FSM_STATE_IS_ESTABLISHED(iph1->status)) {
 		isakmp_info_send_d1(iph1);
     }
     
@@ -925,31 +897,81 @@ void
 ike_session_cleanup_ph1_stub (void *p)
 {
     
-	ike_session_cleanup_ph1((struct ph1handle *)p);
+	ike_session_cleanup_ph1((phase1_handle_t *)p);
+}
+
+void
+ike_session_replace_other_ph1 (phase1_handle_t *new_iph1,
+                               phase1_handle_t *old_iph1)
+{
+	char *local, *remote, *index;
+    ike_session_t *session = NULL;
+    
+    if (new_iph1)
+        session = new_iph1->parent_session;
+    
+	if (!session || !new_iph1 || !old_iph1 || session != old_iph1->parent_session || new_iph1 == old_iph1) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
+		return;
+	}
+    
+	/*
+	 * if we are responder, then we should wait until the server sends a delete notification.
+	 */
+	if ((new_iph1->version == ISAKMP_VERSION_NUMBER_IKEV2 || session->is_client) &&
+		new_iph1->side == RESPONDER) {
+		return;
+	}
+    
+    SCHED_KILL(old_iph1->sce);
+    SCHED_KILL(old_iph1->sce_rekey);
+    old_iph1->is_dying = 1;
+    
+    //log deletion
+    local  = racoon_strdup(saddr2str((struct sockaddr *)old_iph1->local));
+    remote = racoon_strdup(saddr2str((struct sockaddr *)old_iph1->remote));
+    index = racoon_strdup(isakmp_pindex(&old_iph1->index, 0));
+    STRDUP_FATAL(local);
+    STRDUP_FATAL(remote);
+    STRDUP_FATAL(index);
+    plog(ASL_LEVEL_DEBUG, "ISAKMP-SA %s-%s (spi:%s) needs to be deleted, replaced by (spi:%s)\n", local, remote, index, isakmp_pindex(&new_iph1->index, 0));
+    racoon_free(local);
+    racoon_free(remote);
+    racoon_free(index);
+    
+    // first rebind the children ph2s of this dying ph1 to the new ph1.
+    ike_session_rebind_all_ph12_to_new_ph1 (old_iph1, new_iph1);
+    
+    if (old_iph1->side == INITIATOR) {
+        /* everyone deletes old outbound SA */
+        old_iph1->sce = sched_new(5, ike_session_cleanup_ph1_stub, old_iph1);
+    } else {
+        /* responder sets up timer to delete old inbound SAs... say 7 secs later and flags them as rekeyed */
+        old_iph1->sce = sched_new(7, ike_session_cleanup_ph1_stub, old_iph1);
+    }
 }
 
 void
 ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
-											struct ph1handle *new_iph1)
+											phase1_handle_t *new_iph1)
 {
-	struct ph1handle *p, *next;
+	phase1_handle_t *p, *next;
 	char             *local, *remote;
 
 	if (!session || !new_iph1 || session != new_iph1->parent_session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
 	/*
 	 * if we are responder, then we should wait until the server sends a delete notification.
 	 */
-	if (session->is_client && new_iph1->side == RESPONDER) {
+	if ((new_iph1->version == ISAKMP_VERSION_NUMBER_IKEV2 || session->is_client) &&
+		new_iph1->side == RESPONDER) {
 		return;
 	}
 
-	for (p = LIST_FIRST(&session->ikev1_state.ph1tree); p; p = next) {
-		// take next pointer now, since delete change the underlying ph1tree list
-		next = LIST_NEXT(p, ph1ofsession_chain);
+	LIST_FOREACH_SAFE(p, &session->ph1tree, ph1ofsession_chain, next) {
 		/*
 		 * TODO: currently, most recently established SA wins. Need to revisit to see if 
 		 * alternative selections is better (e.g. largest p->index stays).
@@ -964,14 +986,14 @@ ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
 			remote = racoon_strdup(saddr2str((struct sockaddr *)p->remote));
 			STRDUP_FATAL(local);
 			STRDUP_FATAL(remote);
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG,
 				 "ISAKMP-SA needs to be deleted %s-%s spi:%s\n",
 				 local, remote, isakmp_pindex(&p->index, 0));
 			racoon_free(local);
 			racoon_free(remote);
 
-			// first rebind the children ph2s of this dying ph1 to the new ph1.
-			ike_session_rebindph12_from_old_ph1_to_new_ph1 (p, new_iph1);
+            // first rebind the children ph2s of this dying ph1 to the new ph1.
+            ike_session_rebind_all_ph12_to_new_ph1 (p, new_iph1);
 
 			if (p->side == INITIATOR) {
 				/* everyone deletes old outbound SA */
@@ -985,20 +1007,22 @@ ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
 }
 
 void
-ike_session_cleanup_ph2 (struct ph2handle *iph2)
+ike_session_cleanup_ph2 (phase2_handle_t *iph2)
 {
-	if (iph2->status == PHASE2ST_EXPIRED) {
+    if (iph2->phase2_type != PHASE2_TYPE_SA)
+        return;
+	if (FSM_STATE_IS_EXPIRED(iph2->status)) {
 		return;
 	}
 
 	SCHED_KILL(iph2->sce);
 
-	plog(LLV_ERROR, LOCATION, NULL,
+	plog(ASL_LEVEL_ERR,
 		 "about to cleanup ph2: status %d, seq %d dying %d\n",
 		 iph2->status, iph2->seq, iph2->is_dying);
 
 	/* send delete information */
-	if (iph2->status == PHASE2ST_ESTABLISHED) {
+	if (FSM_STATE_IS_ESTABLISHED(iph2->status)) {
 		isakmp_info_send_d2(iph2);
     
 		// delete outgoing SAs
@@ -1017,26 +1041,24 @@ ike_session_cleanup_ph2 (struct ph2handle *iph2)
 	}
     
 	delete_spd(iph2);
-	unbindph12(iph2);
-	remph2(iph2);
-	delph2(iph2);
+	ike_session_unlink_phase2(iph2);
 }
 
 void
 ike_session_cleanup_ph2_stub (void *p)
 {
     
-	ike_session_cleanup_ph2((struct ph2handle *)p);
+	ike_session_cleanup_ph2((phase2_handle_t *)p);
 }
 
 void
 ike_session_cleanup_other_established_ph2s (ike_session_t    *session,
-											struct ph2handle *new_iph2)
+											phase2_handle_t *new_iph2)
 {
-	struct ph2handle *p, *next;
+	phase2_handle_t *p, *next;
 
-	if (!session || !new_iph2 || session != new_iph2->parent_session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+	if (!session || !new_iph2 || session != new_iph2->parent_session || new_iph2->phase2_type != PHASE2_TYPE_SA) {
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
@@ -1047,9 +1069,7 @@ ike_session_cleanup_other_established_ph2s (ike_session_t    *session,
 		return;
 	}
 
-	for (p = LIST_FIRST(&session->ikev1_state.ph2tree); p; p = next) {
-		// take next pointer now, since delete change the underlying ph2tree list
-		next = LIST_NEXT(p, ph2ofsession_chain);
+	LIST_FOREACH_SAFE(p, &session->ph2tree, ph2ofsession_chain, next) {
 		/*
 		 * TODO: currently, most recently established SA wins. Need to revisit to see if 
 		 * alternative selections is better.
@@ -1059,7 +1079,7 @@ ike_session_cleanup_other_established_ph2s (ike_session_t    *session,
 			p->is_dying = 1;
 			
 			//log deletion
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG,
 				 "IPsec-SA needs to be deleted: %s\n",
 				 sadbsecas2str(p->src, p->dst,
 							   p->satype, p->spid, 0));
@@ -1080,18 +1100,18 @@ ike_session_stopped_by_controller (ike_session_t *session,
 								   const char    *reason)
 {	
 	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 	if (session->stop_timestamp.tv_sec ||
 		session->stop_timestamp.tv_usec) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "already stopped %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "already stopped %s.\n", __FUNCTION__);
 		return;
 	}
 	session->stopped_by_vpn_controller = 1;
 	gettimeofday(&session->stop_timestamp, NULL);
 	if (!session->term_reason) {
-		session->term_reason = reason;
+		session->term_reason = (__typeof__(session->term_reason))reason;
 	}
 }
 
@@ -1101,33 +1121,32 @@ ike_sessions_stopped_by_controller (struct sockaddr_storage *remote,
 								    const char      *reason)
 {
 	ike_session_t *p = NULL;
+	ike_session_t *next_session = NULL;
 
 	if (!remote) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
-	for (p = LIST_FIRST(&ike_session_tree); p; p = LIST_NEXT(p, chain)) {
-        if (withport && cmpsaddrstrict(&p->session_id.remote, remote) == 0 ||
-            !withport && cmpsaddrwop(&p->session_id.remote, remote) == 0) {
+	LIST_FOREACH_SAFE(p, &ike_session_tree, chain, next_session) {
+        if ((withport && cmpsaddrstrict(&p->session_id.remote, remote) == 0) ||
+            (!withport && cmpsaddrwop(&p->session_id.remote, remote) == 0)) {
                 ike_session_stopped_by_controller(p, reason);
 		}
 	}
 }
 
 void
-ike_session_purge_ph2s_by_ph1 (struct ph1handle *iph1)
+ike_session_purge_ph2s_by_ph1 (phase1_handle_t *iph1)
 {
-	struct ph2handle *p, *next;
+	phase2_handle_t *p, *next;
 
 	if (!iph1 || !iph1->parent_session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
-	for (p = LIST_FIRST(&iph1->parent_session->ikev1_state.ph2tree); p; p = next) {
-		// take next pointer now, since delete change the underlying ph2tree list
-		next = LIST_NEXT(p, ph2ofsession_chain);
+	LIST_FOREACH_SAFE(p, &iph1->parent_session->ph2tree, ph2ofsession_chain, next) {
 		if (p->is_dying) {
 			continue;
 		}
@@ -1135,7 +1154,7 @@ ike_session_purge_ph2s_by_ph1 (struct ph1handle *iph1)
         p->is_dying = 1;
 			
         //log deletion
-        plog(LLV_DEBUG, LOCATION, NULL,
+        plog(ASL_LEVEL_DEBUG,
              "IPsec-SA needs to be purged: %s\n",
              sadbsecas2str(p->src, p->dst,
                            p->satype, p->spid, 0));
@@ -1145,7 +1164,7 @@ ike_session_purge_ph2s_by_ph1 (struct ph1handle *iph1)
 }
 
 void
-ike_session_update_ph2_ports (struct ph2handle *iph2)
+ike_session_update_ph2_ports (phase2_handle_t *iph2)
 {
     struct sockaddr_storage *local;
     struct sockaddr_storage *remote;
@@ -1157,7 +1176,7 @@ ike_session_update_ph2_ports (struct ph2handle *iph2)
         set_port(iph2->src, extract_port(local));
         set_port(iph2->dst, extract_port(remote));
 	} else {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parent session in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parent session in %s.\n", __FUNCTION__);
 	}
 }
 
@@ -1169,16 +1188,15 @@ ike_session_get_sas_for_stats (ike_session_t *session,
                                u_int32_t      max_stats)
 {
     int               found = 0;
-	struct ph2handle *iph2;
+	phase2_handle_t *iph2;
 
     if (!session || !seq || !stats || !max_stats || (dir != IPSEC_DIR_INBOUND && dir != IPSEC_DIR_OUTBOUND)) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid args in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid args in %s.\n", __FUNCTION__);
         return found;
     }
 
     *seq = 0;
-    for (iph2 = LIST_FIRST(&session->ikev1_state.ph2tree); iph2; iph2 = LIST_NEXT(iph2, ph2ofsession_chain)) {
-
+    LIST_FOREACH(iph2, &session->ph2tree, ph2ofsession_chain) {
         if (iph2->approval) {
             struct saproto *pr;
 
@@ -1211,12 +1229,12 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
     int i, j, found = 0, idle = 1;
 
     if (!session || !new_stats || (dir != IPSEC_DIR_INBOUND && dir != IPSEC_DIR_OUTBOUND)) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid args in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid args in %s.\n", __FUNCTION__);
         return;
     }
 
     if (!session->established || session->stopped_by_vpn_controller || session->stop_timestamp.tv_sec || session->stop_timestamp.tv_usec) {
-        plog(LLV_DEBUG2, LOCATION, NULL, "dropping update on invalid session in %s.\n", __FUNCTION__);
+        plog(ASL_LEVEL_DEBUG, "dropping update on invalid session in %s.\n", __FUNCTION__);
         return;
     }
 
@@ -1245,7 +1263,7 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
         // new SA.... check for any activity
         if (!found) {
             if (new_stats[i].lft_c.sadb_lifetime_bytes) {
-                plog(LLV_DEBUG, LOCATION, NULL, "new SA: dir %d....\n", dir);           
+                plog(ASL_LEVEL_DEBUG, "new SA: dir %d....\n", dir);           
                 idle = 0;
             }
         }
@@ -1256,7 +1274,7 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
         bcopy(new_stats, session->traffic_monitor.in_last_poll, (max_stats * sizeof(*new_stats)));
         session->traffic_monitor.num_in_last_poll = max_stats;
         if (!idle) {
-            plog(LLV_DEBUG, LOCATION, NULL, "peer sent data....\n");           
+            //plog(ASL_LEVEL_DEBUG, "peer sent data....\n");
             session->peer_sent_data_sc_dpd = 1;
             session->peer_sent_data_sc_idle = 1;
         }
@@ -1266,7 +1284,7 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
         bcopy(new_stats, session->traffic_monitor.out_last_poll, (max_stats * sizeof(*new_stats)));
         session->traffic_monitor.num_out_last_poll = max_stats;
         if (!idle) {
-            plog(LLV_DEBUG, LOCATION, NULL, "i sent data....\n");           
+            //plog(ASL_LEVEL_DEBUG, "i sent data....\n");
             session->i_sent_data_sc_dpd = 1;
             session->i_sent_data_sc_idle = 1;
         }
@@ -1281,27 +1299,29 @@ void
 ike_session_cleanup (ike_session_t *session,
                      const char    *reason)
 {
-    struct ph2handle *iph2;
-    struct ph1handle *iph1;
+    phase2_handle_t *iph2 = NULL;
+    phase2_handle_t *next_iph2 = NULL;
+    phase1_handle_t *iph1 = NULL;
+    phase1_handle_t *next_iph1 = NULL;
 
     if (!session)
         return;
 
     session->is_dying = 1;
+	ike_session_stopped_by_controller(session, reason);
 
 	SCHED_KILL(session->traffic_monitor.sc_idle);
     // do ph2's first... we need the ph1s for notifications
-    for (iph2 = LIST_FIRST(&session->ikev1_state.ph2tree); iph2; iph2 = LIST_NEXT(iph2, ph2ofsession_chain)) {
-        if (iph2->status == PHASE2ST_ESTABLISHED) {
+    LIST_FOREACH_SAFE(iph2, &session->ph2tree, ph2ofsession_chain, next_iph2) {
+        if (FSM_STATE_IS_ESTABLISHED(iph2->status)) {
             isakmp_info_send_d2(iph2);
         }
         isakmp_ph2expire(iph2); // iph2 will go down 1 second later.
-        ike_session_stopped_by_controller(session, reason);
     }
 
     // do the ph1s last.
-    for (iph1 = LIST_FIRST(&session->ikev1_state.ph1tree); iph1; iph1 = LIST_NEXT(iph1, ph1ofsession_chain)) {
-        if (iph1->status == PHASE1ST_ESTABLISHED) {
+    LIST_FOREACH_SAFE(iph1, &session->ph1tree, ph1ofsession_chain, next_iph1) {
+        if (FSM_STATE_IS_ESTABLISHED(iph1->status)) {
             isakmp_info_send_d1(iph1);
         }
         isakmp_ph1expire(iph1);
@@ -1328,15 +1348,15 @@ ike_session_cleanup (ike_session_t *session,
 int
 ike_session_has_negoing_ph1 (ike_session_t *session)
 {
-	struct ph1handle *p;
+	phase1_handle_t *p;
     
 	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
     
-	for (p = LIST_FIRST(&session->ikev1_state.ph1tree); p; p = LIST_NEXT(p, ph1ofsession_chain)) {
-		if (!p->is_dying && p->status >= PHASE1ST_START && p->status <= PHASE1ST_ESTABLISHED) {
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (!p->is_dying && FSM_STATE_IS_NEGOTIATING(p->status)) {
 			return 1;
 		}
 	}
@@ -1347,15 +1367,15 @@ ike_session_has_negoing_ph1 (ike_session_t *session)
 int
 ike_session_has_established_ph1 (ike_session_t *session)
 {
-	struct ph1handle *p;
+	phase1_handle_t *p;
     
 	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
     
-	for (p = LIST_FIRST(&session->ikev1_state.ph1tree); p; p = LIST_NEXT(p, ph1ofsession_chain)) {
-		if (!p->is_dying && p->status == PHASE1ST_ESTABLISHED) {
+	LIST_FOREACH(p, &session->ph1tree, ph1ofsession_chain) {
+		if (!p->is_dying && FSM_STATE_IS_ESTABLISHED(p->status)) {
 			return 1;
 		}
 	}
@@ -1366,15 +1386,15 @@ ike_session_has_established_ph1 (ike_session_t *session)
 int
 ike_session_has_negoing_ph2 (ike_session_t *session)
 {
-	struct ph2handle *p;
+	phase2_handle_t *p;
 
 	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
 
-	for (p = LIST_FIRST(&session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
-		if (!p->is_dying && p->status >= PHASE2ST_START && p->status <= PHASE2ST_ESTABLISHED) {
+	LIST_FOREACH(p, &session->ph2tree, ph2ofsession_chain) {
+		if (!p->is_dying && FSM_STATE_IS_NEGOTIATING(p->status)) {
             return 1;
 		}
 	}
@@ -1385,15 +1405,15 @@ ike_session_has_negoing_ph2 (ike_session_t *session)
 int
 ike_session_has_established_ph2 (ike_session_t *session)
 {
-	struct ph2handle *p;
+	phase2_handle_t *p;
     
 	if (!session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return 0;
 	}
     
-	for (p = LIST_FIRST(&session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
-		if (!p->is_dying && p->status == PHASE2ST_ESTABLISHED) {
+	LIST_FOREACH(p, &session->ph2tree, ph2ofsession_chain) {
+		if (!p->is_dying && FSM_STATE_IS_ESTABLISHED(p->status)) {
             return 1;
 		}
 	}
@@ -1402,18 +1422,19 @@ ike_session_has_established_ph2 (ike_session_t *session)
 }
 
 void
-ike_session_cleanup_ph1s_by_ph2 (struct ph2handle *iph2)
+ike_session_cleanup_ph1s_by_ph2 (phase2_handle_t *iph2)
 {
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1 = NULL;
+	phase1_handle_t *next_iph1 = NULL;
 	
 	if (!iph2 || !iph2->parent_session) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return;
 	}
 
 	// phase1 is no longer useful
-	for (iph1 = LIST_FIRST(&iph2->parent_session->ikev1_state.ph1tree); iph1; iph1 = LIST_NEXT(iph1, ph1ofsession_chain)) {
-		if (iph1->status == PHASE1ST_ESTABLISHED) {
+	LIST_FOREACH_SAFE(iph1, &iph2->parent_session->ph1tree, ph1ofsession_chain, next_iph1) {
+		if (FSM_STATE_IS_ESTABLISHED(iph1->status)) {
 			isakmp_info_send_d1(iph1);
 		}
 		isakmp_ph1expire(iph1);
@@ -1421,7 +1442,7 @@ ike_session_cleanup_ph1s_by_ph2 (struct ph2handle *iph2)
 }
 
 int
-ike_session_is_client_ph2_rekey (struct ph2handle *iph2)
+ike_session_is_client_ph2_rekey (phase2_handle_t *iph2)
 {
     if (iph2->parent_session &&
         iph2->parent_session->is_client &&
@@ -1433,7 +1454,7 @@ ike_session_is_client_ph2_rekey (struct ph2handle *iph2)
 }
 
 int
-ike_session_is_client_ph1_rekey (struct ph1handle *iph1)
+ike_session_is_client_ph1_rekey (phase1_handle_t *iph1)
 {
     if (iph1->parent_session &&
         iph1->parent_session->is_client &&
@@ -1444,8 +1465,28 @@ ike_session_is_client_ph1_rekey (struct ph1handle *iph1)
     return 0;
 }
 
+int
+ike_session_is_client_ph1 (phase1_handle_t *iph1)
+{
+	if (iph1->parent_session &&
+		iph1->parent_session->is_client) {
+		return 1;
+	}
+	return 0;
+}
+
+int
+ike_session_is_client_ph2 (phase2_handle_t *iph2)
+{
+	if (iph2->parent_session &&
+		iph2->parent_session->is_client) {
+		return 1;
+	}
+	return 0;	
+}
+
 void
-ike_session_start_xauth_timer (struct ph1handle *iph1)
+ike_session_start_xauth_timer (phase1_handle_t *iph1)
 {
     // if there are no more established ph2s, start a timer to teardown the session
     if (iph1->parent_session &&
@@ -1459,7 +1500,7 @@ ike_session_start_xauth_timer (struct ph1handle *iph1)
 }
 
 void
-ike_session_stop_xauth_timer (struct ph1handle *iph1)
+ike_session_stop_xauth_timer (phase1_handle_t *iph1)
 {
     if (iph1->parent_session) {
         SCHED_KILL(iph1->parent_session->sc_xauth);
@@ -1487,7 +1528,7 @@ ike_session_is_id_ipany (vchar_t *ext_id)
 			   id_ptr->addr == 0) {
 		return 1;
 	}
-	plog(LLV_DEBUG2, LOCATION, NULL, "not ipany_ids in %s: type %d, addr %x, mask %x.\n",
+	plog(ASL_LEVEL_DEBUG, "not ipany_ids in %s: type %d, addr %x, mask %x.\n",
 		 __FUNCTION__, id_ptr->type, id_ptr->addr, id_ptr->mask);
 	return 0;
 }
@@ -1509,7 +1550,7 @@ ike_session_is_id_portany (vchar_t *ext_id)
 	    id_ptr->port == 0) {
 		return 1;
 	}
-	plog(LLV_DEBUG2, LOCATION, NULL, "not portany_ids in %s: type %d, port %x.\n",
+	plog(ASL_LEVEL_DEBUG, "not portany_ids in %s: type %d, port %x.\n",
 		 __FUNCTION__, id_ptr->type, id_ptr->port);
 	return 0;
 }
@@ -1551,8 +1592,8 @@ ike_session_cmp_ph2_ids_ipany (vchar_t *ext_id,
  * a variety of info saved in the older phase2.
  */
 int
-ike_session_cmp_ph2_ids (struct ph2handle *iph2,
-						 struct ph2handle *older_ph2)
+ike_session_cmp_ph2_ids (phase2_handle_t *iph2,
+						 phase2_handle_t *older_ph2)
 {
 	vchar_t *portany_id = NULL;
 	vchar_t *portany_id_p = NULL;
@@ -1661,78 +1702,71 @@ ike_session_cmp_ph2_ids (struct ph2handle *iph2,
 }
 
 int
-ike_session_get_sainfo_r (struct ph2handle *iph2)
+ike_session_get_sainfo_r (phase2_handle_t *iph2)
 {
-	if (iph2->parent_session &&
-	    iph2->parent_session->is_client &&
-	    iph2->id && iph2->id_p) {
-		struct ph2handle *p;
-		int ipany_ids = ike_session_cmp_ph2_ids_ipany(iph2->id, iph2->id_p);
-		plog(LLV_DEBUG2, LOCATION, NULL, "ipany_ids %d in %s.\n", ipany_ids, __FUNCTION__);
-		
-		for (p = LIST_FIRST(&iph2->parent_session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
-			if (iph2 != p && !p->is_dying && p->status >= PHASE2ST_ESTABLISHED &&
-			    p->sainfo && !p->sainfo->to_delete && !p->sainfo->to_remove) {
-				plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 found in %s.\n", __FUNCTION__);
-				if (ipany_ids ||
-				    ike_session_cmp_ph2_ids(iph2, p) == 0) {
-					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s.\n", __FUNCTION__);
-					iph2->sainfo = p->sainfo;
-					if (iph2->sainfo) {
-						if (link_sainfo_to_ph2(iph2->sainfo) != 0) {
-							plog(LLV_ERROR, LOCATION, NULL,
-								 "failed to link sainfo\n");
-							iph2->sainfo = NULL;
-							return -1;
-						}
-					}
-					if (!iph2->spid) {
-						iph2->spid = p->spid;
-					} else {
-						plog(LLV_DEBUG2, LOCATION, NULL, "%s: pre-assigned spid %d.\n", __FUNCTION__, iph2->spid);
-					}
-					if (p->ext_nat_id) {
-						if (iph2->ext_nat_id) {
-							vfree(iph2->ext_nat_id);
-						}
-						iph2->ext_nat_id = vdup(p->ext_nat_id);
-					}
-					if (p->ext_nat_id_p) {
-						if (iph2->ext_nat_id_p) {
-							vfree(iph2->ext_nat_id_p);
-						}
-						iph2->ext_nat_id_p = vdup(p->ext_nat_id_p);
-					}
-					return 0;
-				}
-			}
-		}
-	}
-	return -1;
+    if (iph2->parent_session &&
+        iph2->parent_session->is_client &&
+        iph2->id && iph2->id_p) {
+        phase2_handle_t *p;
+        int ipany_ids = ike_session_cmp_ph2_ids_ipany(iph2->id, iph2->id_p);
+        plog(ASL_LEVEL_DEBUG, "ipany_ids %d in %s.\n", ipany_ids, __FUNCTION__);
+        
+        LIST_FOREACH(p, &iph2->parent_session->ph2tree, ph2ofsession_chain) {
+            if (iph2 != p && !p->is_dying && FSM_STATE_IS_ESTABLISHED_OR_EXPIRED(p->status) && p->sainfo) {
+                plog(ASL_LEVEL_DEBUG, "candidate ph2 found in %s.\n", __FUNCTION__);
+                if (ipany_ids ||
+                    ike_session_cmp_ph2_ids(iph2, p) == 0) {
+                    plog(ASL_LEVEL_DEBUG, "candidate ph2 matched in %s.\n", __FUNCTION__);
+                    iph2->sainfo = p->sainfo;
+                    if (iph2->sainfo)
+                        retain_sainfo(iph2->sainfo);
+                    if (!iph2->spid) {
+                        iph2->spid = p->spid;
+                    } else {
+                        plog(ASL_LEVEL_DEBUG, "%s: pre-assigned spid %d.\n", __FUNCTION__, iph2->spid);
+                    }
+                    if (p->ext_nat_id) {
+                        if (iph2->ext_nat_id) {
+                            vfree(iph2->ext_nat_id);
+                        }
+                        iph2->ext_nat_id = vdup(p->ext_nat_id);
+                    }
+                    if (p->ext_nat_id_p) {
+                        if (iph2->ext_nat_id_p) {
+                            vfree(iph2->ext_nat_id_p);
+                        }
+                        iph2->ext_nat_id_p = vdup(p->ext_nat_id_p);
+                    }
+                    return 0;
+                }
+            }
+        }
+    }
+    return -1;
 }
 
 int
-ike_session_get_proposal_r (struct ph2handle *iph2)
+ike_session_get_proposal_r (phase2_handle_t *iph2)
 {
 	if (iph2->parent_session &&
 	    iph2->parent_session->is_client &&
 	    iph2->id && iph2->id_p) {
-		struct ph2handle *p;
+		phase2_handle_t *p;
 		int ipany_ids = ike_session_cmp_ph2_ids_ipany(iph2->id, iph2->id_p);
-		plog(LLV_DEBUG2, LOCATION, NULL, "ipany_ids %d in %s.\n", ipany_ids, __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "ipany_ids %d in %s.\n", ipany_ids, __FUNCTION__);
 
-		for (p = LIST_FIRST(&iph2->parent_session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
-			if (iph2 != p && !p->is_dying && p->status >= PHASE2ST_ESTABLISHED &&
+		LIST_FOREACH(p, &iph2->parent_session->ph2tree, ph2ofsession_chain) {
+			if (iph2 != p && !p->is_dying && FSM_STATE_IS_ESTABLISHED_OR_EXPIRED(p->status) &&
 			    p->approval) {
-				plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 found in %s.\n", __FUNCTION__);
+				plog(ASL_LEVEL_DEBUG, "candidate ph2 found in %s.\n", __FUNCTION__);
 				if (ipany_ids ||
 				    ike_session_cmp_ph2_ids(iph2, p) == 0) {
-					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s.\n", __FUNCTION__);
+					plog(ASL_LEVEL_DEBUG, "candidate ph2 matched in %s.\n", __FUNCTION__);
 					iph2->proposal = dupsaprop(p->approval, 1);
 					if (!iph2->spid) {
 						iph2->spid = p->spid;
 					} else {
-						plog(LLV_DEBUG2, LOCATION, NULL, "%s: pre-assigned spid %d.\n", __FUNCTION__, iph2->spid);
+						plog(ASL_LEVEL_DEBUG, "%s: pre-assigned spid %d.\n", __FUNCTION__, iph2->spid);
 					}
 					return 0;
 				}
@@ -1743,7 +1777,7 @@ ike_session_get_proposal_r (struct ph2handle *iph2)
 }
 
 void
-ike_session_update_natt_version (struct ph1handle *iph1)
+ike_session_update_natt_version (phase1_handle_t *iph1)
 {
 	if (iph1->parent_session) {
 		if (iph1->natt_options) {
@@ -1755,7 +1789,7 @@ ike_session_update_natt_version (struct ph1handle *iph1)
 }
 
 int
-ike_session_get_natt_version (struct ph1handle *iph1)
+ike_session_get_natt_version (phase1_handle_t *iph1)
 {
 	if (iph1->parent_session) {
 		return(iph1->parent_session->natt_version);
@@ -1775,7 +1809,7 @@ ike_session_drop_rekey (ike_session_t *session, ike_session_rekey_type_t rekey_t
 			time_t now = time(NULL);
 
 			if ((now - session->last_time_data_sc_detected) > (session->traffic_monitor.interv_mon << 1)) {
-				plog(LLV_DEBUG2, LOCATION, NULL, "btmm session is idle: drop ph%drekey.\n",
+				plog(ASL_LEVEL_DEBUG, "btmm session is idle: drop ph%drekey.\n",
 					 rekey_type);
 				return 1;
 			}
@@ -1783,7 +1817,7 @@ ike_session_drop_rekey (ike_session_t *session, ike_session_rekey_type_t rekey_t
 			if (rekey_type == IKE_SESSION_REKEY_TYPE_PH1 &&
 				!ike_session_has_negoing_ph2(session)) {
 				// for vpn: only drop ph1 if there are no more ph2s.
-				plog(LLV_DEBUG2, LOCATION, NULL, "vpn session is idle: drop ph1 rekey.\n");
+				plog(ASL_LEVEL_DEBUG, "vpn session is idle: drop ph1 rekey.\n");
 				return 1;
 			}
 		}
@@ -1799,12 +1833,13 @@ ike_session_drop_rekey (ike_session_t *session, ike_session_rekey_type_t rekey_t
 void
 ike_session_sweep_sleepwake (void)
 {
-	ike_session_t *p;
+	ike_session_t *p = NULL;
+	ike_session_t *next_session = NULL;
 
 	// flag session as dying if all ph1/ph2 are dead/dying
-	for (p = LIST_FIRST(&ike_session_tree); p; p = LIST_NEXT(p, chain)) {
+	LIST_FOREACH_SAFE(p, &ike_session_tree, chain, next_session) {
 		if (p->is_dying) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of dying session.\n");
+			plog(ASL_LEVEL_DEBUG, "skipping sweep of dying session.\n");
 			continue;
 		}
 		SCHED_KILL(p->sc_xauth);
@@ -1812,39 +1847,46 @@ ike_session_sweep_sleepwake (void)
 			// for asserted session, traffic monitors will be restared after phase2 becomes established.
 			SCHED_KILL(p->traffic_monitor.sc_mon);
 			SCHED_KILL(p->traffic_monitor.sc_idle);
-			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of asserted session.\n");
+			plog(ASL_LEVEL_DEBUG, "skipping sweep of asserted session.\n");
 			continue;
 		}
 
-		// cleanup any stopped sessions as they will go down
-		if (p->stopped_by_vpn_controller || p->stop_timestamp.tv_sec || p->stop_timestamp.tv_usec) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "sweeping stopped session.\n");
+		// cleanup any stopped sessions as they will go down                                                                                                                               
+                if (p->stopped_by_vpn_controller || p->stop_timestamp.tv_sec || p->stop_timestamp.tv_usec) {
+			plog(ASL_LEVEL_DEBUG, "sweeping stopped session.\n");
 			ike_session_cleanup(p, ike_session_stopped_by_sleepwake);
 			continue;
-		}
+                }
 
 		if (!ike_session_has_established_ph1(p) && !ike_session_has_established_ph2(p)) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "session died while sleeping.\n");
+			plog(ASL_LEVEL_DEBUG, "session died while sleeping.\n");
 			ike_session_cleanup(p, ike_session_stopped_by_sleepwake);
+			continue;
 		}
 		if (p->traffic_monitor.sc_mon) {
-			if (p->traffic_monitor.sc_mon->xtime <= swept_at) {
-				SCHED_KILL(p->traffic_monitor.sc_mon);
-				if (!p->is_dying && p->traffic_monitor.interv_mon) {
-					p->traffic_monitor.sc_mon = sched_new(p->traffic_monitor.interv_mon,
+            time_t xtime;
+            if (sched_get_time(p->traffic_monitor.sc_mon, &xtime)) {
+                if (xtime <= swept_at) {
+                    SCHED_KILL(p->traffic_monitor.sc_mon);
+                    if (!p->is_dying && p->traffic_monitor.interv_mon) {
+                        p->traffic_monitor.sc_mon = sched_new(p->traffic_monitor.interv_mon,
 														  ike_session_traffic_cop,
 														  p);
-				}
+                    }
+                }
 			}			
 		}
 		if (p->traffic_monitor.sc_idle) {
-			if (p->traffic_monitor.sc_idle->xtime <= swept_at) {
-				SCHED_KILL(p->traffic_monitor.sc_idle);
-				if (!p->is_dying && p->traffic_monitor.interv_idle) {
-					p->traffic_monitor.sc_idle = sched_new(p->traffic_monitor.interv_idle,
+            time_t xtime;
+            if (sched_get_time(p->traffic_monitor.sc_idle, &xtime)) {
+                if (xtime <= swept_at) {
+                    SCHED_KILL(p->traffic_monitor.sc_idle);
+                    if (!p->is_dying && p->traffic_monitor.interv_idle) {
+                        p->traffic_monitor.sc_idle = sched_new(p->traffic_monitor.interv_idle,
 														   ike_session_cleanup_idle,
 														   p);
-				}
+                    }
+                }
 			}
 		}
 	}
@@ -1858,31 +1900,31 @@ ike_session_sweep_sleepwake (void)
 int
 ike_session_assert_session (ike_session_t *session)
 {
-	struct ph2handle *iph2, *iph2_next;
-	struct ph1handle *iph1, *iph1_next;
+	phase2_handle_t *iph2 = NULL;
+	phase2_handle_t *iph2_next = NULL;
+	phase1_handle_t *iph1 = NULL;
+	phase1_handle_t *iph1_next = NULL;
 
 	if (!session || session->is_dying) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
 
 	// the goal is to prepare the session for fresh rekeys by silently deleting the currently active phase2s
-	for (iph2 = LIST_FIRST(&session->ikev1_state.ph2tree); iph2; iph2 = iph2_next) {
-		// take next pointer now, since delete change the underlying ph2tree list
-		iph2_next = LIST_NEXT(iph2, ph2ofsession_chain);
-		if (!iph2->is_dying && iph2->status < PHASE2ST_EXPIRED) {
+	LIST_FOREACH_SAFE(iph2, &session->ph2tree, ph2ofsession_chain, iph2_next) {
+		if (!iph2->is_dying && !FSM_STATE_IS_EXPIRED(iph2->status)) {
 			SCHED_KILL(iph2->sce);
 			iph2->is_dying = 1;
 			
 			// delete SAs (in the kernel)
-			if (iph2->status == PHASE2ST_ESTABLISHED && iph2->approval) {
+			if (FSM_STATE_IS_ESTABLISHED(iph2->status) && iph2->approval) {
 				struct saproto *pr;
 				
 				for (pr = iph2->approval->head; pr != NULL; pr = pr->next) {
 					if (pr->ok) {
 						//log deletion
-						plog(LLV_DEBUG, LOCATION, NULL,
-							 "assert: phase2 %s deleted\n",
+						plog(ASL_LEVEL_DEBUG,
+							 "Assert: Phase 2 %s deleted\n",
 							 sadbsecas2str(iph2->src, iph2->dst, iph2->satype, iph2->spid, ipsecdoi2pfkey_mode(pr->encmode)));
 						
 						pfkey_send_delete(lcconf->sock_pfkey,
@@ -1893,28 +1935,26 @@ ike_session_assert_session (ike_session_t *session)
 				}
 			}
 			
-			iph2->status = PHASE2ST_EXPIRED; 	// we want to delete SAs without telling the PEER
+			fsm_set_state(&iph2->status, IKEV1_STATE_PHASE2_EXPIRED); 	// we want to delete SAs without telling the PEER
 			iph2->sce = sched_new(3, ike_session_cleanup_ph2_stub, iph2);
 		}
 	}
 
 	// the goal is to prepare the session for fresh rekeys by silently deleting the currently active phase1s
-	for (iph1 = LIST_FIRST(&session->ikev1_state.ph1tree); iph1; iph1 = iph1_next) {
-		// take next pointer now, since delete change the underlying ph1tree list
-		iph1_next = LIST_NEXT(iph1, ph1ofsession_chain);
-		if (!iph1->is_dying && iph1->status < PHASE1ST_EXPIRED) {
+	LIST_FOREACH_SAFE(iph1, &session->ph1tree, ph1ofsession_chain, iph1_next) {
+		if (!iph1->is_dying && !FSM_STATE_IS_EXPIRED(iph1->status)) {
 			SCHED_KILL(iph1->sce);
 			SCHED_KILL(iph1->sce_rekey);
 			iph1->is_dying = 1;
 
 			//log deletion
-			plog(LLV_DEBUG, LOCATION, NULL,
-				 "assert: phase1 %s deleted\n",
+			plog(ASL_LEVEL_DEBUG,
+				 "Assert: Phase 1 %s deleted\n",
 				 isakmp_pindex(&iph1->index, 0));
 			
-			ike_session_unbindph12_from_ph1(iph1);
+			ike_session_unbind_all_ph2_from_ph1(iph1);
 			
-			iph1->status = PHASE1ST_EXPIRED; 	// we want to delete SAs without telling the PEER
+			fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_EXPIRED); 	// we want to delete SAs without telling the PEER
 			/* responder sets up timer to delete old inbound SAs... say 7 secs later and flags them as rekeyed */
 			iph1->sce = sched_new(5, ike_session_cleanup_ph1_stub, iph1);
 		}
@@ -1931,7 +1971,7 @@ ike_session_assert (struct sockaddr_storage *local,
 	ike_session_t *sess;
 
 	if (!local || !remote) {
-		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		plog(ASL_LEVEL_DEBUG, "invalid parameters in %s.\n", __FUNCTION__);
 		return -1;
 	}
 
@@ -1942,14 +1982,14 @@ ike_session_assert (struct sockaddr_storage *local,
 }
 
 void
-ike_session_ph2_retransmits (struct ph2handle *iph2)
+ike_session_ph2_retransmits (phase2_handle_t *iph2)
 {
 	int num_retransmits;
 
 	if (!iph2->is_dying &&
 		iph2->is_rekey &&
 		iph2->ph1 &&
-		iph2->ph1->sce_rekey && !iph2->ph1->sce_rekey->dead &&
+		iph2->ph1->sce_rekey && !sched_is_dead(iph2->ph1->sce_rekey) &&
 		iph2->side == INITIATOR &&
 		iph2->parent_session &&
 		!iph2->parent_session->is_cisco_ipsec && /* not for Cisco */
@@ -1969,7 +2009,7 @@ ike_session_ph2_retransmits (struct ph2handle *iph2)
 			 *
 			 * in all these cases, one sure way to know is to trigger a phase1 rekey early.
 			 */
-			plog(LLV_DEBUG2, LOCATION, NULL, "many phase2 retransmits: try phase1 rekey and this phase2 to quit earlier.\n");
+			plog(ASL_LEVEL_DEBUG, "Many Phase 2 retransmits: try Phase 1 rekey and this Phase 2 to quit earlier.\n");
 			isakmp_ph1rekeyexpire(iph2->ph1, TRUE);
 			iph2->retry_counter = 0;
 		}
@@ -1977,22 +2017,103 @@ ike_session_ph2_retransmits (struct ph2handle *iph2)
 }
 
 void
-ike_session_ph1_retransmits (struct ph1handle *iph1)
+ike_session_ph1_retransmits (phase1_handle_t *iph1)
 {
 	int num_retransmits;
 	
 	if (!iph1->is_dying &&
 		iph1->is_rekey &&
 		!iph1->sce_rekey &&
-		iph1->status >= PHASE1ST_START && iph1->status < PHASE1ST_ESTABLISHED &&
+		FSM_STATE_IS_NEGOTIATING(iph1->status) &&
 		iph1->side == INITIATOR &&
 		iph1->parent_session &&
 		iph1->parent_session->is_client &&
 		!ike_session_has_other_negoing_ph1(iph1->parent_session, iph1)) {
 		num_retransmits = iph1->rmconf->retry_counter - iph1->retry_counter;
 		if (num_retransmits == 3) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "many phase1 retransmits: try quit earlier.\n");
+			plog(ASL_LEVEL_DEBUG, "Many Phase 1 retransmits: try quit earlier.\n");
 			iph1->retry_counter = 0;
 		}
 	}
 }
+
+static void
+ike_session_bindph12(phase1_handle_t *iph1, phase2_handle_t *iph2)
+{
+	if (iph2->ph1) {
+		plog(ASL_LEVEL_ERR, "Phase 2 already bound %s.\n", __FUNCTION__);
+	}
+	iph2->ph1 = iph1;
+    LIST_INSERT_HEAD(&iph1->bound_ph2tree, iph2, ph1bind_chain);
+}
+
+void
+ike_session_unbindph12(phase2_handle_t *iph2)
+{
+	if (iph2->ph1 != NULL) {
+		iph2->ph1 = NULL;
+        LIST_REMOVE(iph2, ph1bind_chain);
+	}
+}
+
+static void
+ike_session_rebindph12(phase1_handle_t *new_ph1, phase2_handle_t *iph2)
+{
+	if (!new_ph1) {
+		return;
+	}
+    
+	// reconcile the ph1-to-ph2 binding
+	ike_session_unbindph12(iph2);
+	ike_session_bindph12(new_ph1, iph2);
+	// recalculate ivm since ph1 binding has changed
+	if (iph2->ivm != NULL) {
+		oakley_delivm(iph2->ivm);
+		if (FSM_STATE_IS_ESTABLISHED(new_ph1->status)) {
+			iph2->ivm = oakley_newiv2(new_ph1, iph2->msgid);
+			plog(ASL_LEVEL_DEBUG, "Phase 1-2 binding changed... recalculated ivm.\n");
+		} else {
+			iph2->ivm = NULL;
+		}
+	}
+}
+
+static void
+ike_session_unbind_all_ph2_from_ph1 (phase1_handle_t *iph1)
+{
+	phase2_handle_t *p = NULL;
+	phase2_handle_t *next = NULL;
+	
+	LIST_FOREACH_SAFE(p, &iph1->bound_ph2tree, ph1bind_chain, next) {
+		ike_session_unbindph12(p);
+	}
+}
+
+static void
+ike_session_rebind_all_ph12_to_new_ph1 (phase1_handle_t *old_iph1,
+                                        phase1_handle_t *new_iph1)
+{
+	phase2_handle_t *p = NULL;
+	phase2_handle_t *next = NULL;
+	
+	if (old_iph1 == new_iph1 || !old_iph1 || !new_iph1) {
+		plog(ASL_LEVEL_DEBUG, "Invalid parameters in %s.\n", __FUNCTION__);
+		return;
+	}
+	
+	if (old_iph1->parent_session != new_iph1->parent_session) {
+		plog(ASL_LEVEL_DEBUG, "Invalid parent sessions in %s.\n", __FUNCTION__);
+		return;
+	}
+	
+	LIST_FOREACH_SAFE(p, &old_iph1->bound_ph2tree, ph1bind_chain, next) {
+		if (p->parent_session != new_iph1->parent_session) {
+			plog(ASL_LEVEL_ERR, "Mismatched parent session in ph1bind replacement.\n");
+		}
+		if (p->ph1 == new_iph1) {
+			plog(ASL_LEVEL_ERR, "Same Phase 2 in ph1bind replacement in %s.\n",__FUNCTION__);
+		}
+        ike_session_rebindph12(new_iph1, p);
+	}
+}
+

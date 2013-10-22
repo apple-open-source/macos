@@ -38,22 +38,35 @@ using namespace WebKit;
 
 namespace CoreIPC {
 
-void ArgumentCoder<ResourceRequest>::encode(ArgumentEncoder* encoder, const ResourceRequest& resourceRequest)
+void ArgumentCoder<ResourceRequest>::encodePlatformData(ArgumentEncoder& encoder, const ResourceRequest& resourceRequest)
 {
-    bool requestIsPresent = resourceRequest.nsURLRequest();
-    encoder->encode(requestIsPresent);
+    RetainPtr<NSURLRequest> requestToSerialize = resourceRequest.nsURLRequest(DoNotUpdateHTTPBody);
+
+    bool requestIsPresent = requestToSerialize;
+    encoder << requestIsPresent;
 
     if (!requestIsPresent)
         return;
 
-    RetainPtr<CFDictionaryRef> dictionary(AdoptCF, WKNSURLRequestCreateSerializableRepresentation(resourceRequest.nsURLRequest(), CoreIPC::tokenNullTypeRef()));
+    // We don't send HTTP body over IPC for better performance.
+    // Also, it's not always possible to do, as streams can only be created in process that does networking.
+    if ([requestToSerialize.get() HTTPBody] || [requestToSerialize.get() HTTPBodyStream]) {
+        requestToSerialize = adoptNS([requestToSerialize.get() mutableCopy]);
+        [(NSMutableURLRequest *)requestToSerialize.get() setHTTPBody:nil];
+        [(NSMutableURLRequest *)requestToSerialize.get() setHTTPBodyStream:nil];
+    }
+
+    RetainPtr<CFDictionaryRef> dictionary = adoptCF(WKNSURLRequestCreateSerializableRepresentation(requestToSerialize.get(), CoreIPC::tokenNullTypeRef()));
     CoreIPC::encode(encoder, dictionary.get());
+
+    // The fallback array is part of NSURLRequest, but it is not encoded by WKNSURLRequestCreateSerializableRepresentation.
+    encoder << resourceRequest.responseContentDispositionEncodingFallbackArray();
 }
 
-bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder* decoder, ResourceRequest& resourceRequest)
+bool ArgumentCoder<ResourceRequest>::decodePlatformData(ArgumentDecoder& decoder, ResourceRequest& resourceRequest)
 {
     bool requestIsPresent;
-    if (!decoder->decode(requestIsPresent))
+    if (!decoder.decode(requestIsPresent))
         return false;
 
     if (!requestIsPresent) {
@@ -70,25 +83,36 @@ bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder* decoder, ResourceRe
         return false;
 
     resourceRequest = ResourceRequest(nsURLRequest);
+    
+    Vector<String> responseContentDispositionEncodingFallbackArray;
+    if (!decoder.decode(responseContentDispositionEncodingFallbackArray))
+        return false;
+
+    resourceRequest.setResponseContentDispositionEncodingFallbackArray(
+        responseContentDispositionEncodingFallbackArray.size() > 0 ? responseContentDispositionEncodingFallbackArray[0] : String(),
+        responseContentDispositionEncodingFallbackArray.size() > 1 ? responseContentDispositionEncodingFallbackArray[1] : String(),
+        responseContentDispositionEncodingFallbackArray.size() > 2 ? responseContentDispositionEncodingFallbackArray[2] : String()
+    );
+
     return true;
 }
 
-void ArgumentCoder<ResourceResponse>::encode(ArgumentEncoder* encoder, const ResourceResponse& resourceResponse)
+void ArgumentCoder<ResourceResponse>::encodePlatformData(ArgumentEncoder& encoder, const ResourceResponse& resourceResponse)
 {
-    bool responseIsPresent = resourceResponse.nsURLResponse();
-    encoder->encode(responseIsPresent);
+    bool responseIsPresent = resourceResponse.platformResponseIsUpToDate() && resourceResponse.nsURLResponse();
+    encoder << responseIsPresent;
 
     if (!responseIsPresent)
         return;
 
-    RetainPtr<CFDictionaryRef> dictionary(AdoptCF, WKNSURLResponseCreateSerializableRepresentation(resourceResponse.nsURLResponse(), CoreIPC::tokenNullTypeRef()));
+    RetainPtr<CFDictionaryRef> dictionary = adoptCF(WKNSURLResponseCreateSerializableRepresentation(resourceResponse.nsURLResponse(), CoreIPC::tokenNullTypeRef()));
     CoreIPC::encode(encoder, dictionary.get());
 }
 
-bool ArgumentCoder<ResourceResponse>::decode(ArgumentDecoder* decoder, ResourceResponse& resourceResponse)
+bool ArgumentCoder<ResourceResponse>::decodePlatformData(ArgumentDecoder& decoder, ResourceResponse& resourceResponse)
 {
     bool responseIsPresent;
-    if (!decoder->decode(responseIsPresent))
+    if (!decoder.decode(responseIsPresent))
         return false;
 
     if (!responseIsPresent) {
@@ -113,10 +137,10 @@ static NSString* nsString(const String& string)
     return string.impl() ? [NSString stringWithCharacters:reinterpret_cast<const UniChar*>(string.characters()) length:string.length()] : @"";
 }
 
-void ArgumentCoder<ResourceError>::encode(ArgumentEncoder* encoder, const ResourceError& resourceError)
+void ArgumentCoder<ResourceError>::encodePlatformData(ArgumentEncoder& encoder, const ResourceError& resourceError)
 {
     bool errorIsNull = resourceError.isNull();
-    encoder->encode(errorIsNull);
+    encoder << errorIsNull;
 
     if (errorIsNull)
         return;
@@ -124,10 +148,10 @@ void ArgumentCoder<ResourceError>::encode(ArgumentEncoder* encoder, const Resour
     NSError *nsError = resourceError.nsError();
 
     String domain = [nsError domain];
-    encoder->encode(domain);
-    
+    encoder << domain;
+
     int64_t code = [nsError code];
-    encoder->encode(code);
+    encoder << code;
 
     HashMap<String, String> stringUserInfoMap;
 
@@ -140,17 +164,17 @@ void ArgumentCoder<ResourceError>::encode(ArgumentEncoder* encoder, const Resour
         stringUserInfoMap.set(key, (NSString *)value);
         continue;
     }
-    encoder->encode(stringUserInfoMap);
+    encoder << stringUserInfoMap;
 
     id peerCertificateChain = [userInfo objectForKey:@"NSErrorPeerCertificateChainKey"];
     ASSERT(!peerCertificateChain || [peerCertificateChain isKindOfClass:[NSArray class]]);
-    encoder->encode(PlatformCertificateInfo((CFArrayRef)peerCertificateChain));
+    encoder << PlatformCertificateInfo((CFArrayRef)peerCertificateChain);
 }
 
-bool ArgumentCoder<ResourceError>::decode(ArgumentDecoder* decoder, ResourceError& resourceError)
+bool ArgumentCoder<ResourceError>::decodePlatformData(ArgumentDecoder& decoder, ResourceError& resourceError)
 {
     bool errorIsNull;
-    if (!decoder->decode(errorIsNull))
+    if (!decoder.decode(errorIsNull))
         return false;
     
     if (errorIsNull) {
@@ -159,19 +183,19 @@ bool ArgumentCoder<ResourceError>::decode(ArgumentDecoder* decoder, ResourceErro
     }
 
     String domain;
-    if (!decoder->decode(domain))
+    if (!decoder.decode(domain))
         return false;
 
     int64_t code;
-    if (!decoder->decode(code))
+    if (!decoder.decode(code))
         return false;
 
     HashMap<String, String> stringUserInfoMap;
-    if (!decoder->decode(stringUserInfoMap))
+    if (!decoder.decode(stringUserInfoMap))
         return false;
 
     PlatformCertificateInfo certificate;
-    if (!decoder->decode(certificate))
+    if (!decoder.decode(certificate))
         return false;
 
     NSUInteger userInfoSize = stringUserInfoMap.size();
@@ -183,29 +207,28 @@ bool ArgumentCoder<ResourceError>::decode(ArgumentDecoder* decoder, ResourceErro
     HashMap<String, String>::const_iterator it = stringUserInfoMap.begin();
     HashMap<String, String>::const_iterator end = stringUserInfoMap.end();
     for (; it != end; ++it)
-        [userInfo setObject:nsString(it->second) forKey:nsString(it->first)];
+        [userInfo setObject:nsString(it->value) forKey:nsString(it->key)];
 
     if (certificate.certificateChain())
         [userInfo setObject:(NSArray *)certificate.certificateChain() forKey:@"NSErrorPeerCertificateChainKey"];
 
-    RetainPtr<NSError> nsError(AdoptNS, [[NSError alloc] initWithDomain:nsString(domain) code:code userInfo:userInfo]);
+    RetainPtr<NSError> nsError = adoptNS([[NSError alloc] initWithDomain:nsString(domain) code:code userInfo:userInfo]);
 
     resourceError = ResourceError(nsError.get());
     return true;
 }
 
-void ArgumentCoder<KeypressCommand>::encode(ArgumentEncoder* encoder, const KeypressCommand& keypressCommand)
+void ArgumentCoder<KeypressCommand>::encode(ArgumentEncoder& encoder, const KeypressCommand& keypressCommand)
 {
-    encoder->encode(keypressCommand.commandName);
-    encoder->encode(keypressCommand.text);
+    encoder << keypressCommand.commandName << keypressCommand.text;
 }
     
-bool ArgumentCoder<KeypressCommand>::decode(ArgumentDecoder* decoder, KeypressCommand& keypressCommand)
+bool ArgumentCoder<KeypressCommand>::decode(ArgumentDecoder& decoder, KeypressCommand& keypressCommand)
 {
-    if (!decoder->decode(keypressCommand.commandName))
+    if (!decoder.decode(keypressCommand.commandName))
         return false;
 
-    if (!decoder->decode(keypressCommand.text))
+    if (!decoder.decode(keypressCommand.text))
         return false;
 
     return true;

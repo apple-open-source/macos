@@ -18,7 +18,7 @@ else
     MAKE=make
 fi
 
-projects="llvm cfe dragonegg test-suite"
+projects="llvm cfe dragonegg compiler-rt test-suite"
 
 # Base SVN URL for the sources.
 Base_url="http://llvm.org/svn/llvm-project"
@@ -35,6 +35,7 @@ do_objc="yes"
 do_64bit="yes"
 do_debug="no"
 do_asserts="no"
+do_compare="yes"
 BuildDir="`pwd`"
 
 function usage() {
@@ -42,6 +43,7 @@ function usage() {
     echo ""
     echo " -release X.Y      The release number to test."
     echo " -rc NUM           The pre-release candidate number."
+    echo " -final            The final release candidate."
     echo " -j NUM            Number of compile jobs to run. [default: 3]"
     echo " -build-dir DIR    Directory to perform testing in. [default: pwd]"
     echo " -no-checkout      Don't checkout the sources from SVN."
@@ -53,6 +55,7 @@ function usage() {
     echo " -disable-objc     Disable ObjC build. [default: enable]"
     echo " -test-debug       Test the debug build. [default: no]"
     echo " -test-asserts     Test with asserts on. [default: no]"
+    echo " -no-compare-files Don't test that phase 2 and 3 files are identical."
 }
 
 while [ $# -gt 0 ]; do
@@ -64,7 +67,10 @@ while [ $# -gt 0 ]; do
             ;;
         -rc | --rc | -RC | --RC )
             shift
-            RC=$1
+            RC="rc$1"
+            ;;
+        -final | --final )
+            RC=final
             ;;
         -j* )
             NumJobs="`echo $1 | sed -e 's,-j\([0-9]*\),\1,g'`"
@@ -104,6 +110,9 @@ while [ $# -gt 0 ]; do
         -test-asserts | --test-asserts )
             do_asserts="yes"
             ;;
+        -no-compare-files | --no-compare-files )
+            do_compare="no"
+            ;;
         -help | --help | -h | --h | -\? )
             usage
             exit 0
@@ -142,7 +151,7 @@ if [ -z "$NumJobs" ]; then
 fi
 
 # Go to the build directory (may be different from CWD)
-BuildDir=$BuildDir/rc$RC
+BuildDir=$BuildDir/$RC
 mkdir -p $BuildDir
 cd $BuildDir
 
@@ -177,20 +186,20 @@ function check_valid_urls() {
     for proj in $projects ; do
         echo "# Validating $proj SVN URL"
 
-        if ! svn ls $Base_url/$proj/tags/RELEASE_$Release_no_dot/rc$RC > /dev/null 2>&1 ; then
+        if ! svn ls $Base_url/$proj/tags/RELEASE_$Release_no_dot/$RC > /dev/null 2>&1 ; then
             echo "llvm $Release release candidate $RC doesn't exist!"
             exit 1
         fi
     done
 }
 
-# Export sources to the the build directory.
+# Export sources to the build directory.
 function export_sources() {
     check_valid_urls
 
     for proj in $projects ; do
         echo "# Exporting $proj $Release-RC$RC sources"
-        if ! svn export -q $Base_url/$proj/tags/RELEASE_$Release_no_dot/rc$RC $proj.src ; then
+        if ! svn export -q $Base_url/$proj/tags/RELEASE_$Release_no_dot/$RC $proj.src ; then
             echo "error: failed to export $proj project"
             exit 1
         fi
@@ -204,6 +213,9 @@ function export_sources() {
     cd $BuildDir/llvm.src/projects
     if [ ! -h llvm-test ]; then
         ln -s ../../test-suite.src llvm-test
+    fi
+    if [ ! -h compiler-rt ]; then
+        ln -s ../../compiler-rt.src compiler-rt
     fi
     cd $BuildDir
 }
@@ -238,7 +250,7 @@ function configure_llvmCore() {
     echo "# Using C++ compiler: $cxx_compiler"
 
     cd $ObjDir
-    echo "# Configuring llvm $Release-rc$RC $Flavor"
+    echo "# Configuring llvm $Release-$RC $Flavor"
     echo "# $BuildDir/llvm.src/configure --prefix=$InstallDir \
         --enable-optimized=$Optimized \
         --enable-assertions=$Assertions"
@@ -262,12 +274,12 @@ function build_llvmCore() {
     fi
 
     cd $ObjDir
-    echo "# Compiling llvm $Release-rc$RC $Flavor"
+    echo "# Compiling llvm $Release-$RC $Flavor"
     echo "# ${MAKE} -j $NumJobs VERBOSE=1 $ExtraOpts"
     ${MAKE} -j $NumJobs VERBOSE=1 $ExtraOpts \
         2>&1 | tee $LogDir/llvm.make-Phase$Phase-$Flavor.log
 
-    echo "# Installing llvm $Release-rc$RC $Flavor"
+    echo "# Installing llvm $Release-$RC $Flavor"
     echo "# ${MAKE} install"
     ${MAKE} install \
         2>&1 | tee $LogDir/llvm.install-Phase$Phase-$Flavor.log
@@ -285,7 +297,7 @@ function build_dragonegg() {
     echo "# Targeted compiler: $gcc_compiler"
 
     cd $DragonEggObjDir
-    echo "# Compiling phase $Phase dragonegg $Release-rc$RC $Flavor"
+    echo "# Compiling phase $Phase dragonegg $Release-$RC $Flavor"
     echo -n "# CXX=$cxx_compiler TOP_DIR=$TOP_DIR GCC=$gcc_compiler "
     echo -n "LLVM_CONFIG=$LLVM_CONFIG ${MAKE} -f $TOP_DIR/Makefile "
     echo "-j $NumJobs VERBOSE=1"
@@ -331,7 +343,7 @@ for Flavor in $Flavors ; do
     echo ""
     echo ""
     echo "********************************************************************************"
-    echo "  Release:     $Release-rc$RC"
+    echo "  Release:     $Release-$RC"
     echo "  Build:       $Flavor"
     echo "  System Info: "
     echo "    `uname -a`"
@@ -341,21 +353,21 @@ for Flavor in $Flavors ; do
     c_compiler="$CC"
     cxx_compiler="$CXX"
 
-    llvmCore_phase1_objdir=$BuildDir/Phase1/$Flavor/llvmCore-$Release-rc$RC.obj
-    llvmCore_phase1_installdir=$BuildDir/Phase1/$Flavor/llvmCore-$Release-rc$RC.install
-    dragonegg_phase1_objdir=$BuildDir/Phase1/$Flavor/DragonEgg-$Release-rc$RC.obj
+    llvmCore_phase1_objdir=$BuildDir/Phase1/$Flavor/llvmCore-$Release-$RC.obj
+    llvmCore_phase1_installdir=$BuildDir/Phase1/$Flavor/llvmCore-$Release-$RC.install
+    dragonegg_phase1_objdir=$BuildDir/Phase1/$Flavor/DragonEgg-$Release-$RC.obj
 
-    llvmCore_phase2_objdir=$BuildDir/Phase2/$Flavor/llvmCore-$Release-rc$RC.obj
-    llvmCore_phase2_installdir=$BuildDir/Phase2/$Flavor/llvmCore-$Release-rc$RC.install
-    llvmCore_de_phase2_objdir=$BuildDir/Phase2/$Flavor/llvmCore-DragonEgg-$Release-rc$RC.obj
-    llvmCore_de_phase2_installdir=$BuildDir/Phase2/$Flavor/llvmCore-DragonEgg-$Release-rc$RC.install
-    dragonegg_phase2_objdir=$BuildDir/Phase2/$Flavor/DragonEgg-$Release-rc$RC.obj
+    llvmCore_phase2_objdir=$BuildDir/Phase2/$Flavor/llvmCore-$Release-$RC.obj
+    llvmCore_phase2_installdir=$BuildDir/Phase2/$Flavor/llvmCore-$Release-$RC.install
+    llvmCore_de_phase2_objdir=$BuildDir/Phase2/$Flavor/llvmCore-DragonEgg-$Release-$RC.obj
+    llvmCore_de_phase2_installdir=$BuildDir/Phase2/$Flavor/llvmCore-DragonEgg-$Release-$RC.install
+    dragonegg_phase2_objdir=$BuildDir/Phase2/$Flavor/DragonEgg-$Release-$RC.obj
 
-    llvmCore_phase3_objdir=$BuildDir/Phase3/$Flavor/llvmCore-$Release-rc$RC.obj
-    llvmCore_phase3_installdir=$BuildDir/Phase3/$Flavor/llvmCore-$Release-rc$RC.install
-    llvmCore_de_phase3_objdir=$BuildDir/Phase3/$Flavor/llvmCore-DragonEgg-$Release-rc$RC.obj
-    llvmCore_de_phase3_installdir=$BuildDir/Phase3/$Flavor/llvmCore-DragonEgg-$Release-rc$RC.install
-    dragonegg_phase3_objdir=$BuildDir/Phase3/$Flavor/DragonEgg-$Release-rc$RC.obj
+    llvmCore_phase3_objdir=$BuildDir/Phase3/$Flavor/llvmCore-$Release-$RC.obj
+    llvmCore_phase3_installdir=$BuildDir/Phase3/$Flavor/llvmCore-$Release-$RC.install
+    llvmCore_de_phase3_objdir=$BuildDir/Phase3/$Flavor/llvmCore-DragonEgg-$Release-$RC.obj
+    llvmCore_de_phase3_installdir=$BuildDir/Phase3/$Flavor/llvmCore-DragonEgg-$Release-$RC.install
+    dragonegg_phase3_objdir=$BuildDir/Phase3/$Flavor/DragonEgg-$Release-$RC.obj
 
     rm -rf $llvmCore_phase1_objdir
     rm -rf $llvmCore_phase1_installdir
@@ -399,7 +411,7 @@ for Flavor in $Flavors ; do
 
     # Test clang
     if [ "$do_clang" = "yes" ]; then
-        ############################################################################
+        ########################################################################
         # Phase 2: Build llvmCore with newly built clang from phase 1.
         c_compiler=$llvmCore_phase1_installdir/bin/clang
         cxx_compiler=$llvmCore_phase1_installdir/bin/clang++
@@ -409,7 +421,7 @@ for Flavor in $Flavors ; do
         build_llvmCore 2 $Flavor \
             $llvmCore_phase2_objdir
 
-        ############################################################################
+        ########################################################################
         # Phase 3: Build llvmCore with newly built clang from phase 2.
         c_compiler=$llvmCore_phase2_installdir/bin/clang
         cxx_compiler=$llvmCore_phase2_installdir/bin/clang++
@@ -419,21 +431,24 @@ for Flavor in $Flavors ; do
         build_llvmCore 3 $Flavor \
             $llvmCore_phase3_objdir
 
-        ############################################################################
+        ########################################################################
         # Testing: Test phase 3
         echo "# Testing - built with clang"
         test_llvmCore 3 $Flavor $llvmCore_phase3_objdir
 
-        ############################################################################
-        # Compare .o files between Phase2 and Phase3 and report which ones differ.
-        echo
-        echo "# Comparing Phase 2 and Phase 3 files"
-        for o in `find $llvmCore_phase2_objdir -name '*.o'` ; do
-            p3=`echo $o | sed -e 's,Phase2,Phase3,'`
-            if ! cmp --ignore-initial=16 $o $p3 > /dev/null 2>&1 ; then
-                echo "file `basename $o` differs between phase 2 and phase 3"
-            fi
-        done
+        ########################################################################
+        # Compare .o files between Phase2 and Phase3 and report which ones
+        # differ.
+        if [ "$do_compare" = "yes" ]; then
+            echo
+            echo "# Comparing Phase 2 and Phase 3 files"
+            for o in `find $llvmCore_phase2_objdir -name '*.o'` ; do
+                p3=`echo $o | sed -e 's,Phase2,Phase3,'`
+                if ! cmp --ignore-initial=16 $o $p3 > /dev/null 2>&1 ; then
+                    echo "file `basename $o` differs between phase 2 and phase 3"
+                fi
+            done
+        fi
     fi
 
     # Test dragonegg
@@ -446,7 +461,7 @@ for Flavor in $Flavors ; do
         cxx_compiler="$gxx_compiler"
         build_dragonegg 1 $Flavor $llvmCore_phase1_installdir $dragonegg_phase1_objdir
 
-        ############################################################################
+        ########################################################################
         # Phase 2: Build llvmCore with newly built dragonegg from phase 1.
         c_compiler="$gcc_compiler -fplugin=$dragonegg_phase1_objdir/dragonegg.so"
         cxx_compiler="$gxx_compiler -fplugin=$dragonegg_phase1_objdir/dragonegg.so"
@@ -457,7 +472,7 @@ for Flavor in $Flavors ; do
             $llvmCore_de_phase2_objdir
         build_dragonegg 2 $Flavor $llvmCore_de_phase2_installdir $dragonegg_phase2_objdir
 
-        ############################################################################
+        ########################################################################
         # Phase 3: Build llvmCore with newly built clang from phase 2.
         c_compiler="$gcc_compiler -fplugin=$dragonegg_phase2_objdir/dragonegg.so"
         cxx_compiler="$gxx_compiler -fplugin=$dragonegg_phase2_objdir/dragonegg.so"
@@ -468,14 +483,14 @@ for Flavor in $Flavors ; do
             $llvmCore_de_phase3_objdir
         build_dragonegg 3 $Flavor $llvmCore_de_phase3_installdir $dragonegg_phase3_objdir
 
-        ############################################################################
+        ########################################################################
         # Testing: Test phase 3
         c_compiler="$gcc_compiler -fplugin=$dragonegg_phase3_objdir/dragonegg.so"
         cxx_compiler="$gxx_compiler -fplugin=$dragonegg_phase3_objdir/dragonegg.so"
         echo "# Testing - built with dragonegg"
         test_llvmCore 3 $Flavor $llvmCore_de_phase3_objdir
 
-        ############################################################################
+        ########################################################################
         # Compare .o files between Phase2 and Phase3 and report which ones differ.
         echo
         echo "# Comparing Phase 2 and Phase 3 files"
@@ -494,7 +509,7 @@ for Flavor in $Flavors ; do
         test_llvmCore 1 $Flavor $llvmCore_phase1_objdir
     fi
 done
-) 2>&1 | tee $LogDir/testing.$Release-rc$RC.log
+) 2>&1 | tee $LogDir/testing.$Release-$RC.log
 
 set +e
 

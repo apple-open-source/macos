@@ -238,6 +238,7 @@ private:
 	
 private:
 	AccessCredentials *mOpenCreds;			// credentials passed during open
+    mutable std::string mDbName;            // stored name for method dbName() which need to call c_str on object outside function scope
 };
 
 

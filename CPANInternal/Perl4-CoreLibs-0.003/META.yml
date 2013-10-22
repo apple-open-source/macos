@@ -1,0 +1,62 @@
+---
+name: Perl4-CoreLibs
+version: 0.003
+author:
+  - Brandon S. Allbery
+  - John Bazik
+  - 'Tom Christiansen <tchrist@convex.com>'
+  - Alexandr Ciornii (alexchorny at gmail.com)
+  - Charles Collins
+  - 'Joe Doupnik <JRD@CC.USU.EDU>'
+  - 'Marion Hakanson <hakanson@cse.ogi.edu>'
+  - 'Marc Horowitz <marc@mit.edu>'
+  - 'Waldemar Kebsch <kebsch.pad@nixpbe.UUCP>'
+  - 'Lee McLoughlin <lmjm@doc.ic.ac.uk>'
+  - '<A.Macpherson@bnr.co.uk>'
+  - 'Dave Rolsky <autarch@urth.org>'
+  - 'Randal L. Schwartz <merlyn@stonehenge.com>'
+  - 'Aaron Sherman <asherman@fmrco.com>'
+  - 'David Sundstrom <sunds@asictest.sc.ti.com>'
+  - Wayne Thompson
+  - 'Larry Wall <lwall@jpl-devvax.jpl.nasa.gov>'
+  - Ilya Zakharevich
+  - 'Andrew Main (Zefram) <zefram@fysh.org>'
+abstract: libraries historically supplied with Perl 4
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+build_requires:
+  Config: 0
+  IO::Handle: 0
+  Module::Build: 0.26
+  Test::More: 0
+  perl: 5.006
+  strict: 0
+  warnings: 0
+requires:
+  File::Find: 0
+  Getopt::Long: 0
+  IPC::Open2: 0
+  IPC::Open3: 0
+  Socket: 0
+  Text::ParseWords: 3.25
+  Time::Local: 0
+  perl: 5.006
+  strict: 0
+  warnings: 0
+  warnings::register: 0
+configure_requires:
+  Module::Build: 0.26
+  perl: 5.006
+  strict: 0
+  warnings: 0
+dynamic_config: 0
+provides:
+  Perl4::CoreLibs:
+    file: lib/Perl4/CoreLibs.pm
+    version: 0.003
+generated_by: Module::Build version 0.340201
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+distribution_type: module

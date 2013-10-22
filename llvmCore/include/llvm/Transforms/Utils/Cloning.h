@@ -56,21 +56,13 @@ struct ClonedCodeInfo {
   /// call instruction.
   bool ContainsCalls;
   
-  /// ContainsUnwinds - This is set to true if the cloned code contains an
-  /// unwind instruction.
-  bool ContainsUnwinds;
-  
   /// ContainsDynamicAllocas - This is set to true if the cloned code contains
   /// a 'dynamic' alloca.  Dynamic allocas are allocas that are either not in
   /// the entry block or they are in the entry block but are not a constant
   /// size.
   bool ContainsDynamicAllocas;
   
-  ClonedCodeInfo() {
-    ContainsCalls = false;
-    ContainsUnwinds = false;
-    ContainsDynamicAllocas = false;
-  }
+  ClonedCodeInfo() : ContainsCalls(false), ContainsDynamicAllocas(false) {}
 };
 
 
@@ -123,13 +115,6 @@ Function *CloneFunction(const Function *F,
                         ValueToValueMapTy &VMap,
                         bool ModuleLevelChanges,
                         ClonedCodeInfo *CodeInfo = 0);
-
-/// CloneFunction - Version of the function that doesn't need the VMap.
-///
-inline Function *CloneFunction(const Function *F, ClonedCodeInfo *CodeInfo = 0){
-  ValueToValueMapTy VMap;
-  return CloneFunction(F, VMap, CodeInfo);
-}
 
 /// Clone OldFunc into NewFunc, transforming the old arguments into references
 /// to VMap values.  Note that if NewFunc already has basic blocks, the ones
@@ -205,9 +190,9 @@ public:
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
 ///
-bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI);
-bool InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI);
-bool InlineFunction(CallSite CS, InlineFunctionInfo &IFI);
+bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI, bool InsertLifetime = true);
+bool InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI, bool InsertLifetime = true);
+bool InlineFunction(CallSite CS, InlineFunctionInfo &IFI, bool InsertLifetime = true);
 
 } // End llvm namespace
 

@@ -916,8 +916,8 @@ cmp_TESTImplicit (void *a, void *b)
 UNIV CONS Sequence 14
   CONTEXT PRIM 0 1 00
   CONTEXT CONS 1 6
-   CONTEXT CONS 127 3
-     UNIV PRIM Integer 1 02
+    CONTEXT CONS 127 3
+      UNIV PRIM Integer 1 02
   CONTEXT PRIM 2 1 03
 */
 
@@ -925,9 +925,9 @@ static int
 test_implicit (void)
 {
     struct test_case tests[] = {
-	{ NULL,  16,
-	  "\x30\x0e\x80\x01\x00\xa1\x06\xbf"
-	  "\x7f\x03\x02\x01\x02\x82\x01\x03",
+	{ NULL,  18,
+	  "\x30\x10\x80\x01\x00\xa1\x06\xbf"
+	  "\x7f\x03\x02\x01\x02\xa2\x03\x84\x01\x03",
 	  "implicit 1" }
     };
 

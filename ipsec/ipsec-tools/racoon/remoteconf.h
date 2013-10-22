@@ -46,6 +46,7 @@
 #include "algorithm.h"
 
 
+
 struct proposalspec {
 	time_t lifetime;		/* for isakmp/ipsec */
 	int lifebyte;			/* for isakmp/ipsec */
@@ -87,11 +88,6 @@ enum {
     DPD_ALGO_MAX,
 };
 
-/* Script hooks */
-#define SCRIPT_PHASE1_UP	0
-#define SCRIPT_PHASE1_DOWN	1
-#define SCRIPT_MAX		1
-extern char *script_names[SCRIPT_MAX + 1];
 
 struct remoteconf {
 	struct sockaddr_storage *remote;	/* remote IP address */
@@ -116,13 +112,8 @@ struct remoteconf {
 	vchar_t *open_dir_auth_group;	/* group to be used to authorize user */
 
 	int certtype;			/* certificate type if need */
-	char *mycertfile;		/* file name of my certificate */
-	char *myprivfile;		/* file name of my private key file */
-	char *peerscertfile;		/* file name of peer's certifcate */
 	int getcert_method;		/* the way to get peer's certificate */
 	int cacerttype;			/* CA type is needed */
-	char *cacertfile;		/* file name of CA */
-	int getcacert_method;		/* the way to get the CA */
 	int send_cert;			/* send to CERT or not */
 	int send_cr;			/* send to CR or not */
 	int verify_cert;		/* verify a CERT strictly */
@@ -144,7 +135,6 @@ struct remoteconf {
 	int nat_traversal;		/* NAT-Traversal */
 	int natt_multiple_user; /* special handling of multiple users behind a nat - for VPN server */
 	int natt_keepalive;		/* do we need to send natt keep alive */
-	vchar_t *script[SCRIPT_MAX + 1];	/* script hooks paths */
 	int dh_group;			/* use it when only aggressive mode */
 	struct dhgroup *dhgrp;		/* use it when only aggressive mode */
 					/* above two can't be defined by user*/
@@ -174,10 +164,15 @@ struct remoteconf {
 #ifdef ENABLE_HYBRID
 	struct xauth_rmconf *xauth;
 #endif
-	int initiate_ph1rekey;
-	int    to_remove;
-	int    to_delete;
-	int    linked_to_ph1;
+    int initiate_ph1rekey;
+    int in_list;            // in the linked list
+    int refcount;           // ref count - in use
+    int ike_version;
+
+	// IKEV2 configs
+    struct etypes *eap_types;
+    CFDictionaryRef eap_options;
+    CFDictionaryRef ikev2_cfg_request;
 
 	TAILQ_ENTRY(remoteconf) chain;	/* next remote conf */
 };
@@ -186,20 +181,21 @@ struct dhgroup;
 
 /* ISAKMP SA specification */
 struct isakmpsa {
+	int version;
 	int prop_no;
 	int trns_no;
 	time_t lifetime;
+	time_t lifetimegap;
 	size_t lifebyte;
 	int enctype;
 	int encklen;
 	int authmethod;
 	int hashtype;
 	int vendorid;
-#ifdef HAVE_GSSAPI
-	vchar_t *gssid;
-#endif
-	int dh_group;			/* don't use it if aggressive mode */
+	int dh_group;				/* don't use it if aggressive mode */
 	struct dhgroup *dhgrp;		/* don't use it if aggressive mode */
+	int             prf;
+	int             prfklen;
 
 	struct isakmpsa *next;		/* next transform */
 	struct remoteconf *rmconf;	/* backpointer to remoteconf */
@@ -210,42 +206,38 @@ struct idspec {
 	vchar_t *id;                    /* identifier */
 };
 
-typedef struct remoteconf * (rmconf_func_t)(struct remoteconf *rmconf, void *data);
+typedef struct remoteconf *(rmconf_func_t) (struct remoteconf *rmconf, void *data);
 
-extern struct remoteconf *getrmconf __P((struct sockaddr_storage *));
+extern struct remoteconf *getrmconf (struct sockaddr_storage *);
 extern struct remoteconf *getrmconf_strict
-	__P((struct sockaddr_storage *remote, int allow_anon));
+	(struct sockaddr_storage *remote, int allow_anon);
 
-extern int link_rmconf_to_ph1 __P((struct remoteconf *));
-extern int unlink_rmconf_from_ph1 __P((struct remoteconf *));
-extern int no_remote_configs __P((int));
-extern struct remoteconf *copyrmconf __P((struct sockaddr_storage *));
-extern struct remoteconf *newrmconf __P((void));
-extern struct remoteconf *duprmconf __P((struct remoteconf *));
-extern void delrmconf __P((struct remoteconf *));
-extern void delisakmpsa __P((struct isakmpsa *));
-extern void deletypes __P((struct etypes *));
-extern struct etypes * dupetypes __P((struct etypes *));
-extern void insrmconf __P((struct remoteconf *));
-extern void remrmconf __P((struct remoteconf *));
-extern void flushrmconf __P((void));
-extern void initrmconf __P((void));
+extern int no_remote_configs (int);
+extern struct remoteconf *copyrmconf (struct sockaddr_storage *);
+extern struct remoteconf *create_rmconf (void);
+extern void retain_rmconf(struct remoteconf *);
+extern void release_rmconf(struct remoteconf *);
+extern struct remoteconf *duprmconf (struct remoteconf *);
+extern void delrmconf (struct remoteconf *);
+extern void delisakmpsa (struct isakmpsa *);
+extern void deletypes (struct etypes *);
+extern struct etypes * dupetypes (struct etypes *);
+extern void insrmconf (struct remoteconf *);
+extern void remrmconf (struct remoteconf *);
+extern void flushrmconf (void);
+extern void initrmconf (void);
 extern struct etypes *check_etypeok
-	__P((struct remoteconf *, u_int8_t));
-extern struct remoteconf *foreachrmconf __P((rmconf_func_t rmconf_func,
-					     void *data));
+	(struct remoteconf *, u_int8_t);
+extern struct remoteconf *foreachrmconf (rmconf_func_t rmconf_func,
+					     void *data);
 
-extern struct isakmpsa *newisakmpsa __P((void));
-extern struct isakmpsa *dupisakmpsa __P((struct isakmpsa *));
+extern struct isakmpsa *newisakmpsa (void);
+extern struct isakmpsa *dupisakmpsa (struct isakmpsa *);
 
-extern void insisakmpsa __P((struct isakmpsa *, struct remoteconf *));
+extern void insisakmpsa (struct isakmpsa *, struct remoteconf *);
 
-extern void dumprmconf __P((void));
+extern void dumprmconf (void);
 
-extern struct idspec *newidspec __P((void));
-
-extern vchar_t *script_path_add __P((vchar_t *));
-
-extern void rsa_key_free __P((void *entry));
+extern struct idspec *newidspec (void);
 
 #endif /* _REMOTECONF_H */

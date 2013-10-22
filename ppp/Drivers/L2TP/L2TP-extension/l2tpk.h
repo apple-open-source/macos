@@ -57,6 +57,7 @@ SYSCTL_DECL(_net_ppp_l2tp);
 #define L2TP_OPT_OURADDRESS		14	/* our IP address */
 #define L2TP_OPT_BAUDRATE		15	/* tunnel baudrate */
 #define L2TP_OPT_RELIABILITY		16	/* turn on/off reliability layer */
+#define L2TP_OPT_SETDELEGATEDPID    17  /* set the delegated process for traffic statistics */
 
 /* flags definition */
 #define L2TP_FLAG_DEBUG		0x00000002	/* debug mode, send verbose logs to syslog */

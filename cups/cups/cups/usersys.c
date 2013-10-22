@@ -1,9 +1,9 @@
 /*
- * "$Id: usersys.c 9006 2010-02-28 22:45:02Z mike $"
+ * "$Id: usersys.c 11118 2013-07-10 20:48:01Z msweet $"
  *
  *   User, system, and password routines for CUPS.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -16,20 +16,24 @@
  *
  * Contents:
  *
- *   cupsEncryption()        - Get the current encryption settings.
- *   cupsGetPassword()       - Get a password from the user.
+ *   cupsEncryption()	     - Get the current encryption settings.
+ *   cupsGetPassword()	     - Get a password from the user.
  *   cupsGetPassword2()      - Get a password from the user using the advanced
- *                             password callback.
- *   cupsServer()            - Return the hostname/address of the current
- *                             server.
+ *			       password callback.
+ *   cupsServer()	     - Return the hostname/address of the current
+ *			       server.
  *   cupsSetClientCertCB()   - Set the client certificate callback.
+ *   cupsSetCredentials()    - Set the default credentials to be used for
+ *			       SSL/TLS connections.
  *   cupsSetEncryption()     - Set the encryption preference.
  *   cupsSetPasswordCB()     - Set the password callback for CUPS.
  *   cupsSetPasswordCB2()    - Set the advanced password callback for CUPS.
- *   cupsSetServer()         - Set the default server name and port.
+ *   cupsSetServer()	     - Set the default server name and port.
  *   cupsSetServerCertCB()   - Set the server certificate callback.
- *   cupsSetUser()           - Set the default user name.
- *   cupsUser()              - Return the current user's name.
+ *   cupsSetUser()	     - Set the default user name.
+ *   cupsSetUserAgent()      - Set the default HTTP User-Agent string.
+ *   cupsUser() 	     - Return the current user's name.
+ *   cupsUserAgent()	     - Return the default HTTP User-Agent string.
  *   _cupsGetPassword()      - Get a password from the user.
  *   _cupsGSSServiceName()   - Get the GSS (Kerberos) service name.
  *   _cupsSetDefaults()      - Set the default server, port, and encryption.
@@ -48,6 +52,7 @@
 #else
 #  include <pwd.h>
 #  include <termios.h>
+#  include <sys/utsname.h>
 #endif /* WIN32 */
 
 
@@ -81,7 +86,7 @@ static void	cups_read_client_conf(cups_file_t *fp,
  * The default encryption setting comes from the CUPS_ENCRYPTION
  * environment variable, then the ~/.cups/client.conf file, and finally the
  * /etc/cups/client.conf file. If not set, the default is
- * @code HTTP_ENCRYPT_IF_REQUESTED@.
+ * @code HTTP_ENCRYPTION_IF_REQUESTED@.
  *
  * Note: The current encryption setting is tracked separately for each thread
  * in a program. Multi-threaded programs that override the setting via the
@@ -244,7 +249,7 @@ cupsSetCredentials(
  * The default encryption setting comes from the CUPS_ENCRYPTION
  * environment variable, then the ~/.cups/client.conf file, and finally the
  * /etc/cups/client.conf file. If not set, the default is
- * @code HTTP_ENCRYPT_IF_REQUESTED@.
+ * @code HTTP_ENCRYPTION_IF_REQUESTED@.
  *
  * Note: The current encryption setting is tracked separately for each thread
  * in a program. Multi-threaded programs that override the setting need to do
@@ -365,6 +370,8 @@ cupsSetServer(const char *server)	/* I - Server name */
       else if (!strcmp(options, "version=2.2"))
         cg->server_version = 22;
     }
+    else
+      cg->server_version = 20;
 
     if (cg->server[0] != '/' && (port = strrchr(cg->server, ':')) != NULL &&
         !strchr(port, ']') && isdigit(port[1] & 255))
@@ -375,7 +382,7 @@ cupsSetServer(const char *server)	/* I - Server name */
     }
 
     if (cg->server[0] == '/')
-      strcpy(cg->servername, "localhost");
+      strlcpy(cg->servername, "localhost", sizeof(cg->servername));
     else
       strlcpy(cg->servername, cg->server, sizeof(cg->servername));
   }
@@ -443,6 +450,62 @@ cupsSetUser(const char *user)		/* I - User name */
 
 
 /*
+ * 'cupsSetUserAgent()' - Set the default HTTP User-Agent string.
+ *
+ * Setting the string to NULL forces the default value containing the CUPS
+ * version, IPP version, and operating system version and architecture.
+ *
+ * @since CUPS 1.7/OS X 10.9@
+ */
+
+void
+cupsSetUserAgent(const char *user_agent)/* I - User-Agent string or @code NULL@ */
+{
+  _cups_globals_t	*cg = _cupsGlobals();
+					/* Thread globals */
+#ifdef WIN32
+  SYSTEM_INFO		sysinfo;	/* System information */
+  OSVERSIONINFO		version;	/* OS version info */
+#else
+  struct utsname	name;		/* uname info */
+#endif /* WIN32 */
+
+
+  if (user_agent)
+  {
+    strlcpy(cg->user_agent, user_agent, sizeof(cg->user_agent));
+    return;
+  }
+
+#ifdef WIN32
+  version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+  GetVersionEx(&version);
+  GetNativeSystemInfo(&sysinfo);
+
+  snprintf(cg->user_agent, sizeof(cg->user_agent),
+           CUPS_MINIMAL " (Windows %d.%d; %s) IPP/2.0",
+	   version.dwMajorVersion, version.dwMinorVersion,
+	   sysinfo.wProcessorArchitecture
+	       == PROCESSOR_ARCHITECTURE_AMD64 ? "amd64" :
+	       sysinfo.wProcessorArchitecture
+		   == PROCESSOR_ARCHITECTURE_ARM ? "arm" :
+	       sysinfo.wProcessorArchitecture
+		   == PROCESSOR_ARCHITECTURE_IA64 ? "ia64" :
+	       sysinfo.wProcessorArchitecture
+		   == PROCESSOR_ARCHITECTURE_INTEL ? "intel" :
+	       "unknown");
+
+#else
+  uname(&name);
+
+  snprintf(cg->user_agent, sizeof(cg->user_agent),
+           CUPS_MINIMAL " (%s %s; %s) IPP/2.0",
+	   name.sysname, name.release, name.machine);
+#endif /* WIN32 */
+}
+
+
+/*
  * 'cupsUser()' - Return the current user's name.
  *
  * Note: The current user name is tracked separately for each thread in a
@@ -461,6 +524,25 @@ cupsUser(void)
     _cupsSetDefaults();
 
   return (cg->user);
+}
+
+
+/*
+ * 'cupsUserAgent()' - Return the default HTTP User-Agent string.
+ *
+ * @since CUPS 1.7/OS X 10.9@
+ */
+
+const char *				/* O - User-Agent string */
+cupsUserAgent(void)
+{
+  _cups_globals_t *cg = _cupsGlobals();	/* Thread globals */
+
+
+  if (!cg->user_agent[0])
+    cupsSetUserAgent(NULL);
+
+  return (cg->user_agent);
 }
 
 
@@ -941,46 +1023,17 @@ cups_read_client_conf(
   if (cg->encryption == (http_encryption_t)-1 && cups_encryption)
   {
     if (!_cups_strcasecmp(cups_encryption, "never"))
-      cg->encryption = HTTP_ENCRYPT_NEVER;
+      cg->encryption = HTTP_ENCRYPTION_NEVER;
     else if (!_cups_strcasecmp(cups_encryption, "always"))
-      cg->encryption = HTTP_ENCRYPT_ALWAYS;
+      cg->encryption = HTTP_ENCRYPTION_ALWAYS;
     else if (!_cups_strcasecmp(cups_encryption, "required"))
-      cg->encryption = HTTP_ENCRYPT_REQUIRED;
+      cg->encryption = HTTP_ENCRYPTION_REQUIRED;
     else
-      cg->encryption = HTTP_ENCRYPT_IF_REQUESTED;
+      cg->encryption = HTTP_ENCRYPTION_IF_REQUESTED;
   }
 
   if ((!cg->server[0] || !cg->ipp_port) && cups_server)
-  {
-    if (!cg->server[0])
-    {
-     /*
-      * Copy server name...
-      */
-
-      strlcpy(cg->server, cups_server, sizeof(cg->server));
-
-      if (cg->server[0] != '/' && (value = strrchr(cg->server, ':')) != NULL &&
-	  !strchr(value, ']') && isdigit(value[1] & 255))
-        *value++ = '\0';
-      else
-        value = NULL;
-
-      if (cg->server[0] == '/')
-	strcpy(cg->servername, "localhost");
-      else
-	strlcpy(cg->servername, cg->server, sizeof(cg->servername));
-    }
-    else if (cups_server[0] != '/' &&
-             (value = strrchr(cups_server, ':')) != NULL &&
-	     !strchr(value, ']') && isdigit(value[1] & 255))
-      value ++;
-    else
-      value = NULL;
-
-    if (!cg->ipp_port && value)
-      cg->ipp_port = atoi(value);
-  }
+    cupsSetServer(cups_server);
 
   if (!cg->server[0])
   {
@@ -1053,7 +1106,7 @@ cups_read_client_conf(
 	* Use the default "unknown" user name...
 	*/
 
-	strcpy(cg->user, "unknown");
+	strlcpy(cg->user, "unknown", sizeof(cg->user));
       }
     }
   }
@@ -1084,5 +1137,5 @@ cups_read_client_conf(
 
 
 /*
- * End of "$Id: usersys.c 9006 2010-02-28 22:45:02Z mike $".
+ * End of "$Id: usersys.c 11118 2013-07-10 20:48:01Z msweet $".
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,174 +30,12 @@
 #import "WebCoreURLResponse.h"
 
 #import "MIMETypeRegistry.h"
+#import "UTIUtilities.h"
 #import "WebCoreSystemInterface.h"
 #import <wtf/Assertions.h>
 #import <wtf/RetainPtr.h>
 
 namespace WebCore {
-
-// <rdar://problem/5321972> Plain text document from HTTP server detected as application/octet-stream
-// When we sniff a resource as application/octet-stream but the http response headers had "text/plain",
-// we have a hard decision to make about which of the two generic MIME types to go with.
-// When the URL's extension is a known binary type, we'll go with application/octet-stream.
-// Otherwise, we'll trust the server.
-static CFSetRef createBinaryExtensionsSet()
-{
-    CFStringRef extensions[] = {
-        CFSTR("3g2"),
-        CFSTR("3gp"),
-        CFSTR("ai"),
-        CFSTR("aif"),
-        CFSTR("aifc"),
-        CFSTR("aiff"),
-        CFSTR("au"),
-        CFSTR("avi"),
-        CFSTR("bcpio"),
-        CFSTR("bin"),
-        CFSTR("bmp"),
-        CFSTR("boz"),
-        CFSTR("bpk"),
-        CFSTR("bz"),
-        CFSTR("bz2"),
-        CFSTR("chm"),
-        CFSTR("class"),
-        CFSTR("com"),
-        CFSTR("cpio"),
-        CFSTR("dcr"),
-        CFSTR("dir"),
-        CFSTR("dist"),
-        CFSTR("distz"),
-        CFSTR("dll"),
-        CFSTR("dmg"),
-        CFSTR("dms"),
-        CFSTR("doc"),
-        CFSTR("dot"),
-        CFSTR("dump"),
-        CFSTR("dv"),
-        CFSTR("dvi"),
-        CFSTR("dxr"),
-        CFSTR("elc"),
-        CFSTR("eot"),
-        CFSTR("eps"),
-        CFSTR("exe"),
-        CFSTR("fgd"),
-        CFSTR("gif"),
-        CFSTR("gtar"),
-        CFSTR("h261"),
-        CFSTR("h263"),
-        CFSTR("h264"),
-        CFSTR("ico"),
-        CFSTR("ims"),
-        CFSTR("indd"),
-        CFSTR("iso"),
-        CFSTR("jp2"),
-        CFSTR("jpe"),
-        CFSTR("jpeg"),
-        CFSTR("jpg"),
-        CFSTR("jpgm"),
-        CFSTR("jpgv"),
-        CFSTR("jpm"),
-        CFSTR("kar"),
-        CFSTR("kmz"),
-        CFSTR("lha"),
-        CFSTR("lrm"),
-        CFSTR("lzh"),
-        CFSTR("m1v"),
-        CFSTR("m2a"),
-        CFSTR("m2v"),
-        CFSTR("m3a"),
-        CFSTR("m3u"),
-        CFSTR("m4a"),
-        CFSTR("m4p"),
-        CFSTR("m4v"),
-        CFSTR("mdb"),
-        CFSTR("mid"),
-        CFSTR("midi"),
-        CFSTR("mj2"),
-        CFSTR("mjp2"),
-        CFSTR("mov"),
-        CFSTR("movie"),
-        CFSTR("mp2"),
-        CFSTR("mp2a"),
-        CFSTR("mp3"),
-        CFSTR("mp4"),
-        CFSTR("mp4a"),
-        CFSTR("mp4s"),
-        CFSTR("mp4v"),
-        CFSTR("mpe"),
-        CFSTR("mpeg"),
-        CFSTR("mpg"),
-        CFSTR("mpg4"),
-        CFSTR("mpga"),
-        CFSTR("mpp"),
-        CFSTR("mpt"),
-        CFSTR("msi"),
-        CFSTR("ogg"),
-        CFSTR("otf"),
-        CFSTR("pct"),
-        CFSTR("pdf"),
-        CFSTR("pfa"),
-        CFSTR("pfb"),
-        CFSTR("pic"),
-        CFSTR("pict"),
-        CFSTR("pkg"),
-        CFSTR("png"),
-        CFSTR("pot"),
-        CFSTR("pps"),
-        CFSTR("ppt"),
-        CFSTR("ps"),
-        CFSTR("psd"),
-        CFSTR("qt"),
-        CFSTR("qti"),
-        CFSTR("qtif"),
-        CFSTR("qwd"),
-        CFSTR("qwt"),
-        CFSTR("qxb"),
-        CFSTR("qxd"),
-        CFSTR("qxl"),
-        CFSTR("qxp"),
-        CFSTR("qxt"),
-        CFSTR("ra"),
-        CFSTR("ram"),
-        CFSTR("rm"),
-        CFSTR("rmi"),
-        CFSTR("rmp"),
-        CFSTR("scpt"),
-        CFSTR("sit"),
-        CFSTR("sitx"),
-        CFSTR("snd"),
-        CFSTR("so"),
-        CFSTR("swf"),
-        CFSTR("tar"),
-        CFSTR("tif"),
-        CFSTR("tiff"),
-        CFSTR("ttf"),
-        CFSTR("wav"),
-        CFSTR("wcm"),
-        CFSTR("wdb"),
-        CFSTR("wks"),
-        CFSTR("wm"),
-        CFSTR("wma"),
-        CFSTR("wmd"),
-        CFSTR("wmf"),
-        CFSTR("wmv"),
-        CFSTR("wmx"),
-        CFSTR("wmz"),
-        CFSTR("wpd"),
-        CFSTR("wpl"),
-        CFSTR("wps"),
-        CFSTR("wvx"),
-        CFSTR("xla"),
-        CFSTR("xlc"),
-        CFSTR("xlm"),
-        CFSTR("xls"),
-        CFSTR("xlt"),
-        CFSTR("xlw"),
-        CFSTR("xps"),
-        CFSTR("zip")
-    };
-    return CFSetCreate(kCFAllocatorDefault, (const void **)&extensions, sizeof(extensions)/sizeof(CFStringRef), &kCFTypeSetCallBacks);
-}
 
 // <rdar://problem/7007389> CoreTypes UTI map is missing 100+ file extensions that GateKeeper knew about
 // When we disabled content sniffing for file URLs we caused problems with these 100+ extensions that CoreTypes
@@ -447,41 +285,6 @@ static CFDictionaryRef createExtensionToMIMETypeMap()
     return CFDictionaryCreate(kCFAllocatorDefault, (const void**)&keys, (const void**)&values, sizeof(keys)/sizeof(CFStringRef), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 }
 
-static RetainPtr<CFStringRef> mimeTypeFromUTITree(CFStringRef uti)
-{
-    // Check if this UTI has a MIME type.
-    RetainPtr<CFStringRef> mimeType(AdoptCF, UTTypeCopyPreferredTagWithClass(uti, kUTTagClassMIMEType));
-    if (mimeType)
-        return mimeType.get();
-    
-    // If not, walk the ancestory of this UTI via its "ConformsTo" tags and return the first MIME type we find.
-    RetainPtr<CFDictionaryRef> decl(AdoptCF, UTTypeCopyDeclaration(uti));
-    if (!decl)
-        return nil;
-    CFTypeRef value = CFDictionaryGetValue(decl.get(), kUTTypeConformsToKey);
-    if (!value)
-        return nil;
-    CFTypeID typeID = CFGetTypeID(value);
-    
-    if (typeID == CFStringGetTypeID())
-        return mimeTypeFromUTITree((CFStringRef)value);
-
-    if (typeID == CFArrayGetTypeID()) {
-        CFArrayRef newTypes = (CFArrayRef)value;
-        CFIndex count = CFArrayGetCount(newTypes);
-        for (CFIndex i = 0; i < count; ++i) {
-            CFTypeRef object = CFArrayGetValueAtIndex(newTypes, i);
-            if (CFGetTypeID(object) != CFStringGetTypeID())
-                continue;
-
-            if (RetainPtr<CFStringRef> mimeType = mimeTypeFromUTITree((CFStringRef)object))
-                return mimeType;
-        }
-    }
-    
-    return nil;
-}
-
 void adjustMIMETypeIfNecessary(CFURLResponseRef cfResponse)
 {
     RetainPtr<CFStringRef> result = wkGetCFURLResponseMIMEType(cfResponse);
@@ -491,20 +294,20 @@ void adjustMIMETypeIfNecessary(CFURLResponseRef cfResponse)
         CFURLRef url = wkGetCFURLResponseURL(cfResponse);
         NSURL *nsURL = (NSURL *)url;
         if ([nsURL isFileURL]) {
-            RetainPtr<CFStringRef> extension(AdoptCF, CFURLCopyPathExtension(url));
+            RetainPtr<CFStringRef> extension = adoptCF(CFURLCopyPathExtension(url));
             if (extension) {
                 // <rdar://problem/7007389> CoreTypes UTI map is missing 100+ file extensions that GateKeeper knew about
                 // When this radar is resolved, we can remove this file:// url specific code.
                 static CFDictionaryRef extensionMap = createExtensionToMIMETypeMap();
                 CFMutableStringRef mutableExtension = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, extension.get());
                 CFStringLowercase(mutableExtension, NULL);
-                extension.adoptCF(mutableExtension);
+                extension = adoptCF(mutableExtension);
                 result = (CFStringRef) CFDictionaryGetValue(extensionMap, extension.get());
                 
                 if (!result) {
                     // If the Gatekeeper-based map doesn't have a MIME type, we'll try to figure out what it should be by
                     // looking up the file extension in the UTI maps.
-                    RetainPtr<CFStringRef> uti(AdoptCF, UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, extension.get(), 0));
+                    RetainPtr<CFStringRef> uti = adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, extension.get(), 0));
                     result = mimeTypeFromUTITree(uti.get());
                 }
             }
@@ -512,33 +315,32 @@ void adjustMIMETypeIfNecessary(CFURLResponseRef cfResponse)
     }
     
     if (!result) {
-        static CFStringRef defaultMIMETypeString = WebCore::defaultMIMEType().createCFString();
+        static CFStringRef defaultMIMETypeString = WebCore::defaultMIMEType().createCFString().leakRef();
         result = defaultMIMETypeString;
     }
 
-    // <rdar://problem/5321972> Plain text document from HTTP server detected as application/octet-stream
-    // Make the best guess when deciding between "generic binary" and "generic text" using a table of known binary MIME types.
-    if (CFStringCompare(result.get(), CFSTR("application/octet-stream"), 0) == kCFCompareEqualTo) {
-        CFHTTPMessageRef message = wkGetCFURLResponseHTTPResponse(cfResponse);
-        if (message) {
-            RetainPtr<CFStringRef> contentType(AdoptCF, CFHTTPMessageCopyHeaderFieldValue(message, CFSTR("Content-Type")));
-            if (contentType && CFStringHasPrefix(contentType.get(), CFSTR("text/plain"))) {
-                static CFSetRef binaryExtensions = createBinaryExtensionsSet();
-                RetainPtr<NSString> suggestedFilename(AdoptNS, (NSString *)wkCopyCFURLResponseSuggestedFilename(cfResponse));
-                if (!CFSetContainsValue(binaryExtensions, (CFStringRef) [[suggestedFilename.get() pathExtension] lowercaseString]))
-                    result = CFSTR("text/plain");
-            }
-        }
-    }
-
-#ifdef BUILDING_ON_LEOPARD
-    // Workaround for <rdar://problem/5539824>
-    if (CFStringCompare(result.get(), CFSTR("text/xml"), 0) == kCFCompareEqualTo)
-        result = CFSTR("application/xml");
-#endif
-
     if (result != originalResult)
         wkSetCFURLResponseMIMEType(cfResponse, result.get());
+}
+
+NSURLResponse *synthesizeRedirectResponseIfNecessary(NSURLConnection *connection, NSURLRequest *newRequest, NSURLResponse *redirectResponse)
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+    if (redirectResponse)
+        return redirectResponse;
+
+    if ([[[newRequest URL] scheme] isEqualToString:[[[connection currentRequest] URL] scheme]])
+        return nil;
+
+    // If the new request is a different protocol than the current request, synthesize a redirect response.
+    // This is critical for HSTS (<rdar://problem/14241270>).
+    NSDictionary *synthesizedResponseHeaderFields = @{ @"Location": [[newRequest URL] absoluteString], @"Cache-Control": @"no-store" };
+    return [[[NSHTTPURLResponse alloc] initWithURL:[[connection currentRequest] URL] statusCode:302 HTTPVersion:(NSString *)kCFHTTPVersion1_1 headerFields:synthesizedResponseHeaderFields] autorelease];
+#else
+    UNUSED_PARAM(connection);
+    UNUSED_PARAM(newRequest);
+    return redirectResponse;
+#endif
 }
 
 }

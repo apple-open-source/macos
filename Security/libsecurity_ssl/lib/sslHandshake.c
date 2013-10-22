@@ -34,10 +34,14 @@
 #include "sslUtils.h"
 #include "sslDebug.h"
 #include "sslCrypto.h"
-
+#include "sslRand.h"
 #include "sslDigests.h"
+#include "sslCipherSpecs.h"
 #include "cipherSpecs.h"
 
+#include <utilities/SecIOFormat.h>
+
+#include <AssertMacros.h>
 #include <string.h>
 #include <assert.h>
 #include <inttypes.h>
@@ -50,12 +54,33 @@
 #define PRIstatus "ld"
 #endif
 
+
+uint8_t *
+SSLEncodeHandshakeHeader(SSLContext *ctx, SSLRecord *rec, SSLHandshakeType type, size_t msglen)
+{
+    uint8_t *charPtr;
+
+    charPtr = rec->contents.data;
+    *charPtr++ = type;
+    charPtr = SSLEncodeSize(charPtr, msglen, 3);
+
+    if(rec->protocolVersion == DTLS_Version_1_0) {
+        charPtr = SSLEncodeInt(charPtr, ctx->hdskMessageSeq, 2);
+        /* fragmentation -- we encode header as if unfragmented,
+         actual fragmentation happens at lower layer. */
+        charPtr = SSLEncodeInt(charPtr, 0, 3);
+        charPtr = SSLEncodeSize(charPtr, msglen, 3);
+    }
+
+    return charPtr;
+}
+
 static OSStatus SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx);
 
 static OSStatus
 SSLUpdateHandshakeMacs(const SSLBuffer *messageData, SSLContext *ctx)
 {
-    OSStatus err = errSecParam;
+    OSStatus err = errSSLInternal;
     bool do_md5 = false;
     bool do_sha1 = false;
     bool do_sha256 = false;
@@ -97,7 +122,7 @@ SSLUpdateHandshakeMacs(const SSLBuffer *messageData, SSLContext *ctx)
         (err = SSLHashSHA384.update(&ctx->sha512State, messageData)) != 0)
         goto done;
 
-    sslLogNegotiateDebug("%s protocol: %02X max: %02X cipher: %02X%s%s",
+    sslLogNegotiateDebug("%s protocol: %02X max: %02X cipher: %02X%s%s%s%s",
                          ctx->protocolSide == kSSLClientSide ? "client" : "server",
                          ctx->negProtocolVersion,
                          ctx->maxProtocolVersion,
@@ -123,8 +148,7 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
     {
 		size_t origLen = ctx->fragmentedMessageCache.length;
 		if ((err = SSLReallocBuffer(&ctx->fragmentedMessageCache,
-                    ctx->fragmentedMessageCache.length + rec.contents.length,
-                    ctx)) != 0)
+                    ctx->fragmentedMessageCache.length + rec.contents.length)) != 0)
         {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
             return err;
         }
@@ -181,7 +205,7 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
     if (remaining > 0)      /* Fragmented handshake message */
     {   /* If there isn't a cache, allocate one */
         if (ctx->fragmentedMessageCache.data == 0)
-        {   if ((err = SSLAllocBuffer(&ctx->fragmentedMessageCache, remaining, ctx)) != 0)
+        {   if ((err = SSLAllocBuffer(&ctx->fragmentedMessageCache, remaining)))
             {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
@@ -192,13 +216,13 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
         }
     }
     else if (ctx->fragmentedMessageCache.data != 0)
-    {   if ((err = SSLFreeBuffer(&ctx->fragmentedMessageCache, ctx)) != 0)
+    {   if ((err = SSLFreeBuffer(&ctx->fragmentedMessageCache)))
         {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
             return err;
         }
     }
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
@@ -228,6 +252,7 @@ DTLSProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
             /* flush it - record is too small */
             sslErrorLog("DTLSProcessHandshakeRecord: remaining too small (%lu out of %lu)\n", remaining, rec.contents.length);
             assert(0); // keep this assert until we find a test case that triggers it
+            err = errSSLProtocol;
             goto flushit;
         }
 
@@ -241,8 +266,8 @@ DTLSProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
         remaining -= head;
 
         SSLLogHdskMsg(msgtype, 0);
-        sslHdskMsgDebug("DTLS Hdsk Record: type=%lu, len=%lu, seq=%lu (%lu), f_ofs=%lu, f_len=%lu, remaining=%lu",
-                             msgtype, msglen, msgseq, ctx->hdskMessageSeqNext, fragofs, fraglen, remaining);
+        sslHdskMsgDebug("DTLS Hdsk Record: type=%u, len=%u, seq=%u (%u), f_ofs=%u, f_len=%u, remaining=%u",
+                             msgtype, (int)msglen, (int)msgseq, (int)ctx->hdskMessageSeqNext, (int)fragofs, (int)fraglen, (int)remaining);
 
         if(
            ((fraglen+fragofs) > msglen)
@@ -257,7 +282,7 @@ DTLSProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
             // assert(0); // keep this assert until we find a test case that triggers it
             // This is a recoverable error, we just drop this fragment.
             // TODO: this should probably trigger a retransmit
-            err = noErr;
+            err = errSecSuccess;
             goto flushit;
         }
 
@@ -266,7 +291,7 @@ DTLSProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
             sslHdskMsgDebug("Allocating hdsk buf for msg type %d", msgtype);
             assert(ctx->hdskMessageCurrent.contents.data==NULL);
             assert(ctx->hdskMessageCurrent.contents.length==0);
-            if((err=SSLAllocBuffer(&(ctx->hdskMessageCurrent.contents), msglen, ctx))!=0) {
+            if((err=SSLAllocBuffer(&(ctx->hdskMessageCurrent.contents), msglen))) {
                 SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
@@ -314,19 +339,19 @@ DTLSProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
                     goto flushit;
                 }
 
-                sslHdskMsgDebug("Hashing %d bytes of msg seq %ld\n", messageData->length, msgseq);
+                sslHdskMsgDebug("Hashing %d bytes of msg seq %d\n", (int)messageData->length, (int)msgseq);
             }
 
             sslHdskMsgDebug("processed message of type %d", msgtype);
 
             if ((err = SSLAdvanceHandshake(msgtype, ctx)) != 0)
             {
-                sslErrorLog("AdvanceHandshake error: %"PRIstatus"\n", err);
+                sslErrorLog("AdvanceHandshake error: %" PRIdOSStatus "\n", err);
                 goto flushit;
             }
 
             /* Free the buffer for current message, and reset offset */
-            SSLFreeBuffer(&(ctx->hdskMessageCurrent.contents), ctx);
+            SSLFreeBuffer(&(ctx->hdskMessageCurrent.contents));
             ctx->hdskMessageCurrentOfs=0;
 
             /* If we successfully processed a message, we wait for the next one */
@@ -337,13 +362,13 @@ DTLSProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
         sslHdskMsgDebug("remaining = %ld", remaining);
     }
 
-    return noErr;
+    return errSecSuccess;
 
 flushit:
     sslErrorLog("DTLSProcessHandshakeRecord: flusing record (err=%"PRIstatus")\n", err);
 
     /* This will flush the current handshake message */
-    SSLFreeBuffer(&(ctx->hdskMessageCurrent.contents), ctx);
+    SSLFreeBuffer(&(ctx->hdskMessageCurrent.contents));
     ctx->hdskMessageCurrentOfs=0;
 
     return err;
@@ -361,8 +386,10 @@ DTLSRetransmit(SSLContext *ctx)
 
     /* go back to previous cipher if retransmitting a flight including changecipherspec */
     if(ctx->messageQueueContainsChangeCipherSpec) {
-        ctx->writePending = ctx->writeCipher;
-        ctx->writeCipher = ctx->prevCipher;
+        OSStatus err;
+        err = ctx->recFuncs->rollbackWriteCipher(ctx->recCtx);
+        if(err)
+            return err;
     }
 
     /* set timeout deadline */
@@ -377,7 +404,7 @@ static OSStatus
 SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
 {   OSStatus      err;
 
-    err = noErr;
+    err = errSecSuccess;
     SSLLogHdskMsg(message.type, 0);
     switch (message.type)
     {   case SSL_HdskHelloRequest:
@@ -392,8 +419,7 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
             err = SSLProcessClientHello(message.contents, ctx);
             break;
         case SSL_HdskServerHello:
-            if (ctx->state != SSL_HdskStateServerHello &&
-                ctx->state != SSL_HdskStateServerHelloUnknownVersion)
+            if (ctx->state != SSL_HdskStateServerHello)
                 goto wrongMessage;
             err = SSLProcessServerHello(message.contents, ctx);
             break;
@@ -512,7 +538,7 @@ SSLResumeServerSide(
 
 	SSLChangeHdskState(ctx, SSL_HdskStateChangeCipherSpec);
 
-	return noErr;
+	return errSecSuccess;
 
 }
 
@@ -539,9 +565,8 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 			ctx->certReceived = 0;
 			ctx->x509Requested = 0;
 			ctx->clientCertState = kSSLClientCertNone;
-			ctx->readCipher.ready = 0;
-			ctx->writeCipher.ready = 0;
-			ctx->wroteAppData = 0;
+			ctx->readCipher_ready = 0;
+			ctx->writeCipher_ready = 0;
             if ((err = SSLPrepareAndQueueMessage(SSLEncodeClientHello, ctx)) != 0)
                 return err;
             SSLChangeHdskState(ctx, SSL_HdskStateServerHello);
@@ -610,7 +635,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                             return err;
                         }
 						ctx->sessionMatch = 1;
-						SSLFreeBuffer(&sessionIdentifier, ctx);
+						SSLFreeBuffer(&sessionIdentifier);
 
 						/* queue up remaining messages to finish handshake */
 						if((err = SSLResumeServerSide(ctx)) != 0)
@@ -621,13 +646,13 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 						sslLogResumSessDebug(
 							"===FAILED TO RESUME SSL3 server-side session");
 					}
-                    if ((err = SSLFreeBuffer(&sessionIdentifier, ctx)) != 0 ||
+                    if ((err = SSLFreeBuffer(&sessionIdentifier)) != 0 ||
                         (err = SSLDeleteSessionData(ctx)) != 0)
                     {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                         return err;
                     }
                 }
-                if ((err = SSLFreeBuffer(&ctx->sessionID, ctx)) != 0)
+                if ((err = SSLFreeBuffer(&ctx->sessionID)) != 0)
                 {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                     return err;
                 }
@@ -640,10 +665,10 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             if (ctx->peerID.data != 0)
             {   /* Ignore errors; just treat as uncached session */
                 assert(ctx->sessionID.data == 0);
-                err = SSLAllocBuffer(&ctx->sessionID, SSL_SESSION_ID_LEN, ctx);
+                err = SSLAllocBuffer(&ctx->sessionID, SSL_SESSION_ID_LEN);
                 if (err == 0)
-                {
-                	if((err = sslRand(ctx, &ctx->sessionID)) != 0)
+                {   
+                    if((err = sslRand(&ctx->sessionID)) != 0)
                     {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                         return err;
                     }
@@ -652,11 +677,11 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 
             if ((err = SSLPrepareAndQueueMessage(SSLEncodeServerHello, ctx)) != 0)
                 return err;
-            switch (ctx->selectedCipherSpec.keyExchangeMethod)
+            switch (ctx->selectedCipherSpecParams.keyExchangeMethod)
             {   case SSL_NULL_auth:
             	#if		APPLE_DH
                 case SSL_DH_anon:
-                case SSL_DH_anon_EXPORT:
+                case SSL_ECDH_anon:
                 	if(ctx->clientAuth == kAlwaysAuthenticate) {
                 		/* app requires this; abort */
                 		SSLFatalSessionAlert(SSL_AlertHandshakeFail, ctx);
@@ -666,7 +691,19 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 					/* DH server side needs work */
                     break;
                 #endif	/* APPLE_DH */
-                default:        /* everything else */
+                case TLS_PSK:
+                    /* skip the cert */
+                    break;
+
+                case SSL_RSA:
+                case SSL_DH_DSS:
+                case SSL_DH_RSA:
+                case SSL_DHE_DSS:
+                case SSL_DHE_RSA:
+                case SSL_ECDH_ECDSA:
+                case SSL_ECDHE_ECDSA:
+                case SSL_ECDH_RSA:
+                case SSL_ECDHE_RSA:
 					if(ctx->localCert == NULL) {
 						/* no cert but configured for, and negotiated, a
 						 * ciphersuite which requires one */
@@ -677,6 +714,10 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 							ctx)) != 0)
                         return err;
                     break;
+
+                default:        /* everything else */
+                    sslErrorLog("SSLAdvanceHandshake: Unsupported KEM!\n");
+                    return errSSLInternal;
             }
 			/*
 			 * At this point we decide whether to send a server key exchange
@@ -687,25 +728,18 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 			 */
 			{
 				bool doServerKeyExch = false;
-				switch(ctx->selectedCipherSpec.keyExchangeMethod) {
-					case SSL_RSA_EXPORT:
-					#if !SSL_SERVER_KEYEXCH_HACK
-					/* the "proper" way - app decides. */
+				switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
 					case SSL_RSA:
-					#endif
 						if(ctx->encryptPrivKeyRef != NULL) {
 							doServerKeyExch = true;
 						}
 						break;
 					case SSL_DH_anon:
-					case SSL_DH_anon_EXPORT:
 					case SSL_DHE_RSA:
-					case SSL_DHE_RSA_EXPORT:
 					case SSL_DHE_DSS:
-					case SSL_DHE_DSS_EXPORT:
 						doServerKeyExch = true;
 						break;
-					default:
+					default: /* In all other cases, we don't send a ServerkeyExchange message */
 						break;
 				}
 				if(doServerKeyExch) {
@@ -755,7 +789,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                     if ((err = SSLInstallSessionFromData(ctx->resumableSession,
 							ctx)) != 0 ||
                         (err = SSLInitPendingCiphers(ctx)) != 0 ||
-                        (err = SSLFreeBuffer(&sessionIdentifier, ctx)) != 0)
+                        (err = SSLFreeBuffer(&sessionIdentifier)) != 0)
                     {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                         return err;
                     }
@@ -767,35 +801,33 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 					sslLogResumSessDebug("===FAILED TO RESUME SSL3 client-side "
 							"session");
 				}
-                if ((err = SSLFreeBuffer(&sessionIdentifier, ctx)) != 0)
+                if ((err = SSLFreeBuffer(&sessionIdentifier)) != 0)
                 {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                     return err;
                 }
             }
-            switch (ctx->selectedCipherSpec.keyExchangeMethod)
-            {
+            switch (ctx->selectedCipherSpecParams.keyExchangeMethod)
+            {   
             	/* these require a key exchange message */
             	case SSL_NULL_auth:
                 case SSL_DH_anon:
-                case SSL_DH_anon_EXPORT:
                     SSLChangeHdskState(ctx, SSL_HdskStateKeyExchange);
                     break;
                 case SSL_RSA:
                 case SSL_DH_DSS:
-                case SSL_DH_DSS_EXPORT:
                 case SSL_DH_RSA:
-                case SSL_DH_RSA_EXPORT:
                 case SSL_RSA_EXPORT:
                 case SSL_DHE_DSS:
-                case SSL_DHE_DSS_EXPORT:
                 case SSL_DHE_RSA:
-                case SSL_DHE_RSA_EXPORT:
                 case SSL_Fortezza:
 				case SSL_ECDH_ECDSA:
 				case SSL_ECDHE_ECDSA:
 				case SSL_ECDH_RSA:
 				case SSL_ECDHE_RSA:
                     SSLChangeHdskState(ctx, SSL_HdskStateCert);
+                    break;
+                case TLS_PSK:
+                    SSLChangeHdskState(ctx, SSL_HdskStateHelloDone);
                     break;
                 default:
                     assert("Unknown key exchange method");
@@ -804,7 +836,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             break;
         case SSL_HdskCert:
             if (ctx->state == SSL_HdskStateCert)
-                switch (ctx->selectedCipherSpec.keyExchangeMethod)
+                switch (ctx->selectedCipherSpecParams.keyExchangeMethod)
                 {   case SSL_RSA:
                  	/*
                 	 * I really think the two RSA cases should be
@@ -813,19 +845,14 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 	 * Note this isn't the same as SSL_SERVER_KEYEXCH_HACK;
                 	 * we're a client here.
                 	 */
-                	case SSL_RSA_EXPORT:
                     case SSL_DH_DSS:
-                    case SSL_DH_DSS_EXPORT:
                     case SSL_DH_RSA:
-                    case SSL_DH_RSA_EXPORT:
 					case SSL_ECDH_ECDSA:
 					case SSL_ECDH_RSA:
                         SSLChangeHdskState(ctx, SSL_HdskStateHelloDone);
                         break;
                     case SSL_DHE_DSS:
-                    case SSL_DHE_DSS_EXPORT:
                     case SSL_DHE_RSA:
-                    case SSL_DHE_RSA_EXPORT:
                     case SSL_Fortezza:
 					case SSL_ECDHE_ECDSA:
 					case SSL_ECDHE_RSA:
@@ -914,7 +941,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 return err;
             }
 			memset(ctx->preMasterSecret.data, 0, ctx->preMasterSecret.length);
-            if ((err = SSLFreeBuffer(&ctx->preMasterSecret, ctx)) != 0) {
+            if ((err = SSLFreeBuffer(&ctx->preMasterSecret))) {
                 return err;
 			}
             if (ctx->certSent) {
@@ -950,7 +977,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 return err;
             }
 			memset(ctx->preMasterSecret.data, 0, ctx->preMasterSecret.length);
-            if ((err = SSLFreeBuffer(&ctx->preMasterSecret, ctx)) != 0)
+            if ((err = SSLFreeBuffer(&ctx->preMasterSecret)))
                 return err;
             if (ctx->certReceived) {
                 SSLChangeHdskState(ctx, SSL_HdskStateClientCertVerify);
@@ -961,11 +988,12 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             break;
         case SSL_HdskFinished:
             /* Handshake is over; enable data transfer on read channel */
-            ctx->readCipher.ready = 1;
-            /* If writePending is set, we haven't yet sent a finished message;
+            ctx->readCipher_ready = 1;
+            /* If writePending is set, we haven't yet sent a finished message; 
 			 * send it */
-            if (ctx->writePending.ready != 0)
-            {   if ((err = SSLPrepareAndQueueMessage(SSLEncodeChangeCipherSpec,
+            /* Note: If using session resumption, the client will hit this, otherwise the server will */
+            if (ctx->writePending_ready != 0)
+            {   if ((err = SSLPrepareAndQueueMessage(SSLEncodeChangeCipherSpec, 
 						ctx)) != 0)
                     return err;
                 if ((err = SSLPrepareAndQueueMessage(SSLEncodeFinishedMessage,
@@ -1037,9 +1065,9 @@ SSLPrepareAndQueueMessage(EncodeMessageFunc msgFunc, SSLContext *ctx)
         queue->next = out;
     }
 
-    return noErr;
+    return errSecSuccess;
 fail:
-    SSLFreeBuffer(&rec.contents, ctx);
+    SSLFreeBuffer(&rec.contents);
     return err;
 }
 
@@ -1048,62 +1076,57 @@ OSStatus SSLSendMessage(SSLRecord rec, SSLContext *ctx)
 {
     OSStatus err;
 
-    assert(ctx->sslTslCalls != NULL);
 
-    if ((err = ctx->sslTslCalls->writeRecord(rec, ctx)) != 0)
+    if ((err = SSLWriteRecord(rec, ctx)) != 0)
         return err;
     if(rec.contentType == SSL_RecordTypeChangeCipher) {
         /* Install new cipher spec on write side */
-        if ((err = SSLDisposeCipherSuite(&ctx->writeCipher, ctx)) != 0)
+        /* Can't send data until Finished is sent */
+        ctx->writeCipher_ready = 0;
+	ctx->wroteAppData = 0;
+
+        if ((err = ctx->recFuncs->advanceWriteCipher(ctx->recCtx)) != 0)
         {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
             return err;
         }
-        ctx->prevCipher = ctx->writeCipher;
-        ctx->writeCipher = ctx->writePending;
-        /* Can't send data until Finished is sent */
-        ctx->writeCipher.ready = 0;
-		ctx->wroteAppData = 0;
 
-        /* Zero out old data */
-        memset(&ctx->writePending, 0, sizeof(CipherContext));
-        ctx->writePending.encrypting = 1;
+        /* pending cipher is invalid now - this is currently used to figure out if we need
+           to send out the last flight */
+        ctx->writePending_ready = 0;
 
         /* TODO: that should only happen after Finished message is sent. <rdar://problem/9682471> */
-        ctx->writeCipher.ready = 1;
+        ctx->writeCipher_ready = 1;
     }
 
-    return noErr;
+    return errSecSuccess;
 }
 
 static
 OSStatus DTLSSendMessage(SSLRecord rec, SSLContext *ctx)
 {
-    OSStatus err=noErr;
-
-    assert(ctx->sslTslCalls != NULL);
+    OSStatus err=errSecSuccess;
 
     if(rec.contentType != SSL_RecordTypeHandshake) {
-        sslHdskMsgDebug("Not fragmenting message type=%d len=%d\n", rec.contentType, rec.contents.length);
-        if ((err = ctx->sslTslCalls->writeRecord(rec, ctx)) != 0)
+        sslHdskMsgDebug("Not fragmenting message type=%d len=%d\n", (int)rec.contentType, (int)rec.contents.length);
+        if ((err = SSLWriteRecord(rec, ctx)) != 0)
             return err;
         if(rec.contentType == SSL_RecordTypeChangeCipher) {
+			/* Can't send data until Finished is sent */
+            ctx->writeCipher_ready = 0;
+            ctx->wroteAppData = 0;
+
             /* Install new cipher spec on write side */
-            if ((err = SSLDisposeCipherSuite(&ctx->writeCipher, ctx)) != 0)
+            if ((err = ctx->recFuncs->advanceWriteCipher(ctx->recCtx)) != 0)
             {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
-            ctx->prevCipher = ctx->writeCipher;
-            ctx->writeCipher = ctx->writePending;
-			/* Can't send data until Finished is sent */
-            ctx->writeCipher.ready = 0;
-			ctx->wroteAppData = 0;
 
-			/* Zero out old data */
-            memset(&ctx->writePending, 0, sizeof(CipherContext));
-			ctx->writePending.encrypting = 1;
+            /* pending cipher is invalid now - this is currently used to figure out if we need
+             to send out the last flight */
+            ctx->writePending_ready = 0;
 
             /* TODO: that should only happen after Finished message is sent. See <rdar://problem/9682471> */
-            ctx->writeCipher.ready = 1;
+            ctx->writeCipher_ready = 1;
 
         }
     } else {
@@ -1117,7 +1140,7 @@ OSStatus DTLSSendMessage(SSLRecord rec, SSLContext *ctx)
         (void) seq; // Suppress warnings
         size_t ofs = 0;
 
-        sslHdskMsgDebug("Fragmenting msg seq %ld (rl=%d, ml=%d)", seq, rec.contents.length,
+        sslHdskMsgDebug("Fragmenting msg seq %d (rl=%d, ml=%d)", (int)seq, (int)rec.contents.length,
                         SSLDecodeInt(rec.contents.data+1, 3));
 
 
@@ -1126,7 +1149,7 @@ OSStatus DTLSSendMessage(SSLRecord rec, SSLContext *ctx)
 
         fragrec.contentType = rec.contentType;
         fragrec.protocolVersion = rec.protocolVersion;
-        if((err=SSLAllocBuffer(&fragrec.contents, fraglen + msghead, ctx))!=0)
+        if((err=SSLAllocBuffer(&fragrec.contents, fraglen + msghead)))
             return err;
 
         /* copy the constant part of the header */
@@ -1134,20 +1157,20 @@ OSStatus DTLSSendMessage(SSLRecord rec, SSLContext *ctx)
 
         while(len>fraglen) {
 
-            sslHdskMsgDebug("Fragmenting msg seq %ld (o=%d,l=%d)", seq, ofs, fraglen);
+            sslHdskMsgDebug("Fragmenting msg seq %d (o=%d,l=%d)", (int)seq, (int)ofs, (int)fraglen);
 
             /* fragment offset and fragment length */
             SSLEncodeSize(fragrec.contents.data+6, ofs, 3);
             SSLEncodeSize(fragrec.contents.data+9, fraglen, 3);
             /* copy the payload */
             memcpy(fragrec.contents.data+msghead, rec.contents.data+msghead+ofs, fraglen);
-            if ((err = ctx->sslTslCalls->writeRecord(fragrec, ctx)) != 0)
+            if ((err = SSLWriteRecord(fragrec, ctx)) != 0)
                 goto cleanup;
             len-=fraglen;
             ofs+=fraglen;
         }
 
-        sslHdskMsgDebug("Fragmenting msg seq %ld - Last Fragment (o=%d,l=%d)", seq, ofs, len);
+        sslHdskMsgDebug("Fragmenting msg seq %d - Last Fragment (o=%d,l=%d)", (int)seq, (int)ofs, (int)len);
 
         /* last fragment */
         /* fragment offset and fragment length */
@@ -1156,11 +1179,11 @@ OSStatus DTLSSendMessage(SSLRecord rec, SSLContext *ctx)
         /* copy the payload */
         memcpy(fragrec.contents.data+msghead, rec.contents.data+msghead+ofs, len);
         fragrec.contents.length=len+msghead;
-        err = ctx->sslTslCalls->writeRecord(fragrec, ctx);
+        err = SSLWriteRecord(fragrec, ctx);
 
     cleanup:
         /* Free the allocated fragment buffer */
-        SSLFreeBuffer(&fragrec.contents, ctx);
+        SSLFreeBuffer(&fragrec.contents);
 
     }
 
@@ -1175,14 +1198,12 @@ OSStatus SSLResetFlight(SSLContext *ctx)
     WaitingMessage *next;
     int n=0;
 
-    assert(ctx->sslTslCalls != NULL);
-
     queue=ctx->messageWriteQueue;
     ctx->messageQueueContainsChangeCipherSpec=false;
 
     while(queue) {
         n++;
-        err = SSLFreeBuffer(&queue->rec.contents, ctx);
+        err = SSLFreeBuffer(&queue->rec.contents);
         if (err != 0)
             goto fail;
         next=queue->next;
@@ -1192,20 +1213,17 @@ OSStatus SSLResetFlight(SSLContext *ctx)
 
     ctx->messageWriteQueue=NULL;
 
-    return noErr;
+    return errSecSuccess;
 fail:
-    assert(0);
+    check_noerr(err);
     return err;
 }
-
 
 OSStatus SSLSendFlight(SSLContext *ctx)
 {
     OSStatus err;
     WaitingMessage  *queue;
     int n=0;
-
-    assert(ctx->sslTslCalls != NULL);
 
     queue=ctx->messageWriteQueue;
 
@@ -1221,9 +1239,9 @@ OSStatus SSLSendFlight(SSLContext *ctx)
         n++;
     }
 
-    return noErr;
+    return errSecSuccess;
 fail:
-    assert(0);
+    check_noerr(err);
     return err;
 }
 
@@ -1243,8 +1261,26 @@ SSL3ReceiveSSL2ClientHello(SSLRecord rec, SSLContext *ctx)
     if ((err = SSLAdvanceHandshake(SSL_HdskClientHello, ctx)) != 0)
         return err;
 
-    return noErr;
+    return errSecSuccess;
 }
+
+/*
+ * Determine max enabled protocol, i.e., the one we try to negotiate for.
+ * Only returns an error (errSecParam) if NO protocols are enabled, which can
+ * in fact happen by malicious or ignorant use of SSLSetProtocolVersionEnabled().
+ */
+OSStatus sslGetMaxProtVersion(
+                              SSLContext 			*ctx,
+                              SSLProtocolVersion	*version)	// RETURNED
+{
+    /* This check is here until SSLSetProtocolVersionEnabled() is gone .*/
+    if (ctx->maxProtocolVersion == SSL_Version_Undetermined)
+        return errSecBadReq;
+
+    *version = ctx->maxProtocolVersion;
+    return errSecSuccess;
+}
+
 
 /* log changes in handshake state */
 #ifndef	NDEBUG
@@ -1269,8 +1305,6 @@ char *hdskStateToStr(SSLHandshakeState state)
 			return "NoNotifyClose";
 		case SSL_HdskStateServerHello:
 			return "ServerHello";
-		case SSL_HdskStateServerHelloUnknownVersion:
-			return "ServerHelloUnknownVersion";
 		case SSL_HdskStateKeyExchange:
 			return "KeyExchange";
 		case SSL_HdskStateCert:
@@ -1287,16 +1321,6 @@ char *hdskStateToStr(SSLHandshakeState state)
 			return "ChangeCipherSpec";
 		case SSL_HdskStateFinished:
 			return "Finished";
-		case SSL2_HdskStateClientMasterKey:
-			return "SSL2_ClientMasterKey";
-		case SSL2_HdskStateClientFinished:
-			return "SSL2_ClientFinished";
-		case SSL2_HdskStateServerHello:
-			return "SSL2_ServerHello";
-		case SSL2_HdskStateServerVerify:
-			return "SSL2_ServerVerify";
-		case SSL2_HdskStateServerFinished:
-			return "SSL2_ServerFinished";
 		case SSL_HdskStateServerReady:
 			return "SSL_ServerReady";
 		case SSL_HdskStateClientReady:
@@ -1307,15 +1331,12 @@ char *hdskStateToStr(SSLHandshakeState state)
 	}
 }
 
+/* This is a macro in Release mode */
 void SSLChangeHdskState(SSLContext *ctx, SSLHandshakeState newState)
 {
-	/* FIXME - this ifndef should not be necessary */
-	#ifndef	NDEBUG
 	sslHdskStateDebug("...hdskState = %s", hdskStateToStr(newState));
-	#endif
 	ctx->state = newState;
 }
-
 
 /* log handshake messages */
 

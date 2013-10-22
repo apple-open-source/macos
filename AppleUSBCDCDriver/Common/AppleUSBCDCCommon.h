@@ -25,7 +25,7 @@
 #ifndef __APPLEUSBCDCCOMMON__
 #define __APPLEUSBCDCCOMMON__
 
-#define VersionNumber   "4.1.23"
+#define VersionNumber   "4.2.1b2"
 
     // USB CDC Common Defintions
 		
@@ -55,6 +55,7 @@ enum
     kUSBSET_COMM_FEATURE 		= 2,
     kUSBGET_COMM_FEATURE 		= 3,
     kUSBCLEAR_COMM_FEATURE 		= 4,
+    kUSBRESET_FUNCTION          = 5,
     kUSBSET_LINE_CODING 		= 0x20,
     kUSBGET_LINE_CODING 		= 0x21,
     kUSBSET_CONTROL_LINE_STATE 		= 0x22,
@@ -385,6 +386,11 @@ typedef struct
 #define NCM32_Signature_NoCRC           0x306D636E		// ncm0
 #define NCM32_Signature_CRC             0x316D636E		// ncm1
 
+#define MBIM_IPS_16                     0x00535049      //“IPS”<SessionId> Raw IPv4 or IPv6 payload IPS0 for now
+#define MBIM_IPS_32                     0x00737069      //“ips”<SessionId> Raw IPv4 or IPv6 payload ips0 for now
+#define MBIM_DSS_16                     0x00535344      //“DSS”<SessionId> Device Service Stream payload
+#define MBIM_DSS_32                     0x00737364      //“DSS”<SessionId> Device Service Stream payload
+
 typedef struct
 {
     UInt32 	dwSignature;
@@ -407,7 +413,7 @@ typedef struct
 {
     UInt32		dwSignature;
     UInt16		wLength;
-	UInt16		wNextNdpIndex;
+	UInt16		wNextNdpIndex;  //Reserved for use as a link to the next NDP16 in the NTB set to 0x0000
 } __attribute__((packed)) NDP16;
 
 typedef struct

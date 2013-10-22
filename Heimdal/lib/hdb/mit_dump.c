@@ -74,7 +74,7 @@ unless no extra data
 
 */
 
-static int
+static ssize_t
 hex_to_octet_string(const char *ptr, krb5_data *data)
 {
     size_t i;
@@ -84,7 +84,7 @@ hex_to_octet_string(const char *ptr, krb5_data *data)
 	    return -1;
 	((unsigned char*)data->data)[i] = v;
     }
-    return 2 * i;
+    return (2 * i);
 }
 
 static char *

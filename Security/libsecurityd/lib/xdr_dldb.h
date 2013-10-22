@@ -50,8 +50,8 @@ class CopyIn {
 class CopyOut {
     public:
 		// CSSM_DATA can be output only if empty, but also specify preallocated memory to use
-        CopyOut(void *copy, size_t size, xdrproc_t proc, bool dealloc = false, CSSM_DATA *in_out_data = NULL) : mLength(in_out_data?in_out_data->Length:0), mData(NULL), mInOutData(in_out_data), mDealloc(dealloc), mSource(copy), mSourceLen(size) {
-            if (copy && size && !::copyout(copy, size, proc, mInOutData ? reinterpret_cast<void**>(&mInOutData) : &mData, &mLength)) {
+        CopyOut(void *copy, size_t size, xdrproc_t proc, bool dealloc = false, CSSM_DATA *in_out_data = NULL) : mLength(in_out_data?(u_int)in_out_data->Length:0), mData(NULL), mInOutData(in_out_data), mDealloc(dealloc), mSource(copy), mSourceLen(size) {
+            if (copy && size && !::copyout(copy, (u_int)size, proc, mInOutData ? reinterpret_cast<void**>(&mInOutData) : &mData, &mLength)) {
                 if (mInOutData && mInOutData->Length) // DataOut behaviour: error back to user if likely related to amount of space passed in
                     CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
                 else

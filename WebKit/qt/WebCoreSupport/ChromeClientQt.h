@@ -32,16 +32,18 @@
 #include "ChromeClient.h"
 #include "FloatRect.h"
 #include "KURL.h"
-#include "PlatformString.h"
 #include "QtPlatformPlugin.h"
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/text/WTFString.h>
 
 QT_BEGIN_NAMESPACE
 class QEventLoop;
 QT_END_NAMESPACE
 
 class QWebPage;
+class QWebPageAdapter;
+class QWebFullScreenVideoHandler;
 
 namespace WebCore {
 
@@ -49,20 +51,21 @@ class FileChooser;
 class FileIconLoader;
 class FloatRect;
 class Page;
+class RefreshAnimation;
 struct FrameLoadRequest;
 class QtAbstractWebPopup;
 struct ViewportArguments;
 #if ENABLE(VIDEO)
 class FullScreenVideoQt;
 #endif
+class TextureMapperLayerClientQt;
 
 class ChromeClientQt : public ChromeClient {
 public:
-    ChromeClientQt(QWebPage*);
+    ChromeClientQt(QWebPageAdapter*);
     virtual ~ChromeClientQt();
     virtual void chromeDestroyed();
 
-    virtual void* webView() const { return 0; }
     virtual void setWindowRect(const FloatRect&);
     virtual FloatRect windowRect();
 
@@ -97,7 +100,7 @@ public:
 
     virtual void setResizable(bool);
 
-    virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID);
+    virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned lineNumber, unsigned columnNumber, const String& sourceID);
 
     virtual bool canRunBeforeUnloadConfirmPanel();
     virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame*);
@@ -134,7 +137,7 @@ public:
 
     virtual void print(Frame*);
 #if ENABLE(SQL_DATABASE)
-    virtual void exceededDatabaseQuota(Frame*, const String&);
+    virtual void exceededDatabaseQuota(Frame*, const String&, DatabaseDetails);
 #endif
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
     virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t totalSpaceNeeded);
@@ -143,7 +146,7 @@ public:
     // This is a hook for WebCore to tell us what we need to do with the GraphicsLayers.
     virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*);
     virtual void setNeedsOneShotDrawingSynchronization();
-    virtual void scheduleCompositingLayerSync();
+    virtual void scheduleCompositingLayerFlush();
     virtual CompositingTriggerFlags allowedCompositingTriggers() const;
 #endif
     virtual bool allowsAcceleratedCompositing() const;
@@ -155,21 +158,31 @@ public:
 #if ENABLE(TOUCH_EVENTS)
     virtual void needTouchEvents(bool) { }
 #endif
- 
-#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA) || USE(QTKIT))
+
+#if ENABLE(VIDEO) && ((USE(GSTREAMER) && USE(NATIVE_FULLSCREEN_VIDEO)) || USE(QT_MULTIMEDIA))
     virtual bool supportsFullscreenForNode(const Node*);
     virtual void enterFullscreenForNode(Node*);
     virtual void exitFullscreenForNode(Node*);
     virtual bool requiresFullscreenForVideoPlayback();
     FullScreenVideoQt* fullScreenVideo();
 #endif
-     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
-     virtual void loadIconForFiles(const Vector<String>&, FileIconLoader*);
+
+#if ENABLE(INPUT_TYPE_COLOR)
+    virtual PassOwnPtr<ColorChooser> createColorChooser(ColorChooserClient*, const Color&);
+#endif
+
+    virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
+    virtual void loadIconForFiles(const Vector<String>&, FileIconLoader*);
 
     virtual void formStateDidChange(const Node*) { }
 
     virtual void setCursor(const Cursor&);
     virtual void setCursorHiddenUntilMouseMoves(bool) { }
+
+#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
+    virtual void scheduleAnimation();
+    virtual void serviceScriptedAnimations();
+#endif
 
     virtual void scrollRectIntoView(const LayoutRect) const { }
 
@@ -186,9 +199,10 @@ public:
 
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
     virtual void numWheelEventHandlersChanged(unsigned) { }
-    virtual void numTouchEventHandlersChanged(unsigned) { }
 
-    QWebPage* m_webPage;
+    QWebFullScreenVideoHandler* createFullScreenVideoHandler();
+
+    QWebPageAdapter* m_webPage;
     KURL lastHoverURL;
     String lastHoverTitle;
     String lastHoverContent;
@@ -197,14 +211,21 @@ public:
     bool statusBarVisible;
     bool menuBarVisible;
     QEventLoop* m_eventLoop;
+#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
+    OwnPtr<RefreshAnimation> m_refreshAnimation;
+#endif
 
-#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA) || USE(QTKIT))
+#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
     FullScreenVideoQt* m_fullScreenVideo;
 #endif
 
     static bool dumpVisitedLinksCallbacks;
 
     mutable QtPlatformPlugin m_platformPlugin;
+
+#if USE(ACCELERATED_COMPOSITING)
+    OwnPtr<TextureMapperLayerClientQt> m_textureMapperLayerClient;
+#endif
 };
 }
 

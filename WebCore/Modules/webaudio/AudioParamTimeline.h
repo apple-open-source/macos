@@ -41,15 +41,13 @@ namespace WebCore {
 class AudioParamTimeline {
 public:
     AudioParamTimeline()
-        : m_currentEventIndex(0)
-        , m_value(0)
     {
     }
 
     void setValueAtTime(float value, float time);
     void linearRampToValueAtTime(float value, float time);
     void exponentialRampToValueAtTime(float value, float time);
-    void setTargetValueAtTime(float targetValue, float time, float timeConstant);
+    void setTargetAtTime(float target, float time, float timeConstant);
     void setValueCurveAtTime(Float32Array* curve, float time, float duration);
     void cancelScheduledValues(float startTime);
 
@@ -62,7 +60,7 @@ public:
     // controlRate is the rate (number per second) at which parameter values will be calculated.
     // It should equal sampleRate for sample-accurate parameter changes, and otherwise will usually match
     // the render quantum size such that the parameter value changes once per render quantum.
-    float valuesForTimeRange(float startTime, float endTime, float defaultValue, float* values, unsigned numberOfValues, float sampleRate, float controlRate);
+    float valuesForTimeRange(double startTime, double endTime, float defaultValue, float* values, unsigned numberOfValues, double sampleRate, double controlRate);
 
     bool hasValues() { return m_events.size(); }
 
@@ -73,7 +71,7 @@ private:
             SetValue,
             LinearRampToValue,
             ExponentialRampToValue,
-            SetTargetValue,
+            SetTarget,
             SetValueCurve,
             LastType
         };
@@ -105,11 +103,9 @@ private:
     };
 
     void insertEvent(const ParamEvent&);
-    float valuesForTimeRangeImpl(float startTime, float endTime, float defaultValue, float* values, unsigned numberOfValues, float sampleRate, float controlRate);
+    float valuesForTimeRangeImpl(double startTime, double endTime, float defaultValue, float* values, unsigned numberOfValues, double sampleRate, double controlRate);
 
     Vector<ParamEvent> m_events;
-    unsigned m_currentEventIndex;
-    float m_value;
 
     Mutex m_eventsLock;
 };

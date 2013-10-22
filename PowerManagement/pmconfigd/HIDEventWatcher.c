@@ -29,8 +29,9 @@
 
 static CFMutableArrayRef   gHIDEventHistory = NULL;
 
-static const CFTimeInterval kFiveMinutesInSeconds = (double)300.0;
-static const int kMaxFiveMinutesWindowsCount = 12;
+static const CFTimeInterval kFiveMinutesInSeconds   = (double)300.0;
+static const int kMaxFiveMinutesWindowsCount        = 12;
+static const int kMaxPIDRecorded                    = 10;
 
 #define __NX_NULL_EVENT     0
 
@@ -95,6 +96,11 @@ __private_extern__ kern_return_t _io_pm_hid_event_report_activity(
         foundDictionary = CFDictionaryCreateMutable(0, 3, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         CFArrayAppendValue(gHIDEventHistory, foundDictionary);
         CFRelease(foundDictionary);
+        
+        if (CFArrayGetCount(gHIDEventHistory) > kMaxPIDRecorded) {
+            // Limit number of PID's tracked at one time.
+            CFArrayRemoveValueAtIndex(gHIDEventHistory, 0);
+        }
         
         /* Tag our pid */
         appPID = CFNumberCreate(0, kCFNumberIntType, &callerPID);

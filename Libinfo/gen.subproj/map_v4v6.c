@@ -64,16 +64,15 @@ static char rcsid[] = "$FreeBSD: src/lib/libc/net/map_v4v6.c,v 1.5.2.1 2001/03/0
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include <arpa/nameser_compat.h>
+#include <nameser.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <netdb.h>
 #include <ctype.h>
 #include <syslog.h>
 
-#include "nameser8_compat.h"
-#include "resolv8_compat.h"
-
-#define   IN6ADDRSZ       16
 typedef union {
 	int32_t al;
 	char ac;

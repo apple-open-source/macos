@@ -41,7 +41,7 @@
 
 /* $OrigId: md5.h,v 1.2 2001/03/26 08:57:14 matz Exp $ */
 /* $RoughId: md5.h,v 1.3 2002/02/24 08:14:31 knu Exp $ */
-/* $Id: md5.h 11708 2007-02-12 23:01:19Z shyouhei $ */
+/* $Id: md5.h 25189 2009-10-02 12:04:37Z akr $ */
 
 #ifndef MD5_INCLUDED
 #  define MD5_INCLUDED

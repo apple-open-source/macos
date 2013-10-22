@@ -158,9 +158,20 @@ If no name is given for a function, it is `anonymous' and is handled
 specially.  Either form of function definition may be used: a `tt(())' with
 no preceding name, or a `tt(function)' with an immediately following open
 brace.  The function is executed immediately at the point of definition and
-is not stored for future use.  The function name is set to `tt((anon))' and
-the parameter list passed to the function is empty.  Note that this means
-the argument list of any enclosing script or function is hidden.
+is not stored for future use.  The function name is set to `tt((anon))'.
+
+Arguments to the function may be specified as words following the
+closing brace defining the function, hence if there are none no
+arguments (other than tt($0)) are set.  This is a difference from the
+way other functions are parsed: normal function definitions may be
+followed by certain keywords such as `tt(else)' or `tt(fi)', which will
+be treated as arguments to anonymous functions, so that a newline or
+semicolon is needed to force keyword interpretation.
+
+Note also that the argument list of any enclosing script or function is
+hidden (as would be the case for any other function called at this
+point).
+
 Redirections may be applied to the anonymous function in the same manner as
 to a current-shell structure enclosed in braces.  The main use of anonymous
 functions is to provide a scope for local variables.  This is particularly
@@ -172,13 +183,13 @@ For example,
 example(variable=outside
 function {
   local variable=inside
-  print "I am $variable"
-}
+  print "I am $variable with arguments $*"
+} this and that
 print "I am $variable")
 
 outputs the following:
 
-example(I am inside
+example(I am inside with arguments this and that
 I am outside)
 
 Note that function definitions with arguments that expand to nothing,
@@ -348,19 +359,32 @@ enditem()
 
 findex(trap, use of)
 The functions beginning `tt(TRAP)' may alternatively be defined with the
-tt(trap) builtin:  this may be preferable for some uses, as they are then
-run in the environment of the calling process, rather than in their own
-function environment.  Apart from the difference in calling procedure and
-the fact that the function form appears in lists of functions, the forms
+tt(trap) builtin:  this may be preferable for some uses.  Setting a trap
+with one form removes any trap of the other form for the same signal;
+removing a trap in either form removes all traps for the same signal.
+The forms
 
 example(TRAPNAL+LPAR()RPAR() { 
  # code
 })
 
-and
+('function traps') and
 
 example(trap '
  # code
 ' NAL)
 
-are equivalent.
+('list traps') are equivalent in most ways, the exceptions being the
+following:
+
+startitemize()
+itemiz(Function traps have all the properties of normal functions,
+appearing in the list of functions and being called with their own
+function context rather than the context where the trap was triggered.)
+itemiz(The return status from function traps is special, whereas a return
+from a list trap causes the surrounding context to return with the given
+status.)
+itemiz(Function traps are not reset within subshells, in accordance with
+zsh behaviour; list traps are reset, in accordance with POSIX
+behaviour.)
+enditemize()

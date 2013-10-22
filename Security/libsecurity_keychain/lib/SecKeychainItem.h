@@ -1,15 +1,14 @@
-/*
- * Copyright (c) 2000-2008 Apple Inc. All Rights Reserved.
- * 
+/* * Copyright (c) 2000-2008,2012 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +16,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,6 +30,7 @@
 #ifndef _SECURITY_SECKEYCHAINITEM_H_
 #define _SECURITY_SECKEYCHAINITEM_H_
 
+#include <AvailabilityMacros.h>
 #include <CoreFoundation/CFData.h>
 #include <Security/SecBase.h>
 #include <Security/cssmapple.h>
@@ -51,21 +51,22 @@ typedef FourCharCode 	SecItemClass;
 	@constant kSecInternetPasswordItemClass Indicates that the item is an Internet password.
 	@constant kSecGenericPasswordItemClass Indicates that the item is a generic password.
 	@constant kSecAppleSharePasswordItemClass Indicates that the item is an AppleShare password.
+		Note: AppleShare passwords are no longer used by OS X, starting in Leopard (10.5). Use of this item class is deprecated in OS X 10.9 and later; kSecInternetPasswordItemClass should be used instead when storing or looking up passwords for an Apple Filing Protocol (AFP) server.
 	@constant kSecCertificateItemClass Indicates that the item is a digital certificate.
 	@constant kSecPublicKeyItemClass Indicates that the item is a public key.
 	@constant kSecPrivateKeyItemClass Indicates that the item is a private key.
 	@constant kSecSymmetricKeyItemClass Indicates that the item is a symmetric key.
-	@discussion The SecItemClass enumeration defines constants your application can use to specify the type of the keychain item you wish to create, dispose, add, delete, update, copy, or locate. You can also use these constants with the tag constant SecItemAttr. 
+	@discussion The SecItemClass enumeration defines constants your application can use to specify the type of the keychain item you wish to create, dispose, add, delete, update, copy, or locate. You can also use these constants with the tag constant SecItemAttr.
 */
 enum
 {
     kSecInternetPasswordItemClass   = 'inet',
     kSecGenericPasswordItemClass    = 'genp',
-    kSecAppleSharePasswordItemClass = 'ashp',
-    kSecCertificateItemClass        = CSSM_DL_DB_RECORD_X509_CERTIFICATE,
-    kSecPublicKeyItemClass          = CSSM_DL_DB_RECORD_PUBLIC_KEY,
-    kSecPrivateKeyItemClass         = CSSM_DL_DB_RECORD_PRIVATE_KEY,
-    kSecSymmetricKeyItemClass       = CSSM_DL_DB_RECORD_SYMMETRIC_KEY
+    kSecAppleSharePasswordItemClass   CF_ENUM_DEPRECATED(10_0, 10_9, NA, NA) = 'ashp',
+    kSecCertificateItemClass        = 0x80001000,
+    kSecPublicKeyItemClass          = 0x0000000F,
+    kSecPrivateKeyItemClass         = 0x00000010,
+    kSecSymmetricKeyItemClass       = 0x00000011
 };
 
 /*!
@@ -82,14 +83,14 @@ typedef FourCharCode SecItemAttr;
 	@constant kSecModDateItemAttr (read-only) Identifies the modification date attribute. You use this tag to get a value of type string that represents the last time the item was updated, expressed in Zulu Time format ("YYYYMMDDhhmmSSZ"). This format is identical to CSSM_DB_ATTRIBUTE_FORMAT_TIME_DATE (cssmtype.h). When specifying the modification date as input to a function (e.g. SecKeychainSearchCreateFromAttributes), you may alternatively provide a numeric value of type UInt32 or SInt64, expressed as seconds since 1/1/1904 (DateTimeUtils.h).
 	@constant kSecDescriptionItemAttr Identifies the description attribute. You use this tag to set or get a value of type string that represents a user-visible string describing this particular kind of item (e.g. "disk image password").
 	@constant kSecCommentItemAttr Identifies the comment attribute. You use this tag to set or get a value of type string that represents a user-editable string containing comments for this item.
-	@constant kSecCreatorItemAttr Identifies the creator attribute. You use this tag to set or get a value of type FourCharCode that represents the item's creator. 
-	@constant kSecTypeItemAttr Identifies the type attribute. You use this tag to set or get a value of type FourCharCode that represents the item's type. 
+	@constant kSecCreatorItemAttr Identifies the creator attribute. You use this tag to set or get a value of type FourCharCode that represents the item's creator.
+	@constant kSecTypeItemAttr Identifies the type attribute. You use this tag to set or get a value of type FourCharCode that represents the item's type.
 	@constant kSecScriptCodeItemAttr Identifies the script code attribute. You use this tag to set or get a value of type ScriptCode that represents the script code for all strings. (Note: use of this attribute is deprecated; string attributes should always be stored in UTF-8 encoding.)
-	@constant kSecLabelItemAttr Identifies the label attribute. You use this tag to set or get a value of type string that represents a user-editable string containing the label for this item. 
-	@constant kSecInvisibleItemAttr Identifies the invisible attribute. You use this tag to set or get a value of type Boolean that indicates whether the item is invisible (i.e. should not be displayed). 
+	@constant kSecLabelItemAttr Identifies the label attribute. You use this tag to set or get a value of type string that represents a user-editable string containing the label for this item.
+	@constant kSecInvisibleItemAttr Identifies the invisible attribute. You use this tag to set or get a value of type Boolean that indicates whether the item is invisible (i.e. should not be displayed).
 	@constant kSecNegativeItemAttr Identifies the negative attribute. You use this tag to set or get a value of type Boolean that indicates whether there is a valid password associated with this keychain item. This is useful if your application doesn't want a password for some particular service to be stored in the keychain, but prefers that it always be entered by the user. The item (typically invisible and with zero-length data) acts as a placeholder to say "don't use me."
 	@constant kSecCustomIconItemAttr Identifies the custom icon attribute. You use this tag to set or get a value of type Boolean that indicates whether the item has an application-specific icon. To do this, you must also set the attribute value identified by the tag kSecTypeItemAttr to a file type for which there is a corresponding icon in the desktop database, and set the attribute value identified by the tag kSecCreatorItemAttr to an appropriate application creator type. If a custom icon corresponding to the item's type and creator can be found in the desktop database, it will be displayed by Keychain Access. Otherwise, default icons are used. (Note: use of this attribute is deprecated; custom icons for keychain items are not supported in Mac OS X.)
-	@constant kSecAccountItemAttr Identifies the account attribute. You use this tag to set or get a string that represents the user account. This attribute applies to generic, Internet, and AppleShare password items. 
+	@constant kSecAccountItemAttr Identifies the account attribute. You use this tag to set or get a string that represents the user account. This attribute applies to generic, Internet, and AppleShare password items.
 	@constant kSecServiceItemAttr Identifies the service attribute. You use this tag to set or get a string that represents the service associated with this item. This attribute is unique to generic password items.
 	@constant kSecGenericItemAttr Identifies the generic attribute. You use this tag to set or get a value of untyped bytes that represents a user-defined attribute.  This attribute is unique to generic password items.
 	@constant kSecSecurityDomainItemAttr Identifies the security domain attribute. You use this tag to set or get a value that represents the Internet security domain. This attribute is unique to Internet password items.
@@ -97,9 +98,9 @@ typedef FourCharCode SecItemAttr;
 	@constant kSecAuthenticationTypeItemAttr Identifies the authentication type attribute. You use this tag to set or get a value of type SecAuthenticationType that represents the Internet authentication scheme. This attribute is unique to Internet password items.
 	@constant kSecPortItemAttr Identifies the port attribute. You use this tag to set or get a value of type UInt32 that represents the Internet port number. This attribute is unique to Internet password items.
 	@constant kSecPathItemAttr Identifies the path attribute. You use this tag to set or get a string value that represents the path. This attribute is unique to Internet password items.
-	@constant kSecVolumeItemAttr Identifies the volume attribute. You use this tag to set or get a string value that represents the AppleShare volume. This attribute is unique to AppleShare password items.
-	@constant kSecAddressItemAttr Identifies the address attribute. You use this tag to set or get a string value that represents the AppleTalk zone name, or the IP or domain name that represents the server address. This attribute is unique to AppleShare password items.
-	@constant kSecSignatureItemAttr Identifies the server signature attribute. You use this tag to set or get a value of type SecAFPServerSignature that represents the server signature block. This attribute is unique to AppleShare password items.
+	@constant kSecVolumeItemAttr Identifies the volume attribute. You use this tag to set or get a string value that represents the AppleShare volume. This attribute is unique to AppleShare password items. Note: AppleShare passwords are no longer used by OS X as of Leopard (10.5); Internet password items are used instead.
+	@constant kSecAddressItemAttr Identifies the address attribute. You use this tag to set or get a string value that represents the AppleTalk zone name, or the IP or domain name that represents the server address. This attribute is unique to AppleShare password items. Note: AppleShare passwords are no longer used by OS X as of Leopard (10.5); Internet password items are used instead.
+	@constant kSecSignatureItemAttr Identifies the server signature attribute. You use this tag to set or get a value of type SecAFPServerSignature that represents the server signature block. This attribute is unique to AppleShare password items. Note: AppleShare passwords are no longer used by OS X as of Leopard (10.5); Internet password items are used instead.
 	@constant kSecProtocolItemAttr Identifies the protocol attribute. You use this tag to set or get a value of type SecProtocolType that represents the Internet protocol. This attribute applies to AppleShare and Internet password items.
 	@constant kSecCertificateType Indicates a CSSM_CERT_TYPE type.
 	@constant kSecCertificateEncoding Indicates a CSSM_CERT_ENCODING type.
@@ -109,7 +110,7 @@ typedef FourCharCode SecItemAttr;
 	@discussion To obtain information about a certificate, use the CDSA Certificate Library (CL) API. To obtain information about a key, use the SecKeyGetCSSMKey function and the CDSA Cryptographic Service Provider (CSP) API.
 */
 enum
-{											
+{
     kSecCreationDateItemAttr		= 'cdat',
     kSecModDateItemAttr				= 'mdat',
     kSecDescriptionItemAttr			= 'desc',
@@ -168,7 +169,7 @@ CFTypeID SecKeychainItemGetTypeID(void);
 	@param length The length of the buffer pointed to by data.
 	@param data Pointer to a buffer containing the data to store. Pass NULL if you don't need to modify the data.
     @result A result code. See "Security Error Codes" (SecBase.h).
-	@discussion The keychain item is written to the keychain's permanent data store. If the keychain item has not previously been added to a keychain, a call to the SecKeychainItemModifyContent function does nothing and returns noErr.
+	@discussion The keychain item is written to the keychain's permanent data store. If the keychain item has not previously been added to a keychain, a call to the SecKeychainItemModifyContent function does nothing and returns errSecSuccess.
 */
 OSStatus SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data);
 
@@ -182,7 +183,7 @@ OSStatus SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, cons
 	@param initialAccess A reference to the access for this keychain item.
     @param keychainRef A reference to the keychain in which to add the item.
 	@param itemRef On return, a pointer to a reference to the newly created keychain item (optional). When the item reference is no longer required, call CFRelease to deallocate memory occupied by the item.
-    @result A result code. See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters are supplied, or memFullErr (-108) if there is not enough memory in the current heap zone to create the object.
+    @result A result code. See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters are supplied, or errSecAllocate (-108) if there is not enough memory in the current heap zone to create the object.
 */
 OSStatus SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAttributeList *attrList,
 		UInt32 length, const void *data, SecKeychainRef keychainRef,
@@ -207,7 +208,7 @@ OSStatus SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeych
 	@param attrList On input, the list of attributes to retrieve. On output, the attributes are filled in. Pass NULL if you don't need to retrieve any attributes. You must call SecKeychainItemFreeContent when you no longer need the attributes.
 	@param length On return, the length of the buffer pointed to by outData.
 	@param outData On return, a pointer to a buffer containing the data in this item. Pass NULL if you don't need to retrieve the data. You must call SecKeychainItemFreeContent when you no longer need the data.
-    @result A result code. See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters are supplied.
+    @result A result code. See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters are supplied.
 */
 OSStatus SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData);
 
@@ -228,7 +229,7 @@ OSStatus SecKeychainItemFreeContent(SecKeychainAttributeList *attrList, void *da
 	@param attrList On return, a pointer to the list of retrieved attributes. Pass NULL if you don't need to retrieve any attributes. You must call SecKeychainItemFreeAttributesAndData when you no longer need this list.
 	@param length On return, the length of the buffer pointed to by outData.
 	@param outData On return, a pointer to a buffer containing the data in this item. Pass NULL if you don't need to retrieve the data. You must call SecKeychainItemFreeAttributesAndData when you no longer need the data.
-    @result A result code. See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters are supplied.
+    @result A result code. See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters are supplied.
 */
 OSStatus SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo *info, SecItemClass *itemClass, SecKeychainAttributeList **attrList, UInt32 *length, void **outData);
 
@@ -246,13 +247,13 @@ OSStatus SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList *attrList
 	@abstract Deletes a keychain item from the default keychain's permanent data store.
 	@param itemRef A keychain item reference of the item to delete.
     @result A result code. See "Security Error Codes" (SecBase.h).
-	@discussion If itemRef has not previously been added to the keychain, SecKeychainItemDelete does nothing and returns noErr. IMPORTANT: SecKeychainItemDelete does not dispose the memory occupied by the item reference itself; use the CFRelease function when you are completely finished with an item.	
+	@discussion If itemRef has not previously been added to the keychain, SecKeychainItemDelete does nothing and returns errSecSuccess. IMPORTANT: SecKeychainItemDelete does not dispose the memory occupied by the item reference itself; use the CFRelease function when you are completely finished with an item.
 */
 OSStatus SecKeychainItemDelete(SecKeychainItemRef itemRef);
 
 /*!
 	@function SecKeychainItemCopyKeychain
-	@abstract Copies an existing keychain reference from a keychain item.	
+	@abstract Copies an existing keychain reference from a keychain item.
 	@param itemRef A keychain item reference.
 	@param keychainRef On return, the keychain reference for the specified item. Release this reference by calling the CFRelease function.
     @result A result code. See "Security Error Codes" (SecBase.h).

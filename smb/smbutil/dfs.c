@@ -40,7 +40,7 @@
 #include "common.h"
 #include <netsmb/smb.h>
 
-static uint16_t 
+static uint16_t
 uint16FromDictionary(CFDictionaryRef dict, CFStringRef key)
 {
 	CFNumberRef num = CFDictionaryGetValue( dict, key);
@@ -116,16 +116,15 @@ displayDomainReferralList(CFArrayRef referralList)
 	}
 }
 
-
 int
 cmd_dfs(int argc, char *argv[])
 {
 	CFMutableDictionaryRef dfsReferralDict;
 	CFArrayRef dfsServerDictArray;
 	CFArrayRef dfsReferralDictArray;
-	CFIndex count, ii;
+	CFIndex ad_count, count, ii;
 	const char *url = NULL;
-	int			opt;
+	int	opt;
 	
 	while ((opt = getopt(argc, argv, "h")) != EOF) {
 		switch(opt){
@@ -135,40 +134,72 @@ cmd_dfs(int argc, char *argv[])
 				/*NOTREACHED*/
 		}
 	}
-	if (optind >= argc)
+    
+	if (optind >= argc) {
 		dfs_usage();
+    }
+    
 	url = argv[optind];
 	argc -= optind;
 	/* One more check to make sure we have the correct number of arguments */
-	if (argc != 1)
+	if (argc != 1) {
 		dfs_usage();
+    }
 	
-	dfsReferralDict = CFDictionaryCreateMutable( kCFAllocatorSystemDefault, 0, 
+	dfsReferralDict = CFDictionaryCreateMutable(kCFAllocatorSystemDefault, 0,
                                         &kCFTypeDictionaryKeyCallBacks, 
                                         &kCFTypeDictionaryValueCallBacks);
 	if (!dfsReferralDict) {
 		errno = ENOMEM;
 		err(EX_UNAVAILABLE, "internal error");
 	}
+
 	SMBGetDfsReferral(url, dfsReferralDict);
-	dfsServerDictArray = CFDictionaryGetValue(dfsReferralDict, kDfsServerArray);
+
+    /* Did we get a list of Domain Controllers from AD? */
+    dfsServerDictArray = CFDictionaryGetValue(dfsReferralDict,
+                                              kDfsADServerArray);
+    
+	ad_count = (dfsServerDictArray) ? CFArrayGetCount(dfsServerDictArray) : 0;
+    
+	if (ad_count) {
+        fprintf(stdout, "\n");
+        fprintf(stdout, "------------- AD Domain Entries -------------\n");
+
+        for (ii = ad_count - 1; ii >= 0; ii--) {
+            CFStringRef dc = CFArrayGetValueAtIndex(dfsServerDictArray, ii);
+            
+            if (dc) {
+                fprintfCFString(dc, "Server Name : ", TRUE);
+            }
+        }
+    }
+    
+    /* 
+     * Did we get a list of Domain Controllers from the server name that really 
+     * was a domain name (ie GET_DFS_REFERRAL)
+     */
+    dfsServerDictArray = CFDictionaryGetValue(dfsReferralDict, kDfsServerArray);
     
 	count = (dfsServerDictArray) ? CFArrayGetCount(dfsServerDictArray) : 0;
-	if (!count) {
+	if (count) {
+        for (ii = count - 1; ii >= 0; ii--) {
+            CFDictionaryRef dict = CFArrayGetValueAtIndex(dfsServerDictArray, ii);
+            
+            fprintf(stdout, "\n");
+            fprintf(stdout, "------------- Domain Entry %-2zu -------------\n", count - ii);
+            if (dict) {
+                fprintfCFString(CFDictionaryGetValue(dict, kRequestFileName),
+                                "Domain requested : ", TRUE);
+                displayDomainReferralList(CFDictionaryGetValue(dict, kReferralList));
+            }
+        }
+    }
+
+	if (!ad_count && !count) {
 		fprintf(stdout, "\nNo server entries found\n");
 	}
-	for (ii = count-1; ii >= 0; ii--) {
-		CFDictionaryRef dict = CFArrayGetValueAtIndex(dfsServerDictArray, ii);
-		
-		fprintf(stdout, "\n");
-		fprintf(stdout, "------------- Domain Entry %-2zu -------------\n", count - ii);
-		if (dict) {
-			fprintfCFString(CFDictionaryGetValue(dict, kRequestFileName),
-							"Domain requested : ", TRUE);
-			displayDomainReferralList(CFDictionaryGetValue(dict, kReferralList));
-		}
-	}
-
+    
     dfsReferralDictArray = CFDictionaryGetValue(dfsReferralDict, kDfsReferralArray);
     count = (dfsReferralDictArray) ? CFArrayGetCount(dfsReferralDictArray) : 0;
 	if (!count) {
@@ -186,7 +217,7 @@ cmd_dfs(int argc, char *argv[])
 			displayReferralList(CFDictionaryGetValue(dict, kReferralList));
 		}
 	}
-	
+    
 done:
 	fprintf(stdout, "\n");
 	if (verbose) {

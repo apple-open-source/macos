@@ -1,10 +1,14 @@
-#
-# install
-#
+export SHELL := /bin/sh
 
-install::
-	@if [ $(DSTROOT) ]; then							\
-		install -d "$(DSTROOT)/usr/local/cbl/etc/";				\
-		install cbl_log4perl.conf "$(DSTROOT)/usr/local/cbl/etc/";		\
+##############################################################################
+# Targets
+##############################################################################
+
+.PHONY: install
+install:
+	@if [ $(DSTROOT) ]; then \
+	    installPath="$(DSTROOT)/usr/local/cbl/etc"; \
+	    files="cbl_log4perl.conf"; \
+		mkdir -p -m 0755 $$installPath; \
+		install -m 0644 $$files $$installPath; \
 	fi
-

@@ -644,7 +644,7 @@ static bool isNumericStr(
 }
 
 /* convert ASCII hex digit - assumed validated already */
-unsigned char hexDigit(
+static unsigned char hexDigit(
 	unsigned char d)
 {
 	if((d >= '0') && (d <= '9')) {

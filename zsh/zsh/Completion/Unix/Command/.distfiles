@@ -2,12 +2,14 @@ DISTFILES_SRC='
 .distfiles
 _a2ps
 _aap
+_adb
 _ant
 _antiword
 _apachectl
 _apm
 _arp
 _arping
+_at
 _attr
 _awk
 _baz
@@ -25,6 +27,7 @@ _cdrecord
 _chkconfig
 _chmod
 _chown
+_clay
 _comm
 _compress
 _configure
@@ -37,6 +40,7 @@ _cut
 _cvs
 _darcs
 _date
+_dbus
 _dd
 _devtodo
 _dhclient
@@ -77,9 +81,11 @@ _global
 _gnu_generic
 _gnupod
 _gnutls
+_go
 _gpg
 _gphoto2
 _gprof
+_gradle
 _graphicsmagick
 _grep
 _groff
@@ -94,6 +100,7 @@ _ifconfig
 _iftop
 _imagemagick
 _init_d
+_initctl
 _ip
 _irssi
 _ispell
@@ -106,7 +113,9 @@ _kvno
 _last
 _ldd
 _less
+_lha
 _links
+_ln
 _loadkeys
 _locate
 _look
@@ -125,6 +134,7 @@ _mh
 _mkdir
 _module
 _monotone
+_mosh
 _mount
 _mpc
 _mt
@@ -136,7 +146,11 @@ _mysqldiff
 _ncftp
 _netcat
 _nice
+_nkf
+_nm
 _nmap
+_notmuch
+_npm
 _nslookup
 _osc
 _pack
@@ -146,6 +160,7 @@ _pbm
 _perforce
 _perl
 _perldoc
+_pgrep
 _php
 _pine
 _ping
@@ -191,6 +206,7 @@ _slrn
 _socket
 _sort
 _spamassassin
+_sqlite
 _sqsh
 _ssh
 _stgit
@@ -201,11 +217,13 @@ _subversion
 _sudo
 _surfraw
 _sysctl
+_systemd
 _tar
 _tardy
 _tcpdump
 _tcptraceroute
 _telnet
+_tex
 _texinfo
 _tidy
 _tiff
@@ -217,14 +235,18 @@ _toilet
 _topgit
 _totd
 _tracepath
+_tree
+_twidge
 _twisted
 _unace
 _uname
 _unexpand
 _uniq
+_unison
 _units
 _user_admin
 _uzbl
+_vcsh
 _vim
 _vorbis
 _vorbiscomment
@@ -238,6 +260,7 @@ _wiggle
 _xargs
 _xmlsoft
 _xmms2
+_xz
 _yafc
 _yodl
 _yp

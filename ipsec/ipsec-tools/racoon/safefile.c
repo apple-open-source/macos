@@ -54,7 +54,7 @@ safefile(path, secret)
 
 	/* no setuid */
 	if (getuid() != geteuid()) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 		    "setuid'ed execution not allowed\n");
 		return -1;
 	}
@@ -65,7 +65,7 @@ safefile(path, secret)
 	/* the file must be owned by the running uid */
 	me = getuid();
 	if (s.st_uid != me) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 		    "%s has invalid owner uid\n", path);
 		return -1;
 	}
@@ -74,7 +74,7 @@ safefile(path, secret)
 	case S_IFREG:
 		break;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 		    "%s is an invalid file type 0x%x\n", path,
 		    (s.st_mode & S_IFMT));
 		return -1;
@@ -83,7 +83,7 @@ safefile(path, secret)
 	/* secret file should not be read by others */
 	if (secret) {
 		if ((s.st_mode & S_IRWXG) != 0 || (s.st_mode & S_IRWXO) != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			    "%s has weak file permission\n", path);
 			return -1;
 		}

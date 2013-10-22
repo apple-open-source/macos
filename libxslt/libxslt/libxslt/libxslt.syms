@@ -307,6 +307,7 @@ LIBXML2_1.0.24 {
   xsltLibxmlVersion; # variable
   xsltLibxsltVersion; # variable
   xsltMaxDepth; # variable
+  xsltMaxVars; # variable
 
 # xsltInternals
   xsltParseStylesheetImportedDoc;
@@ -429,8 +430,8 @@ LIBXML2_1.1.18 {
   xsltStyleStylesheetLevelGetExtData;
 
 # xsltInternals
-  xsltTransStorageAdd;
-  xsltTransStorageRemove;
+# xsltTransStorageAdd; removed in 1.1.28
+# xsltTransStorageRemove; removed in 1.1.28
   xsltUninit;
   xsltXSLTAttrMarker; # variable
 } LIBXML2_1.1.9;
@@ -476,4 +477,14 @@ LIBXML2_1.1.26 {
 # transform
   xsltProcessOneNode;
 } LIBXML2_1.1.25;
+
+LIBXML2_1.1.27 {
+    global:
+
+# xsltlocale
+  xsltFreeLocales;
+
+# xsltutils
+  xsltXPathCompileFlags;
+} LIBXML2_1.1.26;
 

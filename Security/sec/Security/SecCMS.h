@@ -33,9 +33,7 @@
 #ifndef _SECURITY_SECCMS_H_
 #define _SECURITY_SECCMS_H_
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 extern const void * kSecCMSBulkEncryptionAlgorithm;
 extern const void * kSecCMSSignDigest;
@@ -44,6 +42,8 @@ extern const void * kSecCMSSignHashAlgorithm;
 extern const void * kSecCMSCertChainMode;
 extern const void * kSecCMSAdditionalCerts;
 extern const void * kSecCMSSignedAttributes;
+extern const void * kSecCMSSignDate;
+extern const void * kSecCMSAllCerts;
 
 extern const void * kSecCMSEncryptionAlgorithmDESCBC;
 extern const void * kSecCMSEncryptionAlgorithmAESCBC;
@@ -55,9 +55,9 @@ extern const void * kSecCMSCertChainModeNone;
     @abstract verify a signed data cms blob.
     @param message the cms message to be parsed
     @param detached_contents to pass detached contents (optional)
-    @param policy specifies which policy should be used (optional).  if none is 
-        passed the blob will **not** be verified and only the attached contents 
-        will be returned.
+    @param policy specifies policy or array thereof should be used (optional).  
+	if none is passed the blob will **not** be verified and only 
+	the attached contents will be returned.
     @param trustref (output/optional) if specified, the trust chain built during 
         verification will not be evaluated but returned to the caller to do so.
 	@param attached_contents (output/optional) return a copy of the attached 
@@ -72,7 +72,7 @@ extern const void * kSecCMSCertChainModeNone;
         errSecParam garbage in, garbage out.
 */
 OSStatus SecCMSVerifyCopyDataAndAttributes(CFDataRef message, CFDataRef detached_contents,
-    SecPolicyRef policy, SecTrustRef *trustref,
+    CFTypeRef policy, SecTrustRef *trustref,
     CFDataRef *attached_contents, CFDictionaryRef *signed_attributes);
 
 /*!
@@ -80,7 +80,7 @@ OSStatus SecCMSVerifyCopyDataAndAttributes(CFDataRef message, CFDataRef detached
     @abstract same as SecCMSVerifyCopyDataAndAttributes, for binary compatibility.
 */
 OSStatus SecCMSVerify(CFDataRef message, CFDataRef detached_contents,
-    SecPolicyRef policy, SecTrustRef *trustref, CFDataRef *attached_contents);
+    CFTypeRef policy, SecTrustRef *trustref, CFDataRef *attached_contents);
 
 
 /* Return an array of certificates contained in message, if message is of the
@@ -165,11 +165,9 @@ OSStatus SecCMSDecryptEnvelopedData(CFDataRef message,
     CFMutableDataRef data, SecCertificateRef *recipient);
 
 OSStatus SecCMSVerifySignedData(CFDataRef message, CFDataRef detached_contents,
-    SecPolicyRef policy, SecTrustRef *trustref, CFArrayRef additional_certificates,
+    CFTypeRef policy, SecTrustRef *trustref, CFArrayRef additional_certificates,
     CFDataRef *attached_contents, CFDictionaryRef *message_attributes);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECCMS_H_ */

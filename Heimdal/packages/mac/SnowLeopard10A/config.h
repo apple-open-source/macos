@@ -527,9 +527,6 @@ static /**/const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 /* Define to 1 if you have the `issetugid' function. */
 #define HAVE_ISSETUGID 1
 
-/* Define if you want to use the Kerberos Credentials Manager. */
-#define HAVE_KCM 1
-
 /* Define to 1 if you have the <libutil.h> header file. */
 #define HAVE_LIBUTIL_H 1
 

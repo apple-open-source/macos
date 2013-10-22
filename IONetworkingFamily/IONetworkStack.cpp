@@ -55,16 +55,20 @@ extern "C" {
 #define super IOService
 OSDefineMetaClassAndFinalStructors( IONetworkStack, IOService )
 
-#define NIF_VAR(n)          ((n)->_clientVar[0])
-#define NIF_SET(n, x)       (NIF_VAR(n) |= (x))
-#define NIF_CLR(n, x)       (NIF_VAR(n) &= ~(x))
-#define NIF_TEST(n, x)      (NIF_VAR(n) & (x))
+#define NIF_VAR(n)              ((n)->_clientVar[0])
+#define NIF_SET(n, x)           (NIF_VAR(n) |= (x))
+#define NIF_CLR(n, x)           (NIF_VAR(n) &= ~(x))
+#define NIF_TEST(n, x)          (NIF_VAR(n) & (x))
 
-#define NIF_CAST(x)         ((IONetworkInterface *) x)
-#define NIF_SAFECAST(x)     (OSDynamicCast(IONetworkInterface, x))
+#define NIF_CAST(x)             ((IONetworkInterface *) x)
+#define NIF_SAFECAST(x)         (OSDynamicCast(IONetworkInterface, x))
 
-#define LOCK()              IOLockLock(_stateLock)
-#define UNLOCK()            IOLockUnlock(_stateLock)
+#define NIF_NO_BSD_ATTACH(n)    ((n)->_clientVar[2])
+
+#define LOCK()                  IOLockLock(_stateLock)
+#define UNLOCK()                IOLockUnlock(_stateLock)
+
+#define kDetachStateKey         "detach state"
 
 static IONetworkStack * gIONetworkStack = 0;
 
@@ -72,9 +76,11 @@ static IONetworkStack * gIONetworkStack = 0;
 //
 enum {
     kInterfaceStateInactive     = 0x01, // terminated
-    kInterfaceStatePublished    = 0x02, // waiting to attach
-    kInterfaceStateAttaching    = 0x04, // attaching to BSD
-    kInterfaceStateAttached     = 0x08  // attached to BSD
+    kInterfaceStatePublished    = 0x02, // waiting to be named
+    kInterfaceStateNamed        = 0x04, // name and unit assigned
+    kInterfaceStateAttaching    = 0x08, // will attach to BSD
+    kInterfaceStateAttached     = 0x10, // attached to BSD
+    kInterfaceStateAbandoned    = 0x20  // failed to attach to BSD
 };
 
 // IONetworkStackUserClient definition
@@ -140,6 +146,10 @@ bool IONetworkStack::start( IOService * provider )
     if (!_asyncThread)
         goto fail;
 
+    _noBSDAttachSymbol = OSSymbol::withCStringNoCopy(kIONetworkNoBSDAttachKey);
+    if (!_noBSDAttachSymbol)
+        goto fail;
+
     // Call the IOPMrootDomain object, which sits at the root of the
     // power management hierarchy, to set the default Ethernet WOL
     // settings. Setting the WOL through setAggressiveness rather
@@ -153,16 +163,16 @@ bool IONetworkStack::start( IOService * provider )
             kIOEthernetWakeOnMagicPacket | kIOEthernetWakeOnPacketAddressMatch);
     }
 
-    // Sign up for a notification when a network interface is first published.
+    // Sign up for a notification when a network interface is published.
 
-    matching = serviceMatching("IONetworkInterface");
+    matching = serviceMatching(kIONetworkInterfaceClass);
     if (!matching)
         goto fail;
 
     gIONetworkStack = this;
 
     _ifNotifier = addMatchingNotification(
-            /* type     */ gIOFirstPublishNotification,
+            /* type     */ gIOPublishNotification,
             /* match    */ matching,
             /* action   */ OSMemberFunctionCast(
                                     IOServiceMatchingNotificationHandler,
@@ -221,6 +231,18 @@ void IONetworkStack::free( void )
     {
         _ifListDetach->release();
         _ifListDetach = 0;
+    }
+
+    if (_ifListAttach)
+    {
+        _ifListAttach->release();
+        _ifListAttach = 0;
+    }
+
+    if (_noBSDAttachSymbol)
+    {
+        _noBSDAttachSymbol->release();
+        _noBSDAttachSymbol = 0;
     }
 
     if (_asyncThread)
@@ -349,39 +371,88 @@ bool IONetworkStack::interfacePublished(
     IONotifier *    notifier __unused )
 {
     IONetworkInterface * netif = NIF_SAFECAST(service);
-    bool ok = false;
+    bool isNew, ok = false;
 
-    DLOG("IONetworkStack::interfacePublished(%p)\n", netif);
+    if (!netif)
+        return false;
 
-    if (!netif || !attach(netif))
+    DLOG("IONetworkStack::interfacePublished(%p, state 0x%x, parent %d, noattach %d)\n",
+        netif, (uint32_t) NIF_VAR(netif), isParent(netif, gIOServicePlane),
+        (uint32_t) NIF_NO_BSD_ATTACH(netif));
+
+    isNew = (false == isParent(netif, gIOServicePlane));
+    if (isNew && !attach(netif))
         return false;
 
     LOCK();
 
     do {
-        // Must be a new network interface
-        if (NIF_VAR(netif) != 0)
-            break;
+        if (isNew)
+        {
+            // Must be a new network interface
+            if (NIF_VAR(netif) != 0)
+                break;
 
-        // Stop if interface is already published
-        if (_ifListNaming->containsObject(netif))
+            // Stop if interface is waiting for a name
+            if (_ifListNaming->containsObject(netif))
+            {
+                ok = true;
+                break;
+            }
+
+            _ifListNaming->setObject(netif);
+
+            if (netif->getProperty(_noBSDAttachSymbol) == kOSBooleanTrue)
+            {
+                NIF_NO_BSD_ATTACH(netif) = true;
+            }
+
+            // Initialize private interface state
+            NIF_VAR(netif) = kInterfaceStatePublished;
+            ok = true;
+        }
+        else
         {
             ok = true;
-            break;
+            if (NIF_NO_BSD_ATTACH(netif) == false)
+                break;
+
+            // bail if still not allowed to BSD attach
+            if (netif->getProperty(_noBSDAttachSymbol) == kOSBooleanTrue)
+                break;
+
+            // reject invalid interface states
+            if (NIF_TEST(netif,
+                kInterfaceStateInactive  | kInterfaceStateAttached  |
+                kInterfaceStateAttaching | kInterfaceStateAbandoned ))
+                break;
+
+            NIF_NO_BSD_ATTACH(netif) = false;
+            if (!NIF_TEST(netif, kInterfaceStateNamed))
+            {
+                // simple case if interface has not received a name yet
+                break;
+            }
+
+            NIF_SET(netif, kInterfaceStateAttaching);
+            if (!_ifListAttach)
+                _ifListAttach = OSArray::withCapacity(1);
+            if (_ifListAttach)
+            {
+                _ifListAttach->setObject(netif);
+                thread_call_enter(_asyncThread);
+            }
         }
-
-        _ifListNaming->setObject(netif);
-
-        // Initialize private interface state
-        NIF_VAR(netif) = kInterfaceStatePublished;
-        ok = true;
     }
     while (false);
 
     UNLOCK();
 
-    if (!ok)
+    if (isNew && !ok)
+    {
+        netif->setProperty(kDetachStateKey, NIF_VAR(netif), 32);
         detach(netif);
+    }
 
     return ok;
 }
@@ -390,52 +461,82 @@ bool IONetworkStack::interfacePublished(
 
 void IONetworkStack::asyncWork( void )
 {
-    IONetworkInterface * netif;
+    IONetworkInterface * d_netif;
+    IONetworkInterface * a_netif;
+    uint32_t             varBits;
 
     while (1)
     {
+        d_netif = a_netif = 0;
+
         LOCK();
         if (_ifListDetach)
         {
-            netif = NIF_CAST(_ifListDetach->getObject(0));
-            if (netif)
+            d_netif = NIF_CAST(_ifListDetach->getObject(0));
+            if (d_netif)
             {
-                netif->retain();
+                d_netif->retain();
                 _ifListDetach->removeObject(0);
+                varBits = NIF_VAR(d_netif);
+            }
+        }        
+        if (_ifListAttach)
+        {
+            a_netif = NIF_CAST(_ifListAttach->getObject(0));
+            if (a_netif)
+            {
+                a_netif->retain();
+                _ifListAttach->removeObject(0);
             }
         }
-        else
-            netif = 0;
         UNLOCK();
-        if (!netif)
+
+        if (!d_netif && !a_netif)
             break;
 
-        DLOG("IONetworkStack::asyncWork detach %s %p\n",
-            netif->getName(), netif);
+        if (d_netif)
+        {
+            DLOG("IONetworkStack::asyncWork detach %s %p, state 0x%x\n",
+                d_netif->getName(), d_netif, varBits);
 
-        // Interface is about to detach from DLIL
-        netif->setInterfaceState( 0, kIONetworkInterfaceRegisteredState );
+            // Interface must be named, but may not have attached to BSD
 
-        // detachFromDataLinkLayer will block until BSD detach is complete
-        netif->detachFromDataLinkLayer(0, 0);
+            if (varBits & kInterfaceStateAttached)
+            {
+                // Interface is about to detach from DLIL
+                d_netif->setInterfaceState( 0, kIONetworkInterfaceRegisteredState );
 
-        LOCK();
+                // detachFromDataLinkLayer will block until BSD detach is complete
+                d_netif->detachFromDataLinkLayer(0, 0);        
+            }
 
-        assert(NIF_TEST(netif, kInterfaceStateAttached));
-        assert(NIF_TEST(netif, kInterfaceStateInactive));
+            LOCK();
 
-        NIF_CLR(netif, kInterfaceStateAttached | kInterfaceStateAttaching);
+            assert(NIF_TEST(d_netif, kInterfaceStateInactive));
+            assert(NIF_TEST(d_netif, kInterfaceStateNamed));
+            assert(!NIF_TEST(d_netif, kInterfaceStateAttaching));
 
-        // Drop interface from list of attached interfaces.
-        // Unit number assigned to interface is up for grabs.
+            // Drop interface from list of attached interfaces.
+            // Unit number assigned to interface is up for grabs.
 
-        removeNetworkInterface(netif);
+            removeNetworkInterface(d_netif);
 
-        UNLOCK();
+            UNLOCK();
 
-        // Close interface and allow it to proceed with termination
-        netif->close( this );
-        netif->release();
+            // Close interface and allow it to proceed with termination
+            d_netif->close( this );
+            d_netif->release();
+        }
+        
+        if (a_netif)
+        {
+            DLOG("IONetworkStack::asyncWork attach %s %p, state 0x%x\n",
+                a_netif->getName(), a_netif, (uint32_t) NIF_VAR(a_netif));
+
+            assert(NIF_TEST(a_netif, kInterfaceStateAttaching));
+            attachNetworkInterfaceToBSD(a_netif);
+            a_netif->release();
+        }
     }
 }
 
@@ -447,8 +548,9 @@ bool IONetworkStack::didTerminate(
     IONetworkInterface * netif = NIF_SAFECAST(provider);
     bool wakeThread = false;
 
-    DLOG("IONetworkStack::didTerminate(%s %p, 0x%x)\n",
-        provider->getName(), provider, (uint32_t) options);
+    DLOG("IONetworkStack::didTerminate(%s %p state 0x%x, 0x%x)\n",
+        provider->getName(), provider, (uint32_t) options,
+        (uint32_t) NIF_VAR(netif));
 
     if (!netif)
         return true;
@@ -464,15 +566,16 @@ bool IONetworkStack::didTerminate(
         _ifListNaming->removeObject(netif);
 
         // Interface is attaching to BSD. Postpone termination until
-        // the attachment is complete.
+        // the attach is complete.
 
         if (NIF_TEST(netif, kInterfaceStateAttaching))
             break;
 
-        // If interface was never attached to BSD, we are done since
-        // we don't have an open on the interface.
+        // If interface was never named or attached to BSD, we are done
+        // since we don't have an open on the interface.
 
-        if (NIF_TEST(netif, kInterfaceStateAttached))
+        if (NIF_TEST(netif, kInterfaceStateAttached) ||
+            NIF_TEST(netif, kInterfaceStateNamed))
         {
             // Detach interface from BSD asynchronously.
             // The interface termination will be waiting for our close.
@@ -501,7 +604,8 @@ bool IONetworkStack::didTerminate(
 bool IONetworkStack::reserveInterfaceUnitNumber(
     IONetworkInterface *    netif,
     uint32_t                unit,
-    bool                    isUnitFixed )
+    bool                    isUnitFixed,
+    bool *                  attachToBSD )
 {
     const char *    prefix  = netif->getNamePrefix();
     uint32_t        inUnit  = unit;
@@ -510,6 +614,8 @@ bool IONetworkStack::reserveInterfaceUnitNumber(
 
     DLOG("IONetworkStack::reserveInterfaceUnitNumber(%p, %s, %u)\n",
         netif, prefix ? prefix : "", unit);
+
+    *attachToBSD = false;
 
     LOCK();
 
@@ -525,7 +631,7 @@ bool IONetworkStack::reserveInterfaceUnitNumber(
 
         // Interface must be in the published state.
 
-        if (NIF_VAR(netif) != kInterfaceStatePublished )
+        if (NIF_VAR(netif) != kInterfaceStatePublished)
         {
             LOG("unable to name interface in state 0x%x as %s%u\n",
                 (uint32_t) NIF_VAR(netif), prefix, inUnit);
@@ -559,7 +665,9 @@ bool IONetworkStack::reserveInterfaceUnitNumber(
         opened = true;
         ok = false;
 
-        // Check if preempted by interface termination
+        // Must not reserve an unit number or attempt to BSD attach
+        // if preempted by interface termination.
+
         if (NIF_TEST(netif, kInterfaceStateInactive))
         {
             LOG("interface %s%u became inactive\n", prefix, inUnit);
@@ -581,7 +689,14 @@ bool IONetworkStack::reserveInterfaceUnitNumber(
     while ( false );
 
     if (ok)
-        NIF_SET(netif, kInterfaceStateAttaching);
+    {
+        NIF_SET(netif, kInterfaceStateNamed);
+        if (NIF_NO_BSD_ATTACH(netif) == false)
+        {
+            NIF_SET(netif, kInterfaceStateAttaching);
+            *attachToBSD = true;
+        }
+    }
 
     UNLOCK();
 
@@ -627,6 +742,7 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
     // Update state bits and detect for untimely interface termination.
 
     LOCK();
+    assert(NIF_TEST(netif, kInterfaceStateNamed));
     assert(( NIF_VAR(netif) &
            ( kInterfaceStateAttaching | kInterfaceStateAttached )) ==
              kInterfaceStateAttaching );
@@ -653,12 +769,14 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
     {
         // BSD attach failed, drop from list of attached interfaces
         removeNetworkInterface(netif);
+        NIF_SET(netif, kInterfaceStateAbandoned);
     }
 
     UNLOCK();
 
     if (!attachOK)
     {
+        netif->setProperty(kDetachStateKey, NIF_VAR(netif), 32);
         netif->close( this );
         detach(netif);
     }
@@ -672,7 +790,7 @@ IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif
 
     if (pingMatching)
     {
-        // Re-register interface after the interface has attached to BSD.
+        // Re-register interface after setting kIOBSDNameKey.
         netif->registerService();
     }
 
@@ -685,6 +803,7 @@ IOReturn IONetworkStack::registerAllNetworkInterfaces( void )
 {
     IONetworkInterface *    netif;
     OSSet *                 list;
+    bool                    attachToBSD;
 
     LOCK();
 
@@ -705,7 +824,8 @@ IOReturn IONetworkStack::registerAllNetworkInterfaces( void )
 
     while ((netif = NIF_CAST(list->getAnyObject())))
     {
-        if (reserveInterfaceUnitNumber( netif, 0, false ))
+        if (reserveInterfaceUnitNumber( netif, 0, false, &attachToBSD ) &&
+            attachToBSD)
             attachNetworkInterfaceToBSD( netif );
 
         list->removeObject(netif);
@@ -724,9 +844,13 @@ IOReturn IONetworkStack::registerNetworkInterface(
     bool                 isUnitFixed )
 {
     IOReturn result = kIOReturnNoSpace;
+    bool attachToBSD = false;
 
-    if (reserveInterfaceUnitNumber( netif, unit, isUnitFixed ))
-        result = attachNetworkInterfaceToBSD( netif );
+    if (reserveInterfaceUnitNumber( netif, unit, isUnitFixed, &attachToBSD ))
+    {
+        result = (attachToBSD) ? attachNetworkInterfaceToBSD( netif ) :
+                                 kIOReturnSuccess;
+    }
 
     return result;
 }

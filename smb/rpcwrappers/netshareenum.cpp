@@ -50,7 +50,7 @@
 /*
  * Get a list of all mount volumes. The calling routine will need to free the memory.
  */
-static struct statfs *smb_getfsstat(int *fs_cnt)
+struct statfs *smb_getfsstat(int *fs_cnt)
 {
 	struct statfs *fs;
 	int bufsize = 0;
@@ -121,12 +121,15 @@ static void addShareToDictionary(SMBHANDLE inConnection,
 								 u_int16_t shareType, struct statfs *fs, int fs_cnt)
 {
 	CFMutableDictionaryRef currDict = NULL;
-	CFRange				foundSlash;
-	CFRange				foundPercentSign;
+	CFRange foundSlash;
+	CFRange	foundPercentSign;
+    CFStringRef tempShareName1 = NULL;
+    CFStringRef tempShareName2 = NULL;
 	
 	if (shareName == NULL) {
 		return;
 	}
+
 	currDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
 										 &kCFTypeDictionaryKeyCallBacks, 
 										 &kCFTypeDictionaryValueCallBacks);
@@ -186,13 +189,20 @@ static void addShareToDictionary(SMBHANDLE inConnection,
         CFDictionarySetValue (currDict, kNetFSDisplayNameKey, shareName);
         
         /* escape the vol name to get '/' converted to %2f and '%' to %25 */
-        shareName = CFURLCreateStringByAddingPercentEscapes(NULL, shareName, NULL, CFSTR("/%"), kCFStringEncodingUTF8);
+        tempShareName1 = CFURLCreateStringByAddingPercentEscapes(NULL, shareName, NULL, CFSTR("/%"), kCFStringEncodingUTF8);
         
         /* re-escape it leaving the '/' as %2f and '%' as %25 */
-        shareName = CFURLCreateStringByReplacingPercentEscapesUsingEncoding(NULL, shareName, CFSTR("/%"), kCFStringEncodingUTF8);
+        tempShareName2 = CFURLCreateStringByReplacingPercentEscapesUsingEncoding(NULL, tempShareName1, CFSTR("/%"), kCFStringEncodingUTF8);
+        
+        CFDictionarySetValue (shareDict, tempShareName2, currDict);
+        
+        CFRelease (tempShareName1);
+        CFRelease (tempShareName2);
+    }
+    else {
+        CFDictionarySetValue (shareDict, shareName, currDict);
     }
     
-	CFDictionarySetValue (shareDict, shareName, currDict);
 	CFRelease (currDict);
 }
 
@@ -260,18 +270,21 @@ int smb_netshareenum(SMBHANDLE inConnection, CFDictionaryRef *outDict,
 	}
 	/*
 	 * OK, that didn't work - either they don't support RPC or we
-	 * got an error in either case try RAP.
+	 * got an error in either case try RAP if enabled (lanman_on pref is set).
 	 */
-	{
+	if (properties.internalFlags & kLanmanOn) {
 		void *rBuffer = NULL;
 		unsigned char *endBuffer;
 		uint32_t rBufferSize = 0;
 		struct smb_share_info_1 *shareInfo1;
 		uint32_t entriesRead = 0;
+        
+		SMBLogInfo("Looking up shares RAP", ASL_LEVEL_DEBUG);
 
 		/* Try getting a list of shares with the RAP protocol. */
 		error = RapNetShareEnum(inConnection, 1, &rBuffer, &rBufferSize, &entriesRead, NULL);
 		if (error) {
+			SMBLogInfo("Looking up shares with RAP failed, error=%d", ASL_LEVEL_DEBUG, error);
 			goto done;		
 		}
 		endBuffer = (unsigned char *)rBuffer + rBufferSize;

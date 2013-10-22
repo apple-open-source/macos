@@ -84,18 +84,11 @@
 #define _NETDB_H_
 
 #include <_types.h>
+#include <sys/_types/_size_t.h>
+#include <sys/_types/_socklen_t.h>
+
 #include <stdint.h>
 #include <netinet/in.h>		/* IPPORT_RESERVED */
-
-#ifndef	_SIZE_T
-#define	_SIZE_T
-typedef	__darwin_size_t		size_t;
-#endif
-
-#ifndef _SOCKLEN_T
-#define _SOCKLEN_T
-typedef __darwin_socklen_t	socklen_t;
-#endif
 
 #ifndef _PATH_HEQUIV
 # define	_PATH_HEQUIV	"/etc/hosts.equiv"

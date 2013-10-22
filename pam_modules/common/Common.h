@@ -18,6 +18,4 @@ void pam_cf_cleanup(__unused pam_handle_t *, void *, __unused int );
 
 int cfstring_to_cstring(const CFStringRef val, char **buffer);
 
-Boolean IsServerInstall(void);
-
 #endif /* _COMMON_H_ */

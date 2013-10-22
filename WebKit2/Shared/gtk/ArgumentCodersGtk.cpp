@@ -41,7 +41,7 @@ using namespace WebKit;
 
 namespace CoreIPC {
 
-static void encodeImage(ArgumentEncoder* encoder, const GdkPixbuf* pixbuf)
+static void encodeImage(ArgumentEncoder& encoder, const GdkPixbuf* pixbuf)
 {
     IntSize imageSize(gdk_pixbuf_get_width(pixbuf), gdk_pixbuf_get_height(pixbuf));
     RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(imageSize, ShareableBitmap::SupportsAlpha);
@@ -54,13 +54,13 @@ static void encodeImage(ArgumentEncoder* encoder, const GdkPixbuf* pixbuf)
     ShareableBitmap::Handle handle;
     bitmap->createHandle(handle);
 
-    encoder->encode(handle);
+    encoder << handle;
 }
 
-static bool decodeImage(ArgumentDecoder* decoder, GRefPtr<GdkPixbuf>& pixbuf)
+static bool decodeImage(ArgumentDecoder& decoder, GRefPtr<GdkPixbuf>& pixbuf)
 {
     ShareableBitmap::Handle handle;
-    if (!decoder->decode(handle))
+    if (!decoder.decode(handle))
         return false;
 
     RefPtr<ShareableBitmap> bitmap = ShareableBitmap::create(handle);
@@ -71,94 +71,91 @@ static bool decodeImage(ArgumentDecoder* decoder, GRefPtr<GdkPixbuf>& pixbuf)
     if (!image)
         return false;
 
-    NativeImageCairo* nativeImage = image->nativeImageForCurrentFrame();
-    if (!nativeImage)
+    RefPtr<cairo_surface_t> surface = image->nativeImageForCurrentFrame();
+    if (!surface)
         return false;
 
-    cairo_surface_t* surface = nativeImage->surface();
-    pixbuf = adoptGRef(gdk_pixbuf_get_from_surface(surface, 0, 0,
-                                                   cairo_image_surface_get_width(surface),
-                                                   cairo_image_surface_get_height(surface)));
+    pixbuf = adoptGRef(gdk_pixbuf_get_from_surface(surface.get(), 0, 0, cairo_image_surface_get_width(surface.get()), cairo_image_surface_get_height(surface.get())));
     if (!pixbuf)
         return false;
 
     return true;
 }
 
-static void encodeDataObject(ArgumentEncoder* encoder, const DataObjectGtk* dataObject)
+static void encodeDataObject(ArgumentEncoder& encoder, const DataObjectGtk* dataObject)
 {
     bool hasText = dataObject->hasText();
-    encoder->encode(hasText);
+    encoder << hasText;
     if (hasText)
-        encoder->encode(dataObject->text());
+        encoder << dataObject->text();
 
     bool hasMarkup = dataObject->hasMarkup();
-    encoder->encode(hasMarkup);
+    encoder << hasMarkup;
     if (hasMarkup)
-        encoder->encode(dataObject->markup());
+        encoder << dataObject->markup();
 
     bool hasURL = dataObject->hasURL();
-    encoder->encode(hasURL);
+    encoder << hasURL;
     if (hasURL)
-        encoder->encode(dataObject->url().string());
+        encoder << dataObject->url().string();
 
     bool hasURIList = dataObject->hasURIList();
-    encoder->encode(hasURIList);
+    encoder << hasURIList;
     if (hasURIList)
-        encoder->encode(dataObject->uriList());
+        encoder << dataObject->uriList();
 
     bool hasImage = dataObject->hasImage();
-    encoder->encode(hasImage);
+    encoder << hasImage;
     if (hasImage)
         encodeImage(encoder, dataObject->image());
 }
 
-static bool decodeDataObject(ArgumentDecoder* decoder, RefPtr<DataObjectGtk>& dataObject)
+static bool decodeDataObject(ArgumentDecoder& decoder, RefPtr<DataObjectGtk>& dataObject)
 {
     RefPtr<DataObjectGtk> data = DataObjectGtk::create();
 
     bool hasText;
-    if (!decoder->decode(hasText))
+    if (!decoder.decode(hasText))
         return false;
     if (hasText) {
         String text;
-        if (!decoder->decode(text))
+        if (!decoder.decode(text))
             return false;
         data->setText(text);
     }
 
     bool hasMarkup;
-    if (!decoder->decode(hasMarkup))
+    if (!decoder.decode(hasMarkup))
         return false;
     if (hasMarkup) {
         String markup;
-        if (!decoder->decode(markup))
+        if (!decoder.decode(markup))
             return false;
         data->setMarkup(markup);
     }
 
     bool hasURL;
-    if (!decoder->decode(hasURL))
+    if (!decoder.decode(hasURL))
         return false;
     if (hasURL) {
         String url;
-        if (!decoder->decode(url))
+        if (!decoder.decode(url))
             return false;
         data->setURL(KURL(KURL(), url), String());
     }
 
     bool hasURIList;
-    if (!decoder->decode(hasURIList))
+    if (!decoder.decode(hasURIList))
         return false;
     if (hasURIList) {
         String uriList;
-        if (!decoder->decode(uriList))
+        if (!decoder.decode(uriList))
             return false;
         data->setURIList(uriList);
     }
 
     bool hasImage;
-    if (!decoder->decode(hasImage))
+    if (!decoder.decode(hasImage))
         return false;
     if (hasImage) {
         GRefPtr<GdkPixbuf> image;
@@ -172,39 +169,39 @@ static bool decodeDataObject(ArgumentDecoder* decoder, RefPtr<DataObjectGtk>& da
     return true;
 }
 
-void ArgumentCoder<DragData>::encode(ArgumentEncoder* encoder, const DragData& dragData)
+void ArgumentCoder<DragData>::encode(ArgumentEncoder& encoder, const DragData& dragData)
 {
-    encoder->encode(dragData.clientPosition());
-    encoder->encode(dragData.globalPosition());
-    encoder->encode(static_cast<uint64_t>(dragData.draggingSourceOperationMask()));
-    encoder->encode(static_cast<uint64_t>(dragData.flags()));
+    encoder << dragData.clientPosition();
+    encoder << dragData.globalPosition();
+    encoder << static_cast<uint64_t>(dragData.draggingSourceOperationMask());
+    encoder << static_cast<uint64_t>(dragData.flags());
 
     DataObjectGtk* platformData = dragData.platformData();
-    encoder->encode(static_cast<bool>(platformData));
+    encoder << static_cast<bool>(platformData);
     if (platformData)
         encodeDataObject(encoder, platformData);
 }
 
-bool ArgumentCoder<DragData>::decode(ArgumentDecoder* decoder, DragData& dragData)
+bool ArgumentCoder<DragData>::decode(ArgumentDecoder& decoder, DragData& dragData)
 {
     IntPoint clientPosition;
-    if (!decoder->decode(clientPosition))
+    if (!decoder.decode(clientPosition))
         return false;
 
     IntPoint globalPosition;
-    if (!decoder->decode(globalPosition))
+    if (!decoder.decode(globalPosition))
         return false;
 
     uint64_t sourceOperationMask;
-    if (!decoder->decode(sourceOperationMask))
+    if (!decoder.decode(sourceOperationMask))
         return false;
 
     uint64_t flags;
-    if (!decoder->decode(flags))
+    if (!decoder.decode(flags))
         return false;
 
     bool hasPlatformData;
-    if (!decoder->decode(hasPlatformData))
+    if (!decoder.decode(hasPlatformData))
         return false;
 
     RefPtr<DataObjectGtk> platformData;
@@ -219,18 +216,17 @@ bool ArgumentCoder<DragData>::decode(ArgumentDecoder* decoder, DragData& dragDat
     return true;
 }
 
-static void encodeGKeyFile(ArgumentEncoder* encoder, GKeyFile* keyFile)
+static void encodeGKeyFile(ArgumentEncoder& encoder, GKeyFile* keyFile)
 {
     gsize dataSize;
     GOwnPtr<char> data(g_key_file_to_data(keyFile, &dataSize, 0));
-    DataReference dataReference(reinterpret_cast<uint8_t*>(data.get()), dataSize);
-    encoder->encode(dataReference);
+    encoder << DataReference(reinterpret_cast<uint8_t*>(data.get()), dataSize);
 }
 
-static bool decodeGKeyFile(ArgumentDecoder* decoder, GOwnPtr<GKeyFile>& keyFile)
+static bool decodeGKeyFile(ArgumentDecoder& decoder, GOwnPtr<GKeyFile>& keyFile)
 {
     DataReference dataReference;
-    if (!decoder->decode(dataReference))
+    if (!decoder.decode(dataReference))
         return false;
 
     if (!dataReference.size())
@@ -245,14 +241,14 @@ static bool decodeGKeyFile(ArgumentDecoder* decoder, GOwnPtr<GKeyFile>& keyFile)
     return true;
 }
 
-void encode(ArgumentEncoder* encoder, GtkPrintSettings* printSettings)
+void encode(ArgumentEncoder& encoder, GtkPrintSettings* printSettings)
 {
     GOwnPtr<GKeyFile> keyFile(g_key_file_new());
     gtk_print_settings_to_key_file(printSettings, keyFile.get(), "Print Settings");
     encodeGKeyFile(encoder, keyFile.get());
 }
 
-bool decode(ArgumentDecoder* decoder, GRefPtr<GtkPrintSettings>& printSettings)
+bool decode(ArgumentDecoder& decoder, GRefPtr<GtkPrintSettings>& printSettings)
 {
     GOwnPtr<GKeyFile> keyFile;
     if (!decodeGKeyFile(decoder, keyFile))
@@ -268,14 +264,14 @@ bool decode(ArgumentDecoder* decoder, GRefPtr<GtkPrintSettings>& printSettings)
     return printSettings;
 }
 
-void encode(ArgumentEncoder* encoder, GtkPageSetup* pageSetup)
+void encode(ArgumentEncoder& encoder, GtkPageSetup* pageSetup)
 {
     GOwnPtr<GKeyFile> keyFile(g_key_file_new());
     gtk_page_setup_to_key_file(pageSetup, keyFile.get(), "Page Setup");
     encodeGKeyFile(encoder, keyFile.get());
 }
 
-bool decode(ArgumentDecoder* decoder, GRefPtr<GtkPageSetup>& pageSetup)
+bool decode(ArgumentDecoder& decoder, GRefPtr<GtkPageSetup>& pageSetup)
 {
     GOwnPtr<GKeyFile> keyFile;
     if (!decodeGKeyFile(decoder, keyFile))

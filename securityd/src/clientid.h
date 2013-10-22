@@ -47,6 +47,7 @@ public:
 	// CodeSignatures::Identity personality
 	string getPath() const;
 	const CssmData getHash() const;
+    const bool checkAppleSigned() const;
 	
 protected:
 	void setup(pid_t pid);
@@ -64,6 +65,8 @@ private:
 		CFRef<SecCodeRef> code;
 		mutable bool gotHash;
 		mutable SHA1::Digest legacyHash;
+        mutable bool checkedSignature;
+        mutable bool appleSigned;
 	};
 	typedef std::map<SecGuestRef, GuestState> GuestMap;
 	mutable GuestMap mGuests;

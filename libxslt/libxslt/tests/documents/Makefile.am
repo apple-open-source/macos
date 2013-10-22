@@ -10,8 +10,7 @@ EXTRA_DIST = \
     result.xhtml system.xml test_bad.err test_bad.result \
     test_bad.xml test.result test.xml test.xsl worklog.xml
 
-
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'

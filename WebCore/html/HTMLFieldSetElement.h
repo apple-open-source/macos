@@ -25,13 +25,22 @@
 #define HTMLFieldSetElement_h
 
 #include "HTMLFormControlElement.h"
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
-class HTMLFieldSetElement : public HTMLFormControlElement {
+class FormAssociatedElement;
+class HTMLCollection;
+
+class HTMLFieldSetElement FINAL : public HTMLFormControlElement {
 public:
     static PassRefPtr<HTMLFieldSetElement> create(const QualifiedName&, Document*, HTMLFormElement*);
     HTMLLegendElement* legend() const;
+
+    PassRefPtr<HTMLCollection> elements();
+
+    const Vector<FormAssociatedElement*>& associatedElements() const;
+    unsigned length() const;
 
 protected:
     virtual void disabledAttributeChanged() OVERRIDE;
@@ -40,13 +49,19 @@ private:
     HTMLFieldSetElement(const QualifiedName&, Document*, HTMLFormElement*);
 
     virtual bool isEnumeratable() const { return true; }
-    virtual bool supportsFocus() const;
+    virtual bool supportsFocus() const OVERRIDE;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual const AtomicString& formControlType() const;
     virtual bool recalcWillValidate() const { return false; }
     virtual void childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta) OVERRIDE;
+    virtual bool areAuthorShadowsAllowed() const OVERRIDE { return false; }
 
     static void invalidateDisabledStateUnder(Element*);
+    void refreshElementsIfNeeded() const;
+
+    mutable Vector<FormAssociatedElement*> m_associatedElements;
+    // When dom tree is modified, we have to refresh the m_associatedElements array.
+    mutable uint64_t m_documentVersion;
 };
 
 } // namespace

@@ -26,12 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module window {
+[
+    NoInterfaceObject,
+    ImplementationLacksVTable
+] interface Crypto {
+    [Custom, RaisesException] ArrayBufferView getRandomValues(ArrayBufferView array);
+};
 
-    interface [
-        OmitConstructor
-    ] Crypto {
-        void getRandomValues(in ArrayBufferView array) raises(DOMException);
-    };
-
-}

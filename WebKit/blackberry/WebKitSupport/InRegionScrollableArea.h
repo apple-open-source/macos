@@ -19,10 +19,14 @@
 #ifndef InRegionScrollableArea_h
 #define InRegionScrollableArea_h
 
-#include <BlackBerryPlatformPrimitives.h>
+#include "IntRect.h"
+
 #include <interaction/ScrollViewBase.h>
 
 namespace WebCore {
+class Document;
+class LayerWebKitThread;
+class Node;
 class RenderLayer;
 }
 
@@ -36,15 +40,28 @@ public:
 
     InRegionScrollableArea();
     InRegionScrollableArea(WebPagePrivate*, WebCore::RenderLayer*);
+    virtual ~InRegionScrollableArea();
+
+    void setVisibleWindowRect(const WebCore::IntRect&);
+    Platform::IntRect visibleWindowRect() const;
 
     WebCore::RenderLayer* layer() const;
+    WebCore::Document* document() const;
+
+    WebCore::LayerWebKitThread* cachedScrollableLayer() const;
+    WebCore::Node* cachedScrollableNode() const;
 
 private:
-    Platform::IntPoint calculateMinimumScrollPosition(const Platform::IntSize& viewportSize, float overscrollLimitFactor) const;
-    Platform::IntPoint calculateMaximumScrollPosition(const Platform::IntSize& viewportSize, const Platform::IntSize& contentsSize, float overscrollLimitFactor) const;
-
     WebPagePrivate* m_webPage;
     WebCore::RenderLayer* m_layer;
+    WebCore::Document* m_document;
+
+    // We either cache one here: in case of a composited scrollable layer
+    // cache the LayerWebKitThread. Otherwise, the Node.
+    RefPtr<WebCore::LayerWebKitThread> m_cachedCompositedScrollableLayer;
+    RefPtr<WebCore::Node> m_cachedNonCompositedScrollableNode;
+
+    bool m_hasWindowVisibleRectCalculated;
 };
 
 }

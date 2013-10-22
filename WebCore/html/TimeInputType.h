@@ -31,28 +31,25 @@
 #ifndef TimeInputType_h
 #define TimeInputType_h
 
-#include "BaseDateAndTimeInputType.h"
-
 #if ENABLE(INPUT_TYPE_TIME)
+#include "BaseChooserOnlyDateAndTimeInputType.h"
 
 namespace WebCore {
 
-class TimeInputType : public BaseDateAndTimeInputType {
+class TimeInputType : public BaseChooserOnlyDateAndTimeInputType {
 public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
 
 private:
-    TimeInputType(HTMLInputElement* element) : BaseDateAndTimeInputType(element) { }
+    TimeInputType(HTMLInputElement*);
+    virtual void attach() OVERRIDE;
     virtual const AtomicString& formControlType() const OVERRIDE;
     virtual DateComponents::Type dateType() const OVERRIDE;
-    virtual double defaultValueForStepUp() const OVERRIDE;
-    virtual double minimum() const OVERRIDE;
-    virtual double maximum() const OVERRIDE;
-    virtual double defaultStep() const OVERRIDE;
-    virtual double stepScaleFactor() const OVERRIDE;
-    virtual bool scaledStepValueShouldBeInteger() const OVERRIDE;
+    virtual Decimal defaultValueForStepUp() const OVERRIDE;
+    virtual StepRange createStepRange(AnyStepHandling) const OVERRIDE;
     virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const OVERRIDE;
     virtual bool setMillisecondToDateComponents(double, DateComponents*) const OVERRIDE;
+    virtual bool isTimeField() const OVERRIDE;
 };
 
 } // namespace WebCore

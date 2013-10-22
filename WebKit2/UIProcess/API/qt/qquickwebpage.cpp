@@ -21,15 +21,16 @@
 #include "config.h"
 #include "qquickwebpage_p.h"
 
-#include "LayerTreeHostProxy.h"
 #include "QtWebPageEventHandler.h"
 #include "QtWebPageSGNode.h"
 #include "TransformationMatrix.h"
-#include "WebLayerTreeRenderer.h"
-#include "WebPageProxy.h"
 #include "qquickwebpage_p_p.h"
 #include "qquickwebview_p.h"
-#include <QtQuick/QQuickCanvas>
+#include "qquickwebview_p_p.h"
+#include "qwebkittest_p.h"
+#include <QQuickWindow>
+#include <WKPage.h>
+#include <WebCore/CoordinatedGraphicsScene.h>
 
 using namespace WebKit;
 
@@ -53,54 +54,51 @@ QQuickWebPage::~QQuickWebPage()
 QQuickWebPagePrivate::QQuickWebPagePrivate(QQuickWebPage* q, QQuickWebView* viewportItem)
     : q(q)
     , viewportItem(viewportItem)
-    , webPageProxy(0)
     , paintingIsInitialized(false)
-    , m_paintNode(0)
     , contentsScale(1)
 {
 }
 
-void QQuickWebPagePrivate::initialize(WebKit::WebPageProxy* webPageProxy)
-{
-    this->webPageProxy = webPageProxy;
-    eventHandler.reset(new QtWebPageEventHandler(toAPI(webPageProxy), q, viewportItem));
-}
-
 void QQuickWebPagePrivate::paint(QPainter* painter)
 {
-    if (!webPageProxy->drawingArea())
-        return;
-
-    LayerTreeHostProxy* layerTreeHostProxy = webPageProxy->drawingArea()->layerTreeHostProxy();
-    if (layerTreeHostProxy->layerTreeRenderer())
-        layerTreeHostProxy->layerTreeRenderer()->paintToGraphicsContext(painter);
+    if (WebCore::CoordinatedGraphicsScene* scene = QQuickWebViewPrivate::get(viewportItem)->coordinatedGraphicsScene())
+        scene->paintToGraphicsContext(painter);
 }
+
 
 QSGNode* QQuickWebPage::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData*)
 {
-    if (!d->webPageProxy->drawingArea())
+    QQuickWebViewPrivate* webViewPrivate = QQuickWebViewPrivate::get(d->viewportItem);
+
+    WebCore::CoordinatedGraphicsScene* scene = webViewPrivate->coordinatedGraphicsScene();
+    if (!scene)
         return oldNode;
 
-    LayerTreeHostProxy* layerTreeHostProxy = d->webPageProxy->drawingArea()->layerTreeHostProxy();
-    WebLayerTreeRenderer* renderer = layerTreeHostProxy->layerTreeRenderer();
-
     QtWebPageSGNode* node = static_cast<QtWebPageSGNode*>(oldNode);
+
+    const QWindow* window = this->window();
+    ASSERT(window);
+
+    WKPageRef pageRef = webViewPrivate->webPage.get();
+    if (window && WKPageGetBackingScaleFactor(pageRef) != window->devicePixelRatio()) {
+        WKPageSetCustomBackingScaleFactor(pageRef, window->devicePixelRatio());
+        // This signal is queued since if we are running a threaded renderer. This might cause failures
+        // if tests are reading the new value between the property change and the signal emission.
+        emit d->viewportItem->experimental()->test()->devicePixelRatioChanged();
+    }
+
     if (!node)
-        node = new QtWebPageSGNode();
-    node->setRenderer(renderer);
-    renderer->syncRemoteContent();
+        node = new QtWebPageSGNode;
+
+    node->setCoordinatedGraphicsScene(scene);
 
     node->setScale(d->contentsScale);
-    QColor backgroundColor = d->webPageProxy->drawsTransparentBackground() ? Qt::transparent : Qt::white;
+    node->setDevicePixelRatio(window->devicePixelRatio());
+    QColor backgroundColor = webViewPrivate->transparentBackground() ? Qt::transparent : Qt::white;
     QRectF backgroundRect(QPointF(0, 0), d->contentsSize);
     node->setBackground(backgroundRect, backgroundColor);
 
     return node;
-}
-
-QtWebPageEventHandler* QQuickWebPage::eventHandler() const
-{
-    return d->eventHandler.data();
 }
 
 void QQuickWebPage::setContentsSize(const QSizeF& size)
@@ -110,6 +108,7 @@ void QQuickWebPage::setContentsSize(const QSizeF& size)
 
     d->contentsSize = size;
     d->updateSize();
+    emit d->viewportItem->experimental()->test()->contentsSizeChanged();
 }
 
 const QSizeF& QQuickWebPage::contentsSize() const
@@ -122,6 +121,7 @@ void QQuickWebPage::setContentsScale(qreal scale)
     ASSERT(scale > 0);
     d->contentsScale = scale;
     d->updateSize();
+    emit d->viewportItem->experimental()->test()->contentsScaleChanged();
 }
 
 qreal QQuickWebPage::contentsScale() const
@@ -137,18 +137,37 @@ QTransform QQuickWebPage::transformFromItem() const
 
 QTransform QQuickWebPage::transformToItem() const
 {
-    QPointF pos = d->viewportItem->pageItemPos();
-    return QTransform(d->contentsScale, 0, 0, 0, d->contentsScale, 0, pos.x(), pos.y(), 1);
+    qreal xPos = x();
+    qreal yPos = y();
+
+    if (d->viewportItem->experimental()->flickableViewportEnabled()) {
+        // Flickable moves its contentItem so we need to take that position into
+        // account, as well as the potential displacement of the page on the
+        // contentItem because of additional QML items.
+        xPos += d->viewportItem->contentItem()->x();
+        yPos += d->viewportItem->contentItem()->y();
+    }
+
+    return QTransform(d->contentsScale, 0, 0, 0, d->contentsScale, 0, xPos, yPos, 1);
 }
 
 void QQuickWebPagePrivate::updateSize()
 {
     QSizeF scaledSize = contentsSize * contentsScale;
+
     q->setSize(scaledSize);
-    viewportItem->updateContentsSize(scaledSize);
-    DrawingAreaProxy* drawingArea = webPageProxy->drawingArea();
-    if (drawingArea && drawingArea->layerTreeHostProxy())
-        drawingArea->layerTreeHostProxy()->setContentsSize(WebCore::FloatSize(contentsSize.width(), contentsSize.height()));
+
+    if (viewportItem->experimental()->flickableViewportEnabled()) {
+        // Make sure that the content is sized to the page if the user did not
+        // add other flickable items. If that is not the case, the user needs to
+        // disable the default content item size property on the WebView and
+        // bind the contentWidth and contentHeight accordingly, in accordance
+        // accordance with normal Flickable behaviour.
+        if (viewportItem->experimental()->useDefaultContentItemSize()) {
+            viewportItem->setContentWidth(scaledSize.width());
+            viewportItem->setContentHeight(scaledSize.height());
+        }
+    }
 }
 
 QQuickWebPagePrivate::~QQuickWebPagePrivate()

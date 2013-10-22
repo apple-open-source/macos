@@ -47,7 +47,7 @@ WebInspector.DatabaseTableView.prototype = {
         this.update();
     },
 
-    get statusBarItems()
+    statusBarItems: function()
     {
         return [this.refreshButton.element];
     },
@@ -95,7 +95,7 @@ WebInspector.DatabaseTableView.prototype = {
     _refreshButtonClicked: function(event)
     {
         this.update();
-    }
-}
+    },
 
-WebInspector.DatabaseTableView.prototype.__proto__ = WebInspector.View.prototype;
+    __proto__: WebInspector.View.prototype
+}

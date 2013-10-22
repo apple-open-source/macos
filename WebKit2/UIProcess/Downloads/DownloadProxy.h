@@ -41,15 +41,14 @@ namespace WebCore {
 
 namespace WebKit {
 
+class DownloadProxyMap;
 class WebContext;
 class WebData;
 class WebPageProxy;
 
-class DownloadProxy : public APIObject {
+class DownloadProxy : public TypedAPIObject<APIObject::TypeDownload>, public CoreIPC::MessageReceiver {
 public:
-    static const Type APIType = TypeDownload;
-
-    static PassRefPtr<DownloadProxy> create(WebContext*);
+    static PassRefPtr<DownloadProxy> create(DownloadProxyMap&, WebContext*);
     ~DownloadProxy();
 
     uint64_t downloadID() const { return m_downloadID; }
@@ -61,17 +60,19 @@ public:
     void invalidate();
     void processDidClose();
 
-    void didReceiveDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    void didReceiveSyncDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
+    void didReceiveDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&);
+    void didReceiveSyncDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&);
 
 #if PLATFORM(QT)
     void startTransfer(const String& filename);
 #endif
 
 private:
-    explicit DownloadProxy(WebContext*);
+    explicit DownloadProxy(DownloadProxyMap&, WebContext*);
 
-    virtual Type type() const { return APIType; }
+    // CoreIPC::MessageReceiver
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&, OwnPtr<CoreIPC::MessageEncoder>&) OVERRIDE;
 
     // Message handlers.
     void didStart(const WebCore::ResourceRequest&);
@@ -85,7 +86,8 @@ private:
     void didFail(const WebCore::ResourceError&, const CoreIPC::DataReference& resumeData);
     void didCancel(const CoreIPC::DataReference& resumeData);
 
-    WebContext* m_webContext;
+    DownloadProxyMap& m_downloadProxyMap;
+    RefPtr<WebContext> m_webContext;
     uint64_t m_downloadID;
 
     RefPtr<WebData> m_resumeData;

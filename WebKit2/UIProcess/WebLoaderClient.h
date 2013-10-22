@@ -30,6 +30,7 @@
 #include "PluginModuleInfo.h"
 #include "SameDocumentNavigationType.h"
 #include "WKPage.h"
+#include <WebCore/LayoutMilestones.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
@@ -43,6 +44,7 @@ namespace WebKit {
 class APIObject;
 class AuthenticationChallengeProxy;
 class AuthenticationDecisionListener;
+class ImmutableDictionary;
 class WebBackForwardListItem;
 class WebFrameProxy;
 class WebPageProxy;
@@ -66,9 +68,10 @@ public:
     void didRunInsecureContentForFrame(WebPageProxy*, WebFrameProxy*, APIObject*);
     void didDetectXSSForFrame(WebPageProxy*, WebFrameProxy*, APIObject*);
 
-    // FIXME: didFirstVisuallyNonEmptyLayoutForFrame and didNewFirstVisuallyNonEmptyLayout should be merged.
-    // The only reason for both to exist is to experiment with different heuristics for the time being.
+    // FIXME: didNewFirstVisuallyNonEmptyLayout should be removed. We should consider removing didFirstVisuallyNonEmptyLayoutForFrame
+    // as well. They are both being replaced by didLayout.
     void didNewFirstVisuallyNonEmptyLayout(WebPageProxy*, APIObject*);
+    void didLayout(WebPageProxy*, WebCore::LayoutMilestones, APIObject*);
     
     bool canAuthenticateAgainstProtectionSpaceInFrame(WebPageProxy*, WebFrameProxy*, WebProtectionSpace*);
     void didReceiveAuthenticationChallengeInFrame(WebPageProxy*, WebFrameProxy*, AuthenticationChallengeProxy*);
@@ -83,14 +86,13 @@ public:
     void processDidBecomeResponsive(WebPageProxy*);
     void processDidCrash(WebPageProxy*);
 
-    void didChangeBackForwardList(WebPageProxy*, WebBackForwardListItem* addedItem, Vector<RefPtr<APIObject> >* removedItems);
+    void didChangeBackForwardList(WebPageProxy*, WebBackForwardListItem* addedItem, Vector<RefPtr<APIObject>>* removedItems);
     bool shouldGoToBackForwardListItem(WebPageProxy*, WebBackForwardListItem*);
     void willGoToBackForwardListItem(WebPageProxy*, WebBackForwardListItem*, APIObject*);
 
-    PluginModuleLoadPolicy pluginLoadPolicy(WebPageProxy*, const String& pluginBundleIdentifier, const String& pluginBundleVersion, const String& displayName, const String& frameURLString, const String& pageURLString, PluginModuleLoadPolicy currentPluginLoadPolicy);
-    void didFailToInitializePlugin(WebPageProxy*, const String& mimeType, const String& frameURLString, const String& pageURLString);
-    void didBlockInsecurePluginVersion(WebPageProxy*, const String& mimeType, const String& pluginBundleIdentifier, const String& pluginBundleVersion, const String& frameURLString, const String& pageURLString);
-
+    PluginModuleLoadPolicy pluginLoadPolicy(WebPageProxy*, PluginModuleLoadPolicy currentPluginLoadPolicy, ImmutableDictionary*, String& unavailabilityDescriptionOutParameter);
+    void didFailToInitializePlugin(WebPageProxy*, ImmutableDictionary*);
+    void didBlockInsecurePluginVersion(WebPageProxy*, ImmutableDictionary*);
 };
 
 } // namespace WebKit

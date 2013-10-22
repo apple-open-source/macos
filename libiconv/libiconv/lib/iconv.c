@@ -160,9 +160,6 @@ static const struct alias sysdep_aliases[] = {
 #include "aliases2.h"
 #undef S
 };
-#ifdef __GNUC__
-__inline
-#endif
 const struct alias *
 aliases2_lookup (register const char *str)
 {
@@ -256,7 +253,7 @@ iconv_t iconv_open (const char* tocode, const char* fromcode)
         goto invalid;
       continue;
     }
-    ap = aliases_lookup(buf,bp-buf);
+    ap = aliases_lookup(buf,(unsigned int)(bp-buf));
     if (ap == NULL) {
       ap = aliases2_lookup(buf);
       if (ap == NULL)
@@ -330,7 +327,7 @@ iconv_t iconv_open (const char* tocode, const char* fromcode)
         goto invalid;
       continue;
     }
-    ap = aliases_lookup(buf,bp-buf);
+    ap = aliases_lookup(buf,(unsigned int)(bp-buf));
     if (ap == NULL) {
       ap = aliases2_lookup(buf);
       if (ap == NULL)
@@ -535,20 +532,20 @@ void iconvlist (int (*do_one) (unsigned int namescount,
                                void* data),
                 void* data)
 {
-#define aliascount1  sizeof(aliases)/sizeof(aliases[0])
+#define aliascount1  (unsigned int)(sizeof(aliases)/sizeof(aliases[0]))
 #ifndef aliases2_lookup
-#define aliascount2  sizeof(sysdep_aliases)/sizeof(sysdep_aliases[0])
+#define aliascount2  (unsigned int)(sizeof(sysdep_aliases)/sizeof(sysdep_aliases[0]))
 #else
 #define aliascount2  0
 #endif
 #define aliascount  (aliascount1+aliascount2)
   struct nalias aliasbuf[aliascount];
   const char * namesbuf[aliascount];
-  size_t num_aliases;
+  unsigned int num_aliases;
   {
     /* Put all existing aliases into a buffer. */
-    size_t i;
-    size_t j;
+    unsigned int i;
+    unsigned int j;
     j = 0;
     for (i = 0; i < aliascount1; i++) {
       const struct alias * p = &aliases[i];
@@ -574,11 +571,11 @@ void iconvlist (int (*do_one) (unsigned int namescount,
     qsort(aliasbuf, num_aliases, sizeof(struct nalias), compare_by_index);
   {
     /* Process all aliases with the same encoding_index together. */
-    size_t j;
+    unsigned int j;
     j = 0;
     while (j < num_aliases) {
       unsigned int ei = aliasbuf[j].encoding_index;
-      size_t i = 0;
+      unsigned int i = 0;
       do
         namesbuf[i++] = aliasbuf[j++].name;
       while (j < num_aliases && aliasbuf[j].encoding_index == ei);
@@ -667,7 +664,7 @@ const char * iconv_canonicalize (const char * name)
       continue;
     }
     pool = stringpool;
-    ap = aliases_lookup(buf,bp-buf);
+    ap = aliases_lookup(buf,(unsigned int)(bp-buf));
     if (ap == NULL) {
       pool = stringpool2;
       ap = aliases2_lookup(buf);

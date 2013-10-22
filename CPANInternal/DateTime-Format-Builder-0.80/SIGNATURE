@@ -1,0 +1,75 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.55.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 8d50878004d8d5103e1f44dc3df2899419d3a59d AUTHORS
+SHA1 7a95fc8778fbce1f60d222e0d0d1dbb6c649461f Artistic
+SHA1 2910620471b059a7bf053b728e8744be188783bb Build.PL
+SHA1 531e6b5c470d4726483fd68833391653eace0a92 COPYING
+SHA1 00b8084495b5b9cdc4bcbb7dd90b912b052453ee CREDITS
+SHA1 2003e93c2f992bb5c6dcbd0b94bb6a07f10c1715 Changes
+SHA1 a4f818254f51015b8d7606b73db0ad92f8641463 LICENCE
+SHA1 d80e1f90d07ceff740585c0660a4f8484afebd6d MANIFEST
+SHA1 04446ba5098b061735153a3de8eb926e69cc5790 META.yml
+SHA1 18a09a6490896476ea37ff5bd5ffce71a3e4ac14 Makefile.PL
+SHA1 db968475e7bcf39182105f8e8981eaf536c53236 README
+SHA1 f35ac145f4a1379286bf4cebb9f2b268d55e10a4 examples/Apache.pm
+SHA1 0bc31aa3397f1078efb83a6eff3ca4b3396a8921 examples/Fall.pm
+SHA1 dae51da84aeab9d3dcc634a820374ccd9070b4ee examples/ICal.pm
+SHA1 1a9e35a549ac6b6a854314fc0424badb6c09833d examples/MySQL.pm
+SHA1 d882c0f4639ed4721524afbd1ac4a5bedb471d9c examples/Simple.pm
+SHA1 bdadcfd2bdbac90edbda48322fea700204dbeb05 examples/Tivoli.pm
+SHA1 319195d800e24f7db0fcb73765c5ffd8abf020cf examples/W3CDTF.pm
+SHA1 3154a8ad0d0b4cf13ce7b6e4252f4a9c4c059f64 lib/DateTime/Format/Builder.pm
+SHA1 6b9d88d681693cb8ae7fa40a3750980770f34901 lib/DateTime/Format/Builder.pod
+SHA1 fa481193752c51ca72e1d14bcc6d9b0a98b5dfea lib/DateTime/Format/Builder/Parser.pm
+SHA1 d5c9f085e6f4915f7b1147cad0dbe60c9f634d44 lib/DateTime/Format/Builder/Parser/Dispatch.pm
+SHA1 cb0bf72d2c17d66d22f97d9d0468a6164f12c12a lib/DateTime/Format/Builder/Parser/Quick.pm
+SHA1 d58def0d461fe63867b5510d5d73f67fc47850d1 lib/DateTime/Format/Builder/Parser/Regex.pm
+SHA1 c1a2067834c21a50f82d762d9f522d8f9e9e1d1a lib/DateTime/Format/Builder/Parser/Strptime.pm
+SHA1 7041bcfc78170703eeac7a6405de36c3636fc9dc lib/DateTime/Format/Builder/Parser/generic.pm
+SHA1 43f562e08aa543ac1a5702e6186fa56ebf34fc70 lib/DateTime/Format/Builder/Tutorial.pod
+SHA1 c41574ca2c239b0c8dd9426018ee41eabb06e437 t/99pod.t
+SHA1 179f03a01f53faa574584afc2ee9c263424fe041 t/altcon.t
+SHA1 f9a9bf8bbada56087b535ea2d0c44584fbdcdb9d t/basic.t
+SHA1 0cbb07adeb32c5cc0a5a528d523430fb8b03d68b t/clone.t
+SHA1 114af3a1767f1a6adf71703cd558282418049f53 t/create.t
+SHA1 980e09f84c030dd2c2956f3654a57a0759b2b2d9 t/dispatch.t
+SHA1 e1d7953fa86b91b1f2a08c0e8c99341e5c54fb69 t/extra.t
+SHA1 231341afe32400b6cc453972ff7d67c1a49c35a8 t/fall.t
+SHA1 3f9f9b7043dc1b56788d0acf31518ae32873cbda t/import.t
+SHA1 e59d2c7cd07f6042f87af60f449b5bcf7fc8015d t/lengths.t
+SHA1 430b341a1e1a925c286ef5af0c8fba5c1b3b2a01 t/memory-cycle.t
+SHA1 37ae72fe4d5407a562b8d952cd64656e048e65bc t/mergecb.t
+SHA1 17384d87c51d43fd2219bd2296122ad2db3f3248 t/newclass.t
+SHA1 30686179c27cd835e4c16a698ba38ea338146d6b t/nocon.t
+SHA1 73b4b724eb727fc6410e72b6c503843a616f715b t/noredef.t
+SHA1 e92c721f792ecb48a8ba8dad59a0c16ce31ac6ed t/on_fail.t
+SHA1 3af73170659947230c17a19ea506cb7fb85cbf86 t/on_fail_regex.t
+SHA1 e28aa68db2389bdd151cbbdc478868de79e50a82 t/on_fail_sub.t
+SHA1 37b3dd2d570734a055adef8c7df88da5bf9ca65b t/param.t
+SHA1 09f4c1b7285d5a1390bdbc5e78fa38e619ff7b50 t/quick.t
+SHA1 e6be6bb9136cb5fb61793b55b6daab1ce4ccb9cc t/self.t
+SHA1 b661aa85eeceb33e131757933db4a3e2ff6460bb t/strptime.t
+SHA1 0c497ecebe1a9537907aafd08b53aaa513e0e982 t/taint.t
+SHA1 5154fc12d4d4d1a04da77487e9240006b771f9e2 t/verbose.t
+SHA1 0c6b584737908bf669cb76f1c6ab69e43070e891 t/wholeclass.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEUEARECAAYFAkudBsYACgkQIgMCsV8qvRIw7gCdETdHmTe2gw3ZjanRHQRm/y+2
+ZZQAmN6t7n7WWugUGmDkm7MaCku2fTU=
+=1VGx
+-----END PGP SIGNATURE-----

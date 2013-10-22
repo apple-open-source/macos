@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002,2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002,2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,26 +35,8 @@
 extern "C" {
 #endif
 
-/* 
- * RFC 2560 says we should be able to perform OCSP transaction with an HTTP GET,
- * but the real world - e.g., Verisign - doesn't work that way. All transactions
- * are done with POSTs.
- */
-#define ENABLE_OCSP_VIA_GET		0
-
-#if		ENABLE_OCSP_VIA_GET
-
-/* fetch via HTTP GET */
-CSSM_RETURN ocspdHttpGet(
-	SecAsn1CoderRef		coder, 
-	const CSSM_DATA 	&url,
-	const CSSM_DATA		&ocspReq,	// DER encoded
-	CSSM_DATA			&fetched);	// mallocd in coder space and RETURNED
-
-#endif	/* ENABLE_OCSP_VIA_GET */
-
-/* fetch via HTTP POST */
-CSSM_RETURN ocspdHttpPost(
+/* fetch via HTTP using GET (preferred) or POST (if required) */
+CSSM_RETURN ocspdHttpFetch(
 	SecAsn1CoderRef		coder, 
 	const CSSM_DATA 	&url,
 	const CSSM_DATA		&ocspReq,	// DER encoded

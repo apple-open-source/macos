@@ -20,6 +20,10 @@
  */
 
 /*
+ * Portions copyright (c) 2011, Joyent, Inc. All rights reserved.
+ */
+
+/*
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
@@ -83,6 +87,7 @@
  * on the overall DTrace probe effect before they are undertaken.
  */
 
+#include <sys/dtrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -1472,24 +1477,24 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 
 			if (obaseval != baseval) {
 				dnerror(dnp, D_LQUANT_MATCHBASE, "lquantize( ) "
-				    "base (argument #1) doesn't match previous "
-				    "declaration: expected %d, found %d\n",
-				    obaseval, (int)baseval);
+						"base (argument #1) doesn't match previous "
+						"declaration: expected %d, found %d\n",
+						obaseval, (int)baseval);
 			}
 
 			if (onlevels * ostep != nlevels * step) {
 				dnerror(dnp, D_LQUANT_MATCHLIM, "lquantize( ) "
-				    "limit (argument #2) doesn't match previous"
-				    " declaration: expected %d, found %d\n",
-				    obaseval + onlevels * ostep,
-				    (int)baseval + (int)nlevels * (int)step);
+						"limit (argument #2) doesn't match previous"
+						" declaration: expected %d, found %d\n",
+						obaseval + onlevels * ostep,
+						(int)baseval + (int)nlevels * (int)step);
 			}
 
 			if (ostep != step) {
 				dnerror(dnp, D_LQUANT_MATCHSTEP, "lquantize( ) "
-				    "step (argument #3) doesn't match previous "
-				    "declaration: expected %d, found %d\n",
-				    ostep, (int)step);
+						"step (argument #3) doesn't match previous "
+						"declaration: expected %d, found %d\n",
+						ostep, (int)step);
 			}
 
 			/*
@@ -1502,6 +1507,139 @@ dt_compile_agg(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 
 		incr = arg3 != NULL ? arg3->dn_list : NULL;
 		argmax = 5;
+	}
+
+	if (fid->di_id == DTRACEAGG_LLQUANTIZE) {
+		dt_node_t *llarg = dnp->dn_aggfun->dn_args->dn_list;
+		uint64_t oarg, order, v;
+		uint16_t factor, low, high, nsteps;
+		dt_idsig_t* isp;
+		int i;
+
+		struct {
+			char* str;              /* string identifier */
+			int badtype;            /* error on bad type */
+			int badval;             /* error on vad value */
+			int mismatch;           /* error on bad match */
+			int shift;              /* shift value */
+			uint16_t value;         /* value itself */
+		} args[] = {
+			{ "factor", D_LLQUANT_FACTORTYPE, D_LLQUANT_FACTORVAL, D_LLQUANT_FACTORMATCH, DTRACE_LLQUANTIZE_FACTORSHIFT },
+			{ "low magnitude", D_LLQUANT_LOWTYPE, D_LLQUANT_LOWVAL, D_LLQUANT_LOWMATCH, DTRACE_LLQUANTIZE_LOWSHIFT },
+			{ "high magnitude", D_LLQUANT_HIGHTYPE, D_LLQUANT_HIGHVAL, D_LLQUANT_HIGHMATCH, DTRACE_LLQUANTIZE_HIGHSHIFT },
+			{ "linear steps per magnitude", D_LLQUANT_NSTEPTYPE, D_LLQUANT_NSTEPVAL, D_LLQUANT_NSTEPMATCH, DTRACE_LLQUANTIZE_NSTEPSHIFT},
+			{ NULL }
+		};
+
+		/*
+		 * We will check each arguments of llquantize.
+		 * First the node type, then its value.
+		 */
+		for (i = 0; args[i].str != NULL; ++i) {
+			if (llarg->dn_kind != DT_NODE_INT) {
+				dnerror(llarg, args[i].badtype, "llquantize( ) "
+						"argument #%d (%s) must be an "
+						"integer constant\n", i + 1, args[i].str);
+			}
+
+			if ((uint64_t) llarg->dn_value > UINT16_MAX) {
+				dnerror(llarg, args[i].badval, "llquantize( ) "
+						"argument #%d (%s) must be an unsigned "
+						"16-bit quantity\n", i + 1, args[i].str);
+			}
+
+			/* OK, we can retrieve the value of the node. */
+			args[i].value = (int16_t) llarg->dn_value;
+
+			/* Next arg. */
+			llarg = llarg->dn_list;
+		}
+
+		factor = args[0].value;
+		low    = args[1].value;
+		high   = args[2].value;
+		nsteps = args[3].value;
+
+		if (factor < 2) {
+			dnerror(dnp, D_LLQUANT_FACTORSMALL, "llquantize( ) "
+					"factor (argument #1) must be two or more\n");
+		}
+
+		if (low >= high) {
+			dnerror(dnp, D_LLQUANT_MAGRANGE, "llquantize( ) "
+					"high magnitude (argument #3) must be greater "
+					"than low magnitude (argument #2)\n");
+		}
+
+		if (nsteps < factor) {
+			dnerror(dnp, D_LLQUANT_FACTORNSTEPS, "llquantize( ) "
+					"factor (argument #1) must be less than or "
+					"equal to the number of linear steps per "
+					"magnitude (argument #4)\n");
+		}
+
+		for (v = factor; v < nsteps; v *= factor)
+			continue;
+
+		if ((nsteps % factor) || (v % nsteps)) {
+			dnerror(dnp, D_LLQUANT_FACTOREVEN, "llquantize( ) "
+					"factor (argument #1) must evenly divide the "
+					"number of steps per magnitude (argument #4), "
+					"and the number of steps per magnitude must evenly "
+					"divide a power of the factor\n");
+		}
+
+		for (i = 0, order = 1; i < high; ++i) {
+			if (order * factor > order) {
+				order *= factor;
+				continue;
+			}
+
+			dnerror(dnp, D_LLQUANT_MAGTOOBIG, "llquantize( ) "
+					"factor (%d) raised to power of high magnitude "
+					"(%d) overflows 64-bits\n", factor, high);
+		}
+
+		/* Pack the arguments inside arg. */
+		arg = ((int64_t) nsteps << DTRACE_LLQUANTIZE_NSTEPSHIFT)
+				| ((int64_t) high   << DTRACE_LLQUANTIZE_HIGHSHIFT)
+				| ((int64_t) low    << DTRACE_LLQUANTIZE_LOWSHIFT)
+				| ((int64_t) factor << DTRACE_LLQUANTIZE_FACTORSHIFT);
+		assert(arg != 0);
+
+		isp = (dt_idsig_t*) aid->di_data;
+
+		if (isp->dis_auxinfo == 0) {
+			/*
+			 * This is the first time we've seen an llquantize()
+			 * for this aggregation; we'll store our argument
+			 * as the auxiliary signature information.
+			 */
+			isp->dis_auxinfo = arg;
+		} else if ((oarg = isp->dis_auxinfo) != arg) {
+			/*
+			 * If we have seen this llquantize() before and the
+			 * argument doesn't match the original argument, pick
+			 * the original argument apart to concisely report the
+			 * mismatch.
+			 */
+			int expected = 0;
+			int found = 0;
+
+			for (i = 0; expected == found; ++i) {
+				assert(args[i].str != NULL);
+				expected = (oarg >> args[i].shift) & UINT16_MAX;
+				found = (arg >> args[i].shift) & UINT16_MAX;
+			}
+
+			dnerror(dnp, args[i-1].mismatch, "llquantize( ) "
+					"%s (argument #%d) does not match previous "
+					"declaration: expected %d, found %d",
+					args[i-1].str, i, expected, found);
+		}
+
+		incr = llarg;
+		argmax = 6;
 	}
 
 	if (fid->di_id == DTRACEAGG_QUANTIZE) {
@@ -1799,27 +1937,26 @@ FILE *
 dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 {
 	int argc = dtp->dt_cpp_argc;
-#if !defined(__APPLE__)
-	char **argv = malloc(sizeof (char *) * (argc + 5));
-#else
 	// We use gcc -E and thus need to pass -o as well
 	// We do not define __STDC__, gcc does that for us, so one less arg
 	char **argv = malloc(sizeof (char *) * (argc + 5));
-#endif
+	FILE *tfp = tmpfile();
 	FILE *ofp = tmpfile();
 
 	char ipath[20], opath[20]; /* big enough for /dev/fd/ + INT_MAX + \0 */
 	char verdef[32]; /* big enough for -D__SUNW_D_VERSION=0x%08x + \0 */
+	char* cpyln;
 
 	struct sigaction act, oact;
 	sigset_t mask, omask;
 
 	int wstat, estat;
 	pid_t pid;
+	size_t len;
 	off64_t off;
 	int c;
 
-	if (argv == NULL || ofp == NULL) {
+	if (argv == NULL || ofp == NULL || tfp == NULL) {
 		(void) dt_set_errno(dtp, errno);
 		goto err;
 	}
@@ -1841,17 +1978,26 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 		}
 		(void) fflush(ifp);
 		(void) fseeko64(ifp, off, SEEK_SET);
-#if defined(__APPLE__)
-     /* Intermixing libc calls (fread/fwrite/fseek) and BSD calls
-      * (read/write/lseek) is bad. Over here we need to call lseek because the
-      * cpp child process will use read/write and get incorrect data because
-      * fseeko did not call lseek.
-      */ 
-		(void) lseek64(fileno(ifp), off, SEEK_SET);
-#endif
 	}
 
-	(void) snprintf(ipath, sizeof (ipath), "/dev/fd/%d", fileno(ifp));
+	/*
+	 * cpp seems to dup the file descriptor and thus
+	 * we can't provide it with a seek pointer. To workaround
+	 * it, we copy the file without the shebang.
+	 */
+	while ((cpyln = fgetln(ifp, &len)) != NULL) {
+		if (fwrite(cpyln, sizeof(char), len, tfp) != len) {
+			(void) dt_set_errno(dtp, errno);
+			goto err;
+		}
+	}
+
+	(void) fflush(tfp);
+	(void) clearerr(tfp);
+	(void) fseeko64(tfp, 0, SEEK_SET);
+	(void) fseeko64(ifp, off, SEEK_SET);
+
+	(void) snprintf(ipath, sizeof (ipath), "/dev/fd/%d", fileno(tfp));
 	(void) snprintf(opath, sizeof (opath), "/dev/fd/%d", fileno(ofp));
 
 	bcopy(dtp->dt_cpp_argv, argv, sizeof (char *) * argc);
@@ -1938,12 +2084,14 @@ dt_preproc(dtrace_hdl_t *dtp, FILE *ifp)
 	}
 
 	free(argv);
+	(void) fclose(tfp);
 	(void) fflush(ofp);
 	(void) fseek(ofp, 0, SEEK_SET);
 	return (ofp);
 
 err:
 	free(argv);
+	(void) fclose(tfp);
 	(void) fclose(ofp);
 	return (NULL);
 }

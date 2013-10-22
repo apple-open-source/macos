@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2007, International Business Machines Corporation, Apple Inc.,*
+ * Copyright (C) 2007,2012 International Business Machines Corporation, Apple Inc.,*
  * and others.  All Rights Reserved.                                           *
  *******************************************************************************
  */
@@ -12,7 +12,6 @@
 
 #include "brkeng.h"
 #include "dictbe.h"
-#include "triedict.h"
 #include "aaplbfct.h"
 #include "unicode/uscript.h"
 #include "unicode/uniset.h"
@@ -49,6 +48,8 @@ AppleLanguageBreakFactory::~AppleLanguageBreakFactory() {
 }
 
 #if !TARGET_OS_EMBEDDED
+#if 0
+// need to update loadDictionaryMatcherFor implementation below
 
 // Helper function that makes a length-delimited buffer look NUL-terminated
 static __attribute__((always_inline)) inline UChar nextUChar(const UChar *&p, ptrdiff_t &l) {
@@ -182,13 +183,25 @@ static void addDictFile(MutableTrieDictionary *to, const char *path) {
 #endif
 
 #endif
+#endif
 
-const CompactTrieDictionary *
-AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakType) {
-	const CompactTrieDictionary *icuDict = ICULanguageBreakFactory::loadDictionaryFor(script, breakType);
+/*
+In ICU50,
+ICULanguageBreakFactory changes from 
+  virtual const CompactTrieDictionary *loadDictionaryFor(UScriptCode script, int32_t breakType);
+to
+  virtual DictionaryMatcher *loadDictionaryMatcherFor(UScriptCode script, int32_t breakType);
+and CompactTrieDictionary no longer exists. Need to work out  new implementation below.
+*/
+
+DictionaryMatcher *
+AppleLanguageBreakFactory::loadDictionaryMatcherFor(UScriptCode script, int32_t breakType) {
+	DictionaryMatcher *icuDictMatcher = ICULanguageBreakFactory::loadDictionaryMatcherFor(script, breakType);
 #if !TARGET_OS_EMBEDDED
+#if 0
+// need to update loadDictionaryMatcherFor implementation below
 	// We only look for a user dictionary if there is actually an ICU dictionary
-	if (icuDict != NULL) {
+	if (icuDictMatcher != NULL) {
 		UErrorCode status = U_ZERO_ERROR;
 		const char *scriptName = uscript_getName(script);
 		char path[256];			// PATH_MAX is overkill in this case
@@ -218,7 +231,7 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 		// TODO: Delete the cache?
 		if (dirGlob.gl_pathc == 0) {
 			globfree(&dirGlob);
-			return icuDict;
+			return icuDictMatcher;
 		}
 		
 		// See if there is a cache file already; get its mod time
@@ -259,7 +272,7 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 		// TODO: Delete the cache?
 		if (fileGlob.gl_pathc == 0) {
 			globfree(&fileGlob);
-			return icuDict;
+			return icuDictMatcher;
 		}
 		
 		// Now compare the last modified stamp for the cache against all the dictionaries
@@ -274,7 +287,7 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 		// Do we need to build the dictionary cache?
 		if (!cacheGood) {
 			// Create a mutable dictionary from the ICU dictionary
-			MutableTrieDictionary *sum = icuDict->cloneMutable(status);
+			MutableTrieDictionary *sum = icuDictMatcher->cloneMutable(status);
 			pathsp = fileGlob.gl_pathv;
 			while (U_SUCCESS(status) && (dictpath = *pathsp++)) {
 				// Add the contents of a file to the sum
@@ -360,7 +373,7 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 		
 		// If we were successful, free the ICU dictionary and return ours
 		if (U_SUCCESS(status)) {
-			delete icuDict;
+			delete icuDictMatcher;
 			return cacheDict;
 		}
 		else {
@@ -368,7 +381,8 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 		}
 	}
 #endif
-	return icuDict;
+#endif
+	return icuDictMatcher;
 }
 
 U_NAMESPACE_END

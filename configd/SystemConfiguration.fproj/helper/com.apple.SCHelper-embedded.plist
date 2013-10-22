@@ -11,5 +11,7 @@
 		<key>com.apple.SystemConfiguration.helper</key>
 		<true/>
 	</dict>
+	<key>POSIXSpawnType</key>
+	<string>Adaptive</string>
 </dict>
 </plist>

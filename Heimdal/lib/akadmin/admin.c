@@ -41,6 +41,12 @@
 #include <OpenDirectory/OpenDirectoryPriv.h>
 #endif
 
+#include <Security/Security.h>
+#include <CommonCrypto/CommonDigest.h>
+#include <Heimdal/krb5.h>
+#include <hdb.h>
+
+
 #include <roken.h>
 #include <getarg.h>
 #include <sl.h>
@@ -563,7 +569,16 @@ dump(void *opt, int argc, char **argv)
     if (xmldata == NULL)
 	goto out;
 
-    CFURLWriteDataAndPropertiesToResource(url, xmldata, NULL, NULL);
+    CFWriteStreamRef stream = CFWriteStreamCreateWithFile(NULL, url);
+    if (stream == NULL)
+	goto out;
+
+    if (!CFWriteStreamOpen(stream))
+	goto out;
+
+    CFWriteStreamWrite(stream, CFDataGetBytePtr(xmldata), CFDataGetLength(xmldata));
+    CFWriteStreamClose(stream);
+    CFRelease(stream);
 
     ret = 0;
 
@@ -742,6 +757,442 @@ keyset(struct keyset_options *opt, int argc, char **argv)
     CFRelease(keys);
     
     return 0;
+}
+
+static void
+set_if_lkdc_or_empty(CFStringRef key, CFStringRef value, CFStringRef prop)
+{
+    CFStringRef orig = CFPreferencesCopyValue(key, prop, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+
+    if (orig == NULL ||
+	(CFGetTypeID(orig) == CFStringGetTypeID() && CFStringFindWithOptions(orig, CFSTR("@LKDC:SHA"), CFRangeMake(0, CFStringGetLength(orig)), 0, NULL)))
+	CFPreferencesSetValue(key, value, prop,  kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+
+    if (orig)
+	CFRelease(orig);
+}
+
+static void
+create_random_server_principal(krb5_context context,
+			       const char *record_name,
+			       CFStringRef realm,
+			       int krbtgt,
+			       int verbose,
+			       int add_to_keytab)
+{
+    ODRecordRef record = NULL;
+    CFMutableArrayRef flags;
+    char *realmstr = NULL;
+    CFDictionaryRef dump = NULL;
+
+    if (verbose) printf("creating %s\n", record_name);
+
+    record = find_record(record_name);
+    if (record == NULL) {
+	warnx("failed to create node %s", record_name);
+	goto out;
+    }
+
+    if (HeimODCreatePrincipalData(node, record, NULL, NULL, NULL)) {
+	warnx("HeimODCreatePrincipalData failed for %s", record_name);
+	goto out;
+    }
+
+    if (verbose)  printf("\tsetting flags\n");
+
+    flags = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (flags == NULL) {
+	warnx("out of memory");
+	goto out;
+    }
+#if 0
+    if (krbtgt)
+	CFArrayAppendValue(flags, kPrincipalFlagInitial);
+#endif
+    CFArrayAppendValue(flags, kPrincipalFlagForwardable);
+    CFArrayAppendValue(flags, kPrincipalFlagProxyable);
+    CFArrayAppendValue(flags, kPrincipalFlagRenewable);
+    CFArrayAppendValue(flags, kPrincipalFlagServer);
+
+    HeimODSetKerberosFlags(node, record, flags, NULL);
+    CFRelease(flags);
+	    
+    if (verbose)  printf("\tsetting (random) keys\n");
+    HeimODSetKeys(node, record, NULL, NULL, NULL, 0, NULL);
+    if (verbose) printf("\tmaking entry valid\n");
+    HeimODClearKerberosFlags(node, record, kPrincipalFlagInvalid, NULL);
+
+    if (!ODRecordSynchronize(record, NULL))
+	warnx("failed to save %s", record_name);
+    else if (verbose)
+	printf("\tsaved!\n");
+
+    if (add_to_keytab) {
+	char *users[] = { "afpserver", "cifs", "vnc", "host" };
+	krb5_principal principals[sizeof(users)/sizeof(users[0])] = { 0 };
+	krb5_keytab_entry entry;
+	krb5_error_code ret;
+	krb5_keytab keytab;
+	size_t n, m, o, count;
+	CFErrorRef error = NULL;
+
+	memset(&entry, 0, sizeof(entry));
+
+	
+	realmstr = rk_cfstring2cstring(realm);
+	if (realmstr == NULL)
+	    errx(1, "failed gettng realm");
+
+
+	for (n = 0; n < sizeof(users)/sizeof(users[0]); n++)
+	    krb5_make_principal(context, &principals[n], realmstr, users[n], realmstr, NULL);
+
+	if (verbose)
+	    printf("\tstoring entry to keytab!\n");
+
+	ret = krb5_kt_default (context, &keytab);
+	if (ret) {
+	    krb5_warn(context, ret, "krb5_kt_default");
+	    goto out;
+	}
+
+	dump = HeimODDumpRecord(node, record, NULL, &error);
+	if (dump == NULL) {
+	    warnx("failed dump record %s", record_name);
+	    if (error)
+		CFRelease(error);
+	    goto out;
+	}
+
+	CFArrayRef keys = CFDictionaryGetValue(dump, CFSTR("KerberosKeys"));
+	if (keys == NULL) {
+	    warnx("failed to get keys for record %s", record_name);
+	    goto out;
+	}
+
+	entry.timestamp = (uint32_t)time(NULL);
+	entry.flags = 0;
+
+	count = CFArrayGetCount(keys);
+	for (m = 0; m < count; m++) {
+	    hdb_keyset_aapl keyset;
+	    
+	    CFDataRef d = CFArrayGetValueAtIndex(keys, m);
+	    
+	    ret = decode_hdb_keyset_aapl(CFDataGetBytePtr(d), CFDataGetLength(d), &keyset, NULL);
+	    if (ret)
+		errx(1, "failed to decode kerberos key");
+
+	    if (keyset.principal) {
+		free_hdb_keyset_aapl(&keyset);
+		continue;
+	    }
+
+	    entry.vno = keyset.kvno;
+
+	    for (o = 0; o < keyset.keys.len; o++) {
+		/* skip keys encrypted with a master key */
+		if (keyset.keys.val[o].mkvno)
+		    continue;
+		    
+		entry.keyblock = keyset.keys.val[o].key;
+
+		if (verbose)
+		    printf("\t\tentries for vno %d - enctype: %d\n", 
+			   entry.vno, entry.keyblock.keytype);
+
+		for (n = 0; n < sizeof(principals)/sizeof(principals[0]); n++) {
+		    entry.principal = principals[n];
+		    ret = krb5_kt_add_entry(context, keytab, &entry);
+		    if (ret)
+			krb5_warn(context, ret, "failed to store keytab entry");
+		}
+	    }
+
+	    free_hdb_keyset_aapl(&keyset);
+
+	}
+
+
+	ret = krb5_kt_close(context, keytab);
+	if (ret) {
+	    krb5_warn(context, ret, "krb5_kt_close");
+	    goto out;
+	}
+	
+	for (n = 0; n < sizeof(users)/sizeof(users[0]); n++)
+	    krb5_free_principal(context, principals[n]);
+
+	if (verbose) printf("\tsetting up afp/smb configuration\n");
+
+	CFStringRef afpconf = CFStringCreateWithFormat(NULL, NULL, CFSTR("afpserver/%@@%@"), realm, realm);
+
+	set_if_lkdc_or_empty(CFSTR("kerberosPrincipal"), afpconf,
+			     CFSTR("/Library/Preferences/com.apple.AppleFileServer"));
+	CFRelease(afpconf);	
+
+	set_if_lkdc_or_empty(CFSTR("LocalKerberosRealm"), realm,
+			     CFSTR("/Library/Preferences/SystemConfiguration/com.apple.smb.server"));
+    }
+    if (verbose)
+	printf("\tdone %s\n", record_name);
+
+
+ out:
+    if (dump)
+	CFRelease(dump);
+    if (realmstr)
+	free(realmstr);
+    if (record)
+	CFRelease(record);
+}
+
+static char *
+sha1_hash(const void *data, size_t len)
+{
+    char *outstr, *cpOut;
+    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+    unsigned i;
+    
+    CC_SHA1(data, (CC_LONG)len, digest);
+    cpOut = outstr = (char *)malloc((2 * CC_SHA1_DIGEST_LENGTH) + 1);
+    if (outstr == NULL)
+        return NULL;
+    for(i = 0; i < sizeof(digest); i++, cpOut += 2)
+        sprintf(cpOut, "%02X", (unsigned)digest[i]);
+    *cpOut = '\0';
+    return outstr;
+}
+
+static CFStringRef
+realmOfIdentity(SecIdentityRef identity)
+{
+    SecCertificateRef cert;
+    CFStringRef realm;
+    char *cert_hash;
+    CFDataRef data;
+
+    if (SecIdentityCopyCertificate(identity, &cert) != noErr)
+	errx(1, "failed to turn identity into certificate");
+
+    data = SecCertificateCopyData(cert);
+    CFRelease(cert);
+    if (data == NULL)
+        errx(1, "SecCertificateCopyData");
+        
+    cert_hash = sha1_hash(CFDataGetBytePtr(data), CFDataGetLength(data));
+    CFRelease(data);
+    if (cert_hash == NULL)
+        errx(1, "error obtaining cert hash");
+
+    realm = CFStringCreateWithFormat(NULL, NULL, CFSTR("LKDC:SHA1.%s"), cert_hash);
+    free(cert_hash);
+
+    return realm;
+}
+
+static CFStringRef kRealName = CFSTR("dsAttrTypeStandard:RealName");
+static CFStringRef kKerberosKDC = CFSTR("KerberosKDC");
+
+static int
+verifyRecord(ODRecordRef kdcConf, CFStringRef realm)
+{
+    CFArrayRef data = NULL;
+    CFStringRef storedRealm = NULL;
+	
+    data = ODRecordCopyValues(kdcConf, kRealName, NULL);
+    if (data == NULL)
+	return 0;
+    
+    if (CFArrayGetCount(data) != 1) {
+	CFRelease(data);
+	return 0;
+    }
+    storedRealm = (CFStringRef)CFArrayGetValueAtIndex(data, 0);
+    if (storedRealm == NULL) {
+	CFRelease(data);
+	return 0;
+    }
+	
+    if (!CFEqual(storedRealm, realm)) {
+	//warnx("certificate %s not same as realm in configuraton %s", storedRealm, realm);
+	CFRelease(data);
+	return 0;
+    }
+
+    CFRelease(data);
+    return 1;
+}
+
+
+static int
+verifyKerberosKDCRecord(CFStringRef realm, int force_update, int verbose)
+{
+    ODRecordRef kdcConf = NULL;
+    int error = 1;
+    CFArrayRef array = NULL;
+
+    if (verbose) printf("try to find configuration node\n");
+
+    /* check that Configuration/KerberosKDC exists and have the right value */
+    kdcConf = ODNodeCopyRecord(node, kODRecordTypeConfiguration, kKerberosKDC, NULL, NULL);
+    if (kdcConf == NULL) {
+	CFDictionaryRef attributes = NULL;
+
+	if (verbose) printf("\tnot found, adding record\n");
+
+	array = CFArrayCreate(NULL, (const void **)&realm, 1, &kCFTypeArrayCallBacks);
+
+	attributes = CFDictionaryCreate(NULL,
+					(const void **)&kRealName,
+					(const void **)&array,
+					1,
+					&kCFTypeDictionaryKeyCallBacks,
+					&kCFTypeDictionaryValueCallBacks);
+	
+	kdcConf = ODNodeCreateRecord(node,
+				     kODRecordTypeConfiguration,
+				     kKerberosKDC,
+				     attributes,
+				     NULL);
+	if (kdcConf == NULL)
+	    errx(1, "failed to create KerberosKDC node");
+
+	if (!ODRecordSynchronize(kdcConf, NULL))
+	    warnx("ODRecordSynchronize failed");
+	else
+	    error = 0;
+
+	CFRelease(attributes);
+
+    } else if (force_update || !verifyRecord(kdcConf, realm)) {
+
+	if (verbose) printf("\tfound, but wrong/missing realm\n");
+
+	array = CFArrayCreate(NULL, (const void **)&realm, 1, &kCFTypeArrayCallBacks);
+
+	bool r = ODRecordSetValue(kdcConf, kRealName, array, NULL);
+	if (!r)
+	    errx(1, "ODRecordSetValue");
+	    
+	if (!ODRecordSynchronize(kdcConf, NULL))
+	    warnx("ODRecordSynchronize failed");
+	else
+	    error = 0;
+
+    } else {
+	if (verbose) printf("\tfound, all ok!\n");
+	error = 0;
+    }
+
+    if (array)
+	CFRelease(array);
+    if (kdcConf)
+	CFRelease(kdcConf);
+
+    return error;
+}
+
+static void
+remove_lkdc_keytab_entrys(krb5_context context)
+{
+    krb5_keytab keytab;
+    krb5_kt_cursor cursor;
+    krb5_keytab_entry entry;
+    krb5_error_code ret;
+
+    ret = krb5_kt_default (context, &keytab);
+    if (ret) {
+	krb5_warn(context, ret, "krb5_kt_default");
+	return;
+    }
+
+    ret = krb5_kt_start_seq_get(context, keytab, &cursor);
+    if (ret) {
+	krb5_warn(context, ret, "krb5_kt_start_seq_get");
+	return;
+    }
+
+    while ((ret = krb5_kt_next_entry(context, keytab, &entry, &cursor)) == 0){
+	if (krb5_principal_is_lkdc(context, entry.principal))
+	    krb5_kt_remove_entry(context, keytab, &entry);
+
+	krb5_kt_free_entry(context, &entry);
+    }
+    ret = krb5_kt_end_seq_get(context, keytab, &cursor);
+    if (ret) {
+	krb5_warn(context, 1, "krb5_kt_end_seq_get");
+	return;
+    }
+
+    ret = krb5_kt_close(context, keytab);
+    if (ret) {
+	krb5_warn(context, ret, "krb5_kt_close");
+	return;
+    }
+}
+
+
+
+int
+setup_lkdc(struct setup_lkdc_options *opt, int argc, char **argv)
+{
+    krb5_context context = NULL;
+    SecIdentityRef kdc = NULL;
+    CFStringRef realm = NULL;
+    int error = 1;
+
+    if (krb5_init_context (&context) != 0) {
+	warnx("krb5_context");
+	goto out;
+    }
+
+    /* clean out kebtab from LKDC credentials */
+    if (opt->keytab_flag) {
+	if (opt->verbose_flag)
+	    printf("removing LKDC keytab entries\n");
+	remove_lkdc_keytab_entrys(context);
+    }
+
+    /* find LKDC domain name */
+    if (opt->verbose_flag)
+	printf("checking for LKDC kdc certificate\n");
+
+    if (opt->kdc_certificate_flag || 
+	SecIdentityCopySystemIdentity(kSecIdentityDomainKerberosKDC, &kdc, NULL) != noErr) {
+	warnx("failed to find KDC certificate and we can't create one (run sudo certtool /usr/bin/certtool C com.apple.kerberos.kdc u P v x=S)");
+	goto out;
+    }
+
+    realm = realmOfIdentity(kdc);
+    if (realm == NULL) {
+	warnx("failed to get hash of certificate");
+	goto out;
+    }
+    
+    if (verifyKerberosKDCRecord(realm, opt->kdc_certificate_flag, opt->verbose_flag)) {
+	warnx("failed to verify KDC record");
+	goto out;
+    }
+
+    /* create users */
+    create_random_server_principal(context, "/Users/_krbtgt", realm, 1, opt->verbose_flag, 0);
+    create_random_server_principal(context, "/Computers/localhost", realm, 0, opt->verbose_flag, 1);
+
+    if (opt->verbose_flag)
+	printf("done\n");
+
+    error = 0;
+
+ out:
+    if (realm)
+	CFRelease(realm);
+    if (kdc)
+	CFRelease(kdc);
+
+    krb5_free_context(context);
+
+    return error;
 }
 
 int

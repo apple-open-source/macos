@@ -15,6 +15,8 @@ EXTRAS=		\
 
 EXTRA_DIST = $(TESTSPY) $(XMLS) $(EXTRAS)
 
+CLEANFILES = *.pyc core
+
 if WITH_PYTHON
 tests: $(TESTSPY)
 	-@(PYTHONPATH="`pwd`/..:`pwd`/../.libs:$(srcdir)/.."; \
@@ -25,11 +27,8 @@ else
 tests:
 endif
 
-clean:
-	rm -f *.pyc core
-
 install-data-local:
-	$(mkinstalldirs) $(DESTDIR)$(EXAMPLE_DIR)
+	$(MKDIR_P) $(DESTDIR)$(EXAMPLE_DIR)
 	-(for test in $(TESTSPY) $(XMLS) $(EXTRAS); \
-	  do @INSTALL@ -m 0644 $(srcdir)/$$test $(DESTDIR)$(EXAMPLE_DIR) ; done)
+	  do $(INSTALL) -m 0644 $(srcdir)/$$test $(DESTDIR)$(EXAMPLE_DIR) ; done)
 

@@ -21,7 +21,7 @@ blocks=$(mktemp /tmp/blocks.XXXXXX)
 files=$(mktemp /tmp/files.XXXXXX)
 sorted=$(mktemp /tmp/sorted.XXXXXX)
 
-echo -n "Getting blocks from $file..."
+echo -n "Getting blocks from $in ..."
 sudo BootCacheControl -f $in print | egrep '^([0-9A-F]){8}-' |\
        	awk '{for (i = 0;i < $3; i += 4096) {print ($2+i)/512}}' > $blocks
 echo " done."

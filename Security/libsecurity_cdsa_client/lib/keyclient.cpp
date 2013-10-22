@@ -39,7 +39,7 @@ KeyImpl::KeyImpl(const CSP &csp, const CSSM_KEY &key, bool copy) : ObjectImpl(cs
 }
 
 KeyImpl::KeyImpl(const CSP &csp, const CSSM_DATA &keyData) : ObjectImpl(csp),
-CssmKey(keyData.Length, csp->allocator().alloc<uint8>(keyData.Length)) 
+CssmKey((uint32)keyData.Length, csp->allocator().alloc<uint8>((UInt32)keyData.Length))
 {
 	memcpy(KeyData.Data, keyData.Data, keyData.Length);
 	mActive=true;
@@ -48,7 +48,7 @@ CssmKey(keyData.Length, csp->allocator().alloc<uint8>(keyData.Length))
 KeyImpl::~KeyImpl()
 try
 {
-	deactivate();
+    deactivate();
 }
 catch (...)
 {

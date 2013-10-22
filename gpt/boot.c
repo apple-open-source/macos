@@ -185,7 +185,7 @@ boot(int fd)
 		return;
 	} else {
 		entry = 0;
-		gptboot = gpt_add_part(fd, boot_uuid, 0, bsize, &entry);
+		gptboot = gpt_add_part(fd, &boot_uuid, 0, bsize, &entry);
 		if (gptboot == NULL)
 			return;
 	}

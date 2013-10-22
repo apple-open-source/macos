@@ -41,7 +41,6 @@
 #include "SecPkcs8Templates.h"
 #include "SecImportExportUtils.h"
 #include "SecImportExportCrypto.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_pkcs12/pkcs12Utils.h>
 #include <security_pkcs12/pkcs12Crypto.h>
 #include <security_asn1/SecNssCoder.h>
@@ -56,6 +55,7 @@
 #include <security_cdsa_utils/cuCdsaUtils.h>
 #include <openssl/pem.h>
 #include <assert.h>
+#include <Security/SecBase.h>
 
 #define SecPkcs8Dbg(args...)	secdebug("SecPkcs8", ## args)
 
@@ -98,7 +98,7 @@ static CSSM_RETURN pkcs5_v15_genKey(
 	
 	memset(&seed, 0, sizeof(seed));
 	if(cfPhrase != NULL) {
-		unsigned len = CFDataGetLength(cfPhrase);
+		size_t len = CFDataGetLength(cfPhrase);
 		coder.allocItem(seed.Param, len);
 		memmove(seed.Param.Data, CFDataGetBytePtr(cfPhrase), len);
 		CFRelease(cfPhrase);
@@ -224,7 +224,7 @@ static OSStatus pkcs5_DES_params(
 	}
 	unwrapParams->encrPad  = CSSM_PADDING_PKCS7;
 	unwrapParams->encrMode = CSSM_ALGMODE_CBCPadIV8;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -286,7 +286,7 @@ static OSStatus pkcs5_RC2_params(
 		SecPkcs8Dbg("PKCS8: NO RC2 DEFAULT KEYSIZE!");
 		return errSecUnknownFormat;
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -342,7 +342,7 @@ static OSStatus pkcs5_RC5_params(
 		SecPkcs8Dbg("PKCS8: NO RC5 DEFAULT KEYSIZE!");
 		return errSecUnknownFormat;
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* 
@@ -382,7 +382,7 @@ static CSSM_RETURN pbkdf2DeriveKey(
 	/* subsequent errors to errOut: */
 
 	if(cfPhrase != NULL) {
-		unsigned len = CFDataGetLength(cfPhrase);
+		size_t len = CFDataGetLength(cfPhrase);
 		coder.allocItem(pbeParams.Passphrase, len);
 		memmove(pbeParams.Passphrase.Data, 
 			CFDataGetBytePtr(cfPhrase), len);
@@ -641,7 +641,7 @@ static CSSM_RETURN pkcs12_genKey(
 		} 
 		catch(...) {
 			SecPkcs8Dbg("PKCS8: p12ImportPassPhrase threw");
-			crtn = memFullErr;
+			crtn = errSecAllocate;
 			goto errOut;
 		}
 		CFRelease(phraseStr);
@@ -837,7 +837,7 @@ OSStatus impExpPkcs8Export(
 	const CSSM_KEY					*cssmKey;
 	
 	if(keyParams == NULL) {
-		return paramErr;
+		return errSecParam;
 	}
 	assert(secKey != NULL);
 	assert(outData != NULL);

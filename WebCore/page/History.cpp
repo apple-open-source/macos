@@ -32,6 +32,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "HistoryController.h"
 #include "HistoryItem.h"
 #include "Page.h"
 #include "SecurityOrigin.h"
@@ -116,7 +117,7 @@ void History::go(ScriptExecutionContext* context, int distance)
         return;
 
     ASSERT(isMainThread());
-    Document* activeDocument = static_cast<Document*>(context);
+    Document* activeDocument = toDocument(context);
     if (!activeDocument)
         return;
 

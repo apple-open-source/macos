@@ -16,7 +16,7 @@ DIE=0
 	DIE=1
 }
 
-(libtool --version) < /dev/null > /dev/null 2>&1 || {
+(libtoolize --version) < /dev/null > /dev/null 2>&1 || {
 	echo
 	echo "You must have libtool installed to compile libxml."
 	echo "Download the appropriate package for your distribution,"
@@ -41,9 +41,23 @@ test -f entities.c || {
 	exit 1
 }
 
-if test -z "$*"; then
-	echo "I am going to run ./configure with no arguments - if you wish "
+EXTRA_ARGS=
+if test "x$1" = "x--system"; then
+    shift
+    prefix=/usr
+    libdir=$prefix/lib
+    sysconfdir=/etc
+    localstatedir=/var
+    if [ -d /usr/lib64 ]; then
+      libdir=$prefix/lib64
+    fi
+    EXTRA_ARGS="--prefix=$prefix --sysconfdir=$sysconfdir --localstatedir=$localstatedir --libdir=$libdir"
+    echo "Running ./configure with $EXTRA_ARGS $@"
+else
+    if test -z "$NOCONFIGURE" && test -z "$*"; then
+        echo "I am going to run ./configure with no arguments - if you wish "
         echo "to pass any to it, please specify them on the $0 command line."
+    fi
 fi
 
 if [ ! -d $srcdir/m4 ]; then
@@ -51,11 +65,7 @@ if [ ! -d $srcdir/m4 ]; then
 fi
 
 # Replaced by autoreconf below
-#libtoolize --copy --force
-#aclocal $ACLOCAL_FLAGS
-#automake --force-missing --add-missing --copy --foreign
-#autoconf
-autoreconf -if
+autoreconf -if -Wall
 
 cd $THEDIR
 
@@ -64,7 +74,8 @@ if test x$OBJ_DIR != x; then
     cd "$OBJ_DIR"
 fi
 
-$srcdir/configure "$@"
-
-echo 
-echo "Now type 'make' to compile libxml."
+if test -z "$NOCONFIGURE"; then
+    $srcdir/configure $EXTRA_ARGS "$@"
+    echo
+    echo "Now type 'make' to compile libxml2."
+fi

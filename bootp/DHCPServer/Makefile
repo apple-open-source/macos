@@ -5,6 +5,8 @@ dhcphosts: DHCPServer.c DHCPServer.h
 		-DTEST_DHCPHOSTLIST			\
 		-I../bootplib				\
 		-o dhcphosts				\
+		../bootplib/NICache.c			\
+		../bootplib/netinfo.c			\
 		DHCPServer.c				\
 		-framework CoreFoundation
 

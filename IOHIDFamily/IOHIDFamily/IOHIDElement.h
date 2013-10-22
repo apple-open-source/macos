@@ -66,13 +66,23 @@ public:
     virtual UInt32                          getValue()             = 0;
     virtual OSData *                        getDataValue()         = 0;
     virtual void                            setValue(UInt32 value)  = 0;
-    virtual void                            setDataValue(OSData * value)    = 0;
+    virtual void                            setDataValue(OSData * value) = 0;
     
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  0);
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  1);
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  2);
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  3);
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  4);
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  0);
+    virtual bool                            conformsTo(UInt32 usagePage, UInt32 usage=0) = 0;
+    
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  1);
+    virtual void                            setCalibration(UInt32 min=0, UInt32 max=0, UInt32 saturationMin=0, UInt32 saturationMax=0, UInt32 deadZoneMin=0, UInt32 deadZoneMax=0, IOFixed granularity=0) = 0;
+    
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  2);
+    virtual UInt32                          getScaledValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical) = 0;
+    
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  3);
+    virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical) = 0;
+
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  4);
+    virtual UInt32                          getValue(IOOptionBits options) = 0;
+
     OSMetaClassDeclareReservedUnused(IOHIDElement,  5);
     OSMetaClassDeclareReservedUnused(IOHIDElement,  6);
     OSMetaClassDeclareReservedUnused(IOHIDElement,  7);

@@ -156,7 +156,7 @@ static PlatformWheelEventPhase momentumPhaseForEvent(NSEvent *event)
 {
     uint32_t phase = PlatformWheelEventPhaseNone;
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     if ([event momentumPhase] & NSEventPhaseBegan)
         phase |= PlatformWheelEventPhaseBegan;
     if ([event momentumPhase] & NSEventPhaseStationary)
@@ -189,7 +189,7 @@ static PlatformWheelEventPhase momentumPhaseForEvent(NSEvent *event)
 
 static PlatformWheelEventPhase phaseForEvent(NSEvent *event)
 {
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
     uint32_t phase = PlatformWheelEventPhaseNone; 
     if ([event phase] & NSEventPhaseBegan)
         phase |= PlatformWheelEventPhaseBegan;
@@ -201,7 +201,7 @@ static PlatformWheelEventPhase phaseForEvent(NSEvent *event)
         phase |= PlatformWheelEventPhaseEnded;
     if ([event phase] & NSEventPhaseCancelled)
         phase |= PlatformWheelEventPhaseCancelled;
-#if !defined(BUILDING_ON_LION)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1080
     if ([event momentumPhase] & NSEventPhaseMayBegin)
         phase |= PlatformWheelEventPhaseMayBegin;
 #endif
@@ -327,7 +327,7 @@ int windowsKeyCodeForKeyEvent(NSEvent* event)
     // 2. Keys for which there is no known Mac virtual key codes, like PrintScreen.
     // 3. Certain punctuation keys. On Windows, these are also remapped depending on current keyboard layout,
     //    but see comment in windowsKeyCodeForCharCode().
-    if ([event type] == NSKeyDown || [event type] == NSKeyUp) {
+    if (!isKeypadEvent(event) && ([event type] == NSKeyDown || [event type] == NSKeyUp)) {
         // Cmd switches Roman letters for Dvorak-QWERTY layout, so try modified characters first.
         NSString* s = [event characters];
         code = [s length] > 0 ? windowsKeyCodeForCharCode([s characterAtIndex:0]) : 0;

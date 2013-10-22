@@ -60,6 +60,10 @@ BundleDiskRep::BundleDiskRep(CFBundleRef ref, const Context *ctx)
 	CODESIGN_DISKREP_CREATE_BUNDLE_REF(this, ref, (void*)ctx, mExecRep);
 }
 
+BundleDiskRep::~BundleDiskRep()
+{
+}
+
 // common construction code
 void BundleDiskRep::setup(const Context *ctx)
 {
@@ -110,16 +114,15 @@ void BundleDiskRep::setup(const Context *ctx)
 	// do we have a real Info.plist here?
 	if (CFRef<CFURLRef> infoURL = _CFBundleCopyInfoPlistURL(mBundle)) {
 		// focus on the Info.plist (which we know exists) as the nominal "main executable" file
-		if ((mMainExecutableURL = _CFBundleCopyInfoPlistURL(mBundle))) {
-			mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
-			if (packageVersion) {
-				mInstallerPackage = true;
-				mFormat = "installer package bundle";
-			} else {
-				mFormat = "bundle";
-			}
-			return;
+		mMainExecutableURL = infoURL;
+		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
+		if (packageVersion) {
+			mInstallerPackage = true;
+			mFormat = "installer package bundle";
+		} else {
+			mFormat = "bundle";
 		}
+		return;
 	}
 
 	// we're getting desperate here. Perhaps an oldish-style installer package? Look for a *.dist file
@@ -257,7 +260,9 @@ CFDataRef BundleDiskRep::identification()
 //
 CFURLRef BundleDiskRep::canonicalPath()
 {
-	return CFBundleCopyBundleURL(mBundle);
+	if (CFURLRef url = CFBundleCopyBundleURL(mBundle))
+		return url;
+	CFError::throwMe();
 }
 
 string BundleDiskRep::mainExecutablePath()
@@ -273,17 +278,21 @@ string BundleDiskRep::resourcesRootPath()
 void BundleDiskRep::adjustResources(ResourceBuilder &builder)
 {
 	// exclude entire contents of meta directory
-	builder.addExclusion("^" BUNDLEDISKREP_DIRECTORY "/");
+	builder.addExclusion("^" BUNDLEDISKREP_DIRECTORY "$");
+	builder.addExclusion("^" CODERESOURCES_LINK "$");	// ancient-ish symlink into it
 
 	// exclude the store manifest directory
-	builder.addExclusion("^" STORE_RECEIPT_DIRECTORY "/");
+	builder.addExclusion("^" STORE_RECEIPT_DIRECTORY "$");
 	
 	// exclude the main executable file
 	string resources = resourcesRootPath();
+	if (resources.compare(resources.size() - 2, 2, "/.") == 0)	// chop trailing /.
+		resources = resources.substr(0, resources.size()-2);
 	string executable = mainExecutablePath();
-	if (!executable.compare(0, resources.length(), resources, 0, resources.length()))	// is prefix
+	if (!executable.compare(0, resources.length(), resources, 0, resources.length())
+		&& executable[resources.length()] == '/')	// is proper directory prefix
 		builder.addExclusion(string("^")
-			+ ResourceBuilder::escapeRE(executable.substr(resources.length() + 1)) + "$");
+			+ ResourceBuilder::escapeRE(executable.substr(resources.length()+1)) + "$");
 }
 
 
@@ -355,12 +364,19 @@ string BundleDiskRep::recommendedIdentifier(const SigningContext &)
 	return canonicalIdentifier(cfString(this->canonicalPath()));
 }
 
-CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &)
+CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &ctx)
 {
-	// consider the bundle's structure
+	// figure out the resource directory base. Clean up some gunk inserted by CFBundle in frameworks
 	string rbase = this->resourcesRootPath();
+	size_t pos = rbase.find("/./");	// gratuitously inserted by CFBundle in some frameworks
+	while (pos != std::string::npos) {
+		rbase = rbase.replace(pos, 2, "", 0);
+		pos = rbase.find("/./");
+	}
 	if (rbase.substr(rbase.length()-2, 2) == "/.")	// produced by versioned bundle implicit "Current" case
 		rbase = rbase.substr(0, rbase.length()-2);	// ... so take it off for this
+	
+	// find the resources directory relative to the resource base
 	string resources = cfStringRelease(CFBundleCopyResourcesDirectoryURL(mBundle));
 	if (resources == rbase)
 		resources = "";
@@ -379,13 +395,52 @@ CFDictionaryRef BundleDiskRep::defaultResourceRules(const SigningContext &)
 			(string("^") + resources + ".*\\.lproj/").c_str()
 		);
 	
-	// executable bundle rules
-	return cfmake<CFDictionaryRef>("{rules={"
-		"'^version.plist$' = #T"					// include version.plist
-		"%s = #T"									// include Resources
-		"%s = {optional=#T, weight=1000}"			// make localizations optional
-		"%s = {omit=#T, weight=1100}"				// exclude all locversion.plist files
+	// old (V1) executable bundle rules - compatible with before
+	if (ctx.signingFlags() & kSecCSSignV1)				// *** must be exactly the same as before ***
+		return cfmake<CFDictionaryRef>("{rules={"
+			"'^version.plist$' = #T"                    // include version.plist
+			"%s = #T"                                   // include Resources
+			"%s = {optional=#T, weight=1000}"           // make localizations optional
+			"%s = {omit=#T, weight=1100}"               // exclude all locversion.plist files
+			"}}",
+			(string("^") + resources).c_str(),
+			(string("^") + resources + ".*\\.lproj/").c_str(),
+			(string("^") + resources + ".*\\.lproj/locversion.plist$").c_str()
+		);
+	
+	// FMJ (everything is a resource) rules
+	if (ctx.signingFlags() & kSecCSSignOpaque)			// Full Metal Jacket - everything is a resource file
+		return cfmake<CFDictionaryRef>("{rules={"
+			"'^.*' = #T"								// everything is a resource
+			"'^Info\\.plist$' = {omit=#T,weight=10}"	// explicitly exclude this for backward compatibility
+		"}}");
+	
+	// new (V2) executable bundle rules
+	return cfmake<CFDictionaryRef>("{"					// *** the new (V2) world ***
+		"rules={"										// old (V1; legacy) version
+			"'^version.plist$' = #T"					// include version.plist
+			"%s = #T"									// include Resources
+			"%s = {optional=#T, weight=1000}"			// make localizations optional
+			"%s = {omit=#T, weight=1100}"				// exclude all locversion.plist files
+		"},rules2={"
+			"'^.*' = #T"								// include everything as a resource, with the following exceptions
+			"'^[^/]+$' = {nested=#T, weight=10}"		// files directly in Contents
+			"'^(Frameworks|SharedFrameworks|PlugIns|Plug-ins|XPCServices|Helpers|MacOS|Library/(Automator|Spotlight|LoginItems))/' = {nested=#T, weight=10}" // dynamic repositories
+			"'.*\\.dSYM($|/)' = {weight=11}"			// but allow dSYM directories in code locations (parallel to their code)
+			"'^(.*/)?\\.DS_Store$' = {omit=#T,weight=2000}"	// ignore .DS_Store files
+			"'^Info\\.plist$' = {omit=#T, weight=20}"	// excluded automatically now, but old systems need to be told
+			"'^version\\.plist$' = {weight=20}"			// include version.plist as resource
+			"'^embedded\\.provisionprofile$' = {weight=20}"	// include embedded.provisionprofile as resource
+			"'^PkgInfo$' = {omit=#T, weight=20}"		// traditionally not included
+			"%s = {weight=20}"							// Resources override default nested (widgets)
+			"%s = {optional=#T, weight=1000}"			// make localizations optional
+			"%s = {omit=#T, weight=1100}"				// exclude all locversion.plist files
 		"}}",
+			
+		(string("^") + resources).c_str(),
+		(string("^") + resources + ".*\\.lproj/").c_str(),
+		(string("^") + resources + ".*\\.lproj/locversion.plist$").c_str(),
+			
 		(string("^") + resources).c_str(),
 		(string("^") + resources + ".*\\.lproj/").c_str(),
 		(string("^") + resources + ".*\\.lproj/locversion.plist$").c_str()

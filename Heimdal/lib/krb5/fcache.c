@@ -223,7 +223,11 @@ scrub_file (int fd)
         return errno;
     memset(buf, 0, sizeof(buf));
     while(pos > 0) {
-        ssize_t tmp = write(fd, buf, min((off_t)sizeof(buf), pos));
+	ssize_t tmp;
+	size_t wr = sizeof(buf);
+	if (wr > pos)
+	    wr = (size_t)pos;
+        tmp = write(fd, buf, wr);
 
 	if (tmp < 0)
 	    return errno;
@@ -330,8 +334,10 @@ fcc_gen_new(krb5_context context, krb5_ccache *id)
     }
     ret = _krb5_expand_path_tokens(context, file, &exp_file);
     free(file);
-    if (ret)
+    if (ret) {
+	free(f);
 	return ret;
+    }
 
     file = exp_file;
 

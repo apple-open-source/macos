@@ -47,6 +47,7 @@ static const char 	*OID_DESCR_START = "Description = ";
 /*
  * Read entire file with extra bytes left over in the mallocd buffer. 
  */
+static
 int readFileExtra(
 	const char		*fileName,
 	unsigned		extraBytes,
@@ -69,17 +70,17 @@ int readFileExtra(
 	if(rtn) {
 		goto errOut;
 	}
-	size = sb.st_size;
+	size = (size_t)sb.st_size;
 	buf = (unsigned char *)malloc(size + extraBytes);
 	if(buf == NULL) {
 		rtn = ENOMEM;
 		goto errOut;
 	}
-	rtn = lseek(fd, 0, SEEK_SET);
+	rtn = (int)lseek(fd, 0, SEEK_SET);
 	if(rtn < 0) {
 		goto errOut;
 	}
-	rtn = read(fd, buf, (size_t)size);
+	rtn = (int)read(fd, buf, (size_t)size);
 	if(rtn != (int)size) {
 		if(rtn >= 0) {
 			printf("readFile: short read\n");
@@ -243,7 +244,7 @@ static CSSM_BOOL parseOidWithConfig(
 	}
 	
 	/* caller's string buf = remainder of description line */
-	len = eol - descStart;
+	len = (int)(eol - descStart);
 	if(len > (OID_PARSER_STRING_SIZE - 1)) {
 		/* fixed-length output buf, avoid overflow */
 		len = OID_PARSER_STRING_SIZE - 1;

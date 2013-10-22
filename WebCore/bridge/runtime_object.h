@@ -32,9 +32,9 @@
 namespace JSC {
 namespace Bindings {
 
-class RuntimeObject : public JSNonFinalObject {
+class RuntimeObject : public JSDestructibleObject {
 public:
-    typedef JSNonFinalObject Base;
+    typedef JSDestructibleObject Base;
 
     static RuntimeObject* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, PassRefPtr<Instance> instance)
     {
@@ -45,10 +45,10 @@ public:
 
     static void destroy(JSCell*);
 
-    static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier& propertyName, PropertySlot&);
-    static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier& propertyName, PropertyDescriptor&);
-    static void put(JSCell*, ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
-    static bool deleteProperty(JSCell*, ExecState*, const Identifier& propertyName);
+    static bool getOwnPropertySlot(JSCell*, ExecState*, PropertyName, PropertySlot&);
+    static bool getOwnPropertyDescriptor(JSObject*, ExecState*, PropertyName, PropertyDescriptor&);
+    static void put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
+    static bool deleteProperty(JSCell*, ExecState*, PropertyName);
     static JSValue defaultValue(const JSObject*, ExecState*, PreferredPrimitiveType);
     static CallType getCallData(JSCell*, CallData&);
     static ConstructType getConstructData(JSCell*, ConstructData&);
@@ -68,9 +68,9 @@ public:
         return globalObject->objectPrototype();
     }
 
-    static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype)
+    static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
     }
 
 protected:
@@ -79,9 +79,9 @@ protected:
     static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | Base::StructureFlags;
 
 private:
-    static JSValue fallbackObjectGetter(ExecState*, JSValue, const Identifier&);
-    static JSValue fieldGetter(ExecState*, JSValue, const Identifier&);
-    static JSValue methodGetter(ExecState*, JSValue, const Identifier&);
+    static JSValue fallbackObjectGetter(ExecState*, JSValue, PropertyName);
+    static JSValue fieldGetter(ExecState*, JSValue, PropertyName);
+    static JSValue methodGetter(ExecState*, JSValue, PropertyName);
 
     RefPtr<Instance> m_instance;
 };

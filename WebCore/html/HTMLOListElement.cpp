@@ -61,42 +61,42 @@ bool HTMLOListElement::isPresentationAttribute(const QualifiedName& name) const
     return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLOListElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+void HTMLOListElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStylePropertySet* style)
 {
-    if (attr->name() == typeAttr) {
-        if (attr->value() == "a")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerAlpha);
-        else if (attr->value() == "A")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperAlpha);
-        else if (attr->value() == "i")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerRoman);
-        else if (attr->value() == "I")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperRoman);
-        else if (attr->value() == "1")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueDecimal);
+    if (name == typeAttr) {
+        if (value == "a")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerAlpha);
+        else if (value == "A")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperAlpha);
+        else if (value == "i")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerRoman);
+        else if (value == "I")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperRoman);
+        else if (value == "1")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueDecimal);
     } else
-        HTMLElement::collectStyleForAttribute(attr, style);
+        HTMLElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
-void HTMLOListElement::parseAttribute(Attribute* attr)
+void HTMLOListElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attr->name() == startAttr) {
+    if (name == startAttr) {
         int oldStart = start();
         bool canParse;
-        int parsedStart = attr->value().toInt(&canParse);
+        int parsedStart = value.toInt(&canParse);
         m_hasExplicitStart = canParse;
         m_start = canParse ? parsedStart : 0xBADBEEF;
         if (oldStart == start())
             return;
         updateItemValues();
-    } else if (attr->name() == reversedAttr) {
-        bool reversed = !attr->isNull();
+    } else if (name == reversedAttr) {
+        bool reversed = !value.isNull();
         if (reversed == m_isReversed)
             return;
         m_isReversed = reversed;
         updateItemValues();
     } else
-        HTMLElement::parseAttribute(attr);
+        HTMLElement::parseAttribute(name, value);
 }
 
 void HTMLOListElement::setStart(int start)
@@ -106,17 +106,12 @@ void HTMLOListElement::setStart(int start)
 
 void HTMLOListElement::updateItemValues()
 {
-    for (RenderListItem* listItem = RenderListItem::nextListItem(renderer()); listItem; listItem = RenderListItem::nextListItem(renderer(), listItem))
-        listItem->updateValue();
+    RenderListItem::updateItemValuesForOrderedList(this);
 }
 
 void HTMLOListElement::recalculateItemCount()
 {
-    m_itemCount = 0;
-
-    for (RenderListItem* listItem = RenderListItem::nextListItem(renderer()); listItem; listItem = RenderListItem::nextListItem(renderer(), listItem))
-        m_itemCount++;
-
+    m_itemCount = RenderListItem::itemCountForOrderedList(this);
     m_shouldRecalculateItemCount = false;
 }
 

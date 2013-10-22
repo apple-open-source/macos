@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,20 +87,35 @@ __private_extern__ int ___isautofs( const char * path )
     int             mountListCount;
     int             mountListIndex;
 
-    mountListCount = getmntinfo( &mountList, MNT_NOWAIT );
+    mountListCount = getfsstat( NULL, 0, MNT_NOWAIT );
 
-    for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
+    if ( mountListCount > 0 )
     {
-        if ( strcmp( mountList[mountListIndex].f_fstypename, "autofs" ) == 0 )
+        mountList = malloc( mountListCount * sizeof( struct statfs ) );
+
+        if ( mountList )
         {
-            if ( strncmp( mountList[mountListIndex].f_mntonname, path, strlen( mountList[mountListIndex].f_mntonname ) ) == 0 )
+            mountListCount = getfsstat( mountList, mountListCount * sizeof( struct statfs ), MNT_NOWAIT );
+
+            if ( mountListCount > 0 )
             {
-                return 1;
+                for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
+                {
+                    if ( strcmp( mountList[mountListIndex].f_fstypename, "autofs" ) == 0 )
+                    {
+                        if ( strncmp( mountList[mountListIndex].f_mntonname, path, strlen( mountList[mountListIndex].f_mntonname ) ) == 0 )
+                        {
+                            break;
+                        }
+                    }
+                }
             }
+
+            free( mountList );
         }
     }
 
-    return 0;
+    return ( mountListIndex < mountListCount );
 }
 
 __private_extern__ int ___mkdir( const char * path, mode_t mode )
@@ -176,13 +191,6 @@ __private_extern__ const void * ___CFArrayGetValue( CFArrayRef array, const void
     CFIndex index;
 
     index = CFArrayGetFirstIndexOfValue( array, CFRangeMake( 0, CFArrayGetCount( array ) ), value );
-///t:start
-    CFIndex index2;
-
-    index2 = CFArrayGetLastIndexOfValue( array, CFRangeMake( 0, CFArrayGetCount( array ) ), value );
-
-    assert( index == index2 );
-///t:stop
 
     return ( index == kCFNotFound ) ? NULL : CFArrayGetValueAtIndex( array, index );
 }

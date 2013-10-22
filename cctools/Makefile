@@ -1,27 +1,6 @@
-# Note: For Darwin developers only building for current MacOS X release is 
-# supported.  The Openstep target will NOT build outside of Apple as it requires
-# 4.3bsd licenced code.
-#
-# Building for three target OS's are currently supported:
-#
-# MacOS X (the default)
-#	RC_OS is set to macos (the top level makefile does this)
-#	RC_CFLAGS needs -D__KODIAK__ when RC_RELEASE is Kodiak (Public Beta),
-#		to get the Public Beta directory layout.
-#	RC_CFLAGS needs -D__GONZO_BUNSEN_BEAKER__ when RC_RELEASE is Gonzo,
-#		Bunsen or Beaker to get the old directory layout.
-#	The code is #ifdef'ed with __Mach30__ is picked up from <mach/mach.h>
-# Rhapsody
-#	RC_OS is set to teflon
-#	RC_CFLAGS needs the additional flag -D__HERA__
-# Openstep
-#	RC_OS is set to nextstep
-#	RC_CFLAGS needs the additional flag -D__OPENSTEP__
-#
 export USE_APPLE_PB_SUPPORT = all
 
 DSTROOT = /
-DT_TOOLCHAIN_DIR ?= $(INSTALL_LOCATION)
 RC_OS = macos
 RC_CFLAGS =
 
@@ -30,85 +9,22 @@ INSTALLSRC_SUBDIRS = $(COMMON_SUBDIRS) $(SUBDIRS_32) ar include efitools \
 COMMON_SUBDIRS = libstuff as gprof misc RelNotes man cbtlibs otool
 APPLE_SUBDIRS = ar
 SUBDIRS_32 = ld
+EFITOOLS = efitools
+SUBDIRS = $(COMMON_SUBDIRS) $(APPLE_SUBDIRS) $(EFITOOLS)
 
-ifeq "macos" "$(RC_OS)"
-  OLD_LIBKLD := $(shell if [ "$(RC_MAJOR_RELEASE_TRAIN)" = "Tiger" ] || \
-			   [ "$(RC_MAJOR_RELEASE_TRAIN)" = "Leopard" ] || \
-			   [ "$(RC_RELEASE)" = "Puma"      ]  || \
-			   [ "$(RC_RELEASE)" = "Jaguar"    ]  || \
-			   [ "$(RC_RELEASE)" = "Panther"   ]  || \
-			   [ "$(RC_RELEASE)" = "MuonPrime" ]  || \
-			   [ "$(RC_RELEASE)" = "MuonSeed"  ]  || \
-			   [ "$(RC_RELEASE)" = "SUPanWheat" ] || \
-			   [ "$(RC_RELEASE)" = "Tiger" ]      || \
-			   [ "$(RC_RELEASE)" = "SUTiSoho" ]   || \
-			   [ "$(RC_RELEASE)" = "Leopard" ]    || \
-			   [ "$(RC_RELEASE)" = "Vail" ]       || \
-			   [ "$(RC_RELEASE)" = "SugarBowl" ]  || \
-			   [ "$(RC_RELEASE)" = "BigBear" ]; then \
-				echo "YES" ; \
-			    else \
-				echo "NO" ; fi; )
-else
-  OLD_LIBKLD = NO
-endif
-
-ifeq "macos" "$(RC_OS)"
-  BUILD_DYLIBS := $(shell if [ "$(RC_RELEASE)" = "Marble" ]; then \
-				echo "NO" ; \
-			    else \
-				echo "YES" ; fi; )
-else
-  BUILD_DYLIBS = NO
-endif
+OLD_LIBKLD = NO
+BUILD_DYLIBS = YES
+LTO = -DLTO_SUPPORT
 
 ifeq "macos" "$(RC_OS)"
   TRIE := $(shell if [ "$(RC_MAJOR_RELEASE_TRAIN)" = "Tiger" ] || \
 		     [ "$(RC_MAJOR_RELEASE_TRAIN)" = "Leopard" ] || \
-		     [ "$(RC_RELEASE)" = "Puma"      ]  || \
-		     [ "$(RC_RELEASE)" = "Jaguar"    ]  || \
-		     [ "$(RC_RELEASE)" = "Panther"   ]  || \
-		     [ "$(RC_RELEASE)" = "MuonPrime" ]  || \
-		     [ "$(RC_RELEASE)" = "MuonSeed"  ]  || \
-		     [ "$(RC_RELEASE)" = "SUPanWheat" ] || \
-		     [ "$(RC_RELEASE)" = "Tiger" ]      || \
-		     [ "$(RC_RELEASE)" = "SUTiSoho" ]   || \
-		     [ "$(RC_RELEASE)" = "Leopard" ]    || \
-		     [ "$(RC_RELEASE)" = "Vail" ]       || \
-		     [ "$(RC_RELEASE)" = "SugarBowl" ]  || \
-		     [ "$(RC_RELEASE)" = "BigBear" ]    || \
-		     [ "$(RC_RELEASE)" = "Homewood" ]   || \
-		     [ "$(RC_RELEASE)" = "Kirkwood" ]   || \
-		     [ "$(RC_RELEASE)" = "Northstar" ]  || \
 		     [ "$(RC_PURPLE)" = "YES" ]; then \
 			    echo "" ; \
 			else \
 			    echo "-DTRIE_SUPPORT" ; fi; )
 else
   TRIE =
-endif
-
-ifeq "macos" "$(RC_OS)"
-  LTO := $(shell if [ "$(RC_MAJOR_RELEASE_TRAIN)" = "Tiger" ] || \
-		    [ "$(RC_MAJOR_RELEASE_TRAIN)" = "Leopard" ]; then \
-			    echo "" ; \
-			else \
-			    echo "-DLTO_SUPPORT" ; fi; )
-else
-  LTO =
-endif
-
-# work around to avoid 5820763
-ifeq "$(IPHONEOS_DEPLOYMENT_TARGET)" "2.0"
-   EFITOOLS =
-else
-   EFITOOLS = efitools
-endif
-
-ifeq "nextstep" "$(RC_OS)"
-  SUBDIRS = $(COMMON_SUBDIRS)
-else
-  SUBDIRS = $(COMMON_SUBDIRS) $(APPLE_SUBDIRS) $(EFITOOLS)
 endif
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -137,7 +53,7 @@ all clean: $(DSTROOT)
 	      done;							\
 	    SED_RC_CFLAGS=`echo "$(RC_CFLAGS)" | sed 's/-arch ppc64//'  \
  		| sed 's/-arch x86_64//' | sed 's/-arch armv5//'	\
-		| sed 's/-arch armv6//' | sed 's/-arch armv7//'`;	\
+		| sed 's/-arch armv6//' | sed 's/-arch armv7[f,k,s]*//g'`; \
 	    EMPTY=`echo "$$SED_RC_CFLAGS" | sed 's/ //g'		\
 		| sed 's/-pipe//'`;					\
 	    if [ "$$EMPTY"x != "x" ];					\
@@ -168,7 +84,7 @@ all clean: $(DSTROOT)
 	      done;							\
 	    SED_RC_CFLAGS=`echo "$(RC_CFLAGS)" | sed 's/-arch ppc64//'  \
  		| sed 's/-arch x86_64//' | sed 's/-arch armv5//'	\
-		| sed 's/-arch armv6//' | sed 's/-arch armv7//'`;	\
+		| sed 's/-arch armv6//' | sed 's/-arch armv7[f,k,s]*//g'`; \
 	    EMPTY=`echo "$$SED_RC_CFLAGS" | sed 's/ //g'		\
 		| sed 's/-pipe//'`;					\
 	    if [ "$$EMPTY"x != "x" ];					\
@@ -209,7 +125,7 @@ install:
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		EFITOOLS="$(EFITOOLS)" TRIE="$(TRIE)"			\
-		LTO="$(LTO)" DSTROOT=$$DSTROOT/$(DT_TOOLCHAIN_DIR)	\
+		LTO="$(LTO)" DSTROOT=$$DSTROOT/$(INSTALL_LOCATION)	\
 		SRCROOT=$(SRCROOT)					\
 		OBJROOT=$(OBJROOT)					\
 		SYMROOT=$(SYMROOT) $$target;				\
@@ -243,7 +159,7 @@ install_tools: installhdrs
 	      done;							\
 	    SED_RC_CFLAGS=`echo "$(RC_CFLAGS)" | sed 's/-arch ppc64//'  \
  		| sed 's/-arch x86_64//' | sed 's/-arch armv5//'	\
-		| sed 's/-arch armv6//' | sed 's/-arch armv7//'`;	\
+		| sed 's/-arch armv6//' | sed 's/-arch armv7[f,k,s]*//g'`; \
 	    EMPTY=`echo "$$SED_RC_CFLAGS" | sed 's/ //g'		\
 		| sed 's/-pipe//'`;					\
 	    if [ "$$EMPTY"x != "x" ];					\
@@ -275,7 +191,7 @@ install_tools: installhdrs
 	      done;							\
 	    SED_RC_CFLAGS=`echo "$(RC_CFLAGS)" | sed 's/-arch ppc64//'  \
  		| sed 's/-arch x86_64//' | sed 's/-arch armv5//'	\
-		| sed 's/-arch armv6//' | sed 's/-arch armv7//'`;	\
+		| sed 's/-arch armv6//' | sed 's/-arch armv7[f,k,s]*//g'`; \
 	    EMPTY=`echo "$$SED_RC_CFLAGS" | sed 's/ //g'		\
 		| sed 's/-pipe//'`;					\
 	    if [ "$$EMPTY"x != "x" ];					\
@@ -298,7 +214,7 @@ ofiles_install:
 	$(MAKE) RC_CFLAGS="$(RC_CFLAGS)"				\
 		RC_ARCHS="$(RC_ARCHS)"					\
 		RC_OS="$(RC_OS)"					\
-		DSTROOT=$$DSTROOT/$(DT_TOOLCHAIN_DIR)			\
+		DSTROOT=$$DSTROOT/$(INSTALL_LOCATION)			\
 		SRCROOT=$(SRCROOT)					\
 		OBJROOT=$(OBJROOT)					\
 		SYMROOT=$(SYMROOT)					\
@@ -318,14 +234,14 @@ lib_ofiles lib_ofiles_install: installhdrs
 		SRCROOT=$(SRCROOT)/libstuff				\
 		OBJROOT=$(OBJROOT)/libstuff				\
 		SYMROOT=$(SYMROOT)/libstuff $@) || exit 1;		\
-	    echo =========== $(MAKE) all for libstuff =============;	\
+	    echo ====== $(MAKE) lib_static_ofiles for libstuff =======; \
 	    (cd libstuff; $(MAKE) "RC_CFLAGS=$$SED_RC_CFLAGS"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
 		OLD_LIBKLD="$(OLD_LIBKLD)" 				\
 		DSTROOT=$$DSTROOT					\
 		SRCROOT=$(SRCROOT)/libstuff				\
 		OBJROOT=$(OBJROOT)/libstuff				\
-		SYMROOT=$(SYMROOT)/libstuff all) || exit 1;		\
+		SYMROOT=$(SYMROOT)/libstuff lib_static_ofiles) || exit 1; \
 	    if [ $(BUILD_DYLIBS) = "YES" ];				\
 	    then							\
 	        echo =========== $(MAKE) $@ for libmacho =============;	\
@@ -368,10 +284,10 @@ lib_ofiles lib_ofiles_install: installhdrs
 	    (cd libstuff; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
 		DSTROOT=$$DSTROOT $@) || exit 1;			\
-	    echo =========== $(MAKE) all for libstuff =============;	\
+	    echo ====== $(MAKE) lib_static_ofiles for libstuff =======; \
 	    (cd libstuff; $(MAKE) "RC_CFLAGS=$$SED_RC_CFLAGS"		\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
-		DSTROOT=$$DSTROOT all) || exit 1;			\
+		DSTROOT=$$DSTROOT lib_static_ofiles) || exit 1;		\
 	    if [ $(BUILD_DYLIBS) = "YES" ];				\
 	    then							\
 	        echo =========== $(MAKE) $@ for libmacho =============;	\
@@ -395,11 +311,10 @@ lib_ofiles lib_ofiles_install: installhdrs
 	fi
 
 install_dev_tools:
-	@ export RC_FORCEHDRS=YES;					\
 	$(MAKE) RC_CFLAGS="$(RC_CFLAGS)"				\
 		RC_ARCHS="$(RC_ARCHS)"					\
 		RC_OS="$(RC_OS)"					\
-		DT_TOOLCHAIN_DIR=$(DT_TOOLCHAIN_DIR)			\
+		INSTALL_LOCATION=$(INSTALL_LOCATION)			\
 		DSTROOT=$(DSTROOT)					\
 		SRCROOT=$(SRCROOT)					\
 		OBJROOT=$(OBJROOT)					\

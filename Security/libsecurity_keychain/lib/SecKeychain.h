@@ -303,7 +303,7 @@ OSStatus SecKeychainGetVersion(UInt32 *returnVers);
 	of this keychain.
 	@param pathName The POSIX path to a keychain.
     @param keychain On return, a pointer to the keychain reference. The memory that keychain occupies must be released by calling CFRelease when finished with it.
-	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if the keychain parameter is invalid (NULL).
+	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain parameter is invalid (NULL).
 */
 OSStatus SecKeychainOpen(const char *pathName, SecKeychainRef *keychain);
 
@@ -316,7 +316,7 @@ OSStatus SecKeychainOpen(const char *pathName, SecKeychainRef *keychain);
 	@param promptUser A boolean representing whether to display a password dialog to the user.
 	@param initialAccess An access reference.
     @param keychain On return, a pointer to a keychain reference. The memory that keychain occupies must be released by calling CFRelease when finished with it.
-	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if the keychain parameter is invalid (NULL).
+	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain parameter is invalid (NULL).
 */
 OSStatus SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void *password, Boolean promptUser, SecAccessRef initialAccess, SecKeychainRef *keychain);
 
@@ -349,7 +349,7 @@ OSStatus SecKeychainCopySettings(SecKeychainRef keychain, SecKeychainSettings *o
 /*!
 	@function SecKeychainUnlock
 	@abstract Unlocks the specified keychain.
-    @param keychain A reference to the keychain to unlock. Pass NULL to specify the default keychain. If you pass NULL and the default keychain is currently locked, the keychain will appear as the default choice. If you pass a locked keychain, SecKeychainUnlock will use the password provided to unlock it. If the default keychain is currently unlocked, SecKeychainUnlock returns noErr. 
+    @param keychain A reference to the keychain to unlock. Pass NULL to specify the default keychain. If you pass NULL and the default keychain is currently locked, the keychain will appear as the default choice. If you pass a locked keychain, SecKeychainUnlock will use the password provided to unlock it. If the default keychain is currently unlocked, SecKeychainUnlock returns errSecSuccess. 
 	@param passwordLength An unsigned 32-bit integer representing the length of the password buffer.
 	@param password A buffer containing the password for the keychain. Pass NULL if the user password is unknown. In this case, SecKeychainUnlock displays the Unlock Keychain dialog box, and the authentication user interface associated with the keychain about to be unlocked.
 	@param usePassword A boolean indicating whether the password parameter is used.  You should pass TRUE if it is used or FALSE if it is ignored.
@@ -385,7 +385,7 @@ OSStatus SecKeychainCopyDefault(SecKeychainRef *keychain);
 	@function SecKeychainSetDefault
 	@abstract Sets the default keychain. 
 	@param keychain A reference to the keychain to set as default.
-	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if the keychain parameter is invalid (NULL).
+	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain parameter is invalid (NULL).
 */
 OSStatus SecKeychainSetDefault(SecKeychainRef keychain);
 
@@ -393,7 +393,7 @@ OSStatus SecKeychainSetDefault(SecKeychainRef keychain);
 	@function SecKeychainCopySearchList
 	@abstract Retrieves a keychain search list.
 	@param searchList The returned list of keychains to search. When finished with the array, you must call CFRelease() to release the memory.
-	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if the keychain list is not specified (NULL).
+	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain list is not specified (NULL).
 */
 OSStatus SecKeychainCopySearchList(CFArrayRef *searchList);
 
@@ -401,7 +401,7 @@ OSStatus SecKeychainCopySearchList(CFArrayRef *searchList);
 	@function SecKeychainSetSearchList
 	@abstract Specifies the list of keychains to use in a keychain search list.
 	@param searchList The list of keychains to use in a search list when the SecKeychainCopySearchList function is called. An empty array clears the search list.
-	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if the keychain list is not specified (NULL).
+	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if the keychain list is not specified (NULL).
 */
 OSStatus SecKeychainSetSearchList(CFArrayRef searchList);
 
@@ -451,7 +451,7 @@ OSStatus SecKeychainGetPath(SecKeychainRef keychain, UInt32 *ioPathLength, char 
     @param keychain A keychain reference.
 	@param itemID The relation identifier of the item tags (an itemID is a CSSM_DB_RECORDTYPE defined in cssmtype.h).
 	@param info On return, a pointer to the keychain attribute information. User should call the SecKeychainFreeAttributeInfo function to release the structure when done with it. 
-    @result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters were supplied (NULL).
+    @result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters were supplied (NULL).
 	@discussion Warning, this call returns more attributes than are support by the old style Keychain API and passing them into older calls will yield an invalid attribute error. The recommended call to retrieve the attribute values is the SecKeychainItemCopyAttributesAndData function.
 */
 OSStatus SecKeychainAttributeInfoForItemID(SecKeychainRef keychain,  UInt32 itemID, SecKeychainAttributeInfo **info);
@@ -460,7 +460,7 @@ OSStatus SecKeychainAttributeInfoForItemID(SecKeychainRef keychain,  UInt32 item
 	@function SecKeychainFreeAttributeInfo
 	@abstract Releases the memory acquired by calling the SecKeychainAttributeInfoForItemID function.
 	@param info A pointer to the keychain attribute information to release.
-    @result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters were supplied (NULL).
+    @result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters were supplied (NULL).
 */
 OSStatus SecKeychainFreeAttributeInfo(SecKeychainAttributeInfo *info);
 

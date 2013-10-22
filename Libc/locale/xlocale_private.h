@@ -47,8 +47,6 @@
 #undef MB_CUR_MAX_L
 #define MB_CUR_MAX_L(x)	((x)->__lc_ctype->__mb_cur_max)
 
-extern int __is_threaded;
-
 typedef void (*__free_extra_t)(void *);
 
 #define XPERMANENT	((__free_extra_t)-1)
@@ -162,6 +160,13 @@ struct _xlocale {
 /* localeconv */
 	struct lconv __lc_localeconv;
 };
+
+#define DEFAULT_CURRENT_LOCALE(x)	\
+				if ((x) == NULL) { \
+					(x) = __current_locale(); \
+				} else if ((x) == LC_GLOBAL_LOCALE) { \
+					(x) = &__global_locale; \
+				}
 
 #define NORMALIZE_LOCALE(x)	if ((x) == NULL) { \
 					(x) = _c_locale; \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -504,6 +504,7 @@ __private_extern__
 void
 show_set(int argc, char **argv)
 {
+	CFArrayRef	interfaces;
 	CFArrayRef	services;
 	SCNetworkSetRef	set	= NULL;
 	CFStringRef	setName;
@@ -591,6 +592,25 @@ show_set(int argc, char **argv)
 		}
 
 		CFRelease(services);
+	}
+
+	interfaces = SCNetworkSetCopyAvailableInterfaces(set);
+	if (interfaces != NULL) {
+		CFIndex			i;
+		SCNetworkInterfaceRef	interface;
+		CFIndex			n;
+
+		SCPrint(TRUE, stdout, CFSTR("available interfaces =\n"));
+
+		n = CFArrayGetCount(interfaces);
+		for (i = 0; i < n; i++) {
+			interface = CFArrayGetValueAtIndex(interfaces, i);
+			SCPrint(TRUE, stdout, CFSTR(" %2d: %@ \n"),
+				i + 1,
+				SCNetworkInterfaceGetLocalizedDisplayName(interface));
+		}
+
+		CFRelease(interfaces);
 	}
 
 	if (_sc_debug) {

@@ -20,6 +20,11 @@
 (allow file-ioctl
        (literal "/dev/dtracehelper"))
 
+(if (defined? 'mach-register)
+    (allow mach-register
+    	   (global-name "org.h5l.kdc")
+	   (global-name "org.h5l.ntlm-service")))
+
 ;; This is needed for realpath on system keychain
 (allow file-read-metadata
        (literal "/private")
@@ -36,6 +41,7 @@
        (literal "/Library/Preferences/com.apple.Kerberos.plist")
        (regex #"^/Library/Preferences/com\.apple\.GSS\.")
        (literal "/Library/Preferences/com.apple.security.plist")
+       (literal "/Library/Preferences/.GlobalPreferences.plist")
        (literal "/Library/Preferences/SystemConfiguration/preferences.plist")
        (literal "/dev/dtracehelper")
        (literal "/dev/null")
@@ -46,6 +52,7 @@
        (literal "/private/etc/hosts")
        (literal "/private/etc/services")
        (literal "/private/etc/localtime")
+       (literal "/private/etc/openldap/ldap.conf")
        (subpath "/private/var/db/krb5kdc")
        (subpath "/private/var/db/mds")
        (subpath "/System/Library/KerberosPlugins")
@@ -81,6 +88,7 @@
 (allow network-outbound
        (literal "/private/var/run/mDNSResponder")
        (literal "/private/var/rpc/ncalrpc/NETLOGON")
+       (literal "/private/var/run/ldapi")
        (remote udp)
        (remote tcp))
 

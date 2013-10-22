@@ -22,6 +22,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2BB88387160A8A1900E3FE8A /* power.c in Sources */ = {isa = PBXBuildFile; fileRef = 2BB88386160A8A1900E3FE8A /* power.c */; };
 		8DD76F790486A8DE00D96B5E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 09AB6884FE841BABC02AAC07 /* CoreFoundation.framework */; };
 		AF30EC740F153AF200F08C3E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF30EC730F153AF200F08C3E /* IOKit.framework */; };
 		AF30EC790F153B1200F08C3E /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AF30EC780F153B1200F08C3E /* libncurses.dylib */; };
@@ -104,6 +105,8 @@
 
 /* Begin PBXFileReference section */
 		09AB6884FE841BABC02AAC07 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		2BB88386160A8A1900E3FE8A /* power.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = power.c; sourceTree = "<group>"; };
+		2BB88388160A8B7400E3FE8A /* power.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = power.h; sourceTree = "<group>"; };
 		8DD76F7E0486A8DE00D96B5E /* top */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = top; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF30EC730F153AF200F08C3E /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		AF30EC780F153B1200F08C3E /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
@@ -268,6 +271,8 @@
 				AF61B0A00F12B9A400367962 /* pid.h */,
 				AF61B0A10F12B9A400367962 /* ports.c */,
 				AF61B0A20F12B9A400367962 /* ports.h */,
+				2BB88386160A8A1900E3FE8A /* power.c */,
+				2BB88388160A8B7400E3FE8A /* power.h */,
 				AF61B0A30F12B9A400367962 /* ppid.c */,
 				AF61B0A40F12B9A400367962 /* ppid.h */,
 				AF61B0A50F12B9A400367962 /* preferences.c */,
@@ -408,9 +413,15 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB924B08733DCA0010E9CD /* Build configuration list for PBXProject "top" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* top_xcode */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -464,6 +475,7 @@
 				AFDAF00E0F1EF57D00CF328A /* userinput_secondary_order.c in Sources */,
 				AF7B29760F265DA100E416D7 /* sig.c in Sources */,
 				AF7903CB0F2F8C9B0014F24E /* userinput_help.c in Sources */,
+				2BB88387160A8A1900E3FE8A /* power.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -495,13 +507,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = TOP_ANONYMOUS_MEMORY;
 				GCC_WARN_SIGN_COMPARE = NO;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -511,6 +523,7 @@
 				OTHER_CFLAGS = "-O0";
 				PRODUCT_NAME = top;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
+				VALID_ARCHS = "$(ARCHS_UNIVERSAL_IPHONE_OS) x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -519,12 +532,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(NATIVE_ARCH)";
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = TOP_ANONYMOUS_MEMORY;
 				GCC_WARN_SIGN_COMPARE = NO;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
@@ -536,6 +549,7 @@
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = top;
 				SCAN_ALL_SOURCE_FILES_FOR_INCLUDES = NO;
+				VALID_ARCHS = "$(ARCHS_UNIVERSAL_IPHONE_OS) x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;

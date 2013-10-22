@@ -244,34 +244,6 @@ main(int argc, char **argv)
 	for (i = 0; i < count && status != 0; i++) {
 		record = (ODRecordRef) CFArrayGetValueAtIndex(results, i);
 		values = ODRecordCopyValues(record,
-		    kODAttributeTypeMetaNodeLocation, &error);
-		if (values == NULL) {
-			if (error != NULL) {
-				errstring = od_get_error_string(error);
-				fprintf(stderr, "od_user_homes: Can't get kODAttributeTypeMetaNodeLocation from record: %s\n",
-				    errstring);
-				free(errstring);
-				return 2;
-			}
-
-			/*
-			 * This record doesn't happen to have a
-			 * kODAttributeTypeMetaNodeLocation attribute;
-			 * skip it.
-			 */
-			continue;
-		} else {
-			if (CFArrayGetCount(values) != 0) {
-				CFStringRef location = CFArrayGetValueAtIndex(values, 0);
-				// skip local users
-				if (CFStringHasPrefix(location, CFSTR("/Local")) == TRUE) {
-					CFRelease(values);
-					continue;
-				}
-			}
-			CFRelease(values);
-		}
-		values = ODRecordCopyValues(record,
 		    kODAttributeTypeHomeDirectory, &error);
 		if (values == NULL) {
 			if (error != NULL) {

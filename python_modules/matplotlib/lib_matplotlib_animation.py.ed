@@ -1,0 +1,19 @@
+/^class Animation/i
+
+import matplotlib.pyplot as plt
+class BackendError(RuntimeError):
+    pass
+
+.
+/self\._blit = blit/i
+        if blit and plt.get_backend().lower() == 'macosx':
+            raise BackendError('''The current backend is 'MacOSX'
+and may go into an infinite loop with blit turned on.  Either
+turn off blit or use an alternate backend, for example, like
+'TKAgg', using the following prepended to your source code:
+
+import matplotlib
+matplotlib.use('TKAgg')
+''')
+.
+w

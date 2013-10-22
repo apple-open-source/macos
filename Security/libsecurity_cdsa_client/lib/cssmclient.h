@@ -97,6 +97,7 @@ public:
 	virtual bool operator ==(const ObjectImpl &other) const;
 
 	static void check(CSSM_RETURN status);
+	bool isIdle() const { return mChildCount == 0; }
 
 protected:
 	bool mActive;					// loaded, attached, etc.
@@ -108,7 +109,6 @@ protected:
 
 	void addChild();
 	void removeChild();
-	bool isIdle() const { return mChildCount == 0; }
 
 	// {de,}activate() assume you have locked *this
 	virtual void activate() = 0;
@@ -151,6 +151,8 @@ public:
 	{ return mImpl && other.mImpl ? *mImpl < *other.mImpl : mImpl < other.mImpl; }
 	bool operator ==(const Object &other) const
 	{ return mImpl && other.mImpl ? *mImpl == *other.mImpl : mImpl == other.mImpl; }
+
+    Impl* get() {return mImpl;}
 
 private:
 	RefPointer<Impl> mImpl;

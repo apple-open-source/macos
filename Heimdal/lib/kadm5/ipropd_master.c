@@ -77,6 +77,7 @@ make_signal_socket (krb5_context context)
 
     if (rk_IS_SOCKET_ERROR( bind (fd, ai->ai_addr, ai->ai_addrlen) ))
 	krb5_err (context, 1, rk_SOCK_ERRNO, "bind");
+    socket_set_nopipe(fd, 1);
     return fd;
 #endif
 }
@@ -85,13 +86,13 @@ static krb5_socket_t
 make_listen_socket (krb5_context context, const char *port_str)
 {
     krb5_socket_t fd;
-    int one = 1;
     struct sockaddr_in addr;
 
     fd = socket (AF_INET, SOCK_STREAM, 0);
     if (rk_IS_BAD_SOCKET(fd))
 	krb5_err (context, 1, rk_SOCK_ERRNO, "socket AF_INET");
-    setsockopt (fd, SOL_SOCKET, SO_REUSEADDR, (void *)&one, sizeof(one));
+    socket_set_nopipe(fd, 1);
+    socket_set_reuseaddr(fd, 1);
     memset (&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
 

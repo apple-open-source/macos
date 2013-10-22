@@ -24,6 +24,7 @@
 #include "runtime.h"
 #include "bootstrap.h"
 #include "launch.h"
+#include <xpc/private.h>
 
 typedef struct job_s *job_t;
 typedef struct jobmgr_s *jobmgr_t;
@@ -60,11 +61,7 @@ void job_ack_no_senders(job_t j);
 void job_log(job_t j, int pri, const char *msg, ...) __attribute__((format(printf, 3, 4)));
 void job_set_pid_crashed(pid_t p);
 
-#if TARGET_OS_EMBEDDED
-int launchd_set_jetsam_priorities(launch_data_t priorities);
-int launchd_update_jetsam_list(job_t j);
-#endif
-
 bool xpc_event_demux(mach_port_t p, xpc_object_t request, xpc_object_t *reply);
+bool xpc_process_demux(mach_port_t p, xpc_object_t request, xpc_object_t *reply);
 
 #endif /* __LAUNCHD_CORE_LOGIC__ */

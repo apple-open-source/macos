@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WebErrors.h"
 
-#include <WebCore/NotImplemented.h>
+#include <WebCore/ErrorsEfl.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
@@ -37,44 +37,37 @@ namespace WebKit {
 
 ResourceError cancelledError(const ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError();
+    return WebCore::cancelledError(request);
 }
 
 ResourceError blockedError(const ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError();
+    return WebCore::blockedError(request);
 }
 
 ResourceError cannotShowURLError(const ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError();
+    return WebCore::cannotShowURLError(request);
 }
 
 ResourceError interruptedForPolicyChangeError(const ResourceRequest& request)
 {
-    notImplemented();
-    return ResourceError();
+    return WebCore::interruptedForPolicyChangeError(request);
 }
 
 ResourceError cannotShowMIMETypeError(const ResourceResponse& response)
 {
-    notImplemented();
-    return ResourceError();
+    return WebCore::cannotShowMIMETypeError(response);
 }
 
 ResourceError fileDoesNotExistError(const ResourceResponse& response)
 {
-    notImplemented();
-    return ResourceError();
+    return WebCore::fileDoesNotExistError(response);
 }
 
 ResourceError pluginWillHandleLoadError(const ResourceResponse& response)
 {
-    notImplemented();
-    return ResourceError();
+    return WebCore::pluginWillHandleLoadError(response);
 }
 
 } // namespace WebKit

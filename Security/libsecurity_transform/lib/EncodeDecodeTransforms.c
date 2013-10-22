@@ -183,7 +183,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 						CFIndex enc_cnt = d ? CFDataGetLength(d) : 0;
 						const unsigned char *enc = d ? CFDataGetBytePtr(d) : NULL;
 						const unsigned char *enc_end = enc + enc_cnt;
-						int n_chunks = (leftover_cnt + enc_cnt) / out_chunk_size + 1;
+						long n_chunks = (leftover_cnt + enc_cnt) / out_chunk_size + 1;
 
 						unsigned char *out_base = malloc(n_chunks * out_chunk_size);
 						if (!out_base) {
@@ -276,7 +276,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 							CFIndex enc_cnt = d ? CFDataGetLength(d) : 0;
 							const unsigned char *enc = d ? CFDataGetBytePtr(d) : NULL;
 							const unsigned char *enc_end = enc + enc_cnt;
-							int n_chunks = (bits_accumulated/8 + enc_cnt) / out_chunk_size + 1;
+							long n_chunks = (bits_accumulated/8 + enc_cnt) / out_chunk_size + 1;
 
 							unsigned char *out_base = malloc(n_chunks * out_chunk_size);
 							if (!out_base) {
@@ -362,7 +362,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 
 							if (d) {
 								zs.next_in = (UInt8 *)(CFDataGetBytePtr(d)); // we know that zlib will not 'futz' with the data
-								zs.avail_in = CFDataGetLength(d);
+								zs.avail_in = (uInt)CFDataGetLength(d);
 							} else {
 								zs.next_in = NULL;
 								zs.avail_in = 0;
@@ -379,7 +379,7 @@ static SecTransformInstanceBlock DecodeTransform(CFStringRef name,
 								}
 
 								zs.next_out = buf;
-								zs.avail_out = buf_sz;
+								zs.avail_out = (uInt)buf_sz;
 
 								rc = inflate(&zs, d ? Z_NO_FLUSH : Z_FINISH);
 
@@ -511,7 +511,8 @@ SecTransformRef SecDecodeTransformCreate(CFTypeRef DecodeType, CFErrorRef* error
 	return tr;
 }
 
-unsigned char *encode_base64(const unsigned char *bin, unsigned char *base64, int bin_cnt) {	
+static
+unsigned char *encode_base64(const unsigned char *bin, unsigned char *base64, CFIndex bin_cnt) {
 	for(; bin_cnt > 0; bin_cnt -= 3, base64 += 4, bin += 3) {
 		switch (bin_cnt)
 		{
@@ -616,7 +617,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 				{
 					__block struct { unsigned char a[3]; } leftover;
 					static const short int in_chunk_size = 3, out_chunk_size = 4;
-					__block int leftover_cnt = 0;
+					__block CFIndex leftover_cnt = 0;
 
 					SecTransformSetAttributeAction(ref, kSecTransformActionAttributeNotification, 
 						kSecEncodeLineLengthAttribute, 
@@ -631,8 +632,8 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 							CFDataRef d = value;
 							CFIndex in_len = d ? CFDataGetLength(d) : 0;
 							const unsigned char *in = d ? CFDataGetBytePtr(d) : NULL;
-							int n_chunks = in_len / in_chunk_size + 3;
-							int buf_len = n_chunks * out_chunk_size;
+							CFIndex n_chunks = in_len / in_chunk_size + 3;
+							CFIndex buf_len = n_chunks * out_chunk_size;
 							if (target_line_length) 
 							{
 								buf_len += (n_chunks * out_chunk_size) / target_line_length;
@@ -745,8 +746,8 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 							CFIndex in_len = d ? CFDataGetLength(d) : 0;
 							const unsigned char *in = d ? CFDataGetBytePtr(d) : NULL;
 							const unsigned char *in_end = in + in_len;
-							int n_chunks = in_len / in_chunk_size + 3;
-							int buf_len = n_chunks * out_chunk_size;
+							CFIndex n_chunks = in_len / in_chunk_size + 3;
+							CFIndex buf_len = n_chunks * out_chunk_size;
 							if (target_line_length) 
 							{
 								buf_len += (n_chunks * out_chunk_size) / target_line_length;
@@ -859,7 +860,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 
 							if (d) {
 								zs.next_in = (UInt8 *)CFDataGetBytePtr(d); // We know that xLib will not 'Futz' with the data
-								zs.avail_in = CFDataGetLength(d);
+								zs.avail_in = (uInt)CFDataGetLength(d);
 							} else {
 								zs.next_in = NULL;
 								zs.avail_in = 0;
@@ -876,7 +877,7 @@ static SecTransformInstanceBlock EncodeTransform(CFStringRef name,
 								}
 
 								zs.next_out = buf;
-								zs.avail_out = buf_sz;
+								zs.avail_out = (uInt)buf_sz;
 
 								rc = deflate(&zs, d ? Z_NO_FLUSH : Z_FINISH);
 

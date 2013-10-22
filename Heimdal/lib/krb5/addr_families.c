@@ -401,8 +401,9 @@ ipv6_mask_boundary(krb5_context context, const krb5_address *inaddr,
 		   unsigned long len, krb5_address *low, krb5_address *high)
 {
     struct in6_addr addr, laddr, haddr;
+    size_t sub_len;
     uint32_t m;
-    int i, sub_len;
+    int i;
 
     if (len > 128) {
 	krb5_set_error_message(context, KRB5_PROG_ATYPE_NOSUPP,
@@ -724,9 +725,9 @@ addrport_print_addr (const krb5_address *addr, char *str, size_t len)
 
     ret = snprintf(str + size, len - size, ",PORT=%u", port);
     if (ret < 0)
-	return EINVAL;
+	return -1;
     ret_len += ret;
-    return ret_len;
+    return (int)ret_len;
 }
 
 static struct addr_operations at[] = {
@@ -1265,7 +1266,7 @@ krb5_address_order(krb5_context context,
     if(addr1->addr_type != addr2->addr_type)
 	return addr1->addr_type - addr2->addr_type;
     if(addr1->address.length != addr2->address.length)
-	return addr1->address.length - addr2->address.length;
+	return (int)(addr1->address.length - addr2->address.length);
     return memcmp (addr1->address.data,
 		   addr2->address.data,
 		   addr1->address.length);

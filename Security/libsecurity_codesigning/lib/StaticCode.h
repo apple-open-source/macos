@@ -55,7 +55,7 @@ class SecCode;
 // Data accessors (returning CFDataRef, CFDictionaryRef, various pointers, etc.)
 // cache those values internally and return unretained(!) references ("Get" style)
 // that are valid as long as the SecStaticCode object's lifetime, or until
-// resetValidity() is called, whichever is sooner. If you need to keep them,
+// resetValidity() is called, whichever is sooner. If you need to keep them longer,
 // retain or copy them as needed.
 //
 class SecStaticCode : public SecCFObject {
@@ -77,7 +77,7 @@ protected:
 	//
 	class CollectingContext : public ValidationContext {
 	public:
-		CollectingContext(SecStaticCode &c) : code(c), mStatus(noErr) { }
+		CollectingContext(SecStaticCode &c) : code(c), mStatus(errSecSuccess) { }
 		void reportProblem(OSStatus rc, CFStringRef type, CFTypeRef value);
 		
 		OSStatus osStatus()		{ return mStatus; }
@@ -97,7 +97,7 @@ public:
 	
 	// implicitly convert SecCodeRefs to their SecStaticCodeRefs
 	static SecStaticCode *requiredStatic(SecStaticCodeRef ref);	// convert SecCodeRef
-	static SecCode *optionalDynamic(SecStaticCodeRef ref); // extract SecCodeRef or NULL
+	static SecCode *optionalDynamic(SecStaticCodeRef ref); // extract SecCodeRef or NULL if static
 
 	SecStaticCode(DiskRep *rep);
     virtual ~SecStaticCode() throw();
@@ -115,36 +115,43 @@ public:
 	CFAbsoluteTime signingTimestamp();
 	bool isSigned() { return codeDirectory(false) != NULL; }
 	DiskRep *diskRep() { return mRep; }
+	bool isDetached() const { return mRep->base() != mRep; }
 	std::string mainExecutablePath() { return mRep->mainExecutablePath(); }
 	CFURLRef canonicalPath() const { return mRep->canonicalPath(); }
 	std::string identifier() { return codeDirectory()->identifier(); }
 	std::string format() const { return mRep->format(); }
 	std::string signatureSource();
-	CFDataRef component(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
-	CFDictionaryRef infoDictionary();
+ 	virtual CFDataRef component(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
+ 	virtual CFDictionaryRef infoDictionary();
+
 	CFDictionaryRef entitlements();
 
-	CFDictionaryRef resourceDictionary();
+	CFDictionaryRef resourceDictionary(bool check = true);
 	CFURLRef resourceBase();
 	CFDataRef resource(std::string path);
 	CFDataRef resource(std::string path, ValidationContext &ctx);
-	void validateResource(std::string path, ValidationContext &ctx);
+	void validateResource(CFDictionaryRef files, std::string path, ValidationContext &ctx, SecCSFlags flags, uint32_t version);
 	
 	bool flag(uint32_t tested);
+
+	SecCodeCallback monitor() const { return mMonitor; }
+	void setMonitor(SecCodeCallback monitor) { mMonitor = monitor; }
+	CFTypeRef reportEvent(CFStringRef stage, CFDictionaryRef info);
 	
 	void resetValidity();						// clear validation caches (if something may have changed)
 	
 	bool validated() const	{ return mValidated; }
 	bool valid() const
-		{ assert(validated()); return mValidated && (mValidationResult == noErr); }
+		{ assert(validated()); return mValidated && (mValidationResult == errSecSuccess); }
 	bool validatedExecutable() const	{ return mExecutableValidated; }
 	bool validatedResources() const	{ return mResourcesValidated; }
 
 	void validateDirectory();
-	void validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
+	virtual void validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
 	void validateNonResourceComponents();
-	void validateResources();
+	void validateResources(SecCSFlags flags);
 	void validateExecutable();
+	void validateNestedCode(CFURLRef path, const ResourceSeal &seal, SecCSFlags flags);
 	
 	const Requirements *internalRequirements();
 	const Requirement *internalRequirement(SecRequirementType type);
@@ -152,7 +159,7 @@ public:
 	const Requirement *defaultDesignatedRequirement();		// newly allocated (caller owns)
 	
 	void validateRequirements(SecRequirementType type, SecStaticCode *target,
-		OSStatus nullError = noErr);										// target against my [type], throws
+		OSStatus nullError = errSecSuccess);										// target against my [type], throws
 	void validateRequirement(const Requirement *req, OSStatus failure);		// me against [req], throws
 	bool satisfiesRequirement(const Requirement *req, OSStatus failure);	// me against [req], returns on clean miss
 	
@@ -161,19 +168,23 @@ public:
 	CFArrayRef certificates();			// get the entire certificate chain
 	
 	CFDictionaryRef signingInformation(SecCSFlags flags); // omnibus information-gathering API (creates new dictionary)
-	
+
 public:
-	class AllArchitectures;
+	void staticValidate(SecCSFlags flags, const SecRequirement *req);
+	void staticValidateCore(SecCSFlags flags, const SecRequirement *req);
 	
 protected:
-	CFDictionaryRef getDictionary(CodeDirectory::SpecialSlot slot, OSStatus fail); // component value as a dictionary
+	CFDictionaryRef getDictionary(CodeDirectory::SpecialSlot slot, bool check = true); // component value as a dictionary
 	bool verifySignature();
 	CFTypeRef verificationPolicy(SecCSFlags flags);
 
 	static void checkOptionalResource(CFTypeRef key, CFTypeRef value, void *context);
 
+	void handleOtherArchitectures(void (^handle)(SecStaticCode* other));
+
 private:
 	RefPointer<DiskRep> mRep;			// on-disk representation
+	CFRef<CFDataRef> mDetachedSig;		// currently applied explicit detached signature
 	
 	// master validation state
 	bool mValidated;					// core validation was attempted
@@ -186,8 +197,9 @@ private:
 
 	// static resource validation state (nested within mValidated/mValid)
 	bool mResourcesValidated;			// tried to validate resources
-	OSStatus mResourcesValidResult;			// outcome if mResourceValidated or..
-	CollectingContext *mResourcesValidContext;	// other outcome
+	bool mResourcesDeep;				// cached validation was deep
+	OSStatus mResourcesValidResult;			// outcome if mResourceValidated or...
+	CollectingContext *mResourcesValidContext;	// 
 
 	// cached contents
 	CFRef<CFDataRef> mDir;				// code directory data
@@ -205,29 +217,13 @@ private:
 	
 	bool mGotResourceBase;				// asked mRep for resourceBasePath
 	CFRef<CFURLRef> mResourceBase;		// URL form of resource base directory
+
+	SecCodeCallback mMonitor;			// registered monitor callback
 	
 	// signature verification outcome (mTrust == NULL => not done yet)
 	CFRef<SecTrustRef> mTrust;			// outcome of crypto validation (valid or not)
 	CFRef<CFArrayRef> mCertChain;
 	CSSM_TP_APPLE_EVIDENCE_INFO *mEvalDetails;
-};
-
-
-//
-// Given a SecStaticCode, create an iterator that produces SecStaticCodes
-// for all architectures encompassed by this static code reference.
-//
-class SecStaticCode::AllArchitectures : public SecPointer<SecStaticCode> {
-public:
-	AllArchitectures(SecStaticCode *code);
-	
-	SecStaticCode *operator () ();
-	
-private:
-	SecPointer<SecStaticCode> mBase;
-	enum { fatBinary, firstNonFat, atEnd } mState;
-	Universal::Architectures mArchitectures;
-	Universal::Architectures::const_iterator mCurrent;
 };
 
 

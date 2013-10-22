@@ -1,0 +1,44 @@
+# NAME
+
+Test::use::ok - Alternative to Test::More::use_ok
+
+# SYNOPSIS
+
+    use ok 'Some::Module';
+
+# DESCRIPTION
+
+According to the __Test::More__ documentation, it is recommended to run
+`use_ok()` inside a `BEGIN` block, so functions are exported at
+compile-time and prototypes are properly honored.
+
+That is, instead of writing this:
+
+    use_ok( 'Some::Module' );
+    use_ok( 'Other::Module' );
+
+One should write this:
+
+    BEGIN { use_ok( 'Some::Module' ); }
+    BEGIN { use_ok( 'Other::Module' ); }
+
+However, people often either forget to add `BEGIN`, or mistakenly group
+`use_ok` with other tests in a single `BEGIN` block, which can create subtle
+differences in execution order.
+
+With this module, simply change all `use_ok` in test scripts to `use ok`,
+and they will be executed at `BEGIN` time.  The explicit space after `use`
+makes it clear that this is a single compile-time action.
+
+# SEE ALSO
+
+[Test::More](http://search.cpan.org/perldoc?Test::More)
+
+# CC0 1.0 Universal
+
+To the extent possible under law, 唐鳳 has waived all copyright and related
+or neighboring rights to L<Test-use-ok>.
+
+This work is published from Taiwan.
+
+[http://creativecommons.org/publicdomain/zero/1.0](http://creativecommons.org/publicdomain/zero/1.0)

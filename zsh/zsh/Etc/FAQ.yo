@@ -42,13 +42,18 @@ whenhtml(report(ARG1)(ARG2)(ARG3))\
 whenlatex(report(ARG1)(ARG2)(ARG3))\
 whenman(report(ARG1)(ARG2)(ARG3))\
 whenms(report(ARG1)(ARG2)(ARG3))\
-whensgml(report(ARG1)(ARG2)(ARG3)))
+whensgml(report(ARG1)(ARG2)(ARG3)))\
+def(startitem)(0)() \
+def(enditem)(0)()\
+def(item)(2)(
+ARG1: ARG2)\
+def(nofill)(1)(ARG1)
 myreport(Z-Shell Frequently-Asked Questions)(Peter Stephenson)(2010/02/15)
 COMMENT(-- the following are for Usenet and must appear first)\
 description(\
 mydit(Archive-Name:) unix-faq/shell/zsh
-mydit(Last-Modified:) 2010/02/15
-mydit(Submitted-By:) email(pws@pwstephenson.fsnet.co.uk (Peter Stephenson))
+mydit(Last-Modified:) 2012/06/15
+mydit(Submitted-By:) email(coordinator@zsh.org (Peter Stephenson))
 mydit(Posting-Frequency:) Monthly
 mydit(Copyright:) (C) P.W. Stephenson, 1995--2010 (see end of document)
 )
@@ -296,13 +301,8 @@ sect(On what machines will it run?)
 
 sect(What's the latest version?)
 
-  Zsh 4.2.7 is the latest production version.  The latest development
-  version is 4.3.11; this contains support for multibyte character strings
-  (such as UTF-8 locales).  All the main features for multibyte
-  support are now in place and this is likely soon to become the
-  stable series 4.4.
-
-  There will not be any further 4.2 releases.
+  Zsh 5.0.2 is the latest production version.  For details of all the
+  changes, see the NEWS file in the source distribution.
 
   A beta of the next version is sometimes available.  Development of zsh is
   patch by patch, with each intermediate version publicly available.  Note
@@ -334,43 +334,7 @@ label(16)
   the shell.  The following list also appears on the WWW at
   url(http://www.zsh.org/)(http://www.zsh.org/) .
 
-  description(
-    mydit(Home site) url(ftp://ftp.zsh.org/)(ftp://ftp.zsh.org/)
-    mydit()          (also url(http://www.zsh.org/pub/zsh/)
-(http://www.zsh.org/pub/zsh/))
-    mydit(Denmark)   url(ftp://mirrors.dotsrc.org/zsh/)
-(ftp://mirrors.dotsrc.org/zsh/)
-    mydit()          (also url(http://mirrors.dotsrc.org/zsh/)
-(http://mirrors.dotsrc.org/zsh/))
-    mydit(Finland)   url(ftp://ftp.funet.fi/pub/unix/shells/zsh/)
-(ftp://ftp.funet.fi/pub/unix/shells/zsh/)
-    mydit(France)    url(ftp://nephtys.lip6.fr/pub/unix/shells/zsh/)
-(ftp://nephtys.lip6.fr/pub/unix/shells/zsh/)
-    mydit(Germany)   url(ftp://ftp.fu-berlin.de/pub/unix/shells/zsh/)
-(ftp://ftp.fu-berlin.de/pub/unix/shells/zsh/)
-    mydit(Hungary)   url(ftp://ftp.cs.elte.hu/pub/zsh/)
-(ftp://ftp.cs.elte.hu/pub/zsh/)
-    mydit()          (also url(http://www.cs.elte.hu/pub/zsh/)
-(http://www.cs.elte.hu/pub/zsh/))
-    mydit()          url(ftp://ftp.kfki.hu/pub/packages/zsh/)
-(ftp://ftp.kfki.hu/pub/packages/zsh/)
-    mydit(Israel)    url(ftp://ftp.math.technion.ac.il/pub/zsh/)
-(ftp://ftp.math.technion.ac.il/pub/zsh/)
-    mydit()          (also url(http://www.math.technion.ac.il/pub/zsh/)
-(http://www.math.technion.ac.il/pub/zsh/))
-    mydit(Netherlands) url(ftp://ftp.demon.nl/pub/mirrors/zsh/)
-(ftp://ftp.demon.nl/pub/mirrors/zsh/)
-    mydit(Poland)    url(ftp://sunsite.icm.edu.pl/pub/unix/shells/zsh/)
-(ftp://sunsite.icm.edu.pl/pub/unix/shells/zsh/)
-    mydit(Romania)   url(ftp://ftp.kappa.ro/pub/mirrors/ftp.zsh.org/pub/zsh/)
-(ftp://ftp.kappa.ro/pub/mirrors/ftp.zsh.org/pub/zsh/)
-    mydit(Sweden)    url(ftp://ftp.lysator.liu.se/pub/unix/zsh/)
-(ftp://ftp.lysator.liu.se/pub/unix/zsh/)
-    mydit(UK)        url(ftp://sunsite.org.uk/packages/zsh/)
-(ftp://sunsite.org.uk/packages/zsh/)
-    mydit(USA)       url(http://zsh.open-mirror.com/)
-(http://zsh.open-mirror.com/)
-  )
+includefile(../Doc/Zsh/ftp_sites.yo)
 
   A Windows port was created by Amol Deshpandem based on 3.0.5 (which
   is now rather old).  This has now been restored and can be found at
@@ -753,7 +717,7 @@ label(23)
      appear inside the tt({ }) the way they get appended to an alias.
 
   myeit() If the csh alias references its own name (tt(alias rm "rm -i")),
-     then in a zsh function you need the "command" keyword
+     then in a zsh function you need the "command" or "builtin" keyword
      (function tt(rm() { command rm -i "$@" })), but in a zsh alias
      you don't (tt(alias rm="rm -i")).
 
@@ -2323,8 +2287,9 @@ Wischnowsky).
 nsect(Copyright Information:)
 
 This document is copyright (C) P.W. Stephenson, 1995, 1996, 1997,
-1998, 1999, 2000. This text originates in the U.K. and the author asserts
-his moral rights under the Copyrights, Designs and Patents Act, 1988.
+1998, 1999, 2000, 2012. This text originates in the U.K. and the author
+asserts his moral rights under the Copyrights, Designs and Patents Act,
+1988.
 
 Permission is hereby granted, without written agreement and without
 license or royalty fees, to use, copy, modify, and distribute this

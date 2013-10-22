@@ -18,21 +18,33 @@
 #define _SUDO_EXEC_H
 
 /*
+ * Special values to indicate whether continuing in foreground or background.
+ */
+#define SIGCONT_FG	-2
+#define SIGCONT_BG	-3
+
+/*
  * Symbols shared between exec.c and exec_pty.c
  */
 
 /* exec.c */
 int my_execve __P((const char *path, char *argv[], char *envp[]));
+int pipe_nonblock __P((int fds[2]));
+extern volatile pid_t cmnd_pid;
 
 /* exec_pty.c */
 int fork_pty __P((const char *path, char *argv[], char *envp[], int sv[],
-    int rbac_enabled, int *maxfd));
+    int rbac_enabled, int bgmode, int *maxfd, sigset_t *omask));
 int perform_io __P((fd_set *fdsr, fd_set *fdsw, struct command_status *cstat));
 int suspend_parent __P((int signo));
 void fd_set_iobs __P((fd_set *fdsr, fd_set *fdsw));
-void handler __P((int s));
+#ifdef SA_SIGINFO
+RETSIGTYPE handler __P((int s, siginfo_t *info, void *context));
+#else
+RETSIGTYPE handler __P((int s));
+#endif
 void pty_close __P((struct command_status *cstat));
 void pty_setup __P((uid_t uid));
-extern volatile sig_atomic_t recvsig[NSIG];
+extern int signal_pipe[2];
 
 #endif /* _SUDO_EXEC_H */

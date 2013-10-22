@@ -35,6 +35,7 @@
 #include "KURL.h"
 #include "Logging.h"
 #include "NotImplemented.h"
+#include "SocketStreamError.h"
 #include "SocketStreamHandleClient.h"
 #include "SocketStreamHandlePrivate.h"
 
@@ -167,6 +168,9 @@ void SocketStreamHandlePrivate::socketErrorCallback(int error)
     if (m_streamHandle && m_streamHandle->client()) {
         SocketStreamHandle* streamHandle = m_streamHandle;
         m_streamHandle = 0;
+
+        streamHandle->client()->didFailSocketStream(streamHandle, SocketStreamError(error, m_socket->errorString()));
+
         // This following call deletes _this_. Nothing should be after it.
         streamHandle->client()->didCloseSocketStream(streamHandle);
     }
@@ -191,6 +195,8 @@ SocketStreamHandle::SocketStreamHandle(QTcpSocket* socket, SocketStreamHandleCli
 {
     LOG(Network, "SocketStreamHandle %p new client %p", this, m_client);
     m_p = new SocketStreamHandlePrivate(this, socket);
+    if (socket->isOpen())
+        m_state = Open;
 }
 
 SocketStreamHandle::~SocketStreamHandle()

@@ -275,7 +275,7 @@ krb5_kdc_save_request(krb5_context context,
     krb5_storage *sp;
     krb5_address a;
     int fd, ret;
-    uint32_t t;
+    time_t t;
     krb5_data d;
 
     memset(&a, 0, sizeof(a));
@@ -303,7 +303,7 @@ krb5_kdc_save_request(krb5_context context,
 	goto out;
 
     krb5_store_uint32(sp, 1);
-    krb5_store_uint32(sp, t);
+    krb5_store_uint32(sp, (uint32_t)t);
     krb5_store_address(sp, a);
     krb5_store_data(sp, d);
     {

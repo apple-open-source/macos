@@ -33,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <Availability.h>
 
 #include "libunwind.h"
 
@@ -42,6 +43,14 @@
 #include "CompactUnwinder.hpp"
 #include "InternalMacros.h"
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED
+  #define KEYMGR_SUPPPORT 1
+#else
+  #define KEYMGR_SUPPPORT 0
+#endif
+
+
+#if KEYMGR_SUPPPORT
 // private keymgr stuff
 #define KEYMGR_GCC3_DW2_OBJ_LIST   302  
 extern "C" {
@@ -67,7 +76,7 @@ struct libgcc_object_info {
   struct libgcc_object*		unseen_objects;
   unsigned					spare[2];
 };
-
+#endif // KEYMGR_SUPPPORT
 
 
 
@@ -811,8 +820,8 @@ void UnwindCursor<A,R>::setInfoBasedOnIPRegister(bool isReturnAddress)
 		}
 	}
 	
+#if KEYMGR_SUPPPORT  
 	// lastly check for old style keymgr registration of dynamically generated FDEs
-	
 	// acquire exclusive access to libgcc_object_info
 	libgcc_object_info* head = (libgcc_object_info*)_keymgr_get_and_lock_processwide_ptr(KEYMGR_GCC3_DW2_OBJ_LIST);
 	if ( head != NULL ) {
@@ -846,6 +855,7 @@ void UnwindCursor<A,R>::setInfoBasedOnIPRegister(bool isReturnAddress)
 	}
 	// release libgcc_object_info 
 	_keymgr_set_and_unlock_processwide_ptr(KEYMGR_GCC3_DW2_OBJ_LIST, head);
+#endif // KEYMGR_SUPPPORT
 	
 #endif
 

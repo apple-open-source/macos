@@ -35,11 +35,12 @@
 
 
 extern int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef hostname, SecKeyRef *publicKeyRef);
-extern int crypto_cssm_verify_x509sign(SecKeyRef publicKeyRef, vchar_t *hash, vchar_t *signature);
-extern SecCertificateRef crypto_cssm_x509cert_get_SecCertificateRef (vchar_t *cert);
+extern int crypto_cssm_verify_x509sign(SecKeyRef publicKeyRef, vchar_t *hash, vchar_t *signature, Boolean useSHA1);
+extern SecCertificateRef crypto_cssm_x509cert_CreateSecCertificateRef (vchar_t *cert);
 extern vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash);
 extern vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef, cert_status_t *certStatus);
 extern const char *GetSecurityErrorString(OSStatus err);
+extern CFDataRef crypto_cssm_CopySubjectSequence(SecCertificateRef certRef);
 
 #endif /* __CRYPTO_CSSM_H__ */
 

@@ -72,8 +72,8 @@ void	heim_release(heim_object_t);
 
 typedef void (*heim_type_dealloc)(void *);
 
-void *
-heim_alloc(size_t size, const char *name, heim_type_dealloc dealloc);
+heim_object_t
+heim_uniq_alloc(size_t size, const char *name, heim_type_dealloc dealloc);
 
 /*
  *
@@ -127,15 +127,13 @@ heim_bool_val(heim_bool_t);
  * Data
  */
 
-struct heim_data {
-    size_t length;
-    void *data;
-};
-
-typedef struct heim_data *heim_data_t;
+typedef struct heim_data_data *heim_data_t;
 
 heim_data_t heim_data_create(void *, size_t);
 heim_tid_t heim_data_get_type_id(void);
+const void *
+	heim_data_get_bytes(heim_data_t);
+size_t	heim_data_get_length(heim_data_t);
 
 /*
  * Array
@@ -161,6 +159,8 @@ void	heim_array_delete_value(heim_array_t, size_t);
 #ifdef __BLOCKS__
 void	heim_array_filter(heim_array_t, int (^)(heim_object_t));
 #endif
+
+int	heim_array_contains_value(heim_array_t array, heim_object_t value);
 
 /*
  * Dict
@@ -191,7 +191,7 @@ typedef struct heim_string_data *heim_string_t;
 
 heim_string_t heim_string_create(const char *);
 heim_tid_t heim_string_get_type_id(void);
-const char * heim_string_get_utf8(heim_string_t);
+char * heim_string_copy_utf8(heim_string_t);
 
 /*
  * Number
@@ -225,10 +225,27 @@ heim_error_t	heim_error_create(int, const char *, ...)
 heim_error_t	heim_error_createv(int, const char *, va_list)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 0));
 
-heim_string_t heim_error_copy_string(heim_error_t error);
+heim_string_t heim_error_copy_string(heim_error_t);
 int heim_error_get_code(heim_error_t);
 
 heim_error_t
-heim_error_append(heim_error_t top, heim_error_t append);
+heim_error_append(heim_error_t, heim_error_t);
+
+/*
+ *
+ */
+
+typedef struct heim_queue *heim_queue_t;
+typedef struct heim_queue_attr *heim_queue_attr_t;
+
+heim_queue_t	heim_queue_create(const char *, heim_queue_attr_t);
+void		heim_async_f(heim_queue_t, void *, void (*)(void *));
+
+typedef struct heim_sema_t *heim_sema_t;
+
+heim_sema_t	heim_sema_create(long count);
+void		heim_sema_signal(heim_sema_t);
+void		heim_sema_wait(heim_sema_t, time_t t);
+
 
 #endif /* HEIM_BASE_H */

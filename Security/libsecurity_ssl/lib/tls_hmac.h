@@ -32,8 +32,8 @@
 extern "C" {
 #endif
 
-#include "ssl.h"
-#include "sslPriv.h"
+#include <sys/types.h>
+#include "cipherSpecs.h"
 
 /* forward declaration of HMAC object */
 struct 						HMACReference;
@@ -42,56 +42,51 @@ struct 						HMACReference;
 struct                      HMACContext;
 typedef struct HMACContext  *HMACContextRef;
 
-/* The HMAC algorithms we support */
-typedef enum {
-	HA_Null = 0,		// i.e., uninitialized
-	HA_SHA1,
-	HA_MD5,
-    HA_SHA256,
-    HA_SHA384
-} HMAC_Algs;
 
 /* For convenience..the max size of HMAC, in bytes, this module will ever return */
 #define TLS_HMAC_MAX_SIZE		48
 
 /* Create an HMAC session */
-typedef OSStatus (*HMAC_AllocFcn) (
+typedef int (*HMAC_AllocFcn) (
 	const struct HMACReference	*hmac,
-	SSLContext 					*ctx,
 	const void					*keyPtr,
 	size_t                      keyLen,
 	HMACContextRef				*hmacCtx);			// RETURNED
 
 /* Free a session */
-typedef OSStatus (*HMAC_FreeFcn) (
-	HMACContextRef	hmacCtx);
-
+typedef int (*HMAC_FreeFcn) (
+	HMACContextRef	hmacCtx);	
+	
 /* Reusable init, using same key */
-typedef OSStatus (*HMAC_InitFcn) (
+typedef int (*HMAC_InitFcn) (
 	HMACContextRef	hmacCtx);
 
 /* normal crypt ops */
-typedef OSStatus (*HMAC_UpdateFcn) (
+typedef int (*HMAC_UpdateFcn) (
 	HMACContextRef	hmacCtx,
 	const void		*data,
 	size_t          dataLen);
-
-typedef OSStatus (*HMAC_FinalFcn) (
+	
+typedef int (*HMAC_FinalFcn) (
 	HMACContextRef	hmacCtx,
 	void			*hmac,			// mallocd by caller
 	size_t          *hmacLen);		// IN/OUT
 
 /* one-shot */
-typedef OSStatus (*HMAC_HmacFcn) (
+typedef int (*HMAC_HmacFcn) (
 	HMACContextRef	hmacCtx,
 	const void		*data,
 	size_t          dataLen,
 	void			*hmac,			// mallocd by caller
 	size_t          *hmacLen);		// IN/OUT
+	
+
+typedef struct HMACParams {
+} HMACParams;
 
 typedef struct HMACReference {
-	size_t          macSize;
-	HMAC_Algs		alg;
+    size_t          macSize;
+    HMAC_Algs		alg;
 	HMAC_AllocFcn	alloc;
 	HMAC_FreeFcn	free;
 	HMAC_InitFcn	init;
@@ -105,6 +100,7 @@ extern const HMACReference TlsHmacSHA1;
 extern const HMACReference TlsHmacMD5;
 extern const HMACReference TlsHmacSHA256;
 extern const HMACReference TlsHmacSHA384;
+
 
 #ifdef	__cplusplus
 }

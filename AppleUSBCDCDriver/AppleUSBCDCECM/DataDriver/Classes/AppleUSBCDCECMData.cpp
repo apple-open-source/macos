@@ -38,7 +38,10 @@
 
 #include <IOKit/pwr_mgt/RootDomain.h>
 
+#if !TARGET_OS_IPHONE
 #include <IOKit/usb/IOUSBBus.h>
+#endif /* TARGET_OS_IPHONE */
+
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBPipe.h>
@@ -75,12 +78,16 @@ static struct MediumTable
 
 mediumTable[] =
 {
-    {kIOMediumEthernetNone,												0},
-    {kIOMediumEthernetAuto,												0},
-    {kIOMediumEthernet10BaseT 	 | kIOMediumOptionHalfDuplex,								10},
-    {kIOMediumEthernet10BaseT 	 | kIOMediumOptionFullDuplex,								10},
-    {kIOMediumEthernet100BaseTX  | kIOMediumOptionHalfDuplex,								100},
-    {kIOMediumEthernet100BaseTX  | kIOMediumOptionFullDuplex,								100}
+    { kIOMediumEthernetNone,																0    },
+    { kIOMediumEthernetAuto,																0    },
+    { kIOMediumEthernet10BaseT    | kIOMediumOptionHalfDuplex,								10   },
+    { kIOMediumEthernet10BaseT    | kIOMediumOptionFullDuplex,								10   },
+    { kIOMediumEthernet10BaseT    | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl,	10   },
+    { kIOMediumEthernet100BaseTX  | kIOMediumOptionHalfDuplex,								100  },
+    { kIOMediumEthernet100BaseTX  | kIOMediumOptionFullDuplex,								100  },
+    { kIOMediumEthernet100BaseTX  | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl,	100  },
+    { kIOMediumEthernet1000BaseTX | kIOMediumOptionFullDuplex,								1000 },
+    { kIOMediumEthernet1000BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl,	1000 }
 };
 
 #define super IOEthernetController
@@ -281,6 +288,9 @@ void AppleUSBCDCECMData::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
     UInt8	wchr;
     char	LocBuf[buflen+1];
     
+    XTRACE(0, 0, Count, "USBLogData >>>>");
+
+    
     switch (tDir)
     {
         case kDataIn:
@@ -351,6 +361,8 @@ void AppleUSBCDCECMData::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
         buf = &buf[rlen];
     } while (wlen != 0);
 
+    XTRACE(0, Dir, Count, "USBLogData <<<<");
+    
 }/* end USBLogData */
 
 /****************************************************************************************************/
@@ -909,6 +921,8 @@ void AppleUSBCDCECMData::stop(IOService *provider)
     
     if (fNetworkInterface)
     {
+        detachInterface(fNetworkInterface, FALSE);
+
         fNetworkInterface->release();
         fNetworkInterface = NULL;
     }
@@ -1164,7 +1178,7 @@ IOReturn AppleUSBCDCECMData::enable(IONetworkInterface *netif)
 IOReturn AppleUSBCDCECMData::disable(IONetworkInterface *netif)
 {
 
-    XTRACE(this, 0, 0, "disable");
+    XTRACE(this, 0, 0, "AppleUSBCDCECMData::disable");
 	
     putToSleep();
 
@@ -1899,7 +1913,7 @@ bool AppleUSBCDCECMData::createMediumTables()
 
     XTRACE(this, 0, 0, "createMediumTables");
 
-    maxSpeed = 100;
+    maxSpeed = 1000;
     fMediumDict = OSDictionary::withCapacity(sizeof(mediumTable) / sizeof(mediumTable[0]));
     if (fMediumDict == 0)
     {
@@ -2397,7 +2411,9 @@ void AppleUSBCDCECMData::linkStatusChange(UInt8 linkState)
 	if (fLinkStatus != linkState)
 	{
 		XTRACE(this, 0, linkState, "linkStatusChange - State has changed");
-		
+	
+        fLinkStatus = linkState;
+
 		if (linkState == kLinkUp)
 		{
             setLinkStatusUp();
@@ -2455,6 +2471,8 @@ void AppleUSBCDCECMData::linkSpeedChange(UInt32 upSpeed, UInt32 downSpeed)
 	fUpSpeed = upSpeed;
     fDownSpeed = downSpeed;
 	
+    setLinkStatusUp(); // force speed change
+	
 }/* end linkSpeedChange */
 
 /****************************************************************************************************/
@@ -2474,7 +2492,7 @@ void AppleUSBCDCECMData::setLinkStatusUp()
     IOMediumType	mediumType = 0;
 	UInt32			speed;
     char            line[256];
-    UInt16          linkSpeed;
+    UInt32          linkSpeed;
     UInt16          regs[LinkUp_Phy_Count] = {0, 0, 0, 0, 0, 0};
     LinkUpFlow      flowState = kLinkUpFlow_None;
     bool            fullduplex;
@@ -2488,6 +2506,7 @@ void AppleUSBCDCECMData::setLinkStatusUp()
 		
 	mediumType = kIOMediumOptionFullDuplex;
 	fullduplex = true;
+    
 	if (fUpSpeed > fDownSpeed)
 	{
 		speed = fUpSpeed;
@@ -2495,14 +2514,43 @@ void AppleUSBCDCECMData::setLinkStatusUp()
 		speed = fDownSpeed;
 	}
 
-    if (speed > 10000000)
-    {
-        mediumType |= kIOMediumEthernet100BaseTX;
-    } else {
-        mediumType |= kIOMediumEthernet10BaseT;
-    }
+//    if (speed > 10000000)
+//    {
+//        mediumType |= kIOMediumEthernet100BaseTX;
+//    } else {
+//        mediumType |= kIOMediumEthernet10BaseT;
+//    }
     
     linkSpeed = speed/1000000;           // Need this in mbits
+    
+    XTRACE(this, speed, linkSpeed, "speed, linkSpeed mbps+++");
+
+    switch (linkSpeed) {
+ 
+        case 0:
+            mediumType |= kIOMediumEthernetNone;
+            XTRACE(this, 0, 0, "fLinkStatus");
+            break;
+
+        
+        case 10:
+            mediumType |= kIOMediumEthernet10BaseT;
+            break;
+
+        case 100:
+            mediumType |= kIOMediumEthernet100BaseTX;
+            break;
+
+        case 1000:
+            mediumType |= kIOMediumEthernet1000BaseTX;
+            break;
+
+        default:
+            mediumType |= kIOMediumEthernet10BaseT;
+            XTRACE(this, speed, linkSpeed, "default linkspeed+");
+            linkSpeed = 10;
+           break;
+    }
     
         // Log it if we need to
     
@@ -2540,15 +2588,22 @@ void AppleUSBCDCECMData::setLinkStatusUp()
 #if USE_ELG				
         Log("%s\n", line);                          // Above goes to IOLog, send a copy to firewire if debug enabled
 #endif
+    
+    }
+    
+    if ( (linkSpeed == 0) || (fLinkStatus != kLinkUp))
+    {
+        XTRACE(this, speed, linkSpeed, "setLinkStatusUp linkspeed is 0 +");
+        return;
     }
     
     medium = IONetworkMedium::getMediumWithType(fMediumDict, mediumType);
     
     XTRACE(this, 0, mediumType, "setLinkStatusUp - LinkStatus set");
     
-    setLinkStatus(kIONetworkLinkActive | kIONetworkLinkValid, medium, speed);
+    setLinkStatus(kIONetworkLinkActive | kIONetworkLinkValid, medium, linkSpeed);
 	
-	fLinkStatus = kLinkUp;
+//	fLinkStatus = kLinkUp;
     
 }/* end setLinkStatusUp */
 

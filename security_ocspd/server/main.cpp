@@ -40,6 +40,8 @@ Mutex gTimeMutex;
 const CFAbsoluteTime kTimeoutInterval = 300;
 const int kTimeoutCheckTime = 60;
 
+extern void enableAutoreleasePool(int enable);
+
 static void usage(char **argv)
 {
 	printf("Usage: %s [option...]\n", argv[0]);
@@ -100,7 +102,8 @@ void TimeoutTimer::action()
 int main(int argc, char **argv)
 {
 	signal (SIGTERM, HandleSigTerm);
-	
+	enableAutoreleasePool(1);
+
 	/* user-specified variables */
 	const char *bootStrapName = NULL;
 	bool debugMode = false;
@@ -174,6 +177,7 @@ int main(int argc, char **argv)
 	}
 	catch(...) {}
 	/* fell out of runloop (should not happen) */
+	enableAutoreleasePool(0);
 	#ifndef NDEBUG
 	Syslog::alert("Aborting");
 	#endif

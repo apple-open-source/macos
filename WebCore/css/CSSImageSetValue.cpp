@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,11 +30,15 @@
 
 #include "CSSImageValue.h"
 #include "CSSPrimitiveValue.h"
+#include "CachedImage.h"
 #include "CachedResourceLoader.h"
+#include "CachedResourceRequest.h"
+#include "CachedResourceRequestInitiators.h"
 #include "Document.h"
 #include "Page.h"
 #include "StyleCachedImageSet.h"
 #include "StylePendingImage.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -57,13 +61,13 @@ void CSSImageSetValue::fillImageSet()
     size_t i = 0;
     while (i < length) {
         CSSValue* imageValue = item(i);
-        ASSERT(imageValue->isImageValue());
+        ASSERT_WITH_SECURITY_IMPLICATION(imageValue->isImageValue());
         String imageURL = static_cast<CSSImageValue*>(imageValue)->url();
 
         ++i;
-        ASSERT(i < length);
+        ASSERT_WITH_SECURITY_IMPLICATION(i < length);
         CSSValue* scaleFactorValue = item(i);
-        ASSERT(scaleFactorValue->isPrimitiveValue());
+        ASSERT_WITH_SECURITY_IMPLICATION(scaleFactorValue->isPrimitiveValue());
         float scaleFactor = static_cast<CSSPrimitiveValue*>(scaleFactorValue)->getFloatValue();
 
         ImageWithScale image;
@@ -107,9 +111,10 @@ StyleCachedImageSet* CSSImageSetValue::cachedImageSet(CachedResourceLoader* load
         // All forms of scale should be included: Page::pageScaleFactor(), Frame::pageZoomFactor(),
         // and any CSS transforms. https://bugs.webkit.org/show_bug.cgi?id=81698
         ImageWithScale image = bestImageForScaleFactor();
-        ResourceRequest request(loader->document()->completeURL(image.imageURL));
-        if (CachedImage* cachedImage = loader->requestImage(request)) {
-            m_imageSet = StyleCachedImageSet::create(cachedImage, image.scaleFactor, this);
+        CachedResourceRequest request(ResourceRequest(document->completeURL(image.imageURL)));
+        request.setInitiator(cachedResourceRequestInitiators().css);
+        if (CachedResourceHandle<CachedImage> cachedImage = loader->requestImage(request)) {
+            m_imageSet = StyleCachedImageSet::create(cachedImage.get(), image.scaleFactor, this);
             m_accessedBestFitImage = true;
         }
     }
@@ -138,7 +143,32 @@ StyleImage* CSSImageSetValue::cachedOrPendingImageSet(Document* document)
 
 String CSSImageSetValue::customCssText() const
 {
-    return "-webkit-image-set(" + CSSValueList::customCssText() + ")";
+    StringBuilder result;
+    result.appendLiteral("-webkit-image-set(");
+
+    size_t length = this->length();
+    size_t i = 0;
+    while (i < length) {
+        if (i > 0)
+            result.appendLiteral(", ");
+
+        const CSSValue* imageValue = item(i);
+        result.append(imageValue->cssText());
+        result.append(' ');
+
+        ++i;
+        ASSERT_WITH_SECURITY_IMPLICATION(i < length);
+        const CSSValue* scaleFactorValue = item(i);
+        result.append(scaleFactorValue->cssText());
+        // FIXME: Eventually the scale factor should contain it's own unit http://wkb.ug/100120.
+        // For now 'x' is hard-coded in the parser, so we hard-code it here too.
+        result.append('x');
+
+        ++i;
+    }
+
+    result.append(')');
+    return result.toString();
 }
 
 bool CSSImageSetValue::hasFailedOrCanceledSubresources() const

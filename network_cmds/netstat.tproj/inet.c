@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -72,6 +72,7 @@ static const char rcsid[] =
 #include <sys/sysctl.h>
 
 #include <net/route.h>
+#include <net/if_arp.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
@@ -103,6 +104,10 @@ static const char rcsid[] =
 #include <unistd.h>
 #include "netstat.h"
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 #define ROUNDUP64(a) \
 	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint64_t) - 1))) : sizeof(uint64_t))
 #define ADVANCE64(x, n) (((char *)x) += ROUNDUP64(n))
@@ -112,6 +117,7 @@ void	inetprint (struct in_addr *, int, char *, int);
 #ifdef INET6
 extern void	inet6print (struct in6_addr *, int, char *, int);
 static int udp_done, tcp_done;
+extern int mptcp_done;
 #endif /* INET6 */
 
 #ifdef SRVCACHE
@@ -218,7 +224,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	struct xsockbuf_n *so_snd = NULL;
 	struct xsockstat_n *so_stat = NULL;
 	int which = 0;
-	
+
 	istcp = 0;
 	switch (proto) {
 		case IPPROTO_TCP:
@@ -305,7 +311,8 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 					break;
 			} 		
 		} else {
-			printf("got %d twice\n", xgn->xgn_kind);
+            if (vflag)
+                printf("got %d twice\n", xgn->xgn_kind);
 		}
 		
 		if ((istcp && which != ALL_XGN_KIND_TCP) || (!istcp && which != ALL_XGN_KIND_INP))
@@ -493,7 +500,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 			u_int64_t rxbytes = 0;
 			u_int64_t txbytes = 0;
 			
-			for (i = 0; i < SO_TC_MAX; i++) {
+			for (i = 0; i < SO_TC_STATS_MAX; i++) {
 				rxbytes += so_stat->xst_tc_stats[i].rxbytes;
 				txbytes += so_stat->xst_tc_stats[i].txbytes;
 			}
@@ -502,8 +509,8 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		}
 		if (prioflag >= 0) {
 			printf(" %10llu %10llu", 
-				   prioflag < SO_TC_MAX ? so_stat->xst_tc_stats[prioflag].rxbytes : 0, 
-				   prioflag < SO_TC_MAX ? so_stat->xst_tc_stats[prioflag].txbytes : 0);
+				   prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].rxbytes : 0, 
+				   prioflag < SO_TC_STATS_MAX ? so_stat->xst_tc_stats[prioflag].txbytes : 0);
 		}
 		putchar('\n');
 	}
@@ -526,11 +533,13 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
  * Dump TCP statistics structure.
  */
 void
-tcp_stats(uint32_t off , char *name, int af )
+tcp_stats(uint32_t off , char *name, int af)
 {
 	static struct tcpstat ptcpstat;
 	struct tcpstat tcpstat;
 	size_t len = sizeof tcpstat;
+	static uint32_t r_swcsum, pr_swcsum;
+	static uint32_t t_swcsum, pt_swcsum;
 
 	if (sysctlbyname("net.inet.tcp.stats", &tcpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.tcp.stats");
@@ -544,6 +553,8 @@ tcp_stats(uint32_t off , char *name, int af )
 		tcp_done = 1;
 #endif
 
+    if (interval && vflag > 0)
+        print_time();
 	printf ("%s:\n", name);
 
 #define	TCPDIFF(f) (tcpstat.f - ptcpstat.f)
@@ -571,6 +582,15 @@ tcp_stats(uint32_t off , char *name, int af )
 	p(tcps_sndwinup, "\t\t%u window update packet%s\n");
 	p(tcps_sndctrl, "\t\t%u control packet%s\n");
 	p(tcps_fcholdpacket, "\t\t%u data packet%s sent after flow control\n");
+	t_swcsum = tcpstat.tcps_snd_swcsum + tcpstat.tcps_snd6_swcsum;
+	if ((t_swcsum - pt_swcsum) || sflag <= 1)
+        printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
+	p2(tcps_snd_swcsum, tcps_snd_swcsum_bytes,
+	    "\t\t\t%u segment%s (%u byte%s) over IPv4\n");
+#if INET6
+	p2(tcps_snd6_swcsum, tcps_snd6_swcsum_bytes,
+	    "\t\t\t%u segment%s (%u byte%s) over IPv6\n");
+#endif /* INET6 */
 	p(tcps_rcvtotal, "\t%u packet%s received\n");
 	p2(tcps_rcvackpack, tcps_rcvackbyte, "\t\t%u ack%s (for %u byte%s)\n");
 	p(tcps_rcvdupack, "\t\t%u duplicate ack%s\n");
@@ -591,6 +611,16 @@ tcp_stats(uint32_t off , char *name, int af )
 	p(tcps_rcvafterclose, "\t\t%u packet%s received after close\n");
 	p(tcps_badrst, "\t\t%u bad reset%s\n");
 	p(tcps_rcvbadsum, "\t\t%u discarded for bad checksum%s\n");
+	r_swcsum = tcpstat.tcps_rcv_swcsum + tcpstat.tcps_rcv6_swcsum;
+	if ((r_swcsum - pr_swcsum) || sflag <= 1)
+        printf("\t\t%u checksummed in software\n",
+               (r_swcsum - pr_swcsum));
+	p2(tcps_rcv_swcsum, tcps_rcv_swcsum_bytes,
+	    "\t\t\t%u segment%s (%u byte%s) over IPv4\n");
+#if INET6
+	p2(tcps_rcv6_swcsum, tcps_rcv6_swcsum_bytes,
+	    "\t\t\t%u segment%s (%u byte%s) over IPv6\n");
+#endif /* INET6 */
 	p(tcps_rcvbadoff, "\t\t%u discarded for bad header offset field%s\n");
 	p1a(tcps_rcvshort, "\t\t%u discarded because packet too short\n");
 	p(tcps_connattempt, "\t%u connection request%s\n");
@@ -631,8 +661,22 @@ tcp_stats(uint32_t off , char *name, int af )
 	p1a(tcps_sack_sboverflow, "\t%u SACK scoreboard overflow\n"); 
 #endif /* TCP_MAX_SACK */
 
-	if (interval > 0)
+	p(tcps_coalesced_pack, "\t%u LRO coalesced packet%s\n");
+	p(tcps_flowtbl_full, "\t\t%u time%s LRO flow table was full\n");
+	p(tcps_flowtbl_collision, "\t\t%u collision%s in LRO flow table\n");
+	p(tcps_lro_twopack, "\t\t%u time%s LRO coalesced 2 packets\n");
+	p(tcps_lro_multpack, "\t\t%u time%s LRO coalesced 3 or 4 packets\n");
+	p(tcps_lro_largepack, "\t\t%u time%s LRO coalesced 5 or more packets\n");
+
+	p(tcps_limited_txt, "\t%u limited transmit%s done\n");
+	p(tcps_early_rexmt, "\t%u early retransmit%s done\n");
+	p(tcps_sack_ackadv, "\t%u time%s cumulative ack advanced along with SACK\n");
+
+	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
+		pr_swcsum = r_swcsum;
+		pt_swcsum = t_swcsum;
+	}
 
 #undef TCPDIFF
 #undef p
@@ -641,6 +685,76 @@ tcp_stats(uint32_t off , char *name, int af )
 #undef p2a
 #undef p3
 }
+
+#if TARGET_OS_EMBEDDED
+/*
+ * Dump MPTCP statistics
+ */
+void
+mptcp_stats(uint32_t off , char *name, int af)
+{
+	static struct tcpstat ptcpstat;
+	struct tcpstat tcpstat;
+	size_t len = sizeof tcpstat;
+
+	if (sysctlbyname("net.inet.tcp.stats", &tcpstat, &len, 0, 0) < 0) {
+		warn("sysctl: net.inet.tcp.stats");
+		return;
+	}
+
+#ifdef INET6
+	if (mptcp_done != 0 && interval == 0)
+		return;
+	else
+		mptcp_done = 1;
+#endif
+
+	if (interval && vflag > 0)
+		print_time();
+	printf ("%s:\n", name);
+
+#define	MPTCPDIFF(f) (tcpstat.f - ptcpstat.f)
+#define	p(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
+    printf(m, MPTCPDIFF(f), plural(MPTCPDIFF(f)))
+#define	p1a(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
+    printf(m, MPTCPDIFF(f))
+#define	p2(f1, f2, m) if (MPTCPDIFF(f1) || MPTCPDIFF(f2) || sflag <= 1) \
+    printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), \
+        MPTCPDIFF(f2), plural(MPTCPDIFF(f2)))
+#define	p2a(f1, f2, m) if (MPTCPDIFF(f1) || MPTCPDIFF(f2) || sflag <= 1) \
+    printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), MPTCPDIFF(f2))
+#define	p3(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
+    printf(m, MPTCPDIFF(f), plurales(MPTCPDIFF(f)))
+
+	p(tcps_mp_sndpacks, "\t%u data packet%s sent\n");
+	p(tcps_mp_sndbytes, "\t%u data byte%s sent\n");
+	p(tcps_mp_rcvtotal, "\t%u data packet%s received\n");
+	p(tcps_mp_rcvbytes, "\t%u data byte%s received\n");
+	p(tcps_invalid_mpcap, "\t%u packet%s with an invalid MPCAP option\n");
+	p(tcps_invalid_joins, "\t%u packet%s with an invalid MPJOIN option\n");
+	p(tcps_mpcap_fallback, "\t%u time%s primary subflow fell back to "
+	    "TCP\n");
+	p(tcps_join_fallback, "\t%u time%s secondary subflow fell back to "
+	    "TCP\n");
+	p(tcps_estab_fallback, "\t%u DSS option drop%s\n");
+	p(tcps_invalid_opt, "\t%u other invalid MPTCP option%s\n");
+	p(tcps_mp_reducedwin, "\t%u time%s the MPTCP subflow window was reduced\n");
+	p(tcps_mp_badcsum, "\t%u bad DSS checksum%s\n");
+	p(tcps_mp_oodata, "\t%u time%s received out of order data \n");
+	p3(tcps_mp_switches, "\t%u subflow switch%s\n");
+	
+	if (interval > 0) {
+		bcopy(&tcpstat, &ptcpstat, len);
+	}
+
+#undef MPTCPDIFF
+#undef p
+#undef p1a
+#undef p2
+#undef p2a
+#undef p3
+}
+#endif /* TARGET_OS_EMBEDDED */
 
 /*
  * Dump UDP statistics structure.
@@ -652,6 +766,8 @@ udp_stats(uint32_t off , char *name, int af )
 	struct udpstat udpstat;
 	size_t len = sizeof udpstat;
 	uint32_t delivered;
+	static uint32_t r_swcsum, pr_swcsum;
+	static uint32_t t_swcsum, pt_swcsum;
 
 	if (sysctlbyname("net.inet.udp.stats", &udpstat, &len, 0, 0) < 0) {
 		warn("sysctl: net.inet.udp.stats");
@@ -665,6 +781,8 @@ udp_stats(uint32_t off , char *name, int af )
 		udp_done = 1;
 #endif
 
+    if (interval && vflag > 0)
+        print_time();
 	printf("%s:\n", name);
 
 #define	UDPDIFF(f) (udpstat.f - pudpstat.f)
@@ -672,15 +790,30 @@ udp_stats(uint32_t off , char *name, int af )
     printf(m, UDPDIFF(f), plural(UDPDIFF(f)))
 #define	p1a(f, m) if (UDPDIFF(f) || sflag <= 1) \
     printf(m, UDPDIFF(f))
+#define	p2(f1, f2, m) if (UDPDIFF(f1) || UDPDIFF(f2) || sflag <= 1) \
+    printf(m, UDPDIFF(f1), plural(UDPDIFF(f1)), UDPDIFF(f2), plural(UDPDIFF(f2)))
 	p(udps_ipackets, "\t%u datagram%s received\n");
-	p1a(udps_hdrops, "\t%u with incomplete header\n");
-	p1a(udps_badlen, "\t%u with bad data length field\n");
-	p1a(udps_badsum, "\t%u with bad checksum\n");
-	p1a(udps_noport, "\t%u dropped due to no socket\n");
+	p1a(udps_hdrops, "\t\t%u with incomplete header\n");
+	p1a(udps_badlen, "\t\t%u with bad data length field\n");
+	p1a(udps_badsum, "\t\t%u with bad checksum\n");
+	p1a(udps_nosum, "\t\t%u with no checksum\n");
+	r_swcsum = udpstat.udps_rcv_swcsum + udpstat.udps_rcv6_swcsum;
+	if ((r_swcsum - pr_swcsum) || sflag <= 1)
+        printf("\t\t%u checksummed in software\n", (r_swcsum - pr_swcsum));
+	p2(udps_rcv_swcsum, udps_rcv_swcsum_bytes,
+	    "\t\t\t%u datagram%s (%u byte%s) over IPv4\n");
+#if INET6
+	p2(udps_rcv6_swcsum, udps_rcv6_swcsum_bytes,
+	    "\t\t\t%u datagram%s (%u byte%s) over IPv6\n");
+#endif /* INET6 */
+	p1a(udps_noport, "\t\t%u dropped due to no socket\n");
 	p(udps_noportbcast,
-	    "\t%u broadcast/multicast datagram%s dropped due to no socket\n");
-	p1a(udps_fullsock, "\t%u dropped due to full socket buffers\n");
-	p1a(udpps_pcbhashmiss, "\t%u not for hashed pcb\n");
+	    "\t\t%u broadcast/multicast datagram%s undelivered\n");
+	/* the next statistic is cumulative in udps_noportbcast */
+	p(udps_filtermcast,
+	    "\t\t%u time%s multicast source filter matched\n");
+	p1a(udps_fullsock, "\t\t%u dropped due to full socket buffers\n");
+	p1a(udpps_pcbhashmiss, "\t\t%u not for hashed pcb\n");
 	delivered = UDPDIFF(udps_ipackets) -
 		    UDPDIFF(udps_hdrops) -
 		    UDPDIFF(udps_badlen) -
@@ -689,15 +822,28 @@ udp_stats(uint32_t off , char *name, int af )
 		    UDPDIFF(udps_noportbcast) -
 		    UDPDIFF(udps_fullsock);
 	if (delivered || sflag <= 1)
-		printf("\t%u delivered\n", delivered);
+		printf("\t\t%u delivered\n", delivered);
 	p(udps_opackets, "\t%u datagram%s output\n");
+	t_swcsum = udpstat.udps_snd_swcsum + udpstat.udps_snd6_swcsum;
+	if ((t_swcsum - pt_swcsum) || sflag <= 1)
+        printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
+	p2(udps_snd_swcsum, udps_snd_swcsum_bytes,
+	    "\t\t\t%u datagram%s (%u byte%s) over IPv4\n");
+#if INET6
+	p2(udps_snd6_swcsum, udps_snd6_swcsum_bytes,
+	    "\t\t\t%u datagram%s (%u byte%s) over IPv6\n");
+#endif /* INET6 */
 
-	if (interval > 0)
+	if (interval > 0) {
 		bcopy(&udpstat, &pudpstat, len);
+		pr_swcsum = r_swcsum;
+		pt_swcsum = t_swcsum;
+	}
 
 #undef UDPDIFF
 #undef p
 #undef p1a
+#undef p2
 }
 
 /*
@@ -715,6 +861,8 @@ ip_stats(uint32_t off , char *name, int af )
 		return;
 	}
 
+    if (interval && vflag > 0)
+        print_time();
 	printf("%s:\n", name);
 
 #define	IPDIFF(f) (ipstat.f - pipstat.f)
@@ -722,41 +870,51 @@ ip_stats(uint32_t off , char *name, int af )
     printf(m, IPDIFF(f), plural(IPDIFF(f)))
 #define	p1a(f, m) if (IPDIFF(f) || sflag <= 1) \
     printf(m, IPDIFF(f))
+#define	p2(f1, f2, m) if (IPDIFF(f1) || IPDIFF(f2) || sflag <= 1) \
+    printf(m, IPDIFF(f1), plural(IPDIFF(f1)), IPDIFF(f2), plural(IPDIFF(f2)))
 
 	p(ips_total, "\t%u total packet%s received\n");
-	p(ips_badsum, "\t%u bad header checksum%s\n");
-	p1a(ips_toosmall, "\t%u with size smaller than minimum\n");
-	p1a(ips_tooshort, "\t%u with data size < data length\n");
-	p1a(ips_toolong, "\t%u with ip length > max ip packet size\n");
-	p1a(ips_badhlen, "\t%u with header length < data size\n");
-	p1a(ips_badlen, "\t%u with data length < header length\n");
-	p1a(ips_badoptions, "\t%u with bad options\n");
-	p1a(ips_badvers, "\t%u with incorrect version number\n");
-	p(ips_fragments, "\t%u fragment%s received\n");
-	p(ips_fragdropped, "\t%u fragment%s dropped (dup or out of space)\n");
-	p(ips_fragtimeout, "\t%u fragment%s dropped after timeout\n");
-	p(ips_reassembled, "\t%u packet%s reassembled ok\n");
-	p(ips_delivered, "\t%u packet%s for this host\n");
-	p(ips_noproto, "\t%u packet%s for unknown/unsupported protocol\n");
-	p(ips_forward, "\t%u packet%s forwarded");
+	p(ips_badsum, "\t\t%u bad header checksum%s\n");
+	p2(ips_rcv_swcsum, ips_rcv_swcsum_bytes,
+	    "\t\t%u header%s (%u byte%s) checksummed in software\n");
+	p1a(ips_toosmall, "\t\t%u with size smaller than minimum\n");
+	p1a(ips_tooshort, "\t\t%u with data size < data length\n");
+	p1a(ips_adj, "\t\t%u with data size > data length\n");
+	p(ips_adj_hwcsum_clr,
+	    "\t\t\t%u packet%s forced to software checksum\n");
+	p1a(ips_toolong, "\t\t%u with ip length > max ip packet size\n");
+	p1a(ips_badhlen, "\t\t%u with header length < data size\n");
+	p1a(ips_badlen, "\t\t%u with data length < header length\n");
+	p1a(ips_badoptions, "\t\t%u with bad options\n");
+	p1a(ips_badvers, "\t\t%u with incorrect version number\n");
+	p(ips_fragments, "\t\t%u fragment%s received\n");
+	p1a(ips_fragdropped, "\t\t\t%u dropped (dup or out of space)\n");
+	p1a(ips_fragtimeout, "\t\t\t%u dropped after timeout\n");
+	p1a(ips_reassembled, "\t\t\t%u reassembled ok\n");
+	p(ips_delivered, "\t\t%u packet%s for this host\n");
+	p(ips_noproto, "\t\t%u packet%s for unknown/unsupported protocol\n");
+	p(ips_forward, "\t\t%u packet%s forwarded");
 	p(ips_fastforward, " (%u packet%s fast forwarded)");
 	if (IPDIFF(ips_forward) || sflag <= 1)
 		putchar('\n');
-	p(ips_cantforward, "\t%u packet%s not forwardable\n");
+	p(ips_cantforward, "\t\t%u packet%s not forwardable\n");
 	p(ips_notmember,
-	  "\t%u packet%s received for unknown multicast group\n");
-	p(ips_redirectsent, "\t%u redirect%s sent\n");
+	  "\t\t%u packet%s received for unknown multicast group\n");
+	p(ips_redirectsent, "\t\t%u redirect%s sent\n");
 	p(ips_localout, "\t%u packet%s sent from this host\n");
-	p(ips_rawout, "\t%u packet%s sent with fabricated ip header\n");
+	p(ips_rawout, "\t\t%u packet%s sent with fabricated ip header\n");
 	p(ips_odropped,
-	  "\t%u output packet%s dropped due to no bufs, etc.\n");
-	p(ips_noroute, "\t%u output packet%s discarded due to no route\n");
-	p(ips_fragmented, "\t%u output datagram%s fragmented\n");
-	p(ips_ofragments, "\t%u fragment%s created\n");
-	p(ips_cantfrag, "\t%u datagram%s that can't be fragmented\n");
-	p(ips_nogif, "\t%u tunneling packet%s that can't find gif\n");
-	p(ips_badaddr, "\t%u datagram%s with bad address in header\n");
-	p(ips_pktdropcntrl, "\t%u packet%s dropped due to no bufs for control data\n");
+	  "\t\t%u output packet%s dropped due to no bufs, etc.\n");
+	p(ips_noroute, "\t\t%u output packet%s discarded due to no route\n");
+	p(ips_fragmented, "\t\t%u output datagram%s fragmented\n");
+	p(ips_ofragments, "\t\t%u fragment%s created\n");
+	p(ips_cantfrag, "\t\t%u datagram%s that can't be fragmented\n");
+	p(ips_nogif, "\t\t%u tunneling packet%s that can't find gif\n");
+	p(ips_badaddr, "\t\t%u datagram%s with bad address in header\n");
+	p(ips_pktdropcntrl,
+	    "\t\t%u packet%s dropped due to no bufs for control data\n");
+	p2(ips_snd_swcsum, ips_snd_swcsum_bytes,
+	    "\t\t%u header%s (%u byte%s) checksummed in software\n");
 
 	if (interval > 0)
 		bcopy(&ipstat, &pipstat, len);
@@ -764,6 +922,55 @@ ip_stats(uint32_t off , char *name, int af )
 #undef IPDIFF
 #undef p
 #undef p1a
+#undef p2
+}
+
+/*
+ * Dump ARP statistics structure.
+ */
+void
+arp_stats(uint32_t off, char *name, int af)
+{
+	static struct arpstat parpstat;
+	struct arpstat arpstat;
+	size_t len = sizeof (arpstat);
+
+	if (sysctlbyname("net.link.ether.inet.stats", &arpstat,
+	    &len, 0, 0) < 0) {
+		warn("sysctl: net.link.ether.inet.stats");
+		return;
+	}
+
+    if (interval && vflag > 0)
+        print_time();
+	printf("%s:\n", name);
+
+#define	ARPDIFF(f) (arpstat.f - parpstat.f)
+#define	p(f, m) if (ARPDIFF(f) || sflag <= 1) \
+    printf(m, ARPDIFF(f), plural(ARPDIFF(f)))
+#define	p2(f, m) if (ARPDIFF(f) || sflag <= 1) \
+    printf(m, ARPDIFF(f), pluralies(ARPDIFF(f)))
+
+	p(txrequests, "\t%u ARP request%s sent\n");
+	p2(txreplies, "\t%u ARP repl%s sent\n");
+	p(txannounces, "\t%u ARP announcement%s sent\n");
+	p(rxrequests, "\t%u ARP request%s received\n");
+	p2(rxreplies, "\t%u ARP repl%s received\n");
+	p(received, "\t%u total ARP packet%s received\n");
+	p(txconflicts, "\t%u ARP conflict probe%s sent\n");
+	p(invalidreqs, "\t%u invalid ARP resolve request%s\n");
+	p(reqnobufs, "\t%u total packet%s dropped due to lack of memory\n");
+	p(dropped, "\t%u total packet%s dropped due to no ARP entry\n");
+	p(purged, "\t%u total packet%s dropped during ARP entry removal\n");
+	p2(timeouts, "\t%u ARP entr%s timed out\n");
+	p(dupips, "\t%u Duplicate IP%s seen\n");
+
+	if (interval > 0)
+		bcopy(&arpstat, &parpstat, len);
+
+#undef ARPDIFF
+#undef p
+#undef p2
 }
 
 static	char *icmpnames[] = {
@@ -810,6 +1017,8 @@ icmp_stats(uint32_t off , char *name, int af )
 	if (sysctl(mib, 4, &icmpstat, &len, (void *)0, 0) < 0)
 		return;		/* XXX should complain, but not traditional */
 
+    if (interval && vflag > 0)
+        print_time();
 	printf("%s:\n", name);
 
 #define	ICMPDIFF(f) (icmpstat.f - picmpstat.f)
@@ -885,6 +1094,8 @@ igmp_stats(uint32_t off , char *name, int af )
 		    igmpstat.igps_len, IGPS_VERSION3_LEN);
 	}
 
+    if (interval && vflag > 0)
+        print_time();
 	printf("%s:\n", name);
 
 #define	IGMPDIFF(f) ((uintmax_t)(igmpstat.f - pigmpstat.f))

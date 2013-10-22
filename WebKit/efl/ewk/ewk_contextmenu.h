@@ -115,6 +115,7 @@ enum _Ewk_Context_Menu_Action {
     EWK_CONTEXT_MENU_ITEM_TAG_TEXT_DIRECTION_LEFT_TO_RIGHT,
     EWK_CONTEXT_MENU_ITEM_TAG_TEXT_DIRECTION_RIGHT_TO_LEFT,
     EWK_CONTEXT_MENU_ITEM_OPEN_MEDIA_IN_NEW_WINDOW,
+    EWK_CONTEXT_MENU_ITEM_TAG_DOWNLOAD_MEDIA_TO_DISK, 
     EWK_CONTEXT_MENU_ITEM_TAG_COPY_MEDIA_LINK_TO_CLIPBOARD,
     EWK_CONTEXT_MENU_ITEM_TAG_TOGGLE_MEDIA_CONTROLS,
     EWK_CONTEXT_MENU_ITEM_TAG_TOGGLE_MEDIA_LOOP,
@@ -163,7 +164,7 @@ EAPI void                        ewk_context_menu_ref(Ewk_Context_Menu *menu);
 /**
  * Decreases the reference count of the given object, possibly freeing it.
  *
- * When the reference count it's reached 0, the menu with all items are freed.
+ * When the reference count reaches 0, the menu with all its items are freed.
  *
  * @param menu the context menu object to decrease the reference count
  */
@@ -183,7 +184,7 @@ EAPI Eina_Bool                   ewk_context_menu_destroy(Ewk_Context_Menu *menu
  * Gets the list of items.
  *
  * @param o the context menu object to get list of the items
- * @return the list of the items on success or @c 0 on failure
+ * @return the list of the items on success or @c NULL on failure
  */
 EAPI const Eina_List            *ewk_context_menu_item_list_get(const Ewk_Context_Menu *o);
 
@@ -192,15 +193,16 @@ EAPI const Eina_List            *ewk_context_menu_item_list_get(const Ewk_Contex
  *
  * @param type specifies a type of the item
  * @param action specifies a action of the item
+ * @param parent_menu specifies a parent menu of the item
  * @param submenu specifies a submenu of the item
  * @param title specifies a title of the item
  * @param checked @c EINA_TRUE if the item should be toggled or @c EINA_FALSE if not
  * @param enabled @c EINA_TRUE to enable the item or @c EINA_FALSE to disable
- * @return the pointer to the new item on success or @c 0 on failure
+ * @return the pointer to the new item on success or @c NULL on failure
  *
  * @note The return value @b should @b be freed after use.
  */
-EAPI Ewk_Context_Menu_Item      *ewk_context_menu_item_new(Ewk_Context_Menu_Item_Type type, Ewk_Context_Menu_Action action, Ewk_Context_Menu *submenu, const char *title, Eina_Bool checked, Eina_Bool enabled);
+EAPI Ewk_Context_Menu_Item      *ewk_context_menu_item_new(Ewk_Context_Menu_Item_Type type, Ewk_Context_Menu_Action action, Ewk_Context_Menu *parent_menu, Ewk_Context_Menu *submenu, const char *title, Eina_Bool checked, Eina_Bool enabled);
 
 /**
  * Destroys the item of the context menu object.
@@ -267,7 +269,7 @@ EAPI Eina_Bool                   ewk_context_menu_item_action_set(Ewk_Context_Me
  * Gets a title of the item.
  *
  * @param o the item to get the title
- * @return a title of the item on success, or @c 0 on failure
+ * @return a title of the item on success, or @c NULL on failure
  *
  * @see ewk_context_menu_item_title_set
  */
@@ -278,7 +280,7 @@ EAPI const char                 *ewk_context_menu_item_title_get(const Ewk_Conte
  *
  * @param o the item to set the title
  * @param title a new title for the item object
- * @return a new title of the item on success or @c 0 on failure
+ * @return a new title of the item on success or @c NULL on failure
  *
  * @see ewk_context_menu_item_title_get
  */
@@ -321,6 +323,14 @@ EAPI Eina_Bool                   ewk_context_menu_item_enabled_get(const Ewk_Con
  * @see ewk_context_menu_item_enabled_get
  */
 EAPI Eina_Bool                   ewk_context_menu_item_enabled_set(Ewk_Context_Menu_Item *o, Eina_Bool enabled);
+
+/**
+ * Gets the parent menu for context menu item.
+ *
+ * @param o the context menu item object
+ * @return a context menu object on success or @c NULL on failure
+ */
+EAPI Ewk_Context_Menu           *ewk_context_menu_item_parent_get(const Ewk_Context_Menu_Item *o);
 
 #ifdef __cplusplus
 }

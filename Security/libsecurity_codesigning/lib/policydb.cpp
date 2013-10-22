@@ -124,7 +124,7 @@ PolicyDatabase::~PolicyDatabase()
 // Quick-check the cache for a match.
 // Return true on a cache hit, false on failure to confirm a hit for any reason.
 //
-bool PolicyDatabase::checkCache(CFURLRef path, AuthorityType type, CFMutableDictionaryRef result)
+bool PolicyDatabase::checkCache(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFMutableDictionaryRef result)
 {
 	// we currently don't use the cache for anything but execution rules
 	if (type != kAuthorityExecute)
@@ -132,7 +132,7 @@ bool PolicyDatabase::checkCache(CFURLRef path, AuthorityType type, CFMutableDict
 	
 	CFRef<SecStaticCodeRef> code;
 	MacOSError::check(SecStaticCodeCreateWithPath(path, kSecCSDefaultFlags, &code.aref()));
-	if (SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, NULL) != noErr)
+	if (SecStaticCodeCheckValidity(code, kSecCSBasicValidateOnly, NULL) != errSecSuccess)
 		return false;	// quick pass - any error is a cache miss
 	CFRef<CFDictionaryRef> info;
 	MacOSError::check(SecCodeCopySigningInformation(code, kSecCSDefaultFlags, &info.aref()));
@@ -154,11 +154,11 @@ bool PolicyDatabase::checkCache(CFURLRef path, AuthorityType type, CFMutableDict
 		// we are overriding the assessement, since that force
 		// the verdict to 'pass' at the end
 
-		if (allow && !overrideAssessment())
+		if (allow && !overrideAssessment(flags))
 		    MacOSError::check(SecStaticCodeCheckValidity(code, kSecCSDefaultFlags, NULL));
 
 		cfadd(result, "{%O=%B}", kSecAssessmentAssessmentVerdict, allow);
-		PolicyEngine::addAuthority(result, label, auth, kCFBooleanTrue);
+		PolicyEngine::addAuthority(flags, result, label, auth, kCFBooleanTrue);
 		return true;
 	}
 	return false;
@@ -199,12 +199,15 @@ std::string PolicyDatabase::featureLevel(const char *name)
 {
 	SQLite::Statement feature(*this, "SELECT value FROM feature WHERE name=:name");
 	feature.bind(":name") = name;
-	if (feature.nextRow())
-		return feature[0].string();
-	else
-		return "";		// new feature (no level)
+	if (feature.nextRow()) {
+		if (const char *value = feature[0])
+			return value;
+		else
+			return "default";	// old engineering versions may have NULL values; tolerate this
+	}
+	return "";		// new feature (no level)
 }
-    
+
 void PolicyDatabase::addFeature(const char *name, const char *value, const char *remarks)
 {
 	SQLite::Statement feature(*this, "INSERT OR REPLACE INTO feature (name,value,remarks) VALUES(:name, :value, :remarks)");
@@ -217,9 +220,9 @@ void PolicyDatabase::addFeature(const char *name, const char *value, const char 
 void PolicyDatabase::simpleFeature(const char *feature, void (^perform)())
 {
 	if (!hasFeature(feature)) {
-		addFeature(feature, "upgraded", "upgraded");
 		SQLite::Transaction update(*this);
 		perform();
+		addFeature(feature, "upgraded", "upgraded");
 		update.commit();
 	}
 }
@@ -228,7 +231,6 @@ void PolicyDatabase::simpleFeature(const char *feature, const char *sql)
 {
 	simpleFeature(feature, ^{
 		SQLite::Statement perform(*this, sql);
-		addFeature(feature, "upgraded", "upgraded");
 		perform.execute();
 	});
 }
@@ -309,8 +311,9 @@ void PolicyDatabase::installExplicitSet(const char *authfile, const char *sigfil
 			if (sigfile)
 				if (FILE *sigs = fopen(sigfile, "r")) {
 					unsigned count = 0;
+				    SignatureDatabaseWriter db;
 					while (const BlobCore *blob = BlobCore::readBlob(sigs)) {
-						signatureDatabaseWriter().storeCode(blob, "<remote>");
+						db.storeCode(blob, "<remote>");
 						count++;
 					}
 					secdebug("gkupgrade", "%d detached signature(s) loaded from override data", count);
@@ -335,14 +338,23 @@ void PolicyDatabase::installExplicitSet(const char *authfile, const char *sigfil
 				" VALUES (:type, 1, :requirement, 'GKE', :filter, :flags, :path)");
 			for (CFIndex n = 0; n < count; n++) {
 				CFDictionary info(values[n], errSecCSDbCorrupt);
+				uint32_t flags = kAuthorityFlagWhitelist;
+				if (CFNumberRef versionRef = info.get<CFNumberRef>("version")) {
+					int version = cfNumber<int>(versionRef);
+					if (version >= 2)
+						flags |= kAuthorityFlagWhitelistV2;
+				}
 				insert.reset();
 				insert.bind(":type") = cfString(info.get<CFStringRef>(CFSTR("type")));
 				insert.bind(":path") = cfString(info.get<CFStringRef>(CFSTR("path")));
 				insert.bind(":requirement") = "cdhash H\"" + cfString(info.get<CFStringRef>(CFSTR("cdhash"))) + "\"";
 				insert.bind(":filter") = cfString(info.get<CFStringRef>(CFSTR("screen")));
-				insert.bind(":flags") = kAuthorityFlagWhitelist;
+				insert.bind(":flags").integer(flags);
 				insert();
 			}
+			
+			// we just changed the authority configuration at priority zero
+			this->purgeObjects(0);
 			
 			// update version and commit
 			addFeature("gke", authUUID.c_str(), "gke loaded");
@@ -361,7 +373,7 @@ void PolicyDatabase::installExplicitSet(const char *authfile, const char *sigfil
 #define SP_ENABLED CFSTR("yes")
 #define SP_DISABLED CFSTR("no")
 
-bool overrideAssessment()
+bool overrideAssessment(SecAssessmentFlags flags /* = 0 */)
 {
 	static bool enabled = true;
 	static dispatch_once_t once;
@@ -369,6 +381,9 @@ bool overrideAssessment()
 	static int have_token = 0;
 	static dispatch_queue_t queue;
 	int check;
+
+	if (flags & kSecAssessmentFlagEnforce)	// explicitly disregard disables (force on)
+		return false;
 
 	if (have_token && notify_check(token, &check) == NOTIFY_STATUS_OK && !check)
 		return !enabled;

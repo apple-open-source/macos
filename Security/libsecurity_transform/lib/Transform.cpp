@@ -12,6 +12,7 @@
 #include "SecTransformInternal.h"
 #include "GroupTransform.h"
 #include "GroupTransform.h"
+#include <pthread.h>
 
 static const int kMaxPendingTransactions = 20;
 
@@ -1423,7 +1424,7 @@ CFErrorRef Transform::ExecuteOperation(CFStringRef &outputAttached, SecMonitorRe
 	for (i = 0; i < numAttributes; ++i)
 	{
 		transform_attribute *ta = attributes[i];
-		int arraySize = ta->connections ? CFArrayGetCount(ta->connections) : 0;
+		CFIndex arraySize = ta->connections ? CFArrayGetCount(ta->connections) : 0;
 		if (arraySize == 0 && ta->requires_outbound_connection)
 		{
 			if (CFStringCompare(ta->name, kSecTransformOutputAttributeName, 0) == kCFCompareEqualTo) {
@@ -1546,15 +1547,6 @@ static Boolean CFTypeOrNULLEqual(const void *value1, const void *value2) {
 		}
 	}
 }
-
-CFHashCode CFTypeOrNULLHash(const void *value) {
-	if (value != NULL) {
-		return CFHash(value);
-	} else {
-		return 42;
-	}
-}
-
 
 // Returns a dictionary of all the meta attributes that will need to be reset on a RestoreState
 CFDictionaryRef Transform::GetAHDictForSaveState(SecTransformStringOrAttributeRef key)
@@ -1810,7 +1802,7 @@ CFErrorRef Transform::ProcessExternalize(CFMutableArrayRef transforms, CFMutable
 	// walk the forward links
 	for (i = 0; i < numAttributes; ++i)
 	{
-		int arraySize = attributes[i]->connections ? CFArrayGetCount(attributes[i]->connections) : 0;
+		CFIndex arraySize = attributes[i]->connections ? CFArrayGetCount(attributes[i]->connections) : 0;
 		if (arraySize != 0)
 		{
 			CFIndex j;

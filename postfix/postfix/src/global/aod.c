@@ -308,7 +308,6 @@ getpwnam_ext_real( const char *name )
 		kvbuf_add_dict( reqTypes );
 		kvbuf_add_key( reqTypes, "additionalAttrs" );
 		kvbuf_add_val( reqTypes, kDS1AttrMailAttribute );
-		kvbuf_add_val( reqTypes, kDSNAttrEMailAddress );
 		kvbuf_add_val( reqTypes, kDS1AttrFirstName );
 		kvbuf_add_val( reqTypes, kDS1AttrLastName );
 		
@@ -973,9 +972,11 @@ int sacl_check(const char *inUserID)
 	if (err) {
 		if (POSTFIX_SACL_RESOLVE_ENABLED())
 			POSTFIX_SACL_RESOLVE((char *) inUserID, 0);
-		msg_info("sacl_check: mbr_user_name_to_uuid(%s) failed: %s",
-				 inUserID, strerror(err));
-		return -1;
+		if ( msg_verbose )
+			msg_info("sacl_check: mbr_user_name_to_uuid(%s) failed: %s",
+					 inUserID, strerror(err));
+
+		return( -1 );
 	}
 
 	if (POSTFIX_SACL_RESOLVE_ENABLED())
@@ -1020,4 +1021,4 @@ int sacl_check(const char *inUserID)
 	}
 
 	return result;
-}
+} /* sacl_check */

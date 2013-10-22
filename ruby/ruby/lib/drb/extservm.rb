@@ -1,6 +1,6 @@
 =begin
  external service manager
- 	Copyright (c) 2000 Masatoshi SEKI 
+        Copyright (c) 2000 Masatoshi SEKI
 =end
 
 require 'drb/drb'
@@ -21,7 +21,7 @@ module DRb
     def self.command=(cmd)
       @@command = cmd
     end
-      
+
     def initialize
       super()
       @cond = new_cond
@@ -51,20 +51,20 @@ module DRb
       end
       self
     end
-    
+
     def unregist(name)
       synchronize do
-	@servers.delete(name)
+        @servers.delete(name)
       end
     end
 
     private
     def invoke_thread
       Thread.new do
-	while true
-	  name = @queue.pop
-	  invoke_service_command(name, @@command[name])
-	end
+        while true
+          name = @queue.pop
+          invoke_service_command(name, @@command[name])
+        end
       end
     end
 
@@ -75,15 +75,19 @@ module DRb
     def invoke_service_command(name, command)
       raise "invalid command. name: #{name}" unless command
       synchronize do
-	return if @servers.include?(name)
-	@servers[name] = false
+        return if @servers.include?(name)
+        @servers[name] = false
       end
       uri = @uri || DRb.uri
-      if RUBY_PLATFORM =~ /mswin32/ && /NT/ =~ ENV["OS"]
-        system(%Q'cmd /c start "ruby" /b #{command} #{uri} #{name}')
+      if command.respond_to? :to_ary
+        command = command.to_ary + [uri, name]
+        pid = spawn(*command)
       else
-	system("#{command} #{uri} #{name} &")
+        pid = spawn("#{command} #{uri} #{name}")
       end
+      th = Process.detach(pid)
+      th[:drb_service] = name
+      th
     end
   end
 end

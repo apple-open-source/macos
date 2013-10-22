@@ -11,8 +11,8 @@ NAMEVERS = $(NAME)-$(VERSION)
 TARBALL = $(NAMEVERS).tar.bz2
 FIX = $(OBJROOT)/fix
 
-GCC_VERSION := $(shell cc -dumpversion | sed -e 's/^\([^.]*\.[^.]*\).*/\1/')
-GCC_42 := $(shell perl -e "print ($(GCC_VERSION) >= 4.2 ? 'YES' : 'NO')")
+export MY_CC = cc
+export MY_CXX = c++
 
 VERS = 2.3
 FRAMEWORKS = /System/Library/Frameworks
@@ -44,7 +44,7 @@ no_target: python
 python: $(OBJROOT)/$(PROJECT)
 	DYLD_NEW_LOCAL_SHARED_REGIONS=1 $(MAKE) -C $(OBJROOT) -f Makefile \
 		SRCROOT=$(OBJROOT) OBJROOT="$(OBJROOT)/$(PROJECT)" \
-		VERS=$(VERS) GCC_42=$(GCC_42)
+		VERS=$(VERS)
 
 ##---------------------------------------------------------------------
 # We patch configure to remove the "-arch_only ppc" option, since we
@@ -69,11 +69,9 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/pyconfig.h.in < $(FIX)/pyconfig.h.in.ed && \
 	ed - $(PROJECT)/Python/mactoolboxglue.c < $(FIX)/mactoolboxglue.c.ed
 	cd '$(OBJROOT)/$(PROJECT)' && patch -p1 -i $(FIX)/CVE-2007-4965-int-overflow.patch
-ifeq "$(GCC_42)" "YES"
 	@set -x && \
 	cd $(OBJROOT) && \
 	ed - $(PROJECT)/configure < $(FIX)/configure42.ed
-endif
 
 install: installpython
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au
@@ -82,11 +80,11 @@ install: installpython
 installpython: $(OBJROOT)/$(PROJECT)
 	DYLD_NEW_LOCAL_SHARED_REGIONS=1 $(MAKE) -C $(OBJROOT) -f Makefile \
 		install SRCROOT=$(OBJROOT) OBJROOT="$(OBJROOT)/$(PROJECT)" \
-		VERS=$(VERS) GCC_42=$(GCC_42)
+		VERS=$(VERS)
 	#ln -sf $(DYLIB) $(DSTROOT)$(USRLIB)/lib$(PROJECT)$(VERS).dylib
 	#ln -sf $(DYLIB) $(DSTROOT)$(USRLIB)/lib$(PROJECT).dylib
 	install -d $(DSTROOT)$(SITEPACKAGES)
 	echo $(EXTRAS)/lib/python > $(DSTROOT)$(SITEPACKAGES)/Extras.pth
 
 .DEFAULT:
-	@$(MAKE) -f Makefile $@ GCC_42=$(GCC_42)
+	@$(MAKE) -f Makefile $@

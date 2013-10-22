@@ -65,6 +65,7 @@ struct p11_slot {
 };
 
 struct p11_module {
+    struct heim_base_uniq base;
     void *dl_handle;
     CK_FUNCTION_LIST_PTR funcs;
     CK_ULONG num_slots;
@@ -94,6 +95,7 @@ static int p11_list_keys(hx509_context,
  */
 
 struct p11_rsa {
+    struct heim_base_uniq base;
     struct p11_module *p;
     struct p11_slot *slot;
     CK_OBJECT_HANDLE private_key;
@@ -637,7 +639,7 @@ collect_private_key(hx509_context context,
     rsa->n = getattr_bn(p, slot, session, object, CKA_MODULUS);
     rsa->e = getattr_bn(p, slot, session, object, CKA_PUBLIC_EXPONENT);
 
-    p11rsa = heim_alloc(sizeof(*p11rsa), "hx509-p11-rsa", p11rsa_free);
+    p11rsa = heim_uniq_alloc(sizeof(*p11rsa), "hx509-p11-rsa", p11rsa_free);
     if (p11rsa == NULL)
 	_hx509_abort("out of memory");
 
@@ -839,7 +841,7 @@ p11_init(hx509_context context,
     if (list == NULL)
 	return ENOMEM;
 
-    p = heim_alloc(sizeof(*p), "hx509-pkcs11-module", p11_module_free);
+    p = heim_uniq_alloc(sizeof(*p), "hx509-pkcs11-module", p11_module_free);
     if (p == NULL) {
 	free(list);
 	return ENOMEM;

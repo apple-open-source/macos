@@ -188,8 +188,7 @@ OSStatus sslGetPubKeyFromBits(
 	SSLPubKey           **pubKey);       // mallocd and RETURNED
 
 OSStatus sslVerifySelectedCipher(
-	SSLContext 		*ctx,
-	const SSLCipherSpec *selectedCipherSpec);
+	SSLContext 		*ctx);
 
 #if APPLE_DH
 int sslDhGenerateParams(SSLContext *ctx, uint32_t g, size_t prime_size,

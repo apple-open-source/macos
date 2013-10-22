@@ -19,7 +19,7 @@
 using namespace llvm;
 using namespace object;
 
-static const StringRef Magic = "!<arch>\n";
+static const char *Magic = "!<arch>\n";
 
 namespace {
 struct ArchiveMemberHeader {
@@ -28,7 +28,7 @@ struct ArchiveMemberHeader {
   char UID[6];
   char GID[6];
   char AccessMode[8];
-  char Size[10]; //< Size of data, not including header or padding.
+  char Size[10]; ///< Size of data, not including header or padding.
   char Terminator[2];
 
   ///! Get the name without looking up long names.
@@ -60,11 +60,11 @@ static const ArchiveMemberHeader *ToHeader(const char *base) {
 
 
 static bool isInternalMember(const ArchiveMemberHeader &amh) {
-  const char *internals[] = {
+  static const char *const internals[] = {
     "/",
     "//",
     "#_LLVM_SYM_TAB_#"
-    };
+  };
 
   StringRef name = amh.getName();
   for (std::size_t i = 0; i < sizeof(internals) / sizeof(*internals); ++i) {
@@ -73,6 +73,8 @@ static bool isInternalMember(const ArchiveMemberHeader &amh) {
   }
   return false;
 }
+
+void Archive::anchor() { }
 
 Archive::Child Archive::Child::getNext() const {
   size_t SpaceToSkip = sizeof(ArchiveMemberHeader) +
@@ -172,7 +174,7 @@ error_code Archive::Child::getAsBinary(OwningPtr<Binary> &Result) const {
 }
 
 Archive::Archive(MemoryBuffer *source, error_code &ec)
-  : Binary(Binary::isArchive, source) {
+  : Binary(Binary::ID_Archive, source) {
   // Check for sufficient magic.
   if (!source || source->getBufferSize()
                  < (8 + sizeof(ArchiveMemberHeader) + 2) // Smallest archive.
@@ -198,7 +200,7 @@ Archive::Archive(MemoryBuffer *source, error_code &ec)
 }
 
 Archive::child_iterator Archive::begin_children(bool skip_internal) const {
-  const char *Loc = Data->getBufferStart() + Magic.size();
+  const char *Loc = Data->getBufferStart() + strlen(Magic);
   size_t Size = sizeof(ArchiveMemberHeader) +
     ToHeader(Loc)->getSize();
   Child c(this, StringRef(Loc, Size));

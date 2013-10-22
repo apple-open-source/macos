@@ -91,7 +91,7 @@ bind_server(
 
 static void usage(void)
 {
-    printf("usage: echo_server [-e endpoint] [-n] [-u] [-t]\n");
+    printf("usage: echo_server -e endpoint -n|-u|-t\n");
     printf("         -e:  specify endpoint\n");
     printf("         -n:  use named pipe protocol\n");
     printf("         -u:  use UDP protocol\n");
@@ -135,11 +135,19 @@ int main(int argc, char *argv[])
         }
     }
 
+#if 0
     if (endpoint && !protocol)
     {
         printf("ERROR: protocol is required when endpoint is specified\n");
         exit(1);
     }
+#else
+    if(!endpoint || !protocol)
+    {
+        usage();
+        exit(1);
+    }
+#endif
 
 #ifndef _WIN32
     /* Temporarily disable using all protocols because something is currently busted on Unix */
@@ -164,19 +172,21 @@ int main(int argc, char *argv[])
 
     bind_server(&server_binding, echo_v1_0_s_ifspec, protocol, endpoint);
 
-    /*
-     * Register bindings with the endpoint mapper
-     */
+    if(!endpoint)
+    {
+        /*
+         * Register bindings with the endpoint mapper
+         */
+        printf("registering bindings with endpoint mapper\n");
 
-    printf("registering bindings with endpoint mapper\n");
-
-    rpc_ep_register(echo_v1_0_s_ifspec,
-                    server_binding,
-                    NULL,
-                    (unsigned char *)"QDA application server",
-                    &status);
-    chk_dce_err(status, "rpc_ep_register()", "", 1);
-
+        rpc_ep_register(echo_v1_0_s_ifspec,
+                        server_binding,
+                        NULL,
+                        (unsigned char *)"QDA application server",
+                        &status);
+        chk_dce_err(status, "rpc_ep_register()", "", 1);
+    }
+    
     printf("registered.\n");
 
     /*
@@ -233,12 +243,15 @@ int main(int argc, char *argv[])
 
 #endif
 
-    printf ("Unregistering server from the endpoint mapper....\n");
-    rpc_ep_unregister(echo_v1_0_s_ifspec,
-                      server_binding,
-                      NULL,
-                      &status);
-    chk_dce_err(status, "rpc_ep_unregister()", "", 0);
+    if (!endpoint)
+    {
+        printf ("Unregistering server from the endpoint mapper....\n");
+        rpc_ep_unregister(echo_v1_0_s_ifspec,
+                          server_binding,
+                          NULL,
+                          &status);
+        chk_dce_err(status, "rpc_ep_unregister()", "", 0);
+    }
 
     /*
      * retire the binding information
@@ -295,8 +308,7 @@ ReverseIt(
 
     rpc_binding_inq_transport_info(h, &transport_info, &rpcstatus);
 
-    printf("SMB transport session calls temporarily disabled -- jpeach\n");
-
+    /* SMB transport session calls temporarily disabled */
 #if 0
     if (transport_info)
     {

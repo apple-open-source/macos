@@ -1,14 +1,13 @@
 #!/usr/local/bin/ruby
 #
-#               biorhythm.rb - 
+#               biorhythm.rb -
 #                       $Release Version: $
-#                       $Revision: 11708 $
-#                       $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#                       $Revision: 31573 $
 #                       by Yasuo OHBA(STAFS Development Room)
 #
 # --
 #
-#       
+#
 #
 
 # probably based on:
@@ -27,29 +26,16 @@
 
 include Math
 require "date.rb"
-require "parsearg.rb"
-require "parsedate.rb"
+require "optparse"
+require "optparse/date"
 
-def usage()
-  print "Usage:\n"
-  print "biorhythm.rb [options]\n"
-  print "  options...\n"
-  print "    -D YYYYMMDD(birthday)     : use default values.\n"
-  print "    --sdate | --date YYYYMMDD : use system date; use specified date.\n"
-  print "    --birthday YYYYMMDD       : specifies your birthday.\n"
-  print "    -v | -g                   : show values or graph.\n"
-  print "    --days DAYS               : graph range (only in effect for graphs).\n"
-  print "    --help                    : help\n"
-end
-$USAGE = 'usage'
-
-def printHeader(y, m, d, p, w)
+def print_header(y, m, d, p, w)
   print "\n>>> Biorhythm <<<\n"
   printf "The birthday %04d.%02d.%02d is a %s\n", y, m, d, w
   printf "Age in days: [%d]\n\n", p
 end
 
-def getPosition(z)
+def get_position(z)
   pi = Math::PI
   z = Integer(z)
   phys = (50.0 * (1.0 + sin((z / 23.0 - (z / 23)) * 360.0 * pi / 180.0))).to_i
@@ -58,92 +44,70 @@ def getPosition(z)
   return phys, emot, geist
 end
 
-def parsedate(s)
-  ParseDate::parsedate(s).values_at(0, 1, 2)
-end
-
-def name_of_week(date)
-  Date::DAYNAMES[date.wday]
+def prompt(msg)
+  $stderr.print msg
+  return gets.chomp
 end
 
 #
 # main program
 #
-parseArgs(0, nil, "vg", "D:", "sdate", "date:", "birthday:", "days:")
-
-if $OPT_D
-  dd = Date.today
-  bd = Date.new(*parsedate($OPT_D))
-  ausgabeart = "g"
-else
-  if $OPT_birthday
-    bd = Date.new(*parsedate($OPT_birthday))
-  else
-    STDERR.print("Birthday                      (YYYYMMDD) : ")
-    unless (si = STDIN.gets.chop).empty?
-      bd = Date.new(*parsedate(si))
-    end
-  end
-  if !bd
-    STDERR.print "BAD Input Birthday!!\n"
-    exit()
-  end
-
-  if $OPT_sdate
-    dd = Date.today
-  elsif $OPT_date
-    dd = Date.new(*parsedate($OPT_date))
-  else
-    STDERR.print("Date        [<RETURN> for Systemdate] (YYYYMMDD) : ")
-    unless (si = STDIN.gets.chop).empty?
-      dd = Date.new(*parsedate(si))
-    end
-  end
-  dd ||= Date.today
-
-  if $OPT_v
-    ausgabeart = "v"
-  elsif $OPT_g
-    ausgabeart = "g"
-  else
-    STDERR.print("Values for today or Graph  (v/g) [default g] : ")
-    ausgabeart = STDIN.gets.chop
+options = {
+  :graph => true,
+  :date  => Date.today,
+  :days  => 9,
+}
+ARGV.options do |opts|
+  opts.on("-b", "--birthday=DATE", Date, "specify your birthday"){|v|
+    options[:birthday] = v
+  }
+  opts.on("--date=DATE", Date, "specify date to show"){|v|
+    options[:date] = v
+  }
+  opts.on("-g", "--show-graph", TrueClass, "show graph (default)"){|v|
+    options[:graph] = v
+  }
+  opts.on("-v", "--show-values", TrueClass, "show values"){|v|
+    options[:graph] = !v
+  }
+  opts.on("--days=DAYS", Integer, "graph range (only in effect for graph)"){|v|
+    options[:days] = v - 1
+  }
+  opts.on_tail("-h", "--help", "show this message"){puts opts; exit}
+  begin
+    opts.parse!
+  rescue => ex
+    puts "Error: #{ex.message}"
+    puts opts
+    exit
   end
 end
+
+bd = options[:birthday] || Date.parse(prompt("Your birthday (YYYYMMDD): "))
+dd = options[:date] || Date.today
+ausgabeart = options[:graph] ? "g" : "v"
+display_period = options[:days]
+
 if ausgabeart == "v"
-  printHeader(bd.year, bd.month, bd.day, dd - bd, name_of_week(bd))
+  print_header(bd.year, bd.month, bd.day, dd - bd, bd.strftime("%a"))
   print "\n"
-  
-  phys, emot, geist = getPosition(dd - bd)
+
+  phys, emot, geist = get_position(dd - bd)
   printf "Biorhythm:   %04d.%02d.%02d\n", dd.year, dd.month, dd.day
   printf "Physical:    %d%%\n", phys
   printf "Emotional:   %d%%\n", emot
   printf "Mental:      %d%%\n", geist
   print "\n"
 else
-  if $OPT_days
-    display_period = $OPT_days.to_i
-  elsif $OPT_D
-    display_period = 9
-  else
-    STDERR.printf("Graph for how many days     [default 10] : ")
-    display_period = STDIN.gets.chop
-    if display_period.empty?
-      display_period = 9
-    else
-      display_period = display_period.to_i - 1
-    end
-  end
-
-  printHeader(bd.year, bd.month, bd.day, dd - bd, name_of_week(bd))
+  print_header(bd.year, bd.month, bd.day, dd - bd, bd.strftime("%a"))
   print "                     P=physical, E=emotional, M=mental\n"
   print "             -------------------------+-------------------------\n"
   print "                     Bad Condition    |    Good Condition\n"
   print "             -------------------------+-------------------------\n"
-  
+
   (dd - bd).step(dd - bd + display_period) do |z|
-    phys, emot, geist = getPosition(z)
-    
+    phys, emot, geist = get_position(z)
+
     printf "%04d.%02d.%02d : ", dd.year, dd.month, dd.day
     p = (phys / 2.0 + 0.5).to_i
     e = (emot / 2.0 + 0.5).to_i

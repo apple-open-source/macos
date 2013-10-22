@@ -32,19 +32,21 @@
 #ifndef _ISAKMP_IDENT_H
 #define _ISAKMP_IDENT_H
 
-extern int ident_i1send __P((struct ph1handle *, vchar_t *));
-extern int ident_i2recv __P((struct ph1handle *, vchar_t *));
-extern int ident_i2send __P((struct ph1handle *, vchar_t *));
-extern int ident_i3recv __P((struct ph1handle *, vchar_t *));
-extern int ident_i3send __P((struct ph1handle *, vchar_t *));
-extern int ident_i4recv __P((struct ph1handle *, vchar_t *));
-extern int ident_i4send __P((struct ph1handle *, vchar_t *));
+#include "racoon_types.h"
 
-extern int ident_r1recv __P((struct ph1handle *, vchar_t *));
-extern int ident_r1send __P((struct ph1handle *, vchar_t *));
-extern int ident_r2recv __P((struct ph1handle *, vchar_t *));
-extern int ident_r2send __P((struct ph1handle *, vchar_t *));
-extern int ident_r3recv __P((struct ph1handle *, vchar_t *));
-extern int ident_r3send __P((struct ph1handle *, vchar_t *));
+extern int ident_i1send (phase1_handle_t *, vchar_t *);
+extern int ident_i2recv (phase1_handle_t *, vchar_t *);
+extern int ident_i3send (phase1_handle_t *, vchar_t *);
+extern int ident_i4recv (phase1_handle_t *, vchar_t *);
+extern int ident_i5send (phase1_handle_t *, vchar_t *);
+extern int ident_i6recv (phase1_handle_t *, vchar_t *);
+extern int ident_ifinalize (phase1_handle_t *, vchar_t *);
+
+extern int ident_r1recv (phase1_handle_t *, vchar_t *);
+extern int ident_r2send (phase1_handle_t *, vchar_t *);
+extern int ident_r3recv (phase1_handle_t *, vchar_t *);
+extern int ident_r4send (phase1_handle_t *, vchar_t *);
+extern int ident_r5recv (phase1_handle_t *, vchar_t *);
+extern int ident_r6send (phase1_handle_t *, vchar_t *);
 
 #endif /* _ISAKMP_IDENT_H */

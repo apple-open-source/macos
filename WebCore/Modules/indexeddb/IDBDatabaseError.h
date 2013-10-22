@@ -27,9 +27,9 @@
 #define IDBDatabaseError_h
 
 #include "IDBDatabaseException.h"
-#include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/text/WTFString.h>
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -37,32 +37,35 @@ namespace WebCore {
 
 class IDBDatabaseError : public RefCounted<IDBDatabaseError> {
 public:
-    static PassRefPtr<IDBDatabaseError> create(unsigned short code, const String& message)
+    static PassRefPtr<IDBDatabaseError> create(unsigned short code)
     {
         ASSERT(code >= IDBDatabaseException::IDBDatabaseExceptionOffset);
         ASSERT(code < IDBDatabaseException::IDBDatabaseExceptionMax);
-        return adoptRef(new IDBDatabaseError(code - IDBDatabaseException::IDBDatabaseExceptionOffset, message));
+        return adoptRef(new IDBDatabaseError(code));
     }
 
-    static PassRefPtr<IDBDatabaseError> createWithoutOffset(unsigned short code, const String& message)
+    static PassRefPtr<IDBDatabaseError> create(unsigned short code, const String& message)
     {
-        ASSERT(code < IDBDatabaseException::IDBDatabaseExceptionOffset);
+        ASSERT_WITH_MESSAGE(code >= IDBDatabaseException::IDBDatabaseExceptionOffset, "%d >= %d", code, IDBDatabaseException::IDBDatabaseExceptionOffset);
+        ASSERT(code < IDBDatabaseException::IDBDatabaseExceptionMax);
         return adoptRef(new IDBDatabaseError(code, message));
     }
 
     ~IDBDatabaseError() { }
 
-    unsigned short code() const { return m_code; }
-    void setCode(unsigned short value) { m_code = value; }
+    unsigned short code() const { return IDBDatabaseException::getLegacyErrorCode(m_code); }
+    unsigned short idbCode() const { return m_code; }
     const String& message() const { return m_message; }
-    void setMessage(const String& value) { m_message = value; }
+    const String name() const { return IDBDatabaseException::getErrorName(m_code); };
 
 private:
+    IDBDatabaseError(unsigned short code)
+        : m_code(code), m_message(IDBDatabaseException::getErrorDescription(code)) { }
     IDBDatabaseError(unsigned short code, const String& message)
         : m_code(code), m_message(message) { }
 
-    unsigned short m_code;
-    String m_message;
+    const unsigned short m_code;
+    const String m_message;
 };
 
 } // namespace WebCore

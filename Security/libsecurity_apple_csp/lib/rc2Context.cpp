@@ -62,7 +62,7 @@ void RC2Context::init(
 	}
 
 	/* init the low-level state */
-	RC2_set_key(&rc2Key, keyLen, keyData, effectiveBits);
+	RC2_set_key(&rc2Key, (int)keyLen, keyData, effectiveBits);
 
 	/* Finally, have BlockCryptor do its setup */
 	setup(RC2_BLOCK_SIZE_BYTES, context);

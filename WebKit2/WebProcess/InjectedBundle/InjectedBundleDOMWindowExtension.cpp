@@ -30,7 +30,9 @@
 #include "WebFrame.h"
 #include "WebFrameLoaderClient.h"
 #include <WebCore/DOMWindowExtension.h>
+#include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/Frame.h>
+#include <WebCore/FrameLoader.h>
 #include <wtf/HashMap.h>
 
 using namespace WebCore;
@@ -69,8 +71,9 @@ InjectedBundleDOMWindowExtension::~InjectedBundleDOMWindowExtension()
 
 WebFrame* InjectedBundleDOMWindowExtension::frame() const
 {
-    WebCore::Frame* frame = m_coreExtension->frame();
-    return frame ? static_cast<WebFrameLoaderClient*>(frame->loader()->client())->webFrame() : 0;
+    Frame* frame = m_coreExtension->frame();
+    WebFrameLoaderClient* webFrameLoaderClient = frame ? toWebFrameLoaderClient(frame->loader()->client()) : 0;
+    return webFrameLoaderClient ? webFrameLoaderClient->webFrame() : 0;
 }
 
 InjectedBundleScriptWorld* InjectedBundleDOMWindowExtension::world() const

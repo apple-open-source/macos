@@ -29,6 +29,7 @@
 #include "IntSize.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "PlatformCookieJar.h"
 #include "PluginDatabase.h"
 
 using namespace WebCore;
@@ -48,12 +49,12 @@ CookiesStrategy* PlatformStrategiesWinCE::createCookiesStrategy()
     return this;
 }
 
-PluginStrategy* PlatformStrategiesWinCE::createPluginStrategy()
+DatabaseStrategy* PlatformStrategiesWinCE::createDatabaseStrategy()
 {
     return this;
 }
 
-VisitedLinkStrategy* PlatformStrategiesWinCE::createVisitedLinkStrategy()
+LoaderStrategy* PlatformStrategiesWinCE::createLoaderStrategy()
 {
     return this;
 }
@@ -63,8 +64,54 @@ PasteboardStrategy* PlatformStrategiesWinCE::createPasteboardStrategy()
     return 0;
 }
 
-void PlatformStrategiesWinCE::notifyCookiesChanged()
+PluginStrategy* PlatformStrategiesWinCE::createPluginStrategy()
 {
+    return this;
+}
+
+SharedWorkerStrategy* PlatformStrategiesWinCE::createSharedWorkerStrategy()
+{
+    return this;
+}
+
+StorageStrategy* PlatformStrategiesWinCE::createStorageStrategy()
+{
+    return this;
+}
+
+VisitedLinkStrategy* PlatformStrategiesWinCE::createVisitedLinkStrategy()
+{
+    return this;
+}
+
+String PlatformStrategiesWinCE::cookiesForDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookiesForDOM(session, firstParty, url);
+}
+
+void PlatformStrategiesWinCE::setCookiesFromDOM(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, const String& cookieString)
+{
+    WebCore::setCookiesFromDOM(session, firstParty, url, cookieString);
+}
+
+bool PlatformStrategiesWinCE::cookiesEnabled(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookiesEnabled(session, firstParty, url);
+}
+
+String PlatformStrategiesWinCE::cookieRequestHeaderFieldValue(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url)
+{
+    return WebCore::cookieRequestHeaderFieldValue(session, firstParty, url);
+}
+
+bool PlatformStrategiesWinCE::getRawCookies(const NetworkStorageSession& session, const KURL& firstParty, const KURL& url, Vector<Cookie>& rawCookies)
+{
+    return WebCore::getRawCookies(session, firstParty, url, rawCookies);
+}
+
+void PlatformStrategiesWinCE::deleteCookie(const NetworkStorageSession& session, const KURL& url, const String& cookieName)
+{
+    WebCore::deleteCookie(session, url, cookieName);
 }
 
 void PlatformStrategiesWinCE::refreshPlugins()
@@ -94,8 +141,8 @@ void PlatformStrategiesWinCE::getPluginInfo(const Page*, Vector<PluginInfo>& out
         for (MIMEToDescriptionsMap::const_iterator it = mimeToDescriptions.begin(); it != end; ++it) {
             MimeClassInfo mime;
 
-            mime.type = it->first;
-            mime.desc = it->second;
+            mime.type = it->key;
+            mime.desc = it->value;
             mime.extensions = package->mimeToExtensions().get(mime.type);
 
             info.mimes.append(mime);

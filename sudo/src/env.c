@@ -42,11 +42,35 @@
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
+#ifdef HAVE_INTTYPES_H
+# include <inttypes.h>
+#endif
+#ifdef HAVE_LOGIN_CAP_H
+# include <login_cap.h>
+# ifndef LOGIN_SETENV
+#  define LOGIN_SETENV	0
+# endif
+#endif /* HAVE_LOGIN_CAP_H */
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <pwd.h>
 
 #include "sudo.h"
+
+/*
+ * If there is no SIZE_MAX or SIZE_T_MAX we have to assume that size_t
+ * could be signed (as it is on SunOS 4.x).  This just means that
+ * emalloc2() and erealloc3() cannot allocate huge amounts on such a
+ * platform but that is OK since sudo doesn't need to do so anyway.
+ */
+#ifndef SIZE_MAX
+# ifdef SIZE_T_MAX
+#  define SIZE_MAX	SIZE_T_MAX
+# else
+#  define SIZE_MAX	INT_MAX
+# endif /* SIZE_T_MAX */
+#endif /* SIZE_MAX */
 
 /*
  * Flags used in rebuild_env()
@@ -240,7 +264,7 @@ env_init(lazy)
 	memset(env.envp, 0, env.env_size * sizeof(char *));
 #endif
 	memcpy(env.envp, environ, len * sizeof(char *));
-	env.envp[len] = '\0';
+	env.envp[len] = NULL;
 	env.owned = TRUE;
     }
 }
@@ -313,7 +337,7 @@ setenv(var, val, overwrite)
 
     if (!var || *var == '\0') {
 	errno = EINVAL;
-	return(-1);
+	return -1;
     }
 
     if (env.envp == NULL)
@@ -346,7 +370,7 @@ setenv(var, val, overwrite)
 	errorx(1, "setenv: corrupted envp, len mismatch");
 #endif
     sudo_putenv(estring, TRUE, overwrite);
-    return(0);
+    return 0;
 }
 
 /*
@@ -368,7 +392,7 @@ unsetenv(var)
 #ifdef UNSETENV_VOID
 	return;
 #else
-	return(-1);
+	return -1;
 #endif
     }
 
@@ -394,7 +418,7 @@ unsetenv(var)
     }
     env.env_len = ep - env.envp;
 #ifndef UNSETENV_VOID
-    return(0);
+    return 0;
 #endif
 }
 
@@ -414,14 +438,14 @@ putenv(string)
 
     if (strchr(string, '=') == NULL) {
 	errno = EINVAL;
-	return(-1);
+	return -1;
     }
 #ifdef ENV_DEBUG
     if (env.envp[env.env_len] != NULL)
 	errorx(1, "putenv: corrupted envp, len mismatch");
 #endif
     sudo_putenv((char *)string, TRUE, TRUE);
-    return(0);
+    return 0;
 }
 
 /*
@@ -441,7 +465,9 @@ sudo_putenv(str, dupcheck, overwrite)
     int found = FALSE;
 
     /* Make sure there is room for the new entry plus a NULL. */
-    if (env.env_len + 2 > env.env_size) {
+    if (env.env_size > 2 && env.env_len > env.env_size - 2) {
+	if (env.env_size > SIZE_MAX - 128)
+	    errorx(1, "internal error, sudo_putenv() overflow");
 	env.env_size += 128;
 	if (env.owned) {
 	    env.envp = erealloc3(env.envp, env.env_size, sizeof(char *));
@@ -465,22 +491,22 @@ sudo_putenv(str, dupcheck, overwrite)
 
     if (dupcheck) {
 	len = (strchr(str, '=') - str) + 1;
-	for (ep = env.envp; !found && *ep != NULL; ep++) {
+	for (ep = env.envp; *ep != NULL; ep++) {
 	    if (strncmp(str, *ep, len) == 0) {
 		if (overwrite)
 		    *ep = str;
 		found = TRUE;
+		break;
 	    }
 	}
-	/* Prune out duplicate variables. */
+	/* Prune out extra instances of the variable we just overwrote. */
 	if (found && overwrite) {
-	    while (*ep != NULL) {
+	    while (*++ep != NULL) {
 		if (strncmp(str, *ep, len) == 0) {
 		    char **cur = ep;
 		    while ((*cur = *(cur + 1)) != NULL)
 			cur++;
-		} else {
-		    ep++;
+		    ep--;
 		}
 	    }
 	    env.env_len = ep - env.envp;
@@ -496,8 +522,22 @@ sudo_putenv(str, dupcheck, overwrite)
 }
 
 /*
+ * Merge another environment with our private copy.
+ */
+void
+env_merge(envp, overwrite)
+    char * const envp[];
+    int overwrite;
+{
+    char * const *ep;
+  
+    for (ep = envp; *ep != NULL; ep++)
+	sudo_putenv(*ep, TRUE, overwrite);
+}
+
+/*
  * Check the env_delete blacklist.
- * Returns TRUE if the variable was found, else false.
+ * Returns TRUE if the variable was found, else FALSE.
  */
 static int
 matches_env_delete(var)
@@ -522,7 +562,7 @@ matches_env_delete(var)
 	    break;
 	}
     }
-    return(match);
+    return match;
 }
 
 /*
@@ -552,7 +592,7 @@ matches_env_check(var)
 	    break;
 	}
     }
-    return(keepit);
+    return keepit;
 }
 
 /*
@@ -566,6 +606,10 @@ matches_env_keep(var)
     struct list_member *cur;
     size_t len;
     int iswild, keepit = FALSE;
+
+    /* Preserve SHELL variable for "sudo -s". */
+    if (ISSET(sudo_mode, MODE_SHELL) && strncmp(var, "SHELL=", 6) == 0)
+	return TRUE;
 
     for (cur = def_env_keep; cur; cur = cur->next) {
 	len = strlen(cur->value);
@@ -581,7 +625,46 @@ matches_env_keep(var)
 	    break;
 	}
     }
-    return(keepit);
+    return keepit;
+}
+
+static void
+env_update_didvar(ep, didvar)
+    const char *ep;
+    unsigned int *didvar;
+{
+    switch (*ep) {
+	case 'H':
+	    if (strncmp(ep, "HOME=", 5) == 0)
+		SET(*didvar, DID_HOME);
+	    break;
+	case 'L':
+	    if (strncmp(ep, "LOGNAME=", 8) == 0)
+		SET(*didvar, DID_LOGNAME);
+	    break;
+	case 'M':
+	    if (strncmp(ep, "MAIL=", 5) == 0)
+		SET(*didvar, DID_MAIL);
+	    break;
+	case 'P':
+	    if (strncmp(ep, "PATH=", 5) == 0)
+		SET(*didvar, DID_PATH);
+	    break;
+	case 'S':
+	    if (strncmp(ep, "SHELL=", 6) == 0)
+		SET(*didvar, DID_SHELL);
+	    break;
+	case 'T':
+	    if (strncmp(ep, "TERM=", 5) == 0)
+		SET(*didvar, DID_TERM);
+	    break;
+	case 'U':
+	    if (strncmp(ep, "USER=", 5) == 0)
+		SET(*didvar, DID_USER);
+	    if (strncmp(ep, "USERNAME=", 5) == 0)
+		SET(*didvar, DID_USERNAME);
+	    break;
+    }
 }
 
 /*
@@ -609,17 +692,45 @@ rebuild_env(noexec)
     env.envp = emalloc2(env.env_size, sizeof(char *));
 #ifdef ENV_DEBUG
     memset(env.envp, 0, env.env_size * sizeof(char *));
+#else
+    env.envp[0] = NULL;
 #endif
 
     /* Reset HOME based on target user if configured to. */
     if (ISSET(sudo_mode, MODE_RUN)) {
-	if (def_always_set_home ||
-	    ISSET(sudo_mode, MODE_RESET_HOME | MODE_LOGIN_SHELL) || 
-	    (ISSET(sudo_mode, MODE_SHELL) && def_set_home))
-	    reset_home = TRUE;
+    if (def_always_set_home ||
+        ISSET(sudo_mode, MODE_RESET_HOME | MODE_LOGIN_SHELL) || 
+        (ISSET(sudo_mode, MODE_SHELL) && def_set_home))
+        reset_home = TRUE;
     }
 
     if (def_env_reset || ISSET(sudo_mode, MODE_LOGIN_SHELL)) {
+    /*
+     * If starting with a fresh environment, initialize it based on
+     * /etc/environment or login.conf.  For "sudo -i" we want those
+     * variables to override the invoking user's environment, so we
+     * defer reading them until later.
+     */
+     if (!ISSET(sudo_mode, MODE_LOGIN_SHELL)) {
+#ifdef HAVE_LOGIN_CAP_H
+        /* Insert login class environment variables. */
+        if (login_class) {
+        login_cap_t *lc = login_getclass(login_class);
+        if (lc != NULL) {
+            setusercontext(lc, runas_pw, runas_pw->pw_uid,
+            LOGIN_SETPATH|LOGIN_SETENV);
+            login_close(lc);
+        }
+        }
+#endif /* HAVE_LOGIN_CAP_H */
+#if defined(_AIX) || (defined(__linux__) && !defined(HAVE_PAM))
+        /* Insert system-wide environment variables. */
+        read_env_file(_PATH_ENVIRONMENT, TRUE);
+#endif
+        for (ep = env.envp; *ep; ep++)
+        env_update_didvar(*ep, &didvar);
+    }
+
 	/* Pull in vars we want to keep from the old environment. */
 	for (ep = old_envp; *ep; ep++) {
 	    int keepit;
@@ -697,12 +808,15 @@ rebuild_env(noexec)
 	} else {
 	    if (!ISSET(didvar, DID_SHELL))
 		sudo_setenv("SHELL", sudo_user.pw->pw_shell, FALSE);
-	    if (!ISSET(didvar, DID_LOGNAME))
-		sudo_setenv("LOGNAME", user_name, FALSE);
-	    if (!ISSET(didvar, DID_USER))
-		sudo_setenv("USER", user_name, FALSE);
-	    if (!ISSET(didvar, DID_USERNAME))
-		sudo_setenv("USERNAME", user_name, FALSE);
+	    /* We will set LOGNAME later in the !def_set_logname case. */
+	    if (!def_set_logname) {
+		if (!ISSET(didvar, DID_LOGNAME))
+		    sudo_setenv("LOGNAME", user_name, FALSE);
+		if (!ISSET(didvar, DID_USER))
+		    sudo_setenv("USER", user_name, FALSE);
+		if (!ISSET(didvar, DID_USERNAME))
+		    sudo_setenv("USERNAME", user_name, FALSE);
+	    }
 	}
 
 	/* If we didn't keep HOME, reset it based on target user. */
@@ -760,8 +874,13 @@ rebuild_env(noexec)
 	SET(didvar, DID_PATH);
     }
 
-    /* Set $USER, $LOGNAME and $USERNAME to target if "set_logname" is true. */
-    if (def_set_logname && !ISSET(sudo_mode, MODE_LOGIN_SHELL)) {
+    /*
+     * Set $USER, $LOGNAME and $USERNAME to target if "set_logname" is not
+     * disabled.  We skip this if we are running a login shell (because
+     * they have already been set) or sudoedit (because we want the editor
+     * to find the invoking user's startup files).
+     */
+    if (def_set_logname && !ISSET(sudo_mode, MODE_LOGIN_SHELL|MODE_EDIT)) {
 	if (!ISSET(didvar, KEPT_LOGNAME))
 	    sudo_setenv("LOGNAME", runas_pw->pw_name, TRUE);
 	if (!ISSET(didvar, KEPT_USER))
@@ -819,9 +938,9 @@ rebuild_env(noexec)
 
     /* Add the SUDO_USER, SUDO_UID, SUDO_GID environment variables. */
     sudo_setenv("SUDO_USER", user_name, TRUE);
-    snprintf(idbuf, sizeof(idbuf), "%lu", (unsigned long) user_uid);
+    snprintf(idbuf, sizeof(idbuf), "%u", (unsigned int) user_uid);
     sudo_setenv("SUDO_UID", idbuf, TRUE);
-    snprintf(idbuf, sizeof(idbuf), "%lu", (unsigned long) user_gid);
+    snprintf(idbuf, sizeof(idbuf), "%u", (unsigned int) user_gid);
     sudo_setenv("SUDO_GID", idbuf, TRUE);
 
     /* Free old environment. */
@@ -842,7 +961,7 @@ insert_env_vars(env_vars)
 /*
  * Validate the list of environment variables passed in on the command
  * line against env_delete, env_check, and env_keep.
- * Calls log_error() if any specified variables are not allowed.
+ * Calls log_fatal() if any specified variables are not allowed.
  */
 void
 validate_env_vars(env_vars)
@@ -888,7 +1007,7 @@ validate_env_vars(env_vars)
     }
     if (bad != NULL) {
 	bad[blen - 2] = '\0';		/* remove trailing ", " */
-	log_error(NO_MAIL,
+	log_fatal(NO_MAIL,
 	    "sorry, you are not allowed to set the following environment variables: %s", bad);
 	/* NOTREACHED */
 	efree(bad);
@@ -962,7 +1081,7 @@ init_envtables()
 
     /* Fill in the "env_delete" list. */
     for (p = initial_badenv_table; *p; p++) {
-	cur = emalloc(sizeof(struct list_member));
+	cur = ecalloc(1, sizeof(struct list_member));
 	cur->value = estrdup(*p);
 	cur->next = def_env_delete;
 	def_env_delete = cur;
@@ -970,7 +1089,7 @@ init_envtables()
 
     /* Fill in the "env_check" list. */
     for (p = initial_checkenv_table; *p; p++) {
-	cur = emalloc(sizeof(struct list_member));
+	cur = ecalloc(1, sizeof(struct list_member));
 	cur->value = estrdup(*p);
 	cur->next = def_env_check;
 	def_env_check = cur;
@@ -978,7 +1097,7 @@ init_envtables()
 
     /* Fill in the "env_keep" list. */
     for (p = initial_keepenv_table; *p; p++) {
-	cur = emalloc(sizeof(struct list_member));
+	cur = ecalloc(1, sizeof(struct list_member));
 	cur->value = estrdup(*p);
 	cur->next = def_env_keep;
 	def_env_keep = cur;

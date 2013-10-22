@@ -198,6 +198,8 @@ cmd_show(int argc, char *argv[])
 {
 	int ch, fd;
 
+	readonly = 1;
+
 #ifdef __APPLE__
 	while ((ch = getopt(argc, argv, "l")) != -1) {
 #else

@@ -6,5 +6,9 @@
 	<true/>
 	<key>com.apple.itunesstored.private</key>
 	<true/>
+	<key>com.apple.private.assets.accessible-asset-types</key>
+	<array>
+		<string>com.apple.MobileAsset.VPNBehaviors</string>
+	</array>
 </dict>
 </plist>

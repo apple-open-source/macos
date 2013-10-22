@@ -1,5 +1,5 @@
 /*
- * "$Id: process.c 9790 2011-05-19 22:40:03Z mike $"
+ * "$Id: process.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Process management routines for the CUPS scheduler.
  *
@@ -638,6 +638,9 @@ cupsd_requote(char       *dst,		/* I - Destination buffer */
   {
     ch = *src++;
 
+    if (ch == '/' && !*src)
+      break;				/* Don't add trailing slash */
+
     if (strchr(".?*()[]^$\\", ch))
       *dstptr++ = '\\';
 
@@ -652,5 +655,5 @@ cupsd_requote(char       *dst,		/* I - Destination buffer */
 
 
 /*
- * End of "$Id: process.c 9790 2011-05-19 22:40:03Z mike $".
+ * End of "$Id: process.c 11093 2013-07-03 20:48:42Z msweet $".
  */

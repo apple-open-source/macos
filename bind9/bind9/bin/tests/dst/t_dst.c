@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007-2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -61,7 +61,6 @@ cleandir(char *path) {
 	DIR		*dirp;
 	struct dirent	*pe;
 	char		fullname[PATH_MAX + 1];
-	size_t		l;
 
 	dirp = opendir(path);
 	if (dirp == NULL) {
@@ -74,16 +73,11 @@ cleandir(char *path) {
 			continue;
 		if (! strcmp(pe->d_name, ".."))
 			continue;
-		(void)strlcpy(fullname, path, sizeof(fullname));
-		(void)strlcat(fullname, "/", sizeof(fullname));
-		l = strlcat(fullname, pe->d_name, sizeof(fullname));
-		if (l < sizeof(fullname)) {
-			if (remove(fullname))
-				t_info("remove(%s) failed %d\n", fullname,
-				       errno);
-		} else
-		       t_info("unable to remove '%s/%s': path too long\n",
-			      path, pe->d_name);
+		strcpy(fullname, path);
+		strcat(fullname, "/");
+		strcat(fullname, pe->d_name);
+		if (remove(fullname))
+			t_info("remove(%s) failed %d\n", fullname, errno);
 
 	}
 	(void)closedir(dirp);
@@ -104,7 +98,7 @@ use(dst_key_t *key, isc_mem_t *mctx, isc_result_t exp_result, int *nfails) {
 	dst_context_t *ctx = NULL;
 
 	isc_buffer_init(&sigbuf, sig, sizeof(sig));
-	isc_buffer_constinit(&databuf, data, strlen(data));
+	isc_buffer_init(&databuf, data, strlen(data));
 	isc_buffer_add(&databuf, strlen(data));
 	isc_buffer_usedregion(&databuf, &datareg);
 
@@ -185,7 +179,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 	if (p == NULL) {
 		t_info("getcwd failed %d\n", errno);
 		++*nprobs;
-		goto cleanup;
+		return;
 	}
 
 	ret = dst_key_fromfile(name1, id1, alg, type, current, mctx, &key1);
@@ -193,7 +187,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 		t_info("dst_key_fromfile(%d) returned: %s\n",
 		       alg, dst_result_totext(ret));
 		++*nfails;
-		goto cleanup;
+		return;
 	}
 
 	ret = dst_key_fromfile(name2, id2, alg, type, current, mctx, &key2);
@@ -201,7 +195,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 		t_info("dst_key_fromfile(%d) returned: %s\n",
 		       alg, dst_result_totext(ret));
 		++*nfails;
-		goto cleanup;
+		return;
 	}
 
 	ret = isc_file_mktemplate("/tmp/", tmp, sizeof(tmp));
@@ -209,7 +203,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 		t_info("isc_file_mktemplate failed %s\n",
 		       isc_result_totext(ret));
 		++*nprobs;
-		goto cleanup;
+		return;
 	}
 
 	ret = isc_dir_createunique(tmp);
@@ -217,7 +211,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 		t_info("isc_dir_createunique failed %s\n",
 		       isc_result_totext(ret));
 		++*nprobs;
-		goto cleanup;
+		return;
 	}
 
 	ret = dst_key_tofile(key1, type, tmp);
@@ -225,7 +219,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 		t_info("dst_key_tofile(%d) returned: %s\n",
 		       alg, dst_result_totext(ret));
 		++*nfails;
-		goto cleanup;
+		return;
 	}
 
 	ret = dst_key_tofile(key2, type, tmp);
@@ -233,7 +227,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 		t_info("dst_key_tofile(%d) returned: %s\n",
 		       alg, dst_result_totext(ret));
 		++*nfails;
-		goto cleanup;
+		return;
 	}
 
 	cleandir(tmp);
@@ -244,7 +238,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 		t_info("dst_computesecret() returned: %s\n",
 		       dst_result_totext(ret));
 		++*nfails;
-		goto cleanup;
+		return;
 	}
 
 	isc_buffer_init(&b2, array2, sizeof(array2));
@@ -253,7 +247,7 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 		t_info("dst_computesecret() returned: %s\n",
 		       dst_result_totext(ret));
 		++*nfails;
-		goto cleanup;
+		return;
 	}
 
 	isc_buffer_usedregion(&b1, &r1);
@@ -262,14 +256,11 @@ dh(dns_name_t *name1, int id1, dns_name_t *name2, int id2, isc_mem_t *mctx,
 	{
 		t_info("computed secrets don't match\n");
 		++*nfails;
-		goto cleanup;
+		return;
 	}
 
- cleanup:
-	if (key1 != NULL)
-		dst_key_free(&key1);
-	if (key2 != NULL)
-		dst_key_free(&key2);
+	dst_key_free(&key1);
+	dst_key_free(&key2);
 }
 
 static void
@@ -339,14 +330,12 @@ generate(int alg, isc_mem_t *mctx, int size, int *nfails) {
 		t_info("dst_key_generate(%d) returned: %s\n", alg,
 		       dst_result_totext(ret));
 		++*nfails;
-		goto cleanup;
+		return;
 	}
 
 	if (alg != DST_ALG_DH)
 		use(key, mctx, ISC_R_SUCCESS, nfails);
- cleanup:
-	if (key != NULL)
-		dst_key_free(&key);
+	dst_key_free(&key);
 }
 
 #define	DBUFSIZ	25
@@ -414,7 +403,7 @@ t1(void) {
 
 	dns_fixedname_init(&fname);
 	name = dns_fixedname_name(&fname);
-	isc_buffer_constinit(&b, "test.", 5);
+	isc_buffer_init(&b, "test.", 5);
 	isc_buffer_add(&b, 5);
 	isc_result = dns_name_fromtext(name, &b, NULL, 0, NULL);
 	if (isc_result != ISC_R_SUCCESS) {
@@ -436,7 +425,7 @@ t1(void) {
 	io(name, 2, DST_ALG_RSAMD5, DST_TYPE_PRIVATE|DST_TYPE_PUBLIC,
 			mctx, DST_R_NULLKEY, &nfails, &nprobs);
 
-	isc_buffer_constinit(&b, "dh.", 3);
+	isc_buffer_init(&b, "dh.", 3);
 	isc_buffer_add(&b, 3);
 	isc_result = dns_name_fromtext(name, &b, NULL, 0, NULL);
 	if (isc_result != ISC_R_SUCCESS) {
@@ -566,26 +555,24 @@ sig_fromfile(char *path, isc_buffer_t *iscbuf) {
 	char		*p;
 	char		*buf;
 
+	rval = stat(path, &sb);
+	if (rval != 0) {
+		t_info("stat %s failed, errno == %d\n", path, errno);
+		return(1);
+	}
+
+	buf = (char *) malloc((sb.st_size + 1) * sizeof(unsigned char));
+	if (buf == NULL) {
+		t_info("malloc failed, errno == %d\n", errno);
+		return(1);
+	}
+
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
 		t_info("open failed, errno == %d\n", errno);
+		(void) free(buf);
 		return(1);
 	}
-
-	rval = fstat(fd, &sb);
-	if (rval != 0) {
-		t_info("stat %s failed, errno == %d\n", path, errno);
-		close(fd);
-		return(1);
-	}
-
-	buf = (char *) malloc((sb.st_size + 1) * sizeof(char));
-	if (buf == NULL) {
-		t_info("malloc failed, errno == %d\n", errno);
-		close(fd);
-		return(1);
-	}
-
 
 	len = sb.st_size;
 	p = buf;
@@ -659,26 +646,25 @@ t2_sigchk(char *datapath, char *sigpath, char *keyname,
 	/*
 	 * Read data from file in a form usable by dst_verify.
 	 */
-	fd = open(datapath, O_RDONLY);
-	if (fd < 0) {
-		t_info("t2_sigchk: open failed %d\n", errno);
-		++*nprobs;
-		return;
-	}
-
-	rval = fstat(fd, &sb);
+	rval = stat(datapath, &sb);
 	if (rval != 0) {
 		t_info("t2_sigchk: stat (%s) failed %d\n", datapath, errno);
 		++*nprobs;
-		close(fd);
 		return;
 	}
 
-	data = (unsigned char *) malloc(sb.st_size * sizeof(unsigned char));
+	data = (unsigned char *) malloc(sb.st_size * sizeof(char));
 	if (data == NULL) {
 		t_info("t2_sigchk: malloc failed %d\n", errno);
 		++*nprobs;
-		close(fd);
+		return;
+	}
+
+	fd = open(datapath, O_RDONLY);
+	if (fd < 0) {
+		t_info("t2_sigchk: open failed %d\n", errno);
+		(void) free(data);
+		++*nprobs;
 		return;
 	}
 
@@ -698,7 +684,7 @@ t2_sigchk(char *datapath, char *sigpath, char *keyname,
 	 */
 	dns_fixedname_init(&fname);
 	name = dns_fixedname_name(&fname);
-	isc_buffer_constinit(&b, keyname, strlen(keyname));
+	isc_buffer_init(&b, keyname, strlen(keyname));
 	isc_buffer_add(&b, strlen(keyname));
 	isc_result = dns_name_fromtext(name, &b, dns_rootname, 0, NULL);
 	if (isc_result != ISC_R_SUCCESS) {
@@ -801,20 +787,14 @@ t2_sigchk(char *datapath, char *sigpath, char *keyname,
 	if (isc_result != ISC_R_SUCCESS) {
 		t_info("dst_context_create returned %s\n",
 			isc_result_totext(isc_result));
-		(void) free(data);
-		dst_key_free(&key);
 		++*nfails;
-		return;
 	}
 	isc_result = dst_context_adddata(ctx, &datareg);
 	if (isc_result != ISC_R_SUCCESS) {
 		t_info("dst_context_adddata returned %s\n",
 			isc_result_totext(isc_result));
-		(void) free(data);
 		dst_context_destroy(&ctx);
-		dst_key_free(&key);
 		++*nfails;
-		return;
 	}
 	isc_result = dst_context_verify(ctx, &sigreg);
 	if (	((exp_res == 0) && (isc_result != ISC_R_SUCCESS))	||
@@ -823,6 +803,7 @@ t2_sigchk(char *datapath, char *sigpath, char *keyname,
 		t_info("dst_context_verify returned %s, expected %s\n",
 			isc_result_totext(isc_result),
 			expected_result);
+		dst_context_destroy(&ctx);
 		++*nfails;
 	}
 

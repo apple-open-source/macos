@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,6 +103,18 @@ static const char *dlEventName[] = {
 #ifdef  KEV_DL_LINK_QUALITY_METRIC_CHANGED
 	"KEV_DL_LINK_QUALITY_METRIC_CHANGED",
 #endif
+#ifdef	KEV_DL_NODE_PRESENCE
+	"KEV_DL_NODE_PRESENCE"
+#endif
+#ifdef	KEV_DL_NODE_ABSENCE
+	"KEV_DL_NODE_ABSENCE"
+#endif
+#ifdef	KEV_DL_MASTER_ELECTED
+	"KEV_DL_MASTER_ELECTED"
+#endif
+#ifdef	KEV_DL_ISSUES
+	"KEV_DL_ISSUES",
+#endif
 };
 
 static const char *inet6EventName[] = {
@@ -191,7 +203,7 @@ post_network_changed(void)
 	if (network_changed) {
 		uint32_t	status;
 
-		status = notify_post("com.apple.system.config.network_change");
+		status = notify_post(_SC_NOTIFY_NETWORK_CHANGE);
 		if (status != NOTIFY_STATUS_OK) {
 			SCLog(TRUE, LOG_ERR, CFSTR("notify_post() failed: error=%ld"), status);
 		}
@@ -259,6 +271,8 @@ copy_if_name(struct net_event_data * ev, char * ifr_name, int ifr_len)
 	snprintf(ifr_name, ifr_len, "%s%d", ev->if_name, ev->if_unit);
 	return;
 }
+
+static uint8_t info_zero[DLIL_MODARGLEN];
 
 static void
 processEvent_Apple_Network(struct kern_event_msg *ev_msg)
@@ -454,6 +468,28 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					break;
 				}
 #endif  // KEV_DL_LINK_QUALITY_METRIC_CHANGED
+
+#ifdef	KEV_DL_ISSUES
+				case KEV_DL_ISSUES: {
+					struct kev_dl_issues *issues;
+
+					issues = (struct kev_dl_issues *)event_data;
+					if (dataLen < sizeof(*ev)) {
+						handled = FALSE;
+						break;
+					}
+					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					interface_update_link_issues(ifr_name,
+								     issues->timestamp,
+								     issues->modid,
+								     DLIL_MODIDLEN,
+								     issues->info,
+								     (bcmp(issues->info, info_zero, DLIL_MODIDLEN) != 0)
+									?DLIL_MODARGLEN
+									:0);
+					break;
+				}
+#endif	// KEV_DL_ISSUES
 
 				case KEV_DL_SIFFLAGS :
 				case KEV_DL_SIFMETRICS :

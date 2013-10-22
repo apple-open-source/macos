@@ -141,7 +141,7 @@ public:
     {
 		DEBUGWALK("reconstitute");
         if (addr)
-            addr = LowLevelMemoryUtilities::increment<T>(addr, mOffset);
+            addr = LowLevelMemoryUtilities::increment<T>(addr, (ptrdiff_t)mOffset);
     }
     
 	template <class T>

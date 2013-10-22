@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2007, 2008, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2007, 2008, 2011, 2012, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,12 +28,11 @@
 #include "KURL.h"
 
 #include "DecodeEscapeSequences.h"
+#include "MIMETypeRegistry.h"
 #include "TextEncoding.h"
 #include <stdio.h>
 #include <wtf/HashMap.h>
-#if !USE(WTFURL)
 #include <wtf/HexNumber.h>
-#endif
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
@@ -41,11 +40,6 @@
 
 #if USE(ICU_UNICODE)
 #include <unicode/uidna.h>
-#elif USE(QT4_UNICODE)
-#include <QUrl>
-#elif USE(GLIB_UNICODE)
-#include <glib.h>
-#include <wtf/gobject/GOwnPtr.h>
 #endif
 
 // FIXME: This file makes too much use of the + operator on String.
@@ -68,8 +62,6 @@ static inline bool isLetterMatchIgnoringCase(UChar character, char lowercaseLett
     ASSERT(isASCIILower(lowercaseLetter));
     return (character | 0x20) == lowercaseLetter;
 }
-
-#if !USE(GOOGLEURL) && !USE(WTFURL)
 
 static const char wsScheme[] = {'w', 's'};
 static const char ftpScheme[] = {'f', 't', 'p'};
@@ -293,7 +285,7 @@ static void appendASCII(const String& base, const char* rel, size_t len, CharBuf
     buffer[buffer.size() - 1] = '\0';
 }
 
-// FIXME: Move to PlatformString.h eventually.
+// FIXME: Move to WTFString.h eventually.
 // Returns the index of the first index in string |s| of any of the characters
 // in |toFind|. |toFind| should be a null-terminated string, all characters up
 // to the null will be searched. Returns int if not found.
@@ -562,11 +554,6 @@ KURL KURL::copy() const
     return result;
 }
 
-bool KURL::hasPath() const
-{
-    return m_pathEnd != m_portEnd;
-}
-
 String KURL::lastPathComponent() const
 {
     if (!hasPath())
@@ -642,6 +629,16 @@ String KURL::baseAsString() const
     return m_string.left(m_pathAfterLastSlash);
 }
 
+#if !PLATFORM(QT) && !USE(CF)
+String KURL::fileSystemPath() const
+{
+    if (!isValid() || !isLocalFile())
+        return String();
+
+    return decodeURLEscapeSequences(path());
+}
+#endif
+
 #ifdef NDEBUG
 
 static inline void assertProtocolIsGood(const char*)
@@ -703,7 +700,7 @@ bool KURL::setProtocol(const String& s)
         return false;
 
     if (!m_isValid) {
-        parse(newProtocol + ":" + m_string);
+        parse(newProtocol + ':' + m_string);
         return true;
     }
 
@@ -1031,9 +1028,9 @@ static inline bool isDefaultPortForScheme(const char* port, size_t portLength, c
     return false;
 }
 
-static inline bool hostPortIsEmptyButCredentialsArePresent(int hostStart, int portEnd, char userEndChar)
+static inline bool hostPortIsEmptyButCredentialsArePresent(int hostStart, int portEnd, char userinfoEndChar)
 {
-    return userEndChar == '@' && hostStart == portEnd;
+    return userinfoEndChar == '@' && hostStart == portEnd;
 }
 
 static bool isNonFileHierarchicalScheme(const char* scheme, size_t schemeLength)
@@ -1210,10 +1207,10 @@ void KURL::parse(const char* url, const String* originalString)
             return;
         }
 
-        if (hostPortIsEmptyButCredentialsArePresent(hostStart, portEnd, url[userEnd])) {
-            // in this circumstance, act as if there is an erroneous hostname containing an '@'
-            userEnd = userStart;
-            hostStart = userEnd;
+        if (hostPortIsEmptyButCredentialsArePresent(hostStart, portEnd, url[passwordEnd])) {
+            m_string = originalString ? *originalString : url;
+            invalidate();
+            return;
         }
 
         if (userStart == portEnd && !m_protocolIsInHTTPFamily && !isFile) {
@@ -1284,7 +1281,9 @@ void KURL::parse(const char* url, const String* originalString)
     // File URLs need a host part unless it is just file:// or file://localhost
     bool degenerateFilePath = pathStart == pathEnd && (hostStart == hostEnd || hostIsLocalHost);
 
-    bool haveNonHostAuthorityPart = userStart != userEnd || passwordStart != passwordEnd || portStart != portEnd;
+    // We drop empty credentials, but keep a colon in an empty host/port pair.
+    // Removing hostname completely would change the structure of the URL on re-parsing.
+    bool haveNonHostAuthorityPart = userStart != userEnd || passwordStart != passwordEnd || hostEnd != portEnd;
 
     // add ":" after scheme
     *p++ = ':';
@@ -1299,8 +1298,11 @@ void KURL::parse(const char* url, const String* originalString)
         // copy in the user
         strPtr = url + userStart;
         const char* userEndPtr = url + userEnd;
-        while (strPtr < userEndPtr)
-            *p++ = *strPtr++;
+        while (strPtr < userEndPtr) {
+            char c = *strPtr++;
+            ASSERT(isUserInfoChar(c));
+            *p++ = c;
+        }
         m_userEnd = p - buffer.data();
 
         // copy in the password
@@ -1308,8 +1310,11 @@ void KURL::parse(const char* url, const String* originalString)
             *p++ = ':';
             strPtr = url + passwordStart;
             const char* passwordEndPtr = url + passwordEnd;
-            while (strPtr < passwordEndPtr)
-                *p++ = *strPtr++;
+            while (strPtr < passwordEndPtr) {
+                char c = *strPtr++;
+                ASSERT(isUserInfoChar(c));
+                *p++ = c;
+            }
         }
         m_passwordEnd = p - buffer.data();
 
@@ -1322,20 +1327,27 @@ void KURL::parse(const char* url, const String* originalString)
             strPtr = url + hostStart;
             const char* hostEndPtr = url + hostEnd;
             if (isCanonicalHostnameLowercaseForScheme(buffer.data(), m_schemeEnd)) {
-                while (strPtr < hostEndPtr)
-                    *p++ = toASCIILower(*strPtr++);
+                while (strPtr < hostEndPtr) {
+                    char c = toASCIILower(*strPtr++);
+                    ASSERT(isHostnameChar(c) || c == '[' || c == ']' || c == ':');
+                    *p++ = c;
+                }
             } else {
-                while (strPtr < hostEndPtr)
-                    *p++ = *strPtr++;
+                while (strPtr < hostEndPtr) {
+                    char c = *strPtr++;
+                    ASSERT(isHostnameChar(c) || c == '[' || c == ']' || c == ':');
+                    *p++ = c;
+                }
             }
         }
         m_hostEnd = p - buffer.data();
 
-        // Copy in the port if the URL has one (and it's not default).
+        // Copy in the port if the URL has one (and it's not default). Also, copy it if there was no hostname, so that there is still something in authority component.
         if (hostEnd != portStart) {
             const char* portStr = url + portStart;
             size_t portLength = portEnd - portStart;
-            if (portLength && !isDefaultPortForScheme(portStr, portLength, buffer.data(), m_schemeEnd)) {
+            if ((portLength && !isDefaultPortForScheme(portStr, portLength, buffer.data(), m_schemeEnd))
+                || (hostStart == hostEnd && hostEnd != portStart)) {
                 *p++ = ':';
                 const char* portEndPtr = url + portEnd;
                 while (portStr < portEndPtr)
@@ -1395,7 +1407,7 @@ void KURL::parse(const char* url, const String* originalString)
 
     // If we didn't end up actually changing the original string and
     // it was already in a String, reuse it to avoid extra allocation.
-    if (originalString && *originalString == buffer)
+    if (originalString && equal(originalString->impl(), buffer.data(), m_fragmentEnd))
         m_string = *originalString;
     else
         m_string = String(buffer.data(), m_fragmentEnd);
@@ -1484,22 +1496,6 @@ static void appendEncodedHostname(UCharBuffer& buffer, const UChar* str, unsigne
         hostnameBufferLength, UIDNA_ALLOW_UNASSIGNED, 0, &error);
     if (error == U_ZERO_ERROR)
         buffer.append(hostnameBuffer, numCharactersConverted);
-#elif USE(QT4_UNICODE)
-    QByteArray result = QUrl::toAce(String(str, strLen));
-    buffer.append(result.constData(), result.length());
-#elif USE(GLIB_UNICODE)
-    GOwnPtr<gchar> utf8Hostname;
-    GOwnPtr<GError> utf8Err;
-    utf8Hostname.set(g_utf16_to_utf8(str, strLen, 0, 0, &utf8Err.outPtr()));
-    if (utf8Err)
-        return;
-
-    GOwnPtr<gchar> encodedHostname;
-    encodedHostname.set(g_hostname_to_ascii(utf8Hostname.get()));
-    if (!encodedHostname) 
-        return;
-
-    buffer.append(encodedHostname.get(), strlen(encodedHostname.get()));
 #endif
 }
 
@@ -1699,7 +1695,7 @@ bool KURL::isHierarchical() const
     return m_string[m_schemeEnd + 1] == '/';
 }
 
-void KURL::copyToBuffer(CharBuffer& buffer) const
+void KURL::copyToBuffer(Vector<char, 512>& buffer) const
 {
     // FIXME: This throws away the high bytes of all the characters in the string!
     // That's fine for a valid URL, which is all ASCII, but not for invalid URLs.
@@ -1741,8 +1737,6 @@ void KURL::print() const
 }
 #endif
 
-#endif // !USE(GOOGLEURL) && !USE(WTFURL)
-
 String KURL::strippedForUseAsReferrer() const
 {
     KURL referrer(*this);
@@ -1770,6 +1764,11 @@ const KURL& blankURL()
 {
     DEFINE_STATIC_LOCAL(KURL, staticBlankURL, (ParsedURLString, "about:blank"));
     return staticBlankURL;
+}
+
+bool KURL::isBlankURL() const
+{
+    return protocolIs("about");
 }
 
 bool isDefaultPortForProtocol(unsigned short port, const String& protocol)
@@ -1905,10 +1904,32 @@ String mimeTypeFromDataURL(const String& url)
         index = url.find(',');
     if (index != notFound) {
         if (index > 5)
-            return url.substring(5, index - 5);
+            return url.substring(5, index - 5).lower();
         return "text/plain"; // Data URLs with no MIME type are considered text/plain.
     }
     return "";
+}
+
+String mimeTypeFromURL(const KURL& url)
+{
+    String decodedPath = decodeURLEscapeSequences(url.path());
+    String extension = decodedPath.substring(decodedPath.reverseFind('.') + 1);
+
+    // We don't use MIMETypeRegistry::getMIMETypeForPath() because it returns "application/octet-stream" upon failure
+    return MIMETypeRegistry::getMIMETypeForExtension(extension);
+}
+
+bool KURL::isSafeToSendToAnotherThread() const
+{
+    return m_string.isSafeToSendToAnotherThread();
+}
+
+String KURL::stringCenterEllipsizedToLength(unsigned length) const
+{
+    if (string().length() <= length)
+        return string();
+
+    return string().left(length / 2 - 1) + "..." + string().right(length / 2 - 2);
 }
 
 }

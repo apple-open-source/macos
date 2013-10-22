@@ -1,0 +1,3 @@
+#Change the following to an address that you can create a listening socket on:
+$SSL_SERVER_ADDR = '127.0.0.1';
+'True Value';

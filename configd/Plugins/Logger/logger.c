@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1259,7 +1259,7 @@ console_notification(SCDynamicStoreRef store, CFArrayRef changedKeys, void *cont
 			sessionUserName  = CFDictionaryGetValue(session, kSCConsoleSessionUserName);
 			sessionOnConsole = CFDictionaryGetValue(session, kSCConsoleSessionOnConsole);
 
-			CFStringAppendFormat(str, NULL, CFSTR("\n%d : id=%@, user=%@, console=%s"),
+			CFStringAppendFormat(str, NULL, CFSTR("\n%ld : id=%@, user=%@, console=%s"),
 					     i,
 					     sessionID,
 					     sessionUserName  != NULL ? sessionUserName : CFSTR("?"),
@@ -1512,8 +1512,6 @@ add_nwi_notification()
 #pragma mark Network Configuration Change Events
 
 
-#define	NETWORKCHANGED_NOTIFY_KEY	"com.apple.system.config.network_change"
-
 static void
 network_notification(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
@@ -1534,7 +1532,7 @@ add_network_notification()
 	CFRunLoopSourceRef	rls;
 	uint32_t		status;
 
-	status = notify_register_mach_port(NETWORKCHANGED_NOTIFY_KEY,
+	status = notify_register_mach_port(_SC_NOTIFY_NETWORK_CHANGE,
 					   &notify_port,
 					   0,
 					   &notify_token);

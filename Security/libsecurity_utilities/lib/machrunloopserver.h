@@ -54,16 +54,16 @@ public:
 	MachRunLoopServer(const char *name, const Bootstrap &boot); // register in bootstrap
 	virtual ~MachRunLoopServer();
 
-	void run(size_t maxSize = 4096, mach_msg_options_t options = 0);
+	void run(mach_msg_size_t maxSize = 4096, mach_msg_options_t options = 0);
 
 	static MachRunLoopServer &active()
 	{ return safer_cast<MachRunLoopServer &>(MachServer::active()); }
 	
-	void notifyIfDead(Port port) const;
+	void notifyIfDead(Port port, bool doNotify = true) const;
 
 protected:
-	void receive(Message &request);
-	void oneRequest(Message &request);
+	void receive(const Message &request);
+	void oneRequest(const Message &request);
 
 private:
 	static void cfInvalidate(CFMachPortRef port, void *info);

@@ -77,6 +77,7 @@ typedef int (*copyfile_callback_t)(int, int, copyfile_state_t, const char *, con
 #define	COPYFILE_STATE_COPIED		8
 #define	COPYFILE_STATE_XATTRNAME	9
 
+
 #define	COPYFILE_DISABLE_VAR	"COPYFILE_DISABLE"
 
 /* flags for copyfile */

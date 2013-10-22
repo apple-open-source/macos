@@ -78,6 +78,8 @@ kadm5_s_init_with_context(krb5_context context,
 					 ctx->log_context.socket_info->ai_socktype,
 					 ctx->log_context.socket_info->ai_protocol);
 #endif
+    if (!rk_IS_BAD_SOCKET(ctx->log_context.socket_fd))
+	socket_set_nopipe(ctx->log_context.socket_fd, ctx->log_context.socket_fd);
 
     ret = krb5_parse_name(ctx->context, client_name, &ctx->caller);
     if(ret)

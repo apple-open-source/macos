@@ -29,7 +29,6 @@
 #include "pkcs12BagAttrs.h"
 #include "pkcs12SafeBag.h"
 #include "pkcs12Utils.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_cdsa_utilities/cssmerrors.h>
 #include <Security/SecBasePriv.h>
 
@@ -43,16 +42,16 @@
 	} \
 	catch (const MacOSError &err) { return err.osStatus(); } \
 	catch (const CommonError &err) { return SecKeychainErrFromOSStatus(err.osStatus()); } \
-	catch (const std::bad_alloc &) { return memFullErr; } \
-	catch (...) { return internalComponentErr; } \
-    return noErr;
+	catch (const std::bad_alloc &) { return errSecAllocate; } \
+	catch (...) { return errSecInternalComponent; } \
+    return errSecSuccess;
 
 /* catch incoming NULL parameters */
 static inline void required(
 	const void *param)
 {
 	if(param == NULL) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 }
 
@@ -75,7 +74,7 @@ static inline P12BagAttrsStandAlone *P12AttrsCast(
 	SecPkcs12AttrsRef attrs)
 {
 	if(attrs == NULL) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	return reinterpret_cast<P12BagAttrsStandAlone *>(attrs);
 }
@@ -336,7 +335,7 @@ OSStatus SecPkcs12CopyCertificate(
 	P12Coder *p12coder = P12CoderCast(coder);
 	required(secCert);
 	/* others are optional - if NULL, we don't return that param */
-	P12CertBag *bag = p12coder->getCert(certNum);
+	P12CertBag *bag = p12coder->getCert((unsigned)certNum);
 	*secCert = bag->getSecCert();
 	
 	/* now the optional attrs */
@@ -379,7 +378,7 @@ OSStatus SecPkcs12CopyCrl(
 	P12Coder *p12coder = P12CoderCast(coder);
 	required(crl);
 	/* others are optional - if NULL, we don't return that param */
-	P12CrlBag *bag = p12coder->getCrl(crlNum);
+	P12CrlBag *bag = p12coder->getCrl((unsigned)crlNum);
 	*crl = p12CssmDataToCf(bag->crlData());
 	
 	/* now the optional attrs */
@@ -419,7 +418,7 @@ OSStatus SecPkcs12CopyPrivateKey(
 {
 	BEGIN_P12API
 	/*P12Coder *p12coder = P12CoderCast(coder); */
-	return unimpErr;
+	return errSecUnimplemented;
 	END_P12API
 }
 
@@ -435,7 +434,7 @@ OSStatus SecPkcs12GetCssmPrivateKey(
 	P12Coder *p12coder = P12CoderCast(coder);
 	required(privateKey);
 	/* others are optional - if NULL, we don't return that param */
-	P12KeyBag *bag = p12coder->getKey(keyNum);
+	P12KeyBag *bag = p12coder->getKey((unsigned)keyNum);
 	*privateKey = bag->key();
 	
 	/* now the optional attrs */
@@ -484,7 +483,7 @@ OSStatus SecPkcs12CopyOpaqueBlob(
 	required(opaqueBlob);
 	
 	/* others are optional - if NULL, we don't return that param */
-	P12OpaqueBag *bag = p12coder->getOpaque(blobNum);
+	P12OpaqueBag *bag = p12coder->getOpaque((unsigned)blobNum);
 	*opaqueBlob = p12CssmDataToCf(bag->blob());
 	*blobOid    = p12CssmDataToCf(bag->oid());
 	
@@ -600,6 +599,7 @@ OSStatus SecPkcs12AddPrivateKey(
 	END_P12API
 }
 
+#if 0 /* Unused */
 OSStatus SecPkcs12AddCssmPrivateKey(
 	SecPkcs12CoderRef		coder,
 	CSSM_KEY_PTR			cssmKey,			
@@ -617,6 +617,7 @@ OSStatus SecPkcs12AddCssmPrivateKey(
 	
 	END_P12API
 }
+#endif
 
 OSStatus SecPkcs12AddOpaqueBlob(
 	SecPkcs12CoderRef		coder,
@@ -716,7 +717,7 @@ OSStatus SecPkcs12AttrsGetAttr(
 	P12BagAttrsStandAlone *bagAttrs = P12AttrsCast(attrs);
 	required(attrOid);
 	required(attrValues);
-	bagAttrs->getAttr(attrNum, attrOid, attrValues);
+	bagAttrs->getAttr((unsigned)attrNum, attrOid, attrValues);
 	END_P12API
 }
 

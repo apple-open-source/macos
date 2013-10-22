@@ -27,23 +27,25 @@
 #ifndef InspectorClient_h
 #define InspectorClient_h
 
-#include "InspectorFrontendChannel.h"
 #include "InspectorStateClient.h"
 #include <wtf/Forward.h>
+#include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 
 namespace WebCore {
 
 class InspectorController;
+class InspectorFrontendChannel;
 class Frame;
 class Page;
 
-class InspectorClient : public InspectorFrontendChannel, public InspectorStateClient {
+class InspectorClient : public InspectorStateClient {
 public:
     virtual ~InspectorClient() { }
 
     virtual void inspectorDestroyed() = 0;
 
-    virtual void openInspectorFrontend(InspectorController*) = 0;
+    virtual InspectorFrontendChannel* openInspectorFrontend(InspectorController*) = 0;
     virtual void closeInspectorFrontend() = 0;
     virtual void bringFrontendToFront() = 0;
     virtual void didResizeMainFrame(Frame*) { }
@@ -55,8 +57,15 @@ public:
     virtual void clearBrowserCache() { }
     virtual bool canClearBrowserCookies() { return false; }
     virtual void clearBrowserCookies() { }
+    virtual bool canMonitorMainThread() { return false; }
+
+    typedef void (*TraceEventCallback)(char phase, const unsigned char*, const char* name, unsigned long long id,
+        int numArgs, const char* const* argNames, const unsigned char* argTypes, const unsigned long long* argValues,
+        unsigned char flags);
+    virtual void setTraceEventCallback(TraceEventCallback) { }
 
     virtual bool canOverrideDeviceMetrics() { return false; }
+
     virtual void overrideDeviceMetrics(int /*width*/, int /*height*/, float /*fontScaleFactor*/, bool /*fitWindow*/)
     {
         // FIXME: Platforms may want to implement this (see https://bugs.webkit.org/show_bug.cgi?id=82886).
@@ -66,7 +75,30 @@ public:
         // FIXME: Platforms may want to implement this (see https://bugs.webkit.org/show_bug.cgi?id=82886).
     }
 
-    bool doDispatchMessageOnFrontendPage(Page* frontendPage, const String& message);
+    virtual bool overridesShowPaintRects() { return false; }
+    virtual void setShowPaintRects(bool) { }
+
+    virtual bool canShowDebugBorders() { return false; }
+    virtual void setShowDebugBorders(bool) { }
+
+    virtual bool canShowFPSCounter() { return false; }
+    virtual void setShowFPSCounter(bool) { }
+
+    virtual bool canContinuouslyPaint() { return false; }
+    virtual void setContinuousPaintingEnabled(bool) { }
+
+    virtual bool supportsFrameInstrumentation() { return false; }
+
+    virtual void getAllocatedObjects(HashSet<const void*>&) { }
+    virtual void dumpUncountedAllocatedObjects(const HashMap<const void*, size_t>&) { }
+
+    virtual bool captureScreenshot(String*) { return false; }
+
+    virtual bool handleJavaScriptDialog(bool, const String*) { return false; }
+
+    virtual bool canSetFileInputFiles() { return false; }
+
+    static bool doDispatchMessageOnFrontendPage(Page* frontendPage, const String& message);
 };
 
 } // namespace WebCore

@@ -50,16 +50,17 @@
 #import <Foundation/NSURLRequest.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
+#import <WebCore/FrameLoadRequest.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/HTMLMediaElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/MediaPlayerProxy.h>
-#import <WebCore/PlatformString.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/WebCoreURLResponse.h>
-#import <objc/objc-runtime.h>
+#import <objc/runtime.h>
 #import <runtime/JSLock.h>
+#import <wtf/text/WTFString.h>
 
 using namespace WebCore;
 using namespace HTMLNames;
@@ -96,10 +97,10 @@ static NSMutableSet *pluginViews = nil;
     NSView *view = nil;
 
     if ([viewFactory respondsToSelector:@selector(plugInViewWithArguments:)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         view = [viewFactory plugInViewWithArguments:arguments];
     } else if ([viewFactory respondsToSelector:@selector(pluginViewWithArguments:)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         view = [viewFactory pluginViewWithArguments:arguments];
     }
     
@@ -149,10 +150,10 @@ static NSMutableSet *pluginViews = nil;
 - (void)stopOnePlugin:(NSView *)view
 {
     if ([view respondsToSelector:@selector(webPlugInStop)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         [view webPlugInStop];
     } else if ([view respondsToSelector:@selector(pluginStop)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         [view pluginStop];
     }
 }
@@ -160,10 +161,10 @@ static NSMutableSet *pluginViews = nil;
 - (void)destroyOnePlugin:(NSView *)view
 {
     if ([view respondsToSelector:@selector(webPlugInDestroy)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         [view webPlugInDestroy];
     } else if ([view respondsToSelector:@selector(pluginDestroy)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         [view pluginDestroy];
     }
 }
@@ -180,10 +181,10 @@ static NSMutableSet *pluginViews = nil;
     for (int i = 0; i < count; i++) {
         id aView = [_views objectAtIndex:i];
         if ([aView respondsToSelector:@selector(webPlugInStart)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
             [aView webPlugInStart];
         } else if ([aView respondsToSelector:@selector(pluginStart)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
             [aView pluginStart];
         }
     }
@@ -252,10 +253,10 @@ static NSMutableSet *pluginViews = nil;
 
         LOG(Plugins, "initializing plug-in %@", view);
         if ([view respondsToSelector:@selector(webPlugInInitialize)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
             [view webPlugInInitialize];
         } else if ([view respondsToSelector:@selector(pluginInitialize)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+            JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
             [view pluginInitialize];
         }
 
@@ -265,15 +266,15 @@ static NSMutableSet *pluginViews = nil;
         if (_started) {
             LOG(Plugins, "starting plug-in %@", view);
             if ([view respondsToSelector:@selector(webPlugInStart)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+                JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
                 [view webPlugInStart];
             } else if ([view respondsToSelector:@selector(pluginStart)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+                JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
                 [view pluginStart];
             }
             
             if ([view respondsToSelector:@selector(setContainingWindow:)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+                JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
                 [view setContainingWindow:[_documentView window]];
             }
         }
@@ -401,7 +402,10 @@ static void cancelOutstandingCheck(const void *item, void *context)
             LOG_ERROR("could not load URL %@", [request URL]);
             return;
         }
-        core(frame)->loader()->load(request, target, false);
+        FrameLoadRequest frameRequest(core(frame), request);
+        frameRequest.setFrameName(target);
+        frameRequest.setShouldCheckNewWindowPolicy(true);
+        core(frame)->loader()->load(frameRequest);
     }
 }
 

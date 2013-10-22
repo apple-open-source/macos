@@ -114,7 +114,7 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
         int         uefiDiscPartitionStart = 0;
         int         uefiDiscPartitionSize = 0;
         
-        strcpy(newBSDName, bsdname);
+        strlcpy(newBSDName, bsdname, sizeof newBSDName);
         
         // first check to see if we are dealing with a disk that has the following properties:
         // is optical AND is DVD AND has an El Torito Boot Catalog AND has an UEFI-bootable entry.
@@ -235,7 +235,7 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
     int         uefiDiscPartitionStart = 0;
     int         uefiDiscPartitionSize = 0;
     
-    strcpy(newBSDName, sb.f_mntfromname + 5);
+    strlcpy(newBSDName, sb.f_mntfromname + 5, sizeof newBSDName);
     
     // first check to see if we are dealing with a disk that has the following properties:
     // is optical AND is DVD AND has an El Torito Boot Catalog AND has an UEFI-bootable entry.
@@ -517,12 +517,12 @@ static int setefibootargs(BLContextPtr context, mach_port_t masterPort)
         
     if(!CFStringGetCString(newString, cStr, sizeof(cStr), kCFStringEncodingUTF8)) {
         contextprintf(context, kBLLogLevelError,  "Could not interpret boot-args as string. Ignoring...\n");
-        strcpy(cStr, "");
+        cStr[0] = '\0';
     }
     
     CFRelease(newString);
     
-    ret = BLPreserveBootArgs(context, cStr, newArgs);
+    ret = BLPreserveBootArgs(context, cStr, newArgs, sizeof newArgs);
     if(ret) {
         return ret;
     }

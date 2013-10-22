@@ -22,8 +22,10 @@
 
 #include "MediaPlayerPrivate.h"
 
+#include <QAbstractVideoSurface>
 #include <QMediaPlayer>
 #include <QObject>
+#include <QVideoSurfaceFormat>
 
 QT_BEGIN_NAMESPACE
 class QMediaPlayerControl;
@@ -31,15 +33,15 @@ class QGraphicsVideoItem;
 class QGraphicsScene;
 QT_END_NAMESPACE
 
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
-#include "TextureMapper.h"
+#if USE(ACCELERATED_COMPOSITING)
+#include "TextureMapperPlatformLayer.h"
 #endif
 
 namespace WebCore {
 
-class MediaPlayerPrivateQt : public QObject, public MediaPlayerPrivateInterface
-#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
-        , public TextureMapperPlatformLayer
+class MediaPlayerPrivateQt : public QAbstractVideoSurface, public MediaPlayerPrivateInterface
+#if USE(ACCELERATED_COMPOSITING)
+                           , public TextureMapperPlatformLayer
 #endif
 {
 
@@ -51,7 +53,7 @@ public:
 
     static void registerMediaEngine(MediaEngineRegistrar);
     static void getSupportedTypes(HashSet<String>&);
-    static MediaPlayer::SupportsType supportsType(const String&, const String&);
+    static MediaPlayer::SupportsType supportsType(const String&, const String&, const KURL&);
     static bool isAvailable() { return true; }
 
     bool hasVideo() const;
@@ -86,7 +88,7 @@ public:
 
     PassRefPtr<TimeRanges> buffered() const;
     float maxTimeSeekable() const;
-    unsigned bytesLoaded() const;
+    bool didLoadingProgress() const;
     unsigned totalBytes() const;
 
     void setVisible(bool);
@@ -101,19 +103,13 @@ public:
     bool supportsFullscreen() const { return true; }
 
 #if USE(ACCELERATED_COMPOSITING)
-#if USE(TEXTURE_MAPPER)
     // whether accelerated rendering is supported by the media engine for the current media.
     virtual bool supportsAcceleratedRendering() const { return false; }
     // called when the rendering system flips the into or out of accelerated rendering mode.
     virtual void acceleratedRenderingStateChanged() { }
     // Const-casting here is safe, since all of TextureMapperPlatformLayer's functions are const.g
     virtual PlatformLayer* platformLayer() const { return 0; }
-    virtual void paintToTextureMapper(TextureMapper*, const FloatRect& targetRect, const TransformationMatrix&, float opacity, BitmapTexture* mask) const;
-#else
-    virtual bool supportsAcceleratedRendering() const { return false; }
-    virtual void acceleratedRenderingStateChanged() { }
-    virtual PlatformLayer* platformLayer() const { return 0; }
-#endif
+    virtual void paintToTextureMapper(TextureMapper*, const FloatRect& targetRect, const TransformationMatrix&, float opacity);
 #endif
 
     virtual PlatformMedia platformMedia() const;
@@ -122,17 +118,21 @@ public:
     void removeVideoItem();
     void restoreVideoItem();
 
-private slots:
+    // QAbstractVideoSurface methods
+    virtual bool start(const QVideoSurfaceFormat& format);
+    virtual QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType handleType = QAbstractVideoBuffer::NoHandle) const;
+    virtual bool present(const QVideoFrame& frame);
+
+private Q_SLOTS:
     void mediaStatusChanged(QMediaPlayer::MediaStatus);
     void handleError(QMediaPlayer::Error);
     void stateChanged(QMediaPlayer::State);
-    void nativeSizeChanged(const QSizeF&);
+    void surfaceFormatChanged(const QVideoSurfaceFormat&);
     void positionChanged(qint64);
     void durationChanged(qint64);
     void bufferStatusChanged(int);
     void volumeChanged(int);
     void mutedChanged(bool);
-    void repaint();
 
 private:
     void updateStates();
@@ -145,19 +145,19 @@ private:
     MediaPlayer* m_webCorePlayer;
     QMediaPlayer* m_mediaPlayer;
     QMediaPlayerControl* m_mediaPlayerControl;
-    QGraphicsVideoItem* m_videoItem;
-    QGraphicsScene* m_videoScene;
+    QVideoSurfaceFormat m_frameFormat;
+    QVideoFrame m_currentVideoFrame;
 
     mutable MediaPlayer::NetworkState m_networkState;
     mutable MediaPlayer::ReadyState m_readyState;
 
     IntSize m_currentSize;
     IntSize m_naturalSize;
-    IntSize m_oldNaturalSize;
     bool m_isVisible;
     bool m_isSeeking;
     bool m_composited;
     MediaPlayer::Preload m_preload;
+    mutable unsigned m_bytesLoadedAtLastDidLoadingProgress;
     bool m_delayingLoad;
     String m_mediaUrl;
     bool m_suppressNextPlaybackChanged;

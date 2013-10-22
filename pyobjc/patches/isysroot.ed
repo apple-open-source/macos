@@ -1,0 +1,2 @@
+g/^\([[:space:]]*\).*\.extend(\[['"]-isysroot['"].*/s//\1pass/
+w

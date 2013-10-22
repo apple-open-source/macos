@@ -1,7 +1,17 @@
+require 'rbconfig'
+
 require 'test/unit'
 
-rcsid = %w$Id: runner.rb 26083 2009-12-13 18:50:31Z shyouhei $
-Version = rcsid[2].scan(/\d+/).collect!(&method(:Integer)).freeze rescue nil
-Release = rcsid[3].freeze rescue nil
+src_testdir = File.dirname(File.realpath(__FILE__))
+$LOAD_PATH << src_testdir
+module Gem
+end
+class Gem::TestCase < MiniTest::Unit::TestCase
+  @@project_dir = File.dirname($LOAD_PATH.last)
+end
 
-exit Test::Unit::AutoRunner.run(true, File.dirname($0))
+ENV["GEM_SKIP"] = ENV["GEM_HOME"] = ENV["GEM_PATH"] = "".freeze
+
+require_relative 'profile_test_all' if ENV['RUBY_TEST_ALL_PROFILE'] == 'true'
+
+exit Test::Unit::AutoRunner.run(true, src_testdir)

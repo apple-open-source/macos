@@ -31,8 +31,6 @@
 
 #include "FrameNetworkingContext.h"
 
-typedef struct _Evas_Object Evas_Object;
-
 namespace WebCore {
 
 class FrameNetworkingContextEfl : public WebCore::FrameNetworkingContext {
@@ -40,9 +38,11 @@ public:
     static PassRefPtr<FrameNetworkingContextEfl> create(Frame*, Evas_Object*);
 
     WebCore::Frame* coreFrame() const { return frame(); }
-    virtual SoupSession* soupSession() const;
+    virtual uint64_t initiatingPageID() const;
 
 private:
+    virtual WebCore::NetworkStorageSession& storageSession() const;
+
     FrameNetworkingContextEfl(Frame*, Evas_Object*);
 
     Evas_Object* m_ewkFrame;

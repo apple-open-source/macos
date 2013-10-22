@@ -4,13 +4,6 @@
 
 Project = nfsd
 
-pathsearch = $(firstword $(wildcard $(addsuffix /$(1),$(subst :, ,$(PATH)))))
-TCONF := $(call pathsearch,tconf)
-
-ifneq "$(TCONF)" ""
-Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
-endif
-
 inplace:
 	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
@@ -27,7 +20,7 @@ Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 \
 Extra_LD_Flags = -Wl,-pie -lutil -framework oncrpc -framework DiskArbitration \
 		  -framework ServiceManagement -framework CoreFoundation
 
-ifeq "$(Embedded)" "YES"
+ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 Extra_CC_Flags += -isysroot $(SDKROOT)
 endif
 

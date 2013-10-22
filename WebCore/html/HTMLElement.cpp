@@ -30,13 +30,14 @@
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "CSSValuePool.h"
-#include "ChildListMutationScope.h"
+#include "DOMSettableTokenList.h"
 #include "DocumentFragment.h"
 #include "Event.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
+#include "FrameLoader.h"
 #include "HTMLBRElement.h"
 #include "HTMLCollection.h"
 #include "HTMLDocument.h"
@@ -44,10 +45,14 @@
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include "HTMLTemplateElement.h"
 #include "HTMLTextFormControlElement.h"
+#include "NodeTraversal.h"
 #include "RenderWordBreak.h"
+#include "ScriptController.h"
 #include "ScriptEventListener.h"
 #include "Settings.h"
+#include "StylePropertySet.h"
 #include "Text.h"
 #include "TextIterator.h"
 #include "XMLNames.h"
@@ -56,6 +61,7 @@
 #include <wtf/text/CString.h>
 
 #if ENABLE(MICRODATA)
+#include "HTMLPropertiesCollection.h"
 #include "MicroDataItemValue.h"
 #endif
 
@@ -130,32 +136,28 @@ static inline int unicodeBidiAttributeForDirAuto(HTMLElement* element)
     return CSSValueWebkitIsolate;
 }
 
-static unsigned parseBorderWidthAttribute(Attribute* attr)
+unsigned HTMLElement::parseBorderWidthAttribute(const AtomicString& value) const
 {
-    ASSERT(attr && attr->name() == borderAttr);
-
     unsigned borderWidth = 0;
-    if (!attr->value().isEmpty())
-        parseHTMLNonNegativeInteger(attr->value(), borderWidth);
-
+    if (value.isEmpty() || !parseHTMLNonNegativeInteger(value, borderWidth))
+        return hasLocalName(tableTag) ? 1 : borderWidth;
     return borderWidth;
 }
 
-void HTMLElement::applyBorderAttributeToStyle(Attribute* attr, StylePropertySet* style)
+void HTMLElement::applyBorderAttributeToStyle(const AtomicString& value, MutableStylePropertySet* style)
 {
-    addPropertyToAttributeStyle(style, CSSPropertyBorderWidth, parseBorderWidthAttribute(attr), CSSPrimitiveValue::CSS_PX);
-    addPropertyToAttributeStyle(style, CSSPropertyBorderStyle, CSSValueSolid);
+    addPropertyToPresentationAttributeStyle(style, CSSPropertyBorderWidth, parseBorderWidthAttribute(value), CSSPrimitiveValue::CSS_PX);
+    addPropertyToPresentationAttributeStyle(style, CSSPropertyBorderStyle, CSSValueSolid);
 }
 
-void HTMLElement::mapLanguageAttributeToLocale(Attribute* attribute, StylePropertySet* style)
+void HTMLElement::mapLanguageAttributeToLocale(const AtomicString& value, MutableStylePropertySet* style)
 {
-    ASSERT(attribute && (attribute->name() == langAttr || attribute->name().matches(XMLNames::langAttr)));
-    if (!attribute->isEmpty()) {
+    if (!value.isEmpty()) {
         // Have to quote so the locale id is treated as a string instead of as a CSS keyword.
-        addPropertyToAttributeStyle(style, CSSPropertyWebkitLocale, quoteCSSString(attribute->value()));
+        addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitLocale, quoteCSSString(value));
     } else {
         // The empty string means the language is explicitly unknown.
-        addPropertyToAttributeStyle(style, CSSPropertyWebkitLocale, CSSValueAuto);
+        addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitLocale, CSSValueAuto);
     }
 }
 
@@ -166,169 +168,167 @@ bool HTMLElement::isPresentationAttribute(const QualifiedName& name) const
     return StyledElement::isPresentationAttribute(name);
 }
 
-void HTMLElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+void HTMLElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStylePropertySet* style)
 {
-    if (attr->name() == alignAttr) {
-        if (equalIgnoringCase(attr->value(), "middle"))
-            addPropertyToAttributeStyle(style, CSSPropertyTextAlign, CSSValueCenter);
+    if (name == alignAttr) {
+        if (equalIgnoringCase(value, "middle"))
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyTextAlign, CSSValueCenter);
         else
-            addPropertyToAttributeStyle(style, CSSPropertyTextAlign, attr->value());
-    } else if (attr->name() == contenteditableAttr) {
-        if (attr->isEmpty() || equalIgnoringCase(attr->value(), "true")) {
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitUserModify, CSSValueReadWrite);
-            addPropertyToAttributeStyle(style, CSSPropertyWordWrap, CSSValueBreakWord);
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitNbspMode, CSSValueSpace);
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitLineBreak, CSSValueAfterWhiteSpace);
-        } else if (equalIgnoringCase(attr->value(), "plaintext-only")) {
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitUserModify, CSSValueReadWritePlaintextOnly);
-            addPropertyToAttributeStyle(style, CSSPropertyWordWrap, CSSValueBreakWord);
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitNbspMode, CSSValueSpace);
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitLineBreak, CSSValueAfterWhiteSpace);
-        } else if (equalIgnoringCase(attr->value(), "false"))
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitUserModify, CSSValueReadOnly);
-    } else if (attr->name() == hiddenAttr) {
-        addPropertyToAttributeStyle(style, CSSPropertyDisplay, CSSValueNone);
-    } else if (attr->name() == draggableAttr) {
-        if (equalIgnoringCase(attr->value(), "true")) {
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitUserDrag, CSSValueElement);
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitUserSelect, CSSValueNone);
-        } else if (equalIgnoringCase(attr->value(), "false"))
-            addPropertyToAttributeStyle(style, CSSPropertyWebkitUserDrag, CSSValueNone);
-    } else if (attr->name() == dirAttr) {
-        if (equalIgnoringCase(attr->value(), "auto"))
-            addPropertyToAttributeStyle(style, CSSPropertyUnicodeBidi, unicodeBidiAttributeForDirAuto(this));
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyTextAlign, value);
+    } else if (name == contenteditableAttr) {
+        if (value.isEmpty() || equalIgnoringCase(value, "true")) {
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitUserModify, CSSValueReadWrite);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWordWrap, CSSValueBreakWord);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitNbspMode, CSSValueSpace);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitLineBreak, CSSValueAfterWhiteSpace);
+        } else if (equalIgnoringCase(value, "plaintext-only")) {
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitUserModify, CSSValueReadWritePlaintextOnly);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWordWrap, CSSValueBreakWord);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitNbspMode, CSSValueSpace);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitLineBreak, CSSValueAfterWhiteSpace);
+        } else if (equalIgnoringCase(value, "false"))
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitUserModify, CSSValueReadOnly);
+    } else if (name == hiddenAttr) {
+        addPropertyToPresentationAttributeStyle(style, CSSPropertyDisplay, CSSValueNone);
+    } else if (name == draggableAttr) {
+        if (equalIgnoringCase(value, "true")) {
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitUserDrag, CSSValueElement);
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitUserSelect, CSSValueNone);
+        } else if (equalIgnoringCase(value, "false"))
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitUserDrag, CSSValueNone);
+    } else if (name == dirAttr) {
+        if (equalIgnoringCase(value, "auto"))
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyUnicodeBidi, unicodeBidiAttributeForDirAuto(this));
         else {
-            addPropertyToAttributeStyle(style, CSSPropertyDirection, attr->value());
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyDirection, value);
             if (!hasTagName(bdiTag) && !hasTagName(bdoTag) && !hasTagName(outputTag))
-                addPropertyToAttributeStyle(style, CSSPropertyUnicodeBidi, CSSValueEmbed);
+                addPropertyToPresentationAttributeStyle(style, CSSPropertyUnicodeBidi, CSSValueEmbed);
         }
-    } else if (attr->name().matches(XMLNames::langAttr)) {
-        mapLanguageAttributeToLocale(attr, style);
-    } else if (attr->name() == langAttr) {
+    } else if (name.matches(XMLNames::langAttr))
+        mapLanguageAttributeToLocale(value, style);
+    else if (name == langAttr) {
         // xml:lang has a higher priority than lang.
         if (!fastHasAttribute(XMLNames::langAttr))
-            mapLanguageAttributeToLocale(attr, style);
+            mapLanguageAttributeToLocale(value, style);
     } else
-        StyledElement::collectStyleForAttribute(attr, style);
+        StyledElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
-void HTMLElement::parseAttribute(Attribute* attr)
+AtomicString HTMLElement::eventNameForAttributeName(const QualifiedName& attrName) const
 {
-    if (isIdAttributeName(attr->name()) || attr->name() == classAttr || attr->name() == styleAttr)
-        return StyledElement::parseAttribute(attr);
+    if (!attrName.namespaceURI().isNull())
+        return AtomicString();
+    
+    typedef HashMap<AtomicString, AtomicString> StringToStringMap;
+    DEFINE_STATIC_LOCAL(StringToStringMap, attributeNameToEventNameMap, ());
+    if (!attributeNameToEventNameMap.size()) {
+        attributeNameToEventNameMap.set(onclickAttr.localName(), eventNames().clickEvent);
+        attributeNameToEventNameMap.set(oncontextmenuAttr.localName(), eventNames().contextmenuEvent);
+        attributeNameToEventNameMap.set(ondblclickAttr.localName(), eventNames().dblclickEvent);
+        attributeNameToEventNameMap.set(onmousedownAttr.localName(), eventNames().mousedownEvent);
+        attributeNameToEventNameMap.set(onmouseenterAttr.localName(), eventNames().mouseenterEvent);
+        attributeNameToEventNameMap.set(onmouseleaveAttr.localName(), eventNames().mouseleaveEvent);
+        attributeNameToEventNameMap.set(onmousemoveAttr.localName(), eventNames().mousemoveEvent);
+        attributeNameToEventNameMap.set(onmouseoutAttr.localName(), eventNames().mouseoutEvent);
+        attributeNameToEventNameMap.set(onmouseoverAttr.localName(), eventNames().mouseoverEvent);
+        attributeNameToEventNameMap.set(onmouseupAttr.localName(), eventNames().mouseupEvent);
+        attributeNameToEventNameMap.set(onmousewheelAttr.localName(), eventNames().mousewheelEvent);
+        attributeNameToEventNameMap.set(onfocusAttr.localName(), eventNames().focusEvent);
+        attributeNameToEventNameMap.set(onfocusinAttr.localName(), eventNames().focusinEvent);
+        attributeNameToEventNameMap.set(onfocusoutAttr.localName(), eventNames().focusoutEvent);
+        attributeNameToEventNameMap.set(onblurAttr.localName(), eventNames().blurEvent);
+        attributeNameToEventNameMap.set(onkeydownAttr.localName(), eventNames().keydownEvent);
+        attributeNameToEventNameMap.set(onkeypressAttr.localName(), eventNames().keypressEvent);
+        attributeNameToEventNameMap.set(onkeyupAttr.localName(), eventNames().keyupEvent);
+        attributeNameToEventNameMap.set(onscrollAttr.localName(), eventNames().scrollEvent);
+        attributeNameToEventNameMap.set(onbeforecutAttr.localName(), eventNames().beforecutEvent);
+        attributeNameToEventNameMap.set(oncutAttr.localName(), eventNames().cutEvent);
+        attributeNameToEventNameMap.set(onbeforecopyAttr.localName(), eventNames().beforecopyEvent);
+        attributeNameToEventNameMap.set(oncopyAttr.localName(), eventNames().copyEvent);
+        attributeNameToEventNameMap.set(onbeforepasteAttr.localName(), eventNames().beforepasteEvent);
+        attributeNameToEventNameMap.set(onpasteAttr.localName(), eventNames().pasteEvent);
+        attributeNameToEventNameMap.set(ondragenterAttr.localName(), eventNames().dragenterEvent);
+        attributeNameToEventNameMap.set(ondragoverAttr.localName(), eventNames().dragoverEvent);
+        attributeNameToEventNameMap.set(ondragleaveAttr.localName(), eventNames().dragleaveEvent);
+        attributeNameToEventNameMap.set(ondropAttr.localName(), eventNames().dropEvent);
+        attributeNameToEventNameMap.set(ondragstartAttr.localName(), eventNames().dragstartEvent);
+        attributeNameToEventNameMap.set(ondragAttr.localName(), eventNames().dragEvent);
+        attributeNameToEventNameMap.set(ondragendAttr.localName(), eventNames().dragendEvent);
+        attributeNameToEventNameMap.set(onselectstartAttr.localName(), eventNames().selectstartEvent);
+        attributeNameToEventNameMap.set(onsubmitAttr.localName(), eventNames().submitEvent);
+        attributeNameToEventNameMap.set(onerrorAttr.localName(), eventNames().errorEvent);
+        attributeNameToEventNameMap.set(onwebkitanimationstartAttr.localName(), eventNames().webkitAnimationStartEvent);
+        attributeNameToEventNameMap.set(onwebkitanimationiterationAttr.localName(), eventNames().webkitAnimationIterationEvent);
+        attributeNameToEventNameMap.set(onwebkitanimationendAttr.localName(), eventNames().webkitAnimationEndEvent);
+        attributeNameToEventNameMap.set(onwebkittransitionendAttr.localName(), eventNames().webkitTransitionEndEvent);
+        attributeNameToEventNameMap.set(ontransitionendAttr.localName(), eventNames().webkitTransitionEndEvent);
+        attributeNameToEventNameMap.set(oninputAttr.localName(), eventNames().inputEvent);
+        attributeNameToEventNameMap.set(oninvalidAttr.localName(), eventNames().invalidEvent);
+        attributeNameToEventNameMap.set(ontouchstartAttr.localName(), eventNames().touchstartEvent);
+        attributeNameToEventNameMap.set(ontouchmoveAttr.localName(), eventNames().touchmoveEvent);
+        attributeNameToEventNameMap.set(ontouchendAttr.localName(), eventNames().touchendEvent);
+        attributeNameToEventNameMap.set(ontouchcancelAttr.localName(), eventNames().touchcancelEvent);
+#if ENABLE(FULLSCREEN_API)
+        attributeNameToEventNameMap.set(onwebkitfullscreenchangeAttr.localName(), eventNames().webkitfullscreenchangeEvent);
+        attributeNameToEventNameMap.set(onwebkitfullscreenerrorAttr.localName(), eventNames().webkitfullscreenerrorEvent);
+#endif
+        attributeNameToEventNameMap.set(onabortAttr.localName(), eventNames().abortEvent);
+        attributeNameToEventNameMap.set(oncanplayAttr.localName(), eventNames().canplayEvent);
+        attributeNameToEventNameMap.set(oncanplaythroughAttr.localName(), eventNames().canplaythroughEvent);
+        attributeNameToEventNameMap.set(onchangeAttr.localName(), eventNames().changeEvent);
+        attributeNameToEventNameMap.set(ondurationchangeAttr.localName(), eventNames().durationchangeEvent);
+        attributeNameToEventNameMap.set(onemptiedAttr.localName(), eventNames().emptiedEvent);
+        attributeNameToEventNameMap.set(onendedAttr.localName(), eventNames().endedEvent);
+        attributeNameToEventNameMap.set(onloadeddataAttr.localName(), eventNames().loadeddataEvent);
+        attributeNameToEventNameMap.set(onloadedmetadataAttr.localName(), eventNames().loadedmetadataEvent);
+        attributeNameToEventNameMap.set(onloadstartAttr.localName(), eventNames().loadstartEvent);
+        attributeNameToEventNameMap.set(onpauseAttr.localName(), eventNames().pauseEvent);
+        attributeNameToEventNameMap.set(onplayAttr.localName(), eventNames().playEvent);
+        attributeNameToEventNameMap.set(onplayingAttr.localName(), eventNames().playingEvent);
+        attributeNameToEventNameMap.set(onprogressAttr.localName(), eventNames().progressEvent);
+        attributeNameToEventNameMap.set(onratechangeAttr.localName(), eventNames().ratechangeEvent);
+        attributeNameToEventNameMap.set(onresetAttr.localName(), eventNames().resetEvent);
+        attributeNameToEventNameMap.set(onseekedAttr.localName(), eventNames().seekedEvent);
+        attributeNameToEventNameMap.set(onseekingAttr.localName(), eventNames().seekingEvent);
+        attributeNameToEventNameMap.set(onselectAttr.localName(), eventNames().selectEvent);
+        attributeNameToEventNameMap.set(onstalledAttr.localName(), eventNames().stalledEvent);
+        attributeNameToEventNameMap.set(onsuspendAttr.localName(), eventNames().suspendEvent);
+        attributeNameToEventNameMap.set(ontimeupdateAttr.localName(), eventNames().timeupdateEvent);
+        attributeNameToEventNameMap.set(onvolumechangeAttr.localName(), eventNames().volumechangeEvent);
+        attributeNameToEventNameMap.set(onwaitingAttr.localName(), eventNames().waitingEvent);
+        attributeNameToEventNameMap.set(onloadAttr.localName(), eventNames().loadEvent);
+    }
 
-    if (attr->name() == dirAttr)
-        dirAttributeChanged(attr);
-    else if (attr->name() == tabindexAttr) {
+    return attributeNameToEventNameMap.get(attrName.localName());
+}
+
+void HTMLElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
+{
+    if (isIdAttributeName(name) || name == classAttr || name == styleAttr)
+        return StyledElement::parseAttribute(name, value);
+
+    if (name == dirAttr)
+        dirAttributeChanged(value);
+    else if (name == tabindexAttr) {
         int tabindex = 0;
-        if (attr->isEmpty())
-            clearTabIndexExplicitly();
-        else if (parseHTMLInteger(attr->value(), tabindex)) {
+        if (value.isEmpty())
+            clearTabIndexExplicitlyIfNeeded();
+        else if (parseHTMLInteger(value, tabindex)) {
             // Clamp tabindex to the range of 'short' to match Firefox's behavior.
             setTabIndexExplicitly(max(static_cast<int>(std::numeric_limits<short>::min()), min(tabindex, static_cast<int>(std::numeric_limits<short>::max()))));
         }
 #if ENABLE(MICRODATA)
-    } else if (attr->name() == itempropAttr) {
-        setItemProp(attr->value());
-    } else if (attr->name() == itemrefAttr) {
-        setItemRef(attr->value());
-    } else if (attr->name() == itemtypeAttr) {
-        setItemType(attr->value());
+    } else if (name == itempropAttr) {
+        setItemProp(value);
+    } else if (name == itemrefAttr) {
+        setItemRef(value);
+    } else if (name == itemtypeAttr) {
+        setItemType(value);
 #endif
-    }
-// standard events
-    else if (attr->name() == onclickAttr) {
-        setAttributeEventListener(eventNames().clickEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == oncontextmenuAttr) {
-        setAttributeEventListener(eventNames().contextmenuEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ondblclickAttr) {
-        setAttributeEventListener(eventNames().dblclickEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onmousedownAttr) {
-        setAttributeEventListener(eventNames().mousedownEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onmousemoveAttr) {
-        setAttributeEventListener(eventNames().mousemoveEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onmouseoutAttr) {
-        setAttributeEventListener(eventNames().mouseoutEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onmouseoverAttr) {
-        setAttributeEventListener(eventNames().mouseoverEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onmouseupAttr) {
-        setAttributeEventListener(eventNames().mouseupEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onmousewheelAttr) {
-        setAttributeEventListener(eventNames().mousewheelEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onfocusAttr) {
-        setAttributeEventListener(eventNames().focusEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onfocusinAttr) {
-        setAttributeEventListener(eventNames().focusinEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onfocusoutAttr) {
-        setAttributeEventListener(eventNames().focusoutEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onblurAttr) {
-        setAttributeEventListener(eventNames().blurEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onkeydownAttr) {
-        setAttributeEventListener(eventNames().keydownEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onkeypressAttr) {
-        setAttributeEventListener(eventNames().keypressEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onkeyupAttr) {
-        setAttributeEventListener(eventNames().keyupEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onscrollAttr) {
-        setAttributeEventListener(eventNames().scrollEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onbeforecutAttr) {
-        setAttributeEventListener(eventNames().beforecutEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == oncutAttr) {
-        setAttributeEventListener(eventNames().cutEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onbeforecopyAttr) {
-        setAttributeEventListener(eventNames().beforecopyEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == oncopyAttr) {
-        setAttributeEventListener(eventNames().copyEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onbeforepasteAttr) {
-        setAttributeEventListener(eventNames().beforepasteEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onpasteAttr) {
-        setAttributeEventListener(eventNames().pasteEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ondragenterAttr) {
-        setAttributeEventListener(eventNames().dragenterEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ondragoverAttr) {
-        setAttributeEventListener(eventNames().dragoverEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ondragleaveAttr) {
-        setAttributeEventListener(eventNames().dragleaveEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ondropAttr) {
-        setAttributeEventListener(eventNames().dropEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ondragstartAttr) {
-        setAttributeEventListener(eventNames().dragstartEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ondragAttr) {
-        setAttributeEventListener(eventNames().dragEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ondragendAttr) {
-        setAttributeEventListener(eventNames().dragendEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onselectstartAttr) {
-        setAttributeEventListener(eventNames().selectstartEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onsubmitAttr) {
-        setAttributeEventListener(eventNames().submitEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onerrorAttr) {
-        setAttributeEventListener(eventNames().errorEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onwebkitanimationstartAttr) {
-        setAttributeEventListener(eventNames().webkitAnimationStartEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onwebkitanimationiterationAttr) {
-        setAttributeEventListener(eventNames().webkitAnimationIterationEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onwebkitanimationendAttr) {
-        setAttributeEventListener(eventNames().webkitAnimationEndEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onwebkittransitionendAttr) {
-        setAttributeEventListener(eventNames().webkitTransitionEndEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == oninputAttr) {
-        setAttributeEventListener(eventNames().inputEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == oninvalidAttr) {
-        setAttributeEventListener(eventNames().invalidEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ontouchstartAttr) {
-        setAttributeEventListener(eventNames().touchstartEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ontouchmoveAttr) {
-        setAttributeEventListener(eventNames().touchmoveEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ontouchendAttr) {
-        setAttributeEventListener(eventNames().touchendEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == ontouchcancelAttr) {
-        setAttributeEventListener(eventNames().touchcancelEvent, createAttributeEventListener(this, attr));
-#if ENABLE(FULLSCREEN_API)
-    } else if (attr->name() == onwebkitfullscreenchangeAttr) {
-        setAttributeEventListener(eventNames().webkitfullscreenchangeEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onwebkitfullscreenerrorAttr) {
-        setAttributeEventListener(eventNames().webkitfullscreenerrorEvent, createAttributeEventListener(this, attr));
-#endif
+    } else {
+        AtomicString eventName = eventNameForAttributeName(name);
+        if (!eventName.isNull())
+            setAttributeEventListener(eventName, createAttributeEventListener(this, name, value));
     }
 }
 
@@ -344,9 +344,14 @@ String HTMLElement::outerHTML() const
 
 void HTMLElement::setInnerHTML(const String& html, ExceptionCode& ec)
 {
-    RefPtr<DocumentFragment> fragment = createFragmentFromSource(html, this, ec);
-    if (fragment)
-        replaceChildrenWithFragment(this, fragment.release(), ec);
+    if (RefPtr<DocumentFragment> fragment = createFragmentForInnerOuterHTML(html, this, AllowScriptingContent, ec)) {
+        ContainerNode* container = this;
+#if ENABLE(TEMPLATE_ELEMENT)
+        if (hasLocalName(templateTag))
+            container = toHTMLTemplateElement(this)->content();
+#endif
+        replaceChildrenWithFragment(container, fragment.release(), ec);
+    }
 }
 
 static void mergeWithNextTextNode(PassRefPtr<Node> node, ExceptionCode& ec)
@@ -376,7 +381,7 @@ void HTMLElement::setOuterHTML(const String& html, ExceptionCode& ec)
     RefPtr<Node> prev = previousSibling();
     RefPtr<Node> next = nextSibling();
 
-    RefPtr<DocumentFragment> fragment = createFragmentFromSource(html, parent.get(), ec);
+    RefPtr<DocumentFragment> fragment = createFragmentForInnerOuterHTML(html, parent.get(), AllowScriptingContent, ec);
     if (ec)
         return;
       
@@ -554,8 +559,8 @@ Element* HTMLElement::insertAdjacentElement(const String& where, Element* newChi
     }
 
     Node* returnValue = insertAdjacent(where, newChild, ec);
-    ASSERT(!returnValue || returnValue->isElementNode());
-    return static_cast<Element*>(returnValue); 
+    ASSERT_WITH_SECURITY_IMPLICATION(!returnValue || returnValue->isElementNode());
+    return toElement(returnValue); 
 }
 
 // Step 3 of http://www.whatwg.org/specs/web-apps/current-work/multipage/apis-in-html-documents.html#insertadjacenthtml()
@@ -567,8 +572,8 @@ static Element* contextElementForInsertion(const String& where, Element* element
             ec = NO_MODIFICATION_ALLOWED_ERR;
             return 0;
         }
-        ASSERT(!parent || parent->isElementNode());
-        return static_cast<Element*>(parent);
+        ASSERT_WITH_SECURITY_IMPLICATION(!parent || parent->isElementNode());
+        return toElement(parent);
     }
     if (equalIgnoringCase(where, "afterBegin") || equalIgnoringCase(where, "beforeEnd"))
         return element;
@@ -578,19 +583,12 @@ static Element* contextElementForInsertion(const String& where, Element* element
 
 void HTMLElement::insertAdjacentHTML(const String& where, const String& markup, ExceptionCode& ec)
 {
-    RefPtr<DocumentFragment> fragment = document()->createDocumentFragment();
     Element* contextElement = contextElementForInsertion(where, this, ec);
     if (!contextElement)
         return;
-
-    if (document()->isHTMLDocument())
-         fragment->parseHTML(markup, contextElement);
-    else {
-        if (!fragment->parseXML(markup, contextElement))
-            // FIXME: We should propagate a syntax error exception out here.
-            return;
-    }
-
+    RefPtr<DocumentFragment> fragment = createFragmentForInnerOuterHTML(markup, contextElement, AllowScriptingContent, ec);
+    if (!fragment)
+        return;
     insertAdjacent(where, fragment.get(), ec);
 }
 
@@ -600,14 +598,13 @@ void HTMLElement::insertAdjacentText(const String& where, const String& text, Ex
     insertAdjacent(where, textNode.get(), ec);
 }
 
-void HTMLElement::applyAlignmentAttributeToStyle(Attribute* attr, StylePropertySet* style)
+void HTMLElement::applyAlignmentAttributeToStyle(const AtomicString& alignment, MutableStylePropertySet* style)
 {
     // Vertical alignment with respect to the current baseline of the text
     // right or left means floating images.
     int floatValue = CSSValueInvalid;
     int verticalAlignValue = CSSValueInvalid;
 
-    const AtomicString& alignment = attr->value();
     if (equalIgnoringCase(alignment, "absmiddle"))
         verticalAlignValue = CSSValueMiddle;
     else if (equalIgnoringCase(alignment, "absbottom"))
@@ -630,10 +627,15 @@ void HTMLElement::applyAlignmentAttributeToStyle(Attribute* attr, StylePropertyS
         verticalAlignValue = CSSValueTextTop;
 
     if (floatValue != CSSValueInvalid)
-        addPropertyToAttributeStyle(style, CSSPropertyFloat, floatValue);
+        addPropertyToPresentationAttributeStyle(style, CSSPropertyFloat, floatValue);
 
     if (verticalAlignValue != CSSValueInvalid)
-        addPropertyToAttributeStyle(style, CSSPropertyVerticalAlign, verticalAlignValue);
+        addPropertyToPresentationAttributeStyle(style, CSSPropertyVerticalAlign, verticalAlignValue);
+}
+
+bool HTMLElement::hasCustomFocusLogic() const
+{
+    return false;
 }
 
 bool HTMLElement::supportsFocus() const
@@ -694,12 +696,12 @@ void HTMLElement::setSpellcheck(bool enable)
 
 void HTMLElement::click()
 {
-    dispatchSimulatedClick(0, false, false);
+    dispatchSimulatedClick(0, SendNoEvents, DoNotShowPressedLook);
 }
 
 void HTMLElement::accessKeyAction(bool sendMouseEvents)
 {
-    dispatchSimulatedClick(0, sendMouseEvents);
+    dispatchSimulatedClick(0, sendMouseEvents ? SendMouseUpDownEvents : SendNoEvents);
 }
 
 String HTMLElement::title() const
@@ -755,7 +757,7 @@ void HTMLElement::setTranslate(bool enable)
 }
 
 
-HTMLCollection* HTMLElement::children()
+PassRefPtr<HTMLCollection> HTMLElement::children()
 {
     return ensureCachedHTMLCollection(NodeChildren);
 }
@@ -813,13 +815,13 @@ static void setHasDirAutoFlagRecursively(Node* firstNode, bool flag, Node* lastN
         if (elementAffectsDirectionality(node)) {
             if (node == lastNode)
                 return;
-            node = node->traverseNextSibling(firstNode);
+            node = NodeTraversal::nextSkippingChildren(node, firstNode);
             continue;
         }
         node->setSelfOrAncestorHasDirAutoAttribute(flag);
         if (node == lastNode)
             return;
-        node = node->traverseNextNode(firstNode);
+        node = NodeTraversal::next(node, firstNode);
     }
 }
 
@@ -848,7 +850,8 @@ TextDirection HTMLElement::directionalityIfhasDirAutoAttribute(bool& isAuto) con
 
 TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) const
 {
-    if (HTMLTextFormControlElement* textElement = toTextFormControl(const_cast<HTMLElement*>(this))) {
+    if (isHTMLTextFormControlElement(this)) {
+        HTMLTextFormControlElement* textElement = toHTMLTextFormControlElement(const_cast<HTMLElement*>(this));
         bool hasStrongDirectionality;
         Unicode::Direction textDirection = textElement->value().defaultWritingDirection(&hasStrongDirectionality);
         if (strongDirectionalityTextNode)
@@ -861,7 +864,7 @@ TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) c
         // Skip bdi, script, style and text form controls.
         if (equalIgnoringCase(node->nodeName(), "bdi") || node->hasTagName(scriptTag) || node->hasTagName(styleTag) 
             || (node->isElementNode() && toElement(node)->isTextFormControl())) {
-            node = node->traverseNextSibling(this);
+            node = NodeTraversal::nextSkippingChildren(node, this);
             continue;
         }
 
@@ -869,7 +872,7 @@ TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) c
         if (node->isElementNode()) {
             AtomicString dirAttributeValue = toElement(node)->fastGetAttribute(dirAttr);
             if (equalIgnoringCase(dirAttributeValue, "rtl") || equalIgnoringCase(dirAttributeValue, "ltr") || equalIgnoringCase(dirAttributeValue, "auto")) {
-                node = node->traverseNextSibling(this);
+                node = NodeTraversal::nextSkippingChildren(node, this);
                 continue;
             }
         }
@@ -883,21 +886,21 @@ TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) c
                 return (textDirection == WTF::Unicode::LeftToRight) ? LTR : RTL;
             }
         }
-        node = node->traverseNextNode(this);
+        node = NodeTraversal::next(node, this);
     }
     if (strongDirectionalityTextNode)
         *strongDirectionalityTextNode = 0;
     return LTR;
 }
 
-void HTMLElement::dirAttributeChanged(Attribute* attribute)
+void HTMLElement::dirAttributeChanged(const AtomicString& value)
 {
     Element* parent = parentElement();
 
     if (parent && parent->isHTMLElement() && parent->selfOrAncestorHasDirAutoAttribute())
         toHTMLElement(parent)->adjustDirectionalityIfNeededAfterChildAttributeChanged(this);
 
-    if (equalIgnoringCase(attribute->value(), "auto"))
+    if (equalIgnoringCase(value, "auto"))
         calculateAndAdjustDirectionality();
 }
 
@@ -930,8 +933,8 @@ void HTMLElement::calculateAndAdjustDirectionality()
 void HTMLElement::adjustDirectionalityIfNeededAfterChildrenChanged(Node* beforeChange, int childCountDelta)
 {
     if ((!document() || document()->renderer()) && childCountDelta < 0) {
-        Node* node = beforeChange ? beforeChange->traverseNextSibling() : 0;
-        for (int counter = 0; node && counter < childCountDelta; counter++, node = node->traverseNextSibling()) {
+        Node* node = beforeChange ? NodeTraversal::nextSkippingChildren(beforeChange) : 0;
+        for (int counter = 0; node && counter < childCountDelta; counter++, node = NodeTraversal::nextSkippingChildren(node)) {
             if (elementAffectsDirectionality(node))
                 continue;
 
@@ -942,9 +945,9 @@ void HTMLElement::adjustDirectionalityIfNeededAfterChildrenChanged(Node* beforeC
     if (!selfOrAncestorHasDirAutoAttribute())
         return;
 
-    Node* oldMarkedNode = beforeChange ? beforeChange->traverseNextSibling() : 0;
+    Node* oldMarkedNode = beforeChange ? NodeTraversal::nextSkippingChildren(beforeChange) : 0;
     while (oldMarkedNode && elementAffectsDirectionality(oldMarkedNode))
-        oldMarkedNode = oldMarkedNode->traverseNextSibling(this);
+        oldMarkedNode = NodeTraversal::nextSkippingChildren(oldMarkedNode, this);
     if (oldMarkedNode)
         setHasDirAutoFlagRecursively(oldMarkedNode, false);
 
@@ -956,14 +959,13 @@ void HTMLElement::adjustDirectionalityIfNeededAfterChildrenChanged(Node* beforeC
     }
 }
 
-bool HTMLElement::isURLAttribute(Attribute* attribute) const
+bool HTMLElement::isURLAttribute(const Attribute& attribute) const
 {
 #if ENABLE(MICRODATA)
-    return attribute->name() == itemidAttr;
-#else
-    UNUSED_PARAM(attribute);
-    return false;
+    if (attribute.name() == itemidAttr)
+        return true;
 #endif
+    return StyledElement::isURLAttribute(attribute);
 }
 
 #if ENABLE(MICRODATA)
@@ -997,9 +999,55 @@ void HTMLElement::setItemValueText(const String& value, ExceptionCode& ec)
 {
     setTextContent(value, ec);
 }
+
+PassRefPtr<HTMLPropertiesCollection> HTMLElement::properties()
+{
+    return static_cast<HTMLPropertiesCollection*>(ensureCachedHTMLCollection(ItemProperties).get());
+}
+
+void HTMLElement::getItemRefElements(Vector<HTMLElement*>& itemRefElements)
+{
+    if (!fastHasAttribute(itemscopeAttr))
+        return;
+
+    if (!fastHasAttribute(itemrefAttr) || !itemRef()->length()) {
+        itemRefElements.append(this);
+        return;
+    }
+
+    DOMSettableTokenList* itemRefs = itemRef();
+    RefPtr<DOMSettableTokenList> processedItemRef = DOMSettableTokenList::create();
+
+    Node* rootNode;
+    if (inDocument())
+        rootNode = document();
+    else {
+        rootNode = this;
+        while (Node* parent = rootNode->parentNode())
+            rootNode = parent;
+    }
+
+    for (Node* current = rootNode; current; current = NodeTraversal::next(current, rootNode)) {
+        if (!current->isHTMLElement())
+            continue;
+        HTMLElement* element = toHTMLElement(current);
+
+        if (element == this) {
+            itemRefElements.append(element);
+            continue;
+        }
+
+        const AtomicString& id = element->getIdAttribute();
+        if (!processedItemRef->tokens().contains(id) && itemRefs->tokens().contains(id)) {
+            processedItemRef->setValue(id);
+            if (!element->isDescendantOf(this))
+                itemRefElements.append(element);
+        }
+    }
+}
 #endif
 
-void HTMLElement::addHTMLLengthToStyle(StylePropertySet* style, CSSPropertyID propertyID, const String& value)
+void HTMLElement::addHTMLLengthToStyle(MutableStylePropertySet* style, CSSPropertyID propertyID, const String& value)
 {
     // FIXME: This function should not spin up the CSS parser, but should instead just figure out the correct
     // length unit and make the appropriate parsed value.
@@ -1025,12 +1073,12 @@ void HTMLElement::addHTMLLengthToStyle(StylePropertySet* style, CSSPropertyID pr
         }
 
         if (l != v->length()) {
-            addPropertyToAttributeStyle(style, propertyID, v->substring(0, l));
+            addPropertyToPresentationAttributeStyle(style, propertyID, v->substring(0, l));
             return;
         }
     }
 
-    addPropertyToAttributeStyle(style, propertyID, value);
+    addPropertyToPresentationAttributeStyle(style, propertyID, value);
 }
 
 static RGBA32 parseColorStringWithCrazyLegacyRules(const String& colorString)
@@ -1081,7 +1129,7 @@ static RGBA32 parseColorStringWithCrazyLegacyRules(const String& colorString)
     ASSERT(greenIndex >= componentLength);
     ASSERT(greenIndex + 1 < componentLength * 2);
     ASSERT(blueIndex >= componentLength * 2);
-    ASSERT(blueIndex + 1 < digitBuffer.size());
+    ASSERT_WITH_SECURITY_IMPLICATION(blueIndex + 1 < digitBuffer.size());
 
     int redValue = toASCIIHexValue(digitBuffer[redIndex], digitBuffer[redIndex + 1]);
     int greenValue = toASCIIHexValue(digitBuffer[greenIndex], digitBuffer[greenIndex + 1]);
@@ -1090,7 +1138,7 @@ static RGBA32 parseColorStringWithCrazyLegacyRules(const String& colorString)
 }
 
 // Color parsing that matches HTML's "rules for parsing a legacy color value"
-void HTMLElement::addHTMLColorToStyle(StylePropertySet* style, CSSPropertyID propertyID, const String& attributeValue)
+void HTMLElement::addHTMLColorToStyle(MutableStylePropertySet* style, CSSPropertyID propertyID, const String& attributeValue)
 {
     // An empty string doesn't apply a color. (One containing only whitespace does, which is why this check occurs before stripping.)
     if (attributeValue.isEmpty())
@@ -1109,25 +1157,6 @@ void HTMLElement::addHTMLColorToStyle(StylePropertySet* style, CSSPropertyID pro
 
     style->setProperty(propertyID, cssValuePool().createColorValue(parsedColor.rgb()));
 }
-
-void StyledElement::copyNonAttributeProperties(const Element* sourceElement)
-{
-    ASSERT(sourceElement);
-    ASSERT(sourceElement->isStyledElement());
-
-    const StyledElement* source = static_cast<const StyledElement*>(sourceElement);
-    if (!source->inlineStyle())
-        return;
-
-    StylePropertySet* inlineStyle = ensureAttributeData()->ensureMutableInlineStyle(this);
-    inlineStyle->copyPropertiesFrom(*source->inlineStyle());
-    inlineStyle->setCSSParserMode(source->inlineStyle()->cssParserMode());
-
-    setIsStyleAttributeValid(source->isStyleAttributeValid());
-
-    Element::copyNonAttributeProperties(sourceElement);
-}
-
 
 } // namespace WebCore
 

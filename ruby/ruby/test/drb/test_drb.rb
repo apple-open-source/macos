@@ -1,4 +1,4 @@
-require 'drbtest'
+require_relative 'drbtest'
 
 class TestDRbCore < Test::Unit::TestCase
   include DRbCore
@@ -18,11 +18,11 @@ class TestDRbYield < Test::Unit::TestCase
     @there.echo_yield_1([]) {|one|
       assert_equal([], one)
     }
-    
+
     @there.echo_yield_1(1) {|one|
       assert_equal(1, one)
     }
-    
+
     @there.echo_yield_1(nil) {|one|
       assert_equal(nil, one)
     }
@@ -113,7 +113,7 @@ class TestDRbYield < Test::Unit::TestCase
   end
 end
 
-class TestRubyYield < TestDRbYield
+class TestDRbRubyYield < TestDRbYield
   def echo_yield(*arg)
     yield(*arg)
   end
@@ -140,25 +140,25 @@ class TestRubyYield < TestDRbYield
   def setup
     @there = self
   end
-  
+
   def teardown
   end
 end
 
-class TestRuby18Yield < TestRubyYield
+class TestDRbRuby18Yield < TestDRbRubyYield
   class YieldTest18
     def echo_yield(*arg, &proc)
       proc.call(*arg)
     end
-    
+
     def echo_yield_0(&proc)
       proc.call
     end
-    
+
     def echo_yield_1(a, &proc)
       proc.call(a)
     end
-    
+
     def echo_yield_2(a, b, &proc)
       proc.call(a, b)
     end
@@ -202,12 +202,13 @@ end
 
 class TestDRbSafe1 < TestDRbAry
   def setup
-    @ext = DRbService.ext_service('ut_safe1.rb')
+    @service_name = 'ut_safe1.rb'
+    @ext = DRbService.ext_service(@service_name)
     @there = @ext.front
   end
 end
 
-class TestDRbEval < Test::Unit::TestCase
+class TestDRbEval # < Test::Unit::TestCase
   def setup
     super
     @ext = DRbService.ext_service('ut_eval.rb')
@@ -217,40 +218,40 @@ class TestDRbEval < Test::Unit::TestCase
   def teardown
     @ext.stop_service if @ext
   end
-  
+
   def test_01_safe1_safe4_eval
-    assert_raises(SecurityError) do
+    assert_raise(SecurityError) do
       @there.method_missing(:instance_eval, 'ENV.inspect')
     end
 
-    assert_raises(SecurityError) do
+    assert_raise(SecurityError) do
       @there.method_missing(:send, :eval, 'ENV.inspect')
     end
 
     remote_class = @there.remote_class
 
-    assert_raises(SecurityError) do
+    assert_raise(SecurityError) do
       remote_class.class_eval('ENV.inspect')
     end
 
-    assert_raises(SecurityError) do
+    assert_raise(SecurityError) do
       remote_class.module_eval('ENV.inspect')
     end
 
     four = @there.four
     assert_equal(1, four.method_missing(:send, :eval, '1'))
-    
+
     remote_class = four.remote_class
 
     assert_equal(1, remote_class.class_eval('1'))
 
     assert_equal(1, remote_class.module_eval('1'))
 
-    assert_raises(SecurityError) do
+    assert_raise(SecurityError) do
       remote_class.class_eval('ENV = {}')
     end
 
-    assert_raises(SecurityError) do
+    assert_raise(SecurityError) do
       remote_class.module_eval('ENV = {}')
     end
   end
@@ -283,7 +284,7 @@ class TestDRbLarge < Test::Unit::TestCase
   end
 
   def test_04_many_arg
-    assert_raises(ArgumentError) {
+    assert_raise(DRb::DRbConnError) {
       @there.arg_test(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)
     }
   end
@@ -292,10 +293,26 @@ class TestDRbLarge < Test::Unit::TestCase
     ary = ["Hello, World"] * 102400
     exception = nil
     begin
-      @there.size(ary)      
+      @there.size(ary)
     rescue StandardError
       exception = $!
     end
     assert_kind_of(StandardError, exception)
+  end
+end
+
+class TestBug4409 < Test::Unit::TestCase
+  def setup
+    @ext = DRbService.ext_service('ut_eq.rb')
+    @there = @ext.front
+  end
+
+  def teardown
+    @ext.stop_service if @ext
+  end
+
+  def test_bug4409
+    foo = @there.foo
+    assert(@there.foo?(foo))
   end
 end

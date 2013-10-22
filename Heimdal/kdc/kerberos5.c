@@ -481,7 +481,7 @@ pa_enc_chal_validate(kdc_request_t r, const PA_DATA *pa)
 	    continue;
 	}
 
-	if (abs(kdc_time - p.patimestamp) > r->context->max_skew) {
+	if (krb5_time_abs(kdc_time, p.patimestamp) > r->context->max_skew) {
 	    char client_time[100];
 
 	    krb5_crypto_destroy(r->context, challangecrypto);
@@ -493,7 +493,7 @@ pa_enc_chal_validate(kdc_request_t r, const PA_DATA *pa)
 	    _kdc_r_log(r, 0, "Too large time skew, "
 		       "client time %s is out by %u > %u seconds -- %s",
 		       client_time,
-		       (unsigned)abs(kdc_time - p.patimestamp),
+		       (unsigned)krb5_time_abs(kdc_time, p.patimestamp),
 		       r->context->max_skew,
 		       r->client_name);
 
@@ -537,7 +537,7 @@ pa_enc_ts_validate(kdc_request_t r, const PA_DATA *pa)
 	
     if (r->req.req_body.kdc_options.request_anonymous) {
 	ret = KRB5KRB_AP_ERR_BAD_INTEGRITY;
-	_kdc_set_e_text(r, "ENC-TS doesn't suport anon");
+	_kdc_set_e_text(r, "ENC-TS doesn't support anon");
 	goto out;
     }
 
@@ -633,7 +633,7 @@ pa_enc_ts_validate(kdc_request_t r, const PA_DATA *pa)
 		   r->client_name);
 	goto out;
     }
-    if (abs(kdc_time - p.patimestamp) > r->context->max_skew) {
+    if (krb5_time_abs(kdc_time, p.patimestamp) > r->context->max_skew) {
 	char client_time[100];
 		
 	krb5_format_time(r->context, p.patimestamp,
@@ -643,7 +643,7 @@ pa_enc_ts_validate(kdc_request_t r, const PA_DATA *pa)
 	_kdc_r_log(r, 0, "Too large time skew, "
 		   "client time %s is out by %u > %u seconds -- %s",
 		   client_time,
-		   (unsigned)abs(kdc_time - p.patimestamp),
+		   (unsigned)krb5_time_abs(kdc_time, p.patimestamp),
 		   r->context->max_skew,
 		   r->client_name);
 
@@ -1509,8 +1509,6 @@ add_enc_pa_rep(kdc_request_t r)
     krb5_data cdata;
     size_t len;
 
-    r->et.flags.enc_pa_rep = r->ek.flags.enc_pa_rep = 1;
-
     ret = krb5_crypto_init(r->context, &r->reply_key, 0, &crypto);
     if (ret)
 	return ret;
@@ -1654,7 +1652,7 @@ _kdc_as_rep(kdc_request_t r,
 		if (size != len)
 		    krb5_abortx(context, "internal asn.1 error");
 		
-		ret = base64_encode(buf, len, &str);
+		ret = base64_encode(buf, (int)len, &str);
 		free(buf);
 		if (ret < 0) {
 		    ret = KRB5KRB_ERR_GENERIC;
@@ -1893,10 +1891,6 @@ _kdc_as_rep(kdc_request_t r,
 	goto out;
     }
 
-    if (r->clientdb->hdb_auth_status)
-	r->clientdb->hdb_auth_status(context, r->clientdb, r->client, 
-				     HDB_AUTH_SUCCESS);
-
     /*
      * Verify flags after the user been required to prove its identity
      * with in a preauth mech.
@@ -1925,6 +1919,15 @@ _kdc_as_rep(kdc_request_t r,
 	_kdc_set_e_text(r, "Bad KDC options");
 	goto out;
     }
+
+    /*
+     * Let backend know that authentication have passed and failure
+     * counts can be reset.
+     */
+
+    if (r->clientdb->hdb_auth_status)
+	r->clientdb->hdb_auth_status(context, r->clientdb, r->client, 
+				     HDB_AUTH_SUCCESS);
 
     /*
      * Build reply
@@ -2225,6 +2228,12 @@ _kdc_as_rep(kdc_request_t r,
 	goto out;
 
     log_as_req(context, config, r->reply_key.keytype, setype, b);
+
+    /*
+     * We always say we support FAST/enc-pa-rep
+     */
+
+    r->et.flags.enc_pa_rep = r->ek.flags.enc_pa_rep = 1;
 
     /*
      * Add REQ_ENC_PA_REP if client supports it

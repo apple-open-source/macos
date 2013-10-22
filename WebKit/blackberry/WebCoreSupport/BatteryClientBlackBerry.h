@@ -23,32 +23,32 @@
 
 #include "BatteryClient.h"
 
-#include <BlackBerryPlatformBatteryStatusTracker.h>
-#include <BlackBerryPlatformBatteryStatusTrackerListener.h>
+#include <BatteryStatusHandler.h>
+
+namespace BlackBerry {
+namespace WebKit {
+class WebPagePrivate;
+}
+}
 
 namespace WebCore {
 
-class BatteryController;
 class BatteryStatus;
 
-class BatteryClientBlackBerry : public BatteryClient, public BlackBerry::Platform::BatteryStatusTrackerListener {
+class BatteryClientBlackBerry : public BatteryClient, public BlackBerry::Platform::BatteryStatusListener {
 public:
-    BatteryClientBlackBerry();
+    explicit BatteryClientBlackBerry(BlackBerry::WebKit::WebPagePrivate*);
     ~BatteryClientBlackBerry() { }
 
-    virtual void setController(BatteryController*);
     virtual void startUpdating();
     virtual void stopUpdating();
     virtual void batteryControllerDestroyed();
 
-    void onLevelChange(bool charging, double chargingTime, double dischargingTime, double level);
-    void onChargingChange(bool charging, double chargingTime, double dischargingTime, double level);
-    void onChargingTimeChange(bool charging, double chargingTime, double dischargingTime, double level);
-    void onDischargingTimeChange(bool charging, double chargingTime, double dischargingTime, double level);
+    void onStatusChange(bool charging, double chargingTime, double dischargingTime, double level);
 
 private:
-    BlackBerry::Platform::BatteryStatusTracker* m_tracker;
-    BatteryController* m_controller;
+    BlackBerry::WebKit::WebPagePrivate* m_webPagePrivate;
+    bool m_isActive;
 };
 
 }

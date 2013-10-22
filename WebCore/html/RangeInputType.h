@@ -42,34 +42,44 @@ public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
 
 private:
-    RangeInputType(HTMLInputElement* element) : InputType(element) { }
+    RangeInputType(HTMLInputElement*);
+    virtual void attach() OVERRIDE;
     virtual bool isRangeControl() const OVERRIDE;
     virtual const AtomicString& formControlType() const OVERRIDE;
-    virtual double valueAsNumber() const OVERRIDE;
-    virtual void setValueAsNumber(double, TextFieldEventBehavior, ExceptionCode&) const OVERRIDE;
+    virtual double valueAsDouble() const OVERRIDE;
+    virtual void setValueAsDecimal(const Decimal&, TextFieldEventBehavior, ExceptionCode&) const OVERRIDE;
+    virtual bool typeMismatchFor(const String&) const OVERRIDE;
     virtual bool supportsRequired() const OVERRIDE;
-    virtual bool rangeUnderflow(const String&) const OVERRIDE;
-    virtual bool rangeOverflow(const String&) const OVERRIDE;
-    virtual bool supportsRangeLimitation() const OVERRIDE;
-    virtual double minimum() const OVERRIDE;
-    virtual double maximum() const OVERRIDE;
+    virtual StepRange createStepRange(AnyStepHandling) const OVERRIDE;
     virtual bool isSteppable() const OVERRIDE;
-    virtual bool stepMismatch(const String&, double) const OVERRIDE;
-    virtual double stepBase() const OVERRIDE;
-    virtual double defaultStep() const OVERRIDE;
-    virtual double stepScaleFactor() const OVERRIDE;
     virtual void handleMouseDownEvent(MouseEvent*) OVERRIDE;
+#if ENABLE(TOUCH_EVENTS)
+#if ENABLE(TOUCH_SLIDER)
+    virtual void handleTouchEvent(TouchEvent*) OVERRIDE;
+    virtual bool hasTouchEventHandler() const OVERRIDE;
+#endif
+#endif
     virtual void handleKeydownEvent(KeyboardEvent*) OVERRIDE;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*) const OVERRIDE;
     virtual void createShadowSubtree() OVERRIDE;
-    virtual double parseToDouble(const String&, double) const OVERRIDE;
-    virtual String serialize(double) const OVERRIDE;
+    virtual Decimal parseToNumber(const String&, const Decimal&) const OVERRIDE;
+    virtual String serialize(const Decimal&) const OVERRIDE;
     virtual void accessKeyAction(bool sendMouseEvents) OVERRIDE;
     virtual void minOrMaxAttributeChanged() OVERRIDE;
     virtual void setValue(const String&, bool valueChanged, TextFieldEventBehavior) OVERRIDE;
     virtual String fallbackValue() const OVERRIDE;
     virtual String sanitizeValue(const String& proposedValue) const OVERRIDE;
     virtual bool shouldRespectListAttribute() OVERRIDE;
+    virtual HTMLElement* sliderThumbElement() const OVERRIDE;
+    virtual HTMLElement* sliderTrackElement() const OVERRIDE;
+#if ENABLE(DATALIST_ELEMENT)
+    virtual void listAttributeTargetChanged() OVERRIDE;
+    void updateTickMarkValues();
+    virtual Decimal findClosestTickMarkValue(const Decimal&) OVERRIDE;
+
+    bool m_tickMarkValuesDirty;
+    Vector<Decimal> m_tickMarkValues;
+#endif
 };
 
 } // namespace WebCore

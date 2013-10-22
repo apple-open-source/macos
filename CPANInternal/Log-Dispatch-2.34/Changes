@@ -1,0 +1,532 @@
+2.34     2012-12-08
+
+- Fix a test bug that caused the tests to fail on all Perls before 5.16.0.
+
+
+2.33     2012-12-07
+
+- Added a 'syswrite' option to Log::Dispatch::File which causes all writes to
+  use syswrite (so they're atomic). Patched by ether. RT #81669.
+
+- The File output's DESTROY method now checks to see if it's associated handle
+  is open before trying to close it. Patch by Jeffrey Thalhammer.
+
+
+2.32     2012-05-24
+
+- Fix a test failure - test failed if you had 0.16 <= Sys::Syslog < 0.25
+  installed.
+
+- Added a kludgey test failure fix for failure on Cygwin. Patch by Christian
+  Carey. RT #77364.
+
+
+2.31     2012-05-21
+
+- Added missing prereq - Class::Load.
+
+
+2.30     2012-05-20
+
+- Remove Sys::Syslog as a prereq, since you can use this distro perfectly well
+  without it. Fixes RT #52065.
+
+- You can now pass a subroutine reference to the sugar methods like
+  $dispatch->debug() and friends. Requested by Jeffrey Thalhammer. RT #77308.
+
+- Calling sugar methods like $dispatch->warn or $dispatch->crit did not
+  normalize the log level, so the level would be passed to the outputs as
+  "warn", not "warning". Reported by Karen Etheridge. RT #77203.
+
+
+2.29   2011-03-18
+
+- Add is_$level methods for compatibility with Log::Contextual. Patch by frew.
+
+
+2.28   2010-12-13
+
+- The Log::Dispatch module still had version 2.26 in the last
+  release. Reported by Øyvind Skaar. RT #63876.
+
+
+2.27   2010-10-16
+
+- Fix docs on handling of arrays passed to ->debug, ->error, etc. Requested by
+  Andrew Hanenkamp. RT #61400.
+
+- Allow an arrayref for the Syslog socket option. Requested by Paul
+  Bennett. RT #57631.
+
+- License is now Artistic 2.0.
+
+
+2.26   2009-09-22
+
+- Doc updates. The 2.23 constructor API was still shown in all the output
+  subclasses. Fixed by Jon Swartz.
+
+
+2.25   2009-09-15
+
+- Added a workaround for a weird tainting issue with Params::Validate. This
+  caused a taint exception when a Log::Dispatch::Syslog was created under
+  taint mode. Note that there is still a problem in Params::Validate itself,
+  this is just a hack.
+
+
+2.24   2009-09-13
+
+- Simplified new constructor API (the 2.23 API is still silently supported but
+  not documented):
+
+      Log::Dispatch->new( outputs => [ [ 'File', ... ],
+                                       [ 'Screen', ... ],
+                                     ]
+                        );
+
+  Implemented by Jon Swartz.
+
+- All of the mail sending modules now warn unconditionally if sending mail
+  fails. This removes the incorrect use of warnings::enabled() in some
+  modules. RT #43516.
+
+
+2.23   2009-09-12
+
+- New constructor API that simplifies creating your Log::Dispatch object.
+  Implemented by Jon Swartz.
+
+- Made name parameter optional. We now auto-generate a unique name if one is
+  not given. Implemented by Jon Swartz.
+
+- Added a newline parameter that causes a newline to be added to each message,
+  and updated the documentation regarding newlines. Implemented by Jon Swartz.
+
+- Removed repetitive boilerplate documentation from each output
+  class. Implemented by Jon Swartz.
+
+- The level_names and level_numbers used internally are now computed once and
+  shared between output objects. Implemented by Jon Swartz.
+
+- Updated repo url - now at http://hg.urth.org/hg/Log-Dispatch
+
+- Explicitly depend on Sys::Syslog 0.16.
+
+- Added warn as a synonym for warning. RT #44821. Requested by Dylan Martin.
+
+- Added an add_callback method to Log::Dispatch and
+  Log::Dispatch::Output. This lets you add a new formatting callback after an
+  object is created. Based on a patch from Ricardo Signes. RT #48283.
+
+- The Log::Dispatch docs mistakenly told you to provide a log() method when
+  creating a new output class. RT #40561.
+
+- Made all modules have the same version as Log::Dispatch itself.
+
+
+2.22   2008-11-11
+
+- Fixed a bug where Log::Dispatch::Email would die when it tried to
+  log under taint mode. Patch by Neil Hemingway. RT #40042.
+
+- Fixed a misuse of warnings::enabled(). Reported by Darian
+  Patrick. RT #39784.
+
+- Syslog logging now requires Sys::Syslog 0.16+.
+
+- If you don't pass a socket argument to Log::Dispatch::Syslog, it
+  does not call Sys::Syslog::setlogsock(), which is the preferred
+  option for portability.
+
+* If any of the syslog calls die, this is trapped and the error is
+  output as a warning if warnings are on. This is mostly a workaround
+  for Sys::Sylog not handling utf-8. RT #35270 & #37397.
+
+  This isn't backwards-compatible, but it's probably wrong for the
+  logging code to die because it can't log (even though some other
+  output modules still do).
+
+
+2.21   2008-02-06
+
+- Added log_and_die() and log_and_croak() methods. Patch by Yuval
+  Kogman.
+
+
+2.20   2007-11-02
+
+- One of the tests failed on Perl 5.6.x. Thanks to Slaven Rezic for
+  the report.
+
+
+2.19   2007-11-01
+
+- Switched to providing a traditional Makefile.PL as well as a
+  Build.PL file. RT #27208.
+
+- When permissions are specified for a Log::Dispatch::File object,
+  don't try to chmod the file unless the permissions of the file
+  differ from what the file already has. Based on a patch by Kevin. RT
+  #28151.
+
+- Require at least Perl 5.6.0.
+
+- Remove the tests for the email sending and exit codes, since the
+  test had a heisenbug I could not understand. I _think_ the code in
+  the email modules is correct, but the test isn't proving anything.
+
+- Added a binmode parameter for Log::Dispatch::File. Based on a patch
+  by Angelo. RT #26063.
+
+
+2.18   2007-05-12
+
+- Log::Dispatch::ApacheLog should really now work under mod_perl 2, as
+  well as mod_perl 1. RT #26910.
+
+
+2.17   2007-03-31
+
+- Log::Dispatch::ApacheLog should now work under mod_perl 2, as well
+  as mod_perl 1.
+
+
+2.16 2010-10-16
+
+- Don't require IO::String for running the tests. Reported by Andreas
+  Koenig. RT #23973.
+
+- Moved Test::More to build_requires. Suggested by Andreas Koenig. RT
+  #23973.
+
+
+2.15   2006-12-16
+
+- Don't try to test compilation of L::D::Syslog unless Sys::Syslog is
+  available. Patch by Kenichi Ishigaki. RT #23751.
+
+- Allow a subroutine reference as a log message when callin
+  Log::Dispatch->log(). Suggested by Craig Manley. RT #23913.
+
+- Added Log::Dispatch::Null output, primarily for testing.
+
+
+2.14   2006-11-18
+
+This release only involves changes to the test suite.
+
+- Make sure we don't fail if Apache::Log is not installed on the
+  system. RT #22791. Reported by Lee Goddard.
+
+- Separated out compilation tests from other tests.
+
+
+2.13   2006-09-25
+
+- No code changes, just added a SUPPORT section to the docs referring
+  folks to RT for bug reports & patches.
+
+
+2.12   2006-08-09
+
+- The various email sending modules could overwrite if they were in
+  buffered mode and they sent mail as a script exited. Reported by
+  Dean Kopesky.
+
+- Doc tweaks. Make reference to "Log Levels" section in output module
+  docs more explicit. RT #11224.
+
+
+2.11   2005-07-27
+
+- In tests, make sure filehandles are closed before reading or
+  unlinking the file.  Patch from Ron Savage.
+
+
+2.10   2004-02-11
+
+- No changes to the core code, just a change to the included
+  Makefile.PL so it works with Module::Build 0.23, which breaks
+  backwards compatibility (grr).
+
+- Fix a doc bug in Log::Dispatch::Syslog.  It defaults to using a unix
+  socket, not an inet socket.
+
+
+2.09   2004-01-09
+
+- Fix a test failure on Win32 platforms.  The problem was in the test,
+  not the code.  Patch by David Viner.
+
+- Distro is now signed with Module::Signature.
+
+
+2.08   2003-11-27
+
+- Added Log::Dispatch->would_log method, which indicates whether
+  logging will be done for a given log level.  Suggested by Ruslan
+  Zakirov.
+
+- Switched tests to use Test::More.
+
+
+2.07   2003-09-27
+
+- Added Log::Dispatch::File::Locked.  Based on code from JAA Klunder.
+
+- Check all system call return values.
+
+- Fix warning from Log::Dispatch::File if it was loaded after
+Attribute::Handlers.  Reported by Mike Schilli.
+
+- Fixed up POD to pass pod tests.
+
+
+2.06   2003-05-01
+
+  "Arise ye workers from your slumbers
+   Arise ye criminals of want
+   For reason in revolt now thunders
+   and at last ends the age of cant."
+
+- Added a permissions parameter to Log::Dispatch::File->new.  Based on
+  a patch from James FitzGibbon.
+
+
+2.05   2003-04-18
+
+- Changed a code construct that seems to provoke a bug for Meng Wong,
+  but no one else ;)
+
+- Switched to Module::Build and removed interactive portion of
+  installation process.
+
+- Log::Dispatch::Email::MailSender was causing Mail::Sender to send
+  debug output to STDERR if warnings were on.  Now it's not.
+
+
+2.04   2003-03-21
+
+- The close_after_write option didn't actually do anything.  Fixed by
+  JAA Klunder.
+
+
+2.03   2003-02-27
+
+- Log::Dispatch::ApacheLog would break if a log level was specified as
+  a number.  Reported by Kevin Goess.
+
+
+2.02   2003-02-20
+
+- Added close_after_write option to Log::Dispatch::File.  Based on
+  patch from JAA Klunder.
+
+
+2.01   2002-06-21
+
+- Added new module Log::Dispatch::Email::MailSender, provided by
+  Joseph Annino.
+
+- Log::Dispatch::Output now contains "use Log::Dispatch".
+
+- Now requires Params::Validate, which is used to validate parameter
+  for constructors and some other methods.
+
+- Add an 'autoflush' option to Log::Dispatch::File objects.  Suggested
+  by Jerrad Pierce.
+
+- Added some error checking to ::Email::MailSend.
+
+- Changed a carp to a warn in ::Email::MailSendmail.
+
+- Only warn if $^W is true.
+
+
+2.00   2002-04-11
+
+** BACKWARDS INCOMPATIBILITY ALERT **
+
+- Use a standard hash reference for objects instead of pseudo-hashes.
+  ** THIS MAY BREAK EXISTING SUBCLASSES **.
+
+- Log::Dispatch::Screen claimed it defaulted to using STDERR but it
+  was lying, it defaulted to using STDOUT.  This has been changed so
+  that it really does default to STDERR.  Reported by James
+  FitzGibbon.
+
+
+1.80   2001-10-27
+
+- Log::Dispatch::Syslog no longer requires syslog.ph for Perl >=
+  5.006.  Patch by Benoit Beausejour.
+
+- If you passed a mode parameter to Log::Dispatch::File it always
+  thought the mode was append, no matter what was passed.  Patch from
+  Luke Bakken.
+
+- Log::Dispatch::File no longer uses IO::File internally.
+
+
+1.79   2001-05-15
+
+- Don't use $, internally.  Apparently this is usually undefined.
+  Instead, the convenience methods now simply take an array of
+  messages and turn it into a scalar by doing "@_".  Thanks to Dean
+  Kopesky for the bug report.
+
+
+1.78   2001-04-19
+
+- Allow ApacheLog to take either an Apache or Apache::Server object.
+
+- Fix callback documentation in Log::Dispatch::Output.  Thanks to Rob
+  Napier.
+
+- Add flush method to Log::Dispatch::Email.  Patch submitted by Rob
+  Napier.
+
+
+1.77   2001-01-02
+
+- The convenience methods named after the log levels ($log->debug,
+  $log->alert, etc.) can now take a list of scalars.  These are joined
+  together just like Perl's print function does.  Suggested by Tim
+  Ayers.
+
+
+1.76   2000-10-10
+
+- New method: Log::Dispatch->level_is_valid($string).  Suggested by
+  Jeff Hamman.
+
+- Fix for version issues between CPAN versions of
+  Log::Dispatch::ApacheLog.  Reported by Jost Krieger.
+
+
+1.75   2000-09-28
+
+- Additional argument 'level' passed to message processing callbacks.
+  Suggested by Jeff MacDonald.
+
+- Log/Dispatch.pm: added docs section on Log::Dispatch::Tk.
+
+
+1.7   2000-08-30
+
+- Added Log/Dispatch/ApacheLog.pm.  This logs to the Apache error log.
+  This is for use under mod_perl.
+
+
+1.6   2000-07-04
+
+NOTE: 1.5 was never released to CPAN.
+
+- Log/Dispatch.pm: Added convenience methods for log levels like
+  $dispatcher->alert($message).  Suggested by Dominique Dumont.
+
+- This version introduces some changes into the interface that will
+  cause incompatibility with any Log::Dispatch::Output interface you may
+  have created.  However, it is fairly simple to fix.  Simply change the
+  method in your subclass named 'log' to be called 'log_message'.  You
+  can also remove the line:
+
+    return unless $self->_should_log($params{level});
+
+  This is now done before the message ever gets to the Output subclass
+  (which is what it should have done in the first place, really.)
+
+  This was done so that I could allow per-Output object callbacks, a
+  feature which several people have requested and which seems useful
+  enough to warrant the breakage.
+
+  NOTE: This change is transparent if you are only using the Output
+  objects included with this distribution.
+
+- Many: Changed the interface to allow per-Output object level
+  callbacks and documented this.
+
+- Log/Dispatch/Base.pm: new base class for both Log::Dispatch and
+  Log::Dispatch::Output objects (contains callback related code).  You
+  should never need to deal with this class unless you are me.
+
+- Log/Dispatch/Output.pm: document _accepted_levels.
+
+- Log/Dispatch/Output.pm: Fix _accepted_levels so that emergency level
+  is returned as 'emergency', not 'emerg'.
+
+- Log/Dispatch.pm: Fix doc bug (change 'file' to 'filename').  Thanks
+  to Clayton Scott.
+
+- Log/Dispatch/File.pm: Do compile time check for O_APPEND constant
+  rather than run time check.
+
+
+1.2   2000-05-05
+
+- Log/Dispatch.pm: Added callbacks parameter to Log::Dispatch->new.  I
+  will also be adding this to the Log::Dispatch::* classes via
+  Log::Dispatch::Output but I wanted to get this new version out there
+  because I think there are people out there who would benefit from
+  this.
+
+- Log/Dispatch.pm: Added docs section on why Log::Dispatch doesn't add
+  newlines to outgoing messages.
+
+
+1.11  2000-02-24
+
+- Realized I need to tweak the $VERSION in Log::Dispatch
+
+
+1.1   2000-02-24
+
+- Upped version to 1.1 to indicate my confidence in this release (I'm
+  just asking for bug reports, I know).
+
+- Added accepted_levels method to Log::Dispatch::Output based on
+  discussions with Dominique Dumont (author of the Log::Dispatch::Tk
+  suite).
+
+- Canonical names for log levels are now the unabbreviated form
+  (though the abbreviated ones used by syslog are still fine and there
+  is no plan to deprecate them).  This really only affects what is
+  returned by the new accepted_levels method.
+
+
+1.010   2000-01-17
+
+- Fixed a bug in the DESTROY method of Log::Dispatch::Email that
+  caused an annoying error and may have caused spurious emails to be
+  sent (thanks to Radu Greab).
+
+- Fixed a bug in Log::Dispatch::Email::MailSendmail.  For some reason
+  this module demands a 'from' address.
+
+
+1.009   2000-01-02
+
+- Created this version simply to address an issue with CPAN and my
+  internal version numbers having a conflict.  This has no changes
+  from 1.008.
+
+
+1.008   1999-12-30
+
+- Fixed a bug causing unitialized value warnings with -w (oops).
+
+- Fixed a minor mistake in Log::Dispatch::Syslog docs (thanks to Ilya
+  Martynov)
+
+- Put newlines into messages in SYNOPSIS sections for some modules.
+  This is to clarify that you need to do this.  Just to be clear,
+  Log::Dispatch does not alter message content in any manner
+  whatsoever (and never will).  However, it would be trivial to
+  subclass Log::Dispatch to do this.
+
+
+1.007   1999-12-01
+
+- First public release.  It passes its own test suite so it should
+  work (he says hopefully).

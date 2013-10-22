@@ -25,67 +25,63 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#if defined(__MWERKS__) && !defined(__private_extern__)
-#define __private_extern__ __declspec(private_extern)
-#endif
-
 #import "mach/mach.h"
 
 /* user defined (imported) */
-__private_extern__ char *progname;
+extern char *progname __attribute__((visibility("hidden")));
 
 /* defined in errors.c */
 /* number of detected calls to error() */
-__private_extern__ uint32_t errors;
+extern uint32_t errors __attribute__((visibility("hidden")));
 
-__private_extern__ void warning(
+extern void warning(
     const char *format, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 1, 2)))
 #endif
-    ;
-__private_extern__ void error(
+    __attribute__((visibility("hidden")));
+extern void error(
     const char *format, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 1, 2)))
 #endif
-    ;
-__private_extern__ void error_with_arch(
+    __attribute__((visibility("hidden")));
+extern void error_with_arch(
     const char *arch_name,
     const char *format, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 2, 3)))
 #endif
-    ;
-__private_extern__ void system_error(
+    __attribute__((visibility("hidden")));
+extern void system_error(
     const char *format, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 1, 2)))
 #endif
-    ;
-__private_extern__ void fatal(
+    __attribute__((visibility("hidden")));
+extern void fatal(
     const char *format, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 1, 2)))
 #endif
-    ;
-__private_extern__ void system_fatal(
+    __attribute__((visibility("hidden")));
+extern void system_fatal(
     const char *format, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 1, 2)))
 #endif
-    ;
-__private_extern__ void my_mach_error(
+    __attribute__((visibility("hidden")));
+extern void my_mach_error(
     kern_return_t r,
     char *format, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 2, 3)))
 #endif
-    ;
-__private_extern__ void mach_fatal(
+    __attribute__((visibility("hidden")));
+extern void mach_fatal(
     kern_return_t r,
     char *format, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 2, 3)))
 #endif
-    ;
+    __attribute__((visibility("hidden")));

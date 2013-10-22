@@ -222,13 +222,7 @@ test_unsigned (void)
 static int
 cmp_octet_string (void *a, void *b)
 {
-    heim_octet_string *oa = (heim_octet_string *)a;
-    heim_octet_string *ob = (heim_octet_string *)b;
-
-    if (oa->length != ob->length)
-	return ob->length - oa->length;
-
-    return (memcmp (oa->data, ob->data, oa->length));
+    return der_heim_octet_string_cmp(a, b);
 }
 
 static int
@@ -397,7 +391,7 @@ cmp_generalized_time (void *a, void *b)
     time_t *ta = (time_t *)a;
     time_t *tb = (time_t *)b;
 
-    return *tb - *ta;
+    return (int)(*tb - *ta);
 }
 
 static int

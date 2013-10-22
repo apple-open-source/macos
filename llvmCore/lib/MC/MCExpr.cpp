@@ -14,9 +14,11 @@
 #include "llvm/MC/MCAsmLayout.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
@@ -24,38 +26,6 @@ namespace {
 namespace stats {
 STATISTIC(MCExprEvaluate, "Number of MCExpr evaluations");
 }
-}
-
-static bool printMipsSymbolRef(const MCSymbolRefExpr &SRE,
-                               const MCSymbol &Sym, raw_ostream &OS) {
-  MCSymbolRefExpr::VariantKind Kind= SRE.getKind();
-
-  switch (Kind) {
-  default:
-    return false;
-  case MCSymbolRefExpr::VK_Mips_None:     break;
-  case MCSymbolRefExpr::VK_Mips_GPREL:    OS << "%gp_rel("; break;
-  case MCSymbolRefExpr::VK_Mips_GOT_CALL: OS << "%call16("; break;
-  case MCSymbolRefExpr::VK_Mips_GOT:      OS << "%got(";    break;
-  case MCSymbolRefExpr::VK_Mips_ABS_HI:   OS << "%hi(";     break;
-  case MCSymbolRefExpr::VK_Mips_ABS_LO:   OS << "%lo(";     break;
-  case MCSymbolRefExpr::VK_Mips_TLSGD:    OS << "%tlsgd(";  break;
-  case MCSymbolRefExpr::VK_Mips_GOTTPREL: OS << "%gottprel("; break;
-  case MCSymbolRefExpr::VK_Mips_TPREL_HI: OS << "%tprel_hi("; break;
-  case MCSymbolRefExpr::VK_Mips_TPREL_LO: OS << "%tprel_lo("; break;
-  case MCSymbolRefExpr::VK_Mips_GPOFF_HI: OS << "%hi(%neg(%gp_rel("; break;
-  case MCSymbolRefExpr::VK_Mips_GPOFF_LO: OS << "%lo(%neg(%gp_rel("; break;
-  case MCSymbolRefExpr::VK_Mips_GOT_DISP: OS << "%got_disp("; break;
-  case MCSymbolRefExpr::VK_Mips_GOT_PAGE: OS << "%got_page("; break;
-  case MCSymbolRefExpr::VK_Mips_GOT_OFST: OS << "%got_ofst("; break;
-  }
-
-  OS << Sym;
-
-  if (Kind != MCSymbolRefExpr::VK_Mips_None)
-    OS << ')';
-
-  return true;
 }
 
 void MCExpr::print(raw_ostream &OS) const {
@@ -73,9 +43,6 @@ void MCExpr::print(raw_ostream &OS) const {
     // absolute names.
     bool UseParens = Sym.getName()[0] == '$';
 
-    if (printMipsSymbolRef(SRE, Sym, OS))
-      return;
-
     if (SRE.getKind() == MCSymbolRefExpr::VK_PPC_DARWIN_HA16 ||
         SRE.getKind() == MCSymbolRefExpr::VK_PPC_DARWIN_LO16) {
       OS << MCSymbolRefExpr::getVariantKindName(SRE.getKind());
@@ -92,7 +59,8 @@ void MCExpr::print(raw_ostream &OS) const {
         SRE.getKind() == MCSymbolRefExpr::VK_ARM_GOT ||
         SRE.getKind() == MCSymbolRefExpr::VK_ARM_GOTOFF ||
         SRE.getKind() == MCSymbolRefExpr::VK_ARM_TPOFF ||
-        SRE.getKind() == MCSymbolRefExpr::VK_ARM_GOTTPOFF)
+        SRE.getKind() == MCSymbolRefExpr::VK_ARM_GOTTPOFF ||
+        SRE.getKind() == MCSymbolRefExpr::VK_ARM_TARGET1)
       OS << MCSymbolRefExpr::getVariantKindName(SRE.getKind());
     else if (SRE.getKind() != MCSymbolRefExpr::VK_None &&
              SRE.getKind() != MCSymbolRefExpr::VK_PPC_DARWIN_HA16 &&
@@ -105,7 +73,6 @@ void MCExpr::print(raw_ostream &OS) const {
   case MCExpr::Unary: {
     const MCUnaryExpr &UE = cast<MCUnaryExpr>(*this);
     switch (UE.getOpcode()) {
-    default: assert(0 && "Invalid opcode!");
     case MCUnaryExpr::LNot:  OS << '!'; break;
     case MCUnaryExpr::Minus: OS << '-'; break;
     case MCUnaryExpr::Not:   OS << '~'; break;
@@ -126,7 +93,6 @@ void MCExpr::print(raw_ostream &OS) const {
     }
 
     switch (BE.getOpcode()) {
-    default: assert(0 && "Invalid opcode!");
     case MCBinaryExpr::Add:
       // Print "X-42" instead of "X+-42".
       if (const MCConstantExpr *RHSC = dyn_cast<MCConstantExpr>(BE.getRHS())) {
@@ -167,13 +133,15 @@ void MCExpr::print(raw_ostream &OS) const {
   }
   }
 
-  assert(0 && "Invalid expression kind!");
+  llvm_unreachable("Invalid expression kind!");
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void MCExpr::dump() const {
   print(dbgs());
   dbgs() << '\n';
 }
+#endif
 
 /* *** */
 
@@ -206,7 +174,6 @@ const MCSymbolRefExpr *MCSymbolRefExpr::Create(StringRef Name, VariantKind Kind,
 
 StringRef MCSymbolRefExpr::getVariantKindName(VariantKind Kind) {
   switch (Kind) {
-  default:
   case VK_Invalid: return "<<invalid>>";
   case VK_None: return "<<none>>";
 
@@ -224,18 +191,44 @@ StringRef MCSymbolRefExpr::getVariantKindName(VariantKind Kind) {
   case VK_TPOFF: return "TPOFF";
   case VK_DTPOFF: return "DTPOFF";
   case VK_TLVP: return "TLVP";
+  case VK_SECREL: return "SECREL";
   case VK_ARM_PLT: return "(PLT)";
   case VK_ARM_GOT: return "(GOT)";
   case VK_ARM_GOTOFF: return "(GOTOFF)";
   case VK_ARM_TPOFF: return "(tpoff)";
   case VK_ARM_GOTTPOFF: return "(gottpoff)";
   case VK_ARM_TLSGD: return "(tlsgd)";
-  case VK_PPC_TOC: return "toc";
+  case VK_ARM_TARGET1: return "(target1)";
+  case VK_PPC_TOC: return "tocbase";
+  case VK_PPC_TOC_ENTRY: return "toc";
   case VK_PPC_DARWIN_HA16: return "ha16";
   case VK_PPC_DARWIN_LO16: return "lo16";
   case VK_PPC_GAS_HA16: return "ha";
   case VK_PPC_GAS_LO16: return "l";
+  case VK_PPC_TPREL16_HA: return "tprel@ha";
+  case VK_PPC_TPREL16_LO: return "tprel@l";
+  case VK_Mips_GPREL: return "GPREL";
+  case VK_Mips_GOT_CALL: return "GOT_CALL";
+  case VK_Mips_GOT16: return "GOT16";
+  case VK_Mips_GOT: return "GOT";
+  case VK_Mips_ABS_HI: return "ABS_HI";
+  case VK_Mips_ABS_LO: return "ABS_LO";
+  case VK_Mips_TLSGD: return "TLSGD";
+  case VK_Mips_TLSLDM: return "TLSLDM";
+  case VK_Mips_DTPREL_HI: return "DTPREL_HI";
+  case VK_Mips_DTPREL_LO: return "DTPREL_LO";
+  case VK_Mips_GOTTPREL: return "GOTTPREL";
+  case VK_Mips_TPREL_HI: return "TPREL_HI";
+  case VK_Mips_TPREL_LO: return "TPREL_LO";
+  case VK_Mips_GPOFF_HI: return "GPOFF_HI";
+  case VK_Mips_GPOFF_LO: return "GPOFF_LO";
+  case VK_Mips_GOT_DISP: return "GOT_DISP";
+  case VK_Mips_GOT_PAGE: return "GOT_PAGE";
+  case VK_Mips_GOT_OFST: return "GOT_OFST";
+  case VK_Mips_HIGHER:   return "HIGHER";
+  case VK_Mips_HIGHEST:  return "HIGHEST";
   }
+  llvm_unreachable("Invalid variant kind");
 }
 
 MCSymbolRefExpr::VariantKind
@@ -274,7 +267,7 @@ MCSymbolRefExpr::getVariantKindForName(StringRef Name) {
 
 /* *** */
 
-void MCTargetExpr::Anchor() {}
+void MCTargetExpr::anchor() {}
 
 /* *** */
 
@@ -371,6 +364,11 @@ static void AttemptToFoldSymbolOffsetDifference(const MCAssembler *Asm,
              Layout->getSymbolOffset(&Asm->getSymbolData(B->getSymbol())));
   if (Addrs && (&SecA != &SecB))
     Addend += (Addrs->lookup(&SecA) - Addrs->lookup(&SecB));
+
+  // Pointers to Thumb symbols need to have their low-bit set to allow
+  // for interworking.
+  if (Asm->isThumbFunc(&SA))
+    Addend |= 1;
 
   // Clear the symbol expr pointers to indicate we have folded these
   // operands.
@@ -592,8 +590,7 @@ bool MCExpr::EvaluateAsRelocatableImpl(MCValue &Res,
   }
   }
 
-  assert(0 && "Invalid assembly expression kind!");
-  return false;
+  llvm_unreachable("Invalid assembly expression kind!");
 }
 
 const MCSection *MCExpr::FindAssociatedSection() const {
@@ -634,6 +631,5 @@ const MCSection *MCExpr::FindAssociatedSection() const {
   }
   }
 
-  assert(0 && "Invalid assembly expression kind!");
-  return 0;
+  llvm_unreachable("Invalid assembly expression kind!");
 }

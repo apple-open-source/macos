@@ -20,9 +20,9 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-messages -> WebProcess {
+messages -> WebProcess LegacyReceiver {
     # Initialize the WebProcess. 
-    InitializeWebProcess(WebKit::WebProcessCreationParameters processCreationParameters, WebKit::WebContextUserMessageEncoder initializationUserData)
+    InitializeWebProcess(WebKit::WebProcessCreationParameters processCreationParameters, WebKit::WebContextUserMessageEncoder initializationUserData) Variadic
 
     # Create a new page.
     CreateWebPage(uint64_t newPageID, WebKit::WebPageCreationParameters pageCreationParameters)
@@ -38,27 +38,30 @@ messages -> WebProcess {
     RegisterURLSchemeAsEmptyDocument(WTF::String scheme)
     RegisterURLSchemeAsSecure(WTF::String scheme)
     SetDomainRelaxationForbiddenForURLScheme(WTF::String scheme)
+    RegisterURLSchemeAsLocal(WTF::String scheme)
+    RegisterURLSchemeAsNoAccess(WTF::String scheme)
+    RegisterURLSchemeAsDisplayIsolated(WTF::String scheme)
+    RegisterURLSchemeAsCORSEnabled(WTF::String scheme)
     SetDefaultRequestTimeoutInterval(double timeoutInterval)
     SetAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
     SetShouldUseFontSmoothing(bool useFontSmoothing)
     UserPreferredLanguagesChanged(Vector<WTF::String> languages)
     FullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled)
-#if PLATFORM(WIN)
-    SetShouldPaintNativeControls(bool shouldPaintNativeControls)
+#if USE(SOUP)
+    SetIgnoreTLSErrors(bool ignoreTLSErrors)
 #endif
 
-    # Plug-ins.
+    // Private browsing session is per process. Individual pages or page groups may use the private session or the default one as appropriate.
+    EnsurePrivateBrowsingSession()
+    DestroyPrivateBrowsingSession()
 
-#if !ENABLE(PLUGIN_PROCESS)
+    # Plug-ins.
+#if ENABLE(NETSCAPE_PLUGIN_API) && !ENABLE(PLUGIN_PROCESS)
     GetSitesWithPluginData(Vector<WTF::String> pluginPaths, uint64_t callbackID)
     ClearPluginSiteData(Vector<WTF::String> pluginPaths, Vector<WTF::String> sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID)
 #endif
-
-    DidGetPlugins(uint64_t requestID, Vector<WebCore::PluginInfo> plugins) DispatchOnConnectionQueue
-
-#if ENABLE(PLUGIN_PROCESS)
-    PluginProcessCrashed(String pluginProcess) DispatchOnConnectionQueue
-#endif
+    DidAddPlugInAutoStartOriginHash(uint32_t hash, double expirationTime)
+    ResetPlugInAutoStartOriginHashes(HashMap<uint32_t,double> hashes)
 
     void StartMemorySampler(WebKit::SandboxExtension::Handle sampleLogFileHandle, WTF::String sampleLogFilePath, double interval);
     void StopMemorySampler();
@@ -77,9 +80,13 @@ messages -> WebProcess {
 
     GetWebCoreStatistics(uint64_t callbackID)
     GarbageCollectJavaScriptObjects()
+    SetJavaScriptGarbageCollectorTimerEnabled(bool enable)
+
+    PostInjectedBundleMessage(CoreIPC::DataReference messageData);
+
+    ReleasePageCache()
 
 #if PLATFORM(MAC)
-    SecItemResponse(uint64_t requestID, WebKit::SecItemResponseData response) DispatchOnConnectionQueue
-    SecKeychainItemResponse(uint64_t requestID, WebKit::SecKeychainItemResponseData response) DispatchOnConnectionQueue
+    SetProcessSuppressionEnabled(bool flag);
 #endif
 }

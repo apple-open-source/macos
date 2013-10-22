@@ -49,7 +49,7 @@ SecCertificateBundleImport(
 {
     BEGIN_SECAPI
 
-	MacOSError::throwMe(unimpErr);//%%%for now
+	MacOSError::throwMe(errSecUnimplemented);//%%%for now
 
     END_SECAPI
 }
@@ -64,7 +64,7 @@ SecCertificateBundleExport(
 {
     BEGIN_SECAPI
 
-	MacOSError::throwMe(unimpErr);//%%%for now
+	MacOSError::throwMe(errSecUnimplemented);//%%%for now
 
     END_SECAPI
 }

@@ -26,11 +26,11 @@
 #include "Length.h"
 
 #include "CalculationValue.h"
-#include "PlatformString.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/text/StringBuffer.h>
+#include <wtf/text/WTFString.h>
 
 using namespace WTF;
 
@@ -151,6 +151,7 @@ PassOwnArrayPtr<Length> newLengthArray(const String& string, int& len)
 }
         
 class CalculationValueHandleMap {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CalculationValueHandleMap() 
         : m_index(1) 
@@ -201,7 +202,19 @@ Length::Length(PassRefPtr<CalculationValue> calc)
 {
     m_intValue = calcHandles().insert(calc);
 }
-    
+        
+Length Length::blendMixedTypes(const Length& from, double progress) const
+{
+    if (progress <= 0.0)
+        return from;
+        
+    if (progress >= 1.0)
+        return *this;
+        
+    OwnPtr<CalcExpressionNode> blend = adoptPtr(new CalcExpressionBlendLength(from, *this, progress));
+    return Length(CalculationValue::create(blend.release(), CalculationRangeAll));
+}
+          
 PassRefPtr<CalculationValue> Length::calculationValue() const
 {
     ASSERT(isCalculated());
@@ -227,12 +240,17 @@ float Length::nonNanCalculatedValue(int maxValue) const
 {
     ASSERT(isCalculated());
     float result = calculationValue()->evaluate(maxValue);
-    if (isnan(result))
+    if (std::isnan(result))
         return 0;
     return result;
 }
 
-class SameSizeAsLength {
+bool Length::isCalculatedEqual(const Length& o) const
+{
+    return isCalculated() && (calculationValue() == o.calculationValue() || *calculationValue() == *o.calculationValue());
+}
+
+struct SameSizeAsLength {
     int32_t value;
     int32_t metaData;
 };

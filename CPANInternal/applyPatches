@@ -6,6 +6,7 @@ my (@patchesToApply) = (
     # <rdar://problem/9559834> CPANInternal-103 (and earlier?) no longer builds
     # Disables all HTTP-Proxy tests which seem to depend on external web servers.
     './PatchFiles/HTTP-Proxy.diff',
+    './PatchFiles/HTTP-Proxy-0.25/t/Utils.pm.diff',
 
     # <rdar://problem/8302449> CPANInternal build ignores test failure in Path-Class
     # A long-standing oversight in the Makefile caused test results for all Module::Build modules
@@ -23,15 +24,6 @@ my (@patchesToApply) = (
 	# trailing return placed in the 'actual' value, but is not specified in the 'expected' value.
 	'./PatchFiles/JSON-Any-02-JSON-XS.t.diff',
 
-    # Evolution's Exception.pm module uses a customized version of Error.pm
-    # The modifications to Error.pm are to support the additional features.
-    # The other main modification to Error.pm is to support a catch clause
-    # that operates the same as the standard Error's otherwise clause
-    # (this is used by Evolution's Exception).
-    # Radar 3623559 has been written to back this patch out later.
-    './PatchFiles/Error.pm.diff',
-
-
     # We used to patch DBD-SQLite-1.07, but now that we've updated to
     # DBD-SQLite-1.13, this isn't necessary.
     # --- Unused: ---
@@ -44,6 +36,7 @@ my (@patchesToApply) = (
     # Also, work around unitialized variable warnings in dbdimp.c
     #'./PatchFiles/DBD-SQLite.diff',
     
+    './PatchFiles/Krb5-1.9/Makefile.PL.diff',
 
     ## the self test trys to connect to a unreliable server. 
     ## so we skip those test
@@ -64,7 +57,9 @@ my (@patchesToApply) = (
     # <rdar://problem/6319392> SS2 fails to submit when submission notes contain "http:"
     './PatchFiles/SOAP-Lite-Serializer.pm.diff',
 
-	# radar://8453094
+    # <rdar://problem/8419125> update CPAN modules to avoid perl 5.12 deprecation warnings
+	# <rdar://problem/8453094> SOAP::Lite.pm should be patched at build time
+    # Fixed in SOAP::Lite-0.
 	'./PatchFiles/SOAP-Lite.pm.diff',
 
    ## JSON-Syck is replaced by YAML-Syck 0.82 which includes JSON-Syck
@@ -79,7 +74,8 @@ my (@patchesToApply) = (
    # 4546994 version perl module builds thin
    # A Module::Build bug prevents us from doing this in the Makefile
    # (see http://rt.cpan.org/Public/Bug/Display.html?id=19232)
-   './PatchFiles/version.diff',                   
+   # Fixed in version-0.2808
+   #'./PatchFiles/version.diff',                   
 
     # Create a default .inflectrc file for Lingua-EN-Inflect
     # indicating that the plural of hongo is hongos
@@ -104,6 +100,7 @@ my (@patchesToApply) = (
     
     # Address a bogus warning we see in SnowLeopard inside Class::Std (6783174)
     './PatchFiles/Class-Std.diff',
+    './PatchFiles/Class-Std-0.011/lib/Class/Std.pm.diff',
 
     # Net::Daemon patch for CPAN bug 39759 
     # http://rt.cpan.org/Public/Bug/Display.html?id=39759
@@ -121,6 +118,7 @@ my (@patchesToApply) = (
     # without launchd plist hackery and other build-time implications.  
     # Don't call setlogsock to force the use of /var/run/syslog if it doesn't exist.
     './PatchFiles/Net-Daemon-Log.pm.diff',
+    './PatchFiles/Net-Daemon-0.48/lib/Net/Daemon/Log.pm.diff',
 
     # PlRPC tests fail due to failure to create a server inside the chroot
     # environment on 5.8/Leopard (see Net::Daemon, above).  Temporarily disable.
@@ -129,10 +127,17 @@ my (@patchesToApply) = (
     # IPC::LDT changes - replace use of fields / pseudohash with Perl 5.10
     # compatible hash; add can_read method as implemented in Evolution's site_perl_custom.
     './PatchFiles/IPC-LDT-LDT.pm.diff',
+    './PatchFiles/IPC-LDT-2.03/LDT.pm.diff',
 
     # Make JSON::RPC happy with CumulusDB. It shouldn't pass in $self needlessly.
     './PatchFiles/JSON-RPC-Server.pm.diff',
+    './PatchFiles/JSON-RPC-0.96/lib/JSON/RPC/Server.pm.diff',
 
+    # The Apache2-SOAP test suite must be run as a non-privileged user otherwise
+    # the tests fail.
+    # We as root so the tests must be disabled.
+    # <rdar://problem/12886612> XBS-15: CPAN Module Apache::SOAP Build Error
+    './PatchFiles/Apache2-SOAP-0.73/Makefile.PL.diff',
 );
 
 

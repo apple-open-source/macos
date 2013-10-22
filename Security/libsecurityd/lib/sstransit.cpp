@@ -28,7 +28,6 @@
 #include "sstransit.h"
 #include <security_cdsa_client/cspclient.h>
 #include <security_utilities/mach++.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 namespace Security {
 namespace SecurityServer {

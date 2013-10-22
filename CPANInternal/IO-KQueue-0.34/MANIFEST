@@ -1,0 +1,14 @@
+Changes
+const-c.inc
+const-xs.inc
+examples/chat.pl
+examples/tail.pl
+KQueue.pm
+KQueue.xs
+Makefile.PL
+MANIFEST			This list of files
+MANIFEST.SKIP
+META.yml			Module meta-data (added by MakeMaker)
+README
+t/0load.t
+typemap

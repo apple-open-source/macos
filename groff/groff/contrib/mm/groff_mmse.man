@@ -1,10 +1,10 @@
 .\"
 .\" $Id: groff_mmse.man,v 2.2 2001/12/09 12:15:09 wlemb Exp $
-.\" Skrivet av Jörgen Hägg, Lund, Sverige
+.\" Skrivet av JÃ¶rgen HÃ¤gg, Lund, Sverige
 .\"
 .TH GROFF_MMSE @MAN7EXT@ "@MDATE@" "Groff Version @VERSION@"
 .SH NAMN
-groff_mmse \- svenska mm makro för groff
+groff_mmse \- svenska mm makro fÃ¶r groff
 .SH SYNTAX
 .B groff
 .B \-m@TMAC_M_PREFIX@mse
@@ -15,26 +15,26 @@ groff_mmse \- svenska mm makro för groff
 .IR filer .\|.\|.
 ]
 .SH BESKRIVNING
-\fBm@TMAC_M_PREFIX@mse\fP är en svensk variant av \fBm@TMAC_M_PREFIX@m\fP. Alla texter
-är översatta. En A4 sida får text som är 13 cm bred, 3.5 cm indragning
-samt är 28.5 cm hög.
-Det finns stöd för brevuppställning enligt svensk standard
-för vänster och högerjusterad text.
+\fBm@TMAC_M_PREFIX@mse\fP Ã¤r en svensk variant av \fBm@TMAC_M_PREFIX@m\fP. Alla texter
+Ã¤r Ã¶versatta. En A4 sida fÃ¥r text som Ã¤r 13 cm bred, 3.5 cm indragning
+samt Ã¤r 28.5 cm hÃ¶g.
+Det finns stÃ¶d fÃ¶r brevuppstÃ¤llning enligt svensk standard
+fÃ¶r vÃ¤nster och hÃ¶gerjusterad text.
 .LP
-\fBCOVER\fP kan använda \fIse_ms\fP som argument. Detta ger ett
-svenskt försättsblad.
-Se \fBgroff_mm(@MAN7EXT@)\fP för övriga detaljer.
+\fBCOVER\fP kan anvÃ¤nda \fIse_ms\fP som argument. Detta ger ett
+svenskt fÃ¶rsÃ¤ttsblad.
+Se \fBgroff_mm(@MAN7EXT@)\fP fÃ¶r Ã¶vriga detaljer.
 .SH BREV
-Tillgängliga brevtyper:
+TillgÃ¤ngliga brevtyper:
 .TP
 .B ".LT SVV"
-Vänsterställd löptext med adressat i position T0 (vänsterställt).
+VÃ¤nsterstÃ¤lld lÃ¶ptext med adressat i position T0 (vÃ¤nsterstÃ¤llt).
 .TP
 .B ".LT SVH"
-Högerställd löptext med adressat i position T4 (passar
-fönsterkuvert).
+HÃ¶gerstÃ¤lld lÃ¶ptext med adressat i position T4 (passar
+fÃ¶nsterkuvert).
 .LP
-Följande extra LO-variabler används.
+FÃ¶ljande extra LO-variabler anvÃ¤nds.
 .TP
 .B ".LO DNAMN\fI namn\fP"
 Anger dokumentets namn.
@@ -44,8 +44,8 @@ Anger dokumentets namn.
 Mottagarens datum, anges under \fBErt datum:\fP (\fBLetMDAT\fP).
 .TP
 .br
-.B ".LO BIL\fI sträng\fP"
-Anger bilaga, nummer eller sträng med \fBBilaga\fP (\fBLetBIL\fP)
+.B ".LO BIL\fI strÃ¤ng\fP"
+Anger bilaga, nummer eller strÃ¤ng med \fBBilaga\fP (\fBLetBIL\fP)
 som prefix.
 .TP
 .br
@@ -58,21 +58,21 @@ Anger dokumentbeteckning eller dokumentnummer.
 .TP
 .br
 .B ".LO BET\fI beteckning\fP"
-Anger beteckning (ärendebeteckning i form av diarienummer eller liknande).
+Anger beteckning (Ã¤rendebeteckning i form av diarienummer eller liknande).
 .TP
 .br
 .B ".LO SIDOR\fI antal\fP"
 Anger totala antalet sidor och skrivs ut efter sidnumret inom
 parenteser.
 .LP
-Om makrot \fB.TP\fP är definierat anropas det efter utskrift av brevhuvudet.
-Där lägger man lämpligen in postadress och annat som brevfot.
+Om makrot \fB.TP\fP Ã¤r definierat anropas det efter utskrift av brevhuvudet.
+DÃ¤r lÃ¤gger man lÃ¤mpligen in postadress och annat som brevfot.
 .SH "SKRIVET AV"
-Jörgen Hägg, Lund, Sweden <Jorgen.Hagg@axis.se>
+JÃ¶rgen HÃ¤gg, Lund, Sweden <Jorgen.Hagg@axis.se>
 .SH FILER
 .B @MACRODIR@/tmac.@TMAC_M_PREFIX@mse
 .B @TMAC_MDIR@/se_*.cov
-.SH "SE OCKSÅ"
+.SH "SE OCKSÃ…"
 .BR groff (@MAN1EXT@),
 .BR @g@troff (@MAN1EXT@),
 .BR @g@tbl (@MAN1EXT@),

@@ -26,15 +26,29 @@
 #include "config.h"
 #include "WebFrameNetworkingContext.h"
 
-#include <WebCore/ResourceHandle.h>
+#include "WebFrame.h"
+#include "WebPage.h"
 
 using namespace WebCore;
 
 namespace WebKit {
 
-SoupSession* WebFrameNetworkingContext::soupSession() const
+WebFrameNetworkingContext::WebFrameNetworkingContext(WebFrame* frame)
+    : FrameNetworkingContext(frame->coreFrame())
+    , m_initiatingPageID(0)
 {
-    return ResourceHandle::defaultSession();
+    if (WebPage* page = frame->page())
+        m_initiatingPageID = page->pageID();
+}
+
+NetworkStorageSession& WebFrameNetworkingContext::storageSession() const
+{
+    return NetworkStorageSession::defaultStorageSession();
+}
+
+uint64_t WebFrameNetworkingContext::initiatingPageID() const
+{
+    return m_initiatingPageID;
 }
 
 }

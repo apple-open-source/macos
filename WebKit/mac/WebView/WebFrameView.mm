@@ -79,6 +79,12 @@ using namespace WebCore;
 - (BOOL)_scrollTo:(const NSPoint *)newOrigin animate:(BOOL)animate; // need the boolean result from this method
 @end
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+@interface NSView (Details)
+- (void)setBackgroundColor:(NSColor *)color;
+@end
+#endif
+
 enum {
     SpaceKey = 0x0020
 };
@@ -131,7 +137,10 @@ enum {
 - (void)_setDocumentView:(NSView <WebDocumentView> *)view
 {
     WebDynamicScrollBarsView *sv = [self _scrollView];
+    
+#if ENABLE(DRAG_SUPPORT)
     core([self _webView])->dragController()->setDidInitiateDrag(false);
+#endif
     
     [sv setSuppressLayout:YES];
     
@@ -319,7 +328,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 // FIXME: Remove the NSAppKitVersionNumberWithDeferredWindowDisplaySupport check once
 // once AppKit's Deferred Window Display support is available.
-#if defined(BUILDING_ON_LEOPARD) || !defined(NSAppKitVersionNumberWithDeferredWindowDisplaySupport)
+#if !defined(NSAppKitVersionNumberWithDeferredWindowDisplaySupport)
         // CoreGraphics deferred updates are disabled if WebKitEnableCoalescedUpdatesPreferenceKey is NO
         // or has no value. For compatibility with Mac OS X 10.5 and lower, deferred updates are off by default.
         if (![[NSUserDefaults standardUserDefaults] boolForKey:WebKitEnableDeferredUpdatesPreferenceKey])
@@ -455,7 +464,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)drawRect:(NSRect)rect
 {
-    if ([self documentView] == nil) {
+    if (![self documentView]) {
         // Need to paint ourselves if there's no documentView to do it instead.
         if ([[self _webView] drawsBackground]) {
             [[[self _webView] backgroundColor] set];
@@ -470,6 +479,34 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 #endif
     }
 }
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+- (BOOL)wantsUpdateLayer
+{
+    return YES;
+}
+
+- (void)updateLayer
+{
+    // Do what -drawRect: does but by setting a backgroundColor on the view. This avoids
+    // backing store for this view when the WebView is layer-backed.
+    if (![self documentView]) {
+        if ([[self _webView] drawsBackground]) {
+            [self setBackgroundColor:[[self _webView] backgroundColor]];
+            return;
+        }
+    } else {
+#ifndef NDEBUG
+        if ([[self _scrollView] drawsBackground]) {
+            [self setBackgroundColor:[NSColor cyanColor]];
+            return;
+        }
+#endif
+    }
+
+    [self setBackgroundColor:[NSColor clearColor]];
+}
+#endif
 
 - (NSRect)visibleRect
 {

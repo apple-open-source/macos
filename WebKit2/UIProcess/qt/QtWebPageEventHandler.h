@@ -46,7 +46,7 @@ class IntRect;
 namespace WebKit {
 
 class NativeWebTouchEvent;
-class QtViewportInteractionEngine;
+class PageViewportControllerClientQt;
 class ShareableBitmap;
 class WebGestureEvent;
 class WebPageProxy;
@@ -61,7 +61,7 @@ public:
     void handleKeyPressEvent(QKeyEvent*);
     void handleKeyReleaseEvent(QKeyEvent*);
     void handleFocusInEvent(QFocusEvent*);
-    void handleFocusOutEvent(QFocusEvent*);
+    void handleFocusLost();
     void handleMouseMoveEvent(QMouseEvent*);
     void handleMousePressEvent(QMouseEvent*);
     void handleMouseReleaseEvent(QMouseEvent*);
@@ -75,9 +75,10 @@ public:
     void handleInputMethodEvent(QInputMethodEvent*);
     void handleTouchEvent(QTouchEvent*);
 
-    void setViewportInteractionEngine(QtViewportInteractionEngine*);
+    void setViewportController(PageViewportControllerClientQt*);
 
-    void handlePotentialSingleTapEvent(const QTouchEvent::TouchPoint&);
+    void activateTapHighlight(const QTouchEvent::TouchPoint&);
+    void deactivateTapHighlight();
     void handleSingleTapEvent(const QTouchEvent::TouchPoint&);
     void handleDoubleTapEvent(const QTouchEvent::TouchPoint&);
 
@@ -87,22 +88,24 @@ public:
 #if ENABLE(TOUCH_EVENTS)
     void doneWithTouchEvent(const NativeWebTouchEvent&, bool wasEventHandled);
 #endif
+    void handleInputEvent(const QInputEvent*);
+    void handleWillSetInputMethodState();
     void resetGestureRecognizers();
 
-    QtViewportInteractionEngine* interactionEngine() { return m_interactionEngine; }
+    PageViewportControllerClientQt* viewportController() { return m_viewportController; }
 
     void startDrag(const WebCore::DragData&, PassRefPtr<ShareableBitmap> dragImage);
 
 protected:
     WebPageProxy* m_webPageProxy;
-    QtViewportInteractionEngine* m_interactionEngine;
+    PageViewportControllerClientQt* m_viewportController;
     QtPanGestureRecognizer m_panGestureRecognizer;
     QtPinchGestureRecognizer m_pinchGestureRecognizer;
     QtTapGestureRecognizer m_tapGestureRecognizer;
     QQuickWebPage* m_webPage;
     QQuickWebView* m_webView;
 
-private slots:
+private Q_SLOTS:
     void inputPanelVisibleChanged();
 
 private:
@@ -113,6 +116,8 @@ private:
     Qt::MouseButton m_previousClickButton;
     int m_clickCount;
     bool m_postponeTextInputStateChanged;
+    bool m_isTapHighlightActive;
+    bool m_isMouseButtonPressed;
 };
 
 } // namespace WebKit

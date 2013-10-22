@@ -29,7 +29,6 @@
 #define Pattern_h
 
 #include "AffineTransform.h"
-#include "Image.h"
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -41,34 +40,21 @@ typedef CGPatternRef PlatformPatternPtr;
 #elif USE(CAIRO)
 #include <cairo.h>
 typedef cairo_pattern_t* PlatformPatternPtr;
-#elif USE(SKIA)
-class SkShader;
-typedef SkShader* PlatformPatternPtr;
 #elif PLATFORM(QT)
 #include <QBrush>
 typedef QBrush PlatformPatternPtr;
-#elif PLATFORM(WX)
-#if USE(WXGC)
-class wxGraphicsBrush;
-typedef wxGraphicsBrush* PlatformPatternPtr;
-#else
-class wxBrush;
-typedef wxBrush* PlatformPatternPtr;
-#endif // USE(WXGC)
-#elif OS(WINCE)
+#elif USE(WINGDI)
 typedef void* PlatformPatternPtr;
 #endif
 
 namespace WebCore {
 
 class AffineTransform;
+class Image;
 
 class Pattern : public RefCounted<Pattern> {
 public:
-    static PassRefPtr<Pattern> create(PassRefPtr<Image> tileImage, bool repeatX, bool repeatY)
-    {
-        return adoptRef(new Pattern(tileImage, repeatX, repeatY));
-    }
+    static PassRefPtr<Pattern> create(PassRefPtr<Image> tileImage, bool repeatX, bool repeatY);
     virtual ~Pattern();
 
     Image* tileImage() const { return m_tileImage.get(); }
@@ -76,12 +62,14 @@ public:
     void platformDestroy();
 
     // Pattern space is an abstract space that maps to the default user space by the transformation 'userSpaceTransformation' 
-#if USE(SKIA)
-    PlatformPatternPtr platformPattern(const AffineTransform& userSpaceTransformation);
+#if PLATFORM(QT)
+    // Qt ignores user space transformation and uses pattern's instead
+    PlatformPatternPtr createPlatformPattern() const;
 #else
     PlatformPatternPtr createPlatformPattern(const AffineTransform& userSpaceTransformation) const;
 #endif
     void setPatternSpaceTransform(const AffineTransform& patternSpaceTransformation);
+    const AffineTransform& getPatternSpaceTransform() { return m_patternSpaceTransformation; };
     void setPlatformPatternSpaceTransform();
 
     bool repeatX() const { return m_repeatX; }
@@ -95,9 +83,6 @@ private:
     bool m_repeatY;
     AffineTransform m_patternSpaceTransformation;
     PlatformPatternPtr m_pattern;
-#if USE(SKIA)
-    int m_externalMemoryAllocated;
-#endif
 };
 
 } //namespace

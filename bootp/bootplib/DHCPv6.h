@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <netinet/in.h>
 #include <stddef.h>
+#include <CoreFoundation/CFString.h>
 #include "symbol_scope.h"
 #include "DHCPDUID.h"
 #include "nbo.h"
@@ -125,5 +126,9 @@ DHCPv6PacketSetMessageType(DHCPv6PacketRef pkt, int msg_type);
 
 void
 DHCPv6PacketFPrint(FILE * file, const DHCPv6PacketRef pkt, int pkt_len);
+
+void
+DHCPv6PacketPrintToString(CFMutableStringRef str,
+			  const DHCPv6PacketRef pkt, int pkt_len);
 
 #endif /* _S_DHCPV6_H */

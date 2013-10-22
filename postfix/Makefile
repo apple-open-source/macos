@@ -11,6 +11,7 @@ SRCROOT=
 OBJROOT=$(SRCROOT)
 SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
+SDKROOT=
 RC_ARCHS=
 CFLAGS=-g -Os $(RC_CFLAGS)
 
@@ -46,10 +47,12 @@ copy-src :
 
 apply-patches :
 	@echo "***** applying patches"
+	cd "$(BuildDirectory)/$(PROJECT)" && patch -p1 < "$(SRCROOT)/patches/postfix-2.9-patch03.txt"
+	cd "$(BuildDirectory)/$(PROJECT)" && patch -p1 < "$(SRCROOT)/patches/postfix-2.9-patch04.txt"
 	@echo "***** applying patches complete"
-	#@echo "***** creating MIG API files "
-	#$(_v) cd $(BuildDirectory)/$(PROJECT)/src/global && mig -v /usr/local/include/opendirectory/DSlibinfoMIG.defs
-	#@echo "***** creating MIG API files complete"
+	@echo "***** creating MIG API files "
+	$(_v) cd $(BuildDirectory)/$(PROJECT)/src/global && mig -v "$(SDKROOT)/usr/local/include/opendirectory/DSlibinfoMIG.defs"
+	@echo "***** creating MIG API files complete"
 
 build-postfix :
 	@echo "***** building $(PROJECT)"
@@ -57,8 +60,12 @@ build-postfix :
 	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT) makefiles OPT="-DNO_NETINFO -DUSE_TLS -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -D__APPLE_OS_X_SERVER__ \
 			-DEVENTS_STYLE=EVENTS_STYLE_KQUEUE \
 			-DHAS_DEV_URANDOM -DUSE_SYSV_POLL -DHAS_PCRE -DHAS_LDAP \
-			-I/usr/local/include/opendirectory -I/usr/include/sasl -F/System/Library/PrivateFrameworks $(CFLAGS)" \
-			AUXLIBS="-L/usr/lib -lssl -lsasl2.2.0.1 -lgssapi_krb5 -lldap"
+			-I$(SDKROOT)/usr/include \
+			-I$(SDKROOT)/usr/include/sasl \
+			-I$(SDKROOT)/usr/local/include \
+			-F$(SDKROOT)/System/Library/Frameworks \
+			-F$(SDKROOT)/System/Library/PrivateFrameworks \
+			$(CFLAGS)" AUXLIBS="-L$(SDKROOT)/usr/lib -lssl -lsasl2.2.0.1 -lgssapi_krb5 -lldap"
 	$(ENV) $(MAKE) -C $(BuildDirectory)/$(PROJECT)
 	@echo "*** building: smtpstone"
 	cd $(BuildDirectory)/postfix/src/smtpstone && make all

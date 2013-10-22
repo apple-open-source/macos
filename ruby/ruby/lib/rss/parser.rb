@@ -34,8 +34,8 @@ module RSS
   class NotValidXMLParser < Error
     def initialize(parser)
       super("#{parser} is not an available XML parser. " <<
-            "Available XML parser"<<
-            (AVAILABLE_PARSERS.size > 1 ? "s are ": " is ") <<
+            "Available XML parser" <<
+            (AVAILABLE_PARSERS.size > 1 ? "s are " : " is ") <<
             "#{AVAILABLE_PARSERS.inspect}.")
     end
   end
@@ -98,7 +98,7 @@ module RSS
       return rss if maybe_xml?(rss)
 
       uri = to_uri(rss)
-      
+
       if uri.respond_to?(:read)
         uri.read
       elsif !rss.tainted? and File.readable?(rss)
@@ -113,7 +113,7 @@ module RSS
       source.is_a?(String) and /</ =~ source
     end
 
-    # Attempt to convert rss to a URI, but just return it if 
+    # Attempt to convert rss to a URI, but just return it if
     # there's a ::URI::Error
     def to_uri(rss)
       return rss if rss.is_a?(::URI::Generic)
@@ -133,7 +133,7 @@ module RSS
         listener.raise_for_undefined_entity?
       end
     end
-    
+
     def initialize(rss)
       @listener = self.class.listener.new
       @rss = rss
@@ -196,13 +196,13 @@ module RSS
       def available_tags(uri)
         (@@accessor_bases[uri] || {}).keys
       end
-      
+
       # register uri against this name.
       def register_uri(uri, name)
         @@registered_uris[name] ||= {}
         @@registered_uris[name][uri] = nil
       end
-      
+
       # test if this uri is registered against this name
       def uri_registered?(uri, name)
         @@registered_uris[name].has_key?(uri)
@@ -220,9 +220,7 @@ module RSS
         name = (@@class_names[uri] || {})[tag_name]
         return name if name
 
-        tag_name = tag_name.gsub(/[_\-]([a-z]?)/) do
-          $1.upcase
-        end
+        tag_name = tag_name.gsub(/[_\-]([a-z]?)/) {$1.upcase}
         tag_name[0, 1].upcase + tag_name[1..-1]
       end
 
@@ -230,11 +228,11 @@ module RSS
         install_accessor_base(uri, name, accessor_base)
         def_get_text_element(uri, name, *get_file_and_line_from_caller(1))
       end
-      
+
       def raise_for_undefined_entity?
         true
       end
-    
+
       private
       # set the accessor for the uri, tag_name pair
       def install_accessor_base(uri, tag_name, accessor_base)
@@ -281,7 +279,7 @@ module RSS
       @xml_element = nil
       @last_xml_element = nil
     end
-    
+
     # set instance vars for version, encoding, standalone
     def xmldecl(version, encoding, standalone)
       @version, @encoding, @standalone = version, encoding, standalone
@@ -389,14 +387,12 @@ module RSS
     def start_else_element(local, prefix, attrs, ns)
       class_name = self.class.class_name(_ns(ns, prefix), local)
       current_class = @last_element.class
-      if class_name and
-          (current_class.const_defined?(class_name) or
-           current_class.constants.include?(class_name))
+      if known_class?(current_class, class_name)
         next_class = current_class.const_get(class_name)
         start_have_something_element(local, prefix, attrs, ns, next_class)
       else
         if !@do_validate or @ignore_unknown_element
-          @proc_stack.push(nil)
+          @proc_stack.push(setup_next_element_in_unknown_element)
         else
           parent = "ROOT ELEMENT???"
           if current_class.tag_name
@@ -407,19 +403,42 @@ module RSS
       end
     end
 
-    NAMESPLIT = /^(?:([\w:][-\w\d.]*):)?([\w:][-\w\d.]*)/
+    if Module.method(:const_defined?).arity == -1
+      def known_class?(target_class, class_name)
+        class_name and
+          (target_class.const_defined?(class_name, false) or
+           target_class.constants.include?(class_name.to_sym))
+      end
+    else
+      def known_class?(target_class, class_name)
+        class_name and
+          (target_class.const_defined?(class_name) or
+           target_class.constants.include?(class_name))
+      end
+    end
+
+    NAMESPLIT = /^(?:([\w:][-\w.]*):)?([\w:][-\w.]*)/
     def split_name(name)
       name =~ NAMESPLIT
       [$1 || '', $2]
     end
 
-    def check_ns(tag_name, prefix, ns, require_uri)
-      unless _ns(ns, prefix) == require_uri
-        if @do_validate
+    def check_ns(tag_name, prefix, ns, require_uri, ignore_unknown_element=nil)
+      if _ns(ns, prefix) == require_uri
+        true
+      else
+        if ignore_unknown_element.nil?
+          ignore_unknown_element = @ignore_unknown_element
+        end
+
+        if ignore_unknown_element
+          false
+        elsif @do_validate
           raise NSError.new(tag_name, prefix, require_uri)
         else
           # Force bind required URI with prefix
           @ns_stack.last[prefix] = require_uri
+          true
         end
       end
     end
@@ -427,7 +446,7 @@ module RSS
     def start_get_text_element(tag_name, prefix, ns, required_uri)
       pr = Proc.new do |text, tags|
         setter = self.class.setter(required_uri, tag_name)
-        if @last_element.respond_to?(setter)
+        if setter and @last_element.respond_to?(setter)
           if @do_validate
             getter = self.class.getter(required_uri, tag_name)
             if @last_element.__send__(getter)
@@ -446,9 +465,12 @@ module RSS
     end
 
     def start_have_something_element(tag_name, prefix, attrs, ns, klass)
-      check_ns(tag_name, prefix, ns, klass.required_uri)
-      attributes = collect_attributes(tag_name, prefix, attrs, ns, klass)
-      @proc_stack.push(setup_next_element(tag_name, klass, attributes))
+      if check_ns(tag_name, prefix, ns, klass.required_uri)
+        attributes = collect_attributes(tag_name, prefix, attrs, ns, klass)
+        @proc_stack.push(setup_next_element(tag_name, klass, attributes))
+      else
+        @proc_stack.push(setup_next_element_in_unknown_element)
+      end
     end
 
     def collect_attributes(tag_name, prefix, attrs, ns, klass)
@@ -504,7 +526,7 @@ module RSS
         else
           if klass.have_content?
             if @last_element.need_base64_encode?
-              text = Base64.decode64(text.lstrip)
+              text = text.lstrip.unpack("m").first
             end
             @last_element.content = text
           end
@@ -514,6 +536,11 @@ module RSS
         end
         @last_element = previous
       end
+    end
+
+    def setup_next_element_in_unknown_element
+      current_element, @last_element = @last_element, nil
+      Proc.new {@last_element = current_element}
     end
   end
 

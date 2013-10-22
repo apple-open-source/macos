@@ -62,18 +62,17 @@ SocketStreamHandle::SocketStreamHandle(const String& groupName, const KURL& url,
     int playerId = static_cast<FrameLoaderClientBlackBerry*>(page->mainFrame()->loader()->client())->playerId();
 
     // Create a platform socket stream
-    BlackBerry::Platform::NetworkStreamFactory* factory = page->chrome()->platformPageClient()->networkStreamFactory();
+    BlackBerry::Platform::NetworkStreamFactory* factory = page->chrome().platformPageClient()->networkStreamFactory();
     ASSERT(factory);
-    m_socketStream = adoptPtr(factory->createSocketStream(playerId));
-    ASSERT(m_socketStream);
-    m_socketStream->setListener(this);
 
     // Open the socket
     BlackBerry::Platform::NetworkRequest request;
-    request.setRequestUrl(url.string().latin1().data(), "CONNECT");
+    STATIC_LOCAL_STRING(s_connect, "CONNECT");
+    request.setRequestUrl(url.string(), s_connect);
+    m_socketStream = adoptPtr(factory->createNetworkStream(request, playerId));
+    ASSERT(m_socketStream);
 
-    m_socketStream->setRequest(request);
-
+    m_socketStream->setListener(this);
     m_socketStream->streamOpen();
 }
 
@@ -99,15 +98,15 @@ void SocketStreamHandle::platformClose()
 
 // FilterStream interface
 
-void SocketStreamHandle::notifyStatusReceived(int status, const char* message)
+void SocketStreamHandle::notifyStatusReceived(int status, const BlackBerry::Platform::String&)
 {
     ASSERT(m_client);
 
     // The client can close the handle, potentially removing the last reference.
     RefPtr<SocketStreamHandle> protect(this);
-
+    m_status = status;
     if (FilterStream::StatusSuccess != status)
-        m_client->didFailSocketStream(this, SocketStreamError(status));
+        m_client->didFailSocketStream(this, SocketStreamError(status, message));
     else {
         m_state = Open;
         m_client->didOpenSocketStream(this);
@@ -134,6 +133,9 @@ void SocketStreamHandle::notifyClose(int status)
 
     // The client can close the handle, potentially removing the last reference.
     RefPtr<SocketStreamHandle> protect(this);
+
+    if (status < 0 || (400 <= status && status < 600))
+        m_status = status;
 
     if (FilterStream::StatusSuccess != status)
         m_client->didFailSocketStream(this, SocketStreamError(status));

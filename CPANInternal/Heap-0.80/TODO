@@ -1,0 +1,7 @@
+
+Tels 2005-07-08:
+
+  * internal helper functions should have a leading underscore
+    (_moveto() vs. moveto)
+  * unec. forward declarations could be removed
+  * write a few more tests

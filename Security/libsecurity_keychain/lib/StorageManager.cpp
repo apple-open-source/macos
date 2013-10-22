@@ -37,7 +37,6 @@
 #include <sys/param.h>
 #include <syslog.h>
 #include <pwd.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <algorithm>
 #include <string>
 #include <stdio.h>
@@ -110,6 +109,24 @@ static bool isAppSandboxed()
 	return result;
 }
 
+static bool shouldAddToSearchList(const DLDbIdentifier &dLDbIdentifier)
+{
+	// Creation of a private keychain should not modify the search list: rdar://13529331
+	// However, we want to ensure the login and System keychains are in
+	// the search list if that is not the case when they are created.
+	// Note that App Sandbox apps may not modify the list in either case.
+
+	bool loginOrSystemKeychain = false;
+	const char *dbname = dLDbIdentifier.dbName();
+	if (dbname) {
+		if ((!strcmp(dbname, "/Library/Keychains/System.keychain")) ||
+			(strstr(dbname, "/login.keychain")) ) {
+			loginOrSystemKeychain = true;
+		}
+	}
+	return (loginOrSystemKeychain && !isAppSandboxed());
+}
+
 
 StorageManager::StorageManager() :
 	mSavedList(defaultPreferenceDomain()),
@@ -150,9 +167,7 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
 
 	if (gServerMode) {
 		secdebug("servermode", "keychain reference in server mode");
-        const char *dbname = dLDbIdentifier.dbName();
-        if (!dbname || (strcmp(dbname, SYSTEM_ROOT_STORE_PATH)!=0))
-            return Keychain();
+		return Keychain();
 	}
 
 	// The keychain is not in our cache.  Create it.
@@ -218,7 +233,7 @@ StorageManager::makeKeychain(const DLDbIdentifier &dLDbIdentifier, bool add)
 
 	Keychain theKeychain = keychain(dLDbIdentifier);
 	bool post = false;
-	bool updateList = (add && !isAppSandboxed());
+	bool updateList = (add && shouldAddToSearchList(dLDbIdentifier));
 
 	if (updateList)
 	{
@@ -262,7 +277,7 @@ StorageManager::created(const Keychain &keychain)
 
     DLDbIdentifier dLDbIdentifier = keychain->dlDbIdentifier();
 	bool defaultChanged = false;
-	bool updateList = (!isAppSandboxed());
+	bool updateList = shouldAddToSearchList(dLDbIdentifier);
 
 	if (updateList)
  	{
@@ -351,7 +366,7 @@ StorageManager::defaultKeychain(const Keychain &keychain)
 	// Only set a keychain as the default if we own it and can read/write it,
 	// and our uid allows modifying the directory for that preference domain.
 	if (!keychainOwnerPermissionsValidForDomain(keychain->name(), mDomain))
-		MacOSError::throwMe(wrPermErr);
+		MacOSError::throwMe(errSecWrPerm);
 
 	DLDbIdentifier oldDefaultId;
 	DLDbIdentifier newDefaultId(keychain->dlDbIdentifier());
@@ -566,7 +581,7 @@ void StorageManager::renameUnique(Keychain keychain, CFStringRef newName)
             newNameCFStr = CFStringCreateMutable(NULL, MAXPATHLEN);
             if ( newNameCFStr )
             {
-                CFStringAppendFormat(newNameCFStr, NULL, CFSTR("%s%d"), &newNameCString, index);
+                CFStringAppendFormat(newNameCFStr, NULL, CFSTR("%s%d"), newNameCString, index);
                 CFStringAppend(newNameCFStr, CFSTR(kKeychainSuffix));	// add .keychain
                 char toUseBuff2[MAXPATHLEN];
                 if ( CFStringGetCString(newNameCFStr, toUseBuff2, MAXPATHLEN, kCFStringEncodingUTF8) )	// make sure it fits in MAXPATHLEN, etc.
@@ -648,8 +663,23 @@ void StorageManager::removeKeychainFromSyncList (const DLDbIdentifier &id)
 			return; // something is really wrong if this is taken
 		}
 
-		CFStringRef vExpanded = MakeExpandedPath (CFStringGetCStringPtr (v, 0));
+        char* stringBuffer = NULL;
+        const char* pathString = CFStringGetCStringPtr(v, 0);
+        if (pathString == 0)
+        {
+            CFIndex maxLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(v), kCFStringEncodingUTF8) + 1;
+            stringBuffer = (char*) malloc(maxLen);
+            CFStringGetCString(v, stringBuffer, maxLen, kCFStringEncodingUTF8);
+            pathString = stringBuffer;
+        }
+        
+		CFStringRef vExpanded = MakeExpandedPath(pathString);
 		CFComparisonResult result = CFStringCompare (vExpanded, idString.get(), 0);
+        if (stringBuffer != NULL)
+        {
+            free(stringBuffer);
+        }
+        
 		CFRelease (vExpanded);
 
 		if (result == 0)
@@ -932,7 +962,7 @@ StorageManager::optionalSearchList(CFTypeRef keychainOrArray, KeychainList &keyc
 		else if (typeID == gTypes().KeychainImpl.typeID)
 			keychainList.push_back(KeychainImpl::required(SecKeychainRef(keychainOrArray)));
 		else
-			MacOSError::throwMe(paramErr);
+			MacOSError::throwMe(errSecParam);
 	}
 }
 
@@ -1003,7 +1033,7 @@ void StorageManager::login(AuthorizationRef authRef, UInt32 nameLength, const ch
     AuthorizationItemSet* info = NULL;
     OSStatus result = AuthorizationCopyInfo(authRef, NULL, &info);	// get the results of the copy rights call.
     Boolean created = false;
-    if ( result == noErr && info->count )
+    if ( result == errSecSuccess && info->count )
     {
         // Grab the password from the auth context (info) and create the keychain...
         //
@@ -1015,7 +1045,7 @@ void StorageManager::login(AuthorizationRef authRef, UInt32 nameLength, const ch
                 // creates the login keychain with the specified password
                 try
                 {
-                    login(nameLength, name, currItem->valueLength, currItem->value);
+                    login(nameLength, name, (UInt32)currItem->valueLength, currItem->value);
                     created = true;
                 }
                 catch(...)
@@ -1038,7 +1068,7 @@ void StorageManager::login(ConstStringPtr name, ConstStringPtr password)
 	StLock<Mutex>_(mMutex);
 
     if ( name == NULL || password == NULL )
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 
 	login(name[0], name + 1, password[0], password + 1);
 }
@@ -1049,7 +1079,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
 	if (passwordLength != 0 && password == NULL)
 	{
 		secdebug("KCLogin", "StorageManager::login: invalid argument (NULL password)");
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 
 	DLDbIdentifier loginDLDbIdentifier;
@@ -1072,7 +1102,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
     struct passwd *pw = getpwuid(uid);
     if (pw == NULL) {
         secdebug("KCLogin", "StorageManager::login: invalid argument (NULL uid)");
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
     }
     char *userName = pw->pw_name;
 
@@ -1276,7 +1306,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
     //***************************************************************
     // all our preflight fixups are finally done, so we can now attempt to unlock the login keychain
 
-    OSStatus loginResult = noErr;
+    OSStatus loginResult = errSecSuccess;
 	if (!loginUnlocked) {
         try
         {
@@ -1307,7 +1337,72 @@ void StorageManager::login(UInt32 nameLength, const void *name,
         }
     }
 
-    if (loginResult != noErr) {
+    if (loginResult != errSecSuccess) {
+        MacOSError::throwMe(loginResult);
+    }
+}
+
+void StorageManager::stashLogin()
+{
+    OSStatus loginResult = errSecSuccess;
+    
+    DLDbIdentifier loginDLDbIdentifier;
+    {
+        mSavedList.revert(true);
+        loginDLDbIdentifier = mSavedList.loginDLDbIdentifier();
+    }
+    
+	secdebug("KCLogin", "StorageManager::stash: loginDLDbIdentifier is %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+	if (!loginDLDbIdentifier)
+		MacOSError::throwMe(errSecNoSuchKeychain);
+    
+    try
+    {
+        CssmData empty;
+        Keychain theKeychain(keychain(loginDLDbIdentifier));
+        secdebug("KCLogin", "Attempting to use stash for login keychain \"%s\"",
+                 (theKeychain) ? theKeychain->name() : "<NULL>");
+        theKeychain->stashCheck();
+    }
+    catch(const CssmError &e)
+    {
+        loginResult = e.osStatus(); // save this result
+    }
+    
+    
+    if (loginResult != errSecSuccess) {
+        MacOSError::throwMe(loginResult);
+    }
+}
+
+void StorageManager::stashKeychain()
+{
+    OSStatus loginResult = errSecSuccess;
+    
+    DLDbIdentifier loginDLDbIdentifier;
+    {
+        mSavedList.revert(true);
+        loginDLDbIdentifier = mSavedList.loginDLDbIdentifier();
+    }
+    
+	secdebug("KCLogin", "StorageManager::stash: loginDLDbIdentifier is %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
+	if (!loginDLDbIdentifier)
+		MacOSError::throwMe(errSecNoSuchKeychain);
+    
+    try
+    {
+        Keychain theKeychain(keychain(loginDLDbIdentifier));
+        secdebug("KCLogin", "Attempting to stash login keychain \"%s\"",
+                 (theKeychain) ? theKeychain->name() : "<NULL>");
+        theKeychain->stash();
+    }
+    catch(const CssmError &e)
+    {
+        loginResult = e.osStatus(); // save this result
+    }
+
+
+    if (loginResult != errSecSuccess) {
         MacOSError::throwMe(loginResult);
     }
 }
@@ -1420,7 +1515,7 @@ Keychain StorageManager::make(const char *pathName, bool add)
 					if (!uid) uid = getuid();
 					struct passwd *pw = getpwuid(uid);
 					if (!pw)
-						MacOSError::throwMe(paramErr);
+						MacOSError::throwMe(errSecParam);
 					homeDir = pw->pw_dir;
 				}
 				fullPathName = homeDir;
@@ -1455,7 +1550,7 @@ Keychain StorageManager::makeLoginAuthUI(const Item *item)
     // The user can cancel out of the operation, or create a new login keychain.
     // If auto-login is turned off, the user will be asked for their login password.
     //
-    OSStatus result = noErr;
+    OSStatus result = errSecSuccess;
     Keychain keychain;	// We return this keychain.
     //
     // Set up the Auth ref to bring up UI.
@@ -1479,7 +1574,7 @@ Keychain StorageManager::makeLoginAuthUI(const Item *item)
 		//
 		// 1st Hint (optional): The keychain item's account attribute string.
 		//						When item is specified, we assume an 'add' operation is being attempted.
-		char buff[255];
+		char buff[256];
 		UInt32 actLen = 0;
 		SecKeychainAttribute attr = { kSecAccountItemAttr, 255, &buff };
 		if ( item )
@@ -1496,8 +1591,8 @@ Keychain StorageManager::makeLoginAuthUI(const Item *item)
 		currItem->name = AGENT_HINT_ATTR_NAME;	// name str that identifies this hint as attr name
 		if ( actLen )	// Fill in the hint if we have an account attr
 		{
-			if ( actLen > 255 )
-				buff[255] = 0;
+			if ( actLen >= sizeof(buff) )
+				buff[sizeof(buff)-1] = 0;
 			else
 				buff[actLen] = 0;
 			currItem->valueLength = strlen(buff)+1;
@@ -1613,7 +1708,7 @@ Keychain StorageManager::makeLoginAuthUI(const Item *item)
 		catch (...) // can throw if no existing login.keychain is found
 		{
 		}
-		login(authRef, userName.length(), userName.c_str()); // Create login.keychain
+		login(authRef, (UInt32)userName.length(), userName.c_str()); // Create login.keychain
 		keychain = loginKeychain(); // Get newly-created login keychain
 		defaultKeychain(keychain);	// Set it to be the default
 

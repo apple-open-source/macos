@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_APACHE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@
 #include <sys/syscall.h>
 #include <sys/event.h>
 #include <System/sys/fileport.h>
-#include <assumes.h>
+#include <os/assumes.h>
 
 #if HAVE_QUARANTINE
 #include <quarantine.h>
@@ -66,11 +66,6 @@
 void _vproc_transactions_enable_internal(void *arg);
 void _vproc_transaction_begin_internal(void *arg __unused);
 void _vproc_transaction_end_internal(void *arg __unused);
-
-static dispatch_once_t _vproc_transaction_once = 0;
-static uint64_t _vproc_transaction_enabled = 0;
-static dispatch_queue_t _vproc_transaction_queue = NULL;
-static int64_t _vproc_transaction_cnt = 0;
 
 #pragma mark vproc Object
 struct vproc_s {
@@ -127,47 +122,66 @@ vproc_release(vproc_t vp)
 static void
 _vproc_transaction_init_once(void *arg __unused)
 {
+	launch_globals_t globals = _launch_globals();
+
 	int64_t enable_transactions = 0;
 	(void)vproc_swap_integer(NULL, VPROC_GSK_TRANSACTIONS_ENABLED, 0, &enable_transactions);
 	if (enable_transactions != 0) {
-		(void)osx_assumes_zero(proc_track_dirty(getpid(), PROC_DIRTY_TRACK));
-		_vproc_transaction_enabled = 1;
+		(void)os_assumes_zero(proc_track_dirty(getpid(), PROC_DIRTY_TRACK));
+		globals->_vproc_transaction_enabled = 1;
 	}
-	_vproc_transaction_queue = dispatch_queue_create("com.apple.idle-exit-queue", NULL);
+	globals->_vproc_transaction_queue = dispatch_queue_create("com.apple.idle-exit-queue", NULL);
 }
 
 void
 _vproc_transactions_enable_internal(void *arg __unused)
 {
-	(void)osx_assumes_zero(proc_track_dirty(getpid(), PROC_DIRTY_TRACK));
-	_vproc_transaction_enabled = 1;
+	launch_globals_t globals = _launch_globals();
 
-	if (_vproc_transaction_cnt > 0) {
-		(void)osx_assumes_zero(proc_set_dirty(getpid(), true));
+	if (!globals->_vproc_transaction_enabled) {
+		(void)os_assumes_zero(proc_track_dirty(getpid(), PROC_DIRTY_TRACK));
+		globals->_vproc_transaction_enabled = 1;
+	}
+
+	if (globals->_vproc_transaction_cnt > 0) {
+		(void)os_assumes_zero(proc_set_dirty(getpid(), true));
 	}
 }
 
 void
 _vproc_transactions_enable(void)
 {
-	dispatch_once_f(&_vproc_transaction_once, NULL, _vproc_transaction_init_once);
-	dispatch_sync_f(_vproc_transaction_queue, NULL, _vproc_transactions_enable_internal);
+	launch_globals_t globals = _launch_globals();
+
+	dispatch_once_f(&globals->_vproc_transaction_once, NULL, _vproc_transaction_init_once);
+	dispatch_sync_f(globals->_vproc_transaction_queue, NULL, _vproc_transactions_enable_internal);
 }
 
 void
 _vproc_transaction_begin_internal(void *ctx __unused)
 {
-	int64_t new = ++_vproc_transaction_cnt;
-	if (new == 1 && _vproc_transaction_enabled) {
-		(void)osx_assumes_zero(proc_set_dirty(getpid(), true));
+	launch_globals_t globals = _launch_globals();
+
+	int64_t new = ++globals->_vproc_transaction_cnt;
+	if (!globals->_vproc_transaction_enabled || new > 1) {
+		return;
 	}
+
+	if (new < 1) {
+		_vproc_set_crash_log_message("Underflow of transaction count.");
+		abort();
+	}
+
+	(void)os_assumes_zero(proc_set_dirty(getpid(), true));
 }
 
 void
 _vproc_transaction_begin(void)
 {
-	dispatch_once_f(&_vproc_transaction_once, NULL, _vproc_transaction_init_once);
-	dispatch_sync_f(_vproc_transaction_queue, NULL, _vproc_transaction_begin_internal);
+	launch_globals_t globals = _launch_globals();
+
+	dispatch_once_f(&globals->_vproc_transaction_once, NULL, _vproc_transaction_init_once);
+	dispatch_sync_f(globals->_vproc_transaction_queue, NULL, _vproc_transaction_begin_internal);
 }
 
 vproc_transaction_t
@@ -178,25 +192,64 @@ vproc_transaction_begin(vproc_t vp __unused)
 	/* Return non-NULL on success. Originally, there were dreams of returning
 	 * an object or something, but those never panned out.
 	 */
-	return (vproc_transaction_t)vproc_transaction_begin;;
+	return (vproc_transaction_t)vproc_transaction_begin;
+}
+
+void _vproc_transaction_end_flush(void);
+
+void
+_vproc_transaction_end_internal2(void *ctx)
+{
+	launch_globals_t globals = _launch_globals();
+
+	globals->_vproc_gone2zero_callout(ctx);
+	_vproc_transaction_end_flush();
 }
 
 void
-_vproc_transaction_end_internal(void *arg __unused)
+_vproc_transaction_end_internal(void *arg)
 {
-	int64_t new = --_vproc_transaction_cnt;
-	if (new == 0 && _vproc_transaction_enabled) {
-		(void)osx_assumes_zero(proc_set_dirty(getpid(), false));
-	} else if (new < 0) {
-		_vproc_set_crash_log_message("Underflow of transaction count.");
+	launch_globals_t globals = _launch_globals();
+
+	int64_t new = --globals->_vproc_transaction_cnt;
+	if (!globals->_vproc_transaction_enabled || new > 0) {
+		return;
 	}
+
+	if (new < 0) {
+		_vproc_set_crash_log_message("Underflow of transaction count.");
+		abort();
+	}
+
+	if (globals->_vproc_gone2zero_callout && !arg) {
+		globals->_vproc_transaction_cnt = 1;
+		dispatch_async_f(globals->_vproc_gone2zero_queue, globals->_vproc_gone2zero_ctx, _vproc_transaction_end_internal2);
+	} else {
+		(void)os_assumes_zero(proc_set_dirty(getpid(), false));
+	}
+}
+
+void
+_vproc_transaction_end_flush2(void *ctx __unused)
+{
+	_vproc_transaction_end_internal((void *)1);
+}
+
+void
+_vproc_transaction_end_flush(void)
+{
+	launch_globals_t globals = _launch_globals();
+
+	dispatch_sync_f(globals->_vproc_transaction_queue, NULL, _vproc_transaction_end_flush2);
 }
 
 void
 _vproc_transaction_end(void)
 {
-	dispatch_once_f(&_vproc_transaction_once, NULL, _vproc_transaction_init_once);
-	dispatch_sync_f(_vproc_transaction_queue, NULL, _vproc_transaction_end_internal);
+	launch_globals_t globals = _launch_globals();
+
+	dispatch_once_f(&globals->_vproc_transaction_once, NULL, _vproc_transaction_init_once);
+	dispatch_sync_f(globals->_vproc_transaction_queue, NULL, _vproc_transaction_end_internal);
 }
 
 void
@@ -208,7 +261,9 @@ vproc_transaction_end(vproc_t vp __unused, vproc_transaction_t vpt __unused)
 size_t
 _vproc_transaction_count(void)
 {
-	return _vproc_transaction_cnt;
+	launch_globals_t globals = _launch_globals();
+
+	return globals->_vproc_transaction_cnt;
 }
 
 size_t
@@ -264,14 +319,14 @@ _vproc_transaction_count_for_pid(pid_t p, int32_t *count, bool *condemned)
 			error = ret;
 		}
 	}
-	
 	return error;
 }
 void
 _vproc_transaction_try_exit(int status)
 {
 #if !TARGET_OS_EMBEDDED
-	if (_vproc_transaction_cnt == 0) {
+	launch_globals_t globals = _launch_globals();
+	if (globals->_vproc_transaction_cnt == 0) {
 		_exit(status);
 	}
 #else
@@ -297,21 +352,17 @@ _vproc_standby_end(void)
 
 }
 
-/* TODO: obsoleted - remove post-build submission */
-
-int32_t *
-_vproc_transaction_ptr(void)
-{
-	static int32_t dummy = 1;
-	return &dummy;
-}
-
 void
-_vproc_transaction_set_callouts(_vproc_transaction_callout gone2zero __unused, _vproc_transaction_callout gonenonzero __unused)
+_vproc_transaction_set_clean_callback(dispatch_queue_t targetq, void *ctx, dispatch_function_t func)
 {
-}
+	launch_globals_t globals = _launch_globals();
 
-/* */
+	globals->_vproc_gone2zero_queue = targetq;
+	dispatch_retain(targetq);
+
+	globals->_vproc_gone2zero_callout = func;
+	globals->_vproc_gone2zero_ctx = ctx;
+}
 
 void
 vproc_standby_end(vproc_t vp __unused, vproc_standby_t vpt __unused)
@@ -428,39 +479,18 @@ _vprocmgr_detach_from_console(vproc_flags_t flags __attribute__((unused)))
 vproc_err_t
 _vproc_post_fork_ping(void)
 {
-#if !TARGET_OS_EMBEDDED
-	au_asid_t s = AU_DEFAUDITSID;
-	do {
-		mach_port_t session = MACH_PORT_NULL;
-		kern_return_t kr = vproc_mig_post_fork_ping(bootstrap_port, mach_task_self(), &session);
-		if (kr != KERN_SUCCESS) {
-			/* If this happens, our bootstrap port probably got hosed. */
-			_vproc_log(LOG_ERR, "Post-fork ping failed!");
-			break;
-		}
-
-		/* If we get back MACH_PORT_NULL, that means we just stick with the session
-		 * we inherited across fork(2).
-		 */
-		if (session == MACH_PORT_NULL) {
-			s = ~AU_DEFAUDITSID;
-			break;
-		}
-
-		s = _audit_session_join(session);
-		if (s == 0) {
-			_vproc_log_error(LOG_ERR, "Could not join security session!");
-			s = AU_DEFAUDITSID;
-		} else {
-			_vproc_log(LOG_DEBUG, "Joined session %d.", s);
-		}
-	} while (0);
-
-	return s != AU_DEFAUDITSID ? NULL : _vproc_post_fork_ping;
-#else
 	mach_port_t session = MACH_PORT_NULL;
-	return vproc_mig_post_fork_ping(bootstrap_port, mach_task_self(), &session) ? _vproc_post_fork_ping : NULL;
-#endif
+	kern_return_t kr = vproc_mig_post_fork_ping(bootstrap_port, mach_task_self(), &session);
+	if (kr) {
+		return _vproc_post_fork_ping;
+	}
+
+	if (session) {
+		(void)_audit_session_join(session);
+		(void)mach_port_deallocate(mach_task_self(), session);
+	}
+
+	return NULL;
 }
 
 vproc_err_t
@@ -554,10 +584,6 @@ _spawn_via_launchd(const char *label, const char *const *argv, const struct spaw
 		}
 		if (spawn_attrs->spawn_flags & SPAWN_VIA_LAUNCHD_TALAPP) {
 			tmp = launch_data_new_string(LAUNCH_KEY_POSIXSPAWNTYPE_TALAPP);
-			launch_data_dict_insert(in_obj, tmp, LAUNCH_JOBKEY_POSIXSPAWNTYPE);
-		}
-		if (spawn_attrs->spawn_flags & SPAWN_VIA_LAUNCHD_WIDGET) {
-			tmp = launch_data_new_string(LAUNCH_KEY_POSIXSPAWNTYPE_WIDGET);
 			launch_data_dict_insert(in_obj, tmp, LAUNCH_JOBKEY_POSIXSPAWNTYPE);
 		}
 		if (spawn_attrs->spawn_flags & SPAWN_VIA_LAUNCHD_DISABLE_ASLR) {
@@ -955,7 +981,7 @@ union maxmsgsz {
 	union __ReplyUnion__helper_downcall_launchd_helper_subsystem rep;
 };
 
-size_t vprocmgr_helper_maxmsgsz = sizeof(union maxmsgsz);
+const size_t vprocmgr_helper_maxmsgsz = sizeof(union maxmsgsz);
 
 kern_return_t
 helper_recv_wait(mach_port_t p, int status)

@@ -122,6 +122,38 @@
 			<key>bInterfaceSubClass</key>
 			<integer>3</integer>
 		</dict>
+		<key>IOUSBMassStorageClass5</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBMassStorageClass</string>
+			<key>SCSI Device Characteristics</key>
+			<dict>
+				<key>Inquiry Length</key>
+				<integer>36</integer>
+				<key>Manual Eject</key>
+				<string>true</string>
+				<key>IOMaximumBlockCountRead</key>
+				<integer>128</integer>
+				<key>IOMaximumBlockCountWrite</key>
+				<integer>128</integer>
+			</dict>
+			<key>IOClass</key>
+			<string>IOUSBMassStorageClass</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>Physical Interconnect</key>
+			<string>USB</string>
+			<key>Physical Interconnect Location</key>
+			<string>External</string>
+			<key>Read Time Out Duration</key>
+			<integer>30000</integer>
+			<key>Write Time Out Duration</key>
+			<integer>30000</integer>
+			<key>bInterfaceClass</key>
+			<integer>8</integer>
+			<key>bInterfaceSubClass</key>
+			<integer>5</integer>
+		</dict>
 		<key>IOUSBMassStorageClass6</key>
 		<dict>
 			<key>SCSI Device Characteristics</key>

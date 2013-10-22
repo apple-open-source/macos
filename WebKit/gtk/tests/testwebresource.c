@@ -17,13 +17,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "autotoolsconfig.h"
 #include <glib.h>
 #include <gtk/gtk.h>
 #include <libsoup/soup.h>
 #include <string.h>
 #include <webkit/webkit.h>
-
-#if GTK_CHECK_VERSION(2, 14, 0)
 
 #define INDEX_HTML "<html></html>"
 #define MAIN_HTML "<html><head><script language=\"javascript\" src=\"/javascript.js\"></script></head><body><h1>hah</h1></html>"
@@ -330,12 +329,3 @@ int main(int argc, char** argv)
 
     return g_test_run ();
 }
-
-#else
-int main(int argc, char** argv)
-{
-    g_critical("You will need gtk-2.14.0 to run the unit tests. Doing nothing now.");
-    return 0;
-}
-
-#endif

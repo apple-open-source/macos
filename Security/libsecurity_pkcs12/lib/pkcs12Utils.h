@@ -33,7 +33,6 @@
 #include <security_pkcs12/pkcs12Templates.h>
 #include <Security/cssmerr.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -175,7 +174,7 @@ void p12ImportPassPhrase(
  * P12_ENCODE_ERR only occurs on DER-encode which should never fail. 
  */
 #define P12_DECODE_ERR		errSecUnknownFormat
-#define P12_ENCODE_ERR		internalComponentErr
+#define P12_ENCODE_ERR		errSecInternalComponent
 #define P12_THROW_DECODE	MacOSError::throwMe(P12_DECODE_ERR)
 #define P12_THROW_ENCODE	MacOSError::throwMe(P12_ENCODE_ERR)
 

@@ -66,7 +66,7 @@ typedef void (*PRF)(const uint8_t *keyPtr, size_t keyLen,
 void pbkdf2 (PRF prf, size_t hLen,
 			 const void *passwordPtr, size_t passwordLen,
 			 const void *saltPtr, size_t saltLen,
-			 uint32_t iterationCount,
+			 size_t iterationCount,
 			 void *dkPtr, size_t dkLen,
 			 void *tempBuffer);
 

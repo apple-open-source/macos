@@ -1,60 +1,45 @@
 #
 # tmpdir - retrieve temporary directory path
 #
-# $Id: tmpdir.rb 21776 2009-01-26 02:12:10Z shyouhei $
+# $Id: tmpdir.rb 38348 2012-12-12 12:40:51Z nobu $
 #
 
 require 'fileutils'
+begin
+  require 'etc.so'
+rescue LoadError
+end
 
 class Dir
 
-  @@systmpdir = Dir.const_defined?(:NS_TMPDIR) ? Dir::NS_TMPDIR : '/tmp'
-
-  begin
-    require 'Win32API'
-    CSIDL_LOCAL_APPDATA = 0x001c
-    max_pathlen = 260
-    windir = "\0"*(max_pathlen+1)
-    begin
-      getdir = Win32API.new('shell32', 'SHGetFolderPath', 'LLLLP', 'L')
-      raise RuntimeError if getdir.call(0, CSIDL_LOCAL_APPDATA, 0, 0, windir) != 0
-      windir = File.expand_path(windir.rstrip)
-    rescue RuntimeError
-      begin
-        getdir = Win32API.new('kernel32', 'GetSystemWindowsDirectory', 'PL', 'L')
-      rescue RuntimeError
-        getdir = Win32API.new('kernel32', 'GetWindowsDirectory', 'PL', 'L')
-      end
-      len = getdir.call(windir, windir.size)
-      windir = File.expand_path(windir[0, len])
-    end
-    temp = File.join(windir.untaint, 'temp')
-    @@systmpdir = temp if File.directory?(temp) and File.writable?(temp)
-  rescue LoadError
-  end
+  @@systmpdir ||= defined?(Etc.systmpdir) ? Etc.systmpdir : '/tmp'
 
   ##
   # Returns the operating system's temporary file path.
 
   def Dir::tmpdir
-    tmp = '.'
     if $SAFE > 0
       tmp = @@systmpdir
     else
-      for dir in [ENV['TMPDIR'], ENV['TMP'], ENV['TEMP'],
-	          ENV['USERPROFILE'], @@systmpdir, '/tmp']
-	if dir and File.directory?(dir) and File.writable?(dir)
-	  tmp = dir
-	  break
-	end
+      tmp = nil
+      for dir in [ENV['TMPDIR'], ENV['TMP'], ENV['TEMP'], @@systmpdir, '/tmp', '.']
+        next if !dir
+        dir = File.expand_path(dir)
+        if stat = File.stat(dir) and stat.directory? and stat.writable? and
+            (!stat.world_writable? or stat.sticky?)
+          tmp = dir
+          break
+        end rescue nil
       end
-      File.expand_path(tmp)
+      raise ArgumentError, "could not find a temporary directory" if !tmp
+      tmp
     end
   end
 
   # Dir.mktmpdir creates a temporary directory.
   #
   # The directory is created with 0700 permission.
+  # Application should not change the permission to make the temporary directory accesible from other users.
   #
   # The prefix and suffix of the name of the directory is specified by
   # the optional first argument, <i>prefix_suffix</i>.
@@ -75,7 +60,7 @@ class Dir
   # If a block is given,
   # it is yielded with the path of the directory.
   # The directory and its contents are removed
-  # using FileUtils.remove_entry_secure before Dir.mktmpdir returns.
+  # using FileUtils.remove_entry before Dir.mktmpdir returns.
   # The value of the block is returned.
   #
   #  Dir.mktmpdir {|dir|
@@ -93,44 +78,74 @@ class Dir
   #    open("#{dir}/foo", "w") { ... }
   #  ensure
   #    # remove the directory.
-  #    FileUtils.remove_entry_secure dir
+  #    FileUtils.remove_entry dir
   #  end
   #
-  def Dir.mktmpdir(prefix_suffix=nil, tmpdir=nil)
-    case prefix_suffix
-    when nil
-      prefix = "d"
-      suffix = ""
-    when String
-      prefix = prefix_suffix
-      suffix = ""
-    when Array
-      prefix = prefix_suffix[0]
-      suffix = prefix_suffix[1]
-    else
-      raise ArgumentError, "unexpected prefix_suffix: #{prefix_suffix.inspect}"
-    end
-    tmpdir ||= Dir.tmpdir
-    t = Time.now.strftime("%Y%m%d")
-    n = nil
-    begin
-      path = "#{tmpdir}/#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}"
-      path << "-#{n}" if n
-      path << suffix
-      Dir.mkdir(path, 0700)
-    rescue Errno::EEXIST
-      n ||= 0
-      n += 1
-      retry
-    end
-
+  def Dir.mktmpdir(prefix_suffix=nil, *rest)
+    path = Tmpname.create(prefix_suffix || "d", *rest) {|n| mkdir(n, 0700)}
     if block_given?
       begin
         yield path
       ensure
-        FileUtils.remove_entry_secure path
+        stat = File.stat(File.dirname(path))
+        if stat.world_writable? and !stat.sticky?
+          raise ArgumentError, "parent directory is world writable but not sticky"
+        end
+        FileUtils.remove_entry path
       end
     else
+      path
+    end
+  end
+
+  module Tmpname # :nodoc:
+    module_function
+
+    def tmpdir
+      Dir.tmpdir
+    end
+
+    def make_tmpname(prefix_suffix, n)
+      case prefix_suffix
+      when String
+        prefix = prefix_suffix
+        suffix = ""
+      when Array
+        prefix = prefix_suffix[0]
+        suffix = prefix_suffix[1]
+      else
+        raise ArgumentError, "unexpected prefix_suffix: #{prefix_suffix.inspect}"
+      end
+      t = Time.now.strftime("%Y%m%d")
+      path = "#{prefix}#{t}-#{$$}-#{rand(0x100000000).to_s(36)}"
+      path << "-#{n}" if n
+      path << suffix
+    end
+
+    def create(basename, *rest)
+      if opts = Hash.try_convert(rest[-1])
+        opts = opts.dup if rest.pop.equal?(opts)
+        max_try = opts.delete(:max_try)
+        opts = [opts]
+      else
+        opts = []
+      end
+      tmpdir, = *rest
+      if $SAFE > 0 and tmpdir.tainted?
+        tmpdir = '/tmp'
+      else
+        tmpdir ||= tmpdir()
+      end
+      n = nil
+      begin
+        path = File.join(tmpdir, make_tmpname(basename, n))
+        yield(path, n, *opts)
+      rescue Errno::EEXIST
+        n ||= 0
+        n += 1
+        retry if !max_try or n < max_try
+        raise "cannot generate temporary name using `#{basename}' under `#{tmpdir}'"
+      end
       path
     end
   end

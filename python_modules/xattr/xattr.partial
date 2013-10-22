@@ -2,13 +2,13 @@
         <key>OpenSourceProject</key>
         <string>xattr</string>
         <key>OpenSourceVersion</key>
-        <string>0.6.2</string>
+        <string>0.6.4</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://pypi.python.org/pypi/xattr/0.6.2</string>
+        <string>http://pypi.python.org/pypi/xattr/</string>
         <key>OpenSourceURL</key>
-        <string>http://pypi.python.org/packages/source/x/xattr/xattr-0.6.2.tar.gz#md5=5fc899150d03c082558455483fc0f89f</string>
+        <string>http://pypi.python.org/packages/source/x/xattr/xattr-0.6.4.tar.gz</string>
         <key>OpenSourceImportDate</key>
-        <string>2011-11-14</string>
+        <string>2012-11-11</string>
         <key>OpenSourceLicense</key>
         <string>PSFL</string>
         <key>OpenSourceLicenseFile</key>
@@ -21,5 +21,5 @@
 		<string>hex input for -w with -x flag</string>
 	</array>	
         <key>OpenSourceMD5</key>
-        <string>5fc899150d03c082558455483fc0f89f</string>
+        <string>1bef31afb7038800f8d5cfa2f4562b37</string>
 </dict>

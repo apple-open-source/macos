@@ -34,48 +34,63 @@
 #include "JITExceptions.h"
 #include "LLIntCommon.h"
 #include "LowLevelInterpreter.h"
+#include "Operations.h"
 
 namespace JSC { namespace LLInt {
 
+static void fixupPCforExceptionIfNeeded(ExecState* exec)
+{
+    CodeBlock* codeBlock = exec->codeBlock();
+    ASSERT(!!codeBlock);
+    Instruction* pc = exec->currentVPC();
+    exec->setCurrentVPC(codeBlock->adjustPCIfAtCallSite(pc));
+}
+
 void interpreterThrowInCaller(ExecState* exec, ReturnAddressPtr pc)
 {
-    JSGlobalData* globalData = &exec->globalData();
-    NativeCallFrameTracer tracer(globalData, exec);
+    VM* vm = &exec->vm();
+    NativeCallFrameTracer tracer(vm, exec);
 #if LLINT_SLOW_PATH_TRACING
-    dataLog("Throwing exception %s.\n", globalData->exception.description());
+    dataLog("Throwing exception ", vm->exception, ".\n");
 #endif
+    fixupPCforExceptionIfNeeded(exec);
     genericThrow(
-        globalData, exec, globalData->exception,
+        vm, exec, vm->exception,
         exec->codeBlock()->bytecodeOffset(exec, pc));
 }
 
 Instruction* returnToThrowForThrownException(ExecState* exec)
 {
-    return exec->globalData().llintData.exceptionInstructions();
+    UNUSED_PARAM(exec);
+    return LLInt::exceptionInstructions();
+}
+
+static void doThrow(ExecState* exec, Instruction* pc)
+{
+    VM* vm = &exec->vm();
+    NativeCallFrameTracer tracer(vm, exec);
+    fixupPCforExceptionIfNeeded(exec);
+    genericThrow(vm, exec, vm->exception, pc - exec->codeBlock()->instructions().begin());
 }
 
 Instruction* returnToThrow(ExecState* exec, Instruction* pc)
 {
-    JSGlobalData* globalData = &exec->globalData();
-    NativeCallFrameTracer tracer(globalData, exec);
 #if LLINT_SLOW_PATH_TRACING
-    dataLog("Throwing exception %s (returnToThrow).\n", globalData->exception.description());
+    VM* vm = &exec->vm();
+    dataLog("Throwing exception ", vm->exception, " (returnToThrow).\n");
 #endif
-    genericThrow(globalData, exec, globalData->exception, pc - exec->codeBlock()->instructions().begin());
-    
-    return globalData->llintData.exceptionInstructions();
+    doThrow(exec, pc);
+    return LLInt::exceptionInstructions();
 }
 
 void* callToThrow(ExecState* exec, Instruction* pc)
 {
-    JSGlobalData* globalData = &exec->globalData();
-    NativeCallFrameTracer tracer(globalData, exec);
 #if LLINT_SLOW_PATH_TRACING
-    dataLog("Throwing exception %s (callToThrow).\n", globalData->exception.description());
+    VM* vm = &exec->vm();
+    dataLog("Throwing exception ", vm->exception, " (callToThrow).\n");
 #endif
-    genericThrow(globalData, exec, globalData->exception, pc - exec->codeBlock()->instructions().begin());
-    
-    return bitwise_cast<void*>(&llint_throw_during_call_trampoline);
+    doThrow(exec, pc);
+    return LLInt::getCodePtr(llint_throw_during_call_trampoline);
 }
 
 } } // namespace JSC::LLInt

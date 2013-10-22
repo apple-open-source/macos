@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,6 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
-#include <SystemConfiguration/LinkConfiguration.h>
 #include <SystemConfiguration/SCDPlugin.h>		// for _SCDPluginExecCommand
 
 #include "SCNetworkConfigurationInternal.h"
@@ -785,7 +784,7 @@ main(int argc, char **argv)
 					service = CFArrayGetValueAtIndex(services, i);
 					interface = SCNetworkServiceGetInterface(service);
 					if ((interface != NULL) &&
-					    !CFSetContainsValue(seen, interface)){
+					    !CFSetContainsValue(seen, interface)) {
 						CFDictionaryRef	capabilities;
 
 						capabilities = SCNetworkInterfaceCopyCapability(interface, NULL);

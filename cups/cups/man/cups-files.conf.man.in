@@ -1,5 +1,5 @@
 .\"
-.\" "$Id: cups-files.conf.man.in 4188 2013-02-20 02:30:47Z msweet $"
+.\" "$Id: cups-files.conf.man.in 11203 2013-07-26 21:32:33Z msweet $"
 .\"
 .\"   cupsd.conf man page for CUPS.
 .\"
@@ -12,13 +12,13 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH cups-files.conf 5 "CUPS" "19 November 2012" "Apple Inc."
+.TH cups-files.conf 5 "CUPS" "26 July 2013" "Apple Inc."
 .SH NAME
 cups-files.conf \- file and directory configuration file for cups
 .SH DESCRIPTION
 The \fIcups-files.conf\fR file configures the files and directories used by the
 CUPS scheduler, \fIcupsd(8)\fR.  It is normally located in the
-\fI@CUPS_SERVERROOT@\fR directory.
+\fI/etc/cups\fR directory.
 .LP
 Each line in the file can be a configuration directive, a blank line,
 or a comment. Comment lines start with the # character.
@@ -122,6 +122,12 @@ ServerRoot directory
 .br
 Specifies the directory where the server configuration files can be found.
 .TP 5
+SyncOnClose Yes
+.TP 5
+SyncOnClose No
+Specifies whether the scheduler calls \fIfsync(2)\fR after writing configuration
+or state files. The default is No.
+.TP 5
 SystemGroup group-name [group-name ...]
 .br
 Specifies the group(s) to use for System class authentication.
@@ -142,5 +148,5 @@ http://localhost:631/help
 .SH COPYRIGHT
 Copyright 2007-2013 by Apple Inc.
 .\"
-.\" End of "$Id: cups-files.conf.man.in 4188 2013-02-20 02:30:47Z msweet $".
+.\" End of "$Id: cups-files.conf.man.in 11203 2013-07-26 21:32:33Z msweet $".
 .\"

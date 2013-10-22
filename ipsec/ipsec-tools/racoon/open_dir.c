@@ -39,11 +39,11 @@
 #define BUF_LEN 		1024
 
 
-static tDirStatus open_dir_get_search_node_ref(tDirReference dirRef, unsigned long index, 
+static tDirStatus open_dir_get_search_node_ref (tDirReference dirRef, unsigned long index, 
                 tDirNodeReference *searchNodeRef, unsigned long *count);
-static tDirStatus open_dir_get_user_attr(tDirReference dirRef, tDirNodeReference searchNodeRef, char *user_name, 
+static tDirStatus open_dir_get_user_attr (tDirReference dirRef, tDirNodeReference searchNodeRef, char *user_name, 
                 char *attr, tAttributeValueEntryPtr *attr_value);
-static tDirStatus open_dir_check_group_membership(tDirReference dirRef, tDirNodeReference searchNodeRef, 
+static tDirStatus open_dir_check_group_membership (tDirReference dirRef, tDirNodeReference searchNodeRef, 
                 char *group_name, char *user_name, char *userGID, int *authorized);
 
 
@@ -64,12 +64,12 @@ int open_dir_authorize_id(vchar_t *id, vchar_t *group)
     char*					group_name = NULL;
     
     if (id == 0 || id->l < 1) {
-        plog(LLV_ERROR, LOCATION, NULL, "invalid user name.\n");
+        plog(ASL_LEVEL_ERR, "invalid user name.\n");
         goto end;
     }	
    	user_name = racoon_malloc(id->l + 1);
    	if (user_name == NULL) {
-   		plog(LLV_ERROR, LOCATION, NULL, "out of memory - unable to allocate space for user name.\n");
+   		plog(ASL_LEVEL_ERR, "out of memory - unable to allocate space for user name.\n");
    		goto end;
    	}
    	bcopy(id->v, user_name, id->l);
@@ -78,7 +78,7 @@ int open_dir_authorize_id(vchar_t *id, vchar_t *group)
    	if (group && group->l > 0) {
    		group_name = racoon_malloc(group->l + 1);
    		if (group_name == NULL) {
-   			plog(LLV_NOTIFY, LOCATION, NULL, "out of memeory - unable to allocate space for group name.\n");
+   			plog(ASL_LEVEL_ERR, "out of memeory - unable to allocate space for group name.\n");
    			goto end;
    		}
    		bcopy(group->v, group_name, group->l);
@@ -89,7 +89,7 @@ int open_dir_authorize_id(vchar_t *id, vchar_t *group)
         // get the search node ref
         if ((dsResult = open_dir_get_search_node_ref(dirRef, 1, &searchNodeRef, &searchNodeCount)) == eDSNoErr) {
             // get the user's primary group ID
-           	if (dsResult = open_dir_get_user_attr(dirRef, searchNodeRef, user_name, kDSNAttrRecordName, &recordName) == eDSNoErr) {
+           	if ((dsResult = open_dir_get_user_attr(dirRef, searchNodeRef, user_name, kDSNAttrRecordName, &recordName)) == eDSNoErr) {
            		if (recordName != 0) {
            			if (group_name != 0) {
 						if ((dsResult = open_dir_get_user_attr(dirRef, searchNodeRef, user_name, kDS1AttrPrimaryGroupID, &groupID)) == eDSNoErr) {
@@ -112,9 +112,9 @@ int open_dir_authorize_id(vchar_t *id, vchar_t *group)
 
 end:    
     if (authorized)
-        plog(LLV_NOTIFY, LOCATION, NULL, "User '%s' authorized for access\n", user_name);
+        plog(ASL_LEVEL_NOTICE, "User '%s' authorized for access\n", user_name);
     else
-        plog(LLV_NOTIFY, LOCATION, NULL, "User '%s' not authorized for access\n", user_name);
+        plog(ASL_LEVEL_NOTICE, "User '%s' not authorized for access\n", user_name);
     if (user_name)
     	free(user_name);
     if (group_name)
@@ -141,17 +141,17 @@ static tDirStatus open_dir_get_search_node_ref(tDirReference dirRef, unsigned lo
     
     // allocate required buffers and data lists
     if ((searchNodeDataBufferPtr = dsDataBufferAllocate(dirRef, BUF_LEN)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataBuffer\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataBuffer\n");
         goto cleanup;
     }
     if ((searchNodeNameDataListPtr = dsDataListAllocate(dirRef)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataList\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataList\n");
         goto cleanup;
     }
         
     // find authentication search node(s)
     if ((dsResult = dsFindDirNodes(dirRef, searchNodeDataBufferPtr, 0, eDSAuthenticationSearchNodeName, 
-                                                                &outNodeCount, &continueData)) == eDSNoErr) {
+                                                                (UInt32*)&outNodeCount, &continueData)) == eDSNoErr) {
         if (outNodeCount != 0) {
                             
             // get the seach node name and open the node
@@ -197,26 +197,26 @@ static tDirStatus open_dir_get_user_attr(tDirReference dirRef, tDirNodeReference
     *attr_value	= 0;
                                              
     if ((userRcdDataBufferPtr = dsDataBufferAllocate(dirRef, BUF_LEN)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataBuffer\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataBuffer\n");
         goto cleanup;
     }
     if ((recordNameDataListPtr = dsBuildListFromStrings(dirRef, user_name, 0)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataList\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataList\n");
         goto cleanup;
     }
     if ((recordTypeDataListPtr = dsBuildListFromStrings(dirRef, kDSStdRecordTypeUsers, 0)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataList\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataList\n");
         goto cleanup;
     }
     if ((attrTypeDataListPtr = dsBuildListFromStrings(dirRef, kDSNAttrRecordName, kDS1AttrDistinguishedName, attr, 0)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataList\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataList\n");
         goto cleanup;
     }
                                                                  
     // find the user record(s), extracting the user name and requested attribute
     do {
         dsResult = dsGetRecordList(searchNodeRef, userRcdDataBufferPtr, recordNameDataListPtr, eDSExact,
-                    recordTypeDataListPtr, attrTypeDataListPtr, 0, &outRecordCount, &continueData);
+                    recordTypeDataListPtr, attrTypeDataListPtr, 0, (UInt32*)&outRecordCount, &continueData);
         
         // if buffer too small - allocate a larger one
         if (dsResult == eDSBufferTooSmall) {
@@ -224,7 +224,7 @@ static tDirStatus open_dir_get_user_attr(tDirReference dirRef, tDirNodeReference
             
             dsDataBufferDeAllocate(dirRef, userRcdDataBufferPtr);
             if ((userRcdDataBufferPtr = dsDataBufferAllocate(dirRef, size)) == 0) {
-                plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataBuffer\n");
+                plog(ASL_LEVEL_ERR, "Could not allocate tDataBuffer\n");
 		dsResult = -1;
 		goto cleanup;
             }
@@ -325,33 +325,33 @@ static tDirStatus open_dir_check_group_membership(tDirReference dirRef, tDirNode
     *authorized	= 0;
                                              
     if ((groupRcdDataBufferPtr = dsDataBufferAllocate(dirRef, BUF_LEN)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataBuffer\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataBuffer\n");
         goto cleanup;
     }
     if ((recordNameDataListPtr = dsBuildListFromStrings(dirRef, group_name, 0)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataList\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataList\n");
         goto cleanup;
     }
     if ((recordTypeDataListPtr = dsBuildListFromStrings(dirRef, kDSStdRecordTypeGroups, 0)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataList\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataList\n");
         goto cleanup;
     }
     if ((attrTypeDataListPtr = dsBuildListFromStrings(dirRef, kDS1AttrPrimaryGroupID, kDSNAttrGroupMembership, 0)) == 0) {
-        plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataList\n");
+        plog(ASL_LEVEL_ERR, "Could not allocate tDataList\n");
         goto cleanup;
     }
 
     // find the group record, extracting the group ID and group membership attribute
     do {
         dsResult = dsGetRecordList(searchNodeRef, groupRcdDataBufferPtr, recordNameDataListPtr, eDSExact,
-                            recordTypeDataListPtr, attrTypeDataListPtr, 0, &outRecordCount, &continueData);
+                            recordTypeDataListPtr, attrTypeDataListPtr, 0, (UInt32*)&outRecordCount, &continueData);
         // if buffer too small - allocate a larger one
         if (dsResult == eDSBufferTooSmall) {
             u_int32_t	size = groupRcdDataBufferPtr->fBufferSize * 2;
             
             dsDataBufferDeAllocate(dirRef, groupRcdDataBufferPtr);
             if ((groupRcdDataBufferPtr = dsDataBufferAllocate(dirRef, size)) == 0) {
-                plog(LLV_ERROR, LOCATION, NULL, "Could not allocate tDataBuffer\n");
+                plog(ASL_LEVEL_ERR, "Could not allocate tDataBuffer\n");
                 dsResult = -1;
                 goto cleanup;
             }

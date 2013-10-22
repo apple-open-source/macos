@@ -49,13 +49,13 @@ esac
 # libtoolize on Darwin systems is glibtoolize
 (glibtoolize --version) < /dev/null > /dev/null 2>&1 && LIBTOOLIZE=glibtoolize || LIBTOOLIZE=libtoolize
 
-$LIBTOOLIZE --force
+$LIBTOOLIZE --force --copy
 aclocal${AUTOMAKE_SUFFIX} $ACLOCAL_FLAGS
 
 # optionally feature autoheader
 (autoheader${AUTOCONF_SUFFIX} --version)  < /dev/null > /dev/null 2>&1 && autoheader${AUTOCONF_SUFFIX}
 
-automake${AUTOMAKE_SUFFIX} -a $am_opt
+automake${AUTOMAKE_SUFFIX} -a -c $am_opt
 autoconf${AUTOCONF_SUFFIX}
 cd $ORIGDIR
 

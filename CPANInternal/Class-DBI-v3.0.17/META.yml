@@ -1,0 +1,21 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Class-DBI
+version:      v3.0.17
+version_from: lib/Class/DBI.pm
+installdirs:  site
+requires:
+    Class::Accessor:               0.18
+    Class::Data::Inheritable:      0.02
+    Class::Trigger:                0.07
+    Clone:                         0
+    File::Temp:                    0.12
+    Ima::DBI:                      0.33
+    List::Util:                    1.00
+    Scalar::Util:                  1.08
+    Test::More:                    0.47
+    UNIVERSAL::moniker:            0.06
+    version:                       0
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30_01

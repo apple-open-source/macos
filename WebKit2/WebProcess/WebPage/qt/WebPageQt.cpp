@@ -28,10 +28,15 @@
 #include "WebPage.h"
 
 #include "NotImplemented.h"
+#include "PopupMenuClient.h"
 #include "WebEditorClient.h"
 #include "WebEvent.h"
 #include "WebPageProxyMessages.h"
+#include "WebPopupMenu.h"
 #include "WebProcess.h"
+#include <QClipboard>
+#include <QGuiApplication>
+#include <WebCore/EventHandler.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Frame.h>
 #include <WebCore/KeyboardEvent.h>
@@ -232,15 +237,6 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
         return false;
 
     switch (keyboardEvent.windowsVirtualKeyCode()) {
-    case VK_BACK:
-        if (keyboardEvent.shiftKey())
-            m_page->goForward();
-        else
-            m_page->goBack();
-        break;
-    case VK_SPACE:
-        logicalScroll(m_page.get(), keyboardEvent.shiftKey() ? ScrollBlockDirectionBackward : ScrollBlockDirectionForward, ScrollByPage);
-        break;
     case VK_LEFT:
         scroll(m_page.get(), ScrollLeft, ScrollByLine);
         break;
@@ -302,90 +298,6 @@ PassRefPtr<SharedBuffer> WebPage::cachedResponseDataForURL(const KURL&)
     return 0;
 }
 
-static Frame* targetFrameForEditing(WebPage* page)
-{
-    Frame* targetFrame = page->corePage()->focusController()->focusedOrMainFrame();
-
-    if (!targetFrame || !targetFrame->editor())
-        return 0;
-
-    Editor* editor = targetFrame->editor();
-    if (!editor->canEdit())
-        return 0;
-
-    if (editor->hasComposition()) {
-        // We should verify the parent node of this IME composition node are
-        // editable because JavaScript may delete a parent node of the composition
-        // node. In this case, WebKit crashes while deleting texts from the parent
-        // node, which doesn't exist any longer.
-        if (PassRefPtr<Range> range = editor->compositionRange()) {
-            Node* node = range->startContainer();
-            if (!node || !node->isContentEditable())
-                return 0;
-        }
-    }
-    return targetFrame;
-}
-
-void WebPage::confirmComposition(const String& compositionString, int64_t selectionStart, int64_t selectionLength)
-{
-    Frame* targetFrame = targetFrameForEditing(this);
-    if (!targetFrame)
-        return;
-
-    Editor* editor = targetFrame->editor();
-    editor->confirmComposition(compositionString);
-
-    RefPtr<Range> selectionRange;
-    if (selectionStart != -1) {
-        Element* scope = targetFrame->selection()->rootEditableElement();
-        selectionRange = TextIterator::rangeFromLocationAndLength(scope, selectionStart, selectionLength);
-        ASSERT_WITH_MESSAGE(selectionRange, "Invalid selection: [%lld:%lld] in text of length %d", static_cast<long long>(selectionStart), static_cast<long long>(selectionLength), scope->innerText().length());
-    }
-
-    if (selectionRange) {
-        VisibleSelection selection(selectionRange.get(), SEL_DEFAULT_AFFINITY);
-        targetFrame->selection()->setSelection(selection);
-    }
-
-    // FIXME: static_cast<WebEditorClient*>(editor->client())->sendSelectionChangedMessage();
-}
-
-void WebPage::setComposition(const String& text, Vector<CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementStart, uint64_t replacementLength)
-{
-    Frame* targetFrame = targetFrameForEditing(this);
-    if (!targetFrame)
-        return;
-
-    Element* scope = targetFrame->selection()->rootEditableElement();
-
-    if (targetFrame->selection()->isContentEditable()) {
-        if (replacementLength > 0) {
-            // The layout needs to be uptodate before setting a selection
-            targetFrame->document()->updateLayout();
-
-            RefPtr<Range> replacementRange = TextIterator::rangeFromLocationAndLength(scope, replacementStart, replacementLength);
-
-            targetFrame->editor()->setIgnoreCompositionSelectionChange(true);
-            targetFrame->selection()->setSelection(VisibleSelection(replacementRange.get(), SEL_DEFAULT_AFFINITY));
-            targetFrame->editor()->setIgnoreCompositionSelectionChange(false);
-        }
-
-        targetFrame->editor()->setComposition(text, underlines, selectionStart, selectionEnd);
-
-        // FIXME: static_cast<WebEditorClient*>(targetFrame->editor()->client())->sendSelectionChangedMessage();
-    }
-}
-
-void WebPage::cancelComposition()
-{
-    Frame* frame = targetFrameForEditing(this);
-
-    frame->editor()->cancelComposition();
-
-    // FIXME: static_cast<WebEditorClient*>(targetFrame->editor()->client())->sendSelectionChangedMessage();
-}
-
 void WebPage::registerApplicationScheme(const String& scheme)
 {
     QtNetworkAccessManager* qnam = qobject_cast<QtNetworkAccessManager*>(WebProcess::shared().networkAccessManager());
@@ -409,6 +321,20 @@ void WebPage::applicationSchemeReply(const QtNetworkReplyData& replyData)
     QtNetworkReply* networkReply = m_applicationSchemeReplies.take(replyData.m_replyUuid);
     networkReply->setReplyData(replyData);
     networkReply->finalize();
+}
+
+void WebPage::selectedIndex(int32_t newIndex)
+{
+    changeSelectedIndex(newIndex);
+}
+
+void WebPage::hidePopupMenu()
+{
+    if (!m_activePopupMenu)
+        return;
+
+    m_activePopupMenu->client()->popupDidHide();
+    m_activePopupMenu = 0;
 }
 
 } // namespace WebKit

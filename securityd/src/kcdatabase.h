@@ -111,6 +111,7 @@ public:
 	const DbIdentifier &identifier() const {return mIdentifier; }
 	const DLDbIdentifier &dlDbIdent() const { return identifier(); }
 	const char *dbName() const { return dlDbIdent().dbName(); }
+    bool isLoginKeychain() const { return mLoginKeychain; }
 	
 	DbBlob *encode(KeychainDatabase &db);
 	
@@ -144,6 +145,7 @@ private:
 	// all following data protected by object lock
 	bool mIsLocked;				// logically locked
 	bool mValidParams;			// mParams has been set
+    bool mLoginKeychain;
 };
 
 
@@ -190,6 +192,9 @@ public:
 	void lockDb();											// unconditional lock
 	void unlockDb();										// full-feature unlock
 	void unlockDb(const CssmData &passphrase);				// unlock with passphrase
+    
+    void stashDbCheck();                                    // check AppleKeyStore for master key
+    void stashDb();                                         // stash master key in AppleKeyStore
 
 	bool decode();											// unlock given established master key
 	bool decode(const CssmData &passphrase);				// set master key from PP, try unlock
@@ -245,6 +250,8 @@ protected:
 private:
 	// all following data is locked by the common lock
     bool mValidData;				// valid ACL and params (blob decoded)
+    CssmAutoData mSecret;
+    bool mSaveSecret;
         
     uint32 version;					// version stamp for blob validity
     DbBlob *mBlob;					// database blob (encoded)

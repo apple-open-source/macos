@@ -29,7 +29,6 @@
 #ifndef	_DIGEST_OBJECT_H_
 #define _DIGEST_OBJECT_H_
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <security_cdsa_utilities/cssmalloc.h>
 
 /* common virtual digest class */

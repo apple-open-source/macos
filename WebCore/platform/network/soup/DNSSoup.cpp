@@ -30,6 +30,7 @@
 
 #include "GOwnPtrSoup.h"
 #include "ResourceHandle.h"
+#include <libsoup/soup.h>
 #include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
@@ -43,7 +44,7 @@ bool DNSResolveQueue::platformProxyIsEnabledInSystemPreferences()
     return false;
 }
 
-static void resolvedCallback(SoupAddress* soupAddress, guint status, void* userData)
+static void resolvedCallback(SoupAddress*, guint, void*)
 {
     DNSResolveQueue::shared().decrementRequestCount();
 }

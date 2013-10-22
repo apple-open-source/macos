@@ -1,0 +1,85 @@
+Revision history for Perl extension Class::Trigger.
+
+0.14 Sun Oct 11 15:55:14 PDT 2009
+        - Make this a non-dev release
+
+0.13_01 Wed Oct  7 21:50:42 PDT 2009
+        - Disable the cache on the recursive fetch triggers to fix bugs in inheritance
+          https://rt.cpan.org/Public/Bug/Display.html?id=37299 (Michael Schout)
+
+0.13 Thu Mar  6 12:55:09 PST 2008
+        - Added a cache to fetch_triggers code so as it won't suck down CPU at runtime.
+          RT:30279. Thanks to Alex Vandiver and Michael Schwern
+
+0.12 Mon Aug 20 16:06:50 PDT 2007
+    - Make this a release
+
+0.11_03  Wed Jun 20 12:12:36 PDT 2007
+    - Fixed a bug in backward-compatiblity code to handle multiple
+      hooks in one add_trigger() call. (Thanks to mark addison)
+
+0.11_02  Sun Jun 10 18:09:58 PDT 2007
+    - Added a test to make sure $_ is not clobbered
+      (Thanks to mark addison)
+    - Killed the hidden feature to add multiple hooks in one
+      add_trigger() call because it interfers with named parameter style
+      calls. (Thanks to clkao)
+
+0.11_01  Mon May 28 21:03:03 PDT 2007
+
+    - Added support for abortable triggers.
+    - Added named-parameters calling convention for add_trigger
+    - Added new last_trigger_results method and began capturing trigger return values.
+
+    - FUNCTIONALITY CHANGE: When no triggers are called for a trigger point, the return value is now '0', not undef.
+      (Thanks to Jesse Vincent)
+
+0.11  Thu Feb 22 19:02:09 PST 2007
+        - Fixed a bug due to Class::Data::Inheritable, where
+          triggers added to the superclass after trigger is added in
+          the child class are ignored in the child class.
+          See t/03_inherit.t for example.
+          (Thanks to Brad Choate, Yann Kerherve, Ben Trott and Fumiaki Yoshimatsu)
+
+0.10  Tue Aug 23 22:11:21 UTC 2005
+        - Documentation fix
+
+0.09  Fri Feb 18 14:13:22 JST 2005
+	- Devel::Cover compliant code. Now 100% coverage.
+	  (Thanks to Leif Eriksen and Phalanx folks)
+
+0.08  Thu Feb 27 15:51:31 JST 2003
+	- Performance boostup and document clarification
+	  (Thanks to Tim Bunce)
+
+0.07  Sat Feb 15 01:01:36 JST 2003
+	- s/add_hook/add_trigger/ in pod.
+	  (Thanks to Tony Bowden)
+	* now you can pass @args to call_trigger
+	- Class->call_trigger() works
+	  (Thanks to Tim Bunce)
+
+0.06  Wed Oct 23 19:13:20 JST 2002
+	* Fixed bug that trigger disappears when trigger sub modifies $_.
+	  (Thanks to Tony Bowden and Barry Hoggard)
+
+0.05  Tue Apr 30 14:06:06 JST 2002
+	- Example tweak
+	- remove untie() lines to shut up bleadperl
+
+0.04  Fri Dec 28 12:43:32 JST 2001
+	- Added FAQ section in pod
+	  (Thanks to people at POOP mailing list)
+
+0.03  Tue Dec 25 03:30:31 JST 2001
+	- renamed to Class::Trigger from Class::Hookable
+	* Added object based triggers
+	- fixed bug that subclass shares arrayref of triggers with parent
+
+0.02  Tue Dec 25 02:18:27 JST 2001
+	- removed evil eval() to inherit Class::Data::Inheritable
+	- makes copy of trigger table in add_trigger() for inheritance
+	  (Thanks to Tony Bowden <tony@kasei.com>)
+
+0.01  Mon Dec 24 11:47:13 2001
+	- original version; created by h2xs 1.19

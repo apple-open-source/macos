@@ -106,7 +106,7 @@ static NSArray *createExcludedElementsForAttributedStringConversion()
     return elements;
 }
 
-DocumentFragment* WebEditorClient::documentFragmentFromAttributedString(NSAttributedString *string, Vector<RefPtr<ArchiveResource> >& resources)
+DocumentFragment* WebEditorClient::documentFragmentFromAttributedString(NSAttributedString *string, Vector<RefPtr<ArchiveResource>>& resources)
 {
     static NSArray *excludedElements = createExcludedElementsForAttributedStringConversion();
     
@@ -136,15 +136,16 @@ void WebEditorClient::setInsertionPasteboard(const String&)
 static void changeWordCase(WebPage* page, SEL selector)
 {
     Frame* frame = page->corePage()->focusController()->focusedOrMainFrame();
-    if (!frame->editor()->canEdit())
+    if (!frame->editor().canEdit())
         return;
 
-    frame->editor()->command("selectWord").execute();
+    frame->editor().command("selectWord").execute();
 
-    NSString *selectedString = frame->displayStringModifiedByEncoding(frame->editor()->selectedText());
+    NSString *selectedString = frame->displayStringModifiedByEncoding(frame->editor().selectedText());
     page->replaceSelectionWithText(frame, [selectedString performSelector:selector]);
 }
 
+#if USE(APPKIT)
 void WebEditorClient::uppercaseWord()
 {
     changeWordCase(m_page, @selector(uppercaseString));
@@ -159,7 +160,9 @@ void WebEditorClient::capitalizeWord()
 {
     changeWordCase(m_page, @selector(capitalizedString));
 }
+#endif
 
+#if USE(AUTOMATIC_TEXT_REPLACEMENT)
 void WebEditorClient::showSubstitutionsPanel(bool)
 {
     notImplemented();
@@ -231,6 +234,7 @@ void WebEditorClient::toggleAutomaticSpellingCorrection()
 {
     notImplemented();
 }
+#endif // USE(AUTOMATIC_TEXT_REPLACEMENT)
 
 void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, WebCore::TextCheckingTypeMask checkingTypes, Vector<TextCheckingResult>& results)
 {

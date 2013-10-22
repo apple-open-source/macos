@@ -27,10 +27,15 @@
 #import "WKConnection.h"
 #import "WKConnectionInternal.h"
 
+#import "ObjCObjectGraph.h"
 #import "WKConnectionRef.h"
+#import "WKData.h"
 #import "WKRetainPtr.h"
+#import "WKString.h"
 #import "WKStringCF.h"
 #import <wtf/RetainPtr.h>
+
+using namespace WebKit;
 
 @interface WKConnectionData : NSObject {
 @public
@@ -55,6 +60,14 @@
     [super dealloc];
 }
 
+- (void)sendMessageWithName:(NSString *)messageName body:(id)messageBody
+{
+    WKRetainPtr<WKStringRef> wkMessageName = adoptWK(WKStringCreateWithCFString((CFStringRef)messageName));
+    RefPtr<ObjCObjectGraph> wkMessageBody = ObjCObjectGraph::create(messageBody);
+
+    WKConnectionPostMessage(_data->_connectionRef.get(), wkMessageName.get(), (WKTypeRef)wkMessageBody.get());
+}
+
 #pragma mark Delegates
 
 - (id<WKConnectionDelegate>)delegate
@@ -75,9 +88,10 @@ static void didReceiveMessage(WKConnectionRef, WKStringRef messageName, WKTypeRe
 {
     WKConnection *connection = (WKConnection *)clientInfo;
     if ([connection.delegate respondsToSelector:@selector(connection:didReceiveMessageWithName:body:)]) {
-        // FIXME: Add messageBody conversion.
-        RetainPtr<CFStringRef> cfMessageName = adoptCF(WKStringCopyCFString(kCFAllocatorDefault, messageName));
-        [connection.delegate connection:connection didReceiveMessageWithName:(NSString *)cfMessageName.get() body:nil];
+        RetainPtr<CFStringRef> nsMessageName = adoptCF(WKStringCopyCFString(kCFAllocatorDefault, messageName));
+        RetainPtr<id> nsMessageBody = ((ObjCObjectGraph*)messageBody)->rootObject();
+
+        [connection.delegate connection:connection didReceiveMessageWithName:(NSString *)nsMessageName.get() body:nsMessageBody.get()];
     }
 }
 

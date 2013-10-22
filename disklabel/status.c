@@ -47,12 +47,12 @@ findRealDevice(char *dev) {
 		return NULL;
 	}
 	if (sbuf.st_nlink == 1) {   // assume this is the real device
-		return strdup(dev);
+		return NULL;
 	}
-#define BEGINS(x, y) (!strncmp((x), (y), sizeof((y))))
+#define BEGINS(x, y) (!strncmp((x), (y), strlen((y))))
 	if (BEGINS(dev, "/dev/rdisk") || BEGINS(dev, "rdisk") ||
 		BEGINS(dev, "/dev/disk") || BEGINS(dev, "disk")) {
-		return strdup(dev);
+		return NULL;
 	}
 	
 	if (BEGINS(dev, "/dev/")) {
@@ -65,15 +65,18 @@ findRealDevice(char *dev) {
 	mine = sbuf.st_ino;
 	
 	dir = opendir("/dev");
-	while (dp = readdir(dir)) {
+	while ((dp = readdir(dir))) {
 		char *tmp = dp->d_name;
 		char dbuf[6 + strlen(tmp)];
 		memcpy(dbuf, "/dev/", 6);
 		memcpy(dbuf + 5, tmp, sizeof(dbuf) - 5);
 		if (!strcmp(dbuf, dName))
 			continue;
+		tmp = strrchr(dbuf, 's');
+		if (!tmp)
+			continue;
 		if (dp->d_fileno == mine) {
-			retval = strdup(dbuf);
+			retval = strndup(dbuf, tmp - dbuf);
 			break;
 		}
 	}
@@ -90,6 +93,7 @@ doStatus(const char *dev) {
 	} else {
 		realDev = (char*)dev;
 	}
+	dev = realDev;
 	// XXX -- need to ensure this is an AppleLabel partition
 	if (IsAppleLabel(dev) != 1) {
 		printf("\t* * * NOT A VALID LABEL * * *\n");

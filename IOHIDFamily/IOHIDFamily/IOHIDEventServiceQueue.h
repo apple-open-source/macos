@@ -54,4 +54,5 @@ public:
     virtual void setNotificationPort(mach_port_t port);
 };
 
+//---------------------------------------------------------------------------
 #endif /* !_IOKIT_HID_IOHIDEVENTSERVICEQUEUE_H */

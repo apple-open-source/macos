@@ -1,15 +1,15 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,19 +17,19 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/* 	Copyright (c) 1992 NeXT Computer, Inc.  All rights reserved. 
+/* 	Copyright (c) 1992 NeXT Computer, Inc.  All rights reserved.
  *
  *	ev_keymap.h
  *	Defines the structure used for parsing keymappings.  These structures
  *	and definitions are used by event sources in the kernel and by
  *	applications and utilities which manipulate keymaps.
- *	
+ *
  * HISTORY
  * 02-Jun-1992    Mike Paquette at NeXT
- *      Created. 
+ *      Created.
  */
 
 #ifndef _DEV_EV_KEYMAP_H
@@ -117,11 +117,14 @@
 #define NX_MODIFIERKEY_RALTERNATE	11
 #define NX_MODIFIERKEY_RCOMMAND		12
 
+#define NX_MODIFIERKEY_ALPHALOCK_STATELESS  13
+#define NX_MODIFIERKEY_LAST_KEY     13
+
 
 typedef struct _NXParsedKeyMapping_ {
  	/* If nonzero, all numbers are shorts; if zero, all numbers are bytes*/
 	short	shorts;
-	
+
 	/*
 	 *  For each keycode, low order bit says if the key
 	 *  generates characters.
@@ -129,38 +132,38 @@ typedef struct _NXParsedKeyMapping_ {
 	 *  The second to low order bit gives the current state of the key.
 	 */
 	char	keyBits[NX_NUMKEYCODES];
-	
+
 	/* Bit number of highest numbered modifier bit */
 	int			maxMod;
-	
+
 	/* Pointers to where the list of keys for each modifiers bit begins,
 	 * or NULL.
 	 */
 	unsigned char *modDefs[NX_NUMMODIFIERS];
-	
+
 	/* Key code of highest key deinfed to generate characters */
 	int			numDefs;
-	
+
 	/* Pointer into the keyMapping where this key's definitions begin */
 	unsigned char *keyDefs[NX_NUMKEYCODES];
-	
+
 	/* number of sequence definitions */
 	int			numSeqs;
-	
+
 	/* pointers to sequences */
 	unsigned char *seqDefs[NX_NUMSEQUENCES];
-	
+
 	/* Special key definitions */
 	int			numSpecialKeys;
-	
+
 	/* Special key values, or 0xFFFF if none */
 	unsigned short specialKeys[NX_NUMSPECIALKEYS];
-	
-	/* Pointer to the original keymapping string */	
+
+	/* Pointer to the original keymapping string */
 	const unsigned char *mapping;
-	
+
 	/* Length of the original string */
-	int	mappingLen;	
+	int	mappingLen;
 } NXParsedKeyMapping;
 
 #endif /* !_DEV_EV_KEYMAP_H */

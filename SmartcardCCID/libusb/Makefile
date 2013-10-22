@@ -14,7 +14,7 @@ AEP_Version    = 0.1.13b
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = FixConfigureAddCPP.patch skipConfigure.patch remove_config_libdir.patch darwinwarnings.patch allowWarnings.patch
+AEP_Patches    = FixConfigureAddCPP.patch skipConfigure.patch remove_config_libdir.patch darwinwarnings.patch allowWarnings.patch darwin_no_seize.patch automake_copy.patch
 #svn co -r658 https://libusb.svn.sourceforge.net/svnroot/libusb/trunk
 
 # Extract the source.

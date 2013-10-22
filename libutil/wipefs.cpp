@@ -41,7 +41,7 @@ struct __wipefs_ctx {
 	class ExtentManager extMan;
 };
 
-void
+static void
 AddExtentsForFutureFS(class ExtentManager *extMan)
 {
 	// we don't know what blocks future FS will use to recognize itself.  But we'd better be safe than sorry and write
@@ -51,7 +51,7 @@ AddExtentsForFutureFS(class ExtentManager *extMan)
 	extMan->AddByteRangeExtent(extMan->totalBytes - size, size);
 }
 
-void
+static void
 AddExtentsForHFS(class ExtentManager *extMan)
 {
 	// first 1KB is boot block, last 512B is reserved
@@ -60,14 +60,14 @@ AddExtentsForHFS(class ExtentManager *extMan)
 	extMan->AddByteRangeExtent(extMan->totalBytes - 1024, 1024);
 }
 
-void
+static void
 AddExtentsForMSDOS(class ExtentManager *extMan)
 {
 	// MSDOS needs the first block (in theory, up to 32KB)
 	extMan->AddByteRangeExtent(0, 32 * 1024);
 }
 
-void
+static void
 AddExtentsForNTFS(class ExtentManager *extMan)
 {
 	// NTFS supports block size from 256B to 32768B.  The first, middle and last block are needed
@@ -77,7 +77,7 @@ AddExtentsForNTFS(class ExtentManager *extMan)
 	extMan->AddByteRangeExtent(extMan->totalBytes / 2 - 32 * 1024, 64 * 1024);
 }
 
-void
+static void
 AddExtentsForUDF(class ExtentManager *extMan)
 {
 	off_t lastBlockAddr = extMan->totalBlocks - 1;
@@ -102,14 +102,14 @@ AddExtentsForUDF(class ExtentManager *extMan)
 	}
 }
 
-void
+static void
 AddExtentsForUFS(class ExtentManager *extMan)
 {
 	// UFS super block is 8KB at offset 8KB
 	extMan->AddByteRangeExtent(8192, 8192);
 }
 
-void
+static void
 AddExtentsForZFS(class ExtentManager *extMan)
 {
 	// ZFS needs the first 512KB and last 512KB for all the 4 disk labels
@@ -117,7 +117,7 @@ AddExtentsForZFS(class ExtentManager *extMan)
 	extMan->AddByteRangeExtent(extMan->totalBytes - 512 * 1024, 512 * 1024);
 }
 
-void
+static void
 AddExtentsForPartitions(class ExtentManager *extMan)
 {
 	// MBR (Master Boot Record) needs the first sector
@@ -260,6 +260,9 @@ wipefs_wipe(wipefs_ctx handle)
 	
 
 	bufSize = 128 * 1024; // issue large I/O to get better performance
+	if (handle->extMan.nativeBlockSize > bufSize) {
+	    bufSize = handle->extMan.nativeBlockSize;
+	}
 	bufZero = new uint8_t[bufSize];
 	bzero(bufZero, bufSize);
 

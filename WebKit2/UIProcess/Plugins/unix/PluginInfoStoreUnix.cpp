@@ -26,6 +26,9 @@
 // Note: this file is only for UNIX. On other platforms we can reuse the native implementation.
 
 #include "config.h"
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+
 #include "PluginInfoStore.h"
 
 #include "NetscapePluginModule.h"
@@ -69,7 +72,7 @@ Vector<String> PluginInfoStore::pluginsDirectories()
     if (!mozillaPaths.isEmpty()) {
         Vector<String> paths;
         mozillaPaths.split(UChar(':'), /* allowEmptyEntries */ false, paths);
-        result.append(paths);
+        result.appendVector(paths);
     }
 
     return result;
@@ -98,10 +101,12 @@ bool PluginInfoStore::getPluginInfo(const String& pluginPath, PluginModuleInfo& 
     return NetscapePluginModule::getPluginInfo(pluginPath, plugin);
 }
 
-bool PluginInfoStore::shouldUsePlugin(Vector<PluginModuleInfo>& alreadyLoadedPlugins, const PluginModuleInfo& plugin)
+bool PluginInfoStore::shouldUsePlugin(Vector<PluginModuleInfo>& /*alreadyLoadedPlugins*/, const PluginModuleInfo& /*plugin*/)
 {
     // We do not do any black-listing presently.
     return true;
 }
 
 } // namespace WebKit
+
+#endif // ENABLE(NETSCAPE_PLUGIN_API)

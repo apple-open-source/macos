@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2009, 2010, 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2009, 2010, 2012, 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,13 +29,13 @@
 
 #include "IntSize.h"
 #include "NotImplemented.h"
-#include "PlatformString.h"
+#include "TextBreakIterator.h"
 #include <wtf/MathExtras.h>
+#include <wtf/unicode/CharacterNames.h>
+
 #if USE(CF)
 #include <wtf/RetainPtr.h>
 #endif
-#include <wtf/UnusedParam.h>
-#include <wtf/unicode/CharacterNames.h>
 
 #if PLATFORM(MAC)
 #include "WebCoreSystemInterface.h"
@@ -53,13 +53,12 @@ static String formatLocalizedString(String format, ...)
 #if USE(CF)
     va_list arguments;
     va_start(arguments, format);
-    RetainPtr<CFStringRef> formatCFString(AdoptCF, format.createCFString());
 
 #if COMPILER(CLANG)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
 #endif
-    RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormatAndArguments(0, 0, formatCFString.get(), arguments));
+    RetainPtr<CFStringRef> result = adoptCF(CFStringCreateWithFormatAndArguments(0, 0, format.createCFString().get(), arguments));
 #if COMPILER(CLANG)
 #pragma clang diagnostic pop
 #endif
@@ -72,7 +71,7 @@ static String formatLocalizedString(String format, ...)
 #endif
 }
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if !PLATFORM(MAC) || PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
 static String truncatedStringForLookupMenuItem(const String& original)
 {
     if (original.isEmpty())
@@ -244,8 +243,8 @@ String contextMenuItemTagSearchInSpotlight()
 
 String contextMenuItemTagSearchWeb()
 {
-#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    RetainPtr<CFStringRef> searchProviderName(AdoptCF, wkCopyDefaultSearchProviderDisplayName());
+#if PLATFORM(MAC) && (PLATFORM(IOS) || __MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
+    RetainPtr<CFStringRef> searchProviderName = adoptCF(wkCopyDefaultSearchProviderDisplayName());
     return formatLocalizedString(WEB_UI_STRING("Search with %@", "Search with search provider context menu item with provider name inserted"), searchProviderName.get());
 #else
     return WEB_UI_STRING("Search with Google", "Search with Google context menu item");
@@ -254,12 +253,12 @@ String contextMenuItemTagSearchWeb()
 
 String contextMenuItemTagLookUpInDictionary(const String& selectedString)
 {
-#if defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)
+#if PLATFORM(MAC) && !PLATFORM(IOS) && __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
     UNUSED_PARAM(selectedString);
     return WEB_UI_STRING("Look Up in Dictionary", "Look Up in Dictionary context menu item");
 #else
 #if USE(CF)
-    RetainPtr<CFStringRef> selectedCFString(AdoptCF, truncatedStringForLookupMenuItem(selectedString).createCFString());
+    RetainPtr<CFStringRef> selectedCFString = truncatedStringForLookupMenuItem(selectedString).createCFString();
     return formatLocalizedString(WEB_UI_STRING("Look Up “%@”", "Look Up context menu item with selected word"), selectedCFString.get());
 #else
     return WEB_UI_STRING("Look Up “<selection>”", "Look Up context menu item with selected word").replace("<selection>", truncatedStringForLookupMenuItem(selectedString));
@@ -470,6 +469,16 @@ String contextMenuItemTagOpenAudioInNewWindow()
     return WEB_UI_STRING("Open Audio in New Window", "Open Audio in New Window context menu item");
 }
 
+String contextMenuItemTagDownloadVideoToDisk()
+{
+    return WEB_UI_STRING("Download Video", "Download Video To Disk context menu item");
+}
+
+String contextMenuItemTagDownloadAudioToDisk()
+{
+    return WEB_UI_STRING("Download Audio", "Download Audio To Disk context menu item");
+}
+
 String contextMenuItemTagCopyVideoLinkToClipboard()
 {
     return WEB_UI_STRING("Copy Video Address", "Copy Video Address Location context menu item");
@@ -485,6 +494,16 @@ String contextMenuItemTagToggleMediaControls()
     return WEB_UI_STRING("Controls", "Media Controls context menu item");
 }
 
+String contextMenuItemTagShowMediaControls()
+{
+    return WEB_UI_STRING("Show Controls", "Show Media Controls context menu item");
+}
+
+String contextMenuItemTagHideMediaControls()
+{
+    return WEB_UI_STRING("Hide Controls", "Hide Media Controls context menu item");
+}
+
 String contextMenuItemTagToggleMediaLoop()
 {
     return WEB_UI_STRING("Loop", "Media Loop context menu item");
@@ -492,7 +511,12 @@ String contextMenuItemTagToggleMediaLoop()
 
 String contextMenuItemTagEnterVideoFullscreen()
 {
-    return WEB_UI_STRING("Enter Fullscreen", "Video Enter Fullscreen context menu item");
+    return WEB_UI_STRING("Enter Full Screen", "Video Enter Fullscreen context menu item");
+}
+
+String contextMenuItemTagExitVideoFullscreen()
+{
+    return WEB_UI_STRING("Exit Full Screen", "Video Exit Fullscreen context menu item");
 }
 
 String contextMenuItemTagMediaPlay()
@@ -517,6 +541,7 @@ String contextMenuItemTagInspectElement()
 
 #endif // ENABLE(CONTEXT_MENUS)
 
+#if !PLATFORM(IOS)
 String searchMenuNoRecentSearchesText()
 {
     return WEB_UI_STRING("No recent searches", "Label for only item in menu that appears when clicking on the search field image, when no searches have been performed");
@@ -557,14 +582,24 @@ String AXHeadingText()
     return WEB_UI_STRING("heading", "accessibility role description for headings");
 }
 
-String AXDefinitionListTermText()
+String AXDefinitionText()
 {
-    return WEB_UI_STRING("term", "term word of a definition");
+    return WEB_UI_STRING("definition", "role description of ARIA definition role");
 }
 
-String AXDefinitionListDefinitionText()
+String AXDescriptionListText()
 {
-    return WEB_UI_STRING("definition", "definition phrase");
+    return WEB_UI_STRING("description list", "accessibility role description of a description list");
+}
+
+String AXDescriptionListTermText()
+{
+    return WEB_UI_STRING("term", "term word of a description list");
+}
+
+String AXDescriptionListDetailText()
+{
+    return WEB_UI_STRING("description", "description detail");
 }
 
 String AXFooterRoleDescriptionText()
@@ -572,7 +607,61 @@ String AXFooterRoleDescriptionText()
     return WEB_UI_STRING("footer", "accessibility role description for a footer");
 }
 
-#if PLATFORM(MAC)
+String AXFileUploadButtonText()
+{
+    return WEB_UI_STRING("file upload button", "accessibility role description for a file upload button");
+}
+    
+String AXButtonActionVerb()
+{
+    return WEB_UI_STRING("press", "Verb stating the action that will occur when a button is pressed, as used by accessibility");
+}
+
+String AXRadioButtonActionVerb()
+{
+    return WEB_UI_STRING("select", "Verb stating the action that will occur when a radio button is clicked, as used by accessibility");
+}
+
+String AXTextFieldActionVerb()
+{
+    return WEB_UI_STRING("activate", "Verb stating the action that will occur when a text field is selected, as used by accessibility");
+}
+
+String AXCheckedCheckBoxActionVerb()
+{
+    return WEB_UI_STRING("uncheck", "Verb stating the action that will occur when a checked checkbox is clicked, as used by accessibility");
+}
+
+String AXUncheckedCheckBoxActionVerb()
+{
+    return WEB_UI_STRING("check", "Verb stating the action that will occur when an unchecked checkbox is clicked, as used by accessibility");
+}
+
+String AXLinkActionVerb()
+{
+    return WEB_UI_STRING("jump", "Verb stating the action that will occur when a link is clicked, as used by accessibility");
+}
+
+String AXMenuListPopupActionVerb()
+{
+    notImplemented();
+    return "select";
+}
+
+String AXMenuListActionVerb()
+{
+    notImplemented();
+    return "select";
+}
+
+String AXListItemActionVerb()
+{
+    notImplemented();
+    return "select";
+}
+#endif // !PLATFORM(IOS)
+
+#if PLATFORM(MAC) || PLATFORM(IOS)
 String AXARIAContentGroupText(const String& ariaType)
 {
     if (ariaType == "ARIAApplicationAlert")
@@ -619,49 +708,7 @@ String AXARIAContentGroupText(const String& ariaType)
         return WEB_UI_STRING("math", "An ARIA accessibility group that contains mathematical symbols.");
     return String();
 }
-#endif
-    
-String AXButtonActionVerb()
-{
-    return WEB_UI_STRING("press", "Verb stating the action that will occur when a button is pressed, as used by accessibility");
-}
-
-String AXRadioButtonActionVerb()
-{
-    return WEB_UI_STRING("select", "Verb stating the action that will occur when a radio button is clicked, as used by accessibility");
-}
-
-String AXTextFieldActionVerb()
-{
-    return WEB_UI_STRING("activate", "Verb stating the action that will occur when a text field is selected, as used by accessibility");
-}
-
-String AXCheckedCheckBoxActionVerb()
-{
-    return WEB_UI_STRING("uncheck", "Verb stating the action that will occur when a checked checkbox is clicked, as used by accessibility");
-}
-
-String AXUncheckedCheckBoxActionVerb()
-{
-    return WEB_UI_STRING("check", "Verb stating the action that will occur when an unchecked checkbox is clicked, as used by accessibility");
-}
-
-String AXLinkActionVerb()
-{
-    return WEB_UI_STRING("jump", "Verb stating the action that will occur when a link is clicked, as used by accessibility");
-}
-
-String AXMenuListPopupActionVerb()
-{
-    notImplemented();
-    return "select";
-}
-
-String AXMenuListActionVerb()
-{
-    notImplemented();
-    return "select";
-}
+#endif // PLATFORM(MAC) || PLATFORM(IOS)
 
 String missingPluginText()
 {
@@ -673,14 +720,14 @@ String crashedPluginText()
     return WEB_UI_STRING("Plug-in Failure", "Label text to be used if plugin host process has crashed");
 }
 
-String insecurePluginVersionText()
+String blockedPluginByContentSecurityPolicyText()
 {
-    return WEB_UI_STRING("Blocked Plug-in", "Label text to be used when an insecure plug-in version was blocked from loading");
+    return WEB_UI_STRING_KEY("Blocked Plug-in", "Blocked Plug-In (Blocked by page's Content Security Policy)", "Label text to be used if plugin is blocked by a page's Content Security Policy");
 }
 
-String inactivePluginText()
+String insecurePluginVersionText()
 {
-    return WEB_UI_STRING("Inactive Plug-in", "Label text to be used when a plugin has not been loaded for some time");
+    return WEB_UI_STRING_KEY("Blocked Plug-in", "Blocked Plug-In (Insecure plug-in)", "Label text to be used when an insecure plug-in version was blocked from loading");
 }
 
 String multipleFileUploadText(unsigned numberOfFiles)
@@ -690,7 +737,7 @@ String multipleFileUploadText(unsigned numberOfFiles)
 
 String unknownFileSizeText()
 {
-    return WEB_UI_STRING("Unknown", "Unknown filesize FTP directory listing item");
+    return WEB_UI_STRING_KEY("Unknown", "Unknown (filesize)", "Unknown filesize FTP directory listing item");
 }
 
 #if PLATFORM(WIN)
@@ -711,13 +758,19 @@ String allFilesText()
 String builtInPDFPluginName()
 {
     // Also exposed to DOM.
-    return WEB_UI_STRING("WebKit built-in PDF", "Pseudo plug-in name, visible in Installed Plug-ins page in Safari.");
+    return WEB_UI_STRING("WebKit built-in PDF", "Pseudo plug-in name, visible in the Installed Plug-ins page in Safari.");
 }
 
 String pdfDocumentTypeDescription()
 {
     // Also exposed to DOM.
-    return WEB_UI_STRING("Portable Document Format", "Description of the (only) type supported by PDF pseudo plug-in. Visible in Installed Plug-ins page in Safari.");
+    return WEB_UI_STRING("Portable Document Format", "Description of the primary type supported by the PDF pseudo plug-in. Visible in the Installed Plug-ins page in Safari.");
+}
+
+String postScriptDocumentTypeDescription()
+{
+    // Also exposed to DOM.
+    return WEB_UI_STRING("PostScript", "Description of the PostScript type supported by the PDF pseudo plug-in. Visible in the Installed Plug-ins page in Safari.");
 }
 
 String keygenMenuItem512()
@@ -737,8 +790,7 @@ String keygenMenuItem2048()
 
 String keygenKeychainItemName(const String& host)
 {
-    RetainPtr<CFStringRef> hostCFString(AdoptCF, host.createCFString());
-    return formatLocalizedString(WEB_UI_STRING("Key from %@", "Name of keychain key generated by the KEYGEN tag"), hostCFString.get());
+    return formatLocalizedString(WEB_UI_STRING("Key from %@", "Name of keychain key generated by the KEYGEN tag"), host.createCFString().get());
 }
 
 #endif
@@ -760,24 +812,18 @@ String htmlSelectMultipleItems(size_t count)
 String imageTitle(const String& filename, const IntSize& size)
 {
 #if USE(CF)
-#if !defined(BUILDING_ON_LEOPARD)
-    RetainPtr<CFStringRef> filenameCFString(AdoptCF, filename.createCFString());
-    RetainPtr<CFLocaleRef> locale(AdoptCF, CFLocaleCopyCurrent());
-    RetainPtr<CFNumberFormatterRef> formatter(AdoptCF, CFNumberFormatterCreate(0, locale.get(), kCFNumberFormatterDecimalStyle));
+    RetainPtr<CFLocaleRef> locale = adoptCF(CFLocaleCopyCurrent());
+    RetainPtr<CFNumberFormatterRef> formatter = adoptCF(CFNumberFormatterCreate(0, locale.get(), kCFNumberFormatterDecimalStyle));
 
     int widthInt = size.width();
-    RetainPtr<CFNumberRef> width(AdoptCF, CFNumberCreate(0, kCFNumberIntType, &widthInt));
-    RetainPtr<CFStringRef> widthString(AdoptCF, CFNumberFormatterCreateStringWithNumber(0, formatter.get(), width.get()));
+    RetainPtr<CFNumberRef> width = adoptCF(CFNumberCreate(0, kCFNumberIntType, &widthInt));
+    RetainPtr<CFStringRef> widthString = adoptCF(CFNumberFormatterCreateStringWithNumber(0, formatter.get(), width.get()));
 
     int heightInt = size.height();
-    RetainPtr<CFNumberRef> height(AdoptCF, CFNumberCreate(0, kCFNumberIntType, &heightInt));
-    RetainPtr<CFStringRef> heightString(AdoptCF, CFNumberFormatterCreateStringWithNumber(0, formatter.get(), height.get()));
+    RetainPtr<CFNumberRef> height = adoptCF(CFNumberCreate(0, kCFNumberIntType, &heightInt));
+    RetainPtr<CFStringRef> heightString = adoptCF(CFNumberFormatterCreateStringWithNumber(0, formatter.get(), height.get()));
 
-    return formatLocalizedString(WEB_UI_STRING("%@ %@×%@ pixels", "window title for a standalone image (uses multiplication symbol, not x)"), filenameCFString.get(), widthString.get(), heightString.get());
-#else
-    RetainPtr<CFStringRef> filenameCFString(AdoptCF, filename.createCFString());
-    return formatLocalizedString(WEB_UI_STRING("%@ %d×%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"), filenameCFString.get(), size.width(), size.height());
-#endif
+    return formatLocalizedString(WEB_UI_STRING("%@ %@×%@ pixels", "window title for a standalone image (uses multiplication symbol, not x)"), filename.createCFString().get(), widthString.get(), heightString.get());
 #else
     return formatLocalizedString(WEB_UI_STRING("<filename> %d×%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"), size.width(), size.height()).replace("<filename>", filename);
 #endif
@@ -796,43 +842,43 @@ String mediaElementLiveBroadcastStateText()
 String localizedMediaControlElementString(const String& name)
 {
     if (name == "AudioElement")
-        return WEB_UI_STRING("audio element controller", "accessibility role description for audio element controller");
+        return WEB_UI_STRING("audio playback", "accessibility label for audio element controller");
     if (name == "VideoElement")
-        return WEB_UI_STRING("video element controller", "accessibility role description for video element controller");
+        return WEB_UI_STRING("video playback", "accessibility label for video element controller");
     if (name == "MuteButton")
-        return WEB_UI_STRING("mute", "accessibility role description for mute button");
+        return WEB_UI_STRING("mute", "accessibility label for mute button");
     if (name == "UnMuteButton")
-        return WEB_UI_STRING("unmute", "accessibility role description for turn mute off button");
+        return WEB_UI_STRING("unmute", "accessibility label for turn mute off button");
     if (name == "PlayButton")
-        return WEB_UI_STRING("play", "accessibility role description for play button");
+        return WEB_UI_STRING("play", "accessibility label for play button");
     if (name == "PauseButton")
-        return WEB_UI_STRING("pause", "accessibility role description for pause button");
+        return WEB_UI_STRING("pause", "accessibility label for pause button");
     if (name == "Slider")
-        return WEB_UI_STRING("movie time", "accessibility role description for timeline slider");
+        return WEB_UI_STRING("movie time", "accessibility label for timeline slider");
     if (name == "SliderThumb")
-        return WEB_UI_STRING("timeline slider thumb", "accessibility role description for timeline thumb");
+        return WEB_UI_STRING("timeline slider thumb", "accessibility label for timeline thumb");
     if (name == "RewindButton")
-        return WEB_UI_STRING("back 30 seconds", "accessibility role description for seek back 30 seconds button");
+        return WEB_UI_STRING("back 30 seconds", "accessibility label for seek back 30 seconds button");
     if (name == "ReturnToRealtimeButton")
-        return WEB_UI_STRING("return to realtime", "accessibility role description for return to real time button");
+        return WEB_UI_STRING("return to realtime", "accessibility label for return to real time button");
     if (name == "CurrentTimeDisplay")
-        return WEB_UI_STRING("elapsed time", "accessibility role description for elapsed time display");
+        return WEB_UI_STRING("elapsed time", "accessibility label for elapsed time display");
     if (name == "TimeRemainingDisplay")
-        return WEB_UI_STRING("remaining time", "accessibility role description for time remaining display");
+        return WEB_UI_STRING("remaining time", "accessibility label for time remaining display");
     if (name == "StatusDisplay")
-        return WEB_UI_STRING("status", "accessibility role description for movie status");
+        return WEB_UI_STRING("status", "accessibility label for movie status");
     if (name == "EnterFullscreenButton")
-        return WEB_UI_STRING("enter fullscreen", "accessibility role description for enter fullscreen button");
+        return WEB_UI_STRING("enter fullscreen", "accessibility label for enter fullscreen button");
     if (name == "ExitFullscreenButton")
-        return WEB_UI_STRING("exit fullscreen", "accessibility role description for exit fullscreen button");
+        return WEB_UI_STRING("exit fullscreen", "accessibility label for exit fullscreen button");
     if (name == "SeekForwardButton")
-        return WEB_UI_STRING("fast forward", "accessibility role description for fast forward button");
+        return WEB_UI_STRING("fast forward", "accessibility label for fast forward button");
     if (name == "SeekBackButton")
-        return WEB_UI_STRING("fast reverse", "accessibility role description for fast reverse button");
+        return WEB_UI_STRING("fast reverse", "accessibility label for fast reverse button");
     if (name == "ShowClosedCaptionsButton")
-        return WEB_UI_STRING("show closed captions", "accessibility role description for show closed captions button");
+        return WEB_UI_STRING("show closed captions", "accessibility label for show closed captions button");
     if (name == "HideClosedCaptionsButton")
-        return WEB_UI_STRING("hide closed captions", "accessibility role description for hide closed captions button");
+        return WEB_UI_STRING("hide closed captions", "accessibility label for hide closed captions button");
 
     // FIXME: the ControlsPanel container should never be visible in the accessibility hierarchy.
     if (name == "ControlsPanel")
@@ -845,9 +891,9 @@ String localizedMediaControlElementString(const String& name)
 String localizedMediaControlElementHelpText(const String& name)
 {
     if (name == "AudioElement")
-        return WEB_UI_STRING("audio element playback controls and status display", "accessibility role description for audio element controller");
+        return WEB_UI_STRING("audio element playback controls and status display", "accessibility help text for audio element controller");
     if (name == "VideoElement")
-        return WEB_UI_STRING("video element playback controls and status display", "accessibility role description for video element controller");
+        return WEB_UI_STRING("video element playback controls and status display", "accessibility help text for video element controller");
     if (name == "MuteButton")
         return WEB_UI_STRING("mute audio tracks", "accessibility help text for mute button");
     if (name == "UnMuteButton")
@@ -881,13 +927,17 @@ String localizedMediaControlElementHelpText(const String& name)
     if (name == "HideClosedCaptionsButton")
         return WEB_UI_STRING("stop displaying closed captions", "accessibility help text for hide closed captions button");
 
+    // The description of this button is descriptive enough that it doesn't require help text.
+    if (name == "EnterFullscreenButton")
+        return String();
+    
     ASSERT_NOT_REACHED();
     return String();
 }
 
 String localizedMediaTimeDescription(float time)
 {
-    if (!isfinite(time))
+    if (!std::isfinite(time))
         return WEB_UI_STRING("indefinite time", "accessibility help text for an indefinite media controller time value");
 
     int seconds = static_cast<int>(fabsf(time));
@@ -978,6 +1028,77 @@ String validationMessageRangeOverflowText(const String&)
 String validationMessageStepMismatchText(const String&, const String&)
 {
     return WEB_UI_STRING("step mismatch", "Validation message for input form controls with value not respecting the step attribute");
+}
+
+String validationMessageBadInputForNumberText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
+}
+
+String clickToExitFullScreenText()
+{
+    return WEB_UI_STRING("Click to exit full screen mode", "Message to display in browser window when in webkit full screen mode.");
+}
+
+#if ENABLE(VIDEO_TRACK)
+String textTrackSubtitlesText()
+{
+    return WEB_UI_STRING("Subtitles", "Menu section heading for subtitles");
+}
+
+String textTrackOffMenuItemText()
+{
+    return WEB_UI_STRING("Off", "Menu item label for the track that represents disabling closed captions");
+}
+
+String textTrackAutomaticMenuItemText()
+{
+    return formatLocalizedString(WEB_UI_STRING("Auto (Recommended)", "Menu item label for automatic track selection behavior"));
+}
+
+String textTrackNoLabelText()
+{
+    return WEB_UI_STRING_KEY("Unknown", "Unknown (text track)", "Menu item label for a text track that has no other name");
+}
+    
+#if PLATFORM(MAC) || PLATFORM(WIN)
+String textTrackCountryAndLanguageMenuItemText(const String& title, const String& country, const String& language)
+{
+    return formatLocalizedString(WEB_UI_STRING("%@ (%@-%@)", "Text track display name format that includes the country and language of the subtitle, in the form of 'Title (Language-Country)'"), title.createCFString().get(), language.createCFString().get(), country.createCFString().get());
+}
+
+String textTrackLanguageMenuItemText(const String& title, const String& language)
+{
+    return formatLocalizedString(WEB_UI_STRING("%@ (%@)", "Text track display name format that includes the language of the subtitle, in the form of 'Title (Language)'"), title.createCFString().get(), language.createCFString().get());
+}
+
+String closedCaptionTrackMenuItemText(const String& title)
+{
+    return formatLocalizedString(WEB_UI_STRING("%@ CC", "Text track contains closed captions"), title.createCFString().get());
+}
+
+String sdhTrackMenuItemText(const String& title)
+{
+    return formatLocalizedString(WEB_UI_STRING("%@ SDH", "Text track contains subtitles for the deaf and hard of hearing"), title.createCFString().get());
+}
+
+String easyReaderTrackMenuItemText(const String& title)
+{
+    return formatLocalizedString(WEB_UI_STRING("%@ Easy Reader", "Text track contains simplified (3rd grade level) subtitles"), title.createCFString().get());
+}
+#endif
+
+#endif
+
+String snapshottedPlugInLabelTitle()
+{
+    return WEB_UI_STRING("Snapshotted Plug-In", "Title of the label to show on a snapshotted plug-in");
+}
+
+String snapshottedPlugInLabelSubtitle()
+{
+    return WEB_UI_STRING("Click to restart", "Subtitle of the label to show on a snapshotted plug-in");
 }
 
 } // namespace WebCore

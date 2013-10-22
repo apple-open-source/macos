@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2000-2004,2008-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -38,7 +38,7 @@
 /* required until PR-3347430 Security/cdsa/cdsa/oidscert.h is checked
  * into TOT - pending public API review */
 extern "C" {
-	extern const CSSM_OID CSSMOID_X509V1IssuerNameStd, 
+	extern const CSSM_OID CSSMOID_X509V1IssuerNameStd,
 		CSSMOID_X509V1SubjectNameStd;
 }
 
@@ -77,7 +77,7 @@ static const uint8
 	X509V3CertificateExtensionsCStruct[]		= {INTEL_X509V3_CERT_R08, 21, INTEL_X509_C_DATATYPE},
 	X509V1SubjectNameStd[]						= {INTEL_X509V3_CERT_R08, 22},
 	X509V1IssuerNameStd[]						= {INTEL_X509V3_CERT_R08, 23},
-	
+
 	/* Signature OID Fields */
 	X509V1SignatureStruct[]						= {INTEL_X509V3_SIGN_R08, 0},
 	X509V1SignatureCStruct[]					= {INTEL_X509V3_SIGN_R08, 0, INTEL_X509_C_DATATYPE},
@@ -87,7 +87,7 @@ static const uint8
 	X509V1SignatureAlgorithmTBS[]				= {INTEL_X509V3_SIGN_R08, 10},
 	X509V1SignatureAlgorithmParameters[]		= {INTEL_X509V3_SIGN_R08, 3},
 	X509V1Signature[]							= {INTEL_X509V3_SIGN_R08, 2},
-	
+
 	/* Extension OID Fields */
 	SubjectSignatureBitmap[]					= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS, 1},
 	SubjectPicture[]							= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS, 2},
@@ -99,7 +99,7 @@ const CSSM_OID
 
 	/* Certificate OIDS */
 	CSSMOID_X509V3SignedCertificate  			= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3SignedCertificate},
-	CSSMOID_X509V3SignedCertificateCStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+2,  
+	CSSMOID_X509V3SignedCertificateCStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+2,
 													(uint8 *)X509V3SignedCertificateCStruct},
 	CSSMOID_X509V3Certificate  					= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3Certificate},
 	CSSMOID_X509V3CertificateCStruct  			= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V3CertificateCStruct},
@@ -116,34 +116,34 @@ const CSSM_OID
 	CSSMOID_X509V1SubjectNameCStruct  			= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1SubjectNameCStruct},
 	CSSMOID_X509V1SubjectNameLDAP  				= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1SubjectNameLDAP},
 	CSSMOID_CSSMKeyStruct  						= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)CSSMKeyStruct},
-	CSSMOID_X509V1SubjectPublicKeyCStruct  		= {INTEL_X509V3_CERT_R08_LENGTH+2,  
+	CSSMOID_X509V1SubjectPublicKeyCStruct  		= {INTEL_X509V3_CERT_R08_LENGTH+2,
 													(uint8 *)X509V1SubjectPublicKeyCStruct},
-	CSSMOID_X509V1SubjectPublicKeyAlgorithm  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V1SubjectPublicKeyAlgorithm  	= {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V1SubjectPublicKeyAlgorithm},
-	CSSMOID_X509V1SubjectPublicKeyAlgorithmParameters = {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V1SubjectPublicKeyAlgorithmParameters = {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V1SubjectPublicKeyAlgorithmParameters},
 	CSSMOID_X509V1SubjectPublicKey  			= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SubjectPublicKey},
-	CSSMOID_X509V1CertificateIssuerUniqueId  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V1CertificateIssuerUniqueId  	= {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V1CertificateIssuerUniqueId},
-	CSSMOID_X509V1CertificateSubjectUniqueId  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V1CertificateSubjectUniqueId  	= {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V1CertificateSubjectUniqueId},
-	CSSMOID_X509V3CertificateExtensionsStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V3CertificateExtensionsStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V3CertificateExtensionsStruct},
-	CSSMOID_X509V3CertificateExtensionsCStruct  = {INTEL_X509V3_CERT_R08_LENGTH+2,  
+	CSSMOID_X509V3CertificateExtensionsCStruct  = {INTEL_X509V3_CERT_R08_LENGTH+2,
 													(uint8 *)X509V3CertificateExtensionsCStruct},
-	CSSMOID_X509V3CertificateNumberOfExtensions = {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V3CertificateNumberOfExtensions = {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V3CertificateNumberOfExtensions},
-	CSSMOID_X509V3CertificateExtensionStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V3CertificateExtensionStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V3CertificateExtensionStruct},
-	CSSMOID_X509V3CertificateExtensionCStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+2,  
+	CSSMOID_X509V3CertificateExtensionCStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+2,
 													(uint8 *)X509V3CertificateExtensionCStruct},
-	CSSMOID_X509V3CertificateExtensionId  		= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V3CertificateExtensionId  		= {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V3CertificateExtensionId},
-	CSSMOID_X509V3CertificateExtensionCritical  = {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V3CertificateExtensionCritical  = {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V3CertificateExtensionCritical},
-	CSSMOID_X509V3CertificateExtensionType  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V3CertificateExtensionType  	= {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V3CertificateExtensionType},
-	CSSMOID_X509V3CertificateExtensionValue  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+	CSSMOID_X509V3CertificateExtensionValue  	= {INTEL_X509V3_CERT_R08_LENGTH+1,
 													(uint8 *)X509V3CertificateExtensionValue},
 
 	/* Signature OID Fields */
@@ -151,10 +151,10 @@ const CSSM_OID
 	CSSMOID_X509V1SignatureCStruct  			= {INTEL_X509V3_SIGN_R08_LENGTH+2,  (uint8 *)X509V1SignatureCStruct},
 	CSSMOID_X509V1SignatureAlgorithm  			= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureAlgorithm},
 	CSSMOID_X509V1SignatureAlgorithmTBS  		= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureAlgorithmTBS},
-	CSSMOID_X509V1SignatureAlgorithmParameters 	= {INTEL_X509V3_SIGN_R08_LENGTH+1,  
+	CSSMOID_X509V1SignatureAlgorithmParameters 	= {INTEL_X509V3_SIGN_R08_LENGTH+1,
 													(uint8 *)X509V1SignatureAlgorithmParameters},
 	CSSMOID_X509V1Signature  					= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1Signature},
-	
+
 	/* Extension OID Fields */
 	CSSMOID_SubjectSignatureBitmap  			= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1,  (uint8 *)SubjectSignatureBitmap},
 	CSSMOID_SubjectPicture  					= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1,  (uint8 *)SubjectPicture},
@@ -165,8 +165,8 @@ const CSSM_OID
 /***
  *** Apple addenda.
  ***/
- 
-/* 
+
+/*
  * Standard Cert extensions.
  */
 static const uint8
@@ -196,7 +196,7 @@ static const uint8
 	OID_BiometricInfo[]					= { OID_PE, 2 },
 	OID_QC_Statements[]					= { OID_PE, 3 },
 	OID_SubjectInfoAccess[]				= { OID_PE, 11 },
-	
+
 	/* Individual OIDS appearing in an ExtendedKeyUsage extension */
 	OID_ExtendedKeyUsageAny[] 			= { OID_EXTENSION, 37, 0 },
 	OID_KP_ServerAuth[]					= { OID_KP, 1 },
@@ -210,7 +210,7 @@ static const uint8
 	OID_KERBv5_PKINIT_KP_KDC[]			= { OID_KERBv5_PKINIT, 5 },
 	/* IPSec */
 	OID_EKU_IPSec[]						= { 0x2B, 0x06, 0x01, 0x05, 0x05, 0x08, 0x02, 0x02 },
-	
+
 	/* .mac Certificate Extended Key Use values */
 	OID_DOTMAC_CERT_EXTENSION[]		= { APPLE_DOTMAC_CERT_EXTEN_OID },
 	OID_DOTMAC_CERT_IDENTITY[]		= { APPLE_DOTMAC_CERT_EXTEN_OID, 1 },
@@ -223,6 +223,9 @@ static const uint8
 	OID_APPLE_EKU_ICHAT_SIGNING[]		= { APPLE_EKU_OID, 2 },
 	OID_APPLE_EKU_ICHAT_ENCRYPTION[]	= { APPLE_EKU_OID, 3 },
 	OID_APPLE_EKU_SYSTEM_IDENTITY[]		= { APPLE_EKU_OID, 4 },
+	OID_APPLE_EKU_PASSBOOK_SIGNING[]	= { APPLE_EKU_OID, 14 },
+	OID_APPLE_EKU_PROFILE_SIGNING[]		= { APPLE_EKU_OID, 16 },
+	OID_APPLE_EKU_QA_PROFILE_SIGNING[]	= { APPLE_EKU_OID, 17 },
 	/* Apple cert policies */
 	OID_APPLE_CERT_POLICY[]				= { APPLE_CERT_POLICIES, 1 },
 	OID_DOTMAC_CERT_POLICY[]			= { APPLE_CERT_POLICIES, 2 },
@@ -231,20 +234,25 @@ static const uint8
 	OID_APPLE_CERT_POLICY_MACAPPSTORE_RECEIPT[] = { APPLE_CERT_POLICIES_MACAPPSTORE_RECEIPT },
 	OID_APPLE_CERT_POLICY_APPLEID[] = { APPLE_CERT_POLICIES_APPLEID },
 	OID_APPLE_CERT_POLICY_APPLEID_SHARING[] = { APPLE_CERT_POLICIES_APPLEID_SHARING },
-	
+	OID_APPLE_CERT_POLICY_MOBILE_STORE_SIGNING[] = { APPLE_CERT_POLICIES_MOBILE_STORE_SIGNING },
+	OID_APPLE_CERT_POLICY_TEST_MOBILE_STORE_SIGNING[] = { APPLE_CERT_POLICIES_TEST_MOBILE_STORE_SIGNING },
+
     /* Apple-specific extensions */
     OID_APPLE_EXTENSION[]				= { APPLE_EXTENSION_OID },
     OID_APPLE_EXTENSION_CODE_SIGNING[]		= { APPLE_EXTENSION_CODE_SIGNING },
     OID_APPLE_EXTENSION_APPLE_SIGNING[]		= { APPLE_EXTENSION_CODE_SIGNING, 1 },
     OID_APPLE_EXTENSION_ADC_DEV_SIGNING[]	= { APPLE_EXTENSION_CODE_SIGNING, 2 },
     OID_APPLE_EXTENSION_ADC_APPLE_SIGNING[]	= { APPLE_EXTENSION_CODE_SIGNING, 3 },
+    OID_APPLE_EXTENSION_PASSBOOK_SIGNING[]	= { APPLE_EXTENSION_CODE_SIGNING, 16 },
 	OID_APPLE_EXTENSION_MACAPPSTORE_RECEIPT[] = { APPLE_EXTENSION_MACAPPSTORE_RECEIPT },
 	OID_APPLE_EXTENSION_INTERMEDIATE_MARKER[] = { APPLE_EXTENSION_INTERMEDIATE_MARKER },
 	OID_APPLE_EXTENSION_WWDR_INTERMEDIATE[] = { APPLE_EXTENSION_WWDR_INTERMEDIATE },
 	OID_APPLE_EXTENSION_ITMS_INTERMEDIATE[] = { APPLE_EXTENSION_ITMS_INTERMEDIATE },
 	OID_APPLE_EXTENSION_AAI_INTERMEDIATE[] = { APPLE_EXTENSION_AAI_INTERMEDIATE },
 	OID_APPLE_EXTENSION_APPLEID_INTERMEDIATE[] = { APPLE_EXTENSION_APPLEID_INTERMEDIATE },
-	OID_APPLE_EXTENSION_APPLEID_SHARING[]   = { APPLE_EXTENSION_APPLEID_SHARING }
+	OID_APPLE_EXTENSION_APPLEID_SHARING[]   = { APPLE_EXTENSION_APPLEID_SHARING },
+	OID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE[] = { APPLE_EXTENSION_SYSINT2_INTERMEDIATE },
+	OID_APPLE_EXTENSION_ESCROW_SERVICE[] = { APPLE_EXTENSION_ESCROW_SERVICE }
 ;
 
 #define OID_PKCS_CE_LENGTH	OID_EXTENSION_LENGTH + 1
@@ -312,6 +320,10 @@ CSSMOID_APPLEID_CERT_POLICY			= { APPLE_CERT_POLICIES_APPLEID_LENGTH,
 										(uint8 *)OID_APPLE_CERT_POLICY_APPLEID },
 CSSMOID_APPLEID_SHARING_CERT_POLICY	= { APPLE_CERT_POLICIES_APPLEID_SHARING_LENGTH,
 										(uint8 *)OID_APPLE_CERT_POLICY_APPLEID_SHARING },
+CSSMOID_MOBILE_STORE_SIGNING_POLICY = { APPLE_CERT_POLICIES_MOBILE_STORE_SIGNING_LENGTH,
+										(uint8 *)OID_APPLE_CERT_POLICY_MOBILE_STORE_SIGNING },
+CSSMOID_TEST_MOBILE_STORE_SIGNING_POLICY	= { APPLE_CERT_POLICIES_TEST_MOBILE_STORE_SIGNING_LENGTH,
+										(uint8 *)OID_APPLE_CERT_POLICY_TEST_MOBILE_STORE_SIGNING },
 CSSMOID_APPLE_EKU_CODE_SIGNING		= { APPLE_EKU_CODE_SIGNING_LENGTH,
 										(uint8 *)OID_APPLE_EKU_CODE_SIGNING },
 CSSMOID_APPLE_EKU_CODE_SIGNING_DEV	= { APPLE_EKU_CODE_SIGNING_LENGTH + 1,
@@ -324,6 +336,12 @@ CSSMOID_APPLE_EKU_ICHAT_ENCRYPTION	= { APPLE_EKU_OID_LENGTH + 1,
 										(uint8 *)OID_APPLE_EKU_ICHAT_ENCRYPTION },
 CSSMOID_APPLE_EKU_SYSTEM_IDENTITY	= { APPLE_EKU_OID_LENGTH + 1,
 										(uint8 *)OID_APPLE_EKU_SYSTEM_IDENTITY },
+CSSMOID_APPLE_EKU_PASSBOOK_SIGNING	= { APPLE_EKU_OID_LENGTH + 1,
+										(uint8 *)OID_APPLE_EKU_PASSBOOK_SIGNING },
+CSSMOID_APPLE_EKU_PROFILE_SIGNING	= { APPLE_EKU_OID_LENGTH + 1,
+										(uint8 *)OID_APPLE_EKU_PROFILE_SIGNING },
+CSSMOID_APPLE_EKU_QA_PROFILE_SIGNING	= { APPLE_EKU_OID_LENGTH + 1,
+										(uint8 *)OID_APPLE_EKU_QA_PROFILE_SIGNING },
 CSSMOID_APPLE_EXTENSION				= { APPLE_EXTENSION_OID_LENGTH,
 										(uint8 *)OID_APPLE_EXTENSION },
 CSSMOID_APPLE_EXTENSION_CODE_SIGNING		= { APPLE_EXTENSION_CODE_SIGNING_LENGTH,
@@ -334,31 +352,37 @@ CSSMOID_APPLE_EXTENSION_ADC_DEV_SIGNING		= { APPLE_EXTENSION_CODE_SIGNING_LENGTH
 												(uint8 *)OID_APPLE_EXTENSION_ADC_DEV_SIGNING },
 CSSMOID_APPLE_EXTENSION_ADC_APPLE_SIGNING	= { APPLE_EXTENSION_CODE_SIGNING_LENGTH + 3,
 												(uint8 *)OID_APPLE_EXTENSION_ADC_DEV_SIGNING },
+CSSMOID_APPLE_EXTENSION_PASSBOOK_SIGNING	= { APPLE_EXTENSION_CODE_SIGNING_LENGTH + 1,
+												(uint8 *)OID_APPLE_EXTENSION_PASSBOOK_SIGNING },
 CSSMOID_APPLE_EXTENSION_MACAPPSTORE_RECEIPT    = { APPLE_EXTENSION_MACAPPSTORE_RECEIPT_LENGTH,
 												(uint8 *)OID_APPLE_EXTENSION_MACAPPSTORE_RECEIPT },
 CSSMOID_APPLE_EXTENSION_INTERMEDIATE_MARKER   = { APPLE_EXTENSION_INTERMEDIATE_MARKER_LENGTH,
 												(uint8 *)OID_APPLE_EXTENSION_INTERMEDIATE_MARKER },
-CSSMOID_APPLE_EXTENSION_WWDR_INTERMEDIATE     = { APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH + 1,
+CSSMOID_APPLE_EXTENSION_WWDR_INTERMEDIATE     = { APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH,
 												(uint8 *)OID_APPLE_EXTENSION_WWDR_INTERMEDIATE },
-CSSMOID_APPLE_EXTENSION_ITMS_INTERMEDIATE     = { APPLE_EXTENSION_ITMS_INTERMEDIATE_LENGTH + 1,
+CSSMOID_APPLE_EXTENSION_ITMS_INTERMEDIATE     = { APPLE_EXTENSION_ITMS_INTERMEDIATE_LENGTH,
 												(uint8 *)OID_APPLE_EXTENSION_ITMS_INTERMEDIATE },
-CSSMOID_APPLE_EXTENSION_AAI_INTERMEDIATE      = { APPLE_EXTENSION_AAI_INTERMEDIATE_LENGTH + 1,
+CSSMOID_APPLE_EXTENSION_AAI_INTERMEDIATE      = { APPLE_EXTENSION_AAI_INTERMEDIATE_LENGTH,
 												(uint8 *)OID_APPLE_EXTENSION_AAI_INTERMEDIATE },
-CSSMOID_APPLE_EXTENSION_APPLEID_INTERMEDIATE    = { APPLE_EXTENSION_APPLEID_INTERMEDIATE_LENGTH + 1,
+CSSMOID_APPLE_EXTENSION_APPLEID_INTERMEDIATE    = { APPLE_EXTENSION_APPLEID_INTERMEDIATE_LENGTH,
 												(uint8 *)OID_APPLE_EXTENSION_APPLEID_INTERMEDIATE },
-CSSMOID_APPLE_EXTENSION_APPLEID_SHARING               = { APPLE_EXTENSION_APPLEID_INTERMEDIATE_LENGTH + 1,
-												(uint8 *)OID_APPLE_EXTENSION_APPLEID_SHARING }
+CSSMOID_APPLE_EXTENSION_APPLEID_SHARING         = { APPLE_EXTENSION_APPLEID_SHARING_LENGTH + 1,
+												(uint8 *)OID_APPLE_EXTENSION_APPLEID_SHARING },
+CSSMOID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE    = { APPLE_EXTENSION_SYSINT2_INTERMEDIATE_LENGTH,
+												(uint8 *)OID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE },
+CSSMOID_APPLE_EXTENSION_ESCROW_SERVICE          = { APPLE_EXTENSION_ESCROW_SERVICE_LENGTH + 1,
+												(uint8 *)OID_APPLE_EXTENSION_ESCROW_SERVICE }
 ;
 
 /* Apple Intermediate Marker OIDs */
 #define APPLE_CERT_EXT_INTERMEDIATE_MARKER APPLE_CERT_EXT, 2
 /* Apple Apple ID Intermediate Marker */
 #define APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID APPLE_CERT_EXT_INTERMEDIATE_MARKER, 3
-/* 
- *  Apple Apple ID Intermediate Marker (New subCA, no longer shared with push notification server cert issuer 
+/*
+ *  Apple Apple ID Intermediate Marker (New subCA, no longer shared with push notification server cert issuer
  *
- *  appleCertificateExtensionAppleIDIntermediate ::= 
- *    { appleCertificateExtensionIntermediateMarker 7 }                                
+ *  appleCertificateExtensionAppleIDIntermediate ::=
+ *    { appleCertificateExtensionIntermediateMarker 7 }
  *    { 1 2 840 113635 100 6 2 7 }
  */
 #define APPLE_CERT_EXT_INTERMEDIATE_MARKER_APPLEID_2 APPLE_CERT_EXT_INTERMEDIATE_MARKER, 7
@@ -372,7 +396,7 @@ CSSMOID_APPLE_EXTENSION_APPLEID_SHARING               = { APPLE_EXTENSION_APPLEI
  *	BER = 06 08 60 86 48 01 86 F8 42 01 01
  */
 static const uint8 	OID_NetscapeCertType[] 		= {NETSCAPE_CERT_EXTEN, 1};
-const CSSM_OID	CSSMOID_NetscapeCertType 	= 
+const CSSM_OID	CSSMOID_NetscapeCertType 	=
 	{NETSCAPE_CERT_EXTEN_LENGTH + 1, (uint8 *)OID_NetscapeCertType};
 
 /*
@@ -383,23 +407,23 @@ const CSSM_OID	CSSMOID_NetscapeCertType 	=
 static const uint8  OID_NetscapeCertSequence[]  =  { NETSCAPE_BASE_OID, 2, 5 };
 const CSSM_OID CSSMOID_NetscapeCertSequence		=
 	{ NETSCAPE_BASE_OID_LEN + 2, (uint8 *)OID_NetscapeCertSequence };
- 
-/* 
+
+/*
  * Netscape version of ServerGatedCrypto ExtendedKeyUse.
  * OID { 2 16 840 1 113730 4 1 }
  */
 static const uint8 OID_Netscape_SGC[] = {NETSCAPE_CERT_POLICY, 1};
-const CSSM_OID CSSMOID_NetscapeSGC 	= 
+const CSSM_OID CSSMOID_NetscapeSGC 	=
 	{NETSCAPE_CERT_POLICY_LENGTH + 1, (uint8 *)OID_Netscape_SGC};
 
-/* 
+/*
  * Microsoft version of ServerGatedCrypto ExtendedKeyUse.
  * OID { 1 3 6 1 4 1 311 10 3 3 }
  */
 static const uint8 OID_Microsoft_SGC[] = {0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x0A, 0x03, 0x03};
-const CSSM_OID CSSMOID_MicrosoftSGC 	= 
+const CSSM_OID CSSMOID_MicrosoftSGC 	=
 	{10, (uint8 *)OID_Microsoft_SGC};
-	
+
 /*
  * .mac Certificate Extended Key Use values.
  */

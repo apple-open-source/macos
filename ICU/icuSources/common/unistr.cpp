@@ -100,7 +100,7 @@ U_NAMESPACE_BEGIN
    due to how AIX works with multiple definitions of virtual functions.
 */
 Replaceable::~Replaceable() {}
-Replaceable::Replaceable() {}
+
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(UnicodeString)
 
 UnicodeString U_EXPORT2
@@ -147,10 +147,8 @@ UnicodeString::releaseArray() {
 //========================================
 // Constructors
 //========================================
-UnicodeString::UnicodeString()
-  : fShortLength(0),
-    fFlags(kShortString)
-{}
+
+// The default constructor is inline in unistr.h.
 
 UnicodeString::UnicodeString(int32_t capacity, UChar32 c, int32_t count)
   : fShortLength(0),
@@ -570,6 +568,13 @@ UChar32 UnicodeString::unescapeAt(int32_t &offset) const {
 //========================================
 // Read-only implementation
 //========================================
+UBool
+UnicodeString::doEquals(const UnicodeString &text, int32_t len) const {
+  // Requires: this & text not bogus and have same lengths.
+  // Byte-wise comparison works for equality regardless of endianness.
+  return uprv_memcmp(getArrayStart(), text.getArrayStart(), len * U_SIZEOF_UCHAR) == 0;
+}
+
 int8_t
 UnicodeString::doCompare( int32_t start,
               int32_t length,
@@ -1249,8 +1254,9 @@ UnicodeString::replace(int32_t start,
   UBool isError = FALSE;
   U16_APPEND(buffer, count, U16_MAX_LENGTH, srcChar, isError);
   // We test isError so that the compiler does not complain that we don't.
-  // If isError then count==0 which turns the doReplace() into a no-op anyway.
-  return isError ? *this : doReplace(start, _length, buffer, 0, count);
+  // If isError (srcChar is not a valid code point) then count==0 which means
+  // we remove the source segment rather than replacing it with srcChar.
+  return doReplace(start, _length, buffer, 0, isError ? 0 : count);
 }
 
 UnicodeString&

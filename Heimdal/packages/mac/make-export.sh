@@ -21,6 +21,7 @@ struct _krb5_key_data;
 struct _krb5_checksum_type;
 struct _krb5_key_type;
 struct _krb5_encryption_type;
+struct _krb5_srv_query_ctx;
 
 #define KRB5_DEPRECATED
 #define KRB5_DEPRECATED_FUNCTION(x)
@@ -34,12 +35,15 @@ struct _krb5_encryption_type;
 #include <krb5_asn1.h>
 #include "crypto-headers.h"
 #include <gssapi_rewrite.h>
+#include <GSS.h>
+#include <GSSPrivate.h>
 #include <gssapi.h>
 #include <gssapi_krb5.h>
 #include <gssapi_scram.h>
 #include <gssapi_spnego.h>
 #include <gssapi_ntlm.h>
 #include <gssapi_netlogon.h>
+#include <gssapi_apple.h>
 #include <gssapi_spi.h>
 #include <GSSItem.h>
 #include <heimbase.h>

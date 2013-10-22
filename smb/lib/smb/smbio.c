@@ -21,7 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "smbclient.h"
 #include <netsmb/smbio.h>
+#include <netsmb/smbio_2.h>
 #include <netsmb/upi_mbuf.h>
 #include <sys/mchain.h>
 #include <netsmb/rq.h>
@@ -270,19 +272,20 @@ int smbio_open_pipe(void *smbctx, const char *pipe_path, int *fid)
 {
 	struct open_inparms inparms;
 	int error;
-	
+    SMBFID smb2_fid = 0;
+    
 	memset(&inparms, 0,sizeof(inparms));
 	inparms.rights = SMB2_READ_CONTROL | SMB2_FILE_WRITE_ATTRIBUTES | 
 						SMB2_FILE_READ_ATTRIBUTES | SMB2_FILE_WRITE_EA | 
 						SMB2_FILE_READ_EA | SMB2_FILE_APPEND_DATA | 
-						SMB2_FILE_WRITE_DATA | SMB2_FILE_READ_DATA;
+						SMB2_FILE_WRITE_DATA | SMB2_FILE_READ_DATA | SMB2_SYNCHRONIZE;
 	/* Allocate */
 	inparms.attrs = SMB_EFA_NORMAL;
 	inparms.shareMode = NTCREATEX_SHARE_ACCESS_READ | NTCREATEX_SHARE_ACCESS_WRITE;
 	inparms.disp = FILE_OPEN;
 	inparms.createOptions = NTCREATEX_OPTIONS_NON_DIRECTORY_FILE;
 	
-	error = smbio_ntcreatex(smbctx, pipe_path, NULL, &inparms, NULL, fid);
+	error = smb2io_ntcreatex(smbctx, pipe_path, NULL, &inparms, NULL, &smb2_fid);
 	if (error == EINVAL) {
 		/*
 		 * Windows 95/98/Me return ERRSRV/ERRerror when we try to open the 
@@ -293,8 +296,12 @@ int smbio_open_pipe(void *smbctx, const char *pipe_path, int *fid)
 		error = ECONNREFUSED;
 	}
 	
-	if (error)
+	if (error) {
 		smb_log_info("%s, syserr = %s", ASL_LEVEL_DEBUG, __FUNCTION__, strerror(error));
+    }
+    else {
+        *fid = (int) smb2_fid;  /* cast to smb1 fid */
+    }
 
 	return -error;
 }

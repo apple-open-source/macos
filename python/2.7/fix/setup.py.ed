@@ -1,3 +1,23 @@
+/^def macosx_sdk_root(/a
+.
+/cflags =/i
+    sdkroot = os.environ.get('SDKROOT')
+    if sdkroot is not None:
+        return sdkroot
+.
+/# Check the additional directories$/a
+.
+/f = os\.path\.join(sysroot, dir\[1:], filename)/c
+            dir = os.path.join(sysroot, dir[1:])
+            f = os.path.join(dir, filename)
+.
+/# Otherwise, it must have been in one of the additional directories,$/a
+.
+/if os\.path\.join(sysroot, p\[1:]) == dirname:/c
+            sp = os.path.join(sysroot, p[1:])
+            if sp == dirname:
+.
+/return \[ p ]/s/p/sp/
 g/('-Wl,-search_paths_first',)/s//()/
 /'-arch' in ext.extra_link_args/s//'-no64' in ext.extra_link_args/
 /Disabled on 64-bit platforms/a
@@ -6,7 +26,7 @@ g/('-Wl,-search_paths_first',)/s//()/
 /\['imageop.c'\]/s//&, extra_compile_args = ['-no64'], extra_link_args = ['-no64']/
 /# readline$/a
 .
-/if platform == 'darwin':/a
+/if host_platform == 'darwin':/a
 .
 .,/if do_readline:/-1s/^/#/
 /readline_extra_link_args/a

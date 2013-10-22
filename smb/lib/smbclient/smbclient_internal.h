@@ -33,21 +33,26 @@ extern "C" {
 #endif
 
 /* Optional smbfs mount flags */
-#define SMBFS_MNT_SOFT	        0x0001
-#define	SMBFS_MNT_NOTIFY_OFF    0x0002
-#define	SMBFS_MNT_STREAMS_ON	0x0004
-#define	SMBFS_MNT_DEBUG_ACL_ON	0x0008
-#define SMBFS_MNT_DFS_SHARE		0x0010
-#define SMBFS_MNT_COMPOUND_ON	0x0020
-#define	SMBFS_MNT_TIME_MACHINE	0x0040
-	
+#define SMBFS_MNT_SOFT              0x0001
+#define SMBFS_MNT_NOTIFY_OFF        0x0002
+#define SMBFS_MNT_STREAMS_ON        0x0004
+#define SMBFS_MNT_DEBUG_ACL_ON      0x0008
+#define SMBFS_MNT_DFS_SHARE         0x0010
+#define SMBFS_MNT_COMPOUND_ON       0x0020
+#define SMBFS_MNT_TIME_MACHINE      0x0040
+#define SMBFS_MNT_READDIRATTR_OFF   0x0080
+#define SMBFS_MNT_KERBEROS_OFF      0x0100  /* tmp until <12991970> is fixed */
+#define SMBFS_MNT_FILE_IDS_OFF      0x0200
+#define SMBFS_MNT_AAPL_OFF          0x0400
+
 #ifndef KERNEL
 #include <asl.h>	
 #include <sys/mount.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-/* Once we add more we may want to make this an enum, also my want to make public */
+/* Once we add more we may want to make this an enum, also may want to make public */
 #define kHasNtwrkSID	0x01
+#define kLanmanOn		0x02
 
 /* These must match the values in dfs.h  */
 #define kReferralList			CFSTR("ReferralList")
@@ -57,12 +62,13 @@ extern "C" {
 #define	kNetworkAddress			CFSTR("NetworkAddress")
 #define kNewReferral			CFSTR("NewReferral")
 #define kDfsServerArray 	    CFSTR("DfsServerArray")
+#define kDfsADServerArray       CFSTR("DfsADServerArray")
 #define kDfsReferralArray		CFSTR("DfsReferralArray")
 #define kSpecialName			CFSTR("SpecialName")
 #define kNumberOfExpandedNames  CFSTR("NumberOfExpandedNames")
 #define kExpandedNameArray		CFSTR("ExpandedNameArray")
 
-    /*!
+/*!
  * @function SMBLogInfo
  * @abstract Helper routine for logging information the same as the framework.
  * @printf style routine

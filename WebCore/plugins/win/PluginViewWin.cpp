@@ -29,6 +29,7 @@
 #include "PluginView.h"
 
 #include "BitmapImage.h"
+#include "BitmapInfo.h"
 #include "BridgeJSC.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
@@ -66,13 +67,10 @@
 #include "c_instance.h"
 #include "npruntime_impl.h"
 #include "runtime_root.h"
+#include <runtime/JSCJSValue.h>
 #include <runtime/JSLock.h>
-#include <runtime/JSValue.h>
 #include <wtf/ASCIICType.h>
-
-#if !PLATFORM(WX)
-#include "BitmapInfo.h"
-#endif
+#include <wtf/text/WTFString.h>
 
 #if OS(WINCE)
 #undef LOG_NPERROR
@@ -86,28 +84,30 @@
 #include <cairo-win32.h>
 #endif
 
-#if PLATFORM(QT)
-#include "QWebPageClient.h"
-#include <QWidget>
+#if PLATFORM(GTK)
+#include <gdk/gdkwin32.h>
+#include <gtk/gtk.h>
 #endif
 
-#if PLATFORM(WX)
-#include <wx/defs.h>
-#include <wx/window.h>
+#if PLATFORM(QT)
+#include "QWebPageClient.h"
+#include <QWindow>
 #endif
 
 static inline HWND windowHandleForPageClient(PlatformPageClient client)
 {
-#if PLATFORM(QT)
+#if PLATFORM(GTK)
     if (!client)
         return 0;
-    if (QWidget* pluginParent = qobject_cast<QWidget*>(client->pluginParent()))
-        return pluginParent->winId();
+    if (GdkWindow* window = gtk_widget_get_window(client))
+        return static_cast<HWND>(GDK_WINDOW_HWND(window));
     return 0;
-#elif PLATFORM(WX)
+#elif PLATFORM(QT)
     if (!client)
         return 0;
-    return (HWND)client->GetHandle();
+    if (QWindow* window = client->ownerWindow())
+        return reinterpret_cast<HWND>(window->winId());
+    return 0;
 #else
     return client;
 #endif
@@ -116,7 +116,6 @@ static inline HWND windowHandleForPageClient(PlatformPageClient client)
 using JSC::ExecState;
 using JSC::JSLock;
 using JSC::JSObject;
-using JSC::UString;
 
 using std::min;
 
@@ -291,8 +290,8 @@ static bool registerPluginView()
 
     haveRegisteredWindowClass = true;
 
-#if PLATFORM(QT)
-    WebCore::setInstanceHandle((HINSTANCE)(qWinAppInst()));
+#if PLATFORM(GTK) || PLATFORM(QT)
+    WebCore::setInstanceHandle((HINSTANCE)(GetModuleHandle(0)));
 #endif
 
     ASSERT(WebCore::instanceHandle());
@@ -344,6 +343,29 @@ static bool isWindowsMessageUserGesture(UINT message)
         default:
             return false;
     }
+}
+
+static inline IntPoint contentsToNativeWindow(FrameView* view, const IntPoint& point)
+{
+#if PLATFORM(QT)
+    // Our web view's QWidget isn't necessarily a native window itself. Map the position
+    // all the way up to the QWidget associated with the HWND returned as NPNVnetscapeWindow.
+    PlatformPageClient client = view->hostWindow()->platformPageClient();
+    return client->mapToOwnerWindow(view->contentsToWindow(point));
+#else
+    return view->contentsToWindow(point);
+#endif
+}
+
+static inline IntRect contentsToNativeWindow(FrameView* view, const IntRect& rect)
+{
+#if PLATFORM(QT)
+    // This only handles translation of the rect.
+    ASSERT(view->contentsToWindow(rect).size() == rect.size());
+    return IntRect(contentsToNativeWindow(view, rect.location()), rect.size());
+#else
+    return view->contentsToWindow(rect);
+#endif
 }
 
 LRESULT
@@ -421,7 +443,7 @@ void PluginView::updatePluginWidget()
         return;
 
     ASSERT(parent()->isFrameView());
-    FrameView* frameView = static_cast<FrameView*>(parent());
+    FrameView* frameView = toFrameView(parent());
 
     IntRect oldWindowRect = m_windowRect;
     IntRect oldClipRect = m_clipRect;
@@ -517,7 +539,7 @@ bool PluginView::dispatchNPEvent(NPEvent& npEvent)
         shouldPop = true;
     }
 
-    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
     setCallingPlugin(true);
     bool accepted = !m_plugin->pluginFuncs()->event(m_instance, &npEvent);
     setCallingPlugin(false);
@@ -542,7 +564,7 @@ void PluginView::paintIntoTransformedContext(HDC hdc)
 
     WINDOWPOS windowpos = { 0, 0, 0, 0, 0, 0, 0 };
 
-    IntRect r = static_cast<FrameView*>(parent())->contentsToWindow(frameRect());
+    IntRect r = contentsToNativeWindow(toFrameView(parent()), frameRect());
 
     windowpos.x = r.x();
     windowpos.y = r.y();
@@ -570,12 +592,12 @@ void PluginView::paintIntoTransformedContext(HDC hdc)
 
 void PluginView::paintWindowedPluginIntoContext(GraphicsContext* context, const IntRect& rect)
 {
-#if !OS(WINCE)
+#if !USE(WINGDI)
     ASSERT(m_isWindowed);
     ASSERT(context->shouldIncludeChildWindows());
 
     ASSERT(parent()->isFrameView());
-    IntPoint locationInWindow = static_cast<FrameView*>(parent())->contentsToWindow(frameRect().location());
+    IntPoint locationInWindow = toFrameView(parent())->convertToContainingWindow(frameRect().location());
 
     LocalWindowsContext windowsContext(context, frameRect(), false);
 
@@ -620,7 +642,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         setNPWindowRect(frameRect());
 
     if (m_isWindowed) {
-#if !OS(WINCE)
+#if !USE(WINGDI)
         if (context->shouldIncludeChildWindows())
             paintWindowedPluginIntoContext(context, rect);
 #endif
@@ -628,14 +650,22 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     }
 
     ASSERT(parent()->isFrameView());
-    IntRect rectInWindow = static_cast<FrameView*>(parent())->contentsToWindow(frameRect());
+
+    // In the GTK and Qt ports we draw in an offscreen buffer and don't want to use the window
+    // coordinates.
+#if PLATFORM(GTK) || PLATFORM(QT)
+    IntRect rectInWindow(rect);
+    rectInWindow.intersect(frameRect());
+#else
+    IntRect rectInWindow = toFrameView(parent())->contentsToWindow(frameRect());
+#endif
     LocalWindowsContext windowsContext(context, rectInWindow, m_isTransparent);
 
     // On Safari/Windows without transparency layers the GraphicsContext returns the HDC
     // of the window and the plugin expects that the passed in DC has window coordinates.
-    // In the Qt port we always draw in an offscreen buffer and therefore need to preserve
-    // the translation set in getWindowsContext.
-#if !PLATFORM(QT) && !OS(WINCE)
+    // In the GTK and Qt ports we always draw in an offscreen buffer and therefore need
+    // to preserve the translation set in getWindowsContext.
+#if !PLATFORM(GTK) && !PLATFORM(QT) && !OS(WINCE)
     if (!context->isInTransparencyLayer()) {
         XFORM transform;
         GetWorldTransform(windowsContext.hdc(), &transform);
@@ -668,7 +698,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     } else
         return;
 
-    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
     if (dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
@@ -683,7 +713,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
 
     NPEvent npEvent;
 
-    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(IntPoint(event->pageX(), event->pageY()));
+    IntPoint p = contentsToNativeWindow(toFrameView(parent()), IntPoint(event->pageX(), event->pageY()));
 
     npEvent.lParam = MAKELPARAM(p.x(), p.y());
     npEvent.wParam = 0;
@@ -738,17 +768,17 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     } else
         return;
 
-    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
     // FIXME: Consider back porting the http://webkit.org/b/58108 fix here.
     if (dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 
-#if !PLATFORM(QT) && !PLATFORM(WX) && !OS(WINCE)
+#if !PLATFORM(GTK) && !PLATFORM(QT) && !OS(WINCE)
     // Currently, Widget::setCursor is always called after this function in EventHandler.cpp
     // and since we don't want that we set ignoreNextSetCursor to true here to prevent that.
     ignoreNextSetCursor = true;
     if (Page* page = m_parentFrame->page())
-        page->chrome()->client()->setLastSetCursorToCurrentCursor();
+        page->chrome().client()->setLastSetCursorToCurrentCursor();
 #endif
 }
 
@@ -802,7 +832,7 @@ void PluginView::setNPWindowRect(const IntRect& rect)
         return;
 
 #if OS(WINCE)
-    IntRect r = static_cast<FrameView*>(parent())->contentsToWindow(rect);
+    IntRect r = toFrameView(parent())->contentsToWindow(rect);
     m_npWindow.x = r.x();
     m_npWindow.y = r.y();
 
@@ -812,7 +842,13 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     m_npWindow.clipRect.right = r.width();
     m_npWindow.clipRect.bottom = r.height();
 #else
-    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(rect.location());
+    // In the GTK and Qt ports we draw in an offscreen buffer and don't want to use the window
+    // coordinates.
+# if PLATFORM(GTK) || PLATFORM(QT)
+    IntPoint p = rect.location();
+# else
+    IntPoint p = toFrameView(parent())->contentsToWindow(rect.location());
+# endif
     m_npWindow.x = p.x();
     m_npWindow.y = p.y();
 
@@ -826,7 +862,7 @@ void PluginView::setNPWindowRect(const IntRect& rect)
     m_npWindow.clipRect.top = 0;
 
     if (m_plugin->pluginFuncs()->setwindow) {
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
         setCallingPlugin(false);
@@ -988,7 +1024,7 @@ bool PluginView::platformStart()
         HWND window = ::CreateWindowEx(0, kWebPluginViewdowClassName, 0, flags,
                                        0, 0, 0, 0, parentWindowHandle, 0, WebCore::instanceHandle(), 0);
 
-#if OS(WINDOWS) && (PLATFORM(QT) || PLATFORM(WX))
+#if OS(WINDOWS) && (PLATFORM(GTK) || PLATFORM(QT))
         m_window = window;
 #else
         setPlatformWidget(window);
@@ -1031,7 +1067,7 @@ void PluginView::platformDestroy()
 
 PassRefPtr<Image> PluginView::snapshot()
 {
-#if !PLATFORM(WX) && !OS(WINCE)
+#if !PLATFORM(GTK) && !USE(WINGDI)
     OwnPtr<HDC> hdc = adoptPtr(CreateCompatibleDC(0));
 
     if (!m_isWindowed) {
@@ -1044,7 +1080,7 @@ PassRefPtr<Image> PluginView::snapshot()
         // Windowless plug-ins assume that they're drawing onto the view's DC.
         // Translate the context so that the plug-in draws at (0, 0).
         ASSERT(parent()->isFrameView());
-        IntPoint position = static_cast<FrameView*>(parent())->contentsToWindow(frameRect()).location();
+        IntPoint position = toFrameView(parent())->contentsToWindow(frameRect()).location();
         transform.eDx = -position.x();
         transform.eDy = -position.y();
         SetWorldTransform(hdc.get(), &transform);

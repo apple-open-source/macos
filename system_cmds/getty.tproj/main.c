@@ -59,7 +59,11 @@ static const char rcsid[] =
 #include <errno.h>
 #include <fcntl.h>
 #include <locale.h>
+#ifdef __APPLE__
+#include <util.h>
+#else
 #include <libutil.h>
+#endif
 #include <setjmp.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -152,7 +156,7 @@ static void	putf(const char *);
 static void	putpad(const char *);
 static void	puts(const char *);
 static void	timeoverrun(int);
-static char	*getline(int);
+static char	*getty_getline(int);
 static void	setttymode(int);
 static int	opentty(const char *, int);
 
@@ -352,7 +356,7 @@ main(int argc, char *argv[])
 			if ((fd = open(IF, O_RDONLY)) != -1) {
 				char * cp;
 
-				while ((cp = getline(fd)) != NULL) {
+				while ((cp = getty_getline(fd)) != NULL) {
 					  putf(cp);
 				}
 				close(fd);
@@ -744,7 +748,7 @@ prompt(void)
 
 
 static char *
-getline(int fd)
+getty_getline(int fd)
 {
 	int i = 0;
 	static char linebuf[512];

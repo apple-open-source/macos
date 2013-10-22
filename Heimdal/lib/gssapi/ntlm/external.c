@@ -127,7 +127,7 @@ static gssapi_mech_interface_desc ntlm_mech = {
     _gss_ntlm_verify_mic,
     _gss_ntlm_wrap,
     _gss_ntlm_unwrap,
-    _gss_ntlm_display_status,
+    NULL,
     NULL,
     _gss_ntlm_compare_name,
     _gss_ntlm_display_name,

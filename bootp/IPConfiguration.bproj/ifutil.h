@@ -40,6 +40,11 @@
 #include <netinet6/in6_var.h>
 #include <mach/boolean.h>
 
+#define s6_addr16 __u6_addr.__u6_addr16
+
+int
+interface_set_mtu(const char * ifname, int mtu);
+
 int
 inet_dgram_socket(void);
 
@@ -71,6 +76,7 @@ typedef struct {
     inet6_addrinfo_t *		list;
     int				count;
     inet6_addrinfo_t		list_static[INET6_ADDRLIST_N_STATIC];
+    inet6_addrinfo_t *		linklocal;
 } inet6_addrlist_t;
 
 
@@ -96,7 +102,7 @@ inet6_aifaddr(int s, const char * name, const struct in6_addr * addr,
 int	inet6_rtadv_enable(const char * if_name);
 int	inet6_rtadv_disable(const char * if_name);
 
-int	inet6_linklocal_start(const char * ifname);
+int	inet6_linklocal_start(const char * ifname, boolean_t use_cga);
 int	inet6_linklocal_stop(const char * ifname);
 
 int	inet6_flush_prefixes(const char * ifname);
@@ -104,6 +110,9 @@ int	inet6_flush_routes(const char * ifname);
 
 boolean_t
 inet6_forwarding_is_enabled(void);
+
+boolean_t
+inet6_set_perform_nud(const char * if_name, boolean_t perform_nud);
 
 void
 inet6_addrlist_init(inet6_addrlist_t * addr_list_p);

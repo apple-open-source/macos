@@ -115,6 +115,7 @@ mini_inetd_addrinfo (struct addrinfo *ai, rk_socket_t *ret_socket)
 	fds[i] = socket (a->ai_family, a->ai_socktype, a->ai_protocol);
 	if (rk_IS_BAD_SOCKET(fds[i]))
 	    continue;
+	socket_set_nopipe(fds[i], 1);
 	socket_set_reuseaddr (fds[i], 1);
 	socket_set_ipv6only(fds[i], 1);
 	if (rk_IS_SOCKET_ERROR(bind (fds[i], a->ai_addr, a->ai_addrlen))) {

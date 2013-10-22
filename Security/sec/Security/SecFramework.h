@@ -34,9 +34,7 @@
 #include <CoreFoundation/CFURL.h>
 #include <Security/SecAsn1Types.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 #define SecString(key, comment)  CFSTR(key)
 #define SecStringFromTable(key, tbl, comment)  CFSTR(key)
@@ -61,8 +59,9 @@ CFDataRef SecDigestCreate(CFAllocatorRef allocator,
     const SecAsn1Oid *algorithm, const SecAsn1Item *params,
 	const UInt8 *data, CFIndex length);
 
-#if defined(__cplusplus)
-}
-#endif
+// Wrapper to provide a CFErrorRef for legacy API.
+OSStatus SecOSStatusWith(bool (^perform)(CFErrorRef *error));
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECFRAMEWORK_H_ */

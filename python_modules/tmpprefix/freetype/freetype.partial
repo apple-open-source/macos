@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>freetype</string>
+        <key>OpenSourceVersion</key>
+        <string>2.4.10</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://freetype.sourceforge.net/index2.html</string>
+        <key>OpenSourceURL</key>
+        <string>http://download.savannah.gnu.org/releases/freetype/freetype-2.4.10.tar.bz2</string>
+        <key>OpenSourceImportDate</key>
+        <string>2012-10-28</string>
+        <key>OpenSourceLicense</key>
+        <string>freetype</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>13286702e9390a91661f980608adaff1</string>
+</dict>

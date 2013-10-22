@@ -50,6 +50,7 @@ struct zftp_session;
 typedef struct zftp_session *Zftp_session;
 
 #include "tcp.h"
+#include "tcp.mdh"
 #include "zftp.mdh"
 #include "zftp.pro"
 
@@ -2519,7 +2520,7 @@ zftp_local(UNUSED(char *name), char **args, int flags)
 	printf("%s %s\n", output64(sz), mt);
 #else
 	DPUTS(sizeof(sz) > 4, "Shell compiled with wrong off_t size");
-	printf("%ld %s\n", sz, mt);
+	printf("%ld %s\n", (long)sz, mt);
 #endif
 	zsfree(mt);
 	if (dofd)

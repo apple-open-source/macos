@@ -99,7 +99,7 @@ void CryptKit::FEERawSigner::sign(
 	feeSig 			fsig;
 	feeReturn		frtn;
 	unsigned char	*feeSig;
-	unsigned		feeSigLen;
+	unsigned		feeSigLen=0;
 	
 	if(mFeeKey == NULL) {
 		throwCryptKit(FR_BadPubKey, "FEERawSigner::sign (no key)");
@@ -110,7 +110,7 @@ void CryptKit::FEERawSigner::sign(
 	}
 	frtn = feeSigSign(fsig,
 		(unsigned char *)data,
-		dataLen,
+		(unsigned)dataLen,
 		mFeeKey);
 	if(frtn == FR_Success) {
 		frtn = feeSigData(fsig, &feeSig, &feeSigLen);
@@ -149,7 +149,7 @@ void CryptKit::FEERawSigner::verify(
 	}
 	frtn = feeSigVerify(fsig,
 		(unsigned char *)data,
-		dataLen,
+		(unsigned int)dataLen,
 		mFeeKey);
 	feeSigFree(fsig);
 	if(frtn) {
@@ -186,7 +186,7 @@ void CryptKit::FEEECDSASigner::sign(
 	}
 	frtn = feeECDSASign(mFeeKey,
 		(unsigned char *)data,   // data to be signed
-		dataLen,				// in bytes
+		(unsigned int)dataLen,				// in bytes
 		mRandFcn, 
 		mRandRef,
 		&feeSig,
@@ -220,7 +220,7 @@ void CryptKit::FEEECDSASigner::verify(
 	frtn = feeECDSAVerify((unsigned char *)sig,
 		sigLen,
 		(unsigned char *)data,
-		dataLen,
+		(unsigned int)dataLen,
 		mFeeKey);
 	if(frtn) {
 		throwCryptKit(frtn, NULL);

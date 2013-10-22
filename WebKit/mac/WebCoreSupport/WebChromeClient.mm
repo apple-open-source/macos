@@ -31,6 +31,8 @@
 
 #import "DOMElementInternal.h"
 #import "DOMNodeInternal.h"
+#import "PopupMenuMac.h"
+#import "SearchPopupMenuMac.h"
 #import "WebBasePluginPackage.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebDelegateImplementationCaching.h"
@@ -53,9 +55,9 @@
 #import <Foundation/Foundation.h>
 #import <WebCore/BlockExceptions.h>
 #import <WebCore/Console.h>
-#import <WebCore/Cursor.h>
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
+#import <WebCore/Cursor.h>
 #import <WebCore/Element.h>
 #import <WebCore/FileChooser.h>
 #import <WebCore/FileIconLoader.h>
@@ -63,6 +65,7 @@
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoadRequest.h>
 #import <WebCore/FrameView.h>
+#import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HTMLPlugInImageElement.h>
 #import <WebCore/HitTestResult.h>
@@ -73,14 +76,12 @@
 #import <WebCore/NotImplemented.h>
 #import <WebCore/Page.h>
 #import <WebCore/PlatformScreen.h>
-#import <WebCore/PlatformString.h>
-#import <WebCore/PopupMenuMac.h>
 #import <WebCore/ResourceRequest.h>
-#import <WebCore/SearchPopupMenuMac.h>
 #import <WebCore/Widget.h>
 #import <WebCore/WindowFeatures.h>
 #import <wtf/PassRefPtr.h>
 #import <wtf/Vector.h>
+#import <wtf/text/WTFString.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 #import <WebCore/GraphicsLayer.h>
@@ -90,27 +91,22 @@
 #import "NetscapePluginHostManager.h"
 #endif
 
-NSString *WebConsoleMessageHTMLMessageSource = @"HTMLMessageSource";
 NSString *WebConsoleMessageXMLMessageSource = @"XMLMessageSource";
 NSString *WebConsoleMessageJSMessageSource = @"JSMessageSource";
 NSString *WebConsoleMessageNetworkMessageSource = @"NetworkMessageSource";
 NSString *WebConsoleMessageConsoleAPIMessageSource = @"ConsoleAPIMessageSource";
+NSString *WebConsoleMessageStorageMessageSource = @"StorageMessageSource";
+NSString *WebConsoleMessageAppCacheMessageSource = @"AppCacheMessageSource";
+NSString *WebConsoleMessageRenderingMessageSource = @"RenderingMessageSource";
+NSString *WebConsoleMessageCSSMessageSource = @"CSSMessageSource";
+NSString *WebConsoleMessageSecurityMessageSource = @"SecurityMessageSource";
 NSString *WebConsoleMessageOtherMessageSource = @"OtherMessageSource";
 
-NSString *WebConsoleMessageLogMessageType = @"LogMessageType";
-NSString *WebConsoleMessageDirMessageType = @"DirMessageType";
-NSString *WebConsoleMessageDirXMLMessageType = @"DirXMLMessageType";
-NSString *WebConsoleMessageTraceMessageType = @"TraceMessageType";
-NSString *WebConsoleMessageStartGroupMessageType = @"StartGroupMessageType";
-NSString *WebConsoleMessageStartGroupCollapsedMessageType = @"StartGroupCollapsedMessageType";
-NSString *WebConsoleMessageEndGroupMessageType = @"EndGroupMessageType";
-NSString *WebConsoleMessageAssertMessageType = @"AssertMessageType";
-
-NSString *WebConsoleMessageTipMessageLevel = @"TipMessageLevel";
+NSString *WebConsoleMessageDebugMessageLevel = @"DebugMessageLevel";
 NSString *WebConsoleMessageLogMessageLevel = @"LogMessageLevel";
 NSString *WebConsoleMessageWarningMessageLevel = @"WarningMessageLevel";
 NSString *WebConsoleMessageErrorMessageLevel = @"ErrorMessageLevel";
-NSString *WebConsoleMessageDebugMessageLevel = @"DebugMessageLevel";
+
 
 @interface NSApplication (WebNSApplicationDetails)
 - (NSCursor *)_cursorRectCursor;
@@ -200,8 +196,18 @@ void WebChromeClient::takeFocus(FocusDirection direction)
     }
 }
 
-void WebChromeClient::focusedNodeChanged(Node*)
+void WebChromeClient::focusedNodeChanged(Node* node)
 {
+    if (!node)
+        return;
+    if (!node->hasTagName(inputTag))
+        return;
+
+    HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(node);
+    if (!inputElement->isText())
+        return;
+
+    CallFormDelegate(m_webView, @selector(didFocusTextField:inFrame:), kit(inputElement), kit(inputElement->document()->frame()));
 }
 
 void WebChromeClient::focusedFrameChanged(Frame*)
@@ -338,8 +344,6 @@ void WebChromeClient::setResizable(bool b)
 inline static NSString *stringForMessageSource(MessageSource source)
 {
     switch (source) {
-    case HTMLMessageSource:
-        return WebConsoleMessageHTMLMessageSource;
     case XMLMessageSource:
         return WebConsoleMessageXMLMessageSource;
     case JSMessageSource:
@@ -348,32 +352,18 @@ inline static NSString *stringForMessageSource(MessageSource source)
         return WebConsoleMessageNetworkMessageSource;
     case ConsoleAPIMessageSource:
         return WebConsoleMessageConsoleAPIMessageSource;
+    case StorageMessageSource:
+        return WebConsoleMessageStorageMessageSource;
+    case AppCacheMessageSource:
+        return WebConsoleMessageAppCacheMessageSource;
+    case RenderingMessageSource:
+        return WebConsoleMessageRenderingMessageSource;
+    case CSSMessageSource:
+        return WebConsoleMessageCSSMessageSource;
+    case SecurityMessageSource:
+        return WebConsoleMessageSecurityMessageSource;
     case OtherMessageSource:
         return WebConsoleMessageOtherMessageSource;
-    }
-    ASSERT_NOT_REACHED();
-    return @"";
-}
-
-inline static NSString *stringForMessageType(MessageType type)
-{
-    switch (type) {
-    case LogMessageType:
-        return WebConsoleMessageLogMessageType;
-    case DirMessageType:
-        return WebConsoleMessageDirMessageType;
-    case DirXMLMessageType:
-        return WebConsoleMessageDirXMLMessageType;
-    case TraceMessageType:
-        return WebConsoleMessageTraceMessageType;
-    case StartGroupMessageType:
-        return WebConsoleMessageStartGroupMessageType;
-    case StartGroupCollapsedMessageType:
-        return WebConsoleMessageStartGroupCollapsedMessageType;
-    case EndGroupMessageType:
-        return WebConsoleMessageEndGroupMessageType;
-    case AssertMessageType:
-        return WebConsoleMessageAssertMessageType;
     }
     ASSERT_NOT_REACHED();
     return @"";
@@ -382,22 +372,20 @@ inline static NSString *stringForMessageType(MessageType type)
 inline static NSString *stringForMessageLevel(MessageLevel level)
 {
     switch (level) {
-    case TipMessageLevel:
-        return WebConsoleMessageTipMessageLevel;
+    case DebugMessageLevel:
+        return WebConsoleMessageDebugMessageLevel;
     case LogMessageLevel:
         return WebConsoleMessageLogMessageLevel;
     case WarningMessageLevel:
         return WebConsoleMessageWarningMessageLevel;
     case ErrorMessageLevel:
         return WebConsoleMessageErrorMessageLevel;
-    case DebugMessageLevel:
-        return WebConsoleMessageDebugMessageLevel;
     }
     ASSERT_NOT_REACHED();
     return @"";
 }
 
-void WebChromeClient::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned int lineNumber, const String& sourceURL)
+void WebChromeClient::addMessageToConsole(MessageSource source, MessageLevel level, const String& message, unsigned int lineNumber, unsigned columnNumber, const String& sourceURL)
 {
     id delegate = [m_webView UIDelegate];
     BOOL respondsToNewSelector = NO;
@@ -418,9 +406,9 @@ void WebChromeClient::addMessageToConsole(MessageSource source, MessageType type
     NSDictionary *dictionary = [[NSDictionary alloc] initWithObjectsAndKeys:
         (NSString *)message, @"message",
         [NSNumber numberWithUnsignedInt:lineNumber], @"lineNumber",
+        [NSNumber numberWithUnsignedInt:columnNumber], @"columnNumber",
         (NSString *)sourceURL, @"sourceURL",
         messageSource, @"MessageSource",
-        stringForMessageType(type), @"MessageType",
         stringForMessageLevel(level), @"MessageLevel",
         NULL];
 
@@ -534,6 +522,11 @@ IntRect WebChromeClient::windowResizerRect() const
     return enclosingIntRect([[m_webView window] _growBoxRect]);
 }
 
+bool WebChromeClient::supportsImmediateInvalidation()
+{
+    return true;
+}
+
 void WebChromeClient::invalidateRootView(const IntRect&, bool immediate)
 {
     if (immediate) {
@@ -595,9 +588,6 @@ void WebChromeClient::scrollRectIntoView(const IntRect& r) const
 
 bool WebChromeClient::shouldUnavailablePluginMessageBeButton(RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
-    if (pluginUnavailabilityReason == RenderEmbeddedObject::PluginInactive)
-        return true;
-
     if (pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing)
         return [[m_webView UIDelegate] respondsToSelector:@selector(webView:didPressMissingPluginButton:)];
 
@@ -608,28 +598,7 @@ void WebChromeClient::unavailablePluginButtonClicked(Element* element, RenderEmb
 {
     ASSERT(element->hasTagName(objectTag) || element->hasTagName(embedTag) || element->hasTagName(appletTag));
 
-    if (pluginUnavailabilityReason == RenderEmbeddedObject::PluginInactive) {
-        HTMLPlugInImageElement* pluginElement = static_cast<HTMLPlugInImageElement*>(element);
-
-        WebBasePluginPackage *pluginPackage = nil;
-        if (!pluginElement->serviceType().isEmpty())
-            pluginPackage = [m_webView _pluginForMIMEType:pluginElement->serviceType()];
-
-        NSURL *url = pluginElement->document()->completeURL(pluginElement->url());
-        NSString *extension = [[url path] pathExtension];
-        if (!pluginPackage && [extension length])
-            pluginPackage = [m_webView _pluginForExtension:extension];
-
-        if (pluginPackage && [pluginPackage bundleIdentifier] == "com.oracle.java.JavaAppletPlugin") {
-            // Reactivate the plug-in and reload the page so the plug-in will be instantiated correctly.
-            WKActivateJavaPlugIn();
-            [m_webView reload:nil];
-        }
-
-        return;
-    }
-
-    ASSERT(pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing || pluginUnavailabilityReason == RenderEmbeddedObject::PluginInactive);
+    ASSERT(pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing);
     CallUIDelegate(m_webView, @selector(webView:didPressMissingPluginButton:), kit(element));
 }
 
@@ -658,7 +627,7 @@ void WebChromeClient::print(Frame* frame)
 
 #if ENABLE(SQL_DATABASE)
 
-void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseName)
+void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseName, DatabaseDetails)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
@@ -710,7 +679,7 @@ void WebChromeClient::populateVisitedLinks()
 
 #if ENABLE(DASHBOARD_SUPPORT)
 
-void WebChromeClient::dashboardRegionsChanged()
+void WebChromeClient::annotatedRegionsChanged()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     CallUIDelegate(m_webView, @selector(webView:dashboardRegionsChanged:), [m_webView _dashboardRegions]);
@@ -814,11 +783,14 @@ void WebChromeClient::makeFirstResponder(NSResponder *responder)
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
-void WebChromeClient::willPopUpMenu(NSMenu *menu)
+void WebChromeClient::enableSuddenTermination()
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    CallUIDelegate(m_webView, @selector(webView:willPopupMenu:), menu);
-    END_BLOCK_OBJC_EXCEPTIONS;
+    [[NSProcessInfo processInfo] enableSuddenTermination];
+}
+
+void WebChromeClient::disableSuddenTermination()
+{
+    [[NSProcessInfo processInfo] disableSuddenTermination];
 }
 
 bool WebChromeClient::shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename)
@@ -847,20 +819,12 @@ void WebChromeClient::elementDidBlur(const WebCore::Node* node)
 
 bool WebChromeClient::selectItemWritingDirectionIsNatural()
 {
-#ifndef BUILDING_ON_LEOPARD
     return false;
-#else
-    return true;
-#endif
 }
 
 bool WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection()
 {
-#ifndef BUILDING_ON_LEOPARD
     return true;
-#else
-    return false;
-#endif
 }
 
 bool WebChromeClient::hasOpenedPopup() const
@@ -877,6 +841,12 @@ PassRefPtr<WebCore::PopupMenu> WebChromeClient::createPopupMenu(WebCore::PopupMe
 PassRefPtr<WebCore::SearchPopupMenu> WebChromeClient::createSearchPopupMenu(WebCore::PopupMenuClient* client) const
 {
     return adoptRef(new SearchPopupMenuMac(client));
+}
+
+bool WebChromeClient::shouldPaintEntireContents() const
+{
+    NSView *documentView = [[[m_webView mainFrame] frameView] documentView];
+    return [documentView layer];
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -907,10 +877,10 @@ void WebChromeClient::setNeedsOneShotDrawingSynchronization()
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
-void WebChromeClient::scheduleCompositingLayerSync()
+void WebChromeClient::scheduleCompositingLayerFlush()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    [m_webView _scheduleCompositingLayerSync];
+    [m_webView _scheduleCompositingLayerFlush];
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 

@@ -18,11 +18,14 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
+#include <config.h>
+
+#include <sys/types.h>
+
 #include <stdio.h>
 #include <errno.h>
 
-#include <config.h>
-#include <compat.h>
+#include "missing.h"
 
 /*
  * Map errno -> error string.
@@ -35,7 +38,7 @@ strerror(n)
     extern char *sys_errlist[];
 
     if (n > 0 && n < sys_nerr)
-	return(sys_errlist[n]);
+	return sys_errlist[n];
     errno = EINVAL;
-    return("Unknown error");
+    return "Unknown error";
 }

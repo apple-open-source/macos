@@ -41,9 +41,14 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-evp.h"
+#include "ossl-crypto.h"
+#else
 #include <openssl/evp.h>
 
 #include <openssl/crypto.h>
+#endif /* __APPLE_CRYPTO__ */
 #include <fcntl.h>
 #include <stdlib.h>
 #include <signal.h>

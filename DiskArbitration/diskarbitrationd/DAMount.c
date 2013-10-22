@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
 #include "DAMain.h"
 #include "DASupport.h"
 
+#include <fstab.h>
 #include <libgen.h>
 #include <unistd.h>
 #include <sys/param.h>
@@ -36,9 +37,13 @@
 
 struct __DAMountCallbackContext
 {
+///w:start
+    Boolean         automatic;
+///w:stop
     DAMountCallback callback;
     void *          callbackContext;
     DADiskRef       disk;
+    Boolean         force;
     CFURLRef        mountpoint;
     CFStringRef     options;
 };
@@ -47,6 +52,7 @@ typedef struct __DAMountCallbackContext __DAMountCallbackContext;
 
 static void __DAMountWithArgumentsCallbackStage1( int status, void * context );
 static void __DAMountWithArgumentsCallbackStage2( int status, void * context );
+static void __DAMountWithArgumentsCallbackStage3( int status, void * context );
 
 static void __DAMountWithArgumentsCallback( int status, void * parameter )
 {
@@ -56,14 +62,26 @@ static void __DAMountWithArgumentsCallback( int status, void * parameter )
 
     __DAMountCallbackContext * context = parameter;
 
+///w:start
+    if ( context->automatic )
+    {
+        if ( status == ___EDIRTY )
+        {
+            DAMountWithArguments( context->disk, NULL, context->callback, context->callbackContext, kDAFileSystemMountArgumentForce, kDAFileSystemMountArgumentNoWrite, NULL );
+
+            context->callback = NULL;
+        }
+    }
+///w:stop
     if ( context->callback )
     {
         ( context->callback )( status, context->mountpoint, context->callbackContext );
     }
 
-    CFRelease( context->disk       );
-    CFRelease( context->mountpoint );
-    CFRelease( context->options    );
+    CFRelease( context->disk    );
+    CFRelease( context->options );
+
+    if ( context->mountpoint )  CFRelease( context->mountpoint );
 
     free( context );
 }
@@ -71,38 +89,143 @@ static void __DAMountWithArgumentsCallback( int status, void * parameter )
 static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 {
     /*
+     * Process the repair command's completion.
+     */
+
+    __DAMountCallbackContext * context = parameter;
+
+    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
+
+    if ( status )
+    {
+        /*
+         * We were unable to repair the volume.
+         */
+
+        if ( status == ECANCELED )
+        {
+            status = 0;
+        }
+        else
+        {
+            DALogDebug( "  repaired disk, id = %@, failure.", context->disk );
+
+            DALogError( "unable to repair %@ (status code 0x%08X).", context->disk, status );
+
+            if ( context->force )
+            {
+                status = 0;
+            }
+            else
+            {
+                __DAMountWithArgumentsCallback( ___EDIRTY, context );
+            }
+        }
+    }
+    else
+    {
+        /*
+         * We were able to repair the volume.
+         */
+
+        DADiskSetState( context->disk, kDADiskStateRequireRepair, FALSE );
+
+        DALogDebug( "  repaired disk, id = %@, success.", context->disk );
+    }
+
+    /*
+     * Mount the volume.
+     */
+
+    if ( status == 0 )
+    {
+        /*
+         * Create the mount point, in case one needs to be created.
+         */
+
+        if ( context->mountpoint == NULL )
+        {
+            context->mountpoint = DAMountCreateMountPointWithAction( context->disk, kDAMountPointActionMake );
+        }
+
+        /*
+         * Execute the mount command.
+         */
+
+        if ( context->mountpoint )
+        {
+            DALogDebug( "  mounted disk, id = %@, ongoing.", context->disk );
+
+            DAFileSystemMountWithArguments( DADiskGetFileSystem( context->disk ),
+                                            DADiskGetDevice( context->disk ),
+                                            context->mountpoint,
+                                            DADiskGetUserUID( context->disk ),
+                                            DADiskGetUserGID( context->disk ),
+                                            __DAMountWithArgumentsCallbackStage2,
+                                            context,
+                                            context->options,
+                                            NULL );
+        }
+        else
+        {
+            __DAMountWithArgumentsCallback( ENOSPC, context );
+        }
+    }
+}
+
+static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
+{
+    /*
      * Process the mount command's completion.
      */
 
     __DAMountCallbackContext * context = parameter;
 
-    if ( status == 0 )
+    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
+
+    if ( status )
     {
-        _DAMountCreateTrashFolder( context->disk, context->mountpoint );
+        /*
+         * We were unable to mount the volume.
+         */
 
-        if ( DADiskGetState( context->disk, kDADiskStateRequireRepairQuotas ) )
-        {
-            /*
-             * Execute the "repair quotas" command.
-             */
+        DALogDebug( "  mounted disk, id = %@, failure.", context->disk );
 
-            DAFileSystemRepairQuotas( DADiskGetFileSystem( context->disk ),
-                                      context->mountpoint,
-                                      __DAMountWithArgumentsCallbackStage2,
-                                      context );
+        DALogError( "unable to mount %@ (status code 0x%08X).", context->disk, status );
 
-            return;
-        }
+        DAMountRemoveMountPoint( context->mountpoint );
+
+        __DAMountWithArgumentsCallback( status, context );
     }
     else
     {
-         DAMountRemoveMountPoint( context->mountpoint );
-    }
+        /*
+         * We were able to mount the volume.
+         */
 
-    __DAMountWithArgumentsCallback( status, context );
+        DALogDebug( "  mounted disk, id = %@, success.", context->disk );
+
+        _DAMountCreateTrashFolder( context->disk, context->mountpoint );
+
+        /*
+         * Execute the "repair quotas" command.
+         */
+
+        if ( DADiskGetState( context->disk, kDADiskStateRequireRepairQuotas ) )
+        {
+            DAFileSystemRepairQuotas( DADiskGetFileSystem( context->disk ),
+                                      context->mountpoint,
+                                      __DAMountWithArgumentsCallbackStage3,
+                                      context );
+        }
+        else
+        {
+            __DAMountWithArgumentsCallbackStage3( 0, context );
+        }
+    }
 }
 
-static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
+static void __DAMountWithArgumentsCallbackStage3( int status, void * parameter )
 {
     /*
      * Process the "repair quotas" command's completion.
@@ -181,30 +304,93 @@ void DAMount( DADiskRef disk, CFURLRef mountpoint, DAMountCallback callback, voi
 
 Boolean DAMountContainsArgument( CFStringRef arguments, CFStringRef argument )
 {
-    CFRange range;
+    CFBooleanRef argumentValue;
+    CFBooleanRef argumentsValue;
 
-    range = CFStringFind( arguments, argument, 0 );
+    argumentsValue = NULL;
 
-    if ( range.length )
+    if ( CFStringHasPrefix( argument, CFSTR( "no" ) ) )
     {
-        if ( range.location )
-        {
-            if ( CFStringGetCharacterAtIndex( arguments, range.location - 1 ) != ',' )
-            {
-                range.length = 0;
-            }
-        }
-
-        if ( range.location + range.length < CFStringGetLength( arguments ) )
-        {
-            if ( CFStringGetCharacterAtIndex( arguments, range.location + range.length ) != ',' )
-            {
-                range.length = 0;
-            }
-        }
+        argument      = CFStringCreateWithSubstring( kCFAllocatorDefault, argument, CFRangeMake( 2, CFStringGetLength( argument ) - 2 ) );
+        argumentValue = kCFBooleanFalse;
+    }
+    else
+    {
+        argument      = CFRetain( argument );
+        argumentValue = kCFBooleanTrue;
     }
 
-    return range.length ? TRUE : FALSE;
+    if ( argument )
+    {
+        CFArrayRef argumentList;
+        CFIndex    argumentListCount;
+        CFIndex    argumentListIndex;
+
+        argumentList = CFStringCreateArrayBySeparatingStrings( kCFAllocatorDefault, arguments, CFSTR( "," ) );
+
+        if ( argumentList )
+        {
+            argumentListCount = CFArrayGetCount( argumentList );
+
+            for ( argumentListIndex = 0; argumentListIndex < argumentListCount; argumentListIndex++ )
+            {
+                CFStringRef compare;
+
+                compare = CFArrayGetValueAtIndex( argumentList, argumentListIndex );
+
+                if ( compare )
+                {
+                    CFBooleanRef compareValue;
+
+                    if ( CFStringHasPrefix( compare, CFSTR( "no" ) ) )
+                    {
+                        compare      = CFStringCreateWithSubstring( kCFAllocatorDefault, compare, CFRangeMake( 2, CFStringGetLength( compare ) - 2 ) );
+                        compareValue = kCFBooleanFalse;
+                    }
+                    else
+                    {
+                        compare      = CFRetain( compare );
+                        compareValue = kCFBooleanTrue;
+                    }
+
+                    if ( compare )
+                    {
+                        if ( CFEqual( compare, CFSTR( FSTAB_RO ) ) )
+                        {
+                            CFRelease( compare );
+
+                            compare      = CFRetain( kDAFileSystemMountArgumentNoWrite );
+                            compareValue = compareValue;
+                        }
+
+                        if ( CFEqual( compare, CFSTR( FSTAB_RW ) ) )
+                        {
+                            CFRelease( compare );
+
+                            compare      = CFRetain( kDAFileSystemMountArgumentNoWrite );
+                            compareValue = ( compareValue == kCFBooleanTrue ) ? kCFBooleanFalse : kCFBooleanTrue;
+                        }
+                    }
+
+                    if ( compare )
+                    {
+                        if ( CFEqual( argument, compare ) )
+                        {
+                            argumentsValue = compareValue;
+                        }
+
+                        CFRelease( compare );
+                    }
+                }
+            }
+
+            CFRelease( argumentList );
+        }
+
+        CFRelease( argument );
+    }
+
+    return ( argumentValue == argumentsValue ) ? TRUE : FALSE;
 }
 
 CFURLRef DAMountCreateMountPoint( DADiskRef disk )
@@ -219,7 +405,6 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
     CFURLRef    mountpoint;
     char        name[MAXPATHLEN];
     char        path[MAXPATHLEN];
-    struct stat status;
     CFStringRef string;
 
     mountpoint = NULL;
@@ -273,107 +458,101 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                 snprintf( path, sizeof( path ), "%s/%s %lu", kDAMainMountPointFolder, name, index );
             }
 
-            if ( stat( path, &status ) )
+            switch ( action )
             {
-                if ( errno == ENOENT )
+                case kDAMountPointActionLink:
                 {
-                    switch ( action )
+                    /*
+                     * Link the mount point.
+                     */
+
+                    CFURLRef url;
+
+                    url = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+                    if ( url )
                     {
-                        case kDAMountPointActionLink:
+                        char source[MAXPATHLEN];
+
+                        if ( CFURLGetFileSystemRepresentation( url, TRUE, ( void * ) source, sizeof( source ) ) )
                         {
-                            /*
-                             * Link the mount point.
-                             */
-
-                            CFURLRef url;
-
-                            url = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
-
-                            if ( url )
+                            if ( symlink( source, path ) == 0 )
                             {
-                                char source[MAXPATHLEN];
-
-                                if ( CFURLGetFileSystemRepresentation( url, TRUE, ( void * ) source, sizeof( source ) ) )
-                                {
-                                    if ( symlink( source, path ) == 0 )
-                                    {
-                                        mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
-                                    }
-                                }
-                            }
-
-                            break;
-                        }
-                        case kDAMountPointActionMake:
-                        {
-                            /*
-                             * Create the mount point.
-                             */
-
-                            if ( mkdir( path, 0111 ) == 0 )
-                            {
-                                if ( DADiskGetUserUID( disk ) )
-                                {
-                                    chown( path, DADiskGetUserUID( disk ), -1 );
-                                }
-
                                 mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
-
-                                /*
-                                 * Create the mount point cookie file.
-                                 */
-
-                                strlcat( path, "/",                               sizeof( path ) );
-                                strlcat( path, kDAMainMountPointFolderCookieFile, sizeof( path ) );
-
-                                file = fopen( path, "w" );
-
-                                if ( file )
-                                {
-                                    fclose( file );
-                                }
                             }
-
-                            break;
-                        }
-                        case kDAMountPointActionMove:
-                        {
-                            /*
-                             * Move the mount point.
-                             */
-
-                            CFURLRef url;
-
-                            url = DADiskGetBypath( disk );
-
-                            if ( url )
-                            {
-                                char source[MAXPATHLEN];
-
-                                if ( CFURLGetFileSystemRepresentation( url, TRUE, ( void * ) source, sizeof( source ) ) )
-                                {
-                                    if ( rename( source, path ) == 0 )
-                                    {
-                                        mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
-                                    }
-                                }
-                            }
-
-                            break;
-                        }
-                        case kDAMountPointActionNone:
-                        {
-                            mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
-
-                            break;
                         }
                     }
 
-                    if ( mountpoint )
-                    {
-                        break;
-                    }
+                    break;
                 }
+                case kDAMountPointActionMake:
+                {
+                    /*
+                     * Create the mount point.
+                     */
+
+                    if ( mkdir( path, 0111 ) == 0 )
+                    {
+                        if ( DADiskGetUserUID( disk ) )
+                        {
+                            chown( path, DADiskGetUserUID( disk ), -1 );
+                        }
+
+                        mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
+
+                        /*
+                         * Create the mount point cookie file.
+                         */
+
+                        strlcat( path, "/",                               sizeof( path ) );
+                        strlcat( path, kDAMainMountPointFolderCookieFile, sizeof( path ) );
+
+                        file = fopen( path, "w" );
+
+                        if ( file )
+                        {
+                            fclose( file );
+                        }
+                    }
+
+                    break;
+                }
+                case kDAMountPointActionMove:
+                {
+                    /*
+                     * Move the mount point.
+                     */
+
+                    CFURLRef url;
+
+                    url = DADiskGetBypath( disk );
+
+                    if ( url )
+                    {
+                        char source[MAXPATHLEN];
+
+                        if ( CFURLGetFileSystemRepresentation( url, TRUE, ( void * ) source, sizeof( source ) ) )
+                        {
+                            if ( rename( source, path ) == 0 )
+                            {
+                                mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
+                            }
+                        }
+                    }
+
+                    break;
+                }
+                case kDAMountPointActionNone:
+                {
+                    mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
+
+                    break;
+                }
+            }
+
+            if ( mountpoint )
+            {
+                break;
             }
         }
     }
@@ -475,7 +654,7 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
         {
             value = kCFBooleanFalse;
 
-            break;            
+            break;
         }
     }
 
@@ -496,30 +675,33 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
     {
         if ( ___isautofs( path ) == 0 )
         {
-            Boolean     remove;
-            struct stat status;
+            Boolean remove;
 
             remove = FALSE;
 
-            if ( strcmp( dirname( path ), kDAMainMountPointFolder ) == 0 )
+            if ( strncmp( path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
             {
-                remove = TRUE;
+                if ( strrchr( path + strlen( kDAMainMountPointFolder ), '/' ) == path + strlen( kDAMainMountPointFolder ) )
+                {
+                    remove = TRUE;
+                }
             }
 
-            /*
-             * Determine whether the mount point cookie file exists.
-             */
-
-            strlcat( path, "/",                               sizeof( path ) );
-            strlcat( path, kDAMainMountPointFolderCookieFile, sizeof( path ) );
-
-            if ( stat( path, &status ) == 0 )
+///w:start
+//          if ( remove == FALSE )
+///w:stop
             {
+                char file[MAXPATHLEN];
+
+                strlcpy( file, path,                              sizeof( file ) );
+                strlcat( file, "/",                               sizeof( file ) );
+                strlcat( file, kDAMainMountPointFolderCookieFile, sizeof( file ) );
+
                 /*
                  * Remove the mount point cookie file.
                  */
 
-                if ( unlink( path ) == 0 )
+                if ( unlink( file ) == 0 )
                 {
                     remove = TRUE;
                 }
@@ -531,7 +713,7 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
                  * Remove the mount point.
                  */
 
-                rmdir( dirname( path ) );
+                rmdir( path );
             }
         }
     }
@@ -548,13 +730,17 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     CFStringRef                argument   = NULL;
     va_list                    arguments;
     CFBooleanRef               automatic  = kCFBooleanTrue;
+    CFBooleanRef               check      = NULL;
     __DAMountCallbackContext * context    = NULL;
     CFIndex                    count      = 0;
     DAFileSystemRef            filesystem = DADiskGetFileSystem( disk );
+    Boolean                    force      = FALSE;
     CFIndex                    index      = 0;
     CFDictionaryRef            map        = NULL;
     CFMutableStringRef         options    = NULL;
     int                        status     = 0;
+
+    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
 
     /*
      * Initialize our minimal state.
@@ -595,8 +781,15 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
     while ( ( argument = va_arg( arguments, CFStringRef ) ) )
     {
-        CFStringAppend( options, argument );
-        CFStringAppend( options, CFSTR( "," ) );
+        if ( CFEqual( argument, kDAFileSystemMountArgumentForce ) )
+        {
+            force = TRUE;
+        }
+        else
+        {
+            CFStringAppend( options, argument );
+            CFStringAppend( options, CFSTR( "," ) );
+        }
     }
 
     va_end( arguments );
@@ -607,8 +800,13 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     {
         automatic = NULL;
 
+        check = kCFBooleanTrue;
+
         CFStringReplaceAll( options, CFSTR( "" ) );
     }
+///w:start
+    context->automatic = ( automatic == NULL ) ? TRUE : FALSE;
+///w:stop
 
     /*
      * Determine whether the volume is to be updated.
@@ -633,19 +831,6 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
         }
 
         CFRetain( mountpoint );
-    }
-
-    /*
-     * Determine whether the volume is clean.
-     */
-
-    if ( automatic == NULL )
-    {
-        if ( DADiskGetState( disk, kDADiskStateRequireRepair ) )
-        {
-            CFStringInsert( options, 0, CFSTR( "," ) );
-            CFStringInsert( options, 0, kDAFileSystemMountArgumentNoWrite );
-        }
     }
 
     /*
@@ -908,23 +1093,44 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     CFStringTrim( options, CFSTR( "," ) );
 
     /*
-     * Create the mount point, in case one needs to be created.
+     * Determine whether the volume is to be repaired.
      */
 
-    if ( mountpoint == NULL )
+    if ( check == NULL )
     {
-        mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMake );
-
-        if ( mountpoint == NULL )
+        if ( DAMountContainsArgument( options, kDAFileSystemMountArgumentNoWrite ) )
         {
-            status = ENOSPC;
+            check = kCFBooleanFalse;
+        }
+        else
+        {
+            check = kCFBooleanTrue;
+        }
+    }
 
-            goto DAMountWithArgumentsErr;
+    if ( check == kCFBooleanFalse )
+    {
+        if ( DADiskGetState( disk, kDADiskStateRequireRepair ) )
+        {
+            if ( force == FALSE )
+            {
+                status = ___EDIRTY;
+
+                goto DAMountWithArgumentsErr;
+            }
+        }
+    }
+
+    if ( check == kCFBooleanTrue )
+    {
+        if ( DADiskGetState( disk, kDADiskStateRequireRepair ) == FALSE )
+        {
+            check = kCFBooleanFalse;
         }
     }
 
     /*
-     * Mount the volume.
+     * Repair the volume.
      */
 
     CFRetain( disk );
@@ -932,18 +1138,23 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     context->callback        = callback;
     context->callbackContext = callbackContext;
     context->disk            = disk;
+    context->force           = force;
     context->mountpoint      = mountpoint;
     context->options         = options;
 
-    DAFileSystemMountWithArguments( DADiskGetFileSystem( disk ),
-                                    DADiskGetDevice( disk ),
-                                    mountpoint,
-                                    DADiskGetUserUID( disk ),
-                                    DADiskGetUserGID( disk ),
-                                    __DAMountWithArgumentsCallbackStage1,
-                                    context,
-                                    options,
-                                    NULL );
+    if ( check == kCFBooleanTrue )
+    {
+        DALogDebug( "  repaired disk, id = %@, ongoing.", disk );
+
+        DAFileSystemRepair( DADiskGetFileSystem( disk ),
+                            DADiskGetDevice( disk ),
+                            __DAMountWithArgumentsCallbackStage1,
+                            context );
+    }
+    else
+    {
+        __DAMountWithArgumentsCallbackStage1( ECANCELED, context );
+    }
 
 DAMountWithArgumentsErr:
 

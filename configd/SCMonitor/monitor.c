@@ -63,7 +63,7 @@
  *
  *   Note: automatic configuration may not be possible if the logged in user
  *         is NOT "root" (eUID==0) or if the authorization right that governs
- *         SCHelper write operations (kSCPreferencesWriteAuthorizationRight)
+ *         SCHelper write operations (kSCPreferencesAuthorizationRight_write)
  *         is not currently available.
  *
  * An [older] "User Intervention" key is also supported.  That CFBoolean
@@ -145,7 +145,7 @@ hasAuthorization(MyType *myInstance)
 		AuthorizationRights	rights;
 		OSStatus		status;
 
-		items[0].name        = kSCPreferencesWriteAuthorizationRight;
+		items[0].name        = kSCPreferencesAuthorizationRight_write;
 		items[0].value       = NULL;
 		items[0].valueLength = 0;
 		items[0].flags       = 0;
@@ -722,7 +722,7 @@ watcher_add_lan(MyType *myInstance)
 			   myInstance->monitorRls,
 			   kCFRunLoopDefaultMode);
 
-	// check if we already have the "admin" (kSCPreferencesWriteAuthorizationRight)
+	// check if we already have the "admin" (kSCPreferencesAuthorizationRight_write)
 	// right.  If so, we can automatically configure (without user intervention) any
 	// "new" network interfaces that are present at login (e.g. a USB ethernet
 	// dongle that was plugged in before login).
@@ -1041,7 +1041,7 @@ watcher_add_serial(MyType *myInstance)
 
 	if (myInstance->notifyNodes != NULL) {
 		// if we have any serial nodes, check if we already have the
-		// "admin" (kSCPreferencesWriteAuthorizationRight) right.  If
+		// "admin" (kSCPreferencesAuthorizationRight_write) right.  If
 		// so, we can automatically configure (without user intervention)
 		// any "new" network interfaces that are present at login (e.g. a
 		// USB modem that was plugged in before login).

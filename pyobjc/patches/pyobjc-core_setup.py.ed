@@ -1,4 +1,19 @@
 g/namespace_packages/s//#&/
 /^USE_SYSTEM_FFI /s/=.*/= True/
 /^USE_SYSTEM_LIBXML /s/=.*/= True/
+a
+
+SDKROOT = os.environ.get('SDKROOT')
+if SDKROOT is None or SDKROOT is '':
+    SDKROOT = '/'
+def fixsdk(arg):
+    if arg.startswith('-I/'):
+        arg = '-I' + os.path.join(SDKROOT, arg[3:])
+    elif arg.startswith('-L/'):
+        arg = '-L' + os.path.join(SDKROOT, arg[3:])
+    return arg
+.
+/os\.path\.exists('\/usr\/include\/objc\/runtime\.h'):$/s/'\/usr\/include\/objc\/runtime\.h'/os.path.join(SDKROOT, 'usr\/include\/objc\/runtime\.h')/
+/return shlex\.split(ln)$/s/shlex\.split(ln)/map(fixsdk, &)/
+/"-I\/usr\/include\/ffi"/s//'-I' + os.path.join(SDKROOT, "usr\/include\/ffi")/
 w

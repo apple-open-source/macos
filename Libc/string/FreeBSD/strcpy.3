@@ -44,24 +44,24 @@
 .In string.h
 .Ft char *
 .Fo stpcpy
-.Fa "char *s1"
-.Fa "const char *s2"
+.Fa "char *dst"
+.Fa "const char *src"
 .Fc
 .Ft char *
 .Fo stpncpy
-.Fa "char *restrict s1"
-.Fa "const char *restrict s2"
+.Fa "char *restrict dst"
+.Fa "const char *restrict src"
 .Fa "size_t n"
 .Fc
 .Ft char *
 .Fo strcpy
-.Fa "char *restrict s1"
-.Fa "const char *restrict s2"
+.Fa "char *restrict dst"
+.Fa "const char *restrict src"
 .Fc
 .Ft char *
 .Fo strncpy
-.Fa "char *restrict s1"
-.Fa "const char *restrict s2"
+.Fa "char *restrict dst"
+.Fa "const char *restrict src"
 .Fa "size_t n"
 .Fc
 .Sh DESCRIPTION
@@ -71,9 +71,9 @@ and
 .Fn strcpy
 functions
 copy the string
-.Fa s2
+.Fa src
 to
-.Fa s1
+.Fa dst
 (including the terminating
 .Ql \e0
 character).
@@ -85,21 +85,21 @@ and
 functions copy at most
 .Fa n
 characters from
-.Fa s2
+.Fa src
 into
-.Fa s1 .
+.Fa dst .
 If
-.Fa s2
+.Fa src
 is less than
 .Fa n
 characters long,
 the remainder of
-.Fa s1
+.Fa dst
 is filled with
 .Ql \e0
 characters.
 Otherwise,
-.Fa s1
+.Fa dst
 is
 .Em not
 terminated.
@@ -113,7 +113,7 @@ and
 .Fn strncpy
 functions
 return
-.Fa s1 .
+.Fa dst .
 The
 .Fn stpcpy
 and
@@ -121,15 +121,15 @@ and
 functions return a pointer to the terminating
 .Ql \e0
 character of
-.Fa s1 .
+.Fa dst .
 If
 .Fn stpncpy
 does not terminate
-.Fa s1
+.Fa dst
 with a
 .Dv NUL
 character, it instead returns a pointer to
-.Li s1[n]
+.Li dst[n]
 (which does not necessarily refer to a valid memory location.)
 .Sh EXAMPLES
 The following sets

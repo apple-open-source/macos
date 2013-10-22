@@ -47,7 +47,7 @@ void InetReply::analyze()
 {
     // follow Internet rule #1: be lenient in what you accept
     /*const*/ char *p;				// (un-const is ANSI bogosity in strtol)
-    mCode = strtol(mBuffer, &p, 10);
+    mCode = (int) strtol(mBuffer, &p, 10);
     if (p == mBuffer) {			// conversion failed
         mCode = -1;				// error indicator
         mSeparator = ' ';

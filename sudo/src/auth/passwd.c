@@ -50,16 +50,18 @@
 #define HAS_AGEINFO(p, l)	(l == 18 && p[DESLEN] == ',')
 
 int
-passwd_init(pw, promptp, auth)
+passwd_init(pw, auth)
     struct passwd *pw;
-    char **promptp;
     sudo_auth *auth;
 {
 #ifdef HAVE_SKEYACCESS
     if (skeyaccess(pw, user_tty, NULL, NULL) == 0)
-	return(AUTH_FAILURE);
+	return AUTH_FAILURE;
 #endif
-    return(AUTH_SUCCESS);
+    sudo_setspent();
+    auth->data = sudo_getepw(pw);
+    sudo_endspent();
+    return AUTH_SUCCESS;
 }
 
 int
@@ -69,16 +71,17 @@ passwd_verify(pw, pass, auth)
     sudo_auth *auth;
 {
     char sav, *epass;
+    char *pw_epasswd = auth->data;
     size_t pw_len;
     int error;
 
-    pw_len = strlen(pw->pw_passwd);
+    pw_len = strlen(pw_epasswd);
 
 #ifdef HAVE_GETAUTHUID
     /* Ultrix shadow passwords may use crypt16() */
-    error = strcmp(pw->pw_passwd, (char *) crypt16(pass, pw->pw_passwd));
+    error = strcmp(pw_epasswd, (char *) crypt16(pass, pw_epasswd));
     if (!error)
-	return(AUTH_SUCCESS);
+	return AUTH_SUCCESS;
 #endif /* HAVE_GETAUTHUID */
 
     /*
@@ -86,7 +89,7 @@ passwd_verify(pw, pass, auth)
      * If this turns out not to be safe we will have to use OS #ifdef's (sigh).
      */
     sav = pass[8];
-    if (pw_len == DESLEN || HAS_AGEINFO(pw->pw_passwd, pw_len))
+    if (pw_len == DESLEN || HAS_AGEINFO(pw_epasswd, pw_len))
 	pass[8] = '\0';
 
     /*
@@ -94,12 +97,26 @@ passwd_verify(pw, pass, auth)
      * HP-UX may add aging info (separated by a ',') at the end so
      * only compare the first DESLEN characters in that case.
      */
-    epass = (char *) crypt(pass, pw->pw_passwd);
+    epass = (char *) crypt(pass, pw_epasswd);
     pass[8] = sav;
-    if (HAS_AGEINFO(pw->pw_passwd, pw_len) && strlen(epass) == DESLEN)
-	error = strncmp(pw->pw_passwd, epass, DESLEN);
+    if (HAS_AGEINFO(pw_epasswd, pw_len) && strlen(epass) == DESLEN)
+	error = strncmp(pw_epasswd, epass, DESLEN);
     else
-	error = strcmp(pw->pw_passwd, epass);
+	error = strcmp(pw_epasswd, epass);
 
-    return(error ? AUTH_FAILURE : AUTH_SUCCESS);
+    return error ? AUTH_FAILURE : AUTH_SUCCESS;
+}
+
+int
+passwd_cleanup(pw, auth)
+    struct passwd *pw;
+    sudo_auth *auth;
+{
+    char *pw_epasswd = auth->data;
+
+    if (pw_epasswd != NULL) {
+	zero_bytes(pw_epasswd, strlen(pw_epasswd));
+	efree(pw_epasswd);
+    }
+    return AUTH_SUCCESS;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,9 +55,6 @@ Supplicant_start(SupplicantRef supp);
 
 void
 Supplicant_set_no_ui(SupplicantRef supp);
-
-void
-Supplicant_set_debug(SupplicantRef supp, bool debug);
 
 void
 Supplicant_link_status_changed(SupplicantRef supp, bool active);

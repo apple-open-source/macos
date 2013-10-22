@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2008,2010 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2013 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -106,6 +106,8 @@ SEC_CONST_DECL (kSecAttrHasCustomIcon, "cusi");
 SEC_CONST_DECL (kSecAttrCRLType, "crlt");
 SEC_CONST_DECL (kSecAttrCRLEncoding, "crle");
 SEC_CONST_DECL (kSecAttrSynchronizable, "sync");
+SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");
+SEC_CONST_DECL (kSecAttrTombstone, "tomb");
 
 /* Search Constants */
 SEC_CONST_DECL (kSecMatchPolicy, "m_Policy");
@@ -141,6 +143,14 @@ SEC_CONST_DECL (kSecValuePersistentRef, "v_PersistentRef");
 /* Other Constants */
 SEC_CONST_DECL (kSecUseItemList, "u_ItemList");
 SEC_CONST_DECL (kSecUseKeychain, "u_Keychain");
+
+/* kSecAttrAccessible Value Constants. */
+SEC_CONST_DECL (kSecAttrAccessibleWhenUnlocked, "ak");
+SEC_CONST_DECL (kSecAttrAccessibleAfterFirstUnlock, "ck");
+SEC_CONST_DECL (kSecAttrAccessibleAlways, "dk");
+SEC_CONST_DECL (kSecAttrAccessibleWhenUnlockedThisDeviceOnly, "aku");
+SEC_CONST_DECL (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, "cku");
+SEC_CONST_DECL (kSecAttrAccessibleAlwaysThisDeviceOnly, "dku");
 
 /* kSecAttrProtocol Value Constants. */
 SEC_CONST_DECL (kSecAttrProtocolFTP, "ftp ");
@@ -203,6 +213,7 @@ SEC_CONST_DECL (kSecAttrKeyTypeRSA, "42");
 SEC_CONST_DECL (kSecAttrKeyTypeDSA, "43");
 SEC_CONST_DECL (kSecAttrKeyTypeCAST, "56");
 SEC_CONST_DECL (kSecAttrKeyTypeECDSA, "73");
+SEC_CONST_DECL (kSecAttrKeyTypeEC, "73"); /* rdar://13326326 */
 SEC_CONST_DECL (kSecAttrKeyTypeAES, "2147483649"); /* <Security/cssmapple.h> */
 
 SEC_CONST_DECL (kSecAttrPRFHmacAlgSHA1, "hsha1");

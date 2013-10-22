@@ -9,7 +9,10 @@ PROJECTS = \
     py2app \
     numpy \
     xattr \
-    bonjour-py
+    bonjour-py \
+    scipy \
+    pytz \
+    matplotlib
 
 EXTRAS = $(shell python -c "import sys, os;print(os.path.join(sys.prefix, 'Extras'))")
 EXTRASPYTHON = $(EXTRAS)/lib/python

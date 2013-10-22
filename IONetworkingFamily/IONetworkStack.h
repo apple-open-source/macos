@@ -45,10 +45,12 @@ class IONetworkStack : public IOService
 protected:
     OSSet *             _ifListNaming;
     OSArray *           _ifListDetach;
+    OSArray *           _ifListAttach;
     OSDictionary *      _ifPrefixDict;
     IONotifier *        _ifNotifier;
     IOLock *            _stateLock;
     thread_call_t       _asyncThread;
+    const OSSymbol *    _noBSDAttachSymbol;
 
     static SInt32       orderNetworkInterfaces(
                             const OSMetaClassBase * obj1,
@@ -77,7 +79,8 @@ protected:
     bool                reserveInterfaceUnitNumber(
                             IONetworkInterface * netif,
                             uint32_t             unit,
-                            bool                 isUnitFixed );
+                            bool                 isUnitFixed,
+                            bool *               attachToBSD );
 
     IOReturn            attachNetworkInterfaceToBSD(
                             IONetworkInterface * netif );

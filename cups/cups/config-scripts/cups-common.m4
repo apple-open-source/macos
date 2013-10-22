@@ -20,7 +20,7 @@ dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
 dnl Version number information...
-CUPS_VERSION="1.6.2"
+CUPS_VERSION="1.7.0"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -44,9 +44,9 @@ LDFLAGS="${LDFLAGS:=}"
 
 dnl Checks for programs...
 AC_PROG_AWK
-AC_PROG_CC
+AC_PROG_CC(clang cc gcc)
 AC_PROG_CPP
-AC_PROG_CXX
+AC_PROG_CXX(clang++ c++ g++)
 AC_PROG_RANLIB
 AC_PATH_PROG(AR,ar)
 AC_PATH_PROG(CHMOD,chmod)
@@ -225,7 +225,9 @@ dnl See if we have libusb...
 AC_ARG_ENABLE(libusb, [  --enable-libusb         use libusb for USB printing])
 
 LIBUSB=""
+USBQUIRKS=""
 AC_SUBST(LIBUSB)
+AC_SUBST(USBQUIRKS)
 
 if test "x$PKGCONFIG" != x; then
 	if test x$enable_libusb = xyes -o $uname != Darwin; then
@@ -235,6 +237,7 @@ if test "x$PKGCONFIG" != x; then
 			AC_DEFINE(HAVE_LIBUSB)
 			CFLAGS="$CFLAGS `$PKGCONFIG --cflags libusb-1.0`"
 			LIBUSB="`$PKGCONFIG --libs libusb-1.0`"
+			USBQUIRKS="\$(DATADIR)/usb"
 		else
 			AC_MSG_RESULT(no)
 		fi
@@ -264,6 +267,7 @@ AC_CHECK_HEADER(zlib.h,
 	AC_DEFINE(HAVE_LIBZ)
 	LIBZ="-lz"
 	LIBS="$LIBS -lz"
+	AC_CHECK_LIB(z, inflateCopy, AC_DEFINE(HAVE_INFLATECOPY))
 	if test "x$GZIP" != z; then
 		INSTALL_GZIP="-z"
 	fi))
@@ -305,7 +309,7 @@ else
 	DBUSDIR=""
 fi
 
-AC_ARG_ENABLE(dbus, [  --enable-dbus           build with DBUS support])
+AC_ARG_ENABLE(dbus, [  --disable-dbus           build without DBUS support])
 AC_ARG_WITH(dbusdir, [  --with-dbusdir          set DBUS configuration directory ],
 	DBUSDIR="$withval")
 

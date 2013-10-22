@@ -31,14 +31,10 @@
 #include <Security/SecKeyPriv.h>
 #include <corecrypto/ccrng.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 struct ccrng_state *ccrng_seckey;
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECKEYINTERNAL_H_ */

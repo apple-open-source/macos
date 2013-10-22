@@ -22,9 +22,14 @@
 
 #if ENABLE(INSPECTOR)
 
-messages -> WebInspector {
+messages -> WebInspector LegacyReceiver {
     Show()
     Close()
+    AttachedBottom()
+    AttachedRight()
+    Detached()
+    DidSave(WTF::String url)
+    DidAppend(WTF::String url)
     ShowConsole()
     ShowResources()
     ShowMainResourceForFrame(uint64_t frameID)

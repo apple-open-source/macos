@@ -154,6 +154,9 @@ struct disassemble_info { /* HACK'ed up for just what we need here */
   LLVMDisasmContextRef thumb_dc;
   char *object_addr;
   uint32_t object_size;
+  struct inst *inst;
+  struct inst *insts;
+  uint32_t ninsts;
 } dis_info;
 
 /*
@@ -796,6 +799,7 @@ const char **ReferenceName)
 {
     struct disassemble_info *info;
     const char *SymbolName;
+    uint32_t i;
 
 	info = (struct disassemble_info *)DisInfo;
 	if(info->verbose == FALSE){
@@ -805,6 +809,14 @@ const char **ReferenceName)
 	}
 	SymbolName = guess_symbol(SymbolValue, info->sorted_symbols,
 				  info->nsorted_symbols, TRUE);
+	if(SymbolName == NULL && info->insts != NULL && info->ninsts != 0){
+	    for(i = 0; i < info->ninsts; i++){
+		if(info->insts[i].address == SymbolValue){
+		    SymbolName = info->insts[i].tmp_label;
+		    break;
+		}
+	    }
+	}
 
 	if(*ReferenceType == LLVMDisassembler_ReferenceType_In_Branch){
 	    *ReferenceName = guess_indirect_symbol(SymbolValue,
@@ -816,6 +828,10 @@ const char **ReferenceName)
 		*ReferenceType = LLVMDisassembler_ReferenceType_Out_SymbolStub;
 	    else
 		*ReferenceType = LLVMDisassembler_ReferenceType_InOut_None;
+	    if(info->inst != NULL && SymbolName == NULL){
+		info->inst->has_raw_target_address = TRUE;
+		info->inst->raw_target_address = SymbolValue;
+	    }
 	}
 	else if(*ReferenceType == LLVMDisassembler_ReferenceType_In_PCrel_Load){
 	    *ReferenceName = guess_literal_pointer(SymbolValue, ReferencePC,
@@ -832,9 +848,47 @@ const char **ReferenceName)
 
 LLVMDisasmContextRef
 create_arm_llvm_disassembler(
-void)
+cpu_subtype_t cpusubtype)
 {
     LLVMDisasmContextRef dc;
+    char *TripleName;
+
+	switch(cpusubtype){
+	case CPU_SUBTYPE_ARM_V4T:
+	    TripleName = "armv4t-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V5TEJ:
+	    TripleName = "armv5-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_XSCALE:
+	    TripleName = "xscale-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V6:
+	    TripleName = "armv6-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V6M:
+	    TripleName = "armv6m-apple-darwin10";
+	    break;
+	default:
+	case CPU_SUBTYPE_ARM_V7:
+	    TripleName = "armv7-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7F:
+	    TripleName = "armv7f-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7S:
+	    TripleName = "armv7s-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7K:
+	    TripleName = "armv7k-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7M:
+	    TripleName = "armv7m-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7EM:
+	    TripleName = "armv7em-apple-darwin10";
+	    break;
+	}
 
 	dc =
 #ifdef STATIC_LLVM
@@ -842,7 +896,7 @@ void)
 #else
 	    llvm_create_disasm
 #endif
-		("armv7-apple-darwin10", &dis_info, 1, GetOpInfo, SymbolLookUp);
+		(TripleName, mcpu, &dis_info, 1, GetOpInfo, SymbolLookUp);
 	return(dc);
 }
 
@@ -860,9 +914,47 @@ LLVMDisasmContextRef dc)
 
 LLVMDisasmContextRef
 create_thumb_llvm_disassembler(
-void)
+cpu_subtype_t cpusubtype)
 {
     LLVMDisasmContextRef dc;
+    char *TripleName;
+
+	switch(cpusubtype){
+	case CPU_SUBTYPE_ARM_V4T:
+	    TripleName = "thumbv4t-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V5TEJ:
+	    TripleName = "thumbv5-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_XSCALE:
+	    TripleName = "xscale-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V6:
+	    TripleName = "thumbv6-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V6M:
+	    TripleName = "thumbv6m-apple-darwin10";
+	    break;
+	default:
+	case CPU_SUBTYPE_ARM_V7:
+	    TripleName = "thumbv7-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7F:
+	    TripleName = "thumbv7f-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7S:
+	    TripleName = "thumbv7s-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7K:
+	    TripleName = "thumbv7k-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7M:
+	    TripleName = "thumbv7m-apple-darwin10";
+	    break;
+	case CPU_SUBTYPE_ARM_V7EM:
+	    TripleName = "thumbv7em-apple-darwin10";
+	    break;
+	}
 
 	dc =
 #ifdef STATIC_LLVM
@@ -870,7 +962,7 @@ void)
 #else
 	    llvm_create_disasm
 #endif
-		("thumbv7-apple-darwin10", &dis_info, 1, GetOpInfo,
+		(TripleName, mcpu, &dis_info, 1, GetOpInfo,
 		 SymbolLookUp);
 	return(dc);
 }
@@ -1201,6 +1293,14 @@ static const struct opcode32 coprocessor_opcodes[] =
   {FPU_VFP_EXT_V1xD, 0x0c800b00, 0x0f900f00, "fstmia%0?xd%c\t%16-19r%21'!, %z3"},
   {FPU_VFP_EXT_V1xD, 0x0c900a00, 0x0f900f00, "fldmias%c\t%16-19r%21'!, %y3"},
   {FPU_VFP_EXT_V1xD, 0x0c900b00, 0x0f900f00, "fldmia%0?xd%c\t%16-19r%21'!, %z3"},
+  {FPU_VFP_EXT_V1, 0x0ea00a00, 0x0fb00f50, "vfma%c.f32\t%y1, %y2, %y0"},
+  {FPU_VFP_EXT_V1, 0x0ea00a40, 0x0fb00f50, "vfms%c.f32\t%y1, %y2, %y0"},
+  {FPU_VFP_EXT_V1, 0x0ea00b00, 0x0fb00f50, "vfma%c.f64\t%z1, %z2, %z0"},
+  {FPU_VFP_EXT_V1, 0x0ea00b40, 0x0fb00f50, "vfms%c.f64\t%z1, %z2, %z0"},
+  {FPU_VFP_EXT_V1, 0x0e900a40, 0x0fb00f50, "vfnma%c.f32\t%y1, %y2, %y0"},
+  {FPU_VFP_EXT_V1, 0x0e900a00, 0x0fb00f50, "vfnms%c.f32\t%y1, %y2, %y0"},
+  {FPU_VFP_EXT_V1, 0x0e900b40, 0x0fb00f50, "vfnma%c.f64\t%z1, %z2, %z0"},
+  {FPU_VFP_EXT_V1, 0x0e900b00, 0x0fb00f50, "vfnms%c.f64\t%z1, %z2, %z0"},
 
   /* Cirrus coprocessor instructions.  */
   {ARM_CEXT_MAVERICK, 0x0d100400, 0x0f500f00, "cfldrs%c\tmvf%12-15d, %A"},
@@ -1404,6 +1504,8 @@ static const struct opcode32 neon_opcodes[] =
   {FPU_NEON_EXT_V1, 0xf3300110, 0xffb00f10, "vbif%c\t%12-15,22R, %16-19,7R, %0-3,5R"},
   {FPU_NEON_EXT_V1, 0xf2000d00, 0xffa00f10, "vadd%c.f%20U0\t%12-15,22R, %16-19,7R, %0-3,5R"},
   {FPU_NEON_EXT_V1, 0xf2000d10, 0xffa00f10, "vmla%c.f%20U0\t%12-15,22R, %16-19,7R, %0-3,5R"},
+  {FPU_NEON_EXT_V1, 0xf2000c10, 0xffa00f10, "vfma%c.f%20U0\t%12-15,22R, %16-19,7R, %0-3,5R"},
+  {FPU_NEON_EXT_V1, 0xf2200c10, 0xffa00f10, "vfms%c.f%20U0\t%12-15,22R, %16-19,7R, %0-3,5R"},
   {FPU_NEON_EXT_V1, 0xf2000e00, 0xffa00f10, "vceq%c.f%20U0\t%12-15,22R, %16-19,7R, %0-3,5R"},
   {FPU_NEON_EXT_V1, 0xf2000f00, 0xffa00f10, "vmax%c.f%20U0\t%12-15,22R, %16-19,7R, %0-3,5R"},
   {FPU_NEON_EXT_V1, 0xf2000f10, 0xffa00f10, "vrecps%c.f%20U0\t%12-15,22R, %16-19,7R, %0-3,5R"},
@@ -1646,6 +1748,10 @@ static const struct opcode32 arm_opcodes[] =
   {ARM_EXT_V7, 0xf57ff050, 0xfffffff0, "dmb\t%U"},
   {ARM_EXT_V7, 0xf57ff040, 0xfffffff0, "dsb\t%U"},
   {ARM_EXT_V7, 0xf57ff060, 0xfffffff0, "isb\t%U"},
+
+  /* V7A optional instructions.  */
+  {ARM_EXT_V7A, 0x0710f010, 0x0ff0f0f0, "sdiv%c\t%16-19r, %0-3r, %8-11r"},
+  {ARM_EXT_V7A, 0x0730f010, 0x0ff0f0f0, "udiv%c\t%16-19r, %0-3r, %8-11r"},
 
   /* ARM V6T2 instructions.  */
   {ARM_EXT_V6T2, 0x07c0001f, 0x0fe0007f, "bfc%c\t%12-15r, %E"},
@@ -4910,7 +5016,7 @@ print_insn (bfd_vma pc, struct disassemble_info *info, bfd_boolean little)
 	given = (b[3]) | (b[2] << 8) | (b[1] << 16) | (b[0] << 24);
 
       /* Print the raw data, too. */
-      if(!Xflag)
+      if(!Xflag && !gflag)
         {
           if(qflag)
 	    info->fprintf_func (info->stream, "\t");
@@ -4952,7 +5058,7 @@ print_insn (bfd_vma pc, struct disassemble_info *info, bfd_boolean little)
 		given = (b[1]) | (b[0] << 8) | (given << 16);
 
 	      /* Print the raw data, too. */
-	      if(!Xflag)
+	      if(!Xflag && !gflag)
 		{
 		  if(qflag)
 		    info->fprintf_func (info->stream, "\t");
@@ -4968,7 +5074,7 @@ print_insn (bfd_vma pc, struct disassemble_info *info, bfd_boolean little)
 	    }
 	  else {
 	    /* Print the raw data, too. */
-	    if(!Xflag)
+	    if(!Xflag && !gflag)
 	      {
 		if(qflag)
 		  info->fprintf_func (info->stream, "\t");
@@ -5011,9 +5117,11 @@ print_insn (bfd_vma pc, struct disassemble_info *info, bfd_boolean little)
 #else
          llvm_disasm_instruction
 #endif
-	    (dc, (uint8_t *)info->sect, size, pc, dst, 4095) != 0)
-	printf("%s", dst);
-      else {
+	    (dc, (uint8_t *)info->sect, size, pc, dst, 4095) != 0){
+	if(info->inst == NULL || info->inst->print)
+	  printf("%s", dst);
+      }
+      else if(info->inst == NULL || info->inst->print){
 	if (size == 4)
 	  info->fprintf_func (info->stream, "\t.long\t0x%08x", given);
 	else if (size == 2)
@@ -5474,6 +5582,75 @@ enum bool pool)
 	return(TRUE);
 }
 
+/*
+ * Print the section contents pointed to by sect as data .long, .short or .byte
+ * depending on its kind.
+ */
+static
+uint32_t
+print_data_in_code(
+char *sect,
+uint32_t sect_left,
+uint32_t dice_left,
+uint16_t kind)
+{
+    uint32_t value, left, size;
+
+	left = dice_left;
+	if(left > sect_left)
+	    left = sect_left;
+	switch(kind){
+	default:
+	case DICE_KIND_DATA:
+	    if(left >= 4){
+		value = sect[3] << 24 |
+			sect[2] << 16 |
+			sect[1] << 8 |
+			sect[0];
+		printf("\t%08x\t.long %u\t@ ", value, value);
+		size = 4;
+	    }
+	    else if(left >= 2){
+		value = sect[1] << 8 |
+			sect[0];
+		printf("\t    %04x\t.short %u\t@ ", value, value);
+		size = 2;
+	    }
+	    else {
+		value = sect[0];
+		printf("\t      %02x\t.byte %u\t@ ",value & 0xff, value & 0xff);
+		size = 1;
+	    }
+	    if(kind == DICE_KIND_DATA)
+		printf("KIND_DATA \n");
+	    else
+		printf("kind = %u\n", kind);
+	    return(size);
+	case DICE_KIND_JUMP_TABLE8:
+	    value = sect[0];
+	    printf("\t      %02x\t.byte %3u\t@ KIND_JUMP_TABLE8\n",value,value);
+	    return(1);
+	case DICE_KIND_JUMP_TABLE16:
+	    value = sect[1] << 8 |
+		    sect[0];
+	    printf("\t    %04x\t.short %5u\t@ KIND_JUMP_TABLE16\n",
+		   value & 0xffff, value & 0xffff );
+	    return(2);
+	case DICE_KIND_JUMP_TABLE32:
+	case DICE_KIND_ABS_JUMP_TABLE32:
+	    value = sect[3] << 24 |
+		    sect[2] << 16 |
+		    sect[1] << 8 |
+		    sect[0];
+	    printf("\t%08x\t.long %u\t@ ", value, value);
+	    if(kind == DICE_KIND_JUMP_TABLE32)
+		printf("KIND_JUMP_TABLE32\n");
+	    else
+		printf("KIND_ABS_JUMP_TABLE32\n");
+	    return(4);
+	}
+}
+
 /* Stubbed out for now */
   /* Function called to determine if there is a symbol at the given ADDR.
      If there is, the function returns 1, otherwise it returns 0.
@@ -5564,9 +5741,15 @@ enum bool verbose,
 LLVMDisasmContextRef arm_dc,
 LLVMDisasmContextRef thumb_dc,
 char *object_addr,
-uint32_t object_size)
+uint32_t object_size,
+struct data_in_code_entry *dices,
+uint32_t ndices,
+uint64_t seg_addr,
+struct inst *inst,
+struct inst *insts,
+uint32_t ninsts)
 {
-    uint32_t bytes_consumed, pool_value;
+    uint32_t bytes_consumed, pool_value, i, offset;
 
 	dis_info.fprintf_func = (fprintf_ftype)fprintf;
   	dis_info.stream = stdout;
@@ -5609,6 +5792,10 @@ uint32_t object_size)
 	dis_info.object_addr = object_addr;
 	dis_info.object_size = object_size;
 
+	dis_info.inst = inst;
+	dis_info.insts = insts;
+	dis_info.ninsts = ninsts;
+
 	/*
 	 * If we have at least 4 bytes left, see if these 4 bytes are a pointer
 	 * in a literal pool by calling print_immediate_func() with the 4 byte
@@ -5626,8 +5813,35 @@ uint32_t object_size)
 		return(4);
 	}
 
+	/*
+	 * See if this address is has a data in code entry and if so print.
+	 */
+	if(ndices){
+            /* Note: in final linked images, offset is from the base address */
+            /* Note: in object files, offset is from first section address */
+            if(nrelocs == 0) /* TODO better test for final linked image */
+                offset = addr - seg_addr; 
+            else
+                offset = addr - sect_addr; 
+            for(i = 0; i < ndices; i++){
+                if(offset >= dices[i].offset &&
+		   offset < dices[i].offset + dices[i].length){
+		   bytes_consumed = print_data_in_code(sect, left,
+				     dices[i].offset + dices[i].length - offset,
+                                     dices[i].kind);
+		   if ((dices[i].kind == DICE_KIND_JUMP_TABLE8) && 
+		       (offset == (dices[i].offset + dices[i].length - 1)) &&
+		       (dices[i].length & 1)) {
+		     ++bytes_consumed;
+		   }
+		   return(bytes_consumed);
+                }
+            }
+	}
+
 	bytes_consumed = print_insn_little_arm(addr, &dis_info);
-	printf("\n");
+	if(!gflag || (inst != NULL && inst->print == TRUE))
+	    printf("\n");
 
 	return(bytes_consumed);
 }

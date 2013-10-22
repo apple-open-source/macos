@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -20,6 +20,7 @@
 				690D97BC12DE7151004323A7 /* PBXTargetDependency */,
 				03B2DBD1100BE626005349BC /* PBXTargetDependency */,
 				034E4475100BDEC6009CA3DC /* PBXTargetDependency */,
+				7250E1491616642900A11A76 /* PBXTargetDependency */,
 				034E447B100BDF0D009CA3DC /* PBXTargetDependency */,
 				03B2DBD3100BE645005349BC /* PBXTargetDependency */,
 				18515B85133D1DBF000148A4 /* PBXTargetDependency */,
@@ -49,6 +50,7 @@
 				724DABEC0EE891DF008900D0 /* PBXTargetDependency */,
 				724DAC240EE89525008900D0 /* PBXTargetDependency */,
 				7216D2670EE8978F00AE70E4 /* PBXTargetDependency */,
+				7250E1471616642000A11A76 /* PBXTargetDependency */,
 				7216D2C00EE89ADF00AE70E4 /* PBXTargetDependency */,
 				7216D2C20EE89ADF00AE70E4 /* PBXTargetDependency */,
 				7216D2DA0EE89BE900AE70E4 /* PBXTargetDependency */,
@@ -74,6 +76,7 @@
 				565825B113392242003E5FA5 /* PBXTargetDependency */,
 				72ABD08C1083D75D008C721C /* PBXTargetDependency */,
 				72ABD08E1083D75F008C721C /* PBXTargetDependency */,
+				7250E14B1616643000A11A76 /* PBXTargetDependency */,
 				72ABD0901083D762008C721C /* PBXTargetDependency */,
 				72ABD0921083D764008C721C /* PBXTargetDependency */,
 				72ABD0941083D767008C721C /* PBXTargetDependency */,
@@ -108,6 +111,7 @@
 		565825A6133921A3003E5FA5 /* mnc_multicast.c in Sources */ = {isa = PBXBuildFile; fileRef = 565825981339217B003E5FA5 /* mnc_multicast.c */; };
 		565825A7133921A3003E5FA5 /* mnc_opts.c in Sources */ = {isa = PBXBuildFile; fileRef = 565825991339217B003E5FA5 /* mnc_opts.c */; };
 		565825A9133921CF003E5FA5 /* mnc.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 565825941339217B003E5FA5 /* mnc.1 */; };
+		56B6B66816F79A1C00D8A7A9 /* mptcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 56B6B66716F79A1C00D8A7A9 /* mptcp.c */; };
 		690D97A612DE6F96004323A7 /* mtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 690D979412DE6E6B004323A7 /* mtest.c */; };
 		690D97AE12DE70AE004323A7 /* mtest.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 690D979512DE6E76004323A7 /* mtest.8 */; };
 		7216D24C0EE896F300AE70E4 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208B0EE86F4800AFED1B /* data.c */; };
@@ -153,6 +157,8 @@
 		7216D3AB0EE8A3C400AE70E4 /* spray.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E00EE86F9D00AFED1B /* spray.c */; };
 		7216D3AF0EE8A3D800AE70E4 /* spray.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120DF0EE86F9D00AFED1B /* spray.8 */; };
 		724753E7144905E300F6A941 /* dnctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724753E61448E1EF00F6A941 /* dnctl.8 */; };
+		7247B83616165EDC00873B3C /* pktapctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7247B83516165EDC00873B3C /* pktapctl.8 */; };
+		7247B83C16165F0100873B3C /* pktapctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 7247B83B16165F0100873B3C /* pktapctl.c */; };
 		724DAB640EE88E63008900D0 /* ipfw2.c in Sources */ = {isa = PBXBuildFile; fileRef = 726121000EE8701100AFED1B /* ipfw2.c */; };
 		724DAB680EE88E78008900D0 /* ipfw.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120FF0EE8701100AFED1B /* ipfw.8 */; };
 		724DAB860EE88F0D008900D0 /* ip6fw.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120690EE86F2300AFED1B /* ip6fw.c */; };
@@ -445,6 +451,27 @@
 			remoteGlobalIDString = 724DAC0C0EE8940D008900D0;
 			remoteInfo = ndp;
 		};
+		7250E1461616642000A11A76 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7247B83016165EDC00873B3C;
+			remoteInfo = pktapctl;
+		};
+		7250E1481616642900A11A76 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7247B83016165EDC00873B3C;
+			remoteInfo = pktapctl;
+		};
+		7250E14A1616643000A11A76 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7247B83016165EDC00873B3C;
+			remoteInfo = pktapctl;
+		};
 		726121480EE8717B00AFED1B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
@@ -735,6 +762,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		7247B82F16165EDC00873B3C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/local/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				7247B83616165EDC00873B3C /* pktapctl.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		724DAB760EE88E9C008900D0 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -851,6 +888,7 @@
 		5658259A1339217B003E5FA5 /* mnc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mnc.h; sourceTree = "<group>"; };
 		5658259B1339217B003E5FA5 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		5658259F1339218F003E5FA5 /* mnc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mnc; sourceTree = BUILT_PRODUCTS_DIR; };
+		56B6B66716F79A1C00D8A7A9 /* mptcp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mptcp.c; sourceTree = "<group>"; };
 		690D978112DE6034004323A7 /* mtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mtest; sourceTree = BUILT_PRODUCTS_DIR; };
 		690D979412DE6E6B004323A7 /* mtest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mtest.c; sourceTree = "<group>"; };
 		690D979512DE6E76004323A7 /* mtest.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mtest.8; sourceTree = "<group>"; };
@@ -865,6 +903,9 @@
 		7216D3A70EE8A3BB00AE70E4 /* spray */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = spray; sourceTree = BUILT_PRODUCTS_DIR; };
 		723C7068142BAFEA007C87E9 /* dnctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = dnctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		724753E61448E1EF00F6A941 /* dnctl.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = dnctl.8; sourceTree = "<group>"; };
+		7247B83116165EDC00873B3C /* pktapctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pktapctl; sourceTree = BUILT_PRODUCTS_DIR; };
+		7247B83516165EDC00873B3C /* pktapctl.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = pktapctl.8; sourceTree = "<group>"; };
+		7247B83B16165F0100873B3C /* pktapctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pktapctl.c; sourceTree = "<group>"; };
 		724DAB5F0EE88E2A008900D0 /* ipfw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ipfw; sourceTree = BUILT_PRODUCTS_DIR; };
 		724DAB820EE88EFA008900D0 /* ip6fw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ip6fw; sourceTree = BUILT_PRODUCTS_DIR; };
 		724DABA20EE88FE3008900D0 /* kdumpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kdumpd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1085,6 +1126,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7247B82E16165EDC00873B3C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		724DAB5D0EE88E2A008900D0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1204,6 +1252,15 @@
 			path = dnctl;
 			sourceTree = "<group>";
 		};
+		7247B83216165EDC00873B3C /* pktapctl */ = {
+			isa = PBXGroup;
+			children = (
+				7247B83B16165F0100873B3C /* pktapctl.c */,
+				7247B83516165EDC00873B3C /* pktapctl.8 */,
+			);
+			path = pktapctl;
+			sourceTree = "<group>";
+		};
 		7248622F0EE86EB7001D0DE9 = {
 			isa = PBXGroup;
 			children = (
@@ -1222,6 +1279,7 @@
 				726120770EE86F3600AFED1B /* natd.tproj */,
 				726120830EE86F4000AFED1B /* ndp.tproj */,
 				7261208A0EE86F4800AFED1B /* netstat.tproj */,
+				7247B83216165EDC00873B3C /* pktapctl */,
 				7261209E0EE86F5000AFED1B /* ping.tproj */,
 				726120A40EE86F5C00AFED1B /* ping6.tproj */,
 				726120AC0EE86F6700AFED1B /* rarpd.tproj */,
@@ -1343,6 +1401,7 @@
 				726120910EE86F4800AFED1B /* main.c */,
 				726120930EE86F4800AFED1B /* mbuf.c */,
 				726120940EE86F4800AFED1B /* mcast.c */,
+				56B6B66716F79A1C00D8A7A9 /* mptcp.c */,
 				726120950EE86F4800AFED1B /* mroute.c */,
 				726120960EE86F4800AFED1B /* mroute6.c */,
 				726120970EE86F4800AFED1B /* netstat.1 */,
@@ -1511,6 +1570,7 @@
 				690D978112DE6034004323A7 /* mtest */,
 				5658259F1339218F003E5FA5 /* mnc */,
 				723C7068142BAFEA007C87E9 /* dnctl */,
+				7247B83116165EDC00873B3C /* pktapctl */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1747,6 +1807,23 @@
 			productReference = 723C7068142BAFEA007C87E9 /* dnctl */;
 			productType = "com.apple.product-type.tool";
 		};
+		7247B83016165EDC00873B3C /* pktapctl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7247B83A16165EDC00873B3C /* Build configuration list for PBXNativeTarget "pktapctl" */;
+			buildPhases = (
+				7247B82D16165EDC00873B3C /* Sources */,
+				7247B82E16165EDC00873B3C /* Frameworks */,
+				7247B82F16165EDC00873B3C /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = pktapctl;
+			productName = pktapctl;
+			productReference = 7247B83116165EDC00873B3C /* pktapctl */;
+			productType = "com.apple.product-type.tool";
+		};
 		724DAB5E0EE88E2A008900D0 /* ipfw */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 724DAB770EE88E9C008900D0 /* Build configuration list for PBXNativeTarget "ipfw" */;
@@ -1933,8 +2010,11 @@
 /* Begin PBXProject section */
 		724862310EE86EB7001D0DE9 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0500;
+			};
 			buildConfigurationList = 724862340EE86EB7001D0DE9 /* Build configuration list for PBXProject "network_cmds" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -1965,6 +2045,7 @@
 				724DABDA0EE8912D008900D0 /* natd */,
 				724DAC0C0EE8940D008900D0 /* ndp */,
 				7216D2450EE896C000AE70E4 /* netstat */,
+				7247B83016165EDC00873B3C /* pktapctl */,
 				7216D27B0EE8980A00AE70E4 /* ping */,
 				7216D2990EE898BD00AE70E4 /* ping6 */,
 				7216D2CC0EE89B7900AE70E4 /* rarpd */,
@@ -2301,6 +2382,7 @@
 				7216D2550EE896F300AE70E4 /* mroute6.c in Sources */,
 				7216D2560EE896F300AE70E4 /* route.c in Sources */,
 				7216D2570EE896F300AE70E4 /* tp_astring.c in Sources */,
+				56B6B66816F79A1C00D8A7A9 /* mptcp.c in Sources */,
 				7216D2580EE896F300AE70E4 /* unix.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2379,6 +2461,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				72D000C4142BB11100151981 /* dnctl.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7247B82D16165EDC00873B3C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7247B83C16165F0100873B3C /* pktapctl.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2648,6 +2738,21 @@
 			target = 724DAC0C0EE8940D008900D0 /* ndp */;
 			targetProxy = 724DAC230EE89525008900D0 /* PBXContainerItemProxy */;
 		};
+		7250E1471616642000A11A76 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7247B83016165EDC00873B3C /* pktapctl */;
+			targetProxy = 7250E1461616642000A11A76 /* PBXContainerItemProxy */;
+		};
+		7250E1491616642900A11A76 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7247B83016165EDC00873B3C /* pktapctl */;
+			targetProxy = 7250E1481616642900A11A76 /* PBXContainerItemProxy */;
+		};
+		7250E14B1616643000A11A76 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7247B83016165EDC00873B3C /* pktapctl */;
+			targetProxy = 7250E14A1616643000A11A76 /* PBXContainerItemProxy */;
+		};
 		726121490EE8717B00AFED1B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7261212C0EE8710B00AFED1B /* arp */;
@@ -2762,6 +2867,7 @@
 					"TARGET_OS_EMBEDDED=1",
 				);
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PREBINDING = NO;
 				SDKROOT = "";
 				"STRIPFLAGS[sdk=iphoneos*]" = "-S";
@@ -3059,6 +3165,7 @@
 					"$(inherited)",
 					HAVE_SOCKADDR_SA_LEN,
 				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
@@ -3075,6 +3182,7 @@
 					INET6,
 					IPSEC,
 				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
@@ -3533,6 +3641,39 @@
 			};
 			name = "Ignore Me";
 		};
+		7247B83716165EDC00873B3C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		7247B83816165EDC00873B3C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		7247B83916165EDC00873B3C /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Ignore Me";
+		};
 		724862320EE86EB7001D0DE9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3554,6 +3695,7 @@
 					"TARGET_OS_EMBEDDED=1",
 				);
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PREBINDING = NO;
 				SDKROOT = "";
 				WARNING_CFLAGS = "-Wall";
@@ -3581,6 +3723,7 @@
 					"TARGET_OS_EMBEDDED=1",
 				);
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PREBINDING = NO;
 				SDKROOT = "";
 				"STRIPFLAGS[sdk=iphoneos*]" = "-S";
@@ -3903,6 +4046,7 @@
 					"$(inherited)",
 					HAVE_SOCKADDR_SA_LEN,
 				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
@@ -3919,6 +4063,7 @@
 					"$(inherited)",
 					HAVE_SOCKADDR_SA_LEN,
 				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
@@ -3935,6 +4080,7 @@
 					INET6,
 					IPSEC,
 				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
@@ -3951,6 +4097,7 @@
 					INET6,
 					IPSEC,
 				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
@@ -4142,6 +4289,16 @@
 				723C7070142BAFEA007C87E9 /* Debug */,
 				723C7071142BAFEA007C87E9 /* Release */,
 				723C7072142BAFEA007C87E9 /* Ignore Me */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7247B83A16165EDC00873B3C /* Build configuration list for PBXNativeTarget "pktapctl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7247B83716165EDC00873B3C /* Debug */,
+				7247B83816165EDC00873B3C /* Release */,
+				7247B83916165EDC00873B3C /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -25,27 +25,36 @@
 #include "config.h"
 #include "HTMLFormControlElementWithState.h"
 
+#include "Chrome.h"
+#include "ChromeClient.h"
+#include "FormController.h"
+#include "Frame.h"
 #include "HTMLFormElement.h"
+#include "Page.h"
 
 namespace WebCore {
 
 HTMLFormControlElementWithState::HTMLFormControlElementWithState(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLFormControlElement(tagName, doc, f)
 {
-    document()->registerFormElementWithState(this);
 }
 
 HTMLFormControlElementWithState::~HTMLFormControlElementWithState()
 {
-    document()->unregisterFormElementWithState(this);
 }
 
-void HTMLFormControlElementWithState::didMoveToNewDocument(Document* oldDocument)
+Node::InsertionNotificationRequest HTMLFormControlElementWithState::insertedInto(ContainerNode* insertionPoint)
 {
-    if (oldDocument)
-        oldDocument->unregisterFormElementWithState(this);
-    document()->registerFormElementWithState(this);
-    HTMLFormControlElement::didMoveToNewDocument(oldDocument);
+    if (insertionPoint->inDocument() && !containingShadowRoot())
+        document()->formController().registerFormElementWithState(this);
+    return HTMLFormControlElement::insertedInto(insertionPoint);
+}
+
+void HTMLFormControlElementWithState::removedFrom(ContainerNode* insertionPoint)
+{
+    if (insertionPoint->inDocument() && !containingShadowRoot() && !insertionPoint->containingShadowRoot())
+        document()->formController().unregisterFormElementWithState(this);
+    HTMLFormControlElement::removedFrom(insertionPoint);
 }
 
 bool HTMLFormControlElementWithState::shouldAutocomplete() const
@@ -55,28 +64,36 @@ bool HTMLFormControlElementWithState::shouldAutocomplete() const
     return form()->shouldAutocomplete();
 }
 
+void HTMLFormControlElementWithState::notifyFormStateChanged()
+{
+    Frame* frame = document()->frame();
+    if (!frame)
+        return;
+
+    if (Page* page = frame->page())
+        page->chrome().client()->formStateDidChange(this);
+}
+
 bool HTMLFormControlElementWithState::shouldSaveAndRestoreFormControlState() const
 {
     // We don't save/restore control state in a form with autocomplete=off.
     return attached() && shouldAutocomplete();
 }
 
+FormControlState HTMLFormControlElementWithState::saveFormControlState() const
+{
+    return FormControlState();
+}
+
 void HTMLFormControlElementWithState::finishParsingChildren()
 {
     HTMLFormControlElement::finishParsingChildren();
+    document()->formController().restoreControlStateFor(*this);
+}
 
-    // We don't save state of a control with shouldSaveAndRestoreFormControlState()=false.
-    // But we need to skip restoring process too because a control in another
-    // form might have the same pair of name and type and saved its state.
-    if (!shouldSaveAndRestoreFormControlState())
-        return;
-
-    Document* doc = document();
-    if (doc->hasStateForNewFormElements()) {
-        String state;
-        if (doc->takeStateForFormElement(name().impl(), type().impl(), state))
-            restoreFormControlState(state);
-    }
+bool HTMLFormControlElementWithState::isFormControlElementWithState() const
+{
+    return true;
 }
 
 } // namespace Webcore

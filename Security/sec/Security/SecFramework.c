@@ -37,14 +37,16 @@
 #include <CoreFoundation/CFURLAccess.h>
 #include <Security/SecRandom.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonDigestSPI.h>
 #include <Security/SecAsn1Coder.h>
 #include <Security/oidsalg.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <security_utilities/debugging.h>
-#include <MacErrors.h>
+#include <utilities/debugging.h>
+#include <Security/SecBase.h>
 #include <errno.h>
+#include <inttypes.h>
 
 /* Security.framework's bundle id. */
 static CFStringRef kSecFrameworkBundleID = CFSTR("com.apple.Security");
@@ -97,7 +99,7 @@ CFDataRef SecFrameworkCopyResourceContents(CFStringRef resourceName,
         SInt32 error;
         if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
             url, &data, NULL, NULL, &error)) {
-            secwarning("read: %@: %d", error);
+            secwarning("read: %ld", (long) error);
         }
         CFRelease(url);
     }
@@ -112,7 +114,7 @@ CFDataRef SecSHA1DigestCreate(CFAllocatorRef allocator,
 		CC_SHA1_DIGEST_LENGTH);
 	CFDataSetLength(digest, CC_SHA1_DIGEST_LENGTH);
 	//FIXME: Cast from CFIndex to CC_LONG
-	CC_SHA1(data, (CC_LONG)length, CFDataGetMutableBytePtr(digest));
+	CCDigest(kCCDigestSHA1, data, (CC_LONG)length, CFDataGetMutableBytePtr(digest));
 	return digest;
 }
 
@@ -161,7 +163,7 @@ static void SecDevRandomOpen(void) {
 
 int SecRandomCopyBytes(SecRandomRef rnd, size_t count, uint8_t *bytes) {
     if (rnd != kSecRandomDefault)
-        return paramErr;
+        return errSecParam;
     pthread_once(&kSecDevRandomOpen, SecDevRandomOpen);
     if (kSecRandomFD < 0)
         return -1;
@@ -208,7 +210,7 @@ SecRandomRef SecRandomCreate(CFIndex randomAlg, CFIndex seedLength,
 
 	if (seedLength) {
 		/* Digest the seed and put it into output. */
-		CC_SHA1(seed, seedLength, result->block);
+		CCDigest(kCCDigestSHA1, seed, seedLength, result->block);
 	} else {
 		/* Seed 20 bytes from "/dev/srandom". */
 		int fd = open("/dev/srandom", O_RDONLY);

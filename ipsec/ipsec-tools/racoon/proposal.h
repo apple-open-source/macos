@@ -55,10 +55,10 @@
 /* SA proposal specification */
 struct saprop {
 	int prop_no;
-	time_t lifetime;
-	int lifebyte;
-	int pfs_group;			/* pfs group */
-	int claim;			/* flag to send RESPONDER-LIFETIME. */
+	time_t lifetime;    // For IKEv2 - only used to set lifetime in kernel
+	int lifebyte;       // For IKEv2 - only used to set lifetime in kernel
+	int pfs_group;		// For IKEv2 - also saved in transform
+	int claim;			/* IKEv1 only - flag to send RESPONDER-LIFETIME. */
 					/* XXX assumed DOI values are 1 or 2. */
 
 	struct saproto *head;
@@ -69,9 +69,9 @@ struct saprop {
 struct saproto {
 	int proto_id;
 	size_t spisize;			/* spi size */
-	int encmode;			/* encryption mode */
+	int encmode;			// For IKEv2 - only used to set encode mode in the kernel
 
-	int udp_encap;			/* UDP encapsulation */
+	int udp_encap;          // For IKEv2 - only used to set kernel
 
 	/* XXX should be vchar_t * */
 	/* these are network byte order */
@@ -84,7 +84,7 @@ struct saproto {
 	int reqid_out;			/* request id (outbound) */
 	int reqid_in;			/* request id (inbound) */
 
-	int ok;				/* if 1, success to set SA in kenrel */
+	int ok;                 /* if 1, success to set SA in kenrel */
 
 	struct satrns *head;		/* header of transform */
 	struct saproto *next;		/* next protocol */
@@ -93,7 +93,8 @@ struct saproto {
 /* SA algorithm specification */
 struct satrns {
 	int trns_no;
-	int trns_id;			/* transform id */
+	int trns_type;          /* IKEv2 only - transform type */
+    int trns_id;			/* transform id */
 	int encklen;			/* key length of encryption algorithm */
 	int authtype;			/* authentication algorithm if ESP */
 
@@ -176,37 +177,39 @@ struct prop_pair {
 #define PROP_CHECK_STRICT	2
 #define PROP_CHECK_CLAIM	3
 #define PROP_CHECK_EXACT	4
+#define PROP_CHECK_IKEV2	5
 
 struct sainfo;
-struct ph1handle;
 struct secpolicy;
-extern struct saprop *newsaprop __P((void));
-extern struct saproto *newsaproto __P((void));
-extern void inssaprop __P((struct saprop **, struct saprop *));
-extern void inssaproto __P((struct saprop *, struct saproto *));
-extern void inssaprotorev __P((struct saprop *, struct saproto *));
-extern struct satrns *newsatrns __P((void));
-extern void inssatrns __P((struct saproto *, struct satrns *));
-extern struct saprop *cmpsaprop_alloc __P((struct ph1handle *,
-	const struct saprop *, const struct saprop *, int));
-extern int cmpsaprop __P((const struct saprop *, const struct saprop *));
-extern int cmpsatrns __P((int, const struct satrns *, const struct satrns *));
-extern int set_satrnsbysainfo __P((struct saproto *, struct sainfo *));
-extern struct saprop *aproppair2saprop __P((struct prop_pair *));
-extern void free_proppair __P((struct prop_pair **));
-extern void flushsaprop __P((struct saprop *));
-extern void flushsaproto __P((struct saproto *));
-extern void flushsatrns __P((struct satrns *));
-extern void printsaprop __P((const int, const struct saprop *));
-extern void printsaprop0 __P((const int, const struct saprop *));
-extern void printsaproto __P((const int, const struct saproto *));
-extern void printsatrns __P((const int, const int, const struct satrns *));
-extern void print_proppair0 __P((int, struct prop_pair *, int));
-extern void print_proppair __P((int, struct prop_pair *));
-extern int set_proposal_from_policy __P((struct ph2handle *,
-	struct secpolicy *, struct secpolicy *));
-extern int set_proposal_from_proposal __P((struct ph2handle *));
-extern int tunnel_mode_prop __P((struct saprop *));
-extern struct saprop *dupsaprop __P((struct saprop *, int));
+extern struct saprop *newsaprop (void);
+extern struct saproto *newsaproto (void);
+extern void inssaprop (struct saprop **, struct saprop *);
+extern void inssaproto (struct saprop *, struct saproto *);
+extern void inssaprotorev (struct saprop *, struct saproto *);
+extern struct satrns *newsatrns (void);
+extern void inssatrns (struct saproto *, struct satrns *);
+extern int satrns_remove_from_list(struct satrns **, struct satrns *);
+extern struct saprop *cmpsaprop_alloc (phase1_handle_t *,
+	const struct saprop *, const struct saprop *, int);
+extern int cmpsaprop (const struct saprop *, const struct saprop *);
+extern int cmpsatrns (int, const struct satrns *, const struct satrns *);
+extern int set_satrnsbysainfo (struct saproto *, struct sainfo *, u_int8_t, int);
+extern struct saprop *aproppair2saprop (struct prop_pair *);
+extern void free_proppair (struct prop_pair **);
+extern void flushsaprop (struct saprop *);
+extern void flushsaproto (struct saproto *);
+extern void flushsatrns (struct satrns *);
+extern void printsaprop (const int, const struct saprop *);
+extern void printsaprop0 (const int, const struct saprop *);
+extern void printsaproto (const int, const struct saproto *);
+extern void printsatrns (const int, const int, const struct satrns *);
+extern void print_proppair0 (int, struct prop_pair *, int);
+extern void print_proppair (int, struct prop_pair *);
+extern int set_proposal_from_policy (phase2_handle_t *,
+	struct secpolicy *, struct secpolicy *);
+extern int set_proposal_from_proposal (phase2_handle_t *);
+extern int tunnel_mode_prop (struct saprop *);
+extern struct saprop *dupsaprop (struct saprop *, int);
+extern struct satrns *dupsatrns_1(struct satrns *);
 
 #endif /* _PROPOSAL_H */

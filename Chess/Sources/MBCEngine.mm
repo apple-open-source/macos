@@ -157,7 +157,8 @@ using std::max;
 {
     fDocument = nil;
     [self enableEngineMoves:NO];
-	[fEngineTask terminate];
+    if ([fEngineTask isRunning])
+        [fEngineTask terminate];
 }
 
 - (void) writeToEngine:(NSString *)string

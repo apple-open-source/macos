@@ -103,9 +103,17 @@ CFClass::cleanupObject(intptr_t op, CFTypeRef cf, bool &zap)
     }
     else if (currentCount == 0)
     {
-        finalizeType(cf);
-        zap = true; // the the caller to release the mutex and zap the object
-        return 0;
+        // we may not be able to delete if the caller has active children
+        if (obj->mayDelete())
+        {
+            finalizeType(cf);
+            zap = true; // ask the caller to release the mutex and zap the object
+            return 0;
+        }
+        else
+        {
+            return currentCount;
+        }
     }
     else 
     {

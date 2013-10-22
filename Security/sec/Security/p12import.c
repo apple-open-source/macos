@@ -34,7 +34,7 @@
 
 #include <AssertMacros.h>
 #include <Security/SecInternal.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 
 #include "p12pbegen.h"
 #include "p12import.h"
@@ -277,14 +277,23 @@ static int shroudedKeyBagParse(pkcs12_context * context, const NSS_P12_SafeBag *
     memset(&pki, 0, sizeof(pki));
 	require_noerr(decode_item(context, &ptext, kSecAsn1PrivateKeyInfoTemplate,
 			&pki), out);
+
     DERItem algorithm = { pki.algorithm.algorithm.Data, pki.algorithm.algorithm.Length };
-    require(DEROidCompare(&oidRsa, &algorithm), out);
+    CFDataRef algoidData = NULL;
+    if (DEROidCompare(&oidEcPubKey, &algorithm)) {
+        algoidData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, oidEcPubKey.data, oidEcPubKey.length, kCFAllocatorNull);
+    } else if (DEROidCompare(&oidRsa, &algorithm)) {
+        algoidData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, oidRsa.data, oidRsa.length, kCFAllocatorNull);
+    } else {
+        goto out;
+    }
+    require_noerr(emit_item(context, safeBag->bagAttrs, CFSTR("algid"), algoidData), out);
+    CFRelease(algoidData);
 
     CFDataRef keyData = CFDataCreate(kCFAllocatorDefault, pki.privateKey.Data, pki.privateKey.Length);
-
     require_noerr(emit_item(context, safeBag->bagAttrs, CFSTR("key"), keyData), out);
     CFRelease(keyData);
-    
+
     return 0;
 out:
     return -1;

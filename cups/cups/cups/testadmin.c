@@ -1,9 +1,9 @@
 /*
- * "$Id: testadmin.c 7720 2008-07-11 22:46:21Z mike $"
+ * "$Id: testadmin.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Admin function test program for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -53,7 +53,8 @@ main(int  argc,				/* I - Number of command-line args */
   * Connect to the server using the defaults...
   */
 
-  http = httpConnectEncrypt(cupsServer(), ippPort(), cupsEncryption());
+  http = httpConnect2(cupsServer(), ippPort(), NULL, AF_UNSPEC,
+                      cupsEncryption(), 1, 30000, NULL);
 
  /*
   * Set the current configuration if we have anything on the command-line...
@@ -116,5 +117,5 @@ show_settings(
 
 
 /*
- * End of "$Id: testadmin.c 7720 2008-07-11 22:46:21Z mike $".
+ * End of "$Id: testadmin.c 11093 2013-07-03 20:48:42Z msweet $".
  */

@@ -27,9 +27,8 @@
 #include "KURL.h"
 #include "Logging.h"
 #include "PageClientBlackBerry.h"
-#include "WebString.h"
 
-using BlackBerry::WebKit::WebString;
+#include <BlackBerryPlatformString.h>
 
 namespace WebCore {
 
@@ -41,12 +40,12 @@ CredentialManager& credentialManager()
     return *credentialManager;
 }
 
-void CredentialManager::autofillAuthenticationChallenge(const ProtectionSpace& protectionSpace, WebString& username, WebString& password)
+void CredentialManager::autofillAuthenticationChallenge(const ProtectionSpace& protectionSpace, BlackBerry::Platform::String& username, BlackBerry::Platform::String& password)
 {
-    if (CredentialBackingStore::instance()->hasNeverRemember(protectionSpace))
+    if (credentialBackingStore().hasNeverRemember(protectionSpace))
         return;
 
-    Credential savedCredential = CredentialBackingStore::instance()->getLogin(protectionSpace);
+    Credential savedCredential = credentialBackingStore().getLogin(protectionSpace);
     username = savedCredential.user();
     password = savedCredential.password();
 }
@@ -61,9 +60,9 @@ void CredentialManager::autofillPasswordForms(PassRefPtr<HTMLCollection> docForm
         Node* node = forms->item(i);
         if (node && node->isHTMLElement()) {
             CredentialTransformData data(static_cast<HTMLFormElement*>(node));
-            if (!data.isValid() || !CredentialBackingStore::instance()->hasLogin(data.url(), data.protectionSpace()))
+            if (!data.isValid() || !credentialBackingStore().hasLogin(data.protectionSpace()))
                 continue;
-            Credential savedCredential = CredentialBackingStore::instance()->getLogin(data.url());
+            Credential savedCredential = credentialBackingStore().getLogin(data.protectionSpace());
             data.setCredential(savedCredential);
         }
     }
@@ -73,33 +72,33 @@ void CredentialManager::saveCredentialIfConfirmed(PageClientBlackBerry* pageClie
 {
     ASSERT(pageClient);
 
-    if (!data.isValid() || data.credential().isEmpty() || CredentialBackingStore::instance()->hasNeverRemember(data.protectionSpace()))
+    if (!data.isValid() || data.credential().isEmpty() || credentialBackingStore().hasNeverRemember(data.protectionSpace()))
         return;
 
-    Credential savedCredential = CredentialBackingStore::instance()->getLogin(data.url());
+    Credential savedCredential = credentialBackingStore().getLogin(data.protectionSpace());
     if (savedCredential == data.credential())
         return;
 
     PageClientBlackBerry::SaveCredentialType type = pageClient->notifyShouldSaveCredential(savedCredential.isEmpty());
     if (type == PageClientBlackBerry::SaveCredentialYes) {
         if (savedCredential.isEmpty())
-            CredentialBackingStore::instance()->addLogin(data.url(), data.protectionSpace(), data.credential());
+            credentialBackingStore().addLogin(data.protectionSpace(), data.credential());
         else
-            CredentialBackingStore::instance()->updateLogin(data.url(), data.protectionSpace(), data.credential());
+            credentialBackingStore().updateLogin(data.protectionSpace(), data.credential());
     } else if (type == PageClientBlackBerry::SaveCredentialNeverForThisSite) {
-        CredentialBackingStore::instance()->addNeverRemember(data.url(), data.protectionSpace());
-        CredentialBackingStore::instance()->removeLogin(data.url(), data.protectionSpace());
+        credentialBackingStore().addNeverRemember(data.protectionSpace());
+        credentialBackingStore().removeLogin(data.protectionSpace(), data.credential().user());
     }
 }
 
 void CredentialManager::clearCredentials()
 {
-    CredentialBackingStore::instance()->clearLogins();
+    credentialBackingStore().clearLogins();
 }
 
 void CredentialManager::clearNeverRememberSites()
 {
-    CredentialBackingStore::instance()->clearNeverRemember();
+    credentialBackingStore().clearNeverRemember();
 }
 
 } // namespace WebCore

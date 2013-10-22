@@ -18,6 +18,7 @@ import os
 import xml.sax
 
 debug = 0
+srcdir = os.getenv("SRCDIR", ".")
 
 def getparser():
     # Attach parser to an unmarshalling object. return both objects.
@@ -392,14 +393,14 @@ def buildStubs():
     global unknown_types
 
     try:
-        f = open("libxslt-api.xml")
+        f = open("%s/libxslt-api.xml" % srcdir)
         data = f.read()
         (parser, target)  = getparser()
         parser.feed(data)
         parser.close()
     except IOError, msg:
         try:
-            f = open("../doc/libxslt-api.xml")
+            f = open("%s/../doc/libxslt-api.xml" % srcdir)
             data = f.read()
             (parser, target)  = getparser()
             parser.feed(data)
@@ -413,7 +414,7 @@ def buildStubs():
     py_types['pythonObject'] = ('O', "pythonObject", "pythonObject",
                                 "pythonObject", "libxml_")
     try:
-        f = open("libxslt-python-api.xml")
+        f = open("%s/libxslt-python-api.xml" % srcdir)
         data = f.read()
         (parser, target)  = getparser()
         parser.feed(data)

@@ -57,7 +57,6 @@ struct _WebKitWebViewBase {
 struct _WebKitWebViewBaseClass {
     GtkContainerClass parentClass;
 
-    /* Padding for future expansion */
     void (*_webkit_reserved0) (void);
     void (*_webkit_reserved1) (void);
     void (*_webkit_reserved2) (void);
@@ -65,7 +64,7 @@ struct _WebKitWebViewBaseClass {
 };
 
 WEBKIT_API GType
-webkit_web_view_base_get_type();
+webkit_web_view_base_get_type (void);
 
 G_END_DECLS
 

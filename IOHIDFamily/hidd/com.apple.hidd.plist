@@ -20,5 +20,7 @@
 	</array>
 	<key>EnableTransactions</key>
 	<true/>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
 </dict>
 </plist>

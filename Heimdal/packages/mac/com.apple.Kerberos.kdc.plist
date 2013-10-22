@@ -31,5 +31,10 @@
 	</array>
 	<key>ServiceIPC</key>
 	<false/>
+	<key>MachServices</key>
+	<dict>
+		<key>org.h5l.kdc</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

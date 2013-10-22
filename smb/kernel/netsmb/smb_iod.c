@@ -48,11 +48,18 @@
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
-#include <netsmb/smb_conn.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_rq.h>
+#include <netsmb/smb_rq_2.h>
+#include <netsmb/smb_conn.h>
+#include <netsmb/smb_conn_2.h>
+#include <netsmb/smb_rq.h>
+#include <netsmb/smb_rq_2.h>
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_trantcp.h>
 #include <smbfs/smbfs.h>
+#include <netsmb/smb_packets_2.h>
+#include <smbclient/ntstatus.h>
 
 #include <IOKit/IOLib.h>
 #include <netsmb/smb_sleephandler.h>
@@ -183,7 +190,7 @@ static void smb_iod_start_reconnect(struct smbiod *iod)
 	}
 	
 	/*
-	 * Only  start a reconnect on an active sessions or when a reconnect failed because we
+	 * Only start a reconnect on an active sessions or when a reconnect failed because we
 	 * went to sleep. If we are in the middle of a connection then mark the connection
 	 * as dead and get out.
 	 */
@@ -217,20 +224,25 @@ static void smb_iod_start_reconnect(struct smbiod *iod)
 		SMBRQ_SLOCK(rqp);
 		/* Clear any internal or async request out of the queue */
 		if (rqp->sr_flags & (SMBR_INTERNAL | SMBR_ASYNC)) {
+            /* pretend like it did not get sent to recover SMB2 credits */
+            rqp->sr_extflags &= ~SMB2_REQ_SENT;
+            
 			SMBRQ_SUNLOCK(rqp);
 			if (rqp->sr_flags & SMBR_ASYNC)
 				smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
 			else
 				smb_iod_rqprocessed(rqp, ENOTCONN, SMBR_DEAD); 
-		} else {
+		}
+        else {
 			/*
-			 * Let the upper layer know that this message was process while we were in
+			 * Let the upper layer know that this message was processed while we were in
 			 * reconnect mode. If they receive an error they may want to handle this 
 			 * message differently.
 			 */
 			rqp->sr_flags |= SMBR_RECONNECTED;
-				/* If we have not received a reply set the state to reconnect */
+            /* If we have not received a reply set the state to reconnect */
 			if (rqp->sr_state != SMBRQ_NOTIFIED) {
+                rqp->sr_extflags &= ~SMB2_REQ_SENT; /* clear the SMB2 sent flag */
 				rqp->sr_state = SMBRQ_RECONNECT; /* Wait for reconnect to complete */
 				rqp->sr_flags |= SMBR_REXMIT;	/* Tell the upper layer this message was resent */
 				rqp->sr_lerror = 0;		/* We are going to resend clear the error */
@@ -326,7 +338,7 @@ errorOut:
 }
 
 static int
-smb_iod_ssnsetup(struct smbiod *iod)
+smb_iod_ssnsetup(struct smbiod *iod, int inReconnect)
 {
 	struct smb_vc *vcp = iod->iod_vc;
 	int error;
@@ -346,13 +358,13 @@ smb_iod_ssnsetup(struct smbiod *iod)
 		return EINVAL;
 	}
 	iod->iod_state = SMBIOD_ST_SSNSETUP;
-	error = smb_smb_ssnsetup(vcp, iod->iod_context);
+	error = smb_smb_ssnsetup(vcp, inReconnect, iod->iod_context);
 	if (error) {
 		/* 
 		 * We no longer call smb_io_dead here, the vc could still be
 		 * alive. Allow for other attempt to authenticate on this same 
 		 * circuit. If the connect went down let the call process 
-		 * decide what to do with the circcuit. 
+		 * decide what to do with the circuit. 
 		 *
 		 * Now all we do is reset the iod state back to what it was, but only if
 		 * it hasn't change from the time we came in here. If the connection goes
@@ -390,8 +402,10 @@ static int
 smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 {
 	struct smb_vc *vcp = iod->iod_vc;
-	mbuf_t m;
-	int error;
+	mbuf_t m, m2;
+	int error = 0;
+    struct smb_rq *tmp_rqp;
+	struct mbchain *mbp;
 
 	SMBIODEBUG("iod_state = %d\n", iod->iod_state);
 	switch (iod->iod_state) {
@@ -411,33 +425,150 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
             break;
 	}
 
-	/* Use to check for vc, can't have an iod without a vc */
-	*rqp->sr_rquid = htoles(vcp->vc_smbuid);
-	/* If the request has a share then it has a reference on it */
-	*rqp->sr_rqtid = htoles(rqp->sr_share ? rqp->sr_share->ss_tid : SMB_TID_UNKNOWN);
+    if (rqp->sr_extflags & SMB2_REQUEST) {
+        /* filled in by smb2_rq_init_internal */
+    }
+    else {
+        /* Use to check for vc, can't have an iod without a vc */
+        *rqp->sr_rquid = htoles(vcp->vc_smbuid);
+        
+        /* If the request has a share then it has a reference on it */
+        *rqp->sr_rqtid = htoles(rqp->sr_share ? 
+                                rqp->sr_share->ss_tid : SMB_TID_UNKNOWN);
+    }
 	
-	mb_fixhdr(&rqp->sr_rq);
-	if (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE)
-		smb_rq_sign(rqp);
+    smb_rq_getrequest(rqp, &mbp);
+	mb_fixhdr(mbp);
+    
+    /*
+     * NOTE:
+     *
+     * SMB 1.x calls mbuf_copym to create a duplicate mbuf of sr_rq.mp_top
+     * to send. If a reconnect happens, then its easy to resend the exact same 
+     * packet again by just duplicating sr_rq.mp_top again and sending it again.
+     * 
+     * For SMB 2.x, the exact same packet can not be sent. After a reconnect
+     * the credits reset to 0 and the volatile part of the FID can also change.
+     * Thus, the entire packet has to be rebuilt and then resent. Thus, for 
+     * SMB 2.x, we do not bother creating a duplicate of the mbuf before 
+     * sending. This will allow SMB 2.x to use fewer mbufs.
+     */
 
-	SMBSDEBUG("M:%04x, P:%04x, U:%04x, T:%04x\n", rqp->sr_mid, 0, 0, 0);
-	m_dumpm(rqp->sr_rq.mb_top);
-	error = mbuf_copym(rqp->sr_rq.mb_top, 0, MBUF_COPYALL, MBUF_WAITOK, &m);
-	DBG_ASSERT(error == 0);
-	error = rqp->sr_lerror = (error) ? error : SMB_TRAN_SEND(vcp, m);
+    if (rqp->sr_extflags & SMB2_REQUEST) {
+        /* 
+         * SMB 2.x
+         *
+         * Set the message_id right before we sent the request 
+         *
+         * This is because Windows based servers will stop granting credits
+         * if the difference between the smallest available sequence number and
+         * the largest available sequence number exceeds 2 times the number
+         * of granted credits.  Refer to Secion 3.3.1.1 in SMB Version 2 
+         * Protocol Specification.
+         */
+        smb2_rq_message_id_increment(rqp);
+        
+        SMBSDEBUG("MessageID:%llu\n", rqp->sr_messageid);
+        
+        if (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
+            smb2_rq_sign(rqp);
+        }
+        
+        if (rqp->sr_flags & SMBR_COMPOUND_RQ) {
+            /* 
+             * Compound request to send. The first rqp has its sr_next_rq set to 
+             * point to the next request to send and so on. The last request will
+             * have sr_next_rq set to NULL. The next_command fields should already
+             * be filled in with correct offsets. Have to copy all the requests 
+             * into a single mbuf chain before sending it.
+             *
+             * ONLY the first rqp in the chain will have its sr_ fields updated.
+             */
+            DBG_ASSERT(rqp->sr_next_rqp != NULL);
+            
+            /* 
+             * Create the first chain
+             * Save current sr_rq.mp_top into "m", set sr_rq.mp_top to NULL, 
+             * then send "m"
+             */
+            m = mb_detach(mbp);
+            
+            /* Concatenate the other requests into the mbuf chain */
+            tmp_rqp = rqp->sr_next_rqp;
+            while (tmp_rqp != NULL) {
+                /* copy next request into new mbuf m2 */
+                smb_rq_getrequest(tmp_rqp, &mbp);
+                m2 = mb_detach(mbp);
+                
+                /* concatenate m2 to m */
+                m = mbuf_concatenate(m, m2);            
+                
+                tmp_rqp = tmp_rqp->sr_next_rqp;
+            }
+            
+            /* fix up the mbuf packet header */
+            m_fixhdr(m);
+        }
+        else {
+            /* 
+             * Not a compound request 
+             * Save current sr_rq.mp_top into "m", set sr_rq.mp_top to NULL, 
+             * then send "m"
+             */
+            m = mb_detach(mbp);
+        }
+    }
+    else {
+        /*
+         * SMB 1.x
+         */
+        if (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
+            smb_rq_sign(rqp);
+        }
+
+        SMBSDEBUG("M:%04x, P:%04x, U:%04x, T:%04x\n", rqp->sr_mid, 0, 0, 0);
+        m_dumpm(rqp->sr_rq.mb_top);
+
+        /* SMB 1.x always duplicates the sr_rq.mb_top and sends the dupe */
+        error = mbuf_copym(rqp->sr_rq.mb_top, 0, MBUF_COPYALL, MBUF_WAITOK, &m);
+        DBG_ASSERT(error == 0);
+    }
+    
+    /* Call SMB_TRAN_SEND to send the mbufs in "m" */
+    error = rqp->sr_lerror = (error) ? error : SMB_TRAN_SEND(vcp, m);
 	if (error == 0) {
-		nanouptime(&rqp->sr_timesent);
-		iod->iod_lastrqsent = rqp->sr_timesent;
-		rqp->sr_state = SMBRQ_SENT;
+        nanouptime(&rqp->sr_timesent);
+        iod->iod_lastrqsent = rqp->sr_timesent;
+        rqp->sr_state = SMBRQ_SENT;
+        
+        /* 
+         * For SMB2, set flag indicating this request was sent. Used for 
+         * keeping track of credits.  
+         */
+        if (rqp->sr_flags & SMBR_COMPOUND_RQ) {
+            rqp->sr_extflags |= SMB2_REQ_SENT;
+            tmp_rqp = rqp->sr_next_rqp;
+            while (tmp_rqp != NULL) {
+                tmp_rqp->sr_extflags |= SMB2_REQ_SENT;
+                tmp_rqp = tmp_rqp->sr_next_rqp;
+            }
+        }
+        else {
+            rqp->sr_extflags |= SMB2_REQ_SENT;
+        }
+        
 		return 0;
 	}
+    
 	/* Did the connection go down, we may need to reconnect. */
-	if (SMB_TRAN_FATAL(vcp, error)) 
+	if (SMB_TRAN_FATAL(vcp, error)) {
 		return ENOTCONN;
+    }
 	else if (error) {	/* Either the send failed or the mbuf_copym? */
-		SMBERROR("TRAN_SEND returned non-fatal error %d sr_cmd = 0x%x\n", error, rqp->sr_cmd);
+		SMBERROR("TRAN_SEND returned non-fatal error %d sr_cmd = 0x%x\n", 
+                 error, rqp->sr_cmd);
 		error = EIO; /* Couldn't send not much else we can do */
-		smb_iod_rqprocessed(rqp, error, 0);
+        smb_iod_rqprocessed(rqp, error, 0);
 	}
 	return 0;
 }
@@ -449,14 +580,20 @@ static int
 smb_iod_recvall(struct smbiod *iod)
 {
 	struct smb_vc *vcp = iod->iod_vc;
-	struct smb_rq *rqp, *trqp;
+	struct smb_rq *rqp, *trqp, *temp_rqp, *cmpd_rqp;
 	mbuf_t m;
 	u_char *hp;
-	uint16_t mid;
-	uint16_t pidHigh;
-	uint16_t pidLow;
-	uint8_t cmd;
+	uint16_t mid = 0;
+	uint16_t pidHigh = 0;
+	uint16_t pidLow = 0;
+	uint8_t cmd = 0;
 	int error;
+    struct smb2_header* smb2_hdr;
+    boolean_t smb2_packet;
+    uint64_t message_id = 0;
+    boolean_t smb1_allowed = true;
+	struct mdchain *mdp = NULL;
+    int skip_wakeup = 0;
 
 	switch (iod->iod_state) {
 	    case SMBIOD_ST_NOTCONN:
@@ -468,78 +605,224 @@ smb_iod_recvall(struct smbiod *iod)
 	}
 
 	for (;;) {
-		m = NULL;
+        m = NULL;
+        smb2_packet = false;
+        cmpd_rqp = NULL;
+        temp_rqp = NULL;
+        skip_wakeup = 0;
 
         /* this reads in the entire response packet based on the NetBIOS hdr */
 		error = SMB_TRAN_RECV(vcp, &m);
-		if (error == EWOULDBLOCK)
-			break;
+		if (error == EWOULDBLOCK) {
+            break;
+        }
 		if (SMB_TRAN_FATAL(vcp, error)) {
-			smb_iod_start_reconnect(iod);
-			break;
+            SMBDEBUG("SMB_TRAN_FATAL failed %d\n", error);
+            smb_iod_start_reconnect(iod);
+            break;
 		}
-		if (error)
-			break;
+		if (error) {
+            SMBDEBUG("SMB_TRAN_FATAL failed %d\n", error);
+            break;
+        }
 		if (m == NULL) {
-			SMBERROR("tran return NULL without error\n");
+			SMBDEBUG("tran return NULL without error\n");
 			continue;
 		}
 
-        /* 
+        /*
          * Parse out enough of the response to be able to match it with an 
          * existing smb_rq in the queue.
          */
 
-		if (mbuf_pullup(&m, SMB_HDRLEN))
-			continue;	/* wait for a good packet */
-		/*
-		 * Now we got an entire and possibly invalid SMB packet.
-		 * Be careful while parsing it.
-		 */
-		m_dumpm(m);
-		hp = mbuf_data(m);
-		if (bcmp(hp, SMB_SIGNATURE, SMB_SIGLEN) != 0) {
-			mbuf_freem(m);
-			continue;
+        /* 
+         * For SMB2, client sends out a SMB1 Negotiate request, but the 
+         * server replies with a SMB2 Negotiate response that has no mid
+         * and a pid of 0.  Have to just match it to any Negotiate request
+         * waiting for a response. 
+         */
+
+        m_dumpm(m);
+        hp = mbuf_data(m);
+        
+		if (*hp == 0xfe) {
+            /* 
+             * SMB2 Response packet
+             */
+
+            /* Wait for entire header to be read in */
+            if (mbuf_pullup(&m, SMB2_HDRLEN))
+                continue;
+            
+            hp = mbuf_data(m);
+
+            /* Verify SMB 2.x signature */
+            if (bcmp(hp, SMB2_SIGNATURE, SMB2_SIGLEN) != 0) {
+                SMBERROR("dumping non SMB2 packet\n");
+                mbuf_freem(m);
+                continue;
+            }
+
+            /* this response is an SMB2 response */
+            smb2_packet = true;
+            
+            /* 
+             * Once using SMB2, ignore any more SMB1 responses
+             */
+            if (smb1_allowed)
+                smb1_allowed = false;
+            
+            /*
+             * At this point we have the SMB2 Header and packet data read in
+             * Get the Message ID so we can find the matching smb_rq
+             */
+            m_dumpm(m);
+            smb2_hdr = mbuf_data(m);
+
+            cmd = letohs(smb2_hdr->command);
+            message_id = letohq(smb2_hdr->message_id);
+            SMBSDEBUG("message_id %lld cmd = %d\n", letohq(message_id), cmd);
 		}
-		mid = SMB_HDRMID(hp);
-		cmd = SMB_HDRCMD(hp);
-		pidHigh = SMB_HDRPIDHIGH(hp);
-		pidLow = SMB_HDRPIDLOW(hp);
-		SMBSDEBUG("mid %04x cmd = 0x%x\n", (unsigned)mid, cmd);
+        else {            
+            /* 
+             * SMB1 Response packet
+             */
+            
+            /* wait for entire header to be read in */
+            if (mbuf_pullup(&m, SMB_HDRLEN))
+                continue;
+            
+            hp = mbuf_data(m);
+
+            /* Verify SMB 1.x signature */
+            if (bcmp(hp, SMB_SIGNATURE, SMB_SIGLEN) != 0) {
+                SMBERROR("dumping non SMB1 packet\n");
+                mbuf_freem(m);
+                continue;
+            }
+
+            /* if no more SMB1 packets allowed, then ignore this packet */
+            if (!smb1_allowed) {
+                SMBERROR("No more SMB1 packets allowed, dumping request\n");
+                mbuf_freem(m);
+                continue;
+            }
+            
+            /*
+             * At this point we have the SMB1 Header and packet data read in
+             * Get the cmd, mid, pid so we can find the matching smb_rq
+             */
+            mid = SMB_HDRMID(hp);
+            cmd = SMB_HDRCMD(hp);
+            pidHigh = SMB_HDRPIDHIGH(hp);
+            pidLow = SMB_HDRPIDLOW(hp);
+            SMBSDEBUG("mid %04x cmd = 0x%x\n", (unsigned)mid, cmd);
+        }
 
         /*
          * Search queue of smb_rq to find a match
          */
-		SMB_IOD_RQLOCK(iod);
+        SMB_IOD_RQLOCK(iod);
 		nanouptime(&iod->iod_lastrecv);
 		TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
-			/* 
-			 * We now use the mid and the high pid as a single mid, this gives
-			 * us a larger mid and helps prevent finding the wrong item. So we
-			 * need to make sure the messages match up, so use the cmd to confirm
-			 * we have the correct message.
-			 * NOTE: SMB2 does not have this issue.
-			 *
-			 * We need to test and make sure the server supports returning the 
-			 * high pid field correctly. We always set the high pid to one when
-			 * sending the negotiate message, this way we can check to make 
-			 * sure they return it back correctly. This is safe since we should 
-			 * only have one negotiate message on the list at time. 
-			 */
-			if ((cmd == SMB_COM_NEGOTIATE) &&  
-				(rqp->sr_cmd == SMB_COM_NEGOTIATE) &&  (rqp->sr_mid == mid)) {
-				if (rqp->sr_pidHigh == pidHigh) {
-					vcp->supportHighPID = TRUE;
-				} else {
-					vcp->supportHighPID = FALSE;
-				}
-
-			} else if ((rqp->sr_mid != mid) ||  (rqp->sr_cmd != cmd) || 
-					   (rqp->sr_pidHigh != pidHigh) || (rqp->sr_pidLow != pidLow)) {
-				continue;
-			}
-
+            if (smb2_packet) {
+                if (rqp->sr_messageid == message_id) {
+                    /*
+                     * Matched non compound rqp or matched first rqp in a
+                     * compound rqp.
+                     */
+                    
+                    /*
+                     * If sent compound req, and this is not an 
+                     * Async/STATUS_PENDING reply, then we should have gotten 
+                     * a compound response
+                     */
+                    if ((rqp->sr_flags & SMBR_COMPOUND_RQ) &&
+                        (smb2_hdr->next_command == 0) &&
+                        !((smb2_hdr->flags & SMBR_ASYNC) && (smb2_hdr->status == STATUS_PENDING))) {
+                        
+                        if (!(vcp->vc_misc_flags & SMBV_NON_COMPOUND_REPLIES)) {
+                            /*
+                             * <14227703> Some NetApp servers send back non
+                             * compound replies to compound requests. Sigh.
+                             */
+                            SMBWARNING("Non compound reply to compound req. message_id %lld, cmd %d\n", message_id, cmd);
+                            
+                            /* Once set, this remains set forever */
+                            vcp->vc_misc_flags |= SMBV_NON_COMPOUND_REPLIES;
+                        }
+                        
+                        /*
+                         * Must be first non compound reply to a compound 
+                         * request, thus there must be more replies pending.
+                         */
+                        cmpd_rqp = rqp; /* save start of compound rqp */
+                    }
+                }
+                else {
+                    /* 
+                     * Did not match non compound rqp or did not match
+                     * first rqp in a compound rqp
+                     */
+                    if (!(rqp->sr_flags & SMBR_COMPOUND_RQ) ||
+                        !(vcp->vc_misc_flags & SMBV_NON_COMPOUND_REPLIES)) {
+                        /* 
+                         * Not a compound request or server supports compound 
+                         * replies, go check next rqp 
+                         */
+                        continue;
+                    }
+                    
+                    /* 
+                     * <14227703> Server is using non compound replies, so have
+                     * to search each request chain to see if this reply matches 
+                     * a middle or last request in the chain.
+                     */
+                    cmpd_rqp = rqp;     /* save start of compound rqp */
+                    
+                    temp_rqp = rqp->sr_next_rqp;
+                    while (temp_rqp != NULL) {
+                        if (temp_rqp->sr_messageid == message_id) {
+                            /* Matches a rqp in this chain */
+                            rqp = temp_rqp;
+                            break;
+                        }
+                        temp_rqp = temp_rqp->sr_next_rqp;
+                    }
+                    
+                    if (temp_rqp == NULL) {
+                        /* Not found in this compound rqp */
+                        cmpd_rqp = NULL;
+                        continue;
+                    }
+                }
+                
+                /* Verify that found smb_rq is a SMB2 request */
+                if (!(rqp->sr_extflags & SMB2_REQUEST) &&
+                    (cmd != SMB2_NEGOTIATE)) {
+                    SMBERROR("Found non SMB2 request? message_id %lld, cmd %d\n", message_id, cmd);
+                }
+                
+                rqp->sr_extflags |= SMB2_RESPONSE;
+            }
+            else {
+                /* 
+                 * <12071582>
+                 * We now use the mid and the low pid as a single mid, this gives
+                 * us a larger mid and helps prevent finding the wrong item. So we
+                 * need to make sure the messages match up, so use the cmd to confirm
+                 * we have the correct message.
+                 *
+                 * NOTE: SMB2 does not have this issue.
+                 */
+                if ((rqp->sr_mid != mid) ||
+                    (rqp->sr_cmd != cmd) ||
+                    (rqp->sr_pidHigh != pidHigh) ||
+                    (rqp->sr_pidLow != pidLow)) {
+                    continue;
+                }
+            }
+            
             /*
              * Found a matching smb_rq
              */
@@ -556,33 +839,122 @@ smb_iod_recvall(struct smbiod *iod)
 				lck_mtx_unlock(&rqp->sr_share->ss_shlock);
 			}
 
-			SMBRQ_SLOCK(rqp);
-			if (rqp->sr_rp.md_top == NULL) {
-				md_initm(&rqp->sr_rp, m);
-			} else {
-				if (rqp->sr_flags & SMBR_MULTIPACKET) {
-					md_append_record(&rqp->sr_rp, m);
-				} else {
-					SMBRQ_SUNLOCK(rqp);
-					SMBERROR("duplicate response %d (ignored)\n", mid);
-					break;
-				}
-			}
-			SMBRQ_SUNLOCK(rqp);
+            if (smb2_packet) {
+                /* 
+                 * Check for Async and STATUS_PENDING responses.
+                 * Ignore this response and wait for the real one 
+                 * to arrive later
+                 */
+                if ((smb2_hdr->flags & SMBR_ASYNC) && 
+                    (smb2_hdr->status == STATUS_PENDING)) {
+                    rqp->sr_rspasyncid = letohq(smb2_hdr->async.async_id);
+                    rqp->sr_rspcreditsgranted = letohs(smb2_hdr->credit_reqrsp);
+                    
+                    /* Get granted credits from this response */
+                    smb2_rq_credit_increment(rqp);
+                    rqp = NULL;
+                    break;
+                }
+            } 
+
+            /* 
+             * For compound replies received,
+             * ONLY the first rqp in the chain will have ALL the reply data
+             * in its mbuf chains. Its up to the upper layers to parse out
+             * the extra SMB2 headers and know how to parse the SMB2 reply
+             * data.
+             *
+             * Note: an alternate way to do this would be to somehow split up
+             * each of the replies into the seperate rqp's. 
+             *
+             * <14227703> Some NetApp servers do not support compound replies.  
+             * Those replies are in each rqp in the chain.
+             */
+
+            SMBRQ_SLOCK(rqp);
+
+            smb_rq_getreply(rqp, &mdp);
+            if (rqp->sr_rp.md_top == NULL) {
+                md_initm(mdp, m);
+            } 
+            else {
+                if (rqp->sr_flags & SMBR_MULTIPACKET) {
+                    md_append_record(mdp, m);
+                } 
+                else {
+                    SMBRQ_SUNLOCK(rqp);
+                    SMBERROR("duplicate response %d (ignored)\n", mid);
+                    break;
+                }
+            }
+            
+            /* 
+             * <14227703> For servers that do not support compound replies, 
+             * check to see if entire reply has arrived.
+             */
+            if (cmpd_rqp != NULL) {
+                temp_rqp = cmpd_rqp;
+                while (temp_rqp != NULL) {
+                    if (!(temp_rqp->sr_extflags & SMB2_RESPONSE)) {
+                        /* Still missing a reply */ 
+                        skip_wakeup = 1;
+                        break;
+                    }
+                    temp_rqp = temp_rqp->sr_next_rqp;
+                }
+            }
+            
+            SMBRQ_SUNLOCK(rqp);
             
             /* Wake up thread waiting for this response */
-			smb_iod_rqprocessed(rqp, 0, 0);
-			break;
+            if (skip_wakeup == 0) {
+                if (cmpd_rqp != NULL) {
+                    /* 
+                     * <14227703> Have to wake up the head of the compound 
+                     * chain 
+                     */
+                    smb_iod_rqprocessed(cmpd_rqp, 0, 0);
+                }
+                else {
+                    smb_iod_rqprocessed(rqp, 0, 0);
+                }
+            }
+
+            break;
 		}
 		SMB_IOD_RQUNLOCK(iod);
 
-		if (rqp == NULL) {			
-			/* Ignore ECHO and NTNotify dropped messages */
-			if ((cmd != SMB_COM_ECHO) && (cmd != SMB_COM_NT_TRANSACT))
-				SMBWARNING("drop resp: mid %d, cmd %d\n", (unsigned)mid, cmd);	
+		if (rqp == NULL) {		
+            if (smb2_packet) {
+                /* Is it a lease break? */
+                if ((cmd == SMB2_OPLOCK_BREAK) &&
+                    (smb2_hdr->message_id == 0xffffffffffffffff) &&
+                    (smb2_hdr->sync.tree_id == 0) &&
+                    (smb2_hdr->session_id == 0))
+                {
+                    (void) smb2_smb_parse_lease_break(iod, m);
+                    continue;
+                }
+                
+                /* Ignore Echo or (Async and STATUS_PENDING) responses */
+                if ((cmd != SMB2_ECHO) &&
+                    !((smb2_hdr->flags & SMBR_ASYNC) && (smb2_hdr->status == STATUS_PENDING))) {
+                    SMBWARNING("drop resp: message_id %lld, cmd %d status 0x%x\n", 
+                               smb2_hdr->message_id,
+                               smb2_hdr->command,
+                               smb2_hdr->status);
+                }
+            }
+            else {
+                /* Ignore ECHO and NTNotify dropped messages */
+                if ((cmd != SMB_COM_ECHO) && (cmd != SMB_COM_NT_TRANSACT)) {
+                    SMBWARNING("drop resp: mid %d, cmd %d\n", (unsigned)mid, cmd);
+                }
+            }
 			mbuf_freem(m);
 		}
 	}
+
 	return 0;
 }
 
@@ -673,13 +1045,31 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 	}
 
 	SMB_IOD_RQLOCK(iod);
-	for (;;) {
-		if (iod->iod_muxcnt < vcp->vc_maxmux)
-			break;
-		iod->iod_muxwant++;
-		msleep(&iod->iod_muxwant, SMB_IOD_RQLOCKPTR(iod), PWAIT, "iod-rq-mux", 0);
-	}
+
+    if (!(rqp->sr_extflags & SMB2_REQUEST)) {
+        if (vcp->vc_flags & SMBV_SMB2) {
+            /* 
+             * Huh? Why are we trying to send SMB 1.x request on SMB 2.x
+             * connection. This is not allowed. Need to find the code path
+             * that got to here and fix it.
+             */
+            SMBERROR("SMB 1.x not allowed on SMB 2.x connection. cmd = %x\n", rqp->sr_cmd);
+            SMB_IOD_RQUNLOCK(iod);
+            return ERPCMISMATCH;
+        }
+
+        /* SMB 1.x Flow Control */
+        for (;;) {
+            if (iod->iod_muxcnt < vcp->vc_maxmux)
+                break;
+            iod->iod_muxwant++;
+            msleep(&iod->iod_muxwant, SMB_IOD_RQLOCKPTR(iod), PWAIT,
+                   "iod-rq-mux", 0);
+        }
+    }
+    
 	/* 
+     * SMB 1.x
 	 * Should be noted here Window 2003 and Samba don't seem to care about going
 	 * over the maxmux count when doing notification messages. XPhome does for sure,
 	 * they will actual break the connection. SMB2 will solve this issue and some
@@ -690,17 +1080,25 @@ smb_iod_rq_enqueue(struct smb_rq *rqp)
 	 * three then don't allow any. Should never happen, but just to be safe.
 	 */
 	if (rqp->sr_flags & SMBR_ASYNC) {
-		if (iod->iod_asynccnt >= ((vcp->vc_maxmux / 3) * 2)) {
-			SMBWARNING("Max out on VC async notify request %d\n", iod->iod_asynccnt);
-			SMB_IOD_RQUNLOCK(iod);
-			return EWOULDBLOCK;			
-		}
+        if (!(rqp->sr_extflags & SMB2_REQUEST)) {
+            /* SMB 1.x Flow Control */
+            if (iod->iod_asynccnt >= ((vcp->vc_maxmux / 3) * 2)) {
+                SMBWARNING("Max out on VC async notify request %d\n", iod->iod_asynccnt);
+                SMB_IOD_RQUNLOCK(iod);
+                return EWOULDBLOCK;			
+            }
+        }
+        
+        /* Number of pending async requests */
 		iod->iod_asynccnt++;
 	} else if (iod->iod_state == SMBIOD_ST_VCACTIVE) {
 		if (vcp->throttle_info)
 			throttle_info_update(vcp->throttle_info, 0);
 	}
-	iod->iod_muxcnt++;
+    
+    /* Number of pending requests (sync and async) */
+    iod->iod_muxcnt++;
+    
 	TAILQ_INSERT_TAIL(&iod->iod_rqlist, rqp, sr_link);
 	SMB_IOD_RQUNLOCK(iod);
 	iod->iod_workflag = 1;
@@ -716,19 +1114,37 @@ smb_iod_removerq(struct smb_rq *rqp)
 
 	SMBIODEBUG("\n");
 	SMB_IOD_RQLOCK(iod);
+    
 	if (rqp->sr_flags & SMBR_INTERNAL) {
 		TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
 		SMB_IOD_RQUNLOCK(iod);
 		return 0;
 	}
+    
 	TAILQ_REMOVE(&iod->iod_rqlist, rqp, sr_link);
-	if (rqp->sr_flags & SMBR_ASYNC)
+    
+	if (rqp->sr_flags & SMBR_ASYNC) {
+        /* decrement number of pending async requests */
 		iod->iod_asynccnt--;
-	iod->iod_muxcnt--;
-	if (iod->iod_muxwant) {
-		iod->iod_muxwant--;
-		wakeup(&iod->iod_muxwant);
-	}
+    }
+    
+    /* Decrement number of pending requests (sync and async) */
+    if (!(rqp->sr_flags & SMBR_RECONNECTED)) {
+        /* 
+         * Reconnect resets muxcnt to 0, so any request that was in progress
+         * at that time should not decrement muxcnt else it will go negative
+         */
+        iod->iod_muxcnt--;
+    }
+    
+    if (!(rqp->sr_extflags & SMB2_REQUEST)) {
+        /* SMB 1.x Flow Control */
+        if (iod->iod_muxwant) {
+            iod->iod_muxwant--;
+            wakeup(&iod->iod_muxwant);
+        }
+    }
+
 	SMB_IOD_RQUNLOCK(iod);
 	return 0;
 }
@@ -753,7 +1169,6 @@ smb_iod_waitrq(struct smb_rq *rqp)
 		}
 		smb_iod_removerq(rqp);
 		return rqp->sr_lerror;
-
 	}
 
 	SMBRQ_SLOCK(rqp);
@@ -857,8 +1272,12 @@ retry:
 				continue;							
 			}
 			DBG_ASSERT(rqp->sr_state != SMBRQ_SENT) /* Should never be in the sent state at this point */
-			if (rqp->sr_state == SMBRQ_NOTSENT)
+
+			if (rqp->sr_state == SMBRQ_NOTSENT) {
+                rqp->sr_extflags &= ~SMB2_REQ_SENT; /* clear the SMB2 sent flag */
 				rqp->sr_state = SMBRQ_RECONNECT;
+            }
+
 			/* Tell the upper layer that any error may have been the result of a reconnect. */
 			rqp->sr_flags |= SMBR_RECONNECTED;
 		}
@@ -869,19 +1288,31 @@ retry:
 					break;		/* Do nothing to do but wait for reconnect to end. */
 				rqp->sr_state = SMBRQ_NOTSENT;
 				/*
-				 * Make sure this is no a bad server. If we reconnect more than
-				 * MAX_SR_RECONNECT_CNT (5) times trying to send this message
-				 * then just give up and kill the mount.
+				 * Make sure this is not a bad server. If we reconnected more
+				 * than MAX_SR_RECONNECT_CNT (5) times trying to send this
+				 * message, then just give up and kill the mount.
 				 */
 				rqp->sr_reconnect_cnt += 1; 
 				if (rqp->sr_reconnect_cnt > MAX_SR_RECONNECT_CNT) {
-					SMBERROR("Looks like we are in a reconnect loop with  server %s, canceling the reconnect. (cmd = %x)\n", 
+					SMBERROR("Looks like we are in a reconnect loop with server %s, canceling the reconnect. (cmd = %x)\n", 
 						vcp->vc_srvname, rqp->sr_cmd);
 					iod->iod_state = SMBIOD_ST_DEAD;
 					smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
 					continue;
-				}				
-				/* Fall through here and send it */
+				}
+                
+                /* 
+                 * Due to crediting issues, have to rebuild the entire request.
+                 * Send the request back with error of EAGAIN to indicate that 
+                 * it needs to be rebuilt. The SMBR_RECONNECTED flag will also
+                 * be set in rqp->sr_flags.
+                 */
+                if (rqp->sr_extflags & SMB2_REQUEST) {
+					smb_iod_rqprocessed(rqp, EAGAIN, 0);
+                    continue;
+                }
+                
+                /* Fall through here and send it */
 			case SMBRQ_NOTSENT:
 				SMB_IOD_RQUNLOCK(iod);
                 /* Indicate that we are not holding the lock */
@@ -896,9 +1327,14 @@ retry:
                     goto retry;
 				break;
 			case SMBRQ_SENT:
-				/* if this is an async call then it can't timeout so we are done */
-				if (rqp->sr_flags & SMBR_ASYNC)
+				/*
+				 * If this is an async call or a long-running request then it
+				 * can't timeout so we are done.
+				 */
+				if ((rqp->sr_flags & SMBR_ASYNC) ||
+					(rqp->sr_flags & SMBR_NO_TIMEOUT)) {
 					break;
+				}
 				nanouptime(&now);
 				if (rqp->sr_share) {
 					/*
@@ -943,7 +1379,14 @@ retry:
 				ts.tv_nsec = 0;
 				timespecadd(&ts, &rqp->sr_timesent);
 				if (timespeccmp(&now, &ts, >)) {
-					SMBERROR("Timed out waiting on the response for 0x%x mid = 0x%x\n", rqp->sr_cmd, rqp->sr_mid);
+                    if (rqp->sr_extflags & SMB2_REQUEST) {
+                        SMBERROR("Timed out waiting on the response for 0x%x message_id = %lld state 0x%x\n",
+                                 rqp->sr_cmd, rqp->sr_messageid, rqp->sr_state);
+                   }
+                    else {
+                        SMBERROR("Timed out waiting on the response for 0x%x mid = 0x%x state 0x%x\n",
+                                 rqp->sr_cmd, rqp->sr_mid, rqp->sr_state);
+                    }
 					smb_iod_rqprocessed(rqp, ETIMEDOUT, 0);
 				} else if (rqp->sr_cmd != SMB_COM_ECHO) {
 					ts = now;
@@ -977,7 +1420,7 @@ retry:
 		timespecsub(&ts, &uetimeout);
 		if (timespeccmp(&ts, &iod->iod_lastrecv, >) &&
 		    timespeccmp(&ts, &iod->iod_lastrqsent, >))
-			(void)smb_echo(vcp, SMBNOREPLYWAIT, 1, iod->iod_context);
+			(void)smb_smb_echo(vcp, SMBNOREPLYWAIT, 1, iod->iod_context);
 	}
 	return 0;
 }
@@ -1044,7 +1487,7 @@ smb_iod_check_for_active_shares(struct smb_vc *vcp)
 }
 
 /*
- * This is called from tcp_connect and smb_iod_reconnect. Durring a reconnect if the volume
+ * This is called from tcp_connect and smb_iod_reconnect. During a reconnect if the volume
  * goes away or someone tries to unmount it then we need to break out of the reconnect. We 
  * may want to use this for normal connections in the future.
  */
@@ -1122,9 +1565,15 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		 * seconds. So we always wait 2 two seconds to see if the connection
 		 * comes back quickly before attempting any other types of action.
 		 */
+        if (smb_iod_nb_intr(vcp) == EINTR) {
+            error = EINTR;
+            SMBDEBUG("Reconnect to %s was canceled\n", vcp->vc_srvname);
+            goto exit;
+        }
+
 		error = SMB_TRAN_CONNECT(vcp, vcp->vc_saddr);
 		if (error == EINTR)	{
-			SMBDEBUG("The reconnection to %s, was canceled\n", vcp->vc_srvname);
+			SMBDEBUG("Reconnect to %s was canceled\n", vcp->vc_srvname);
 			goto exit;
 		}
 
@@ -1138,10 +1587,10 @@ static void smb_iod_reconnect(struct smbiod *iod)
 			 */ 
 			for (ii= 1; ii <= sleepcnt; ii++) {
 				msleep(&iod->iod_flags, 0, PWAIT, "smb_iod_reconnect", &sleeptime);
+                
 				if (smb_iod_nb_intr(vcp) == EINTR) {
 					error = EINTR;
-					SMBDEBUG("The reconnection to %s, was canceled\n", 
-							 vcp->vc_srvname);
+					SMBDEBUG("Reconnect to %s was canceled\n", vcp->vc_srvname);
 					goto exit;
 				}
 			}
@@ -1174,8 +1623,10 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		if (!error) {
 			/* Clear out the outstanding request counter, everything is going to get resent */
 			iod->iod_muxcnt = 0;
+            
 			/* Reset the virtual circuit to a reconnect state */
 			smb_vc_reset(vcp);
+            
 			/* Start the virtual circuit */
 			iod->iod_state = SMBIOD_ST_TRANACTIVE;
 			error = smb_smb_negotiate(vcp, NULL, TRUE, iod->iod_context);
@@ -1189,7 +1640,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 						   vcp->vc_srvname, error);
 				break;				
 			} else {
-				SMBDEBUG("The negotiate succeed to %s\n", vcp->vc_srvname);
+				SMBDEBUG("The negotiate succeeded to %s\n", vcp->vc_srvname);
 				iod->iod_state = SMBIOD_ST_NEGOACTIVE;				
 				/*
 				 * We now do the authentication inside the connect loop. This 
@@ -1197,7 +1648,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 				 * creditials yet or the creditials have expired, then we can 
 				 * keep trying.
 				 */
-				error = smb_iod_ssnsetup(iod);
+				error = smb_iod_ssnsetup(iod, TRUE);
 				if (error)
 					SMBWARNING("The authentication failed to %s with an error of %d\n", 
 							   vcp->vc_srvname, error);
@@ -1206,11 +1657,19 @@ static void smb_iod_reconnect(struct smbiod *iod)
 					break;
 					
 				/* Try four more times and see if the user has update the Kerberos Creds */
-				for (ii=1; ii < SMB_MAX_SLEEP_CNT; ii++) {
+				for (ii = 1; ii < SMB_MAX_SLEEP_CNT; ii++) {
 					msleep(&iod->iod_flags, 0, PWAIT, "smb_iod_reconnect", &sleeptime);
-					error = smb_iod_ssnsetup(iod);
+                    
+                    if (smb_iod_nb_intr(vcp) == EINTR) {
+                        error = EINTR;
+                        SMBDEBUG("Reconnect to %s was canceled\n",
+                                 vcp->vc_srvname);
+                        goto exit;
+                    }
+					
+                    error = smb_iod_ssnsetup(iod, TRUE);
 					if (error)
-						SMBWARNING("Retring authentication count %d failed to %s with an error of %d\n", 
+						SMBWARNING("Retrying authentication count %d failed to %s with an error of %d\n", 
 								   ii, vcp->vc_srvname, error);
 					if (error != EAGAIN)
 						break;
@@ -1250,7 +1709,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		 */
 		smb_share_ref(share);
 		if (share->ss_flags & SMBO_GONE) {
-			/* Skip any shares that are being disconnect */
+			/* Skip any shares that are being disconnected */
 			smb_share_rele(share, iod->iod_context);
 			continue;
 		}
@@ -1258,13 +1717,17 @@ static void smb_iod_reconnect(struct smbiod *iod)
 		/* Always reconnect the tree, even if its not a mount point */
 		error = smb_smb_treeconnect(share, iod->iod_context);
 		if (error) {
-			SMBERROR("Reconnection failed to share %s on server %s error = %d\n", 
+			SMBERROR("Reconnect failed to share %s on server %s error = %d\n", 
 					 share->ss_name, vcp->vc_srvname, error);
 			error = 0; /* reset the error, only used for logging */
 		} else {
 			tree_cnt++;
 			lck_mtx_lock(&share->ss_shlock);
 			if (share->ss_up) {
+                /* 
+                 * Tell upper layers that reconnect has been done. Right now
+                 * this marks all open files that they need to be reopened.
+                 */
 				share->ss_up(share, TRUE);
 				SMBERROR("Reconnected share %s with server %s\n", share->ss_name, vcp->vc_srvname);
 			} else {
@@ -1321,11 +1784,23 @@ exit:
 			SMBWARNING("The reconnect failed because we went to sleep retrying! %d\n", error);
 			iod->iod_state = SMBIOD_ST_RECONNECT;
 			smb_iod_start_reconnect(iod); /* Retry the reconnect */
-		} else {
+		}
+        else {
 			/* We failed; tell the user and have the volume unmounted */
-			smb_iod_dead(iod);			
+			smb_iod_dead(iod);
+			
+            /* 
+             * Reconnect failed, but iod layer is all set now to deny any new 
+             * requests. Tell above layer that we now have a ton of credits to 
+             * allow any requests waiting for credits to error out.
+             */
+            smb2_rq_credit_start(vcp, kCREDIT_MAX_AMT);
 		}
 	}
+    else {
+        /* Reconnect worked, its now safe to start up crediting again */
+        smb2_rq_credit_start(vcp, 0);
+    }
 
 	iod->iod_workflag = 1;
 }
@@ -1362,7 +1837,7 @@ smb_iod_main(struct smbiod *iod)
 				evp->ev_error = smb_iod_negotiate(iod, evp->ev_ident);
 				break;
 		    case SMBIOD_EV_SSNSETUP:
-				evp->ev_error = smb_iod_ssnsetup(iod);
+				evp->ev_error = smb_iod_ssnsetup(iod, FALSE);
 				break;
 		    case SMBIOD_EV_DISCONNECT:
 				evp->ev_error = smb_iod_disconnect(iod);
@@ -1379,6 +1854,9 @@ smb_iod_main(struct smbiod *iod)
 				iod->iod_flags |= SMBIOD_SHUTDOWN;
 				break;
 		    case SMBIOD_EV_NEWRQ:
+				break;
+		    case SMBIOD_EV_FORCE_RECONNECT:
+                smb_iod_start_reconnect(iod);
 				break;
 			default:
 				break;
@@ -1436,7 +1914,7 @@ static void smb_iod_thread(void *arg)
 		 */
 		if (iod->iod_workflag)
 			continue;
-		SMBIODEBUG("going to sleep for %d secs %d nsecs\n", iod->iod_sleeptimespec.tv_sec,
+		SMBIODEBUG("going to sleep for %ld secs %ld nsecs\n", iod->iod_sleeptimespec.tv_sec,
 				iod->iod_sleeptimespec.tv_nsec);
 		msleep(&iod->iod_flags, 0, PWAIT, "iod thread idle", &iod->iod_sleeptimespec);
 	}

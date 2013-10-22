@@ -326,7 +326,8 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 	
 	// Check to see if our expansion data is still valid. If we've already passed through free() it'll be NULL and 
 	// access its members will cause us to kernel panic. This check exists to guard against callbacks received after
-	// driver termination. 
+	// driver termination.
+#ifndef EMBEDDED
 	if ( reserved == NULL )
 	{
 		
@@ -334,6 +335,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		return;
 		
 	}
+#endif // EMBEDDED
 
 	if ( ( cbiRequestBlock->request == NULL ) || ( fCBICommandStructInUse == false ) )
 	{

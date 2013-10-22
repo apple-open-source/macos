@@ -78,8 +78,6 @@
 #include "isakmp_cfg.h" 
 #endif                
 #include "oakley.h"
-#include "admin.h"
-#include "privsep.h"
 #include "localconf.h"
 #include "policy.h"
 #include "handler.h"
@@ -104,10 +102,9 @@
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #endif
-#ifdef HAVE_GSSAPI
-#include "gssapi.h"
-#endif
 #include "vpn_control_var.h"
+#include "ikev2_rfc.h"
+#include "extern.h"
 
 #define OUTBOUND_SA	0
 #define INBOUND_SA	1
@@ -152,32 +149,21 @@ struct dhgroup dh_modp6144;
 struct dhgroup dh_modp8192;
 
 
-static int oakley_check_dh_pub __P((vchar_t *, vchar_t **));
-static int oakley_compute_keymat_x __P((struct ph2handle *, int, int));
-static int get_cert_fromlocal __P((struct ph1handle *, int));
-static int oakley_check_certid __P((struct ph1handle *iph1, int));
-static int oakley_check_certid_1 __P((vchar_t *, int, int, void*, cert_status_t *certStatus));
-static int check_typeofcertname __P((int, int));
-static cert_t *save_certbuf __P((struct isakmp_gen *));
+static int oakley_check_dh_pub (vchar_t *, vchar_t **);
+static int oakley_compute_keymat_x (phase2_handle_t *, int, int);
+static int oakley_compute_ikev2_keymat_x (phase2_handle_t *);
+static int get_cert_fromlocal (phase1_handle_t *, int);
+static int oakley_check_certid (phase1_handle_t *iph1);
+static int oakley_check_certid_1 (vchar_t *, int, int, void*, cert_status_t *certStatus);
+static vchar_t * oakley_prf_plus (vchar_t *, vchar_t *, int, phase1_handle_t *iph1);
 #ifdef HAVE_OPENSSL
-static cert_t *save_certx509 __P((X509 *));
+static int check_typeofcertname (int, int);
 #endif
-static int oakley_padlen __P((int, int));
+static cert_t *save_certbuf (struct isakmp_gen *);
+static int oakley_padlen (int, int);
 
-static int base64toCFData(vchar_t *, CFDataRef*);
-static cert_t *oakley_appendcert_to_certchain(cert_t *, cert_t *);
-
-static void oakley_cert_prettyprint (vchar_t *cert)
-{
-	char *p = NULL;
-#ifdef HAVE_OPENSSL
-	p = eay_get_x509text(cert);
-#else
-	/* add new cert dump code here */
-#endif
-	plog(LLV_DEBUG, LOCATION, NULL, "%s", p ? p : "\n");
-	racoon_free(p);
-}
+static int base64toCFData (vchar_t *, CFDataRef*);
+static cert_t *oakley_appendcert_to_certchain (cert_t *, cert_t *);
 
 int
 oakley_get_defaultlifetime()
@@ -210,17 +196,12 @@ oakley_dhinit()
 }
 
 void
-oakley_dhgrp_free(dhgrp)
-	struct dhgroup *dhgrp;
+oakley_dhgrp_free(struct dhgroup *dhgrp)
 {
-	if (dhgrp->prime)
-		vfree(dhgrp->prime);
-	if (dhgrp->curve_a)
-		vfree(dhgrp->curve_a);
-	if (dhgrp->curve_b)
-		vfree(dhgrp->curve_b);
-	if (dhgrp->order)
-		vfree(dhgrp->order);
+    VPTRINIT(dhgrp->prime);
+    VPTRINIT(dhgrp->curve_a);
+    VPTRINIT(dhgrp->curve_b);
+    VPTRINIT(dhgrp->order);
 	racoon_free(dhgrp);
 }
 
@@ -231,8 +212,7 @@ oakley_dhgrp_free(dhgrp)
  * performed, prepending zero bits to the value if necessary.
  */
 static int
-oakley_check_dh_pub(prime, pub0)
-	vchar_t *prime, **pub0;
+oakley_check_dh_pub(vchar_t *prime, vchar_t **pub0)
 {
 	vchar_t *tmp;
 	vchar_t *pub = *pub0;
@@ -242,7 +222,7 @@ oakley_check_dh_pub(prime, pub0)
 
 	if (prime->l < pub->l) {
 		/* what should i do ? */
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid public information was generated.\n");
 		return -1;
 	}
@@ -250,7 +230,7 @@ oakley_check_dh_pub(prime, pub0)
 	/* prime->l > pub->l */
 	tmp = vmalloc(prime->l);
 	if (tmp == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get DH buffer.\n");
 		return -1;
 	}
@@ -275,7 +255,7 @@ oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub, vchar_t *priv, vchar_t
 	struct timeval start, end;
 #endif
 	if ((*gxy = vmalloc(dh->prime->l)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get DH buffer.\n");
 		return -1;
 	}
@@ -286,37 +266,36 @@ oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub, vchar_t *priv, vchar_t
 	switch (dh->type) {
 	case OAKLEY_ATTR_GRP_TYPE_MODP:
 		if (eay_dh_compute(dh->prime, dh->gen1, pub, priv, pub_p, gxy) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to compute dh value.\n");
 			return -1;
 		}
 		break;
 	case OAKLEY_ATTR_GRP_TYPE_ECP:
 	case OAKLEY_ATTR_GRP_TYPE_EC2N:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"dh type %d isn't supported.\n", dh->type);
 		return -1;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid dh type %d.\n", dh->type);
 		return -1;
 	}
 
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __func__,
+	plog(ASL_LEVEL_NOTICE, "%s(%s%d): %8.6f", __func__,
 		s_attr_isakmp_group(dh->type), dh->prime->l << 3,
 		timedelta(&start, &end));
 #endif
 
-	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's shared.\n");
-	plogdump(LLV_DEBUG, (*gxy)->v, (*gxy)->l);
+	plog(ASL_LEVEL_DEBUG, "compute DH's shared.\n");
 
 	return 0;
 }
 #else
 int
-oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub_p, size_t publicKeySize, vchar_t **gxy, SecDHContext dhC)
+oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub_p, size_t publicKeySize, vchar_t **gxy, SecDHContext *dhC)
 {
 	
 	vchar_t *computed_key = NULL;
@@ -328,42 +307,47 @@ oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub_p, size_t publicKeySize
 	gettimeofday(&start, NULL);
 #endif
 	
-	plog(LLV_DEBUG, LOCATION, NULL, "compute DH result.\n");
+	plog(ASL_LEVEL_DEBUG, "compute DH result.\n");
 
-	maxKeyLen = SecDHGetMaxKeyLength(dhC);
+	maxKeyLen = SecDHGetMaxKeyLength(*dhC);
 	computed_key = vmalloc(maxKeyLen);
 	if (computed_key == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+		plog(ASL_LEVEL_ERR, "memory error.\n");
 		goto fail;
 	}
 	computed_keylen = computed_key->l;
-	if (SecDHComputeKey(dhC, pub_p->v + (maxKeyLen - publicKeySize), publicKeySize, 
-						computed_key->v, &computed_keylen)) {
-		plog(LLV_ERROR, LOCATION, NULL, "failed to compute dh value.\n");
+	if (SecDHComputeKey(*dhC, (uint8_t*)pub_p->v + (maxKeyLen - publicKeySize), publicKeySize,
+						(uint8_t*)computed_key->v, &computed_keylen)) {
+		plog(ASL_LEVEL_ERR, "failed to compute dh value.\n");
 		goto fail;
 	}
 	
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __func__,
+	plog(ASL_LEVEL_NOTICE, "%s(%s%d): %8.6f", __func__,
 		   s_attr_isakmp_group(dh->type), dh->prime->l << 3,
 		   timedelta(&start, &end));
 #endif
 	
 	*gxy = vmalloc(maxKeyLen);
 	if (*gxy == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+		plog(ASL_LEVEL_ERR, "memory error.\n");
 		goto fail;
 	}
 	memcpy((*gxy)->v + (maxKeyLen - computed_keylen), computed_key->v, computed_keylen);
-	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's shared.\n");
-	plogdump(LLV_DEBUG, (*gxy)->v, (*gxy)->l);
-	SecDHDestroy(dhC);
+	plog(ASL_LEVEL_DEBUG, "compute DH's shared.\n");
+	if (*dhC) {
+		SecDHDestroy(*dhC);
+		*dhC = NULL;
+	}
 	vfree(computed_key);
 	return 0;
 	
 fail:
-	SecDHDestroy(dhC);
+	if (*dhC) {
+		SecDHDestroy(*dhC);
+		*dhC = NULL;
+	}
 	vfree(*gxy);
 	vfree(computed_key);
 	return -1;
@@ -378,9 +362,7 @@ fail:
  */
 #ifdef HAVE_OPENSSL
 int
-oakley_dh_generate(dh, pub, priv)
-	const struct dhgroup *dh;
-	vchar_t **pub, **priv;
+oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, vchar_t **priv)
 {
 #ifdef ENABLE_STATS
 	struct timeval start, end;
@@ -389,7 +371,7 @@ oakley_dh_generate(dh, pub, priv)
 	switch (dh->type) {
 	case OAKLEY_ATTR_GRP_TYPE_MODP:
 		if (eay_dh_generate(dh->prime, dh->gen1, dh->gen2, pub, priv) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to compute dh value.\n");
 			return -1;
 		}
@@ -397,18 +379,18 @@ oakley_dh_generate(dh, pub, priv)
 
 	case OAKLEY_ATTR_GRP_TYPE_ECP:
 	case OAKLEY_ATTR_GRP_TYPE_EC2N:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"dh type %d isn't supported.\n", dh->type);
 		return -1;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid dh type %d.\n", dh->type);
 		return -1;
 	}
 
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __func__,
+	plog(ASL_LEVEL_NOTICE, "%s(%s%d): %8.6f", __func__,
 		s_attr_isakmp_group(dh->type), dh->prime->l << 3,
 		timedelta(&start, &end));
 #endif
@@ -416,10 +398,8 @@ oakley_dh_generate(dh, pub, priv)
 	if (oakley_check_dh_pub(dh->prime, pub) != 0)
 		return -1;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's private.\n");
-	plogdump(LLV_DEBUG, (*priv)->v, (*priv)->l);
-	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's public.\n");
-	plogdump(LLV_DEBUG, (*pub)->v, (*pub)->l);
+	plog(ASL_LEVEL_DEBUG, "compute DH's private.\n");
+	plog(ASL_LEVEL_DEBUG, "compute DH's public.\n");
 
 	return 0;
 }
@@ -435,35 +415,31 @@ oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, size_t *publicKeySiz
 	gettimeofday(&start, NULL);
 #endif
 		
-	plog(LLV_DEBUG, LOCATION, NULL, "generate DH key pair.\n");
+	plog(ASL_LEVEL_DEBUG, "generate DH key pair.\n");
 	*pub = NULL;
 	switch (dh->type) {
 		case OAKLEY_ATTR_GRP_TYPE_MODP:
-#define SECDH_MODP_GENERATOR OAKLEY_ATTR_GRP_DESC_MODP1024
-			if (dh->desc != OAKLEY_ATTR_GRP_DESC_MODP1024 && dh->desc != OAKLEY_ATTR_GRP_DESC_MODP1536) {
-				plog(LLV_ERROR, LOCATION, NULL, "Invalid dh group.\n");
-				goto fail;
-			}	
-			if (SecDHCreate(SECDH_MODP_GENERATOR, dh->prime->v, dh->prime->l, 0, NULL, 0, dhC)) {
-				plog(LLV_ERROR, LOCATION, NULL, "failed to create dh context.\n");
+#define SECDH_MODP_GENERATOR 2
+			if (SecDHCreate(SECDH_MODP_GENERATOR, (uint8_t*)dh->prime->v, dh->prime->l, 0, NULL, 0, dhC)) {
+				plog(ASL_LEVEL_ERR, "failed to create dh context.\n");
 				goto fail;
 			}
 			maxKeyLen = SecDHGetMaxKeyLength(*dhC);
 			public = vmalloc(maxKeyLen);
 			*publicKeySize = public->l;
 			if (public == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+				plog(ASL_LEVEL_ERR, "memory error.\n");
 				goto fail;
 			}
-			if (SecDHGenerateKeypair(*dhC, public->v, publicKeySize)) {
-				plog(LLV_ERROR, LOCATION, NULL, "failed to generate dh key pair.\n");
+			if (SecDHGenerateKeypair(*dhC, (uint8_t*)public->v, publicKeySize)) {
+				plog(ASL_LEVEL_ERR, "failed to generate dh key pair.\n");
 				goto fail;
 			}
-			plog(LLV_DEBUG, LOCATION, NULL, "got DH key pair.\n");
+			plog(ASL_LEVEL_DEBUG, "got DH key pair.\n");
 			
 			*pub = vmalloc(maxKeyLen);
 			if (*pub == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+				plog(ASL_LEVEL_ERR, "memory error.\n");
 				goto fail;
 			}			
 			/* copy and fill with leading zeros */
@@ -472,36 +448,37 @@ oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, size_t *publicKeySiz
 			
 		case OAKLEY_ATTR_GRP_TYPE_ECP:
 		case OAKLEY_ATTR_GRP_TYPE_EC2N:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "dh type %d isn't supported.\n", dh->type);
 			goto fail;
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "invalid dh type %d.\n", dh->type);
 			goto fail;
 	}
 	
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __func__,
+	plog(ASL_LEVEL_NOTICE, "%s(%s%d): %8.6f", __func__,
 		   s_attr_isakmp_group(dh->type), dh->prime->l << 3,
 		   timedelta(&start, &end));
 #endif
 	
 	if (oakley_check_dh_pub(dh->prime, pub) != 0) {
-		plog(LLV_DEBUG, LOCATION, NULL, "failed DH public key size check.\n");
+		plog(ASL_LEVEL_DEBUG, "failed DH public key size check.\n");
 		goto fail;
 	}
 	
-	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's private.\n");
-	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's public.\n");
-	plogdump(LLV_DEBUG, (*pub)->v, (*pub)->l);
+	//plogdump(ASL_LEVEL_DEBUG, (*pub)->v, (*pub)->l, "compute DH's public.\n");
 	
 	vfree(public);
 	return 0;
 	
 fail:
-	SecDHDestroy(*dhC);
+	if (*dhC) {
+		SecDHDestroy(*dhC);
+		*dhC = NULL;
+	}
 	vfree(*pub);
 	vfree(public);
 	return -1;
@@ -513,9 +490,7 @@ fail:
  * copy pre-defined dhgroup values.
  */
 int
-oakley_setdhgroup(group, dhgrp)
-	int group;
-	struct dhgroup **dhgrp;
+oakley_setdhgroup(int group, struct dhgroup **dhgrp)
 {
 	struct dhgroup *g;
 
@@ -523,21 +498,21 @@ oakley_setdhgroup(group, dhgrp)
 
 	g = alg_oakley_dhdef_group(group);
 	if (g == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid DH parameter grp=%d.\n", group);
 		return -1;
 	}
 
 	if (!g->type || !g->prime || !g->gen1) {
 		/* unsuported */
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"unsupported DH parameters grp=%d.\n", group);
 		return -1;
 	}
 
 	*dhgrp = racoon_calloc(1, sizeof(struct dhgroup));
 	if (*dhgrp == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get DH buffer.\n");
 		return 0;
 	}
@@ -558,25 +533,28 @@ oakley_setdhgroup(group, dhgrp)
  * modify oakley_compute_keymat() accordingly.
  */
 vchar_t *
-oakley_prf(key, buf, iph1)
-	vchar_t *key, *buf;
-	struct ph1handle *iph1;
+oakley_prf(vchar_t *key, vchar_t *buf, phase1_handle_t *iph1)
 {
 	vchar_t *res = NULL;
 	int type;
 
 	if (iph1->approval == NULL) {
-		/*
-		 * it's before negotiating hash algorithm.
-		 * We use md5 as default.
-		 */
-		type = OAKLEY_ATTR_HASH_ALG_MD5;
+		if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+			/*
+			 * it's before negotiating hash algorithm.
+			 * We use md5 as default.
+			 */
+			type = OAKLEY_ATTR_HASH_ALG_MD5;
+		} else {
+			type = OAKLEY_ATTR_HASH_ALG_SHA;			
+		}
 	} else
-		type = iph1->approval->hashtype;
-
-	res = alg_oakley_hmacdef_one(type, key, buf);
+    {
+        type = iph1->approval->hashtype;
+    }
+    res = alg_oakley_hmacdef_one(type, key, buf);
 	if (res == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid hmac algorithm %d.\n", type);
 		return NULL;
 	}
@@ -588,25 +566,32 @@ oakley_prf(key, buf, iph1)
  * hash
  */
 vchar_t *
-oakley_hash(buf, iph1)
-	vchar_t *buf;
-	struct ph1handle *iph1;
+oakley_hash(vchar_t *buf, phase1_handle_t *iph1)
 {
 	vchar_t *res = NULL;
 	int type;
 
 	if (iph1->approval == NULL) {
-		/*
-		 * it's before negotiating hash algorithm.
-		 * We use md5 as default.
-		 */
-		type = OAKLEY_ATTR_HASH_ALG_MD5;
-	} else
-		type = iph1->approval->hashtype;
+		if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+			/*
+			 * it's before negotiating hash algorithm.
+			 * We use md5 as default.
+			 */
+			type = OAKLEY_ATTR_HASH_ALG_MD5;
+		} else {
+			type = OAKLEY_ATTR_HASH_ALG_SHA;			
+		}
+	} else {
+        if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+            type = iph1->approval->hashtype;
+        } else {
+            type = OAKLEY_ATTR_HASH_ALG_SHA;
+        }
+    }
 
 	res = alg_oakley_hashdef_one(type, buf);
 	if (res == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid hash algorithm %d.\n", type);
 		return NULL;
 	}
@@ -619,9 +604,7 @@ oakley_hash(buf, iph1)
  *   see seciton 5.5 Phase 2 - Quick Mode in isakmp-oakley-05.
  */
 int
-oakley_compute_keymat(iph2, side)
-	struct ph2handle *iph2;
-	int side;
+oakley_compute_keymat(phase2_handle_t *iph2, int side)
 {
 	int error = -1;
 
@@ -631,7 +614,7 @@ oakley_compute_keymat(iph2, side)
 		if (oakley_dh_compute(iph2->pfsgrp, iph2->dhpub,
 							  iph2->dhpriv, iph2->dhpub_p, &iph2->dhgxy) < 0)
 #else
-		if (oakley_dh_compute(iph2->pfsgrp, iph2->dhpub_p, iph2->publicKeySize, &iph2->dhgxy, iph2->dhC) < 0)
+		if (oakley_dh_compute(iph2->pfsgrp, iph2->dhpub_p, iph2->publicKeySize, &iph2->dhgxy, &iph2->dhC) < 0)
 #endif
 			goto end;
 	}
@@ -641,13 +624,14 @@ oakley_compute_keymat(iph2, side)
 	 || oakley_compute_keymat_x(iph2, side, OUTBOUND_SA) < 0)
 		goto end;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "KEYMAT computed.\n");
+	plog(ASL_LEVEL_DEBUG, "KEYMAT computed.\n");
 
 	error = 0;
 
 end:
 	return error;
 }
+
 
 /*
  * compute KEYMAT.
@@ -659,10 +643,7 @@ end:
  * so we do not implement RFC2409 Appendix B (DOORAK-MAC example).
  */
 static int
-oakley_compute_keymat_x(iph2, side, sa_dir)
-	struct ph2handle *iph2;
-	int side;
-	int sa_dir;
+oakley_compute_keymat_x(phase2_handle_t *iph2, int side, int sa_dir)
 {
 	vchar_t *buf = NULL, *res = NULL, *bp;
 	char *p;
@@ -683,7 +664,7 @@ oakley_compute_keymat_x(iph2, side, sa_dir)
 		+ iph2->nonce_p->l);
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get keymat buffer.\n");
 		goto end;
 	}
@@ -713,8 +694,7 @@ oakley_compute_keymat_x(iph2, side, sa_dir)
 		p += bp->l;
 
 		/* compute IV */
-		plog(LLV_DEBUG, LOCATION, NULL, "KEYMAT compute with\n");
-		plogdump(LLV_DEBUG, buf->v, buf->l);
+		//plogdump(ASL_LEVEL_DEBUG, buf->v, buf->l, "KEYMAT compute with\n");
 
 		/* res = K1 */
 		res = oakley_prf(iph2->ph1->skeyid_d, buf, iph2->ph1);
@@ -746,16 +726,16 @@ oakley_compute_keymat_x(iph2, side, sa_dir)
 		default:
 			break;
 		}
-		plog(LLV_DEBUG, LOCATION, NULL, "encklen=%d authklen=%d\n",
+		plog(ASL_LEVEL_DEBUG, "encklen=%d authklen=%d\n",
 			encklen, authklen);
 
 		dupkeymat = (encklen + authklen) / 8 / res->l;
 		dupkeymat += 2;	/* safety mergin */
 		if (dupkeymat < 3)
 			dupkeymat = 3;
-		plog(LLV_DEBUG, LOCATION, NULL,
-			"generating %zu bits of key (dupkeymat=%d)\n",
-			dupkeymat * 8 * res->l, dupkeymat);
+		//plog(ASL_LEVEL_DEBUG,
+		//	"generating %zu bits of key (dupkeymat=%d)\n",
+		//	dupkeymat * 8 * res->l, dupkeymat);
 		if (0 < --dupkeymat) {
 			vchar_t *prev = res;	/* K(n-1) */
 			vchar_t *seed = NULL;	/* seed for Kn */
@@ -771,13 +751,13 @@ oakley_compute_keymat_x(iph2, side, sa_dir)
 			 *   K3 = prf(SKEYID_d, K2 | src)
 			 *   Kn = prf(SKEYID_d, K(n-1) | src)
 			 */
-			plog(LLV_DEBUG, LOCATION, NULL,
-				"generating K1...K%d for KEYMAT.\n",
-				dupkeymat + 1);
+			//plog(ASL_LEVEL_DEBUG,
+			//	"generating K1...K%d for KEYMAT.\n",
+			//	dupkeymat + 1);
 
 			seed = vmalloc(prev->l + buf->l);
 			if (seed == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to get keymat buffer.\n");
 				if (prev && prev != res)
 					vfree(prev);
@@ -793,7 +773,7 @@ oakley_compute_keymat_x(iph2, side, sa_dir)
 				this = oakley_prf(iph2->ph1->skeyid_d, seed,
 							iph2->ph1);
 				if (!this) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"oakley_prf memory overflow\n");
 					if (prev && prev != res)
 						vfree(prev);
@@ -811,7 +791,7 @@ oakley_compute_keymat_x(iph2, side, sa_dir)
 					prev = res;
 
 				if (res == NULL) {
-					plog(LLV_ERROR, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"failed to get keymat buffer.\n");
 					if (prev && prev != res)
 						vfree(prev);
@@ -832,7 +812,7 @@ oakley_compute_keymat_x(iph2, side, sa_dir)
 			vfree(seed);
 		}
 
-		plogdump(LLV_DEBUG, res->v, res->l);
+		//plogdump(ASL_LEVEL_DEBUG, res->v, res->l, "");
 
 		if (sa_dir == INBOUND_SA)
 			pr->keymat = res;
@@ -871,10 +851,7 @@ end:
  *   see seciton 5.5 Phase 2 - Quick Mode in isakmp-oakley-05.
  */
 vchar_t *
-oakley_compute_hash3(iph1, msgid, body)
-	struct ph1handle *iph1;
-	u_int32_t msgid;
-	vchar_t *body;
+oakley_compute_hash3(phase1_handle_t *iph1, u_int32_t msgid, vchar_t *body)
 {
 	vchar_t *buf = 0, *res = 0;
 	int len;
@@ -884,7 +861,7 @@ oakley_compute_hash3(iph1, msgid, body)
 	len = 1 + sizeof(u_int32_t) + body->l;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"failed to get hash buffer\n");
 		goto end;
 	}
@@ -895,9 +872,6 @@ oakley_compute_hash3(iph1, msgid, body)
 
 	memcpy(buf->v + 1 + sizeof(u_int32_t), body->v, body->l);
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH with: \n");
-	plogdump(LLV_DEBUG, buf->v, buf->l);
-
 	/* compute HASH */
 	res = oakley_prf(iph1->skeyid_a, buf, iph1);
 	if (res == NULL)
@@ -905,8 +879,7 @@ oakley_compute_hash3(iph1, msgid, body)
 
 	error = 0;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH computed:\n");
-	plogdump(LLV_DEBUG, res->v, res->l);
+	//plogdump(ASL_LEVEL_DEBUG, res->v, res->l, "HASH computed:\n");
 
 end:
 	if (buf != NULL)
@@ -925,10 +898,7 @@ end:
  *		prf(SKEYID_a, M-ID | N/D)
  */
 vchar_t *
-oakley_compute_hash1(iph1, msgid, body)
-	struct ph1handle *iph1;
-	u_int32_t msgid;
-	vchar_t *body;
+oakley_compute_hash1(phase1_handle_t *iph1, u_int32_t msgid, vchar_t *body)
 {
 	vchar_t *buf = NULL, *res = NULL;
 	char *p;
@@ -939,7 +909,7 @@ oakley_compute_hash1(iph1, msgid, body)
 	len = sizeof(u_int32_t) + body->l;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"failed to get hash buffer\n");
 		goto end;
 	}
@@ -951,9 +921,6 @@ oakley_compute_hash1(iph1, msgid, body)
 
 	memcpy(p, body->v, body->l);
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH with:\n");
-	plogdump(LLV_DEBUG, buf->v, buf->l);
-
 	/* compute HASH */
 	res = oakley_prf(iph1->skeyid_a, buf, iph1);
 	if (res == NULL)
@@ -961,8 +928,7 @@ oakley_compute_hash1(iph1, msgid, body)
 
 	error = 0;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH computed:\n");
-	plogdump(LLV_DEBUG, res->v, res->l);
+	//plogdump(ASL_LEVEL_DEBUG, res->v, res->l, "HASH computed:\n");
 
 end:
 	if (buf != NULL)
@@ -978,17 +944,12 @@ end:
  * for gssapi, also include all GSS tokens, and call gss_wrap on the result
  */
 vchar_t *
-oakley_ph1hash_common(iph1, sw)
-	struct ph1handle *iph1;
-	int sw;
+oakley_ph1hash_common(phase1_handle_t *iph1, int sw)
 {
 	vchar_t *buf = NULL, *res = NULL, *bp;
 	char *p, *bp2;
 	int len, bl;
 	int error = -1;
-#ifdef HAVE_GSSAPI
-	vchar_t *gsstokens = NULL;
-#endif
 
 	/* create buffer */
 	len = iph1->dhpub->l
@@ -997,25 +958,9 @@ oakley_ph1hash_common(iph1, sw)
 		+ iph1->sa->l
 		+ (sw == GENERATE ? iph1->id->l : iph1->id_p->l);
 
-#ifdef HAVE_GSSAPI
-	if (AUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB) {
-		if (iph1->gi_i != NULL && iph1->gi_r != NULL) {
-			bp = (sw == GENERATE ? iph1->gi_i : iph1->gi_r);
-			len += bp->l;
-		}
-		if (sw == GENERATE)
-			gssapi_get_itokens(iph1, &gsstokens);
-		else
-			gssapi_get_rtokens(iph1, &gsstokens);
-		if (gsstokens == NULL)
-			return NULL;
-		len += gsstokens->l;
-	}
-#endif
-
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get hash buffer\n");
 		goto end;
 	}
@@ -1058,21 +1003,6 @@ oakley_ph1hash_common(iph1, sw)
 	memcpy(p, bp->v, bp->l);
 	p += bp->l;
 
-#ifdef HAVE_GSSAPI
-	if (AUTHMETHOD(iph1) == OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB) {
-		if (iph1->gi_i != NULL && iph1->gi_r != NULL) {
-			bp = (sw == GENERATE ? iph1->gi_i : iph1->gi_r);
-			memcpy(p, bp->v, bp->l);
-			p += bp->l;
-		}
-		memcpy(p, gsstokens->v, gsstokens->l);
-		p += gsstokens->l;
-	}
-#endif
-
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH with:\n");
-	plogdump(LLV_DEBUG, buf->v, buf->l);
-
 	/* compute HASH */
 	res = oakley_prf(iph1->skeyid, buf, iph1);
 	if (res == NULL)
@@ -1080,17 +1010,9 @@ oakley_ph1hash_common(iph1, sw)
 
 	error = 0;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH (%s) computed:\n",
-		iph1->side == INITIATOR ? "init" : "resp");
-	plogdump(LLV_DEBUG, res->v, res->l);
-
 end:
 	if (buf != NULL)
 		vfree(buf);
-#ifdef HAVE_GSSAPI
-	if (gsstokens != NULL)
-		vfree(gsstokens);
-#endif
 	return res;
 }
 
@@ -1102,9 +1024,7 @@ end:
  *   HASH_I = prf(hash(Ni_b | Nr_b), g^xi | CKY-I | CKY-R | SAi_b | IDii_b)
  */
 vchar_t *
-oakley_ph1hash_base_i(iph1, sw)
-	struct ph1handle *iph1;
-	int sw;
+oakley_ph1hash_base_i(phase1_handle_t *iph1, int sw)
 {
 	vchar_t *buf = NULL, *res = NULL, *bp;
 	vchar_t *hashkey = NULL;
@@ -1115,7 +1035,7 @@ oakley_ph1hash_base_i(iph1, sw)
 
 	/* sanity check */
 	if (iph1->etype != ISAKMP_ETYPE_BASE) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid etype for this hash function\n");
 		return NULL;
 	}
@@ -1133,32 +1053,24 @@ oakley_ph1hash_base_i(iph1, sw)
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
 #endif
 		if (iph1->skeyid == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, "no SKEYID found.\n");
+			plog(ASL_LEVEL_ERR, "no SKEYID found.\n");
 			return NULL;
 		}
 		hashkey = iph1->skeyid;
 		break;
 
-	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
 	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
-#ifdef HAVE_GSSAPI
-	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
-#endif
 #ifdef ENABLE_HYBRID
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
 #endif
 		/* make hash for seed */
 		len = iph1->nonce->l + iph1->nonce_p->l;
 		buf = vmalloc(len);
 		if (buf == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to get hash buffer\n");
 			goto end;
 		}
@@ -1182,7 +1094,7 @@ oakley_ph1hash_base_i(iph1, sw)
 		break;
 
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"not supported authentication method %d\n",
 			iph1->approval->authmethod);
 		return NULL;
@@ -1195,7 +1107,7 @@ oakley_ph1hash_base_i(iph1, sw)
 		+ (sw == GENERATE ? iph1->id->l : iph1->id_p->l);
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get hash buffer\n");
 		goto end;
 	}
@@ -1217,8 +1129,7 @@ oakley_ph1hash_base_i(iph1, sw)
 	memcpy(p, bp->v, bp->l);
 	p += bp->l;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH_I with:\n");
-	plogdump(LLV_DEBUG, buf->v, buf->l);
+	//plogdump(ASL_LEVEL_DEBUG, buf->v, buf->l, "HASH_I with:\n");
 
 	/* compute HASH */
 	res = oakley_prf(hashkey, buf, iph1);
@@ -1227,8 +1138,7 @@ oakley_ph1hash_base_i(iph1, sw)
 
 	error = 0;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH_I computed:\n");
-	plogdump(LLV_DEBUG, res->v, res->l);
+	//plogdump(ASL_LEVEL_DEBUG, res->v, res->l, "HASH_I computed:\n");
 
 end:
 	if (hash != NULL)
@@ -1244,9 +1154,7 @@ end:
  * HASH_R = prf(hash(Ni_b | Nr_b), g^xi | g^xr | CKY-I | CKY-R | SAi_b | IDii_b)
  */
 vchar_t *
-oakley_ph1hash_base_r(iph1, sw)
-	struct ph1handle *iph1;
-	int sw;
+oakley_ph1hash_base_r(phase1_handle_t *iph1, int sw)
 {
 	vchar_t *buf = NULL, *res = NULL, *bp;
 	vchar_t *hash = NULL;
@@ -1256,28 +1164,23 @@ oakley_ph1hash_base_r(iph1, sw)
 
 	/* sanity check */
 	if (iph1->etype != ISAKMP_ETYPE_BASE) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid etype for this hash function\n");
 		return NULL;
 	}
 
 	switch(AUTHMETHOD(iph1)) {
-	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
 	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
 #ifdef ENABLE_HYBRID
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
 	case FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I:
 #endif
 		break;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"not supported authentication method %d\n",
 			iph1->approval->authmethod);
 		return NULL;
@@ -1288,7 +1191,7 @@ oakley_ph1hash_base_r(iph1, sw)
 	len = iph1->nonce->l + iph1->nonce_p->l;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get hash buffer\n");
 		goto end;
 	}
@@ -1316,7 +1219,7 @@ oakley_ph1hash_base_r(iph1, sw)
 		+ (sw == GENERATE ? iph1->id_p->l : iph1->id->l);
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get hash buffer\n");
 		goto end;
 	}
@@ -1343,8 +1246,7 @@ oakley_ph1hash_base_r(iph1, sw)
 	memcpy(p, bp->v, bp->l);
 	p += bp->l;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH_R with:\n");
-	plogdump(LLV_DEBUG, buf->v, buf->l);
+	//plogdump(ASL_LEVEL_DEBUG, buf->v, buf->l, "HASH_R with:\n");
 
 	/* compute HASH */
 	res = oakley_prf(hash, buf, iph1);
@@ -1353,8 +1255,7 @@ oakley_ph1hash_base_r(iph1, sw)
 
 	error = 0;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH_R computed:\n");
-	plogdump(LLV_DEBUG, res->v, res->l);
+	//plogdump(ASL_LEVEL_DEBUG, res->v, res->l, "HASH_R computed:\n");
 
 end:
 	if (buf != NULL)
@@ -1366,15 +1267,14 @@ end:
 
 #if HAVE_OPENDIR
 static int
-oakley_verify_userid(iph1)
-	struct ph1handle *iph1;
+oakley_verify_userid(phase1_handle_t *iph1)
 {
 	cert_t  *p;
 	vchar_t *user_id;
 	int      user_id_found = 0;
 
 	for (p = iph1->cert_p; p; p = p->chain) {
-		user_id = eay_get_x509_common_name(&p->cert);
+		user_id = eay_get_x509_common_name(&p->cert); //%%%%%%%% fix this
 		if (user_id) {
 			user_id_found = 1;
 			// the following functions will check if user_id == 0
@@ -1386,38 +1286,15 @@ oakley_verify_userid(iph1)
 		}
 	}
 	if (user_id_found) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "the peer is not authorized for access.\n");
 	} else {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "the peer is not authorized for access - user ID not found.\n");
 	}
 	return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
 }
 #endif /* HAVE_OPENDIR */
-
-#ifdef HAVE_OPENSSL
-static int
-oakley_check_x509cert(certchain, capath, cafile, local)
-	cert_t *certchain;
-	char   *capath;
-	char   *cafile;
-	int     local;
-{
-	cert_t *p;
-	int     result = 0;
-
-	for (p = certchain; p; p = p->chain) {
-		if ((result = eay_check_x509cert(&p->cert,
-										 capath, 
-										 cafile,
-										 local))) {
-			break;
-		}
-	}
-	return result;
-}
-#endif /* HAVE_OPENSSL */
 
 /*
  * compute each authentication method in phase 1.
@@ -1428,18 +1305,14 @@ oakley_check_x509cert(certchain, capath, cafile, local)
  *	        the value is notification type.
  */
 int
-oakley_validate_auth(iph1)
-	struct ph1handle *iph1;
+oakley_validate_auth(phase1_handle_t *iph1)
 {
 	vchar_t *my_hash = NULL;
 	int result;
-#ifdef HAVE_GSSAPI
-	vchar_t *gsshash = NULL;
-#endif
 #ifdef ENABLE_STATS
 	struct timeval start, end;
 #endif
-	SecKeyRef publicKeyRef;
+	SecKeyRef publicKeyRef = NULL;
 
 #ifdef ENABLE_STATS
 	gettimeofday(&start, NULL);
@@ -1456,7 +1329,7 @@ oakley_validate_auth(iph1)
 		char *r_hash;
 
 		if (iph1->id_p == NULL || iph1->pl_hash == NULL) {
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"few isakmp message received.\n");
 			return ISAKMP_NTYPE_PAYLOAD_MALFORMED;
 		}
@@ -1464,7 +1337,7 @@ oakley_validate_auth(iph1)
 		if (AUTHMETHOD(iph1) == FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I &&
 		    ((iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) == 0))
 		{
-			plog(LLV_ERROR, LOCATION, NULL, "No SIG was passed, "
+			plog(ASL_LEVEL_ERR, "No SIG was passed, "
 			    "hybrid auth is enabled, "
 			    "but peer is no Xauth compliant\n");
 			return ISAKMP_NTYPE_SITUATION_NOT_SUPPORTED;
@@ -1473,25 +1346,28 @@ oakley_validate_auth(iph1)
 #endif
 		r_hash = (caddr_t)(iph1->pl_hash + 1);
 
-		plog(LLV_DEBUG, LOCATION, NULL, "HASH received:\n");
-		plogdump(LLV_DEBUG, r_hash,
-			ntohs(iph1->pl_hash->h.len) - sizeof(*iph1->pl_hash));
+		//plogdump(ASL_LEVEL_DEBUG, r_hash,
+		//	ntohs(iph1->pl_hash->h.len) - sizeof(*iph1->pl_hash), "HASH received:\n");
 
-		switch (iph1->etype) {
-		case ISAKMP_ETYPE_IDENT:
-		case ISAKMP_ETYPE_AGG:
-			my_hash = oakley_ph1hash_common(iph1, VALIDATE);
-			break;
-		case ISAKMP_ETYPE_BASE:
-			if (iph1->side == INITIATOR)
+		if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+			switch (iph1->etype) {
+			case ISAKMP_ETYPE_IDENT:
+			case ISAKMP_ETYPE_AGG:
 				my_hash = oakley_ph1hash_common(iph1, VALIDATE);
-			else
-				my_hash = oakley_ph1hash_base_i(iph1, VALIDATE);
-			break;
-		default:
-			plog(LLV_ERROR, LOCATION, NULL,
-				"invalid etype %d\n", iph1->etype);
-			return ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE;
+				break;
+			case ISAKMP_ETYPE_BASE:
+				if (iph1->side == INITIATOR)
+					my_hash = oakley_ph1hash_common(iph1, VALIDATE);
+				else
+					my_hash = oakley_ph1hash_base_i(iph1, VALIDATE);
+				break;
+			default:
+				plog(ASL_LEVEL_ERR, 
+					 "invalid etype %d\n", iph1->etype);
+				return ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE;
+			}
+		} else {
+			my_hash = oakley_ph1hash_common(iph1, VALIDATE);			
 		}
 		if (my_hash == NULL)
 			return ISAKMP_INTERNAL_ERROR;
@@ -1500,22 +1376,18 @@ oakley_validate_auth(iph1)
 		vfree(my_hash);
 
 		if (result) {
-			plog(LLV_ERROR, LOCATION, NULL, "HASH mismatched\n");
+			plog(ASL_LEVEL_ERR, "HASH mismatched\n");
 			return ISAKMP_NTYPE_INVALID_HASH_INFORMATION;
 		}
 
-		plog(LLV_DEBUG, LOCATION, NULL, "HASH for PSK validated.\n");
+		plog(ASL_LEVEL_DEBUG, "HASH for PSK validated.\n");
 	    }
 		break;
-	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
 	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
 #ifdef ENABLE_HYBRID
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
 #endif
 	    {
 		int error = 0;
@@ -1523,75 +1395,29 @@ oakley_validate_auth(iph1)
 
 		/* validation */
 		if (iph1->id_p == NULL) {
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"no ID payload was passed.\n");
 			return ISAKMP_NTYPE_PAYLOAD_MALFORMED;
 		}
 		if (iph1->sig_p == NULL) {
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"no SIG payload was passed.\n");
 			return ISAKMP_NTYPE_PAYLOAD_MALFORMED;
 		}
 
-		plog(LLV_DEBUG, LOCATION, NULL, "SIGN passed:\n");
-		plogdump(LLV_DEBUG, iph1->sig_p->v, iph1->sig_p->l);
+		plog(ASL_LEVEL_DEBUG, "*** SIGN passed\n");
 
 		/* get peer's cert */
 		switch (iph1->rmconf->getcert_method) {
 		case ISAKMP_GETCERT_PAYLOAD:
 			if (iph1->cert_p == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"no peer's CERT payload found.\n");
 				return ISAKMP_INTERNAL_ERROR;
 			}
 			break;
-#ifdef HAVE_OPENSSL
-		case ISAKMP_GETCERT_LOCALFILE:
-			switch (iph1->rmconf->certtype) {
-				case ISAKMP_CERT_X509SIGN:
-					if (iph1->rmconf->peerscertfile == NULL) {
-						plog(LLV_ERROR, LOCATION, NULL,
-							"no peer's CERT file found.\n");
-						return ISAKMP_INTERNAL_ERROR;
-					}
-
-					/* don't use cached cert */
-					if (iph1->cert_p != NULL) {
-						oakley_delcert(iph1->cert_p);
-						iph1->cert_p = NULL;
-					}
-
-					error = get_cert_fromlocal(iph1, 0);
-					break;
-
-			}
-			if (error)
-				return ISAKMP_INTERNAL_ERROR;
-			break;
-#endif
-		case ISAKMP_GETCERT_DNS:
-			if (iph1->rmconf->peerscertfile != NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"why peer's CERT file is defined "
-					"though getcert method is dns ?\n");
-				return ISAKMP_INTERNAL_ERROR;
-			}
-
-			/* don't use cached cert */
-			if (iph1->cert_p != NULL) {
-				oakley_delcert(iph1->cert_p);
-				iph1->cert_p = NULL;
-			}
-
-			iph1->cert_p = dnssec_getcert(iph1->id_p);
-			if (iph1->cert_p == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"no CERT RR found.\n");
-				return ISAKMP_INTERNAL_ERROR;
-			}
-			break;
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"invalid getcert_mothod: %d\n",
 				iph1->rmconf->getcert_method);
 			return ISAKMP_INTERNAL_ERROR;
@@ -1599,17 +1425,8 @@ oakley_validate_auth(iph1)
 
 		/* compare ID payload and certificate name */
 		if (iph1->rmconf->verify_cert &&
-		    (error = oakley_check_certid(iph1, CERT_CHECKID_FROM_PEER)) != 0)
+		    (error = oakley_check_certid(iph1)) != 0)
 			return error;
-
-		/* check configured peers identifier against cert IDs 		  		*/
-		/* allows checking of specified ID against multiple ids in the cert */
-		/* such as multiple domain names									*/
-#if !TARGET_OS_EMBEDDED
-		if (iph1->rmconf->cert_verification_option == VERIFICATION_OPTION_PEERS_IDENTIFIER &&
-			(error = oakley_check_certid(iph1, CERT_CHECKID_FROM_RMCONFIG)) != 0)
-			return error;
-#endif
 
 #if HAVE_OPENDIR
 		/* check cert common name against Open Directory authentication group */
@@ -1627,7 +1444,6 @@ oakley_validate_auth(iph1)
 #ifdef ENABLE_HYBRID
 			switch (AUTHMETHOD(iph1)) {
 			case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-			case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
 				certtype = iph1->cert_p->type;
 				break;
 			default:
@@ -1658,7 +1474,7 @@ oakley_validate_auth(iph1)
 								break;
 #endif
 							default:
-								plog(LLV_ERROR, LOCATION, NULL,
+								plog(ASL_LEVEL_ERR, 
 									"unknown address type for peers identifier.\n");
 								return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
 								break;
@@ -1673,35 +1489,41 @@ oakley_validate_auth(iph1)
             break;
 			
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"no supported certtype %d\n", certtype);
 				return ISAKMP_INTERNAL_ERROR;
 			}
 			if (error != 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"the peer's certificate is not verified.\n");
 				return ISAKMP_NTYPE_INVALID_CERT_AUTHORITY;
 			}
 		}
 
-		plog(LLV_DEBUG, LOCATION, NULL, "CERT validated\n");
+		plog(ASL_LEVEL_DEBUG, "CERT validated\n");
 
-		/* compute hash */
-		switch (iph1->etype) {
-		case ISAKMP_ETYPE_IDENT:
-		case ISAKMP_ETYPE_AGG:
-			my_hash = oakley_ph1hash_common(iph1, VALIDATE);
-			break;
-		case ISAKMP_ETYPE_BASE:
-			if (iph1->side == INITIATOR)
-				my_hash = oakley_ph1hash_base_r(iph1, VALIDATE);
-			else
-				my_hash = oakley_ph1hash_base_i(iph1, VALIDATE);
-			break;
-		default:
-			plog(LLV_ERROR, LOCATION, NULL,
-				"invalid etype %d\n", iph1->etype);
-			return ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE;
+		if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+			/* compute hash */
+			switch (iph1->etype) {
+			case ISAKMP_ETYPE_IDENT:
+			case ISAKMP_ETYPE_AGG:
+				my_hash = oakley_ph1hash_common(iph1, VALIDATE);
+				break;
+			case ISAKMP_ETYPE_BASE:
+				if (iph1->side == INITIATOR)
+					my_hash = oakley_ph1hash_base_r(iph1, VALIDATE);
+				else
+					my_hash = oakley_ph1hash_base_i(iph1, VALIDATE);
+				break;
+			default:
+				plog(ASL_LEVEL_ERR, 
+					 "invalid etype %d\n", iph1->etype);
+				return ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE;
+			}
+		} else {
+			vchar_t *octets = NULL;
+			octets = ikev2_ike_sa_auth_get_octets(iph1, (iph1->side == INITIATOR)? FALSE : TRUE);
+			my_hash = alg_oakley_hashdef_one(OAKLEY_ATTR_HASH_ALG_SHA, octets);
 		}
 		if (my_hash == NULL)
 			return ISAKMP_INTERNAL_ERROR;
@@ -1711,7 +1533,6 @@ oakley_validate_auth(iph1)
 #ifdef ENABLE_HYBRID
 		switch (AUTHMETHOD(iph1)) {
 		case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-		case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
 			certtype = iph1->cert_p->type;
 			break;
 		default:
@@ -1720,93 +1541,54 @@ oakley_validate_auth(iph1)
 #endif
 		/* check signature */
 		switch (certtype) {
-		case ISAKMP_CERT_X509SIGN:
-		case ISAKMP_CERT_DNS:
-            if (publicKeyRef == NULL)
-                plog(LLV_ERROR, LOCATION, NULL, "@@@@@@ publicKeyRef is NULL\n");
-			error = crypto_cssm_verify_x509sign(publicKeyRef, my_hash, iph1->sig_p);
-			if (error)	
-				plog(LLV_ERROR, LOCATION, NULL, "error verifying signature %s\n", GetSecurityErrorString(error));
-				
-			CFRelease(publicKeyRef);				
-			break;
-
-		default:
-			plog(LLV_ERROR, LOCATION, NULL,
-				"no supported certtype %d\n",
-				certtype);
-			vfree(my_hash);
-			return ISAKMP_INTERNAL_ERROR;
+			case ISAKMP_CERT_X509SIGN:
+				if (publicKeyRef == NULL) {
+					plog(ASL_LEVEL_ERR, "@@@@@@ publicKeyRef is NULL\n");
+				}
+				if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+					error = crypto_cssm_verify_x509sign(publicKeyRef, my_hash, iph1->sig_p, FALSE);
+				} else {
+					error = crypto_cssm_verify_x509sign(publicKeyRef, my_hash, iph1->sig_p, TRUE);
+				}
+				if (error) {
+					plog(ASL_LEVEL_ERR, "error verifying signature %s\n", GetSecurityErrorString(error));
+				}
+					
+				CFRelease(publicKeyRef);				
+				break;
+			default:
+				plog(ASL_LEVEL_ERR, 
+					"no supported certtype %d\n",
+					certtype);
+				vfree(my_hash);
+				return ISAKMP_INTERNAL_ERROR;
 		}
 
 		vfree(my_hash);
 		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"Invalid SIG.\n");
 			return ISAKMP_NTYPE_INVALID_SIGNATURE;
 		}
-		plog(LLV_DEBUG, LOCATION, NULL, "SIG authenticated\n");
+		plog(ASL_LEVEL_DEBUG, "SIG authenticated\n");
 	    }
 		break;
 #ifdef ENABLE_HYBRID
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
 	    {
 		if ((iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) == 0) {
-			plog(LLV_ERROR, LOCATION, NULL, "No SIG was passed, "
+			plog(ASL_LEVEL_ERR, "No SIG was passed, "
 			    "hybrid auth is enabled, "
 			    "but peer is no Xauth compliant\n");
 			return ISAKMP_NTYPE_SITUATION_NOT_SUPPORTED;
 			break;
 		}
-		plog(LLV_INFO, LOCATION, NULL, "No SIG was passed, "
+		plog(ASL_LEVEL_INFO, "No SIG was passed, "
 		    "but hybrid auth is enabled\n");
 
 		return 0;
 		break;
 	    }
-#endif
-#ifdef HAVE_GSSAPI
-	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
-		/* check if we're not into XAUTH_PSKEY_I instead */
-#ifdef ENABLE_HYBRID
-		if (iph1->rmconf->xauth)
-			break;
-#endif
-		switch (iph1->etype) {
-		case ISAKMP_ETYPE_IDENT:
-		case ISAKMP_ETYPE_AGG:
-			my_hash = oakley_ph1hash_common(iph1, VALIDATE);
-			break;
-		default:
-			plog(LLV_ERROR, LOCATION, NULL,
-				"invalid etype %d\n", iph1->etype);
-			return ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE;
-		}
-
-		if (my_hash == NULL) {
-			if (gssapi_more_tokens(iph1))
-				return ISAKMP_NTYPE_INVALID_EXCHANGE_TYPE;
-			else
-				return ISAKMP_NTYPE_INVALID_HASH_INFORMATION;
-		}
-
-		gsshash = gssapi_unwraphash(iph1);
-		if (gsshash == NULL) {
-			vfree(my_hash);
-			return ISAKMP_NTYPE_INVALID_HASH_INFORMATION;
-		}
-
-		result = memcmp(my_hash->v, gsshash->v, my_hash->l);
-		vfree(my_hash);
-		vfree(gsshash);
-
-		if (result) {
-			plog(LLV_ERROR, LOCATION, NULL, "HASH mismatched\n");
-			return ISAKMP_NTYPE_INVALID_HASH_INFORMATION;
-		}
-		plog(LLV_DEBUG, LOCATION, NULL, "hash compared OK\n");
-		break;
 #endif
 	case OAKLEY_ATTR_AUTH_METHOD_RSAENC:
 	case OAKLEY_ATTR_AUTH_METHOD_RSAREV:
@@ -1817,23 +1599,23 @@ oakley_validate_auth(iph1)
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R:
 #endif
 		if (iph1->id_p == NULL || iph1->pl_hash == NULL) {
-			plog(LLV_ERROR, LOCATION, iph1->remote,
+			plog(ASL_LEVEL_ERR,
 				"few isakmp message received.\n");
 			return ISAKMP_NTYPE_PAYLOAD_MALFORMED;
 		}
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"not supported authmethod type %s\n",
 			s_oakley_attr_method(iph1->approval->authmethod));
 		return ISAKMP_INTERNAL_ERROR;
 	default:
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"invalid authmethod %d why ?\n",
 			iph1->approval->authmethod);
 		return ISAKMP_INTERNAL_ERROR;
 	}
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s): %8.6f", __func__,
+	plog(ASL_LEVEL_NOTICE, "%s(%s): %8.6f", __func__,
 		s_oakley_attr_method(iph1->approval->authmethod),
 		timedelta(&start, &end));
 #endif
@@ -1856,8 +1638,7 @@ oakley_find_status_in_certchain (cert_t *certchain, cert_status_t certStatus)
 
 static
 int
-oakley_vpncontrol_notify_ike_failed_if_mycert_invalid (struct ph1handle *iph1,
-													   int               notify_initiator)
+oakley_vpncontrol_notify_ike_failed_if_mycert_invalid (phase1_handle_t *iph1, int notify_initiator)
 {
 #if TARGET_OS_EMBEDDED
 	int premature = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_PREMATURE);
@@ -1886,8 +1667,7 @@ oakley_vpncontrol_notify_ike_failed_if_mycert_invalid (struct ph1handle *iph1,
  * NOTE: include certificate type.
  */
 int
-oakley_getmycert(iph1)
-	struct ph1handle *iph1;
+oakley_getmycert(phase1_handle_t *iph1)
 {
 	int	err;
 	
@@ -1901,9 +1681,8 @@ oakley_getmycert(iph1)
 				}
 			}
 			return err;
-
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 			     "Unknown certtype #%d\n",
 			     iph1->rmconf->certtype);
 			return -1;
@@ -1918,28 +1697,19 @@ oakley_getmycert(iph1)
  *	my == 0 peer's cert.
  */
 static int
-get_cert_fromlocal(iph1, my)
-	struct ph1handle *iph1;
-	int my;
+get_cert_fromlocal(phase1_handle_t *iph1, int my)
 {
-#ifdef HAVE_OPENSSL
-	char path[MAXPATHLEN];
-#endif
 	vchar_t *cert = NULL;
 	cert_t **certpl;
-	char *certfile;
 	int error = -1;
 	cert_status_t status = CERT_STATUS_OK;
 
-	if (my) {
-		certfile = iph1->rmconf->mycertfile;
+	if (my)
 		certpl = &iph1->cert;
-	} else {
-		certfile = iph1->rmconf->peerscertfile;
+	else
 		certpl = &iph1->cert_p;
-	}
-	if (!certfile && iph1->rmconf->identity_in_keychain == 0) {
-		plog(LLV_ERROR, LOCATION, NULL, "no CERT defined.\n");
+	if (iph1->rmconf->identity_in_keychain == 0) {
+		plog(ASL_LEVEL_ERR, "no CERT defined.\n");
 		return 0;
 	}
 
@@ -1951,29 +1721,19 @@ get_cert_fromlocal(iph1, my)
 			if (iph1->rmconf->keychainCertRef == NULL || base64toCFData(iph1->rmconf->keychainCertRef, &dataRef))
 				goto end;
 			cert = crypto_cssm_get_x509cert(dataRef, &status);
-			plog(LLV_DEBUG, LOCATION, NULL, "done with chking cert status %d\n",status);
+			plog(ASL_LEVEL_DEBUG, "done with chking cert status %d\n",status);
 			CFRelease(dataRef);
 			break;
 		} // else fall thru
-#ifdef HAVE_OPENSSL
-	case ISAKMP_CERT_DNS:
-		/* make public file name */
-		getpathname(path, sizeof(path), LC_PATHTYPE_CERT, certfile);
-		cert = eay_get_x509cert(path);
-		if (cert) {
-			oakley_cert_prettyprint(cert);
-		};
-		break;
-#endif
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"not supported certtype %d\n",
 			iph1->rmconf->certtype);
 		goto end;
 	}
 
 	if (!cert) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get %s CERT.\n",
 			my ? "my" : "peers");
 		goto end;
@@ -1981,13 +1741,13 @@ get_cert_fromlocal(iph1, my)
 
 	*certpl = oakley_newcert();
 	if (!*certpl) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get cert buffer.\n");
 		goto end;
 	}
 	(*certpl)->pl = vmalloc(cert->l + 1);
 	if ((*certpl)->pl == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get cert buffer\n");
 		oakley_delcert(*certpl);
 		*certpl = NULL;
@@ -2000,9 +1760,7 @@ get_cert_fromlocal(iph1, my)
 	(*certpl)->cert.v = (*certpl)->pl->v + 1;
 	(*certpl)->cert.l = (*certpl)->pl->l - 1;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "created CERT payload:\n");
-	plogdump(LLV_DEBUG, (*certpl)->pl->v, (*certpl)->pl->l);
-	oakley_cert_prettyprint(cert);
+	plog(ASL_LEVEL_DEBUG, "created CERT payload\n");
 		
 	error = 0;
 
@@ -2016,12 +1774,8 @@ end:
 
 /* get signature */
 int
-oakley_getsign(iph1)
-	struct ph1handle *iph1;
+oakley_getsign(phase1_handle_t *iph1)
 {
-#ifdef HAVE_OPENSSL
-	char path[MAXPATHLEN];
-#endif
 	vchar_t *privkey = NULL;
 	int error = -1;
 
@@ -2038,19 +1792,18 @@ oakley_getsign(iph1)
 			break;
 		} // else fall thru
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 		     "Unknown certtype #%d\n",
 		     iph1->rmconf->certtype);
 		goto end;
 	}
 
 	if (iph1->sig == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "failed to sign.\n");
+		plog(ASL_LEVEL_ERR, "failed to sign.\n");
 		goto end;
 	}
 
-	plog(LLV_DEBUG, LOCATION, NULL, "SIGN computed:\n");
-	plogdump(LLV_DEBUG, iph1->sig->v, iph1->sig->l);
+	//plogdump(ASL_LEVEL_DEBUG, iph1->sig->v, iph1->sig->l, "SIGN computed:\n");
 
 	error = 0;
 
@@ -2062,12 +1815,11 @@ end:
 }
 
 void
-oakley_verify_certid(iph1)
-struct ph1handle *iph1;
+oakley_verify_certid(phase1_handle_t *iph1)
 {
 	if (iph1->rmconf->verify_cert &&
-		oakley_check_certid(iph1, CERT_CHECKID_FROM_PEER)){
-		plog(LLV_DEBUG, LOCATION, NULL,
+		oakley_check_certid(iph1)){
+		plog(ASL_LEVEL_DEBUG, 
 			 "Discarding CERT: does not match ID:\n");
 		oakley_delcert(iph1->cert_p);
 		iph1->cert_p = NULL;
@@ -2075,11 +1827,7 @@ struct ph1handle *iph1;
 }
 
 static int
-oakley_check_certid_in_certchain(certchain, idtype, idlen, id)
-	cert_t *certchain;
-	int idtype;
-	int idlen;
-	void *id;
+oakley_check_certid_in_certchain(cert_t *certchain, int idtype, int idlen, void *id)
 {
 	cert_t *p;
 
@@ -2092,8 +1840,7 @@ oakley_check_certid_in_certchain(certchain, idtype, idlen, id)
 }
 
 cert_t *
-oakley_get_peer_cert_from_certchain(iph1)
-	struct ph1handle * iph1;
+oakley_get_peer_cert_from_certchain(phase1_handle_t * iph1)
 {
 	cert_t               *p;
 	struct ipsecdoi_id_b *id_b;
@@ -2101,7 +1848,7 @@ oakley_get_peer_cert_from_certchain(iph1)
 	void                 *peers_id;
 
 	if (!iph1->id_p || !iph1->cert_p) {
-		plog(LLV_ERROR, LOCATION, NULL, "no ID nor CERT found.\n");
+		plog(ASL_LEVEL_ERR, "no ID nor CERT found.\n");
 		return NULL;
 	}
 	if (!iph1->cert_p->chain) {
@@ -2124,183 +1871,90 @@ oakley_get_peer_cert_from_certchain(iph1)
  * compare certificate name and ID value.
  */
 static int
-oakley_check_certid(iph1, which_id)
-	struct ph1handle *iph1;
-	int which_id;
+oakley_check_certid(phase1_handle_t *iph1)
 {
 	struct ipsecdoi_id_b *id_b;
 	int idlen;
 	u_int8_t doi_type = 255;
 	void *peers_id = NULL;
-	struct genlist_entry *gpb = NULL;
 
-	if (which_id == CERT_CHECKID_FROM_PEER) {
-		/* use ID from peer */
-		if (iph1->id_p == NULL || iph1->cert_p == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, "no ID nor CERT found.\n");
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)iph1->id_p->v;
-		doi_type = id_b->type;
-		peers_id = id_b + 1;
-		idlen = iph1->id_p->l - sizeof(*id_b);
-		
-		return oakley_check_certid_in_certchain(iph1->cert_p, doi_type, idlen, peers_id);
+    /* use ID from peer */
+    if (iph1->id_p == NULL || iph1->cert_p == NULL) {
+        plog(ASL_LEVEL_ERR, "no ID nor CERT found.\n");
+        return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+    }
+    id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)iph1->id_p->v;
+    doi_type = id_b->type;
+    peers_id = id_b + 1;
+    idlen = iph1->id_p->l - sizeof(*id_b);
+    
+    return oakley_check_certid_in_certchain(iph1->cert_p, doi_type, idlen, peers_id);
 
-	} else {
-		/* use ID from remote configuration */	
-		/* check each ID in list			*/
-		struct idspec *id_spec;
-		
-		for (id_spec = genlist_next (iph1->rmconf->idvl_p, &gpb); id_spec; id_spec = genlist_next (0, &gpb)) {
-			
-			if (id_spec->idtype == IDTYPE_ADDRESS) {
-				switch ((ALIGNED_CAST(struct sockaddr_storage *)(id_spec->id->v))->ss_family) {
-					case AF_INET:
-						doi_type = IPSECDOI_ID_IPV4_ADDR;
-						idlen = sizeof(struct in_addr);
-						peers_id = &((ALIGNED_CAST(struct sockaddr_in *)(id_spec->id->v))->sin_addr.s_addr);
-						break;
-	#ifdef INET6
-					case AF_INET6:
-						doi_type = IPSECDOI_ID_IPV6_ADDR;
-						idlen = sizeof(struct in6_addr);
-						peers_id = &((ALIGNED_CAST(struct sockaddr_in6 *)(id_spec->id->v))->sin6_addr.s6_addr);
-						break;
-	#endif
-					default:
-						plog(LLV_ERROR, LOCATION, NULL,
-							"unknown address type for peers identifier.\n");
-						return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
-						break;
-				}
-				
-			} else {
-				doi_type = idtype2doi(id_spec->idtype);
-				peers_id = id_spec->id->v;
-				idlen = id_spec->id->l;
-			}
-			if (oakley_check_certid_in_certchain(iph1->cert_p, doi_type, idlen, peers_id) == 0)
-				return 0;
-		}
-		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-	}
 }
-  
+
 static int
-oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
-	vchar_t *cert;
-	int idtype;
-	int idlen;
-	void *id;
-	cert_status_t *certStatus;
+oakley_check_certid_1(vchar_t *cert, int idtype, int idlen, void *id, cert_status_t *certStatus)
 {
 
 	int len;
-	int error;
+	int error = 0;
 
 #if !TARGET_OS_EMBEDDED
     int type;
-    vchar_t *name = NULL;
 	char *altname = NULL;
 #endif
     
 	switch (idtype) {
 	case IPSECDOI_ID_DER_ASN1_DN:
-#if TARGET_OS_EMBEDDED
 	{
-		SecCertificateRef certificate;
-		CFDataRef subject;
-		UInt8* namePtr;
-		
-		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
+        CFDataRef subject;
+        SecCertificateRef certificate;
+        UInt8* namePtr;
+
+		certificate = crypto_cssm_x509cert_CreateSecCertificateRef(cert);
 		if (certificate == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, "failed to get SecCertificateRef\n");
+			plog(ASL_LEVEL_ERR,
+				 "failed to get SecCertificateRef\n");
 			if (certStatus && !*certStatus) {
 				*certStatus = CERT_STATUS_INVALID;
 			}
-			return ISAKMP_NTYPE_INVALID_CERTIFICATE;			
-		}
-		subject = SecCertificateCopySubjectSequence(certificate);
-		if (subject == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, "failed to get subjectName\n");
-			if (certStatus && !*certStatus) {
-				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
-			}
-			CFRelease(certificate);
 			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-		}
-		len = CFDataGetLength(subject);
-		namePtr = CFDataGetBytePtr(subject);
-		if (idlen != len) {
-			plog(LLV_ERROR, LOCATION, NULL, "Invalid ID length in phase 1.\n");
-			if (certStatus && !*certStatus) {
-				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
-			}
-			CFRelease(subject);
-			CFRelease(certificate);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		error = memcmp(id, namePtr, idlen);
-		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "ID mismatched with subjectName.\n");
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "subjectName (type %s):\n",
-				 s_ipsecdoi_ident(idtype));
-			plogdump(LLV_ERROR, namePtr, len);
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "ID:\n");
-			plogdump(LLV_ERROR, id, idlen);
-			if (certStatus && !*certStatus) {
-				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
-			}
-			CFRelease(certificate);
-			CFRelease(subject);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
+		}        
+        subject = crypto_cssm_CopySubjectSequence(certificate);
+        if (subject == NULL) {
+            plog(ASL_LEVEL_ERR, "failed to get certificate subjectName\n");
+            if (certStatus && !*certStatus) {
+                *certStatus = CERT_STATUS_INVALID_SUBJNAME;
+            }
+            error = ISAKMP_NTYPE_INVALID_CERTIFICATE;
+        } else {
+            len = CFDataGetLength(subject);
+            namePtr = (UInt8*)CFDataGetBytePtr(subject);
+            if (namePtr) {
+                if (idlen != len || memcmp(id, namePtr, idlen)) {
+                    plog(ASL_LEVEL_ERR, "ID mismatched with certificate subjectName\n");
+                    error =ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+                }
+            } else {
+                plog(ASL_LEVEL_ERR, "no certificate subjectName found\n");
+                error = ISAKMP_NTYPE_INVALID_CERTIFICATE;
+            }
+        }
+        if (error) {
+            plog(ASL_LEVEL_ERR,
+                 "ID mismatched with certificate subjectName\n");
+            plogdump(ASL_LEVEL_ERR, namePtr, len, "subjectName (type %s):\n",
+                     s_ipsecdoi_ident(idtype));
+            plogdump(ASL_LEVEL_ERR, id, idlen, "ID:\n");
+            if (certStatus && !*certStatus) {
+                *certStatus = CERT_STATUS_INVALID_SUBJNAME;
+            }
+        }
         CFRelease(certificate);
         CFRelease(subject);
-	}
-#else
-		name = eay_get_x509asn1subjectname(cert);
-		if (!name) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get subjectName\n");
-			if (certStatus && !*certStatus) {
-				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
-			}
-			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-		}
-		if (idlen != name->l) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"Invalid ID length in phase 1.\n");
-			vfree(name);
-			if (certStatus && !*certStatus) {
-				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
-			}
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		error = memcmp(id, name->v, idlen);
-		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"ID mismatched with subjectName.\n");
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "subjectName (type %s):\n",
-				 s_ipsecdoi_ident(idtype));
-			plogdump(LLV_ERROR, name->v, name->l);
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "ID:\n");
-			plogdump(LLV_ERROR, id, idlen);
-			vfree(name);
-			if (certStatus && !*certStatus) {
-				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
-			}
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		vfree(name);
-#endif
-		return 0;
+        return 0;
+    }
+    break;
 
 	case IPSECDOI_ID_IPV4_ADDR:			
 	case IPSECDOI_ID_IPV6_ADDR:
@@ -2310,10 +1964,10 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 		SecCertificateRef certificate;
 		CFArrayRef addresses;
 #define ADDRESS_BUF_SIZE    64
-	
-		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
+        
+		certificate = crypto_cssm_x509cert_CreateSecCertificateRef(cert);
 		if (certificate == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "failed to get SecCertificateRef\n");
 			if (certStatus && !*certStatus) {
 				*certStatus = CERT_STATUS_INVALID;
@@ -2322,7 +1976,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 		}
 		addresses = SecCertificateCopyIPAddresses(certificate);
 		if (addresses == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, "failed to get subjectName\n");
+			plog(ASL_LEVEL_ERR, "failed to get subjectName\n");
 			if (certStatus && !*certStatus) {
 				*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
 			}
@@ -2343,7 +1997,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 				continue;
 			addressBuf = racoon_malloc(ADDRESS_BUF_SIZE);
 			if (addressBuf == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL, "out of memory\n");
+				plog(ASL_LEVEL_ERR, "out of memory\n");
                 CFRelease(addresses);
                 CFRelease(certificate);
 				return -1;
@@ -2361,11 +2015,10 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 			} else
 				racoon_free(addressBuf);
 		}
-		plog(LLV_ERROR, LOCATION, NULL, "ID mismatched with subjectAltName.\n");
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, "ID mismatched with subjectAltName.\n");
+		plog(ASL_LEVEL_ERR, 
 			 "subjectAltName (expected type %s):\n", s_ipsecdoi_ident(idtype));
-		plog(LLV_ERROR, LOCATION, NULL, "ID:\n");
-		plogdump(LLV_ERROR, id, idlen);
+		plogdump(ASL_LEVEL_ERR, id, idlen, "ID:\n");
 		CFRelease(addresses);
 		CFRelease(certificate);		
 		if (certStatus && !*certStatus) {
@@ -2382,16 +2035,16 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 		
 		int pos;
 		
-		if (idtype == IPSECDOI_ID_IPV4_ADDR && idlen != sizeof(struct in_addr)
-			|| idtype == IPSECDOI_ID_IPV6_ADDR && idlen != sizeof(struct in6_addr)) {
-			plog(LLV_ERROR, LOCATION, NULL,
+		if ((idtype == IPSECDOI_ID_IPV4_ADDR && idlen != sizeof(struct in_addr))
+			|| (idtype == IPSECDOI_ID_IPV6_ADDR && idlen != sizeof(struct in6_addr))) {
+			plog(ASL_LEVEL_ERR, 
 					"invalid address length passed.\n");
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 		}
 
 		for (pos = 1; ; pos++) {
 			if (eay_get_x509subjectaltname(cert, &altname, &type, pos, &len) !=0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to get subjectAltName\n");
 				if (certStatus && !*certStatus) {
 					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
@@ -2401,7 +2054,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 
 			/* it's the end condition of the loop. */
 			if (!altname) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "invalid subjectAltName\n");
 				if (certStatus && !*certStatus) {
 					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
@@ -2436,13 +2089,11 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 #endif
 			else {
 				/* invalid IP address length in certificate - bad or bogus certificate */
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"invalid IP address in certificate.\n");
-				plog(LLV_ERROR, LOCATION, NULL,
-					 "subjectAltName (expected type %s, got type %s):\n",
-					 s_ipsecdoi_ident(idtype),
-					 s_ipsecdoi_ident(type));
-				plogdump(LLV_ERROR, altname, len);
+				plogdump(ASL_LEVEL_ERR, altname, len, "subjectAltName (expected type %s, got type %s):\n",
+						 s_ipsecdoi_ident(idtype),
+						 s_ipsecdoi_ident(type));
 				racoon_free(altname);
 				altname = NULL;
 				if (certStatus && !*certStatus) {
@@ -2459,16 +2110,12 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 			return 0;
 		}		
 		/* failed to find a match */
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "ID mismatched with subjectAltName.\n");
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "subjectAltName (expected type %s, got type %s):\n",
-			 s_ipsecdoi_ident(idtype),
-			 s_ipsecdoi_ident(type));
-		plogdump(LLV_ERROR, altname, len);
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "ID:\n");
-		plogdump(LLV_ERROR, id, idlen);
+		plogdump(ASL_LEVEL_ERR, altname, len, "subjectAltName (expected type %s, got type %s):\n",
+				 s_ipsecdoi_ident(idtype),
+				 s_ipsecdoi_ident(type));
+		plogdump(ASL_LEVEL_ERR, id, idlen, "ID:\n");
 		racoon_free(altname);
 		if (certStatus && !*certStatus)
 			*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
@@ -2485,9 +2132,9 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 		CFArrayRef names;
 		CFStringRef name, ID;
 		
-		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
+		certificate = crypto_cssm_x509cert_CreateSecCertificateRef(cert);
 		if (certificate == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "failed to get SecCertificateRef\n");
 			if (certStatus && !*certStatus) {
 				*certStatus = CERT_STATUS_INVALID;
@@ -2496,7 +2143,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 		}
 		names = SecCertificateCopyDNSNames(certificate);
 		if (names == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "failed to get subjectName\n");
 			if (certStatus && !*certStatus) {
 				*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
@@ -2505,12 +2152,12 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
 		}
 		count = CFArrayGetCount(names);		
-		ID = CFStringCreateWithCString(NULL, id, kCFStringEncodingUTF8);
+		ID = CFStringCreateWithBytes(kCFAllocatorDefault, id, idlen, kCFStringEncodingUTF8, FALSE);
 		if (ID== NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, "memory error\n");
+			plog(ASL_LEVEL_ERR, "memory error\n");
 			CFRelease(names);
 			CFRelease(certificate);
-			
+			return 0;
 		}
 		for (pos = 0; pos < count; pos++) {
 			name = CFArrayGetValueAtIndex(names, pos);
@@ -2521,11 +2168,10 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 				return 0;
 			}
 		}
-		plog(LLV_ERROR, LOCATION, NULL, "ID mismatched with subjectAltName.\n");
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, "ID mismatched with subjectAltName.\n");
+		plog(ASL_LEVEL_ERR, 
 			 "subjectAltName (expected type %s):\n", s_ipsecdoi_ident(idtype));
-		plog(LLV_ERROR, LOCATION, NULL, "ID:\n");
-		plogdump(LLV_ERROR, id, idlen);
+		plogdump(ASL_LEVEL_ERR, id, idlen, "ID:\n");
 		CFRelease(ID);
 		CFRelease(names);
 		CFRelease(certificate);		
@@ -2543,9 +2189,9 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 		CFArrayRef names;
 		CFStringRef name, ID;
 		
-		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
+		certificate = crypto_cssm_x509cert_CreateSecCertificateRef(cert);
 		if (certificate == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "failed to get SecCertificateRef\n");
 			if (certStatus && !*certStatus) {
 				*certStatus = CERT_STATUS_INVALID;
@@ -2554,7 +2200,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 		}
 		names = SecCertificateCopyRFC822Names(certificate);
 		if (names == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "failed to get subjectName\n");
 			if (certStatus && !*certStatus) {
 				*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
@@ -2563,9 +2209,9 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
 		}
 		count = CFArrayGetCount(names);
-		ID = CFStringCreateWithCString(NULL, id, kCFStringEncodingUTF8);
+		ID = CFStringCreateWithBytes(kCFAllocatorDefault, id, idlen, kCFStringEncodingUTF8, FALSE);
 		if (ID == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "memory error\n");
 			if (certStatus && !*certStatus) {
 				*certStatus = CERT_STATUS_INVALID;
@@ -2583,11 +2229,10 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 				return 0;
 			}
 		}
-		plog(LLV_ERROR, LOCATION, NULL, "ID mismatched with subjectAltName.\n");
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, "ID mismatched with subjectAltName.\n");
+		plog(ASL_LEVEL_ERR, 
 			 "subjectAltName (expected type %s):\n", s_ipsecdoi_ident(idtype));
-		plog(LLV_ERROR, LOCATION, NULL, "ID:\n");
-		plogdump(LLV_ERROR, id, idlen);
+		plogdump(ASL_LEVEL_ERR, id, idlen, "ID:\n");
 		CFRelease(ID);
 		CFRelease(names);
 		CFRelease(certificate);		
@@ -2604,7 +2249,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 
 		for (pos = 1; ; pos++) {
 			if (eay_get_x509subjectaltname(cert, &altname, &type, pos, &len) != 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"failed to get subjectAltName\n");
 				if (certStatus && !*certStatus) {
 					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
@@ -2614,7 +2259,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 
 			/* it's the end condition of the loop. */
 			if (!altname) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "invalid subjectAltName\n");
 				if (certStatus && !*certStatus) {
 					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
@@ -2641,15 +2286,15 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 			racoon_free(altname);
 			return 0;
 		}
-		plog(LLV_ERROR, LOCATION, NULL, "ID mismatched with subjectAltName.\n");
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, "ID mismatched with subjectAltName.\n");
+		plog(ASL_LEVEL_ERR, 
 			 "subjectAltName (expected type %s, got type %s):\n",
 			 s_ipsecdoi_ident(idtype),
 			 s_ipsecdoi_ident(type));
-		plogdump(LLV_ERROR, altname, len);
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "ID:\n");
-		plogdump(LLV_ERROR, id, idlen);
+		plogdump(ASL_LEVEL_ERR, altname, len, "subjectAltName (expected type %s, got type %s):\n",
+				 s_ipsecdoi_ident(idtype),
+				 s_ipsecdoi_ident(type));
+		plogdump(ASL_LEVEL_ERR, id, idlen, "ID:\n");
 		racoon_free(altname);
 		if (certStatus && !*certStatus)
 			*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
@@ -2657,7 +2302,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 	}
 #endif			
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"Impropper ID type passed: %s.\n",
 			s_ipsecdoi_ident(idtype));
 		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
@@ -2666,8 +2311,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 }
 #ifdef HAVE_OPENSSL
 static int
-check_typeofcertname(doi, genid)
-	int doi, genid;
+check_typeofcertname(int doi, int genid)
 {
 	switch (doi) {
 	case IPSECDOI_ID_IPV4_ADDR:
@@ -2701,162 +2345,49 @@ check_typeofcertname(doi, genid)
  * save certificate including certificate type.
  */
 int
-oakley_savecert(iph1, gen)
-	struct ph1handle *iph1;
-	struct isakmp_gen *gen;
+oakley_savecert(phase1_handle_t *iph1, struct isakmp_gen *gen)
 {
 	cert_t **c;
 	u_int8_t type;
-#ifdef HAVE_OPENSSL
-	STACK_OF(X509) *certs=NULL;
-	PKCS7 *p7;
-#endif
 	type = *(u_int8_t *)(gen + 1) & 0xff;
 
 	switch (type) {
-	case ISAKMP_CERT_DNS:
-		plog(LLV_WARNING, LOCATION, NULL,
-			"CERT payload is unnecessary in DNSSEC. "
-			"ignore this CERT payload.\n");
-		return 0;
-	case ISAKMP_CERT_PKCS7:
-	case ISAKMP_CERT_PGP:
 	case ISAKMP_CERT_X509SIGN:
-	case ISAKMP_CERT_KERBEROS:
-	case ISAKMP_CERT_SPKI:
 		c = &iph1->cert_p;
 		break;
-	case ISAKMP_CERT_CRL:
-		c = &iph1->crl_p;
-		break;
-	case ISAKMP_CERT_X509KE:
-	case ISAKMP_CERT_X509ATTR:
-	case ISAKMP_CERT_ARL:
-		plog(LLV_ERROR, LOCATION, NULL,
-			"No supported such CERT type %d\n", type);
-		return -1;
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"Invalid CERT type %d\n", type);
 		return -1;
 	}
 
 	if (*c) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"preexisting CERT payload... chaining.\n");
 	}
-#ifdef HAVE_OPENSSL
-	if (type == ISAKMP_CERT_PKCS7) {
-		u_char *bp;
-		int i;
 
-		/* Skip the header */
-		bp = (u_char *)(gen + 1);
-		/* And the first byte is the certificate type, 
-		 * we know that already
-		 */
-		bp++;
-		p7 = d2i_PKCS7(NULL, (void *)&bp, 
-		    ntohs(gen->len) - sizeof(*gen) - 1);
+    cert_t *new;
+    new = save_certbuf(gen);
+    if (!new) {
+        plog(ASL_LEVEL_ERR, 
+             "Failed to get CERT buffer.\n");
+        return -1;
+    }
 
-		if (!p7) {
-			plog(LLV_ERROR, LOCATION, NULL,
-			     "Failed to parse PKCS#7 CERT.\n");
-			return -1;
-		}
-
-		/* Copied this from the openssl pkcs7 application;
-		 * there"s little by way of documentation for any of
-		 * it. I can only presume it"s correct.
-		 */
-		
-		i = OBJ_obj2nid(p7->type);
-		switch (i) {
-		case NID_pkcs7_signed:
-			certs=p7->d.sign->cert;
-			break;
-		case NID_pkcs7_signedAndEnveloped:
-			certs=p7->d.signed_and_enveloped->cert;
-			break;
-		default:
-			 break;
-		}
-
-		if (!certs) {
-			plog(LLV_ERROR, LOCATION, NULL,
-			     "CERT PKCS#7 bundle contains no certs.\n");
-			PKCS7_free(p7);
-			return -1;
-		}
-
-		for (i = 0; i < sk_X509_num(certs); i++) {
-			int len;
-			u_char *bp;
-			cert_t *new;
-			X509 *cert = sk_X509_value(certs,i);
-
-			plog(LLV_DEBUG, LOCATION, NULL, 
-			     "Trying PKCS#7 cert %d.\n", i);
-
-			/* We'll just try each cert in turn */
-			new = save_certx509(cert);
-			if (!new) {
-				plog(LLV_ERROR, LOCATION, NULL,
-				     "Failed to get CERT buffer.\n");
-				continue;
-			}
-			*c = oakley_appendcert_to_certchain(*c, new);
-			plog(LLV_DEBUG, LOCATION, NULL, "CERT saved:\n");
-			plogdump(LLV_DEBUG, new->cert.v, new->cert.l);
-			oakley_cert_prettyprint(&new->cert);
-		}
-		PKCS7_free(p7);
-
-	} else 
-#endif	
-	{
-		cert_t *new;
-		new = save_certbuf(gen);
-		if (!new) {
-			plog(LLV_ERROR, LOCATION, NULL,
-			     "Failed to get CERT buffer.\n");
-			return -1;
-		}
-
-		switch (new->type) {
-		case ISAKMP_CERT_DNS:
-			plog(LLV_WARNING, LOCATION, NULL,
-			     "CERT payload is unnecessary in DNSSEC. "
-			     "ignore it.\n");
-			return 0;
-		case ISAKMP_CERT_PGP:
-		case ISAKMP_CERT_X509SIGN:
-		case ISAKMP_CERT_KERBEROS:
-		case ISAKMP_CERT_SPKI:
-			/* Ignore cert if it doesn't match identity
-			 * XXX If verify cert is disabled, we still just take
-			 * the first certificate....
-			 */
-			*c = oakley_appendcert_to_certchain(*c, new);
-			plog(LLV_DEBUG, LOCATION, NULL, "CERT saved:\n");
-			plogdump(LLV_DEBUG, new->cert.v, new->cert.l);
-			oakley_cert_prettyprint(&new->cert);
-			break;
-		case ISAKMP_CERT_CRL:
-			*c = oakley_appendcert_to_certchain(*c, new);
-			plog(LLV_DEBUG, LOCATION, NULL, "CRL saved:\n");
-			plogdump(LLV_DEBUG, new->cert.v, new->cert.l);
-			oakley_cert_prettyprint(&new->cert);
-			break;
-		case ISAKMP_CERT_X509KE:
-		case ISAKMP_CERT_X509ATTR:
-		case ISAKMP_CERT_ARL:
-		default:
-			/* XXX */
-			oakley_delcert(new);
-			return 0;
-		}
-	}
+    switch (new->type) {
+    case ISAKMP_CERT_X509SIGN:
+        /* Ignore cert if it doesn't match identity
+         * XXX If verify cert is disabled, we still just take
+         * the first certificate....
+         */
+        *c = oakley_appendcert_to_certchain(*c, new);
+        plog(ASL_LEVEL_DEBUG, "CERT saved:\n");
+        break;
+    default:
+        /* XXX */
+        oakley_delcert(new);
+        return 0;
+    }
 	
 	return 0;
 }
@@ -2865,9 +2396,7 @@ oakley_savecert(iph1, gen)
  * save certificate including certificate type.
  */
 int
-oakley_savecr(iph1, gen)
-	struct ph1handle *iph1;
-	struct isakmp_gen *gen;
+oakley_savecr(phase1_handle_t *iph1, struct isakmp_gen *gen)
 {
 	cert_t **c;
 	u_int8_t type;
@@ -2876,69 +2405,52 @@ oakley_savecr(iph1, gen)
 	type = *(u_int8_t *)(gen + 1) & 0xff;
 
 	switch (type) {
-	case ISAKMP_CERT_DNS:
-		plog(LLV_WARNING, LOCATION, NULL,
-			"CERT payload is unnecessary in DNSSEC\n");
-		/*FALLTHRU*/
-	case ISAKMP_CERT_PKCS7:
-	case ISAKMP_CERT_PGP:
 	case ISAKMP_CERT_X509SIGN:
-	case ISAKMP_CERT_KERBEROS:
-	case ISAKMP_CERT_SPKI:
 		if (iph1->cr_p) {
 			oakley_delcert(iph1->cr_p);
 			iph1->cr_p = NULL;
 		}
 		c = &iph1->cr_p;
 		break;
-	case ISAKMP_CERT_X509KE:
-	case ISAKMP_CERT_X509ATTR:
-	case ISAKMP_CERT_ARL:
-		plog(LLV_ERROR, LOCATION, NULL,
-			"No supported such CR type %d\n", type);
-		return -1;
-	case ISAKMP_CERT_CRL:
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"Invalid CR type %d\n", type);
 		return -1;
 	}
 
 	new = save_certbuf(gen);
 	if (!new) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"Failed to get CR buffer.\n");
 		return -1;
 	}
 	*c = oakley_appendcert_to_certchain(*c, new);
-	plog(LLV_DEBUG, LOCATION, NULL, "CR saved:\n");
-	plogdump(LLV_DEBUG, new->cert.v, new->cert.l);
+	plog(ASL_LEVEL_DEBUG, "CR saved\n");
 
 	return 0;
 }
 
 static cert_t *
-save_certbuf(gen)
-	struct isakmp_gen *gen;
+save_certbuf(struct isakmp_gen *gen)
 {
 	cert_t *new;
 
 	if(ntohs(gen->len) <= sizeof(*gen)){
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "Len is too small !!.\n");
 		return NULL;
 	}
 
 	new = oakley_newcert();
 	if (!new) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"Failed to get CERT buffer.\n");
 		return NULL;
 	}
 
 	new->pl = vmalloc(ntohs(gen->len) - sizeof(*gen));
 	if (new->pl == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"Failed to copy CERT from packet.\n");
 		oakley_delcert(new);
 		new = NULL;
@@ -2952,41 +2464,6 @@ save_certbuf(gen)
 	return new;
 }
 
-#ifdef HAVE_OPENSSL
-static cert_t *
-save_certx509(cert)
-	X509 *cert;
-{
-	cert_t *new;
-        int len;
-        u_char *bp;
-
-	new = oakley_newcert();
-	if (!new) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"Failed to get CERT buffer.\n");
-		return NULL;
-	}
-
-        len = i2d_X509(cert, NULL);
-	new->pl = vmalloc(len);
-	if (new->pl == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"Failed to copy CERT from packet.\n");
-		oakley_delcert(new);
-		new = NULL;
-		return NULL;
-	}
-        bp = (u_char *) new->pl->v;
-        len = i2d_X509(cert, &bp);
-	new->type = ISAKMP_CERT_X509SIGN;
-	new->cert.v = new->pl->v;
-	new->cert.l = new->pl->l;
-
-	return new;
-}
-#endif
-
 /*
  * get my CR.
  * NOTE: No Certificate Authority field is included to CR payload at the
@@ -2995,28 +2472,27 @@ save_certx509(cert)
  * if there is no specific certificate authority requested.
  */
 vchar_t *
-oakley_getcr(iph1)
-	struct ph1handle *iph1;
+oakley_getcr(phase1_handle_t *iph1)
 {
 	vchar_t *buf;
 
 	buf = vmalloc(1);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get cr buffer\n");
 		return NULL;
 	}
 	if(iph1->rmconf->certtype == ISAKMP_CERT_NONE) {
 		buf->v[0] = iph1->rmconf->cacerttype;
-		plog(LLV_DEBUG, LOCATION, NULL, "create my CR: NONE, using %s instead\n",
+		plog(ASL_LEVEL_DEBUG, "create my CR: NONE, using %s instead\n",
 		s_isakmp_certtype(iph1->rmconf->cacerttype));
 	} else {
 		buf->v[0] = iph1->rmconf->certtype;
-		plog(LLV_DEBUG, LOCATION, NULL, "create my CR: %s\n",
+		plog(ASL_LEVEL_DEBUG, "create my CR: %s\n",
 		s_isakmp_certtype(iph1->rmconf->certtype));
 	}
-	if (buf->l > 1)
-		plogdump(LLV_DEBUG, buf->v, buf->l);
+	//if (buf->l > 1)
+	//	plogdump(ASL_LEVEL_DEBUG, buf->v, buf->l, "");
 
 	return buf;
 }
@@ -3025,18 +2501,17 @@ oakley_getcr(iph1)
  * check peer's CR.
  */
 int
-oakley_checkcr(iph1)
-	struct ph1handle *iph1;
+oakley_checkcr(phase1_handle_t *iph1)
 {
 	if (iph1->cr_p == NULL)
 		return 0;
 
-	plog(LLV_DEBUG, LOCATION, iph1->remote,
+	plog(ASL_LEVEL_DEBUG,
 		"peer transmitted CR: %s\n",
 		s_isakmp_certtype(iph1->cr_p->type));
 
 	if (iph1->cr_p->type != iph1->rmconf->certtype) {
-		plog(LLV_ERROR, LOCATION, iph1->remote,
+		plog(ASL_LEVEL_ERR,
 			"such a cert type isn't supported: %d\n",
 			(char)iph1->cr_p->type);
 		return -1;
@@ -3049,19 +2524,14 @@ oakley_checkcr(iph1)
  * check to need CR payload.
  */
 int
-oakley_needcr(type)
-	int type;
+oakley_needcr(int type)
 {
 	switch (type) {
-	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
 	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
 #ifdef ENABLE_HYBRID
 	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
 #endif
 		return 1;
 	default:
@@ -3071,8 +2541,7 @@ oakley_needcr(type)
 }
 
 vchar_t *
-oakley_getpskall(iph1)
-struct ph1handle *iph1;
+oakley_getpskall(phase1_handle_t *iph1)
 {
 	vchar_t *secret = NULL;
 
@@ -3099,26 +2568,29 @@ struct ph1handle *iph1;
 				/* rmconf->shared_secret is a string and contains a NULL character that must be removed */
 				secret = vmalloc(iph1->rmconf->shared_secret->l - 1);
 				if (secret == NULL) {
-					plog(LLV_ERROR, LOCATION, iph1->remote, "memory error.\n");
+					plog(ASL_LEVEL_ERR, "memory error.\n");
 					goto end;
 				}
 				memcpy(secret->v, iph1->rmconf->shared_secret->v, secret->l);
 		}
-	} else {
+	} else if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV2 ||
+		   iph1->etype != ISAKMP_ETYPE_IDENT) {
 		secret = getpskbyname(iph1->id_p);
 		if (!secret) {
 			if (iph1->rmconf->verify_identifier) {
-				plog(LLV_ERROR, LOCATION, iph1->remote,
-					 "couldn't find the Hybrid pskey.\n");
+				plog(ASL_LEVEL_ERR, "couldn't find pskey by peer's ID.\n");
 				goto end;
 			}
 		}
 	}
 	if (!secret) {
-		plog(LLV_NOTIFY, LOCATION, iph1->remote,
-			 "couldn't find the Hybrid pskey, "
-			 "try to get one by the peer's address.\n");
+		plog(ASL_LEVEL_NOTICE, "try to get pskey by the peer's address.\n");
 		secret = getpskbyaddr(iph1->remote);
+		if (!secret) {
+			plog(ASL_LEVEL_ERR,
+			     "couldn't find the pskey by address %s.\n",
+			     saddrwop2str((struct sockaddr *)iph1->remote));
+		}
 	}
 
 end:
@@ -3133,207 +2605,231 @@ end:
  * enc: SKEYID = prf(H(Ni_b | Nr_b), CKY-I | CKY-R)
  */
 int
-oakley_skeyid(iph1)
-	struct ph1handle *iph1;
+oakley_skeyid(phase1_handle_t *iph1)
 {
-	vchar_t *buf = NULL, *bp;
+    vchar_t *key = NULL;
+	vchar_t *buf = NULL;
+    vchar_t *bp;
 	char *p;
 	int len;
 	int error = -1;
-
+    
+    
 	/* SKEYID */
 	switch (AUTHMETHOD(iph1)) {
-	case OAKLEY_ATTR_AUTH_METHOD_PSKEY:
+        case OAKLEY_ATTR_AUTH_METHOD_PSKEY:
 #ifdef ENABLE_HYBRID
-	case FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
+        case FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I:
+        case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
 #endif
-    	if (iph1->rmconf->shared_secret) {
-
-			switch (iph1->rmconf->secrettype) {
-				case SECRETTYPE_KEY:
-					/* in psk file - use KEY from remote configuration to locate it */
-					iph1->authstr = getpsk(iph1->rmconf->shared_secret->v, iph1->rmconf->shared_secret->l-1);
-					break;
-#if HAVE_KEYCHAIN
-				case SECRETTYPE_KEYCHAIN:
-					/* in the system keychain */
-					iph1->authstr = getpskfromkeychain(iph1->rmconf->shared_secret->v, iph1->etype, iph1->rmconf->secrettype, NULL);
-					break;
-				case SECRETTYPE_KEYCHAIN_BY_ID:
-					/* in the system keychain - use peer id */
-					iph1->authstr = getpskfromkeychain(iph1->rmconf->shared_secret->v, iph1->etype, iph1->rmconf->secrettype, iph1->id_p);
-					break;
-#endif // HAVE_KEYCHAIN
-				case SECRETTYPE_USE:
-					/* in the remote configuration */
-				default:
-					/* rmconf->shared_secret is a string and contains a NULL character that must be removed */
-					iph1->authstr = vmalloc(iph1->rmconf->shared_secret->l - 1);
-					if (iph1->authstr == NULL) {
-						plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
-						break;
-					}
-					memcpy(iph1->authstr->v, iph1->rmconf->shared_secret->v, iph1->authstr->l);
-			}
-		}
-		else
-		if (iph1->etype != ISAKMP_ETYPE_IDENT) {
-			iph1->authstr = getpskbyname(iph1->id_p);
-			if (iph1->authstr == NULL) {
-				if (iph1->rmconf->verify_identifier) {
-					plog(LLV_ERROR, LOCATION, iph1->remote,
-						"couldn't find the pskey.\n");
-					goto end;
-				}
-				plog(LLV_NOTIFY, LOCATION, iph1->remote,
-					"couldn't find the proper pskey, "
-					"try to get one by the peer's address.\n");
-			}
-		}
-		if (iph1->authstr == NULL) {
-			/*
-			 * If the exchange type is the main mode or if it's
-			 * failed to get the psk by ID, racoon try to get
-			 * the psk by remote IP address.
-			 * It may be nonsense.
-			 */
-			iph1->authstr = getpskbyaddr(iph1->remote);
-			if (iph1->authstr == NULL) {
-				plog(LLV_ERROR, LOCATION, iph1->remote,
-					"couldn't find the pskey for %s.\n",
-					saddrwop2str((struct sockaddr *)iph1->remote));
-				goto end;
-			}
-		}
-		plog(LLV_DEBUG, LOCATION, NULL, "the psk found.\n");
-		/* should be secret PSK */
-		plog(LLV_DEBUG2, LOCATION, NULL, "psk: ");
-		plogdump(LLV_DEBUG2, iph1->authstr->v, iph1->authstr->l);
-
-		len = iph1->nonce->l + iph1->nonce_p->l;
-		buf = vmalloc(len);
-		if (buf == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get skeyid buffer\n");
-			goto end;
-		}
-		p = buf->v;
-
-		bp = (iph1->side == INITIATOR ? iph1->nonce : iph1->nonce_p);
-		plog(LLV_DEBUG, LOCATION, NULL, "nonce 1: ");
-		plogdump(LLV_DEBUG, bp->v, bp->l);
-		memcpy(p, bp->v, bp->l);
-		p += bp->l;
-
-		bp = (iph1->side == INITIATOR ? iph1->nonce_p : iph1->nonce);
-		plog(LLV_DEBUG, LOCATION, NULL, "nonce 2: ");
-		plogdump(LLV_DEBUG, bp->v, bp->l);
-		memcpy(p, bp->v, bp->l);
-		p += bp->l;
-
-		iph1->skeyid = oakley_prf(iph1->authstr, buf, iph1);
-		if (iph1->skeyid == NULL)
-			goto end;
-		break;
-
-	case OAKLEY_ATTR_AUTH_METHOD_DSSSIG:
-	case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
+            key = oakley_getpskall(iph1);
+            if (key == NULL) {
+                plog(ASL_LEVEL_ERR,
+                     "couldn't find the pskey for %s.\n",
+                     saddrwop2str((struct sockaddr *)iph1->remote));
+                goto end;
+            }
+            plog(ASL_LEVEL_DEBUG, "the psk found.\n");
+            /* should be secret PSK */
+            plogdump(ASL_LEVEL_DEBUG, key->v, key->l, "psk: ");
+            
+            len = iph1->nonce->l + iph1->nonce_p->l;
+            buf = vmalloc(len);
+            if (buf == NULL) {
+                plog(ASL_LEVEL_ERR,
+                     "failed to get skeyid buffer\n");
+                goto end;
+            }
+            p = buf->v;
+            
+            bp = (iph1->side == INITIATOR ? iph1->nonce : iph1->nonce_p);
+            //plogdump(ASL_LEVEL_DEBUG, bp->v, bp->l, "nonce 1: ");
+            memcpy(p, bp->v, bp->l);
+            p += bp->l;
+            
+            bp = (iph1->side == INITIATOR ? iph1->nonce_p : iph1->nonce);
+            //plogdump(ASL_LEVEL_DEBUG, bp->v, bp->l, "nonce 2: ");
+            memcpy(p, bp->v, bp->l);
+            p += bp->l;
+            
+            iph1->skeyid = oakley_prf(key, buf, iph1);
+            
+            if (iph1->skeyid == NULL)
+                goto end;
+            break;
+            
+        case OAKLEY_ATTR_AUTH_METHOD_RSASIG:
 #ifdef ENABLE_HYBRID
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_I:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
-	case OAKLEY_ATTR_AUTH_METHOD_HYBRID_DSS_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_DSSSIG_R:
+        case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_I:
+        case OAKLEY_ATTR_AUTH_METHOD_HYBRID_RSA_R:
+        case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I:
+        case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_R:
 #endif
-#ifdef HAVE_GSSAPI
-	case OAKLEY_ATTR_AUTH_METHOD_GSSAPI_KRB:
-#endif
-		len = iph1->nonce->l + iph1->nonce_p->l;
-		buf = vmalloc(len);
-		if (buf == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get nonce buffer\n");
-			goto end;
-		}
-		p = buf->v;
-
-		bp = (iph1->side == INITIATOR ? iph1->nonce : iph1->nonce_p);
-		plog(LLV_DEBUG, LOCATION, NULL, "nonce1: ");
-		plogdump(LLV_DEBUG, bp->v, bp->l);
-		memcpy(p, bp->v, bp->l);
-		p += bp->l;
-
-		bp = (iph1->side == INITIATOR ? iph1->nonce_p : iph1->nonce);
-		plog(LLV_DEBUG, LOCATION, NULL, "nonce2: ");
-		plogdump(LLV_DEBUG, bp->v, bp->l);
-		memcpy(p, bp->v, bp->l);
-		p += bp->l;
-
-		iph1->skeyid = oakley_prf(buf, iph1->dhgxy, iph1);
-		if (iph1->skeyid == NULL)
-			goto end;
-		break;
-	case OAKLEY_ATTR_AUTH_METHOD_RSAENC:
-	case OAKLEY_ATTR_AUTH_METHOD_RSAREV:
+            len = iph1->nonce->l + iph1->nonce_p->l;
+            buf = vmalloc(len);
+            if (buf == NULL) {
+                plog(ASL_LEVEL_ERR,
+                     "failed to get nonce buffer\n");
+                goto end;
+            }
+            p = buf->v;
+            
+            bp = (iph1->side == INITIATOR ? iph1->nonce : iph1->nonce_p);
+            //plogdump(ASL_LEVEL_DEBUG, bp->v, bp->l, "nonce1: ");
+            memcpy(p, bp->v, bp->l);
+            p += bp->l;
+            
+            bp = (iph1->side == INITIATOR ? iph1->nonce_p : iph1->nonce);
+            //plogdump(ASL_LEVEL_DEBUG, bp->v, bp->l, "nonce2: ");
+            memcpy(p, bp->v, bp->l);
+            p += bp->l;
+            
+            iph1->skeyid = oakley_prf(buf, iph1->dhgxy, iph1);
+            if (iph1->skeyid == NULL)
+                goto end;
+            break;
+        case OAKLEY_ATTR_AUTH_METHOD_RSAENC:
+        case OAKLEY_ATTR_AUTH_METHOD_RSAREV:
 #ifdef ENABLE_HYBRID
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_R:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I:
-	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R:
+        case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_I:
+        case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAENC_R:
+        case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I:
+        case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_R:
 #endif
-		plog(LLV_WARNING, LOCATION, NULL,
-			"not supported authentication method %s\n",
-			s_oakley_attr_method(iph1->approval->authmethod));
-		goto end;
-	default:
-		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid authentication method %d\n",
-			iph1->approval->authmethod);
-		goto end;
+            plog(ASL_LEVEL_WARNING, 
+                 "not supported authentication method %s\n",
+                 s_oakley_attr_method(iph1->approval->authmethod));
+            goto end;
+        default:
+            plog(ASL_LEVEL_ERR, 
+                 "invalid authentication method %d\n",
+                 iph1->approval->authmethod);
+            goto end;
 	}
-
-	plog(LLV_DEBUG, LOCATION, NULL, "SKEYID computed:\n");
-	plogdump(LLV_DEBUG, iph1->skeyid->v, iph1->skeyid->l);
-
+    
+	//plogdump(ASL_LEVEL_DEBUG, iph1->skeyid->v, iph1->skeyid->l, "IKEv1 SKEYID computed:\n");
+    
 	error = 0;
-
+    
 end:
+    if (key != NULL)
+        vfree(key);
 	if (buf != NULL)
 		vfree(buf);
 	return error;
 }
 
+static vchar_t *
+oakley_prf_plus (vchar_t *key, vchar_t *buf, int result_len, phase1_handle_t *iph1)
+{
+	vchar_t *t = 0;
+	uint8_t byte_value;
+	vchar_t *result = 0;
+	uint8_t *p;
+	vchar_t *bp;
+	int      bp_len;
+	uint8_t *tmp;
+	vchar_t *prf;
+
+	/*                                                                                                                                                                                                      
+	 * (draft-17)                                                                                                                                                                                           
+	 prf+ (K,S) = T1 | T2 | T3 | T4 | ...                                                                                                                                                                   
+	 
+	 where:                                                                                                                                                                                                 
+	 T1 = prf (K, S | 0x01)                                                                                                                                                                                 
+	 T2 = prf (K, T1 | S | 0x02)                                                                                                                                                                            
+	 T3 = prf (K, T2 | S | 0x03)                                                                                                                                                                            
+	 T4 = prf (K, T3 | S | 0x04)                                                                                                                                                                            
+	 */
+
+	if (!(result = vmalloc(result_len))) {
+		return NULL;
+	}
+
+	/*                                                                                                                                                                                                      
+	 * initial T0 = empty                                                                                                                                                                                   
+	 */
+	t = 0;
+	p = (uint8_t *)result->v;
+	for (byte_value = 1; result_len > 0; ++byte_value) {
+		/*                                                                                                                                                                                              
+		 * prf_output = prf(K, Ti-1 | S | byte)                                                                                                                                                         
+		 */
+		bp_len  = buf->l + sizeof(byte_value);
+		if (t) {
+			bp_len += t->l;
+		}
+		bp = vmalloc(bp_len);
+		if (!bp) {
+			return NULL;
+		}
+		tmp = (__typeof__(tmp))bp->v;
+		
+		if (t) {
+			memcpy(tmp, t->v, t->l);
+			tmp += t->l;
+		}
+		memcpy(tmp, buf->v, buf->l);
+		tmp += buf->l;
+		memcpy(tmp, &byte_value, sizeof(byte_value));
+		tmp += sizeof(byte_value);
+
+		if (!(prf = oakley_prf(key, bp, iph1))) {
+            VPTRINIT(bp);
+			return (vchar_t *)-1;
+		}
+        VPTRINIT(bp);
+
+		/*                                                                                                                                                                                              
+		 * concat prf_output                                                                                                                                          
+		 */
+		memcpy(p, prf->v, prf->l > (size_t)result_len ? (size_t)result_len : prf->l);
+		p += prf->l;
+		result_len -= prf->l;
+		
+		/*                                                                                                                                                                                              
+		 * Ti = prf_output                                                                                                                                                                              
+		 */
+		if (t) {
+			bzero(t->v, t->l);
+			vfree(t);
+		}
+		t = prf;
+	}
+	if (t) {
+		bzero(t->v, t->l);
+		vfree(t);
+	}
+	return result;
+}
+
 /*
  * compute SKEYID_[dae]
- * see seciton 5. Exchanges in RFC 2409
- * SKEYID_d = prf(SKEYID, g^ir | CKY-I | CKY-R | 0)
- * SKEYID_a = prf(SKEYID, SKEYID_d | g^ir | CKY-I | CKY-R | 1)
- * SKEYID_e = prf(SKEYID, SKEYID_a | g^ir | CKY-I | CKY-R | 2)
  */
 int
-oakley_skeyid_dae(iph1)
-	struct ph1handle *iph1;
+oakley_skeyid_dae(phase1_handle_t *iph1)
 {
-	vchar_t *buf = NULL;
+	vchar_t *buf = NULL, *bp = NULL;
 	char *p;
 	int len;
 	int error = -1;
 
 	if (iph1->skeyid == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "no SKEYID found.\n");
+		plog(ASL_LEVEL_ERR, "no SKEYID found.\n");
 		goto end;
 	}
-
+	/*
+	 * see seciton 5. Exchanges in RFC 2409
+	 * SKEYID_d = prf(SKEYID, g^ir | CKY-I | CKY-R | 0)
+	 * SKEYID_a = prf(SKEYID, SKEYID_d | g^ir | CKY-I | CKY-R | 1)
+	 * SKEYID_e = prf(SKEYID, SKEYID_a | g^ir | CKY-I | CKY-R | 2)
+	 */
 	/* SKEYID D */
 	/* SKEYID_d = prf(SKEYID, g^xy | CKY-I | CKY-R | 0) */
 	len = iph1->dhgxy->l + sizeof(cookie_t) * 2 + 1;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get skeyid buffer\n");
 		goto end;
 	}
@@ -3353,15 +2849,14 @@ oakley_skeyid_dae(iph1)
 	vfree(buf);
 	buf = NULL;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "SKEYID_d computed:\n");
-	plogdump(LLV_DEBUG, iph1->skeyid_d->v, iph1->skeyid_d->l);
+	//plogdump(ASL_LEVEL_DEBUG, iph1->skeyid_d->v, iph1->skeyid_d->l, "SKEYID_d computed:\n");
 
 	/* SKEYID A */
 	/* SKEYID_a = prf(SKEYID, SKEYID_d | g^xy | CKY-I | CKY-R | 1) */
 	len = iph1->skeyid_d->l + iph1->dhgxy->l + sizeof(cookie_t) * 2 + 1;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get skeyid buffer\n");
 		goto end;
 	}
@@ -3382,15 +2877,14 @@ oakley_skeyid_dae(iph1)
 	vfree(buf);
 	buf = NULL;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "SKEYID_a computed:\n");
-	plogdump(LLV_DEBUG, iph1->skeyid_a->v, iph1->skeyid_a->l);
+	//plogdump(ASL_LEVEL_DEBUG, iph1->skeyid_a->v, iph1->skeyid_a->l, "SKEYID_a computed:\n");
 
 	/* SKEYID E */
 	/* SKEYID_e = prf(SKEYID, SKEYID_a | g^xy | CKY-I | CKY-R | 2) */
 	len = iph1->skeyid_a->l + iph1->dhgxy->l + sizeof(cookie_t) * 2 + 1;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get skeyid buffer\n");
 		goto end;
 	}
@@ -3411,8 +2905,7 @@ oakley_skeyid_dae(iph1)
 	vfree(buf);
 	buf = NULL;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "SKEYID_e computed:\n");
-	plogdump(LLV_DEBUG, iph1->skeyid_e->v, iph1->skeyid_e->l);
+	//plogdump(ASL_LEVEL_DEBUG, iph1->skeyid_e->v, iph1->skeyid_e->l, "SKEYID_e computed:\n");
 
 	error = 0;
 
@@ -3427,8 +2920,7 @@ end:
  * see Appendix B.
  */
 int
-oakley_compute_enckey(iph1)
-	struct ph1handle *iph1;
+oakley_compute_enckey(phase1_handle_t *iph1)
 {
 	u_int keylen, prflen;
 	int error = -1;
@@ -3437,7 +2929,7 @@ oakley_compute_enckey(iph1)
 	keylen = alg_oakley_encdef_keylen(iph1->approval->enctype,
 					iph1->approval->encklen);
 	if (keylen == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid encryption algoritym %d, "
 			"or invalid key length %d.\n",
 			iph1->approval->enctype,
@@ -3446,15 +2938,52 @@ oakley_compute_enckey(iph1)
 	}
 	iph1->key = vmalloc(keylen >> 3);
 	if (iph1->key == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get key buffer\n");
 		goto end;
+	}
+	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV2) {
+		iph1->key_p = vmalloc(keylen >> 3);
+		if (iph1->key_p == NULL) {
+			plog(ASL_LEVEL_ERR, 
+				 "failed to get key buffer\n");
+			goto end;
+		}
+
+		if (iph1->key->l <= iph1->skeyid_e->l) {
+			plog(ASL_LEVEL_DEBUG,
+				 "%s setting key len %zd, val %d (len %zd)", __FUNCTION__, iph1->key->l, (int)iph1->skeyid_e->v[0], iph1->skeyid_e->l);
+			/*
+			 * if length(Ka) <= length(SKEYID_e)
+			 *	Ka = first length(K) bit of SKEYID_e
+			 */
+			memcpy(iph1->key->v, iph1->skeyid_e->v, iph1->key->l);
+		} else {
+			plog(ASL_LEVEL_ERR, 
+				 "unexpected key length error (exp %zd, got %zd)",
+				 iph1->key->l, iph1->skeyid_e->l);
+			goto end;
+		}
+		if (iph1->key_p->l <= iph1->skeyid_e_p->l) {
+			plog(ASL_LEVEL_DEBUG, 
+				 "%s setting peer key len %zd, val %d (len %zd)", __FUNCTION__, iph1->key_p->l, (int)iph1->skeyid_e_p->v[0], iph1->skeyid_e_p->l);
+			/*
+			 * if length(Ka) <= length(SKEYID_e)
+			 *	Ka = first length(K) bit of SKEYID_e
+			 */
+			memcpy(iph1->key_p->v, iph1->skeyid_e_p->v, iph1->key_p->l);
+		} else {
+			plog(ASL_LEVEL_ERR, 
+				 "unexpected peer key length error (exp %zd, got %zd)",
+				 iph1->key_p->l, iph1->skeyid_e_p->l);
+			goto end;
+		}
 	}
 
 	/* set prf length */
 	prflen = alg_oakley_hashdef_hashlen(iph1->approval->hashtype);
 	if (prflen == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid hash type %d.\n", iph1->approval->hashtype);
 		goto end;
 	}
@@ -3472,6 +3001,12 @@ oakley_compute_enckey(iph1)
 		int cplen;
 		int subkey;
 
+		if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV2) {
+			plog(ASL_LEVEL_ERR, 
+				 "invalid key len (got %zu, expected %zu.\n", iph1->key->l, iph1->skeyid_e->l);
+			goto end;
+		}
+
 		/*
 		 * otherwise,
 		 *	Ka = K1 | K2 | K3
@@ -3480,13 +3015,13 @@ oakley_compute_enckey(iph1)
 		 *	K2 = prf(SKEYID_e, K1)
 		 *	K3 = prf(SKEYID_e, K2)
 		 */
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"len(SKEYID_e) < len(Ka) (%zu < %zu), "
 			"generating long key (Ka = K1 | K2 | ...)\n",
 			iph1->skeyid_e->l, iph1->key->l);
 
 		if ((buf = vmalloc(prflen >> 3)) == 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to get key buffer\n");
 			goto end;
 		}
@@ -3505,11 +3040,11 @@ oakley_compute_enckey(iph1)
 				vfree(buf);
 				goto end;
 			}
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"compute intermediate encryption key K%d\n",
 				subkey);
-			plogdump(LLV_DEBUG, buf->v, buf->l);
-			plogdump(LLV_DEBUG, res->v, res->l);
+			//plogdump(ASL_LEVEL_DEBUG, buf->v, buf->l, "");
+			//plogdump(ASL_LEVEL_DEBUG, res->v, res->l, "");
 
 			cplen = (res->l < ep - p) ? res->l : ep - p;
 			memcpy(p, res->v, cplen);
@@ -3517,7 +3052,7 @@ oakley_compute_enckey(iph1)
 
 			buf->l = prflen >> 3;	/* to cancel K1 speciality */
 			if (res->l != buf->l) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"internal error: res->l=%zu buf->l=%zu\n",
 					res->l, buf->l);
 				vfree(res);
@@ -3537,24 +3072,8 @@ oakley_compute_enckey(iph1)
 	 * draft-ietf-ipsec-ike-01.txt Appendix B.
 	 * draft-ietf-ipsec-ciph-aes-cbc-00.txt Section 2.3.
 	 */
-#if 0
-	/* weakkey check */
-	if (iph1->approval->enctype > ARRAYLEN(oakley_encdef)
-	 || oakley_encdef[iph1->approval->enctype].weakkey == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"encryption algoritym %d isn't supported.\n",
-			iph1->approval->enctype);
-		goto end;
-	}
-	if ((oakley_encdef[iph1->approval->enctype].weakkey)(iph1->key)) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"weakkey was generated.\n");
-		goto end;
-	}
-#endif
 
-	plog(LLV_DEBUG, LOCATION, NULL, "final encryption key computed:\n");
-	plogdump(LLV_DEBUG, iph1->key->v, iph1->key->l);
+	//plogdump(ASL_LEVEL_DEBUG, iph1->key->v, iph1->key->l, "final encryption key computed:\n");
 
 	error = 0;
 
@@ -3564,13 +3083,13 @@ end:
 
 /* allocated new buffer for CERT */
 cert_t *
-oakley_newcert()
+oakley_newcert(void)
 {
 	cert_t *new;
 
 	new = racoon_calloc(1, sizeof(*new));
 	if (new == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get cert's buffer\n");
 		return NULL;
 	}
@@ -3583,8 +3102,7 @@ oakley_newcert()
 
 /* delete buffer for CERT */
 void
-oakley_delcert_1(cert)
-	cert_t *cert;
+oakley_delcert_1(cert_t *cert)
 {
 	if (!cert)
 		return;
@@ -3595,8 +3113,7 @@ oakley_delcert_1(cert)
 
 /* delete buffer for CERT */
 void
-oakley_delcert(cert)
-	cert_t *cert;
+oakley_delcert(cert_t *cert)
 {
 	cert_t *p, *to_delete;
 
@@ -3612,9 +3129,7 @@ oakley_delcert(cert)
 
 /* delete buffer for CERT */
 static cert_t *
-oakley_appendcert_to_certchain(certchain, new)
-	cert_t *certchain;
-	cert_t *new;
+oakley_appendcert_to_certchain(cert_t *certchain, cert_t *new)
 {
 	cert_t *p;
 
@@ -3636,8 +3151,7 @@ oakley_appendcert_to_certchain(certchain, new)
  * see 4.1 Phase 1 state in draft-ietf-ipsec-ike.
  */
 int
-oakley_newiv(iph1)
-	struct ph1handle *iph1;
+oakley_newiv(phase1_handle_t *iph1)
 {
 	struct isakmp_ivm *newivm = NULL;
 	vchar_t *buf = NULL, *bp;
@@ -3648,8 +3162,8 @@ oakley_newiv(iph1)
 	len = iph1->dhpub->l + iph1->dhpub_p->l;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get iv buffer\n");
+		plog(ASL_LEVEL_ERR, 
+			"Failed to get IV buffer\n");
 		return -1;
 	}
 
@@ -3666,8 +3180,8 @@ oakley_newiv(iph1)
 	/* allocate IVm */
 	newivm = racoon_calloc(1, sizeof(struct isakmp_ivm));
 	if (newivm == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get iv buffer\n");
+		plog(ASL_LEVEL_ERR, 
+			"Failed to get IV buffer\n");
 		vfree(buf);
 		return -1;
 	}
@@ -3683,8 +3197,8 @@ oakley_newiv(iph1)
 	/* adjust length of iv */
 	newivm->iv->l = alg_oakley_encdef_blocklen(iph1->approval->enctype);
 	if (newivm->iv->l == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid encryption algoriym %d.\n",
+		plog(ASL_LEVEL_ERR, 
+			"Invalid encryption algorithm %d.\n",
 			iph1->approval->enctype);
 		vfree(buf);
 		oakley_delivm(newivm);
@@ -3693,7 +3207,7 @@ oakley_newiv(iph1)
 
 	/* create buffer to save iv */
 	if ((newivm->ive = vdup(newivm->iv)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"vdup (%s)\n", strerror(errno));
 		vfree(buf);
 		oakley_delivm(newivm);
@@ -3702,8 +3216,7 @@ oakley_newiv(iph1)
 
 	vfree(buf);
 
-	plog(LLV_DEBUG, LOCATION, NULL, "IV computed:\n");
-	plogdump(LLV_DEBUG, newivm->iv->v, newivm->iv->l);
+	//plogdump(ASL_LEVEL_DEBUG, newivm->iv->v, newivm->iv->l, "IV computed:\n");
 
 	if (iph1->ivm != NULL)
 		oakley_delivm(iph1->ivm);
@@ -3723,9 +3236,7 @@ oakley_newiv(iph1)
  * see 4.2 Phase 2 state in draft-ietf-ipsec-ike.
  */
 struct isakmp_ivm *
-oakley_newiv2(iph1, msgid)
-	struct ph1handle *iph1;
-	u_int32_t msgid;
+oakley_newiv2(phase1_handle_t *iph1, u_int32_t msgid)
 {
 	struct isakmp_ivm *newivm = NULL;
 	vchar_t *buf = NULL;
@@ -3737,8 +3248,8 @@ oakley_newiv2(iph1, msgid)
 	len = iph1->ivm->iv->l + sizeof(msgid_t);
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get iv buffer\n");
+		plog(ASL_LEVEL_ERR, 
+			"Failed to get IV buffer\n");
 		goto end;
 	}
 
@@ -3749,15 +3260,14 @@ oakley_newiv2(iph1, msgid)
 
 	memcpy(p, &msgid, sizeof(msgid));
 
-	plog(LLV_DEBUG, LOCATION, NULL, "compute IV for phase2\n");
-	plog(LLV_DEBUG, LOCATION, NULL, "phase1 last IV:\n");
-	plogdump(LLV_DEBUG, buf->v, buf->l);
+	plog(ASL_LEVEL_DEBUG, "Compute IV for Phase 2\n");
+	//plogdump(ASL_LEVEL_DEBUG, buf->v, buf->l, "Phase 1 last IV:\n");
 
 	/* allocate IVm */
 	newivm = racoon_calloc(1, sizeof(struct isakmp_ivm));
 	if (newivm == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get iv buffer\n");
+		plog(ASL_LEVEL_ERR, 
+			"Failed to get IV buffer\n");
 		goto end;
 	}
 
@@ -3768,22 +3278,21 @@ oakley_newiv2(iph1, msgid)
 	/* adjust length of iv */
 	newivm->iv->l = alg_oakley_encdef_blocklen(iph1->approval->enctype);
 	if (newivm->iv->l == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid encryption algoriym %d.\n",
+		plog(ASL_LEVEL_ERR, 
+			"Invalid encryption algorithm %d.\n",
 			iph1->approval->enctype);
 		goto end;
 	}
 
 	/* create buffer to save new iv */
 	if ((newivm->ive = vdup(newivm->iv)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "vdup (%s)\n", strerror(errno));
+		plog(ASL_LEVEL_ERR, "vdup (%s)\n", strerror(errno));
 		goto end;
 	}
 
 	error = 0;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "phase2 IV computed:\n");
-	plogdump(LLV_DEBUG, newivm->iv->v, newivm->iv->l);
+	//plogdump(ASL_LEVEL_DEBUG, newivm->iv->v, newivm->iv->l, "Phase 2 IV computed:\n");
 
 end:
 	if (error && newivm != NULL){
@@ -3795,9 +3304,66 @@ end:
 	return newivm;
 }
 
+/*
+ * Compute unpredictable IV for IKEv2.
+ */
+int
+oakley_newiv_ikev2(phase1_handle_t * iph1)
+{
+	struct isakmp_ivm *newivm = NULL;    
+    int iv_length;
+    
+    /* Get IV length */
+    iv_length = alg_oakley_encdef_blocklen(iph1->approval->enctype);
+    if (iv_length == -1) {
+        plog(ASL_LEVEL_ERR, "Invalid encryption algorithm %d.\n", iph1->approval->enctype);
+    }
+    
+	/* Allocate IV Manager */
+	newivm = racoon_calloc(1, sizeof(struct isakmp_ivm));
+	if (newivm == NULL) {
+		plog(ASL_LEVEL_ERR, "Failed to allocate IV buffer.\n");
+		return -1;
+	}
+    
+	/* Compute IV */
+    /* There are two recommended methods for generating unpredictable IVs. The first method is to apply the forward cipher function, under the same key that is used for the encryption of the plaintext, to a nonce. The nonce must be a data block that is unique to each execution of the encryption operation. For example, the nonce may be a counter, as described in Appendix B, or a message number. The second method is to generate a random data block using a FIPS- approved random number generator. 
+     [National Institute of Standards and Technology, U.S.
+     Department of Commerce, "Recommendation for Block Cipher
+     Modes of Operation", SP 800-38A, 2001.]
+    */
+    /* Currently, we implement the second scheme, which uses a random block */
+    newivm->iv = eay_set_random(iv_length);
+    if (newivm->iv == NULL) {
+		oakley_delivm(newivm);
+		return -1;
+	}
+    
+	/* Adjust length of IV */
+    if (newivm->iv->l != iv_length) {
+        plog(ASL_LEVEL_WARNING, "IV length was adjusted.\n");
+        newivm->iv->l = iv_length;
+    }
+    
+	/* Make copy of IV in IVe */
+	if ((newivm->ive = vdup(newivm->iv)) == NULL) {
+		plog(ASL_LEVEL_ERR, "vdup (%s)\n", strerror(errno));
+		oakley_delivm(newivm);
+		return -1;
+	}
+
+    /* Delete old IV if there is one */
+	if (iph1->ivm != NULL)
+		oakley_delivm(iph1->ivm);
+    
+	iph1->ivm = newivm;
+    
+	return 0;
+}
+
+
 void
-oakley_delivm(ivm)
-	struct isakmp_ivm *ivm;
+oakley_delivm(struct isakmp_ivm *ivm)
 {
 	if (ivm == NULL)
 		return;
@@ -3807,7 +3373,7 @@ oakley_delivm(ivm)
 	if (ivm->ive != NULL)
 		vfree(ivm->ive);
 	racoon_free(ivm);
-	plog(LLV_DEBUG, LOCATION, NULL, "IV freed\n");
+	plog(ASL_LEVEL_DEBUG, "IV freed\n");
 
 	return;
 }
@@ -3817,9 +3383,7 @@ oakley_delivm(ivm)
  *   save new iv and old iv.
  */
 vchar_t *
-oakley_do_decrypt(iph1, msg, ivdp, ivep)
-	struct ph1handle *iph1;
-	vchar_t *msg, *ivdp, *ivep;
+oakley_do_ikev1_decrypt(phase1_handle_t *iph1, vchar_t *msg, vchar_t *ivdp, vchar_t *ivep)
 {
 	vchar_t *buf = NULL, *new = NULL;
 	char *pl;
@@ -3828,12 +3392,12 @@ oakley_do_decrypt(iph1, msg, ivdp, ivep)
 	int blen;
 	int error = -1;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "begin decryption.\n");
+	plog(ASL_LEVEL_DEBUG, "Begin decryption.\n");
 
 	blen = alg_oakley_encdef_blocklen(iph1->approval->enctype);
 	if (blen == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid encryption algoriym %d.\n",
+		plog(ASL_LEVEL_ERR, 
+			"Invalid encryption algorithm %d.\n",
 			iph1->approval->enctype);
 		goto end;
 	}
@@ -3842,9 +3406,7 @@ oakley_do_decrypt(iph1, msg, ivdp, ivep)
 	memset(ivep->v, 0, ivep->l);
 	memcpy(ivep->v, (caddr_t)&msg->v[msg->l - blen], blen);
 
-	plog(LLV_DEBUG, LOCATION, NULL,
-		"IV was saved for next processing:\n");
-	plogdump(LLV_DEBUG, ivep->v, ivep->l);
+	plogdump(ASL_LEVEL_DEBUG, ivep->v, ivep->l, "IV was saved for next processing:\n");
 
 	pl = msg->v + sizeof(struct isakmp);
 
@@ -3853,8 +3415,8 @@ oakley_do_decrypt(iph1, msg, ivdp, ivep)
 	/* create buffer */
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get buffer to decrypt.\n");
+		plog(ASL_LEVEL_ERR, 
+			"Failed to get buffer to decrypt.\n");
 		goto end;
 	}
 	memcpy(buf->v, pl, len);
@@ -3863,52 +3425,44 @@ oakley_do_decrypt(iph1, msg, ivdp, ivep)
 	new = alg_oakley_encdef_decrypt(iph1->approval->enctype,
 					buf, iph1->key, ivdp);
 	if (new == NULL || new->v == NULL || new->l == 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"decryption %d failed.\n", iph1->approval->enctype);
+		plog(ASL_LEVEL_ERR, 
+			"Decryption %d failed.\n", iph1->approval->enctype);
 		goto end;
 	}
-	plog(LLV_DEBUG, LOCATION, NULL, "with key:\n");
-	plogdump(LLV_DEBUG, iph1->key->v, iph1->key->l);
+	//plogdump(ASL_LEVEL_DEBUG, iph1->key->v, iph1->key->l, "with key:\n");
 
 	vfree(buf);
 	buf = NULL;
 	if (new == NULL)
 		goto end;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "decrypted payload by IV:\n");
-	plogdump(LLV_DEBUG, ivdp->v, ivdp->l);
-
-	plog(LLV_DEBUG, LOCATION, NULL,
-		"decrypted payload, but not trimed.\n");
-	plogdump(LLV_DEBUG, new->v, new->l);
+	plog(ASL_LEVEL_DEBUG, "decrypted payload by IV:\n");
 
 	/* get padding length */
 	if (lcconf->pad_excltail)
 		padlen = new->v[new->l - 1] + 1;
 	else
 		padlen = new->v[new->l - 1];
-	plog(LLV_DEBUG, LOCATION, NULL, "padding len=%u\n", padlen);
+	plog(ASL_LEVEL_DEBUG, "padding len=%u\n", padlen);
 
 	/* trim padding */
 	if (lcconf->pad_strict) {
 		if (padlen > new->l) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"invalid padding len=%u, buflen=%zu.\n",
-				padlen, new->l);
-			plogdump(LLV_ERROR, new->v, new->l);
+			plog(ASL_LEVEL_ERR, "invalid padding len=%u, buflen=%zu.\n",
+					 padlen, new->l);
 			goto end;
 		}
 		new->l -= padlen;
-		plog(LLV_DEBUG, LOCATION, NULL, "trimmed padding\n");
+		plog(ASL_LEVEL_DEBUG, "trimmed padding\n");
 	} else {
-		plog(LLV_DEBUG, LOCATION, NULL, "skip to trim padding.\n");
+		plog(ASL_LEVEL_DEBUG, "skip to trim padding.\n");
 	}
 
 	/* create new buffer */
 	len = sizeof(struct isakmp) + new->l;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get buffer to decrypt.\n");
 		goto end;
 	}
@@ -3916,8 +3470,7 @@ oakley_do_decrypt(iph1, msg, ivdp, ivep)
 	memcpy(buf->v + sizeof(struct isakmp), new->v, new->l);
 	((struct isakmp *)buf->v)->len = htonl(buf->l);
 
-	plog(LLV_DEBUG, LOCATION, NULL, "decrypted.\n");
-	plogdump(LLV_DEBUG, buf->v, buf->l);
+	plog(ASL_LEVEL_DEBUG, "decrypted.\n");
 
 #ifdef HAVE_PRINT_ISAKMP_C
 	isakmp_printpacket(buf, iph1->remote, iph1->local, 1);
@@ -3937,12 +3490,23 @@ end:
 }
 
 /*
+ * decrypt packet.
+ */
+vchar_t *
+oakley_do_decrypt(phase1_handle_t *iph1, vchar_t *msg, vchar_t *ivdp, vchar_t *ivep)
+{
+	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+		return(oakley_do_ikev1_decrypt(iph1, msg, ivdp, ivep));
+	}
+	plog(ASL_LEVEL_ERR, "Failed to decrypt invalid IKE version");
+	return NULL;
+}
+
+/*
  * encrypt packet.
  */
 vchar_t *
-oakley_do_encrypt(iph1, msg, ivep, ivp)
-	struct ph1handle *iph1;
-	vchar_t *msg, *ivep, *ivp;
+oakley_do_ikev1_encrypt(phase1_handle_t *iph1, vchar_t *msg, vchar_t *ivep, vchar_t *ivp)
 {
 	vchar_t *buf = 0, *new = 0;
 	char *pl;
@@ -3951,13 +3515,13 @@ oakley_do_encrypt(iph1, msg, ivep, ivp)
 	int blen;
 	int error = -1;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "begin encryption.\n");
+	plog(ASL_LEVEL_DEBUG, "Begin encryption.\n");
 
 	/* set cbc block length */
 	blen = alg_oakley_encdef_blocklen(iph1->approval->enctype);
 	if (blen == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid encryption algoriym %d.\n",
+		plog(ASL_LEVEL_ERR, 
+			"Invalid encryption algorithm %d.\n",
 			iph1->approval->enctype);
 		goto end;
 	}
@@ -3967,13 +3531,13 @@ oakley_do_encrypt(iph1, msg, ivep, ivp)
 
 	/* add padding */
 	padlen = oakley_padlen(len, blen);
-	plog(LLV_DEBUG, LOCATION, NULL, "pad length = %u\n", padlen);
+	plog(ASL_LEVEL_DEBUG, "pad length = %u\n", padlen);
 
 	/* create buffer */
 	buf = vmalloc(len + padlen);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get buffer to encrypt.\n");
+		plog(ASL_LEVEL_ERR, 
+			"Failed to get buffer to encrypt.\n");
 		goto end;
 	}
         if (padlen) {
@@ -3992,40 +3556,37 @@ oakley_do_encrypt(iph1, msg, ivep, ivp)
 	else
 		buf->v[len + padlen - 1] = padlen;
 
-	plogdump(LLV_DEBUG, buf->v, buf->l);
+	plogdump(ASL_LEVEL_DEBUG, buf->v, buf->l, "About to encrypt %d bytes", buf->l);
 
 	/* do encrypt */
 	new = alg_oakley_encdef_encrypt(iph1->approval->enctype,
 					buf, iph1->key, ivep);
 	if (new == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"encryption %d failed.\n", iph1->approval->enctype);
+		plog(ASL_LEVEL_ERR, 
+			"Encryption %d failed.\n", iph1->approval->enctype);
 		goto end;
 	}
-	plog(LLV_DEBUG, LOCATION, NULL, "with key:\n");
-	plogdump(LLV_DEBUG, iph1->key->v, iph1->key->l);
+	//plogdump(ASL_LEVEL_DEBUG, iph1->key->v, iph1->key->l, "with key:\n");
 
 	vfree(buf);
 	buf = NULL;
 	if (new == NULL)
 		goto end;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "encrypted payload by IV:\n");
-	plogdump(LLV_DEBUG, ivep->v, ivep->l);
+	//plogdump(ASL_LEVEL_DEBUG, ivep->v, ivep->l, "encrypted payload by IV:\n");
 
 	/* save IV for next */
 	memset(ivp->v, 0, ivp->l);
 	memcpy(ivp->v, (caddr_t)&new->v[new->l - blen], blen);
 
-	plog(LLV_DEBUG, LOCATION, NULL, "save IV for next:\n");
-	plogdump(LLV_DEBUG, ivp->v, ivp->l);
+	//plogdump(ASL_LEVEL_DEBUG, ivp->v, ivp->l, "save IV for next:\n");
 
 	/* create new buffer */
 	len = sizeof(struct isakmp) + new->l;
 	buf = vmalloc(len);
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get buffer to encrypt.\n");
+		plog(ASL_LEVEL_ERR, 
+			"Failed to get buffer to encrypt.\n");
 		goto end;
 	}
 	memcpy(buf->v, msg->v, sizeof(struct isakmp));
@@ -4034,7 +3595,7 @@ oakley_do_encrypt(iph1, msg, ivep, ivp)
 
 	error = 0;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "encrypted.\n");
+	plog(ASL_LEVEL_DEBUG, "Encrypted.\n");
 
 end:
 	if (error && buf != NULL) {
@@ -4047,14 +3608,27 @@ end:
 	return buf;
 }
 
+
+/*
+ * encrypt packet.
+ */
+vchar_t *
+oakley_do_encrypt(phase1_handle_t *iph1, vchar_t *msg, vchar_t *ivep, vchar_t *ivp)
+{
+	if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1) {
+		return(oakley_do_ikev1_encrypt(iph1, msg, ivep, ivp));		
+	}
+	plog(ASL_LEVEL_ERR, "Failed to encrypt invalid IKE version");
+	return NULL;
+}
+
 /* culculate padding length */
 static int
-oakley_padlen(len, base)
-	int len, base;
+oakley_padlen(int len, int base)
 {
 	int padlen;
 
-	padlen = base - len % base;
+	padlen = base - (len % base);
 
 	if (lcconf->pad_randomlen)
 		padlen += ((eay_random() % (lcconf->pad_maxsize + 1) + 1) *
@@ -4103,7 +3677,7 @@ static int base64toCFData(vchar_t *textin, CFDataRef *dataRef)
     int 		numeq = 0;
     int 		acc = 0;
     int 		cntr = 0;
-    uint8_t		*textcur = textin->v;
+    uint8_t		*textcur = (__typeof__(textcur))textin->v;
     int			len = textin->l;
     int 		i;
 

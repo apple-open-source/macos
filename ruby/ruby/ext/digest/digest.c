@@ -2,14 +2,14 @@
 
   digest.c -
 
-  $Author: shyouhei $
+  $Author: eregon $
   created at: Fri May 25 08:57:27 JST 2001
 
   Copyright (C) 1995-2001 Yukihiro Matsumoto
   Copyright (C) 2001-2006 Akinori MUSHA
 
   $RoughId: digest.c,v 1.16 2001/07/13 15:38:27 knu Exp $
-  $Id: digest.c 26089 2009-12-14 03:19:26Z shyouhei $
+  $Id: digest.c 36588 2012-08-01 13:30:51Z eregon $
 
 ************************************************/
 
@@ -29,6 +29,53 @@ RUBY_EXTERN void Init_digest_base(void);
  * Document-module: Digest
  *
  * This module provides a framework for message digest libraries.
+ *
+ * You may want to look at OpenSSL::Digest as it supports support more
+ * algorithms.
+ *
+ * A cryptographic hash function is a procedure that takes data and return a
+ * fixed bit string : the hash value, also known as _digest_. Hash functions
+ * are also called one-way functions, it is easy to compute a digest from
+ * a message, but it is infeasible to generate a message from a digest.
+ *
+ * == Example
+ *
+ *   require 'digest'
+ *
+ *   # Compute a complete digest
+ *   sha256 = Digest::SHA256.new
+ *   digest = sha256.digest message
+ *
+ *   # Compute digest by chunks
+ *   sha256 = Digest::SHA256.new
+ *   sha256.update message1
+ *   sha256 << message2 # << is an alias for update
+ *
+ *   digest = sha256.digest
+ *
+ * == Digest algorithms
+ *
+ * Different digest algorithms (or hash functions) are available :
+ *
+ * HMAC::
+ *   See FIPS PUB 198 The Keyed-Hash Message Authentication Code (HMAC)
+ * RIPEMD-160::
+ *   (as Digest::RMD160) see
+ *   http://homes.esat.kuleuven.be/~bosselae/ripemd160.html
+ * SHA1::
+ *   See FIPS 180 Secure Hash Standard
+ * SHA2 family::
+ *   See FIPS 180 Secure Hash Standard which defines the following algorithms:
+ *   * SHA512
+ *   * SHA384
+ *   * SHA256
+ *
+ * The latest versions of the FIPS publications can be found here:
+ * http://csrc.nist.gov/publications/PubsFIPS.html
+ *
+ * Additionally Digest::BubbleBabble encodes a digest as a sequence of
+ * consonants and vowels which is more recognizable and comparable than a
+ * hexadecimal digest.  See http://en.wikipedia.org/wiki/Bubblebabble
  */
 
 static VALUE
@@ -36,7 +83,7 @@ hexencode_str_new(VALUE str_digest)
 {
     char *digest;
     size_t digest_len;
-    int i;
+    size_t i;
     VALUE str;
     char *p;
     static const char hex[] = {
@@ -52,7 +99,7 @@ hexencode_str_new(VALUE str_digest)
         rb_raise(rb_eRuntimeError, "digest string too long");
     }
 
-    str = rb_str_new(0, digest_len * 2);
+    str = rb_usascii_str_new(0, digest_len * 2);
 
     for (i = 0, p = RSTRING_PTR(str); i < digest_len; i++) {
         unsigned char byte = digest[i];
@@ -76,6 +123,8 @@ rb_digest_s_hexencode(VALUE klass, VALUE str)
     return hexencode_str_new(str);
 }
 
+NORETURN(static void rb_digest_instance_method_unimpl(VALUE self, const char *method));
+
 /*
  * Document-module: Digest::Instance
  *
@@ -86,8 +135,6 @@ rb_digest_s_hexencode(VALUE klass, VALUE str)
 static void
 rb_digest_instance_method_unimpl(VALUE self, const char *method)
 {
-    VALUE klass = rb_obj_class(self);
-
     rb_raise(rb_eRuntimeError, "%s does not implement %s()",
 	     rb_obj_classname(self), method);
 }
@@ -107,6 +154,8 @@ static VALUE
 rb_digest_instance_update(VALUE self, VALUE str)
 {
     rb_digest_instance_method_unimpl(self, "update");
+
+    UNREACHABLE;
 }
 
 /*
@@ -125,6 +174,8 @@ static VALUE
 rb_digest_instance_finish(VALUE self)
 {
     rb_digest_instance_method_unimpl(self, "finish");
+
+    UNREACHABLE;
 }
 
 /*
@@ -139,6 +190,8 @@ static VALUE
 rb_digest_instance_reset(VALUE self)
 {
     rb_digest_instance_method_unimpl(self, "reset");
+
+    UNREACHABLE;
 }
 
 /*
@@ -179,10 +232,7 @@ rb_digest_instance_digest(int argc, VALUE *argv, VALUE self)
         value = rb_funcall(self, id_finish, 0);
         rb_funcall(self, id_reset, 0);
     } else {
-        VALUE clone = rb_obj_clone(self);
-
-        value = rb_funcall(clone, id_finish, 0);
-        rb_funcall(clone, id_reset, 0);
+        value = rb_funcall(rb_obj_clone(self), id_finish, 0);
     }
 
     return value;
@@ -227,10 +277,7 @@ rb_digest_instance_hexdigest(int argc, VALUE *argv, VALUE self)
         value = rb_funcall(self, id_finish, 0);
         rb_funcall(self, id_reset, 0);
     } else {
-        VALUE clone = rb_obj_clone(self);
-
-        value = rb_funcall(clone, id_finish, 0);
-        rb_funcall(clone, id_reset, 0);
+        value = rb_funcall(rb_obj_clone(self), id_finish, 0);
     }
 
     return hexencode_str_new(value);
@@ -240,8 +287,8 @@ rb_digest_instance_hexdigest(int argc, VALUE *argv, VALUE self)
  * call-seq:
  *     digest_obj.hexdigest! -> string
  *
- * Returns the resulting hash value and resets the digest to the
- * initial state.
+ * Returns the resulting hash value in a hex-encoded form and resets
+ * the digest to the initial state.
  */
 static VALUE
 rb_digest_instance_hexdigest_bang(VALUE self)
@@ -275,7 +322,7 @@ rb_digest_instance_inspect(VALUE self)
 {
     VALUE str;
     size_t digest_len = 32;	/* about this size at least */
-    char *cname;
+    const char *cname;
 
     cname = rb_obj_classname(self);
 
@@ -368,6 +415,8 @@ static VALUE
 rb_digest_instance_block_length(VALUE self)
 {
     rb_digest_instance_method_unimpl(self, "block_length");
+
+    UNREACHABLE;
 }
 
 /*
@@ -421,6 +470,13 @@ rb_digest_class_s_hexdigest(int argc, VALUE *argv, VALUE klass)
     return hexencode_str_new(rb_funcall2(klass, id_digest, argc, argv));
 }
 
+/* :nodoc: */
+static VALUE
+rb_digest_class_init(VALUE self)
+{
+    return self;
+}
+
 /*
  * Document-class: Digest::Base
  *
@@ -435,14 +491,14 @@ get_digest_base_metadata(VALUE klass)
     VALUE obj;
     rb_digest_metadata_t *algo;
 
-    for (p = klass; p; p = RCLASS(p)->super) {
+    for (p = klass; !NIL_P(p); p = rb_class_superclass(p)) {
         if (rb_ivar_defined(p, id_metadata)) {
             obj = rb_ivar_get(p, id_metadata);
             break;
         }
     }
 
-    if (!p)
+    if (NIL_P(p))
         rb_raise(rb_eRuntimeError, "Digest::Base cannot be directly inherited in Ruby");
 
     Data_Get_Struct(obj, rb_digest_metadata_t, algo);
@@ -478,7 +534,7 @@ rb_digest_base_alloc(VALUE klass)
     pctx = xmalloc(algo->ctx_size);
     algo->init_func(pctx);
 
-    obj = Data_Wrap_Struct(klass, 0, free, pctx);
+    obj = Data_Wrap_Struct(klass, 0, xfree, pctx);
 
     return obj;
 }
@@ -628,6 +684,7 @@ Init_digest(void)
      * class Digest::Class
      */
     rb_cDigest_Class = rb_define_class_under(rb_mDigest, "Class", rb_cObject);
+    rb_define_method(rb_cDigest_Class, "initialize",  rb_digest_class_init, 0);
     rb_include_module(rb_cDigest_Class, rb_mDigest_Instance);
 
     /* class methods */

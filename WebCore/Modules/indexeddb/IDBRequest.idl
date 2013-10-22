@@ -27,39 +27,32 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module storage {
+[
+    Conditional=INDEXED_DATABASE,
+    ActiveDOMObject,
+    EventTarget,
+    JSNoStaticTables
+] interface IDBRequest {
+    [GetterRaisesException] readonly attribute IDBAny result;
+    [GetterRaisesException] readonly attribute DOMError error;
+    [TreatReturnedNullStringAs=Undefined, GetterRaisesException] readonly attribute DOMString webkitErrorMessage;
 
-    interface [
-        Conditional=INDEXED_DATABASE,
-        ActiveDOMObject,
-        EventTarget
-    ] IDBRequest {
-        readonly attribute IDBAny result
-            getter raises (IDBDatabaseException);
-        readonly attribute unsigned short errorCode
-            getter raises (IDBDatabaseException);
-        readonly attribute [TreatReturnedNullStringAs=Undefined] DOMString webkitErrorMessage
-            getter raises (IDBDatabaseException);
-        readonly attribute IDBAny source;
-        readonly attribute IDBTransaction transaction;
+    readonly attribute IDBAny source;
+    readonly attribute IDBTransaction transaction;
 
-        // States
-        const unsigned short LOADING = 1;
-        const unsigned short DONE = 2;
-        readonly attribute unsigned short readyState;
+    // States
+    readonly attribute DOMString readyState;
 
-        // Events
-        attribute EventListener onsuccess;
-        attribute EventListener onerror;
+    // Events
+    attribute EventListener onsuccess;
+    attribute EventListener onerror;
 
-        // EventTarget interface
-        void addEventListener(in DOMString type,
-                              in EventListener listener,
-                              in [Optional] boolean useCapture);
-        void removeEventListener(in DOMString type,
-                                 in EventListener listener,
-                                 in [Optional] boolean useCapture);
-        boolean dispatchEvent(in Event evt)
-            raises(EventException);
-    };
-}
+    // EventTarget interface
+    void addEventListener(DOMString type,
+                          EventListener listener,
+                          optional boolean useCapture);
+    void removeEventListener(DOMString type,
+                             EventListener listener,
+                             optional boolean useCapture);
+    [RaisesException] boolean dispatchEvent(Event evt);
+};

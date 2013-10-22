@@ -1,26 +1,8 @@
-#!/usr/bin/env ruby
+warn 'Sys has been deprecated in favor of FileUtils'
 
 #--
-# Copyright 2003, 2004, 2005, 2006, 2007, 2008 by Jim Weirich (jim@weirichhouse.org)
-#
-# Permission is hereby granted, free of charge, to any person obtaining
-# a copy of this software and associated documentation files (the
-# "Software"), to deal in the Software without restriction, including
-# without limitation the rights to use, copy, modify, merge, publish,
-# distribute, sublicense, and/or sell copies of the Software, and to
-# permit persons to whom the Software is furnished to do so, subject to
-# the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-# LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-# WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+# Copyright 2003-2010 by Jim Weirich (jim.weirich@gmail.com)
+# All rights reserved.
 #++
 #
 begin
@@ -28,6 +10,7 @@ begin
 rescue LoadError
 end
 require 'rbconfig'
+require 'rake/file_list'
 
 ######################################################################
 # Sys provides a number of file manipulation tools for the convenience
@@ -40,12 +23,12 @@ require 'rbconfig'
 # in Ruby 1.8.
 #
 module Sys
-  RUBY = Config::CONFIG['ruby_install_name']
+  RUBY = RbConfig::CONFIG['ruby_install_name']
 
   # Install all the files matching +wildcard+ into the +dest_dir+
   # directory.  The permission mode is set to +mode+.
   def install(wildcard, dest_dir, mode)
-    Dir[wildcard].each do |fn|
+    FileList.glob(wildcard).each do |fn|
       File.install(fn, dest_dir, mode, $verbose)
     end
   end
@@ -60,7 +43,7 @@ module Sys
   def ruby(*args)
     run "#{RUBY} #{args.join(' ')}"
   end
-  
+
   # Copy a single file from +file_name+ to +dest_file+.
   def copy(file_name, dest_file)
     log "Copying file #{file_name} to #{dest_file}"
@@ -99,7 +82,7 @@ module Sys
   # recursively delete directories.
   def delete(*wildcards)
     wildcards.each do |wildcard|
-      Dir[wildcard].each do |fn|
+      FileList.glob(wildcard).each do |fn|
         if File.directory?(fn)
           log "Deleting directory #{fn}"
           Dir.delete(fn)
@@ -114,10 +97,10 @@ module Sys
   # Recursively delete all files and directories matching +wildcard+.
   def delete_all(*wildcards)
     wildcards.each do |wildcard|
-      Dir[wildcard].each do |fn|
+      FileList.glob(wildcard).each do |fn|
         next if ! File.exist?(fn)
         if File.directory?(fn)
-          Dir["#{fn}/*"].each do |subfn|
+          FileList.glob("#{fn}/*").each do |subfn|
             next if subfn=='.' || subfn=='..'
             delete_all(subfn)
           end
@@ -160,10 +143,10 @@ module Sys
     return split_all(head) + [tail]
   end
 
-  # Write a message to standard out if $verbose is enabled.
+  # Write a message to standard error if $verbose is enabled.
   def log(msg)
     print "  " if $trace && $verbose
-    puts msg if $verbose
+    $stderr.puts msg if $verbose
   end
 
   # Perform a block with $verbose disabled.
@@ -179,7 +162,7 @@ module Sys
   # Perform a block with each file matching a set of wildcards.
   def for_files(*wildcards)
     wildcards.each do |wildcard|
-      Dir[wildcard].each do |fn|
+      FileList.glob(wildcard).each do |fn|
         yield(fn)
       end
     end
@@ -190,7 +173,7 @@ module Sys
   private # ----------------------------------------------------------
 
   def for_matching_files(wildcard, dest_dir)
-    Dir[wildcard].each do |fn|
+    FileList.glob(wildcard).each do |fn|
       dest_file = File.join(dest_dir, fn)
       parent = File.dirname(dest_file)
       makedirs(parent) if ! File.directory?(parent)

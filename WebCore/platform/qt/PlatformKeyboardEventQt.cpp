@@ -42,97 +42,97 @@ String keyIdentifierForQtKeyCode(int keyCode)
     switch (keyCode) {
     case Qt::Key_Menu:
     case Qt::Key_Alt:
-        return "Alt";
+        return ASCIILiteral("Alt");
     case Qt::Key_Clear:
-        return "Clear";
+        return ASCIILiteral("Clear");
     case Qt::Key_Down:
-        return "Down";
+        return ASCIILiteral("Down");
     case Qt::Key_End:
-        return "End";
+        return ASCIILiteral("End");
     case Qt::Key_Return:
     case Qt::Key_Enter:
-        return "Enter";
+        return ASCIILiteral("Enter");
     case Qt::Key_Execute:
-        return "Execute";
+        return ASCIILiteral("Execute");
     case Qt::Key_F1:
-        return "F1";
+        return ASCIILiteral("F1");
     case Qt::Key_F2:
-        return "F2";
+        return ASCIILiteral("F2");
     case Qt::Key_F3:
-        return "F3";
+        return ASCIILiteral("F3");
     case Qt::Key_F4:
-        return "F4";
+        return ASCIILiteral("F4");
     case Qt::Key_F5:
-        return "F5";
+        return ASCIILiteral("F5");
     case Qt::Key_F6:
-        return "F6";
+        return ASCIILiteral("F6");
     case Qt::Key_F7:
-        return "F7";
+        return ASCIILiteral("F7");
     case Qt::Key_F8:
-        return "F8";
+        return ASCIILiteral("F8");
     case Qt::Key_F9:
-        return "F9";
+        return ASCIILiteral("F9");
     case Qt::Key_F10:
-        return "F10";
+        return ASCIILiteral("F10");
     case Qt::Key_F11:
-        return "F11";
+        return ASCIILiteral("F11");
     case Qt::Key_F12:
-        return "F12";
+        return ASCIILiteral("F12");
     case Qt::Key_F13:
-        return "F13";
+        return ASCIILiteral("F13");
     case Qt::Key_F14:
-        return "F14";
+        return ASCIILiteral("F14");
     case Qt::Key_F15:
-        return "F15";
+        return ASCIILiteral("F15");
     case Qt::Key_F16:
-        return "F16";
+        return ASCIILiteral("F16");
     case Qt::Key_F17:
-        return "F17";
+        return ASCIILiteral("F17");
     case Qt::Key_F18:
-        return "F18";
+        return ASCIILiteral("F18");
     case Qt::Key_F19:
-        return "F19";
+        return ASCIILiteral("F19");
     case Qt::Key_F20:
-        return "F20";
+        return ASCIILiteral("F20");
     case Qt::Key_F21:
-        return "F21";
+        return ASCIILiteral("F21");
     case Qt::Key_F22:
-        return "F22";
+        return ASCIILiteral("F22");
     case Qt::Key_F23:
-        return "F23";
+        return ASCIILiteral("F23");
     case Qt::Key_F24:
-        return "F24";
+        return ASCIILiteral("F24");
     case Qt::Key_Help:
-        return "Help";
+        return ASCIILiteral("Help");
     case Qt::Key_Home:
-        return "Home";
+        return ASCIILiteral("Home");
     case Qt::Key_Insert:
-        return "Insert";
+        return ASCIILiteral("Insert");
     case Qt::Key_Left:
-        return "Left";
+        return ASCIILiteral("Left");
     case Qt::Key_PageDown:
-        return "PageDown";
+        return ASCIILiteral("PageDown");
     case Qt::Key_PageUp:
-        return "PageUp";
+        return ASCIILiteral("PageUp");
     case Qt::Key_Pause:
-        return "Pause";
+        return ASCIILiteral("Pause");
     case Qt::Key_Print:
-        return "PrintScreen";
+        return ASCIILiteral("PrintScreen");
     case Qt::Key_Right:
-        return "Right";
+        return ASCIILiteral("Right");
     case Qt::Key_Select:
-        return "Select";
+        return ASCIILiteral("Select");
     case Qt::Key_Up:
-        return "Up";
+        return ASCIILiteral("Up");
         // Standard says that DEL becomes U+007F.
     case Qt::Key_Delete:
-        return "U+007F";
+        return ASCIILiteral("U+007F");
     case Qt::Key_Backspace:
-        return "U+0008";
+        return ASCIILiteral("U+0008");
     case Qt::Key_Tab:
-        return "U+0009";
+        return ASCIILiteral("U+0009");
     case Qt::Key_Backtab:
-        return "U+0009";
+        return ASCIILiteral("U+0009");
     default:
         return String::format("U+%04X", toupper(keyCode));
     }
@@ -433,13 +433,22 @@ int windowsKeyCodeForKeyEvent(unsigned int keycode, bool isKeypad)
         // VK_BROWSER_SEARCH (AA) Windows 2000/XP: Browser Search key
         // VK_BROWSER_FAVORITES (AB) Windows 2000/XP: Browser Favorites key
         // VK_BROWSER_HOME (AC) Windows 2000/XP: Browser Start and Home key
-        // VK_VOLUME_MUTE (AD) Windows 2000/XP: Volume Mute key
-        // VK_VOLUME_DOWN (AE) Windows 2000/XP: Volume Down key
-        // VK_VOLUME_UP (AF) Windows 2000/XP: Volume Up key
-        // VK_MEDIA_NEXT_TRACK (B0) Windows 2000/XP: Next Track key
-        // VK_MEDIA_PREV_TRACK (B1) Windows 2000/XP: Previous Track key
-        // VK_MEDIA_STOP (B2) Windows 2000/XP: Stop Media key
-        // VK_MEDIA_PLAY_PAUSE (B3) Windows 2000/XP: Play/Pause Media key
+
+    case Qt::Key_VolumeMute:
+        return VK_VOLUME_MUTE; // (AD) Windows 2000/XP: Volume Mute key
+    case Qt::Key_VolumeDown:
+        return VK_VOLUME_DOWN; // (AE) Windows 2000/XP: Volume Down key
+    case Qt::Key_VolumeUp:
+        return VK_VOLUME_UP; // (AF) Windows 2000/XP: Volume Up key
+    case Qt::Key_MediaNext:
+        return VK_MEDIA_NEXT_TRACK; // (B0) Windows 2000/XP: Next Track key
+    case Qt::Key_MediaPrevious:
+        return VK_MEDIA_PREV_TRACK; // (B1) Windows 2000/XP: Previous Track key
+    case Qt::Key_MediaStop:
+        return VK_MEDIA_STOP; // (B2) Windows 2000/XP: Stop Media key
+    case Qt::Key_MediaTogglePlayPause:
+        return VK_MEDIA_PLAY_PAUSE; // (B3) Windows 2000/XP: Play/Pause Media key
+
         // VK_LAUNCH_MAIL (B4) Windows 2000/XP: Start Mail key
         // VK_LAUNCH_MEDIA_SELECT (B5) Windows 2000/XP: Select Media key
         // VK_LAUNCH_APP1 (B6) Windows 2000/XP: Start Application 1 key
@@ -490,6 +499,12 @@ int windowsKeyCodeForKeyEvent(unsigned int keycode, bool isKeypad)
         return VK_OEM_7; // case '\'': case '"': return 0xDE;
         // VK_OEM_8 (DF) Used for miscellaneous characters; it can vary by keyboard.
         // VK_OEM_102 (E2) Windows 2000/XP: Either the angle bracket key or the backslash key on the RT 102-key keyboard
+
+    case Qt::Key_AudioRewind:
+        return 0xE3; // (E3) Android/GoogleTV: Rewind media key (Windows: VK_ICO_HELP Help key on 1984 Olivetti M24 deluxe keyboard)
+    case Qt::Key_AudioForward:
+        return 0xE4; // (E4) Android/GoogleTV: Fast forward media key  (Windows: VK_ICO_00 '00' key on 1984 Olivetti M24 deluxe keyboard)
+
         // VK_PROCESSKEY (E5) Windows 95/98/Me, Windows NT 4.0, Windows 2000/XP: IME PROCESS key
         // VK_PACKET (E7) Windows 2000/XP: Used to pass Unicode characters as if they were keystrokes. The VK_PACKET key is the low word of a 32-bit Virtual Key value used for non-keyboard input methods. For more information, see Remark in KEYBDINPUT,SendInput, WM_KEYDOWN, and WM_KEYUP
         // VK_ATTN (F6) Attn key
@@ -585,11 +600,12 @@ static String keyTextForKeyEvent(const QKeyEvent* event)
     case Qt::Key_Tab:
     case Qt::Key_Backtab:
         if (event->text().isNull())
-            return "\t";
+            return ASCIILiteral("\t");
         break;
+    case Qt::Key_Return:
     case Qt::Key_Enter:
         if (event->text().isNull())
-            return "\r";
+            return ASCIILiteral("\r");
     }
     return event->text();
 }

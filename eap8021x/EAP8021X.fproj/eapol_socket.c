@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,6 +57,7 @@
 #include <sys/filio.h>
 #include <syslog.h>
 #include "EAPOL.h"
+#include "EAPLog.h"
 #include "symbol_scope.h"
 #include "eapol_socket.h"
 
@@ -74,14 +75,15 @@ ndrv_socket(const char * ifname)
 
     s = socket(AF_NDRV, SOCK_RAW, 0);
     if (s < 0) {
-	fprintf(stderr, "ndrv_socket: socket() failed: %s\n", strerror(errno));
+	EAPLOG_FL(LOG_NOTICE, "socket() failed: %s",
+		  strerror(errno));
 	goto failed;
     }
     strlcpy((char *)ndrv.snd_name, ifname, sizeof(ndrv.snd_name));
     ndrv.snd_len = sizeof(ndrv);
     ndrv.snd_family = AF_NDRV;
     if (bind(s, (struct sockaddr *)&ndrv, sizeof(ndrv)) < 0) {
-	fprintf(stderr, "ndrv_socket: bind() failed: %s\n", strerror(errno));
+	EAPLOG_FL(LOG_NOTICE, "bind() failed: %s", strerror(errno));
 	goto failed;
     }
     return (s);

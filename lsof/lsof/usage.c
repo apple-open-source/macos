@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.30 2011/09/07 19:13:49 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.30 2011/09/07 19:13:49 abe Exp abe $";
 #endif
 
 
@@ -545,7 +545,7 @@ usage(xv, fh, version)
 	    col = print_in_col(col, buf);
 
 #if	defined(HASTASKS)
-	    col = print_in_col(col, "-K list tasKs");
+	    col = print_in_col(col, "-K list tasKs (threads)");
 #endif	/* defined(HASTASKS) */
 
 	    col = print_in_col(col, "-l list UID numbers");

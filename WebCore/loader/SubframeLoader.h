@@ -32,12 +32,11 @@
 #define SubframeLoader_h
 
 #include "FrameLoaderTypes.h"
-#include "LayoutTypes.h"
-#include "PlatformString.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -58,7 +57,7 @@ class Widget;
 class SubframeLoader {
     WTF_MAKE_NONCOPYABLE(SubframeLoader);
 public:
-    SubframeLoader(Frame*);
+    explicit SubframeLoader(Frame*);
 
     void clear();
 
@@ -88,6 +87,7 @@ private:
         const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback);
 
     bool shouldUsePlugin(const KURL&, const String& mimeType, bool shouldPreferPlugInsForImages, bool hasFallback, bool& useFallback);
+    bool pluginIsLoadable(HTMLPlugInImageElement*, const KURL&, const String& mimeType);
 
     Document* document() const;
 

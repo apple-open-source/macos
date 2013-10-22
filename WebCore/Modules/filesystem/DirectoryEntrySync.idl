@@ -28,16 +28,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module storage {
-    interface [
-        Conditional=FILE_SYSTEM,
-        JSGenerateToNativeObject,
-        JSGenerateToJSObject,
-        JSNoStaticTables
-    ] DirectoryEntrySync : EntrySync {
-        DirectoryReaderSync createReader() raises (FileException);
-        [Custom] FileEntrySync getFile(in [TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString path, in WebKitFlags flags) raises (FileException);
-        [Custom] DirectoryEntrySync getDirectory(in [TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString path, in WebKitFlags flags) raises (FileException);
-        void removeRecursively() raises (FileException);
-    };
-}
+[
+    NoInterfaceObject,
+    Conditional=FILE_SYSTEM,
+    JSGenerateToNativeObject,
+    JSGenerateToJSObject,
+    JSNoStaticTables
+] interface DirectoryEntrySync : EntrySync {
+    [RaisesException] DirectoryReaderSync createReader();
+    [RaisesException] FileEntrySync getFile([TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString path, Dictionary flags);
+    [RaisesException] DirectoryEntrySync getDirectory([TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString path, Dictionary flags);
+    [RaisesException] void removeRecursively();
+};

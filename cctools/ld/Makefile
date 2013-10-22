@@ -30,11 +30,6 @@ ifneq "clang" "$(notdir $(CC))"
   PG = -pg
 endif
 
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
-
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
@@ -345,16 +340,9 @@ libkld.dylib: $(OBJS)
 	nmedit -p $(SYMROOT)/dynamic_libkld.o
 	libtool -o $(SYMROOT)/libkld.dylib $(SYMROOT)/dynamic_libkld.o
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(COPTS) $(OFLAG) $(RC_CFLAGS) -c \
 		-o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(CFLAGS) $(COPTS) $(OFLAG) $(RC_CFLAGS) -c -MD \
-		-dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 clean:
 	-rm -r -f $(OFILE_DIRS) ld_g_dir ld_p_dir make.out
@@ -362,7 +350,7 @@ clean:
 shlib_clean:
 	-rm -r -f $(OBJROOT)/ld_dir $(OBJROOT)/ptmp_obj $(OBJROOT)/otmp_obj \
 		$(OBJROOT)/dtmp_obj $(OBJROOT)/sarld_dir ld_g_dir ld_p_dir
-	-cd $(OBJROOT)/shlib_obj; rm -f $(OBJS) Makedep 
+	-cd $(OBJROOT)/shlib_obj; rm -f $(OBJS)
 
 
 install: $(OFILE_DIRS) $(SYMROOT) ld_build $(RC_OS)_lib_ofiles $(RC_OS)_install
@@ -471,5 +459,3 @@ installsrc:
 
 $(OFILE_DIRS) $(SYMROOT) $(SYMROOT)/ld_dir ld_g_dir ld_p_dir:
 	$(MKDIRS) $@
-
--include $(MAKEINCDIR)/Makedep

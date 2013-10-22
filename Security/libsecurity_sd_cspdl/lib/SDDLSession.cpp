@@ -141,7 +141,7 @@ SDDLSession::Authenticate(CSSM_DB_HANDLE inDbHandle,
                           CSSM_DB_ACCESS_TYPE inAccessRequest,
                           const AccessCredentials &inAccessCred)
 {
-    mClientSession.authenticateDb(inDbHandle, inAccessRequest, &inAccessCred);
+    mClientSession.authenticateDb((DbHandle)inDbHandle, inAccessRequest, &inAccessCred);
 }
 
 

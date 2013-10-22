@@ -60,8 +60,11 @@ public:
       
         unsigned initialSize = sizeof(T) * n;
 
-        // 16-byte alignment for 128bit SIMD.
+#if USE(WEBAUDIO_FFMPEG) || USE(WEBAUDIO_OPENMAX_DL_FFT)
+        const size_t alignment = 32;
+#else
         const size_t alignment = 16;
+#endif
 
         if (m_allocation)
             fastFree(m_allocation);
@@ -103,7 +106,7 @@ public:
     {
         // Note that although it is a size_t, m_size is now guaranteed to be
         // no greater than max unsigned. This guarantee is enforced in allocate().
-        ASSERT(i < size());
+        ASSERT_WITH_SECURITY_IMPLICATION(i < size());
         return data()[i];
     }
 

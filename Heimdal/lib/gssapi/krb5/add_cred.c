@@ -112,8 +112,6 @@ OM_uint32 GSSAPI_CALLCONV _gsskrb5_add_cred (
 	handle->ccache = NULL;
 	HEIMDAL_MUTEX_init(&handle->cred_id_mutex);
 
-	ret = GSS_S_FAILURE;
-
 	kret = krb5_copy_principal(context, cred->principal,
 				  &handle->principal);
 	if (kret) {

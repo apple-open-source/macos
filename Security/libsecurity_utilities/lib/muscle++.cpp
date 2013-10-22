@@ -92,7 +92,7 @@ void Connection::open(const PCSC::ReaderState &reader, unsigned share)
 	// set ATR in info
 	assert(reader.length() <= MAX_ATR_SIZE);
 	memcpy(info.tokenId, reader.data(), reader.length());
-	info.tokenIdLength = reader.length();
+	info.tokenIdLength = (MSCULong32)reader.length();
 	
 	// establish Muscle-level connection to card
 	Error::check(::MSCEstablishConnection(&info, share, NULL, 0, this));

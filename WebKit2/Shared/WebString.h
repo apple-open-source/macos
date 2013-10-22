@@ -27,7 +27,9 @@
 #define WebString_h
 
 #include "APIObject.h"
+#include <JavaScriptCore/InitializeThreading.h>
 #include <JavaScriptCore/JSStringRef.h>
+#include <JavaScriptCore/OpaqueJSString.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/text/WTFString.h>
 #include <wtf/unicode/UTF8.h>
@@ -36,10 +38,8 @@ namespace WebKit {
 
 // WebString - A string type suitable for vending to an API.
 
-class WebString : public APIObject {
+class WebString : public TypedAPIObject<APIObject::TypeString> {
 public:
-    static const Type APIType = TypeString;
-
     static PassRefPtr<WebString> createNull()
     {
         return adoptRef(new WebString());
@@ -52,7 +52,7 @@ public:
 
     static PassRefPtr<WebString> create(JSStringRef jsStringRef)
     {
-        return adoptRef(new WebString(String(JSStringGetCharactersPtr(jsStringRef), JSStringGetLength(jsStringRef))));
+        return adoptRef(new WebString(String(jsStringRef->string())));
     }
 
     static PassRefPtr<WebString> createFromUTF8String(const char* string)
@@ -93,7 +93,11 @@ public:
 
     const String& string() const { return m_string; }
 
-    JSStringRef createJSString() const { return JSStringCreateWithCharacters(m_string.characters(), m_string.length()); }
+    JSStringRef createJSString() const
+    {
+        JSC::initializeThreading();
+        return OpaqueJSString::create(m_string).leakRef();
+    }
 
 private:
     WebString()
@@ -105,8 +109,6 @@ private:
         : m_string(!string.impl() ? String(StringImpl::empty()) : string)
     {
     }
-
-    virtual Type type() const { return APIType; }
 
     String m_string;
 };

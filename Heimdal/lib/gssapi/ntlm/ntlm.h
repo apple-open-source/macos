@@ -73,7 +73,7 @@ typedef struct {
 #define NTLM_DS_UUID	4
     unsigned char ds_uuid[16];
     unsigned char uuid[16];
-} *ntlm_name;
+} ntlm_name_desc, *ntlm_name;
 
 struct ntlm_ctx;
 

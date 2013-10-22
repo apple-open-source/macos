@@ -288,6 +288,20 @@ attributetype (
         SUBSTR caseExactSubstringsMatch
         SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
 
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.38
+	NAME ( 'apple-profiles' )
+	DESC 'profile settings'
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.5 )
+
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.1.39
+	NAME ( 'apple-profiles-timestamp' )
+	DESC 'profile timestamp settings'
+	EQUALITY generalizedTimeMatch
+	ORDERING generalizedTimeOrderingMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 SINGLE-VALUE )
+
 # Alternative to using homeDirectory from RFC 2307.
 #attributetype (
 #        1.3.6.1.4.1.63.1000.1.1.1.1.100
@@ -914,6 +928,18 @@ attributetype (
 	SYNTAX '1.3.6.1.4.1.1466.115.121.1.27'
 	SINGLE-VALUE )
 
+attributetype (	1.3.6.1.1.1.1.104
+	NAME 'apple-enabled-auth-mech'
+	DESC 'Enabled auth mechs'
+	EQUALITY caseIgnoreMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+
+attributetype (	1.3.6.1.1.1.1.105
+	NAME 'apple-disabled-auth-mech'
+	DESC 'Disabled auth mechs'
+	EQUALITY caseIgnoreMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+
 #
 # Configuration object 1.3.6.1.4.1.63.1000.1.1.2.12
 #
@@ -927,7 +953,7 @@ objectclass (
 		apple-password-server-list $ apple-ldap-replica $
 		apple-ldap-writable-replica $ apple-keyword $
 		apple-kdc-authkey $ apple-kdc-configdata $ apple-xmlplist $ ttl $
-		apple-last-serverid ) )
+		apple-last-serverid $ apple-enabled-auth-mech ) )
 
 #
 # Preset computer list object class.
@@ -973,6 +999,7 @@ objectclass (
 		  apple-mcxflags $
 	      apple-mcxsettings $
 		  apple-group-nestedgroup $
+		  apple-group-memberguid $
 		  description $
 	      jpegPhoto $
 	      apple-keyword ) )
@@ -1025,6 +1052,7 @@ objectclass (
 	MUST ( cn )
 	MAY ( uid $
 	      memberUid $
+	      apple-group-memberguid $
 	      gidNumber $
 	      homeDirectory $
 	      apple-user-homeurl $
@@ -1498,6 +1526,13 @@ attributetype ( 1.3.6.1.1.1.1.56
   SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
   SINGLE-VALUE )
 
+# Time of newPasswordRequired being set.
+attributetype ( 1.3.6.1.1.1.1.57
+  NAME 'passwordRequiredDate'
+  EQUALITY generalizedTimeMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.24'
+  SINGLE-VALUE )
+
 # Krb schema 
 attributetype ( 1.3.6.1.1.1.1.86
   NAME 'draft-krbPrincipalName'
@@ -1597,7 +1632,7 @@ objectclass (
 		 draft-krbPrincipalName $ draft-krbRealmName $ draft-krbPrincipalAliases $
 		 draft-krbTicketMaxLife $ draft-krbTicketMaxRenewal $ draft-krbEncSaltTypes $
 		 draft-krbKeySet $ draft-krbKeyVersion $ draft-krbPrincipalRealm $ draft-krbTicketPolicy $ 
-         draft-krbExtraData $ draft-krbPrincipalACL $ crschallenge $ userLinkage $
+		 draft-krbExtraData $ draft-krbPrincipalACL $ crschallenge $ userLinkage $
 		 cmusaslsecretDIGEST-UMD5 $ ownerGUIDList ) )
 
 # Multi valued attribute to store the names of auth methods considered "weak"
@@ -1613,7 +1648,7 @@ objectclass (
   NAME 'pwPolicy'
   STRUCTURAL
   MUST ( cn )
-  MAY ( apple-user-passwordpolicy $ weakAuthMethod ) )
+  MAY ( apple-user-passwordpolicy $ weakAuthMethod $ passwordRequiredDate) )
 
 # PWS' private key.  Stored in authdata container for security.
 attributetype ( 1.3.6.1.1.1.1.77
@@ -1714,14 +1749,3 @@ objectclass (
               apple-xmlplist $ apple-revocationReason $ apple-revocationDate $
               apple-validNotBefore $ apple-validNotAfter ) )
 
-attributetype (	1.3.6.1.1.1.1.104
-	NAME 'apple-enabled-auth-mech'
-	DESC 'Enabled auth mechs'
-	EQUALITY caseIgnoreMatch
-	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
-
-attributetype (	1.3.6.1.1.1.1.105
-	NAME 'apple-disabled-auth-mech'
-	DESC 'Disabled auth mechs'
-	EQUALITY caseIgnoreMatch
-	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )

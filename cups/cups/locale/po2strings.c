@@ -1,5 +1,5 @@
 /*
- * "$Id: po2strings.c 9048 2010-03-24 08:07:15Z mike $"
+ * "$Id: po2strings.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Convert a GNU gettext .po file to an Apple .strings file.
  *
@@ -213,10 +213,12 @@ main(int  argc,				/* I - Number of command-line args */
 	* Append to current string...
 	*/
 
+        size_t ptrlen = strlen(ptr);	/* Length of string */
+
 	length = (int)strlen(msgstr ? msgstr : msgid);
 
 	if ((temp = realloc(msgstr ? msgstr : msgid,
-			    length + strlen(ptr) + 1)) == NULL)
+			    length + ptrlen + 1)) == NULL)
 	{
 	  free(msgid);
 	  if (msgstr)
@@ -235,7 +237,7 @@ main(int  argc,				/* I - Number of command-line args */
 
 	  msgstr = temp;
 
-	  strcpy(msgstr + length, ptr);
+	  memcpy(msgstr + length, ptr, ptrlen + 1);
 	}
 	else
 	{
@@ -247,7 +249,7 @@ main(int  argc,				/* I - Number of command-line args */
 
 	  msgid = temp;
 
-	  strcpy(msgid + length, ptr);
+	  memcpy(msgid + length, ptr, ptrlen + 1);
 	}
       }
       else if (!strncmp(s, "msgstr", 6) && msgid)
@@ -290,5 +292,5 @@ main(int  argc,				/* I - Number of command-line args */
 
 
 /*
- * End of "$Id: po2strings.c 9048 2010-03-24 08:07:15Z mike $".
+ * End of "$Id: po2strings.c 11093 2013-07-03 20:48:42Z msweet $".
  */

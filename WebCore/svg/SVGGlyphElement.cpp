@@ -53,21 +53,21 @@ void SVGGlyphElement::invalidateGlyphCache()
     }
 }
 
-void SVGGlyphElement::parseAttribute(Attribute* attr)
+void SVGGlyphElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attr->name() == SVGNames::dAttr)
+    if (name == SVGNames::dAttr)
         invalidateGlyphCache();
     else
-        SVGStyledElement::parseAttribute(attr);
+        SVGStyledElement::parseAttribute(name, value);
 }
 
-Node::InsertionNotificationRequest SVGGlyphElement::insertedInto(Node* rootParent)
+Node::InsertionNotificationRequest SVGGlyphElement::insertedInto(ContainerNode* rootParent)
 {
     invalidateGlyphCache();
     return SVGStyledElement::insertedInto(rootParent);
 }
 
-void SVGGlyphElement::removedFrom(Node* rootParent)
+void SVGGlyphElement::removedFrom(ContainerNode* rootParent)
 {
     if (rootParent->inDocument())
         invalidateGlyphCache();

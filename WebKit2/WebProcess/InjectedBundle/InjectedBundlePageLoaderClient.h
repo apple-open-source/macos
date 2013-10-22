@@ -30,14 +30,18 @@
 #include "SameDocumentNavigationType.h"
 #include "WKBundlePage.h"
 #include <JavaScriptCore/JSBase.h>
+#include <WebCore/LayoutMilestones.h>
 #include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 class DOMWindowExtension;
 class DOMWrapperWorld;
+class KURL;
 class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
+class SharedBuffer;
 }
 
 namespace WebKit {
@@ -49,6 +53,9 @@ class WebFrame;
 
 class InjectedBundlePageLoaderClient : public APIClient<WKBundlePageLoaderClient, kWKBundlePageLoaderClientCurrentVersion> {
 public:
+    void willLoadURLRequest(WebPage*, const WebCore::ResourceRequest&, APIObject*);
+    void willLoadDataRequest(WebPage*, const WebCore::ResourceRequest&, const WebCore::SharedBuffer*, const String&, const String&, const WebCore::KURL&, APIObject*);
+
     bool shouldGoToBackForwardListItem(WebPage*, InjectedBundleBackForwardListItem*, RefPtr<APIObject>& userData);
     void didStartProvisionalLoadForFrame(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
     void didReceiveServerRedirectForProvisionalLoadForFrame(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
@@ -56,6 +63,7 @@ public:
     void didCommitLoadForFrame(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
     void didFinishDocumentLoadForFrame(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
     void didFinishLoadForFrame(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
+    void didFinishProgress(WebPage*);
     void didFailLoadWithErrorForFrame(WebPage*, WebFrame*, const WebCore::ResourceError&, RefPtr<APIObject>& userData);
     void didSameDocumentNavigationForFrame(WebPage*, WebFrame*, SameDocumentNavigationType, RefPtr<APIObject>& userData);
     void didReceiveTitleForFrame(WebPage*, const String&, WebFrame*, RefPtr<APIObject>& userData);
@@ -68,6 +76,7 @@ public:
     void didFirstVisuallyNonEmptyLayoutForFrame(WebPage*, WebFrame*, RefPtr<APIObject>& userData);
     void didLayoutForFrame(WebPage*, WebFrame*);
     void didNewFirstVisuallyNonEmptyLayout(WebPage*, WTF::RefPtr<APIObject>& userData);
+    void didLayout(WebPage*, WebCore::LayoutMilestones, RefPtr<APIObject>& userData);
 
     void didClearWindowObjectForFrame(WebPage*, WebFrame*, WebCore::DOMWrapperWorld*);
     void didCancelClientRedirectForFrame(WebPage*, WebFrame*);
@@ -80,6 +89,8 @@ public:
     void willDestroyGlobalObjectForDOMWindowExtension(WebPage*, WebCore::DOMWindowExtension*);
 
     bool shouldForceUniversalAccessFromLocalURL(WebPage*, const String& url);
+
+    void featuresUsedInPage(WebPage*, const Vector<String>&);
 };
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2008, 2009, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,8 +52,7 @@
 #define EXPECT_FALSE(x)		__builtin_expect((x), 0)
 #define EXPECT_TRUE(x)		__builtin_expect((x), 1)
 #define PLISTPATHLEN		(sizeof(plistpath) - 1)
-#define PREFER3CPULEN		(sizeof(prefer32cpu) / sizeof(cpu_type_t))
-#define USRBINLEN		(sizeof(usrbin) - 1)
+#define PREFER32CPULEN		(sizeof(prefer32cpu) / sizeof(cpu_type_t))
 
 struct data {
     int prefer32bit;
@@ -66,11 +65,10 @@ static int debug = 0;
 static const char plistpath[] = "/Preferences/com.apple.versioner." PROJECT ".plist";
 static cpu_type_t prefer32cpu[] = {
     CPU_TYPE_I386,
-    CPU_TYPE_POWERPC,
     CPU_TYPE_X86_64,
-    CPU_TYPE_POWERPC64
 };
-static const char usrbin[] = "/usr/bin/";
+static char prefix[PATH_MAX];
+static size_t prefixlen;
 
 static inline int	boolean_check(const char *str);
 static char *		cfstrdup(CFStringRef str);
@@ -216,7 +214,7 @@ versionargs(int argc, char **argv, const char *version)
     size_t vlen = strlen(version);
 
     for(argc--, argv++; argc > 0; argc--, argv++) {
-	if (strncmp(*argv, usrbin, USRBINLEN) != 0) continue;
+	if (strncmp(*argv, prefix, prefixlen) != 0) continue;
 	if ((len = strlen(*argv)) + vlen >= sizeof(buf)) continue;
 	strcpy(buf, *argv);
 	strcat(buf, version);
@@ -279,7 +277,7 @@ main(int argc, char **argv)
 		struct passwd *pw = getpwuid(getuid());
 		size_t dlen;
 
-		if (EXPECT_FALSE(pw == NULL)) errx(1, "no user %d", (int)getuid());
+		if (EXPECT_FALSE(pw == NULL)) continue; // rdar://problem/12181006
 		dlen = strlen(pw->pw_dir);
 		if (EXPECT_FALSE(dlen + len - 1 >= sizeof(path))) errx(1, "%s: too long", pw->pw_dir);
 		memmove(path + dlen, path + 1, len); // includes terminating nil
@@ -351,8 +349,14 @@ main(int argc, char **argv)
     }
     if (EXPECT_FALSE(realpath(path0, path) == NULL))
 	errx(1, "realpath couldn't resolve \"%s\"", path0);
-    if (strncmp(path, usrbin, USRBINLEN) == 0
-	&& searchshortcuts(path + USRBINLEN, data.version, path)) appendvers = 0;
+    {
+	char *p = strrchr(path, '/');
+	if (EXPECT_FALSE(p == NULL)) errx(1, "no slashes in %s", path);
+	prefixlen = ++p - path;
+	strncpy(prefix, path, prefixlen);
+	prefix[prefixlen] = 0;
+    }
+    if (searchshortcuts(path + prefixlen, data.version, path)) appendvers = 0;
     if (appendvers) {
 	if (EXPECT_FALSE(strlen(path) + vlen >= sizeof(path))) errx(1, "%s: Can't append \"%s\"", path, data.version);
 	strcat(path, data.version);
@@ -365,8 +369,8 @@ main(int argc, char **argv)
     if (EXPECT_FALSE((ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC)) != 0)) errc(1, ret, "posix_spawnattr_setflags");
     if (data.prefer32bit) {
 	size_t copied;
-	if (EXPECT_FALSE((ret = posix_spawnattr_setbinpref_np(&attr, PREFER3CPULEN, prefer32cpu, &copied)) != 0)) errc(1, ret, "posix_spawnattr_setbinpref_np");
-	if (EXPECT_FALSE(copied != PREFER3CPULEN)) errx(1, "posix_spawnattr_setbinpref_np only copied %d of %d", (int)copied, PREFER3CPULEN);
+	if (EXPECT_FALSE((ret = posix_spawnattr_setbinpref_np(&attr, PREFER32CPULEN, prefer32cpu, &copied)) != 0)) errc(1, ret, "posix_spawnattr_setbinpref_np");
+	if (EXPECT_FALSE(copied != PREFER32CPULEN)) errx(1, "posix_spawnattr_setbinpref_np only copied %d of %lu", (int)copied, PREFER32CPULEN);
     }
     ret = posix_spawn(&pid, path, NULL, &attr, argv, environ);
     errc(1, ret, "posix_spawn: %s", path);

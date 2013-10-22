@@ -1,7 +1,7 @@
 .\"
-.\" Copyright (c) 2002-2006 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2002-2012 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd April 1, 2006
+.Dd November 9, 2012
 .Dt PMSET 1
 .Os Darwin
 .Sh NAME
@@ -32,7 +32,7 @@ repeat type weekdays time
 .Nm
 relative wake seconds
 .Nm
-.Op touch | sleepnow | noidle | lock | boot
+.Op touch | sleepnow | displaysleepnow  | lock | boot
 .\.Nm
 .\.Op Fl a b c u
 .\.Op dim
@@ -45,9 +45,20 @@ relative wake seconds
 .Sh DESCRIPTION
 .Nm
 manages power management settings such as idle sleep timing, wake on administrative access, automatic restart on power loss, etc.
+.Pp
+Note that processes may dynamically override these power management settings by using
+I/O Kit power assertions.
+Whenever processes override any system power settings,
+.Nm
+will list those processes and their power assertions in
+.Fl g
+and
+.Fl g 
+assertions. See 
+.Xr caffeinate 8 .
 .Sh SETTING
 .Nm
-can modify the values of any of the power management settings defined below. You may specify one or moe setting & value pairs on the command-line invocation of pmset.
+can modify the values of any of the power management settings defined below. You may specify one or more setting & value pairs on the command-line invocation of pmset.
 The
 .Fl a,
 .Fl b,
@@ -92,9 +103,6 @@ must be run as root in order to modify any settings.
 .Ar autorestart
 - automatic restart on power loss (value = 0/1)
 .br
-.Ar powerbutton
-- sleep the machine when power button is pressed (value = 0/1)
-.br
 .Ar lidwake
 - wake the machine when the laptop lid (or clamshell) is opened (value = 0/1)
 .br
@@ -124,6 +132,12 @@ must be run as root in order to modify any settings.
 .br
 .Ar destroyfvkeyonstandby
 - Destroy File Vault Key when going to standby mode. By default File vault keys are retained even when system goes to standby. If the keys are destroyed, user will be prompted to enter the password while coming out of standby mode.(value: 1 - Destroy, 0 - Retain)
+.br
+.Ar autopoweroff
+- Where supported, enabled per default as an implementation of Lot 6 to the European Energy-related Products Directive. After sleeping for <autopoweroffdelay> minutes, the system will write a hibernation image and go into a lower power chipset sleep. Wakeups from this state will take longer than wakeups from regular sleep. The system will not auto power off if any external devices are connected, if the system is on battery power, or if the system is bound to a network and wake for network access is enabled.
+.br
+.Ar autopoweroffdelay
+- delay before entering autopoweroff mode. (Value = integer, in minutes)
 .Sh GETTING
 .Fl g
 (with no argument) will display the settings currently in use.
@@ -163,6 +177,10 @@ displays an ongoing log of power source (battery and UPS) state.
 displays an ongoing log of battery state as read directly from battery.
 .br
 .Fl g
+.Ar therm
+shows thermal conditions that affect CPU speed. Not available on all platforms.
+.br
+.Fl g
 .Ar thermlog
 shows a log of thermal notifications that affect CPU speed. Not available on all platforms.
 .br
@@ -173,14 +191,6 @@ displays a summary of power assertions. Assertions may prevent system sleep or d
 .Fl g
 .Ar assertionslog
 shows a log of assertion creations and releases. Available 10.6 and later.
-.br
-.Fl g
-.Ar activity
-displays a summary of power state of Display wrangler and Disk Queue Manager. Available 10.6 and later.
-.br
-.Fl g
-.Ar activitylog
-shows a log of power state changes to Display Wrangler and Disk Queue Manager. Available 10.6 and later.
 .br
 .Fl g
 .Ar sysload
@@ -216,6 +226,24 @@ is a debugging tool. Prints a timeline of system sleeplwake UUIDs, when enabled 
 .Fl g
 .Ar historydetailed
 Prints driver-level timings for a sleep/wake. Pass a UUID as an argument.
+.br
+.Fl g
+.Ar powerstate
+[class names]
+Prints the current power states for I/O Kit drivers. Caller may provide one or more I/O Kit class names (separated by spaces) as an argument. If no classes are provided, it will print all drivers' power states.
+.br
+.Fl g
+.Ar powerstatelog
+[-i interval] [class names]
+Periodically prints the power state residency times for some drivers. Caller may provide one or more I/O Kit class names (separated by spaces). If no classes are provided, it will log the IOPower plane's root registry entry. Caller may specify a polling interval, in seconds with -i <polling interval>; otherwise it defaults to 5 seconds.
+.br
+.Fl g
+.Ar stats
+Prints the counts for number sleeps and wakes system has gone thru since boot.
+.br
+.Fl g
+.Ar systemstate
+Prints the current power state of the system and available capabilites.
 .br
 .Fl g
 .Ar everything
@@ -312,17 +340,6 @@ but this event cannot be cancelled and is inherently imprecise.
 .Sh POWER SOURCE ARGUMENTS
 .Fl g 
 with a 'batt' or 'ps' argument will show the state of all attached power sources.
-A health estimate for the battery is appended to the end of the line, in the form
-(Fair/Good), indicating the battery is in 'Fair' health and we have 'Good' confidence
-in that estimate.
-.Pp
-Certain Apple battery calibration tools may temporarily disable battery charging, 
-even though your Apple portable is plugged into AC power. Such tools will never
-surprise you with this behavior; you will know it's happening. This state will be 
-reflected in an additional line of output to 'batt' or 'ps' readings, including the pid of the app inducing
-this behavior. 
-.Pp
-    'ChargeInhibit':    1432
 .Pp
 .Fl g 
 with a 'pslog' or 'rawlog' argument is normally used for debugging, such as isolating
@@ -338,10 +355,15 @@ a problem with an aging battery.
 - PM re-reads existing settings from disk.
 .br
 .Ar noidle
-- pmset prevents idle sleep my creating a PM assertion to prevent idle sleep(while running; hit ctrl-c to cancel).
+- pmset prevents idle sleep my creating a PM assertion to prevent idle sleep(while running; hit ctrl-c to cancel). This argument is deprecated in favor of 
+.Xr caffeinate 8 . Please use 
+.Xr caffeinate 8 instead.
 .br
 .Ar sleepnow
 - causes an immediate system sleep
+.br
+.Ar displaysleepnow
+- causes display to go to sleep immediately
 .br
 .Ar resetdisplayambientparams
 - resets the ambient light parameters for certain Apple displays.
@@ -391,10 +413,10 @@ perform an emergency shutdown after 2 minutes of running on UPS battery power.
 .Fl u
 haltafter 2
 .Pp
-Schedules the system to automatically wake from sleep on July 4, 2009, at 8PM.
+Schedules the system to automatically wake from sleep on July 4, 20016, at 8PM.
 .Pp
 .Nm
-schedule wake "07/04/09 20:00:00"
+schedule wake "07/04/16 20:00:00"
 .Pp
 Schedules a repeating shutdown to occur each day, Tuesday through Saturday, at 11AM.
 .Pp
@@ -424,7 +446,9 @@ computer, you'll be able to detect sudden discontinuities (like a jump from 30% 
 .Fl g
 pslog
 .Pp
-.Sh Files
+.Sh SEE ALSO
+.Xr caffeinate 8 
+.Sh FILES
 All changes made through
 .Nm
 are saved in a persistent preferences file (per-system, not per-user) at

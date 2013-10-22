@@ -1,6 +1,5 @@
 -*- rd -*-
-$Author: shyouhei $
-$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+$Author: nobu $
 
 =begin
 
@@ -14,6 +13,6 @@ This library is based on MoonWolf version written in Ruby.  Thanks a lot.
 * not implemented: (({fcntl})), (({reopen})).
 * (({fileno})) returns nil.
 * (({pos=})) returns new position, not 0.
-* (({ungetc})) does nothing at start of the string. 
+* (({ungetc})) does nothing at start of the string.
 
 =end

@@ -1,0 +1,14 @@
+lib/Sub/Identify.pm
+Identify.xs
+ppport.h
+t/01basic.t
+t/02errors.t
+t/10pureperl-basic.t
+t/pod.t
+t/20attributes.t
+t/21attributes-pureperl.t
+Makefile.PL
+MANIFEST
+MANIFEST.SKIP
+Changes
+META.yml                                 Module meta-data (added by MakeMaker)

@@ -313,8 +313,9 @@ pindex(NO_HASH_LIST_ALL)
 pindex(HASHLISTALL)
 pindex(NOHASHLISTALL)
 item(tt(HASH_LIST_ALL) <D>)(
-Whenever a command completion is attempted, make sure the entire
-command path is hashed first.  This makes the first completion slower.
+Whenever a command completion or spelling correction is attempted, make
+sure the entire command path is hashed first.  This makes the first
+completion slower but avoids false reports of spelling errors.
 )
 pindex(LIST_AMBIGUOUS)
 pindex(NO_LIST_AMBIGUOUS)
@@ -548,7 +549,32 @@ cindex(disabling brace expansion)
 cindex(brace expansion, disabling)
 cindex(expansion, brace, disabling)
 item(tt(IGNORE_BRACES) (tt(-I)) <S>)(
-Do not perform brace expansion.
+Do not perform brace expansion.  For historical reasons this
+also includes the effect of the tt(IGNORE_CLOSE_BRACES) option.
+)
+pindex(IGNORE_CLOSE_BRACES)
+pindex(NO_IGNORE_CLOSE_BRACES)
+pindex(IGNORECLOSEBRACES)
+pindex(NOIGNORECLOSEBRACES)
+item(tt(IGNORE_CLOSE_BRACES))(
+When neither this option nor tt(IGNORE_BRACES) is set, a sole
+close brace character `tt(})' is syntactically significant at any
+point on a command line.  This has the effect that no semicolon
+or newline is necessary before the brace terminating a function
+or current shell construct.  When either option is set, a closing brace
+is syntactically significant only in command position.  Unlike
+tt(IGNORE_BRACES), this option does not disable brace expansion.
+
+For example, with both options unset a function may be defined
+in the following fashion:
+
+example(args+LPAR()RPAR() { echo $# })
+
+while if either option is set, this does not work and something
+equivalent to the following is required:
+
+example(args+LPAR()RPAR() { echo $#; })
+
 )
 pindex(KSH_GLOB)
 pindex(NO_KSH_GLOB)
@@ -683,8 +709,12 @@ item(tt(SH_GLOB) <K> <S>)(
 Disables the special meaning of `tt(LPAR())', `tt(|)', `tt(RPAR())'
 and 'tt(<)' for globbing the result of parameter and command substitutions,
 and in some other places where
-the shell accepts patterns.  This option is set by default if zsh is
-invoked as tt(sh) or tt(ksh).
+the shell accepts patterns.  If tt(SH_GLOB) is set but tt(KSH_GLOB) is
+not, the shell allows the interpretation of
+subshell expressions enclosed in parentheses in some cases where there
+is no space before the opening parenthesis, e.g. tt(!LPAR()true+RPAR())
+is interpreted as if there were a space after the tt(!).  This option is
+set by default if zsh is invoked as tt(sh) or tt(ksh).
 )
 pindex(UNSET)
 pindex(NO_UNSET)
@@ -1125,6 +1155,20 @@ item(tt(HASH_DIRS) <D>)(
 Whenever a command name is hashed, hash the directory containing it,
 as well as all directories that occur earlier in the path.
 Has no effect if neither tt(HASH_CMDS) nor tt(CORRECT) is set.
+)
+pindex(HASH_EXECUTABLES_ONLY)
+pindex(NO_HASH_EXECUTABLES_ONLY)
+pindex(HASHEXECUTABLESONLY)
+pindex(NOHASHEXECUTABLESONLY)
+cindex(hashing, of executables)
+cindex(executables, hashing)
+item(tt(HASH_EXECUTABLES_ONLY))(
+When hashing commands because of tt(HASH_COMMANDS), check that the
+file to be hashed is actually an executable.  This option
+is unset by default as if the path contains a large number of commands,
+or consists of many remote files, the additional tests can take
+a long time.  Trial and error is needed to show if this option is
+beneficial.
 )
 pindex(MAIL_WARNING)
 pindex(NO_MAIL_WARNING)
@@ -1689,6 +1733,22 @@ Make the tt(echo) builtin compatible with the BSD manref(echo)(1) command.
 This disables backslashed escape sequences in echo strings unless the
 tt(-e) option is specified.
 )
+pindex(CONTINUE_ON_ERROR)
+pindex(NO_CONTINUE_ON_ERROR)
+pindex(CONTINUEONERROR)
+pindex(NOCONTINUEONERROR)
+cindex(error, option to continue script on)
+item(tt(CONTINUE_ON_ERROR))(
+If a fatal error is encountered (see 
+ifnzman(noderef(Errors))\
+ifzman(the section ERRORS in zmanref(zshmisc))), and the code is running
+in a script, the shell will resume execution at the next statement
+in the script at the top level, in other words outside all functions
+or shell constructs such as loops and conditions.  This mimics the
+behaviour of interactive shells, where the shell returns to the
+line editor to read a new command; it was the normal behaviour in versions
+of zsh before 5.0.1.
+)
 pindex(CSH_JUNKIE_HISTORY)
 pindex(NO_CSH_JUNKIE_HISTORY)
 pindex(CSHJUNKIEHISTORY)
@@ -1866,6 +1926,10 @@ tt(source),
 tt(times),
 tt(trap) and
 tt(unset).
+
+In addition, various error conditions associated with the above builtins
+or tt(exec) cause a non-interactive shell to exit and an interactive
+shell to return to its top-level processing.
 )
 pindex(POSIX_IDENTIFIERS)
 pindex(NO_POSIX_IDENTIFIERS)
@@ -2016,7 +2080,7 @@ pindex(NO_LOGIN)
 pindex(NOLOGIN)
 item(tt(LOGIN) (tt(-l), ksh: tt(-l)))(
 This is a login shell.
-If this option is not explicitly set, the shell is a login shell if
+If this option is not explicitly set, the shell becomes a login shell if
 the first character of the tt(argv[0]) passed to the shell is a `tt(-)'.
 )
 pindex(PRIVILEGED)

@@ -562,7 +562,7 @@ void DSAKeyPairGenContext::generate(
 	if(paramData != NULL) {
 		/* this contains the DER encoding of a NSS_DSAAlgParams */
 		CSSM_RETURN crtn = DSADecodeAlgParams(algParams, paramData->Data,
-			paramData->Length, coder);
+			(unsigned)paramData->Length, coder);
 		if(crtn) {
 			CssmError::throwMe(crtn);
 		}
@@ -623,7 +623,7 @@ void DSAKeyPairGenContext::generate(
 	CssmData *seedData = context.get<CssmData>(CSSM_ATTRIBUTE_SEED);
 	if(seedData) {
 		seed = seedData->data();
-		seedLen = seedData->length();
+		seedLen = (unsigned)seedData->length();
 	}
 
 	/* generate the params, temp alloc from SecNssCoder  */

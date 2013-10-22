@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2002-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -182,7 +182,7 @@ struct denode {
 #define	DE_CREATE	0x0008	/* Creation time update */
 #define	DE_ACCESS	0x0010	/* Access time update */
 #define	DE_MODIFIED	0x0020	/* Denode (directory entry) has been modified */
-/*#define	DE_RENAME	0x0040	Denode is in the process of being renamed */
+#define DE_ATTR_MOD	0x0040	/* de_Attributes field has been modified */
 #define DE_INIT		0x0080	/* Denode is in the process of being initialized */
 #define DE_WAITINIT	0x0100	/* Someone is sleeping (on denode) waiting for initialization to finish */
 
@@ -250,11 +250,14 @@ extern int (**msdosfs_vnodeop_p)(void *);
 
 int msdosfs_vnop_lookup(struct vnop_lookup_args *ap);
 int msdosfs_lookup_name(
-	struct denode *dep,		/* parent directory */
-	struct componentname *cnp,	/* the name to look up */
-	uint32_t *dirclust,		/* cluster containing short name entry */
-	uint32_t *diroffset,		/* byte offset from start of directory */
-	struct dosdirentry *direntry,	/* copy of found directory entry */
+	struct denode *dep,					/* parent directory */
+	struct componentname *cnp,			/* the name to look up */
+	uint32_t *dirclust,					/* cluster containing short name entry */
+	uint32_t *diroffset,				/* byte offset from start of directory */
+	struct dosdirentry *direntry,		/* copy of found directory entry */
+	u_int16_t *found_name,
+	u_int16_t *found_name_length,
+	boolean_t *case_folded,
 	vfs_context_t context);
 int msdosfs_vnop_inactive(struct vnop_inactive_args *ap);
 int msdosfs_vnop_reclaim(struct vnop_reclaim_args *ap);

@@ -8,8 +8,8 @@
 /lc, cmd, old_data = self\.commands\[idx]/a
         old_len = len(old_data)
 .
-/data = data + (B('/a
+/data = data + (b'/a
         if old_len > len(data):
-            data = data + (B('\x00') * (old_len - len(data)))
+            data = data + (b'\x00' * (old_len - len(data)))
 .
 w

@@ -59,8 +59,8 @@ g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/Sys
 #include <sys/kdebug.h>
 #endif /*KERNEL_PRIVATE*/
 
-#include <IOKit/sbp2/IOFireWireSerialBusProtocolTransportTimestamps.h>
-#include <IOKit/sbp2/IOFireWireSerialBusProtocolTransportDebugging.h>
+#include "../IOFireWireSerialBusProtocolTransportTimestamps.h"
+#include "../IOFireWireSerialBusProtocolTransportDebugging.h"
 
 #define DEBUG 			0
 

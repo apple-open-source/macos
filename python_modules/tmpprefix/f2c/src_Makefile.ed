@@ -1,0 +1,6 @@
+/^CFLAGS =/s/-O/$(RC_CFLAGS) -Os/
+a
+LDFLAGS = $(RC_CFLAGS)
+.
+/^all:/s/ xsum.out//
+w

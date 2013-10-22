@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2000-2012 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2000-2013 Apple Inc. All Rights Reserved.
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
  * You may not use this file except in compliance with the License. Please obtain
  * a copy of the License at http://www.apple.com/publicsource and read it before
  * using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
  * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
@@ -32,15 +32,17 @@
 #include <Security/oidscert.h>
 #include <Security/certextensions.h>
 #include <Security/cssmapple.h>
+#include <Security/SecCertificate.h>
+#include <Security/SecCertificatePriv.h>
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
 #include <CoreFoundation/CFString.h>
+#include <CommonCrypto/CommonDigest.h>
 
-
-/* 
+/*
  * Our private per-extension info. One of these per (understood) extension per
- * cert. 
+ * cert.
  */
 typedef struct {
 	CSSM_BOOL		present;
@@ -70,19 +72,25 @@ typedef struct {
 	iSignExtenInfo		inhibitAnyPolicy;
 	iSignExtenInfo		certificatePolicies;
 
+	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_PASSBOOK_SIGNING */
+	CSSM_BOOL			foundPassbookSigning;
+	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE */
+	CSSM_BOOL			foundAppleSysInt2Marker;
+	/* flag indicating presence of CSSMOID_APPLE_EXTENSION_ESCROW_SERVICE */
+	CSSM_BOOL			foundEscrowServiceMarker;
 	/* flag indicating presence of a critical extension we don't understand */
 	CSSM_BOOL			foundUnknownCritical;
 	/* flag indicating that this certificate was signed with a known-broken algorithm */
 	CSSM_BOOL			untrustedSigAlg;
-	
+
 } iSignCertInfo;
- 
-/* 
- * The list of Qualified Cert Statement statementIds we understand, even though 
- * we don't actually do anything with them; if these are found in a Qualified 
+
+/*
+ * The list of Qualified Cert Statement statementIds we understand, even though
+ * we don't actually do anything with them; if these are found in a Qualified
  * Cert Statement that's critical, we can truthfully say "yes we understand this".
  */
-static const CSSM_OID_PTR knownQualifiedCertStatements[] = 
+static const CSSM_OID_PTR knownQualifiedCertStatements[] =
 {
 	(const CSSM_OID_PTR)&CSSMOID_OID_QCS_SYNTAX_V1,
 	(const CSSM_OID_PTR)&CSSMOID_OID_QCS_SYNTAX_V2,
@@ -93,10 +101,25 @@ static const CSSM_OID_PTR knownQualifiedCertStatements[] =
 };
 #define NUM_KNOWN_QUAL_CERT_STATEMENTS (sizeof(knownQualifiedCertStatements) / sizeof(CSSM_OID_PTR))
 
-static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(TPCertGroup &certGroup, 
+static CSSM_RETURN tp_verifyMacAppStoreReceiptOpts(TPCertGroup &certGroup,
 	const CSSM_DATA *fieldOpts,	const iSignCertInfo *certInfo);
+
+static CSSM_RETURN tp_verifyPassbookSigningOpts(TPCertGroup &certGroup,
+	const CSSM_DATA *fieldOpts, const iSignCertInfo *certInfo);
+
 bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const CSSM_OID *oidToFind);
-	
+
+#define kSecPolicySHA1Size 20
+static const UInt8 kAppleCASHA1[kSecPolicySHA1Size] = {
+    0x61, 0x1E, 0x5B, 0x66, 0x2C, 0x59, 0x3A, 0x08, 0xFF, 0x58,
+    0xD1, 0x4A, 0xE2, 0x24, 0x52, 0xD1, 0x98, 0xDF, 0x6C, 0x60
+};
+
+static const UInt8 kMobileRootSHA1[kSecPolicySHA1Size] =  {
+    0xBD, 0xD6, 0x7C, 0x34, 0xD0, 0xB2, 0x68, 0x5D, 0x31, 0x82,
+    0xCD, 0x32, 0xCB, 0xF4, 0x54, 0x69, 0xA1, 0xF1, 0x6B, 0x09
+};
+
 /*
  * Certificate policy OIDs
  */
@@ -135,10 +158,10 @@ static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
 												const iSignCertInfo *certInfo);
 /*
  * Setup a single iSignExtenInfo. Called once per known extension
- * per cert. 
+ * per cert.
  */
 static CSSM_RETURN tpSetupExtension(
-	Allocator			&alloc, 
+	Allocator			&alloc,
 	CSSM_DATA 			*extnData,
 	iSignExtenInfo		*extnInfo)		// which component of certInfo
 {
@@ -158,14 +181,14 @@ static CSSM_RETURN tpSetupExtension(
  * Fetch a known extension, set up associated iSignExtenInfo if present.
  */
 static CSSM_RETURN iSignFetchExtension(
-	Allocator			&alloc, 
+	Allocator			&alloc,
 	TPCertInfo			*tpCert,
 	const CSSM_OID		*fieldOid,		// which extension to fetch
 	iSignExtenInfo		*extnInfo)		// where the info goes
 {
 	CSSM_DATA_PTR	fieldValue;			// mallocd by CL
 	CSSM_RETURN		crtn;
-	
+
 	crtn = tpCert->fetchField(fieldOid, &fieldValue);
 	switch(crtn) {
 		case CSSM_OK:
@@ -191,10 +214,10 @@ static CSSM_RETURN iSignVerifyCriticalExtension(
 {
 	if (!cssmExt || !cssmExt->extnId.Data)
 		return CSSMERR_TP_INVALID_FIELD_POINTER;
-	
+
 	if (!cssmExt->critical)
 		return CSSM_OK;
-	
+
 	/* FIXME: remove when policyConstraints NSS template is fixed */
 	if (!memcmp(cssmExt->extnId.Data, CSSMOID_PolicyConstraints.Data, CSSMOID_PolicyConstraints.Length))
 		return CSSM_OK;
@@ -203,14 +226,14 @@ static CSSM_RETURN iSignVerifyCriticalExtension(
 		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION.Data, APPLE_EXTENSION_OID_LENGTH)) {
 		/* This extension's OID is under the appleCertificateExtensions arc */
 		return CSSM_OK;
-	
+
 	}
 	return CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN;
 }
 
 /*
- * Search for all unknown extensions. If we find one which is flagged critical, 
- * flag certInfo->foundUnknownCritical. Only returns error on gross errors.  
+ * Search for all unknown extensions. If we find one which is flagged critical,
+ * flag certInfo->foundUnknownCritical. Only returns error on gross errors.
  */
 static CSSM_RETURN iSignSearchUnknownExtensions(
 	TPCertInfo			*tpCert,
@@ -220,12 +243,16 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 	CSSM_DATA_PTR 	fieldValue = NULL;
 	CSSM_HANDLE		searchHand = CSSM_INVALID_HANDLE;
 	uint32 			numFields = 0;
-	
+
+	certInfo->foundPassbookSigning = CSSM_FALSE;
+	certInfo->foundAppleSysInt2Marker = CSSM_FALSE;
+	certInfo->foundEscrowServiceMarker = CSSM_FALSE;
+
 	crtn = CSSM_CL_CertGetFirstCachedFieldValue(tpCert->clHand(),
 		tpCert->cacheHand(),
 		&CSSMOID_X509V3CertificateExtensionCStruct,
 		&searchHand,
-		&numFields, 
+		&numFields,
 		&fieldValue);
 	switch(crtn) {
 		case CSSM_OK:
@@ -237,22 +264,42 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 		default:
 			return crtn;
 	}
-	
+
 	if(fieldValue->Length != sizeof(CSSM_X509_EXTENSION)) {
 		tpPolicyError("iSignSearchUnknownExtensions: malformed CSSM_FIELD");
 		return CSSMERR_TP_UNKNOWN_FORMAT;
 	}
+
 	CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)fieldValue->Data;
+	if (cssmExt->extnId.Length == APPLE_EXTENSION_CODE_SIGNING_LENGTH+1 &&
+		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_PASSBOOK_SIGNING.Data,
+		APPLE_EXTENSION_CODE_SIGNING_LENGTH+1)) {
+		/* this is the Passbook Signing extension */
+		certInfo->foundPassbookSigning = CSSM_TRUE;
+	}
+	if (cssmExt->extnId.Length == APPLE_EXTENSION_SYSINT2_INTERMEDIATE_LENGTH &&
+		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE.Data,
+		 APPLE_EXTENSION_SYSINT2_INTERMEDIATE_LENGTH)) {
+		/* this is the Apple System Integration 2 Signing extension */
+		certInfo->foundAppleSysInt2Marker = CSSM_TRUE;
+	}
+	if (cssmExt->extnId.Length == APPLE_EXTENSION_ESCROW_SERVICE_LENGTH &&
+		!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_ESCROW_SERVICE.Data,
+		 APPLE_EXTENSION_ESCROW_SERVICE_LENGTH)) {
+		/* this is the Escrow Service Signing extension */
+		certInfo->foundEscrowServiceMarker = CSSM_TRUE;
+	}
+
 	if(iSignVerifyCriticalExtension(cssmExt) != CSSM_OK) {
 		/* BRRZAPP! Found an unknown extension marked critical */
 		certInfo->foundUnknownCritical = CSSM_TRUE;
 		goto fini;
 	}
-	CSSM_CL_FreeFieldValue(tpCert->clHand(), 
-		&CSSMOID_X509V3CertificateExtensionCStruct, 
+	CSSM_CL_FreeFieldValue(tpCert->clHand(),
+		&CSSMOID_X509V3CertificateExtensionCStruct,
 		fieldValue);
 	fieldValue = NULL;
-	
+
 	/* process remaining unknown extensions */
 	for(unsigned i=1; i<numFields; i++) {
 		crtn = CSSM_CL_CertGetNextCachedFieldValue(tpCert->clHand(),
@@ -270,22 +317,42 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 			crtn = CSSMERR_TP_UNKNOWN_FORMAT;
 			break;
 		}
+
 		CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)fieldValue->Data;
+		if (cssmExt->extnId.Length == APPLE_EXTENSION_CODE_SIGNING_LENGTH+1 &&
+				!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_PASSBOOK_SIGNING.Data,
+					APPLE_EXTENSION_CODE_SIGNING_LENGTH+1)) {
+			/* this is the Passbook Signing extension */
+			certInfo->foundPassbookSigning = CSSM_TRUE;
+		}
+		if (cssmExt->extnId.Length == APPLE_EXTENSION_SYSINT2_INTERMEDIATE_LENGTH &&
+				!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE.Data,
+					APPLE_EXTENSION_SYSINT2_INTERMEDIATE_LENGTH)) {
+			/* this is the Apple System Integration 2 Signing extension */
+			certInfo->foundAppleSysInt2Marker = CSSM_TRUE;
+		}
+		if (cssmExt->extnId.Length == APPLE_EXTENSION_ESCROW_SERVICE_LENGTH &&
+				!memcmp(cssmExt->extnId.Data, CSSMOID_APPLE_EXTENSION_ESCROW_SERVICE.Data,
+					APPLE_EXTENSION_ESCROW_SERVICE_LENGTH)) {
+			/* this is the Escrow Service Signing extension */
+			certInfo->foundEscrowServiceMarker = CSSM_TRUE;
+		}
+
 		if(iSignVerifyCriticalExtension(cssmExt) != CSSM_OK) {
 			/* BRRZAPP! Found an unknown extension marked critical */
 			certInfo->foundUnknownCritical = CSSM_TRUE;
 			break;
 		}
-		CSSM_CL_FreeFieldValue(tpCert->clHand(), 
-			&CSSMOID_X509V3CertificateExtensionCStruct, 
+		CSSM_CL_FreeFieldValue(tpCert->clHand(),
+			&CSSMOID_X509V3CertificateExtensionCStruct,
 			fieldValue);
 		fieldValue = NULL;
 	} /* for additional fields */
-				
+
 fini:
 	if(fieldValue) {
-		CSSM_CL_FreeFieldValue(tpCert->clHand(), 
-			&CSSMOID_X509V3CertificateExtensionCStruct, 
+		CSSM_CL_FreeFieldValue(tpCert->clHand(),
+			&CSSMOID_X509V3CertificateExtensionCStruct,
 			fieldValue);
 	}
 	if(searchHand != CSSM_INVALID_HANDLE) {
@@ -295,7 +362,7 @@ fini:
 }
 
 /*
- * Check the signature algorithm. If it's known to be untrusted, 
+ * Check the signature algorithm. If it's known to be untrusted,
  * flag certInfo->untrustedSigAlg.
  */
 static void iSignCheckSignatureAlgorithm(
@@ -304,11 +371,13 @@ static void iSignCheckSignatureAlgorithm(
 {
 	CSSM_X509_ALGORITHM_IDENTIFIER	*algId = NULL;
 	CSSM_DATA_PTR					valueToFree = NULL;
-	
+
 	algId = tp_CertGetAlgId(tpCert, &valueToFree);
 	if(!algId ||
-	   tpCompareCssmData(&algId->algorithm, &CSSMOID_MD2) ||
-	   tpCompareCssmData(&algId->algorithm, &CSSMOID_MD2WithRSA)) {
+		tpCompareCssmData(&algId->algorithm, &CSSMOID_MD2) ||
+		tpCompareCssmData(&algId->algorithm, &CSSMOID_MD2WithRSA) ||
+		tpCompareCssmData(&algId->algorithm, &CSSMOID_MD5) ||
+		tpCompareCssmData(&algId->algorithm, &CSSMOID_MD5WithRSA) ) {
 		certInfo->untrustedSigAlg = CSSM_TRUE;
 	} else {
 		certInfo->untrustedSigAlg = CSSM_FALSE;
@@ -320,16 +389,16 @@ static void iSignCheckSignatureAlgorithm(
 }
 
 /*
- * Given a TPCertInfo, fetch the associated iSignCertInfo fields. 
- * Returns CSSM_FAIL on error. 
+ * Given a TPCertInfo, fetch the associated iSignCertInfo fields.
+ * Returns CSSM_FAIL on error.
  */
 static CSSM_RETURN iSignGetCertInfo(
-	Allocator			&alloc, 
+	Allocator			&alloc,
 	TPCertInfo			*tpCert,
 	iSignCertInfo		*certInfo)
 {
 	CSSM_RETURN			crtn;
-	
+
 	/* first grind thru the extensions we're interested in */
 	crtn = iSignFetchExtension(alloc,
 		tpCert,
@@ -428,11 +497,11 @@ static CSSM_RETURN iSignGetCertInfo(
 		&certInfo->certificatePolicies);
 	if(crtn) {
 		return crtn;
-	}	
-	
+	}
+
 	/* check signature algorithm field */
 	iSignCheckSignatureAlgorithm(tpCert, certInfo);
-	
+
 	/* now look for extensions we don't understand - the only thing we're interested
 	 * in is the critical flag. */
 	return iSignSearchUnknownExtensions(tpCert, certInfo);
@@ -446,66 +515,68 @@ static void iSignFreeCertInfo(
 	iSignCertInfo	*certInfo)
 {
 	if(certInfo->authorityId.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_AuthorityKeyIdentifier, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_AuthorityKeyIdentifier,
 			certInfo->authorityId.valToFree);
 	}
 	if(certInfo->subjectId.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_SubjectKeyIdentifier, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_SubjectKeyIdentifier,
 			certInfo->subjectId.valToFree);
 	}
 	if(certInfo->keyUsage.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_KeyUsage, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_KeyUsage,
 			certInfo->keyUsage.valToFree);
 	}
 	if(certInfo->extendKeyUsage.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_ExtendedKeyUsage, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_ExtendedKeyUsage,
 			certInfo->extendKeyUsage.valToFree);
 	}
 	if(certInfo->basicConstraints.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_BasicConstraints, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_BasicConstraints,
 			certInfo->basicConstraints.valToFree);
 	}
 	if(certInfo->netscapeCertType.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_NetscapeCertType, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_NetscapeCertType,
 			certInfo->netscapeCertType.valToFree);
 	}
 	if(certInfo->subjectAltName.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_SubjectAltName, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_SubjectAltName,
 			certInfo->subjectAltName.valToFree);
 	}
 	if(certInfo->certPolicies.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_CertificatePolicies, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_CertificatePolicies,
 			certInfo->certPolicies.valToFree);
 	}
 //	if(certInfo->policyConstraints.present) {
-//		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_PolicyConstraints, 
+//		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_PolicyConstraints,
 //			certInfo->policyConstraints.valToFree);
 //	}
 	if(certInfo->qualCertStatements.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_QC_Statements, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_QC_Statements,
 			certInfo->qualCertStatements.valToFree);
 	}
 	if(certInfo->certificatePolicies.present) {
-		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_CertificatePolicies, 
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_CertificatePolicies,
 			certInfo->certificatePolicies.valToFree);
 	}
 }
 
-/* 
- * See if cert's Subject.{commonName,EmailAddress} matches caller-specified 
- * string. Returns CSSM_TRUE if match, else returns CSSM_FALSE. 
+/*
+ * See if cert's Subject.{commonName,EmailAddress} matches caller-specified
+ * string. Returns CSSM_TRUE if match, else returns CSSM_FALSE.
  * Also indicates whether *any* of the specified fields were found, regardless
  * of match state.
  */
 typedef enum {
 	SN_CommonName,			// CSSMOID_CommonName, host name format
-	SN_Email				// CSSMOID_EmailAddress
+	SN_Email,				// CSSMOID_EmailAddress
+	SN_UserID,				// CSSMOID_UserID
+	SN_OrgUnit				// CSSMOID_OrganizationalUnitName
 } SubjSubjNameSearchType;
 
 static CSSM_BOOL tpCompareSubjectName(
 	TPCertInfo 				&cert,
 	SubjSubjNameSearchType	searchType,
-	bool					normalizeAll,		// for SN_Email case: lower-case all of 
+	bool					normalizeAll,		// for SN_Email case: lower-case all of
 												// the cert's value, not just the portion
 												// after the '@'
 	const char 				*callerStr,			// already tpToLower'd
@@ -518,7 +589,10 @@ static CSSM_BOOL tpCompareSubjectName(
 	CSSM_RETURN 	crtn;
 	CSSM_BOOL		ourRtn = CSSM_FALSE;
 	const CSSM_OID	*oidSrch;
-	
+
+	const char x500_userid_oid[] = { 0x09,0x92,0x26,0x89,0x93,0xF2,0x2C,0x64,0x01,0x01 };
+	CSSM_OID X500_UserID_OID = { sizeof(x500_userid_oid), (uint8*)x500_userid_oid };
+
 	fieldFound = false;
 	switch(searchType) {
 		case SN_CommonName:
@@ -526,6 +600,12 @@ static CSSM_BOOL tpCompareSubjectName(
 			break;
 		case SN_Email:
 			oidSrch = &CSSMOID_EmailAddress;
+			break;
+		case SN_UserID:
+			oidSrch = &X500_UserID_OID;
+			break;
+		case SN_OrgUnit:
+			oidSrch = &CSSMOID_OrganizationalUnitName;
 			break;
 		default:
 			assert(0);
@@ -549,7 +629,7 @@ static CSSM_BOOL tpCompareSubjectName(
 	CSSM_X509_RDN_PTR    		rdnp;
 	unsigned					rdnDex;
 	unsigned					pairDex;
-	
+
 	for(rdnDex=0; rdnDex<x509name->numberOfRDNs; rdnDex++) {
 		rdnp = &x509name->RelativeDistinguishedName[rdnDex];
 		for(pairDex=0; pairDex<rdnp->numberOfPairs; pairDex++) {
@@ -557,14 +637,14 @@ static CSSM_BOOL tpCompareSubjectName(
 			if(tpCompareOids(&ptvp->type, oidSrch)) {
 				fieldFound = true;
 				certName = (char *)ptvp->value.Data;
-				certNameLen = ptvp->value.Length;
+				certNameLen = (uint32)ptvp->value.Length;
 				switch(searchType) {
-					case SN_CommonName: 
+					case SN_CommonName:
 					{
 						/* handle odd encodings that we need to convert to 8-bit */
 						CFStringBuiltInEncodings encoding;
 						CFDataRef cfd = NULL;
-						bool doConvert = false;						
+						bool doConvert = false;
 						switch(ptvp->valueType) {
 							case BER_TAG_T61_STRING:
 								/* a.k.a. Teletex */
@@ -575,9 +655,9 @@ static CSSM_BOOL tpCompareSubjectName(
 								encoding = kCFStringEncodingUnicode;
 								doConvert = true;
 								break;
-							/* 
+							/*
 							 * All others - either take as is, or let it fail due to
-							 * illegal/incomprehensible format 
+							 * illegal/incomprehensible format
 							 */
 							default:
 								break;
@@ -596,7 +676,7 @@ static CSSM_BOOL tpCompareSubjectName(
 								tpPolicyError("tpCompareSubjectName: bad str (1)");
 								break;
 							}
-							
+
 							/* CFString ==> straight ASCII */
 							cfd = CFStringCreateExternalRepresentation(NULL,
 								cfStr, kCFStringEncodingASCII, 0);
@@ -605,10 +685,10 @@ static CSSM_BOOL tpCompareSubjectName(
 								tpPolicyError("tpCompareSubjectName: bad str (2)");
 								break;
 							}
-							certNameLen = CFDataGetLength(cfd);
+							certNameLen = (uint32)CFDataGetLength(cfd);
 							certName = (char *)CFDataGetBytePtr(cfd);
 						}
-						ourRtn = tpCompareHostNames(callerStr, callerStrLen, 
+						ourRtn = tpCompareHostNames(callerStr, callerStrLen,
 							certName, certNameLen);
 						if(doConvert) {
 							assert(cfd != NULL);
@@ -619,6 +699,13 @@ static CSSM_BOOL tpCompareSubjectName(
 					case SN_Email:
 						ourRtn = tpCompareEmailAddr(callerStr, callerStrLen,
 							certName, certNameLen, normalizeAll);
+						break;
+					case SN_UserID:
+					case SN_OrgUnit:
+						/* exact match only here, for now */
+						ourRtn = ((callerStrLen == certNameLen) &&
+								!memcmp(callerStr, certName, certNameLen)) ?
+								CSSM_TRUE : CSSM_FALSE;
 						break;
 				}
 				if(ourRtn) {
@@ -637,7 +724,7 @@ static CSSM_BOOL tpCompareSubjectName(
 }
 
 /*
- * Compare ASCII form of an IP address to a CSSM_DATA containing 
+ * Compare ASCII form of an IP address to a CSSM_DATA containing
  * the IP address's numeric components. Returns true on match.
  */
 static CSSM_BOOL tpCompIpAddrStr(
@@ -648,7 +735,7 @@ static CSSM_BOOL tpCompIpAddrStr(
 	const char *cp = str;
 	const char *nextDot;
 	char buf[100];
-	
+
 	if((numeric == NULL) || (numeric->Length == 0) || (str == NULL)) {
 		return CSSM_FALSE;
 	}
@@ -675,7 +762,7 @@ static CSSM_BOOL tpCompIpAddrStr(
 		else if(dex == (numeric->Length - 1)) {
 			return CSSM_FALSE;
 		}
-		unsigned digLen = nextDot - cp;
+		ptrdiff_t digLen = nextDot - cp;
 		if(digLen >= sizeof(buf)) {
 			/* preposterous */
 			return CSSM_FALSE;
@@ -694,20 +781,20 @@ static CSSM_BOOL tpCompIpAddrStr(
 	return CSSM_TRUE;
 }
 
-/* 
- * See if cert's subjectAltName contains an element matching caller-specified 
+/*
+ * See if cert's subjectAltName contains an element matching caller-specified
  * string, hostname, in the following forms:
  *
  * SAN_HostName : dnsName, iPAddress
  * SAN_Email    : RFC822Name
  *
- * Returns CSSM_TRUE if match, else returns CSSM_FALSE. 
+ * Returns CSSM_TRUE if match, else returns CSSM_FALSE.
  *
  * Also indicates whether or not a dnsName (search type HostName) or
  * RFC822Name (search type SAM_Email) was found, regardless of result
- * of comparison. 
+ * of comparison.
  *
- * The appStr/appStrLen args are optional - if NULL/0, only the 
+ * The appStr/appStrLen args are optional - if NULL/0, only the
  * search for dnsName/RFC822Name is done.
  */
 typedef enum {
@@ -720,7 +807,7 @@ static CSSM_BOOL tpCompareSubjectAltName(
 	const char 				*appStr,			// caller has lower-cased as appropriate
 	uint32					appStrLen,
 	SubjAltNameSearchType 	searchType,
-	bool					normalizeAll,		// for SAN_Email case: lower-case all of 
+	bool					normalizeAll,		// for SAN_Email case: lower-case all of
 												// the cert's value, not just the portion
 												// after the '@'
 	bool					&dnsNameFound,		// RETURNED, SAN_HostName case
@@ -734,10 +821,10 @@ static CSSM_BOOL tpCompareSubjectAltName(
 	}
 
 	CE_GeneralNames *names = &subjAltNameInfo.extnData->subjectAltName;
-	CSSM_BOOL		ourRtn = CSSM_FALSE;	
+	CSSM_BOOL		ourRtn = CSSM_FALSE;
 	char 			*certName;
-	unsigned 		certNameLen;
-	
+	uint32                  certNameLen;
+
 	/* Search thru the CE_GeneralNames looking for the appropriate attribute */
 	for(unsigned dex=0; dex<names->numNames; dex++) {
 		CE_GeneralName *name = &names->generalName[dex];
@@ -751,7 +838,7 @@ static CSSM_BOOL tpCompareSubjectAltName(
 						}
 						ourRtn = tpCompIpAddrStr(appStr, appStrLen, &name->name);
 						break;
-						
+
 					case GNT_DNSName:
 						if(name->berEncoded) {
 							tpErrorLog("tpCompareSubjectAltName: malformed "
@@ -764,21 +851,21 @@ static CSSM_BOOL tpCompareSubjectAltName(
 								"CE_GeneralName (2)\n");
 							break;
 						}
-						certNameLen = name->name.Length;
+						certNameLen = (uint32)(name->name.Length);
 						dnsNameFound = true;
 						if(appStr != NULL) {
 							/* skip if caller passed in NULL */
-							ourRtn = tpCompareHostNames(appStr, appStrLen, 
+							ourRtn = tpCompareHostNames(appStr, appStrLen,
 								certName, certNameLen);
 						}
 						break;
-		
+
 					default:
 						/* not interested, proceed to next name */
 						break;
 				}
 				break;	/* from case HostName */
-				
+
 			case SAN_Email:
 				if(name->nameType != GNT_RFC822Name) {
 					/* not interested */
@@ -790,10 +877,10 @@ static CSSM_BOOL tpCompareSubjectAltName(
 						"GNT_RFC822Name\n");
 					break;
 				}
-				certNameLen = name->name.Length;
+				certNameLen = (uint32)(name->name.Length);
 				emailFound = true;
 				if(appStr != NULL) {
-					ourRtn = tpCompareEmailAddr(appStr, appStrLen, certName, 
+					ourRtn = tpCompareEmailAddr(appStr, appStrLen, certName,
 						certNameLen, normalizeAll);
 				}
 				break;
@@ -808,7 +895,7 @@ static CSSM_BOOL tpCompareSubjectAltName(
 
 /* is host name in the form of a.b.c.d, where a,b,c, and d are digits? */
 static CSSM_BOOL tpIsNumeric(
-	const char *hostName, 
+	const char *hostName,
 	unsigned hostNameLen)
 {
 	if(hostName[hostNameLen - 1] == '\0') {
@@ -828,7 +915,7 @@ static CSSM_BOOL tpIsNumeric(
 }
 
 /*
- * Convert a typed string represented by a CSSM_X509_TYPE_VALUE_PAIR to a 
+ * Convert a typed string represented by a CSSM_X509_TYPE_VALUE_PAIR to a
  * CFStringRef. Caller owns and must release the result. NULL return means
  * unconvertible input "string".
  */
@@ -852,7 +939,7 @@ static CFStringRef tpTvpToCfString(
 		default:
 			return NULL;
 	}
-	
+
 	/* raw data ==> CFString */
 	CFDataRef cfd = CFDataCreate(NULL, tvp->value.Data,	tvp->value.Length);
 	if(cfd == NULL) {
@@ -863,8 +950,8 @@ static CFStringRef tpTvpToCfString(
 	return cfStr;
 }
 
-/* 
- * Compare a CFString and a string represented by a CSSM_X509_TYPE_VALUE_PAIR. 
+/*
+ * Compare a CFString and a string represented by a CSSM_X509_TYPE_VALUE_PAIR.
  * Returns CSSM_TRUE if they are equal.
  */
 static bool tpCompareTvpToCfString(
@@ -889,7 +976,7 @@ static bool tpCompareTvpToCfString(
 /*
  * Given one iSignCertInfo, determine whether or not the specified
  * EKU OID, or - optionally - CSSMOID_ExtendedKeyUsageAny - is present.
- * Returns true if so, else false. 
+ * Returns true if so, else false.
  */
 static bool tpVerifyEKU(
 	const iSignCertInfo &certInfo,
@@ -901,7 +988,7 @@ static bool tpVerifyEKU(
 	}
 	CE_ExtendedKeyUsage *eku = &certInfo.extendKeyUsage.extnData->extendedKeyUsage;
 	assert(eku != NULL);
-	
+
 	for(unsigned i=0; i<eku->numPurposes; i++) {
 		const CSSM_OID *foundEku = &eku->purposes[i];
 		if(tpCompareOids(foundEku, &ekuOid)) {
@@ -942,8 +1029,8 @@ static bool tpVerifyCPE(
 	return false;
 }
 
-/* 
- * Verify iChat handle. We search for a matching (case-insensitive) string 
+/*
+ * Verify iChat handle. We search for a matching (case-insensitive) string
  * comprised of:
  *
  *   -- name component ("dmitch") from subject name's CommonName
@@ -965,13 +1052,13 @@ static bool tpCompareIChatHandleName(
 	CSSM_X509_RDN_PTR    		rdnp;
 	unsigned					rdnDex;
 	unsigned					pairDex;
-	
+
 	/* search until all of these are true */
 	CSSM_BOOL	commonNameMatch = CSSM_FALSE;		// name before '@'
 	CSSM_BOOL	orgUnitMatch = CSSM_FALSE;			// domain after '@
 	CSSM_BOOL	orgMatch = CSSM_FALSE;				// Apple Computer, Inc. (or Apple Inc.)
-	
-	/* 
+
+	/*
 	 * incoming UTF8 handle ==> two components.
 	 * First convert to CFString.
 	 */
@@ -983,14 +1070,14 @@ static bool tpCompareIChatHandleName(
 	if(cfd == NULL) {
 		return false;
 	}
-	CFStringRef handleStr = CFStringCreateFromExternalRepresentation(NULL, cfd, 
+	CFStringRef handleStr = CFStringCreateFromExternalRepresentation(NULL, cfd,
 		kCFStringEncodingUTF8);
 	CFRelease(cfd);
 	if(handleStr == NULL) {
 		tpPolicyError("tpCompareIChatHandleName: bad incoming handle (1)");
 		return false;
 	}
-	
+
 	/*
 	 * Find the '@' delimiter
 	 */
@@ -1001,9 +1088,9 @@ static bool tpCompareIChatHandleName(
 		CFRelease(handleStr);
 		return false;
 	}
-	
-	/* 
-	 * Two components, before and after delimiter 
+
+	/*
+	 * Two components, before and after delimiter
 	 */
 	CFRange r = {0, whereIsAt.location};
 	CFStringRef	iChatName = CFStringCreateWithSubstring(NULL, handleStr, r);
@@ -1022,7 +1109,7 @@ static bool tpCompareIChatHandleName(
 		return false;
 	}
 	/* subsequent errors to errOut: */
-	
+
 	/* get subject name in CSSM form, all subsequent ops work on that */
 	crtn = cert.fetchField(&CSSMOID_X509V1SubjectNameCStruct, &subjNameData);
 	if(crtn) {
@@ -1030,7 +1117,7 @@ static bool tpCompareIChatHandleName(
 		tpPolicyError("tpCompareIChatHandleName: error retrieving subject name");
 		goto errOut;
 	}
-	
+
 	x509name = (CSSM_X509_NAME_PTR)subjNameData->Data;
 	if((x509name == NULL) || (subjNameData->Length != sizeof(CSSM_X509_NAME))) {
 		tpPolicyError("tpCompareIChatHandleName: malformed CSSM_X509_NAME");
@@ -1038,31 +1125,31 @@ static bool tpCompareIChatHandleName(
 	}
 
 	/* Now grunge thru the X509 name looking for three fields */
-	
+
 	for(rdnDex=0; rdnDex<x509name->numberOfRDNs; rdnDex++) {
 		rdnp = &x509name->RelativeDistinguishedName[rdnDex];
 		for(pairDex=0; pairDex<rdnp->numberOfPairs; pairDex++) {
 			ptvp = &rdnp->AttributeTypeAndValue[pairDex];
-			if(!commonNameMatch && 
+			if(!commonNameMatch &&
 			   tpCompareOids(&ptvp->type, &CSSMOID_CommonName) &&
 			   tpCompareTvpToCfString(ptvp, iChatName, kCFCompareCaseInsensitive)) {
 					commonNameMatch = CSSM_TRUE;
 			}
-			
-			if(!orgUnitMatch && 
+
+			if(!orgUnitMatch &&
 			   tpCompareOids(&ptvp->type, &CSSMOID_OrganizationalUnitName) &&
 			   tpCompareTvpToCfString(ptvp, iChatDomain, kCFCompareCaseInsensitive)) {
 					orgUnitMatch = CSSM_TRUE;
 			}
-			
-			if(!orgMatch && 
+
+			if(!orgMatch &&
 			   tpCompareOids(&ptvp->type, &CSSMOID_OrganizationName) &&
 			   /* this one is case sensitive */
 			   (tpCompareTvpToCfString(ptvp, CFSTR("Apple Computer, Inc."), 0) ||
 			    tpCompareTvpToCfString(ptvp, CFSTR("Apple Inc."), 0))) {
 					orgMatch = CSSM_TRUE;
 			}
-			
+
 			if(commonNameMatch && orgUnitMatch && orgMatch) {
 				/* TA DA */
 				ourRtn = true;
@@ -1078,7 +1165,7 @@ errOut:
 }
 
 /*
- * Verify SSL options. Currently this just consists of matching the 
+ * Verify SSL options. Currently this just consists of matching the
  * leaf cert's subject common name against the caller's (optional)
  * server name.
  */
@@ -1093,7 +1180,7 @@ static CSSM_RETURN tp_verifySslOpts(
 	const char *serverName = NULL;
 	TPCertInfo *leaf = certGroup.certAtIndex(0);
 	assert(leaf != NULL);
-		
+
 	/* CSSM_APPLE_TP_SSL_OPTIONS is optional */
 	if((sslFieldOpts != NULL) && (sslFieldOpts->Data != NULL)) {
 		sslOpts = (CSSM_APPLE_TP_SSL_OPTIONS *)sslFieldOpts->Data;
@@ -1110,7 +1197,7 @@ static CSSM_RETURN tp_verifySslOpts(
 		hostNameLen = sslOpts->ServerNameLen;
 		serverName = sslOpts->ServerName;
 	}
-	
+
 	/* host name check is optional */
 	if(hostNameLen != 0) {
 		if(serverName == NULL) {
@@ -1121,17 +1208,17 @@ static CSSM_RETURN tp_verifySslOpts(
 		char *hostName = (char *)certGroup.alloc().malloc(hostNameLen);
 		memmove(hostName, serverName, hostNameLen);
 		tpToLower(hostName, hostNameLen);
-		
+
 		CSSM_BOOL match = CSSM_FALSE;
-		
+
 		/* First check subjectAltName... */
 		bool dnsNameFound = false;
 		bool dummy;
-		match = tpCompareSubjectAltName(leafCertInfo.subjectAltName, 
-			hostName, hostNameLen, 
+		match = tpCompareSubjectAltName(leafCertInfo.subjectAltName,
+			hostName, hostNameLen,
 			SAN_HostName, false, dnsNameFound, dummy);
-			
-		/* 
+
+		/*
 		 * Then common name, if
 		 *  -- no match from subjectAltName, AND
 		 *  -- dnsName was NOT found, AND
@@ -1142,17 +1229,17 @@ static CSSM_RETURN tp_verifySslOpts(
 			match = tpCompareSubjectName(*leaf, SN_CommonName, false, hostName, hostNameLen,
 				fieldFound);
 		}
-		certGroup.alloc().free(hostName);	
+		certGroup.alloc().free(hostName);
 		if(!match) {
 			if(leaf->addStatusCode(CSSMERR_APPLETP_HOSTNAME_MISMATCH)) {
 				return CSSMERR_APPLETP_HOSTNAME_MISMATCH;
 			}
 		}
 	}
-	
+
 	/*
-	 * Ensure that, if an extendedKeyUsage extension is present in the 
-	 * leaf, that either anyExtendedKeyUsage or the appropriate 
+	 * Ensure that, if an extendedKeyUsage extension is present in the
+	 * leaf, that either anyExtendedKeyUsage or the appropriate
 	 * CSSMOID_{Server,Client}Auth, or a SeverGatedCrypto usage is present.
 	 */
 	const iSignExtenInfo &ekuInfo = leafCertInfo.extendKeyUsage;
@@ -1162,8 +1249,8 @@ static CSSM_RETURN tp_verifySslOpts(
 		CE_ExtendedKeyUsage *eku = (CE_ExtendedKeyUsage *)ekuInfo.extnData;
 		assert(eku != NULL);
 
-		/* 
-		 * Determine appropriate extended key usage; default is SSL server 
+		/*
+		 * Determine appropriate extended key usage; default is SSL server
 		 */
 		const CSSM_OID *extUse = &CSSMOID_ServerAuth;
 		if((sslOpts != NULL) &&				/* optional, default server side */
@@ -1210,10 +1297,10 @@ static CSSM_RETURN tp_verifySslOpts(
 }
 
 /*
- * Verify SMIME and iChat options. 
+ * Verify SMIME and iChat options.
  * This deals with both S/MIME and iChat policies; within the iChat domain it
  * deals with Apple-specific .mac certs as well as what we call "generic AIM"
- * certs, as used in the Windows AIM client. 
+ * certs, as used in the Windows AIM client.
  */
 #define CE_CIPHER_MASK	(~(CE_KU_EncipherOnly | CE_KU_DecipherOnly))
 
@@ -1224,8 +1311,8 @@ static CSSM_RETURN tp_verifySmimeOpts(
 	const iSignCertInfo &leafCertInfo)
 {
 	bool iChat = (policy == kTP_iChat) ? true : false;
-	
-	/* 
+
+	/*
 	 * The CSSM_APPLE_TP_SMIME_OPTIONS pointer is optional as is everything in it.
 	 */
 	CSSM_APPLE_TP_SMIME_OPTIONS *smimeOpts = NULL;
@@ -1235,7 +1322,7 @@ static CSSM_RETURN tp_verifySmimeOpts(
 	if(smimeOpts != NULL) {
 		switch(smimeOpts->Version) {
 			case CSSM_APPLE_TP_SMIME_OPTS_VERSION:
-				if(smimeFieldOpts->Length != 
+				if(smimeFieldOpts->Length !=
 						sizeof(CSSM_APPLE_TP_SMIME_OPTIONS)) {
 					return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
 				}
@@ -1245,7 +1332,7 @@ static CSSM_RETURN tp_verifySmimeOpts(
 				return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
 		}
 	}
-	
+
 	TPCertInfo *leaf = certGroup.certAtIndex(0);
 	assert(leaf != NULL);
 
@@ -1254,7 +1341,7 @@ static CSSM_RETURN tp_verifySmimeOpts(
 	if(smimeOpts != NULL) {
 		emailLen = smimeOpts->SenderEmailLen;
 	}
-	
+
 	bool match = false;
 	bool emailFoundInSAN = false;
 	bool iChatHandleFound = false;		/* indicates a genuine Apple iChat cert */
@@ -1266,39 +1353,39 @@ static CSSM_RETURN tp_verifySmimeOpts(
 
 		/* iChat - first try the Apple custom format */
 		if(iChat) {
-			iChatHandleFound = tpCompareIChatHandleName(*leaf,	smimeOpts->SenderEmail, 
+			iChatHandleFound = tpCompareIChatHandleName(*leaf,	smimeOpts->SenderEmail,
 				emailLen);
 			if(iChatHandleFound) {
 				match = true;
 			}
-			
+
 		}
-		
+
 		if(!match) {
-			/* 
-			 * normalize caller's email string 
+			/*
+			 * normalize caller's email string
 			 *  SMIME - lowercase only the portion after '@'
 			 *  iChat - lowercase all of it
 			 */
 			char *email = (char *)certGroup.alloc().malloc(emailLen);
 			memmove(email, smimeOpts->SenderEmail, emailLen);
 			tpNormalizeAddrSpec(email, emailLen, iChat);
-			
-			
-			/* 
+
+
+			/*
 			 * First check subjectAltName. The emailFound bool indicates
 			 * that *some* email address was found, regardless of a match
 			 * condition.
 			 */
 			bool dummy;
-			match = tpCompareSubjectAltName(leafCertInfo.subjectAltName, 
-				email, emailLen, 
+			match = tpCompareSubjectAltName(leafCertInfo.subjectAltName,
+				email, emailLen,
 				SAN_Email, iChat, dummy, emailFoundInSAN);
-			
-			/* 
-			 * Then subject DN, CSSMOID_EmailAddress, if no match from 
-			 * subjectAltName. In this case the whole email address is 
-			 * case insensitive (RFC 3280, section 4.1.2.6), so 
+
+			/*
+			 * Then subject DN, CSSMOID_EmailAddress, if no match from
+			 * subjectAltName. In this case the whole email address is
+			 * case insensitive (RFC 3280, section 4.1.2.6), so
 			 * renormalize.
 			 */
 			if(!match) {
@@ -1306,11 +1393,11 @@ static CSSM_RETURN tp_verifySmimeOpts(
 				match = tpCompareSubjectName(*leaf, SN_Email, true, email, emailLen,
 					emailFoundInDN);
 			}
-			certGroup.alloc().free(email);	
-			
+			certGroup.alloc().free(email);
+
 			/*
 			 * Error here if no match found but there was indeed *some*
-			 * email address in the cert. 
+			 * email address in the cert.
 			 */
 			if(!match && (emailFoundInSAN || emailFoundInDN)) {
 				if(leaf->addStatusCode(CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND)) {
@@ -1319,9 +1406,9 @@ static CSSM_RETURN tp_verifySmimeOpts(
 				}
 			}
 		}
-		
+
 		/*
-		 * iChat only: error if app specified email address but there was 
+		 * iChat only: error if app specified email address but there was
 		 * none in the cert.
 		 */
 		if(iChat && !emailFoundInSAN && !emailFoundInDN && !iChatHandleFound) {
@@ -1331,14 +1418,14 @@ static CSSM_RETURN tp_verifySmimeOpts(
 			}
 		}
 	}
-	
+
 	/*
 	 * Going by the letter of the law, here's what RFC 2632 has to say
 	 * about the legality of an empty Subject Name:
 	 *
-	 *    ...the subject DN in a user's (i.e. end-entity) certificate MAY 
-	 *    be an empty SEQUENCE in which case the subjectAltName extension 
-	 *    will include the subject's identifier and MUST be marked as 
+	 *    ...the subject DN in a user's (i.e. end-entity) certificate MAY
+	 *    be an empty SEQUENCE in which case the subjectAltName extension
+	 *    will include the subject's identifier and MUST be marked as
 	 *    critical.
 	 *
 	 * OK, first examine the leaf cert's subject name.
@@ -1348,12 +1435,12 @@ static CSSM_RETURN tp_verifySmimeOpts(
 	const iSignExtenInfo &kuInfo = leafCertInfo.keyUsage;
 	const iSignExtenInfo &ekuInfo = leafCertInfo.extendKeyUsage;
 	const CSSM_X509_NAME *x509Name = NULL;
-	
+
 	if(iChat) {
 		/* empty subject name processing is S/MIME only */
 		goto checkEku;
 	}
-	
+
 	crtn = leaf->fetchField(&CSSMOID_X509V1SubjectNameCStruct, &subjNameData);
 	if(crtn) {
 		/* This should really never happen */
@@ -1362,21 +1449,21 @@ static CSSM_RETURN tp_verifySmimeOpts(
 		return CSSMERR_TP_INVALID_CERTIFICATE;
 	}
 	/* must do a leaf->freeField(&CSSMOID_X509V1SubjectNameCStruct on exit */
-	
+
 	x509Name = (const CSSM_X509_NAME *)subjNameData->Data;
 	if(x509Name->numberOfRDNs == 0) {
-		/* 
-		 * Empty subject name. If we haven't already seen a valid 
+		/*
+		 * Empty subject name. If we haven't already seen a valid
 		 * email address in the subject alternate name (by looking
-		 * for a specific address specified by app), try to find 
+		 * for a specific address specified by app), try to find
 		 * one now.
 		 */
 		if(!emailFoundInSAN &&		// haven't found one, and
 		   (emailLen == 0)) {		// didn't even look yet
 			bool dummy;
-			tpCompareSubjectAltName(leafCertInfo.subjectAltName, 
-					NULL, 0,				// email, emailLen, 
-					SAN_Email, false, dummy, 
+			tpCompareSubjectAltName(leafCertInfo.subjectAltName,
+					NULL, 0,				// email, emailLen,
+					SAN_Email, false, dummy,
 					emailFoundInSAN);		// the variable we're updating
 		}
 		if(!emailFoundInSAN) {
@@ -1391,7 +1478,7 @@ static CSSM_RETURN tp_verifySmimeOpts(
 				goto postSAN;
 			}
 		}
-		
+
 		/*
 		 * One more thing: this leaf must indeed have a subjAltName
 		 * extension and it must be critical. We would not have gotten this
@@ -1409,7 +1496,7 @@ static CSSM_RETURN tp_verifySmimeOpts(
 	}
 postSAN:
 	leaf->freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
-	 
+
 	/*
 	 * Enforce the usage of the key associated with the leaf cert.
 	 * Cert's KeyUsage must be a superset of what the app is trying to do.
@@ -1426,15 +1513,15 @@ postSAN:
 				return CSSMERR_TP_VERIFY_ACTION_FAILED;
 			}
 		}
-		
+
 		/* Now the en/de cipher only bits - for keyAgreement only */
 		if(appKu & CE_KU_KeyAgreement) {
-			/* 
+			/*
 			 * 1. App wants to use this for key agreement; it must
 			 *    say what it wants to do with the derived key.
 			 *    In this context, the app's XXXonly bit means that
 			 *    it wants to use the key for that op - not necessarliy
-			 *    "only". 
+			 *    "only".
 			 */
 			if((appKu & (CE_KU_EncipherOnly | CE_KU_DecipherOnly)) == 0) {
 				tpPolicyError("SMIME KeyUsage err: KeyAgreement with "
@@ -1443,12 +1530,12 @@ postSAN:
 					return CSSMERR_TP_VERIFY_ACTION_FAILED;
 				}
 			}
-			
+
 			/*
 			 * 2. If cert restricts to encipher only make sure the
 			 *    app isn't trying to decipher.
 			 */
-			if((certKu & CE_KU_EncipherOnly) && 
+			if((certKu & CE_KU_EncipherOnly) &&
 			   (appKu & CE_KU_DecipherOnly)) {
 				tpPolicyError("SMIME KeyUsage err: cert EncipherOnly, "
 					"app wants to decipher");
@@ -1456,12 +1543,12 @@ postSAN:
 					return CSSMERR_TP_VERIFY_ACTION_FAILED;
 				}
 			}
-			
+
 			/*
 			 * 3. If cert restricts to decipher only make sure the
 			 *    app isn't trying to encipher.
 			 */
-			if((certKu & CE_KU_DecipherOnly) && 
+			if((certKu & CE_KU_DecipherOnly) &&
 			   (appKu & CE_KU_EncipherOnly)) {
 				tpPolicyError("SMIME KeyUsage err: cert DecipherOnly, "
 					"app wants to encipher");
@@ -1471,16 +1558,16 @@ postSAN:
 			}
 		}
 	}
-	
+
 	/*
-	 * Extended Key Use verification, which is different for the two policies. 
+	 * Extended Key Use verification, which is different for the two policies.
 	 */
 checkEku:
 	if(iChat && !ekuInfo.present) {
-		/* 
-		 * iChat: whether generic AIM cert or Apple .mac/iChat cert, we must have an 
-		 * extended key use extension. 
-		 */ 
+		/*
+		 * iChat: whether generic AIM cert or Apple .mac/iChat cert, we must have an
+		 * extended key use extension.
+		 */
 		tpPolicyError("iChat: No extended Key Use");
 		if(leaf->addStatusCode(CSSMERR_APPLETP_SMIME_BAD_EXT_KEY_USE)) {
 			return CSSMERR_APPLETP_SMIME_BAD_EXT_KEY_USE;
@@ -1488,13 +1575,13 @@ checkEku:
 	}
 
 	if(!iChatHandleFound) {
-		/* 
+		/*
 		 * S/MIME and generic AIM certs when evaluating iChat policy.
 		 * Look for either emailProtection or anyExtendedKeyUsage usages.
 		 *
-		 * S/MIME : the whole extension is optional. 
-		 * iChat  : extension must be there (which we've already covered, above) 
-		 *          and we must find one of those extensions. 
+		 * S/MIME : the whole extension is optional.
+		 * iChat  : extension must be there (which we've already covered, above)
+		 *          and we must find one of those extensions.
 		 */
 		if(ekuInfo.present) {
 			bool foundGoodEku = false;
@@ -1519,7 +1606,7 @@ checkEku:
 		}
 	}
 	else {
-		/* 
+		/*
 		 * Apple iChat cert. Look for anyExtendedKeyUsage, iChatSigning,
 		 * ichatEncrypting - the latter of two which can optionally be
 		 * required by app.
@@ -1531,13 +1618,13 @@ checkEku:
 		bool foundISignEncrypt = false;
 		CE_ExtendedKeyUsage *eku = (CE_ExtendedKeyUsage *)ekuInfo.extnData;
 		assert(eku != NULL);
-		
+
 		for(unsigned i=0; i<eku->numPurposes; i++) {
-			if(tpCompareOids(&eku->purposes[i], 
+			if(tpCompareOids(&eku->purposes[i],
 					&CSSMOID_APPLE_EKU_ICHAT_SIGNING)) {
 				foundIChatSign = true;
 			}
-			else if(tpCompareOids(&eku->purposes[i], 
+			else if(tpCompareOids(&eku->purposes[i],
 					&CSSMOID_APPLE_EKU_ICHAT_ENCRYPTION)) {
 				foundISignEncrypt = true;
 			}
@@ -1545,7 +1632,7 @@ checkEku:
 				foundAnyEku = true;
 			}
 		}
-		
+
 		if(!foundAnyEku && !foundISignEncrypt && !foundIChatSign) {
 			/* No go - no acceptable uses found */
 			tpPolicyError("iChat: No valid extended Key Uses found");
@@ -1553,7 +1640,7 @@ checkEku:
 				return CSSMERR_APPLETP_SMIME_BAD_EXT_KEY_USE;
 			}
 		}
-		
+
 		/* check for specifically required uses */
 		if((smimeOpts != NULL) && (smimeOpts->IntendedUsage != 0)) {
 			if(smimeOpts->IntendedUsage & CE_KU_DigitalSignature) {
@@ -1574,30 +1661,30 @@ checkEku:
 			}
 		}	/* checking IntendedUsage */
 	}	/* iChat cert format */
-	 
+
 	return CSSM_OK;
 }
 
 /*
- * Verify Apple SW Update signing (was Apple Code Signing, pre-Leopard) options. 
+ * Verify Apple SW Update signing (was Apple Code Signing, pre-Leopard) options.
  *
  * -- Must have one intermediate cert
  * -- intermediate must have basic constraints with path length 0
  * -- intermediate has CSSMOID_APPLE_EKU_CODE_SIGNING EKU
- * -- leaf cert has either CODE_SIGNING or CODE_SIGN_DEVELOPMENT EKU (the latter of 
+ * -- leaf cert has either CODE_SIGNING or CODE_SIGN_DEVELOPMENT EKU (the latter of
  *    which triggers a CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT error)
  */
 static CSSM_RETURN tp_verifySWUpdateSigningOpts(
 	TPCertGroup &certGroup,
 	const CSSM_DATA *fieldOpts,			// currently unused
-	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
 {
 	unsigned numCerts = certGroup.numCerts();
 	const iSignCertInfo *isCertInfo;
 	TPCertInfo *tpCert;
 //	const CE_BasicConstraints *bc;		// currently unused
 	CE_ExtendedKeyUsage *eku;
-	CSSM_RETURN crtn = CSSM_OK;	
+	CSSM_RETURN crtn = CSSM_OK;
 
 	if(numCerts != 3) {
 		if(!certGroup.isAllowedError(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH)) {
@@ -1635,7 +1722,7 @@ static CSSM_RETURN tp_verifySWUpdateSigningOpts(
 	eku = &isCertInfo->extendKeyUsage.extnData->extendedKeyUsage;
 	assert(eku != NULL);
 	if(eku->numPurposes != 1) {
-		tpPolicyError("tp_verifySWUpdateSigningOpts: bad eku->numPurposes in intermediate (%lu)", 
+		tpPolicyError("tp_verifySWUpdateSigningOpts: bad eku->numPurposes in intermediate (%lu)",
 			(unsigned long)eku->numPurposes);
 		if(tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE)) {
 			return CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
@@ -1646,7 +1733,7 @@ static CSSM_RETURN tp_verifySWUpdateSigningOpts(
 		}
 		/* else ignore error and we have an intermediate EKU; proceed */
 	}
-		
+
 	if(!tpCompareOids(&eku->purposes[0], &CSSMOID_APPLE_EKU_CODE_SIGNING)) {
 		tpPolicyError("tp_verifySWUpdateSigningOpts: bad EKU");
 		if(tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE)) {
@@ -1673,7 +1760,7 @@ checkLeaf:
 	eku = &isCertInfo->extendKeyUsage.extnData->extendedKeyUsage;
 	assert(eku != NULL);
 	if(eku->numPurposes != 1) {
-		tpPolicyError("tp_verifySWUpdateSigningOpts: bad eku->numPurposes (%lu)", 
+		tpPolicyError("tp_verifySWUpdateSigningOpts: bad eku->numPurposes (%lu)",
 			(unsigned long)eku->numPurposes);
 		if(tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE)) {
 			if(crtn == CSSM_OK) {
@@ -1705,7 +1792,7 @@ checkLeaf:
 }
 
 /*
- * Verify Apple Resource Signing options. 
+ * Verify Apple Resource Signing options.
  *
  * -- leaf cert must have CSSMOID_APPLE_EKU_RESOURCE_SIGNING EKU
  * -- chain length must be >= 2
@@ -1714,7 +1801,7 @@ checkLeaf:
 static CSSM_RETURN tp_verifyResourceSigningOpts(
 	TPCertGroup &certGroup,
 	const CSSM_DATA *fieldOpts,			// currently unused
-	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
 {
 	unsigned numCerts = certGroup.numCerts();
 	if(numCerts < 2) {
@@ -1725,7 +1812,7 @@ static CSSM_RETURN tp_verifyResourceSigningOpts(
 	}
 	const iSignCertInfo &leafCert = certInfo[0];
 	TPCertInfo *leaf = certGroup.certAtIndex(0);
-	
+
 	/* leaf ExtendedKeyUse required, one legal value */
 	if(!tpVerifyEKU(leafCert, CSSMOID_APPLE_EKU_RESOURCE_SIGNING, false)) {
 		tpPolicyError("tp_verifyResourceSigningOpts: no RESOURCE_SIGNING EKU");
@@ -1737,16 +1824,16 @@ static CSSM_RETURN tp_verifyResourceSigningOpts(
 	return CSSM_OK;
 }
 
-/* 
+/*
  * Common code for Apple Code Signing and Apple Package Signing.
  * For now we just require an RFC3280-style CodeSigning EKU in the leaf
  * for both policies.
  */
 static CSSM_RETURN tp_verifyCodePkgSignOpts(
-	TPPolicy policy, 
+	TPPolicy policy,
 	TPCertGroup &certGroup,
 	const CSSM_DATA *fieldOpts,			// currently unused
-	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
 {
 	const iSignCertInfo &leafCert = certInfo[0];
 
@@ -1764,27 +1851,27 @@ static CSSM_RETURN tp_verifyCodePkgSignOpts(
 }
 
 /*
- * Verify MacAppStore receipt verification policy options. 
+ * Verify MacAppStore receipt verification policy options.
  *
  * -- Must have one intermediate cert
  * -- intermediate must be the FairPlay intermediate
  * -- leaf cert has the CSSMOID_APPLE_EXTENSION_MACAPPSTORE_RECEIPT marker extension
  */
-static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(
+static CSSM_RETURN tp_verifyMacAppStoreReceiptOpts(
 	TPCertGroup &certGroup,
 	const CSSM_DATA *fieldOpts,			// currently unused
-	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
 {
 	unsigned numCerts = certGroup.numCerts();
 	if (numCerts < 3)
 	{
 		if (!certGroup.isAllowedError(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH))
 		{
-			tpPolicyError("tp_verifyMacAppStoreReciptOpts: numCerts %u", numCerts);
+			tpPolicyError("tp_verifyMacAppStoreReceiptOpts: numCerts %u", numCerts);
 			return CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
 		}
 	}
-	
+
 	const iSignCertInfo *isCertInfo;
 	TPCertInfo *tpCert;
 
@@ -1804,8 +1891,8 @@ static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(
 	tpCert = certGroup.certAtIndex(0);
 	if (certInfo->certificatePolicies.present)
 	{
-	//	syslog(LOG_ERR, "tp_verifyMacAppStoreReciptOpts: found certificatePolicies");
-		const CE_CertPolicies *certPolicies = 
+	//	syslog(LOG_ERR, "tp_verifyMacAppStoreReceiptOpts: found certificatePolicies");
+		const CE_CertPolicies *certPolicies =
 				&isCertInfo->certificatePolicies.extnData->certPolicies;
 		if (!certificatePoliciesContainsOID(certPolicies, &CSSMOID_MACAPPSTORE_RECEIPT_CERT_POLICY))
 			if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
@@ -1813,19 +1900,19 @@ static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(
 	}
 	else
 	{
-	//	syslog(LOG_ERR, "tp_verifyMacAppStoreReciptOpts: no certificatePolicies present");	// DEBUG
-        tpPolicyError("tp_verifyMacAppStoreReciptOpts: no certificatePolicies present in leaf");
+	//	syslog(LOG_ERR, "tp_verifyMacAppStoreReceiptOpts: no certificatePolicies present");	// DEBUG
+        tpPolicyError("tp_verifyMacAppStoreReceiptOpts: no certificatePolicies present in leaf");
         if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
 			return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
 	}
-		
+
 	return CSSM_OK;
 }
 
 bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const CSSM_OID *oidToFind)
 {
     // returns true if the given OID is present in the cert policies
-    
+
     if (!certPolicies || !oidToFind)
 		return false;
 
@@ -1837,13 +1924,13 @@ bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const C
 		if (oid && tpCompareOids(oid, oidToFind))	// found it
 			return true;
     }
-	
+
 	return false;
 }
 
 
 /*
- * Verify Apple ID Sharing options. 
+ * Verify Apple ID Sharing options.
  *
  * -- Do basic cert validation (OCSP-based certs)
  * -- Validate that the cert is an Apple ID sharing cert:
@@ -1852,7 +1939,7 @@ bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const C
  *		EKU should have both client and server authentication
  *		chains to the "Apple Application Integration Certification Authority" intermediate
  * -- optionally has a client-specified common name, which is the Apple ID account's UUID.
- 
+
  * -- Must have one intermediate cert ("Apple Application Integration Certification Authority")
  * -- intermediate must have basic constraints with path length 0
  * -- intermediate has CSSMOID_APPLE_EXTENSION_AAI_INTERMEDIATE extension (OID 1 2 840 113635 100 6 2 3)
@@ -1861,14 +1948,14 @@ bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const C
 
 static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
 												const CSSM_DATA *fieldOpts,			// optional Common Name
-												const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+												const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
 {
 	unsigned numCerts = certGroup.numCerts();
 	const iSignCertInfo *isCertInfo;
 	TPCertInfo *tpCert;
 	//	const CE_BasicConstraints *bc;		// currently unused
 	CE_ExtendedKeyUsage *eku;
-	CSSM_RETURN crtn = CSSM_OK;	
+	CSSM_RETURN crtn = CSSM_OK;
 	unsigned int serverNameLen = 0;
 	const char *serverName = NULL;
 
@@ -1906,11 +1993,11 @@ static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
 			goto checkLeaf;
 		}
 	}
-	
+
 	/* verify intermediate cert */
 	isCertInfo = &certInfo[1];
 	tpCert = certGroup.certAtIndex(1);
-	
+
 	if (!isCertInfo->basicConstraints.present)
 	{
 		tpPolicyError("tp_verifyAppleIDSharingOpts: no basicConstraints in intermediate");
@@ -1919,7 +2006,7 @@ static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
 	}
 
 checkLeaf:
-	
+
 	/* verify leaf cert */
 	isCertInfo = &certInfo[0];
 	tpCert = certGroup.certAtIndex(0);
@@ -1929,26 +2016,26 @@ checkLeaf:
 	{
 		if (serverName == NULL)
 			return CSSMERR_TP_INVALID_POINTER;
-		
+
 		/* convert caller's hostname string to lower case */
 		char *hostName = (char *)certGroup.alloc().malloc(serverNameLen);
 		memmove(hostName, serverName, serverNameLen);
 		tpToLower(hostName, serverNameLen);
-				
+
 		/* Check common name... */
 
 		bool fieldFound;
-		CSSM_BOOL match = tpCompareSubjectName(*tpCert, SN_CommonName, false, hostName, 
+		CSSM_BOOL match = tpCompareSubjectName(*tpCert, SN_CommonName, false, hostName,
 									 serverNameLen, fieldFound);
 
-		certGroup.alloc().free(hostName);	
+		certGroup.alloc().free(hostName);
 		if (!match && tpCert->addStatusCode(CSSMERR_APPLETP_HOSTNAME_MISMATCH))
             return CSSMERR_APPLETP_HOSTNAME_MISMATCH;
 	}
 
 	if (certInfo->certificatePolicies.present)
 	{
-		const CE_CertPolicies *certPolicies = 
+		const CE_CertPolicies *certPolicies =
 				&isCertInfo->certificatePolicies.extnData->certPolicies;
 		if (!certificatePoliciesContainsOID(certPolicies, &CSSMOID_APPLEID_SHARING_CERT_POLICY))
 			if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
@@ -1973,7 +2060,7 @@ checkLeaf:
 	assert(eku != NULL);
 	if(eku->numPurposes != 2)
 	{
-		tpPolicyError("tp_verifyAppleIDSharingOpts: bad eku->numPurposes (%lu)", 
+		tpPolicyError("tp_verifyAppleIDSharingOpts: bad eku->numPurposes (%lu)",
 					  (unsigned long)eku->numPurposes);
 		if (tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE))
 		{
@@ -1996,7 +2083,7 @@ checkLeaf:
 			break;
 		}
 	}
-	
+
 	if (!(canDoClientAuth && canDoServerAuth))
 		ekuError = true;
 	if (ekuError)
@@ -2008,7 +2095,7 @@ checkLeaf:
 				crtn = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
 		}
 	}
-	
+
 	return crtn;
 }
 
@@ -2020,9 +2107,9 @@ checkLeaf:
  */
 static CSSM_RETURN tp_verifyTimeStampingOpts(TPCertGroup &certGroup,
 											 const CSSM_DATA *fieldOpts,		// currently unused
-											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
 {
-	unsigned numCerts = certGroup.numCerts();
+    //unsigned numCerts = certGroup.numCerts();
 	const iSignCertInfo *isCertInfo;
 	TPCertInfo *tpCert;
 	CE_ExtendedKeyUsage *eku;
@@ -2066,6 +2153,407 @@ static CSSM_RETURN tp_verifyTimeStampingOpts(TPCertGroup &certGroup,
 }
 
 /*
+ * Verify Passbook Signing policy options.
+ *
+ * -- Do basic cert validation (OCSP-based certs)
+ * -- Chains to the Apple root CA
+ * -- Has custom marker extension (1.2.840.113635.100.6.1.16)
+ *		(CSSMOID_APPLE_EXTENSION_PASSBOOK_SIGNING)
+ * -- EKU contains Passbook Signing purpose (1.2.840.113635.100.4.14)
+ *		(CSSMOID_APPLE_EKU_PASSBOOK_SIGNING)
+ * -- UID field of Subject must contain provided card signer string
+ * -- OU field of Subject must contain provided team identifier string
+ */
+static CSSM_RETURN tp_verifyPassbookSigningOpts(TPCertGroup &certGroup,
+											 const CSSM_DATA *fieldOpts,
+											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
+{
+	unsigned numCerts = certGroup.numCerts();
+	const iSignCertInfo *isCertInfo;
+	TPCertInfo *tpCert;
+	CE_ExtendedKeyUsage *eku;
+	CSSM_RETURN crtn = CSSM_OK;
+	unsigned int nameLen = 0;
+	const char *name = NULL;
+	char *p, *signerName = NULL, *teamIdentifier = NULL;
+	bool found;
+
+	isCertInfo = &certInfo[0];
+	tpCert = certGroup.certAtIndex(0);
+
+	/* The CSSM_APPLE_TP_SMIME_OPTIONS pointer is required. */
+    if (!fieldOpts || !fieldOpts->Data)
+		return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+    else {
+		CSSM_APPLE_TP_SMIME_OPTIONS *opts = (CSSM_APPLE_TP_SMIME_OPTIONS *)fieldOpts->Data;
+        switch (opts->Version)
+        {
+        case CSSM_APPLE_TP_SMIME_OPTS_VERSION:
+            if (fieldOpts->Length != sizeof(CSSM_APPLE_TP_SMIME_OPTIONS))
+                return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+            break;
+            /* handle backwards compatibility here if necessary */
+        default:
+            return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+		}
+		nameLen = opts->SenderEmailLen;
+		name = opts->SenderEmail;
+		if (!name || !nameLen)
+			return CSSMERR_APPLETP_IDENTIFIER_MISSING;
+	}
+
+	/* Split the provided name into signer name and team identifier
+	 * (allocates memory, which must be freed at end) */
+	signerName = (char *)certGroup.alloc().malloc(nameLen);
+	teamIdentifier = (char *)certGroup.alloc().malloc(nameLen);
+	memmove(signerName, name, nameLen);
+	teamIdentifier[0] = '\0';
+	if ((p = strchr(signerName, '\t')) != NULL) {
+		*p++ = '\0';
+		memmove(teamIdentifier, p, strlen(p)+1);
+	}
+
+	/* Check signer name in UID field */
+	if (CSSM_FALSE == tpCompareSubjectName(*tpCert,
+		SN_UserID, false, signerName, (unsigned int)strlen(signerName), found)) {
+		tpPolicyError("tp_verifyPassbookSigningOpts: signer name not in subject UID field");
+		tpCert->addStatusCode(CSSMERR_APPLETP_IDENTIFIER_MISSING);
+		crtn = CSSMERR_APPLETP_IDENTIFIER_MISSING;
+		goto cleanup;
+	}
+
+	/* Check team identifier in OU field */
+	if (CSSM_FALSE == tpCompareSubjectName(*tpCert,
+		SN_OrgUnit, false, teamIdentifier, (unsigned int)strlen(teamIdentifier), found)) {
+		tpPolicyError("tp_verifyPassbookSigningOpts: team identifier not in subject OU field");
+		tpCert->addStatusCode(CSSMERR_APPLETP_IDENTIFIER_MISSING);
+		crtn = CSSMERR_APPLETP_IDENTIFIER_MISSING;
+		goto cleanup;
+	}
+
+	/* Check that EKU extension is present */
+	if (!isCertInfo->extendKeyUsage.present) {
+		tpPolicyError("tp_verifyPassbookSigningOpts: no extendedKeyUse in leaf");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+	/* Check that EKU contains Passbook Signing purpose */
+	eku = &isCertInfo->extendKeyUsage.extnData->extendedKeyUsage;
+	assert(eku != NULL);
+	found = false;
+	for (int ix=0;ix<eku->numPurposes;ix++) {
+		if (tpCompareOids(&eku->purposes[ix], &CSSMOID_APPLE_EKU_PASSBOOK_SIGNING)) {
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		tpPolicyError("tp_verifyPassbookSigningOpts: Passbook Signing purpose not found");
+		tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE);
+		crtn = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
+		goto cleanup;
+	}
+
+	/* Check that Passbook Signing marker extension is present */
+	if (!(isCertInfo->foundPassbookSigning == CSSM_TRUE)) {
+		tpPolicyError("tp_verifyPassbookSigningOpts: no Passbook Signing extension in leaf");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+	/* Check that cert chain is anchored by the Apple Root CA */
+	if (numCerts < 3) {
+		tpPolicyError("tp_verifyPassbookSigningOpts: numCerts %u", numCerts);
+		crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+		goto cleanup;
+	}
+	else {
+	 	tpCert = certGroup.certAtIndex(numCerts-1);
+		const CSSM_DATA *certData = tpCert->itemData();
+		unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+		CC_SHA1(certData->Data, (CC_LONG)certData->Length, digest);
+		if (memcmp(digest, kAppleCASHA1, sizeof(digest))) {
+			tpPolicyError("tp_verifyPassbookSigningOpts: invalid anchor for policy");
+			tpCert->addStatusCode(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH);
+			crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+			goto cleanup;
+		}
+	}
+
+cleanup:
+	if (signerName)
+		certGroup.alloc().free(signerName);
+	if (teamIdentifier)
+		certGroup.alloc().free(teamIdentifier);
+
+	return crtn;
+}
+
+/*
+ * Verify Mobile Store policy options.
+ *
+ * -- Do basic cert validation.
+ * -- Chain length must be exactly 3.
+ * -- Must chain to known Mobile Store root.
+ * -- Intermediate must have CSSMOID_APPLE_EXTENSION_SYSINT2_INTERMEDIATE marker
+ *		(1.2.840.113635.100.6.2.10)
+ * -- Key usage in leaf certificate must be Digital Signature.
+ * -- Leaf has certificatePolicies extension with appropriate policy:
+ *		(1.2.840.113635.100.5.12) if testPolicy is false
+ *		(1.2.840.113635.100.5.12.1) if testPolicy is true
+ */
+static CSSM_RETURN tp_verifyMobileStoreSigningOpts(TPCertGroup &certGroup,
+											 const CSSM_DATA *fieldOpts,
+											 const iSignCertInfo *certInfo,		// all certs, size certGroup.numCerts()
+											 bool testPolicy)
+{
+	unsigned numCerts = certGroup.numCerts();
+	const iSignCertInfo *isCertInfo;
+	TPCertInfo *tpCert;
+	CE_KeyUsage ku;
+	CSSM_RETURN crtn = CSSM_OK;
+
+	isCertInfo = &certInfo[0];
+	tpCert = certGroup.certAtIndex(0);
+
+	/* Check that KU extension is present */
+	if (!isCertInfo->keyUsage.present) {
+		tpPolicyError("tp_verifyMobileStoreSigningOpts: no keyUsage in leaf");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+	/* Check that KU contains Digital Signature usage */
+	ku = isCertInfo->keyUsage.extnData->keyUsage;
+	if (!(ku & CE_KU_DigitalSignature)) {
+		tpPolicyError("tp_verifyMobileStoreSigningOpts: DigitalSignature usage not found");
+		tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE);
+		crtn = CSSMERR_APPLETP_INVALID_KEY_USAGE;
+		goto cleanup;
+	}
+
+	/* Check that Mobile Store Signing certicate policy is present in leaf */
+	if (isCertInfo->certificatePolicies.present)
+	{
+		const CE_CertPolicies *certPolicies =
+				&isCertInfo->certificatePolicies.extnData->certPolicies;
+		const CSSM_OID *policyOID = (testPolicy) ?
+				&CSSMOID_TEST_MOBILE_STORE_SIGNING_POLICY :
+				&CSSMOID_MOBILE_STORE_SIGNING_POLICY;
+		if (!certificatePoliciesContainsOID(certPolicies, policyOID))
+			if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
+				return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+	}
+	else
+	{
+        tpPolicyError("tp_verifyMobileStoreSigningOpts: no certificatePolicies present in leaf");
+        if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
+			return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+	}
+
+	/* Check that cert chain length is 3 */
+	if (numCerts != 3) {
+		tpPolicyError("tp_verifyMobileStoreSigningOpts: numCerts %u", numCerts);
+		crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+		goto cleanup;
+	}
+
+	/* Check that cert chain is anchored by a known root */
+	{
+		tpCert = certGroup.certAtIndex(numCerts-1);
+		const CSSM_DATA *certData = tpCert->itemData();
+		unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+		CC_SHA1(certData->Data, (CC_LONG)certData->Length, digest);
+		if (memcmp(digest, kMobileRootSHA1, sizeof(digest))) {
+			tpPolicyError("tp_verifyMobileStoreSigningOpts: invalid anchor for policy");
+			tpCert->addStatusCode(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH);
+			crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+			goto cleanup;
+		}
+	}
+
+	/* Check that Apple System Integration 2 marker extension is present in intermediate */
+	isCertInfo = &certInfo[1];
+	tpCert = certGroup.certAtIndex(1);
+	if (!(isCertInfo->foundAppleSysInt2Marker == CSSM_TRUE)) {
+		tpPolicyError("tp_verifyMobileStoreSigningOpts: intermediate marker extension not found");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+cleanup:
+	return crtn;
+}
+
+/*
+ * Verify Escrow Service policy options.
+ *
+ * -- Chain length must be exactly 2.
+ * -- Must be issued by known escrow root.
+ * -- Key usage in leaf certificate must be Key Encipherment.
+ * -- Leaf has CSSMOID_APPLE_EXTENSION_ESCROW_SERVICE_MARKER extension
+ *		(1.2.840.113635.100.6.23.1)
+ */
+static CSSM_RETURN tp_verifyEscrowServiceSigningOpts(TPCertGroup &certGroup,
+											 const CSSM_DATA *fieldOpts,
+											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
+{
+	unsigned numCerts = certGroup.numCerts();
+	const iSignCertInfo *isCertInfo;
+	TPCertInfo *tpCert;
+	CE_KeyUsage ku;
+	CSSM_RETURN crtn = CSSM_OK;
+
+	isCertInfo = &certInfo[0];
+	tpCert = certGroup.certAtIndex(0);
+
+	/* Check that KU extension is present */
+	if (!isCertInfo->keyUsage.present) {
+		tpPolicyError("tp_verifyEscrowServiceSigningOpts: no keyUsage in leaf");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+	/* Check that KU contains Key Encipherment usage */
+	ku = isCertInfo->keyUsage.extnData->keyUsage;
+	if (!(ku & CE_KU_KeyEncipherment)) {
+		tpPolicyError("tp_verifyEscrowServiceSigningOpts: KeyEncipherment usage not found");
+		tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE);
+		crtn = CSSMERR_APPLETP_INVALID_KEY_USAGE;
+		goto cleanup;
+	}
+
+	/* Check that Escrow Service marker extension is present */
+	if (!(isCertInfo->foundEscrowServiceMarker == CSSM_TRUE)) {
+		tpPolicyError("tp_verifyEscrowServiceSigningOpts: no Escrow Service extension in leaf");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+	/* Check that cert chain length is 2 */
+	if (numCerts != 2) {
+		tpPolicyError("tp_verifyEscrowServiceSigningOpts: numCerts %u", numCerts);
+		crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+		goto cleanup;
+	}
+
+	/* Check that cert chain is anchored by a known root */
+	{
+		tpCert = certGroup.certAtIndex(numCerts-1);
+		const CSSM_DATA *certData = tpCert->itemData();
+		bool anchorMatch = false;
+		SecCertificateRef anchor = NULL;
+		OSStatus status = SecCertificateCreateFromData(certData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER, &anchor);
+		if (!status) {
+			CFArrayRef anchors = SecCertificateCopyEscrowRoots(kSecCertificateProductionEscrowRoot);
+			CFIndex idx, count = (anchors) ? CFArrayGetCount(anchors) : 0;
+			for (idx = 0; idx < count; idx++) {
+				SecCertificateRef cert = (SecCertificateRef) CFArrayGetValueAtIndex(anchors, idx);
+				if (cert && CFEqual(cert, anchor)) {
+					anchorMatch = true;
+					break;
+				}
+			}
+			if (anchors)
+				CFRelease(anchors);
+		}
+		if (anchor)
+			CFRelease(anchor);
+
+		if (!anchorMatch) {
+			tpPolicyError("tp_verifyEscrowServiceSigningOpts: invalid anchor for policy");
+			tpCert->addStatusCode(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH);
+			crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+			goto cleanup;
+		}
+	}
+
+cleanup:
+	return crtn;
+}
+
+/*
+ * Verify Configuration Profile Signing policy options.
+ *
+ * -- Do basic cert validation (OCSP-based certs)
+ * -- Chains to the Apple root CA
+ * -- Leaf has EKU extension with appropriate purpose:
+ *		(1.2.840.113635.100.4.16) if testPolicy is false
+ *		(1.2.840.113635.100.4.17) if testPolicy is true
+ */
+static CSSM_RETURN tp_verifyProfileSigningOpts(TPCertGroup &certGroup,
+											 const CSSM_DATA *fieldOpts,
+											 const iSignCertInfo *certInfo,		// all certs, size certGroup.numCerts()
+											 bool testPolicy)
+{
+	unsigned numCerts = certGroup.numCerts();
+	const iSignCertInfo *isCertInfo;
+	TPCertInfo *tpCert;
+	CE_ExtendedKeyUsage *eku;
+	CSSM_RETURN crtn = CSSM_OK;
+	bool found;
+
+	isCertInfo = &certInfo[0];
+	tpCert = certGroup.certAtIndex(0);
+
+	/* Check that EKU extension is present */
+	if (!isCertInfo->extendKeyUsage.present) {
+		tpPolicyError("tp_verifyProfileSigningOpts: no extendedKeyUse in leaf");
+		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
+		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+		goto cleanup;
+	}
+
+	/* Check that EKU contains appropriate Profile Signing purpose */
+	eku = &isCertInfo->extendKeyUsage.extnData->extendedKeyUsage;
+	assert(eku != NULL);
+	found = false;
+	for (int ix=0;ix<eku->numPurposes;ix++) {
+		if (tpCompareOids(&eku->purposes[ix], (testPolicy) ?
+			&CSSMOID_APPLE_EKU_QA_PROFILE_SIGNING :
+			&CSSMOID_APPLE_EKU_PROFILE_SIGNING)) {
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		tpPolicyError("tp_verifyProfileSigningOpts: Profile Signing purpose not found");
+		tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE);
+		crtn = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
+		goto cleanup;
+	}
+
+	/* Check that cert chain is anchored by the Apple Root CA */
+	if (numCerts < 3) {
+		tpPolicyError("tp_verifyProfileSigningOpts: numCerts %u", numCerts);
+		crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+		goto cleanup;
+	}
+	else {
+		tpCert = certGroup.certAtIndex(numCerts-1);
+		const CSSM_DATA *certData = tpCert->itemData();
+		unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+		CC_SHA1(certData->Data, (CC_LONG)certData->Length, digest);
+		if (memcmp(digest, kAppleCASHA1, sizeof(digest))) {
+			tpPolicyError("tp_verifyProfileSigningOpts: invalid anchor for policy");
+			tpCert->addStatusCode(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH);
+			crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+			goto cleanup;
+		}
+	}
+
+cleanup:
+	return crtn;
+}
+
+/*
  * RFC2459 says basicConstraints must be flagged critical for
  * CA certs, but Verisign doesn't work that way.
  */
@@ -2073,13 +2561,13 @@ static CSSM_RETURN tp_verifyTimeStampingOpts(TPCertGroup &certGroup,
 
 /*
  * TP iSign spec says Extended Key Usage required for leaf certs,
- * but Verisign doesn't work that way. 
+ * but Verisign doesn't work that way.
  */
 #define EXTENDED_KEY_USAGE_REQUIRED_FOR_LEAF	0
 
 /*
  * TP iSign spec says Subject Alternate Name required for leaf certs,
- * but Verisign doesn't work that way. 
+ * but Verisign doesn't work that way.
  */
 #define SUBJECT_ALT_NAME_REQUIRED_FOR_LEAF		0
 
@@ -2091,23 +2579,23 @@ static CSSM_RETURN tp_verifyTimeStampingOpts(TPCertGroup &certGroup,
 
 /*
  * RFC 2632, "S/MIME Version 3 Certificate Handling", section
- * 4.4.2, says that KeyUsage extensions MUST be flagged critical, 
- * but Thawte's intermediate cert (common name "Thawte Personal 
+ * 4.4.2, says that KeyUsage extensions MUST be flagged critical,
+ * but Thawte's intermediate cert (common name "Thawte Personal
  * Freemail Issuing CA") does not meet this requirement.
  */
 #define SMIME_KEY_USAGE_MUST_BE_CRITICAL		0
 
 /*
- * Public routine to perform TP verification on a constructed 
+ * Public routine to perform TP verification on a constructed
  * cert group.
  * Returns CSSM_OK on success.
  * Assumes the chain has passed basic subject/issuer verification. First cert of
- * incoming certGroup is end-entity (leaf). 
+ * incoming certGroup is end-entity (leaf).
  *
  * Per-policy details:
  *   iSign: Assumes that last cert in incoming certGroup is a root cert.
  *			Also assumes a cert group of more than one cert.
- *   kTPx509Basic: CertGroup of length one allowed. 
+ *   kTPx509Basic: CertGroup of length one allowed.
  */
 CSSM_RETURN tp_policyVerify(
 	TPPolicy						policy,
@@ -2116,7 +2604,7 @@ CSSM_RETURN tp_policyVerify(
 	CSSM_CSP_HANDLE					cspHand,
 	TPCertGroup 					*certGroup,
 	CSSM_BOOL						verifiedToRoot,		// last cert is good root
-	CSSM_BOOL						verifiedViaTrustSetting,	// last cert verified via 
+	CSSM_BOOL						verifiedViaTrustSetting,	// last cert verified via
 															//     user trust
 	CSSM_APPLE_TP_ACTION_FLAGS		actionFlags,
 	const CSSM_DATA					*policyFieldData,	// optional
@@ -2137,12 +2625,12 @@ CSSM_RETURN tp_policyVerify(
 	CSSM_RETURN				outErr = CSSM_OK;		// for gross, non-policy errors
 	CSSM_BOOL				policyFail = CSSM_FALSE;// generic CSSMERR_TP_VERIFY_ACTION_FAILED
 	CSSM_RETURN				policyError = CSSM_OK;	// policy-specific failure
-	
+
 	/* First, kTPDefault is a nop here */
 	if(policy == kTPDefault) {
 		return CSSM_OK;
 	}
-	
+
 	if(certGroup == NULL) {
 		return CSSMERR_TP_INVALID_CERTGROUP;
 	}
@@ -2160,33 +2648,33 @@ CSSM_RETURN tp_policyVerify(
 			return CSSMERR_TP_VERIFY_ACTION_FAILED;
 		}
 	}
-	
+
 	/* cook up an iSignCertInfo array */
 	certInfo = (iSignCertInfo *)tpCalloc(alloc, numCerts, sizeof(iSignCertInfo));
 	/* subsequent errors to errOut: */
-	
+
 	/* fill it with interesting info from parsed certs */
 	for(certDex=0; certDex<numCerts; certDex++) {
-		if(iSignGetCertInfo(alloc, 
-				certGroup->certAtIndex(certDex),		
+		if(iSignGetCertInfo(alloc,
+				certGroup->certAtIndex(certDex),
 				&certInfo[certDex])) {
 			(certGroup->certAtIndex(certDex))->addStatusCode(
 				CSSMERR_TP_INVALID_CERTIFICATE);
 			/* this one is fatal (and can't ignore) */
 			outErr = CSSMERR_TP_INVALID_CERTIFICATE;
 			goto errOut;
-		}	
+		}
 	}
-		
+
 	/*
 	 * OK, the heart of TP enforcement.
 	 */
 	for(certDex=0; certDex<numCerts; certDex++) {
 		thisCertInfo = &certInfo[certDex];
 		TPCertInfo *thisTpCertInfo = certGroup->certAtIndex(certDex);
-		
+
 		/*
-		 * First check for presence of required extensions and 
+		 * First check for presence of required extensions and
 		 * critical extensions we don't understand.
 		 */
 		if(thisCertInfo->foundUnknownCritical) {
@@ -2196,7 +2684,7 @@ CSSM_RETURN tp_policyVerify(
 				policyFail = CSSM_TRUE;
 			}
 		}
-		
+
 		/*
 		 * Check for unsupported key length, per <rdar://6892837>
 		 */
@@ -2210,14 +2698,14 @@ CSSM_RETURN tp_policyVerify(
 			}
 		}
 
-		/* 
+		/*
 		 * Note it's possible for both of these to be true, for a chain
 		 * of length one (kTPx509Basic, kCrlPolicy only!)
 		 * FIXME: should this code work if the last cert in the chain is NOT a root?
 		 */
 		isLeaf = thisTpCertInfo->isLeaf();
 		isRoot = thisTpCertInfo->isSelfSigned(true);
-			
+
 		/*
 		 * BasicConstraints.cA
 		 * iSign:   	 required in all but leaf and root,
@@ -2243,9 +2731,9 @@ CSSM_RETURN tp_policyVerify(
 			else {
 				switch(policy) {
 					default:
-						/* 
-						 * not present, not leaf, not root.... 
-						 * ....RFC2459 says this can not be a CA 
+						/*
+						 * not present, not leaf, not root....
+						 * ....RFC2459 says this can not be a CA
 						 */
 						cA = CSSM_FALSE;
 						break;
@@ -2275,11 +2763,11 @@ CSSM_RETURN tp_policyVerify(
 			}
 			#endif	/* BASIC_CONSTRAINTS_MUST_BE_CRITICAL */
 
-			const CE_BasicConstraints *bcp = 
+			const CE_BasicConstraints *bcp =
 				&thisCertInfo->basicConstraints.extnData->basicConstraints;
-			
+
 			cA = bcp->cA;
-			
+
 			/* Verify pathLenConstraint if present */
 			if(!isLeaf &&							// leaf, certDex=0, don't care
 			   cA && 								// p.l.c. only valid for CAs
@@ -2287,8 +2775,8 @@ CSSM_RETURN tp_policyVerify(
 				/*
 				 * pathLenConstraint=0 legal for certDex 1 only
 				 * pathLenConstraint=1 legal for certDex {1,2}
-				 * etc. 
-				 */ 
+				 * etc.
+				 */
 				if(certDex > (bcp->pathLenConstraint + 1)) {
 					tpPolicyError("tp_policyVerify: pathLenConstraint "
 						"exceeded");
@@ -2299,15 +2787,15 @@ CSSM_RETURN tp_policyVerify(
 				}
 			}
 		}
-		
+
 		if(isLeaf) {
-			/* 
-			 * Special cases to allow a chain of length 1, leaf and root 
+			/*
+			 * Special cases to allow a chain of length 1, leaf and root
 			 * both true, and for caller to override the "leaf can't be a CA"
-			 * requirement when a CA cert is explicitly being evaluated as the 
+			 * requirement when a CA cert is explicitly being evaluated as the
 			 * leaf.
 			 */
-			if(cA && !isRoot && 
+			if(cA && !isRoot &&
 			   !(actionFlags & CSSM_TP_ACTION_LEAF_IS_CA)) {
 				tpPolicyError("tp_policyVerify: cA true for leaf");
 				if(thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_CA)) {
@@ -2320,13 +2808,13 @@ CSSM_RETURN tp_policyVerify(
 				policyFail = CSSM_TRUE;
 			}
 		}
-		
+
 		/*
 		 * Authority Key Identifier optional
-		 * iSign   		: only allowed in !root. 
+		 * iSign   		: only allowed in !root.
 		 *           	  If present, must not be critical.
 		 * all others   : ignored (though used later for chain verification)
-		 */ 
+		 */
 		if((policy == kTPiSign) && thisCertInfo->authorityId.present) {
 			if(isRoot) {
 				tpPolicyError("tp_policyVerify: authorityId in root");
@@ -2345,10 +2833,10 @@ CSSM_RETURN tp_policyVerify(
 		}
 
 		/*
-		 * Subject Key Identifier optional 
-		 * iSign   		 : can't be critical. 
+		 * Subject Key Identifier optional
+		 * iSign   		 : can't be critical.
 		 * all others    : ignored (though used later for chain verification)
-		 */ 
+		 */
 		if(thisCertInfo->subjectId.present) {
 			if((policy == kTPiSign) && thisCertInfo->subjectId.critical) {
 				tpPolicyError("tp_policyVerify: subjectId marked critical");
@@ -2357,28 +2845,28 @@ CSSM_RETURN tp_policyVerify(
 				}
 			}
 		}
-		
+
 		/*
 		 * Key Usage optional except required as noted
 		 * iSign    	: required for non-root/non-leaf
 		 *            	  Leaf cert : if present, usage = digitalSignature
-		 *				  Exception : if leaf, and keyUsage not present, 
+		 *				  Exception : if leaf, and keyUsage not present,
 		 *					          netscape-cert-type must be present, with
 		 *							  Object Signing bit set
 		 * kCrlPolicy   : Leaf: usage = CRLSign
 		 * kTP_SMIME   	: if present, must be critical
-		 * kTP_SWUpdateSign, kTP_ResourceSign, kTP_CodeSigning, kTP_PackageSigning : Leaf : 
+		 * kTP_SWUpdateSign, kTP_ResourceSign, kTP_CodeSigning, kTP_PackageSigning : Leaf :
 						  usage = digitalSignature
 		 * all others   : non-leaf  : usage = keyCertSign
 		 *			  	  Leaf : don't care
-		 */ 
+		 */
 		if(thisCertInfo->keyUsage.present) {
 			/*
 			 * Leaf cert:
 			 *    iSign and *Signing: usage = digitalSignature
 			 *    all others : don't care
 			 * Others:    usage = keyCertSign
-			 * We only require that one bit to be set, we ignore others. 
+			 * We only require that one bit to be set, we ignore others.
 			 */
 			if(isLeaf) {
 				switch(policy) {
@@ -2412,11 +2900,11 @@ CSSM_RETURN tp_policyVerify(
 					policyFail = CSSM_TRUE;
 				}
 			}
-			
+
 			#if 0
-			/* 
+			/*
 			 * Radar 3523221 renders this whole check obsolete, but I'm leaving
-			 * the code here to document its conspicuous functional absence.  
+			 * the code here to document its conspicuous functional absence.
 			 */
 			if((policy == kTP_SMIME) && !thisCertInfo->keyUsage.critical) {
 				/*
@@ -2433,14 +2921,14 @@ CSSM_RETURN tp_policyVerify(
 			#endif
 		}
 		else if(policy == kTPiSign) {
-			/* 
+			/*
 			 * iSign requires keyUsage present for non root OR
 			 * netscape-cert-type/ObjectSigning for leaf
 			 */
 			if(isLeaf && thisCertInfo->netscapeCertType.present) {
-				CE_NetscapeCertType ct = 
+				CE_NetscapeCertType ct =
 					thisCertInfo->netscapeCertType.extnData->netscapeCertType;
-					
+
 				if(!(ct & CE_NCT_ObjSign)) {
 					tpPolicyError("tp_policyVerify: netscape-cert-type, "
 						"!ObjectSign");
@@ -2456,7 +2944,7 @@ CSSM_RETURN tp_policyVerify(
 					policyFail = CSSM_TRUE;
 				}
 			}
-		}				
+		}
 
 		/*
 		 * RFC 3280, 4.1.2.6, says that an empty subject name can only appear in a
@@ -2466,10 +2954,10 @@ CSSM_RETURN tp_policyVerify(
 			bool badEmptySubject = false;
 			if(actionFlags & CSSM_TP_ACTION_LEAF_IS_CA) {
 				/*
-				 * True when evaluating a CA cert as well as when 
+				 * True when evaluating a CA cert as well as when
 				 * evaluating a CRL's cert chain. Note the odd case of a CRL's
 				 * signer having an empty subject matching an empty issuer
-				 * in the CRL. That'll be caught here. 
+				 * in the CRL. That'll be caught here.
 				 */
 				badEmptySubject = true;
 			}
@@ -2481,17 +2969,17 @@ CSSM_RETURN tp_policyVerify(
 				tpPolicyError("tp_policyVerify: bad empty subject");
 				if(thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_EMPTY_SUBJECT)) {
 					policyFail = CSSM_TRUE;
-				}				
+				}
 			}
 		}
-	   
+
 		/*
- 		 * RFC 3739: if this cert has a Qualified Cert Statements extension, and 
+ 		 * RFC 3739: if this cert has a Qualified Cert Statements extension, and
 		 * it's Critical, make sure we understand all of the extension's statementIds.
 		 */
 		if(thisCertInfo->qualCertStatements.present &&
 		   thisCertInfo->qualCertStatements.critical) {
-			CE_QC_Statements *qcss = 
+			CE_QC_Statements *qcss =
 				&thisCertInfo->qualCertStatements.extnData->qualifiedCertStatements;
 			uint32 numQcs = qcss->numQCStatements;
 			for(unsigned qdex=0; qdex<numQcs; qdex++) {
@@ -2552,9 +3040,9 @@ CSSM_RETURN tp_policyVerify(
 	}	/* for certDex, checking presence of extensions */
 
 	/*
-	 * Special case checking for leaf (end entity) cert	
+	 * Special case checking for leaf (end entity) cert
 	 *
-	 * iSign only: Extended key usage, optional for leaf, 
+	 * iSign only: Extended key usage, optional for leaf,
 	 * value CSSMOID_ExtendedUseCodeSigning
 	 */
 	if((policy == kTPiSign) && certInfo[0].extendKeyUsage.present) {
@@ -2577,16 +3065,16 @@ CSSM_RETURN tp_policyVerify(
 			}
 		}
 	}
-	
+
 	/*
 	 * Verify authorityId-->subjectId linkage.
 	 * All optional - skip if needed fields not present.
-	 * Also, always skip last (root) cert.  
+	 * Also, always skip last (root) cert.
 	 */
 	for(certDex=0; certDex<(numCerts-1); certDex++) {
 		if(!certInfo[certDex].authorityId.present ||
 		   !certInfo[certDex+1].subjectId.present) {
-		 	continue;  
+		 	continue;
 		}
 		authorityId = &certInfo[certDex].authorityId.extnData->authorityKeyID;
 		if(!authorityId->keyIdentifierPresent) {
@@ -2622,20 +3110,20 @@ CSSM_RETURN tp_policyVerify(
 		case kTP_SSL:
 		case kTP_EAP:
 		case kTP_IPSec:
-			/* 
+			/*
 			 * SSL, EAP, IPSec: optionally verify common name; all are identical
-			 * other than their names. 
+			 * other than their names.
 			 * FIXME - should this be before or after the root cert test? How can
 			 * we return both errors?
 			 */
 			policyError = tp_verifySslOpts(policy, *certGroup, policyFieldData, certInfo[0]);
 			break;
-			
+
 		case kTP_iChat:
 			tpDebug("iChat policy");
 			/* fall thru */
 		case kTP_SMIME:
-			policyError = tp_verifySmimeOpts(policy, *certGroup, policyFieldData, 
+			policyError = tp_verifySmimeOpts(policy, *certGroup, policyFieldData,
 				certInfo[0]);
 			break;
 		case kTP_SWUpdateSign:
@@ -2649,13 +3137,31 @@ CSSM_RETURN tp_policyVerify(
 			policyError = tp_verifyCodePkgSignOpts(policy, *certGroup, policyFieldData, certInfo);
 			break;
 		case kTP_MacAppStoreRec:
-			policyError = tp_verifyMacAppStoreReciptOpts(*certGroup, policyFieldData, certInfo);
+			policyError = tp_verifyMacAppStoreReceiptOpts(*certGroup, policyFieldData, certInfo);
 			break;
 		case kTP_AppleIDSharing:
 			policyError = tp_verifyAppleIDSharingOpts(*certGroup, policyFieldData, certInfo);
 			break;
 		case kTP_TimeStamping:
 			policyError = tp_verifyTimeStampingOpts(*certGroup, policyFieldData, certInfo);
+			break;
+		case kTP_PassbookSigning:
+			policyError = tp_verifyPassbookSigningOpts(*certGroup, policyFieldData, certInfo);
+			break;
+		case kTP_MobileStore:
+			policyError = tp_verifyMobileStoreSigningOpts(*certGroup, policyFieldData, certInfo, false);
+			break;
+		case kTP_TestMobileStore:
+			policyError = tp_verifyMobileStoreSigningOpts(*certGroup, policyFieldData, certInfo, true);
+			break;
+		case kTP_EscrowService:
+			policyError = tp_verifyEscrowServiceSigningOpts(*certGroup, policyFieldData, certInfo);
+			break;
+		case kTP_ProfileSigning:
+			policyError = tp_verifyProfileSigningOpts(*certGroup, policyFieldData, certInfo, false);
+			break;
+		case kTP_QAProfileSigning:
+			policyError = tp_verifyProfileSigningOpts(*certGroup, policyFieldData, certInfo, true);
 			break;
 		case kTPx509Basic:
 		case kTPiSign:
@@ -2665,7 +3171,7 @@ CSSM_RETURN tp_policyVerify(
 			break;
 
 	}
-	
+
 	if(outErr == CSSM_OK) {
 		/* policy-specific error takes precedence here */
 		if(policyError != CSSM_OK) {
@@ -2686,7 +3192,7 @@ errOut:
 	return outErr;
 }
 
-/* 
+/*
  * Obtain policy-specific User Trust parameters
  */
 void tp_policyTrustSettingParams(
@@ -2700,7 +3206,7 @@ void tp_policyTrustSettingParams(
 	/* default values */
 	*policyStr = NULL;
 	*keyUse = kSecTrustSettingsKeyUseAny;
-	
+
 	if((policyData == NULL) || (policyData->Data == NULL)) {
 		/* currently, no further action possible */
 		return;
@@ -2709,19 +3215,19 @@ void tp_policyTrustSettingParams(
 		case kTP_SSL:
 		case kTP_EAP:
 		case kTP_IPSec:
-		{	
+		{
 			if(policyData->Length != sizeof(CSSM_APPLE_TP_SSL_OPTIONS)) {
 				/* this error will be caught later */
 				return;
 			}
-			CSSM_APPLE_TP_SSL_OPTIONS *sslOpts = 
+			CSSM_APPLE_TP_SSL_OPTIONS *sslOpts =
 				(CSSM_APPLE_TP_SSL_OPTIONS *)policyData->Data;
 			*policyStr = sslOpts->ServerName;
 			*policyStrLen = sslOpts->ServerNameLen;
 			if(sslOpts->Flags & CSSM_APPLE_TP_SSL_CLIENT) {
-				/* 
+				/*
 				 * Client signs with its priv key. Server end,
-				 * which (also) verifies the client cert, verifies. 
+				 * which (also) verifies the client cert, verifies.
 				 */
 				*keyUse = kSecTrustSettingsKeyUseSignature;
 			}
@@ -2731,7 +3237,7 @@ void tp_policyTrustSettingParams(
 			}
 			return;
 		}
-		
+
 		case kTP_iChat:
 		case kTP_SMIME:
 		{
@@ -2739,7 +3245,7 @@ void tp_policyTrustSettingParams(
 				/* this error will be caught later */
 				return;
 			}
-			CSSM_APPLE_TP_SMIME_OPTIONS *smimeOpts = 
+			CSSM_APPLE_TP_SMIME_OPTIONS *smimeOpts =
 				(CSSM_APPLE_TP_SMIME_OPTIONS *)policyData->Data;
 			*policyStr = smimeOpts->SenderEmail;
 			*policyStrLen = smimeOpts->SenderEmailLen;
@@ -2754,7 +3260,7 @@ void tp_policyTrustSettingParams(
 			*keyUse = ku;
 			return;
 		}
-		
+
 		default:
 			/* no other options */
 			return;

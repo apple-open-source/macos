@@ -38,6 +38,7 @@ using namespace UnixPlusPlus;
 // Local functions
 //
 static void extractCertificates(const char *prefix, CFArrayRef certChain);
+static void listNestedCode(const void *key, const void *value, void *context);
 static string flagForm(uint32_t flags);
 
 
@@ -51,11 +52,12 @@ void dump(const char *target)
 	CFRef<SecStaticCodeRef> codeRef = dynamicCodePath(target);	// dynamic input
 	if (!codeRef)
 		codeRef = staticCodePath(target, architecture, bundleVersion);
-	if (detached)
+	if (detached) {
 		if (CFRef<CFDataRef> dsig = cfLoadFile(detached))
 			MacOSError::check(SecCodeSetDetachedSignature(codeRef, dsig, kSecCSDefaultFlags));
 		else
 			fail("%s: cannot load detached signature", detached);
+	}
 	
 	// get official (API driven) information
 	struct Info : public CFDictionary {
@@ -97,6 +99,12 @@ void dump(const char *target)
 			note(3, "Hash type=%s size=%d", type->name, type->size);
 		else
 			note(3, "Hash UNKNOWN type=%d", hashType);
+	}
+	if (verbose > 4) {
+		typedef CodeDirectory::Slot Slot;
+		Slot end = (verbose > 5) ? Slot(dir->nCodeSlots) : -1;
+		for (Slot slot = -dir->nSpecialSlots; slot < end; slot++)
+			note(5, "%6d=%s", slot, hashString((*dir)[slot]).c_str());
 	}
 
 	if (const CodeDirectory::Scatter *scatter = dir->scatterVector()) {
@@ -150,14 +158,14 @@ void dump(const char *target)
 				CFAbsoluteTime slop = abs(CFDateGetAbsoluteTime(softTime) - CFDateGetAbsoluteTime(hardTime));
 				if (slop > timestampSlop) {
 					CFRef<CFStringRef> s = CFDateFormatterCreateStringWithDate(NULL, format, softTime);
-					fail("%s: timestamp mismatch: internal time %s (%g seconds apart)", target, cfString(s).c_str(), slop);
+					note(0, "%s: timestamp mismatch: internal time %s (%g seconds apart)", target, cfString(s).c_str(), slop);
 				}
 			}
 		} else if (softTime) {
 			CFRef<CFStringRef> s = CFDateFormatterCreateStringWithDate(NULL, format, softTime);
 			note(1, "Signed Time=%s", cfString(s).c_str());
 			if (CFAbsoluteTimeGetCurrent() < CFDateGetAbsoluteTime(softTime) - timestampSlop)
-				fail("%s: postdated signing date or bad system clock", target);
+				note(0, "%s: postdated signing date or bad system clock", target);
 		}
 	} else {
 		fprintf(stderr, "%s: no signature\n", target);
@@ -170,12 +178,24 @@ void dump(const char *target)
 		note(1, "Info.plist=not bound");
 	
 	if (CFDictionaryRef resources = api.get<CFDictionaryRef>(kSecCodeInfoResourceDirectory)) {
-		CFDictionaryRef rules =
+		CFDictionaryRef rules1 =
 			CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("rules")));
-		CFDictionaryRef files
-			= CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("files")));
-		note(1, "Sealed Resources rules=%d files=%d",
-			CFDictionaryGetCount(rules), CFDictionaryGetCount(files));
+		CFDictionaryRef rules2 =
+			CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("rules2")));
+		CFDictionaryRef rules;
+		CFDictionaryRef files;
+		int version = 0;
+		if (rules2) {
+			rules = rules2;
+			files = CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("files2")));
+			version = 2;
+		} else {
+			rules = rules1;
+			files = CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("files")));
+			version = 1;
+		}
+		note(1, "Sealed Resources version=%d rules=%d files=%d",
+			version, CFDictionaryGetCount(rules), CFDictionaryGetCount(files));
 		if (resourceRules) {
 			FILE *output;
 			if (!strcmp(resourceRules, "-")) {
@@ -184,11 +204,20 @@ void dump(const char *target)
 				perror(resourceRules);
 				exit(exitFailure);
 			}
-			CFRef<CFDataRef> rulesData = makeCFData(CFTemp<CFDictionaryRef>("{rules=%O}", rules).get());
+			CFRef<CFDictionaryRef> data = resources;
+			if (verbose <= 4) {
+				if (version > 1)
+					data = cfmake<CFDictionaryRef>("{rules=%O,rules2=%O}", rules, rules2);
+				else
+					data = cfmake<CFDictionaryRef>("{rules=%O}", rules);
+			}
+			CFRef<CFDataRef> rulesData = makeCFData(data.get());
 			fwrite(CFDataGetBytePtr(rulesData), CFDataGetLength(rulesData), 1, output);
 			if (output != stdout)
 				fclose(output);
 		}
+		if (nested && version > 1)
+			CFDictionaryApplyFunction(files, listNestedCode, NULL);
 	} else
 		note(1, "Sealed Resources=none");
 	
@@ -224,18 +253,33 @@ void dump(const char *target)
 	}
 
 	if (entitlements) {
-		CFDataRef data = CFDataRef(CFDictionaryGetValue(api, kSecCodeInfoEntitlements));
-		if (data && entitlements[0] == ':') {
+		CFCopyRef<CFDataRef> data = CFDataRef(CFDictionaryGetValue(api, kSecCodeInfoEntitlements));
+		// a destination prefixed with ':' means strip the binary header off the data
+		if (entitlements[0] == ':') {
 			static const unsigned headerSize = sizeof(BlobCore);
-			CFRef<CFDataRef> cleanData = CFDataCreateWithBytesNoCopy(NULL, CFDataGetBytePtr(data) + headerSize, CFDataGetLength(data) - headerSize, kCFAllocatorNull);
-			writeData(cleanData, entitlements+1, "a");
-		} else {
-			writeData(data, entitlements, "a");
+			if (data)
+				data = CFDataCreateWithBytesNoCopy(NULL,
+					CFDataGetBytePtr(data) + headerSize, CFDataGetLength(data) - headerSize, kCFAllocatorNull);
+			entitlements++;
 		}
+		writeData(data, entitlements, "a");
 	}
 
 	if (modifiedFiles)
 		writeFileList(CFArrayRef(CFDictionaryGetValue(api, kSecCodeInfoChangedFiles)), modifiedFiles, "a");
+}
+
+
+//
+// Show details of resource seal entries
+//
+static void listNestedCode(const void *key, const void *value, void *context)
+{
+	if (value && CFGetTypeID(value) == CFDictionaryGetTypeID()) {
+		CFDictionary seal(value, noErr);
+		if (seal && CFDictionaryGetValue(seal, CFSTR("requirement")))
+			note(0, "Nested=%s", cfString(CFStringRef(key)).c_str());
+	}
 }
 
 

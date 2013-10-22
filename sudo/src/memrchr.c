@@ -14,9 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
 #include <config.h>
-#include <compat.h>
+
+#include <sys/types.h>
+
+#include "missing.h"
 
 /*
  * Reverse memchr()
@@ -34,8 +36,8 @@ memrchr(s, c, n)
 	cp = (unsigned char *)s + n;
 	do {
 	    if (*(--cp) == (unsigned char)c)
-		return((void *)cp);
+		return (void *)cp;
 	} while (--n != 0);
     }
-    return((void *)0);
+    return (void *)0;
 }

@@ -19,13 +19,13 @@
 #include "config.h"
 #include "ImageBuffer.h"
 
-#include "Base64.h"
 #include "GdkCairoUtilities.h"
 #include <wtf/gobject/GOwnPtr.h>
 #include "GRefPtrGtk.h"
 #include "MIMETypeRegistry.h"
 #include <cairo.h>
 #include <gtk/gtk.h>
+#include <wtf/text/Base64.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -71,7 +71,7 @@ String ImageBuffer::toDataURL(const String& mimeType, const double* quality, Coo
 
     GOwnPtr<gchar> buffer(0);
     gsize bufferSize;
-    if (!encodeImage(m_data.m_surface, mimeType, quality, buffer, bufferSize))
+    if (!encodeImage(m_data.m_surface.get(), mimeType, quality, buffer, bufferSize))
         return "data:,";
 
     Vector<char> base64Data;

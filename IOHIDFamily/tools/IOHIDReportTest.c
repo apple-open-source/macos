@@ -41,7 +41,7 @@ void __deviceValueCallback (void * context, IOReturn result, void * sender, IOHI
 {
     IOHIDElementRef element = IOHIDValueGetElement(value);
     
-    printf("IOHIDDeviceRef[%p]: value=%p timestamp=%lld cookie=%d usagePage=%d usage=%d intValue=%ld\n", sender, value, IOHIDValueGetTimeStamp(value), (uint32_t)IOHIDElementGetCookie(element), IOHIDElementGetUsagePage(element), IOHIDElementGetUsage(element), IOHIDValueGetIntegerValue(value));
+    printf("IOHIDDeviceRef[%p]: value=%p timestamp=%lld cookie=%d usagePage=0x%02X usage=0x%02X intValue=%ld\n", sender, value, IOHIDValueGetTimeStamp(value), (uint32_t)IOHIDElementGetCookie(element), IOHIDElementGetUsagePage(element), IOHIDElementGetUsage(element), IOHIDValueGetIntegerValue(value));
 }
 
 

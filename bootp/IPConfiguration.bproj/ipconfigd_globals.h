@@ -26,7 +26,7 @@
 
 /*
  * ipconfigd_globals.h
- * - ipconfigd global variables
+ * - ipconfigd global definitions
  */
 /* 
  * Modification History
@@ -37,8 +37,25 @@
 
 #include <CoreFoundation/CFString.h>
 #include "mylog.h"
+#include "util.h"
+#include <sys/stat.h>
+
+#define IPCONFIGURATION_PRIVATE_DIR	"/var/db/dhcpclient"
+#define DHCPCLIENT_LEASES_DIR		IPCONFIGURATION_PRIVATE_DIR "/leases"
 
 void
 remove_unused_ip(const char * ifname, struct in_addr ip);
+
+INLINE void
+ipconfigd_create_paths(void)
+{
+    if (create_path(DHCPCLIENT_LEASES_DIR, 0700) < 0) {
+	my_log(LOG_ERR, "failed to create " 
+	       DHCPCLIENT_LEASES_DIR ", %s (%d)", strerror(errno), errno);
+	return;
+    }
+    return;
+
+}
 
 #endif /* _S_IPCONFIGD_GLOBALS_H */

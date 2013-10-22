@@ -22,11 +22,11 @@
 #include "config.h"
 #include "PlatformTouchEvent.h"
 
-#include <BlackBerryPlatformTouchEvent.h>
-
-#include <wtf/CurrentTime.h>
-
 #if ENABLE(TOUCH_EVENTS)
+
+#include <BlackBerryPlatformTouchEvent.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
@@ -41,6 +41,8 @@ static PlatformEvent::Type touchEventType(BlackBerry::Platform::TouchEvent* even
         return PlatformEvent::TouchEnd;
     case BlackBerry::Platform::TouchEvent::TouchCancel:
         return PlatformEvent::TouchCancel;
+    case BlackBerry::Platform::TouchEvent::TouchInjected:
+        return PlatformEvent::TouchMove;
     }
 
     ASSERT_NOT_REACHED();
@@ -50,7 +52,7 @@ static PlatformEvent::Type touchEventType(BlackBerry::Platform::TouchEvent* even
 }
 
 PlatformTouchEvent::PlatformTouchEvent(BlackBerry::Platform::TouchEvent* event)
-    : PlatformEvent(touchEventType(event), false, event->m_altKey, event->m_shiftKey, false, currentTime())
+    : PlatformEvent(touchEventType(event), event->shiftActive(), event->ctrlActive(), event->altActive(), false, currentTime())
     , m_rotation(0)
     , m_scale(1)
     , m_doubleTap(false)
@@ -59,20 +61,13 @@ PlatformTouchEvent::PlatformTouchEvent(BlackBerry::Platform::TouchEvent* event)
     for (unsigned i = 0; i < event->m_points.size(); ++i)
         m_touchPoints.append(PlatformTouchPoint(event->m_points[i]));
 
-    if (event->m_gestures.empty())
-        return;
+    if (event->isPinch()) {
+        m_rotation = event->pinchData().m_angle * 180 / M_PI;
+        m_scale = event->pinchData().m_scale;
+    }
 
-    BlackBerry::Platform::Gesture pinch;
-    if (event->hasGesture(BlackBerry::Platform::Gesture::Pinch, &pinch)) {
-        BlackBerry::Platform::PinchGestureData* data = static_cast<BlackBerry::Platform::PinchGestureData*>(pinch.m_data);
-        if (data) {
-            m_rotation = data->m_angle * 180 / M_PI;
-            m_scale = data->m_scale;
-        }
-    } else if (event->hasGesture(BlackBerry::Platform::Gesture::DoubleTap))
-        m_doubleTap = true;
-    else if (event->hasGesture(BlackBerry::Platform::Gesture::TouchHold))
-        m_touchHold = true;
+    m_doubleTap = event->isDoubleTap();
+    m_touchHold = event->isTouchHold();
 }
 
 } // namespace WebCore

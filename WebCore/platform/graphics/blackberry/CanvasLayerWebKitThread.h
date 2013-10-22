@@ -21,37 +21,32 @@
 
 #if USE(ACCELERATED_COMPOSITING) && ENABLE(ACCELERATED_2D_CANVAS)
 
-#include "LayerWebKitThread.h"
-
-class SkGpuDevice;
+#include "EGLImageLayerWebKitThread.h"
 
 namespace WebCore {
 
-class HTMLCanvasElement;
+class CanvasLayerCompositingThreadClient;
 
 class CanvasLayerWebKitThread : public LayerWebKitThread {
 public:
-    static PassRefPtr<CanvasLayerWebKitThread> create(SkGpuDevice* device)
+    static PassRefPtr<CanvasLayerWebKitThread> create(BlackBerry::Platform::Graphics::Buffer* buffer, const IntSize& size)
     {
-        return adoptRef(new CanvasLayerWebKitThread(device));
+        return adoptRef(new CanvasLayerWebKitThread(buffer, size));
     }
 
     virtual ~CanvasLayerWebKitThread();
 
-    void setDevice(SkGpuDevice*);
-
-    virtual void setNeedsDisplay();
+    static void clearBuffer(CanvasLayerWebKitThread*);
 
 protected:
-    virtual void updateTextureContentsIfNeeded();
+    virtual void deleteTextures();
 
 private:
-    CanvasLayerWebKitThread(SkGpuDevice*);
-    bool m_needsDisplay;
-    SkGpuDevice* m_device;
+    CanvasLayerWebKitThread(BlackBerry::Platform::Graphics::Buffer*, const IntSize&);
+    CanvasLayerCompositingThreadClient* m_compositingThreadClient;
 };
 
-}
+} // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING) && ENABLE(ACCELERATED_2D_CANVAS)
 

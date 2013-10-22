@@ -18,5 +18,9 @@
 	</array>
 	<key>OnDemand</key>
 	<false/>
+	<key>StandardErrorPath</key>
+	<string>/Library/Logs/PostgreSQL/PostgreSQL.log</string>
+	<key>StandardOutPath</key>
+	<string>/Library/Logs/PostgreSQL/PostgreSQL.log</string>
 </dict>
 </plist>

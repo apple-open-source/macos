@@ -289,7 +289,7 @@ int l2tp_wan_output(struct ppp_link *link, mbuf_t m)
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    if (err = l2tp_rfc_output(wan->rfc, m, 0)) {
+    if ((err = l2tp_rfc_output(wan->rfc, m, 0))) {
         link->lk_oerrors++;
         return err;
     }

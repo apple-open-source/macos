@@ -23,6 +23,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "top.h"
 #include "libtop.h"
 #include "user.h"
 #include "generic.h"

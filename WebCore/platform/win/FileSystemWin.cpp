@@ -30,6 +30,7 @@
 #include "config.h"
 #include "FileSystem.h"
 
+#include "FileMetadata.h"
 #include "NotImplemented.h"
 #include "PathWalker.h"
 #include <wtf/CryptographicallyRandomNumber.h>
@@ -54,12 +55,8 @@ static bool getFindData(String path, WIN32_FIND_DATAW& findData)
     return true;
 }
 
-bool getFileSize(const String& path, long long& result)
+static bool getFileSizeFromFindData(const WIN32_FIND_DATAW& findData, long long& size)
 {
-    WIN32_FIND_DATAW findData;
-    if (!getFindData(path, findData))
-        return false;
-
     ULARGE_INTEGER fileSize;
     fileSize.HighPart = findData.nFileSizeHigh;
     fileSize.LowPart = findData.nFileSizeLow;
@@ -67,22 +64,54 @@ bool getFileSize(const String& path, long long& result)
     if (fileSize.QuadPart > static_cast<ULONGLONG>(std::numeric_limits<long long>::max()))
         return false;
 
-    result = fileSize.QuadPart;
+    size = fileSize.QuadPart;
     return true;
 }
 
-bool getFileModificationTime(const String& path, time_t& result)
+static void getFileModificationTimeFromFindData(const WIN32_FIND_DATAW& findData, time_t& time)
+{
+    ULARGE_INTEGER fileTime;
+    fileTime.HighPart = findData.ftLastWriteTime.dwHighDateTime;
+    fileTime.LowPart = findData.ftLastWriteTime.dwLowDateTime;
+
+    // Information about converting time_t to FileTime is available at http://msdn.microsoft.com/en-us/library/ms724228%28v=vs.85%29.aspx
+    time = fileTime.QuadPart / 10000000 - kSecondsFromFileTimeToTimet;
+}
+
+bool getFileSize(const String& path, long long& size)
 {
     WIN32_FIND_DATAW findData;
     if (!getFindData(path, findData))
         return false;
 
-    ULARGE_INTEGER fileSize;
-    fileSize.HighPart = findData.ftLastWriteTime.dwHighDateTime;
-    fileSize.LowPart = findData.ftLastWriteTime.dwLowDateTime;
+    return getFileSizeFromFindData(findData, size);
+}
 
-    // Information about converting time_t to FileTime is available at http://msdn.microsoft.com/en-us/library/ms724228%28v=vs.85%29.aspx
-    result = fileSize.QuadPart / 10000000 - kSecondsFromFileTimeToTimet;
+bool getFileModificationTime(const String& path, time_t& time)
+{
+    WIN32_FIND_DATAW findData;
+    if (!getFindData(path, findData))
+        return false;
+
+    getFileModificationTimeFromFindData(findData, time);
+    return true;
+}
+
+bool getFileMetadata(const String& path, FileMetadata& metadata)
+{
+    WIN32_FIND_DATAW findData;
+    if (!getFindData(path, findData))
+        return false;
+
+    if (!getFileSizeFromFindData(findData, metadata.length))
+        return false;
+
+    time_t modificationTime;
+    getFileModificationTimeFromFindData(findData, modificationTime);
+    metadata.modificationTime = modificationTime;
+
+    metadata.type = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? FileMetadata::TypeDirectory : FileMetadata::TypeFile;
+
     return true;
 }
 
@@ -108,6 +137,16 @@ String pathByAppendingComponent(const String& path, const String& component)
 {
     Vector<UChar> buffer(MAX_PATH);
 
+#if OS(WINCE)
+    buffer.append(path.characters(), path.length());
+
+    UChar lastPathCharacter = path[path.length() - 1];
+    if (lastPathCharacter != L'\\' && lastPathCharacter != L'/' && component[0] != L'\\' && component[0] != L'/')
+        buffer.append(PlatformFilePathSeparator);
+
+    buffer.append(component.characters(), component.length());
+    buffer.shrinkToFit();
+#else
     if (path.length() + 1 > buffer.size())
         return String();
 
@@ -119,19 +158,27 @@ String pathByAppendingComponent(const String& path, const String& component)
         return String();
 
     buffer.resize(wcslen(buffer.data()));
+#endif
 
     return String::adopt(buffer);
 }
 
 #if !USE(CF)
 
-CString fileSystemRepresentation(const String&)
+CString fileSystemRepresentation(const String& path)
 {
-    ASSERT_NOT_REACHED();
-    return "";
+    const UChar* characters = path.characters();
+    int size = WideCharToMultiByte(CP_ACP, 0, characters, path.length(), 0, 0, 0, 0) - 1;
+
+    char* buffer;
+    CString string = CString::newUninitialized(size, buffer);
+
+    WideCharToMultiByte(CP_ACP, 0, characters, path.length(), buffer, size, 0, 0);
+
+    return string;
 }
 
-#endif !USE(CF)
+#endif // !USE(CF)
 
 bool makeAllDirectories(const String& path)
 {
@@ -154,7 +201,24 @@ String homeDirectoryPath()
 
 String pathGetFileName(const String& path)
 {
+#if OS(WINCE)
+    size_t positionSlash = path.reverseFind('/');
+    size_t positionBackslash = path.reverseFind('\\');
+
+    size_t position;
+    if (positionSlash == notFound)
+        position = positionBackslash;
+    else if (positionBackslash == notFound)
+        position =  positionSlash;
+    else
+        position = std::max(positionSlash, positionBackslash);
+
+    if (position == notFound)
+        return path;
+    return path.substring(position + 1);
+#else
     return String(::PathFindFileName(String(path).charactersWithNullTermination()));
+#endif
 }
 
 String directoryName(const String& path)
@@ -169,7 +233,7 @@ String directoryName(const String& path)
 
 static String bundleName()
 {
-    static String name = "WebKit";
+    DEFINE_STATIC_LOCAL(String, name, (ASCIILiteral("WebKit")));
 
 #if USE(CF)
     static bool initialized;
@@ -195,7 +259,7 @@ static String storageDirectory(DWORD pathIdentifier)
     buffer.resize(wcslen(buffer.data()));
     String directory = String::adopt(buffer);
 
-    static const String companyNameDirectory = "Apple Computer\\";
+    DEFINE_STATIC_LOCAL(String, companyNameDirectory, (ASCIILiteral("Apple Computer\\")));
     directory = pathByAppendingComponent(directory, companyNameDirectory + bundleName());
     if (!makeAllDirectories(directory))
         return String();
@@ -209,7 +273,7 @@ static String cachedStorageDirectory(DWORD pathIdentifier)
 
     HashMap<DWORD, String>::iterator it = directories.find(pathIdentifier);
     if (it != directories.end())
-        return it->second;
+        return it->value;
 
     String directory = storageDirectory(pathIdentifier);
     directories.add(pathIdentifier, directory);
@@ -283,6 +347,26 @@ void closeFile(PlatformFileHandle& handle)
     }
 }
 
+long long seekFile(PlatformFileHandle handle, long long offset, FileSeekOrigin origin)
+{
+    DWORD moveMethod = FILE_BEGIN;
+
+    if (origin == SeekFromCurrent)
+        moveMethod = FILE_CURRENT;
+    else if (origin == SeekFromEnd)
+        moveMethod = FILE_END;
+
+    LARGE_INTEGER largeOffset;
+    largeOffset.QuadPart = offset;
+
+    LARGE_INTEGER newOffset;
+    newOffset.QuadPart = 0;
+
+    SetFilePointerEx(handle, largeOffset, &newOffset, moveMethod);
+
+    return newOffset.QuadPart;
+}
+
 int writeToFile(PlatformFileHandle handle, const char* data, int length)
 {
     if (!isHandleValid(handle))
@@ -310,40 +394,6 @@ String roamingUserSpecificStorageDirectory()
 {
     return cachedStorageDirectory(CSIDL_APPDATA);
 }
-
-#if USE(CF)
-
-bool safeCreateFile(const String& path, CFDataRef data)
-{
-    // Create a temporary file.
-    WCHAR tempDirPath[MAX_PATH];
-    if (!GetTempPathW(WTF_ARRAY_LENGTH(tempDirPath), tempDirPath))
-        return false;
-
-    WCHAR tempPath[MAX_PATH];
-    if (!GetTempFileNameW(tempDirPath, L"WEBKIT", 0, tempPath))
-        return false;
-
-    HANDLE tempFileHandle = CreateFileW(tempPath, GENERIC_READ | GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
-    if (tempFileHandle == INVALID_HANDLE_VALUE)
-        return false;
-
-    // Write the data to this temp file.
-    DWORD written;
-    if (!WriteFile(tempFileHandle, CFDataGetBytePtr(data), static_cast<DWORD>(CFDataGetLength(data)), &written, 0))
-        return false;
-
-    CloseHandle(tempFileHandle);
-
-    // Copy the temp file to the destination file.
-    String destination = path;
-    if (!MoveFileExW(tempPath, destination.charactersWithNullTermination(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED))
-        return false;
-
-    return true;
-}
-
-#endif // USE(CF)
 
 Vector<String> listDirectory(const String& directory, const String& filter)
 {

@@ -411,7 +411,7 @@ SecTrustSettingsResult Requirement::Interpreter::trustSetting(SecCertificateRef 
 		&result,								// the actual setting
 		&foundMatch, &foundAny					// optimization hints (not used)
 		)) {
-	case noErr:
+	case errSecSuccess:
 		::free(errors);
 		if (foundMatch)
 			return result;

@@ -26,6 +26,15 @@
 
 using namespace WebCore;
 
+/**
+ * SECTION: WebKitError
+ * @Short_description: Categorized WebKit errors
+ * @Title: WebKitError
+ *
+ * Categorized WebKit errors.
+ *
+ */
+
 GQuark webkit_network_error_quark()
 {
     return g_quark_from_static_string(WebCore::errorDomainNetwork);
@@ -81,4 +90,9 @@ COMPILE_ASSERT_MATCHING_ENUM(WEBKIT_PRINT_ERROR_INVALID_PAGE_RANGE, PrintErrorIn
 GQuark webkit_javascript_error_quark()
 {
     return g_quark_from_static_string("WebKitJavascriptError");
+}
+
+GQuark webkit_snapshot_error_quark()
+{
+    return g_quark_from_static_string("WebKitSnapshotError");
 }

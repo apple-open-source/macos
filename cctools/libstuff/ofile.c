@@ -3368,6 +3368,8 @@ struct ofile *ofile)
     struct version_min_command *vers;
     struct prebind_cksum_command *cs;
     struct encryption_info_command *encrypt_info;
+    struct encryption_info_command_64 *encrypt_info64;
+    struct linker_option_command *lo;
     struct dyld_info_command *dyld_info;
     struct uuid_command *uuid;
     struct rpath_command *rpath;
@@ -4179,6 +4181,55 @@ check_linkedit_data_command:
 				 "(cryptoff field plus cryptsize field of "
 				 "LC_ENCRYPTION_INFO command %u extends past "
 				 "the end of the file)", i);
+		    goto return_bad;
+		}
+		break;
+
+	    case LC_ENCRYPTION_INFO_64:
+		if(l.cmdsize < sizeof(struct encryption_info_command_64)){
+		    Mach_O_error(ofile, "malformed object (LC_ENCRYPTION_INFO"
+			         "_64 cmdsize too small) in command %u", i);
+		    goto return_bad;
+		}
+		encrypt_info64 = (struct encryption_info_command_64 *)lc;
+		if(swapped) 
+		    swap_encryption_command_64(encrypt_info64, host_byte_sex);
+		if(encrypt_info64->cmdsize !=
+		   sizeof(struct encryption_info_command_64)){
+		    Mach_O_error(ofile, "malformed object (LC_ENCRYPTION_INFO"
+				 "_64 command %u has incorrect cmdsize)", i);
+		    goto return_bad;
+		}
+		if(encrypt_info64->cryptoff > size){
+		Mach_O_error(ofile, "truncated or malformed object (cryptoff "
+			     "field of LC_ENCRYPTION_INFO_64 command %u extends"
+			     " past the end of the file)", i);
+		    goto return_bad;
+		}
+		big_size = encrypt_info64->cryptoff;
+		big_size += encrypt_info64->cryptsize;
+		if(big_size > size){
+		    Mach_O_error(ofile, "truncated or malformed object "
+				 "(cryptoff field plus cryptsize field of "
+				 "LC_ENCRYPTION_INFO_64 command %u extends past"
+				 " the end of the file)", i);
+		    goto return_bad;
+		}
+		break;
+
+	    case LC_LINKER_OPTION:
+		if(l.cmdsize < sizeof(struct linker_option_command)){
+		    Mach_O_error(ofile, "malformed object (LC_LINKER_OPTION "
+			         "cmdsize too small) in command %u", i);
+		    goto return_bad;
+		}
+		lo = (struct linker_option_command *)lc;
+		if(swapped) 
+		    swap_linker_option_command(lo, host_byte_sex);
+		if(lo->cmdsize <
+		   sizeof(struct linker_option_command)){
+		    Mach_O_error(ofile, "malformed object (LC_LINKER_OPTION "
+				 " command %u cmdsize too small)", i);
 		    goto return_bad;
 		}
 		break;

@@ -275,7 +275,7 @@ does not have a UUID that matches the given
 The third component of a line specifies the host set to which the line applies.
 The set may be specified in three ways.
 The first way is to list the host name(s) separated by white space.
-(Standard internet ``dot'' addresses may be used in place of names.)
+(Standard internet IPv4 ``dot'' addresses or IPv6 colon addresses may be used in place of names.)
 The second way is to specify a ``netgroup'' as defined in the netgroup file (see
 .Xr netgroup 5 ).
 The third way is to specify an internet sub-network using a network and
@@ -308,15 +308,18 @@ class (A, B or C; see
 /usr -maproot=daemon grumpy.cis.uoguelph.ca 131.104.48.16
 /usr -ro -mapall=nobody
 /u -maproot=bin: -network 131.104.48 -mask 255.255.255.0
+/u1 -alldirs -network 2001:DB8:: -mask ffff:ffff::
 /u2 -maproot=root friends
 /u2 -alldirs -network cis-net -mask cis-mask
 /Users -alldirs -network 2.29.96.0 -mask 255.255.255.0
 /Applications -ro -network 2.29.96.0 -mask 255.255.255.0
+
 .Ed
 .Pp
 Given that
 .Pa /usr ,
 .Pa /u ,
+.Pa /u1 ,
 .Pa /u2 ,
 and
 .Pa /
@@ -350,6 +353,10 @@ all users mapped to the user and groups associated with ``nobody''.
 is exported to all hosts on the sub-network
 .Em 131.104.48
 with root mapped to the uid for ``bin'' and with no group access.
+.Pp
+.Pa /u1
+is exported to all hosts on the IPv6 sub-network
+.Em 2001:DB8::
 .Pp
 .Pa /u2
 is exported to the hosts in ``friends'' with root mapped to uid and groups

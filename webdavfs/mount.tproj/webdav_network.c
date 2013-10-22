@@ -5460,6 +5460,8 @@ int network_lock(
 	CFDataRef bodyData;
 	CFStringRef urlStrRef;
 	char *urlStr;
+	char* locktokentofree = NULL;
+	uid_t file_locktoken_uid = 0;
 	const UInt8 xmlString[] =
 		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 		"<D:lockinfo xmlns:D=\"DAV:\">\n"
@@ -5494,6 +5496,13 @@ int network_lock(
 	urlStrRef = NULL;
 	urlStr = NULL;
 
+	lock_node_cache();
+	locktokentofree = node->file_locktoken;
+	node->file_locktoken = NULL;
+	file_locktoken_uid = node->file_locktoken_uid;
+	node->file_locktoken_uid = 0;
+	unlock_node_cache();
+
 	/* create a CFURL to the node */
 	urlRef = create_cfurl_from_node(node, NULL, 0);
 	require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
@@ -5507,14 +5516,14 @@ int network_lock(
 	if ( refresh )
 	{
 		/* if refreshing, use the uid associated with the file_locktoken */
-		uid = node->file_locktoken_uid;
+		uid = file_locktoken_uid;
 		
 		/* if refreshing the lock, there's no message body */
 		bodyData = NULL;
 		
 		headerCount = 5;
 		headers5[3].value = CFSTR("text/xml");
-		lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), node->file_locktoken);
+		lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), locktokentofree);
 		require_action(lockTokenRef != NULL, CFStringCreateWithFormat_lockTokenRef, error = EIO);
 		
 		headers5[4].value = lockTokenRef;
@@ -5590,28 +5599,31 @@ int network_lock(
 				CFRelease(urlStrRef);
 		}
 		else {
-			char *locktoken;
+			char *locktoken = NULL;
 			
 			/* parse responseBuffer to get the lock token */
 			error = parse_lock(responseBuffer, count, &locktoken);
-		
-			if ( !error )
-			{
-				char *old_locktoken;
 			
-				old_locktoken = node->file_locktoken;
+			lock_node_cache();
+			if (!error)
+			{
 				node->file_locktoken = locktoken;
-				if ( old_locktoken != NULL )
+				if ( locktokentofree != NULL )
 				{
 				
-					free(old_locktoken);
+					free(locktokentofree);
+					locktokentofree = NULL;
 				}
 				/* file_locktoken_uid is already set if refreshing */
 				if ( !refresh )
 				{
 					node->file_locktoken_uid = uid;
 				}
+			} else {
+				node->file_locktoken = locktokentofree;
+				locktokentofree = NULL;
 			}
+			unlock_node_cache();
 		}
 	
 		// Release the response buffer
@@ -5645,12 +5657,28 @@ create_cfurl_from_node:
 
 /******************************************************************************/
 
-int network_unlock(
+int network_unlock(struct node_entry *node)
+{
+	int error = 0;
+	lock_node_cache();
+	if ( node->file_locktoken != NULL ) {
+		/* nothing we can do network_unlock fails -- the lock will time out eventually */
+		error = network_unlock_with_nodecache_locked(node);
+	}
+	unlock_node_cache();
+	return error;
+}
+
+/******************************************************************************/
+
+int network_unlock_with_nodecache_locked(
 	struct node_entry *node)	/* -> node to unlock on server */
 {
 	int error;
 	CFURLRef urlRef;
 	CFStringRef lockTokenRef;
+	char* locktokentofree = NULL;
+	uid_t file_locktoken_uid = 0;
 	/* the 2 headers */
 	CFIndex headerCount = 2;
 	struct HeaderFieldValue headers[] = {
@@ -5663,20 +5691,28 @@ int network_unlock(
 		/* translate flag only for Microsoft IIS Server */
 		headerCount += 1;
 	}
+	
+	locktokentofree = node->file_locktoken;
+	node->file_locktoken = NULL;
+	file_locktoken_uid = node->file_locktoken_uid;
+	node->file_locktoken_uid = 0;
+
+	/*unlocking the node cache before calling send_transaction()*/
+	unlock_node_cache();
 
 	/* create a CFURL to the node */
 	urlRef = create_cfurl_from_node(node, NULL, 0);
 	require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
 	
 	/* in the unlikely event that this fails, the DELETE will fail */
-	lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<%s>"), node->file_locktoken);
+	lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<%s>"), locktokentofree);
 	require_action_quiet(lockTokenRef != NULL, CFStringCreateWithFormat, error = EIO);
 
 	headers[1].value = lockTokenRef;
 	
 	/* send request to the server and get the response */
 	/* Note: we use the credentials of the user than obtained the LOCK */
-	error = send_transaction(node->file_locktoken_uid, urlRef, NULL, CFSTR("UNLOCK"), NULL,
+	error = send_transaction(file_locktoken_uid, urlRef, NULL, CFSTR("UNLOCK"), NULL,
 		headerCount, headers, REDIRECT_DISABLE, NULL, NULL, NULL);
 	
 	CFRelease(lockTokenRef);
@@ -5687,9 +5723,11 @@ CFStringCreateWithFormat:
 
 create_cfurl_from_node:
 	
-	free(node->file_locktoken);
-	node->file_locktoken_uid = 0;
-	node->file_locktoken = NULL;
+	free(locktokentofree);
+	locktokentofree = NULL;
+	
+	/*Locking the node cache as the function returns a locked node*/
+	lock_node_cache();
 	
 	return ( error );
 }

@@ -56,7 +56,6 @@
 #error Hey, figure out a debug mechanism
 
 #include <string.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <TextUtils.h>
 
 /* common log macros */

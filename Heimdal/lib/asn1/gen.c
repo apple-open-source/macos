@@ -270,14 +270,14 @@ init_generate (const char *filename, const char *base)
 	     "#include <string.h>\n"
 	     "#include <errno.h>\n"
 	     "#include <limits.h>\n"
-	     "#include <krb5-types.h>\n",
-	     filename);
+	     "#include <%s>\n",
+	     filename,
+	     type_file_string);
 
     fprintf (templatefile,
 	     "#include <%s>\n"
 	     "#include <%s>\n"
 	     "#include <der.h>\n"
-	     "#include <der-private.h>\n"
 	     "#include <asn1-template.h>\n",
 	     header, privheader);
 
@@ -368,19 +368,22 @@ generate_header_of_codefile(const char *name)
 	     "#include <string.h>\n"
 	     "#include <errno.h>\n"
 	     "#include <limits.h>\n"
-	     "#include <krb5-types.h>\n",
-	     orig_filename);
+	     "#include <%s>\n",
+	     orig_filename,
+	     type_file_string);
 
     fprintf (codefile,
-	     "#include <%s>\n"
-	     "#include <%s>\n",
+	     "#include \"%s\"\n"
+	     "#include \"%s\"\n",
 	     header, privheader);
     fprintf (codefile,
 	     "#include <asn1_err.h>\n"
 	     "#include <der.h>\n"
-	     "#include <der-private.h>\n"
-	     "#include <asn1-template.h>\n"
-	     "#include <parse_units.h>\n\n");
+	     "#include <asn1-template.h>\n\n");
+
+    if (parse_units_flag)
+	fprintf (codefile,
+		 "#include <parse_units.h>\n\n");
 
 }
 
@@ -411,7 +414,7 @@ generate_constant (const Symbol *s)
 	break;
     case objectidentifiervalue: {
 	struct objid *o, **list;
-	unsigned int i, len;
+	size_t i, len;
 	char *gen_upper;
 
 	if (!one_code_file)
@@ -438,16 +441,16 @@ generate_constant (const Symbol *s)
 		    o->label ? o->label : "label-less", o->value);
 	}
 
-	fprintf (codefile, "static unsigned oid_%s_variable_num[%d] =  {",
-		 s->gen_name, len);
+	fprintf (codefile, "static unsigned oid_%s_variable_num[%lu] =  {",
+		 s->gen_name, (unsigned long)len);
 	for (i = len ; i > 0; i--) {
 	    fprintf(codefile, "%d%s ", list[i - 1]->value, i > 1 ? "," : "");
 	}
 	fprintf(codefile, "};\n");
 
 	fprintf (codefile, "const heim_oid asn1_oid_%s = "
-		 "{ %d, oid_%s_variable_num };\n\n",
-		 s->gen_name, len, s->gen_name);
+		 "{ %lu, oid_%s_variable_num };\n\n",
+		 s->gen_name, (unsigned long)len, s->gen_name);
 
 	free(list);
 
@@ -587,7 +590,7 @@ define_asn1 (int level, Type *t)
     case TSet:
     case TSequence: {
 	Member *m;
-	int max_width = 0;
+	size_t max_width = 0;
 
 	if(t->type == TChoice)
 	    fprintf(headerfile, "CHOICE {\n");
@@ -602,13 +605,13 @@ define_asn1 (int level, Type *t)
 	max_width += 3;
 	if(max_width < 16) max_width = 16;
 	ASN1_TAILQ_FOREACH(m, t->members, members) {
-	    int width = max_width;
+	    size_t width = max_width;
 	    space(level + 1);
 	    if (m->ellipsis) {
 		fprintf (headerfile, "...");
 	    } else {
 		width -= fprintf(headerfile, "%s", m->name);
-		fprintf(headerfile, "%*s", width, "");
+		fprintf(headerfile, "%*s", (int)width, "");
 		define_asn1(level + 1, m->type);
 		if(m->optional)
 		    fprintf(headerfile, " OPTIONAL");
@@ -897,9 +900,10 @@ define_type (int level, const char *name, const char *basename, Type *t, int typ
 	m = have_ellipsis(t);
 	if (m) {
 	    space(level + 2);
-	    fprintf (headerfile, "%s = 0,\n", m->label);
+	    fprintf (headerfile, "%s = -1,\n", m->label);
 	    first = 0;
 	}
+	fprintf (headerfile, "invalid_choice_%s = 0,\n", newbasename);
 	ASN1_TAILQ_FOREACH(m, t->members, members) {
 	    space(level + 2);
 	    if (m->ellipsis)

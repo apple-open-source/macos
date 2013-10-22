@@ -177,5 +177,29 @@
  */
 #define kSMBPrefSigningRequired "SigningRequired"
 
+/* Name: SMBProtocolVersionMap
+ * Type: number
+ * Bit map indicating smb protocol versions the server should enable
+ * 1 == 0001 => smb1 should be enabled
+ * 2 == 0010 => smb2 should be enabled
+ * 3 == 0011 => both smb1 and smb2 should be enabled 
+ * If not specified the server will enable both smb1 and smb2 (default = 3)
+ */
+#define kSMBProtocolVersionMap "ProtocolVersionMap"
+
+/* Name: SMBAllowDropboxShare
+ * Type: bool
+ * Whether to allow Mac clients to access dropbox (write-only) shares.
+ * Defaults to True.
+ */
+#define kSMBPrefAllowDropboxShare "AllowDropboxShare"
+
+/* Name: SMBSequesterDuration
+ * Type: number
+ * Duration for which disconnected sessions are saved for reconnect
+ * Defaults to 1 day 1440 mins.
+ */
+#define kSMBSequesterDuration "SequesterDurationMins"
+
 #endif /* _SMB_SERVER_PREFS_H_INCLUDED_ */
 

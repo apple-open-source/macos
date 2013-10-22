@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/pa_Arab.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/pa_Arab.xml
 // *
 // ***************************************************************************
 /**
@@ -23,18 +23,18 @@ pa_Arab{
         default{"arabext"}
         native{"arabext"}
     }
-    Version{"2.0.67.8"}
+    Version{"2.0.82.45"}
     calendar{
-        gregorian{
+        generic{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, dd MMMM y",
-                "d MMMM y",
-                "d MMM y",
-                "dd/MM/yyyy",
+                "EEEE, dd MMMM y G",
+                "d MMMM y G",
+                "d MMM y G",
+                "dd/MM/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -45,8 +45,32 @@ pa_Arab{
                 HHmmss{"HH:mm:ss"}
                 Md{"d/M"}
                 mmss{"mm:ss"}
-                yyMMM{"MMM yy"}
-                yyQ{"Q yy"}
+                yMMM{"MMM y"}
+                yQQQ{"QQQ y"}
+            }
+        }
+        gregorian{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, dd MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "dd/MM/y",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                HHmmss{"HH:mm:ss"}
+                Md{"d/M"}
+                mmss{"mm:ss"}
+                yMMM{"MMM y"}
+                yQQQ{"QQQ y"}
             }
             dayNames{
                 format{
@@ -65,32 +89,6 @@ pa_Arab{
                 wide{
                     "ايساپورو",
                     "سں",
-                }
-            }
-            fields{
-                day{
-                    dn{"دئن"}
-                }
-                hour{
-                    dn{"گھنٹا"}
-                }
-                minute{
-                    dn{"منٹ"}
-                }
-                month{
-                    dn{"مہينا"}
-                }
-                week{
-                    dn{"ہفتہ"}
-                }
-                weekday{
-                    dn{"ہفتے دا دن"}
-                }
-                year{
-                    dn{"ورھا"}
-                }
-                zone{
-                    dn{"ٹپہ"}
                 }
             }
             monthNames{
@@ -123,8 +121,33 @@ pa_Arab{
             }
         }
     }
+    fields{
+        day{
+            dn{"دئن"}
+        }
+        hour{
+            dn{"گھنٹا"}
+        }
+        minute{
+            dn{"منٹ"}
+        }
+        month{
+            dn{"مہينا"}
+        }
+        week{
+            dn{"ہفتہ"}
+        }
+        weekday{
+            dn{"ہفتے دا دن"}
+        }
+        year{
+            dn{"ورھا"}
+        }
+        zone{
+            dn{"ٹپہ"}
+        }
+    }
     layout{
         characters{"right-to-left"}
-        lines{"top-to-bottom"}
     }
 }

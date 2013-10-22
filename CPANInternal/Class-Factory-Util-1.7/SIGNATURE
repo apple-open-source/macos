@@ -1,0 +1,38 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.55.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 3c7a791e918985d2d4cd281223cb6dc2217f6478 Build.PL
+SHA1 5d7234e76eb74b27031e88ad0a746ad5c5ce7d59 Changes
+SHA1 f235ba4160673bcb7c9d58c2f09dbc7fc0efadea LICENSE
+SHA1 c35ebc7825c2e49bbac4601d134597b6806ca2bb MANIFEST
+SHA1 ef14f142b65c858552dcdb6559ba40c2f2a3041e META.yml
+SHA1 cd14ada78fb37a0d926edd86eddcdf7f939de582 Makefile.PL
+SHA1 bcc115958a19379d46de17c22ec2be5872badf9d README
+SHA1 e6ed8106b5a532974e305c19c114f0b82308a748 lib/Class/Factory/Util.pm
+SHA1 a8fc7e74ce11e36d53b5e87f806b93633daf760e t/01test.t
+SHA1 bc7c8e933147de3220a0477f91cff32fd9fe5e2e t/lib/Factory.pm
+SHA1 4235e13ff5495a5e785d3db7bf0fc3c9534e9686 t/lib/Factory/Bar.pm
+SHA1 4611fe16e4a09b4736e0b684e73da0aa9492b41c t/lib/Factory/Foo.pm
+SHA1 59707665bd917eed6b29106b00f4a6fa5ba213e6 t/lib2/Factory/Baz.pm
+SHA1 cbb62f546315d473bf4677b18e416452689a8134 t/pod-coverage.t
+SHA1 37307177c8305132ecc2c9b0778f53fa48f1691e t/pod.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.6 (GNU/Linux)
+
+iD8DBQFGDTBz3Or3ZzQuifMRAvq9AJ9dbtDqEC6KSapQAzGdJ+i1TtTuXQCgtW1Y
+ew4ppWSceh8KOYbdfgjlCJ4=
+=2kyo
+-----END PGP SIGNATURE-----

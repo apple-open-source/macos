@@ -253,7 +253,7 @@ void IOHIDQueueAddElement(
     (*queue->queueInterface)->addElement(queue->queueInterface, element, 0);
     
     if ( !queue->elements )
-        queue->elements = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
+        queue->elements = CFSetCreateMutable(CFGetAllocator(queue), 0, &kCFTypeSetCallBacks);
         
     if ( queue->elements )
         CFSetAddValue(queue->elements, element);
@@ -376,7 +376,7 @@ void IOHIDQueueRegisterValueAvailableCallback(
         return;
     }    
     if (!queue->callbackDictionary) {
-        queue->callbackDictionary = CFDictionaryCreateMutable(NULL, 2, NULL, NULL);
+        queue->callbackDictionary = CFDictionaryCreateMutable(NULL, 0, NULL, NULL);
     }
     if (!queue->callbackDictionary) {
         _IOHIDLog(ASL_LEVEL_ERR, "%s unable to create dictionary\n", __func__);
@@ -437,7 +437,7 @@ CFArrayRef _IOHIDQueueCopyElements(IOHIDQueueRef queue)
     
     CFSetGetValues(queue->elements, (const void **)elements);
     
-    ret = CFArrayCreate(kCFAllocatorDefault, (const void **)elements, count, &kCFTypeArrayCallBacks);
+    ret = CFArrayCreate(CFGetAllocator(queue), (const void **)elements, count, &kCFTypeArrayCallBacks);
     
     free(elements);
     

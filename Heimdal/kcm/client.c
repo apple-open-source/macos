@@ -90,28 +90,6 @@ kcm_ccache_new_client(krb5_context context,
     krb5_error_code ret;
     kcm_ccache ccache;
 
-    /* We insist the ccache name starts with UID or UID: */
-    if (name_constraints != 0) {
-	char prefix[64];
-	size_t prefix_len;
-	int bad = 1;
-
-	snprintf(prefix, sizeof(prefix), "%ld:", (long)client->uid);
-	prefix_len = strlen(prefix);
-
-	if (strncmp(name, prefix, prefix_len) == 0)
-	    bad = 0;
-	else {
-	    prefix[prefix_len - 1] = '\0';
-	    if (strcmp(name, prefix) == 0)
-		bad = 0;
-	}
-
-	/* Allow root to create badly-named ccaches */
-	if (bad && !CLIENT_IS_ROOT(client))
-	    return KRB5_CC_BADNAME;
-    }
-
     ret = kcm_ccache_resolve_by_name(context, name, &ccache);
     if (ret == 0) {
 	if ((ccache->uid != client->uid) && !CLIENT_IS_ROOT(client))
@@ -165,11 +143,31 @@ kcm_ccache_new_client(krb5_context context,
 	if (matches == 0)
 	    matches = sscanf(name,"%ld",&uid);
 	if (matches == 1) {
-	    kcm_chown(context, client, ccache, uid);
+	    kcm_chown(context, client, ccache, (uid_t)uid);
 	}
     }
 
     *ccache_p = ccache;
     return 0;
 }
+
+const char *
+kcm_client_get_execpath(kcm_client *client)
+{
+    if (client->execpath[0] == '\0') {
+	int ret = proc_pidpath(client->pid, client->execpath, sizeof(client->execpath));
+	if (ret != -1)
+	    client->execpath[sizeof(client->execpath) - 1] = '\0';
+	else {
+	    /* failed, lets not try again */
+	    client->execpath[0] = 0x01;
+	    client->execpath[1] = 0x0;
+	}
+    }
+    if (client->execpath[0] != '/')
+	return NULL;
+
+    return client->execpath;
+}
+
 

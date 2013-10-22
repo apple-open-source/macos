@@ -124,7 +124,7 @@ vdup(src)
 	vchar_t *new;
 
 	if (src == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "vdup(NULL) called\n");
+		plog(ASL_LEVEL_ERR, "vdup(NULL) called\n");
 		return NULL;
 	}
 
@@ -132,6 +132,25 @@ vdup(src)
 		return NULL;
 
 	memcpy(new->v, src->v, src->l);
+
+	return new;
+}
+
+vchar_t *
+vnew(in, in_len)
+	u_int8_t *in;
+	size_t    in_len;
+{
+	vchar_t *new;
+	
+	if (in == NULL) {
+		return NULL;
+	}
+	
+	if ((new = vmalloc(in_len)) == NULL)
+		return NULL;
+
+	memcpy(new->v, in, in_len);
 
 	return new;
 }

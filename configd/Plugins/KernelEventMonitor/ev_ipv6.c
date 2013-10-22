@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -344,7 +344,8 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 		appendFlags    (newDict, flags6);
 
 
-		if (ifa->ifa_flags & IFF_POINTOPOINT) {
+		if (ifa->ifa_flags & IFF_POINTOPOINT
+		    && ifa->ifa_dstaddr != NULL) {
 			struct sockaddr_in6	*dst6;
 
 			/* ALIGN: ifa should be aligned (from getifaddrs), cast ok. */

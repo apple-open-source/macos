@@ -20,19 +20,17 @@
 #define WebPage_h
 
 #include "BlackBerryGlobal.h"
-#include "WebString.h"
+#include "JavaScriptVariant.h"
 
 #include <BlackBerryPlatformGuardedPointer.h>
 #include <BlackBerryPlatformInputEvents.h>
+#include <BlackBerryPlatformString.h>
 #include <BlackBerryPlatformWebContext.h>
+#include <JavaScriptCore/JSBase.h>
 #include <imf/input_data.h>
 #include <network/NetworkRequest.h>
-
-struct OpaqueJSContext;
-typedef const struct OpaqueJSContext* JSContextRef;
-
-struct OpaqueJSValue;
-typedef const struct OpaqueJSValue* JSValueRef;
+#include <string>
+#include <vector>
 
 namespace WebCore {
 class ChromeClientBlackBerry;
@@ -46,6 +44,7 @@ template<typename T> class SharedArray;
 
 namespace BlackBerry {
 namespace Platform {
+class FloatPoint;
 class IntPoint;
 class IntRect;
 class IntSize;
@@ -53,6 +52,7 @@ class KeyboardEvent;
 class MouseEvent;
 class TouchEvent;
 class TouchPoint;
+class ViewportAccessor;
 }
 
 namespace WebKit {
@@ -60,56 +60,71 @@ namespace WebKit {
 class BackingStore;
 class BackingStoreClient;
 class BackingStorePrivate;
+class InRegionScroller;
+class PagePopup;
 class RenderQueue;
+class WebCookieJar;
+class WebOverlay;
 class WebPageClient;
 class WebPageCompositor;
 class WebPageGroupLoadDeferrer;
 class WebPagePrivate;
 class WebSettings;
+class WebTapHighlight;
 class WebViewportArguments;
 
 enum JavaScriptDataType { JSUndefined = 0, JSNull, JSBoolean, JSNumber, JSString, JSObject, JSException, JSDataTypeMax };
 
+enum SelectionExpansionType { Word = 0, Sentence, Paragraph, NextParagraph };
+
 enum ActivationStateType { ActivationActive, ActivationInactive, ActivationStandby };
 
-enum TargetDetectionStrategy {PointBased, RectBased};
+enum TargetDetectionStrategy {PointBased, RectBased, FocusBased};
 
 class BLACKBERRY_EXPORT WebPage : public Platform::GuardedPointerBase {
 public:
-    WebPage(WebPageClient*, const WebString& pageGroupName, const Platform::IntRect&);
+    WebPage(WebPageClient*, const BlackBerry::Platform::String& pageGroupName, const Platform::IntRect&);
     void destroy();
 
     WebPageClient* client() const;
 
-    void load(const char* url, const char* networkToken, bool isInitial = false);
+    void loadFile(const BlackBerry::Platform::String& path, const BlackBerry::Platform::String& overrideContentType = BlackBerry::Platform::String::emptyString());
 
-    void loadExtended(const char* url, const char* networkToken, const char* method, Platform::NetworkRequest::CachePolicy = Platform::NetworkRequest::UseProtocolCachePolicy, const char* data = 0, size_t dataLength = 0, const char* const* headers = 0, size_t headersLength = 0, bool mustHandleInternally = false);
+    void loadString(const BlackBerry::Platform::String&, const BlackBerry::Platform::String& baseURL, const BlackBerry::Platform::String& contentType = BlackBerry::Platform::String::fromAscii("text/html"), const BlackBerry::Platform::String& failingURL = BlackBerry::Platform::String::emptyString());
 
-    void loadFile(const char* path, const char* overrideContentType = "");
+    void load(const Platform::NetworkRequest&, bool needReferer = false);
 
-    void loadString(const char* string, const char* baseURL, const char* contentType = "text/html", const char* failingURL = 0);
-
-    void download(const Platform::NetworkRequest&);
-
-    bool executeJavaScript(const char* script, JavaScriptDataType& returnType, WebString& returnValue);
+    bool executeJavaScript(const BlackBerry::Platform::String& script, JavaScriptDataType& returnType, BlackBerry::Platform::String& returnValue);
 
     // This will execute the script even if in-page JavaScript is disabled.
-    bool executeJavaScriptInIsolatedWorld(const char* script, JavaScriptDataType& returnType, WebString& returnValue);
+    bool executeJavaScriptInIsolatedWorld(const BlackBerry::Platform::String& script, JavaScriptDataType& returnType, BlackBerry::Platform::String& returnValue);
 
     // Takes a UTF16 encoded script that is used explicitly by the pattern matching code
-    bool executeJavaScriptInIsolatedWorld(const std::wstring& script, JavaScriptDataType& returnType, WebString& returnValue);
+    bool executeJavaScriptInIsolatedWorld(const std::wstring& script, JavaScriptDataType& returnType, BlackBerry::Platform::String& returnValue);
+
+    void executeJavaScriptFunction(const std::vector<BlackBerry::Platform::String> &function, const std::vector<JavaScriptVariant> &args, JavaScriptVariant& returnValue);
 
     void initializeIconDataBase();
 
     void stopLoading();
 
+    bool dispatchBeforeUnloadEvent();
+
     // This will force any unload handlers to run.
     void prepareToDestroy();
+
+    void enableCrossSiteXHR();
+    void addOriginAccessWhitelistEntry(const BlackBerry::Platform::String& sourceOrigin, const BlackBerry::Platform::String& destinationOrigin, bool allowDestinationSubdomains);
+    void removeOriginAccessWhitelistEntry(const BlackBerry::Platform::String& sourceOrigin, const BlackBerry::Platform::String& destinationOrigin, bool allowDestinationSubdomains);
 
     void reload();
     void reloadFromCache();
 
     WebSettings* settings() const;
+
+    WebCookieJar* cookieJar() const;
+
+    bool isLoading() const;
 
     void setVisible(bool);
     bool isVisible() const;
@@ -117,14 +132,22 @@ public:
     void setScreenOrientation(int);
     void applyPendingOrientationIfNeeded();
 
+    Platform::ViewportAccessor* webkitThreadViewportAccessor() const;
+
+    // Returns the size of the visual viewport.
     Platform::IntSize viewportSize() const;
-    void setViewportSize(const Platform::IntSize& viewportSize, bool ensureFocusElementVisible = true);
+
+    // Sets the sizes of the visual viewport and the layout viewport.
+    void setViewportSize(const Platform::IntSize& viewportSize, const Platform::IntSize& defaultLayoutSize, bool ensureFocusElementVisible = true);
 
     void resetVirtualViewportOnCommitted(bool reset);
-    void setVirtualViewportSize(int width, int height);
+    void setVirtualViewportSize(const Platform::IntSize&);
 
-    // Used for default layout size unless overridden by web content or by other APIs.
-    void setDefaultLayoutSize(int width, int height);
+    // Returns the size of the layout viewport.
+    Platform::IntSize defaultLayoutSize() const;
+
+    // Set the size of the layout viewport, in document coordinates, independently of the visual viewport.
+    void setDefaultLayoutSize(const Platform::IntSize&);
 
     bool mouseEvent(const Platform::MouseEvent&, bool* wheelDeltaAccepted = 0);
 
@@ -133,46 +156,46 @@ public:
 
     // For conversion to mouse events.
     void touchEventCancel();
-    void touchEventCancelAndClearFocusedNode();
-    bool touchPointAsMouseEvent(const Platform::TouchPoint&);
+    void touchPointAsMouseEvent(const Platform::TouchPoint&, unsigned modifiers = 0);
+
+    void playSoundIfAnchorIsTarget() const;
 
     // Returns true if the key stroke was handled by WebKit.
     bool keyEvent(const Platform::KeyboardEvent&);
 
-    WebString title() const;
-    WebString selectedText() const;
-    WebString cutSelectedText();
-    void insertText(const WebString&);
+    BlackBerry::Platform::String title() const;
+    BlackBerry::Platform::String selectedText() const;
+    BlackBerry::Platform::String cutSelectedText();
+    void insertText(const BlackBerry::Platform::String&);
     void clearCurrentInputField();
 
     void cut();
     void copy();
     void paste();
+    void selectAll();
 
     // Text encoding.
-    WebString textEncoding();
-    WebString forcedTextEncoding();
-    void setForcedTextEncoding(const char*);
+    BlackBerry::Platform::String textEncoding();
+    BlackBerry::Platform::String forcedTextEncoding();
+    void setForcedTextEncoding(const BlackBerry::Platform::String&);
 
-    // Scroll position returned is in transformed coordinates.
-    Platform::IntPoint scrollPosition() const;
-    // Scroll position provided should be in transformed coordinates.
-    void setScrollPosition(const Platform::IntPoint&);
-    bool scrollBy(const Platform::IntSize&, bool scrollMainFrame = true);
-    void notifyInRegionScrollStatusChanged(bool status);
-    void setScrollOriginPoint(const Platform::IntPoint&);
+    // Scroll position provided should be in document coordinates.
+    // Use webkitThreadViewportAccessor() to retrieve the scroll position.
+    void setDocumentScrollPosition(const Platform::IntPoint&);
+    void notifyInRegionScrollStopped();
+    void setDocumentScrollOriginPoint(const Platform::IntPoint&);
 
     BackingStore* backingStore() const;
 
-    bool zoomToFit();
-    bool zoomToOneOne();
-    void zoomToInitialScale();
-    bool blockZoom(int x, int y);
-    void blockZoomAnimationFinished();
+    InRegionScroller* inRegionScroller() const;
+
+    bool blockZoom(const Platform::IntPoint& documentTargetPoint);
+    void zoomAnimationFinished(double finalScale, const Platform::FloatPoint& finalDocumentScrollPosition, bool shouldConstrainScrollingToContentEdge);
+    void resetBlockZoom();
     bool isAtInitialZoom() const;
     bool isMaxZoomed() const;
     bool isMinZoomed() const;
-    bool pinchZoomAboutPoint(double scale, int x, int y);
+    bool pinchZoomAboutPoint(double scale, const Platform::FloatPoint& documentFocalPoint);
 
     bool isUserScalable() const;
     void setUserScalable(bool);
@@ -189,40 +212,27 @@ public:
 
     void setFocused(bool);
 
+    void focusNextField();
+    void focusPreviousField();
+    void submitForm();
+
     void clearBrowsingData();
     void clearHistory();
     void clearCookies();
     void clearCache();
     void clearLocalStorage();
     void clearCredentials();
+    void clearAutofillData();
     void clearNeverRememberSites();
+    void clearWebFileSystem();
 
     void runLayoutTests();
 
     // Find the next utf8 string in the given direction.
     // Case sensitivity, wrapping, and highlighting all matches are also toggleable.
-    bool findNextString(const char*, bool forward, bool caseSensitive, bool wrap, bool highlightAllMatches);
+    bool findNextString(const char*, bool forward, bool caseSensitive, bool wrap, bool highlightAllMatches, bool selectActiveMatchOnClear);
 
-    // JavaScriptDebugger interface.
-    bool enableScriptDebugger();
-    bool disableScriptDebugger();
-
-    JSContextRef scriptContext() const;
-    JSValueRef windowObject() const;
-
-    void addBreakpoint(const unsigned short* url, unsigned urlLength, int lineNumber, const unsigned short* condition, unsigned conditionLength);
-    void updateBreakpoint(const unsigned short* url, unsigned urlLength, int lineNumber, const unsigned short* condition, unsigned conditionLength);
-    void removeBreakpoint(const unsigned short* url, unsigned urlLength, int lineNumber);
-
-    bool pauseOnExceptions();
-    void setPauseOnExceptions(bool);
-
-    void pauseInDebugger();
-    void resumeDebugger();
-
-    void stepOverStatementInDebugger();
-    void stepIntoStatementInDebugger();
-    void stepOutOfFunctionInDebugger();
+    JSGlobalContextRef globalContext() const;
 
     unsigned timeoutForJavaScriptExecution() const;
     void setTimeoutForJavaScriptExecution(unsigned ms);
@@ -244,32 +254,37 @@ public:
     int32_t commitText(spannable_string_t*, int32_t relativeCursorPosition);
 
     void setSpellCheckingEnabled(bool);
+    void spellCheckingRequestProcessed(int32_t transactionId, spannable_string_t*);
 
-    void setSelection(const Platform::IntPoint& startPoint, const Platform::IntPoint& endPoint);
-    void setCaretPosition(const Platform::IntPoint&);
-    void selectAtPoint(const Platform::IntPoint&);
+    bool isInputMode() const;
+    void setDocumentSelection(const Platform::IntPoint& documentStartPoint, const Platform::IntPoint& documentEndPoint);
+    void setDocumentCaretPosition(const Platform::IntPoint&);
+    void selectAtDocumentPoint(const Platform::IntPoint&, SelectionExpansionType = Word);
+    void expandSelection(bool isScrollStarted);
+    void setOverlayExpansionPixelHeight(int);
+    void setParagraphExpansionPixelScrollMargin(const Platform::IntSize&);
+    void setSelectionDocumentViewportSize(const Platform::IntSize&);
     void selectionCancelled();
-    bool selectionContains(const Platform::IntPoint&);
+    bool selectionContainsDocumentPoint(const Platform::IntPoint&);
 
     void popupListClosed(int size, const bool* selecteds);
     void popupListClosed(int index);
-    void setDateTimeInput(const WebString& value);
-    void setColorInput(const WebString& value);
+    void setDateTimeInput(const BlackBerry::Platform::String& value);
+    void setColorInput(const BlackBerry::Platform::String& value);
 
-    void onInputLocaleChanged(bool isRTL);
     static void onNetworkAvailabilityChanged(bool available);
-    static void onCertificateStoreLocationSet(const WebString& caPath);
+    static void onCertificateStoreLocationSet(const BlackBerry::Platform::String& caPath);
 
-    WebString textHasAttribute(const WebString& query) const;
+    BlackBerry::Platform::String textHasAttribute(const BlackBerry::Platform::String& query) const;
 
     Platform::WebContext webContext(TargetDetectionStrategy) const;
 
     typedef intptr_t BackForwardId;
     struct BackForwardEntry {
-        WebString url;
-        WebString originalUrl;
-        WebString title;
-        WebString networkToken;
+        BlackBerry::Platform::String url;
+        BlackBerry::Platform::String originalUrl;
+        BlackBerry::Platform::String title;
+        BlackBerry::Platform::String networkToken;
         BackForwardId id;
         bool lastVisitWasHTTPNonGet;
     };
@@ -281,34 +296,30 @@ public:
     void goToBackForwardEntry(BackForwardId);
 
     int backForwardListLength() const;
-    void getBackForwardList(SharedArray<BackForwardEntry>& result, unsigned& resultLength) const;
+    void getBackForwardList(SharedArray<BackForwardEntry>& result) const;
     void releaseBackForwardEntry(BackForwardId) const;
     void clearBackForwardList(bool keepCurrentPage) const;
 
     void addVisitedLink(const unsigned short* url, unsigned length);
 
-#if defined(ENABLE_WEBDOM) && ENABLE_WEBDOM
-    WebDOMDocument document() const;
-    WebDOMNode nodeAtPoint(int x, int y);
-    bool getNodeRect(const WebDOMNode&, Platform::IntRect& result);
-    bool setNodeFocus(const WebDOMNode&, bool on);
-    bool setNodeHovered(const WebDOMNode&, bool on);
-    bool nodeHasHover(const WebDOMNode&);
-#endif
-
     bool defersLoading() const;
-
-    bool willFireTimer();
 
     bool isEnableLocalAccessToAllCookies() const;
     void setEnableLocalAccessToAllCookies(bool);
 
+    void enableDNSPrefetch();
+    void disableDNSPrefetch();
+    bool isDNSPrefetchEnabled() const;
     void enableWebInspector();
     void disableWebInspector();
     bool isWebInspectorEnabled();
     void enablePasswordEcho();
     void disablePasswordEcho();
-    void dispatchInspectorMessage(const std::string& message);
+    void dispatchInspectorMessage(const BlackBerry::Platform::String& message);
+    void inspectCurrentContextElement();
+
+    Platform::IntPoint adjustDocumentScrollPosition(const Platform::IntPoint& documentScrollPosition, const Platform::IntRect& documentPaddingRect);
+    Platform::IntSize fixedElementSizeDelta();
 
     // FIXME: Needs API review on this header. See PR #120402.
     void notifyPagePause();
@@ -323,6 +334,8 @@ public:
     void notifyScreenPowerStateChanged(bool powered);
     void notifyFullScreenVideoExited(bool done);
     void clearPluginSiteData();
+    void setExtraPluginDirectory(const BlackBerry::Platform::String& path);
+    void updateDisabledPluginFiles(const BlackBerry::Platform::String& fileName, bool disabled);
     void setJavaScriptCanAccessClipboard(bool);
     bool isWebGLEnabled() const;
     void setWebGLEnabled(bool);
@@ -332,12 +345,44 @@ public:
     void setUserViewportArguments(const WebViewportArguments&);
     void resetUserViewportArguments();
 
+    WebTapHighlight* tapHighlight() const;
+    WebTapHighlight* selectionHighlight() const;
+
+    // Adds an overlay that can be modified on the WebKit thread, and
+    // whose attributes can be overridden on the compositing thread.
+    void addOverlay(WebOverlay*);
+    void removeOverlay(WebOverlay*);
+
+    // Adds an overlay that can only be modified on the compositing thread.
+    void addCompositingThreadOverlay(WebOverlay*);
+    void removeCompositingThreadOverlay(WebOverlay*);
+
+    // Popup client
+    void initPopupWebView(BlackBerry::WebKit::WebPage*);
+
+    void autofillTextField(const BlackBerry::Platform::String&);
+
+    BlackBerry::Platform::String renderTreeAsText();
+
+    void updateNotificationPermission(const BlackBerry::Platform::String& requestId, bool allowed);
+    void notificationClicked(const BlackBerry::Platform::String& notificationId);
+    void notificationClosed(const BlackBerry::Platform::String& notificationId);
+    void notificationError(const BlackBerry::Platform::String& notificationId);
+    void notificationShown(const BlackBerry::Platform::String& notificationId);
+
+    void animateToScaleAndDocumentScrollPosition(double destinationZoomScale, const BlackBerry::Platform::FloatPoint& destinationScrollPosition, bool shouldConstrainScrollingToContentEdge = true);
+
+    bool isProcessingUserGesture() const;
+
+    void setShowDebugBorders(bool);
+
 private:
     virtual ~WebPage();
 
     friend class WebKit::BackingStore;
     friend class WebKit::BackingStoreClient;
     friend class WebKit::BackingStorePrivate;
+    friend class WebKit::PagePopup;
     friend class WebKit::RenderQueue;
     friend class WebKit::WebPageCompositor;
     friend class WebKit::WebPageGroupLoadDeferrer;

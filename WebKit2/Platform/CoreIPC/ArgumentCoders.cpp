@@ -26,43 +26,44 @@
 #include "config.h"
 #include "ArgumentCoders.h"
 
+#include "DataReference.h"
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
 namespace CoreIPC {
 
-void ArgumentCoder<AtomicString>::encode(ArgumentEncoder* encoder, const AtomicString& atomicString)
+void ArgumentCoder<AtomicString>::encode(ArgumentEncoder& encoder, const AtomicString& atomicString)
 {
-    encoder->encode(atomicString.string());
+    encoder << atomicString.string();
 }
 
-bool ArgumentCoder<AtomicString>::decode(ArgumentDecoder* decoder, AtomicString& atomicString)
+bool ArgumentCoder<AtomicString>::decode(ArgumentDecoder& decoder, AtomicString& atomicString)
 {
     String string;
-    if (!decoder->decode(string))
+    if (!decoder.decode(string))
         return false;
 
     atomicString = string;
     return true;
 }
 
-void ArgumentCoder<CString>::encode(ArgumentEncoder* encoder, const CString& string)
+void ArgumentCoder<CString>::encode(ArgumentEncoder& encoder, const CString& string)
 {
     // Special case the null string.
     if (string.isNull()) {
-        encoder->encodeUInt32(std::numeric_limits<uint32_t>::max());
+        encoder << std::numeric_limits<uint32_t>::max();
         return;
     }
 
     uint32_t length = string.length();
-    encoder->encode(length);
-    encoder->encodeFixedLengthData(reinterpret_cast<const uint8_t*>(string.data()), length, 1);
+    encoder << length;
+    encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(string.data()), length, 1);
 }
 
-bool ArgumentCoder<CString>::decode(ArgumentDecoder* decoder, CString& result)
+bool ArgumentCoder<CString>::decode(ArgumentDecoder& decoder, CString& result)
 {
     uint32_t length;
-    if (!decoder->decode(length))
+    if (!decoder.decode(length))
         return false;
 
     if (length == std::numeric_limits<uint32_t>::max()) {
@@ -72,14 +73,14 @@ bool ArgumentCoder<CString>::decode(ArgumentDecoder* decoder, CString& result)
     }
 
     // Before allocating the string, make sure that the decoder buffer is big enough.
-    if (!decoder->bufferIsLargeEnoughToContain<char>(length)) {
-        decoder->markInvalid();
+    if (!decoder.bufferIsLargeEnoughToContain<char>(length)) {
+        decoder.markInvalid();
         return false;
     }
 
     char* buffer;
     CString string = CString::newUninitialized(length, buffer);
-    if (!decoder->decodeFixedLengthData(reinterpret_cast<uint8_t*>(buffer), length, 1))
+    if (!decoder.decodeFixedLengthData(reinterpret_cast<uint8_t*>(buffer), length, 1))
         return false;
 
     result = string;
@@ -87,23 +88,47 @@ bool ArgumentCoder<CString>::decode(ArgumentDecoder* decoder, CString& result)
 }
 
 
-void ArgumentCoder<String>::encode(ArgumentEncoder* encoder, const String& string)
+void ArgumentCoder<String>::encode(ArgumentEncoder& encoder, const String& string)
 {
     // Special case the null string.
     if (string.isNull()) {
-        encoder->encodeUInt32(std::numeric_limits<uint32_t>::max());
+        encoder << std::numeric_limits<uint32_t>::max();
         return;
     }
 
     uint32_t length = string.length();
-    encoder->encode(length);
-    encoder->encodeFixedLengthData(reinterpret_cast<const uint8_t*>(string.characters()), length * sizeof(UChar), __alignof(UChar)); 
+    bool is8Bit = string.is8Bit();
+
+    encoder << length << is8Bit;
+
+    if (is8Bit)
+        encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(string.characters8()), length * sizeof(LChar), __alignof(LChar));
+    else
+        encoder.encodeFixedLengthData(reinterpret_cast<const uint8_t*>(string.characters16()), length * sizeof(UChar), __alignof(UChar));
 }
 
-bool ArgumentCoder<String>::decode(ArgumentDecoder* decoder, String& result)
+template <typename CharacterType>
+static inline bool decodeStringText(ArgumentDecoder& decoder, uint32_t length, String& result)
+{
+    // Before allocating the string, make sure that the decoder buffer is big enough.
+    if (!decoder.bufferIsLargeEnoughToContain<CharacterType>(length)) {
+        decoder.markInvalid();
+        return false;
+    }
+    
+    CharacterType* buffer;
+    String string = String::createUninitialized(length, buffer);
+    if (!decoder.decodeFixedLengthData(reinterpret_cast<uint8_t*>(buffer), length * sizeof(CharacterType), __alignof(CharacterType)))
+        return false;
+    
+    result = string;
+    return true;    
+}
+
+bool ArgumentCoder<String>::decode(ArgumentDecoder& decoder, String& result)
 {
     uint32_t length;
-    if (!decoder->decode(length))
+    if (!decoder.decode(length))
         return false;
 
     if (length == std::numeric_limits<uint32_t>::max()) {
@@ -112,19 +137,14 @@ bool ArgumentCoder<String>::decode(ArgumentDecoder* decoder, String& result)
         return true;
     }
 
-    // Before allocating the string, make sure that the decoder buffer is big enough.
-    if (!decoder->bufferIsLargeEnoughToContain<UChar>(length)) {
-        decoder->markInvalid();
+    bool is8Bit;
+
+    if (!decoder.decode(is8Bit))
         return false;
-    }
-    
-    UChar* buffer;
-    String string = String::createUninitialized(length, buffer);
-    if (!decoder->decodeFixedLengthData(reinterpret_cast<uint8_t*>(buffer), length * sizeof(UChar), __alignof(UChar)))
-        return false;
-    
-    result = string;
-    return true;
+
+    if (is8Bit)
+        return decodeStringText<LChar>(decoder, length, result);
+    return decodeStringText<UChar>(decoder, length, result);
 }
 
 } // namespace CoreIPC

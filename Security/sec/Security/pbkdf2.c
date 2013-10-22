@@ -37,7 +37,7 @@ F (PRF prf, size_t hLen,
    void *tempBuffer)
 {
 	uint8_t *inBlock, *outBlock, *resultBlockPtr;
-	uint32_t iteration;
+	size_t iteration;
 	outBlock = (uint8_t*)tempBuffer;
 	inBlock = outBlock + hLen;
 	/* Set up inBlock to contain Salt || INT (blockNumber). */
@@ -72,7 +72,7 @@ F (PRF prf, size_t hLen,
 void pbkdf2 (PRF prf, size_t hLen,
 			 const void *passwordPtr, size_t passwordLen,
 			 const void *saltPtr, size_t saltLen,
-			 uint32_t iterationCount,
+			 size_t iterationCount,
 			 void *dkPtr, size_t dkLen,
 			 void *tempBuffer)
 {

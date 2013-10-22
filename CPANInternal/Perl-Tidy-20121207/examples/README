@@ -1,0 +1,24 @@
+These are some files to test and illustrate Perl::Tidy
+
+testfa.t - test with input from file and output to array
+testff.t - test with input from file and output to file
+
+ex_mp.pl - example from Perl::Tidy(3) man page
+lextest  - needed by testfa. and testff.t
+
+bbtidy.pl - a main program which works as a filter under BBEdit+MacPerl
+
+pt.bat - sample batch file for msdos installations
+        (change name to perltidy.bat)
+
+perltidyrc_dump.pl - a program to dump a .perltidyrc file
+    see comments inside for usage
+
+Some examples of a user defined callback object to parse perl:
+--------------------------------------------------------------
+find_naughty.pl - example using Perl::Tidy to find $`, $&, $' variables
+perlcomment.pl  - example using Perl::Tidy to reformat comments
+perllinetype.pl - example using Perl::Tidy to display types of lines
+perlmask.pl     - example using Perl::Tidy to create a masked file
+perlxmltok.pl   - example using Perl::Tidy to write a script in xml format
+

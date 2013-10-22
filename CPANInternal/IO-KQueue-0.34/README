@@ -1,0 +1,6 @@
+IO::KQueue
+==========
+
+This module is a low level interface to the FreeBSD and Mac OS X kqueue()
+system call. This is basically equivalent to epoll() on Linux - a high
+performance poll() replacement.

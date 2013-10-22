@@ -273,7 +273,7 @@ int pppoe_wan_output(struct ppp_link *link, mbuf_t m)
     
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 	
-    if (err = pppoe_rfc_output(wan->rfc, m)) {
+    if ((err = pppoe_rfc_output(wan->rfc, m))) {
         link->lk_oerrors++;
         return err;
     }

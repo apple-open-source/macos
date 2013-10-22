@@ -79,19 +79,19 @@
 #include "isakmp_cfg.h"
 #include "strnames.h"
 
-static vchar_t *isakmp_cfg_split(struct ph1handle *, 
+static vchar_t *isakmp_cfg_split (phase1_handle_t *, 
     struct isakmp_data *, struct unity_netentry*,int);
 
 vchar_t *
 isakmp_unity_req(iph1, attr)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	struct isakmp_data *attr;
 {
 	int type;
 	vchar_t *reply_attr = NULL;
 
 	if ((iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_UNITY) == 0) {
-		plog(LLV_ERROR, LOCATION, NULL, 
+		plog(ASL_LEVEL_ERR, 
 		    "Unity mode config request but the peer "
 		    "did not declare itself as  unity compliant\n");
 		return NULL;
@@ -103,13 +103,13 @@ isakmp_unity_req(iph1, attr)
 	if ((type & ISAKMP_GEN_MASK) == ISAKMP_GEN_TV) {
 		type &= ~ISAKMP_GEN_MASK;
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 		     "Short attribute %s = %d\n", 
 		     s_isakmp_cfg_type(type), ntohs(attr->lorv));
 
 		switch (type) {
 		default:
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 			     "Ignored short attribute %s\n",
 			     s_isakmp_cfg_type(type));
 			break;
@@ -127,13 +127,13 @@ isakmp_unity_req(iph1, attr)
 		int len;
 
 		if ((fd = open(filename, O_RDONLY, 0)) == -1) {
-			plog(LLV_ERROR, LOCATION, NULL, 
+			plog(ASL_LEVEL_ERR, 
 			    "Cannot open \"%s\"\n", filename);
 			return NULL;
 		}
 
 		if ((len = read(fd, buf, MAXMOTD)) == -1) {
-			plog(LLV_ERROR, LOCATION, NULL, 
+			plog(ASL_LEVEL_ERR, 
 			    "Cannot read \"%s\"\n", filename);
 			close(fd);
 			return NULL;
@@ -190,7 +190,7 @@ isakmp_unity_req(iph1, attr)
 	case UNITY_NATT_PORT:
 	case UNITY_BACKUP_SERVERS:
 	default:
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 		     "Ignored attribute %s\n", s_isakmp_cfg_type(type));
 		return NULL;
 		break;
@@ -201,7 +201,7 @@ isakmp_unity_req(iph1, attr)
 
 void
 isakmp_unity_reply(iph1, attr)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	struct isakmp_data *attr;
 {
 	int type = ntohs(attr->type);
@@ -258,7 +258,7 @@ isakmp_unity_reply(iph1, attr)
 	case UNITY_BACKUP_SERVERS:
 	case UNITY_DDNS_HOSTNAME:
 	default:
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 		     "Ignored attribute %s\n",
 		     s_isakmp_cfg_type(type));
 		break;
@@ -268,7 +268,7 @@ isakmp_unity_reply(iph1, attr)
 
 static vchar_t *
 isakmp_cfg_split(iph1, attr, netentry, count)
-	struct ph1handle *iph1;
+	phase1_handle_t *iph1;
 	struct isakmp_data *attr;
 	struct unity_netentry *netentry;
 	int count;
@@ -284,7 +284,7 @@ isakmp_cfg_split(iph1, attr, netentry, count)
 
 	len = sizeof(struct unity_network) * count;
 	if ((buffer = vmalloc(sizeof(*attr) + len)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "Cannot allocate memory\n");
+		plog(ASL_LEVEL_ERR, "Cannot allocate memory\n");
 		return NULL;
 	}
 
@@ -301,7 +301,7 @@ isakmp_cfg_split(iph1, attr, netentry, count)
 
 		inet_ntop(AF_INET, &netentry->network.addr4, tmp1, 40);
 		inet_ntop(AF_INET, &netentry->network.mask4, tmp2, 40);
-		plog(LLV_DEBUG, LOCATION, NULL, "splitnet: %s/%s\n", tmp1, tmp2);
+		plog(ASL_LEVEL_DEBUG, "splitnet: %s/%s\n", tmp1, tmp2);
 
 		netentry = netentry->next;
 	}

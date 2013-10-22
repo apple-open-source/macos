@@ -1,4 +1,4 @@
-.\" Copyright (c) 2010 Apple Inc. All rights reserved.
+.\" Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 .\" 
 .\" The contents of this file constitute Original Code as defined in and
 .\" are subject to the Apple Public Source License Version 1.1 (the
@@ -14,8 +14,8 @@
 .\" License for the specific language governing rights and limitations
 .\" under the License.
 .\" 
-.\"     @(#)fsck_hfs.8
-.Dd February 4, 2010
+.\"     @(#)setclass.8
+.Dd June 20, 2012
 .Dt SETCLASS 8
 .Os "Mac OS X"
 .Sh NAME
@@ -29,15 +29,18 @@
 .Pp
 The
 .Nm
-utility sets and gets the content protection class of a given file. 
+utility sets and gets the content protection class of a given file.  
 .Pp
 If a class from A to E is specified,
 .Nm
 will attempt to set
 .Ar file
 to that class.
-.Pp
 If no class is given,
 .Nm
 will report the current protection class of
 .Ar file.
+.Pp
+Note that the ability to change the content protection class of a file is restricted by the 
+runtime status of the device in question.  If the device is locked with a PIN code, then
+you may not be able to modify the protection class, even as root.

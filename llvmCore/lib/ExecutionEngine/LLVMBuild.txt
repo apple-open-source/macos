@@ -15,9 +15,11 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = Interpreter JIT MCJIT RuntimeDyld IntelJITEvents OProfileJIT
+
 [component_0]
 type = Library
 name = ExecutionEngine
 parent = Libraries
 required_libraries = Core MC Support Target
-

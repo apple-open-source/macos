@@ -103,20 +103,19 @@ protected:
     virtual bool isValid() const { return SVGTests::isValid(); }
 
     bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
-    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
+    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStylePropertySet*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
 
     virtual bool selfHasRelativeLengths() const;
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
 private:
     virtual bool isTextContent() const { return true; }
 
     // Custom 'textLength' property
-    static void synchronizeTextLength(void* contextElement);
-    static PassRefPtr<SVGAnimatedProperty> lookupOrCreateTextLengthWrapper(void* contextElement);
+    static void synchronizeTextLength(SVGElement* contextElement);
+    static PassRefPtr<SVGAnimatedProperty> lookupOrCreateTextLengthWrapper(SVGElement* contextElement);
     mutable SVGSynchronizableAnimatedProperty<SVGLength> m_textLength;
     SVGLength m_specifiedTextLength;
   
@@ -130,6 +129,12 @@ private:
     virtual void synchronizeRequiredExtensions() { SVGTests::synchronizeRequiredExtensions(this); }
     virtual void synchronizeSystemLanguage() { SVGTests::synchronizeSystemLanguage(this); }
 };
+
+inline SVGTextContentElement* toSVGTextContentElement(SVGElement* element)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(!element || element->isTextContent());
+    return static_cast<SVGTextContentElement*>(element);
+}
 
 } // namespace WebCore
 

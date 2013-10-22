@@ -34,16 +34,18 @@ class ArgumentEncoder;
 class ArgumentDecoder;
 };
 
+QT_BEGIN_NAMESPACE
 class QNetworkRequest;
 class QNetworkReply;
+QT_END_NAMESPACE
 
 namespace WebKit {
 
 struct QtNetworkRequestData {
     QtNetworkRequestData();
     QtNetworkRequestData(const QNetworkRequest&, QNetworkReply*);
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, QtNetworkRequestData&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, QtNetworkRequestData&);
 
     String m_scheme;
     String m_urlString;

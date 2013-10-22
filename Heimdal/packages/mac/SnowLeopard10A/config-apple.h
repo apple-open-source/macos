@@ -28,28 +28,26 @@
 
 #define DEFAULT_KDC_LOG_DEST "SYSLOG:AUTHPRIV:NOTICE"
 
+#ifndef PKINIT
+#error "no pkinit ?"
+#endif
+
+#define HAVE_CCDESISWEAKKEY 1
+#define HAVE_CCDIGESTCREATE 1
+
 #ifdef __APPLE_TARGET_EMBEDDED__
 
 #define HEIM_KRB5_DES3 1
 #define HEIM_KRB5_ARCFOUR 1
 
-#define HAVE_KCC /* disabled for desktop until rdar://8742062 is fixed */
-#define KRB5_DEFAULT_CCTYPE (&krb5_kcc_ops)
+#define KRB5_DEFAULT_CCTYPE (&krb5_xcc_ops)
+#define HAVE_XCC 1
 
-#define HEIM_HC_LTM 1
 #define HEIM_HC_SF 1
-
-#undef PKINIT
-
-#define HAVE_CCDESISWEAKKEY 1
-#define HAVE_CCDIGESTCREATE 1
 
 #else
 
-#ifndef PKINIT
-#define PKINIT 1
-#endif
-
+#define HAVE_KCM 1
 #define HAVE_TRUSTEVALUATIONAGENT 1
 #define HAVE_OPENDIRECTORY 1
 #define HAVE_CDSA 1
@@ -61,13 +59,6 @@
 #define HEIM_KRB5_DES 1
 #define HEIM_KRB5_DES3 1
 #define HEIM_KRB5_ARCFOUR 1
-
-#define HAVE_CCDESISWEAKKEY 1
-#define HAVE_CCDIGESTCREATE 1
-
-/* #define HEIM_KT_ANY */
-/* #define HEIM_KT_MEMORY */
-/* #define HEIM_KT_AKF */
 
 #define KRB5_DEFAULT_CCTYPE (&krb5_akcm_ops)
 

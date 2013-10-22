@@ -46,9 +46,9 @@ static bool mainBundleIsEqualTo(const String& bundleIdentifierString)
     if (!bundleIdentifier)
         return false;
 
-    RetainPtr<CFStringRef> bundleIdentifierToCompare(AdoptCF, bundleIdentifierString.createCFString());
-    return CFStringCompare(bundleIdentifier, bundleIdentifierToCompare.get(), 0) == kCFCompareEqualTo;
+    return CFStringCompare(bundleIdentifier, bundleIdentifierString.createCFString().get(), 0) == kCFCompareEqualTo;
 #else
+    UNUSED_PARAM(bundleIdentifierString);
     return false;
 #endif
 }
@@ -64,6 +64,12 @@ bool applicationIsAppleMail()
 {
     static bool isAppleMail = mainBundleIsEqualTo("com.apple.mail");
     return isAppleMail;
+}
+
+bool applicationIsITunes()
+{
+    static bool isITunes = mainBundleIsEqualTo("com.apple.iTunes");
+    return isITunes;
 }
 
 bool applicationIsMicrosoftMessenger()
@@ -100,6 +106,24 @@ bool applicationIsAperture()
 {
     static bool isAperture = mainBundleIsEqualTo("com.apple.Aperture");
     return isAperture;
+}
+
+bool applicationIsVersions()
+{
+    static bool isVersions = mainBundleIsEqualTo("com.blackpixel.versions");
+    return isVersions;
+}
+
+bool applicationIsHRBlock()
+{
+    static bool isHRBlock = mainBundleIsEqualTo("com.hrblock.tax.2010");
+    return isHRBlock;
+}
+
+bool applicationIsSolidStateNetworksDownloader()
+{
+    static bool isSolidStateNetworksDownloader = mainBundleIsEqualTo("com.solidstatenetworks.awkhost");
+    return isSolidStateNetworksDownloader;
 }
 
 } // namespace WebCore

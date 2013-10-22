@@ -1,27 +1,15 @@
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
+  DSYMUTIL = $(shell xcrun -find -sdk ${SDKROOT} dsymutil)
+else
+  DSYMUTIL = dsymutil
 endif
+
 OFLAG = -Os
-ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = -g $(OFLAG) -I$(SRCROOT)/../include $(SDK)
-else
-  CFLAGS = -g $(OFLAG) -Wall -I$(SRCROOT)/../include $(SDK)
-endif
-
+CFLAGS = -g $(OFLAG) -Wall -I$(SRCROOT)/../include $(SDK)
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
-
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
-
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
-else
-  MKDIRS = /bin/mkdir -p
-endif
-
+MKDIRS = /bin/mkdir -p
 SRCROOT = .
 OBJROOT = .
 SYMROOT = .
@@ -46,33 +34,24 @@ all: $(OFILE_DIR) $(SYMROOT) $(PRODUCT).NEW
 
 $(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/$@ $(OBJS) $(LIBSTUFF)
+	$(DSYMUTIL) $(SYMROOT)/$@
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 clean: shlib_clean
 	-rm -f $(SYMROOT)/$(PRODUCT).NEW
+	-rm -r -f *dSYM
 
 shlib_clean:
 	-cd $(OFILE_DIR); rm -f $(OBJS)
-	-rm -f $(OFILE_DIR)/Makedep make.out
+	-rm -f make.out
 
-install: $(RC_OS)
-
-teflon macos: all $(DSTDIRS)
+install: all $(DSTDIRS)
 	install -c -s -m 555 $(SYMROOT)/$(PRODUCT).NEW \
 		$(DSTROOT)$(BINDIR)/$(PRODUCT)
 	install -c -m 444 $(MAN1) $(DSTROOT)$(MANDIR)/man1
 	install -c -m 444 $(MAN5) $(DSTROOT)$(MANDIR)/man5
-
-nextstep:
 
 installsrc:
 	$(MKDIRS) $(SRCROOT)
@@ -82,5 +61,3 @@ installsrc:
 
 $(OFILE_DIR) $(SYMROOT) $(DSTDIRS):
 	$(MKDIRS) $@
-
--include $(OFILE_DIR)/Makedep

@@ -1,5 +1,5 @@
 .\"
-.\" "$Id$"
+.\" "$Id: ipptoolfile.man 11093 2013-07-03 20:48:42Z msweet $"
 .\"
 .\"   ipptoolfile man page for CUPS.
 .\"
@@ -11,7 +11,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH ipptoolfile 5 "CUPS" "10 January 2013" "Apple Inc."
+.TH ipptoolfile 5 "CUPS" "13 May 2013" "Apple Inc."
 .SH NAME
 ipptoolfile \- ipptool file format
 
@@ -78,6 +78,9 @@ DEFINE-DEFAULT variable-name value
 Defines the named variable to the given value if it does not already have a
 value.
 .TP 5
+FILE-ID "identifier"
+Specifies an identifier string for the current file.
+.TP 5
 IGNORE-ERRORS yes
 .TP 5
 IGNORE-ERRORS no
@@ -110,6 +113,11 @@ SKIP-IF-DEFINED variable-name
 SKIP-IF-NOT-DEFINED variable-name
 Specifies that the remainder of the test file should be skipped when the
 variable is or is not defined.
+.TP 5
+STOP-AFTER-INCLUDE-ERROR no
+.TP 5
+STOP-AFTER-INCLUDE-ERROR yes
+Specifies whether tests will be stopped after an error in an included file.
 .TP 5
 TRANSFER auto
 Specifies that tests will, by default, use "Transfer-Encoding: chunked" for
@@ -150,6 +158,15 @@ ATTR collection attribute-name { MEMBER tag member-name value(s) ... } [ ... { .
 Adds a collection attribute to the test request. Member attributes follow the
 same syntax as regular attributes and can themselves be nested collections.
 Multiple collection values can be supplied as needed.
+.TP 5
+COMPRESSION deflate
+.TP 5
+COMPRESSION gzip
+.TP 5
+COMPRESSION none
+.br
+Uses the specified compression on the document data following the attributes in
+a Print-Job or Send-Document request.
 .TP 5
 DELAY seconds
 Specifies a delay before this test will be run.
@@ -212,6 +229,9 @@ STATUS status-code [ predicate ]
 Specifies an expected response status-code value. Additional requirements can be
 added as predicates - see the "STATUS PREDICATES" section for more information
 on predicates.
+.TP 5
+TEST-ID "identifier"
+Specifies an identifier string for the current test.
 .TP 5
 TRANSFER auto
 Specifies that this test will use "Transfer-Encoding: chunked" if it has an
@@ -280,6 +300,21 @@ SAME-COUNT-AS attribute-name
 Requires the EXPECT attribute to have the same number of values as the specified
 parallel attribute.
 .TP 5
+WITH-ALL-HOSTNAMES "literal string"
+.TP 5
+WITH-ALL-HOSTNAMES "/regular expression/"
+Requires that all URI values contain a matching hostname.
+.TP 5
+WITH-ALL-RESOURCES "literal string"
+.TP 5
+WITH-ALL-RESOURCES "/regular expression/"
+Requires that all URI values contain a matching resource (including leading /).
+.TP 5
+WITH-ALL-SCHEMES "literal string"
+.TP 5
+WITH-ALL-SCHEMES "/regular expression/"
+Requires that all URI values contain a matching scheme.
+.TP 5
 WITH-ALL-VALUES "literal string"
 Requires that all values of the EXPECT attribute match the literal string. Comparisons are case-sensitive.
 .TP 5
@@ -299,6 +334,21 @@ Requires that all values of the EXPECT attribute match the boolean value given.
 .TP 5
 WITH-ALL-VALUES "/regular expression/"
 Requires that all values of the EXPECT attribute match the regular expression, which must conform to the POSIX regular expression syntax. Comparisons are case-sensitive.
+.TP 5
+WITH-HOSTNAME "literal string"
+.TP 5
+WITH-HOSTNAME "/regular expression/"
+Requires that at least one URI value contains a matching hostname.
+.TP 5
+WITH-RESOURCE "literal string"
+.TP 5
+WITH-RESOURCE "/regular expression/"
+Requires that at least one URI value contains a matching resource (including leading /).
+.TP 5
+WITH-SCHEME "literal string"
+.TP 5
+WITH-SCHEME "/regular expression/"
+Requires that at least one URI value contains a matching scheme.
 .TP 5
 WITH-VALUE "literal string"
 Requires that at least one value of the EXPECT attribute matches the literal string. Comparisons are case-sensitive.
@@ -406,6 +456,7 @@ RFC 2911 and other IPP extension specifications. Here is a complete list:
     Resume-Printer
     Schedule-Job-After
     Send-Document
+    Send-Hardcopy-Document
     Send-Notifications
     Send-URI
     Set-Job-Attributes
@@ -570,5 +621,5 @@ http://localhost:631/help
 .SH COPYRIGHT
 Copyright 2007-2013 by Apple Inc.
 .\"
-.\" End of "$Id$".
+.\" End of "$Id: ipptoolfile.man 11093 2013-07-03 20:48:42Z msweet $".
 .\"

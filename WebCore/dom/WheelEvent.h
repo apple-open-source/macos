@@ -26,63 +26,83 @@
 
 #include "EventDispatchMediator.h"
 #include "FloatPoint.h"
-#include "MouseRelatedEvent.h"
+#include "MouseEvent.h"
 
 namespace WebCore {
 
-    // extension: mouse wheel event
-    class WheelEvent : public MouseRelatedEvent {
-    public:
-        enum { tickMultiplier = 120 };
+class PlatformWheelEvent;
 
-        enum Granularity { Pixel, Line, Page };
+struct WheelEventInit : public MouseEventInit {
+    WheelEventInit();
 
-        static PassRefPtr<WheelEvent> create()
-        {
-            return adoptRef(new WheelEvent);
-        }
-        static PassRefPtr<WheelEvent> create(const FloatPoint& wheelTicks,
-            const FloatPoint& rawDelta, Granularity granularity, PassRefPtr<AbstractView> view,
-            const IntPoint& screenLocation, const IntPoint& pageLocation,
-            bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool directionInvertedFromDevice)
-        {
-            return adoptRef(new WheelEvent(wheelTicks, rawDelta, granularity, view,
-                screenLocation, pageLocation, ctrlKey, altKey, shiftKey, metaKey, directionInvertedFromDevice));
-        }
+    int wheelDeltaX;
+    int wheelDeltaY;
+    unsigned deltaMode;
+};
 
-        void initWheelEvent(int rawDeltaX, int rawDeltaY, PassRefPtr<AbstractView>,
-                            int screenX, int screenY, int pageX, int pageY,
-                            bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
+class WheelEvent : public MouseEvent {
+public:
+    enum { TickMultiplier = 120 };
 
-        void initWebKitWheelEvent(int rawDeltaX, int rawDeltaY, PassRefPtr<AbstractView>,
-                                  int screenX, int screenY, int pageX, int pageY,
-                                  bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
-
-        int wheelDelta() const { return m_wheelDelta.y() ? m_wheelDelta.y() : m_wheelDelta.x(); }
-        int wheelDeltaX() const { return m_wheelDelta.x(); }
-        int wheelDeltaY() const { return m_wheelDelta.y(); }
-        int rawDeltaX() const { return m_rawDelta.x(); }
-        int rawDeltaY() const { return m_rawDelta.y(); }
-        Granularity granularity() const { return m_granularity; }
-
-        bool webkitDirectionInvertedFromDevice() const { return m_directionInvertedFromDevice; }
-        // Needed for Objective-C legacy support
-        bool isHorizontal() const { return m_wheelDelta.x(); }
-
-        virtual const AtomicString& interfaceName() const;
-
-    private:
-        WheelEvent();
-        WheelEvent(const FloatPoint& wheelTicks, const FloatPoint& rawDelta,
-                   Granularity granularity, PassRefPtr<AbstractView>,
-                   const IntPoint& screenLocation, const IntPoint& pageLocation,
-                   bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool directionInvertedFromDevice);
-
-        IntPoint m_wheelDelta;
-        IntPoint m_rawDelta;
-        Granularity m_granularity;
-        bool m_directionInvertedFromDevice;
+    enum DeltaMode {
+        DOM_DELTA_PIXEL = 0,
+        DOM_DELTA_LINE,
+        DOM_DELTA_PAGE
     };
+
+    static PassRefPtr<WheelEvent> create()
+    {
+        return adoptRef(new WheelEvent);
+    }
+
+    static PassRefPtr<WheelEvent> create(const AtomicString& type, const WheelEventInit& initializer)
+    {
+        return adoptRef(new WheelEvent(type, initializer));
+    }
+
+    static PassRefPtr<WheelEvent> create(const FloatPoint& wheelTicks,
+        const FloatPoint& rawDelta, unsigned deltaMode, PassRefPtr<AbstractView> view,
+        const IntPoint& screenLocation, const IntPoint& pageLocation,
+        bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool directionInvertedFromDevice)
+    {
+        return adoptRef(new WheelEvent(wheelTicks, rawDelta, deltaMode, view,
+        screenLocation, pageLocation, ctrlKey, altKey, shiftKey, metaKey, directionInvertedFromDevice));
+    }
+
+    void initWheelEvent(int rawDeltaX, int rawDeltaY, PassRefPtr<AbstractView>,
+        int screenX, int screenY, int pageX, int pageY,
+        bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
+
+    void initWebKitWheelEvent(int rawDeltaX, int rawDeltaY, PassRefPtr<AbstractView>,
+        int screenX, int screenY, int pageX, int pageY,
+        bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
+
+    int wheelDelta() const { return m_wheelDelta.y() ? m_wheelDelta.y() : m_wheelDelta.x(); }
+    int wheelDeltaX() const { return m_wheelDelta.x(); }
+    int wheelDeltaY() const { return m_wheelDelta.y(); }
+    int rawDeltaX() const { return m_rawDelta.x(); }
+    int rawDeltaY() const { return m_rawDelta.y(); }
+    unsigned deltaMode() const { return m_deltaMode; }
+
+    bool webkitDirectionInvertedFromDevice() const { return m_directionInvertedFromDevice; }
+    // Needed for Objective-C legacy support
+    bool isHorizontal() const { return m_wheelDelta.x(); }
+
+    virtual const AtomicString& interfaceName() const;
+    virtual bool isMouseEvent() const;
+
+private:
+    WheelEvent();
+    WheelEvent(const AtomicString&, const WheelEventInit&);
+    WheelEvent(const FloatPoint& wheelTicks, const FloatPoint& rawDelta,
+        unsigned, PassRefPtr<AbstractView>, const IntPoint& screenLocation, const IntPoint& pageLocation,
+        bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool directionInvertedFromDevice);
+
+    IntPoint m_wheelDelta;
+    IntPoint m_rawDelta;
+    unsigned m_deltaMode;
+    bool m_directionInvertedFromDevice;
+};
 
 class WheelEventDispatchMediator : public EventDispatchMediator {
 public:
@@ -90,7 +110,7 @@ public:
 private:
     WheelEventDispatchMediator(const PlatformWheelEvent&, PassRefPtr<AbstractView>);
     WheelEvent* event() const;
-    virtual bool dispatchEvent(EventDispatcher*) const;
+    virtual bool dispatchEvent(EventDispatcher*) const OVERRIDE;
 };
 
 } // namespace WebCore

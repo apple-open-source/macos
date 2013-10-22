@@ -66,6 +66,8 @@ struct IOPCIDeviceExpansionData
 
 	IOPCIDevice * ltrDevice;
 	IOByteCount   ltrOffset;
+	uint32_t      ltrReg1;
+	uint8_t       ltrReg2;
 
 #if ACPI_SUPPORT
 	int8_t        psMethods[kIOPCIDevicePowerStateCount];
@@ -196,7 +198,7 @@ extern const OSSymbol *           gIOPolledInterfaceActiveKey;
 extern const OSSymbol *           gIOPCIPSMethods[kIOPCIDevicePowerStateCount];
 #endif
 
-extern IOReturn IOPCIRegisterPowerDriver(IOService * service);
+extern IOReturn IOPCIRegisterPowerDriver(IOService * service, bool hostbridge);
 
 #define arrayCount(x)	(sizeof(x) / sizeof(x[0]))
 

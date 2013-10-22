@@ -1,6 +1,5 @@
-	AIX 5.3
-	Apple Darwin 9 and Mac OS X 10.[56]
+	Apple Darwin 9 and Mac OS X 10.[567]
 	FreeBSD 4.9 and 6.4 for x86-based systems
-	FreeBSD 8.[02] and 9.0 for AMD64-based systems
+	FreeBSD 8.2, 9.0 and 10.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	Solaris 9, 10 and 11

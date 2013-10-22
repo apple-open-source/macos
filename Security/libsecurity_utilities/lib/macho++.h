@@ -182,17 +182,18 @@ public:
 //
 class Universal : public UnixPlusPlus::FileDesc {
 public:
-	Universal(FileDesc fd, off_t offset = 0);
+	Universal(FileDesc fd, size_t offset = 0);
 	~Universal();
 	
 	// return a genuine MachO object for the given architecture
 	MachO *architecture() const;		// native
 	MachO *architecture(const Architecture &arch) const; // given
-	MachO *architecture(off_t offset) const; // given by file offset
+	MachO *architecture(size_t offset) const; // given by file offset
 	
 	// return (just) the starting offset of an architecture
 	size_t archOffset() const;			// native
 	size_t archOffset(const Architecture &arch) const; // given
+	bool narrowed() const { return mBase != 0; }	// part of a fat file
 	
 	// return a set of architectures contained
 	typedef std::set<Architecture> Architectures;
@@ -212,7 +213,7 @@ private:
 	fat_arch *mArchList;		// architectures (NULL if thin file)
 	unsigned mArchCount;		// number of architectures (if fat)
 	Architecture mThinArch;		// single architecture (if thin)
-	off_t mBase;				// overriding offset in file (all types)
+	size_t mBase;				// overriding offset in file (all types)
 };
 
 

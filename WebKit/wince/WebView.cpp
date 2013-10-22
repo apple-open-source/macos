@@ -30,12 +30,15 @@
 #include "ContextMenuClientWinCE.h"
 #include "DragClientWinCE.h"
 #include "EditorClientWinCE.h"
+#include "EventHandler.h"
 #include "FocusController.h"
 #include "Frame.h"
+#include "FrameLoadRequest.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientWinCE.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HTMLFormElement.h"
 #include "InitializeThreading.h"
 #include "InspectorClientWinCE.h"
 #include "IntSize.h"
@@ -217,7 +220,7 @@ void WebView::load(const String &url)
 
 void WebView::load(const WebCore::ResourceRequest &request)
 {
-    frame()->loader()->load(request, false);
+    frame()->loader()->load(FrameLoadRequest(frame(), request));
 }
 
 void WebView::reload()

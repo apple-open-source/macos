@@ -40,7 +40,18 @@ install-doc:
 	    $(MPEXPAND) nroff $$f "$(DSTROOT)/$(TclExtManDir)/$$n.n"; \
 	done
 
+# 13302200: #include_next doesn't work right if the C source is in the same
+# directory as the header.  So we symlink the source into a src subdirectory,
+# and fix VPATH to find the source there (we still need the source in the
+# original directory for configure to find it).  When 13302200 is fixed, we
+# can remove the symlinking and VPATH change.
 extract::
 	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/compat/zlib
 	$(_v) $(RM) $(SRCROOT)/$(Project)/compat/libjpeg/ansi2knr.c
 	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/compat/libpng/contrib/gregbook
+	$(_v) $(MKDIR) $(SRCROOT)/$(Project)/zlib/src
+	@set -x && \
+	cd $(SRCROOT)/$(Project)/zlib && \
+	for i in *.c; do \
+	    $(LN) -s ../$$i src/$$i || exit 1; \
+	done

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011,2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -144,7 +144,7 @@ int msdosfs_fat_pagein(struct vnop_pagein_args *ap)
     struct msdosfs_fat_node *node = vnode_fsnode(ap->a_vp);
     
     return cluster_pagein(ap->a_vp, ap->a_pl, ap->a_pl_offset, ap->a_f_offset,
-	ap->a_size, node->file_size, ap->a_flags);
+	(int)ap->a_size, node->file_size, ap->a_flags);
 }
 
 int msdosfs_fat_pageout(struct vnop_pageout_args *ap)
@@ -152,7 +152,7 @@ int msdosfs_fat_pageout(struct vnop_pageout_args *ap)
     struct msdosfs_fat_node *node = vnode_fsnode(ap->a_vp);
     
     return cluster_pageout(ap->a_vp, ap->a_pl, ap->a_pl_offset, ap->a_f_offset,
-	ap->a_size, node->file_size, ap->a_flags);
+	(int)ap->a_size, node->file_size, ap->a_flags);
 }
 
 int msdosfs_fat_strategy(struct vnop_strategy_args *ap)
@@ -179,7 +179,7 @@ int msdosfs_fat_blockmap(struct vnop_blockmap_args *ap)
     if (ap->a_run)
     {
 	if (ap->a_foffset + ap->a_size > node->file_size)
-	    *ap->a_run = node->file_size - ap->a_foffset;
+	    *ap->a_run = (size_t)(node->file_size - ap->a_foffset);
 	else
 	    *ap->a_run = ap->a_size;
     }
@@ -1240,11 +1240,11 @@ done:
  */
 uint32_t msdosfs_chainlength(struct msdosfsmount *pmp, uint32_t start, uint32_t count)
 {
-    u_long found = 0;	/* Number of contiguous free clusters found so far */
-    u_long readcn = 0;	/* A cluster number read from the FAT */
+    uint32_t found = 0;	/* Number of contiguous free clusters found so far */
+    uint32_t readcn = 0;    /* A cluster number read from the FAT */
     char *entry;	/* Current FAT entry (points into FAT cache block) */
     char *block_end;	/* End of current entry's FAT cache block */
-    u_int32_t bo, bsize;    /* Offset into, and size of, FAT cache block */
+    uint32_t bo, bsize; /* Offset into, and size of, FAT cache block */
     int error = 0;
     
     KERNEL_DEBUG_CONSTANT(MSDOSFS_CHAINLENGTH|DBG_FUNC_START, pmp, start, count, 0, 0);
@@ -1867,16 +1867,21 @@ done:
  * Allocate new clusters and chain them onto the end of the file.
  *
  * dep	 - the file to extend
- * count - number of clusters to allocate
+ * count - maximum number of clusters to allocate
+ * numAllocated - actual number of clusters allocated
+ *
+ * Allocates up to "count" clusters and appends them to the end of the
+ * file's cluster chain.  If fewer than "count" clusters are free, then
+ * allocate and append all remaining clusters.
  *
  * NOTE: This function is not responsible for turning on the DE_UPDATE bit of
  * the de_flag field of the denode and it does not change the de_FileSize
  * field.  This is left for the caller to do.
  */
-int msdosfs_extendfile(struct denode *dep, uint32_t count)
+int msdosfs_extendfile(struct denode *dep, uint32_t count, uint32_t *numAllocated)
 {
     int error=0;
-    uint32_t cn, got;
+    uint32_t cn, got, totalAllocated;
     uint32_t i;
     struct msdosfsmount *pmp = dep->de_pmp;
     struct buf *bp = NULL;
@@ -1884,6 +1889,8 @@ int msdosfs_extendfile(struct denode *dep, uint32_t count)
     
     KERNEL_DEBUG_CONSTANT(MSDOSFS_EXTENDFILE|DBG_FUNC_START, pmp, dep->de_StartCluster, count, 0, 0);
     
+    totalAllocated = 0;
+
     lck_mtx_lock(dep->de_cluster_lock);
     lck_mtx_lock(pmp->pm_fat_lock);
     
@@ -1965,6 +1972,7 @@ int msdosfs_extendfile(struct denode *dep, uint32_t count)
 
 	    count -= got;
 	    dep->de_LastCluster += got;
+	    totalAllocated += got;
 	}
     }
     
@@ -2021,6 +2029,7 @@ int msdosfs_extendfile(struct denode *dep, uint32_t count)
 	dep->de_LastCluster = cn + got - 1;
 
 	count -= got;
+	totalAllocated += got;
     }
     
     /*
@@ -2081,13 +2090,16 @@ int msdosfs_extendfile(struct denode *dep, uint32_t count)
 	dep->de_LastCluster = cn + got - 1;
 	
 	count -= got;
+	totalAllocated += got;
 	pmp->pm_nxtfree = cn + got;
     }
     
 done:
     lck_mtx_unlock(pmp->pm_fat_lock);
     lck_mtx_unlock(dep->de_cluster_lock);
-    KERNEL_DEBUG_CONSTANT(MSDOSFS_EXTENDFILE|DBG_FUNC_END, error, 0, 0, 0, 0);
+    if (numAllocated)
+	*numAllocated = totalAllocated;
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_EXTENDFILE|DBG_FUNC_END, error, totalAllocated, 0, 0, 0);
     return error;
 }
 

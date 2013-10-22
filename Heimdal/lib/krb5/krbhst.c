@@ -37,6 +37,40 @@
 #include <resolve.h>
 #include "locate_plugin.h"
 
+static void append_host_hostinfo(struct krb5_krbhst_data *, struct krb5_krbhst_info *);
+
+struct krb5_krbhst_data {
+    struct heim_base_uniq base;
+    HEIMDAL_MUTEX mutex;
+    char *realm;
+    unsigned int flags;
+    int def_port;
+    int port;			/* hardwired port number if != 0 */
+#define KD_CONFIG		0x1
+#define KD_SRV_UDP		0x2
+#define KD_SRV_TCP		0x4
+#define KD_SRV_HTTP		0x8
+#define KD_SRV_KKDCP		0x10
+#define KD_FALLBACK		0x20
+#define KD_CONFIG_EXISTS	0x40
+#define KD_LARGE_MSG		0x80
+#define KD_PLUGIN		0x100
+#define KD_HOSTNAMES		0x200
+    krb5_error_code (*get_next)(krb5_context, struct krb5_krbhst_data *,
+				krb5_krbhst_info**);
+
+    char *hostname;
+    unsigned int fallback_count;
+
+    struct krb5_krbhst_info *hosts, **index, **end;
+
+    krb5_context context;
+    heim_queue_t process_queue;
+    heim_queue_t queue;
+    void (*callback)(void *, krb5_krbhst_info *);
+    void *userctx;
+};
+
 static int
 string_to_proto(const char *string)
 {
@@ -46,129 +80,307 @@ string_to_proto(const char *string)
 	return KRB5_KRBHST_TCP;
     else if(strcasecmp(string, "http") == 0)
 	return KRB5_KRBHST_HTTP;
+    else if(strcasecmp(string, "kkdcp") == 0)
+	return KRB5_KRBHST_KKDCP;
     return -1;
 }
 
+static void
+query_release(void *ctx)
+{
+    struct _krb5_srv_query_ctx *query = (struct _krb5_srv_query_ctx *)ctx;
+
+    free(query->domain);
+    heim_release(query->handle);
+    if (query->sema)
+	dispatch_release((dispatch_semaphore_t)query->sema);
+#ifdef __APPLE__
+    if (query->array)
+	free(query->array);
+#endif
+}
+
+
+
+
+#ifdef __APPLE__
+
+#include <dns_sd.h>
+
+
+static int
+compare_srv(const void *a, const void *b)
+{
+    const struct srv_reply *aa = a, *bb = b;
+
+    if(aa->priority == bb->priority)
+	return aa->weight - bb->weight;
+    return aa->priority - aa->priority;
+}
+
+void
+_krb5_state_srv_sort(struct _krb5_srv_query_ctx *query)
+{
+    size_t n, m, o, prio_marker;
+    uint32_t rnd, sum = 0;
+
+    /* don't sort [0,1] srv records, they come pre-sorted */
+    if (query->len < 2)
+	return;
+
+    /* sort them by priority and weight */
+    qsort(query->array, query->len, sizeof(query->array[0]), compare_srv);
+
+    /*
+     * Fixup weight sorting too, assign a negative weight to elements
+     * that are picked. Negative since the protocol only defines
+     * postive values (int16_t) 
+     */
+    prio_marker = 0;
+
+    for (n = 1; n < query->len; n++) {
+	if (query->array[prio_marker].priority != query->array[n].priority) {
+
+	    for (m = prio_marker; m < n && sum != 0; m++) {
+		int32_t count = -1;
+
+		rnd = rk_random() % sum;
+
+		for (o = prio_marker; o < n; o++) {
+		    if (query->array[o].weight < 0)
+			continue;
+		    if (rnd <= query->array[o].weight) {
+			sum -= query->array[o].weight;
+			query->array[o].weight = count--;
+			break;
+		    }
+		    rnd -= query->array[o].weight;
+		}
+		if (o >= n)
+		    _krb5_debugx(query->context, 2,
+				 "o too large: sum %d", (int)sum);
+	    }
+	    sum = 0;
+	    prio_marker = n;
+	} else {
+	    sum += query->array[n].weight;
+	}
+    }
+    
+    qsort(query->array, query->len, sizeof(query->array[0]), compare_srv);
+}
+
+
+static void
+state_append_hosts(struct _krb5_srv_query_ctx *query)
+{
+    size_t n;
+
+    for (n = 0; n < query->len; n++)
+	append_host_hostinfo(query->handle, query->array[n].hi);
+
+    dispatch_semaphore_signal((dispatch_semaphore_t)query->sema);
+
+    heim_release(query);
+}
+
+static void
+QueryReplyCallback(DNSServiceRef sdRef,
+		   DNSServiceFlags flags,
+		   uint32_t ifIndex,
+		   DNSServiceErrorType errorCode,
+		   const char *fullname,
+		   uint16_t rrtype,
+		   uint16_t rrclass,
+		   uint16_t rdlen,
+		   const void *rdata,
+		   uint32_t ttl,
+		   void *context)
+{
+    const uint8_t *end_rd = ((uint8_t *)rdata) + rdlen, *rd = rdata;
+    struct _krb5_srv_query_ctx *query = context;
+    uint16_t priority, weight, port;
+    struct srv_reply *tmp;
+    krb5_krbhst_info *hi;
+    int status;
+
+    if (errorCode != kDNSServiceErr_NoError) {
+	flags = 0; /* other values are undefined on failure */
+	goto end;
+    }
+
+    if (rrtype != kDNSServiceType_SRV)
+	goto end;
+
+    if (rdlen < 7)
+	goto end;
+
+    priority = (rd[0] << 8) | rd[1];
+    weight = (rd[2] << 8) | rd[3];
+    port = (rd[4] << 8) | rd[5];
+    
+    if (rdlen + sizeof(*hi) < rdlen)
+	goto end;
+
+    hi = calloc(1, sizeof(*hi) + rdlen);
+    if (hi == NULL)
+	goto end;
+
+    status = dn_expand(rdata, end_rd, rd + 6, hi->hostname, rdlen);
+    if(status < 0 || (size_t)status + 6 > rdlen) {
+	free(hi);
+	goto end;
+    }
+
+    hi->proto = query->proto_num;
+
+    hi->def_port = 0;
+    if (query->port != 0)
+	hi->port = query->port;
+    else
+	hi->port = port;
+
+    hi->path = rk_UNCONST(query->path);
+    
+    tmp = realloc(query->array, (query->len + 1) * sizeof(query->array[0]));
+    if (tmp == NULL) {
+	free(hi);
+	goto end;
+    }
+    query->array = tmp;
+    query->array[query->len].hi = hi;
+    query->array[query->len].priority = priority;
+    query->array[query->len].weight = weight;
+    query->len++;
+
+ end:
+    if ((flags & kDNSServiceFlagsMoreComing) == 0) {
+	_krb5_state_srv_sort(query);
+	state_append_hosts(query);
+    }
+}
+
 /*
- * set `res' and `count' to the result of looking up SRV RR in DNS for
- * `proto', `proto', `realm' using `dns_type'.
- * if `port' != 0, force that port number
+ *
  */
 
 static krb5_error_code
-srv_find_realm(krb5_context context, krb5_krbhst_info ***res, int *count,
-	       const char *realm, const char *dns_type,
-	       const char *proto, const char *service, int port)
+srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
+	       heim_queue_t dnsQueue,
+	       struct _krb5_srv_query_ctx *query)
 {
-    char domain[1024];
+    DNSServiceRef client = NULL;
+    DNSServiceErrorType error;
+    krb5_error_code ret;
+
+
+    error = DNSServiceQueryRecord(&client,
+				  kDNSServiceFlagsTimeout | kDNSServiceFlagsReturnIntermediates,
+				  0,
+				  query->domain,
+				  kDNSServiceType_SRV,
+				  kDNSServiceClass_IN,
+				  QueryReplyCallback,
+				  query);
+    if (!error) {
+	heim_retain(query);
+
+	DNSServiceSetDispatchQueue(client, (dispatch_queue_t)dnsQueue);
+
+	if (dispatch_semaphore_wait((dispatch_semaphore_t)query->sema,  dispatch_time(DISPATCH_TIME_NOW, 10ull * NSEC_PER_SEC))) {
+	    _krb5_debugx(context, 2,
+			 "searching DNS %s for domain timed out",
+			 query->domain);
+	    ret = KRB5_KDC_UNREACH;
+	} else
+	    ret = 0;
+
+	DNSServiceRefDeallocate (client);
+    } else {
+	_krb5_debugx(context, 2,
+		     "searching DNS for domain %s failed: %d",
+		     query->domain, error);
+	ret = KRB5_KDC_UNREACH;
+    }
+   
+    heim_release(query);
+
+    return ret;
+}
+
+#else
+
+/*
+ *
+ */
+
+static void
+srv_query_domain(void *ctx)
+{
+    struct _krb5_srv_query_ctx *query = ctx;
     struct rk_dns_reply *r;
     struct rk_resource_record *rr;
-    int num_srv;
-    int proto_num;
-    int def_port;
 
-    *res = NULL;
-    *count = 0;
-
-    proto_num = string_to_proto(proto);
-    if(proto_num < 0) {
-	krb5_set_error_message(context, EINVAL,
-			       N_("unknown protocol `%s' to lookup", ""),
-			       proto);
-	return EINVAL;
-    }
-
-    if(proto_num == KRB5_KRBHST_HTTP)
-	def_port = ntohs(krb5_getportbyname (context, "http", "tcp", 80));
-    else if(port == 0)
-	def_port = ntohs(krb5_getportbyname (context, service, proto, 88));
-    else
-	def_port = port;
-
-    snprintf(domain, sizeof(domain), "_%s._%s.%s.", service, proto, realm);
-
-    r = rk_dns_lookup(domain, dns_type);
-    if(r == NULL) {
-	_krb5_debugx(context, 0,
-		    "DNS lookup failed domain: %s", domain);
-	return KRB5_KDC_UNREACH;
-    }
-
-    for(num_srv = 0, rr = r->head; rr; rr = rr->next)
-	if(rr->type == rk_ns_t_srv)
-	    num_srv++;
-
-    *res = malloc(num_srv * sizeof(**res));
-    if(*res == NULL) {
-	rk_dns_free_data(r);
-	krb5_set_error_message(context, ENOMEM,
-			       N_("malloc: out of memory", ""));
-	return ENOMEM;
-    }
+    r = rk_dns_lookup(query->domain, "SRV");
+    if(r == NULL)
+	goto out;
 
     rk_dns_srv_order(r);
 
-    for(num_srv = 0, rr = r->head; rr; rr = rr->next)
+    for(rr = r->head; rr; rr = rr->next) {
 	if(rr->type == rk_ns_t_srv) {
 	    krb5_krbhst_info *hi;
 	    size_t len = strlen(rr->u.srv->target);
 
 	    hi = calloc(1, sizeof(*hi) + len);
-	    if(hi == NULL) {
-		rk_dns_free_data(r);
-		while(--num_srv >= 0)
-		    free((*res)[num_srv]);
-		free(*res);
-		*res = NULL;
-		return ENOMEM;
-	    }
-	    (*res)[num_srv++] = hi;
+	    if(hi == NULL)
+		goto out;
 
-	    hi->proto = proto_num;
+	    hi->proto = query->proto_num;
 
-	    hi->def_port = def_port;
-	    if (port != 0)
-		hi->port = port;
+	    hi->def_port = query->def_port;
+	    if (handle->port != 0)
+		hi->port = handle->port;
 	    else
 		hi->port = rr->u.srv->port;
 
+	    hi->path = query->path;
 	    strlcpy(hi->hostname, rr->u.srv->target, len + 1);
+
+	    append_host_hostinfo(kd, hi);
 	}
+    }
 
-    *count = num_srv;
-
-    rk_dns_free_data(r);
-    return 0;
+ out:
+    if (r)
+	rk_dns_free_data(r);
+    heim_sema_signal(queue->sema);
+    heim_release(queue->handle);
 }
 
+static krb5_error_code
+srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
+	       heim_queue_t queue,
+	       struct _krb5_srv_query_ctx *query)
+{
+    heim_async_f(queue, query, srv_query_domain);
+    heim_sema_wait(query->sema, 10);
+    heim_release(query);
+}
 
-struct krb5_krbhst_data {
-    char *realm;
-    unsigned int flags;
-    int def_port;
-    int port;			/* hardwired port number if != 0 */
-#define KD_CONFIG		 1
-#define KD_SRV_UDP		 2
-#define KD_SRV_TCP		 4
-#define KD_SRV_HTTP		 8
-#define KD_FALLBACK		16
-#define KD_CONFIG_EXISTS	32
-#define KD_LARGE_MSG		64
-#define KD_PLUGIN	       128
-#define KD_HOSTNAMES	       256
-    krb5_error_code (*get_next)(krb5_context, struct krb5_krbhst_data *,
-				krb5_krbhst_info**);
+#endif
 
-    char *hostname;
-    unsigned int fallback_count;
-
-    struct krb5_krbhst_info *hosts, **index, **end;
-};
 
 static krb5_boolean
-krbhst_empty(const struct krb5_krbhst_data *kd)
+krbhst_empty(struct krb5_krbhst_data *kd)
 {
-    return kd->index == &kd->hosts;
+    krb5_boolean empty;
+
+    HEIMDAL_MUTEX_lock(&kd->mutex);
+    empty = (kd->index == &kd->hosts);
+    HEIMDAL_MUTEX_unlock(&kd->mutex);
+
+    return empty;
 }
 
 /*
@@ -208,8 +420,9 @@ static struct krb5_krbhst_info*
 parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
 	       const char *spec, int def_port, int port)
 {
-    const char *p = spec, *q;
+    const char *p = spec, *q, *portstr = NULL;
     struct krb5_krbhst_info *hi;
+    size_t end_hostname;
 
     hi = calloc(1, sizeof(*hi) + strlen(spec));
     if(hi == NULL)
@@ -224,6 +437,10 @@ parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
 	hi->proto = KRB5_KRBHST_HTTP;
 	p += 5;
 	def_port = ntohs(krb5_getportbyname (context, "http", "tcp", 80));
+    } else if(strncmp(p, "kkdcp://", 8) == 0) {
+	hi->proto = KRB5_KRBHST_KKDCP;
+	p += 8;
+	def_port = ntohs(krb5_getportbyname (context, "https", "tcp", 443));
     }else if(strncmp(p, "tcp/", 4) == 0){
 	hi->proto = KRB5_KRBHST_TCP;
 	p += 4;
@@ -240,21 +457,34 @@ parse_hostspec(krb5_context context, struct krb5_krbhst_data *kd,
 	p = q + 1;
 	/* get trailing : */
 	if (p[0] == ':')
-	    p++;
-    } else if(strsep_copy(&p, ":", hi->hostname, strlen(spec) + 1) < 0) {
-	/* copy everything before : */
-	free(hi);
-	return NULL;
+	    portstr = ++p;
+
+	p = strchr(p, '/');
+
+    } else if ((end_hostname = strcspn(p, ":/")) != 0) {
+	memcpy(hi->hostname, p, end_hostname);
+	hi->hostname[end_hostname] = '\0';
+	if (p[end_hostname] == ':') {
+	    portstr = p + end_hostname + 1;
+	    p = strchr(p, '/');
+	} else { 
+	    p = p + end_hostname + 1;
+	}
+    } else {
+	memcpy(hi->hostname, p, strlen(p) + 1);
     }
-    /* get rid of trailing /, and convert to lower case */
-    hi->hostname[strcspn(hi->hostname, "/")] = '\0';
+
+    /* if we had a path, pick it up now */
+    if (p && p[0] == '/')
+	hi->path = (char *)(p + 1);
+
     strlwr(hi->hostname);
 
     hi->port = hi->def_port = def_port;
-    if(p != NULL && p[0]) {
+    if(portstr != NULL && portstr[0]) {
 	char *end;
-	hi->port = strtol(p, &end, 0);
-	if(end == p) {
+	hi->port = strtol(portstr, &end, 0);
+	if(end == portstr) {
 	    free(hi);
 	    return NULL;
 	}
@@ -302,15 +532,24 @@ append_host_hostinfo(struct krb5_krbhst_data *kd, struct krb5_krbhst_info *host)
 {
     struct krb5_krbhst_info *h;
 
-    for(h = kd->hosts; h; h = h->next)
+    HEIMDAL_MUTEX_lock(&kd->mutex);
+
+    for(h = kd->hosts; h && host; h = h->next) {
 	if(h->proto == host->proto &&
 	   h->port == host->port &&
-	   strcmp(h->hostname, host->hostname) == 0) {
+	   strcasecmp(h->hostname, host->hostname) == 0)
+	{
 	    _krb5_free_krbhst_info(host);
-	    return;
+	    host = NULL;
 	}
-    *kd->end = host;
-    kd->end = &host->next;
+    }
+
+    if (host) {
+	*kd->end = host;
+	kd->end = &host->next;
+    }
+
+    HEIMDAL_MUTEX_unlock(&kd->mutex);
 }
 
 static krb5_error_code
@@ -360,6 +599,7 @@ make_hints(struct addrinfo *hints, int proto)
     case KRB5_KRBHST_UDP :
 	hints->ai_socktype = SOCK_DGRAM;
 	break;
+    case KRB5_KRBHST_KKDCP :
     case KRB5_KRBHST_HTTP :
     case KRB5_KRBHST_TCP :
 	hints->ai_socktype = SOCK_STREAM;
@@ -432,35 +672,89 @@ krb5_krbhst_get_addrinfo(krb5_context context, krb5_krbhst_info *host,
 static krb5_boolean
 get_next(struct krb5_krbhst_data *kd, krb5_krbhst_info **host)
 {
-    struct krb5_krbhst_info *hi = *kd->index;
+    struct krb5_krbhst_info *hi;
+
+    HEIMDAL_MUTEX_lock(&kd->mutex);
+
+    hi = *kd->index;
     if(hi != NULL) {
 	*host = hi;
 	kd->index = &(*kd->index)->next;
-	return TRUE;
     }
-    return FALSE;
+    HEIMDAL_MUTEX_unlock(&kd->mutex);
+    return hi ? TRUE : FALSE;
 }
 
 static void
+srv_get_dns_queue(void *ctx)
+{
+    heim_queue_t *dnsQueue = ctx;
+    *dnsQueue = heim_queue_create("com.apple.kerberos.dns", NULL);
+}
+
+static krb5_error_code
 srv_get_hosts(krb5_context context, struct krb5_krbhst_data *kd,
 	      const char *proto, const char *service)
 {
-    krb5_error_code ret;
-    krb5_krbhst_info **res;
-    int count, i;
+    struct _krb5_srv_query_ctx *query = NULL;
+    static heim_queue_t dnsQueue;
+    static heim_base_once_t once;
+    int proto_num, def_port;
+    const char *path = NULL;
+    char *domain = NULL;
 
     if (krb5_realm_is_lkdc(kd->realm))
-	return;
+	return 0;
 
-    ret = srv_find_realm(context, &res, &count, kd->realm, "SRV", proto, service,
-			 kd->port);
-    _krb5_debugx(context, 2, "searching DNS for realm %s %s.%s -> %d",
-		kd->realm, proto, service, ret);
-    if (ret)
-	return;
-    for(i = 0; i < count; i++)
-	append_host_hostinfo(kd, res[i]);
-    free(res);
+    heim_base_once_f(&once, &dnsQueue, srv_get_dns_queue);
+
+    proto_num = string_to_proto(proto);
+    if(proto_num < 0) {
+	_krb5_debugx(context, 1, N_("unknown protocol `%s' to lookup", ""), proto);
+	return 0;
+    }
+
+    if(proto_num == KRB5_KRBHST_HTTP) {
+	def_port = ntohs(krb5_getportbyname (context, "http", "tcp", 80));
+    } else if(proto_num == KRB5_KRBHST_KKDCP) {
+	def_port = ntohs(krb5_getportbyname (context, "https", "tcp", 443));
+	path = "kkdcp";
+    } else if(kd->port) {
+	def_port = kd->port;
+    } else { 
+	def_port = ntohs(krb5_getportbyname (context, service, proto, 88));
+    }
+
+    asprintf(&domain, "_%s._%s.%s.", service, proto, kd->realm);
+    if (domain == NULL) {
+	return krb5_enomem(context);
+    }
+
+    query = heim_uniq_alloc(sizeof(*query), "heim-query-ctx", query_release);
+    if (query == NULL) {
+	free(domain);
+	return krb5_enomem(context);
+    }
+
+    query->context = context;
+    query->sema = heim_sema_create(0);
+    query->domain = domain;
+    if (query->sema == NULL) {
+	heim_release(query);
+	return krb5_enomem(context);
+    }
+    query->handle = heim_retain(kd);
+    query->def_port = def_port;
+    query->proto_num = proto_num;
+    query->path = path;
+#ifdef __APPLE__
+    query->array = NULL;
+    query->len = 0;
+#endif
+
+    srv_find_realm(context, kd, dnsQueue, query);
+
+    return 0;
 }
 
 /*
@@ -757,6 +1051,12 @@ kdc_get_next(krb5_context context,
 	    if(get_next(kd, host))
 		return 0;
 	}
+	if((kd->flags & KD_SRV_KKDCP) == 0) {
+	    srv_get_hosts(context, kd, "kkdcp", "kerberos");
+	    kd->flags |= KD_SRV_KKDCP;
+	    if(get_next(kd, host))
+		return 0;
+	}
     }
 
     while((kd->flags & KD_FALLBACK) == 0) {
@@ -888,6 +1188,24 @@ kpasswd_get_next(krb5_context context,
     return KRB5_KDC_UNREACH;
 }
 
+static void
+krbhost_dealloc(void *ptr)
+{
+    struct krb5_krbhst_data *handle = (struct krb5_krbhst_data *)ptr;
+    krb5_krbhst_info *h, *next;
+
+    for (h = handle->hosts; h != NULL; h = next) {
+	next = h->next;
+	_krb5_free_krbhst_info(h);
+    }
+    if (handle->hostname)
+	free(handle->hostname);
+
+    HEIMDAL_MUTEX_destroy(&handle->mutex);
+
+    free(handle->realm);
+}
+
 static struct krb5_krbhst_data*
 common_init(krb5_context context,
 	    const char *service,
@@ -896,11 +1214,11 @@ common_init(krb5_context context,
 {
     struct krb5_krbhst_data *kd;
 
-    if((kd = calloc(1, sizeof(*kd))) == NULL)
+    if ((kd = heim_uniq_alloc(sizeof(*kd), "krbhst-context", krbhost_dealloc)) == NULL)
 	return NULL;
 
     if((kd->realm = strdup(realm)) == NULL) {
-	free(kd);
+	heim_release(kd);
 	return NULL;
     }
 
@@ -914,6 +1232,9 @@ common_init(krb5_context context,
     if (flags & KRB5_KRBHST_FLAGS_LARGE_MSG)
 	kd->flags |= KD_LARGE_MSG;
     kd->end = kd->index = &kd->hosts;
+
+    HEIMDAL_MUTEX_init(&kd->mutex);
+
     return kd;
 }
 
@@ -992,6 +1313,98 @@ krb5_krbhst_next(krb5_context context,
 }
 
 /*
+ *
+ */
+
+static void
+krbhst_callback(void *ctx)
+{
+    krb5_krbhst_info *host = ctx;
+    krb5_krbhst_handle handle = host->__private;
+
+    if (handle->callback)
+	handle->callback(handle->userctx, host);
+}
+
+static void
+krbhst_callback_done(void *ctx)
+{
+    krb5_krbhst_handle handle = ctx;
+    void (*callback)(void *, krb5_krbhst_info *) = handle->callback;
+    void *userctx = handle->userctx;
+
+    /* reset per processing data */
+    heim_release(handle->queue);
+    handle->queue = NULL;
+
+    handle->callback = NULL;
+    handle->userctx = NULL;
+
+    if (callback)
+	callback(userctx, NULL);
+
+    heim_release(handle);
+}
+
+static void
+krbhst_callback_cancel(void *ctx)
+{
+    krb5_krbhst_handle handle = ctx;
+    handle->callback(handle->userctx, NULL);
+    handle->callback = NULL;
+}
+
+static void
+process_loop(void *ctx)
+{
+    krb5_krbhst_handle handle = ctx;
+    krb5_krbhst_info *hi;
+    
+    while(krb5_krbhst_next(handle->context, handle, &hi)) {
+	hi->__private = heim_retain(handle);
+	heim_async_f(handle->queue, hi, krbhst_callback);
+    }
+
+    heim_async_f(handle->queue, handle, krbhst_callback_done);
+}
+
+/*
+ *
+ */
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+_krb5_krbhst_async(krb5_context context,
+		   krb5_krbhst_handle handle,
+		   heim_queue_t queue,
+		   void *userctx,
+		   void (*callback)(void *userctx, krb5_krbhst_info *host))
+{
+    heim_assert(handle->queue == NULL, "krbhst have a outstanding request already");
+
+    handle->queue = heim_retain(queue);
+    handle->context = context;
+
+    if (handle->process_queue == NULL)
+	handle->process_queue = heim_queue_create("krbhst", NULL);
+
+    handle->userctx = userctx;
+    handle->callback = callback;
+
+    heim_async_f(handle->process_queue, heim_retain(handle), process_loop);
+
+    return 0;
+}
+
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+_krb5_krbhst_cancel(krb5_context context,
+		    krb5_krbhst_handle handle)
+{
+    heim_assert(handle->process_queue != NULL, "cancel non async krbhst");
+    heim_assert(handle->callback != NULL, "cancel on already canceled handle");
+    heim_async_f(handle->queue, handle, krbhst_callback_cancel);
+}
+
+/*
  * return the next host information from `handle' as a host name
  * in `hostname' (or length `hostlen)
  */
@@ -1030,27 +1443,15 @@ krb5_krbhst_set_hostname(krb5_context context,
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_krbhst_reset(krb5_context context, krb5_krbhst_handle handle)
 {
+    HEIMDAL_MUTEX_lock(&handle->mutex);
     handle->index = &handle->hosts;
+    HEIMDAL_MUTEX_unlock(&handle->mutex);
 }
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_krbhst_free(krb5_context context, krb5_krbhst_handle handle)
 {
-    krb5_krbhst_info *h, *next;
-
-    if (handle == NULL)
-	return;
-
-    for (h = handle->hosts; h != NULL; h = next) {
-	next = h->next;
-	_krb5_free_krbhst_info(h);
-    }
-    if (handle->hostname)
-	free(handle->hostname);
-
-    free(handle->realm);
-    memset(handle, 0, sizeof(*handle));
-    free(handle);
+    heim_release(handle);
 }
 
 #ifndef HEIMDAL_SMALLER

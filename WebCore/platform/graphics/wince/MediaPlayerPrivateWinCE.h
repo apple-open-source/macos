@@ -70,6 +70,7 @@ namespace WebCore {
 
         PassRefPtr<TimeRanges> buffered() const;
         float maxTimeSeekable() const;
+        // FIXME: bytesLoaded() should be replaced with didLoadingProgress() (by somebody who can find the implementation of this class).
         unsigned bytesLoaded() const;
         unsigned totalBytes() const;
 
@@ -99,7 +100,7 @@ namespace WebCore {
         // engine support
         static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
         static void getSupportedTypes(HashSet<String>& types);
-        static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
+        static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs, const KURL&);
         static bool isAvailable();
 
         virtual String engineDescription() const { return "WinCE"; }

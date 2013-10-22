@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,30 +31,34 @@
  * - initial version
  */
 
+#include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <strings.h>
-#include <syslog.h>
 #include <netdb.h>
 #include "interfaces.h"
 #include <arpa/inet.h>
-#include <syslog.h>
 #include <net/if_types.h>
 #include <net/if_var.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
 #include <net/if_media.h>
 #include <net/route.h>
-
+#include <ifaddrs.h>
 
 #include "util.h"
-#include <ifaddrs.h>
+#include "IPConfigurationLog.h"
 
 static boolean_t
 S_get_ifmediareq(const char * name, struct ifmediareq * ifmr_p);
+
+static boolean_t
+S_get_ifmediareq_s(int s, const char * name, struct ifmediareq * ifmr_p);
+
+static boolean_t
+S_is_awdl(int s, const char * name);
 
 static boolean_t
 S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p);
@@ -116,18 +120,24 @@ S_build_interface_list(interface_list_t * interfaces)
     struct ifaddrs *	addrs = NULL;
     struct ifaddrs *	ifap = NULL;
     struct ifmediareq	ifmr;
+    int			s = -1;
     int			size;
+    boolean_t		success = FALSE;
 
     if (getifaddrs(&addrs) < 0) {
-	goto err;
+	goto done;
     }
     size = count_ifaddrs(addrs);
     interfaces->list 
 	= (interface_t *)malloc(size * sizeof(*(interfaces->list)));
     if (interfaces->list == NULL) {
-	goto err;
+	goto done;
     }
 
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0) {
+	goto done;
+    }
     interfaces->count = 0;
     interfaces->size = size;
     
@@ -147,8 +157,8 @@ S_build_interface_list(interface_list_t * interfaces)
 		  entry = S_next_entry(interfaces, name);
 		  if (entry == NULL) {
 		      /* NOT REACHED */
-		      syslog(LOG_ERR,
-			     "interfaces: S_next_entry returns NULL"); 
+		      IPConfigLog(LOG_ERR,
+				  "interfaces: S_next_entry returns NULL"); 
 		      continue;
 		  }
 		  entry->flags = ifap->ifa_flags;
@@ -190,24 +200,25 @@ S_build_interface_list(interface_list_t * interfaces)
 		  entry = S_next_entry(interfaces, name);
 		  if (entry == NULL) {
 		      /* NOT REACHED */
-		      syslog(LOG_ERR,
-			     "interfaces: S_next_entry returns NULL"); 
+		      IPConfigLog(LOG_ERR,
+				  "interfaces: S_next_entry returns NULL"); 
 		      continue;
 		  }
 		  entry->flags = ifap->ifa_flags;
 	      }
 	      if (dl_p->sdl_alen > sizeof(entry->link_address.addr)) {
-		  syslog(LOG_ERR,
-			 "%s: link type %d address length %d > %ld", name,
-			 dl_p->sdl_type, dl_p->sdl_alen,
-			 sizeof(entry->link_address.addr));
-		  entry->link_address.alen = sizeof(entry->link_address.addr);
+		  IPConfigLog(LOG_ERR,
+			      "%s: link type %d address length %d > %ld", name,
+			      dl_p->sdl_type, dl_p->sdl_alen,
+			      sizeof(entry->link_address.addr));
+		  entry->link_address.length = sizeof(entry->link_address.addr);
 	      }
 	      else {
-		  entry->link_address.alen = dl_p->sdl_alen;
+		  entry->link_address.length = dl_p->sdl_alen;
 	      }
 	      bcopy(dl_p->sdl_data + dl_p->sdl_nlen, 
-		    entry->link_address.addr, entry->link_address.alen);
+		    entry->link_address.addr,
+		    entry->link_address.length);
 	      entry->link_address.type = dl_p->sdl_type;
 	      entry->link_address.index = dl_p->sdl_index;
 	      if_data = (struct if_data *)ifap->ifa_data;
@@ -217,10 +228,15 @@ S_build_interface_list(interface_list_t * interfaces)
 	      else {
 		  entry->type = dl_p->sdl_type;
 	      }
-	      if (S_get_ifmediareq(name, &ifmr)) {
+	      if (S_get_ifmediareq_s(s, name, &ifmr)) {
 		  if (entry->type == IFT_ETHER) {
-		      entry->is_wireless 
-			  = S_ifmediareq_get_is_wireless(&ifmr);
+
+		      if (S_ifmediareq_get_is_wireless(&ifmr)) {
+			  entry->type_flags |= kInterfaceTypeFlagIsWireless;
+			  if (S_is_awdl(s, name)) {
+			      entry->type_flags |= kInterfaceTypeFlagIsAWDL;
+			  }
+		      }
 		  }
 		  entry->link_status
 		      = S_ifmediareq_get_link_status(&ifmr);
@@ -233,16 +249,22 @@ S_build_interface_list(interface_list_t * interfaces)
     interfaces->list = (interface_t *)
 	realloc(interfaces->list, 
 		sizeof(*(interfaces->list)) * (interfaces->count + 1));
-    freeifaddrs(addrs);
-    return (TRUE);
-  err:
-    if (interfaces->list)
-	free(interfaces->list);
-    interfaces->list = NULL;
+    success = TRUE;
+
+ done:
     if (addrs != NULL) {
 	freeifaddrs(addrs);
     }
-    return (FALSE);
+    if (success == FALSE) {
+	if (interfaces->list != NULL) {
+	    free(interfaces->list);
+	}
+	interfaces->list = NULL;
+    }
+    if (s >= 0) {
+	close(s);
+    }
+    return (success);
 }
 
 int
@@ -513,14 +535,18 @@ if_link_copy(interface_t * dest, const interface_t * source)
     return;
 }
 
-void
+boolean_t
 if_link_update(interface_t * if_p)
 {
+    void *			addr;
+    int				addr_length;
     char *			buf = NULL;
     size_t			buf_len = 0;
+    boolean_t			changed = FALSE;
     struct sockaddr_dl *	dl_p;
     struct if_msghdr * 		ifm;
     int				mib[6];
+    int				type;
 
     mib[0] = CTL_NET;
     mib[1] = PF_ROUTE;
@@ -543,25 +569,33 @@ if_link_update(interface_t * if_p)
     switch (ifm->ifm_type) {
     case RTM_IFINFO:
 	dl_p = (struct sockaddr_dl *)(ifm + 1);
-	if (dl_p->sdl_alen > sizeof(if_p->link_address.addr)) {
-	    syslog(LOG_DEBUG,
-		   "%s: link type %d address length %d > %ld", if_name(if_p),
-		   dl_p->sdl_type, dl_p->sdl_alen, 
-		   sizeof(if_p->link_address.addr));
-	    if_p->link_address.alen = sizeof(if_p->link_address.addr);
+	addr = dl_p->sdl_data + dl_p->sdl_nlen;
+	addr_length = dl_p->sdl_alen;
+	type = dl_p->sdl_type;
+	if (addr_length > sizeof(if_p->link_address.addr)) {
+	    IPConfigLog(LOG_DEBUG,
+			"%s: link type %d address length %d > %ld",
+			if_name(if_p), 
+			type,
+			addr_length, 
+			sizeof(if_p->link_address.addr));
+	    addr_length = sizeof(if_p->link_address.addr);
 	}
-	else {
-	    if_p->link_address.alen = dl_p->sdl_alen;
+	if (if_p->link_address.type != type
+	    || addr_length != if_p->link_address.length
+	    || (addr_length != 0
+		&& bcmp(addr, if_p->link_address.addr, addr_length))) {
+	    changed = TRUE;
+	    if_p->link_address.length = addr_length;
+	    bcopy(addr, if_p->link_address.addr, addr_length);
+	    if_p->link_address.type = dl_p->sdl_type;
 	}
-	bcopy(dl_p->sdl_data + dl_p->sdl_nlen, 
-	      if_p->link_address.addr, if_p->link_address.alen);
-	if_p->link_address.type = dl_p->sdl_type;
     }
  failed:
     if (buf != NULL) {
 	free(buf);
     }
-    return;
+    return (changed);
 }
 
 int
@@ -603,13 +637,19 @@ if_link_address(interface_t * if_p)
 int
 if_link_length(interface_t * if_p)
 {
-    return (if_p->link_address.alen);
+    return (if_p->link_address.length);
 }
 
 boolean_t
 if_is_wireless(interface_t * if_p)
 {
-    return (if_p->is_wireless);
+    return ((if_p->type_flags & kInterfaceTypeFlagIsWireless) != 0);
+}
+
+boolean_t
+if_is_awdl(interface_t * if_p)
+{
+    return ((if_p->type_flags & kInterfaceTypeFlagIsAWDL) != 0);
 }
 
 int
@@ -634,15 +674,10 @@ siocgifmedia(int sockfd, struct ifmediareq * ifmr_p,
 }
 
 static boolean_t
-S_get_ifmediareq(const char * name, struct ifmediareq * ifmr_p)
+S_get_ifmediareq_s(int s, const char * name, struct ifmediareq * ifmr_p)
 {
     boolean_t	ret;
-    int		s;
 
-    s = socket(AF_INET, SOCK_DGRAM, 0);
-    if (s < 0) {
-	return (FALSE);
-    }
     if (siocgifmedia(s, ifmr_p, name) == -1) {
 	if (errno == EOPNOTSUPP) {
 	    ifmr_p->ifm_status = IFM_ACTIVE | IFM_AVALID;
@@ -656,9 +691,23 @@ S_get_ifmediareq(const char * name, struct ifmediareq * ifmr_p)
     else {
 	ret = TRUE;
     }
-    close(s);
     return (ret);
 }
+
+static boolean_t
+S_get_ifmediareq(const char * name, struct ifmediareq * ifmr_p)
+{
+    int		s;
+    boolean_t	success = FALSE;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s >= 0) {
+	success = S_get_ifmediareq_s(s, name, ifmr_p);
+	close(s);
+    }
+    return (success);
+}
+
 
 static boolean_t
 S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p)
@@ -671,15 +720,43 @@ S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p)
 {
     link_status_t 	link;
 
-    link.valid = FALSE;
-    link.active = FALSE;
+    bzero(&link, sizeof(link));
     if (ifmr_p->ifm_count > 0 && (ifmr_p->ifm_status & IFM_AVALID) != 0) {
 	link.valid = TRUE;
 	if ((ifmr_p->ifm_status & IFM_ACTIVE) != 0) {
 	    link.active = TRUE;
 	}
+	link.wake_on_same_network
+	    = ((ifmr_p->ifm_status & IFM_WAKESAMENET) != 0);
     }
     return (link);
+}
+
+static int
+siocgifeflags(int sockfd, struct ifreq * ifr, const char * name)
+{
+    (void)memset(ifr, 0, sizeof(*ifr));
+    (void)strlcpy(ifr->ifr_name, name, sizeof(ifr->ifr_name));
+    return (ioctl(sockfd, SIOCGIFEFLAGS, (caddr_t)ifr));
+}
+
+static boolean_t
+S_is_awdl(int sockfd, const char * name)
+{
+    struct ifreq	ifr;
+    boolean_t		is_awdl = FALSE;
+
+    if (siocgifeflags(sockfd, &ifr, name) == -1) {
+	if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
+	    IPConfigLogFL(LOG_NOTICE,
+			  "%s: SIOCGIFEFLAGS failed status, %s",
+			  name, strerror(errno));
+	}
+    }
+    else if ((ifr.ifr_eflags & IFEF_AWDL) != 0) {
+	is_awdl = TRUE;
+    }
+    return (is_awdl);
 }
 
 link_status_t
@@ -689,9 +766,9 @@ if_link_status_update(interface_t * if_p)
 
     if (S_get_ifmediareq(if_name(if_p), &ifmr) == FALSE) {
 	if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
-	    syslog(LOG_NOTICE,
-		   "if_link_status_update(%s): failed to get media status, %m",
-		   if_name(if_p));
+	    IPConfigLogFL(LOG_NOTICE,
+			  "%s: failed to get media status, %s",
+			  if_name(if_p), strerror(errno));
 	}
     }
     else {
@@ -726,8 +803,8 @@ link_addr_print(link_addr_t * link)
     int i;
 
     printf("link: index %d type 0x%x alen %d%s", link->index, link->type,
-	   link->alen, link->alen > 0 ? " addr" : "");
-    for (i = 0; i < link->alen; i++) {
+	   link->length, link->length > 0 ? " addr" : "");
+    for (i = 0; i < link->length; i++) {
 	printf("%c%x", i ? ':' : ' ', link->addr[i]);
     }
     printf("\n");
@@ -762,11 +839,14 @@ ifl_print(interface_list_t * list_p)
 	if (if_p->link_address.type != 0) {
 	    link_addr_print(&if_p->link_address);
 	    if (if_p->link_status.valid) {
-		printf("Link is %s\n",
-		       if_p->link_status.active ? "active" : "inactive");
+		printf("Link is %s%s\n",
+		       if_p->link_status.active ? "active" : "inactive",
+		       if_p->link_status.wake_on_same_network
+		       ? " [wake on same network]" : "");
 	    }
-	    if (if_p->is_wireless) {
-		printf("wireless\n");
+	    if (if_is_wireless(if_p)) {
+		printf("wireless%s\n",
+		       if_is_awdl(if_p) ? " AWDL" : "");
 	    }
 	}
 	count++;
@@ -777,7 +857,7 @@ ifl_print(interface_list_t * list_p)
 int
 main()
 {
-    interface_list_t * list_p = ifl_init(FALSE);
+    interface_list_t * list_p = ifl_init();
     if (list_p != NULL) {
 	ifl_print(list_p);
     }

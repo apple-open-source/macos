@@ -16,7 +16,7 @@
 #include "ioSock.h"
 #include "fileIo.h"
 
-#include <MacErrors.h>
+#include <Security/SecBase.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -216,7 +216,7 @@ static OSStatus sslEvaluateTrust(
 	bool		silent,
 	CFArrayRef	*peerCerts)		// fetched and retained
 {
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 #if USE_CDSA_CRYPTO
 	SecTrustRef secTrust = NULL;
 	ortn = SSLGetPeerSecTrust(ctx, &secTrust);
@@ -231,7 +231,7 @@ static OSStatus sslEvaluateTrust(
 		if(!silent) {
 			printf("...No SecTrust available - this is a resumed session, right?\n");
 		}
-		return noErr;
+		return errSecSuccess;
 	}
 	SecTrustResultType	secTrustResult;
 	ortn = SecTrustEvaluate(secTrust, &secTrustResult);
@@ -412,7 +412,7 @@ static OSStatus sslPing(
 	}
 	if(getConn != (SSLConnectionRef)sock) {
 		printf("***SSLGetConnection error\n");
-		ortn = paramErr;
+		ortn = errSecParam;
 		goto cleanup;
 	}
 	if(!pargs->allowHostnameSpoof) {
@@ -487,7 +487,7 @@ static OSStatus sslPing(
 			printf("***SSLGetProtocolVersion screwup: try %s  get %s\n",
 				sslGetProtocolVersionString(pargs->tryVersion),
 				sslGetProtocolVersionString(getVers));
-			ortn = paramErr;
+			ortn = errSecParam;
 			goto cleanup;
 		}
 	}
@@ -597,7 +597,7 @@ static OSStatus sslPing(
 		}
 		if(dummy != pargs->clientCerts) {
 			printf("***SSLGetCertificate error\n");
-			ortn = ioErr;
+			ortn = errSecIO;
 			goto cleanup;
 		}
 	}
@@ -636,7 +636,7 @@ static OSStatus sslPing(
 		}
 		if(!e) {
 			printf("***SSLGetAllowAnonymousCiphers() returned false; expected true\n");
-			ortn = ioErr;
+			ortn = errSecIO;
 			goto cleanup;
 		}
 	}
@@ -693,7 +693,7 @@ static OSStatus sslPing(
 				}
 				if(dummy != pargs->clientCerts) {
 					printf("***SSLGetCertificate error\n");
-					ortn = ioErr;
+					ortn = errSecIO;
 					goto cleanup;
 				}
 			}
@@ -777,7 +777,7 @@ static OSStatus sslPing(
 	 * Try to snag RCV_BUF_SIZE bytes. Exit if (!keepConnected and we get any data
 	 * at all), or (keepConnected and err != (none, wouldBlock)).
 	 */
-    while (ortn == noErr) {
+    while (ortn == errSecSuccess) {
 		actLen = 0;
 		if(pargs->dumpRxData) {
 			size_t avail = 0;
@@ -795,12 +795,12 @@ static OSStatus sslPing(
         if((actLen == 0) && !pargs->silent) {
         	sslOutputDot();
         }
-        if((actLen == 0) && (ortn == noErr)) {
+        if((actLen == 0) && (ortn == errSecSuccess)) {
 			printf("***Radar 2984932 confirmed***\n");
 		}
         if (ortn == errSSLWouldBlock) {
 			/* for this loop, these are identical */
-            ortn = noErr;
+            ortn = errSecSuccess;
         }
 		if(ortn == errSSLServerAuthCompleted ||
 		   ortn == errSSLClientCertRequested) {
@@ -811,7 +811,7 @@ static OSStatus sslPing(
 		if((actLen > 0) && pargs->dumpRxData) {
 			dumpAscii(rcvBuf, actLen);
 		}
-		if(ortn != noErr) {
+		if(ortn != errSecSuccess) {
 			/* connection closed by server or by error */
 			break;
 		}
@@ -833,18 +833,18 @@ static OSStatus sslPing(
 
     /* convert normal "shutdown" into zero err rtn */
 	if(ortn == errSSLClosedGraceful) {
-		ortn = noErr;
+		ortn = errSecSuccess;
 	}
 	if((ortn == errSSLClosedNoNotify) && !pargs->requireNotify) {
 		/* relaxed disconnect rules */
-		ortn = noErr;
+		ortn = errSecSuccess;
 	}
 cleanup:
 	/*
 	 * always do close, even on error - to flush outgoing write queue
 	 */
 	OSStatus cerr = SSLClose(ctx);
-	if(ortn == noErr) {
+	if(ortn == errSecSuccess) {
 		ortn = cerr;
 	}
 	if(sock) {

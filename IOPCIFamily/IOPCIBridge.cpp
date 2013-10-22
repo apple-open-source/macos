@@ -64,15 +64,11 @@ extern "C"
 #define     ROM_KEXTS       1
 #endif
 
-#ifndef _IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_
-enum { kIOMemoryHostOnly = 0x00001000 };
-#endif
-
 #ifndef kIOPolledInterfaceActiveKey
 #define kIOPolledInterfaceActiveKey  "IOPolledInterfaceActive"
 #endif
 
-// #define DEADTEST		"UPS2"
+// #define DEADTEST		"UPS0"
 // #define DEFERTEST	1
 
 enum
@@ -306,18 +302,7 @@ IOPCIBridge::setProperties(OSObject * properties)
 			arg = strtoq(str->getCStringNoCopy(), NULL, 0);
 			if (arg) matching = registryEntryIDMatching(arg);
 			else     matching = nameMatching(str->getCStringNoCopy());
-#if _IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_
 			victimS = copyMatchingService(matching);
-#else
-			OSIterator * iter;
-			iter = getMatchingServices(matching);
-			if (iter)
-			{
-				victimS = (IOService *) iter->getNextObject();
-				if (victimS) victimS->retain();
-				iter->release();
-			}
-#endif
 		    matching->release();
 			victim = OSDynamicCast(IOPCIDevice, victimS);
 		}
@@ -467,7 +452,7 @@ IOReturn IOPCIBridge::configOp(IOService * device, uintptr_t op, void * result)
         }
 #endif
 
-#if ACPI_SUPPORT && _IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_
+#if ACPI_SUPPORT
 		IOACPIPlatformDevice * acpiDevice;
 		if (!(acpiDevice = (typeof(acpiDevice)) device->getProvider()->metaCast("IOACPIPlatformDevice")))
             panic("host!IOACPIPlatformDevice");
@@ -561,8 +546,8 @@ IOReturn IOPCIBridge::configOp(IOService * device, uintptr_t op, void * result)
 		}
 		while ((next = (IOPCIDevice *) gIOPCIProbeSet->getAnyObject()))
      	{
-			if (kIOPCIDeviceOnState == next->getPowerState()) deferredProbe(next);
-			else                                next->reserved->needsProbe = true;
+			if (kIOPCIDeviceOnState == next->reserved->pciPMState) deferredProbe(next);
+			else                                     next->reserved->needsProbe = true;
 			gIOPCIProbeSet->removeObject(next);
 		}
 	}
@@ -588,16 +573,25 @@ void IOPCIBridge::deferredProbe(IOPCIDevice * device)
 
 //*********************************************************************************
 
-static const IOPMPowerState powerStates[kIOPCIDevicePowerStateCount] = {
+static const IOPMPowerState gIOPCIPowerStates[kIOPCIDevicePowerStateCount] = {
     // version, capabilityFlags, outputPowerCharacter, inputPowerRequirement, staticPower, stateOrder
 	{ 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ 2, 0, kIOPMSoftSleep, kIOPMSoftSleep, 0, 1, 0, 0, 0, 0, 0, 0 },
 	{ 2, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 3, 0, 0, 0, 0, 0, 0 },
-	{ 2, kIOPMConfigRetained, kIOPMConfigRetained, kIOPMConfigRetained|kIOPMPowerOn, 0, 2, 0, 0, 0, 0, 0, 0 }
+	{ 2, kIOPMConfigRetained, kIOPMConfigRetained, kIOPMConfigRetained, 0, 2, 0, 0, 0, 0, 0, 0 }
 };
 
+static const IOPMPowerState gIOPCIHostPowerStates[kIOPCIDevicePowerStateCount] = {
+    // version, capabilityFlags, outputPowerCharacter, inputPowerRequirement, staticPower, stateOrder
+	{ 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 2, 0, kIOPMSoftSleep, kIOPMSoftSleep, 0, 1, 0, 0, 0, 0, 0, 0 },
+	{ 2, kIOPMPowerOn, kIOPMPowerOn, kIOPMPowerOn, 0, 3, 0, 0, 0, 0, 0, 0 },
+	{ 2, kIOPMConfigRetained, kIOPMConfigRetained, kIOPMPowerOn, 0, 2, 0, 0, 0, 0, 0, 0 }
+};
+
+
 // version without kIOPCIDevicePausedState
-static const IOPMPowerState powerStatesV1[kIOPCIDevicePowerStateCount - 1] = {
+static const IOPMPowerState gIOPCIPowerStatesV1[kIOPCIDevicePowerStateCount - 1] = {
     // version, capabilityFlags, outputPowerCharacter, inputPowerRequirement,
 	{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 	{ 1, 0, kIOPMSoftSleep, kIOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
@@ -607,17 +601,19 @@ static const IOPMPowerState powerStatesV1[kIOPCIDevicePowerStateCount - 1] = {
 //*********************************************************************************
 
 IOReturn
-IOPCIRegisterPowerDriver(IOService * service)
+IOPCIRegisterPowerDriver(IOService * service, bool hostbridge)
 {
     IOReturn ret;
-    ret = service->registerPowerDriver(service,
-    								   (IOPMPowerState *) powerStates,
-    								   arrayCount(powerStates));
+	IOPMPowerState * powerStates = hostbridge 
+		? (IOPMPowerState *) gIOPCIHostPowerStates 
+		: (IOPMPowerState *) gIOPCIPowerStates;
+
+    ret = service->registerPowerDriver(service, powerStates, kIOPCIDevicePowerStateCount);
 	if (kIOReturnSuccess != ret)
 	{
 		ret = service->registerPowerDriver(service,
-										   (IOPMPowerState *) powerStatesV1,
-										   arrayCount(powerStatesV1));
+										   (IOPMPowerState *) gIOPCIPowerStatesV1,
+										   arrayCount(gIOPCIPowerStatesV1));
 	}
 	return (ret);
 }
@@ -687,13 +683,14 @@ bool IOPCIBridge::start( IOService * provider )
     bzero(reserved, sizeof(ExpansionData));
 
     if (!configure(provider)) return (false);
+	pciDevice = OSDynamicCast(IOPCIDevice, provider);
 
     // initialize superclass variables
     PMinit();
     // clamp power on
 //    temporaryPowerClampOn();
     // register as controlling driver
-    IOPCIRegisterPowerDriver(this);
+    IOPCIRegisterPowerDriver(this, !pciDevice);
 
     // join the tree
     provider->joinPMtree(this);
@@ -798,6 +795,7 @@ IOReturn IOPCIBridge::setDevicePowerState(IOPCIDevice * device, IOOptionBits opt
     switch (newState)
     {
         case kIOPCIDeviceOffState:
+//			configOp(device, kConfigOpPaused, 0);
 			if (noSave) break;
 			saveDeviceState(device, options);
 		    if (kOSBooleanTrue == device->getProperty(kIOPolledInterfaceActiveKey))
@@ -812,13 +810,14 @@ IOReturn IOPCIBridge::setDevicePowerState(IOPCIDevice * device, IOOptionBits opt
             break;
             
         case kIOPCIDeviceDozeState:
+// 			configOp(device, kConfigOpPaused, 0);
 			if (noSave) break;
 			saveDeviceState(device, options);
 			device->setPCIPowerState(newState, 0);
             break;
 
         case kIOPCIDeviceOnState:
-			configOp(this, kConfigOpUnpaused, 0);
+			configOp(device, kConfigOpUnpaused, 0);
 			if (kIOPCIDevicePausedState == prevState) break;
 			if (noSave) break;
 			device->setPCIPowerState(newState, 0);
@@ -826,7 +825,7 @@ IOReturn IOPCIBridge::setDevicePowerState(IOPCIDevice * device, IOOptionBits opt
             break;
 
         case kIOPCIDevicePausedState:
-			configOp(this, kConfigOpPaused, 0);
+			configOp(device, kConfigOpPaused, 0);
 			if (noSave) break;
 			device->setPCIPowerState(newState, 0);
             restoreDeviceState(device, options);
@@ -890,6 +889,7 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
 	uint32_t data;
     int      i;
 	bool     ok;
+	uint64_t time;
 
     if (!device->savedConfig) return (kIOReturnNotReady);
 
@@ -903,16 +903,28 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
     flags |= kIOPCIConfigShadowValid | options;
     shadow->flags = flags;
 
-    shadow->tunnelID = device->copyProperty(gIOPCITunnelIDKey, gIOServicePlane);
-//                   = device->getProvider()->copyProperty(gIOPCITunnelIDKey, gIOServicePlane);
-    shadow->tunnelControllerID = device->copyProperty(gIOPCITunnelControllerIDKey, gIOServicePlane);
 
-    shadow->tunnelDependency = (0 != device->getProperty(gIOPCITunnelControllerIDKey, 
-    							gIOServicePlane, kIORegistryIterateRecursively));
+	if (device->getProperty(gIOPCITunnelledKey))
+	{
+		shadow->tunnelID = device->copyProperty(gIOPCITunnelIDKey, gIOServicePlane);
+	}
+	if (!shadow->tunnelID)
+	{
+		shadow->tunnelControllerID = device->copyProperty(gIOPCITunnelControllerIDKey);
+	}
+	if (!shadow->tunnelID && !shadow->tunnelControllerID)
+	{
+		shadow->tunnelDependency  = (0 != device->getProperty(gIOPCIThunderboltKey, 
+								 	gIOServicePlane, kIORegistryIterateRecursively | kIORegistryIterateParents));
+	}
 
     if (shadow->handler)
     {
+		time = mach_absolute_time();
         (*shadow->handler)(shadow->handlerRef, kIOMessageDeviceWillPowerOff, device, 3);
+		time = mach_absolute_time() - time;
+		absolutetime_to_nanoseconds(time, &time);
+		DLOG("%s::configHandler(kIOMessageDeviceWillPowerOff) %lld ms\n", device->getName(), time / 1000000ULL);
     }
 
 	if (kIOPCIConfiguratorLogSaveRestore & gIOPCIFlags)
@@ -978,7 +990,11 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
 
     if (shadow->handler)
     {
+		time = mach_absolute_time();
         (*shadow->handler)(shadow->handlerRef, kIOMessageDeviceHasPoweredOff, device, 3);
+		time = mach_absolute_time() - time;
+		absolutetime_to_nanoseconds(time, &time);
+		DLOG("%s::configHandler(kIOMessageDeviceHasPoweredOff) %lld ms\n", device->getName(), time / 1000000ULL);
     }
 
 	if (kIOPCIConfigShadowHotplug & shadow->flags)
@@ -1010,9 +1026,14 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
 
 IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits options)
 {
-    IOReturn ret;
-    UInt32 flags;
-    int i;
+    AbsoluteTime deadline, now;
+    uint32_t     retries = 0;
+    uint32_t     data;
+    bool         ok;
+    UInt32       flags;
+    int          i;
+    uint64_t     time;
+    IOReturn     ret;
 
     flags = configShadow(device)->flags;
 
@@ -1020,6 +1041,7 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 
     if (configShadow(device)->handler)
     {
+		time = mach_absolute_time();
 #if DEFERTEST
 		if ((kIOPCIRestoreDeviceStateEarly & options) 
 		    && !configShadow(device)->deferredMachineState
@@ -1028,15 +1050,13 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
         ret = (*configShadow(device)->handler)(configShadow(device)->handlerRef, 
                                                kIOMessageDeviceWillPowerOn, device, 3);
 		if ((kIOPCIRestoreDeviceStateEarly & options) && (kIOReturnNotReady == ret)) return (ret);
+		time = mach_absolute_time() - time;
+		absolutetime_to_nanoseconds(time, &time);
+		DLOG("%s::configHandler(kIOMessageDeviceWillPowerOn) %lld ms\n", device->getName(), time / 1000000ULL);
     }
 
     flags &= ~kIOPCIConfigShadowValid;
     configShadow(device)->flags = flags;
-
-    AbsoluteTime deadline, now;
-    uint32_t     retries = 0;
-    uint32_t     data;
-    bool         ok;
 
     if (!(kIOPCIConfigShadowBridgeDriver & flags))
     {
@@ -1116,8 +1136,12 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 
     if (configShadow(device)->handler)
     {
+		time = mach_absolute_time();
         (*configShadow(device)->handler)(configShadow(device)->handlerRef, 
                                          kIOMessageDeviceHasPoweredOn, device, 3);
+		time = mach_absolute_time() - time;
+		absolutetime_to_nanoseconds(time, &time);
+		DLOG("%s::configHandler(kIOMessageDeviceHasPoweredOn) %lld ms\n", device->getName(), time / 1000000ULL);
     }
 
     return (kIOReturnSuccess);
@@ -1159,7 +1183,7 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 					// except for nvidia bus zero devices
 					&& (shadow->device->space.s.busNum 
 					    || (0x10de != (shadow->savedConfig[kIOPCIConfigVendorID >> 2] & 0xffff))))
-										continue;
+																		continue;
 #endif
 				if (kMachineRestoreEarlyDevices & options)
 				{
@@ -1183,6 +1207,7 @@ IOReturn IOPCIBridge::restoreMachineState(IOOptionBits options, IOPCIDevice * de
 				look = (IOPCIConfigShadow *) queue_first(&gIOAllPCIDeviceRestoreQ);
 				while (!(end = queue_end(&gIOAllPCIDeviceRestoreQ, (queue_entry_t) look)))
 				{
+					if (look->tunnelDependency) break;
 					if (look->tunnelControllerID
 					  && look->tunnelControllerID->isEqualTo(shadow->tunnelID)) break;
 					look = (IOPCIConfigShadow *) queue_next(&look->link);

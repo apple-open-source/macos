@@ -30,11 +30,13 @@
 #ifndef FECustomFilter_h
 #define FECustomFilter_h
 
-#if ENABLE(CSS_SHADERS) && ENABLE(WEBGL)
+#if ENABLE(CSS_SHADERS) && USE(3D_GRAPHICS)
 
+#include "CustomFilterConstants.h"
 #include "CustomFilterOperation.h"
 #include "Filter.h"
 #include "FilterEffect.h"
+#include "GraphicsTypes3D.h"
 #include <wtf/RefPtr.h>
 
 namespace JSC {
@@ -43,22 +45,15 @@ class Uint8ClampedArray;
 
 namespace WebCore {
 
-class CachedShader;
-class CustomFilterMesh;
-class CustomFilterNumberParameter;
-class CustomFilterProgram;
-class CustomFilterShader;
-class DrawingBuffer;
+class CustomFilterRenderer;
+class CustomFilterValidatedProgram;
 class GraphicsContext3D;
-class HostWindow;
 class IntSize;
-class Texture;
 
 class FECustomFilter : public FilterEffect {
 public:
-    static PassRefPtr<FECustomFilter> create(Filter*, HostWindow*, PassRefPtr<CustomFilterProgram>, const CustomFilterParameterList&,
-                   unsigned meshRows, unsigned meshColumns, CustomFilterOperation::MeshBoxType, 
-                   CustomFilterOperation::MeshType);
+    static PassRefPtr<FECustomFilter> create(Filter*, PassRefPtr<GraphicsContext3D>, PassRefPtr<CustomFilterValidatedProgram>, const CustomFilterParameterList&,
+        unsigned meshRows, unsigned meshColumns, CustomFilterMeshType);
 
     virtual void platformApplySoftware();
     virtual void dump();
@@ -66,37 +61,49 @@ public:
     virtual TextStream& externalRepresentation(TextStream&, int indention) const;
 
 private:
-    FECustomFilter(Filter*, HostWindow*, PassRefPtr<CustomFilterProgram>, const CustomFilterParameterList&,
-                   unsigned meshRows, unsigned meshColumns, CustomFilterOperation::MeshBoxType, 
-                   CustomFilterOperation::MeshType);
-    
-    void initializeContext(const IntSize& contextSize);
-    void resizeContext(const IntSize& newContextSize);
-    void bindVertexAttribute(int attributeLocation, unsigned size, unsigned& offset);
-    void bindProgramNumberParameters(int uniformLocation, CustomFilterNumberParameter*);
-    void bindProgramParameters();
-    void bindProgramAndBuffers(Uint8ClampedArray* srcPixelArray);
-    
-    HostWindow* m_hostWindow;
-    
+    FECustomFilter(Filter*, PassRefPtr<GraphicsContext3D>, PassRefPtr<CustomFilterValidatedProgram>, const CustomFilterParameterList&,
+        unsigned meshRows, unsigned meshColumns, CustomFilterMeshType);
+    ~FECustomFilter();
+
+    bool applyShader();
+    void clearShaderResult();
+    bool initializeContext();
+
+    bool prepareForDrawing();
+
+    void drawFilterMesh(Platform3DObject inputTexture);
+    bool ensureInputTexture();
+    void uploadInputTexture(Uint8ClampedArray* srcPixelArray);
+    bool resizeContextIfNeeded(const IntSize&);
+    bool resizeContext(const IntSize&);
+
+    bool canUseMultisampleBuffers() const;
+    bool createMultisampleBuffer();
+    bool resizeMultisampleBuffers(const IntSize&);
+    void resolveMultisampleBuffer();
+    void deleteMultisampleRenderBuffers();
+
+    bool ensureFrameBuffer();
+    void deleteRenderBuffers();
+
     RefPtr<GraphicsContext3D> m_context;
-    RefPtr<DrawingBuffer> m_drawingBuffer;
-    RefPtr<Texture> m_inputTexture;
-    RefPtr<CustomFilterShader> m_shader;
-    RefPtr<CustomFilterMesh> m_mesh;
+    RefPtr<CustomFilterValidatedProgram> m_validatedProgram;
+    RefPtr<CustomFilterRenderer> m_customFilterRenderer;
     IntSize m_contextSize;
 
-    RefPtr<CustomFilterProgram> m_program;
-    CustomFilterParameterList m_parameters;
+    Platform3DObject m_inputTexture;
+    Platform3DObject m_frameBuffer;
+    Platform3DObject m_depthBuffer;
+    Platform3DObject m_destTexture;
 
-    unsigned m_meshRows;
-    unsigned m_meshColumns;
-    CustomFilterOperation::MeshBoxType m_meshBoxType;
-    CustomFilterOperation::MeshType m_meshType;
+    bool m_triedMultisampleBuffer;
+    Platform3DObject m_multisampleFrameBuffer;
+    Platform3DObject m_multisampleRenderBuffer;
+    Platform3DObject m_multisampleDepthBuffer;
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(CSS_SHADERS) && ENABLE(WEBGL)
+#endif // ENABLE(CSS_SHADERS) && USE(3D_GRAPHICS)
 
 #endif // FECustomFilter_h

@@ -340,7 +340,7 @@ export_lucid_sec_context_v1(OM_uint32 *minor_status,
     if (ret) goto out;
     ret = krb5_store_int32(sp, (context_handle->more_flags & LOCAL) ? 1 : 0);
     if (ret) goto out;
-    ret = krb5_store_int32(sp, context_handle->endtime);
+    ret = krb5_store_int32(sp, (int32_t)context_handle->endtime);
     if (ret) goto out;
     krb5_auth_con_getlocalseqnumber (context,
 				     context_handle->auth_context,
@@ -455,7 +455,7 @@ get_authtime(OM_uint32 *minor_status,
 	return GSS_S_FAILURE;
     }
 
-    authtime = ctx->ticket->ticket.authtime;
+    authtime = (OM_uint32)ctx->ticket->ticket.authtime;
 
     HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
 

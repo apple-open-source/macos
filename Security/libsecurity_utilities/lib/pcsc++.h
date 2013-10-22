@@ -110,7 +110,7 @@ public:
 	void statusChange(ReaderState &reader, long timeout = 0)
 	{ return statusChange(&reader, 1, timeout); }
 	void statusChange(vector<ReaderState> &readers, long timeout = 0)
-	{ return statusChange(&readers[0], readers.size(), timeout); }
+	{ return statusChange(&readers[0], (unsigned int)readers.size(), timeout); }
 	
 
 private:

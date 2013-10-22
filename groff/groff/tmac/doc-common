@@ -451,6 +451,11 @@
 .ds doc-operating-system-NetBSD-4.0.1 4.0.1
 .ds doc-operating-system-NetBSD-5.0   5.0
 .ds doc-operating-system-NetBSD-5.0.1 5.0.1
+.ds doc-operating-system-NetBSD-5.0.2 5.0.2
+.ds doc-operating-system-NetBSD-5.1   5.1
+.ds doc-operating-system-NetBSD-5.1.1 5.1.1
+.ds doc-operating-system-NetBSD-5.1.2 5.1.2
+.ds doc-operating-system-NetBSD-6.0   6.0
 .
 .ds doc-operating-system-FreeBSD-1.0     1.0
 .ds doc-operating-system-FreeBSD-1.1     1.1
@@ -504,8 +509,14 @@
 .ds doc-operating-system-FreeBSD-7.0     7.0
 .ds doc-operating-system-FreeBSD-7.1     7.1
 .ds doc-operating-system-FreeBSD-7.2     7.2
+.ds doc-operating-system-FreeBSD-7.3     7.3
+.ds doc-operating-system-FreeBSD-7.4     7.4
 .ds doc-operating-system-FreeBSD-8.0     8.0
+.ds doc-operating-system-FreeBSD-8.1     8.1
+.ds doc-operating-system-FreeBSD-8.2     8.2
+.ds doc-operating-system-FreeBSD-8.3     8.3
 .ds doc-operating-system-FreeBSD-9.0     9.0
+.ds doc-operating-system-FreeBSD-9.1     9.1
 .
 .ds doc-operating-system-Darwin-8.0.0 8.0.0
 .ds doc-operating-system-Darwin-8.1.0 8.1.0
@@ -532,7 +543,21 @@
 .ds doc-operating-system-Darwin-10.1.0 10.1.0
 .ds doc-operating-system-Darwin-10.2.0 10.2.0
 .ds doc-operating-system-Darwin-10.3.0 10.3.0
+.ds doc-operating-system-Darwin-10.4.0 10.4.0
+.ds doc-operating-system-Darwin-10.5.0 10.5.0
+.ds doc-operating-system-Darwin-10.6.0 10.6.0
+.ds doc-operating-system-Darwin-10.7.0 10.7.0
+.ds doc-operating-system-Darwin-10.8.0 10.8.0
 .ds doc-operating-system-Darwin-11.0.0 11.0.0
+.ds doc-operating-system-Darwin-11.1.0 11.1.0
+.ds doc-operating-system-Darwin-11.2.0 11.2.0
+.ds doc-operating-system-Darwin-11.3.0 11.3.0
+.ds doc-operating-system-Darwin-11.4.0 11.4.0
+.ds doc-operating-system-Darwin-11.5.0 11.5.0
+.ds doc-operating-system-Darwin-12.0.0 12.0.0
+.ds doc-operating-system-Darwin-12.1.0 12.1.0
+.ds doc-operating-system-Darwin-12.2.0 12.2.0
+.ds doc-operating-system-Darwin-13.0.0 13.0.0
 .
 .ds doc-operating-system-DragonFly-1.0 1.0
 .ds doc-operating-system-DragonFly-1.1 1.1
@@ -558,6 +583,10 @@
 .ds doc-operating-system-DragonFly-2.2.1 2.2.1
 .ds doc-operating-system-DragonFly-2.4 2.4
 .ds doc-operating-system-DragonFly-2.4.1 2.4.1
+.ds doc-operating-system-DragonFly-3.0 3.0
+.ds doc-operating-system-DragonFly-3.0.1 3.0.1
+.ds doc-operating-system-DragonFly-3.0.2 3.0.2
+.ds doc-operating-system-DragonFly-3.0.3 3.0.3
 .
 .de Os
 .  ie "\$1"" \

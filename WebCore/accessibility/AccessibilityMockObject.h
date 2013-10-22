@@ -39,13 +39,15 @@ public:
     
     virtual AccessibilityObject* parentObject() const { return m_parent; }
     virtual void setParent(AccessibilityObject* parent) { m_parent = parent; };
-
+    virtual bool isEnabled() const { return true; }
+    
 protected:
     AccessibilityObject* m_parent;
 
 private:
     virtual bool isMockObject() const { return true; }
 
+    virtual bool computeAccessibilityIsIgnored() const;
     // Must be called when the parent object clears its children.
     virtual void detachFromParent() { m_parent = 0; }
 }; 

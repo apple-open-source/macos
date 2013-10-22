@@ -28,13 +28,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module storage {
-    interface [
-        Conditional=FILE_SYSTEM,
-        IndexedGetter,
-        JSNoStaticTables
-    ] EntryArraySync {
-        readonly attribute unsigned long length;
-        EntrySync item(in [IsIndex] unsigned long index);
-    };
-}
+[
+    NoInterfaceObject,
+    Conditional=FILE_SYSTEM,
+    JSNoStaticTables,
+    ImplementationLacksVTable
+] interface EntryArraySync {
+    readonly attribute unsigned long length;
+    getter EntrySync item([IsIndex] unsigned long index);
+};

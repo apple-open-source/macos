@@ -68,8 +68,8 @@ private:
 	const CssmData *mParams;
 	Db mDb;
 
-	// generation parameters(?)
-	const ResourceControlContext *mInitialAcl;
+	// generation parameters(?) -- Unused
+	// const ResourceControlContext *mInitialAcl;
 };
 
 } // end namespace CssmClient

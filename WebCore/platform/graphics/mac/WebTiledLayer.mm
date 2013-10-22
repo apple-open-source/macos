@@ -32,7 +32,6 @@
 #import "GraphicsContext.h"
 #import "GraphicsLayerCA.h"
 #import "PlatformCALayer.h"
-#import <wtf/UnusedParam.h>
 
 using namespace WebCore;
 
@@ -48,6 +47,11 @@ using namespace WebCore;
 + (BOOL)shouldDrawOnMainThread
 {
     return YES;
+}
+
++ (unsigned int)prefetchedTiles
+{
+    return 2;
 }
 
 // Disable default animations
@@ -79,7 +83,7 @@ using namespace WebCore;
 
             [super setNeedsDisplayInRect:dirtyRect];
 
-            if (layerOwner->platformCALayerShowRepaintCounter()) {
+            if (layerOwner->platformCALayerShowRepaintCounter(platformLayer)) {
                 CGRect bounds = [self bounds];
                 CGRect indicatorRect = CGRectMake(bounds.origin.x, bounds.origin.y, 52, 27);
                 if (layerOwner->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp)

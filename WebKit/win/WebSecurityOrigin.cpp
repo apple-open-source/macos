@@ -31,11 +31,7 @@
 #include "WebKitDLL.h"
 
 #include <WebCore/BString.h>
-#include <WebCore/DatabaseTracker.h>
-
-#if !ENABLE(SQL_DATABASE)
-#include <wtf/UnusedParam.h>
-#endif
+#include <WebCore/DatabaseManager.h>
 
 using namespace WebCore;
 
@@ -134,7 +130,7 @@ HRESULT STDMETHODCALLTYPE WebSecurityOrigin::usage(
     if (!result)
         return E_POINTER;
 
-    *result = DatabaseTracker::tracker().usageForOrigin(m_securityOrigin.get());
+    *result = DatabaseManager::manager().usageForOrigin(m_securityOrigin.get());
 
     return S_OK;
 #else
@@ -150,7 +146,7 @@ HRESULT STDMETHODCALLTYPE WebSecurityOrigin::quota(
     if (!result)
         return E_POINTER;
 
-    *result = DatabaseTracker::tracker().quotaForOrigin(m_securityOrigin.get());
+    *result = DatabaseManager::manager().quotaForOrigin(m_securityOrigin.get());
     return S_OK;
 #else
     UNUSED_PARAM(result);
@@ -162,7 +158,7 @@ HRESULT STDMETHODCALLTYPE WebSecurityOrigin::setQuota(
     /* [in] */ unsigned long long quota) 
 {
 #if ENABLE(SQL_DATABASE)
-    DatabaseTracker::tracker().setQuota(m_securityOrigin.get(), quota);
+    DatabaseManager::manager().setQuota(m_securityOrigin.get(), quota);
 
     return S_OK;
 #else

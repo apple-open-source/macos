@@ -38,16 +38,15 @@ class FormData;
 class HTMLFormControlElement;
 class HTMLImageElement;
 class HTMLInputElement;
-class HTMLFormCollection;
 class TextEncoding;
 
-class HTMLFormElement : public HTMLElement {
+class HTMLFormElement FINAL : public HTMLElement {
 public:
     static PassRefPtr<HTMLFormElement> create(Document*);
     static PassRefPtr<HTMLFormElement> create(const QualifiedName&, Document*);
     virtual ~HTMLFormElement();
 
-    HTMLCollection* elements();
+    PassRefPtr<HTMLCollection> elements();
     void getNamedElements(const AtomicString&, Vector<RefPtr<Node> >&);
 
     unsigned length() const;
@@ -72,11 +71,6 @@ public:
     void submit();
     void submitFromJavaScript();
     void reset();
-
-    // Used to indicate a malformed state to keep from applying the bottom margin of the form.
-    // FIXME: Would probably be better to call this wasUnclosed; that's more specific.
-    void setMalformed(bool malformed) { m_wasMalformed = malformed; }
-    bool isMalformed() const { return m_wasMalformed; }
 
     void setDemoted(bool demoted) { m_wasDemoted = demoted; }
 
@@ -110,32 +104,32 @@ public:
     CheckedRadioButtons& checkedRadioButtons() { return m_checkedRadioButtons; }
 
     const Vector<FormAssociatedElement*>& associatedElements() const { return m_associatedElements; }
-    
+    const Vector<HTMLImageElement*>& imageElements() const { return m_imageElements; }
+
     void getTextFieldValues(StringPairVector& fieldNamesAndValues) const;
 
 private:
     HTMLFormElement(const QualifiedName&, Document*);
 
     virtual bool rendererIsNeeded(const NodeRenderingContext&);
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void didNotifyDescendantInseretions(Node*) OVERRIDE;
-    virtual void removedFrom(Node*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
+    virtual void finishParsingChildren() OVERRIDE;
 
     virtual void handleLocalEvents(Event*);
 
-    virtual void parseAttribute(Attribute*) OVERRIDE;
-
-    virtual bool isURLAttribute(Attribute*) const;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
 
     virtual void documentDidResumeFromPageCache();
 
     virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
 
-    virtual bool shouldRegisterAsNamedItem() const OVERRIDE { return true; }
+    virtual void copyNonAttributePropertiesFromElement(const Element&) OVERRIDE;
 
     void submit(Event*, bool activateSubmitButton, bool processingUserGesture, FormSubmissionTrigger);
 
-    unsigned formElementIndexWithFormAttribute(Element*);
+    unsigned formElementIndexWithFormAttribute(Element*, unsigned rangeStart, unsigned rangeEnd);
     unsigned formElementIndex(FormAssociatedElement*);
 
     // Returns true if the submission should proceed.
@@ -146,13 +140,10 @@ private:
     // are any invalid controls in this form.
     bool checkInvalidControlsAndCollectUnhandled(Vector<RefPtr<FormAssociatedElement> >&);
 
-    friend class HTMLFormCollection;
-
     typedef HashMap<RefPtr<AtomicStringImpl>, RefPtr<HTMLFormControlElement> > AliasMap;
 
     FormSubmission::Attributes m_attributes;
     OwnPtr<AliasMap> m_elementAliases;
-    OwnPtr<HTMLFormCollection> m_elementsCollection;
 
     CheckedRadioButtons m_checkedRadioButtons;
 
@@ -167,7 +158,6 @@ private:
 
     bool m_isInResetFunction;
 
-    bool m_wasMalformed;
     bool m_wasDemoted;
 };
 

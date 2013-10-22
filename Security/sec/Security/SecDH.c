@@ -32,11 +32,11 @@
 #include <libDER/DER_Encode.h>
 #include <libDER/asn1Types.h>
 #include <libkern/OSByteOrder.h>
-#include <security_utilities/debugging.h>
+#include "utilities/debugging.h"
 #include <Security/SecInternal.h>
 #include <Security/SecRandom.h>
 #include <stdlib.h>
-#include <MacErrors.h>
+#include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
 
 #ifdef DEBUG
@@ -74,13 +74,13 @@ der2OSStatus(DERReturn derReturn)
 {
 	switch(derReturn)
 	{
-	case DR_Success:				return noErr;
+	case DR_Success:				return errSecSuccess;
 	case DR_EndOfSequence:			return errSecDecode; 
 	case DR_UnexpectedTag:			return errSecDecode;
 	case DR_DecodeError:			return errSecDecode;
-	case DR_Unimplemented:			return unimpErr;
+	case DR_Unimplemented:			return errSecUnimplemented;
 	case DR_IncompleteSeq:			return errSecDecode;
-	case DR_ParamErr:				return paramErr;
+	case DR_ParamErr:				return errSecParam;
 	case DR_BufOverflow:			return errSecBufferTooSmall;
 	default:						return errSecInternal;
 	}
@@ -122,7 +122,7 @@ OSStatus SecDHCreate(uint32_t g, const uint8_t *p, size_t p_len,
 
     *pdh = (SecDHContext) context;
 
-    return noErr;
+    return errSecSuccess;
 
 errOut:
     SecDHDestroy(context);
@@ -189,7 +189,7 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
     size_t context_size = ccdh_gp_size(p_len)+ccdh_full_ctx_size(p_len);
     void *context = malloc(context_size);
     if(context==NULL)
-        return memFullErr;
+        return errSecAllocate;
 
     bzero(context, context_size);
 
@@ -213,7 +213,7 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
         goto errOut;
 
     *pdh = (SecDHContext) context;
-    return noErr;
+    return errSecSuccess;
 
 errOut:
     SecDHDestroy(context);
@@ -264,7 +264,7 @@ OSStatus SecDHGenerateKeypair(SecDHContext dh, uint8_t *pub_key,
     ccn_write_uint(ccdh_gp_n(gp),ccdh_ctx_y(priv), ylen, pub_key);
     *pub_key_len = ylen;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus SecDHComputeKey(SecDHContext dh,
@@ -288,7 +288,7 @@ OSStatus SecDHComputeKey(SecDHContext dh,
     if(out_size < *computed_key_len)
         *computed_key_len=out_size;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 void SecDHDestroy(SecDHContext dh) {

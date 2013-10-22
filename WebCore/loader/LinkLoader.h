@@ -37,19 +37,25 @@
 #include "LinkLoaderClient.h"
 #include "Timer.h"
 
+#include <wtf/RefPtr.h>
+
 namespace WebCore {
 
+class Document;
+class KURL;
 struct LinkRelAttribute;
 
-// The LinkLoader can load link rel types icon, dns-prefetch, subresource, prefetch and prerender.
+// The LinkLoader can load link rel types icon, dns-prefetch, subresource and prefetch.
 class LinkLoader : public CachedResourceClient {
+
 public:
-    LinkLoader(LinkLoaderClient*);
+    explicit LinkLoader(LinkLoaderClient*);
     virtual ~LinkLoader();
 
     // from CachedResourceClient
     virtual void notifyFinished(CachedResource*);
-    
+
+    void released();
     bool loadLink(const LinkRelAttribute&, const String& type, const String& sizes, const KURL&, Document*);
 
 private:

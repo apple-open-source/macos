@@ -33,11 +33,10 @@
 #include <security_utilities/alloc.h>
 #include <string>
 #include <CoreFoundation/CoreFoundation.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 #define CFRELEASE(cf)		if(cf) { CFRelease(cf); }
 
-#define TS_REQUIRED(arg)	if(arg == NULL) { return paramErr; }
+#define TS_REQUIRED(arg)	if(arg == NULL) { return errSecParam; }
 
 namespace Security
 {

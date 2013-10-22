@@ -35,8 +35,6 @@
 #include <IOKit/IOKitLib.h>
 #include <libc.h>
 
-#define kKextdDiskArbMaxRetries   (10)
-
 // kextd_main.c
 extern const NXArchInfo     * gKernelArchInfo;
 

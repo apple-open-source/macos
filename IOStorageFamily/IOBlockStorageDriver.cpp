@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -128,17 +128,10 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
     _maxBlockNumber                  = 0;
     _writeProtected                  = false;
 
-#ifdef __LP64__
     _maxReadBlockTransfer            = 0;
     _maxWriteBlockTransfer           = 0;
     _maxReadByteTransfer             = 0;
     _maxWriteByteTransfer            = 0;
-#else /* !__LP64__ */
-    _maxReadBlockTransfer            = 256;
-    _maxWriteBlockTransfer           = 256;
-    _maxReadByteTransfer             = 131072;
-    _maxWriteByteTransfer            = 131072;
-#endif /* !__LP64__ */
     _maxReadSegmentTransfer          = 0;
     _maxWriteSegmentTransfer         = 0;
     _maxReadSegmentByteTransfer      = 0;
@@ -1098,7 +1091,7 @@ IOBlockStorageDriver::decommissionMedia(bool forcible)
         }
 
         if (!m->isInactive()) {
-        m->terminate();
+            m->terminate();
         }
 
         m->release();
@@ -1365,11 +1358,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
     }
 #endif /* !__LP64__ */
 
-#ifndef __LP64__
-    _maxReadSegmentTransfer = _maxReadByteTransfer / page_size;
-
-    _maxReadByteTransfer = 0;
-#endif /* !__LP64__ */
     object = copyProperty(kIOMaximumByteCountReadKey, gIOServicePlane);
     if (object) {
 
@@ -1381,11 +1369,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         object->release();
     }
 
-#ifndef __LP64__
-    _maxWriteSegmentTransfer = _maxWriteByteTransfer / page_size;
-
-    _maxWriteByteTransfer = 0;
-#endif /* !__LP64__ */
     object = copyProperty(kIOMaximumByteCountWriteKey, gIOServicePlane);
     if (object) {
 
@@ -1407,11 +1390,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
 
         object->release();
     }
-#ifndef __LP64__
-    if (object == 0) {
-        getProvider()->setProperty(kIOMaximumSegmentCountReadKey, _maxReadSegmentTransfer, 64);
-    }
-#endif /* !__LP64__ */
 
     object = copyProperty(kIOMaximumSegmentCountWriteKey, gIOServicePlane);
     if (object) {
@@ -1423,11 +1401,6 @@ IOBlockStorageDriver::handleStart(IOService * provider)
 
         object->release();
     }
-#ifndef __LP64__
-    if (object == 0) {
-        getProvider()->setProperty(kIOMaximumSegmentCountWriteKey, _maxWriteSegmentTransfer, 64);
-    }
-#endif /* !__LP64__ */
 
     object = copyProperty(kIOMaximumSegmentByteCountReadKey, gIOServicePlane);
     if (object) {

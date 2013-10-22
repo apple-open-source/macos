@@ -55,6 +55,17 @@
 
 #define INDEX_NONE	-1
 
+static __inline__ void *
+next_sockaddr(struct sockaddr * sa)
+{
+    int		offset;
+
+    offset = (sa->sa_len != 0)
+	? roundup(sa->sa_len, sizeof(uint32_t))
+	: sizeof(uint32_t);
+    return (((caddr_t)(sa) + offset));
+}
+
 inetroute_list_t *
 inetroute_list_init()
 {
@@ -104,11 +115,11 @@ inetroute_list_init()
 	addrs = (void *)(&rtm[1]);
 	if (rtm->rtm_addrs & RTA_DST) {
 	    dst = (struct sockaddr *)addrs;
-	    addrs += MAX(sizeof(*dst), dst->sa_len);
+	    addrs = next_sockaddr(dst);
 	}
 	if (rtm->rtm_addrs & RTA_GATEWAY) {
 	    gateway = (struct sockaddr *)addrs;
-	    addrs += MAX(sizeof(*dst), gateway->sa_len);
+	    addrs = next_sockaddr(gateway);
 	}
 	if (rtm->rtm_addrs & RTA_NETMASK) {
 	    mask = (struct sockaddr *)addrs;

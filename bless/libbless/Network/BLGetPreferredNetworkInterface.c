@@ -182,7 +182,7 @@ static io_service_t getLinkUpInterface(BLContextPtr context,
         
         kret = IORegistryEntryGetPath(serv, kIOServicePlane, path);
         if(kret) {
-            strcpy(path, "<unknown>");
+            strlcpy(path, "<unknown>", sizeof path);
         }
         
         contextprintf(context, kBLLogLevelVerbose, "Interface at %s %s an active link\n",

@@ -32,8 +32,6 @@
 #include "config.h"
 #include "GLES2Context.h"
 
-#include "Assertions.h"
-#include "BackingStoreCompositingSurface.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "SurfacePool.h"
@@ -42,25 +40,17 @@
 
 #include <GLES2/gl2.h>
 
+#include <wtf/Assertions.h>
+
 using BlackBerry::Platform::Graphics::Window;
 
 namespace BlackBerry {
 namespace WebKit {
 
-BackingStoreCompositingSurface* GLES2Context::compositingSurface() const
-{
-    return SurfacePool::globalSurfacePool()->compositingSurface();
-}
-
 Platform::Graphics::Buffer* GLES2Context::buffer() const
 {
     if (m_window)
         return m_window->buffer();
-
-#if ENABLE_COMPOSITING_SURFACE
-    if (BackingStoreCompositingSurface* surface = compositingSurface())
-        return surface->backBuffer()->nativeBuffer();
-#endif
 
     ASSERT_NOT_REACHED();
     return 0;
@@ -89,39 +79,20 @@ Platform::IntSize GLES2Context::surfaceSize() const
     if (m_window)
         return m_window->surfaceSize();
 
-#if ENABLE_COMPOSITING_SURFACE
-    if (BackingStoreCompositingSurface* surface = compositingSurface())
-        return surface->backBuffer()->surfaceSize();
-#endif
-
     ASSERT_NOT_REACHED();
     return Platform::IntSize();
 }
 
 bool GLES2Context::makeCurrent()
 {
-    Platform::Graphics::makeBufferCurrent(buffer(), Platform::Graphics::GLES2);
-    return true;
+    return Platform::Graphics::makeBufferCurrent(buffer(), Platform::Graphics::GLES2);
 }
 
 bool GLES2Context::swapBuffers()
 {
     ASSERT(glGetError() == GL_NO_ERROR);
 
-    // If there's a window the backing store will swap it when the time is right.
-    // Return early because there might be an unused but non-null compositing surface
-    if (m_window)
-        return true;
-
-#if ENABLE_COMPOSITING_SURFACE
-    if (BackingStoreCompositingSurface* surface = compositingSurface()) {
-        // Because we are rendering compositing contents into an off-screen pixmap and
-        // we need to blend the pixmap with the web page window surface we have to call
-        // glFinish() here.
-        glFinish();
-        surface->swapBuffers();
-    }
-#endif
+    // Nothing to do here, the backing store will swap it when the time is right.
 
     return true;
 }

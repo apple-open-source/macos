@@ -30,11 +30,9 @@
 #import <WebCore/NotImplemented.h>
 #import <wtf/RetainPtr.h>
 
-#ifndef BUILDING_ON_SNOW_LEOPARD
 @interface NSSpellChecker (WebNSSpellCheckerDetails)
 - (NSString *)languageForWordRange:(NSRange)range inString:(NSString *)string orthography:(NSOrthography *)orthography;
 @end
-#endif
 
 static NSString* const WebAutomaticSpellingCorrectionEnabled = @"WebAutomaticSpellingCorrectionEnabled";
 static NSString* const WebContinuousSpellCheckingEnabled = @"WebContinuousSpellCheckingEnabled";
@@ -51,24 +49,56 @@ namespace WebKit {
 
 TextCheckerState textCheckerState;
 
+static bool shouldAutomaticTextReplacementBeEnabled()
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if (![defaults objectForKey:WebAutomaticTextReplacementEnabled])
+        return [NSSpellChecker isAutomaticTextReplacementEnabled];
+    return [defaults boolForKey:WebAutomaticTextReplacementEnabled];
+}
+
+static bool shouldAutomaticSpellingCorrectionBeEnabled()
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    if (![defaults objectForKey:WebAutomaticSpellingCorrectionEnabled])
+        return [NSSpellChecker isAutomaticTextReplacementEnabled];
+    return [defaults boolForKey:WebAutomaticSpellingCorrectionEnabled];
+}
+
+static bool shouldAutomaticQuoteSubstitutionBeEnabled()
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+    if (![defaults objectForKey:WebAutomaticQuoteSubstitutionEnabled])
+        return [NSSpellChecker isAutomaticQuoteSubstitutionEnabled];
+#endif
+    return [defaults boolForKey:WebAutomaticQuoteSubstitutionEnabled];
+}
+
+static bool shouldAutomaticDashSubstitutionBeEnabled()
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+    if (![defaults objectForKey:WebAutomaticDashSubstitutionEnabled])
+        return [NSSpellChecker isAutomaticDashSubstitutionEnabled];
+#endif
+    return [defaults boolForKey:WebAutomaticDashSubstitutionEnabled];
+}
+
 static void initializeState()
 {
-    static bool didInitializeState;
+    static bool didInitializeState = false;
+
     if (didInitializeState)
         return;
 
     textCheckerState.isContinuousSpellCheckingEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebContinuousSpellCheckingEnabled] && TextChecker::isContinuousSpellCheckingAllowed();
     textCheckerState.isGrammarCheckingEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebGrammarCheckingEnabled];
-    textCheckerState.isAutomaticSpellingCorrectionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticSpellingCorrectionEnabled];
-    textCheckerState.isAutomaticQuoteSubstitutionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticQuoteSubstitutionEnabled];
-    textCheckerState.isAutomaticDashSubstitutionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticDashSubstitutionEnabled];
+    textCheckerState.isAutomaticTextReplacementEnabled = shouldAutomaticTextReplacementBeEnabled();
+    textCheckerState.isAutomaticSpellingCorrectionEnabled = shouldAutomaticSpellingCorrectionBeEnabled();
+    textCheckerState.isAutomaticQuoteSubstitutionEnabled = shouldAutomaticQuoteSubstitutionBeEnabled();
+    textCheckerState.isAutomaticDashSubstitutionEnabled = shouldAutomaticDashSubstitutionBeEnabled();
     textCheckerState.isAutomaticLinkDetectionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticLinkDetectionEnabled];
-    textCheckerState.isAutomaticTextReplacementEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticTextReplacementEnabled];
-
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
-    if (![[NSUserDefaults standardUserDefaults] objectForKey:WebAutomaticSpellingCorrectionEnabled])
-        textCheckerState.isAutomaticSpellingCorrectionEnabled = [NSSpellChecker isAutomaticSpellingCorrectionEnabled];
-#endif
 
     didInitializeState = true;
 }
@@ -198,6 +228,34 @@ void TextChecker::setSmartInsertDeleteEnabled(bool flag)
     [[NSUserDefaults standardUserDefaults] setBool:flag forKey:WebSmartInsertDeleteEnabled];
 }
 
+void TextChecker::didChangeAutomaticTextReplacementEnabled()
+{
+    textCheckerState.isAutomaticTextReplacementEnabled = shouldAutomaticTextReplacementBeEnabled();
+    [[NSSpellChecker sharedSpellChecker] updatePanels];
+}
+
+void TextChecker::didChangeAutomaticSpellingCorrectionEnabled()
+{
+    textCheckerState.isAutomaticSpellingCorrectionEnabled = shouldAutomaticSpellingCorrectionBeEnabled();
+    [[NSSpellChecker sharedSpellChecker] updatePanels];
+}
+
+void TextChecker::didChangeAutomaticQuoteSubstitutionEnabled()
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+    textCheckerState.isAutomaticQuoteSubstitutionEnabled = shouldAutomaticQuoteSubstitutionBeEnabled();
+    [[NSSpellChecker sharedSpellChecker] updatePanels];
+#endif
+}
+
+void TextChecker::didChangeAutomaticDashSubstitutionEnabled()
+{
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090
+    textCheckerState.isAutomaticDashSubstitutionEnabled = shouldAutomaticDashSubstitutionBeEnabled();
+    [[NSSpellChecker sharedSpellChecker] updatePanels];
+#endif
+}
+
 bool TextChecker::substitutionsPanelIsShowing()
 {
     return [[[NSSpellChecker sharedSpellChecker] substitutionsPanel] isVisible];
@@ -239,7 +297,7 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(int64_t spellDocume
 {
     Vector<TextCheckingResult> results;
 
-    RetainPtr<NSString> textString(AdoptNS, [[NSString alloc] initWithCharactersNoCopy:const_cast<UChar*>(text) length:length freeWhenDone:NO]);
+    RetainPtr<NSString> textString = adoptNS([[NSString alloc] initWithCharactersNoCopy:const_cast<UChar*>(text) length:length freeWhenDone:NO]);
     NSArray *incomingResults = [[NSSpellChecker sharedSpellChecker] checkString:textString .get()
                                                                           range:NSMakeRange(0, length)
                                                                           types:checkingTypes | NSTextCheckingTypeOrthography
@@ -357,7 +415,7 @@ void TextChecker::updateSpellingUIWithMisspelledWord(int64_t, const String& miss
 
 void TextChecker::updateSpellingUIWithGrammarString(int64_t, const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
 {
-    RetainPtr<NSMutableArray> corrections(AdoptNS, [[NSMutableArray alloc] init]);
+    RetainPtr<NSMutableArray> corrections = adoptNS([[NSMutableArray alloc] init]);
     for (size_t i = 0; i < grammarDetail.guesses.size(); ++i) {
         NSString *guess = grammarDetail.guesses[i];
         [corrections.get() addObject:guess];
@@ -365,14 +423,13 @@ void TextChecker::updateSpellingUIWithGrammarString(int64_t, const String& badGr
 
     NSRange grammarRange = NSMakeRange(grammarDetail.location, grammarDetail.length);
     NSString *grammarUserDescription = grammarDetail.userDescription;
-    RetainPtr<NSDictionary> grammarDetailDict(AdoptNS, [[NSDictionary alloc] initWithObjectsAndKeys:[NSValue valueWithRange:grammarRange], NSGrammarRange, grammarUserDescription, NSGrammarUserDescription, corrections.get(), NSGrammarCorrections, nil]);
+    RetainPtr<NSDictionary> grammarDetailDict = adoptNS([[NSDictionary alloc] initWithObjectsAndKeys:[NSValue valueWithRange:grammarRange], NSGrammarRange, grammarUserDescription, NSGrammarUserDescription, corrections.get(), NSGrammarCorrections, nil]);
 
     [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithGrammarString:badGrammarPhrase detail:grammarDetailDict.get()];
 }
 
 void TextChecker::getGuessesForWord(int64_t spellDocumentTag, const String& word, const String& context, Vector<String>& guesses)
 {
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
     NSString* language = nil;
     NSOrthography* orthography = nil;
     NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
@@ -381,9 +438,6 @@ void TextChecker::getGuessesForWord(int64_t spellDocumentTag, const String& word
         language = [checker languageForWordRange:NSMakeRange(0, context.length()) inString:context orthography:orthography];
     }
     NSArray* stringsArray = [checker guessesForWordRange:NSMakeRange(0, word.length()) inString:word language:language inSpellDocumentWithTag:spellDocumentTag];
-#else
-    NSArray* stringsArray = [[NSSpellChecker sharedSpellChecker] guessesForWord:word];
-#endif
 
     for (NSString *guess in stringsArray)
         guesses.append(guess);
@@ -397,6 +451,11 @@ void TextChecker::learnWord(int64_t, const String& word)
 void TextChecker::ignoreWord(int64_t spellDocumentTag, const String& word)
 {
     [[NSSpellChecker sharedSpellChecker] ignoreWord:word inSpellDocumentWithTag:spellDocumentTag];
+}
+
+void TextChecker::requestCheckingOfString(PassRefPtr<TextCheckerCompletion>)
+{
+    notImplemented();
 }
 
 } // namespace WebKit

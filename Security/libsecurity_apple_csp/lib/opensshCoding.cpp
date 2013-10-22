@@ -228,7 +228,7 @@ static CSSM_RETURN parseSSH2PubKey(
 	unsigned char **decodedBlob,	// mallocd and RETURNED
 	unsigned *decodedBlobLen)		// RETURNED
 {
-	unsigned len = strlen(header);
+	size_t len = strlen(header);
 	*decodedBlob = NULL;
 	
 	/* ID string plus at least one space */
@@ -258,7 +258,7 @@ static CSSM_RETURN parseSSH2PubKey(
 	/* key is start of base64 blob */
 	const unsigned char *encodedBlob = key;
 	const unsigned char *endBlob = findNextWhite(key, keyLen);
-	unsigned encodedBlobLen = endBlob - encodedBlob;
+	unsigned encodedBlobLen = (unsigned)(endBlob - encodedBlob);
 	
 	/* decode base 64 */
 	*decodedBlob = cuDec64(encodedBlob, encodedBlobLen, decodedBlobLen);
@@ -300,11 +300,11 @@ CSSM_RETURN RSAPublicKeyEncodeOpenSSH1(
 
 	snprintf(bitString, sizeof(bitString), "%u ", numBits);
 	CFDataAppendBytes(cfOut, (const UInt8 *)bitString, strlen(bitString));
-	if(ourRtn = appendBigNumDec(cfOut, rsa->e)) {
+	if((ourRtn = appendBigNumDec(cfOut, rsa->e))) {
 		goto errOut;
 	}
 	CFDataAppendBytes(cfOut, &c, 1);
-	if(ourRtn = appendBigNumDec(cfOut, rsa->n)) {
+	if((ourRtn = appendBigNumDec(cfOut, rsa->n))) {
 		goto errOut;
 	}
 	
@@ -328,7 +328,7 @@ CSSM_RETURN RSAPublicKeyDecodeOpenSSH1(
 	size_t			length)
 {
 	const unsigned char *cp = (const unsigned char *)p;
-	unsigned remLen = length;
+	unsigned remLen = (unsigned)length;
 	
 	skipWhite(cp, remLen);
 	
@@ -355,7 +355,7 @@ CSSM_RETURN RSAPublicKeyDecodeOpenSSH1(
 		dprintf("RSAPublicKeyDecodeOpenSSH1: short key (3)\n");
 		return CSSMERR_CSP_INVALID_KEY;
 	}
-	unsigned len = ep - cp;
+	unsigned len = (unsigned)(ep - cp);
 	rsa->e = parseDecimalBn(cp, len);
 	if(rsa->e == NULL) {
 		return CSSMERR_CSP_INVALID_KEY;
@@ -370,7 +370,7 @@ CSSM_RETURN RSAPublicKeyDecodeOpenSSH1(
 	
 	/* cp points to start of n */
 	ep = findNextWhite(cp, remLen);
-	len = ep - cp;
+	len = (unsigned)(ep - cp);
 	rsa->n = parseDecimalBn(cp, len);
 	if(rsa->n == NULL) {
 		return CSSMERR_CSP_INVALID_KEY;
@@ -389,7 +389,7 @@ CSSM_RETURN RSAPrivateKeyEncodeOpenSSH1(
 	CFDataRef cfOut;
 	CSSM_RETURN ourRtn;
 
-	ourRtn = encodeOpenSSHv1PrivKey(rsa, descData.Data, descData.Length, NULL, &cfOut);
+	ourRtn = encodeOpenSSHv1PrivKey(rsa, descData.Data, (unsigned)descData.Length, NULL, &cfOut);
 	if(ourRtn) {
 		return ourRtn;
 	}
@@ -403,7 +403,7 @@ extern CSSM_RETURN RSAPrivateKeyDecodeOpenSSH1(
 	void 			*p, 
 	size_t			length)
 {
-	return decodeOpenSSHv1PrivKey((const unsigned char *)p, length,
+	return decodeOpenSSHv1PrivKey((const unsigned char *)p, (unsigned)length,
 		openKey, NULL, NULL, NULL);
 }
 
@@ -427,15 +427,15 @@ CSSM_RETURN RSAPublicKeyEncodeOpenSSH2(
 	CFMutableDataRef cfOut = CFDataCreateMutable(NULL, 0);
 	CSSM_RETURN ourRtn = CSSM_OK;
 	appendString(cfOut, SSH2_RSA_HEADER, strlen(SSH2_RSA_HEADER));
-	if(ourRtn = appendBigNum2(cfOut, rsa->e)) {
+	if((ourRtn = appendBigNum2(cfOut, rsa->e))) {
 		goto errOut;
 	}
-	if(ourRtn = appendBigNum2(cfOut, rsa->n)) {
+	if((ourRtn = appendBigNum2(cfOut, rsa->n))) {
 		goto errOut;
 	}
 	
 	/* base64 encode that */
-	b64 = cuEnc64((unsigned char *)CFDataGetBytePtr(cfOut), CFDataGetLength(cfOut), &b64Len);
+	b64 = cuEnc64((unsigned char *)CFDataGetBytePtr(cfOut), (unsigned)CFDataGetLength(cfOut), &b64Len);
 	
 	/* cuEnc64 added newline and NULL, which we really don't want */
 	b64Len -= 2;
@@ -472,7 +472,7 @@ CSSM_RETURN RSAPublicKeyDecodeOpenSSH2(
 	size_t			length)
 {
 	const unsigned char *key = (const unsigned char *)p;
-	unsigned keyLen = length;
+	unsigned keyLen = (unsigned)length;
 	CSSM_RETURN ourRtn;
 	
 	/* 
@@ -481,7 +481,7 @@ CSSM_RETURN RSAPublicKeyDecodeOpenSSH2(
 	 */
 	unsigned char *decodedBlob = NULL;
 	unsigned decodedBlobLen = 0;
-	if(ourRtn = parseSSH2PubKey(key, keyLen, SSH2_RSA_HEADER, &decodedBlob, &decodedBlobLen)) {
+	if((ourRtn = parseSSH2PubKey(key, keyLen, SSH2_RSA_HEADER, &decodedBlob, &decodedBlobLen))) {
 		return ourRtn;
 	}
 	/* subsequent errors to errOut: */
@@ -555,21 +555,21 @@ CSSM_RETURN DSAPublicKeyEncodeOpenSSH2(
 	CFMutableDataRef cfOut = CFDataCreateMutable(NULL, 0);
 	int ourRtn = 0;
 	appendString(cfOut, SSH2_DSA_HEADER, strlen(SSH2_DSA_HEADER));
-	if(ourRtn = appendBigNum2(cfOut, dsa->p)) {
+	if((ourRtn = appendBigNum2(cfOut, dsa->p))) {
 		goto errOut;
 	}
-	if(ourRtn = appendBigNum2(cfOut, dsa->q)) {
+	if((ourRtn = appendBigNum2(cfOut, dsa->q))) {
 		goto errOut;
 	}
-	if(ourRtn = appendBigNum2(cfOut, dsa->g)) {
+	if((ourRtn = appendBigNum2(cfOut, dsa->g))) {
 		goto errOut;
 	}
-	if(ourRtn = appendBigNum2(cfOut, dsa->pub_key)) {
+	if((ourRtn = appendBigNum2(cfOut, dsa->pub_key))) {
 		goto errOut;
 	}
 	
 	/* base64 encode that */
-	b64 = cuEnc64((unsigned char *)CFDataGetBytePtr(cfOut), CFDataGetLength(cfOut), &b64Len);
+	b64 = cuEnc64((unsigned char *)CFDataGetBytePtr(cfOut), (unsigned)CFDataGetLength(cfOut), &b64Len);
 	
 	/* cuEnc64 added newline and NULL, which we really don't want */
 	b64Len -= 2;
@@ -607,7 +607,7 @@ CSSM_RETURN DSAPublicKeyDecodeOpenSSH2(
 	size_t			length)
 {
 	const unsigned char *key = (const unsigned char *)p;
-	unsigned keyLen = length;
+	unsigned keyLen = (unsigned)length;
 	CSSM_RETURN ourRtn;
 	
 	/* 
@@ -616,7 +616,7 @@ CSSM_RETURN DSAPublicKeyDecodeOpenSSH2(
 	 */
 	unsigned char *decodedBlob = NULL;
 	unsigned decodedBlobLen = 0;
-	if(ourRtn = parseSSH2PubKey(key, keyLen, SSH2_DSA_HEADER, &decodedBlob, &decodedBlobLen)) {
+	if((ourRtn = parseSSH2PubKey(key, keyLen, SSH2_DSA_HEADER, &decodedBlob, &decodedBlobLen))) {
 		return ourRtn;
 	}
 	/* subsequent errors to errOut: */

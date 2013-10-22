@@ -76,7 +76,8 @@ krb5_error_from_rd_error(krb5_context context,
 
     ret = error->error_code;
     if (error->e_text != NULL) {
-	krb5_set_error_message(context, ret, "%s", *error->e_text);
+	krb5_set_error_message(context, ret, N_("Error from KDC: %s", ""),
+			       *error->e_text);
     } else {
 	char clientname[256], servername[256];
 

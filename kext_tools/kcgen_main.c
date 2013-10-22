@@ -505,6 +505,64 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
+void logUsedKexts(
+    KcgenArgs       * toolArgs,
+    CFArrayRef        prelinkKexts)
+{
+    int               fd;
+    int               ret;
+    char            * kextTracePath;
+    char              tmpBuffer[PATH_MAX + 1 + 1];
+    size_t            tmpBufLen;
+    ssize_t           writeSize;
+    CFIndex           count, i;
+
+    /* Log used kext bundle identifiers to out-of-band log file */
+    kextTracePath = getenv("KEXT_TRACE_FILE");
+    if (!kextTracePath) {
+        return;
+    }
+
+    fd = open(kextTracePath, O_WRONLY|O_APPEND|O_CREAT, DEFFILEMODE);
+    if (fd < 0) {
+        return;
+    }
+
+    snprintf(tmpBuffer, sizeof(tmpBuffer), "%s\n", toolArgs->prelinkedKernelPath);
+    tmpBufLen = strlen(tmpBuffer);
+    writeSize = write(fd, tmpBuffer, tmpBufLen);
+    if (writeSize != (ssize_t)tmpBufLen) {
+        close(fd);
+        return;
+    }
+
+    count = CFArrayGetCount(prelinkKexts);
+    for (i = 0; i < count; i++) {
+        CFStringRef kextID;
+        OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(prelinkKexts, i);
+
+        kextID = OSKextGetIdentifier(theKext);
+        if (kextID) {
+            char kextIDCString[KMOD_MAX_NAME];
+
+            CFStringGetCString(kextID, kextIDCString, sizeof(kextIDCString),
+                               kCFStringEncodingUTF8);
+            
+            snprintf(tmpBuffer, sizeof(tmpBuffer), "[Logging for XBS] Used kext bundle identifier: %s\n", kextIDCString);
+            tmpBufLen = strlen(tmpBuffer);
+            writeSize = write(fd, tmpBuffer, tmpBufLen);
+            if (writeSize != (ssize_t)tmpBufLen) {
+                close(fd);
+                return;
+            }
+        }
+    }
+
+    close(fd);
+}
+
+/*******************************************************************************
+*******************************************************************************/
 ExitStatus readPrelinkedKernelArgs(
     KcgenArgs * toolArgs,
     int             argc,
@@ -911,7 +969,7 @@ createPrelinkedKernel(
     if (result != EX_OK) {
         goto finish;
     }
-    numArchs = CFArrayGetCount(prelinkArchs);
+    numArchs = (u_int)CFArrayGetCount(prelinkArchs);
 
     prelinkSlices = CFArrayCreateMutable(kCFAllocatorDefault,
         numArchs, &kCFTypeArrayCallBacks);
@@ -938,7 +996,7 @@ createPrelinkedKernel(
         if (existingArchs && 
             targetArch != OSKextGetRunningKernelArchitecture())
         {
-            j = CFArrayGetFirstIndexOfValue(existingArchs, 
+            j = (int)CFArrayGetFirstIndexOfValue(existingArchs,
                 RANGE_ALL(existingArchs), targetArch);
             if (j != -1) {
                 prelinkSlice = CFArrayGetValueAtIndex(existingSlices, j);
@@ -1098,6 +1156,9 @@ ExitStatus createPrelinkedKernelForArch(
         result = EX_OSERR;
         goto finish;
     }
+
+    /* Log used bundle identifiers for B&I */
+    logUsedKexts(toolArgs, prelinkKexts);
 
    /* Compress the prelinked kernel if needed */
 

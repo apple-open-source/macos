@@ -39,13 +39,13 @@ WebInspector.RequestTimingView = function(request)
     this.element.addStyleClass("resource-timing-view");
 
     this._request = request;
-
-    request.addEventListener(WebInspector.NetworkRequest.Events.TimingChanged, this._refresh, this);
 }
 
 WebInspector.RequestTimingView.prototype = {
     wasShown: function()
     {
+        this._request.addEventListener(WebInspector.NetworkRequest.Events.TimingChanged, this._refresh, this);
+
         if (!this._request.timing) {
             if (!this._emptyView) {
                 this._emptyView = new WebInspector.EmptyView(WebInspector.UIString("This request has no detailed timing info."));
@@ -63,6 +63,11 @@ WebInspector.RequestTimingView.prototype = {
         this._refresh();
     },
 
+    willHide: function()
+    {
+        this._request.removeEventListener(WebInspector.NetworkRequest.Events.TimingChanged, this._refresh, this);
+    },
+
     _refresh: function()
     {
         if (this._tableElement)
@@ -70,8 +75,11 @@ WebInspector.RequestTimingView.prototype = {
 
         this._tableElement = WebInspector.RequestTimingView.createTimingTable(this._request);
         this.element.appendChild(this._tableElement);
-    }
+    },
+
+    __proto__: WebInspector.View.prototype
 }
+
 
 WebInspector.RequestTimingView.createTimingTable = function(request)
 {
@@ -157,5 +165,3 @@ WebInspector.RequestTimingView.createTimingTable = function(request)
     }
     return tableElement;
 }
-
-WebInspector.RequestTimingView.prototype.__proto__ = WebInspector.View.prototype;

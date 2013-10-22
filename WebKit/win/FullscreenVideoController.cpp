@@ -189,7 +189,7 @@ private:
     virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const { return GraphicsLayer::CompositingCoordinatesBottomUp; }
     virtual void platformCALayerPaintContents(GraphicsContext&, const IntRect& inClip) { }
     virtual bool platformCALayerShowDebugBorders() const { return false; }
-    virtual bool platformCALayerShowRepaintCounter() const { return false; }
+    virtual bool platformCALayerShowRepaintCounter(PlatformCALayer*) const { return false; }
     virtual int platformCALayerIncrementRepaintCount() { return 0; }
 
     virtual bool platformCALayerContentsOpaque() const { return false; }
@@ -422,7 +422,7 @@ void FullscreenVideoController::registerHUDWindowClass()
     wcex.style = CS_HREDRAW | CS_VREDRAW;
     wcex.lpfnWndProc = hudWndProc;
     wcex.cbClsExtra = 0;
-    wcex.cbWndExtra = 4;
+    wcex.cbWndExtra = sizeof(FullscreenVideoController*);
     wcex.hInstance = gInstance;
     wcex.hIcon = 0;
     wcex.hCursor = LoadCursor(0, IDC_ARROW);
@@ -469,7 +469,7 @@ void FullscreenVideoController::createHUDWindow()
 
 static String timeToString(float time)
 {
-    if (!isfinite(time))
+    if (!std::isfinite(time))
         time = 0;
     int seconds = fabsf(time); 
     int hours = seconds / (60 * 60);
@@ -520,9 +520,7 @@ void FullscreenVideoController::draw()
     NONCLIENTMETRICS metrics;
     metrics.cbSize = sizeof(metrics);
     SystemParametersInfo(SPI_GETNONCLIENTMETRICS, metrics.cbSize, &metrics, 0);
-    FontFamily family;
-    family.setFamily(metrics.lfSmCaptionFont.lfFaceName);
-    desc.setFamily(family);
+    desc.setOneFamily(metrics.lfSmCaptionFont.lfFaceName);
 
     desc.setComputedSize(textSize);
     Font font = Font(desc, 0, 0);

@@ -344,9 +344,9 @@ ExitStatus printKextInfo(KctoolArgs * toolArgs)
             }
 
             if (ISMACHO64(MAGIC32(toolArgs->kernelcacheImageBytes))) {
-                kextOffset = ((struct section_64 *)section)->offset + (kextAddr - ((struct section_64 *)section)->addr);
+                kextOffset = ((struct section_64 *)section)->offset + (u_long)(kextAddr - ((struct section_64 *)section)->addr);
             } else {
-                kextOffset = ((struct section *)section)->offset + (kextAddr - ((struct section *)section)->addr);
+                kextOffset = ((struct section *)section)->offset + (u_long)(kextAddr - ((struct section *)section)->addr);
             }
             kextMachO = toolArgs->kernelcacheImageBytes + kextOffset;
 

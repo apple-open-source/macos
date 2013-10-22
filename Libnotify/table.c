@@ -25,15 +25,8 @@
 #include <string.h>
 #include <syslog.h>
 #include <sys/types.h>
-#include <assumes.h>
+#include <os/assumes.h>
 #include "table.h"
-
-/* osx_assumes() is not available in the Simulator <rdar://problem/9933432> */
-#include <TargetConditionals.h>
-#if TARGET_IPHONE_SIMULATOR
-#undef osx_assumes
-#define osx_assumes(e) ({ typeof(e) _e = (e); _e; })
-#endif
 
 #define KEY_UNKNOWN    0
 #define KEY_INT        1
@@ -196,7 +189,7 @@ _nc_table_insert_type(table_t *tin, int type, char *key, const char *ckey, void 
 
 	t = (table_private_t *)tin;
 	if (t->type == KEY_UNKNOWN) t->type = type;
-	else (void)osx_assumes(t->type == type);
+	else os_assumes(t->type == type);
 
 	n = (table_node_t *)malloc(sizeof(table_node_t));
 
@@ -263,7 +256,7 @@ _nc_table_insert_64(table_t *tin, uint64_t key, void *datum)
 
 	t = (table_private_t *)tin;
 	if (t->type == KEY_UNKNOWN) t->type = KEY_INT;
-	else (void)osx_assumes(t->type == KEY_INT);
+	else os_assumes(t->type == KEY_INT);
 
 	b = hash_nkey(t->bucket_count, key);
 	n = (table_node_t *)malloc(sizeof(table_node_t));
@@ -291,7 +284,7 @@ _nc_table_delete(table_t *tin, const char *key)
 	if (key == NULL) return;
 
 	t = (table_private_t *)tin;
-	(void)osx_assumes((t->type == KEY_STR_MINE) || (t->type == KEY_STR_SHARED));
+	os_assumes((t->type == KEY_STR_MINE) || (t->type == KEY_STR_SHARED));
 
 	b = hash_key(t->bucket_count, key);
 
@@ -320,7 +313,7 @@ _nc_table_delete_64(table_t *tin, uint64_t key)
 	if (tin == NULL) return;
 
 	t = (table_private_t *)tin;
-	(void)osx_assumes(t->type == KEY_INT);
+	os_assumes(t->type == KEY_INT);
 
 	b = hash_nkey(t->bucket_count, key);
 

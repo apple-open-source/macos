@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,9 +21,11 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
+#include "tool_setup.h"
 
 #include "tool_sdecls.h"
+
+#include "tool_metalink.h"
 
 struct Configurable {
   CURL *easy;               /* once we have one, we keep it here */
@@ -37,7 +39,7 @@ struct Configurable {
   bool cookiesession;       /* new session? */
   bool encoding;            /* Accept-Encoding please */
   bool tr_encoding;         /* Transfer-Encoding please */
-  long authtype;            /* auth bitmask */
+  unsigned long authtype;   /* auth bitmask */
   bool use_resume;
   bool resume_from_current;
   bool disable_epsv;
@@ -77,6 +79,7 @@ struct Configurable {
   char *noproxy;
   char *mail_from;
   struct curl_slist *mail_rcpt;
+  char *mail_auth;
   bool proxytunnel;
   bool ftp_append;          /* APPE on ftp */
   bool mute;                /* don't show messages, --silent given */
@@ -186,6 +189,7 @@ struct Configurable {
   bool raw;
   bool post301;
   bool post302;
+  bool post303;
   bool nokeepalive;         /* for keepalive needs */
   long alivetime;
   bool content_disposition; /* use Content-disposition filename */
@@ -195,7 +199,11 @@ struct Configurable {
 
   bool xattr;               /* store metadata in extended attributes */
   long gssapi_delegation;
+  bool ssl_allow_beast;     /* allow this SSL vulnerability */
 
+  bool use_metalink;        /* process given URLs as metalink XML file */
+  metalinkfile *metalinkfile_list; /* point to the first node */
+  metalinkfile *metalinkfile_last; /* point to the last/current node */
 }; /* struct Configurable */
 
 void free_config_fields(struct Configurable *config);

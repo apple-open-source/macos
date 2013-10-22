@@ -249,12 +249,7 @@ __BEGIN_DECLS
   extern intmax_t strtoimax(const char * restrict nptr, char ** restrict endptr, int base);
   extern uintmax_t strtoumax(const char * restrict nptr, char ** restrict endptr, int base);
 
-#ifndef __cplusplus /* wchar_t is a built-in type in C++ */
-#  ifndef	_WCHAR_T
-#    define	_WCHAR_T
-     typedef	__darwin_wchar_t	wchar_t;
-#  endif /* _WCHAR_T */
-#endif /* __cplusplus */
+#include <sys/_types/_wchar_t.h>
 
   /* 7.8.2.4 */
   extern intmax_t wcstoimax(const wchar_t * restrict nptr, wchar_t ** restrict endptr, int base);

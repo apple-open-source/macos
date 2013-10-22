@@ -1109,34 +1109,69 @@ main(int argc, char **argv)
 	getverifymic_flag = 1;
 #ifdef ENABLE_NTLM
     } else if (gss_oid_equal(mechoid, GSS_NTLM_MECHANISM)) {
+
 	gss_buffer_set_t cds, sds;
+	int server_no_session_key = 0,
+	    client_no_session_key = 0;
 
 	maj_stat = gss_inquire_sec_context_by_oid(&min_stat,
 						  sctx,
 						  GSS_NTLM_GET_SESSION_KEY_X,
 						  &sds);
 	if (min_stat != GSS_S_COMPLETE || sds->count != 1)
-	    errx(1, "sds");
+	    server_no_session_key = 1;
 
 	maj_stat = gss_inquire_sec_context_by_oid(&min_stat,
 						  cctx,
 						  GSS_NTLM_GET_SESSION_KEY_X,
 						  &cds);
 	if (min_stat != GSS_S_COMPLETE || cds->count != 1)
-	    errx(1, "cds");
+	    client_no_session_key = 1;
 
-	if (sds->elements[0].length == 0) {
-	    OM_uint32 sflags = 0;
+	if (client_no_session_key && server_no_session_key) {
+	    OM_uint32 sflags;
 
+	    sflags = 0;
 	    maj_stat = gss_inquire_context(&min_stat, sctx,
 					   NULL, NULL, NULL, NULL, &sflags, NULL, NULL);
 	    if (maj_stat)
 		errx(1, "inquire_context");
 
 	    if ((sflags & (GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG)) != 0)
-		errx(1, "ntlm: no key but int|conf flag(s)!");
+		errx(1, "ntlm: server no key but int|conf flag(s)!");
 
-	    warnx("ntlm server doesn't support key export");
+	    sflags = 0;
+	    maj_stat = gss_inquire_context(&min_stat, cctx,
+					   NULL, NULL, NULL, NULL, &sflags, NULL, NULL);
+	    if (maj_stat)
+		errx(1, "inquire_context");
+
+	    if ((sflags & (GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG)) != 0)
+		errx(1, "ntlm: client no key but int|conf flag(s)!");
+
+	} else if (client_no_session_key) {
+	    errx(1, "ntlm: server had session key, but not server???");
+	} else if (server_no_session_key) {
+	    OM_uint32 sflags = 0;
+
+	    /*
+	     * This case is ok. Even though we didn't negotiated a
+	     * session key, the library hands one out so the client
+	     * can force use it if it wants too, useful for SMB2.
+	     *
+	     * just check that the client doesn't announce it support
+	     * signing in the ntlm flags.
+	     */
+
+	    maj_stat = gss_inquire_context(&min_stat, cctx,
+					   NULL, NULL, NULL, NULL, &sflags, NULL, NULL);
+	    if (maj_stat)
+		errx(1, "inquire_context");
+
+	    if ((sflags & (GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG)) != 0)
+		errx(1, "ntlm: client had key, server not, client had int|conf flag(s)!");
+
+	    warnx("ntlm: server didn't get session key, that's ok");
 	} else {
 	    if (cds->elements[0].length != sds->elements[0].length)
 		errx(1, "key length wrong");

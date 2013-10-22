@@ -27,7 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2012 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_parse.c	1.31	05/06/08 SMI"
@@ -365,8 +365,8 @@ parse_entry(const char *key, const char *mapname, const char *mapopts,
 			goto parse_error;
 
 		if (trace > 3) {
-			trace_prt(1, "\n\tpush_options (return)\n");
-			trace_prt(0, "\tdefault options=%s\n", defaultopts);
+			trace_prt(1, "\tpush_options (return)\tdefault options=%s\n",
+				defaultopts);
 			trace_hierarchy(rootnode, 0);
 		};
 
@@ -485,8 +485,7 @@ mapline_to_mapent(struct mapent **mapents, struct mapline *ml, const char *key,
 		return (EIO);
 	}
 	if (trace > 3 && (strcmp(ml->linebuf, lp) != 0))
-		trace_prt(1,
-			"  mapline_to_mapent: (expanded) mapline (%s,%s)\n",
+		trace_prt(1, "  mapline_to_mapent: (expanded) mapline (%s,%s)\n",
 			ml->linebuf, ml->lineqbuf);
 
 	/* init the head of mapentry list to null */
@@ -756,7 +755,7 @@ hierarchical_sort(struct mapent *mapents, hiernode **rootnode, const char *key,
 	}
 
 	if (trace > 3) {
-		trace_prt(1, "\n\thierarchical_sort:\n");
+		trace_prt(1, "\thierarchical_sort:\n");
 		trace_hierarchy(*rootnode, 0);	/* 0 is rootnode's level */
 	}
 
@@ -1282,8 +1281,7 @@ set_and_fake_mapent_mntlevel(hiernode *rootnode, const char *subdir,
 		}
 	} else if (currnode != NULL) {
 		if (trace > 3)
-			trace_prt(1, "  No rootnode, travpath=%s\n",
-				traversed_path);
+			trace_prt(1, "  No rootnode, travpath=%s\n", traversed_path);
 		if ((rc = mark_and_fake_level1_noroot(currnode,
 		    traversed_path, key, mapname, faked_mapents, isdirect,
 		    mapopts)) != 0)
@@ -1291,7 +1289,7 @@ set_and_fake_mapent_mntlevel(hiernode *rootnode, const char *subdir,
 	}
 
 	if (trace > 3) {
-		trace_prt(1, "\n\tset_and_fake_mapent_mntlevel\n");
+		trace_prt(1, "\tset_and_fake_mapent_mntlevel\n");
 		trace_hierarchy(rootnode, 0);
 	}
 
@@ -2227,9 +2225,9 @@ trace_mapents(char *s, struct mapent *mapents)
 	struct mapfs  *mfs;
 	struct mapent *me;
 
-	trace_prt(1, "\n\t%s\n", s);
+	trace_prt(1, "\t%s\n", s);
 	for (me = mapents; me; me = me->map_next) {
-		trace_prt(1, "  (%s,%s)\t %s%s -%s\n",
+		trace_prt(1, "\t    (%s,%s)\t %s%s -%s\n",
 			me->map_fstype ? me->map_fstype : "",
 			me->map_mounter ? me->map_mounter : "",
 			me->map_root  ? me->map_root : "",
@@ -2240,11 +2238,9 @@ trace_mapents(char *s, struct mapent *mapents)
 				mfs->mfs_host ? mfs->mfs_host: "",
 				mfs->mfs_dir ? mfs->mfs_dir : "");
 
-		trace_prt(1, "\tme->map_fsw=%s\n",
-			me->map_fsw ? me->map_fsw:"");
-		trace_prt(1, "\tme->map_fswq=%s\n",
-			me->map_fswq ? me->map_fswq:"");
-		trace_prt(1, "\t mntlevel=%d\t%s\t%s err=%d\n",
+		trace_prt(1, "\t\tme->map_fsw=%s me->map_fswq=%s mntlevel=%d %s %s err=%d\n",
+			me->map_fsw ? me->map_fsw:"",
+			me->map_fswq ? me->map_fswq:"",
 			me->map_mntlevel,
 			me->map_modified ? "modify=TRUE":"modify=FALSE",
 			me->map_faked ? "faked=TRUE":"faked=FALSE",
@@ -2263,40 +2259,26 @@ trace_mapents(char *s, struct mapent *mapents)
 static void
 trace_hierarchy(hiernode *node, int nodelevel)
 {
-	hiernode *currnode = node;
+	char tabs[16];
 	int i;
 
-	while (currnode != NULL) {
-		if (currnode->subdir != NULL) {
-			for (i = 0; i < nodelevel; i++)
-				trace_prt(0, "\t");
-			trace_prt(0, "\t(%s, ",
-				currnode->dirname ? currnode->dirname :"");
-			if (currnode->mapent) {
-				trace_prt(0, "%d, %s)\n",
-					currnode->mapent->map_mntlevel,
-					currnode->mapent->map_mntopts ?
-					currnode->mapent->map_mntopts:"");
-			}
-			else
-				trace_prt(0, " ,)\n");
-			nodelevel++;
-			trace_hierarchy(currnode->subdir, nodelevel);
-		} else {
-			for (i = 0; i < nodelevel; i++)
-				trace_prt(0, "\t");
-			trace_prt(0, "\t(%s, ",
-				currnode->dirname ? currnode->dirname :"");
-			if (currnode->mapent) {
-				trace_prt(0, "%d, %s)\n",
-					currnode->mapent->map_mntlevel,
-					currnode->mapent->map_mntopts ?
-					currnode->mapent->map_mntopts:"");
-			}
-			else
-				trace_prt(0, ", )\n");
-		}
-		currnode = currnode->leveldir;
+	tabs[0] = '\0';
+	for (i = 0; i < nodelevel; i++)
+		strlcat(tabs, "\t", 16);
+
+	while (node != NULL) {
+		if (node->mapent) {
+			trace_prt(1, "%s(\"%s\", %d, %s)\n", tabs,
+				node->dirname ? node->dirname :"-null-",
+				node->mapent->map_mntlevel,
+				node->mapent->map_mntopts ?  node->mapent->map_mntopts:"");
+		} else
+			trace_prt(1, "%s(\"%s\")\n", tabs, node->dirname ? node->dirname :"-null-");
+
+		if (node->subdir)
+			trace_hierarchy(node->subdir, nodelevel + 1);
+
+		node = node->leveldir;
 	}
 }
 
@@ -2419,8 +2401,7 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 		ms->map_faked = FALSE;
 
 		if (trace > 1)
-			trace_prt(1,
-			"  do_mapent_hosts: self-host %s OK\n", host);
+			trace_prt(1, "  do_mapent_hosts: self-host %s OK\n", host);
 
 		*err = 0;
 		return (ms);
@@ -2855,8 +2836,7 @@ do_mapent_fstab(mapopts, host, isdirect, node_type, err)
 		ms->map_faked = FALSE;
 
 		if (trace > 1)
-			trace_prt(1,
-			"  do_mapent_fstab: self-host %s OK\n", host);
+			trace_prt(1, "  do_mapent_fstab: self-host %s OK\n", host);
 
 		/*
 		 * This is a symlink to /.

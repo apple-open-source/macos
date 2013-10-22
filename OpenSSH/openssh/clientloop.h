@@ -1,4 +1,4 @@
-/* $OpenBSD: clientloop.h,v 1.28 2011/06/22 22:08:42 djm Exp $ */
+/* $OpenBSD: clientloop.h,v 1.30 2012/08/17 00:45:45 dtucker Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -70,9 +70,11 @@ void client_expect_confirm(int, const char *, enum confirm_action);
 #define SSHMUX_COMMAND_STDIO_FWD	4	/* Open stdio fwd (ssh -W) */
 #define SSHMUX_COMMAND_FORWARD		5	/* Forward only, no command */
 #define SSHMUX_COMMAND_STOP		6	/* Disable mux but not conn */
+#define SSHMUX_COMMAND_CANCEL_FWD	7	/* Cancel forwarding(s) */
 
 void	muxserver_listen(void);
 void	muxclient(const char *);
 void	mux_exit_message(Channel *, int);
 void	mux_tty_alloc_failed(Channel *);
+void	mux_master_session_cleanup_cb(int, void *);
 

@@ -167,11 +167,20 @@ restart:
 char *
 getpass(const char *prompt)
 {
-	static char buf[_PASSWORD_LEN + 1];
+	const size_t bufsiz = _PASSWORD_LEN + 1;
+	static char *buf = NULL;
 
-	if (readpassphrase(prompt, buf, sizeof(buf), RPP_ECHO_OFF) == NULL)
+	if (buf == NULL) {
+		buf = malloc(bufsiz);
+		if (buf == NULL) {
+			return NULL;
+		}
+	}
+
+	if (readpassphrase(prompt, buf, bufsiz, RPP_ECHO_OFF) == NULL) {
 		buf[0] = '\0';
-	return(buf);
+	}
+	return buf;
 }
 
 static void handler(int s)

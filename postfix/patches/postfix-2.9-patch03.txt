@@ -1,0 +1,408 @@
+Prereq: "2.9.2"
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/global/mail_version.h ./src/global/mail_version.h
+*** /var/tmp/postfix-2.9.2/src/global/mail_version.h	Tue Apr 24 13:36:34 2012
+--- ./src/global/mail_version.h	Sun May 20 18:24:22 2012
+***************
+*** 20,27 ****
+    * Patches change both the patchlevel and the release date. Snapshots have no
+    * patchlevel; they change the release date only.
+    */
+! #define MAIL_RELEASE_DATE	"20120424"
+! #define MAIL_VERSION_NUMBER	"2.9.2"
+  
+  #ifdef SNAPSHOT
+  # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+--- 20,27 ----
+    * Patches change both the patchlevel and the release date. Snapshots have no
+    * patchlevel; they change the release date only.
+    */
+! #define MAIL_RELEASE_DATE	"20120520"
+! #define MAIL_VERSION_NUMBER	"2.9.3"
+  
+  #ifdef SNAPSHOT
+  # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+diff -cr --new-file /var/tmp/postfix-2.9.2/HISTORY ./HISTORY
+*** /var/tmp/postfix-2.9.2/HISTORY	Tue Apr 24 13:34:13 2012
+--- ./HISTORY	Sun May 20 18:04:07 2012
+***************
+*** 17644,17646 ****
+--- 17644,17703 ----
+  	a patch by Victor Duchovni.  Files: proto/TLS_README.html,
+  	proto/postconf.proto, tls/tls.h, tls/tls_misc.c, tls/tls_client.c,
+  	tls/tls_server.c.
++ 
++ 20120425
++ 
++ 	Workaround: bugs in 10-year old gcc versions break compilation
++ 	with #ifdef inside a macro invocation (NOT: definition).
++ 	This synchronizes the Postfix 2.9 TLS implementation with
++ 	Postfix 2.10 to simplify code maintenance.  Files: tls/tls.h,
++ 	tls/tls_client.c, tls/tls_server.c.
++ 
++ 20120426
++ 
++ 	Bugfix (introduced Postfix 2.9): the postconf command flagged
++ 	parameters defined in master.cf as "unused" when they were
++ 	used only in main.cf. Problem reported by Michael Tokarev.
++ 	Files: postconf/postconf_user.c.
++ 
++ 20120516
++ 
++ 	Workaround: apparently, FreeBSD 8.3 kqueue notifications
++ 	sometimes break when a dnsblog(8) process loses an accept()
++ 	race on a shared socket, resulting in repeated "connect to
++ 	private/dnsblog service: Connection refused" warnings.  This
++ 	condition is unique to dnsblog(8). The postscreen(8) daemon
++ 	closes a postscreen-to-dnsblog connection as soon as it
++ 	receives a dnsblog(8) reply, resulting in hundreds or
++ 	thousands of connection requests per second.  All other
++ 	multi-server daemons such as anvil(8) or proxymap(8) have
++ 	connection lifetimes ranging from 5s to 1000s depending on
++ 	server load.  The workaround is for dnsblog to use the
++ 	single_server driver instead of the multi_server driver.
++ 	This one-line code change eliminates the accept() race
++ 	without any Postfix performance impact.  Problem reported
++ 	by Sahil Tandon.  File: dnsblog/dnsblog.c.
++ 
++ 20120517
++ 
++ 	Workaround: to avoid crashes when the OpenSSL library is
++ 	updated without "postfix reload", the Postfix TLS session
++ 	cache ID now includes the OpenSSL library version number.
++ 	Note: this problem cannot be fixed in tlsmgr(8). Code by
++ 	Victor Duchovni. Files: tls/tls_server.c, tls_client.c.
++ 
++ 20120520
++ 
++ 	Bugfix (introduced Postfix 2.4): the event_drain() function
++ 	was comparing bitmasks incorrectly causing the program to
++ 	always wait for the full time limit. This error affected
++ 	the unused postkick command, but only after s/fifo/unix/
++ 	in master.cf.  File: util/events.c.
++ 
++ 	Cleanup: laptop users have always been able to avoid
++ 	unnecessary disk spin-up by doing s/fifo/unix/ in master.cf
++ 	(this is currently not supported on Solaris systems).
++ 	However, to make this work reliably, the "postqueue -f"
++ 	command must wait until its requests have reached the pickup
++ 	and qmgr servers before closing the UNIX-domain request
++ 	sockets.  Files: postqueue/postqueue.c, postqueue/Makefile.in.
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/dnsblog/dnsblog.c ./src/dnsblog/dnsblog.c
+*** /var/tmp/postfix-2.9.2/src/dnsblog/dnsblog.c	Sun Mar 13 16:14:57 2011
+--- ./src/dnsblog/dnsblog.c	Sat May 19 21:14:57 2012
+***************
+*** 257,262 ****
+--- 257,263 ----
+      query = vstring_alloc(100);
+      why = vstring_alloc(100);
+      result = vstring_alloc(100);
++     var_use_limit = 0;
+  }
+  
+  MAIL_VERSION_STAMP_DECLARE;
+***************
+*** 275,283 ****
+       */
+      MAIL_VERSION_STAMP_ALLOCATE;
+  
+!     multi_server_main(argc, argv, dnsblog_service,
+! 		      MAIL_SERVER_TIME_TABLE, time_table,
+! 		      MAIL_SERVER_POST_INIT, post_jail_init,
+! 		      MAIL_SERVER_UNLIMITED,
+! 		      0);
+  }
+--- 276,284 ----
+       */
+      MAIL_VERSION_STAMP_ALLOCATE;
+  
+!     single_server_main(argc, argv, dnsblog_service,
+! 		       MAIL_SERVER_TIME_TABLE, time_table,
+! 		       MAIL_SERVER_POST_INIT, post_jail_init,
+! 		       MAIL_SERVER_UNLIMITED,
+! 		       0);
+  }
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/postconf/postconf_user.c ./src/postconf/postconf_user.c
+*** /var/tmp/postfix-2.9.2/src/postconf/postconf_user.c	Sat Jan 21 12:37:34 2012
+--- ./src/postconf/postconf_user.c	Thu Apr 26 19:19:43 2012
+***************
+*** 126,140 ****
+--- 126,153 ----
+       * compatibility after a feature name change.
+       */
+      if (local_scope && dict_get(local_scope->all_params, mac_name)) {
++ 	/* $name in master.cf references name=value in master.cf. */
+  	if (PC_PARAM_TABLE_LOCATE(local_scope->valid_names, mac_name) == 0)
+  	    PC_PARAM_TABLE_ENTER(local_scope->valid_names, mac_name,
+  				 PC_PARAM_FLAG_USER, PC_PARAM_NO_DATA,
+  				 convert_user_parameter);
+      } else if (mail_conf_lookup(mac_name) != 0) {
++ 	/* $name in main/master.cf references name=value in main.cf. */
+  	if (PC_PARAM_TABLE_LOCATE(param_table, mac_name) == 0)
+  	    PC_PARAM_TABLE_ENTER(param_table, mac_name, PC_PARAM_FLAG_USER,
+  				 PC_PARAM_NO_DATA, convert_user_parameter);
+      }
++     if (local_scope == 0) {
++ 	for (local_scope = master_table; local_scope->argv; local_scope++) {
++ 	    if (local_scope->all_params != 0
++ 		&& dict_get(local_scope->all_params, mac_name) != 0
++ 	    /* $name in main.cf references name=value in master.cf. */
++ 		&& PC_PARAM_TABLE_LOCATE(local_scope->valid_names, mac_name) == 0)
++ 		PC_PARAM_TABLE_ENTER(local_scope->valid_names, mac_name,
++ 				     PC_PARAM_FLAG_USER, PC_PARAM_NO_DATA,
++ 				     convert_user_parameter);
++ 	}
++     }
+      return (0);
+  }
+  
+***************
+*** 277,297 ****
+      rest_class_table = htable_create(1);
+  
+      /*
+!      * Scan parameter values that are left at their defaults in the global
+!      * name space. Some defaults contain the $name of an obsolete parameter
+!      * for backwards compatilility purposes. We might warn that an explicit
+!      * name=value is obsolete, but we must not warn that the parameter is
+!      * unused.
+!      */
+!     scan_default_parameter_values(param_table, CONFIG_DICT, (PC_MASTER_ENT *) 0);
+! 
+!     /*
+!      * Scan the explicit name=value entries in the global name space.
+!      */
+!     scan_user_parameter_namespace(CONFIG_DICT, (PC_MASTER_ENT *) 0);
+! 
+!     /*
+!      * Scan the "-o parameter=value" instances in each master.cf name space.
+       */
+      for (masterp = master_table; (argv = masterp->argv) != 0; masterp++) {
+  	for (field = PC_MASTER_MIN_FIELDS; argv->argv[field] != 0; field++) {
+--- 290,296 ----
+      rest_class_table = htable_create(1);
+  
+      /*
+!      * Initialize the per-service parameter name spaces.
+       */
+      for (masterp = master_table; (argv = masterp->argv) != 0; masterp++) {
+  	for (field = PC_MASTER_MIN_FIELDS; argv->argv[field] != 0; field++) {
+***************
+*** 309,315 ****
+  	if ((dict = dict_handle(masterp->name_space)) != 0) {
+  	    masterp->all_params = dict;
+  	    masterp->valid_names = htable_create(1);
+- 	    scan_user_parameter_namespace(masterp->name_space, masterp);
+  	}
+      }
+  }
+--- 308,334 ----
+  	if ((dict = dict_handle(masterp->name_space)) != 0) {
+  	    masterp->all_params = dict;
+  	    masterp->valid_names = htable_create(1);
+  	}
+      }
++ 
++     /*
++      * Scan parameter values that are left at their defaults in the global
++      * name space. Some defaults contain the $name of an obsolete parameter
++      * for backwards compatilility purposes. We might warn that an explicit
++      * name=value is obsolete, but we must not warn that the parameter is
++      * unused.
++      */
++     scan_default_parameter_values(param_table, CONFIG_DICT, (PC_MASTER_ENT *) 0);
++ 
++     /*
++      * Scan the explicit name=value entries in the global name space.
++      */
++     scan_user_parameter_namespace(CONFIG_DICT, (PC_MASTER_ENT *) 0);
++ 
++     /*
++      * Scan the "-o parameter=value" instances in each master.cf name space.
++      */
++     for (masterp = master_table; masterp->argv != 0; masterp++)
++ 	if (masterp->all_params != 0)
++ 	    scan_user_parameter_namespace(masterp->name_space, masterp);
+  }
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/postqueue/Makefile.in ./src/postqueue/Makefile.in
+*** /var/tmp/postfix-2.9.2/src/postqueue/Makefile.in	Sun Jan 22 10:55:21 2012
+--- ./src/postqueue/Makefile.in	Sun May 20 18:03:17 2012
+***************
+*** 61,66 ****
+--- 61,67 ----
+  postqueue.o: ../../include/attr.h
+  postqueue.o: ../../include/clean_env.h
+  postqueue.o: ../../include/connect.h
++ postqueue.o: ../../include/events.h
+  postqueue.o: ../../include/flush_clnt.h
+  postqueue.o: ../../include/iostuff.h
+  postqueue.o: ../../include/mail_conf.h
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/postqueue/postqueue.c ./src/postqueue/postqueue.c
+*** /var/tmp/postfix-2.9.2/src/postqueue/postqueue.c	Tue Jan 24 19:41:08 2012
+--- ./src/postqueue/postqueue.c	Sun May 20 18:03:17 2012
+***************
+*** 187,192 ****
+--- 187,193 ----
+  #include <connect.h>
+  #include <valid_hostname.h>
+  #include <warn_stat.h>
++ #include <events.h>
+  
+  /* Global library. */
+  
+***************
+*** 352,357 ****
+--- 353,359 ----
+      if (mail_flush_maildrop() < 0)
+  	msg_fatal_status(EX_UNAVAILABLE,
+  			 "Cannot flush mail queue - mail system is down");
++     event_drain(2);
+  }
+  
+  /* flush_site - flush mail for site */
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/tls/tls.h ./src/tls/tls.h
+*** /var/tmp/postfix-2.9.2/src/tls/tls.h	Tue Apr 24 13:07:22 2012
+--- ./src/tls/tls.h	Wed Apr 25 08:48:36 2012
+***************
+*** 63,70 ****
+  #include <name_mask.h>
+  #include <name_code.h>
+  
+- #define TLS_BIO_BUFSIZE	8192
+- 
+   /*
+    * Names of valid tlsmgr(8) session caches.
+    */
+--- 63,68 ----
+***************
+*** 179,189 ****
+--- 177,191 ----
+  #define TLS_PROTOCOL_TLSv1_1	(1<<3)	/* TLSv1_1 */
+  #else
+  #define TLS_PROTOCOL_TLSv1_1	0	/* Unknown */
++ #undef  SSL_OP_NO_TLSv1_1
++ #define SSL_OP_NO_TLSv1_1	0L	/* Noop */
+  #endif
+  #ifdef SSL_TXT_TLSV1_2
+  #define TLS_PROTOCOL_TLSv1_2	(1<<4)	/* TLSv1_2 */
+  #else
+  #define TLS_PROTOCOL_TLSv1_2	0	/* Unknown */
++ #undef  SSL_OP_NO_TLSv1_2
++ #define SSL_OP_NO_TLSv1_2	0L	/* Noop */
+  #endif
+  #define TLS_KNOWN_PROTOCOLS	\
+  	( TLS_PROTOCOL_SSLv2 | TLS_PROTOCOL_SSLv3 | TLS_PROTOCOL_TLSv1 \
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/tls/tls_client.c ./src/tls/tls_client.c
+*** /var/tmp/postfix-2.9.2/src/tls/tls_client.c	Tue Apr 24 13:07:22 2012
+--- ./src/tls/tls_client.c	Thu May 17 13:14:52 2012
+***************
+*** 827,832 ****
+--- 827,838 ----
+      vstring_sprintf_append(myserverid, "&c=%s", cipher_list);
+  
+      /*
++      * Finally, salt the session key with the OpenSSL library version,
++      * (run-time, rather than compile-time, just in case that matters).
++      */
++     vstring_sprintf_append(myserverid, "&l=%ld", (long) SSLeay());
++ 
++     /*
+       * Allocate a new TLScontext for the new connection and get an SSL
+       * structure. Add the location of TLScontext to the SSL to later retrieve
+       * the information inside the tls_verify_certificate_callback().
+***************
+*** 859,870 ****
+      if (protomask != 0)
+  	SSL_set_options(TLScontext->con,
+  		   ((protomask & TLS_PROTOCOL_TLSv1) ? SSL_OP_NO_TLSv1 : 0L)
+- #ifdef SSL_OP_NO_TLSv1_1
+  	     | ((protomask & TLS_PROTOCOL_TLSv1_1) ? SSL_OP_NO_TLSv1_1 : 0L)
+- #endif
+- #ifdef SSL_OP_NO_TLSv1_2
+  	     | ((protomask & TLS_PROTOCOL_TLSv1_2) ? SSL_OP_NO_TLSv1_2 : 0L)
+- #endif
+  		 | ((protomask & TLS_PROTOCOL_SSLv3) ? SSL_OP_NO_SSLv3 : 0L)
+  	       | ((protomask & TLS_PROTOCOL_SSLv2) ? SSL_OP_NO_SSLv2 : 0L));
+  
+--- 865,872 ----
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/tls/tls_server.c ./src/tls/tls_server.c
+*** /var/tmp/postfix-2.9.2/src/tls/tls_server.c	Tue Apr 24 13:07:22 2012
+--- ./src/tls/tls_server.c	Thu May 17 13:15:13 2012
+***************
+*** 181,189 ****
+  
+  #define GEN_CACHE_ID(buf, id, len, service) \
+      do { \
+! 	buf = vstring_alloc(2 * (len) + 1 + strlen(service) + 3); \
+  	hex_encode(buf, (char *) (id), (len)); \
+      	vstring_sprintf_append(buf, "&s=%s", (service)); \
+      } while (0)
+  
+  
+--- 181,190 ----
+  
+  #define GEN_CACHE_ID(buf, id, len, service) \
+      do { \
+! 	buf = vstring_alloc(2 * (len + strlen(service))); \
+  	hex_encode(buf, (char *) (id), (len)); \
+      	vstring_sprintf_append(buf, "&s=%s", (service)); \
++     	vstring_sprintf_append(buf, "&l=%ld", (long) SSLeay()); \
+      } while (0)
+  
+  
+***************
+*** 403,414 ****
+      if (protomask != 0)
+  	SSL_CTX_set_options(server_ctx,
+  		   ((protomask & TLS_PROTOCOL_TLSv1) ? SSL_OP_NO_TLSv1 : 0L)
+- #ifdef SSL_OP_NO_TLSv1_1
+  	     | ((protomask & TLS_PROTOCOL_TLSv1_1) ? SSL_OP_NO_TLSv1_1 : 0L)
+- #endif
+- #ifdef SSL_OP_NO_TLSv1_2
+  	     | ((protomask & TLS_PROTOCOL_TLSv1_2) ? SSL_OP_NO_TLSv1_2 : 0L)
+- #endif
+  		 | ((protomask & TLS_PROTOCOL_SSLv3) ? SSL_OP_NO_SSLv3 : 0L)
+  	       | ((protomask & TLS_PROTOCOL_SSLv2) ? SSL_OP_NO_SSLv2 : 0L));
+  
+--- 404,411 ----
+diff -cr --new-file /var/tmp/postfix-2.9.2/src/util/events.c ./src/util/events.c
+*** /var/tmp/postfix-2.9.2/src/util/events.c	Wed Oct  6 15:25:28 2010
+--- ./src/util/events.c	Sun May 20 16:46:56 2012
+***************
+*** 180,185 ****
+--- 180,186 ----
+  #define EVENT_MASK_SET(fd, mask)	FD_SET((fd), (mask))
+  #define EVENT_MASK_ISSET(fd, mask)	FD_ISSET((fd), (mask))
+  #define EVENT_MASK_CLR(fd, mask)	FD_CLR((fd), (mask))
++ #define EVENT_MASK_CMP(m1, m2) memcmp((m1), (m2), EVENT_MASK_BYTE_COUNT(m1))
+  #else
+  
+   /*
+***************
+*** 226,231 ****
+--- 227,234 ----
+  	(EVENT_MASK_FD_BYTE((fd), (mask)) & EVENT_MASK_FD_BIT(fd))
+  #define EVENT_MASK_CLR(fd, mask) \
+  	(EVENT_MASK_FD_BYTE((fd), (mask)) &= ~EVENT_MASK_FD_BIT(fd))
++ #define EVENT_MASK_CMP(m1, m2) \
++ 	memcmp((m1)->data, (m2)->data, EVENT_MASK_BYTE_COUNT(m1))
+  #endif
+  
+   /*
+***************
+*** 664,671 ****
+      max_time = event_present + time_limit;
+      while (event_present < max_time
+  	   && (event_timer_head.pred != &event_timer_head
+! 	       || memcmp(&zero_mask, &event_xmask,
+! 			 EVENT_MASK_BYTE_COUNT(&zero_mask)) != 0)) {
+  	event_loop(1);
+  #if (EVENTS_STYLE != EVENTS_STYLE_SELECT)
+  	if (EVENT_MASK_BYTE_COUNT(&zero_mask)
+--- 667,673 ----
+      max_time = event_present + time_limit;
+      while (event_present < max_time
+  	   && (event_timer_head.pred != &event_timer_head
+! 	       || EVENT_MASK_CMP(&zero_mask, &event_xmask) != 0)) {
+  	event_loop(1);
+  #if (EVENTS_STYLE != EVENTS_STYLE_SELECT)
+  	if (EVENT_MASK_BYTE_COUNT(&zero_mask)

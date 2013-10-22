@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -93,29 +93,21 @@ extern "C" {
 typedef void CURL;
 
 /*
- * Decorate exportable functions for Win32 and Symbian OS DLL linking.
- * This avoids using a .def file for building libcurl.dll.
+ * libcurl external API function linkage decorations.
  */
-#if (defined(WIN32) || defined(_WIN32) || defined(__SYMBIAN32__)) && \
-     !defined(CURL_STATICLIB)
-#if defined(BUILDING_LIBCURL)
-#define CURL_EXTERN  __declspec(dllexport)
-#else
-#define CURL_EXTERN  __declspec(dllimport)
-#endif
-#else
 
-#ifdef CURL_HIDDEN_SYMBOLS
-/*
- * This definition is used to make external definitions visible in the
- * shared library when symbols are hidden by default.  It makes no
- * difference when compiling applications whether this is set or not,
- * only when compiling the library.
- */
-#define CURL_EXTERN CURL_EXTERN_SYMBOL
+#ifdef CURL_STATICLIB
+#  define CURL_EXTERN
+#elif defined(WIN32) || defined(_WIN32) || defined(__SYMBIAN32__)
+#  if defined(BUILDING_LIBCURL)
+#    define CURL_EXTERN  __declspec(dllexport)
+#  else
+#    define CURL_EXTERN  __declspec(dllimport)
+#  endif
+#elif defined(BUILDING_LIBCURL) && defined(CURL_HIDDEN_SYMBOLS)
+#  define CURL_EXTERN CURL_EXTERN_SYMBOL
 #else
-#define CURL_EXTERN
-#endif
+#  define CURL_EXTERN
 #endif
 
 #ifndef curl_socket_typedef
@@ -309,8 +301,9 @@ typedef size_t (*curl_read_callback)(char *buffer,
                                       void *instream);
 
 typedef enum  {
-  CURLSOCKTYPE_IPCXN, /* socket created for a specific IP connection */
-  CURLSOCKTYPE_LAST   /* never use */
+  CURLSOCKTYPE_IPCXN,  /* socket created for a specific IP connection */
+  CURLSOCKTYPE_ACCEPT, /* socket created by accept() call */
+  CURLSOCKTYPE_LAST    /* never use */
 } curlsocktype;
 
 /* The return code from the sockopt_callback can signal information back
@@ -514,6 +507,8 @@ typedef enum {
   CURLE_RTSP_SESSION_ERROR,      /* 86 - mismatch of RTSP Session Ids */
   CURLE_FTP_BAD_FILE_LIST,       /* 87 - unable to parse FTP file list */
   CURLE_CHUNK_FAILED,            /* 88 - chunk callback reported error */
+  CURLE_NO_CONNECTION_AVAILABLE, /* 89 - No connection available, the
+                                    session will be queued */
   CURL_LAST /* never use! */
 } CURLcode;
 
@@ -598,18 +593,32 @@ typedef enum {
                                    in 7.18.0 */
 } curl_proxytype;  /* this enum was added in 7.10 */
 
-#define CURLAUTH_NONE         0       /* nothing */
-#define CURLAUTH_BASIC        (1<<0)  /* Basic (default) */
-#define CURLAUTH_DIGEST       (1<<1)  /* Digest */
-#define CURLAUTH_GSSNEGOTIATE (1<<2)  /* GSS-Negotiate */
-#define CURLAUTH_NTLM         (1<<3)  /* NTLM */
-#define CURLAUTH_DIGEST_IE    (1<<4)  /* Digest with IE flavour */
-#define CURLAUTH_NTLM_WB      (1<<5)  /* NTLM delegating to winbind helper */
-#define CURLAUTH_ONLY         (1<<31) /* used together with a single other
-                                         type to force no auth or just that
-                                         single type */
-#define CURLAUTH_ANY (~CURLAUTH_DIGEST_IE)  /* all fine types set */
-#define CURLAUTH_ANYSAFE (~(CURLAUTH_BASIC|CURLAUTH_DIGEST_IE))
+/*
+ * Bitmasks for CURLOPT_HTTPAUTH and CURLOPT_PROXYAUTH options:
+ *
+ * CURLAUTH_NONE         - No HTTP authentication
+ * CURLAUTH_BASIC        - HTTP Basic authentication (default)
+ * CURLAUTH_DIGEST       - HTTP Digest authentication
+ * CURLAUTH_GSSNEGOTIATE - HTTP GSS-Negotiate authentication
+ * CURLAUTH_NTLM         - HTTP NTLM authentication
+ * CURLAUTH_DIGEST_IE    - HTTP Digest authentication with IE flavour
+ * CURLAUTH_NTLM_WB      - HTTP NTLM authentication delegated to winbind helper
+ * CURLAUTH_ONLY         - Use together with a single other type to force no
+ *                         authentication or just that single type
+ * CURLAUTH_ANY          - All fine types set
+ * CURLAUTH_ANYSAFE      - All fine types except Basic
+ */
+
+#define CURLAUTH_NONE         ((unsigned long)0)
+#define CURLAUTH_BASIC        (((unsigned long)1)<<0)
+#define CURLAUTH_DIGEST       (((unsigned long)1)<<1)
+#define CURLAUTH_GSSNEGOTIATE (((unsigned long)1)<<2)
+#define CURLAUTH_NTLM         (((unsigned long)1)<<3)
+#define CURLAUTH_DIGEST_IE    (((unsigned long)1)<<4)
+#define CURLAUTH_NTLM_WB      (((unsigned long)1)<<5)
+#define CURLAUTH_ONLY         (((unsigned long)1)<<31)
+#define CURLAUTH_ANY          (~CURLAUTH_DIGEST_IE)
+#define CURLAUTH_ANYSAFE      (~(CURLAUTH_BASIC|CURLAUTH_DIGEST_IE))
 
 #define CURLSSH_AUTH_ANY       ~0     /* all types supported by the server */
 #define CURLSSH_AUTH_NONE      0      /* none allowed, silly but complete */
@@ -617,6 +626,7 @@ typedef enum {
 #define CURLSSH_AUTH_PASSWORD  (1<<1) /* password */
 #define CURLSSH_AUTH_HOST      (1<<2) /* host key files */
 #define CURLSSH_AUTH_KEYBOARD  (1<<3) /* keyboard interactive */
+#define CURLSSH_AUTH_AGENT     (1<<4) /* agent (ssh-agent, pageant...) */
 #define CURLSSH_AUTH_DEFAULT CURLSSH_AUTH_ANY
 
 #define CURLGSSAPI_DELEGATION_NONE        0      /* no delegation (default) */
@@ -672,6 +682,15 @@ typedef enum {
   CURLUSESSL_ALL,     /* SSL for all communication or fail */
   CURLUSESSL_LAST     /* not an option, never use */
 } curl_usessl;
+
+/* Definition of bits for the CURLOPT_SSL_OPTIONS argument: */
+
+/* - ALLOW_BEAST tells libcurl to allow the BEAST SSL vulnerability in the
+   name of improving interoperability with older servers. Some SSL libraries
+   have introduced work-arounds for this flaw but those work-arounds sometimes
+   make the SSL communication fail. To regain functionality with those broken
+   servers, a user can this way allow the vulnerability back. */
+#define CURLSSLOPT_ALLOW_BEAST (1<<0)
 
 #ifndef CURL_NO_OLDIES /* define this to test if your app builds with all
                           the obsolete stuff removed! */
@@ -1022,9 +1041,8 @@ typedef enum {
   /* Set to the Entropy Gathering Daemon socket pathname */
   CINIT(EGDSOCKET, OBJECTPOINT, 77),
 
-  /* Time-out connect operations after this amount of seconds, if connects
-     are OK within this time, then fine... This only aborts the connect
-     phase. [Only works on unix-style/SIGALRM operating systems] */
+  /* Time-out connect operations after this amount of seconds, if connects are
+     OK within this time, then fine... This only aborts the connect phase. */
   CINIT(CONNECTTIMEOUT, LONG, 78),
 
   /* Function that will be called to store headers (instead of fwrite). The
@@ -1198,9 +1216,9 @@ typedef enum {
   CINIT(NETRC_FILE, OBJECTPOINT, 118),
 
   /* Enable SSL/TLS for FTP, pick one of:
-     CURLFTPSSL_TRY     - try using SSL, proceed anyway otherwise
-     CURLFTPSSL_CONTROL - SSL for the control connection or fail
-     CURLFTPSSL_ALL     - SSL for all communication or fail
+     CURLUSESSL_TRY     - try using SSL, proceed anyway otherwise
+     CURLUSESSL_CONTROL - SSL for the control connection or fail
+     CURLUSESSL_ALL     - SSL for all communication or fail
   */
   CINIT(USE_SSL, LONG, 119),
 
@@ -1499,6 +1517,19 @@ typedef enum {
      of miliseconds. */
   CINIT(ACCEPTTIMEOUT_MS, LONG, 212),
 
+  /* Set TCP keepalive */
+  CINIT(TCP_KEEPALIVE, LONG, 213),
+
+  /* non-universal keepalive knobs (Linux, AIX, HP-UX, more) */
+  CINIT(TCP_KEEPIDLE, LONG, 214),
+  CINIT(TCP_KEEPINTVL, LONG, 215),
+
+  /* Enable/disable specific SSL features with a bitmask, see CURLSSLOPT_* */
+  CINIT(SSL_OPTIONS, LONG, 216),
+
+  /* set the SMTP auth originator */
+  CINIT(MAIL_AUTH, OBJECTPOINT, 217),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 
@@ -1602,13 +1633,16 @@ enum CURL_TLSAUTH {
 };
 
 /* symbols to use with CURLOPT_POSTREDIR.
-   CURL_REDIR_POST_301 and CURL_REDIR_POST_302 can be bitwise ORed so that
-   CURL_REDIR_POST_301 | CURL_REDIR_POST_302 == CURL_REDIR_POST_ALL */
+   CURL_REDIR_POST_301, CURL_REDIR_POST_302 and CURL_REDIR_POST_303
+   can be bitwise ORed so that CURL_REDIR_POST_301 | CURL_REDIR_POST_302
+   | CURL_REDIR_POST_303 == CURL_REDIR_POST_ALL */
 
 #define CURL_REDIR_GET_ALL  0
 #define CURL_REDIR_POST_301 1
 #define CURL_REDIR_POST_302 2
-#define CURL_REDIR_POST_ALL (CURL_REDIR_POST_301|CURL_REDIR_POST_302)
+#define CURL_REDIR_POST_303 4
+#define CURL_REDIR_POST_ALL \
+    (CURL_REDIR_POST_301|CURL_REDIR_POST_302|CURL_REDIR_POST_303)
 
 typedef enum {
   CURL_TIMECOND_NONE,
@@ -1983,6 +2017,7 @@ typedef enum {
 #define CURL_GLOBAL_ALL (CURL_GLOBAL_SSL|CURL_GLOBAL_WIN32)
 #define CURL_GLOBAL_NOTHING 0
 #define CURL_GLOBAL_DEFAULT CURL_GLOBAL_ALL
+#define CURL_GLOBAL_ACK_EINTR (1<<2)
 
 
 /*****************************************************************************

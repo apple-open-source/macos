@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -158,27 +158,27 @@ enum
 
 struct HIDItem
 {
-	ByteCount	byteCount;
-	SInt32		itemType;
-	SInt32		tag;
-	SInt32		signedValue;
-	UInt32		unsignedValue;
+	IOByteCount		byteCount;
+	SInt32			itemType;
+	SInt32			tag;
+	SInt32			signedValue;
+	UInt32			unsignedValue;
 };
 typedef struct HIDItem HIDItem;
 
 struct HIDGlobalItems
 {
-	HIDUsage	usagePage;
-	SInt32		logicalMinimum;
-	SInt32		logicalMaximum;
-	SInt32		physicalMinimum;
-	SInt32		physicalMaximum;
-	SInt32		unitExponent;
-	SInt32		units;
-	ByteCount	reportSize;
-	SInt32		reportID;
-	SInt32		reportCount;
-	SInt32		reportIndex;
+	HIDUsage		usagePage;
+	SInt32			logicalMinimum;
+	SInt32			logicalMaximum;
+	SInt32			physicalMinimum;
+	SInt32			physicalMaximum;
+	SInt32			unitExponent;
+	SInt32			units;
+	IOByteCount		reportSize;
+	SInt32			reportID;
+	SInt32			reportCount;
+	SInt32			reportIndex;
 };
 typedef struct HIDGlobalItems HIDGlobalItems;
 
@@ -264,22 +264,22 @@ typedef HIDStringItem HIDDesignatorItem;
 
 struct HIDPreparsedData
 {
-	OSType				hidTypeIfValid;
-	HIDCollection *		collections;
+	UInt32				hidTypeIfValid;
+	HIDCollection 		*collections;
 	UInt32				collectionCount;
-	HIDReportItem *		reportItems;
+	HIDReportItem 		*reportItems;
 	UInt32				reportItemCount;
-	HIDReportSizes *	reports;
+	HIDReportSizes 		*reports;
 	UInt32				reportCount;
-	HIDP_UsageItem *	usageItems;
+	HIDP_UsageItem 		*usageItems;
 	UInt32				usageItemCount;
-	HIDStringItem *		stringItems;
+	HIDStringItem 		*stringItems;
 	UInt32				stringItemCount;
-	HIDDesignatorItem * desigItems;
+	HIDDesignatorItem 	*desigItems;
 	UInt32				desigItemCount;
 	UInt8 *				rawMemPtr;
 	UInt32				flags;
-	ByteCount			numBytesAllocated;
+	IOByteCount			numBytesAllocated;
 };
 typedef struct HIDPreparsedData HIDPreparsedData;
 typedef HIDPreparsedData * HIDPreparsedDataPtr;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,13 +29,18 @@
 #if ENABLE(VIDEO) && USE(AVFOUNDATION)
 
 #include "FloatSize.h"
+#include "InbandTextTrackPrivateAVF.h"
 #include "MediaPlayerPrivate.h"
 #include "Timer.h"
 #include <wtf/RetainPtr.h>
 
 namespace WebCore {
 
-class MediaPlayerPrivateAVFoundation : public MediaPlayerPrivateInterface {
+class InbandTextTrackPrivateAVF;
+class GenericCueData;
+
+class MediaPlayerPrivateAVFoundation : public MediaPlayerPrivateInterface, public AVFInbandTrackParent
+{
 public:
 
     virtual void repaint();
@@ -48,27 +53,36 @@ public:
     virtual void seekCompleted(bool);
     virtual void didEnd();
     virtual void contentsNeedsDisplay() { }
+    virtual void configureInbandTracks();
+    virtual void setCurrentTrack(InbandTextTrackPrivateAVF*) { }
+    virtual InbandTextTrackPrivateAVF* currentTrack() const = 0;
 
     class Notification {
     public:
+#define FOR_EACH_MEDIAPLAYERPRIVATEAVFOUNDATION_NOTIFICATION_TYPE(macro) \
+    macro(None) \
+    macro(ItemDidPlayToEndTime) \
+    macro(ItemTracksChanged) \
+    macro(ItemStatusChanged) \
+    macro(ItemSeekableTimeRangesChanged) \
+    macro(ItemLoadedTimeRangesChanged) \
+    macro(ItemPresentationSizeChanged) \
+    macro(ItemIsPlaybackLikelyToKeepUpChanged) \
+    macro(ItemIsPlaybackBufferEmptyChanged) \
+    macro(ItemIsPlaybackBufferFullChanged) \
+    macro(AssetMetadataLoaded) \
+    macro(AssetPlayabilityKnown) \
+    macro(PlayerRateChanged) \
+    macro(PlayerTimeChanged) \
+    macro(SeekCompleted) \
+    macro(DurationChanged) \
+    macro(ContentsNeedsDisplay) \
+    macro(InbandTracksNeedConfiguration) \
+
         enum Type {
-            None,
-            ItemDidPlayToEndTime,
-            ItemTracksChanged,
-            ItemStatusChanged,
-            ItemSeekableTimeRangesChanged,
-            ItemLoadedTimeRangesChanged,
-            ItemPresentationSizeChanged,
-            ItemIsPlaybackLikelyToKeepUpChanged,
-            ItemIsPlaybackBufferEmptyChanged,
-            ItemIsPlaybackBufferFullChanged,
-            AssetMetadataLoaded,
-            AssetPlayabilityKnown,
-            PlayerRateChanged,
-            PlayerTimeChanged,
-            SeekCompleted,
-            DurationChanged,
-            ContentsNeedsDisplay,
+#define DEFINE_TYPE_ENUM(type) type,
+            FOR_EACH_MEDIAPLAYERPRIVATEAVFOUNDATION_NOTIFICATION_TYPE(DEFINE_TYPE_ENUM)
+#undef DEFINE_TYPE_ENUM
         };
         
         Notification()
@@ -86,9 +100,9 @@ public:
         }
         
         Notification(Type type, bool finished)
-        : m_type(type)
-        , m_time(0)
-        , m_finished(finished)
+            : m_type(type)
+            , m_time(0)
+            , m_finished(finished)
         {
         }
         
@@ -138,9 +152,10 @@ protected:
     virtual void setClosedCaptionsVisible(bool) = 0;
     virtual MediaPlayer::NetworkState networkState() const { return m_networkState; }
     virtual MediaPlayer::ReadyState readyState() const { return m_readyState; }
-    virtual float maxTimeSeekable() const;
+    virtual double maxTimeSeekableDouble() const;
+    virtual double minTimeSeekable() const;
     virtual PassRefPtr<TimeRanges> buffered() const;
-    virtual unsigned bytesLoaded() const;
+    virtual bool didLoadingProgress() const;
     virtual void setSize(const IntSize&);
     virtual void paint(GraphicsContext*, const IntRect&) = 0;
     virtual void paintCurrentFrameInContext(GraphicsContext*, const IntRect&) = 0;
@@ -190,10 +205,11 @@ protected:
     virtual void checkPlayability() = 0;
     virtual void updateRate() = 0;
     virtual float rate() const = 0;
-    virtual void seekToTime(float time) = 0;
+    virtual void seekToTime(double time) = 0;
     virtual unsigned totalBytes() const = 0;
     virtual PassRefPtr<TimeRanges> platformBufferedTimeRanges() const = 0;
-    virtual float platformMaxTimeSeekable() const = 0;
+    virtual double platformMaxTimeSeekable() const = 0;
+    virtual double platformMinTimeSeekable() const = 0;
     virtual float platformMaxTimeLoaded() const = 0;
     virtual float platformDuration() const = 0;
 
@@ -221,7 +237,7 @@ protected:
     void setDelayCallbacks(bool) const;
     void setIgnoreLoadStateChanges(bool delay) { m_ignoreLoadStateChanges = delay; }
     void setNaturalSize(IntSize);
-    bool isLiveStream() const { return isinf(duration()); }
+    bool isLiveStream() const { return std::isinf(duration()); }
 
     enum MediaRenderingMode { MediaRenderingNone, MediaRenderingToContext, MediaRenderingToLayer };
     MediaRenderingMode currentRenderingMode() const;
@@ -237,7 +253,6 @@ protected:
 
     static void mainThreadCallback(void*);
     
-    float invalidTime() const { return -1.0f; }
     void invalidateCachedDuration();
 
     const String& assetURL() const { return m_assetURL; }
@@ -246,6 +261,13 @@ protected:
 
     virtual String engineDescription() const { return "AVFoundation"; }
 
+    virtual size_t extraMemoryCost() const OVERRIDE;
+
+    virtual void trackModeChanged() OVERRIDE;
+    void processNewAndRemovedTextTracks(const Vector<RefPtr<InbandTextTrackPrivateAVF> >&);
+    void clearTextTracks();
+    Vector<RefPtr<InbandTextTrackPrivateAVF> > m_textTracks;
+    
 private:
     MediaPlayer* m_player;
 
@@ -262,11 +284,12 @@ private:
 
     IntSize m_cachedNaturalSize;
     mutable float m_cachedMaxTimeLoaded;
-    mutable float m_cachedMaxTimeSeekable;
+    mutable double m_cachedMaxTimeSeekable;
+    mutable double m_cachedMinTimeSeekable;
     mutable float m_cachedDuration;
     float m_reportedDuration;
-
-    float m_seekTo;
+    mutable float m_maxTimeLoadedAtLastDidLoadingProgress;
+    double m_seekTo;
     float m_requestedRate;
     mutable int m_delayCallbacks;
     bool m_mainThreadCallPending;
@@ -280,6 +303,8 @@ private:
     bool m_ignoreLoadStateChanges;
     bool m_haveReportedFirstVideoFrame;
     bool m_playWhenFramesAvailable;
+    bool m_inbandTrackConfigurationPending;
+    size_t m_seekCount;
 };
 
 } // namespace WebCore

@@ -31,14 +31,15 @@
 
 #include <WebCore/COMPtr.h>
 #include <WebCore/InspectorClient.h>
+#include <WebCore/InspectorFrontendChannel.h>
 #include <WebCore/InspectorFrontendClientLocal.h>
-#include <WebCore/PlatformString.h>
 #include <WebCore/WindowMessageListener.h>
+#include <windows.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/text/StringHash.h>
-#include <windows.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -50,14 +51,14 @@ class WebInspectorFrontendClient;
 class WebNodeHighlight;
 class WebView;
 
-class WebInspectorClient : public WebCore::InspectorClient {
+class WebInspectorClient : public WebCore::InspectorClient, public WebCore::InspectorFrontendChannel {
 public:
-    WebInspectorClient(WebView*);
+    explicit WebInspectorClient(WebView*);
 
     // InspectorClient
     virtual void inspectorDestroyed();
 
-    virtual void openInspectorFrontend(WebCore::InspectorController*);
+    virtual WebCore::InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*);
     virtual void closeInspectorFrontend();
     virtual void bringFrontendToFront();
 
@@ -68,6 +69,9 @@ public:
 
     bool inspectorStartsAttached();
     void setInspectorStartsAttached(bool);
+
+    bool inspectorAttachDisabled();
+    void setInspectorAttachDisabled(bool);
 
     void releaseFrontend();
 
@@ -96,15 +100,17 @@ public:
     virtual void frontendLoaded();
     
     virtual WTF::String localizedStringsURL();
-    virtual WTF::String hiddenPanels();
     
     virtual void bringToFront();
     virtual void closeWindow();
     
-    virtual void attachWindow();
+    virtual void attachWindow(DockSide);
     virtual void detachWindow();
     
     virtual void setAttachedWindowHeight(unsigned height);
+    virtual void setAttachedWindowWidth(unsigned);
+    virtual void setToolbarHeight(unsigned) OVERRIDE;
+
     virtual void inspectedURLChanged(const WTF::String& newURL);
 
     void destroyInspectorView(bool notifyInspectorController);

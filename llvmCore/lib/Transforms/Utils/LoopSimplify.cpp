@@ -266,7 +266,7 @@ ReprocessLoop:
   PHINode *PN;
   for (BasicBlock::iterator I = L->getHeader()->begin();
        (PN = dyn_cast<PHINode>(I++)); )
-    if (Value *V = SimplifyInstruction(PN, 0, DT)) {
+    if (Value *V = SimplifyInstruction(PN, 0, 0, DT)) {
       if (AA) AA->deleteValue(PN);
       if (SE) SE->forgetValue(PN);
       PN->replaceAllUsesWith(V);
@@ -382,12 +382,11 @@ BasicBlock *LoopSimplify::InsertPreheaderForLoop(Loop *L) {
   // Split out the loop pre-header.
   BasicBlock *PreheaderBB;
   if (!Header->isLandingPad()) {
-    PreheaderBB = SplitBlockPredecessors(Header, &OutsideBlocks[0], 
-                                         OutsideBlocks.size(), ".preheader",
+    PreheaderBB = SplitBlockPredecessors(Header, OutsideBlocks, ".preheader",
                                          this);
   } else {
     SmallVector<BasicBlock*, 2> NewBBs;
-    SplitLandingPadPredecessors(Header, OutsideBlocks, ".preheader", 
+    SplitLandingPadPredecessors(Header, OutsideBlocks, ".preheader",
                                 ".split-lp", this, NewBBs);
     PreheaderBB = NewBBs[0];
   }
@@ -430,9 +429,7 @@ BasicBlock *LoopSimplify::RewriteLoopExitBlock(Loop *L, BasicBlock *Exit) {
                                 this, NewBBs);
     NewExitBB = NewBBs[0];
   } else {
-    NewExitBB = SplitBlockPredecessors(Exit, &LoopBlocks[0],
-                                       LoopBlocks.size(), ".loopexit",
-                                       this);
+    NewExitBB = SplitBlockPredecessors(Exit, LoopBlocks, ".loopexit", this);
   }
 
   DEBUG(dbgs() << "LoopSimplify: Creating dedicated exit block "
@@ -466,7 +463,7 @@ static PHINode *FindPHIToPartitionLoops(Loop *L, DominatorTree *DT,
   for (BasicBlock::iterator I = L->getHeader()->begin(); isa<PHINode>(I); ) {
     PHINode *PN = cast<PHINode>(I);
     ++I;
-    if (Value *V = SimplifyInstruction(PN, 0, DT)) {
+    if (Value *V = SimplifyInstruction(PN, 0, 0, DT)) {
       // This is a degenerate PHI already, don't modify it!
       PN->replaceAllUsesWith(V);
       if (AA) AA->deleteValue(PN);
@@ -541,8 +538,7 @@ void LoopSimplify::PlaceSplitBlockCarefully(BasicBlock *NewBB,
 ///
 Loop *LoopSimplify::SeparateNestedLoop(Loop *L, LPPassManager &LPM,
                                        BasicBlock *Preheader) {
-  // Don't try to separate loops without a preheader (this excludes 
-  // loop headers which are targeted by an indirectbr).
+  // Don't try to separate loops without a preheader.
   if (!Preheader)
     return 0;
 
@@ -557,11 +553,15 @@ Loop *LoopSimplify::SeparateNestedLoop(Loop *L, LPPassManager &LPM,
   // handles the case when a PHI node has multiple instances of itself as
   // arguments.
   SmallVector<BasicBlock*, 8> OuterLoopPreds;
-  for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i)
+  for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
     if (PN->getIncomingValue(i) != PN ||
-        !L->contains(PN->getIncomingBlock(i)))
+        !L->contains(PN->getIncomingBlock(i))) {
+      // We can't split indirectbr edges.
+      if (isa<IndirectBrInst>(PN->getIncomingBlock(i)->getTerminator()))
+        return 0;
       OuterLoopPreds.push_back(PN->getIncomingBlock(i));
-
+    }
+  }
   DEBUG(dbgs() << "LoopSimplify: Splitting out a new outer loop\n");
 
   // If ScalarEvolution is around and knows anything about values in
@@ -571,9 +571,8 @@ Loop *LoopSimplify::SeparateNestedLoop(Loop *L, LPPassManager &LPM,
     SE->forgetLoop(L);
 
   BasicBlock *Header = L->getHeader();
-  BasicBlock *NewBB = SplitBlockPredecessors(Header, &OuterLoopPreds[0],
-                                             OuterLoopPreds.size(),
-                                             ".outer", this);
+  BasicBlock *NewBB =
+    SplitBlockPredecessors(Header, OuterLoopPreds,  ".outer", this);
 
   // Make sure that NewBB is put someplace intelligent, which doesn't mess up
   // code layout too horribly.

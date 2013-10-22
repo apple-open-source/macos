@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 - 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2010 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,10 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 		 */
 		rc_getint(rcfile, sname, "debug_level", &prefs->KernelLogLevel);
 		rc_getint(rcfile, sname, "kloglevel", &prefs->KernelLogLevel);
+		
+		/* Check for Require Signing */
+		/* Only get the value if it exist, ignore any error we don't care */
+		(void)rc_getbool(rcfile, sname, "signing_required", (int *) &prefs->signing_required);
 	}
 	
 	/* server only preferences */
@@ -73,6 +77,7 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 		if (prefs->NetBIOSResolverTimeout == 0) {
 			prefs->NetBIOSResolverTimeout = DefaultNetBIOSResolverTimeout;
 		}
+
 		/* 
 		 * We default to trying both ports, if this is not set then the URL
 		 * is overriding the preference, ignore the preference file setting.
@@ -91,6 +96,41 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 				}
 			}
 		}
+
+        /* 
+         * Check for SMB1, SMB2 Negotiation. Default is to start with SMB 1.x
+         * and try to negotiate to SMB 2.x
+         * 0 = try both SMB 1.x and 2.x
+         * 1 = SMB 1.x only
+         * 2 = SMB 2.x only
+         */
+        rc_getstringptr(rcfile, sname, "smb_neg", &p);
+        if (p) {
+            if (strcmp(p, "normal") == 0) {
+                /* start with SMB1 and try for SMB2 */
+                prefs->smb_negotiate = 0;
+                
+                /* if SMB 1.x or SMB2.x, then also turn off netbios */
+                if (prefs->tryBothPorts) {
+                    prefs->tryBothPorts = FALSE;
+                    prefs->tcp_port = SMB_TCP_PORT_445;
+                }
+            }
+            else {
+                if (strcmp(p, "smb1_only") == 0) {
+                   prefs->smb_negotiate = 1;
+                }
+                else if (strcmp(p, "smb2_only") == 0) {
+                    prefs->smb_negotiate = 2;
+                    /* if SMB2.x only, then also turn off netbios */
+                    if (prefs->tryBothPorts) {
+                        prefs->tryBothPorts = FALSE;
+                        prefs->tcp_port = SMB_TCP_PORT_445;
+                    }
+                }
+            }
+        }
+
 		/* Really should be getting this from System Configuration */
 		rc_getstringptr(rcfile, sname, "minauth", &p);
 		if (p) {
@@ -158,7 +198,19 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 			prefs->altflags &= ~SMBFS_MNT_STREAMS_ON;			
 	}
 	
-	/* 
+	/* Only get the value if it exist */
+	if ( rc_getbool(rcfile, sname, "soft", &altflags) == 0) {
+		if (altflags)
+			prefs->altflags |= SMBFS_MNT_SOFT;
+		else
+			prefs->altflags &= ~SMBFS_MNT_SOFT;
+	}
+    
+    /*
+     * Start of the HIDDEN options of nsmb.  
+     */
+    
+    /*
 	 * We are not adding this in the man pages, because we do not want to keep
 	 * this as a configuration option. This is for debug purposes only and 
 	 * should be removed once <rdar://problem/7236779> is complete. Force
@@ -171,12 +223,60 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 			prefs->altflags &= ~SMBFS_MNT_DEBUG_ACL_ON;			
 	}
 	
-	/* Only get the value if it exist */
-	if ( rc_getbool(rcfile, sname, "soft", &altflags) == 0) {
+    /* 
+	 * Another hidden config option. Force readdirattr off
+	 */
+	if (rc_getbool(rcfile, sname, "readdirattr_off", &altflags) == 0) {
 		if (altflags)
-			prefs->altflags |= SMBFS_MNT_SOFT;
+			prefs->altflags |= SMBFS_MNT_READDIRATTR_OFF;
 		else
-			prefs->altflags &= ~SMBFS_MNT_SOFT;
+			prefs->altflags &= ~SMBFS_MNT_READDIRATTR_OFF;			
+	}
+
+    /*
+	 * Another hidden config option, to force LANMAN on
+	 */
+    if (rc_getbool(rcfile, sname, "lanman_on", &altflags) == 0) {
+		if (altflags) {
+			prefs->lanman_on = 1;
+			smb_log_info("%s: LANMAN support enabled", ASL_LEVEL_DEBUG, __FUNCTION__);
+		} else {
+			prefs->lanman_on = 0;
+		}
+	}
+
+    /*
+	 * Another hidden config option, to force Kerberos off
+     * When <12991970> is fixed, remove this code
+	 */
+    if (rc_getbool(rcfile, sname, "kerberos_off", &altflags) == 0) {
+		if (altflags) {
+			prefs->altflags |= SMBFS_MNT_KERBEROS_OFF;
+		} else {
+			prefs->altflags &= ~SMBFS_MNT_KERBEROS_OFF;
+		}
+	}
+
+    /*
+	 * Another hidden config option, to force File IDs off
+	 */
+    if (rc_getbool(rcfile, sname, "file_ids_off", &altflags) == 0) {
+		if (altflags) {
+			prefs->altflags |= SMBFS_MNT_FILE_IDS_OFF;
+		} else {
+			prefs->altflags &= ~SMBFS_MNT_FILE_IDS_OFF;
+		}
+	}
+
+    /*
+	 * Another hidden config option, to force AAPL off
+	 */
+    if (rc_getbool(rcfile, sname, "aapl_off", &altflags) == 0) {
+		if (altflags) {
+			prefs->altflags |= SMBFS_MNT_AAPL_OFF;
+		} else {
+			prefs->altflags &= ~SMBFS_MNT_AAPL_OFF;
+		}
 	}
 }
 
@@ -279,6 +379,7 @@ done:
 
 void getDefaultPreferences(struct smb_prefs *prefs)
 {
+	 /* <11860141> Disable LANMAN (RAP) for getting share lists */
 	memset(prefs, 0, sizeof(*prefs));
 	prefs->tryBothPorts = TRUE;
 	prefs->tcp_port = SMB_TCP_PORT_445;

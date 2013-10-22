@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: run_test.sh,v 1.14 2009/10/06 20:47:01 tom Exp $
+# $Id: run_test.sh,v 1.15 2012/01/03 10:18:14 tom Exp $
 # Test-script for DIFFSTAT
 
 # change this for ad hoc testing of compression
@@ -20,7 +20,7 @@ PATH=`cd ..;pwd`:$PATH; export PATH
 for item in $*
 do
 	echo "testing `basename $item $TYPE`"
-	for OPTS in "" "-p1" "-p9" "-f0" "-u" "-k" "-r1" "-r2" "-b"
+	for OPTS in "" "-p1" "-p9" "-f0" "-u" "-k" "-r1" "-r2" "-b" "-R" "-Rp0"
 	do
 		NAME=`echo $item | sed -e 's/'$TYPE'$//'`
 		DATA=${NAME}${TYPE}

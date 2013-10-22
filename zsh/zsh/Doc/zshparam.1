@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "December 20, 2010" "zsh 4\&.3\&.11"
+.TH "ZSHPARAM" "1" "December 21, 2012" "zsh 5\&.0\&.2"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -212,7 +212,10 @@ to the matching closing one is considered to be a list of flags, as in
 The flags \fBs\fP, \fBn\fP and \fBb\fP take an argument; the delimiter
 is shown below as `\fB:\fP\&', but any character, or the matching pairs
 `\fB(\fP\&.\&.\&.\fB)\fP\&', `\fB{\fP\&.\&.\&.\fB}\fP', `\fB[\fP\&.\&.\&.\fB]\fP', or
-`\fB<\fP\&.\&.\&.\fB>\fP\&', may be used\&.
+`\fB<\fP\&.\&.\&.\fB>\fP\&', may be used, but note that `\fB<\fP\&.\&.\&.\fB>\fP' can only be
+used if the subscript is inside a double quoted expression or a
+parameter substitution enclosed in braces as otherwise the expression is
+interpreted as a redirection\&.
 .PP
 The flags currently understood are:
 .PP
@@ -263,6 +266,7 @@ example (assuming the option \fBKSH_ARRAYS\fP is not in effect):
 .RE
 .PP
 If \fBKSH_ARRAYS\fP is in effect, the \fB\-le\fP should be replaced by \fB\-lt\fP\&.
+.RE
 .TP
 \fBR\fP
 Like `\fBr\fP\&', but gives the last match\&.  For associative arrays, gives
@@ -285,7 +289,6 @@ required; using a parameter to hold the key has the desired effect:
 \fBkey2=\&'original key'
 print ${array[(Re)$key2]}\fP
 .fi
-.RE
 .RE
 .RE
 .TP
@@ -905,7 +908,7 @@ example just given files beginning with `\fB_\fP\&' in the current
 directory would still be completed)\&.
 .TP
 \fBDIRSTACKSIZE\fP
-The maximum size of the directory stack\&.  If the
+The maximum size of the directory stack, by default there is no limit\&.  If the
 stack gets larger than this, it will be truncated automatically\&.
 This is useful with the \fBAUTO_PUSHD\fP option\&.
 .TP
@@ -991,6 +994,12 @@ and replaces the \fBSUNKEYBOARDHACK\fP option which did this for
 backquotes only\&.  Should the chosen character be one of singlequote,
 doublequote or backquote, there must also be an odd number of them
 on the command line for the last one to be removed\&.
+.RS
+.PP
+For backward compabitility, if the \fBSUNKEYBOARDHACK\fP option is
+explicitly set, the value of \fBKEYBOARD_HACK\fP reverts to backquote\&.
+If the option is explicitly unset, this variable is set to empty\&.
+.RE
 .TP
 \fBKEYTIMEOUT\fP
 The time the shell waits, in hundredths of seconds, for another key to
@@ -1070,6 +1079,30 @@ whose value is not used by the shell\&.  The \fBmanpath\fP
 array can be useful, however, since setting it also sets
 \fBMANPATH\fP, and vice versa\&.
 .TP
+.PD 0
+\fBmatch\fP
+.TP
+.PD 0
+\fBmbegin\fP
+.TP
+.PD
+\fBmend\fP
+Arrays set by the shell when the \fBb\fP globbing flag is used in pattern
+matches\&.  See the subsection \fIGlobbing flags\fP in
+the documentation for \fIFilename Generation\fP in \fIzshexpn\fP(1)\&.
+.TP
+.PD 0
+\fBMATCH\fP
+.TP
+.PD 0
+\fBMBEGIN\fP
+.TP
+.PD
+\fBMEND\fP
+Set by the shell when the \fBm\fP globbing flag is used in pattern
+matches\&.  See the subsection \fIGlobbing flags\fP in
+the documentation for \fIFilename Generation\fP in \fIzshexpn\fP(1)\&.
+.TP
 \fBmodule_path\fP <S> <Z> (\fBMODULE_PATH\fP <S>)
 An array (colon\-separated list)
 of directories that \fBzmodload\fP
@@ -1123,8 +1156,8 @@ Same as \fBPS1\fP\&.
 When the \fBPROMPT_CR\fP and \fBPROMPT_SP\fP options are set, the
 \fBPROMPT_EOL_MARK\fP parameter can be used to customize how the end of
 partial lines are shown\&.  This parameter undergoes prompt expansion, with
-the \fBPROMPT_PERCENT\fP option set\&.  If not set or empty, the default
-behavior is equivalent to the value `\fB%B%S%#%s%b\fP\&'\&.
+the \fBPROMPT_PERCENT\fP option set\&.  If not set, the default behavior is
+equivalent to the value `\fB%B%S%#%s%b\fP\&'\&.
 .TP
 \fBPS1\fP <S>
 The primary prompt string, printed before a command is read\&.
@@ -1161,7 +1194,10 @@ is specified with no command\&.  Defaults to \fBmore\fP\&.
 \fBREPORTTIME\fP
 If nonnegative, commands whose combined user and system execution times
 (measured in seconds) are greater than this value have timing
-statistics printed for them\&.
+statistics printed for them\&.  Output is suppressed for commands
+executed within the line editor, including completion; commands
+explicitly marked with the \fBtime\fP keyword still cause the summary
+to be printed in this case\&.
 .TP
 \fBREPLY\fP
 This parameter is reserved by convention to pass string values between
@@ -1181,7 +1217,7 @@ As \fBREPLY\fP, but for array values rather than strings\&.
 \fBRPS1\fP <S>
 This prompt is displayed on the right\-hand side of the screen
 when the primary prompt is being displayed on the left\&.
-This does not work if the \fBSINGLELINEZLE\fP option is set\&.
+This does not work if the \fBSINGLE_LINE_ZLE\fP option is set\&.
 It is expanded in the same way as \fBPS1\fP\&.
 .TP
 .PD 0
@@ -1191,7 +1227,7 @@ It is expanded in the same way as \fBPS1\fP\&.
 \fBRPS2\fP <S>
 This prompt is displayed on the right\-hand side of the screen
 when the secondary prompt is being displayed on the left\&.
-This does not work if the \fBSINGLELINEZLE\fP option is set\&.
+This does not work if the \fBSINGLE_LINE_ZLE\fP option is set\&.
 It is expanded in the same way as \fBPS2\fP\&.
 .TP
 \fBSAVEHIST\fP
@@ -1225,9 +1261,15 @@ is necessary to make such an assignment upon any change to the terminal
 definition database or terminal type in order for the new settings to
 take effect\&.
 .TP
+\fBTERMINFO\fP <S>
+A reference to a compiled description of the terminal, used by the
+`terminfo\&' library when the system has it; see \fIterminfo\fP(5)\&.
+If set, this causes the shell to reinitialise the terminal, making
+the workaround `\fBTERM=$TERM\fP\&' unnecessary\&.
+.TP
 \fBTIMEFMT\fP
 The format of process time reports with the \fBtime\fP keyword\&.
-The default is `\fB%E real  %U user  %S system  %P %J\fP\&'\&.
+The default is `\fB%J  %U user %S system %P cpu %*E total\fP\&'\&.
 Recognizes the following escape sequences, although not all
 may be available on all systems, and some that are available
 may not be useful:
@@ -1255,18 +1297,18 @@ The CPU percentage, computed as
 Number of times the process was swapped\&.
 .TP
 \fB%X\fP
-The average amount in (shared) text space used in Kbytes\&.
+The average amount in (shared) text space used in kilobytes\&.
 .TP
 \fB%D\fP
 The average amount in (unshared) data/stack space used in
-Kbytes\&.
+kilobytes\&.
 .TP
 \fB%K\fP
-The total space used (%X+%D) in Kbytes\&.
+The total space used (%X+%D) in kilobytes\&.
 .TP
 \fB%M\fP
 The  maximum memory the process had in use at any time in
-Kbytes\&.
+megabytes\&.
 .TP
 \fB%F\fP
 The number of major page faults (page needed to be brought

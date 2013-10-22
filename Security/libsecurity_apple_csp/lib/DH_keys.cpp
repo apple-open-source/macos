@@ -235,7 +235,7 @@ void DHKeyPairGenContext::generate(
 		}
 		
 		/* ensure caller's key size matches the incoming params */
-		uint32 paramKeyBytes;
+		size_t paramKeyBytes;
 		if(privValueLen) {
 			paramKeyBytes = (privValueLen + 7) / 8;
 		}

@@ -108,8 +108,8 @@ heim_string_get_type_id(void)
  * @return a utf8 string
  */
 
-const char *
-heim_string_get_utf8(heim_string_t string)
+char *
+heim_string_copy_utf8(heim_string_t string)
 {
-    return (const char *)string;
+    return strdup(string);
 }

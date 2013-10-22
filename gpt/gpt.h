@@ -116,7 +116,7 @@ extern u_int secsz;
 extern int readonly, verbose;
 
 uint32_t crc32(const void *, size_t);
-map_t	*gpt_add_part(int, uuid_t, off_t, off_t, unsigned int *);
+map_t	*gpt_add_part(int, uuid_t *, off_t, off_t, unsigned int *);
 void	gpt_close(int);
 int	gpt_open(const char *);
 void*	gpt_read(int, off_t, size_t);

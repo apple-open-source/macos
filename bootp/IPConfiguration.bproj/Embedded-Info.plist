@@ -7,7 +7,7 @@
 	<key>CFBundleName</key>
 	<string>SystemConfiguration</string>
 	<key>CFBundleShortVersionString</key>
-	<string>12.1.0</string>
+	<string>13.0.0</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>Requires</key>
@@ -85,6 +85,8 @@
 		<integer>9</integer>
 		<key>RouterARPEnabled</key>
 		<true/>
+		<key>RouterARPWiFiLeaseStartThresholdSeconds</key>
+		<integer>86400</integer>
 		<key>ConfigureIPv6</key>
 		<true/>
 		<key>DHCPv6Enabled</key>
@@ -94,8 +96,6 @@
 			<integer>23</integer>
 			<integer>24</integer>
 		</array>
-		<key>Verbose</key>
-		<false/>
 	</dict>
 </dict>
 </plist>

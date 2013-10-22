@@ -1,10 +1,10 @@
 #include "common.xcconfig"
 
-// Update these as needed.
-// Generated dylib is libcurl.$(CURL_LIBRARY_VERSION).dylib
-CURL_LIBRARY_VERSION = 4
-DYLIB_COMPATIBILITY_VERSION = 7
-DYLIB_CURRENT_VERSION = 7
+#include "libcurl-version.xcconfig"
 
-OTHER_LDFLAGS = -framework LDAP
-OTHER_LDFLAGS[sdk=macosx*] = -lssl -lcrypto -weak_framework LDAP -weak_framework Kerberos
+// Upstream changes moved CURL_HIDDEN_SYMBOLS out of curl_config.h
+CURL_PREPROCESSOR_DEFINITIONS = BUILDING_LIBCURL CURL_HIDDEN_SYMBOLS
+
+OTHER_LDFLAGS = -framework Security -framework CoreFoundation
+OTHER_LDFLAGS[sdk=iphoneos*] = $(inherited)
+OTHER_LDFLAGS[sdk=macosx*] = $(inherited) -weak_framework LDAP -weak_framework Kerberos

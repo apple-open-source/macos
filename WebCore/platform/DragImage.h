@@ -26,6 +26,7 @@
 #ifndef DragImage_h
 #define DragImage_h
 
+#include "FontRenderingMode.h"
 #include "ImageOrientation.h"
 #include "IntSize.h"
 #include "FloatSize.h"
@@ -40,10 +41,6 @@ class QPixmap;
 QT_END_NAMESPACE
 #elif PLATFORM(WIN)
 typedef struct HBITMAP__* HBITMAP;
-#elif PLATFORM(WX)
-class wxDragImage;
-#elif PLATFORM(CHROMIUM)
-#include "DragImageRef.h"
 #elif PLATFORM(GTK)
 typedef struct _cairo_surface cairo_surface_t;
 #endif
@@ -52,9 +49,7 @@ typedef struct _cairo_surface cairo_surface_t;
 #define DragLabelBorderYOffset 2
 
 namespace WebCore {
-    
-    class CachedImage;
-    class Frame;
+
     class Image;
     class KURL;
     class Range;
@@ -65,8 +60,6 @@ namespace WebCore {
     typedef QPixmap* DragImageRef;
 #elif PLATFORM(WIN)
     typedef HBITMAP DragImageRef;
-#elif PLATFORM(WX)
-    typedef wxDragImage* DragImageRef;
 #elif PLATFORM(GTK)
     typedef cairo_surface_t* DragImageRef;
 #elif PLATFORM(EFL) || PLATFORM(BLACKBERRY)
@@ -83,9 +76,8 @@ namespace WebCore {
     DragImageRef dissolveDragImageToFraction(DragImageRef image, float delta);
     
     DragImageRef createDragImageFromImage(Image*, RespectImageOrientationEnum = DoNotRespectImageOrientation);
-    DragImageRef createDragImageForSelection(Frame*);    
-    DragImageRef createDragImageIconForCachedImage(CachedImage*);
-    DragImageRef createDragImageForLink(KURL&, const String& label, Frame*);
+    DragImageRef createDragImageIconForCachedImageFilename(const String&);
+    DragImageRef createDragImageForLink(KURL&, const String& label, FontRenderingMode);
     void deleteDragImage(DragImageRef);
 }
 

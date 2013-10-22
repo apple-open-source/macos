@@ -23,7 +23,6 @@
 			buildConfigurationList = AA6D4B860E6F3B8D0050206D /* Build configuration list for PBXAggregateTarget "startup" */;
 			buildPhases = (
 				AA6D4B800E6F3B210050206D /* ShellScript */,
-				18132F7B148D6DD900CC58B2 /* Run Script (install /etc/authorization.merge) */,
 			);
 			dependencies = (
 			);
@@ -49,7 +48,6 @@
 		1865FFCF1475169A00FD79DF /* libsecurityd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FFCE1475169A00FD79DF /* libsecurityd_client.a */; };
 		1865FFDC14751B0600FD79DF /* libobjc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B967B514731B78005A4D2E /* libobjc.dylib */; };
 		1865FFE114751C9100FD79DF /* libauto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B967B314731B69005A4D2E /* libauto.dylib */; };
-		1865FFEA1475208000FD79DF /* libsecurity_codesigning.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FFD0147516CF00FD79DF /* libsecurity_codesigning.a */; };
 		1865FFEB1475208B00FD79DF /* libsqlite3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B967B114731B55005A4D2E /* libsqlite3.dylib */; };
 		18B27134148C2C3D0087AE98 /* securityd_dtrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 18B27133148C2C3D0087AE98 /* securityd_dtrace.h */; };
 		18B965CD14731612005A4D2E /* libsecurity_agent_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965BD147314BE005A4D2E /* libsecurity_agent_client.a */; };
@@ -61,6 +59,7 @@
 		18B965DA147319C8005A4D2E /* libsecurity_cdsa_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965D9147319C8005A4D2E /* libsecurity_cdsa_client.a */; };
 		18B965DC147319E5005A4D2E /* libsecurityd_server.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965DB147319E5005A4D2E /* libsecurityd_server.a */; };
 		18B965DD147319F6005A4D2E /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C276AAD60663E7A400B57276 /* PCSC.framework */; };
+		18CE013F17147A46008C042F /* libsecuritydservice_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18CE013E17147A46008C042F /* libsecuritydservice_client.a */; };
 		4E0BB2B40F79590300BBFEFA /* ccaudit_extensions.h in Headers */ = {isa = PBXBuildFile; fileRef = 4E0BB2B20F79590300BBFEFA /* ccaudit_extensions.h */; };
 		4E0BB2B50F79590300BBFEFA /* ccaudit_extensions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4E0BB2B30F79590300BBFEFA /* ccaudit_extensions.cpp */; };
 		AAC707230E6F4335003CC2B2 /* acl_keychain.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C9264990534866F004B0E72 /* acl_keychain.h */; };
@@ -153,6 +152,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1820DFC71714D3F800CA851F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 1843240D1714797D00196B52;
+			remoteInfo = securitydservice_client;
+		};
 		18B965BC147314BE005A4D2E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
@@ -173,6 +179,34 @@
 			proxyType = 1;
 			remoteGlobalIDString = 40635B69052E4CBD0009891B;
 			remoteInfo = world;
+		};
+		18CE013D17147A46008C042F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 1843240E1714797D00196B52;
+			remoteInfo = securitydservice_client;
+		};
+		80C7A78C167FF586001533BE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 189D4635166AC95C001D8533;
+			remoteInfo = securityd_service;
+		};
+		80C7A78E167FF586001533BE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 189D465B166C15C1001D8533;
+			remoteInfo = securitydservicectrl;
+		};
+		80C7A790167FF9D3001533BE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 189D4634166AC95C001D8533;
+			remoteInfo = securityd_service;
 		};
 		AA1A9FF80E71EF08003D0309 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -270,7 +304,6 @@
 		4C9264C20534866F004B0E72 /* transition.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = transition.cpp; sourceTree = "<group>"; };
 		4CB5ACB906680AE000F359A9 /* child.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = child.cpp; sourceTree = "<group>"; };
 		4CB5ACBA06680AE000F359A9 /* child.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = child.h; sourceTree = "<group>"; };
-		4CD8CCBC055884E0006B3584 /* authorization.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = authorization.plist; sourceTree = "<group>"; };
 		4CD8CCBD055884E0006B3584 /* CodeEquivalenceCandidates */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = CodeEquivalenceCandidates; sourceTree = "<group>"; };
 		4CD8CCC0055884E0006B3584 /* startup.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = startup.mk; sourceTree = "<group>"; };
 		4CDD5018053765A900FEC36D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
@@ -280,6 +313,7 @@
 		4CE1878706FFC5D60079D235 /* securityd.1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.man; path = securityd.1; sourceTree = "<group>"; };
 		4E0BB2B20F79590300BBFEFA /* ccaudit_extensions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ccaudit_extensions.h; sourceTree = "<group>"; };
 		4E0BB2B30F79590300BBFEFA /* ccaudit_extensions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ccaudit_extensions.cpp; sourceTree = "<group>"; };
+		80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = securityd_service.xcodeproj; path = securityd_service/securityd_service.xcodeproj; sourceTree = "<group>"; };
 		AA6D4B8A0E6F3BB80050206D /* securityd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = securityd; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAA020B10E367BB000A6F842 /* dtrace.mk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = dtrace.mk; path = dtrace/dtrace.mk; sourceTree = "<group>"; };
 		C207646305EAD713004FEEDA /* kckey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = kckey.cpp; sourceTree = "<group>"; };
@@ -339,8 +373,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18CE013F17147A46008C042F /* libsecuritydservice_client.a in Frameworks */,
 				1865FFEB1475208B00FD79DF /* libsqlite3.dylib in Frameworks */,
-				1865FFEA1475208000FD79DF /* libsecurity_codesigning.a in Frameworks */,
 				1865FFE114751C9100FD79DF /* libauto.dylib in Frameworks */,
 				1865FFDC14751B0600FD79DF /* libobjc.dylib in Frameworks */,
 				18B965CD14731612005A4D2E /* libsecurity_agent_client.a in Frameworks */,
@@ -401,6 +435,7 @@
 		4CA1FEAC052A3C5800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */,
 				18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */,
 				1865FF9F1474FB1100FD79DF /* config */,
 				4C9264970534866F004B0E72 /* src */,
@@ -427,7 +462,6 @@
 			isa = PBXGroup;
 			children = (
 				C26FB2650BC2C3A300D8EFC8 /* com.apple.securityd.plist */,
-				4CD8CCBC055884E0006B3584 /* authorization.plist */,
 				4CD8CCBD055884E0006B3584 /* CodeEquivalenceCandidates */,
 				4CD8CCC0055884E0006B3584 /* startup.mk */,
 			);
@@ -465,6 +499,16 @@
 				4CE1878706FFC5D60079D235 /* securityd.1 */,
 			);
 			path = doc;
+			sourceTree = "<group>";
+		};
+		80C7A788167FF586001533BE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				80C7A78D167FF586001533BE /* securityd_service */,
+				80C7A78F167FF586001533BE /* securitydservicectrl */,
+				18CE013E17147A46008C042F /* libsecuritydservice_client.a */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 		C209B39106ADBB19007B9E6D /* mig */ = {
@@ -761,6 +805,8 @@
 			buildRules = (
 			);
 			dependencies = (
+				1820DFC81714D3F800CA851F /* PBXTargetDependency */,
+				80C7A791167FF9D3001533BE /* PBXTargetDependency */,
 				18B967B914731BB1005A4D2E /* PBXTargetDependency */,
 				AA1AA00F0E71F2ED003D0309 /* PBXTargetDependency */,
 				AA1AA0110E71F2F7003D0309 /* PBXTargetDependency */,
@@ -776,6 +822,8 @@
 /* Begin PBXProject section */
 		4CA1FEB0052A3C5800F22E42 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = C27AD4AD0987FCF4001272E0 /* Build configuration list for PBXProject "securityd" */;
 			compatibilityVersion = "Xcode 3.1";
 			developmentRegion = English;
@@ -793,6 +841,10 @@
 				{
 					ProductGroup = 18B965B1147314BE005A4D2E /* Products */;
 					ProjectRef = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
+				},
+				{
+					ProductGroup = 80C7A788167FF586001533BE /* Products */;
+					ProjectRef = 80C7A77A167FF4FF001533BE /* securityd_service.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -820,23 +872,30 @@
 			remoteRef = 18B965C0147314BE005A4D2E /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
+		18CE013E17147A46008C042F /* libsecuritydservice_client.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecuritydservice_client.a;
+			remoteRef = 18CE013D17147A46008C042F /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		80C7A78D167FF586001533BE /* securityd_service */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = securityd_service;
+			remoteRef = 80C7A78C167FF586001533BE /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		80C7A78F167FF586001533BE /* securitydservicectrl */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = securitydservicectrl;
+			remoteRef = 80C7A78E167FF586001533BE /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 /* End PBXReferenceProxy section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		18132F7B148D6DD900CC58B2 /* Run Script (install /etc/authorization.merge) */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Run Script (install /etc/authorization.merge)";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "${SRCROOT}/etc/authmerge.sh";
-		};
 		AA6D4B790E6F3A910050206D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -934,10 +993,20 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1820DFC81714D3F800CA851F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = securitydservice_client;
+			targetProxy = 1820DFC71714D3F800CA851F /* PBXContainerItemProxy */;
+		};
 		18B967B914731BB1005A4D2E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = world;
 			targetProxy = 18B967B814731BB1005A4D2E /* PBXContainerItemProxy */;
+		};
+		80C7A791167FF9D3001533BE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = securityd_service;
+			targetProxy = 80C7A790167FF9D3001533BE /* PBXContainerItemProxy */;
 		};
 		AA1A9FF90E71EF08003D0309 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

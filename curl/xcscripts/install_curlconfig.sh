@@ -27,6 +27,7 @@ ${SED} \
 	-e "s|@CURLVERSION@|${CURLVERSION}|" \
 	-e "s|@VERSIONNUM@|${VERSIONNUM}|" \
 	-e "s|@CONFIGURE_OPTIONS@|${CURL_CONFIGURE_OPTIONS}|" \
+	-e "s|@CPPFLAG_CURL_STATICLIB@||" \
 	"$PROJECT_DIR"/curl/curl-config.in > \
 	"$TEMP_DIR"/curl-config
 

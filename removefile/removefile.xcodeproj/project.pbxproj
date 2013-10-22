@@ -220,12 +220,30 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "__DARWIN_NON_CANCELABLE=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_PATH = /usr/lib/system;
+				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib/system";
+				LINK_WITH_STANDARD_LIBRARIES = NO;
 				OTHER_LDFLAGS = (
-					"-umbrella",
-					System,
+					"-Wl,-umbrella,System",
+					"-L/usr/lib/system",
+					"-ldyld",
+					"-lcompiler_rt",
+					"-lsystem_kernel",
+					"-lsystem_platform",
+					"-lsystem_malloc",
+					"-lsystem_c",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"-Wl,-umbrella,System",
+					"-L/usr/lib/system",
+					"-ldyld_sim",
+					"-lcompiler_rt_sim",
+					"-lsystem_sim_c",
+					"-Wl,-upward-lSystem",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				"PRODUCT_NAME[sdk=iphonesimulator*]" = removefile_sim;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include";
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;
@@ -262,6 +280,7 @@
 				FCCE17DA135A6961002CEE6D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

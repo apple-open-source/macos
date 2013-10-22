@@ -41,7 +41,7 @@ using namespace std;
 
 namespace WebCore {
 
-#if !ENABLE(SMOOTH_SCROLLING) && !(PLATFORM(CHROMIUM) && OS(DARWIN))
+#if !ENABLE(SMOOTH_SCROLLING)
 PassOwnPtr<ScrollAnimator> ScrollAnimator::create(ScrollableArea* scrollableArea)
 {
     return adoptPtr(new ScrollAnimator(scrollableArea));
@@ -63,20 +63,22 @@ bool ScrollAnimator::scroll(ScrollbarOrientation orientation, ScrollGranularity,
 {
     float* currentPos = (orientation == HorizontalScrollbar) ? &m_currentPosX : &m_currentPosY;
     float newPos = std::max(std::min(*currentPos + (step * multiplier), static_cast<float>(m_scrollableArea->scrollSize(orientation))), 0.0f);
+    float delta = *currentPos - newPos;
     if (*currentPos == newPos)
         return false;
     *currentPos = newPos;
 
-    notifyPositionChanged();
+    notifyPositionChanged(orientation == HorizontalScrollbar ? FloatSize(delta, 0) : FloatSize(0, delta));
 
     return true;
 }
 
 void ScrollAnimator::scrollToOffsetWithoutAnimation(const FloatPoint& offset)
 {
+    FloatSize delta = FloatSize(offset.x() - m_currentPosX, offset.y() - m_currentPosY);
     m_currentPosX = offset.x();
     m_currentPosY = offset.y();
-    notifyPositionChanged();
+    notifyPositionChanged(delta);
 }
 
 bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
@@ -91,6 +93,7 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
 
     bool handled = false;
 
+    ScrollGranularity granularity = ScrollByPixel;
     IntSize maxForwardScrollDelta = m_scrollableArea->maximumScrollPosition() - m_scrollableArea->scrollPosition();
     IntSize maxBackwardScrollDelta = m_scrollableArea->scrollPosition() - m_scrollableArea->minimumScrollPosition();
     if ((deltaX < 0 && maxForwardScrollDelta.width() > 0)
@@ -98,11 +101,6 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
         || (deltaY < 0 && maxForwardScrollDelta.height() > 0)
         || (deltaY > 0 && maxBackwardScrollDelta.height() > 0)) {
         handled = true;
-        if (e.granularity() == ScrollByPixelVelocityWheelEvent) {
-            scroll(VerticalScrollbar, ScrollByPixelVelocity, 0, -deltaY);
-            scroll(HorizontalScrollbar, ScrollByPixelVelocity, 0, -deltaX);
-            return handled;
-        }
 
         if (deltaY) {
             if (e.granularity() == ScrollByPageWheelEvent) {
@@ -111,7 +109,7 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
                 if (negative)
                     deltaY = -deltaY;
             }
-            scroll(VerticalScrollbar, ScrollByPixel, verticalScrollbar->pixelStep(), -deltaY);
+            scroll(VerticalScrollbar, granularity, verticalScrollbar->pixelStep(), -deltaY);
         }
 
         if (deltaX) {
@@ -121,7 +119,7 @@ bool ScrollAnimator::handleWheelEvent(const PlatformWheelEvent& e)
                 if (negative)
                     deltaX = -deltaX;
             }
-            scroll(HorizontalScrollbar, ScrollByPixel, horizontalScrollbar->pixelStep(), -deltaX);
+            scroll(HorizontalScrollbar, granularity, horizontalScrollbar->pixelStep(), -deltaX);
         }
     }
     return handled;
@@ -138,8 +136,9 @@ FloatPoint ScrollAnimator::currentPosition() const
     return FloatPoint(m_currentPosX, m_currentPosY);
 }
 
-void ScrollAnimator::notifyPositionChanged()
+void ScrollAnimator::notifyPositionChanged(const FloatSize& delta)
 {
+    UNUSED_PARAM(delta);
     m_scrollableArea->setScrollOffsetFromAnimation(IntPoint(m_currentPosX, m_currentPosY));
 }
 

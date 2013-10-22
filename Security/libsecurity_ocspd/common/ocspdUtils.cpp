@@ -143,7 +143,7 @@ CFAbsoluteTime genTimeToCFAbsTime(
   	}
 	
 	uint8 *timeStr = strData->Data;
-	uint32 timeStrLen = strData->Length;
+	size_t timeStrLen = strData->Length;
   	
   	/* tolerate NULL terminated or not */
   	if(timeStr[timeStrLen - 1] == '\0') {
@@ -152,7 +152,7 @@ CFAbsoluteTime genTimeToCFAbsTime(
 	
 	/* start with a fresh editable copy */
 	uint8 *str = (uint8 *)malloc(timeStrLen);
-	unsigned strLen = 0;
+	uint32 strLen = 0;
 	
 	/* 
 	 * If there is a decimal point, strip it and all trailing digits off
@@ -164,7 +164,7 @@ CFAbsoluteTime genTimeToCFAbsTime(
 	int hoursOffset = 0;
 	bool minusOffset = false;
 	bool isGMT = false;
-	int toGo = timeStrLen;
+	size_t toGo = timeStrLen;
 	
 	do {
 		if(*inCp == '.') {
@@ -198,7 +198,7 @@ CFAbsoluteTime genTimeToCFAbsTime(
 			if(*inCp == '-') {
 				minusOffset = true;
 			}
-			*inCp++;
+			inCp++;
 			hoursOffset = (10 * (inCp[0] - '0')) + (inCp[1] - '0');
 			toGo -= 2;
 			if(toGo) {

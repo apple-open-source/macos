@@ -38,6 +38,7 @@
 		BA2FABC5136DBF45004383E5 /* linker_arguments_changed.c in Sources */ = {isa = PBXBuildFile; fileRef = BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */; };
 		BA5511C9136C9E4D0012B9B5 /* CompatibilityHacks.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */; };
 		BA5511CA136C9E510012B9B5 /* init.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5511B7136C9D780012B9B5 /* init.c */; };
+		C9A43CAC15374DB200388D0C /* alloc_once_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A43CAB15374DB200388D0C /* alloc_once_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,11 +79,12 @@
 		BA5511B7136C9D780012B9B5 /* init.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = init.c; sourceTree = "<group>"; };
 		BA5511B9136C9D780012B9B5 /* optionallibs */ = {isa = PBXFileReference; lastKnownFileType = text; path = optionallibs; sourceTree = "<group>"; };
 		BA5511BA136C9D780012B9B5 /* requiredlibs */ = {isa = PBXFileReference; lastKnownFileType = text; path = requiredlibs; sourceTree = "<group>"; };
-		BA5511BC136C9D960012B9B5 /* BSD.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
 		BA5511C4136C9E2E0012B9B5 /* libSystem.B.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libSystem.B.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		C64EE1D7136F644700676C52 /* create_dylib_symlinks.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_dylib_symlinks.sh; sourceTree = "<group>"; };
 		C64EE1D8136F644700676C52 /* create_system_framework.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_system_framework.sh; sourceTree = "<group>"; };
 		C64EE1D9136F644700676C52 /* linker_arguments.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = linker_arguments.sh; sourceTree = "<group>"; };
+		C9A43CAB15374DB200388D0C /* alloc_once_private.h */ = {isa = PBXFileReference; fileEncoding = 4; path = alloc_once_private.h; sourceTree = "<group>"; };
+		C9B56C55153751A600C153A8 /* Libsystem.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Libsystem.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,10 +109,11 @@
 		BA5511A7136C9D400012B9B5 = {
 			isa = PBXGroup;
 			children = (
-				BA5511BC136C9D960012B9B5 /* BSD.xcconfig */,
+				C9B56C55153751A600C153A8 /* Libsystem.xcconfig */,
 				BA5511B3136C9D780012B9B5 /* APPLE_LICENSE */,
 				BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */,
 				BA5511B6136C9D780012B9B5 /* Info.plist */,
+				C9A43CAB15374DB200388D0C /* alloc_once_private.h */,
 				BA5511B7136C9D780012B9B5 /* init.c */,
 				BA5511B9136C9D780012B9B5 /* optionallibs */,
 				BA5511BA136C9D780012B9B5 /* requiredlibs */,
@@ -145,6 +148,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C9A43CAC15374DB200388D0C /* alloc_once_private.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -272,48 +276,22 @@
 /* Begin XCBuildConfiguration section */
 		BA5511AF136C9D400012B9B5 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;
 		};
 		BA5511C6136C9E2E0012B9B5 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BA5511BC136C9D960012B9B5 /* BSD.xcconfig */;
+			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_VERSION_STRING_ = 159;
-				CURRENT_VERSION_STRING_YES = "$(CURRENT_PROJECT_VERSION)";
-				DYLIB_CURRENT_VERSION = "$(CURRENT_VERSION_STRING_$(RC_XBS))";
-				EXECUTABLE_PREFIX = lib;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/lib;
-				LD_GENERATE_MAP_FILE = YES;
-				LIBRARY_SEARCH_PATHS = (
-					"$(SDKROOT)/usr/lib/system",
-					"$(SDKROOT)/usr/local/lib/system",
-				);
-				ORDER_FILE = "$(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/libSystem.order";
-				"ORDER_FILE[sdk=iphonesimulator*]" = "";
-				OTHER_LDFLAGS = (
-					"-Wl,-search_paths_first",
-					"-nodefaultlibs",
-					"@$(BUILT_PRODUCTS_DIR)/linker_arguments.$(CURRENT_ARCH).$(CURRENT_VARIANT).txt",
-				);
 				PRODUCT_NAME = "$(TARGET_NAME).B";
 			};
 			name = Release;
 		};
 		BA5511D1136CA8480012B9B5 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BA5511BC136C9D960012B9B5 /* BSD.xcconfig */;
+			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,
@@ -325,7 +303,7 @@
 		};
 		BA5511D8136D22ED0012B9B5 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BA5511BC136C9D960012B9B5 /* BSD.xcconfig */;
+			baseConfigurationReference = C9B56C55153751A600C153A8 /* Libsystem.xcconfig */;
 			buildSettings = {
 				BUILD_VARIANTS = (
 					normal,

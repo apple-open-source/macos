@@ -45,6 +45,7 @@
 #include "InspectorDOMAgent.h"
 #include "InspectorDOMStorageAgent.h"
 #include "InspectorDatabaseAgent.h"
+#include "InspectorDebuggerAgent.h"
 #include "InspectorFrontend.h"
 #include "InspectorValues.h"
 #include "Pasteboard.h"
@@ -76,7 +77,6 @@ InjectedScriptHost::InjectedScriptHost()
 #endif
     , m_domStorageAgent(0)
     , m_domAgent(0)
-    , m_lastWorkerId(1 << 31) // Distinguish ids of fake workers from real ones, to minimize the chances they overlap.
 {
     m_defaultInspectableObject = adoptPtr(new InspectableObject());
 }
@@ -120,7 +120,7 @@ void InjectedScriptHost::clearConsoleMessages()
 
 void InjectedScriptHost::copyText(const String& text)
 {
-    Pasteboard::generalPasteboard()->writePlainText(text);
+    Pasteboard::generalPasteboard()->writePlainText(text, Pasteboard::CannotSmartReplace);
 }
 
 ScriptValue InjectedScriptHost::InspectableObject::get(ScriptState*)
@@ -130,7 +130,7 @@ ScriptValue InjectedScriptHost::InspectableObject::get(ScriptState*)
 
 void InjectedScriptHost::addInspectedObject(PassOwnPtr<InjectedScriptHost::InspectableObject> object)
 {
-    m_inspectedObjects.prepend(object);
+    m_inspectedObjects.insert(0, object);
     while (m_inspectedObjects.size() > 5)
         m_inspectedObjects.removeLast();
 }
@@ -163,24 +163,13 @@ String InjectedScriptHost::storageIdImpl(Storage* storage)
     return String();
 }
 
-#if ENABLE(WORKERS)
-long InjectedScriptHost::nextWorkerId()
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+ScriptDebugServer& InjectedScriptHost::scriptDebugServer()
 {
-    return ++m_lastWorkerId;
+    return m_debuggerAgent->scriptDebugServer();
 }
+#endif
 
-void InjectedScriptHost::didCreateWorker(long id, const String& url, bool isSharedWorker)
-{
-    if (m_inspectorAgent)
-        m_inspectorAgent->didCreateWorker(static_cast<int>(id), url, isSharedWorker);
-}
-
-void InjectedScriptHost::didDestroyWorker(long id)
-{
-    if (m_inspectorAgent)
-        m_inspectorAgent->didDestroyWorker(static_cast<int>(id));
-}
-#endif // ENABLE(WORKERS)
 
 } // namespace WebCore
 

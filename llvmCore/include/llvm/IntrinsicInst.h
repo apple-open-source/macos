@@ -34,9 +34,9 @@ namespace llvm {
   /// functions.  This allows the standard isa/dyncast/cast functionality to
   /// work with calls to intrinsic functions.
   class IntrinsicInst : public CallInst {
-    IntrinsicInst();                      // DO NOT IMPLEMENT
-    IntrinsicInst(const IntrinsicInst&);  // DO NOT IMPLEMENT
-    void operator=(const IntrinsicInst&); // DO NOT IMPLEMENT
+    IntrinsicInst() LLVM_DELETED_FUNCTION;
+    IntrinsicInst(const IntrinsicInst&) LLVM_DELETED_FUNCTION;
+    void operator=(const IntrinsicInst&) LLVM_DELETED_FUNCTION;
   public:
     /// getIntrinsicID - Return the intrinsic ID of this intrinsic.
     ///
@@ -271,34 +271,6 @@ namespace llvm {
     static inline bool classof(const MemMoveInst *) { return true; }
     static inline bool classof(const IntrinsicInst *I) {
       return I->getIntrinsicID() == Intrinsic::memmove;
-    }
-    static inline bool classof(const Value *V) {
-      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
-    }
-  };
-
-  /// EHExceptionInst - This represents the llvm.eh.exception instruction.
-  ///
-  class EHExceptionInst : public IntrinsicInst {
-  public:
-    // Methods for support type inquiry through isa, cast, and dyn_cast:
-    static inline bool classof(const EHExceptionInst *) { return true; }
-    static inline bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::eh_exception;
-    }
-    static inline bool classof(const Value *V) {
-      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
-    }
-  };
-
-  /// EHSelectorInst - This represents the llvm.eh.selector instruction.
-  ///
-  class EHSelectorInst : public IntrinsicInst {
-  public:
-    // Methods for support type inquiry through isa, cast, and dyn_cast:
-    static inline bool classof(const EHSelectorInst *) { return true; }
-    static inline bool classof(const IntrinsicInst *I) {
-      return I->getIntrinsicID() == Intrinsic::eh_selector;
     }
     static inline bool classof(const Value *V) {
       return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));

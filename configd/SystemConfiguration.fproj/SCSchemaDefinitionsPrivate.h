@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,9 @@
  * Network Entity Keys
  *
  *   kSCEntNetCommCenter                                "com.apple.CommCenter"         CFDictionary
+ *   kSCEntNetAppLayer                                  "AppLayer"                     CFDictionary
  *   kSCEntNetEAPOL                                     "EAPOL"                        CFDictionary
+ *   kSCEntNetLinkIssues                                "LinkIssues"                   CFDictionary
  *   kSCEntNetLinkQuality                               "LinkQuality"                  CFDictionary
  *   kSCEntNetLoopback                                  "Loopback"                     CFDictionary
  *   kSCEntNetOnDemand                                  "OnDemand"                     CFDictionary
@@ -49,6 +51,11 @@
  *
  *   kSCPropNetCommCenterAllowNetworkAccess             "AllowNetworkAccess"           CFNumber (0 or 1)
  *   kSCPropNetCommCenterAvailable                      "Available"                    CFNumber (0 or 1)
+ *
+ * kSCEntNetDNS Entity Keys
+ *
+ *   kSCPropNetDNSServiceIdentifier                     "ServiceIdentifier"            CFNumber
+ *   kSCPropNetDNSSupplementalMatchDomainsNoSearch      "SupplementalMatchDomainsNoSearch" CFNumber (0 or 1)
  *
  * kSCEntNetEthernet (Hardware) Entity Keys
  *
@@ -69,6 +76,8 @@
  *   kSCValNetInterfaceTypeLoopback                     "Loopback"
  *   kSCValNetInterfaceTypeVPN                          "VPN"
  *
+ *   kSCPropNetIPSecDisconnectOnWake                    "DisconnectOnWake"             CFNumber (0 or 1)
+ *   kSCPropNetIPSecDisconnectOnWakeTimer               "DisconnectOnWakeTimer"        CFNumber
  * kSCEntNetIPSec Entity Keys
  *
  *   kSCPropNetIPSecLastCause                           "LastCause"                    CFNumber
@@ -105,10 +114,18 @@
  *   kSCPropNetIPv6RoutePrefixLength                    "PrefixLength"                 CFNumber
  *   kSCPropNetIPv6RouteGatewayAddress                  "GatewayAddress"               CFString
  *
+ * kSCEntNetLinkIssues Entity Keys
+ *
+ *   kSCPropNetLinkIssuesModuleID                       "ModuleID"                     CFData
+ *   kSCPropNetLinkIssuesInfo                           "Info"                         CFData
+ *   kSCPropNetLinkIssuesTimeStamp                      "TimeStamp"                    CFDATE
+ *
  * kSCEntNetLinkQuality Entity Keys
  *
  *   kSCPropNetLinkQuality                              "LinkQuality"                  CFNumber
  *
+ *   kSCPropNetPPPDisconnectOnWake                      "DisconnectOnWake"             CFNumber (0 or 1)
+ *   kSCPropNetPPPDisconnectOnWakeTimer                 "DisconnectOnWakeTimer"        CFNumber
  * kSCEntNetPPP Entity Keys
  *
  *   --- OnDemand: ---
@@ -133,10 +150,13 @@
  *
  * kSCEntNetProxies Entity Keys
  *
+ *   kSCPropNetProxiesBypassAllowed                     "BypassAllowed"                CFNumber (0 or 1)
+ *   kSCPropNetProxiesFallBackAllowed                   "FallBackAllowed"              CFNumber (0 or 1)
  *   kSCPropNetProxiesSupplementalMatchDomains          "SupplementalMatchDomains"     CFArray[CFString]
  *   kSCPropNetProxiesSupplementalMatchOrders           "SupplementalMatchOrders"      CFArray[CFNumber]
  *
  *   kSCPropNetProxiesScoped                            "__SCOPED__"                   CFDictionary
+ *   kSCPropNetProxiesServices                          "__SERVICES__"                 CFDictionary
  *   kSCPropNetProxiesSupplemental                      "__SUPPLEMENTAL__"             CFArray[CFDictionary]
  *   kSCPropNetProxiesSupplementalMatchDomain           "__MATCH_DOMAIN__"             CFString
  *
@@ -152,9 +172,12 @@
  *
  * kSCEntNetVPN Entity Keys
  *
+ *   kSCPropNetVPNAppRules                              "AppRules"                     CFArray[CFDictionary]
+ *   kSCPropNetVPNAuthCredentialPassword                "AuthCredentialPassword"       CFString
  *   kSCPropNetVPNAuthName                              "AuthName"                     CFString
  *   kSCPropNetVPNAuthPassword                          "AuthPassword"                 CFString
  *   kSCPropNetVPNAuthPasswordEncryption                "AuthPasswordEncryption"       CFString
+ *   kSCPropNetVPNAuthPasswordPluginType                "AuthPasswordPluginType"       CFString
  *   kSCPropNetVPNAuthenticationMethod                  "AuthenticationMethod"         CFString
  *   kSCPropNetVPNConnectTime                           "ConnectTime"                  CFString
  *   kSCPropNetVPNDisconnectOnFastUserSwitch            "DisconnectOnFastUserSwitch"   CFNumber (0 or 1)
@@ -162,24 +185,76 @@
  *   kSCPropNetVPNDisconnectOnIdleTimer                 "DisconnectOnIdleTimer"        CFNumber
  *   kSCPropNetVPNDisconnectOnLogout                    "DisconnectOnLogout"           CFNumber (0 or 1)
  *   kSCPropNetVPNDisconnectOnSleep                     "DisconnectOnSleep"            CFNumber (0 or 1)
+ *   kSCPropNetVPNDisconnectOnWake                      "DisconnectOnWake"             CFNumber (0 or 1)
+ *   kSCPropNetVPNDisconnectOnWakeTimer                 "DisconnectOnWakeTimer"        CFNumber
  *   kSCPropNetVPNLocalCertificate                      "LocalCertificate"             CFData
  *   kSCPropNetVPNLogfile                               "Logfile"                      CFString
  *   kSCPropNetVPNMTU                                   "MTU"                          CFNumber
  *   kSCPropNetVPNOnDemandEnabled                       "OnDemandEnabled"              CFNumber (0 or 1)
+ *   kSCPropNetVPNOnDemandMatchAppEnabled               "OnDemandMatchAppEnabled"      CFBoolean
  *   kSCPropNetVPNOnDemandMatchDomainsAlways            "OnDemandMatchDomainsAlways"   CFArray[CFString]
  *   kSCPropNetVPNOnDemandMatchDomainsOnRetry           "OnDemandMatchDomainsOnRetry"  CFArray[CFString]
  *   kSCPropNetVPNOnDemandMatchDomainsNever             "OnDemandMatchDomainsNever"    CFArray[CFString]
+ *   kSCPropNetVPNOnDemandRules                         "OnDemandRules"                CFArray[CFDictionary]
+ *   kSCPropNetVPNOnDemandSuspended                     "OnDemandSuspended"            CFNumber
+ *   kSCPropNetVPNPluginCapability                      "PluginCapability"             CFString
  *   kSCPropNetVPNRemoteAddress                         "RemoteAddress"                CFString
  *   kSCPropNetVPNStatus                                "Status"                       CFNumber
  *   kSCPropNetVPNVerboseLogging                        "VerboseLogging"               CFNumber (0 or 1)
+ *
+ *   --- kSCPropNetVPNAppRules [CFDictionary] keys ---
+ *   kSCValNetVPNAppRuleAccountIdentifierMatch          "AccountIdentifierMatch"       CFArray[CFString]
+ *   kSCValNetVPNAppRuleDNSDomainMatch                  "DNSDomainMatch"               CFArray[CFString]
+ *   kSCValNetVPNAppRuleExecutableMatch                 "ExecutableMatch"              CFArray[CFDictionary]
+ *   kSCValNetVPNAppRuleIdentifier                      "Identifier"                   CFString
+ *
+ *   --- kSCValNetVPNAppRuleExecutableMatch [CFDictionary] keys ---
+ *   kSCValNetVPNAppRuleExecutableDesignatedRequirement "DesignatedRequirement"        CFString
+ *   kSCValNetVPNAppRuleExecutableSigningIdentifier     "SigningIdentifier"            CFString
  *
  *   --- kSCPropNetVPNAuthenticationMethod values ---
  *   kSCValNetVPNAuthenticationMethodPassword           "Password"
  *   kSCValNetVPNAuthenticationMethodCertificate        "Certificate"
  *
  *   --- kSCPropNetVPNAuthPasswordEncryption values ---
+ *   kSCValNetVPNAuthPasswordEncryptionExternal         "External"
  *   kSCValNetVPNAuthPasswordEncryptionKeychain         "Keychain"
  *   kSCValNetVPNAuthPasswordEncryptionPrompt           "Prompt"
+ *
+ *   --- kSCPropNetVPNOnDemandRules [CFDictionary] keys ---
+ *   kSCPropNetVPNOnDemandRuleAction                    "Action"                       CFString
+ *   kSCPropNetVPNOnDemandRuleActionParameters          "ActionParameters"             CFArray[CFDictionary]
+ *   kSCPropNetVPNOnDemandRuleDNSDomainMatch            "DNSDomainMatch"               CFArray[CFString]
+ *   kSCPropNetVPNOnDemandRuleDNSServerAddressMatch     "DNSServerAddressMatch"        CFArray[CFString]
+ *   kSCPropNetVPNOnDemandRuleSSIDMatch                 "SSIDMatch"                    CFArray[CFString]
+ *   kSCPropNetVPNOnDemandRuleInterfaceTypeMatch        "InterfaceTypeMatch"           CFString
+ *   kSCPropNetVPNOnDemandRuleURLStringProbe            "URLStringProbe"               CFString
+ *
+ *   --- kSCPropNetVPNOnDemandRuleAction values ---
+ *   kSCValNetVPNOnDemandRuleActionAllow                "Allow"
+ *   kSCValNetVPNOnDemandRuleActionIgnore               "Ignore"
+ *   kSCValNetVPNOnDemandRuleActionConnect              "Connect"
+ *   kSCValNetVPNOnDemandRuleActionDisconnect           "Disconnect"
+ *   kSCValNetVPNOnDemandRuleActionEvaluateConnection   "EvaluateConnection"
+ *
+ *   --- kSCPropNetVPNOnDemandRuleActionParameters [CFDictionary] keys ---
+ *   kSCPropNetVPNOnDemandRuleActionParametersDomainAction "DomainAction"                 CFString
+ *   kSCPropNetVPNOnDemandRuleActionParametersDomains   "Domains"                      CFArray[CFString]
+ *   kSCPropNetVPNOnDemandRuleActionParametersRequiredDNSServers "RequiredDNSServers"           CFArray[CFString]
+ *   kSCPropNetVPNOnDemandRuleActionParametersRequiredURLStringProbe "RequiredURLStringProbe"       CFString
+ *
+ *   --- kSCPropNetVPNOnDemandRuleActionParametersDomainAction values ---
+ *   kSCValNetVPNOnDemandRuleActionParametersDomainActionConnectIfNeeded "ConnectIfNeeded"
+ *   kSCValNetVPNOnDemandRuleActionParametersDomainActionNeverConnect "NeverConnect"
+ *
+ *   --- kSCPropNetVPNOnDemandRuleInterfaceTypeMatch values ---
+ *   kSCValNetVPNOnDemandRuleInterfaceTypeMatchCellular "Cellular"
+ *   kSCValNetVPNOnDemandRuleInterfaceTypeMatchEthernet "Ethernet"
+ *   kSCValNetVPNOnDemandRuleInterfaceTypeMatchWiFi     "WiFi"
+ *
+ *   --- kSCPropNetVPNPluginCapability values ---
+ *   kSCValNetVPNPluginCapabilityAuth                   "Auth"
+ *   kSCValNetVPNPluginCapabilityConnect                "Connect"
  *
  * kSCCompSystem Properties
  *
@@ -237,10 +312,22 @@ extern const CFStringRef kSCPrefVirtualNetworkInterfaces;
 extern const CFStringRef kSCEntNetCommCenter;
 
 /*!
+  @const kSCEntNetAppLayer
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCEntNetAppLayer;
+
+/*!
   @const kSCEntNetEAPOL
   @availability Introduced in Mac OS X 10.5.
  */
 extern const CFStringRef kSCEntNetEAPOL;
+
+/*!
+  @const kSCEntNetLinkIssues
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCEntNetLinkIssues;
 
 /*!
   @const kSCEntNetLinkQuality
@@ -297,6 +384,22 @@ extern const CFStringRef kSCPropNetCommCenterAllowNetworkAccess;
   @availability Introduced in iPhone OS 2.0.
  */
 extern const CFStringRef kSCPropNetCommCenterAvailable;
+
+/*!
+  @group kSCEntNetDNS Entity Keys
+ */
+
+/*!
+  @const kSCPropNetDNSServiceIdentifier
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetDNSServiceIdentifier;
+
+/*!
+  @const kSCPropNetDNSSupplementalMatchDomainsNoSearch
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetDNSSupplementalMatchDomainsNoSearch;
 
 /*!
   @group kSCEntNetEthernet (Hardware) Entity Keys
@@ -377,6 +480,18 @@ extern const CFStringRef kSCValNetInterfaceTypeLoopback;
   @availability Introduced in Mac OS X 10.7.
  */
 extern const CFStringRef kSCValNetInterfaceTypeVPN;
+
+/*!
+  @const kSCPropNetIPSecDisconnectOnWake
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetIPSecDisconnectOnWake;
+
+/*!
+  @const kSCPropNetIPSecDisconnectOnWakeTimer
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetIPSecDisconnectOnWakeTimer;
 
 /*!
   @group kSCEntNetIPSec Entity Keys
@@ -499,6 +614,28 @@ extern const CFStringRef kSCPropNetIPv6RoutePrefixLength;
 extern const CFStringRef kSCPropNetIPv6RouteGatewayAddress;
 
 /*!
+  @group kSCEntNetLinkIssues Entity Keys
+ */
+
+/*!
+  @const kSCPropNetLinkIssuesModuleID
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetLinkIssuesModuleID;
+
+/*!
+  @const kSCPropNetLinkIssuesInfo
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetLinkIssuesInfo;
+
+/*!
+  @const kSCPropNetLinkIssuesTimeStamp
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetLinkIssuesTimeStamp;
+
+/*!
   @group kSCEntNetLinkQuality Entity Keys
  */
 
@@ -507,6 +644,18 @@ extern const CFStringRef kSCPropNetIPv6RouteGatewayAddress;
   @availability Introduced in Mac OS X 10.7.
  */
 extern const CFStringRef kSCPropNetLinkQuality;
+
+/*!
+  @const kSCPropNetPPPDisconnectOnWake
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetPPPDisconnectOnWake;
+
+/*!
+  @const kSCPropNetPPPDisconnectOnWakeTimer
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetPPPDisconnectOnWakeTimer;
 
 /*!
   @group kSCEntNetPPP Entity Keys
@@ -601,6 +750,18 @@ extern const CFStringRef kSCValNetPPPOnDemandPriorityLow;
  */
 
 /*!
+  @const kSCPropNetProxiesBypassAllowed
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetProxiesBypassAllowed;
+
+/*!
+  @const kSCPropNetProxiesFallBackAllowed
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetProxiesFallBackAllowed;
+
+/*!
   @const kSCPropNetProxiesSupplementalMatchDomains
   @availability Introduced in Mac OS X 10.7.
  */
@@ -617,6 +778,12 @@ extern const CFStringRef kSCPropNetProxiesSupplementalMatchOrders;
   @availability Introduced in Mac OS X 10.7.
  */
 extern const CFStringRef kSCPropNetProxiesScoped;
+
+/*!
+  @const kSCPropNetProxiesServices
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetProxiesServices;
 
 /*!
   @const kSCPropNetProxiesSupplemental
@@ -669,6 +836,18 @@ extern const CFStringRef kSCValNetServicePrimaryRankNever;
  */
 
 /*!
+  @const kSCPropNetVPNAppRules
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNAppRules;
+
+/*!
+  @const kSCPropNetVPNAuthCredentialPassword
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNAuthCredentialPassword;
+
+/*!
   @const kSCPropNetVPNAuthName
   @availability Introduced in Mac OS X 10.7.
  */
@@ -685,6 +864,12 @@ extern const CFStringRef kSCPropNetVPNAuthPassword;
   @availability Introduced in Mac OS X 10.7.
  */
 extern const CFStringRef kSCPropNetVPNAuthPasswordEncryption;
+
+/*!
+  @const kSCPropNetVPNAuthPasswordPluginType
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNAuthPasswordPluginType;
 
 /*!
   @const kSCPropNetVPNAuthenticationMethod
@@ -729,6 +914,18 @@ extern const CFStringRef kSCPropNetVPNDisconnectOnLogout;
 extern const CFStringRef kSCPropNetVPNDisconnectOnSleep;
 
 /*!
+  @const kSCPropNetVPNDisconnectOnWake
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNDisconnectOnWake;
+
+/*!
+  @const kSCPropNetVPNDisconnectOnWakeTimer
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNDisconnectOnWakeTimer;
+
+/*!
   @const kSCPropNetVPNLocalCertificate
   @availability Introduced in Mac OS X 10.7.
  */
@@ -753,6 +950,12 @@ extern const CFStringRef kSCPropNetVPNMTU;
 extern const CFStringRef kSCPropNetVPNOnDemandEnabled;
 
 /*!
+  @const kSCPropNetVPNOnDemandMatchAppEnabled
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandMatchAppEnabled;
+
+/*!
   @const kSCPropNetVPNOnDemandMatchDomainsAlways
   @availability Introduced in Mac OS X 10.7.
  */
@@ -769,6 +972,24 @@ extern const CFStringRef kSCPropNetVPNOnDemandMatchDomainsOnRetry;
   @availability Introduced in Mac OS X 10.7.
  */
 extern const CFStringRef kSCPropNetVPNOnDemandMatchDomainsNever;
+
+/*!
+  @const kSCPropNetVPNOnDemandRules
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRules;
+
+/*!
+  @const kSCPropNetVPNOnDemandSuspended
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandSuspended;
+
+/*!
+  @const kSCPropNetVPNPluginCapability
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNPluginCapability;
 
 /*!
   @const kSCPropNetVPNRemoteAddress
@@ -789,6 +1010,42 @@ extern const CFStringRef kSCPropNetVPNStatus;
 extern const CFStringRef kSCPropNetVPNVerboseLogging;
 
 /*!
+  @const kSCValNetVPNAppRuleAccountIdentifierMatch
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNAppRuleAccountIdentifierMatch;
+
+/*!
+  @const kSCValNetVPNAppRuleDNSDomainMatch
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNAppRuleDNSDomainMatch;
+
+/*!
+  @const kSCValNetVPNAppRuleExecutableMatch
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNAppRuleExecutableMatch;
+
+/*!
+  @const kSCValNetVPNAppRuleIdentifier
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNAppRuleIdentifier;
+
+/*!
+  @const kSCValNetVPNAppRuleExecutableDesignatedRequirement
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNAppRuleExecutableDesignatedRequirement;
+
+/*!
+  @const kSCValNetVPNAppRuleExecutableSigningIdentifier
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNAppRuleExecutableSigningIdentifier;
+
+/*!
   @const kSCValNetVPNAuthenticationMethodPassword
   @availability Introduced in Mac OS X 10.7.
  */
@@ -801,6 +1058,12 @@ extern const CFStringRef kSCValNetVPNAuthenticationMethodPassword;
 extern const CFStringRef kSCValNetVPNAuthenticationMethodCertificate;
 
 /*!
+  @const kSCValNetVPNAuthPasswordEncryptionExternal
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNAuthPasswordEncryptionExternal;
+
+/*!
   @const kSCValNetVPNAuthPasswordEncryptionKeychain
   @availability Introduced in Mac OS X 10.7.
  */
@@ -811,6 +1074,144 @@ extern const CFStringRef kSCValNetVPNAuthPasswordEncryptionKeychain;
   @availability Introduced in Mac OS X 10.7.
  */
 extern const CFStringRef kSCValNetVPNAuthPasswordEncryptionPrompt;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleAction
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleAction;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleActionParameters
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleActionParameters;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleDNSDomainMatch
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleDNSDomainMatch;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleDNSServerAddressMatch
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleDNSServerAddressMatch;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleSSIDMatch
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleSSIDMatch;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleInterfaceTypeMatch
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleInterfaceTypeMatch;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleURLStringProbe
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleURLStringProbe;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleActionAllow
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleActionAllow;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleActionIgnore
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleActionIgnore;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleActionConnect
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleActionConnect;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleActionDisconnect
+  @availability Introduced in Mac OS X 10.8.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleActionDisconnect;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleActionEvaluateConnection
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleActionEvaluateConnection;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleActionParametersDomainAction
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleActionParametersDomainAction;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleActionParametersDomains
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleActionParametersDomains;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleActionParametersRequiredDNSServers
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleActionParametersRequiredDNSServers;
+
+/*!
+  @const kSCPropNetVPNOnDemandRuleActionParametersRequiredURLStringProbe
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCPropNetVPNOnDemandRuleActionParametersRequiredURLStringProbe;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleActionParametersDomainActionConnectIfNeeded
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleActionParametersDomainActionConnectIfNeeded;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleActionParametersDomainActionNeverConnect
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleActionParametersDomainActionNeverConnect;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleInterfaceTypeMatchCellular
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleInterfaceTypeMatchCellular;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleInterfaceTypeMatchEthernet
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleInterfaceTypeMatchEthernet;
+
+/*!
+  @const kSCValNetVPNOnDemandRuleInterfaceTypeMatchWiFi
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNOnDemandRuleInterfaceTypeMatchWiFi;
+
+/*!
+  @const kSCValNetVPNPluginCapabilityAuth
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNPluginCapabilityAuth;
+
+/*!
+  @const kSCValNetVPNPluginCapabilityConnect
+  @availability Introduced in Mac OS X 10.9.
+ */
+extern const CFStringRef kSCValNetVPNPluginCapabilityConnect;
 
 /*!
   @group kSCCompSystem Properties
@@ -893,10 +1294,22 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,CFDictionary                                     )
 
 
+  SC_SCHEMA_DECLARATION(kSCEntNetAppLayer, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCEntNetAppLayer                                             \
+	  SC_SCHEMA_KV(kSCEntNetAppLayer                                \
+		      ,"AppLayer"                                       \
+		      ,CFDictionary                                     )
+
   SC_SCHEMA_DECLARATION(kSCEntNetEAPOL, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
   #define kSCEntNetEAPOL                                                \
 	  SC_SCHEMA_KV(kSCEntNetEAPOL                                   \
 		      ,"EAPOL"                                          \
+		      ,CFDictionary                                     )
+
+  SC_SCHEMA_DECLARATION(kSCEntNetLinkIssues, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCEntNetLinkIssues                                           \
+	  SC_SCHEMA_KV(kSCEntNetLinkIssues                              \
+		      ,"LinkIssues"                                     \
 		      ,CFDictionary                                     )
 
   SC_SCHEMA_DECLARATION(kSCEntNetLinkQuality, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/))
@@ -935,6 +1348,18 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,"IgnoreLinkStatus"                               \
 		      ,CFBoolean                                        )
 
+
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSServiceIdentifier, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetDNSServiceIdentifier                                \
+	  SC_SCHEMA_KV(kSCPropNetDNSServiceIdentifier                   \
+		      ,"ServiceIdentifier"                              \
+		      ,CFNumber                                         )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetDNSSupplementalMatchDomainsNoSearch, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetDNSSupplementalMatchDomainsNoSearch                 \
+	  SC_SCHEMA_KV(kSCPropNetDNSSupplementalMatchDomainsNoSearch    \
+		      ,"SupplementalMatchDomainsNoSearch"               \
+		      ,CFNumber (0 or 1)                                )
 
   SC_SCHEMA_DECLARATION(kSCPropNetEthernetCapabilityAV, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/))
   #define kSCPropNetEthernetCapabilityAV                                \
@@ -1007,6 +1432,18 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 	  SC_SCHEMA_KV(kSCValNetInterfaceTypeVPN                        \
 		      ,"VPN"                                            \
 		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecDisconnectOnWake, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetIPSecDisconnectOnWake                               \
+	  SC_SCHEMA_KV(kSCPropNetIPSecDisconnectOnWake                  \
+		      ,"DisconnectOnWake"                               \
+		      ,CFNumber (0 or 1)                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetIPSecDisconnectOnWakeTimer, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetIPSecDisconnectOnWakeTimer                          \
+	  SC_SCHEMA_KV(kSCPropNetIPSecDisconnectOnWakeTimer             \
+		      ,"DisconnectOnWakeTimer"                          \
+		      ,CFNumber                                         )
 
   SC_SCHEMA_DECLARATION(kSCPropNetIPSecLastCause, __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0/*SPI*/))
   #define kSCPropNetIPSecLastCause                                      \
@@ -1116,10 +1553,40 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,"GatewayAddress"                                 \
 		      ,CFString                                         )
 
+  SC_SCHEMA_DECLARATION(kSCPropNetLinkIssuesModuleID, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetLinkIssuesModuleID                                  \
+	  SC_SCHEMA_KV(kSCPropNetLinkIssuesModuleID                     \
+		      ,"ModuleID"                                       \
+		      ,CFData                                           )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetLinkIssuesInfo, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetLinkIssuesInfo                                      \
+	  SC_SCHEMA_KV(kSCPropNetLinkIssuesInfo                         \
+		      ,"Info"                                           \
+		      ,CFData                                           )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetLinkIssuesTimeStamp, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetLinkIssuesTimeStamp                                 \
+	  SC_SCHEMA_KV(kSCPropNetLinkIssuesTimeStamp                    \
+		      ,"TimeStamp"                                      \
+		      ,CFDATE                                           )
+
   SC_SCHEMA_DECLARATION(kSCPropNetLinkQuality, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/))
   #define kSCPropNetLinkQuality                                         \
 	  SC_SCHEMA_KV(kSCPropNetLinkQuality                            \
 		      ,"LinkQuality"                                    \
+		      ,CFNumber                                         )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnWake, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetPPPDisconnectOnWake                                 \
+	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnWake                    \
+		      ,"DisconnectOnWake"                               \
+		      ,CFNumber (0 or 1)                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetPPPDisconnectOnWakeTimer, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetPPPDisconnectOnWakeTimer                            \
+	  SC_SCHEMA_KV(kSCPropNetPPPDisconnectOnWakeTimer               \
+		      ,"DisconnectOnWakeTimer"                          \
 		      ,CFNumber                                         )
 
   SC_SCHEMA_DECLARATION(kSCPropNetPPPOnDemandDomains, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))
@@ -1206,6 +1673,18 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,"Low"                                            \
 		      ,                                                 )
 
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesBypassAllowed, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetProxiesBypassAllowed                                \
+	  SC_SCHEMA_KV(kSCPropNetProxiesBypassAllowed                   \
+		      ,"BypassAllowed"                                  \
+		      ,CFNumber (0 or 1)                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesFallBackAllowed, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_6_0/*SPI*/))
+  #define kSCPropNetProxiesFallBackAllowed                              \
+	  SC_SCHEMA_KV(kSCPropNetProxiesFallBackAllowed                 \
+		      ,"FallBackAllowed"                                \
+		      ,CFNumber (0 or 1)                                )
+
   SC_SCHEMA_DECLARATION(kSCPropNetProxiesSupplementalMatchDomains, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/))
   #define kSCPropNetProxiesSupplementalMatchDomains                     \
 	  SC_SCHEMA_KV(kSCPropNetProxiesSupplementalMatchDomains        \
@@ -1222,6 +1701,12 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
   #define kSCPropNetProxiesScoped                                       \
 	  SC_SCHEMA_KV(kSCPropNetProxiesScoped                          \
 		      ,"__SCOPED__"                                     \
+		      ,CFDictionary                                     )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetProxiesServices, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetProxiesServices                                     \
+	  SC_SCHEMA_KV(kSCPropNetProxiesServices                        \
+		      ,"__SERVICES__"                                   \
 		      ,CFDictionary                                     )
 
   SC_SCHEMA_DECLARATION(kSCPropNetProxiesSupplemental, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/))
@@ -1266,6 +1751,18 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,"Never"                                          \
 		      ,                                                 )
 
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNAppRules, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNAppRules                                         \
+	  SC_SCHEMA_KV(kSCPropNetVPNAppRules                            \
+		      ,"AppRules"                                       \
+		      ,CFArray[CFDictionary]                            )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNAuthCredentialPassword, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNAuthCredentialPassword                           \
+	  SC_SCHEMA_KV(kSCPropNetVPNAuthCredentialPassword              \
+		      ,"AuthCredentialPassword"                         \
+		      ,CFString                                         )
+
   SC_SCHEMA_DECLARATION(kSCPropNetVPNAuthName, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
   #define kSCPropNetVPNAuthName                                         \
 	  SC_SCHEMA_KV(kSCPropNetVPNAuthName                            \
@@ -1282,6 +1779,12 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
   #define kSCPropNetVPNAuthPasswordEncryption                           \
 	  SC_SCHEMA_KV(kSCPropNetVPNAuthPasswordEncryption              \
 		      ,"AuthPasswordEncryption"                         \
+		      ,CFString                                         )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNAuthPasswordPluginType, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNAuthPasswordPluginType                           \
+	  SC_SCHEMA_KV(kSCPropNetVPNAuthPasswordPluginType              \
+		      ,"AuthPasswordPluginType"                         \
 		      ,CFString                                         )
 
   SC_SCHEMA_DECLARATION(kSCPropNetVPNAuthenticationMethod, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
@@ -1326,6 +1829,18 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,"DisconnectOnSleep"                              \
 		      ,CFNumber (0 or 1)                                )
 
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNDisconnectOnWake, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNDisconnectOnWake                                 \
+	  SC_SCHEMA_KV(kSCPropNetVPNDisconnectOnWake                    \
+		      ,"DisconnectOnWake"                               \
+		      ,CFNumber (0 or 1)                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNDisconnectOnWakeTimer, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNDisconnectOnWakeTimer                            \
+	  SC_SCHEMA_KV(kSCPropNetVPNDisconnectOnWakeTimer               \
+		      ,"DisconnectOnWakeTimer"                          \
+		      ,CFNumber                                         )
+
   SC_SCHEMA_DECLARATION(kSCPropNetVPNLocalCertificate, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
   #define kSCPropNetVPNLocalCertificate                                 \
 	  SC_SCHEMA_KV(kSCPropNetVPNLocalCertificate                    \
@@ -1350,6 +1865,12 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,"OnDemandEnabled"                                \
 		      ,CFNumber (0 or 1)                                )
 
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandMatchAppEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandMatchAppEnabled                          \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandMatchAppEnabled             \
+		      ,"OnDemandMatchAppEnabled"                        \
+		      ,CFBoolean                                        )
+
   SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandMatchDomainsAlways, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
   #define kSCPropNetVPNOnDemandMatchDomainsAlways                       \
 	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandMatchDomainsAlways          \
@@ -1367,6 +1888,24 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandMatchDomainsNever           \
 		      ,"OnDemandMatchDomainsNever"                      \
 		      ,CFArray[CFString]                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRules, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRules                                    \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRules                       \
+		      ,"OnDemandRules"                                  \
+		      ,CFArray[CFDictionary]                            )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandSuspended, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandSuspended                                \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandSuspended                   \
+		      ,"OnDemandSuspended"                              \
+		      ,CFNumber                                         )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNPluginCapability, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNPluginCapability                                 \
+	  SC_SCHEMA_KV(kSCPropNetVPNPluginCapability                    \
+		      ,"PluginCapability"                               \
+		      ,CFString                                         )
 
   SC_SCHEMA_DECLARATION(kSCPropNetVPNRemoteAddress, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
   #define kSCPropNetVPNRemoteAddress                                    \
@@ -1386,6 +1925,42 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,"VerboseLogging"                                 \
 		      ,CFNumber (0 or 1)                                )
 
+  SC_SCHEMA_DECLARATION(kSCValNetVPNAppRuleAccountIdentifierMatch, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNAppRuleAccountIdentifierMatch                     \
+	  SC_SCHEMA_KV(kSCValNetVPNAppRuleAccountIdentifierMatch        \
+		      ,"AccountIdentifierMatch"                         \
+		      ,CFArray[CFString]                                )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNAppRuleDNSDomainMatch, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNAppRuleDNSDomainMatch                             \
+	  SC_SCHEMA_KV(kSCValNetVPNAppRuleDNSDomainMatch                \
+		      ,"DNSDomainMatch"                                 \
+		      ,CFArray[CFString]                                )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNAppRuleExecutableMatch, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNAppRuleExecutableMatch                            \
+	  SC_SCHEMA_KV(kSCValNetVPNAppRuleExecutableMatch               \
+		      ,"ExecutableMatch"                                \
+		      ,CFArray[CFDictionary]                            )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNAppRuleIdentifier, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNAppRuleIdentifier                                 \
+	  SC_SCHEMA_KV(kSCValNetVPNAppRuleIdentifier                    \
+		      ,"Identifier"                                     \
+		      ,CFString                                         )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNAppRuleExecutableDesignatedRequirement, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNAppRuleExecutableDesignatedRequirement              \
+	  SC_SCHEMA_KV(kSCValNetVPNAppRuleExecutableDesignatedRequirement \
+		      ,"DesignatedRequirement"                          \
+		      ,CFString                                         )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNAppRuleExecutableSigningIdentifier, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNAppRuleExecutableSigningIdentifier                \
+	  SC_SCHEMA_KV(kSCValNetVPNAppRuleExecutableSigningIdentifier   \
+		      ,"SigningIdentifier"                              \
+		      ,CFString                                         )
+
   SC_SCHEMA_DECLARATION(kSCValNetVPNAuthenticationMethodPassword, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
   #define kSCValNetVPNAuthenticationMethodPassword                      \
 	  SC_SCHEMA_KV(kSCValNetVPNAuthenticationMethodPassword         \
@@ -1398,6 +1973,12 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
 		      ,"Certificate"                                    \
 		      ,                                                 )
 
+  SC_SCHEMA_DECLARATION(kSCValNetVPNAuthPasswordEncryptionExternal, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNAuthPasswordEncryptionExternal                    \
+	  SC_SCHEMA_KV(kSCValNetVPNAuthPasswordEncryptionExternal       \
+		      ,"External"                                       \
+		      ,                                                 )
+
   SC_SCHEMA_DECLARATION(kSCValNetVPNAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0/*SPI*/))
   #define kSCValNetVPNAuthPasswordEncryptionKeychain                    \
 	  SC_SCHEMA_KV(kSCValNetVPNAuthPasswordEncryptionKeychain       \
@@ -1408,6 +1989,139 @@ extern const CFStringRef kSCPropVirtualNetworkInterfacesVLANOptions;
   #define kSCValNetVPNAuthPasswordEncryptionPrompt                      \
 	  SC_SCHEMA_KV(kSCValNetVPNAuthPasswordEncryptionPrompt         \
 		      ,"Prompt"                                         \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleAction, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleAction                               \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleAction                  \
+		      ,"Action"                                         \
+		      ,CFString                                         )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleActionParameters, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleActionParameters                     \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleActionParameters        \
+		      ,"ActionParameters"                               \
+		      ,CFArray[CFDictionary]                            )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleDNSDomainMatch, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleDNSDomainMatch                       \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleDNSDomainMatch          \
+		      ,"DNSDomainMatch"                                 \
+		      ,CFArray[CFString]                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleDNSServerAddressMatch, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleDNSServerAddressMatch                \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleDNSServerAddressMatch   \
+		      ,"DNSServerAddressMatch"                          \
+		      ,CFArray[CFString]                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleSSIDMatch, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleSSIDMatch                            \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleSSIDMatch               \
+		      ,"SSIDMatch"                                      \
+		      ,CFArray[CFString]                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleInterfaceTypeMatch, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleInterfaceTypeMatch                   \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleInterfaceTypeMatch      \
+		      ,"InterfaceTypeMatch"                             \
+		      ,CFString                                         )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleURLStringProbe, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleURLStringProbe                       \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleURLStringProbe          \
+		      ,"URLStringProbe"                                 \
+		      ,CFString                                         )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleActionAllow, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleActionAllow                           \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleActionAllow              \
+		      ,"Allow"                                          \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleActionIgnore, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleActionIgnore                          \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleActionIgnore             \
+		      ,"Ignore"                                         \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleActionConnect, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleActionConnect                         \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleActionConnect            \
+		      ,"Connect"                                        \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleActionDisconnect, __OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleActionDisconnect                      \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleActionDisconnect         \
+		      ,"Disconnect"                                     \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleActionEvaluateConnection, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleActionEvaluateConnection              \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleActionEvaluateConnection \
+		      ,"EvaluateConnection"                             \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleActionParametersDomainAction, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleActionParametersDomainAction              \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleActionParametersDomainAction \
+		      ,"DomainAction"                                   \
+		      ,CFString                                         )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleActionParametersDomains, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleActionParametersDomains              \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleActionParametersDomains \
+		      ,"Domains"                                        \
+		      ,CFArray[CFString]                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleActionParametersRequiredDNSServers, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleActionParametersRequiredDNSServers              \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleActionParametersRequiredDNSServers \
+		      ,"RequiredDNSServers"                             \
+		      ,CFArray[CFString]                                )
+
+  SC_SCHEMA_DECLARATION(kSCPropNetVPNOnDemandRuleActionParametersRequiredURLStringProbe, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCPropNetVPNOnDemandRuleActionParametersRequiredURLStringProbe              \
+	  SC_SCHEMA_KV(kSCPropNetVPNOnDemandRuleActionParametersRequiredURLStringProbe \
+		      ,"RequiredURLStringProbe"                         \
+		      ,CFString                                         )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleActionParametersDomainActionConnectIfNeeded, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleActionParametersDomainActionConnectIfNeeded              \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleActionParametersDomainActionConnectIfNeeded \
+		      ,"ConnectIfNeeded"                                \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleActionParametersDomainActionNeverConnect, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleActionParametersDomainActionNeverConnect              \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleActionParametersDomainActionNeverConnect \
+		      ,"NeverConnect"                                   \
+		      ,                                                 )
+
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleInterfaceTypeMatchEthernet, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleInterfaceTypeMatchEthernet              \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleInterfaceTypeMatchEthernet \
+		      ,"Ethernet"                                       \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNOnDemandRuleInterfaceTypeMatchWiFi, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNOnDemandRuleInterfaceTypeMatchWiFi                \
+	  SC_SCHEMA_KV(kSCValNetVPNOnDemandRuleInterfaceTypeMatchWiFi   \
+		      ,"WiFi"                                           \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNPluginCapabilityAuth, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNPluginCapabilityAuth                              \
+	  SC_SCHEMA_KV(kSCValNetVPNPluginCapabilityAuth                 \
+		      ,"Auth"                                           \
+		      ,                                                 )
+
+  SC_SCHEMA_DECLARATION(kSCValNetVPNPluginCapabilityConnect, __OSX_AVAILABLE_STARTING(__MAC_10_9,__IPHONE_7_0/*SPI*/))
+  #define kSCValNetVPNPluginCapabilityConnect                           \
+	  SC_SCHEMA_KV(kSCValNetVPNPluginCapabilityConnect              \
+		      ,"Connect"                                        \
 		      ,                                                 )
 
   SC_SCHEMA_DECLARATION(kSCPropSystemComputerNameRegion, __OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/))

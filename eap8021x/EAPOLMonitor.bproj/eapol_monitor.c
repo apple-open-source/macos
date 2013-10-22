@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,11 +64,12 @@
 #include "EAPOLControlTypesPrivate.h"
 #include "SupplicantTypes.h"
 #include "EAPClientTypes.h"
+#include "EAPLog.h"
+#include "EAPOLControlPrefs.h"
 
 #include "UserEventAgentInterface.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <syslog.h>
 
 #define MY_BUNDLE_ID	CFSTR("com.apple.UserEventAgent.EAPOLMonitor")
 
@@ -119,7 +120,6 @@ typedef struct {
     } settings_change;
 } MyType;
 
-static bool				S_verbose;
 static bool				S_auto_connect;
 
 /**
@@ -184,24 +184,6 @@ my_CFStringCopyComponent(CFStringRef path, CFStringRef separator,
     my_CFRelease(&arr);
     return (component);
 
-}
-
-static void
-my_log(int priority, const char *message, ...)
-{
-    va_list 		ap;
-
-    if (priority == LOG_DEBUG) {
-	if (S_verbose == FALSE)
-	    return;
-	priority = LOG_NOTICE;
-    }
-
-    va_start(ap, message);
-    vsyslog(priority, message, ap);
-    va_end(ap);
-
-    return;
 }
 
 static CFStringRef
@@ -513,7 +495,7 @@ MonitoredInterfaceStartAuthentication(MonitoredInterfaceRef mon,
 				 1, 
 				 &kCFTypeDictionaryKeyCallBacks,
 				 &kCFTypeDictionaryValueCallBacks);
-    my_log(LOG_NOTICE,
+    EAPLOG(LOG_NOTICE,
 	   "EAPOLMonitor: %s starting %s",
 	   mon->if_name,
 	   (profile == NULL) ? "(Default Settings)" : "(Profile)");
@@ -526,7 +508,7 @@ MonitoredInterfaceStartAuthentication(MonitoredInterfaceRef mon,
     }
     else {
 	/* XXX how to handle this ? */
-	my_log(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAPOLMonitor: %s start failed %d %s",
 	       mon->if_name,
 	       (profile == NULL) ? "(Default Settings)" : "(Profile)");
@@ -556,10 +538,10 @@ MonitoredInterfaceStopAuthentication(MonitoredInterfaceRef mon)
 {
     int			status;
 
-    my_log(LOG_NOTICE, "EAPOLMonitor: %s stopping", mon->if_name);
+    EAPLOG(LOG_NOTICE, "EAPOLMonitor: %s stopping", mon->if_name);
     status = EAPOLControlStop(mon->if_name);
     if (status != 0) {
-	my_log(LOG_NOTICE,
+	EAPLOG(LOG_NOTICE,
 	       "EAPOLMonitor: %s stop failed with %d",
 	       mon->if_name, status);
     }
@@ -575,7 +557,7 @@ MonitoredInterfaceStopIfNecessary(MonitoredInterfaceRef mon)
 
     error = EAPOLControlCopyStateAndStatus(mon->if_name, &control_state, &dict);
     if (error != 0) {
-	my_log(LOG_DEBUG,
+	EAPLOG(LOG_DEBUG,
 	       "EAPOLMonitor: EAPOLControlCopyStateAndStatus(%s) returned %d",
 	       mon->if_name, error);
 	return;
@@ -614,7 +596,7 @@ MonitoredInterfacePromptComplete(CFUserNotificationRef cfun,
 
     mon = MonitoredInterfaceLookupByCFUN(cfun);
     if (mon == NULL) {
-	my_log(LOG_ERR, "EAPOLMonitor: can't find user notification");
+	EAPLOG(LOG_ERR, "EAPOLMonitor: can't find user notification");
 	return;
     }
     switch (S_CFUserNotificationResponse(response_flags)) {
@@ -657,12 +639,12 @@ MonitoredInterfaceDisplayProfilePrompt(MonitoredInterfaceRef mon,
     MonitoredInterfaceReleasePrompt(mon);
     bundle = S_get_bundle();
     if (bundle == NULL) {
-	syslog(LOG_NOTICE, "EAPOLMonitor: can't find bundle");
+	EAPLOG(LOG_NOTICE, "EAPOLMonitor: can't find bundle");
 	return;
     }
     url = CFBundleCopyBundleURL(bundle);
     if (url == NULL) {
-	my_log(LOG_ERR, "EAPOLMonitor: can't find bundle URL");
+	EAPLOG(LOG_ERR, "EAPOLMonitor: can't find bundle URL");
 	goto done;
     }
     dict = CFDictionaryCreateMutable(NULL, 0,
@@ -704,14 +686,14 @@ MonitoredInterfaceDisplayProfilePrompt(MonitoredInterfaceRef mon,
     }
     cfun = CFUserNotificationCreate(NULL, 0, 0, &error, dict);
     if (cfun == NULL) {
-	my_log(LOG_ERR, "CFUserNotificationCreate() failed, %d", error);
+	EAPLOG(LOG_ERR, "CFUserNotificationCreate() failed, %d", error);
 	goto done;
     }
     rls = CFUserNotificationCreateRunLoopSource(NULL, cfun,
 						MonitoredInterfacePromptComplete,
 						0);
     if (rls == NULL) {
-	my_log(LOG_ERR, "CFUserNotificationCreateRunLoopSource() failed");
+	EAPLOG(LOG_ERR, "CFUserNotificationCreateRunLoopSource() failed");
 	my_CFRelease(&cfun);
     }
     else {
@@ -720,7 +702,7 @@ MonitoredInterfaceDisplayProfilePrompt(MonitoredInterfaceRef mon,
 	mon->cfun = cfun;
 	mon->profiles = CFRetain(context->profiles);
 	mon->state = kMonitorStatePrompting;
-	my_log(LOG_DEBUG, "EAPOLMonitor: %s prompting user",
+	EAPLOG(LOG_DEBUG, "EAPOLMonitor: %s prompting user",
 	       mon->if_name);
     }
 
@@ -749,7 +731,7 @@ MonitoredInterfaceProcessStatus(MonitoredInterfaceRef mon,
     if (S_get_plist_uint32(status_dict, kEAPOLControlUID, -1) != getuid()) {
 	return;
     }
-    my_log(LOG_DEBUG, "EAPOLMonitor: %s is %s", mon->if_name,
+    EAPLOG(LOG_DEBUG, "EAPOLMonitor: %s is %s", mon->if_name,
 	   SupplicantStateString(supp_state));
     manager_name = CFDictionaryGetValue(status_dict,
 					kEAPOLControlManagerName);
@@ -819,7 +801,7 @@ MonitoredInterfaceProcessStatus(MonitoredInterfaceRef mon,
 		}
 		else {
 		    /* if we *just* started the authentication, ignore this */
-		    my_log(LOG_DEBUG, "EAPOLMonitor: %s delay was %g seconds",
+		    EAPLOG(LOG_DEBUG, "EAPOLMonitor: %s delay was %g seconds",
 			   mon->if_name, now - mon->start_time);
 		}
 	    }
@@ -847,7 +829,7 @@ MonitoredInterfaceCheckStatus(MonitoredInterfaceRef mon)
     MonitoredInterfaceReleasePrompt(mon);
     error = EAPOLControlCopyStateAndStatus(mon->if_name, &control_state, &dict);
     if (error != 0) {
-	my_log(LOG_DEBUG,
+	EAPLOG(LOG_DEBUG,
 	       "EAPOLMonitor: EAPOLControlCopyStateAndStatus(%s) returned %d",
 	       mon->if_name, error);
 	return;
@@ -910,9 +892,9 @@ prompt_or_start(const void * key, const void * value, void * arg)
     if (mon == NULL) {
 	mon = MonitoredInterfaceCreate(if_name_cf);
     }
-    my_log(LOG_DEBUG, "EAPOLMonitor: %s auto-detected", mon->if_name);
+    EAPLOG(LOG_DEBUG, "EAPOLMonitor: %s auto-detected", mon->if_name);
     if (mon->ignore_until_link_status_changes) {
-	my_log(LOG_DEBUG, "EAPOLMonitor: %s ignoring until link status changes",
+	EAPLOG(LOG_DEBUG, "EAPOLMonitor: %s ignoring until link status changes",
 	       mon->if_name);
 	/* wait until the link status changes before dealing with this */
 	return;
@@ -938,21 +920,21 @@ prompt_or_start(const void * key, const void * value, void * arg)
 	    }
 	    else {
 		if (is_link_active(mon->if_name) == FALSE) {
-		    my_log(LOG_DEBUG,
+		    EAPLOG(LOG_DEBUG,
 			   "EAPOLMonitor: %s link isn't active",
 			   mon->if_name);
 		    return;
 		}
 		if (mon->require_fresh_detection && age_seconds > 2) {
 		    /* if the link status changed, wait for next packet */
-		    my_log(LOG_DEBUG,
+		    EAPLOG(LOG_DEBUG,
 			   "EAPOLMonitor: %s wait for a fresh detect",
 			   mon->if_name);
 		    return;
 		}
 		if (age_seconds > 30) {
 		    /* if it's been awhile, wait for the next packet */
-		    my_log(LOG_DEBUG,
+		    EAPLOG(LOG_DEBUG,
 			   "EAPOLMonitor: %s ignoring (%d seconds)",
 			   mon->if_name, age_seconds);
 		    return;
@@ -985,7 +967,7 @@ process_auto_detect_info(CFDictionaryRef auto_detect_info)
 {
     PromptStartContext		context;
 
-    my_log(LOG_DEBUG, "EAPOLMonitor: processing auto-detect information");
+    EAPLOG(LOG_DEBUG, "EAPOLMonitor: processing auto-detect information");
     PromptStartContextInit(&context);
     CFDictionaryApplyFunction(auto_detect_info, prompt_or_start, &context);
     PromptStartContextRelease(&context);
@@ -1091,6 +1073,19 @@ handle_changes(SCDynamicStoreRef store, CFArrayRef changes, void * info)
 }
 
 static void
+do_cleanup(SCDynamicStoreRef store, void * info)
+{
+    MonitoredInterfaceRef	mon;
+
+    /* configd went away, throw away all of our state */
+    EAPLOG(LOG_DEBUG, "EAPOLMonitor: cleaning up state");
+    while ((mon = LIST_FIRST(S_MonitoredInterfaceHead_p)) != NULL) {
+	MonitoredInterfaceRelease(&mon);
+    }
+    return;
+}
+
+static void
 check_settings(SCDynamicStoreRef store)
 {
     if (S_auto_connect) {
@@ -1098,7 +1093,7 @@ check_settings(SCDynamicStoreRef store)
 	CFDictionaryRef		auto_detect_info;
 	
 	if (S_on_console(store)) {
-	    my_log(LOG_DEBUG, "EAPOLMonitor: auto-connect enabled");
+	    EAPLOG(LOG_DEBUG, "EAPOLMonitor: auto-connect enabled");
 	    (void)EAPOLControlCopyAutoDetectInformation(&auto_detect_info);
 	    if (auto_detect_info != NULL) {
 		process_auto_detect_info(auto_detect_info);
@@ -1110,7 +1105,7 @@ check_settings(SCDynamicStoreRef store)
 	MonitoredInterfaceRef	scan;
 	
 	/* stop auto-connect */
-	my_log(LOG_NOTICE, "EAPOLMonitor: auto-connect disabled");
+	EAPLOG(LOG_NOTICE, "EAPOLMonitor: auto-connect disabled");
 	LIST_FOREACH(scan, S_MonitoredInterfaceHead_p, entries) {
 	    MonitoredInterfaceStopIfNecessary(scan);
 	    MonitoredInterfaceReleasePrompt(scan);
@@ -1128,13 +1123,22 @@ settings_changed(CFMachPortRef port, void * msg, CFIndex size, void * info)
     bool		auto_connect;
     MyType *		me = (MyType *)info;
 
-    my_log(LOG_DEBUG, "EAPOLMonitor: settings changed");
-    S_verbose = EAPOLControlIsUserAutoConnectVerboseEnabled();
+    EAPLOG(LOG_DEBUG, "EAPOLMonitor: settings changed");
     auto_connect = EAPOLControlIsUserAutoConnectEnabled();
     if (auto_connect != S_auto_connect) {
 	S_auto_connect = auto_connect;
 	check_settings(me->store);
     }
+    return;
+}
+
+static void
+check_prefs(SCPreferencesRef prefs)
+{
+    uint32_t	log_flags = EAPOLControlPrefsGetLogFlags();
+
+    EAPLogSetVerbose(log_flags != 0);
+    EAPOLControlPrefsSynchronize();
     return;
 }
 
@@ -1152,7 +1156,7 @@ add_settings_notification(MyType * me)
     status = notify_register_mach_port(kEAPOLControlUserSettingsNotifyKey,
 				       &notify_port, 0, &notify_token);
     if (status != NOTIFY_STATUS_OK) {
-	my_log(LOG_ERR, "EAPOLMonitor: notify_register_mach_port() failed");
+	EAPLOG(LOG_ERR, "EAPOLMonitor: notify_register_mach_port() failed");
 	return;
     }
     context.info = me;
@@ -1161,13 +1165,13 @@ add_settings_notification(MyType * me)
 					      &context,
 					      NULL);
     if (notify_port_cf == NULL) {
-	my_log(LOG_ERR, "EAPOLMonitor: CFMachPortCreateWithPort() failed");
+	EAPLOG(LOG_ERR, "EAPOLMonitor: CFMachPortCreateWithPort() failed");
 	(void)notify_cancel(notify_token);
 	return;
     }
     rls = CFMachPortCreateRunLoopSource(NULL, notify_port_cf, 0);
     if (rls == NULL) {
-	my_log(LOG_ERR, "EAPOLMonitor: CFMachPortCreateRunLoopSource() failed");
+	EAPLOG(LOG_ERR, "EAPOLMonitor: CFMachPortCreateRunLoopSource() failed");
 	CFRelease(notify_port_cf);
 	(void)notify_cancel(notify_token);
 	return;
@@ -1176,6 +1180,7 @@ add_settings_notification(MyType * me)
     CFRelease(rls);
     me->settings_change.mp = notify_port_cf;
     me->settings_change.token = notify_token;
+    check_prefs(EAPOLControlPrefsInit(CFRunLoopGetCurrent(), check_prefs));
     return;
 }
 
@@ -1196,7 +1201,7 @@ myInstall(void * myInstance)
     store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLMonitor"),
 				 handle_changes, &context);
     if (store == NULL) {
-	my_log(LOG_ERR,
+	EAPLOG(LOG_ERR,
 	       "EAPOLMonitor: SCDynamicStoreCreate failed, %s",
 	       SCErrorString(SCError()));
 	return;
@@ -1224,8 +1229,10 @@ myInstall(void * myInstance)
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
     me->store = store;
     me->rls = rls;
+
+    SCDynamicStoreSetDisconnectCallBack(store, do_cleanup);
+
     add_settings_notification(me);
-    S_verbose = EAPOLControlIsUserAutoConnectVerboseEnabled();
     S_auto_connect = EAPOLControlIsUserAutoConnectEnabled();
     check_settings(store);
     return;

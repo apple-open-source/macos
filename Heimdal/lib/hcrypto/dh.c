@@ -446,8 +446,6 @@ static const DH_METHOD dh_null_method = {
 #ifdef HAVE_CDSA
 extern const DH_METHOD _hc_dh_cdsa_method;
 static const DH_METHOD *dh_default_method = &_hc_dh_cdsa_method;
-#elif defined(__APPLE_TARGET_EMBEDDED__)
-static const DH_METHOD *dh_default_method = &dh_null_method;
 #elif defined(HEIM_HC_SF)
 extern const DH_METHOD _hc_dh_sf_method;
 static const DH_METHOD *dh_default_method = &_hc_dh_sf_method;
@@ -560,5 +558,5 @@ i2d_DHparams(DH *dh, unsigned char **pp)
 	*pp += size;
     }
 
-    return size;
+    return (int)size;
 }

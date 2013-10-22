@@ -64,14 +64,13 @@ get_end(void)
 {
 #ifndef __LP64__
 
-    static struct mach_header *mhp = NULL;
     struct segment_command *sgp;
     unsigned long _end;
     uint32_t i;
 #ifndef __OPENSTEP__
-	if(mhp == NULL)
-	    mhp = _NSGetMachExecuteHeader();
+    struct mach_header *mhp = _NSGetMachExecuteHeader();
 #else /* defined(__OPENSTEP__) */
+    static struct mach_header *mhp = NULL;
 	DECLARE_VAR(_mh_execute_header, struct mach_header);
 	SETUP_VAR(_mh_execute_header);
 
@@ -90,13 +89,11 @@ get_end(void)
 
 #else /* defined(__LP64__) */
 
-    static struct mach_header_64 *mhp = NULL;
+    struct mach_header_64 *mhp = _NSGetMachExecuteHeader();
     struct segment_command_64 *sgp;
     unsigned long _end;
     uint32_t i;
 
-	if(mhp == NULL)
-	    mhp = _NSGetMachExecuteHeader();
 	_end = 0;
 	sgp = (struct segment_command_64 *)
 	      ((char *)mhp + sizeof(struct mach_header_64));

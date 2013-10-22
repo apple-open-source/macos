@@ -29,7 +29,7 @@
 #include <stddef.h>
 #include <assert.h>
 
-#pragma mark ----- OCSP Request -----
+// MARK: ----- OCSP Request -----
 
 const SecAsn1Template kSecAsn1OCSPCertIDTemplate[] = {
     { SEC_ASN1_SEQUENCE,
@@ -107,7 +107,7 @@ const SecAsn1Template kSecAsn1OCSPSignedRequestTemplate[] = {
     { 0 }
 };
 
-#pragma mark ----- OCSP Response -----
+// MARK: ----- OCSP Response -----
 
 const SecAsn1Template kSecAsn1OCSPRevokedInfoTemplate[] = {
     { SEC_ASN1_SEQUENCE,
@@ -240,7 +240,7 @@ const SecAsn1Template kSecAsn1OCSPResponseTemplate[] = {
     { 0 }
 };
 
-#pragma mark ---- OCSPD RPC ----
+// MARK: ---- OCSPD RPC ----
 
 const SecAsn1Template kSecAsn1OCSPDRequestTemplate[] = {
     { SEC_ASN1_SEQUENCE,

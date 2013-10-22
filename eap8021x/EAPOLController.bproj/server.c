@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <syslog.h>
 #include <sys/errno.h>
 #include <signal.h>
 #include <mach/mach.h>
@@ -49,6 +48,7 @@
 #include "eapolcontroller_ext.h"
 #include "server.h"
 #include "myCFUtil.h"
+#include "EAPLog.h"
 
 extern boolean_t		eapolcontroller_server(mach_msg_header_t *, 
 						       mach_msg_header_t *);
@@ -84,26 +84,6 @@ my_CFPropertyListCreateVMData(CFPropertyListRef plist,
  done:
     my_CFRelease(&xml_data);
     return (data);
-}
-
-static CFPropertyListRef
-my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
-{
-    CFPropertyListRef	plist;
-    CFDataRef		xml_data;
-
-    xml_data = CFDataCreateWithBytesNoCopy(NULL, 
-					   (const UInt8 *)data, data_len,
-					   kCFAllocatorNull);
-    if (xml_data == NULL) {
-	return (NULL);
-    }
-    plist = CFPropertyListCreateFromXMLData(NULL,
-					    xml_data,
-					    kCFPropertyListImmutable,
-					    NULL);
-    CFRelease(xml_data);
-    return (plist);
 }
 
 static __inline__ void
@@ -151,7 +131,7 @@ eapolcontroller_copy_status(mach_port_t server,
     if (dict != NULL) {
 	*status = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, status_len);
 	if (*status == NULL) {
-	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
+	    EAPLOG_FL(LOG_NOTICE, "failed to serialize data");
 	}
     }
     my_CFRelease(&dict);
@@ -174,7 +154,7 @@ eapolcontroller_copy_loginwindow_config(mach_port_t server,
     if (dict != NULL) {
 	*config = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, config_len);
 	if (*config == NULL) {
-	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
+	    EAPLOG_FL(LOG_NOTICE, "failed to serialize data");
 	}
     }
     my_CFRelease(&dict);
@@ -195,7 +175,7 @@ eapolcontroller_copy_autodetect_info(mach_port_t server,
     if (dict != NULL) {
 	*info = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, info_len);
 	if (*info == NULL) {
-	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
+	    EAPLOG_FL(LOG_NOTICE, "failed to serialize data");
 	}
     }
     my_CFRelease(&dict);
@@ -356,14 +336,6 @@ eapolcontroller_retry(mach_port_t server,
 }
 
 kern_return_t
-eapolcontroller_set_logging(mach_port_t server, if_name_t if_name, 
-			    int32_t level, int * result)
-{
-    *result = ControllerSetLogLevel(if_name, S_uid, S_gid, level);
-    return (KERN_SUCCESS);
-}
-
-kern_return_t
 eapolcontroller_client_attach(mach_port_t server, task_t task,
 			      if_name_t if_name, 
 			      mach_port_t notify_port, 
@@ -392,7 +364,7 @@ eapolcontroller_client_attach(mach_port_t server, task_t task,
 	*control = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, 
 							       control_len);
 	if (*control == 0) {
-	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
+	    EAPLOG_FL(LOG_NOTICE, "failed to serialize data");
 	}
     }
     my_CFRelease(&dict);
@@ -428,7 +400,7 @@ eapolcontroller_client_getconfig(mach_port_t server,
 	*control = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, 
 							       control_len);
 	if (*control == NULL) {
-	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
+	    EAPLOG_FL(LOG_NOTICE, "failed to serialize data");
 	}
     }
     my_CFRelease(&dict);
@@ -513,8 +485,7 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	reply = (mach_msg_header_t *)(void *)reply_s;
         
 	if (eapolcontroller_server(request, reply) == FALSE) {
-	    syslog(LOG_NOTICE,
-		   "EAPOLController: unknown message ID (%d)",
+	    EAPLOG(LOG_NOTICE, "EAPOLController: unknown message ID (%d)",
 		   request->msgh_id);
 	    mach_msg_destroy(request);
 	}
@@ -534,7 +505,7 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 			 MACH_MSG_TIMEOUT_NONE,
 			 MACH_PORT_NULL);
 	    if (r != MACH_MSG_SUCCESS) {
-		syslog(LOG_NOTICE, "EAPOLController: mach_msg(send): %s", 
+		EAPLOG(LOG_NOTICE, "EAPOLController: mach_msg(send): %s", 
 		       mach_error_string(r));
 		mach_msg_destroy(reply);
 	    }
@@ -552,7 +523,7 @@ server_register(void)
     status = bootstrap_check_in(bootstrap_port, EAPOLCONTROLLER_SERVER, 
 				&server_port);
     if (status != BOOTSTRAP_SUCCESS) {
-	syslog(LOG_NOTICE, "EAPOLController: bootstrap_check_in failed, %s",
+	EAPLOG(LOG_NOTICE, "EAPOLController: bootstrap_check_in failed, %s",
 	       mach_error_string(status));
 	return;
     }

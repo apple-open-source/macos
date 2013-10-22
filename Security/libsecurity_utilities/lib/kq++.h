@@ -83,7 +83,7 @@ public:
 	Vnode() : KEvent(EVFILT_VNODE) { }
 	Vnode(int fd, uint32_t flags) : KEvent(EVFILT_VNODE, fd, flags) { }
 	
-	int fd() const { return this->ident; }
+	int fd() const { return (int)this->ident; }
 };
 
 } // namespace Event

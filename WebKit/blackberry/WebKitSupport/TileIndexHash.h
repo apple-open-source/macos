@@ -28,7 +28,7 @@ using BlackBerry::WebKit::TileIndex;
 namespace WTF {
 
 template<> struct IntHash<TileIndex> {
-    static unsigned hash(const TileIndex& key) { return intHash((static_cast<uint64_t>(key.i()) << 32 | key.j())); }
+    static unsigned hash(const TileIndex& key) { return pairIntHash(key.i(), key.j()); }
     static bool equal(const TileIndex& a, const TileIndex& b) { return a == b; }
     static const bool safeToCompareToEmptyOrDeleted = true;
 };
@@ -42,13 +42,11 @@ template<> struct HashTraits<TileIndex> : GenericHashTraits<TileIndex> {
     static TileIndex emptyValue() { return TileIndex(); }
     static void constructDeletedValue(TileIndex& slot)
     {
-        new (&slot) TileIndex(std::numeric_limits<unsigned int>::max() - 1,
-                              std::numeric_limits<unsigned int>::max() - 1);
+        new (&slot) TileIndex(std::numeric_limits<unsigned>::max() - 1, std::numeric_limits<unsigned>::max() - 1);
     }
     static bool isDeletedValue(const TileIndex& value)
     {
-        return value.i() == (std::numeric_limits<unsigned int>::max() - 1)
-               && value.j() == (std::numeric_limits<unsigned int>::max() - 1);
+        return value.i() == (std::numeric_limits<unsigned>::max() - 1) && value.j() == (std::numeric_limits<unsigned>::max() - 1);
     }
 };
 } // namespace WTF

@@ -1,0 +1,39 @@
+
+IO::Socket::SSL is a class implementing an object oriented
+interface to SSL sockets. The class is a descendent of
+IO::Socket::INET.
+
+In order to use IO::Socket::SSL you need to have Net::SSLeay
+v1.21 or newer installed but at least version 1.30 is recommended
+to support features like session caching.
+
+To support the checks for common name and subject alternative
+names (verify_hostname_of_cert) you need at least Net::SSLeay
+version 1.33. Unfortunatly this version was not yet released
+at the time IO::Socket::SSL version 1.14 was released, so you
+might try the release Net::SSLeay 1.33_01 or better use the most
+current version from SVN at svn://svn.debian.org/net-ssleay/
+because 1.33_01 still contained critical bugs (see 
+http://svn.debian.org/wsvn/net-ssleay/?rev=222&sc=1)
+
+For those who do not have a built-in random number generator
+(including most users of Solaris), you should install one
+before attempting to install IO::Socket::SSL.  If you don't
+already have a favorite, try "egd" (egd.sourceforge.net) or
+one of the other "Related Projects" listed on its home page.
+If you want to bypass the test for existence of the RNG, then
+set the "SKIP_RNG_TEST" environment variable to a true value.
+
+In addition to providing a general OO interface to SSL sockets,
+this package can be used with libwww-perl.
+
+installation:
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+--
+Steffen Ullrich, Steffen_Ullrich at genua.de
+Peter Behroozi, behrooz at fas.harvard.edu
+(Originally by Marko Asplund, marko.asplund at kronodoc.fi)

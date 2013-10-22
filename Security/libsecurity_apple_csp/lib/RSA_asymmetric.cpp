@@ -149,14 +149,14 @@ void RSA_CryptContext::encryptBlock(
 	
 	/* FIXME do OAEP encoding here */
 	if(mRsaKey->d == NULL) {
-		irtn =	RSA_public_encrypt(plainTextLen, 
+		irtn =	RSA_public_encrypt((int)plainTextLen,
 			(unsigned char *)plainText,
 			(unsigned char *)cipherText, 
 			mRsaKey,
 			mPadding);
 	}
 	else {
-		irtn =	RSA_private_encrypt(plainTextLen, 
+		irtn =	RSA_private_encrypt((int)plainTextLen,
 			(unsigned char *)plainText,
 			(unsigned char *)cipherText, 
 			mRsaKey,
@@ -186,14 +186,14 @@ void RSA_CryptContext::decryptBlock(
 	rsaCryptDebug("decryptBlock padding %d", mPadding);
 	/* FIXME do OAEP encoding here */
 	if(mRsaKey->d == NULL) {
-		irtn = RSA_public_decrypt(inBlockSize(), 
+		irtn = RSA_public_decrypt((int)inBlockSize(),
 			(unsigned char *)cipherText,
 			(unsigned char *)plainText, 
 			mRsaKey,
 			mPadding);
 	}
 	else {
-		irtn = RSA_private_decrypt(inBlockSize(), 
+		irtn = RSA_private_decrypt((int)inBlockSize(),
 			(unsigned char *)cipherText,
 			(unsigned char *)plainText, 
 			mRsaKey,
@@ -216,9 +216,9 @@ size_t RSA_CryptContext::outputSize(
 {
 	StLock<Mutex> _(gMutex());
 	
-	uint32 rawBytes = inSize + inBufSize();
-	uint32 rawBlocks = (rawBytes + inBlockSize() - 1) / inBlockSize();
-	rbprintf("--- RSA_CryptContext::outputSize inSize 0x%lx outSize 0x%lx mInBufSize 0x%lx",
-		inSize, rawBlocks * outBlockSize(), inBufSize());
+	size_t rawBytes = inSize + inBufSize();
+	size_t rawBlocks = (rawBytes + inBlockSize() - 1) / inBlockSize();
+	rbprintf("--- RSA_CryptContext::outputSize inSize 0x%lux outSize 0x%lux mInBufSize 0x%lux",
+		(unsigned long)inSize, (unsigned long)(rawBlocks * outBlockSize()), (unsigned long)inBufSize());
 	return rawBlocks * outBlockSize();
 }

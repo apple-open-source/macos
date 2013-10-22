@@ -47,8 +47,8 @@ public:
     static NPIdentifierData fromNPIdentifier(NPIdentifier);
     NPIdentifier createNPIdentifier() const;
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, NPIdentifierData&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, NPIdentifierData&);
 
 private:
     bool m_isString;

@@ -2,14 +2,14 @@
  * Copyright (c) 2001,2003-2011 Apple, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * srCdsaUtils.cpp -- common CDSA access utilities
@@ -61,17 +61,17 @@ static CSSM_API_MEMORY_FUNCS memFuncs = {
  	srAppCalloc,
  	NULL
  };
- 
+
 CSSM_BOOL srCompareCssmData(const CSSM_DATA *d1,
 	const CSSM_DATA *d2)
-{	
+{
 	if(d1->Length != d2->Length) {
 		return CSSM_FALSE;
 	}
 	if(memcmp(d1->Data, d2->Data, d1->Length)) {
 		return CSSM_FALSE;
 	}
-	return CSSM_TRUE;	
+	return CSSM_TRUE;
 }
 
 /*
@@ -83,17 +83,17 @@ CSSM_BOOL srCssmStartup()
 {
 	CSSM_RETURN  crtn;
     CSSM_PVC_MODE pvcPolicy = CSSM_PVC_NONE;
-	
+
 	if(cssmInitd) {
 		return CSSM_TRUE;
-	}  
-	crtn = CSSM_Init (&vers, 
+	}
+	crtn = CSSM_Init (&vers,
 		CSSM_PRIVILEGE_SCOPE_NONE,
 		&testGuid,
 		CSSM_KEY_HIERARCHY_NONE,
 		&pvcPolicy,
 		NULL /* reserved */);
-	if(crtn != CSSM_OK) 
+	if(crtn != CSSM_OK)
 	{
 		srPrintError("CSSM_Init", crtn);
 		return CSSM_FALSE;
@@ -113,7 +113,7 @@ CSSM_CSP_HANDLE srCspStartup(
 	CSSM_CSP_HANDLE cspHand;
 	CSSM_RETURN		crtn;
 	const CSSM_GUID *guid;
-	
+
 	/* common CSSM init */
 	if(srCssmStartup() == CSSM_FALSE) {
 		return 0;
@@ -136,7 +136,7 @@ CSSM_CSP_HANDLE srCspStartup(
 		&vers,
 		&memFuncs,			// memFuncs
 		0,					// SubserviceID
-		CSSM_SERVICE_CSP,	
+		CSSM_SERVICE_CSP,
 		0,					// AttachFlags
 		CSSM_KEY_HIERARCHY_NONE,
 		NULL,				// FunctionTable
@@ -155,7 +155,7 @@ CSSM_DL_HANDLE srDlStartup()
 {
 	CSSM_DL_HANDLE 	dlHand = 0;
 	CSSM_RETURN		crtn;
-	
+
 	if(srCssmStartup() == CSSM_FALSE) {
 		return 0;
 	}
@@ -171,7 +171,7 @@ CSSM_DL_HANDLE srDlStartup()
 		&vers,
 		&memFuncs,			// memFuncs
 		0,					// SubserviceID
-		CSSM_SERVICE_DL,	
+		CSSM_SERVICE_DL,
 		0,					// AttachFlags
 		CSSM_KEY_HIERARCHY_NONE,
 		NULL,				// FunctionTable
@@ -189,7 +189,7 @@ CSSM_CL_HANDLE srClStartup()
 {
 	CSSM_CL_HANDLE clHand;
 	CSSM_RETURN crtn;
-	
+
 	if(srCssmStartup() == CSSM_FALSE) {
 		return 0;
 	}
@@ -225,7 +225,7 @@ CSSM_TP_HANDLE srTpStartup()
 {
 	CSSM_TP_HANDLE tpHand;
 	CSSM_RETURN crtn;
-	
+
 	if(srCssmStartup() == CSSM_FALSE) {
 		return 0;
 	}
@@ -267,9 +267,9 @@ CSSM_RETURN srAddContextAttribute(CSSM_CC_HANDLE CCHandle,
 	uint32 AttributeLength,
 	const void *AttributePtr)
 {
-	CSSM_CONTEXT_ATTRIBUTE		newAttr;	
+	CSSM_CONTEXT_ATTRIBUTE		newAttr;
 	CSSM_RETURN					crtn;
-	
+
 	newAttr.AttributeType     = AttributeType;
 	newAttr.AttributeLength   = AttributeLength;
 	newAttr.Attribute.Data    = (CSSM_DATA_PTR)AttributePtr;
@@ -283,7 +283,7 @@ CSSM_RETURN srAddContextAttribute(CSSM_CC_HANDLE CCHandle,
 
 /*
  * Derive symmetric key.
- * Note in the X CSP, we never return an IV. 
+ * Note in the X CSP, we never return an IV.
  */
 CSSM_RETURN srCspDeriveKey(CSSM_CSP_HANDLE cspHand,
 		uint32				keyAlg,			// CSSM_ALGID_RC5, etc.
@@ -303,7 +303,7 @@ CSSM_RETURN srCspDeriveKey(CSSM_CSP_HANDLE cspHand,
 	CSSM_PKCS5_PBKDF2_PARAMS 	pbeParams;
 	CSSM_DATA					pbeData;
 	CSSM_ACCESS_CREDENTIALS		creds;
-	
+
 	memset(key, 0, sizeof(CSSM_KEY));
 	memset(&creds, 0, sizeof(CSSM_ACCESS_CREDENTIALS));
 	crtn = CSSM_CSP_CreateDeriveKeyContext(cspHand,
@@ -320,11 +320,11 @@ CSSM_RETURN srCspDeriveKey(CSSM_CSP_HANDLE cspHand,
 		srPrintError("CSSM_CSP_CreateDeriveKeyContext", crtn);
 		return crtn;
 	}
-	keyAttr = CSSM_KEYATTR_EXTRACTABLE | CSSM_KEYATTR_RETURN_REF | 
+	keyAttr = CSSM_KEYATTR_EXTRACTABLE | CSSM_KEYATTR_RETURN_REF |
 			  CSSM_KEYATTR_SENSITIVE;
 	dummyLabel.Length = keyLabelLen;
 	dummyLabel.Data = (uint8 *)keyLabel;
-	
+
 	/* passing in password is pretty strange....*/
 	pbeParams.Passphrase = *password;
 	pbeParams.PseudoRandomFunction = CSSM_PKCS5_PBKDF2_PRF_HMAC_SHA1;
@@ -349,9 +349,9 @@ CSSM_RETURN srCspDeriveKey(CSSM_CSP_HANDLE cspHand,
 }
 
 /*
- * Generate key pair of arbitrary algorithm. 
+ * Generate key pair of arbitrary algorithm.
  */
- 
+
 /* CSP DL currently does not perform DSA generate params; let CSP do it implicitly */
 #define DO_DSA_GEN_PARAMS		0
 
@@ -363,21 +363,21 @@ CSSM_RETURN srCspGenKeyPair(CSSM_CSP_HANDLE cspHand,
 	uint32 keySize,					// in bits
 	CSSM_KEY_PTR pubKey,			// mallocd by caller
 	CSSM_KEYUSE pubKeyUsage,		// CSSM_KEYUSE_ENCRYPT, etc.
-	CSSM_KEYATTR_FLAGS pubAttrs,	// CSSM_KEYATTR_EXTRACTABLE, etc. 
+	CSSM_KEYATTR_FLAGS pubAttrs,	// CSSM_KEYATTR_EXTRACTABLE, etc.
 	CSSM_KEY_PTR privKey,			// mallocd by caller
 	CSSM_KEYUSE privKeyUsage,		// CSSM_KEYUSE_DECRYPT, etc.
-	CSSM_KEYATTR_FLAGS privAttrs)	// CSSM_KEYATTR_EXTRACTABLE, etc. 
+	CSSM_KEYATTR_FLAGS privAttrs)	// CSSM_KEYATTR_EXTRACTABLE, etc.
 {
 	CSSM_RETURN				crtn;
 	CSSM_RETURN				ocrtn;
 	CSSM_CC_HANDLE 			ccHand;
 	CSSM_DATA				keyLabelData;
-	
+
 	keyLabelData.Data        = (uint8 *)keyLabel,
 	keyLabelData.Length      = keyLabelLen;
 	memset(pubKey, 0, sizeof(CSSM_KEY));
 	memset(privKey, 0, sizeof(CSSM_KEY));
-	
+
 	crtn = CSSM_CSP_CreateKeyGenContext(cspHand,
 		algorithm,
 		keySize,
@@ -393,16 +393,16 @@ CSSM_RETURN srCspGenKeyPair(CSSM_CSP_HANDLE cspHand,
 	}
 
 	/* post-context-create algorithm-specific stuff */
-	switch(algorithm) {		 
+	switch(algorithm) {
 		#if DO_DSA_GEN_PARAMS
 		case CSSM_ALGID_DSA:
-			/* 
+			/*
 			 * extra step - generate params - this just adds some
 			 * info to the context
 			 */
 			{
 				CSSM_DATA dummy = {0, NULL};
-				crtn = CSSM_GenerateAlgorithmParams(ccHand, 
+				crtn = CSSM_GenerateAlgorithmParams(ccHand,
 					keySize, &dummy);
 				if(crtn) {
 					srPrintError("CSSM_GenerateAlgorithmParams", crtn);
@@ -416,10 +416,10 @@ CSSM_RETURN srCspGenKeyPair(CSSM_CSP_HANDLE cspHand,
 		default:
 			break;
 	}
-	
+
 	/* optionally specify DL/DB storage location */
 	if(dlDbHand) {
-		crtn = srAddContextAttribute(ccHand, 
+		crtn = srAddContextAttribute(ccHand,
 			CSSM_ATTRIBUTE_DL_DB_HANDLE,
 			sizeof(CSSM_ATTRIBUTE_DL_DB_HANDLE),
 			dlDbHand);
@@ -465,7 +465,7 @@ CSSM_RETURN srAddCertToKC(
 	const CSSM_DATA		*keyLabel)		// ??
 {
 	SecCertificateRef certificate;
-	
+
 	OSStatus rslt = SecCertificateCreateFromData(cert, certType, certEncoding, &certificate);
 	if (!rslt)
 	{

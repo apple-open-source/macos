@@ -37,6 +37,7 @@
 #include "authhost.h"
 #include "server.h"
 #include "session.h"
+#include <xpc/xpc.h>
 
 using Authorization::AuthItemSet;
 using Authorization::AuthValueVector;
@@ -46,7 +47,7 @@ using Security::OSXCode;
 // base for classes talking to SecurityAgent and authorizationhost
 //
 class SecurityAgentConnection : public SecurityAgent::Client,
-                                public SecurityAgentConnectionInterface
+public SecurityAgentConnectionInterface
 {
 public:
     SecurityAgentConnection(const AuthHostType type = securityAgent, Session &session = Server::session());
@@ -67,25 +68,32 @@ protected:
 };
 
 //
-// Special wrapper around SecurityAgent::Client transaction interfaces.  
-// Not currently used because this was intended to support 
-// SecurityAgent's/authorizationhost's use of Foundation's enable/disable-sudden-
-// termination APIs, but the latter don't work for non-direct children of 
-// launchd.  Kept around because securityd might need its own child-transaction 
-// semantics one day.  
+// base for classes talking to com.apple.security.agent and com.apple.security.authhost 
 //
-class SecurityAgentTransaction : public SecurityAgentConnection
+class SecurityAgentXPCConnection : public SecurityAgentConnectionInterface
 {
-public: 
-    SecurityAgentTransaction(const AuthHostType type = securityAgent, Session &session = Server::session(), bool startNow = true);
-    ~SecurityAgentTransaction();
+public:
+    SecurityAgentXPCConnection(const AuthHostType type = securityAgent, Session &session = Server::session());
+    virtual ~SecurityAgentXPCConnection();
+    virtual void activate(bool ignoreUid);
+    virtual void reconnect();
+    virtual void disconnect()  { };
+    virtual void terminate();
     
-    void start();
-    void end();
-    bool started()  { return mStarted; }
+    AuthHostType hostType()  { return mAuthHostType; }
     
-private:
-    bool mStarted;
+protected:
+    AuthHostType mAuthHostType;
+    RefPointer<AuthHostInstance> mHostInstance;
+    Session &mSession;
+    xpc_connection_t mXPCConnection;
+    xpc_connection_t mXPCStubConnection;
+    const RefPointer<Connection> mConnection;
+    audit_token_t *mAuditToken;
+    uid_t mNobodyUID;
+
+    bool inDarkWake();
+
 };
 
 //
@@ -98,29 +106,73 @@ public:
 	
 	SecurityAgentQuery(const AuthHostType type = securityAgent, Session &session = Server::session());
 	
-
+    
 	void inferHints(Process &thisProcess);
 	void addHint(const char *name, const void *value = NULL, UInt32 valueLen = 0, UInt32 flags = 0);
-
+    
 	virtual ~SecurityAgentQuery();
-
+    
 	virtual void disconnect();
 	virtual void terminate();
 	void create(const char *pluginId, const char *mechanismId, const SessionId inSessionId);
-
+    
 	void readChoice();
-
+    
 	bool allow;
 	bool remember;
-
+    
 protected:
 	AuthItemSet mClientHints;
 };
 
 //
+// The main com.apple.security.agent/com.apple.security.authhost interaction base class
+//
+class SecurityAgentXPCQuery : public SecurityAgentXPCConnection
+{
+public:
+    static void killAllXPCClients();
+	
+    typedef SecurityAgent::Reason Reason;
+	
+	SecurityAgentXPCQuery(const AuthHostType type = securityAgent, Session &session = Server::session());
+	
+    
+	void inferHints(Process &thisProcess);
+	void addHint(const char *name, const void *value = NULL, UInt32 valueLen = 0, UInt32 flags = 0);
+    
+	virtual ~SecurityAgentXPCQuery();
+    
+	virtual void disconnect();
+	virtual void terminate();
+	void create(const char *pluginId, const char *mechanismId, const SessionId inSessionId);
+    OSStatus invoke();
+    void setTerminateOnSleep(bool terminateOnSleep) {mTerminateOnSleep = terminateOnSleep;}
+    bool getTerminateOnSleep() {return mTerminateOnSleep;}
+    void setInput(const AuthItemSet& inHints, const AuthItemSet& inContext) { mInHints = inHints; mInContext = inContext; }
+    void checkResult();
+
+	void readChoice();
+    
+	bool allow;
+	bool remember;
+    
+protected:
+	AuthItemSet mClientHints;
+    AuthItemSet mImmutableHints;
+    AuthItemSet mInHints;
+    AuthItemSet mInContext;
+    AuthItemSet mOutHints;
+    AuthItemSet mOutContext;
+    bool mAgentConnected;
+    uint64_t mLastResult;
+    bool mTerminateOnSleep;
+};
+
+//
 // Specialized for "rogue app" alert queries
 //
-class QueryKeychainUse : public SecurityAgentQuery {
+class QueryKeychainUse : public SecurityAgentXPCQuery {
 public:
     QueryKeychainUse(bool needPass, const Database *db);
     Reason queryUser (const char* database, const char *description, AclAuthorization action);
@@ -133,7 +185,7 @@ private:
 //
 // Specialized for code signature adjustment queries
 //
-class QueryCodeCheck : public SecurityAgentQuery {
+class QueryCodeCheck : public SecurityAgentXPCQuery {
 public:
     bool operator () (const char *aclPath);
 };
@@ -142,7 +194,7 @@ public:
 //
 // A query for an existing passphrase
 //
-class QueryOld : public SecurityAgentQuery {
+class QueryOld : public SecurityAgentXPCQuery {
 	static const int maxTries = kMaximumAuthorizationTries;
 public:
 	QueryOld(Database &db) : database(db) {setTerminateOnSleep(true);}
@@ -160,11 +212,31 @@ protected:
 class QueryUnlock : public QueryOld {
 public:
 	QueryUnlock(KeychainDatabase &db) : QueryOld(db) { }
+    Reason retrievePassword(CssmOwnedData &passphrase);
 	
 protected:
 	Reason accept(CssmManagedData &passphrase);
 };
 
+
+class QueryKeybagPassphrase : public SecurityAgentXPCQuery {
+public:
+    QueryKeybagPassphrase(Session &session, int32_t retries = kMaximumAuthorizationTries);
+
+    Reason query();
+    Reason accept(CssmManagedData &passphrase);
+protected:
+    Session &mSession;
+    service_context_t mContext;
+    int32_t mRetries;
+};
+
+class QueryKeybagNewPassphrase : public QueryKeybagPassphrase {
+public:
+    QueryKeybagNewPassphrase(Session &session);
+
+    Reason query(CssmOwnedData &oldPassphrase, CssmOwnedData &passphrase);
+};
 
 //
 // Repurpose QueryUnlock for PIN prompting
@@ -187,17 +259,18 @@ private:
 //
 // A query for a new passphrase
 //
-class QueryNewPassphrase : public SecurityAgentQuery {
+class QueryNewPassphrase : public SecurityAgentXPCQuery {
 	static const int maxTries = kMaximumAuthorizationTries;
 public:
 	QueryNewPassphrase(Database &db, Reason reason) :
 	    database(db), initialReason(reason),
 	    mPassphrase(Allocator::standard(Allocator::sensitive)),
+        mOldPassphrase(Allocator::standard(Allocator::sensitive)),
 	    mPassphraseValid(false) { }
 
 	Database &database;
 	
-	Reason operator () (CssmOwnedData &passphrase);
+	Reason operator () (CssmOwnedData &oldPassphrase, CssmOwnedData &passphrase);
 	
 protected:
 	Reason query();
@@ -206,6 +279,7 @@ protected:
 private:
 	Reason initialReason;
 	CssmAutoData mPassphrase;
+    CssmAutoData mOldPassphrase;
     bool mPassphraseValid;
 };
 
@@ -213,7 +287,7 @@ private:
 //
 // Generic passphrase query (not associated with a database)
 //
-class QueryGenericPassphrase : public SecurityAgentQuery {
+class QueryGenericPassphrase : public SecurityAgentXPCQuery {
 public:
     QueryGenericPassphrase()    { }
     Reason operator () (const CssmData *prompt, bool verify,
@@ -227,7 +301,7 @@ protected:
 //
 // Generic secret query (not associated with a database)
 //
-class QueryDBBlobSecret : public SecurityAgentQuery {
+class QueryDBBlobSecret : public SecurityAgentXPCQuery {
 	static const int maxTries = kMaximumAuthorizationTries;
 public:
     QueryDBBlobSecret()    { }
@@ -255,7 +329,7 @@ public:
 // securityd's use; keep the Frankenstein references to yourself
 // (the alternative is to ask the user to unlock the system keychain,
 // and you don't want that, do you?)  
-class QueryKeychainAuth : public SecurityAgentQuery {
+class QueryKeychainAuth : public SecurityAgentXPCQuery {
 	static const int maxTries = kMaximumAuthorizationTries;
 public:
     QueryKeychainAuth()  { }

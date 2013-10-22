@@ -139,6 +139,9 @@ gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_cred_certificate_oid_desc = { 7, rk_UNC
 /* GSS_C_CRED_SecIdentity - 1.2.752.43.13.202 */
 gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_cred_secidentity_oid_desc = { 7, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x81\x4a") };
 
+/* GSS_C_CRED_HEIMBASE - 1.2.752.43.13.203 */
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_cred_heimbase_oid_desc = { 7, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x81\x4b") };
+
 /* GSS_SASL_DIGEST_MD5_MECHANISM - 1.2.752.43.14.1 */
 gss_OID_desc GSSAPI_LIB_VARIABLE __gss_sasl_digest_md5_mechanism_oid_desc = { 6, rk_UNCONST("\x2a\x85\x70\x2b\x0e\x01") };
 

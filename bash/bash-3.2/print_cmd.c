@@ -1116,7 +1116,7 @@ named_function_string (name, command, multi_line)
 	  }
 #else
       if (result[2] == '\n')	/* XXX -- experimental */
-	strcpy (result + 2, result + 3);
+	memmove(result + 2, result + 3, strlen(result+3)+1);
 #endif
     }
 

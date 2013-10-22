@@ -63,7 +63,7 @@
 
 /* Prototypes */
 int ask_cmd __P((cmd_t *));
-int ask_num __P((const char *, int, int, int, int, void (*help) __P((void))));
+int ask_num __P((const char *, int, unsigned int, unsigned int, unsigned int, void (*help) __P((void))));
 int ask_yn __P((const char *, int));
 u_int16_t getshort __P((void *));
 u_int32_t getlong __P((void *));

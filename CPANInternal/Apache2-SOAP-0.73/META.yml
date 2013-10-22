@@ -1,0 +1,22 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Apache2-SOAP
+version:      0.73
+version_from: lib/Apache2/SOAP.pm
+installdirs:  site
+requires:
+    mod_perl2:                     0
+    SOAP::Lite:                    0
+license:      perl
+abstract:     mod_perl-2 SOAP server
+authored_by:
+    - Randy Kobes <r.kobes@uwinnipeg.ca>
+provides:
+    Apache2::SOAP:
+        file: lib/Apache2/SOAP.pm
+        version: 0.73
+    SOAP::Transport::HTTP2:
+        file: lib/SOAP/Transport/HTTP2.pm
+        version: 0.73
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

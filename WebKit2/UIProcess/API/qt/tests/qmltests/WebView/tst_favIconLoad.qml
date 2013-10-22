@@ -14,19 +14,21 @@ TestWebView {
 
     Image {
         id: favicon
+        asynchronous: true
         source: webView.icon
     }
 
     TestCase {
         id: test
         name: "WebViewLoadFavIcon"
+        when: windowShown
 
         function init() {
             if (webView.icon != '') {
                 // If this is not the first test, then load a blank page without favicon, restoring the initial state.
                 webView.url = 'about:blank'
-                spy.wait()
                 verify(webView.waitForLoadSucceeded())
+                spy.wait()
             }
             spy.clear()
         }
@@ -35,6 +37,7 @@ TestWebView {
             compare(spy.count, 0)
             var url = Qt.resolvedUrl("../common/favicon.html")
             webView.url = url
+            verify(webView.waitForLoadSucceeded())
             spy.wait()
             compare(spy.count, 1)
             compare(favicon.width, 48)
@@ -45,10 +48,12 @@ TestWebView {
             compare(spy.count, 0)
             var url = Qt.resolvedUrl("../common/favicon2.html?favicon=load should work with#whitespace!")
             webView.url = url
+            verify(webView.waitForLoadSucceeded())
             spy.wait()
             compare(spy.count, 1)
             compare(favicon.width, 16)
             compare(favicon.height, 16)
+
         }
     }
 }

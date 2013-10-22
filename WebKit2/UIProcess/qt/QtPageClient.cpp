@@ -21,18 +21,21 @@
 #include "config.h"
 #include "QtPageClient.h"
 
+#include "DefaultUndoController.h"
 #include "DrawingAreaProxy.h"
 #include "LayerTreeContext.h"
 #include "QtWebPageEventHandler.h"
-#include "QtWebUndoController.h"
 #include "ShareableBitmap.h"
+#if ENABLE(INPUT_TYPE_COLOR)
+#include "WebColorChooserProxyQt.h"
+#endif
 #include "WebContextMenuProxyQt.h"
 #include "WebEditCommandProxy.h"
 #include "WebPopupMenuProxyQt.h"
 #include "qquickwebview_p.h"
 #include "qquickwebview_p_p.h"
 #include <QGuiApplication>
-#include <QQuickCanvas>
+#include <QQuickWindow>
 #include <WebCore/Cursor.h>
 #include <WebCore/DragData.h>
 #include <WebCore/FloatRect.h>
@@ -53,7 +56,7 @@ QtPageClient::~QtPageClient()
 {
 }
 
-void QtPageClient::initialize(QQuickWebView* webView, QtWebPageEventHandler* eventHandler, QtWebUndoController* undoController)
+void QtPageClient::initialize(QQuickWebView* webView, QtWebPageEventHandler* eventHandler, DefaultUndoController* undoController)
 {
     m_webView = webView;
     m_eventHandler = eventHandler;
@@ -68,6 +71,16 @@ PassOwnPtr<DrawingAreaProxy> QtPageClient::createDrawingAreaProxy()
 void QtPageClient::setViewNeedsDisplay(const WebCore::IntRect& rect)
 {
     QQuickWebViewPrivate::get(m_webView)->setNeedsDisplay();
+}
+
+void QtPageClient::didRenderFrame(const WebCore::IntSize& contentsSize, const WebCore::IntRect& coveredRect)
+{
+    // The viewport has to be notified first so that the viewport position
+    // is adjusted before the loadVisuallyCommitted() signal.
+    PageViewportController* pvc = QQuickWebViewPrivate::get(m_webView)->viewportController();
+    if (pvc)
+        pvc->didRenderFrame(contentsSize, coveredRect);
+    QQuickWebViewPrivate::get(m_webView)->didRenderFrame();
 }
 
 void QtPageClient::pageDidRequestScroll(const IntPoint& pos)
@@ -87,7 +100,9 @@ void QtPageClient::didRelaunchProcess()
 
 void QtPageClient::didChangeContentsSize(const IntSize& newSize)
 {
-    QQuickWebViewPrivate::get(m_webView)->didChangeContentsSize(newSize);
+    PageViewportController* pvc = QQuickWebViewPrivate::get(m_webView)->viewportController();
+    if (pvc)
+        pvc->didChangeContentsSize(newSize);
 }
 
 void QtPageClient::didChangeViewportProperties(const WebCore::ViewportAttributes& attr)
@@ -205,9 +220,23 @@ PassRefPtr<WebContextMenuProxy> QtPageClient::createContextMenuProxy(WebPageProx
     return WebContextMenuProxyQt::create(webPageProxy);
 }
 
+#if ENABLE(INPUT_TYPE_COLOR)
+PassRefPtr<WebColorChooserProxy> QtPageClient::createColorChooserProxy(WebPageProxy* webPageProxy, const WebCore::Color& initialColor, const WebCore::IntRect& elementRect)
+{
+    return WebColorChooserProxyQt::create(webPageProxy, m_webView, initialColor, elementRect);
+}
+#endif
+
 void QtPageClient::flashBackingStoreUpdates(const Vector<IntRect>&)
 {
     notImplemented();
+}
+
+void QtPageClient::pageTransitionViewportReady()
+{
+    PageViewportController* pvc = QQuickWebViewPrivate::get(m_webView)->viewportController();
+    if (pvc)
+        pvc->pageTransitionViewportReady();
 }
 
 void QtPageClient::didFindZoomableArea(const IntPoint& target, const IntRect& area)
@@ -216,15 +245,16 @@ void QtPageClient::didFindZoomableArea(const IntPoint& target, const IntRect& ar
     m_eventHandler->didFindZoomableArea(target, area);
 }
 
-void QtPageClient::didReceiveMessageFromNavigatorQtObject(const String& message)
-{
-    QQuickWebViewPrivate::get(m_webView)->didReceiveMessageFromNavigatorQtObject(message);
-}
-
 void QtPageClient::updateTextInputState()
 {
     ASSERT(m_eventHandler);
     m_eventHandler->updateTextInputState();
+}
+
+void QtPageClient::handleWillSetInputMethodState()
+{
+    ASSERT(m_eventHandler);
+    m_eventHandler->handleWillSetInputMethodState();
 }
 
 #if ENABLE(GESTURE_EVENTS)
@@ -277,7 +307,7 @@ bool QtPageClient::isViewVisible()
         return false;
 
     // FIXME: this is a workaround while QWindow::isExposed() is not ready.
-    if (m_webView->canvas() && m_webView->canvas()->windowState() == Qt::WindowMinimized)
+    if (m_webView->window() && m_webView->window()->windowState() == Qt::WindowMinimized)
         return false;
 
     return m_webView->isVisible() && m_webView->page()->isVisible();

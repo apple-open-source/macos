@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -94,26 +94,6 @@
  * kSCCompNetworkHostNames Properties
  *
  *   kSCPropNetLocalHostName                            "LocalHostName"                CFString
- *
- * kSCEntNetAirPort (Hardware) Entity Keys
- *
- *   kSCPropNetAirPortAllowNetCreation                  "AllowNetCreation"             CFNumber (0 or 1)
- *   kSCPropNetAirPortAuthPassword                      "AuthPassword"                 CFData
- *   kSCPropNetAirPortAuthPasswordEncryption            "AuthPasswordEncryption"       CFString
- *   kSCPropNetAirPortJoinMode                          "JoinMode"                     CFString
- *   kSCPropNetAirPortPowerEnabled                      "PowerEnabled"                 CFNumber (0 or 1)
- *   kSCPropNetAirPortPreferredNetwork                  "PreferredNetwork"             CFString
- *   kSCPropNetAirPortSavePasswords                     "SavePasswords"                CFNumber (0 or 1)
- *
- *   --- kSCPropNetAirPortJoinMode values ---
- *   kSCValNetAirPortJoinModeAutomatic                  "Automatic"
- *   kSCValNetAirPortJoinModePreferred                  "Preferred"
- *   kSCValNetAirPortJoinModeRanked                     "Ranked"
- *   kSCValNetAirPortJoinModeRecent                     "Recent"
- *   kSCValNetAirPortJoinModeStrongest                  "Strongest"
- *
- *   --- kSCPropNetAirPortPasswordEncryption values ---
- *   kSCValNetAirPortAuthPasswordEncryptionKeychain     "Keychain"
  *
  * kSCEntNetDNS Entity Keys
  *
@@ -806,79 +786,79 @@ extern const CFStringRef kSCPropNetLocalHostName;
 
 /*!
   @const kSCPropNetAirPortAllowNetCreation
-  @availability Introduced in Mac OS X 10.2.
+  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCPropNetAirPortAllowNetCreation;
 
 /*!
   @const kSCPropNetAirPortAuthPassword
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCPropNetAirPortAuthPassword;
 
 /*!
   @const kSCPropNetAirPortAuthPasswordEncryption
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCPropNetAirPortAuthPasswordEncryption;
 
 /*!
   @const kSCPropNetAirPortJoinMode
-  @availability Introduced in Mac OS X 10.2.
+  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCPropNetAirPortJoinMode;
 
 /*!
   @const kSCPropNetAirPortPowerEnabled
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCPropNetAirPortPowerEnabled;
 
 /*!
   @const kSCPropNetAirPortPreferredNetwork
-  @availability Introduced in Mac OS X 10.1.
+  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCPropNetAirPortPreferredNetwork;
 
 /*!
   @const kSCPropNetAirPortSavePasswords
-  @availability Introduced in Mac OS X 10.2.
+  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCPropNetAirPortSavePasswords;
 
 /*!
   @const kSCValNetAirPortJoinModeAutomatic
-  @availability Introduced in Mac OS X 10.3.
+  @availability Introduced in Mac OS X 10.3, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCValNetAirPortJoinModeAutomatic;
 
 /*!
   @const kSCValNetAirPortJoinModePreferred
-  @availability Introduced in Mac OS X 10.2.
+  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCValNetAirPortJoinModePreferred;
 
 /*!
   @const kSCValNetAirPortJoinModeRanked
-  @availability Introduced in Mac OS X 10.4.
+  @availability Introduced in Mac OS X 10.4, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCValNetAirPortJoinModeRanked;
 
 /*!
   @const kSCValNetAirPortJoinModeRecent
-  @availability Introduced in Mac OS X 10.2.
+  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCValNetAirPortJoinModeRecent;
 
 /*!
   @const kSCValNetAirPortJoinModeStrongest
-  @availability Introduced in Mac OS X 10.2.
+  @availability Introduced in Mac OS X 10.2, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCValNetAirPortJoinModeStrongest;
 
 /*!
   @const kSCValNetAirPortAuthPasswordEncryptionKeychain
-  @availability Introduced in Mac OS X 10.3.
+  @availability Introduced in Mac OS X 10.3, but later deprecated in Mac OS X 10.9.
  */
 extern const CFStringRef kSCValNetAirPortAuthPasswordEncryptionKeychain;
 
@@ -2375,6 +2355,7 @@ extern const CFStringRef kSCPropUsersConsoleUserGID;
 
 /* -------------------- Schema declarations -------------------- */
 
+#define	__AVAILABILITY_INTERNAL__IPHONE_2_0_DEP__IPHONE_FUTURE	__AVAILABILITY_INTERNAL__IPHONE_2_0/*SPI*/
 
   SC_SCHEMA_DECLARATION(kSCResvLink, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
   #define kSCResvLink                                                   \
@@ -2652,79 +2633,79 @@ extern const CFStringRef kSCPropUsersConsoleUserGID;
 		      ,"LocalHostName"                                  \
 		      ,CFString                                         )
 
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAllowNetCreation, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAllowNetCreation, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCPropNetAirPortAllowNetCreation                             \
 	  SC_SCHEMA_KV(kSCPropNetAirPortAllowNetCreation                \
 		      ,"AllowNetCreation"                               \
 		      ,CFNumber (0 or 1)                                )
 
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPassword, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPassword, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCPropNetAirPortAuthPassword                                 \
 	  SC_SCHEMA_KV(kSCPropNetAirPortAuthPassword                    \
 		      ,"AuthPassword"                                   \
 		      ,CFData                                           )
 
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPasswordEncryption, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortAuthPasswordEncryption, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCPropNetAirPortAuthPasswordEncryption                       \
 	  SC_SCHEMA_KV(kSCPropNetAirPortAuthPasswordEncryption          \
 		      ,"AuthPasswordEncryption"                         \
 		      ,CFString                                         )
 
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortJoinMode, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortJoinMode, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCPropNetAirPortJoinMode                                     \
 	  SC_SCHEMA_KV(kSCPropNetAirPortJoinMode                        \
 		      ,"JoinMode"                                       \
 		      ,CFString                                         )
 
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPowerEnabled, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPowerEnabled, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCPropNetAirPortPowerEnabled                                 \
 	  SC_SCHEMA_KV(kSCPropNetAirPortPowerEnabled                    \
 		      ,"PowerEnabled"                                   \
 		      ,CFNumber (0 or 1)                                )
 
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPreferredNetwork, __OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortPreferredNetwork, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCPropNetAirPortPreferredNetwork                             \
 	  SC_SCHEMA_KV(kSCPropNetAirPortPreferredNetwork                \
 		      ,"PreferredNetwork"                               \
 		      ,CFString                                         )
 
-  SC_SCHEMA_DECLARATION(kSCPropNetAirPortSavePasswords, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCPropNetAirPortSavePasswords, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCPropNetAirPortSavePasswords                                \
 	  SC_SCHEMA_KV(kSCPropNetAirPortSavePasswords                   \
 		      ,"SavePasswords"                                  \
 		      ,CFNumber (0 or 1)                                )
 
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeAutomatic, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeAutomatic, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCValNetAirPortJoinModeAutomatic                             \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeAutomatic                \
 		      ,"Automatic"                                      \
 		      ,                                                 )
 
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModePreferred, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModePreferred, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCValNetAirPortJoinModePreferred                             \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModePreferred                \
 		      ,"Preferred"                                      \
 		      ,                                                 )
 
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRanked, __OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRanked, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_4,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCValNetAirPortJoinModeRanked                                \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeRanked                   \
 		      ,"Ranked"                                         \
 		      ,                                                 )
 
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRecent, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeRecent, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCValNetAirPortJoinModeRecent                                \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeRecent                   \
 		      ,"Recent"                                         \
 		      ,                                                 )
 
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeStrongest, __OSX_AVAILABLE_STARTING(__MAC_10_2,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortJoinModeStrongest, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCValNetAirPortJoinModeStrongest                             \
 	  SC_SCHEMA_KV(kSCValNetAirPortJoinModeStrongest                \
 		      ,"Strongest"                                      \
 		      ,                                                 )
 
-  SC_SCHEMA_DECLARATION(kSCValNetAirPortAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0/*SPI*/))
+  SC_SCHEMA_DECLARATION(kSCValNetAirPortAuthPasswordEncryptionKeychain, __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3,__MAC_10_9,__IPHONE_2_0/*SPI*/,__IPHONE_FUTURE/*SPI*/))
   #define kSCValNetAirPortAuthPasswordEncryptionKeychain                \
 	  SC_SCHEMA_KV(kSCValNetAirPortAuthPasswordEncryptionKeychain   \
 		      ,"Keychain"                                       \

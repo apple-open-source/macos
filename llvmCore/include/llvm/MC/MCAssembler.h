@@ -25,7 +25,6 @@ namespace llvm {
 class raw_ostream;
 class MCAsmLayout;
 class MCAssembler;
-class MCBinaryExpr;
 class MCContext;
 class MCCodeEmitter;
 class MCExpr;
@@ -41,8 +40,8 @@ class MCAsmBackend;
 class MCFragment : public ilist_node<MCFragment> {
   friend class MCAsmLayout;
 
-  MCFragment(const MCFragment&);     // DO NOT IMPLEMENT
-  void operator=(const MCFragment&); // DO NOT IMPLEMENT
+  MCFragment(const MCFragment&) LLVM_DELETED_FUNCTION;
+  void operator=(const MCFragment&) LLVM_DELETED_FUNCTION;
 
 public:
   enum FragmentType {
@@ -106,6 +105,7 @@ public:
 };
 
 class MCDataFragment : public MCFragment {
+  virtual void anchor();
   SmallString<32> Contents;
 
   /// Fixups - The list of fixups in this fragment.
@@ -130,7 +130,7 @@ public:
 
   void addFixup(MCFixup Fixup) {
     // Enforce invariant that fixups are in offset order.
-    assert((Fixups.empty() || Fixup.getOffset() > Fixups.back().getOffset()) &&
+    assert((Fixups.empty() || Fixup.getOffset() >= Fixups.back().getOffset()) &&
            "Fixups must be added in order!");
     Fixups.push_back(Fixup);
   }
@@ -160,6 +160,8 @@ public:
 // object with just the MCInst and a code size, then we should just change
 // MCDataFragment to have an optional MCInst at its end.
 class MCInstFragment : public MCFragment {
+  virtual void anchor();
+
   /// Inst - The instruction this is a fragment for.
   MCInst Inst;
 
@@ -174,7 +176,7 @@ public:
   typedef SmallVectorImpl<MCFixup>::iterator fixup_iterator;
 
 public:
-  MCInstFragment(MCInst _Inst, MCSectionData *SD = 0)
+  MCInstFragment(const MCInst &_Inst, MCSectionData *SD = 0)
     : MCFragment(FT_Inst, SD), Inst(_Inst) {
   }
 
@@ -189,7 +191,7 @@ public:
   MCInst &getInst() { return Inst; }
   const MCInst &getInst() const { return Inst; }
 
-  void setInst(MCInst Value) { Inst = Value; }
+  void setInst(const MCInst& Value) { Inst = Value; }
 
   /// @}
   /// @name Fixup Access
@@ -215,13 +217,15 @@ public:
 };
 
 class MCAlignFragment : public MCFragment {
+  virtual void anchor();
+
   /// Alignment - The alignment to ensure, in bytes.
   unsigned Alignment;
 
   /// Value - Value to use for filling padding bytes.
   int64_t Value;
 
-  /// ValueSize - The size of the integer (in bytes) of \arg Value.
+  /// ValueSize - The size of the integer (in bytes) of \p Value.
   unsigned ValueSize;
 
   /// MaxBytesToEmit - The maximum number of bytes to emit; if the alignment
@@ -263,10 +267,12 @@ public:
 };
 
 class MCFillFragment : public MCFragment {
+  virtual void anchor();
+
   /// Value - Value to use for filling bytes.
   int64_t Value;
 
-  /// ValueSize - The size (in bytes) of \arg Value to use when filling, or 0 if
+  /// ValueSize - The size (in bytes) of \p Value to use when filling, or 0 if
   /// this is a virtual fill fragment.
   unsigned ValueSize;
 
@@ -300,6 +306,8 @@ public:
 };
 
 class MCOrgFragment : public MCFragment {
+  virtual void anchor();
+
   /// Offset - The offset this fragment should start at.
   const MCExpr *Offset;
 
@@ -327,6 +335,8 @@ public:
 };
 
 class MCLEBFragment : public MCFragment {
+  virtual void anchor();
+
   /// Value - The value this fragment should contain.
   const MCExpr *Value;
 
@@ -358,6 +368,8 @@ public:
 };
 
 class MCDwarfLineAddrFragment : public MCFragment {
+  virtual void anchor();
+
   /// LineDelta - the value of the difference between the two line numbers
   /// between two .loc dwarf directives.
   int64_t LineDelta;
@@ -393,6 +405,8 @@ public:
 };
 
 class MCDwarfCallFrameFragment : public MCFragment {
+  virtual void anchor();
+
   /// AddrDelta - The expression for the difference of the two symbols that
   /// make up the address delta between two .cfi_* dwarf directives.
   const MCExpr *AddrDelta;
@@ -426,8 +440,8 @@ public:
 class MCSectionData : public ilist_node<MCSectionData> {
   friend class MCAsmLayout;
 
-  MCSectionData(const MCSectionData&);  // DO NOT IMPLEMENT
-  void operator=(const MCSectionData&); // DO NOT IMPLEMENT
+  MCSectionData(const MCSectionData&) LLVM_DELETED_FUNCTION;
+  void operator=(const MCSectionData&) LLVM_DELETED_FUNCTION;
 
 public:
   typedef iplist<MCFragment> FragmentListType;
@@ -637,6 +651,16 @@ struct IndirectSymbolData {
   MCSectionData *SectionData;
 };
 
+// FIXME: Ditto this. Purely so the Streamer and the ObjectWriter can talk
+// to one another.
+struct DataRegionData {
+  // This enum should be kept in sync w/ the mach-o definition in
+  // llvm/Object/MachOFormat.h.
+  enum KindTy { Data = 1, JumpTable8, JumpTable16, JumpTable32 } Kind;
+  MCSymbol *Start;
+  MCSymbol *End;
+};
+
 class MCAssembler {
   friend class MCAsmLayout;
 
@@ -654,9 +678,13 @@ public:
     const_indirect_symbol_iterator;
   typedef std::vector<IndirectSymbolData>::iterator indirect_symbol_iterator;
 
+  typedef std::vector<DataRegionData>::const_iterator
+    const_data_region_iterator;
+  typedef std::vector<DataRegionData>::iterator data_region_iterator;
+
 private:
-  MCAssembler(const MCAssembler&);    // DO NOT IMPLEMENT
-  void operator=(const MCAssembler&); // DO NOT IMPLEMENT
+  MCAssembler(const MCAssembler&) LLVM_DELETED_FUNCTION;
+  void operator=(const MCAssembler&) LLVM_DELETED_FUNCTION;
 
   MCContext &Context;
 
@@ -684,6 +712,7 @@ private:
 
   std::vector<IndirectSymbolData> IndirectSymbols;
 
+  std::vector<DataRegionData> DataRegions;
   /// The set of function symbols for which a .thumb_func directive has
   /// been seen.
   //
@@ -709,45 +738,46 @@ private:
   /// \param Value [out] On return, the value of the fixup as currently laid
   /// out.
   /// \return Whether the fixup value was fully resolved. This is true if the
-  /// \arg Value result is fixed, otherwise the value may change due to
+  /// \p Value result is fixed, otherwise the value may change due to
   /// relocation.
-  bool EvaluateFixup(const MCAsmLayout &Layout,
+  bool evaluateFixup(const MCAsmLayout &Layout,
                      const MCFixup &Fixup, const MCFragment *DF,
                      MCValue &Target, uint64_t &Value) const;
 
   /// Check whether a fixup can be satisfied, or whether it needs to be relaxed
   /// (increased in size, in order to hold its value correctly).
-  bool FixupNeedsRelaxation(const MCFixup &Fixup, const MCFragment *DF,
+  bool fixupNeedsRelaxation(const MCFixup &Fixup, const MCInstFragment *DF,
                             const MCAsmLayout &Layout) const;
 
   /// Check whether the given fragment needs relaxation.
-  bool FragmentNeedsRelaxation(const MCInstFragment *IF,
+  bool fragmentNeedsRelaxation(const MCInstFragment *IF,
                                const MCAsmLayout &Layout) const;
 
-  /// LayoutOnce - Perform one layout iteration and return true if any offsets
+  /// layoutOnce - Perform one layout iteration and return true if any offsets
   /// were adjusted.
-  bool LayoutOnce(MCAsmLayout &Layout);
+  bool layoutOnce(MCAsmLayout &Layout);
 
-  bool LayoutSectionOnce(MCAsmLayout &Layout, MCSectionData &SD);
+  bool layoutSectionOnce(MCAsmLayout &Layout, MCSectionData &SD);
 
-  bool RelaxInstruction(MCAsmLayout &Layout, MCInstFragment &IF);
+  bool relaxInstruction(MCAsmLayout &Layout, MCInstFragment &IF);
 
-  bool RelaxLEB(MCAsmLayout &Layout, MCLEBFragment &IF);
+  bool relaxLEB(MCAsmLayout &Layout, MCLEBFragment &IF);
 
-  bool RelaxDwarfLineAddr(MCAsmLayout &Layout, MCDwarfLineAddrFragment &DF);
-  bool RelaxDwarfCallFrameFragment(MCAsmLayout &Layout,
+  bool relaxDwarfLineAddr(MCAsmLayout &Layout, MCDwarfLineAddrFragment &DF);
+  bool relaxDwarfCallFrameFragment(MCAsmLayout &Layout,
                                    MCDwarfCallFrameFragment &DF);
 
-  /// FinishLayout - Finalize a layout, including fragment lowering.
-  void FinishLayout(MCAsmLayout &Layout);
+  /// finishLayout - Finalize a layout, including fragment lowering.
+  void finishLayout(MCAsmLayout &Layout);
 
-  uint64_t HandleFixup(const MCAsmLayout &Layout,
+  uint64_t handleFixup(const MCAsmLayout &Layout,
                        MCFragment &F, const MCFixup &Fixup);
 
 public:
   /// Compute the effective fragment size assuming it is laid out at the given
-  /// \arg SectionAddress and \arg FragmentOffset.
-  uint64_t ComputeFragmentSize(const MCAsmLayout &Layout, const MCFragment &F) const;
+  /// \p SectionAddress and \p FragmentOffset.
+  uint64_t computeFragmentSize(const MCAsmLayout &Layout,
+                               const MCFragment &F) const;
 
   /// Find the symbol which defines the atom containing the given symbol, or
   /// null if there is no such symbol.
@@ -760,7 +790,7 @@ public:
   bool isSymbolLinkerVisible(const MCSymbol &SD) const;
 
   /// Emit the section contents using the given object writer.
-  void WriteSectionData(const MCSectionData *Section,
+  void writeSectionData(const MCSectionData *Section,
                         const MCAsmLayout &Layout) const;
 
   /// Check whether a given symbol has been flagged with .thumb_func.
@@ -774,7 +804,7 @@ public:
 public:
   /// Construct a new assembler instance.
   ///
-  /// \arg OS - The stream to output to.
+  /// \param OS The stream to output to.
   //
   // FIXME: How are we going to parameterize this? Two obvious options are stay
   // concrete and require clients to pass in a target like object. The other
@@ -794,7 +824,7 @@ public:
   MCObjectWriter &getWriter() const { return Writer; }
 
   /// Finish - Do final processing and write the object to the output stream.
-  /// \arg Writer is used for custom object writer (as the MCJIT does),
+  /// \p Writer is used for custom object writer (as the MCJIT does),
   /// if not specified it is automatically created from backend.
   void Finish();
 
@@ -867,6 +897,33 @@ public:
   }
 
   size_t indirect_symbol_size() const { return IndirectSymbols.size(); }
+
+  /// @}
+  /// @name Data Region List Access
+  /// @{
+
+  // FIXME: This is a total hack, this should not be here. Once things are
+  // factored so that the streamer has direct access to the .o writer, it can
+  // disappear.
+  std::vector<DataRegionData> &getDataRegions() {
+    return DataRegions;
+  }
+
+  data_region_iterator data_region_begin() {
+    return DataRegions.begin();
+  }
+  const_data_region_iterator data_region_begin() const {
+    return DataRegions.begin();
+  }
+
+  data_region_iterator data_region_end() {
+    return DataRegions.end();
+  }
+  const_data_region_iterator data_region_end() const {
+    return DataRegions.end();
+  }
+
+  size_t data_region_size() const { return DataRegions.size(); }
 
   /// @}
   /// @name Backend Data Access

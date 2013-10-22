@@ -129,7 +129,7 @@ void MachServer::notifyIfUnused(Port port, bool doNotify) const
 // as appropriate.
 // @@@ Msg-errors in additional threads are not acted upon.
 //
-void MachServer::run(size_t maxSize, mach_msg_options_t options)
+void MachServer::run(mach_msg_size_t maxSize, mach_msg_options_t options)
 {
 	// establish server-global (thread-shared) parameters
 	mMaxSize = maxSize;
@@ -177,7 +177,7 @@ void MachServer::runServerThread(bool doTimeout)
 			eventDone();
 			
 			// process all pending timers
-			while (processTimer()) ;
+			while (processTimer()) {}
 		
 			// check for worker idle timeout
 			{	StLock<Mutex> _(managerLock);

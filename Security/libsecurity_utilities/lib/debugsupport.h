@@ -58,7 +58,7 @@ public:
 	
 	Name(const char *start, const char *end)
 	{
-		int length = end - start; if (length >= maxLength) length = maxLength - 1;
+		intptr_t length = end - start; if (length >= maxLength) length = maxLength - 1;
 		memcpy(mName, start, length); memset(mName + length, 0, maxLength - length);
 	}
 	

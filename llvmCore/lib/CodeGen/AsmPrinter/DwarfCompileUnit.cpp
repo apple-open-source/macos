@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains support for writing dwarf compile unit.
+// This file contains support for constructing a dwarf compile unit.
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,9 +17,9 @@
 #include "DwarfCompileUnit.h"
 #include "DwarfDebug.h"
 #include "llvm/Constants.h"
+#include "llvm/DIBuilder.h"
 #include "llvm/GlobalVariable.h"
 #include "llvm/Instructions.h"
-#include "llvm/Analysis/DIBuilder.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Target/Mangler.h"
 #include "llvm/Target/TargetData.h"
@@ -32,8 +32,9 @@
 using namespace llvm;
 
 /// CompileUnit - Compile unit constructor.
-CompileUnit::CompileUnit(unsigned I, DIE *D, AsmPrinter *A, DwarfDebug *DW)
-  : ID(I), CUDie(D), Asm(A), DD(DW), IndexTyDie(0) {
+CompileUnit::CompileUnit(unsigned I, unsigned L, DIE *D, AsmPrinter *A,
+                         DwarfDebug *DW)
+  : ID(I), Language(L), CUDie(D), Asm(A), DD(DW), IndexTyDie(0) {
   DIEIntegerOne = new (DIEValueAllocator) DIEInteger(1);
 }
 
@@ -48,6 +49,15 @@ CompileUnit::~CompileUnit() {
 DIEEntry *CompileUnit::createDIEEntry(DIE *Entry) {
   DIEEntry *Value = new (DIEValueAllocator) DIEEntry(Entry);
   return Value;
+}
+
+/// addFlag - Add a flag that is true.
+void CompileUnit::addFlag(DIE *Die, unsigned Attribute) {
+  if (!DD->useDarwinGDBCompat())
+    Die->addValue(Attribute, dwarf::DW_FORM_flag_present,
+                  DIEIntegerOne);
+  else
+    addUInt(Die, Attribute, dwarf::DW_FORM_flag, 1);
 }
 
 /// addUInt - Add an unsigned integer attribute data and value.
@@ -155,13 +165,12 @@ void CompileUnit::addSourceLine(DIE *Die, DISubprogram SP) {
   // Verify subprogram.
   if (!SP.Verify())
     return;
+
   // If the line number is 0, don't add it.
-  if (SP.getLineNumber() == 0)
+  unsigned Line = SP.getLineNumber();
+  if (Line == 0)
     return;
 
-  unsigned Line = SP.getLineNumber();
-  if (!SP.getContext().Verify())
-    return;
   unsigned FileID = DD->GetOrCreateSourceID(SP.getFilename(),
                                             SP.getDirectory());
   assert(FileID && "Invalid file id");
@@ -177,10 +186,28 @@ void CompileUnit::addSourceLine(DIE *Die, DIType Ty) {
     return;
 
   unsigned Line = Ty.getLineNumber();
-  if (Line == 0 || !Ty.getContext().Verify())
+  if (Line == 0)
     return;
   unsigned FileID = DD->GetOrCreateSourceID(Ty.getFilename(),
                                             Ty.getDirectory());
+  assert(FileID && "Invalid file id");
+  addUInt(Die, dwarf::DW_AT_decl_file, 0, FileID);
+  addUInt(Die, dwarf::DW_AT_decl_line, 0, Line);
+}
+
+/// addSourceLine - Add location information to specified debug information
+/// entry.
+void CompileUnit::addSourceLine(DIE *Die, DIObjCProperty Ty) {
+  // Verify type.
+  if (!Ty.Verify())
+    return;
+
+  unsigned Line = Ty.getLineNumber();
+  if (Line == 0)
+    return;
+  DIFile File = Ty.getFile();
+  unsigned FileID = DD->GetOrCreateSourceID(File.getFilename(),
+                                            File.getDirectory());
   assert(FileID && "Invalid file id");
   addUInt(Die, dwarf::DW_AT_decl_file, 0, FileID);
   addUInt(Die, dwarf::DW_AT_decl_line, 0, Line);
@@ -290,7 +317,8 @@ void CompileUnit::addComplexAddress(DbgVariable *&DV, DIE *Die,
       addUInt(Block, 0, dwarf::DW_FORM_data1, dwarf::DW_OP_plus_uconst);
       addUInt(Block, 0, dwarf::DW_FORM_udata, DV->getAddrElement(++i));
     } else if (Element == DIBuilder::OpDeref) {
-      addUInt(Block, 0, dwarf::DW_FORM_data1, dwarf::DW_OP_deref);
+      if (!Location.isReg())
+        addUInt(Block, 0, dwarf::DW_FORM_data1, dwarf::DW_OP_deref);
     } else llvm_unreachable("unknown DIBuilder Opcode");
   }
 
@@ -400,27 +428,12 @@ void CompileUnit::addBlockByrefAddress(DbgVariable *&DV, DIE *Die,
 
   // Decode the original location, and use that as the start of the byref
   // variable's location.
-  const TargetRegisterInfo *RI = Asm->TM.getRegisterInfo();
-  unsigned Reg = RI->getDwarfRegNum(Location.getReg(), false);
   DIEBlock *Block = new (DIEValueAllocator) DIEBlock();
 
-  if (Location.isReg()) {
-    if (Reg < 32)
-      addUInt(Block, 0, dwarf::DW_FORM_data1, dwarf::DW_OP_reg0 + Reg);
-    else {
-      addUInt(Block, 0, dwarf::DW_FORM_data1, dwarf::DW_OP_regx);
-      addUInt(Block, 0, dwarf::DW_FORM_udata, Reg);
-    }
-  } else {
-    if (Reg < 32)
-      addUInt(Block, 0, dwarf::DW_FORM_data1, dwarf::DW_OP_breg0 + Reg);
-    else {
-      addUInt(Block, 0, dwarf::DW_FORM_data1, dwarf::DW_OP_bregx);
-      addUInt(Block, 0, dwarf::DW_FORM_udata, Reg);
-    }
-
-    addUInt(Block, 0, dwarf::DW_FORM_sdata, Location.getOffset());
-  }
+  if (Location.isReg())
+    addRegisterOp(Block, Location.getReg());
+  else
+    addRegisterOffset(Block, Location.getReg(), Location.getOffset());
 
   // If we started with a pointer to the __Block_byref... struct, then
   // the first thing we need to do is dereference the pointer (DW_OP_deref).
@@ -616,7 +629,7 @@ DIE *CompileUnit::getOrCreateTypeDIE(const MDNode *TyNode) {
       // A runtime language of 0 actually means C/C++ and that any
       // non-negative value is some version of Objective-C/C++.
       IsImplementation = (CT.getRunTimeLang() == 0) ||
-        CT.isObjcClassComplete();;
+        CT.isObjcClassComplete();
     }
     unsigned Flags = IsImplementation ?
                      DwarfAccelTable::eTypeFlagClassIsImplementation : 0;
@@ -628,7 +641,7 @@ DIE *CompileUnit::getOrCreateTypeDIE(const MDNode *TyNode) {
 }
 
 /// addType - Add a new type attribute to the specified entity.
-void CompileUnit::addType(DIE *Entity, DIType Ty) {
+void CompileUnit::addType(DIE *Entity, DIType Ty, unsigned Attribute) {
   if (!Ty.Verify())
     return;
 
@@ -636,7 +649,7 @@ void CompileUnit::addType(DIE *Entity, DIType Ty) {
   DIEEntry *Entry = getDIEEntry(Ty);
   // If it exists then use the existing value.
   if (Entry) {
-    Entity->addValue(dwarf::DW_AT_type, dwarf::DW_FORM_ref4, Entry);
+    Entity->addValue(Attribute, dwarf::DW_FORM_ref4, Entry);
     return;
   }
 
@@ -646,7 +659,7 @@ void CompileUnit::addType(DIE *Entity, DIType Ty) {
   // Set up proxy.
   Entry = createDIEEntry(Buffer);
   insertDIEEntry(Ty, Entry);
-  Entity->addValue(dwarf::DW_AT_type, dwarf::DW_FORM_ref4, Entry);
+  Entity->addValue(Attribute, dwarf::DW_FORM_ref4, Entry);
 
   // If this is a complete composite type then include it in the
   // list of global types.
@@ -696,7 +709,7 @@ void CompileUnit::constructTypeDIE(DIE &Buffer, DIBasicType BTy) {
 
   Buffer.setTag(dwarf::DW_TAG_base_type);
   addUInt(&Buffer, dwarf::DW_AT_encoding, dwarf::DW_FORM_data1,
-	  BTy.getEncoding());
+          BTy.getEncoding());
 
   uint64_t Size = BTy.getSizeInBits() >> 3;
   addUInt(&Buffer, dwarf::DW_AT_byte_size, 0, Size);
@@ -723,7 +736,7 @@ void CompileUnit::constructTypeDIE(DIE &Buffer, DIDerivedType DTy) {
     addString(&Buffer, dwarf::DW_AT_name, Name);
 
   // Add size if non-zero (derived types might be zero-sized.)
-  if (Size)
+  if (Size && Tag != dwarf::DW_TAG_pointer_type)
     addUInt(&Buffer, dwarf::DW_AT_byte_size, 0, Size);
 
   // Add source line info if available and TyDesc is not a forward declaration.
@@ -757,6 +770,11 @@ void CompileUnit::constructTypeDIE(DIE &Buffer, DICompositeType CTy) {
         Buffer.addChild(ElemDie);
       }
     }
+    DIType DTy = CTy.getTypeDerivedFrom();
+    if (DTy.Verify()) {
+      addType(&Buffer, DTy);
+      addUInt(&Buffer, dwarf::DW_AT_enum_class, dwarf::DW_FORM_flag, 1);
+    }
   }
     break;
   case dwarf::DW_TAG_subroutine_type: {
@@ -779,9 +797,13 @@ void CompileUnit::constructTypeDIE(DIE &Buffer, DICompositeType CTy) {
         Buffer.addChild(Arg);
       }
     }
-    // Add prototype flag.
-    if (isPrototyped)
-      addUInt(&Buffer, dwarf::DW_AT_prototyped, dwarf::DW_FORM_flag, 1);
+    // Add prototype flag if we're dealing with a C language and the
+    // function has been prototyped.
+    if (isPrototyped &&
+        (Language == dwarf::DW_LANG_C89 ||
+         Language == dwarf::DW_LANG_C99 ||
+         Language == dwarf::DW_LANG_ObjC))
+      addFlag(&Buffer, dwarf::DW_AT_prototyped);
   }
     break;
   case dwarf::DW_TAG_structure_type:
@@ -803,39 +825,74 @@ void CompileUnit::constructTypeDIE(DIE &Buffer, DICompositeType CTy) {
         DISubprogram SP(Element);
         ElemDie = getOrCreateSubprogramDIE(DISubprogram(Element));
         if (SP.isProtected())
-          addUInt(ElemDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_flag,
+          addUInt(ElemDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_data1,
                   dwarf::DW_ACCESS_protected);
         else if (SP.isPrivate())
-          addUInt(ElemDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_flag,
+          addUInt(ElemDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_data1,
                   dwarf::DW_ACCESS_private);
         else 
-          addUInt(ElemDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_flag,
+          addUInt(ElemDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_data1,
             dwarf::DW_ACCESS_public);
         if (SP.isExplicit())
-          addUInt(ElemDie, dwarf::DW_AT_explicit, dwarf::DW_FORM_flag, 1);
+          addFlag(ElemDie, dwarf::DW_AT_explicit);
       }
       else if (Element.isVariable()) {
         DIVariable DV(Element);
         ElemDie = new DIE(dwarf::DW_TAG_variable);
         addString(ElemDie, dwarf::DW_AT_name, DV.getName());
         addType(ElemDie, DV.getType());
-        addUInt(ElemDie, dwarf::DW_AT_declaration, dwarf::DW_FORM_flag, 1);
-        addUInt(ElemDie, dwarf::DW_AT_external, dwarf::DW_FORM_flag, 1);
+        addFlag(ElemDie, dwarf::DW_AT_declaration);
+        addFlag(ElemDie, dwarf::DW_AT_external);
         addSourceLine(ElemDie, DV);
-      } else if (Element.isDerivedType())
-        ElemDie = createMemberDIE(DIDerivedType(Element));
-      else
+      } else if (Element.isDerivedType()) {
+        DIDerivedType DDTy(Element);
+        if (DDTy.getTag() == dwarf::DW_TAG_friend) {
+          ElemDie = new DIE(dwarf::DW_TAG_friend);
+          addType(ElemDie, DDTy.getTypeDerivedFrom(), dwarf::DW_AT_friend);
+        } else
+          ElemDie = createMemberDIE(DIDerivedType(Element));
+      } else if (Element.isObjCProperty()) {
+        DIObjCProperty Property(Element);
+        ElemDie = new DIE(Property.getTag());
+        StringRef PropertyName = Property.getObjCPropertyName();
+        addString(ElemDie, dwarf::DW_AT_APPLE_property_name, PropertyName);
+        addType(ElemDie, Property.getType());
+        addSourceLine(ElemDie, Property);
+        StringRef GetterName = Property.getObjCPropertyGetterName();
+        if (!GetterName.empty())
+          addString(ElemDie, dwarf::DW_AT_APPLE_property_getter, GetterName);
+        StringRef SetterName = Property.getObjCPropertySetterName();
+        if (!SetterName.empty())
+          addString(ElemDie, dwarf::DW_AT_APPLE_property_setter, SetterName);
+        unsigned PropertyAttributes = 0;
+        if (Property.isReadOnlyObjCProperty())
+          PropertyAttributes |= dwarf::DW_APPLE_PROPERTY_readonly;
+        if (Property.isReadWriteObjCProperty())
+          PropertyAttributes |= dwarf::DW_APPLE_PROPERTY_readwrite;
+        if (Property.isAssignObjCProperty())
+          PropertyAttributes |= dwarf::DW_APPLE_PROPERTY_assign;
+        if (Property.isRetainObjCProperty())
+          PropertyAttributes |= dwarf::DW_APPLE_PROPERTY_retain;
+        if (Property.isCopyObjCProperty())
+          PropertyAttributes |= dwarf::DW_APPLE_PROPERTY_copy;
+        if (Property.isNonAtomicObjCProperty())
+          PropertyAttributes |= dwarf::DW_APPLE_PROPERTY_nonatomic;
+        if (PropertyAttributes)
+          addUInt(ElemDie, dwarf::DW_AT_APPLE_property_attribute, 0, 
+                 PropertyAttributes);
+
+        DIEEntry *Entry = getDIEEntry(Element);
+        if (!Entry) {
+          Entry = createDIEEntry(ElemDie);
+          insertDIEEntry(Element, Entry);
+        }
+      } else
         continue;
       Buffer.addChild(ElemDie);
     }
 
     if (CTy.isAppleBlockExtension())
-      addUInt(&Buffer, dwarf::DW_AT_APPLE_block, dwarf::DW_FORM_flag, 1);
-
-    unsigned RLang = CTy.getRunTimeLang();
-    if (RLang)
-      addUInt(&Buffer, dwarf::DW_AT_APPLE_runtime_class,
-              dwarf::DW_FORM_data1, RLang);
+      addFlag(&Buffer, dwarf::DW_AT_APPLE_block);
 
     DICompositeType ContainingType = CTy.getContainingType();
     if (DIDescriptor(ContainingType).isCompositeType())
@@ -847,10 +904,13 @@ void CompileUnit::constructTypeDIE(DIE &Buffer, DICompositeType CTy) {
     }
 
     if (CTy.isObjcClassComplete())
-      addUInt(&Buffer, dwarf::DW_AT_APPLE_objc_complete_type,
-              dwarf::DW_FORM_flag, 1);
+      addFlag(&Buffer, dwarf::DW_AT_APPLE_objc_complete_type);
 
-    if (Tag == dwarf::DW_TAG_class_type) 
+    // Add template parameters to a class, structure or union types.
+    // FIXME: The support isn't in the metadata for this yet.
+    if (Tag == dwarf::DW_TAG_class_type ||
+        Tag == dwarf::DW_TAG_structure_type ||
+        Tag == dwarf::DW_TAG_union_type)
       addTemplateParams(Buffer, CTy.getTemplateParams());
 
     break;
@@ -863,23 +923,31 @@ void CompileUnit::constructTypeDIE(DIE &Buffer, DICompositeType CTy) {
   if (!Name.empty())
     addString(&Buffer, dwarf::DW_AT_name, Name);
 
-  if (Tag == dwarf::DW_TAG_enumeration_type || Tag == dwarf::DW_TAG_class_type
-      || Tag == dwarf::DW_TAG_structure_type || Tag == dwarf::DW_TAG_union_type)
-  {
+  if (Tag == dwarf::DW_TAG_enumeration_type ||
+      Tag == dwarf::DW_TAG_class_type ||
+      Tag == dwarf::DW_TAG_structure_type ||
+      Tag == dwarf::DW_TAG_union_type) {
     // Add size if non-zero (derived types might be zero-sized.)
+    // TODO: Do we care about size for enum forward declarations?
     if (Size)
       addUInt(&Buffer, dwarf::DW_AT_byte_size, 0, Size);
-    else {
+    else if (!CTy.isForwardDecl())
       // Add zero size if it is not a forward declaration.
-      if (CTy.isForwardDecl())
-        addUInt(&Buffer, dwarf::DW_AT_declaration, dwarf::DW_FORM_flag, 1);
-      else
-        addUInt(&Buffer, dwarf::DW_AT_byte_size, 0, 0);
-    }
+      addUInt(&Buffer, dwarf::DW_AT_byte_size, 0, 0);
+
+    // If we're a forward decl, say so.
+    if (CTy.isForwardDecl())
+      addFlag(&Buffer, dwarf::DW_AT_declaration);
 
     // Add source line info if available.
     if (!CTy.isForwardDecl())
       addSourceLine(&Buffer, CTy);
+
+    // No harm in adding the runtime language to the declaration.
+    unsigned RLang = CTy.getRunTimeLang();
+    if (RLang)
+      addUInt(&Buffer, dwarf::DW_AT_APPLE_runtime_class,
+              dwarf::DW_FORM_data1, RLang);
   }
 }
 
@@ -900,7 +968,7 @@ CompileUnit::getOrCreateTemplateTypeParameterDIE(DITemplateTypeParameter TP) {
 /// getOrCreateTemplateValueParameterDIE - Find existing DIE or create new DIE 
 /// for the given DITemplateValueParameter.
 DIE *
-CompileUnit::getOrCreateTemplateValueParameterDIE(DITemplateValueParameter TPV) {
+CompileUnit::getOrCreateTemplateValueParameterDIE(DITemplateValueParameter TPV){
   DIE *ParamDIE = getDIE(TPV);
   if (ParamDIE)
     return ParamDIE;
@@ -948,25 +1016,47 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
     return SPDie;
 
   SPDie = new DIE(dwarf::DW_TAG_subprogram);
-  
+
   // DW_TAG_inlined_subroutine may refer to this DIE.
   insertDIE(SP, SPDie);
-  
+
+  DISubprogram SPDecl = SP.getFunctionDeclaration();
+  DIE *DeclDie = NULL;
+  if (SPDecl.isSubprogram()) {
+    DeclDie = getOrCreateSubprogramDIE(SPDecl);
+  }
+
   // Add to context owner.
   addToContextOwner(SPDie, SP.getContext());
 
   // Add function template parameters.
   addTemplateParams(*SPDie, SP.getTemplateParams());
 
+  // Unfortunately this code needs to stay here instead of below the
+  // AT_specification code in order to work around a bug in older
+  // gdbs that requires the linkage name to resolve multiple template
+  // functions.
+  // TODO: Remove this set of code when we get rid of the old gdb
+  // compatibility.
   StringRef LinkageName = SP.getLinkageName();
-  if (!LinkageName.empty())
+  if (!LinkageName.empty() && DD->useDarwinGDBCompat())
     addString(SPDie, dwarf::DW_AT_MIPS_linkage_name,
               getRealLinkageName(LinkageName));
 
   // If this DIE is going to refer declaration info using AT_specification
   // then there is no need to add other attributes.
-  if (SP.getFunctionDeclaration().isSubprogram())
+  if (DeclDie) {
+    // Refer function declaration directly.
+    addDIEEntry(SPDie, dwarf::DW_AT_specification, dwarf::DW_FORM_ref4,
+                DeclDie);
+
     return SPDie;
+  }
+
+  // Add the linkage name if we have one.
+  if (!LinkageName.empty() && !DD->useDarwinGDBCompat())
+    addString(SPDie, dwarf::DW_AT_MIPS_linkage_name,
+              getRealLinkageName(LinkageName));
 
   // Constructors and operators for anonymous aggregates do not have names.
   if (!SP.getName().empty())
@@ -974,8 +1064,13 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
 
   addSourceLine(SPDie, SP);
 
-  if (SP.isPrototyped()) 
-    addUInt(SPDie, dwarf::DW_AT_prototyped, dwarf::DW_FORM_flag, 1);
+  // Add the prototype if we have a prototype and we have a C like
+  // language.
+  if (SP.isPrototyped() &&
+      (Language == dwarf::DW_LANG_C89 ||
+       Language == dwarf::DW_LANG_C99 ||
+       Language == dwarf::DW_LANG_ObjC))
+    addFlag(SPDie, dwarf::DW_AT_prototyped);
 
   // Add Return Type.
   DICompositeType SPTy = SP.getType();
@@ -989,7 +1084,7 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
 
   unsigned VK = SP.getVirtuality();
   if (VK) {
-    addUInt(SPDie, dwarf::DW_AT_virtuality, dwarf::DW_FORM_flag, VK);
+    addUInt(SPDie, dwarf::DW_AT_virtuality, dwarf::DW_FORM_data1, VK);
     DIEBlock *Block = getDIEBlock();
     addUInt(Block, 0, dwarf::DW_FORM_data1, dwarf::DW_OP_constu);
     addUInt(Block, 0, dwarf::DW_FORM_udata, SP.getVirtualIndex());
@@ -999,7 +1094,7 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
   }
 
   if (!SP.isDefinition()) {
-    addUInt(SPDie, dwarf::DW_AT_declaration, dwarf::DW_FORM_flag, 1);
+    addFlag(SPDie, dwarf::DW_AT_declaration);
     
     // Add arguments. Do not add arguments for subprogram definition. They will
     // be handled while processing variables.
@@ -1010,22 +1105,22 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
     if (SPTag == dwarf::DW_TAG_subroutine_type)
       for (unsigned i = 1, N =  Args.getNumElements(); i < N; ++i) {
         DIE *Arg = new DIE(dwarf::DW_TAG_formal_parameter);
-        DIType ATy = DIType(DIType(Args.getElement(i)));
+        DIType ATy = DIType(Args.getElement(i));
         addType(Arg, ATy);
         if (ATy.isArtificial())
-          addUInt(Arg, dwarf::DW_AT_artificial, dwarf::DW_FORM_flag, 1);
+          addFlag(Arg, dwarf::DW_AT_artificial);
         SPDie->addChild(Arg);
       }
   }
 
   if (SP.isArtificial())
-    addUInt(SPDie, dwarf::DW_AT_artificial, dwarf::DW_FORM_flag, 1);
+    addFlag(SPDie, dwarf::DW_AT_artificial);
 
   if (!SP.isLocalToUnit())
-    addUInt(SPDie, dwarf::DW_AT_external, dwarf::DW_FORM_flag, 1);
+    addFlag(SPDie, dwarf::DW_AT_external);
 
   if (SP.isOptimized())
-    addUInt(SPDie, dwarf::DW_AT_APPLE_optimized, dwarf::DW_FORM_flag, 1);
+    addFlag(SPDie, dwarf::DW_AT_APPLE_optimized);
 
   if (unsigned isa = Asm->getISAEncoding()) {
     addUInt(SPDie, dwarf::DW_AT_APPLE_isa, dwarf::DW_FORM_flag, isa);
@@ -1088,7 +1183,7 @@ void CompileUnit::createGlobalVariableDIE(const MDNode *N) {
 
   // Add scoping info.
   if (!GV.isLocalToUnit())
-    addUInt(VariableDIE, dwarf::DW_AT_external, dwarf::DW_FORM_flag, 1);
+    addFlag(VariableDIE, dwarf::DW_AT_external);
 
   // Add line number info.
   addSourceLine(VariableDIE, GV);
@@ -1113,8 +1208,7 @@ void CompileUnit::createGlobalVariableDIE(const MDNode *N) {
       addDIEEntry(VariableSpecDIE, dwarf::DW_AT_specification,
                   dwarf::DW_FORM_ref4, VariableDIE);
       addBlock(VariableSpecDIE, dwarf::DW_AT_location, 0, Block);
-      addUInt(VariableDIE, dwarf::DW_AT_declaration, dwarf::DW_FORM_flag,
-                     1);
+      addFlag(VariableDIE, dwarf::DW_AT_declaration);
       addDie(VariableSpecDIE);
     } else {
       addBlock(VariableDIE, dwarf::DW_AT_location, 0, Block);
@@ -1152,7 +1246,8 @@ void CompileUnit::createGlobalVariableDIE(const MDNode *N) {
 }
 
 /// constructSubrangeDIE - Construct subrange DIE from DISubrange.
-void CompileUnit::constructSubrangeDIE(DIE &Buffer, DISubrange SR, DIE *IndexTy){
+void CompileUnit::constructSubrangeDIE(DIE &Buffer, DISubrange SR,
+                                       DIE *IndexTy) {
   DIE *DW_Subrange = new DIE(dwarf::DW_TAG_subrange_type);
   addDIEEntry(DW_Subrange, dwarf::DW_AT_type, dwarf::DW_FORM_ref4, IndexTy);
   uint64_t L = SR.getLo();
@@ -1179,7 +1274,7 @@ void CompileUnit::constructArrayTypeDIE(DIE &Buffer,
                                         DICompositeType *CTy) {
   Buffer.setTag(dwarf::DW_TAG_array_type);
   if (CTy->getTag() == dwarf::DW_TAG_vector_type)
-    addUInt(&Buffer, dwarf::DW_AT_GNU_vector, dwarf::DW_FORM_flag, 1);
+    addFlag(&Buffer, dwarf::DW_AT_GNU_vector);
 
   // Emit derived type.
   addType(&Buffer, CTy->getTypeDerivedFrom());
@@ -1252,8 +1347,7 @@ DIE *CompileUnit::constructVariableDIE(DbgVariable *DV, bool isScopeAbstract) {
   }
 
   if (DV->isArtificial())
-    addUInt(VariableDie, dwarf::DW_AT_artificial,
-                        dwarf::DW_FORM_flag, 1);
+    addFlag(VariableDie, dwarf::DW_AT_artificial);
 
   if (isScopeAbstract) {
     DV->setDIE(VariableDie);
@@ -1399,20 +1493,26 @@ DIE *CompileUnit::createMemberDIE(DIDerivedType DT) {
     addBlock(MemberDie, dwarf::DW_AT_data_member_location, 0, MemLocationDie);
 
   if (DT.isProtected())
-    addUInt(MemberDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_flag,
+    addUInt(MemberDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_data1,
             dwarf::DW_ACCESS_protected);
   else if (DT.isPrivate())
-    addUInt(MemberDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_flag,
+    addUInt(MemberDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_data1,
             dwarf::DW_ACCESS_private);
   // Otherwise C++ member and base classes are considered public.
   else 
-    addUInt(MemberDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_flag,
+    addUInt(MemberDie, dwarf::DW_AT_accessibility, dwarf::DW_FORM_data1,
             dwarf::DW_ACCESS_public);
   if (DT.isVirtual())
-    addUInt(MemberDie, dwarf::DW_AT_virtuality, dwarf::DW_FORM_flag,
+    addUInt(MemberDie, dwarf::DW_AT_virtuality, dwarf::DW_FORM_data1,
             dwarf::DW_VIRTUALITY_virtual);
 
   // Objective-C properties.
+  if (MDNode *PNode = DT.getObjCProperty())
+    if (DIEEntry *PropertyDie = getDIEEntry(PNode))
+      MemberDie->addValue(dwarf::DW_AT_APPLE_property, dwarf::DW_FORM_ref4, 
+                          PropertyDie);
+
+  // This is only for backward compatibility.
   StringRef PropertyName = DT.getObjCPropertyName();
   if (!PropertyName.empty()) {
     addString(MemberDie, dwarf::DW_AT_APPLE_property_name, PropertyName);

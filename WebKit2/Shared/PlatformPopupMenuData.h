@@ -40,21 +40,14 @@ namespace WebKit {
 struct PlatformPopupMenuData {
     PlatformPopupMenuData();
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, PlatformPopupMenuData&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, PlatformPopupMenuData&);
 
-#if PLATFORM(WIN)
-    int m_clientPaddingLeft;
-    int m_clientPaddingRight;
-    int m_clientInsetLeft;
-    int m_clientInsetRight;
-    int m_popupWidth;
-    int m_itemHeight;
-    RefPtr<ShareableBitmap> m_notSelectedBackingStore;
-    RefPtr<ShareableBitmap> m_selectedBackingStore;
-#elif PLATFORM(MAC)
+#if PLATFORM(MAC)
     FontInfo fontInfo;
     bool shouldPopOver;
+#elif PLATFORM(QT)
+    bool multipleSelections;
 #endif
 };
 

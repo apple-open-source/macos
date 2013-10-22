@@ -1,100 +1,117 @@
 require "delegate"
 
-# WeakRef is a class to represent a reference to an object that is not seen by
-# the tracing phase of the garbage collector.  This allows the referenced
-# object to be garbage collected as if nothing is referring to it. Because
-# WeakRef delegates method calls to the referenced object, it may be used in
-# place of that object, i.e. it is of the same duck type.
+# Weak Reference class that allows a referenced object to be
+# garbage-collected.
+#
+# A WeakRef may be used exactly like the object it references.
 #
 # Usage:
 #
-#   foo = Object.new
-#   foo = Object.new
-#   p foo.to_s			# original's class
-#   foo = WeakRef.new(foo)
-#   p foo.to_s			# should be same class
-#   ObjectSpace.garbage_collect
-#   p foo.to_s			# should raise exception (recycled)
-class WeakRef<Delegator
+#   foo = Object.new            # create a new object instance
+#   p foo.to_s                  # original's class
+#   foo = WeakRef.new(foo)      # reassign foo with WeakRef instance
+#   p foo.to_s                  # should be same class
+#   GC.start                    # start the garbage collector
+#   p foo.to_s                  # should raise exception (recycled)
+#
+# == Example
+#
+# With help from WeakRef, we can implement our own redimentary WeakHash class.
+#
+# We will call it WeakHash, since it's really just a Hash except all of it's
+# keys and values can be garbage collected.
+#
+#     require 'weakref'
+#
+#     class WeakHash < Hash
+#       def []= key, obj
+#         super WeakRef.new(key), WeakRef.new(obj)
+#       end
+#     end
+#
+# This is just a simple implementation, we've opened the Hash class and changed
+# Hash#store to create a new WeakRef object with +key+ and +obj+ parameters
+# before passing them as our key-value pair to the hash.
+#
+# With this you will have to limit your self to String key's, otherwise you
+# will get an ArgumentError because WeakRef cannot create a finalizer for a
+# Symbol. Symbols are immutable and cannot be garbage collected.
+#
+# Let's see it in action:
+#
+#   omg = "lol"
+#   c = WeakHash.new
+#   c['foo'] = "bar"
+#   c['baz'] = Object.new
+#   c['qux'] = omg
+#   puts c.inspect
+#   #=> {"foo"=>"bar", "baz"=>#<Object:0x007f4ddfc6cb48>, "qux"=>"lol"}
+#
+#   # Now run the garbage collector
+#   GC.start
+#   c['foo'] #=> nil
+#   c['baz'] #=> nil
+#   c['qux'] #=> nil
+#   omg      #=> "lol"
+#
+#   puts c.inspect
+#   #=> WeakRef::RefError: Invalid Reference - probably recycled
+#
+# You can see the local variable +omg+ stayed, although it's reference in our
+# hash object was garbage collected, along with the rest of the keys and
+# values. Also, when we tried to inspect our hash, we got a WeakRef::RefError,
+# this is because these objects were also garbage collected.
 
-  # RefError is raised if an object cannot be referenced by a WeakRef.
-  class RefError<StandardError
+class WeakRef < Delegator
+
+  ##
+  # RefError is raised when a referenced object has been recycled by the
+  # garbage collector
+
+  class RefError < StandardError
   end
 
-  @@id_map =  {}                # obj -> [ref,...]
-  @@id_rev_map =  {}            # ref -> obj
-  @@final = lambda{|id|
-    __old_status = Thread.critical
-    Thread.critical = true
-    begin
-      rids = @@id_map[id]
-      if rids
-	for rid in rids
-	  @@id_rev_map.delete(rid)
-	end
-	@@id_map.delete(id)
-      end
-      rid = @@id_rev_map[id]
-      if rid
-	@@id_rev_map.delete(id)
-	@@id_map[rid].delete(id)
-	@@id_map.delete(rid) if @@id_map[rid].empty?
-      end
-    ensure
-      Thread.critical = __old_status
-    end
-  }
+  @@__map = ::ObjectSpace::WeakMap.new
 
-  # Create a new WeakRef from +orig+.
+  ##
+  # Creates a weak reference to +orig+
+  #
+  # Raises an ArgumentError if the given +orig+ is immutable, such as Symbol,
+  # Fixnum, or Float.
+
   def initialize(orig)
+    case orig
+    when true, false, nil
+      @delegate_sd_obj = orig
+    else
+      @@__map[self] = orig
+    end
     super
-    __setobj__(orig)
   end
 
-  # Return the object this WeakRef references. Raises RefError if the object
-  # has been garbage collected.  The object returned is the object to which
-  # method calls are delegated (see Delegator).
-  def __getobj__
-    unless @@id_rev_map[self.__id__] == @__id
-      raise RefError, "Illegal Reference - probably recycled", caller(2)
-    end
-    begin
-      ObjectSpace._id2ref(@__id)
-    rescue RangeError
-      raise RefError, "Illegal Reference - probably recycled", caller(2)
-    end
+  def __getobj__ # :nodoc:
+    @@__map[self] or defined?(@delegate_sd_obj) ? @delegate_sd_obj :
+      Kernel::raise(RefError, "Invalid Reference - probably recycled", Kernel::caller(2))
   end
 
-  def __setobj__(obj)
-    @__id = obj.__id__
-    __old_status = Thread.critical
-    begin
-      Thread.critical = true
-      unless @@id_rev_map.key?(self)
-        ObjectSpace.define_finalizer obj, @@final
-        ObjectSpace.define_finalizer self, @@final
-      end
-      @@id_map[@__id] = [] unless @@id_map[@__id]
-    ensure
-      Thread.critical = __old_status
-    end
-    @@id_map[@__id].push self.__id__
-    @@id_rev_map[self.__id__] = @__id
+  def __setobj__(obj) # :nodoc:
   end
 
-  # Returns true if the referenced object still exists, and false if it has
-  # been garbage collected.
+  ##
+  # Returns true if the referenced object is still alive.
+
   def weakref_alive?
-    @@id_rev_map[self.__id__] == @__id
+    !!(@@__map[self] or defined?(@delegate_sd_obj))
   end
 end
 
 if __FILE__ == $0
-  require 'thread'
+#  require 'thread'
   foo = Object.new
-  p foo.to_s			# original's class
+  p foo.to_s                    # original's class
   foo = WeakRef.new(foo)
-  p foo.to_s			# should be same class
+  p foo.to_s                    # should be same class
   ObjectSpace.garbage_collect
-  p foo.to_s			# should raise exception (recycled)
+  ObjectSpace.garbage_collect
+  p foo.to_s                    # should raise exception (recycled)
 end

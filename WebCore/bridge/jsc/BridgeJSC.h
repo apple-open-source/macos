@@ -29,6 +29,7 @@
 
 #include "Bridge.h"
 #include <runtime/JSString.h>
+#include <runtime/Operations.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
@@ -48,8 +49,6 @@ class Method;
 class RootObject;
 class RuntimeObject;
 
-typedef Vector<Method*> MethodList;
-
 class Field {
 public:
     virtual JSValue valueFromInstance(ExecState*, const Instance*) const = 0;
@@ -62,21 +61,16 @@ class Class {
     WTF_MAKE_NONCOPYABLE(Class); WTF_MAKE_FAST_ALLOCATED;
 public:
     Class() { }
-    virtual MethodList methodsNamed(const Identifier&, Instance*) const = 0;
-    virtual Field* fieldNamed(const Identifier&, Instance*) const = 0;
-    virtual JSValue fallbackObject(ExecState*, Instance*, const Identifier&) { return jsUndefined(); }
+    virtual Method* methodNamed(PropertyName, Instance*) const = 0;
+    virtual Field* fieldNamed(PropertyName, Instance*) const = 0;
+    virtual JSValue fallbackObject(ExecState*, Instance*, PropertyName) { return jsUndefined(); }
 
     virtual ~Class() { }
 };
 
-typedef void (*KJSDidExecuteFunctionPtr)(ExecState*, JSObject* rootObject);
-
 class Instance : public RefCounted<Instance> {
 public:
     Instance(PassRefPtr<RootObject>);
-
-    static void setDidExecuteFunction(KJSDidExecuteFunctionPtr func);
-    static KJSDidExecuteFunctionPtr didExecuteFunction();
 
     // These functions are called before and after the main entry points into
     // the native implementations.  They can be used to establish and cleanup
@@ -89,9 +83,9 @@ public:
     void willInvalidateRuntimeObject();
 
     // Returns false if the value was not set successfully.
-    virtual bool setValueOfUndefinedField(ExecState*, const Identifier&, JSValue) { return false; }
+    virtual bool setValueOfUndefinedField(ExecState*, PropertyName, JSValue) { return false; }
 
-    virtual JSValue getMethod(ExecState* exec, const Identifier& propertyName) = 0;
+    virtual JSValue getMethod(ExecState*, PropertyName) = 0;
     virtual JSValue invokeMethod(ExecState*, RuntimeMethod* method) = 0;
 
     virtual bool supportsInvokeDefaultMethod() const { return false; }
@@ -110,9 +104,9 @@ public:
 
     virtual ~Instance();
 
-    virtual bool getOwnPropertySlot(JSObject*, ExecState*, const Identifier&, PropertySlot&) { return false; }
-    virtual bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&) { return false; }
-    virtual void put(JSObject*, ExecState*, const Identifier&, JSValue, PutPropertySlot&) { }
+    virtual bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&) { return false; }
+    virtual bool getOwnPropertyDescriptor(JSObject*, ExecState*, PropertyName, PropertyDescriptor&) { return false; }
+    virtual void put(JSObject*, ExecState*, PropertyName, JSValue, PutPropertySlot&) { }
 
 protected:
     virtual void virtualBegin() { }
@@ -141,7 +135,6 @@ protected:
 
 const char* signatureForParameters(const ArgList&);
 
-typedef HashMap<RefPtr<StringImpl>, MethodList*> MethodListMap;
 typedef HashMap<RefPtr<StringImpl>, Method*> MethodMap;
 typedef HashMap<RefPtr<StringImpl>, Field*> FieldMap;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, 2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,34 +25,25 @@
 #define _S_DNSINFO_SERVER_H
 
 #include <sys/cdefs.h>
+#include <stdbool.h>
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <dispatch/dispatch.h>
 
-#include "shared_dns_info_types.h"
+#include "dnsinfo_create.h"
+
+typedef void (^_dns_sync_handler_t)(Boolean inSync);
 
 __BEGIN_DECLS
 
-__private_extern__
-kern_return_t	_shared_dns_infoGet	(mach_port_t		server,
-					 dnsDataOut_t		*dataRef,
-					 mach_msg_type_number_t	*dataLen);
+void
+load_DNSConfiguration			(CFBundleRef		bundle,
+					 SCLoggerRef		logger,
+					 Boolean		*bundleVerbose,
+					 _dns_sync_handler_t	syncHandler);
 
-__private_extern__
-kern_return_t	_shared_dns_infoSet	(mach_port_t		server,
-					 dnsData_t		dataRef,
-					 mach_msg_type_number_t	dataLen,
-					 audit_token_t		audit_token);
-
-__private_extern__
-kern_return_t	_shared_nwi_stateGet	(mach_port_t		server,
-					 dnsDataOut_t		*dataRef,
-					 mach_msg_type_number_t	*dataLen);
-
-__private_extern__
-kern_return_t	_shared_nwi_stateSet	(mach_port_t		server,
-					 dnsData_t		dataRef,
-					 mach_msg_type_number_t	dataLen,
-					 audit_token_t		audit_token);
+_Bool
+_dns_configuration_store		(dns_create_config_t	*_config);
 
 __END_DECLS
 

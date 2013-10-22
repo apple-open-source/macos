@@ -31,12 +31,51 @@
 #include <Security/AuthorizationTags.h>
 #include <Security/AuthorizationTagsPriv.h>
 #include <Security/checkpw.h>
+#include <Security/Security.h>
 #include <System/sys/fileport.h>
 #include <bsm/audit.h>
 #include <bsm/audit_uevents.h>      // AUE_ssauthint
 #include <security_utilities/logging.h>
 #include <security_utilities/mach++.h>
 #include <stdlib.h>
+#include <xpc/xpc.h>
+#include <xpc/private.h>
+#include "securityd_service/securityd_service/securityd_service_client.h"
+
+#define SECURITYAGENT_BOOTSTRAP_NAME_BASE       "com.apple.security.agentMain"
+#define SECURITYAGENT_STUB_BOOTSTRAP_NAME_BASE       "com.apple.security.agentStub"
+#define AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE   "com.apple.security.authhost"
+
+#define AUTH_XPC_ITEM_NAME  "_item_name"
+#define AUTH_XPC_ITEM_FLAGS "_item_flags"
+#define AUTH_XPC_ITEM_VALUE "_item_value"
+#define AUTH_XPC_ITEM_TYPE  "_item_type"
+
+#define AUTH_XPC_REQUEST_METHOD_KEY "_agent_request_key"
+#define AUTH_XPC_REQUEST_METHOD_CREATE "_agent_request_create"
+#define AUTH_XPC_REQUEST_METHOD_INVOKE "_agent_request_invoke"
+#define AUTH_XPC_REQUEST_METHOD_DEACTIVATE "_agent_request_deactivate"
+#define AUTH_XPC_REQUEST_METHOD_DESTROY "_agent_request_destroy"
+#define AUTH_XPC_REPLY_METHOD_KEY "_agent_reply_key"
+#define AUTH_XPC_REPLY_METHOD_RESULT "_agent_reply_result"
+#define AUTH_XPC_REPLY_METHOD_INTERRUPT "_agent_reply_interrupt"
+#define AUTH_XPC_REPLY_METHOD_CREATE "_agent_reply_create"
+#define AUTH_XPC_REPLY_METHOD_DEACTIVATE "_agent_reply_deactivate"
+#define AUTH_XPC_PLUGIN_NAME "_agent_plugin"
+#define AUTH_XPC_MECHANISM_NAME "_agent_mechanism"
+#define AUTH_XPC_HINTS_NAME "_agent_hints"
+#define AUTH_XPC_CONTEXT_NAME "_agent_context"
+#define AUTH_XPC_IMMUTABLE_HINTS_NAME "_agent_immutable_hints"
+#define AUTH_XPC_REQUEST_INSTANCE "_agent_instance"
+#define AUTH_XPC_REPLY_RESULT_VALUE "_agent_reply_result_value"
+#define AUTH_XPC_AUDIT_SESSION_PORT "_agent_audit_session_port"
+#define AUTH_XPC_BOOTSTRAP_PORT "_agent_bootstrap_port"
+#define AUTH_XPC_SESSION_UUID "_agent_session_uuid"
+#define AUTH_XPC_SESSION_PREFS "_agent_session_prefs"
+#define AUTH_XPC_SESSION_INPUT_METHOD "_agent_session_inputMethod"
+
+#define UUID_INITIALIZER_FROM_SESSIONID(sessionid) \
+{ 0,0,0,0, 0,0,0,0, 0,0,0,0, (unsigned char)((0xff000000 & (sessionid))>>24), (unsigned char)((0x00ff0000 & (sessionid))>>16), (unsigned char)((0x0000ff00 & (sessionid))>>8),  (unsigned char)((0x000000ff & (sessionid))) }
 
 //
 // NOSA support functions. This is a test mode where the SecurityAgent
@@ -77,11 +116,11 @@ static void getNoSA(char *buffer, size_t bufferSize, const char *fmt, ...)
 
 // SecurityAgentConnection
 
-SecurityAgentConnection::SecurityAgentConnection(const AuthHostType type, Session &session) 
-    : mAuthHostType(type), 
-    mHostInstance(session.authhost(mAuthHostType)), 
-    mConnection(&Server::connection()),
-    mAuditToken(Server::connection().auditToken())
+SecurityAgentConnection::SecurityAgentConnection(const AuthHostType type, Session &session)
+: mAuthHostType(type),
+mHostInstance(session.authhost(mAuthHostType)),
+mConnection(&Server::connection()),
+mAuditToken(Server::connection().auditToken())
 {
 	// this may take a while
 	Server::active().longTermActivity();
@@ -94,7 +133,7 @@ SecurityAgentConnection::~SecurityAgentConnection()
 	mConnection->useAgent(NULL);
 }
 
-void 
+void
 SecurityAgentConnection::activate()
 {
     secdebug("SecurityAgentConnection", "activate(%p)", this);
@@ -107,11 +146,11 @@ SecurityAgentConnection::activate()
     // send the the userPrefs to SecurityAgent
     if (mAuthHostType == securityAgent || mAuthHostType == userAuthHost) {
 		CFRef<CFDataRef> userPrefs(mHostInstance->session().copyUserPrefs());
-		if (NULL != userPrefs)
+		if (0 != userPrefs)
 		{
 			FILE *mbox = NULL;
 			int fd = 0;
-			mbox = tmpfile();		
+			mbox = tmpfile();
 			if (NULL != mbox)
 			{
 				fd = dup(fileno(mbox));
@@ -139,7 +178,7 @@ SecurityAgentConnection::activate()
     }
     
 	mConnection->useAgent(this);
-	try 
+	try
     {
         StLock<Mutex> _(*mHostInstance);
 		
@@ -154,13 +193,13 @@ SecurityAgentConnection::activate()
         SecurityAgent::Client::activate(mPort);
         
         secdebug("SecurityAgentConnection", "%p activated", this);
-	} 
-    catch (MacOSError &err) 
+	}
+    catch (MacOSError &err)
     {
 		mConnection->useAgent(NULL);	// guess not
         Syslog::error("SecurityAgentConnection: error activating %s instance %p",
-                      mAuthHostType == privilegedAuthHost 
-                      ? "authorizationhost" 
+                      mAuthHostType == privilegedAuthHost
+                      ? "authorizationhost"
                       : "SecurityAgent", this);
 		throw;
 	}
@@ -196,49 +235,145 @@ SecurityAgentConnection::terminate()
 }
 
 
-// SecurityAgentTransaction
+// SecurityAgentConnection
 
-SecurityAgentTransaction::SecurityAgentTransaction(const AuthHostType type, Session &session, bool startNow) 
-    : SecurityAgentConnection(type, session), 
-    mStarted(false)
+SecurityAgentXPCConnection::SecurityAgentXPCConnection(const AuthHostType type, Session &session)
+: mAuthHostType(type),
+mHostInstance(session.authhost(mAuthHostType)),
+mSession(session),
+mConnection(&Server::connection()),
+mAuditToken(Server::connection().auditToken())
 {
-    secdebug("SecurityAgentTransaction", "New SecurityAgentTransaction(%p)", this);
-    activate();     // start agent now, or other SAConnections will kill and spawn new agents
-    if (startNow)
-        start();
+	// this may take a while
+	Server::active().longTermActivity();
+    secdebug("SecurityAgentConnection", "new SecurityAgentConnection(%p)", this);
+    mXPCConnection = NULL;
+    mNobodyUID = -2;
+    struct passwd *pw = getpwnam("nobody");
+    if (NULL != pw) {
+        mNobodyUID = pw->pw_uid;
+    }
 }
 
-SecurityAgentTransaction::~SecurityAgentTransaction()
+SecurityAgentXPCConnection::~SecurityAgentXPCConnection()
 {
-    try { end(); } catch(...) {}
-    secdebug("SecurityAgentTransaction", "Destroying %p", this);
+    secdebug("SecurityAgentConnection", "SecurityAgentConnection(%p) dying", this);
+	mConnection->useAgent(NULL);
+    
+    // If a connection has been established, we need to tear it down.
+    if (NULL != mXPCConnection) {
+        // Tearing this down is a multi-step process. First, request a cancellation.
+        // This is safe even if the connection is already in the cancelled state.
+        xpc_connection_cancel(mXPCConnection);
+        
+        // Then release the XPC connection
+        xpc_release(mXPCConnection);
+        mXPCConnection = NULL;
+
+        if (NULL != mXPCStubConnection) {
+            // We may or may not have one of these
+            xpc_release(mXPCStubConnection);
+            mXPCStubConnection = NULL;
+        }
+    }
+}
+
+bool SecurityAgentXPCConnection::inDarkWake()
+{
+	return mSession.server().inDarkWake();
 }
 
 void
-SecurityAgentTransaction::start()
+SecurityAgentXPCConnection::activate(bool ignoreUid)
 {
-    secdebug("SecurityAgentTransaction", "start(%p)", this);
-    MacOSError::check(SecurityAgentQuery::Client::startTransaction(mPort));
-    mStarted = true;
-    secdebug("SecurityAgentTransaction", "started(%p)", this);
+    secdebug("SecurityAgentConnection", "activate(%p)", this);
+    
+	mConnection->useAgent(this);
+    if (mXPCConnection != NULL) {
+        // If we already have an XPC connection, there's nothing to do.
+        return;
+    }
+	try
+    {
+        if (mAuthHostType == securityAgent) {
+            uuid_t sessionUUID = UUID_INITIALIZER_FROM_SESSIONID(mSession.sessionId());
+            // Yes, these need to be throws, as we're still in securityd, and thus still have to do flow control with exceptions.
+            if (!(mSession.attributes() & sessionHasGraphicAccess))
+                CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
+            if (inDarkWake())
+                CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
+            uid_t targetUid = mHostInstance->session().originatorUid();
+            secdebug("SecurityAgentXPCConnection","Retrieved UID %d for this session", targetUid);
+            if ((int32_t)targetUid != -1) {
+                mXPCStubConnection = xpc_connection_create_mach_service(SECURITYAGENT_STUB_BOOTSTRAP_NAME_BASE, NULL, 0);
+                xpc_connection_set_target_uid(mXPCStubConnection, targetUid);
+                secdebug("SecurityAgentXPCConnection", "Creating a security agent stub");
+                xpc_connection_set_event_handler(mXPCStubConnection, ^(xpc_object_t object){}); // Yes, this is a dummy handler, we never ever care about any responses from the stub. It can die in a fire for all I care.
+                xpc_connection_resume(mXPCStubConnection);
+                
+                xpc_object_t wakeupMessage = xpc_dictionary_create(NULL, NULL, 0);
+                xpc_dictionary_set_data(wakeupMessage, AUTH_XPC_SESSION_UUID, sessionUUID, sizeof(uuid_t));
+                xpc_object_t responseMessage = xpc_connection_send_message_with_reply_sync(mXPCStubConnection, wakeupMessage);
+                if (xpc_get_type(responseMessage) == XPC_TYPE_DICTIONARY) {
+                    secdebug("SecurityAgentXPCConnection", "Valid response received from stub");
+                } else {
+                    secdebug("SecurityAgentXPCConnection", "Error response received from stub");
+                }
+                xpc_release(wakeupMessage);
+                xpc_release(responseMessage);
+            }
+            
+            mXPCConnection = xpc_connection_create_mach_service(SECURITYAGENT_BOOTSTRAP_NAME_BASE, NULL,0);
+            xpc_connection_set_instance(mXPCConnection, sessionUUID);
+            secdebug("SecurityAgentXPCConnection", "Creating a security agent");
+        } else {
+            mXPCConnection = xpc_connection_create_mach_service(AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE, NULL, 0);
+            secdebug("SecurityAgentXPCConnection", "Creating a standard authhost");
+        }
+        
+        xpc_connection_set_event_handler(mXPCConnection, ^(xpc_object_t object) {
+            if (xpc_get_type(object) == XPC_TYPE_ERROR) {
+                secdebug("SecurityAgentXPCConnection", "error during xpc: %s", xpc_dictionary_get_string(object, XPC_ERROR_KEY_DESCRIPTION));
+            }
+        });
+        
+        xpc_connection_resume(mXPCConnection);
+        
+        secdebug("SecurityAgentXPCConnection", "%p activated", this);
+	}
+    catch (MacOSError &err)
+    {
+		mConnection->useAgent(NULL);	// guess not
+        Syslog::error("SecurityAgentConnection: error activating %s instance %p",
+                      mAuthHostType == privilegedAuthHost
+                      ? "authorizationhost"
+                      : "SecurityAgent", this);
+		throw;
+	}
+	
+    secdebug("SecurityAgentXPCConnection", "contact didn't throw (%p)", this);
 }
 
-void 
-SecurityAgentTransaction::end()
+void
+SecurityAgentXPCConnection::reconnect()
 {
-    if (started())
-    {
-        MacOSError::check(SecurityAgentQuery::Client::endTransaction(mPort));
-        mStarted = false;
-    }
-    secdebug("SecurityAgentTransaction", "End SecurityAgentTransaction(%p)", this);
 }
+
+void
+SecurityAgentXPCConnection::terminate()
+{
+	activate(false);
+    
+    // @@@ This happens already in the destructor; presumably we do this to tear things down orderly
+	mConnection->useAgent(NULL);
+}
+
 
 using SecurityAgent::Reason;
 using namespace Authorization;
 
-SecurityAgentQuery::SecurityAgentQuery(const AuthHostType type, Session &session) 
-    : SecurityAgentConnection(type, session)
+SecurityAgentQuery::SecurityAgentQuery(const AuthHostType type, Session &session)
+: SecurityAgentConnection(type, session)
 {
     secdebug("SecurityAgentQuery", "new SecurityAgentQuery(%p)", this);
 }
@@ -246,16 +381,16 @@ SecurityAgentQuery::SecurityAgentQuery(const AuthHostType type, Session &session
 SecurityAgentQuery::~SecurityAgentQuery()
 {
     secdebug("SecurityAgentQuery", "SecurityAgentQuery(%p) dying", this);
-
+    
 #if defined(NOSA)
 	if (getenv("NOSA")) {
 		printf(" [query done]\n");
 		return;
 	}
-#endif		
-
+#endif
+    
     if (SecurityAgent::Client::state() != SecurityAgent::Client::dead)
-        destroy(); 
+        destroy();
 }
 
 void
@@ -268,7 +403,7 @@ SecurityAgentQuery::inferHints(Process &thisProcess)
 			guestPath = codePath(clientCode);
 	}
 	AuthItemSet processHints = clientHints(SecurityAgent::bundle, guestPath,
-		thisProcess.pid(), thisProcess.uid());
+                                           thisProcess.pid(), thisProcess.uid());
 	mClientHints.insert(processHints.begin(), processHints.end());
 }
 
@@ -288,28 +423,28 @@ SecurityAgentQuery::readChoice()
 	AuthItem *allowAction = outContext().find(AGENT_CONTEXT_ALLOW);
 	if (allowAction)
 	{
-	   string allowString;
-		if (allowAction->getString(allowString) 
-		      && (allowString == "YES"))
-		          allow = true;
+        string allowString;
+		if (allowAction->getString(allowString)
+            && (allowString == "YES"))
+            allow = true;
 	}
 	
 	AuthItem *rememberAction = outContext().find(AGENT_CONTEXT_REMEMBER_ACTION);
 	if (rememberAction)
 	{
-	   string rememberString;
-	   if (rememberAction->getString(rememberString)
-	           && (rememberString == "YES"))
-	               remember = true;
+        string rememberString;
+        if (rememberAction->getString(rememberString)
+            && (rememberString == "YES"))
+            remember = true;
 	}
-}	
+}
 
 void
 SecurityAgentQuery::disconnect()
 {
     SecurityAgent::Client::destroy();
 }
-    
+
 void
 SecurityAgentQuery::terminate()
 {
@@ -330,6 +465,284 @@ SecurityAgentQuery::create(const char *pluginId, const char *mechanismId, const 
 		status = SecurityAgent::Client::create(pluginId, mechanismId, inSessionId);
 	}
 	if (status) MacOSError::throwMe(status);
+}
+
+ModuleNexus<RecursiveMutex> gAllXPCClientsMutex;
+ModuleNexus<set<SecurityAgentXPCQuery*> > allXPCClients;
+
+void
+SecurityAgentXPCQuery::killAllXPCClients()
+{
+    // grab the lock for the client list -- we need to make sure no one modifies the structure while we are iterating it.
+    StLock<Mutex> _(gAllXPCClientsMutex());
+    
+    set<SecurityAgentXPCQuery*>::iterator clientIterator = allXPCClients().begin();
+    while (clientIterator != allXPCClients().end())
+    {
+        set<SecurityAgentXPCQuery*>::iterator thisClient = clientIterator++;
+        if ((*thisClient)->getTerminateOnSleep())
+        {
+            (*thisClient)->terminate();
+        }
+    }
+}
+
+
+SecurityAgentXPCQuery::SecurityAgentXPCQuery(const AuthHostType type, Session &session)
+: SecurityAgentXPCConnection(type, session), mAgentConnected(false), mTerminateOnSleep(false)
+{
+    secdebug("SecurityAgentXPCQuery", "new SecurityAgentXPCQuery(%p)", this);
+}
+
+SecurityAgentXPCQuery::~SecurityAgentXPCQuery()
+{
+    secdebug("SecurityAgentXPCQuery", "SecurityAgentXPCQuery(%p) dying", this);
+    if (mAgentConnected) {
+        this->disconnect();
+    }
+}
+
+void
+SecurityAgentXPCQuery::inferHints(Process &thisProcess)
+{
+    string guestPath;
+	if (SecCodeRef clientCode = thisProcess.currentGuest())
+		guestPath = codePath(clientCode);
+
+    AuthItemSet clientHints;
+    SecurityAgent::RequestorType type = SecurityAgent::bundle;
+    pid_t clientPid = thisProcess.pid();
+    uid_t clientUid = thisProcess.uid();
+    
+	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_TYPE, AuthValueOverlay(sizeof(type), &type)));
+	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_PATH, AuthValueOverlay(guestPath)));
+	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_PID, AuthValueOverlay(sizeof(clientPid), &clientPid)));
+	clientHints.insert(AuthItemRef(AGENT_HINT_CLIENT_UID, AuthValueOverlay(sizeof(clientUid), &clientUid)));
+    
+
+	mClientHints.insert(clientHints.begin(), clientHints.end());
+
+    bool validSignature = thisProcess.checkAppleSigned();
+    AuthItemSet clientImmutableHints;
+    
+	clientImmutableHints.insert(AuthItemRef(AGENT_HINT_PROCESS_SIGNED, AuthValueOverlay(sizeof(validSignature), &validSignature)));
+
+	mImmutableHints.insert(clientImmutableHints.begin(), clientImmutableHints.end());
+}
+
+void SecurityAgentXPCQuery::addHint(const char *name, const void *value, UInt32 valueLen, UInt32 flags)
+{
+    AuthorizationItem item = { name, valueLen, const_cast<void *>(value), flags };
+    mClientHints.insert(AuthItemRef(item));
+}
+
+
+void
+SecurityAgentXPCQuery::readChoice()
+{
+    allow = false;
+    remember = false;
+    
+	AuthItem *allowAction = mOutContext.find(AGENT_CONTEXT_ALLOW);
+	if (allowAction)
+	{
+        string allowString;
+		if (allowAction->getString(allowString)
+            && (allowString == "YES"))
+            allow = true;
+	}
+	
+	AuthItem *rememberAction = mOutContext.find(AGENT_CONTEXT_REMEMBER_ACTION);
+	if (rememberAction)
+	{
+        string rememberString;
+        if (rememberAction->getString(rememberString)
+            && (rememberString == "YES"))
+            remember = true;
+	}
+}
+
+void
+SecurityAgentXPCQuery::disconnect()
+{
+    if (NULL != mXPCConnection) {
+        xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_set_string(requestObject, AUTH_XPC_REQUEST_METHOD_KEY, AUTH_XPC_REQUEST_METHOD_DESTROY);
+        xpc_connection_send_message(mXPCConnection, requestObject);
+        xpc_release(requestObject);
+    }
+
+    StLock<Mutex> _(gAllXPCClientsMutex());
+    allXPCClients().erase(this);
+}
+
+void
+SecurityAgentXPCQuery::terminate()
+{
+    this->disconnect();
+}
+
+static void xpcArrayToAuthItemSet(AuthItemSet *setToBuild, xpc_object_t input) {
+    setToBuild->clear();
+    
+    xpc_array_apply(input,  ^bool(size_t index, xpc_object_t item) {
+        const char *name = xpc_dictionary_get_string(item, AUTH_XPC_ITEM_NAME);
+        
+        size_t length;
+        const void *data = xpc_dictionary_get_data(item, AUTH_XPC_ITEM_VALUE, &length);
+        void *dataCopy = malloc(length);
+        memcpy(dataCopy, data, length);
+        
+        uint64_t flags = xpc_dictionary_get_uint64(item, AUTH_XPC_ITEM_FLAGS);
+        AuthItemRef nextItem(name, AuthValueOverlay((uint32_t)length, dataCopy), (uint32_t)flags);
+        setToBuild->insert(nextItem);
+        memset(dataCopy, 0, length); // The authorization items contain things like passwords, so wiping clean is important.
+        free(dataCopy);
+        return true;
+    });
+}
+
+void
+SecurityAgentXPCQuery::create(const char *pluginId, const char *mechanismId, const SessionId inSessionId)
+{
+    bool ignoreUid = false;
+    
+    do {
+        activate(ignoreUid);
+        
+        mAgentConnected = false;
+        
+        xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_set_string(requestObject, AUTH_XPC_REQUEST_METHOD_KEY, AUTH_XPC_REQUEST_METHOD_CREATE);
+        xpc_dictionary_set_string(requestObject, AUTH_XPC_PLUGIN_NAME, pluginId);
+        xpc_dictionary_set_string(requestObject, AUTH_XPC_MECHANISM_NAME, mechanismId);
+        
+        uid_t targetUid = Server::process().uid();
+        bool doSwitchAudit =  true; // (ignoreUid) || ((targetUid == 0) || (targetUid == mNobodyUID));
+        bool doSwitchBootstrap = true; // (ignoreUid) || ((targetUid == 0) || (targetUid == mNobodyUID));
+        
+        if (doSwitchAudit) {
+            mach_port_name_t jobPort;
+            if (0 == audit_session_port(mSession.sessionId(), &jobPort)) {
+                secdebug("SecurityAgentXPCQuery", "attaching an audit session port because the uid was %d", targetUid);
+                xpc_dictionary_set_mach_send(requestObject, AUTH_XPC_AUDIT_SESSION_PORT, jobPort);
+            }
+        }
+        
+        if (doSwitchBootstrap) {
+            secdebug("SecurityAgentXPCQuery", "attaching a bootstrap port because the uid was %d", targetUid);
+            MachPlusPlus::Bootstrap processBootstrap = Server::process().taskPort().bootstrap();
+            xpc_dictionary_set_mach_send(requestObject, AUTH_XPC_BOOTSTRAP_PORT, processBootstrap);
+        }
+        
+        xpc_object_t object = xpc_connection_send_message_with_reply_sync(mXPCConnection, requestObject);
+        if (xpc_get_type(object) == XPC_TYPE_DICTIONARY) {
+            const char *replyType = xpc_dictionary_get_string(object, AUTH_XPC_REPLY_METHOD_KEY);
+            if (0 == strcmp(replyType, AUTH_XPC_REPLY_METHOD_CREATE)) {
+                uint64_t status = xpc_dictionary_get_uint64(object, AUTH_XPC_REPLY_RESULT_VALUE);
+                if (status == kAuthorizationResultAllow) {
+                    mAgentConnected = true;
+                } else {
+                    secdebug("SecurityAgentXPCQuery", "plugin create failed in SecurityAgent");
+                    MacOSError::throwMe(errAuthorizationInternal);
+                }
+            }
+        } else if (xpc_get_type(object) == XPC_TYPE_ERROR) {
+            if (XPC_ERROR_CONNECTION_INVALID == object) {
+                // If we get an error before getting the create response, try again without the UID
+                if (ignoreUid) {
+                    secdebug("SecurityAgentXPCQuery", "failed to establish connection, no retries left");
+                    xpc_release(object);
+                    MacOSError::throwMe(errAuthorizationInternal);
+                } else {
+                    secdebug("SecurityAgentXPCQuery", "failed to establish connection, retrying with no UID");
+                    ignoreUid = true;
+                    xpc_release(mXPCConnection);
+                    mXPCConnection = NULL;
+                }
+            } else if (XPC_ERROR_CONNECTION_INTERRUPTED == object) {
+                // If we get an error before getting the create response, try again
+            }
+        }
+        xpc_release(object);
+        xpc_release(requestObject);
+    } while (!mAgentConnected);
+
+    StLock<Mutex> _(gAllXPCClientsMutex());
+    allXPCClients().insert(this);
+}
+
+static xpc_object_t authItemSetToXPCArray(AuthItemSet input) {
+    xpc_object_t outputArray = xpc_array_create(NULL, 0);
+    for (AuthItemSet::iterator i = input.begin(); i != input.end(); i++) {
+        AuthItemRef item = *i;
+        
+        xpc_object_t xpc_data = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_set_string(xpc_data, AUTH_XPC_ITEM_NAME, item->name());
+        AuthorizationValue value = item->value();
+        if (value.data != NULL) {
+            xpc_dictionary_set_data(xpc_data, AUTH_XPC_ITEM_VALUE, value.data, value.length);
+        }
+        xpc_dictionary_set_uint64(xpc_data, AUTH_XPC_ITEM_FLAGS, item->flags());
+        xpc_array_append_value(outputArray, xpc_data);
+        xpc_release(xpc_data);
+    }
+    return outputArray;
+}
+
+OSStatus
+SecurityAgentXPCQuery::invoke() {
+    __block OSStatus status = kAuthorizationResultUndefined;
+    
+    xpc_object_t hintsArray = authItemSetToXPCArray(mInHints);
+    xpc_object_t contextArray = authItemSetToXPCArray(mInContext);
+    xpc_object_t immutableHintsArray = authItemSetToXPCArray(mImmutableHints);
+    
+    xpc_object_t requestObject = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(requestObject, AUTH_XPC_REQUEST_METHOD_KEY, AUTH_XPC_REQUEST_METHOD_INVOKE);
+    xpc_dictionary_set_value(requestObject, AUTH_XPC_HINTS_NAME, hintsArray);
+    xpc_dictionary_set_value(requestObject, AUTH_XPC_CONTEXT_NAME, contextArray);
+    xpc_dictionary_set_value(requestObject, AUTH_XPC_IMMUTABLE_HINTS_NAME, immutableHintsArray);
+    
+    xpc_object_t object = xpc_connection_send_message_with_reply_sync(mXPCConnection, requestObject);
+    if (xpc_get_type(object) == XPC_TYPE_DICTIONARY) {
+        const char *replyType = xpc_dictionary_get_string(object, AUTH_XPC_REPLY_METHOD_KEY);
+        if (0 == strcmp(replyType, AUTH_XPC_REPLY_METHOD_RESULT)) {
+            xpc_object_t xpcHints = xpc_dictionary_get_value(object, AUTH_XPC_HINTS_NAME);
+            xpc_object_t xpcContext = xpc_dictionary_get_value(object, AUTH_XPC_CONTEXT_NAME);
+            AuthItemSet tempHints, tempContext;
+            xpcArrayToAuthItemSet(&tempHints, xpcHints);
+            xpcArrayToAuthItemSet(&tempContext, xpcContext);
+            mOutHints = tempHints;
+            mOutContext = tempContext;
+            mLastResult = xpc_dictionary_get_uint64(object, AUTH_XPC_REPLY_RESULT_VALUE);
+        }
+    } else if (xpc_get_type(object) == XPC_TYPE_ERROR) {
+        if (XPC_ERROR_CONNECTION_INVALID == object) {
+            // If the connection drops, return an "auth undefined" result, because we cannot continue
+        } else if (XPC_ERROR_CONNECTION_INTERRUPTED == object) {
+            // If the agent dies, return an "auth undefined" result, because we cannot continue
+        }
+    }
+    xpc_release(object);
+    
+    xpc_release(hintsArray);
+    xpc_release(contextArray);
+    xpc_release(immutableHintsArray);
+    xpc_release(requestObject);
+    
+    return status;
+}
+
+void SecurityAgentXPCQuery::checkResult()
+{
+    // now check the OSStatus return from the server side
+    switch (mLastResult) {
+        case kAuthorizationResultAllow: return;
+        case kAuthorizationResultDeny:
+        case kAuthorizationResultUserCanceled: CssmError::throwMe(CSSM_ERRCODE_USER_CANCELED);
+        default: MacOSError::throwMe(errAuthorizationInternal);
+    }
 }
 
 //
@@ -387,11 +800,10 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 	
 	// item name into hints
 
-	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_ITEM_NAME, AuthValueOverlay(description ? strlen(description) : 0, const_cast<char*>(description))));
+	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_ITEM_NAME, AuthValueOverlay(description ? (uint32_t)strlen(description) : 0, const_cast<char*>(description))));
 	
 	// keychain name into hints
-	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(database ? strlen(database) : 0, const_cast<char*>(database))));
-	
+	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(database ? (uint32_t)strlen(database) : 0, const_cast<char*>(database))));
 	
 	if (mPassphraseCheck)
 	{
@@ -423,13 +835,13 @@ Reason QueryKeychainUse::queryUser (const char *database, const char *descriptio
 			
 			checkResult();
 			
-			AuthItem *passwordItem = outContext().find(kAuthorizationEnvironmentPassword);
+			AuthItem *passwordItem = mOutContext.find(kAuthorizationEnvironmentPassword);
 			if (!passwordItem)
 				continue;
 						
 			passwordItem->getCssmData(data);
 		} 
-		while (reason = (const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(data) ? SecurityAgent::noReason : SecurityAgent::invalidPassphrase));
+		while ((reason = (const_cast<KeychainDatabase*>(mPassphraseCheck)->decode(data) ? SecurityAgent::noReason : SecurityAgent::invalidPassphrase)));
 	}
 	else
 	{
@@ -473,8 +885,8 @@ bool QueryCodeCheck::operator () (const char *aclPath)
 	// prepopulate with client hints
 	hints.insert(mClientHints.begin(), mClientHints.end());
 	
-	hints.insert(AuthItemRef(AGENT_HINT_APPLICATION_PATH, AuthValueOverlay(strlen(aclPath), const_cast<char*>(aclPath))));
-	
+	hints.insert(AuthItemRef(AGENT_HINT_APPLICATION_PATH, AuthValueOverlay((uint32_t)strlen(aclPath), const_cast<char*>(aclPath))));
+    
 	create("builtin", "code-identity", noSecuritySession);
 
     setInput(hints, context);
@@ -484,7 +896,7 @@ bool QueryCodeCheck::operator () (const char *aclPath)
 
 //	MacOSError::check(status);
 
-    return kAuthorizationResultAllow == result();
+    return kAuthorizationResultAllow == mLastResult;
 }
 
 
@@ -515,10 +927,10 @@ Reason QueryOld::query()
 	// prepopulate with client hints
 
     const char *keychainPath = database.dbName();
-    hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(strlen(keychainPath), const_cast<char*>(keychainPath))));
+    hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay((uint32_t)strlen(keychainPath), const_cast<char*>(keychainPath))));
 
 	hints.insert(mClientHints.begin(), mClientHints.end());
-
+    
 	create("builtin", "unlock-keychain", noSecuritySession);
 
 	do
@@ -546,14 +958,14 @@ Reason QueryOld::query()
 
         checkResult();
 		
-		AuthItem *passwordItem = outContext().find(kAuthorizationEnvironmentPassword);
+		AuthItem *passwordItem = mOutContext.find(kAuthorizationEnvironmentPassword);
 		if (!passwordItem)
 			continue;
 		
 		passwordItem->getCssmData(passphrase);
 		
 	}
-	while (reason = accept(passphrase));
+	while ((reason = accept(passphrase)));
 
 	return SecurityAgent::noReason;
 }
@@ -579,6 +991,155 @@ Reason QueryUnlock::accept(CssmManagedData &passphrase)
 		return SecurityAgent::invalidPassphrase;
 }
 
+Reason QueryUnlock::retrievePassword(CssmOwnedData &passphrase) {
+    CssmAutoData pass(Allocator::standard(Allocator::sensitive));
+
+    AuthItem *passwordItem = mOutContext.find(kAuthorizationEnvironmentPassword);
+    if (!passwordItem)
+        return SecurityAgent::invalidPassphrase;
+    
+    passwordItem->getCssmData(pass);
+    
+    passphrase = pass;
+
+   return SecurityAgent::noReason;
+}
+
+QueryKeybagPassphrase::QueryKeybagPassphrase(Session & session, int32_t tries) : mSession(session), mContext(), mRetries(tries)
+{
+    setTerminateOnSleep(true);
+    mContext = mSession.get_current_service_context();
+}
+
+Reason QueryKeybagPassphrase::query()
+{
+	Reason reason = SecurityAgent::noReason;
+	OSStatus status;
+	AuthValueVector arguments;
+	AuthItemSet hints, context;
+	CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
+	int retryCount = 0;
+
+	// prepopulate with client hints
+
+    const char *keychainPath = "iCloud";
+    hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay((uint32_t)strlen(keychainPath), const_cast<char*>(keychainPath))));
+
+	hints.insert(mClientHints.begin(), mClientHints.end());
+
+	create("builtin", "unlock-keychain", noSecuritySession);
+
+	do
+	{
+        if (retryCount > mRetries)
+		{
+			return SecurityAgent::tooManyTries;
+        }
+
+        AuthItemRef triesHint(AGENT_HINT_TRIES, AuthValueOverlay(sizeof(retryCount), &retryCount));
+        hints.erase(triesHint); hints.insert(triesHint); // replace
+
+        AuthItemRef retryHint(AGENT_HINT_RETRY_REASON, AuthValueOverlay(sizeof(reason), &reason));
+        hints.erase(retryHint); hints.insert(retryHint); // replace
+
+        setInput(hints, context);
+        status = invoke();
+
+        checkResult();
+
+		AuthItem *passwordItem = mOutContext.find(kAuthorizationEnvironmentPassword);
+		if (!passwordItem)
+			continue;
+
+		passwordItem->getCssmData(passphrase);
+
+        ++retryCount;
+	}
+	while ((reason = accept(passphrase)));
+
+	return SecurityAgent::noReason;
+}
+
+Reason QueryKeybagPassphrase::accept(Security::CssmManagedData & password)
+{
+	if (service_client_kb_unlock(&mContext, password.data(), (int)password.length()) == 0) {
+		mSession.keybagSetState(session_keybag_unlocked);
+        return SecurityAgent::noReason;
+    } else
+		return SecurityAgent::invalidPassphrase;
+}
+
+QueryKeybagNewPassphrase::QueryKeybagNewPassphrase(Session & session) : QueryKeybagPassphrase(session) {}
+
+Reason QueryKeybagNewPassphrase::query(CssmOwnedData &oldPassphrase, CssmOwnedData &passphrase)
+{
+    CssmAutoData pass(Allocator::standard(Allocator::sensitive));
+    CssmAutoData oldPass(Allocator::standard(Allocator::sensitive));
+    Reason reason = SecurityAgent::noReason;
+	OSStatus status;
+	AuthValueVector arguments;
+	AuthItemSet hints, context;
+	int retryCount = 0;
+
+	// prepopulate with client hints
+
+    const char *keychainPath = "iCloud";
+    hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay((uint32_t)strlen(keychainPath), const_cast<char*>(keychainPath))));
+
+    const char *showResetString = "YES";
+    hints.insert(AuthItemRef(AGENT_HINT_SHOW_RESET, AuthValueOverlay((uint32_t)strlen(showResetString), const_cast<char*>(showResetString))));
+
+	hints.insert(mClientHints.begin(), mClientHints.end());
+
+	create("builtin", "change-passphrase", noSecuritySession);
+
+    AuthItem *resetPassword = NULL;
+	do
+	{
+        if (retryCount > mRetries)
+		{
+			return SecurityAgent::tooManyTries;
+        }
+
+        AuthItemRef triesHint(AGENT_HINT_TRIES, AuthValueOverlay(sizeof(retryCount), &retryCount));
+        hints.erase(triesHint); hints.insert(triesHint); // replace
+
+        AuthItemRef retryHint(AGENT_HINT_RETRY_REASON, AuthValueOverlay(sizeof(reason), &reason));
+        hints.erase(retryHint); hints.insert(retryHint); // replace
+
+        setInput(hints, context);
+        status = invoke();
+
+        checkResult();
+
+        resetPassword = mOutContext.find(AGENT_CONTEXT_RESET_PASSWORD);
+        if (resetPassword != NULL) {
+            return SecurityAgent::resettingPassword;
+        }
+        
+        AuthItem *oldPasswordItem = mOutContext.find(AGENT_PASSWORD);
+        if (!oldPasswordItem)
+            continue;
+
+        oldPasswordItem->getCssmData(oldPass);
+
+        ++retryCount;
+	}
+	while ((reason = accept(oldPass)));
+
+    if (reason == SecurityAgent::noReason) {
+		AuthItem *passwordItem = mOutContext.find(AGENT_CONTEXT_NEW_PASSWORD);
+		if (!passwordItem)
+            return SecurityAgent::invalidPassphrase;
+
+		passwordItem->getCssmData(pass);
+
+        oldPassphrase = oldPass;
+        passphrase = pass;
+    }
+
+	return SecurityAgent::noReason;
+}
 
 QueryPIN::QueryPIN(Database &db)
 	: QueryOld(db), mPin(Allocator::standard())
@@ -627,7 +1188,7 @@ Reason QueryNewPassphrase::query()
 
 	// keychain name into hints
 	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(database.dbName())));
-
+    
     switch (initialReason)
     {
         case SecurityAgent::newDatabase: 
@@ -665,21 +1226,21 @@ Reason QueryNewPassphrase::query()
 
 		if (SecurityAgent::changePassphrase == initialReason)
         {
-            AuthItem *oldPasswordItem = outContext().find(AGENT_PASSWORD);
+            AuthItem *oldPasswordItem = mOutContext.find(AGENT_PASSWORD);
             if (!oldPasswordItem)
                 continue;
             
             oldPasswordItem->getCssmData(oldPassphrase);
         }
         
-		AuthItem *passwordItem = outContext().find(AGENT_CONTEXT_NEW_PASSWORD);
+		AuthItem *passwordItem = mOutContext.find(AGENT_CONTEXT_NEW_PASSWORD);
 		if (!passwordItem)
 			continue;
 		
 		passwordItem->getCssmData(passphrase);
 
     }
-	while (reason = accept(passphrase, (initialReason == SecurityAgent::changePassphrase) ? &oldPassphrase.get() : NULL));
+	while ((reason = accept(passphrase, (initialReason == SecurityAgent::changePassphrase) ? &oldPassphrase.get() : NULL)));
     
 	return SecurityAgent::noReason;
 }
@@ -688,11 +1249,12 @@ Reason QueryNewPassphrase::query()
 //
 // Get new passphrase Query
 //
-Reason QueryNewPassphrase::operator () (CssmOwnedData &passphrase)
+Reason QueryNewPassphrase::operator () (CssmOwnedData &oldPassphrase, CssmOwnedData &passphrase)
 {
 	if (Reason result = query())
 		return result;	// failed
 	passphrase = mPassphrase;
+    oldPassphrase = mOldPassphrase;
 	return SecurityAgent::noReason;	// success
 }
 
@@ -708,6 +1270,7 @@ Reason QueryNewPassphrase::accept(CssmManagedData &passphrase, CssmData *oldPass
 	// sanity check the new passphrase (but allow user override)
 	if (!(mPassphraseValid && passphrase.get() == mPassphrase)) {
 		mPassphrase = passphrase;
+        if (oldPassphrase) mOldPassphrase = *oldPassphrase;
 		mPassphraseValid = true;
 		if (mPassphrase.length() == 0)
 			return SecurityAgent::passphraseIsNull;
@@ -763,7 +1326,7 @@ Reason QueryGenericPassphrase::query(const CssmData *prompt, bool verify,
         setInput(hints, context);
 		status = invoke();
 		checkResult();
-		passwordItem = outContext().find(AGENT_PASSWORD);
+		passwordItem = mOutContext.find(AGENT_PASSWORD);
 		
     } while (!passwordItem);
 	
@@ -797,7 +1360,6 @@ Reason QueryDBBlobSecret::query(DbHandle *dbHandleArray, uint8 dbHandleArrayCoun
 #endif
 
 	hints.insert(mClientHints.begin(), mClientHints.end());
-	
 	create("builtin", "generic-unlock-kcblob", noSecuritySession);
     
     AuthItem *secretItem;
@@ -819,12 +1381,12 @@ Reason QueryDBBlobSecret::query(DbHandle *dbHandleArray, uint8 dbHandleArrayCoun
         setInput(hints, context);
 		status = invoke();
 		checkResult();
-		secretItem = outContext().find(AGENT_PASSWORD);
+		secretItem = mOutContext.find(AGENT_PASSWORD);
 		if (!secretItem)
 			continue;
 		secretItem->getCssmData(passphrase);
 		
-    } while (reason = accept(passphrase, dbHandleArray, dbHandleArrayCount, dbHandleAuthenticated));
+    } while ((reason = accept(passphrase, dbHandleArray, dbHandleArrayCount, dbHandleAuthenticated)));
 	    
     return reason;
 }
@@ -873,10 +1435,8 @@ void QueryInvokeMechanism::run(const AuthValueVector &inArguments, AuthItemSet &
     // prepopulate with client hints
 	inHints.insert(mClientHints.begin(), mClientHints.end());
 
-    if (mAuthHostType == securityAgent) {
-        if (Server::active().inDarkWake())
-            CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
-    }
+	if (Server::active().inDarkWake())
+		CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
 
     setArguments(inArguments);
     setInput(inHints, inContext);
@@ -938,13 +1498,13 @@ QueryKeychainAuth::operator () (const char *database, const char *description, A
 	// put action/operation (sint32) into hints
 	hints.insert(AuthItemRef(AGENT_HINT_ACL_TAG, AuthValueOverlay(sizeof(action), static_cast<sint32*>(&action))));
 
-    hints.insert(AuthItemRef(AGENT_HINT_CUSTOM_PROMPT, AuthValueOverlay(prompt ? strlen(prompt) : 0, const_cast<char*>(prompt))));
+    hints.insert(AuthItemRef(AGENT_HINT_CUSTOM_PROMPT, AuthValueOverlay(prompt ? (uint32_t)strlen(prompt) : 0, const_cast<char*>(prompt))));
 	
 	// item name into hints
-	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_ITEM_NAME, AuthValueOverlay(description ? strlen(description) : 0, const_cast<char*>(description))));
+	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_ITEM_NAME, AuthValueOverlay(description ? (uint32_t)strlen(description) : 0, const_cast<char*>(description))));
 	
 	// keychain name into hints
-	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(database ? strlen(database) : 0, const_cast<char*>(database))));
+	hints.insert(AuthItemRef(AGENT_HINT_KEYCHAIN_PATH, AuthValueOverlay(database ? (uint32_t)strlen(database) : 0, const_cast<char*>(database))));
 	
     create("builtin", "confirm-access-user-password", noSecuritySession);
     
@@ -981,13 +1541,13 @@ QueryKeychainAuth::operator () (const char *database, const char *description, A
             logger.logFailure();
             throw;
         }
-        usernameItem = outContext().find(AGENT_USERNAME);
-		passwordItem = outContext().find(AGENT_PASSWORD);
+        usernameItem = mOutContext.find(AGENT_USERNAME);
+		passwordItem = mOutContext.find(AGENT_PASSWORD);
 		if (!usernameItem || !passwordItem)
 			continue;
         usernameItem->getString(username);
         passwordItem->getString(password);
-    } while (reason = accept(username, password));
+    } while ((reason = accept(username, password)));
 
     if (SecurityAgent::noReason == reason)
         logger.logSuccess();

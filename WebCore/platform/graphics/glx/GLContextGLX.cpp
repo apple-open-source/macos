@@ -23,94 +23,43 @@
 #include "GraphicsContext3D.h"
 #include "OpenGLShims.h"
 #include <GL/glx.h>
+#include <cairo.h>
 #include <wtf/OwnPtr.h>
+
+#if ENABLE(ACCELERATED_2D_CANVAS)
+#include <cairo-gl.h>
+#endif
 
 namespace WebCore {
 
-// We do not want to call glXMakeContextCurrent using different Display pointers,
-// because it might lead to crashes in some drivers (fglrx). We use a shared display
-// pointer here.
-static Display* gSharedDisplay = 0;
-static Display* sharedDisplay()
+PassOwnPtr<GLContextGLX> GLContextGLX::createWindowContext(XID window, GLContext* sharingContext)
 {
-    if (!gSharedDisplay)
-        gSharedDisplay = XOpenDisplay(0);
-    return gSharedDisplay;
-}
-
-// Because of driver bugs, exiting the program when there are active pbuffers
-// can crash the X server (this has been observed with the official Nvidia drivers).
-// We need to ensure that we clean everything up on exit. There are several reasons
-// that GraphicsContext3Ds will still be alive at exit, including user error (memory
-// leaks) and the page cache. In any case, we don't want the X server to crash.
-typedef Vector<GLContext*> ActiveContextList;
-static ActiveContextList& activeContextList()
-{
-    DEFINE_STATIC_LOCAL(ActiveContextList, activeContexts, ());
-    return activeContexts;
-}
-
-void GLContextGLX::addActiveContext(GLContextGLX* context)
-{
-    static bool addedAtExitHandler = false;
-    if (!addedAtExitHandler) {
-        atexit(&GLContextGLX::cleanupActiveContextsAtExit);
-        addedAtExitHandler = true;
-    }
-    activeContextList().append(context);
-}
-
-void GLContextGLX::removeActiveContext(GLContext* context)
-{
-    ActiveContextList& contextList = activeContextList();
-    size_t i = contextList.find(context);
-    if (i != notFound)
-        contextList.remove(i);
-}
-
-void GLContextGLX::cleanupActiveContextsAtExit()
-{
-    ActiveContextList& contextList = activeContextList();
-    for (size_t i = 0; i < contextList.size(); ++i)
-        delete contextList[i];
-
-    if (!gSharedDisplay)
-        return;
-    XCloseDisplay(gSharedDisplay);
-    gSharedDisplay = 0;
-}
-
-GLContext* GLContextGLX::createOffscreenSharingContext()
-{
-    return createContext(0, m_context);
-}
-
-GLContextGLX* GLContextGLX::createWindowContext(XID window, GLXContext sharingContext)
-{
-    Display* display = sharedDisplay();
+    Display* display = sharedX11Display();
     XWindowAttributes attributes;
     if (!XGetWindowAttributes(display, window, &attributes))
-        return 0;
+        return nullptr;
 
     XVisualInfo visualInfo;
     visualInfo.visualid = XVisualIDFromVisual(attributes.visual);
 
     int numReturned = 0;
     XVisualInfo* visualInfoList = XGetVisualInfo(display, VisualIDMask, &visualInfo, &numReturned);
-    GLXContext context = glXCreateContext(display, visualInfoList, sharingContext, True);
+
+    GLXContext glxSharingContext = sharingContext ? static_cast<GLContextGLX*>(sharingContext)->m_context : 0;
+    GLXContext context = glXCreateContext(display, visualInfoList, glxSharingContext, True);
     XFree(visualInfoList);
 
     if (!context)
-        return 0;
+        return nullptr;
 
     // GLXPbuffer and XID are both the same types underneath, so we have to share
     // a constructor here with the window path.
     GLContextGLX* contextWrapper = new GLContextGLX(context);
     contextWrapper->m_window = window;
-    return contextWrapper;
+    return adoptPtr(contextWrapper);
 }
 
-GLContextGLX* GLContextGLX::createPbufferContext(GLXContext sharingContext)
+PassOwnPtr<GLContextGLX> GLContextGLX::createPbufferContext(GLXContext sharingContext)
 {
     int fbConfigAttributes[] = {
         GLX_DRAWABLE_TYPE, GLX_PBUFFER_BIT,
@@ -124,11 +73,11 @@ GLContextGLX* GLContextGLX::createPbufferContext(GLXContext sharingContext)
     };
 
     int returnedElements;
-    Display* display = sharedDisplay();
+    Display* display = sharedX11Display();
     GLXFBConfig* configs = glXChooseFBConfig(display, 0, fbConfigAttributes, &returnedElements);
     if (!returnedElements) {
         XFree(configs);
-        return 0;
+        return nullptr;
     }
 
     // We will be rendering to a texture, so our pbuffer does not need to be large.
@@ -136,22 +85,24 @@ GLContextGLX* GLContextGLX::createPbufferContext(GLXContext sharingContext)
     GLXPbuffer pbuffer = glXCreatePbuffer(display, configs[0], pbufferAttributes);
     if (!pbuffer) {
         XFree(configs);
-        return 0;
+        return nullptr;
     }
 
     GLXContext context = glXCreateNewContext(display, configs[0], GLX_RGBA_TYPE, sharingContext, GL_TRUE);
     XFree(configs);
-    if (!context)
-        return 0;
+    if (!context) {
+        glXDestroyPbuffer(display, pbuffer);
+        return nullptr;
+    }
 
     // GLXPbuffer and XID are both the same types underneath, so we have to share
     // a constructor here with the window path.
     GLContextGLX* contextWrapper = new GLContextGLX(context);
     contextWrapper->m_pbuffer = pbuffer;
-    return contextWrapper;
+    return adoptPtr(contextWrapper);
 }
 
-GLContextGLX* GLContextGLX::createPixmapContext(GLXContext sharingContext)
+PassOwnPtr<GLContextGLX> GLContextGLX::createPixmapContext(GLXContext sharingContext)
 {
     static int visualAttributes[] = {
         GLX_RGBA,
@@ -162,37 +113,38 @@ GLContextGLX* GLContextGLX::createPixmapContext(GLXContext sharingContext)
         0
     };
 
-    Display* display = sharedDisplay();
+    Display* display = sharedX11Display();
     XVisualInfo* visualInfo = glXChooseVisual(display, DefaultScreen(display), visualAttributes);
     if (!visualInfo)
-        return 0;
+        return nullptr;
 
     GLXContext context = glXCreateContext(display, visualInfo, sharingContext, GL_TRUE);
     if (!context) {
         XFree(visualInfo);
-        return 0;
+        return nullptr;
     }
 
     Pixmap pixmap = XCreatePixmap(display, DefaultRootWindow(display), 1, 1, visualInfo->depth);
     if (!pixmap) {
         XFree(visualInfo);
-        return 0;
+        return nullptr;
     }
 
     GLXPixmap glxPixmap = glXCreateGLXPixmap(display, visualInfo, pixmap);
     if (!glxPixmap) {
         XFreePixmap(display, pixmap);
         XFree(visualInfo);
-        return 0;
+        return nullptr;
     }
 
-    return new GLContextGLX(context, pixmap, glxPixmap);
+    XFree(visualInfo);
+    return adoptPtr(new GLContextGLX(context, pixmap, glxPixmap));
 }
 
-GLContextGLX* GLContextGLX::createContext(XID window, GLXContext sharingContext)
+PassOwnPtr<GLContextGLX> GLContextGLX::createContext(XID window, GLContext* sharingContext)
 {
-    if (!sharedDisplay())
-        return 0;
+    if (!sharedX11Display())
+        return nullptr;
 
     static bool initialized = false;
     static bool success = true;
@@ -201,17 +153,18 @@ GLContextGLX* GLContextGLX::createContext(XID window, GLXContext sharingContext)
         initialized = true;
     }
     if (!success)
-        return 0;
+        return nullptr;
 
-    GLContextGLX* context = window ? createWindowContext(window, sharingContext) : 0;
+    GLXContext glxSharingContext = sharingContext ? static_cast<GLContextGLX*>(sharingContext)->m_context : 0;
+    OwnPtr<GLContextGLX> context = window ? createWindowContext(window, sharingContext) : nullptr;
     if (!context)
-        context = createPbufferContext(sharingContext);
+        context = createPbufferContext(glxSharingContext);
     if (!context)
-        context = createPixmapContext(sharingContext);
+        context = createPixmapContext(glxSharingContext);
     if (!context)
-        return 0;
+        return nullptr;
 
-    return context;
+    return context.release();
 }
 
 GLContextGLX::GLContextGLX(GLXContext context)
@@ -220,8 +173,8 @@ GLContextGLX::GLContextGLX(GLXContext context)
     , m_pbuffer(0)
     , m_pixmap(0)
     , m_glxPixmap(0)
+    , m_cairoDevice(0)
 {
-    addActiveContext(this);
 }
 
 GLContextGLX::GLContextGLX(GLXContext context, Pixmap pixmap, GLXPixmap glxPixmap)
@@ -230,38 +183,54 @@ GLContextGLX::GLContextGLX(GLXContext context, Pixmap pixmap, GLXPixmap glxPixma
     , m_pbuffer(0)
     , m_pixmap(pixmap)
     , m_glxPixmap(glxPixmap)
+    , m_cairoDevice(0)
 {
-    addActiveContext(this);
 }
 
 GLContextGLX::~GLContextGLX()
 {
+    if (m_cairoDevice)
+        cairo_device_destroy(m_cairoDevice);
+
     if (m_context) {
         // This may be necessary to prevent crashes with NVidia's closed source drivers. Originally
         // from Mozilla's 3D canvas implementation at: http://bitbucket.org/ilmari/canvas3d/
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-        glXMakeCurrent(m_display, None, None);
-        glXDestroyContext(m_display, m_context);
+        glXMakeCurrent(sharedX11Display(), None, None);
+        glXDestroyContext(sharedX11Display(), m_context);
     }
 
     if (m_pbuffer) {
-        glXDestroyPbuffer(sharedDisplay(), m_pbuffer);
+        glXDestroyPbuffer(sharedX11Display(), m_pbuffer);
         m_pbuffer = 0;
     }
     if (m_glxPixmap) {
-        glXDestroyGLXPixmap(sharedDisplay(), m_glxPixmap);
+        glXDestroyGLXPixmap(sharedX11Display(), m_glxPixmap);
         m_glxPixmap = 0;
     }
     if (m_pixmap) {
-        XFreePixmap(sharedDisplay(), m_pixmap);
+        XFreePixmap(sharedX11Display(), m_pixmap);
         m_pixmap = 0;
     }
-    removeActiveContext(this);
 }
 
 bool GLContextGLX::canRenderToDefaultFramebuffer()
 {
     return m_window;
+}
+
+IntSize GLContextGLX::defaultFrameBufferSize()
+{
+    if (!canRenderToDefaultFramebuffer() || !m_window)
+        return IntSize();
+
+    int x, y;
+    Window rootWindow;
+    unsigned int width, height, borderWidth, depth;
+    if (!XGetGeometry(sharedX11Display(), m_window, &rootWindow, &x, &y, &width, &height, &borderWidth, &depth))
+        return IntSize();
+
+    return IntSize(width, height);
 }
 
 bool GLContextGLX::makeContextCurrent()
@@ -273,21 +242,38 @@ bool GLContextGLX::makeContextCurrent()
         return true;
 
     if (m_window)
-        return glXMakeCurrent(sharedDisplay(), m_window, m_context);
+        return glXMakeCurrent(sharedX11Display(), m_window, m_context);
 
     if (m_pbuffer)
-        return glXMakeCurrent(sharedDisplay(), m_pbuffer, m_context);
+        return glXMakeCurrent(sharedX11Display(), m_pbuffer, m_context);
 
-    return ::glXMakeCurrent(sharedDisplay(), m_glxPixmap, m_context);
+    return ::glXMakeCurrent(sharedX11Display(), m_glxPixmap, m_context);
 }
 
 void GLContextGLX::swapBuffers()
 {
     if (m_window)
-        glXSwapBuffers(sharedDisplay(), m_window);
+        glXSwapBuffers(sharedX11Display(), m_window);
 }
 
-#if ENABLE(WEBGL)
+void GLContextGLX::waitNative()
+{
+    glXWaitX();
+}
+
+cairo_device_t* GLContextGLX::cairoDevice()
+{
+    if (m_cairoDevice)
+        return m_cairoDevice;
+
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    m_cairoDevice = cairo_glx_device_create(sharedX11Display(), m_context);
+#endif
+
+    return m_cairoDevice;
+}
+
+#if USE(3D_GRAPHICS)
 PlatformGraphicsContext3D GLContextGLX::platformContext()
 {
     return m_context;
@@ -296,4 +282,4 @@ PlatformGraphicsContext3D GLContextGLX::platformContext()
 
 } // namespace WebCore
 
-#endif // ENABLE(WEBGL) || && USE(TEXTURE_MAPPER_GL)
+#endif // USE(GLX)

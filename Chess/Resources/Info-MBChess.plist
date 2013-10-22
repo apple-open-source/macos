@@ -66,9 +66,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Chess</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.0, Copyright 2003-2012 Apple Inc.</string>
-	<key>MBCBuildTag</key>
-	<string>Chess-300.22</string>
+	<string>3.10, Copyright 2003-2013 Apple Inc.</string>
 	<key>CFBundleHelpBookFolder</key>
 	<string>Chess.help</string>
 	<key>CFBundleHelpBookName</key>
@@ -84,27 +82,25 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0</string>
+	<string>3.10</string>
 	<key>CFBundleSignature</key>
 	<string>mbch</string>
-	<key>CFBundleURLTypes</key>
-	<array/>
 	<key>CFBundleVersion</key>
-	<string>3.0</string>
+	<string>3.10</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.board-games</string>
 	<key>LSHasLocalizedDisplayName</key>
 	<true/>
 	<key>LSMinimumSystemVersion</key>
-	<string>10.7.0</string>
+	<string>10.9.0</string>
+	<key>MBCBuildTag</key>
+	<string>Chess-310.5</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright 2003-2012 Apple Inc.</string>
+	<string>Copyright 2003-2013 Apple Inc.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
-	<key>NSServices</key>
-	<array/>
 	<key>NSSupportsSuddenTermination</key>
 	<true/>
 	<key>UTExportedTypeDeclarations</key>
@@ -136,7 +132,5 @@
 			</dict>
 		</dict>
 	</array>
-	<key>UTImportedTypeDeclarations</key>
-	<array/>
 </dict>
 </plist>

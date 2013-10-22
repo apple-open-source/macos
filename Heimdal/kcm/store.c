@@ -35,7 +35,7 @@
 
 #include "kcm_locl.h"
 
-#include <Kernel/IOKit/crypto/AppleKeyStoreDefs.h>
+#include <Kernel/IOKit/crypto/AppleFDEKeyStoreDefs.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOKitLib.h>
 
@@ -50,7 +50,7 @@ openiodev(void)
     io_connect_t conn;
     kern_return_t kr;
     
-    service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching(kAppleKeyStoreServiceName));
+    service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching(kAppleFDEKeyStoreServiceName));
     if (service == IO_OBJECT_NULL)
 	return IO_OBJECT_NULL;
     
@@ -58,7 +58,7 @@ openiodev(void)
     if (kr != KERN_SUCCESS)
 	return IO_OBJECT_NULL;
     
-    kr = IOConnectCallMethod(conn, kAppleKeyStoreUserClientOpen, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
+    kr = IOConnectCallMethod(conn, kAppleFDEKeyStoreUserClientOpen, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
     if (kr != KERN_SUCCESS) {
 	IOServiceClose(conn);
 	return IO_OBJECT_NULL;
@@ -72,7 +72,7 @@ closeiodev(io_connect_t conn)
 {
     kern_return_t kr;
 
-    kr = IOConnectCallMethod(conn, kAppleKeyStoreUserClientClose, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
+    kr = IOConnectCallMethod(conn, kAppleFDEKeyStoreUserClientClose, NULL, 0, NULL, 0, NULL, NULL, NULL, NULL);
     if (kr != KERN_SUCCESS)
 	return;
 
@@ -97,7 +97,7 @@ kcm_create_key(krb5_uuid uuid)
     
     memset(&key, 0, sizeof(key));
     
-    kr = IOConnectCallMethod(conn, kAppleKeyStore_createKeyGetUUID,
+    kr = IOConnectCallMethod(conn, kAppleFDEKeyStore_createKeyGetUUID,
 			     NULL, 0,
 			     &createKey, sizeof(createKey),
 			     NULL, 0,
@@ -146,7 +146,7 @@ kcm_store_io(krb5_context context,
     xtsEncrypt_InStruct.bufferLength = (uint64_t) inseed_size;
     memset(xtsEncrypt_InStruct.tweak, 0, XTS_TWEAK_BYTES);
     
-    kr = IOConnectCallMethod(conn, kAppleKeyStore_xtsEncrypt, 
+    kr = IOConnectCallMethod(conn, kAppleFDEKeyStore_xtsEncrypt, 
 			     NULL, 0, 
 			     & xtsEncrypt_InStruct, sizeof(xtsEncrypt_InStruct), 
 			     NULL, 0,
@@ -157,7 +157,7 @@ kcm_store_io(krb5_context context,
 	return EINVAL;
     }
     
-    CC_SHA256(inseed, inseed_size, inseed);    
+    CC_SHA256(inseed, (CC_LONG)inseed_size, inseed);
 
     krb5_keyblock keyblock;
     keyblock.keytype = ETYPE_AES128_CTS_HMAC_SHA1_96;

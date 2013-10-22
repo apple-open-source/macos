@@ -36,7 +36,6 @@
 #if		!LOG_VIA_PRINTF
 
 #include <string.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <TextUtils.h>
 
 /* common log macros */

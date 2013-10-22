@@ -2,17 +2,17 @@
         <key>OpenSourceProject</key>
         <string>macholib</string>
         <key>OpenSourceVersion</key>
-        <string>1.4.2</string>
+        <string>1.5</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://pypi.python.org/pypi/macholib/1.4.2</string>
+        <string>http://pypi.python.org/pypi/macholib/</string>
         <key>OpenSourceURL</key>
-        <string>http://pypi.python.org/packages/source/m/macholib/macholib-1.4.2.tar.gz#md5=2bd35d87ba6782f00633836105aeb798</string>
+        <string>http://pypi.python.org/packages/source/m/macholib/macholib-1.5.tar.gz</string>
         <key>OpenSourceImportDate</key>
-        <string>2011-11-14</string>
+        <string>2012-11-11</string>
         <key>OpenSourceLicense</key>
         <string>MIT</string>
         <key>OpenSourceLicenseFile</key>
         <string>python_modules.txt</string>
         <key>OpenSourceMD5</key>
-        <string>2bd35d87ba6782f00633836105aeb798</string>
+        <string>6c956981aa40a3f268426bf2adf2d97e</string>
 </dict>

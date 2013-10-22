@@ -536,6 +536,9 @@ const SecAsn1Template NSS_SMIMEKEAParamTemplateAllParams[] = {
 	{ 0 }
 };
 
+/*TODO: this should be in some header */
+const SecAsn1Template *
+nss_cms_get_kea_template(SecCmsKEATemplateSelector whichTemplate);
 const SecAsn1Template *
 nss_cms_get_kea_template(SecCmsKEATemplateSelector whichTemplate)
 {

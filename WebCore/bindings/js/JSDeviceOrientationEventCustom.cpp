@@ -29,7 +29,7 @@
 
 #include "JSDeviceOrientationEvent.h"
 
-#include "DeviceOrientation.h"
+#include "DeviceOrientationData.h"
 #include "DeviceOrientationEvent.h"
 
 using namespace JSC;
@@ -70,7 +70,7 @@ JSValue JSDeviceOrientationEvent::absolute(ExecState*) const
 
 JSValue JSDeviceOrientationEvent::initDeviceOrientationEvent(ExecState* exec)
 {
-    const String& type = ustringToString(exec->argument(0).toString(exec)->value(exec));
+    const String type = exec->argument(0).toString(exec)->value(exec);
     bool bubbles = exec->argument(1).toBoolean(exec);
     bool cancelable = exec->argument(2).toBoolean(exec);
     // If alpha, beta or gamma are null or undefined, mark them as not provided.
@@ -81,9 +81,9 @@ JSValue JSDeviceOrientationEvent::initDeviceOrientationEvent(ExecState* exec)
     double beta = exec->argument(4).toNumber(exec);
     bool gammaProvided = !exec->argument(5).isUndefinedOrNull();
     double gamma = exec->argument(5).toNumber(exec);
-    bool absoluteProvided = !exec->argument(5).isUndefinedOrNull();
+    bool absoluteProvided = !exec->argument(6).isUndefinedOrNull();
     bool absolute = exec->argument(6).toBoolean(exec);
-    RefPtr<DeviceOrientation> orientation = DeviceOrientation::create(alphaProvided, alpha, betaProvided, beta, gammaProvided, gamma, absoluteProvided, absolute);
+    RefPtr<DeviceOrientationData> orientation = DeviceOrientationData::create(alphaProvided, alpha, betaProvided, beta, gammaProvided, gamma, absoluteProvided, absolute);
     DeviceOrientationEvent* imp = static_cast<DeviceOrientationEvent*>(impl());
     imp->initDeviceOrientationEvent(type, bubbles, cancelable, orientation.get());
     return jsUndefined();

@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#if PLUGIN_ARCHITECTURE(X11)
+#if PLUGIN_ARCHITECTURE(X11) && ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "NetscapePluginModule.h"
 
@@ -160,22 +160,21 @@ void NetscapePluginModule::determineQuirks()
 
 static String truncateToSingleLine(const String& string)
 {
-    ASSERT_ARG(string, !string.is8Bit());
-
     unsigned oldLength = string.length();
     UChar* buffer;
     String stringBuffer(StringImpl::createUninitialized(oldLength + 1, buffer));
 
     unsigned newLength = 0;
-    for (const UChar* c = string.characters16(); c < string.characters16() + oldLength; ++c) {
+    const UChar* start = string.characters();
+    for (const UChar* c = start; c < start + oldLength; ++c) {
         if (*c != UChar('\n'))
             buffer[newLength++] = *c;
     }
     buffer[newLength++] = UChar('\n');
 
-    if (newLength == oldLength + 1)
-        return stringBuffer;
-    return String(stringBuffer.characters16(), newLength);
+    String result = (newLength == oldLength + 1) ? stringBuffer : String(stringBuffer.characters16(), newLength);
+    ASSERT(result.endsWith(UChar('\n')));
+    return result;
 }
 
 bool NetscapePluginModule::scanPlugin(const String& pluginPath)
@@ -225,4 +224,4 @@ bool NetscapePluginModule::scanPlugin(const String& pluginPath)
 
 } // namespace WebKit
 
-#endif // PLUGIN_ARCHITECTURE(X11)
+#endif // PLUGIN_ARCHITECTURE(X11) && ENABLE(NETSCAPE_PLUGIN_API)

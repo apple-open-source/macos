@@ -50,6 +50,7 @@ typedef struct
 	uint32_t kvcount;
 	mem_string_t *host;
 	mem_string_t *sender;
+	mem_string_t *sender_mach_uuid;
 	mem_string_t *facility;
 	mem_string_t *message;
 	mem_string_t *refproc;
@@ -75,5 +76,6 @@ uint32_t asl_memory_save(asl_memory_t *s, aslmsg msg, uint64_t *mid);
 uint32_t asl_memory_fetch(asl_memory_t *s, uint64_t mid, aslmsg *msg, int32_t ruid, int32_t rgid);
 
 uint32_t asl_memory_match(asl_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid);
+uint32_t asl_memory_match_restricted_uuid(asl_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid, const char *uuid_str);
 
 #endif /* __ASL_MEMORY_H__ */

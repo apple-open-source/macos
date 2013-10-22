@@ -40,6 +40,7 @@
 #include "RenderLayer.h"
 #include "RenderView.h"
 #include "Settings.h"
+#include <wtf/StackStats.h>
 
 namespace WebCore {
 
@@ -157,33 +158,15 @@ void RenderFrameSet::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     }
 }
 
-bool RenderFrameSet::nodeAtPoint(const HitTestRequest& request, HitTestResult& result,
-    const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction action)
-{
-    if (action != HitTestForeground)
-        return false;
-
-    bool inside = RenderBox::nodeAtPoint(request, result, pointInContainer, accumulatedOffset, action)
-        || m_isResizing;
-
-    if (inside && frameSet()->noResize()
-            && !request.readOnly() && !result.innerNode() && !request.touchMove()) {
-        result.setInnerNode(node());
-        result.setInnerNonSharedNode(node());
-    }
-
-    return inside || m_isChildResizing;
-}
-
 void RenderFrameSet::GridAxis::resize(int size)
 {
     m_sizes.resize(size);
     m_deltas.resize(size);
     m_deltas.fill(0);
     
-    // To track edges for resizability and borders, we need to be (size + 1).  This is because a parent frameset
+    // To track edges for resizability and borders, we need to be (size + 1). This is because a parent frameset
     // may ask us for information about our left/top/right/bottom edges in order to make its own decisions about
-    // what to do.  We are capable of tainting that parent frameset's borders, so we have to cache this info.
+    // what to do. We are capable of tainting that parent frameset's borders, so we have to cache this info.
     m_preventResize.resize(size + 1);
     m_allowBorder.resize(size + 1);
 }
@@ -342,11 +325,10 @@ void RenderFrameSet::layOutAxis(GridAxis& axis, const Length* grid, int availabl
                 remainingLen -= changePercent;
             }
         }
-    } 
-    
-    // If we don't have any percentage columns/rows we only have fixed columns. Spread
-    // the remainder equally over all fixed columns/rows.
-    else if (remainingLen && countFixed) {
+    } else if (remainingLen && countFixed) {
+        // If we don't have any percentage columns/rows we only have
+        // fixed columns. Spread the remainder equally over all fixed
+        // columns/rows.
         int remainingFixed = remainingLen;
         int changeFixed = 0;
         
@@ -421,10 +403,10 @@ void RenderFrameSet::computeEdgeInfo()
     if (!child)
         return;
 
-    int rows = frameSet()->totalRows();
-    int cols = frameSet()->totalCols();
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
+    size_t rows = m_rows.m_sizes.size();
+    size_t cols = m_cols.m_sizes.size();
+    for (size_t r = 0; r < rows; ++r) {
+        for (size_t c = 0; c < cols; ++c) {
             FrameEdgeInfo edgeInfo;
             if (child->isFrameSet())
                 edgeInfo = toRenderFrameSet(child)->edgeInfo();
@@ -460,12 +442,16 @@ FrameEdgeInfo RenderFrameSet::edgeInfo() const
 
 void RenderFrameSet::layout()
 {
+    StackStats::LayoutCheckPoint layoutCheckPoint;
     ASSERT(needsLayout());
 
     bool doFullRepaint = selfNeedsLayout() && checkForRepaintDuringLayout();
     LayoutRect oldBounds;
-    if (doFullRepaint)
-        oldBounds = absoluteClippedOverflowRect();
+    RenderLayerModelObject* repaintContainer = 0;
+    if (doFullRepaint) {
+        repaintContainer = containerForRepaint();
+        oldBounds = clippedOverflowRectForRepaint(repaintContainer);
+    }
 
     if (!parent()->isFrameSet() && !document()->printing()) {
         setWidth(view()->viewWidth());
@@ -493,18 +479,14 @@ void RenderFrameSet::layout()
 
     computeEdgeInfo();
 
-    if (doFullRepaint) {
-        view()->repaintViewRectangle(oldBounds);
-        LayoutRect newBounds = absoluteClippedOverflowRect();
-        if (newBounds != oldBounds)
-            view()->repaintViewRectangle(newBounds);
-    }
+    updateLayerTransform();
 
-    // If this FrameSet has a transform matrix then we need to recompute it
-    // because the transform origin is a function the size of the RenderFrameSet
-    // which may not be computed until it is attached to the render tree.
-    if (layer() && hasTransform())
-        layer()->updateTransform();
+    if (doFullRepaint) {
+        repaintUsingContainer(repaintContainer, pixelSnappedIntRect(oldBounds));
+        LayoutRect newBounds = clippedOverflowRectForRepaint(repaintContainer);
+        if (newBounds != oldBounds)
+            repaintUsingContainer(repaintContainer, pixelSnappedIntRect(newBounds));
+    }
 
     setNeedsLayout(false);
 }
@@ -668,7 +650,7 @@ bool RenderFrameSet::flattenFrameSet() const
 void RenderFrameSet::startResizing(GridAxis& axis, int position)
 {
     int split = hitTestSplit(axis, position);
-    if (split == noSplit || !axis.m_allowBorder[split] || axis.m_preventResize[split]) {
+    if (split == noSplit || axis.m_preventResize[split]) {
         axis.m_splitBeingResized = noSplit;
         return;
     }
@@ -684,7 +666,7 @@ void RenderFrameSet::continueResizing(GridAxis& axis, int position)
         return;
     int currentSplitPosition = splitPosition(axis, axis.m_splitBeingResized);
     int delta = (position - currentSplitPosition) - axis.m_splitResizeOffset;
-    if (delta == 0)
+    if (!delta)
         return;
     axis.m_deltas[axis.m_splitBeingResized - 1] += delta;
     axis.m_deltas[axis.m_splitBeingResized] -= delta;
@@ -700,7 +682,7 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
         if (needsLayout())
             return false;
         if (evt->type() == eventNames().mousedownEvent && evt->button() == LeftButton) {
-            FloatPoint localPos = absoluteToLocal(evt->absoluteLocation(), false, true);
+            FloatPoint localPos = absoluteToLocal(evt->absoluteLocation(), UseTransforms);
             startResizing(m_cols, localPos.x());
             startResizing(m_rows, localPos.y());
             if (m_cols.m_splitBeingResized != noSplit || m_rows.m_splitBeingResized != noSplit) {
@@ -710,7 +692,7 @@ bool RenderFrameSet::userResize(MouseEvent* evt)
         }
     } else {
         if (evt->type() == eventNames().mousemoveEvent || (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton)) {
-            FloatPoint localPos = absoluteToLocal(evt->absoluteLocation(), false, true);
+            FloatPoint localPos = absoluteToLocal(evt->absoluteLocation(), UseTransforms);
             continueResizing(m_cols, localPos.x());
             continueResizing(m_rows, localPos.y());
             if (evt->type() == eventNames().mouseupEvent && evt->button() == LeftButton) {
@@ -747,13 +729,13 @@ bool RenderFrameSet::isResizingColumn() const
 bool RenderFrameSet::canResizeRow(const IntPoint& p) const
 {
     int r = hitTestSplit(m_rows, p.y());
-    return r != noSplit && m_rows.m_allowBorder[r] && !m_rows.m_preventResize[r];
+    return r != noSplit && !m_rows.m_preventResize[r];
 }
 
 bool RenderFrameSet::canResizeColumn(const IntPoint& p) const
 {
     int c = hitTestSplit(m_cols, p.x());
-    return c != noSplit && m_cols.m_allowBorder[c] && !m_cols.m_preventResize[c];
+    return c != noSplit && !m_cols.m_preventResize[c];
 }
 
 int RenderFrameSet::splitPosition(const GridAxis& axis, int split) const

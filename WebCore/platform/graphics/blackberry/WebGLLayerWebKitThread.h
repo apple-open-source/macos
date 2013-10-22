@@ -21,13 +21,13 @@
 
 #if USE(ACCELERATED_COMPOSITING) && ENABLE(WEBGL)
 
-#include "LayerWebKitThread.h"
+#include "EGLImageLayerWebKitThread.h"
 
 namespace WebCore {
 
 class GraphicsContext3D;
 
-class WebGLLayerWebKitThread : public LayerWebKitThread {
+class WebGLLayerWebKitThread : public EGLImageLayerWebKitThread {
 public:
     static PassRefPtr<WebGLLayerWebKitThread> create()
     {
@@ -37,17 +37,16 @@ public:
     virtual ~WebGLLayerWebKitThread();
 
     void setWebGLContext(GraphicsContext3D* context) { m_webGLContext = context; }
-
-    virtual void setNeedsDisplay();
+    void webGLContextDestroyed();
 
 protected:
     virtual void updateTextureContentsIfNeeded();
+    virtual void deleteTextures();
 
 private:
     WebGLLayerWebKitThread();
 
     GraphicsContext3D* m_webGLContext;
-    bool m_needsDisplay;
 };
 
 } // namespace WebCore

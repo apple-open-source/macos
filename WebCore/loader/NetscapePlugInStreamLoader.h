@@ -34,42 +34,45 @@
 
 namespace WebCore {
 
-    class NetscapePlugInStreamLoader;
+class NetscapePlugInStreamLoader;
 
-    class NetscapePlugInStreamLoaderClient {
-    public:
-        virtual void didReceiveResponse(NetscapePlugInStreamLoader*, const ResourceResponse&) = 0;
-        virtual void didReceiveData(NetscapePlugInStreamLoader*, const char*, int) = 0;
-        virtual void didFail(NetscapePlugInStreamLoader*, const ResourceError&) = 0;
-        virtual void didFinishLoading(NetscapePlugInStreamLoader*) { }
-        virtual bool wantsAllStreams() const { return false; }
+class NetscapePlugInStreamLoaderClient {
+public:
+    virtual void didReceiveResponse(NetscapePlugInStreamLoader*, const ResourceResponse&) = 0;
+    virtual void didReceiveData(NetscapePlugInStreamLoader*, const char*, int) = 0;
+    virtual void didFail(NetscapePlugInStreamLoader*, const ResourceError&) = 0;
+    virtual void didFinishLoading(NetscapePlugInStreamLoader*) { }
+    virtual bool wantsAllStreams() const { return false; }
 
-    protected:
-        virtual ~NetscapePlugInStreamLoaderClient() { }
-    };
+protected:
+    virtual ~NetscapePlugInStreamLoaderClient() { }
+};
 
-    class NetscapePlugInStreamLoader : public ResourceLoader {
-    public:
-        static PassRefPtr<NetscapePlugInStreamLoader> create(Frame*, NetscapePlugInStreamLoaderClient*, const ResourceRequest&);
-        virtual ~NetscapePlugInStreamLoader();
+class NetscapePlugInStreamLoader : public ResourceLoader {
+public:
+    static PassRefPtr<NetscapePlugInStreamLoader> create(Frame*, NetscapePlugInStreamLoaderClient*, const ResourceRequest&);
+    virtual ~NetscapePlugInStreamLoader();
 
-        bool isDone() const;
+    bool isDone() const;
 
-    private:
-        virtual void didReceiveResponse(const ResourceResponse&);
-        virtual void didReceiveData(const char*, int, long long encodedDataLength, bool allAtOnce);
-        virtual void didFinishLoading(double finishTime);
-        virtual void didFail(const ResourceError&);
+private:
+    virtual void didReceiveResponse(const ResourceResponse&) OVERRIDE;
+    virtual void didReceiveData(const char*, int, long long encodedDataLength, DataPayloadType) OVERRIDE;
+    virtual void didReceiveBuffer(PassRefPtr<SharedBuffer>, long long encodedDataLength, DataPayloadType) OVERRIDE;
+    virtual void didFinishLoading(double finishTime) OVERRIDE;
+    virtual void didFail(const ResourceError&) OVERRIDE;
 
-        virtual void releaseResources();
+    virtual void releaseResources() OVERRIDE;
 
-        NetscapePlugInStreamLoader(Frame*, NetscapePlugInStreamLoaderClient*);
+    NetscapePlugInStreamLoader(Frame*, NetscapePlugInStreamLoaderClient*);
 
-        virtual void willCancel(const ResourceError&);
-        virtual void didCancel(const ResourceError&);
+    virtual void willCancel(const ResourceError&) OVERRIDE;
+    virtual void didCancel(const ResourceError&) OVERRIDE;
 
-        NetscapePlugInStreamLoaderClient* m_client;
-    };
+    void didReceiveDataOrBuffer(const char*, int, PassRefPtr<SharedBuffer>, long long encodedDataLength, DataPayloadType);
+
+    NetscapePlugInStreamLoaderClient* m_client;
+};
 
 }
 

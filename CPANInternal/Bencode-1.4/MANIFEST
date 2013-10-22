@@ -1,0 +1,13 @@
+Changes
+LICENSE
+MANIFEST
+META.json
+META.yml
+Makefile.PL
+README
+dist.ini
+lib/Bencode.pm
+t/00.load.t
+t/01.bdecode.t
+t/02.bencode.t
+t/cpants.t

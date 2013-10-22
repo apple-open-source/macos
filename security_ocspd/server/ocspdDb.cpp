@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2004-2012 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,14 +17,17 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
  * ocspdDb.cpp - OCSP daemon database
  */
- 
+
+#if OCSP_DEBUG
+#define OCSP_USE_SYSLOG	1
+#endif
 #include "ocspdDb.h"
 #include "attachCommon.h"
 #include <security_ocspd/ocspdDbSchema.h>
@@ -64,49 +67,49 @@ class OcspdDatabase
 public:
 	OcspdDatabase();
 	~OcspdDatabase();
-	
+
 	/* methods associated with public API of this module */
 	bool lookup(
 		SecAsn1CoderRef		coder,
 		const CSSM_DATA		&certID,
 		const CSSM_DATA		*localResponder,		// optional
 		CSSM_DATA			&derResp);				// RETURNED
-	
+
 	void addResponse(
 		const CSSM_DATA		&ocspResp,				// DER encoded SecAsn1OCSPResponse
-		const CSSM_DATA		&URI);					// where it came from 
+		const CSSM_DATA		&URI);					// where it came from
 
 	void flushCertID(
 		const CSSM_DATA 	&certID);
-	
+
 	void flushStale();
-	
+
 private:
 	CSSM_RETURN dlAttach();
 	CSSM_RETURN dbCreate();
 	CSSM_RETURN dbOpen(bool doCreate);
-	
+
 	/* see implementations for comments */
 	bool validateRecord(
 		const CSSM_DATA				&certID,
 		const CSSM_DATA				&recordData,	// raw OCSP response
 		const CSSM_DATA				&expireTime,	// the attribute data
 		CSSM_DB_UNIQUE_RECORD_PTR	recordPtr);
-		
+
 	CSSM_RETURN lookupPriv(
 		/* search predicates, both optional */
-		const CSSM_DATA				*certID,		
+		const CSSM_DATA				*certID,
 		const CSSM_DATA				*localResponder,
-		
+
 		/* always returned on success */
 		CSSM_HANDLE_PTR				resultHand,
 		CSSM_DB_UNIQUE_RECORD_PTR	*recordPtr,
-		
-		/* optionaly returned */
+
+		/* optionally returned */
 		CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attrData,
 		CSSM_DATA_PTR				data);		// i.e., an encoded OCSP response
 
-	
+
 	/* everything this module does is protected by this global lock */
 	Mutex					mLock;
 	CSSM_DL_DB_HANDLE		mDlDbHandle;
@@ -132,15 +135,15 @@ OcspdDatabase::~OcspdDatabase()
 	}
 }
 
-/* 
- * Ensure we're attached to AppleFileDL. Caller must hold mLock. 
+/*
+ * Ensure we're attached to AppleFileDL. Caller must hold mLock.
  */
 CSSM_RETURN OcspdDatabase::dlAttach()
 {
 	if(mDlDbHandle.DLHandle != 0) {
 		return CSSM_OK;
 	}
-	ocspdDbDebug("ocspd: attaching to DL");
+	ocspdDbDebug("OcspdDatabase: attaching to DL");
 	mDlDbHandle.DLHandle = attachCommon(&gGuidAppleFileDL, CSSM_SERVICE_DL);
 	if(mDlDbHandle.DLHandle == 0) {
 		Syslog::alert("Error loading AppleFileDL");
@@ -149,25 +152,25 @@ CSSM_RETURN OcspdDatabase::dlAttach()
 	return CSSM_OK;
 }
 
-/* 
- * Create the database, which caller has determined does not exist. 
+/*
+ * Create the database, which caller has determined does not exist.
  * Caller must hold mLock.
  */
 CSSM_RETURN OcspdDatabase::dbCreate()
 {
 	assert(mDlDbHandle.DLHandle != 0);
 	assert(mDlDbHandle.DBHandle == 0);
-	
-	ocspdDbDebug("ocspd: creating DB");
+
+	ocspdDbDebug("OcspdDatabase: creating DB");
 	CSSM_DBINFO dbInfo;
 	memset(&dbInfo, 0, sizeof(dbInfo));
 	dbInfo.NumberOfRecordTypes = 1;
 	dbInfo.IsLocal = CSSM_TRUE;		// TBD - what does this mean?
 	dbInfo.AccessPath = NULL;		// TBD
-	
-	/* 
-	 * Alloc kNumOcspDbRelations elements for parsingModule, recordAttr, 
-	 * and recordIndex info arrays 
+
+	/*
+	 * Alloc kNumOcspDbRelations elements for parsingModule, recordAttr,
+	 * and recordIndex info arrays
 	 */
 	unsigned size = sizeof(CSSM_DB_PARSING_MODULE_INFO) * kNumOcspDbRelations;
 	dbInfo.DefaultParsingModules = (CSSM_DB_PARSING_MODULE_INFO_PTR)malloc(size);
@@ -178,21 +181,21 @@ CSSM_RETURN OcspdDatabase::dbCreate()
 	size = sizeof(CSSM_DB_RECORD_INDEX_INFO) * kNumOcspDbRelations;
 	dbInfo.RecordIndexes = (CSSM_DB_RECORD_INDEX_INFO_PTR)malloc(size);
 	memset(dbInfo.RecordIndexes, 0, size);
-	
+
 	/* cook up attribute and index info for each relation */
 	unsigned relation;
 	for(relation=0; relation<kNumOcspDbRelations; relation++) {
 		const OcspdDbRelationInfo *relp = &kOcspDbRelations[relation];	// source
-		CSSM_DB_RECORD_ATTRIBUTE_INFO_PTR attrInfo = 
+		CSSM_DB_RECORD_ATTRIBUTE_INFO_PTR attrInfo =
 			&dbInfo.RecordAttributeNames[relation];						// dest 1
-		CSSM_DB_RECORD_INDEX_INFO_PTR indexInfo = 
+		CSSM_DB_RECORD_INDEX_INFO_PTR indexInfo =
 			&dbInfo.RecordIndexes[relation];							// dest 2
-			
+
 		attrInfo->DataRecordType = relp->recordType;
 		attrInfo->NumberOfAttributes = relp->numberOfAttributes;
-		attrInfo->AttributeInfo = 
+		attrInfo->AttributeInfo =
 			const_cast<CSSM_DB_ATTRIBUTE_INFO_PTR>(relp->attrInfo);
-		
+
 		indexInfo->DataRecordType = relp->recordType;
 		indexInfo->NumberOfIndexes = relp->numIndexes;
 		indexInfo->IndexInfo = const_cast<CSSM_DB_INDEX_INFO_PTR>(relp->indexInfo);
@@ -207,21 +210,18 @@ CSSM_RETURN OcspdDatabase::dbCreate()
 	/* ensure mode 644 */
 	openParams.mask = kCSSM_APPLEDL_MASK_MODE;
 	openParams.mode = 0644;
-	
+
 	CSSM_RETURN crtn;
 	crtn = CSSM_DL_DbCreate(mDlDbHandle.DLHandle,
-		OCSP_DB_FILE,		// DbName is the same as file path 
+		OCSP_DB_FILE,		// DbName is the same as file path
 		NULL,				// DbLocation
 		&dbInfo,
 		CSSM_DB_ACCESS_READ | CSSM_DB_ACCESS_WRITE,
 		NULL,				// CredAndAclEntry
-		&openParams, 
+		&openParams,
 		&mDlDbHandle.DBHandle);
 	if(crtn) {
-		Syslog::alert("Error creating DB");
-		#ifndef	NDEBUG
-		cssmPerror("CSSM_DL_DbCreate", crtn);
-		#endif
+		Syslog::alert("Error creating DB (%d)", crtn);
 	}
 	free(dbInfo.DefaultParsingModules);
 	free(dbInfo.RecordAttributeNames);
@@ -229,10 +229,10 @@ CSSM_RETURN OcspdDatabase::dbCreate()
 	return crtn;
 }
 
-/* 
- * Open, optionally creating. If !doCreate and DB doesn't exist, 
- * CSSMERR_DL_DATASTORE_DOESNOT_EXIST is returned. Any other error is 
- * a gross failure. 
+/*
+ * Open, optionally creating. If !doCreate and DB doesn't exist,
+ * CSSMERR_DL_DATASTORE_DOESNOT_EXIST is returned. Any other error is
+ * a gross failure.
  *
  * Caller must hold mLock.
  */
@@ -247,7 +247,7 @@ CSSM_RETURN OcspdDatabase::dbOpen(bool doCreate)
 		return CSSM_OK;
 	}
 	crtn = CSSM_DL_DbOpen(mDlDbHandle.DLHandle,
-		OCSP_DB_FILE, 
+		OCSP_DB_FILE,
 		NULL,			// DbLocation
 		CSSM_DB_ACCESS_READ | CSSM_DB_ACCESS_WRITE,
 		NULL, 			// CSSM_ACCESS_CREDENTIALS *AccessCred
@@ -259,22 +259,29 @@ CSSM_RETURN OcspdDatabase::dbOpen(bool doCreate)
 		case CSSMERR_DL_DATASTORE_DOESNOT_EXIST:
 			if(!doCreate) {
 				/* just trying to read, doesn't exist */
-				ocspdDbDebug("ocspd: read access, DB does not yet exist");
+				ocspdDbDebug("OcspdDatabase: read access, DB does not yet exist");
 				return crtn;
 			}
 			else {
 				return dbCreate();
 			}
+		case CSSMERR_DL_DATABASE_CORRUPT:
+			/* corrupt database; delete and recreate it */
+			if(unlink(OCSP_DB_FILE)) {
+				Syslog::alert("Failed to remove OCSP cache (%d)", errno);
+			}
+			else {
+				Syslog::alert("Error opening OCSP cache (%d), recovering", crtn);
+				crtn = dbCreate();
+			}
+			return crtn;
 		default:
-			Syslog::alert("Error opening DB");
-			#ifndef	NDEBUG
-			cssmPerror("CSSM_DL_DbOpen", crtn);
-			#endif
+			Syslog::alert("Error opening OCSP cache (%d)", crtn);
 			return crtn;
 	}
 }
-	
-/* 
+
+/*
  * Free CSSM_DB_ATTRIBUTE_DATA
  */
 static void freeAttrData(
@@ -294,7 +301,7 @@ static void freeAttrData(
 
 /*
  * Validate a record found in the DB. Returns true if record is good to go.
- * We delete the record if it's stale. 
+ * We delete the record if it's stale.
  */
 bool OcspdDatabase::validateRecord(
 	const CSSM_DATA				&certID,
@@ -302,7 +309,7 @@ bool OcspdDatabase::validateRecord(
 	const CSSM_DATA				&expireTime,	// the attribute data
 	CSSM_DB_UNIQUE_RECORD_PTR	recordPtr)
 {
-	/* 
+	/*
 	 * First off, if the entire record is stale, we're done.
 	 */
 	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
@@ -312,10 +319,10 @@ bool OcspdDatabase::validateRecord(
 		CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
 		return false;
 	}
-	
-	/* 
-	 * Parse: this should never fail since we did this when we first got the 
-	 * response, and we just made sure it isn't stale. 
+
+	/*
+	 * Parse: this should never fail since we did this when we first got the
+	 * response, and we just made sure it isn't stale.
 	 */
 	OCSPResponse *ocspResp = NULL;
 	bool ourRtn = false;
@@ -326,8 +333,8 @@ bool OcspdDatabase::validateRecord(
 		Syslog::alert("Error parsing stored record");
 		return false;
 	}
-	
-	/* 
+
+	/*
 	 * Find the singleResponse for this certID.
 	 */
 	OCSPSingleResponse *singleResp = ocspResp->singleResponseFor(certID);
@@ -347,14 +354,14 @@ bool OcspdDatabase::validateRecord(
 		ocspdDbDebug("OcspdDatabase::validateRecord: SingleResponse NOT FOUND");
 	}
 	delete ocspResp;
-	ocspdDbDebug("OcspdDatabase::validateRecord returning %s", 
+	ocspdDbDebug("OcspdDatabase::validateRecord returning %s",
 		ourRtn ? "TRUE" : "FALSE");
 	return ourRtn;
 }
 
-/* 
- * Basic private lookup. Key on any or all attrs. On success, always returns a 
- * CSSM_DB_UNIQUE_RECORD_PTR (which caller must either use to delete the 
+/*
+ * Basic private lookup. Key on any or all attrs. On success, always returns a
+ * CSSM_DB_UNIQUE_RECORD_PTR (which caller must either use to delete the
  * record or free with CSSM_DL_FreeUniqueRecord()) *AND* a CSSM_HANDLE_PTR
  * ResultHandle(which caller must free with CSSM_DL_DataAbortQuery, possibly
  * after doing some CSSM_DL_DataGetNext() ops with it). On success, also
@@ -365,21 +372,21 @@ bool OcspdDatabase::validateRecord(
  */
 CSSM_RETURN OcspdDatabase::lookupPriv(
 	/* search predicates, both optional */
-	const CSSM_DATA		*certID,		
+	const CSSM_DATA		*certID,
 	const CSSM_DATA		*URI,
-	
+
 	/* these two always returned on success */
 	CSSM_HANDLE_PTR				resultHandPtr,
 	CSSM_DB_UNIQUE_RECORD_PTR	*recordPtr,
-	
-	/* 
-	 * Optionally returned, in/out (in to specify which attrs, out as the 
-	 * attrs fetched) 
+
+	/*
+	 * Optionally returned, in/out (in to specify which attrs, out as the
+	 * attrs fetched)
 	 */
 	CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attrData,
-	
+
 	/* optionally returned - an encoded OCSP response */
-	CSSM_DATA_PTR				data)	
+	CSSM_DATA_PTR				data)
 {
 	CSSM_QUERY						query;
 	CSSM_SELECTION_PREDICATE		predicate[2];
@@ -390,11 +397,11 @@ CSSM_RETURN OcspdDatabase::lookupPriv(
 	assert(resultHandPtr != NULL);
 	assert(recordPtr != NULL);
 	assert(mDlDbHandle.DBHandle != 0);
-	
+
 	memset(&query, 0, sizeof(query));
 	query.RecordType = OCSPD_DB_RECORDTYPE;
 	query.Conjunctive = CSSM_DB_NONE;
-	
+
 	if(certID) {
 		predPtr->DbOperator = CSSM_DB_EQUAL;
 		predPtr->Attribute.Info = certIDAttr;
@@ -434,13 +441,13 @@ bool OcspdDatabase::lookup(
 	if(dbOpen(false)) {
 		return false;
 	}
-	
+
 	CSSM_RETURN crtn;
 	CSSM_HANDLE resultHand;
 	CSSM_DB_UNIQUE_RECORD_PTR recordPtr;
 	CSSM_DATA resultData;			// if found, free via APP_FREE()
 	bool foundIt = false;
-	
+
 	/* set up to retrieve just the expiration time */
 	CSSM_DB_RECORD_ATTRIBUTE_DATA recordAttrData;
 	memset(&recordAttrData, 0, sizeof(recordAttrData));
@@ -451,7 +458,7 @@ bool OcspdDatabase::lookup(
 	recordAttrData.DataRecordType = OCSPD_DB_RECORDTYPE;
 	recordAttrData.NumberOfAttributes = 1;
 	recordAttrData.AttributeData = &attrData;
-	
+
 	crtn = lookupPriv(&certID, URI, &resultHand, &recordPtr,
 		&recordAttrData, &resultData);
 	if(crtn) {
@@ -462,7 +469,7 @@ bool OcspdDatabase::lookup(
 	/* done with attrs and the record itself regardless.... */
 	freeAttrData(attrData);
 	CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
-	
+
 	if(!foundIt) {
 		/* no good. free what we just got and try again */
 		ocspdDbDebug("OcspdDatabase::lookup: invalid record (1)");
@@ -505,7 +512,7 @@ bool OcspdDatabase::lookup(
 
 void OcspdDatabase::addResponse(
 	const CSSM_DATA		&ocspResp,				// DER encoded SecAsn1OCSPResponse
-	const CSSM_DATA		&URI)	
+	const CSSM_DATA		&URI)
 {
 	TransactionLock tLock;
 	StLock<Mutex> _(mLock);
@@ -513,7 +520,7 @@ void OcspdDatabase::addResponse(
 	if(dbOpen(true)) {
 		return;
 	}
-	
+
 	/* open it up... */
 	OCSPResponse *resp = NULL;
 	try {
@@ -529,7 +536,7 @@ void OcspdDatabase::addResponse(
 		delete resp;
 		return;
 	}
-	
+
 	/*
 	 * Get expiration date in the form of the latest of all of the enclosed
 	 * SingleResponse nextUpdate fields.
@@ -539,7 +546,7 @@ void OcspdDatabase::addResponse(
 	cfAbsTimeToGgenTime(expireTime, expireStr);
 	CSSM_DATA expireData = {GENERAL_TIME_STRLEN, (uint8 *)expireStr};
 	CSSM_RETURN crtn;
-	
+
 	CSSM_DB_RECORD_ATTRIBUTE_DATA recordAttrs;
 	CSSM_DB_ATTRIBUTE_DATA attrData[OCSPD_NUM_DB_ATTRS];
 	CSSM_DB_UNIQUE_RECORD_PTR recordPtr = NULL;
@@ -549,7 +556,7 @@ void OcspdDatabase::addResponse(
 	recordAttrs.SemanticInformation = 0;			// what's this for?
 	recordAttrs.NumberOfAttributes = OCSPD_NUM_DB_ATTRS;
 	recordAttrs.AttributeData = attrData;
-	
+
 	/*
 	 * Now fill in the attributes. CertID is unusual in that it can contain multiple
 	 * values, one for each SingleResponse.
@@ -568,12 +575,12 @@ void OcspdDatabase::addResponse(
 		ocspdDbDebug("addResponse: MULTIPLE SINGLE RESPONSES (%u)", numSingleResps);
 	}
 	#endif
-	attrData[0].Value = (CSSM_DATA_PTR)SecAsn1Malloc(coder, 
+	attrData[0].Value = (CSSM_DATA_PTR)SecAsn1Malloc(coder,
 		numSingleResps * sizeof(CSSM_DATA));
 	memset(attrData[0].Value, 0, numSingleResps * sizeof(CSSM_DATA));
 	for(unsigned dex=0; dex<numSingleResps; dex++) {
-		/* 
-		 * Get this single response. SKIP IT if the hash algorithm is not 
+		/*
+		 * Get this single response. SKIP IT if the hash algorithm is not
 		 * SHA1 since we do lookups in the DB by encoded value assuming SHA1
 		 * hash. Incoming responses with other hash values would never be found.
 		 */
@@ -585,7 +592,7 @@ void OcspdDatabase::addResponse(
 			continue;
 		}
 		/* encode this certID as attr[0]value[dex] */
-		if(SecAsn1EncodeItem(coder, &certID, kSecAsn1OCSPCertIDTemplate, 
+		if(SecAsn1EncodeItem(coder, &certID, kSecAsn1OCSPCertIDTemplate,
 				&attrData[0].Value[dex])) {
 			ocspdErrorLog("OcspdDatabase::addResponse: encode error\n");
 			crtn = CSSMERR_TP_INTERNAL_ERROR;
@@ -595,11 +602,11 @@ void OcspdDatabase::addResponse(
 
 	attrData[1].Info = twoAttr;
 	attrData[1].NumberOfValues = 1;
-	attrData[1].Value = const_cast<CSSM_DATA_PTR>(&URI);	
-	
+	attrData[1].Value = const_cast<CSSM_DATA_PTR>(&URI);
+
 	attrData[2].Info = threeAttr;
 	attrData[2].NumberOfValues = 1;
-	attrData[2].Value = &expireData;	
+	attrData[2].Value = &expireData;
 
 	crtn = CSSM_DL_DataInsert(mDlDbHandle,
 		OCSPD_DB_RECORDTYPE,
@@ -607,15 +614,22 @@ void OcspdDatabase::addResponse(
 		&ocspResp,
 		&recordPtr);
 	if(crtn) {
-		Syslog::alert("Error writing to DB");
-		#ifndef	NDEBUG
-		cssmPerror("CSSM_DL_DbOpen", crtn);
-		#endif
+		/* delete and recreate our cache if there is any error */
+		if(unlink(OCSP_DB_FILE)) {
+			Syslog::alert("Writing to OCSP cache failed (%d)", errno);
+		}
+		else {
+			Syslog::alert("Writing to OCSP cache failed (%d), recovering", crtn);
+			crtn = dbCreate();
+		}
 	}
 	else {
 		CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
 	}
 errOut:
+    if(crtn) {
+        ocspdDbDebug("addResponse: error %d", crtn);
+    }
 	delete resp;
 	SecAsn1CoderRelease(coder);
 }
@@ -628,11 +642,11 @@ void OcspdDatabase::flushCertID(
 	if(dbOpen(false)) {
 		return;
 	}
-	
+
 	CSSM_RETURN crtn;
 	CSSM_HANDLE resultHand;
 	CSSM_DB_UNIQUE_RECORD_PTR recordPtr;
-	
+
 	/* just retrieve the record, no attrs, no data */
 	crtn = lookupPriv(&certID, NULL, &resultHand, &recordPtr, NULL, NULL);
 	if(crtn) {
@@ -643,7 +657,7 @@ void OcspdDatabase::flushCertID(
 		ocspdDbDebug("OcspdDatabase::flushCertID: deleting (1)");
 		CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
 		CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
-		
+
 		/* any more? */
 		do {
 			crtn = CSSM_DL_DataGetNext(mDlDbHandle, resultHand,	NULL, NULL, &recordPtr);
@@ -668,11 +682,11 @@ void OcspdDatabase::flushStale()
 	if(dbOpen(false)) {
 		return;
 	}
-	
+
 	CSSM_RETURN crtn;
 	CSSM_HANDLE resultHand;
 	CSSM_DB_UNIQUE_RECORD_PTR recordPtr;
-	
+
 	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
 
 	/* retrieve all records, one attr (expiration time), no data */
@@ -698,7 +712,7 @@ void OcspdDatabase::flushStale()
 			CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
 		}
 		CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
-		
+
 		/* any more? */
 		do {
 			crtn = CSSM_DL_DataGetNext(mDlDbHandle, resultHand,	NULL, NULL, &recordPtr);
@@ -726,9 +740,9 @@ static ModuleNexus<OcspdDatabase> gOcspdDatabase;
 
 /*
  * Lookup cached response. Result is a DER-encoded OCSP response,t he same bits
- * originally obtained from the net. Result is allocated in specified 
- * SecAsn1CoderRef's memory. Never returns a stale entry; we always check the 
- * enclosed SingleResponse for temporal validity. 
+ * originally obtained from the net. Result is allocated in specified
+ * SecAsn1CoderRef's memory. Never returns a stale entry; we always check the
+ * enclosed SingleResponse for temporal validity.
  *
  * Just a boolean returned; we found it, or not.
  */
@@ -741,14 +755,14 @@ bool ocspdDbCacheLookup(
 	return gOcspdDatabase().lookup(coder, certID, localResponder, derResp);
 }
 
-/* 
+/*
  * Add a OCSP response to cache. Incoming response is completely unverified;
  * we just verify that we can parse it and is has at least one SingleResponse
- * which is temporally valid. 
+ * which is temporally valid.
  */
 void ocspdDbCacheAdd(
 	const CSSM_DATA		&ocspResp,			// DER encoded SecAsn1OCSPResponse
-	const CSSM_DATA		&URI)				// where it came from 
+	const CSSM_DATA		&URI)				// where it came from
 {
 	gOcspdDatabase().addResponse(ocspResp, URI);
 }
@@ -763,7 +777,7 @@ void ocspdDbCacheFlush(
 }
 
 /*
- * Flush stale entries from cache. 
+ * Flush stale entries from cache.
  */
 void ocspdDbCacheFlushStale()
 {

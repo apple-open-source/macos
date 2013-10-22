@@ -1,0 +1,156 @@
+Revision history for Perl extension Ima::DBI.
+
+0.35 Sun Jun 10 16:36:07 EST 2007
+		- Add checking of PID in database handles to prevent trouble
+		  in forked environments (Perrin Harkins and Sam Tregar)
+
+0.34 Mon Sep  5 09:10:37 UTC 2005
+		- Remove Class::WhiteHole from PREREQs (Alexey Tourbin)
+
+0.33 Mon Mar 15 19:33:11 GMT 2004
+		- We're no longer a subclass of DBI directly. Instead we use
+		  DBIx::ContextualFetch
+
+0.32 Sat Feb 28 10:13:42 GMT 2004
+		- Fix minor bug in set_sql relating to method names containing
+		  spaces [Davide Dente]
+
+0.31  Tue Oct 14 21:55:08 BST 2003
+		- call finish() on $sth in select_col
+
+0.30  Sat Sep 27 11:15:28 BST 2003
+		- added (undocumented) select_row, select_col, select_val helper
+		  methods to $sth. These may change in a later release.
+
+0.29  Sun Jun 22 15:50:12 BST 2003
+		- Allow subclasses to provide their own transform_sql method
+
+0.28  Fri Jan  3 16:23:04 GMT 2003
+		- stop sql_closure holding a lexical $sth
+
+0.27  Sat Feb 16 11:55:23 GMT 2002
+    - fix precedence bug with commit / rollback
+        [thanks to Tim Ayers]
+    - Subclassing DBI is now greatly improved thanks to changes
+        in DBI itself.
+    - DBI now handles all taint issues for us directly
+
+0.26  Sat Oct  6 12:38:21 BST 2001
+   [now maintainted by Tony Bowden]
+
+    - Allow setting with overloaded values 
+    - Lots of doc patches by Wesley Darlington
+    - Switch tests to Test::More
+    - removed Ima::DBI::utility
+
+0.25  Sun Apr  8 23:55:15 BST 2001
+    - Fixed a minor bug with %% in SQL
+    - Cleaned up the docs a bit
+    * Added db_names() and db_handles()
+    * Added sql_names()
+    * Implemented commit() and rollback()
+    - Fixed minor bug in assertion on set_db()
+
+0.24  Sun Sep 10 00:50:15 EDT 2000
+    - *bug fix* commit() and rollback() were accidentally broken on
+      database handles
+
+0.23  Sun Jul  9 04:57:51 EDT 2000
+    - Fixed accidental AutoLoader inheritance.
+
+0.22  Sun Jul  2 19:51:53 EDT 2000  *UNRELEASED*
+    - Upon encountering an already active handle, sql_* was mistakenly 
+      croak()ing instead of carp()ing.
+
+0.21  Thu Apr 20 14:36:17 EDT 2000
+    - Added a new caching argument to set_sql()
+    - Removed the assert() using a 5.005 feature to keep things 5.004
+      clean.
+
+0.20  Wed Apr 19 20:46:57 EDT 2000
+    - set_sql() required its database method to have been declared previous
+      to it being called.  This turns out to be unnecessary and gets in
+      the way of writing a virtual base class which defines statements
+      but not the database connection.
+
+0.19  Wed Apr 12 23:18:48 EST 2000
+    - Now using DBI->init_rootclass to pull off DBI subclassing.  This
+      means subclasses of Ima::DBI should always get Ima::DBI::st and
+      Ima::DBI::db objects no matter what they pull.
+
+0.18  Thu Mar 16 16:04:11 EST 2000
+    * Ooops, bug in fetch_hash() in list context.
+
+0.17  Tue Feb 29 00:13:32 EST 2000
+    * set_sql() and sql_*() will now deal with dynamic SQL statements much
+      better.
+    - Fixed up the docs a bit.
+    - execute() no longer checks for taintedness on bind parameters.
+
+0.16  1999/12/29 06:37:03
+    * Added a real DBIwarn()
+    - Never released to CPAN.
+
+0.15  1999/12/14 23:33:37
+    - Minor efficiency improvement of set_db().
+    - Minor adjustment to set_sql() so that the generated method calls
+      db_*() internaly instead of holding the $dbh inside the closure.
+      This allows subclasses to override the db_*() for that particular
+      sql method (needed for Class::DBI)
+
+0.14  1999/12/08 00:56:58
+    * fetchall_hash() was incorrectly coded as fetchall_hashref().
+
+0.13  1999/09/26 21:53:27
+    * DBI::st::bind_columns() was being called improperly
+
+0.12  Mon Sep 20 18:04:58 EDT 1999
+    - Fixed that damned pod2man warning about "Unmatched =back" (thanks Addi)
+    - Lowered the restrictions on execute() to allow execute(undef, \@cols)
+
+0.11  Tue Jul 20 22:08:35 EDT 1999
+    - Added prepare() override to return Ima::DBI style statement handles.
+
+0.10  Mon Jul 19 20:04:04 EDT 1999
+    - Updated TODO list
+    - Added COPYRIGHT and licensing
+    - Performance improvement by drastically reducting # of calls to
+      DBI::prepare_cached
+
+0.09  Tue Jul 13 23:59:56 EDT 1999
+    - Major performance improvement by drasticly reducing # of calls to
+      DBI::connect_cached.
+
+0.08  Wed Jun 30 16:16:16 EDT 1999
+    * Spaces in names of statements and database (sql_ and db_) are now
+      translate to underscores.
+
+0.07  Tue May 19 20:58:02 EDT 1999
+    - Cleaning up use of DBI's tainting features.
+
+0.06  Sat May  8 03:50:34 EDT 1999
+    - Implements data tainting via DBI->{Taint}  (Thanks, Tim!)
+
+0.05  Tue May  4 22:08:56 EDT 1999
+    * code for tainting fetched data added
+    - taint check repaired, but still incomplete.
+    - manual tainting repaired, but still incomplete.
+
+0.04  Mon May  3 22:14:02 EDT 1999
+    - tests added
+    - parts still imcomplete
+    - usable, I guess.
+
+0.04pre  Fri Apr 30 20:10:38 EDT 1999
+    * PRE RELEASE, UNTESTED
+    * Complete re-write from the ground up.
+    * Major API changes.  See docs.
+    * taint added
+    * Requires DBI 1.06
+    * Parts still incomplete
+
+0.03    I forget
+    * BROKEN BROKEN BROKEN!
+
+0.01  Fri Apr  3 19:19:48 1998
+    - original version; created by h2xs 1.18

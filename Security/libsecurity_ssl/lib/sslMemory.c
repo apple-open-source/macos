@@ -25,17 +25,96 @@
  * sslMemory.c - Memory allocator implementation
  */
 
+/* THIS FILE CONTAINS KERNEL CODE */
+
 #include "sslMemory.h"
-#include "sslContext.h"
 #include "sslDebug.h"
 
-#pragma mark -
-#pragma mark Basic low-level malloc/free
+#include <string.h>			/* memset */
+#include <AssertMacros.h>
+
+// MARK: -
+// MARK: Basic low-level malloc/free
 
 /*
  * For now, all allocs/frees go thru here.
  */
-#include <string.h>			/* memset */
+
+#ifdef KERNEL
+
+/* BSD Malloc */
+#include <sys/malloc.h>
+#include <IOKit/IOLib.h>
+#include <libkern/libkern.h>
+
+/* Define this for debugging sslMalloc and sslFree */
+//#define SSL_CANARIS
+
+void *
+sslMalloc(size_t length)
+{
+    void *p;
+
+#ifdef SSL_CANARIS
+    length+=8;
+#endif
+    
+    p = _MALLOC(length, M_TEMP, M_WAITOK);
+    check(p);
+    
+    if(p==NULL)
+        return p;
+    
+#ifdef SSL_CANARIS
+    *(uint32_t *)p=(uint32_t)length-8;
+    printf("sslMalloc @%p of 0x%08lx bytes\n", p, length-8);
+    *(uint32_t *)(p+length-4)=0xdeadbeed;
+    p+=4;
+#endif
+
+    return p;
+}
+
+void
+sslFree(void *p)
+{
+	if(p != NULL) {
+
+#ifdef SSL_CANARIS
+        p=p-4;
+        uint32_t len=*(uint32_t *)p;
+        uint32_t marker=*(uint32_t *)(p+4+len);
+        printf("sslFree @%p len=0x%08x\n", p, len);
+        if(marker!=0xdeadbeef)
+            panic("Buffer overflow in SSL!\n");
+#endif
+        
+        _FREE(p, M_TEMP);
+	}
+}
+
+void *
+sslRealloc(void *oldPtr, size_t oldLen, size_t newLen)
+{
+    /* _REALLOC is in sys/malloc.h but is only exported in debug kernel */
+    /* return _REALLOC(oldPtr, newLen, M_TEMP, M_NOWAIT); */
+
+    /* FIXME */
+    void *newPtr;
+    if(newLen>oldLen) {
+        newPtr=sslMalloc(newLen);
+        if(newPtr) {
+            memcpy(newPtr, oldPtr, oldLen);
+            sslFree(oldPtr);
+        }
+    } else {
+        newPtr=oldPtr;
+    }
+    return newPtr;
+}
+
+#else
+
 #include <stdlib.h>
 
 void *
@@ -46,8 +125,8 @@ sslMalloc(size_t length)
 
 void
 sslFree(void *p)
-{
-	if(p != nil) {
+{   
+	if(p != NULL) {
 		free(p);
 	}
 }
@@ -58,58 +137,64 @@ sslRealloc(void *oldPtr, size_t oldLen, size_t newLen)
 	return realloc(oldPtr, newLen);
 }
 
-#pragma mark -
-#pragma mark SSLBuffer-level alloc/free
+#endif
 
-OSStatus SSLAllocBuffer(
+// MARK: -
+// MARK: SSLBuffer-level alloc/free
+
+int SSLAllocBuffer(
 	SSLBuffer *buf,
-	size_t length,
-	const SSLContext *ctx)			// currently unused
+	size_t length)
 {
-	buf->data = (UInt8 *)sslMalloc(length);
+	buf->data = (uint8_t *)sslMalloc(length);
 	if(buf->data == NULL) {
+        sslErrorLog("SSLAllocBuffer: NULL buf!\n");
+        check(0);
 		buf->length = 0;
-		return memFullErr;
+		return -1;
 	}
     buf->length = length;
-    return noErr;
+    return 0;
 }
 
-OSStatus
-SSLFreeBuffer(SSLBuffer *buf, const SSLContext *ctx)
-{
+int
+SSLFreeBuffer(SSLBuffer *buf)
+{   
 	if(buf == NULL) {
 		sslErrorLog("SSLFreeBuffer: NULL buf!\n");
-		return errSSLInternal;
+        check(0);
+		return -1;
 	}
     sslFree(buf->data);
     buf->data = NULL;
     buf->length = 0;
-    return noErr;
+    return 0;
 }
 
-OSStatus
-SSLReallocBuffer(SSLBuffer *buf, size_t newSize, const SSLContext *ctx)
-{
-	buf->data = (UInt8 *)sslRealloc(buf->data, buf->length, newSize);
+int
+SSLReallocBuffer(SSLBuffer *buf, size_t newSize)
+{   
+	buf->data = (uint8_t *)sslRealloc(buf->data, buf->length, newSize);
 	if(buf->data == NULL) {
+        sslErrorLog("SSLReallocBuffer: NULL buf!\n");
+        check(0);
 		buf->length = 0;
-		return memFullErr;
+		return -1;
 	}
 	buf->length = newSize;
-	return noErr;
+	return 0;
 }
 
-#pragma mark -
-#pragma mark Convenience routines
+// MARK: -
+// MARK: Convenience routines
 
-UInt8 *sslAllocCopy(
-	const UInt8 *src,
+uint8_t *sslAllocCopy(
+	const uint8_t *src,
 	size_t len)
 {
-	UInt8 *dst;
-
-	dst = (UInt8 *)sslMalloc(len);
+	uint8_t *dst;
+	
+	dst = (uint8_t *)sslMalloc(len);
 	if(dst == NULL) {
 		return NULL;
 	}
@@ -117,15 +202,17 @@ UInt8 *sslAllocCopy(
 	return dst;
 }
 
-OSStatus SSLAllocCopyBuffer(
-	const SSLBuffer *src,
-	SSLBuffer **dst)		// buffer and data mallocd and returned
-{
-	OSStatus serr;
-
+int SSLAllocCopyBuffer(
+	const SSLBuffer *src, 
+	SSLBuffer **dst)		// buffer and data mallocd and returned 
+{   
+	int serr;
+	
 	SSLBuffer *rtn = (SSLBuffer *)sslMalloc(sizeof(SSLBuffer));
 	if(rtn == NULL) {
-		return memFullErr;
+        sslErrorLog("SSLAllocCopyBuffer: NULL buf!\n");
+        check(0);
+		return -1;
 	}
 	serr = SSLCopyBuffer(src, rtn);
 	if(serr) {
@@ -137,23 +224,25 @@ OSStatus SSLAllocCopyBuffer(
 	return serr;
 }
 
-OSStatus SSLCopyBufferFromData(
+int SSLCopyBufferFromData(
 	const void *src,
 	size_t len,
-	SSLBuffer *dst)		// data mallocd and returned
-{
-	dst->data = sslAllocCopy((const UInt8 *)src, len);
+	SSLBuffer *dst)		// data mallocd and returned 
+{   
+	dst->data = sslAllocCopy((const uint8_t *)src, len);
 	if(dst->data == NULL) {
-		return memFullErr;
+        sslErrorLog("SSLCopyBufferFromData: NULL buf!\n");
+        check(0);
+		return -1;
 	}
     dst->length = len;
-    return noErr;
+    return 0;
 }
 
-OSStatus SSLCopyBuffer(
-	const SSLBuffer *src,
-	SSLBuffer *dst)		// data mallocd and returned
-{
+int SSLCopyBuffer(
+	const SSLBuffer *src, 
+	SSLBuffer *dst)		// data mallocd and returned 
+{   
 	return SSLCopyBufferFromData(src->data, src->length, dst);
 }
 

@@ -32,8 +32,7 @@
 #include <security_utilities/mach++.h>
 #include <security_utilities/unix++.h>
 #include <security_ocspd/ocspd.h>			/* MIG interface */
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-
+#include <Security/SecBase.h>
 class ocspdGlobals
 {
 public:
@@ -113,7 +112,7 @@ CSSM_RETURN ocspdFetch(
 		return CSSMERR_TP_INTERNAL_ERROR;
 	}
 
-	krtn = ocsp_client_ocspdFetch(serverPort, ocspdReq.Data, ocspdReq.Length,
+	krtn = ocsp_client_ocspdFetch(serverPort, ocspdReq.Data, (mach_msg_type_number_t)ocspdReq.Length,
 		(void **)&rtnData, &rtnLen);
 	if(krtn) {
 		ocspdErrorLog("ocspdFetch: RPC returned %d\n", krtn);
@@ -146,7 +145,7 @@ CSSM_RETURN ocspdCacheFlush(
 		ocspdErrorLog("ocspdCacheFlush: OCSPD server error\n");
 		return CSSMERR_TP_INTERNAL_ERROR;
 	}
-	krtn = ocsp_client_ocspdCacheFlush(serverPort, certID.Data, certID.Length);
+	krtn = ocsp_client_ocspdCacheFlush(serverPort, certID.Data, (mach_msg_type_number_t)certID.Length);
 	if(krtn) {
 		ocspdErrorLog("ocspdCacheFlush: RPC returned %d\n", krtn);
 		return CSSMERR_APPLETP_OCSP_UNAVAILABLE;
@@ -198,7 +197,7 @@ CSSM_RETURN ocspdCertFetch(
 		return CSSMERR_TP_INTERNAL_ERROR;
 	}
 	
-	krtn = ocsp_client_certFetch(serverPort, certURL.Data, certURL.Length,
+	krtn = ocsp_client_certFetch(serverPort, certURL.Data, (mach_msg_type_number_t)certURL.Length,
 		(void **)&rtnData, &rtnLen);
 	if(krtn) {
 		ocspdErrorLog("ocspdCertFetch: RPC returned %d\n", krtn);
@@ -246,10 +245,10 @@ CSSM_RETURN ocspdCRLFetch(
 		return CSSMERR_TP_INTERNAL_ERROR;
 	}
 	
-	krtn = ocsp_client_crlFetch(serverPort, crlURL.Data, crlURL.Length,
-		crlIssuer ? crlIssuer->Data : NULL, crlIssuer ? crlIssuer->Length : 0,
+	krtn = ocsp_client_crlFetch(serverPort, crlURL.Data, (mach_msg_type_number_t)crlURL.Length,
+		crlIssuer ? crlIssuer->Data : NULL, crlIssuer ? (mach_msg_type_number_t)crlIssuer->Length : 0,
 		cacheReadEnable, cacheWriteEnable,
-		verifyTime, strlen(verifyTime),
+		verifyTime, (mach_msg_type_number_t)strlen(verifyTime),
 		(void **)&rtnData, &rtnLen);
 	if(krtn) {
 		ocspdErrorLog("ocspdCRLFetch: RPC returned %d\n", krtn);
@@ -293,10 +292,10 @@ CSSM_RETURN ocspdCRLStatus(
 	}
 
 	krtn = ocsp_client_crlStatus(serverPort,
-		serialNumber.Data, serialNumber.Length,
-		issuers.Data, issuers.Length,
-		crlIssuer ? crlIssuer->Data : NULL, crlIssuer ? crlIssuer->Length : 0,
-		crlURL ? crlURL->Data : NULL, crlURL ? crlURL->Length : 0);
+		serialNumber.Data, (mach_msg_type_number_t)serialNumber.Length,
+		issuers.Data, (mach_msg_type_number_t)issuers.Length,
+		crlIssuer ? crlIssuer->Data : NULL, crlIssuer ? (mach_msg_type_number_t)crlIssuer->Length : 0,
+		crlURL ? crlURL->Data : NULL, crlURL ? (mach_msg_type_number_t)crlURL->Length : 0);
 
 	return krtn;
 }
@@ -348,7 +347,7 @@ CSSM_RETURN ocspdCRLFlush(
 		return CSSMERR_TP_INTERNAL_ERROR;
 	}
 	
-	krtn = ocsp_client_crlFlush(serverPort, crlURL.Data, crlURL.Length);
+	krtn = ocsp_client_crlFlush(serverPort, crlURL.Data, (mach_msg_type_number_t)crlURL.Length);
 	if(krtn) {
 		ocspdErrorLog("ocspdCRLFlush: RPC returned %d\n", krtn);
 		return CSSMERR_APPLETP_NETWORK_FAILURE;
@@ -375,7 +374,7 @@ OSStatus ocspdTrustSettingsRead(
 	} 
 	catch(...) {
 		ocspdErrorLog("ocspdTrustSettingsRead: OCSPD server error\n");
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 	
 	krtn = ocsp_client_trustSettingsRead(serverPort, domain,
@@ -396,7 +395,7 @@ OSStatus ocspdTrustSettingsRead(
 	trustSettings.Length = rtnLen;
 	memmove(trustSettings.Data, rtnData, rtnLen);
 	mig_deallocate((vm_address_t)rtnData, rtnLen);
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -418,16 +417,16 @@ OSStatus ocspdTrustSettingsWrite(
 	} 
 	catch(...) {
 		ocspdErrorLog("ocspdTrustSettingsWrite: OCSPD server error\n");
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 
 	krtn = ocsp_client_trustSettingsWrite(serverPort, clientPort, domain,
-		authBlob.Data, authBlob.Length,
-		trustSettings.Data, trustSettings.Length,
+		authBlob.Data, (mach_msg_type_number_t)authBlob.Length,
+		trustSettings.Data, (mach_msg_type_number_t)trustSettings.Length,
 		&ortn);
 	if(krtn) {
 		ocspdErrorLog("ocspdTrustSettingsWrite: RPC returned %d\n", krtn);
-		return internalComponentErr;
+		return errSecInternalComponent;
 	}
 	return ortn;
 }

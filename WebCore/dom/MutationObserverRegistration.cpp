@@ -30,8 +30,6 @@
 
 #include "config.h"
 
-#if ENABLE(MUTATION_OBSERVERS)
-
 #include "MutationObserverRegistration.h"
 
 #include "Document.h"
@@ -40,15 +38,16 @@
 
 namespace WebCore {
 
-PassOwnPtr<MutationObserverRegistration> MutationObserverRegistration::create(PassRefPtr<WebKitMutationObserver> observer, Node* registrationNode)
+PassOwnPtr<MutationObserverRegistration> MutationObserverRegistration::create(PassRefPtr<MutationObserver> observer, Node* registrationNode, MutationObserverOptions options, const HashSet<AtomicString>& attributeFilter)
 {
-    return adoptPtr(new MutationObserverRegistration(observer, registrationNode));
+    return adoptPtr(new MutationObserverRegistration(observer, registrationNode, options, attributeFilter));
 }
 
-MutationObserverRegistration::MutationObserverRegistration(PassRefPtr<WebKitMutationObserver> observer, Node* registrationNode)
-     : m_observer(observer)
-     , m_registrationNode(registrationNode)
-     , m_options(0)
+MutationObserverRegistration::MutationObserverRegistration(PassRefPtr<MutationObserver> observer, Node* registrationNode, MutationObserverOptions options, const HashSet<AtomicString>& attributeFilter)
+    : m_observer(observer)
+    , m_registrationNode(registrationNode)
+    , m_options(options)
+    , m_attributeFilter(attributeFilter)
 {
     m_observer->observationStarted(this);
 }
@@ -66,7 +65,7 @@ void MutationObserverRegistration::resetObservation(MutationObserverOptions opti
     m_attributeFilter = attributeFilter;
 }
 
-void MutationObserverRegistration::observedSubtreeNodeWillDetach(PassRefPtr<Node> node)
+void MutationObserverRegistration::observedSubtreeNodeWillDetach(Node* node)
 {
     if (!isSubtree())
         return;
@@ -99,22 +98,23 @@ void MutationObserverRegistration::clearTransientRegistrations()
     m_registrationNodeKeepAlive = 0; // Balanced in observeSubtreeNodeWillDetach.
 }
 
-void MutationObserverRegistration::unregister()
+void MutationObserverRegistration::unregisterAndDelete(MutationObserverRegistration* registry)
 {
-    m_registrationNode->unregisterMutationObserver(this);
-    // The above line will cause this object to be deleted, so don't do any more in this function.
+    RefPtr<Node> registrationNode(registry->m_registrationNode);
+    registrationNode->unregisterMutationObserver(registry);
+    // The above line will cause registry to be deleted, so don't do any more in this function.
 }
 
-bool MutationObserverRegistration::shouldReceiveMutationFrom(Node* node, WebKitMutationObserver::MutationType type, const QualifiedName* attributeName)
+bool MutationObserverRegistration::shouldReceiveMutationFrom(Node* node, MutationObserver::MutationType type, const QualifiedName* attributeName) const
 {
-    ASSERT((type == WebKitMutationObserver::Attributes && attributeName) || !attributeName);
+    ASSERT((type == MutationObserver::Attributes && attributeName) || !attributeName);
     if (!(m_options & type))
         return false;
 
     if (m_registrationNode != node && !isSubtree())
         return false;
 
-    if (type != WebKitMutationObserver::Attributes || !(m_options & WebKitMutationObserver::AttributeFilter))
+    if (type != MutationObserver::Attributes || !(m_options & MutationObserver::AttributeFilter))
         return true;
 
     if (!attributeName->namespaceURI().isNull())
@@ -123,6 +123,13 @@ bool MutationObserverRegistration::shouldReceiveMutationFrom(Node* node, WebKitM
     return m_attributeFilter.contains(attributeName->localName());
 }
 
-} // namespace WebCore
+void MutationObserverRegistration::addRegistrationNodesToSet(HashSet<Node*>& nodes) const
+{
+    nodes.add(m_registrationNode);
+    if (!m_transientRegistrationNodes)
+        return;
+    for (NodeHashSet::const_iterator iter = m_transientRegistrationNodes->begin(); iter != m_transientRegistrationNodes->end(); ++iter)
+        nodes.add(iter->get());
+}
 
-#endif // ENABLE(MUTATION_OBSERVERS)
+} // namespace WebCore

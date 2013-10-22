@@ -43,6 +43,7 @@
  ************************************************************************
  */
 
+#include <err.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -51,8 +52,6 @@
 #include <mach/mach.h>
 
 vm_statistics64_data_t	vm_stat, last;
-natural_t percent;
-int	delay;
 char	*pgmname;
 mach_port_t myHost;
 vm_size_t pageSize = 4096; 	/* set to 4k default */
@@ -70,17 +69,37 @@ int
 main(int argc, char *argv[])
 {
 
-	pgmname = argv[0];
-	delay = 0;
+	double delay = 0.0;
+	int count = 0;
 
+	pgmname = argv[0];
 
 	setlinebuf (stdout);
 
-	if (argc == 2) {
-		if (sscanf(argv[1], "%d", &delay) != 1)
+	int c;
+	while ((c = getopt (argc, argv, "c:")) != -1) {
+		switch (c) {
+			case 'c':
+				count = (int)strtol(optarg, NULL, 10);
+				if (count < 1) {
+					warnx("count must be positive");
+					usage();
+				}
+				break;
+			default:
+				usage();
+				break;
+		}
+	}
+
+	argc -= optind; argv += optind;
+
+	if (argc == 1) {
+		delay = strtod(argv[0], NULL);
+		if (delay < 0.0)
 			usage();
-		if (delay < 0)
-			usage();
+	} else if (argc > 1) {
+		usage();
 	}
 
 	myHost = mach_host_self();
@@ -90,13 +109,13 @@ main(int argc, char *argv[])
 		pageSize = 4096;
 	}	
 
-	if (delay == 0) {
+	if (delay == 0.0) {
 		snapshot();
-	}
-	else {
-		while (1) {
+	} else {
+		print_stats();
+		for (int i = 1; i < count || count == 0; i++ ){
+			usleep((int)(delay * USEC_PER_SEC));
 			print_stats();
-			sleep(delay);
 		}
 	}
 	exit(EXIT_SUCCESS);
@@ -105,7 +124,7 @@ main(int argc, char *argv[])
 void
 usage(void)
 {
-	fprintf(stderr, "usage: %s [ repeat-interval ]\n", pgmname);
+	fprintf(stderr, "usage: %s [[-c count] interval]\n", pgmname);
 	exit(EXIT_FAILURE);
 }
 
@@ -121,26 +140,30 @@ snapshot(void)
 	sspstat("Pages active:", (uint64_t) (vm_stat.active_count));
 	sspstat("Pages inactive:", (uint64_t) (vm_stat.inactive_count));
 	sspstat("Pages speculative:", (uint64_t) (vm_stat.speculative_count));
+	sspstat("Pages throttled:", (uint64_t) (vm_stat.throttled_count));
 	sspstat("Pages wired down:", (uint64_t) (vm_stat.wire_count));
+	sspstat("Pages purgeable:", (uint64_t) (vm_stat.purgeable_count));
 	sspstat("\"Translation faults\":", (uint64_t) (vm_stat.faults));
 	sspstat("Pages copy-on-write:", (uint64_t) (vm_stat.cow_faults));
 	sspstat("Pages zero filled:", (uint64_t) (vm_stat.zero_fill_count));
 	sspstat("Pages reactivated:", (uint64_t) (vm_stat.reactivations));
+	sspstat("Pages purged:", (uint64_t) (vm_stat.purges));
+	sspstat("File-backed pages:", (uint64_t) (vm_stat.external_page_count));
+	sspstat("Anonymous pages:", (uint64_t) (vm_stat.internal_page_count));
+	sspstat("Pages stored in compressor:", (uint64_t) (vm_stat.total_uncompressed_pages_in_compressor));
+	sspstat("Pages occupied by compressor:", (uint64_t) (vm_stat.compressor_page_count));
+	sspstat("Decompressions:", (uint64_t) (vm_stat.decompressions));
+	sspstat("Compressions:", (uint64_t) (vm_stat.compressions));
 	sspstat("Pageins:", (uint64_t) (vm_stat.pageins));
 	sspstat("Pageouts:", (uint64_t) (vm_stat.pageouts));
-#if defined(__ppc__) /* vm_statistics are still 32-bit on ppc */
-	printf("Object cache: %u hits of %u lookups (%u%% hit rate)\n",
-#else
-	printf("Object cache: %llu hits of %llu lookups (%u%% hit rate)\n",
-#endif
-		vm_stat.hits, vm_stat.lookups, percent);
-
+	sspstat("Swapins:", (uint64_t) (vm_stat.swapins));
+	sspstat("Swapouts:", (uint64_t) (vm_stat.swapouts));
 }
 
 void
 sspstat(char *str, uint64_t n)
 {
-	printf("%-25s %16llu.\n", str, n);
+	printf("%-30s %16llu.\n", str, n);
 }
 
 void
@@ -148,20 +171,31 @@ banner(void)
 {
 	get_stats(&vm_stat);
 	printf("Mach Virtual Memory Statistics: ");
-	printf("(page size of %d bytes, cache hits %u%%)\n",
-				(int) (pageSize), percent);
-	printf("%6s %6s %6s %8s %6s %8s %8s %8s %8s %8s %8s\n",
-		"free",
-		"active",
-		"spec",
-		"inactive",
-		"wire",
-		"faults",
-		"copy",
-		"0fill",
-		"reactive",
-		"pageins",
-		"pageout");
+	printf("(page size of %d bytes)\n",
+				(int) (pageSize));
+	printf("%8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %8s %11s %9s %8s %8s %8s %8s %8s %8s %8s %8s\n",
+	       "free",
+	       "active",
+	       "specul",
+	       "inactive",
+	       "throttle",
+	       "wired",
+	       "prgable",
+	       "faults",
+	       "copy",
+	       "0fill",
+	       "reactive",
+	       "purged",
+	       "file-backed",
+	       "anonymous",
+	       "cmprssed",
+	       "cmprssor",
+	       "dcomprs",
+	       "comprs",
+	       "pageins",
+	       "pageout",
+	       "swapins",
+	       "swapouts");
 	bzero(&last, sizeof(last));
 }
 
@@ -177,17 +211,28 @@ print_stats(void)
 		count = 0;
 
 	get_stats(&vm_stat);
-	pstat((uint64_t) (vm_stat.free_count - vm_stat.speculative_count), 6);
-	pstat((uint64_t) (vm_stat.active_count), 6);
-	pstat((uint64_t) (vm_stat.speculative_count), 6);
+	pstat((uint64_t) (vm_stat.free_count - vm_stat.speculative_count), 8);
+	pstat((uint64_t) (vm_stat.active_count), 8);
+	pstat((uint64_t) (vm_stat.speculative_count), 8);
 	pstat((uint64_t) (vm_stat.inactive_count), 8);
-	pstat((uint64_t) (vm_stat.wire_count), 6);
+	pstat((uint64_t) (vm_stat.throttled_count), 8);
+	pstat((uint64_t) (vm_stat.wire_count), 8);
+	pstat((uint64_t) (vm_stat.purgeable_count), 8);
 	pstat((uint64_t) (vm_stat.faults - last.faults), 8);
 	pstat((uint64_t) (vm_stat.cow_faults - last.cow_faults), 8);
 	pstat((uint64_t) (vm_stat.zero_fill_count - last.zero_fill_count), 8);
 	pstat((uint64_t) (vm_stat.reactivations - last.reactivations), 8);
+	pstat((uint64_t) (vm_stat.purges - last.purges), 8);
+	pstat((uint64_t) (vm_stat.external_page_count), 11);
+	pstat((uint64_t) (vm_stat.internal_page_count), 9);
+	pstat((uint64_t) (vm_stat.total_uncompressed_pages_in_compressor), 8);
+	pstat((uint64_t) (vm_stat.compressor_page_count), 8);
+	pstat((uint64_t) (vm_stat.decompressions - last.decompressions), 8);
+	pstat((uint64_t) (vm_stat.compressions - last.compressions), 8);
 	pstat((uint64_t) (vm_stat.pageins - last.pageins), 8);
 	pstat((uint64_t) (vm_stat.pageouts - last.pageouts), 8);
+	pstat((uint64_t) (vm_stat.swapins - last.swapins), 8);
+	pstat((uint64_t) (vm_stat.swapouts - last.swapouts), 8);
 	putchar('\n');
 	last = vm_stat;
 }
@@ -199,8 +244,6 @@ pstat(uint64_t n, int width)
 	if (width >= sizeof(buf)) {
 		width = sizeof(buf) -1;
 	}
-
-	unsigned long long nb = n * (unsigned long long)pageSize;
 
 	/* Now that we have the speculative field, there is really not enough
 	 space, but we were actually overflowing three or four fields before
@@ -229,17 +272,5 @@ get_stats(vm_statistics64_t stat)
 	if ((ret = host_statistics64(myHost, HOST_VM_INFO64, (host_info64_t)stat, &count) != KERN_SUCCESS)) {
 		fprintf(stderr, "%s: failed to get statistics. error %d\n", pgmname, ret);
 		exit(EXIT_FAILURE);
-	}
-	if (stat->lookups == 0)
-		percent = 0;
-	else {
-		/*
-		 * We have limited precision with the 32-bit natural_t fields
-		 * in the vm_statistics structure.  There's nothing we can do
-		 * about counter overflows, but we can avoid percentage
-		 * calculation overflows by doing the computation in floating
-		 * point arithmetic ...
-		 */
-		percent = (natural_t)(((double)stat->hits*100)/stat->lookups);
 	}
 }

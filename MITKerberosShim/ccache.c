@@ -484,8 +484,10 @@ ccache_destroy(cc_ccache_t io_ccache)
     struct cc_ccache *c = (struct cc_ccache *)io_ccache;
     LOG_ENTRY();
     update_time(&context_change_time);
-    krb5_cc_destroy((mit_krb5_context)milcontext, (mit_krb5_ccache)c->id);
-    c->id = NULL;
+    if (c->id) {
+	krb5_cc_destroy((mit_krb5_context)milcontext, (mit_krb5_ccache)c->id);
+	c->id = NULL;
+    }
     return ccNoError;
 }
 
@@ -676,7 +678,7 @@ ccache_new_credentials_iterator(cc_ccache_t in_ccache, cc_credentials_iterator_t
     if (out_credentials_iterator == NULL)
 	return ccErrBadParam;
 
-    ci = calloc(1, sizeof(*c));
+    ci = calloc(1, sizeof(*ci));
     ci->iterator.functions = &cred_iter_functions;
     ci->id = c->id;
     ret = krb5_cc_start_seq_get((mit_krb5_context)milcontext, 

@@ -17,11 +17,10 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "autotoolsconfig.h"
 #include <glib.h>
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
-
-#if GTK_CHECK_VERSION(2, 14, 0)
 
 static void test_webkit_web_history_item_lifetime(void)
 {
@@ -325,12 +324,3 @@ int main(int argc, char** argv)
     g_test_add_func("/webkit/webbackforwardlist/clear", test_webkit_web_back_forward_list_clear);
     return g_test_run ();
 }
-
-#else
-int main(int argc, char** argv)
-{
-    g_critical("You will need gtk-2.14.0 to run the unit tests. Doing nothing now.");
-    return 0;
-}
-
-#endif

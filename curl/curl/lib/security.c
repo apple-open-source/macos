@@ -41,17 +41,13 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.  */
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #ifndef CURL_DISABLE_FTP
 #if defined(HAVE_KRB4) || defined(HAVE_GSSAPI)
 
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
-#endif
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
 #endif
 
 #ifdef HAVE_LIMITS_H
@@ -340,10 +336,10 @@ static ssize_t sec_write(struct connectdata *conn, curl_socket_t fd,
                          const char *buffer, size_t length)
 {
   /* FIXME: Check for overflow */
-  ssize_t len = conn->buffer_size;
-  int tx = 0;
+  ssize_t tx = 0, len = conn->buffer_size;
 
-  len -= conn->mech->overhead(conn->app_data, conn->data_prot, len);
+  len -= conn->mech->overhead(conn->app_data, conn->data_prot,
+                              curlx_sztosi(len));
   if(len <= 0)
     len = length;
   while(length) {
@@ -351,7 +347,7 @@ static ssize_t sec_write(struct connectdata *conn, curl_socket_t fd,
       /* FIXME: Check for overflow. */
       len = length;
     }
-    do_sec_send(conn, fd, buffer, len);
+    do_sec_send(conn, fd, buffer, curlx_sztosi(len));
     length -= len;
     buffer += len;
     tx += len;

@@ -17,12 +17,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "autotoolsconfig.h"
 #include <errno.h>
 #include <unistd.h>
 #include <glib/gstdio.h>
 #include <webkit/webkit.h>
-
-#if GTK_CHECK_VERSION(2, 14, 0)
 
 typedef struct {
   char* data;
@@ -168,12 +167,3 @@ int main(int argc, char** argv)
     return g_test_run ();
 }
 
-#else
-
-int main(int argc, char** argv)
-{
-    g_critical("You will need at least GTK+ 2.14.0 to run the unit tests.");
-    return 0;
-}
-
-#endif

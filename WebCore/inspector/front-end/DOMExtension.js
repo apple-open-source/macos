@@ -144,6 +144,9 @@ Node.prototype.rangeBoundaryForOffset = function(offset)
     return { container: node, offset: offset };
 }
 
+/**
+ * @param {string} className
+ */
 Element.prototype.removeStyleClass = function(className)
 {
     this.classList.remove(className);
@@ -156,37 +159,104 @@ Element.prototype.removeMatchingStyleClasses = function(classNameRegex)
         this.className = this.className.replace(regex, " ");
 }
 
+/**
+ * @param {string} className
+ */
 Element.prototype.addStyleClass = function(className)
 {
     this.classList.add(className);
 }
 
+/**
+ * @param {string} className
+ * @return {boolean}
+ */
 Element.prototype.hasStyleClass = function(className)
 {
     return this.classList.contains(className);
 }
 
-Element.prototype.positionAt = function(x, y)
+/**
+ * @param {string} className
+ * @param {*} enable
+ */
+Element.prototype.enableStyleClass = function(className, enable)
 {
-    this.style.left = x + "px";
-    this.style.top = y + "px";
+    if (enable)
+        this.addStyleClass(className);
+    else
+        this.removeStyleClass(className);
 }
 
-Element.prototype.pruneEmptyTextNodes = function()
+/**
+ * @param {number|undefined} x
+ * @param {number|undefined} y
+ */
+Element.prototype.positionAt = function(x, y)
 {
-    var sibling = this.firstChild;
-    while (sibling) {
-        var nextSibling = sibling.nextSibling;
-        if (sibling.nodeType === this.TEXT_NODE && sibling.nodeValue === "")
-            this.removeChild(sibling);
-        sibling = nextSibling;
-    }
+    if (typeof x === "number")
+        this.style.setProperty("left", x + "px");
+    else
+        this.style.removeProperty("left");
+
+    if (typeof y === "number")
+        this.style.setProperty("top", y + "px");
+    else
+        this.style.removeProperty("top");
 }
 
 Element.prototype.isScrolledToBottom = function()
 {
     // This code works only for 0-width border
     return this.scrollTop + this.clientHeight === this.scrollHeight;
+}
+
+Element.prototype.removeSelf = function()
+{
+    if (this.parentElement)
+        this.parentElement.removeChild(this);
+}
+
+CharacterData.prototype.removeSelf = Element.prototype.removeSelf;
+DocumentType.prototype.removeSelf = Element.prototype.removeSelf;
+
+/**
+ * @param {Node} fromNode
+ * @param {Node} toNode
+ */
+function removeSubsequentNodes(fromNode, toNode)
+{
+    for (var node = fromNode; node && node !== toNode; ) {
+        var nodeToRemove = node;
+        node = node.nextSibling;
+        nodeToRemove.removeSelf();
+    }
+}
+
+/**
+ * @constructor
+ * @param {number} width
+ * @param {number} height
+ */
+function Size(width, height)
+{
+    this.width = width;
+    this.height = height;
+}
+
+/**
+ * @param {Element=} containerElement
+ * @return {Size}
+ */
+Element.prototype.measurePreferredSize = function(containerElement)
+{
+    containerElement = containerElement || document.body;
+    containerElement.appendChild(this);
+    this.positionAt(0, 0);
+    var result = new Size(this.offsetWidth, this.offsetHeight);
+    this.positionAt(undefined, undefined);
+    this.removeSelf();
+    return result;
 }
 
 Node.prototype.enclosingNodeOrSelfWithNodeNameInArray = function(nameArray)
@@ -203,19 +273,16 @@ Node.prototype.enclosingNodeOrSelfWithNodeName = function(nodeName)
     return this.enclosingNodeOrSelfWithNodeNameInArray([nodeName]);
 }
 
-Node.prototype.enclosingNodeOrSelfWithClass = function(className)
+/**
+ * @param {string} className
+ * @param {Element=} stayWithin
+ */
+Node.prototype.enclosingNodeOrSelfWithClass = function(className, stayWithin)
 {
-    for (var node = this; node && node !== this.ownerDocument; node = node.parentNode)
+    for (var node = this; node && node !== stayWithin && node !== this.ownerDocument; node = node.parentNode)
         if (node.nodeType === Node.ELEMENT_NODE && node.hasStyleClass(className))
             return node;
     return null;
-}
-
-Node.prototype.enclosingNodeWithClass = function(className)
-{
-    if (!this.parentNode)
-        return null;
-    return this.parentNode.enclosingNodeOrSelfWithClass(className);
 }
 
 Element.prototype.query = function(query)
@@ -251,6 +318,18 @@ Element.prototype.createChild = function(elementName, className)
 }
 
 DocumentFragment.prototype.createChild = Element.prototype.createChild;
+
+/**
+ * @param {string} text
+ */
+Element.prototype.createTextChild = function(text)
+{
+    var element = this.ownerDocument.createTextNode(text);
+    this.appendChild(element);
+    return element;
+}
+
+DocumentFragment.prototype.createTextChild = Element.prototype.createTextChild;
 
 /**
  * @return {number}
@@ -490,12 +569,6 @@ Node.prototype.traversePreviousNode = function(stayWithin)
     return this.parentNode;
 }
 
-HTMLTextAreaElement.prototype.moveCursorToEnd = function()
-{
-    var length = this.value.length;
-    this.setSelectionRange(length, length);
-}
-
 function isEnterKey(event) {
     // Check if in IME.
     return event.keyCode !== 229 && event.keyIdentifier === "Enter";
@@ -505,3 +578,45 @@ function consumeEvent(e)
 {
     e.consume();
 }
+
+/**
+ * Mutation observers leak memory. Keep track of them and disconnect
+ * on unload.
+ * @constructor
+ * @param {function(Array.<WebKitMutation>)} handler
+ */
+function NonLeakingMutationObserver(handler)
+{
+    this._observer = new WebKitMutationObserver(handler);
+    NonLeakingMutationObserver._instances.push(this);
+    if (!NonLeakingMutationObserver._unloadListener) {
+        NonLeakingMutationObserver._unloadListener = function() {
+            while (NonLeakingMutationObserver._instances.length)
+                NonLeakingMutationObserver._instances[NonLeakingMutationObserver._instances.length - 1].disconnect();
+        };
+        window.addEventListener("unload", NonLeakingMutationObserver._unloadListener, false);
+    }
+}
+
+NonLeakingMutationObserver._instances = [];
+
+NonLeakingMutationObserver.prototype = {
+    /**
+     * @param {Element} element
+     * @param {Object} config
+     */
+    observe: function(element, config)
+    {
+        if (this._observer)
+            this._observer.observe(element, config);
+    },
+
+    disconnect: function()
+    {
+        if (this._observer)
+            this._observer.disconnect();
+        NonLeakingMutationObserver._instances.remove(this);
+        delete this._observer;
+    }
+}
+

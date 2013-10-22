@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -383,6 +383,8 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	memset(&ip6stat, 0, len);
 	if (sysctl(mib, 4, &ip6stat, &len, (void *)0, 0) < 0)
 		return;
+    if (interval && vflag > 0)
+        print_time();
 	printf("%s:\n", name);
 
 #define	IP6DIFF(f) (ip6stat.f - pip6stat.f)
@@ -392,28 +394,42 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
     printf(m, (unsigned long long)IP6DIFF(f))
 
 	p(ip6s_total, "\t%llu total packet%s received\n");
-	p1a(ip6s_toosmall, "\t%llu with size smaller than minimum\n");
-	p1a(ip6s_tooshort, "\t%llu with data size < data length\n");
-	p1a(ip6s_badoptions, "\t%llu with bad options\n");
-	p1a(ip6s_badvers, "\t%llu with incorrect version number\n");
-	p(ip6s_fragments, "\t%llu fragment%s received\n");
-	p(ip6s_fragdropped, "\t%llu fragment%s dropped (dup or out of space)\n");
-	p(ip6s_fragtimeout, "\t%llu fragment%s dropped after timeout\n");
-	p(ip6s_fragoverflow, "\t%llu fragment%s that exceeded limit\n");
-	p(ip6s_reassembled, "\t%llu packet%s reassembled ok\n");
-	p(ip6s_delivered, "\t%llu packet%s for this host\n");
-	p(ip6s_forward, "\t%llu packet%s forwarded\n");
-	p(ip6s_cantforward, "\t%llu packet%s not forwardable\n");
-	p(ip6s_redirectsent, "\t%llu redirect%s sent\n");
+	p1a(ip6s_toosmall, "\t\t%llu with size smaller than minimum\n");
+	p1a(ip6s_tooshort, "\t\t%llu with data size < data length\n");
+	p1a(ip6s_adj, "\t\t%llu with data size > data length\n");
+	p(ip6s_adj_hwcsum_clr,
+	    "\t\t\t%llu packet%s forced to software checksum\n");
+	p1a(ip6s_badoptions, "\t\t%llu with bad options\n");
+	p1a(ip6s_badvers, "\t\t%llu with incorrect version number\n");
+	p(ip6s_fragments, "\t\t%llu fragment%s received\n");
+	p1a(ip6s_fragdropped,
+	    "\t\t\t%llu dropped (dup or out of space)\n");
+	p1a(ip6s_fragtimeout, "\t\t\t%llu dropped after timeout\n");
+	p1a(ip6s_fragoverflow, "\t\t\t%llu exceeded limit\n");
+	p1a(ip6s_reassembled, "\t\t\t%llu reassembled ok\n");
+	p(ip6s_delivered, "\t\t%llu packet%s for this host\n");
+	p(ip6s_forward, "\t\t%llu packet%s forwarded\n");
+	p(ip6s_cantforward, "\t\t%llu packet%s not forwardable\n");
+	p(ip6s_redirectsent, "\t\t%llu redirect%s sent\n");
+	p(ip6s_notmember, "\t\t%llu multicast packet%s which we don't join\n");
+	p(ip6s_exthdrtoolong,
+	    "\t\t%llu packet%s whose headers are not continuous\n");
+	p(ip6s_nogif, "\t\t%llu tunneling packet%s that can't find gif\n");
+	p(ip6s_toomanyhdr,
+	    "\t\t%llu packet%s discarded due to too may headers\n");
+	p1a(ip6s_forward_cachehit, "\t\t%llu forward cache hit\n");
+	p1a(ip6s_forward_cachemiss, "\t\t%llu forward cache miss\n");
+	p(ip6s_pktdropcntrl,
+	    "\t\t%llu packet%s dropped due to no bufs for control data\n");
 	p(ip6s_localout, "\t%llu packet%s sent from this host\n");
-	p(ip6s_rawout, "\t%llu packet%s sent with fabricated ip header\n");
-	p(ip6s_odropped, "\t%llu output packet%s dropped due to no bufs, etc.\n");
-	p(ip6s_noroute, "\t%llu output packet%s discarded due to no route\n");
-	p(ip6s_fragmented, "\t%llu output datagram%s fragmented\n");
-	p(ip6s_ofragments, "\t%llu fragment%s created\n");
-	p(ip6s_cantfrag, "\t%llu datagram%s that can't be fragmented\n");
-	p(ip6s_badscope, "\t%llu packet%s that violated scope rules\n");
-	p(ip6s_notmember, "\t%llu multicast packet%s which we don't join\n");
+	p(ip6s_rawout, "\t\t%llu packet%s sent with fabricated ip header\n");
+	p(ip6s_odropped,
+	    "\t\t%llu output packet%s dropped due to no bufs, etc.\n");
+	p(ip6s_noroute, "\t\t%llu output packet%s discarded due to no route\n");
+	p(ip6s_fragmented, "\t\t%llu output datagram%s fragmented\n");
+	p(ip6s_ofragments, "\t\t%llu fragment%s created\n");
+	p(ip6s_cantfrag, "\t\t%llu datagram%s that can't be fragmented\n");
+	p(ip6s_badscope, "\t\t%llu packet%s that violated scope rules\n");
 	for (first = 1, i = 0; i < 256; i++)
 		if (IP6DIFF(ip6s_nxthist[i]) != 0) {
 			if (first) {
@@ -441,39 +457,34 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	    (unsigned long long)IP6DIFF(ip6s_mext1));
 	printf("\t\t%llu two or more ext mbuf\n",
 	    (unsigned long long)IP6DIFF(ip6s_mext2m));
-	p(ip6s_exthdrtoolong,
-	    "\t%llu packet%s whose headers are not continuous\n");
-	p(ip6s_nogif, "\t%llu tunneling packet%s that can't find gif\n");
-	p(ip6s_toomanyhdr,
-	    "\t%llu packet%s discarded due to too may headers\n");
 
 	/* for debugging source address selection */
 #define PRINT_SCOPESTAT(s,i) do {\
 		switch(i) { /* XXX hardcoding in each case */\
 		case 1:\
-			p(s, "\t\t%llu node-local%s\n");\
+			p(s, "\t\t\t%llu node-local%s\n");\
 			break;\
 		case 2:\
-			p(s,"\t\t%llu link-local%s\n");\
+			p(s,"\t\t\t%llu link-local%s\n");\
 			break;\
 		case 5:\
-			p(s,"\t\t%llu site-local%s\n");\
+			p(s,"\t\t\t%llu site-local%s\n");\
 			break;\
 		case 14:\
-			p(s,"\t\t%llu global%s\n");\
+			p(s,"\t\t\t%llu global%s\n");\
 			break;\
 		default:\
-			printf("\t\t%llu addresses scope=%x\n",\
+			printf("\t\t\t%llu addresses scope=%x\n",\
 			    (unsigned long long)IP6DIFF(s), i);\
 		}\
 	} while (0);
 
 	p(ip6s_sources_none,
-	  "\t%llu failure%s of source address selection\n");
+	  "\t\t%llu failure%s of source address selection\n");
 	for (first = 1, i = 0; i < 16; i++) {
 		if (IP6DIFF(ip6s_sources_sameif[i])) {
 			if (first) {
-				printf("\tsource addresses on an outgoing I/F\n");
+				printf("\t\tsource addresses on an outgoing I/F\n");
 				first = 0;
 			}
 			PRINT_SCOPESTAT(ip6s_sources_sameif[i], i);
@@ -482,7 +493,7 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	for (first = 1, i = 0; i < 16; i++) {
 		if (IP6DIFF(ip6s_sources_otherif[i])) {
 			if (first) {
-				printf("\tsource addresses on a non-outgoing I/F\n");
+				printf("\t\tsource addresses on a non-outgoing I/F\n");
 				first = 0;
 			}
 			PRINT_SCOPESTAT(ip6s_sources_otherif[i], i);
@@ -491,7 +502,7 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	for (first = 1, i = 0; i < 16; i++) {
 		if (IP6DIFF(ip6s_sources_samescope[i])) {
 			if (first) {
-				printf("\tsource addresses of same scope\n");
+				printf("\t\tsource addresses of same scope\n");
 				first = 0;
 			}
 			PRINT_SCOPESTAT(ip6s_sources_samescope[i], i);
@@ -500,7 +511,7 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	for (first = 1, i = 0; i < 16; i++) {
 		if (IP6DIFF(ip6s_sources_otherscope[i])) {
 			if (first) {
-				printf("\tsource addresses of a different scope\n");
+				printf("\t\tsource addresses of a different scope\n");
 				first = 0;
 			}
 			PRINT_SCOPESTAT(ip6s_sources_otherscope[i], i);
@@ -509,17 +520,13 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	for (first = 1, i = 0; i < 16; i++) {
 		if (IP6DIFF(ip6s_sources_deprecated[i])) {
 			if (first) {
-				printf("\tdeprecated source addresses\n");
+				printf("\t\tdeprecated source addresses\n");
 				first = 0;
 			}
 			PRINT_SCOPESTAT(ip6s_sources_deprecated[i], i);
 		}
 	}
 
-	p1a(ip6s_forward_cachehit, "\t%llu forward cache hit\n");
-	p1a(ip6s_forward_cachemiss, "\t%llu forward cache miss\n");
-	p(ip6s_pktdropcntrl, "\t%llu packet%s dropped due to no bufs for control data\n");
-	
 	if (interval > 0)
 		bcopy(&ip6stat, &pip6stat, len);
 
@@ -546,6 +553,8 @@ ip6_ifstats(char *ifname)
 		return;
 	}
 
+    if (interval && vflag > 0)
+        print_time();
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	printf("ip6 on %s:\n", ifr.ifr_name);
 
@@ -864,6 +873,8 @@ icmp6_stats(uint32_t off __unused, char *name, int af __unused)
 	memset(&icmp6stat, 0, len);
 	if (sysctl(mib, 4, &icmp6stat, &len, (void *)0, 0) < 0)
 		return;
+    if (interval && vflag > 0)
+        print_time();
 	printf("%s:\n", name);
 
 #define	ICMP6DIFF(f) (icmp6stat.f - picmp6stat.f)
@@ -951,6 +962,8 @@ icmp6_ifstats(char *ifname)
 		return;
 	}
 
+    if (interval && vflag > 0)
+        print_time();
 	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	printf("icmp6 on %s:\n", ifr.ifr_name);
 
@@ -1013,6 +1026,8 @@ pim6_stats(void)
 
 	if (sysctlbyname("net.inet6.ip6.pim6stat", &pim6stat, &len, 0, 0) == -1)
 		return;
+    if (interval && vflag > 0)
+        print_time();
 	printf("%s:\n", name);
 
 #define	PIM6DIFF(f) (pim6stat.f - ppim6stat.f)
@@ -1056,6 +1071,8 @@ rip6_stats(uint32_t off __unused, char *name, int af __unused)
 		return;
 	}
 
+    if (interval && vflag > 0)
+        print_time();
 	printf("%s:\n", name);
 
 #define	RIP6DIFF(f) (rip6stat.f - prip6stat.f)
@@ -1154,7 +1171,7 @@ inet6name(struct in6_addr *in6p)
 		first = 0;
 		if (gethostname(domain, MAXHOSTNAMELEN) == 0 &&
 		    (cp = index(domain, '.')))
-			(void) strlcpy(domain, cp + 1, sizeof(domain));
+			(void) memmove(domain, cp + 1, strlen(cp + 1) + 1);
 		else
 			domain[0] = 0;
 	}

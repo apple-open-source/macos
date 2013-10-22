@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,8 @@
 #include "EAPOLUtil.h"
 #include "printdata.h"
 #include "nbo.h"
+#include "myCFUtil.h"
+#include <SystemConfiguration/SCPrivate.h>
 
 static bool
 EAPOLPacketTypeValid(EAPOLPacketType type)
@@ -66,9 +68,9 @@ EAPOLPacketTypeStr(EAPOLPacketType type)
 }
 
 static void
-fprint_eapol_rc4_key_descriptor(FILE * f, 
-				EAPOLRC4KeyDescriptorRef descr_p,
-				unsigned int body_length)
+RC4KeyDescriptorAppendDescription(EAPOLRC4KeyDescriptorRef descr_p,
+				  unsigned int body_length,
+				  CFMutableStringRef str)
 {
     int				key_data_length;
     u_int16_t			key_length;
@@ -82,127 +84,138 @@ fprint_eapol_rc4_key_descriptor(FILE * f,
     }
     key_length = EAPOLKeyDescriptorGetLength(descr_p);
     key_data_length = body_length - sizeof(*descr_p);
-    fprintf(f, "EAPOL Key Descriptor: type RC4 (%d) length %d %s index %d\n",
-	   descr_p->descriptor_type, 
-	   key_length, 
-	   which,
-	   descr_p->key_index & kEAPOLKeyDescriptorIndexMask);
-    fprintf(f, "%-16s", "replay_counter:");
-    fprint_bytes(f, descr_p->replay_counter, sizeof(descr_p->replay_counter));
-    fprintf(f, "\n");
-    fprintf(f, "%-16s", "key_IV:");
-    fprint_bytes(f, descr_p->key_IV, sizeof(descr_p->key_IV));
-    fprintf(f, "\n");
-    fprintf(f, "%-16s", "key_signature:");
-    fprint_bytes(f, descr_p->key_signature, sizeof(descr_p->key_signature));
-    fprintf(f, "\n");
+    STRING_APPEND(str,
+		  "EAPOL Key Descriptor: type RC4 (%d) length %d %s index %d\n",
+		  descr_p->descriptor_type, 
+		  key_length, 
+		  which,
+		  descr_p->key_index & kEAPOLKeyDescriptorIndexMask);
+    STRING_APPEND(str, "%-16s", "replay_counter:");
+    print_bytes_cfstr(str, descr_p->replay_counter,
+		      sizeof(descr_p->replay_counter));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "%-16s", "key_IV:");
+    print_bytes_cfstr(str, descr_p->key_IV, sizeof(descr_p->key_IV));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "%-16s", "key_signature:");
+    print_bytes_cfstr(str, descr_p->key_signature,
+		      sizeof(descr_p->key_signature));
+    STRING_APPEND(str, "\n");
     if (key_data_length > 0) {
-	fprintf(f, "%-16s", "key:");
-	fprint_bytes(f, descr_p->key, key_data_length);
-	fprintf(f, "\n");
+	STRING_APPEND(str, "%-16s", "key:");
+	print_bytes_cfstr(str, descr_p->key, key_data_length);
+	STRING_APPEND(str, "\n");
     }
     return;
 }
 
 static void
-fprint_eapol_ieee80211_key_descriptor(FILE * f,
-				      EAPOLIEEE80211KeyDescriptorRef descr_p,
-				      unsigned int body_length)
+IEEE80211KeyDescriptorAppendDescription(EAPOLIEEE80211KeyDescriptorRef descr_p,
+					unsigned int body_length,
+					CFMutableStringRef str)
 {
     uint16_t		key_data_length;
     uint16_t		key_information;
     uint16_t		key_length;
-    
+
     key_length = EAPOLIEEE80211KeyDescriptorGetLength(descr_p);
     key_information =  EAPOLIEEE80211KeyDescriptorGetInformation(descr_p);
     key_data_length =  EAPOLIEEE80211KeyDescriptorGetKeyDataLength(descr_p);
-    fprintf(f, "EAPOL Key Descriptor: type IEEE 802.11 (%d)\n",
-	   descr_p->descriptor_type);
-    fprintf(f, "%-18s0x%04x\n", "key_information:", key_information);
-    fprintf(f, "%-18s%d\n", "key_length:", key_length);
-    fprintf(f, "%-18s", "replay_counter:");
-    fprint_bytes(f, descr_p->replay_counter, sizeof(descr_p->replay_counter));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "key_nonce:");
-    fprint_bytes(f, descr_p->key_nonce, sizeof(descr_p->key_nonce));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "EAPOL_key_IV:");
-    fprint_bytes(f, descr_p->EAPOL_key_IV, sizeof(descr_p->EAPOL_key_IV));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "key_RSC:");
-    fprint_bytes(f, descr_p->key_RSC, sizeof(descr_p->key_RSC));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "key_reserved:");
-    fprint_bytes(f, descr_p->key_reserved, sizeof(descr_p->key_reserved));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "key_MIC:");
-    fprint_bytes(f, descr_p->key_MIC, sizeof(descr_p->key_MIC));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s%d\n", "key_data_length:", key_data_length);
+    STRING_APPEND(str, "EAPOL Key Descriptor: type IEEE 802.11 (%d)\n",
+		  descr_p->descriptor_type);
+    STRING_APPEND(str, "%-18s0x%04x\n", "key_information:", key_information);
+    STRING_APPEND(str, "%-18s%d\n", "key_length:", key_length);
+    STRING_APPEND(str, "%-18s", "replay_counter:");
+    print_bytes_cfstr(str, descr_p->replay_counter,
+		      sizeof(descr_p->replay_counter));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "%-18s", "key_nonce:");
+    print_bytes_cfstr(str, descr_p->key_nonce, sizeof(descr_p->key_nonce));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "%-18s", "EAPOL_key_IV:");
+    print_bytes_cfstr(str, descr_p->EAPOL_key_IV,
+		      sizeof(descr_p->EAPOL_key_IV));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "%-18s", "key_RSC:");
+    print_bytes_cfstr(str, descr_p->key_RSC, sizeof(descr_p->key_RSC));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "%-18s", "key_reserved:");
+    print_bytes_cfstr(str, descr_p->key_reserved,
+		      sizeof(descr_p->key_reserved));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "%-18s", "key_MIC:");
+    print_bytes_cfstr(str, descr_p->key_MIC, sizeof(descr_p->key_MIC));
+    STRING_APPEND(str, "\n");
+    STRING_APPEND(str, "%-18s%d\n", "key_data_length:", key_data_length);
     if (key_data_length > 0) {
-	fprintf(f, "%-18s", "key_data:");
-	fprint_bytes(f, descr_p->key_data, key_data_length);
-	fprintf(f, "\n");
+	STRING_APPEND(str, "%-18s", "key_data:");
+	print_bytes_cfstr(str, descr_p->key_data, key_data_length);
+	STRING_APPEND(str, "\n");
     }
     return;
 }
 
 static bool
-eapol_key_descriptor_valid(void * body, unsigned int body_length, 
-			   FILE * f)
+eapol_key_descriptor_valid(void * body, unsigned int body_length,
+			   CFMutableStringRef str)
 {
     EAPOLIEEE80211KeyDescriptorRef	ieee80211_descr_p = body;
+    int					key_data_length;
     EAPOLRC4KeyDescriptorRef		rc4_descr_p = body;
 
     if (body_length < 1) {
-	if (f != NULL) {
-	    fprintf(f, "eapol_key_descriptor_valid: body_length is %d < 1\n",
-		    body_length);
+	if (str != NULL) {
+	    STRING_APPEND(str, "EAPOLPacket empty body\n");
 	}
 	return (false);
     }
+#define KEY_DESCRIPTOR_LABEL	"EAPOLKeyDescriptor"
     switch (rc4_descr_p->descriptor_type) {
     case kEAPOLKeyDescriptorTypeRC4:
 	if (body_length < sizeof(*rc4_descr_p)) {
-	    if (f != NULL) {
-		fprintf(f, "eapol_key_descriptor_valid: body_length %d"
-			" < sizeof(*rc4_descr_p) %ld\n",
-			body_length, sizeof(*rc4_descr_p));
+	    if (str != NULL) {
+		STRING_APPEND(str, "%s(RC4) length %d < %d\n",
+			      KEY_DESCRIPTOR_LABEL,
+			      body_length, (int)sizeof(*rc4_descr_p));
 	    }
 	    return (false);
 	}
-	if (f != NULL) {
-	    fprint_eapol_rc4_key_descriptor(f, rc4_descr_p, body_length);
+	if (str != NULL) {
+	    RC4KeyDescriptorAppendDescription(rc4_descr_p, body_length, str);
 	}
 	break;
     case kEAPOLKeyDescriptorTypeIEEE80211:
+    case kEAPOLKeyDescriptorTypeWPA:
 	if (body_length < sizeof(*ieee80211_descr_p)) {
-	    if (f != NULL) {
-		fprintf(f, "eapol_key_descriptor_valid: body_length %d"
-			" < sizeof(*ieee80211_descr_p) %ld\n",
-			body_length, sizeof(*ieee80211_descr_p));
+	    if (str != NULL) {
+		STRING_APPEND(str, "%s(IEEE80211) length %d < %d\n",
+			      KEY_DESCRIPTOR_LABEL,
+			      body_length, (int)sizeof(*ieee80211_descr_p));
 	    }
 	    return (false);
 	}
-	if (EAPOLIEEE80211KeyDescriptorGetKeyDataLength(ieee80211_descr_p)
-	    > (body_length - sizeof(*ieee80211_descr_p))) {
-	    if (f != NULL) {
-		fprintf(f, "eapol_key_descriptor_valid: key_data_length %d"
-			" > body_length - sizeof(*ieee80211_descr_p) %ld\n",
-			EAPOLIEEE80211KeyDescriptorGetKeyDataLength(ieee80211_descr_p),
-			body_length - sizeof(*ieee80211_descr_p));
+	key_data_length 
+	    = EAPOLIEEE80211KeyDescriptorGetKeyDataLength(ieee80211_descr_p);
+	if ((body_length - sizeof(*ieee80211_descr_p)) < key_data_length) {
+	    if (str != NULL) {
+		STRING_APPEND(str,
+			      "%s(IEEE80211) Key Data truncated %d < %d\n",
+			      KEY_DESCRIPTOR_LABEL,
+			      body_length - (int)sizeof(*ieee80211_descr_p),
+			      key_data_length);
 	    }
 	    return (false);
 	}
-	if (f != NULL) {
-	    fprint_eapol_ieee80211_key_descriptor(f, ieee80211_descr_p,
-						  body_length);
+	if (str != NULL) {
+	    IEEE80211KeyDescriptorAppendDescription(ieee80211_descr_p,
+						    body_length, str);
 	}
 	break;
     default:
-	if (f != NULL) {
-	    fprintf(f, "eapol_key_descriptor_valid: descriptor_type unknown %d",
-		    rc4_descr_p->descriptor_type);
+	if (str != NULL) {
+	    STRING_APPEND(str, "%s Type %d unrecognized\n",
+			  KEY_DESCRIPTOR_LABEL,
+			  rc4_descr_p->descriptor_type);
 	}
 	return (false);
     }
@@ -210,7 +223,8 @@ eapol_key_descriptor_valid(void * body, unsigned int body_length,
 }
 
 static bool
-eapol_body_valid(EAPOLPacketRef eapol_p, unsigned int length, FILE * f)
+eapol_body_valid(EAPOLPacketRef eapol_p, unsigned int length, 
+		 CFMutableStringRef str)
 {
     unsigned int 	body_length;
     bool 		ret = true;
@@ -218,69 +232,90 @@ eapol_body_valid(EAPOLPacketRef eapol_p, unsigned int length, FILE * f)
     body_length = EAPOLPacketGetLength(eapol_p);
     length -= sizeof(*eapol_p);
     if (length < body_length) {
-	if (f != NULL) {
-	    fprintf(f, "packet length %d < body_length %d\n",
-		    length, body_length);
+	if (str != NULL) {
+	    STRING_APPEND(str,
+			  "EAPOLPacket truncated %d < %d\n",
+			  length, body_length);
 	}
 	return (false);
     }
     switch (eapol_p->packet_type) {
     case kEAPOLPacketTypeEAPPacket:
-	ret = EAPPacketValid((EAPPacketRef)eapol_p->body, body_length, f);
+	ret = EAPPacketIsValid((EAPPacketRef)eapol_p->body, body_length, str);
 	break;
     case kEAPOLPacketTypeKey:
-	ret = eapol_key_descriptor_valid(eapol_p->body, body_length, f);
+	ret = eapol_key_descriptor_valid(eapol_p->body, body_length, str);
 	break;
     case kEAPOLPacketTypeStart:
     case kEAPOLPacketTypeLogoff:
     case kEAPOLPacketTypeEncapsulatedASFAlert:
 	break;
     default:
-	if (f != NULL) {
-	    fprintf(f, "unrecognized EAPOL packet type %d\n",
-		   eapol_p->packet_type);
-	    fprint_data(f, ((void *)eapol_p) + sizeof(*eapol_p), body_length);
+	if (str != NULL) {
+	    STRING_APPEND(str,
+			  "EAPOLPacket type %d unrecognized\n",
+			  eapol_p->packet_type);
+	    print_data_cfstr(str, 
+			     ((void *)eapol_p) + sizeof(*eapol_p), body_length);
 	}
 	break;
     }
-
-    if (f != NULL) {
-	if (body_length < length) {
-	    fprintf(f, "EAPOL: %d bytes follow body:\n", length - body_length);
-	    fprint_data(f, ((void *)eapol_p) + sizeof(*eapol_p) + body_length, 
+    if (str != NULL && body_length < length) {
+	STRING_APPEND(str, "EAPOL: %d bytes follow body:\n", 
+		      length - body_length);
+	print_data_cfstr(str,
+			 ((void *)eapol_p) + sizeof(*eapol_p) + body_length, 
 			length - body_length);
-	}
     }
     return (ret);
 }
 
 static bool
 eapol_header_valid(EAPOLPacketRef eapol_p, unsigned int length,
-		   FILE * f)
+		   CFMutableStringRef str)
 {
     if (length < sizeof(*eapol_p)) {
-	if (f != NULL) {
-	    fprintf(f, "Data length %d < sizeof(*eapol_p) %ld\n",
-		    length, sizeof(*eapol_p));
+	if (str != NULL) {
+	    STRING_APPEND(str, "EAPOLPacket truncated header %d < %d\n",
+			  length, (int)sizeof(*eapol_p));
 	}
 	return (false);
     }
-    if (f != NULL) {
-	fprintf(f, "EAPOL: proto version 0x%x type %s (%d) length %d\n",
-		eapol_p->protocol_version, 
-		EAPOLPacketTypeStr(eapol_p->packet_type),
-		eapol_p->packet_type, EAPOLPacketGetLength(eapol_p));
+    if (str != NULL) {
+	STRING_APPEND(str, 
+		      "EAPOL: proto version 0x%x type %s (%d) length %d\n",
+		      eapol_p->protocol_version, 
+		      EAPOLPacketTypeStr(eapol_p->packet_type),
+		      eapol_p->packet_type, EAPOLPacketGetLength(eapol_p));
     }
     return (true);
 }
 
 bool
-EAPOLPacketValid(EAPOLPacketRef eapol_p, unsigned int length, FILE * f)
+EAPOLPacketIsValid(EAPOLPacketRef eapol_p, unsigned int length,
+		   CFMutableStringRef str)
 {
-    if (eapol_header_valid(eapol_p, length, f) == false) {
+    if (eapol_header_valid(eapol_p, length, str) == false) {
 	return (false);
     }
-    return (eapol_body_valid(eapol_p, length, f));
+    return (eapol_body_valid(eapol_p, length, str));
+}
+
+bool
+EAPOLPacketValid(EAPOLPacketRef eapol_p, unsigned int length, FILE * f)
+{
+    bool		ret;
+    CFMutableStringRef	str = NULL;
+
+    if (f != NULL) {
+	str = CFStringCreateMutable(NULL, 0);
+    }
+    ret = EAPOLPacketIsValid(eapol_p, length, str);
+    if (str != NULL) {
+	SCPrint(TRUE, f, CFSTR("%@"), str);
+	CFRelease(str);
+    }
+    return (ret);
 }
 
 void

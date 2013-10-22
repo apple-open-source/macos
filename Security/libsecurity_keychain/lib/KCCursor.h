@@ -49,7 +49,8 @@ protected:
 public:
 	virtual ~KCCursorImpl() throw();
 	bool next(Item &item);
-
+    bool mayDelete();
+    
 private:
 	StorageManager::KeychainList mSearchList;
 	StorageManager::KeychainList::iterator mCurrent;

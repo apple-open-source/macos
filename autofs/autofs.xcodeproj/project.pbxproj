@@ -373,13 +373,13 @@
 		};
 		EB711C9E12358A8600C115E6 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
 				EB711CA512358AE100C115E6 /* od_user_homes.8 in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		EB7DD262121B7FCB0035D359 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -1723,6 +1723,7 @@
 		EB0024B909776024002F9164 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 			};
 			name = Debug;
@@ -1730,6 +1731,7 @@
 		EB0024BA09776024002F9164 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 			};
 			name = Release;
 		};
@@ -1890,6 +1892,7 @@
 					"-Wall",
 					"-Wextra",
 					"-Wformat=2",
+					"-Wno-format-nonliteral",
 				);
 			};
 			name = Debug;
@@ -1933,6 +1936,7 @@
 					"-Wall",
 					"-Wextra",
 					"-Wformat=2",
+					"-Wno-format-nonliteral",
 				);
 				ZERO_LINK = NO;
 			};

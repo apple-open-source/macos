@@ -17,6 +17,8 @@
 
 using namespace llvm;
 
+namespace {
+
 class CloneInstruction : public ::testing::Test {
 protected:
   virtual void SetUp() {
@@ -139,4 +141,6 @@ TEST_F(CloneInstruction, Exact) {
 
   SDiv->setIsExact(true);
   EXPECT_TRUE(this->clone(SDiv)->isExact());
+}
+
 }

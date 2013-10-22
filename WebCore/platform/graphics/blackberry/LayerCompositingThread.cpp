@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012, 2013 Research In Motion Limited. All rights reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
  * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
@@ -36,46 +36,63 @@
 
 #include "LayerCompositingThread.h"
 
+#include "LayerCompositingThreadClient.h"
 #include "LayerMessage.h"
 #include "LayerRenderer.h"
+#include "LayerRendererClient.h"
+#include "LayerUtilities.h"
 #include "LayerWebKitThread.h"
 #if ENABLE(VIDEO)
 #include "MediaPlayer.h"
 #include "MediaPlayerPrivateBlackBerry.h"
 #endif
 #include "PluginView.h"
+#include "StdLibExtras.h"
 #include "TextureCacheCompositingThread.h"
 
+#include <BlackBerryPlatformGLES2ContextState.h>
 #include <BlackBerryPlatformGraphics.h>
 #include <BlackBerryPlatformLog.h>
 #include <wtf/Assertions.h>
 
-#define DEBUG_VIDEO_CLIPPING 0
+using BlackBerry::Platform::Graphics::GLES2Program;
 
 namespace WebCore {
 
-PassRefPtr<LayerCompositingThread> LayerCompositingThread::create(LayerType type, PassRefPtr<LayerTiler> tiler)
+void LayerOverride::removeAnimation(const String& name)
 {
-    return adoptRef(new LayerCompositingThread(type, tiler));
+    for (size_t i = 0; i < m_animations.size(); ++i) {
+        if (m_animations[i]->name() == name) {
+            m_animations.remove(i);
+            return;
+        }
+    }
 }
 
-LayerCompositingThread::LayerCompositingThread(LayerType type, PassRefPtr<LayerTiler> tiler)
+PassRefPtr<LayerCompositingThread> LayerCompositingThread::create(LayerType type, LayerCompositingThreadClient* client)
+{
+    return adoptRef(new LayerCompositingThread(type, client));
+}
+
+LayerCompositingThread::LayerCompositingThread(LayerType type, LayerCompositingThreadClient* client)
     : LayerData(type)
     , m_layerRenderer(0)
     , m_superlayer(0)
+    , m_centerW(0)
     , m_pluginBuffer(0)
     , m_drawOpacity(0)
     , m_visible(false)
     , m_commitScheduled(false)
-    , m_tiler(tiler)
+    , m_client(client)
+#if ENABLE(CSS_FILTERS)
+    , m_filterOperationsChanged(false)
+#endif
 {
 }
 
 LayerCompositingThread::~LayerCompositingThread()
 {
     ASSERT(isCompositingThread());
-
-    m_tiler->layerCompositingThreadDestroyed();
 
     ASSERT(!superlayer());
 
@@ -90,6 +107,9 @@ LayerCompositingThread::~LayerCompositingThread()
     // layer renderer to track us anymore
     if (m_layerRenderer)
         m_layerRenderer->removeLayer(this);
+
+    if (m_client)
+        m_client->layerCompositingThreadDestroyed(this);
 }
 
 void LayerCompositingThread::setLayerRenderer(LayerRenderer* renderer)
@@ -106,89 +126,107 @@ void LayerCompositingThread::deleteTextures()
 {
     releaseTextureResources();
 
-    m_tiler->deleteTextures();
+    if (m_client)
+        m_client->deleteTextures(this);
 }
 
-void LayerCompositingThread::setDrawTransform(const TransformationMatrix& matrix)
+void LayerCompositingThread::setDrawTransform(double scale, const TransformationMatrix& matrix, const TransformationMatrix& projectionMatrix)
 {
-    m_drawTransform = matrix;
+    m_drawTransform = projectionMatrix * matrix;
 
-    float bx = m_bounds.width() / 2.0;
-    float by = m_bounds.height() / 2.0;
-    m_transformedBounds.setP1(matrix.mapPoint(FloatPoint(-bx, -by)));
-    m_transformedBounds.setP2(matrix.mapPoint(FloatPoint(-bx, by)));
-    m_transformedBounds.setP3(matrix.mapPoint(FloatPoint(bx, by)));
-    m_transformedBounds.setP4(matrix.mapPoint(FloatPoint(bx, -by)));
+    FloatRect boundsRect(-origin(), bounds());
 
-    m_drawRect = m_transformedBounds.boundingBox();
+    if (sizeIsScaleInvariant())
+        boundsRect.scale(1 / scale);
+
+    m_centerW = 0;
+    m_transformedBounds.clear();
+    m_ws.clear();
+    m_textureCoordinates.clear();
+    if (matrix.hasPerspective() && !m_layerRendererSurface) {
+        // Perform processing according to http://www.w3.org/TR/css3-transforms 6.2
+        // If w < 0 for all four corners of the transformed box, the box is not rendered.
+        // If w < 0 for one to three corners of the transformed box, the box
+        // must be replaced by a polygon that has any parts with w < 0 cut out.
+        // If w = 0, (x′, y′, z′) = (x ⋅ n, y ⋅ n, z ⋅ n)
+        // We implement this by intersecting with the image plane, i.e. the last row of the column-major matrix.
+        // To avoid problems with w close to 0, we use w = epsilon as the near plane by subtracting epsilon from matrix.m44().
+        const float epsilon = 1e-3;
+        Vector<FloatPoint3D, 4> quad = toVector<FloatPoint3D, 4>(boundsRect);
+        Vector<FloatPoint3D, 4> polygon = intersect(quad, LayerClipPlane(FloatPoint3D(matrix.m14(), matrix.m24(), matrix.m34()), matrix.m44() - epsilon));
+
+        // Compute the clipped texture coordinates.
+        if (polygon != quad) {
+            for (size_t i = 0; i < polygon.size(); ++i) {
+                FloatPoint3D& p = polygon[i];
+                m_textureCoordinates.append(FloatPoint(p.x() / boundsRect.width() + 0.5f, p.y() / boundsRect.height() + 0.5f));
+            }
+        }
+
+        // If w > 0, (x′, y′, z′) = (x/w, y/w, z/w)
+        for (size_t i = 0; i < polygon.size(); ++i) {
+            float w;
+            FloatPoint3D p = multVecMatrix(matrix, polygon[i], w);
+            if (w != 1) {
+                p.setX(p.x() / w);
+                p.setY(p.y() / w);
+                p.setZ(p.z() / w);
+            }
+
+            FloatPoint3D q = projectionMatrix.mapPoint(p);
+            m_transformedBounds.append(FloatPoint(q.x(), q.y()));
+            m_ws.append(w);
+        }
+
+        m_centerW = matrix.m44();
+    } else
+        m_transformedBounds = toVector<FloatPoint, 4>(m_drawTransform.mapQuad(boundsRect));
+
+    m_boundingBox = WebCore::boundingBox(m_transformedBounds);
 }
 
-static FloatQuad getTransformedRect(const IntSize& bounds, const IntRect& rect, const TransformationMatrix& drawTransform)
+const Vector<FloatPoint>& LayerCompositingThread::textureCoordinates(TextureCoordinateOrientation orientation) const
 {
-    float x = -bounds.width() / 2.0 + rect.x();
-    float y = -bounds.height() / 2.0 + rect.y();
-    float w = rect.width();
-    float h = rect.height();
-    FloatQuad result;
-    result.setP1(drawTransform.mapPoint(FloatPoint(x, y)));
-    result.setP2(drawTransform.mapPoint(FloatPoint(x, y + h)));
-    result.setP3(drawTransform.mapPoint(FloatPoint(x + w, y + h)));
-    result.setP4(drawTransform.mapPoint(FloatPoint(x + w, y)));
+    if (m_textureCoordinates.size()) {
+        if (orientation == UpsideDown) {
+            static Vector<FloatPoint> upsideDownCoordinates;
+            upsideDownCoordinates = m_textureCoordinates;
+            for (size_t i = 0; i < upsideDownCoordinates.size(); ++i)
+                upsideDownCoordinates[i].setY(1 - upsideDownCoordinates[i].y());
+            return upsideDownCoordinates;
+        }
 
-    return result;
-}
-
-
-FloatQuad LayerCompositingThread::getTransformedHolePunchRect() const
-{
-    // FIXME: the following line disables clipping a video in an iframe i.e. the fix associated with PR 99638.
-    // Some revised test case (e.g. video-iframe.html) show that the original fix works correctly when scrolling
-    // the contents of the frame, but fails to clip correctly if the page (main frame) is scrolled.
-    static bool enableVideoClipping = false;
-
-    if (!mediaPlayer() || !enableVideoClipping) {
-        // m_holePunchClipRect is valid only when there's a media player.
-        return getTransformedRect(m_bounds, m_holePunchRect, m_drawTransform);
+        return m_textureCoordinates;
     }
 
-    // The hole punch rectangle may need to be clipped,
-    // e.g. if the <video> is on a layer that's included and clipped by an <iframe>.
+    if (orientation == UpsideDown) {
+        static FloatPoint data[4] = { FloatPoint(0, 1),  FloatPoint(1, 1),  FloatPoint(1, 0),  FloatPoint(0, 0) };
+        static Vector<FloatPoint>* upsideDownCoordinates = 0;
+        if (!upsideDownCoordinates) {
+            upsideDownCoordinates = new Vector<FloatPoint>();
+            upsideDownCoordinates->append(data, 4);
+        }
+        return *upsideDownCoordinates;
+    }
 
-    // In order to clip we need to determine the current position of this layer, which
-    // is encoded in the m_drawTransform value, which was used to initialize m_drawRect.
-    IntRect drawRect = m_layerRenderer->toWebKitDocumentCoordinates(m_drawRect);
-
-    // Assert that in this case, where the hole punch rectangle equals the size of the layer,
-    // the drawRect has the same size as the hole punch.
-    // ASSERT(drawRect.size() == m_holePunchRect.size());
-    // Don't assert it programtically though because there may be off-by-one error due to rounding when there's zooming.
-
-    // The difference between drawRect and m_holePunchRect is that drawRect has an accurate position
-    // in WebKit document coordinates, whereas the m_holePunchRect location is (0,0) i.e. it's relative to this layer.
-
-    // Clip the drawRect.
-    // Both drawRect and m_holePunchClipRect already have correct locations, in WebKit document coordinates.
-    IntPoint location = drawRect.location();
-    drawRect.intersect(m_holePunchClipRect);
-
-    // Shift the clipped drawRect to have the same kind of located-at-zero position as the original holePunchRect.
-    drawRect.move(-location.x(), -location.y());
-
-#if DEBUG_VIDEO_CLIPPING
-     IntRect drawRectInWebKitDocumentCoordination = m_layerRenderer->toWebKitDocumentCoordinates(m_drawRect);
-     BlackBerry::Platform::log(BlackBerry::Platform::LogLevelInfo, "LayerCompositingThread::getTransformedHolePunchRect() - drawRect=(x=%d,y=%d,width=%d,height=%d) clipRect=(x=%d,y=%d,width=%d,height=%d) clippedRect=(x=%d,y=%d,width=%d,height=%d).",
-        drawRectInWebKitDocumentCoordination.x(), drawRectInWebKitDocumentCoordination.y(), drawRectInWebKitDocumentCoordination.width(), drawRectInWebKitDocumentCoordination.height(),
-        m_holePunchClipRect.x(), m_holePunchClipRect.y(), m_holePunchClipRect.width(), m_holePunchClipRect.height(),
-        drawRect.x(), drawRect.y(), drawRect.width(), drawRect.height());
-#endif
-
-    return getTransformedRect(m_bounds, drawRect, m_drawTransform);
+    static FloatPoint data[4] = { FloatPoint(0, 0),  FloatPoint(1, 0),  FloatPoint(1, 1),  FloatPoint(0, 1) };
+    static Vector<FloatPoint>* coordinates = 0;
+    if (!coordinates) {
+        coordinates = new Vector<FloatPoint>();
+        coordinates->append(data, 4);
+    }
+    return *coordinates;
 }
 
-void LayerCompositingThread::drawTextures(int positionLocation, int texCoordLocation, const FloatRect& visibleRect)
+FloatQuad LayerCompositingThread::transformedHolePunchRect() const
 {
-    float texcoords[4 * 2] = { 0, 0,  0, 1,  1, 1,  1, 0 };
+    FloatRect holePunchRect(m_holePunchRect);
+    holePunchRect.moveBy(-origin());
+    return m_drawTransform.mapQuad(holePunchRect);
+}
 
+void LayerCompositingThread::drawTextures(const GLES2Program& program, double scale, const FloatRect& visibleRect, const FloatRect& clipRect)
+{
     if (m_pluginView) {
         if (m_isVisible) {
             // The layer contains Flash, video, or other plugin contents.
@@ -204,98 +242,83 @@ void LayerCompositingThread::drawTextures(int positionLocation, int texCoordLoca
 
             m_layerRenderer->addLayerToReleaseTextureResourcesList(this);
 
-            glVertexAttribPointer(positionLocation, 2, GL_FLOAT, GL_FALSE, 0, &m_transformedBounds);
-            glVertexAttribPointer(texCoordLocation, 2, GL_FLOAT, GL_FALSE, 0, texcoords);
-            glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+            glUniform1f(program.opacityLocation(), drawOpacity());
+            glVertexAttribPointer(program.positionLocation(), 2, GL_FLOAT, GL_FALSE, 0, m_transformedBounds.data());
+            glVertexAttribPointer(program.texCoordLocation(), 2, GL_FLOAT, GL_FALSE, 0, textureCoordinates().data());
+            glDrawArrays(GL_TRIANGLE_FAN, 0, m_transformedBounds.size());
         }
         return;
     }
 #if ENABLE(VIDEO)
     if (m_mediaPlayer) {
         if (m_isVisible) {
-            // We need to specify the media player location in contents coordinates. The 'visibleRect'
-            // specifies the content region covered by our viewport. So we transform from our
-            // normalized device coordinates [-1, 1] to the 'visibleRect'.
-            float vrw2 = visibleRect.width() / 2.0;
-            float vrh2 = visibleRect.height() / 2.0;
-            float x = m_transformedBounds.p1().x() * vrw2 + vrw2 + visibleRect.x();
-            float y = -m_transformedBounds.p1().y() * vrh2 + vrh2 + visibleRect.y();
-            m_mediaPlayer->paint(0, IntRect((int)(x + 0.5), (int)(y + 0.5), m_bounds.width(), m_bounds.height()));
+            IntRect paintRect;
+            if (m_layerRenderer->client()->shouldChildWindowsUseDocumentCoordinates()) {
+                // We need to specify the media player location in contents coordinates. The 'visibleRect'
+                // specifies the content region covered by our viewport. So we transform from our
+                // normalized device coordinates [-1, 1] to the 'visibleRect'.
+                float vrw2 = visibleRect.width() / 2.0;
+                float vrh2 = visibleRect.height() / 2.0;
+                FloatPoint p(m_transformedBounds[0].x() * vrw2 + vrw2 + visibleRect.x(),
+                    -m_transformedBounds[0].y() * vrh2 + vrh2 + visibleRect.y());
+                paintRect = IntRect(roundedIntPoint(p), m_bounds);
+            } else
+                paintRect = m_layerRenderer->toWindowCoordinates(m_boundingBox);
+
+            m_mediaPlayer->paint(0, paintRect);
             MediaPlayerPrivate* mpp = static_cast<MediaPlayerPrivate*>(m_mediaPlayer->platformMedia().media.qnxMediaPlayer);
-            mpp->drawBufferingAnimation(m_drawTransform, positionLocation, texCoordLocation);
+            mpp->drawBufferingAnimation(m_drawTransform, program);
         }
         return;
     }
 #endif
-#if ENABLE(WEBGL)
-    if (layerType() == LayerData::WebGLLayer) {
-        m_layerRenderer->addLayerToReleaseTextureResourcesList(this);
-        pthread_mutex_lock(m_frontBufferLock);
-        glVertexAttribPointer(positionLocation, 2, GL_FLOAT, GL_FALSE, 0, &m_transformedBounds);
-        float canvasWidthRatio = 1.0f;
-        float canvasHeightRatio = 1.0f;
-        float upsideDown[4 * 2] = { 0, 1,  0, 1 - canvasHeightRatio,  canvasWidthRatio, 1 - canvasHeightRatio,  canvasWidthRatio, 1 };
-        // Flip the texture Y axis because OpenGL and Skia have different origins
-        glVertexAttribPointer(texCoordLocation, 2, GL_FLOAT, GL_FALSE, 0, upsideDown);
-        glBindTexture(GL_TEXTURE_2D, m_texID);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-        // FIXME: If the canvas/texture is larger than 2048x2048, then we'll die here
-        return;
-    }
-#endif
-    if (m_texID) {
-        m_layerRenderer->addLayerToReleaseTextureResourcesList(this);
-        pthread_mutex_lock(m_frontBufferLock);
 
-        glDisable(GL_SCISSOR_TEST);
-        glBindTexture(GL_TEXTURE_2D, m_texID);
-        glVertexAttribPointer(positionLocation, 2, GL_FLOAT, GL_FALSE, 0, &m_transformedBounds);
-        float upsideDown[4 * 2] = { 0, 1,  0, 0,  1, 0,  1, 1 };
-        glVertexAttribPointer(texCoordLocation, 2, GL_FLOAT, GL_FALSE, 0, upsideDown);
-        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-        return;
-    }
-
-    m_tiler->drawTextures(this, positionLocation, texCoordLocation);
+    if (m_client)
+        m_client->drawTextures(this, program, scale, clipRect);
 }
 
-void LayerCompositingThread::drawSurface(const TransformationMatrix& drawTransform, LayerCompositingThread* mask, int positionLocation, int texCoordLocation)
+void LayerCompositingThread::drawSurface(const GLES2Program& program, const TransformationMatrix& drawTransform, LayerCompositingThread* mask)
 {
+    using namespace BlackBerry::Platform::Graphics;
+
     if (m_layerRenderer->layerAlreadyOnSurface(this)) {
-        unsigned texID = layerRendererSurface()->texture()->textureId();
-        if (!texID) {
+        LayerTexture* surfaceTexture = layerRendererSurface()->texture();
+        if (!surfaceTexture) {
             ASSERT_NOT_REACHED();
             return;
         }
         textureCacheCompositingThread()->textureAccessed(layerRendererSurface()->texture());
-        glBindTexture(GL_TEXTURE_2D, texID);
+        GLuint surfaceTexID = surfaceTexture->platformTexture();
 
-        if (mask) {
-            glActiveTexture(GL_TEXTURE1);
-            mask->bindContentsTexture();
-            glActiveTexture(GL_TEXTURE0);
+        if (!surfaceTexID) {
+            ASSERT_NOT_REACHED();
+            return;
         }
 
-        FloatQuad surfaceQuad = getTransformedRect(m_bounds, IntRect(IntPoint::zero(), m_bounds), drawTransform);
-        glVertexAttribPointer(positionLocation, 2, GL_FLOAT, GL_FALSE, 0, &surfaceQuad);
+        if (mask) {
+            if (LayerTexture* maskTexture = mask->contentsTexture()) {
+                GLuint maskTexID = maskTexture->platformTexture();
 
-        float texcoords[4 * 2] = { 0, 0,  0, 1,  1, 1,  1, 0 };
-        glVertexAttribPointer(texCoordLocation, 2, GL_FLOAT, GL_FALSE, 0, texcoords);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, maskTexID);
+                glActiveTexture(GL_TEXTURE0);
+            }
+        }
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        glBindTexture(GL_TEXTURE_2D, surfaceTexID);
+
+        FloatQuad surfaceQuad = drawTransform.mapQuad(FloatRect(-origin(), bounds()));
+        glUniform1f(program.opacityLocation(), layerRendererSurface()->drawOpacity());
+        glVertexAttribPointer(program.positionLocation(), 2, GL_FLOAT, GL_FALSE, 0, &surfaceQuad);
+
+        static float texcoords[4 * 2] = { 0, 0,  1, 0,  1, 1,  0, 1 };
+        glVertexAttribPointer(program.texCoordLocation(), 2, GL_FLOAT, GL_FALSE, 0, texcoords);
         glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     }
-}
-
-void LayerCompositingThread::drawMissingTextures(int positionLocation, int texCoordLocation, const FloatRect& visibleRect)
-{
-    if (m_pluginView || m_texID)
-        return;
-
-#if ENABLE(VIDEO)
-    if (m_mediaPlayer)
-        return;
-#endif
-
-    m_tiler->drawMissingTextures(this, positionLocation, texCoordLocation);
 }
 
 void LayerCompositingThread::releaseTextureResources()
@@ -305,8 +328,6 @@ void LayerCompositingThread::releaseTextureResources()
         m_pluginBuffer = 0;
         m_pluginView->unlockFrontBuffer();
     }
-    if (m_texID && m_frontBufferLock)
-        pthread_mutex_unlock(m_frontBufferLock);
 }
 
 void LayerCompositingThread::setPluginView(PluginView* pluginView)
@@ -337,21 +358,6 @@ void LayerCompositingThread::setMediaPlayer(MediaPlayer* mediaPlayer)
 }
 #endif
 
-void LayerCompositingThread::clearAnimations()
-{
-    // Animations don't use thread safe refcounting, and must only be
-    // touched when the two threads are in sync.
-    if (!isCompositingThread()) {
-        dispatchSyncCompositingMessage(BlackBerry::Platform::createMethodCallMessage(
-            &LayerCompositingThread::clearAnimations,
-            this));
-        return;
-    }
-
-    m_runningAnimations.clear();
-    m_suspendedAnimations.clear();
-}
-
 void LayerCompositingThread::removeSublayer(LayerCompositingThread* sublayer)
 {
     ASSERT(isCompositingThread());
@@ -378,6 +384,13 @@ const LayerCompositingThread* LayerCompositingThread::rootLayer() const
     const LayerCompositingThread* layer = this;
     for (LayerCompositingThread* superlayer = layer->superlayer(); superlayer; layer = superlayer, superlayer = superlayer->superlayer()) { }
     return layer;
+}
+
+void LayerCompositingThread::addSublayer(LayerCompositingThread* layer)
+{
+    layer->removeFromSuperlayer();
+    layer->setSuperlayer(this);
+    m_sublayers.append(layer);
 }
 
 void LayerCompositingThread::removeFromSuperlayer()
@@ -410,15 +423,16 @@ void LayerCompositingThread::setSublayers(const Vector<RefPtr<LayerCompositingTh
 
 void LayerCompositingThread::updateTextureContentsIfNeeded()
 {
-    if (m_texID || pluginView())
-        return;
+    if (m_client)
+        m_client->uploadTexturesIfNeeded(this);
+}
 
-#if ENABLE(VIDEO)
-    if (mediaPlayer())
-        return;
-#endif
+LayerTexture* LayerCompositingThread::contentsTexture()
+{
+    if (m_client)
+        return m_client->contentsTexture(this);
 
-    m_tiler->uploadTexturesIfNeeded();
+    return 0;
 }
 
 void LayerCompositingThread::setVisible(bool visible)
@@ -428,15 +442,8 @@ void LayerCompositingThread::setVisible(bool visible)
 
     m_visible = visible;
 
-    if (m_texID || pluginView())
-        return;
-
-#if ENABLE(VIDEO)
-    if (mediaPlayer())
-        return;
-#endif
-
-    m_tiler->layerVisibilityChanged(visible);
+    if (m_client)
+        m_client->layerVisibilityChanged(this, visible);
 }
 
 void LayerCompositingThread::setNeedsCommit()
@@ -447,6 +454,9 @@ void LayerCompositingThread::setNeedsCommit()
 
 void LayerCompositingThread::scheduleCommit()
 {
+    if (!m_client)
+        return;
+
     if (!isWebKitThread()) {
         if (m_commitScheduled)
             return;
@@ -459,9 +469,13 @@ void LayerCompositingThread::scheduleCommit()
 
     m_commitScheduled = false;
 
-    // FIXME: The only way to get at our LayerWebKitThread is to go through the tiler.
-    if (LayerWebKitThread* layer = m_tiler->layer())
-        layer->setNeedsCommit();
+    m_client->scheduleCommit();
+}
+
+void LayerCompositingThread::commitPendingTextureUploads()
+{
+    if (m_client)
+        m_client->commitPendingTextureUploads(this);
 }
 
 bool LayerCompositingThread::updateAnimations(double currentTime)
@@ -478,13 +492,38 @@ bool LayerCompositingThread::updateAnimations(double currentTime)
         animation->apply(this, elapsedTime);
     }
 
+    bool allAnimationsFinished = true;
     for (size_t i = 0; i < m_runningAnimations.size(); ++i) {
         LayerAnimation* animation = m_runningAnimations[i].get();
         double elapsedTime = (m_suspendTime ? m_suspendTime : currentTime) - animation->startTime() + animation->timeOffset();
         animation->apply(this, elapsedTime);
+        if (!animation->finished())
+            allAnimationsFinished = false;
     }
 
-    return !m_runningAnimations.isEmpty();
+    // If there are any overrides, apply them
+    if (m_override) {
+        if (m_override->isPositionSet())
+            m_position = m_override->position();
+        if (m_override->isAnchorPointSet())
+            m_anchorPoint = m_override->anchorPoint();
+        if (m_override->isBoundsSet())
+            m_bounds = m_override->bounds();
+        if (m_override->isTransformSet())
+            m_transform = m_override->transform();
+        if (m_override->isOpacitySet())
+            m_opacity = m_override->opacity();
+
+        for (size_t i = 0; i < m_override->animations().size(); ++i) {
+            LayerAnimation* animation = m_override->animations()[i].get();
+            double elapsedTime = (m_suspendTime ? m_suspendTime : currentTime) - animation->startTime() + animation->timeOffset();
+            animation->apply(this, elapsedTime);
+            if (!animation->finished())
+                allAnimationsFinished = false;
+        }
+    }
+
+    return !allAnimationsFinished;
 }
 
 bool LayerCompositingThread::hasVisibleHolePunchRect() const
@@ -504,6 +543,28 @@ void LayerCompositingThread::createLayerRendererSurface()
 {
     ASSERT(!m_layerRendererSurface);
     m_layerRendererSurface = adoptPtr(new LayerRendererSurface(m_layerRenderer, this));
+}
+
+void LayerCompositingThread::removeAnimation(const String& name)
+{
+    for (size_t i = 0; i < m_runningAnimations.size(); ++i) {
+        if (m_runningAnimations[i]->name() == name) {
+            m_runningAnimations.remove(i);
+            return;
+        }
+    }
+}
+
+LayerOverride* LayerCompositingThread::override()
+{
+    if (!m_override)
+        m_override = LayerOverride::create();
+    return m_override.get();
+}
+
+void LayerCompositingThread::clearOverride()
+{
+    m_override.clear();
 }
 
 }

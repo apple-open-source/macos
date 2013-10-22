@@ -29,13 +29,16 @@
 #include <Security/oidsattr.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include "SecCertificateOIDs.h"
 #include "CertificateValues.h"
 #include "SecCertificateP.h"
 #include "SecCertificatePrivP.h"
 #include <CoreFoundation/CFNumber.h>
 #include "SecCertificateP.h"
+
+/* FIXME including SecCertificateInternalP.h here produces errors; investigate */
+extern "C" CFDataRef SecCertificateCopyIssuerSequenceP(SecCertificateRefP certificate);
+extern "C" CFDataRef SecCertificateCopySubjectSequenceP(SecCertificateRefP certificate);
 
 extern "C" void appendProperty(CFMutableArrayRef properties, CFStringRef propertyType, CFStringRef label, CFTypeRef value);
 
@@ -169,7 +172,7 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 		CFRelease(additionalValues);
 	}
 
-	CFAbsoluteTime notBefore = SecCertificateNotValidBefore(certificateP);
+	CFAbsoluteTime notBefore = SecCertificateNotValidBeforeP(certificateP);
 	CFNumberRef notBeforeRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &notBefore);
 	if (notBeforeRef)
 	{
@@ -180,7 +183,7 @@ CFDictionaryRef CertificateValues::copyFieldValues(CFArrayRef keys, CFErrorRef *
 		CFRelease(additionalValues);
 	}
 
-	CFAbsoluteTime notAfter = SecCertificateNotValidAfter(certificateP);
+	CFAbsoluteTime notAfter = SecCertificateNotValidAfterP(certificateP);
 	CFNumberRef notAfterRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &notAfter);
 	if (notAfterRef)
 	{
@@ -357,54 +360,99 @@ CFStringRef CertificateValues::remapLabelToKey(CFStringRef label)
 
 CFDataRef CertificateValues::copySerialNumber(CFErrorRef *error)
 {
-    CFDataRef result = NULL;
+	CFDataRef result = NULL;
 	SecCertificateRefP certificateP = getSecCertificateRefP(error);
 
-    if (certificateP)
-    {
-        result = SecCertificateCopySerialNumberP(certificateP);
-        CFRelease(certificateP);
-    }
-    return result;
+	if (certificateP)
+	{
+		result = SecCertificateCopySerialNumberP(certificateP);
+		CFRelease(certificateP);
+	}
+	return result;
 }
 
-CFDataRef CertificateValues::getNormalizedIssuerContent(CFErrorRef *error)
+CFDataRef CertificateValues::copyNormalizedIssuerContent(CFErrorRef *error)
 {
-	// We wrap with SecDERItemCopySequence, since SecItemCopyMatching expects it
-    CFDataRef result = NULL;
+	CFDataRef result = NULL;
 	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-    if (certificateP)
-    {
-        result = SecCertificateGetNormalizedIssuer(certificateP);
-        CFRelease(certificateP);
-    }
-    return result;
+	if (certificateP)
+	{
+		result = SecCertificateCopyNormalizedIssuerSequence(certificateP);
+		CFRelease(certificateP);
+	}
+	return result;
 }
 
-CFDataRef CertificateValues::getNormalizedSubjectContent(CFErrorRef *error)
+CFDataRef CertificateValues::copyNormalizedSubjectContent(CFErrorRef *error)
 {
-	// We wrap with SecDERItemCopySequence, since SecItemCopyMatching expects it
-    CFDataRef result = NULL;
+	CFDataRef result = NULL;
 	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-    if (certificateP)
-    {
-        result = SecCertificateGetNormalizedSubject(certificateP);
-        CFRelease(certificateP);
-    }
-    return result;
+	if (certificateP)
+	{
+		result = SecCertificateCopyNormalizedSubjectSequence(certificateP);
+		CFRelease(certificateP);
+	}
+	return result;
 }
 
-bool CertificateValues::SecCertificateIsValidX(CFAbsoluteTime verifyTime, CFErrorRef *error)
+CFDataRef CertificateValues::copyIssuerSequence(CFErrorRef *error)
 {
-	// We wrap with SecDERItemCopySequence, since SecItemCopyMatching expects it
-    bool result = NULL;
+	CFDataRef result = NULL;
 	SecCertificateRefP certificateP = getSecCertificateRefP(error);
-    if (certificateP)
-    {
-        result = SecCertificateIsValid(certificateP, verifyTime);
-        CFRelease(certificateP);
-    }
-    return result;
+	if (certificateP)
+	{
+		result = SecCertificateCopyIssuerSequenceP(certificateP);
+		CFRelease(certificateP);
+	}
+	return result;
+}
+
+CFDataRef CertificateValues::copySubjectSequence(CFErrorRef *error)
+{
+	CFDataRef result = NULL;
+	SecCertificateRefP certificateP = getSecCertificateRefP(error);
+	if (certificateP)
+	{
+		result = SecCertificateCopySubjectSequenceP(certificateP);
+		CFRelease(certificateP);
+	}
+	return result;
+}
+
+bool CertificateValues::isValid(CFAbsoluteTime verifyTime, CFErrorRef *error)
+{
+	bool result = NULL;
+	SecCertificateRefP certificateP = getSecCertificateRefP(error);
+	if (certificateP)
+	{
+		result = SecCertificateIsValidP(certificateP, verifyTime);
+		CFRelease(certificateP);
+	}
+	return result;
+}
+
+CFAbsoluteTime CertificateValues::notValidBefore(CFErrorRef *error)
+{
+	CFAbsoluteTime result = 0;
+	SecCertificateRefP certificateP = getSecCertificateRefP(error);
+	if (certificateP)
+	{
+		result = SecCertificateNotValidBeforeP(certificateP);
+		CFRelease(certificateP);
+	}
+	return result;
+}
+
+CFAbsoluteTime CertificateValues::notValidAfter(CFErrorRef *error)
+{
+	CFAbsoluteTime result = 0;
+	SecCertificateRefP certificateP = getSecCertificateRefP(error);
+	if (certificateP)
+	{
+		result = SecCertificateNotValidAfterP(certificateP);
+		CFRelease(certificateP);
+	}
+	return result;
 }
 
 SecCertificateRefP CertificateValues::getSecCertificateRefP(CFErrorRef *error)

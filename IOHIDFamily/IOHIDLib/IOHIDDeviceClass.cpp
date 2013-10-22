@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2012 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -545,12 +545,7 @@ IOReturn IOHIDDeviceClass::getProperty(CFStringRef key, CFTypeRef * pProperty)
     CFTypeRef property = CFDictionaryGetValue(fProperties, key);
     
     if ( !property ) {
-        property = IORegistryEntryCreateCFProperty(
-                                            fService, 
-                                            key, 
-                                            kCFAllocatorDefault, 
-                                            0);
-                                            
+        property = IORegistryEntrySearchCFProperty(fService, kIOServicePlane, key, kCFAllocatorDefault, kIORegistryIterateRecursively| kIORegistryIterateParents);
         if ( property ) {
             CFDictionarySetValue(fProperties, key, property);
             CFRelease(property);
@@ -993,24 +988,31 @@ IOHIDDeviceClass::getReport(IOHIDReportType     reportType,
 
 bool IOHIDDeviceClass::getElementDictIntValue(CFDictionaryRef element, CFStringRef key, uint32_t * value)
 {
-    CFTypeRef   object = 0;
+    CFTypeRef   object = CFDictionaryGetValue (element, key);
     uint32_t    number = 0;
+    CFTypeID    typeID = object ? CFGetTypeID(object) : 0; // _kCFRuntimeNotATypeID
     
-    object = CFDictionaryGetValue (element, key);
-    if (object && CFGetTypeID(object) == CFNumberGetTypeID())
-    {
-        if (CFNumberGetValue((CFNumberRef) object, kCFNumberLongType, &number))
+    if (!value) {
+        char buff[64] = "unknown";
+        if (key)
+            CFStringGetCString(key, buff, 64, kCFStringEncodingUTF8);
+        asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s called with no value for %s\n", __PRETTY_FUNCTION__, buff);
+    }
+    else {
+        if (typeID == CFNumberGetTypeID())
         {
-            *value = number;
+            if (CFNumberGetValue((CFNumberRef) object, kCFNumberLongType, &number))
+            {
+                *value = number;
+                return true;
+            }
+        }
+        else if (typeID == CFBooleanGetTypeID())
+        {
+            *value = (object == kCFBooleanTrue);
             return true;
         }
     }
-    else if (object && CFTypeID(object) == CFBooleanGetTypeID())
-    {
-        *value = (object == kCFBooleanTrue);
-        return true;
-    }
-        
     return false;
 }
 
@@ -1124,10 +1126,10 @@ CFTypeRef IOHIDDeviceClass::createElement(CFDataRef data, IOHIDElementStruct * e
     }
 
     if ( key && type && elementCache )
-    {
         CFDictionarySetValue(elementCache, key, type);
+    
+    if (key)
         CFRelease(key);
-    }
     
     if (isElementCached)
         *isElementCached = false;

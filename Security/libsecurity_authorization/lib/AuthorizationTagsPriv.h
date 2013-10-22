@@ -207,6 +207,28 @@
  */
 #define kAuthorizationRuleParameterExtractPassword		"extract-password"
 
+/*! @defined kAuthorizationRuleParameterEntitled
+ boolean that indicates whether to grant a right based on the entitlement
+ */
+#define kAuthorizationRuleParameterEntitled             "entitled"
+
+/*! @defined kAuthorizationRuleParameterEntitledAndGroup
+ boolean that indicates whether to grant a right base on the entitlement 
+ and if the user is a member of kAuthorizationRuleParameterGroup
+ */
+#define kAuthorizationRuleParameterEntitledAndGroup		"entitled-group"
+
+/*! @defined kAuthorizationRuleParameterVPNEntitledAndGroup
+ boolean that indicates whether to grant a right base on the VPN entitlement
+ and if the user is a member of kAuthorizationRuleParameterGroup
+ */
+#define kAuthorizationRuleParameterVPNEntitledAndGroup		"vpn-entitled-group"
+
+/*! @defined kAuthorizationRuleParameterRequireAppleSigned
+ boolean require the caller to be signed by apple
+ */
+#define kAuthorizationRuleParameterRequireAppleSigned		"require-apple-signed"
+
 /*
  * Hints for internal Authorization use
  */
@@ -229,6 +251,8 @@
 #define AGENT_HINT_RETRY_REASON "reason"
 #define AGENT_HINT_AUTHORIZE_RULE "authorize-rule"
 #define AGENT_HINT_TOKEN_NAME "token-name"
+#define AGENT_HINT_PROCESS_SIGNED "process-apple-signed"
+#define AGENT_HINT_SHOW_RESET "show-reset"
 
 /* passed by loginwindow to securityd and agent */
 #define AGENT_HINT_IMMEDIATE_LAUNCH "immediate-agent"
@@ -285,7 +309,12 @@
 #define AGENT_CONTEXT_AUTO_LOGIN "auto-login"
 #define AGENT_CONTEXT_USER_CONSENT "user-consent"
 
+// Allow the user to choose to display their password
+#define AGENT_HINT_ALLOW_SHOW_PASSWORD "show-add-password"
+
 #define AGENT_HINT_SHOW_ADD_TO_KEYCHAIN "show-add-to-keychain"
+#define AGENT_CONTEXT_RESET_PASSWORD "reset-password"
+
 /* can be in hints or context */
 #define AGENT_ADD_TO_KEYCHAIN "add-to-keychain"
 

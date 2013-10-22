@@ -34,11 +34,35 @@
 					<key>DeviceUsagePage</key>
 					<integer>1</integer>
 				</dict>
+<!--
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>1</integer>
+					<key>DeviceUsagePage</key>
+					<integer>1</integer>
+				</dict>
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>4</integer>
+					<key>DeviceUsagePage</key>
+					<integer>1</integer>
+				</dict>
+-->
+				<dict>
+					<key>DeviceUsage</key>
+					<integer>8</integer>
+					<key>DeviceUsagePage</key>
+					<integer>1</integer>
+				</dict>
 				<dict>
 					<key>DeviceUsage</key>
 					<integer>128</integer>
 					<key>DeviceUsagePage</key>
 					<integer>1</integer>
+				</dict>
+				<dict>
+					<key>DeviceUsagePage</key>
+					<integer>11</integer>
 				</dict>
 				<dict>
 					<key>DeviceUsagePage</key>

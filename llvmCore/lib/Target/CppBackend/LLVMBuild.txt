@@ -15,6 +15,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = TargetInfo
+
 [component_0]
 type = TargetGroup
 name = CppBackend
@@ -26,4 +29,3 @@ name = CppBackendCodeGen
 parent = CppBackend
 required_libraries = Core CppBackendInfo Support Target
 add_to_library_groups = CppBackend
-

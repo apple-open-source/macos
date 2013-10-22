@@ -28,29 +28,30 @@
 #ifndef _SSLCONTEXT_H_
 #define _SSLCONTEXT_H_ 1
 
-#include "ssl.h"
 #include "SecureTransport.h"
 #include "sslBuildFlags.h"
 
 #ifdef USE_CDSA_CRYPTO
 #include <Security/cssmtype.h>
 #else
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE
 #include <Security/SecDH.h>
 #include <Security/SecKeyInternal.h>
 #else
-typedef struct OpaqueSecDHContext *SecDHContext;
+#include "../sec/Security/SecDH.h"  // hack to get SecDH.
+// typedef struct OpaqueSecDHContext *SecDHContext;
 #endif
 #include <corecrypto/ccec.h>
 #endif
 
-#include <CommonCrypto/CommonCryptor.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <AssertMacros.h>
 
 #include "sslPriv.h"
 #include "tls_ssl.h"
 #include "sslDigests.h"
-
+#include "sslRecord.h"
+#include "cipherSpecs.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,62 +65,26 @@ typedef struct
 
 
 #ifdef USE_SSLCERTIFICATE
+
 /*
  * An element in a certificate chain.
  */
 typedef struct SSLCertificate
-{
-	struct SSLCertificate   *next;
+{   
+    struct SSLCertificate   *next;
     SSLBuffer               derCert;
 } SSLCertificate;
 
-#endif
+size_t SSLGetCertificateChainLength(
+    const SSLCertificate *c);
+OSStatus sslDeleteCertificateChain(
+    SSLCertificate 		*certs,
+    SSLContext 			*ctx);
 
-#include "cryptType.h"
+#endif /* USE_SSLCERTIFICATE */
 
-/*
- * An SSLContext contains four of these - one for each of {read,write} and for
- * {current, pending}.
- */
-struct CipherContext
-{
-
-	const HashHmacReference   	*macRef;			/* HMAC (TLS) or digest (SSL) */
-    const SSLSymmetricCipher  	*symCipher;
-
-	/* this is a context which is reused once per record */
-    HashHmacContext				macCtx;
-
-    /*
-     * Crypto context for CommonCrypto-based symmetric ciphers
-     */
-    CCCryptorRef			cryptorRef;
-
-	/* needed in CDSASymmInit */
-	uint8_t						encrypting;
-
-    sslUint64          			sequenceNum;
-    uint8_t            			ready;
-
-	/* in SSL2 mode, the macSecret is the same size as the
-	 * cipher key - which is 24 bytes in the 3DES case. */
-	uint8_t						macSecret[SSL_MAX_DIGEST_LEN];
-};
-/* typedef in cryptType.h */
 
 #include "sslHandshake.h"
-
-typedef struct WaitingRecord
-{   struct WaitingRecord    *next;
-    size_t                  sent;
-	/*
-	 * These two fields replace a dynamically allocated SSLBuffer;
-	 * the payload to write is contained in the variable-length
-	 * array data[].
-	 */
-	size_t					length;
-	UInt8					data[1];
-} WaitingRecord;
 
 typedef struct WaitingMessage
 {
@@ -151,7 +116,7 @@ typedef struct SSLPrivKey
 
 #else /* !USE_CDSA_CRYPTO */
 
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE
 typedef struct __SecKey SSLPubKey;
 typedef struct __SecKey SSLPrivKey;
 #else
@@ -166,12 +131,25 @@ typedef struct OpaqueSecKeyRef SSLPrivKey;
 
 #endif
 
+typedef struct {
+    SSLCipherSuite      		      cipherSpec;
+    KeyExchangeMethod   		      keyExchangeMethod;
+    uint8_t                           keySize;  /* size in bytes */
+    uint8_t                           ivSize;
+    uint8_t                           blockSize;
+    uint8_t                           macSize;
+    HMAC_Algs                         macAlg;
+} SSLCipherSpecParams;
+
 struct SSLContext
 {
 	CFRuntimeBase		_base;
     IOContext           ioCtx;
 
-	/*
+    const struct SSLRecordFuncs *recFuncs;
+    SSLRecordContextRef recCtx;
+    
+	/* 
 	 * Prior to successful protocol negotiation, negProtocolVersion
 	 * is SSL_Version_Undetermined. Subsequent to successful
 	 * negotiation, negProtocolVersion contains the actual over-the-wire
@@ -313,15 +291,16 @@ struct SSLContext
 
 	char				*peerDomainName;
 	size_t				peerDomainNameLen;
-
-    CipherContext       readCipher;
-    CipherContext       writeCipher;
-    CipherContext       readPending;
-    CipherContext       writePending;
-    CipherContext       prevCipher;             /* previous write cipher context, used for retransmit */
-
+	
+    uint8_t             readCipher_ready;
+    uint8_t             writeCipher_ready;
+    uint8_t             readPending_ready;
+    uint8_t             writePending_ready;
+    uint8_t             prevCipher_ready;             /* previous write cipher context, used for retransmit */
+    
     uint16_t            selectedCipher;			/* currently selected */
-    SSLCipherSpec       selectedCipherSpec;     /* ditto */
+    SSLCipherSpecParams selectedCipherSpecParams;     /* ditto */
+
     SSLCipherSuite		*validCipherSuites;		/* context's valid suites */
     size_t              numValidCipherSuites;	/* size of validCipherSuites */
 #if ENABLE_SSLV2
@@ -362,12 +341,8 @@ struct SSLContext
     /* Queue a full flight of messages */
     WaitingMessage      *messageWriteQueue;
     Boolean             messageQueueContainsChangeCipherSpec;
-	/* Record layer fields */
-    SSLBuffer    		partialReadBuffer;
-    size_t              amountRead;
-
+    
 	/* Transport layer fields */
-    WaitingRecord       *recordWriteQueue;
     SSLBuffer			receivedDataBuffer;
     size_t              receivedDataPos;
 
@@ -430,9 +405,24 @@ struct SSLContext
     Boolean             secure_renegotiation_received;
     SSLBuffer           ownVerifyData;
     SSLBuffer           peerVerifyData;
+
+    /* RFC 4279: TLS PSK */
+    SSLBuffer           pskSharedSecret;
+    SSLBuffer           pskIdentity;
+
+    /* TLS False Start */
+    Boolean             falseStartEnabled; //FalseStart enabled (by API call)
 };
 
 OSStatus SSLUpdateNegotiatedClientAuthType(SSLContextRef ctx);
+
+Boolean sslIsSessionActive(const SSLContext *ctx);
+
+static inline bool sslVersionIsLikeTls12(SSLContext *ctx)
+{
+    check(ctx->negProtocolVersion!=SSL_Version_Undetermined);
+    return ctx->isDTLS ? ctx->negProtocolVersion > DTLS_Version_1_0 : ctx->negProtocolVersion >= TLS_Version_1_2;
+}
 
 #ifdef __cplusplus
 }

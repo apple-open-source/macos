@@ -444,6 +444,8 @@ static void s_secure_log_reset(uintptr_t value);
 static void s_inlineasm(uintptr_t value);
 static void s_leb128(uintptr_t sign);
 static void s_incbin(uintptr_t value);
+static void s_data_region(uintptr_t value);
+static void s_end_data_region(uintptr_t value);
 
 #ifdef PPC
 /*
@@ -528,6 +530,8 @@ static const pseudo_typeS pseudo_table[] = {
   { "inlineasmstart",	s_inlineasm,	1	},
   { "inlineasmend",	s_inlineasm,	0	},
   { "incbin",	s_incbin,	0	},
+  { "data_region",	s_data_region,	0	},
+  { "end_data_region",	s_end_data_region,	0	},
   { NULL }	/* end sentinel */
 };
 
@@ -4921,6 +4925,41 @@ uintptr_t value)
 	    }
 	    as_fatal("Couldn't find the .incbin file: \"%s\"", filename);
 	}
+}
+
+/*
+ * s_data_region() parses and ignores the pseudo op:
+ *	.data_region  { region_type }
+ *	region_type := "jt8" | "jt16" | "jt32" | "jta32"
+ */
+static
+void
+s_data_region(
+uintptr_t value)
+{
+    char *region_type, c;
+
+	c = *input_line_pointer;
+	if(c != '\n'){
+	    region_type = input_line_pointer;
+	    do{
+		c = *input_line_pointer++;
+	    }while(c != '\n');
+	    input_line_pointer--;
+        }
+        demand_empty_rest_of_line();
+}
+
+/*
+ * s_end_data_region() parses and ignores the pseudo op:
+ *	.end_data_region
+ */
+static
+void
+s_end_data_region(
+uintptr_t value)
+{
+        demand_empty_rest_of_line();
 }
 
 #ifdef SPARC

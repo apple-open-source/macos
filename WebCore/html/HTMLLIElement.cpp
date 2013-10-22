@@ -26,6 +26,7 @@
 #include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "EventPathWalker.h"
 #include "HTMLNames.h"
 #include "RenderListItem.h"
 
@@ -56,55 +57,58 @@ bool HTMLLIElement::isPresentationAttribute(const QualifiedName& name) const
     return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLLIElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+void HTMLLIElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStylePropertySet* style)
 {
-    if (attr->name() == typeAttr) {
-        if (attr->value() == "a")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerAlpha);
-        else if (attr->value() == "A")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperAlpha);
-        else if (attr->value() == "i")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerRoman);
-        else if (attr->value() == "I")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperRoman);
-        else if (attr->value() == "1")
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueDecimal);
+    if (name == typeAttr) {
+        if (value == "a")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerAlpha);
+        else if (value == "A")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperAlpha);
+        else if (value == "i")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerRoman);
+        else if (value == "I")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperRoman);
+        else if (value == "1")
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, CSSValueDecimal);
         else
-            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, attr->value());
+            addPropertyToPresentationAttributeStyle(style, CSSPropertyListStyleType, value);
     } else
-        HTMLElement::collectStyleForAttribute(attr, style);
+        HTMLElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
-void HTMLLIElement::parseAttribute(Attribute* attr)
+void HTMLLIElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (attr->name() == valueAttr) {
+    if (name == valueAttr) {
         if (renderer() && renderer()->isListItem())
-            parseValue(attr->value());
+            parseValue(value);
     } else
-        HTMLElement::parseAttribute(attr);
+        HTMLElement::parseAttribute(name, value);
 }
 
-void HTMLLIElement::attach()
+void HTMLLIElement::attach(const AttachContext& context)
 {
     ASSERT(!attached());
 
-    HTMLElement::attach();
+    HTMLElement::attach(context);
 
     if (renderer() && renderer()->isListItem()) {
-        RenderListItem* render = toRenderListItem(renderer());
+        RenderListItem* listItemRenderer = toRenderListItem(renderer());
 
         // Find the enclosing list node.
-        Node* listNode = 0;
-        Node* n = this;
-        while (!listNode && (n = n->parentNode())) {
-            if (n->hasTagName(ulTag) || n->hasTagName(olTag))
-                listNode = n;
+        Element* listNode = 0;
+        Element* current = this;
+        while (!listNode) {
+            current = current->parentElement();
+            if (!current)
+                break;
+            if (current->hasTagName(ulTag) || current->hasTagName(olTag))
+                listNode = current;
         }
 
         // If we are not in a list, tell the renderer so it can position us inside.
         // We don't want to change our style to say "inside" since that would affect nested nodes.
         if (!listNode)
-            render->setNotInList(true);
+            listItemRenderer->setNotInList(true);
 
         parseValue(fastGetAttribute(valueAttr));
     }

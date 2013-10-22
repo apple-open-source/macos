@@ -365,8 +365,8 @@ block_io_and_alarm(void)
 	if (sigaddset(&set, SIGALRM))
 	    msyslog(LOG_ERR, "block_io_and_alarm: sigaddset(SIGALRM) failed: %m");
 
-	if (sigprocmask(SIG_BLOCK, &set, NULL))
-	    msyslog(LOG_ERR, "block_io_and_alarm: sigprocmask() failed: %m");
+	if ((errno = pthread_sigmask(SIG_BLOCK, &set, NULL)))
+	    msyslog(LOG_ERR, "block_io_and_alarm: pthread_sigmask() failed: %m");
 }
 
 void
@@ -393,8 +393,8 @@ block_sigio(void)
 		    msyslog(LOG_ERR, "block_sigio: sigaddset(SIGPOLL) failed: %m");
 #	endif
 
-		if (sigprocmask(SIG_BLOCK, &set, NULL))
-		    msyslog(LOG_ERR, "block_sigio: sigprocmask() failed: %m");
+		if ((errno = pthread_sigmask(SIG_BLOCK, &set, NULL)))
+		    msyslog(LOG_ERR, "block_sigio: pthread_sigmask() failed: %m");
 	}
 }
 
@@ -417,8 +417,8 @@ unblock_io_and_alarm(void)
 	if (sigaddset(&unset, SIGALRM))
 	    msyslog(LOG_ERR, "unblock_io_and_alarm: sigaddset(SIGALRM) failed: %m");
 
-	if (sigprocmask(SIG_UNBLOCK, &unset, NULL))
-	    msyslog(LOG_ERR, "unblock_io_and_alarm: sigprocmask() failed: %m");
+	if ((errno = pthread_sigmask(SIG_UNBLOCK, &unset, NULL)))
+	    msyslog(LOG_ERR, "unblock_io_and_alarm: pthread_sigmask() failed: %m");
 }
 
 void
@@ -446,8 +446,8 @@ unblock_sigio(void)
 		    msyslog(LOG_ERR, "unblock_sigio: sigaddset(SIGPOLL) failed: %m");
 #	endif
 
-		if (sigprocmask(SIG_UNBLOCK, &unset, NULL))
-		    msyslog(LOG_ERR, "unblock_sigio: sigprocmask() failed: %m");
+		if ((errno = pthread_sigmask(SIG_UNBLOCK, &unset, NULL)))
+		    msyslog(LOG_ERR, "unblock_sigio: pthread_sigmask() failed: %m");
 	}
 }
 
@@ -456,8 +456,8 @@ wait_for_signal(void)
 {
 	sigset_t old;
 
-	if (sigprocmask(SIG_UNBLOCK, NULL, &old))
-	    msyslog(LOG_ERR, "wait_for_signal: sigprocmask() failed: %m");
+	if ((errno = pthread_sigmask(SIG_UNBLOCK, NULL, &old)))
+	    msyslog(LOG_ERR, "wait_for_signal: pthread_sigmask() failed: %m");
 
 #  if defined(USE_SIGIO)
 	if (sigdelset(&old, SIGIO))

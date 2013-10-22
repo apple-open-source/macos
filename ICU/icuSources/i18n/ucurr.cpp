@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2012, International Business Machines
+* Copyright (c) 2002-2013, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -102,7 +102,7 @@ static const UChar EUR_STR[] = {0x0045,0x0055,0x0052,0};
 static UHashtable* gIsoCodes = NULL;
 static UBool gIsoCodesInitialized = FALSE;
 
-static UMTX gIsoCodesLock = NULL;
+static UMutex gIsoCodesLock = U_MUTEX_INITIALIZER;
 
 //------------------------------------------------------------
 // Code
@@ -113,10 +113,6 @@ static UMTX gIsoCodesLock = NULL;
 static UBool U_CALLCONV 
 isoCodes_cleanup(void)
 {
-    if (gIsoCodesLock != NULL) {
-        umtx_destroy(&gIsoCodesLock);
-    }
-
     if (gIsoCodes != NULL) {
         uhash_close(gIsoCodes);
         gIsoCodes = NULL;
@@ -223,8 +219,8 @@ idForLocale(const char* locale, char* countryAndVariant, int capacity, UErrorCod
     uloc_getCountry(locale, countryAndVariant, capacity, ec);
     uloc_getVariant(locale, variant, sizeof(variant), ec);
     if (variant[0] != 0) {
-        variantType = (0 == uprv_strcmp(variant, VAR_EURO))
-                   | ((0 == uprv_strcmp(variant, VAR_PRE_EURO)) << 1);
+        variantType = (uint32_t)(0 == uprv_strcmp(variant, VAR_EURO))
+                   | ((uint32_t)(0 == uprv_strcmp(variant, VAR_PRE_EURO)) << 1);
         if (variantType)
         {
             uprv_strcat(countryAndVariant, VAR_DELIM_STR);
@@ -249,7 +245,7 @@ U_CDECL_END
 #if !UCONFIG_NO_SERVICE
 struct CReg;
 
-static UMTX gCRegLock = 0;
+static UMutex gCRegLock = U_MUTEX_INITIALIZER;
 static CReg* gCRegHead = 0;
 
 struct CReg : public icu::UMemory {
@@ -334,7 +330,6 @@ struct CReg : public icu::UMemory {
             gCRegHead = gCRegHead->next;
             delete n;
         }
-        umtx_destroy(&gCRegLock);
     }
 };
 
@@ -1717,6 +1712,7 @@ static const struct CurrencyList {
     {"SOS", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SRD", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SRG", UCURR_COMMON|UCURR_DEPRECATED},
+    {"SSP", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"STD", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"SUR", UCURR_COMMON|UCURR_DEPRECATED},
     {"SVC", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -1769,7 +1765,9 @@ static const struct CurrencyList {
     {"XPF", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"XPT", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"XRE", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
+    {"XSU", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"XTS", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
+    {"XUA", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"XXX", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"YDD", UCURR_COMMON|UCURR_DEPRECATED},
     {"YER", UCURR_COMMON|UCURR_NON_DEPRECATED},
@@ -1779,10 +1777,11 @@ static const struct CurrencyList {
     {"YUR", UCURR_COMMON|UCURR_DEPRECATED},
     {"ZAL", UCURR_UNCOMMON|UCURR_NON_DEPRECATED},
     {"ZAR", UCURR_COMMON|UCURR_NON_DEPRECATED},
-    {"ZMK", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"ZMK", UCURR_COMMON|UCURR_DEPRECATED},
+    {"ZMW", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"ZRN", UCURR_COMMON|UCURR_DEPRECATED},
     {"ZRZ", UCURR_COMMON|UCURR_DEPRECATED},
-    {"ZWL", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"ZWL", UCURR_COMMON|UCURR_DEPRECATED},
     {"ZWR", UCURR_COMMON|UCURR_DEPRECATED},
     {"ZWD", UCURR_COMMON|UCURR_DEPRECATED},
     { NULL, 0 } // Leave here to denote the end of the list.
@@ -1874,28 +1873,33 @@ ucurr_createCurrencyList(UErrorCode* status){
                     }
                     const UChar *isoCode = ures_getString(idRes, &isoLength, &localStatus);
 
-                    // get the from date
-                    int32_t fromLength = 0;
+                    // get from date
+                    UDate fromDate = U_DATE_MIN;
                     UResourceBundle *fromRes = ures_getByKey(currencyRes, "from", NULL, &localStatus);
-                    const int32_t *fromArray = ures_getIntVector(fromRes, &fromLength, &localStatus);
-                    int64_t currDate64 = (int64_t)fromArray[0] << 32;
-                    currDate64 |= ((int64_t)fromArray[1] & (int64_t)INT64_C(0x00000000FFFFFFFF));
-                    UDate fromDate = (UDate)currDate64;
+
+                    if (U_SUCCESS(localStatus)) {
+                        int32_t fromLength = 0;
+                        const int32_t *fromArray = ures_getIntVector(fromRes, &fromLength, &localStatus);
+                        int64_t currDate64 = (int64_t)fromArray[0] << 32;
+                        currDate64 |= ((int64_t)fromArray[1] & (int64_t)INT64_C(0x00000000FFFFFFFF));
+                        fromDate = (UDate)currDate64;
+                    }
+                    ures_close(fromRes);
+
+                    // get to date
                     UDate toDate = U_DATE_MAX;
+                    localStatus = U_ZERO_ERROR;
+                    UResourceBundle *toRes = ures_getByKey(currencyRes, "to", NULL, &localStatus);
 
-                    if (ures_getSize(currencyRes)> 2) {
+                    if (U_SUCCESS(localStatus)) {
                         int32_t toLength = 0;
-                        UResourceBundle *toRes = ures_getByKey(currencyRes, "to", NULL, &localStatus);
                         const int32_t *toArray = ures_getIntVector(toRes, &toLength, &localStatus);
-
-                        currDate64 = (int64_t)toArray[0] << 32;
+                        int64_t currDate64 = (int64_t)toArray[0] << 32;
                         currDate64 |= ((int64_t)toArray[1] & (int64_t)INT64_C(0x00000000FFFFFFFF));
                         toDate = (UDate)currDate64;
+                    }
+                    ures_close(toRes);
 
-                        ures_close(toRes);
-                    } 
-
-                    ures_close(fromRes);  
                     ures_close(idRes);
                     ures_close(currencyRes);
 
@@ -1903,6 +1907,7 @@ ucurr_createCurrencyList(UErrorCode* status){
                     entry->from = fromDate;
                     entry->to = toDate;
 
+                    localStatus = U_ZERO_ERROR;
                     uhash_put(gIsoCodes, (UChar *)isoCode, entry, &localStatus);
                 }
             } else {
@@ -1944,7 +1949,6 @@ ucurr_isAvailable(const UChar* isoCode, UDate from, UDate to, UErrorCode* eError
         uhash_setValueDeleter(gIsoCodes, deleteIsoCodeEntry);
 
         ucln_i18n_registerCleanup(UCLN_I18N_CURRENCY, currency_cleanup);
-
         ucurr_createCurrencyList(&status);
         if (U_FAILURE(status)) {
             umtx_unlock(&gIsoCodesLock);

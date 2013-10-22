@@ -28,22 +28,27 @@
 #ifndef Connection_h
 #define Connection_h
 
-#include "ArgumentDecoder.h"
-#include "ArgumentEncoder.h"
 #include "Arguments.h"
-#include "MessageID.h"
+#include "MessageDecoder.h"
+#include "MessageEncoder.h"
+#include "MessageReceiver.h"
 #include "WorkQueue.h"
-#include <wtf/HashMap.h>
+#include <wtf/Deque.h>
+#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/Threading.h>
+#include <wtf/text/CString.h>
 
 #if OS(DARWIN)
 #include <mach/mach_port.h>
-#elif PLATFORM(WIN)
-#include <string>
+#if HAVE(XPC)
+#include <xpc/xpc.h>
+#endif
 #elif PLATFORM(QT)
+QT_BEGIN_NAMESPACE
 class QSocketNotifier;
+QT_END_NAMESPACE
 #endif
 
 #if PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(EFL)
@@ -56,9 +61,6 @@ class RunLoop;
 
 namespace CoreIPC {
 
-class BinarySemaphore;
-class MessageID;
-    
 enum MessageSendFlags {
     // Whether this message should be dispatched when waiting for a sync reply.
     // This is the default for synchronous messages.
@@ -66,7 +68,7 @@ enum MessageSendFlags {
 };
 
 enum SyncMessageSendFlags {
-    // Will allow events to continue being handled while waiting for the synch reply.
+    // Will allow events to continue being handled while waiting for the sync reply.
     SpinRunLoopWhileWaitingForReply = 1 << 0,
 };
     
@@ -80,48 +82,64 @@ while (0)
 
 class Connection : public ThreadSafeRefCounted<Connection> {
 public:
-    class MessageReceiver {
-    public:
-        virtual void didReceiveMessage(Connection*, MessageID, ArgumentDecoder*) = 0;
-        virtual void didReceiveSyncMessage(Connection*, MessageID, ArgumentDecoder*, OwnPtr<ArgumentEncoder>&) { ASSERT_NOT_REACHED(); }
-
-    protected:
-        virtual ~MessageReceiver() { }
-    };
-    
     class Client : public MessageReceiver {
     public:
         virtual void didClose(Connection*) = 0;
-        virtual void didReceiveInvalidMessage(Connection*, MessageID) = 0;
-
-#if PLATFORM(WIN)
-        virtual Vector<HWND> windowsToReceiveSentMessagesWhileWaitingForSyncReply() = 0;
-#endif
+        virtual void didReceiveInvalidMessage(Connection*, StringReference messageReceiverName, StringReference messageName) = 0;
 
     protected:
         virtual ~Client() { }
     };
 
-    class QueueClient {
-    public:
-        virtual void didReceiveMessageOnConnectionWorkQueue(Connection*, MessageID, ArgumentDecoder*, bool& didHandleMessage) = 0;
-
-    protected:
-        virtual ~QueueClient() { }
+    class WorkQueueMessageReceiver : public MessageReceiver, public ThreadSafeRefCounted<WorkQueueMessageReceiver> {
     };
 
 #if OS(DARWIN)
-    typedef mach_port_t Identifier;
-#elif PLATFORM(WIN)
+    struct Identifier {
+        Identifier()
+            : port(MACH_PORT_NULL)
+#if HAVE(XPC)
+            , xpcConnection(0)
+#endif
+        {
+        }
+
+        Identifier(mach_port_t port)
+            : port(port)
+#if HAVE(XPC)
+            , xpcConnection(0)
+#endif
+        {
+        }
+
+#if HAVE(XPC)
+        Identifier(mach_port_t port, xpc_connection_t xpcConnection)
+            : port(port)
+            , xpcConnection(xpcConnection)
+        {
+        }
+#endif
+
+        mach_port_t port;
+#if HAVE(XPC)
+        xpc_connection_t xpcConnection;
+#endif
+    };
+    static bool identifierIsNull(Identifier identifier) { return identifier.port == MACH_PORT_NULL; }
+#elif OS(WINDOWS)
     typedef HANDLE Identifier;
     static bool createServerAndClientIdentifiers(Identifier& serverIdentifier, Identifier& clientIdentifier);
+    static bool identifierIsNull(Identifier identifier) { return !identifier; }
 #elif USE(UNIX_DOMAIN_SOCKETS)
     typedef int Identifier;
+    static bool identifierIsNull(Identifier identifier) { return !identifier; }
 #endif
 
     static PassRefPtr<Connection> createServerConnection(Identifier, Client*, WebCore::RunLoop* clientRunLoop);
     static PassRefPtr<Connection> createClientConnection(Identifier, Client*, WebCore::RunLoop* clientRunLoop);
     ~Connection();
+
+    Client* client() const { return m_client; }
 
 #if OS(DARWIN)
     void setShouldCloseConnectionOnMachExceptions();
@@ -137,11 +155,11 @@ public:
     // In the future we might want a more generic way to handle sync or async messages directly
     // on the work queue, for example if we want to handle them on some other thread we could avoid
     // handling the message on the client thread first.
-    typedef void (*DidCloseOnConnectionWorkQueueCallback)(WorkQueue&, Connection*);
+    typedef void (*DidCloseOnConnectionWorkQueueCallback)(Connection*);
     void setDidCloseOnConnectionWorkQueueCallback(DidCloseOnConnectionWorkQueueCallback callback);
 
-    void addQueueClient(QueueClient*);
-    void removeQueueClient(QueueClient*);
+    void addWorkQueueMessageReceiver(StringReference messageReceiverName, WorkQueue*, WorkQueueMessageReceiver*);
+    void removeWorkQueueMessageReceiver(StringReference messageReceiverName);
 
     bool open();
     void invalidate();
@@ -155,58 +173,18 @@ public:
     template<typename T> bool sendSync(const T& message, const typename T::Reply& reply, uint64_t destinationID, double timeout = NoTimeout, unsigned syncSendFlags = 0);
     template<typename T> bool waitForAndDispatchImmediately(uint64_t destinationID, double timeout);
 
-    PassOwnPtr<ArgumentEncoder> createSyncMessageArgumentEncoder(uint64_t destinationID, uint64_t& syncRequestID);
-    bool sendMessage(MessageID, PassOwnPtr<ArgumentEncoder>, unsigned messageSendFlags = 0);
-    bool sendSyncReply(PassOwnPtr<ArgumentEncoder>);
+    PassOwnPtr<MessageEncoder> createSyncMessageEncoder(StringReference messageReceiverName, StringReference messageName, uint64_t destinationID, uint64_t& syncRequestID);
+    bool sendMessage(PassOwnPtr<MessageEncoder>, unsigned messageSendFlags = 0);
+    PassOwnPtr<MessageDecoder> sendSyncMessage(uint64_t syncRequestID, PassOwnPtr<MessageEncoder>, double timeout, unsigned syncSendFlags = 0);
+    PassOwnPtr<MessageDecoder> sendSyncMessageFromSecondaryThread(uint64_t syncRequestID, PassOwnPtr<MessageEncoder>, double timeout);
+    bool sendSyncReply(PassOwnPtr<MessageEncoder>);
 
-    // FIXME: These variants of send, sendSync and waitFor are all deprecated.
-    // All clients should move to the overloads that take a message type.
-    template<typename E, typename T> bool deprecatedSend(E messageID, uint64_t destinationID, const T& arguments);
-    template<typename E, typename T, typename U> bool deprecatedSendSync(E messageID, uint64_t destinationID, const T& arguments, const U& reply, double timeout = NoTimeout);
-    
     void wakeUpRunLoop();
 
-    unsigned lastSentSyncMessageID() const { return m_lastSentSyncMessageID; }
+    void incrementDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount() { ++m_inDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount; }
+    void decrementDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount() { --m_inDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount; }
 
-private:
-    template<typename T> class Message {
-    public:
-        Message()
-            : m_arguments(0)
-        {
-        }
-
-        Message(MessageID messageID, PassOwnPtr<T> arguments)
-            : m_messageID(messageID)
-            , m_arguments(arguments.leakPtr())
-        {
-        }
-        
-        MessageID messageID() const { return m_messageID; }
-        uint64_t destinationID() const { return m_arguments->destinationID(); }
-
-        T* arguments() const { return m_arguments; }
-        
-        PassOwnPtr<T> releaseArguments()
-        {
-            OwnPtr<T> arguments = adoptPtr(m_arguments);
-            m_arguments = 0;
-
-            return arguments.release();
-        }
-        
-    private:
-        MessageID m_messageID;
-        // The memory management of this class is very unusual. The class acts
-        // as if it has an owning reference to m_arguments (e.g., accepting a
-        // PassOwnPtr in its constructor) in all ways except that it does not
-        // deallocate m_arguments on destruction.
-        // FIXME: Does this leak m_arguments on destruction?
-        T* m_arguments;
-    };
-
-public:
-    typedef Message<ArgumentEncoder> OutgoingMessage;
+    bool inSendSync() const { return m_inSendSyncCount; }
 
 private:
     Connection(Identifier, bool isServer, Client*, WebCore::RunLoop* clientRunLoop);
@@ -215,66 +193,66 @@ private:
     
     bool isValid() const { return m_client; }
     
-    PassOwnPtr<ArgumentDecoder> waitForMessage(MessageID, uint64_t destinationID, double timeout);
+    PassOwnPtr<MessageDecoder> waitForMessage(StringReference messageReceiverName, StringReference messageName, uint64_t destinationID, double timeout);
     
-    PassOwnPtr<ArgumentDecoder> sendSyncMessage(MessageID, uint64_t syncRequestID, PassOwnPtr<ArgumentEncoder>, double timeout, unsigned syncSendFlags = 0);
-    PassOwnPtr<ArgumentDecoder> waitForSyncReply(uint64_t syncRequestID, double timeout, unsigned syncSendFlags);
+    PassOwnPtr<MessageDecoder> waitForSyncReply(uint64_t syncRequestID, double timeout, unsigned syncSendFlags);
 
     // Called on the connection work queue.
-    void processIncomingMessage(MessageID, PassOwnPtr<ArgumentDecoder>);
-    void processIncomingSyncReply(PassOwnPtr<ArgumentDecoder>);
+    void processIncomingMessage(PassOwnPtr<MessageDecoder>);
+    void processIncomingSyncReply(PassOwnPtr<MessageDecoder>);
 
-    void addQueueClientOnWorkQueue(QueueClient*);
-    void removeQueueClientOnWorkQueue(QueueClient*);
-    
+    void addWorkQueueMessageReceiverOnConnectionWorkQueue(StringReference messageReceiverName, WorkQueue*, WorkQueueMessageReceiver*);
+    void removeWorkQueueMessageReceiverOnConnectionWorkQueue(StringReference messageReceiverName);
+    void dispatchWorkQueueMessageReceiverMessage(WorkQueueMessageReceiver*, MessageDecoder*);
+
     bool canSendOutgoingMessages() const;
     bool platformCanSendOutgoingMessages() const;
     void sendOutgoingMessages();
-    bool sendOutgoingMessage(MessageID, PassOwnPtr<ArgumentEncoder>);
+    bool sendOutgoingMessage(PassOwnPtr<MessageEncoder>);
     void connectionDidClose();
     
-    typedef Message<ArgumentDecoder> IncomingMessage;
-
     // Called on the listener thread.
     void dispatchConnectionDidClose();
-    void dispatchMessage(IncomingMessage&);
     void dispatchOneMessage();
-    void dispatchSyncMessage(MessageID, ArgumentDecoder*);
+    void dispatchMessage(PassOwnPtr<MessageDecoder>);
+    void dispatchMessage(MessageDecoder&);
+    void dispatchSyncMessage(MessageDecoder&);
+    void dispatchDidReceiveInvalidMessage(const CString& messageReceiverNameString, const CString& messageNameString);
     void didFailToSendSyncMessage();
 
     // Can be called on any thread.
-    void enqueueIncomingMessage(IncomingMessage&);
+    void enqueueIncomingMessage(PassOwnPtr<MessageDecoder>);
 
     Client* m_client;
     bool m_isServer;
     uint64_t m_syncRequestID;
-    unsigned m_lastSentSyncMessageID;
 
     bool m_onlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage;
     bool m_shouldExitOnSyncMessageSendFailure;
     DidCloseOnConnectionWorkQueueCallback m_didCloseOnConnectionWorkQueueCallback;
 
     bool m_isConnected;
-    WorkQueue m_connectionQueue;
+    RefPtr<WorkQueue> m_connectionQueue;
     WebCore::RunLoop* m_clientRunLoop;
 
-    Vector<QueueClient*> m_connectionQueueClients;
+    HashMap<StringReference, std::pair<RefPtr<WorkQueue>, RefPtr<WorkQueueMessageReceiver>>> m_workQueueMessageReceivers;
 
+    unsigned m_inSendSyncCount;
     unsigned m_inDispatchMessageCount;
     unsigned m_inDispatchMessageMarkedDispatchWhenWaitingForSyncReplyCount;
     bool m_didReceiveInvalidMessage;
 
     // Incoming messages.
     Mutex m_incomingMessagesLock;
-    Deque<IncomingMessage> m_incomingMessages;
+    Deque<OwnPtr<MessageDecoder>> m_incomingMessages;
 
     // Outgoing messages.
     Mutex m_outgoingMessagesLock;
-    Deque<OutgoingMessage> m_outgoingMessages;
+    Deque<OwnPtr<MessageEncoder>> m_outgoingMessages;
     
     ThreadCondition m_waitForMessageCondition;
     Mutex m_waitForMessageMutex;
-    HashMap<std::pair<unsigned, uint64_t>, ArgumentDecoder*> m_waitForMessageMap;
+    HashMap<std::pair<std::pair<StringReference, StringReference>, uint64_t>, OwnPtr<MessageDecoder>> m_waitForMessageMap;
 
     // Represents a sync request for which we're waiting on a reply.
     struct PendingSyncReply {
@@ -283,9 +261,9 @@ private:
 
         // The reply decoder, will be null if there was an error processing the sync
         // message on the other side.
-        ArgumentDecoder* replyDecoder;
+        MessageDecoder* replyDecoder;
 
-        // Will be set to true once a reply has been received or an error occurred.
+        // Will be set to true once a reply has been received.
         bool didReceiveReply;
     
         PendingSyncReply()
@@ -302,15 +280,15 @@ private:
         {
         }
 
-        PassOwnPtr<ArgumentDecoder> releaseReplyDecoder()
+        PassOwnPtr<MessageDecoder> releaseReplyDecoder()
         {
-            OwnPtr<ArgumentDecoder> reply = adoptPtr(replyDecoder);
+            OwnPtr<MessageDecoder> reply = adoptPtr(replyDecoder);
             replyDecoder = 0;
             
             return reply.release();
         }
     };
-    
+
     class SyncMessageState;
     friend class SyncMessageState;
     RefPtr<SyncMessageState> m_syncMessageState;
@@ -319,6 +297,10 @@ private:
     bool m_shouldWaitForSyncReplies;
     Vector<PendingSyncReply> m_pendingSyncReplies;
 
+    class SecondaryThreadPendingSyncReply;
+    typedef HashMap<uint64_t, SecondaryThreadPendingSyncReply*> SecondaryThreadPendingSyncReplyMap;
+    SecondaryThreadPendingSyncReplyMap m_secondaryThreadPendingSyncReplyMap;
+
 #if OS(DARWIN)
     // Called on the connection queue.
     void receiveSourceEventHandler();
@@ -326,13 +308,21 @@ private:
     void exceptionSourceEventHandler();
 
     mach_port_t m_sendPort;
+    dispatch_source_t m_deadNameSource;
+
     mach_port_t m_receivePort;
+    dispatch_source_t m_receivePortDataAvailableSource;
 
     // If setShouldCloseConnectionOnMachExceptions has been called, this has
     // the exception port that exceptions from the other end will be sent on.
     mach_port_t m_exceptionPort;
+    dispatch_source_t m_exceptionPortDataAvailableSource;
 
-#elif PLATFORM(WIN)
+#if HAVE(XPC)
+    xpc_connection_t m_xpcConnection;
+#endif
+
+#elif OS(WINDOWS)
     // Called on the connection queue.
     void readEventHandler();
     void writeEventHandler();
@@ -342,11 +332,11 @@ private:
     // same time zone as WTF::currentTime(). Dispatches sent (not posted) messages to the passed-in
     // set of HWNDs until the semaphore is signaled or absoluteTime is reached. Returns true if the
     // semaphore is signaled, false otherwise.
-    static bool dispatchSentMessagesUntil(const Vector<HWND>& windows, CoreIPC::BinarySemaphore& semaphore, double absoluteTime);
+    static bool dispatchSentMessagesUntil(const Vector<HWND>& windows, WTF::BinarySemaphore& semaphore, double absoluteTime);
 
     Vector<uint8_t> m_readBuffer;
     OVERLAPPED m_readState;
-    OwnPtr<ArgumentEncoder> m_pendingWriteArguments;
+    OwnPtr<MessageEncoder> m_pendingWriteEncoder;
     OVERLAPPED m_writeState;
     HANDLE m_connectionPipe;
 #elif USE(UNIX_DOMAIN_SOCKETS)
@@ -367,22 +357,26 @@ private:
 
 template<typename T> bool Connection::send(const T& message, uint64_t destinationID, unsigned messageSendFlags)
 {
-    OwnPtr<ArgumentEncoder> argumentEncoder = ArgumentEncoder::create(destinationID);
-    argumentEncoder->encode(message);
+    COMPILE_ASSERT(!T::isSync, AsyncMessageExpected);
+
+    OwnPtr<MessageEncoder> encoder = MessageEncoder::create(T::receiverName(), T::name(), destinationID);
+    encoder->encode(message);
     
-    return sendMessage(MessageID(T::messageID), argumentEncoder.release(), messageSendFlags);
+    return sendMessage(encoder.release(), messageSendFlags);
 }
 
 template<typename T> bool Connection::sendSync(const T& message, const typename T::Reply& reply, uint64_t destinationID, double timeout, unsigned syncSendFlags)
 {
+    COMPILE_ASSERT(T::isSync, SyncMessageExpected);
+
     uint64_t syncRequestID = 0;
-    OwnPtr<ArgumentEncoder> argumentEncoder = createSyncMessageArgumentEncoder(destinationID, syncRequestID);
+    OwnPtr<MessageEncoder> encoder = createSyncMessageEncoder(T::receiverName(), T::name(), destinationID, syncRequestID);
     
     // Encode the rest of the input arguments.
-    argumentEncoder->encode(message);
+    encoder->encode(message);
 
     // Now send the message and wait for a reply.
-    OwnPtr<ArgumentDecoder> replyDecoder = sendSyncMessage(MessageID(T::messageID), syncRequestID, argumentEncoder.release(), timeout, syncSendFlags);
+    OwnPtr<MessageDecoder> replyDecoder = sendSyncMessage(syncRequestID, encoder.release(), timeout, syncSendFlags);
     if (!replyDecoder)
         return false;
 
@@ -392,42 +386,13 @@ template<typename T> bool Connection::sendSync(const T& message, const typename 
 
 template<typename T> bool Connection::waitForAndDispatchImmediately(uint64_t destinationID, double timeout)
 {
-    OwnPtr<ArgumentDecoder> decoder = waitForMessage(MessageID(T::messageID), destinationID, timeout);
+    OwnPtr<MessageDecoder> decoder = waitForMessage(T::receiverName(), T::name(), destinationID, timeout);
     if (!decoder)
         return false;
 
     ASSERT(decoder->destinationID() == destinationID);
-    m_client->didReceiveMessage(this, MessageID(T::messageID), decoder.get());
+    m_client->didReceiveMessage(this, *decoder);
     return true;
-}
-
-// These three member functions are all deprecated.
-
-template<typename E, typename T, typename U>
-inline bool Connection::deprecatedSendSync(E messageID, uint64_t destinationID, const T& arguments, const U& reply, double timeout)
-{
-    uint64_t syncRequestID = 0;
-    OwnPtr<ArgumentEncoder> argumentEncoder = createSyncMessageArgumentEncoder(destinationID, syncRequestID);
-
-    // Encode the input arguments.
-    argumentEncoder->encode(arguments);
-    
-    // Now send the message and wait for a reply.
-    OwnPtr<ArgumentDecoder> replyDecoder = sendSyncMessage(MessageID(messageID), syncRequestID, argumentEncoder.release(), timeout);
-    if (!replyDecoder)
-        return false;
-    
-    // Decode the reply.
-    return replyDecoder->decode(const_cast<U&>(reply));
-}
-
-template<typename E, typename T>
-bool Connection::deprecatedSend(E messageID, uint64_t destinationID, const T& arguments)
-{
-    OwnPtr<ArgumentEncoder> argumentEncoder = ArgumentEncoder::create(destinationID);
-    argumentEncoder->encode(arguments);
-
-    return sendMessage(MessageID(messageID), argumentEncoder.release());
 }
 
 } // namespace CoreIPC

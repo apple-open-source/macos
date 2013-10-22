@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,148 +30,45 @@
 #include <time.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include "mylog.h"
-
-static bool S_verbose;
-
-void
-my_log_set_verbose(bool verbose)
-{
-    S_verbose = verbose;
-    return;
-}
-
-void
-my_log(int priority, const char *message, ...)
-{
-    va_list 		ap;
-
-    if (priority == LOG_DEBUG) {
-	if (S_verbose == FALSE)
-	    return;
-	priority = LOG_NOTICE;
-    }
-
-    va_start(ap, message);
-    vsyslog(priority, message, ap);
-    va_end(ap);
-
-    return;
-}
-
-static void
-fprint_time(FILE * f)
-{
-    time_t		t;
-    struct tm		tm;
-    struct timeval	tv;
-
-    (void)gettimeofday(&tv, NULL);
-    t = tv.tv_sec;
-    (void)localtime_r(&t, &tm);
-
-    fprintf(f, "%04d/%02d/%02d %2d:%02d:%02d.%06d ",
-	    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-	    tm.tm_hour, tm.tm_min, tm.tm_sec,
-	    tv.tv_usec);
-    return;
-}
-
-void
-timestamp_fprintf(FILE * f, const char * message, ...)
-{
-    va_list		ap;
-
-    fprint_time(f);
-    va_start(ap, message);
-    vfprintf(f, message, ap);
-    va_end(ap);
-}
+#include "symbol_scope.h"
 
 /**
  ** eapolclient logging
  **/
 
-static FILE * 	S_log_file;
-static uint32_t	S_log_flags;
+STATIC uint32_t	S_log_flags;
 
-void
-eapolclient_log_set(FILE * log_file, uint32_t log_flags)
+PRIVATE_EXTERN uint32_t
+eapolclient_log_flags(void)
 {
-    S_log_file = log_file;
-    if (S_log_file != NULL) {
-	S_log_flags = log_flags;
+    return (S_log_flags);
+}
+
+PRIVATE_EXTERN void
+eapolclient_log_set_flags(uint32_t log_flags, bool log_it)
+{
+    if (S_log_flags == log_flags) {
+	return;
+    }
+    if (log_flags != 0) {
+	EAPLogSetVerbose(TRUE);
+	if (log_it) {
+	    EAPLOG(LOG_NOTICE, "Verbose mode enabled (LogFlags = 0x%x)",
+		   log_flags);
+	}
     }
     else {
-	S_log_flags = 0;
+	if (log_it) {
+	    EAPLOG(LOG_NOTICE, "Verbose mode disabled");
+	}
+	EAPLogSetVerbose(FALSE);
     }
+    S_log_flags = log_flags;
     return;
 }
 
-bool
+PRIVATE_EXTERN bool
 eapolclient_should_log(uint32_t flags)
 {
-    bool	should_log;
-
-    if (S_log_file == NULL || (S_log_flags & flags) == 0) {
-	should_log = FALSE;
-    }
-    else {
-	should_log = TRUE;
-    }
-    return (should_log);
-}
-
-static void
-fwrite_plist(FILE * f, CFPropertyListRef p)
-{
-    CFDataRef	data;
-
-    data = CFPropertyListCreateXMLData(NULL, p);
-    if (data == NULL) {
-	return;
-    }
-    fwrite(CFDataGetBytePtr(data), CFDataGetLength(data), 1, f);
-    CFRelease(data);
-    return;
-}
-
-void
-eapolclient_log(uint32_t flags, const char * message, ...)
-{
-    va_list		ap;
-
-    if ((S_log_flags & kLogFlagIncludeStdoutStderr) != 0) {
-	fflush(stdout);
-	fflush(stderr);
-    }
-    if (eapolclient_should_log(flags) == FALSE) {
-	return;
-    }
-    va_start(ap, message);
-    fprint_time(S_log_file);
-    vfprintf(S_log_file, message, ap);
-    va_end(ap);
-    fflush(S_log_file);
-    return;
-}
-
-void
-eapolclient_log_plist(uint32_t flags, CFPropertyListRef plist)
-{
-    if ((S_log_flags & kLogFlagIncludeStdoutStderr) != 0) {
-	fflush(stdout);
-	fflush(stderr);
-    }
-    if (eapolclient_should_log(flags) == FALSE) {
-	return;
-    }
-    fwrite_plist(S_log_file, plist);
-    fflush(S_log_file);
-    return;
-}
-
-FILE *
-eapolclient_log_file(void)
-{
-    return (S_log_file);
+    return ((S_log_flags & flags) != 0);
 }

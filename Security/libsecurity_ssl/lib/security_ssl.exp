@@ -20,7 +20,6 @@ _SSLGetNegotiatedProtocolVersion
 _SSLGetNumberEnabledCiphers
 _SSLGetNumberOfSignatureAlgorithms
 _SSLGetNumberSupportedCiphers
-_SSLGetPeerCertificates
 _SSLCopyPeerCertificates
 _SSLCopyPeerTrust
 _SSLGetPeerDomainName
@@ -37,7 +36,6 @@ _SSLGetSessionOption
 _SSLGetSessionState
 _SSLGetSignatureAlgorithms
 _SSLGetSupportedCiphers
-_SSLGetTrustedRoots
 _SSLCopyTrustedRoots
 _SSLSetTrustedLeafCertificates
 _SSLCopyTrustedLeafCertificates

@@ -863,8 +863,12 @@ base, footprints, and the scripts that support them.
 						test to run.
 		  10.0, gcc			Darwin lsof doesn't
 						have adequate support
-						to allow the LTlock and
-						LTnlink tests to run.
+						to allow the LTlock test
+						to run.
+		  11.0, gcc			Darwin lsof doesn't
+						have adequate support
+						to allow the LTlock test
+						to run.
     FreeBSD       4.5, i386, gcc
 		  4.6, i386, gcc
 		  4.7, i386, gcc
@@ -897,7 +901,10 @@ base, footprints, and the scripts that support them.
 		  7.3 Amd64, gcc
 		  7.4 Amd64, gcc
 		  8.0 Amd64, gcc
-		  9/0 Amd64, gcc
+		  8.2 Amd64, gcc
+		  8.3 Amd64, gcc
+		  9.0 Amd64, gcc
+		 10.0 Amd64, gcc
     DEC OSF/1	  4.0, cc
     HP-UX	  10.20, cc			LTbigf
 		  10.20, gcc (1)		LTbigf
@@ -1016,4 +1023,4 @@ I was unable to make the test suite run on the following dialects.
 
 
 Vic Abell <abe@purdue.edu>
-September 27, 2011
+April 10, 2012

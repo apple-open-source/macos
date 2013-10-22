@@ -1840,11 +1840,7 @@ poll_update(
 			peer->nextdate = current_time + RESP_DELAY;
 #endif /* REFCLOCK */
 		else {
-#if __APPLE__ /* Do not throttle bursts */
-			peer->nextdate = current_time + RESP_DELAY;
-#else // !__APPLE__
 			peer->nextdate = utemp;
-#endif // __APPLE__
 		}
 		
 #ifdef OPENSSL

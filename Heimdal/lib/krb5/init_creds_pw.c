@@ -74,6 +74,7 @@ struct krb5_init_creds_context_data {
 #define  USED_PKINIT_W2K	2
 #define  USED_ENC_TS_GUESS	4
 #define  USED_ENC_TS_INFO	8
+#define  USED_ENC_TS_RENEG	16
     int change_password;
     
     struct pa_info_data paid;
@@ -85,6 +86,7 @@ struct krb5_init_creds_context_data {
 
     krb5_prompter_fct prompter;
     void *prompter_data;
+    int warned_user;
 
     struct pa_info_data *ppaid;
 
@@ -99,6 +101,10 @@ struct krb5_init_creds_context_data {
 #define KRB5_FAST_EXPECTED 32 /* in exchange with KDC, fast was discovered */
 #define KRB5_FAST_REQUIRED 64 /* fast required by action of caller */
 #define KRB5_FAST_DISABLED 128
+
+#define KRB5_FAST_OPTIMISTIC 512  /* Optimistic try, like Anon + PKINIT or service fast bit */
+#define KRB5_FAST_REQUIRE_ENC_PA 1024
+
 	krb5_keyblock *reply_key;
 	krb5_ccache armor_ccache;
 	krb5_crypto armor_crypto;
@@ -109,6 +115,10 @@ struct krb5_init_creds_context_data {
     hx509_cert client_cert;
     krb5_data *pku2u_assertion;
 #endif
+    
+    struct {
+	struct timeval run_time;
+    } stats;
 };
 
 static void
@@ -195,13 +205,13 @@ free_init_creds_ctx(krb5_context context, krb5_init_creds_context ctx)
     memset(ctx, 0, sizeof(*ctx));
 }
 
-static int
+static krb5_deltat
 get_config_time (krb5_context context,
 		 const char *realm,
 		 const char *name,
 		 int def)
 {
-    int ret;
+    krb5_deltat ret;
 
     ret = krb5_config_get_time (context, NULL,
 				"realms",
@@ -227,7 +237,7 @@ init_cred (krb5_context context,
 	   krb5_get_init_creds_opt *options)
 {
     krb5_error_code ret;
-    int tmp;
+    krb5_deltat tmp;
     krb5_timestamp now;
 
     krb5_timeofday (context, &now);
@@ -350,13 +360,17 @@ krb5_init_creds_warn_user(krb5_context context,
 			  krb5_init_creds_context ctx)
 {
     krb5_timestamp sec;
-    krb5_boolean reported = FALSE;
     krb5_const_realm realm;
     LastReq *lr;
     time_t t, i;
 
     if (ctx->prompter == NULL)
         return 0;
+
+    if (ctx->warned_user)
+	return 0;
+
+    ctx->warned_user = 1;
 
     krb5_timeofday (context, &sec);
 
@@ -376,27 +390,17 @@ krb5_init_creds_warn_user(krb5_context context,
 				  ctx->prompter_data,
 				  "Your password will expire at ",
 				  lr->val[i].lr_value);
-		reported = TRUE;
 		break;
 	    case LR_ACCT_EXPTIME :
 		report_expiration(context, ctx->prompter,
 				  ctx->prompter_data,
 				  "Your account will expire at ",
 				  lr->val[i].lr_value);
-		reported = TRUE;
 		break;
 	    }
 	}
     }
 
-    if (!reported
-	&& ctx->enc_part.key_expiration
-	&& *ctx->enc_part.key_expiration <= t) {
-        report_expiration(context, ctx->prompter,
-			  ctx->prompter_data,
-			  "Your password/account will expire at ",
-			  *ctx->enc_part.key_expiration);
-    }
     return 0;
 }
 
@@ -618,16 +622,21 @@ change_password (krb5_context context,
     ret = krb5_set_password (context,
 			     &cpw_cred,
 			     buf1,
-			     client,
+			     NULL,
 			     &result_code,
 			     &result_code_string,
 			     &result_string);
     if (ret)
 	goto out;
-    if (asprintf(&p, "%s: %.*s\n",
-		 result_code ? "Error" : "Success",
-		 (int)result_string.length,
-		 result_string.length > 0 ? (char*)result_string.data : "") < 0)
+
+    if (result_code == 0) {
+	p = strdup("Success");
+    } else if (asprintf(&p, "Failed: %.*s %.*s: %d\n",
+			(int)result_code_string.length,
+			result_code_string.length > 0 ? (char*)result_code_string.data : "",
+			(int)result_string.length,
+			result_string.length > 0 ? (char*)result_string.data : "",
+			result_code) < 0)
     {
 	ret = ENOMEM;
 	goto out;
@@ -636,15 +645,15 @@ change_password (krb5_context context,
     /* return the result */
     (*prompter) (context, data, NULL, p, 0, NULL);
 
-    free (p);
     if (result_code == 0) {
 	strlcpy (newpw, buf1, newpw_sz);
 	ret = 0;
     } else {
 	ret = ENOTTY;
 	krb5_set_error_message(context, ret,
-			       N_("failed changing password", ""));
+			       N_("failed changing password: %s", ""), p);
     }
+    free (p);
 
 out:
     memset (buf1, 0, sizeof(buf1));
@@ -1259,6 +1268,7 @@ process_pa_data_to_md(krb5_context context,
 
     } else if (in_md->len != 0) {
 	struct pa_info_data paid, *ppaid;
+	const char *state;
 	unsigned flag;
 
 	memset(&paid, 0, sizeof(paid));
@@ -1266,33 +1276,40 @@ process_pa_data_to_md(krb5_context context,
 	paid.etype = KRB5_ENCTYPE_NULL;
 	ppaid = process_pa_info(context, creds->client, a, &paid, in_md);
 
- 	if (ppaid)
- 	    flag = USED_ENC_TS_INFO;
- 	else
+	/*
+	 * We have to allow the KDC to re-negotiate the PA-TS data
+	 * once, this is since the in the case of a windows read only
+	 * KDC that doesn't have the keys simply guesses what the
+	 * master is supposed to support. In the case where this
+	 * breaks in when the RO-KDC is a newer version the the RW-KDC
+	 * and the RO-KDC announced a enctype that the older doesn't
+	 * support.
+	 */
+ 	if (ppaid) {
+	    if (ctx->used_pa_types & USED_ENC_TS_INFO) {
+		flag = USED_ENC_TS_RENEG;
+		state = "reneg";
+	    } else {
+		flag = USED_ENC_TS_INFO;
+		state = "info";
+	    }
+ 	} else {
  	    flag = USED_ENC_TS_GUESS;
+	    state = "guess";
+	}
 
  	if (ctx->used_pa_types & flag) {
 	    free_paid(context, &paid);
  	    krb5_set_error_message(context, KRB5_GET_IN_TKT_LOOP,
- 				   "Already tried ENC-TS-%s, looping",
- 				   flag == USED_ENC_TS_INFO ? "info" : "guess");
+ 				   "Already tried ENC-TS-%s, looping", state);
  	    return KRB5_GET_IN_TKT_LOOP;
  	}
 
 	if (ppaid) {
 	    free_paid(context, &ctx->paid);
 	    ctx->paid = *ppaid;
-	    flag = USED_ENC_TS_INFO;
 	} else {
 	    free_paid(context, &paid);
-	    flag = USED_ENC_TS_GUESS;
-	}
-
-	if (ctx->used_pa_types & flag) {
-	    krb5_set_error_message(context, KRB5_GET_IN_TKT_LOOP,
-				   "Already tried ENC-TS-%s, looping",
-				   flag == USED_ENC_TS_INFO ? "info" : "guess");
-	    return KRB5_GET_IN_TKT_LOOP;
 	}
 
 	pa_data_to_md_ts_enc(context, a, creds->client, ctx, ppaid, *out_md);
@@ -1320,6 +1337,8 @@ process_pa_data_to_md(krb5_context context,
     pa_data_add_pac_request(context, ctx, *out_md);
 
     if ((ctx->fast_state.flags & KRB5_FAST_DISABLED) == 0) {
+	ctx->fast_state.flags |= KRB5_FAST_REQUIRE_ENC_PA;
+
 	ret = krb5_padata_add(context, *out_md, KRB5_PADATA_REQ_ENC_PA_REP, NULL, 0);
 	if (ret)
 	    return ret;
@@ -1655,9 +1674,11 @@ keytab_key_proc(krb5_context context, krb5_enctype enctype,
     krb5_keytab real_keytab;
     krb5_keytab_entry entry;
 
-    if(keytab == NULL)
-	krb5_kt_default(context, &real_keytab);
-    else
+    if (keytab == NULL) {
+	ret = krb5_kt_default(context, &real_keytab);
+	if (ret)
+	    return ret;
+    } else
 	real_keytab = keytab;
 
     ret = krb5_kt_get_entry (context, real_keytab, principal,
@@ -2215,10 +2236,13 @@ krb5_init_creds_step(krb5_context context,
 		     krb5_realm *realm,
 		     unsigned int *flags)
 {
+    struct timeval start_time, end_time;
     krb5_error_code ret;
     size_t len = 0;
     size_t size;
     AS_REQ req2;
+
+    gettimeofday(&start_time, NULL);
 
     krb5_data_zero(out);
     
@@ -2238,6 +2262,8 @@ krb5_init_creds_step(krb5_context context,
 	    free_init_creds_ctx(context, ctx);
 	    return ret;
 	}
+	if (ctx->fast_state.armor_ccache == NULL)
+	    ctx->fast_state.flags |= KRB5_FAST_DISABLED;
     }
 
 #define MAX_PA_COUNTER 10
@@ -2305,7 +2331,6 @@ krb5_init_creds_step(krb5_context context,
 				       &rep,
 				       &ctx->cred,
 				       ctx->fast_state.reply_key,
-				       NULL,
 				       KRB5_KU_AS_REP_ENC_PART,
 				       NULL,
 				       ctx->nonce,
@@ -2325,12 +2350,18 @@ krb5_init_creds_step(krb5_context context,
 	    free_AS_REP(&rep.kdc_rep);
 	    free_EncASRepPart(&rep.enc_part);
 
+	    gettimeofday(&end_time, NULL);
+	    timevalsub(&end_time, &start_time);
+	    timevaladd(&ctx->stats.run_time, &end_time);
+
+	    _krb5_debugx(context, 1, "krb5_get_init_creds: wc: %ld.%06d",
+			 ctx->stats.run_time.tv_sec, ctx->stats.run_time.tv_usec);
 	    return ret;
 
 	} else {
 	    /* let's try to parse it as a KRB-ERROR */
 
-	    _krb5_debugx(context, 5, "krb5_get_init_creds: got an error");
+	    _krb5_debugx(context, 5, "krb5_get_init_creds: got an KRB-ERROR from KDC");
 
 	    free_KRB_ERROR(&ctx->error);
 
@@ -2459,10 +2490,18 @@ krb5_init_creds_step(krb5_context context,
 		
 		ctx->change_password = 1;
 		
+		ctx->prompter(context, ctx->prompter_data, NULL, N_("Password has expired", ""), 0, NULL);
+		
+
 		/* try to avoid recursion */
 		if (ctx->in_tkt_service != NULL && strcmp(ctx->in_tkt_service, "kadmin/changepw") == 0)
 		    goto out;
 		
+		/* don't include prompter in runtime */
+		gettimeofday(&end_time, NULL);
+		timevalsub(&end_time, &start_time);
+		timevaladd(&ctx->stats.run_time, &end_time);
+
 		ret = change_password(context,
 				      ctx->cred.client,
 				      ctx->password,
@@ -2474,24 +2513,42 @@ krb5_init_creds_step(krb5_context context,
 		if (ret)
 		    goto out;
 		
+		gettimeofday(&start_time, NULL);
+
 		krb5_init_creds_set_password(context, ctx, buf2);
 
 		ctx->used_pa_types = 0;
 
 	    } else if (ret == KRB5KDC_ERR_PREAUTH_FAILED) {
 
-		if (ctx->fast_state.flags & KRB5_FAST_DISABLED)
+		if (ctx->fast_state.flags & KRB5_FAST_DISABLED) {
+		    _krb5_debugx(context, 10, "FAST disabled and got preauth failed");
 		    goto out;
-		if (ctx->fast_state.flags & (KRB5_FAST_REQUIRED | KRB5_FAST_EXPECTED))
+		}
+
+		if ((ctx->fast_state.flags & KRB5_FAST_OPTIMISTIC) == 0) {
+		    _krb5_debugx(context, 10, "Preauth failed");
 		    goto out;
+		}
 
-		_krb5_debugx(context, 10, "preauth failed with FAST, and told by KDC or user, trying w/o FAST");
+		_krb5_debugx(context, 10, "preauth failed with Optimistic FAST, trying w/o FAST");
 
+		ctx->fast_state.flags &= ~KRB5_FAST_OPTIMISTIC;
 		ctx->fast_state.flags |= KRB5_FAST_DISABLED;
 		ctx->used_pa_types = 0;
+
 	    } else {
-		/* some other error code from the KDC, lets return it to the user */
-		goto out;
+		if (ctx->fast_state.flags & KRB5_FAST_OPTIMISTIC) {
+		    _krb5_debugx(context, 10,
+				 "Some other error %d failed with Optimistic FAST, trying w/o FAST", ret);
+
+		    ctx->fast_state.flags &= ~KRB5_FAST_OPTIMISTIC;
+		    ctx->fast_state.flags |= KRB5_FAST_DISABLED;
+		    ctx->used_pa_types = 0;
+		} else {
+		    /* some other error code from the KDC, lets return it to the user */
+		    goto out;
+		}
 	    }
 	}
     }
@@ -2543,6 +2600,10 @@ krb5_init_creds_step(krb5_context context,
 	*realm = ctx->cred.client->realm;
     
 
+    gettimeofday(&end_time, NULL);
+    timevalsub(&end_time, &start_time);
+    timevaladd(&ctx->stats.run_time, &end_time);
+
     return 0;
  out:
     return ret;
@@ -2566,6 +2627,20 @@ krb5_init_creds_get_creds(krb5_context context,
 {
     return krb5_copy_creds_contents(context, &ctx->cred, cred);
 }
+
+KRB5_LIB_FUNCTION krb5_timestamp KRB5_LIB_CALL
+_krb5_init_creds_get_cred_endtime(krb5_context context, krb5_init_creds_context ctx)
+{
+    return ctx->cred.times.endtime;
+}
+
+KRB5_LIB_FUNCTION krb5_principal KRB5_LIB_CALL
+_krb5_init_creds_get_cred_client(krb5_context context, krb5_init_creds_context ctx)
+{
+    return ctx->cred.client;
+}
+
+
 
 /**
  * Get the last error from the transaction.
@@ -2701,6 +2776,7 @@ krb5_init_creds_get(krb5_context context, krb5_init_creds_context ctx)
 
     while (1) {
 	krb5_realm realm = NULL;
+	struct timeval nstart, nend;
 	
 	flags = 0;
 	ret = krb5_init_creds_step(context, ctx, &in, &out, hostinfo, &realm, &flags);
@@ -2711,10 +2787,15 @@ krb5_init_creds_get(krb5_context context, krb5_init_creds_context ctx)
 	if ((flags & KRB5_INIT_CREDS_STEP_FLAG_CONTINUE) == 0)
 	    break;
 
+	gettimeofday(&nstart, NULL);
+
 	ret = krb5_sendto_context (context, stctx, &out, realm, &in);
     	if (ret)
 	    goto out;
 
+	gettimeofday(&nend, NULL);
+	timevalsub(&nend, &nstart);
+	timevaladd(&ctx->stats.run_time, &nend);
     }
 
  out:
@@ -2793,7 +2874,6 @@ krb5_get_init_creds_password(krb5_context context,
     if (ret == 0)
 	krb5_process_last_request(context, options, ctx);
 
-
     if (ret == KRB5KDC_ERR_KEY_EXPIRED && chpw == 0) {
 	char buf2[1024];
 
@@ -2817,6 +2897,7 @@ krb5_get_init_creds_password(krb5_context context,
 	    goto out;
 	chpw = 1;
 	krb5_init_creds_free(context, ctx);
+
 	goto again;
     }
 

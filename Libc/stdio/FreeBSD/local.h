@@ -35,6 +35,7 @@
 
 #include <sys/cdefs.h>
 #include "xlocale_private.h"
+#include "xprintf_private.h"
 #include <sys/types.h>	/* for off_t */
 #include <pthread.h>
 #include <limits.h>
@@ -51,6 +52,15 @@ extern int	_swrite(FILE *, char const *, int);
 extern fpos_t	_sseek(FILE *, fpos_t, int);
 extern int	_ftello(FILE *, fpos_t *);
 extern int	_fseeko(FILE *, off_t, int, int);
+extern int	_vasprintf(printf_comp_t __restrict, printf_domain_t __restrict,
+		char ** __restrict, locale_t __restrict,
+		const char * __restrict, __va_list);
+extern int	_vdprintf(printf_comp_t __restrict, printf_domain_t __restrict,
+		int, locale_t __restrict, const char * __restrict, va_list);
+extern int	_vsnprintf(printf_comp_t __restrict, printf_domain_t __restrict,
+		char * __restrict, size_t n, locale_t __restrict,
+		const char * __restrict, __va_list);
+
 extern int	__fflush(FILE *fp);
 extern void	__fcloseall(void);
 extern wint_t	__fgetwc(FILE *, locale_t);

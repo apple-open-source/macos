@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2005, 2007, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,12 @@
 /*
  * Mach server port name
  */
+#if	!TARGET_IPHONE_SIMULATOR
 #define SCD_SERVER	"com.apple.SystemConfiguration.configd"
+#else	// !TARGET_IPHONE_SIMULATOR
+#define SCD_SERVER_HOST	"com.apple.SystemConfiguration.configd"
+#define SCD_SERVER	"com.apple.SystemConfiguration.configd_sim"
+#endif	// !TARGET_IPHONE_SIMULATOR
 
 /*
  * Input arguments: serialized key's, list delimiters, ...

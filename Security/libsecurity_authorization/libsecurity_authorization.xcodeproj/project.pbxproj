@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		18F2360515CB387000060520 /* Authorization.c in Sources */ = {isa = PBXBuildFile; fileRef = 18F2360415CB387000060520 /* Authorization.c */; };
+		18F2360915CB3C7700060520 /* authutilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 18F2360815CB3C7700060520 /* authutilities.c */; };
 		40BC5D9B053230FA009E6ADA /* Authorization.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A593D3052E3AC700AF1EE3 /* Authorization.cpp */; };
 		4C481F05058161C400846F0C /* trampolineClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C481F03058161C400846F0C /* trampolineClient.cpp */; };
 		4C481F06058161C400846F0C /* trampolineServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C481F04058161C400846F0C /* trampolineServer.cpp */; };
@@ -42,6 +44,8 @@
 		18446156146E928E00B12992 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
 		18446157146E928E00B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		18446158146E92F800B12992 /* libsecurity_utilities.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_utilities.xcodeproj; path = ../libsecurity_utilities/libsecurity_utilities.xcodeproj; sourceTree = "<group>"; };
+		18F2360415CB387000060520 /* Authorization.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = Authorization.c; path = lib/Authorization.c; sourceTree = "<group>"; };
+		18F2360815CB3C7700060520 /* authutilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = authutilities.c; path = ../authd/authutilities.c; sourceTree = "<group>"; };
 		40BC5D9005322F76009E6ADA /* Authorization.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Authorization.h; path = lib/Authorization.h; sourceTree = "<group>"; };
 		40BC5D9305322F76009E6ADA /* AuthorizationDB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationDB.h; path = lib/AuthorizationDB.h; sourceTree = "<group>"; };
 		40BC5D9405322F76009E6ADA /* AuthorizationPlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationPlugin.h; path = lib/AuthorizationPlugin.h; sourceTree = "<group>"; };
@@ -109,6 +113,8 @@
 		C2A593CE052E3A8400AF1EE3 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				18F2360815CB3C7700060520 /* authutilities.c */,
+				18F2360415CB387000060520 /* Authorization.c */,
 				40C767090534CCDB008AC043 /* AuthorizationTagsPriv.h */,
 				40BC5D9005322F76009E6ADA /* Authorization.h */,
 				40BC5D9305322F76009E6ADA /* AuthorizationDB.h */,
@@ -170,7 +176,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD2B70987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_authorization" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -216,6 +222,8 @@
 				40BC5D9B053230FA009E6ADA /* Authorization.cpp in Sources */,
 				4C481F05058161C400846F0C /* trampolineClient.cpp in Sources */,
 				4C481F06058161C400846F0C /* trampolineServer.cpp in Sources */,
+				18F2360515CB387000060520 /* Authorization.c in Sources */,
+				18F2360915CB3C7700060520 /* authutilities.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -234,6 +242,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446155146E928E00B12992 /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					../authd,
+				);
 			};
 			name = Debug;
 		};
@@ -241,6 +254,11 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446157146E928E00B12992 /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					../authd,
+				);
 			};
 			name = Release;
 		};
@@ -248,6 +266,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446156146E928E00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -255,6 +279,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18446156146E928E00B12992 /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

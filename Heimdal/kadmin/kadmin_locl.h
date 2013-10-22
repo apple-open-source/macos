@@ -118,7 +118,7 @@ int  parse_timet (const char *, krb5_timestamp *, int *, int);
 int  edit_timet (const char *, krb5_timestamp *, int *,
 		 int);
 
-void deltat2str(unsigned, char *, size_t);
+void deltat2str(krb5_deltat, char *, size_t);
 int  str2deltat(const char *, krb5_deltat *);
 int  parse_deltat (const char *, krb5_deltat *, int *, int);
 int  edit_deltat (const char *, krb5_deltat *, int *, int);

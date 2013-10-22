@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2012, International Business Machines Corporation and    *
+* Copyright (C) 1997-2013, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -24,7 +24,7 @@
 *******************************************************************************
 */
 
-#include <typeinfo>  // for 'typeid' to work 
+#include "utypeinfo.h"  // for 'typeid' to work 
 
 #include "unicode/utypes.h"
 
@@ -45,6 +45,7 @@
 #include "indiancal.h"
 #include "chnsecal.h"
 #include "coptccal.h"
+#include "dangical.h"
 #include "ethpccal.h"
 #include "unicode/calendar.h"
 #include "cpputils.h"
@@ -164,6 +165,7 @@ static const char * const gCalTypes[] = {
     "ethiopic",
     "ethiopic-amete-alem",
     "iso8601",
+    "dangi",
     NULL
 };
 
@@ -183,7 +185,8 @@ typedef enum ECalType {
     CALTYPE_COPTIC,
     CALTYPE_ETHIOPIC,
     CALTYPE_ETHIOPIC_AMETE_ALEM,
-    CALTYPE_ISO8601
+    CALTYPE_ISO8601,
+    CALTYPE_DANGI
 } ECalType;
 
 U_NAMESPACE_BEGIN
@@ -340,6 +343,9 @@ static Calendar *createStandardCalendar(ECalType calType, const Locale &loc, UEr
             cal = new GregorianCalendar(loc, status);
             cal->setFirstDayOfWeek(UCAL_MONDAY);
             cal->setMinimalDaysInFirstWeek(4);
+            break;
+        case CALTYPE_DANGI:
+            cal = new DangiCalendar(loc, status);
             break;
         default:
             status = U_UNSUPPORTED_ERROR;
@@ -1050,6 +1056,9 @@ Calendar::getTimeInMillis(UErrorCode& status) const
 
 /**
 * Sets this Calendar's current time from the given long value.
+* A status of U_ILLEGAL_ARGUMENT_ERROR is set when millis is
+* outside the range permitted by a Calendar object when not in lenient mode.
+* when in lenient mode the out of range values are pinned to their respective min/max.
 * @param date the new time in UTC milliseconds from the epoch.
 */
 void 
@@ -1058,9 +1067,19 @@ Calendar::setTimeInMillis( double millis, UErrorCode& status ) {
         return;
 
     if (millis > MAX_MILLIS) {
-        millis = MAX_MILLIS;
+        if(isLenient()) {
+            millis = MAX_MILLIS;
+        } else {
+            status = U_ILLEGAL_ARGUMENT_ERROR;
+            return;
+        }
     } else if (millis < MIN_MILLIS) {
-        millis = MIN_MILLIS;
+        if(isLenient()) {
+            millis = MIN_MILLIS;
+        } else {
+            status = U_ILLEGAL_ARGUMENT_ERROR;
+            return;
+        }
     }
 
     fTime = millis;
@@ -1600,6 +1619,45 @@ void Calendar::roll(UCalendarDateFields field, int32_t amount, UErrorCode& statu
 
     case UCAL_YEAR:
     case UCAL_YEAR_WOY:
+        {
+            // * If era==0 and years go backwards in time, change sign of amount.
+            // * Until we have new API per #9393, we temporarily hardcode knowledge of
+            //   which calendars have era 0 years that go backwards.
+            UBool era0WithYearsThatGoBackwards = FALSE;
+            int32_t era = get(UCAL_ERA, status);
+            if (era == 0) {
+                const char * calType = getType();
+                if ( uprv_strcmp(calType,"gregorian")==0 || uprv_strcmp(calType,"roc")==0 || uprv_strcmp(calType,"coptic")==0 ) {
+                    amount = -amount;
+                    era0WithYearsThatGoBackwards = TRUE;
+                }
+            }
+            int32_t newYear = internalGet(field) + amount;
+            if (era > 0 || newYear >= 1) {
+                int32_t maxYear = getActualMaximum(field, status);
+                if (maxYear < 32768) {
+                    // this era has real bounds, roll should wrap years
+                    if (newYear < 1) {
+                        newYear = maxYear - ((-newYear) % maxYear);
+                    } else if (newYear > maxYear) {
+                        newYear = ((newYear - 1) % maxYear) + 1;
+                    }
+                // else era is unbounded, just pin low year instead of wrapping
+                } else if (newYear < 1) {
+                    newYear = 1;
+                }
+            // else we are in era 0 with newYear < 1;
+            // calendars with years that go backwards must pin the year value at 0,
+            // other calendars can have years < 0 in era 0
+            } else if (era0WithYearsThatGoBackwards) {
+                newYear = 1;
+            }
+            set(field, newYear);
+            pinField(UCAL_MONTH,status);
+            pinField(UCAL_DAY_OF_MONTH,status);
+            return;
+        }
+
     case UCAL_EXTENDED_YEAR:
         // Rolling the year can involve pinning the DAY_OF_MONTH.
         set(field, internalGet(field) + amount);
@@ -1861,8 +1919,25 @@ void Calendar::add(UCalendarDateFields field, int32_t amount, UErrorCode& status
         return;
 
     case UCAL_YEAR:
-    case UCAL_EXTENDED_YEAR:
     case UCAL_YEAR_WOY:
+      {
+        // * If era=0 and years go backwards in time, change sign of amount.
+        // * Until we have new API per #9393, we temporarily hardcode knowledge of
+        //   which calendars have era 0 years that go backwards.
+        // * Note that for UCAL_YEAR (but not UCAL_YEAR_WOY) we could instead handle
+        //   this by applying the amount to the UCAL_EXTENDED_YEAR field; but since
+        //   we would still need to handle UCAL_YEAR_WOY as below, might as well
+        //   also handle UCAL_YEAR the same way.
+        int32_t era = get(UCAL_ERA, status);
+        if (era == 0) {
+          const char * calType = getType();
+          if ( uprv_strcmp(calType,"gregorian")==0 || uprv_strcmp(calType,"roc")==0 || uprv_strcmp(calType,"coptic")==0 ) {
+            amount = -amount;
+          }
+        }
+      }
+      // Fall through into normal handling
+    case UCAL_EXTENDED_YEAR:
     case UCAL_MONTH:
       {
         UBool oldLenient = isLenient();
@@ -1949,10 +2024,19 @@ void Calendar::add(UCalendarDateFields field, int32_t amount, UErrorCode& status
             // danger of adjusting into a different day. To avoid
             // this we make the adjustment only if it actually
             // maintains the hour.
-            double t = internalGetTime();
-            setTimeInMillis(t + prevOffset - newOffset, status);
-            if (get(UCAL_HOUR_OF_DAY, status) != hour) {
-                setTimeInMillis(t, status);
+
+            // When the difference of the previous UTC offset and
+            // the new UTC offset exceeds 1 full day, we do not want
+            // to roll over/back the date. For now, this only happens
+            // in Samoa (Pacific/Apia) on Dec 30, 2011. See ticket:9452.
+            int32_t adjAmount = prevOffset - newOffset;
+            adjAmount = adjAmount >= 0 ? adjAmount % (int32_t)kOneDay : -(-adjAmount % (int32_t)kOneDay);
+            if (adjAmount != 0) {
+                double t = internalGetTime();
+                setTimeInMillis(t + adjAmount, status);
+                if (get(UCAL_HOUR_OF_DAY, status) != hour) {
+                    setTimeInMillis(t, status);
+                }
             }
         }
     } 
@@ -2220,6 +2304,11 @@ Calendar::getDayOfWeekType(UCalendarDaysOfWeek dayOfWeek, UErrorCode &status) co
         status = U_ILLEGAL_ARGUMENT_ERROR;
         return UCAL_WEEKDAY;
     }
+    if (fWeekendOnset == fWeekendCease) {
+        if (dayOfWeek != fWeekendOnset)
+            return UCAL_WEEKDAY;
+        return (fWeekendOnsetMillis == 0) ? UCAL_WEEKEND : UCAL_WEEKEND_ONSET;
+    }
     if (fWeekendOnset < fWeekendCease) {
         if (dayOfWeek < fWeekendOnset || dayOfWeek > fWeekendCease) {
             return UCAL_WEEKDAY;
@@ -2233,7 +2322,7 @@ Calendar::getDayOfWeekType(UCalendarDaysOfWeek dayOfWeek, UErrorCode &status) co
         return (fWeekendOnsetMillis == 0) ? UCAL_WEEKEND : UCAL_WEEKEND_ONSET;
     }
     if (dayOfWeek == fWeekendCease) {
-        return (fWeekendCeaseMillis == 0) ? UCAL_WEEKDAY : UCAL_WEEKEND_CEASE;
+        return (fWeekendCeaseMillis >= 86400000) ? UCAL_WEEKEND : UCAL_WEEKEND_CEASE;
     }
     return UCAL_WEEKEND;
 }
@@ -2542,6 +2631,32 @@ UCalendarDateFields Calendar::newerField(UCalendarDateFields defaultField, UCale
 
 UCalendarDateFields Calendar::resolveFields(const UFieldResolutionTable* precedenceTable) {
     int32_t bestField = UCAL_FIELD_COUNT;
+    int32_t tempBestField;
+    UBool restoreWeekOfInternalSet = FALSE;
+    if (fStamp[UCAL_DAY_OF_WEEK] >= kMinimumUserStamp &&
+        fStamp[UCAL_DATE] >= kMinimumUserStamp &&
+        fStamp[UCAL_MONTH] >= kMinimumUserStamp &&
+        fStamp[UCAL_WEEK_OF_YEAR] == kInternallySet &&
+        fStamp[UCAL_WEEK_OF_MONTH] == kInternallySet &&
+        fStamp[UCAL_DAY_OF_WEEK_IN_MONTH] == kInternallySet) {
+            int32_t monthStampDelta =  fStamp[UCAL_DAY_OF_WEEK] - fStamp[UCAL_MONTH];
+            int32_t dateStampDelta =  fStamp[UCAL_DAY_OF_WEEK] - fStamp[UCAL_DATE];
+            if ( monthStampDelta >= 1 && monthStampDelta <= 3 && dateStampDelta >= 1 && dateStampDelta <= 3 ) {
+                // If UCAL_MONTH, UCAL_DATE and UCAL_DAY_OF_WEEK are all explicitly set nearly one after the
+                // other (as when parsing a single date format), with UCAL_DAY_OF_WEEK set most recently, and
+                // if UCAL_WEEK_OF_YEAR, UCAL_WEEK_OF_MONTH, and UCAL_DAY_OF_WEEK_IN_MONTH are all only
+                // implicitly set (as from setTimeInMillis), then for the calculations in this call temporarily
+                // treat UCAL_WEEK_OF_YEAR, UCAL_WEEK_OF_MONTH, and UCAL_DAY_OF_WEEK_IN_MONTH as unset so they
+                // don't combine with UCAL_DAY_OF_WEEK to override the date in UCAL_MONTH & UCAL_DATE. All of
+                // these conditions are to avoid messing up the case of parsing a format with UCAL_DAY_OF_WEEK
+                // alone or in combination with other fields besides UCAL_MONTH, UCAL_DATE. Note: the current
+                // stamp value is incremented each time Calendar::set is called to explicitly set a field value.
+                fStamp[UCAL_WEEK_OF_YEAR] = kUnset;
+                fStamp[UCAL_WEEK_OF_MONTH] = kUnset;
+                fStamp[UCAL_DAY_OF_WEEK_IN_MONTH] = kUnset;
+                restoreWeekOfInternalSet = TRUE;
+            }
+    }
     for (int32_t g=0; precedenceTable[g][0][0] != -1 && (bestField == UCAL_FIELD_COUNT); ++g) {
         int32_t bestStamp = kUnset;
         for (int32_t l=0; precedenceTable[g][l][0] != -1; ++l) {
@@ -2559,14 +2674,32 @@ UCalendarDateFields Calendar::resolveFields(const UFieldResolutionTable* precede
             }
             // Record new maximum stamp & field no.
             if (lineStamp > bestStamp) {
-                bestStamp = lineStamp;
-                bestField = precedenceTable[g][l][0]; // First field refers to entire line
+                tempBestField = precedenceTable[g][l][0]; // First field refers to entire line
+                if (tempBestField >= kResolveRemap) {
+                    tempBestField &= (kResolveRemap-1);
+                    // This check is needed to resolve some issues with UCAL_YEAR precedence mapping
+                    if (tempBestField != UCAL_DATE || (fStamp[UCAL_WEEK_OF_MONTH] < fStamp[tempBestField])) {
+                        bestField = tempBestField;
+                    }
+                } else {
+                    bestField = tempBestField;
+                }
+
+                if (bestField == tempBestField) {
+                    bestStamp = lineStamp;
+                }
             }
 linesInGroup:
             ;
         }
     }
-    return (UCalendarDateFields)( (bestField>=kResolveRemap)?(bestField&(kResolveRemap-1)):bestField  );
+    if (restoreWeekOfInternalSet) {
+        // Restore the field stamps temporarily unset above.
+        fStamp[UCAL_WEEK_OF_YEAR] = kInternallySet;
+        fStamp[UCAL_WEEK_OF_MONTH] = kInternallySet;
+        fStamp[UCAL_DAY_OF_WEEK_IN_MONTH] = kInternallySet;
+    }
+    return (UCalendarDateFields)bestField;
 }
 
 const UFieldResolutionTable Calendar::kDatePrecedence[] =
@@ -3186,7 +3319,6 @@ int32_t Calendar::handleGetExtendedYearFromWeekFields(int32_t yearWoy, int32_t w
             // we're not possibly in the last week -must be ywoy
             return yearWoy;
         }
-        break;
 
     case UCAL_DATE:
         if((internalGet(UCAL_MONTH)==0) &&
@@ -3206,18 +3338,10 @@ int32_t Calendar::handleGetExtendedYearFromWeekFields(int32_t yearWoy, int32_t w
             //within 1st week and in this month.. 
             //return yearWoy+1;
             return yearWoy;
-            break;
 
     default: // assume the year is appropriate
         return yearWoy;
-        break;
     }
-
-#if defined (U_DEBUG_CAL) 
-    fprintf(stderr, "%s:%d - forgot a return on field %s\n", __FILE__, __LINE__, fldName(bestField));
-#endif 
-
-    return yearWoy;
 }
 
 int32_t Calendar::handleGetMonthLength(int32_t extendedYear, int32_t month) const

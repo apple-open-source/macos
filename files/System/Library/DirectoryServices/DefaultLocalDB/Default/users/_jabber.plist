@@ -8,7 +8,7 @@
 	</array>
 	<key>home</key>
 	<array>
-		<string>/var/jabberd/ChatHome</string>
+		<string>/var/empty</string>
 	</array>
 	<key>name</key>
 	<array>

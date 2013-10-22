@@ -44,30 +44,19 @@ using namespace WebKit;
  * whether or not to download a particular resource or to load it
  * normally.
  */
-G_DEFINE_TYPE(WebKitResponsePolicyDecision, webkit_response_policy_decision, WEBKIT_TYPE_POLICY_DECISION)
 
 struct _WebKitResponsePolicyDecisionPrivate {
     GRefPtr<WebKitURIRequest> request;
     GRefPtr<WebKitURIResponse> response;
 };
 
+WEBKIT_DEFINE_TYPE(WebKitResponsePolicyDecision, webkit_response_policy_decision, WEBKIT_TYPE_POLICY_DECISION)
+
 enum {
     PROP_0,
     PROP_REQUEST,
     PROP_RESPONSE,
 };
-
-static void webkit_response_policy_decision_init(WebKitResponsePolicyDecision* decision)
-{
-    decision->priv = G_TYPE_INSTANCE_GET_PRIVATE(decision, WEBKIT_TYPE_RESPONSE_POLICY_DECISION, WebKitResponsePolicyDecisionPrivate);
-    new (decision->priv) WebKitResponsePolicyDecisionPrivate();
-}
-
-static void webkitResponsePolicyDecisionFinalize(GObject* object)
-{
-    WEBKIT_RESPONSE_POLICY_DECISION(object)->priv->~WebKitResponsePolicyDecisionPrivate();
-    G_OBJECT_CLASS(webkit_response_policy_decision_parent_class)->finalize(object);
-}
 
 static void webkitResponsePolicyDecisionGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -88,9 +77,7 @@ static void webkitResponsePolicyDecisionGetProperty(GObject* object, guint propI
 static void webkit_response_policy_decision_class_init(WebKitResponsePolicyDecisionClass* decisionClass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(decisionClass);
-    objectClass->finalize = webkitResponsePolicyDecisionFinalize;
     objectClass->get_property = webkitResponsePolicyDecisionGetProperty;
-    g_type_class_add_private(decisionClass, sizeof(WebKitResponsePolicyDecisionPrivate));
 
     /**
      * WebKitResponsePolicyDecision:request:
@@ -150,11 +137,11 @@ WebKitURIResponse* webkit_response_policy_decision_get_response(WebKitResponsePo
     return decision->priv->response.get();
 }
 
-WebKitResponsePolicyDecision* webkitResponsePolicyDecisionCreate(WKURLRequestRef request, WKURLResponseRef response, WKFramePolicyListenerRef listener)
+WebKitResponsePolicyDecision* webkitResponsePolicyDecisionCreate(WebURLRequest* request, WebURLResponse* response, WebFramePolicyListenerProxy* listener)
 {
     WebKitResponsePolicyDecision* decision = WEBKIT_RESPONSE_POLICY_DECISION(g_object_new(WEBKIT_TYPE_RESPONSE_POLICY_DECISION, NULL));
-    decision->priv->request = adoptGRef(webkitURIRequestCreateForResourceRequest(toImpl(request)->resourceRequest()));
-    decision->priv->response = adoptGRef(webkitURIResponseCreateForResourceResponse(toImpl(response)->resourceResponse()));
+    decision->priv->request = adoptGRef(webkitURIRequestCreateForResourceRequest(request->resourceRequest()));
+    decision->priv->response = adoptGRef(webkitURIResponseCreateForResourceResponse(response->resourceResponse()));
     webkitPolicyDecisionSetListener(WEBKIT_POLICY_DECISION(decision), listener);
     return decision;
 }

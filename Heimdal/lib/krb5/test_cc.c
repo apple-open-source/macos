@@ -295,6 +295,28 @@ struct {
     int fail;
     char *res;
 } cc_names[] = {
+#ifdef KRB5_USE_PATH_TOKENS
+#ifdef _WIN32
+    { "%{APPDATA}", 0 },
+    { "%{COMMON_APPDATA}", 0},
+    { "%{LOCAL_APPDATA}", 0},
+    { "%{SYSTEM}", 0},
+    { "%{WINDOWS}", 0},
+    { "%{USERCONFIG}", 0},
+    { "%{COMMONCONFIG}", 0},
+#else
+    { "%{LIBDIR}", 0},
+    { "%{BINDIR}", 0},
+    { "%{LIBEXEC}", 0},
+    { "%{SBINDIR}", 0},
+#endif
+#if __APPLE__
+    { "%{ApplicationResources}", 1}, /* only for .app's */
+#endif
+    { "%{USERID}", 0},
+    { "%{uid}", 0},
+    { "%{TEMP}", 0},
+#endif
     { "foo", 0, "foo" },
     { "foo%}", 0, "foo%}" },
     { "%{uid}", 0 },
@@ -306,23 +328,7 @@ struct {
     { "%{{}", 1 },
     { "%{nulll}", 1 },
     { "%{does not exist}", 1 },
-    { "%{}", 1 },
-#ifdef KRB5_USE_PATH_TOKENS
-    { "%{APPDATA}", 0 },
-    { "%{COMMON_APPDATA}", 0},
-    { "%{LOCAL_APPDATA}", 0},
-    { "%{SYSTEM}", 0},
-    { "%{WINDOWS}", 0},
-    { "%{TEMP}", 0},
-    { "%{USERID}", 0},
-    { "%{uid}", 0},
-    { "%{USERCONFIG}", 0},
-    { "%{COMMONCONFIG}", 0},
-    { "%{LIBDIR}", 0},
-    { "%{BINDIR}", 0},
-    { "%{LIBEXEC}", 0},
-    { "%{SBINDIR}", 0},
-#endif
+    { "%{}", 1 }
 };
 
 static void
@@ -817,6 +823,10 @@ main(int argc, char **argv)
 #ifdef HAVE_KCC
     test_prefix_ops(context, "KCC:", &krb5_kcc_ops);
     test_prefix_ops(context, "KCC:foo", &krb5_kcc_ops);
+#endif
+#ifdef HAVE_XCC
+    test_prefix_ops(context, "XCACHE:", &krb5_xcc_ops);
+    test_prefix_ops(context, "XCACHE:68ADE5C1-C1FF-4088-8AA2-8AF815CDCC5A", &krb5_xcc_ops);
 #endif
 
     krb5_cc_destroy(context, id1);

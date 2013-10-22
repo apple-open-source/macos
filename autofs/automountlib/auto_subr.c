@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2012 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_subr.c	1.49	05/06/08 SMI"
@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <locale.h>
 #include <syslog.h>
 #include <errno.h>
@@ -41,6 +42,7 @@
 #include <stdarg.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <asl.h>
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -51,6 +53,7 @@
 #include <assert.h>
 #include "autofs.h"
 #include "automount.h"
+#include <dispatch/dispatch.h>
 
 static char *check_hier(char *);
 static int natisa(char *, size_t);
@@ -817,27 +820,30 @@ add_dir_entry(const char *name, const char *linebuf, const char *lineqbuf,
 }
 
 /*
- * Print trace output.
- * Like fprintf(stderr, fmt, ...) except that if "id" is nonzero, the output
- * is preceeded by the ID of the calling thread.
+ * Log trace output.
  */
-#define	FMT_BUFSIZ 1024
-
 void
-trace_prt(int id, char *fmt, ...)
+trace_prt(__unused int newmsg, char *fmt, ...)
 {
 	va_list args;
+        static dispatch_once_t pred;
 
-	char buf[FMT_BUFSIZ];
+        dispatch_once(&pred, ^{
+		/*
+		 * Send a message to the syslog that turns
+		 * off the messages-per-second limit.
+		 */
+		aslmsg m = asl_new(ASL_TYPE_MSG);
+	
+		asl_set(m, "ASLOption", "control");
+		asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
+		asl_set(m, ASL_KEY_MSG, "= mps_limit 0");
+	 	asl_send(NULL, m);
+		asl_free(m);
+	});
 
-	if (id) {
-		if (snprintf(buf, sizeof (buf), "t%p\t%s", pthread_self(), fmt)
-		    >= (int)sizeof (buf))
-			return;
-		fmt = buf;
-	}
 	va_start(args, fmt);
-	(void) vfprintf(stderr, fmt, args);
+	(void) vsyslog(LOG_ERR, fmt, args);
 	va_end(args);
 }
 

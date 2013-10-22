@@ -60,6 +60,7 @@ namespace WebKit {
 class ShareableBitmap : public RefCounted<ShareableBitmap> {
 public:
     enum Flag {
+        NoFlags = 0,
         SupportsAlpha = 1 << 0,
     };
     typedef unsigned Flags;
@@ -71,8 +72,8 @@ public:
 
         bool isNull() const { return m_handle.isNull(); }
 
-        void encode(CoreIPC::ArgumentEncoder*) const;
-        static bool decode(CoreIPC::ArgumentDecoder*, Handle&);
+        void encode(CoreIPC::ArgumentEncoder&) const;
+        static bool decode(CoreIPC::ArgumentDecoder&, Handle&);
 
     private:
         friend class ShareableBitmap;
@@ -92,10 +93,10 @@ public:
     static PassRefPtr<ShareableBitmap> create(const WebCore::IntSize&, Flags, PassRefPtr<SharedMemory>);
 
     // Create a shareable bitmap from a handle.
-    static PassRefPtr<ShareableBitmap> create(const Handle&);
+    static PassRefPtr<ShareableBitmap> create(const Handle&, SharedMemory::Protection = SharedMemory::ReadWrite);
 
     // Create a handle.
-    bool createHandle(Handle&);
+    bool createHandle(Handle&, SharedMemory::Protection = SharedMemory::ReadWrite);
 
     ~ShareableBitmap();
 
@@ -117,9 +118,6 @@ public:
     // This is only safe to use when we know that the contents of the shareable bitmap won't change.
     PassRefPtr<WebCore::Image> createImage();
 
-#if PLATFORM(WIN)
-    HDC windowsContext() const;
-#endif
 #if USE(CG)
     // This creates a copied CGImageRef (most likely a copy-on-write) of the shareable bitmap.
     RetainPtr<CGImageRef> makeCGImageCopy();
@@ -142,7 +140,11 @@ private:
     ShareableBitmap(const WebCore::IntSize&, Flags, void*);
     ShareableBitmap(const WebCore::IntSize&, Flags, PassRefPtr<SharedMemory>);
 
+#if USE(CAIRO)
+    static size_t numBytesForSize(const WebCore::IntSize&);
+#else
     static size_t numBytesForSize(const WebCore::IntSize& size) { return size.width() * size.height() * 4; }
+#endif
 
 #if USE(CG)
     RetainPtr<CGImageRef> createCGImage(CGDataProviderRef) const;
@@ -165,11 +167,6 @@ private:
 
     // If the shareable bitmap is backed by fastMalloced memory, this points to the data.
     void* m_data;
-
-#if PLATFORM(WIN)
-    mutable OwnPtr<HDC> m_windowsContext;
-    mutable OwnPtr<HBITMAP> m_windowsBitmap;
-#endif
 };
 
 } // namespace WebKit

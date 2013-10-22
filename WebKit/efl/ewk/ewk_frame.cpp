@@ -26,9 +26,13 @@
 
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
+#include "Editor.h"
 #include "EventHandler.h"
 #include "FocusController.h"
+#include "FrameLoadRequest.h"
+#include "FrameLoader.h"
 #include "FrameLoaderClientEfl.h"
+#include "FrameSelection.h"
 #include "FrameView.h"
 #include "HTMLCollection.h"
 #include "HTMLHeadElement.h"
@@ -36,27 +40,36 @@
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
 #include "HistoryItem.h"
+#include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "IntSize.h"
 #include "KURL.h"
 #include "PlatformEvent.h"
 #include "PlatformKeyboardEvent.h"
+#include "PlatformMessagePortChannel.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformTouchEvent.h"
 #include "PlatformWheelEvent.h"
 #include "ProgressTracker.h"
 #include "ResourceRequest.h"
+#include "ScriptController.h"
 #include "ScriptValue.h"
 #include "SharedBuffer.h"
 #include "SubstituteData.h"
 #include "WindowsKeyboardCodes.h"
-#include "ewk_logging.h"
+#include "ewk_frame_private.h"
 #include "ewk_private.h"
+#include "ewk_security_origin_private.h"
+#include "ewk_touch_event_private.h"
+#include "ewk_view_private.h"
+#include <Ecore_Input.h>
 #include <Eina.h>
 #include <Evas.h>
 #include <eina_safety_checks.h>
 #include <wtf/Assertions.h>
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 
 static const char EWK_FRAME_TYPE_STR[] = "EWK_Frame";
@@ -69,7 +82,7 @@ struct Ewk_Frame_Smart_Data {
     Evas_Object* region;
 #endif
     WebCore::Frame* frame;
-    const char* title;
+    Ewk_Text_With_Direction title;
     const char* uri;
     const char* name;
     bool editable : 1;
@@ -126,13 +139,13 @@ static inline void _ewk_frame_debug(Evas_Object* ewkFrame)
     evas_object_color_get(clip, &contentRed, &contentGreen, &contentBlue, &contentAlpha);
     evas_object_geometry_get(clip, &contentX, &contentY, &contentWidth, &contentHeight);
 
-    fprintf(stderr, "%p: type=%s name=%s, visible=%d, color=%02x%02x%02x%02x, %d,%d+%dx%d, clipper=%p (%d, %02x%02x%02x%02x, %d,%d+%dx%d)\n",
+    EINA_LOG_DBG("%p: type=%s name=%s, visible=%d, color=%02x%02x%02x%02x, %d,%d+%dx%d, clipper=%p (%d, %02x%02x%02x%02x, %d,%d+%dx%d)\n",
             ewkFrame, evas_object_type_get(ewkFrame), evas_object_name_get(ewkFrame), evas_object_visible_get(ewkFrame),
             red, green, blue, alpha, x, y, width, height,
             clip, evas_object_visible_get(clip), contentRed, contentGreen, contentBlue, contentAlpha, contentX, contentY, contentWidth, contentHeight);
     parent = evas_object_smart_parent_get(ewkFrame);
     if (!parent)
-        fprintf(stderr, "\n");
+        EINA_LOG_ERR("could not get parent object.\n");
     else
         _ewk_frame_debug(parent);
 }
@@ -229,12 +242,13 @@ static void _ewk_frame_smart_del(Evas_Object* ewkFrame)
         if (smartData->frame) {
             WebCore::FrameLoaderClientEfl* flc = _ewk_frame_loader_efl_get(smartData->frame);
             flc->setWebFrame(0);
-            smartData->frame->loader()->detachFromParent();
-            smartData->frame->loader()->cancelAndClear();
+            EWK_FRAME_SD_GET(ewk_view_frame_main_get(smartData->view), mainSmartData);
+            if (mainSmartData->frame == smartData->frame) // applying only for main frame is enough (will traverse through frame tree)
+                smartData->frame->loader()->detachFromParent();
             smartData->frame = 0;
         }
 
-        eina_stringshare_del(smartData->title);
+        eina_stringshare_del(smartData->title.string);
         eina_stringshare_del(smartData->uri);
         eina_stringshare_del(smartData->name);
     }
@@ -251,7 +265,7 @@ static void _ewk_frame_smart_resize(Evas_Object* ewkFrame, Evas_Coord width, Eva
     evas_object_resize(smartData->region, width, height);
     Evas_Coord x, y;
     evas_object_geometry_get(smartData->region, &x, &y, &width, &height);
-    INF("region=%p, visible=%d, geo=%d,%d + %dx%d",
+    INFO("region=%p, visible=%d, geo=%d,%d + %dx%d",
         smartData->region, evas_object_visible_get(smartData->region), x, y, width, height);
     _ewk_frame_debug(ewkFrame);
 #endif
@@ -327,7 +341,7 @@ Eina_Bool ewk_frame_uri_set(Evas_Object* ewkFrame, const char* uri)
     WebCore::KURL kurl(WebCore::KURL(), WTF::String::fromUTF8(uri));
     WebCore::ResourceRequest req(kurl);
     WebCore::FrameLoader* loader = smartData->frame->loader();
-    loader->load(req, false);
+    loader->load(WebCore::FrameLoadRequest(smartData->frame, req));
     return true;
 }
 
@@ -337,10 +351,10 @@ const char* ewk_frame_uri_get(const Evas_Object* ewkFrame)
     return smartData->uri;
 }
 
-const char* ewk_frame_title_get(const Evas_Object* ewkFrame)
+const Ewk_Text_With_Direction* ewk_frame_title_get(const Evas_Object* ewkFrame)
 {
     EWK_FRAME_SD_GET_OR_RETURN(ewkFrame, smartData, 0);
-    return smartData->title;
+    return &smartData->title;
 }
 
 const char* ewk_frame_name_get(const Evas_Object* ewkFrame)
@@ -405,7 +419,7 @@ static Eina_Bool _ewk_frame_contents_set_internal(Ewk_Frame_Smart_Data* smartDat
         baseKURL, unreachableKURL);
     WebCore::ResourceRequest request(baseKURL);
 
-    smartData->frame->loader()->load(request, substituteData, false);
+    smartData->frame->loader()->load(WebCore::FrameLoadRequest(smartData->frame, request, substituteData));
     return true;
 }
 
@@ -429,13 +443,12 @@ Eina_Bool ewk_frame_contents_alternate_set(Evas_Object* ewkFrame, const char* co
                unreachableUri);
 }
 
-char* ewk_frame_script_execute(Evas_Object* ewkFrame, const char* script)
+const char* ewk_frame_script_execute(Evas_Object* ewkFrame, const char* script)
 {
     EWK_FRAME_SD_GET_OR_RETURN(ewkFrame, smartData, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(script, 0);
 
-#if USE(JSC)
     WTF::String resultString;
     JSC::JSValue result = smartData->frame->script()->executeScript(WTF::String::fromUTF8(script), true).jsValue();
 
@@ -447,12 +460,8 @@ char* ewk_frame_script_execute(Evas_Object* ewkFrame, const char* script)
 
     JSC::ExecState* exec = smartData->frame->script()->globalObject(WebCore::mainThreadNormalWorld())->globalExec();
     JSC::JSLockHolder lock(exec);
-    resultString = WebCore::ustringToString(result.toString(exec)->value(exec));
-    return strdup(resultString.utf8().data());
-#else
-    notImplemented();
-    return 0;
-#endif
+    resultString = result.toString(exec)->value(exec);
+    return eina_stringshare_add(resultString.utf8().data());
 }
 
 Eina_Bool ewk_frame_editable_get(const Evas_Object* ewkFrame)
@@ -471,18 +480,18 @@ Eina_Bool ewk_frame_editable_set(Evas_Object* ewkFrame, Eina_Bool editable)
         return true;
     smartData->editable = editable;
     if (editable)
-        smartData->frame->editor()->applyEditingStyleToBodyElement();
+        smartData->frame->editor().applyEditingStyleToBodyElement();
     return true;
 }
 
-char* ewk_frame_selection_get(const Evas_Object* ewkFrame)
+const char* ewk_frame_selection_get(const Evas_Object* ewkFrame)
 {
     EWK_FRAME_SD_GET_OR_RETURN(ewkFrame, smartData, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, 0);
-    WTF::CString selectedText = smartData->frame->editor()->selectedText().utf8();
+    WTF::CString selectedText = smartData->frame->editor().selectedText().utf8();
     if (selectedText.isNull())
         return 0;
-    return strdup(selectedText.data());
+    return eina_stringshare_add(selectedText.data());
 }
 
 Eina_Bool ewk_frame_text_search(const Evas_Object* ewkFrame, const char* text, Eina_Bool caseSensitive, Eina_Bool forward, Eina_Bool wrap)
@@ -491,7 +500,7 @@ Eina_Bool ewk_frame_text_search(const Evas_Object* ewkFrame, const char* text, E
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, false);
     EINA_SAFETY_ON_NULL_RETURN_VAL(text, false);
 
-    return smartData->frame->editor()->findString(WTF::String::fromUTF8(text), forward, caseSensitive, wrap, true);
+    return smartData->frame->editor().findString(WTF::String::fromUTF8(text), forward, caseSensitive, wrap, true);
 }
 
 unsigned int ewk_frame_text_matches_mark(Evas_Object* ewkFrame, const char* string, Eina_Bool caseSensitive, Eina_Bool highlight, unsigned int limit)
@@ -500,8 +509,8 @@ unsigned int ewk_frame_text_matches_mark(Evas_Object* ewkFrame, const char* stri
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(string, 0);
 
-    smartData->frame->editor()->setMarkedTextMatchesAreHighlighted(highlight);
-    return smartData->frame->editor()->countMatchesForText(WTF::String::fromUTF8(string), caseSensitive, limit, true);
+    smartData->frame->editor().setMarkedTextMatchesAreHighlighted(highlight);
+    return smartData->frame->editor().countMatchesForText(WTF::String::fromUTF8(string), 0, caseSensitive, limit, true, 0);
 }
 
 Eina_Bool ewk_frame_text_matches_unmark_all(Evas_Object* ewkFrame)
@@ -517,7 +526,7 @@ Eina_Bool ewk_frame_text_matches_highlight_set(Evas_Object* ewkFrame, Eina_Bool 
 {
     EWK_FRAME_SD_GET_OR_RETURN(ewkFrame, smartData, false);
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, false);
-    smartData->frame->editor()->setMarkedTextMatchesAreHighlighted(highlight);
+    smartData->frame->editor().setMarkedTextMatchesAreHighlighted(highlight);
     return true;
 }
 
@@ -525,7 +534,7 @@ Eina_Bool ewk_frame_text_matches_highlight_get(const Evas_Object* ewkFrame)
 {
     EWK_FRAME_SD_GET_OR_RETURN(ewkFrame, smartData, false);
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, false);
-    return smartData->frame->editor()->markedTextMatchesAreHighlighted();
+    return smartData->frame->editor().markedTextMatchesAreHighlighted();
 }
 
 /**
@@ -662,7 +671,7 @@ Eina_Bool ewk_frame_text_zoom_set(Evas_Object* ewkFrame, float textZoomFactor)
 void ewk_frame_hit_test_free(Ewk_Hit_Test* hitTest)
 {
     EINA_SAFETY_ON_NULL_RETURN(hitTest);
-    eina_stringshare_del(hitTest->title);
+    eina_stringshare_del(hitTest->title.string);
     eina_stringshare_del(hitTest->alternate_text);
     eina_stringshare_del(hitTest->link.text);
     eina_stringshare_del(hitTest->link.url);
@@ -682,8 +691,8 @@ Ewk_Hit_Test* ewk_frame_hit_test_new(const Evas_Object* ewkFrame, int x, int y)
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame->contentRenderer(), 0);
 
     WebCore::HitTestResult result = smartData->frame->eventHandler()->hitTestResultAtPoint
-                                        (view->windowToContents(WebCore::IntPoint(x, y)),
-                                        /*allowShadowContent*/ false, /*ignoreClipping*/ true);
+                                        (view->windowToContents(WebCore::IntPoint(x, y)), 
+                                        WebCore::HitTestRequest::ReadOnly | WebCore::HitTestRequest::Active | WebCore::HitTestRequest::IgnoreClipping | WebCore::HitTestRequest::DisallowShadowContent);
 
     if (result.scrollbar())
         return 0;
@@ -691,8 +700,9 @@ Ewk_Hit_Test* ewk_frame_hit_test_new(const Evas_Object* ewkFrame, int x, int y)
         return 0;
 
     Ewk_Hit_Test* hitTest = new Ewk_Hit_Test;
-    hitTest->x = result.point().x();
-    hitTest->y = result.point().y();
+    // FIXME: This should probably use pointInMainFrame, if it is to match the documentation of ewk_hit_test.
+    hitTest->x = result.pointInInnerNodeFrame().x();
+    hitTest->y = result.pointInInnerNodeFrame().y();
 #if 0
     // FIXME
     hitTest->bounding_box.x = result.boundingBox().x();
@@ -707,7 +717,8 @@ Ewk_Hit_Test* ewk_frame_hit_test_new(const Evas_Object* ewkFrame, int x, int y)
 #endif
 
     WebCore::TextDirection direction;
-    hitTest->title = eina_stringshare_add(result.title(direction).utf8().data());
+    hitTest->title.string = eina_stringshare_add(result.title(direction).utf8().data());
+    hitTest->title.direction = (direction == WebCore::LTR) ? EWK_TEXT_DIRECTION_LEFT_TO_RIGHT : EWK_TEXT_DIRECTION_RIGHT_TO_LEFT;
     hitTest->alternate_text = eina_stringshare_add(result.altDisplayString().utf8().data());
     if (result.innerNonSharedNode() && result.innerNonSharedNode()->document()
         && result.innerNonSharedNode()->document()->frame())
@@ -808,7 +819,7 @@ Eina_Bool ewk_frame_visible_content_geometry_get(const Evas_Object* ewkFrame, Ei
     EWK_FRAME_SD_GET_OR_RETURN(ewkFrame, smartData, false);
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, false);
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame->view(), false);
-    WebCore::IntRect rect = smartData->frame->view()->visibleContentRect(includeScrollbars);
+    WebCore::IntRect rect = smartData->frame->view()->visibleContentRect(includeScrollbars ? WebCore::ScrollableArea::IncludeScrollbars : WebCore::ScrollableArea::ExcludeScrollbars);
     if (x)
         *x = rect.x();
     if (y)
@@ -845,7 +856,7 @@ Eina_Bool ewk_frame_feed_focus_in(Evas_Object* ewkFrame)
     return true;
 }
 
-Eina_Bool ewk_frame_feed_focus_out(Evas_Object* ewkFrame)
+Eina_Bool ewk_frame_feed_focus_out(Evas_Object*)
 {
     // TODO: what to do on focus out?
     ERR("what to do?");
@@ -858,10 +869,10 @@ Eina_Bool ewk_frame_focused_element_geometry_get(const Evas_Object *ewkFrame, in
     WebCore::Document* document = smartData->frame->document();
     if (!document)
         return false;
-    WebCore::Node* focusedNode = document->focusedNode();
+    WebCore::Node* focusedNode = document->focusedElement();
     if (!focusedNode)
         return false;
-    WebCore::IntRect nodeRect = focusedNode->getPixelSnappedRect();
+    WebCore::IntRect nodeRect = focusedNode->pixelSnappedBoundingBox();
     if (x)
         *x = nodeRect.x();
     if (y)
@@ -943,7 +954,7 @@ Eina_Bool ewk_frame_feed_mouse_move(Evas_Object* ewkFrame, const Evas_Event_Mous
     return smartData->frame->eventHandler()->mouseMoved(event);
 }
 
-Eina_Bool ewk_frame_feed_touch_event(Evas_Object* ewkFrame, Ewk_Touch_Event_Type action, Eina_List* points, int metaState)
+Eina_Bool ewk_frame_feed_touch_event(Evas_Object* ewkFrame, Ewk_Touch_Event_Type action, Eina_List* points, unsigned modifiers)
 {
 #if ENABLE(TOUCH_EVENTS)
     EINA_SAFETY_ON_NULL_RETURN_VAL(points, false);
@@ -955,28 +966,12 @@ Eina_Bool ewk_frame_feed_touch_event(Evas_Object* ewkFrame, Ewk_Touch_Event_Type
     Evas_Coord x, y;
     evas_object_geometry_get(smartData->view, &x, &y, 0, 0);
 
-    WebCore::PlatformEvent::Type type;
-    switch (action) {
-    case EWK_TOUCH_START:
-        type = WebCore::PlatformEvent::TouchStart;
-        break;
-    case EWK_TOUCH_MOVE:
-        type = WebCore::PlatformEvent::TouchMove;
-        break;
-    case EWK_TOUCH_END:
-        type = WebCore::PlatformEvent::TouchEnd;
-        break;
-    case EWK_TOUCH_CANCEL:
-        type = WebCore::PlatformEvent::TouchCancel;
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-        return false;
-    }
-
-    WebCore::PlatformTouchEvent touchEvent(points, WebCore::IntPoint(x, y), type, metaState);
-    return smartData->frame->eventHandler()->handleTouchEvent(touchEvent);
+    return smartData->frame->eventHandler()->handleTouchEvent(EWKPrivate::platformTouchEvent(x, y, points, action, modifiers));
 #else
+    UNUSED_PARAM(ewkFrame);
+    UNUSED_PARAM(action);
+    UNUSED_PARAM(points);
+    UNUSED_PARAM(modifiers);
     return false;
 #endif
 }
@@ -1318,7 +1313,7 @@ void ewk_frame_did_perform_first_navigation(Evas_Object* ewkFrame)
  *
  * Emits signal: "state,save"
  */
-void ewk_frame_view_state_save(Evas_Object* ewkFrame, WebCore::HistoryItem* item)
+void ewk_frame_view_state_save(Evas_Object* ewkFrame, WebCore::HistoryItem*)
 {
     evas_object_smart_callback_call(ewkFrame, "state,save", 0);
 }
@@ -1364,6 +1359,20 @@ void ewk_frame_load_started(Evas_Object* ewkFrame)
 void ewk_frame_load_provisional(Evas_Object* ewkFrame)
 {
     evas_object_smart_callback_call(ewkFrame, "load,provisional", 0);
+}
+
+/**
+ * @internal
+ * Reports the frame provisional load failed.
+ *
+ * @param ewkFrame Frame.
+ * @param error Load error.
+ *
+ * Emits signal: "load,provisional,failed" with pointer to Ewk_Frame_Load_Error.
+ */
+void ewk_frame_load_provisional_failed(Evas_Object* ewkFrame, const Ewk_Frame_Load_Error* error)
+{
+    evas_object_smart_callback_call(ewkFrame, "load,provisional,failed", const_cast<Ewk_Frame_Load_Error*>(error));
 }
 
 /**
@@ -1513,7 +1522,6 @@ void ewk_frame_load_progress_changed(Evas_Object* ewkFrame)
     ewk_view_load_progress_changed(smartData->view);
 }
 
-
 /**
  * @internal
  *
@@ -1530,13 +1538,14 @@ void ewk_frame_contents_size_changed(Evas_Object* ewkFrame, Evas_Coord width, Ev
  *
  * Reports title changed.
  */
-void ewk_frame_title_set(Evas_Object* ewkFrame, const char* title)
+void ewk_frame_title_set(Evas_Object* ewkFrame, const Ewk_Text_With_Direction* title)
 {
-    DBG("ewkFrame=%p, title=%s", ewkFrame, title ? title : "(null)");
+    DBG("ewkFrame=%p, title=%s, direction=%s", ewkFrame, title->string ? title->string : "(null)", title->direction == EWK_TEXT_DIRECTION_LEFT_TO_RIGHT ? "ltr" : "rtl");
     EWK_FRAME_SD_GET_OR_RETURN(ewkFrame, smartData);
-    if (!eina_stringshare_replace(&smartData->title, title))
+    if (!eina_stringshare_replace(&smartData->title.string, title->string) && (smartData->title.direction == title->direction))
         return;
-    evas_object_smart_callback_call(ewkFrame, "title,changed", (void*)smartData->title);
+    smartData->title.direction = title->direction;
+    evas_object_smart_callback_call(ewkFrame, "title,changed", (void*)title);
 }
 
 /**
@@ -1565,12 +1574,10 @@ void ewk_frame_view_create_for_view(Evas_Object* ewkFrame, Evas_Object* view)
     else
         background = WebCore::Color(red * 255 / alpha, green * 255 / alpha, blue * 255 / alpha, alpha);
 
-    smartData->frame->createView(size, background, !alpha, WebCore::IntSize(), false);
+    smartData->frame->createView(size, background, !alpha);
     if (!smartData->frame->view())
         return;
 
-    const char* theme = ewk_view_theme_get(view);
-    smartData->frame->view()->setEdjeTheme(theme);
     smartData->frame->view()->setEvasObject(ewkFrame);
 
     ewk_frame_mixed_content_displayed_set(ewkFrame, false);
@@ -1584,12 +1591,15 @@ ssize_t ewk_frame_source_get(const Evas_Object* ewkFrame, char** frameSource)
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame->document(), -1);
     EINA_SAFETY_ON_NULL_RETURN_VAL(frameSource, -1);
 
-    WTF::String source;
+    StringBuilder builder;
     *frameSource = 0; // Saves 0 to pointer until it's not allocated.
+
+    if (!ewk_frame_uri_get(ewkFrame))
+        return -1;
 
     if (!smartData->frame->document()->isHTMLDocument()) {
         // FIXME: Support others documents.
-        WRN("Only HTML documents are supported");
+        WARN("Only HTML documents are supported");
         return -1;
     }
 
@@ -1600,28 +1610,20 @@ ssize_t ewk_frame_source_get(const Evas_Object* ewkFrame, char** frameSource)
             if (node->hasTagName(WebCore::HTMLNames::htmlTag)) {
                 WebCore::HTMLElement* element = static_cast<WebCore::HTMLElement*>(node);
                 if (element)
-                    source = element->outerHTML();
+                    builder.append(element->outerHTML());
                 break;
             }
         }
 
-    // Try to get <head> and <body> tags if <html> tag was not found.
-    if (source.isEmpty()) {
-        if (smartData->frame->document()->head())
-            source = smartData->frame->document()->head()->outerHTML();
-
-        if (smartData->frame->document()->body())
-            source += smartData->frame->document()->body()->outerHTML();
-    }
-
-    size_t sourceLength = strlen(source.utf8().data());
+    CString utf8String = builder.toString().utf8();
+    size_t sourceLength = utf8String.length();
     *frameSource = static_cast<char*>(malloc(sourceLength + 1));
     if (!*frameSource) {
         CRITICAL("Could not allocate memory.");
         return -1;
     }
 
-    strncpy(*frameSource, source.utf8().data(), sourceLength);
+    strncpy(*frameSource, utf8String.data(), sourceLength);
     (*frameSource)[sourceLength] = '\0';
 
     return sourceLength;
@@ -1648,12 +1650,12 @@ Eina_List* ewk_frame_resources_location_get(const Evas_Object* ewkFrame)
         void* data = 0;
         Eina_Bool found = false;
         EINA_LIST_FOREACH(listOfImagesLocation, listIterator, data)
-            if (found = !strcmp(static_cast<char*>(data), imageLocation.utf8().data()))
+            if ((found = !strcmp(static_cast<char*>(data), imageLocation.utf8().data())))
                 break;
         if (found)
             continue;
 
-        char* imageLocationCopy = strdup(imageLocation.utf8().data());
+        const char* imageLocationCopy = eina_stringshare_add(imageLocation.utf8().data());
         if (!imageLocationCopy)
             goto out_of_memory_handler;
         listOfImagesLocation = eina_list_append(listOfImagesLocation, imageLocationCopy);
@@ -1671,7 +1673,7 @@ out_of_memory_handler:
     return 0;
 }
 
-char* ewk_frame_plain_text_get(const Evas_Object* ewkFrame)
+const char* ewk_frame_plain_text_get(const Evas_Object* ewkFrame)
 {
     EWK_FRAME_SD_GET_OR_RETURN(ewkFrame, smartData, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, 0);
@@ -1684,7 +1686,7 @@ char* ewk_frame_plain_text_get(const Evas_Object* ewkFrame)
     if (!documentElement)
         return 0;
 
-    return strdup(documentElement->innerText().utf8().data());
+    return eina_stringshare_add(documentElement->innerText().utf8().data());
 }
 
 Eina_Bool ewk_frame_mixed_content_displayed_get(const Evas_Object* ewkFrame)
@@ -1724,6 +1726,20 @@ Ewk_Certificate_Status ewk_frame_certificate_status_get(Evas_Object* ewkFrame)
 
 /**
  * @internal
+ * Reports frame favicon changed.
+ *
+ * @param ewkFrame Frame.
+ *
+ * Emits signal: "icon,changed" with no parameters.
+ */
+void ewk_frame_icon_changed(Evas_Object* ewkFrame)
+{
+    DBG("ewkFrame=%p", ewkFrame);
+    evas_object_smart_callback_call(ewkFrame, "icon,changed", 0);
+}
+
+/**
+ * @internal
  * Reports uri changed and swap internal string reference.
  *
  * Emits signal: "uri,changed" with new uri as parameter.
@@ -1734,7 +1750,7 @@ bool ewk_frame_uri_changed(Evas_Object* ewkFrame)
     EINA_SAFETY_ON_NULL_RETURN_VAL(smartData->frame, false);
     WTF::CString uri(smartData->frame->document()->url().string().utf8());
 
-    INF("uri=%s", uri.data());
+    INFO("uri=%s", uri.data());
     if (!uri.data()) {
         ERR("no uri");
         return false;
@@ -1784,6 +1800,15 @@ WTF::PassRefPtr<WebCore::Widget> ewk_frame_plugin_create(Evas_Object* ewkFrame, 
 
     if (pluginView->status() == WebCore::PluginStatusLoadedSuccessfully)
         return pluginView.release();
+#else
+    UNUSED_PARAM(ewkFrame);
+    UNUSED_PARAM(pluginSize);
+    UNUSED_PARAM(element);
+    UNUSED_PARAM(url);
+    UNUSED_PARAM(paramNames);
+    UNUSED_PARAM(paramValues);
+    UNUSED_PARAM(mimeType);
+    UNUSED_PARAM(loadManually);
 #endif // #if ENABLE(NETSCAPE_PLUGIN_API)
     return 0;
 }

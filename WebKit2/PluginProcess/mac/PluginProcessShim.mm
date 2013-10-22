@@ -28,48 +28,30 @@
 
 #import <AppKit/AppKit.h>
 #import <Carbon/Carbon.h>
+#import <WebCore/DynamicLinkerInterposing.h>
 #import <WebKitSystemInterface.h>
 #import <stdio.h>
-#import <objc/objc-runtime.h>
+#import <objc/message.h>
 
-#define DYLD_INTERPOSE(_replacement,_replacee) \
-    __attribute__((used)) static struct{ const void* replacement; const void* replacee; } _interpose_##_replacee \
-    __attribute__ ((section ("__DATA,__interpose"))) = { (const void*)(unsigned long)&_replacement, (const void*)(unsigned long)&_replacee };
+#include <sys/shm.h>
+#include <sys/ipc.h>
+#include <sys/mman.h>
+
+#undef __APPLE_API_PRIVATE
+#include <sandbox.h>
+
+#ifndef _SANDBOX_PRIVATE_H_
+enum sandbox_filter_type {
+        SANDBOX_FILTER_NONE,
+};
+extern "C" int sandbox_check(pid_t pid, const char *operation, enum sandbox_filter_type type, ...);
+#endif
 
 namespace WebKit {
 
 extern "C" void WebKitPluginProcessShimInitialize(const PluginProcessShimCallbacks& callbacks);
 
 static PluginProcessShimCallbacks pluginProcessShimCallbacks;
-
-static IMP NSApplication_RunModalForWindow;
-static unsigned modalCount = 0;
-
-static void beginModal()
-{
-    // Make sure to make ourselves the front process
-    ProcessSerialNumber psn;
-    GetCurrentProcess(&psn);
-    SetFrontProcess(&psn);
-    
-    if (!modalCount++)
-        pluginProcessShimCallbacks.setModal(true);
-}
-
-static void endModal()
-{
-    if (!--modalCount)
-        pluginProcessShimCallbacks.setModal(false);
-}    
-
-static NSInteger shim_NSApplication_RunModalForWindow(id self, SEL _cmd, NSWindow* window)
-{
-    beginModal();
-    NSInteger result = ((NSInteger (*)(id, SEL, NSWindow *))NSApplication_RunModalForWindow)(self, _cmd, window);
-    endModal();
-
-    return result;
-}
 
 #ifndef __LP64__
 
@@ -102,16 +84,16 @@ static Boolean shimIsWindowActive(WindowRef window)
 
 static void shimModalDialog(ModalFilterUPP modalFilter, DialogItemIndex *itemHit)
 {
-    beginModal();
+    pluginProcessShimCallbacks.beginModal();
     ModalDialog(modalFilter, itemHit);
-    endModal();
+    pluginProcessShimCallbacks.endModal();
 }
 
 static DialogItemIndex shimAlert(SInt16 alertID, ModalFilterUPP modalFilter)
 {
-    beginModal();
+    pluginProcessShimCallbacks.beginModal();
     DialogItemIndex index = Alert(alertID, modalFilter);
-    endModal();
+    pluginProcessShimCallbacks.endModal();
     
     return index;
 }
@@ -128,6 +110,16 @@ static void shimHideWindow(WindowRef window)
     HideWindow(window);
 }
 
+static OSStatus
+shimLSOpenCFURLRef(CFURLRef url, CFURLRef* launchedURL)
+{
+    int32_t returnValue;
+    if (pluginProcessShimCallbacks.openCFURLRef(url, returnValue, launchedURL))
+        return returnValue;
+
+    return LSOpenCFURLRef(url, launchedURL);
+}
+
 DYLD_INTERPOSE(shimDebugger, Debugger);
 DYLD_INTERPOSE(shimGetCurrentEventButtonState, GetCurrentEventButtonState);
 DYLD_INTERPOSE(shimIsWindowActive, IsWindowActive);
@@ -135,6 +127,7 @@ DYLD_INTERPOSE(shimModalDialog, ModalDialog);
 DYLD_INTERPOSE(shimAlert, Alert);
 DYLD_INTERPOSE(shimShowWindow, ShowWindow);
 DYLD_INTERPOSE(shimHideWindow, HideWindow);
+DYLD_INTERPOSE(shimLSOpenCFURLRef, LSOpenCFURLRef);
 
 #if COMPILER(CLANG)
 #pragma clang diagnostic pop
@@ -142,31 +135,200 @@ DYLD_INTERPOSE(shimHideWindow, HideWindow);
 
 #endif
 
+// Simple Fake System V shared memory. This replacement API implements
+// usable system V shared memory for use within a single process. The memory
+// is not shared outside of the scope of the process.
+struct FakeSharedMemoryDescriptor {
+    FakeSharedMemoryDescriptor* next;
+    int referenceCount;
+    key_t key;
+    size_t requestedSize;
+    size_t mmapedSize;
+    int sharedMemoryFlags;
+    int sharedMemoryIdentifier;
+    void* mmapedAddress;
+};
+
+static FakeSharedMemoryDescriptor* shmDescriptorList = 0;
+static int fakeSharedMemoryIdentifier = 0;
+
+static FakeSharedMemoryDescriptor* findBySharedMemoryIdentifier(int sharedMemoryIdentifier)
+{
+    FakeSharedMemoryDescriptor* descriptorPtr = shmDescriptorList;
+
+    while (descriptorPtr) {
+        if (descriptorPtr->sharedMemoryIdentifier == sharedMemoryIdentifier)
+            break;
+        descriptorPtr = descriptorPtr->next;
+    }
+    return descriptorPtr;
+}
+
+static FakeSharedMemoryDescriptor* findBySharedMemoryAddress(const void* mmapedAddress)
+{
+    FakeSharedMemoryDescriptor* descriptorPtr = shmDescriptorList;
+
+    while (descriptorPtr) {
+        if (descriptorPtr->mmapedAddress == mmapedAddress)
+            break;
+
+        descriptorPtr = descriptorPtr->next;
+    }
+    return descriptorPtr;
+}
+
+static Boolean shim_disabled(void)
+{
+    static Boolean isFakeSHMDisabled;
+
+    static dispatch_once_t once;
+    dispatch_once(&once, ^() {
+        Boolean keyExistsAndHasValidFormat = false;
+        Boolean prefValue = CFPreferencesGetAppBooleanValue(CFSTR("WebKitDisableFakeSYSVSHM"), kCFPreferencesCurrentApplication, &keyExistsAndHasValidFormat);
+
+        if (keyExistsAndHasValidFormat && prefValue)
+            isFakeSHMDisabled = true;
+        else if (sandbox_check(getpid(), NULL, SANDBOX_FILTER_NONE) == 1)
+            isFakeSHMDisabled = false;  // Sandboxed
+        else
+            isFakeSHMDisabled = true;   // Not Sandboxed
+
+    });
+
+    return isFakeSHMDisabled;
+}
+
+static int shim_shmdt(const void* sharedAddress)
+{
+    if (shim_disabled())
+        return shmdt(sharedAddress);
+
+    FakeSharedMemoryDescriptor* descriptorPtr = findBySharedMemoryAddress(sharedAddress);
+    if (!descriptorPtr) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    descriptorPtr->referenceCount--;
+    if (!descriptorPtr->referenceCount) {
+        munmap(descriptorPtr->mmapedAddress, descriptorPtr->mmapedSize);
+        descriptorPtr->mmapedAddress = 0;
+    }
+
+    return 0;
+}
+
+static void* shim_shmat(int sharedMemoryIdentifier, const void* requestedSharedAddress, int shmflg)
+{
+    if (shim_disabled())
+        return shmat(sharedMemoryIdentifier, requestedSharedAddress, shmflg);
+
+    FakeSharedMemoryDescriptor* descriptorPtr = findBySharedMemoryIdentifier(sharedMemoryIdentifier);
+    void* mappedAddress = (void*)-1;
+
+    if (!descriptorPtr) {
+        errno = EINVAL;
+        return mappedAddress;
+    }
+
+    if (descriptorPtr->mmapedAddress) {
+        if (!requestedSharedAddress || requestedSharedAddress == descriptorPtr->mmapedAddress) {
+            mappedAddress = descriptorPtr->mmapedAddress;
+            descriptorPtr->referenceCount++;
+        }
+    } else {
+        descriptorPtr->mmapedSize = (descriptorPtr->requestedSize + PAGE_SIZE) & ~(PAGE_SIZE - 1);
+        mappedAddress = descriptorPtr->mmapedAddress = mmap((void*)requestedSharedAddress,
+            descriptorPtr->mmapedSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+        descriptorPtr->referenceCount++;
+    }
+
+    return mappedAddress;
+}
+
+static int shim_shmget(key_t key, size_t requestedSizeOfSharedMemory, int sharedMemoryFlags)
+{
+    if (shim_disabled())
+        return shmget(key, requestedSizeOfSharedMemory, sharedMemoryFlags);
+
+    FakeSharedMemoryDescriptor* descriptorPtr = shmDescriptorList;
+
+    while (descriptorPtr) {
+        // Are we looking for something we've already created?
+        if (descriptorPtr->key == key
+            && descriptorPtr->requestedSize == requestedSizeOfSharedMemory
+            && !((descriptorPtr->sharedMemoryFlags ^ sharedMemoryFlags) & 0777))
+            break;
+        descriptorPtr = descriptorPtr->next;
+    }
+
+    if (!descriptorPtr) {
+        descriptorPtr = (FakeSharedMemoryDescriptor*)malloc(sizeof(FakeSharedMemoryDescriptor));
+        if (!descriptorPtr) {
+            errno = ENOMEM;
+            return -1;
+        }
+        descriptorPtr->key = key;
+        descriptorPtr->requestedSize = requestedSizeOfSharedMemory;
+        descriptorPtr->sharedMemoryFlags = sharedMemoryFlags;
+        descriptorPtr->sharedMemoryIdentifier = ++fakeSharedMemoryIdentifier;
+        descriptorPtr->referenceCount = 0;
+        descriptorPtr->mmapedAddress = 0;
+        descriptorPtr->mmapedSize = 0;
+        descriptorPtr->next = shmDescriptorList;
+        shmDescriptorList = descriptorPtr;
+    }
+    return descriptorPtr->sharedMemoryIdentifier;
+}
+
+static int shim_shmctl(int sharedMemoryIdentifier, int cmd, struct shmid_ds* outputDescriptor)
+{
+    if (shim_disabled())
+        return shmctl(sharedMemoryIdentifier, cmd, outputDescriptor);
+
+    FakeSharedMemoryDescriptor* descriptorPtr = findBySharedMemoryIdentifier(sharedMemoryIdentifier);
+
+    if (!descriptorPtr) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    switch (cmd) {
+    case IPC_SET:
+    case IPC_RMID:
+        errno = EPERM;
+        return -1;
+
+    case IPC_STAT:
+        outputDescriptor->shm_perm.cuid = outputDescriptor->shm_perm.uid = getuid();
+        outputDescriptor->shm_perm.cgid = outputDescriptor->shm_perm.gid = getgid();
+        outputDescriptor->shm_perm.mode = descriptorPtr->sharedMemoryFlags & 0777;
+
+        outputDescriptor->shm_segsz = descriptorPtr->requestedSize;
+
+        outputDescriptor->shm_cpid = outputDescriptor->shm_lpid = getpid();
+
+        outputDescriptor->shm_nattch = descriptorPtr->referenceCount;
+
+        outputDescriptor->shm_ctime = outputDescriptor->shm_atime = outputDescriptor->shm_dtime = time(0);
+
+        return 0;
+    }
+
+    errno = EINVAL;
+    return -1;
+}
+
+DYLD_INTERPOSE(shim_shmat, shmat);
+DYLD_INTERPOSE(shim_shmdt, shmdt);
+DYLD_INTERPOSE(shim_shmget, shmget);
+DYLD_INTERPOSE(shim_shmctl, shmctl);
+
 __attribute__((visibility("default")))
 void WebKitPluginProcessShimInitialize(const PluginProcessShimCallbacks& callbacks)
 {
     pluginProcessShimCallbacks = callbacks;
-
-    // Override -[NSApplication runModalForWindow:]
-    Method runModalForWindowMethod = class_getInstanceMethod(objc_getClass("NSApplication"), @selector(runModalForWindow:));
-    NSApplication_RunModalForWindow = method_setImplementation(runModalForWindowMethod, reinterpret_cast<IMP>(shim_NSApplication_RunModalForWindow));
-
-    NSNotificationCenter *defaultCenter = [NSNotificationCenter defaultCenter];
-
-    // Track when any Cocoa window is about to be be shown.
-    id orderOnScreenObserver = [defaultCenter addObserverForName:WKWindowWillOrderOnScreenNotification()
-                                                          object:nil
-                                                           queue:nil
-                                                           usingBlock:^(NSNotification *notification) { pluginProcessShimCallbacks.cocoaWindowShown([notification object]); }];
-    // Track when any cocoa window is about to be hidden.
-    id orderOffScreenObserver = [defaultCenter addObserverForName:WKWindowWillOrderOffScreenNotification()
-                                                           object:nil
-                                                            queue:nil
-                                                       usingBlock:^(NSNotification *notification) { pluginProcessShimCallbacks.cocoaWindowHidden([notification object]); }];
-
-    // Leak the two observers so that they observe notifications for the lifetime of the process.
-    CFRetain(orderOnScreenObserver);
-    CFRetain(orderOffScreenObserver);
 }
 
 } // namespace WebKit
+

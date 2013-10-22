@@ -38,8 +38,7 @@
  */
 
 #include "dhcp_options.h"
-
-#define DHCPCLIENT_DIR			"/var/db/dhcpclient"
+#include "ipconfigd_globals.h"
 
 struct saved_pkt {
     dhcpol_t			options;

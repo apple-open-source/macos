@@ -32,16 +32,17 @@
 #if ENABLE(CSS_SHADERS)
 #include "CustomFilterProgram.h"
 
+#include "CustomFilterCompiledProgram.h"
 #include "CustomFilterProgramClient.h"
-#include "CustomFilterShader.h"
-
-#if ENABLE(WEBGL)
-#include "GraphicsContext3D.h"
-#endif
+#include "CustomFilterProgramInfo.h"
+#include "CustomFilterValidatedProgram.h"
 
 namespace WebCore {
 
-CustomFilterProgram::CustomFilterProgram()
+CustomFilterProgram::CustomFilterProgram(CustomFilterProgramType programType, const CustomFilterProgramMixSettings& mixSettings, CustomFilterMeshType meshType)
+    : m_programType(programType)
+    , m_mixSettings(mixSettings)
+    , m_meshType(meshType)
 {
     // Keep the constructor protected to prevent creating this object directly.
 }
@@ -77,16 +78,24 @@ void CustomFilterProgram::removeClient(CustomFilterProgramClient* client)
 void CustomFilterProgram::notifyClients()
 {
     for (CustomFilterProgramClientList::iterator iter = m_clients.begin(), end = m_clients.end(); iter != end; ++iter)
-        iter->first->notifyCustomFilterProgramLoaded(this);
+        iter->key->notifyCustomFilterProgramLoaded(this);
 }
 
-#if ENABLE(WEBGL)
-PassRefPtr<CustomFilterShader> CustomFilterProgram::createShaderWithContext(GraphicsContext3D* context)
+CustomFilterProgramInfo CustomFilterProgram::programInfo() const
 {
     ASSERT(isLoaded());
-    return CustomFilterShader::create(context, vertexShaderString(), fragmentShaderString());
+    return CustomFilterProgramInfo(vertexShaderString(), fragmentShaderString(), m_programType, m_mixSettings, m_meshType);
 }
-#endif
+
+PassRefPtr<CustomFilterValidatedProgram> CustomFilterProgram::validatedProgram()
+{
+    return m_validatedProgram;
+}
+
+void CustomFilterProgram::setValidatedProgram(PassRefPtr<CustomFilterValidatedProgram> validatedProgram)
+{
+    m_validatedProgram = validatedProgram;
+}
 
 } // namespace WebCore
 #endif // ENABLE(CSS_SHADERS)

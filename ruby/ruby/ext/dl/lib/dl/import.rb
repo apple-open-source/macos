@@ -1,225 +1,268 @@
-# -*- ruby -*-
-
 require 'dl'
-require 'dl/types'
+require 'dl/func.rb'
+require 'dl/struct.rb'
+require 'dl/cparser.rb'
 
 module DL
-  module Importable
-    LIB_MAP = {}
+  class CompositeHandler
+    def initialize(handlers)
+      @handlers = handlers
+    end
 
-    module Internal
-      def init_types()
-	@types ||= ::DL::Types.new
-      end
+    def handlers()
+      @handlers
+    end
 
-      def init_sym()
-	@SYM ||= {}
-      end
-
-      def [](name)
-	return @SYM[name.to_s][0]
-      end
-
-      def dlload(*libnames)
-	if( !defined?(@LIBS) )
-	  @LIBS = []
-	end
-	libnames.each{|libname|
-	  if( !LIB_MAP[libname] )
-	    LIB_MAP[libname] = DL.dlopen(libname)
-	  end
-	  @LIBS.push(LIB_MAP[libname])
-	}
-      end
-      alias dllink :dlload
-
-      def parse_cproto(proto)
-	proto = proto.gsub(/\s+/, " ").strip
-	case proto
-	when /^([\d\w\*_\s]+)\(([\d\w\*_\s\,\[\]]*)\)$/
-	  ret = $1
-	  args = $2.strip()
-	  ret = ret.split(/\s+/)
-	  args = args.split(/\s*,\s*/)
-	  func = ret.pop()
-	  if( func =~ /^\*/ )
-	    func.gsub!(/^\*+/,"")
-	    ret.push("*")
-	  end
-	  ret  = ret.join(" ")
-	  return [func, ret, args]
-	else
-	  raise(RuntimeError,"can't parse the function prototype: #{proto}")
-	end
-      end
-
-      # example:
-      #   extern "int strlen(char*)"
-      #
-      def extern(proto)
-	func,ret,args = parse_cproto(proto)
-	return import(func, ret, args)
-      end
-
-      # example:
-      #   callback "int method_name(int, char*)"
-      #
-      def callback(proto)
-	func,ret,args = parse_cproto(proto)
-
-	init_types()
-	init_sym()
-
-	rty,renc,rdec = @types.encode_return_type(ret)
-        if( !rty )
-          raise(TypeError, "unsupported type: #{ret}")
-        end
-	ty,enc,dec = encode_argument_types(args)
-	symty = rty + ty
-
-	module_eval("module_function :#{func}")
-	sym = module_eval([
-	  "DL::callback(\"#{symty}\"){|*args|",
-	  "  sym,rdec,enc,dec  = @SYM['#{func}']",
-	  "  args = enc.call(args) if enc",
-	  "  r,rs = #{func}(*args)",
-	  "  r  = renc.call(r) if rdec",
-	  "  rs = dec.call(rs) if (dec && rs)",
-	  "  @retval = r",
-	  "  @args   = rs",
-	  "  r",
-	  "}",
-	].join("\n"))
-
-	@SYM[func] = [sym,rdec,enc,dec]
-
-	return sym
-      end
-
-      # example:
-      #  typealias("uint", "unsigned int")
-      #
-      def typealias(alias_type, ty1, enc1=nil, dec1=nil, ty2=nil, enc2=nil, dec2=nil)
-	init_types()
-	@types.typealias(alias_type, ty1, enc1, dec1,
-                                     ty2||ty1, enc2, dec2)
-      end
-
-      # example:
-      #  symbol "foo_value"
-      #  symbol "foo_func", "IIP"
-      #
-      def symbol(name, ty = nil)
-	sym = nil
-	@LIBS.each{|lib|
-	  begin
-	    if( ty )
-	      sym = lib[name, ty]
-	    else
-	      sym = lib[name]
-	    end
-	  rescue
-	    next
-	  end
-	}
-	if( !sym )
-	  raise(RuntimeError, "can't find the symbol `#{name}'")
-	end
-	return sym
-      end
-
-      # example:
-      #   import("get_length", "int", ["void*", "int"])
-      #
-      def import(name, rettype, argtypes = nil)
-	init_types()
-	init_sym()
-
-	rty,_,rdec = @types.encode_return_type(rettype)
-        if( !rty )
-          raise(TypeError, "unsupported type: #{rettype}")
-        end
-	ty,enc,dec = encode_argument_types(argtypes)
-	symty = rty + ty
-
-	sym = symbol(name, symty)
-
-	mname = name.dup
-	if( ?A <= mname[0] && mname[0] <= ?Z )
-	  mname[0,1] = mname[0,1].downcase
-	end
-	@SYM[mname] = [sym,rdec,enc,dec]
-	
-	module_eval [
-	  "def #{mname}(*args)",
-	  "  sym,rdec,enc,dec  = @SYM['#{mname}']",
-	  "  args = enc.call(args) if enc",
-	  if( $DEBUG )
-	    "  p \"[DL] call #{mname} with \#{args.inspect}\""
-	  else
-	    ""
-	  end,
-	  "  r,rs = sym.call(*args)",
-	  if( $DEBUG )
-	    "  p \"[DL] retval=\#{r.inspect} args=\#{rs.inspect}\""
-	  else
-	    ""
-	  end,
-	  "  r  = rdec.call(r) if rdec",
-	  "  rs = dec.call(rs) if dec",
-	  "  @retval = r",
-	  "  @args   = rs",
-	  "  return r",
-	  "end",
-	  "module_function :#{mname}",
-	].join("\n")
-
-	return sym
-      end
-
-      def _args_
-	return @args
-      end
-
-      def _retval_
-	return @retval
-      end
-
-      def encode_argument_types(tys)
-	init_types()
-	encty = []
-	enc = nil
-	dec = nil
-	tys.each_with_index{|ty,idx|
-	  ty,c1,c2 = @types.encode_argument_type(ty)
-          if( !ty )
-            raise(TypeError, "unsupported type: #{ty}")
+    def sym(symbol)
+      @handlers.each{|handle|
+        if( handle )
+          begin
+            addr = handle.sym(symbol)
+            return addr
+          rescue DLError
           end
-	  encty.push(ty)
-	  if( enc )
-	    if( c1 )
-	      conv1 = enc
-	      enc = proc{|v| v = conv1.call(v); v[idx] = c1.call(v[idx]); v}
-	    end
-	  else
-	    if( c1 )
-	      enc = proc{|v| v[idx] = c1.call(v[idx]); v}
-	    end
-	  end
-	  if( dec )
-	    if( c2 )
-	      conv2 = dec
-	      dec = proc{|v| v = conv2.call(v); v[idx] = c2.call(v[idx]); v}
-	    end
-	  else
-	    if( c2 )
-	      dec = proc{|v| v[idx] = c2.call(v[idx]); v}
-	    end
-	  end
-	}
-	return [encty.join, enc, dec]
+        end
+      }
+      return nil
+    end
+
+    def [](symbol)
+      sym(symbol)
+    end
+  end
+
+  # DL::Importer includes the means to dynamically load libraries and build
+  # modules around them including calling extern functions within the C
+  # library that has been loaded.
+  #
+  # == Example
+  #
+  #   require 'dl'
+  #   require 'dl/import'
+  #
+  #   module LibSum
+  #   	extend DL::Importer
+  #   	dlload './libsum.so'
+  #   	extern 'double sum(double*, int)'
+  #   	extern 'double split(double)'
+  #   end
+	#
+  module Importer
+    include DL
+    include CParser
+    extend Importer
+
+    def dlload(*libs)
+      handles = libs.collect{|lib|
+        case lib
+        when nil
+          nil
+        when Handle
+          lib
+        when Importer
+          lib.handlers
+        else
+          begin
+            DL.dlopen(lib)
+          rescue DLError
+            raise(DLError, "can't load #{lib}")
+          end
+        end
+      }.flatten()
+      @handler = CompositeHandler.new(handles)
+      @func_map = {}
+      @type_alias = {}
+    end
+
+    def typealias(alias_type, orig_type)
+      @type_alias[alias_type] = orig_type
+    end
+
+    def sizeof(ty)
+      @type_alias ||= nil
+      case ty
+      when String
+        ty = parse_ctype(ty, @type_alias).abs()
+        case ty
+        when TYPE_CHAR
+          return SIZEOF_CHAR
+        when TYPE_SHORT
+          return SIZEOF_SHORT
+        when TYPE_INT
+          return SIZEOF_INT
+        when TYPE_LONG
+          return SIZEOF_LONG
+        when TYPE_LONG_LONG
+          return SIZEOF_LONG_LON
+        when TYPE_FLOAT
+          return SIZEOF_FLOAT
+        when TYPE_DOUBLE
+          return SIZEOF_DOUBLE
+        when TYPE_VOIDP
+          return SIZEOF_VOIDP
+        else
+          raise(DLError, "unknown type: #{ty}")
+        end
+      when Class
+        if( ty.instance_methods().include?(:to_ptr) )
+          return ty.size()
+        end
       end
-    end # end of Internal
-    include Internal
-  end # end of Importable
+      return CPtr[ty].size()
+    end
+
+    def parse_bind_options(opts)
+      h = {}
+      while( opt = opts.shift() )
+        case opt
+        when :stdcall, :cdecl
+          h[:call_type] = opt
+        when :carried, :temp, :temporal, :bind
+          h[:callback_type] = opt
+          h[:carrier] = opts.shift()
+        else
+          h[opt] = true
+        end
+      end
+      h
+    end
+    private :parse_bind_options
+
+    def extern(signature, *opts)
+      @type_alias ||= nil
+      symname, ctype, argtype = parse_signature(signature, @type_alias)
+      opt = parse_bind_options(opts)
+      f = import_function(symname, ctype, argtype, opt[:call_type])
+      name = symname.gsub(/@.+/,'')
+      @func_map[name] = f
+      # define_method(name){|*args,&block| f.call(*args,&block)}
+      begin
+        /^(.+?):(\d+)/ =~ caller.first
+        file, line = $1, $2.to_i
+      rescue
+        file, line = __FILE__, __LINE__+3
+      end
+      module_eval(<<-EOS, file, line)
+        def #{name}(*args, &block)
+          @func_map['#{name}'].call(*args,&block)
+        end
+      EOS
+      module_function(name)
+      f
+    end
+
+    def bind(signature, *opts, &blk)
+      @type_alias ||= nil
+      name, ctype, argtype = parse_signature(signature, @type_alias)
+      h = parse_bind_options(opts)
+      case h[:callback_type]
+      when :bind, nil
+        f = bind_function(name, ctype, argtype, h[:call_type], &blk)
+      when :temp, :temporal
+        f = create_temp_function(name, ctype, argtype, h[:call_type])
+      when :carried
+        f = create_carried_function(name, ctype, argtype, h[:call_type], h[:carrier])
+      else
+        raise(RuntimeError, "unknown callback type: #{h[:callback_type]}")
+      end
+      @func_map[name] = f
+      #define_method(name){|*args,&block| f.call(*args,&block)}
+      begin
+        /^(.+?):(\d+)/ =~ caller.first
+        file, line = $1, $2.to_i
+      rescue
+        file, line = __FILE__, __LINE__+3
+      end
+      module_eval(<<-EOS, file, line)
+        def #{name}(*args,&block)
+          @func_map['#{name}'].call(*args,&block)
+        end
+      EOS
+      module_function(name)
+      f
+    end
+
+    # Creates a class to wrap the C struct described by +signature+.
+    #
+    #   MyStruct = struct ['int i', 'char c']
+    def struct(signature)
+      @type_alias ||= nil
+      tys, mems = parse_struct_signature(signature, @type_alias)
+      DL::CStructBuilder.create(CStruct, tys, mems)
+    end
+
+    # Creates a class to wrap the C union described by +signature+.
+    #
+    #   MyUnion = union ['int i', 'char c']
+    def union(signature)
+      @type_alias ||= nil
+      tys, mems = parse_struct_signature(signature, @type_alias)
+      DL::CStructBuilder.create(CUnion, tys, mems)
+    end
+
+    def [](name)
+      @func_map[name]
+    end
+
+    def create_value(ty, val=nil)
+      s = struct([ty + " value"])
+      ptr = s.malloc()
+      if( val )
+        ptr.value = val
+      end
+      return ptr
+    end
+    alias value create_value
+
+    def import_value(ty, addr)
+      s = struct([ty + " value"])
+      ptr = s.new(addr)
+      return ptr
+    end
+
+    def handler
+      defined?(@handler) or raise "call dlload before importing symbols and functions"
+      @handler
+    end
+
+    def import_symbol(name)
+      addr = handler.sym(name)
+      if( !addr )
+        raise(DLError, "cannot find the symbol: #{name}")
+      end
+      CPtr.new(addr)
+    end
+
+    def import_function(name, ctype, argtype, call_type = nil)
+      addr = handler.sym(name)
+      if( !addr )
+        raise(DLError, "cannot find the function: #{name}()")
+      end
+      Function.new(CFunc.new(addr, ctype, name, call_type || :cdecl), argtype)
+    end
+
+    def bind_function(name, ctype, argtype, call_type = nil, &block)
+      if DL.fiddle?
+        klass = Function.instance_eval { class_fiddle_closure_cfunc }
+        abi = Function.instance_eval { call_type_to_abi(call_type) }
+        closure = Class.new(klass) {
+          define_method(:call, block)
+        }.new(ctype, argtype, abi, name)
+
+        Function.new(closure, argtype, abi)
+      else
+        f = Function.new(CFunc.new(0, ctype, name, call_type || :cdecl), argtype)
+        f.bind(&block)
+        f
+      end
+    end
+
+    def create_temp_function(name, ctype, argtype, call_type = nil)
+      TempFunction.new(CFunc.new(0, ctype, name, call_type || :cdecl), argtype)
+    end
+
+    def create_carried_function(name, ctype, argtype, call_type = nil, n = 0)
+      CarriedFunction.new(CFunc.new(0, ctype, name, call_type || :cdecl), argtype, n)
+    end
+  end
 end

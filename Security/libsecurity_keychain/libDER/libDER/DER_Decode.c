@@ -390,8 +390,11 @@ DERReturn DERParseSequenceContent(
 				
 				/* is this the end? */
 				if(itemDex == numItems) {
-					/* normal termination */
-					return DR_Success;
+					/* normal termination if we consumed everything */
+					if (currDecoded.content.data + currDecoded.content.length == content->data + content->length)
+						return DR_Success;
+					else
+						return DR_DecodeError;
 				}
 				else {
 					/* on to next item */ 

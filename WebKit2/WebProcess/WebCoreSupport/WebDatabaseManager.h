@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,48 +26,49 @@
 #ifndef WebDatabaseManager_h
 #define WebDatabaseManager_h
 
-#include "Arguments.h"
-#include <WebCore/DatabaseTrackerClient.h>
-#include <wtf/Noncopyable.h>
-#include <wtf/text/WTFString.h>
+#if ENABLE(SQL_DATABASE)
 
-namespace CoreIPC {
-class ArgumentDecoder;
-class Connection;
-class MessageID;
-}
+#include "MessageReceiver.h"
+#include "WebProcessSupplement.h"
+#include <WebCore/DatabaseManagerClient.h>
+#include <stdint.h>
+#include <wtf/Noncopyable.h>
 
 namespace WebKit {
 
-class WebDatabaseManager : public WebCore::DatabaseTrackerClient {
+class WebProcess;
+
+class WebDatabaseManager : public WebCore::DatabaseManagerClient, public WebProcessSupplement, public CoreIPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebDatabaseManager);
 public:
-    static WebDatabaseManager& shared();
-    static void initialize(const String& databaseDirectory);
+    explicit WebDatabaseManager(WebProcess*);
 
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    static const char* supplementName();
+
     void setQuotaForOrigin(const String& originIdentifier, unsigned long long quota) const;
-
-public:
     void deleteAllDatabases() const;
 
 private:
-    WebDatabaseManager();
-    virtual ~WebDatabaseManager();
+    // WebProcessSupplement
+    virtual void initialize(const WebProcessCreationParameters&) OVERRIDE;
 
-    // Implemented in generated WebDatabaseManagerMessageReceiver.cpp
-    void didReceiveWebDatabaseManagerMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    // CoreIPC::MessageReceiver
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
 
     void getDatabasesByOrigin(uint64_t callbackID) const;
     void getDatabaseOrigins(uint64_t callbackID) const;
     void deleteDatabaseWithNameForOrigin(const String& databaseIdentifier, const String& originIdentifier) const;
     void deleteDatabasesForOrigin(const String& originIdentifier) const;
 
-    // WebCore::DatabaseTrackerClient
+    // WebCore::DatabaseManagerClient
     virtual void dispatchDidModifyOrigin(WebCore::SecurityOrigin*) OVERRIDE;
     virtual void dispatchDidModifyDatabase(WebCore::SecurityOrigin*, const String& databaseIdentifier) OVERRIDE;
+
+    WebProcess* m_process;
 };
 
 } // namespace WebKit
+
+#endif // ENABLE(SQL_DATABASE)
 
 #endif // WebDatabaseManager_h

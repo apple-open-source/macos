@@ -31,45 +31,38 @@
 
 #include "AudioContext.h"
 #include "AudioParamTimeline.h"
-#include "PlatformString.h"
+#include "AudioSummingJunction.h"
 #include <sys/types.h>
 #include <wtf/Float32Array.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class AudioNodeOutput;
 
-class AudioParam : public RefCounted<AudioParam> {
+class AudioParam : public AudioSummingJunction, public RefCounted<AudioParam> {
 public:
     static const double DefaultSmoothingConstant;
     static const double SnapThreshold;
 
-    static PassRefPtr<AudioParam> create(const String& name, double defaultValue, double minValue, double maxValue, unsigned units = 0)
+    static PassRefPtr<AudioParam> create(AudioContext* context, const String& name, double defaultValue, double minValue, double maxValue, unsigned units = 0)
     {
-        return adoptRef(new AudioParam(name, defaultValue, minValue, maxValue, units));
+        return adoptRef(new AudioParam(context, name, defaultValue, minValue, maxValue, units));
     }
 
-    AudioParam(const String& name, double defaultValue, double minValue, double maxValue, unsigned units = 0)
-        : m_name(name)
-        , m_value(defaultValue)
-        , m_defaultValue(defaultValue)
-        , m_minValue(minValue)
-        , m_maxValue(maxValue)
-        , m_units(units)
-        , m_smoothedValue(defaultValue)
-        , m_smoothingConstant(DefaultSmoothingConstant)
-        , m_audioRateSignal(0)
-    {
-    }
-    
-    void setContext(AudioContext* context) { m_context = context; }
-    AudioContext* context() { return m_context.get(); }
+    // AudioSummingJunction
+    virtual bool canUpdateState() OVERRIDE { return true; }
+    virtual void didUpdate() OVERRIDE { }
 
+    // Intrinsic value.
     float value();
-    
     void setValue(float);
+
+    // Final value for k-rate parameters, otherwise use calculateSampleAccurateValues() for a-rate.
+    // Must be called in the audio thread.
+    float finalValue();
 
     String name() const { return m_name; }
 
@@ -95,11 +88,11 @@ public:
     void setValueAtTime(float value, float time) { m_timeline.setValueAtTime(value, time); }
     void linearRampToValueAtTime(float value, float time) { m_timeline.linearRampToValueAtTime(value, time); }
     void exponentialRampToValueAtTime(float value, float time) { m_timeline.exponentialRampToValueAtTime(value, time); }
-    void setTargetValueAtTime(float targetValue, float time, float timeConstant) { m_timeline.setTargetValueAtTime(targetValue, time, timeConstant); }
+    void setTargetAtTime(float target, float time, float timeConstant) { m_timeline.setTargetAtTime(target, time, timeConstant); }
     void setValueCurveAtTime(Float32Array* curve, float time, float duration) { m_timeline.setValueCurveAtTime(curve, time, duration); }
     void cancelScheduledValues(float startTime) { m_timeline.cancelScheduledValues(startTime); }
 
-    bool hasSampleAccurateValues() { return m_timeline.hasValues() || m_audioRateSignal; }
+    bool hasSampleAccurateValues() { return m_timeline.hasValues() || numberOfRenderingConnections(); }
     
     // Calculates numberOfValues parameter values starting at the context's current time.
     // Must be called in the context's render thread.
@@ -109,11 +102,25 @@ public:
     void connect(AudioNodeOutput*);
     void disconnect(AudioNodeOutput*);
 
+protected:
+    AudioParam(AudioContext* context, const String& name, double defaultValue, double minValue, double maxValue, unsigned units = 0)
+        : AudioSummingJunction(context)
+        , m_name(name)
+        , m_value(defaultValue)
+        , m_defaultValue(defaultValue)
+        , m_minValue(minValue)
+        , m_maxValue(maxValue)
+        , m_units(units)
+        , m_smoothedValue(defaultValue)
+        , m_smoothingConstant(DefaultSmoothingConstant)
+    {
+    }
+
 private:
-    void calculateAudioRateSignalValues(float* values, unsigned numberOfValues);
+    // sampleAccurate corresponds to a-rate (audio rate) vs. k-rate in the Web Audio specification.
+    void calculateFinalValues(float* values, unsigned numberOfValues, bool sampleAccurate);
     void calculateTimelineValues(float* values, unsigned numberOfValues);
 
-    RefPtr<AudioContext> m_context;
     String m_name;
     double m_value;
     double m_defaultValue;
@@ -126,11 +133,6 @@ private:
     double m_smoothingConstant;
     
     AudioParamTimeline m_timeline;
-
-    // An audio-rate signal directly providing parameter values.
-    // FIXME: support fan-in (multiple audio connections to this parameter with unity-gain summing).
-    // https://bugs.webkit.org/show_bug.cgi?id=83610
-    AudioNodeOutput* m_audioRateSignal;
 };
 
 } // namespace WebCore

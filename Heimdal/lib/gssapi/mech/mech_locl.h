@@ -61,6 +61,7 @@
 #include <gssapi_ntlm.h>
 #include <gssapi_netlogon.h>
 #include <gssapi_spi.h>
+#include <GSSPrivate.h>
 
 #include <heimbase.h>
 

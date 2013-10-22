@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <err.h>
 #include <errno.h>
+#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <removefile.h>
@@ -61,18 +62,43 @@ static const char *bundlePrototype =
 	"</plist>\n";
 
 /*
- * Do a per-volume sync.  We use this just before updating the progress file, so
- * that any changes -- data and metadata -- will have made it to disk, without
- * causing a sync of every mounted volume.
- *
+ * Perform a (potentially) unaligned read from a given input device.
  */
-
-static void
-sync_volume(const char *path) {
-        int full_sync = FSCTL_SYNC_FULLSYNC | FSCTL_SYNC_WAIT;
-
-        (void)fsctl(path, FSCTL_SYNC_VOLUME, &full_sync, 0);
-        return;
+static ssize_t
+UnalignedRead(DeviceInfo_t *devp, void *buffer, size_t size, off_t offset)
+{
+	ssize_t nread = -1;
+	size_t readSize = ((size + devp->blockSize - 1) / devp->blockSize) * devp->blockSize;
+	off_t baseOffset = (offset / devp->blockSize) * devp->blockSize;
+	size_t off = offset - baseOffset;
+	char *tmpbuf = NULL;
+	
+	if ((baseOffset == offset) && (readSize == size)) {
+		/*
+		 * The read is already properly aligned, so call pread.
+		 */
+		return pread(devp->fd, buffer, size, offset);
+	}
+	
+	tmpbuf = malloc(readSize);
+	if (!tmpbuf) {
+		goto done;
+	}
+	
+	nread = pread(devp->fd, tmpbuf, readSize, baseOffset);
+	if (nread == -1) {
+		goto done;
+	}
+	
+	nread -= off;
+	if (nread > (ssize_t)size) {
+		nread = size;
+	}
+	memcpy(buffer, tmpbuf + off, nread);
+	
+done:
+	free(tmpbuf);
+	return nread;
 }
 
 /*
@@ -148,19 +174,29 @@ doSparseWrite(IOWrapper_t *context, off_t offset, void *buffer, size_t len)
 		int fd;
 
 		if (ctx->cfd == -1 || ctx->cBandNum != bandNum) {
-				if (ctx->cfd != -1)
-					close(ctx->cfd);
-				asprintf(&bandName, "%s/bands/%x", ctx->pathname, bandNum);
-				fd = open(bandName, O_WRONLY | O_CREAT, 0666);
-				if (fd == -1) {
-					warn("Cannot open band file %s for offset %llu", bandName, offset + written);
-					retval = -1;
-					goto done;
-				}
-				free(bandName);
-				bandName = NULL;
-				ctx->cfd = fd;
-				ctx->cBandNum = bandNum;
+			if (ctx->cfd != -1) {
+				close(ctx->cfd);
+			}
+			asprintf(&bandName, "%s/bands/%x", ctx->pathname, bandNum);
+			fd = open(bandName, O_WRONLY | O_CREAT, 0666);
+			if (fd == -1) {
+				warn("Cannot open band file %s for offset %llu", bandName, offset + written);
+				retval = -1;
+				goto done;
+			}
+			/*
+			 * When we create a new band file, we sync the volume
+			 * it's on, so that we can ensure that the band file is present
+			 * on disk.  (Otherwise, with a crash, we can end up with the
+			 * data not where we expected.)  In this case, however, we probably
+			 * don't need to wait for it -- just start the sync.
+			 */
+			fsync_volume_np(fd, 0);
+			fcntl(fd, F_NOCACHE, 1);
+			free(bandName);
+			bandName = NULL;
+			ctx->cfd = fd;
+			ctx->cBandNum = bandNum;
 		} else {
 			fd = ctx->cfd;
 		}
@@ -172,6 +208,8 @@ doSparseWrite(IOWrapper_t *context, off_t offset, void *buffer, size_t len)
 			retval = -1;
 			goto done;
 		}
+		// Sync the data out.
+		fsync(fd);
 		written += nwritten;
 	}
 	retval = written;
@@ -188,30 +226,44 @@ static ssize_t
 WriteExtentToSparse(struct IOWrapper * context, DeviceInfo_t *devp, off_t start, off_t len, void (^bp)(off_t))
 {
 	const size_t bufSize = 1024 * 1024;
-	uint8_t buffer[bufSize];
+	uint8_t *buffer = NULL;
+	ssize_t retval = 0;
 	off_t total = 0;
 
 	if (debug) printf("Writing extent <%lld, %lld>\n", start, len);
+	buffer = malloc(bufSize);
+	if (buffer == NULL) {
+		warn("%s(%s):  Could not allocate %zu bytes for buffer", __FILE__, __FUNCTION__, bufSize);
+		retval = -1;
+		goto done;
+	}
+
 	while (total < len) {
 		ssize_t nread;
 		ssize_t nwritten;
 		size_t amt = MIN(bufSize, len - total);
-		nread = pread(devp->fd, buffer, amt, start + total);
+		nread = UnalignedRead(devp, buffer, amt, start + total);
 		if (nread == -1) {
 			warn("Cannot read from device at offset %lld", start + total);
-			return -1;
+			retval = -1;
+			break;
 		}
 		if (nread < amt) {
 			warnx("Short read from source device -- got %zd, expected %zd", nread, amt);
 		}
 		nwritten = doSparseWrite(context, start + total, buffer, nread);
-		if (nwritten == -1)
-			return -1;
+		if (nwritten == -1) {
+			retval = -1;
+			break;
+		}
 		bp(nread);
 		total += nread;
 	}
 	if (debug) printf("\twrote %lld\n", total);
-	return 0;
+done:
+	if (buffer)
+		free(buffer);
+	return retval;
 }
 
 static const CFStringRef kBandSizeKey = CFSTR("band-size");
@@ -341,7 +393,6 @@ SetProgress(struct IOWrapper *context, off_t prog)
 	} else {
 		fp = fopen(progFile, "w");
 		if (fp) {
-			sync_volume(ctx->pathname);
 			(void)fprintf(fp, "%llu\n", prog);
 			fclose(fp);
 		}

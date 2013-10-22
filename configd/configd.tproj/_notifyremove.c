@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,7 +100,7 @@ __SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boole
 
 		/*
 		 * We are watching a specific key. As such, update the
-		 * store to mark our interest in any changes.
+		 * store to remove our interest in any changes.
 		 */
 		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
 		_removeWatcher(sessionNum, key);

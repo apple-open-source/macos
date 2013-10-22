@@ -29,6 +29,7 @@
 #include <IOKit/smbus/IOSMBusController.h>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 
+
 #include "AppleSmartBatteryCommands.h"
 #include "AppleSmartBatteryManager.h"
 
@@ -36,21 +37,32 @@
 
 class AppleSmartBatteryManager;
 
+typedef struct {
+    uint32_t cmd;
+    int addr;
+    int protocol;
+    uint32_t smcKey;
+    const OSSymbol *setItAndForgetItSym;
+    int pathBits;
+} CommandStruct;
+
+typedef struct {
+    CommandStruct   *table;
+    int             count;
+} CommandTable;
+
 class AppleSmartBattery : public IOPMPowerSource {
     OSDeclareDefaultStructors(AppleSmartBattery)
     
 protected:
     AppleSmartBatteryManager    *fProvider;
     IOWorkLoop                  *fWorkLoop;
-    IOTimerEventSource          *fPollTimer;
     IOTimerEventSource          *fBatteryReadAllTimer;
     bool                        fStalledByUserClient;
     bool                        fCancelPolling;
     bool                        fPollingNow;
     IOSMBusTransaction          fTransaction;
     uint16_t                    fMachinePath;
-    uint32_t                    fPollingInterval;
-    bool                        fPollingOverridden;
     bool                        fRebootPolling;
     uint8_t                     fReadingExtendedCmd;
     bool                        fInflowDisabled;
@@ -70,10 +82,15 @@ protected:
     bool                        fFullyCharged;
     int                         fBatteryPresent;
     int                         fACConnected;
+    int                         fInstantCurrent;
     int                         fAvgCurrent;
     OSArray                     *fCellVoltages;
 
+    CommandTable                cmdTable;
+
     IOACPIPlatformDevice        *fACPIProvider;
+
+    
 
     // Accessor for MaxError reading
     // Percent error in MaxCapacity reading
@@ -119,49 +136,47 @@ protected:
     
     void    constructAppleSerialNumber(void);
     
+    CommandStruct *commandForState(uint32_t state);
+    void    initializeCommands(void);
+    bool    initiateTransaction(const CommandStruct *cs, bool retry);
+    bool    initiateNextTransaction(uint32_t state);
+    bool    retryCurrentTransaction(uint32_t state);
+    bool    handleSetItAndForgetIt(int state, int val16,
+                                   const uint8_t *str32, uint32_t len);
+
 public:
     static AppleSmartBattery *smartBattery(void);
-
     virtual bool init(void);
-
     virtual bool start(IOService *provider);
-
-    void    setPollingInterval(int milliSeconds);
-
-    bool    pollBatteryState(int path = 0);
-    
+    bool    pollBatteryState(int path);
     void    handleBatteryInserted(void);
-    
     void    handleBatteryRemoved(void);
-
     void    handleInflowDisabled(bool inflow_state);
-
     void    handleChargeInhibited(bool charge_state);
-    
     void    handleExclusiveAccess(bool exclusive);
-
     IOReturn handleSystemSleepWake(IOService * powerService, bool isSystemSleep);
-
+    
 protected:
     void    logReadError( const char *error_type, 
                           uint16_t additional_error,
                           IOSMBusTransaction *t);
 
     void    clearBatteryState(bool do_update);
-
-    void    pollingTimeOut(void);
     
     void    incompleteReadTimeOut(void);
 
     void    rebuildLegacyIOBatteryInfo(void);
 
-    bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
+    bool        transactionCompletion(void *ref, IOSMBusTransaction *transaction);
+    uint32_t    transactionCompletion_requiresRetryGetMicroSec(IOSMBusTransaction *transaction);
+    bool        transactionCompletion_shouldAbortTransactions(IOSMBusTransaction *transaction);
+    void        handlePollingFinished(bool visitedEntirePath);
 
-    IOReturn readWordAsync(uint8_t address, uint8_t cmd);
+    IOReturn readWordAsync(uint32_t refnum, uint8_t address, uint8_t cmd);
 
-    IOReturn writeWordAsync(uint8_t address, uint8_t cmd, uint16_t writeWord);
+    IOReturn writeWordAsync(uint32_t refnum, uint8_t address, uint8_t cmd, uint16_t writeWord);
 
-    IOReturn readBlockAsync(uint8_t address, uint8_t cmd);
+    IOReturn readBlockAsync(uint32_t refnum, uint8_t address, uint8_t cmd);
 
     void    acknowledgeSystemSleepWake( void );
 };

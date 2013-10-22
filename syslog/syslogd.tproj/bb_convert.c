@@ -42,7 +42,11 @@ extern time_t asl_parse_time(const char *);
 #define TEMP_NAME "_TMP_.asl"
 #define STORE_DATA_FLAGS 0x00000000
 
+#if TARGET_IPHONE_SIMULATOR
+const char *store_path;
+#else
 static const char *store_path = PATH_ASL_STORE;
+#endif
 
 /*
  * Cache the output file for BB writes.

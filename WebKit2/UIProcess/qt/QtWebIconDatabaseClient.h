@@ -21,50 +21,37 @@
 #ifndef QtWebIconDatabaseClient_h
 #define QtWebIconDatabaseClient_h
 
-#include "WKIconDatabase.h"
 #include "qwebkitglobal.h"
 #include <QtCore/QObject>
-#include <QtCore/QSize>
-#include <wtf/RefPtr.h>
-#include <wtf/Threading.h>
+#include <WKIconDatabase.h>
 
 QT_BEGIN_NAMESPACE
 class QImage;
 class QUrl;
 QT_END_NAMESPACE
 
-namespace WTF {
-class String;
-}
-
 namespace WebKit {
-
-class QtWebContext;
-class WebIconDatabase;
 
 class QtWebIconDatabaseClient : public QObject {
     Q_OBJECT
 
 public:
-    QtWebIconDatabaseClient(QtWebContext*);
+    QtWebIconDatabaseClient(WKContextRef);
     ~QtWebIconDatabaseClient();
 
-    QImage iconImageForPageURL(const WTF::String& pageURL, const QSize& iconSize = QSize(32, 32));
-    void retainIconForPageURL(const WTF::String&);
-    void releaseIconForPageURL(const WTF::String&);
+    QImage iconImageForPageURL(const QString&);
 
-public Q_SLOTS:
-    void requestIconForPageURL(const QUrl&);
+    void retainIconForPageURL(const QString&);
+    void releaseIconForPageURL(const QString&);
+
+    static unsigned updateID();
 
 public:
-    Q_SIGNAL void iconChangedForPageURL(const QUrl& pageURL, const QUrl& iconURL);
+    Q_SIGNAL void iconChangedForPageURL(const QString& pageURL);
 
 private:
-    unsigned iconURLHashForPageURL(const WTF::String&);
     static void didChangeIconForPageURL(WKIconDatabaseRef, WKURLRef pageURL, const void* clientInfo);
-    uint64_t m_contextId;
-    RefPtr<WebKit::WebIconDatabase> m_iconDatabase;
-    Mutex m_imageLock;
+    WKIconDatabaseRef m_iconDatabase;
 };
 
 } // namespace WebKit

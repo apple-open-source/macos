@@ -1,7 +1,11 @@
 #!/bin/sh
 set -e
 
-destination="$DSTROOT"/usr/include/rpcsvc
+if [ "${RC_ProjectName%_Sim}" != "${RC_ProjectName}" ] ; then
+    destination="$DSTROOT$SDKROOT"/usr/local/include/rpcsvc
+else 
+    destination="$DSTROOT"/usr/include/rpcsvc
+fi
 
 printf "Creating installation directory\n"
 printf " install -m 0755 -d %s\n" "$destination"

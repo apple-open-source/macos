@@ -56,9 +56,17 @@ void PMStoreLoad()
 
 bool PMStoreSetValue(CFStringRef key, CFTypeRef value)
 {
+    CFTypeRef lastValue = NULL;
+
     if (!key || !value || !gPMStore)
         return false;
 
+    lastValue = CFDictionaryGetValue(gPMStore, key);
+    
+    if (lastValue && CFEqual(lastValue, value)) {
+        return true;
+    }
+    
     CFDictionarySetValue(gPMStore, key, value);
     return SCDynamicStoreSetValue(gSCDynamicStore, key, value);
 }

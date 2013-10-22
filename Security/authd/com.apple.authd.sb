@@ -1,0 +1,32 @@
+(version 1)
+
+(deny default)
+
+(import "system.sb")
+
+(allow file-ioctl
+       (literal "/dev/auditsessions"))
+
+(allow file-read*)
+
+(allow file-read* file-write*
+       (regex #"^/private/var/db/auth\.db.*$")
+       (literal "/private/var/db/mds/system/mds.lock"))
+
+(allow mach-lookup
+       (global-name "com.apple.CoreServices.coreservicesd")
+       (global-name "com.apple.PowerManagement.control")
+       (global-name "com.apple.security.agentMain")
+       (global-name "com.apple.security.agentStub")
+       (global-name "com.apple.security.authhost")
+       (global-name "com.apple.SecurityServer")
+       (global-name "com.apple.system.opendirectoryd.api")
+       (global-name "com.apple.ocspd"))
+       
+(allow ipc-posix-shm
+       (ipc-posix-name "apple.shm.notification_center")
+       (ipc-posix-name "com.apple.AppleDatabaseChanged"))
+
+(allow mach-per-user-lookup)
+
+(allow system-audit system-sched)

@@ -507,7 +507,7 @@ public:
 	~CssmDataContainer() { if (Data) mAllocator.free(Data); }
 	void append(const CssmPolyData &data)
 	{
-		uint32 newLength = Length + data.Length;
+		size_t newLength = Length + data.Length;
 		Data = reinterpret_cast<uint8 *>(mAllocator.realloc(Data, newLength));
 		memcpy(Data + Length, data.Data, data.Length);
 		Length = newLength;

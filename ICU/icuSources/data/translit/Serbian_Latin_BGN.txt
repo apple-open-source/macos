@@ -1,6 +1,6 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2012, International Business Machines
+# *  Copyright (C) 2004-2013, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
@@ -16,7 +16,7 @@ $upperVowels = [АЕИОУ] ;
 $lowerVowels = [аеиоу] ;
 $vowels = [$upperVowels $lowerVowels] ;
 $lower = [$lowerConsonants $lowerVowels] ;
-$wordBoundary = [^[:L:][:M:][:N:]] ;
+$wordBoundary =  [^[:L:][:M:][:N:]] ;
 А → A ; # CYRILLIC CAPITAL LETTER A
 а → a ; # CYRILLIC SMALL LETTER A
 Б → B ; # CYRILLIC CAPITAL LETTER BE
@@ -38,7 +38,7 @@ $wordBoundary = [^[:L:][:M:][:N:]] ;
 И → I ; # CYRILLIC CAPITAL LETTER I
 и → i ; # CYRILLIC SMALL LETTER I
 Ј → J ; # CYRILLIC CAPITAL LETTER JE
-ј → J ; # CYRILLIC SMALL LETTER JE
+ј → j ; # CYRILLIC SMALL LETTER JE
 К → K ; # CYRILLIC CAPITAL LETTER KA
 к → k ; # CYRILLIC SMALL LETTER KA
 Л → L ; # CYRILLIC CAPITAL LETTER EL

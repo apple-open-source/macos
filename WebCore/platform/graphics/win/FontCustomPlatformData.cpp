@@ -21,7 +21,6 @@
 #include "config.h"
 #include "FontCustomPlatformData.h"
 
-#include "Base64.h"
 #include "FontPlatformData.h"
 #include "OpenTypeUtilities.h"
 #include "SharedBuffer.h"
@@ -29,6 +28,7 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/text/Base64.h>
 
 namespace WebCore {
 
@@ -40,7 +40,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
             RemoveFontMemResourceEx(m_fontReference);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, TextOrientation, FontWidthVariant, FontRenderingMode renderingMode)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, FontWidthVariant, FontRenderingMode renderingMode)
 {
     ASSERT(m_fontReference);
 
@@ -64,7 +64,7 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, b
 
     HFONT hfont = CreateFontIndirect(&logFont);
 
-    RetainPtr<CGFontRef> cgFont(AdoptCF, CGFontCreateWithPlatformFont(&logFont));
+    RetainPtr<CGFontRef> cgFont = adoptCF(CGFontCreateWithPlatformFont(&logFont));
     return FontPlatformData(hfont, cgFont.get(), size, bold, italic, renderingMode == AlternateRenderingMode);
 }
 

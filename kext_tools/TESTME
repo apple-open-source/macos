@@ -72,6 +72,7 @@ getHelper() {
 }
 
 [ "$kextcache" ] || kextcache=/usr/sbin/kextcache
+brtest=/usr/local/bin/brtest
 [ -x "$brtest" ] || brtest=./brtest
 [ -d "$bros" ] || bros=$(findRAIDos)
 [ -d "$csos" ] || csos=$(findCSos);
@@ -120,9 +121,10 @@ sudo "$kextcache" -U "$bros"; echo \$?        # should be 0
 sudo touch "$bros"/Library/Preferences/SystemConfiguration/com.apple.Boot.plist \
     && sudo "$kextcache" -U "$bros"; echo \$?        # should be EX_OSFILE (72)
 
-# installer test (mid-way through)
+# installer test (mid-way, non-FDE: should not rebuild EFILoginLocalizations)
 sudo rm -rf "$bros"/System/Library/Caches/com.apple.kext.caches/Startup/kernelcache \
     "$bros"/System/Library/Caches/com.apple.corestorage/EFILoginLocalizations \
+    "$bros"/System/Library/Caches/com.apple.corestorage/EncryptedRoot.plist.wipekey \
     "$bros"/System/Library/CoreServices/boot.efi \
     && sudo "$kextcache" -v -Installer -u "$bros"; echo \$?
 sudo bless -folder "$bros"/System/Library/CoreServices -bootefi  # restore boot.efi
@@ -133,6 +135,11 @@ sudo bless -folder "$bros"/System/Library/CoreServices -bootefi  # restore boot.
 sudo rm -rf "$bros"/System/Library/Caches/com.apple.kext.caches/Startup/kernelcache \
     "$bros"/System/Library/Caches/com.apple.corestorage/EFILoginLocalizations \
     && sudo "$kextcache" -v -Installer -u "$bros"; echo \$?
+
+# now targetting an FDE volume (should rebuild EFILoginLocalizations)
+sudo rm -rf "$fdeos"/System/Library/Caches/com.apple.corestorage/EFILoginLocalizations \
+    "$fdeos"/System/Library/Caches/com.apple.corestorage/EncryptedRoot.plist.wipekey \
+    && sudo "$kextcache" -v -Installer -u "$fdeos"; echo \$?
 
 # -caches-only
 # background kextcache -vU should only update the helpers
@@ -149,7 +156,8 @@ sudo diskutil cs convert / -passphrase test && sudo reboot
 echo EFI Login should come up on reboot.
 echo "----- AFTER REBOOT -----"
 diskutil mount $fdehelper
-bless -info /Volumes/Rec*       # finderinfo[0] -> com.apple.boot.[RPS]
+ls -l /Volumes/Rec*             # should have com.apple.boot.[RPS]
+bless -info /Volumes/Rec*       # finderinfo[0] -> /S/L/CoreServices
                                 # finderinfo[1] -> /S/L/CoreServices/boot.efi
                                 # finderinfo[3] -> com.apple.recovery.boot
 echo feel free to turn off FDE, either w/SecPref or diskutil cs decrypt
@@ -172,30 +180,27 @@ echo feel free to turn off FDE, either w/SecPref or diskutil cs decrypt
             libBootRoot
             brtest
 -- To TEST --
-# brtest
-xcodebuild -target brtest
-
 # run through the verbs
 "$brtest" listboots "$bros"
 
-sudo "$brtest" erasefiles "$bros" $brhelper -f  # temporarily make unbootable :)
-diskutil mount "$brhelper"                      # check disable FDE case
+sudo "$brtest" erasefiles "$fdeos" $fdehelper -f  # temporarily make unbootable
+diskutil mount "$fdehelper"                     # check disable FDE case
 bless -info /Volumes/Recovery*                  # Recovery should be blessed
 ls -la /Volumes/Recovery*                       # no cruft
 
-sudo "$kextcache" -vu "$bros"                   # '/' should look clean
-sudo $brtest update "$bros"                     # shouldn't update
-diskutil mount "$brhelper"
+sudo "$kextcache" -vu "$fdeos"                  # '/' should look clean
+sudo $brtest update "$fdeos"                    # shouldn't update
+diskutil mount "$fdehelper"
 ls -la /Volumes/Recovery*                       # check still empty
 
-sudo "$brtest" copyfiles "$bros" $brhelper      # update one of them
-diskutil mount "$brhelper"                      # check copied
+sudo "$brtest" copyfiles "$fdeos" $fdehelper    # update one of them
+diskutil mount "$fdehelper"                     # check copied
 bless -info /Volumes/Recovery*                  # Boot!=Root should be blessed
 ls -la /Volumes/Recovery*                       # Boot!=Root back
 
-sudo "$brtest" erasefiles "$bros" $brhelper -f  # nuke $brhelper again
-sudo "$brtest" update "$bros" -f                # should update all
-diskutil mount "$brhelper"                      # check everything is back
+sudo "$brtest" erasefiles "$fdeos" $fdehelper -f  # nuke $brhelper again
+sudo "$brtest" update "$fdeos" -f               # should update all
+diskutil mount "$fdehelper"                     # check everything is back
 bless -info /Volumes/Recovery*
 ls -la /Volumes/Recovery*
 
@@ -214,6 +219,7 @@ sudo cat /Volumes/Recovery*/com.apple.boot.?/Library/Preferences/SystemConfigura
 # should have root-dmg referring to BaseSystem.dmg (.dmg keeps A_B mounted :)
 
 # Time Machine making an encrypted backup bootable
+sudo mkdir /Volumes/Recovery\ HD/testdir
 sudo "$brtest" copyfiles "/Volumes/Mac OS X Internal Base System" "$fdeos" /BaseSystem.dmg "$fdehelper"/testdir 
 cat /Volumes/Recovery*/testdir/com.apple.Boot.plist 
 # confirm root-dmg + Kernel Cache

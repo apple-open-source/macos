@@ -12,11 +12,20 @@ require 'socket'
 require 'tempfile'
 
 module WEBrick
-  CR   = "\x0d"
-  LF   = "\x0a"
-  CRLF = "\x0d\x0a"
+  CR   = "\x0d"     # :nodoc:
+  LF   = "\x0a"     # :nodoc:
+  CRLF = "\x0d\x0a" # :nodoc:
+
+  ##
+  # HTTPUtils provides utility methods for working with the HTTP protocol.
+  #
+  # This module is generally used internally by WEBrick
 
   module HTTPUtils
+
+    ##
+    # Normalizes a request path.  Raises an exception if the path cannot be
+    # normalized.
 
     def normalize_path(path)
       raise "abnormal path `#{path}'" if path[0] != ?/
@@ -31,7 +40,8 @@ module WEBrick
     end
     module_function :normalize_path
 
-    #####
+    ##
+    # Default mime types
 
     DefaultMimeTypes = {
       "ai"    => "application/postscript",
@@ -57,6 +67,7 @@ module WEBrick
       "jpe"   => "image/jpeg",
       "jpeg"  => "image/jpeg",
       "jpg"   => "image/jpeg",
+      "js"    => "application/javascript",
       "lha"   => "application/octet-stream",
       "lzh"   => "application/octet-stream",
       "mov"   => "video/quicktime",
@@ -78,10 +89,12 @@ module WEBrick
       "rtf"   => "application/rtf",
       "sgm"   => "text/sgml",
       "sgml"  => "text/sgml",
+      "svg"   => "image/svg+xml",
       "tif"   => "image/tiff",
       "tiff"  => "image/tiff",
       "txt"   => "text/plain",
       "xbm"   => "image/x-xbitmap",
+      "xhtml" => "text/html",
       "xls"   => "application/vnd.ms-excel",
       "xml"   => "text/xml",
       "xpm"   => "image/x-xpixmap",
@@ -89,7 +102,9 @@ module WEBrick
       "zip"   => "application/zip",
     }
 
-    # Load Apache compatible mime.types file.
+    ##
+    # Loads Apache-compatible mime.types in +file+.
+
     def load_mime_types(file)
       open(file){ |io|
         hash = Hash.new
@@ -97,7 +112,7 @@ module WEBrick
           next if /^#/ =~ line
           line.chomp!
           mimetype, ext0 = line.split(/\s+/, 2)
-          next unless ext0   
+          next unless ext0
           next if ext0.empty?
           ext0.split(/\s+/).each{ |ext| hash[ext] = mimetype }
         }
@@ -106,6 +121,10 @@ module WEBrick
     end
     module_function :load_mime_types
 
+    ##
+    # Returns the mime type of +filename+ from the list in +mime_tab+.  If no
+    # mime type was found application/octet-stream is returned.
+
     def mime_type(filename, mime_tab)
       suffix1 = (/\.(\w+)$/ =~ filename && $1.downcase)
       suffix2 = (/\.(\w+)\.[\w\-]+$/ =~ filename && $1.downcase)
@@ -113,12 +132,14 @@ module WEBrick
     end
     module_function :mime_type
 
-    #####
+    ##
+    # Parses an HTTP header +raw+ into a hash of header fields with an Array
+    # of values.
 
     def parse_header(raw)
       header = Hash.new([].freeze)
       field = nil
-      raw.each{|line|
+      raw.each_line{|line|
         case line
         when /^([A-Za-z0-9!\#$%&'*+\-.^_`|~]+):\s*(.*?)\s*\z/om
           field, value = $1, $2
@@ -145,11 +166,17 @@ module WEBrick
     end
     module_function :parse_header
 
+    ##
+    # Splits a header value +str+ according to HTTP specification.
+
     def split_header_value(str)
       str.scan(%r'\G((?:"(?:\\.|[^"])+?"|[^",]+)+)
                     (?:,\s*|\Z)'xn).flatten
     end
     module_function :split_header_value
+
+    ##
+    # Parses a Range header value +ranges_specifier+
 
     def parse_range_header(ranges_specifier)
       if /^bytes=(.*)/ =~ ranges_specifier
@@ -165,6 +192,9 @@ module WEBrick
       end
     end
     module_function :parse_range_header
+
+    ##
+    # Parses q values in +value+ as used in Accept headers.
 
     def parse_qvalues(value)
       tmp = []
@@ -184,7 +214,8 @@ module WEBrick
     end
     module_function :parse_qvalues
 
-    #####
+    ##
+    # Removes quotes and escapes from +str+
 
     def dequote(str)
       ret = (/\A"(.*)"\Z/ =~ str) ? $1 : str.dup
@@ -193,19 +224,42 @@ module WEBrick
     end
     module_function :dequote
 
+    ##
+    # Quotes and escapes quotes in +str+
+
     def quote(str)
       '"' << str.gsub(/[\\\"]/o, "\\\1") << '"'
     end
     module_function :quote
 
-    #####
+    ##
+    # Stores multipart form data.  FormData objects are created when
+    # WEBrick::HTTPUtils.parse_form_data is called.
 
     class FormData < String
-      EmptyRawHeader = [].freeze
-      EmptyHeader = {}.freeze
+      EmptyRawHeader = [].freeze # :nodoc:
+      EmptyHeader = {}.freeze # :nodoc:
 
-      attr_accessor :name, :filename, :next_data
+      ##
+      # The name of the form data part
+
+      attr_accessor :name
+
+      ##
+      # The filename of the form data part
+
+      attr_accessor :filename
+
+      attr_accessor :next_data # :nodoc:
       protected :next_data
+
+      ##
+      # Creates a new FormData object.
+      #
+      # +args+ is an Array of form data entries.  One FormData will be created
+      # for each entry.
+      #
+      # This is called by WEBrick::HTTPUtils.parse_form_data for you
 
       def initialize(*args)
         @name = @filename = @next_data = nil
@@ -215,13 +269,16 @@ module WEBrick
           super("")
         else
           @raw_header = EmptyRawHeader
-          @header = EmptyHeader 
+          @header = EmptyHeader
           super(args.shift)
           unless args.empty?
             @next_data = self.class.new(*args)
           end
         end
       end
+
+      ##
+      # Retrieves the header at the first entry in +key+
 
       def [](*key)
         begin
@@ -231,11 +288,17 @@ module WEBrick
         end
       end
 
+      ##
+      # Adds +str+ to this FormData which may be the body, a header or a
+      # header entry.
+      #
+      # This is called by WEBrick::HTTPUtils.parse_form_data for you
+
       def <<(str)
         if @header
           super
         elsif str == CRLF
-          @header = HTTPUtils::parse_header(@raw_header)
+          @header = HTTPUtils::parse_header(@raw_header.join)
           if cd = self['content-disposition']
             if /\s+name="(.*?)"/ =~ cd then @name = $1 end
             if /\s+filename="(.*?)"/ =~ cd then @filename = $1 end
@@ -246,10 +309,15 @@ module WEBrick
         self
       end
 
+      ##
+      # Adds +data+ at the end of the chain of entries
+      #
+      # This is called by WEBrick::HTTPUtils.parse_form_data for you.
+
       def append_data(data)
         tmp = self
         while tmp
-          unless tmp.next_data 
+          unless tmp.next_data
             tmp.next_data = data
             break
           end
@@ -257,6 +325,9 @@ module WEBrick
         end
         self
       end
+
+      ##
+      # Yields each entry in this FormData
 
       def each_data
         tmp = self
@@ -267,6 +338,9 @@ module WEBrick
         end
       end
 
+      ##
+      # Returns all the FormData as an Array
+
       def list
         ret = []
         each_data{|data|
@@ -275,18 +349,27 @@ module WEBrick
         ret
       end
 
+      ##
+      # A FormData will behave like an Array
+
       alias :to_ary :list
+
+      ##
+      # This FormData's body
 
       def to_s
         String.new(self)
       end
     end
 
+    ##
+    # Parses the query component of a URI in +str+
+
     def parse_query(str)
       query = Hash.new
       if str
         str.split(/[&;]/).each{|x|
-          next if x.empty? 
+          next if x.empty?
           key, val = x.split(/=/,2)
           key = unescape_form(key)
           val = unescape_form(val.to_s)
@@ -303,12 +386,15 @@ module WEBrick
     end
     module_function :parse_query
 
+    ##
+    # Parses form data in +io+ with the given +boundary+
+
     def parse_form_data(io, boundary)
-      boundary_regexp = /\A--#{boundary}(--)?#{CRLF}\z/
+      boundary_regexp = /\A--#{Regexp.quote(boundary)}(--)?#{CRLF}\z/
       form_data = Hash.new
       return form_data unless io
       data = nil
-      io.each{|line|
+      io.each_line{|line|
         if boundary_regexp =~ line
           if data
             data.chop!
@@ -316,7 +402,7 @@ module WEBrick
             if form_data.has_key?(key)
               form_data[key].append_data(data)
             else
-              form_data[key] = data 
+              form_data[key] = data
             end
           end
           data = FormData.new
@@ -347,9 +433,11 @@ module WEBrick
 
     module_function
 
+    # :stopdoc:
+
     def _make_regex(str) /([#{Regexp.escape(str)}])/n end
     def _make_regex!(str) /([^#{Regexp.escape(str)}])/n end
-    def _escape(str, regex) str.gsub(regex){ "%%%02X" % $1[0] } end
+    def _escape(str, regex) str.gsub(regex){ "%%%02X" % $1.ord } end
     def _unescape(str, regex) str.gsub(regex){ $1.hex.chr } end
 
     UNESCAPED = _make_regex(control+space+delims+unwise+nonascii)
@@ -358,13 +446,24 @@ module WEBrick
     ESCAPED   = /%([0-9a-fA-F]{2})/
     UNESCAPED_PCHAR = _make_regex!(unreserved+":@&=+$,")
 
+    # :startdoc:
+
+    ##
+    # Escapes HTTP reserved and unwise characters in +str+
+
     def escape(str)
       _escape(str, UNESCAPED)
     end
 
+    ##
+    # Unescapes HTTP reserved and unwise characters in +str+
+
     def unescape(str)
       _unescape(str, ESCAPED)
     end
+
+    ##
+    # Escapes form reserved characters in +str+
 
     def escape_form(str)
       ret = _escape(str, UNESCAPED_FORM)
@@ -372,9 +471,15 @@ module WEBrick
       ret
     end
 
+    ##
+    # Unescapes form reserved characters in +str+
+
     def unescape_form(str)
       _unescape(str.gsub(/\+/, " "), ESCAPED)
     end
+
+    ##
+    # Escapes path +str+
 
     def escape_path(str)
       result = ""
@@ -383,6 +488,9 @@ module WEBrick
       }
       return result
     end
+
+    ##
+    # Escapes 8 bit characters in +str+
 
     def escape8bit(str)
       _escape(str, NONASCII)

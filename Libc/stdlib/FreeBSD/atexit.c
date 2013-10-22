@@ -52,6 +52,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/atexit.c,v 1.8 2007/01/09 00:28:09 imp E
 #endif /* __BLOCKS__ */
 #include "libc_private.h"
 
+#include <TargetConditionals.h>
+
 #define	ATEXIT_FN_EMPTY	0
 #define	ATEXIT_FN_STD	1
 #define	ATEXIT_FN_CXA	2
@@ -238,3 +240,17 @@ restart:
 	}
 	_MUTEX_UNLOCK(&atexit_mutex);
 }
+
+#if !TARGET_IPHONE_SIMULATOR && (__i386__ || __x86_64__)
+/*
+ * Support for thread_local in C++, using existing _tlv_atexit() in libdyld
+ */
+
+void _tlv_atexit(void(*f)(void*), void* arg); /* in libdyld */
+
+void
+__cxa_thread_atexit(void(*f)(void*), void* arg)
+{
+    _tlv_atexit(f, arg);
+}
+#endif

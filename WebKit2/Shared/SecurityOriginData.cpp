@@ -35,20 +35,36 @@ using namespace WebCore;
 
 namespace WebKit {
 
-void SecurityOriginData::encode(CoreIPC::ArgumentEncoder* encoder) const
+SecurityOriginData SecurityOriginData::fromSecurityOrigin(SecurityOrigin* securityOrigin)
 {
-    encoder->encode(protocol);
-    encoder->encode(host);
-    encoder->encode(port);
+    SecurityOriginData securityOriginData;
+
+    securityOriginData.protocol = securityOrigin->protocol();
+    securityOriginData.host = securityOrigin->host();
+    securityOriginData.port = securityOrigin->port();
+
+    return securityOriginData;
 }
 
-bool SecurityOriginData::decode(CoreIPC::ArgumentDecoder* decoder, SecurityOriginData& securityOriginData)
+PassRefPtr<SecurityOrigin> SecurityOriginData::securityOrigin() const
 {
-    if (!decoder->decode(securityOriginData.protocol))
+    return SecurityOrigin::create(protocol, host, port);
+}
+
+void SecurityOriginData::encode(CoreIPC::ArgumentEncoder& encoder) const
+{
+    encoder << protocol;
+    encoder << host;
+    encoder << port;
+}
+
+bool SecurityOriginData::decode(CoreIPC::ArgumentDecoder& decoder, SecurityOriginData& securityOriginData)
+{
+    if (!decoder.decode(securityOriginData.protocol))
         return false;
-    if (!decoder->decode(securityOriginData.host))
+    if (!decoder.decode(securityOriginData.host))
         return false;
-    if (!decoder->decode(securityOriginData.port))
+    if (!decoder.decode(securityOriginData.port))
         return false;
 
     return true;
@@ -62,7 +78,7 @@ void performAPICallbackWithSecurityOriginDataVector(const Vector<SecurityOriginD
     }
     
     size_t originDataCount = originDatas.size();
-    Vector<RefPtr<APIObject> > securityOrigins;
+    Vector<RefPtr<APIObject>> securityOrigins;
     securityOrigins.reserveCapacity(originDataCount);
 
     for (size_t i = 0; i < originDataCount; ++i) {

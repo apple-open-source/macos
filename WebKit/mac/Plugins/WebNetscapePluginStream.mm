@@ -29,7 +29,6 @@
 #if ENABLE(NETSCAPE_PLUGIN_API)
 #import "WebNetscapePluginStream.h"
 
-#import "WebNetscapePluginView.h"
 #import "WebFrameInternal.h"
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
@@ -37,26 +36,26 @@
 #import "WebNSURLExtras.h"
 #import "WebNSURLRequestExtras.h"
 #import "WebNetscapePluginPackage.h"
+#import "WebNetscapePluginView.h"
 #import <Foundation/NSURLResponse.h>
-#import <runtime/JSLock.h>
+#import <WebCore/Document.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/JSDOMWindowBase.h>
 #import <WebCore/ResourceLoadScheduler.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SecurityPolicy.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
 #import <WebKitSystemInterface.h>
+#import <runtime/JSLock.h>
 #import <wtf/HashMap.h>
 #import <wtf/StdLibExtras.h>
 
 using namespace WebCore;
-using namespace std;
 
 #define WEB_REASON_NONE -1
-
-static NSString *CarbonPathFromPOSIXPath(NSString *posixPath);
 
 class PluginStopDeferrer {
 public:
@@ -154,7 +153,7 @@ WebNetscapePluginStream::WebNetscapePluginStream(NSURLRequest *request, NPP plug
     , m_isTerminated(false)
     , m_newStreamSuccessful(false)
     , m_frameLoader(0)
-    , m_request(AdoptNS, [request mutableCopy])
+    , m_request(adoptNS([request mutableCopy]))
     , m_pluginFuncs(0)
     , m_deliverDataTimer(this, &WebNetscapePluginStream::deliverDataTimerFired)
 {
@@ -368,7 +367,7 @@ bool WebNetscapePluginStream::wantsAllStreams() const
     NPError error;
     {
         PluginStopDeferrer deferrer(m_pluginView.get());
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
+        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
         error = m_pluginFuncs->getvalue(m_plugin, NPPVpluginWantsAllNetworkStreams, &value);
     }
     if (error != NPERR_NO_ERROR)
@@ -393,12 +392,10 @@ void WebNetscapePluginStream::destroyStream()
         if (m_reason == NPRES_DONE && (m_transferMode == NP_ASFILE || m_transferMode == NP_ASFILEONLY)) {
             ASSERT(m_fileDescriptor == -1);
             ASSERT(m_path);
-            NSString *carbonPath = CarbonPathFromPOSIXPath(m_path.get());
-            ASSERT(carbonPath != NULL);
-            
+
             PluginStopDeferrer deferrer(m_pluginView.get());
-            m_pluginFuncs->asfile(m_plugin, &m_stream, [carbonPath fileSystemRepresentation]);
-            LOG(Plugins, "NPP_StreamAsFile responseURL=%@ path=%s", m_responseURL.get(), carbonPath);
+            m_pluginFuncs->asfile(m_plugin, &m_stream, [m_path.get() fileSystemRepresentation]);
+            LOG(Plugins, "NPP_StreamAsFile responseURL=%@ path=%s", m_responseURL.get(), m_path.get());
         }
 
         if (m_path) {
@@ -525,7 +522,7 @@ void WebNetscapePluginStream::deliverData()
                 m_deliverDataTimer.startOneShot(0);
             break;
         } else {
-            deliveryBytes = min(deliveryBytes, totalBytes - totalBytesDelivered);
+            deliveryBytes = std::min(deliveryBytes, totalBytes - totalBytesDelivered);
             NSData *subdata = [m_deliveryData.get() subdataWithRange:NSMakeRange(totalBytesDelivered, deliveryBytes)];
             PluginStopDeferrer deferrer(m_pluginView.get());
             deliveryBytes = m_pluginFuncs->write(m_plugin, &m_stream, m_offset, [subdata length], (void *)[subdata bytes]);
@@ -534,7 +531,7 @@ void WebNetscapePluginStream::deliverData()
                 cancelLoadAndDestroyStreamWithError(pluginCancelledConnectionError());
                 return;
             }
-            deliveryBytes = min<int32_t>(deliveryBytes, [subdata length]);
+            deliveryBytes = std::min<int32_t>(deliveryBytes, [subdata length]);
             m_offset += deliveryBytes;
             totalBytesDelivered += deliveryBytes;
             LOG(Plugins, "NPP_Write responseURL=%@ bytes=%d total-delivered=%d/%d", m_responseURL.get(), deliveryBytes, m_offset, m_stream.end);
@@ -546,7 +543,7 @@ void WebNetscapePluginStream::deliverData()
             NSMutableData *newDeliveryData = [[NSMutableData alloc] initWithCapacity:totalBytes - totalBytesDelivered];
             [newDeliveryData appendBytes:(char *)[m_deliveryData.get() bytes] + totalBytesDelivered length:totalBytes - totalBytesDelivered];
             
-            m_deliveryData.adoptNS(newDeliveryData);
+            m_deliveryData = adoptNS(newDeliveryData);
         } else {
             [m_deliveryData.get() setLength:0];
             if (m_reason != WEB_REASON_NONE) 
@@ -574,7 +571,7 @@ void WebNetscapePluginStream::deliverDataToFile(NSData *data)
             return;
         }
 
-        m_path.adoptNS([[NSString stringWithUTF8String:temporaryFileName] retain]);
+        m_path = [NSString stringWithUTF8String:temporaryFileName];
         free(temporaryFileName);
     }
 
@@ -619,7 +616,7 @@ void WebNetscapePluginStream::didReceiveData(NetscapePlugInStreamLoader*, const 
     
     if (m_transferMode != NP_ASFILEONLY) {
         if (!m_deliveryData)
-            m_deliveryData.adoptNS([[NSMutableData alloc] initWithCapacity:[data length]]);
+            m_deliveryData = adoptNS([[NSMutableData alloc] initWithCapacity:[data length]]);
         [m_deliveryData.get() appendData:data];
         deliverData();
     }
@@ -627,18 +624,6 @@ void WebNetscapePluginStream::didReceiveData(NetscapePlugInStreamLoader*, const 
         deliverDataToFile(data);
     
     [data release];
-}
-
-static NSString *CarbonPathFromPOSIXPath(NSString *posixPath)
-{
-    // Doesn't add a trailing colon for directories; this is a problem for paths to a volume,
-    // so this function would need to be revised if we ever wanted to call it with that.
-
-    CFURLRef url = (CFURLRef)[NSURL fileURLWithPath:posixPath];
-    if (!url)
-        return nil;
-
-    return WebCFAutorelease(CFURLCopyFileSystemPath(url, kCFURLHFSPathStyle));
 }
 
 #endif

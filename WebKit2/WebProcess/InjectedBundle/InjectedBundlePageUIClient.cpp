@@ -28,8 +28,9 @@
 
 #include "InjectedBundleHitTestResult.h"
 #include "WKAPICast.h"
-#include "WebGraphicsContext.h"
 #include "WKBundleAPICast.h"
+#include "WebGraphicsContext.h"
+#include "WebSecurityOrigin.h"
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
@@ -144,6 +145,58 @@ WKBundlePageUIElementVisibility InjectedBundlePageUIClient::toolbarsAreVisible(W
         return WKBundlePageUIElementVisibilityUnknown;
     
     return m_client.toolbarsAreVisible(toAPI(page), m_client.clientInfo);
+}
+
+void InjectedBundlePageUIClient::didReachApplicationCacheOriginQuota(WebPage* page, WebSecurityOrigin* origin, int64_t totalBytesNeeded)
+{
+    if (!m_client.didReachApplicationCacheOriginQuota)
+        return;
+
+    m_client.didReachApplicationCacheOriginQuota(toAPI(page), toAPI(origin), totalBytesNeeded, m_client.clientInfo);
+}
+
+uint64_t InjectedBundlePageUIClient::didExceedDatabaseQuota(WebPage* page, WebSecurityOrigin* origin, const String& databaseName, const String& databaseDisplayName, uint64_t currentQuotaBytes, uint64_t currentOriginUsageBytes, uint64_t currentDatabaseUsageBytes, uint64_t expectedUsageBytes)
+{
+    if (!m_client.didExceedDatabaseQuota)
+        return 0;
+
+    return m_client.didExceedDatabaseQuota(toAPI(page), toAPI(origin), toAPI(databaseName.impl()), toAPI(databaseDisplayName.impl()), currentQuotaBytes, currentOriginUsageBytes, currentDatabaseUsageBytes, expectedUsageBytes, m_client.clientInfo);
+}
+
+String InjectedBundlePageUIClient::plugInStartLabelTitle(const String& mimeType) const
+{
+    if (!m_client.createPlugInStartLabelTitle)
+        return String();
+
+    RefPtr<WebString> title = adoptRef(toImpl(m_client.createPlugInStartLabelTitle(toAPI(mimeType.impl()), m_client.clientInfo)));
+    return title ? title->string() : String();
+}
+
+String InjectedBundlePageUIClient::plugInStartLabelSubtitle(const String& mimeType) const
+{
+    if (!m_client.createPlugInStartLabelSubtitle)
+        return String();
+
+    RefPtr<WebString> subtitle = adoptRef(toImpl(m_client.createPlugInStartLabelSubtitle(toAPI(mimeType.impl()), m_client.clientInfo)));
+    return subtitle ? subtitle->string() : String();
+}
+
+String InjectedBundlePageUIClient::plugInExtraStyleSheet() const
+{
+    if (!m_client.createPlugInExtraStyleSheet)
+        return String();
+
+    RefPtr<WebString> styleSheet = adoptRef(toImpl(m_client.createPlugInExtraStyleSheet(m_client.clientInfo)));
+    return styleSheet ? styleSheet->string() : String();
+}
+
+String InjectedBundlePageUIClient::plugInExtraScript() const
+{
+    if (!m_client.createPlugInExtraScript)
+        return String();
+
+    RefPtr<WebString> script = adoptRef(toImpl(m_client.createPlugInExtraScript(m_client.clientInfo)));
+    return script ? script->string() : String();
 }
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,10 @@
 #include "MachPort.h"
 #endif
 
+#if USE(SOUP)
+#include "HTTPCookieAcceptPolicy.h"
+#endif
+
 namespace CoreIPC {
     class ArgumentDecoder;
     class ArgumentEncoder;
@@ -48,22 +52,40 @@ namespace WebKit {
 struct WebProcessCreationParameters {
     WebProcessCreationParameters();
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebProcessCreationParameters&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebProcessCreationParameters&);
 
     String injectedBundlePath;
     SandboxExtension::Handle injectedBundlePathExtensionHandle;
 
     String applicationCacheDirectory;    
+    SandboxExtension::Handle applicationCacheDirectoryExtensionHandle;
     String databaseDirectory;
+    SandboxExtension::Handle databaseDirectoryExtensionHandle;
     String localStorageDirectory;
+    SandboxExtension::Handle localStorageDirectoryExtensionHandle;
+    String diskCacheDirectory;
+    SandboxExtension::Handle diskCacheDirectoryExtensionHandle;
+    String cookieStorageDirectory;
+    SandboxExtension::Handle cookieStorageDirectoryExtensionHandle;
 
     Vector<String> urlSchemesRegistererdAsEmptyDocument;
     Vector<String> urlSchemesRegisteredAsSecure;
     Vector<String> urlSchemesForWhichDomainRelaxationIsForbidden;
-
-    // MIME types for which the UI process will handle showing the data.
-    Vector<String> mimeTypesWithCustomRepresentation;
+    Vector<String> urlSchemesRegisteredAsLocal;
+    Vector<String> urlSchemesRegisteredAsNoAccess;
+    Vector<String> urlSchemesRegisteredAsDisplayIsolated;
+    Vector<String> urlSchemesRegisteredAsCORSEnabled;
+#if ENABLE(CUSTOM_PROTOCOLS)
+    Vector<String> urlSchemesRegisteredForCustomProtocols;
+#endif
+#if USE(SOUP)
+    Vector<String> urlSchemesRegistered;
+    String cookiePersistentStoragePath;
+    uint32_t cookiePersistentStorageType;
+    HTTPCookieAcceptPolicy cookieAcceptPolicy;
+    bool ignoreTLSErrors;
+#endif
 
     CacheModel cacheModel;
     bool shouldTrackVisitedLinks;
@@ -73,6 +95,8 @@ struct WebProcessCreationParameters {
 
     bool iconDatabaseEnabled;
 
+    double terminationTimeout;
+
     Vector<String> languages;
 
     TextCheckerState textCheckerState;
@@ -81,46 +105,37 @@ struct WebProcessCreationParameters {
 
     double defaultRequestTimeoutInterval;
 
-#if PLATFORM(MAC) || USE(CFURLSTORAGESESSIONS)
+#if PLATFORM(MAC) || USE(CFNETWORK)
     String uiProcessBundleIdentifier;
 #endif
 
 #if PLATFORM(MAC)
-    String parentProcessName;
-
     pid_t presenterApplicationPid;
 
-    // FIXME: These should be merged with CFURLCache counterparts below.
-    String nsURLCachePath;
+    bool accessibilityEnhancedUserInterfaceEnabled;
+
     uint64_t nsURLCacheMemoryCapacity;
     uint64_t nsURLCacheDiskCapacity;
 
     CoreIPC::MachPort acceleratedCompositingPort;
 
     String uiProcessBundleResourcePath;
+    SandboxExtension::Handle uiProcessBundleResourcePathExtensionHandle;
 
-    String webInspectorBaseDirectory;
-
-#elif PLATFORM(WIN)
-    String cfURLCachePath;
-    uint64_t cfURLCacheDiskCapacity;
-    uint64_t cfURLCacheMemoryCapacity;
-
-    uint32_t initialHTTPCookieAcceptPolicy;
-
-    bool shouldPaintNativeControls;
-
-#if USE(CFURLSTORAGESESSIONS)
-    RetainPtr<CFDataRef> serializedDefaultStorageSession;
-#endif // USE(CFURLSTORAGESESSIONS)
-#endif // PLATFORM(WIN)
-#if PLATFORM(QT)
-    String cookieStorageDirectory;
-#endif
+    bool shouldForceScreenFontSubstitution;
+    bool shouldEnableKerningAndLigaturesByDefault;
+#endif // PLATFORM(MAC)
 
 #if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
     HashMap<String, bool> notificationPermissions;
 #endif
+
+#if ENABLE(NETWORK_PROCESS)
+    bool usesNetworkProcess;
+#endif
+
+    HashMap<unsigned, double> plugInAutoStartOriginHashes;
+    Vector<String> plugInAutoStartOrigins;
 };
 
 } // namespace WebKit

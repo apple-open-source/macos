@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>EnableTransactions</key>
+	<true/>
 	<key>Label</key>
 	<string>com.apple.DiskArbitrationAgent</string>
 	<key>MachServices</key>
@@ -9,6 +11,8 @@
 		<key>com.apple.DiskArbitration.DiskArbitrationAgent</key>
 		<true/>
 	</dict>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
 	<key>Program</key>
 	<string>/System/Library/Frameworks/DiskArbitration.framework/Versions/A/Support/DiskArbitrationAgent</string>
 </dict>

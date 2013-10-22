@@ -52,7 +52,7 @@ OSReturn sendSystemKextPersonalitiesToKernel(
     CFArrayRef        personalities  = NULL;  // must release
     CFMutableArrayRef authenticKexts = NULL; // must release
     CFIndex           count, i;
-
+    
    /* Note that we are going to finish on success here!
     * If we sent personalities we are done.
     * sendCachedPersonalitiesToKernel() logs a msg on failure.
@@ -137,7 +137,7 @@ static OSReturn sendCachedPersonalitiesToKernel(Boolean resetFlag)
 
     result = IOCatalogueSendData(kIOMasterPortDefault,
         resetFlag ? kIOCatalogResetDrivers : kIOCatalogAddDrivers,
-        (char *)CFDataGetBytePtr(cacheData), CFDataGetLength(cacheData));
+        (char *)CFDataGetBytePtr(cacheData), (unsigned int)CFDataGetLength(cacheData));
     if (result != kOSReturnSuccess) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,

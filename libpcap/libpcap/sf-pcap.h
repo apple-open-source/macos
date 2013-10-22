@@ -31,6 +31,6 @@
 #ifndef sf_pcap_h
 #define	sf_pcap_h
 
-extern int pcap_check_header(pcap_t *, bpf_u_int32, FILE *, char *);
+extern int pcap_check_header(pcap_t *, bpf_u_int32, FILE *, char *, int);
 
 #endif

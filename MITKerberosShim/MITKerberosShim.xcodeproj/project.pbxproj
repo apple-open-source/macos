@@ -163,12 +163,12 @@
 		EB75BA9A100176B20009B251 /* heim-proxy.x86_64.s in Sources */ = {isa = PBXBuildFile; fileRef = EB75BA98100176B20009B251 /* heim-proxy.x86_64.s */; };
 		EB75BB1A1001BB3B0009B251 /* kll.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BB191001BB3B0009B251 /* kll.c */; };
 		EB75BBF710024FD30009B251 /* prof_err.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBED10024FD30009B251 /* prof_err.c */; };
-		EB75BBF810024FD30009B251 /* prof_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB75BBEE10024FD30009B251 /* prof_err.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB75BBF810024FD30009B251 /* prof_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB75BBEE10024FD30009B251 /* prof_err.h */; };
 		EB75BBF910024FD30009B251 /* prof_file.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBEF10024FD30009B251 /* prof_file.c */; };
 		EB75BBFA10024FD30009B251 /* prof_FSp_glue.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF010024FD30009B251 /* prof_FSp_glue.c */; };
 		EB75BBFB10024FD30009B251 /* prof_get.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF110024FD30009B251 /* prof_get.c */; };
 		EB75BBFC10024FD30009B251 /* prof_init.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF210024FD30009B251 /* prof_init.c */; };
-		EB75BBFD10024FD30009B251 /* prof_int.h in Headers */ = {isa = PBXBuildFile; fileRef = EB75BBF310024FD30009B251 /* prof_int.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB75BBFD10024FD30009B251 /* prof_int.h in Headers */ = {isa = PBXBuildFile; fileRef = EB75BBF310024FD30009B251 /* prof_int.h */; };
 		EB75BBFE10024FD30009B251 /* prof_parse.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF410024FD30009B251 /* prof_parse.c */; };
 		EB75BBFF10024FD30009B251 /* prof_set.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF510024FD30009B251 /* prof_set.c */; };
 		EB75BC0010024FD30009B251 /* prof_tree.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF610024FD30009B251 /* prof_tree.c */; };
@@ -1197,13 +1197,12 @@
 				EB0F29D91000164100224B2D /* mit-profile.h in Headers */,
 				EB0F2A6D1000373400224B2D /* heim.h in Headers */,
 				EB0F2AA81000497D00224B2D /* heim-sym.h in Headers */,
-				EB75BBF810024FD30009B251 /* prof_err.h in Headers */,
-				EB75BBFD10024FD30009B251 /* prof_int.h in Headers */,
 				EBBC53231083F7C900F580FB /* com_err.h in Headers */,
 				EBBC53241083F7C900F580FB /* CredentialsCache.h in Headers */,
 				EBBC53251083F7C900F580FB /* CredentialsCache2.h in Headers */,
 				EBBC53261083F7C900F580FB /* gssapi_generic.h in Headers */,
 				EBBC53271083F7C900F580FB /* gssapi_krb5.h in Headers */,
+				EB75BBFD10024FD30009B251 /* prof_int.h in Headers */,
 				EBBC53281083F7C900F580FB /* gssapi.h in Headers */,
 				EBBC53291083F7C900F580FB /* Kerberos.h in Headers */,
 				EBBC532A1083F7C900F580FB /* KerberosLogin.h in Headers */,
@@ -1216,6 +1215,7 @@
 				EB6EE89F1087D6FC00F92EAF /* KerberosLoginPrivate.h in Headers */,
 				EB6EE8AC1087D6FC00F92EAF /* krb5-ipc.h in Headers */,
 				EB6EE8AD1087D6FC00F92EAF /* pkinit_cert_store.h in Headers */,
+				EB75BBF810024FD30009B251 /* prof_err.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1504,7 +1504,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0440;
+				LastUpgradeCheck = 0460;
 			};
 			buildConfigurationList = 1DEB911E08733D790010E9CD /* Build configuration list for PBXProject "MITKerberosShim" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1939,12 +1939,16 @@
 					i386,
 					x86_64,
 				);
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEIMDAL_ROOT = "";
 				ONLY_ACTIVE_ARCH = YES;
@@ -1959,12 +1963,16 @@
 					i386,
 					x86_64,
 				);
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEIMDAL_ROOT = "";
 			};
@@ -1975,6 +1983,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 5.0.0;
 				DYLIB_CURRENT_VERSION = 6.0.0;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exported-symbols";
@@ -1999,6 +2008,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
 				DYLIB_COMPATIBILITY_VERSION = 5.0.0;
 				DYLIB_CURRENT_VERSION = 6.0.0;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exported-symbols";
@@ -2021,6 +2031,7 @@
 		EB1E273314C8D48E001F3238 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -2028,6 +2039,7 @@
 		EB1E273414C8D48E001F3238 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -2035,6 +2047,7 @@
 		EB1E275314C8D4B6001F3238 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -2042,6 +2055,7 @@
 		EB1E275414C8D4B6001F3238 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -2138,6 +2152,7 @@
 		EB6FCA8A10A6602200D80A61 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -2148,6 +2163,7 @@
 		EB6FCA8B10A6602200D80A61 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = "Raft files";
@@ -2201,6 +2217,7 @@
 		EBA0D035100AA379002C4826 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -2211,6 +2228,7 @@
 		EBA0D036100AA379002C4826 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				PRODUCT_NAME = All;

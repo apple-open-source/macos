@@ -1769,7 +1769,7 @@ Boolean evalExec(
     if (!command_argv) {
         goto finish;
     }
-
+    bzero(&command_argv, sizeof((1 + count) * sizeof(char *)));
     for (i = 0; i < count; i++) {
         scratch = CFStringCreateMutableCopy(kCFAllocatorDefault,
             0, CFArrayGetValueAtIndex(arguments, i));

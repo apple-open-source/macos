@@ -1,0 +1,19 @@
+--- Apache2-SOAP-0.73/Makefile.PL	(revision 31653)
++++ Apache2-SOAP-0.73/Makefile.PL	(working copy)
+@@ -33,11 +33,11 @@
+   exit 0;
+ }
+ 
+-require Apache::TestMM;
+-import Apache::TestMM qw(test clean);
++#require Apache::TestMM;
++#import Apache::TestMM qw(test clean);
+ 
+-Apache::TestMM::filter_args();
++#Apache::TestMM::filter_args();
+ 
+-Apache::TestMM::generate_script('t/TEST'); 
++#Apache::TestMM::generate_script('t/TEST'); 
+ 
+ ModPerl::MM::WriteMakefile(%opts); 
+

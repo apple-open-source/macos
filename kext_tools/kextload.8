@@ -1,4 +1,4 @@
-.Dd March 6, 2009 
+.Dd November 14, 2012 
 .Os Darwin
 .Dt KEXTLOAD 8
 .Sh NAME
@@ -139,8 +139,10 @@ kextload -bundle-id com.mycompany.driver.TabletDriver
 .Pp
 With no additional options
 .Nm
-looks in the system extensions folder
-.Li ( Ns Pa /System/Library/Extensions/ Ns Li )
+looks in the extensions directories
+.Li ( Ns Pa /System/Library/Extensions/
+and
+.Pa /Library/Extensions/ Ns Li )
 for a kext with the given CFBundleIdentifier.
 Adding repository directories with the
 .Fl repository
@@ -158,6 +160,8 @@ kextload -repository /Applications/MyApp.app/Contents/Resources \\
 .Bl -tag -width "/System/Library/Extensions/" -compact
 .It Pa /System/Library/Extensions/
 The standard system repository of kernel extensions
+.It Pa /Library/Extensions/
+The standard repository of non Apple kernel extensions
 .El
 .Sh DIAGNOSTICS
 .Nm

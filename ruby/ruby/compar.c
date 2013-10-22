@@ -2,40 +2,21 @@
 
   compar.c -
 
-  $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Author: drbrain $
   created at: Thu Aug 26 14:39:48 JST 1993
 
-  Copyright (C) 1993-2003 Yukihiro Matsumoto
+  Copyright (C) 1993-2007 Yukihiro Matsumoto
 
 **********************************************************************/
 
-#include "ruby.h"
+#include "ruby/ruby.h"
 
 VALUE rb_mComparable;
 
 static ID cmp;
 
-int
-rb_cmpint(val, a, b)
-    VALUE val, a, b;
-{
-    if (NIL_P(val)) {
-	rb_cmperr(a, b);
-    }
-    if (FIXNUM_P(val)) return FIX2INT(val);
-    if (TYPE(val) == T_BIGNUM) {
-	if (RBIGNUM(val)->sign) return 1;
-	return -1;
-    }
-    if (RTEST(rb_funcall(val, '>', 1, INT2FIX(0)))) return 1;
-    if (RTEST(rb_funcall(val, '<', 1, INT2FIX(0)))) return -1;
-    return 0;
-}
-
 void
-rb_cmperr(x, y)
-    VALUE x, y;
+rb_cmperr(VALUE x, VALUE y)
 {
     const char *classname;
 
@@ -50,37 +31,56 @@ rb_cmperr(x, y)
 	     rb_obj_classname(x), classname);
 }
 
-#define cmperr() (rb_cmperr(x, y), Qnil)
+static VALUE
+invcmp_recursive(VALUE x, VALUE y, int recursive)
+{
+    if (recursive) return Qnil;
+    return rb_check_funcall(y, cmp, 1, &x);
+}
+
+VALUE
+rb_invcmp(VALUE x, VALUE y)
+{
+    VALUE invcmp = rb_exec_recursive(invcmp_recursive, x, y);
+    if (invcmp == Qundef || NIL_P(invcmp)) {
+	return Qnil;
+    }
+    else {
+	int result = -rb_cmpint(invcmp, x, y);
+	return INT2FIX(result);
+    }
+}
 
 static VALUE
-cmp_eq(a)
-    VALUE *a;
+cmp_eq(VALUE *a)
 {
     VALUE c = rb_funcall(a[0], cmp, 1, a[1]);
 
-    if (NIL_P(c)) return Qnil;
+    if (NIL_P(c)) return Qfalse;
     if (rb_cmpint(c, a[0], a[1]) == 0) return Qtrue;
     return Qfalse;
 }
 
 static VALUE
-cmp_failed()
+cmp_failed(void)
 {
-    return Qnil;
+    return Qfalse;
 }
 
 /*
  *  call-seq:
- *     obj == other    => true or false
- *  
+ *     obj == other    -> true or false
+ *
  *  Compares two objects based on the receiver's <code><=></code>
  *  method, returning true if it returns 0. Also returns true if
  *  _obj_ and _other_ are the same object.
+ *
+ *  Even if _obj_ <=> _other_ raised an exception, the exception
+ *  is ignoread and returns false.
  */
 
 static VALUE
-cmp_equal(x, y)
-    VALUE x, y;
+cmp_equal(VALUE x, VALUE y)
 {
     VALUE a[2];
 
@@ -92,99 +92,89 @@ cmp_equal(x, y)
 
 /*
  *  call-seq:
- *     obj > other    => true or false
- *  
+ *     obj > other    -> true or false
+ *
  *  Compares two objects based on the receiver's <code><=></code>
  *  method, returning true if it returns 1.
  */
 
 static VALUE
-cmp_gt(x, y)
-    VALUE x, y;
+cmp_gt(VALUE x, VALUE y)
 {
     VALUE c = rb_funcall(x, cmp, 1, y);
 
-    if (NIL_P(c)) return cmperr();
     if (rb_cmpint(c, x, y) > 0) return Qtrue;
     return Qfalse;
 }
 
 /*
  *  call-seq:
- *     obj >= other    => true or false
- *  
+ *     obj >= other    -> true or false
+ *
  *  Compares two objects based on the receiver's <code><=></code>
  *  method, returning true if it returns 0 or 1.
  */
 
 static VALUE
-cmp_ge(x, y)
-    VALUE x, y;
+cmp_ge(VALUE x, VALUE y)
 {
     VALUE c = rb_funcall(x, cmp, 1, y);
 
-    if (NIL_P(c)) return cmperr();
     if (rb_cmpint(c, x, y) >= 0) return Qtrue;
     return Qfalse;
 }
 
 /*
  *  call-seq:
- *     obj < other    => true or false
- *  
+ *     obj < other    -> true or false
+ *
  *  Compares two objects based on the receiver's <code><=></code>
  *  method, returning true if it returns -1.
  */
 
 static VALUE
-cmp_lt(x, y)
-    VALUE x, y;
+cmp_lt(VALUE x, VALUE y)
 {
     VALUE c = rb_funcall(x, cmp, 1, y);
 
-    if (NIL_P(c)) return cmperr();
     if (rb_cmpint(c, x, y) < 0) return Qtrue;
     return Qfalse;
 }
 
-
 /*
  *  call-seq:
- *     obj <= other    => true or false
- *  
+ *     obj <= other    -> true or false
+ *
  *  Compares two objects based on the receiver's <code><=></code>
  *  method, returning true if it returns -1 or 0.
  */
 
 static VALUE
-cmp_le(x, y)
-    VALUE x, y;
+cmp_le(VALUE x, VALUE y)
 {
     VALUE c = rb_funcall(x, cmp, 1, y);
 
-    if (NIL_P(c)) return cmperr();
     if (rb_cmpint(c, x, y) <= 0) return Qtrue;
     return Qfalse;
 }
 
 /*
  *  call-seq:
- *     obj.between?(min, max)    => true or false
- *  
+ *     obj.between?(min, max)    -> true or false
+ *
  *  Returns <code>false</code> if <i>obj</i> <code><=></code>
  *  <i>min</i> is less than zero or if <i>anObject</i> <code><=></code>
  *  <i>max</i> is greater than zero, <code>true</code> otherwise.
- *     
+ *
  *     3.between?(1, 5)               #=> true
  *     6.between?(1, 5)               #=> false
  *     'cat'.between?('ant', 'dog')   #=> true
  *     'gnu'.between?('ant', 'dog')   #=> false
- *     
+ *
  */
 
 static VALUE
-cmp_between(x, min, max)
-    VALUE x, min, max;
+cmp_between(VALUE x, VALUE min, VALUE max)
 {
     if (RTEST(cmp_lt(x, min))) return Qfalse;
     if (RTEST(cmp_gt(x, max))) return Qfalse;
@@ -196,11 +186,13 @@ cmp_between(x, min, max)
  *  may be ordered. The class must define the <code><=></code> operator,
  *  which compares the receiver against another object, returning -1, 0,
  *  or +1 depending on whether the receiver is less than, equal to, or
- *  greater than the other object. <code>Comparable</code> uses
+ *  greater than the other object. If the other object is not comparable
+ *  then the <code><=></code> operator should return nil.
+ *  <code>Comparable</code> uses
  *  <code><=></code> to implement the conventional comparison operators
  *  (<code><</code>, <code><=</code>, <code>==</code>, <code>>=</code>,
  *  and <code>></code>) and the method <code>between?</code>.
- *     
+ *
  *     class SizeMatters
  *       include Comparable
  *       attr :str
@@ -214,23 +206,26 @@ cmp_between(x, min, max)
  *         @str
  *       end
  *     end
- *     
+ *
  *     s1 = SizeMatters.new("Z")
  *     s2 = SizeMatters.new("YY")
  *     s3 = SizeMatters.new("XXX")
  *     s4 = SizeMatters.new("WWWW")
  *     s5 = SizeMatters.new("VVVVV")
- *     
+ *
  *     s1 < s2                       #=> true
  *     s4.between?(s1, s3)           #=> false
  *     s4.between?(s3, s5)           #=> true
  *     [ s3, s2, s5, s4, s1 ].sort   #=> [Z, YY, XXX, WWWW, VVVVV]
- *     
+ *
  */
 
 void
-Init_Comparable()
+Init_Comparable(void)
 {
+#undef rb_intern
+#define rb_intern(str) rb_intern_const(str)
+
     rb_mComparable = rb_define_module("Comparable");
     rb_define_method(rb_mComparable, "==", cmp_equal, 1);
     rb_define_method(rb_mComparable, ">", cmp_gt, 1);

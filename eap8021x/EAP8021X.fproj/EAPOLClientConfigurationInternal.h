@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,7 +57,8 @@ struct __EAPOLClientConfiguration {
     SCPreferencesRef		sc_prefs;
     CFMutableArrayRef		sc_changed_if;	/* of SCNetworkInterfaceRef */
     CFMutableDictionaryRef	profiles;	/* of EAPOLClientProfileRef */
-    CFMutableDictionaryRef	ssids;		/* of CFStringRef profileID */
+    CFMutableDictionaryRef	ssids;		/* ssid -> profileID */
+    CFMutableDictionaryRef	domains;	/* domain -> profileID */
     CFDictionaryRef		def_auth_props;	/* EAPClientProperties.h */
     Boolean			def_auth_props_changed;
 };
@@ -73,8 +74,12 @@ struct __EAPOLClientProfile {
     CFDictionaryRef		auth_props;
     CFStringRef			user_defined_name;
     struct {
+	/* non HS 2.0 */
 	CFDataRef		ssid;
 	CFStringRef		security_type;
+	
+	/* HS 2.0 */
+	CFStringRef		domain;
     } WLAN;
     CFMutableDictionaryRef	information;
 };
@@ -87,7 +92,8 @@ typedef enum {
     kEAPOLClientItemIDTypeWLANSSID = 1,
     kEAPOLClientItemIDTypeProfileID = 2,
     kEAPOLClientItemIDTypeProfile = 3,
-    kEAPOLClientItemIDTypeDefault = 4
+    kEAPOLClientItemIDTypeDefault = 4,
+    kEAPOLClientItemIDTypeWLANDomain = 5
 } EAPOLClientItemIDType;
 
 struct __EAPOLClientItemID {
@@ -98,6 +104,7 @@ struct __EAPOLClientItemID {
 	CFDataRef		ssid;
 	CFStringRef		profileID;
 	EAPOLClientProfileRef	profile;
+	CFStringRef		domain;
 	const void *		ptr;
     } u;
 };
@@ -110,6 +117,10 @@ PRIVATE_EXTERN void
 EAPOLClientConfigurationSetProfileForSSID(EAPOLClientConfigurationRef cfg,
 					  CFDataRef ssid,
 					  EAPOLClientProfileRef profile);
+PRIVATE_EXTERN void
+EAPOLClientConfigurationSetProfileForWLANDomain(EAPOLClientConfigurationRef cfg,
+						CFStringRef domain,
+						EAPOLClientProfileRef profile);
 PRIVATE_EXTERN AuthorizationExternalForm *
 EAPOLClientConfigurationGetAuthorizationExternalForm(EAPOLClientConfigurationRef cfg);
 

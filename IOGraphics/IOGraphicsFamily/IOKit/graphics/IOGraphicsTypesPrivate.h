@@ -141,6 +141,7 @@ enum
 #define kIODisplayFastBootEDIDKey       "nv-edid"
 
 #define kIOFBBuiltInKey                 "built-in"
+#define kIOFBIntegratedKey              "IOFBIntegrated"
 
 #define kIOMultimediaConnectionIDKey            "IOMultimediaConnectionID"
 #define kIOMultimediaConnectionIDDefault        "hdmi-1"
@@ -283,7 +284,22 @@ struct IOFBBootGamma
 };
 typedef struct IOFBBootGamma IOFBBootGamma;
 
-#define kIOFBBootGammaKey	"boot-gamma"
+#define kIOFBBootGammaKey			"boot-gamma"
+#define kIOFBBootGammaRestoredKey	"boot-gamma-restored"
+
+// uint32_t OSData
+#define kIOScreenRestoreStateKey "IOScreenRestoreState"
+
+// values for kIOScreenRestoreStateKey
+enum
+{
+	kIOScreenRestoreStateNone   = 0x00000000,
+	kIOScreenRestoreStateNormal = 0x00000001,
+	kIOScreenRestoreStateDark   = 0x00000002,
+};
+
+#define DBG_IOG_NOTIFYSERVER	10
+#define DBG_IOG_VRAM_RESTORE	11
 
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

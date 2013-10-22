@@ -36,17 +36,17 @@
 #import "HostWindow.h"
 #import "GraphicsContext.h"
 #import "KURL.h"
+#import "Logging.h"
 #import "MIMETypeRegistry.h"
 #import "SecurityOrigin.h"
 #import "SoftLinking.h"
 #import "TimeRanges.h"
 #import "WebCoreSystemInterface.h"
 #import <QTKit/QTKit.h>
-#import <objc/objc-runtime.h>
-#import <wtf/UnusedParam.h>
+#import <objc/runtime.h>
 
 #if USE(ACCELERATED_COMPOSITING)
-#include "GraphicsLayer.h"
+#include "PlatformLayer.h"
 #endif
 
 #if DRAW_FRAME_RATE
@@ -189,12 +189,16 @@ PassOwnPtr<MediaPlayerPrivateInterface> MediaPlayerPrivateQTKit::create(MediaPla
 void MediaPlayerPrivateQTKit::registerMediaEngine(MediaEngineRegistrar registrar)
 {
     if (isAvailable())
+#if ENABLE(ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA_V2)
+        registrar(create, getSupportedTypes, extendedSupportsType, getSitesInMediaCache, clearMediaCache, clearMediaCacheForSite);
+#else
         registrar(create, getSupportedTypes, supportsType, getSitesInMediaCache, clearMediaCache, clearMediaCacheForSite);
+#endif
 }
 
 MediaPlayerPrivateQTKit::MediaPlayerPrivateQTKit(MediaPlayer* player)
     : m_player(player)
-    , m_objcObserver(AdoptNS, [[WebCoreMovieObserver alloc] initWithCallback:this])
+    , m_objcObserver(adoptNS([[WebCoreMovieObserver alloc] initWithCallback:this]))
     , m_seekTo(-1)
     , m_seekTimer(this, &MediaPlayerPrivateQTKit::seekTimerFired)
     , m_networkState(MediaPlayer::Empty)
@@ -214,6 +218,7 @@ MediaPlayerPrivateQTKit::MediaPlayerPrivateQTKit(MediaPlayer* player)
     , m_videoFrameHasDrawn(false)
     , m_isAllowedToRender(false)
     , m_privateBrowsing(false)
+    , m_maxTimeLoadedAtLastDidLoadingProgress(0)
 #if DRAW_FRAME_RATE
     , m_frameCountWhilePlaying(0)
     , m_timeStartedPlaying(0)
@@ -224,6 +229,7 @@ MediaPlayerPrivateQTKit::MediaPlayerPrivateQTKit(MediaPlayer* player)
 
 MediaPlayerPrivateQTKit::~MediaPlayerPrivateQTKit()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::~MediaPlayerPrivateQTKit(%p)", this);
     tearDownVideoRendering();
 
     [[NSNotificationCenter defaultCenter] removeObserver:m_objcObserver.get()];
@@ -264,7 +270,6 @@ void MediaPlayerPrivateQTKit::createQTMovie(const String& url)
     NSMutableDictionary *movieAttributes = commonMovieAttributes();    
     [movieAttributes setValue:cocoaURL forKey:QTMovieURLAttribute];
 
-#if !defined(BUILDING_ON_LEOPARD)
     CFDictionaryRef proxySettings = CFNetworkCopySystemProxySettings();
     CFArrayRef proxiesForURL = CFNetworkCopyProxiesForURL((CFURLRef)cocoaURL, proxySettings);
     BOOL willUseProxy = YES;
@@ -293,8 +298,7 @@ void MediaPlayerPrivateQTKit::createQTMovie(const String& url)
         CFRelease(proxiesForURL);
     if (proxySettings)
         CFRelease(proxySettings);
-#endif
-    
+
     createQTMovie(cocoaURL, movieAttributes);
 }
 
@@ -331,6 +335,7 @@ static void disableComponentsOnce()
 
 void MediaPlayerPrivateQTKit::createQTMovie(NSURL *url, NSDictionary *movieAttributes)
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::createQTMovie(%p) ", this);
     disableComponentsOnce();
 
     [[NSNotificationCenter defaultCenter] removeObserver:m_objcObserver.get()];
@@ -347,7 +352,7 @@ void MediaPlayerPrivateQTKit::createQTMovie(NSURL *url, NSDictionary *movieAttri
         return;
     
     NSError *error = nil;
-    m_qtMovie.adoptNS([[QTMovie alloc] initWithAttributes:movieAttributes error:&error]);
+    m_qtMovie = adoptNS([[QTMovie alloc] initWithAttributes:movieAttributes error:&error]);
     
     if (!m_qtMovie)
         return;
@@ -367,7 +372,7 @@ void MediaPlayerPrivateQTKit::createQTMovie(NSURL *url, NSDictionary *movieAttri
     // In older version of QuickTime, QTMovieLoadStateDidChangeNotification be fired.
     if (NSString *maxTimeLoadedChangeNotification = wkQTMovieMaxTimeLoadedChangeNotification()) {
         [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get()
-                                                 selector:@selector(loadStateChanged:) 
+                                                 selector:@selector(loadedRangesChanged:)
                                                      name:maxTimeLoadedChangeNotification
                                                    object:m_qtMovie.get()];        
     }
@@ -388,7 +393,7 @@ void MediaPlayerPrivateQTKit::createQTMovie(NSURL *url, NSDictionary *movieAttri
                                              selector:@selector(didEnd:) 
                                                  name:QTMovieDidEndNotification 
                                                object:m_qtMovie.get()];
-#if defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get()
                                              selector:@selector(layerHostChanged:)
                                                  name:@"WebKitLayerHostChanged"
@@ -420,6 +425,7 @@ static Class QTVideoRendererClass()
 
 void MediaPlayerPrivateQTKit::createQTMovieView()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::createQTMovieView(%p)", this);
     detachQTMovieView();
 
     static bool addedCustomMethods = false;
@@ -437,7 +443,7 @@ void MediaPlayerPrivateQTKit::createQTMovieView()
     // delay callbacks as we *will* get notifications during setup
     [m_objcObserver.get() setDelayCallbacks:YES];
 
-    m_qtMovieView.adoptNS([[QTMovieView alloc] init]);
+    m_qtMovieView = adoptNS([[QTMovieView alloc] init]);
     setSize(m_player->size());
     NSView* parentView = 0;
 #if PLATFORM(MAC)
@@ -463,6 +469,7 @@ void MediaPlayerPrivateQTKit::createQTMovieView()
 
 void MediaPlayerPrivateQTKit::detachQTMovieView()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::detachQTMovieView(%p)", this);
     if (m_qtMovieView) {
         [m_objcObserver.get() setView:nil];
         [m_qtMovieView.get() setDelegate:nil];
@@ -473,9 +480,10 @@ void MediaPlayerPrivateQTKit::detachQTMovieView()
 
 void MediaPlayerPrivateQTKit::createQTVideoRenderer(QTVideoRendererMode rendererMode)
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::createQTVideoRenderer(%p)", this);
     destroyQTVideoRenderer();
 
-    m_qtVideoRenderer.adoptNS([[QTVideoRendererClass() alloc] init]);
+    m_qtVideoRenderer = adoptNS([[QTVideoRendererClass() alloc] init]);
     if (!m_qtVideoRenderer)
         return;
     
@@ -493,6 +501,7 @@ void MediaPlayerPrivateQTKit::createQTVideoRenderer(QTVideoRendererMode renderer
 
 void MediaPlayerPrivateQTKit::destroyQTVideoRenderer()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::destroyQTVideoRenderer(%p)", this);
     if (!m_qtVideoRenderer)
         return;
 
@@ -509,14 +518,15 @@ void MediaPlayerPrivateQTKit::destroyQTVideoRenderer()
 
 void MediaPlayerPrivateQTKit::createQTMovieLayer()
 {
-#if USE(ACCELERATED_COMPOSITING) && !(PLATFORM(QT) && USE(QTKIT))
+    LOG(Media, "MediaPlayerPrivateQTKit::createQTMovieLayer(%p)", this);
+#if USE(ACCELERATED_COMPOSITING)
     if (!m_qtMovie)
         return;
 
     ASSERT(supportsAcceleratedRendering());
     
     if (!m_qtVideoLayer) {
-        m_qtVideoLayer.adoptNS([[QTMovieLayer alloc] init]);
+        m_qtVideoLayer = adoptNS([[QTMovieLayer alloc] init]);
         if (!m_qtVideoLayer)
             return;
 
@@ -531,6 +541,7 @@ void MediaPlayerPrivateQTKit::createQTMovieLayer()
 
 void MediaPlayerPrivateQTKit::destroyQTMovieLayer()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::destroyQTMovieLayer(%p)", this);
 #if USE(ACCELERATED_COMPOSITING)
     if (!m_qtVideoLayer)
         return;
@@ -560,7 +571,7 @@ MediaPlayerPrivateQTKit::MediaRenderingMode MediaPlayerPrivateQTKit::preferredRe
     if (!m_player->frameView() || !m_qtMovie)
         return MediaRenderingNone;
 
-#if USE(ACCELERATED_COMPOSITING) && !(PLATFORM(QT) && USE(QTKIT))
+#if USE(ACCELERATED_COMPOSITING)
     if (supportsAcceleratedRendering() && m_player->mediaPlayerClient()->mediaPlayerRenderingCanBeAccelerated(m_player))
         return MediaRenderingMovieLayer;
 #endif
@@ -573,6 +584,7 @@ MediaPlayerPrivateQTKit::MediaRenderingMode MediaPlayerPrivateQTKit::preferredRe
 
 void MediaPlayerPrivateQTKit::setUpVideoRendering()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::setUpVideoRendering(%p)", this);
     if (!isReadyForVideoSetup())
         return;
 
@@ -604,6 +616,7 @@ void MediaPlayerPrivateQTKit::setUpVideoRendering()
 
 void MediaPlayerPrivateQTKit::tearDownVideoRendering()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::tearDownVideoRendering(%p)", this);
     if (m_qtMovieView)
         detachQTMovieView();
     if (m_qtVideoRenderer)
@@ -635,6 +648,7 @@ void MediaPlayerPrivateQTKit::resumeLoad()
 
 void MediaPlayerPrivateQTKit::load(const String& url)
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::load(%p)", this);
     m_movieURL = url;
 
     // If the element is not supposed to load any data return immediately.
@@ -667,6 +681,7 @@ void MediaPlayerPrivateQTKit::loadInternal(const String& url)
 
 void MediaPlayerPrivateQTKit::prepareToPlay()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::prepareToPlay(%p)", this);
     setPreload(MediaPlayer::Auto);
 }
 
@@ -678,7 +693,7 @@ PlatformMedia MediaPlayerPrivateQTKit::platformMedia() const
     return pm;
 }
 
-#if USE(ACCELERATED_COMPOSITING) && !(PLATFORM(QT) && USE(QTKIT))
+#if USE(ACCELERATED_COMPOSITING)
 PlatformLayer* MediaPlayerPrivateQTKit::platformLayer() const
 {
     return m_qtVideoLayer.get();
@@ -687,6 +702,7 @@ PlatformLayer* MediaPlayerPrivateQTKit::platformLayer() const
 
 void MediaPlayerPrivateQTKit::play()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::play(%p)", this);
     if (!metaDataAvailable())
         return;
     m_startedPlaying = true;
@@ -700,6 +716,7 @@ void MediaPlayerPrivateQTKit::play()
 
 void MediaPlayerPrivateQTKit::pause()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::pause(%p)", this);
     if (!metaDataAvailable())
         return;
     m_startedPlaying = false;
@@ -716,7 +733,7 @@ float MediaPlayerPrivateQTKit::duration() const
     if (!metaDataAvailable())
         return 0;
 
-    if (m_cachedDuration != -1.0f)
+    if (m_cachedDuration != MediaPlayer::invalidTime())
         return m_cachedDuration;
 
     QTTime time = [m_qtMovie.get() duration];
@@ -735,6 +752,7 @@ float MediaPlayerPrivateQTKit::currentTime() const
 
 void MediaPlayerPrivateQTKit::seek(float time)
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::seek(%p) - time %f", this, time);
     // Nothing to do if we are already in the middle of a seek to the same time.
     if (time == m_seekTo)
         return;
@@ -776,6 +794,7 @@ void MediaPlayerPrivateQTKit::doSeek()
 
 void MediaPlayerPrivateQTKit::cancelSeek()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::cancelSeek(%p)", this);
     m_seekTo = -1;
     m_seekTimer.stop();
 }
@@ -858,16 +877,12 @@ bool MediaPlayerPrivateQTKit::hasAudio() const
 
 bool MediaPlayerPrivateQTKit::supportsFullscreen() const
 {
-#ifndef BUILDING_ON_LEOPARD
     return true;
-#else
-    // See <rdar://problem/7389945>
-    return false;
-#endif
 }
 
 void MediaPlayerPrivateQTKit::setVolume(float volume)
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::setVolume(%p) - volume %f", this, volume);
     if (m_qtMovie)
         [m_qtMovie.get() setVolume:volume];  
 }
@@ -884,23 +899,25 @@ void MediaPlayerPrivateQTKit::setClosedCaptionsVisible(bool closedCaptionsVisibl
     if (metaDataAvailable()) {
         wkQTMovieSetShowClosedCaptions(m_qtMovie.get(), closedCaptionsVisible);
 
-#if USE(ACCELERATED_COMPOSITING) && !defined(BUILDING_ON_LEOPARD)
-    if (closedCaptionsVisible && m_qtVideoLayer) {
-        // Captions will be rendered upside down unless we flag the movie as flipped (again). See <rdar://7408440>.
-        [m_qtVideoLayer.get() setGeometryFlipped:YES];
-    }
+#if USE(ACCELERATED_COMPOSITING)
+        if (closedCaptionsVisible && m_qtVideoLayer) {
+            // Captions will be rendered upside down unless we flag the movie as flipped (again). See <rdar://7408440>.
+            [m_qtVideoLayer.get() setGeometryFlipped:YES];
+        }
 #endif
     }
 }
 
 void MediaPlayerPrivateQTKit::setRate(float rate)
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::setRate(%p) - rate %f", this, rate);
     if (m_qtMovie)
         [m_qtMovie.get() setRate:rate];
 }
 
 void MediaPlayerPrivateQTKit::setPreservesPitch(bool preservesPitch)
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::setPreservesPitch(%p) - preservesPitch %d", this, (int)preservesPitch);
     if (!m_qtMovie)
         return;
 
@@ -909,7 +926,7 @@ void MediaPlayerPrivateQTKit::setPreservesPitch(bool preservesPitch)
     if ([[m_qtMovie.get() attributeForKey:QTMovieRateChangesPreservePitchAttribute] boolValue] == preservesPitch)
         return;
 
-    RetainPtr<NSDictionary> movieAttributes(AdoptNS, [[m_qtMovie.get() movieAttributes] mutableCopy]);
+    RetainPtr<NSDictionary> movieAttributes = adoptNS([[m_qtMovie.get() movieAttributes] mutableCopy]);
     ASSERT(movieAttributes);
     [movieAttributes.get() setValue:[NSNumber numberWithBool:preservesPitch] forKey:QTMovieRateChangesPreservePitchAttribute];
     m_timeToRestore = currentTime();
@@ -932,7 +949,7 @@ float MediaPlayerPrivateQTKit::maxTimeSeekable() const
         return 0;
 
     // infinite duration means live stream
-    if (isinf(duration()))
+    if (std::isinf(duration()))
         return 0;
 
     return wkQTMovieMaxTimeSeekable(m_qtMovie.get());
@@ -945,12 +962,14 @@ float MediaPlayerPrivateQTKit::maxTimeLoaded() const
     return wkQTMovieMaxTimeLoaded(m_qtMovie.get()); 
 }
 
-unsigned MediaPlayerPrivateQTKit::bytesLoaded() const
+bool MediaPlayerPrivateQTKit::didLoadingProgress() const
 {
-    float dur = duration();
-    if (!dur)
-        return 0;
-    return totalBytes() * maxTimeLoaded() / dur;
+    if (!duration() || !totalBytes())
+        return false;
+    float currentMaxTimeLoaded = maxTimeLoaded();
+    bool didLoadingProgress = currentMaxTimeLoaded != m_maxTimeLoadedAtLastDidLoadingProgress;
+    m_maxTimeLoadedAtLastDidLoadingProgress = currentMaxTimeLoaded;
+    return didLoadingProgress;
 }
 
 unsigned MediaPlayerPrivateQTKit::totalBytes() const
@@ -962,6 +981,7 @@ unsigned MediaPlayerPrivateQTKit::totalBytes() const
 
 void MediaPlayerPrivateQTKit::cancelLoad()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::cancelLoad(%p)", this);
     // FIXME: Is there a better way to check for this?
     if (m_networkState < MediaPlayer::Loading || m_networkState == MediaPlayer::Loaded)
         return;
@@ -977,7 +997,6 @@ void MediaPlayerPrivateQTKit::cacheMovieScale()
     NSSize initialSize = NSZeroSize;
     NSSize naturalSize = [[m_qtMovie.get() attributeForKey:QTMovieNaturalSizeAttribute] sizeValue];
 
-#ifndef BUILDING_ON_LEOPARD
     // QTMovieCurrentSizeAttribute is not allowed with instances of QTMovie that have been 
     // opened with QTMovieOpenForPlaybackAttribute, so ask for the display transform attribute instead.
     NSAffineTransform *displayTransform = [m_qtMovie.get() attributeForKey:@"QTMoviePreferredTransformAttribute"];
@@ -987,9 +1006,6 @@ void MediaPlayerPrivateQTKit::cacheMovieScale()
         initialSize.width = naturalSize.width;
         initialSize.height = naturalSize.height;
     }
-#else
-    initialSize = [[m_qtMovie.get() attributeForKey:QTMovieCurrentSizeAttribute] sizeValue];
-#endif
 
     if (naturalSize.width)
         m_scaleFactor.setWidth(initialSize.width / naturalSize.width);
@@ -1004,6 +1020,7 @@ bool MediaPlayerPrivateQTKit::isReadyForVideoSetup() const
 
 void MediaPlayerPrivateQTKit::prepareForRendering()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::prepareForRendering(%p)", this);
     if (m_isAllowedToRender)
         return;
     m_isAllowedToRender = true;
@@ -1021,6 +1038,9 @@ void MediaPlayerPrivateQTKit::updateStates()
 {
     MediaPlayer::NetworkState oldNetworkState = m_networkState;
     MediaPlayer::ReadyState oldReadyState = m_readyState;
+
+    LOG(Media, "MediaPlayerPrivateQTKit::updateStates(%p) - entering with networkState = %i, readyState = %i", this, static_cast<int>(m_networkState), static_cast<int>(m_readyState));
+
     
     long loadState = m_qtMovie ? [[m_qtMovie.get() attributeForKey:QTMovieLoadStateAttribute] longValue] : static_cast<long>(QTMovieLoadStateError);
 
@@ -1046,9 +1066,9 @@ void MediaPlayerPrivateQTKit::updateStates()
     }
     
     // If this movie is reloading and we mean to restore the current time/rate, this might be the right time to do it.
-    if (loadState >= QTMovieLoadStateLoaded && oldNetworkState < MediaPlayer::Loaded && m_timeToRestore != -1.0f) {
+    if (loadState >= QTMovieLoadStateLoaded && oldNetworkState < MediaPlayer::Loaded && m_timeToRestore != MediaPlayer::invalidTime()) {
         QTTime qttime = createQTTime(m_timeToRestore);
-        m_timeToRestore = -1.0f;
+        m_timeToRestore = MediaPlayer::invalidTime();
             
         // Disable event callbacks from setCurrentTime for restoring time in a recreated video
         [m_objcObserver.get() setDelayCallbacks:YES];
@@ -1125,21 +1145,34 @@ void MediaPlayerPrivateQTKit::updateStates()
     if (loadState >= QTMovieLoadStateLoaded) {
         float dur = duration();
         if (dur != m_reportedDuration) {
-            if (m_reportedDuration != -1.0f)
+            if (m_reportedDuration != MediaPlayer::invalidTime())
                 m_player->durationChanged();
             m_reportedDuration = dur;
         }
     }
+
+    LOG(Media, "MediaPlayerPrivateQTKit::updateStates(%p) - exiting with networkState = %i, readyState = %i", this, static_cast<int>(m_networkState), static_cast<int>(m_readyState));
 }
 
 void MediaPlayerPrivateQTKit::loadStateChanged()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::loadStateChanged(%p) - loadState = %li", this, [[m_qtMovie.get() attributeForKey:QTMovieLoadStateAttribute] longValue]);
+
+    if (!m_hasUnsupportedTracks)
+        updateStates();
+}
+
+void MediaPlayerPrivateQTKit::loadedRangesChanged()
+{
+    LOG(Media, "MediaPlayerPrivateQTKit::loadedRangesChanged(%p) - loadState = %li", this, [[m_qtMovie.get() attributeForKey:QTMovieLoadStateAttribute] longValue]);
+
     if (!m_hasUnsupportedTracks)
         updateStates();
 }
 
 void MediaPlayerPrivateQTKit::rateChanged()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::rateChanged(%p) - rate = %li", this, [m_qtMovie.get() rate]);
     if (m_hasUnsupportedTracks)
         return;
 
@@ -1149,12 +1182,14 @@ void MediaPlayerPrivateQTKit::rateChanged()
 
 void MediaPlayerPrivateQTKit::sizeChanged()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::sizeChanged(%p)", this);
     if (!m_hasUnsupportedTracks)
         m_player->sizeChanged();
 }
 
 void MediaPlayerPrivateQTKit::timeChanged()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::timeChanged(%p)", this);
     if (m_hasUnsupportedTracks)
         return;
 
@@ -1164,13 +1199,14 @@ void MediaPlayerPrivateQTKit::timeChanged()
     if (m_seekTo != -1)
         m_seekTo = currentTime();
 
-    m_timeToRestore = -1.0f;
+    m_timeToRestore = MediaPlayer::invalidTime();
     updateStates();
     m_player->timeChanged();
 }
 
 void MediaPlayerPrivateQTKit::didEnd()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::didEnd(%p)", this);
     if (m_hasUnsupportedTracks)
         return;
 
@@ -1191,8 +1227,8 @@ void MediaPlayerPrivateQTKit::didEnd()
     m_player->timeChanged();
 }
 
-#if USE(ACCELERATED_COMPOSITING) && !(PLATFORM(QT) && USE(QTKIT))
-#if defined(BUILDING_ON_SNOW_LEOPARD)
+#if USE(ACCELERATED_COMPOSITING)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
 static bool layerIsDescendentOf(PlatformLayer* child, PlatformLayer* descendent)
 {
     if (!child || !descendent)
@@ -1209,7 +1245,7 @@ static bool layerIsDescendentOf(PlatformLayer* child, PlatformLayer* descendent)
 
 void MediaPlayerPrivateQTKit::layerHostChanged(PlatformLayer* rootLayer)
 {
-#if defined(BUILDING_ON_SNOW_LEOPARD)
+#if __MAC_OS_X_VERSION_MIN_REQUIRED == 1060
     if (!rootLayer)
         return;
 
@@ -1310,24 +1346,13 @@ void MediaPlayerPrivateQTKit::paint(GraphicsContext* context, const IntRect& r)
     FloatSize scaleFactor(1.0f, -1.0f);
     IntRect paintRect(IntPoint(0, 0), IntSize(r.width(), r.height()));
 
-#if PLATFORM(QT) && USE(QTKIT)
-    // In Qt, GraphicsContext is a QPainter so every transformations applied on it won't matter because here
-    // the video is rendered by QuickTime not by Qt.
-    CGContextRef cgContext = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
-    CGContextSaveGState(cgContext);
-    CGContextSetInterpolationQuality(cgContext, kCGInterpolationLow);
-    CGContextTranslateCTM(cgContext, r.x(), r.y() + r.height());
-    CGContextScaleCTM(cgContext, scaleFactor.width(), scaleFactor.height());
-
-    newContext = [NSGraphicsContext currentContext];
-#else
     GraphicsContextStateSaver stateSaver(*context);
     context->translate(r.x(), r.y() + r.height());
     context->scale(scaleFactor);
     context->setImageInterpolationQuality(InterpolationLow);
 
     newContext = [NSGraphicsContext graphicsContextWithGraphicsPort:context->platformContext() flipped:NO];
-#endif
+
     // draw the current video frame
     if (qtVideoRenderer) {
         [NSGraphicsContext saveGraphicsState];
@@ -1381,9 +1406,6 @@ void MediaPlayerPrivateQTKit::paint(GraphicsContext* context, const IntRect& r)
         }
     }
 #endif
-#if PLATFORM(QT) && USE(QTKIT)
-    CGContextRestoreGState(cgContext);
-#endif
     END_BLOCK_OBJC_EXCEPTIONS;
     [m_objcObserver.get() setDelayCallbacks:NO];
 }
@@ -1393,10 +1415,10 @@ static void addFileTypesToCache(NSArray * fileTypes, HashSet<String> &cache)
     int count = [fileTypes count];
     for (int n = 0; n < count; n++) {
         CFStringRef ext = reinterpret_cast<CFStringRef>([fileTypes objectAtIndex:n]);
-        RetainPtr<CFStringRef> uti(AdoptCF, UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, ext, NULL));
+        RetainPtr<CFStringRef> uti = adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, ext, NULL));
         if (!uti)
             continue;
-        RetainPtr<CFStringRef> mime(AdoptCF, UTTypeCopyPreferredTagWithClass(uti.get(), kUTTagClassMIMEType));
+        RetainPtr<CFStringRef> mime = adoptCF(UTTypeCopyPreferredTagWithClass(uti.get(), kUTTagClassMIMEType));
         if (mime)
             cache.add(mime.get());
 
@@ -1409,8 +1431,15 @@ static void addFileTypesToCache(NSArray * fileTypes, HashSet<String> &cache)
             Vector<String> typesForExtension = MIMETypeRegistry::getMediaMIMETypesForExtension(ext);
             unsigned count = typesForExtension.size();
             for (unsigned ndx = 0; ndx < count; ++ndx) {
-                if (!cache.contains(typesForExtension[ndx]))
-                    cache.add(typesForExtension[ndx]);
+                String& type = typesForExtension[ndx];
+
+                // QTKit will return non-video MIME types which it claims to support, but which we
+                // do not support in the <video> element. Disclaim all non video/ or audio/ types.
+                if (!type.startsWith("video/") && !type.startsWith("audio/"))
+                    continue;
+
+                if (!cache.contains(type))
+                    cache.add(type);
             }
         }
     }    
@@ -1442,22 +1471,26 @@ static HashSet<String> mimeModernTypesCache()
     }
     
     return cache;
-} 
+}
+
+static void concatenateHashSets(HashSet<String>& destination, const HashSet<String>& source)
+{
+    HashSet<String>::const_iterator it = source.begin();
+    HashSet<String>::const_iterator end = source.end();
+    for (; it != end; ++it)
+        destination.add(*it);
+}
 
 void MediaPlayerPrivateQTKit::getSupportedTypes(HashSet<String>& supportedTypes)
 {
-    supportedTypes = mimeModernTypesCache();
-    
+    concatenateHashSets(supportedTypes, mimeModernTypesCache());
+
     // Note: this method starts QTKitServer if it isn't already running when in 64-bit because it has to return the list 
     // of every MIME type supported by QTKit.
-    HashSet<String> commonTypes = mimeCommonTypesCache();
-    HashSet<String>::const_iterator it = commonTypes.begin();
-    HashSet<String>::const_iterator end = commonTypes.end();
-    for (; it != end; ++it)
-        supportedTypes.add(*it);
-} 
+    concatenateHashSets(supportedTypes, mimeCommonTypesCache());
+}
 
-MediaPlayer::SupportsType MediaPlayerPrivateQTKit::supportsType(const String& type, const String& codecs)
+MediaPlayer::SupportsType MediaPlayerPrivateQTKit::supportsType(const String& type, const String& codecs, const KURL&)
 {
     // Only return "IsSupported" if there is no codecs parameter for now as there is no way to ask QT if it supports an
     // extended MIME type yet.
@@ -1474,6 +1507,17 @@ MediaPlayer::SupportsType MediaPlayerPrivateQTKit::supportsType(const String& ty
     return MediaPlayer::IsNotSupported;
 }
 
+#if ENABLE(ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA_V2)
+MediaPlayer::SupportsType MediaPlayerPrivateQTKit::extendedSupportsType(const String& type, const String& codecs, const String& keySystem, const KURL& url)
+{
+    // QTKit does not support any encrytped media, so return IsNotSupported if the keySystem is non-NULL:
+    if (!keySystem.isNull() || !keySystem.isEmpty())
+        return MediaPlayer::IsNotSupported;
+
+    return supportsType(type, codecs, url);;
+}
+#endif
+
 bool MediaPlayerPrivateQTKit::isAvailable()
 {
     // On 10.5 and higher, QuickTime will always be new enough for <video> and <audio> support, so we just check that the framework can be loaded.
@@ -1489,16 +1533,20 @@ void MediaPlayerPrivateQTKit::getSitesInMediaCache(Vector<String>& sites)
 
 void MediaPlayerPrivateQTKit::clearMediaCache()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::clearMediaCache()");
     wkQTClearMediaDownloadCache();
 }
 
 void MediaPlayerPrivateQTKit::clearMediaCacheForSite(const String& site)
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::clearMediaCacheForSite()");
     wkQTClearMediaDownloadCacheForSite(site);
 }
 
 void MediaPlayerPrivateQTKit::disableUnsupportedTracks()
 {
+    LOG(Media, "MediaPlayerPrivateQTKit::disableUnsupportedTracks(%p)", this);
+
     if (!m_qtMovie) {
         m_enabledTrackCount = 0;
         m_totalTrackCount = 0;
@@ -1593,7 +1641,7 @@ void MediaPlayerPrivateQTKit::sawUnsupportedTracks()
     m_player->mediaPlayerClient()->mediaPlayerSawUnsupportedTracks(m_player);
 }
 
-#if USE(ACCELERATED_COMPOSITING) && !(PLATFORM(QT) && USE(QTKIT))
+#if USE(ACCELERATED_COMPOSITING)
 bool MediaPlayerPrivateQTKit::supportsAcceleratedRendering() const
 {
     return isReadyForVideoSetup() && getQTMovieLayerClass() != Nil;
@@ -1703,6 +1751,15 @@ void MediaPlayerPrivateQTKit::setPrivateBrowsingMode(bool privateBrowsing)
         m_callback->loadStateChanged();
 }
 
+- (void)loadedRangesChanged:(NSNotification *)unusedNotification
+{
+    UNUSED_PARAM(unusedNotification);
+    if (m_delayCallbacks)
+        [self performSelector:_cmd withObject:nil afterDelay:0];
+    else
+        m_callback->loadedRangesChanged();
+}
+
 - (void)rateChanged:(NSNotification *)unusedNotification
 {
     UNUSED_PARAM(unusedNotification);
@@ -1747,7 +1804,7 @@ void MediaPlayerPrivateQTKit::setPrivateBrowsingMode(bool privateBrowsing)
 
 - (void)layerHostChanged:(NSNotification *)notification
 {
-#if USE(ACCELERATED_COMPOSITING) && !(PLATFORM(QT) && USE(QTKIT))
+#if USE(ACCELERATED_COMPOSITING)
     CALayer* rootLayer = static_cast<CALayer*>([notification object]);
     m_callback->layerHostChanged(rootLayer);
 #else

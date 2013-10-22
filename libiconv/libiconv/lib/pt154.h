@@ -38,7 +38,7 @@ static const unsigned short pt154_2uni[64] = {
 };
 
 static int
-pt154_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+pt154_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c < 0x80)
@@ -95,7 +95,7 @@ static const unsigned char pt154_page20[24] = {
 };
 
 static int
-pt154_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+pt154_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x0080) {

@@ -1,0 +1,18 @@
+[% META
+   author = 'abw'
+   version = 1.23
+%]
+[% INCLUDE header title = "Yet Another Template Test" +%]
+This is a more complex file which includes some BLOCK definitions
+[% INCLUDE footer +%]
+
+[% BLOCK header %]
+This is the header, title: [% title %]
+[% END %]
+
+[% BLOCK footer %][%# NOTE: the 'template' is the parent doc, not this one %]
+This is the footer, author: [% template.author %], version: [% template.version+%]
+[% "- $x " FOREACH x = [3 2 1] %]
+[% END %]
+
+

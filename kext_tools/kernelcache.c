@@ -79,7 +79,7 @@ writeFatFile(
      * arch a compressed prelinked kernel belongs to.
      */
 
-    numArchs = CFArrayGetCount(fileArchs);
+    numArchs = (int)CFArrayGetCount(fileArchs);
     fatHeader.magic = OSSwapHostToBigInt32(FAT_MAGIC);
     fatHeader.nfat_arch = OSSwapHostToBigInt32(numArchs);
 
@@ -95,7 +95,7 @@ writeFatFile(
     for (i = 0; i < numArchs; i++) {
         targetArch = CFArrayGetValueAtIndex(fileArchs, i);
         sliceData = CFArrayGetValueAtIndex(fileSlices, i);
-        sliceLength = CFDataGetLength(sliceData);
+        sliceLength = (uint32_t)CFDataGetLength(sliceData);
 
         fatArch.cputype = OSSwapHostToBigInt32(targetArch->cputype);
         fatArch.cpusubtype = OSSwapHostToBigInt32(targetArch->cpusubtype);
@@ -117,7 +117,7 @@ writeFatFile(
     for (i = 0; i < numArchs; i++) {
         sliceData = CFArrayGetValueAtIndex(fileSlices, i);
         sliceDataPtr = CFDataGetBytePtr(sliceData);
-        sliceLength = CFDataGetLength(sliceData);
+        sliceLength = (uint32_t)CFDataGetLength(sliceData);
 
         result = writeToFile(fileDescriptor, sliceDataPtr, sliceLength);
         if (result != EX_OK) {
@@ -155,34 +155,6 @@ finish:
     if (fileDescriptor >= 0) (void)close(fileDescriptor);
     if (tmpPathPtr) unlink(tmpPathPtr);
 
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-ExitStatus writeToFile(
-    int           fileDescriptor,
-    const UInt8 * data,
-    CFIndex       length)
-{
-    ExitStatus result = EX_OSERR;
-    int bytesWritten = 0;
-    int totalBytesWritten = 0;
-
-    while (totalBytesWritten < length) {
-        bytesWritten = write(fileDescriptor, data + totalBytesWritten,
-                length - totalBytesWritten);
-        if (bytesWritten < 0) {
-            OSKextLog(/* kext */ NULL,
-                    kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                    "Write failed - %s", strerror(errno));
-            goto finish;
-        }
-        totalBytesWritten += bytesWritten;
-    }
-
-    result = EX_OK;
-finish:
     return result;
 }
 
@@ -277,7 +249,7 @@ getNextFatArch(
 
     firstArch = (struct fat_arch *) (&fatHeader[1]);
     nextArch = &prevArch[1];
-    numArchs = nextArch - firstArch;
+    numArchs = (unsigned int)(nextArch - firstArch);
 
     if (numArchs >= fatHeader->nfat_arch) {
         nextArch = NULL;
@@ -511,11 +483,12 @@ readMachOSlices(
             if (!sliceData) goto finish;
 
             CFArrayAppendValue(fileSlices, sliceData);
-
             fatArch = getNextFatArch(headerPage, fatArch);
+            CFRelease(sliceData); // drop ref from readMachOSlice()
+            sliceData = NULL;
         }
     } else {
-        sliceData = readMachOSlice(fileDescriptor, 0, statBuf.st_size);
+        sliceData = readMachOSlice(fileDescriptor, 0, (size_t)statBuf.st_size);
         if (!sliceData) goto finish;
 
         CFArrayAppendValue(fileSlices, sliceData);
@@ -605,7 +578,7 @@ readMachOSliceForArch(
         }
 
         fileSliceOffset = 0;
-        fileSliceSize = statBuf.st_size;
+        fileSliceSize = (size_t)statBuf.st_size;
     }
 
     /* Read the file */    
@@ -811,9 +784,9 @@ uncompressPrelinkedSlice(
 
     /* Uncompress the kernel.
      */
-    uncompsize = decompress_lzss(buf, bufsize,
+    uncompsize = decompress_lzss(buf, (u_int32_t)bufsize,
             ((u_int8_t *)(CFDataGetBytePtr(prelinkImage))) + sizeof(*prelinkHeader),
-            CFDataGetLength(prelinkImage) - sizeof(*prelinkHeader));
+            (u_int32_t)(CFDataGetLength(prelinkImage) - sizeof(*prelinkHeader)));
     if (uncompsize != bufsize) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
@@ -824,7 +797,7 @@ uncompressPrelinkedSlice(
 
     /* Verify the adler32.
      */
-    adler32 = local_adler32((u_int8_t *) buf, bufsize);
+    adler32 = local_adler32((u_int8_t *) buf, (int)bufsize);
     if (prelinkHeader->adler32 != OSSwapHostToBigInt32(adler32)) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
@@ -896,16 +869,16 @@ compressPrelinkedSlice(
     kernelHeader->signature = OSSwapHostToBigInt32('comp');
     kernelHeader->compressType = OSSwapHostToBigInt32('lzss');
     adler32 = local_adler32((u_int8_t *)CFDataGetBytePtr(prelinkImage),
-            CFDataGetLength(prelinkImage));
+            (int)CFDataGetLength(prelinkImage));
     kernelHeader->adler32 = OSSwapHostToBigInt32(adler32);
     kernelHeader->uncompressedSize = 
         OSSwapHostToBigInt32(CFDataGetLength(prelinkImage));
 
     /* Compress the kernel */
 
-    bufend = compress_lzss(buf + offset, bufsize, 
+    bufend = compress_lzss(buf + offset, (u_int32_t)bufsize,
             (u_int8_t *)CFDataGetBytePtr(prelinkImage),
-            CFDataGetLength(prelinkImage));
+            (u_int32_t)CFDataGetLength(prelinkImage));
     if (!bufend) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,

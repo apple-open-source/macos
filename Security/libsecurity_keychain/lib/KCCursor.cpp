@@ -34,8 +34,8 @@
 #include "cssmdatetime.h"
 #include "Globals.h"
 #include "StorageManager.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/SecKeychainItemPriv.h>
+#include <SecBase.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
@@ -158,7 +158,7 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const
 		
 		// the class attribute
 		if (foundClassAttribute || attr->length != sizeof(SecItemClass))
-			MacOSError::throwMe(paramErr); // We have 2 different 'clas' attributes
+			MacOSError::throwMe(errSecParam); // We have 2 different 'clas' attributes
 
 		recordType(Schema::recordTypeFor(*reinterpret_cast<SecItemClass *>(attr->data)));
 		foundClassAttribute=true;
@@ -169,7 +169,7 @@ KCCursorImpl::~KCCursorImpl() throw()
 {
 }
 
-static ModuleNexus<Mutex> gActivationMutex;
+//static ModuleNexus<Mutex> gActivationMutex;
 
 bool
 KCCursorImpl::next(Item &item)
@@ -196,22 +196,10 @@ KCCursorImpl::next(Item &item)
 			
 			try
 			{
-            /*  WARNING:  THIS SECTION IS CRITICAL.
-                If multiple threads are attempting to activate
-                the same database at the same time, the global
-                system database queue will reflect the most recent
-                activation rather than the activation which was
-                created by this thread.
-                
-                We could protect the database structures, but that's not the
-                right answer because it's perfectly legal to have
-                more than one context.  That would basically just
-                make a big lock around CDSA, which is a performance
-                nightmare.  Instead, we protect the PROCESS under
-                which databases are activated.
-            */
-            
-                StLock<Mutex> _(gActivationMutex()); // force serialization of cursor creation
+                // StLock<Mutex> _(gActivationMutex()); // force serialization of cursor creation
+                Keychain &kc = *mCurrent;
+                Mutex* mutex = kc->getKeychainMutex();
+                StLock<Mutex> _(*mutex);
 				(*mCurrent)->database()->activate();
 				mDbCursor = DbCursor((*mCurrent)->database(), *this);
 			}
@@ -221,6 +209,10 @@ KCCursorImpl::next(Item &item)
 			}
 		}
 
+        Keychain &kc = *mCurrent;
+        Mutex* mutex = kc->getKeychainMutex();
+        StLock<Mutex> _(*mutex);
+        
 		bool gotRecord;
 		try
 		{
@@ -295,6 +287,22 @@ KCCursorImpl::next(Item &item)
 	}
 
 	// Go though Keychain since item might already exist.
+    Keychain &kc = *mCurrent;
+    StLock<Mutex> _mutexLocker(*kc->getKeychainMutex());
 	item = (*mCurrent)->item(dbAttributes.recordType(), uniqueId);
 	return true;
+}
+
+
+
+bool KCCursorImpl::mayDelete()
+{
+    if (mDbCursor.get() != NULL)
+    {
+        return mDbCursor->isIdle();
+    }
+    else
+    {
+        return true;
+    }
 }

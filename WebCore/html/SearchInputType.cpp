@@ -32,16 +32,22 @@
 #include "SearchInputType.h"
 
 #include "HTMLInputElement.h"
+#include "HTMLNames.h"
+#include "InputTypeNames.h"
 #include "KeyboardEvent.h"
-#include "RenderTextControlSingleLine.h"
+#include "RenderSearchField.h"
 #include "ShadowRoot.h"
 #include "TextControlInnerElements.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
+using namespace HTMLNames;
+
 inline SearchInputType::SearchInputType(HTMLInputElement* element)
     : BaseTextInputType(element)
+    , m_resultsButton(0)
+    , m_cancelButton(0)
     , m_searchEventTimer(this, &SearchInputType::searchEventTimerFired)
 {
 }
@@ -49,6 +55,23 @@ inline SearchInputType::SearchInputType(HTMLInputElement* element)
 PassOwnPtr<InputType> SearchInputType::create(HTMLInputElement* element)
 {
     return adoptPtr(new SearchInputType(element));
+}
+
+void SearchInputType::attach()
+{
+    TextFieldInputType::attach();
+    observeFeatureIfVisible(FeatureObserver::InputTypeSearch);
+}
+
+void SearchInputType::addSearchResult()
+{
+    if (RenderObject* renderer = element()->renderer())
+        toRenderSearchField(renderer)->addSearchResult();
+}
+
+RenderObject* SearchInputType::createRenderer(RenderArena* arena, RenderStyle*) const
+{
+    return new (arena) RenderSearchField(element());
 }
 
 const AtomicString& SearchInputType::formControlType() const
@@ -82,27 +105,28 @@ void SearchInputType::createShadowSubtree()
     ASSERT(container);
     ASSERT(textWrapper);
 
-    ExceptionCode ec = 0;
-    m_resultsButton = SearchFieldResultsButtonElement::create(element()->document());
-    container->insertBefore(m_resultsButton, textWrapper, ec);
+    RefPtr<SearchFieldResultsButtonElement> resultsButton = SearchFieldResultsButtonElement::create(element()->document());
+    m_resultsButton = resultsButton.get();
+    container->insertBefore(m_resultsButton, textWrapper, IGNORE_EXCEPTION);
 
-    m_cancelButton = SearchFieldCancelButtonElement::create(element()->document());
-    container->insertBefore(m_cancelButton, textWrapper->nextSibling(), ec);
+    RefPtr<SearchFieldCancelButtonElement> cancelButton = SearchFieldCancelButtonElement::create(element()->document());
+    m_cancelButton = cancelButton.get();
+    container->insertBefore(m_cancelButton, textWrapper->nextSibling(), IGNORE_EXCEPTION);
 }
 
 HTMLElement* SearchInputType::resultsButtonElement() const
 {
-    return m_resultsButton.get();
+    return m_resultsButton;
 }
 
 HTMLElement* SearchInputType::cancelButtonElement() const
 {
-    return m_cancelButton.get();
+    return m_cancelButton;
 }
 
 void SearchInputType::handleKeydownEvent(KeyboardEvent* event)
 {
-    if (element()->disabled() || element()->readOnly()) {
+    if (element()->isDisabledOrReadOnly()) {
         TextFieldInputType::handleKeydownEvent(event);
         return;
     }
@@ -121,8 +145,8 @@ void SearchInputType::handleKeydownEvent(KeyboardEvent* event)
 void SearchInputType::destroyShadowSubtree()
 {
     TextFieldInputType::destroyShadowSubtree();
-    m_resultsButton.clear();
-    m_cancelButton.clear();
+    m_resultsButton = 0;
+    m_cancelButton = 0;
 }
 
 void SearchInputType::startSearchEventTimer()
@@ -151,5 +175,21 @@ void SearchInputType::searchEventTimerFired(Timer<SearchInputType>*)
     element()->onSearch();
 }
 
+bool SearchInputType::searchEventsShouldBeDispatched() const
+{
+    return element()->hasAttribute(incrementalAttr);
+}
+
+void SearchInputType::didSetValueByUserEdit(ValueChangeState state)
+{
+    if (m_cancelButton)
+        toRenderSearchField(element()->renderer())->updateCancelButtonVisibility();
+
+    // If the incremental attribute is set, then dispatch the search event
+    if (searchEventsShouldBeDispatched())
+        startSearchEventTimer();
+
+    TextFieldInputType::didSetValueByUserEdit(state);
+}
 
 } // namespace WebCore

@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>matplotlib</string>
+        <key>OpenSourceVersion</key>
+        <string>1.1.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://matplotlib.sourceforge.net/</string>
+        <key>OpenSourceURL</key>
+        <string>http://sourceforge.net/projects/matplotlib/files/matplotlib/matplotlib-1.1.1/matplotlib-1.1.1.tar.gz/download</string>
+        <key>OpenSourceImportDate</key>
+        <string>2012-09-04</string>
+        <key>OpenSourceLicense</key>
+        <string>PSF</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>30ee59119599331bf1f3b6e838fee9a8</string>
+</dict>

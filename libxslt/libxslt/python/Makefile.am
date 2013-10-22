@@ -3,12 +3,7 @@ AUTOMAKE_OPTIONS = 1.4 foreign
 
 SUBDIRS= . tests
 
-INCLUDES = \
-	-I$(PYTHON_INCLUDES) \
-	 $(LIBXML_CFLAGS) \
-	-I$(top_srcdir)/libxslt \
-	-I$(top_srcdir) \
-	-I../libexslt
+AM_CFLAGS = $(LIBXML_CFLAGS)
 
 DOCS_DIR = $(datadir)/doc/libxslt-python-$(LIBXSLT_VERSION)
 # libxsltclass.txt is generated
@@ -35,38 +30,47 @@ all-local: libxslt.py
 
 python_LTLIBRARIES = libxsltmod.la
 
-libxsltmod_la_SOURCES = libxslt.c types.c libxslt-py.c
-libxsltmod_la_LIBADD = $(mylibs) @PYTHON_LIBS@
+libxsltmod_la_CPPFLAGS = \
+	-I$(PYTHON_INCLUDES) \
+	-I$(top_srcdir)/libxslt \
+	-I$(top_srcdir) \
+	-I../libexslt
+libxsltmod_la_SOURCES = libxslt.c types.c
+nodist_libxsltmod_la_SOURCES = libxslt-py.c
+libxsltmod_la_LIBADD = $(mylibs) $(PYTHON_LIBS)
 
-libxslt.py: $(srcdir)/libxsl.py $(srcdir)/libxsltclass.py
-	cat $(srcdir)/libxsl.py $(srcdir)/libxsltclass.py > libxslt.py
+libxslt.py: $(srcdir)/libxsl.py libxsltclass.py
+	cat $(srcdir)/libxsl.py libxsltclass.py > $@
 
 install-data-local:
-	$(mkinstalldirs) $(DESTDIR)$(pythondir)
-	@INSTALL@ -m 0644 libxslt.py $(DESTDIR)$(pythondir)
-	$(mkinstalldirs) $(DESTDIR)$(DOCS_DIR)
+	$(MKDIR_P) $(DESTDIR)$(pythondir)
+	$(INSTALL) -m 0644 libxslt.py $(DESTDIR)$(pythondir)
+	$(MKDIR_P) $(DESTDIR)$(DOCS_DIR)
 	@(for doc in $(DOCS) ; \
-	   do @INSTALL@ -m 0644 $(srcdir)/$$doc $(DESTDIR)$(DOCS_DIR) ; done)
+	   do $(INSTALL) -m 0644 $(srcdir)/$$doc $(DESTDIR)$(DOCS_DIR) ; done)
+
+uninstall-local:
+	rm -f $(DESTDIR)$(pythondir)/libxslt.py
+	rm -rf $(DESTDIR)$(DOCS_DIR)
 
 GENERATE = generator.py
 API_DESC = $(top_srcdir)/doc/libxslt-api.xml $(srcdir)/libxslt-python-api.xml
-GENERATED= $(srcdir)/libxsltclass.py \
-           $(srcdir)/libxslt-export.c \
-	   $(srcdir)/libxslt-py.c \
-	   $(srcdir)/libxslt-py.h \
-	   $(srcdir)/libxsltclass.txt
+GENERATED= libxsltclass.py \
+	   libxslt-export.c \
+	   libxslt-py.c \
+	   libxslt-py.h \
+	   libxsltclass.txt
 
 $(GENERATED): gen_prog
 
 gen_prog:  $(srcdir)/$(GENERATE) $(API_DESC)
-	cd $(srcdir) && $(PYTHON) $(GENERATE)
+	SRCDIR=$(srcdir) $(PYTHON) $(srcdir)/$(GENERATE)
 	touch gen_prog
 
 $(libxsltmod_la_OBJECTS): $(GENERATED)
 
-else
-all: 
 endif
+
 tests test: all
 	cd tests && $(MAKE) tests
 

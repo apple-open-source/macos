@@ -15,24 +15,83 @@ require "net/http"
 Net::HTTP::version_1_2 if RUBY_VERSION < "1.7"
 
 module WEBrick
-  NullReader = Object.new
-  class << NullReader
+
+  NullReader = Object.new # :nodoc:
+  class << NullReader # :nodoc:
     def read(*args)
       nil
     end
     alias gets read
   end
 
-  class HTTPProxyServer < HTTPServer
-    def initialize(config)
+  FakeProxyURI = Object.new # :nodoc:
+  class << FakeProxyURI # :nodoc:
+    def method_missing(meth, *args)
+      if %w(scheme host port path query userinfo).member?(meth.to_s)
+        return nil
+      end
       super
+    end
+  end
+
+  # :startdoc:
+
+  ##
+  # An HTTP Proxy server which proxies GET, HEAD and POST requests.
+  #
+  # To create a simple proxy server:
+  #
+  #   require 'webrick'
+  #   require 'webrick/httpproxy'
+  #
+  #   proxy = WEBrick::HTTPProxyServer.new Port: 8000
+  #
+  #   trap 'INT'  do proxy.shutdown end
+  #   trap 'TERM' do proxy.shutdown end
+  #
+  #   proxy.start
+  #
+  # See ::new for proxy-specific configuration items.
+  #
+  # == Modifying proxied responses
+  #
+  # To modify content the proxy server returns use the +:ProxyContentHandler+
+  # option:
+  #
+  #   handler = proc do |req, res|
+  #     if res['content-type'] == 'text/plain' then
+  #       res.body << "\nThis content was proxied!\n"
+  #     end
+  #   end
+  #
+  #   proxy =
+  #     WEBrick::HTTPProxyServer.new Port: 8000, ProxyContentHandler: handler
+
+  class HTTPProxyServer < HTTPServer
+
+    ##
+    # Proxy server configurations.  The proxy server handles the following
+    # configuration items in addition to those supported by HTTPServer:
+    #
+    # :ProxyAuthProc:: Called with a request and response to authorize a
+    #                  request
+    # :ProxyVia:: Appended to the via header
+    # :ProxyURI:: The proxy server's URI
+    # :ProxyContentHandler:: Called with a request and response and allows
+    #                        modification of the response
+    # :ProxyTimeout:: Sets the proxy timeouts to 30 seconds for open and 60
+    #                 seconds for read operations
+
+    def initialize(config={}, default=Config::HTTP)
+      super(config, default)
       c = @config
       @via = "#{c[:HTTPVersion]} #{c[:ServerName]}:#{c[:Port]}"
     end
 
+    # :stopdoc:
     def service(req, res)
       if req.request_method == "CONNECT"
-        proxy_connect(req, res)
+        do_CONNECT(req, res)
       elsif req.unparsed_uri =~ %r!^http://!
         proxy_service(req, res)
       else
@@ -46,6 +105,135 @@ module WEBrick
       end
       req.header.delete("proxy-authorization")
     end
+
+    def proxy_uri(req, res)
+      # should return upstream proxy server's URI
+      return @config[:ProxyURI]
+    end
+
+    def proxy_service(req, res)
+      # Proxy Authentication
+      proxy_auth(req, res)
+
+      begin
+        self.send("do_#{req.request_method}", req, res)
+      rescue NoMethodError
+        raise HTTPStatus::MethodNotAllowed,
+          "unsupported method `#{req.request_method}'."
+      rescue => err
+        logger.debug("#{err.class}: #{err.message}")
+        raise HTTPStatus::ServiceUnavailable, err.message
+      end
+
+      # Process contents
+      if handler = @config[:ProxyContentHandler]
+        handler.call(req, res)
+      end
+    end
+
+    def do_CONNECT(req, res)
+      # Proxy Authentication
+      proxy_auth(req, res)
+
+      ua = Thread.current[:WEBrickSocket]  # User-Agent
+      raise HTTPStatus::InternalServerError,
+        "[BUG] cannot get socket" unless ua
+
+      host, port = req.unparsed_uri.split(":", 2)
+      # Proxy authentication for upstream proxy server
+      if proxy = proxy_uri(req, res)
+        proxy_request_line = "CONNECT #{host}:#{port} HTTP/1.0"
+        if proxy.userinfo
+          credentials = "Basic " + [proxy.userinfo].pack("m").delete("\n")
+        end
+        host, port = proxy.host, proxy.port
+      end
+
+      begin
+        @logger.debug("CONNECT: upstream proxy is `#{host}:#{port}'.")
+        os = TCPSocket.new(host, port)     # origin server
+
+        if proxy
+          @logger.debug("CONNECT: sending a Request-Line")
+          os << proxy_request_line << CRLF
+          @logger.debug("CONNECT: > #{proxy_request_line}")
+          if credentials
+            @logger.debug("CONNECT: sending a credentials")
+            os << "Proxy-Authorization: " << credentials << CRLF
+          end
+          os << CRLF
+          proxy_status_line = os.gets(LF)
+          @logger.debug("CONNECT: read a Status-Line form the upstream server")
+          @logger.debug("CONNECT: < #{proxy_status_line}")
+          if %r{^HTTP/\d+\.\d+\s+200\s*} =~ proxy_status_line
+            while line = os.gets(LF)
+              break if /\A(#{CRLF}|#{LF})\z/om =~ line
+            end
+          else
+            raise HTTPStatus::BadGateway
+          end
+        end
+        @logger.debug("CONNECT #{host}:#{port}: succeeded")
+        res.status = HTTPStatus::RC_OK
+      rescue => ex
+        @logger.debug("CONNECT #{host}:#{port}: failed `#{ex.message}'")
+        res.set_error(ex)
+        raise HTTPStatus::EOFError
+      ensure
+        if handler = @config[:ProxyContentHandler]
+          handler.call(req, res)
+        end
+        res.send_response(ua)
+        access_log(@config, req, res)
+
+        # Should clear request-line not to send the response twice.
+        # see: HTTPServer#run
+        req.parse(NullReader) rescue nil
+      end
+
+      begin
+        while fds = IO::select([ua, os])
+          if fds[0].member?(ua)
+            buf = ua.sysread(1024);
+            @logger.debug("CONNECT: #{buf.bytesize} byte from User-Agent")
+            os.syswrite(buf)
+          elsif fds[0].member?(os)
+            buf = os.sysread(1024);
+            @logger.debug("CONNECT: #{buf.bytesize} byte from #{host}:#{port}")
+            ua.syswrite(buf)
+          end
+        end
+      rescue => ex
+        os.close
+        @logger.debug("CONNECT #{host}:#{port}: closed")
+      end
+
+      raise HTTPStatus::EOFError
+    end
+
+    def do_GET(req, res)
+      perform_proxy_request(req, res) do |http, path, header|
+        http.get(path, header)
+      end
+    end
+
+    def do_HEAD(req, res)
+      perform_proxy_request(req, res) do |http, path, header|
+        http.head(path, header)
+      end
+    end
+
+    def do_POST(req, res)
+      perform_proxy_request(req, res) do |http, path, header|
+        http.post(path, req.body || "", header)
+      end
+    end
+
+    def do_OPTIONS(req, res)
+      res['allow'] = "GET,HEAD,POST,OPTIONS,CONNECT"
+    end
+
+    private
 
     # Some header fields should not be transferred.
     HopByHop = %w( connection keep-alive proxy-authenticate upgrade
@@ -95,160 +283,57 @@ module WEBrick
       end
     end
 
-    def proxy_uri(req, res)
-      @config[:ProxyURI]
-    end
-
-    def proxy_service(req, res)
-      # Proxy Authentication
-      proxy_auth(req, res)      
-
-      # Create Request-URI to send to the origin server
-      uri  = req.request_uri
-      path = uri.path.dup
-      path << "?" << uri.query if uri.query
-
+    def setup_proxy_header(req, res)
       # Choose header fields to transfer
       header = Hash.new
       choose_header(req, header)
       set_via(header)
+      return header
+    end
 
-      # select upstream proxy server
-      if proxy = proxy_uri(req, res)
-        proxy_host = proxy.host
-        proxy_port = proxy.port
-        if proxy.userinfo
-          credentials = "Basic " + [proxy.userinfo].pack("m*")
-          credentials.chomp!
-          header['proxy-authorization'] = credentials
+    def setup_upstream_proxy_authentication(req, res, header)
+      if upstream = proxy_uri(req, res)
+        if upstream.userinfo
+          header['proxy-authorization'] =
+            "Basic " + [upstream.userinfo].pack("m").delete("\n")
         end
+        return upstream
+      end
+      return FakeProxyURI
+    end
+
+    def perform_proxy_request(req, res)
+      uri = req.request_uri
+      path = uri.path.dup
+      path << "?" << uri.query if uri.query
+      header = setup_proxy_header(req, res)
+      upstream = setup_upstream_proxy_authentication(req, res, header)
+      response = nil
+
+      http = Net::HTTP.new(uri.host, uri.port, upstream.host, upstream.port)
+      http.start do
+        if @config[:ProxyTimeout]
+          ##################################   these issues are
+          http.open_timeout = 30   # secs  #   necessary (maybe bacause
+          http.read_timeout = 60   # secs  #   Ruby's bug, but why?)
+          ##################################
+        end
+        response = yield(http, path, header)
       end
 
-      response = nil
-      begin
-        http = Net::HTTP.new(uri.host, uri.port, proxy_host, proxy_port)
-        http.start{
-          if @config[:ProxyTimeout]
-            ##################################   these issues are 
-            http.open_timeout = 30   # secs  #   necessary (maybe bacause
-            http.read_timeout = 60   # secs  #   Ruby's bug, but why?)
-            ##################################
-          end
-          case req.request_method
-          when "GET"  then response = http.get(path, header)
-          when "POST" then response = http.post(path, req.body || "", header)
-          when "HEAD" then response = http.head(path, header)
-          else
-            raise HTTPStatus::MethodNotAllowed,
-              "unsupported method `#{req.request_method}'."
-          end
-        }
-      rescue => err
-        logger.debug("#{err.class}: #{err.message}")
-        raise HTTPStatus::ServiceUnavailable, err.message
-      end
-  
-      # Persistent connction requirements are mysterious for me.
+      # Persistent connection requirements are mysterious for me.
       # So I will close the connection in every response.
       res['proxy-connection'] = "close"
       res['connection'] = "close"
 
-      # Convert Net::HTTP::HTTPResponse to WEBrick::HTTPProxy
+      # Convert Net::HTTP::HTTPResponse to WEBrick::HTTPResponse
       res.status = response.code.to_i
       choose_header(response, res)
       set_cookie(response, res)
       set_via(res)
       res.body = response.body
-
-      # Process contents
-      if handler = @config[:ProxyContentHandler]
-        handler.call(req, res)
-      end
     end
 
-    def proxy_connect(req, res)
-      # Proxy Authentication
-      proxy_auth(req, res)
-
-      ua = Thread.current[:WEBrickSocket]  # User-Agent
-      raise HTTPStatus::InternalServerError,
-        "[BUG] cannot get socket" unless ua
-
-      host, port = req.unparsed_uri.split(":", 2)
-      # Proxy authentication for upstream proxy server
-      if proxy = proxy_uri(req, res)
-        proxy_request_line = "CONNECT #{host}:#{port} HTTP/1.0"
-        if proxy.userinfo
-          credentials = "Basic " + [proxy.userinfo].pack("m*")
-          credentials.chomp!
-        end
-        host, port = proxy.host, proxy.port
-      end
-
-      begin
-        @logger.debug("CONNECT: upstream proxy is `#{host}:#{port}'.")
-        os = TCPSocket.new(host, port)     # origin server
-
-        if proxy
-          @logger.debug("CONNECT: sending a Request-Line")
-          os << proxy_request_line << CRLF
-          @logger.debug("CONNECT: > #{proxy_request_line}")
-          if credentials
-            @logger.debug("CONNECT: sending a credentials")
-            os << "Proxy-Authorization: " << credentials << CRLF
-          end
-          os << CRLF
-          proxy_status_line = os.gets(LF)
-          @logger.debug("CONNECT: read a Status-Line form the upstream server")
-          @logger.debug("CONNECT: < #{proxy_status_line}")
-          if %r{^HTTP/\d+\.\d+\s+200\s*} =~ proxy_status_line
-            while line = os.gets(LF)
-              break if /\A(#{CRLF}|#{LF})\z/om =~ line
-            end
-          else
-            raise HTTPStatus::BadGateway
-          end
-        end
-        @logger.debug("CONNECT #{host}:#{port}: succeeded")
-        res.status = HTTPStatus::RC_OK
-      rescue => ex
-        @logger.debug("CONNECT #{host}:#{port}: failed `#{ex.message}'")
-        res.set_error(ex)
-        raise HTTPStatus::EOFError
-      ensure
-        if handler = @config[:ProxyContentHandler]
-          handler.call(req, res)
-        end
-        res.send_response(ua)
-        access_log(@config, req, res)
-
-        # Should clear request-line not to send the sesponse twice.
-        # see: HTTPServer#run
-        req.parse(NullReader) rescue nil
-      end
-
-      begin
-        while fds = IO::select([ua, os])
-          if fds[0].member?(ua)
-            buf = ua.sysread(1024);
-            @logger.debug("CONNECT: #{buf.size} byte from User-Agent")
-            os.syswrite(buf)
-          elsif fds[0].member?(os)
-            buf = os.sysread(1024);
-            @logger.debug("CONNECT: #{buf.size} byte from #{host}:#{port}")
-            ua.syswrite(buf)
-          end
-        end
-      rescue => ex
-        os.close
-        @logger.debug("CONNECT #{host}:#{port}: closed")
-      end
-
-      raise HTTPStatus::EOFError
-    end
-
-    def do_OPTIONS(req, res)
-      res['allow'] = "GET,HEAD,POST,OPTIONS,CONNECT"
-    end
+    # :stopdoc:
   end
 end

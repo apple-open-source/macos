@@ -733,7 +733,7 @@ int validate_response ( const char *in_user,
 	}
 
 	/* if digest-md5 auth, get server response */
-	if ( strcmp( in_auth_type, "DIGEST-MD5" ) == 0 ) {
+	if ( auth_result && strcmp( in_auth_type, "DIGEST-MD5" ) == 0 ) {
 		if ( !cf_arry_resp )
 			msg_error("DIGEST-MD5 authentication error: missing server response" );
 		else {
@@ -819,6 +819,8 @@ static char * auth_login ( SMTPD_STATE *state, const char *in_method )
 		state->sasl_username = mystrdup( STR(vs_user) );
 		state->sasl_method = mystrdup( in_method );
 
+		/* auth succeeded */
+		msg_info( "verify password: AUTH LOGIN: authentication succeeded for user=%s", STR(vs_user) );
 		send_server_event(eAuthSuccess, state->name, state->addr);
 		return( NULL );
 	} else {
@@ -852,38 +854,63 @@ static char *auth_plain ( SMTPD_STATE *state, const char *in_method, const char 
 		/* decode response from server */
 		if ( base64_decode( vs_base64, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 ) {
 			msg_error( "Malformed response to: AUTH PLAIN" );
-			return ( "501 Authentication failed: malformed initial response" );
+			return ( "501 Authentication failed: AUTH PLAIN: malformed initial response" );
 		}
 	} else {
 		/* decode response from server */
 		if ( base64_decode( vs_base64, in_resp, strlen( in_resp ) ) == 0 ) {
 			msg_error( "Malformed response to: AUTH PLAIN" );
-			return ( "501 Authentication failed: malformed initial response" );
+			return ( "501 Authentication failed: AUTH PLAIN: malformed initial response" );
 		}
 	}
 
-	char *ptr = STR(vs_base64);
-	if ( *ptr == '\0' )
+	/* client response */
+	char *ptr = vstring_str(vs_base64);
+
+	/* get the authorization identity or skip if empty */
+	char *authz_id = NULL;
+	if (*ptr == '\0')
 		ptr++;
+	else {
+		authz_id = ptr;
+		ptr = ptr + (strlen(authz_id) + 1);
+	}
 
-	if ( ptr != NULL ) {
-		/* point to user portion in the digest */
-		char *p_user = ptr;
+	/* check for bad client response */
+	if ((ptr - vstring_str(vs_base64)) >= VSTRING_LEN(vs_base64)) {
+		msg_error( "Malformed response to: AUTH PLAIN" );
+		return( "501 Authentication failed: AUTH PLAIN: malformed initial response" );
+	}
 
-		ptr = ptr + (strlen( p_user ) + 1 );
-		if ( ptr != NULL ) {
-			/* point to password portion in the digest */
-			char *p_pwd = ptr;
+	/* pointer to user-id */
+	char *user_id = ptr;
+	ptr = ptr + (strlen(user_id) + 1);
 
-			/* do the auth */
-			if ( validate_pw( p_user, p_pwd ) == eAOD_no_error ) {
-				state->sasl_username = mystrdup( p_user );
-				state->sasl_method = mystrdup( in_method );
+	/* check for bad client response */
+	if (((ptr - vstring_str(vs_base64)) >= VSTRING_LEN(vs_base64)) ||
+			!strlen(user_id)) {
+		msg_error( "Malformed response to: AUTH PLAIN" );
+		return( "501 Authentication failed: AUTH PLAIN: malformed initial response" );
+	}
 
-				send_server_event(eAuthSuccess, state->name, state->addr);
-				return( NULL );
-			}
-		}
+	/* pointer to password */
+	char *password = ptr;
+
+	/* check for bad client response */
+	if (!strlen(password)) {
+		msg_error( "Malformed response to: AUTH PLAIN" );
+		return( "501 Authentication failed: AUTH PLAIN: malformed initial response" );
+	}
+
+	/* do the auth */
+	if ( validate_pw(user_id, password) == eAOD_no_error ) {
+		state->sasl_username = mystrdup(user_id);
+		state->sasl_method = mystrdup(in_method);
+
+		/* auth succeeded */
+		msg_info( "verify password: AUTH PLAIN: authentication succeeded for user=%s", user_id );
+		send_server_event(eAuthSuccess, state->name, state->addr);
+		return( NULL );
 	}
 
 	send_server_event(eAuthFailure, state->name, state->addr);
@@ -953,11 +980,13 @@ static char *auth_cram_md5 ( SMTPD_STATE *state, const char *in_method )
 		msg_error( "malformed response to: AUTH CRAM-MD5: invalid digest" );
 		return( "501 Authentication failed: malformed initial response" );
 	}
+
 	/* validate the response */
 	if ( validate_response( STR(vs_user), STR(vs_chal), digest, "CRAM-MD5", NULL ) == eAOD_no_error ) {
 		state->sasl_username = mystrdup( STR(vs_user) );
 		state->sasl_method = mystrdup( in_method );
 
+		/* auth succeeded */
 		send_server_event(eAuthSuccess, state->name, state->addr);
 		return( NULL );
 	}
@@ -1013,7 +1042,7 @@ static char *auth_digest_md5 ( SMTPD_STATE *state, const char *in_method )
 		return( "501 Authentication aborted" );
 
 	if (msg_verbose)
-		msg_info( "digest-md5 response: %s", STR(vs_chal) );
+		msg_info( "digest-md5 challenge: %s", STR(vs_chal) );
 
 	/* decode the response */
 	if ( base64_decode( vs_base64, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 ) {
@@ -1072,6 +1101,7 @@ static char *auth_digest_md5 ( SMTPD_STATE *state, const char *in_method )
 		state->sasl_username = mystrdup( STR(vs_user) );
 		state->sasl_method = mystrdup( in_method );
 
+		/* auth succeeded */
 		send_server_event(eAuthSuccess, state->name, state->addr);
 		return( NULL );
 	}

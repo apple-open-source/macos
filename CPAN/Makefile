@@ -1,6 +1,9 @@
 # Makefile orchestrating CPAN
 
-include $(VERS).inc
+include $(SRCROOT)/$(VERS).inc
+ifneq ($(wildcard $(SRCROOT)/Platforms/$(RC_TARGET_CONFIG)/$(VERS).inc),)
+include $(SRCROOT)/Platforms/$(RC_TARGET_CONFIG)/$(VERS).inc
+endif
 
 # These variables cause installation into the Extras directory, adds RC_CFLAGS
 # to the compile and linking arguments, and sets DESTDIR to DSTROOT
@@ -11,7 +14,7 @@ EXTRASARCH := $(DSTROOT)/$(shell perl -MConfig -e 'print $$Config::Config{extras
 EXTRASLIB := $(DSTROOT)/$(shell perl -MConfig -e 'print $$Config::Config{extraslib}')
 PLARGS := INSTALLDIRS=perl INSTALLARCHLIB='$(installarchlib)' INSTALLPRIVLIB='$(installprivlib)' INSTALLBIN='$(installbin)' INSTALLSCRIPT='$(installbin)'
 PLBARGS := --installdirs core --install_path arch='$(installarchlib)' --install_path lib='$(installprivlib)' --install_path bin='$(installbin)' --install_path script='$(installbin)'
-make := $(SRCROOT)/make.pl
+make := perl $(SRCROOT)/make.pl
 MAKEARGS := DESTDIR=$(DSTROOT)
 BUILDARGS := --destdir $(DSTROOT)
 export PERL5LIB := $(EXTRASLIB)

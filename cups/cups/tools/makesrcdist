@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: makesrcdist 7776 2008-07-22 20:46:55Z mike $"
+# "$Id: makesrcdist 11158 2013-07-17 18:31:56Z msweet $"
 #
 # makesrcdist - make a source distribution of CUPS.
 #
@@ -25,11 +25,11 @@ if test $# = 0; then
 	svn up
 
 	# Compute version for snapshot
-	rev=`svnversion . | sed -e '1,$s/[a-zA-Z]//g'`
-	version="1.6svn"
+	rev=`svn info . | grep Revision: | awk '{print $2}'`
+	version="1.7svn"
 	revision="-r$rev"
-	fileversion="1.6svn-r$rev"
-	fileurl="http://ftp.easysw.com/pub/cups/test/cups-$fileversion-source.tar."
+	fileversion="1.7svn-r$rev"
+	fileurl="http://www.cups.org/software/test/cups-$fileversion-source.tar."
 	url="."
 else
 	# Use version from command-line
@@ -37,12 +37,12 @@ else
 	version=$1
 	revision=""
 	fileversion=$1
-	fileurl="http://ftp.easysw.com/pub/cups/$version/cups-$fileversion-source.tar."
-	url="https://svn.easysw.com/public/cups/tags/release-$version"
+	fileurl="http://www.cups.org/software/$version/cups-$fileversion-source.tar."
+	url="svn+ssh://src.apple.com/svn/cups/cups.org/tags/release-$version"
 
 	echo Validating sources...
 	cupsversionpatch=`echo $version | awk -F. '{if (NF == 3) { print $3 } else { print "0" } }'`
-	cupsversion=`printf "1.06%02d" $cupsversionpatch`
+	cupsversion=`printf "1.07%02d" $cupsversionpatch`
 
 	temp=`grep CUPS_VERSION cups/cups.h | grep -v CUPS_VERSION_ | awk '{print $4}'`
 	if test "$temp" != $cupsversion; then
@@ -75,7 +75,7 @@ else
 	fi
 
 	echo Creating tag for release...
-	svn copy https://svn.easysw.com/public/cups/branches/branch-1.6 "$url" \
+	svn copy svn+ssh://src.apple.com/svn/cups/cups.org/trunk "$url" \
 		-m "Tag $version" || exit 1
 fi
 
@@ -118,16 +118,16 @@ tar cjf cups-$fileversion-source.tar.bz2 cups-$version
 echo "..."
 
 if test -x /usr/bin/md5sum; then
-	(cd /tmp; md5sum cups-$fileversion-source.tar.* | awk '{print $1, "'$fileversion' cups/'$fileversion'/" $2}')
+	(cd /tmp; md5sum cups-$fileversion-source.tar.* | awk '{print $1, "'$fileversion' '$fileversion'/" $2}')
 elif test -x /sbin/md5; then
-	(cd /tmp; md5 cups-$fileversion-source.tar.* | awk '{print $4, "'$fileversion' cups/'$fileversion'/" substr($2, 2, length($2) - 2)}')
+	(cd /tmp; md5 cups-$fileversion-source.tar.* | awk '{print $4, "'$fileversion' '$fileversion'/" substr($2, 2, length($2) - 2)}')
 fi
 
 echo Removing temporary files...
 rm -rf cups-$version
 
-echo "Done!"
+echo "Done."
 
 #
-# End of "$Id: makesrcdist 7776 2008-07-22 20:46:55Z mike $".
+# End of "$Id: makesrcdist 11158 2013-07-17 18:31:56Z msweet $".
 #

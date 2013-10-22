@@ -446,8 +446,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1865FF881474F5B600FD79DF /* debug.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55105;
+				DYLIB_CURRENT_VERSION = 55107;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -455,6 +456,7 @@
 				);
 				INFOPLIST_FILE = "Info-SecurityTokend.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				VALID_ARCHS = x86_64;
 			};
 			name = Debug;
 		};
@@ -462,8 +464,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1865FF8A1474F5B600FD79DF /* release.xcconfig */;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55105;
+				DYLIB_CURRENT_VERSION = 55107;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -471,6 +474,7 @@
 				);
 				INFOPLIST_FILE = "Info-SecurityTokend.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				VALID_ARCHS = x86_64;
 			};
 			name = Release;
 		};

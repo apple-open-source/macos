@@ -1,6 +1,0 @@
-Revision history for Perl extension XSTest.
-
-0.01  Fri Nov  9 17:14:46 2001
-	- original version; created by h2xs 1.1.1.4 with options
-		-A -n XSTest
-

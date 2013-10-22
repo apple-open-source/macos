@@ -27,22 +27,23 @@
 
 namespace WebCore {
 
-HTMLOptionsCollection::HTMLOptionsCollection(HTMLSelectElement* select)
-    : HTMLCollection(select, SelectOptions)
+HTMLOptionsCollection::HTMLOptionsCollection(Node* select)
+    : HTMLCollection(select, SelectOptions, DoesNotOverrideItemAfter)
 {
+    ASSERT(select->hasTagName(HTMLNames::selectTag));
 }
 
-PassOwnPtr<HTMLOptionsCollection> HTMLOptionsCollection::create(HTMLSelectElement* select)
+PassRefPtr<HTMLOptionsCollection> HTMLOptionsCollection::create(Node* select, CollectionType)
 {
-    return adoptPtr(new HTMLOptionsCollection(select));
+    return adoptRef(new HTMLOptionsCollection(select));
 }
 
-void HTMLOptionsCollection::add(PassRefPtr<HTMLOptionElement> element, ExceptionCode &ec)
+void HTMLOptionsCollection::add(PassRefPtr<HTMLOptionElement> element, ExceptionCode& ec)
 {
     add(element, length(), ec);
 }
 
-void HTMLOptionsCollection::add(PassRefPtr<HTMLOptionElement> element, int index, ExceptionCode &ec)
+void HTMLOptionsCollection::add(PassRefPtr<HTMLOptionElement> element, int index, ExceptionCode& ec)
 {
     HTMLOptionElement* newOption = element.get();
 
@@ -57,34 +58,34 @@ void HTMLOptionsCollection::add(PassRefPtr<HTMLOptionElement> element, int index
     }
 
     ec = 0;
-    HTMLSelectElement* select = toHTMLSelectElement(base());
+    HTMLSelectElement* select = toHTMLSelectElement(ownerNode());
 
     if (index == -1 || unsigned(index) >= length())
         select->add(newOption, 0, ec);
     else
         select->add(newOption, static_cast<HTMLOptionElement*>(item(index)), ec);
 
-    ASSERT(ec == 0);
+    ASSERT(!ec);
 }
 
 void HTMLOptionsCollection::remove(int index)
 {
-    toHTMLSelectElement(base())->remove(index);
+    toHTMLSelectElement(ownerNode())->remove(index);
 }
 
 int HTMLOptionsCollection::selectedIndex() const
 {
-    return toHTMLSelectElement(base())->selectedIndex();
+    return toHTMLSelectElement(ownerNode())->selectedIndex();
 }
 
 void HTMLOptionsCollection::setSelectedIndex(int index)
 {
-    toHTMLSelectElement(base())->setSelectedIndex(index);
+    toHTMLSelectElement(ownerNode())->setSelectedIndex(index);
 }
 
 void HTMLOptionsCollection::setLength(unsigned length, ExceptionCode& ec)
 {
-    toHTMLSelectElement(base())->setLength(length, ec);
+    toHTMLSelectElement(ownerNode())->setLength(length, ec);
 }
 
 } //namespace

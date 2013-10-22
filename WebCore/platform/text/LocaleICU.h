@@ -28,10 +28,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ICULocale_h
-#define ICULocale_h
+#ifndef LocaleICU_h
+#define LocaleICU_h
 
 #include "DateComponents.h"
+#include "PlatformLocale.h"
 #include <unicode/udat.h>
 #include <unicode/unum.h>
 #include <wtf/Forward.h>
@@ -42,71 +43,68 @@
 namespace WebCore {
 
 // We should use this class only for LocalizedNumberICU.cpp, LocalizedDateICU.cpp,
-// LocalizedCalendarICU.cpp, and LocalizedNumberICUTest.cpp.
-class ICULocale {
+// and LocalizedNumberICUTest.cpp.
+class LocaleICU : public Locale {
 public:
-    static PassOwnPtr<ICULocale> create(const char* localeString);
-    static ICULocale* currentLocale();
-    ~ICULocale();
+    static PassOwnPtr<LocaleICU> create(const char* localeString);
+    virtual ~LocaleICU();
 
-    // For LocalizedNumber
-    String convertToLocalizedNumber(const String&);
-    String convertFromLocalizedNumber(const String&);
-
-    // For LocalizedDate
-    double parseLocalizedDate(const String&);
-    String formatLocalizedDate(const DateComponents&);
-#if ENABLE(CALENDAR_PICKER)
-    String localizedDateFormatText();
-
-    // For LocalizedCalendar
-    const Vector<String>& monthLabels();
-    const Vector<String>& weekDayShortLabels();
-    unsigned firstDayOfWeek();
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+    virtual String dateFormat() OVERRIDE;
+    virtual String monthFormat() OVERRIDE;
+    virtual String shortMonthFormat() OVERRIDE;
+    virtual String timeFormat() OVERRIDE;
+    virtual String shortTimeFormat() OVERRIDE;
+    virtual String dateTimeFormatWithSeconds() OVERRIDE;
+    virtual String dateTimeFormatWithoutSeconds() OVERRIDE;
+    virtual const Vector<String>& monthLabels() OVERRIDE;
+    virtual const Vector<String>& shortMonthLabels() OVERRIDE;
+    virtual const Vector<String>& standAloneMonthLabels() OVERRIDE;
+    virtual const Vector<String>& shortStandAloneMonthLabels() OVERRIDE;
+    virtual const Vector<String>& timeAMPMLabels() OVERRIDE;
 #endif
 
 private:
-    static PassOwnPtr<ICULocale> createForCurrentLocale();
-    explicit ICULocale(const char*);
-    void setDecimalSymbol(unsigned index, UNumberFormatSymbol);
-    void setDecimalTextAttribute(String&, UNumberFormatTextAttribute);
-    void initializeDecimalFormat();
+    explicit LocaleICU(const char*);
+    String decimalSymbol(UNumberFormatSymbol);
+    String decimalTextAttribute(UNumberFormatTextAttribute);
+    virtual void initializeLocaleData() OVERRIDE;
 
     bool detectSignAndGetDigitRange(const String& input, bool& isNegative, unsigned& startIndex, unsigned& endIndex);
     unsigned matchedDecimalSymbolIndex(const String& input, unsigned& position);
 
     bool initializeShortDateFormat();
+    UDateFormat* openDateFormat(UDateFormatStyle timeStyle, UDateFormatStyle dateStyle) const;
 
-#if ENABLE(CALENDAR_PICKER)
-    void initializeLocalizedDateFormatText();
-    PassOwnPtr<Vector<String> > createLabelVector(UDateFormatSymbolType, int32_t startIndex, int32_t size);
-    void initializeCalendar();
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+    PassOwnPtr<Vector<String> > createLabelVector(const UDateFormat*, UDateFormatSymbolType, int32_t startIndex, int32_t size);
+    void initializeDateTimeFormat();
 #endif
 
     CString m_locale;
     UNumberFormat* m_numberFormat;
     UDateFormat* m_shortDateFormat;
-    enum {
-        // 0-9 for digits.
-        DecimalSeparatorIndex = 10,
-        GroupSeparatorIndex = 11,
-        DecimalSymbolsSize
-    };
-    String m_decimalSymbols[DecimalSymbolsSize];
-    String m_positivePrefix;
-    String m_positiveSuffix;
-    String m_negativePrefix;
-    String m_negativeSuffix;
     bool m_didCreateDecimalFormat;
     bool m_didCreateShortDateFormat;
 
-#if ENABLE(CALENDAR_PICKER)
-    String m_localizedDateFormatText;
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
     OwnPtr<Vector<String> > m_monthLabels;
-    OwnPtr<Vector<String> > m_weekDayShortLabels;
-    unsigned m_firstDayOfWeek;
+    String m_dateFormat;
+    String m_monthFormat;
+    String m_shortMonthFormat;
+    String m_timeFormatWithSeconds;
+    String m_timeFormatWithoutSeconds;
+    String m_dateTimeFormatWithSeconds;
+    String m_dateTimeFormatWithoutSeconds;
+    UDateFormat* m_mediumTimeFormat;
+    UDateFormat* m_shortTimeFormat;
+    Vector<String> m_shortMonthLabels;
+    Vector<String> m_standAloneMonthLabels;
+    Vector<String> m_shortStandAloneMonthLabels;
+    Vector<String> m_timeAMPMLabels;
+    bool m_didCreateTimeFormat;
 #endif
 };
 
-}
+} // namespace WebCore
 #endif

@@ -28,7 +28,7 @@
  * POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <stdlib.h>
 #include <sys/types.h>
@@ -40,7 +40,7 @@
 
 #include <vas.h>
 
-#include "compat.h"
+#include "missing.h"
 #include "logging.h"
 #include "nonunix.h"
 #include "sudo.h"
@@ -165,7 +165,7 @@ FINISHED: /* cleanups */
     if( vas_group )              v_group_free( sudo_vas_ctx, vas_group );
     if( vas_user )              v_user_free( sudo_vas_ctx, vas_user );
 
-    return(rval);
+    return rval;
 }
 
 

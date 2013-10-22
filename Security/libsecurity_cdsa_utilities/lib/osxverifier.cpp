@@ -49,7 +49,7 @@ OSXVerifier::OSXVerifier(OSXCode *code)
 	CFRef<SecStaticCodeRef> staticCode = code->codeRef();
 	switch (OSStatus rc = SecCodeCopyDesignatedRequirement(staticCode,
 			kSecCSDefaultFlags, &mRequirement.aref())) {
-	case noErr:
+	case errSecSuccess:
 		secdebug("codesign", "  is signed; canonical requirement loaded");
 		break;
 	case errSecCSUnsigned:

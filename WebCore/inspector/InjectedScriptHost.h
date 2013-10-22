@@ -45,10 +45,12 @@ class InspectorConsoleAgent;
 class InspectorDOMAgent;
 class InspectorDOMStorageAgent;
 class InspectorDatabaseAgent;
+class InspectorDebuggerAgent;
 class InspectorFrontend;
 class InspectorObject;
 class InspectorValue;
 class Node;
+class ScriptDebugServer;
 class ScriptObject;
 class ScriptValue;
 class Storage;
@@ -67,6 +69,9 @@ public:
 #endif
             , InspectorDOMStorageAgent* domStorageAgent
             , InspectorDOMAgent* domAgent
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+            , InspectorDebuggerAgent* debuggerAgent
+#endif
         )
     {
         m_inspectorAgent = inspectorAgent;
@@ -76,6 +81,9 @@ public:
 #endif
         m_domStorageAgent = domStorageAgent;
         m_domAgent = domAgent;
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+        m_debuggerAgent = debuggerAgent;
+#endif
     }
 
     static Node* scriptValueAsNode(ScriptValue);
@@ -84,6 +92,7 @@ public:
     void disconnect();
 
     class InspectableObject {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         virtual ScriptValue get(ScriptState*);
         virtual ~InspectableObject() { }
@@ -101,10 +110,9 @@ public:
     String databaseIdImpl(Database*);
 #endif
     String storageIdImpl(Storage*);
-#if ENABLE(WORKERS)
-    long nextWorkerId();
-    void didCreateWorker(long id, const String& url, bool isSharedWorker);
-    void didDestroyWorker(long id);
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    ScriptDebugServer& scriptDebugServer();
 #endif
 
 private:
@@ -117,7 +125,9 @@ private:
 #endif
     InspectorDOMStorageAgent* m_domStorageAgent;
     InspectorDOMAgent* m_domAgent;
-    long m_lastWorkerId;
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    InspectorDebuggerAgent* m_debuggerAgent;
+#endif
     Vector<OwnPtr<InspectableObject> > m_inspectedObjects;
     OwnPtr<InspectableObject> m_defaultInspectableObject;
 };

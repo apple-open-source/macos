@@ -1,8 +1,12 @@
 #ifndef _S_SYMBOL_SCOPE_H
 #define _S_SYMBOL_SCOPE_H
 
+#ifndef EXTERN
+#define EXTERN		extern
+#endif /* EXTERN */
+
 #ifndef PRIVATE_EXTERN
-#define PRIVATE_EXTERN		__private_extern__
+#define PRIVATE_EXTERN	__private_extern__
 #endif /* PRIVATE_EXTERN */
 
 #ifndef STATIC

@@ -47,14 +47,14 @@ directly specified via the
 .Fl w
 option. The NetBIOS name type can be specified via the 
 .Fl t ,
-the default is to lookup file servers. For a complete list of name type please see "http://support.microsoft.com/kb/163409".
+the default is to lookup file servers. For a complete list of name types please see "http://support.microsoft.com/kb/163409".
 The NetBIOS names will be unpercent escaped out if the 
 .Fl e
 option is specified.
 .It Xo
 .Cm status
 .Op Fl ae
-hostname
+.Ar hostname
 .Xc
 Resolve given
 .Ar hostname
@@ -69,8 +69,8 @@ option is specified.
 .Oo Fl Ar options
 .Oc // Ns Oo Ar domain ;
 .Oc Ns Oo Ar user Ns Oo
-.Pf \: Ar password
-.Oc Ns @ Ns Oc Ar server
+.Pf : Ar password
+.Oc Ns @ Ns Oc Ns Ar server
 .Xc
 List resources available on the specified
 .Ar server
@@ -97,8 +97,8 @@ don't share session.
 .Oo Fl N
 .Oc // Ns Oo Ar domain ;
 .Oc Ns Oo Ar user Ns Oo
-.Pf \: Ar password
-.Oc Ns @ Ns Oc Ar server
+.Pf : Ar password
+.Oc Ns @ Ns Oc Ns Ar server
 .Xc
 Display the user's identity as known by the
 .Ar server
@@ -116,7 +116,24 @@ option is specified.
 .Xc
 Display the Dfs referrals for this 
 .Ar URL
-for the authenticated session .
+for the authenticated session.
+.It Xo
+.Cm statshares
+.Op Fl m Ar mount_path
+|
+.Op Fl a
+.Xc
+If
+.Fl m
+is specified, it prints the attributes of the share mounted at 
+.Ar mount_path .
+If
+.Fl a
+is specified, it prints the attributes of all mounted shares. You can not specify both
+.Fl m
+and
+.Fl a
+together since they are mutually exclusive.
 .El
 .Sh FILES
 .Bl -tag -width ".Pa nsmb.conf" -compact

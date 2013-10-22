@@ -31,9 +31,13 @@
 #include "config.h"
 
 #include "TestMain.h"
+#include "WebViewTest.h"
+#include "WebKitTestServer.h"
 #include <gtk/gtk.h>
 #include <webkit2/webkit2.h>
 #include <wtf/gobject/GRefPtr.h>
+
+static WebKitTestServer* gServer;
 
 static void testWebKitSettings(Test*, gconstpointer)
 {
@@ -199,6 +203,11 @@ static void testWebKitSettings(Test*, gconstpointer)
     webkit_settings_set_enable_webgl(settings, TRUE);
     g_assert(webkit_settings_get_enable_webgl(settings));
 
+    // Allow Modal Dialogs is disabled by default.
+    g_assert(!webkit_settings_get_allow_modal_dialogs(settings));
+    webkit_settings_set_allow_modal_dialogs(settings, TRUE);
+    g_assert(webkit_settings_get_allow_modal_dialogs(settings));
+
     // Zoom text only is disabled by default.
     g_assert(!webkit_settings_get_zoom_text_only(settings));
     webkit_settings_set_zoom_text_only(settings, TRUE);
@@ -208,6 +217,46 @@ static void testWebKitSettings(Test*, gconstpointer)
     g_assert(!webkit_settings_get_javascript_can_access_clipboard(settings));
     webkit_settings_set_javascript_can_access_clipboard(settings, TRUE);
     g_assert(webkit_settings_get_javascript_can_access_clipboard(settings));
+
+    // By default, media playback doesn't require user gestures.
+    g_assert(!webkit_settings_get_media_playback_requires_user_gesture(settings));
+    webkit_settings_set_media_playback_requires_user_gesture(settings, TRUE);
+    g_assert(webkit_settings_get_media_playback_requires_user_gesture(settings));
+
+    // By default, inline media playback is allowed
+    g_assert(webkit_settings_get_media_playback_allows_inline(settings));
+    webkit_settings_set_media_playback_allows_inline(settings, FALSE);
+    g_assert(!webkit_settings_get_media_playback_allows_inline(settings));
+
+    // By default, debug indicators are disabled.
+    g_assert(!webkit_settings_get_draw_compositing_indicators(settings));
+    webkit_settings_set_draw_compositing_indicators(settings, TRUE);
+    g_assert(webkit_settings_get_draw_compositing_indicators(settings));
+
+    // By default, site specific quirks are disabled.
+    g_assert(!webkit_settings_get_enable_site_specific_quirks(settings));
+    webkit_settings_set_enable_site_specific_quirks(settings, TRUE);
+    g_assert(webkit_settings_get_enable_site_specific_quirks(settings));
+
+    // By default, page cache is enabled.
+    g_assert(webkit_settings_get_enable_page_cache(settings));
+    webkit_settings_set_enable_page_cache(settings, FALSE);
+    g_assert(!webkit_settings_get_enable_page_cache(settings));
+
+    // By default, smooth scrolling is disabled.
+    g_assert(!webkit_settings_get_enable_smooth_scrolling(settings));
+    webkit_settings_set_enable_smooth_scrolling(settings, TRUE);
+    g_assert(webkit_settings_get_enable_smooth_scrolling(settings));
+
+    // By default, accelerated 2D canvas is disabled.
+    g_assert(!webkit_settings_get_enable_accelerated_2d_canvas(settings));
+    webkit_settings_set_enable_accelerated_2d_canvas(settings, TRUE);
+    g_assert(webkit_settings_get_enable_accelerated_2d_canvas(settings));
+
+    // By default, writing of console messages to stdout is disabled.
+    g_assert(!webkit_settings_get_enable_write_console_messages_to_stdout(settings));
+    webkit_settings_set_enable_write_console_messages_to_stdout(settings, TRUE);
+    g_assert(webkit_settings_get_enable_write_console_messages_to_stdout(settings));
 
     g_object_unref(G_OBJECT(settings));
 }
@@ -224,13 +273,84 @@ void testWebKitSettingsNewWithSettings(Test* test, gconstpointer)
     g_assert(webkit_settings_get_load_icons_ignoring_image_load_setting(settings.get()));
 }
 
+static CString convertWebViewMainResourceDataToCString(WebViewTest* test)
+{
+    size_t mainResourceDataSize = 0;
+    const char* mainResourceData = test->mainResourceData(mainResourceDataSize);
+    return CString(mainResourceData, mainResourceDataSize);
+}
+
+static void assertThatUserAgentIsSentInHeaders(WebViewTest* test, const CString& userAgent)
+{
+    test->loadURI(gServer->getURIForPath("/").data());
+    test->waitUntilLoadFinished();
+    ASSERT_CMP_CSTRING(convertWebViewMainResourceDataToCString(test), ==, userAgent);
+}
+
+static void testWebKitSettingsUserAgent(WebViewTest* test, gconstpointer)
+{
+    GRefPtr<WebKitSettings> settings = adoptGRef(webkit_settings_new());
+    CString defaultUserAgent = webkit_settings_get_user_agent(settings.get());
+    webkit_web_view_set_settings(test->m_webView, settings.get());
+
+    g_assert(g_strstr_len(defaultUserAgent.data(), -1, "Safari"));
+    g_assert(g_strstr_len(defaultUserAgent.data(), -1, "Chromium"));
+    g_assert(g_strstr_len(defaultUserAgent.data(), -1, "Chrome"));
+
+    webkit_settings_set_user_agent(settings.get(), 0);
+    g_assert_cmpstr(defaultUserAgent.data(), ==, webkit_settings_get_user_agent(settings.get()));
+    assertThatUserAgentIsSentInHeaders(test, defaultUserAgent.data());
+
+    webkit_settings_set_user_agent(settings.get(), "");
+    g_assert_cmpstr(defaultUserAgent.data(), ==, webkit_settings_get_user_agent(settings.get()));
+
+    const char* funkyUserAgent = "Funky!";
+    webkit_settings_set_user_agent(settings.get(), funkyUserAgent);
+    g_assert_cmpstr(funkyUserAgent, ==, webkit_settings_get_user_agent(settings.get()));
+    assertThatUserAgentIsSentInHeaders(test, funkyUserAgent);
+
+    webkit_settings_set_user_agent_with_application_details(settings.get(), "WebKitGTK+", 0);
+    const char* userAgentWithNullVersion = webkit_settings_get_user_agent(settings.get());
+    g_assert_cmpstr(g_strstr_len(userAgentWithNullVersion, -1, defaultUserAgent.data()), ==, userAgentWithNullVersion);
+    g_assert(g_strstr_len(userAgentWithNullVersion, -1, "WebKitGTK+"));
+
+    webkit_settings_set_user_agent_with_application_details(settings.get(), "WebKitGTK+", "");
+    g_assert_cmpstr(webkit_settings_get_user_agent(settings.get()), ==, userAgentWithNullVersion);
+
+    webkit_settings_set_user_agent_with_application_details(settings.get(), "WebCatGTK+", "3.4.5");
+    const char* newUserAgent = webkit_settings_get_user_agent(settings.get());
+    g_assert(g_strstr_len(newUserAgent, -1, "3.4.5"));
+    g_assert(g_strstr_len(newUserAgent, -1, "WebCatGTK+"));
+}
+
+static void serverCallback(SoupServer* server, SoupMessage* message, const char* path, GHashTable*, SoupClientContext*, gpointer)
+{
+    if (message->method != SOUP_METHOD_GET) {
+        soup_message_set_status(message, SOUP_STATUS_NOT_IMPLEMENTED);
+        return;
+    }
+
+    if (g_str_equal(path, "/")) {
+        const char* userAgent = soup_message_headers_get_one(message->request_headers, "User-Agent");
+        soup_message_set_status(message, SOUP_STATUS_OK);
+        soup_message_body_append(message->response_body, SOUP_MEMORY_COPY, userAgent, strlen(userAgent));
+        soup_message_body_complete(message->response_body);
+    } else
+        soup_message_set_status(message, SOUP_STATUS_NOT_FOUND);
+}
+
 void beforeAll()
 {
+    gServer = new WebKitTestServer();
+    gServer->run(serverCallback);
+
     Test::add("WebKitSettings", "webkit-settings", testWebKitSettings);
     Test::add("WebKitSettings", "new-with-settings", testWebKitSettingsNewWithSettings);
+    WebViewTest::add("WebKitSettings", "user-agent", testWebKitSettingsUserAgent);
 }
 
 void afterAll()
 {
+    delete gServer;
 }
 

@@ -49,7 +49,6 @@
 //
 #include "sstransit.h"
 #include <security_cdsa_client/cspclient.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 #include <securityd_client/xdr_auth.h>
 #include <securityd_client/xdr_cssm.h>
@@ -104,7 +103,7 @@ RecordHandle ClientSession::insertRecord(DbHandle db,
 	RecordHandle record;
 	CopyIn db_record_attr_data(attributes, reinterpret_cast<xdrproc_t>(xdr_CSSM_DB_RECORD_ATTRIBUTE_DATA));
     
-	IPC(ucsp_client_insertRecord(UCSP_ARGS, db, recordType, db_record_attr_data.data(), db_record_attr_data.length(), OPTIONALDATA(data), &record));
+	IPC(ucsp_client_insertRecord(UCSP_ARGS, db, recordType, db_record_attr_data.data(), (mach_msg_type_number_t)db_record_attr_data.length(), OPTIONALDATA(data), &record));
     
 	return record;
 }
@@ -124,10 +123,11 @@ void ClientSession::modifyRecord(DbHandle db, RecordHandle &record,
 {
 	CopyIn db_record_attr_data(attributes, reinterpret_cast<xdrproc_t>(xdr_CSSM_DB_RECORD_ATTRIBUTE_DATA));
     
-	IPC(ucsp_client_modifyRecord(UCSP_ARGS, db, &record, recordType, db_record_attr_data.data(), db_record_attr_data.length(),
+	IPC(ucsp_client_modifyRecord(UCSP_ARGS, db, &record, recordType, db_record_attr_data.data(), (mach_msg_type_number_t)db_record_attr_data.length(),
         data != NULL, OPTIONALDATA(data), modifyMode));
 }
 
+static
 void copy_back_attribute_return_data(CssmDbRecordAttributeData *dest_attrs, CssmDbRecordAttributeData *source_attrs, Allocator &returnAllocator)
 {
 	assert(dest_attrs->size() == source_attrs->size());
@@ -289,7 +289,7 @@ void ClientSession::commitDbForSync(DbHandle srcDb, DbHandle cloneDb,
                                     CssmData &blob, Allocator &alloc)
 {
     DataOutput outBlob(blob, alloc);
-    IPC(ucsp_client_commitDbForSync(UCSP_ARGS, srcDb, cloneDb, DATA(outBlob)));
+    IPC(ucsp_client_commitDbForSync(UCSP_ARGS, srcDb, cloneDb, DATA_OUT(outBlob)));
 }
 
 DbHandle ClientSession::decodeDb(const DLDbIdentifier &dbId,
@@ -311,7 +311,7 @@ DbHandle ClientSession::decodeDb(const DLDbIdentifier &dbId,
 void ClientSession::encodeDb(DbHandle db, CssmData &blob, Allocator &alloc)
 {
 	DataOutput outBlob(blob, alloc);
-	IPC(ucsp_client_encodeDb(UCSP_ARGS, db, DATA(outBlob)));
+	IPC(ucsp_client_encodeDb(UCSP_ARGS, db, DATA_OUT(outBlob)));
 }
 
 void ClientSession::setDbParameters(DbHandle db, const DBParameters &params)
@@ -352,6 +352,16 @@ void ClientSession::unlock(DbHandle db, const CssmData &passphrase)
 	IPC(ucsp_client_unlockDbWithPassphrase(UCSP_ARGS, db, DATA(passphrase)));
 }
 
+void ClientSession::stashDb(DbHandle db)
+{
+    IPC(ucsp_client_stashDb(UCSP_ARGS, db));
+}
+
+void ClientSession::stashDbCheck(DbHandle db)
+{
+    IPC(ucsp_client_stashDbCheck(UCSP_ARGS, db));
+}
+    
 bool ClientSession::isLocked(DbHandle db)
 {
     boolean_t locked;
@@ -359,6 +369,20 @@ bool ClientSession::isLocked(DbHandle db)
     return locked;
 }
 
+void ClientSession::verifyKeyStorePassphrase(uint32_t retries)
+{
+    IPC(ucsp_client_verifyKeyStorePassphrase(UCSP_ARGS, retries));
+}
+
+void ClientSession::resetKeyStorePassphrase(const CssmData &passphrase)
+{
+    IPC(ucsp_client_resetKeyStorePassphrase(UCSP_ARGS, DATA(passphrase)));
+}
+
+void ClientSession::changeKeyStorePassphrase()
+{
+    IPC(ucsp_client_changeKeyStorePassphrase(UCSP_ARGS));
+}
 
 //
 // Key control
@@ -387,7 +411,7 @@ KeyHandle ClientSession::decodeKey(DbHandle db, const CssmData &blob, CssmKey::H
 	void *keyHeaderData;
 	mach_msg_type_number_t keyHeaderDataLength;
 
-	IPC(ucsp_client_decodeKey(UCSP_ARGS, &key, &keyHeaderData, &keyHeaderDataLength, db, blob.data(), blob.length()));
+	IPC(ucsp_client_decodeKey(UCSP_ARGS, &key, &keyHeaderData, &keyHeaderDataLength, db, blob.data(), (mach_msg_type_number_t)blob.length()));
 
 	CopyOut wrappedKeyHeaderXDR(keyHeaderData, keyHeaderDataLength + sizeof(CSSM_KEYHEADER), reinterpret_cast<xdrproc_t>(xdr_CSSM_KEYHEADER_PTR), true);
 	header = *static_cast<CssmKey::Header *>(reinterpret_cast<CSSM_KEYHEADER*>(wrappedKeyHeaderXDR.data()));
@@ -400,7 +424,7 @@ void ClientSession::recodeKey(DbHandle oldDb, KeyHandle key, DbHandle newDb,
 	CssmData &blob)
 {
 	DataOutput outBlob(blob, returnAllocator);
-	IPC(ucsp_client_recodeKey(UCSP_ARGS, oldDb, key, newDb, DATA(outBlob)));
+	IPC(ucsp_client_recodeKey(UCSP_ARGS, oldDb, key, newDb, DATA_OUT(outBlob)));
 }
 
 void ClientSession::releaseKey(KeyHandle key)
@@ -439,7 +463,7 @@ void ClientSession::generateRandom(const Security::Context &context, CssmData &d
 	CopyIn ctxcopy(&context, reinterpret_cast<xdrproc_t>(xdr_CSSM_CONTEXT));
 	DataOutput result(data, alloc);
     
-	IPC(ucsp_client_generateRandom(UCSP_ARGS, 0, ctxcopy.data(), ctxcopy.length(), DATA(result)));
+	IPC(ucsp_client_generateRandom(UCSP_ARGS, 0, ctxcopy.data(), ctxcopy.length(), DATA_OUT(result)));
 }
 
 
@@ -453,7 +477,7 @@ void ClientSession::generateSignature(const Context &context, KeyHandle key,
 	DataOutput sig(signature, alloc);
     
 	IPCKEY(ucsp_client_generateSignature(UCSP_ARGS, ctxcopy.data(), ctxcopy.length(), key, signOnlyAlgorithm,
-		DATA(data), DATA(sig)),
+		DATA(data), DATA_OUT(sig)),
 		   key, CSSM_ACL_AUTHORIZATION_SIGN);
 }
 
@@ -472,7 +496,7 @@ void ClientSession::generateMac(const Context &context, KeyHandle key,
 	CopyIn ctxcopy(&context, reinterpret_cast<xdrproc_t>(xdr_CSSM_CONTEXT));
 	DataOutput sig(signature, alloc);
     
-	IPCKEY(ucsp_client_generateMac(UCSP_ARGS, ctxcopy.data(), ctxcopy.length(), key, DATA(data), DATA(sig)),
+	IPCKEY(ucsp_client_generateMac(UCSP_ARGS, ctxcopy.data(), ctxcopy.length(), key, DATA(data), DATA_OUT(sig)),
 		key, CSSM_ACL_AUTHORIZATION_MAC);
 }
 
@@ -496,7 +520,7 @@ void ClientSession::encrypt(const Context &context, KeyHandle key,
 {
 	CopyIn ctxcopy(&context, reinterpret_cast<xdrproc_t>(xdr_CSSM_CONTEXT));
 	DataOutput cipherOut(cipher, alloc);
-	IPCKEY(ucsp_client_encrypt(UCSP_ARGS, ctxcopy.data(), ctxcopy.length(), key, DATA(clear), DATA(cipherOut)),
+	IPCKEY(ucsp_client_encrypt(UCSP_ARGS, ctxcopy.data(), ctxcopy.length(), key, DATA(clear), DATA_OUT(cipherOut)),
 		key, CSSM_ACL_AUTHORIZATION_ENCRYPT);
 }
 
@@ -506,7 +530,7 @@ void ClientSession::decrypt(const Context &context, KeyHandle key,
 	CopyIn ctxcopy(&context, reinterpret_cast<xdrproc_t>(xdr_CSSM_CONTEXT));
 	DataOutput clearOut(clear, alloc);
     
-	IPCKEY(ucsp_client_decrypt(UCSP_ARGS, ctxcopy.data(), ctxcopy.length(), key, DATA(cipher), DATA(clearOut)),
+	IPCKEY(ucsp_client_decrypt(UCSP_ARGS, ctxcopy.data(), ctxcopy.length(), key, DATA(cipher), DATA_OUT(clearOut)),
 		key, CSSM_ACL_AUTHORIZATION_DECRYPT);
 }
 
@@ -589,7 +613,7 @@ void ClientSession::deriveKey(DbHandle db, const Context &context, KeyHandle bas
 			
 			IPCKEY(ucsp_client_deriveKey(UCSP_ARGS, db, ctxcopy.data(), ctxcopy.length(), baseKey,
 				creds.data(), creds.length(), proto.data(), proto.length(), 
-				inParam.data(), inParam.length(), DATA(paramOutput),
+				inParam.data(), inParam.length(), DATA_OUT(paramOutput),
 				usage, attrs, &newKey, &keyHeaderData, &keyHeaderDataLength),
 				baseKey, CSSM_ACL_AUTHORIZATION_DERIVE);
 			
@@ -613,7 +637,7 @@ void ClientSession::deriveKey(DbHandle db, const Context &context, KeyHandle bas
 void ClientSession::getKeyDigest(KeyHandle key, CssmData &digest, Allocator &allocator)
 {
 	DataOutput dig(digest, allocator);
-	IPC(ucsp_client_getKeyDigest(UCSP_ARGS, key, DATA(dig)));
+	IPC(ucsp_client_getKeyDigest(UCSP_ARGS, key, DATA_OUT(dig)));
 }
 
 
@@ -661,7 +685,7 @@ void ClientSession::unwrapKey(DbHandle db, const Context &context, KeyHandle key
 
 	IPCKEY(ucsp_client_unwrapKey(UCSP_ARGS, db, ctxcopy.data(), ctxcopy.length(), key,
 		creds.data(), creds.length(), proto.data(), proto.length(),
-		publicKey, wrappedKeyXDR.data(), wrappedKeyXDR.length(), usage, attr, DATA(descriptor),
+		publicKey, wrappedKeyXDR.data(), wrappedKeyXDR.length(), usage, attr, DATA_OUT(descriptor),
         &newKey, &keyHeaderData, &keyHeaderDataLength),
 		key, CSSM_ACL_AUTHORIZATION_DECRYPT);
 
@@ -933,7 +957,7 @@ void ClientSession::authorizationdbGet(const AuthorizationString rightname, Cssm
 {
 	DataOutput definition(rightDefinition, alloc);
 	activate();
-	IPCSTART(ucsp_client_authorizationdbGet(UCSP_ARGS, rightname, DATA(definition)));
+	IPCSTART(ucsp_client_authorizationdbGet(UCSP_ARGS, rightname, DATA_OUT(definition)));
 	if (rcode == CSSMERR_CSSM_NO_USER_INTERACTION)
 	  CssmError::throwMe(errAuthorizationInteractionNotAllowed);
 	IPCEND_CHECK;

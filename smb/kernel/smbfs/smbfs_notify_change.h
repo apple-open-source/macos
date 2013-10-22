@@ -45,9 +45,12 @@ struct watch_item {
 	void			*notify;
 	struct smbnode	*np;
 	struct smb_ntrq *ntp;
+	struct smb_rq   *rqp;           /* SMB 2.x */
+	uint64_t		flags;           /* Indicates if using SMB 2.x or not */
 	uint32_t		throttleBack;
 	uint16_t		watchTree;
 	int				isRoot;
+    int             isServerMsg;
 	struct timespec	last_notify_time;
 	uint32_t		rcvd_notify_count;
 	STAILQ_ENTRY(watch_item) entries;
@@ -55,6 +58,7 @@ struct watch_item {
 
 struct smbfs_notify_change {
 	struct smbmount		*smp;
+	struct watch_item   *svrmsg_item;   /* SMB2.x, for server messages */
 	uint32_t			haveMoreWork;
 	struct timespec		sleeptimespec;
 	uint32_t			notify_state;

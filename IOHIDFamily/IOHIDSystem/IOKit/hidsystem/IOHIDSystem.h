@@ -1,15 +1,15 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,10 +17,10 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
-/* 	Copyright (c) 1992 NeXT Computer, Inc.  All rights reserved. 
+/* 	Copyright (c) 1992 NeXT Computer, Inc.  All rights reserved.
  *
  * EventDriver.h - Exported Interface Event Driver object.
  *
@@ -28,7 +28,7 @@
  *
  * HISTORY
  * 19 Mar 1992    Mike Paquette at NeXT
- *      Created. 
+ *      Created.
  * 4  Aug 1993	  Erik Kay at NeXT
  *	API cleanup
  */
@@ -58,7 +58,7 @@ class IOGraphicsDevice;
 #include <IOKit/IODataQueue.h>
 #include <IOKit/hidsystem/ev_keymap.h>		/* For NX_NUM_SCANNED_SPECIALKEYS */
 
-           
+
 // The following messages should be unique across the entire system
 #ifndef sub_iokit_hidsystem
 #define sub_iokit_hidsystem                     err_sub(14)
@@ -69,6 +69,7 @@ class IOGraphicsDevice;
 #define kIOHIDSystem508SpecialKeyDownMessage    iokit_family_msg(sub_iokit_hidsystem, 3)
 // 4 is used by IOHIDSecurePrompt
 #define kIOHIDSystemActivityTickle              iokit_family_msg(sub_iokit_hidsystem, 5)
+#define kIOHIDSystemUserHidActivity             iokit_family_msg(sub_iokit_hidsystem, 6)
 
 
 class IOHIDKeyboardDevice;
@@ -86,8 +87,7 @@ class IOHIDSystem : public IOService
 
 private:
 	IOWorkLoop *		workLoop;
-	IOTimerEventSource *  	timerES;
-	IOTimerEventSource *  	vblES;
+	IOTimerEventSource          *periodicES;
         IOInterruptEventSource * eventConsumerES;
         IOInterruptEventSource * keyboardEQES;
         IOCommandGate *		cmdGate;
@@ -97,7 +97,7 @@ private:
         IONotifier *		eventTerminateNotify;
         IONotifier *		publishNotify;
         IONotifier *		terminateNotify;
-        
+
         OSArray *		ioHIDevices;
     OSSet             * touchEventPosters;
 
@@ -113,7 +113,7 @@ private:
     IOBufferMemoryDescriptor * globalMemory;
 	uintptr_t	shmem_addr;	// kernel address of shared memory
 	vm_size_t	shmem_size;	// size of shared memory
-    
+
 	// Pointers to structures which occupy the shared memory area.
 	volatile void	*evs;		// Pointer to private driver shmem
 	volatile EvGlobals *evg;	// Pointer to EvGlobals (shmem)
@@ -138,16 +138,11 @@ private:
 	// Event Status API.
 	//
     struct ExpansionData;
-    union {
-        struct {
-            IOGPoint	for_spacing_only[2];
-        }               reserved;
-        ExpansionData   *_privateData;
-    }; // Anon union
-    
+    ExpansionData   *_privateData;
+
     IOGPoint	clickLoc;       // location of last mouse click
     IOGPoint    clickSpaceThresh;// max mouse delta to be a doubleclick
-    
+
 	int	clickState;	// Current click state
 
 	bool evOpenCalled;	// Has the driver been opened?
@@ -161,52 +156,39 @@ private:
 
 	short leftENum;		// Unique ID for last left down event
 	short rightENum;	// Unique ID for last right down event
-	
+
 	// The periodic event mechanism timestamps and state
 	// are recorded here.
-	AbsoluteTime thisPeriodicRun;
-        AbsoluteTime periodicEventDelta;// Time between periodic events
-                                        // todo: make infinite
-        AbsoluteTime clickTime;		// Timestamps used to determine doubleclicks
-        AbsoluteTime clickTimeThresh;
+    uint64_t clickTime;		// Timestamps used to determine doubleclicks
+    uint64_t clickTimeThresh;
 
-        AbsoluteTime waitSustain;	// Sustain time before removing cursor
-        AbsoluteTime waitSusTime;	// Sustain counter
-        AbsoluteTime waitFrameRate;	// Ticks per wait cursor frame
-        AbsoluteTime waitFrameTime;	// Wait cursor frame timer
+    uint64_t lastEventTime;
+    uint64_t lastUndimEvent;
 
-        AbsoluteTime lastRelativeEventTime;	// Used to post mouse events once per frame
-        AbsoluteTime lastRelativeMoveTime;
-        AbsoluteTime lastEventTime;
-        AbsoluteTime lastUndimEvent;
-    SInt32  reserved2[4];
-    //SInt32 postDeltaX, accumDX;
-    //SInt32 postDeltaY, accumDY;
-
-	// Flags used in scheduling periodic event callbacks
-	bool		needSetCursorPosition;
+	// Flag used in scheduling periodic event callbacks
 	bool		needToKickEventConsumer;
-        
+
         IOService *	displayManager;	// points to display manager
         IOPMPowerFlags	displayState;
-        
+
+
         IOService *	rootDomain;
         AbsoluteTime	rootDomainStateChangeDeadline;
         AbsoluteTime    displayStateChangeDeadline;
         AbsoluteTime    displaySleepWakeupDeadline;
         bool  displaySleepDrivenByPM;
-        
+
         OSDictionary *  savedParameters;	// keep user settings
-        
+
         const char *    registryName;		// cache our name
         UInt32		maxWaitCursorFrame;	// animation frames
 	UInt32		firstWaitCursorFrame;	//
-        
+
         int		cachedEventFlags;
         OSArray *  cachedButtonStates;
-        
+
         OSArray * systemInfo;
-        
+
         IOHIDPointingDevice * _hidPointingDevice;
         IOHIDKeyboardDevice * _hidKeyboardDevice;
 
@@ -215,22 +197,20 @@ private:
          * when it arrives.
          */
         OSArray * consumedKeys;
-        
+
     OSObject * lastSender;
-    
+
         UInt32 scrollZoomMask;
-        
+
     bool setParamPropertiesInProgress;
-    
+
     OSSet * dataQueueSet;
-        
+
 private:
-    void vblEvent(void);
     UInt8 getSubtypeForSender(OSObject * sender);
     void updateMouseEventForSender(OSObject * sender, NXEventData * evData);
     void updateMouseMoveEventForSender(OSObject * sender, NXEventData * evData);
     void updateScrollEventForSender(OSObject * sender, NXEventData * evData);
-    static void _vblEvent(OSObject *self, IOTimerEventSource *sender);
 
   inline short getUniqueEventNum();
 
@@ -238,7 +218,7 @@ private:
   static IOReturn powerStateHandler( void *target, void *refCon,
                UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize );
  /* Resets */
-    void    _resetMouseParameters();
+  void _resetMouseParameters();
     void    _setScrollCountParameters(OSDictionary *newSettings = NULL);
 
   /* Initialize the shared memory area */
@@ -262,7 +242,7 @@ private:
   /* Message the event consumer to process posted events */
   void kickEventConsumer();
   void sendStackShotMessage(UInt32 flavor);
-  
+
   OSDictionary * createFilteredParamPropertiesForService(IOService * service, OSDictionary * dict);
 
   static void _periodicEvents(IOHIDSystem * self,
@@ -274,10 +254,10 @@ private:
 
   static void doProcessKeyboardEQ(IOHIDSystem * self);
   static void processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline = 0);
- 
-  static bool genericNotificationHandler( void * target, 
-				void * ref, IOService * newService, IONotifier * notifier );
-                
+
+  void doProcessNotifications(IOTimerEventSource *sender);
+  bool genericNotificationHandler(void * ref, IOService * newService, IONotifier * notifier );
+
   static bool handlePublishNotification( void * target, IOService * newService );
 
   static bool handleTerminateNotification( void * target, IOService * service );
@@ -329,7 +309,8 @@ private:
                        OSObject * sender);
   void _setCursorPosition(bool external = false, bool proximityChange = false, OSObject * sender=0);
 
-  static bool _idleTimeSerializerCallback(void * target, void * ref, OSSerialize *s);
+    static bool _idleTimeSerializerCallback(void * target, void * ref, OSSerialize *s);
+    static bool _displaySerializerCallback(void * target, void * ref, OSSerialize *s);
 
   void _postMouseMoveEvent(int		what,
                            AbsoluteTime	theClock,
@@ -399,7 +380,7 @@ public:
  *   the declarations have now been merged directly into this class.
  */
 
-public: 
+public:
   /* Mouse event reporting */
   virtual void relativePointerEvent(int        buttons,
                        /* deltaX */ int        dx,
@@ -420,7 +401,7 @@ public:
                                 short deltaAxis2,
                                 short deltaAxis3,
                                 AbsoluteTime ts);
-  
+
 
   virtual void tabletEvent(NXEventData *tabletData,
                            AbsoluteTime ts);
@@ -528,7 +509,7 @@ private:
             /* atTime */            AbsoluteTime ts,
                                     OSObject * sender,
                                     void *     refcon);
-            
+
   static void _keyboardSpecialEvent(IOHIDSystem * self,
                                     unsigned   eventType,
                 /* flags */         unsigned   flags,
@@ -539,7 +520,7 @@ private:
                 /* atTime */        AbsoluteTime ts,
                                     OSObject * sender,
                                     void *     refcon);
-                
+
   static void _updateEventFlags(    IOHIDSystem * self,
                                     unsigned   flags,
                                     OSObject * sender,
@@ -560,11 +541,12 @@ public:
   virtual IOReturn extSetMouseLocation(void*,void*,void*,void*,void*,void*);
   virtual IOReturn extGetButtonEventNum(void*,void*,void*,void*,void*,void*);
   IOReturn extSetBounds( IOGBounds * bounds );
-    IOReturn extGetModifierLockState(void*,void*,void*,void*,void*,void*);
-    IOReturn extSetModifierLockState(void*,void*,void*,void*,void*,void*);
+    IOReturn extGetStateForSelector(void*,void*,void*,void*,void*,void*);
+    IOReturn extSetStateForSelector(void*,void*,void*,void*,void*,void*);
     IOReturn extRegisterVirtualDisplay(void*,void*,void*,void*,void*,void*);
     IOReturn extUnregisterVirtualDisplay(void*,void*,void*,void*,void*,void*);
     IOReturn extSetVirtualDisplayBounds(void*,void*,void*,void*,void*,void*);
+    IOReturn extGetUserHidActivityState(void*,void*,void*,void*,void*,void*);
 
 /*
  * HISTORICAL NOTE:
@@ -587,10 +569,10 @@ private:
     static IOReturn doRegisterScreen(IOHIDSystem *self, IOGraphicsDevice *io_gd, IOGBounds *bp, IOGBounds * vbp, void *arg3);
     IOReturn        registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bp, IOGBounds * vbp, SInt32 *index);
 public:
-    
+
 
   virtual void unregisterScreen(int index);
-    
+
 /*
  * HISTORICAL NOTE:
  *   The following methods were part of the IOWorkspaceBounds protocol;
@@ -680,28 +662,28 @@ bool removeConsumedKey(unsigned key);
  *   deprecated, thus requiring this move.  This should allow for less
  *   context switching as all actions formerly run on the I/O Workloop
  *   thread, will now be run on the caller thread.  The static methods
- *   will be called from cmdGate->runAction and returns the appropriate 
- *   non-static helper method.  Arguments are stored in the void* array, 
+ *   will be called from cmdGate->runAction and returns the appropriate
+ *   non-static helper method.  Arguments are stored in the void* array,
  *   args, and are passed through.   Since we are returning in the static
- *   function, gcc3 should translate that to one instruction, thus 
+ *   function, gcc3 should translate that to one instruction, thus
  *   minimizing cost.
- */ 
+ */
 
 static	IOReturn	doEvClose (IOHIDSystem *self);
         IOReturn	evCloseGated (void);
-        
+
 static	IOReturn	doSetEventsEnablePre (IOHIDSystem *self, void *p1);
         IOReturn	setEventsEnablePreGated (void *p1);
 
 static	IOReturn	doSetEventsEnablePost (IOHIDSystem *self, void *p1);
         IOReturn	setEventsEnablePostGated (void *p1);
-        
+
 static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0, void *arg1);
         IOReturn	unregisterScreenGated (int index, bool internal);
 
 static	IOReturn	doSetDisplayBounds (IOHIDSystem *self, void * arg0, void * arg1);
         IOReturn	setDisplayBoundsGated (UInt32 index, IOGBounds *bounds);
-    
+
 static	IOReturn	doCreateShmem (IOHIDSystem *self, void * arg0);
         IOReturn	createShmemGated (void * p1);
 
@@ -712,13 +694,13 @@ static	IOReturn	doUnregisterEventQueue (IOHIDSystem *self, void * arg0);
         IOReturn	unregisterEventQueueGated (void * p1);
 
 static	IOReturn	doRelativePointerEvent (IOHIDSystem *self, void * args);
-        void		relativePointerEventGated(int buttons, 
-                                                    int dx, 
-                                                    int dy, 
-                                                    AbsoluteTime ts,
+        void		relativePointerEventGated(int buttons,
+                                                    int dx,
+                                                    int dy,
+                                                    SInt64 ts,
                                                     OSObject * sender);
 
-static	IOReturn	doAbsolutePointerEvent (IOHIDSystem *self, void * args);        
+static	IOReturn	doAbsolutePointerEvent (IOHIDSystem *self, void * args);
         void 		absolutePointerEventGated (int buttons,
                                                     IOGPoint *    newLoc,
                                                     IOGBounds *bounds,
@@ -728,7 +710,7 @@ static	IOReturn	doAbsolutePointerEvent (IOHIDSystem *self, void * args);
                                                     AbsoluteTime ts,
                                                     OSObject * sender);
 
-static	IOReturn	doScrollWheelEvent(IOHIDSystem *self, void * args);        
+static	IOReturn	doScrollWheelEvent(IOHIDSystem *self, void * args);
         void		scrollWheelEventGated (short deltaAxis1,
                                                 short deltaAxis2,
                                                 short deltaAxis3,
@@ -742,17 +724,17 @@ static	IOReturn	doScrollWheelEvent(IOHIDSystem *self, void * args);
                                                 AbsoluteTime ts,
                                                 OSObject * sender);
 
-static	IOReturn	doTabletEvent (IOHIDSystem *self, void * arg0, void * arg1, void * arg2);        
-        void		tabletEventGated (	NXEventData *tabletData, 
-                                                AbsoluteTime ts, 
+static	IOReturn	doTabletEvent (IOHIDSystem *self, void * arg0, void * arg1, void * arg2);
+        void		tabletEventGated (	NXEventData *tabletData,
+                                                AbsoluteTime ts,
                                                 OSObject * sender);
 
-static	IOReturn	doProximityEvent (IOHIDSystem *self, void * arg0, void * arg1, void * arg2);        
-        void		proximityEventGated (	NXEventData *proximityData, 
-                                                AbsoluteTime ts, 
+static	IOReturn	doProximityEvent (IOHIDSystem *self, void * arg0, void * arg1, void * arg2);
+        void		proximityEventGated (	NXEventData *proximityData,
+                                                AbsoluteTime ts,
                                                 OSObject * sender);
 
-static	IOReturn	doKeyboardEvent (IOHIDSystem *self, void * args);        
+static	IOReturn	doKeyboardEvent (IOHIDSystem *self, void * args);
         void		keyboardEventGated (unsigned   eventType,
                                             unsigned   flags,
                                             unsigned   key,
@@ -765,8 +747,8 @@ static	IOReturn	doKeyboardEvent (IOHIDSystem *self, void * args);
                                             AbsoluteTime ts,
                                             OSObject * sender);
 
-static	IOReturn	doKeyboardSpecialEvent (IOHIDSystem *self, void * args);        
-        void		keyboardSpecialEventGated (   
+static	IOReturn	doKeyboardSpecialEvent (IOHIDSystem *self, void * args);
+        void		keyboardSpecialEventGated (
                                             unsigned   eventType,
                                             unsigned   flags,
                                             unsigned   key,
@@ -776,36 +758,36 @@ static	IOReturn	doKeyboardSpecialEvent (IOHIDSystem *self, void * args);
                                             AbsoluteTime ts,
                                             OSObject * sender);
 
-static	IOReturn	doUpdateEventFlags (IOHIDSystem *self, void * args);        
+static	IOReturn	doUpdateEventFlags (IOHIDSystem *self, void * args);
         void		updateEventFlagsGated (unsigned flags, OSObject * sender);
 
-static	IOReturn	doNewUserClient (IOHIDSystem *self, void * args);        
+static	IOReturn	doNewUserClient (IOHIDSystem *self, void * args);
         IOReturn 	newUserClientGated (task_t owningTask,
                                             void * security_id,
                                             UInt32 type,
                                             OSDictionary *  properties,
                                             IOUserClient ** handler);
 
-static	IOReturn	doSetCursorEnable (IOHIDSystem *self, void * arg0);        
+static	IOReturn	doSetCursorEnable (IOHIDSystem *self, void * arg0);
         IOReturn	setCursorEnableGated (void * p1);
 
-static	IOReturn	doExtPostEvent(IOHIDSystem *self, void * arg0, void * arg1, void * arg2, void * arg3);        
+static	IOReturn	doExtPostEvent(IOHIDSystem *self, void * arg0, void * arg1, void * arg2, void * arg3);
         IOReturn	extPostEventGated (void * p1, void * p2, void * p3);
 
-static	IOReturn	doExtSetMouseLocation (IOHIDSystem *self, void * args);        
+static	IOReturn	doExtSetMouseLocation (IOHIDSystem *self, void * args);
         IOReturn	extSetMouseLocationGated (void * args);
 
-static	IOReturn	doExtGetButtonEventNum (IOHIDSystem *self, void * arg0, void * arg1);        
+static	IOReturn	doExtGetButtonEventNum (IOHIDSystem *self, void * arg0, void * arg1);
         IOReturn	extGetButtonEventNumGated (void * p1, void * p2);
 
-static	IOReturn	doSetParamPropertiesPre (IOHIDSystem *self, void * arg0, void * arg1);        
+static	IOReturn	doSetParamPropertiesPre (IOHIDSystem *self, void * arg0, void * arg1);
         IOReturn	setParamPropertiesPreGated (OSDictionary * dict, OSIterator ** pOpenIter);
 
-static	IOReturn	doSetParamPropertiesPost (IOHIDSystem *self, void * arg0);        
+static	IOReturn	doSetParamPropertiesPost (IOHIDSystem *self, void * arg0);
         IOReturn	setParamPropertiesPostGated (OSDictionary * dict);
-        
-static	IOReturn	doExtGetToggleState (IOHIDSystem *self, void *p1, void *p2);        
-static	IOReturn	doExtSetToggleState (IOHIDSystem *self, void *p1, void *p2);        
+
+static	IOReturn	doExtGetStateForSelector (IOHIDSystem *self, void *p1, void *p2);
+static	IOReturn	doExtSetStateForSelector (IOHIDSystem *self, void *p1, void *p2);
         IOReturn    getCapsLockState(unsigned int *state_O);
         IOReturn    setCapsLockState(unsigned int state_I);
         IOReturn    getNumLockState(unsigned int *state_O);
@@ -815,11 +797,18 @@ static	IOReturn	doExtSetToggleState (IOHIDSystem *self, void *p1, void *p2);
 
 public:
     virtual void setStackShotPort(mach_port_t port);
-    
+
     virtual UInt32 eventFlags();
-    
+
     virtual void dispatchEvent(IOHIDEvent *event, IOOptionBits options=0);
 
+    void updateHidActivity();
+    void hidActivityChecker();
+    static void reportUserHidActivity(IOHIDSystem *self, void *args );
+    void reportUserHidActivityGated(void *args );
+
+    static IOReturn getUserHidActivityState(IOHIDSystem *self, void *arg0);
+    IOReturn getUserHidActivityStateGated(void *state);
 };
 
 #endif /* !_IOHIDSYSTEM_H */

@@ -64,10 +64,10 @@ typedef struct {
 					 + MSCHAP_FLAGS_SIZE)
 typedef struct NTPasswordBlock_s {
     uint8_t		password[NT_MAXPWLEN * 2];
-    uint32_t		password_length;
+    uint8_t		password_length[4];
 } NTPasswordBlock, * NTPasswordBlockRef;
 
-#define NT_PASSWORD_BLOCK_SIZE		516 /* sizeof(NTPasswordBlock) */
+#define NT_PASSWORD_BLOCK_SIZE		sizeof(NTPasswordBlock)
 
 void
 MSChap(const uint8_t challenge[MSCHAP_NT_CHALLENGE_SIZE], 
@@ -112,7 +112,7 @@ NTPasswordHashEncryptOldWithNew(const uint8_t * new_password,
 				uint32_t new_password_len,
 				const uint8_t * old_password,
 				uint32_t old_password_len,
-				uint8_t password_hash[NT_PASSWORD_HASH_SIZE]);
+				uint8_t encrypted_hash[NT_PASSWORD_HASH_SIZE]);
 void
 MSChapFillWithRandom(void * buf, uint32_t len);
 

@@ -32,6 +32,7 @@
 #ifndef _POLICY_H
 #define _POLICY_H
 
+#include "racoon_types.h"
 #include <sys/queue.h>
 
 /* refs. ipsec.h */
@@ -114,23 +115,23 @@ do {                                                                         \
 } while (0)
 #endif
 
-struct ph2handle;
-struct policyindex;
-extern struct secpolicy *getsp __P((struct policyindex *));
-extern struct secpolicy *getsp_r __P((struct policyindex *, struct ph2handle *));
-struct secpolicy *getspbyspid __P((u_int32_t));
-extern int cmpspidxstrict __P((struct policyindex *, struct policyindex *));
-extern int cmpspidxwild __P((struct policyindex *, struct policyindex *));
-extern struct secpolicy *newsp __P((void));
-extern void delsp __P((struct secpolicy *));
-extern void delsp_bothdir __P((struct policyindex *));
-extern void inssp __P((struct secpolicy *));
-extern void remsp __P((struct secpolicy *));
-extern void flushsp __P((void));
-extern void initsp __P((void));
-extern struct ipsecrequest *newipsecreq __P((void));
-extern int policies_installed __P((void));
 
-extern const char *spidx2str __P((const struct policyindex *));
+struct policyindex;
+extern struct secpolicy *getsp (struct policyindex *);
+extern struct secpolicy *getsp_r (struct policyindex *, phase2_handle_t *);
+struct secpolicy *getspbyspid (u_int32_t);
+extern int cmpspidxstrict (struct policyindex *, struct policyindex *);
+extern int cmpspidxwild (struct policyindex *, struct policyindex *);
+extern struct secpolicy *newsp (void);
+extern void delsp (struct secpolicy *);
+extern void delsp_bothdir (struct policyindex *);
+extern void inssp (struct secpolicy *);
+extern void remsp (struct secpolicy *);
+extern void flushsp (void);
+extern void initsp (void);
+extern struct ipsecrequest *newipsecreq (void);
+extern int policies_installed (void);
+
+extern const char *spidx2str (const struct policyindex *);
 
 #endif /* _POLICY_H */

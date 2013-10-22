@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/fa.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/fa.xml
 // *
 // ***************************************************************************
 /**
@@ -56,7 +56,7 @@ fa{
             "شیلینگ اتریش",
         }
         AUD{
-            "AU$",
+            "A$",
             "دلار استرالیا",
         }
         AWG{
@@ -73,7 +73,7 @@ fa{
         }
         BAD{
             "BAD",
-            "دینار بوسنی و هرزگوین",
+            "دینار بوسنی و هرزگوین (۱۹۹۲ تا ۱۹۹۴)",
         }
         BAM{
             "BAM",
@@ -181,7 +181,7 @@ fa{
         }
         CSD{
             "CSD",
-            "دینار قدیم صربستان",
+            "دینار صربستان (۲۰۰۲ تا ۲۰۰۶)",
         }
         CUC{
             "CUC",
@@ -523,6 +523,10 @@ fa{
             "MZE",
             "اسکودوی موزامبیک",
         }
+        MZN{
+            "MZN",
+            "متیکال موزامبیک",
+        }
         NAD{
             "NAD",
             "دلار نامیبیا",
@@ -595,6 +599,10 @@ fa{
             "RHD",
             "دلار رودزیا",
         }
+        RON{
+            "RON",
+            "لئوی رومانی",
+        }
         RSD{
             "RSD",
             "دینار صربستان",
@@ -625,7 +633,7 @@ fa{
         }
         SDD{
             "SDD",
-            "دینار قدیم سودان",
+            "دینار سودان (۱۹۹۲ تا ۲۰۰۷)",
         }
         SDG{
             "SDG",
@@ -658,6 +666,10 @@ fa{
         SRG{
             "SRG",
             "گیلدر سورینام",
+        }
+        SSP{
+            "SSP",
+            "پوند سودان جنوبی",
         }
         STD{
             "STD",
@@ -709,7 +721,7 @@ fa{
         }
         TRL{
             "TRL",
-            "لیرهٔ قدیم ترکیه",
+            "لیرهٔ ترکیه (۱۹۲۲ تا ۲۰۰۵)",
         }
         TRY{
             "TRY",
@@ -833,11 +845,15 @@ fa{
         }
         ZMK{
             "ZMK",
+            "کواچای زامبیا (۱۹۶۸ تا ۲۰۱۲)",
+        }
+        ZMW{
+            "ZMW",
             "کواچای زامبیا",
         }
         ZWD{
             "ZWD",
-            "دلار زیمبابوه",
+            "دلار زیمبابوه (۱۹۸۰ تا ۲۰۰۸)",
         }
         ZWL{
             "ZWL",
@@ -848,8 +864,5 @@ fa{
             "دلار زیمبابوه (۲۰۰۸)",
         }
     }
-    CurrencyUnitPatterns{
-        other{"{0} {1}"}
-    }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.45"}
 }

@@ -54,6 +54,7 @@ public:
 	bool operator == (const Identity &other) const;
 
 	bool equal(SecCFObject &other);
+    CFHashCode hash();
 
 private:
 	SecPointer<KeyItem> mPrivateKey;

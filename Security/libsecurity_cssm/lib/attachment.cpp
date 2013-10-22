@@ -167,7 +167,7 @@ void *Attachment::upcallRealloc(CSSM_HANDLE handle, void *mem, size_t size)
 void *Attachment::upcallCalloc(CSSM_HANDLE handle, size_t num, size_t size)
 {
     BEGIN_API
-    return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).calloc(num, size);
+    return HandleObject::find<Attachment>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).calloc(size, num);
     END_API1(NULL)
 }
 
@@ -175,7 +175,8 @@ CSSM_RETURN Attachment::upcallCcToHandle(CSSM_CC_HANDLE handle,
                                          CSSM_MODULE_HANDLE *modHandle)
 {
     BEGIN_API
-    Required(modHandle) = HandleObject::find<HandleContext>(handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).attachment.handle();
+#warning Cast from CSSM_CC_HANDLE to CSSM_HANDLE
+    Required(modHandle) = HandleObject::find<HandleContext>((CSSM_HANDLE)handle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE).attachment.handle();
     END_API(CSP)
 }
 

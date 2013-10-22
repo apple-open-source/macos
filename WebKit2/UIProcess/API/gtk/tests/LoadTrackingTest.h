@@ -44,6 +44,8 @@ public:
     void loadPlainText(const char* plainText);
     void loadRequest(WebKitURIRequest*);
     void reload();
+    void goBack();
+    void goForward();
 
     void setRedirectURI(const char* uri) { m_redirectURI = uri; }
 
@@ -57,6 +59,7 @@ public:
     };
     bool m_runLoadUntilCompletion;
     bool m_loadFailed;
+    GOwnPtr<GError> m_error;
     Vector<LoadEvents> m_loadEvents;
     float m_estimatedProgress;
     CString m_redirectURI;

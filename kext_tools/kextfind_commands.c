@@ -67,8 +67,7 @@ CFStringRef copyPathForKext(
         }
         result = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle);
     } else if (pathSpec == kPathsRelative) {
-        CFRange relativeRange = { 0, 0 };
-
+        CFRange relativeRange;
         absURL = CFURLCopyAbsoluteURL(kextURL);
         if (!absURL) {
             OSKextLogMemError();
@@ -268,35 +267,35 @@ void printProperty(
         const UInt8 * data = CFDataGetBytePtr(value);
         if (!data) {
             propString = CFStringCreateWithFormat(
-                kCFAllocatorDefault, NULL, CFSTR("%@ = <null data pointer>%c"),
+                kCFAllocatorDefault, NULL, CFSTR("%@[%zd] = <null data pointer>%c"),
                 propKey, length, lineEnd);
         } else {
-            int numBytes = MIN(length, kMaxPrintableCFDataLength);
+            int numBytes = (int)MIN(length, kMaxPrintableCFDataLength);
             dataString = stringForData(data, MIN(numBytes, kMaxPrintableCFDataLength));
             if (length > kMaxPrintableCFDataLength) {
                 propString = CFStringCreateWithFormat(
                     kCFAllocatorDefault, NULL,
-                    CFSTR("%@ = <data (%d bytes): %s...>%c"),
+                    CFSTR("%@ = <data (%zd bytes): %s...>%c"),
                     propKey, length, dataString, lineEnd);
             } else {
                 propString = CFStringCreateWithFormat(
                     kCFAllocatorDefault, NULL,
-                    CFSTR("%@ = <data (%d bytes): %s>%c"),
+                    CFSTR("%@ = <data (%zd bytes): %s>%c"),
                     propKey, length, dataString, lineEnd);
             }
         }
     } else if (type == CFDictionaryGetTypeID()) {
         propString = CFStringCreateWithFormat(
-            kCFAllocatorDefault, NULL, CFSTR("%@ = <dictionary of %d items>%c"),
+            kCFAllocatorDefault, NULL, CFSTR("%@ = <dictionary of %zd items>%c"),
             propKey, CFDictionaryGetCount(value), lineEnd);
     } else if (type == CFArrayGetTypeID()) {
         propString = CFStringCreateWithFormat(
-            kCFAllocatorDefault, NULL, CFSTR("%@ = <array of %d items>%c"),
+            kCFAllocatorDefault, NULL, CFSTR("%@ = <array of %zd items>%c"),
             propKey, CFArrayGetCount(value), lineEnd);
     } else {
         propString = CFStringCreateWithFormat(
             kCFAllocatorDefault, NULL, CFSTR("%@ = <value of unknown type>%c"),
-            propKey, value, lineEnd);
+            propKey, lineEnd);
     }
 
     if (!propString) {
@@ -536,7 +535,7 @@ CFStringRef copyAdjustedPathForURL(
     CFStringRef kextAbsPath  = NULL;  // must release
     CFStringRef kextRelPath  = NULL;  // must release
     CFStringRef pathInKext   = NULL;  // must release
-    CFRange     scratchRange = { 0, 0 };
+    CFRange     scratchRange;
 
     if (pathSpec != kPathsFull && pathSpec != kPathsRelative) {
         OSKextLog(theKext,

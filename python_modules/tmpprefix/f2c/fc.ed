@@ -1,0 +1,19 @@
+/^PATH=/i
+F2CPREFIX=XXXXX
+.
+/^set -- `getopt/i
+# convert -O to -O1 and move "-o xxx" to the beginning
+set -- `perl -e '@a=map{$_ eq "-O"?"-O1":$_}@ARGV;($i)=grep{$a[$_] eq "-o"}0..$#a;if(defined($i)){@b=splice(@a,$i,2);unshift(@a,@b)}print "@a\n"' -- "$@"`
+.
+/^	-O)/s/case.*/CFLAGS="$CFLAGS -O$2"/
+.+1,.+4c
+		shift 2
+.
+g/        /s//	/g
+g/'-I/s/'/"/g
+g,/usr/local/,s,,${F2CPREFIX}/,g
+g,/lib/cpp,s,,$CC -E,
+g/ -lm"/s//"/
+g/ -u MAIN__/s///
+g/	$CC/s//& $ARCHFLAGS/
+w

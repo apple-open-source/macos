@@ -1,0 +1,23 @@
+---
+abstract: 'Dispatches messages to one or more outputs'
+author:
+  - 'Dave Rolsky <autarch@urth.org>'
+build_requires:
+  File::Temp: 0
+  Test::More: 0.88
+configure_requires:
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.300028, CPAN::Meta::Converter version 2.120921'
+license: artistic_2
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Log-Dispatch
+requires:
+  Class::Load: 0
+  Params::Validate: 0.15
+resources:
+  bugtracker: http://rt.cpan.org/NoAuth/Bugs.html?Dist=Log-Dispatch
+  repository: git://git.urth.org/Log-Dispatch.git
+version: 2.34

@@ -37,6 +37,7 @@
 #define	pcap_int_h
 
 #include <pcap/pcap.h>
+#include "pcap-ng.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,6 +102,7 @@ typedef enum {
 	MAYBE_SWAPPED
 } swapped_type_t;
 
+struct pcapng_block_header;
 /*
  * Used when reading a savefile.
  */
@@ -112,7 +114,6 @@ struct pcap_sf {
 	swapped_type_t lengths_swapped;
 	int version_major;
 	int version_minor;
-	bpf_u_int32 ifcount;	/* number of interfaces seen in this capture */
 	u_int tsresol;		/* time stamp resolution */
 	u_int tsscale;		/* scaling factor for resolution -> microseconds */
 	u_int64_t tsoffset;	/* time stamp offset */
@@ -209,6 +210,7 @@ struct pcap_opt {
 	char	*source;
 	int	promisc;
 	int	rfmon;
+	int	tstamp_type;
 };
 
 /*
@@ -240,7 +242,13 @@ typedef int	(*setmode_op_t)(pcap_t *, int);
 typedef int	(*setmintocopy_op_t)(pcap_t *, int);
 #endif
 typedef void	(*cleanup_op_t)(pcap_t *);
+typedef void	(*cleanup_interface_op_t)(const char *);
 
+struct pcap_if_info;
+struct pcap_proc_info;
+
+
+	
 struct pcap {
 #ifdef WIN32
 	ADAPTER *adapter;
@@ -255,6 +263,7 @@ struct pcap {
 #ifdef HAVE_LIBDLPI
 	dlpi_handle_t dlpi_hd;
 #endif
+	bpf_u_int32 ifcount;	/* number of interfaces seen in this capture */
 	int snapshot;
 	int linktype;		/* Network linktype */
 	int linktype_ext;       /* Extended information stored in the linktype field of a file */
@@ -331,12 +340,27 @@ struct pcap {
 	char errbuf[PCAP_ERRBUF_SIZE + 1];
 	int dlt_count;
 	u_int *dlt_list;
+	int tstamp_type_count;
+	u_int *tstamp_type_list;
 
 	struct pcap_pkthdr pcap_header;	/* This is needed for the pcap_next_ex() to work */
 	
-#ifdef BIOCSEXTHDR
+	/*
+	 * Apple additions below
+	 */
 	int	extendedhdr;
-#endif
+
+	cleanup_interface_op_t cleanup_interface_op;
+
+	char *filter_str;
+	
+	int shb_added;
+    
+	int if_info_count;
+	struct pcap_if_info **if_infos;
+	
+	int proc_info_count;
+	struct pcap_proc_info **proc_infos;
 };
 
 /*
@@ -427,6 +451,8 @@ int	yylex(void);
 /* XXX should these be in pcap.h? */
 int	pcap_offline_read(pcap_t *, int, pcap_handler, u_char *);
 int	pcap_read(pcap_t *, int cnt, pcap_handler, u_char *);
+
+int pcap_ng_offline_read(pcap_t *, int , pcap_handler , u_char *);
 
 #ifndef HAVE_STRLCPY
 #define strlcpy(x, y, z) \

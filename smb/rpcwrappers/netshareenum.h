@@ -41,7 +41,7 @@ extern "C" {
 #define	SMB_ST_COMM		0x2	/* COMM */
 #define	SMB_ST_PIPE		0x3	/* IPC */
 #define	SMB_ST_ANY		0x4	/* ????? */
-	
+
 	
 int smb_netshareenum(SMBHANDLE inConnection, CFDictionaryRef *outDict, int DiskAndPrintSharesOnly);
 

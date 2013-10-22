@@ -51,41 +51,62 @@
 #include "sudo.h"
 #include "sudo_auth.h"
 
+#ifndef LOGIN_DEFROOTCLASS
+# define LOGIN_DEFROOTCLASS	"daemon"
+#endif
+
 extern char *login_style;		/* from sudo.c */
 
+struct bsdauth_state {
+    auth_session_t *as;
+    login_cap_t *lc;
+};
+
 int
-bsdauth_init(pw, promptp, auth)
+bsdauth_init(pw, auth)
     struct passwd *pw;
-    char **promptp;
     sudo_auth *auth;
 {
-    static auth_session_t *as;
-    extern login_cap_t *lc;			/* from sudo.c */
+    static struct bsdauth_state state;
 
-    if ((as = auth_open()) == NULL) {
-	log_error(USE_ERRNO|NO_EXIT|NO_MAIL,
+    /* Get login class based on auth user, which may not be invoking user. */
+    if (pw->pw_class && *pw->pw_class)
+       state.lc = login_getclass(pw->pw_class);
+    else
+       state.lc = login_getclass(pw->pw_uid ? LOGIN_DEFCLASS : LOGIN_DEFROOTCLASS);
+    if (state.lc == NULL) {
+	log_error(USE_ERRNO|NO_MAIL,
+	    "unable to get login class for user %s", pw->pw_name);
+	return AUTH_FATAL;
+    }
+
+    if ((state.as = auth_open()) == NULL) {
+	log_error(USE_ERRNO|NO_MAIL,
 	    "unable to begin bsd authentication");
-	return(AUTH_FATAL);
+	login_close(state.lc);
+	return AUTH_FATAL;
     }
 
     /* XXX - maybe sanity check the auth style earlier? */
-    login_style = login_getstyle(lc, login_style, "auth-sudo");
+    login_style = login_getstyle(state.lc, login_style, "auth-sudo");
     if (login_style == NULL) {
-	log_error(NO_EXIT|NO_MAIL, "invalid authentication type");
-	auth_close(as);
-	return(AUTH_FATAL);
+	log_error(NO_MAIL, "invalid authentication type");
+	auth_close(state.as);
+	login_close(state.lc);
+	return AUTH_FATAL;
     }
 
-     if (auth_setitem(as, AUTHV_STYLE, login_style) < 0 ||
-	auth_setitem(as, AUTHV_NAME, pw->pw_name) < 0 ||
-	auth_setitem(as, AUTHV_CLASS, login_class) < 0) {
-	log_error(NO_EXIT|NO_MAIL, "unable to setup authentication");
-	auth_close(as);
-	return(AUTH_FATAL);
+     if (auth_setitem(state.as, AUTHV_STYLE, login_style) < 0 ||
+	auth_setitem(state.as, AUTHV_NAME, pw->pw_name) < 0 ||
+	auth_setitem(state.as, AUTHV_CLASS, login_class) < 0) {
+	log_error(NO_MAIL, "unable to setup authentication");
+	auth_close(state.as);
+	login_close(state.lc);
+	return AUTH_FATAL;
     }
 
-    auth->data = (void *) as;
-    return(AUTH_SUCCESS);
+    auth->data = (void *) &state;
+    return AUTH_SUCCESS;
 }
 
 int
@@ -99,7 +120,7 @@ bsdauth_verify(pw, prompt, auth)
     size_t len;
     int authok = 0;
     sigaction_t sa, osa;
-    auth_session_t *as = (auth_session_t *) auth->data;
+    auth_session_t *as = ((struct bsdauth_state *) auth->data)->as;
 
     /* save old signal handler */
     sigemptyset(&sa.sa_mask);
@@ -146,14 +167,14 @@ bsdauth_verify(pw, prompt, auth)
     (void) sigaction(SIGCHLD, &osa, NULL);
 
     if (authok)
-	return(AUTH_SUCCESS);
+	return AUTH_SUCCESS;
 
     if (!pass)
-	return(AUTH_INTR);
+	return AUTH_INTR;
 
     if ((s = auth_getvalue(as, "errormsg")) != NULL)
-	log_error(NO_EXIT|NO_MAIL, "%s", s);
-    return(AUTH_FAILURE);
+	log_error(NO_MAIL, "%s", s);
+    return AUTH_FAILURE;
 }
 
 int
@@ -161,9 +182,12 @@ bsdauth_cleanup(pw, auth)
     struct passwd *pw;
     sudo_auth *auth;
 {
-    auth_session_t *as = (auth_session_t *) auth->data;
+    struct bsdauth_state *state = auth->data;
 
-    auth_close(as);
+    if (state != NULL) {
+	auth_close(state->as);
+	login_close(state->lc);
+    }
 
-    return(AUTH_SUCCESS);
+    return AUTH_SUCCESS;
 }

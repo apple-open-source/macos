@@ -73,10 +73,6 @@ static PassRefPtr<SharedBuffer> loadResourceSharedBuffer(CString name)
     return SharedBuffer::create(content.get(), length);
 }
 
-void BitmapImage::initPlatformData()
-{
-}
-
 void BitmapImage::invalidatePlatformData()
 {
 }
@@ -112,8 +108,8 @@ PassRefPtr<Image> Image::loadPlatformThemeIcon(const char* name, int size)
 
 GdkPixbuf* BitmapImage::getGdkPixbuf()
 {
-    NativeImageCairo* image = nativeImageForCurrentFrame();
-    return image ? cairoImageSurfaceToGdkPixbuf(image->surface()) : 0;
+    RefPtr<cairo_surface_t> surface = nativeImageForCurrentFrame();
+    return surface ? cairoImageSurfaceToGdkPixbuf(surface.get()) : 0;
 }
 
 }

@@ -143,19 +143,18 @@ void CodeDirectory::checkIntegrity() const
 	// now check interior offsets for validity
 	if (!stringAt(identOffset))
 		MacOSError::throwMe(errSecCSSignatureFailed); // identifier out of blob range
-	if (!contains(hashOffset - uint64_t(hashSize) * nSpecialSlots, hashSize * (uint64_t(nSpecialSlots) + nCodeSlots)))
+	if (!contains(hashOffset - int64_t(hashSize) * nSpecialSlots, hashSize * (int64_t(nSpecialSlots) + nCodeSlots)))
 		MacOSError::throwMe(errSecCSSignatureFailed); // hash array out of blob range
 	if (const Scatter *scatter = this->scatterVector()) {
 		// the optional scatter vector is terminated with an element having (count == 0)
 		unsigned int pagesConsumed = 0;
-		while (scatter->count) {
+		for (;; scatter++) {
 			if (!contains(scatter, sizeof(Scatter)))
 				MacOSError::throwMe(errSecCSSignatureFailed);
+			if (scatter->count == 0)
+				break;
 			pagesConsumed += scatter->count;
-			scatter++;
 		}
-		if (!contains(scatter, sizeof(Scatter)))			// (even sentinel must be in range)
-			MacOSError::throwMe(errSecCSSignatureFailed);
 		if (!contains((*this)[pagesConsumed-1], hashSize))	// referenced too many main hash slots
 			MacOSError::throwMe(errSecCSSignatureFailed);
 	}
@@ -217,8 +216,6 @@ DynamicHash *CodeDirectory::hashFor(HashAlgorithm hashType)
 	switch (hashType) {
 	case kSecCodeSignatureHashSHA1:						alg = kCCDigestSHA1; break;
 	case kSecCodeSignatureHashSHA256:					alg = kCCDigestSHA256; break;
-	case kSecCodeSignatureHashPrestandardSkein160x256:	alg = kCCDigestSkein160; break;
-	case kSecCodeSignatureHashPrestandardSkein256x512:	alg = kCCDigestSkein256; break;
 	default:
 		MacOSError::throwMe(errSecCSSignatureUnsupported);
 	}
@@ -292,6 +289,8 @@ const SecCodeDirectoryFlagTable kSecCodeDirectoryFlagTable[] = {
 	{ "adhoc",		kSecCodeSignatureAdhoc,			false },
 	{ "hard",		kSecCodeSignatureForceHard,		true },
 	{ "kill",		kSecCodeSignatureForceKill,		true },
-	{ "expires",	kSecCodeSignatureForceExpiration, true },
+	{ "expires",		kSecCodeSignatureForceExpiration,	true },
+	{ "restrict",		kSecCodeSignatureRestrict,		true },
+	{ "enforcement",	kSecCodeSignatureEnforcement,		true },
 	{ NULL }
 };

@@ -65,7 +65,7 @@ extern const CFStringRef kSecCodeInfoResourceDirectory;		/* Internal */
 	@param status Upon successful return, contains the dynamic status of code as
 	determined by its host.
 	
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
  */
 OSStatus SecCodeGetStatus(SecCodeRef code, SecCSFlags flags, SecCodeStatus *status);
@@ -81,7 +81,7 @@ OSStatus SecCodeGetStatus(SecCodeRef code, SecCSFlags flags, SecCodeStatus *stat
 	@param status Upon successful return, contains the dynamic status of code as
 	determined by its host.
 	
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
  */
 typedef uint32_t SecCodeStatusOperation;
@@ -117,7 +117,7 @@ OSStatus SecCodeSetStatus(SecCodeRef code, SecCodeStatusOperation operation,
 	@param requirement On successful return, contains a copy of the internal requirement
 		of the given type included in the given code. If the code has no such internal
 		requirement, this argument is set to NULL (with no error).
-	@result On success, noErr. On error, an OSStatus value
+	@result On success, errSecSuccess. On error, an OSStatus value
 		documented in CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeCopyInternalRequirement(SecStaticCodeRef code, SecRequirementType type,
@@ -137,7 +137,7 @@ OSStatus SecCodeCopyInternalRequirement(SecStaticCodeRef code, SecRequirementTyp
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param process On successful return, a SecCode object reference identifying
 	the requesteed process.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *process)

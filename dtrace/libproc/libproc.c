@@ -994,8 +994,8 @@ void Penqueue_proc_activity(struct ps_prochandle* P, struct ps_proc_activity_eve
 		Pdestroy_proc_activity(activity);
 	}
 	
+	pthread_cond_broadcast(&P->proc_activity_queue_cond);
 	pthread_mutex_unlock(&P->proc_activity_queue_mutex);
-	pthread_cond_broadcast(&P->proc_activity_queue_cond);	
 }
 
 void Pcreate_async_proc_activity(struct ps_prochandle* P, rd_event_e type)
@@ -1076,8 +1076,8 @@ void Pdestroy_proc_activity(void* opaque)
 		if (activity->synchronous) {
 			pthread_mutex_lock(&activity->synchronous_mutex);
 			activity->destroyed = true;
-			pthread_mutex_unlock(&activity->synchronous_mutex);
 			pthread_cond_broadcast(&activity->synchronous_cond);
+			pthread_mutex_unlock(&activity->synchronous_mutex);
 		} else {
 			free(activity);
 		}

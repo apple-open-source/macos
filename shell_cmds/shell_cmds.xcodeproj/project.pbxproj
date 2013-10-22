@@ -14,6 +14,7 @@
 				FCE30EB814B531EC00CC0294 /* ShellScript */,
 			);
 			dependencies = (
+				C6868583154725A30025D623 /* PBXTargetDependency */,
 				FCBA150114A144F700AA698B /* PBXTargetDependency */,
 				FCBA150314A144F700AA698B /* PBXTargetDependency */,
 				FCBA150514A144F700AA698B /* PBXTargetDependency */,
@@ -73,6 +74,7 @@
 				FCE30F4D14B619C900CC0294 /* Run Script */,
 			);
 			dependencies = (
+				C6868581154725990025D623 /* PBXTargetDependency */,
 				FCE30F4F14B619E600CC0294 /* PBXTargetDependency */,
 				FCE30F5114B619E600CC0294 /* PBXTargetDependency */,
 				FCE30F5314B619E600CC0294 /* PBXTargetDependency */,
@@ -124,6 +126,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		C686857A154725700025D623 /* systime.c in Sources */ = {isa = PBXBuildFile; fileRef = C6868579154725700025D623 /* systime.c */; };
+		C686857C154725700025D623 /* systime.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C686857B154725700025D623 /* systime.1 */; };
 		FC2B5BFB14B3CCC600ECF511 /* uname.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA140914A141A300AA698B /* uname.c */; };
 		FC2B5BFD14B3CCD200ECF511 /* uname.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA140814A141A300AA698B /* uname.1 */; };
 		FC2B5BFE14B3CCD700ECF511 /* true.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA140414A141A300AA698B /* true.c */; };
@@ -252,6 +256,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		C6868580154725990025D623 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC80BF5714A05A2F00C6F7F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C6868575154725700025D623;
+			remoteInfo = systime;
+		};
+		C6868582154725A30025D623 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC80BF5714A05A2F00C6F7F5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C6868575154725700025D623;
+			remoteInfo = systime;
+		};
 		FC5D63A114B9864400123E48 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FC80BF5714A05A2F00C6F7F5 /* Project object */;
@@ -899,6 +917,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		C6868574154725700025D623 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/local/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				C686857C154725700025D623 /* systime.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		FC5D638614B9819E00123E48 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1417,6 +1445,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C6868576154725700025D623 /* systime */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = systime; sourceTree = BUILT_PRODUCTS_DIR; };
+		C6868579154725700025D623 /* systime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = systime.c; sourceTree = "<group>"; };
+		C686857B154725700025D623 /* systime.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = systime.1; sourceTree = "<group>"; };
 		FC5D636814B9808E00123E48 /* conv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = conv.c; sourceTree = "<group>"; };
 		FC5D636914B9808E00123E48 /* display.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = display.c; sourceTree = "<group>"; };
 		FC5D636A14B9808E00123E48 /* hexdump.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = hexdump.1; sourceTree = "<group>"; };
@@ -1492,13 +1523,11 @@
 		FCBA13A914A141A300AA698B /* locate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = locate.h; sourceTree = "<group>"; };
 		FCBA13AA14A141A300AA698B /* locate.rc */ = {isa = PBXFileReference; lastKnownFileType = text; path = locate.rc; sourceTree = "<group>"; };
 		FCBA13AB14A141A300AA698B /* locate.updatedb.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = locate.updatedb.8; sourceTree = "<group>"; };
-		FCBA13AC14A141A300AA698B /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		FCBA13AD14A141A300AA698B /* mklocatedb.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = mklocatedb.sh; sourceTree = "<group>"; };
 		FCBA13AE14A141A300AA698B /* pathnames.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
 		FCBA13AF14A141A300AA698B /* updatedb.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = updatedb.sh; sourceTree = "<group>"; };
 		FCBA13B014A141A300AA698B /* util.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = util.c; sourceTree = "<group>"; };
 		FCBA13B114A141A300AA698B /* locate.code.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = locate.code.8; sourceTree = "<group>"; };
-		FCBA13B214A141A300AA698B /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		FCBA13B414A141A300AA698B /* logname.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = logname.1; sourceTree = "<group>"; };
 		FCBA13B514A141A300AA698B /* logname.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = logname.c; sourceTree = "<group>"; };
 		FCBA13C014A141A300AA698B /* mktemp.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = mktemp.1; sourceTree = "<group>"; };
@@ -1525,7 +1554,6 @@
 		FCBA13E914A141A300AA698B /* shlock.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = shlock.c; sourceTree = "<group>"; };
 		FCBA13EC14A141A300AA698B /* sleep.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = sleep.1; sourceTree = "<group>"; };
 		FCBA13ED14A141A300AA698B /* sleep.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sleep.c; sourceTree = "<group>"; };
-		FCBA13EF14A141A300AA698B /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		FCBA13F014A141A300AA698B /* su.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = su.1; sourceTree = "<group>"; };
 		FCBA13F114A141A300AA698B /* su.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = su.c; sourceTree = "<group>"; };
 		FCBA13F214A141A300AA698B /* su.pam */ = {isa = PBXFileReference; lastKnownFileType = text; path = su.pam; sourceTree = "<group>"; };
@@ -1545,7 +1573,6 @@
 		FCBA140D14A141A300AA698B /* users.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = users.c; sourceTree = "<group>"; };
 		FCBA140F14A141A300AA698B /* extern.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
 		FCBA141014A141A300AA698B /* fmt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fmt.c; sourceTree = "<group>"; };
-		FCBA141114A141A300AA698B /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		FCBA141214A141A300AA698B /* pr_time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pr_time.c; sourceTree = "<group>"; };
 		FCBA141314A141A300AA698B /* proc_compare.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = proc_compare.c; sourceTree = "<group>"; };
 		FCBA141414A141A300AA698B /* uptime.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = uptime.1; sourceTree = "<group>"; };
@@ -1616,6 +1643,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		C6868573154725700025D623 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC5D638514B9819E00123E48 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1956,6 +1990,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		C6868578154725700025D623 /* systime */ = {
+			isa = PBXGroup;
+			children = (
+				C6868579154725700025D623 /* systime.c */,
+				C686857B154725700025D623 /* systime.1 */,
+			);
+			path = systime;
+			sourceTree = "<group>";
+		};
 		FC5D636714B9808E00123E48 /* hexdump */ = {
 			isa = PBXGroup;
 			children = (
@@ -2018,6 +2061,7 @@
 				FCBA13E614A141A300AA698B /* shlock */,
 				FCBA13EA14A141A300AA698B /* sleep */,
 				FCBA13EE14A141A300AA698B /* su */,
+				C6868578154725700025D623 /* systime */,
 				FCBA13F314A141A300AA698B /* tee */,
 				FCBA13F714A141A300AA698B /* test */,
 				FCBA13FD14A141A300AA698B /* time */,
@@ -2086,6 +2130,7 @@
 				FCE30EDE14B536C900CC0294 /* locate.code */,
 				FC5D638B14B9819E00123E48 /* what */,
 				FC5D639714B9822D00123E48 /* hexdump */,
+				C6868576154725700025D623 /* systime */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2274,7 +2319,6 @@
 				FCBA139D14A141A300AA698B /* bigram */,
 				FCBA13A014A141A300AA698B /* code */,
 				FCBA13A314A141A300AA698B /* locate */,
-				FCBA13B214A141A300AA698B /* Makefile */,
 			);
 			path = locate;
 			sourceTree = "<group>";
@@ -2307,7 +2351,6 @@
 				FCBA13A914A141A300AA698B /* locate.h */,
 				FCBA13AA14A141A300AA698B /* locate.rc */,
 				FCBA13AB14A141A300AA698B /* locate.updatedb.8 */,
-				FCBA13AC14A141A300AA698B /* Makefile */,
 				FCBA13AD14A141A300AA698B /* mklocatedb.sh */,
 				FCBA13AE14A141A300AA698B /* pathnames.h */,
 				FCBA13AF14A141A300AA698B /* updatedb.sh */,
@@ -2436,7 +2479,6 @@
 		FCBA13EE14A141A300AA698B /* su */ = {
 			isa = PBXGroup;
 			children = (
-				FCBA13EF14A141A300AA698B /* Makefile */,
 				FCBA13F014A141A300AA698B /* su.1 */,
 				FCBA13F114A141A300AA698B /* su.c */,
 				FCBA13F214A141A300AA698B /* su.pam */,
@@ -2506,7 +2548,6 @@
 			children = (
 				FCBA140F14A141A300AA698B /* extern.h */,
 				FCBA141014A141A300AA698B /* fmt.c */,
-				FCBA141114A141A300AA698B /* Makefile */,
 				FCBA141214A141A300AA698B /* pr_time.c */,
 				FCBA141314A141A300AA698B /* proc_compare.c */,
 				FCBA141414A141A300AA698B /* uptime.1 */,
@@ -2569,6 +2610,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		C6868575154725700025D623 /* systime */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C686857E154725700025D623 /* Build configuration list for PBXNativeTarget "systime" */;
+			buildPhases = (
+				C6868572154725700025D623 /* Sources */,
+				C6868573154725700025D623 /* Frameworks */,
+				C6868574154725700025D623 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = systime;
+			productName = systime;
+			productReference = C6868576154725700025D623 /* systime */;
+			productType = "com.apple.product-type.tool";
+		};
 		FC5D637F14B9819E00123E48 /* what */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FC5D638914B9819E00123E48 /* Build configuration list for PBXNativeTarget "what" */;
@@ -3446,6 +3504,7 @@
 				FCBA15C614A145A200AA698B /* shlock */,
 				FCBA15CE14A145A500AA698B /* sleep */,
 				FCBA15D614A145A700AA698B /* su */,
+				C6868575154725700025D623 /* systime */,
 				FCBA15DE14A145A900AA698B /* tee */,
 				FCBA15E614A145AE00AA698B /* test */,
 				FCBA15EE14A145B000AA698B /* time */,
@@ -3496,6 +3555,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		C6868572154725700025D623 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C686857A154725700025D623 /* systime.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FC5D638014B9819E00123E48 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -3903,6 +3970,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		C6868581154725990025D623 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C6868575154725700025D623 /* systime */;
+			targetProxy = C6868580154725990025D623 /* PBXContainerItemProxy */;
+		};
+		C6868583154725A30025D623 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C6868575154725700025D623 /* systime */;
+			targetProxy = C6868582154725A30025D623 /* PBXContainerItemProxy */;
+		};
 		FC5D63A214B9864400123E48 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FC5D638F14B9822D00123E48 /* hexdump */;
@@ -4366,6 +4443,14 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		C686857D154725700025D623 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		FC5D638A14B9819E00123E48 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -4775,6 +4860,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		C686857E154725700025D623 /* Build configuration list for PBXNativeTarget "systime" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C686857D154725700025D623 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FC5D638914B9819E00123E48 /* Build configuration list for PBXNativeTarget "what" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

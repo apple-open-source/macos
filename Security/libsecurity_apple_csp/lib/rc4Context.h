@@ -24,9 +24,8 @@
 #define _RC4_CONTEXT_H_
 
 #include "AppleCSPContext.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <CommonCrypto/CommonCryptor.h>
-#include "/usr/local/include/CommonCrypto/CommonCryptorSPI.h"
+#include <CommonCrypto/CommonCryptorSPI.h>
 
 class RC4Context : public AppleCSPContext {
 public:

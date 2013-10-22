@@ -74,6 +74,7 @@ struct nbpcb {
 	struct timespec	nbp_timo;
 	uint32_t		nbp_sndbuf;
 	uint32_t		nbp_rcvbuf;
+	uint32_t		nbp_rcvchunk;
 	void *		nbp_selectid;
 	void		(* nbp_upcall)(void *);
 	lck_mtx_t	nbp_lock;

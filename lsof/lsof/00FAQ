@@ -13,7 +13,7 @@ This file contains frequently asked questions about lsof and answers
 to them.
 
 Vic Abell <abe@purdue.edu>
-September 27, 2011
+July 15, 2012
 ______________________________________________________________________
 
 Table of Contents:
@@ -93,6 +93,8 @@ Table of Contents:
 3.18.1	Why isn't a name displayed for the portmap registration?
 3.18.2	How can I display only portmap registrations?
 3.18.3	Why doesn't lsof report portmap registrations for some ports?
+3.18.4	Why doesn't lsof report portmap registrations for some Solaris
+	versions?
 3.19	Why is `lsof | wc` bigger than my system's open file limit?
 3.20	Why doesn't lsof report file offset (position)?
 3.20.1	What does lsof report for size when the file doesn't really have
@@ -187,6 +189,8 @@ Table of Contents:
 3.46	Why won't lsof find open files on over-mounted file systems?
 3.47	What can be done when lsof reports no more space?
 3.48	What if the lsof build encounters ar and ld problems?
+3.49	Why does lsof -i report an open socket file for a process, but
+	lsof -p on that process' ID report nothing?
 
 4.0	AIX Problems
 4.1	What is the Stale Segment ID bug and why is -X needed?
@@ -226,12 +230,13 @@ Table of Contents:
 	files are missing?
 5.2.2	Why doesn't Apple Darwin lsof report text file information?
 5.2.3	Why doesn't Apple Darwin lsof support IPv6?
-5.2.4     Why does lsof complain about a mismatch between the release
+5.2.4	Why does lsof complain about a mismatch between the release
 	for which lsof was compiled and the booted Mac OS X release?
 5.2.5	Why does lsof for Apple Darwin 8 and higher report
 	"stat(...): ..." in the NAME column?
 5.2.6	What are the limitations of Apple Darwin lsof link count
 	reporting?
+5.2.7	Why does Apple Darwin report process group IDs incorrectly?"ayy
 5.3	Libproc-based Apple Darwin Questions
 
 6.0	BSD/OS BSDI Problems
@@ -262,6 +267,7 @@ Table of Contents:
 	and higher lsof?
 8.6.2	Why don't /usr/src/sys/sys/lockf.h and /usr/include/sys/lockf.h
 	match?
+8.7	Why won't lsof compile with clang?
 
 9.0	HP-UX Problems
 9.1	What do /dev/kmem-based and PSTAT-based mean?
@@ -496,12 +502,8 @@ Table of Contents:
 17.26.1	Why doesn't lsof report size, link count and node number for
 	Solaris 10 contract files?
 17.26.2 Why can't lsof locate a Solaris 10 contract file by path name?
-17.27	Solaris 10 ZFS probblems
-17.27.1	Why does Configure ask for the location of ZFS header files?
-17.27.2 Why do -h and -v output warn about possibly inaccurate ZFS
-	structure definitions?
-17.27.3 Why don't the Open Solaris ZFS header files provide correct
-	ZFS kernel structure definitions?
+17.27	Solaris 10 and above ZFS probblems
+17.27.1	Why does Configure warn that ZFS support is not enabled?
 17.28	Problems with Solaris 9 and above
 17.28.1	Why does the compiler complain about lgrp_root on Solaris 9
 	and above?
@@ -936,7 +938,7 @@ ______________________________________________________________________
 
 	    AIX 5.[23] and 5.3
 	    FreeBSD 4.9 and 6.4 for x86-based systems
-	    FreeBSD 8.[02] for AMD64-based systems
+	    FreeBSD 8.2, 9.0 and 10.0 for AMD64-based systems
 	    Linux 2.1.72 and above for x86-based systems
 	    Solaris 9, 10 and 11
 
@@ -1414,11 +1416,12 @@ ______________________________________________________________________
 	commands, try lsof's "-c[^]cmd" option.
 
 	If you're interested in certain Internet TCP and UDP states
-	(e.g., ESTABLISHED) or in excluding some (e.g., CLOSE_WAIT), try
-	lsof's "-s p:s" option.  More information on it may be found in
-	the answer to the "How are protocol state name exclusion and
-	inclusion used?" question.
-	
+	(e.g., ESTABLISHED) or in excluding some (e.g., CLOSE_WAIT),
+	try lsof's "-s p:s" option, available in lsof 4.81 and later.
+	More information on it may be found in the answer to the "How
+	are protocol state name exclusion and inclusion used?"
+	question.
+
 	Your UNIX dialect may not support "-s p:s" and its associated
 	performance improvments to Internet-only file processing.  You
 	can find more information on those topics in the answer to the
@@ -1949,6 +1952,44 @@ ______________________________________________________________________
 	different interfaces), and the foreign Internet address
 	isn't INADDR_LOOPBACK (127.0.0.1).
 
+3.18.4	Why doesn't lsof report portmap registrations for some Solaris
+	versions?
+
+	In some versions of Solaris -- 9 and 10 are known to exhibit
+	this problem -- lsof is unable to display portmap registrations.
+
+	This portmap registration reporting failure occurs when the
+	Solaris netconfig field (in /etc or etc/inet) has its first two
+	non-comment lines enabling tcp6 and udp6.  When netconfig is
+	configured in that fashion, lsof's attempt to read the portmap
+	via an RPC function fails.
+
+	I don't have an explanation for the failure, but this comment
+	in the netconfig(4) man page appears to have some bearing on
+	the problem:
+
+	    # The following two entries starting with udp6 and tcp6 are
+	    # meant to be used for IPv6. If you have Ipv6 enabled on your
+	    # machine then you can uncomment these two lines to enable
+	    # RPC and NFS to use the Ipv6 stack.
+	    ...
+	    #udp6  tpi_clts      v  inet6  udp  /dev/udp6  -
+	    #tcp6  tpi_cots_ord  v  inet6  tcp  /dev/tcp6  - "
+
+	My interpretation of that comment is that there is a different
+	RPC interface to the portmap when IPv6 is enabled.  However, I
+	can't find any documentation on it in the RPC man pages.  If
+	anyone has information on it, please send it to me at
+	<abe@purdue> and put "lsof Solaris portmap" in the subject
+	line.
+
+	A work-around may be to move the ucp6 and tcp6 lines after the
+	udp and tcxp lines in netconfig.  I don't know if that change
+	has any unacceptable consequences, but it works for me on my
+	Solaris 9 test system, and I have a report that it also works
+	on Solaris 10.
+
+
 3.19	Why is `lsof | wc` bigger than my system's open file limit?
 
 	There is a strong temptation to count open files by piping
@@ -1979,8 +2020,13 @@ ______________________________________________________________________
 3.20	Why doesn't lsof report file offset (position)?
 
 	Lsof won't report a file offset (position) value if the -s
-	option has been specified, or if the dialect doesn't support
-	the displaying of file offset (position).
+	option (without parameters) has been specified, or if the
+	dialect doesn't support the displaying of file offset
+	(position).  (Note that at revision 4.81 the -s option took on
+	added functionality when parameters are supplied to it; for
+	more information on that addition, see the answer to the "How
+	are protocol state name exclusion and inclusion used?"
+	question.)
 
 	That lsof is reporting only file size is indicated by the
 	fact that the appropriate column header says SIZE instead
@@ -3535,6 +3581,28 @@ ______________________________________________________________________
 	compiler, so the problem must be fixed at the compiler (system)
 	level.
 
+3.49	Why does lsof -i report an open socket file for a process, but
+	lsof -p on that process' ID report nothing?
+
+	The lsof in use was probably built with the HASSECURITY and
+	HASNOSOCKSECURITY options and the process in question does not
+	belong to the user of lsof.
+
+	The HASSECURITY option limits lsof output to processes owned
+	by the user invoking lsof and the HASNOSOCKSECURITY option
+	weakens that slightly to allow output of open socket file
+	information for all processes.
+
+	For example, if process PID 12345 is owned by some user other
+	than the one invoking lsof, and lsof has been compiled with the
+	HASSECURITY and HASNOSOCKSECURITY options, the following lsof
+	command will display the open socket files of process 12345:
+
+		$ lsof -p 12345 -a -i
+
+	This security restriction is described in the lsof(8) manual
+	page.
+
 
 4.0	AIX Problems
 
@@ -4212,6 +4280,19 @@ ______________________________________________________________________
 	result lsof never displays link counts of zero and the use of
 	lsof's +L1 option to find them always fails.
 
+5.2.7	Why does Apple Darwin report process group IDs incorrectly?"
+
+	The kmem version of lsof for Apple Darwin does not report
+	process group IDs correctly when requested to do so with its
+	``-g'' option.  This is a bug that surfaced after the libproc
+	version was released and access to kmem test systems has
+	prevented patching the bug.
+
+	If you are using the kmem version and would like a fix for this
+	problem, please send e-mail to me <abe@purdue.edu>.  Make sure
+	"lsof" appears in the "Subject:" line so my e-mail filter won't
+	classify your letter as Spam.
+
 5.3	Libproc-based Apple Darwin Questions
 
 	
@@ -4591,6 +4672,12 @@ ______________________________________________________________________
 	csup, the new lockf.h won't be propagated to /usr/include/sys
 	until the "make buildworld" and "make installworld" steps have
 	been completed.
+
+8.7	Why won't lsof compile with clang?
+
+	As of October 2011 lsof revision 4.85 will not compile with
+	clang on FreeBSD because the FreeBSD system header files do not
+	conform to clang requirements.  There is no work-around.
 
 
 9.0	HP-UX Problems
@@ -6190,7 +6277,9 @@ ______________________________________________________________________
 14.10	How are protocol state name exclusion and inclusion used?
 
 	Protocol state name inclusion and exclusion with the ``-s p:s''
-	option and its arguments have some issues to consider.
+	option and its arguments have some issues to consider.  Note:
+	the ``-s p:s'' option is only available in lsof 4.81 and
+	later.
 
 	First, there is the problem of determining what state names, if
 	any, the dialect produces.  Try running this lsof command to
@@ -7670,82 +7759,24 @@ ______________________________________________________________________
 	applying stat(2) to the contract file path name with what it
 	finds in kernel data.
 
-17.27	Solaris 10 ZFS probblems
+17.27	Solaris 10 and above ZFS probblems
 
-17.27.1	Why does Configure ask for the location of ZFS header files?
+17.27.1	Why does Configure warn that ZFS support is not enabled?
 
-	To provide ZFS support when lsof is compiled it needs to have
-	access to the definitions of ZFS structures used by the kernel.
-	Those definitions are contained in header files that Sun does
-	not distribute with Solaris 10.
+	To provide ZFS support it is necessary that lsof have access to
+	the definitions of ZFS structures used by the kernel.  Those
+	definitions are made available to lsof when it runs by the
+	libctl library.
 
-	When the Configure script detects the system might support ZFS
-	by finding the <sys/fs/zfs.h> header file, it checks for the
-	required ZFS kernel structure definition header files.  When
-	they are not found, it asks if ZFS support should be included
-	and if so, with what definitions.
+	If lsof's Configure script finds that ZFS is indicated by the
+	presence of the <sys/fs/zfs.h> header file, but the libctl
+	library is not indicated via the <libctl.h> header file, the
+	script concludes that ZFS support is not possible and issues
+	the following warning:
 
-	Two sources can be declared for definitions: 1) lsof's internal
-	ones; or 2) the necessary header files at some location other
-	than /usr/include/sys.
-	
-	The necessary header files are:
+	  WARNING: ZFS support not enabled; libctf.h missing.
 
-	    dmu.h  zfs_acl.h      zfs_debug.h  zfs_rlock.h   zil.h
-	    spa.h  zfs_context.h  zfs_dir.h    zfs_vfsops.h  zio.h
-	    txg.h  zfs_ctldir.h   zfs_ioctl.h  zfs_znode.h   zio_impl.h
-	
-	The necessary header files might have been obtained, for
-	example, from the http://src.opensolaris.org Open Solaris
-	source site.  However, the Open Solaris header files might not
-	be adequate -- see the answer to the "Why don't the Open
-	Solaris ZFS header files provide correct ZFS kernel structure
-	definitions?' question for information on why the Open Solaris
-	ZFS header files might not provide correct ZFS kernel structure
-	definitions.
-
-	The supplied header file path must point to a directory that
-	contains a sys/ subdirectory where the matching header files
-	are located -- e.g., if the supplied path is /tmp/zfs, then
-	/tmp/zfs/sys must contain the necessary header files.
-
-	See the answer to the "Why do -h and -v output warn about
-	possibly inaccurate ZFS kernel structure definitions?" question
-	for information on the risks associated with using lsof's
-	internal definitions.
-
-17.27.2 Why do -h and -v output warn about possibly inaccurate ZFS
-	kernel structure definitions?
-
-	When lsof is configured to use its internal ZFS kernel
-	structure definitions, there is the chance that the definitions
-	may be out of date.  Hence, an lsof built with them may report
-	incorrect device numbers, file sizes, node numbers and link
-	counts.
-
-	Please contact me via e-mail at <abe@purdue.edu> for work-around
-	suggestions.  Make sure "lsof" appears in the "Subject:" line so
-	my e-mail filter won't classify your letter as Spam.
-
-17.27.3 Why don't the Open Solaris ZFS header files provide correct
-	ZFS kernel structure definitions?
-
-	The Open Solaris ZFS header files may not provide correct ZFS
-	kernel definitions.  An lsof built with them may report
-	incorrect device numbers, file sizes, node numbers and link
-	counts.
-
-	The definitions may be incorrect because the Open Solaris
-	header files are not synchronized with any particular Solaris
-	10 release.  Consequently they might contain modifications to
-	the structures not in the structure definitions used to build
-	the running kernel.  It may be that only Sun has header files
-	that match the kernel structures of the running Solaris 10
-	kernel.
-
-	Please contact me via e-mail at <abe@purdue.edu> for work-around
-	suggestions.  Make sure "lsof" appears in the "Subject:" line so
-	my e-mail filter won't classify your letter as Spam.
+	Install libctf support to remedy this problem.
 
 
 17.28	Problems with Solaris 9 and above

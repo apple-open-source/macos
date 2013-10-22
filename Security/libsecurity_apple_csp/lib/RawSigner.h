@@ -23,7 +23,6 @@
 #ifndef	_RAW_SIGNER_H_
 #define _RAW_SIGNER_H_
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <security_cdsa_utilities/context.h>
 #include <security_utilities/alloc.h>
 

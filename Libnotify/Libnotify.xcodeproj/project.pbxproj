@@ -53,6 +53,7 @@
 		3FA21AD8148AAABE00099D2F /* com.apple.notifyd.plist in Install launchd.plist */ = {isa = PBXBuildFile; fileRef = 3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */; };
 		3FA21AE6148AAEAC00099D2F /* notify_ipc.defs in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
 		3FD0DBAD148AB12000C50811 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 3FD0DBAC148AB12000C50811 /* libbsm.dylib */; };
+		FC7B7A53155781930064D203 /* notify_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = FC7B7A52155781930064D203 /* notify_internal.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -178,6 +179,7 @@
 		3FA21ADF148AACA000099D2F /* notify.conf.MacOSX */ = {isa = PBXFileReference; lastKnownFileType = text; name = notify.conf.MacOSX; path = notifyd/notify.conf.MacOSX; sourceTree = SOURCE_ROOT; };
 		3FD0DBAC148AB12000C50811 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		3FD0DBC6148AC16B00C50811 /* notify.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = notify.xcconfig; path = xcodeconfig/notify.xcconfig; sourceTree = "<group>"; };
+		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -251,6 +253,7 @@
 		2D312B83102CA35300F90022 /* Project Headers */ = {
 			isa = PBXGroup;
 			children = (
+				FC7B7A52155781930064D203 /* notify_internal.h */,
 				2D312B84102CA36C00F90022 /* notify_ipc_types.h */,
 				2D312B85102CA36C00F90022 /* table.h */,
 			);
@@ -386,6 +389,7 @@
 				2D312B82102CA34D00F90022 /* libnotify.h in Headers */,
 				2D312B87102CA36C00F90022 /* table.h in Headers */,
 				2DCB287210D99ADA00DF3A8D /* notify_private.h in Headers */,
+				FC7B7A53155781930064D203 /* notify_internal.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -587,6 +591,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3FD0DBC6148AC16B00C50811 /* notify.xcconfig */;
 			buildSettings = {
+				APPLY_RULES_IN_COPY_FILES = YES;
 			};
 			name = Release;
 		};

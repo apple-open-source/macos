@@ -36,7 +36,6 @@
 class WebChromeClient : public WebCore::ChromeClient {
 public:
     WebChromeClient(WebView*);
-    virtual void* webView() const { return static_cast<void*>(m_webView); }
     
     virtual void chromeDestroyed() OVERRIDE;
     
@@ -74,7 +73,7 @@ public:
     
     virtual void setResizable(bool) OVERRIDE;
     
-    virtual void addMessageToConsole(WebCore::MessageSource, WebCore::MessageType, WebCore::MessageLevel, const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceURL) OVERRIDE;
+    virtual void addMessageToConsole(WebCore::MessageSource, WebCore::MessageLevel, const WTF::String& message, unsigned lineNumber, unsigned columnNumber, const WTF::String& sourceURL) OVERRIDE;
 
     virtual bool canRunBeforeUnloadConfirmPanel() OVERRIDE;
     virtual bool runBeforeUnloadConfirmPanel(const WTF::String& message, WebCore::Frame*) OVERRIDE;
@@ -88,6 +87,7 @@ public:
 
     virtual WebCore::IntRect windowResizerRect() const OVERRIDE;
 
+    virtual bool supportsImmediateInvalidation() OVERRIDE;
     virtual void invalidateRootView(const WebCore::IntRect&, bool) OVERRIDE;
     virtual void invalidateContentsAndRootView(const WebCore::IntRect&, bool) OVERRIDE;
     virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&, bool) OVERRIDE;
@@ -110,14 +110,14 @@ public:
 
     virtual void print(WebCore::Frame*) OVERRIDE;
 #if ENABLE(SQL_DATABASE)
-    virtual void exceededDatabaseQuota(WebCore::Frame*, const WTF::String& databaseName) OVERRIDE;
+    virtual void exceededDatabaseQuota(WebCore::Frame*, const WTF::String& databaseName, WebCore::DatabaseDetails) OVERRIDE;
 #endif
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded) OVERRIDE;
     virtual void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin*, int64_t totalSpaceNeeded) OVERRIDE;
     virtual void populateVisitedLinks() OVERRIDE;
 
 #if ENABLE(DASHBOARD_SUPPORT)
-    virtual void dashboardRegionsChanged() OVERRIDE;
+    virtual void annotatedRegionsChanged() OVERRIDE;
 #endif
 
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>) OVERRIDE;
@@ -134,7 +134,8 @@ public:
     virtual NSResponder *firstResponder() OVERRIDE;
     virtual void makeFirstResponder(NSResponder *) OVERRIDE;
 
-    virtual void willPopUpMenu(NSMenu *) OVERRIDE;
+    virtual void enableSuddenTermination() OVERRIDE;
+    virtual void disableSuddenTermination() OVERRIDE;
     
     virtual bool shouldReplaceWithGeneratedFileForUpload(const WTF::String& path, WTF::String &generatedFilename) OVERRIDE;
     virtual WTF::String generateReplacementFile(const WTF::String& path) OVERRIDE;
@@ -144,10 +145,12 @@ public:
     virtual void elementDidFocus(const WebCore::Node*) OVERRIDE;
     virtual void elementDidBlur(const WebCore::Node*) OVERRIDE;
 
+    virtual bool shouldPaintEntireContents() const OVERRIDE;
+
 #if USE(ACCELERATED_COMPOSITING)
     virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) OVERRIDE;
     virtual void setNeedsOneShotDrawingSynchronization() OVERRIDE;
-    virtual void scheduleCompositingLayerSync() OVERRIDE;
+    virtual void scheduleCompositingLayerFlush() OVERRIDE;
 
     virtual CompositingTriggerFlags allowedCompositingTriggers() const
     {
@@ -180,8 +183,10 @@ public:
     virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const OVERRIDE;
 
     virtual void numWheelEventHandlersChanged(unsigned) OVERRIDE { }
-    virtual void numTouchEventHandlersChanged(unsigned) OVERRIDE { }
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const OVERRIDE { return false; }
+
+    WebView* webView() { return m_webView; }
+
 private:
     WebView *m_webView;
 };

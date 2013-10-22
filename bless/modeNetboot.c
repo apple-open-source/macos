@@ -465,7 +465,7 @@ static int parseURL(BLContextPtr context,
                                "Specification can't contain a path\n");
             return 5;        
         }
-        strcpy(path, "");
+        path[0] = '\0';
     }
 	
     if(pathString) CFRelease(pathString);

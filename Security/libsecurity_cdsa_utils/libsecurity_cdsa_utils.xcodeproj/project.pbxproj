@@ -157,7 +157,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD3080987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_utils" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -215,6 +215,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B51C146DD04F007E536C /* debug.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_cdsa_utils;
 				SKIP_INSTALL = NO;
 			};
@@ -224,6 +225,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B51E146DD04F007E536C /* release.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_cdsa_utils;
 				SKIP_INSTALL = NO;
 			};
@@ -233,6 +235,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B51D146DD04F007E536C /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
@@ -240,6 +248,12 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1879B51D146DD04F007E536C /* lib.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};

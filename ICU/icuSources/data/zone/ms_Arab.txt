@@ -1,0 +1,47 @@
+﻿// ***************************************************************************
+// *
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/ms_Arab.xml
+// *
+// ***************************************************************************
+/**
+ *  ICU <specials> source: <path>/xml/main/ms_Arab.xml
+ */
+ms_Arab{
+    Version{"2.0.82.68"}
+    zoneStrings{
+        "Asia:Singapore"{
+            ec{"سيڠاڤورا"}
+        }
+        "Etc:Unknown"{
+            ec{"باندر تيدق دکتاهوءي"}
+        }
+        "meta:Brunei"{
+            ls{"وقتو بروني دارالسلام"}
+        }
+        "meta:India"{
+            ls{"وقتو ڤياواي اينديا"}
+        }
+        "meta:Indian_Ocean"{
+            ls{"وقتو لاٴوتن هيندي"}
+        }
+        "meta:Indonesia_Central"{
+            ls{"وقتو إندونيسيا تڠه"}
+        }
+        "meta:Indonesia_Eastern"{
+            ls{"وقتو إندونيسيا تيمور"}
+        }
+        "meta:Indonesia_Western"{
+            ls{"وقتو إندونيسيا بارات"}
+        }
+        "meta:Malaysia"{
+            ls{"وقتو مليسيا"}
+        }
+        fallbackFormat{"{1} ({0})"}
+        fallbackRegionFormat{"{1} وقتو ({0})"}
+        hourFormat{"+HH:mm;-HH:mm"}
+        regionFormat{"وقتو {0}"}
+    }
+}

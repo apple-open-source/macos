@@ -60,6 +60,7 @@
 #       Use compsys for nested quoting analysis and command parsing.
 
 # Establish default values for styles, but only if not already set
+local -a reply match mbegin mend
 
 zstyle -m ':url-quote-magic:\*' url-metas '*' ||
     zstyle ':url-quote-magic:*' url-metas '*?[]^(|)~#{}='
@@ -83,7 +84,7 @@ zstyle -m ':urlglobber' url-other-schema '*' ||
 # Define the "urlglobber" helper function and shorthand "globurl" alias
 
 function urlglobber {
-    local -a args globbed localschema otherschema
+    local -a args globbed localschema otherschema reply
     local arg command="$1"
     shift
     zstyle -s :urlglobber url-local-schema localschema '|'
@@ -108,6 +109,7 @@ alias globurl='noglob urlglobber '
 function url-quote-magic {
     setopt localoptions noksharrays extendedglob
     local qkey="${(q)KEYS}"
+    local -a reply
     if [[ "$KEYS" != "$qkey" ]]
     then
 	local lbuf="$LBUFFER$qkey"

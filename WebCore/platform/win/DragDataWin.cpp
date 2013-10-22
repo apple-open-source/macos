@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Baidu Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +31,8 @@
 #include "ClipboardUtilitiesWin.h"
 #include "Frame.h"
 #include "DocumentFragment.h"
-#include "PlatformString.h"
 #include "Markup.h"
+#include "Range.h"
 #include "TextEncoding.h"
 #include <objidl.h>
 #include <shlwapi.h>
@@ -40,6 +41,7 @@
 #include <wtf/Hashmap.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -106,33 +108,59 @@ String DragData::asURL(Frame*, FilenameConversionPolicy filenamePolicy, String* 
 
 bool DragData::containsFiles() const
 {
+#if USE(CF)
     return (m_platformDragData) ? SUCCEEDED(m_platformDragData->QueryGetData(cfHDropFormat())) : m_dragDataMap.contains(cfHDropFormat()->cfFormat);
+#else
+    return false;
+#endif
 }
 
 unsigned DragData::numberOfFiles() const
 {
+#if USE(CF)
+    if (!m_platformDragData)
+        return 0;
+
+    STGMEDIUM medium;
+    if (FAILED(m_platformDragData->GetData(cfHDropFormat(), &medium)))
+        return 0;
+
+    HDROP hdrop = static_cast<HDROP>(GlobalLock(medium.hGlobal));
+
+    if (!hdrop)
+        return 0;
+
+    unsigned numFiles = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
+
+    DragFinish(hdrop);
+    GlobalUnlock(medium.hGlobal);
+
+    return numFiles;
+#else
     return 0;
+#endif
 }
 
 void DragData::asFilenames(Vector<String>& result) const
 {
+#if USE(CF)
     if (m_platformDragData) {
         WCHAR filename[MAX_PATH];
-        
+
         STGMEDIUM medium;
         if (FAILED(m_platformDragData->GetData(cfHDropFormat(), &medium)))
             return;
-        
-        HDROP hdrop = (HDROP)GlobalLock(medium.hGlobal);
-        
+
+        HDROP hdrop = reinterpret_cast<HDROP>(GlobalLock(medium.hGlobal)); 
+
         if (!hdrop)
             return;
 
         const unsigned numFiles = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
         for (unsigned i = 0; i < numFiles; i++) {
-            if (!DragQueryFileW(hdrop, 0, filename, WTF_ARRAY_LENGTH(filename)))
+            if (!DragQueryFileW(hdrop, i, filename, WTF_ARRAY_LENGTH(filename)))
                 continue;
-            result.append((UChar*)filename);
+            result.append(static_cast<UChar*>(filename)); 
         }
 
         // Free up memory from drag
@@ -142,6 +170,7 @@ void DragData::asFilenames(Vector<String>& result) const
         return;
     }
     result = m_dragDataMap.get(cfHDropFormat()->cfFormat);
+#endif
 }
 
 bool DragData::containsPlainText() const

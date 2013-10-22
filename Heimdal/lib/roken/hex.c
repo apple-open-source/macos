@@ -46,7 +46,7 @@ pos(char c)
     c = toupper((unsigned char)c);
     for (p = hexchar; *p; p++)
 	if (*p == c)
-	    return p - hexchar;
+	    return (int)(p - hexchar);
     return -1;
 }
 

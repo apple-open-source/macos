@@ -19,6 +19,7 @@
   one thread to use crc32().
  */
 
+
 #ifdef MAKECRCH
 #  include <stdio.h>
 #  ifndef DYNAMIC_CRC_TABLE
@@ -251,6 +252,7 @@ unsigned long ZEXPORT crc32(crc, buf, len)
     } while (--len);
     return crc ^ 0xffffffffUL;
 }
+
 
 #ifdef BYFOUR
 

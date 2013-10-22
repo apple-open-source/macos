@@ -1,0 +1,96 @@
+=pod
+
+=head1 NAME
+
+DBIx::Class::Schema::Loader::Manual::UpgradingFromV4 - Important Information
+Related to Upgrading from Version 0.04006
+
+=head1 What Changed
+
+=over 4
+
+=item *
+
+add_column
+
+The new Loader detects much more information about columns and sets flags like
+C<is_auto_increment> that it didn't set before.
+
+=item *
+
+RelBuilder
+
+The new RelBuilder will give you nicer accessor names for relationships, so you
+will no longer have conflicts between a foreign key column and the relationship
+accessor itself (if the FK is named C<_id>.)
+
+It will also more correctly infer the relationship type, e.g. some relationships
+that were previously detected as a C<has_many> will now be a C<might_have>
+(when it detects a unique constraint on the foreign key column.)
+
+Also C<cascade_delete> and C<cascade_copy> are turned off for by default for
+C<has_many> and C<might_have> relationships, while C<belongs_to> relationships
+are created with C<< on_delete => 'CASCADE' >> and C<< on_update => 'CASCADE' >>
+by default. This is overridable via
+L<relationship_attrs|DBIx::Class::Schema::Loader::Base/relationship_attrs>.
+
+=item *
+
+moniker_map
+
+Table names are now singularized when determining the C<Result> class names. So
+the table C<user_roles> would have become C<UserRoles> in C<0.04006> but now
+becomes C<UserRole> instead.
+
+=item *
+
+use_namespaces
+
+Now defaults to on. See L<DBIx::Class::Schema::Loader::Base/use_namespaces> and
+L<DBIx::Class::Schema/"load_namespaces">.
+
+=item *
+
+Support for more databases
+
+We now support Microsoft SQL Server and Sybase, and there are also many
+improvements to the other backends.
+
+=back
+
+=head1 Backward Compatibility
+
+In backward compatibility mode, the Loader will use the old relationship names
+and types, will not singularize monikers for tables, and C<use_namespaces> will
+be off.
+
+To control this behavior see L<DBIx::Class::Schema::Loader::Base/naming> and
+L<DBIx::Class::Schema::Loader::Base/use_namespaces>.
+
+=head2 Static Schemas
+
+When reading a C<Schema.pm> from a static schema generated with an C<0.04>
+version of Loader, backward compatibility mode will default to on, unless
+overridden with the C<naming> and/or C<use_namespaces> attributes.
+
+=head2 Dynamic Schemas
+
+Dynamic schemas will always by default use C<0.04006> mode and have
+C<use_namespaces> off.
+
+To upgrade a dynamic schema, set the C<naming> and C<use_namespaces> attributes
+(which is proxied to the loader) in your C<Schema.pm>:
+
+    __PACKAGE__->naming('current');
+    __PACKAGE__->use_namespaces(1);
+
+=head1 AUTHOR
+
+See L<DBIx::Class::Schema::Loader/AUTHOR> and L<DBIx::Class::Schema::Loader/CONTRIBUTORS>.
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
+
+=cut

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
+ * Copyright (C) 2012 Apple Inc. All Rights Reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,7 +20,9 @@
 #include "config.h"
 #include "DumpRenderTreeSupport.h"
 
-#include "CSSComputedStyleDeclaration.h"
+#include "DeviceOrientationClientMock.h"
+#include "DeviceOrientationController.h"
+#include "DeviceOrientationData.h"
 #include "Frame.h"
 #include "GeolocationClientMock.h"
 #include "GeolocationController.h"
@@ -28,7 +31,7 @@
 #include "JSCSSStyleDeclaration.h"
 #include "JSElement.h"
 #include "Page.h"
-#include "ViewportArguments.h"
+#include "RuntimeEnabledFeatures.h"
 #include "WebPage_p.h"
 #include "bindings/js/GCController.h"
 #include <JavaScriptCore/APICast.h>
@@ -42,8 +45,8 @@ bool DumpRenderTreeSupport::s_linksIncludedInTabChain = true;
 
 GeolocationClientMock* toGeolocationClientMock(GeolocationClient* client)
 {
-     ASSERT(getenv("drtRun"));
-     return static_cast<GeolocationClientMock*>(client);
+    ASSERT(isRunningDrt());
+    return static_cast<GeolocationClientMock*>(client);
 }
 
 DumpRenderTreeSupport::DumpRenderTreeSupport()
@@ -61,7 +64,7 @@ Page* DumpRenderTreeSupport::corePage(WebPage* webPage)
 
 int DumpRenderTreeSupport::javaScriptObjectsCount()
 {
-    return JSDOMWindowBase::commonJSGlobalData()->heap.globalObjectCount();
+    return JSDOMWindowBase::commonVM()->heap.globalObjectCount();
 }
 
 void DumpRenderTreeSupport::garbageCollectorCollect()
@@ -84,19 +87,9 @@ bool DumpRenderTreeSupport::linksIncludedInFocusChain()
     return s_linksIncludedInTabChain;
 }
 
-void DumpRenderTreeSupport::dumpConfigurationForViewport(Frame* mainFrame, int deviceDPI, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight)
-{
-    ViewportArguments arguments = mainFrame->page()->viewportArguments();
-    ViewportAttributes attrs = computeViewportAttributes(arguments, /* default layout width for non-mobile pages */ 980, deviceWidth, deviceHeight, deviceDPI, IntSize(availableWidth, availableHeight));
-    restrictMinimumScaleFactorToViewportSize(attrs, IntSize(availableWidth, availableHeight));
-    restrictScaleFactorToInitialScaleIfNotUserScalable(attrs);
-
-    fprintf(stdout, "viewport size %dx%d scale %f with limits [%f, %f] and userScalable %f\n", static_cast<int>(attrs.layoutSize.width()), static_cast<int>(attrs.layoutSize.height()), attrs.initialScale, attrs.minimumScale, attrs.maximumScale, attrs.userScalable);
-}
-
 int DumpRenderTreeSupport::numberOfPendingGeolocationPermissionRequests(WebPage* webPage)
 {
-    GeolocationClientMock* mockClient = toGeolocationClientMock(GeolocationController(corePage(webPage))->client());
+    GeolocationClientMock* mockClient = toGeolocationClientMock(GeolocationController::from(corePage(webPage))->client());
     return mockClient->numberOfPendingPermissionRequests();
 }
 
@@ -106,20 +99,10 @@ void DumpRenderTreeSupport::resetGeolocationMock(WebPage* webPage)
     mockClient->reset();
 }
 
-void DumpRenderTreeSupport::setMockGeolocationError(WebPage* webPage, int errorCode, const String message)
+void DumpRenderTreeSupport::setMockGeolocationPositionUnavailableError(WebPage* webPage, const String message)
 {
-    GeolocationError::ErrorCode code = GeolocationError::PositionUnavailable;
-    switch (errorCode) {
-    case PositionError::PERMISSION_DENIED:
-        code = GeolocationError::PermissionDenied;
-        break;
-    case PositionError::POSITION_UNAVAILABLE:
-        code = GeolocationError::PositionUnavailable;
-        break;
-    }
-
     GeolocationClientMock* mockClient = static_cast<GeolocationClientMock*>(GeolocationController::from(corePage(webPage))->client());
-    mockClient->setError(GeolocationError::create(code, message));
+    mockClient->setPositionUnavailableError(message);
 }
 
 void DumpRenderTreeSupport::setMockGeolocationPermission(WebPage* webPage, bool allowed)
@@ -128,10 +111,10 @@ void DumpRenderTreeSupport::setMockGeolocationPermission(WebPage* webPage, bool 
     mockClient->setPermission(allowed);
 }
 
-void DumpRenderTreeSupport::setMockGeolocationPosition(WebPage* webPage, double latitude, double longitude, double accuracy)
+void DumpRenderTreeSupport::setMockGeolocationPosition(WebPage* webPage, double latitude, double longitude, double accuracy, bool providesAltitude, double altitude, bool providesAltitudeAccuracy, double altitudeAccuracy, bool providesHeading, double heading, bool providesSpeed, double speed)
 {
     GeolocationClientMock* mockClient = toGeolocationClientMock(GeolocationController::from(corePage(webPage))->client());
-    mockClient->setPosition(GeolocationPosition::create(currentTime(), latitude, longitude, accuracy));
+    mockClient->setPosition(GeolocationPosition::create(currentTime(), latitude, longitude, accuracy, providesAltitude, altitude, providesAltitudeAccuracy, altitudeAccuracy, providesHeading, heading, providesSpeed, speed));
 }
 
 void DumpRenderTreeSupport::scalePageBy(WebPage* webPage, float scaleFactor, float x, float y)
@@ -139,18 +122,25 @@ void DumpRenderTreeSupport::scalePageBy(WebPage* webPage, float scaleFactor, flo
     corePage(webPage)->setPageScaleFactor(scaleFactor, IntPoint(x, y));
 }
 
-JSValueRef DumpRenderTreeSupport::computedStyleIncludingVisitedInfo(JSContextRef context, JSValueRef value)
+#if ENABLE(STYLE_SCOPED)
+void DumpRenderTreeSupport::setStyleScopedEnabled(bool enabled)
 {
-    ExecState* exec = toJS(context);
-    JSLockHolder lock(exec);
-    if (!value)
-        return JSValueMakeUndefined(context);
-    JSValue jsValue = toJS(exec, value);
-    if (!jsValue.inherits(&JSElement::s_info))
-        return JSValueMakeUndefined(context);
-    JSElement* jsElement = static_cast<JSElement*>(asObject(jsValue));
-    Element* element = jsElement->impl();
-    RefPtr<CSSComputedStyleDeclaration> style = CSSComputedStyleDeclaration::create(element, true);
-    return toRef(exec, toJS(exec, jsElement->globalObject(), style.get()));
+    RuntimeEnabledFeatures::setStyleScopedEnabled(enabled);
 }
+#endif
 
+#if ENABLE(DEVICE_ORIENTATION)
+DeviceOrientationClientMock* toDeviceOrientationClientMock(DeviceOrientationClient* client)
+{
+    return static_cast<DeviceOrientationClientMock*>(client);
+}
+#endif
+
+void DumpRenderTreeSupport::setMockDeviceOrientation(BlackBerry::WebKit::WebPage* webPage, bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma)
+{
+#if ENABLE(DEVICE_ORIENTATION)
+    Page* page = corePage(webPage);
+    DeviceOrientationClientMock* mockClient = toDeviceOrientationClientMock(DeviceOrientationController::from(page)->deviceOrientationClient());
+    mockClient->setOrientation(DeviceOrientationData::create(canProvideAlpha, alpha, canProvideBeta, beta, canProvideGamma, gamma));
+#endif
+}

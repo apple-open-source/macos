@@ -326,6 +326,8 @@ read_builtin (list)
       code = setjmp (alrmbuf);
       if (code)
 	{
+	  interrupt_immediately--;
+	  terminate_immediately = 0;
 	  run_unwind_frame ("read_builtin");
 	  return (EXECUTION_FAILURE);
 	}

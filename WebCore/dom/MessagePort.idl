@@ -25,38 +25,32 @@
  *
  */
 
-module events {
-
-    interface [
-        JSCustomMarkFunction,
-        JSGenerateIsReachable=Impl,
-        ActiveDOMObject,
-        EventTarget,
-        JSNoStaticTables
-    ] MessagePort {
+[
+    JSCustomMarkFunction,
+    GenerateIsReachable=Impl,
+    ActiveDOMObject,
+    EventTarget,
+    JSNoStaticTables
+] interface MessagePort {
 // We need to have something as an ObjC binding, because MessagePort is used in MessageEvent, which already has one,
 // but we don't want to actually expose the API while it is in flux.
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-        [Custom] void postMessage(in DOMString message, in [Optional] Array messagePorts)
-            raises(DOMException);
-        [Custom] void webkitPostMessage(in DOMString message, in [Optional] Array transfer)
-            raises(DOMException);
-        void start();
-        void close();
+    [Custom, RaisesException] void postMessage(any message, optional Array messagePorts);
 
-        // event handler attributes
-        attribute EventListener onmessage;
+    void start();
+    void close();
 
-        // EventTarget interface
-        void addEventListener(in DOMString type, 
-                              in EventListener listener, 
-                              in [Optional] boolean useCapture);
-        void removeEventListener(in DOMString type, 
-                                 in EventListener listener, 
-                                 in [Optional] boolean useCapture);
-        boolean dispatchEvent(in Event evt)
-            raises(EventException);
+    // event handler attributes
+    attribute EventListener onmessage;
+
+    // EventTarget interface
+    void addEventListener(DOMString type, 
+                          EventListener listener, 
+                          optional boolean useCapture);
+    void removeEventListener(DOMString type, 
+                             EventListener listener, 
+                             optional boolean useCapture);
+    [RaisesException] boolean dispatchEvent(Event evt);
 #endif
-    };
+};
 
-}

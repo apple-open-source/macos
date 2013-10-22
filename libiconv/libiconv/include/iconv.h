@@ -23,10 +23,7 @@
 
 #include <sys/cdefs.h>
 #include <_types.h>
-#ifndef _SIZE_T
-#define _SIZE_T
-typedef __darwin_size_t     size_t;
-#endif
+#include <sys/_types/_size_t.h>
 
 #define _LIBICONV_VERSION 0x010B    /* version number: (major<<8) + minor */
 
@@ -84,12 +81,7 @@ extern LIBICONV_DLL_EXPORTED int iconv_close (iconv_t cd);
 
 /* Nonstandard extensions. */
 
-#ifndef __cplusplus
-#ifndef _WCHAR_T
-#define _WCHAR_T
-typedef __darwin_wchar_t	wchar_t;
-#endif /* _WCHAR_T */
-#endif /* __cplusplus */
+#include <sys/_types/_wchar_t.h>
 
 /* Control of attributes. */
 extern LIBICONV_DLL_EXPORTED int iconvctl (iconv_t cd, int request, void* argument);

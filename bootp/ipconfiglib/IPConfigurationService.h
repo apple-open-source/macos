@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,18 +44,44 @@ typedef struct __IPConfigurationService * IPConfigurationServiceRef;
 CFTypeID
 IPConfigurationServiceGetTypeID(void);
 
+/**
+ ** IPConfigurationService Options
+ **/
+/*
+ * kIPConfigurationServiceOptionMTU (CFNumberRef)
+ * - specify the MTU to set on the interface when the service is created
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionMTU; /* number */
+
+/*
+ * kIPConfigurationServiceOptionPerformNUD (CFBooleanRef, default TRUE)
+ * - specify whether to perform Neighbor Unreachability Detection
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionPerformNUD; /* boolean */
+
 /*
  * Function: IPConfigurationServiceCreate
  *
  * Purpose:
- *   Instantiate a new "service" over the specified interface
+ *   Instantiate a new service over the specified interface that is managed
+ *   and maintained by the IPConfiguration server.
+ *
+ *   Currently only supports creating an IPv6 Automatic service. That service
+ *   is ineligible to become primary. The caller is responsible for publishing
+ *   the service information to the SCDynamic store when it receives
+ *   notifications that the service information is available.
+ *
+ *   Use IPConfigurationServiceCopyInformation() to copy the current
+ *   service information.
+ *
+ *   Use IPConfigurationServiceGetNotificationKey() to get the SCDynamicStore
+ *   key that is notified when the service information changes.
  *
  * Parameters:
  *   interface_name		: the BSD name of the interface e.g. "pdp_ip0"
- *   options			: must be NULL to signify creating an
- *				  IPv6 Automatic service over the interface,
- *				  and that the service should be made
- *				  ineligible for becoming primary.
+ *   options			: either NULL, or a dictionary that only
+ *				  contains properties with keys specified
+ * 				  under "IPConfigurationService Options" above
  * Returns:
  *   Non-NULL IPConfigurationServiceRef if the service was successfully
  *   instantiated, NULL otherwise
@@ -78,7 +104,7 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
  * Function: IPConfigurationServiceGetNotificationKey
  *
  * Purpose:
- *   Return the SCDynamicStoreKeyRef used to monitor the service using
+ *   Return the SCDynamicStoreKeyRef used to monitor the specified service using
  *   SCDynamicStoreSetNotificationKeys().
  *
  * Parameters:
@@ -91,7 +117,7 @@ IPConfigurationServiceGetNotificationKey(IPConfigurationServiceRef service);
  * Function: IPConfigurationServiceCopyInformation
  *
  * Purpose:
- *   Retrieves the service information for the specified "service".  The
+ *   Retrieves the service information for the specified 'service'.  The
  *   format of the returned information is a dictionary of dictionaries.
  *   The key of each sub-dictionary is a kSCEntNet* key as defined in
  *   <SystemConfiguration/SCSchemaDefinitions.h>.  The value of each dictionary

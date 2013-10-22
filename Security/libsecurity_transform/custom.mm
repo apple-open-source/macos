@@ -3157,7 +3157,7 @@ static SecTransformInstanceBlock AttributeNotificationTest(CFStringRef name,
 	NSAutoreleasePool *pool = [NSAutoreleasePool new];	
 		
 	// generate a symmetrical key for testing
-	OSStatus err = noErr;
+	OSStatus err = errSecSuccess;
 	
 	NSString* algNames[] = 
 	{
@@ -3223,8 +3223,8 @@ static SecTransformInstanceBlock AttributeNotificationTest(CFStringRef name,
 		uint32 keySizeInBits = keySizes[iCnt];
 		
 		err = SecKeyGenerate(NULL, algoToUse, keySizeInBits, handle, keyUse, keyAttrFlags, accessRef, &testKey);
-		STAssertTrue(err == noErr, [NSString stringWithFormat:@"Unable to create a symmetrical key %@", algNames[iCnt]]);
-		if (noErr != err)
+		STAssertTrue(err == errSecSuccess, [NSString stringWithFormat:@"Unable to create a symmetrical key %@", algNames[iCnt]]);
+		if (errSecSuccess != err)
 		{
 			continue;
 		}
@@ -3325,8 +3325,8 @@ static SecTransformInstanceBlock AttributeNotificationTest(CFStringRef name,
 						   privKeyUse, privateKeyAttributes,
 						   NULL, &publicKey, &privateKey);
 	
-	STAssertTrue(noErr == err, @"Unable to create a key pair");
-	if (noErr != err)
+	STAssertTrue(errSecSuccess == err, @"Unable to create a key pair");
+	if (errSecSuccess != err)
 	{
 		cssmPerror(NULL, err);
 		return;
@@ -3429,7 +3429,7 @@ static SecTransformInstanceBlock AttributeNotificationTest(CFStringRef name,
 	{
 		OSStatus err;
 		err = SecKeyGenerate(NULL, CSSM_ALGID_AES, 256, handle, keyUse, keyAttrFlags, accessRef, &testKey);
-		STAssertTrue(err == noErr, @"Unable to create a symmetrical key err=%x", err);
+		STAssertTrue(err == errSecSuccess, @"Unable to create a symmetrical key err=%x", err);
 	}
 	
 	// The number of iterations is somewhat arbitrary.   When we use to have failures they were

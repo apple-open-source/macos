@@ -64,8 +64,7 @@ SSLEncodeFinishedMessage(SSLRecord *finished, SSLContext *ctx)
     finished->contentType = SSL_RecordTypeHandshake;
 	/* msg = type + 3 bytes len + finishedSize */
     head = SSLHandshakeHeaderSize(finished);
-    if ((err = SSLAllocBuffer(&finished->contents, finishedSize + head,
-			ctx)) != 0)
+    if ((err = SSLAllocBuffer(&finished->contents, finishedSize + head)) != 0)
         return err;
 
     p = SSLEncodeHandshakeHeader(ctx, finished, SSL_HdskFinished, finishedSize);
@@ -80,7 +79,7 @@ SSLEncodeFinishedMessage(SSLRecord *finished, SSLContext *ctx)
         return err;
 
     /* Keep this around for secure renegotiation */
-    SSLFreeBuffer(&ctx->ownVerifyData, ctx);
+    SSLFreeBuffer(&ctx->ownVerifyData);
     return SSLCopyBuffer(&finishedMsg, &ctx->ownVerifyData);
 }
 
@@ -110,7 +109,7 @@ SSLProcessFinished(SSLBuffer message, SSLContext *ctx)
         return errSSLProtocol;
     }
     expectedFinished.data = 0;
-    if ((err = SSLAllocBuffer(&expectedFinished, finishedSize, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&expectedFinished, finishedSize)))
         return err;
     isServerMsg = (ctx->protocolSide == kSSLServerSide) ? false : true;
     if ((err = ctx->sslTslCalls->computeFinishedMac(ctx, expectedFinished, isServerMsg)) != 0)
@@ -124,11 +123,11 @@ SSLProcessFinished(SSLBuffer message, SSLContext *ctx)
     }
 
     /* Keep this around for secure renegotiation */
-    SSLFreeBuffer(&ctx->peerVerifyData, ctx);
+    SSLFreeBuffer(&ctx->peerVerifyData);
     err = SSLCopyBuffer(&expectedFinished, &ctx->peerVerifyData);
 
 fail:
-    SSLFreeBuffer(&expectedFinished, ctx);
+    SSLFreeBuffer(&expectedFinished);
     return err;
 }
 
@@ -141,12 +140,12 @@ SSLEncodeServerHelloDone(SSLRecord *helloDone, SSLContext *ctx)
 	assert(ctx->negProtocolVersion >= SSL_Version_3_0);
     helloDone->protocolVersion = ctx->negProtocolVersion;
     head = SSLHandshakeHeaderSize(helloDone);
-    if ((err = SSLAllocBuffer(&helloDone->contents, head, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&helloDone->contents, head)))
         return err;
 
     SSLEncodeHandshakeHeader(ctx, helloDone, SSL_HdskServerHelloDone, 0); /* Message has 0 length */
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
@@ -156,5 +155,5 @@ SSLProcessServerHelloDone(SSLBuffer message, SSLContext *ctx)
     	sslErrorLog("SSLProcessServerHelloDone: nonzero msg len\n");
         return errSSLProtocol;
     }
-    return noErr;
+    return errSecSuccess;
 }

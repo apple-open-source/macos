@@ -1,0 +1,31 @@
+#!/bin/zsh -e
+
+if [ ! -d "Security.xcodeproj" ]; then
+   echo "Not in correct directory to build; currently in " `pwd`
+   exit 2
+fi
+
+localbase=`basename $PWD`
+target=${1-world}
+config=${2-Release}
+roots=/var/tmp
+project=Security
+
+~rc/bin/buildit .  --rootsDirectory=/var/tmp -noverify -project $project -archive -dsymsInDstroot \
+       -target $target \
+       -configuration $config || { echo 'build failed' ; exit 1; }
+
+rootsDir=/var/tmp/${project}_${localbase}.roots
+buildRoots=$rootsDir/BuildRecords/${project}_install
+
+roottar=/tmp/security.roots.tgz
+symtar=/tmp/security.syms.tgz
+srctar=/tmp/security.src.tgz
+
+cp $rootsDir/Archives/Security_${localbase}_DSTROOT.tar.gz $roottar
+
+tar -czvf $symtar -C ${buildRoots}/Symbols . &> /dev/null
+tar -czvf $srctar -C ${rootsDir}/Sources/${project} . &> /dev/null
+
+echo "now run"
+echo " ~/bin/install_on_devices"

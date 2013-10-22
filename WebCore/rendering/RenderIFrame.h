@@ -30,33 +30,44 @@
 
 namespace WebCore {
 
+class RenderView;
+
 class RenderIFrame : public RenderFrameBase {
 public:
     explicit RenderIFrame(Element*);
 
-    bool flattenFrame();
+    bool flattenFrame() const;
+    bool isSeamless() const;
 
 private:
-    virtual void computeLogicalHeight();
-    virtual void computeLogicalWidth();
+    virtual LayoutUnit minPreferredLogicalWidth() const OVERRIDE;
+    virtual LayoutUnit maxPreferredLogicalWidth() const OVERRIDE;
 
-    virtual void layout();
+    virtual bool shouldComputeSizeAsReplaced() const OVERRIDE;
+    virtual bool isInlineBlockOrInlineTable() const OVERRIDE;
 
-    virtual bool isRenderIFrame() const { return true; }
+    virtual void layout() OVERRIDE;
 
-    virtual const char* renderName() const { return "RenderPartObject"; } // Lying for now to avoid breaking tests
+    virtual bool isRenderIFrame() const OVERRIDE { return true; }
 
+    virtual const char* renderName() const OVERRIDE { return "RenderPartObject"; } // Lying for now to avoid breaking tests
+
+    virtual bool requiresLayer() const OVERRIDE;
+
+    void layoutSeamlessly();
+
+    RenderView* contentRootRenderer() const;
 };
 
 inline RenderIFrame* toRenderIFrame(RenderObject* object)
 {
-    ASSERT(!object || object->isRenderIFrame());
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderIFrame());
     return static_cast<RenderIFrame*>(object);
 }
 
 inline const RenderIFrame* toRenderIFrame(const RenderObject* object)
 {
-    ASSERT(!object || object->isRenderIFrame());
+    ASSERT_WITH_SECURITY_IMPLICATION(!object || object->isRenderIFrame());
     return static_cast<const RenderIFrame*>(object);
 }
 

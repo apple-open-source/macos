@@ -1,0 +1,17 @@
+Changes
+README
+MANIFEST
+Makefile.PL
+lib/Parse/Yapp.pm
+lib/Parse/Yapp/Parse.pm
+lib/Parse/Yapp/Grammar.pm
+lib/Parse/Yapp/Lalr.pm
+lib/Parse/Yapp/Output.pm
+lib/Parse/Yapp/Driver.pm
+lib/Parse/Yapp/Options.pm
+YappParse.yp
+yapp
+Calc.yp
+t/base.t
+t/calc.t
+t/stress.t

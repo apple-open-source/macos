@@ -1,0 +1,3 @@
+#!/bin/sh
+/Applications/Server.app/Contents/ServerRoot/usr/bin/pg_ctl -p \
+/Applications/Server.app/Contents/ServerRoot/usr/bin/xpostgres "$@"

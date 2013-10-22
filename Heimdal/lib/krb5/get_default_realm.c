@@ -44,7 +44,7 @@ _krb5_array_to_realms(krb5_context context, heim_array_t array, krb5_realm **rea
     for (n = 0; n < len; n++) {
 	heim_string_t s = heim_array_copy_value(array, n);
 	if (s) {
-	    (*realms)[n] = strdup(heim_string_get_utf8(s));
+	    (*realms)[n] = heim_string_copy_utf8(s);
 	    heim_release(s);
 	}
 	if ((*realms)[n] == NULL) {
@@ -122,7 +122,7 @@ krb5_get_default_realm(krb5_context context,
     
     s = heim_array_copy_value(context->default_realms, 0);
     if (s) {
-	*realm = strdup(heim_string_get_utf8(s));
+	*realm = heim_string_copy_utf8(s);
 	heim_release(s);
     }
     if (s == NULL || *realm == NULL) {

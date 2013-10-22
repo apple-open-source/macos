@@ -51,20 +51,45 @@ enum CalculationPermittedValueRange {
     CalculationRangeAll,
     CalculationRangeNonNegative
 };
+
+enum CalcExpressionNodeType {
+    CalcExpressionNodeUndefined,
+    CalcExpressionNodeNumber,
+    CalcExpressionNodeLength,
+    CalcExpressionNodeBinaryOperation,
+    CalcExpressionNodeBlendLength,
+};
         
 class CalcExpressionNode {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
+    CalcExpressionNode()
+        : m_type(CalcExpressionNodeUndefined)
+    {
+    }
+    
     virtual ~CalcExpressionNode()
     {
     }
     
     virtual float evaluate(float maxValue) const = 0;
+    virtual bool operator==(const CalcExpressionNode&) const = 0;
+
+    CalcExpressionNodeType type() const { return m_type; }
+    
+protected:
+    CalcExpressionNodeType m_type;
 };
     
 class CalculationValue : public RefCounted<CalculationValue> {
 public:
     static PassRefPtr<CalculationValue> create(PassOwnPtr<CalcExpressionNode> value, CalculationPermittedValueRange);
     float evaluate(float maxValue) const;
+
+    bool operator==(const CalculationValue& o) const 
+    { 
+        return *(m_value.get()) == *(o.m_value.get());
+    }
     
 private:
     CalculationValue(PassOwnPtr<CalcExpressionNode> value, CalculationPermittedValueRange range)
@@ -82,8 +107,19 @@ public:
     explicit CalcExpressionNumber(float value)
         : m_value(value)
     {
+        m_type = CalcExpressionNodeNumber;
     }
 
+    bool operator==(const CalcExpressionNumber& o) const
+    {
+        return m_value == o.m_value;
+    }
+
+    virtual bool operator==(const CalcExpressionNode& o) const
+    {
+        return type() == o.type() && *this == static_cast<const CalcExpressionNumber&>(o);
+    }
+    
     virtual float evaluate(float) const 
     {
         return m_value;
@@ -98,8 +134,19 @@ public:
     explicit CalcExpressionLength(Length length)
         : m_length(length)
     {
+        m_type = CalcExpressionNodeLength;
     }
 
+    bool operator==(const CalcExpressionLength& o) const
+    {
+        return m_length == o.m_length;
+    }
+    
+    virtual bool operator==(const CalcExpressionNode& o) const
+    {
+        return type() == o.type() && *this == static_cast<const CalcExpressionLength&>(o);
+    }
+    
     virtual float evaluate(float maxValue) const
     {
         return floatValueForLength(m_length, maxValue);
@@ -116,8 +163,20 @@ public:
         , m_rightSide(rightSide)
         , m_operator(op)
     {
+        m_type = CalcExpressionNodeBinaryOperation;
     }
 
+    bool operator==(const CalcExpressionBinaryOperation& o) const
+    {
+        return m_operator == o.m_operator && *m_leftSide == *o.m_leftSide && *m_rightSide == *o.m_rightSide;
+    }
+
+    virtual bool operator==(const CalcExpressionNode& o) const
+    {
+        return type() == o.type() && *this == static_cast<const CalcExpressionBinaryOperation&>(o);
+    }
+    
+    
     virtual float evaluate(float) const;
 
 private:
@@ -126,6 +185,37 @@ private:
     CalcOperator m_operator;
 };
 
+class CalcExpressionBlendLength : public CalcExpressionNode {
+public:
+    CalcExpressionBlendLength(Length from, Length to, float progress)
+        : m_from(from)
+        , m_to(to)
+        , m_progress(progress)
+    {
+        m_type = CalcExpressionNodeBlendLength;
+    }
+    
+    bool operator==(const CalcExpressionBlendLength& o) const
+    {
+        return m_progress == o.m_progress && m_from == o.m_from && m_to == o.m_to;
+    }
+    
+    virtual bool operator==(const CalcExpressionNode& o) const
+    {
+        return type() == o.type() && *this == static_cast<const CalcExpressionBlendLength&>(o);
+    }
+    
+    virtual float evaluate(float maxValue) const
+    {
+        return (1.0f - m_progress) * floatValueForLength(m_from, maxValue) + m_progress * floatValueForLength(m_to, maxValue);
+    }
+    
+private:  
+    Length m_from;
+    Length m_to;
+    float m_progress;
+};
+    
 } // namespace WebCore
 
 #endif // CalculationValue_h

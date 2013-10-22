@@ -33,6 +33,7 @@ add_llvm_target(ARMCodeGen
   ARMJITInfo.cpp
   ARMLoadStoreOptimizer.cpp
   ARMMCInstLower.cpp
+  ARMMachineFunctionInfo.cpp
   ARMRegisterInfo.cpp
   ARMSelectionDAGInfo.cpp
   ARMSubtarget.cpp
@@ -48,22 +49,10 @@ add_llvm_target(ARMCodeGen
   Thumb2SizeReduction.cpp
   )
 
-add_llvm_library_dependencies(LLVMARMCodeGen
-  LLVMARMAsmPrinter
-  LLVMARMDesc
-  LLVMARMInfo
-  LLVMAnalysis
-  LLVMAsmPrinter
-  LLVMCodeGen
-  LLVMCore
-  LLVMMC
-  LLVMSelectionDAG
-  LLVMSupport
-  LLVMTarget
-  )
+add_dependencies(LLVMARMCodeGen intrinsics_gen)
 
-# workaround for hanging compilation on MSVC10
-if( MSVC_VERSION EQUAL 1600 )
+# workaround for hanging compilation on MSVC9, 10
+if( MSVC_VERSION EQUAL 1600 OR MSVC_VERSION EQUAL 1500 )
 set_property(
   SOURCE ARMISelLowering.cpp
   PROPERTY COMPILE_FLAGS "/Od"

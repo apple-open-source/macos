@@ -1681,7 +1681,7 @@ int webdav_close_mnomap(vnode_t vp, vfs_context_t context, int force_fsync)
 			struct vnop_fsync_args fsync_args;
 			
 			fsync_args.a_vp = vp;
-			fsync_args.a_waitfor = TRUE;
+			fsync_args.a_waitfor = MNT_WAIT;
 			fsync_args.a_context = context;
 			fsync_error = webdav_fsync(&fsync_args);
 			if ( fsync_error == ERESTART )
@@ -3386,6 +3386,13 @@ static int webdav_vnop_setattr(struct vnop_setattr_args *ap)
 	cachevp = pt->pt_cache_vnode;
 	if ( cachevp != NULLVP )
 	{
+		/*
+		 * Don't set UF_NODUMP or UF_APPEND on the cache file as they are used as
+		 * flags by the agent.
+		 */
+
+		ap->a_vap->va_flags &= ~(UF_NODUMP | UF_APPEND);
+
 		/* If we are changing the size, call ubc_setsize to fix things up
 		 * with the UBC Also, make sure that we wait until the file is
 		 * completely downloaded */

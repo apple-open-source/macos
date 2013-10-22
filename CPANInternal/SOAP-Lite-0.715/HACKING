@@ -1,0 +1,135 @@
+HACKING
+=======
+
+Development of SOAP::Lite takes place on sourceforge.net.
+
+There's a Subversion repository available at
+
+    https://soaplite.svn.sourceforge.net/svnroot/soaplite/
+
+It's recommended to check out the cuurent maintenance branch from
+
+   https://soaplite.svn.sourceforge.net/svnroot/soaplite/branches/0.71
+
+Engagement in the further development of this module is highly encouraged -
+many people have already contributed, and many more probably will.
+
+MAILING PATCHES
+===============
+
+Preferred patches are "unified" diffs ignoring whitespaces created by 
+
+diff -uw OLD NEW
+
+Please don't create patches where the original file has been renamed (like
+appending .old) - they can't be applied without editing.
+
+
+SOAP::Lite CODING GUIDELINES
+============================
+
+SOAP::Lite's coding style in principle follows Perl Best Practices by
+Damian Conway, but allows deviances for speed and backward compatibility
+reasons.
+
+The following guidelines apply:
+
+- warnings
+    * "use warnings" is not used. The warnings pragma first appeared in
+    perl 5.6. As SOAP::Lite works with perls as old as 5.005_04, you must not
+    use the warnings pragma. Use "local $^W" to say "no warnings" instead.
+
+- Symbol table operations
+   * SOAP::Lite heavily relies on symbol table operations. While this is
+   nothing bad, you should always try other variants like subclassing before.
+   Use symbol table operations as a last resort, and preferably consolidate
+   similar operations into utility functions.
+
+- Autoloading
+   * SOAP::Lite heavily relies on AUTOLOAD, often together with symbol table
+   operations. While this is nothing generally bad, it can lead to subtle
+   errors, for example when switching the underlying protocol handler of
+   a transport backend. Methods already autoloaded (and cached via symbol
+   table) remain, even if there's a equally named method in the new protocol
+   handler.
+   It's generally best not to rely on AUTOLOAD and symbol table operations -
+   subclassing is often more appropriate.
+
+- testing
+    * SOAP::Lite has a test coverage of >60%, but aims at 100%. Please write
+    a test first.
+    * Use author tests for testing guidelines. Disable author tests for
+    users - it's time consuming and of no use to have users run author tests.
+    Author tests are enabled by setting the "TEST_AUTHOR" environment
+    variable to a true value.
+
+- Indentation and formatting
+    * indent with spaces.
+    * indent 4 characters per level
+    * use \n (LF) for newlines, not CRLF
+    * use blank lines to separate paragraphs
+    * Coding style is similar to K&R (opening brace on last line, closing
+    brace on new line. No cuddled else)
+    * No trailing spaces allowed (except to indicate a blank line in a POD
+    source block)
+
+- Flow control
+    * postfix if is allowed for single statements only. Preferably for flow
+    control only like in:
+       return $self if ref $self;
+    * postfix for, while, until are not allowed.
+    * unless is not allowed at all. Use if not.
+    * goto is only allowed for jumping into subs. Nothing else.
+    * redo, next, last etc. are preferred over goto.
+
+- Strictness
+    * always use strict. Switch off for the smallest block
+    possible, but switch off if there's a reason (don't let tools like
+    perlcritic fool you: no strict qw(refs); is often required.
+
+- Naming
+    * variable names are lower case with _ separating words, except when
+    a XML Schema, SOAP, or WSDL name is name-giving (don't force portType to
+    become port_type)
+    * hashes should be named FOO_of, lists FOO_from, references FOO_ref.
+    * package names are CamelCase, except when a XML, SOAP or WSDL name is
+    name-giving (don't force 'int' to become 'Int'. However, simpleType
+    becomes SimpleType).
+    Protocol names for transport modules are all UPPERCASE, like in
+    SOAP::Transport::HTTP or in SOAP::Transport::MAILTO.
+
+- Subroutines
+    * Subroutines shouldn't be more than around 50 lines long
+    * @_ should be unpacked. Deviances are allowed for speed reasons. If
+    you're not unpacking @_ in a sub of say, 5 lines or more, please comment
+    what you're doing.
+    * The preferred idiom for unpacking @_ is:
+       my ($self, @arg_from) = @_;
+    or
+       my ($self, %arg_of) = @_;
+    $_[0] is preferred over shift, except where the rest of the parameter
+    stack is used en block later.
+    * Always return.
+
+- POD and comments
+    * Comments denoting some people's copyright on some piece of the code
+    MUST be kept intact.
+    * Comment extensively. Comments are the maintainer (and core developer's)
+    documentation - aid them where possible (your're probably doing yourself
+    a favor by adding extensive comments).
+    * Comment either in blocks or as hanging side comments (especially when
+    commenting @_ access).
+    Example:
+
+    sub baz {
+        # @_ not unpacked for speed reasons. Read:
+        # my ($self, $something, %args_of) = @_;
+
+        $_[0]->bar($_[1]);      # read as $self->bar($something);
+        $_[0]->foo($_[2..$#]);  # read as $self->foo(%args_of);
+        return;
+    }
+    * POD is located at end of file, preferably after __END__
+    * Complete POD coverage is essential. However, if the package in question
+    is used internally only, it's better to omit the POD completely - too many
+    PODs to look at confuse the average CPAN user.

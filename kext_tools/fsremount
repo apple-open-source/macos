@@ -1,0 +1,83 @@
+#!/usr/bin/expect
+
+###############################################################################
+# fsremount
+#
+# A script for mounting a device's root filesystem read-only or read-write.
+#
+# Andrew Myrick
+# Copyright © 2012 Apple Inc. All rights reserved.
+###############################################################################
+
+proc usage {progname} {
+	send_user "Usage: $progname <hostname> <port> <root password> \[ro|rw\]\n";
+	exit 1
+}
+
+# Set core variables
+
+set timeout 10
+set progname $argv0
+set prompt ":~ root#"
+
+# Parse arguments
+
+if {$argc != 4} {
+	usage $progname
+}
+
+set hostname [lindex $argv 0]
+set port [lindex $argv 1]
+set pass [lindex $argv 2]
+set mountopt [lindex $argv 3]
+
+if {$mountopt == "ro"} {
+	set mountflag "-ur"
+} elseif  {$mountopt == "rw"} {
+	set mountflag "-uw"
+} else {
+	send_user "Error: invalid mount option\n";
+	usage $progname
+}
+
+# Log in to the device
+
+spawn telnet $hostname $port
+expect {
+	"telnet: Unable to connect to remote host" { exit 1 }
+	"login:"
+}
+send "root\r";
+expect "Password:"
+send "$pass\r";
+expect {
+	"Login incorrect" { exit 1 }
+	$prompt
+}
+
+# If we're going to mount read-write, check to see if the root filesystem is
+# already mounted read-write. If so, exit with a special code to notify our
+# parent.
+if {$mountopt == "rw"} {
+	send "mount | grep \"disk0s1s1.*read-only\"\r";
+	expect "$prompt"
+	send "echo $?\r";
+	expect {
+		"\r\n1\r\n" { exit 128 }
+		"\r\n0\r\n"
+	}
+}
+
+# Remount the filesystem as requested
+send "mount $mountflag /\r";
+expect "$prompt"
+send "echo $?\r"
+expect {
+	"\r\n1\r\n" { exit 1 }
+	"\r\n0\r\n"
+}
+
+# Exit cleanly
+expect "$prompt"
+send "exit\r"
+expect "Connection closed by foreign host."

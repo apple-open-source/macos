@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -224,13 +224,7 @@ _ipconfig_set_verbose(mach_port_t p, int verbose,
 		      ipconfig_status_t * status,
 		      audit_token_t audit_token)
 {
-    S_process_audit_token(audit_token);
-    if (S_uid != 0) {
-	*status = ipconfig_status_permission_denied_e;
-    }
-    else {
-	*status = set_verbose(verbose);
-    }
+    *status = ipconfig_status_permission_denied_e;
     return (KERN_SUCCESS);
 }
 
@@ -457,7 +451,7 @@ S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	reply = (mig_reply_error_t *)(void *)reply_buf;
     }
     if (ipconfig_server(&request->Head, &reply->Head) == FALSE) {
-	my_log(LOG_INFO, "IPConfiguration: unknown message ID (%d) received",
+	my_log(LOG_DEBUG, "IPConfiguration: unknown message ID (%d) received",
 	       request->Head.msgh_id);
     }
 
@@ -505,7 +499,7 @@ S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
     }
 
     if (r != MACH_MSG_SUCCESS) {
-	my_log(LOG_INFO, "IPConfiguration msg_send: %s", mach_error_string(r));
+	my_log(LOG_DEBUG, "IPConfiguration msg_send: %s", mach_error_string(r));
     }
     return;
 }

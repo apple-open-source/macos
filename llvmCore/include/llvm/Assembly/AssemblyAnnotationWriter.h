@@ -22,7 +22,7 @@ namespace llvm {
 class Function;
 class BasicBlock;
 class Instruction;
-class raw_ostream;
+class Value;
 class formatted_raw_ostream;
 
 class AssemblyAnnotationWriter {

@@ -35,7 +35,6 @@
 #include <security_cdsa_utilities/Schema.h>
 #include <security_cdsa_client/keychainacl.h>
 #include <security_cdsa_utilities/cssmacl.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_cdsa_utilities/cssmdb.h>
 #include <security_utilities/trackingallocator.h>
 #include <security_keychain/SecCFTypes.h>
@@ -59,7 +58,7 @@ static dispatch_once_t SecKeychainSystemKeychainChecked;
 OSStatus SecKeychainSystemKeychainCheckWouldDeadlock()
 {
     dispatch_once(&SecKeychainSystemKeychainChecked, ^{});
-    return noErr;
+    return errSecSuccess;
 }
 
 using namespace KeychainCore;
@@ -155,7 +154,13 @@ KeychainSchemaImpl::~KeychainSchemaImpl()
 {
 	try
 	{
-		for_each_map_delete(mPrimaryKeyInfoMap.begin(), mPrimaryKeyInfoMap.end());
+        map<CSSM_DB_RECORDTYPE, CssmAutoDbRecordAttributeInfo *>::iterator it = mPrimaryKeyInfoMap.begin();
+        while (it != mPrimaryKeyInfoMap.end())
+        {
+            delete it->second;
+            it++;
+        }
+		// for_each_map_delete(mPrimaryKeyInfoMap.begin(), mPrimaryKeyInfoMap.end());
 	}
 	catch(...)
 	{
@@ -228,7 +233,7 @@ KeychainSchemaImpl::getAttributeInfoForRecordType(CSSM_DB_RECORDTYPE recordType,
 
 	SecKeychainAttributeInfo *theList=reinterpret_cast<SecKeychainAttributeInfo *>(malloc(sizeof(SecKeychainAttributeInfo)));
 	
-	UInt32 capacity=rmap.size();
+	size_t capacity=rmap.size();
 	UInt32 *tagBuf=reinterpret_cast<UInt32 *>(malloc(capacity*sizeof(UInt32)));
 	UInt32 *formatBuf=reinterpret_cast<UInt32 *>(malloc(capacity*sizeof(UInt32)));
 	UInt32 i=0;
@@ -292,24 +297,38 @@ KeychainSchemaImpl::didCreateRelation(CSSM_DB_RECORDTYPE relationID,
 		&& relationID < CSSM_DB_RECORDTYPE_SCHEMA_END)
 		return;
 
+    // if our schema is already in the map, return
+    if (mPrimaryKeyInfoMap.find(relationID) != mPrimaryKeyInfoMap.end())
+    {
+        return;
+    }
+    
 	RelationInfoMap &rim = mDatabaseInfoMap[relationID];
 	for (uint32 ix = 0; ix < inNumberOfAttributes; ++ix)
 		rim[pAttributeInfo[ix].AttributeId] = pAttributeInfo[ix].DataType;
 
-	CssmAutoDbRecordAttributeInfo &infos =
-		*new CssmAutoDbRecordAttributeInfo();
+	CssmAutoDbRecordAttributeInfo *infos = new CssmAutoDbRecordAttributeInfo();
+    
 	mPrimaryKeyInfoMap.
-		insert(PrimaryKeyInfoMap::value_type(relationID, &infos));
-	infos.DataRecordType = relationID;
+		insert(PrimaryKeyInfoMap::value_type(relationID, infos));
+	infos->DataRecordType = relationID;
 	for (uint32 ix = 0; ix < inNumberOfIndexes; ++ix)
 		if (pIndexInfo[ix].IndexType == CSSM_DB_INDEX_UNIQUE)
 		{
-			CssmDbAttributeInfo &info = infos.add();
+			CssmDbAttributeInfo &info = infos->add();
 			info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_INTEGER;
 			info.Label.AttributeID = pIndexInfo[ix].AttributeId;
 			info.AttributeFormat = rim[info.Label.AttributeID];
 		}
 }
+
+
+
+KeychainSchema::~KeychainSchema()
+
+{
+}
+
 
 
 struct Event
@@ -345,7 +364,7 @@ static void check_system_keychain()
 		keychain_check_server_address.sun_family = AF_UNIX;
 		if (strlcpy(keychain_check_server_address.sun_path, SYSTEM_KEYCHAIN_CHECK_UNIX_DOMAIN_SOCKET_NAME, sizeof(keychain_check_server_address.sun_path)) > sizeof(keychain_check_server_address.sun_path)) {
 			// It would be nice if we could compile time assert this
-			syslog(LOG_ERR, "Socket path too long, max length %d, your length %d", sizeof(keychain_check_server_address.sun_path), strlen(SYSTEM_KEYCHAIN_CHECK_UNIX_DOMAIN_SOCKET_NAME));
+			syslog(LOG_ERR, "Socket path too long, max length %lu, your length %lu", (unsigned long)sizeof(keychain_check_server_address.sun_path), (unsigned long)strlen(SYSTEM_KEYCHAIN_CHECK_UNIX_DOMAIN_SOCKET_NAME));
 			close(server_fd);
 			return;
 		}
@@ -578,91 +597,28 @@ KeychainImpl::unlock(ConstStringPtr password)
 }
 
 void
+KeychainImpl::stash()
+{
+  	StLock<Mutex>_(mMutex);
+	
+	mDb->stash();
+}
+
+void
+KeychainImpl::stashCheck()
+{
+  	StLock<Mutex>_(mMutex);
+	
+	mDb->stashCheck();
+}
+
+void
 KeychainImpl::getSettings(uint32 &outIdleTimeOut, bool &outLockOnSleep)
 {
 	StLock<Mutex>_(mMutex);
 	
 	mDb->getSettings(outIdleTimeOut, outLockOnSleep);
 }
-
-void KeychainImpl::markBlobForDotMacSyncUpdate(CssmData& data)
-{
-	// find the plist for dot mac
-	CFArrayRef dictionaries = (CFArrayRef) CFPreferencesCopyValue(CFSTR("KeychainSyncList"),
-																	CFSTR("com.apple.keychainsync"),
-																	kCFPreferencesCurrentUser,
-																	kCFPreferencesAnyHost);
-
-	if (dictionaries == NULL) // no such preference?  The user doesn't .Mac
-	{
-		return;
-	}
-	
-	CFStringRef currentPath = CFStringCreateWithCString(NULL, name(), kCFStringEncodingUTF8);
-	
-	// in each dictionary look for the path to the current keychain
-	CFIndex i;
-	CFIndex count = CFArrayGetCount(dictionaries);
-	
-	// make a mutable copy of the array
-	CFMutableArrayRef mutableDictionaries = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	for (i = 0; i < count; ++i)
-	{
-		CFMutableDictionaryRef d = (CFMutableDictionaryRef) CFDictionaryCreateMutableCopy(NULL, 0, (CFDictionaryRef) CFArrayGetValueAtIndex(dictionaries, i));
-		CFArrayAppendValue(mutableDictionaries, d);
-        CFRelease(d);
-	}
-	
-	// clean up what we don't need anymore
-	CFRelease(dictionaries);
-	
-	bool somethingChanged = false;
-	
-	for (i = 0; i < count; ++i)
-	{
-		CFMutableDictionaryRef d = (CFMutableDictionaryRef) CFArrayGetValueAtIndex(mutableDictionaries, i);
-		
-		// get the path and expand any tildes
-		CFStringRef path = (CFStringRef) CFDictionaryGetValue(d, CFSTR("DbName"));
-		CFIndex length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(path), kCFStringEncodingUTF8);
-		char buffer[length + 1]; // adjust for NULL termination
-		CFStringGetCString(path, buffer, sizeof(buffer), kCFStringEncodingUTF8);
-		string fullPath = buffer;
-		fullPath = DLDbListCFPref::ExpandTildesInPath(fullPath);
-		path = CFStringCreateWithCString(NULL, fullPath.c_str(), kCFStringEncodingUTF8);
-		
-		if (CFStringCompare(path, currentPath, 0) == kCFCompareEqualTo)
-		{
-			// if the value already exists, don't worry about it
-			CFDataRef oldBlob = (CFDataRef) CFDictionaryGetValue(d, CFSTR("DbOldBlob"));
-			if (oldBlob == NULL)
-			{
-				// CFify the blob
-				CFDataRef theBlob = (CFDataRef) CFDataCreate(NULL, (uint8*) data.data(), data.length());
-				CFDictionaryAddValue(d, CFSTR("DbOldBlob"), theBlob);
-				CFRelease(theBlob);
-				
-				CFPreferencesSetValue(CFSTR("KeychainSyncList"),
-									  mutableDictionaries,
-									  CFSTR("com.apple.keychainsync"),
-									  kCFPreferencesCurrentUser,
-									  kCFPreferencesAnyHost);
-				somethingChanged = true;
-			}
-		}
-	}
-	
-    CFRelease(currentPath);
-
-	CFRelease(mutableDictionaries);
-	
-	if (somethingChanged)
-	{
-		CFPreferencesSynchronize(CFSTR("com.apple.keychainsync"), kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-	}
-}
-
-
 
 void
 KeychainImpl::setSettings(uint32 inIdleTimeOut, bool inLockOnSleep)
@@ -682,10 +638,6 @@ KeychainImpl::setSettings(uint32 inIdleTimeOut, bool inLockOnSleep)
 		mDb->copyBlob(oldBlob.get());
 	
 	mDb->setSettings(inIdleTimeOut, inLockOnSleep);
-	
-	// if we got here, nothing threw underneath.  Send the results off to .Mac heaven
-	if (!isSmartcard)
-		markBlobForDotMacSyncUpdate(oldBlob.get());
 }
 
 void 
@@ -722,10 +674,6 @@ KeychainImpl::changePassphrase(UInt32 oldPasswordLength, const void *oldPassword
 		mDb->copyBlob(oldBlob.get());
 	
 	mDb->changePassphrase(&cred);
-	
-	// if we got here, nothing threw underneath.  Send the results off to .Mac heaven
-	if (!isSmartcard)
-		markBlobForDotMacSyncUpdate(oldBlob.get());
 }
 
 void
@@ -768,7 +716,7 @@ KeychainImpl::authenticate(const CSSM_ACCESS_CREDENTIALS *cred)
 	if (!exists())
 		MacOSError::throwMe(errSecNoSuchKeychain);
 
-	MacOSError::throwMe(unimpErr);
+	MacOSError::throwMe(errSecUnimplemented);
 }
 
 UInt32
@@ -1321,6 +1269,12 @@ Keychain::Keychain()
 	});
 }
 
+Keychain::~Keychain()
+{
+}
+
+
+
 Keychain
 Keychain::optional(SecKeychainRef handle)
 {
@@ -1331,7 +1285,7 @@ Keychain::optional(SecKeychainRef handle)
 }
 
 
-CFIndex GetKeychainRetainCount(Keychain& kc)
+CFIndex KeychainCore::GetKeychainRetainCount(Keychain& kc)
 {
 	CFTypeRef ref = kc->handle(false);
 	return CFGetRetainCount(ref);
@@ -1370,3 +1324,7 @@ KeychainImpl::defaultCredentials()
 
 
 
+bool KeychainImpl::mayDelete()
+{
+    return true;
+}

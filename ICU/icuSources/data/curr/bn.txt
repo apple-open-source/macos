@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/bn.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/bn.xml
 // *
 // ***************************************************************************
 /**
@@ -72,7 +72,7 @@ bn{
             "অস্ট্রিয়ান শিলিং",
         }
         AUD{
-            "AU$",
+            "A$",
             "অস্ট্রেলিয়ান ডলার",
         }
         AWG{
@@ -205,7 +205,7 @@ bn{
         }
         CAD{
             "CA$",
-            "কম্বোডিয়ান ডলার",
+            "কানাডিয়ান ডলার",
         }
         CDF{
             "CDF",
@@ -839,6 +839,10 @@ bn{
             "SRG",
             "সুরিনাম গিল্ডার",
         }
+        SSP{
+            "SSP",
+            "দক্ষিণ সুদানি পাউন্ড",
+        }
         STD{
             "STD",
             "সাও টোমে এবং প্রিন্সিপে ডোবরা",
@@ -957,11 +961,11 @@ bn{
         }
         VEB{
             "VEB",
-            "ভেনিজুয়েলান বলিভার",
+            "ভেনিজুয়েলান বলিভার (১৮৭১-২০০৮)",
         }
         VEF{
             "VEF",
-            "ভেনিজুয়েলীয় বলিভার র্ফুতে",
+            "ভেনিজুয়েলীয় বলিভার",
         }
         VND{
             "₫",
@@ -1057,6 +1061,10 @@ bn{
         }
         ZMK{
             "ZMK",
+            "জাম্বিয়ান কওয়াচা (১৯৬৮-২০১২)",
+        }
+        ZMW{
+            "ZMW",
             "জাম্বিয়ান কওয়াচা",
         }
         ZRN{
@@ -1082,18 +1090,17 @@ bn{
     }
     CurrencyPlurals{
         GTQ{
+            one{"গুয়াতেমালা কুয়েৎজাল"}
             other{"গুয়াতেমালা কুয়েৎজাল"}
         }
         HRK{
+            one{"ক্রোয়েশিয়ান কুনাস"}
             other{"ক্রোয়েশিয়ান কুনাস"}
         }
         SDG{
             one{"সুদানি পাউন্ড"}
+            other{"সুদানি পাউন্ড"}
         }
     }
-    CurrencyUnitPatterns{
-        one{"{0} {1}"}
-        other{"{0} {1}"}
-    }
-    Version{"2.0.65.46"}
+    Version{"2.0.82.47"}
 }

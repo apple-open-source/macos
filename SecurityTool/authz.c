@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  *  authz.c
@@ -38,7 +38,7 @@ read_auth_ref_from_stdin()
 	AuthorizationRef auth_ref = NULL;
 	AuthorizationExternalForm extform;
 	size_t bytes_read;
-	
+
 	while (kAuthorizationExternalFormLength != (bytes_read = read(STDIN_FILENO, &extform, kAuthorizationExternalFormLength)))
 	{
 		if ((bytes_read == -1) && ((errno != EAGAIN) || (errno != EINTR)))
@@ -60,16 +60,16 @@ write_auth_ref_to_stdout(AuthorizationRef auth_ref)
 {
 	AuthorizationExternalForm extform;
 	size_t bytes_written;
-	
+
 	if (AuthorizationMakeExternalForm(auth_ref, &extform))
 		return -1;
-		
+
 	while (kAuthorizationExternalFormLength != (bytes_written = write(STDOUT_FILENO, &extform, kAuthorizationExternalFormLength)))
 	{
 		if ((bytes_written == -1) && ((errno != EAGAIN) || (errno != EINTR)))
 			break;
 	}
-	
+
 	if (bytes_written == kAuthorizationExternalFormLength)
 		return 0;
 
@@ -117,7 +117,7 @@ read_dict_from_stdin()
 		CFShow(err);
 		return NULL;
 	}
-		
+
 	if (CFGetTypeID(right_dict) != CFDictionaryGetTypeID())
 	{
 		fprintf(stderr, "This is not a dictionary.\n");
@@ -182,7 +182,7 @@ bail:
 		CFRelease(property);
 	if (NULL != resourceData)
 		CFRelease(resourceData);
-	
+
 	return propertyList;
 }
 
@@ -209,20 +209,20 @@ write_plist_to_file(CFPropertyListRef propertyList, CFStringRef filePath)
 		fprintf(stderr, "The file does not exist.\n");
 		goto bail;
 	}
-	
+
 	// Convert the property list into XML data.
 	xmlData = CFPropertyListCreateData(kCFAllocatorDefault, propertyList, kCFPropertyListXMLFormat_v1_0, 0, &errorRef);
 	if (errorRef) {
 		fprintf(stderr, "The file could not be written.\n");
 		goto bail;
-	}	
-	
+	}
+
 	// Write the XML data to the file.
 	if (!CFURLWriteDataAndPropertiesToResource(fileURL, xmlData, NULL, &errorCode)) {
 		fprintf(stderr, "The file could not be written.\n");
 		goto bail;
 	}
-	
+
 	status = TRUE;
 bail:
 	if (NULL != xmlData)
@@ -261,9 +261,9 @@ authorizationdb(int argc, char * const * argv)
 
 	if (argc == 0)
 		return 2; // required right parameter(s)
-	
+
 	OSStatus status;
-	
+
 	if (argc > 1)
 	{
 		if (!auth_ref && AuthorizationCreate(NULL, NULL, 0, &auth_ref))
@@ -306,6 +306,89 @@ authorizationdb(int argc, char * const * argv)
 		{
 			status = AuthorizationRightRemove(auth_ref, argv[1]);
 		}
+		else if (!strcmp("smartcard", argv[0]))
+		{
+			if (argc == 2)
+            {
+                if(!strcmp("status", argv[1]))
+                {
+                    const CFStringRef SMARTCARD_LINE = CFSTR("builtin:smartcard-sniffer,privileged");
+                    const CFStringRef MECHANISMS = CFSTR("mechanisms");
+                    const CFStringRef BUILTIN_LINE = CFSTR("builtin:policy-banner");
+                    const char* SYSTEM_LOGIN_CONSOLE = "system.login.console";
+                    const char* AUTHENTICATE = "authenticate";
+                    
+                    CFIndex requiredLine1 = -1;
+                    CFIndex requiredLine2 = -1;
+                    
+                    CFDictionaryRef right_definition;
+                    status = AuthorizationRightGet(SYSTEM_LOGIN_CONSOLE, &right_definition);
+                    if(!status)
+                    {
+                        CFArrayRef mechanisms;
+                        
+                        Boolean res = CFDictionaryGetValueIfPresent(right_definition, MECHANISMS, (void*)&mechanisms);
+                        if(res)
+                        {
+                            // now parse all array elements until "builtin:policy-banner" is found
+                            CFIndex c = CFArrayGetCount(mechanisms);
+                            CFStringRef mechanismName;
+                            
+                            for (CFIndex i = 0; i < c; ++i)
+                            {
+                                mechanismName = CFArrayGetValueAtIndex(mechanisms, i);
+                                if(CFStringCompare(mechanismName, BUILTIN_LINE, 0) == kCFCompareEqualTo)
+                                {
+                                    if(i + 1 < c)
+                                    {
+                                        mechanismName = CFArrayGetValueAtIndex(mechanisms, i + 1);
+                                        if(CFStringCompare(mechanismName, SMARTCARD_LINE, 0) == kCFCompareEqualTo)
+                                        {
+                                            requiredLine1 = i + 1;
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    CFRelease(right_definition);
+                    }
+                    status = AuthorizationRightGet(AUTHENTICATE, &right_definition);
+                    if(!status)
+                    {
+                        CFArrayRef mechanisms;
+                        
+                        Boolean res = CFDictionaryGetValueIfPresent(right_definition, MECHANISMS, (void*)&mechanisms);
+                        if(res)
+                        {
+                            // now parse all array elements until "builtin:policy-banner" is found
+                            CFIndex c = CFArrayGetCount(mechanisms);
+                            CFStringRef mechanismName;
+                            
+                            if(c > 0)
+                            {
+                                mechanismName = CFArrayGetValueAtIndex(mechanisms, 0);
+                                if(CFStringCompare(mechanismName, SMARTCARD_LINE, 0) == kCFCompareEqualTo)
+                                {
+                                    requiredLine2 = 0;
+                                }
+                            }
+                        }
+                        CFRelease(right_definition);
+                    }
+                    printf("Current smartcard login state: %s (system.login.console %s, authentication rule %s)\n", requiredLine1 != -1 && requiredLine2 != -1 ?"enabled":"disabled", requiredLine1 != -1 ? "enabled":"disabled", requiredLine2 != -1 ? "enabled":"disabled");
+
+                }
+                else if(!strcmp("disable", argv[1]))
+                    status = AuthorizationEnableSmartCard(auth_ref, FALSE);
+                else if(!strcmp("enable", argv[1]))
+                    status = AuthorizationEnableSmartCard(auth_ref, TRUE);
+                else
+                   return 2; // unrecognized parameter
+            }
+            else
+                return 2; // required parameter missing
+		}
 		else if (!strcmp("merge", argv[0])) {
 			status = 1;
 			CFStringRef sourcePath = NULL;
@@ -336,7 +419,7 @@ authorizationdb(int argc, char * const * argv)
 				sourcePlist = read_plist_from_file(sourcePath);
 			}
 			if (NULL == sourcePlist)
-				goto bail;				
+				goto bail;
 			if (argc == 2) {
 				// Merging to /etc/authorization.
 				destPath = CFStringCreateWithCString(kCFAllocatorDefault, "/etc/authorization", kCFStringEncodingUTF8);
@@ -370,7 +453,7 @@ authorizationdb(int argc, char * const * argv)
 			if (NULL == mergeRules) {
 				goto bail;
 			}
-			
+
 			if (destRights)
 				CFDictionaryApplyFunction(destRights, merge_dictionaries, mergeRights);
 			if (destRules)
@@ -405,7 +488,7 @@ bail:
 				CFRelease(destPlist);
 			if (outDict)
 				CFRelease(outDict);
-		}		
+		}
 		else
 			return 2;
 	}
@@ -417,7 +500,7 @@ bail:
 
 	if (!do_quiet)
 		fprintf(stderr, "%s (%d)\n", status ? "NO" : "YES", (int)status);
-	
+
 	return (status ? -1 : 0);
 }
 
@@ -427,10 +510,10 @@ authorize(int argc, char * const *argv)
 	int ch;
 	OSStatus status;
 
-	Boolean user_interaction_allowed = FALSE, extend_rights = TRUE; 
+	Boolean user_interaction_allowed = FALSE, extend_rights = TRUE;
 	Boolean partial_rights = FALSE, destroy_rights = FALSE;
 	Boolean pre_authorize = FALSE, internalize = FALSE, externalize = FALSE;
-	Boolean wait = FALSE, explicit_credentials = FALSE; 
+	Boolean wait = FALSE, explicit_credentials = FALSE;
 	Boolean isolate_explicit_credentials = FALSE, least_privileged = FALSE;
 	char *login = NULL;
 
@@ -492,7 +575,7 @@ authorize(int argc, char * const *argv)
 	AuthorizationFlags flags = kAuthorizationFlagDefaults |
 		(user_interaction_allowed ? kAuthorizationFlagInteractionAllowed : 0) |
 		(extend_rights ? kAuthorizationFlagExtendRights : 0) |
-		(partial_rights ? kAuthorizationFlagPartialRights : 0) | 
+		(partial_rights ? kAuthorizationFlagPartialRights : 0) |
 		(pre_authorize ? kAuthorizationFlagPreAuthorize : 0) |
 		(least_privileged ? kAuthorizationFlagLeastPrivileged : 0);
 
@@ -513,8 +596,8 @@ authorize(int argc, char * const *argv)
 			return 1;
 	}
 
-	if (!auth_ref && AuthorizationCreate(NULL, NULL, 
-				(least_privileged ? kAuthorizationFlagLeastPrivileged : 0), 
+	if (!auth_ref && AuthorizationCreate(NULL, NULL,
+				(least_privileged ? kAuthorizationFlagLeastPrivileged : 0),
 				&auth_ref))
 		return -1;
 
@@ -550,7 +633,7 @@ authorize(int argc, char * const *argv)
 // externalize AuthorizationRef
 	if (externalize)
 		write_auth_ref_to_stdout(auth_ref);
-			
+
 	if (!do_quiet)
 		fprintf(stderr, "%s (%d) ", status ? "NO" : "YES", (int)status);
 
@@ -560,8 +643,8 @@ authorize(int argc, char * const *argv)
 		fprintf(stderr, "{ %d: ", (int)granted_rights->count);
 		for (index = 0; index < granted_rights->count; index++)
 		{
-			fprintf(stderr, "\"%s\"%s %c ", granted_rights->items[index].name, 
-				(kAuthorizationFlagCanNotPreAuthorize & granted_rights->items[index].flags) ? " (cannot-preauthorize)" : "", 
+			fprintf(stderr, "\"%s\"%s %c ", granted_rights->items[index].name,
+				(kAuthorizationFlagCanNotPreAuthorize & granted_rights->items[index].flags) ? " (cannot-preauthorize)" : "",
 				(index+1 != granted_rights->count) ? ',' : '}');
 		}
 		AuthorizationFreeItemSet(granted_rights);
@@ -574,11 +657,11 @@ authorize(int argc, char * const *argv)
 	if (externalize && wait)
 		while (-1 != write(STDOUT_FILENO, NULL, 0))
 			usleep(100);
-		
+
 // drop AuthorizationRef
 	if (auth_ref)
 		AuthorizationFree(auth_ref, destroy_rights ? kAuthorizationFlagDestroyRights : 0);
-	
+
 	return (status ? -1 : 0);
 }
 
@@ -606,9 +689,9 @@ execute_with_privileges(int argc, char * const *argv)
 
 	if (argc == 0)
 		return 2; // required tool parameter(s)
-	
+
 	OSStatus status;
-	
+
 	if (!auth_ref && AuthorizationCreate(NULL, NULL, 0, &auth_ref))
 		return -1;
 
@@ -618,12 +701,12 @@ execute_with_privileges(int argc, char * const *argv)
 
 	if (!do_quiet)
 		fprintf(stderr, "%s (%d) ", status ? "NO" : "YES", (int)status);
-	
+
 	if (!status)
 	{
 		int bytes_read = 0;
 		uint8_t buffer[4096];
-		
+
 		while (bytes_read = read(STDIN_FILENO, &buffer, sizeof(buffer)))
 		{
 			if ((bytes_read == -1) && ((errno != EAGAIN) || (errno != EINTR)))
@@ -634,7 +717,7 @@ execute_with_privileges(int argc, char * const *argv)
 							usleep(100);
 		}
 	}
-	
-	return (status ? -1 : 0);	
+
+	return (status ? -1 : 0);
 }
 

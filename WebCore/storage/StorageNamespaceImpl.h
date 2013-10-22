@@ -26,51 +26,54 @@
 #ifndef StorageNamespaceImpl_h
 #define StorageNamespaceImpl_h
 
-#include "PlatformString.h"
 #include "SecurityOriginHash.h"
 #include "StorageArea.h"
 #include "StorageNamespace.h"
-
 #include <wtf/HashMap.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-    class StorageAreaImpl;
+class StorageAreaImpl;
 
-    class StorageNamespaceImpl : public StorageNamespace {
-    public:
-        static PassRefPtr<StorageNamespace> localStorageNamespace(const String& path, unsigned quota);
-        static PassRefPtr<StorageNamespace> sessionStorageNamespace(unsigned quota);
+class StorageNamespaceImpl : public StorageNamespace {
+public:
+    static PassRefPtr<StorageNamespace> localStorageNamespace(PageGroup*);
+    static PassRefPtr<StorageNamespace> transientLocalStorageNamespace(PageGroup*, SecurityOrigin*);
+    static PassRefPtr<StorageNamespace> sessionStorageNamespace(Page*);
+    virtual ~StorageNamespaceImpl();
 
-        virtual ~StorageNamespaceImpl();
-        virtual PassRefPtr<StorageArea> storageArea(PassRefPtr<SecurityOrigin>);
-        virtual PassRefPtr<StorageNamespace> copy();
-        virtual void close();
+    virtual PassRefPtr<StorageArea> storageArea(PassRefPtr<SecurityOrigin>)  OVERRIDE;
+    virtual PassRefPtr<StorageNamespace> copy(Page* newPage) OVERRIDE;
+    virtual void close() OVERRIDE;
 
-        // Not removing the origin's StorageArea from m_storageAreaMap because
-        // we're just deleting the underlying db file. If an item is added immediately
-        // after file deletion, we want the same StorageArea to eventually trigger
-        // a sync and for StorageAreaSync to recreate the backing db file.
-        virtual void clearOriginForDeletion(SecurityOrigin*);
-        virtual void clearAllOriginsForDeletion();
-        virtual void sync();
-        
-    private:
-        StorageNamespaceImpl(StorageType, const String& path, unsigned quota);
+    // Not removing the origin's StorageArea from m_storageAreaMap because
+    // we're just deleting the underlying db file. If an item is added immediately
+    // after file deletion, we want the same StorageArea to eventually trigger
+    // a sync and for StorageAreaSync to recreate the backing db file.
+    virtual void clearOriginForDeletion(SecurityOrigin*) OVERRIDE;
+    virtual void clearAllOriginsForDeletion() OVERRIDE;
+    virtual void sync() OVERRIDE;
+    virtual void closeIdleLocalStorageDatabases() OVERRIDE;
 
-        typedef HashMap<RefPtr<SecurityOrigin>, RefPtr<StorageAreaImpl>, SecurityOriginHash> StorageAreaMap;
-        StorageAreaMap m_storageAreaMap;
+private:
+    StorageNamespaceImpl(StorageType, const String& path, unsigned quota);
 
-        StorageType m_storageType;
+    typedef HashMap<RefPtr<SecurityOrigin>, RefPtr<StorageAreaImpl> > StorageAreaMap;
+    StorageAreaMap m_storageAreaMap;
 
-        // Only used if m_storageType == LocalStorage and the path was not "" in our constructor.
-        String m_path;
-        RefPtr<StorageSyncManager> m_syncManager;
+    StorageType m_storageType;
 
-        unsigned m_quota;  // The default quota for each new storage area.
-        bool m_isShutdown;
-    };
+    // Only used if m_storageType == LocalStorage and the path was not "" in our constructor.
+    String m_path;
+    RefPtr<StorageSyncManager> m_syncManager;
+
+    // The default quota for each new storage area.
+    unsigned m_quota;
+
+    bool m_isShutdown;
+};
 
 } // namespace WebCore
 

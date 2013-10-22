@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Matt Lilek <webkit@mattlilek.com>
- * Copyright (C) 2010-2011 Google Inc. All rights reserved.
+ * Copyright (C) 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -36,12 +36,13 @@
 
 #include "InjectedScriptManager.h"
 
+#include "BindingSecurity.h"
 #include "ExceptionCode.h"
-#include "InjectedScript.h"
 #include "JSDOMWindow.h"
 #include "JSDOMWindowCustom.h"
 #include "JSInjectedScriptHost.h"
 #include "JSMainThreadExecState.h"
+#include "ScriptObject.h"
 #include <parser/SourceCode.h>
 #include <runtime/JSLock.h>
 
@@ -49,16 +50,22 @@ using namespace JSC;
 
 namespace WebCore {
 
-ScriptObject InjectedScriptManager::createInjectedScript(const String& source, ScriptState* scriptState, long id)
+ScriptObject InjectedScriptManager::createInjectedScript(const String& source, ScriptState* scriptState, int id)
 {
     JSLockHolder lock(scriptState);
 
-    SourceCode sourceCode = makeSource(stringToUString(source));
+    SourceCode sourceCode = makeSource(source);
     JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
     JSValue globalThisValue = scriptState->globalThisValue();
 
     JSValue evaluationException;
-    JSValue evaluationReturnValue = JSMainThreadExecState::evaluate(scriptState, globalObject->globalScopeChain(), sourceCode, globalThisValue, &evaluationException);
+    JSValue evaluationReturnValue;
+    if (isMainThread())
+        evaluationReturnValue = JSMainThreadExecState::evaluate(scriptState, sourceCode, globalThisValue, &evaluationException);
+    else {
+        JSC::JSLockHolder lock(scriptState);
+        evaluationReturnValue = JSC::evaluate(scriptState, sourceCode, globalThisValue, &evaluationException);
+    }
     if (evaluationException)
         return ScriptObject();
 
@@ -72,34 +79,11 @@ ScriptObject InjectedScriptManager::createInjectedScript(const String& source, S
     args.append(toJS(scriptState, globalObject, m_injectedScriptHost.get()));
     args.append(globalThisValue);
     args.append(jsNumber(id));
+
     JSValue result = JSC::call(scriptState, functionValue, callType, callData, globalThisValue, args);
     if (result.isObject())
         return ScriptObject(scriptState, result.getObject());
     return ScriptObject();
-}
-
-void InjectedScriptManager::discardInjectedScript(ScriptState* scriptState)
-{
-    JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
-    globalObject->setInjectedScript(0);
-}
-
-InjectedScript InjectedScriptManager::injectedScriptFor(ScriptState* scriptState)
-{
-    JSLockHolder lock(scriptState);
-    JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
-    JSObject* injectedScript = globalObject->injectedScript();
-    if (injectedScript)
-        return InjectedScript(ScriptObject(scriptState, injectedScript), m_inspectedStateAccessCheck);
-
-    if (!m_inspectedStateAccessCheck(scriptState))
-        return InjectedScript();
-
-    pair<long, ScriptObject> injectedScriptObject = injectScript(injectedScriptSource(), scriptState);
-    globalObject->setInjectedScript(injectedScriptObject.second.jsObject());
-    InjectedScript result(injectedScriptObject.second, m_inspectedStateAccessCheck);
-    m_idToInjectedScript.set(injectedScriptObject.first, result);
-    return result;
 }
 
 bool InjectedScriptManager::canAccessInspectedWindow(ScriptState* scriptState)
@@ -108,7 +92,7 @@ bool InjectedScriptManager::canAccessInspectedWindow(ScriptState* scriptState)
     JSDOMWindow* inspectedWindow = toJSDOMWindow(scriptState->lexicalGlobalObject());
     if (!inspectedWindow)
         return false;
-    return inspectedWindow->allowsAccessFromNoErrorMessage(scriptState);
+    return BindingSecurity::shouldAllowAccessToDOMWindow(scriptState, inspectedWindow->impl(), DoNotReportSecurityError);
 }
 
 } // namespace WebCore

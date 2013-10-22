@@ -124,7 +124,7 @@ OSStatus SecKeychainItemCopyFromRecordIdentifier(SecKeychainRef keychain,
 	@param attrList on output, an attribute list with the attributes specified by info. You must call SecKeychainItemFreeAttributesAndData() when you no longer need this list.
 	@param length on output the actual length of the data.
 	@param outData Pointer to a buffer containing the data in this item. Pass NULL if not required. You must call SecKeychainItemFreeAttributesAndData() when you no longer need the data.
-    @result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters are supplied.
+    @result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters are supplied.
 */
 OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo *info,
 													   SecItemClass *itemClass, SecKeychainAttributeList **attrList,
@@ -138,7 +138,7 @@ OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRe
 	@param length The length of the buffer pointed to by data.
 	@param data Pointer to a buffer containing the data to store.
     @result A result code.  See "Security Error Codes" (SecBase.h).
-	@discussion The keychain item is written to the keychain's permanent data store. If the keychain item has not previously been added to a keychain, a call to the SecKeychainItemModifyContent function does nothing and returns noErr.
+	@discussion The keychain item is written to the keychain's permanent data store. If the keychain item has not previously been added to a keychain, a call to the SecKeychainItemModifyContent function does nothing and returns errSecSuccess.
 */
 OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 length, const void *data);
 
@@ -152,7 +152,7 @@ OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 l
 	@param initialAccess A reference to the access for this keychain item.
 	@param itemRef On return, a pointer to a reference to the newly created keychain item (optional). When the item reference is no longer required, call CFRelease to deallocate memory occupied by the item.
 	@param itemLocalID On return, the item's local ID data (optional). When the local ID data reference is no longer required, call CFRelease to deallocate memory occupied by the reference.
-    @result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters are supplied, or memFullErr (-108) if there is not enough memory in the current heap zone to create the object.
+    @result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters are supplied, or errSecAllocate (-108) if there is not enough memory in the current heap zone to create the object.
 */
 OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass, UInt32 length, const void *data,
 												   SecKeychainRef keychainRef, SecAccessRef initialAccess,

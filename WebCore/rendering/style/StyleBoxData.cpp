@@ -27,6 +27,14 @@
 
 namespace WebCore {
 
+struct SameSizeAsStyleBoxData : public RefCounted<SameSizeAsStyleBoxData> {
+    Length length[7];
+    int m_zIndex;
+    uint32_t bitfields;
+};
+
+COMPILE_ASSERT(sizeof(StyleBoxData) == sizeof(SameSizeAsStyleBoxData), StyleBoxData_should_not_grow);
+
 StyleBoxData::StyleBoxData()
     : m_minWidth(RenderStyle::initialMinSize())
     , m_maxWidth(RenderStyle::initialMaxSize())
@@ -35,6 +43,9 @@ StyleBoxData::StyleBoxData()
     , m_zIndex(0)
     , m_hasAutoZIndex(true)
     , m_boxSizing(CONTENT_BOX)
+#if ENABLE(CSS_BOX_DECORATION_BREAK)
+    , m_boxDecorationBreak(DSLICE)
+#endif
 {
 }
 
@@ -50,6 +61,9 @@ StyleBoxData::StyleBoxData(const StyleBoxData& o)
     , m_zIndex(o.m_zIndex)
     , m_hasAutoZIndex(o.m_hasAutoZIndex)
     , m_boxSizing(o.m_boxSizing)
+#if ENABLE(CSS_BOX_DECORATION_BREAK)
+    , m_boxDecorationBreak(o.m_boxDecorationBreak)
+#endif
 {
 }
 
@@ -64,7 +78,11 @@ bool StyleBoxData::operator==(const StyleBoxData& o) const
            && m_verticalAlign == o.m_verticalAlign
            && m_zIndex == o.m_zIndex
            && m_hasAutoZIndex == o.m_hasAutoZIndex
-           && m_boxSizing == o.m_boxSizing;
+           && m_boxSizing == o.m_boxSizing
+#if ENABLE(CSS_BOX_DECORATION_BREAK)
+           && m_boxDecorationBreak == o.m_boxDecorationBreak
+#endif
+            ;
 }
 
 } // namespace WebCore

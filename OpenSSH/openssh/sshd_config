@@ -1,4 +1,4 @@
-#	$OpenBSD: sshd_config,v 1.84 2011/05/23 03:30:07 djm Exp $
+#	$OpenBSD: sshd_config,v 1.89 2013/02/06 00:20:42 dtucker Exp $
 
 # This is the sshd server system-wide configuration file.  See
 # sshd_config(5) for more information.
@@ -10,6 +10,7 @@
 # possible, but leave them commented.  Uncommented options override the
 # default value.
 
+# See sshd_config(5) for details on setting the Port and Listen values on Mac OS X
 #Port 22
 #AddressFamily any
 #ListenAddress 0.0.0.0
@@ -48,6 +49,11 @@ SyslogFacility AUTHPRIV
 # The default is to check both .ssh/authorized_keys and .ssh/authorized_keys2
 # but this is overridden so installations will only check .ssh/authorized_keys
 AuthorizedKeysFile	.ssh/authorized_keys
+
+#AuthorizedPrincipalsFile none
+
+#AuthorizedKeysCommand none
+#AuthorizedKeysCommandUser nobody
 
 # For this to work you will also need host keys in /etc/ssh/ssh_known_hosts
 #RhostsRSAAuthentication no
@@ -96,22 +102,24 @@ AuthorizedKeysFile	.ssh/authorized_keys
 #AllowTcpForwarding yes
 #GatewayPorts no
 #X11Forwarding no
+#XauthLocation xauth # Default is to search $PATH (set by launchd(8)).  It is recommended that a full path be provided.
 #X11DisplayOffset 10
 #X11UseLocalhost yes
 #PrintMotd yes
 #PrintLastLog yes
 #TCPKeepAlive yes
 #UseLogin no
-#UsePrivilegeSeparation sandbox
+UsePrivilegeSeparation sandbox		# Default for new installations.
 #PermitUserEnvironment no
 #Compression delayed
 #ClientAliveInterval 0
 #ClientAliveCountMax 3
 #UseDNS yes
 #PidFile /var/run/sshd.pid
-#MaxStartups 10
+#MaxStartups 10:30:100
 #PermitTunnel no
 #ChrootDirectory none
+#VersionAddendum none
 
 # pass locale information
 AcceptEnv LANG LC_*

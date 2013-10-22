@@ -1,0 +1,18 @@
+--- Makefile.in.orig	2009-03-08 14:45:29.000000000 -0700
++++ Makefile.in	2012-07-31 16:39:23.000000000 -0700
+@@ -136,7 +136,6 @@
+ 	$(SHELL) ./config.status --recheck
+ 
+ $(sdir)/configure: $(sdir)/aclocal.m4 $(sdir)/aczsh.m4 $(sdir)/configure.ac
+-	cd $(sdir) && autoconf
+ 
+ config.h: stamp-h
+ stamp-h: $(sdir)/config.h.in config.status
+@@ -149,7 +148,6 @@
+ $(sdir)/config.h.in: $(sdir)/stamp-h.in
+ $(sdir)/stamp-h.in: $(sdir)/configure.ac \
+ 		$(sdir)/aclocal.m4 $(sdir)/aczsh.m4
+-	cd $(sdir) && autoheader
+ 	echo > $(sdir)/stamp-h.in
+ 
+ # ========== DEPENDENCIES FOR DISTRIBUTION ==========

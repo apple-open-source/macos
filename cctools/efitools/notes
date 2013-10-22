@@ -5,6 +5,9 @@ Add flags for:
 Add support for:
 - Remove empty __IMPORT segment
 
+Changes for the 5.32 release (the cctools-831 release):
+- Also put mtoc(1) in /usr/local/bin .  Radar bug #10715889.
+
 Changes for the 5.30 release (the cctools-820 release):
 - Removed the use of vers_string(1) from the Makefile. Radar bug #10596469.
   - Added a reference to apple_version[] in makerelocs.c and mtoc.c .

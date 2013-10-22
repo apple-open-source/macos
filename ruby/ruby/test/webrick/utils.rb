@@ -1,10 +1,4 @@
-begin
-  loadpath = $:.dup
-  $:.replace($: | [File.expand_path("../ruby", File.dirname(__FILE__))])
-  require 'envutil'
-ensure
-  $:.replace(loadpath)
-end
+require_relative '../ruby/envutil'
 require "webrick"
 begin
   require "webrick/https"
@@ -20,6 +14,7 @@ module TestWEBrick
   end
 
   RubyBin = "\"#{EnvUtil.rubybin}\""
+  RubyBin << " --disable-gems"
   RubyBin << " \"-I#{File.expand_path("../..", File.dirname(__FILE__))}/lib\""
   RubyBin << " \"-I#{File.dirname(EnvUtil.rubybin)}/.ext/common\""
   RubyBin << " \"-I#{File.dirname(EnvUtil.rubybin)}/.ext/#{RUBY_PLATFORM}\""
@@ -29,23 +24,27 @@ module TestWEBrick
   def start_server(klass, config={}, &block)
     log_string = ""
     logger = Object.new
-    class << logger; self; end.class_eval do
-      define_method(:<<) {|msg| log_string << msg }
+    logger.instance_eval do
+      define_singleton_method(:<<) {|msg| log_string << msg }
     end
     log = proc { "webrick log start:\n" + log_string.gsub(/^/, "  ").chomp + "\nwebrick log end" }
     server = klass.new({
       :BindAddress => "127.0.0.1", :Port => 0,
+      :ShutdownSocketWithoutClose =>true,
+      :ServerType => Thread,
       :Logger => WEBrick::Log.new(logger),
-      :AccessLog => [[NullWriter, ""]]
+      :AccessLog => [[logger, ""]]
     }.update(config))
     begin
-      thread = Thread.start{ server.start }
+      server_thread = server.start
       addr = server.listeners[0].addr
-      block.call([server, addr[3], addr[1], log])
+      block.yield([server, addr[3], addr[1], log])
     ensure
-      server.stop
-      thread.join
+      server.shutdown
+
+      server_thread.join
     end
+    log_string
   end
 
   def start_httpserver(config={}, &block)

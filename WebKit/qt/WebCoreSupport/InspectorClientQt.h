@@ -31,12 +31,16 @@
 #define InspectorClientQt_h
 
 #include "InspectorClient.h"
+#include "InspectorFrontendChannel.h"
 #include "InspectorFrontendClientLocal.h"
-#include <QtCore/QString>
+
+#include <QObject>
+#include <QString>
 #include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
+class QWebPageAdapter;
 class QWebPage;
 class QWebView;
 
@@ -45,13 +49,13 @@ class InspectorFrontendClientQt;
 class InspectorServerRequestHandlerQt;
 class Page;
 
-class InspectorClientQt : public InspectorClient {
+class InspectorClientQt : public InspectorClient, public InspectorFrontendChannel {
 public:
-    InspectorClientQt(QWebPage*);
+    explicit InspectorClientQt(QWebPageAdapter*);
 
     virtual void inspectorDestroyed();
 
-    virtual void openInspectorFrontend(WebCore::InspectorController*);
+    virtual WebCore::InspectorFrontendChannel* openInspectorFrontend(WebCore::InspectorController*);
     virtual void closeInspectorFrontend();
     virtual void bringFrontendToFront();
 
@@ -66,8 +70,8 @@ public:
     void detachRemoteFrontend();
 
 private:
-    QWebPage* m_inspectedWebPage;
-    QWebPage* m_frontendWebPage;
+    QWebPageAdapter* m_inspectedWebPage;
+    QWebPageAdapter* m_frontendWebPage;
     InspectorFrontendClientQt* m_frontendClient;
     bool m_remoteInspector;
     InspectorServerRequestHandlerQt* m_remoteFrontEndChannel;
@@ -77,22 +81,22 @@ private:
 
 class InspectorFrontendClientQt : public InspectorFrontendClientLocal {
 public:
-    InspectorFrontendClientQt(QWebPage* inspectedWebPage, PassOwnPtr<QWebView> inspectorView, InspectorClientQt* inspectorClient);
+    InspectorFrontendClientQt(QWebPageAdapter* inspectedWebPage, PassOwnPtr<QObject> inspectorView, WebCore::Page* inspectorPage, InspectorClientQt*);
     virtual ~InspectorFrontendClientQt();
 
     virtual void frontendLoaded();
 
     virtual String localizedStringsURL();
 
-    virtual String hiddenPanels();
-
     virtual void bringToFront();
     virtual void closeWindow();
 
-    virtual void attachWindow();
+    virtual void attachWindow(DockSide);
     virtual void detachWindow();
 
-    virtual void setAttachedWindowHeight(unsigned height);
+    virtual void setAttachedWindowHeight(unsigned);
+    virtual void setAttachedWindowWidth(unsigned);
+    virtual void setToolbarHeight(unsigned) OVERRIDE;
 
     virtual void inspectedURLChanged(const String& newURL);
 
@@ -101,8 +105,8 @@ public:
 private:
     void updateWindowTitle();
     void destroyInspectorView(bool notifyInspectorController);
-    QWebPage* m_inspectedWebPage;
-    OwnPtr<QWebView> m_inspectorView;
+    QWebPageAdapter* m_inspectedWebPage;
+    OwnPtr<QObject> m_inspectorView;
     QString m_inspectedURL;
     bool m_destroyingInspectorView;
     InspectorClientQt* m_inspectorClient;

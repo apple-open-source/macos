@@ -5,7 +5,7 @@
 main=$(/usr/sbin/spctl --status)
 gk=$(/usr/sbin/spctl --test-devid-status)
 /usr/bin/syslog -s -k \
-	com.apple.message.domain com.apple.security.assessment.current_state \
+	com.apple.message.domain com.apple.security.assessment.state \
 	com.apple.message.signature "$main" \
 	com.apple.message.signature2 "$gk" \
 	Message "Gatekeeper state $main/$gk"

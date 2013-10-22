@@ -63,7 +63,7 @@ static int interpretEFIString(BLContextPtr context, CFStringRef efiString,
 
 static void addElements(const void *key, const void *value, void *context);
 
-static int findBootRootAggregate(BLContextPtr context, char *memberPartition, char *bootRootDevice);
+static int findBootRootAggregate(BLContextPtr context, char *memberPartition, char *bootRootDevice, int deviceLen);
 
 
 
@@ -206,7 +206,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                 }
                 
                 if (doSearch) {
-                    ret = findBootRootAggregate(context, booterPart, currentDev);
+                    ret = findBootRootAggregate(context, booterPart, currentDev, sizeof currentDev);
                     if (ret) {
                         blesscontextprintf(context, kBLLogLevelError,
                                            "Failed to find Boot!=Root aggregate media for %s\n", currentDev);
@@ -269,7 +269,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                 
                 if(strncmp(sb.f_mntfromname, currentDev, strlen(currentDev)+1) == 0) {
                     blesscontextprintf(context, kBLLogLevelVerbose,  "mount: %s\n", mnts[vols].f_mntonname );
-                    strcpy(actargs[kinfo].argument, mnts[vols].f_mntonname);
+                    strlcpy(actargs[kinfo].argument, mnts[vols].f_mntonname, kMaxArgLength);
                     actargs[kinfo].hasArg = 1;
                     break;
                 }
@@ -359,7 +359,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             }
             
             if(dirint > 0 && CFStringGetLength(path) == 0) {
-                strcpy(cpath, MISSINGMSG);
+                strlcpy(cpath, MISSINGMSG, sizeof cpath);
             } else {
                 if(!CFStringGetCString(path, cpath, MAXPATHLEN, kCFStringEncodingUTF8)) {
                     continue;
@@ -397,7 +397,8 @@ static int interpretEFIString(BLContextPtr context, CFStringRef efiString,
     
     ret = BLInterpretEFIXMLRepresentationAsDevice(context,
                                                   efiString,
-                                                  path);
+                                                  path,
+                                                  sizeof path);
     if(ret == 0) {
         blesscontextprintf(context, kBLLogLevelVerbose,  "Disk boot device detected\n" );
         
@@ -429,7 +430,8 @@ static int interpretEFIString(BLContextPtr context, CFStringRef efiString,
         } else {
 			ret = BLInterpretEFIXMLRepresentationAsLegacyDevice(context,
                                                                 efiString,
-                                                                path);
+                                                                path,
+                                                                sizeof path);
 			if(ret == 0) {
 				blesscontextprintf(context, kBLLogLevelVerbose,  "Legacy boot device detected\n" );
 				
@@ -482,7 +484,7 @@ static int isBootRootPath(BLContextPtr context, mach_port_t iokitPort, io_servic
 
 
 
-static int findBootRootAggregate(BLContextPtr context, char *memberPartition, char *bootRootDevice)
+static int findBootRootAggregate(BLContextPtr context, char *memberPartition, char *bootRootDevice, int deviceLen)
 {
     io_service_t member = IO_OBJECT_NULL, testmedia = IO_OBJECT_NULL;
     io_iterator_t iter;
@@ -546,7 +548,7 @@ static int findBootRootAggregate(BLContextPtr context, char *memberPartition, ch
             
             contextprintf(context, kBLLogLevelVerbose,  "Found Boot!=Root aggregate media %s\n", BLGetCStringDescription(bsdName));
             
-            strcpy(bootRootDevice, "/dev/");
+            strlcpy(bootRootDevice, "/dev/", deviceLen);
             CFStringGetCString(bsdName, bootRootDevice+5, 1024-5, kCFStringEncodingUTF8);
             
             CFRelease(bsdName);
@@ -569,7 +571,7 @@ static int findBootRootAggregate(BLContextPtr context, char *memberPartition, ch
             foundBootRoot = true;
             contextprintf(context, kBLLogLevelVerbose,  "Found legacy Apple_Boot media %s\n", BLGetCStringDescription(memberContent));
             
-            strcpy(bootRootDevice, memberPartition);
+            strlcpy(bootRootDevice, memberPartition, deviceLen);
         }
     }
     

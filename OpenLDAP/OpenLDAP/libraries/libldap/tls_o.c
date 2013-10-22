@@ -52,6 +52,9 @@
 #include <syslog.h>
 
 static int tlso_use_cert_from_keychain( struct ldapoptions *lo );
+static X509 *tslo_copy_cert_to_x509(SecCertificateRef inRef);
+static OSStatus tslo_create_ca_chain(SSL_CTX* ctx, SecCertificateRef sslCertRef);
+static EVP_PKEY	*tslo_copy_key_to_evpkey(SecKeyRef inKey);
 #endif
 
 typedef SSL_CTX tlso_ctx;
@@ -284,6 +287,7 @@ tlso_init( void )
 
 	SSL_load_error_strings();
 	SSL_library_init();
+    OpenSSL_add_all_algorithms();
 	OpenSSL_add_all_digests();
 
 	/* FIXME: mod_ssl does this */
@@ -364,116 +368,298 @@ tlso_ctx_init( struct ldapoptions *lo, struct ldaptls *lt, int is_server )
 		tlso_report_error();
 		return -1;
 	}
-
-	if (lo->ldo_tls_cacertfile != NULL || lo->ldo_tls_cacertdir != NULL) {
-		if ( !SSL_CTX_load_verify_locations( ctx,
-				lt->lt_cacertfile, lt->lt_cacertdir ) ||
-			!SSL_CTX_set_default_verify_paths( ctx ) )
-		{
-			Debug( LDAP_DEBUG_ANY, "TLS: "
-				"could not load verify locations (file:`%s',dir:`%s').\n",
-				lo->ldo_tls_cacertfile ? lo->ldo_tls_cacertfile : "",
-				lo->ldo_tls_cacertdir ? lo->ldo_tls_cacertdir : "",
-				0 );
-			tlso_report_error();
-			return -1;
-		}
-
-		if ( is_server ) {
-			STACK_OF(X509_NAME) *calist;
-			/* List of CA names to send to a client */
-			calist = tlso_ca_list( lt->lt_cacertfile, lt->lt_cacertdir );
-			if ( !calist ) {
-				Debug( LDAP_DEBUG_ANY, "TLS: "
-					"could not load client CA list (file:`%s',dir:`%s').\n",
-					lo->ldo_tls_cacertfile ? lo->ldo_tls_cacertfile : "",
-					lo->ldo_tls_cacertdir ? lo->ldo_tls_cacertdir : "",
-					0 );
-				tlso_report_error();
-				return -1;
-			}
-
-			SSL_CTX_set_client_CA_list( ctx, calist );
-		}
-	}
-
-	if ( lo->ldo_tls_certfile &&
-		!SSL_CTX_use_certificate_file( ctx,
-			lt->lt_certfile, SSL_FILETYPE_PEM ) )
-	{
-		Debug( LDAP_DEBUG_ANY,
-			"TLS: could not use certificate `%s'.\n",
-			lo->ldo_tls_certfile,0,0);
-		tlso_report_error();
-		return -1;
-	}
-
-	/* Key validity is checked automatically if cert has already been set */
-	if ( lo->ldo_tls_keyfile )
-	{
-		FILE *fp;                                                             			
-		EVP_PKEY *privatekey;                                                 			
-		int success;                                                          			
-		
-		Debug( LDAP_DEBUG_ANY,
-			  "TLS: attempting to read `%s'.\n",
-			  lo->ldo_tls_keyfile,0,0);
-		/*                                                                    			
-		 * Try to read the private key file with the help of                  			
-		 * the callback function which serves the pass                        			
-		 * phrases to OpenSSL                                                 			
-		 */                                                                   			
-		if ((fp = fopen(lo->ldo_tls_keyfile, "r")) == NULL) {                             			
-			success = 0;                                                      			
-		} else {                                                              			
-			privatekey = SSL_read_PrivateKey(fp, NULL,                        			
-											 tlso_pphrase_cb);                                             			
-			success = (privatekey != NULL ? 1 : 0);                           			
-			fclose(fp);                                                       			
-		}                                                                     			
-		
-		if (!success || !SSL_CTX_use_PrivateKey( lo->ldo_tls_ctx, privatekey ) )
-		{
-			Debug( LDAP_DEBUG_ANY,
-				  "TLS: could not use key file `%s'.\n",
-				  lo->ldo_tls_keyfile,0,0);
-			tlso_report_error();
-			return -1;                                                 			
-		}
-	}
-
-	if ( lo->ldo_tls_dhfile ) {
-		DH *dh = NULL;
-		BIO *bio;
-		dhplist *p;
-
-		if (( bio=BIO_new_file( lt->lt_dhfile,"r" )) == NULL ) {
-			Debug( LDAP_DEBUG_ANY,
-				"TLS: could not use DH parameters file `%s'.\n",
-				lo->ldo_tls_dhfile,0,0);
-			tlso_report_error();
-			return -1;
-		}
-		while (( dh=PEM_read_bio_DHparams( bio, NULL, NULL, NULL ))) {
-			p = LDAP_MALLOC( sizeof(dhplist) );
-			if ( p != NULL ) {
-				p->keylength = DH_size( dh ) * 8;
-				p->param = dh;
-				p->next = tlso_dhparams;
-				tlso_dhparams = p;
-			}
-		}
-		BIO_free( bio );
-	}
-
 #ifdef __APPLE__
-	/* If a certificate was found in the keychain, try to use it. */
+    /* ldo_tls_server_ident_ref_name should only be set for servers. */
+    /* Since this is server-only, using syslog() instead of Debug(). */
+    if(lo->ldo_tls_server_ident_ref_name != NULL)
+    {        
+        OSStatus status = errSecSuccess;
+        SecIdentityRef sslIdentityRef = NULL;
+        X509 *x509_cert = NULL;
+        SecCertificateRef certRef = NULL;
+        SecKeyRef keyRef = NULL;
+        EVP_PKEY	*pvtKey = NULL;
+        
+        SecKeychainSetUserInteractionAllowed(false);
+        SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+        
+        sslIdentityRef = SecIdentityCopyPreferred(CFSTR("OPENDIRECTORY_SSL_IDENTITY"), 0, NULL);
+        if (sslIdentityRef) {
+            syslog(LOG_DEBUG, "TLS: found identity in keychain using identity preference.");
+        }
+        else {
+            syslog(LOG_DEBUG,
+                   "TLS: failed to find identity in keychain using identity preference.  Trying to find identity by name '%s'.",
+                   lo->ldo_tls_server_ident_ref_name);
+
+            /* The identity name may be preceeded by "APPLE:".  If so, strip that part. */
+            char *sep = strchr(lo->ldo_tls_server_ident_ref_name, ':');
+            char *cIdentityName = sep ? sep + 1 : lo->ldo_tls_server_ident_ref_name;
+            CFStringRef identityName = CFStringCreateWithCString(NULL, cIdentityName, kCFStringEncodingUTF8);
+            if (!identityName) {
+                syslog(LOG_NOTICE,
+                       "TLS: failed to create CFString version of identity name %s.",
+                       lo->ldo_tls_server_ident_ref_name);
+            }
+            else {
+                CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+                CFDictionaryAddValue(query, kSecClass, kSecClassIdentity);
+                CFDictionaryAddValue(query, kSecReturnRef, kCFBooleanTrue);
+                CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitOne);
+                CFDictionaryAddValue(query, kSecMatchSubjectContains, identityName);
+
+                /* Always want to specify the system keychain to protect ourselves from
+                 * damage done to the keychain search list by Server.app & friends.
+                 */
+                SecKeychainRef keychainRef = NULL;
+                status = SecKeychainOpen(SYSTEM_KEYCHAIN_PATH, &keychainRef);
+                if (status == errSecSuccess) {
+                    CFArrayRef searchList = CFArrayCreate(kCFAllocatorDefault, (const void**)&keychainRef, 1, &kCFTypeArrayCallBacks);
+                    if (searchList) {
+                        CFDictionaryAddValue(query, kSecMatchSearchList, searchList);
+                        CFRelease(searchList);
+                    }
+                }
+
+                CFTypeRef results = NULL;
+                status = SecItemCopyMatching(query, &results);
+                if(status != noErr) {
+                    syslog(LOG_NOTICE,
+                           "TLS: SecItemCopyMatching returned error %d when searching for identity %s.",
+                           status, lo->ldo_tls_server_ident_ref_name);
+                }
+                else if (!results) {
+                    syslog(LOG_NOTICE,
+                           "TLS: failed to find identity using name %s: no results returned.",
+                           lo->ldo_tls_server_ident_ref_name);
+                }
+                else {
+                    if (CFGetTypeID(results) == SecIdentityGetTypeID()) {
+                        sslIdentityRef  = (SecIdentityRef)results;
+                        CFRetain(sslIdentityRef);
+                    }
+                    else if (CFGetTypeID(results) == CFArrayGetTypeID()) {
+                        if (CFArrayGetCount(results) != 0) {
+                            sslIdentityRef = (SecIdentityRef)CFArrayGetValueAtIndex(results, 0);
+                            CFRetain(sslIdentityRef);
+                        }
+                        else {
+                            syslog(LOG_NOTICE,
+                                   "TLS: failed to find identity using name %s: empty array returned.",
+                                   lo->ldo_tls_server_ident_ref_name);
+                        }
+                    }
+                    else {
+                        syslog(LOG_DEBUG, "TLS: SecItemCopyMatching returned unhandled type.");
+                    }
+                }
+
+                CFRelease(identityName);
+                CFRelease(query);
+            }
+
+            if (sslIdentityRef) {
+                syslog(LOG_DEBUG,
+                       "TLS: found identity in keychain by name '%s'.",
+                       lo->ldo_tls_server_ident_ref_name);
+            }
+            else {
+                syslog(LOG_NOTICE, "TLS: failed to find ssl identity in keychain.");
+                return LDAP_TLS_KEYCHAIN_CERT_NOTFOUND;
+            }
+        }
+
+        status = SecIdentityCopyCertificate(sslIdentityRef, &certRef);
+        if(status)
+        {
+            syslog(LOG_NOTICE,
+                  "TLS: could not copy certificate from keychain identity '%s'.",
+                  lo->ldo_tls_server_ident_ref_name);
+            goto done;
+        }
+        x509_cert = tslo_copy_cert_to_x509(certRef);
+
+        status = tslo_create_ca_chain(ctx, certRef);
+        if(status != noErr) {
+            syslog(LOG_NOTICE,
+                  "TLS: failed to create ca chain for '%s'.",
+                  lo->ldo_tls_server_ident_ref_name);
+            goto done;
+        }
+
+        if(!SSL_CTX_use_certificate(ctx, x509_cert))
+        {
+            syslog(LOG_NOTICE,
+                  "TLS: could not use certificate '%s'.",
+                  lo->ldo_tls_server_ident_ref_name);
+            tlso_report_error();
+            status = -1;
+            goto done;
+        }
+        status = SecIdentityCopyPrivateKey(sslIdentityRef, &keyRef);
+        if(status != noErr)
+        {
+            syslog(LOG_NOTICE,
+                  "TLS: could not retrieve pvt key for '%s' from system keychain.",
+                  lo->ldo_tls_server_ident_ref_name);
+            goto done;
+        }
+        pvtKey = tslo_copy_key_to_evpkey(keyRef);
+        if(!pvtKey)
+        {
+            syslog(LOG_NOTICE,
+                  "TLS: could not convert keychain item '%s' to EVP_PKEY.",
+                  lo->ldo_tls_server_ident_ref_name);
+            tlso_report_error();
+            status = -1;
+            goto done;
+        }
+        if (!SSL_CTX_use_PrivateKey( lo->ldo_tls_ctx, pvtKey ) )
+        {
+            syslog(LOG_NOTICE,
+                  "TLS: could not use pvt key '%s'.",
+                  lo->ldo_tls_server_ident_ref_name);
+            tlso_report_error();
+            status = -1;
+            goto done;
+        }
+        if (!SSL_CTX_check_private_key(lo->ldo_tls_ctx) )
+        {
+            syslog(LOG_NOTICE,
+                  "TLS: pvt key doesn't match public key '%s'.",
+                  lo->ldo_tls_server_ident_ref_name);
+            tlso_report_error();
+            status = -1;
+        }
+done:
+        if(pvtKey)
+             EVP_PKEY_free(pvtKey);
+        if(keyRef)
+            CFRelease(keyRef);
+        if(x509_cert)
+            X509_free(x509_cert);
+        if(certRef)
+           CFRelease(certRef);
+        if(sslIdentityRef)
+            CFRelease(sslIdentityRef);
+        if(status != noErr)
+            return -1;
+    }
+    else
+    {
+#endif
+        if (lo->ldo_tls_cacertfile != NULL || lo->ldo_tls_cacertdir != NULL) {
+            if ( !SSL_CTX_load_verify_locations( ctx,
+                    lt->lt_cacertfile, lt->lt_cacertdir ) ||
+                !SSL_CTX_set_default_verify_paths( ctx ) )
+            {
+                Debug( LDAP_DEBUG_ANY, "TLS: "
+                    "could not load verify locations (file:`%s',dir:`%s').\n",
+                    lo->ldo_tls_cacertfile ? lo->ldo_tls_cacertfile : "",
+                    lo->ldo_tls_cacertdir ? lo->ldo_tls_cacertdir : "",
+                    0 );
+                tlso_report_error();
+                return -1;
+            }
+
+            if ( is_server ) {
+                STACK_OF(X509_NAME) *calist;
+                /* List of CA names to send to a client */
+                calist = tlso_ca_list( lt->lt_cacertfile, lt->lt_cacertdir );
+                if ( !calist ) {
+                    Debug( LDAP_DEBUG_ANY, "TLS: "
+                        "could not load client CA list (file:`%s',dir:`%s').\n",
+                        lo->ldo_tls_cacertfile ? lo->ldo_tls_cacertfile : "",
+                        lo->ldo_tls_cacertdir ? lo->ldo_tls_cacertdir : "",
+                        0 );
+                    tlso_report_error();
+                    return -1;
+                }
+
+                SSL_CTX_set_client_CA_list( ctx, calist );
+            }
+        }
+
+        if ( lo->ldo_tls_certfile &&
+            !SSL_CTX_use_certificate_file( ctx,
+                lt->lt_certfile, SSL_FILETYPE_PEM ) )
+        {
+            Debug( LDAP_DEBUG_ANY,
+                "TLS: could not use certificate `%s'.\n",
+                lo->ldo_tls_certfile,0,0);
+            tlso_report_error();
+            return -1;
+        }
+
+        /* Key validity is checked automatically if cert has already been set */
+        if ( lo->ldo_tls_keyfile )
+        {
+            FILE *fp;                                                             			
+            EVP_PKEY *privatekey;                                                 			
+            int success;                                                          			
+            
+            Debug( LDAP_DEBUG_ANY,
+                  "TLS: attempting to read `%s'.\n",
+                  lo->ldo_tls_keyfile,0,0);
+            /*                                                                    			
+             * Try to read the private key file with the help of                  			
+             * the callback function which serves the pass                        			
+             * phrases to OpenSSL                                                 			
+             */                                                                   			
+            if ((fp = fopen(lo->ldo_tls_keyfile, "r")) == NULL) {                             			
+                success = 0;                                                      			
+            } else {                                                              			
+                privatekey = SSL_read_PrivateKey(fp, NULL,                        			
+                                                 tlso_pphrase_cb);                                             			
+                success = (privatekey != NULL ? 1 : 0);                           			
+                fclose(fp);                                                       			
+            }                                                                     			
+            
+            if (!success || !SSL_CTX_use_PrivateKey( lo->ldo_tls_ctx, privatekey ) )
+            {
+                Debug( LDAP_DEBUG_ANY,
+                      "TLS: could not use key file `%s'.\n",
+                      lo->ldo_tls_keyfile,0,0);
+                tlso_report_error();
+                return -1;                                                 			
+            }
+        }
+#ifdef __APPLE__
+    }
+
+	/* Client path only.  If the server's certificate was previously found
+	 * in the keychain, try to use.
+         */
 	if ( lo->ldo_tls_cert_ref ) {
 		if ( !tlso_use_cert_from_keychain( lo ) ) {
 		    return -1;
 		}
 	}
 #endif
+
+        if ( lo->ldo_tls_dhfile ) {
+            DH *dh = NULL;
+            BIO *bio;
+            dhplist *p;
+            
+            if (( bio=BIO_new_file( lt->lt_dhfile,"r" )) == NULL ) {
+                Debug( LDAP_DEBUG_ANY,
+                      "TLS: could not use DH parameters file `%s'.\n",
+                      lo->ldo_tls_dhfile,0,0);
+                tlso_report_error();
+                return -1;
+            }
+            while (( dh=PEM_read_bio_DHparams( bio, NULL, NULL, NULL ))) {
+                p = LDAP_MALLOC( sizeof(dhplist) );
+                if ( p != NULL ) {
+                    p->keylength = DH_size( dh ) * 8;
+                    p->param = dh;
+                    p->next = tlso_dhparams;
+                    tlso_dhparams = p;
+                }
+            }
+            BIO_free( bio );
+        }
 
 	if ( tlso_opt_trace ) {
 		SSL_CTX_set_info_callback( ctx, tlso_info_cb );
@@ -1501,6 +1687,142 @@ tlso_use_cert_from_keychain( struct ldapoptions *lo )
 	return rc;
 }
 
-#endif
+static X509 *tslo_copy_cert_to_x509(SecCertificateRef inRef)
+{
+	X509 *result = NULL;
+	const unsigned char *buf = NULL;
+	CFDataRef	DERCertData = SecCertificateCopyData(inRef);
+	CFIndex	len = 0;
+	if(DERCertData == NULL) return NULL;
+	
+	len = CFDataGetLength(DERCertData);
+	buf = (const unsigned char *)CFDataGetBytePtr(DERCertData);
+	
+	result = d2i_X509(NULL, &buf, len);
+	CFRelease(DERCertData);
+	return result;
+}
+
+static EVP_PKEY	*tslo_copy_key_to_evpkey(SecKeyRef inKey)
+{
+	OSStatus ortn = 0;
+	EVP_PKEY *result = NULL;
+	SecItemImportExportKeyParameters	params;
+	CFDataRef	intermediateData = NULL;
+	BIO	*intermediateBIO = NULL;
+	char* cExportPass = ";aweCrugf99;uvPvh8229fliaYnx``1";
+        CFStringRef cfExportPass = NULL;
+	
+        cfExportPass = CFStringCreateWithCString(NULL, cExportPass, kCFStringEncodingUTF8);
+        if (!cfExportPass) {
+                syslog(LOG_DEBUG, "TLS: Unable to create CFString private key passphrase.");
+                return NULL;
+        }
+
+	memset(&params, 0, sizeof(params));        
+	params.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+	params.flags = 0;
+	params.passphrase = cfExportPass;
+	
+        ortn = SecItemExport(inKey, kSecFormatWrappedPKCS8, 0, &params, (CFDataRef*)&intermediateData);
+        if(ortn != 0) {
+                syslog( LOG_DEBUG, "TLS: Unable to export private key.");
+                CFRelease(cfExportPass);
+                return NULL;
+        }
+	
+	intermediateBIO = BIO_new_mem_buf((void *)CFDataGetBytePtr(intermediateData), CFDataGetLength(intermediateData));
+	if(intermediateBIO == NULL) 
+	{	
+                syslog( LOG_DEBUG, "TLS: Unable to create BIO buffer for private key data.");
+                CFRelease(cfExportPass);
+		CFRelease(intermediateData);
+		return NULL;
+	}
+
+	result = d2i_PKCS8PrivateKey_bio(intermediateBIO, NULL, NULL, cExportPass);
+	if(result == NULL)
+	{
+                char errbuf[512];
+                ERR_error_string(ERR_get_error(), errbuf);
+                syslog( LOG_DEBUG, "TLS: Unable to use passphrase for private key: %s.", errbuf);
+	}
+
+	BIO_free_all(intermediateBIO);
+	CFRelease(intermediateData);
+        CFRelease(cfExportPass);
+    
+	return result;
+}
+
+static OSStatus tslo_create_ca_chain(SSL_CTX* ctx, SecCertificateRef sslCertRef)
+{
+	OSStatus status = noErr;
+	CFMutableArrayRef certChain = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	SecPolicyRef policy = SecPolicyCreateBasicX509();
+    SecTrustRef trustRef = NULL;
+	SecTrustResultType trustResult = NULL;
+    X509* x509_cert = NULL;
+    SSL_CTX_set_mode(ctx, SSL_MODE_NO_AUTO_CHAIN);
+        
+    do {
+		if (sslCertRef) {
+			CFArrayAppendValue(certChain, sslCertRef);
+			status = SecTrustCreateWithCertificates(certChain, policy, &trustRef);
+			if (status == noErr) {
+				status =  SecTrustEvaluate(trustRef, &trustResult);
+				if (status == noErr) {
+					CFIndex count = SecTrustGetCertificateCount(trustRef);
+					if (count) {
+						int i;
+						for (i = 0; i < count; i++) {
+							SecCertificateRef certInChainRef = SecTrustGetCertificateAtIndex(trustRef, i);
+							if (certInChainRef) {
+								x509_cert = tslo_copy_cert_to_x509(certInChainRef);
+								if(SSL_CTX_add_client_CA(ctx, x509_cert) < 1) {
+									syslog( LOG_DEBUG, "[%s] TLS: could not load client CA name using SSL_CTX_add_client_CA ", __func__);
+									tlso_report_error();
+									status = -1;
+									X509_free(x509_cert);
+									break;
+								}
+								if(SSL_CTX_add_extra_chain_cert(ctx, x509_cert) < 1) {
+									syslog( LOG_DEBUG, "[%s] TLS: could not load client CA name using SSL_CTX_add_extra_chain_cert ", __func__);
+									tlso_report_error();
+									status = -1;
+									X509_free(x509_cert);
+									break;
+								}
+							}
+						}
+					} else {
+						syslog( LOG_DEBUG, "[%s] SecTrustGetCertificateCount  - No Certificates returned", __func__);
+						status = -1;
+						break;								
+					}
+				} else {
+					syslog( LOG_DEBUG, "[%s] SecTrustEvaluate (ssl) err (%d) trustResult(%d)", __func__, status, trustResult);
+					status = -1;
+					break;			
+				}			
+			} else {
+				syslog( LOG_DEBUG, "[%s] SecTrustCreateWithCertificates (ssl) err (%d)", __func__, status);
+				status = -1;
+				break;			
+			}								
+		}
+    } while (0);
+
+    if (certChain)
+        CFRelease(certChain);
+    if (policy)
+        CFRelease(policy);
+	if (trustRef)
+		CFRelease(trustRef);
+			
+	return status;
+}
+
+#endif /*__APPLE__*/
 
 #endif /* HAVE_OPENSSL */

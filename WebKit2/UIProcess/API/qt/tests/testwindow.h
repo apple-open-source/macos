@@ -20,6 +20,10 @@
 #ifndef testwindow_h
 #define testwindow_h
 
+#if 0
+#pragma qt_no_master_include
+#endif
+
 #include <QResizeEvent>
 #include <QScopedPointer>
 #include <QtQuick/qquickitem.h>
@@ -39,7 +43,8 @@ inline TestWindow::TestWindow(QQuickItem* webView)
     : webView(webView)
 {
     Q_ASSERT(webView);
-    webView->setParentItem(rootItem());
+    webView->setParentItem(contentItem());
+    resize(300, 400);
 }
 
 inline void TestWindow::resizeEvent(QResizeEvent* event)

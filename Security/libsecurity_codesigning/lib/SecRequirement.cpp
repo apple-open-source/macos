@@ -228,6 +228,8 @@ OSStatus SecRequirementsCopyRequirements(CFDataRef requirementSet, SecCSFlags fl
 	if (requirementSet == NULL)
 		return errSecCSObjectRequired;
 	const Requirements *reqs = (const Requirements *)CFDataGetBytePtr(requirementSet);
+	if (!reqs->validateBlob())
+		MacOSError::throwMe(errSecCSReqInvalid);
 	CFRef<CFMutableDictionaryRef> dict = makeCFMutableDictionary();
 	unsigned count = reqs->count();
 	for (unsigned n = 0; n < count; n++) {

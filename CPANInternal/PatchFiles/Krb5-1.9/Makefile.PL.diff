@@ -1,0 +1,20 @@
+--- Krb5-1.9/Makefile.PL
++++ Krb5-1.9/Makefile.PL
+@@ -3,7 +3,7 @@ use ExtUtils::MakeMaker;
+ ##### CHANGE THESE ACCORDING TO YOUR CONFIGURATION #####
+ 
+ # location of Kerberos 5 libraries
+-my $KRB5_LIBDIR = '/usr/lib';
++my $KRB5_LIBDIR = '/usr/local/krb5/lib';
+ 
+ # any extra libraries?
+ # add -lresolv here if you get errors like the following (usually on linux):
+@@ -11,7 +11,7 @@ my $KRB5_LIBDIR = '/usr/lib';
+ my $KRB5_EXTRALIBS = '-lresolv';
+ 
+ # location of Kerberos 5 includes
+-my $KRB5_INCDIR = '/usr/include';
++my $KRB5_INCDIR = '/usr/local/krb5/include';
+ 
+ # any extra include flags?
+ my $KRB5_EXTRAINCS = '';

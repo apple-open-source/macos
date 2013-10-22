@@ -1,0 +1,7 @@
+/^flag /i
+flag localauto = NO;
+.
+/^static arg_info table/a
+    f2c_entry ("la", P_NO_ARGS, P_INT, &localauto, YES),
+.
+w

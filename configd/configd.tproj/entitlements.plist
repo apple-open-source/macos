@@ -8,11 +8,20 @@
 		<string>com.apple.certificates</string>
 		<string>com.apple.identities</string>
 	</array>
+	<key>com.apple.private.mobileinstall.allowedSPI</key>
+	<array>
+		<string>Uninstall</string>
+		<string>Lookup</string>
+	</array>
 	<key>com.apple.springboard.launchapplications</key>
 	<true/>
 	<key>com.apple.multitasking.unlimitedassertions</key>
 	<true/>
 	<key>com.apple.wifi.manager-access</key>
+	<true/>
+	<key>com.apple.coretelephony.Identity.get</key>
+	<true/>
+	<key>com.apple.private.SCNetworkConnection-proxy-user</key>
 	<true/>
 </dict>
 </plist>

@@ -4,13 +4,6 @@
 
 Project = rpc.statd
 
-pathsearch = $(firstword $(wildcard $(addsuffix /$(1),$(subst :, ,$(PATH)))))
-TCONF := $(call pathsearch,tconf)
-
-ifneq "$(TCONF)" ""
-Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
-endif
-
 inplace:
 	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
@@ -25,7 +18,7 @@ Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 \
 		-I$(SRCROOT)/../rpc.lockd -F$(SDKROOT)/System/Library/PrivateFrameworks -fPIE
 Extra_LD_Flags = -Wl,-pie -lutil -framework oncrpc -dead_strip
 
-ifeq "$(Embedded)" "YES"
+ifeq "$(RC_TARGET_CONFIG)" "iPhone"
 Extra_CC_Flags += -isysroot $(SDKROOT)
 endif
 

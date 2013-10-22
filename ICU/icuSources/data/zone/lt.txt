@@ -1,16 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/lt.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/lt.xml
 // *
 // ***************************************************************************
 /**
  *  ICU <specials> source: <path>/xml/main/lt.xml
  */
 lt{
-    Version{"2.0.65.46"}
+    Version{"2.0.82.57"}
     zoneStrings{
         "Africa:Abidjan"{
             ec{"Abidžanas"}
@@ -85,7 +85,7 @@ lt{
             ec{"Tripolis"}
         }
         "Africa:Tunis"{
-            ec{"Tunisas"}
+            ec{"Tuniso miestas"}
         }
         "America:Adak"{
             ec{"Adakas"}
@@ -165,6 +165,9 @@ lt{
         "America:Cuiaba"{
             ec{"Kujaba"}
         }
+        "America:Curacao"{
+            ec{"Kiurasao"}
+        }
         "America:Danmarkshavn"{
             ec{"Danmarkshavn’as"}
         }
@@ -213,6 +216,9 @@ lt{
         "America:Indiana:Knox"{
             ec{"Noksas, Indiana"}
         }
+        "America:Indiana:Marengo"{
+            ec{"Marengo, Indiana"}
+        }
         "America:Indiana:Petersburg"{
             ec{"Peterburgas"}
         }
@@ -248,6 +254,9 @@ lt{
         }
         "America:Louisville"{
             ec{"Luizvilis"}
+        }
+        "America:Lower_Princes"{
+            ec{"Žemutinis Prinses Kvorteris"}
         }
         "America:Managua"{
             ec{"Managva"}
@@ -326,6 +335,12 @@ lt{
         }
         "America:Sao_Paulo"{
             ec{"San Paulas"}
+        }
+        "America:St_Barthelemy"{
+            ec{"Sen Bartelemi"}
+        }
+        "America:St_Johns"{
+            ec{"Sent Džonsas"}
         }
         "America:St_Kitts"{
             ec{"St. Kitsas"}
@@ -419,6 +434,9 @@ lt{
         }
         "Asia:Brunei"{
             ec{"Brunėjus"}
+        }
+        "Asia:Calcutta"{
+            ec{"Kolkata"}
         }
         "Asia:Choibalsan"{
             ec{"Čoibalsanas"}
@@ -607,7 +625,7 @@ lt{
             ec{"Sidnėjus"}
         }
         "Etc:Unknown"{
-            ec{"Nežinoma"}
+            ec{"nežinomas miestas"}
         }
         "Europe:Amsterdam"{
             ec{"Amsterdamas"}
@@ -635,6 +653,7 @@ lt{
         }
         "Europe:Dublin"{
             ec{"Dublinas"}
+            ld{"Airijos vasaros laikas"}
         }
         "Europe:Gibraltar"{
             ec{"Gibraltaras"}
@@ -656,6 +675,7 @@ lt{
         }
         "Europe:London"{
             ec{"Londonas"}
+            ld{"Britanijos vasaros laikas"}
         }
         "Europe:Luxembourg"{
             ec{"Liuksemburgas"}
@@ -708,9 +728,6 @@ lt{
         "Europe:Vienna"{
             ec{"Viena"}
         }
-        "Europe:Vilnius"{
-            ec{"Vilnius"}
-        }
         "Europe:Volgograd"{
             ec{"Volgogradas"}
         }
@@ -742,7 +759,7 @@ lt{
             ec{"Majotas"}
         }
         "Indian:Reunion"{
-            ec{"Reunionas"}
+            ec{"Reunjonas"}
         }
         "Pacific:Apia"{
             ec{"Apija"}
@@ -821,25 +838,15 @@ lt{
             lg{"Vakarų Afrikos laikas"}
             ls{"Vakarų Afrikos žiemos laikas"}
         }
-        "meta:Aktyubinsk"{
-            ld{"Achtubinsko vasaros laikas"}
-            lg{"Achtubinsko laikas"}
-            ls{"Achtubinsko žiemos laikas"}
-        }
         "meta:Alaska"{
             ld{"Aliaskos vasaros laikas"}
             lg{"Aliaskos laikas"}
             ls{"Aliaskos žiemos laikas"}
         }
-        "meta:Alaska_Hawaii"{
-            ld{"Aliaskos-Havajų vasaros laikas"}
-            lg{"Aliaskos-Havajų laikas"}
-            ls{"Aliaskos-Havajų žiemos laikas"}
-        }
         "meta:Almaty"{
-            ld{"Almaty vasaros laikas"}
-            lg{"Almaty laikas"}
-            ls{"Almaty žiemos laikas"}
+            ld{"Almatos vasaros laikas"}
+            lg{"Almatos laikas"}
+            ls{"Almatos žiemos laikas"}
         }
         "meta:Amazon"{
             ld{"Amazonės vasaros laikas"}
@@ -847,39 +854,44 @@ lt{
             ls{"Amazonės žiemos laikas"}
         }
         "meta:America_Central"{
-            ld{"Centro vasaros laikas"}
-            lg{"Centro laikas"}
-            ls{"Centro žiemos laikas"}
+            ld{"Šiaurės Amerikos centro vasaros laikas"}
+            lg{"Šiaurės Amerikos centro laikas"}
+            ls{"Šiaurės Amerikos centro žiemos laikas"}
         }
         "meta:America_Eastern"{
-            ld{"Rytų vasaros laikas"}
-            lg{"Rytų laikas"}
-            ls{"Rytų žiemos laikas"}
+            ld{"Šiaurės Amerikos rytų vasaros laikas"}
+            lg{"Šiaurės Amerikos rytų laikas"}
+            ls{"Šiaurės Amerikos rytų žiemos laikas"}
         }
         "meta:America_Mountain"{
-            ld{"Kalnų vasaros laikas"}
-            lg{"Kalnų laikas"}
-            ls{"Kalnų žiemos laikas"}
+            ld{"Šiaurės Amerikos kalnų vasaros laikas"}
+            lg{"Šiaurės Amerikos kalnų laikas"}
+            ls{"Šiaurės Amerikos kalnų žiemos laikas"}
         }
         "meta:America_Pacific"{
-            ld{"Ramiojo vandenyno vasaros laikas"}
-            lg{"Ramiojo vandenyno laikas"}
-            ls{"Ramiojo vandenyno žiemos laikas"}
+            ld{"Šiaurės Amerikos Ramiojo vandenyno vasaros laikas"}
+            lg{"Šiaurės Amerikos Ramiojo vandenyno laikas"}
+            ls{"Šiaurės Amerikos Ramiojo vandenyno žiemos laikas"}
         }
         "meta:Anadyr"{
             ld{"Anadyrės vasaros laikas"}
-            lg{"Anadyro laikas"}
+            lg{"Anadyrės laikas"}
             ls{"Anadyrės žiemos laikas"}
         }
         "meta:Aqtau"{
-            ld{"Aqtau vasaros laikas"}
-            lg{"Aqtau laikas"}
-            ls{"Aqtau žiemos laikas"}
+            ld{"Aktau vasaros laikas"}
+            lg{"Aktau laikas"}
+            ls{"Aktau žiemos laikas"}
         }
         "meta:Aqtobe"{
-            ld{"Aqtobe vasaros laikas"}
-            lg{"Aqtobe laikas"}
-            ls{"Aqtobe žiemos laikas"}
+            ld{"Aktobės vasaros laikas"}
+            lg{"Aktobės laikas"}
+            ls{"Aktobės žiemos laikas"}
+        }
+        "meta:Arabian"{
+            ld{"Arabijos vasaros laikas"}
+            lg{"Arabijos laikas"}
+            ls{"Arabijos žiemos laikas"}
         }
         "meta:Argentina"{
             ld{"Argentinos vasaros laikas"}
@@ -895,11 +907,6 @@ lt{
             ld{"Armėnijos vasaros laikas"}
             lg{"Armėnijos laikas"}
             ls{"Armėnijos žiemos laikas"}
-        }
-        "meta:Ashkhabad"{
-            ld{"Ašchabado vasaros laikas"}
-            lg{"Ašchabado laikas"}
-            ls{"Ašchabado žiemos laikas"}
         }
         "meta:Atlantic"{
             ld{"Atlanto vasaros laikas"}
@@ -919,7 +926,7 @@ lt{
         "meta:Australia_Eastern"{
             ld{"Rytų Australijos vasaros laikas"}
             lg{"Rytų Australijos laikas"}
-            ls{"Centrinės rytų Australijos žiemos laikas"}
+            ls{"Rytų Australijos žiemos laikas"}
         }
         "meta:Australia_Western"{
             ld{"Vakarų Australijos vasaros laikas"}
@@ -932,24 +939,14 @@ lt{
             ls{"Azerbaidžano žiemos laikas"}
         }
         "meta:Azores"{
-            ld{"Azorų salų vasaros laikas"}
-            lg{"Azorų salų laikas"}
-            ls{"Azorų salų žiemos laikas"}
-        }
-        "meta:Baku"{
-            ld{"Baku vasaros laikas"}
-            lg{"Baku laikas"}
-            ls{"Baku žiemos laikas"}
+            ld{"Azorų Salų vasaros laikas"}
+            lg{"Azorų Salų laikas"}
+            ls{"Azorų Salų žiemos laikas"}
         }
         "meta:Bangladesh"{
             ld{"Bangladešo vasaros laikas"}
             lg{"Bangladešo laikas"}
             ls{"Bangladešo žiemos laikas"}
-        }
-        "meta:Bering"{
-            ld{"Beringo vasaros laikas"}
-            lg{"Beringo laikas"}
-            ls{"Beringo žiemos laikas"}
         }
         "meta:Bhutan"{
             ls{"Butano laikas"}
@@ -957,34 +954,26 @@ lt{
         "meta:Bolivia"{
             ls{"Bolivijos laikas"}
         }
-        "meta:Borneo"{
-            ld{"Borneo vasaros laikas"}
-            lg{"Borneo laikas"}
-            ls{"Borneo žiemos laikas"}
-        }
         "meta:Brasilia"{
             ld{"Brazilijos vasaros laikas"}
             lg{"Brazilijos laikas"}
             ls{"Brazilijos žiemos laikas"}
         }
         "meta:Brunei"{
-            ls{"Brunėjaus Darussalam laikas"}
+            ls{"Brunėjaus Darusalamo laikas"}
         }
         "meta:Cape_Verde"{
-            ld{"Verde iškyšulio vasaros laikas"}
-            lg{"Verde iškyšulio laikas"}
-            ls{"Verde iškyšulio žiemos laikas"}
+            ld{"Žaliojo Kyšulio vasaros laikas"}
+            lg{"Žaliojo Kyšulio laikas"}
+            ls{"Žaliojo Kyšulio žiemos laikas"}
         }
         "meta:Chamorro"{
-            ls{"Chamorro laikas"}
-        }
-        "meta:Changbai"{
-            ls{"Changbai laikas"}
+            ls{"Čamoro laikas"}
         }
         "meta:Chatham"{
-            ld{"Chatham vasaros laikas"}
-            lg{"Chatham laikas"}
-            ls{"Chatham žiemos laikas"}
+            ld{"Čatamo vasaros laikas"}
+            lg{"Čatamo laikas"}
+            ls{"Čatamo žiemos laikas"}
         }
         "meta:Chile"{
             ld{"Čilės vasaros laikas"}
@@ -997,15 +986,15 @@ lt{
             ls{"Kinijos žiemos laikas"}
         }
         "meta:Choibalsan"{
-            ld{"Choibalsan vasaros laikas"}
+            ld{"Čoibalsano vasaros laikas"}
             lg{"Čoibalsano laikas"}
-            ls{"Choibalsan žiemos laikas"}
+            ls{"Čoibalsano žiemos laikas"}
         }
         "meta:Christmas"{
-            ls{"Kalėdų salos laikas"}
+            ls{"Kalėdų Salos laikas"}
         }
         "meta:Cocos"{
-            ls{"Kokosų salų laikas"}
+            ls{"Kokosų Salų laikas"}
         }
         "meta:Colombia"{
             ld{"Kolumbijos vasaros laikas"}
@@ -1013,33 +1002,28 @@ lt{
             ls{"Kolumbijos žiemos laikas"}
         }
         "meta:Cook"{
-            ld{"Kuko salų pusės vasaros laikas"}
-            lg{"Kuko salų pusės laikas"}
-            ls{"Kuko salų pusės žiemos laikas"}
+            ld{"Kuko Salų pusės vasaros laikas"}
+            lg{"Kuko Salų laikas"}
+            ls{"Kuko Salų žiemos laikas"}
         }
         "meta:Cuba"{
             ld{"Kubos vasaros laikas"}
             lg{"Kubos laikas"}
             ls{"Kubos žiemos laikas"}
         }
-        "meta:Dacca"{
-            ls{"Dakos laikas"}
+        "meta:Davis"{
+            ls{"Deiviso laikas"}
         }
-        "meta:Dushanbe"{
-            ld{"Dušanbės vasaros laikas"}
-            lg{"Dušanbės laikas"}
-            ls{"Dušanbės žiemos laikas"}
-        }
-        "meta:Dutch_Guiana"{
-            ls{"Olandų Gajanos laikas"}
+        "meta:DumontDUrville"{
+            ls{"Diumono d'Urvilio laikas"}
         }
         "meta:East_Timor"{
             ls{"Rytų Timoro laikas"}
         }
         "meta:Easter"{
-            ld{"Velykų salos vasaros laikas"}
-            lg{"Velykų salos laikas"}
-            ls{"Velykų salos žiemos laikas"}
+            ld{"Velykų Salos vasaros laikas"}
+            lg{"Velykų Salos laikas"}
+            ls{"Velykų Salos žiemos laikas"}
         }
         "meta:Ecuador"{
             ls{"Ekvadoro laikas"}
@@ -1060,9 +1044,9 @@ lt{
             ls{"Vakarų Europos žiemos laikas"}
         }
         "meta:Falkland"{
-            ld{"Folklandų salų vasaros laikas"}
-            lg{"Folklandų salų laikas"}
-            ls{"Folklandų salų žiemos laikas"}
+            ld{"Folklando Salų vasaros laikas"}
+            lg{"Folklando Salų laikas"}
+            ls{"Folklando Salų žiemos laikas"}
         }
         "meta:Fiji"{
             ld{"Fidžio vasaros laikas"}
@@ -1070,21 +1054,19 @@ lt{
             ls{"Fidžio žiemos laikas"}
         }
         "meta:French_Guiana"{
-            ls{"Prancūzų Gajanos laikas"}
+            ls{"Prancūzijos Gvianos laikas"}
         }
         "meta:French_Southern"{
-            ls{"Pietų Prancūzijos ir Antarktinis Laikas"}
+            ls{"Pietų Prancūzijos ir Antarktinis laikas"}
         }
-        "meta:Frunze"{
-            ld{"Frunzės vasaros laikas"}
-            lg{"Frunzės laikas"}
-            ls{"Frunzės žiemos laikas"}
+        "meta:GMT"{
+            ls{"Grinvičo laikas"}
         }
         "meta:Galapagos"{
-            ls{"Galapagos laikas"}
+            ls{"Galapagų laikas"}
         }
         "meta:Gambier"{
-            ls{"Gambier laikas"}
+            ls{"Gambyro laikas"}
         }
         "meta:Georgia"{
             ld{"Gruzijos vasaros laikas"}
@@ -1092,12 +1074,7 @@ lt{
             ls{"Gruzijos žiemos laikas"}
         }
         "meta:Gilbert_Islands"{
-            ls{"Gilberto salų laikas"}
-        }
-        "meta:Greenland_Central"{
-            ld{"Grenlandijos centro vasaros laikas"}
-            lg{"Grenlandijos centro laikas"}
-            ls{"Grenlandijos centro žiemos laikas"}
+            ls{"Gilberto Salų laikas"}
         }
         "meta:Greenland_Eastern"{
             ld{"Grenlandijos rytų vasaros laikas"}
@@ -1113,14 +1090,14 @@ lt{
             ls{"Guamo laikas"}
         }
         "meta:Gulf"{
-            ls{"Gulf laikas"}
+            ls{"Persijos įlankos standartinis laikas"}
         }
         "meta:Guyana"{
             ls{"Gajanos laikas"}
         }
         "meta:Hawaii_Aleutian"{
             ld{"Havajų–Aleutų vasaros laikas"}
-            lg{"Havajų–Aleutų laikas"}
+            lg{"Havajų-Aleutų laikas"}
             ls{"Havajų–Aleutų žiemos laikas"}
         }
         "meta:Hong_Kong"{
@@ -1133,6 +1110,9 @@ lt{
             lg{"Hovd laikas"}
             ls{"Hovd žiemos laikas"}
         }
+        "meta:India"{
+            ls{"Indijos laikas"}
+        }
         "meta:Indian_Ocean"{
             ls{"Indijos vandenyno laikas"}
         }
@@ -1140,7 +1120,7 @@ lt{
             ls{"Indokinijos laikas"}
         }
         "meta:Indonesia_Central"{
-            ls{"Centrinės Indokinijos laikas"}
+            ls{"Centrinės Indonezijos laikas"}
         }
         "meta:Indonesia_Eastern"{
             ls{"Rytų Indonezijos laikas"}
@@ -1173,76 +1153,51 @@ lt{
             lg{"Kamčiatkos Petropavlovsko laikas"}
             ls{"Kamčiatkos Petropavlovsko žiemos laikas"}
         }
-        "meta:Karachi"{
-            ls{"Karačio laikas"}
-        }
-        "meta:Kashgar"{
-            ls{"Kašgaro laikas"}
-        }
         "meta:Kazakhstan_Eastern"{
             ls{"Rytų Kazachstano laikas"}
         }
         "meta:Kazakhstan_Western"{
             ls{"Vakarų Kazachstano laikas"}
         }
-        "meta:Kizilorda"{
-            ld{"Kizilorda vasaros laikas"}
-            lg{"Kizilorda laikas"}
-            ls{"Kizilorda žiemos laikas"}
-        }
         "meta:Korea"{
-            ld{"Korėjiečių vasaros laikas"}
-            lg{"Korėjiečių laikas"}
-            ls{"Korėjiečių žiemos laikas"}
+            ld{"Korėjos vasaros laikas"}
+            lg{"Korėjos laikas"}
+            ls{"Korėjos žiemos laikas"}
         }
         "meta:Kosrae"{
-            ls{"Kosrae laikas"}
+            ls{"Kosrajė laikas"}
         }
         "meta:Krasnoyarsk"{
             ld{"Krasnojarsko vasaros laikas"}
             lg{"Krasnojarsko laikas"}
             ls{"Krasnojarsko žiemos laikas"}
         }
-        "meta:Kuybyshev"{
-            ld{"Kuibyševo vasaros laikas"}
-            lg{"Kuibyševo laikas"}
-            ls{"Kuibyševo žiemos laikas"}
-        }
-        "meta:Kwajalein"{
-            ls{"Kwajalein laikas"}
-        }
         "meta:Kyrgystan"{
-            ls{"Kyrgystan laikas"}
+            ls{"Kirgistano laikas"}
         }
         "meta:Lanka"{
-            ls{"Lanka laikas"}
+            ls{"Lankos laikas"}
         }
         "meta:Line_Islands"{
-            ls{"Linijos salų laikas"}
-        }
-        "meta:Long_Shu"{
-            ls{"Long-Shu laikas"}
+            ls{"Laino Salų laikas"}
         }
         "meta:Lord_Howe"{
-            ld{"Lord Howe vasaros laikas"}
-            lg{"Lord Howe laikas"}
-            ls{"Lord Howe žiemos laikas"}
+            ld{"Lordo Hau vasaros laikas"}
+            lg{"Lordo Hau laikas"}
+            ls{"Lordo Hau žiemos laikas"}
         }
         "meta:Macau"{
-            ld{"Macau vasaros laikas"}
-            lg{"Macau laikas"}
-            ls{"Macau žiemos laikas"}
+            ld{"Makau vasaros laikas"}
+            lg{"Makau laikas"}
+            ls{"Makau žiemos laikas"}
         }
         "meta:Macquarie"{
-            ls{"Makvario laikas"}
+            ls{"Makvorio Salos laikas"}
         }
         "meta:Magadan"{
             ld{"Magadano vasaros laikas"}
             lg{"Magadano laikas"}
             ls{"Magadano žiemos laikas"}
-        }
-        "meta:Malaya"{
-            ls{"Malajos laikas"}
         }
         "meta:Malaysia"{
             ls{"Malaizijos laikas"}
@@ -1251,15 +1206,18 @@ lt{
             ls{"Maldyvų laikas"}
         }
         "meta:Marquesas"{
-            ls{"Marquesas laikas"}
+            ls{"Markizo Salų laikas"}
         }
         "meta:Marshall_Islands"{
-            ls{"Maršalo salų laikas"}
+            ls{"Maršalo Salų laikas"}
         }
         "meta:Mauritius"{
             ld{"Mauricijaus vasaros laikas"}
             lg{"Mauricijaus laikas"}
             ls{"Mauricijaus žiemos laikas"}
+        }
+        "meta:Mawson"{
+            ls{"Mosono laikas"}
         }
         "meta:Mongolia"{
             ld{"Ulan Batoro vasaros laikas"}
@@ -1272,7 +1230,7 @@ lt{
             ls{"Maskvos žiemos laikas"}
         }
         "meta:Myanmar"{
-            ls{"Myanmar laikas"}
+            ls{"Mianmaro laikas"}
         }
         "meta:Nauru"{
             ls{"Nauru laikas"}
@@ -1296,10 +1254,10 @@ lt{
             ls{"Niufaundlendo žiemos laikas"}
         }
         "meta:Niue"{
-            ls{"Niujės laikas"}
+            ls{"Niujė laikas"}
         }
         "meta:Norfolk"{
-            ls{"Norfolko salų laikas"}
+            ls{"Norfolko Salų laikas"}
         }
         "meta:Noronha"{
             ld{"Fernando de Noronjos vasaros laikas"}
@@ -1307,7 +1265,7 @@ lt{
             ls{"Fernando de Noronjos žiemos laikas"}
         }
         "meta:North_Mariana"{
-            ls{"Šiaurės Marianos salų laikas"}
+            ls{"Šiaurės Marianos Salų laikas"}
         }
         "meta:Novosibirsk"{
             ld{"Novosibirsko vasaros laikas"}
@@ -1346,21 +1304,29 @@ lt{
             ls{"Filipinų žiemos laikas"}
         }
         "meta:Phoenix_Islands"{
-            ls{"Finikso salų laikas"}
+            ls{"Fenikso Salų laikas"}
+        }
+        "meta:Pierre_Miquelon"{
+            ld{"Sen Pjero ir Mikelono vasaros laikas"}
+            lg{"Sen Pjero ir Mikelono laikas"}
+            ls{"Sen Pjero ir Mikelono standartinis laikas"}
         }
         "meta:Pitcairn"{
-            ls{"Pitcairn laikas"}
+            ls{"Pitkerno laikas"}
         }
         "meta:Ponape"{
             ls{"Ponapės laikas"}
         }
         "meta:Qyzylorda"{
-            ld{"Qyzylorda vasaros laikas"}
-            lg{"Qyzylorda laikas"}
-            ls{"Qyzylorda žiemos laikas"}
+            ld{"Kyzylordos vasaros laikas"}
+            lg{"Kyzylordos laikas"}
+            ls{"Kyzylordos žiemos laikas"}
         }
         "meta:Reunion"{
-            ls{"Reunion laikas"}
+            ls{"Reunjono laikas"}
+        }
+        "meta:Rothera"{
+            ls{"Roteros laikas"}
         }
         "meta:Sakhalin"{
             ld{"Sachalino vasaros laikas"}
@@ -1372,38 +1338,28 @@ lt{
             lg{"Samaros laikas"}
             ls{"Samaros žiemos laikas"}
         }
-        "meta:Samarkand"{
-            ld{"Samarkando vasaros laikas"}
-            lg{"Samarkando laikas"}
-            ls{"Samarkando žiemos laikas"}
-        }
         "meta:Samoa"{
+            ld{"Samoa vasaros laikas"}
+            lg{"Samoa laikas"}
             ls{"Samoa žiemos laikas"}
         }
         "meta:Seychelles"{
-            ls{"Seišelių salų laikas"}
-        }
-        "meta:Shevchenko"{
-            ld{"Ševčenkos vasaros laikas"}
-            lg{"Ševčenkos laikas"}
-            ls{"Ševčenkos žiemos laikas"}
+            ls{"Seišelių laikas"}
         }
         "meta:Singapore"{
-            ls{"Singapūro žiemos laikas"}
+            ls{"Singapūro laikas"}
         }
         "meta:Solomon"{
-            ls{"Saliamono salų laikas"}
+            ls{"Saliamono Salų laikas"}
         }
         "meta:South_Georgia"{
             ls{"Pietų Džordžijos laikas"}
         }
-        "meta:Sverdlovsk"{
-            ld{"Sverdlovsko vasaros laikas"}
-            lg{"Sverdlovsko laikas"}
-            ls{"Sverdlovsko žiemos laikas"}
+        "meta:Syowa"{
+            ls{"Siovos laikas"}
         }
         "meta:Tahiti"{
-            ls{"Taičio laikas"}
+            ls{"Tahičio laikas"}
         }
         "meta:Taipei"{
             ld{"Taipėjaus vasaros laikas"}
@@ -1411,17 +1367,7 @@ lt{
             ls{"Taipėjaus žiemos laikas"}
         }
         "meta:Tajikistan"{
-            ls{"Tadžikijos laikas"}
-        }
-        "meta:Tashkent"{
-            ld{"Taškento vasaros laikas"}
-            lg{"Taškento laikas"}
-            ls{"Taškento žiemos laikas"}
-        }
-        "meta:Tbilisi"{
-            ld{"Tbilisio vasaros laikas"}
-            lg{"Tbilisio laikas"}
-            ls{"Tbilisio žiemos laikas"}
+            ls{"Tadžikistano laikas"}
         }
         "meta:Tokelau"{
             ls{"Tokelau laikas"}
@@ -1432,33 +1378,20 @@ lt{
             ls{"Tongos žiemos laikas"}
         }
         "meta:Truk"{
-            ls{"Truk laikas"}
-        }
-        "meta:Turkey"{
-            ld{"Turkijos vasaros laikas"}
-            lg{"Turkijos laikas"}
-            ls{"Turkijos žiemos laikas"}
+            ls{"Čuko laikas"}
         }
         "meta:Turkmenistan"{
-            ld{"Turkmenistano vasaros laikas"}
-            lg{"Turkmenistano laikas"}
-            ls{"Turkmenistano žiemos laikas"}
+            ld{"Turkmėnistano vasaros laikas"}
+            lg{"Turkmėnistano laikas"}
+            ls{"Turkmėnistano žiemos laikas"}
         }
         "meta:Tuvalu"{
             ls{"Tuvalu laikas"}
-        }
-        "meta:Uralsk"{
-            ld{"Ural'sk vasaros laikas"}
-            lg{"Ural'sk laikas"}
-            ls{"Ural'sk žiemos laikas"}
         }
         "meta:Uruguay"{
             ld{"Urugvajaus vasaros laikas"}
             lg{"Urugvajaus laikas"}
             ls{"Urugvajaus žiemos laikas"}
-        }
-        "meta:Urumqi"{
-            ls{"Urumqi laikas"}
         }
         "meta:Uzbekistan"{
             ld{"Uzbekistano vasaros laikas"}
@@ -1483,11 +1416,14 @@ lt{
             lg{"Volgogrado laikas"}
             ls{"Volgogrado žiemos laikas"}
         }
+        "meta:Vostok"{
+            ls{"Vostoko laikas"}
+        }
         "meta:Wake"{
-            ls{"Veiko salos Laikas"}
+            ls{"Veiko Salos laikas"}
         }
         "meta:Wallis"{
-            ls{"Wallis ir Futuna laikas"}
+            ls{"Voliso ir Futūnos laikas"}
         }
         "meta:Yakutsk"{
             ld{"Jakutsko vasaros laikas"}
@@ -1499,14 +1435,11 @@ lt{
             lg{"Jekaterinburgo laikas"}
             ls{"Jekaterinburgo žiemos laikas"}
         }
-        "meta:Yerevan"{
-            ld{"Jerevano vasaros laikas"}
-            lg{"Jerevano laikas"}
-            ls{"Jerevano žiemos laikas"}
-        }
-        fallbackRegionFormat{"{1} laikas ({0})"}
+        fallbackFormat{"{1} ({0})"}
+        fallbackRegionFormat{"{1} ({0})"}
         gmtFormat{"GMT{0}"}
+        gmtZeroFormat{"GMT"}
         hourFormat{"+HH:mm;−HH:mm"}
-        regionFormat{"{0} laikas"}
+        regionFormat{"Laikas: {0}"}
     }
 }

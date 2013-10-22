@@ -1,0 +1,25 @@
+0.04- Rafael Garcia-Suarez (9):
+      First stab as a dual implementation XS / pure Perl
+      Update MANIFEST and add ppport.h from bleadperl
+      Bump version to 0.04
+      Add license to Makefile.PL
+      Re-add "use strict"
+      Mortalize return values
+      Add tests for a bug reported on P5P by Renée Bäcker
+      Fix segfault / compilation error by returning nothing for a sub being compiled
+      Regenerate META.yml
+
+0.03- Rafael Garcia-Suarez (13):
+      Import Sub-Identify 0.02
+      Add MANIFEST.SKIP file
+      Add get_code_info, as suggested by Shawn M Moore
+      Export get_code_info()
+      Add tests for get_code_info()
+      More tests for undefined subroutines
+      Fix email address
+      New tests for errors
+      Merge branch 'moose'
+      Add pod test file
+      Pre-require Test::More
+      Add copyright and license
+      Bump version and regenerate the META.yml

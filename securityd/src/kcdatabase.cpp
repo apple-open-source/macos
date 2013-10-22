@@ -54,15 +54,62 @@
 #include <security_cdsa_client/macclient.h>
 #include <securityd_client/dictionary.h>
 #include <security_utilities/endian.h>
+#include "securityd_service/securityd_service/securityd_service_client.h"
+#include <AssertMacros.h>
+#include <syslog.h>
 
 void unflattenKey(const CssmData &flatKey, CssmKey &rawKey);	//>> make static method on KeychainDatabase
+
+static int
+unlock_keybag(KeychainDbCommon & dbCommon, const void * secret, int secret_len)
+{
+    int rc = -1;
+
+    if (!dbCommon.isLoginKeychain()) return 0;
+    
+    service_context_t context = dbCommon.session().get_current_service_context();
+    
+    // try to unlock first if not found then load/create or unlock
+    // loading should happen when the kb common object is created
+    // if it doesn't exist yet then the unlock will fail and we'll create everything
+    rc = service_client_kb_unlock(&context, secret, secret_len);
+    if (rc == KB_BagNotLoaded) {
+        if (service_client_kb_load(&context) == KB_BagNotFound) {
+            rc = service_client_kb_create(&context, secret, secret_len);
+        } else {
+            rc = service_client_kb_unlock(&context, secret, secret_len);
+        }
+    }
+
+    if (rc == 0) {
+        dbCommon.session().keybagSetState(session_keybag_unlocked|session_keybag_loaded);
+    }
+
+    return rc;
+}
+
+static void
+change_secret_on_keybag(KeychainDbCommon & dbCommon, const void * secret, int secret_len, const void * new_secret, int new_secret_len)
+{
+    if (!dbCommon.isLoginKeychain()) return;
+
+    service_context_t context = dbCommon.session().get_current_service_context();
+
+    // if a login.keychain doesn't exist yet it comes into securityd as a create then change_secret
+    // we need to create the keybag in this case if it doesn't exist
+    if (service_client_kb_change_secret(&context, secret, secret_len, new_secret, new_secret_len) == KB_BagNotLoaded) {
+        if (service_client_kb_load(&context) == KB_BagNotFound) {
+            service_client_kb_create(&context, new_secret, new_secret_len);
+        }
+    }
+}
 
 //
 // Create a Database object from initial parameters (create operation)
 //
 KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DBParameters &params, Process &proc,
             const AccessCredentials *cred, const AclEntryPrototype *owner)
-    : LocalDatabase(proc), mValidData(false), version(0), mBlob(NULL)
+    : LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL)
 {
     // save a copy of the credentials for later access control
     mCred = DataWalkers::copy(cred, Allocator::standard());
@@ -111,7 +158,7 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DBParameters 
 //
 KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob, Process &proc,
     const AccessCredentials *cred)
-	: LocalDatabase(proc), mValidData(false), version(0)
+	: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL)
 {
 	validateBlob(blob);
 
@@ -150,7 +197,7 @@ KeychainDatabase::KeychainDatabase(const DLDbIdentifier &id, const DbBlob *blob,
 // the re-encoding can declare it done.  
 //
 KeychainDatabase::KeychainDatabase(KeychainDatabase &src, Process &proc, DbHandle dbToClone)
-	: LocalDatabase(proc), mValidData(false), version(0), mBlob(NULL)
+	: LocalDatabase(proc), mValidData(false), mSecret(Allocator::standard(Allocator::sensitive)), mSaveSecret(false), version(0), mBlob(NULL)
 {
 	mCred = DataWalkers::copy(src.mCred, Allocator::standard());
 
@@ -339,10 +386,13 @@ void KeychainDatabase::changePassphrase(const AccessCredentials *cred)
 	
 	// establish OLD secret - i.e. unlock the database
 	//@@@ do we want to leave the final lock state alone?
+    if (common().isLoginKeychain()) mSaveSecret = true;
 	makeUnlocked(cred);
 	
     // establish NEW secret
 	establishNewSecrets(cred, SecurityAgent::changePassphrase);
+    if (mSecret) { mSecret.reset(); }
+    mSaveSecret = false;
 	common().invalidateBlob();	// blob state changed
 	secdebug("KCdb", "Database %s(%p) master secret changed", common().dbName(), this);
 	encode();			// force rebuild of local blob
@@ -367,8 +417,8 @@ void KeychainDatabase::commitSecretsForSync(KeychainDatabase &cloneDb)
         CssmError::throwMe(CSSM_ERRCODE_INVALID_DB_HANDLE);
 	
     // in case we autolocked since starting the sync
-    unlockDb();
-	cloneDb.unlockDb();
+    makeUnlocked(); // call this because we already own the lock
+	cloneDb.unlockDb(); // we may not own the lock here, so calling unlockDb will lock the cloneDb's common lock
 
     // Decode all keys whose handles refer to this on-disk keychain so that
     // if the holding client commits the key back to disk, it's encoded with
@@ -451,7 +501,18 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred)
         assert(mBlob || (mValidData && common().hasMaster()));
 		establishOldSecrets(cred);
 		common().setUnlocked(); // mark unlocked
-	}
+	} else if (common().isLoginKeychain()) {
+        bool locked = false;
+        service_context_t context = common().session().get_current_service_context();
+        if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+            StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
+            QueryKeybagPassphrase keybagQuery(common().session(), 3);
+            keybagQuery.inferHints(Server::process());
+            if (keybagQuery.query() != SecurityAgent::noReason) {
+                syslog(LOG_NOTICE, "failed to unlock iCloud keychain");
+            }
+        }
+    }
 	if (!mValidData) {	// need to decode to get our ACLs, master secret available
 		secdebug("KCdb", "%p(%p) is unlocked; decoding for makeUnlocked()", this, &common());
 		if (!decode())
@@ -461,6 +522,78 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred)
 	assert(mValidData);
 }
 
+//
+// Invoke the securityd_service to retrieve the keychain master
+// key from the AppleFDEKeyStore.
+//
+void KeychainDatabase::stashDbCheck()
+{    
+    CssmAutoData data(Allocator::standard(Allocator::sensitive));
+
+    // Fetch the key
+    int rc = 0;
+    void * stash_key = NULL;
+    int stash_key_len = 0;
+    service_context_t context = common().session().get_current_service_context();
+    rc = service_client_stash_get_key(&context, &stash_key, &stash_key_len);
+    if (rc == 0) {
+        if (stash_key) {
+            data.copy(CssmData((void *)stash_key,stash_key_len));
+            memset(stash_key, 0, stash_key_len);
+            free(stash_key);
+        }
+    } else {
+        CssmError::throwMe(rc);
+    }
+    
+    {
+        StLock<Mutex> _(common());
+
+        // Now establish it as the keychain master key
+        CssmClient::Key key(Server::csp(), data.get());
+        CssmKey::Header &hdr = key.header();
+        hdr.keyClass(CSSM_KEYCLASS_SESSION_KEY);
+        hdr.algorithm(CSSM_ALGID_3DES_3KEY_EDE);
+        hdr.usage(CSSM_KEYUSE_ANY);
+        hdr.blobType(CSSM_KEYBLOB_RAW);
+        hdr.blobFormat(CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING);
+        common().setup(mBlob, key);
+
+        if (!decode())
+            CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+    }
+
+    // when upgrading from pre-10.9 create a keybag if it doesn't exist with the master secret
+    // only do this after we have verified the master key unlocks the login.keychain
+    if (service_client_kb_load(&context) == KB_BagNotFound) {
+        service_client_kb_create(&context, data.data(), (int)data.length());
+    }
+}
+
+//
+// Get the keychain master key and invoke the securityd_service
+// to stash it in the AppleFDEKeyStore ready for commit to the
+// NVRAM blob.
+//
+void KeychainDatabase::stashDb()
+{
+    CssmAutoData data(Allocator::standard(Allocator::sensitive));
+    
+    {
+        StLock<Mutex> _(common());
+
+        if (!common().isValid()) {
+            CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
+        }
+        
+        CssmKey key = common().masterKey();
+        data.copy(key.keyData());
+    }
+    
+    service_context_t context = common().session().get_current_service_context();
+    int rc = service_client_stash_set_key(&context, data.data(), (int)data.length());
+    if (rc != 0) CssmError::throwMe(rc);
+}
 
 //
 // The following unlock given an explicit passphrase, rather than using
@@ -483,6 +616,15 @@ void KeychainDatabase::makeUnlocked(const CssmData &passphrase)
 		if (!decode())
 			CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
 	}
+
+    if (common().isLoginKeychain()) {
+        bool locked = false;
+        service_context_t context = common().session().get_current_service_context();
+        if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+            unlock_keybag(common(), passphrase.data(), (int)passphrase.length());
+        }
+    }
+
 	assert(!isLocked());
 	assert(mValidData);
 }
@@ -497,7 +639,33 @@ bool KeychainDatabase::decode(const CssmData &passphrase)
 {
 	assert(mBlob);
 	common().setup(mBlob, passphrase);
-	return decode();
+	bool success = decode();
+    if (success) {
+        if (common().isLoginKeychain() && (unlock_keybag(common(), passphrase.data(), (int)passphrase.length()) != 0)) {
+            service_context_t context = common().session().get_current_service_context();
+            // check to see if it was locked with the master key if so change the secret to the passphrase
+            if (!common().session().keybagGetState(session_keybag_check_master_key)) {
+
+                CssmAutoData key(Allocator::standard(Allocator::sensitive));
+                key = common().masterKey()->keyData();
+                if (service_client_kb_unlock(&context, key.data(), (int)key.length()) == 0) {
+                    service_client_kb_change_secret(&context, key.data(), (int)key.length(), passphrase.data(), (int)passphrase.length());
+                }
+                common().session().keybagSetState(session_keybag_check_master_key);
+            }
+
+            bool no_pin = false;
+            if (service_client_kb_is_locked(&context, NULL, &no_pin) == 0) {
+                if ((passphrase.length() > 0) && no_pin) {
+                    syslog(LOG_ERR, "Updating passphrase for your iCloud keychain");
+                    service_client_kb_change_secret(&context, NULL, 0, passphrase.data(), (int)passphrase.length());
+                } else {
+                    syslog(LOG_ERR, "The passphrase for your login.keychain and your iCloud keychain are out of sync");
+                }
+            }
+        }
+    }
+    return success;
 }
 
 
@@ -623,18 +791,43 @@ void KeychainDatabase::establishOldSecrets(const AccessCredentials *creds)
 bool KeychainDatabase::interactiveUnlock()
 {
 	secdebug("KCdb", "%p attempting interactive unlock", this);
-	QueryUnlock query(*this);
+	SecurityAgent::Reason reason = SecurityAgent::noReason;
+    QueryUnlock query(*this);
 	// take UI interlock and release DbCommon lock (to avoid deadlocks)
 	StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 	
 	// now that we have the UI lock, interact unless another thread unlocked us first
 	if (isLocked()) {
 		query.inferHints(Server::process());
-		return query() == SecurityAgent::noReason;
+        reason = query();
+        if (mSaveSecret && reason == SecurityAgent::noReason) {
+            query.retrievePassword(mSecret);
+        }
+        query.disconnect();
 	} else {
 		secdebug("KCdb", "%p was unlocked during uiLock delay", this);
-		return true;
 	}
+
+    if (common().isLoginKeychain()) {
+        bool locked = false;
+        service_context_t context = common().session().get_current_service_context();
+        if ((service_client_kb_is_locked(&context, &locked, NULL) == 0) && locked) {
+            QueryKeybagNewPassphrase keybagQuery(common().session());
+            keybagQuery.inferHints(Server::process());
+            CssmAutoData pass(Allocator::standard(Allocator::sensitive));
+            CssmAutoData oldPass(Allocator::standard(Allocator::sensitive));
+            SecurityAgent::Reason queryReason = keybagQuery.query(oldPass, pass);
+            if (queryReason == SecurityAgent::noReason) {
+                service_client_kb_change_secret(&context, oldPass.data(), (int)oldPass.length(), pass.data(), (int)pass.length());
+            } else if (queryReason == SecurityAgent::resettingPassword) {
+                query.retrievePassword(pass);
+                service_client_kb_reset(&context, pass.data(), (int)pass.length());
+            }
+
+        }
+    }
+
+    return reason == SecurityAgent::noReason;
 }
 
 
@@ -657,19 +850,41 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 				StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
 				query.inferHints(Server::process());
 				CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
-				if (query(passphrase) == SecurityAgent::noReason) {
+                CssmAutoData oldPassphrase(Allocator::standard(Allocator::sensitive));
+				if (query(oldPassphrase, passphrase) == SecurityAgent::noReason) {
 					common().setup(NULL, passphrase);
+                    change_secret_on_keybag(common(), oldPassphrase.data(), (int)oldPassphrase.length(), passphrase.data(), (int)passphrase.length());
 					return;
 				}
                 }
 				break;
 			// try to use an explicitly given passphrase
 			case CSSM_SAMPLE_TYPE_PASSWORD:
-				secdebug("KCdb", "%p specified explicit passphrase", this);
-				if (sample.length() != 2)
-					CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-				common().setup(NULL, sample[1]);
-				return;
+				{
+                    secdebug("KCdb", "%p specified explicit passphrase", this);
+                    if (sample.length() != 2)
+                        CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
+                    common().setup(NULL, sample[1]);
+                    if (common().isLoginKeychain()) {
+                        CssmAutoData oldPassphrase(Allocator::standard(Allocator::sensitive));
+                        list<CssmSample> oldSamples;
+                        creds->samples().collect(CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK, oldSamples);
+                        for (list<CssmSample>::iterator oit = oldSamples.begin(); oit != oldSamples.end(); oit++) {
+                            TypedList &tmpList = *oit;
+                            tmpList.checkProper();
+                            if (tmpList.type() == CSSM_SAMPLE_TYPE_PASSWORD) {
+                                if (tmpList.length() == 2) {
+                                    oldPassphrase = tmpList[1].data();
+                                }
+                            }
+                        }
+                        if (!oldPassphrase.length() && mSecret && mSecret.length()) {
+                            oldPassphrase = mSecret;
+                        }
+                        change_secret_on_keybag(common(), oldPassphrase.data(), (int)oldPassphrase.length(), sample[1].data().data(), (int)sample[1].data().length());
+                    }
+                    return;
+                }
 			// try to open with a given master key
 			case CSSM_WORDID_SYMMETRIC_KEY:
 			case CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY:
@@ -698,8 +913,10 @@ void KeychainDatabase::establishNewSecrets(const AccessCredentials *creds, Secur
 		StSyncLock<Mutex, Mutex> uisync(common().uiLock(), common());
         query.inferHints(Server::process());
 		CssmAutoData passphrase(Allocator::standard(Allocator::sensitive));
-		if (query(passphrase) == SecurityAgent::noReason) {
+        CssmAutoData oldPassphrase(Allocator::standard(Allocator::sensitive));
+		if (query(oldPassphrase, passphrase) == SecurityAgent::noReason) {
 			common().setup(NULL, passphrase);
+            change_secret_on_keybag(common(), oldPassphrase.data(), (int)oldPassphrase.length(), passphrase.data(), (int)passphrase.length());
 			return;
 		}
 	}
@@ -874,7 +1091,7 @@ KeyBlob *KeychainDatabase::encodeKey(const CssmKey &key, const CssmData &pubAcl,
 	}
 	StLock<Mutex> _(common());
 	if(!inTheClear)
-		unlockDb();
+		makeUnlocked();
 	
     // tell the cryptocore to form the key blob
     return common().encodeKeyCore(key, pubAcl, privAcl, inTheClear);
@@ -890,7 +1107,7 @@ void KeychainDatabase::decodeKey(KeyBlob *blob, CssmKey &key, void * &pubAcl, vo
 	StLock<Mutex> _(common());
 
 	if(!blob->isClearText())
-		unlockDb();							// we need our keys
+		makeUnlocked();							// we need our keys
 
 	common().decodeKeyCore(blob, key, pubAcl, privAcl);
 	// memory protocol: pubAcl points into blob; privAcl was allocated
@@ -1043,23 +1260,36 @@ void KeychainDatabase::dumpNode()
 //
 KeychainDbCommon::KeychainDbCommon(Session &ssn, const DbIdentifier &id)
 	: LocalDbCommon(ssn), sequence(0), version(1), mIdentifier(id),
-      mIsLocked(true), mValidParams(false)
+      mIsLocked(true), mValidParams(false), mLoginKeychain(false)
 {
     // match existing DbGlobal or create a new one
-	Server &server = Server::active();
-	StLock<Mutex> _(server);
-	if (KeychainDbGlobal *dbglobal =
-			server.findFirst<KeychainDbGlobal, const DbIdentifier &>(&KeychainDbGlobal::identifier, identifier())) {
-		parent(*dbglobal);
-		secdebug("KCdb", "%p linking to existing DbGlobal %p", this, dbglobal);
-	} else {
-		// DbGlobal not present; make a new one
-		parent(*new KeychainDbGlobal(identifier()));
-		secdebug("KCdb", "%p linking to new DbGlobal %p", this, &global());
-	}
-	
-	// link lifetime to the Session
-	session().addReference(*this);
+	{
+        Server &server = Server::active();
+        StLock<Mutex> _(server);
+        if (KeychainDbGlobal *dbglobal =
+                server.findFirst<KeychainDbGlobal, const DbIdentifier &>(&KeychainDbGlobal::identifier, identifier())) {
+            parent(*dbglobal);
+            secdebug("KCdb", "%p linking to existing DbGlobal %p", this, dbglobal);
+        } else {
+            // DbGlobal not present; make a new one
+            parent(*new KeychainDbGlobal(identifier()));
+            secdebug("KCdb", "%p linking to new DbGlobal %p", this, &global());
+        }
+
+        // link lifetime to the Session
+        session().addReference(*this);
+        
+        if (strcasestr(id.dbName(), "login.keychain") != NULL) {
+            mLoginKeychain = true;
+        }
+    }
+
+    if (mLoginKeychain && !session().keybagGetState(session_keybag_loaded)) {
+        service_context_t context = session().get_current_service_context();
+        if (service_client_kb_load(&context) == 0) {
+            session().keybagSetState(session_keybag_loaded);
+        }
+    }
 }
 
 KeychainDbCommon::~KeychainDbCommon()
@@ -1068,6 +1298,9 @@ KeychainDbCommon::~KeychainDbCommon()
 
 	// explicitly unschedule ourselves
 	Server::active().clearTimer(this);
+    if (mLoginKeychain) {
+        session().keybagClearState(session_keybag_unlocked);
+    }
 }
 
 KeychainDbGlobal &KeychainDbCommon::global() const
@@ -1147,17 +1380,27 @@ void KeychainDbCommon::setUnlocked()
 
 void KeychainDbCommon::lockDb()
 {
-    StLock<Mutex> _(*this);
-    if (!isLocked()) {
-		DatabaseCryptoCore::invalidate();
-        notify(kNotificationEventLocked);
-		SECURITYD_KEYCHAIN_LOCK(this, (char*)this->dbName());
-		Server::active().clearTimer(this);
+    bool lock = false;
+    {
+        StLock<Mutex> _(*this);
+        if (!isLocked()) {
+            DatabaseCryptoCore::invalidate();
+            notify(kNotificationEventLocked);
+            SECURITYD_KEYCHAIN_LOCK(this, (char*)this->dbName());
+            Server::active().clearTimer(this);
 
-		mIsLocked = true;		// mark locked
-		
-		// this call may destroy us if we have no databases anymore
-		session().removeReference(*this);
+            mIsLocked = true;		// mark locked
+            lock = true;
+            
+            // this call may destroy us if we have no databases anymore
+            session().removeReference(*this);
+        }
+    }
+    
+    if (mLoginKeychain && lock) {
+        service_context_t context = session().get_current_service_context();
+        service_client_kb_lock(&context);
+        session().keybagClearState(session_keybag_unlocked);
     }
 }
 

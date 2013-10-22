@@ -53,7 +53,7 @@ Boolean getMkextDataForArch(
     void            ** mkextEnd,
     uint32_t         * mkextVersion);
 
-CFArrayRef extractKextsFromMkext2(
+CFArrayRef copyKextsFromMkext2(
     void             * mkextStart,
     void             * mkextEnd,
     const NXArchInfo * archInfo);
@@ -264,7 +264,7 @@ int main (int argc, const char * argv[]) {
         goto finish;
     }
 
-    mkextFileContents = mmap(0, stat_buf.st_size, PROT_READ, 
+    mkextFileContents = mmap(0, (size_t)stat_buf.st_size, PROT_READ, 
         MAP_FILE|MAP_PRIVATE, mkextFileFD, 0);
     if (mkextFileContents == (u_int8_t *)-1) {
         fprintf(stderr, "can't map file %s\n", mkextFile);
@@ -272,7 +272,7 @@ int main (int argc, const char * argv[]) {
         goto finish;
     }
 
-    if (!getMkextDataForArch(mkextFileContents, stat_buf.st_size,
+    if (!getMkextDataForArch(mkextFileContents, (size_t)stat_buf.st_size,
         archInfo, &mkextStart, &mkextEnd, &mkextVersion)) {
 
         exit_code = 1;
@@ -280,7 +280,7 @@ int main (int argc, const char * argv[]) {
     }
 
     if (mkextVersion == MKEXT_VERS_2) {
-        oskexts = extractKextsFromMkext2(mkextStart, mkextEnd, archInfo);
+        oskexts = copyKextsFromMkext2(mkextStart, mkextEnd, archInfo);
         if (!oskexts) {
             exit_code = 1;
             goto finish;
@@ -308,6 +308,7 @@ int main (int argc, const char * argv[]) {
     }
 
 finish:
+    SAFE_RELEASE(oskexts);
     exit(exit_code);
     return exit_code;
 }
@@ -416,7 +417,7 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-CFArrayRef extractKextsFromMkext2(
+CFArrayRef copyKextsFromMkext2(
     void             * mkextStart,
     void             * mkextEnd,
     const NXArchInfo * archInfo)
@@ -547,7 +548,7 @@ Boolean writeMkext2ToDirectory(
         OSKextLogStringError(aKext);
         goto finish;
     }
-    pathLength = strlen(kextPath);
+    pathLength = (uint32_t)strlen(kextPath);
     if (pathLength && kextPath[pathLength-1] == '/') {
         kextPath[pathLength-1] = '\0';
     }
@@ -582,7 +583,7 @@ Boolean writeMkext2ToDirectory(
     while (CFSetContainsValue(kextNames, kextName)) {
         SAFE_RELEASE_NULL(kextName);
         kextName = CFStringCreateWithFormat(kCFAllocatorDefault,
-            /* formatOptions */ NULL, CFSTR("%s-%d.kext"),
+            /* formatOptions */ NULL, CFSTR("%s-%zd.kext"),
             kextNameCString, i);
         i++;
     }
@@ -900,8 +901,8 @@ Boolean uncompressMkext1Entry(
 {
     Boolean result = true;
 
-    u_int8_t * uncompressed_data = 0; // free() on error
-    CFDataRef uncompressedData = NULL;    // returned
+    u_int8_t * uncompressed_data = NULL;    // must free
+    CFDataRef uncompressedData = NULL;      // returned
     size_t uncompressed_size = 0;
 
     size_t offset = OSSwapBigToHostInt32(entry_address->offset);
@@ -911,11 +912,11 @@ Boolean uncompressMkext1Entry(
 
     *uncompressedEntry = NULL;
 
-   /* If these four fields are zero there's no file, but that isn't
-    * an error.
+   /* If realsize is 0 there is nothing to uncompress or if any of the other
+    * three fields are 0, but that isn't an error.
     */
-    if (offset == 0 && compsize == 0 &&
-        realsize == 0 && modifiedsecs == 0) {
+    if (realsize == 0 ||
+        (offset == 0 && compsize == 0 && modifiedsecs == 0)) {
         goto finish;
     }
 
@@ -928,9 +929,9 @@ Boolean uncompressMkext1Entry(
 
     if (compsize != 0) {
         uncompressed_size = decompress_lzss(uncompressed_data,
-            realsize,
+            (u_int32_t)realsize,
             mkext_base_address + offset,
-            compsize);
+            (u_int32_t)compsize);
         if (uncompressed_size != realsize) {
             fprintf(stderr, "uncompressed file is not the length "
                   "recorded.\n");
@@ -952,9 +953,7 @@ Boolean uncompressMkext1Entry(
     *uncompressedEntry = uncompressedData;
 
 finish:
-    if (!result) {
-        if (uncompressed_data) free(uncompressed_data);
-    }
+    if (uncompressed_data) free(uncompressed_data);
 
     return result;
 }
@@ -972,7 +971,7 @@ Boolean writeMkext1EntriesToDirectory(CFDictionaryRef entryDict,
     char              subPath[PATH_MAX];
     unsigned int      count, i;
 
-    count = CFDictionaryGetCount(entryDict);
+    count = (unsigned int)CFDictionaryGetCount(entryDict);
 
     kextNames = (CFStringRef *)malloc(count * sizeof(CFStringRef));
     entries = (CFDictionaryRef *)malloc(count * sizeof(CFDictionaryRef));
@@ -1291,7 +1290,7 @@ Boolean writeFileInDirectory(
     bytesWritten = 0;
     while (bytesWritten < fileLength) {
         int writeResult;
-        writeResult = write(fd, fileData + bytesWritten,
+        writeResult = (int)write(fd, fileData + bytesWritten,
             fileLength - bytesWritten);
         if (writeResult < 0) {
             OSKextLog(/* kext */ NULL,

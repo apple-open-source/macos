@@ -229,12 +229,12 @@ symbol_name(const char *basename, const Type *t)
 
 
 static char *
-partial_offset(const char *basetype, const char *name, int need_offset)
+partial_offset(const char *basetype, const char *name, int need_offset, int isstruct)
 {
     char *str;
     if (name == NULL || need_offset == 0)
 	return strdup("0");
-    if (asprintf(&str, "offsetof(struct %s, %s)", basetype, name) < 0 || str == NULL)
+    if (asprintf(&str, "offsetof(%s%s, %s)", isstruct ? "struct " : "", basetype, name) < 0 || str == NULL)
 	errx(1, "malloc");
     return str;
 }
@@ -314,7 +314,7 @@ tlist_print(struct tlist *tl)
     unsigned int i = 1;
     FILE *f = get_code_file();
 
-    fprintf(f, "static const struct asn1_template asn1_%s[] = {\n", tl->name);
+    fprintf(f, "const struct asn1_template asn1_%s[] = {\n", tl->name);
     fprintf(f, "/* 0 */ %s,\n", tl->header);
     ASN1_TAILQ_FOREACH(q, &tl->template, members) {
 	int last = (ASN1_TAILQ_LAST(&tl->template, templatehead) == q);
@@ -339,6 +339,10 @@ tlist_cmp_name(const char *tname, const char *qname)
 {
     struct tlist *tl = tlist_find_by_name(tname);
     struct tlist *ql = tlist_find_by_name(qname);
+    if (tl == NULL)
+	return 1;
+    if (ql == NULL)
+	return -1;
     return tlist_cmp(tl, ql);
 }
 
@@ -439,7 +443,7 @@ use_extern(const Symbol *s)
 }
 
 static int
-is_struct(Type *t, int isstruct)
+is_struct(const Type *t, int isstruct)
 {
     size_t i;
 
@@ -471,24 +475,28 @@ compact_tag(const Type *t)
 }
 
 static void
-template_members(struct templatehead *temp, const char *basetype, const char *name, const Type *t, int optional, int isstruct, int need_offset)
+template_members(struct templatehead *temp, const char *basetype, const char *name, const Type *t, int optional, int implicit, int isstruct, int need_offset)
 {
     char *poffset = NULL;
 
     if (optional && t->type != TTag && t->type != TType)
 	errx(1, "%s...%s is optional and not a (TTag or TType)", basetype, name);
 
-    poffset = partial_offset(basetype, name, need_offset);
+    poffset = partial_offset(basetype, name, need_offset, isstruct);
 
     switch (t->type) {
     case TType:
 	if (use_extern(t->symbol)) {
-	    add_line(temp, "{ A1_OP_TYPE_EXTERN %s, %s, &asn1_extern_%s}",
+	    add_line(temp, "{ A1_OP_TYPE_EXTERN %s%s, %s, &asn1_extern_%s}",
 		     optional ? "|A1_FLAG_OPTIONAL" : "",
+		     implicit ? "|A1_FLAG_IMPLICIT" : "",
 		     poffset, t->symbol->gen_name);
 	} else {
 	    add_line_pointer(temp, t->symbol->gen_name, poffset,
-			     "A1_OP_TYPE %s", optional ? "|A1_FLAG_OPTIONAL" : "");
+			     "A1_OP_TYPE %s%s",
+			     optional ? "|A1_FLAG_OPTIONAL" : "",
+			     implicit ? "|A1_FLAG_IMPLICIT" : "");
+
 	}
 	break;
     case TInteger: {
@@ -598,6 +606,8 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
     case TSequence: {
 	Member *m;
 
+	fprintf(get_code_file(), "/* tsequence: members isstruct: %d */\n", isstruct);
+
 	ASN1_TAILQ_FOREACH(m, t->members, members) {
 	    char *newbasename = NULL;
 
@@ -612,7 +622,7 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
 	    if (newbasename == NULL)
 		errx(1, "malloc");
 
-	    template_members(temp, newbasename, m->gen_name, m->type, m->optional, isstruct, 1);
+	    template_members(temp, newbasename, m->gen_name, m->type, m->optional, 0, isstruct, 1);
 
 	    free(newbasename);
 	}
@@ -624,11 +634,44 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
 	const char *sename, *dupname;
 	int subtype_is_struct = is_struct(t->subtype, isstruct);
 	static unsigned long tag_counter = 0;
+	int tagimplicit = (t->tag.tagenv == TE_IMPLICIT);
+	struct type *subtype;
+
+	fprintf(get_code_file(), "/* template_members: %s %s %s */\n", basetype, implicit ? "imp" : "exp", tagimplicit ? "imp" : "exp");
+
+	if (tagimplicit) {
+
+	    struct type *type = t->subtype;
+	    int have_tag = 0;
+
+	    while (!have_tag) {
+		if (type->type == TTag) {
+		    fprintf(get_code_file(), "/* template_members: imp skip tag */\n");
+		    type = type->subtype;
+		    have_tag = 1;
+		} else if(type->type == TType && type->symbol && type->symbol->type) {
+		    /* XXX really, we should stop here and find a
+		     * pointer to where this is encoded instead of
+		     * generated an new structure and hope that the
+		     * optimizer catch it later.
+		     */
+		    subtype_is_struct = is_struct(type, isstruct);
+		    fprintf(get_code_file(), "/* template_members: imp skip type %s isstruct: %d */\n",
+			    type->symbol->name, subtype_is_struct);
+		    type = type->symbol->type;
+		} else {
+		    have_tag = 1;
+		}
+	    }
+	    subtype = type;
+	} else {
+	    subtype = t->subtype;
+	}
 
 	if (subtype_is_struct)
 	    sename = basetype;
 	else
-	    sename = symbol_name(basetype, t->subtype);
+	    sename = symbol_name(basetype, subtype);
 
 	if (asprintf(&tname, "tag_%s_%lu", name ? name : "", tag_counter++) < 0 || tname == NULL)
 	    errx(1, "malloc");
@@ -638,14 +681,15 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
 	    errx(1, "malloc");
 
 	generate_template_type(elname, &dupname, NULL, sename, name,
-			       t->subtype, 0, subtype_is_struct, 0);
+			       subtype, 0, subtype_is_struct, 0);
 
 	add_line_pointer(temp, dupname, poffset,
-			 "A1_TAG_T(%s,%s,%s)%s",
+			 "A1_TAG_T(%s,%s,%s)%s%s",
 			 classname(t->tag.tagclass),
-			 is_primitive_type(t->subtype->type)  ? "PRIM" : "CONS",
+			 is_primitive_type(subtype->type)  ? "PRIM" : "CONS",
 			 valuename(t->tag.tagclass, t->tag.tagvalue),
-			 optional ? "|A1_FLAG_OPTIONAL" : "");
+			 optional ? "|A1_FLAG_OPTIONAL" : "",
+			 tagimplicit ? "|A1_FLAG_IMPLICIT" : "");
 
 	free(tname);
 	free(elname);
@@ -817,10 +861,16 @@ generate_template_type(const char *varname,
     struct tlist *tl;
     const char *dup;
     int have_ellipsis = 0;
+    int implicit = 0;
 
     tl = tlist_new(varname);
 
-    template_members(&tl->template, basetype, name, type, optional, isstruct, need_offset);
+    if (type->type == TTag)
+	implicit = (type->tag.tagenv == TE_IMPLICIT);
+
+    fprintf(get_code_file(), "extern const struct asn1_template asn1_%s[];\n", tl->name);
+
+    template_members(&tl->template, basetype, name, type, optional, implicit, isstruct, need_offset);
 
     /* if its a sequence or set type, check if there is a ellipsis */
     if (type->type == TSequence || type->type == TSet) {
@@ -834,6 +884,8 @@ generate_template_type(const char *varname,
     if (ASN1_TAILQ_EMPTY(&tl->template) && compact_tag(type)->type != TNull)
 	errx(1, "Tag %s...%s with no content ?", basetype, name ? name : "");
 
+    fprintf(get_code_file(), "/* generate_template_type: %s */\n", tl->name);
+
     tlist_header(tl, "{ 0%s%s, sizeof(%s%s), ((void *)%lu) }",
 		 (symname && preserve_type(symname)) ? "|A1_HF_PRESERVE" : "",
 		 have_ellipsis ? "|A1_HF_ELLIPSIS" : "",
@@ -841,8 +893,10 @@ generate_template_type(const char *varname,
 
     dup = tlist_find_dup(tl);
     if (dup) {
+#if 0
 	if (strcmp(dup, tl->name) == 0)
-	    errx(1, "found dup of ourself");
+	    errx(1, "found dup of ourself: %s", dup);
+#endif
 	*dupname = dup;
     } else {
 	*dupname = tl->name;
@@ -870,12 +924,18 @@ generate_template(const Symbol *s)
 	    "int\n"
 	    "decode_%s(const unsigned char *p, size_t len, %s *data, size_t *size)\n"
 	    "{\n"
+#ifdef ASN1_CAPTURE_DATA
+	    "    _asn1_capture_data(\"%s\", p, len);\n"
+#endif
 	    "    return _asn1_decode_top(asn1_%s, 0|%s, p, len, data, size);\n"
 	    "}\n"
 	    "\n",
 	    s->gen_name,
 	    s->gen_name,
 	    dupname,
+#ifdef ASN1_CAPTURE_DATA
+	    dupname,
+#endif
 	    support_ber ? "A1_PF_ALLOW_BER" : "0");
 
     fprintf(f,
@@ -883,13 +943,21 @@ generate_template(const Symbol *s)
 	    "int\n"
 	    "encode_%s(unsigned char *p, size_t len, const %s *data, size_t *size)\n"
 	    "{\n"
-	    "    return _asn1_encode%s(asn1_%s, p, len, data, size);\n"
+	    "    int ret = _asn1_encode%s(asn1_%s, p, len, data, size);\n"
+#ifdef ASN1_CAPTURE_DATA
+	    "    if (ret == 0) { _asn1_capture_data(\"%s\", p - len - 1, len); };\n"
+#endif
+	    "    return ret;\n"
 	    "}\n"
 	    "\n",
 	    s->gen_name,
 	    s->gen_name,
 	    fuzzer_string,
-	    dupname);
+	    dupname
+#ifdef ASN1_CAPTURE_DATA
+	    , dupname
+#endif
+	    );
 
     fprintf(f,
 	    "\n"
@@ -910,11 +978,7 @@ generate_template(const Symbol *s)
 	    "void\n"
 	    "free_%s(%s *data)\n"
 	    "{\n"
-	    "#ifdef ASN1_OBJECTS_ARE_HEIMBASE_OBJECTS\n"
-	    "    heim_release(data);\n"
-	    "#else\n"
 	    "    _asn1_free_top(asn1_%s, data);\n"
-	    "#endif\n"
 	    "}\n"
 	    "\n",
 	    s->gen_name,

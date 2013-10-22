@@ -32,6 +32,7 @@
 #include <Security/SecItem.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecFramework.h>
+#include <utilities/SecIOFormat.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFSet.h>
 #include <CoreFoundation/CFString.h>
@@ -43,14 +44,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <MacErrors.h>
+#include <Security/SecBase.h>
 #include "SecRSAKey.h"
 #include <libDER/oids.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include <Security/SecInternal.h>
+#include <AssertMacros.h>
+#include <utilities/SecCFError.h>
 
-#pragma mark -
-#pragma mark SecCertificatePath
+// MARK: -
+// MARK: SecCertificatePath
 /********************************************************
  ************* SecCertificatePath object ****************
  ********************************************************/
@@ -117,12 +120,12 @@ static CFHashCode SecCertificatePathHash(CFTypeRef cf) {
 	return hashCode;
 }
 
-static CFStringRef SecCertificatePathDescribe(CFTypeRef cf) {
+static CFStringRef SecCertificateCopyPathDescription(CFTypeRef cf) {
 	SecCertificatePathRef certificatePath = (SecCertificatePathRef) cf;
     CFMutableStringRef desc = CFStringCreateMutable(kCFAllocatorDefault, 0);
     CFStringRef typeStr = CFCopyTypeIDDescription(CFGetTypeID(cf));
     CFStringAppendFormat(desc, NULL,
-        CFSTR("<%@ lvs: %d certs: "), typeStr,
+        CFSTR("<%@ lvs: %" PRIdCFIndex " certs: "), typeStr,
         certificatePath->lastVerifiedSigner);
     CFRelease(typeStr);
     CFIndex ix;
@@ -149,7 +152,7 @@ static void SecCertificatePathRegisterClass(void) {
 		SecCertificatePathEqual,						/* equal */
 		SecCertificatePathHash,							/* hash */
 		NULL,											/* copyFormattingDesc */
-		SecCertificatePathDescribe						/* copyDebugDesc */
+		SecCertificateCopyPathDescription				/* copyDebugDesc */
 	};
 
     kSecCertificatePathTypeID =
@@ -203,21 +206,20 @@ SecCertificatePathRef SecCertificatePathCreate(SecCertificatePathRef path,
 		CFRetain(result->certificates[ix]);
 	}
 	result->certificates[count - 1] = certificate;
-	CFRetain(certificate);
+	CFRetainSafe(certificate);
 
     return result;
 }
 
-/* Create a new certificate path from an array of CFDataRefs. */
-SecCertificatePathRef SecCertificatePathCreateWithArray(CFArrayRef certificates) {
-	CFIndex count = CFArrayGetCount(certificates);
-    CFIndex size = sizeof(struct SecCertificatePath) +
-		count * sizeof(SecCertificateRef);
-    SecCertificatePathRef result =
-		(SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault,
-		SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0);
-	if (!result)
-        return NULL;
+/* Create a new certificate path from an xpc_array of data. */
+SecCertificatePathRef SecCertificatePathCreateWithXPCArray(xpc_object_t xpc_path, CFErrorRef *error) {
+    SecCertificatePathRef result = NULL;
+    require_action_quiet(xpc_path, exit, SecError(errSecParam, error, CFSTR("xpc_path is NULL")));
+    require_action_quiet(xpc_get_type(xpc_path) == XPC_TYPE_ARRAY, exit, SecError(errSecDecode, error, CFSTR("xpc_path value is not an array")));
+    size_t count;
+    require_action_quiet(count = xpc_array_get_count(xpc_path), exit, SecError(errSecDecode, error, CFSTR("xpc_path array count == 0")));
+    size_t size = sizeof(struct SecCertificatePath) + count * sizeof(SecCertificateRef);
+    require_action_quiet(result = (SecCertificatePathRef)_CFRuntimeCreateInstance(kCFAllocatorDefault, SecCertificatePathGetTypeID(), size - sizeof(CFRuntimeBase), 0), exit, SecError(errSecDecode, error, CFSTR("_CFRuntimeCreateInstance returned NULL")));
 
 	result->count = count;
 	result->nextParentSource = 0;
@@ -225,13 +227,19 @@ SecCertificatePathRef SecCertificatePathCreateWithArray(CFArrayRef certificates)
 	result->selfIssued = -1;
 	result->isSelfSigned = false;
 	result->isAnchored = false;
-	CFIndex ix;
+	size_t ix;
 	for (ix = 0; ix < count; ++ix) {
-        CFDataRef data = CFArrayGetValueAtIndex(certificates, ix);
-        SecCertificateRef certificate = SecCertificateCreateWithData(kCFAllocatorDefault, data);
-		result->certificates[ix] = certificate;
+        SecCertificateRef certificate = SecCertificateCreateWithXPCArrayAtIndex(xpc_path, ix, error);
+        if (certificate) {
+            result->certificates[ix] = certificate;
+        } else {
+            result->count = ix; // total allocated
+            CFReleaseNull(result);
+            break;
+        }
 	}
 
+exit:
     return result;
 }
 
@@ -323,16 +331,20 @@ SecCertificatePathRef SecCertificatePathCopyAddingLeaf(SecCertificatePathRef pat
 }
 
 /* Create an array of CFDataRefs from a certificate path. */
-CFArrayRef SecCertificatePathCopyArray(SecCertificatePathRef path) {
-    CFIndex ix, count = path->count;
-    CFMutableArrayRef result = CFArrayCreateMutable(kCFAllocatorDefault, count,
-        &kCFTypeArrayCallBacks);
+xpc_object_t SecCertificatePathCopyXPCArray(SecCertificatePathRef path, CFErrorRef *error) {
+    xpc_object_t xpc_chain = NULL;
+    size_t ix, count = path->count;
+    require_action_quiet(xpc_chain = xpc_array_create(NULL, 0), exit, SecError(errSecParam, error, CFSTR("xpc_array_create failed")));
 	for (ix = 0; ix < count; ++ix) {
-        CFDataRef data = SecCertificateCopyData(path->certificates[ix]);
-        CFArrayAppendValue(result, data);
-        CFRelease(data);
-	}
-    return result;
+        SecCertificateRef cert = SecCertificatePathGetCertificateAtIndex(path, ix);
+        if (!SecCertificateAppendToXPCArray(cert, xpc_chain, error)) {
+            xpc_release(xpc_chain);
+            return NULL;
+        }
+    }
+
+exit:
+    return xpc_chain;
 }
 
 /* Record the fact that we found our own root cert as our parent
@@ -340,7 +352,7 @@ CFArrayRef SecCertificatePathCopyArray(SecCertificatePathRef path) {
 void SecCertificatePathSetSelfIssued(
 	SecCertificatePathRef certificatePath) {
 	if (certificatePath->selfIssued >= 0) {
-		secdebug("trust", "%@ is already issued at %d", certificatePath,
+		secdebug("trust", "%@ is already issued at %" PRIdCFIndex, certificatePath,
 			certificatePath->selfIssued);
 		return;
 	}
@@ -381,7 +393,7 @@ CFIndex SecCertificatePathGetNextSourceIndex(
 CFIndex SecCertificatePathGetCount(
 	SecCertificatePathRef certificatePath) {
 	check(certificatePath);
-	return certificatePath->count;
+	return certificatePath ? certificatePath->count : 0;
 }
 
 SecCertificateRef SecCertificatePathGetCertificateAtIndex(
@@ -460,6 +472,8 @@ SecKeyRef SecCertificatePathCopyPublicKeyAtIndex(
 SecPathVerifyStatus SecCertificatePathVerify(
 	SecCertificatePathRef certificatePath) {
 	check(certificatePath);
+    if (!certificatePath)
+        return kSecPathVerifyFailed;
 	for (;
 		certificatePath->lastVerifiedSigner < certificatePath->count - 1;
 		++certificatePath->lastVerifiedSigner) {
@@ -523,7 +537,7 @@ CFIndex SecCertificatePathScore(
 
 	/* Paths that don't verify score terribly. */
 	if (certificatePath->lastVerifiedSigner != certificatePath->count - 1) {
-		secdebug("trust", "lvs: %d count: %d",
+		secdebug("trust", "lvs: %" PRIdCFIndex " count: %" PRIdCFIndex,
 			certificatePath->lastVerifiedSigner, certificatePath->count);
 		score -= 100000;
 	}

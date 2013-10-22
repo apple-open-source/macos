@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+######################################################################
+# color - Print messages colored by level
+######################################################################
+use strict;
+use warnings;
+
+my  $VERSION = "0.01";
+our $CVSVERSION = '$Revision: 1.1 $';
+
+use Log::Log4perl qw(:easy);
+Log::Log4perl->init(\ <<'EOT');
+  log4perl.category = DEBUG, Screen
+  log4perl.appender.Screen   = Log::Log4perl::Appender::ScreenColoredLevels
+  log4perl.appender.Screen.layout = \
+      Log::Log4perl::Layout::PatternLayout
+  log4perl.appender.Screen.layout.ConversionPattern = %d %F{1} %L> %m %n
+EOT
+
+for(1..3) {
+    DEBUG "Debug Message";
+    INFO  "Info Message";
+    WARN  "Warn Message";
+    ERROR "Error Message";
+    FATAL "Fatal Message";
+}

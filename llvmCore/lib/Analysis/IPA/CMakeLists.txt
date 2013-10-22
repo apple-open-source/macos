@@ -6,8 +6,4 @@ add_llvm_library(LLVMipa
   IPA.cpp
   )
 
-add_llvm_library_dependencies(LLVMipa
-  LLVMAnalysis
-  LLVMCore
-  LLVMSupport
-  )
+add_dependencies(LLVMipa intrinsics_gen)

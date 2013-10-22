@@ -47,7 +47,7 @@ extern "C" {
  *** security_asn1/keyTemplates.h.
  ***/
  
-#pragma mark *** DSA ***
+// MARK: *** DSA ***
 
 /* 
  * Note that most of the DSA structs are hand rolled and are not

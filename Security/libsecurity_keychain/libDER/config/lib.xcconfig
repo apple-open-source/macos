@@ -17,7 +17,9 @@ ALWAYS_SEARCH_USER_PATHS = NO
 
 GCC_C_LANGUAGE_STANDARD = gnu99
 
-WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas $(inherited)
+GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+
+WARNING_CFLAGS = -Wno-error=#warnings -Wmost -Wno-four-char-constants -Wno-unknown-pragmas $(inherited)
 
 GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO
 

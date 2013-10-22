@@ -190,7 +190,7 @@ sec_xdr_sizeof_in(func, data)
 
     sec_xdr_arena_allocator_t size_alloc;
     sec_xdr_arena_init_size_alloc(&size_alloc, &x);
-    stat = func(&x, data);
+    stat = func(&x, data, 0);
     if (x.x_private)
         free(x.x_private);
     return (stat == TRUE ? (unsigned) x.x_handy: 0);
@@ -210,8 +210,8 @@ sec_xdr_sizeof_out(copy, size, func, data)
 
     sec_xdr_arena_allocator_t size_alloc;
     sec_xdr_arena_init_size_alloc(&size_alloc, &x);
-    stat = func(&x, data);
+    stat = func(&x, data, 0);
     if (size_alloc.data)
         free(size_alloc.data);
-    return (stat == TRUE ? (unsigned long)size_alloc.offset : 0);
+    return (stat == TRUE ? (u_int)size_alloc.offset : 0);
 }

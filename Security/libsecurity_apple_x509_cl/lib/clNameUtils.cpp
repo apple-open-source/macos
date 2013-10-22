@@ -29,7 +29,7 @@
 /* 
  * NSS_ATV --> CSSM_X509_TYPE_VALUE_PAIR
  */
-
+static
 void CL_nssAtvToCssm(
 	const NSS_ATV				&nssObj,
 	CSSM_X509_TYPE_VALUE_PAIR	&cssmObj,
@@ -214,7 +214,7 @@ void CL_normalizeString(
 		}
 	};
 
-	strLen = pD - strPtr;
+	strLen = (int)(pD - strPtr);
 }
 
 /* 
@@ -266,7 +266,7 @@ void CL_normalizeX509NameNSS(
 
 			/* normalize */
 			char *strPtr = (char *)attrVal.item.Data;
-			int newLen = attrVal.item.Length;
+			int newLen = (int)attrVal.item.Length;
 			CL_normalizeString(strPtr, newLen);
 			
 			/* possible length adjustment */

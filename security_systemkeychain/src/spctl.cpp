@@ -72,6 +72,7 @@ Specification specification = specPath;
 //
 const char *assessmentType;
 SecAssessmentFlags assessmentFlags;
+SecAssessmentFlags outcomeFlags;
 const char *featureCheck;
 const char *label;
 const char *priority;
@@ -102,7 +103,6 @@ static void enableAuthority(const char *target);
 static void disableAuthority(const char *target);
 static void listAuthority(const char *target);
 static void status(Operation op);
-static void purgeCache();
 
 static CFTypeRef typeKey(const char *type);
 static string hashArgument(const char *s);
@@ -119,6 +119,7 @@ enum {
 	optContext,
 	optContinue,
 	optDirect,
+	optEnforce,
 	optRuleEnable,
 	optRuleDisable,
 	optMasterEnable,
@@ -151,6 +152,7 @@ const struct option options[] = {
 	{ "direct",		no_argument,			NULL, 'D' },
 	{ "status",		optional_argument,		NULL, optStatus },
 	{ "enable",		no_argument,			NULL, optRuleEnable },
+	{ "enforce-assessment",	no_argument,	NULL, optEnforce },
 	{ "disable",	no_argument,			NULL, optRuleDisable },
 	{ "master-enable",	no_argument,		NULL, optMasterEnable },
 	{ "master-disable", no_argument,		NULL, optMasterDisable },
@@ -192,6 +194,7 @@ int main(int argc, char *argv[])
 				break;
 			case 'D':
 				assessmentFlags |= kSecAssessmentFlagDirect;
+				outcomeFlags |= kSecAssessmentFlagDirect;
 				break;
 			case 'l':
 				operation = doList;
@@ -218,6 +221,10 @@ int main(int argc, char *argv[])
 				break;
 			case optContinue:
 				continueOnError = true;
+				break;
+			case optEnforce:
+				assessmentFlags |= kSecAssessmentFlagEnforce;
+				outcomeFlags |= kSecAssessmentFlagEnforce;
 				break;
 			case optRuleDisable:
 				operation = doRuleDisable;
@@ -382,8 +389,8 @@ int main(int argc, char *argv[])
 void usage()
 {
 	fprintf(stderr, "Usage: spctl --assess [--type type] [-v] path ... # assessment\n"
-		"       spctl --add [--path|--requirement|--anchor|--hash] spec ... # add rule(s)\n"
-		"       spctl [--enable|--disable|--remove] [--path|--requirement|--anchor|--hash|--rule] spec # change rule(s)\n"
+		"       spctl --add [--type type] [--path|--requirement|--anchor|--hash] spec ... # add rule(s)\n"
+		"       spctl [--enable|--disable|--remove] [--type type] [--path|--requirement|--anchor|--hash|--rule] spec # change rule(s)\n"
 		"       spctl --status | --master-enable | --master-disable # system master switch\n"
 	);
 	exit(exitUsage);
@@ -405,7 +412,7 @@ void assess(const char *target)
 	CheckedRef<SecAssessmentRef> ass;
 	ass.check(SecAssessmentCreate(CFTempURL(target), flags, context, ass));
 	CheckedRef<CFDictionaryRef> outcome;
-	outcome.check(SecAssessmentCopyResult(ass, kSecAssessmentDefaultFlags, outcome));
+	outcome.check(SecAssessmentCopyResult(ass, outcomeFlags, outcome));
 
 	CFDictionary result(outcome.get(), 0);
 	bool success = result.get<CFBooleanRef>(kSecAssessmentAssessmentVerdict) == kCFBooleanTrue;
@@ -609,6 +616,13 @@ void status(Operation op)
 		check(SecAssessmentControl(CFSTR("ui-status"), &state, check));
 		if (state == kCFBooleanTrue) {
 			printf("assessments enabled\n");
+			if (verbose > 0) {
+				check(SecAssessmentControl(CFSTR("ui-get-devid"), &state, check));
+				if (state == kCFBooleanTrue)
+					printf("developer id enabled\n");
+				else
+					printf("developer id disabled\n");
+			}
 			exit(0);
 		} else {
 			printf("assessments disabled\n");
@@ -638,16 +652,6 @@ void status(Operation op)
 	default:
 		assert(false);
 	}
-}
-
-
-//
-// Controlled purge operations.
-// Not implemented.
-//
-void purgeCache()
-{
-	fail("unimplemented operation");
 }
 
 

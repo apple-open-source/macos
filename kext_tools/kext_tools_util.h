@@ -15,7 +15,9 @@
 
 #include <getopt.h>
 #include <sysexits.h>
-
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 #pragma mark Types
 /*******************************************************************************
@@ -39,6 +41,7 @@ typedef struct {
 * Constants
 *******************************************************************************/
 #define _kKextPropertyValuesCacheBasename  "KextPropertyValues_"
+#define __kOSKextApplePrefix        CFSTR("com.apple.")
 
 #pragma mark Macros
 /*********************************************************************
@@ -117,6 +120,8 @@ Boolean createCFMutableArray(CFMutableArrayRef * arrayOut,
 Boolean createCFMutableDictionary(CFMutableDictionaryRef * dictionaryOut);
 Boolean createCFMutableSet(CFMutableSetRef * setOut,
     const CFSetCallBacks * callbacks);
+Boolean createCFDataFromFile(CFDataRef  *dataRefOut,
+                             const char *filePath);
 
 void addToArrayIfAbsent(CFMutableArrayRef array, const void * value);
 
@@ -164,6 +169,33 @@ Boolean readSystemKextPropertyValues(
     const NXArchInfo * arch,
     Boolean            forceUpdateFlag,
     CFArrayRef       * valuesOut);
+
+ExitStatus writeToFile(
+    int           fileDescriptor,
+    const UInt8 * data,
+    CFIndex       length);
+
+ExitStatus statURL(CFURLRef anURL, struct stat * statBuffer);
+ExitStatus statPath(const char *path, struct stat *statBuffer);
+ExitStatus getLatestTimesFromCFURLArray(
+                                        CFArrayRef          fileURLArray,
+                                        struct timeval      fileTimes[2]);
+ExitStatus getFilePathTimes(
+                            const char        * filePath,
+                            struct timeval      cacheFileTimes[2]);
+
+void postNoteAboutKexts(
+                        CFStringRef theNotificationCenterName,
+                        CFMutableDictionaryRef theDict );
+
+void postNoteAboutKextLoadsMT(
+                            CFStringRef theNotificationCenterName,
+                            CFMutableArrayRef theKextPathArray );
+
+void addKextToAlertDict(
+                        CFMutableDictionaryRef *theDictPtr,
+                        OSKextRef theKext );
+
 
 /*********************************************************************
 * From IOKitUser/kext.subproj/OSKext.c.

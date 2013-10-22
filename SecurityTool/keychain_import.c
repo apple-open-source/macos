@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * keychain_import.c
@@ -54,8 +54,8 @@ static int do_keychain_import(
 	Boolean				nonExtractable,
 	const char			*passphrase,
 	const char			*fileName,
-	char				**attrNames, 
-	char				**attrValues, 
+	char				**attrNames,
+	char				**attrValues,
 	unsigned			numExtendedAttributes)
 {
 	SecKeyImportExportParameters	keyParams;
@@ -72,9 +72,9 @@ static int do_keychain_import(
 	CFStringRef		passStr = NULL;
 	CFStringRef		promptStr = NULL;
 	CFStringRef		retryStr = NULL;
-	
-	/* 
-	 * Specify some kind of passphrase in case caller doesn't know this 
+
+	/*
+	 * Specify some kind of passphrase in case caller doesn't know this
 	 * is a wrapped object
 	 */
 	memset(&keyParams, 0, sizeof(SecKeyImportExportParameters));
@@ -106,7 +106,7 @@ static int do_keychain_import(
 	}
 	promptStr = CFStringCreateWithFormat(NULL, NULL, KC_IMPORT_KEY_PASSWORD_MESSAGE, fileStr);
 	retryStr = CFStringCreateWithFormat(NULL, NULL, KC_IMPORT_KEY_PASSWORD_RETRYMESSAGE, fileStr);
-	
+
 	while (TRUE)
 	{
 		keyParams.alertPrompt = (tryCount == 0) ? promptStr : retryStr;
@@ -130,7 +130,7 @@ static int do_keychain_import(
 		}
 		break;
 	}
-	
+
 	/*
 	 * Parse returned items & report to user
 	 */
@@ -140,7 +140,7 @@ static int do_keychain_import(
 		goto cleanup;
 	}
 	numItems = CFArrayGetCount(outArray);
-	for(dex=0; dex<numItems; dex++) {   
+	for(dex=0; dex<numItems; dex++) {
 		CFTypeRef item = CFArrayGetValueAtIndex(outArray, dex);
 		CFTypeID itemType = CFGetTypeID(item);
 		if(itemType == SecIdentityGetTypeID()) {
@@ -188,17 +188,17 @@ static int do_keychain_import(
 		}
 		fprintf(stdout, "%d %s imported.\n", numCerts, str);
 	}
-	
+
 	/* optionally apply extended attributes */
 	if(numExtendedAttributes) {
 		unsigned attrDex;
 		for(attrDex=0; attrDex<numExtendedAttributes; attrDex++) {
 			CFStringRef attrNameStr = CFStringCreateWithCString(NULL, attrNames[attrDex],
 				kCFStringEncodingASCII);
-			CFDataRef attrValueData = CFDataCreate(NULL, (const UInt8 *)attrValues[attrDex], 
+			CFDataRef attrValueData = CFDataCreate(NULL, (const UInt8 *)attrValues[attrDex],
 				strlen(attrValues[attrDex]));
 			for(dex=0; dex<numItems; dex++) {
-				SecKeychainItemRef itemRef = 
+				SecKeychainItemRef itemRef =
 					(SecKeychainItemRef)CFArrayGetValueAtIndex(outArray, dex);
 				ortn = SecKeychainItemSetExtendedAttribute(itemRef, attrNameStr, attrValueData);
 				if(ortn) {
@@ -224,12 +224,12 @@ cleanup:
 
 	return result;
 }
-	
+
 int
 keychain_import(int argc, char * const *argv)
 {
 	int ch, result = 0;
-	
+
 	char *inFile = NULL;
 	char *kcName = NULL;
 	SecKeychainRef kcRef = NULL;
@@ -244,11 +244,11 @@ keychain_import(int argc, char * const *argv)
 	unsigned numExtendedAttributes = 0;
 	char **attrNames = NULL;
 	char **attrValues = NULL;
-	Boolean access_specified = FALSE; 
+	Boolean access_specified = FALSE;
 	Boolean always_allow = FALSE;
 	SecAccessRef access = NULL;
 	CFMutableArrayRef trusted_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	
+
 	if(argc < 2) {
 		result = 2; /* @@@ Return 2 triggers usage message. */
 		goto cleanup;
@@ -259,7 +259,7 @@ keychain_import(int argc, char * const *argv)
 		goto cleanup;
 	}
 	optind = 2;
-	
+
     while ((ch = getopt(argc, argv, "k:t:f:P:wxa:hAT:")) != -1)
 	{
 		switch  (ch)
@@ -371,12 +371,12 @@ keychain_import(int argc, char * const *argv)
 						sec_error("SecTrustedApplicationCreateFromPath %s: %s", optarg, sec_errstr(status));
 					}
 				}
-				
+
 				if (status) {
 					result = 1;
 					goto cleanup;
 				}
-				
+
 				CFArrayAppendValue(trusted_list, app);
 				CFRelease(app);
 			}
@@ -420,10 +420,12 @@ keychain_import(int argc, char * const *argv)
 	}
 	if(readFile(inFile, &inFileData, &inFileLen)) {
 		sec_error("Error reading infile %s: %s", inFile, strerror(errno));
+		result = 1;
 		goto cleanup;
-	}   
+	}
 	inData = CFDataCreate(NULL, inFileData, inFileLen);
 	if(inData == NULL) {
+		result = 1;
 		goto cleanup;
 	}
 	free(inFileData);
@@ -467,11 +469,11 @@ keychain_import(int argc, char * const *argv)
 			goto cleanup;
 		}
 	}
-	
+
 	result = do_keychain_import(kcRef, inData, externFormat, itemType, access,
 								nonExtractable, passphrase, inFile, attrNames,
 								attrValues, numExtendedAttributes);
-	
+
 cleanup:
 	safe_CFRelease(&trusted_list);
 	safe_CFRelease(&access);

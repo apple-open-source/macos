@@ -1,0 +1,11 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Heap
+version:      0.80
+version_from: lib/Heap.pm
+installdirs:  site
+requires:
+    Test::Simple:                  0.45
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

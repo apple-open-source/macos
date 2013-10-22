@@ -27,7 +27,7 @@
 #include "sslMemory.h"
 #include "sslUtils.h"
 #include "sslDebug.h"
-#include "cipherSpecs.h"
+#include "sslCipherSpecs.h"
 #include "appleSession.h"
 
 #include <assert.h>
@@ -35,7 +35,7 @@
 #include <stddef.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
-#include <Security/SecInternal.h>
+#include "utilities/SecCFRelease.h"
 
 typedef struct
 {   size_t              sessionIDLen;
@@ -89,7 +89,7 @@ SSLAddSessionData(const SSLContext *ctx)
 	for (ix = 0; ix < certCount; ++ix) {
 		SecCertificateRef cert = (SecCertificateRef)CFArrayGetValueAtIndex(certChain, ix);
 		#if SSL_DEBUG
-		sslDebugLog("SSLAddSessionData: got cert %d of %d\n", ix+1, certCount);
+		sslDebugLog("SSLAddSessionData: got cert %d of %d\n", (int)ix+1, (int)certCount);
 		if (!cert || CFGetTypeID(cert) != SecCertificateGetTypeID()) {
 			sslErrorLog("SSLAddSessionData: non-cert in peerCert array!\n");
 		}
@@ -98,20 +98,20 @@ SSLAddSessionData(const SSLContext *ctx)
 	}
 #endif
 
-	if ((err = SSLAllocBuffer(&sessionID, sessionIDLen, ctx)) != 0)
-		return err;
-
-	session = (ResumableSession*)sessionID.data;
-
-	session->sessionIDLen = ctx->sessionID.length;
-	memcpy(session->sessionID, ctx->sessionID.data, session->sessionIDLen);
-	session->protocolVersion = ctx->negProtocolVersion;
-	session->cipherSuite = ctx->selectedCipher;
-	memcpy(session->masterSecret, ctx->masterSecret, 48);
-	session->certCount = certCount;
-	session->padding = 0;
-
-	certDest = session->certs;
+    if ((err = SSLAllocBuffer(&sessionID, sessionIDLen)))
+        return err;
+    
+    session = (ResumableSession*)sessionID.data;
+    
+    session->sessionIDLen = ctx->sessionID.length;
+    memcpy(session->sessionID, ctx->sessionID.data, session->sessionIDLen);
+    session->protocolVersion = ctx->negProtocolVersion;
+    session->cipherSuite = ctx->selectedCipher;
+    memcpy(session->masterSecret, ctx->masterSecret, 48);
+    session->certCount = certCount;
+    session->padding = 0;
+	
+    certDest = session->certs;
 
 #ifdef USE_SSLCERTIFICATE
 	cert = ctx->peerCert;
@@ -127,20 +127,20 @@ SSLAddSessionData(const SSLContext *ctx)
 		size_t certLength = (size_t)SecCertificateGetLength(certRef);
 		const uint8_t *certBytes = SecCertificateGetBytePtr(certRef);
 
-		#if SSL_DEBUG
+		#if SSL_DEBUG && !TARGET_OS_IPHONE
 		/* print cert name when debugging; leave disabled otherwise */
 		CFStringRef certName = NULL;
 		OSStatus status = SecCertificateInferLabel(certRef, &certName);
 		char buf[1024];
-		if (!certName || !CFStringGetCString(certName, buf, 1024-1, kCFStringEncodingUTF8)) { buf[0]=0; }
+		if (status || !certName || !CFStringGetCString(certName, buf, 1024-1, kCFStringEncodingUTF8)) { buf[0]=0; }
 		sslDebugLog("SSLAddSessionData: flattening \"%s\" (%ld bytes)\n", buf, certLength);
 		CFReleaseSafe(certName);
 		#endif
 
 		if (!certBytes || !certLength) {
 			sslErrorLog("SSLAddSessionData: invalid certificate at index %d of %d (length=%ld, data=%p)\n",
-					ix, certCount-1, certLength, (const uintptr_t)certBytes);
-			err = paramErr; /* if we have a bad cert, don't add session to cache */
+					(int)ix, (int)certCount-1, certLength, certBytes);
+			err = errSecParam; /* if we have a bad cert, don't add session to cache */
 		}
 		else {
 			certDest = SSLEncodeSize(certDest, certLength, 4);
@@ -150,10 +150,8 @@ SSLAddSessionData(const SSLContext *ctx)
 	}
 #endif
 
-	if (!err) {
-		err = sslAddSession(ctx->peerID, sessionID, ctx->sessionCacheTimeout);
-	}
-	SSLFreeBuffer(&sessionID, ctx);
+    err = sslAddSession(ctx->peerID, sessionID, ctx->sessionCacheTimeout);
+    SSLFreeBuffer(&sessionID);
 
 	return err;
 }
@@ -200,10 +198,10 @@ SSLRetrieveSessionID(
     ResumableSession    *session;
 
     session = (ResumableSession*) sessionData.data;
-    if ((err = SSLAllocBuffer(identifier, session->sessionIDLen, ctx)) != 0)
+    if ((err = SSLAllocBuffer(identifier, session->sessionIDLen)))
         return err;
     memcpy(identifier->data, session->sessionID, session->sessionIDLen);
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -218,7 +216,7 @@ SSLRetrieveSessionProtocolVersion(
 
     session = (ResumableSession*) sessionData.data;
     *version = session->protocolVersion;
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -307,13 +305,13 @@ SSLInstallSessionFromData(const SSLBuffer sessionData, SSLContext *ctx)
 #ifdef USE_SSLCERTIFICATE
 		cert = (SSLCertificate *)sslMalloc(sizeof(SSLCertificate));
 		if(cert == NULL) {
-			return memFullErr;
+			return errSecAllocate;
 		}
         cert->next = 0;
         certLen = SSLDecodeInt(storedCertProgress, 4);
         storedCertProgress += 4;
-        if ((err = SSLAllocBuffer(&cert->derCert, certLen, ctx)) != 0)
-        {
+        if ((err = SSLAllocBuffer(&cert->derCert, certLen)
+        {   
 			sslFree(cert);
             return err;
         }
@@ -330,13 +328,13 @@ SSLInstallSessionFromData(const SSLBuffer sessionData, SSLContext *ctx)
 		cert = SecCertificateCreateWithBytes(NULL, storedCertProgress, certLen);
 		#if SSL_DEBUG
 		sslDebugLog("SSLInstallSessionFromData: creating cert with bytes=%p len=%lu\n",
-			(uintptr_t)storedCertProgress, certLen);
+			storedCertProgress, certLen);
 		if (!cert || CFGetTypeID(cert) != SecCertificateGetTypeID()) {
 			sslErrorLog("SSLInstallSessionFromData: SecCertificateCreateWithBytes failed\n");
 		}
 		#endif
 		if(cert == NULL) {
-			return memFullErr;
+			return errSecAllocate;
 		}
         storedCertProgress += certLen;
 		/* @@@ This is almost the same code as in sslCert.c: SSLProcessCertificate() */
@@ -345,7 +343,11 @@ SSLInstallSessionFromData(const SSLBuffer sessionData, SSLContext *ctx)
 				session->certCount, &kCFTypeArrayCallBacks);
             if (!certChain) {
 				CFRelease(cert);
-				return memFullErr;
+				return errSecAllocate;
+			}
+            if (ctx->peerCert) {
+				sslDebugLog("SSLInstallSessionFromData: releasing existing cert chain\n");
+				CFRelease(ctx->peerCert);
 			}
 			ctx->peerCert = certChain;
 		}
@@ -355,5 +357,5 @@ SSLInstallSessionFromData(const SSLBuffer sessionData, SSLContext *ctx)
 #endif
     }
 
-    return noErr;
+    return errSecSuccess;
 }

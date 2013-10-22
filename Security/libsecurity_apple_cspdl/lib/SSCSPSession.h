@@ -121,8 +121,8 @@ public:
 	void ObtainPrivateKeyFromPublicKey(const CssmKey &PublicKey,
 									CssmKey &PrivateKey);
 	void QueryKeySizeInBits(CSSM_CC_HANDLE CCHandle,
-							const Context &Context,
-							const CssmKey &Key,
+							const Context *Context,
+							const CssmKey *Key,
 							CSSM_KEY_SIZE &KeySize);
 	void FreeKey(const AccessCredentials *AccessCred,
 				CssmKey &key, CSSM_BOOL Delete);

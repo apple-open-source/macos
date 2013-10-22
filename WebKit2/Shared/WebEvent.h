@@ -103,8 +103,8 @@ protected:
 
     WebEvent(Type, Modifiers, double timestamp);
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebEvent&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebEvent&);
 
 private:
     uint32_t m_type; // Type
@@ -125,9 +125,6 @@ public:
     WebMouseEvent();
 
     WebMouseEvent(Type, Button, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, float deltaX, float deltaY, float deltaZ, int clickCount, Modifiers, double timestamp);
-#if PLATFORM(WIN)
-    WebMouseEvent(Type, Button, const WebCore::IntPoint& position, const WebCore::IntPoint& globalPosition, float deltaX, float deltaY, float deltaZ, int clickCount, Modifiers, double timestamp, bool didActivateWebView);
-#endif
 
     Button button() const { return static_cast<Button>(m_button); }
     const WebCore::IntPoint& position() const { return m_position; }
@@ -136,12 +133,9 @@ public:
     float deltaY() const { return m_deltaY; }
     float deltaZ() const { return m_deltaZ; }
     int32_t clickCount() const { return m_clickCount; }
-#if PLATFORM(WIN)
-    bool didActivateWebView() const { return m_didActivateWebView; }
-#endif
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebMouseEvent&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebMouseEvent&);
 
 private:
     static bool isMouseEventType(Type);
@@ -153,9 +147,6 @@ private:
     float m_deltaY;
     float m_deltaZ;
     int32_t m_clickCount;
-#if PLATFORM(WIN)
-    bool m_didActivateWebView;
-#endif
 };
 
 // FIXME: Move this class to its own header file.
@@ -199,8 +190,8 @@ public:
     const WebCore::FloatSize& unacceleratedScrollingDelta() const { return m_unacceleratedScrollingDelta; }
 #endif
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebWheelEvent&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebWheelEvent&);
 
 private:
     static bool isWheelEventType(Type);
@@ -237,8 +228,8 @@ public:
     bool isKeypad() const { return m_isKeypad; }
     bool isSystemKey() const { return m_isSystemKey; }
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebKeyboardEvent&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebKeyboardEvent&);
 
     static bool isKeyboardEventType(Type);
 
@@ -268,8 +259,8 @@ public:
     const WebCore::IntSize area() const { return m_area; }
     const WebCore::FloatPoint delta() const { return m_delta; }
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebGestureEvent&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebGestureEvent&);
 
 private:
     static bool isGestureEventType(Type);
@@ -313,8 +304,8 @@ public:
 
     void setState(TouchPointState state) { m_state = state; }
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebPlatformTouchPoint&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebPlatformTouchPoint&);
 
 private:
     uint32_t m_id;
@@ -336,8 +327,8 @@ public:
 
     const Vector<WebPlatformTouchPoint>& touchPoints() const { return m_touchPoints; }
 
-    void encode(CoreIPC::ArgumentEncoder*) const;
-    static bool decode(CoreIPC::ArgumentDecoder*, WebTouchEvent&);
+    void encode(CoreIPC::ArgumentEncoder&) const;
+    static bool decode(CoreIPC::ArgumentDecoder&, WebTouchEvent&);
   
 private:
     static bool isTouchEventType(Type);

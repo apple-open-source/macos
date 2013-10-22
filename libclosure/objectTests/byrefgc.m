@@ -36,7 +36,7 @@ int VersionCounter = 0;
 @implementation TestObject
 
 
-- init {
+- (id)init {
     version = VersionCounter++;
     return self;
 }

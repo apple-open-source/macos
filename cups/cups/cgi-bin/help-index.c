@@ -1,9 +1,9 @@
 /*
- * "$Id: help-index.c 7717 2008-07-04 02:35:33Z mike $"
+ * "$Id: help-index.c 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Online help index routines for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -910,7 +910,7 @@ help_load_file(
   node   = NULL;
   offset = 0;
 
-  strcpy(section, "Other");
+  strlcpy(section, "Other", sizeof(section));
 
   while (cupsFileGets(fp, line, sizeof(line)))
   {
@@ -1324,5 +1324,5 @@ help_sort_words(help_word_t *w1,	/* I - Second word */
 
 
 /*
- * End of "$Id: help-index.c 7717 2008-07-04 02:35:33Z mike $".
+ * End of "$Id: help-index.c 11093 2013-07-03 20:48:42Z msweet $".
  */

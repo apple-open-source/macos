@@ -5,20 +5,30 @@ require 'rexml/syncenumerator'
 require 'rexml/parsers/xpathparser'
 
 class Object
+  # provides a unified +clone+ operation, for REXML::XPathParser
+  # to use across multiple Object types
   def dclone
     clone
   end
 end
 class Symbol
+  # provides a unified +clone+ operation, for REXML::XPathParser
+  # to use across multiple Object types
   def dclone ; self ; end
 end
 class Fixnum
+  # provides a unified +clone+ operation, for REXML::XPathParser
+  # to use across multiple Object types
   def dclone ; self ; end
 end
 class Float
+  # provides a unified +clone+ operation, for REXML::XPathParser
+  # to use across multiple Object types
   def dclone ; self ; end
 end
 class Array
+  # provides a unified +clone+ operation, for REXML::XPathParser
+  # to use across multiple Object+ types
   def dclone
     klone = self.clone
     klone.clear
@@ -88,7 +98,7 @@ module REXML
 
       case path[0]
       when :document
-        # do nothing 
+        # do nothing
         return first( path[1..-1], node )
       when :child
         for c in node.children
@@ -123,7 +133,7 @@ module REXML
     end
 
 
-    def match( path_stack, nodeset ) 
+    def match( path_stack, nodeset )
       #puts "MATCH: path_stack = #{path_stack.inspect}"
       #puts "MATCH: nodeset = #{nodeset.inspect}"
       r = expr( path_stack, nodeset )
@@ -136,7 +146,7 @@ module REXML
 
     # Returns a String namespace for a node, given a prefix
     # The rules are:
-    # 
+    #
     #  1. Use the supplied namespace mapping first.
     #  2. If no mapping was supplied, use the context node to look up the namespace
     def get_namespace( node, prefix )
@@ -187,8 +197,8 @@ module REXML
                 #puts "node.namespace == #{ns.inspect} => #{node.namespace == ns}"
               end
             end
-            !(node.node_type == :element and 
-              node.name == name and 
+            !(node.node_type == :element and
+              node.name == name and
               node.namespace == ns )
           end
           node_types = ELEMENTS
@@ -205,7 +215,7 @@ module REXML
         when :processing_instruction
           target = path_stack.shift
           nodeset.delete_if do |node|
-            (node.node_type != :processing_instruction) or 
+            (node.node_type != :processing_instruction) or
             ( target!='' and ( node.target != target ) )
           end
 
@@ -222,7 +232,7 @@ module REXML
         when :child
           new_nodeset = []
           nt = nil
-          for node in nodeset
+          nodeset.each do |node|
             nt = node.node_type
             new_nodeset += node.children if nt == :element or nt == :document
           end
@@ -231,7 +241,7 @@ module REXML
 
         when :literal
           return path_stack.shift
-        
+
         when :attribute
           new_nodeset = []
           case path_stack.shift
@@ -266,7 +276,7 @@ module REXML
 
         when :ancestor
           new_nodeset = []
-          for node in nodeset
+          nodeset.each do |node|
             while node.parent
               node = node.parent
               new_nodeset << node unless new_nodeset.include? node
@@ -277,7 +287,7 @@ module REXML
 
         when :ancestor_or_self
           new_nodeset = []
-          for node in nodeset
+          nodeset.each do |node|
             if node.node_type == :element
               new_nodeset << node
               while ( node.parent )
@@ -341,7 +351,7 @@ module REXML
         when :descendant
           results = []
           nt = nil
-          for node in nodeset
+          nodeset.each do |node|
             nt = node.node_type
             results += expr( path_stack.dclone.unshift( :descendant_or_self ),
               node.children ) if nt == :element or nt == :document
@@ -376,7 +386,7 @@ module REXML
 
         when :preceding
           new_nodeset = []
-          for node in nodeset
+          nodeset.each do |node|
             new_nodeset += preceding( node )
           end
           #puts "NEW NODESET => #{new_nodeset.inspect}"
@@ -385,7 +395,7 @@ module REXML
 
         when :following
           new_nodeset = []
-          for node in nodeset
+          nodeset.each do |node|
             new_nodeset += following( node )
           end
           nodeset = new_nodeset
@@ -395,7 +405,7 @@ module REXML
           #puts "In :namespace"
           new_nodeset = []
           prefix = path_stack.shift
-          for node in nodeset
+          nodeset.each do |node|
             if (node.node_type == :element or node.node_type == :attribute)
               if @namespaces
                 namespaces = @namespaces
@@ -419,10 +429,10 @@ module REXML
           return @variables[ var_name ]
 
         # :and, :or, :eq, :neq, :lt, :lteq, :gt, :gteq
-				# TODO: Special case for :or and :and -- not evaluate the right
-				# operand if the left alone determines result (i.e. is true for
-				# :or and false for :and).
-        when :eq, :neq, :lt, :lteq, :gt, :gteq, :and, :or
+        # TODO: Special case for :or and :and -- not evaluate the right
+        # operand if the left alone determines result (i.e. is true for
+        # :or and false for :and).
+        when :eq, :neq, :lt, :lteq, :gt, :gteq, :or
           left = expr( path_stack.shift, nodeset.dup, context )
           #puts "LEFT => #{left.inspect} (#{left.class.name})"
           right = expr( path_stack.shift, nodeset.dup, context )
@@ -434,7 +444,8 @@ module REXML
         when :and
           left = expr( path_stack.shift, nodeset.dup, context )
           #puts "LEFT => #{left.inspect} (#{left.class.name})"
-          if left == false || left.nil? || !left.inject(false) {|a,b| a | b}
+          return [] unless left
+          if left.respond_to?(:inject) and !left.inject(false) {|a,b| a | b}
             return []
           end
           right = expr( path_stack.shift, nodeset.dup, context )
@@ -481,23 +492,23 @@ module REXML
         when :function
           func_name = path_stack.shift.tr('-','_')
           arguments = path_stack.shift
-          #puts "FUNCTION 0: #{func_name}(#{arguments.collect{|a|a.inspect}.join(', ')})" 
+          #puts "FUNCTION 0: #{func_name}(#{arguments.collect{|a|a.inspect}.join(', ')})"
           subcontext = context ? nil : { :size => nodeset.size }
 
           res = []
           cont = context
-          nodeset.each_with_index { |n, i| 
+          nodeset.each_with_index { |n, i|
             if subcontext
               subcontext[:node]  = n
               subcontext[:index] = i
               cont = subcontext
             end
             arg_clone = arguments.dclone
-            args = arg_clone.collect { |arg| 
+            args = arg_clone.collect { |arg|
               #puts "FUNCTION 1: Calling expr( #{arg.inspect}, [#{n.inspect}] )"
-              expr( arg, [n], cont ) 
+              expr( arg, [n], cont )
             }
-            #puts "FUNCTION 2: #{func_name}(#{args.collect{|a|a.inspect}.join(', ')})" 
+            #puts "FUNCTION 2: #{func_name}(#{args.collect{|a|a.inspect}.join(', ')})"
             Functions.context = cont
             res << Functions.send( func_name, *args )
             #puts "FUNCTION 3: #{res[-1].inspect}"
@@ -515,10 +526,10 @@ module REXML
     # FIXME
     # The next two methods are BAD MOJO!
     # This is my achilles heel.  If anybody thinks of a better
-    # way of doing this, be my guest.  This really sucks, but 
+    # way of doing this, be my guest.  This really sucks, but
     # it is a wonder it works at all.
     # ########################################################
-    
+
     def descendant_or_self( path_stack, nodeset )
       rs = []
       #puts "#"*80
@@ -547,7 +558,7 @@ module REXML
     # Reorders an array of nodes so that they are in document order
     # It tries to do this efficiently.
     #
-    # FIXME: I need to get rid of this, but the issue is that most of the XPath 
+    # FIXME: I need to get rid of this, but the issue is that most of the XPath
     # interpreter functions as a filter, which means that we lose context going
     # in and out of function calls.  If I knew what the index of the nodes was,
     # I wouldn't have to do this.  Maybe add a document IDX for each node?
@@ -555,7 +566,7 @@ module REXML
     def document_order( array_of_nodes )
       new_arry = []
       array_of_nodes.each { |node|
-        node_idx = [] 
+        node_idx = []
         np = node.node_type == :attribute ? node.element : node
         while np.parent and np.parent.node_type == :element
           node_idx << np.parent.index( np )
@@ -579,7 +590,7 @@ module REXML
 
     # Builds a nodeset of all of the preceding nodes of the supplied node,
     # in reverse document order
-    # preceding:: includes every element in the document that precedes this node, 
+    # preceding:: includes every element in the document that precedes this node,
     # except for ancestors
     def preceding( node )
       #puts "IN PRECEDING"
@@ -609,9 +620,9 @@ module REXML
      #puts "NODE: #{node.inspect}"
      #puts "PREVIOUS NODE: #{node.previous_sibling_node.inspect}"
      #puts "PARENT NODE: #{node.parent}"
-      psn = node.previous_sibling_node 
+      psn = node.previous_sibling_node
       if psn.nil?
-        if node.parent.nil? or node.parent.class == Document 
+        if node.parent.nil? or node.parent.class == Document
           return nil
         end
         return node.parent
@@ -647,9 +658,9 @@ module REXML
     end
 
     def next_sibling_node(node)
-      psn = node.next_sibling_node 
+      psn = node.next_sibling_node
       while psn.nil?
-        if node.parent.nil? or node.parent.class == Document 
+        if node.parent.nil? or node.parent.class == Document
           return nil
         end
         node = node.parent
@@ -675,7 +686,7 @@ module REXML
     def equality_relational_compare( set1, op, set2 )
       #puts "EQ_REL_COMP(#{set1.inspect} #{op.inspect} #{set2.inspect})"
       if set1.kind_of? Array and set2.kind_of? Array
-			  #puts "#{set1.size} & #{set2.size}"
+        #puts "#{set1.size} & #{set2.size}"
         if set1.size == 1 and set2.size == 1
           set1 = set1[0]
           set2 = set2[0]
@@ -686,7 +697,7 @@ module REXML
           return rv
         else
           res = []
-          enum = SyncEnumerator.new( set1, set2 ).each { |i1, i2|
+          SyncEnumerator.new( set1, set2 ).each { |i1, i2|
             #puts "i1 = #{i1.inspect} (#{i1.class.name})"
             #puts "i2 = #{i2.inspect} (#{i2.class.name})"
             i1 = norm( i1 )
@@ -696,7 +707,7 @@ module REXML
           return res
         end
       end
-		  #puts "EQ_REL_COMP: #{set1.inspect} (#{set1.class.name}), #{op}, #{set2.inspect} (#{set2.class.name})"
+      #puts "EQ_REL_COMP: #{set1.inspect} (#{set1.class.name}), #{op}, #{set2.inspect} (#{set2.class.name})"
       #puts "COMPARING VALUES"
       # If one is nodeset and other is number, compare number to each item
       # in nodeset s.t. number op number(string(item))
@@ -705,7 +716,7 @@ module REXML
       # If one is nodeset and other is boolean, compare boolean to each item
       # in nodeset s.t. boolean op boolean(item)
       if set1.kind_of? Array or set2.kind_of? Array
-			  #puts "ISA ARRAY"
+        #puts "ISA ARRAY"
         if set1.kind_of? Array
           a = set1
           b = set2
@@ -724,7 +735,7 @@ module REXML
           #puts "B = #{b.inspect}"
           return a.collect {|v| compare( Functions::number(v), op, b )}
         else
-				  #puts "Functions::string( #{b}(#{b.class.name}) ) = #{Functions::string(b)}"
+          #puts "Functions::string( #{b}(#{b.class.name}) ) = #{Functions::string(b)}"
           b = Functions::string( b )
           return a.collect { |v| compare( Functions::string(v), op, b ) }
         end

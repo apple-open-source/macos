@@ -49,7 +49,8 @@
 #include <OpenDirectory/OpenDirectory.h>
 #ifdef __APPLE_PRIVATE__
 #include <OpenDirectory/OpenDirectoryPriv.h>
-#include <PasswordServer/KerberosInterface.h>
+#include <DirectoryServer/DirectoryServer.h>
+#include <dlfcn.h>
 #endif
 #include <SystemConfiguration/SCPreferences.h>
 
@@ -578,8 +579,9 @@ od2hdb_keys(krb5_context context, hdb_od d,
     CFIndex i, count = CFArrayGetCount(akeys);
     krb5_error_code ret;
     hdb_keyset_aapl *keys;
-    int specific_match = -1, general_match = -1;
+    int32_t specific_match = -1, general_match = -1;
     uint32_t specific_kvno = 0, general_kvno = 0;
+    CFIndex len;
 
     if (count == 0)
 	return ENOMEM;
@@ -596,13 +598,13 @@ od2hdb_keys(krb5_context context, hdb_od d,
 	if (CFGetTypeID(type) == CFDataGetTypeID()) {
 	    CFDataRef data = (CFDataRef) type;
 
-	    ret = CFDataGetLength(data);
-	    ptr = malloc(ret);
+	    len = CFDataGetLength(data);
+	    ptr = malloc(len);
 	    if (ptr == NULL) {
 		ret = ENOMEM;
 		goto out;
 	    }
-	    memcpy(ptr, CFDataGetBytePtr(data), ret);
+	    memcpy(ptr, CFDataGetBytePtr(data), len);
 	} else if (CFGetTypeID(type) == CFStringGetTypeID()) {
 	    CFStringRef cfstr = (CFStringRef)type;
 	    char *str;
@@ -626,12 +628,15 @@ od2hdb_keys(krb5_context context, hdb_od d,
 		ret = EINVAL;
 		goto out;
 	    }
+
+	    len = ret;
+
 	} else {
 	    ret = EINVAL; /* XXX */
 	    goto out;
 	}
 
-	ret = decode_hdb_keyset_aapl(ptr, ret, &keys[i], NULL);
+	ret = decode_hdb_keyset_aapl(ptr, len, &keys[i], NULL);
 	free(ptr);
 	if (ret)
 	    goto out;
@@ -647,13 +652,13 @@ od2hdb_keys(krb5_context context, hdb_od d,
 		    }
 		    ctx->principal = entry->entry.principal;
 
-		    specific_match = i;
+		    specific_match = (int32_t)i;
 		    specific_kvno = keys[i].kvno;
 		}
 	    }		
 	} else {
 	    if (keys[i].kvno > general_kvno) {
-		general_match = i;
+		general_match = (uint32_t)i;
 		general_kvno = keys[i].kvno;
 	    }
 	}
@@ -669,6 +674,8 @@ od2hdb_keys(krb5_context context, hdb_od d,
 	ret = HDB_ERR_NOENTRY;
 	goto out;
     }
+
+    free_Keys(&entry->entry.keys);
 
     entry->entry.keys.len = keys[i].keys.len;
     entry->entry.keys.val = keys[i].keys.val;
@@ -1180,7 +1187,7 @@ od_record2entry(krb5_context context, HDB * db, ODRecordRef cfRecord,
 	if (userrecord) {
 	    CFDictionaryRef policy;
 	    
-	    policy = ODRecordCopyPasswordPolicy(NULL, userrecord, NULL);
+	    policy = ODRecordCopyEffectivePolicies(userrecord, NULL);
 	    CFRelease(userrecord);
 	    
 	    if (policy) {
@@ -2076,23 +2083,79 @@ hod_get_ntlm_domain(krb5_context context, struct HDB *db, char **name)
     return 0;
 }
 
-static krb5_error_code
-hod_password(krb5_context context, struct HDB *db, hdb_entry_ex *entry, const char *password, int is_admin)
+
+#ifdef __APPLE_PRIVATE__
+
+static struct  {
+    typeof(DSChangePasswordWithPolicy) *_HDBDSChangePasswordWithPolicy;
+    typeof(DSUpdateLoginStatus) *_HDBDSUpdateLoginStatus;
+} ds_ptrs;
+
+static void
+DirectoryServer_framework(void)
 {
-    int ret;
+    static dispatch_once_t once;
+
+    /*
+     * Do softlinking to avoid having a dependency on DirectoryServer framework
+     */
+
+    dispatch_once(&once, ^{
+	    void *ptr = dlopen("/System/Library/PrivateFrameworks/DirectoryServer.framework/DirectoryServer", RTLD_LAZY);
+	    if (ptr) {
+		ds_ptrs._HDBDSChangePasswordWithPolicy = dlsym(ptr, "DSChangePasswordWithPolicy");
+		ds_ptrs._HDBDSUpdateLoginStatus = dlsym(ptr, "DSUpdateLoginStatus");
+	    }
+	});
+}
+
+static krb5_error_code
+hod_password(krb5_context context, struct HDB *db, hdb_entry_ex *entry, const char *password, int flags)
+{
     char *user;
-    
+    int ret;
+
+    DirectoryServer_framework();
+
+    if (ds_ptrs._HDBDSChangePasswordWithPolicy == NULL)
+	return EINVAL;
+
     if (krb5_principal_get_num_comp(context, entry->entry.principal) != 1)
 	return EINVAL;
     
     user = (char *)krb5_principal_get_comp_string(context, entry->entry.principal, 0);
     
-    ret = pwsf_PasswordServerChangePassword(user, password, is_admin);
-    if (ret != 0)
+    ret = ds_ptrs._HDBDSChangePasswordWithPolicy(user, password, (flags & HDB_PWD_CONDITIONAL) == 0);
+    if (ret != 0) {
+	krb5_set_error_message(context, EINVAL, "DSPasswordServer rejected password");
 	return EINVAL;
+    }
     
     return 0;
 }
+
+static krb5_error_code
+hod_auth_status(krb5_context context, struct HDB *db, hdb_entry_ex *entry, int status)
+{
+    char *user;
+
+    DirectoryServer_framework();
+
+    if (ds_ptrs._HDBDSUpdateLoginStatus == NULL)
+	return EINVAL;
+
+    if (krb5_principal_get_num_comp(context, entry->entry.principal) != 1)
+	return EINVAL;
+    
+    user = (char *)krb5_principal_get_comp_string(context, entry->entry.principal, 0);
+    
+    /* DS and HDB status code matches, so just pass them though */
+    ds_ptrs._HDBDSUpdateLoginStatus(user, status);
+    
+    return 0;
+}
+
+#endif
 
 
 krb5_error_code
@@ -2250,10 +2313,13 @@ hdb_od_create(krb5_context context, HDB ** db, const char *arg)
 #endif /* HAVE_SIGACTION */
 
 	(*db)->hdb_capability_flags |= HDB_CAP_F_HANDLE_PASSWORDS;
+#ifdef __APPLE_PRIVATE__
 	(*db)->hdb_password = hod_password;
+#endif
 	(*db)->hdb_fetch_kvno = hod_server_fetch;
 	d->locate_record = server_locate_record;
-    
+
+	(*db)->hdb_auth_status = hod_auth_status;
     }
 
 

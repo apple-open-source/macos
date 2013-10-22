@@ -36,7 +36,7 @@
 #include <sys/socket.h>
 
 #include <netinet/in.h>
-#include <System/net/pfkeyv2.h>
+#include <net/pfkeyv2.h>
 #include <netinet6/ipsec.h>
 
 #include <stdio.h>
@@ -82,11 +82,11 @@ struct req_t {
 { 0, "out ipsec esp/transport/fec0::10-fec0::11/use" },
 };
 
-int test1 __P((void));
-int test1sub1 __P((struct req_t *));
-int test1sub2 __P((char *, int));
-int test2 __P((void));
-int test2sub __P((int));
+int test1 (void);
+int test1sub1 (struct req_t *);
+int test1sub2 (char *, int);
+int test2 (void);
+int test2sub (int);
 
 int
 main(ac, av)

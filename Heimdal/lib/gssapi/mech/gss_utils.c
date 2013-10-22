@@ -41,7 +41,7 @@ _gss_copy_oid(OM_uint32 *minor_status,
 		*minor_status = ENOMEM;
 		return GSS_S_FAILURE;
 	}
-	to_oid->length = len;
+	to_oid->length = (OM_uint32)len;
 	memcpy(to_oid->elements, from_oid->elements, len);
 	return (GSS_S_COMPLETE);
 }

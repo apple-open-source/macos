@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * keychain_delete.c
@@ -55,7 +55,7 @@ do_delete_certificate(CFTypeRef keychainOrArray, const char *name, const char *h
 	if (!name && !hash) {
 		return 2;
 	}
-	
+
 	itemToDelete = find_unique_certificate(keychainOrArray, name, hash);
 	if (itemToDelete) {
 		if (deleteTrust) {
@@ -97,7 +97,7 @@ keychain_delete_certificate(int argc, char * const *argv)
 	char *hash = NULL;
 	Boolean delete_trust = FALSE;
 	int ch, result = 0;
-	
+
     while ((ch = getopt(argc, argv, "hc:Z:t")) != -1)
 	{
 		switch  (ch)
@@ -117,17 +117,17 @@ keychain_delete_certificate(int argc, char * const *argv)
 				goto cleanup;
 		}
 	}
-	
+
 	argc -= optind;
 	argv += optind;
-	
+
 	keychainOrArray = keychain_create_array(argc, argv);
-	
+
 	result = do_delete_certificate(keychainOrArray, name, hash, delete_trust);
 
 cleanup:
 	safe_CFRelease(&keychainOrArray);
-	
+
 	return result;
 }
 

@@ -22,13 +22,12 @@
 #define WebKitDOMTestExceptionPrivate_h
 
 #include "TestException.h"
-#include <glib-object.h>
-#include <webkit/WebKitDOMObject.h>
+#include <webkitdom/WebKitDOMTestException.h>
 
 namespace WebKit {
 WebKitDOMTestException* wrapTestException(WebCore::TestException*);
-WebCore::TestException* core(WebKitDOMTestException* request);
-WebKitDOMTestException* kit(WebCore::TestException* node);
+WebKitDOMTestException* kit(WebCore::TestException*);
+WebCore::TestException* core(WebKitDOMTestException*);
 } // namespace WebKit
 
 #endif /* WebKitDOMTestExceptionPrivate_h */

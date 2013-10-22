@@ -48,7 +48,6 @@ static const char rcsid[] =
 static void
 list_cloners(void)
 {
-#ifdef notdef
 	struct if_clonereq ifcr;
 	char *cp, *buf;
 	int idx;
@@ -87,7 +86,6 @@ list_cloners(void)
 
 	putchar('\n');
 	free(buf);
-#endif
 }
 
 static clone_callback_func *clone_cb = NULL;

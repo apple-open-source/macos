@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,6 +46,7 @@
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_rq.h>
@@ -54,6 +55,7 @@
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
+#include <smbfs/smbfs_subr_2.h>
 #include <netsmb/smb_converter.h>
 
 /* 
@@ -92,48 +94,71 @@ smb_time_local2NT(struct timespec *tsp, uint64_t *nsec, int fat_fstype)
 		*nsec = ((uint64_t)tsp->tv_sec + DIFF1970TO1601) * (uint64_t)10000000;
 }
 
-static int 
+int 
 smb_fphelp(struct smbmount *smp, struct mbchain *mbp, struct smbnode *np, 
 		   int usingUnicode, size_t *lenp)
 {
 	struct smbnode  *npstack[SMBFS_MAXPATHCOMP]; 
 	struct smbnode  **npp = &npstack[0]; 
 	int i, error = 0;
-
+    int add_slash = 1;
+        
 	if (smp->sm_args.path) {
-		if (usingUnicode)
-			error = mb_put_uint16le(mbp, '\\');
-		else
-			error = mb_put_uint8(mbp, '\\');
-		if (!error && lenp)
-			*lenp += (usingUnicode) ? 2 : 1;
+        if (!SSTOVC(smp->sm_share)->vc_flags & SMBV_SMB2) {
+            /* Only SMB1 wants the beginning '\' */
+            if (usingUnicode)
+                error = mb_put_uint16le(mbp, '\\');
+            else
+                error = mb_put_uint8(mbp, '\\');
+            if (!error && lenp)
+                *lenp += (usingUnicode) ? 2 : 1;
+        }
 		/* We have a starting path, that has already been converted add it to the path */
 		if (!error)
 			error = mb_put_mem(mbp, (const char *)smp->sm_args.path, 
 							   smp->sm_args.path_len, MB_MSYSTEM);
 		if (!error && lenp)
 			*lenp += smp->sm_args.path_len;
-	}
+	} else if (SSTOVC(smp->sm_share)->vc_flags & SMBV_SMB2) {
+        /* No starting path. SMB2 does not want the beginning '\' */
+        add_slash = 0;
+    }
+    
+    /*
+     * We hold sm_reclaim_renamelock to protect np->n_parent fields from a
+     * race with smbfs_vnop_reclaim() and smbfs_ClearChildren().
+     * See <rdar://problem/11824956>.
+     */
+	lck_mtx_lock(&smp->sm_reclaim_renamelock);
+    
 	/* This is a stream file, skip it. We always use the stream parent for the lookup */	
 	if (np->n_flag & N_ISSTREAM)
 		np = np->n_parent;
 
 	i = 0;
 	while (np->n_parent) {
-		if (i++ == SMBFS_MAXPATHCOMP)
+		if (i++ == SMBFS_MAXPATHCOMP) {
+            lck_mtx_unlock(&smp->sm_reclaim_renamelock);
 			return ENAMETOOLONG;
+        }
 		*npp++ = np;
 		np = np->n_parent;
 	}
 
 	while (i--) {
 		np = *--npp;
-		if (usingUnicode)
-			error = mb_put_uint16le(mbp, '\\');
-		else
-			error = mb_put_uint8(mbp, '\\');
-		if (!error && lenp)
-			*lenp += (usingUnicode) ? 2 : 1;
+        if (add_slash == 1) {
+            if (usingUnicode)
+                error = mb_put_uint16le(mbp, '\\');
+            else
+                error = mb_put_uint8(mbp, '\\');
+            if (!error && lenp)
+                *lenp += (usingUnicode) ? 2 : 1;
+        }
+        else {
+            /* add slashes from now on */
+            add_slash = 1;
+        }
 		if (error)
 			break;
 		lck_rw_lock_shared(&np->n_name_rwlock);
@@ -143,6 +168,8 @@ smb_fphelp(struct smbmount *smp, struct mbchain *mbp, struct smbnode *np,
 		if (error)
 			break;
 	}
+    
+    lck_mtx_unlock(&smp->sm_reclaim_renamelock);
 	return error;
 }
 
@@ -166,10 +193,15 @@ smbfs_fullpath(struct mbchain *mbp, struct smbnode *dnp, const char *name,
 		struct smbmount *smp = dnp->n_mount;
 		
 		error = smb_fphelp(smp, mbp, dnp, usingUnicode, lenp);
-		if (error)
+		if (error) {
 			return error;
-		if (((smp->sm_args.path == NULL) && (dnp->n_ino == 2) && !name))
-			name = ""; /* to get one backslash below */
+        }
+        
+		if (((smp->sm_args.path == NULL) &&
+             (dnp->n_ino == smp->sm_root_ino)
+             && !name)) {
+            name = ""; /* to get one backslash below */
+        }
 	}
 	if (name) {
 		if (usingUnicode)
@@ -192,6 +224,81 @@ smbfs_fullpath(struct mbchain *mbp, struct smbnode *dnp, const char *name,
 	if (usingUnicode && error == 0) {
 		error = mb_put_uint8(mbp, 0);
 	}
+	return error;
+}
+
+int
+smbfs_fullpath_stream(struct mbchain *mbp, struct smbnode *dnp,
+                      const char *namep, const char *strm_namep,
+                      size_t *lenp, size_t strm_name_len, int name_flags,
+                      int usingUnicode, uint8_t sep)
+{
+	int error; 
+	size_t len = 0;
+    
+	if (lenp) {
+		len = *lenp;
+		*lenp = 0;
+	}
+    
+	if (usingUnicode) {
+		error = mb_put_padbyte(mbp);
+		if (error)
+			return error;
+	}
+    
+	if (dnp != NULL) {
+		struct smbmount *smp = dnp->n_mount;
+		
+		error = smb_fphelp(smp, mbp, dnp, usingUnicode, lenp);
+		if (error) {
+			return error;
+        }
+        
+		if (((smp->sm_args.path == NULL) &&
+             (dnp->n_ino == smp->sm_root_ino)
+             && !namep)) {
+			namep = ""; /* to get one backslash below */
+        }
+	}
+    
+	if (namep) {
+		if (usingUnicode)
+			error = mb_put_uint16le(mbp, sep);
+		else
+			error = mb_put_uint8(mbp, sep);
+		if (!error && lenp)
+			*lenp += (usingUnicode) ? 2 : 1;
+		if (error)
+			return error;
+		error = smb_put_dmem(mbp, namep, len, name_flags, usingUnicode, lenp);
+		if (error)
+			return error;
+	}
+
+    if (strm_namep) {
+		if (usingUnicode)
+			error = mb_put_uint16le(mbp, ':');
+		else
+			error = mb_put_uint8(mbp, ':');
+		if (!error && lenp)
+			*lenp += (usingUnicode) ? 2 : 1;
+		if (error)
+			return error;
+		error = smb_put_dmem(mbp, strm_namep, strm_name_len, name_flags, usingUnicode, lenp);
+		if (error)
+			return error;
+	}
+
+    /*
+	 * Currently only NTCreateAndX uses the length field. It doesn't expect
+	 * the name len to include the null bytes, so leave those off.
+	 */
+	error = mb_put_uint8(mbp, 0);
+	if (usingUnicode && error == 0) {
+		error = mb_put_uint8(mbp, 0);
+	}
+    
 	return error;
 }
 
@@ -225,7 +332,7 @@ smbfs_create_start_path(struct smbmount *smp, struct smb_mount_args *args,
 	}
 	/* Convert it to a network style path, the convert routine will set the precomosed flag */
 	error = smb_convert_path_to_network(args->path, sizeof(args->path), 
-										smp->sm_args.path,  &smp->sm_args.path_len, 
+										smp->sm_args.path, &smp->sm_args.path_len, 
 										'\\', SMB_UTF_SFM_CONVERSIONS, usingUnicode);
 	if (error || (smp->sm_args.path_len == 0)) {
 		SMBDEBUG("Deep Path Failed %d\n", error);

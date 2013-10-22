@@ -25,9 +25,9 @@ STATISTIC(MCNumEmitted, "Number of MC instructions emitted");
 
 namespace {
 class PPCMCCodeEmitter : public MCCodeEmitter {
-  PPCMCCodeEmitter(const PPCMCCodeEmitter &); // DO NOT IMPLEMENT
-  void operator=(const PPCMCCodeEmitter &);   // DO NOT IMPLEMENT
-  
+  PPCMCCodeEmitter(const PPCMCCodeEmitter &) LLVM_DELETED_FUNCTION;
+  void operator=(const PPCMCCodeEmitter &) LLVM_DELETED_FUNCTION;
+
 public:
   PPCMCCodeEmitter(const MCInstrInfo &mcii, const MCSubtargetInfo &sti,
                    MCContext &ctx) {
@@ -57,7 +57,7 @@ public:
   
   // getBinaryCodeForInstr - TableGen'erated function for getting the
   // binary encoding for an instruction.
-  unsigned getBinaryCodeForInstr(const MCInst &MI,
+  uint64_t getBinaryCodeForInstr(const MCInst &MI,
                                  SmallVectorImpl<MCFixup> &Fixups) const;
   void EncodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups) const {
@@ -77,6 +77,7 @@ public:
 } // end anonymous namespace
   
 MCCodeEmitter *llvm::createPPCMCCodeEmitter(const MCInstrInfo &MCII,
+                                            const MCRegisterInfo &MRI,
                                             const MCSubtargetInfo &STI,
                                             MCContext &Ctx) {
   return new PPCMCCodeEmitter(MCII, STI, Ctx);

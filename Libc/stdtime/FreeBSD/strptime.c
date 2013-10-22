@@ -83,10 +83,48 @@ time_t _mktime(struct tm *, const char *);
 
 enum {CONVERT_NONE, CONVERT_GMT, CONVERT_ZONE};
 
-#define _strptime(b,f,t,c,l)	_strptime0(b,f,t,c,l,-1,0,-1)
+#define _strptime(b,f,t,c,l)	_strptime0(b,f,t,c,l,-1,0,-1,-1,'U')
+
+#define WEEK_U	'U'
+#define WEEK_V	'V'
+#define WEEK_W	'W'
+
+static int
+calcweeknum(struct tm *tm, int weeknum, int wday, int year, int kind)
+{
+	struct tm t;
+	int off;
+
+	bzero(&t, sizeof(t));
+	t.tm_mday = kind == WEEK_V ? 4 : 1;
+	t.tm_hour = 12; /* avoid any DST effects */
+	t.tm_year = year;
+	if (mktime(&t) == (time_t)-1) return 0;
+	off = t.tm_wday;
+
+	bzero(&t, sizeof(t));
+	if (kind != WEEK_U) {
+		off = (off + 6) % 7;
+		wday = (wday + 6) % 7;
+	}
+	if (kind == WEEK_V) {
+		t.tm_mday = 7 * weeknum + wday - off - 3;
+	} else {
+		if(off == 0) off = 7;
+		t.tm_mday = 7 * weeknum + wday - off + 1;
+	}
+	t.tm_hour = 12; /* avoid any DST effects */
+	t.tm_year = year;
+	if (mktime(&t) == (time_t)-1) return 0;
+
+	tm->tm_mday = t.tm_mday;
+	tm->tm_mon = t.tm_mon;
+	tm->tm_yday = t.tm_yday;
+	return 1;
+}
 
 static char *
-_strptime0(const char *buf, const char *fmt, struct tm *tm, int *convp, locale_t loc, int year, int yday, int wday)
+_strptime0(const char *buf, const char *fmt, struct tm *tm, int *convp, locale_t loc, int year, int yday, int wday, int weeknum, int weekkind)
 {
 	char	c;
 	const char *ptr;
@@ -349,6 +387,7 @@ label:
 			break;
 
 		case 'U':	/* Sunday week */
+		case 'V':	/* ISO 8601 week */
 		case 'W':	/* Monday week */
 			if (!isdigit_l((unsigned char)*buf, loc))
 				return 0;
@@ -361,27 +400,15 @@ label:
 			}
 			if (i > 53)
 				return 0;
+			if (c == 'V' && i < 1)
+				return 0;
 
-			/* Calculate yday if we have enough data */
+			weeknum = i;
+			weekkind = c;
+
+			/* Calculate mon/mday/yday if we have enough data */
 			if ((year != -1) && (wday != -1)) {
-				struct tm mktm;
-				mktm.tm_year = year;
-				mktm.tm_mon = 0;
-				mktm.tm_mday = 1;
-				mktm.tm_sec = 1;
-				mktm.tm_min = mktm.tm_hour = 0;
-				mktm.tm_isdst = 0;
-				mktm.tm_gmtoff = 0;
-				if (mktime(&mktm) != -1) {
-					/* yday0 == Jan 1 == mktm.tm_wday */
-					int delta = wday - mktm.tm_wday;
-					if (!wday && c =='W')
-						i++; /* Sunday is part of the following week */
-					yday = 7 * i + delta;
-					if (yday < 0)
-						yday += 7;
-					tm->tm_yday = yday;
-				}
+				if (!calcweeknum(tm, weeknum, wday, year, weekkind)) return 0;
 			}
 			if (*buf != 0 && isspace_l((unsigned char)*buf, loc))
 				while (*ptr != 0 && !isspace_l((unsigned char)*ptr, loc) && *ptr != '%')
@@ -399,6 +426,12 @@ label:
 			if (i == 7)
 				i = 0;
 			tm->tm_wday = wday = i;
+
+			/* Calculate mon/mday/yday if we have enough data */
+			if ((year != -1) && (weeknum != -1)) {
+				if (!calcweeknum(tm, weeknum, wday, year, weekkind)) return 0;
+			}
+
 			buf++;
 			if (*buf != 0 && isspace_l((unsigned char)*buf, loc))
 				while (*ptr != 0 && !isspace_l((unsigned char)*ptr, loc) && *ptr != '%')
@@ -562,7 +595,7 @@ label:
 					if (*buf != 0 && isspace_l((unsigned char)*buf, loc))
 						while (*ptr != 0 && !isspace_l((unsigned char)*ptr, loc) && *ptr != '%')
 							ptr++;
-					ret = _strptime0(buf, ptr, tm, convp, loc, tm->tm_year, yday, wday);
+					ret = _strptime0(buf, ptr, tm, convp, loc, tm->tm_year, yday, wday, weeknum, weekkind);
 					if (ret) return ret;
 					/* Failed, so try 4-digit year */
 					*tm = savetm;
@@ -592,6 +625,11 @@ label:
 				return 0;
 
 			tm->tm_year = year = i;
+
+			/* Calculate mon/mday/yday if we have enough data */
+			if ((weeknum != -1) && (wday != -1)) {
+				if (!calcweeknum(tm, weeknum, wday, year, weekkind)) return 0;
+			}
 
 			if (*buf != 0 && isspace_l((unsigned char)*buf, loc))
 				while (*ptr != 0 && !isspace_l((unsigned char)*ptr, loc) && *ptr != '%')

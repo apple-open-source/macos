@@ -62,7 +62,7 @@ OSMetaClassDefineReservedUsed( IONetworkController,  1); // setDebuggerMode
 OSMetaClassDefineReservedUsed( IONetworkController,  2); // outputStart
 OSMetaClassDefineReservedUsed( IONetworkController,  3); // setInputPacketPollingEnable
 OSMetaClassDefineReservedUsed( IONetworkController,  4); // pollInputPackets
-OSMetaClassDefineReservedUnused( IONetworkController,  5);
+OSMetaClassDefineReservedUsed( IONetworkController,  5); // networkInterfaceNotification
 OSMetaClassDefineReservedUnused( IONetworkController,  6);
 OSMetaClassDefineReservedUnused( IONetworkController,  7);
 OSMetaClassDefineReservedUnused( IONetworkController,  8);
@@ -1692,76 +1692,90 @@ UInt32 IONetworkController::getDebuggerLinkStatus(void)
 
 bool IONetworkController::setDebuggerMode(__unused bool active)
 {
-    return true; 
+    return true;
 }
 
 //---------------------------------------------------------------------------
 // Report the link status and the active medium.
 
 bool IONetworkController::setLinkStatus(
-                                    UInt32                  status,
-                                    const IONetworkMedium * activeMedium,
-                                    UInt64                  speed,
-                                    OSData *                data)
+    UInt32                  linkStatus,
+    const IONetworkMedium * activeMedium,
+    UInt64                  linkSpeed,
+    OSData *                linkData )
 {
-    bool             success   = true;
-    UInt32           linkEvent = 0;
-    uint64_t         linkSpeed = 0;
-    const OSSymbol * name      = activeMedium ? activeMedium->getName() :
-                                                gIONullMediumName;
+    bool                    success   = true;
+    UInt32                  linkEvent = 0;
+    UInt32                  oldLinkStatus;
+    const OSSymbol *        linkName  = gIONullMediumName;
+    IONetworkLinkEventData  linkEventData;
 
-    if (data == 0)
-        data = (OSData *) gIONullLinkData;
+    if (linkData == 0)
+        linkData = (OSData *) gIONullLinkData;
 
-    if ((speed == 0) && activeMedium)
-        speed = activeMedium->getSpeed();
+    bzero(&linkEventData, sizeof(linkEventData));
+    if (activeMedium)
+    {
+        linkName = activeMedium->getName();
+        linkEventData.linkType = activeMedium->getType();
+        if (!linkSpeed) linkSpeed = activeMedium->getSpeed();
+    }
 
     MEDIUM_LOCK;
 
     // Update kIOActiveMedium property.
-	if (name != _lastActiveMediumName)
-	{
-		if (setProperty(gIOActiveMediumKey, (OSSymbol *) name))
-			_lastActiveMediumName = name;
-		else
-			success = false;
-	}
+	if (linkName != _lastActiveMediumName)
+    {
+        if (setProperty(gIOActiveMediumKey, (OSObject *) linkName))
+            _lastActiveMediumName = linkName;
+        else
+            success = false;
+    }
 
 	// Update kIOLinkData property.
-    if (data != _lastLinkData)
+    if (linkData != _lastLinkData)
     {
-    	if (setProperty(gIOLinkDataKey, data))
-			_lastLinkData = data;
-		else
-			success = false;
-	}
+        if (setProperty(gIOLinkDataKey, linkData))
+            _lastLinkData = linkData;
+        else
+            success = false;
+    }
 
     // Update kIOLinkSpeed property.
-	if (speed != _linkSpeed->unsigned64BitValue())
+	if (linkSpeed != _linkSpeed->unsigned64BitValue())
 	{
-		_linkSpeed->setValue(speed);
+		_linkSpeed->setValue(linkSpeed);
         linkEvent = kIONetworkEventTypeLinkSpeedChange;
-        linkSpeed = speed;
+        linkEventData.linkSpeed = linkSpeed;
     }
 
 	// Update kIOLinkStatus property.
-	if (status != _linkStatus->unsigned32BitValue()) //status has changed
+    oldLinkStatus = _linkStatus->unsigned32BitValue();
+	if (linkStatus != oldLinkStatus)
 	{
-		//send an UP event when the link is up, or its state is unknown
-		if ((status & kIONetworkLinkActive) || !(status & kIONetworkLinkValid))
-			linkEvent = kIONetworkEventTypeLinkUp;
-        else
-			linkEvent = kIONetworkEventTypeLinkDown;
-        _linkStatus->setValue(status);
-        linkSpeed = _linkSpeed->unsigned64BitValue();
+        if ((linkStatus ^ oldLinkStatus) &
+            (kIONetworkLinkActive | kIONetworkLinkValid |
+             kIONetworkLinkNoNetworkChange))
+        {
+            // Send link UP event when the link is up, or its state is unknown
+            if ((linkStatus & kIONetworkLinkActive) ||
+                !(linkStatus & kIONetworkLinkValid))
+                linkEvent = kIONetworkEventTypeLinkUp;
+            else
+                linkEvent = kIONetworkEventTypeLinkDown;
+
+            linkEventData.linkStatus = linkStatus;
+            linkEventData.linkSpeed = _linkSpeed->unsigned64BitValue();
+        }
+        DLOG("%s: set link status 0x%x\n", getName(), (uint32_t) linkStatus);
+        _linkStatus->setValue(linkStatus);
 	}
 
     MEDIUM_UNLOCK;
 
     // Broadcast a link event to interface objects.
-
     if (linkEvent)
-        _broadcastEvent(linkEvent, &linkSpeed);
+        _broadcastEvent(linkEvent, &linkEventData);
 
     return success;
 }
@@ -2329,7 +2343,7 @@ IOMbufServiceClass IONetworkController::getMbufServiceClass( mbuf_t mbuf )
 {
     mbuf_svc_class_t    mbufSC = mbuf_get_service_class(mbuf);
     IOMbufServiceClass  ioSC;
-    
+
     switch (mbufSC)
     {
         default:
@@ -2346,4 +2360,48 @@ IOMbufServiceClass IONetworkController::getMbufServiceClass( mbuf_t mbuf )
     }
 
     return ioSC;
+}
+
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkController::networkInterfaceNotification(
+    IONetworkInterface *    interface,
+    uint32_t                type,
+    void *                  argument )
+{
+    return kIOReturnUnsupported;
+}
+
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkController::attachAuxiliaryDataToPacket(
+    mbuf_t          packet,
+    const void *    data,
+    IOByteCount     length,
+    uint32_t        family,
+    uint32_t        subFamily )
+{
+    errno_t error;
+    void *  data_p = 0;
+
+    if (!packet || !data || !length)
+        return kIOReturnBadArgument;
+
+    error = mbuf_add_drvaux(packet, MBUF_WAITOK, family, subFamily,
+                            (size_t) length, &data_p);
+    if (error)
+    {
+        return IONetworkInterface::errnoToIOReturn(error);
+    }
+
+    if (data_p)
+        bcopy(data, data_p, length);
+
+    return kIOReturnSuccess;
+}
+
+void IONetworkController::removeAuxiliaryDataFromPacket(
+    mbuf_t      packet )
+{
+    mbuf_del_drvaux(packet);
 }

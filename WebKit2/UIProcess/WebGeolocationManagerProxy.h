@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,50 +27,48 @@
 #define WebGeolocationManagerProxy_h
 
 #include "APIObject.h"
-#include "MessageID.h"
+#include "MessageReceiver.h"
+#include "WebContextSupplement.h"
 #include "WebGeolocationProvider.h"
-
-namespace CoreIPC {
-class ArgumentDecoder;
-class Connection;
-}
+#include <wtf/text/WTFString.h>
 
 namespace WebKit {
 
 class WebContext;
 class WebGeolocationPosition;
 
-class WebGeolocationManagerProxy : public APIObject {
+class WebGeolocationManagerProxy : public TypedAPIObject<APIObject::TypeGeolocationManager>, public WebContextSupplement, private CoreIPC::MessageReceiver {
 public:
-    static const Type APIType = TypeGeolocationManager;
+    static const char* supplementName();
 
     static PassRefPtr<WebGeolocationManagerProxy> create(WebContext*);
     virtual ~WebGeolocationManagerProxy();
 
-    void invalidate();
-    void clearContext() { m_context = 0; }
-
     void initializeProvider(const WKGeolocationProvider*);
 
     void providerDidChangePosition(WebGeolocationPosition*);
-    void providerDidFailToDeterminePosition();
+    void providerDidFailToDeterminePosition(const String& errorMessage = String());
 
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    using APIObject::ref;
+    using APIObject::deref;
 
 private:
     explicit WebGeolocationManagerProxy(WebContext*);
 
-    virtual Type type() const { return APIType; }
+    // WebContextSupplement
+    virtual void contextDestroyed() OVERRIDE;
+    virtual void processDidClose(WebProcessProxy*) OVERRIDE;
+    virtual void refWebContextSupplement() OVERRIDE;
+    virtual void derefWebContextSupplement() OVERRIDE;
 
-    // Implemented in generated WebGeolocationManagerProxyMessageReceiver.cpp
-    void didReceiveWebGeolocationManagerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    // CoreIPC::MessageReceiver
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
 
     void startUpdating();
     void stopUpdating();
 
     bool m_isUpdating;
 
-    WebContext* m_context;
     WebGeolocationProvider m_provider;
 };
 

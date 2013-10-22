@@ -72,7 +72,7 @@ AtomicFile::AtomicFile(const std::string &inPath) :
 			// compute the name of the lock file for this file
 			CC_SHA1_CTX ctx;
 			CC_SHA1_Init(&ctx);
-			CC_SHA1_Update(&ctx, (const void*) mFile.c_str(), mFile.length());
+			CC_SHA1_Update(&ctx, (const void*) mFile.c_str(), (CC_LONG)mFile.length());
 			u_int8_t digest[CC_SHA1_DIGEST_LENGTH];
 			CC_SHA1_Final(digest, &ctx);
 
@@ -230,54 +230,49 @@ AtomicFile::pathSplit(const std::string &inFull, std::string &outDir, std::strin
 	}
 }
 
-static std::string RemoveDoubleSlashes(const std::string &path)
-{
-	std::string result;
-	unsigned i;
-	for (i = 0; i < path.length(); ++i)
-	{
-		result += path[i];
-		if ((i < path.length() - 2) && path[i] == '/' && path[i + 1] == '/')
-		{
-			i += 1; // skip a second '/'
-		}
-	}
-	
-	return result;
-}
-
-
-
 //
 // Make sure the directory up to inDir exists inDir *must* end in a slash.
 //
 void
 AtomicFile::mkpath(const std::string &inDir, mode_t mode)
 {
-	for (std::string::size_type pos = 0; (pos = inDir.find('/', pos + 1)) != std::string::npos;)
-	{
-		std::string path = inDir.substr(0, pos);
-		const char *cpath = path.c_str();
-		struct stat sb;
-		if (::stat(cpath, &sb))
-		{
-			// if we are creating a path in the user's home directory, override the user's mode
-			std::string homedir = getenv("HOME");
-			
-			// canonicalize the path (remove double slashes)
-			string canonPath = RemoveDoubleSlashes(cpath);
-			
-			if (canonPath.find(homedir, 0) == 0)
-			{
-				mode = 0700;
-			}
-			
-			if (errno != ENOENT || ::mkdir(cpath, mode))
-				UnixError::throwMe(errno);
-		}
-		else if (!S_ISDIR(sb.st_mode))
-			CssmError::throwMe(CSSM_ERRCODE_OS_ACCESS_DENIED);  // @@@ Should be is a directory
-	}
+    // see if the file already exists and is a directory
+    struct stat st;
+    int result = stat(inDir.c_str(), &st);
+    
+    if (result == 0) // file exists
+    {
+        if ((st.st_mode & S_IFDIR) == 0)
+        {
+            // whatever was there, it wasn't a directory.  That's really bad, so complain
+            syslog(LOG_ALERT, "Needed a directory at %s, but the file that was there was not one.\n", inDir.c_str());
+            UnixError::throwMe(ENOTDIR);
+        }
+    }
+    else
+    {
+        // the file did not exist, try to create it
+        result = mkpath_np(inDir.c_str(), 0777); // make the directory with umask
+        if (result != 0)
+        {
+            // mkpath_np does not set errno, you have to look at the result.
+            UnixError::throwMe(result);
+        }
+    }
+    
+    // Double check and see if we got what we hoped for
+    result = stat(inDir.c_str(), &st);
+    if (result != 0)
+    {
+        UnixError::throwMe(errno);
+    }
+    
+    if ((st.st_mode & S_IFDIR) == 0)
+    {
+        // we didn't create a dictionary?  That's curious...
+        syslog(LOG_ALERT, "Failed to create a directory when we asked for one to be created at %s\n", inDir.c_str());
+        UnixError::throwMe(ENOTDIR);
+    }
 }
 
 int
@@ -465,7 +460,7 @@ AtomicBufferedFile::unloadBuffer()
 	}
 	else
 	{
-		munmap(mBuffer, mLength);
+		munmap(mBuffer, (size_t)mLength);
 	}
 }
 
@@ -483,7 +478,7 @@ AtomicBufferedFile::loadBuffer()
 		lseek(mFileRef, 0, SEEK_SET);
 		ssize_t pos = 0;
 		
-		ssize_t bytesToRead = mLength;
+		ssize_t bytesToRead = (ssize_t)mLength;
 		while (bytesToRead > 0)
 		{
 			ssize_t bytesRead = ::read(mFileRef, mBuffer + pos, bytesToRead);
@@ -507,7 +502,7 @@ AtomicBufferedFile::loadBuffer()
 	else
 	{
 		// mmap the buffer into place
-		mBuffer = (uint8*) mmap(NULL, mLength, PROT_READ, MAP_PRIVATE, mFileRef, 0);
+		mBuffer = (uint8*) mmap(NULL, (size_t)mLength, PROT_READ, MAP_PRIVATE, mFileRef, 0);
 		if (mBuffer == (uint8*) -1)
 		{
 			int error = errno;
@@ -546,7 +541,7 @@ AtomicBufferedFile::read(off_t inOffset, off_t inLength, off_t &outLength)
 	
 	secdebug("atomicfile", "%p allocated %s buffer %p size %qd", this, mPath.c_str(), mBuffer, bytesLeft);
 	
-	ssize_t maxEnd = inOffset + inLength;
+	off_t maxEnd = inOffset + inLength;
 	if (maxEnd > mLength)
 	{
 		maxEnd = mLength;
@@ -616,7 +611,7 @@ AtomicTempFile::create(mode_t mode)
     
     // put the dir into a canonical form
     string dir = mFile.dir();
-    int i = dir.length() - 1;
+    int i = (int)dir.length() - 1;
     
     // walk backwards until we get to a non / character
     while (i >= 0 && dir[i] == '/')

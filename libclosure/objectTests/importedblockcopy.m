@@ -37,7 +37,7 @@ int Reclaimed = 0;
     [super finalize];
 }
 
-- init {
+- (id)init {
     self = [super init];
     ++Allocated;
     return self;

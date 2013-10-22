@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,8 @@
 #include "SCHelper_client.h"
 #include "helper_types.h"
 
+#include <libproc_internal.h>
+
 
 #pragma mark -
 #pragma mark SCHelper session managment
@@ -53,6 +55,7 @@
 //
 // entitlement used to control write access to a given "prefsID"
 //
+#define	kSCReadEntitlementName		CFSTR("com.apple.SystemConfiguration.SCPreferences-read-access")
 #define	kSCWriteEntitlementName		CFSTR("com.apple.SystemConfiguration.SCPreferences-write-access")
 
 //
@@ -84,10 +87,13 @@ typedef struct {
 	audit_token_t		auditToken;
 
 	// write access entitlement associated with this session
+	lazyBoolean		callerReadAccess;
 	lazyBoolean		callerWriteAccess;
 
-	// VPN configuration filtering
-	CFArrayRef		vpnFilter;
+	// configuration filtering
+	lazyBoolean		isSetChange;	// only network "set" changes
+	lazyBoolean		isVPNChange;	// only VPN configuration changes
+	CFArrayRef		vpnTypes;
 
 	// preferences
 	SCPreferencesRef	prefs;
@@ -119,7 +125,7 @@ static pthread_mutex_t	sessions_lock			= PTHREAD_MUTEX_INITIALIZER;
 #pragma mark Helper session management
 
 
-#if !TARGET_OS_IPHONE
+#if	!TARGET_OS_IPHONE
 static Boolean
  __SCHelperSessionUseEntitlement(SCHelperSessionRef session)
 {
@@ -127,7 +133,7 @@ static Boolean
 
 	return sessionPrivate->use_entitlement;
 }
-#endif //!TARGET_OS_IPHONE
+#endif	//!TARGET_OS_IPHONE
 
 
 static AuthorizationRef
@@ -145,25 +151,31 @@ __SCHelperSessionSetAuthorization(SCHelperSessionRef session, CFTypeRef authoriz
 	Boolean				ok		= TRUE;
 	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
 
+	/*
+	 * On OSX, the authorizationData can either be a CFData-wrapped/externalized
+	 * "authorization" or a CFString indicating that we should check entitlements.
+	 *
+	 * On iOS, the authorizationData is a CFString indicating that we should
+	 * check entitlements.
+	 */
 	pthread_mutex_lock(&sessionPrivate->lock);
 
 	if (sessionPrivate->authorization != NULL) {
-#if !TARGET_OS_IPHONE
+#if	!TARGET_OS_IPHONE
 		if (!__SCHelperSessionUseEntitlement(session)) {
 			AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDefaults);
 //			AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDestroyRights);
-			sessionPrivate->authorization = NULL;
 		} else {
-#endif //!TARGET_OS_IPHONE
 			CFRelease(sessionPrivate->authorization);
-			sessionPrivate->authorization = NULL;
-#if !TARGET_OS_IPHONE
 		}
-#endif //!TARGET_OS_IPHONE
+#else	//!TARGET_OS_IPHONE
+		CFRelease(sessionPrivate->authorization);
+#endif	//!TARGET_OS_IPHONE
+		sessionPrivate->authorization = NULL;
 		sessionPrivate->use_entitlement = FALSE;
 	}
 
-#if !TARGET_OS_IPHONE
+#if	!TARGET_OS_IPHONE
 	if (isA_CFData(authorizationData)) {
 		AuthorizationExternalForm	extForm;
 
@@ -181,13 +193,16 @@ __SCHelperSessionSetAuthorization(SCHelperSessionRef session, CFTypeRef authoriz
 				ok = FALSE;
 			}
 		}
-	} else
-#endif //!TARGET_OS_IPHONE
-
+	} else if (isA_CFString(authorizationData)) {
+		sessionPrivate->authorization = (void *)CFRetain(authorizationData);
+		sessionPrivate->use_entitlement = TRUE;
+	}
+#else	//!TARGET_OS_IPHONE
 	if (isA_CFString(authorizationData)) {
 		sessionPrivate->authorization = (void *)CFRetain(authorizationData);
 		sessionPrivate->use_entitlement = TRUE;
 	}
+#endif	//!TARGET_OS_IPHONE
 
 	pthread_mutex_unlock(&sessionPrivate->lock);
 
@@ -287,33 +302,60 @@ __SCHelperSessionSetPreferences(SCHelperSessionRef session, SCPreferencesRef pre
 }
 
 
-static CFArrayRef
-__SCHelperSessionGetVPNFilter(SCHelperSessionRef session)
-{
-	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
-
-	return sessionPrivate->vpnFilter;
-}
-
-
-static Boolean
-__SCHelperSessionSetVPNFilter(SCHelperSessionRef session, CFArrayRef vpnFilter)
+static void
+__SCHelperSessionSetNetworkSetFilter(SCHelperSessionRef session, Boolean setChange)
 {
 	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
 
 	pthread_mutex_lock(&sessionPrivate->lock);
 
-	if (vpnFilter != NULL) {
-		CFRetain(vpnFilter);
+	sessionPrivate->isSetChange = setChange ? YES : NO;
+
+	pthread_mutex_unlock(&sessionPrivate->lock);
+
+	return;
+}
+
+
+static Boolean
+__SCHelperSessionUseNetworkSetFilter(SCHelperSessionRef session)
+{
+	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+
+	return (sessionPrivate->isSetChange == YES) ? TRUE : FALSE;
+}
+
+
+static Boolean
+__SCHelperSessionSetVPNFilter(SCHelperSessionRef session, Boolean vpnChange, CFArrayRef vpnTypes)
+{
+	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+
+	pthread_mutex_lock(&sessionPrivate->lock);
+
+	sessionPrivate->isVPNChange = vpnChange ? YES : NO;
+
+	if (vpnTypes != NULL) {
+		CFRetain(vpnTypes);
 	}
-	if (sessionPrivate->vpnFilter != NULL) {
-		CFRelease(sessionPrivate->vpnFilter);
+	if (sessionPrivate->vpnTypes != NULL) {
+		CFRelease(sessionPrivate->vpnTypes);
 	}
-	sessionPrivate->vpnFilter = vpnFilter;
+	sessionPrivate->vpnTypes = vpnTypes;
 
 	pthread_mutex_unlock(&sessionPrivate->lock);
 
 	return TRUE;
+}
+
+
+static CFArrayRef
+__SCHelperSessionUseVPNFilter(SCHelperSessionRef session, CFArrayRef *vpnTypes)
+{
+	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+
+	*vpnTypes = sessionPrivate->vpnTypes;
+	return (sessionPrivate->vpnTypes != NULL) ? TRUE : FALSE;
 }
 
 
@@ -387,7 +429,7 @@ __SCHelperSessionCopyDescription(CFTypeRef cf)
 	CFStringAppendFormat(result, NULL, CFSTR("authorization = %p"), sessionPrivate->authorization);
 	if (sessionPrivate->mp != NULL) {
 		CFStringAppendFormat(result, NULL,
-				     CFSTR(", mp = %p (port = %p)"),
+				     CFSTR(", mp = %p (port = 0x%x)"),
 				     sessionPrivate->mp,
 				     CFMachPortGetPort(sessionPrivate->mp));
 	}
@@ -413,8 +455,9 @@ __SCHelperSessionDeallocate(CFTypeRef cf)
 
 	// release resources
 	__SCHelperSessionSetAuthorization(session, NULL);
-	__SCHelperSessionSetPreferences  (session, NULL);
-	__SCHelperSessionSetVPNFilter    (session, NULL);
+	__SCHelperSessionSetPreferences(session, NULL);
+	__SCHelperSessionSetNetworkSetFilter(session, FALSE);
+	__SCHelperSessionSetVPNFilter(session, FALSE, NULL);
 	pthread_mutex_destroy(&sessionPrivate->lock);
 	if (sessionPrivate->backtraces != NULL) {
 		CFRelease(sessionPrivate->backtraces);
@@ -469,8 +512,11 @@ __SCHelperSessionCreate(CFAllocatorRef allocator)
 	sessionPrivate->use_entitlement		= FALSE;
 	sessionPrivate->port			= MACH_PORT_NULL;
 	sessionPrivate->mp			= NULL;
+	sessionPrivate->callerReadAccess	= UNKNOWN;
 	sessionPrivate->callerWriteAccess	= UNKNOWN;
-	sessionPrivate->vpnFilter		= NULL;
+	sessionPrivate->isSetChange		= UNKNOWN;
+	sessionPrivate->isVPNChange		= UNKNOWN;
+	sessionPrivate->vpnTypes		= NULL;
 	sessionPrivate->prefs			= NULL;
 	sessionPrivate->backtraces		= NULL;
 
@@ -635,7 +681,7 @@ static Boolean
 do_Auth(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *status, CFDataRef *reply)
 {
 	CFDictionaryRef	authorizationDict;
-#if !TARGET_OS_IPHONE
+#if	!TARGET_OS_IPHONE
 	CFDataRef	authorizationData	= NULL;
 #endif
 	Boolean		ok			= FALSE;
@@ -644,19 +690,23 @@ do_Auth(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *status
 		return FALSE;
 	}
 
-	if (isA_CFDictionary(authorizationDict) == FALSE) {
+	if (authorizationDict == NULL) {
+		return FALSE;
+	}
+
+	if (!isA_CFDictionary(authorizationDict)) {
 		CFRelease(authorizationDict);
 		return FALSE;
 	}
 
-#if !TARGET_OS_IPHONE
+#if	!TARGET_OS_IPHONE
 	authorizationData = CFDictionaryGetValue(authorizationDict, kSCHelperAuthAuthorization);
 	if (authorizationData != NULL && isA_CFData(authorizationData)) {
 		ok = __SCHelperSessionSetAuthorization(session, authorizationData);
 	} else
 #endif
 	{
-		CFStringRef authorizationInfo;
+		CFStringRef	authorizationInfo;
 
 		authorizationInfo = CFDictionaryGetValue(authorizationDict, kSCHelperAuthCallerInfo);
 		if (authorizationInfo != NULL && isA_CFString(authorizationInfo)) {
@@ -1123,38 +1173,42 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 	SCPreferencesRef	prefs		= __SCHelperSessionGetPreferences(session);
 	CFPropertyListRef	prefsData	= NULL;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
-	CFArrayRef		vpnFilter;
+	Boolean			useSetFilter;
+	Boolean			useVPNFilter;
+	CFArrayRef		vpnTypes	= NULL;
 
 	if (prefs == NULL) {
 		return FALSE;
 	}
 
-	if (data != NULL) {
-		ok = _SCUnserialize(&prefsData, data, NULL, 0);
-		if (!ok) {
-			return FALSE;
-		}
-
-		if (!isA_CFDictionary(prefsData)) {
-			*status = kSCStatusFailed;
-			ok = FALSE;
-			goto done;
-		}
+	if (data == NULL) {
+		// if commit with no changes
+		goto commit;
 	}
 
-	vpnFilter = __SCHelperSessionGetVPNFilter(session);
-	if (vpnFilter != NULL) {
+	ok = _SCUnserialize(&prefsData, data, NULL, 0);
+	if (!ok) {
+		return FALSE;
+	}
+
+	if (!isA_CFDictionary(prefsData)) {
+		*status = kSCStatusFailed;
+		ok = FALSE;
+		goto done;
+	}
+
+	useSetFilter = __SCHelperSessionUseNetworkSetFilter(session);
+	useVPNFilter = __SCHelperSessionUseVPNFilter(session, &vpnTypes);
+	if (useSetFilter || useVPNFilter) {
 		ok = FALSE;
 
-		if ((prefsPrivate->prefs != NULL) && (prefsData != NULL)) {
+		if (prefsPrivate->prefs != NULL) {
 			CFIndex			c;
 			CFMutableDictionaryRef	prefsNew	= NULL;
 			CFMutableDictionaryRef	prefsOld	= NULL;
 			CFMutableDictionaryRef	prefsSave	= prefsPrivate->prefs;
-			CFRange			range		= CFRangeMake(0, CFArrayGetCount(vpnFilter));
 
 			for (c = 0; c < 2; c++) {
-				CFArrayRef	services;
 
 				switch (c) {
 					case 0 :
@@ -1165,41 +1219,49 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 						break;
 				}
 
-				// filter out VPN services of the specified type
-				services = SCNetworkServiceCopyAll(prefs);
-				if (services != NULL) {
-					CFIndex	i;
-					CFIndex	n	= CFArrayGetCount(services);
+				if (useSetFilter) {
+					// filter out current network set selection
+					(void) SCPreferencesRemoveValue(prefs, kSCPrefCurrentSet);
+				} else if (useVPNFilter) {
+					CFRange		range		= CFRangeMake(0, CFArrayGetCount(vpnTypes));
+					CFArrayRef	services;
 
-					for (i = 0; i < n; i++) {
-						SCNetworkServiceRef	service;
+					// filter out VPN services of the specified type
+					services = SCNetworkServiceCopyAll(prefs);
+					if (services != NULL) {
+						CFIndex	i;
+						CFIndex	n	= CFArrayGetCount(services);
 
-						service = CFArrayGetValueAtIndex(services, i);
-						if (_SCNetworkServiceIsVPN(service)) {
-							SCNetworkInterfaceRef	child;
-							CFStringRef		childType	= NULL;
-							SCNetworkInterfaceRef	interface;
-							CFStringRef		interfaceType;
+						for (i = 0; i < n; i++) {
+							SCNetworkServiceRef	service;
 
-							interface     = SCNetworkServiceGetInterface(service);
-							interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
-							child         = SCNetworkInterfaceGetInterface(interface);
-							if (child != NULL) {
-								childType = SCNetworkInterfaceGetInterfaceType(child);
-							}
-							if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVPN) &&
-							    (childType != NULL) &&
-							    CFArrayContainsValue(vpnFilter, range, childType)) {
-								// filter out VPN service
-								(void) SCNetworkServiceRemove(service);
-							} else {
-								// mark all other VPN services "enabled"
-								(void) SCNetworkServiceSetEnabled(service, TRUE);
+							service = CFArrayGetValueAtIndex(services, i);
+							if (_SCNetworkServiceIsVPN(service)) {
+								SCNetworkInterfaceRef	child;
+								CFStringRef		childType	= NULL;
+								SCNetworkInterfaceRef	interface;
+								CFStringRef		interfaceType;
+
+								interface     = SCNetworkServiceGetInterface(service);
+								interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+								child         = SCNetworkInterfaceGetInterface(interface);
+								if (child != NULL) {
+									childType = SCNetworkInterfaceGetInterfaceType(child);
+								}
+								if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVPN) &&
+								    (childType != NULL) &&
+								    CFArrayContainsValue(vpnTypes, range, childType)) {
+									// filter out VPN service
+									(void) SCNetworkServiceRemove(service);
+								} else {
+									// mark all other VPN services "enabled"
+									(void) SCNetworkServiceSetEnabled(service, TRUE);
+								}
 							}
 						}
-					}
 
-					CFRelease(services);
+						CFRelease(services);
+					}
 				}
 
 				switch (c) {
@@ -1227,14 +1289,14 @@ do_prefs_Commit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t
 		}
 	}
 
-	if (prefsData != NULL) {
-		if (prefsPrivate->prefs != NULL) {
-			CFRelease(prefsPrivate->prefs);
-		}
-		prefsPrivate->prefs    = CFDictionaryCreateMutableCopy(NULL, 0, prefsData);
-		prefsPrivate->accessed = TRUE;
-		prefsPrivate->changed  = TRUE;
+	if (prefsPrivate->prefs != NULL) {
+		CFRelease(prefsPrivate->prefs);
 	}
+	prefsPrivate->prefs    = CFDictionaryCreateMutableCopy(NULL, 0, prefsData);
+	prefsPrivate->accessed = TRUE;
+	prefsPrivate->changed  = TRUE;
+
+    commit :
 
 	ok = SCPreferencesCommitChanges(prefs);
 	if (ok) {
@@ -1364,6 +1426,24 @@ sessionName(SCHelperSessionRef session)
 }
 
 
+static CFStringRef
+sessionPrefsID(SCHelperSessionRef session)
+{
+	CFStringRef			prefsID;
+	SCPreferencesPrivateRef		prefsPrivate;
+	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+
+	prefsPrivate = (SCPreferencesPrivateRef)sessionPrivate->prefs;
+	if ((prefsPrivate != NULL) && (prefsPrivate->prefsID != NULL)) {
+		prefsID  = prefsPrivate->prefsID;
+	} else {
+		prefsID = PREFS_DEFAULT_CONFIG;
+	}
+
+	return prefsID;
+}
+
+
 static CFTypeRef
 copyEntitlement(SCHelperSessionRef session, CFStringRef entitlement)
 {
@@ -1405,34 +1485,173 @@ copyEntitlement(SCHelperSessionRef session, CFStringRef entitlement)
 }
 
 
+#if	!TARGET_OS_IPHONE
 static Boolean
-hasAuthorization(SCHelperSessionRef session)
+isSetChange(SCHelperSessionRef session)
 {
-	AuthorizationRef		authorization	= __SCHelperSessionGetAuthorization(session);
 	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+
+	if (sessionPrivate->isSetChange == UNKNOWN) {
+		CFBooleanRef			bVal		= NULL;
+		CFStringRef			prefsID;
+		SCPreferencesPrivateRef		prefsPrivate	= (SCPreferencesPrivateRef)sessionPrivate->prefs;
+		Boolean				setFilter	= FALSE;
+
+		prefsID = sessionPrefsID(session);
+		if (CFEqual(prefsID, PREFS_DEFAULT_CONFIG) &&
+		    isA_CFDictionary(prefsPrivate->options) &&
+		    CFDictionaryGetValueIfPresent(prefsPrivate->options,
+						  kSCPreferencesOptionChangeNetworkSet,
+						  (const void **)&bVal) &&
+		    isA_CFBoolean(bVal) &&
+		    CFBooleanGetValue(bVal)) {
+			setFilter = TRUE;
+		}
+
+		// establish network set (location) filter
+		__SCHelperSessionSetNetworkSetFilter(session, setFilter);
+	}
+
+	return (sessionPrivate->isSetChange == YES) ? TRUE : FALSE;
+}
+#endif	// !TARGET_OS_IPHONE
+
+
+static Boolean
+isVPNChange(SCHelperSessionRef session)
+{
+	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+
+	if (sessionPrivate->isVPNChange == UNKNOWN) {
+		CFArrayRef	entitlement;
+		Boolean		vpnChange	= FALSE;
+		CFArrayRef	vpnTypes	= NULL;
+
+		entitlement = copyEntitlement(session, kSCVPNFilterEntitlementName);
+		if (entitlement != NULL) {
+			if (isA_CFArray(entitlement)) {
+				CFStringRef	prefsID;
+
+				prefsID = sessionPrefsID(session);
+				if (CFEqual(prefsID, PREFS_DEFAULT_CONFIG)) {
+					// save the VPN type identifiers
+					vpnTypes = CFRetain(entitlement);
+
+					// grant an exception
+					vpnChange = TRUE;
+				} else if (CFStringHasPrefix(prefsID, CFSTR("VPN-")) &&
+					   CFStringHasSuffix(prefsID, CFSTR(".plist"))) {
+					CFRange		range;
+					CFStringRef	vpnID;
+
+					range.location = sizeof("VPN-") - 1;
+					range.length   = CFStringGetLength(prefsID)
+							 - (sizeof("VPN-") - 1)		// trim VPN-
+							 - (sizeof(".plist") - 1);	// trim .plist
+					vpnID = CFStringCreateWithSubstring(NULL, prefsID, range);
+					if (CFArrayContainsValue(entitlement,
+								 CFRangeMake(0, CFArrayGetCount(entitlement)),
+								 vpnID)) {
+						// grant an exception
+						vpnChange = TRUE;
+					}
+					CFRelease(vpnID);
+				}
+			}
+
+			CFRelease(entitlement);
+		}
+
+		__SCHelperSessionSetVPNFilter(session, vpnChange, vpnTypes);
+		if (vpnTypes != NULL) {
+			CFRelease(vpnTypes);
+		}
+	}
+
+	return (sessionPrivate->isVPNChange == YES) ? TRUE : FALSE;
+}
+
+
+static Boolean
+checkEntitlement(SCHelperSessionRef session, CFStringRef prefsID, CFStringRef entitlement_name)
+{
+	CFArrayRef			entitlement;
+	Boolean				hasEntitlement	= FALSE;
+
+	entitlement = copyEntitlement(session, entitlement_name);
+	if (entitlement != NULL) {
+		if (isA_CFArray(entitlement)) {
+			if (CFArrayContainsValue(entitlement,
+						 CFRangeMake(0, CFArrayGetCount(entitlement)),
+						 prefsID)) {
+				// if client DOES have entitlement
+				hasEntitlement = TRUE;
+			}
+		} else {
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("hasAuthorization() entitlement=%@: not valid"),
+			      entitlement_name,
+			      sessionName(session));
+		}
+
+		CFRelease(entitlement);
+	}
+
+#if	TARGET_OS_IPHONE
+	// make an exception for VPN configuration management
+	if (!hasEntitlement) {
+		if (isVPNChange(session)) {
+			// grant a "filtered" exception
+			hasEntitlement = TRUE;
+		}
+	}
+#endif	// TARGET_OS_IPHONE
+
+	return hasEntitlement;
+}
+
+
+static Boolean
+hasAuthorization(SCHelperSessionRef session, Boolean needWrite)
+{
+	AuthorizationRef		authorization		= __SCHelperSessionGetAuthorization(session);
+	CFStringRef			prefsID;
+	SCHelperSessionPrivateRef	sessionPrivate		= (SCHelperSessionPrivateRef)session;
 
 	if (authorization == NULL) {
 		return FALSE;
 	}
 
-#if !TARGET_OS_IPHONE
+#if	!TARGET_OS_IPHONE
 	if (!__SCHelperSessionUseEntitlement(session)) {
 		AuthorizationFlags	flags;
 		AuthorizationItem	items[1];
 		AuthorizationRights	rights;
 		OSStatus		status;
 
-		items[0].name        = kSCPreferencesWriteAuthorizationRight;
-		items[0].value       = NULL;
-		items[0].valueLength = 0;
-		items[0].flags       = 0;
+		if (isSetChange(session)) {
+			items[0].name        = kSCPreferencesAuthorizationRight_network_set;
+			items[0].value       = NULL;
+			items[0].valueLength = 0;
+			items[0].flags       = 0;
+		} else if (isVPNChange(session)) {
+			items[0].name        = kSCPreferencesAuthorizationRight_write;
+			items[0].value       = NULL;
+			items[0].valueLength = 0;
+			items[0].flags       = 0;
+		} else {
+			items[0].name        = kSCPreferencesAuthorizationRight_write;
+			items[0].value       = NULL;
+			items[0].valueLength = 0;
+			items[0].flags       = 0;
+		}
 
 		rights.count = sizeof(items) / sizeof(items[0]);
 		rights.items = items;
 
 		flags = kAuthorizationFlagDefaults;
-		flags |= kAuthorizationFlagExtendRights;
 		flags |= kAuthorizationFlagInteractionAllowed;
+		flags |= kAuthorizationFlagExtendRights;
 //		flags |= kAuthorizationFlagPartialRights;
 //		flags |= kAuthorizationFlagPreAuthorize;
 
@@ -1447,81 +1666,48 @@ hasAuthorization(SCHelperSessionRef session)
 
 		return TRUE;
 	}
-#endif // !TARGET_OS_IPHONE
+#endif	// !TARGET_OS_IPHONE
+
+	prefsID = sessionPrefsID(session);
 
 	if (sessionPrivate->callerWriteAccess == UNKNOWN) {
-		CFArrayRef		entitlement;
-		CFStringRef		prefsID;
-		SCPreferencesPrivateRef	prefsPrivate;
-
-		// assume that the client DOES NOT have the entitlement
-		sessionPrivate->callerWriteAccess = NO;
-
-		prefsPrivate = (SCPreferencesPrivateRef)sessionPrivate->prefs;
-		prefsID      = (prefsPrivate->prefsID != NULL) ? prefsPrivate->prefsID : PREFS_DEFAULT_CONFIG;
-
-		entitlement = copyEntitlement(session, kSCWriteEntitlementName);
-		if (entitlement != NULL) {
-			if (isA_CFArray(entitlement)) {
-				if (CFArrayContainsValue(entitlement,
-							 CFRangeMake(0, CFArrayGetCount(entitlement)),
-							 prefsID)) {
-					// if client DOES have entitlement
-					sessionPrivate->callerWriteAccess = YES;
-				}
-			} else {
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("hasAuthorization: entitlement not valid: %@"),
-				      sessionName(session));
-			}
-
-			CFRelease(entitlement);
+		if (checkEntitlement(session, prefsID, kSCWriteEntitlementName)) {
+			sessionPrivate->callerWriteAccess = YES;
+			sessionPrivate->callerReadAccess  = YES;	// implied
+		} else {
+			sessionPrivate->callerWriteAccess = NO;
 		}
+	}
 
-		// make an exception for VPN configuration management
-		if (sessionPrivate->callerWriteAccess != YES) {
-			entitlement = copyEntitlement(session, kSCVPNFilterEntitlementName);
-			if (entitlement != NULL) {
-				if (isA_CFArray(entitlement)) {
-					if (CFEqual(prefsID, PREFS_DEFAULT_CONFIG)) {
-						// save the VPN bundle identifiers
-						__SCHelperSessionSetVPNFilter(session, entitlement);
-
-						// and grant a "filtered" exception
-						sessionPrivate->callerWriteAccess = YES;
-					} else if (CFStringHasPrefix(prefsID, CFSTR("VPN-")) &&
-						   CFStringHasSuffix(prefsID, CFSTR(".plist"))) {
-						CFRange		range;
-						CFStringRef	vpnID;
-
-						range.location = sizeof("VPN-") - 1;
-						range.length   = CFStringGetLength(prefsID)
-								 - (sizeof("VPN-") - 1)		// trim VPN-
-								 - (sizeof(".plist") - 1);	// trim .plist
-						vpnID = CFStringCreateWithSubstring(NULL, prefsID, range);
-						if (CFArrayContainsValue(entitlement,
-									 CFRangeMake(0, CFArrayGetCount(entitlement)),
-									 vpnID)) {
-							// grant an exception
-							sessionPrivate->callerWriteAccess = YES;
-						}
-						CFRelease(vpnID);
-					}
-				}
-
-				CFRelease(entitlement);
-			}
-		}
-
-		if (sessionPrivate->callerWriteAccess != YES) {
+	if (needWrite) {
+		if (sessionPrivate->callerWriteAccess == YES) {
+			return TRUE;
+		} else {
 			SCLog(TRUE, LOG_ERR,
 			      CFSTR("SCPreferences write access to \"%@\" denied, no entitlement for \"%@\""),
 			      prefsID,
 			      sessionName(session));
+			return FALSE;
 		}
 	}
 
-	return (sessionPrivate->callerWriteAccess == YES) ? TRUE : FALSE;
+	if (sessionPrivate->callerReadAccess == UNKNOWN) {
+		if (checkEntitlement(session, prefsID, kSCReadEntitlementName)) {
+			sessionPrivate->callerReadAccess  = YES;
+		} else {
+			sessionPrivate->callerWriteAccess = NO;
+		}
+	}
+
+	if (sessionPrivate->callerReadAccess == YES) {
+		return TRUE;
+	}
+
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR("SCPreferences access to \"%@\" denied, no entitlement for \"%@\""),
+	      prefsID,
+	      sessionName(session));
+	return FALSE;
 }
 
 
@@ -1536,31 +1722,32 @@ static const struct helper {
 	int		command;
 	const char	*commandName;
 	Boolean		needsAuthorization;
+	Boolean		needsWrite;
 	helperFunction	func;
 	void		*info;
 } helpers[] = {
-	{ SCHELPER_MSG_AUTH,			"AUTH",			FALSE,	do_Auth			, NULL		},
+	{ SCHELPER_MSG_AUTH,			"AUTH",			FALSE,	FALSE,	do_Auth			, NULL		},
 
-	{ SCHELPER_MSG_PREFS_OPEN,		"PREFS open",		FALSE,	do_prefs_Open		, NULL		},
-	{ SCHELPER_MSG_PREFS_ACCESS,		"PREFS access",		TRUE,	do_prefs_Access		, NULL		},
-	{ SCHELPER_MSG_PREFS_LOCK,		"PREFS lock",		TRUE,	do_prefs_Lock		, (void *)FALSE	},
-	{ SCHELPER_MSG_PREFS_LOCKWAIT,		"PREFS lock/wait",	TRUE,	do_prefs_Lock		, (void *)TRUE	},
-	{ SCHELPER_MSG_PREFS_COMMIT,		"PREFS commit",		TRUE,	do_prefs_Commit		, NULL		},
-	{ SCHELPER_MSG_PREFS_APPLY,		"PREFS apply",		TRUE,	do_prefs_Apply		, NULL		},
-	{ SCHELPER_MSG_PREFS_UNLOCK,		"PREFS unlock",		FALSE,	do_prefs_Unlock		, NULL		},
-	{ SCHELPER_MSG_PREFS_CLOSE,		"PREFS close",		FALSE,	do_prefs_Close		, NULL		},
-	{ SCHELPER_MSG_PREFS_SYNCHRONIZE,	"PREFS synchronize",	FALSE,	do_prefs_Synchronize	, NULL		},
+	{ SCHELPER_MSG_PREFS_OPEN,		"PREFS open",		FALSE,	FALSE,	do_prefs_Open		, NULL		},
+	{ SCHELPER_MSG_PREFS_ACCESS,		"PREFS access",		TRUE,	FALSE,	do_prefs_Access		, NULL		},
+	{ SCHELPER_MSG_PREFS_LOCK,		"PREFS lock",		TRUE,	TRUE,	do_prefs_Lock		, (void *)FALSE	},
+	{ SCHELPER_MSG_PREFS_LOCKWAIT,		"PREFS lock/wait",	TRUE,	TRUE,	do_prefs_Lock		, (void *)TRUE	},
+	{ SCHELPER_MSG_PREFS_COMMIT,		"PREFS commit",		TRUE,	TRUE,	do_prefs_Commit		, NULL		},
+	{ SCHELPER_MSG_PREFS_APPLY,		"PREFS apply",		TRUE,	TRUE,	do_prefs_Apply		, NULL		},
+	{ SCHELPER_MSG_PREFS_UNLOCK,		"PREFS unlock",		FALSE,	TRUE,	do_prefs_Unlock		, NULL		},
+	{ SCHELPER_MSG_PREFS_CLOSE,		"PREFS close",		FALSE,	FALSE,	do_prefs_Close		, NULL		},
+	{ SCHELPER_MSG_PREFS_SYNCHRONIZE,	"PREFS synchronize",	FALSE,	FALSE,	do_prefs_Synchronize	, NULL		},
 
-	{ SCHELPER_MSG_INTERFACE_REFRESH,	"INTERFACE refresh",	TRUE,	do_interface_refresh	, NULL		},
+	{ SCHELPER_MSG_INTERFACE_REFRESH,	"INTERFACE refresh",	TRUE,	TRUE,	do_interface_refresh	, NULL		},
 
 #if	!TARGET_OS_IPHONE
-	{ SCHELPER_MSG_KEYCHAIN_COPY,		"KEYCHAIN copy",	TRUE,	do_keychain_copy	, NULL		},
-	{ SCHELPER_MSG_KEYCHAIN_EXISTS,		"KEYCHAIN exists",	TRUE,	do_keychain_exists	, NULL		},
-	{ SCHELPER_MSG_KEYCHAIN_REMOVE,		"KEYCHAIN remove",	TRUE,	do_keychain_remove	, NULL		},
-	{ SCHELPER_MSG_KEYCHAIN_SET,		"KEYCHAIN set",		TRUE,	do_keychain_set		, NULL		},
+	{ SCHELPER_MSG_KEYCHAIN_COPY,		"KEYCHAIN copy",	TRUE,	FALSE,	do_keychain_copy	, NULL		},
+	{ SCHELPER_MSG_KEYCHAIN_EXISTS,		"KEYCHAIN exists",	TRUE,	FALSE,	do_keychain_exists	, NULL		},
+	{ SCHELPER_MSG_KEYCHAIN_REMOVE,		"KEYCHAIN remove",	TRUE,	TRUE,	do_keychain_remove	, NULL		},
+	{ SCHELPER_MSG_KEYCHAIN_SET,		"KEYCHAIN set",		TRUE,	TRUE,	do_keychain_set		, NULL		},
 #endif	// !TARGET_OS_IPHONE
 
-	{ SCHELPER_MSG_EXIT,			"EXIT",			FALSE,	do_Exit			, NULL		}
+	{ SCHELPER_MSG_EXIT,			"EXIT",			FALSE,	FALSE,	do_Exit			, NULL		}
 };
 #define nHELPERS (sizeof(helpers)/sizeof(struct helper))
 
@@ -1586,6 +1773,9 @@ newHelper(void *arg)
 	CFRunLoopSourceRef		rls		= NULL;
 	SCHelperSessionRef		session		= (SCHelperSessionRef)arg;
 	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+
+	assert(session != NULL);
+	assert(sessionPrivate->mp != NULL);
 
 	__SCHelperSessionSetThreadName(session);
 
@@ -1726,6 +1916,10 @@ helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	static CFIndex		bufSize		= 0;
 	mach_msg_return_t	mr;
 	int			options;
+	int			ret		= 0;
+	uint64_t		token;
+
+	ret = proc_importance_assertion_begin_with_msg(&bufRequest->Head, NULL, &token);
 
 	if (bufSize == 0) {
 		// get max size for MiG reply buffers
@@ -1800,7 +1994,11 @@ helperCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 		mach_msg_destroy(&bufReply->Head);
 	}
 
-	done :
+    done :
+
+	if (ret == 0) {
+		proc_importance_assertion_complete(token);
+	}
 
 	if (bufReply != (mig_reply_error_t *)bufReply_q)
 		CFAllocatorDeallocate(NULL, bufReply);
@@ -1845,6 +2043,7 @@ _helperinit(mach_port_t			server,
 	}
 
 	session = __SCHelperSessionCreate(NULL);
+	assert(session != NULL);
 	sessionPrivate = (SCHelperSessionPrivateRef)session;
 
 	// create per-session port
@@ -1852,6 +2051,12 @@ _helperinit(mach_port_t			server,
 				  MACH_PORT_RIGHT_RECEIVE,
 				  &sessionPrivate->port);
 	*newSession = sessionPrivate->port;
+
+	(void) mach_port_set_attributes(mach_task_self(),
+					*newSession,
+					MACH_PORT_IMPORTANCE_RECEIVER,
+					NULL,
+					0);
 
 	//
 	// Note: we create the CFMachPort *before* we insert a send
@@ -1978,7 +2183,8 @@ _helperexec(mach_port_t			server,
 	      helpers[i].commandName,
 	      (data != NULL) ? " w/data" : "");
 
-	if (helpers[i].needsAuthorization && !hasAuthorization(session)) {
+	if (helpers[i].needsAuthorization &&
+	    !hasAuthorization(session, helpers[i].needsWrite)) {
 		SCLog(debug, LOG_DEBUG,
 		      CFSTR("%p : command \"%s\" : not authorized"),
 		      session,

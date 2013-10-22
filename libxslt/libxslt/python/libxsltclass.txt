@@ -37,6 +37,9 @@ parseStylesheetDoc()
 parseStylesheetFile()
 uninit()
 
+# functions from module xsltlocale
+freeLocales()
+
 # functions from module xsltutils
 calibrateAdjust()
 debuggerStatus()

@@ -1,5 +1,5 @@
 #include <dispatch/dispatch.h>
-#include <assumes.h>
+#include <os/assumes.h>
 #include "job_reply.h"
 
 #include "launchd.h"
@@ -12,6 +12,8 @@
 #define LAUNCHD_PERF_LOG "launchd-perf.%s.log"
 #define LAUNCHD_SHUTDOWN_LOG "launchd-shutdown.%s.log"
 #define LAUNCHD_LOWLEVEL_LOG "launchd-lowlevel.%s.log"
+
+os_redirect_assumes(_launchd_os_redirect);
 
 char *launchd_username = "unknown";
 char *launchd_label = "com.apple.launchd.unknown";
@@ -116,7 +118,7 @@ _logmsg_remove(struct logmsg_s *lm)
 }
 
 bool
-_launchd_osx_redirect(const char *message)
+_launchd_os_redirect(const char *message)
 {
 	launchd_syslog(LOG_ERR, "%s", message);
 	return true;
@@ -292,9 +294,9 @@ _launchd_log_uncork_pending_drain(void)
 
 	if (unlikely(errno = job_mig_log_drain_reply(tmp_port, 0, outval, outvalCnt))) {
 		if (errno != MACH_SEND_INVALID_DEST) {
-			(void)osx_assumes_zero(errno);
+			(void)os_assumes_zero(errno);
 		}
-		(void)osx_assumes_zero(launchd_mport_deallocate(tmp_port));
+		(void)os_assumes_zero(launchd_mport_deallocate(tmp_port));
 	}
 
 	mig_deallocate(outval, outvalCnt);
@@ -374,11 +376,11 @@ launchd_log_forward(uid_t forward_uid, gid_t forward_gid, vm_offset_t inval, mac
 kern_return_t
 launchd_log_drain(mach_port_t srp, vm_offset_t *outval, mach_msg_type_number_t *outvalCnt)
 {
-	(void)osx_assumes_zero(launchd_drain_reply_port);
+	(void)os_assumes_zero(launchd_drain_reply_port);
 
 	if ((_launchd_logq_cnt == 0) || launchd_shutting_down) {
 		launchd_drain_reply_port = srp;
-		(void)osx_assumes_zero(launchd_mport_notify_req(launchd_drain_reply_port, MACH_NOTIFY_DEAD_NAME));
+		(void)os_assumes_zero(launchd_mport_notify_req(launchd_drain_reply_port, MACH_NOTIFY_DEAD_NAME));
 
 		return MIG_NO_REPLY;
 	}

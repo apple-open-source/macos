@@ -316,6 +316,8 @@ extern struct notifier *ip_down_notifier; /* IPCP has gone down */
 extern struct notifier *auth_up_notifier; /* peer has authenticated */
 extern struct notifier *link_down_notifier; /* link has gone down */
 extern struct notifier *fork_notifier;	/* we are a new child process */
+extern struct notifier *protocolsready_notifier;	/* all protocols ready */
+extern struct notifier *acspdhcpready_notifier;	/* acsp/dhcp info ready */
 
 #ifdef __APPLE__
 extern int ip_src_address_filter; /* ip source address filter */
@@ -862,7 +864,7 @@ int  open_ppp_loopback __P((void)); /* Open loopback for demand-dialling */
 int  tty_establish_ppp __P((int));  /* Turn serial port into a ppp interface */
 void tty_disestablish_ppp __P((int)); /* Restore port to normal operation */
 void generic_disestablish_ppp __P((int dev_fd)); /* Restore device setting */
-int  generic_establish_ppp __P((int dev_fd)); /* Make a ppp interface */
+int  generic_establish_ppp __P((int dev_fd, UInt8 *delegate)); /* Make a ppp interface */
 void make_new_bundle __P((int, int, int, int)); /* Create new bundle */
 int  bundle_attach __P((int));	/* Attach link to existing bundle */
 void cfg_bundle __P((int, int, int, int)); /* Configure existing bundle */
@@ -1323,6 +1325,10 @@ extern int (*acl_hook) __P((u_char *user, int len));
 
 /* Wcast-align fix - cast away alignment warning when buffer is aligned */
 #define ALIGNED_CAST(type)	(type)(void *) 
+
+/* Define keys for AirPort Setup and State interface dictionaries */
+#define SC_AIRPORT_POWERENABLED_KEY		CFSTR("PowerEnabled")
+#define SC_AIRPORT_POWERSTATUS_KEY		CFSTR("Power Status")
 
 #endif /* __APPLE__ */
 

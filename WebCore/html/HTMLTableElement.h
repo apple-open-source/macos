@@ -35,7 +35,7 @@ class HTMLTableCaptionElement;
 class HTMLTableRowsCollection;
 class HTMLTableSectionElement;
 
-class HTMLTableElement : public HTMLElement {
+class HTMLTableElement FINAL : public HTMLElement {
 public:
     static PassRefPtr<HTMLTableElement> create(Document*);
     static PassRefPtr<HTMLTableElement> create(const QualifiedName&, Document*);
@@ -59,25 +59,25 @@ public:
     PassRefPtr<HTMLElement> insertRow(int index, ExceptionCode&);
     void deleteRow(int index, ExceptionCode&);
 
-    HTMLCollection* rows();
-    HTMLCollection* tBodies();
+    PassRefPtr<HTMLCollection> rows();
+    PassRefPtr<HTMLCollection> tBodies();
 
     String rules() const;
     String summary() const;
 
-    StylePropertySet* additionalCellStyle();
-    StylePropertySet* additionalGroupStyle(bool rows);
+    const StylePropertySet* additionalCellStyle();
+    const StylePropertySet* additionalGroupStyle(bool rows);
 
 private:
     HTMLTableElement(const QualifiedName&, Document*);
 
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
-    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
-    virtual bool isURLAttribute(Attribute*) const;
+    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStylePropertySet*) OVERRIDE;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
 
     // Used to obtain either a solid or outset border decl and to deal with the frame and rules attributes.
-    virtual StylePropertySet* additionalAttributeStyle() OVERRIDE;
+    virtual const StylePropertySet* additionalPresentationAttributeStyle() OVERRIDE;
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
@@ -97,7 +97,6 @@ private:
                                 // are present, to none otherwise).
 
     unsigned short m_padding;
-    OwnPtr<HTMLTableRowsCollection> m_rowsCollection;
     RefPtr<StylePropertySet> m_sharedCellStyle;
 };
 

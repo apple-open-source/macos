@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -118,7 +118,6 @@ const CFStringRef kDAFileSystemUnmountArgumentForce     = CFSTR( "force" );
 static void __DAFileSystemProbeCallbackStage1( int status, CFDataRef output, void * context );
 static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, void * context );
 static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, void * context );
-static void __DAFileSystemProbeCallbackStageS( int status, CFDataRef output, void * context );
 
 static void __DAFileSystemCallback( int status, CFDataRef output, void * parameter )
 {
@@ -288,7 +287,6 @@ static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, voi
      */
 
     __DAFileSystemProbeContext * context = parameter;
-    Boolean                      stampID = FALSE;
 
     if ( status == FSUR_IO_SUCCESS )
     {
@@ -307,35 +305,14 @@ static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, voi
 
             if ( string )
             {
-                context->volumeUUID = _DAFileSystemCreateUUIDFromString( kCFAllocatorDefault, string );
-
-                if ( context->volumeUUID == ___kCFUUIDNull )
-                {
-                    stampID = TRUE;
-                }
+                context->volumeUUID = ___CFUUIDCreateFromString( kCFAllocatorDefault, string );
 
                 CFRelease( string );
             }
         }
     }
 
-    if ( stampID )
-    {
-        /*
-         * Execute the "set UUID" command.
-         */
-
-        DACommandExecute( context->probeCommand,
-                          kDACommandExecuteOptionDefault,
-                          ___UID_ROOT,
-                          ___GID_WHEEL,
-                          __DAFileSystemProbeCallbackStageS,
-                          context,
-                          CFSTR( "-s" ),
-                          context->deviceName,
-                          NULL );
-    }
-    else if ( context->repairCommand )
+    if ( context->repairCommand )
     {
         /*
          * Execute the "is clean" command.
@@ -372,48 +349,6 @@ static void __DAFileSystemProbeCallbackStage3( int status, CFDataRef output, voi
     context->volumeClean = CFRetain( ( status == 0 ) ? kCFBooleanTrue : kCFBooleanFalse );
 
     __DAFileSystemProbeCallback( 0, context, NULL );
-}
-
-static void __DAFileSystemProbeCallbackStageS( int status, CFDataRef output, void * parameter )
-{
-    /*
-     * Process the "set UUID" command's completion.
-     */
-
-    __DAFileSystemProbeContext * context = parameter;
-
-    if ( status == FSUR_IO_SUCCESS )
-    {
-        /*
-         * Execute the "get UUID" command.
-         */
-
-        DACommandExecute( context->probeCommand,
-                          kDACommandExecuteOptionCaptureOutput,
-                          ___UID_ROOT,
-                          ___GID_WHEEL,
-                          __DAFileSystemProbeCallbackStage2,
-                          context,
-                          CFSTR( "-k" ),
-                          context->deviceName,
-                          NULL );
-    }
-    else
-    {
-        /*
-         * Execute the "is clean" command.
-         */
-
-        DACommandExecute( context->repairCommand,
-                          kDACommandExecuteOptionDefault,
-                          ___UID_ROOT,
-                          ___GID_WHEEL,
-                          __DAFileSystemProbeCallbackStage3,
-                          context,
-                          CFSTR( "-q" ),
-                          context->devicePath,
-                          NULL );
-    }
 }
 
 CFStringRef _DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoint )
@@ -454,32 +389,26 @@ _DAFileSystemCopyNameErr:
 
 CFUUIDRef _DAFileSystemCreateUUIDFromString( CFAllocatorRef allocator, CFStringRef string )
 {
-    CFUUIDRef uuid;
+    CFDataRef data;
+    CFUUIDRef uuid = NULL;
 
-    uuid = ___CFUUIDCreateFromString( allocator, string );
+    data = ___CFDataCreateFromString( allocator, string );
 
-    if ( uuid == NULL )
+    if ( data )
     {
-        CFDataRef data;
-
-        data = ___CFDataCreateFromString( allocator, string );
-
-        if ( data )
+        if ( CFDataGetLength( data ) == 8 )
         {
-            if ( CFDataGetLength( data ) == 8 )
+            if ( *( ( UInt64 * ) CFDataGetBytePtr( data ) ) )
             {
-                if ( *( ( UInt64 * ) CFDataGetBytePtr( data ) ) )
-                {
-                    uuid = ___CFUUIDCreateFromName( allocator, __kDAFileSystemUUIDSpaceSHA1, data );
-                }
-                else
-                {
-                    uuid = CFRetain( ___kCFUUIDNull );
-                }
+                uuid = ___CFUUIDCreateFromName( allocator, __kDAFileSystemUUIDSpaceSHA1, data );
             }
-
-            CFRelease( data );
+            else
+            {
+                uuid = CFRetain( ___kCFUUIDNull );
+            }
         }
+
+        CFRelease( data );
     }
 
     return uuid;

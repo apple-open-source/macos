@@ -54,6 +54,7 @@ extern "C" {
 #include <IOKit/network/IONetworkController.h>
 #include "IONetworkUserClient.h"
 #include "IONetworkStack.h"
+#include "IONetworkTypesPrivate.h"
 #include "IONetworkControllerPrivate.h"
 #include "IONetworkDebug.h"
 #include "IOMbufQueue.h"
@@ -91,6 +92,7 @@ OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 #define _eflags                 _reserved->eflags
 #define _addrlen                _reserved->addrlen
 #define _hdrlen                 _reserved->hdrlen
+#define _loggingLevel           _reserved->loggingLevel
 #define _outputQueueModel       _reserved->outputQueueModel
 #define _inputDeltas            _reserved->inputDeltas
 #define _driverStats            _reserved->driverStats
@@ -121,6 +123,7 @@ OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 #define _peqHandler             _reserved->peqHandler
 #define _peqTarget              _reserved->peqTarget
 #define _peqRefcon              _reserved->peqRefcon
+#define _subType                _reserved->subType
 
 #define kRemoteNMI                  "remote_nmi"
 #define REMOTE_NMI_PATTERN_LEN      32
@@ -472,6 +475,9 @@ static UInt32 getIfnetHardwareAssistValue(
 
 	if( driverFeatures & kIONetworkFeatureTSOIPv6)
 		hwassist |= IFNET_TSO_IPV6;
+
+    if (driverFeatures & kIONetworkFeatureTransmitCompletionStatus)
+        hwassist |= IFNET_TX_STATUS;
 
     return hwassist;
 }
@@ -938,6 +944,8 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
         char            if_name[IFNAMSIZ];
     } event;
 
+    const IONetworkLinkEventData * linkData;
+
     switch (type)
     {
         // Deliver an IOKit defined event.
@@ -947,24 +955,24 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
         case kIONetworkEventTypeLinkSpeedChange:
             // Send an event only if DLIL has a reference to this
             // interface.
-            if (!_backingIfnet)
+            linkData = (const IONetworkLinkEventData *) data;
+            if (!_backingIfnet || !linkData)
                 break;
 
             // Use link speed to report bandwidth for legacy drivers
-            if (data && ((_configFlags & kConfigDataRates) == 0))
+            if ((_configFlags & kConfigDataRates) == 0)
             {
                 if_bandwidths_t bw;
-                uint64_t *      bps = (uint64_t *) data;
 
-                bw.max_bw = *bps;
-                bw.eff_bw = *bps;
+                bw.max_bw = linkData->linkSpeed;
+                bw.eff_bw = linkData->linkSpeed;
                 ifnet_set_bandwidths(_backingIfnet, &bw, &bw);
             }
 
             if ((type == kIONetworkEventTypeLinkUp) ||
                 (type == kIONetworkEventTypeLinkDown))
             {
-				bzero((void *) &event, sizeof(event));
+				bzero(&event, sizeof(event));
                 event.header.total_size    = sizeof(event);
                 event.header.vendor_code   = KEV_VENDOR_APPLE;
                 event.header.kev_class     = KEV_NETWORK_CLASS;
@@ -1109,7 +1117,7 @@ SInt32 IONetworkInterface::syncSIOCSIFMEDIA(IONetworkController * ctr,
 
 SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
                                             struct ifreq *        ifr,
-					    unsigned long cmd)
+                                            unsigned long         cmd)
 {
     OSDictionary *          mediumDict  = 0;
     UInt                    mediumCount = 0;
@@ -1120,10 +1128,9 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
     OSSymbol *              keyObject;
     SInt32                  error = 0;
     struct ifmediareq *     ifmr = (struct ifmediareq *) ifr;
-    
-	// Maximum number of medium types that the caller will accept.
-    //
-    maxCount = ifmr->ifm_count;
+
+    if (ifmr->ifm_count < 0)
+        return EINVAL;
 
     do {
         mediumDict = ctr->copyMediumDictionary();  // creates a copy
@@ -1139,10 +1146,17 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
             break;  // no medium in the medium dictionary
         }
 
+        // Maximum number of medium types that the caller will accept.
+        //
+        maxCount = ifmr->ifm_count;
         if (maxCount == 0)
             break;  //  caller is only probing for support and media count.
 
-        if (maxCount < mediumCount)
+        if (maxCount > mediumCount)
+        {
+            maxCount = mediumCount;
+        }
+        else if (maxCount < mediumCount)
         {
             // user buffer is too small to hold all medium entries.
             error = E2BIG;
@@ -1191,14 +1205,15 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
 
         if (mediumCount)
         {
-	    user_addr_t srcaddr;
-	    // here's where the difference in ioctls needs to be accounted for.
-	    srcaddr = (cmd == SIOCGIFMEDIA64) ?
-	        ((struct ifmediareq64 *)ifmr)->ifmu_ulist :
-		CAST_USER_ADDR_T(((struct ifmediareq32 *)ifmr)->ifmu_ulist);
-	    if (srcaddr != USER_ADDR_NULL) {
-                error = copyout((caddr_t) typeList, srcaddr, typeListSize);
-	    }
+            user_addr_t srcaddr;
+
+            // here's where the difference in ioctls needs to be accounted for.
+            srcaddr = (cmd == SIOCGIFMEDIA64) ?
+                ((struct ifmediareq64 *)ifmr)->ifmu_ulist :
+            CAST_USER_ADDR_T(((struct ifmediareq32 *)ifmr)->ifmu_ulist);
+            if (srcaddr != USER_ADDR_NULL) {
+                    error = copyout((caddr_t) typeList, srcaddr, typeListSize);
+            }
         }
 
         IOFree(typeList, typeListSize);
@@ -1219,7 +1234,7 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
                                 pTable->getObject(kIOLinkStatus);
         if (linkStatus)
             ifmr->ifm_status = linkStatus->unsigned32BitValue();
-        
+
         if (mediumDict)
         {
             IONetworkMedium * medium;
@@ -1432,26 +1447,33 @@ int IONetworkInterface::if_output( ifnet_t ifp, mbuf_t m )
 //------------------------------------------------------------------------------
 // if_set_bpf_tap() handler. Handles request from the DLIL to enable or
 // disable the input/output filter taps.
-//
-// FIXME - locking may be needed.
 
 errno_t IONetworkInterface::if_set_bpf_tap(
     ifnet_t             ifp,
     bpf_tap_mode        mode,
-    bpf_packet_func     func)
+    bpf_packet_func     func )
 {
 	IONetworkInterface * self = IFNET_TO_THIS(ifp);
+    bool changed = false;
 
     assert(ifp == self->_backingIfnet);
+    if (self->isInactive())
+    {
+        return 0;
+    }
+
+    IOLockLock(self->_privateLock);
 
     switch ( mode )
     {
         case BPF_TAP_DISABLE:
+            changed = (self->_inputFilterFunc != 0);
             self->_inputFilterFunc = self->_outputFilterFunc = 0;
             break;
 
         case BPF_TAP_INPUT:
             assert(func);
+            changed = (self->_inputFilterFunc == 0);
             self->_inputFilterFunc = func;
             break;
 
@@ -1459,9 +1481,10 @@ errno_t IONetworkInterface::if_set_bpf_tap(
             assert(func);
             self->_outputFilterFunc = func;
             break;
-        
+
         case BPF_TAP_INPUT_OUTPUT:
             assert(func);
+            changed = (self->_inputFilterFunc == 0);
             self->_inputFilterFunc = self->_outputFilterFunc = func;
             break;
 
@@ -1470,8 +1493,15 @@ errno_t IONetworkInterface::if_set_bpf_tap(
             break;
     }
 
+    IOLockUnlock(self->_privateLock);
+
+    if (changed)
+        self->notifyDriver(kIONetworkNotificationBPFTapStateChange, 0);
+
     return 0;
 }
+
+//------------------------------------------------------------------------------
 
 void IONetworkInterface::if_detach( ifnet_t ifp )
 {
@@ -1576,6 +1606,16 @@ bool IONetworkInterface::setUnitNumber( UInt16 value )
     }
     else
         return false;
+}
+
+bool IONetworkInterface::setInterfaceSubType( uint32_t subType )
+{
+	// once attached to dlil, we can't change the interface sub-type
+	if (_backingIfnet)
+		return false;
+	else
+		_subType = subType;
+	return true;
 }
 
 //------------------------------------------------------------------------------
@@ -1999,6 +2039,7 @@ IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
     eparams.unit            = params.unit;
     eparams.family          = params.family;
     eparams.type            = params.type;
+    eparams.subfamily       = _subType;
 
     eparams.demux           = params.demux;
     eparams.add_proto       = params.add_proto;
@@ -2081,8 +2122,8 @@ IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
         eparams.output      = params.output;
     }
 
-    // ifnet_pre_enqueue_func pre_enqueue
-    // ifnet_ctl_func output_ctl
+    eparams.output_ctl      = if_output_ctl;
+
     // u_int64_t output_bw
     // u_int64_t input_bw
 
@@ -2297,7 +2338,7 @@ errno_t IONetworkInterface::if_output_pre_enqueue( ifnet_t ifp, mbuf_t packet )
     errno_t                 ret;
 
     assert(ifp == me->_backingIfnet);
-    assert(me->_peqAction);
+    assert(me->_peqHandler);
 
     ret = me->_peqHandler(me->_peqTarget, me->_peqRefcon, packet);
     return ret;
@@ -2813,6 +2854,19 @@ void IONetworkInterface::flushOutputQueue( IOOptionBits options )
 }
 
 //------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::reportTransmitCompletionStatus(
+    mbuf_t                  packet,
+    IOReturn                status,
+    uint32_t                param1  __unused,
+    uint32_t                param2  __unused,
+    IOOptionBits            options __unused )
+{
+    errno_t error = ifnet_tx_compl_status(getIfnet(), packet, status);
+    return (error) ? kIOReturnError : kIOReturnSuccess;
+}
+
+//------------------------------------------------------------------------------
 // Stack-poll input model
 //------------------------------------------------------------------------------
 
@@ -2933,6 +2987,31 @@ void IONetworkInterface::if_input_poll_gated(
     }
 }
 
+IOReturn IONetworkInterface::setPacketPollingParameters(
+    const IONetworkPacketPollingParameters * params,
+    IOOptionBits options )
+{
+    struct ifnet_poll_params    ifParams;
+    errno_t                     error;
+
+    if (!params)
+        return kIOReturnBadArgument;
+    if (!_backingIfnet)
+        return kIOReturnNotAttached;
+
+    bzero(&ifParams, sizeof(ifParams));
+    ifParams.flags         = options;
+    ifParams.packets_limit = params->maxPacketCount;
+    ifParams.packets_lowat = params->lowThresholdPackets;
+    ifParams.packets_hiwat = params->highThresholdPackets;
+    ifParams.bytes_lowat   = params->lowThresholdBytes;
+    ifParams.bytes_hiwat   = params->highThresholdBytes;
+    ifParams.interval_time = params->pollIntervalTime;
+
+    error = ifnet_set_poll_params(_backingIfnet, &ifParams);
+    return errnoToIOReturn(error);
+}
+
 //------------------------------------------------------------------------------
 
 IOReturn IONetworkInterface::enqueueInputPacket(
@@ -3021,8 +3100,8 @@ errno_t IONetworkInterface::if_input_ctl( ifnet_t           ifp,
             /* action */ (IONetworkController::Action) me->_rxCtlAction,
             /* target */ me,
             /* param0 */ driver,
-            /* param1 */ (void *)(ifnet_ctl_cmd_t)(uintptr_t) cmd,
-            /* param2 */ (void *)(uint32_t)(uintptr_t) arglen,
+            /* param1 */ (void *)(uintptr_t) cmd,
+            /* param2 */ (void *)(uintptr_t) arglen,
             /* param3 */ arg );
 
     return 0;
@@ -3080,4 +3159,163 @@ void IONetworkInterface::actionInputCtl( IONetworkController *  driver,
         default:
             DLOG("%s: if_input_ctl unknown cmd 0x%x\n", getName(), cmd);
     }
+}
+
+//------------------------------------------------------------------------------
+
+errno_t IONetworkInterface::if_output_ctl( ifnet_t           ifp,
+                                           ifnet_ctl_cmd_t   cmd,
+                                           u_int32_t         arglen,
+                                           void *            arg )
+{
+    IONetworkInterface *    me = IFNET_TO_THIS(ifp);
+    IONetworkController *   driver;
+    errno_t                 error = ENOTSUP;
+    bool                    changed = false;
+
+    assert(ifp == me->_backingIfnet);
+
+    driver = me->_driver;
+    assert(driver);
+    if (!driver)
+    {
+        return ENODEV;
+    }
+
+    if (cmd == IFNET_CTL_SET_LOG)
+    {
+        if (arg && (arglen == sizeof(struct ifnet_log_params)))
+        {
+            const struct ifnet_log_params * lp =
+                (const struct ifnet_log_params *) arg;
+
+            IONetworkInterfaceLoggingParameters params;
+
+            IOLockLock(me->_privateLock);
+            
+            if (me->_loggingLevel != lp->level)
+                changed = true;
+
+            me->_loggingLevel = lp->level;
+            
+            IOLockUnlock(me->_privateLock);
+            error = 0;
+            
+            bzero(&params, sizeof(params));
+            params.level = lp->level;
+            params.flags = lp->flags;
+            params.category = lp->category;
+            params.subCategory = lp->subcategory;
+            me->notifyDriver(kIONetworkNotificationLoggingParametersChange,
+                             &params);
+        }
+        else
+        {
+            error = EINVAL;
+        }
+
+        if (changed)
+            me->notifyDriver(kIONetworkNotificationLoggingLevelChange, 0);
+    }
+    else if (cmd == IFNET_CTL_NOTIFY_ADDRESS)
+    {
+        if (arg && (arglen == sizeof(struct ifnet_notify_address_params)))
+        {
+            const struct ifnet_notify_address_params * ap =
+                (const struct ifnet_notify_address_params *) arg;
+
+            IONetworkInterfaceAddressChangeParameters params;
+
+            bzero(&params, sizeof(params));
+            params.addressFamily = ap->address_family;
+            me->notifyDriver(kIONetworkNotificationInterfaceAddressChange,
+                             &params);
+        }
+        else
+        {
+            error = EINVAL;
+        }
+    }
+
+    return error;
+}
+
+//------------------------------------------------------------------------------
+
+bool IONetworkInterface::isBPFTapEnabled( IOOptionBits options __unused ) const
+{
+    bool enabled;
+
+    IOLockLock(_privateLock);
+    enabled = (_inputFilterFunc != 0);
+    IOLockUnlock(_privateLock);
+    return enabled;
+}
+
+int32_t IONetworkInterface::getLoggingLevel( IOOptionBits options __unused ) const
+{
+    int32_t level;
+
+    IOLockLock(_privateLock);
+    level = _loggingLevel;
+    IOLockUnlock(_privateLock);
+    return level;
+}
+
+void IONetworkInterface::notifyDriver( uint32_t notifyType, void * data )
+{
+    if (_driver)
+        _driver->networkInterfaceNotification(this, notifyType, data);
+}
+
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::errnoToIOReturn( errno_t error )
+{
+    switch (error)
+    {
+        case 0:
+            return kIOReturnSuccess;
+        case EINVAL:
+            return kIOReturnBadArgument;
+        case ENOMEM:
+            return kIOReturnNoMemory;
+        case EPERM:
+            return kIOReturnNotPermitted;
+        case EACCES:
+            return kIOReturnNotPrivileged;
+        case ENOTSUP:
+            return kIOReturnUnsupported;
+        case EBUSY:
+            return kIOReturnBusy;
+        case ETIMEDOUT:
+            return kIOReturnTimeout;
+        default:
+            return kIOReturnError;
+    }
+}
+
+IOReturn IONetworkInterface::reportDatapathIssue(
+    IOReturn 	issue,
+    void * 		data   __unused,
+    IOByteCount length __unused )
+{
+    errno_t error;
+
+    // SHA-1 hash of com.apple.iokit.IONetworkingFamily
+    static const uint8_t modid[DLIL_MODIDLEN] = {
+        0xe3, 0x26, 0x1e, 0x7d, 0xf2, 0x15, 0xf1, 0x3d, 0x9d, 0x9d,
+        0xbc, 0x1f, 0x75, 0x4d, 0xa5, 0xa4, 0x1c, 0xac, 0x2a, 0xab };
+
+    union {
+        uint8_t     errorData[ DLIL_MODARGLEN ];
+        IOReturn    errorCode;
+    } issueInfo;
+
+    bzero(&issueInfo, sizeof(issueInfo));
+    issueInfo.errorCode = issue;
+
+    error = ifnet_report_issues(getIfnet(), (uint8_t *) modid, issueInfo.errorData);
+
+    return errnoToIOReturn(error);
 }

@@ -23,29 +23,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-module html {
+[
+    Conditional=VIDEO_TRACK,
+    GenerateIsReachable=ImplElementRoot,
+    EventTarget,
+    JSCustomMarkFunction
+] interface TextTrackList {
+    readonly attribute unsigned long length;
+    getter TextTrack item(unsigned long index);
 
-    interface [
-        Conditional=VIDEO_TRACK,
-        V8EnabledAtRuntime=webkitVideoTrack,
-        IndexedGetter,
-        EventTarget,
-        JSCustomMarkFunction,
-        JSCustomIsReachable
-    ] TextTrackList {
-        readonly attribute unsigned long length;
-        TextTrack item(in unsigned long index);
+    attribute EventListener onaddtrack;
+    attribute EventListener onremovetrack;
 
-        attribute EventListener onaddtrack;
+    void addEventListener(DOMString type,
+                          EventListener listener,
+                          optional boolean useCapture);
+    void removeEventListener(DOMString type,
+                             EventListener listener,
+                             optional boolean useCapture);
+    [RaisesException] boolean dispatchEvent(Event evt);
+};
 
-        void addEventListener(in DOMString type,
-                              in EventListener listener,
-                              in [Optional] boolean useCapture);
-        void removeEventListener(in DOMString type,
-                                 in EventListener listener,
-                                 in [Optional] boolean useCapture);
-        boolean dispatchEvent(in Event evt)
-            raises(EventException);
-    };
-
-}

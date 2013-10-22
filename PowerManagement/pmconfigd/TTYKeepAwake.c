@@ -205,7 +205,7 @@ bool  TTYKeepAwakeConsiderAssertion( void )
     time_t time_to_idle = 0;
 
     active = ttys_are_active(&time_to_idle);
-    
+
     if (active && settingTTYSPreventSleep) 
     {
         time_to_idle = MAX(time_to_idle, kMinIdleCheckTime);
@@ -243,21 +243,22 @@ static void read_logins(void)
     }
     endutxent();
 
-    if (cnt) _unclamp_silent_running();
     TTYKeepAwakeConsiderAssertion();
 }
 
 static void freettys(void)
 {
-    dispatch_sync(s_tty_queue, ^{
-        struct ttyentry *tty;
-        struct ttyentry *tmptty;
+    if (s_tty_queue) {
+        dispatch_sync(s_tty_queue, ^{
+            struct ttyentry *tty;
+            struct ttyentry *tmptty;
 
-        SLIST_FOREACH_SAFE(tty, &s_activettys, next, tmptty) {
-            SLIST_REMOVE(&s_activettys, tty, ttyentry, next);
-            free(tty);
-        }
-    });
+            SLIST_FOREACH_SAFE(tty, &s_activettys, next, tmptty) {
+                SLIST_REMOVE(&s_activettys, tty, ttyentry, next);
+                free(tty);
+            }
+        });
+    }
 }
 
 static void addtty(char *ttyname)
@@ -294,6 +295,9 @@ static boolean_t ttys_are_active(time_t *time_to_idle_out)
     __block time_t time_to_idle;
     __block boolean_t active = FALSE;
 
+    if (!s_tty_queue)
+        return false;
+    
     *time_to_idle_out = time_to_idle = 0;
 
     bzero(s_activetty_names, sizeof(s_activetty_names));
@@ -302,7 +306,7 @@ static boolean_t ttys_are_active(time_t *time_to_idle_out)
     if (curtime == (time_t)-1) {
         goto finish;
     }
-
+    
     dispatch_sync(s_tty_queue, ^{
         struct ttyentry *tty;
         struct stat sb;
@@ -358,7 +362,7 @@ static void create_assertion()
         if (!assertionProperties)
             return;
         
-        CFDictionarySetValue(assertionProperties, kIOPMAssertionTypeKey, kIOPMAssertionTypePreventUserIdleSystemSleep);
+        CFDictionarySetValue(assertionProperties, kIOPMAssertionTypeKey, kIOPMAssertNetworkClientActive);
         CFDictionarySetValue(assertionProperties, kIOPMAssertionNameKey, kTTYAssertion);
         CFDictionarySetValue(assertionProperties, kIOPMAssertionHumanReadableReasonKey, kAssertionHumanReadableReasonTTY);
         CFDictionarySetValue(assertionProperties, kIOPMAssertionLocalizationBundlePathKey, kPowerManagementBundlePathString);
@@ -384,6 +388,9 @@ static void create_assertion()
 
 static void release_assertion(void)
 {
+    if (!s_tty_queue)
+        return;
+
     dispatch_async(s_tty_queue, ^{
 
         InternalReleaseAssertion(&s_assertion);
@@ -401,29 +408,33 @@ static void rearm_timer(time_t time_to_idle)
 
 static void pause_timer(void)
 {
-    dispatch_async(s_tty_queue, ^{
-        dispatch_source_set_timer(s_timer_source, DISPATCH_TIME_FOREVER, 0, 0);
-    });
+    if (s_tty_queue) {
+        dispatch_async(s_tty_queue, ^{
+            dispatch_source_set_timer(s_timer_source, DISPATCH_TIME_FOREVER, 0, 0);
+        });
+    }
 }
 
 static void cleanup_tty_tracking(void)
 {
     freettys();        // no-op on empty list; clears list
 
-    dispatch_sync(s_tty_queue, ^{
-        if (s_utmpx_notify_token != -1) {
-            notify_cancel(s_utmpx_notify_token);
-            s_utmpx_notify_token = -1;
-        }
+    if (s_tty_queue) {
+        dispatch_sync(s_tty_queue, ^{
+            if (s_utmpx_notify_token != -1) {
+                notify_cancel(s_utmpx_notify_token);
+                s_utmpx_notify_token = -1;
+            }
 
-        if (s_timer_source) {
-            dispatch_release(s_timer_source);
-            s_timer_source = NULL;
-        }
-    });
+            if (s_timer_source) {
+                dispatch_release(s_timer_source);
+                s_timer_source = NULL;
+            }
+        });
 
-    dispatch_release(s_tty_queue);
-    s_tty_queue = NULL;
+        dispatch_release(s_tty_queue);
+        s_tty_queue = NULL;
+    }
 }
 
 #endif /* !TARGET_OS_EMBEDDED */

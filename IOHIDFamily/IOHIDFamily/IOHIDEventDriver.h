@@ -54,14 +54,27 @@ private:
     UInt32                      _cachedButtonState;
     bool                        _cachedRangeState;
     
-    struct ExpansionData { 
+    struct ExpansionData {
+        SInt32  absoluteAxisRemovalPercentage;
+        
+        struct { 
+            bool        containsRange;
+            uint32_t    type;
+        } digitizer;
+        
+        struct {
+            UInt32          capable;
+            UInt32          sendingReportID;
+            IOFixed         axis[6];
+            IOOptionBits    options;
+        } multiAxis;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
     ExpansionData *             _reserved;
     
     bool                    findElements ( OSArray * elementArray, UInt32 bootProtocol );
-    
+        
     bool                    storeReportElement ( IOHIDElement * element );
 
     void                    handleBootPointingReport (
@@ -69,15 +82,12 @@ private:
                                 SInt32 *                    dX,
                                 SInt32 *                    dY,
                                 UInt32 *                    buttonState);
-    
-    static void             _handleInterruptReport (
-                                OSObject *                  target,
-                                AbsoluteTime                timeStamp,
-                                IOMemoryDescriptor *        report,
-                                IOHIDReportType             reportType,
-                                UInt32                      reportID,
-                                void *                      refcon);
-    
+
+    static void             processMultiAxisElement(IOHIDElement * element, UInt32 * isMultiAxis, bool * supportsInk=NULL, IOHIDElement ** relativeCollection=NULL);
+    static void             calibrateDigitizerElement(IOHIDElement * element, SInt32 removalPercentage);
+    static void             calibratePreferredStateElement(IOHIDElement * element, SInt32 removalPercentage);
+    static void             calibrateAxisToButtonElement(IOHIDElement * element, SInt32 removalPercentage);
+
 protected:
 
     virtual void            free();

@@ -1,3 +1,29 @@
+.\" Copyright (c) 2013 Apple Inc. All rights reserved.
+.\"
+.\" @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+.\" 
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+.\" Version 2.0 (the 'License'). You may not use this file except in
+.\" compliance with the License. The rights granted to you under the License
+.\" may not be used to create, or enable the creation or redistribution of,
+.\" unlawful or unlicensed copies of an Apple operating system, or to
+.\" circumvent, violate, or enable the circumvention or violation of, any
+.\" terms of an Apple operating system software license agreement.
+.\" 
+.\" Please obtain a copy of the License at
+.\" http://www.opensource.apple.com/apsl/ and read it before using this file.
+.\"
+.\" The Original Code and all software distributed under the License are
+.\" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\" Please see the License for the specific language governing rights and
+.\" limitations under the License.
+.\" 
+.\" @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+.\"
 .\" Copyright (c) 1983, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -515,6 +541,25 @@ If the interface was reset when previously marked down,
 the hardware will be re-initialized.
 .El
 .Pp
+The following parameters are for ICMPv6 Neighbor Discovery Protocol.
+Note that the address family keyword
+.Dq Li inet6
+is needed for them:
+.Bl -tag -width indent
+.It Cm nud
+Perform network unreachability detection (NUD).
+.It Cm -nud
+Do not perform network unreachability detection (NUD).
+.It Cm ifdisabled
+Disable all IPv6 communication on the interface.
+.It Cm -ifdisabled
+Do not disable all IPv6 communication on the interface.
+.It Cm insecure
+Disable the processing of Secure Neighbor Discovery (SEND).
+.It Cm -insecure
+Do not disabled the processing of Secure Neighbor Discovery (SEND).
+.El
+.Pp
 The following parameters are specific to link aggregate interfaces:
 .Bl -tag -width indent
 .It Cm bonddev Ar iface
@@ -689,39 +734,39 @@ This is the default for all interfaces added to a bridge.
 Clear the
 .Dq learning
 attribute on a member interface.
-.It Cm sticky Ar interface
-Mark an interface as a
-.Dq sticky
-interface.
-Dynamically learned address entries are treated at static once entered into
-the cache.
-Sticky entries are never aged out of the cache or replaced, even if the
-address is seen on a different interface.
-.It Cm -sticky Ar interface
-Clear the
-.Dq sticky
-attribute on a member interface.
-.It Cm private Ar interface
-Mark an interface as a
-.Dq private
-interface.
-A private interface does not forward any traffic to any other port that is also
-a private interface.
-.It Cm -private Ar interface
-Clear the
-.Dq private
-attribute on a member interface.
-.It Cm span Ar interface
-Add the interface named by
-.Ar interface
-as a span port on the bridge.
-Span ports transmit a copy of every frame received by the bridge.
-This is most useful for snooping a bridged network passively on
-another host connected to one of the span ports of the bridge.
-.It Cm -span Ar interface
-Delete the interface named by
-.Ar interface
-from the list of span ports of the bridge.
+.\".It Cm sticky Ar interface
+.\"Mark an interface as a
+.\".Dq sticky
+.\"interface.
+.\"Dynamically learned address entries are treated at static once entered into
+.\"the cache.
+.\"Sticky entries are never aged out of the cache or replaced, even if the
+.\"address is seen on a different interface.
+.\".It Cm -sticky Ar interface
+.\"Clear the
+.\".Dq sticky
+.\"attribute on a member interface.
+.\".It Cm private Ar interface
+.\"Mark an interface as a
+.\".Dq private
+.\"interface.
+.\"A private interface does not forward any traffic to any other port that is also
+.\"a private interface.
+.\".It Cm -private Ar interface
+.\"Clear the
+.\".Dq private
+.\"attribute on a member interface.
+.\".It Cm span Ar interface
+.\"Add the interface named by
+.\".Ar interface
+.\"as a span port on the bridge.
+.\"Span ports transmit a copy of every frame received by the bridge.
+.\"This is most useful for snooping a bridged network passively on
+.\"another host connected to one of the span ports of the bridge.
+.\".It Cm -span Ar interface
+.\"Delete the interface named by
+.\".Ar interface
+.\"from the list of span ports of the bridge.
 .It Cm stp Ar interface
 Enable Spanning Tree protocol on
 .Ar interface .
@@ -733,43 +778,43 @@ Spanning Tree is used to detect and remove loops in a network topology.
 Disable Spanning Tree protocol on
 .Ar interface .
 This is the default for all interfaces added to a bridge.
-.It Cm edge Ar interface
-Set
-.Ar interface
-as an edge port.
-An edge port connects directly to end stations cannot create bridging
-loops in the network, this allows it to transition straight to forwarding.
-.It Cm -edge Ar interface
-Disable edge status on
-.Ar interface .
-.It Cm autoedge Ar interface
-Allow
-.Ar interface
-to automatically detect edge status.
-This is the default for all interfaces added to a bridge.
-.It Cm -autoedge Ar interface
-Disable automatic edge status on
-.Ar interface .
-.It Cm ptp Ar interface
-Set the
-.Ar interface
-as a point to point link.
-This is required for straight transitions to forwarding and
-should be enabled on a direct link to another RSTP capable switch.
-.It Cm -ptp Ar interface
-Disable point to point link status on
-.Ar interface .
-This should be disabled for a half duplex link and for an interface
-connected to a shared network segment,
-like a hub or a wireless network.
-.It Cm autoptp Ar interface
-Automatically detect the point to point status on
-.Ar interface
-by checking the full duplex link status.
-This is the default for interfaces added to the bridge.
-.It Cm -autoptp Ar interface
-Disable automatic point to point link detection on
-.Ar interface .
+.\".It Cm edge Ar interface
+.\"Set
+.\".Ar interface
+.\"as an edge port.
+.\"An edge port connects directly to end stations cannot create bridging
+.\"loops in the network, this allows it to transition straight to forwarding.
+.\".It Cm -edge Ar interface
+.\"Disable edge status on
+.\".Ar interface .
+.\".It Cm autoedge Ar interface
+.\"Allow
+.\".Ar interface
+.\"to automatically detect edge status.
+.\"This is the default for all interfaces added to a bridge.
+.\".It Cm -autoedge Ar interface
+.\"Disable automatic edge status on
+.\".Ar interface .
+.\".It Cm ptp Ar interface
+.\"Set the
+.\".Ar interface
+.\"as a point to point link.
+.\"This is required for straight transitions to forwarding and
+.\"should be enabled on a direct link to another RSTP capable switch.
+.\".It Cm -ptp Ar interface
+.\"Disable point to point link status on
+.\".Ar interface .
+.\"This should be disabled for a half duplex link and for an interface
+.\"connected to a shared network segment,
+.\"like a hub or a wireless network.
+.\".It Cm autoptp Ar interface
+.\"Automatically detect the point to point status on
+.\".Ar interface
+.\"by checking the full duplex link status.
+.\"This is the default for interfaces added to the bridge.
+.\".It Cm -autoptp Ar interface
+.\"Disable automatic point to point link detection on
+.\".Ar interface .
 .It Cm maxage Ar seconds
 Set the time that a Spanning Tree protocol configuration is valid.
 The default is 20 seconds.
@@ -789,15 +834,15 @@ The minimum is 1 second and the maximum is 2 seconds.
 Set the bridge priority for Spanning Tree.
 The default is 32768.
 The minimum is 0 and the maximum is 61440.
-.It Cm proto Ar value
-Set the Spanning Tree protocol.
-The default is rstp.
-The available options are stp and rstp.
-.It Cm holdcnt Ar value
-Set the transmit hold count for Spanning Tree.
-This is the number of packets transmitted before being rate limited.
-The default is 6.
-The minimum is 1 and the maximum is 10.
+.\".It Cm proto Ar value
+.\"Set the Spanning Tree protocol.
+.\"The default is rstp.
+.\"The available options are stp and rstp.
+.\".It Cm holdcnt Ar value
+.\"Set the transmit hold count for Spanning Tree.
+.\"This is the number of packets transmitted before being rate limited.
+.\"The default is 6.
+.\"The minimum is 1 and the maximum is 10.
 .It Cm ifpriority Ar interface Ar value
 Set the Spanning Tree priority of
 .Ar interface

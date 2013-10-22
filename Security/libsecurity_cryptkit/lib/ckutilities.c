@@ -94,7 +94,7 @@ void initCryptKit(void)
 /*
  * Shutdown.
  */
-void terminateCryptKit()
+void terminateCryptKit(void)
 {
 	#if		GIANTS_VIA_STACK
 	freeGiantStacks();

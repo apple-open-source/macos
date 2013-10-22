@@ -1035,6 +1035,9 @@ register_services(void)
 	}
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+
 /*
  * our own little logging function...
  */
@@ -1056,6 +1059,7 @@ SYSLOG(int pri, const char *fmt, ...)
 	}
 	va_end(ap);
 }
+#pragma clang diagnostic pop
 
 /*
  * get the PID from the given pidfile

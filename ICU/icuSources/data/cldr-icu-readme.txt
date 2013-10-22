@@ -1,4 +1,4 @@
-# Copyright (C) 2010, International Business Machines Corporation and others.
+# Copyright (C) 2010,2012, International Business Machines Corporation and others.
 # All Rights Reserved.                  
 #
 # Commands for regenerating ICU4C locale data (.txt files) from CLDR.
@@ -7,6 +7,9 @@
 #    - CLDR (the source of most of the data, and some Java tools)
 #    - ICU4J  (used by the conversion tools)
 #    - ICU4C  (the destination for the new data, and the source for some of it)
+#             (Either check out ICU4C from Subversion, or download the additional 
+#              icu4c-*-data.zip file so that the icu/source/data/ directory is fully
+#              populated.)
 #
 # For an official CLDR data integration into ICU, these should be clean, freshly
 # checked-out. For released CLDR sources, an alternative to checking out sources
@@ -81,6 +84,12 @@
 #                CLDR locales for inclusion in ICU. Update <paths> to prefer
 #                alt forms for certain paths, or to exclude certain paths; note
 #                that <paths> items can only have draft or alt attributes.
+#
+#                Note that if a language-only locale (e.g. "de") is included in
+#                <locales>, then all region sublocales for that language that
+#                are present in CLDR data (e.g. "de_AT", "de_BE", "de_CH", etc.)
+#                should also be included in <locales>, per PMC policy decision
+#                2012-05-02 (see http://bugs.icu-project.org/trac/ticket/9298).
 #
 #    icu/trunk/source/data/build.xml - If you are adding or removing break
 #                iterators, you need to update  <fileset id="brkitr" ...> under
@@ -197,11 +206,14 @@ make check 2>&1 | tee /tmp/icu4c-newData-makeCheck.txt
 
 # 9. Investigate each test case failure. The first run processing new CLDR data
 # from the Survey Tool can result in thousands of failures (in many cases, one
-# CLDR data fix can resolve hundres of test failures). If the error is caused
+# CLDR data fix can resolve hundreds of test failures). If the error is caused
 # by bad CLDR data, then file a CLDR bug, fix the data, and regenerate from
 # step 5a. If the data is OK but the testcase needs to be updated because the
 # data has legitimately changed, then update the testcase. You will check in
 # the updated testcases along with the new ICU data at the end of this process.
+# Note that if the new data has any differences in structure, you will have to
+# update test/testdata/structLocale.txt or /tsutil/cldrtest/TestLocaleStructure
+# may fail.
 # Repeat steps 5-8 until there are no errors.
 
 # 10. Now run the make check tests in exhaustive mode:

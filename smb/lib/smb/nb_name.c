@@ -94,8 +94,13 @@ void convertToNetBIOSaddr(struct sockaddr_storage *storage, const char *name)
 	struct sockaddr *dst = NULL;
 	
 	if (nb_sockaddr(peer, name, NBT_SERVER, &dst) == 0) {
-		memcpy(peer, dst, dst->sa_len);
-		free(dst);
+        if ((peer != NULL) && (dst != NULL)) {
+            memcpy(peer, dst, dst->sa_len);
+        }
+        
+        if (dst != NULL) {
+            free(dst);
+        }
 	}
 }
 

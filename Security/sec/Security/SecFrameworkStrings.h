@@ -32,11 +32,10 @@
 
 #include <Security/SecFramework.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 #define SecCopyCertString(KEY) SecFrameworkCopyLocalizedString(KEY, CFSTR("Certificate"))
+#define SecCopyCKString(KEY) SecFrameworkCopyLocalizedString(KEY, CFSTR("CloudKeychain"))
 
 /* SecCertificate Strings */
 #define SEC_NULL_KEY                SecStringWithDefaultValue("<NULL>", "Certificate", 0, "<NULL>", "Value of a field if its length is 0")
@@ -182,8 +181,41 @@ extern "C" {
 #define SEC_POLICY__REQ_NOT_MET_KEY SecStringWithDefaultValue("Policy requirements not met.", "Certificate", 0, "Policy requirements not met.", "")
 #define SEC_CHAIN_VALIDITY_ERR_KEY  SecStringWithDefaultValue("One or more certificates have expired or are not valid yet.", "Certificate", 0, "One or more certificates have expired or are not valid yet.", "")
 
-#if defined(__cplusplus)
-}
-#endif
+#define SEC_CK_PASSWORD_INCORRECT   SecStringWithDefaultValue("iCloud Password incorrect, try again", "CloudKeychain", 0, "iCloud password is incorrect, try again", "Title for alert when password has been entered incorrectly")
+#define SEC_CK_ALLOW                SecStringWithDefaultValue("Allow", "CloudKeychain", 0, "Allow", "Allow button")
+#define SEC_CK_DONT_ALLOW           SecStringWithDefaultValue("Don't Allow", "CloudKeychain", 0, "Don't Allow", "Don't Allow button")
+#define SEC_CK_ICLOUD_PASSWORD      SecStringWithDefaultValue("Password", "CloudKeychain", 0, "Password", "Password prompt text")
+#define SEC_CK_JOIN_PROMPT          SecStringWithDefaultValue("Enter the Apple ID password for “%@” to allow %@ to use iCloud Keychain.", "CloudKeychain", 0, "Enter the Apple ID password for “%@” to allow %@ to use iCloud Keychain.", "Message for alert when a new device is joining the circle")
+#define SEC_CK_JOIN_TITLE           SecStringWithDefaultValue("Allow “%@” to use your passwords?", "CloudKeychain", 0, "Allow “%@” to use iCloud Keychain?", "Title for alert when a new device is joining the circle")
+
+#define SEC_CK_ARS0_TITLE             SecStringWithDefaultValue("Waiting for Approval to Use iCloud Keychain", "CloudKeychain", 0, "Waiting for Approval to Use iCloud Keychain", "Title for alert when this device's application has been pending for a long time & no security code is set")
+#define SEC_CK_ARS0_BODY              SecStringWithDefaultValue("%@ must be approved from one of your other devices using iCloud Keychain. If no other devices are available, reset iCloud Keychain in Settings.%@", "CloudKeychain", 0, "%@ must be approved from one of your other devices using iCloud Keychain. If no other devices are available, reset iCloud Keychain in Settings.%@", "Explanation of the waiting for approval alert")
+#define SEC_CK_ARS1_TITLE             SecStringWithDefaultValue("Use Security Code to Turn On iCloud Keychain?", "CloudKeychain", 0, "Use Security Code to Turn On iCloud Keychain?", "Title for alert when this device's application has been pending for a long time & a security code is set")
+#define SEC_CK_ARS1_BODY              SecStringWithDefaultValue("This iPhone is still waiting for approval from one of your other devices using iCloud Keychain. You can use your Security Code to turn on iCloud Keychain.%@", "CloudKeychain", 0, "This iPhone is still waiting for approval from one of your other devices using iCloud Keychain. You can use your Security Code to turn on iCloud Keychain.%@", "Explanation of the waiting for approval alert")
+#define SEC_CK_AR_APPROVE_OTHER     SecStringWithDefaultValue("Approve with Other Device", "CloudKeychain", 0, "Approve with Other Device", "Button text for approval with other device")
+#define SEC_CK_AR_USE_CODE          SecStringWithDefaultValue("Use Security Code", "CloudKeychain", 0, "Use Security Code", "Button text for approval via security code")
+
+#define SEC_CK_TID_FUTURE           SecStringWithDefaultValue("the future", "CloudKeychain", 0, "the future", "the future")
+#define SEC_CK_TID_NOW              SecStringWithDefaultValue("now", "CloudKeychain", 0, "now", "now")
+#define SEC_CK_TID_SUBSECOND        SecStringWithDefaultValue("less then a second", "CloudKeychain", 0, "less then a second", "Less then then one second")
+#define SEC_CK_TID_SECONDS          SecStringWithDefaultValue("seconds", "CloudKeychain", 0, "seconds", "More then one second")
+#define SEC_CK_TID_MINUTES          SecStringWithDefaultValue("minutes", "CloudKeychain", 0, "minutes", "More then one minute")
+#define SEC_CK_TID_HOURS            SecStringWithDefaultValue("hours", "CloudKeychain", 0, "hours", "More then one hour")
+#define SEC_CK_TID_DAY              SecStringWithDefaultValue("day", "CloudKeychain", 0, "day", "One day")
+#define SEC_CK_TID_DAYS             SecStringWithDefaultValue("days", "CloudKeychain", 0, "days", "More then one day")
+
+#define SEC_CK_CR_TITLE             SecStringWithDefaultValue("iCloud Keychain Reset", "CloudKeychain", 0, "iCloud Keychain Reset", "Title for alert when this device has left the circle")
+#define SEC_CK_CR_BODY_REVOKED      SecStringWithDefaultValue("%@ is no longer participating in iCloud Keychain because it was reset by another device", "CloudKeychain", 0, "%@ is no longer participating in iCloud Keychain because it was reset by another device", "Body text for kSOSMembershipRevoked")
+#define SEC_CK_CR_BODY_LEFT_UNTRUSTED SecStringWithDefaultValue("%@ is no longer participating in iCloud Keychain!", "CloudKeychain", 0, "%@ is no longer participating in iCloud Keychain!", "Body text for kSOSLeftUntrustedCircle")
+#define SEC_CK_CR_BODY_UNKNOWN      SecStringWithDefaultValue("%@ is no longer participating in iCloud Keychain.", "CloudKeychain", 0, "%@ is no longer participating in iCloud Keychain.", "Body text for unknown departure reason")
+#define SEC_CK_CR_OK				SecStringWithDefaultValue("OK", "CloudKeychain", 0, "OK", "Button text for confused user who just wants the alert to go away")
+#define SEC_CK_CR_USE_CODE          SecStringWithDefaultValue("Use Security Code", "CloudKeychain", 0, "Use Security Code", "Button text for approval via security code")
+
+#define SEC_CK_THIS_IPHONE          SecStringWithDefaultValue("This iPhone", "CloudKeychain", 0, "This iPhone", "This iPhone")
+#define SEC_CK_THIS_IPOD            SecStringWithDefaultValue("This iPod", "CloudKeychain", 0, "This iPod", "This iPod")
+#define SEC_CK_THIS_IPAD            SecStringWithDefaultValue("This iPad", "CloudKeychain", 0, "This iPad", "This iPad")
+#define SEC_CK_THIS_DEVICE          SecStringWithDefaultValue("This device", "CloudKeychain", 0, "This device", "This device")
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECFRAMEWORKSTRINGS_H_ */

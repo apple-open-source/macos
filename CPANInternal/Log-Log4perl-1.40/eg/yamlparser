@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+###########################################
+# yamlparser
+# Mike Schilli, 2004 (m@perlmeister.com)
+###########################################
+use warnings;
+use strict;
+
+package MyYAMLParser;
+use base qw(Log::Log4perl::Config::BaseConfigurator);
+use YAML qw(LoadFile Load);
+use Data::Dumper;
+
+###########################################
+sub new {
+###########################################
+    my($class, %options) = @_;
+
+    my $self = {};
+
+    bless $self, $class;
+
+    $self->{text} = $options{text} if exists $options{text};
+    $self->{file} = $options{file} if exists $options{file};
+
+    if(! exists $self->{text} and 
+       ! exists $self->{file}) {
+        die "usage: ", __PACKAGE__, "->new(file => \$filename) or ",
+                       __PACKAGE__, "->new(text => \$text)";
+    }
+
+    return $self;
+}
+
+###########################################
+sub parse {
+###########################################
+    my($self) = @_;    
+
+    my $data = {};
+
+    if(exists $self->{text}) {
+        $self->{data} = Load($self->{text});
+    }
+
+    # Move all non-hash values under {...}->{value}
+    my @todo = ($self->{data});
+
+    while (@todo) {
+        my $ref = shift @todo;
+        for (keys %$ref) {
+            if(ref($ref->{$_}) eq "HASH") {
+                push @todo, $ref->{$_};
+            } elsif($_ eq "name") {
+                   # Appender 'name' entries are 
+                   # converted to ->{value} entries
+                $ref->{value} = $ref->{$_};
+                delete $ref->{$_};
+            } else {
+                my $tmp = $ref->{$_};
+                $ref->{$_} = {};
+                $ref->{$_}->{value} = $tmp;
+            }
+        }
+    }
+
+    return $self->{data};
+}
+
+package main;
+
+use Log::Log4perl;
+
+my $p = MyYAMLParser->new(text => <<EOT);
+  category:
+        Bar:
+          Twix: WARN, Screen, Screen2
+  appender:
+        Screen: 
+            name:   Log::Log4perl::Appender::Screen
+            layout: Log::Log4perl::Layout::SimpleLayout
+        Screen2: 
+            name:   Log::Log4perl::Appender::Screen
+            layout: Log::Log4perl::Layout::SimpleLayout
+EOT
+
+# use Data::Dump qw(dump);
+# print dump($p->parse());
+
+Log::Log4perl->init($p);
+
+my $log = Log::Log4perl->get_logger("Bar::Twix");
+$log->warn('foo');

@@ -29,6 +29,7 @@
 		<string>initial dtrace probe support</string>
 		<string>CVE-2009-4134, CVE-2010-1449 and CVE-2010-1450 rgbimgmodule overflow patches</string>
 		<string>additional security fixes from 2.6.7 (smtpd, timemodule, unicodedata)</string>
+		<string>CVE-2011-4944 patch</string>
 	</array>	
 </dict>
 </array>

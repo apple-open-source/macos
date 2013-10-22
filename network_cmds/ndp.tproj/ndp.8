@@ -1,4 +1,4 @@
-.\" Copyright (c) 2012 Apple Inc. All rights reserved.
+.\" Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_OSREFERENCE_LICENSE_HEADER_START@
 .\" 
@@ -23,9 +23,6 @@
 .\" limitations under the License.
 .\" 
 .\" @APPLE_OSREFERENCE_LICENSE_HEADER_END@
-.\"
-.\"	$FreeBSD: src/usr.sbin/ndp/ndp.8,v 1.1.2.6 2001/08/16 15:56:09 ru Exp $
-.\"	$KAME: ndp.8,v 1.15 2001/02/08 07:17:03 itojun Exp $
 .\"
 .\" Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
 .\" All rights reserved.
@@ -161,6 +158,25 @@ which means the flag should be cleared.
 turn on or off NUD (Neighbor Unreachability Detection) on the
 interface.
 NUD is usually turned on by default.
+.It Xo
+.Ic disabled
+.Xc
+IPv6 can be disabled separately from other network protocols. This flag can be
+turned on automatically when Duplicate Address Detection (DAD) indicates that
+another device on the network is using the same link-local address.
+.It Xo
+.Ic proxy_prefixes
+.Xc
+the interface is enabled to proxy neighbor discovery for global scope prefixes
+matching those on link at other interfaces.
+.It Xo
+.Ic ignore_na
+.Xc
+ignore neighbor advertisements received on this interface.
+.It Xo
+.Ic insecure
+do not use cryptographically generated addresses (CGA) on this interface.
+.Xc
 .El
 .It Fl l
 Show link-layer reachability information.
@@ -196,6 +212,8 @@ Show extended link-layer reachability information in addition to that shown by
 the
 .Fl l
 flag.
+.It Fl w
+Show the cryptographically generated address (CGA) parameters for the node.
 .El
 .\"
 .Sh RETURN VALUES

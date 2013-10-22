@@ -19,6 +19,8 @@
 	</dict>
 	<key>Label</key>
 	<string>org.openldap.slapd</string>
+	<key>ExitTimeOut</key>
+	<integer>60</integer>
 	<key>Program</key>
 	<string>/usr/libexec/slapd</string>
 	<key>ProgramArguments</key>

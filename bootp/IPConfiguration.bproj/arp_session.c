@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -327,7 +327,7 @@ arp_client_close_fd(arp_client_t * client)
 	return;
     }
     if (if_session->read_fd_refcount <= 0) {
-	my_log(LOG_INFO, "arp_client_close_fd(%s): bpf open fd count is %d",
+	my_log(LOG_ERR, "arp_client_close_fd(%s): bpf open fd count is %d",
 	       if_name(if_session->if_p), if_session->read_fd_refcount);
 	return;
     }
@@ -495,7 +495,7 @@ arp_if_session_update_hardware_address(arp_if_session_t * if_session)
     /* copy in the latest firewire address */
     if (getFireWireAddress(if_name(if_session->if_p), 
 			   &if_session->fw_addr) == FALSE) {
-	my_log(LOG_NOTICE,
+	my_log(LOG_ERR,
 	       "arp_if_session_update_hardware_address(%s):"
 	       "could not retrieve firewire address",
 	       if_name(if_session->if_p));
@@ -835,7 +835,7 @@ arp_client_open_fd(arp_client_t * client)
     if (if_session->read_fd == NULL) {
 	goto failed;
     }
-    my_log(LOG_DEBUG, "arp_client_open_fd (%s): opened bpf fd %d\n",
+    my_log(LOG_DEBUG, "arp_client_open_fd (%s): opened bpf fd %d",
 	   if_name(if_session->if_p), bpf_fd);
     return (TRUE);
 
@@ -1035,7 +1035,7 @@ arp_client_probe_retransmit(void * arg1, void * arg2, void * arg3)
 			   if_name(if_session->if_p));
 	    }
 	    else if (tries_left <= probe_info->gratuitous_count) {
-	        my_log(LOG_NOTICE, 
+	        my_log(LOG_DEBUG, 
 		       ARP_STR 
                        "(%s): sending (%d of %d) arp announcements ", 
 	               if_name(if_session->if_p), 
@@ -1656,14 +1656,14 @@ arp_session_new_if_session(arp_session_t * session, interface_t * if_p)
     case IFT_IEEE1394:
 	/* copy in the firewire address */
 	if (getFireWireAddress(if_name(if_p), &fw_addr) == FALSE) {
-	    my_log(LOG_INFO, 
+	    my_log(LOG_ERR, 
 		   "arp_client_init(%s): could not retrieve firewire address",
 		   if_name(if_p));
 	    return (NULL);
 	}
 	break;
     default:
-	my_log(LOG_INFO, "arp_client_init(%s): unsupported network type",
+	my_log(LOG_ERR, "arp_client_init(%s): unsupported network type",
 	       if_name(if_p));
 	return (NULL);
     }

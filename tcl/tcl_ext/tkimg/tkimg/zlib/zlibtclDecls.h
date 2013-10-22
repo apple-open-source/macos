@@ -28,7 +28,7 @@
 EXTERN int Zlibtcl_Init(Tcl_Interp *interp);
 EXTERN int Zlibtcl_SafeInit(Tcl_Interp *interp);
 
-#include </usr/include/zlib.h>
+#include_next <zlib.h>
 
 /* !BEGIN!: Do not edit below this line. */
 

@@ -1,0 +1,1 @@
+? [= LoggerID com.apple.networking.eapol] file /Library/Logs/CrashReporter/com.apple.networking.eapol.log rotate=local-basic crashlog file_max=1M compress format=$((Time)(local.6))\ $Host\ $(Sender)[$(PID)]\:\ $(Message)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,6 @@
 #include <sys/errno.h>
 #include <sys/socket.h>
 #include <net/if_types.h>
-#include <syslog.h>
 
 #include "FDHandler.h"
 

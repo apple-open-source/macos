@@ -122,7 +122,7 @@ uint32 clDataToInt(
 	if((cdata.Length == 0) || (cdata.Data == NULL)) {
 		return 0;
 	}
-	uint32 len = cdata.Length;
+	size_t len = cdata.Length;
 	if(len > sizeof(uint32)) {
 		if(toThrow == 0) {
 			/* tolerate this */
@@ -135,7 +135,7 @@ uint32 clDataToInt(
 	
 	uint32 rtn = 0;
 	uint8 *cp = cdata.Data;
-	for(uint32 i=0; i<len; i++) {
+	for(size_t i=0; i<len; i++) {
 		rtn = (rtn << 8) | *cp++;
 	}
 	return rtn;
@@ -205,12 +205,12 @@ void clCssmBoolToNss(
 void clCssmBitStringToNss(
 	CSSM_DATA &b)
 {
-	int numBits = b.Length * 8;
+	size_t numBits = b.Length * 8;
 	
 	/* start at end of bit array, scanning backwards looking
 	 * for the first set bit */
 	bool foundSet = false;
-	for(int dex=b.Length-1; dex>=0; dex--) {
+	for(ptrdiff_t dex=b.Length-1; dex>=0; dex--) {
 		unsigned bitMask = 0x01;
 		uint8 byte = b.Data[dex];
 		for(unsigned bdex=0; bdex<8; bdex++) {
@@ -229,7 +229,7 @@ void clCssmBitStringToNss(
 	}
 	/* !foundSet --> numBits = 0 */
 	assert(((numBits > 0) & foundSet) || ((numBits == 0) && !foundSet));
-	b.Length = (uint32)numBits;
+	b.Length = numBits;
 }
 
 /*
@@ -241,7 +241,7 @@ void clCssmBitStringToNss(
 void clNssBitStringToCssm(
 	CSSM_DATA &b)
 {
-	uint32 byteCount = (b.Length + 7) / 8;
+	CSSM_SIZE byteCount = (b.Length + 7) / 8;
 	unsigned partialBits = b.Length & 0x7;
 	b.Length = byteCount;
 	if(partialBits == 0) {
@@ -290,7 +290,7 @@ void **clNssNullArray(
 CE_KeyUsage clBitStringToKeyUsage(
 	const CSSM_DATA &cdata)
 {
-	unsigned toCopy = (cdata.Length + 7) / 8;
+	size_t toCopy = (cdata.Length + 7) / 8;
 	if(toCopy > 2) {
 		/* I hope I never see this... */
 		clErrorLog("clBitStringToKeyUsage: KeyUsage larger than 2 bytes!");

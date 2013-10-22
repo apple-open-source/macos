@@ -33,15 +33,18 @@
 
 #include "BlobData.h"
 #include "KURL.h"
-#include "PlatformString.h"
+#include "ScriptWrappable.h"
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class Blob : public RefCounted<Blob> {
+class ScriptExecutionContext;
+
+class Blob : public ScriptWrappable, public RefCounted<Blob> {
 public:
     static PassRefPtr<Blob> create()
     {
@@ -56,6 +59,7 @@ public:
     // For deserialization.
     static PassRefPtr<Blob> create(const KURL& srcURL, const String& type, long long size)
     {
+        ASSERT(Blob::isNormalizedContentType(type));
         return adoptRef(new Blob(srcURL, type, size));
     }
 
@@ -67,8 +71,16 @@ public:
     virtual unsigned long long size() const { return static_cast<unsigned long long>(m_size); }
     virtual bool isFile() const { return false; }
 
+    // The checks described in the File API spec.
+    static bool isValidContentType(const String&);
+    // The normalization procedure described in the File API spec.
+    static String normalizedContentType(const String&);
+    // Intended for use in ASSERT statements.
+    static bool isNormalizedContentType(const String&);
+    static bool isNormalizedContentType(const CString&);
+
 #if ENABLE(BLOB)
-    PassRefPtr<Blob> webkitSlice(long long start = 0, long long end = std::numeric_limits<long long>::max(), const String& contentType = String()) const;
+    PassRefPtr<Blob> slice(long long start = 0, long long end = std::numeric_limits<long long>::max(), const String& contentType = String()) const;
 #endif
 
 protected:
@@ -82,7 +94,7 @@ protected:
     // as an identifier for this blob. The internal URL is never used to source the blob's content
     // into an HTML or for FileRead'ing, public blob URLs must be used for those purposes.
     KURL m_internalURL;
-    
+
     String m_type;
     long long m_size;
 };
@@ -90,3 +102,4 @@ protected:
 } // namespace WebCore
 
 #endif // Blob_h
+

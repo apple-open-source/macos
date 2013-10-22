@@ -33,7 +33,7 @@
 
 #if	CRYPTKIT_HMAC_LEGACY
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <MacTypes.h>
 
 #ifdef	__cplusplus
 extern "C" {
@@ -46,7 +46,7 @@ extern "C" {
 struct hmacLegacyContext;
 typedef struct hmacLegacyContext *hmacLegacyContextRef;
 
-hmacLegacyContextRef hmacLegacyAlloc();
+hmacLegacyContextRef hmacLegacyAlloc(void);
 void hmacLegacyFree(
 	hmacLegacyContextRef hmac);
 OSStatus hmacLegacyInit(

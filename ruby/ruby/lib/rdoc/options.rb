@@ -1,586 +1,1149 @@
-# We handle the parsing of options, and subsequently as a singleton
-# object to be queried for option values
+require 'optparse'
+require 'pathname'
 
-require "rdoc/ri/ri_paths"
+##
+# RDoc::Options handles the parsing and storage of options
+#
+# == Saved Options
+#
+# You can save some options like the markup format in the
+# <tt>.rdoc_options</tt> file in your gem.  The easiest way to do this is:
+#
+#   rdoc --markup tomdoc --write-options
+#
+# Which will automatically create the file and fill it with the options you
+# specified.
+#
+# The following options will not be saved since they interfere with the user's
+# preferences or with the normal operation of RDoc:
+#
+# * +--coverage-report+
+# * +--dry-run+
+# * +--encoding+
+# * +--force-update+
+# * +--format+
+# * +--pipe+
+# * +--quiet+
+# * +--template+
+# * +--verbose+
+#
+# == Custom Options
+#
+# Generators can hook into RDoc::Options to add generator-specific command
+# line options.
+#
+# When <tt>--format</tt> is encountered in ARGV, RDoc calls ::setup_options on
+# the generator class to add extra options to the option parser.  Options for
+# custom generators must occur after <tt>--format</tt>.  <tt>rdoc --help</tt>
+# will list options for all installed generators.
+#
+# Example:
+#
+#   class RDoc::Generator::Spellcheck
+#     RDoc::RDoc.add_generator self
+#
+#     def self.setup_options rdoc_options
+#       op = rdoc_options.option_parser
+#
+#       op.on('--spell-dictionary DICTIONARY',
+#             RDoc::Options::Path) do |dictionary|
+#         rdoc_options.spell_dictionary = dictionary
+#       end
+#     end
+#   end
+#
+# == Option Validators
+#
+# OptionParser validators will validate and cast user input values.  In
+# addition to the validators that ship with OptionParser (String, Integer,
+# Float, TrueClass, FalseClass, Array, Regexp, Date, Time, URI, etc.),
+# RDoc::Options adds Path, PathArray and Template.
 
-class Options
+class RDoc::Options
 
-  require 'singleton'
-  require 'getoptlong'
+  ##
+  # The deprecated options.
 
-  include Singleton
+  DEPRECATED = {
+    '--accessor'      => 'support discontinued',
+    '--diagram'       => 'support discontinued',
+    '--help-output'   => 'support discontinued',
+    '--image-format'  => 'was an option for --diagram',
+    '--inline-source' => 'source code is now always inlined',
+    '--merge'         => 'ri now always merges class information',
+    '--one-file'      => 'support discontinued',
+    '--op-name'       => 'support discontinued',
+    '--opname'        => 'support discontinued',
+    '--promiscuous'   => 'files always only document their content',
+    '--ri-system'     => 'Ruby installers use other techniques',
+  }
 
-  # files matching this pattern will be excluded
+  ##
+  # RDoc options ignored (or handled specially) by --write-options
+
+  SPECIAL = %w[
+    coverage_report
+    dry_run
+    encoding
+    files
+    force_output
+    force_update
+    generator
+    generator_name
+    generator_options
+    generators
+    op_dir
+    option_parser
+    pipe
+    rdoc_include
+    root
+    static_path
+    stylesheet_url
+    template
+    template_dir
+    update_output_dir
+    verbosity
+    write_options
+  ]
+
+  ##
+  # Option validator for OptionParser that matches a directory that exists on
+  # the filesystem.
+
+  Directory = Object.new
+
+  ##
+  # Option validator for OptionParser that matches a file or directory that
+  # exists on the filesystem.
+
+  Path = Object.new
+
+  ##
+  # Option validator for OptionParser that matches a comma-separated list of
+  # files or directories that exist on the filesystem.
+
+  PathArray = Object.new
+
+  ##
+  # Option validator for OptionParser that matches a template directory for an
+  # installed generator that lives in
+  # <tt>"rdoc/generator/template/#{template_name}"</tt>
+
+  Template = Object.new
+
+  ##
+  # Character-set for HTML output.  #encoding is preferred over #charset
+
+  attr_accessor :charset
+
+  ##
+  # If true, RDoc will not write any files.
+
+  attr_accessor :dry_run
+
+  ##
+  # The output encoding.  All input files will be transcoded to this encoding.
+  #
+  # The default encoding is UTF-8.  This is set via --encoding.
+
+  attr_accessor :encoding
+
+  ##
+  # Files matching this pattern will be excluded
+
   attr_accessor :exclude
 
-  # the name of the output directory
-  attr_accessor :op_dir
-  
-  # the name to use for the output
-  attr_reader :op_name
+  ##
+  # The list of files to be processed
 
-  # include private and protected methods in the
-  # output
-  attr_accessor :show_all
-  
-  # name of the file, class or module to display in
-  # the initial index page (if not specified
-  # the first file we encounter is used)
-  attr_accessor :main_page
+  attr_accessor :files
 
-  # merge into classes of the name name when generating ri
-  attr_reader :merge
+  ##
+  # Create the output even if the output directory does not look
+  # like an rdoc output directory
 
-  # Don't display progress as we process the files
-  attr_reader :quiet
+  attr_accessor :force_output
 
-  # description of the output generator (set with the <tt>-fmt</tt>
-  # option
+  ##
+  # Scan newer sources than the flag file if true.
+
+  attr_accessor :force_update
+
+  ##
+  # Formatter to mark up text with
+
+  attr_accessor :formatter
+
+  ##
+  # Description of the output generator (set with the <tt>--format</tt> option)
+
   attr_accessor :generator
 
-  # and the list of files to be processed
-  attr_reader :files
+  ##
+  # For #==
 
-  # array of directories to search for files to satisfy an :include:
-  attr_reader :rdoc_include
+  attr_reader :generator_name # :nodoc:
 
-  # title to be used out the output
-  #attr_writer :title
+  ##
+  # Loaded generator options.  Used to prevent --help from loading the same
+  # options multiple times.
 
-  # template to be used when generating output
-  attr_reader :template
+  attr_accessor :generator_options
 
-  # should diagrams be drawn
-  attr_reader :diagram
+  ##
+  # Old rdoc behavior: hyperlink all words that match a method name,
+  # even if not preceded by '#' or '::'
 
-  # should we draw fileboxes in diagrams
-  attr_reader :fileboxes
+  attr_accessor :hyperlink_all
 
-  # include the '#' at the front of hyperlinked instance method names
-  attr_reader :show_hash
+  ##
+  # Include line numbers in the source code
 
-  # image format for diagrams
-  attr_reader :image_format
+  attr_accessor :line_numbers
 
-  # character-set
-  attr_reader :charset
+  ##
+  # Name of the file, class or module to display in the initial index page (if
+  # not specified the first file we encounter is used)
 
-  # should source code be included inline, or displayed in a popup
-  attr_reader :inline_source
+  attr_accessor :main_page
 
-  # should the output be placed into a single file
-  attr_reader :all_one_file
+  ##
+  # The default markup format.  The default is 'rdoc'.  'markdown', 'tomdoc'
+  # and 'rd' are also built-in.
 
-  # the number of columns in a tab
-  attr_reader :tab_width
+  attr_accessor :markup
 
-  # include line numbers in the source listings
-  attr_reader :include_line_numbers
+  ##
+  # If true, only report on undocumented files
 
-  # pattern for additional attr_... style methods
-  attr_reader :extra_accessors
-  attr_reader :extra_accessor_flags
+  attr_accessor :coverage_report
 
-  # URL of stylesheet
-  attr_reader :css
+  ##
+  # The name of the output directory
 
+  attr_accessor :op_dir
+
+  ##
+  # The OptionParser for this instance
+
+  attr_accessor :option_parser
+
+  ##
+  # Directory where guides, FAQ, and other pages not associated with a class
+  # live.  You may leave this unset if these are at the root of your project.
+
+  attr_accessor :page_dir
+
+  ##
+  # Is RDoc in pipe mode?
+
+  attr_accessor :pipe
+
+  ##
+  # Array of directories to search for files to satisfy an :include:
+
+  attr_accessor :rdoc_include
+
+  ##
+  # Root of the source documentation will be generated for.  Set this when
+  # building documentation outside the source directory.  Defaults to the
+  # current directory.
+
+  attr_accessor :root
+
+  ##
+  # Include the '#' at the front of hyperlinked instance method names
+
+  attr_accessor :show_hash
+
+  ##
+  # Directory to copy static files from
+
+  attr_accessor :static_path
+
+  ##
+  # The number of columns in a tab
+
+  attr_accessor :tab_width
+
+  ##
+  # Template to be used when generating output
+
+  attr_accessor :template
+
+  ##
+  # Directory the template lives in
+
+  attr_accessor :template_dir
+
+  ##
+  # Documentation title
+
+  attr_accessor :title
+
+  ##
+  # Should RDoc update the timestamps in the output dir?
+
+  attr_accessor :update_output_dir
+
+  ##
+  # Verbosity, zero means quiet
+
+  attr_accessor :verbosity
+
+  ##
   # URL of web cvs frontend
-  attr_reader :webcvs
 
-  # Are we promiscuous about showing module contents across
-  # multiple files
-  attr_reader :promiscuous
+  attr_accessor :webcvs
 
-  # scan newer sources than the flag file if true.
-  attr_reader :force_update
+  ##
+  # Minimum visibility of a documented method. One of +:public+,
+  # +:protected+, +:private+. May be overridden on a per-method
+  # basis with the :doc: directive.
 
-  module OptionList
+  attr_accessor :visibility
 
-    OPTION_LIST = [
-      [ "--accessor",      "-A",   "accessorname[,..]",
-        "comma separated list of additional class methods\n" +
-        "that should be treated like 'attr_reader' and\n" +
-        "friends. Option may be repeated. Each accessorname\n" +
-        "may have '=text' appended, in which case that text\n" +
-        "appears where the r/w/rw appears for normal accessors."],
-                                                                   
-      [ "--all",           "-a",   nil,
-        "include all methods (not just public)\nin the output" ],
+  def initialize # :nodoc:
+    init_ivars
+  end
 
-      [ "--charset",       "-c",   "charset",
-        "specifies HTML character-set" ],
+  def init_ivars # :nodoc:
+    @dry_run = false
+    @exclude = []
+    @files = nil
+    @force_output = false
+    @force_update = true
+    @generator = nil
+    @generator_name = nil
+    @generator_options = []
+    @generators = RDoc::RDoc::GENERATORS
+    @hyperlink_all = false
+    @line_numbers = false
+    @main_page = nil
+    @markup = 'rdoc'
+    @coverage_report = false
+    @op_dir = nil
+    @page_dir = nil
+    @pipe = false
+    @rdoc_include = []
+    @root = Pathname(Dir.pwd)
+    @show_hash = false
+    @static_path = []
+    @stylesheet_url = nil # TODO remove in RDoc 4
+    @tab_width = 8
+    @template = nil
+    @template_dir = nil
+    @title = nil
+    @update_output_dir = true
+    @verbosity = 1
+    @visibility = :protected
+    @webcvs = nil
+    @write_options = false
 
-      [ "--debug",         "-D",   nil,
-        "displays lots on internal stuff" ],
-
-      [ "--diagram",       "-d",   nil,
-        "Generate diagrams showing modules and classes.\n" +
-        "You need dot V1.8.6 or later to use the --diagram\n" +
-        "option correctly. Dot is available from\n"+
-        "http://www.research.att.com/sw/tools/graphviz/" ],
-
-      [ "--exclude",       "-x",   "pattern",
-        "do not process files or directories matching\n" +
-        "pattern. Files given explicitly on the command\n" +
-        "line will never be excluded." ],
-
-      [ "--extension",     "-E",   "new=old",
-        "Treat files ending with .new as if they ended with\n" +
-        ".old. Using '-E cgi=rb' will cause xxx.cgi to be\n" +
-        "parsed as a Ruby file"],
-
-      [ "--fileboxes",     "-F",   nil,
-        "classes are put in boxes which represents\n" +
-        "files, where these classes reside. Classes\n" +
-        "shared between more than one file are\n" +
-        "shown with list of files that sharing them.\n" +
-        "Silently discarded if --diagram is not given\n" +
-        "Experimental." ],
-
-      [ "--force-update",  "-U",   nil,
-        "forces to scan all sources even if newer than\n" +
-        "the flag file." ],
-
-      [ "--fmt",           "-f",   "format name",
-        "set the output formatter (see below)" ],
-
-      [ "--help",          "-h",   nil,
-        "you're looking at it" ],
-
-      [ "--help-output",   "-O",   nil,
-        "explain the various output options" ],
-
-      [ "--image-format",  "-I",   "gif/png/jpg/jpeg",
-        "Sets output image format for diagrams. Can\n" +
-        "be png, gif, jpeg, jpg. If this option is\n" +
-        "omitted, png is used. Requires --diagram." ],
-
-      [ "--include",       "-i",   "dir[,dir...]",
-        "set (or add to) the list of directories\n" +
-        "to be searched when satisfying :include:\n" +
-        "requests. Can be used more than once." ],
-
-      [ "--inline-source", "-S",   nil,
-        "Show method source code inline, rather\n" +
-        "than via a popup link" ],
-
-      [ "--line-numbers", "-N", nil,
-        "Include line numbers in the source code" ],
-
-      [ "--main",          "-m",   "name",
-        "'name' will be the initial page displayed" ],
-
-      [ "--merge",         "-M",   nil,
-        "when creating ri output, merge processed classes\n" +
-        "into previously documented classes of the name name"],
-
-      [ "--one-file",      "-1",   nil,
-        "put all the output into a single file" ],
-
-      [ "--op",            "-o",   "dir",
-        "set the output directory" ],
-
-      [ "--opname",       "-n",    "name",
-        "Set the 'name' of the output. Has no\n" +
-        "effect for HTML." ],
-
-      [ "--promiscuous",   "-p",   nil,
-        "When documenting a file that contains a module\n" +
-        "or class also defined in other files, show\n" +
-        "all stuff for that module/class in each files\n" +
-        "page. By default, only show stuff defined in\n" +
-        "that particular file." ],
-
-      [ "--quiet",         "-q",   nil,
-        "don't show progress as we parse" ],
-
-      [ "--ri",            "-r",   nil,
-       "generate output for use by 'ri.' The files are\n" +
-       "stored in the '.rdoc' directory under your home\n"+
-       "directory unless overridden by a subsequent\n" +
-       "--op parameter, so no special privileges are needed." ],
-
-      [ "--ri-site",       "-R",   nil,
-       "generate output for use by 'ri.' The files are\n" +
-       "stored in a site-wide directory, making them accessible\n"+
-       "to others, so special privileges are needed." ],
-
-      [ "--ri-system",     "-Y",   nil,
-       "generate output for use by 'ri.' The files are\n" +
-       "stored in a system-level directory, making them accessible\n"+
-       "to others, so special privileges are needed. This option\n"+
-       "is intended to be used during Ruby installations" ],
-
-      [ "--show-hash",     "-H",   nil,
-        "A name of the form #name in a comment\n" +
-        "is a possible hyperlink to an instance\n" +
-        "method name. When displayed, the '#' is\n" +
-        "removed unless this option is specified" ],
-
-      [ "--style",         "-s",   "stylesheet url",
-        "specifies the URL of a separate stylesheet." ],
-
-      [ "--tab-width",     "-w",   "n",
-        "Set the width of tab characters (default 8)"],
-
-      [ "--template",      "-T",   "template name",
-        "Set the template used when generating output" ],
-
-      [ "--title",         "-t",   "text",
-        "Set 'txt' as the title for the output" ],
-
-      [ "--version",       "-v",   nil,
-        "display  RDoc's version" ],
-
-      [ "--webcvs",        "-W",   "url",
-        "Specify a URL for linking to a web frontend\n" +
-        "to CVS. If the URL contains a '\%s', the\n" +
-        "name of the current file will be substituted;\n" +
-        "if the URL doesn't contain a '\%s', the\n" +
-        "filename will be appended to it." ],
-    ]
-
-    def OptionList.options
-      OPTION_LIST.map do |long, short, arg,|
-        [ long, 
-          short, 
-          arg ? GetoptLong::REQUIRED_ARGUMENT : GetoptLong::NO_ARGUMENT 
-        ]
-      end
+    if Object.const_defined? :Encoding then
+      @encoding = Encoding::UTF_8
+      @charset = @encoding.name
+    else
+      @encoding = nil
+      @charset = 'UTF-8'
     end
+  end
 
+  def init_with map # :nodoc:
+    init_ivars
 
-    def OptionList.strip_output(text)
-      text =~ /^\s+/
-      leading_spaces = $&
-      text.gsub!(/^#{leading_spaces}/, '')
-      $stdout.puts text
-    end
+    encoding = map['encoding']
+    @encoding = if Object.const_defined? :Encoding then
+                  encoding ? Encoding.find(encoding) : encoding
+                end
 
+    @charset        = map['charset']
+    @exclude        = map['exclude']
+    @generator_name = map['generator_name']
+    @hyperlink_all  = map['hyperlink_all']
+    @line_numbers   = map['line_numbers']
+    @main_page      = map['main_page']
+    @markup         = map['markup']
+    @op_dir         = map['op_dir']
+    @show_hash      = map['show_hash']
+    @tab_width      = map['tab_width']
+    @template_dir   = map['template_dir']
+    @title          = map['title']
+    @visibility     = map['visibility']
+    @webcvs         = map['webcvs']
 
-    # Show an error and exit
+    @rdoc_include = sanitize_path map['rdoc_include']
+    @static_path  = sanitize_path map['static_path']
+  end
 
-    def OptionList.error(msg)
-      $stderr.puts
-      $stderr.puts msg
-      $stderr.puts "\nFor help on options, try 'rdoc --help'\n\n"
-      exit 1
-    end
+  def yaml_initialize tag, map # :nodoc:
+    init_with map
+  end
 
-    # Show usage and exit
-    
-    def OptionList.usage(generator_names)
-      
-      puts
-      puts(VERSION_STRING)
-      puts
+  def == other # :nodoc:
+    self.class === other and
+      @encoding       == other.encoding       and
+      @generator_name == other.generator_name and
+      @hyperlink_all  == other.hyperlink_all  and
+      @line_numbers   == other.line_numbers   and
+      @main_page      == other.main_page      and
+      @markup         == other.markup         and
+      @op_dir         == other.op_dir         and
+      @rdoc_include   == other.rdoc_include   and
+      @show_hash      == other.show_hash      and
+      @static_path    == other.static_path    and
+      @tab_width      == other.tab_width      and
+      @template       == other.template       and
+      @title          == other.title          and
+      @visibility     == other.visibility     and
+      @webcvs         == other.webcvs
+  end
 
-      name = File.basename($0)
-      OptionList.strip_output(<<-EOT)
-          Usage:
+  ##
+  # Check that the files on the command line exist
 
-            #{name} [options]  [names...]
-
-          Files are parsed, and the information they contain
-          collected, before any output is produced. This allows cross
-          references between all files to be resolved. If a name is a
-          directory, it is traversed. If no names are specified, all
-          Ruby files in the current directory (and subdirectories) are
-          processed.
-
-          Options:
-
-      EOT
-
-      OPTION_LIST.each do |long, short, arg, desc|
-        opt = sprintf("%20s", "#{long}, #{short}")
-        oparg = sprintf("%-7s", arg)
-        print "#{opt} #{oparg}"
-        desc = desc.split("\n")
-        if arg.nil? || arg.length < 7
-          puts desc.shift
+  def check_files
+    @files.delete_if do |file|
+      if File.exist? file then
+        if File.readable? file then
+          false
         else
-          puts
+          warn "file '#{file}' not readable"
+
+          true
         end
-        desc.each do |line|
-          puts(" "*28 + line)
-        end
-        puts
-      end
-
-      puts "\nAvailable output formatters: " +
-        generator_names.sort.join(', ') + "\n\n"
-
-      puts "For information on where the output goes, use\n\n"
-      puts "   rdoc --help-output\n\n"
-
-      exit 0
-    end
-
-    def OptionList.help_output
-      OptionList.strip_output(<<-EOT)
-      How RDoc generates output depends on the output formatter being
-      used, and on the options you give.
-
-      - HTML output is normally produced into a number of separate files
-        (one per class, module, and file, along with various indices). 
-        These files will appear in the directory given by the --op
-        option (doc/ by default).
-
-      - XML output by default is written to standard output. If a
-        --opname option is given, the output will instead be written
-        to a file with that name in the output directory.
-
-      - .chm files (Windows help files) are written in the --op directory.
-        If an --opname parameter is present, that name is used, otherwise
-        the file will be called rdoc.chm.
-
-      For information on other RDoc options, use "rdoc --help".
-      EOT
-      exit 0
-    end
-  end
-
-  # Parse command line options. We're passed a hash containing
-  # output generators, keyed by the generator name
-
-  def parse(argv, generators)
-    old_argv = ARGV.dup
-    begin
-      ARGV.replace(argv)
-      @op_dir = "doc"
-      @op_name = nil
-      @show_all = false
-      @main_page = nil
-      @marge     = false
-      @exclude   = []
-      @quiet = false
-      @generator_name = 'html'
-      @generator = generators[@generator_name]
-      @rdoc_include = []
-      @title = nil
-      @template = nil
-      @diagram = false
-      @fileboxes = false
-      @show_hash = false
-      @image_format = 'png'
-      @inline_source = false
-      @all_one_file  = false
-      @tab_width = 8
-      @include_line_numbers = false
-      @extra_accessor_flags = {}
-      @promiscuous = false
-      @force_update = false
-
-      @css = nil
-      @webcvs = nil
-
-      @charset = case $KCODE
-                 when /^S/i
-                   'Shift_JIS'
-                 when /^E/i
-                   'EUC-JP'
-                 else
-                   'iso-8859-1'
-                 end
-
-      accessors = []
-
-      go = GetoptLong.new(*OptionList.options)
-      go.quiet = true
-
-      go.each do |opt, arg|
-	case opt
-        when "--all"           then @show_all      = true
-        when "--charset"       then @charset       = arg
-        when "--debug"         then $DEBUG         = true
-        when "--exclude"       then @exclude       << Regexp.new(arg)
-        when "--inline-source" then @inline_source = true
-        when "--line-numbers"  then @include_line_numbers = true
-        when "--main"          then @main_page     = arg
-        when "--merge"         then @merge         = true
-        when "--one-file"      then @all_one_file  = @inline_source = true
-        when "--op"            then @op_dir        = arg
-        when "--opname"        then @op_name       = arg
-        when "--promiscuous"   then @promiscuous   = true
-        when "--quiet"         then @quiet         = true
-        when "--show-hash"     then @show_hash     = true
-        when "--style"         then @css           = arg
-        when "--template"      then @template      = arg
-        when "--title"         then @title         = arg
-        when "--webcvs"        then @webcvs        = arg
-
-        when "--accessor" 
-          arg.split(/,/).each do |accessor|
-            if accessor =~ /^(\w+)(=(.*))?$/
-              accessors << $1
-              @extra_accessor_flags[$1] = $3
-            end
-          end
-
-        when "--diagram"
-          check_diagram
-          @diagram = true
-
-        when "--fileboxes"
-          @fileboxes = true if @diagram
-
-	when "--fmt"
-          @generator_name = arg.downcase
-          setup_generator(generators)
-
-        when "--help"      
-          OptionList.usage(generators.keys)
-
-        when "--help-output"      
-          OptionList.help_output
-
-        when "--image-format"
-          if ['gif', 'png', 'jpeg', 'jpg'].include?(arg)
-            @image_format = arg
-          else
-            raise GetoptLong::InvalidOption.new("unknown image format: #{arg}")
-          end
-
-        when "--include"   
-          @rdoc_include.concat arg.split(/\s*,\s*/)
-
-        when "--ri", "--ri-site", "--ri-system"
-          @generator_name = "ri"
-          @op_dir = case opt
-                    when "--ri" then RI::Paths::HOMEDIR 
-                    when "--ri-site" then RI::Paths::SITEDIR
-                    when "--ri-system" then RI::Paths::SYSDIR
-                    else fail opt
-                    end
-          setup_generator(generators)
-
-        when "--tab-width"
-          begin
-            @tab_width     = Integer(arg)
-          rescue 
-            $stderr.puts "Invalid tab width: '#{arg}'"
-            exit 1
-          end
-
-        when "--extension"
-          new, old = arg.split(/=/, 2)
-          OptionList.error("Invalid parameter to '-E'") unless new && old
-          unless RDoc::ParserFactory.alias_extension(old, new)
-            OptionList.error("Unknown extension .#{old} to -E")
-          end
-
-        when "--force-update"
-          @force_update = true
-
-	when "--version"
-	  puts VERSION_STRING
-	  exit
-	end
-
-      end
-
-      @files = ARGV.dup
-
-      @rdoc_include << "." if @rdoc_include.empty?
-
-      if @exclude.empty?
-        @exclude = nil
       else
-        @exclude = Regexp.new(@exclude.join("|"))
+        warn "file '#{file}' not found"
+
+        true
       end
-
-      check_files
-
-      # If no template was specified, use the default
-      # template for the output formatter
-
-      @template ||= @generator_name
-
-      # Generate a regexp from the accessors
-      unless accessors.empty?
-        re = '^(' + accessors.map{|a| Regexp.quote(a)}.join('|') + ')$' 
-        @extra_accessors = Regexp.new(re)
-      end
-
-    rescue GetoptLong::InvalidOption, GetoptLong::MissingArgument => error
-      OptionList.error(error.message)
-
-    ensure
-      ARGV.replace(old_argv)
     end
   end
 
+  ##
+  # Ensure only one generator is loaded
 
-  def title
-    @title ||= "RDoc Documentation"
+  def check_generator
+    if @generator then
+      raise OptionParser::InvalidOption,
+        "generator already set to #{@generator_name}"
+    end
   end
-  
-  # Set the title, but only if not already set. This means that a title set from 
-  # the command line trumps one set in a source file
 
-  def title=(string)
+  ##
+  # Set the title, but only if not already set. Used to set the title
+  # from a source file, so that a title set from the command line
+  # will have the priority.
+
+  def default_title=(string)
     @title ||= string
   end
 
+  ##
+  # For dumping YAML
 
-  private
+  def encode_with coder # :nodoc:
+    encoding = @encoding ? @encoding.name : nil
 
-  # Set up an output generator for the format in @generator_name
-  def setup_generator(generators)
-    @generator = generators[@generator_name]
-    if !@generator
-      OptionList.error("Invalid output formatter")
-    end
-    
-    if @generator_name == "xml"
-      @all_one_file = true
-      @inline_source = true
+    coder.add 'encoding', encoding
+    coder.add 'static_path',  sanitize_path(@static_path)
+    coder.add 'rdoc_include', sanitize_path(@rdoc_include)
+
+    ivars = instance_variables.map { |ivar| ivar.to_s[1..-1] }
+    ivars -= SPECIAL
+
+    ivars.sort.each do |ivar|
+      coder.add ivar, instance_variable_get("@#{ivar}")
     end
   end
 
-  # Check that the right version of 'dot' is available.
-  # Unfortuately this doesn't work correctly under Windows NT, 
-  # so we'll bypass the test under Windows
+  ##
+  # Completes any unfinished option setup business such as filtering for
+  # existent files, creating a regexp for #exclude and setting a default
+  # #template.
 
-  def check_diagram
-    return if RUBY_PLATFORM =~ /mswin|cygwin|mingw|bccwin/
+  def finish
+    @op_dir ||= 'doc'
 
-    ok = false
-    ver = nil
-    IO.popen("dot -V 2>&1") do |io|
-      ver = io.read
-      if ver =~ /dot.+version(?:\s+gviz)?\s+(\d+)\.(\d+)/
-        ok = ($1.to_i > 1) || ($1.to_i == 1 && $2.to_i >= 8)
-      end
+    @rdoc_include << "." if @rdoc_include.empty?
+
+    if @exclude.nil? or Regexp === @exclude then
+      # done, #finish is being re-run
+    elsif @exclude.empty? then
+      @exclude = nil
+    else
+      @exclude = Regexp.new(@exclude.join("|"))
     end
-    unless ok
-      if ver =~ /^dot.+version/
-        $stderr.puts "Warning: You may need dot V1.8.6 or later to use\n",
-          "the --diagram option correctly. You have:\n\n   ",
-          ver,
-          "\nDiagrams might have strange background colors.\n\n"
+
+    finish_page_dir
+
+    check_files
+
+    # If no template was specified, use the default template for the output
+    # formatter
+
+    unless @template then
+      @template     = @generator_name
+      @template_dir = template_dir_for @template
+    end
+
+    self
+  end
+
+  ##
+  # Fixes the page_dir to be relative to the root_dir and adds the page_dir to
+  # the files list.
+
+  def finish_page_dir
+    return unless @page_dir
+
+    @files << @page_dir.to_s
+
+    page_dir = @page_dir.expand_path.relative_path_from @root
+
+    @page_dir = page_dir
+  end
+
+  ##
+  # Returns a properly-space list of generators and their descriptions.
+
+  def generator_descriptions
+    lengths = []
+
+    generators = RDoc::RDoc::GENERATORS.map do |name, generator|
+      lengths << name.length
+
+      description = generator::DESCRIPTION if
+        generator.const_defined? :DESCRIPTION
+
+      [name, description]
+    end
+
+    longest = lengths.max
+
+    generators.sort.map do |name, description|
+      if description then
+        "  %-*s - %s" % [longest, name, description]
       else
-        $stderr.puts "You need the 'dot' program to produce diagrams.",
-          "(see http://www.research.att.com/sw/tools/graphviz/)\n\n"
+        "  #{name}"
+      end
+    end.join "\n"
+  end
+
+  ##
+  # Parses command line options.
+
+  def parse argv
+    ignore_invalid = true
+
+    argv.insert(0, *ENV['RDOCOPT'].split) if ENV['RDOCOPT']
+
+    opts = OptionParser.new do |opt|
+      @option_parser = opt
+      opt.program_name = File.basename $0
+      opt.version = RDoc::VERSION
+      opt.release = nil
+      opt.summary_indent = ' ' * 4
+      opt.banner = <<-EOF
+Usage: #{opt.program_name} [options] [names...]
+
+  Files are parsed, and the information they contain collected, before any
+  output is produced. This allows cross references between all files to be
+  resolved. If a name is a directory, it is traversed. If no names are
+  specified, all Ruby files in the current directory (and subdirectories) are
+  processed.
+
+  How RDoc generates output depends on the output formatter being used, and on
+  the options you give.
+
+  Options can be specified via the RDOCOPT environment variable, which
+  functions similar to the RUBYOPT environment variable for ruby.
+
+    $ export RDOCOPT="--show-hash"
+
+  will make rdoc show hashes in method links by default.  Command-line options
+  always will override those in RDOCOPT.
+
+  Available formatters:
+
+#{generator_descriptions}
+
+  RDoc understands the following file formats:
+
+      EOF
+
+      parsers = Hash.new { |h,parser| h[parser] = [] }
+
+      RDoc::Parser.parsers.each do |regexp, parser|
+        parsers[parser.name.sub('RDoc::Parser::', '')] << regexp.source
+      end
+
+      parsers.sort.each do |parser, regexp|
+        opt.banner << "  - #{parser}: #{regexp.join ', '}\n"
+      end
+
+      opt.banner << "\n  The following options are deprecated:\n\n"
+
+      name_length = DEPRECATED.keys.sort_by { |k| k.length }.last.length
+
+      DEPRECATED.sort_by { |k,| k }.each do |name, reason|
+        opt.banner << "    %*1$2$s  %3$s\n" % [-name_length, name, reason]
+      end
+
+      opt.accept Template do |template|
+        template_dir = template_dir_for template
+
+        unless template_dir then
+          $stderr.puts "could not find template #{template}"
+          nil
+        else
+          [template, template_dir]
+        end
+      end
+
+      opt.accept Directory do |directory|
+        directory = File.expand_path directory
+
+        raise OptionParser::InvalidArgument unless File.directory? directory
+
+        directory
+      end
+
+      opt.accept Path do |path|
+        path = File.expand_path path
+
+        raise OptionParser::InvalidArgument unless File.exist? path
+
+        path
+      end
+
+      opt.accept PathArray do |paths,|
+        paths = if paths then
+                  paths.split(',').map { |d| d unless d.empty? }
+                end
+
+        paths.map do |path|
+          path = File.expand_path path
+
+          raise OptionParser::InvalidArgument unless File.exist? path
+
+          path
+        end
+      end
+
+      opt.separator nil
+      opt.separator "Parsing options:"
+      opt.separator nil
+
+      if Object.const_defined? :Encoding then
+        opt.on("--encoding=ENCODING", "-e", Encoding.list.map { |e| e.name },
+               "Specifies the output encoding.  All files",
+               "read will be converted to this encoding.",
+               "The default encoding is UTF-8.",
+               "--encoding is preferred over --charset") do |value|
+                 @encoding = Encoding.find value
+                 @charset = @encoding.name # may not be valid value
+               end
+
+        opt.separator nil
+      end
+
+      opt.on("--all", "-a",
+             "Synonym for --visibility=private.") do |value|
+        @visibility = :private
+      end
+
+      opt.separator nil
+
+      opt.on("--exclude=PATTERN", "-x", Regexp,
+             "Do not process files or directories",
+             "matching PATTERN.") do |value|
+        @exclude << value
+      end
+
+      opt.separator nil
+
+      opt.on("--extension=NEW=OLD", "-E",
+             "Treat files ending with .new as if they",
+             "ended with .old. Using '-E cgi=rb' will",
+             "cause xxx.cgi to be parsed as a Ruby file.") do |value|
+        new, old = value.split(/=/, 2)
+
+        unless new and old then
+          raise OptionParser::InvalidArgument, "Invalid parameter to '-E'"
+        end
+
+        unless RDoc::Parser.alias_extension old, new then
+          raise OptionParser::InvalidArgument, "Unknown extension .#{old} to -E"
+        end
+      end
+
+      opt.separator nil
+
+      opt.on("--[no-]force-update", "-U",
+             "Forces rdoc to scan all sources even if",
+             "newer than the flag file.") do |value|
+        @force_update = value
+      end
+
+      opt.separator nil
+
+      opt.on("--pipe", "-p",
+             "Convert RDoc on stdin to HTML") do
+        @pipe = true
+      end
+
+      opt.separator nil
+
+      opt.on("--tab-width=WIDTH", "-w", OptionParser::DecimalInteger,
+             "Set the width of tab characters.") do |value|
+        @tab_width = value
+      end
+
+      opt.separator nil
+
+      opt.on("--visibility=VISIBILITY", "-V", RDoc::VISIBILITIES,
+             "Minimum visibility to document a method.",
+             "One of 'public', 'protected' (the default)",
+             "or 'private'. Can be abbreviated.") do |value|
+        @visibility = value
+      end
+
+      opt.separator nil
+
+      markup_formats = RDoc::Text::MARKUP_FORMAT.keys.sort
+
+      opt.on("--markup=MARKUP", markup_formats,
+             "The markup format for the named files.",
+             "The default is rdoc.  Valid values are:",
+             markup_formats.join(', ')) do |value|
+        @markup = value
+      end
+
+      opt.separator nil
+
+      opt.on("--root=ROOT", Directory,
+             "Root of the source tree documentation",
+             "will be generated for.  Set this when",
+             "building documentation outside the",
+             "source directory.  Default is the",
+             "current directory.") do |root|
+        @root = Pathname(root)
+      end
+
+      opt.separator nil
+
+      opt.on("--page-dir=DIR", Directory,
+             "Directory where guides, your FAQ or",
+             "other pages not associated with a class",
+             "live.  Set this when you don't store",
+             "such files at your project root.",
+             "NOTE: Do not use the same file name in",
+             "the page dir and the root of your project") do |page_dir|
+        @page_dir = Pathname(page_dir)
+      end
+
+      opt.separator nil
+      opt.separator "Common generator options:"
+      opt.separator nil
+
+      opt.on("--force-output", "-O",
+             "Forces rdoc to write the output files,",
+             "even if the output directory exists",
+             "and does not seem to have been created",
+             "by rdoc.") do |value|
+        @force_output = value
+      end
+
+      opt.separator nil
+
+      generator_text = @generators.keys.map { |name| "  #{name}" }.sort
+
+      opt.on("-f", "--fmt=FORMAT", "--format=FORMAT", @generators.keys,
+             "Set the output formatter.  One of:", *generator_text) do |value|
+        check_generator
+
+        @generator_name = value.downcase
+        setup_generator
+      end
+
+      opt.separator nil
+
+      opt.on("--include=DIRECTORIES", "-i", PathArray,
+             "Set (or add to) the list of directories to",
+             "be searched when satisfying :include:",
+             "requests. Can be used more than once.") do |value|
+        @rdoc_include.concat value.map { |dir| dir.strip }
+      end
+
+      opt.separator nil
+
+      opt.on("--[no-]coverage-report=[LEVEL]", "--[no-]dcov", "-C", Integer,
+             "Prints a report on undocumented items.",
+             "Does not generate files.") do |value|
+        value = 0 if value.nil? # Integer converts -C to nil
+
+        @coverage_report = value
+        @force_update = true if value
+      end
+
+      opt.separator nil
+
+      opt.on("--output=DIR", "--op", "-o",
+             "Set the output directory.") do |value|
+        @op_dir = value
+      end
+
+      opt.separator nil
+
+      opt.on("-d",
+             "Deprecated --diagram option.",
+             "Prevents firing debug mode",
+             "with legacy invocation.") do |value|
+      end
+
+      opt.separator nil
+      opt.separator 'HTML generator options:'
+      opt.separator nil
+
+      opt.on("--charset=CHARSET", "-c",
+             "Specifies the output HTML character-set.",
+             "Use --encoding instead of --charset if",
+             "available.") do |value|
+        @charset = value
+      end
+
+      opt.separator nil
+
+      opt.on("--hyperlink-all", "-A",
+             "Generate hyperlinks for all words that",
+             "correspond to known methods, even if they",
+             "do not start with '#' or '::' (legacy",
+             "behavior).") do |value|
+        @hyperlink_all = value
+      end
+
+      opt.separator nil
+
+      opt.on("--main=NAME", "-m",
+             "NAME will be the initial page displayed.") do |value|
+        @main_page = value
+      end
+
+      opt.separator nil
+
+      opt.on("--[no-]line-numbers", "-N",
+             "Include line numbers in the source code.",
+             "By default, only the number of the first",
+             "line is displayed, in a leading comment.") do |value|
+        @line_numbers = value
+      end
+
+      opt.separator nil
+
+      opt.on("--show-hash", "-H",
+             "A name of the form #name in a comment is a",
+             "possible hyperlink to an instance method",
+             "name. When displayed, the '#' is removed",
+             "unless this option is specified.") do |value|
+        @show_hash = value
+      end
+
+      opt.separator nil
+
+      opt.on("--template=NAME", "-T", Template,
+             "Set the template used when generating",
+             "output. The default depends on the",
+             "formatter used.") do |(template, template_dir)|
+        @template     = template
+        @template_dir = template_dir
+      end
+
+      opt.separator nil
+
+      opt.on("--title=TITLE", "-t",
+             "Set TITLE as the title for HTML output.") do |value|
+        @title = value
+      end
+
+      opt.separator nil
+
+      opt.on("--copy-files=PATH", Path,
+             "Specify a file or directory to copy static",
+             "files from.",
+             "If a file is given it will be copied into",
+             "the output dir.  If a directory is given the",
+             "entire directory will be copied.",
+             "You can use this multiple times") do |value|
+        @static_path << value
+      end
+
+      opt.separator nil
+
+      opt.on("--webcvs=URL", "-W",
+             "Specify a URL for linking to a web frontend",
+             "to CVS. If the URL contains a '\%s', the",
+             "name of the current file will be",
+             "substituted; if the URL doesn't contain a",
+             "'\%s', the filename will be appended to it.") do |value|
+        @webcvs = value
+      end
+
+      opt.separator nil
+      opt.separator "ri generator options:"
+      opt.separator nil
+
+      opt.on("--ri", "-r",
+             "Generate output for use by `ri`. The files",
+             "are stored in the '.rdoc' directory under",
+             "your home directory unless overridden by a",
+             "subsequent --op parameter, so no special",
+             "privileges are needed.") do |value|
+        check_generator
+
+        @generator_name = "ri"
+        @op_dir ||= RDoc::RI::Paths::HOMEDIR
+        setup_generator
+      end
+
+      opt.separator nil
+
+      opt.on("--ri-site", "-R",
+             "Generate output for use by `ri`. The files",
+             "are stored in a site-wide directory,",
+             "making them accessible to others, so",
+             "special privileges are needed.") do |value|
+        check_generator
+
+        @generator_name = "ri"
+        @op_dir = RDoc::RI::Paths::SITEDIR
+        setup_generator
+      end
+
+      opt.separator nil
+      opt.separator "Generic options:"
+      opt.separator nil
+
+      opt.on("--write-options",
+             "Write .rdoc_options to the current",
+             "directory with the given options.  Not all",
+             "options will be used.  See RDoc::Options",
+             "for details.") do |value|
+        @write_options = true
+      end
+
+      opt.separator nil
+
+      opt.on("--[no-]dry-run",
+             "Don't write any files") do |value|
+        @dry_run = value
+      end
+
+      opt.separator nil
+
+      opt.on("-D", "--[no-]debug",
+             "Displays lots on internal stuff.") do |value|
+        $DEBUG_RDOC = value
+      end
+
+      opt.separator nil
+
+      opt.on("--[no-]ignore-invalid",
+             "Ignore invalid options and continue",
+             "(default true).") do |value|
+        ignore_invalid = value
+      end
+
+      opt.separator nil
+
+      opt.on("--quiet", "-q",
+             "Don't show progress as we parse.") do |value|
+        @verbosity = 0
+      end
+
+      opt.separator nil
+
+      opt.on("--verbose", "-v",
+             "Display extra progress as RDoc parses") do |value|
+        @verbosity = 2
+      end
+
+      opt.separator nil
+
+      opt.on("--help",
+             "Display this help") do
+        RDoc::RDoc::GENERATORS.each_key do |generator|
+          setup_generator generator
+        end
+
+        puts opt.help
         exit
       end
-#      exit
+
+      opt.separator nil
     end
+
+    setup_generator 'darkfish' if
+      argv.grep(/\A(-f|--fmt|--format|-r|-R|--ri|--ri-site)\b/).empty?
+
+    deprecated = []
+    invalid = []
+
+    begin
+      opts.parse! argv
+    rescue OptionParser::InvalidArgument, OptionParser::InvalidOption => e
+      if DEPRECATED[e.args.first] then
+        deprecated << e.args.first
+      elsif %w[--format --ri -r --ri-site -R].include? e.args.first then
+        raise
+      else
+        invalid << e.args.join(' ')
+      end
+
+      retry
+    end
+
+    unless @generator then
+      @generator = RDoc::Generator::Darkfish
+      @generator_name = 'darkfish'
+    end
+
+    if @pipe and not argv.empty? then
+      @pipe = false
+      invalid << '-p (with files)'
+    end
+
+    unless quiet then
+      deprecated.each do |opt|
+        $stderr.puts 'option ' << opt << ' is deprecated: ' << DEPRECATED[opt]
+      end
+
+      unless invalid.empty? then
+        invalid = "invalid options: #{invalid.join ', '}"
+
+        if ignore_invalid then
+          $stderr.puts invalid
+          $stderr.puts '(invalid options are ignored)'
+        else
+          $stderr.puts opts
+          $stderr.puts invalid
+          exit 1
+        end
+      end
+    end
+
+    @files = argv.dup
+
+    finish
+
+    if @write_options then
+      write_options
+      exit
+    end
+
+    self
   end
-  
-  # Check that the files on the command line exist
-  
-  def check_files
-    @files.each do |f|
-      stat = File.stat f rescue error("File not found: #{f}")
-      error("File '#{f}' not readable") unless stat.readable?
+
+  ##
+  # Don't display progress as we process the files
+
+  def quiet
+    @verbosity.zero?
+  end
+
+  ##
+  # Set quietness to +bool+
+
+  def quiet= bool
+    @verbosity = bool ? 0 : 1
+  end
+
+  ##
+  # Removes directories from +path+ that are outside the current directory
+
+  def sanitize_path path
+    require 'pathname'
+    dot = Pathname.new('.').expand_path
+
+    path.reject do |item|
+      path = Pathname.new(item).expand_path
+      relative = path.relative_path_from(dot).to_s
+      relative.start_with? '..'
     end
   end
 
-  def error(str)
-    $stderr.puts str
-    exit(1)
+  ##
+  # Set up an output generator for the named +generator_name+.
+  #
+  # If the found generator responds to :setup_options it will be called with
+  # the options instance.  This allows generators to add custom options or set
+  # default options.
+
+  def setup_generator generator_name = @generator_name
+    @generator = @generators[generator_name]
+
+    unless @generator then
+      raise OptionParser::InvalidArgument,
+            "Invalid output formatter #{generator_name}"
+    end
+
+    return if @generator_options.include? @generator
+
+    @generator_name = generator_name
+    @generator_options << @generator
+
+    if @generator.respond_to? :setup_options then
+      @option_parser ||= OptionParser.new
+      @generator.setup_options self
+    end
+  end
+
+  ##
+  # Finds the template dir for +template+
+
+  def template_dir_for template
+    template_path = File.join 'rdoc', 'generator', 'template', template
+
+    $LOAD_PATH.map do |path|
+      File.join File.expand_path(path), template_path
+    end.find do |dir|
+      File.directory? dir
+    end
+  end
+
+  ##
+  # This is compatibility code for syck
+
+  def to_yaml opts = {} # :nodoc:
+    return super if YAML.const_defined?(:ENGINE) and not YAML::ENGINE.syck?
+
+    YAML.quick_emit self, opts do |out|
+      out.map taguri, to_yaml_style do |map|
+        encode_with map
+      end
+    end
+  end
+
+  ##
+  # Displays a warning using Kernel#warn if we're being verbose
+
+  def warn message
+    super message if @verbosity > 1
+  end
+
+  ##
+  # Writes the YAML file .rdoc_options to the current directory containing the
+  # parsed options.
+
+  def write_options
+    RDoc.load_yaml
+
+    open '.rdoc_options', 'w' do |io|
+      io.set_encoding Encoding::UTF_8 if Object.const_defined? :Encoding
+
+      YAML.dump self, io
+    end
   end
 
 end
+

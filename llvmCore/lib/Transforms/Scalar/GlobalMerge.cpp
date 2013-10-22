@@ -12,7 +12,7 @@
 // global). Such a transformation can significantly reduce the register pressure
 // when many globals are involved.
 //
-// For example, consider the code which touches several global variables at 
+// For example, consider the code which touches several global variables at
 // once:
 //
 // static int foo[N], bar[N], baz[N];
@@ -182,7 +182,7 @@ bool GlobalMerge::doInitialization(Module &M) {
       continue;
 
     // Ignore fancy-aligned globals for now.
-    unsigned Alignment = I->getAlignment();
+    unsigned Alignment = TD->getPreferredAlignment(I);
     Type *Ty = I->getType()->getElementType();
     if (Alignment > TD->getABITypeAlignment(Ty))
       continue;
@@ -193,8 +193,8 @@ bool GlobalMerge::doInitialization(Module &M) {
       continue;
 
     if (TD->getTypeAllocSize(Ty) < MaxOffset) {
-      const TargetLoweringObjectFile &TLOF = TLI->getObjFileLowering();
-      if (TLOF.getKindForGlobal(I, TLI->getTargetMachine()).isBSSLocal())
+      if (TargetLoweringObjectFile::getKindForGlobal(I, TLI->getTargetMachine())
+          .isBSSLocal())
         BSSGlobals.push_back(I);
       else if (I->isConstant())
         ConstGlobals.push_back(I);
@@ -208,8 +208,8 @@ bool GlobalMerge::doInitialization(Module &M) {
   if (BSSGlobals.size() > 1)
     Changed |= doMerge(BSSGlobals, M, false);
 
-  // FIXME: This currently breaks the EH processing due to way how the 
-  // typeinfo detection works. We might want to detect the TIs and ignore 
+  // FIXME: This currently breaks the EH processing due to way how the
+  // typeinfo detection works. We might want to detect the TIs and ignore
   // them in the future.
   // if (ConstGlobals.size() > 1)
   //  Changed |= doMerge(ConstGlobals, M, true);

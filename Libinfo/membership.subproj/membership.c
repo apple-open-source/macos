@@ -32,19 +32,8 @@
 #include <xpc/private.h>
 #include <opendirectory/odipc.h>
 #include <pthread.h>
-
-#ifdef __i386__
-/* <rdar://problem/10675978> */
-__attribute__((weak_import))
-xpc_pipe_t xpc_pipe_create(const char *name, uint64_t flags);
-
-__attribute__((weak_import))
-void xpc_pipe_invalidate(xpc_pipe_t pipe);
-
-__attribute__((weak_import))
-int xpc_pipe_routine(xpc_pipe_t pipe, xpc_object_t message, xpc_object_t *reply);
-#endif /* __i386__ */
-#endif /* DS_AVAILABLE */
+#include <mach-o/dyld_priv.h>
+#endif
 
 static const uuid_t _user_compat_prefix = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
 static const uuid_t _group_compat_prefix = {0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0x00, 0x00, 0x00, 0x00};
@@ -98,20 +87,13 @@ _mbr_xpc_pipe(bool resetPipe)
 {
 	static dispatch_once_t once;
 	xpc_pipe_t pipe = NULL;
-
-#ifdef __i386__
-	if (xpc_pipe_create == NULL) {
-		_si_opendirectory_disabled = 1;
-		return NULL;
-	}
-#endif
-
+	
 	dispatch_once(&once, ^(void) {
-		char *rc_xbs;
+		char *xbs_disable;
 		
 		/* if this is a build environment we ignore opendirectoryd */
-		rc_xbs = getenv("RC_XBS");
-		if (rc_xbs != NULL && strcmp(rc_xbs, "YES") == 0) {
+		xbs_disable = getenv("XBS_DISABLE_LIBINFO");
+		if (xbs_disable != NULL && strcmp(xbs_disable, "YES") == 0) {
 			_si_opendirectory_disabled = 1;
 			return;
 		}
@@ -130,7 +112,7 @@ _mbr_xpc_pipe(bool resetPipe)
 	}
 	
 	if (__mbr_pipe == NULL) {
-		if (!issetugid() && getenv("OD_DEBUG_MODE") != NULL) {
+		if (!dyld_process_is_restricted() && getenv("OD_DEBUG_MODE") != NULL) {
 			__mbr_pipe = xpc_pipe_create(kODMachMembershipPortNameDebug, 0);
 		} else {
 			__mbr_pipe = xpc_pipe_create(kODMachMembershipPortName, XPC_PIPE_FLAG_PRIVILEGED);

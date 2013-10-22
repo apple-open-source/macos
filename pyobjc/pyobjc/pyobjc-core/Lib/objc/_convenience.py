@@ -25,6 +25,24 @@ import sys
 __all__ = ( 'addConvenienceForSelector', 'addConvenienceForClass' )
 
 
+# 12041508: NSDictionary now defines both objectForKey: and containsObject:,
+# so that the defining of __contains__ is order dependent (and often wrong).
+# So we define an OVERRIDE dict, whose keys are pipe-separated, triple strings:
+#
+# 1) the python method in question
+# 2) the first selector
+# 3) the overriding selector
+#
+# So "__contains__|containsObject:|objectForKey:" means that if containsObject:
+# was first, and has already defined __contains__, the objectForKey: can
+# later override the definition of __contains__ (but not in the reverse order).
+OVERRIDE = {'__contains__|containsObject:|objectForKey:': 1}
+def _canOverride(meth, owner, sel):
+    if not meth in owner:
+        return False
+    k = meth + '|' + owner[meth] + '|' + sel
+    return k in OVERRIDE
+
 CONVENIENCE_METHODS = {}
 CLASS_METHODS = {}
 
@@ -78,6 +96,7 @@ def _add_convenience_methods(super_class, name, type_dict):
 
     look_at_super = (super_class is not None and super_class.__name__ != 'Object')
 
+    owner = {}
     for k, sel in type_dict.items():
         if not isinstance(sel, selector):
             continue
@@ -105,8 +124,9 @@ def _add_convenience_methods(super_class, name, type_dict):
                     # Skip, inherit the implementation from a super_class
                     pass
 
-                elif nm not in type_dict:
+                elif nm not in type_dict or _canOverride(nm, owner, sel):
                     type_dict[nm] = value
+                    owner[nm] = sel
 
     if name in CLASS_METHODS:
         for nm, value in CLASS_METHODS[name]:

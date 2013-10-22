@@ -160,6 +160,7 @@
 #define kHIDTrackingAccelParametricCurvesKey    "HIDTrackingAccelCurves"
 #define kHIDScrollAccelParametricCurvesKey      "HIDScrollAccelCurves"
 #define kHIDAccelParametricCurvesDebugKey       "HIDAccelCurvesDebug"
+#define kHIDScrollAccelParametricCurvesDebugKey "HIDScrollAccelCurvesDebug"
 #define kHIDAccelGainLinearKey                  "HIDAccelGainLinear"
 #define kHIDAccelGainParabolicKey               "HIDAccelGainParabolic"
 #define kHIDAccelGainCubicKey                   "HIDAccelGainCubic"
@@ -325,6 +326,8 @@ enum {
     // Selectors for IOHIDGetModifierLockState and IOHIDSetModifierLockState
     kIOHIDCapsLockState             = 0x00000001,
     kIOHIDNumLockState              = 0x00000002,
+    kIOHIDActivityUserIdle          = 0x00000003,
+    kIOHIDActivityDisplayOn         = 0x00000004,
 };
 
 #endif /* !_DEV_EVSIO_H */

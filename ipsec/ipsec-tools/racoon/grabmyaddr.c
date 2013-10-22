@@ -72,12 +72,12 @@
 #include "nattraversal.h"
 
 #ifndef HAVE_GETIFADDRS
-static unsigned int if_maxindex __P((void));
+static unsigned int if_maxindex (void);
 #endif
 
-static int suitable_ifaddr __P((const char *, const struct sockaddr *));
+static int suitable_ifaddr (const char *, const struct sockaddr *);
 #ifdef INET6
-static int suitable_ifaddr6 __P((const char *, const struct sockaddr *));
+static int suitable_ifaddr6 (const char *, const struct sockaddr *);
 #endif
 
 #ifndef HAVE_GETIFADDRS
@@ -129,8 +129,8 @@ find_myaddr(addr, udp_encap)
 	for (q = lcconf->myaddrs; q; q = q->next) {
 		if (!q->addr)
 			continue;
-		if (q->udp_encap && !udp_encap
-			|| !q->udp_encap && udp_encap)
+		if ((q->udp_encap && !udp_encap)
+			|| (!q->udp_encap && udp_encap))
 			continue;
 		if (addr->sa_family != q->addr->ss_family)
 			continue;
@@ -152,14 +152,13 @@ find_myaddr(addr, udp_encap)
 void
 grab_myaddrs()
 {
-#ifdef HAVE_GETIFADDRS
 	struct myaddrs *p, *q;
 	struct ifaddrs *ifa0, *ifap;
 
 	char addr1[NI_MAXHOST];
 
 	if (getifaddrs(&ifa0)) {
-		plog(LLV_ERROR2, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"getifaddrs failed: %s\n", strerror(errno));
 		exit(1);
 		/*NOTREACHED*/
@@ -179,7 +178,7 @@ grab_myaddrs()
 			continue;
 
 		if (!suitable_ifaddr(ifap->ifa_name, ifap->ifa_addr)) {
-			plog(LLV_DEBUG2, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"unsuitable address: %s %s\n",
 				ifap->ifa_name,
 				saddrwop2str(ifap->ifa_addr));
@@ -193,31 +192,38 @@ grab_myaddrs()
 			q = find_myaddr(ifap->ifa_addr, 1);
 			if (q)
 				q->in_use = 1;
+            else if (natt_enabled_in_rmconf ()) {
+				q = dupmyaddr(p);
+				if (q == NULL) {
+					plog(ASL_LEVEL_ERR,
+                         "unable to allocate space for natt addr.\n");
+					exit(1);
+				}
+				q->udp_encap = 1;
+			}
 #endif				
 		} else {	
 			p = newmyaddr();
 			if (p == NULL) {
-				plog(LLV_ERROR2, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"unable to allocate space for addr.\n");
 				exit(1);
 				/*NOTREACHED*/
 			}
-			p->addr = dupsaddr(ifap->ifa_addr);
+			p->addr = dupsaddr(ALIGNED_CAST(struct sockaddr_storage*)ifap->ifa_addr);
 			if (p->addr == NULL) {
-				plog(LLV_ERROR2, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"unable to duplicate addr.\n");
 				exit(1);
 				/*NOTREACHED*/
 			}
 			p->ifname = racoon_strdup(ifap->ifa_name);
 			if (p->ifname == NULL) {
-				plog(LLV_ERROR2, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"unable to duplicate ifname.\n");
 				exit(1);
 				/*NOTREACHED*/
-			}
-				
-			p->sock = -1;
+			}				
 			p->in_use = 1;
 
 			if (getnameinfo((struct sockaddr *)p->addr, p->addr->ss_len,
@@ -225,7 +231,7 @@ grab_myaddrs()
 					NULL, 0,
 					NI_NUMERICHOST | niflags))
 				strlcpy(addr1, "(invalid)", sizeof(addr1));
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"my interface: %s (%s)\n",
 				addr1, ifap->ifa_name);
 		
@@ -236,7 +242,7 @@ grab_myaddrs()
 			if (natt_enabled_in_rmconf ()) {
 				q = dupmyaddr(p);
 				if (q == NULL) {
-					plog(LLV_ERROR2, LOCATION, NULL,
+					plog(ASL_LEVEL_ERR, 
 						"unable to allocate space for natt addr.\n");
 					exit(1);
 				}
@@ -248,11 +254,6 @@ grab_myaddrs()
 	}
 
 	freeifaddrs(ifa0);
-
-
-#else /*!HAVE_GETIFADDRS*/
-#error "NOT SUPPORTED"
-#endif /*HAVE_GETIFADDRS*/
 }
 
 
@@ -296,14 +297,13 @@ suitable_ifaddr6(ifname, ifaddr)
 
 	s = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (s == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"socket(SOCK_DGRAM) failed:%s\n", strerror(errno));
 		return 0;
 	}
 
-	if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to put IPv6 socket in non-blocking mode\n");
+    if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
+		plog(ASL_LEVEL_ERR, "failed to put IPv6 socket in non-blocking mode\n");
 	}
 
 	memset(&ifr6, 0, sizeof(ifr6));
@@ -312,7 +312,7 @@ suitable_ifaddr6(ifname, ifaddr)
 	memcpy(&ifr6.ifr_addr, ifaddr, sizeof(struct sockaddr_in6));    // Wcast-align fix - copy instread of assign with cast
 
 	if (ioctl(s, SIOCGIFAFLAG_IN6, &ifr6) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"ioctl(SIOCGIFAFLAG_IN6) failed:%s\n", strerror(errno));
 		close(s);
 		return 0;
@@ -322,7 +322,9 @@ suitable_ifaddr6(ifname, ifaddr)
 
 	if (ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_DUPLICATED
 	 || ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_DETACHED
-	 || ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_ANYCAST)
+	 || ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_ANYCAST
+	 /* Deprecated addresses will now be dropped by isakmp_close_unused */
+	 || ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_DEPRECATED) 
 		return 0;
 
 	/* suitable */
@@ -330,58 +332,6 @@ suitable_ifaddr6(ifname, ifaddr)
 }
 #endif
 
-int
-update_myaddrs()
-{   
-    struct rtmessage {          // Wcast-align fix - force alignment
-        struct rt_msghdr rtm;  
-        char discard[BUFSIZ];
-    } msg;
-	
-	int len;
-
-	while((len = read(lcconf->rtsock, &msg, sizeof(msg))) < 0) {
-		if (errno == EINTR)
-			continue;
-		plog(LLV_ERROR, LOCATION, NULL,
-			"read(PF_ROUTE) failed: %s\n",
-			strerror(errno));
-		return 0;
-	}
-	if (len < msg.rtm.rtm_msglen) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"read(PF_ROUTE) short read\n");
-		return 0;
-	}
-	if (msg.rtm.rtm_version != RTM_VERSION) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"routing socket version mismatch\n");
-		close(lcconf->rtsock);
-		lcconf->rtsock = -1;
-		return 0;
-	}
-	switch (msg.rtm.rtm_type) {
-	case RTM_NEWADDR:
-	case RTM_DELADDR:
-	case RTM_DELETE:
-	case RTM_IFINFO:
-		break;
-	case RTM_MISS:
-		/* ignore this message silently */
-		return 0;
-	default:
-		//plog(LLV_DEBUG, LOCATION, NULL,
-		//	"msg %d not interesting\n", msg.rtm.rtm_type);
-		return 0;
-	}
-	/* XXX more filters here? */
-
-	//plog(LLV_DEBUG, LOCATION, NULL,
-	//	"caught rtm:%d, need update interface address list\n",
-	//	msg.rtm.rtm_type);
-
-	return 1;
-}
 
 /*
  * initialize default port for ISAKMP to send, if no "listen"
@@ -397,13 +347,13 @@ autoconf_myaddrsport()
 	struct myaddrs *p;
 	int n;
 
-	plog(LLV_DEBUG, LOCATION, NULL,
+	plog(ASL_LEVEL_DEBUG, 
 		"configuring default isakmp port.\n");
 
 	for (p = lcconf->myaddrs, n = 0; p; p = p->next, n++) {
 		set_port (p->addr, p->udp_encap ? lcconf->port_isakmp_natt : lcconf->port_isakmp);
 	}
-	plog(LLV_DEBUG, LOCATION, NULL,
+	plog(ASL_LEVEL_DEBUG, 
 		"%d addrs are configured successfully\n", n);
 
 	return 0;
@@ -448,7 +398,7 @@ getmyaddrsport(local)
 				break;
 #endif
 			default:
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 				     "unsupported AF %d\n", p->addr->ss_family);
 				continue;
 			}
@@ -465,13 +415,15 @@ newmyaddr()
 
 	new = racoon_calloc(1, sizeof(*new));
 	if (new == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to allocate buffer for myaddrs.\n");
 		return NULL;
 	}
 
 	new->next = NULL;
 	new->addr = NULL;
+    new->source = NULL;
+    new->sock = -1;
 #ifdef __APPLE_
 	new->ifname = NULL;
 #endif
@@ -486,16 +438,16 @@ dupmyaddr(struct myaddrs *old)
 
 	new = racoon_calloc(1, sizeof(*new));
 	if (new == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to allocate buffer for myaddrs.\n");
 		return NULL;
 	}
 
 	/* Copy the whole structure and set the differences.  */
 	memcpy (new, old, sizeof (*new));
-	new->addr = dupsaddr ((struct sockaddr *)old->addr);
+	new->addr = dupsaddr (old->addr);
 	if (new->addr == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to allocate buffer for duplicate addr.\n");
 		racoon_free(new);
 		return NULL;
@@ -503,14 +455,16 @@ dupmyaddr(struct myaddrs *old)
 	if (old->ifname) {
 		new->ifname = racoon_strdup(old->ifname);
 		if (new->ifname == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"failed to allocate buffer for duplicate ifname.\n");
 			racoon_free(new->addr);
 			racoon_free(new);
 			return NULL;
 		}
 	}
-			
+    new->source = NULL;
+    new->sock = -1;
+    
 	new->next = old->next;
 	old->next = new;
 
@@ -537,22 +491,20 @@ delmyaddr(myaddr)
 	racoon_free(myaddr);
 }
 
-int
-initmyaddr()
+void
+update_myaddrs(void *unused)
 {
-	/* initialize routing socket */
-	lcconf->rtsock = socket(PF_ROUTE, SOCK_RAW, PF_UNSPEC);
-	if (lcconf->rtsock < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"socket(PF_ROUTE) failed: %s",
-			strerror(errno));
-		return -1;
-	}
-    
-	if (fcntl(lcconf->rtsock, F_SETFL, O_NONBLOCK) == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to put PF_ROUTE socket in non-blocking mode\n");
-	}
+    grab_myaddrs();
+    isakmp_close_unused();
+    autoconf_myaddrsport();
+    isakmp_open();
+    ASIKEUpdateLocalAddressesFromIKE();
+}
+
+
+int
+initmyaddr(void)
+{
 
 	if (lcconf->myaddrs == NULL && lcconf->autograbaddr == 1) {
 		grab_myaddrs();
@@ -564,11 +516,11 @@ initmyaddr()
 	return 0;
 }
 
+
 /* select the socket to be sent */
 /* should implement other method. */
 int
-getsockmyaddr(my)
-	struct sockaddr *my;
+getsockmyaddr(struct sockaddr *my)
 {
 	struct myaddrs *p, *lastresort = NULL;
 
@@ -586,7 +538,7 @@ getsockmyaddr(my)
 	if (!p)
 		p = lastresort;
 	if (!p) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"no socket matches address family %d\n",
 			my->sa_family);
 		return -1;
@@ -594,3 +546,94 @@ getsockmyaddr(my)
 
 	return p->sock;
 }
+
+void
+pfroute_handler(void *unused)
+{   
+    
+    struct rtmessage {          // Wcast-align fix - force alignment
+        struct rt_msghdr rtm;  
+        char discard[BUFSIZ];
+    } msg;
+	
+	int len;
+    
+	while((len = read(lcconf->rtsock, &msg, sizeof(msg))) < 0) {
+		if (errno == EINTR)
+			continue;
+		plog(ASL_LEVEL_DEBUG, 
+             "read(PF_ROUTE) failed: %s\n",
+             strerror(errno));
+		return;
+	}
+	if (len < msg.rtm.rtm_msglen) {
+		plog(ASL_LEVEL_DEBUG, 
+             "read(PF_ROUTE) short read\n");
+		return;
+	}
+	switch (msg.rtm.rtm_type) {
+        case RTM_NEWADDR:
+        case RTM_DELADDR:
+        case RTM_DELETE:
+        case RTM_IFINFO:
+            break;
+        case RTM_MISS:
+            /* ignore this message silently */
+            return;
+        default:
+            //plog(ASL_LEVEL_DEBUG,
+            //     "msg %d not interesting\n", msg.rtm.rtm_type);
+            return;
+	}
+	/* XXX more filters here? */
+    
+	plog(ASL_LEVEL_DEBUG, 
+         "caught rtm:%d, need update interface address list\n",
+         msg.rtm.rtm_type);
+    
+    // Interface changes occurred - update addrs
+    update_myaddrs(NULL);
+}
+
+void
+pfroute_close(void)
+{
+    
+    dispatch_source_cancel(lcconf->rt_source);
+    lcconf->rt_source = NULL;
+}
+
+int
+pfroute_init(void)
+{
+    int sock;
+    
+    /* initialize routing socket */
+    lcconf->rtsock = socket(PF_ROUTE, SOCK_RAW, PF_UNSPEC);
+    if (lcconf->rtsock < 0) {
+        plog(ASL_LEVEL_DEBUG, 
+             "socket(PF_ROUTE) failed: %s",
+             strerror(errno));
+        return -1;
+    }
+    if (fcntl(lcconf->rtsock, F_SETFL, O_NONBLOCK) == -1) {
+		plog(ASL_LEVEL_DEBUG, "failed to put PF_ROUTE socket in non-blocking mode\n");
+	}
+
+    lcconf->rt_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, lcconf->rtsock, 0, dispatch_get_main_queue());
+    if (lcconf->rt_source == NULL) {
+        plog(ASL_LEVEL_DEBUG, "could not create pfroute socket source.");
+        return -1;
+    }
+    dispatch_source_set_event_handler_f(lcconf->rt_source, pfroute_handler);
+    sock = lcconf->rtsock;
+    dispatch_source_set_cancel_handler(lcconf->rt_source, 
+                                         ^{
+                                             close(sock);
+                                         });
+    dispatch_resume(lcconf->rt_source);
+    return 0;
+}
+
+
+

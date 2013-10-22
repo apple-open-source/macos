@@ -42,7 +42,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 1999-2003 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 1999-2012 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"
@@ -350,7 +350,7 @@ main(int argc, char * argv[])
 	print_copyright_header(argv[0], argv[1]);
 	printf("#ifndef _S_DHCP_TYPE\n"
 	       "#define _S_DHCP_TYPE\n");
-	printf("\ntypedef enum {\n");
+	printf("\nenum {\n");
 	for (i = 0; types[i].name; i++) {
 	    if (i == 0) {
 		printf("    %-20s\t = %d,\n", make_type("first"), i);
@@ -363,7 +363,7 @@ main(int argc, char * argv[])
 	printf("    %-20s\t =", make_type("last"));
 	printf(" %s,\n", make_type(types[i ? (i - 1) : 0].name));
     
-	printf("} dhcptype_t;\n\n");
+	printf("};\n\ntypedef uint32_t dhcptype_t;\n\n");
 	printf("typedef struct {\n"
 	       "    dhcptype_t	type;\n"
 	       "    const char *	name;\n"

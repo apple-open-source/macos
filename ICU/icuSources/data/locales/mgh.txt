@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/mgh.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/mgh.xml
 // *
 // ***************************************************************************
 /**
@@ -24,18 +24,18 @@ mgh{
             }
         }
     }
-    Version{"2.0.64.50"}
+    Version{"2.0.82.45"}
     calendar{
-        gregorian{
+        generic{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, d MMMM y",
-                "d MMMM y",
-                "d MMM y",
-                "dd/MM/yyyy",
+                "EEEE, d MMMM y G",
+                "d MMMM y G",
+                "d MMM y G",
+                "dd/MM/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -63,8 +63,53 @@ mgh{
                 yMMMEd{"E, MMM d, y"}
                 yMMMd{"MMM d, y"}
                 yMd{"d/M/y"}
-                yQ{"Q y"}
                 yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
+            }
+        }
+        gregorian{
+            AmPmMarkers{
+                "wichishu",
+                "mchochil'l",
+            }
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "dd/MM/y",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Ed{"E d"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, M/d"}
+                MMM{"LLL"}
+                MMMEd{"E, MMM d"}
+                MMMd{"MMM d"}
+                Md{"d/M"}
+                d{"d"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                ms{"m:ss"}
+                y{"y"}
+                yM{"M/y"}
+                yMEd{"E, M/d/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, MMM d, y"}
+                yMMMd{"MMM d, y"}
+                yMd{"d/M/y"}
+                yQQQ{"QQQ y"}
+                yQQQQ{"QQQQ y"}
             }
             dayNames{
                 format{
@@ -107,43 +152,6 @@ mgh{
                 wide{
                     "Hinapiya yesu",
                     "Yopia yesu",
-                }
-            }
-            fields{
-                day{
-                    dn{"nihuku"}
-                    relative{
-                        "-1"{"n'chana"}
-                        "0"{"lel'lo"}
-                        "1"{"me'llo"}
-                    }
-                }
-                dayperiod{
-                    dn{"nihuku"}
-                }
-                era{
-                    dn{"kal'lai"}
-                }
-                hour{
-                    dn{"isaa"}
-                }
-                minute{
-                    dn{"idakika"}
-                }
-                month{
-                    dn{"mweri"}
-                }
-                second{
-                    dn{"isekunde"}
-                }
-                week{
-                    dn{"iwiki mocha"}
-                }
-                weekday{
-                    dn{"nihuku no mwisho wa wiki"}
-                }
-                year{
-                    dn{"yaka"}
                 }
             }
             monthNames{
@@ -194,6 +202,40 @@ mgh{
                     }
                 }
             }
+        }
+    }
+    fields{
+        day{
+            dn{"nihuku"}
+            relative{
+                "-1"{"n'chana"}
+                "0"{"lel'lo"}
+                "1"{"me'llo"}
+            }
+        }
+        era{
+            dn{"kal'lai"}
+        }
+        hour{
+            dn{"isaa"}
+        }
+        minute{
+            dn{"idakika"}
+        }
+        month{
+            dn{"mweri"}
+        }
+        second{
+            dn{"isekunde"}
+        }
+        week{
+            dn{"iwiki mocha"}
+        }
+        weekday{
+            dn{"nihuku no mwisho wa wiki"}
+        }
+        year{
+            dn{"yaka"}
         }
     }
 }

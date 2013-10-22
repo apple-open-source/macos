@@ -1,4 +1,4 @@
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005 Apple Computer, Inc.
+/* Copyright (C) 1999-2005, 2012 Apple Inc.
    Copyright (C) 1997, 2001 Free Software Foundation, Inc.
 
 This file is part of KeyMgr.
@@ -43,6 +43,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <stdlib.h>
 #include <libkern/OSAtomic.h>
 #include <stdint.h>
+
+#if __has_include(<os/alloc_once_private.h>)
+#include <os/alloc_once_private.h>
+#if defined(OS_ALLOC_ONCE_KEY_LIBKEYMGR)
+#define _HAS_ALLOC_ONCE 1
+#endif
+#endif
+
 #include "keymgr.h"
 
 /* On x86 or later platforms, there's no need to support the TLS SPIs.
@@ -52,6 +60,17 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    that library for ppc64.)  */
 #if defined(__ppc__) || defined(__ppc64__)
 #define WANT_TLS_SPIS 1
+#endif
+
+/* On Mac OS X 10.6, unwinding is down by libunwind in libSystem.B.dylib
+   Normally, the object list is not used, but some applications that dynamically
+   generate code directly use keymgr to find the KEYMGR_GCC3_DW2_OBJ_LIST
+   list and insert frame information. The problem is those apps don't check
+   if KEYMGR_GCC3_DW2_OBJ_LIST is currently NULL. The fix is to statically
+   allocate the object list head struct and set KEYMGR_GCC3_DW2_OBJ_LIST to
+   point to it <rdar://problem/6599778>. */
+#if defined(__i386__)
+#define PR_6599778 1
 #endif
 
 #ifndef ESUCCESS
@@ -107,18 +126,44 @@ struct {
      Now unused.  */
   void *unused;
 
-  /* Pointer to keymgr global list.  This pointer was previously
-     contained in __eh_global_dataptr.  */
-  Tkey_Data * volatile keymgr_globals;
+  /* Formerly the keymgr_globals pointer. Moved to os_alloc_once allocation. */
+  void *unused2;
 
   /* Pointer to keymgr information node.  This is part of the semi-public
      ABI of keymgr.  */
   const Tinfo_Node *keymgr_info;
-} __attribute__((aligned (32))) __keymgr_global = {
+} const __attribute__((aligned (32))) __keymgr_global = {
   NULL,
   NULL,
   &keymgr_info
 };
+
+struct keymgr_globals_s {
+  /* Pointer to keymgr global list. This pointer was previously contained
+     in the second word of __keymgr_global static data. Moved here to avoid
+     diryting a __DATA page in each process.
+     Prior to that, contained in __eh_global_dataptr. */
+  Tkey_Data * volatile keymgr_globals;
+
+#ifdef PR_6599778
+  /* Used to statically allocate the head of the object list.
+     The struct is 4 pointers long and must be initially zero filled. */
+  void *km_object_list_head[4];
+#endif
+};
+typedef struct keymgr_globals_s *keymgr_globals_t;
+
+__attribute__((__pure__))
+static inline keymgr_globals_t
+_keymgr_globals(void) {
+#if _HAS_ALLOC_ONCE
+  return (keymgr_globals_t)os_alloc_once(OS_ALLOC_ONCE_KEY_LIBKEYMGR,
+                              sizeof(struct keymgr_globals_s), NULL);
+#else
+  static struct keymgr_globals_s storage;
+  return &storage;
+#endif
+}
 
 #if defined(__ppc__)
 /* Initialize keymgr.  */
@@ -138,7 +183,7 @@ get_key_element (unsigned int key, TnodeKind kind)
 {
   Tkey_Data  *keyArray;
 
-  for (keyArray = __keymgr_global.keymgr_globals;
+  for (keyArray = _keymgr_globals()->keymgr_globals;
        keyArray != NULL;
        keyArray = keyArray->next)
     if (keyArray->handle == key)
@@ -182,7 +227,7 @@ get_or_create_key_element (unsigned int key, TnodeKind kind,
   
   for (;;)
     {
-      Tkey_Data *keyArrayStart = __keymgr_global.keymgr_globals;
+      Tkey_Data *keyArrayStart = _keymgr_globals()->keymgr_globals;
       Tkey_Data *keyArray;
 
       /* At this point, we know that we have not searched the elements
@@ -267,12 +312,12 @@ get_or_create_key_element (unsigned int key, TnodeKind kind,
       if (OSAtomicCompareAndSwap64Barrier (
 			   (int64_t) keyArrayStart,
 			   (int64_t) newEntry,
-			   (int64_t *) &__keymgr_global.keymgr_globals))
+			   (int64_t *) &_keymgr_globals()->keymgr_globals))
 #else
       if (OSAtomicCompareAndSwap32Barrier (
 			   (int32_t) keyArrayStart,
 			   (int32_t) newEntry,
-			   (int32_t *) &__keymgr_global.keymgr_globals))
+			   (int32_t *) &_keymgr_globals()->keymgr_globals))
 #endif
 	{
 	  *result = newEntry;
@@ -783,24 +828,13 @@ void __keymgr_dwarf2_register_sections (void)
   /* explicitly called __keymgr_dwarf2_register_sections() */
 }
 
-
-/* Used to statically allocate the head of the object list. */
-/* The actual sruct is 4 pointers long and must be initially */
-/* zero filled. */
-static void* km_object_list_head[4];
-
 /* call by libSystem's initializer */
 void __keymgr_initializer (void)
 {
-  /* On Mac OS X 10.6, unwinding is down by libunwind in libSystem.B.dylib */
-  /* Normally, the object list is need used.  But some applications that */
-  /* dynamically generate code directly use keymgr to find the KEYMGR_GCC3_DW2_OBJ_LIST */
-  /* list and insert frame information.  The problem is those apps don't check */
-  /* if KEYMGR_GCC3_DW2_OBJ_LIST is currently NULL.  The fix is to statically */
-  /* allocate the object list head struct and set KEYMGR_GCC3_DW2_OBJ_LIST to point*/
-  /* to it <rdar://problem/6599778>. */
+#ifdef PR_6599778
   _keymgr_get_and_lock_processwide_ptr(KEYMGR_GCC3_DW2_OBJ_LIST);
-  _keymgr_set_and_unlock_processwide_ptr(KEYMGR_GCC3_DW2_OBJ_LIST, &km_object_list_head);
+  _keymgr_set_and_unlock_processwide_ptr(KEYMGR_GCC3_DW2_OBJ_LIST, &_keymgr_globals()->km_object_list_head);
+#endif
 
 #if __x86_64__
   /* On Mac OS X 10.6, libunwind in libSystem.dylib implements all unwinding functionality. */

@@ -35,7 +35,6 @@
 #include <security_utilities/cfutilities.h>
 #include <fts.h>
 #include <fcntl.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <CommonCrypto/CommonDigest.h>
 
 #include "Manifest.h"
@@ -185,7 +184,7 @@ void ManifestItemList::AddDataObject (CFDataRef object)
 	const UInt8* data = CFDataGetBytePtr (object);
 	CFIndex length = CFDataGetLength (object);
 	
-	CC_SHA1_Update (&digestContext, data, length);
+	CC_SHA1_Update (&digestContext, data, (CC_LONG)length);
 	CC_SHA1_Final (digest, &digestContext);
 	
 	ManifestDataBlobItem* db = new ManifestDataBlobItem ();
@@ -278,7 +277,7 @@ void ManifestItemList::AddObject (CFTypeRef object, CFArrayRef exceptionList)
 void RootItemList::Compare (RootItemList& item, bool compareOwnerAndGroup)
 {
 	// the number of items in the list has to be the same
-	unsigned numItems = size ();
+	unsigned numItems = (unsigned)size ();
 
 	if (numItems != item.size ())
 	{
@@ -324,7 +323,7 @@ bool CompareManifestFileItems::operator () (ManifestItem *a, ManifestItem *b)
 
 void FileSystemItemList::Compare (FileSystemItemList &a, bool compareOwnerAndGroup)
 {
-	unsigned numItems = size ();
+	unsigned numItems = (unsigned)size ();
 	
 	if (numItems != a.size ())
 	{
@@ -372,7 +371,7 @@ void ManifestInternal::CompareManifests (ManifestInternal& m1,  ManifestInternal
 {
 	if ((options & ~kSecManifestVerifyOwnerAndGroup) != 0)
 	{
-		MacOSError::throwMe (unimpErr); // we don't support these options
+		MacOSError::throwMe (errSecUnimplemented); // we don't support these options
 	}
 	
 	m1.mManifestItems.Compare (m2.mManifestItems, (bool) options & kSecManifestVerifyOwnerAndGroup);
@@ -694,7 +693,7 @@ void ManifestFileItem::ComputeRepresentations (struct stat &st, bool hasAppleDou
 		
 		resourceForkName = mPath;
 		// walk back to find the beginning of the path and insert ._
-		int i = resourceForkName.length () - 1;
+                int i = (int)resourceForkName.length () - 1;
 		while (i >= 0 && resourceForkName[i] != '/')
 		{
 			i -= 1;
@@ -756,7 +755,7 @@ void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1
 	}
 	
 	u_int8_t *buffer = new u_int8_t[st.st_size];
-	ssize_t bytesRead = read (fileNo, buffer, st.st_size);
+	ssize_t bytesRead = read (fileNo, buffer, (size_t)st.st_size);
 	close (fileNo);
 	
 	if (bytesRead != st.st_size)
@@ -797,7 +796,7 @@ void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1
 	fileLength = length;
 
 	// digest the data
-	CC_SHA1_Update (&digestContext, buffer + offset, length);
+	CC_SHA1_Update (&digestContext, buffer + offset, (CC_LONG)length);
 	
 	// compute the SHA1 hash
 	CC_SHA1_Final (digest, &digestContext);
@@ -822,7 +821,7 @@ void ManifestFileItem::ComputeDigestForFile (char* name, SHA1Digest &digest, siz
 		UnixError::throwMe ();
 	}
 	
-	fileLength = st.st_size;
+	fileLength = (size_t)st.st_size;
 
 	if (st.st_size != 0)
 	{
@@ -833,7 +832,7 @@ void ManifestFileItem::ComputeDigestForFile (char* name, SHA1Digest &digest, siz
 		while ((bytesRead = read (fileNo, buffer, kReadChunkSize)) != 0)
 		{
 			// digest the read data
-			CC_SHA1_Update (&digestContext, buffer, bytesRead);
+			CC_SHA1_Update (&digestContext, buffer, (CC_LONG)bytesRead);
 		}
 		
 		// compute the SHA1 hash
@@ -1077,7 +1076,7 @@ ManifestSymLinkItem::~ManifestSymLinkItem ()
 void ManifestSymLinkItem::ComputeRepresentation ()
 {
 	char path [FILENAME_MAX];
-	int result = readlink (mPath.c_str (), path, sizeof (path));
+	int result = (int)readlink (mPath.c_str (), path, sizeof (path));
 	secdebug ("manifest", "Read content %s for %s", path, mPath.c_str ());
 	
 	// create a digest context

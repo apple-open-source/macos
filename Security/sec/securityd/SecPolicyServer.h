@@ -35,9 +35,7 @@
 #include <securityd/policytree.h>
 #include <securityd/SecTrustServer.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef struct OpaqueSecPVC *SecPVCRef;
 
@@ -95,6 +93,9 @@ bool SecPVCParentCertificateChecks(SecPVCRef pvc, CFIndex ix);
 
 /* Check whether an intermediate certificates key has been blacklisted. */
 bool SecPVCBlackListedKeyChecks(SecPVCRef pvc, CFIndex ix);
+ 
+/* Check whether an intermediate certificates key has been gray listed. */
+bool SecPVCGrayListedKeyChecks(SecPVCRef pvc, CFIndex ix);
 
 /* Run dynamic checks on the complete path in pvc.  Return true if the
    operation is complete, returns false if an async backgroup request was
@@ -122,8 +123,8 @@ void SecPolicyServerInitalize(void);
 /* True iff certificate could be an extended validation (EV) certificate. */
 bool SecPolicySubscriberCertificateCouldBeEV(SecCertificateRef certificate);
 
-#if defined(__cplusplus)
-}
-#endif
+void SecEVPolicyToAnchorDigestsInit(void);
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECPOLICYSERVER_H_ */

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Inc.
+ * Copyright (C) 2004, 2005, 2006, 2013 Apple Inc.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -29,18 +29,18 @@
 
 #include <wtf/Platform.h>
 
-#if OS(WINDOWS) && !OS(WINCE) && !PLATFORM(QT) && !PLATFORM(CHROMIUM) && !PLATFORM(GTK) && !PLATFORM(WX)
+#if PLATFORM(MAC) || PLATFORM(IOS)
+#define WTF_USE_FILE_LOCK 1
+#endif
+
+#if PLATFORM(WIN) && !USE(WINGDI)
 #include <WebCore/WebCoreHeaderDetection.h>
 #endif
 
 #include <wtf/ExportMacros.h>
 #include "PlatformExportMacros.h"
 
-#if PLATFORM(QT) && USE(V8)
-#include <JavaScriptCore/runtime/JSExportMacros.h>
-#else
 #include <runtime/JSExportMacros.h>
-#endif
 
 #ifdef __APPLE__
 #define HAVE_FUNC_USLEEP 1
@@ -49,11 +49,11 @@
 #if OS(WINDOWS)
 
 #ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x0500
+#define _WIN32_WINNT 0x0502
 #endif
 
 #ifndef WINVER
-#define WINVER 0x0500
+#define WINVER 0x0502
 #endif
 
 // If we don't define these, they get defined in windef.h.
@@ -86,20 +86,7 @@
 
 #endif
 
-// On MSW, wx headers need to be included before windows.h is.
-// The only way we can always ensure this is if we include wx here.
-#if PLATFORM(WX)
-#include <wx/defs.h>
-#endif
-
-// this breaks compilation of <QFontDatabase>, at least, so turn it off for now
-// Also generates errors on wx on Windows, presumably because these functions
-// are used from wx headers. On GTK+ for Mac many GTK+ files include <libintl.h>
-// or <glib/gi18n-lib.h>, which in turn include <xlocale/_ctype.h> which uses
-// isacii(). 
-#if !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !(OS(DARWIN) && PLATFORM(GTK)) && !OS(QNX) && !defined(_LIBCPP_VERSION)
 #include <wtf/DisallowCType.h>
-#endif
 
 #if COMPILER(MSVC)
 #define SKIP_STATIC_CONSTRUCTORS_ON_MSVC 1
@@ -115,7 +102,7 @@
 #ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
 #endif
-#elif !OS(WINCE)
+#elif !USE(WINGDI)
 #define WTF_USE_CG 1
 #undef WTF_USE_CAIRO
 #undef WTF_USE_CURL
@@ -126,17 +113,6 @@
 // New theme
 #define WTF_USE_NEW_THEME 1
 #endif // PLATFORM(MAC)
-
-#if PLATFORM(CHROMIUM)
-
-// Chromium uses this file instead of JavaScriptCore/config.h to compile
-// JavaScriptCore/wtf (chromium doesn't compile the rest of JSC). Therefore,
-// this define is required.
-#define WTF_CHANGES 1
-
-#define WTF_USE_GOOGLEURL 1
-
-#endif /* PLATFORM(CHROMIUM) */
 
 #if USE(CG)
 #ifndef CGFLOAT_DEFINED
@@ -158,14 +134,17 @@ typedef float CGFloat;
 #define WTF_USE_CA 1
 #endif
 
-#if PLATFORM(QT) && USE(V8) && defined(Q_WS_X11)
-/* protect ourselves from evil X11 defines */
-#include <bridge/npruntime_internal.h>
-#endif
-
 // FIXME: Move this to JavaScriptCore/wtf/Platform.h, which is where we define WTF_USE_AVFOUNDATION on the Mac.
 // https://bugs.webkit.org/show_bug.cgi?id=67334
-#if PLATFORM(WIN) && HAVE(AVCF)
+#if PLATFORM(WIN)
 #define WTF_USE_AVFOUNDATION 1
+
+#if HAVE(AVCF_LEGIBLE_OUTPUT)
+#define WTF_USE_AVFOUNDATION 1
+#define HAVE_AVFOUNDATION_MEDIA_SELECTION_GROUP 1
+#define HAVE_AVFOUNDATION_LEGIBLE_OUTPUT_SUPPORT 1
+#define HAVE_MEDIA_ACCESSIBILITY_FRAMEWORK 1
+#endif
+
 #endif
 

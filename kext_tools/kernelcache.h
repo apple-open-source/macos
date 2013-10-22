@@ -44,10 +44,6 @@ writeFatFile(
     CFArrayRef                  fileArchs,
     mode_t                      fileMode,
     const struct timeval        fileTimes[2]);
-ExitStatus writeToFile(
-    int           fileDescriptor,
-    const UInt8 * data,
-    CFIndex       length);
 void * mapAndSwapFatHeaderPage(
     int fileDescriptor);
 void unmapFatHeaderPage(
@@ -55,7 +51,7 @@ void unmapFatHeaderPage(
 struct fat_arch * getFirstFatArch(
     u_char *headerPage);
 struct fat_arch * getNextFatArch(
-    u_char *headerPage, 
+    u_char *headerPage,
     struct fat_arch *lastArch);
 struct fat_arch * getFatArchForArchInfo(
     u_char *headerPage, 
@@ -75,12 +71,16 @@ ExitStatus readMachOSlices(
     CFMutableArrayRef * archsOut,
     mode_t            * modeOut,
     struct timeval      machOTimesOut[2]);
+
+CF_RETURNS_RETAINED
 CFDataRef  readMachOSliceForArch(
     const char        * filePath,
     const NXArchInfo  * archInfo,
     Boolean             checkArch);
+
+CF_RETURNS_RETAINED
 CFDataRef readMachOSlice(
-    int                 fileDescriptor,
+    int         fileDescriptor,
     off_t       fileOffset,
     size_t      fileSliceSize);
 int readFileAtOffset(
@@ -92,8 +92,10 @@ int verifyMachOIsArch(
     const UInt8      * fileBuf,
     size_t              size,
     const NXArchInfo * archInfo);
+CF_RETURNS_RETAINED
 CFDataRef uncompressPrelinkedSlice(
     CFDataRef prelinkImage);
+CF_RETURNS_RETAINED
 CFDataRef compressPrelinkedSlice(
     CFDataRef prelinkImage,
     Boolean   hasRelocs);

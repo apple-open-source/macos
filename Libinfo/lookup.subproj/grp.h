@@ -43,21 +43,8 @@
 #define	_GRP_H_
 
 #include <_types.h>
-
-#ifndef _GID_T
-typedef __darwin_gid_t	gid_t;		/* [XBD] */
-#define _GID_T
-#endif
-
-/*
- * Although the definition of size_t is not mandated by [TSF], the function
- * prototypes defined by [TSF] for the thread reentrant functions include
- * it as a type for their 4th arguments, so we define it here.
- */
-#ifndef _SIZE_T
-#define _SIZE_T
-typedef __darwin_size_t	size_t;		/* [???] */
-#endif
+#include <sys/_types/_gid_t.h>	/* [XBD] */
+#include <sys/_types/_size_t.h> /* SUSv4 */
 
 #if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	_PATH_GROUP		"/etc/group"

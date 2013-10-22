@@ -24,11 +24,7 @@
 
 #include <QtCore/qstring.h>
 #include <QtGui/qpixmap.h>
-#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
-#include <QtWidgets/qicon.h>
-#else
 #include <QtGui/qicon.h>
-#endif
 #include <QtCore/qshareddata.h>
 
 namespace WebCore {
@@ -41,6 +37,8 @@ class QWebSettingsPrivate;
 QT_BEGIN_NAMESPACE
 class QUrl;
 QT_END_NAMESPACE
+
+QWEBKIT_EXPORT void qt_networkAccessAllowed(bool isAllowed);
 
 class QWEBKIT_EXPORT QWebSettings {
 public:
@@ -82,7 +80,13 @@ public:
         JavascriptCanCloseWindows,
         WebGLEnabled,
         CSSRegionsEnabled,
-        HyperlinkAuditingEnabled
+        CSSCompositingEnabled,
+        HyperlinkAuditingEnabled,
+        CSSGridLayoutEnabled,
+        ScrollAnimatorEnabled,
+        CaretBrowsingEnabled,
+        NotificationsEnabled,
+        WebAudioEnabled
     };
     enum WebGraphic {
         MissingImageGraphic,
@@ -100,13 +104,11 @@ public:
         DefaultFontSize,
         DefaultFixedFontSize
     };
-#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
     enum ThirdPartyCookiePolicy {
         AlwaysAllowThirdPartyCookies,
         AlwaysBlockThirdPartyCookies,
         AllowThirdPartyWithExistingCookies
     };
-#endif
 
     static QWebSettings *globalSettings();
 
@@ -159,14 +161,16 @@ public:
 
     static void enablePersistentStorage(const QString& path = QString());
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
     void setThirdPartyCookiePolicy(ThirdPartyCookiePolicy);
     QWebSettings::ThirdPartyCookiePolicy thirdPartyCookiePolicy() const;
-#endif
+
+    void setCSSMediaType(const QString&);
+    QString cssMediaType() const;
 
     inline QWebSettingsPrivate* handle() const { return d; }
 
 private:
+    friend class QWebPageAdapter;
     friend class QWebPagePrivate;
     friend class QWebSettingsPrivate;
 

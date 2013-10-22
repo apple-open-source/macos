@@ -27,50 +27,39 @@
 #define CachedScript_h
 
 #include "CachedResource.h"
-#include "Timer.h"
-
-#if USE(JSC)
-namespace JSC {
-    class SourceProviderCache;
-}
-#endif
 
 namespace WebCore {
 
     class CachedResourceLoader;
     class TextResourceDecoder;
 
-    class CachedScript : public CachedResource {
+    class CachedScript FINAL : public CachedResource {
     public:
         CachedScript(const ResourceRequest&, const String& charset);
         virtual ~CachedScript();
 
         const String& script();
 
-        virtual void didAddClient(CachedResourceClient*);
-        virtual void allClientsRemoved();
+        String mimeType() const;
 
-        virtual void setEncoding(const String&);
-        virtual String encoding() const;
-        virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived);
-        virtual void error(Status);
-
-        virtual void destroyDecodedData();
-#if USE(JSC)        
-        // Allows JSC to cache additional information about the source.
-        JSC::SourceProviderCache* sourceProviderCache() const;
-        void sourceProviderCacheSizeChanged(int delta);
+#if ENABLE(NOSNIFF)
+        bool mimeTypeAllowedByNosniff() const;
 #endif
+
     private:
-        void decodedDataDeletionTimerFired(Timer<CachedScript>*);
-        virtual PurgePriority purgePriority() const { return PurgeLast; }
+        virtual PurgePriority purgePriority() const OVERRIDE { return PurgeLast; }
+        virtual bool mayTryReplaceEncodedData() const OVERRIDE { return true; }
+
+        virtual bool shouldIgnoreHTTPStatusCodeErrors() const OVERRIDE;
+
+        virtual void setEncoding(const String&) OVERRIDE;
+        virtual String encoding() const OVERRIDE;
+        virtual void finishLoading(ResourceBuffer*) OVERRIDE;
+
+        virtual void destroyDecodedData() OVERRIDE;
 
         String m_script;
         RefPtr<TextResourceDecoder> m_decoder;
-        Timer<CachedScript> m_decodedDataDeletionTimer;
-#if USE(JSC)        
-        mutable OwnPtr<JSC::SourceProviderCache> m_sourceProviderCache;
-#endif
     };
 }
 

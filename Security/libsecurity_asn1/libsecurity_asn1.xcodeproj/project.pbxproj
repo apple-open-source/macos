@@ -11,7 +11,7 @@
 		1885B45314D9BB1A00519375 /* SecNssCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434280534D3B800F287B2 /* SecNssCoder.cpp */; };
 		18B6B2A714DB73A000EDDE5F /* secErrorStr.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6434270534D3B800F287B2 /* secErrorStr.c */; };
 		4C28246B0F1BC75800CAADEC /* oidsocsp.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C2824670F1BC75800CAADEC /* oidsocsp.c */; };
-		4C28246C0F1BC75800CAADEC /* oidsocsp.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C2824680F1BC75800CAADEC /* oidsocsp.h */; };
+		4C28246C0F1BC75800CAADEC /* oidsocsp.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C2824680F1BC75800CAADEC /* oidsocsp.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA8220D38041D00BAE6A2 /* SecAsn1Coder.c in Sources */ = {isa = PBXBuildFile; fileRef = 0545C7B806502D1100543007 /* SecAsn1Coder.c */; };
 		795CA8230D38041D00BAE6A2 /* SecAsn1Coder.h in Headers */ = {isa = PBXBuildFile; fileRef = 0545C7B906502D1100543007 /* SecAsn1Coder.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		795CA8240D38041D00BAE6A2 /* SecAsn1Templates.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C6433F80534D3B800F287B2 /* SecAsn1Templates.c */; };
@@ -346,7 +346,7 @@
 		9D56980C03E74D6100003D05 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0430;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C23B0CEC09A298C500B7FCED /* Build configuration list for PBXProject "libsecurity_asn1" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -404,30 +404,44 @@
 /* Begin XCBuildConfiguration section */
 		795CA8090D3801A700BAE6A2 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18B647F714D9FD4500F538BF /* lib.xcconfig */;
+			baseConfigurationReference = 18B647F614D9FD4500F538BF /* debug.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Debug;
 		};
 		795CA80D0D3801A700BAE6A2 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18B647F614D9FD4500F538BF /* debug.xcconfig */;
+			baseConfigurationReference = 18B647F714D9FD4500F538BF /* lib.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				LIBRARY_STYLE = STATIC;
 			};
 			name = Debug;
 		};
 		795CA8180D3801A900BAE6A2 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18B647F714D9FD4500F538BF /* lib.xcconfig */;
+			baseConfigurationReference = 18B647F814D9FD4500F538BF /* release.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 			};
 			name = Release;
 		};
 		795CA81C0D3801A900BAE6A2 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18B647F814D9FD4500F538BF /* release.xcconfig */;
+			baseConfigurationReference = 18B647F714D9FD4500F538BF /* lib.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				LIBRARY_STYLE = STATIC;
 			};
 			name = Release;

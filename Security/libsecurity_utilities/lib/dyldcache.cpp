@@ -83,8 +83,8 @@ DYLDCache::DYLDCache(const std::string &path)
 		UnixError::throwMe(ENOEXEC);
 	mFlip = *((const uint8_t *)&mArch->order) != 0x12;
 	
-	mSigStart = flip(mHeader->codeSignatureOffset);
-	mSigLength = flip(mHeader->codeSignatureSize);
+	mSigStart = (size_t)flip(mHeader->codeSignatureOffset);
+	mSigLength = (size_t)flip(mHeader->codeSignatureSize);
 }
 
 

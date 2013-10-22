@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@
 #define M_SMBNODENAME M_TEMP /* HACK XXX CSM */
 #define M_SMBFSDATA M_TEMP /* HACK XXX CSM */
 #define M_SMBFSHASH M_TEMP /* HACK XXX CSM */
+#define M_SMBFSFID M_TEMP /* HACK XXX CSM */
 #define M_SMBCONN M_TEMP /* HACK CSM XXX */
 #define M_NSMBDEV M_TEMP /* HACK CSM XXX */
 #define M_SMBIOD M_TEMP /* HACK CSM XXX */

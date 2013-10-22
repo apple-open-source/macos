@@ -10,7 +10,7 @@
 LEVEL := ../..
 LIBRARYNAME := LTO
 LINK_COMPONENTS := all-targets ipo scalaropts linker bitreader bitwriter \
-                   mcdisassembler
+                   mcdisassembler vectorize
 LINK_LIBS_IN_SHARED := 1
 SHARED_LIBRARY := 1
 
@@ -48,5 +48,12 @@ ifeq ($(HOST_OS),Darwin)
        LLVMLibsOptions    := $(LLVMLibsOptions)  \
                             -Wl,-install_name \
                             -Wl,"@executable_path/../lib/lib$(LIBRARYNAME)$(SHLIBEXT)"
+    endif
+
+    # If we're doing an Apple-style build, add the LTO object path.
+    ifeq ($(RC_BUILDIT),YES)
+       TempFile        := $(shell mkdir -p ${OBJROOT}/dSYMs ; mktemp ${OBJROOT}/dSYMs/llvm-lto.XXXXXX)
+       LLVMLibsOptions := $(LLVMLibsOptions) \
+                          -Wl,-object_path_lto -Wl,$(TempFile)
     endif
 endif

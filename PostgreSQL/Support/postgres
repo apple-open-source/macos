@@ -1,5 +1,5 @@
-#!/usr/bin/ruby
-# Copyright (c) 2012 Apple Inc. All Rights Reserved.
+#!/usr/bin/perl
+# Copyright (c) 2013 Apple Inc. All Rights Reserved.
 #
 # IMPORTANT NOTE: This file is licensed only for use on Apple-branded
 # computers and is subject to the terms and conditions of the Apple Software
@@ -12,40 +12,100 @@
 #   the --apple-configuration args are removed, before handing the final set of args
 #   to the real postgres executable.
 
-postgres_real_path = "@PATH_TEMPLATE@"
-PLIST_BUDDY = "/usr/libexec/PlistBuddy"
+use strict;
+use warnings;
+use Getopt::Std;
 
-config_file_index = ARGV.index("--apple-configuration")
-if !config_file_index.nil?
-	config_path = ARGV[config_file_index + 1]
-	if config_path.nil?
-		puts "Error: missing required argument for --apple-configuration"
-		exit(1)
-	end
-	ARGV.delete_at(config_file_index+1)
-	ARGV.delete_at(config_file_index)
-	if !FileTest.exists?(config_path)
-		puts "Error: missing configuration file at #{config_path}"
-		exit(1)
-	end
-	config_lines = `#{PLIST_BUDDY} -c 'Print :ProgramArguments' #{config_path}`
-	config_lines.each do |line|
-		if (line =~ /^Array \{/) || (line =~ /^\}/)
-			next
-		end
-		line.chomp!
-		line = line.sub(/^\s+/, '')
-		ARGV.push(line)
-	end
-end
+my $PLIST_BUDDY = '/usr/libexec/PlistBuddy';
+my $WAIT4PATH   = '/bin/wait4path';
 
-dataPathArgIndicatorIndex = ARGV.index("-D")
+my $postgres_real_path = '@PATH_TEMPLATE@';
+my $config_path;
+my $data_directory;
+my $g_child_status;
+my @postgres_argv = @ARGV;
 
-if !dataPathArgIndicatorIndex.nil?
-	dataPathArg = ARGV[dataPathArgIndicatorIndex + 1]
-	system("/bin/wait4path", dataPathArg) unless dataPathArg.nil?
-end
+our $opt_D;
+getopt('D:');
 
-nargv = ["#{postgres_real_path}", ARGV].flatten
-exec(*nargv)
-exit(0)
+if ( defined $opt_D ) {
+    $data_directory = $opt_D;
+}
+
+for ( my $i = 0; $i < $#postgres_argv; $i++ ) {
+    if ( $postgres_argv[$i] eq '--apple-configuration' ) {
+        if ( !defined $postgres_argv[ $i + 1 ] ) {
+            print "Error: missing required argument for --apple-configuration\n";
+            exit 1;
+        }
+        $config_path = $postgres_argv[ $i + 1 ];
+        splice @postgres_argv, $i, 2;
+        last;
+    }
+}
+
+if ( -e $config_path ) {
+    my @config_lines = `$PLIST_BUDDY -c 'Print :ProgramArguments' "$config_path"`;
+
+    # Skipping the first and last lines, which specify the class type.
+    for ( my $i = 1; $i < $#config_lines; $i++ ) {
+        if ( $config_lines[$i] =~ / \A \s* (.+?) \s* \n* \z /xms ) {
+            push @postgres_argv, $1;
+        }
+        if ( !defined $data_directory
+            && $config_lines[$i] =~ / \A \s* -D \s* \n* \z /xms )
+        {
+            if ( defined $config_lines[ $i + 1 ]
+                && $config_lines[ $i + 1 ] =~ / \A \s* (.+?) \s* \n* \z /xms )
+            {
+                $data_directory = $1;
+            }
+        }
+    }
+}
+
+if ( defined $data_directory ) {
+
+    # Snip the shared memory block out of the lockfile if no process is running
+    # that matches the PID in the file.  Otherwise postgres will fail to start
+    # if it wasn't shut down properly and another process is now using that memory
+    # block.
+    my $postgres_pid_path = $data_directory . '/postmaster.pid';
+    if ( -e $postgres_pid_path ) {
+        my $FILE;
+        if ( !open $FILE, '+<', $postgres_pid_path ) {
+            print "Error opening lock file: $!\n";
+        }
+        else {
+            my @lines = <$FILE>;
+            if ( $lines[0] =~ / \A (\d+) \n* \z /xms ) {
+                my $old_pid = $1;
+                my $ret = system 'kill', '-0', $old_pid;
+                if ( $ret != 0 ) {
+
+                    # Process is not running
+                    print "Clearing shared memory block from lock file\n";
+                    if ( $lines[$#lines] =~ / \A \s* \d+ \s+ \d+ \s* \n* \z /xms ) {
+                        my $out = q{};
+                        for ( my $i = 0; $i < $#lines - 1; $i++ ) {
+                            $out .= $lines[$i];
+                        }
+                        if ( !seek $FILE, 0, 0 ) {
+                            print "Error, seek: $!\n";
+                        }
+                        else {
+                            print $FILE $out;
+                            truncate $FILE, tell($FILE);
+                        }
+                    }
+                }
+            }
+            close $FILE;
+        }
+    }
+
+    system $WAIT4PATH, $data_directory;
+}
+
+exec $postgres_real_path, @postgres_argv;
+exit 0;

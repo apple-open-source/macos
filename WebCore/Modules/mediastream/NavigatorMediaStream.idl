@@ -17,16 +17,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
-module window {
+[
+    Conditional=MEDIA_STREAM,
+] partial interface Navigator {
+    [RaisesException] void webkitGetUserMedia(Dictionary options,
+                                                 NavigatorUserMediaSuccessCallback successCallback,
+                                                 optional NavigatorUserMediaErrorCallback errorCallback);
+};
 
-    interface [
-        Conditional=MEDIA_STREAM,
-        Supplemental=Navigator
-    ] NavigatorMediaStream {
-        [V8EnabledAtRuntime] void webkitGetUserMedia(in Dictionary options,
-                                                     in [Callback] NavigatorUserMediaSuccessCallback successCallback,
-                                                     in [Callback, Optional] NavigatorUserMediaErrorCallback errorCallback)
-            raises(DOMException);
-    };
-
-}

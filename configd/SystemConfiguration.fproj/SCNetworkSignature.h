@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,13 +41,6 @@ __BEGIN_DECLS
 		to associate settings with a particular network
 		or set of networks.
  */
-
-/*!
-	@const kSCNetworkSignatureActiveChangedNotifyName
-	@discussion The name to use with the notify(3) API's to monitor
-		when the list of active signatures changes.
- */
-extern const char * kSCNetworkSignatureActiveChangedNotifyName;
 
 /*!
 	@function SCNetworkSignatureCopyActiveIdentifiers

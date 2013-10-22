@@ -1,0 +1,13 @@
+/^#include/i
+#include <stdio.h>
+.
+/^FT2Font::draw_glyphs_to_bitmap/a
+.
+/throw Py::RuntimeError("Could not convert glyph to bitmap");/s//char buf[128]; sprintf(buf, "FT2Font::draw_glyphs_to_bitmap: Could not convert glyph to bitmap: %d", error); throw Py::RuntimeError(buf);/
+/^FT2Font::get_xys/a
+.
+/throw Py::RuntimeError("Could not convert glyph to bitmap");/s//char buf[128]; sprintf(buf, "FT2Font::get_xys: Could not convert glyph to bitmap: %d", error); throw Py::RuntimeError(buf);/
+/^FT2Font::draw_glyph_to_bitmap/a
+.
+/throw Py::RuntimeError("Could not convert glyph to bitmap");/s//char buf[128]; sprintf(buf, "FT2Font::draw_glyph_to_bitmap: Could not convert glyph to bitmap: %d", error); throw Py::RuntimeError(buf);/
+w

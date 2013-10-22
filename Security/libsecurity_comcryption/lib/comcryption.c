@@ -58,7 +58,7 @@ void comMallocRegister(comMallocExternFcn *mallocExtern,
  * Call once at startup. The resulting comcryptObj can be reused multiple
  * times.
  */
-comcryptObj comcryptAlloc()
+comcryptObj comcryptAlloc(void)
 {
 	comcryptPriv	*cpriv = (comcryptPriv *) ascMalloc(sizeof(comcryptPriv));
 
@@ -750,7 +750,7 @@ static comcryptReturn comcryptBlock(
 	 * We already wrote tokens and longcode to cipherText; verify we
 	 * didn't overrun
 	 */
-	totalCipherTextLen = (longCodePtr - startCtextPtr);
+	totalCipherTextLen = (unsigned)(longCodePtr - startCtextPtr);
 	if(*cipherTextLen < totalCipherTextLen) {
 		ddprintf(("comcryptBlock: short block (2)\n"));
 		return CCR_OUTBUFFER_TOO_SMALL;
@@ -1030,7 +1030,7 @@ static dcbReturn deComcryptBlock(
 		numByteCodes = *byteCodePtr++;
 		level2 = 1;
 	}
-	*blockSize = (byteCodePtr - cipherText) + numByteCodes;
+	*blockSize = (unsigned)(byteCodePtr - cipherText) + numByteCodes;
 	if(*blockSize > cipherTextLen) {
 		return DCB_SHORT;
 	}
@@ -1439,6 +1439,6 @@ comcryptReturn deComcryptData(
 		}
 	}	/* main loop */
 
-	*plainTextLen = plainText - outorigin;
+	*plainTextLen = (unsigned)(plainText - outorigin);
 	return CCR_SUCCESS;
 }

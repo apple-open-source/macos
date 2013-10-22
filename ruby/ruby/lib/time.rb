@@ -1,55 +1,98 @@
+require 'date'
 
+# = time.rb
 #
-# == Introduction
-# 
-# This library extends the Time class:
-# * conversion between date string and time object.
-#   * date-time defined by RFC 2822
-#   * HTTP-date defined by RFC 2616
-#   * dateTime defined by XML Schema Part 2: Datatypes (ISO 8601)
-#   * various formats handled by Date._parse (string to time only)
-# 
-# == Design Issues
-# 
-# === Specialized interface
-# 
-# This library provides methods dedicated to special purposes:
-# * RFC 2822, RFC 2616 and XML Schema.
-# * They makes usual life easier.
-# 
-# === Doesn't depend on strftime
-# 
-# This library doesn't use +strftime+.  Especially #rfc2822 doesn't depend
-# on +strftime+ because:
-# 
-# * %a and %b are locale sensitive
-# 
-#   Since they are locale sensitive, they may be replaced to
-#   invalid weekday/month name in some locales.
-#   Since ruby-1.6 doesn't invoke setlocale by default,
-#   the problem doesn't arise until some external library invokes setlocale.
-#   Ruby/GTK is the example of such library.
-# 
-# * %z is not portable
-# 
-#   %z is required to generate zone in date-time of RFC 2822
-#   but it is not portable.
+# When 'time' is required, Time is extended with additional methods for parsing
+# and converting Times.
 #
-# == Revision Information
+# == Features
 #
-# $Id$
+# This library extends the Time class with the following conversions between
+# date strings and Time objects:
 #
+# * date-time defined by {RFC 2822}[http://www.ietf.org/rfc/rfc2822.txt]
+# * HTTP-date defined by {RFC 2616}[http://www.ietf.org/rfc/rfc2616.txt]
+# * dateTime defined by XML Schema Part 2: Datatypes ({ISO
+#   8601}[http://www.iso.org/iso/date_and_time_format])
+# * various formats handled by Date._parse
+# * custom formats handled by Date._strptime
+#
+# == Examples
+#
+# All examples assume you have loaded Time with:
+#
+#   require 'time'
+#
+# All of these examples were done using the EST timezone which is GMT-5.
+#
+# === Converting to a String
+#
+#   t = Time.now
+#   t.iso8601  # => "2011-10-05T22:26:12-04:00"
+#   t.rfc2822  # => "Wed, 05 Oct 2011 22:26:12 -0400"
+#   t.httpdate # => "Thu, 06 Oct 2011 02:26:12 GMT"
+#
+# === Time.parse
+#
+# #parse takes a string representation of a Time and attempts to parse it
+# using a heuristic.
+#
+#   Date.parse("2010-10-31") #=> 2010-10-31 00:00:00 -0500
+#
+# Any missing pieces of the date are inferred based on the current date.
+#
+#   # assuming the current date is "2011-10-31"
+#   Time.parse("12:00") #=> 2011-10-31 12:00:00 -0500
+#
+# We can change the date used to infer our missing elements by passing a second
+# object that responds to #mon, #day and #year, such as Date, Time or DateTime.
+# We can also use our own object.
+#
+#   class MyDate
+#     attr_reader :mon, :day, :year
+#
+#     def initialize(mon, day, year)
+#       @mon, @day, @year = mon, day, year
+#     end
+#   end
+#
+#   d  = Date.parse("2010-10-28")
+#   t  = Time.parse("2010-10-29")
+#   dt = DateTime.parse("2010-10-30")
+#   md = MyDate.new(10,31,2010)
+#
+#   Time.parse("12:00", d)  #=> 2010-10-28 12:00:00 -0500
+#   Time.parse("12:00", t)  #=> 2010-10-29 12:00:00 -0500
+#   Time.parse("12:00", dt) #=> 2010-10-30 12:00:00 -0500
+#   Time.parse("12:00", md) #=> 2010-10-31 12:00:00 -0500
+#
+# #parse also accepts an optional block. You can use this block to specify how
+# to handle the year component of the date. This is specifically designed for
+# handling two digit years. For example, if you wanted to treat all two digit
+# years prior to 70 as the year 2000+ you could write this:
+#
+#   Time.parse("01-10-31") {|year| year + (year < 70 ? 2000 : 1900)}
+#   #=> 2001-10-31 00:00:00 -0500
+#   Time.parse("70-10-31") {|year| year + (year < 70 ? 2000 : 1900)}
+#   #=> 1970-10-31 00:00:00 -0500
+#
+# === Time.strptime
+#
+# #strptime works similar to +parse+ except that instead of using a heuristic
+# to detect the format of the input string, you provide a second argument that
+# is describes the format of the string. For example:
+#
+#   Time.strptime("2000-10-31", "%Y-%m-%d") #=> 2000-10-31 00:00:00 -0500
 
-require 'parsedate'
-
-#
-# Implements the extensions to the Time class that are described in the
-# documentation for the time.rb library.
-#
 class Time
   class << Time
 
-    ZoneOffset = {
+    #
+    # A hash of timezones mapped to hour differences from UTC. The
+    # set of time zones corresponds to the ones specified by RFC 2822
+    # and ISO 8601.
+    #
+    ZoneOffset = { # :nodoc:
       'UTC' => 0,
       # ISO 8601
       'Z' => 0,
@@ -61,11 +104,31 @@ class Time
       'PST' => -8, 'PDT' => -7,
       # Following definition of military zones is original one.
       # See RFC 1123 and RFC 2822 for the error in RFC 822.
-      'A' => +1, 'B' => +2, 'C' => +3, 'D' => +4,  'E' => +5,  'F' => +6, 
+      'A' => +1, 'B' => +2, 'C' => +3, 'D' => +4,  'E' => +5,  'F' => +6,
       'G' => +7, 'H' => +8, 'I' => +9, 'K' => +10, 'L' => +11, 'M' => +12,
-      'N' => -1, 'O' => -2, 'P' => -3, 'Q' => -4,  'R' => -5,  'S' => -6, 
+      'N' => -1, 'O' => -2, 'P' => -3, 'Q' => -4,  'R' => -5,  'S' => -6,
       'T' => -7, 'U' => -8, 'V' => -9, 'W' => -10, 'X' => -11, 'Y' => -12,
     }
+
+    #
+    # Return the number of seconds the specified time zone differs
+    # from UTC.
+    #
+    # Numeric time zones that include minutes, such as
+    # <code>-10:00</code> or <code>+1330</code> will work, as will
+    # simpler hour-only time zones like <code>-10</code> or
+    # <code>+13</code>.
+    #
+    # Textual time zones listed in ZoneOffset are also supported.
+    #
+    # If the time zone does not match any of the above, +zone_offset+
+    # will check if the local time zone (both with and without
+    # potential Daylight Saving \Time changes being in effect) matches
+    # +zone+. Specifying a value for +year+ will change the year used
+    # to find the local time zone.
+    #
+    # If +zone_offset+ is unable to determine the offset, nil will be
+    # returned.
     def zone_offset(zone, year=self.now.year)
       off = nil
       zone = zone.upcase
@@ -84,8 +147,25 @@ class Time
     end
 
     def zone_utc?(zone)
-      # * +0000 means localtime. [RFC 2822]
-      # * GMT is a localtime abbreviation in Europe/London, etc.
+      # * +0000
+      #   In RFC 2822, +0000 indicate a time zone at Universal Time.
+      #   Europe/Lisbon is "a time zone at Universal Time" in Winter.
+      #   Atlantic/Reykjavik is "a time zone at Universal Time".
+      #   Africa/Dakar is "a time zone at Universal Time".
+      #   So +0000 is a local time such as Europe/London, etc.
+      # * GMT
+      #   GMT is used as a time zone abbreviation in Europe/London,
+      #   Africa/Dakar, etc.
+      #   So it is a local time.
+      #
+      # * -0000, -00:00
+      #   In RFC 2822, -0000 the date-time contains no information about the
+      #   local time zone.
+      #   In RFC 3339, -00:00 is used for the time in UTC is known,
+      #   but the offset to local time is unknown.
+      #   They are not appropriate for specific time zone such as
+      #   Europe/London because time zone neutral,
+      #   So -00:00 and -0000 are treated as UTC.
       if /\A(?:-00:00|-0000|-00|UTC|Z|UT)\z/i =~ zone
         true
       else
@@ -150,7 +230,7 @@ class Time
 
     def make_time(year, mon, day, hour, min, sec, sec_fraction, zone, now)
       usec = nil
-      usec = (sec_fraction * 1000000).to_i if sec_fraction
+      usec = sec_fraction * 1000000 if sec_fraction
       if now
         begin
           break if year; year = now.year
@@ -192,20 +272,22 @@ class Time
     # If a block is given, the year described in +date+ is converted by the
     # block.  For example:
     #
-    #     Time.parse(...) {|y| y < 100 ? (y >= 69 ? y + 1900 : y + 2000) : y}
+    #     Time.parse(...) {|y| 0 <= y && y < 100 ? (y >= 69 ? y + 1900 : y + 2000) : y}
     #
     # If the upper components of the given time are broken or missing, they are
     # supplied with those of +now+.  For the lower components, the minimum
     # values (1 or 0) are assumed if broken or missing.  For example:
     #
     #     # Suppose it is "Thu Nov 29 14:33:20 GMT 2001" now and
-    #     # your timezone is GMT:
-    #     Time.parse("16:30")     #=> Thu Nov 29 16:30:00 GMT 2001
-    #     Time.parse("7/23")      #=> Mon Jul 23 00:00:00 GMT 2001
-    #     Time.parse("Aug 31")    #=> Fri Aug 31 00:00:00 GMT 2001
+    #     # your time zone is GMT:
+    #     now = Time.parse("Thu Nov 29 14:33:20 GMT 2001")
+    #     Time.parse("16:30", now)     #=> 2001-11-29 16:30:00 +0900
+    #     Time.parse("7/23", now)      #=> 2001-07-23 00:00:00 +0900
+    #     Time.parse("Aug 31", now)    #=> 2001-08-31 00:00:00 +0900
+    #     Time.parse("Aug 2000", now)  #=> 2000-08-01 00:00:00 +0900
     #
-    # Since there are numerous conflicts among locally defined timezone
-    # abbreviations all over the world, this method is not made to
+    # Since there are numerous conflicts among locally defined time zone
+    # abbreviations all over the world, this method is not intended to
     # understand all of them.  For example, the abbreviation "CST" is
     # used variously as:
     #
@@ -216,31 +298,107 @@ class Time
     #     +10:30 in Australia/Adelaide,
     #     etc.
     #
-    # Based on the fact, this method only understands the timezone
-    # abbreviations described in RFC 822 and the system timezone, in the
+    # Based on this fact, this method only understands the time zone
+    # abbreviations described in RFC 822 and the system time zone, in the
     # order named. (i.e. a definition in RFC 822 overrides the system
-    # timezone definition.)  The system timezone is taken from
+    # time zone definition.)  The system time zone is taken from
     # <tt>Time.local(year, 1, 1).zone</tt> and
     # <tt>Time.local(year, 7, 1).zone</tt>.
-    # If the extracted timezone abbreviation does not match any of them,
+    # If the extracted time zone abbreviation does not match any of them,
     # it is ignored and the given time is regarded as a local time.
     #
     # ArgumentError is raised if Date._parse cannot extract information from
-    # +date+ or Time class cannot represent specified date.
+    # +date+ or if the Time class cannot represent specified date.
     #
-    # This method can be used as fail-safe for other parsing methods as:
+    # This method can be used as a fail-safe for other parsing methods as:
     #
     #   Time.rfc2822(date) rescue Time.parse(date)
     #   Time.httpdate(date) rescue Time.parse(date)
     #   Time.xmlschema(date) rescue Time.parse(date)
     #
-    # A failure for Time.parse should be checked, though.
+    # A failure of Time.parse should be checked, though.
+    #
+    # You must require 'time' to use this method.
     #
     def parse(date, now=self.now)
-      d = Date._parse(date, false)
+      comp = !block_given?
+      d = Date._parse(date, comp)
+      if !d[:year] && !d[:mon] && !d[:mday] && !d[:hour] && !d[:min] && !d[:sec] && !d[:sec_fraction]
+        raise ArgumentError, "no time information in #{date.inspect}"
+      end
       year = d[:year]
-      year = yield(year) if year && block_given?
+      year = yield(year) if year && !comp
       make_time(year, d[:mon], d[:mday], d[:hour], d[:min], d[:sec], d[:sec_fraction], d[:zone], now)
+    end
+
+    #
+    # Parses +date+ using Date._strptime and converts it to a Time object.
+    #
+    # If a block is given, the year described in +date+ is converted by the
+    # block.  For example:
+    #
+    #   Time.strptime(...) {|y| y < 100 ? (y >= 69 ? y + 1900 : y + 2000) : y}
+    #
+    # Below is a list of the formating options:
+    #
+    # %a :: The abbreviated weekday name ("Sun")
+    # %A :: The  full  weekday  name ("Sunday")
+    # %b :: The abbreviated month name ("Jan")
+    # %B :: The  full  month  name ("January")
+    # %c :: The preferred local date and time representation
+    # %C :: Century (20 in 2009)
+    # %d :: Day of the month (01..31)
+    # %D :: Date (%m/%d/%y)
+    # %e :: Day of the month, blank-padded ( 1..31)
+    # %F :: Equivalent to %Y-%m-%d (the ISO 8601 date format)
+    # %h :: Equivalent to %b
+    # %H :: Hour of the day, 24-hour clock (00..23)
+    # %I :: Hour of the day, 12-hour clock (01..12)
+    # %j :: Day of the year (001..366)
+    # %k :: hour, 24-hour clock, blank-padded ( 0..23)
+    # %l :: hour, 12-hour clock, blank-padded ( 0..12)
+    # %L :: Millisecond of the second (000..999)
+    # %m :: Month of the year (01..12)
+    # %M :: Minute of the hour (00..59)
+    # %n :: Newline (\n)
+    # %N :: Fractional seconds digits, default is 9 digits (nanosecond)
+    #       %3N :: millisecond (3 digits)
+    #       %6N :: microsecond (6 digits)
+    #       %9N :: nanosecond (9 digits)
+    # %p :: Meridian indicator ("AM" or "PM")
+    # %P :: Meridian indicator ("am" or "pm")
+    # %r :: time, 12-hour (same as %I:%M:%S %p)
+    # %R :: time, 24-hour (%H:%M)
+    # %s :: Number of seconds since 1970-01-01 00:00:00 UTC.
+    # %S :: Second of the minute (00..60)
+    # %t :: Tab character (\t)
+    # %T :: time, 24-hour (%H:%M:%S)
+    # %u :: Day of the week as a decimal, Monday being 1. (1..7)
+    # %U :: Week number of the current year, starting with the first Sunday as
+    #       the first day of the first week (00..53)
+    # %v :: VMS date (%e-%b-%Y)
+    # %V :: Week number of year according to ISO 8601 (01..53)
+    # %W :: Week  number  of the current year, starting with the first Monday
+    #       as the first day of the first week (00..53)
+    # %w :: Day of the week (Sunday is 0, 0..6)
+    # %x :: Preferred representation for the date alone, no time
+    # %X :: Preferred representation for the time alone, no date
+    # %y :: Year without a century (00..99)
+    # %Y :: Year with century
+    # %z :: Time zone as  hour offset from UTC (e.g. +0900)
+    # %Z :: Time zone name
+    # %% :: Literal "%" character
+
+    def strptime(date, format, now=self.now)
+      d = Date._strptime(date, format)
+      raise ArgumentError, "invalid strptime format - `#{format}'" unless d
+      if seconds = d[:seconds]
+        Time.at(seconds)
+      else
+        year = d[:year]
+        year = yield(year) if year && block_given?
+        make_time(year, d[:mon], d[:mday], d[:hour], d[:min], d[:sec], d[:sec_fraction], d[:zone], now)
+      end
     end
 
     MonthValue = {
@@ -254,9 +412,11 @@ class Time
     # updated by RFC 1123.
     #
     # ArgumentError is raised if +date+ is not compliant with RFC 2822
-    # or Time class cannot represent specified date.
+    # or if the Time class cannot represent specified date.
     #
     # See #rfc2822 for more information on this format.
+    #
+    # You must require 'time' to use this method.
     #
     def rfc2822(date)
       if /\A\s*
@@ -299,13 +459,15 @@ class Time
     alias rfc822 rfc2822
 
     #
-    # Parses +date+ as HTTP-date defined by RFC 2616 and converts it to a Time
-    # object.
+    # Parses +date+ as an HTTP-date defined by RFC 2616 and converts it to a
+    # Time object.
     #
-    # ArgumentError is raised if +date+ is not compliant with RFC 2616 or Time
-    # class cannot represent specified date.
+    # ArgumentError is raised if +date+ is not compliant with RFC 2616 or if
+    # the Time class cannot represent specified date.
     #
     # See #httpdate for more information on this format.
+    #
+    # You must require 'time' to use this method.
     #
     def httpdate(date)
       if /\A\s*
@@ -323,7 +485,13 @@ class Time
              (\d\d):(\d\d):(\d\d)\x20
              GMT
              \s*\z/ix =~ date
-        self.parse(date)
+        year = $3.to_i
+        if year < 50
+          year += 2000
+        else
+          year += 1900
+        end
+        self.utc(year, $2, $1.to_i, $4.to_i, $5.to_i, $6.to_i)
       elsif /\A\s*
              (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\x20
              (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\x20
@@ -339,21 +507,23 @@ class Time
     end
 
     #
-    # Parses +date+ as dateTime defined by XML Schema and converts it to a Time
-    # object.  The format is restricted version of the format defined by ISO
-    # 8601.
+    # Parses +date+ as a dateTime defined by the XML Schema and converts it to
+    # a Time object.  The format is a restricted version of the format defined
+    # by ISO 8601.
     #
-    # ArgumentError is raised if +date+ is not compliant with the format or Time
-    # class cannot represent specified date.
+    # ArgumentError is raised if +date+ is not compliant with the format or if
+    # the Time class cannot represent specified date.
     #
     # See #xmlschema for more information on this format.
+    #
+    # You must require 'time' to use this method.
     #
     def xmlschema(date)
       if /\A\s*
           (-?\d+)-(\d\d)-(\d\d)
           T
           (\d\d):(\d\d):(\d\d)
-          (\.\d*)?
+          (\.\d+)?
           (Z|[+-]\d\d:\d\d)?
           \s*\z/ix =~ date
         year = $1.to_i
@@ -363,7 +533,9 @@ class Time
         min = $5.to_i
         sec = $6.to_i
         usec = 0
-        usec = ($7[1..-1] + '000000')[0,6].to_i if $7
+        if $7
+          usec = Rational($7) * 1000000
+        end
         if $8
           zone = $8
           year, mon, day, hour, min, sec =
@@ -388,10 +560,12 @@ class Time
   #
   # If +self+ is a UTC time, -0000 is used as zone.
   #
+  # You must require 'time' to use this method.
+  #
   def rfc2822
-    sprintf('%s, %02d %s %d %02d:%02d:%02d ',
+    sprintf('%s, %02d %s %0*d %02d:%02d:%02d ',
       RFC2822_DAY_NAME[wday],
-      day, RFC2822_MONTH_NAME[mon-1], year,
+      day, RFC2822_MONTH_NAME[mon-1], year < 0 ? 5 : 4, year,
       hour, min, sec) +
     if utc?
       '-0000'
@@ -412,23 +586,25 @@ class Time
   ]
 
   #
-  # Returns a string which represents the time as rfc1123-date of HTTP-date
-  # defined by RFC 2616: 
-  # 
+  # Returns a string which represents the time as RFC 1123 date of HTTP-date
+  # defined by RFC 2616:
+  #
   #   day-of-week, DD month-name CCYY hh:mm:ss GMT
   #
   # Note that the result is always UTC (GMT).
   #
+  # You must require 'time' to use this method.
+  #
   def httpdate
     t = dup.utc
-    sprintf('%s, %02d %s %d %02d:%02d:%02d GMT',
+    sprintf('%s, %02d %s %0*d %02d:%02d:%02d GMT',
       RFC2822_DAY_NAME[t.wday],
-      t.day, RFC2822_MONTH_NAME[t.mon-1], t.year,
+      t.day, RFC2822_MONTH_NAME[t.mon-1], t.year < 0 ? 5 : 4, t.year,
       t.hour, t.min, t.sec)
   end
 
   #
-  # Returns a string which represents the time as dateTime defined by XML
+  # Returns a string which represents the time as a dateTime defined by XML
   # Schema:
   #
   #   CCYY-MM-DDThh:mm:ssTZD
@@ -438,362 +614,19 @@ class Time
   #
   # If self is a UTC time, Z is used as TZD.  [+-]hh:mm is used otherwise.
   #
-  # +fractional_seconds+ specifies a number of digits of fractional seconds.
-  # Its default value is 0.
+  # +fractional_digits+ specifies a number of digits to use for fractional
+  # seconds.  Its default value is 0.
+  #
+  # You must require 'time' to use this method.
   #
   def xmlschema(fraction_digits=0)
-    sprintf('%d-%02d-%02dT%02d:%02d:%02d',
-      year, mon, day, hour, min, sec) +
-    if fraction_digits == 0
-      ''
-    elsif fraction_digits <= 6
-      '.' + sprintf('%06d', usec)[0, fraction_digits]
-    else
-      '.' + sprintf('%06d', usec) + '0' * (fraction_digits - 6)
-    end +
-    if utc?
-      'Z'
-    else
-      off = utc_offset
-      sign = off < 0 ? '-' : '+'
-      sprintf('%s%02d:%02d', sign, *(off.abs / 60).divmod(60))
+    fraction_digits = fraction_digits.to_i
+    s = strftime("%FT%T")
+    if fraction_digits > 0
+      s << strftime(".%#{fraction_digits}N")
     end
+    s << (utc? ? 'Z' : strftime("%:z"))
   end
   alias iso8601 xmlschema
 end
 
-if __FILE__ == $0
-  require 'test/unit'
-
-  class TimeExtentionTest < Test::Unit::TestCase # :nodoc:
-    def test_rfc822
-      assert_equal(Time.utc(1976, 8, 26, 14, 30) + 4 * 3600,
-                   Time.rfc2822("26 Aug 76 14:30 EDT"))
-      assert_equal(Time.utc(1976, 8, 27, 9, 32) + 7 * 3600,
-                   Time.rfc2822("27 Aug 76 09:32 PDT"))
-    end
-
-    def test_rfc2822
-      assert_equal(Time.utc(1997, 11, 21, 9, 55, 6) + 6 * 3600,
-                   Time.rfc2822("Fri, 21 Nov 1997 09:55:06 -0600"))
-      assert_equal(Time.utc(2003, 7, 1, 10, 52, 37) - 2 * 3600,
-                   Time.rfc2822("Tue, 1 Jul 2003 10:52:37 +0200"))
-      assert_equal(Time.utc(1997, 11, 21, 10, 1, 10) + 6 * 3600,
-                   Time.rfc2822("Fri, 21 Nov 1997 10:01:10 -0600"))
-      assert_equal(Time.utc(1997, 11, 21, 11, 0, 0) + 6 * 3600,
-                   Time.rfc2822("Fri, 21 Nov 1997 11:00:00 -0600"))
-      assert_equal(Time.utc(1997, 11, 24, 14, 22, 1) + 8 * 3600,
-                   Time.rfc2822("Mon, 24 Nov 1997 14:22:01 -0800"))
-      begin
-        Time.at(-1)
-      rescue ArgumentError
-        # ignore
-      else
-        assert_equal(Time.utc(1969, 2, 13, 23, 32, 54) + 3 * 3600 + 30 * 60,
-                     Time.rfc2822("Thu, 13 Feb 1969 23:32:54 -0330"))
-        assert_equal(Time.utc(1969, 2, 13, 23, 32, 0) + 3 * 3600 + 30 * 60,
-                     Time.rfc2822(" Thu,
-        13
-          Feb
-            1969
-        23:32
-                 -0330 (Newfoundland Time)"))
-      end
-      assert_equal(Time.utc(1997, 11, 21, 9, 55, 6),
-                   Time.rfc2822("21 Nov 97 09:55:06 GMT"))
-      assert_equal(Time.utc(1997, 11, 21, 9, 55, 6) + 6 * 3600,
-                   Time.rfc2822("Fri, 21 Nov 1997 09 :   55  :  06 -0600"))
-      assert_raise(ArgumentError) {
-        # inner comment is not supported.
-        Time.rfc2822("Fri, 21 Nov 1997 09(comment):   55  :  06 -0600")
-      }
-    end
-
-    def test_rfc2616
-      t = Time.utc(1994, 11, 6, 8, 49, 37)
-      assert_equal(t, Time.httpdate("Sun, 06 Nov 1994 08:49:37 GMT"))
-      assert_equal(t, Time.httpdate("Sunday, 06-Nov-94 08:49:37 GMT"))
-      assert_equal(t, Time.httpdate("Sun Nov  6 08:49:37 1994"))
-      assert_equal(Time.utc(1995, 11, 15, 6, 25, 24),
-                   Time.httpdate("Wed, 15 Nov 1995 06:25:24 GMT"))
-      assert_equal(Time.utc(1995, 11, 15, 4, 58, 8),
-                   Time.httpdate("Wed, 15 Nov 1995 04:58:08 GMT"))
-      assert_equal(Time.utc(1994, 11, 15, 8, 12, 31),
-                   Time.httpdate("Tue, 15 Nov 1994 08:12:31 GMT"))
-      assert_equal(Time.utc(1994, 12, 1, 16, 0, 0),
-                   Time.httpdate("Thu, 01 Dec 1994 16:00:00 GMT"))
-      assert_equal(Time.utc(1994, 10, 29, 19, 43, 31),
-                   Time.httpdate("Sat, 29 Oct 1994 19:43:31 GMT"))
-      assert_equal(Time.utc(1994, 11, 15, 12, 45, 26),
-                   Time.httpdate("Tue, 15 Nov 1994 12:45:26 GMT"))
-      assert_equal(Time.utc(1999, 12, 31, 23, 59, 59),
-                   Time.httpdate("Fri, 31 Dec 1999 23:59:59 GMT"))
-    end
-
-    def test_rfc3339
-      t = Time.utc(1985, 4, 12, 23, 20, 50, 520000)
-      s = "1985-04-12T23:20:50.52Z"
-      assert_equal(t, Time.iso8601(s))
-      assert_equal(s, t.iso8601(2))
-
-      t = Time.utc(1996, 12, 20, 0, 39, 57)
-      s = "1996-12-19T16:39:57-08:00"
-      assert_equal(t, Time.iso8601(s))
-      # There is no way to generate time string with arbitrary timezone.
-      s = "1996-12-20T00:39:57Z"
-      assert_equal(t, Time.iso8601(s))
-      assert_equal(s, t.iso8601)
-
-      t = Time.utc(1990, 12, 31, 23, 59, 60)
-      s = "1990-12-31T23:59:60Z"
-      assert_equal(t, Time.iso8601(s))
-      # leap second is representable only if timezone file has it.
-      s = "1990-12-31T15:59:60-08:00"
-      assert_equal(t, Time.iso8601(s))
-
-      begin
-        Time.at(-1)
-      rescue ArgumentError
-        # ignore
-      else
-        t = Time.utc(1937, 1, 1, 11, 40, 27, 870000)
-        s = "1937-01-01T12:00:27.87+00:20"
-        assert_equal(t, Time.iso8601(s))
-      end
-    end
-
-    # http://www.w3.org/TR/xmlschema-2/
-    def test_xmlschema
-      assert_equal(Time.utc(1999, 5, 31, 13, 20, 0) + 5 * 3600,
-                   Time.xmlschema("1999-05-31T13:20:00-05:00"))
-      assert_equal(Time.local(2000, 1, 20, 12, 0, 0),
-                   Time.xmlschema("2000-01-20T12:00:00"))
-      assert_equal(Time.utc(2000, 1, 20, 12, 0, 0),
-                   Time.xmlschema("2000-01-20T12:00:00Z"))
-      assert_equal(Time.utc(2000, 1, 20, 12, 0, 0) - 12 * 3600,
-                   Time.xmlschema("2000-01-20T12:00:00+12:00"))
-      assert_equal(Time.utc(2000, 1, 20, 12, 0, 0) + 13 * 3600,
-                   Time.xmlschema("2000-01-20T12:00:00-13:00"))
-      assert_equal(Time.utc(2000, 3, 4, 23, 0, 0) - 3 * 3600,
-                   Time.xmlschema("2000-03-04T23:00:00+03:00"))
-      assert_equal(Time.utc(2000, 3, 4, 20, 0, 0),
-                   Time.xmlschema("2000-03-04T20:00:00Z"))
-      assert_equal(Time.local(2000, 1, 15, 0, 0, 0),
-                   Time.xmlschema("2000-01-15T00:00:00"))
-      assert_equal(Time.local(2000, 2, 15, 0, 0, 0),
-                   Time.xmlschema("2000-02-15T00:00:00"))
-      assert_equal(Time.local(2000, 1, 15, 12, 0, 0),
-                   Time.xmlschema("2000-01-15T12:00:00"))
-      assert_equal(Time.utc(2000, 1, 16, 12, 0, 0),
-                   Time.xmlschema("2000-01-16T12:00:00Z"))
-      assert_equal(Time.local(2000, 1, 1, 12, 0, 0),
-                   Time.xmlschema("2000-01-01T12:00:00"))
-      assert_equal(Time.utc(1999, 12, 31, 23, 0, 0),
-                   Time.xmlschema("1999-12-31T23:00:00Z"))
-      assert_equal(Time.local(2000, 1, 16, 12, 0, 0),
-                   Time.xmlschema("2000-01-16T12:00:00"))
-      assert_equal(Time.local(2000, 1, 16, 0, 0, 0),
-                   Time.xmlschema("2000-01-16T00:00:00"))
-      assert_equal(Time.utc(2000, 1, 12, 12, 13, 14),
-                   Time.xmlschema("2000-01-12T12:13:14Z"))
-      assert_equal(Time.utc(2001, 4, 17, 19, 23, 17, 300000),
-                   Time.xmlschema("2001-04-17T19:23:17.3Z"))
-    end
-
-    def test_encode_xmlschema
-      t = Time.utc(2001, 4, 17, 19, 23, 17, 300000)
-      assert_equal("2001-04-17T19:23:17Z", t.xmlschema)
-      assert_equal("2001-04-17T19:23:17.3Z", t.xmlschema(1))
-      assert_equal("2001-04-17T19:23:17.300000Z", t.xmlschema(6))
-      assert_equal("2001-04-17T19:23:17.3000000Z", t.xmlschema(7))
-
-      t = Time.utc(2001, 4, 17, 19, 23, 17, 123456)
-      assert_equal("2001-04-17T19:23:17.1234560Z", t.xmlschema(7))
-      assert_equal("2001-04-17T19:23:17.123456Z", t.xmlschema(6))
-      assert_equal("2001-04-17T19:23:17.12345Z", t.xmlschema(5))
-      assert_equal("2001-04-17T19:23:17.1Z", t.xmlschema(1))
-
-      begin
-        Time.at(-1)
-      rescue ArgumentError
-        # ignore
-      else
-        t = Time.utc(1960, 12, 31, 23, 0, 0, 123456)
-        assert_equal("1960-12-31T23:00:00.123456Z", t.xmlschema(6))
-      end
-
-      assert_equal(249, Time.xmlschema("2008-06-05T23:49:23.000249+09:00").usec)
-    end
-
-    def test_completion
-      now = Time.local(2001,11,29,21,26,35)
-      assert_equal(Time.local( 2001,11,29,21,12),
-                   Time.parse("2001/11/29 21:12", now))
-      assert_equal(Time.local( 2001,11,29),
-                   Time.parse("2001/11/29", now))
-      assert_equal(Time.local( 2001,11,29),
-                   Time.parse(     "11/29", now))
-      #assert_equal(Time.local(2001,11,1), Time.parse("Nov", now))
-      assert_equal(Time.local( 2001,11,29,10,22),
-                   Time.parse(           "10:22", now))
-    end
-
-    def test_invalid
-      # They were actually used in some web sites.
-      assert_raise(ArgumentError) { Time.httpdate("1 Dec 2001 10:23:57 GMT") }
-      assert_raise(ArgumentError) { Time.httpdate("Sat, 1 Dec 2001 10:25:42 GMT") }
-      assert_raise(ArgumentError) { Time.httpdate("Sat,  1-Dec-2001 10:53:55 GMT") }
-      assert_raise(ArgumentError) { Time.httpdate("Saturday, 01-Dec-2001 10:15:34 GMT") }
-      assert_raise(ArgumentError) { Time.httpdate("Saturday, 01-Dec-101 11:10:07 GMT") }
-      assert_raise(ArgumentError) { Time.httpdate("Fri, 30 Nov 2001 21:30:00 JST") }
-
-      # They were actually used in some mails.
-      assert_raise(ArgumentError) { Time.rfc2822("01-5-20") }
-      assert_raise(ArgumentError) { Time.rfc2822("7/21/00") }
-      assert_raise(ArgumentError) { Time.rfc2822("2001-8-28") }
-      assert_raise(ArgumentError) { Time.rfc2822("00-5-6 1:13:06") }
-      assert_raise(ArgumentError) { Time.rfc2822("2001-9-27 9:36:49") }
-      assert_raise(ArgumentError) { Time.rfc2822("2000-12-13 11:01:11") }
-      assert_raise(ArgumentError) { Time.rfc2822("2001/10/17 04:29:55") }
-      assert_raise(ArgumentError) { Time.rfc2822("9/4/2001 9:23:19 PM") }
-      assert_raise(ArgumentError) { Time.rfc2822("01 Nov 2001 09:04:31") }
-      assert_raise(ArgumentError) { Time.rfc2822("13 Feb 2001 16:4 GMT") }
-      assert_raise(ArgumentError) { Time.rfc2822("01 Oct 00 5:41:19 PM") }
-      assert_raise(ArgumentError) { Time.rfc2822("2 Jul 00 00:51:37 JST") }
-      assert_raise(ArgumentError) { Time.rfc2822("01 11 2001 06:55:57 -0500") }
-      assert_raise(ArgumentError) { Time.rfc2822("18 \343\366\356\341\370 2000") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fri, Oct 2001  18:53:32") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fri, 2 Nov 2001 03:47:54") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fri, 27 Jul 2001 11.14.14 +0200") }
-      assert_raise(ArgumentError) { Time.rfc2822("Thu, 2 Nov 2000 04:13:53 -600") }
-      assert_raise(ArgumentError) { Time.rfc2822("Wed, 5 Apr 2000 22:57:09 JST") }
-      assert_raise(ArgumentError) { Time.rfc2822("Mon, 11 Sep 2000 19:47:33 00000") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fri, 28 Apr 2000 20:40:47 +-900") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fri, 19 Jan 2001 8:15:36 AM -0500") }
-      assert_raise(ArgumentError) { Time.rfc2822("Thursday, Sep 27 2001 7:42:35 AM EST") }
-      assert_raise(ArgumentError) { Time.rfc2822("3/11/2001 1:31:57 PM Pacific Daylight Time") }
-      assert_raise(ArgumentError) { Time.rfc2822("Mi, 28 Mrz 2001 11:51:36") }
-      assert_raise(ArgumentError) { Time.rfc2822("P, 30 sept 2001 23:03:14") }
-      assert_raise(ArgumentError) { Time.rfc2822("fr, 11 aug 2000 18:39:22") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fr, 21 Sep 2001 17:44:03 -1000") }
-      assert_raise(ArgumentError) { Time.rfc2822("Mo, 18 Jun 2001 19:21:40 -1000") }
-      assert_raise(ArgumentError) { Time.rfc2822("l\366, 12 aug 2000 18:53:20") }
-      assert_raise(ArgumentError) { Time.rfc2822("l\366, 26 maj 2001 00:15:58") }
-      assert_raise(ArgumentError) { Time.rfc2822("Dom, 30 Sep 2001 17:36:30") }
-      assert_raise(ArgumentError) { Time.rfc2822("%&, 31 %2/ 2000 15:44:47 -0500") }
-      assert_raise(ArgumentError) { Time.rfc2822("dom, 26 ago 2001 03:57:07 -0300") }
-      assert_raise(ArgumentError) { Time.rfc2822("ter, 04 set 2001 16:27:58 -0300") }
-      assert_raise(ArgumentError) { Time.rfc2822("Wen, 3 oct 2001 23:17:49 -0400") }
-      assert_raise(ArgumentError) { Time.rfc2822("Wen, 3 oct 2001 23:17:49 -0400") }
-      assert_raise(ArgumentError) { Time.rfc2822("ele, 11 h: 2000 12:42:15 -0500") }
-      assert_raise(ArgumentError) { Time.rfc2822("Tue, 14 Aug 2001 3:55:3 +0200") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fri, 25 Aug 2000 9:3:48 +0800") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fri, 1 Dec 2000 0:57:50 EST") }
-      assert_raise(ArgumentError) { Time.rfc2822("Mon, 7 May 2001 9:39:51 +0200") }
-      assert_raise(ArgumentError) { Time.rfc2822("Wed, 1 Aug 2001 16:9:15 +0200") }
-      assert_raise(ArgumentError) { Time.rfc2822("Wed, 23 Aug 2000 9:17:36 +0800") }
-      assert_raise(ArgumentError) { Time.rfc2822("Fri, 11 Aug 2000 10:4:42 +0800") }
-      assert_raise(ArgumentError) { Time.rfc2822("Sat, 15 Sep 2001 13:22:2 +0300") }
-      assert_raise(ArgumentError) { Time.rfc2822("Wed,16 \276\305\324\302 2001 20:06:25 +0800") }
-      assert_raise(ArgumentError) { Time.rfc2822("Wed,7 \312\256\322\273\324\302 2001 23:47:22 +0800") }
-      assert_raise(ArgumentError) { Time.rfc2822("=?iso-8859-1?Q?(=C5=DA),?= 10   2 2001 23:32:26 +0900 (JST)") }
-      assert_raise(ArgumentError) { Time.rfc2822("\307\341\314\343\332\311, 30 \344\346\335\343\310\321 2001 10:01:06") }
-      assert_raise(ArgumentError) { Time.rfc2822("=?iso-8859-1?Q?(=BF=E5),?= 12  =?iso-8859-1?Q?9=B7=EE?= 2001 14:52:41\n+0900 (JST)") }
-    end
-
-    def test_zone_0000
-      assert_equal(true, Time.parse("2000-01-01T00:00:00Z").utc?)
-      assert_equal(true, Time.parse("2000-01-01T00:00:00-00:00").utc?)
-      assert_equal(false, Time.parse("2000-01-01T00:00:00+00:00").utc?)
-      assert_equal(false, Time.parse("Sat, 01 Jan 2000 00:00:00 GMT").utc?)
-      assert_equal(true, Time.parse("Sat, 01 Jan 2000 00:00:00 -0000").utc?)
-      assert_equal(false, Time.parse("Sat, 01 Jan 2000 00:00:00 +0000").utc?)
-      assert_equal(false, Time.rfc2822("Sat, 01 Jan 2000 00:00:00 GMT").utc?)
-      assert_equal(true, Time.rfc2822("Sat, 01 Jan 2000 00:00:00 -0000").utc?)
-      assert_equal(false, Time.rfc2822("Sat, 01 Jan 2000 00:00:00 +0000").utc?)
-      assert_equal(true, Time.rfc2822("Sat, 01 Jan 2000 00:00:00 UTC").utc?)
-    end
-
-    def test_parse_leap_second
-      t = Time.utc(1998,12,31,23,59,59)
-      assert_equal(t, Time.parse("Thu Dec 31 23:59:59 UTC 1998"))
-      assert_equal(t, Time.parse("Fri Dec 31 23:59:59 -0000 1998"));t.localtime
-      assert_equal(t, Time.parse("Fri Jan  1 08:59:59 +0900 1999"))
-      assert_equal(t, Time.parse("Fri Jan  1 00:59:59 +0100 1999"))
-      assert_equal(t, Time.parse("Fri Dec 31 23:59:59 +0000 1998"))
-      assert_equal(t, Time.parse("Fri Dec 31 22:59:59 -0100 1998"));t.utc
-      t += 1
-      assert_equal(t, Time.parse("Thu Dec 31 23:59:60 UTC 1998"))
-      assert_equal(t, Time.parse("Fri Dec 31 23:59:60 -0000 1998"));t.localtime
-      assert_equal(t, Time.parse("Fri Jan  1 08:59:60 +0900 1999"))
-      assert_equal(t, Time.parse("Fri Jan  1 00:59:60 +0100 1999"))
-      assert_equal(t, Time.parse("Fri Dec 31 23:59:60 +0000 1998"))
-      assert_equal(t, Time.parse("Fri Dec 31 22:59:60 -0100 1998"));t.utc
-      t += 1 if t.sec == 60
-      assert_equal(t, Time.parse("Thu Jan  1 00:00:00 UTC 1999"))
-      assert_equal(t, Time.parse("Fri Jan  1 00:00:00 -0000 1999"));t.localtime
-      assert_equal(t, Time.parse("Fri Jan  1 09:00:00 +0900 1999"))
-      assert_equal(t, Time.parse("Fri Jan  1 01:00:00 +0100 1999"))
-      assert_equal(t, Time.parse("Fri Jan  1 00:00:00 +0000 1999"))
-      assert_equal(t, Time.parse("Fri Dec 31 23:00:00 -0100 1998"))
-    end
-
-    def test_rfc2822_leap_second
-      t = Time.utc(1998,12,31,23,59,59)
-      assert_equal(t, Time.rfc2822("Thu, 31 Dec 1998 23:59:59 UTC"))
-      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:59:59 -0000"));t.localtime                                  
-      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 08:59:59 +0900"))
-      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 00:59:59 +0100"))
-      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:59:59 +0000"))
-      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 22:59:59 -0100"));t.utc                                  
-      t += 1
-      assert_equal(t, Time.rfc2822("Thu, 31 Dec 1998 23:59:60 UTC"))
-      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:59:60 -0000"));t.localtime                                  
-      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 08:59:60 +0900"))
-      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 00:59:60 +0100"))
-      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:59:60 +0000"))
-      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 22:59:60 -0100"));t.utc                                  
-      t += 1 if t.sec == 60
-      assert_equal(t, Time.rfc2822("Thu,  1 Jan 1999 00:00:00 UTC"))
-      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 00:00:00 -0000"));t.localtime                                  
-      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 09:00:00 +0900"))
-      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 01:00:00 +0100"))
-      assert_equal(t, Time.rfc2822("Fri,  1 Jan 1999 00:00:00 +0000"))
-      assert_equal(t, Time.rfc2822("Fri, 31 Dec 1998 23:00:00 -0100"))
-    end
-
-    def test_xmlschema_leap_second
-      t = Time.utc(1998,12,31,23,59,59)
-      assert_equal(t, Time.xmlschema("1998-12-31T23:59:59Z"))
-      assert_equal(t, Time.xmlschema("1998-12-31T23:59:59-00:00"));t.localtime
-      assert_equal(t, Time.xmlschema("1999-01-01T08:59:59+09:00"))
-      assert_equal(t, Time.xmlschema("1999-01-01T00:59:59+01:00"))
-      assert_equal(t, Time.xmlschema("1998-12-31T23:59:59+00:00"))
-      assert_equal(t, Time.xmlschema("1998-12-31T22:59:59-01:00"));t.utc
-      t += 1
-      assert_equal(t, Time.xmlschema("1998-12-31T23:59:60Z"))
-      assert_equal(t, Time.xmlschema("1998-12-31T23:59:60-00:00"));t.localtime
-      assert_equal(t, Time.xmlschema("1999-01-01T08:59:60+09:00"))
-      assert_equal(t, Time.xmlschema("1999-01-01T00:59:60+01:00"))
-      assert_equal(t, Time.xmlschema("1998-12-31T23:59:60+00:00"))
-      assert_equal(t, Time.xmlschema("1998-12-31T22:59:60-01:00"));t.utc
-      t += 1 if t.sec == 60
-      assert_equal(t, Time.xmlschema("1999-01-01T00:00:00Z"))
-      assert_equal(t, Time.xmlschema("1999-01-01T00:00:00-00:00"));t.localtime
-      assert_equal(t, Time.xmlschema("1999-01-01T09:00:00+09:00"))
-      assert_equal(t, Time.xmlschema("1999-01-01T01:00:00+01:00"))
-      assert_equal(t, Time.xmlschema("1999-01-01T00:00:00+00:00"))
-      assert_equal(t, Time.xmlschema("1998-12-31T23:00:00-01:00"))
-    end
-
-    def test_ruby_talk_152866
-      t = Time::xmlschema('2005-08-30T22:48:00-07:00')
-      assert_equal(31, t.day)
-      assert_equal(8, t.mon)
-    end
-
-    def test_parse_fraction
-      assert_equal(500000, Time.parse("2000-01-01T00:00:00.5+00:00").tv_usec)
-    end
-  end
-end

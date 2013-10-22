@@ -53,12 +53,13 @@
 #include "SecItem.h"
 #include "SecItemPriv.h"
 #include <stdbool.h>
-#include "debuggingP.h"
 #include <stdlib.h>
 #include <libkern/OSByteOrder.h>
 #include <ctype.h>
 #include "SecInternalP.h"
 #include "SecBase64P.h"
+
+#include <security_utilities/debugging.h>
 
 typedef struct SecCertificateExtension {
 	DERItem extnID;
@@ -266,9 +267,9 @@ static Boolean SecCertificateEqual(CFTypeRef cf1, CFTypeRef cf2) {
    of signature. */
 static CFHashCode SecCertificateHash(CFTypeRef cf) {
     SecCertificateRefP certificate = (SecCertificateRefP)cf;
-	uint32_t der_length = certificate->_der.length;
-	uint32_t sig_length = certificate->_signature.length;
-	uint32_t ix = (sig_length > 4) ? sig_length - 4 : 0;
+	DERSize der_length = certificate->_der.length;
+	DERSize sig_length = certificate->_signature.length;
+	DERSize ix = (sig_length > 4) ? sig_length - 4 : 0;
 	CFHashCode hashCode = 0;
 	for (; ix < sig_length; ++ix)
 		hashCode = (hashCode << 8) + certificate->_signature.data[ix];
@@ -360,7 +361,7 @@ static OSStatus parseGeneralNamesContent(const DERItem *generalNamesContent,
 			return status;
 	}
     require_quiet(drtn == DR_EndOfSequence, badDER);
-	return noErr;
+	return errSecSuccess;
 
 badDER:
 	return errSecInvalidCertificate;
@@ -466,7 +467,7 @@ static OSStatus parseGeneralNameContentProperty(DERTag tag,
 		goto badDER;
 		break;
 	}
-	return noErr;
+	return errSecSuccess;
 badDER:
 	return errSecInvalidCertificate;
 }
@@ -502,7 +503,7 @@ static OSStatus parseGeneralNamesContent(const DERItem *generalNamesContent,
     }
 	*count = generalNamesCount;
 	*name = generalNames;
-	return noErr;
+	return errSecSuccess;
 
 badDER:
 	if (generalNames)
@@ -518,7 +519,7 @@ static OSStatus parseGeneralNames(const DERItem *generalNames,
     require_quiet(generalNamesContent.tag == ASN1_CONSTR_SEQUENCE,
         badDER);
     parseGeneralNamesContent(&generalNamesContent.content, count, name);
-    return noErr;
+    return errSecSuccess;
 badDER:
 	return errSecInvalidCertificate;
 }
@@ -553,7 +554,7 @@ static OSStatus parseRDNContent(const DERItem *rdnSetContent, void *context,
 	}
 	require_quiet(drtn == DR_EndOfSequence, badDER);
 
-	return noErr;
+	return errSecSuccess;
 badDER:
 	return errSecInvalidCertificate;
 }
@@ -573,7 +574,7 @@ static OSStatus parseX501NameContent(const DERItem *x501NameContent, void *conte
 	}
 	require_quiet(drtn == DR_EndOfSequence, badDER);
 
-	return noErr;
+	return errSecSuccess;
 
 badDER:
 	return errSecInvalidCertificate;
@@ -606,7 +607,7 @@ static void SecCEPSubjectKeyIdentifier(SecCertificateRefP certificate,
 
 	return;
 badDER:
-	secdebug(NULL, "Invalid SubjectKeyIdentifier Extension");
+	secdebug("cert", "Invalid SubjectKeyIdentifier Extension");
 }
 
 static void SecCEPKeyUsage(SecCertificateRefP certificate,
@@ -680,7 +681,7 @@ static void SecCEPBasicConstraints(SecCertificateRefP certificate,
     return;
 badDER:
     certificate->_basicConstraints.present = false;
-	secdebug(NULL, "Invalid BasicConstraints Extension");
+	secdebug("cert", "Invalid BasicConstraints Extension");
 }
 
 static void SecCEPCrlDistributionPoints(SecCertificateRefP certificate,
@@ -734,14 +735,14 @@ static void SecCEPCertificatePolicies(SecCertificateRefP certificate,
     }
     certificate->_certificatePolicies.present = true;
     certificate->_certificatePolicies.critical = extn->critical;
-    certificate->_certificatePolicies.numPolicies = policy_count;
+    certificate->_certificatePolicies.numPolicies = (uint32_t)policy_count;
     certificate->_certificatePolicies.policies = policies;
 	return;
 badDER:
     if (policies)
         free(policies);
     certificate->_certificatePolicies.present = false;
-	secdebug(NULL, "Invalid CertificatePolicies Extension");
+	secdebug("cert", "Invalid CertificatePolicies Extension");
 }
 
 /*
@@ -792,7 +793,7 @@ badDER:
         free(mappings);
     CFReleaseSafe(mappings);
     certificate->_policyMappings.present = false;
-	secdebug(NULL, "Invalid CertificatePolicies Extension");
+	secdebug("cert", "Invalid CertificatePolicies Extension");
 }
 #else
 static void SecCEPPolicyMappings(SecCertificateRefP certificate,
@@ -838,7 +839,7 @@ static void SecCEPPolicyMappings(SecCertificateRefP certificate,
 badDER:
     CFReleaseSafe(mappings);
     certificate->_policyMappings = NULL;
-	secdebug(NULL, "Invalid CertificatePolicies Extension");
+	secdebug("cert", "Invalid CertificatePolicies Extension");
 }
 #endif
 
@@ -876,7 +877,7 @@ static void SecCEPAuthorityKeyIdentifier(SecCertificateRefP certificate,
 
 	return;
 badDER:
-	secdebug(NULL, "Invalid AuthorityKeyIdentifier Extension");
+	secdebug("cert", "Invalid AuthorityKeyIdentifier Extension");
 }
 
 static void SecCEPPolicyConstraints(SecCertificateRefP certificate,
@@ -908,7 +909,7 @@ static void SecCEPPolicyConstraints(SecCertificateRefP certificate,
     return;
 badDER:
     certificate->_policyConstraints.present = false;
-	secdebug(NULL, "Invalid PolicyConstraints Extension");
+	secdebug("cert", "Invalid PolicyConstraints Extension");
 }
 
 static void SecCEPExtendedKeyUsage(SecCertificateRefP certificate,
@@ -930,7 +931,7 @@ static void SecCEPInhibitAnyPolicy(SecCertificateRefP certificate,
     return;
 badDER:
     certificate->_inhibitAnyPolicySkipCerts = UINT32_MAX;
-	secdebug(NULL, "Invalid InhibitAnyPolicy Extension");
+	secdebug("cert", "Invalid InhibitAnyPolicy Extension");
 }
 
 /*
@@ -999,7 +1000,7 @@ static void SecCEPAuthorityInfoAccess(SecCertificateRefP certificate,
         }
         default:
             secdebug("cert", "bad general name for id-ad-ocsp AccessDescription t: 0x%02x v: %.*s",
-                generalNameContent.tag, generalNameContent.content.length, generalNameContent.content.data);
+                generalNameContent.tag, (int)generalNameContent.content.length, generalNameContent.content.data);
             goto badDER;
             break;
         }
@@ -1664,7 +1665,7 @@ CFStringRef SecDERItemCopyOIDDecimalRepresentation(CFAllocatorRef allocator,
         /* A max number of 20 values is allowed. */
 		if (!(oid->data[x] & 0x80))
 		{
-            CFStringAppendFormat(result, NULL, CFSTR(".%lu"), value);
+            CFStringAppendFormat(result, NULL, CFSTR(".%lu"), (unsigned long)value);
 			value = 0;
 		}
 	}
@@ -1681,7 +1682,7 @@ static CFStringRef copyLocalizedOidDescription(CFAllocatorRef allocator,
     /* Build the key we use to lookup the localized OID description. */
     CFMutableStringRef oidKey = CFStringCreateMutable(allocator,
         oid->length * 3 + 5);
-    CFStringAppendFormat(oidKey, NULL, CFSTR("06 %02X"), oid->length);
+    CFStringAppendFormat(oidKey, NULL, CFSTR("06 %02lX"), (unsigned long)oid->length);
     DERSize ix;
     for (ix = 0; ix < oid->length; ++ix)
         CFStringAppendFormat(oidKey, NULL, CFSTR(" %02X"), oid->data[ix]);
@@ -1889,7 +1890,7 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
 
     secdebug("dateparse",
         "date %.*s year: %04d-%02d-%02d %02d:%02d:%02.f %+05.f",
-        length, bytes, gdate.year, gdate.month,
+        (int)length, bytes, (int)gdate.year, gdate.month,
         gdate.day, gdate.hour, gdate.minute, gdate.second,
         timeZoneOffset / 60);
 
@@ -2168,7 +2169,7 @@ static CFStringRef copyDERThingContentDescription(CFAllocatorRef allocator,
         /* "format string for undisplayed field data with a given DER tag" */
         return printableOnly ? NULL : CFStringCreateWithFormat(allocator, NULL,
             CFSTR("not displayed (tag = %d; length %d)"),
-            tag, derThing->length);
+            tag, (int)derThing->length);
 	}
 }
 
@@ -2230,7 +2231,7 @@ static OSStatus appendRDNProperty(void *context, const DERItem *rdnType,
 	if (label) {
 		appendDERThingProperty(properties, label, rdnValue);
 		CFRelease(label);
-		return noErr;
+		return errSecSuccess;
 	} else {
 		return errSecInvalidCertificate;
 	}
@@ -3310,7 +3311,7 @@ static OSStatus obtainSummaryFromX501Name(void *context,
         const char tfm[] = "Thawte Freemail Member";
         if ((value->length == sizeof(tfm) + 1) &&
               !memcmp(value->data + 2, tfm, sizeof(tfm) - 1)) {
-            return noErr;
+            return errSecSuccess;
         }
         stype = kSummaryTypeCommonName;
     } else if (DEROidCompare(type, &oidOrganizationalUnitName)) {
@@ -3342,7 +3343,7 @@ static OSStatus obtainSummaryFromX501Name(void *context,
         CFReleaseSafe(string);
     }
 
-	return noErr;
+	return errSecSuccess;
 }
 
 CFStringRef SecCertificateCopySubjectSummaryP(SecCertificateRefP certificate) {
@@ -3429,7 +3430,7 @@ static CFAbsoluteTime SecCertificateGetChainsFirstValidity(
     return latest;
 }
 
-bool SecCertificateIsValid(SecCertificateRefP certificate,
+bool SecCertificateIsValidP(SecCertificateRefP certificate,
 	CFAbsoluteTime verifyTime) {
 	check(certificate);
     return certificate->_notBefore <= verifyTime &&
@@ -3440,11 +3441,11 @@ CFIndex SecCertificateVersion(SecCertificateRefP certificate) {
 	return certificate->_version + 1;
 }
 
-CFAbsoluteTime SecCertificateNotValidBefore(SecCertificateRefP certificate) {
+CFAbsoluteTime SecCertificateNotValidBeforeP(SecCertificateRefP certificate) {
 	return certificate->_notBefore;
 }
 
-CFAbsoluteTime SecCertificateNotValidAfter(SecCertificateRefP certificate) {
+CFAbsoluteTime SecCertificateNotValidAfterP(SecCertificateRefP certificate) {
 	return certificate->_notAfter;
 }
 
@@ -3629,21 +3630,27 @@ CFDataRef SecCertificateCopySerialNumberP(
     return certificate->_serialNumber;
 }
 
+/*
+ * Accessor for normalized issuer content
+ */
 CFDataRef SecCertificateGetNormalizedIssuerContent(
     SecCertificateRefP certificate) {
     return certificate->_normalizedIssuer;
 }
 
+/*
+ * Accessor for normalized subject content
+ */
 CFDataRef SecCertificateGetNormalizedSubjectContent(
     SecCertificateRefP certificate) {
-	DERItem tmpdi;
-	tmpdi.data = (DERByte *)CFDataGetBytePtr(certificate->_normalizedSubject);
-	tmpdi.length = CFDataGetLength(certificate->_normalizedSubject);
-
-    return SecDERItemCopySequence(&tmpdi);
+    return certificate->_normalizedSubject;
 }
 
-CFDataRef SecCertificateGetNormalizedIssuer(
+/*
+ * Returns DER-encoded normalized issuer sequence
+ * for use with SecItemCopyMatching; caller must release
+ */
+CFDataRef SecCertificateCopyNormalizedIssuerSequence(
     SecCertificateRefP certificate) {
 	DERItem tmpdi;
 	tmpdi.data = (DERByte *)CFDataGetBytePtr(certificate->_normalizedIssuer);
@@ -3652,12 +3659,21 @@ CFDataRef SecCertificateGetNormalizedIssuer(
     return SecDERItemCopySequence(&tmpdi);
 }
 
-CFDataRef SecCertificateGetNormalizedSubject(
+/*
+ * Returns DER-encoded normalized subject sequence
+ * for use with SecItemCopyMatching; caller must release
+ */
+CFDataRef SecCertificateCopyNormalizedSubjectSequence(
     SecCertificateRefP certificate) {
-    return certificate->_normalizedSubject;
+	DERItem tmpdi;
+	tmpdi.data = (DERByte *)CFDataGetBytePtr(certificate->_normalizedSubject);
+	tmpdi.length = CFDataGetLength(certificate->_normalizedSubject);
+
+    return SecDERItemCopySequence(&tmpdi);
 }
 
 /* Verify that certificate was signed by issuerKey. */
+static
 OSStatus SecCertificateIsSignedByP(SecCertificateRefP certificate,
 	SecKeyRefP issuerKey) {
     /* Setup algId in SecAsn1AlgId format. */
@@ -3678,7 +3694,7 @@ OSStatus SecCertificateIsSignedByP(SecCertificateRefP certificate,
 	}
 #endif
 
-    return noErr;
+    return errSecSuccess;
 }
 
 #if 0
@@ -3744,7 +3760,7 @@ static OSStatus SecCertificateIsIssuedBy(SecCertificateRefP certificate,
 		return errSecNotSigner;
 	}
 
-    return noErr;
+    return errSecSuccess;
 }
 
 static OSStatus _SecCertificateSetParent(SecCertificateRefP certificate,
@@ -3760,7 +3776,7 @@ static OSStatus _SecCertificateSetParent(SecCertificateRefP certificate,
     OSStatus status = SecCertificateIsIssuedBy(certificate, issuer,
         signatureCheckOnly);
 #else
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 #endif
     if (!status) {
         if (CFEqual(certificate, issuer)) {
@@ -3768,7 +3784,7 @@ static OSStatus _SecCertificateSetParent(SecCertificateRefP certificate,
                however we do record that we are properly self signed. */
             certificate->_isSelfSigned = kSecSelfSignedTrue;
             secdebug("cert", "set self as parent");
-            return noErr;
+            return errSecSuccess;
         }
 
         CFRetain(issuer);
@@ -3850,7 +3866,7 @@ OSStatus SecCertificateCompleteChain(SecCertificateRefP certificate,
     for (;;) {
         if (certificate->_parent == NULL) {
             if (SecCertificateIsSelfSigned(certificate))
-                return noErr;
+                return errSecSuccess;
             if (!other_certificates ||
                 !SecCertificateSetParentFrom(certificate, other_certificates,\
                     false)) {
@@ -3876,7 +3892,7 @@ static OSStatus appendIPAddressesFromGeneralNames(void *context,
 			return errSecInvalidCertificate;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 CFArrayRef SecCertificateCopyIPAddresses(SecCertificateRefP certificate) {
@@ -3909,7 +3925,7 @@ static OSStatus appendDNSNamesFromGeneralNames(void *context, SecCEGeneralNameTy
 			return errSecInvalidCertificate;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* Return true if the passed in string matches the
@@ -4016,7 +4032,7 @@ static OSStatus appendDNSNamesFromX501Name(void *context, const DERItem *type,
 			return errSecInvalidCertificate;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 /* Not everything returned by this function is going to be a proper DNS name,
@@ -4026,7 +4042,7 @@ CFArrayRef SecCertificateCopyDNSNames(SecCertificateRefP certificate) {
 	/* These can exist in the subject alt name or in the subject. */
 	CFMutableArrayRef dnsNames = CFArrayCreateMutable(kCFAllocatorDefault,
 		0, &kCFTypeArrayCallBacks);
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	if (certificate->_subjectAltName) {
 		status = parseGeneralNames(&certificate->_subjectAltName->extnValue,
 			dnsNames, appendDNSNamesFromGeneralNames);
@@ -4069,7 +4085,7 @@ static OSStatus appendRFC822NamesFromGeneralNames(void *context,
 			return errSecInvalidCertificate;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 static OSStatus appendRFC822NamesFromX501Name(void *context, const DERItem *type,
@@ -4085,14 +4101,14 @@ static OSStatus appendRFC822NamesFromX501Name(void *context, const DERItem *type
 			return errSecInvalidCertificate;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 CFArrayRef SecCertificateCopyRFC822Names(SecCertificateRefP certificate) {
 	/* These can exist in the subject alt name or in the subject. */
 	CFMutableArrayRef rfc822Names = CFArrayCreateMutable(kCFAllocatorDefault,
 		0, &kCFTypeArrayCallBacks);
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	if (certificate->_subjectAltName) {
 		status = parseGeneralNames(&certificate->_subjectAltName->extnValue,
 			rfc822Names, appendRFC822NamesFromGeneralNames);
@@ -4121,7 +4137,7 @@ static OSStatus appendCommonNamesFromX501Name(void *context,
 			return errSecInvalidCertificate;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 CFArrayRef SecCertificateCopyCommonNames(SecCertificateRefP certificate) {
@@ -4150,7 +4166,7 @@ static OSStatus appendOrganizationFromX501Name(void *context,
 			return errSecInvalidCertificate;
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 CFArrayRef SecCertificateCopyOrganization(SecCertificateRefP certificate) {
@@ -4217,7 +4233,7 @@ static OSStatus appendNTPrincipalNamesFromGeneralNames(void *context,
             CFRelease(string);
 		}
 	}
-	return noErr;
+	return errSecSuccess;
 
 badDER:
     return errSecInvalidCertificate;
@@ -4227,7 +4243,7 @@ badDER:
 CFArrayRef SecCertificateCopyNTPrincipalNames(SecCertificateRefP certificate) {
 	CFMutableArrayRef ntPrincipalNames = CFArrayCreateMutable(kCFAllocatorDefault,
 		0, &kCFTypeArrayCallBacks);
-	OSStatus status = noErr;
+	OSStatus status = errSecSuccess;
 	if (certificate->_subjectAltName) {
 		status = parseGeneralNames(&certificate->_subjectAltName->extnValue,
 			ntPrincipalNames, appendNTPrincipalNamesFromGeneralNames);
@@ -4332,7 +4348,7 @@ static OSStatus appendToRFC2253String(void *context,
 
     CFReleaseSafe(oid);
 
-	return noErr;
+	return errSecSuccess;
 }
 
 CFStringRef SecCertificateCopySubjectString(SecCertificateRefP certificate) {
@@ -4349,19 +4365,19 @@ static OSStatus appendToCompanyNameString(void *context,
 	const DERItem *type, const DERItem *value, CFIndex rdnIX) {
 	CFMutableStringRef string = (CFMutableStringRef)context;
     if (CFStringGetLength(string) != 0)
-        return noErr;
+        return errSecSuccess;
 
     if (!DEROidCompare(type, &oidOrganizationName))
-        return noErr;
+        return errSecSuccess;
 
     CFStringRef raw;
     raw = copyDERThingDescription(kCFAllocatorDefault, value, true);
     if (!raw)
-        return noErr;
+        return errSecSuccess;
     CFStringAppend(string, raw);
     CFRelease(raw);
 
-	return noErr;
+	return errSecSuccess;
 }
 
 CFStringRef SecCertificateCopyCompanyName(SecCertificateRefP certificate) {
@@ -4393,12 +4409,12 @@ out:
     return NULL;
 }
 
-CFDataRef SecCertificateCopyIssuerSequence(
+CFDataRef SecCertificateCopyIssuerSequenceP(
     SecCertificateRefP certificate) {
     return SecDERItemCopySequence(&certificate->_issuer);
 }
 
-CFDataRef SecCertificateCopySubjectSequence(
+CFDataRef SecCertificateCopySubjectSequenceP(
     SecCertificateRefP certificate) {
     return SecDERItemCopySequence(&certificate->_subject);
 }
@@ -4423,14 +4439,14 @@ SecKeyRefP SecCertificateCopyPublicKeyP(SecCertificateRefP certificate) {
 		publicKey = SecKeyCreateRSAPublicKey(kCFAllocatorDefault,
 			keyData->data, keyData->length, kSecKeyEncodingPkcs1);
     } else {
-		secdebug(NULL, "Unsupported algorithm oid");
+		secdebug("cert", "Unsupported algorithm oid");
 	}
 #endif
 
     return publicKey;
 }
 
-CFDataRef SecCertificateGetSHA1Digest(SecCertificateRefP certificate) {
+CFDataRef SecCertificateGetSHA1DigestP(SecCertificateRefP certificate) {
     if (!certificate->_sha1Digest) {
 		certificate->_sha1Digest =
 			SecSHA1DigestCreate(CFGetAllocator(certificate),
@@ -4442,7 +4458,7 @@ CFDataRef SecCertificateGetSHA1Digest(SecCertificateRefP certificate) {
 
 CFDataRef SecCertificateCopyIssuerSHA1Digest(SecCertificateRefP certificate) {
     CFDataRef digest = NULL;
-    CFDataRef issuer = SecCertificateCopyIssuerSequence(certificate);
+    CFDataRef issuer = SecCertificateCopyIssuerSequenceP(certificate);
     if (issuer) {
         digest = SecSHA1DigestCreate(kCFAllocatorDefault,
             CFDataGetBytePtr(issuer), CFDataGetLength(issuer));
@@ -4454,6 +4470,21 @@ CFDataRef SecCertificateCopyIssuerSHA1Digest(SecCertificateRefP certificate) {
 CFDataRef SecCertificateCopyPublicKeySHA1Digest(SecCertificateRefP certificate) {
     return SecSHA1DigestCreate(CFGetAllocator(certificate),
         certificate->_pubKeyDER.data, certificate->_pubKeyDER.length);
+}
+
+CFDataRef SecCertificateCopyPublicKeySHA1DigestFromCertificateData(CFAllocatorRef allocator,
+	CFDataRef der_certificate)
+{
+	CFDataRef result = NULL;
+	SecCertificateRefP iosCertRef = SecCertificateCreateWithDataP(allocator, der_certificate);
+	if (NULL == iosCertRef)
+	{
+		return result;
+	}
+	
+	result = SecCertificateCopyPublicKeySHA1Digest(iosCertRef);
+	CFRelease(iosCertRef);
+	return result;	
 }
 
 CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRefP certificate) {

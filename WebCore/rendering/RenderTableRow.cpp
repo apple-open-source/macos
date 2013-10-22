@@ -25,41 +25,40 @@
 #include "config.h"
 #include "RenderTableRow.h"
 
-#include "CachedImage.h"
 #include "Document.h"
 #include "HTMLNames.h"
+#include "HitTestResult.h"
 #include "PaintInfo.h"
 #include "RenderTableCell.h"
 #include "RenderView.h"
+#include "StyleInheritedData.h"
+#include <wtf/StackStats.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-RenderTableRow::RenderTableRow(Node* node)
-    : RenderBox(node)
+RenderTableRow::RenderTableRow(Element* element)
+    : RenderBox(element)
     , m_rowIndex(unsetRowIndex)
 {
     // init RenderObject attributes
     setInline(false);   // our object is not Inline
 }
 
-void RenderTableRow::willBeDestroyed()
+void RenderTableRow::willBeRemovedFromTree()
 {
-    RenderTableSection* recalcSection = section();
-    
-    RenderBox::willBeDestroyed();
-    
-    if (recalcSection)
-        recalcSection->setNeedsCellRecalc();
+    RenderBox::willBeRemovedFromTree();
+
+    section()->setNeedsCellRecalc();
 }
 
-void RenderTableRow::updateBeforeAndAfterContent()
+static bool borderWidthChanged(const RenderStyle* oldStyle, const RenderStyle* newStyle)
 {
-    if (!isAnonymous() && document()->usesBeforeAfterRules()) {
-        children()->updateBeforeAfterContent(this, BEFORE);
-        children()->updateBeforeAfterContent(this, AFTER);
-    }
+    return oldStyle->borderLeftWidth() != newStyle->borderLeftWidth()
+        || oldStyle->borderTopWidth() != newStyle->borderTopWidth()
+        || oldStyle->borderRightWidth() != newStyle->borderRightWidth()
+        || oldStyle->borderBottomWidth() != newStyle->borderBottomWidth();
 }
 
 void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -69,9 +68,6 @@ void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* old
     RenderBox::styleDidChange(diff, oldStyle);
     propagateStyleToAnonymousChildren();
 
-    if (parent())
-        updateBeforeAndAfterContent();
-
     if (section() && oldStyle && style()->logicalHeight() != oldStyle->logicalHeight())
         section()->rowLogicalHeightChanged(rowIndex());
 
@@ -80,15 +76,36 @@ void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* old
         RenderTable* table = this->table();
         if (table && !table->selfNeedsLayout() && !table->normalChildNeedsLayout() && oldStyle && oldStyle->border() != style()->border())
             table->invalidateCollapsedBorders();
+        
+        if (table && oldStyle && diff == StyleDifferenceLayout && needsLayout() && table->collapseBorders() && borderWidthChanged(oldStyle, style())) {
+            // If the border width changes on a row, we need to make sure the cells in the row know to lay out again.
+            // This only happens when borders are collapsed, since they end up affecting the border sides of the cell
+            // itself.
+            for (RenderBox* childBox = firstChildBox(); childBox; childBox = childBox->nextSiblingBox()) {
+                if (!childBox->isTableCell())
+                    continue;
+                childBox->setChildNeedsLayout(true, MarkOnlyThis);
+            }
+        }
     }
+}
+
+const BorderValue& RenderTableRow::borderAdjoiningStartCell(const RenderTableCell* cell) const
+{
+    ASSERT_UNUSED(cell, cell->isFirstOrLastCellInRow());
+    // FIXME: https://webkit.org/b/79272 - Add support for mixed directionality at the cell level.
+    return style()->borderStart();
+}
+
+const BorderValue& RenderTableRow::borderAdjoiningEndCell(const RenderTableCell* cell) const
+{
+    ASSERT_UNUSED(cell, cell->isFirstOrLastCellInRow());
+    // FIXME: https://webkit.org/b/79272 - Add support for mixed directionality at the cell level.
+    return style()->borderEnd();
 }
 
 void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
 {
-    // Make sure we don't append things after :after-generated content if we have it.
-    if (!beforeChild)
-        beforeChild = afterPseudoElementRenderer();
-
     if (!child->isTableCell()) {
         RenderObject* last = beforeChild;
         if (!last)
@@ -138,21 +155,22 @@ void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
 
 void RenderTableRow::layout()
 {
+    StackStats::LayoutCheckPoint layoutCheckPoint;
     ASSERT(needsLayout());
 
     // Table rows do not add translation.
-    LayoutStateMaintainer statePusher(view(), this, LayoutSize(), style()->isFlippedBlocksWritingMode());
+    LayoutStateMaintainer statePusher(view(), this, LayoutSize(), hasTransform() || hasReflection() || style()->isFlippedBlocksWritingMode());
 
     bool paginated = view()->layoutState()->isPaginated();
                 
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->isTableCell()) {
             RenderTableCell* cell = toRenderTableCell(child);
-            if (!cell->needsLayout() && paginated && view()->layoutState()->pageLogicalHeight() && view()->layoutState()->pageLogicalOffset(cell->logicalTop()) != cell->pageLogicalOffset())
+            if (!cell->needsLayout() && paginated && view()->layoutState()->pageLogicalHeight() && view()->layoutState()->pageLogicalOffset(cell, cell->logicalTop()) != cell->pageLogicalOffset())
                 cell->setChildNeedsLayout(true, MarkOnlyThis);
 
             if (child->needsLayout()) {
-                cell->computeBlockDirectionMargins(table());
+                cell->computeAndSetBlockDirectionMargins(table());
                 cell->layout();
             }
         }
@@ -175,7 +193,7 @@ void RenderTableRow::layout()
     setNeedsLayout(false);
 }
 
-LayoutRect RenderTableRow::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer) const
+LayoutRect RenderTableRow::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
 {
     ASSERT(parent());
 
@@ -193,7 +211,7 @@ LayoutRect RenderTableRow::clippedOverflowRectForRepaint(RenderBoxModelObject* r
 }
 
 // Hit Testing
-bool RenderTableRow::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction action)
+bool RenderTableRow::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction action)
 {
     // Table rows cannot ever be hit tested.  Effectively they do not exist.
     // Just forward to our children always.
@@ -204,21 +222,22 @@ bool RenderTableRow::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
         // then we can remove this check.
         if (child->isTableCell() && !toRenderBox(child)->hasSelfPaintingLayer()) {
             LayoutPoint cellPoint = flipForWritingModeForChild(toRenderTableCell(child), accumulatedOffset);
-            if (child->nodeAtPoint(request, result, pointInContainer, cellPoint, action)) {
-                updateHitTestResult(result, pointInContainer - toLayoutSize(cellPoint));
+            if (child->nodeAtPoint(request, result, locationInContainer, cellPoint, action)) {
+                updateHitTestResult(result, locationInContainer.point() - toLayoutSize(cellPoint));
                 return true;
             }
         }
     }
-    
+
     return false;
 }
 
 void RenderTableRow::paintOutlineForRowIfNeeded(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
+    LayoutPoint adjustedPaintOffset = paintOffset + location();
     PaintPhase paintPhase = paintInfo.phase;
     if ((paintPhase == PaintPhaseOutline || paintPhase == PaintPhaseSelfOutline) && style()->visibility() == VISIBLE)
-        paintOutline(paintInfo.context, LayoutRect(paintOffset, size()));
+        paintOutline(paintInfo.context, LayoutRect(adjustedPaintOffset, size()));
 }
 
 void RenderTableRow::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -245,10 +264,17 @@ void RenderTableRow::imageChanged(WrappedImagePtr, const IntRect*)
     repaint();
 }
 
+RenderTableRow* RenderTableRow::createAnonymous(Document* document)
+{
+    RenderTableRow* renderer = new (document->renderArena()) RenderTableRow(0);
+    renderer->setDocumentForAnonymous(document);
+    return renderer;
+}
+
 RenderTableRow* RenderTableRow::createAnonymousWithParentRenderer(const RenderObject* parent)
 {
+    RenderTableRow* newRow = RenderTableRow::createAnonymous(parent->document());
     RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyleWithDisplay(parent->style(), TABLE_ROW);
-    RenderTableRow* newRow = new (parent->renderArena()) RenderTableRow(parent->document() /* is anonymous */);
     newRow->setStyle(newStyle.release());
     return newRow;
 }

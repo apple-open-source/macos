@@ -351,7 +351,9 @@ die()
 	for (i = 0; i < retrans; i++) {
 		for (ra = ralist; ra; ra = ra->next)
 			ra_output(ra);
-		sleep(MIN_DELAY_BETWEEN_RAS);
+			
+		if (retrans != 1)
+			sleep(MIN_DELAY_BETWEEN_RAS);
 	}
 	pidfile_remove(pfh);
 	exit(0);
@@ -1639,7 +1641,8 @@ ra_timer_update(void *data, struct timeval *tm)
 	interval += random() % (rai->maxinterval - rai->mininterval);
 
 	/*
-	 * For the first few advertisements (up to
+	 * The first advertisement is sent as soon as rtadvd starts up 
+	 * and for the next few advertisements (up to
 	 * MAX_INITIAL_RTR_ADVERTISEMENTS), if the randomly chosen interval
 	 * is greater than MAX_INITIAL_RTR_ADVERT_INTERVAL, the timer
 	 * SHOULD be set to MAX_INITIAL_RTR_ADVERT_INTERVAL instead.
@@ -1649,7 +1652,7 @@ ra_timer_update(void *data, struct timeval *tm)
 	    interval > MAX_INITIAL_RTR_ADVERT_INTERVAL)
 		interval = MAX_INITIAL_RTR_ADVERT_INTERVAL;
 
-	tm->tv_sec = interval;
+	tm->tv_sec = rai->initcounter == 0 ? 0 : interval;
 	tm->tv_usec = 0;
 
 	syslog(LOG_DEBUG,

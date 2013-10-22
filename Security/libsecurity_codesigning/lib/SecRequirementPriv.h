@@ -45,7 +45,7 @@ extern "C" {
 	NULL requirements are not allowed in the dictionary.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param requirementSet Upon success, receives a CFData object 
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementsCreateFromRequirements(CFDictionaryRef requirements, SecCSFlags flags,
@@ -62,7 +62,7 @@ OSStatus SecRequirementsCreateFromRequirements(CFDictionaryRef requirements, Sec
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param requirements Upon success, a dictionary containing each requirement contained
 	in requirementSet. The keys are CFNumbers indicating the requirement type.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementsCopyRequirements(CFDataRef requirementSet, SecCSFlags flags,
@@ -81,10 +81,10 @@ OSStatus SecRequirementsCopyRequirements(CFDataRef requirementSet, SecCSFlags fl
 	the result of parsing text. Depending on the input string and flags, the result
 	can be a SecRequirementRef (for a single requirement) or a CFDataRef for a requirement set.
 	@param errors An optional pointer to a CFErrorRef variable. If the call fails
-	(and something other than noErr is returned), and this argument is non-NULL,
+	(and something other than errSecSuccess is returned), and this argument is non-NULL,
 	a CFErrorRef is stored there further describing the nature and circumstances
 	of the failure. The caller must CFRelease() this error object when done with it.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 enum {
@@ -114,7 +114,7 @@ OSStatus SecRequirementsCreateWithString(CFStringRef text, SecCSFlags flags,
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param text On successful return, contains a reference to a CFString object
 	containing a text representation of the requirement.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementsCopyString(CFTypeRef input, SecCSFlags flags, CFStringRef *text);
@@ -130,7 +130,7 @@ OSStatus SecRequirementsCopyString(CFTypeRef input, SecCSFlags flags, CFStringRe
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param requirement On successful return, contains a reference to a SecRequirement
 	object that behaves identically to the one the data blob was obtained from.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementCreateWithResource(CFURLRef resource, SecCSFlags flags,
@@ -151,7 +151,7 @@ OSStatus SecRequirementCreateWithResource(CFURLRef resource, SecCSFlags flags,
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param requirement On successful return, contains a reference to a SecRequirement
 	object that requires group membership to pass validation.
-	@result Upon success, noErr. Upon error, an OSStatus value documented in
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
 	CSCommon.h or certain other Security framework headers.
 */
 OSStatus SecRequirementCreateGroup(CFStringRef groupName, SecCertificateRef anchor,
@@ -171,7 +171,7 @@ OSStatus SecRequirementCreateGroup(CFStringRef groupName, SecCertificateRef anch
 	@param context An optional CFDictionary containing additional context made available
 	to the requirement program's evaluation. NULL is equivalent to an empty dictionary.
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
-	@result Upon success, noErr. Failure to pass the check returns errSecCSReqFailed.
+	@result Upon success, errSecSuccess. Failure to pass the check returns errSecCSReqFailed.
 	All other returns indicate errors as documented in CSCommon.h or certain other
 	Security framework headers.
 	

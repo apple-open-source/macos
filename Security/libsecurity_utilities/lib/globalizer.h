@@ -31,6 +31,8 @@
 #include <security_utilities/threading.h>
 #include <memory>
 #include <set>
+#include <dispatch/dispatch.h>
+#include <libkern/OSAtomic.h>
 
 namespace Security {
 
@@ -52,51 +54,68 @@ public:
 };
 
 
-//
-// A module-scope nexus is tied to the linker Nexus object itself.
-// Its scope is all code accessing that particular Nexus object
-// from within a process. Any number of ModuleNexus objects can
-// exist, and each implements a different scope.
-//
-// IMPORTANT notes on this class can be found in globalizer.cpp.
-// DO NOT change anything here before carefully reading them.
-//
 class ModuleNexusCommon : public GlobalNexus {
+private:
+    void do_create(void *(*make)());
+
 protected:
     void *create(void *(*make)());
-    
+    void lock() {OSSpinLockLock(&access);}
+    void unlock() {OSSpinLockUnlock(&access);}
+
 protected:
-    // both of these will be statically initialized to zero
+    // all of these will be statically initialized to zero
 	void *pointer;
-    StaticAtomicCounter<uint32_t> sync;
+    dispatch_once_t once;
+    OSSpinLock access;
 };
 
 template <class Type>
 class ModuleNexus : public ModuleNexusCommon {
 public:
-    Type &operator () ()
+    Type &operator () () 
     {
-        void *p = Atomic<void *>::load(pointer);	// latch pointer
-		if (!p || (uintptr_t(p) & 0x1)) {
-			p = create(make);
-			secdebug("nexus", "module %s 0x%p", Debug::typeName<Type>().c_str(), pointer);
-		}
-		return *reinterpret_cast<Type *>(p);
+        lock();
+        
+        try
+        {
+            if (pointer == NULL)
+            {
+                pointer = create(make);
+            }
+            
+            unlock();
+        }
+        catch (...)
+        {
+            unlock();
+            throw;
+        }
+        
+		return *reinterpret_cast<Type *>(pointer);
     }
 	
 	// does the object DEFINITELY exist already?
 	bool exists() const
 	{
-		return Atomic<void *>::load(pointer) != NULL;
+        bool result;
+        lock();
+        result = pointer != NULL;
+        unlock();
+        return result;
 	}
     
 	// destroy the object (if any) and start over - not really thread-safe
     void reset()
     {
-        if (pointer && !(uintptr_t(pointer) & 0x1)) {
+        lock();
+        if (pointer != NULL)
+        {
             delete reinterpret_cast<Type *>(pointer);
-            Atomic<void *>::store(0, pointer);
+            pointer = NULL;
+            once = 0;
         }
+        unlock();
     }
     
 private:
@@ -116,14 +135,6 @@ public:
 
 typedef std::set<void*> RetentionSet;
 
-class ThreadNexusBase {
-protected:
-	static ModuleNexus<Mutex> mInstanceLock;
-	static ModuleNexus<RetentionSet> mInstances;
-};
-
-
-
 //
 // A thread-scope nexus is tied to a particular native thread AND
 // a particular nexus object. Its scope is all code in any one thread
@@ -133,7 +144,7 @@ protected:
 // zero-initialization ThreadNexi, put them inside a ModuleNexus.
 //
 template <class Type>
-class ThreadNexus : public GlobalNexus, private ThreadNexusBase {
+class ThreadNexus : public GlobalNexus {
 public:
     ThreadNexus() : mSlot(true) { }
 
@@ -143,10 +154,6 @@ public:
         if (Type *p = mSlot)
             return *p;
         mSlot = new Type;
-		{
-			StLock<Mutex> _(mInstanceLock ());
-			mInstances ().insert(mSlot);
-		}
         return *mSlot;
     }
 

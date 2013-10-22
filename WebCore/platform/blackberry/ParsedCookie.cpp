@@ -28,10 +28,10 @@
 #include "ParsedCookie.h"
 
 #include "CookieManager.h"
-#include <wtf/CurrentTime.h>
 #include "KURL.h"
 #include "Logging.h"
 #include <curl/curl.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -45,6 +45,7 @@ ParsedCookie::ParsedCookie(double currentTime)
     , m_isHttpOnly(false)
     , m_isSession(true)
     , m_isForceExpired(false)
+    , m_domainIsIPAddress(false)
 {
 }
 
@@ -61,26 +62,7 @@ ParsedCookie::ParsedCookie(const String& name, const String& value, const String
     , m_isHttpOnly(isHttpOnly)
     , m_isSession(false)
     , m_isForceExpired(false)
-{
-}
-
-ParsedCookie::ParsedCookie(const ParsedCookie* cookie)
-    : m_name(String(cookie->m_name))
-    , m_value(String(cookie->m_value))
-    , m_domain(String(cookie->m_domain))
-    , m_protocol(String(cookie->m_protocol))
-    , m_path(String(cookie->m_path))
-    , m_expiry(cookie->m_expiry)
-    , m_creationTime(cookie->m_creationTime)
-    , m_lastAccessed(cookie->m_lastAccessed)
-    , m_isSecure(cookie->m_isSecure)
-    , m_isHttpOnly(cookie->m_isHttpOnly)
-    , m_isSession(cookie->m_isSession)
-    , m_isForceExpired(cookie->m_isForceExpired)
-{
-}
-
-ParsedCookie::~ParsedCookie()
+    , m_domainIsIPAddress(false)
 {
 }
 
@@ -172,8 +154,8 @@ String ParsedCookie::toNameValuePair() const
 void ParsedCookie::appendWebCoreCookie(Vector<Cookie>& cookieVector) const
 {
     cookieVector.append(Cookie(String(m_name), String(m_value), String(m_domain),
-            // We multiply m_expiry by 1000 to convert from seconds to milliseconds.
-            // This value is passed to Web Inspector and used in the JavaScript Date constructor.
-            String(m_path), (m_expiry * 1000), m_isHttpOnly, m_isSecure, m_isSession));
+        // We multiply m_expiry by 1000 to convert from seconds to milliseconds.
+        // This value is passed to Web Inspector and used in the JavaScript Date constructor.
+        String(m_path), (m_expiry * 1000), m_isHttpOnly, m_isSecure, m_isSession));
 }
 } // namespace WebCore

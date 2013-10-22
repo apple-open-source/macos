@@ -26,10 +26,10 @@
 #ifdef HAVE_UTIME_H
 # include <utime.h>
 #else
-# include <emul/utime.h>
+# include "emul/utime.h"
 #endif
 
-#include <compat.h>
+#include "missing.h"
 
 #ifndef HAVE_UTIMES
 /*
@@ -45,9 +45,9 @@ utimes(file, times)
 
 	utb.actime = (time_t)(times[0].tv_sec + times[0].tv_usec / 1000000);
 	utb.modtime = (time_t)(times[1].tv_sec + times[1].tv_usec / 1000000);
-	return(utime(file, &utb));
+	return utime(file, &utb);
     } else
-	return(utime(file, NULL));
+	return utime(file, NULL);
 }
 #endif /* !HAVE_UTIMES */
 
@@ -65,8 +65,8 @@ futimes(fd, times)
 
 	utb.actime = (time_t)(times[0].tv_sec + times[0].tv_usec / 1000000);
 	utb.modtime = (time_t)(times[1].tv_sec + times[1].tv_usec / 1000000);
-	return(futime(fd, &utb));
+	return futime(fd, &utb);
     } else
-	return(futime(fd, NULL));
+	return futime(fd, NULL);
 }
 #endif /* HAVE_FUTIME */

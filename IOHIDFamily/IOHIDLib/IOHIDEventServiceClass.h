@@ -54,7 +54,6 @@ protected:
     CFRunLoopSourceRef                  _asyncEventSource;
     
     CFMutableDictionaryRef              _serviceProperties;
-    CFMutableDictionaryRef              _dynamicServiceProperties;
     CFMutableDictionaryRef              _servicePreferences;
         
     IOHIDServiceEventCallback           _eventCallback;
@@ -79,10 +78,10 @@ protected:
     // IOHIDServiceInterface2 methods
     static boolean_t        _open(void *self, IOOptionBits options);
     static void             _close(void *self, IOOptionBits options);
-    static CFTypeRef        _getProperty(void *self, CFStringRef key);
+    static CFTypeRef        _copyProperty(void *self, CFStringRef key);
     static boolean_t        _setProperty(void *self, CFStringRef key, CFTypeRef property);
     static IOHIDEventRef    _copyEvent(void *self, IOHIDEventType type, IOHIDEventRef matching, IOOptionBits options);
-    static void             _setElementValue(void *self, uint32_t usagePage, uint32_t usage, uint32_t value);
+    static IOReturn         _setElementValue(void *self, uint32_t usagePage, uint32_t usage, uint32_t value);
     static void             _setEventCallback(void *self, IOHIDServiceEventCallback callback, void * target, void * refcon);
     static void             _scheduleWithRunLoop(void *self, CFRunLoopRef runLoop, CFStringRef runLoopMode);
     static void             _unscheduleFromRunLoop(void *self, CFRunLoopRef runLoop, CFStringRef runLoopMode);
@@ -107,10 +106,10 @@ public:
     
     virtual boolean_t       open(IOOptionBits options);
     virtual void            close(IOOptionBits options);
-    virtual CFTypeRef       getProperty(CFStringRef key);
+    virtual CFTypeRef       copyProperty(CFStringRef key);
     virtual boolean_t       setProperty(CFStringRef key, CFTypeRef property);
     virtual IOHIDEventRef   copyEvent(IOHIDEventType type, IOHIDEventRef matching, IOOptionBits options);
-    virtual void            setElementValue(uint32_t usagePage, uint32_t usage, uint32_t value);
+    virtual IOReturn        setElementValue(uint32_t usagePage, uint32_t usage, uint32_t value);
     virtual void            setEventCallback(IOHIDServiceEventCallback callback, void * target, void * refcon);
     virtual void            scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode);
     virtual void            unscheduleFromRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode);

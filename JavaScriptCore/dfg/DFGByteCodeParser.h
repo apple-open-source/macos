@@ -28,18 +28,18 @@
 
 #if ENABLE(DFG_JIT)
 
-#include <dfg/DFGGraph.h>
+#include "DFGGraph.h"
 
 namespace JSC {
 
 class CodeBlock;
-class JSGlobalData;
+class VM;
 
 namespace DFG {
 
 // Populate the Graph with a basic block of code from the CodeBlock,
 // starting at the provided bytecode index.
-bool parse(Graph&);
+bool parse(ExecState*, Graph&);
 
 } } // namespace JSC::DFG
 

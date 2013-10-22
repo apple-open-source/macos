@@ -1,0 +1,158 @@
+/define[ 	]LONGSIZE/c
+#ifdef __LP64__
+#define LONGSIZE 8		/**/
+#else /* !__LP64__ */
+#define LONGSIZE 4		/**/
+#endif /* __LP64__ */
+.
+/define[ 	]Gid_t_f/c
+#ifdef __LP64__
+#define	Gid_t_f		"u"		/**/
+#else /* !__LP64__ */
+#define	Gid_t_f		"lu"		/**/
+#endif /* __LP64__ */
+.
+/define[ 	]PTRSIZE/c
+#ifdef __LP64__
+#define PTRSIZE 8		/**/
+#else /* !__LP64__ */
+#define PTRSIZE 4		/**/
+#endif /* __LP64__ */
+.
+/define[ 	]Quad_t/a
+.
+.,.+2c
+#ifdef __LP64__
+#   define Quad_t long	/**/
+#   define Uquad_t unsigned long	/**/
+#   define QUADKIND 2	/**/
+#else /* !__LP64__ */
+#   define Quad_t long long	/**/
+#   define Uquad_t unsigned long long	/**/
+#   define QUADKIND 3	/**/
+#endif /* __LP64__ */
+.
+/define[ 	]Size_t_size/c
+#ifdef __LP64__
+#define Size_t_size 8		/* */
+#else /* !__LP64__ */
+#define Size_t_size 4		/* */
+#endif /* __LP64__ */
+.
+/define[ 	]Uid_t_f/c
+#ifdef __LP64__
+#define	Uid_t_f		"u"		/**/
+#else /* !__LP64__ */
+#define	Uid_t_f		"lu"		/**/
+#endif /* __LP64__ */
+.
+/define[ 	]NEED_VA_COPY/c
+#ifdef __LP64__
+#define	NEED_VA_COPY		/**/
+#else /* !__LP64__ */
+/*#define	NEED_VA_COPY		/ **/
+#endif /* __LP64__ */
+.
+/define[ 	]I32TYPE/a
+.
+.,.+1c
+#ifdef __LP64__
+#define	I32TYPE		int	/**/
+#define	U32TYPE		unsigned int	/**/
+#else /* !__LP64__ */
+#define	I32TYPE		long	/**/
+#define	U32TYPE		unsigned long	/**/
+#endif /* __LP64__ */
+.
+/define[ 	]I64TYPE/a
+.
+.,.+1c
+#ifdef __LP64__
+#define	I64TYPE		long	/**/
+#define	U64TYPE		unsigned long	/**/
+#else /* !__LP64__ */
+#define	I64TYPE		long long	/**/
+#define	U64TYPE		unsigned long long	/**/
+#endif /* __LP64__ */
+.
+/define[ 	]IVSIZE/a
+.
+.,.+1c
+#ifdef __LP64__
+#define	IVSIZE		8		/**/
+#define	UVSIZE		8		/**/
+#else /* !__LP64__ */
+#define	IVSIZE		4		/**/
+#define	UVSIZE		4		/**/
+#endif /* __LP64__ */
+.
+/NV_PRESERVES_UV$/a
+.
+.,.+1c
+#ifdef __LP64__
+#undef	NV_PRESERVES_UV
+#define	NV_PRESERVES_UV_BITS	53
+#else /* !__LP64__ */
+#define	NV_PRESERVES_UV
+#define	NV_PRESERVES_UV_BITS	32
+#endif /* __LP64__ */
+.
+/define[ 	]GMTIME_MAX/a
+.
+.,/^$/-1c
+#ifdef __LP64__
+#define GMTIME_MAX	67768036191676799	/**/
+#define GMTIME_MIN	-62167132800		/**/
+#define LOCALTIME_MAX	67768036191705599	/**/
+#define LOCALTIME_MIN	-62167104000		/**/
+#else
+#define GMTIME_MAX	2147483647	/**/
+#define GMTIME_MIN	-2147483648	/**/
+#define LOCALTIME_MAX	2147483647	/**/
+#define LOCALTIME_MIN	-2147483648	/**/
+#endif
+.
+/define[ 	]USE_64_BIT_INT/c
+#ifdef __LP64__
+#define	USE_64_BIT_INT		/**/
+#else /* !__LP64__ */
+/*#define	USE_64_BIT_INT		/ **/
+#endif /* __LP64__ */
+.
+/define[ 	]USE_64_BIT_ALL/c
+#ifdef __LP64__
+#define	USE_64_BIT_ALL		/**/
+#else /* !__LP64__ */
+/*#define	USE_64_BIT_ALL		/ **/
+#endif /* __LP64__ */
+.
+/define[ 	]USE_NSGETEXECUTABLEPATH/c
+/*#define	USE_NSGETEXECUTABLEPATH		/ **/
+.
+$i
+/* PERL_PREPENDTOPATH:
+ *	If defined, this is the path to a file containing colon-separated
+ *	paths to prepend to @INC.
+ */
+#define	PERL_PREPENDTOPATH	"/Library/Perl/@VERSION@/@PREPENDFILE@"
+
+/* PERL_APPENDTOPATH:
+ *	If defined, this is the path to a file containing colon-separated
+ *	paths to append to @INC.
+ */
+#define	PERL_APPENDTOPATH	"/Library/Perl/@VERSION@/@APPENDFILE@"
+
+/* UPDATESLIB:
+ *	This is the path to the Updates directory (which comes before
+ *	the system perl directory in @INC.
+ */
+#define UPDATESLIB		"@UPDATESLIB@"
+
+/* NO_NETWORK_LIBRARY_PERL_FILE:
+ *	If this file path exists, the vendor libs (which are the
+ *	/Network/Library/Perl paths) are not added to @INC.
+ */
+#define NO_NETWORK_LIBRARY_PERL_FILE	"/Library/Perl/@VERSION@/@NONLP@"
+
+.
+w

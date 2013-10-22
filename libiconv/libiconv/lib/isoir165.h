@@ -81,7 +81,7 @@
 #include "isoir165ext.h"
 
 static int
-isoir165_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+isoir165_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   int ret;
 
@@ -122,7 +122,7 @@ isoir165_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 }
 
 static int
-isoir165_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+isoir165_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char buf[2];
   int ret;

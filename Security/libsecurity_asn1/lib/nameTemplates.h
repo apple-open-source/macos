@@ -32,7 +32,7 @@
 extern "C" {
 #endif
 
-#pragma mark ----- Generalized NSS_TaggedItem template chooser support -----
+// MARK: ----- Generalized NSS_TaggedItem template chooser support -----
 
 /*
  * A tagged item for use with simple CHOICE types implemented
@@ -65,7 +65,7 @@ const SecAsn1Template * SecAsn1TaggedTemplateChooser(
 	/* array of tag/template pairs */
 	const NSS_TagChoice *chooser);
 
-#pragma mark ----- X509 Name, RDN ------
+// MARK: ----- X509 Name, RDN ------
 
 /* 
  * ASN class : AttributeTypeAndValue
@@ -118,7 +118,7 @@ extern const SecAsn1Template kSecAsn1ATVTemplate[];
 extern const SecAsn1Template kSecAsn1RDNTemplate[];
 extern const SecAsn1Template kSecAsn1NameTemplate[];
 
-#pragma mark ----- OtherName, GeneralizedName -----
+// MARK: ----- OtherName, GeneralizedName -----
 
 /* 
  * ASN Class : OtherName

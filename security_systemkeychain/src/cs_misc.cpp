@@ -39,7 +39,7 @@ using namespace UnixPlusPlus;
 //
 void procinfo(const char *target)
 {
-	if (pid_t pid = atol(target)) {
+	if (pid_t pid = (pid_t)atol(target)) {
 		char path[MAXPATHLEN * 2];
 		uint32_t flags;
 		int rcpath = ::proc_pidpath(pid, path, sizeof(path));
@@ -85,7 +85,7 @@ void procinfo(const char *target)
 			else if (errno == ERANGE) {
 				// kernel returns a blob header with magic == 0, length == needed size
 				assert(header.magic() == 0);
-				uint32_t bufferLen = header.length();
+				uint32_t bufferLen = (uint32_t)header.length();
 				if (bufferLen > 1024 * 1024)
 					fail("insane entitlement length from kernel");
 				uint8_t buffer[bufferLen];
@@ -116,7 +116,7 @@ void procinfo(const char *target)
 //
 void procaction(const char *target)
 {
-	if (pid_t pid = atol(target)) {
+	if (pid_t pid = (pid_t)atol(target)) {
 		int rc;
 		if (!strncmp(procAction, "invalidate", strlen(procAction)))
 			rc = ::csops(pid, CS_OPS_MARKINVALID, NULL, 0);
@@ -124,7 +124,7 @@ void procaction(const char *target)
 			rc = ::csops(pid, CS_OPS_MARKHARD, NULL, 0);
 		else if (!strncmp(procAction, "kill", strlen(procAction)))
 			rc = ::csops(pid, CS_OPS_MARKKILL, NULL, 0);
-		else if (int op = atol(procAction))
+		else if (int op = atoi(procAction))
 			rc = ::csops(pid, op, NULL, 0);
 		else
 			fail("%s: not a recognized operation", procAction);

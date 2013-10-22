@@ -31,8 +31,7 @@
 #include "ckSHA1.h"
 #include <string.h>
 #include <stdlib.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-
+#include <Security/SecBase.h>
 #define kHMACSHA1DigestSize  20
 
 /* XXX These should really be in ckSHA1.h */
@@ -64,7 +63,7 @@ struct hmacLegacyContext {
 	UInt8 	k_opad[kSHA1BlockSize];
 };
 
-hmacLegacyContextRef hmacLegacyAlloc()
+hmacLegacyContextRef hmacLegacyAlloc(void)
 {
 	hmacLegacyContextRef hmac = 
 		(hmacLegacyContextRef)malloc(sizeof(struct hmacLegacyContext));
@@ -96,7 +95,7 @@ OSStatus hmacLegacyInit(
 	if(hmac->sha1Context == NULL) {
 		hmac->sha1Context = sha1Alloc();
 		if(hmac->sha1Context == NULL) {
-			return memFullErr;
+			return errSecAllocate;
 		}
 	}
 	else {
@@ -105,7 +104,7 @@ OSStatus hmacLegacyInit(
 	/* this implementation requires a 20-byte key */
 	if (keyLen != kSHA1DigestSize) {
 		/* FIXME */
-		return paramErr;
+		return errSecParam;
 	}
 	key = (UInt8*)keyPtr;
 	
@@ -129,7 +128,7 @@ OSStatus hmacLegacyInit(
 	memset (hmac->k_opad + keyLen, 0x5c, kSHA1BlockSize - keyLen);
 	
 	/* remainder happens in update */
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus hmacLegacyUpdate(
@@ -153,7 +152,7 @@ OSStatus hmacLegacyUpdate(
 	
 	/* if there is another update coming, it gets added in to existing 
 	 * context; if the next step is a final, the current digest state is used. */
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus hmacLegacyFinal(
@@ -161,7 +160,7 @@ OSStatus hmacLegacyFinal(
 	void *resultPtr)		// caller mallocs, must be HMACSHA1_OUT_SIZE bytes
 {
 	memcpy (resultPtr, sha1Digest (hmac->sha1Context), kSHA1DigestSize);
-	return noErr;
+	return errSecSuccess;
 }
 
 #endif	/* CRYPTKIT_HMAC_LEGACY */

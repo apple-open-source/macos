@@ -5,13 +5,13 @@
 #include <stdarg.h>
 
 gssapi_mech_interface
+__gss_iakerb_initialize (void);
+
+gssapi_mech_interface
 __gss_krb5_initialize (void);
 
 gssapi_mech_interface
 __gss_pku2u_initialize (void);
-
-gssapi_mech_interface
-__gss_iakerb_initialize (void);
 
 OM_uint32
 __gsskrb5_ccache_lifetime (
@@ -21,7 +21,7 @@ __gsskrb5_ccache_lifetime (
 	krb5_principal /*principal*/,
 	time_t */*endtime*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gk_unwrap_iov (
 	OM_uint32 */*minor_status*/,
 	gss_ctx_id_t /*context_handle*/,
@@ -33,12 +33,12 @@ _gk_unwrap_iov (
 OM_uint32
 _gk_verify_buffers (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto * /*ctx*/,
+	struct gsskrb5_crypto */*ctx*/,
 	const gss_iov_buffer_desc */*header*/,
 	const gss_iov_buffer_desc */*padding*/,
 	const gss_iov_buffer_desc */*trailer*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gk_wrap_iov (
 	OM_uint32 * /*minor_status*/,
 	gss_ctx_id_t /*context_handle*/,
@@ -48,7 +48,7 @@ _gk_wrap_iov (
 	gss_iov_buffer_desc */*iov*/,
 	int /*iov_count*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gk_wrap_iov_length (
 	OM_uint32 * /*minor_status*/,
 	gss_ctx_id_t /*context_handle*/,
@@ -65,15 +65,32 @@ _gss_DES3_get_mic_compat (
 	krb5_context /*context*/);
 
 OM_uint32
-_gss_krb5_acquire_cred_ex (
-	gss_status_id_t /*status*/,
+_gss_iakerb_acquire_cred_ext (
+	OM_uint32 * /*minor_status*/,
 	const gss_name_t /*desired_name*/,
-	OM_uint32 /*flags*/,
+	gss_const_OID /*credential_type*/,
+	const void */*credential_data*/,
 	OM_uint32 /*time_req*/,
+	gss_const_OID /*desired_mech*/,
 	gss_cred_usage_t /*cred_usage*/,
-	gss_auth_identity_t /*identity*/,
-	void */*ctx*/,
-	void (*/*complete*/)(void *, OM_uint32, gss_status_id_t, gss_cred_id_t, OM_uint32));
+	gss_cred_id_t * /*output_cred_handle*/);
+
+void
+_gss_iakerb_iter_creds_f (
+	OM_uint32 /*flags*/,
+	void *userctx ,
+	void (*/*cred_iter*/)(void *, gss_OID, gss_cred_id_t));
+
+OM_uint32 GSSAPI_CALLCONV
+_gss_krb5_acquire_cred_ext (
+	OM_uint32 * /*minor_status*/,
+	const gss_name_t /*desired_name*/,
+	gss_const_OID /*credential_type*/,
+	const void */*credential_data*/,
+	OM_uint32 /*time_req*/,
+	gss_const_OID /*desired_mech*/,
+	gss_cred_usage_t /*cred_usage*/,
+	gss_cred_id_t * /*output_cred_handle*/);
 
 void
 _gss_krb5_iter_creds_f (
@@ -89,11 +106,11 @@ _gss_pku2u_iter_creds_f (
 
 OM_uint32
 _gssapi_decapsulate (
-	 OM_uint32 */*minor_status*/,
+	OM_uint32 */*minor_status*/,
 	gss_buffer_t /*input_token_buffer*/,
 	uint8_t type[2],
 	krb5_data */*out_data*/,
-	const gss_OID mech );
+	const gss_OID /*mech*/);
 
 void
 _gssapi_encap_length (
@@ -110,13 +127,14 @@ _gssapi_encapsulate (
 	const gss_OID mech );
 
 OM_uint32
-_gssapi_get_mic_arcfour(OM_uint32 * minor_status,
-			const gsskrb5_ctx context_handle,
-			krb5_context context,
-			gss_qop_t qop_req,
-			const gss_buffer_t message_buffer,
-			gss_buffer_t message_token,
-			krb5_keyblock *key);
+_gssapi_get_mic_arcfour (
+	OM_uint32 * /*minor_status*/,
+	const gsskrb5_ctx /*context_handle*/,
+	krb5_context /*context*/,
+	gss_qop_t /*qop_req*/,
+	const gss_buffer_t /*message_buffer*/,
+	gss_buffer_t /*message_token*/,
+	krb5_keyblock */*key*/);
 
 void *
 _gssapi_make_mech_header (
@@ -127,7 +145,7 @@ _gssapi_make_mech_header (
 OM_uint32
 _gssapi_mic_cfx (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	krb5_context /*context*/,
 	gss_qop_t /*qop_req*/,
 	const gss_buffer_t /*message_buffer*/,
@@ -178,7 +196,7 @@ _gssapi_unwrap_arcfour (
 OM_uint32
 _gssapi_unwrap_cfx (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	krb5_context /*context*/,
 	const gss_buffer_t /*input_message_buffer*/,
 	gss_buffer_t /*output_message_buffer*/,
@@ -188,7 +206,7 @@ _gssapi_unwrap_cfx (
 OM_uint32
 _gssapi_unwrap_cfx_iov (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	krb5_context /*context*/,
 	int */*conf_state*/,
 	gss_qop_t */*qop_state*/,
@@ -202,19 +220,20 @@ _gssapi_verify_mech_header (
 	gss_OID /*mech*/);
 
 OM_uint32
-_gssapi_verify_mic_arcfour(OM_uint32 * minor_status,
-			   const gsskrb5_ctx context_handle,
-			   krb5_context context,
-			   const gss_buffer_t message_buffer,
-			   const gss_buffer_t token_buffer,
-			   gss_qop_t * qop_state,
-			   krb5_keyblock *key,
-			   const char *type);
+_gssapi_verify_mic_arcfour (
+	OM_uint32 * /*minor_status*/,
+	const gsskrb5_ctx /*context_handle*/,
+	krb5_context /*context*/,
+	const gss_buffer_t /*message_buffer*/,
+	const gss_buffer_t /*token_buffer*/,
+	gss_qop_t * /*qop_state*/,
+	krb5_keyblock */*key*/,
+	const char */*type*/);
 
 OM_uint32
 _gssapi_verify_mic_cfx (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	krb5_context /*context*/,
 	const gss_buffer_t /*message_buffer*/,
 	const gss_buffer_t /*token_buffer*/,
@@ -241,7 +260,7 @@ _gssapi_wrap_arcfour (
 OM_uint32
 _gssapi_wrap_cfx (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	krb5_context /*context*/,
 	int /*conf_req_flag*/,
 	const gss_buffer_t /*input_message_buffer*/,
@@ -251,7 +270,7 @@ _gssapi_wrap_cfx (
 OM_uint32
 _gssapi_wrap_cfx_iov (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	krb5_context /*context*/,
 	int /*conf_req_flag*/,
 	int */*conf_state*/,
@@ -261,7 +280,7 @@ _gssapi_wrap_cfx_iov (
 OM_uint32
 _gssapi_wrap_iov_length_cfx (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	krb5_context /*context*/,
 	int /*conf_req_flag*/,
 	gss_qop_t /*qop_req*/,
@@ -283,12 +302,56 @@ _gssapi_wrap_size_arcfour (
 OM_uint32
 _gssapi_wrap_size_cfx (
 	OM_uint32 */*minor_status*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	krb5_context /*context*/,
 	int /*conf_req_flag*/,
 	gss_qop_t /*qop_req*/,
 	OM_uint32 /*req_output_size*/,
 	OM_uint32 */*max_input_size*/);
+
+OM_uint32
+_gssiakerb_accept_sec_context (
+	OM_uint32 * /*minor_status*/,
+	gss_ctx_id_t * /*context_handle*/,
+	const gss_cred_id_t /*acceptor_cred_handle*/,
+	const gss_buffer_t /*input_token_buffer*/,
+	const gss_channel_bindings_t /*input_chan_bindings*/,
+	gss_name_t * /*src_name*/,
+	gss_OID * /*mech_type*/,
+	gss_buffer_t /*output_token*/,
+	OM_uint32 * /*ret_flags*/,
+	OM_uint32 * /*time_rec*/,
+	gss_cred_id_t * /*delegated_cred_handle*/);
+
+OM_uint32
+_gssiakerb_acquire_cred (
+	OM_uint32 * /*minor_status*/,
+	const gss_name_t /*desired_name*/,
+	OM_uint32 /*time_req*/,
+	const gss_OID_set /*desired_mechs*/,
+	gss_cred_usage_t /*cred_usage*/,
+	gss_cred_id_t * /*output_cred_handle*/,
+	gss_OID_set * /*actual_mechs*/,
+	OM_uint32 * /*time_rec*/);
+
+OM_uint32
+_gssiakerb_export_name (
+	OM_uint32 * /*minor_status*/,
+	const gss_name_t /*input_name*/,
+	gss_buffer_t /*exported_name*/);
+
+OM_uint32
+_gssiakerb_import_name (
+	OM_uint32 * /*minor_status*/,
+	const gss_buffer_t /*input_name_buffer*/,
+	gss_const_OID /*input_name_type*/,
+	gss_name_t * /*output_name*/);
+
+OM_uint32
+_gssiakerb_inquire_names_for_mech (
+	OM_uint32 * /*minor_status*/,
+	gss_const_OID /*mechanism*/,
+	gss_OID_set * /*name_types*/);
 
 OM_uint32
 _gsskrb5_accept_sec_context (
@@ -304,7 +367,7 @@ _gsskrb5_accept_sec_context (
 	OM_uint32 * /*time_rec*/,
 	gss_cred_id_t * /*delegated_cred_handle*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_acquire_cred (
 	OM_uint32 * /*minor_status*/,
 	const gss_name_t /*desired_name*/,
@@ -313,9 +376,9 @@ _gsskrb5_acquire_cred (
 	gss_cred_usage_t /*cred_usage*/,
 	gss_cred_id_t * /*output_cred_handle*/,
 	gss_OID_set * /*actual_mechs*/,
-	OM_uint32 * time_rec );
+	OM_uint32 * /*time_rec*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_add_cred (
 	 OM_uint32 */*minor_status*/,
 	const gss_cred_id_t /*input_cred_handle*/,
@@ -330,6 +393,20 @@ _gsskrb5_add_cred (
 	OM_uint32 */*acceptor_time_rec*/);
 
 OM_uint32
+_gsskrb5_appl_change_password (
+	OM_uint32 */*minor_status*/,
+	gss_name_t /*name*/,
+	const char */*oldpw*/,
+	const char */*newpw*/);
+
+OM_uint32 GSSAPI_CALLCONV
+_gsskrb5_authorize_localname (
+	OM_uint32 */*minor_status*/,
+	const gss_name_t /*input_name*/,
+	gss_const_buffer_t /*user_name*/,
+	gss_const_OID /*user_name_type*/);
+
+OM_uint32
 _gsskrb5_canon_name (
 	OM_uint32 */*minor_status*/,
 	krb5_context /*context*/,
@@ -338,7 +415,7 @@ _gsskrb5_canon_name (
 	gss_name_t /*targetname*/,
 	krb5_principal */*out*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_canonicalize_name (
 	 OM_uint32 * /*minor_status*/,
 	const gss_name_t /*input_name*/,
@@ -348,14 +425,14 @@ _gsskrb5_canonicalize_name (
 void
 _gsskrb5_clear_status (void);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_compare_name (
 	OM_uint32 * /*minor_status*/,
 	const gss_name_t /*name1*/,
 	const gss_name_t /*name2*/,
 	int * name_equal );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_context_time (
 	OM_uint32 * /*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
@@ -381,6 +458,30 @@ _gsskrb5_create_ctx (
 	gss_OID /*mech*/);
 
 OM_uint32
+_gsskrb5_cred_hold (
+	OM_uint32 */*minor_status*/,
+	gss_cred_id_t /*cred*/);
+
+OM_uint32
+_gsskrb5_cred_label_get (
+	OM_uint32 */*minor_status*/,
+	gss_cred_id_t /*cred_handle*/,
+	const char */*label*/,
+	gss_buffer_t /*value*/);
+
+OM_uint32
+_gsskrb5_cred_label_set (
+	OM_uint32 */*minor_status*/,
+	gss_cred_id_t /*cred_handle*/,
+	const char */*label*/,
+	gss_buffer_t /*value*/);
+
+OM_uint32
+_gsskrb5_cred_unhold (
+	OM_uint32 */*minor_status*/,
+	gss_cred_id_t /*cred*/);
+
+OM_uint32
 _gsskrb5_decapsulate (
 	OM_uint32 */*minor_status*/,
 	gss_buffer_t /*input_token_buffer*/,
@@ -393,7 +494,7 @@ _gsskrb5_decode_be_om_uint32 (
 	const void */*ptr*/,
 	OM_uint32 */*n*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_delete_sec_context (
 	OM_uint32 * /*minor_status*/,
 	gss_ctx_id_t * /*context_handle*/,
@@ -404,14 +505,14 @@ _gsskrb5_destroy_cred (
 	OM_uint32 */*minor_status*/,
 	gss_cred_id_t */*cred_handle*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_display_name (
 	OM_uint32 * /*minor_status*/,
 	const gss_name_t /*input_name*/,
 	gss_buffer_t /*output_name_buffer*/,
 	gss_OID * output_name_type );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_display_status (
 	OM_uint32 */*minor_status*/,
 	OM_uint32 /*status_value*/,
@@ -420,7 +521,7 @@ _gsskrb5_display_status (
 	OM_uint32 */*message_context*/,
 	gss_buffer_t /*status_string*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_duplicate_name (
 	 OM_uint32 * /*minor_status*/,
 	const gss_name_t /*src_name*/,
@@ -442,6 +543,16 @@ _gsskrb5_encapsulate (
 	const gss_OID mech );
 
 OM_uint32
+_gsskrb5_error_token (
+	OM_uint32 */*minor_status*/,
+	gss_OID /*mech*/,
+	krb5_context /*context*/,
+	krb5_error_code /*error_code*/,
+	krb5_data */*e_data*/,
+	krb5_principal /*server*/,
+	gss_buffer_t /*output_token*/);
+
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_export_cred (
 	OM_uint32 */*minor_status*/,
 	gss_cred_id_t /*cred_handle*/,
@@ -453,7 +564,7 @@ _gsskrb5_export_name (
 	const gss_name_t /*input_name*/,
 	gss_buffer_t /*exported_name*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_export_sec_context (
 	 OM_uint32 * /*minor_status*/,
 	gss_ctx_id_t * /*context_handle*/,
@@ -465,7 +576,7 @@ _gsskrb5_get_mech (
 	size_t /*total_len*/,
 	const u_char **/*mech_ret*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_get_mic (
 	OM_uint32 * /*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
@@ -480,25 +591,42 @@ _gsskrb5_get_tkt_flags (
 	OM_uint32 */*tkt_flags*/);
 
 OM_uint32
+_gsskrb5_iakerb_make_header (
+	OM_uint32 */*minor_status*/,
+	krb5_context /*context*/,
+	gsskrb5_ctx /*ctx*/,
+	krb5_realm /*realm*/,
+	krb5_data */*kdata*/,
+	gss_buffer_t /*output_token*/);
+
+OM_uint32
+_gsskrb5_iakerb_parse_header (
+	OM_uint32 */*minor_status*/,
+	krb5_context /*context*/,
+	gsskrb5_ctx /*ctx*/,
+	const gss_buffer_t /*input_token*/,
+	krb5_data */*data*/);
+
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_import_cred (
 	OM_uint32 * /*minor_status*/,
 	gss_buffer_t /*cred_token*/,
 	gss_cred_id_t * /*cred_handle*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_import_name (
 	OM_uint32 * /*minor_status*/,
 	const gss_buffer_t /*input_name_buffer*/,
 	gss_const_OID /*input_name_type*/,
 	gss_name_t * output_name );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_import_sec_context (
 	 OM_uint32 * /*minor_status*/,
 	const gss_buffer_t /*interprocess_token*/,
 	gss_ctx_id_t * context_handle );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_indicate_mechs (
 	OM_uint32 * /*minor_status*/,
 	gss_OID_set * mech_set );
@@ -506,7 +634,7 @@ _gsskrb5_indicate_mechs (
 krb5_error_code
 _gsskrb5_init (krb5_context */*context*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_init_sec_context (
 	OM_uint32 * /*minor_status*/,
 	const gss_cred_id_t /*cred_handle*/,
@@ -522,9 +650,9 @@ _gsskrb5_init_sec_context (
 	OM_uint32 * /*ret_flags*/,
 	OM_uint32 * time_rec );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_inquire_context (
-	OM_uint32 * /*minor_status*/,
+	 OM_uint32 * /*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
 	gss_name_t * /*src_name*/,
 	gss_name_t * /*targ_name*/,
@@ -532,9 +660,9 @@ _gsskrb5_inquire_context (
 	gss_OID * /*mech_type*/,
 	OM_uint32 * /*ctx_flags*/,
 	int * /*locally_initiated*/,
-	int * /*open_context*/);
+	int * open_context );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_inquire_cred (
 	OM_uint32 * /*minor_status*/,
 	const gss_cred_id_t /*cred_handle*/,
@@ -543,7 +671,7 @@ _gsskrb5_inquire_cred (
 	gss_cred_usage_t * /*cred_usage*/,
 	gss_OID_set * mechanisms );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_inquire_cred_by_mech (
 	 OM_uint32 * /*minor_status*/,
 	const gss_cred_id_t /*cred_handle*/,
@@ -553,26 +681,26 @@ _gsskrb5_inquire_cred_by_mech (
 	OM_uint32 * /*acceptor_lifetime*/,
 	gss_cred_usage_t * cred_usage );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_inquire_cred_by_oid (
 	OM_uint32 * /*minor_status*/,
 	const gss_cred_id_t /*cred_handle*/,
 	const gss_OID /*desired_object*/,
 	gss_buffer_set_t */*data_set*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_inquire_mechs_for_name (
 	 OM_uint32 * /*minor_status*/,
 	const gss_name_t /*input_name*/,
 	gss_OID_set * mech_types );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_inquire_names_for_mech (
-	OM_uint32 * /*minor_status*/,
+	 OM_uint32 * /*minor_status*/,
 	gss_const_OID /*mechanism*/,
-	gss_OID_set * /*name_types*/);
+	gss_OID_set * name_types );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_inquire_sec_context_by_oid (
 	OM_uint32 */*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
@@ -607,13 +735,20 @@ _gsskrb5_make_header (
 	const void */*type*/,
 	const gss_OID /*mech*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
+_gsskrb5_pname_to_uid (
+	OM_uint32 */*minor_status*/,
+	const gss_name_t /*pname*/,
+	const gss_OID /*mech_type*/,
+	uid_t */*uidp*/);
+
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_process_context_token (
 	 OM_uint32 */*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
 	const gss_buffer_t token_buffer );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_pseudo_random (
 	OM_uint32 */*minor_status*/,
 	gss_ctx_id_t /*context_handle*/,
@@ -623,31 +758,33 @@ _gsskrb5_pseudo_random (
 	gss_buffer_t /*prf_out*/);
 
 OM_uint32
-_gsskrb5_register_acceptor_identity(OM_uint32 *min_stat, const char *identity);
+_gsskrb5_register_acceptor_identity (
+	OM_uint32 */*min_stat*/,
+	const char */*identity*/);
 
 OM_uint32
 _gsskrb5_release_buffer (
 	OM_uint32 * /*minor_status*/,
 	gss_buffer_t buffer );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_release_cred (
 	OM_uint32 * /*minor_status*/,
 	gss_cred_id_t * cred_handle );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_release_name (
 	OM_uint32 * /*minor_status*/,
 	gss_name_t * input_name );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_set_cred_option (
 	OM_uint32 */*minor_status*/,
 	gss_cred_id_t */*cred_handle*/,
 	const gss_OID /*desired_object*/,
 	const gss_buffer_t /*value*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_set_sec_context_option (
 	OM_uint32 */*minor_status*/,
 	gss_ctx_id_t */*context_handle*/,
@@ -660,7 +797,7 @@ _gsskrb5_set_status (
 	const char */*fmt*/,
 	...);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_store_cred (
 	OM_uint32 */*minor_status*/,
 	gss_cred_id_t /*input_cred_handle*/,
@@ -671,7 +808,7 @@ _gsskrb5_store_cred (
 	gss_OID_set */*elements_stored*/,
 	gss_cred_usage_t */*cred_usage_stored*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_unwrap (
 	OM_uint32 * /*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
@@ -698,7 +835,7 @@ _gsskrb5_verify_header (
 	const void */*type*/,
 	gss_OID /*oid*/);
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_verify_mic (
 	OM_uint32 * /*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
@@ -707,17 +844,16 @@ _gsskrb5_verify_mic (
 	gss_qop_t * qop_state );
 
 OM_uint32
-_gsskrb5_verify_mic_internal
-           (OM_uint32 * minor_status,
-            const gsskrb5_ctx ctx,
-	    krb5_context context,
-            const gss_buffer_t message_buffer,
-            const gss_buffer_t token_buffer,
-            gss_qop_t * qop_state,
-	    const char * type
-	    );
+_gsskrb5_verify_mic_internal (
+	OM_uint32 * /*minor_status*/,
+	const gsskrb5_ctx /*ctx*/,
+	krb5_context /*context*/,
+	const gss_buffer_t /*message_buffer*/,
+	const gss_buffer_t /*token_buffer*/,
+	gss_qop_t * /*qop_state*/,
+	const char * type );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_wrap (
 	OM_uint32 * /*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
@@ -727,7 +863,7 @@ _gsskrb5_wrap (
 	int * /*conf_state*/,
 	gss_buffer_t output_message_buffer );
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_wrap_size_limit (
 	 OM_uint32 * /*minor_status*/,
 	const gss_ctx_id_t /*context_handle*/,
@@ -739,7 +875,7 @@ _gsskrb5_wrap_size_limit (
 krb5_error_code
 _gsskrb5cfx_wrap_length_cfx (
 	krb5_context /*context*/,
-	struct gsskrb5_crypto *ctx2,
+	struct gsskrb5_crypto */*ctx*/,
 	int /*conf_req_flag*/,
 	size_t /*input_length*/,
 	size_t */*output_length*/,
@@ -801,7 +937,7 @@ _gsspku2u_acquire_cred (
 	gss_cred_usage_t /*cred_usage*/,
 	gss_cred_id_t * /*output_cred_handle*/,
 	gss_OID_set * /*actual_mechs*/,
-	OM_uint32 * time_rec );
+	OM_uint32 * /*time_rec*/);
 
 OM_uint32
 _gsspku2u_export_name (
@@ -817,11 +953,6 @@ _gsspku2u_import_name (
 	gss_name_t * output_name );
 
 OM_uint32
-_gsspku2u_indicate_mechs (
-	OM_uint32 * /*minor_status*/,
-	gss_OID_set * mech_set );
-
-OM_uint32
 _gsspku2u_inquire_names_for_mech (
 	OM_uint32 * /*minor_status*/,
 	gss_const_OID /*mechanism*/,
@@ -832,121 +963,5 @@ _gsspku2u_principal (
 	krb5_context /*context*/,
 	struct hx509_cert_data */*cert*/,
 	krb5_principal */*principal*/);
-
-OM_uint32
-_gsskrb5_cred_hold(OM_uint32 *minor_status, gss_cred_id_t cred);
-OM_uint32
-_gsskrb5_cred_unhold(OM_uint32 *minor_status, gss_cred_id_t cred);
-
-OM_uint32
-_gsskrb5_cred_label_get(OM_uint32 *minor_status, gss_cred_id_t cred,
-			const char *label, gss_buffer_t value);
-
-OM_uint32
-_gsskrb5_cred_label_set(OM_uint32 *minor_status, gss_cred_id_t cred,
-			const char *label, gss_buffer_t value);
-
-OM_uint32
-_gssiakerb_acquire_cred(OM_uint32 * minor_status,
-			const gss_name_t desired_name,
-			OM_uint32 time_req,
-			const gss_OID_set desired_mechs,
-			gss_cred_usage_t cred_usage,
-			gss_cred_id_t * output_cred_handle,
-			gss_OID_set * actual_mechs,
-			OM_uint32 * time_rec);
-
-OM_uint32
-_gssiakerb_export_name(OM_uint32  * minor_status,
-		       const gss_name_t input_name,
-		       gss_buffer_t exported_name);
-
-OM_uint32
-_gssiakerb_accept_sec_context(OM_uint32 * minor_status,
-			      gss_ctx_id_t * context_handle,
-			      const gss_cred_id_t acceptor_cred_handle,
-			      const gss_buffer_t input_token_buffer,
-			      const gss_channel_bindings_t input_chan_bindings,
-			      gss_name_t * src_name,
-			      gss_OID * mech_type,
-			      gss_buffer_t output_token,
-			      OM_uint32 * ret_flags,
-			      OM_uint32 * time_rec,
-			      gss_cred_id_t * delegated_cred_handle);
-
-void
-_gss_iakerb_iter_creds_f(OM_uint32 flags,
-			 void *userctx ,
-			 void (*cred_iter)(void *, gss_OID, gss_cred_id_t));
-
-OM_uint32
-_gssiakerb_import_name(OM_uint32 * minor_status,
-		       const gss_buffer_t input_name_buffer,
-		       gss_const_OID input_name_type,
-		       gss_name_t * output_name);
-
-OM_uint32
-_gssiakerb_inquire_names_for_mech (OM_uint32 * minor_status,
-				   gss_const_OID mechanism,
-				   gss_OID_set * name_types);
-void
-_gss_iakerb_iter_creds_f(OM_uint32 flags,
-			 void *userctx ,
-			 void (*cred_iter)(void *, gss_OID, gss_cred_id_t));
-OM_uint32
-_gsskrb5_iakerb_make_header(OM_uint32 *minor_status,
-			    krb5_context context,
-			    gsskrb5_ctx ctx,
-			    krb5_realm realm,
-			    krb5_data *kdata,
-			    gss_buffer_t output_token);
-
-
-OM_uint32
-_gsskrb5_iakerb_parse_header(OM_uint32 *minor_status,
-			     krb5_context context,
-			     gsskrb5_ctx ctx,
-			     const gss_buffer_t input_token,
-			     krb5_data *data);
-
-
-OM_uint32
-_gss_iakerb_acquire_cred_ext(OM_uint32 * minor_status,
-			     const gss_name_t desired_name,
-			     gss_const_OID credential_type,
-			     const void *credential_data,
-			     OM_uint32 time_req,
-			     gss_const_OID desired_mech,
-			     gss_cred_usage_t cred_usage,
-			     gss_cred_id_t * output_cred_handle);
-
-OM_uint32 GSSAPI_CALLCONV _gss_krb5_acquire_cred_ext
-(OM_uint32 * minor_status,
- const gss_name_t desired_name,
- gss_const_OID credential_type,
- const void *credential_data,
- OM_uint32 time_req,
- gss_const_OID desired_mech,
- gss_cred_usage_t cred_usage,
- gss_cred_id_t * output_cred_handle
- );
-
-OM_uint32 GSSAPI_CALLCONV
-_gsskrb5_pname_to_uid(OM_uint32 *minor_status,
-                      const gss_name_t pname,
-                      const gss_OID mech_type,
-                      uid_t *uidp);
-
-OM_uint32 GSSAPI_CALLCONV
-_gsskrb5_authorize_localname(OM_uint32 *minor_status,
-                             const gss_name_t input_name,
-                             gss_const_buffer_t user_name,
-                             gss_const_OID user_name_type);
-
-OM_uint32
-_gsskrb5_appl_change_password(OM_uint32 *minor_status,
-			      gss_name_t name,
-			      const char *oldpw,
-			      const char *newpw);
 
 #endif /* __gsskrb5_private_h__ */

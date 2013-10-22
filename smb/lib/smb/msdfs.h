@@ -25,5 +25,12 @@
 int testGettingDfsReferralDict(struct smb_ctx * ctx, const char *referral);
 #endif // SMB_DEBUG
 
-int checkForDfsReferral(struct smb_ctx * in_ctx, struct smb_ctx ** out_ctx, char *tmscheme);
+int checkForDfsReferral(struct smb_ctx * in_ctx, struct smb_ctx ** out_ctx,
+                        char *tmscheme, CFMutableArrayRef dfsReferralDictArray);
+int decodeDfsReferral(struct smb_ctx *inConn, mdchain_t mdp,
+                      char *rcv_buffer, uint32_t rcv_buffer_len,
+                      const char *dfs_referral_str,
+                      CFMutableDictionaryRef *outReferralDict);
+int getDfsReferralDict(struct smb_ctx * inConn, CFStringRef referralStr,
+                       uint16_t maxReferralVersion, CFMutableDictionaryRef *outReferralDict);
 int getDfsReferralList(struct smb_ctx * inConn, CFMutableDictionaryRef dfsReferralDict);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,32 +47,58 @@ static void __DARequestClaimCallback( int status, void * context );
 static void __DARequestClaimReleaseCallback( CFTypeRef response, void * context );
 static void __DARequestEjectCallback( int status, void * context );
 static void __DARequestEjectApprovalCallback( CFTypeRef response, void * context );
+static int  __DARequestEjectEject( void * context );
 static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * context );
 static void __DARequestMountApprovalCallback( CFTypeRef response, void * context );
+static void __DARequestProbeCallback( int status, void * context );
 static void __DARequestRefreshCallback( int status, void * context );
 static void __DARequestRenameCallback( int status, void * context );
 static void __DARequestUnmountCallback( int status, void * context );
 static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * context );
+static int  __DARequestUnmountGetProcessID( void * context );
+///w:start
+static void __DARequestMountAuthorizationCallback( DAReturn status, void * context );
 static int  __DARequestUnmountTickle( void * context );
 static void __DARequestUnmountTickleCallback( int status, void * context );
-///w:start
-static void __DARequestEjectAuthorizationCallback( DAReturn status, void * context );
-static void __DARequestMountAuthorizationCallback( DAReturn status, void * context );
-static void __DARequestUnmountAuthorizationCallback( DAReturn status, void * context );
 
 static void __DARequestAuthorize( DARequestRef        request,
                                   DAAuthorizeCallback callback,
                                   void *              callbackContext,
                                   const char *        right )
 {
-    DAAuthorizeWithCallback( NULL,
-                             _kDAAuthorizeOptionAuthenticateAdministrator,
-                             DARequestGetDisk( request ),
-                             DARequestGetUserUID( request ),
-                             DARequestGetUserGID( request ),
-                             callback,
-                             callbackContext,
-                             right );
+    DASessionRef session;
+    CFArrayRef   sessionList;
+    CFIndex      sessionListCount;
+    CFIndex      sessionListIndex;
+
+    sessionList      = gDASessionList;
+    sessionListCount = CFArrayGetCount( sessionList );
+
+    for ( sessionListIndex = 0; sessionListIndex < sessionListCount; sessionListIndex++ )
+    {
+        session = ( void * ) CFArrayGetValueAtIndex( sessionList, sessionListIndex );
+
+        if ( strcmp( _DASessionGetName( session ), "SystemUIServer" ) == 0 )
+        {
+            break;
+        }
+    }
+
+    if ( sessionListIndex < sessionListCount )
+    {
+        DAAuthorizeWithCallback( session,
+                                 _kDAAuthorizeOptionAuthenticateAdministrator,
+                                 DARequestGetDisk( request ),
+                                 DARequestGetUserUID( request ),
+                                 DARequestGetUserGID( request ),
+                                 callback,
+                                 callbackContext,
+                                 right );
+    }
+    else
+    {
+        ( callback )( kDAReturnNotPrivileged, callbackContext );
+    }
 }
 ///w:stop
 static void __DARequestDispatchCallback( DARequestRef request, DADissenterRef dissenter )
@@ -307,49 +333,6 @@ static Boolean __DARequestEject( DARequestRef request )
             return FALSE;
         }
     }
-///w:start
-    /*
-     * Commence the eject authorization.
-     */
-
-    if ( DARequestGetState( request, _kDARequestStateStagedAuthorize ) == FALSE )
-    {
-        DAReturn status;
-
-        status = kDAReturnSuccess;
-
-        if ( DARequestGetDissenter( request ) )
-        {
-            DADissenterRef dissenter;
-
-            dissenter = DARequestGetDissenter( request );
-
-            if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF01 )
-            {
-                DARequestSetDissenter( request, NULL );
-
-                status = kDAReturnNotPrivileged;
-            }
-        }
-
-        if ( status )
-        {
-            CFRetain( request );
-
-            DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
-
-            DARequestSetState( request, _kDARequestStateStagedAuthorize, TRUE );
-
-            __DARequestAuthorize( request, __DARequestEjectAuthorizationCallback, request, _kDAAuthorizeRightUnmount );
-
-            return FALSE;
-        }
-        else
-        {
-            DARequestSetState( request, _kDARequestStateStagedAuthorize, TRUE );
-        }
-    }
-///w:stop
 
     if ( DARequestGetDissenter( request ) )
     {
@@ -370,9 +353,6 @@ static Boolean __DARequestEject( DARequestRef request )
 
     if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
     {
-        int file;
-        int status;
-
         CFRetain( request );
 
         DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
@@ -381,25 +361,7 @@ static Boolean __DARequestEject( DARequestRef request )
 
         DALogDebug( "  ejected disk, id = %@, ongoing.", disk );
 
-        file = open( DADiskGetBSDPath( disk, TRUE ), O_RDONLY );
-
-        if ( file == -1 )
-        {
-            status = errno;
-        }
-        else
-        {
-            status = ioctl( file, DKIOCEJECT, NULL );
-
-            if ( status == -1 )
-            {
-                status = ( errno == ENOTTY ) ? 0 : errno;
-            }
-
-            close( file );
-        }
-
-        __DARequestEjectCallback( status, request );
+        DAThreadExecute( __DARequestEjectEject, disk, __DARequestEjectCallback, request );
 
         return TRUE;
     }
@@ -461,15 +423,6 @@ static void __DARequestEjectApprovalCallback( CFTypeRef response, void * context
     DARequestRef request = context;
 
     DARequestSetDissenter( request, response );
-///w:start
-//  if ( response )
-//  {
-//      if ( DADissenterGetStatus( response ) == 0xF8DAFF01 )
-//      {
-//          DARequestSetDissenter( request, response );
-//      }
-//  }
-///w:stop
 
     DADiskSetState( DARequestGetDisk( request ), kDADiskStateCommandActive, FALSE );
 
@@ -477,35 +430,37 @@ static void __DARequestEjectApprovalCallback( CFTypeRef response, void * context
 
     CFRelease( request );
 }
-///w:start
-static void __DARequestEjectAuthorizationCallback( DAReturn status, void * context )
+
+static int __DARequestEjectEject( void * context )
 {
-    DARequestRef request = context;
+    DADiskRef disk = context;
+    int       file;
+    int       status;
 
-    if ( status )
+    file = open( DADiskGetBSDPath( disk, TRUE ), O_RDONLY );
+
+    if ( file == -1 )
     {
-        DADissenterRef dissenter;
+        status = errno;
+    }
+    else
+    {
+        status = ioctl( file, DKIOCEJECT, NULL );
 
-        dissenter = DADissenterCreate( kCFAllocatorDefault, status );
+        if ( status == -1 )
+        {
+            status = ( errno == ENOTTY ) ? 0 : errno;
+        }
 
-        DARequestSetDissenter( request, dissenter );
-
-        CFRelease( dissenter );
+        close( file );
     }
 
-    DADiskSetState( DARequestGetDisk( request ), kDADiskStateCommandActive, FALSE );
-
-    DAStageSignal( );
-
-    CFRelease( request );
+    return status;
 }
-///w:stop
 
 static Boolean __DARequestMount( DARequestRef request )
 {
     DADiskRef disk;
-
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
 
     disk = DARequestGetDisk( request );
 
@@ -718,8 +673,6 @@ static Boolean __DARequestMount( DARequestRef request )
 
         DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
 
-        DALogDebug( "  mounted disk, id = %@, ongoing.", disk );
-
         DAMountWithArguments( disk, path, __DARequestMountCallback, request, DARequestGetArgument3( request ), NULL );
 
         if ( path )
@@ -740,8 +693,6 @@ static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * co
     DADiskRef    disk;
     DARequestRef request = context;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
     disk = DARequestGetDisk( request );
 
     if ( status )
@@ -751,10 +702,6 @@ static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * co
          */
 
         DADissenterRef dissenter;
-
-        DALogDebug( "  mounted disk, id = %@, failure.", disk );
-
-        DALogDebug( "unable to mount %@ (status code 0x%08X).", disk, status );
 
         dissenter = DADissenterCreate( kCFAllocatorDefault, unix_err( status ) );
 
@@ -773,8 +720,6 @@ static void __DARequestMountCallback( int status, CFURLRef mountpoint, void * co
         DADiskSetBypath( disk, mountpoint );
 
         DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
-
-        DALogDebug( "  mounted disk, id = %@, success.", disk );
 
         arguments = DARequestGetArgument3( request );
 
@@ -800,25 +745,6 @@ static void __DARequestMountApprovalCallback( CFTypeRef response, void * context
     DARequestRef request = context;
 
     DARequestSetDissenter( request, response );
-///w:start
-//  if ( response )
-//  {
-//      if ( DADissenterGetStatus( response ) == 0xF8DAFF01 )
-//      {
-//          DARequestSetDissenter( request, response );
-//      }
-//
-//      if ( DADissenterGetStatus( response ) == 0xF8DAFF02 )
-//      {
-//          DARequestSetDissenter( request, response );
-//      }
-//
-//      if ( DADissenterGetStatus( response ) == 0xF8DAFF03 )
-//      {
-//          DARequestSetDissenter( request, response );
-//      }
-//  }
-///w:stop
 
     DADiskSetState( DARequestGetDisk( request ), kDADiskStateCommandActive, FALSE );
 
@@ -849,6 +775,105 @@ static void __DARequestMountAuthorizationCallback( DAReturn status, void * conte
     CFRelease( request );
 }
 ///w:stop
+
+static Boolean __DARequestProbe( DARequestRef request )
+{
+    DADiskRef disk;
+
+    disk = DARequestGetDisk( request );
+
+    /*
+     * Commence the probe.
+     */
+
+///w:start
+    if ( DARequestGetState( request, kDARequestStateStagedProbe ) == FALSE )
+    {
+        /*
+         * Determine whether the disk is mounted.
+         */
+
+        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+        {
+            DARequestSetState( request, kDARequestStateStagedProbe, TRUE );
+
+            DADiskSetState( disk, kDADiskStateStagedProbe, FALSE );
+
+            DAStageSignal( );
+
+            return FALSE;
+        }
+    }
+    else
+    {
+        if ( DADiskGetState( disk, kDADiskStateStagedProbe ) == FALSE )
+        {
+            return FALSE;
+        }
+    }
+///w:stop
+    if ( DAUnitGetState( disk, kDAUnitStateCommandActive ) == FALSE )
+    {
+        DAReturn status;
+
+        status = kDAReturnSuccess;
+
+        /*
+         * Determine whether the disk is mounted.
+         */
+
+        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
+        {
+            status = kDAReturnBusy;
+        }
+
+        if ( status )
+        {
+            DARequestDispatchCallback( request, status );
+
+            DAStageSignal( );
+
+            return TRUE;
+        }
+        else
+        {
+            CFRetain( request );
+
+            DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
+
+            DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
+
+///w:start
+//          DAProbe( disk, __DARequestProbeCallback, request );
+            __DARequestProbeCallback( 0, request );
+///w:stop
+
+            return TRUE;
+        }
+    }
+    else
+    {
+        return FALSE;
+    }
+}
+
+static void __DARequestProbeCallback( int status, void * context )
+{
+    DADiskRef    disk;
+    DARequestRef request = context;
+
+    disk = DARequestGetDisk( request );
+
+    DARequestDispatchCallback( request, status ? unix_err( status ) : status );
+
+    DAUnitSetState( disk, kDAUnitStateCommandActive, FALSE );
+
+    DADiskSetState( disk, kDADiskStateCommandActive, FALSE );
+
+    DAStageSignal( );
+
+    CFRelease( request );
+}
 
 static Boolean __DARequestRefresh( DARequestRef request )
 {
@@ -1040,7 +1065,7 @@ static void __DARequestRenameCallback( int status, void * context )
 
                 mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
 
-                if ( CFEqual( CFURLGetString( mountpoint ), CFSTR( "file://localhost/" ) ) )
+                if ( CFEqual( CFURLGetString( mountpoint ), CFSTR( "file:///" ) ) )
                 {
                     mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
 
@@ -1138,9 +1163,17 @@ static Boolean __DARequestUnmount( DARequestRef request )
 
             mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
 
-            if ( CFEqual( CFURLGetString( mountpoint ), CFSTR( "file://localhost/" ) ) )
+            if ( CFEqual( CFURLGetString( mountpoint ), CFSTR( "file:///" ) ) )
             {
+                DADissenterRef dissenter;
+
                 status = kDAReturnBusy;
+
+                dissenter = DADissenterCreate( kCFAllocatorDefault, status );
+
+                DARequestSetDissenter( request, dissenter );
+
+                CFRelease( dissenter );
             }
         }
 
@@ -1160,7 +1193,7 @@ static Boolean __DARequestUnmount( DARequestRef request )
 
                 if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
                 {
-                    DADialogShowDeviceRemoval( );
+                    DADialogShowDeviceRemoval( disk );
                 }
             }
             else
@@ -1185,49 +1218,6 @@ static Boolean __DARequestUnmount( DARequestRef request )
             }
         }
     }
-///w:start
-    /*
-     * Commence the unmount authorization.
-     */
-
-    if ( DARequestGetState( request, _kDARequestStateStagedAuthorize ) == FALSE )
-    {
-        DAReturn status;
-
-        status = kDAReturnSuccess;
-
-        if ( DARequestGetDissenter( request ) )
-        {
-            DADissenterRef dissenter;
-
-            dissenter = DARequestGetDissenter( request );
-
-            if ( DADissenterGetStatus( dissenter ) == 0xF8DAFF01 )
-            {
-                DARequestSetDissenter( request, NULL );
-
-                status = kDAReturnNotPrivileged;
-            }
-        }
-
-        if ( status )
-        {
-            CFRetain( request );
-
-            DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
-
-            DARequestSetState( request, _kDARequestStateStagedAuthorize, TRUE );
-
-            __DARequestAuthorize( request, __DARequestUnmountAuthorizationCallback, request, _kDAAuthorizeRightUnmount );
-
-            return FALSE;
-        }
-        else
-        {
-            DARequestSetState( request, _kDARequestStateStagedAuthorize, TRUE );
-        }
-    }
-///w:stop
 
     if ( DARequestGetDissenter( request ) )
     {
@@ -1291,41 +1281,30 @@ static void __DARequestUnmountCallback( int status, void * context )
          */
 
         DADissenterRef dissenter;
-        CFURLRef       mountpoint;
-        char *         path;
 
-        DALogDebug( "  unmounted disk, id = %@, failure.", disk );
+        dissenter = DARequestGetDissenter( request );
 
-        DALogDebug( "unable to unmount %@ (status code 0x%08X).", disk, status );
+        if ( dissenter == NULL )
+        {
+            DALogDebug( "  unmounted disk, id = %@, failure.", disk );
+
+            DALogDebug( "unable to unmount %@ (status code 0x%08X).", disk, status );
 
 ///w:start
-        status = EBUSY;
+            status = EBUSY;
 ///w:stop
-        dissenter = DADissenterCreate( kCFAllocatorDefault, unix_err( status ) );
+            dissenter = DADissenterCreate( kCFAllocatorDefault, unix_err( status ) );
 
-        mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+            DARequestSetDissenter( request, dissenter );
 
-        path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+            DAThreadExecute( __DARequestUnmountGetProcessID, request, __DARequestUnmountCallback, request );
 
-        if ( path )
-        {
-            pid_t dissenterPID = 0;
+            CFRelease( dissenter );
 
-            proc_listpidspath( PROC_ALL_PIDS, 0, path, PROC_LISTPIDSPATH_EXCLUDE_EVTONLY | PROC_LISTPIDSPATH_PATH_IS_VOLUME, &dissenterPID, sizeof( dissenterPID ) );
-
-            if ( dissenterPID )
-            {
-                DADissenterSetProcessID( dissenter, dissenterPID );
-            }
-
-            free( path );
+            return;
         }
 
-        DARequestSetDissenter( request, dissenter );
-
         __DARequestDispatchCallback( request, dissenter );
-
-        CFRelease( dissenter );
     }
     else
     {
@@ -1388,16 +1367,13 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
         {
             DARequestSetDissenter( request, response );
         }
-    }
 ///w:start
-    if ( response )
-    {
         if ( DADissenterGetStatus( response ) == 0xF8DAFF01 )
         {
             DARequestSetDissenter( request, response );
         }
-    }
 ///w:stop
+    }
 
     DADiskSetState( DARequestGetDisk( request ), kDADiskStateCommandActive, FALSE );
 
@@ -1405,29 +1381,41 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
 
     CFRelease( request );
 }
-///w:start
-static void __DARequestUnmountAuthorizationCallback( DAReturn status, void * context )
+
+static int  __DARequestUnmountGetProcessID( void * context )
 {
+    DADiskRef    disk;
+    CFURLRef     mountpoint;
+    char *       path;
     DARequestRef request = context;
 
-    if ( status )
+    disk = DARequestGetDisk( request );
+
+    mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+
+    if ( path )
     {
-        DADissenterRef dissenter;
+        pid_t dissenterPID = 0;
 
-        dissenter = DADissenterCreate( kCFAllocatorDefault, status );
+        proc_listpidspath( PROC_ALL_PIDS, 0, path, PROC_LISTPIDSPATH_EXCLUDE_EVTONLY | PROC_LISTPIDSPATH_PATH_IS_VOLUME, &dissenterPID, sizeof( dissenterPID ) );
 
-        DARequestSetDissenter( request, dissenter );
+        if ( dissenterPID )
+        {
+            DADissenterRef dissenter;
 
-        CFRelease( dissenter );
+            dissenter = DARequestGetDissenter( request );
+
+            DADissenterSetProcessID( dissenter, dissenterPID );
+        }
+
+        free( path );
     }
 
-    DADiskSetState( DARequestGetDisk( request ), kDADiskStateCommandActive, FALSE );
-
-    DAStageSignal( );
-
-    CFRelease( request );
+    return -1;
 }
-
+///w:start
 static int __DARequestUnmountTickle( void * context )
 {
     DADiskRef disk = context;
@@ -1465,7 +1453,6 @@ static void __DARequestUnmountTickleCallback( int status, void * context )
 {
     DADiskUnmountApprovalCallback( DARequestGetDisk( context ), __DARequestUnmountApprovalCallback, context );
 }
-
 ///w:stop
 
 DARequestRef DARequestCreate( CFAllocatorRef allocator,
@@ -1535,6 +1522,12 @@ Boolean DARequestDispatch( DARequestRef request )
                         case _kDADiskMount:
                         {
                             dispatch = __DARequestMount( request );
+
+                            break;
+                        }
+                        case _kDADiskProbe:
+                        {
+                            dispatch = __DARequestProbe( request );
 
                             break;
                         }

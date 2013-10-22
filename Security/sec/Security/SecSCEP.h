@@ -33,9 +33,7 @@
 #ifndef _SECURITY_SECSCEP_H_
 #define _SECURITY_SECSCEP_H_
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 
 SecIdentityRef
@@ -57,7 +55,7 @@ SecSCEPCreateTemporaryIdentity(SecKeyRef publicKey, SecKeyRef privateKey);
 CFDataRef
 SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters,
     SecKeyRef publicKey, SecKeyRef privateKey,
-    SecIdentityRef signer, CFTypeRef recipient);
+    SecIdentityRef signer, CFTypeRef recipient) CF_RETURNS_RETAINED;
 
 /*!
     @function SecSCEPCertifyRequest
@@ -69,7 +67,7 @@ SecSCEPGenerateCertificateRequest(CFArrayRef subject, CFDictionaryRef parameters
 	@param pend_request don't issue cert now
 */
 CFDataRef
-SecSCEPCertifyRequest(CFDataRef request, SecIdentityRef ca_identity, CFDataRef serialno, bool pend_request);
+SecSCEPCertifyRequest(CFDataRef request, SecIdentityRef ca_identity, CFDataRef serialno, bool pend_request) CF_RETURNS_RETAINED;
 
 /*!
     @function SecSCEPVerifyReply
@@ -83,7 +81,7 @@ SecSCEPCertifyRequest(CFDataRef request, SecIdentityRef ca_identity, CFDataRef s
 */
 CFArrayRef
 SecSCEPVerifyReply(CFDataRef request, CFDataRef reply, CFTypeRef signer,
-    CFErrorRef *server_error);
+    CFErrorRef *server_error) CF_RETURNS_RETAINED;
 
 
 /*!
@@ -104,7 +102,7 @@ SecSCEPGetCertInitial(SecCertificateRef ca_certificate, CFArrayRef subject, CFDi
     @param ca_certificate SecCertificateRef CA certificate
     @param ra_certificate SecCertificateRef RA certificate.  Use both for signing and encryption unless ra_encryption_certificate is also returned.
     @param ra_encryption_certificate SecCertificateRef RA encryption certificate.  Returned if there isn't an RA certificate that can both sign and encrypt.
-    @result status noErr on success.
+    @result status errSecSuccess on success.
 */
 OSStatus 
 SecSCEPValidateCACertMessage(CFArrayRef certs,
@@ -113,8 +111,6 @@ SecSCEPValidateCACertMessage(CFArrayRef certs,
     SecCertificateRef *ra_encryption_certificate);
 
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* _SECURITY_SECSCEP_H_ */

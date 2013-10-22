@@ -36,6 +36,7 @@ enum nlm4_stats getshare(nlm_shareargs *shrarg, struct svc_req *rqstp, const int
 enum nlm4_stats unshare(nlm_shareargs *shrarg, struct svc_req *rqstp, const int flags);
 void do_free_all(const char *hostname);
 void granted_failed(nlm4_res *arg);
+void do_notify_mounts(const char *hostname);
 
 void notify(const char *hostname, const int state);
 

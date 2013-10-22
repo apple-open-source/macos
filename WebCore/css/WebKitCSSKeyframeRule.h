@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,35 +27,37 @@
 #define WebKitCSSKeyframeRule_h
 
 #include "CSSRule.h"
-#include "ExceptionCode.h"
-#include "StylePropertySet.h"
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+class CSSStyleDeclaration;
+class MutableStylePropertySet;
+class StylePropertySet;
 class StyleRuleCSSStyleDeclaration;
 class WebKitCSSKeyframesRule;
 
 class StyleKeyframe : public RefCounted<StyleKeyframe> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassRefPtr<StyleKeyframe> create()
     {
         return adoptRef(new StyleKeyframe());
     }
+    ~StyleKeyframe();
 
     String keyText() const { return m_key; }
     void setKeyText(const String& s) { m_key = s; }
 
     void getKeys(Vector<float>& keys) const   { parseKeyString(m_key, keys); }
     
-    StylePropertySet* properties() const { return m_properties.get(); }
+    const StylePropertySet* properties() const { return m_properties.get(); }
+    MutableStylePropertySet* mutableProperties();
     void setProperties(PassRefPtr<StylePropertySet>);
     
     String cssText() const;
 
-private:    
-    StyleKeyframe() { }
+private:
+    StyleKeyframe();
     
     static void parseKeyString(const String&, Vector<float>& keys);
     
@@ -67,20 +69,21 @@ private:
 
 class WebKitCSSKeyframeRule : public CSSRule {
 public:
-    ~WebKitCSSKeyframeRule();
+    virtual ~WebKitCSSKeyframeRule();
+
+    virtual CSSRule::Type type() const OVERRIDE { return WEBKIT_KEYFRAME_RULE; }
+    virtual String cssText() const OVERRIDE { return m_keyframe->cssText(); }
+    virtual void reattach(StyleRuleBase*) OVERRIDE;
 
     String keyText() const { return m_keyframe->keyText(); }
     void setKeyText(const String& s) { m_keyframe->setKeyText(s); }
 
-    CSSStyleDeclaration* style() const;
-
-    String cssText() const { return m_keyframe->cssText(); }
+    CSSStyleDeclaration* style();
 
 private:
     WebKitCSSKeyframeRule(StyleKeyframe*, WebKitCSSKeyframesRule* parent);
 
     RefPtr<StyleKeyframe> m_keyframe;
-    
     mutable RefPtr<StyleRuleCSSStyleDeclaration> m_propertiesCSSOMWrapper;
     
     friend class WebKitCSSKeyframesRule;

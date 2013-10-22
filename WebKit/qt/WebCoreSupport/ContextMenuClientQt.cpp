@@ -30,9 +30,8 @@
 #include "HitTestResult.h"
 #include "KURL.h"
 #include "NotImplemented.h"
-#include <wtf/RefCounted.h>
 
-#include <stdio.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
     
@@ -41,10 +40,9 @@ void ContextMenuClientQt::contextMenuDestroyed()
     delete this;
 }
 
-PlatformMenuDescription ContextMenuClientQt::getCustomMenuFromDefaultItems(ContextMenu* menu)
+PassOwnPtr<ContextMenu> ContextMenuClientQt::customizeMenu(PassOwnPtr<ContextMenu> menu)
 {
-    // warning: this transfers the ownership to the caller
-    return menu->releasePlatformDescription();
+    return menu;
 }
 
 void ContextMenuClientQt::contextMenuItemSelected(ContextMenuItem*, const ContextMenu*)

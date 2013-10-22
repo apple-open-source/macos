@@ -66,12 +66,6 @@ pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	const char *ttl_str = NULL;
 	int ttl = 30 * 60;
 	
-	/* short circuiting for ServerInstall */
-	if (true == IsServerInstall()) {
-		openpam_log(PAM_LOG_DEBUG, "%s - Short circuiting the server install case.", PM_DISPLAY_NAME);
-		return PAM_SUCCESS;
-	}
-
 	/* get the username */
 	retval = pam_get_user(pamh, &user, NULL);
 	if (PAM_SUCCESS != retval) {

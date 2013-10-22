@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * keychain_export.c
@@ -49,7 +49,7 @@ typedef enum {
 	IS_All
 } ItemSpec;
 
-/* 
+/*
  * Add all itmes of specified class from a keychain to an array.
  * Item class are things like kSecCertificateItemClass, and
  * CSSM_DL_DB_RECORD_PRIVATE_KEY. Identities are searched separately.
@@ -62,7 +62,7 @@ static OSStatus addKcItems(
 {
 	OSStatus ortn;
 	SecKeychainSearchRef srchRef;
-	
+
 	ortn = SecKeychainSearchCreateFromAttributes(kcRef,
 		itemClass,
 		NULL,		// no attrs
@@ -85,14 +85,14 @@ static OSStatus addKcItems(
 			break;
 		}
 		CFArrayAppendValue(outArray, itemRef);
-		CFRelease(itemRef);		// array owns the item 
+		CFRelease(itemRef);		// array owns the item
 		(*numItems)++;
 	}
 	CFRelease(srchRef);
 	return ortn;
 }
 
-/* 
+/*
  * Add all SecIdentityRefs from a keychain into an array.
  */
 static OSStatus addIdentities(
@@ -102,14 +102,14 @@ static OSStatus addIdentities(
 {
 	/* Search for all identities */
 	SecIdentitySearchRef srchRef;
-	OSStatus ortn = SecIdentitySearchCreate(kcRef, 
+	OSStatus ortn = SecIdentitySearchCreate(kcRef,
 		0,				// keyUsage - any
 		&srchRef);
 	if(ortn) {
 		sec_perror("SecIdentitySearchCreate", ortn);
 		return ortn;
 	}
-	
+
 	do {
 		SecIdentityRef identity;
 		ortn = SecIdentitySearchCopyNext(srchRef, &identity);
@@ -124,7 +124,7 @@ static OSStatus addIdentities(
 			break;
 		}
 		CFArrayAppendValue(outArray, identity);
-		
+
 		/* the array has the retain count we need */
 		CFRelease(identity);
 		(*numItems)++;
@@ -153,9 +153,9 @@ static int do_keychain_export(
 	CFStringRef	passStr = NULL;
 	CFDataRef outData = NULL;
 	unsigned len;
-	
+
 	/* gather items */
-	CFMutableArrayRef exportItems = CFArrayCreateMutable(NULL, 0, 
+	CFMutableArrayRef exportItems = CFArrayCreateMutable(NULL, 0,
 		&kCFTypeArrayCallBacks);
 	switch(itemSpec) {
 		case IS_Certs:
@@ -165,16 +165,16 @@ static int do_keychain_export(
 				goto loser;
 			}
 			break;
-			
+
 		case IS_PrivKeys:
-			ortn = addKcItems(kcRef, CSSM_DL_DB_RECORD_PRIVATE_KEY, exportItems, 
+			ortn = addKcItems(kcRef, CSSM_DL_DB_RECORD_PRIVATE_KEY, exportItems,
 				&numPrivKeys);
 			if(ortn) {
 				result = 1;
 				goto loser;
 			}
 			break;
-			
+
 		case IS_PubKeys:
 			ortn = addKcItems(kcRef, CSSM_DL_DB_RECORD_PUBLIC_KEY, exportItems,
 				&numPubKeys);
@@ -183,7 +183,7 @@ static int do_keychain_export(
 				goto loser;
 			}
 			break;
-			
+
 		case IS_AllKeys:
 			ortn = addKcItems(kcRef, CSSM_DL_DB_RECORD_PRIVATE_KEY, exportItems,
 				&numPrivKeys);
@@ -198,7 +198,7 @@ static int do_keychain_export(
 				goto loser;
 			}
 			break;
-			
+
 		case IS_All:
 			/* No public keys here - PKCS12 doesn't support them */
 			ortn = addKcItems(kcRef, kSecCertificateItemClass, exportItems, &numCerts);
@@ -213,7 +213,7 @@ static int do_keychain_export(
 				goto loser;
 			}
 			break;
-			
+
 		case IS_Identities:
 			ortn = addIdentities(kcRef, exportItems, &numIdents);
 			if(ortn) {
@@ -230,7 +230,7 @@ static int do_keychain_export(
 			result = 1;
 			goto loser;
 	}
-	
+
 	numItems = CFArrayGetCount(exportItems);
 	if(externFormat == kSecFormatUnknown) {
 		/* Use default export format per set of items */
@@ -247,8 +247,8 @@ static int do_keychain_export(
 	if(doPem) {
 		expFlags |= kSecItemPemArmour;
 	}
-	
-	/* 
+
+	/*
 	 * Key related arguments, ignored if we're not exporting keys.
 	 * Always specify some kind of passphrase - default is secure passkey.
 	 */
@@ -270,7 +270,7 @@ static int do_keychain_export(
 		result = 1;
 		goto loser;
 	}
-		
+
 	len = CFDataGetLength(outData);
 	if(fileName) {
 		int rtn = writeFile(fileName, CFDataGetBytePtr(outData), len);
@@ -293,7 +293,7 @@ static int do_keychain_export(
 loser:
 	if(exportItems) {
 		CFRelease(exportItems);
-	}   
+	}
 	if(passStr) {
 		CFRelease(passStr);
 	}
@@ -302,12 +302,12 @@ loser:
 	}
 	return result;
 }
-	
+
 int
 keychain_export(int argc, char * const *argv)
 {
 	int ch, result = 0;
-	
+
 	char *outFile = NULL;
 	char *kcName = NULL;
 	SecKeychainRef kcRef = NULL;
@@ -316,7 +316,7 @@ keychain_export(int argc, char * const *argv)
 	int wrapped = 0;
 	int doPem = 0;
 	const char *passphrase = NULL;
-	
+
     while ((ch = getopt(argc, argv, "k:o:t:f:P:wph")) != -1)
 	{
 		switch  (ch)
@@ -433,7 +433,7 @@ keychain_export(int argc, char * const *argv)
 	}
 	result = do_keychain_export(kcRef, externFormat, itemSpec,
 		passphrase, doPem, outFile);
-	
+
 	if(kcRef) {
 		CFRelease(kcRef);
 	}

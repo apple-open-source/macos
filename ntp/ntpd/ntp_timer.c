@@ -32,6 +32,15 @@
 #endif /* OPENSSL */
 
 /*
+ * Clock skew is managed by the "pacemaker" daemon on OS X.
+ */
+#ifdef __APPLE__
+static int do_adjtime = 0;
+#else
+static int do_adjtime = 1;
+#endif /* __APPLE__ */
+
+/*
  * These routines provide support for the event timer.	The timer is
  * implemented by an interrupt routine which sets a flag once every
  * 2**EVENT_TIMEOUT seconds (currently 4), and a timer routine which
@@ -51,6 +60,7 @@ volatile int alarm_flag;
 /*
  * The counters and timeouts
  */
+static  u_long nap_time;	/* time to sleep before the next wake-up alarm */
 static  u_long interface_timer;	/* interface update timer */
 static	u_long adjust_timer;	/* second timer */
 static	u_long stats_timer;	/* stats timer */
@@ -192,7 +202,8 @@ init_timer(void)
 	timer_settime(ntpd_timerid, 0 /*!TIMER_ABSTIME*/, &itimer, NULL);
 #  else
 	(void) signal_no_reset(SIGALRM, alarming);
-	itimer.it_interval.tv_sec = itimer.it_value.tv_sec = (1<<EVENT_TIMEOUT);
+	nap_time = 1;
+	itimer.it_interval.tv_sec = itimer.it_value.tv_sec = nap_time;
 	itimer.it_interval.tv_usec = itimer.it_value.tv_usec = 0;
 	setitimer(ITIMER_REAL, &itimer, (struct itimerval *)0);
 #  endif
@@ -264,6 +275,7 @@ timer(void)
 {
 	register struct peer *peer, *next_peer;
 	u_int	n;
+	long delta;
 
 	/*
 	 * The basic timerevent is one second. This is used to adjust
@@ -271,33 +283,48 @@ timer(void)
 	 * kiss-o'-deatch function and implement the association
 	 * polling function..
 	 */
-	current_time++;
+	current_time += nap_time;
 	get_systime(&sys_time);
-	if (adjust_timer <= current_time) {
-		adjust_timer += 1;
-		adj_host_clock();
-#ifdef REFCLOCK
-		for (n = 0; n < NTP_HASH_SIZE; n++) {
-			for (peer = peer_hash[n]; peer != 0; peer = next_peer) {
-				next_peer = peer->next;
-				if (peer->flags & FLAG_REFCLOCK)
-					refclock_timer(peer);
-			}
-		}
-#endif /* REFCLOCK */
-	}
-	if (awake_timer && awake_timer <= current_time) {
-		for (n = 0; n < NTP_HASH_SIZE; n++) {
-			for (peer = peer_hash[n]; peer != 0; peer = peer->next) {
-				peer->burst = NSTAGE;
-				peer->nextdate = current_time;
-			}
-		}
-		allow_panic = TRUE; /* Allow for large time offsets */
-		init_loopfilter();
-		awake_timer = 0;
-	}
+	nap_time = (u_long)-1;
 
+	if (do_adjtime) {
+		if (adjust_timer <= current_time) {
+			adjust_timer += 1;
+			adj_host_clock();
+#ifdef REFCLOCK
+			for (n = 0; n < NTP_HASH_SIZE; n++) {
+				for (peer = peer_hash[n]; peer != 0; peer = next_peer) {
+					next_peer = peer->next;
+					if (peer->flags & FLAG_REFCLOCK)
+						refclock_timer(peer);
+				}
+			}
+#endif /* REFCLOCK */
+		}
+        nap_time = 1;
+    }
+    
+    if (awake_timer) {
+        if (awake_timer <= current_time) {
+            for (n = 0; n < NTP_HASH_SIZE; n++) {
+                for (peer = peer_hash[n]; peer != 0; peer = peer->next) {
+                    peer->burst = NSTAGE;
+                    peer->nextdate = current_time;
+                    peer->throttle = 0;
+                }
+            }
+            allow_panic = TRUE; /* Allow for large time offsets */
+            init_loopfilter();
+            state = EVNT_NSET;
+            awake_timer = 0;
+        } else {
+            delta = awake_timer - current_time;
+            if (delta < nap_time) {
+                nap_time = delta;
+            }
+        }
+    }
+ 
 	/*
 	 * Now dispatch any peers whose event timer has expired. Be
 	 * careful here, since the peer structure might go away as the
@@ -306,8 +333,7 @@ timer(void)
 	for (n = 0; n < NTP_HASH_SIZE; n++) {
 		for (peer = peer_hash[n]; peer != 0; peer = next_peer) {
 			next_peer = peer->next;
-			if (peer->action && peer->nextaction <=
-			    current_time)
+			if (peer->action && peer->nextaction <= current_time)
 				peer->action(peer);
 
 			/*
@@ -328,6 +354,18 @@ timer(void)
 				transmit(peer);
 #endif /* REFCLOCK */
 			}
+
+			if (peer->action && peer->nextaction >= current_time) {
+				delta = peer->nextaction - current_time;
+				if (delta < nap_time) {
+                    nap_time = delta;
+                }
+			} else if (peer->nextdate >= current_time) {
+                delta = peer->nextdate - current_time;
+                if (delta < nap_time) {
+                    nap_time = delta;
+                }
+            }
 		}
 	}
 
@@ -393,6 +431,13 @@ timer(void)
 		huffpuff();
 	}
 
+	if (huffpuff_timer >= current_time) {
+		delta = huffpuff_timer - current_time;
+		if (delta < nap_time) {
+            nap_time = delta;
+        }
+	}
+
 #ifdef OPENSSL
 	/*
 	 * Garbage collect expired keys.
@@ -400,6 +445,13 @@ timer(void)
 	if (keys_timer <= current_time) {
 		keys_timer += 1 << sys_automax;
 		auth_agekeys();
+	}
+
+	if (keys_timer >= current_time) {
+		delta = keys_timer - current_time;
+		if (delta < nap_time) {
+            nap_time = delta;
+        }
 	}
 
 	/*
@@ -411,6 +463,13 @@ timer(void)
 	    LEAP_NOTINSYNC) {
 		revoke_timer += 1 << sys_revoke;
 		RAND_bytes((u_char *)&sys_private, 4);
+	}
+
+	if (revoke_timer >= current_time) {
+		delta = revoke_timer - current_time;
+		if (delta < nap_time) {
+            nap_time = delta;
+        }
 	}
 #endif /* OPENSSL */
 
@@ -424,9 +483,22 @@ timer(void)
 		DPRINTF(2, ("timer: interface update\n"));
 		interface_update(NULL, NULL);
 	}
+    if (interface_interval && interface_timer >= current_time) {
+        delta = interface_timer - current_time;
+        if (delta < nap_time) {
+            nap_time = delta;
+        }
+    }
 
 	if (dns_timer && (dns_timer <= current_time)) {
 		dns_timer = update_dns_peers();
+	}
+
+	if (dns_timer >= current_time) {
+		delta = dns_timer - current_time;
+		if (delta < nap_time) {
+            nap_time = delta;
+        }
 	}
 
 	/*
@@ -437,9 +509,47 @@ timer(void)
 		write_stats();
 		if (sys_tai != 0 && sys_time.l_ui > leap_expire)
 			report_event(EVNT_LEAPVAL, NULL, NULL);
+	} else if (!do_adjtime && drift_file_sw) {
+        write_stats(); /* update more frequently for pacemaker */
+    }
+	
+	if (stats_timer >= current_time) {
+		delta = stats_timer - current_time;
+		if (delta < nap_time) {
+            nap_time = delta;
+        }
 	}
+
+    if (nap_time == 0) {
+        nap_time = 1;
+    }
+    if (debug) {
+        msyslog(LOG_INFO, "%s: current_time: %ld, nap_time: %ld", __FUNCTION__,
+                current_time, nap_time);
+    }
+	itimer.it_interval.tv_sec = itimer.it_value.tv_sec = nap_time;
+	setitimer(ITIMER_REAL, &itimer, (struct itimerval *)0);
 }
 
+void
+trigger_timer(void)
+{
+    struct itimerval itimerval;
+    if (nap_time == 1) {
+        return;
+    }
+    /* Adjust nap_time to reflect that we'll wake up in one second */
+    getitimer(ITIMER_REAL, &itimerval);
+    if (debug) {
+	    msyslog(LOG_INFO, "%s: current_time: %ld => %ld, nap_time: %ld => 1", __FUNCTION__,
+		    current_time, current_time+nap_time-itimerval.it_value.tv_sec, nap_time);
+    }
+    current_time += nap_time - itimerval.it_value.tv_sec;
+    nap_time = 1;
+    itimerval.it_interval.tv_sec = itimerval.it_value.tv_sec = nap_time;
+    itimerval.it_interval.tv_usec = itimerval.it_value.tv_usec = 0;
+    setitimer(ITIMER_REAL, &itimerval, NULL);
+}
 
 #ifndef SYS_WINNT
 /*

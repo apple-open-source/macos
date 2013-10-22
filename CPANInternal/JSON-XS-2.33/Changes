@@ -1,0 +1,383 @@
+Revision history for Perl extension JSON::XS
+
+TODO: maybe detetc and croak on more invalid inputs (e.g. +-inf/nan)
+TODO: maybe avoid the reblessing and better support readonly objects.
+TODO: http://stevehanov.ca/blog/index.php?id=104 compression
+
+2.33 Wed Aug  1 21:03:52 CEST 2012
+	- internal encode/decode XS wrappers did not expect stack
+          moves caused by callbacks (analyzed and testcase by Jesse Luehrs).
+	- add bencode as to/from option in bin/json_xs.
+        - add -e option to json_xs, and none and string in/out formats.
+
+2.32 Thu Aug 11 19:06:38 CEST 2011
+	- fix a bug in the initial whitespace accumulation.
+
+2.31 Wed Jul 27 17:53:05 CEST 2011
+	- don't accumulate initial whitespace in the incremental buffer
+          (this can be useful to allow whitespace-keepalive on a tcp
+          connection without triggering the max_size limit).
+	- properly croak on some invalid inputs that are not strings
+          (e.g. undef) when trying to decode a json text (reported
+          and analyzed by Goro Fuji).
+
+2.3   Wed Aug 18 01:26:47 CEST 2010
+	- make sure decoder doesn't change the decoding in the incremental
+          parser (testcase provided by Hendrik Schumacher).
+	- applied patch by DaTa for Data::Dumper support in json_xs.
+        - added -t dump support to json_xs, using Data::Dump.
+        - added -f eval support to json_xs.
+
+2.29  Wed Mar 17 02:39:12 CET 2010
+	- fix a memory leak when callbacks set using filter_json_object
+          or filter_json_single_key_object were called (great testcase
+          by Eric Wilhelm).
+
+2.28  Thu Mar 11 20:30:46 CET 2010
+	- implement our own atof function - perl's can be orders of
+          magnitudes slower than even the system one. on the positive
+          side, ours seems to be more exact in general than perl's.
+          (testcase provided by Tim Meadowcroft).
+        - clarify floating point conversion issues a bit.
+	- update jpsykes csrf article url.
+        - updated benchmark section - JSON::PP became much faster!
+
+2.27  Thu Jan  7 07:35:08 CET 2010
+	- support relaxed option inside the incremental parser
+          (testcase provided by IKEGAMI via Makamaka).
+
+2.26  Sat Oct 10 03:26:19 CEST 2009
+	- big integers could become truncated (based on patch
+          by Strobl Anton).
+	- output format change: indent now adds a final newline, which is
+          more expected and more true to the documentation.
+
+2.25  Sat Aug  8 12:04:41 CEST 2009
+	- the perl debugger completely breaks lvalue subs - try to work
+          around the issue.
+	- ignore RMAGICAL hashes w.r.t. CANONICAL.
+	- try to work around a possible char signedness issue on aix.
+        - require common sense.
+
+2.24  Sat May 30 08:25:45 CEST 2009
+	- the incremental parser did not update its parse offset
+          pointer correctly when parsing utf8-strings (nicely
+          debugged by Martin Evans).
+	- appending a non-utf8-string to the incremental parser
+          in utf8 mode failed to upgrade the string.
+        - wording of parse error messages has been improved.
+
+2.232 Sun Feb 22 11:12:25 CET 2009
+	- use an exponential algorithm to extend strings, to
+          help platforms with bad or abysmal==windows memory
+          allocater performance, at the expense of some memory
+          wastage (use shrink to recover this extra memory).
+          (nicely analysed by Dmitry Karasik).
+
+2.2311 Thu Feb 19 02:12:54 CET 2009
+        - add a section "JSON and ECMAscript" to explain some
+          incompatibilities between the two (problem was noted by
+          various people).
+	- add t/20_faihu.t.
+
+2.231 Thu Nov 20 04:59:08 CET 2008
+	- work around 5.10.0 magic bugs where manipulating magic values
+          (such as $1) would permanently damage them as perl would
+          ignore the magicalness, by making a full copy of the string,
+          reported by Dmitry Karasik.
+        - work around spurious warnings under older perl 5.8's.
+
+2.23 Mon Sep 29 05:08:29 CEST 2008
+	- fix a compilation problem when perl is not using char * as, well,
+          char *.
+	- use PL_hexdigit in favour of rolling our own.
+
+2.2222 Sun Jul 20 18:49:00 CEST 2008
+	- same game again, broken 5.10 finds yet another assertion
+          failure, and the workaround causes additional runtime warnings.
+          Work around the next assertion AND the warning. 5.10 seriously
+          needs to adjust it's attitude against working code.
+
+2.222 Sat Jul 19 06:15:34 CEST 2008
+	- you work around one -DDEBUGGING assertion bug in perl 5.10
+          just to hit the next one. work around this one, too.
+
+2.22 Tue Jul 15 13:26:51 CEST 2008
+	- allow higher nesting levels in incremental parser.
+        - error out earlier in some cases in the incremental parser
+          (as suggested by Yuval Kogman).
+        - improve incr-parser test (Yuval Kogman).
+
+2.21 Tue Jun  3 08:43:23 CEST 2008
+	- (hopefully) work around a perl 5.10 bug with -DDEBUGGING.
+	- remove the experimental status of the incremental parser interface.
+	- move =encoding around again, to avoid bugs with search.cpan.org.
+          when can we finally have utf-8 in pod???
+        - add ->incr_reset method.
+
+2.2  Wed Apr 16 20:37:25 CEST 2008
+	- lifted the log2 rounding restriction of max_depth and max_size.
+	- make booleans mutable by creating a copy instead of handing out
+          the same scalar (reported by pasha sadri).
+   	- added support for incremental json parsing (still EXPERIMENTAL).
+	- implemented and added a json_xs command line utility that can convert
+          from/to a number of serialisation formats - tell me if you need more.
+        - implement allow_unknown/get_allow_unknown methods.
+        - fixed documentation of max_depth w.r.t. higher and equal.
+	- moved down =encoding directive a bit, too much breaks if it's the first
+          pod directive :/.
+        - removed documentation section on other modules, it became somewhat
+          outdated and is nowadays mostly of historical interest.
+
+2.1  Wed Mar 19 23:23:18 CET 2008
+        - update documentation here and there: add a large section
+          about utf8/latin1/ascii flags, add a security consideration
+          and extend and clarify the JSON and YAML section.
+        - medium speed enhancements when encoding/decoding non-ascii chars.
+        - minor speedup in number encoding case.
+	- extend and clarify the section on incompatibilities
+          between YAML and JSON.
+        - switch to static inline from just inline when using gcc.
+        - add =encoding utf-8 to the manpage, now that perl 5.10 supports it.
+        - fix some issues with UV to JSON conversion of unknown impact.
+        - published the yahoo locals search result used in benchmarks as the
+          original url changes so comparison is impossible.
+
+2.01 Wed Dec  5 11:40:28 CET 2007
+	- INCOMPATIBLE API CHANGE: to_json and from_json have been
+          renamed to encode_json/decode_json for JSON.pm compatibility.
+          The old functions croak and might be replaced by JSON.pm
+          comaptible versions in some later release.
+
+2.0  Tue Dec  4 11:30:46 CET 2007
+	- this is supposed to be the first version of JSON::XS
+          compatible with version 2.0+ of the JSON module.
+          Using the JSON module as frontend to JSON::XS should be
+          as fast as using JSON::XS directly, so consider using it
+          instead.
+	- added get_* methods for all "simple" options.
+        - make JSON::XS subclassable.
+
+1.53 Tue Nov 13 23:58:33 CET 2007
+	- minor doc clarifications.
+        - fixed many doc typos (patch by Thomas L. Shinnick).
+
+1.52 Mon Oct 15 03:22:06 CEST 2007
+	- remove =encoding pod directive again, it confuses too many pod
+          parsers :/.
+
+1.51 Sat Oct 13 03:55:56 CEST 2007
+	- encode empty arrays/hashes in a compact way when pretty is enabled.
+	- apparently JSON::XS was used to find some bugs in the
+          JSON_checker testsuite, so add (the corrected) JSON_checker tests to
+          the testsuite.
+        - quite a bit of doc updates/extension.
+        - require 5.8.2, as this seems to be the first unicode-stable version.
+
+1.5  Tue Aug 28 04:05:38 CEST 2007
+	- add support for tied hashes, based on ideas and testcase by
+          Marcus Holland-Moritz.
+        - implemented relaxed parsing mode where some extensions are being
+          accepted. generation is still JSON-only.
+
+1.44 Wed Aug 22 01:02:44 CEST 2007
+	- very experimental process-emulation support, slowing everything down.
+          the horribly broken perl threads are still not supported - YMMV.
+
+1.43 Thu Jul 26 13:26:37 CEST 2007
+	- convert big json numbers exclusively consisting of digits to NV
+          only when there is no loss of precision, otherwise to string.
+
+1.42 Tue Jul 24 00:51:18 CEST 2007
+	- fix a crash caused by not handling missing array elements
+          (report and testcase by Jay Kuri).
+
+1.41 Tue Jul 10 18:21:44 CEST 2007
+	- fix compilation with NDEBUG (assert side-effect),
+          affects convert_blessed only.
+	- fix a bug in decode filters calling ENTER; SAVETMPS;
+          one time too often.
+        - catch a typical error in TO_JSON methods.
+	- antique-ised XS.xs again to work with outdated
+          C compilers (windows...).
+
+1.4  Mon Jul  2 10:06:30 CEST 2007
+	- add convert_blessed setting.
+        - encode did not catch all blessed objects, encoding their
+          contents in most cases. This has been fixed by introducing
+          the allow_blessed setting.
+        - added filter_json_object and filter_json_single_key_object
+          settings that specify a callback to be called when
+          all/specific json objects are encountered.
+        - assume that most object keys are simple ascii words and
+          optimise this case, penalising the general case. This can
+          speed up decoding by 30% in typical cases and gives
+          a smaller and faster perl hash.
+        - implemented simpleminded, optional resource size checking
+          in decode_json.
+        - remove objToJson/jsonToObj aliases, as the next version
+          of JSON will not have them either.
+        - bit the bullet and converted the very simple json object
+          into a more complex one.
+        - work around a bug where perl wrongly claims an integer
+          is not an integer.
+        - unbundle JSON::XS::Boolean into own pm file so Storable
+          and similar modules can resolve the overloading when thawing.
+
+1.3  Sun Jun 24 01:55:02 CEST 2007
+        - make JSON::XS::true and false special overloaded objects
+          and return those instead of 1 and 0 for those json atoms
+          (JSON::PP compatibility is NOT achieved yet).
+        - add JSON::XS::is_bool predicate to test for those special
+          values.
+	- add a reference to
+          http://jpsykes.com/47/practical-csrf-and-json-security.
+        - removed require 5.8.8 again, it is just not very expert-friendly.
+          Also try to be more compatible with slightly older versions,
+          which are not recommended (because they are buggy).
+
+1.24 Mon Jun 11 05:40:49 CEST 2007
+	- added informative section on JSON-as-YAML.
+        - get rid of some c99-isms again.
+        - localise dec->cur in decode_str, speeding up
+          string decoding considerably (>15% on my amd64 + gcc).
+        - increased SHORT_STRING_LEN to 16kb: stack space is
+          usually plenty, and this actually saves memory
+          when !shrinking as short strings will fit perfectly.
+
+1.23 Wed Jun  6 20:13:06 CEST 2007
+	- greatly improved small integer encoding and decoding speed.
+	- implement a number of µ-optimisations.
+        - updated benchmarks.
+
+1.22 Thu May 24 00:07:25 CEST 2007
+	- require 5.8.8 explicitly as older perls do not seem to offer
+          the required macros.
+        - possibly made it compile on so-called C compilers by microsoft.
+
+1.21 Wed May  9 18:40:32 CEST 2007
+	- character offset reported for trailing garbage was random.
+
+1.2  Wed May  9 18:35:01 CEST 2007
+        - decode did not work with magical scalars (doh!).
+        - added latin1 flag to produce JSON texts in the latin1 subset
+          of unicode.
+        - flag trailing garbage as error.
+        - new decode_prefix method that returns the number
+          of characters consumed by a decode.
+        - max octets/char in perls UTF-X is actually 13, not 11,
+          as pointed out by Glenn Linderman.
+	- fixed typoe reported by YAMASHINA Hio.
+
+1.11 Mon Apr  9 07:05:49 CEST 2007
+	- properly 0-terminate sv's returned by encode to help
+          C libraries that expect that 0 to be there.
+	- partially "port" JSON from C to microsofts fucking broken
+          pseudo-C. They should be burned to the ground for pissing
+          on standards. And I should be stoned for even trying to
+          support this filthy excuse for a c compiler.
+
+1.1  Wed Apr  4 01:45:00 CEST 2007
+	- clarify documentation (pointed out by Quinn Weaver).
+        - decode_utf8 sometimes did not correctly flag errors,
+          leading to segfaults.
+        - further reduced default nesting depth to 512 due to the test
+          failure by that anonymous "chris" whose e-mail address seems
+          to be impossible to get. Tests on other freebsd systems indicate
+          that this is likely a problem in his/her configuration and not this
+          module.
+        - renamed json => JSON in error messages.
+        - corrected the character offset in some error messages.
+
+1.01 Sat Mar 31 16:15:40 CEST 2007
+	- do not segfault when from_json/decode gets passed
+          a non-string object (reported by Florian Ragwitz).
+          This has no effect on normal operation.
+
+1.0  Thu Mar 29 04:43:34 CEST 2007
+	- the long awaited (by me) 1.0 version.
+        - add \0 (JSON::XS::false) and \1 (JSON::XS::true) mappings to JSON
+          true and false.
+	- add some more notes to shrink, as suggested by Alex Efros.
+        - improve testsuite.
+        - halve the default nesting depth limit, to hopefully make it
+          work on Freebsd (unfortunately, the cpan tester did not
+          send me his report, so I cannot ask about the stack limit on fbsd).
+
+0.8  Mon Mar 26 00:10:48 CEST 2007
+	- fix a memleak when decoding hashes.
+	- export jsonToBj and objToJson as aliases
+          to to_json and from_json, to reduce incompatibilities
+          between JSON/JSON::PC and JSON::XS. (experimental).
+        - implement a maximum nesting depth for both en- and de-coding.
+        - added a security considerations sections.
+
+0.7  Sun Mar 25 01:46:30 CET 2007
+	- code cleanup.
+	- fix a memory overflow bug when indenting.
+        - pretty-printing now up to 15% faster.
+        - improve decoding speed of strings by
+          up to 50% by specialcasing short strings.
+        - further decoding speedups for strings using
+          lots of \u escapes.
+        - improve utf8 decoding speed for U+80 .. U+7FF.
+
+0.5  Sat Mar 24 20:41:51 CET 2007
+	- added the UTF-16 encoding example hinted at in previous
+          versions.
+        - minor documentation fixes.
+        - fix a bug in and optimise canonicalising fastpath
+          (reported by Craig Manley).
+        - remove a subtest that breaks with bleadperl (reported
+          by Andreas König).
+
+0.31 Sat Mar 24 02:14:34 CET 2007
+	- documentation updates.
+        - do some casting to hopefully fix Andreas' problem.
+        - nuke bogus json rpc stuff.
+
+0.3  Fri Mar 23 19:33:21 CET 2007
+	- remove spurious PApp::Util reference (John McNamara).
+	- adapted lots of tests from other json modules
+          (idea by Chris Carline).
+        - documented mapping from json to perl and vice versa.
+        - improved the documentation by adding more examples.
+        - added short escaping forms, reducing the created
+          json texts a bit.
+        - added shrink flag.
+        - when flag methods are called without enable argument
+          they will by default enable their flag.
+        - considerably improved string encoding speed (at least
+          with gcc 4).
+        - added a test that covers lots of different characters.
+        - clarified some error messages.
+        - error messages now use correct character offset
+          with F_UTF8.
+        - improve the "no bytes" and "no warnings" hacks in
+          case the called functions do... stuff.
+        - croak when encoding to ascii and an out-of-range
+          (non-unicode) codepoint is encountered.
+
+0.2  Fri Mar 23 00:23:34 CET 2007
+	- the "could not sleep without debugging release".
+          it should basically work now, with many bugs as
+          no production tests have been run yet.
+	- added more testcases.
+	- the expected shitload of bugfixes.
+	- handle utf8 flag correctly in decode.
+        - fix segfault in decoder.
+        - utf8n_to_uvuni sets retlen to -1, but retlen is an
+          unsigned types (argh).
+        - fix decoding of utf-8 strings.
+        - improved error diagnostics.
+        - fix decoding of 'null'.
+        - fix parsing of empty array/hashes
+        - silence warnings when we prepare the croak message.
+
+0.1   Thu Mar 22 22:13:43 CET 2007
+	- first release, very untested, basically just to claim
+          the namespace.
+ 
+0.01  Thu Mar 22 06:08:12 CET 2007
+	- original version; cloned from Convert-Scalar
+

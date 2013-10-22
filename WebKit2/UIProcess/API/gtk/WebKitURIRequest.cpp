@@ -22,6 +22,7 @@
 
 #include "WebKitPrivate.h"
 #include "WebKitURIRequestPrivate.h"
+#include <WebCore/GOwnPtrSoup.h>
 #include <glib/gi18n-lib.h>
 #include <wtf/text/CString.h>
 
@@ -33,18 +34,24 @@ enum {
 
 using namespace WebCore;
 
-G_DEFINE_TYPE(WebKitURIRequest, webkit_uri_request, G_TYPE_OBJECT)
+/**
+ * SECTION: WebKitURIRequest
+ * @Short_description: Represents a URI request
+ * @Title: WebKitURIRequest
+ *
+ * A #WebKitURIRequest can be created with a URI using the
+ * webkit_uri_request_new() method, and you can get the URI of an
+ * existing request with the webkit_uri_request_get_uri() one.
+ *
+ */
 
 struct _WebKitURIRequestPrivate {
     WebCore::ResourceRequest resourceRequest;
     CString uri;
+    GOwnPtr<SoupMessageHeaders> httpHeaders;
 };
 
-static void webkitURIRequestFinalize(GObject* object)
-{
-    WEBKIT_URI_REQUEST(object)->priv->~WebKitURIRequestPrivate();
-    G_OBJECT_CLASS(webkit_uri_request_parent_class)->finalize(object);
-}
+WEBKIT_DEFINE_TYPE(WebKitURIRequest, webkit_uri_request, G_TYPE_OBJECT)
 
 static void webkitURIRequestGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -65,7 +72,7 @@ static void webkitURIRequestSetProperty(GObject* object, guint propId, const GVa
 
     switch (propId) {
     case PROP_URI:
-        request->priv->resourceRequest.setURL(KURL(KURL(), g_value_get_string(value)));
+        webkit_uri_request_set_uri(request, g_value_get_string(value));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
@@ -75,8 +82,6 @@ static void webkitURIRequestSetProperty(GObject* object, guint propId, const GVa
 static void webkit_uri_request_class_init(WebKitURIRequestClass* requestClass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(requestClass);
-
-    objectClass->finalize = webkitURIRequestFinalize;
     objectClass->get_property = webkitURIRequestGetProperty;
     objectClass->set_property = webkitURIRequestSetProperty;
 
@@ -89,17 +94,8 @@ static void webkit_uri_request_class_init(WebKitURIRequestClass* requestClass)
                                     g_param_spec_string("uri",
                                                         _("URI"),
                                                         _("The URI to which the request will be made."),
-                                                        0,
-                                                        static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
-
-    g_type_class_add_private(requestClass, sizeof(WebKitURIRequestPrivate));
-}
-
-static void webkit_uri_request_init(WebKitURIRequest* request)
-{
-    WebKitURIRequestPrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(request, WEBKIT_TYPE_URI_REQUEST, WebKitURIRequestPrivate);
-    request->priv = priv;
-    new (priv) WebKitURIRequestPrivate();
+                                                        "about:blank",
+                                                        static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
 }
 
 /**
@@ -117,13 +113,6 @@ WebKitURIRequest* webkit_uri_request_new(const gchar* uri)
     return WEBKIT_URI_REQUEST(g_object_new(WEBKIT_TYPE_URI_REQUEST, "uri", uri, NULL));
 }
 
-WebKitURIRequest* webkitURIRequestCreateForResourceRequest(const WebCore::ResourceRequest& resourceRequest)
-{
-    WebKitURIRequest* uriRequest = WEBKIT_URI_REQUEST(g_object_new(WEBKIT_TYPE_URI_REQUEST, NULL));
-    uriRequest->priv->resourceRequest = resourceRequest;
-    return uriRequest;
-}
-
 /**
  * webkit_uri_request_get_uri:
  * @request: a #WebKitURIRequest
@@ -138,3 +127,60 @@ const gchar* webkit_uri_request_get_uri(WebKitURIRequest* request)
     return request->priv->uri.data();
 }
 
+/**
+ * webkit_uri_request_set_uri:
+ * @request: a #WebKitURIRequest
+ * @uri: an URI
+ *
+ * Set the URI of @request
+ */
+void webkit_uri_request_set_uri(WebKitURIRequest* request, const char* uri)
+{
+    g_return_if_fail(WEBKIT_IS_URI_REQUEST(request));
+    g_return_if_fail(uri);
+
+    KURL url(KURL(), uri);
+    if (url == request->priv->resourceRequest.url())
+        return;
+
+    request->priv->resourceRequest.setURL(url);
+    g_object_notify(G_OBJECT(request), "uri");
+}
+
+/**
+ * webkit_uri_request_get_http_headers:
+ * @request: a #WebKitURIRequest
+ *
+ * Get the HTTP headers of a #WebKitURIRequest as a #SoupMessageHeaders.
+ *
+ * Returns: (transfer none): a #SoupMessageHeaders with the HTTP headers of @request
+ *    or %NULL if @request is not an HTTP request.
+ */
+SoupMessageHeaders* webkit_uri_request_get_http_headers(WebKitURIRequest* request)
+{
+    g_return_val_if_fail(WEBKIT_IS_URI_REQUEST(request), 0);
+
+    if (request->priv->httpHeaders)
+        return request->priv->httpHeaders.get();
+
+    if (!request->priv->resourceRequest.url().protocolIsInHTTPFamily())
+        return 0;
+
+    request->priv->httpHeaders.set(soup_message_headers_new(SOUP_MESSAGE_HEADERS_REQUEST));
+    request->priv->resourceRequest.updateSoupMessageHeaders(request->priv->httpHeaders.get());
+    return request->priv->httpHeaders.get();
+}
+
+WebKitURIRequest* webkitURIRequestCreateForResourceRequest(const ResourceRequest& resourceRequest)
+{
+    WebKitURIRequest* uriRequest = WEBKIT_URI_REQUEST(g_object_new(WEBKIT_TYPE_URI_REQUEST, NULL));
+    uriRequest->priv->resourceRequest = resourceRequest;
+    return uriRequest;
+}
+
+void webkitURIRequestGetResourceRequest(WebKitURIRequest* request, ResourceRequest& resourceRequest)
+{
+    resourceRequest = request->priv->resourceRequest;
+    if (request->priv->httpHeaders)
+        resourceRequest.updateFromSoupMessageHeaders(request->priv->httpHeaders.get());
+}

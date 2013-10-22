@@ -1,70 +1,76 @@
 require 'test/unit'
+require 'tmpdir'
+require_relative 'envutil'
 
 class TestWhileuntil < Test::Unit::TestCase
   def test_while
-    tmp = open("while_tmp", "w")
-    tmp.print "tvi925\n";
-    tmp.print "tvi920\n";
-    tmp.print "vt100\n";
-    tmp.print "Amiga\n";
-    tmp.print "paper\n";
-    tmp.close
+    Dir.mktmpdir("ruby_while_tmp") {|tmpdir|
+      tmpfilename = "#{tmpdir}/ruby_while_tmp.#{$$}"
 
-    tmp = open("while_tmp", "r")
-    assert_instance_of(File, tmp)
-    
-    while line = tmp.gets()
-      break if /vt100/ =~ line
-    end
+      tmp = open(tmpfilename, "w")
+      tmp.print "tvi925\n";
+      tmp.print "tvi920\n";
+      tmp.print "vt100\n";
+      tmp.print "Amiga\n";
+      tmp.print "paper\n";
+      tmp.close
 
-    assert(!tmp.eof?)
-    assert_match(/vt100/, line)
-    tmp.close
+      tmp = open(tmpfilename, "r")
+      assert_instance_of(File, tmp)
 
-    tmp = open("while_tmp", "r")
-    while line = tmp.gets()
-      next if /vt100/ =~ line
-      assert_no_match(/vt100/, line)
-    end
-    assert(tmp.eof?)
-    assert_no_match(/vt100/, line)
-    tmp.close
-
-    tmp = open("while_tmp", "r")
-    while tmp.gets()
-      line = $_
-      gsub(/vt100/, 'VT100')
-      if $_ != line
-        $_.gsub!('VT100', 'Vt100')
-        redo
+      while line = tmp.gets()
+        break if /vt100/ =~ line
       end
-      assert_no_match(/vt100/, $_)
-      assert_no_match(/VT100/, $_)
-    end
-    assert(tmp.eof?)
-    tmp.close
 
-    sum=0
-    for i in 1..10
-      sum += i
-      i -= 1
-      if i > 0
-        redo
+      assert(!tmp.eof?)
+      assert_match(/vt100/, line)
+      tmp.close
+
+      tmp = open(tmpfilename, "r")
+      while line = tmp.gets()
+        next if /vt100/ =~ line
+        assert_no_match(/vt100/, line)
       end
-    end
-    assert_equal(220, sum)
-
-    tmp = open("while_tmp", "r")
-    while line = tmp.gets()
-      break if 3
+      assert(tmp.eof?)
       assert_no_match(/vt100/, line)
-      assert_no_match(/Amiga/, line)
-      assert_no_match(/paper/, line)
-    end
-    tmp.close
+      tmp.close
 
-    File.unlink "while_tmp" or `/bin/rm -f "while_tmp"`
-    assert(!File.exist?("while_tmp"))
+      tmp = open(tmpfilename, "r")
+      while line = tmp.gets()
+        lastline = line
+        line = line.gsub(/vt100/, 'VT100')
+        if lastline != line
+          line.gsub!('VT100', 'Vt100')
+          redo
+        end
+        assert_no_match(/vt100/, line)
+        assert_no_match(/VT100/, line)
+      end
+      assert(tmp.eof?)
+      tmp.close
+
+      sum=0
+      for i in 1..10
+        sum += i
+        i -= 1
+        if i > 0
+          redo
+        end
+      end
+      assert_equal(220, sum)
+
+      tmp = open(tmpfilename, "r")
+      while line = tmp.gets()
+        break if 3
+        assert_no_match(/vt100/, line)
+        assert_no_match(/Amiga/, line)
+        assert_no_match(/paper/, line)
+      end
+      tmp.close
+
+      File.unlink tmpfilename or `/bin/rm -f "#{tmpfilename}"`
+      assert_file.not_exist?(tmpfilename)
+    }
   end
 
   def test_until

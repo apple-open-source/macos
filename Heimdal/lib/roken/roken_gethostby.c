@@ -140,7 +140,7 @@ roken_gethostby(const char *hostname)
     char *request = NULL;
     char buf[1024];
     int offset = 0;
-    int n;
+    ssize_t n;
     char *p, *foo;
     size_t len;
 
@@ -156,6 +156,7 @@ roken_gethostby(const char *hostname)
 	free(request);
 	return NULL;
     }
+    socket_set_nopipe(s, 1);
     if(connect(s, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 	close(s);
 	free(request);
@@ -224,7 +225,7 @@ roken_gethostbyname(const char *hostname)
 }
 
 ROKEN_LIB_FUNCTION struct hostent* ROKEN_LIB_CALL
-roken_gethostbyaddr(const void *addr, size_t len, int type)
+roken_gethostbyaddr(const void *addr, socklen_t len, int type)
 {
     struct in_addr a;
     const char *p;

@@ -24,7 +24,7 @@
 
 #include <pathnames.h>
 #include <limits.h>
-#include "compat.h"
+#include "missing.h"
 #include "alloc.h"
 #include "defaults.h"
 #include "error.h"
@@ -60,6 +60,7 @@ struct sudo_user {
     char *krb5_ccname;
     char *display;
     char *askpass;
+    pid_t sid;
     int   ngroups;
     GETGROUPS_T *groups;
     struct list_member *env_vars;
@@ -80,6 +81,7 @@ struct command_status {
 #define CMD_ERRNO 1
 #define CMD_WSTATUS 2
 #define CMD_SIGNO 3
+#define CMD_PID 4
     int type;
     int val;
 };
@@ -96,6 +98,9 @@ struct command_status {
 #define FLAG_NO_USER		0x020
 #define FLAG_NO_HOST		0x040
 #define FLAG_NO_CHECK		0x080
+#define FLAG_NON_INTERACTIVE	0x100
+#define FLAG_BAD_PASSWORD	0x200
+#define FLAG_AUTH_ERROR		0x400
 
 /*
  * Pseudo-boolean values
@@ -162,6 +167,7 @@ struct command_status {
 #define user_shell		(sudo_user.shell)
 #define user_ngroups		(sudo_user.ngroups)
 #define user_groups		(sudo_user.groups)
+#define user_sid		(sudo_user.sid)
 #define user_tty		(sudo_user.tty)
 #define user_ttypath		(sudo_user.ttypath)
 #define user_cwd		(sudo_user.cwd)
@@ -182,6 +188,13 @@ struct command_status {
 #define runas_gr		(sudo_user._runas_gr)
 #define user_role		(sudo_user.role)
 #define user_type		(sudo_user.type)
+
+#ifdef __TANDEM
+# define ROOT_UID	65535
+#else
+# define ROOT_UID	0
+#endif
+#define ROOT_GID	0
 
 /*
  * We used to use the system definition of PASS_MAX or _PASSWD_LEN,
@@ -219,13 +232,14 @@ void aix_restoreauthdb __P((void));
 int get_boottime __P((struct timeval *));
 
 /* check.c */
+int check_user		__P((int, int));
 int user_is_exempt	__P((void));
-void check_user		__P((int, int));
 void remove_timestamp	__P((int));
 
 /* env.c */
 char **env_get		__P((void));
 void env_init		__P((int lazy));
+void env_merge		__P((char * const envp[], int overwrite));
 void init_envtables	__P((void));
 void insert_env_vars	__P((struct list_member *));
 void read_env_file	__P((const char *, int));
@@ -235,6 +249,11 @@ void validate_env_vars	__P((struct list_member *));
 /* exec.c */
 int sudo_execve __P((const char *path, char *argv[], char *envp[], uid_t uid,
     struct command_status *cstat, int dowait, int bgmode));
+void save_signals __P((void));
+void restore_signals __P((void));
+
+/* exec_pty.c */
+void cleanup_pty __P((int gotsignal));
 
 /* fileops.c */
 char *sudo_parseln	__P((FILE *));
@@ -251,7 +270,7 @@ char *sudo_getepw	__P((const struct passwd *));
 int gettime		__P((struct timeval *));
 
 /* goodpath.c */
-char *sudo_goodpath	__P((const char *, struct stat *));
+int sudo_goodpath	__P((const char *, struct stat *));
 
 /* gram.y */
 int yyparse		__P((void));
@@ -268,7 +287,7 @@ void io_nextid __P((void));
 
 /* pam.c */
 int pam_begin_session	__P((struct passwd *));
-int pam_end_session	__P((void));
+int pam_end_session	__P((struct passwd *));
 
 /* parse.c */
 int sudo_file_open	__P((struct sudo_nss *));
@@ -293,6 +312,7 @@ struct group *sudo_fakegrnam __P((const char *));
 struct group *sudo_getgrgid __P((gid_t));
 struct group *sudo_getgrnam __P((const char *));
 struct passwd *sudo_fakepwnam __P((const char *, gid_t));
+struct passwd *sudo_fakepwuid __P((uid_t uid, gid_t gid));
 struct passwd *sudo_getpwnam __P((const char *));
 struct passwd *sudo_getpwuid __P((uid_t));
 void sudo_endgrent	__P((void));
@@ -301,6 +321,10 @@ void sudo_endspent	__P((void));
 void sudo_setgrent	__P((void));
 void sudo_setpwent	__P((void));
 void sudo_setspent	__P((void));
+void gr_addref		__P((struct group *));
+void gr_delref		__P((struct group *));
+void pw_addref		__P((struct passwd *));
+void pw_delref		__P((struct passwd *));
 
 /* selinux.c */
 int selinux_restore_tty __P((void));
@@ -314,13 +338,15 @@ int set_perms		__P((int));
 /* sudo.c */
 FILE *open_sudoers	__P((const char *, int, int *));
 int exec_setup		__P((int, const char *, int));
-void cleanup		__P((int));
+RETSIGTYPE cleanup	__P((int));
 void set_fqdn		__P((void));
 
 /* sudo_auth.c */
-void verify_user	__P((struct passwd *, char *));
-void pass_warn		__P((FILE *));
+int sudo_auth_cleanup	__P((struct passwd *));
+int sudo_auth_init	__P((struct passwd *));
+int verify_user		__P((struct passwd *, char *, int));
 void dump_auth_methods	__P((void));
+void pass_warn		__P((FILE *));
 
 /* sudo_nss.c */
 void display_privs	__P((struct sudo_nss_list *, struct passwd *));
@@ -347,10 +373,13 @@ YY_DECL;
 /* zero_bytes.c */
 void zero_bytes		__P((volatile void *, size_t));
 
+/* ttyname.c */
+char *get_process_ttyname __P((void));
+
 /* Only provide extern declarations outside of sudo.c. */
 #ifndef _SUDO_MAIN
 extern struct sudo_user sudo_user;
-extern struct passwd *auth_pw, *list_pw;
+extern struct passwd *list_pw;
 
 extern int tgetpass_flags;
 extern int long_list;
@@ -358,9 +387,6 @@ extern int sudo_mode;
 extern uid_t timestamp_uid;
 /* XXX - conflicts with the one in visudo */
 int run_command __P((const char *path, char *argv[], char *envp[], uid_t uid, int dowait));
-#endif
-#ifndef errno
-extern int errno;
 #endif
 
 #endif /* _SUDO_SUDO_H */

@@ -83,7 +83,8 @@ change(void *server_handle,
 
     if (context->db->hdb_capability_flags & HDB_CAP_F_HANDLE_PASSWORDS) {
 	ret = context->db->hdb_password(context->context, context->db,
-					&ent, password, cond);
+					&ent, password,
+					cond ? HDB_PWD_CONDITIONAL : 0);
 	if (ret)
 	    goto out2;
     } else {
@@ -97,10 +98,10 @@ change(void *server_handle,
 	ret = _kadm5_set_keys(context, &ent.entry, password,
 			      n_ks_tuple, ks_tuple);
 	if(ret) {
-	    _kadm5_free_keys(context->context, num_keys, keys);
+	    _kadm5_free_keys(context->context, (int)num_keys, keys);
 	    goto out2;
 	}
-	_kadm5_free_keys(context->context, num_keys, keys);
+	_kadm5_free_keys(context->context, (int)num_keys, keys);
 
 	if (cond) {
 	    HDB_extension *ext;

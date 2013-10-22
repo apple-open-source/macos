@@ -8,7 +8,10 @@ UserType              = Administrator
 ToolType              = Commands
 Extra_Configure_Flags = --program-prefix=gnu --includedir=/usr/local/include
 Extra_CC_Flags        = -mdynamic-no-pic
-GnuAfterInstall       = remove-dir install-man install-plist
+GnuAfterInstall       = remove-junk install-symlink install-plist
+
+Install_Prefix  = /usr/local
+Install_Info    = /usr/local/share/info
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -42,15 +45,15 @@ ifeq ($(AEP),YES)
 	done
 endif
 
-remove-dir:
-	$(RM) $(DSTROOT)/usr/share/info/dir
-	$(RM) $(DSTROOT)/usr/lib/charset.alias
+remove-junk:
+	$(RMDIR) $(DSTROOT)$(Install_Prefix)/lib/
+	$(RMDIR) $(DSTROOT)$(Install_Prefix)/libexec/
+	$(RMDIR) $(DSTROOT)$(Install_Prefix)/sbin/
+	$(RMDIR) $(DSTROOT)$(Install_Prefix)/share/
 
-install-man:
-	$(MKDIR) $(DSTROOT)$(MANDIR)/man1/
-	$(INSTALL_FILE) $(SRCROOT)/gnutar.1 $(DSTROOT)$(MANDIR)/man1/gnutar.1
-	$(MKDIR) $(DSTROOT)$(MANDIR)/man8/
-	$(INSTALL_FILE) $(SRCROOT)/gnurmt.8 $(DSTROOT)$(MANDIR)/man8/gnurmt.8
+install-symlink:
+	$(MKDIR) $(DSTROOT)/usr/bin/
+	$(LN) -fs $(Install_Prefix)/bin/gnutar $(DSTROOT)/usr/bin/gnutar
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses

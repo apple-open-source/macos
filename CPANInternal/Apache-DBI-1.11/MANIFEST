@@ -1,0 +1,11 @@
+Changes
+MANIFEST
+Makefile.PL
+README
+TODO
+eg/startup.pl
+lib/Apache/AuthDBI.pm
+lib/Apache/DBI.pm
+t/10mysql.t
+traces.txt
+META.yml                                 Module meta-data (added by MakeMaker)

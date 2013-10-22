@@ -114,9 +114,9 @@ void ERR_print_errors(BIO *bp)
 		{
 		sprintf(buf2,"%lu:%s:%s:%d:",es,ERR_error_string(l,buf),
 			file,line);
-		BIO_write(bp,buf2,strlen(buf2));
+		BIO_write(bp,buf2,(int)strlen(buf2));
 		if (flags & ERR_TXT_STRING)
-			BIO_write(bp,data,strlen(data));
+			BIO_write(bp,data,(int)strlen(data));
 		BIO_write(bp,"\n",1);
 		}
 	}

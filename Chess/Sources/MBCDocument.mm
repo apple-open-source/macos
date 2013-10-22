@@ -1,7 +1,7 @@
 /*
 	File:		MBCDocument.mm
 	Contains:	Document representing a Chess game
-	Copyright:	© 2003-2012 by Apple Inc., all rights reserved.
+	Copyright:	© 2003-2013 by Apple Inc., all rights reserved.
 
 	IMPORTANT: This Apple software is supplied to you by Apple Computer,
 	Inc.  ("Apple") in consideration of your agreement to the following
@@ -230,11 +230,9 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
     if (![self disallowSubstitutes])
         for (MBCDocument * doc in [[NSDocumentController sharedDocumentController] documents])
             if ([doc ephemeral]) {
-                [self release];
-                self = doc;
-                [self setNeedNewGameSheet:NO];
+                [doc close];
                 
-                return self;
+                break;
             }
     if (self = [super init]) {
         [self setEphemeral:YES];
@@ -315,7 +313,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 - (void)updateChangeCount:(NSDocumentChangeType)change
 {
-    if ([board numMoves] || [self remoteSide] != kNeitherSide) {
+    if (!board || [board numMoves] || [self remoteSide] != kNeitherSide) {
         [self setEphemeral:NO];
     
         [super updateChangeCount:change];
@@ -469,15 +467,20 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         return localWhite ? kWhiteSide : kBlackSide;
 }
 
-- (BOOL) humanTurn
+- (BOOL) nontrivialHumanTurn
 {
+    //
+    //    Dock badge is rather distracting, save this for important situations.
+    //
     if ([self gameDone])
         return NO;
+    if ([self engineSide] != kNeitherSide && [[properties valueForKey:kMBCSearchTime] intValue] < 5)
+        return NO;  // Only report for engine search > 30s
     switch ([self humanSide]) {
     case kBothSides:
-        return YES;
+        return NO;  // Duh! We know it's a human's turn
     case kWhiteSide:
-        return !([board numMoves] & 1);
+        return [board numMoves] && !([board numMoves] & 1);
     case kBlackSide:
         return ([board numMoves] & 1);
     case kNeitherSide:
@@ -759,6 +762,15 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 		res = [super writeToURL:fileURL ofType:docType error:outError];
 
 	return res;
+}
+
+- (void)setFileURL:(NSURL *)url
+{
+    //
+    // Never pick PGN representation as autosave
+    //
+    if ([[url pathExtension] isEqualToString:@"game"])
+        [super setFileURL:url];
 }
 
 - (void)performActivityWithSynchronousWaiting:(BOOL)waitSynchronously usingBlock:(void (^)(void (^)()))block

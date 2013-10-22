@@ -67,12 +67,12 @@ public:
     {
         // Process all queued debugger commands. It is safe to use m_workerContext here
         // because it is alive if RunWorkerLoop is not terminated, otherwise it will
-        // just be ignored.
+        // just be ignored. WorkerThread is certainly alive if this task is being executed.
         while (MessageQueueMessageReceived == m_thread->runLoop().runInMode(m_workerContext, WorkerDebuggerAgent::debuggerTaskMode, WorkerRunLoop::DontWaitForMessage)) { }
     }
 
 private:
-    RefPtr<WorkerThread> m_thread;
+    WorkerThread* m_thread;
     WorkerContext* m_workerContext;
 };
 
@@ -80,14 +80,14 @@ private:
 
 const char* WorkerDebuggerAgent::debuggerTaskMode = "debugger";
 
-PassOwnPtr<WorkerDebuggerAgent> WorkerDebuggerAgent::create(InstrumentingAgents* instrumentingAgents, InspectorState* inspectorState, WorkerContext* inspectedWorkerContext, InjectedScriptManager* injectedScriptManager)
+PassOwnPtr<WorkerDebuggerAgent> WorkerDebuggerAgent::create(InstrumentingAgents* instrumentingAgents, InspectorCompositeState* inspectorState, WorkerContext* inspectedWorkerContext, InjectedScriptManager* injectedScriptManager)
 {
     return adoptPtr(new WorkerDebuggerAgent(instrumentingAgents, inspectorState, inspectedWorkerContext, injectedScriptManager));
 }
 
-WorkerDebuggerAgent::WorkerDebuggerAgent(InstrumentingAgents* instrumentingAgents, InspectorState* inspectorState, WorkerContext* inspectedWorkerContext, InjectedScriptManager* injectedScriptManager)
+WorkerDebuggerAgent::WorkerDebuggerAgent(InstrumentingAgents* instrumentingAgents, InspectorCompositeState* inspectorState, WorkerContext* inspectedWorkerContext, InjectedScriptManager* injectedScriptManager)
     : InspectorDebuggerAgent(instrumentingAgents, inspectorState, injectedScriptManager)
-    , m_scriptDebugServer(inspectedWorkerContext)
+    , m_scriptDebugServer(inspectedWorkerContext, WorkerDebuggerAgent::debuggerTaskMode)
     , m_inspectedWorkerContext(inspectedWorkerContext)
 {
     MutexLocker lock(workerDebuggerAgentsMutex());
@@ -122,6 +122,16 @@ void WorkerDebuggerAgent::stopListeningScriptDebugServer()
 WorkerScriptDebugServer& WorkerDebuggerAgent::scriptDebugServer()
 {
     return m_scriptDebugServer;
+}
+
+InjectedScript WorkerDebuggerAgent::injectedScriptForEval(ErrorString* error, const int* executionContextId)
+{
+    if (executionContextId) {
+        *error = "Execution context id is not supported for workers as there is only one execution context.";
+        return InjectedScript();
+    }
+    ScriptState* scriptState = scriptStateFromWorkerContext(m_inspectedWorkerContext);
+    return injectedScriptManager()->injectedScriptFor(scriptState);
 }
 
 void WorkerDebuggerAgent::muteConsole()

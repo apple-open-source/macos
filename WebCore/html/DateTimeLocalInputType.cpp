@@ -29,25 +29,31 @@
  */
 
 #include "config.h"
+#if ENABLE(INPUT_TYPE_DATETIMELOCAL)
 #include "DateTimeLocalInputType.h"
 
 #include "DateComponents.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "InputTypeNames.h"
 #include <wtf/PassOwnPtr.h>
-
-#if ENABLE(INPUT_TYPE_DATETIMELOCAL)
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-static const double dateTimeLocalDefaultStep = 60.0;
-static const double dateTimeLocalStepScaleFactor = 1000.0;
+static const int dateTimeLocalDefaultStep = 60;
+static const int dateTimeLocalDefaultStepBase = 0;
+static const int dateTimeLocalStepScaleFactor = 1000;
 
 PassOwnPtr<InputType> DateTimeLocalInputType::create(HTMLInputElement* element)
 {
     return adoptPtr(new DateTimeLocalInputType(element));
+}
+
+void DateTimeLocalInputType::attach()
+{
+    observeFeatureIfVisible(FeatureObserver::InputTypeDateTimeLocal);
 }
 
 const AtomicString& DateTimeLocalInputType::formControlType() const
@@ -72,29 +78,15 @@ void DateTimeLocalInputType::setValueAsDate(double value, ExceptionCode& ec) con
     InputType::setValueAsDate(value, ec);
 }
 
-double DateTimeLocalInputType::minimum() const
+StepRange DateTimeLocalInputType::createStepRange(AnyStepHandling anyStepHandling) const
 {
-    return parseToDouble(element()->fastGetAttribute(minAttr), DateComponents::minimumDateTime());
-}
+    DEFINE_STATIC_LOCAL(const StepRange::StepDescription, stepDescription, (dateTimeLocalDefaultStep, dateTimeLocalDefaultStepBase, dateTimeLocalStepScaleFactor, StepRange::ScaledStepValueShouldBeInteger));
 
-double DateTimeLocalInputType::maximum() const
-{
-    return parseToDouble(element()->fastGetAttribute(maxAttr), DateComponents::maximumDateTime());
-}
-
-double DateTimeLocalInputType::defaultStep() const
-{
-    return dateTimeLocalDefaultStep;
-}
-
-double DateTimeLocalInputType::stepScaleFactor() const
-{
-    return dateTimeLocalStepScaleFactor;
-}
-
-bool DateTimeLocalInputType::scaledStepValueShouldBeInteger() const
-{
-    return true;
+    const Decimal stepBase = parseToNumber(element()->fastGetAttribute(minAttr), 0);
+    const Decimal minimum = parseToNumber(element()->fastGetAttribute(minAttr), Decimal::fromDouble(DateComponents::minimumDateTime()));
+    const Decimal maximum = parseToNumber(element()->fastGetAttribute(maxAttr), Decimal::fromDouble(DateComponents::maximumDateTime()));
+    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element()->fastGetAttribute(stepAttr));
+    return StepRange(stepBase, minimum, maximum, step, stepDescription);
 }
 
 bool DateTimeLocalInputType::parseToDateComponentsInternal(const UChar* characters, unsigned length, DateComponents* out) const
@@ -108,6 +100,11 @@ bool DateTimeLocalInputType::setMillisecondToDateComponents(double value, DateCo
 {
     ASSERT(date);
     return date->setMillisecondsSinceEpochForDateTimeLocal(value);
+}
+
+bool DateTimeLocalInputType::isDateTimeLocalField() const
+{
+    return true;
 }
 
 } // namespace WebCore

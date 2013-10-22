@@ -26,9 +26,6 @@
 #include "RenderSVGText.h"
 #include "SVGTextPositioningElement.h"
 
-// Set to a value > 0 to dump the text layout attributes
-#define DUMP_TEXT_LAYOUT_ATTRIBUTES 0
-
 namespace WebCore {
 
 SVGTextLayoutAttributesBuilder::SVGTextLayoutAttributesBuilder()
@@ -44,41 +41,27 @@ void SVGTextLayoutAttributesBuilder::buildLayoutAttributesForTextRenderer(Render
     if (!textRoot)
         return;
 
-    if (!buildLayoutAttributesIfNeeded(textRoot))
-        return;
+    if (m_textPositions.isEmpty()) {
+        m_characterDataMap.clear();
+
+        m_textLength = 0;
+        const UChar* lastCharacter = 0;
+        collectTextPositioningElements(textRoot, lastCharacter);
+
+        if (!m_textLength)
+            return;
+
+        buildCharacterDataMap(textRoot);
+    }
 
     m_metricsBuilder.buildMetricsAndLayoutAttributes(textRoot, text, m_characterDataMap);
 }
 
-void SVGTextLayoutAttributesBuilder::buildLayoutAttributesForWholeTree(RenderSVGText* textRoot)
+bool SVGTextLayoutAttributesBuilder::buildLayoutAttributesForForSubtree(RenderSVGText* textRoot)
 {
     ASSERT(textRoot);
 
-    if (!buildLayoutAttributesIfNeeded(textRoot))
-        return;
-
-    m_metricsBuilder.buildMetricsAndLayoutAttributes(textRoot, 0, m_characterDataMap);
-}
-
-void SVGTextLayoutAttributesBuilder::rebuildMetricsForTextRenderer(RenderSVGInlineText* text)
-{
-    ASSERT(text);
-    m_metricsBuilder.measureTextRenderer(text);
-}
-
-void SVGTextLayoutAttributesBuilder::rebuildMetricsForWholeTree(RenderSVGText* textRoot)
-{
-    ASSERT(textRoot);
-    Vector<SVGTextLayoutAttributes*>& layoutAttributes = textRoot->layoutAttributes();
-
-    size_t layoutAttributesSize = layoutAttributes.size();
-    for (size_t i = 0; i < layoutAttributesSize; ++i)
-        m_metricsBuilder.measureTextRenderer(layoutAttributes[i]->context());
-}
-
-bool SVGTextLayoutAttributesBuilder::buildLayoutAttributesIfNeeded(RenderSVGText* textRoot)
-{
-    ASSERT(textRoot);
+    m_characterDataMap.clear();
 
     if (m_textPositions.isEmpty()) {
         m_textLength = 0;
@@ -86,12 +69,18 @@ bool SVGTextLayoutAttributesBuilder::buildLayoutAttributesIfNeeded(RenderSVGText
         collectTextPositioningElements(textRoot, lastCharacter);
     }
 
-    m_characterDataMap.clear();
     if (!m_textLength)
         return false;
 
-    buildLayoutAttributes(textRoot);
+    buildCharacterDataMap(textRoot);
+    m_metricsBuilder.buildMetricsAndLayoutAttributes(textRoot, 0, m_characterDataMap);
     return true;
+}
+
+void SVGTextLayoutAttributesBuilder::rebuildMetricsForTextRenderer(RenderSVGInlineText* text)
+{
+    ASSERT(text);
+    m_metricsBuilder.measureTextRenderer(text);
 }
 
 static inline void processRenderSVGInlineText(RenderSVGInlineText* text, unsigned& atCharacter, const UChar*& lastCharacter)
@@ -143,10 +132,8 @@ void SVGTextLayoutAttributesBuilder::collectTextPositioningElements(RenderObject
     }
 }
 
-void SVGTextLayoutAttributesBuilder::buildLayoutAttributes(RenderSVGText* textRoot)
+void SVGTextLayoutAttributesBuilder::buildCharacterDataMap(RenderSVGText* textRoot)
 {
-    ASSERT(m_textLength);
-
     SVGTextPositioningElement* outermostTextElement = SVGTextPositioningElement::elementFromRenderer(textRoot);
     ASSERT(outermostTextElement);
 
@@ -162,7 +149,7 @@ void SVGTextLayoutAttributesBuilder::buildLayoutAttributes(RenderSVGText* textRo
         data.y = 0;
         m_characterDataMap.set(1, data);
     } else {
-        SVGCharacterData& data = it->second;
+        SVGCharacterData& data = it->value;
         if (data.x == SVGTextLayoutAttributes::emptyValue())
             data.x = 0;
         if (data.y == SVGTextLayoutAttributes::emptyValue())
@@ -173,11 +160,6 @@ void SVGTextLayoutAttributesBuilder::buildLayoutAttributes(RenderSVGText* textRo
     unsigned size = m_textPositions.size();
     for (unsigned i = 0; i < size; ++i)
         fillCharacterDataMap(m_textPositions[i]);
-
-#if DUMP_TEXT_LAYOUT_ATTRIBUTES > 0
-    fprintf(stderr, "\nDumping ALL layout attributes for RenderSVGText, renderer=%p, node=%p (m_textLength: %i)\n", textRoot, textRoot->node(), m_textLength);
-    m_characterDataMap.dump();
-#endif
 }
 
 static inline void updateCharacterData(unsigned i, float& lastRotation, SVGCharacterData& data, const SVGLengthContext& lengthContext, const SVGLengthList* xList, const SVGLengthList* yList, const SVGLengthList* dxList, const SVGLengthList* dyList, const SVGNumberList* rotateList)
@@ -231,7 +213,7 @@ void SVGTextLayoutAttributesBuilder::fillCharacterDataMap(const TextPosition& po
             continue;
         }
 
-        updateCharacterData(i, lastRotation, it->second, lengthContext, xListPtr, yListPtr, dxListPtr, dyListPtr, rotateListPtr);
+        updateCharacterData(i, lastRotation, it->value, lengthContext, xListPtr, yListPtr, dxListPtr, dyListPtr, rotateListPtr);
     }
 
     // The last rotation value always spans the whole scope.
@@ -247,7 +229,7 @@ void SVGTextLayoutAttributesBuilder::fillCharacterDataMap(const TextPosition& po
             continue;
         }
 
-        it->second.rotate = lastRotation;
+        it->value.rotate = lastRotation;
     }
 }
 

@@ -41,7 +41,8 @@ namespace WebCore {
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, instanceCounter, ("WebCoreSVGElementInstance"));
 
 SVGElementInstance::SVGElementInstance(SVGUseElement* correspondingUseElement, SVGUseElement* directUseElement, PassRefPtr<SVGElement> originalElement)
-    : m_correspondingUseElement(correspondingUseElement)
+    : m_parentInstance(0)
+    , m_correspondingUseElement(correspondingUseElement)
     , m_directUseElement(directUseElement)
     , m_element(originalElement)
     , m_previousSibling(0)
@@ -72,6 +73,16 @@ SVGElementInstance::~SVGElementInstance()
     m_element = 0;
 }
 
+// It's important not to inline removedLastRef, because we don't want to inline the code to
+// delete an SVGElementInstance at each deref call site.
+void SVGElementInstance::removedLastRef()
+{
+#ifndef NDEBUG
+    m_deletionHasBegun = true;
+#endif
+    delete this;
+}
+
 void SVGElementInstance::detach()
 {
     // Clear all pointers. When the node is detached from the shadow DOM it should be removed but,
@@ -90,7 +101,7 @@ void SVGElementInstance::detach()
     m_directUseElement = 0;
     m_correspondingUseElement = 0;
 
-    removeAllChildrenInContainer<SVGElementInstance, SVGElementInstance>(this);
+    removeDetachedChildrenInContainer<SVGElementInstance, SVGElementInstance>(this);
 }
 
 PassRefPtr<SVGElementInstanceList> SVGElementInstance::childNodes()
@@ -114,7 +125,7 @@ void SVGElementInstance::invalidateAllInstancesOfElement(SVGElement* element)
     if (!element || !element->inDocument())
         return;
 
-    if (element->isStyled() && static_cast<SVGStyledElement*>(element)->instanceUpdatesBlocked())
+    if (element->isSVGStyledElement() && toSVGStyledElement(element)->instanceUpdatesBlocked())
         return;
 
     const HashSet<SVGElementInstance*>& set = element->instancesForElement();
@@ -129,14 +140,6 @@ void SVGElementInstance::invalidateAllInstancesOfElement(SVGElement* element)
         ASSERT((*it)->shadowTreeElement()->correspondingElement() == (*it)->correspondingElement());
         ASSERT((*it)->correspondingElement() == element);
         (*it)->shadowTreeElement()->setCorrespondingElement(0);
-
-        // The shadow tree, which is eventually animated, is mutated. In order to keep the animVal
-        // logic correct, we have to stop the animation, and restart it once the shadow tree has
-        // recloned. Otherwise we miss to call stopAnimValAnimation() on the old shadow tree element
-        // which leads to an assertion once garbage is collected, if the animVal bindings have been
-        // accessed from JS. It would also assert on the next updateAnimations() call as the new
-        // SVGAnimatedProperty object hasn't been initialized yet (using startAnimValAnimation).
-        element->document()->accessSVGExtensions()->removeAllAnimationElementsFromTarget(element);
 
         if (SVGUseElement* element = (*it)->correspondingUseElement()) {
             ASSERT(element->inDocument());
@@ -183,9 +186,7 @@ bool SVGElementInstance::dispatchEvent(PassRefPtr<Event> event)
 
 EventTargetData* SVGElementInstance::eventTargetData()
 {
-    // EventTarget would use these methods if we were actually using its add/removeEventListener logic.
-    // As we're forwarding those calls to the correspondingElement(), no one should ever call this function.
-    ASSERT_NOT_REACHED();
+    // Since no event listeners are added to an SVGElementInstance, we don't have eventTargetData.
     return 0;
 }
 
@@ -198,7 +199,7 @@ EventTargetData* SVGElementInstance::ensureEventTargetData()
 }
 
 SVGElementInstance::InstanceUpdateBlocker::InstanceUpdateBlocker(SVGElement* targetElement)
-    : m_targetElement(targetElement->isStyled() ? static_cast<SVGStyledElement*>(targetElement) : 0)
+    : m_targetElement(targetElement->isSVGStyledElement() ? toSVGStyledElement(targetElement) : 0)
 {
     if (m_targetElement)
         m_targetElement->setInstanceUpdatesBlocked(true);

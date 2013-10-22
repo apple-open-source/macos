@@ -23,9 +23,8 @@
 
 #include <Security/Security.h>
 #include <security_utilities/security_utilities.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_cdsa_utilities/cssmbridge.h>
-
+#include <../sec/Security/SecBase.h>
 #include "Download.h"
 #include "SecureDownload.h"
 
@@ -36,9 +35,9 @@
 #define API_END \
 	} \
 	catch (const MacOSError &err) { return err.osStatus(); } \
-	catch (const std::bad_alloc &) { return memFullErr; } \
-	catch (...) { return internalComponentErr; } \
-    return noErr;
+	catch (const std::bad_alloc &) { return errSecAllocate; } \
+	catch (...) { return errSecInternalComponent; } \
+    return errSecSuccess;
 
 #define API_END_GENERIC_CATCH		} catch (...) { return; }
 

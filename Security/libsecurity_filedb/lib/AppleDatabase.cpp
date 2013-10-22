@@ -540,7 +540,7 @@ ModifiedTable::writeIndexSection(WriteSection &tableSection, uint32 offset)
 	uint32 indexSectionOffset = offset;
 	offset += AtomSize;
 	
-	offset = tableSection.put(offset, mIndexMap.size());
+	offset = tableSection.put(offset, (uint32)mIndexMap.size());
 	
 	// leave room for the array of offsets to the indexes
 	uint32 indexOffsetOffset = offset;
@@ -871,7 +871,7 @@ DbVersion::DbVersion(const AppleDatabase &db, const RefPointer <AtomicBufferedFi
 	off_t bytesRead = 0;
 	const uint8 *ptr = mBufferedFile->read(0, aLength, bytesRead);
 	mBufferedFile->close();
-	mDatabase = ReadSection(ptr, bytesRead);
+	mDatabase = ReadSection(ptr, (size_t)bytesRead);
 	open();
 }
 
@@ -1424,7 +1424,7 @@ DbModifier::getDbVersion(bool force)
             off_t bytesRead = 0;
             const uint8 *ptr = atomicBufferedFile->read(length - AtomSize,
                 AtomSize, bytesRead);
-            ReadSection aVersionSection(ptr, bytesRead);
+            ReadSection aVersionSection(ptr, (size_t)bytesRead);
             uint32 aVersionId = aVersionSection[0];
 
             /* If the version stamp hasn't changed the old mDbVersion is still
@@ -1650,7 +1650,7 @@ DbModifier::writeAuthSection(uint32 inSectionOffset)
 uint32
 DbModifier::writeSchemaSection(uint32 inSectionOffset)
 {
-	uint32 aTableCount = mModifiedTableMap.size();
+	uint32 aTableCount = (uint32) mModifiedTableMap.size();
 	WriteSection aTableSection(Allocator::standard(),
 							   OffsetTables + AtomSize * aTableCount);
 	// Set aTableSection to the correct size.

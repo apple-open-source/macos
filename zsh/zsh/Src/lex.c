@@ -42,7 +42,7 @@ char *zshlextext;
 /**/
 mod_export char *tokstr;
 /**/
-mod_export int tok;
+mod_export enum lextok tok;
 /**/
 mod_export int tokfd;
 
@@ -207,7 +207,7 @@ struct lexstack {
     int hlinesz;
     char *hline;
     char *hptr;
-    int tok;
+    enum lextok tok;
     int isnewlin;
     char *tokstr;
     char *zshlextext;
@@ -470,6 +470,10 @@ ctxtlex(void)
     case DINBRACK:
 	incmdpos = 0;
 	break;
+
+    default:
+	/* nothing to do, keep compiler happy */
+	break;
     }
     if (tok != DINPAR)
 	infor = tok == FOR ? 2 : 0;
@@ -567,22 +571,14 @@ add(int c)
 {
     *bptr++ = c;
     if (bsiz == ++len) {
-#if 0
-	int newbsiz;
-
-	newbsiz = bsiz * 8;
-	while (newbsiz < inbufct)
-	    newbsiz *= 2;
-	bptr = len + (tokstr = (char *)hrealloc(tokstr, bsiz, newbsiz));
-	bsiz = newbsiz;
-#endif
-
 	int newbsiz = bsiz * 2;
 
 	if (newbsiz > inbufct && inbufct > bsiz)
 	    newbsiz = inbufct;
 
 	bptr = len + (tokstr = (char *)hrealloc(tokstr, bsiz, newbsiz));
+	/* len == bsiz, so bptr is at the start of newly allocated memory */
+	memset(bptr, 0, newbsiz - bsiz);
 	bsiz = newbsiz;
     }
 }
@@ -706,11 +702,12 @@ isnumglob(void)
 }
 
 /**/
-static int
+static enum lextok
 gettok(void)
 {
     int c, d;
-    int peekfd = -1, peek;
+    int peekfd = -1;
+    enum lextok peek;
 
   beginning:
     tokstr = NULL;
@@ -877,7 +874,7 @@ gettok(void)
 		dbparens = 1;
 		return DINPAR;
 	    }
-	    if (incmdpos) {
+	    if (incmdpos || (isset(SHGLOB) && !isset(KSHGLOB))) {
 		len = 0;
 		bptr = tokstr = (char *) hcalloc(bsiz = 32);
 		switch (cmd_or_math(CS_MATH)) {
@@ -1015,12 +1012,13 @@ gettok(void)
  */
 
 /**/
-static int
+static enum lextok
 gettokstr(int c, int sub)
 {
     int bct = 0, pct = 0, brct = 0, fdpar = 0;
     int intpos = 1, in_brace_param = 0;
-    int peek, inquote, unmatched = 0;
+    int inquote, unmatched = 0;
+    enum lextok peek;
 #ifdef DEBUG
     int ocmdsp = cmdsp;
 #endif
@@ -1141,6 +1139,8 @@ gettokstr(int c, int sub)
 		    break;
 		if (incasepat && !len)
 		    return INPAR;
+		if (!isset(KSHGLOB) && len)
+		    goto brk;
 	    }
 	    if (!in_brace_param) {
 		if (!sub) {
@@ -1265,51 +1265,53 @@ gettokstr(int c, int sub)
 		break;
 	    goto brk;
 	case LX2_EQUALS:
-	    if (intpos) {
-		e = hgetc();
-		if (e != '(') {
-		    hungetc(e);
-		    lexstop = 0;
-		    c = Equals;
-		} else {
-		    add(Equals);
-		    if (skipcomm()) {
-			peek = LEXERR;
-			goto brk;
-		    }
-		    c = Outpar;
-		}
-	    } else if (!sub && peek != ENVSTRING &&
-		       incmdpos && !bct && !brct) {
-		char *t = tokstr;
-		if (idigit(*t))
-		    while (++t < bptr && idigit(*t));
-		else {
-		    int sav = *bptr;
-		    *bptr = '\0';
-		    t = itype_end(t, IIDENT, 0);
-		    if (t < bptr) {
-			skipparens(Inbrack, Outbrack, &t);
-		    } else {
-			*bptr = sav;
-		    }
-		}
-		if (*t == '+')
-                    t++;
-		if (t == bptr) {
+	    if (!sub) {
+		if (intpos) {
 		    e = hgetc();
-		    if (e == '(' && incmdpos) {
-			*bptr = '\0';
-			return ENVARRAY;
+		    if (e != '(') {
+			hungetc(e);
+			lexstop = 0;
+			c = Equals;
+		    } else {
+			add(Equals);
+			if (skipcomm()) {
+			    peek = LEXERR;
+			    goto brk;
+			}
+			c = Outpar;
 		    }
-		    hungetc(e);
-		    lexstop = 0;
-		    peek = ENVSTRING;
-		    intpos = 2;
+		} else if (peek != ENVSTRING &&
+			   incmdpos && !bct && !brct) {
+		    char *t = tokstr;
+		    if (idigit(*t))
+			while (++t < bptr && idigit(*t));
+		    else {
+			int sav = *bptr;
+			*bptr = '\0';
+			t = itype_end(t, IIDENT, 0);
+			if (t < bptr) {
+			    skipparens(Inbrack, Outbrack, &t);
+			} else {
+			    *bptr = sav;
+			}
+		    }
+		    if (*t == '+')
+			t++;
+		    if (t == bptr) {
+			e = hgetc();
+			if (e == '(' && incmdpos) {
+			    *bptr = '\0';
+			    return ENVARRAY;
+			}
+			hungetc(e);
+			lexstop = 0;
+			peek = ENVSTRING;
+			intpos = 2;
+		    } else
+			c = Equals;
 		} else
 		    c = Equals;
-	    } else
-		c = Equals;
+	    }
 	    break;
 	case LX2_BKSLASH:
 	    c = hgetc();
@@ -1565,7 +1567,7 @@ dquote_parse(char endchar, int sub)
 		err = (!brct-- && math);
 	    break;
 	case '"':
-	    if (intick || ((endchar == ']' || !endchar) && !bct))
+	    if (intick || (endchar != '"' && !bct))
 		break;
 	    if (bct) {
 		add(Dnull);
@@ -1696,8 +1698,9 @@ parse_subscript(char *s, int sub, int endchar)
 mod_export int
 parse_subst_string(char *s)
 {
-    int c, l = strlen(s), err, olen, lexstop_ret;
+    int c, l = strlen(s), err;
     char *ptr;
+    enum lextok ctok;
 
     if (!*s || !strcmp(s, nulstring))
 	return 0;
@@ -1709,27 +1712,26 @@ parse_subst_string(char *s)
     bptr = tokstr = s;
     bsiz = l + 1;
     c = hgetc();
-    lexstop_ret = lexstop;
-    c = gettokstr(c, 1);
+    ctok = gettokstr(c, 1);
     err = errflag;
     strinend();
     inpop();
     DPUTS(cmdsp, "BUG: parse_subst_string: cmdstack not empty.");
-    olen = len;
     lexrestore();
     errflag = err;
-    if (c == LEXERR) {
+    if (ctok == LEXERR) {
 	untokenize(s);
 	return 1;
     }
 #ifdef DEBUG
     /*
-     * Historical note: we used to check here for olen == l, but
-     * that's not necessarily the case if we stripped an RCQUOTE.
+     * Historical note: we used to check here for olen (the value of len
+     * before lexrestore()) == l, but that's not necessarily the case if
+     * we stripped an RCQUOTE.
      */
-    if (c != STRING || (errflag && !noerrs)) {
+    if (ctok != STRING || (errflag && !noerrs)) {
 	fprintf(stderr, "Oops. Bug in parse_subst_string: %s\n",
-		errflag ? "errflag" : "c != STRING");
+		errflag ? "errflag" : "ctok != STRING");
 	fflush(stderr);
 	untokenize(s);
 	return 1;
@@ -1753,7 +1755,7 @@ parse_subst_string(char *s)
 	     * additional memory should come off the heap or
 	     * otherwise.  So we cheat by copying the unquoted string
 	     * into place, unless it's too long.  That's not the
-	     * normal case, but I'm worried there are are pathological
+	     * normal case, but I'm worried there are pathological
 	     * cases with converting metafied multibyte strings.
 	     * If someone can prove there aren't I will be very happy.
 	     */
@@ -1823,7 +1825,7 @@ exalias(void)
 	    int zp = lexflags;
 
 	    gotword();
-	    if (zp == 1 && !lexflags) {
+	    if ((zp & LEXFLAGS_ZLE) && !lexflags) {
 		if (zshlextext == copy)
 		    zshlextext = tokstr;
 		return 0;
@@ -1864,7 +1866,8 @@ exalias(void)
 
 	    /* Then check for a reserved word */
 	    if ((incmdpos ||
-		 (unset(IGNOREBRACES) && zshlextext[0] == '}' && !zshlextext[1])) &&
+		 (unset(IGNOREBRACES) && unset(IGNORECLOSEBRACES) &&
+		  zshlextext[0] == '}' && !zshlextext[1])) &&
 		(rw = (Reswd) reswdtab->getnode(reswdtab, zshlextext))) {
 		tok = rw->token;
 		if (tok == DINBRACK)

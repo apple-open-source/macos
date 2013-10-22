@@ -1,0 +1,7 @@
+/XML_SetHashSalt(/i
+#if ((XML_MAJOR_VERSION >= 2) && (XML_MINOR_VERSION >= 1))
+.
+/;/a
+#endif
+.
+w

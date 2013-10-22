@@ -56,7 +56,7 @@ public:
 protected:
 	void checkSize(size_t length)
 	{
-		if (mPC + length > mReq->length())
+		if (mPC + length < mPC || mPC + length > mReq->length())
 			MacOSError::throwMe(errSecCSReqInvalid);
 	}
 	

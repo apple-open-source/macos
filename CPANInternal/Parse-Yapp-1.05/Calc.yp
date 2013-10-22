@@ -1,0 +1,81 @@
+#
+# Calc.yp
+# 
+# Parse::Yapp input grammar example.
+#
+# This file is PUBLIC DOMAIN 
+#
+#
+%right  '='
+%left   '-' '+'
+%left   '*' '/'
+%left   NEG
+%right  '^'
+
+%%
+input:  #empty
+        |   input line  { push(@{$_[1]},$_[2]); $_[1] }
+;
+
+line:       '\n'                { $_[1] }
+        |   exp '\n'            { print "$_[1]\n" }
+		|	error '\n' { $_[0]->YYErrok }
+;
+
+exp:        NUM
+        |   VAR                 { $_[0]->YYData->{VARS}{$_[1]} }
+        |   VAR '=' exp         { $_[0]->YYData->{VARS}{$_[1]}=$_[3] }
+        |   exp '+' exp         { $_[1] + $_[3] }
+        |   exp '-' exp         { $_[1] - $_[3] }
+        |   exp '*' exp         { $_[1] * $_[3] }
+        |   exp '/' exp         {
+                                      $_[3]
+                                  and return($_[1] / $_[3]);
+                                  $_[0]->YYData->{ERRMSG}
+                                    =   "Illegal division by zero.\n";
+                                  $_[0]->YYError;
+                                  undef
+                                }
+        |   '-' exp %prec NEG   { -$_[2] }
+        |   exp '^' exp         { $_[1] ** $_[3] }
+        |   '(' exp ')'         { $_[2] }
+;
+
+%%
+
+sub _Error {
+        exists $_[0]->YYData->{ERRMSG}
+    and do {
+        print $_[0]->YYData->{ERRMSG};
+        delete $_[0]->YYData->{ERRMSG};
+        return;
+    };
+    print "Syntax error.\n";
+}
+
+sub _Lexer {
+    my($parser)=shift;
+
+        $parser->YYData->{INPUT}
+    or  $parser->YYData->{INPUT} = <STDIN>
+    or  return('',undef);
+
+    $parser->YYData->{INPUT}=~s/^[ \t]//;
+
+    for ($parser->YYData->{INPUT}) {
+        s/^([0-9]+(?:\.[0-9]+)?)//
+                and return('NUM',$1);
+        s/^([A-Za-z][A-Za-z0-9_]*)//
+                and return('VAR',$1);
+        s/^(.)//s
+                and return($1,$1);
+    }
+}
+
+sub Run {
+    my($self)=shift;
+    $self->YYParse( yylex => \&_Lexer, yyerror => \&_Error );
+}
+
+my($calc)=new Calc;
+$calc->Run;

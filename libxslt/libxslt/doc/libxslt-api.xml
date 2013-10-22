@@ -151,6 +151,7 @@
      <exports symbol='xsltNumberDataPtr' type='typedef'/>
      <exports symbol='xsltFormatNumberInfoPtr' type='typedef'/>
      <exports symbol='_xsltNumberData' type='struct'/>
+     <exports symbol='_xsltCompMatch' type='struct'/>
      <exports symbol='_xsltFormatNumberInfo' type='struct'/>
     </file>
     <file name='pattern'>
@@ -291,6 +292,7 @@
      <exports symbol='xsltEngineVersion' type='variable'/>
      <exports symbol='xsltLibxsltVersion' type='variable'/>
      <exports symbol='xsltMaxDepth' type='variable'/>
+     <exports symbol='xsltMaxVars' type='variable'/>
      <exports symbol='xsltCleanupGlobals' type='function'/>
      <exports symbol='xsltInit' type='function'/>
     </file>
@@ -521,7 +523,6 @@
      <exports symbol='xsltRegisterPersistRVT' type='function'/>
      <exports symbol='xsltParseStylesheetImportedDoc' type='function'/>
      <exports symbol='xsltFreeStackElemList' type='function'/>
-     <exports symbol='xsltTransStorageAdd' type='function'/>
      <exports symbol='xsltAllocateExtra' type='function'/>
      <exports symbol='xsltParseSequenceConstructor' type='function'/>
      <exports symbol='xsltRegisterTmpRVT' type='function'/>
@@ -545,7 +546,6 @@
      <exports symbol='xsltFreeRVTs' type='function'/>
      <exports symbol='xsltExtensionInstructionResultRegister' type='function'/>
      <exports symbol='xsltPointerListCreate' type='function'/>
-     <exports symbol='xsltTransStorageRemove' type='function'/>
      <exports symbol='xsltFreeAVTList' type='function'/>
      <exports symbol='xsltAllocateExtraCtxt' type='function'/>
      <exports symbol='xsltParseTemplateContent' type='function'/>
@@ -581,6 +581,7 @@
      <exports symbol='xsltLocaleStrcmp' type='function'/>
      <exports symbol='xsltFreeLocale' type='function'/>
      <exports symbol='xsltStrxfrm' type='function'/>
+     <exports symbol='xsltFreeLocales' type='function'/>
     </file>
     <file name='xsltutils'>
      <summary>set of utilities for the XSLT engine</summary>
@@ -660,6 +661,7 @@
      <exports symbol='xsltXPathCompile' type='function'/>
      <exports symbol='xsltDebugSetDefaultTrace' type='function'/>
      <exports symbol='xsltSetGenericDebugFunc' type='function'/>
+     <exports symbol='xsltXPathCompileFlags' type='function'/>
      <exports symbol='xsltSetCtxtParseOptions' type='function'/>
      <exports symbol='xsltSetDebuggerStatus' type='function'/>
      <exports symbol='xslDropCall' type='function'/>
@@ -909,7 +911,8 @@
     <enum name='XSLT_TRACE_TEMPLATES' file='xsltutils' value='16384' type='xsltDebugTraceCodes'/>
     <enum name='XSLT_TRACE_VALUE_OF' file='xsltutils' value='128' type='xsltDebugTraceCodes'/>
     <enum name='XSLT_TRACE_VARIABLES' file='xsltutils' value='65536' type='xsltDebugTraceCodes'/>
-    <struct name='xsltCompMatch' file='pattern' type='struct _xsltCompMatch'/>
+    <struct name='xsltCompMatch' file='pattern' type='struct _xsltCompMatch'>
+    </struct>
     <typedef name='xsltCompMatchPtr' file='pattern' type='xsltCompMatch *'/>
     <struct name='xsltCompilerCtxt' file='xsltInternals' type='struct _xsltCompilerCtxt'>
       <field name='errorCtxt' type='void *' info='* used for error/warning reports; e.g. XSLT_ERROR_SEVERITY_WARNING'/>
@@ -1094,7 +1097,9 @@ corresponding to this item end of common part'/>
       <field name='groupingCharacter' type='int' info=''/>
       <field name='groupingCharacterLen' type='int' info=''/>
       <field name='doc' type='xmlDocPtr' info=''/>
-      <field name='node' type='xmlNodePtr' info='* accelerators
+      <field name='node' type='xmlNodePtr' info=''/>
+      <field name='countPat' type='struct _xsltCompMatch *' info=''/>
+      <field name='fromPat' type='struct _xsltCompMatch *' info='* accelerators
 *'/>
     </struct>
     <typedef name='xsltNumberDataPtr' file='numbersInternals' type='xsltNumberData *'/>
@@ -1427,7 +1432,9 @@ TODO: We need to get rid of this.
       <field name='principal' type='xsltStylesheetPtr' info='* Compilation context used during compile-time.
 *'/>
       <field name='compCtxt' type='xsltCompilerCtxtPtr' info=' TODO: Change this to (void *).'/>
-      <field name='principalData' type='xsltPrincipalStylesheetDataPtr' info=''/>
+      <field name='principalData' type='xsltPrincipalStylesheetDataPtr' info='* Forwards-compatible processing
+*'/>
+      <field name='forwards_compatible' type='int' info=''/>
     </struct>
     <typedef name='xsltStylesheetPtr' file='xsltInternals' type='xsltStylesheet *'/>
     <struct name='xsltTemplate' file='xsltInternals' type='struct _xsltTemplate'>
@@ -1448,6 +1455,10 @@ TODO: We need to get rid of this.
       <field name='nbCalls' type='int' info=' the number of time the template was called'/>
       <field name='time' type='unsigned long' info=' the time spent in this template'/>
       <field name='params' type='void *' info=' xsl:param instructions'/>
+      <field name='templNr' type='int' info=' Nb of templates in the stack'/>
+      <field name='templMax' type='int' info=' Size of the templtes stack'/>
+      <field name='templCalledTab' type='xsltTemplatePtr *' info=' templates called'/>
+      <field name='templCountTab' type='int *' info=' .. and how often'/>
     </struct>
     <typedef name='xsltTemplatePtr' file='xsltInternals' type='xsltTemplate *'/>
     <struct name='xsltTransformCache' file='xsltInternals' type='struct _xsltTransformCache'>
@@ -1537,6 +1548,8 @@ exits'/>
       <field name='localRVTBase' type='xmlDocPtr' info=''/>
       <field name='keyInitLevel' type='int' info=' Needed to catch recursive keys issues'/>
       <field name='funcLevel' type='int' info=' Needed to catch recursive functions issues'/>
+      <field name='maxTemplateDepth' type='int' info=''/>
+      <field name='maxTemplateVars' type='int' info=''/>
     </struct>
     <typedef name='xsltTransformContextPtr' file='xsltInternals' type='xsltTransformContext *'/>
     <typedef name='xsltTransformState' file='xsltInternals' type='enum'/>
@@ -1560,6 +1573,7 @@ exits'/>
     <variable name='xsltLibxmlVersion' file='xslt' type='const int'/>
     <variable name='xsltLibxsltVersion' file='xslt' type='const int'/>
     <variable name='xsltMaxDepth' file='xslt' type='int'/>
+    <variable name='xsltMaxVars' file='xslt' type='int'/>
     <variable name='xsltXSLTAttrMarker' file='xsltInternals' type='const xmlChar *'/>
     <function name='xslAddCall' file='xsltutils'>
       <info>Add template &quot;call&quot; to call stack</info>
@@ -2154,6 +2168,10 @@ exits'/>
       <info>Frees a locale created with xsltNewLocale</info>
       <return type='void'/>
       <arg name='locale' type='xsltLocale' info='the locale to free'/>
+    </function>
+    <function name='xsltFreeLocales' file='xsltlocale'>
+      <info>Cleanup function for the locale support on shutdown</info>
+      <return type='void'/>
     </function>
     <function name='xsltFreeNamespaceAliasHashes' file='namespaces'>
       <info>Free up the memory used by namespaces aliases</info>
@@ -3082,19 +3100,6 @@ exits'/>
       <arg name='style' type='xsltStylesheetPtr' info=''/>
       <arg name='inst' type='xmlNodePtr' info=''/>
     </functype>
-    <function name='xsltTransStorageAdd' file='xsltInternals'>
-      <info></info>
-      <return type='int' info=''/>
-      <arg name='ctxt' type='xsltTransformContextPtr' info=''/>
-      <arg name='id' type='void *' info=''/>
-      <arg name='data' type='void *' info=''/>
-    </function>
-    <function name='xsltTransStorageRemove' file='xsltInternals'>
-      <info></info>
-      <return type='void *' info=''/>
-      <arg name='ctxt' type='xsltTransformContextPtr' info=''/>
-      <arg name='id' type='void *' info=''/>
-    </function>
     <function name='xsltTransformError' file='xsltutils'>
       <info>Display and format an error messages, gives file, line, position and extra parameters, will use the specific transformation context if available</info>
       <return type='void'/>
@@ -3165,6 +3170,13 @@ exits'/>
       <return type='xmlXPathCompExprPtr' info='the xmlXPathCompExprPtr resulting from the compilation or NULL. the caller has to free the object.'/>
       <arg name='style' type='xsltStylesheetPtr' info='the stylesheet'/>
       <arg name='str' type='const xmlChar *' info='the XPath expression'/>
+    </function>
+    <function name='xsltXPathCompileFlags' file='xsltutils'>
+      <info>Compile an XPath expression</info>
+      <return type='xmlXPathCompExprPtr' info='the xmlXPathCompExprPtr resulting from the compilation or NULL. the caller has to free the object.'/>
+      <arg name='style' type='xsltStylesheetPtr' info='the stylesheet'/>
+      <arg name='str' type='const xmlChar *' info='the XPath expression'/>
+      <arg name='flags' type='int' info='extra compilation flags to pass down to libxml2 XPath'/>
     </function>
     <function name='xsltXPathFunctionLookup' file='functions'>
       <info>This is the entry point when a function is needed by the XPath interpretor.</info>

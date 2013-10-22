@@ -32,11 +32,11 @@ XML_A = $(XML_BASENAME)_a.lib
 XML_A_DLL = $(XML_BASENAME)_a_dll.lib
 
 # Place where we let the compiler put its output.
-BINDIR = bin.msvc
-XML_INTDIR = int.msvc
-XML_INTDIR_A = int.a.msvc
-XML_INTDIR_A_DLL = int.a.dll.msvc
-UTILS_INTDIR = int.utils.msvc
+BINDIR = $(ARCH)\bin.msvc
+XML_INTDIR = $(ARCH)\int.msvc
+XML_INTDIR_A = $(ARCH)\int.a.msvc
+XML_INTDIR_A_DLL = $(ARCH)\int.a.dll.msvc
+UTILS_INTDIR = $(ARCH)\int.utils.msvc
 
 # The preprocessor and its options.
 CPP = cl.exe /EP
@@ -47,7 +47,7 @@ CPPFLAGS = $(CPPFLAGS) /D "_REENTRANT"
 
 # The compiler and its options.
 CC = cl.exe
-CFLAGS = /nologo /D "WIN32" /D "_WINDOWS" /D "_MBCS"  /D "NOLIBTOOL" /W1 /GS $(CRUNTIME)
+CFLAGS = /nologo /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "HAVE_CONFIG_H" /D "NOLIBTOOL" /W1 /GS $(CRUNTIME)
 CFLAGS = $(CFLAGS) /I$(XML_SRCDIR) /I$(XML_SRCDIR)\include /I$(INCPREFIX)
 !if "$(WITH_THREADS)" != "no"
 CFLAGS = $(CFLAGS) /D "_REENTRANT"
@@ -62,13 +62,19 @@ CFLAGS = $(CFLAGS) /D "HAVE_PTHREAD_H"
 !if "$(WITH_ZLIB)" == "1"
 CFLAGS = $(CFLAGS) /D "HAVE_ZLIB_H"
 !endif
+!if "$(WITH_LZMA)" == "1"
+CFLAGS = $(CFLAGS) /D "HAVE_LZMA_H"
+!endif
 CFLAGS = $(CFLAGS) /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES
 
 # The linker and its options.
 LD = link.exe
 LDFLAGS = /nologo /VERSION:$(LIBXML_MAJOR_VERSION).$(LIBXML_MINOR_VERSION)
 LDFLAGS = $(LDFLAGS) /LIBPATH:$(BINDIR) /LIBPATH:$(LIBPREFIX)
-LDFLAGS = $(LDFLAGS) /NXCOMPAT /DYNAMICBASE /SAFESEH
+LDFLAGS = $(LDFLAGS) /NXCOMPAT /DYNAMICBASE
+!if "$(ARCH)" == "32"
+LDFLAGS = $(LDFLAGS) /SAFESEH
+!endif
 LIBS =
 !if "$(WITH_FTP)" == "1" || "$(WITH_HTTP)" == "1"
 LIBS = $(LIBS) wsock32.lib ws2_32.lib
@@ -89,7 +95,12 @@ LIBS = $(LIBS) libicuuc.lib
 !endif
 !endif
 !if "$(WITH_ZLIB)" == "1"
+# could be named differently zdll or zlib
+# LIBS = $(LIBS) zlib.lib
 LIBS = $(LIBS) zdll.lib
+!endif
+!if "$(WITH_LZMA)" == "1"
+LIBS = $(LIBS) liblzma.lib
 !endif
 !if "$(WITH_THREADS)" == "posix"
 LIBS = $(LIBS) pthreadVC.lib
@@ -108,11 +119,14 @@ CFLAGS = $(CFLAGS) /D "_DEBUG" /Od /Z7
 LDFLAGS = $(LDFLAGS) /DEBUG
 !else
 CFLAGS = $(CFLAGS) /D "NDEBUG" /O2 
-LDFLAGS = $(LDFLAGS) /OPT:NOWIN98 /DEBUG
+# commented out as this break VC10 c.f. 634846
+# LDFLAGS = $(LDFLAGS) /OPT:NOWIN98
+LDFLAGS = $(LDFLAGS)
 !endif
 
 # Libxml object files.
-XML_OBJS = $(XML_INTDIR)\c14n.obj\
+XML_OBJS = $(XML_INTDIR)\buf.obj\
+	$(XML_INTDIR)\c14n.obj\
 	$(XML_INTDIR)\catalog.obj\
 	$(XML_INTDIR)\chvalid.obj\
 	$(XML_INTDIR)\debugXML.obj\
@@ -158,7 +172,8 @@ XML_OBJS = $(XML_INTDIR)\c14n.obj\
 	$(XML_INTDIR)\version.res
 
 # Static libxml object files.
-XML_OBJS_A = $(XML_INTDIR_A)\c14n.obj\
+XML_OBJS_A = $(XML_INTDIR_A)\buf.obj\
+	$(XML_INTDIR_A)\c14n.obj\
 	$(XML_INTDIR_A)\catalog.obj\
 	$(XML_INTDIR_A)\chvalid.obj\
 	$(XML_INTDIR_A)\debugXML.obj\
@@ -203,7 +218,8 @@ XML_OBJS_A = $(XML_INTDIR_A)\c14n.obj\
 	$(XML_INTDIR_A)\xmlstring.obj
 
 # Static libxml object files.
-XML_OBJS_A_DLL = $(XML_INTDIR_A_DLL)\c14n.obj\
+XML_OBJS_A_DLL = $(XML_INTDIR_A_DLL)\buf.obj\
+	$(XML_INTDIR_A_DLL)\c14n.obj\
 	$(XML_INTDIR_A_DLL)\catalog.obj\
 	$(XML_INTDIR_A_DLL)\chvalid.obj\
 	$(XML_INTDIR_A_DLL)\debugXML.obj\
@@ -264,7 +280,9 @@ UTILS = $(BINDIR)\xmllint.exe\
 	$(BINDIR)\testXPath.exe\
 	$(BINDIR)\runtest.exe\
 	$(BINDIR)\runsuite.exe\
-	$(BINDIR)\testapi.exe
+	$(BINDIR)\testapi.exe\
+	$(BINDIR)\testlimits.exe\
+	$(BINDIR)\testrecurse.exe
 	
 !if "$(WITH_THREADS)" == "yes" || "$(WITH_THREADS)" == "ctls" || "$(WITH_THREADS)" == "native"
 UTILS = $(UTILS) $(BINDIR)\testThreadsWin32.exe
@@ -304,11 +322,12 @@ distclean : clean
 rebuild : clean all
 
 install-libs : all
-	if not exist $(INCPREFIX)\libxml mkdir $(INCPREFIX)\libxml
+	if not exist $(INCPREFIX)\libxml2 mkdir $(INCPREFIX)\libxml2
+	if not exist $(INCPREFIX)\libxml2\libxml mkdir $(INCPREFIX)\libxml2\libxml
 	if not exist $(BINPREFIX) mkdir $(BINPREFIX)
 	if not exist $(LIBPREFIX) mkdir $(LIBPREFIX)
 	if not exist $(SOPREFIX) mkdir $(SOPREFIX)
-	copy $(XML_SRCDIR)\include\libxml\*.h $(INCPREFIX)\libxml
+	copy $(XML_SRCDIR)\include\libxml\*.h $(INCPREFIX)\libxml2\libxml
 	copy $(BINDIR)\$(XML_SO) $(SOPREFIX)
 	copy $(BINDIR)\$(XML_A) $(LIBPREFIX)
 	copy $(BINDIR)\$(XML_A_DLL) $(LIBPREFIX)
@@ -420,7 +439,15 @@ $(UTILS) : $(UTILS_INTDIR) $(BINDIR) libxml libxmla libxmladll
 
 # TESTS
 
-tests :  XPathtests
+tests : checktests XPathtests
+
+checktests : $(UTILS)
+	cd .. && win32\$(BINDIR)\runtest.exe
+	cd .. && win32\$(BINDIR)\testrecurse.exe
+	cd .. && win32\$(BINDIR)\testapi.exe
+	cd .. && win32\$(BINDIR)\testchar.exe
+	cd .. && win32\$(BINDIR)\testdict.exe
+	cd .. && win32\$(BINDIR)\runxmlconf.exe
 
 XPathtests : $(BINDIR)\testXPath.exe
 	@echo. 2> .memdump

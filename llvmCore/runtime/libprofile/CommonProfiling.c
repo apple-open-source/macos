@@ -46,7 +46,7 @@ int save_arguments(int argc, const char **argv) {
      * what to do with it.
      */
     const char *Arg = argv[1];
-    memmove(&argv[1], &argv[2], (argc-1)*sizeof(char*));
+    memmove((char**)&argv[1], &argv[2], (argc-1)*sizeof(char*));
     --argc;
 
     if (!strcmp(Arg, "-llvmprof-output")) {
@@ -54,7 +54,7 @@ int save_arguments(int argc, const char **argv) {
         puts("-llvmprof-output requires a filename argument!");
       else {
         OutputFilename = strdup(argv[1]);
-        memmove(&argv[1], &argv[2], (argc-1)*sizeof(char*));
+        memmove((char**)&argv[1], &argv[2], (argc-1)*sizeof(char*));
         --argc;
       }
     } else {
@@ -65,6 +65,16 @@ int save_arguments(int argc, const char **argv) {
   for (Length = 0, i = 0; i != (unsigned)argc; ++i)
     Length += strlen(argv[i])+1;
 
+  /* Defensively check for a zero length, even though this is unlikely
+   * to happen in practice.  This avoids calling malloc() below with a
+   * size of 0.
+   */
+  if (Length == 0) {
+    SavedArgs = 0;
+    SavedArgsLength = 0;
+    return argc;
+  }
+  
   SavedArgs = (char*)malloc(Length);
   for (Length = 0, i = 0; i != (unsigned)argc; ++i) {
     unsigned Len = strlen(argv[i]);

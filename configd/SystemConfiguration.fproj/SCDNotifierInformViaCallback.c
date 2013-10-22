@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -85,16 +85,6 @@ rlsCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 		CFRunLoopSourceSignal(storePrivate->rls);
 	}
 	return;
-}
-
-
-static void
-portInvalidate(CFMachPortRef port, void *info) {
-	mach_port_t	mp	= CFMachPortGetPort(port);
-
-	__MACH_PORT_DEBUG(TRUE, "*** portInvalidate", mp);
-	/* remove our receive right  */
-	(void)mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_RECEIVE, -1);
 }
 
 
@@ -200,10 +190,9 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 
 		__MACH_PORT_DEBUG(TRUE, "*** rlsSchedule (after notifyviaport)", port);
 		storePrivate->rlsNotifyPort = _SC_CFMachPortCreateWithPort("SCDynamicStore",
-								     port,
-								     rlsCallback,
-								     &context);
-		CFMachPortSetInvalidationCallBack(storePrivate->rlsNotifyPort, portInvalidate);
+									   port,
+									   rlsCallback,
+									   &context);
 		storePrivate->rlsNotifyRLS = CFMachPortCreateRunLoopSource(NULL, storePrivate->rlsNotifyPort, 0);
 
 		storePrivate->rlList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -278,13 +267,20 @@ rlsCancel(void *info, CFRunLoopRef rl, CFStringRef mode)
 		}
 
 		if (storePrivate->rlsNotifyPort != NULL) {
-			/* invalidate port */
+			mach_port_t	mp;
+
+			mp = CFMachPortGetPort(storePrivate->rlsNotifyPort);
 			__MACH_PORT_DEBUG((storePrivate->rlsNotifyPort != NULL),
-					  "*** rlsCancel (before invalidating CFMachPort)",
-					  CFMachPortGetPort(storePrivate->rlsNotifyPort));
+					  "*** rlsCancel (before invalidating/releasing CFMachPort)",
+					  mp);
+
+			/* invalidate and release port */
 			CFMachPortInvalidate(storePrivate->rlsNotifyPort);
 			CFRelease(storePrivate->rlsNotifyPort);
 			storePrivate->rlsNotifyPort = NULL;
+
+			/* and, finally, remove our receive right  */
+			(void)mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_RECEIVE, -1);
 		}
 
 		if (storePrivate->server != MACH_PORT_NULL) {
@@ -343,8 +339,10 @@ rlsPerform(void *info)
 		context_info	= storePrivate->rlsContext.info;
 		context_release	= NULL;
 	}
-	(*rlsFunction)(store, changedKeys, context_info);
-	if (context_release) {
+	if (rlsFunction != NULL) {
+		(*rlsFunction)(store, changedKeys, context_info);
+	}
+	if (context_release != NULL) {
 		context_release(context_info);
 	}
 

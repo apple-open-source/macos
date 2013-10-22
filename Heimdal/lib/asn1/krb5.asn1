@@ -80,7 +80,12 @@ EXPORTS
 	KrbFastReq,
 	KrbFastArmor,
 	KDCFastState,
-	KDCFastCookie
+	KDCFastCookie,
+	KDC-PROXY-MESSAGE,
+	KERB-TIMES,
+	KERB-CRED,
+	KERB-TGS-REQ-IN,
+	KERB-TGS-REQ-OUT
 	;
 
 NAME-TYPE ::= INTEGER {
@@ -99,8 +104,8 @@ NAME-TYPE ::= INTEGER {
 	KRB5_NT_MS_PRINCIPAL_AND_ID(-129), -- NT style name and SID
 	KRB5_NT_NTLM(-1200), -- NTLM name, realm is domain
 	KRB5_NT_X509_GENERAL_NAME(-1201), -- x509 general name (base64 encoded)
-    KRB5_NT_GSS_HOSTBASED_SERVICE(-1202),
-    KRB5_NT_CACHE_UUID(-1203) -- name is actually a uuid pointing to ccache, use client name in cache
+	KRB5_NT_GSS_HOSTBASED_SERVICE(-1202),
+	KRB5_NT_CACHE_UUID(-1203) -- name is actually a uuid pointing to ccache, use client name in cache
 }
 
 -- message types
@@ -850,6 +855,64 @@ KDCFastCookie ::= SEQUENCE {
 	version [0] UTF8String,
 	cookie [1] EncryptedData
 }
+
+KDC-PROXY-MESSAGE ::= SEQUENCE {
+	kerb-message	[0] OCTET STRING,
+	target-domain	[1] Realm OPTIONAL,
+	dclocator-hint	[2] INTEGER OPTIONAL
+}
+
+-- these messages are used in the GSSCred communication and is not part of Kerberos propper
+
+KERB-TIMES ::= SEQUENCE {
+	authtime	[0] KerberosTime,
+	starttime	[1] KerberosTime,
+	endtime		[2] KerberosTime,
+	renew_till	[3] KerberosTime
+}
+
+KERB-CRED ::= SEQUENCE {
+	client		[0] Principal,
+	server		[1] Principal,
+	keyblock	[2] EncryptionKey,
+	times		[3] KERB-TIMES,
+	ticket		[4] OCTET STRING,
+	authdata	[5] OCTET STRING,
+	addresses	[6] HostAddresses,
+	flags		[7] TicketFlags
+}
+
+KERB-TGS-REQ-IN ::= SEQUENCE {
+	cache		[0] OCTET STRING SIZE (16),
+	addrs		[1] HostAddresses,
+	flags		[2] krb5uint32,
+	imp		[3] Principal OPTIONAL,
+	ticket		[4] OCTET STRING OPTIONAL,
+	in_cred		[5] KERB-CRED,
+	krbtgt		[6] KERB-CRED,
+	padata		[7] METHOD-DATA
+}
+
+KERB-TGS-REQ-OUT ::= SEQUENCE {
+	subkey		[0] EncryptionKey OPTIONAL,
+	t		[1] TGS-REQ
+}
+
+
+
+KERB-TGS-REP-IN ::= SEQUENCE {
+	cache		[0] OCTET STRING SIZE (16),
+	subkey		[1] EncryptionKey OPTIONAL,
+	in_cred		[2] KERB-CRED,
+	t		[3] TGS-REP
+}
+
+KERB-TGS-REP-OUT ::= SEQUENCE {
+	cache		[0] OCTET STRING SIZE (16),
+	cred		[1] KERB-CRED,
+	subkey		[2] EncryptionKey
+}
+
 
 END
 

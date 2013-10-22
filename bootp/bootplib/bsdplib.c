@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,7 @@ bsdp_print_packet(struct dhcp * pkt, int length, int options_only)
     dhcpol_init(&options);
     dhcpol_init(&vendor_options);
     if (options_only == 0) {
-	dhcp_print_packet(pkt, length);
+	dhcp_packet_print(pkt, length);
     }
     if (dhcpol_parse_packet(&options, pkt, length, &err) == FALSE) {
 	fprintf(stderr, "packet did not parse, %s\n", err.str);

@@ -27,43 +27,109 @@
 #ifndef EventContext_h
 #define EventContext_h
 
+#include "EventTarget.h"
+#include "Node.h"
+#include "TreeScope.h"
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class EventTarget;
 class Event;
-class Node;
+#if ENABLE(TOUCH_EVENTS)
+class TouchList;
+#endif
 
 class EventContext {
 public:
     // FIXME: Use ContainerNode instead of Node.
     EventContext(PassRefPtr<Node>, PassRefPtr<EventTarget> currentTarget, PassRefPtr<EventTarget> target);
+    virtual ~EventContext();
 
-    Node* node() const;
-    EventTarget* target() const;
-    bool currentTargetSameAsTarget() const;
-    void handleLocalEvents(Event*) const;
+    Node* node() const { return m_node.get(); }
+    EventTarget* target() const { return m_target.get(); }
+    bool currentTargetSameAsTarget() const { return m_currentTarget.get() == m_target.get(); }
+    virtual void handleLocalEvents(Event*) const;
+    virtual bool isMouseOrFocusEventContext() const;
+    virtual bool isTouchEventContext() const;
 
-private:
+protected:
+#ifndef NDEBUG
+    bool isUnreachableNode(EventTarget*);
+    bool isReachable(Node*) const;
+#endif
     RefPtr<Node> m_node;
     RefPtr<EventTarget> m_currentTarget;
     RefPtr<EventTarget> m_target;
 };
 
-inline Node* EventContext::node() const
+typedef Vector<OwnPtr<EventContext>, 32> EventPath;
+
+class MouseOrFocusEventContext : public EventContext {
+public:
+    MouseOrFocusEventContext(PassRefPtr<Node>, PassRefPtr<EventTarget> currentTarget, PassRefPtr<EventTarget> target);
+    virtual ~MouseOrFocusEventContext();
+    EventTarget* relatedTarget() const { return m_relatedTarget.get(); }
+    void setRelatedTarget(PassRefPtr<EventTarget>);
+    virtual void handleLocalEvents(Event*) const OVERRIDE;
+    virtual bool isMouseOrFocusEventContext() const OVERRIDE;
+
+private:
+    RefPtr<EventTarget> m_relatedTarget;
+};
+
+
+#if ENABLE(TOUCH_EVENTS)
+class TouchEventContext : public EventContext {
+public:
+    TouchEventContext(PassRefPtr<Node>, PassRefPtr<EventTarget> currentTarget, PassRefPtr<EventTarget> target);
+    virtual ~TouchEventContext();
+
+    virtual void handleLocalEvents(Event*) const OVERRIDE;
+    virtual bool isTouchEventContext() const OVERRIDE;
+
+    TouchList* touches() { return m_touches.get(); }
+    TouchList* targetTouches() { return m_targetTouches.get(); }
+    TouchList* changedTouches() { return m_changedTouches.get(); }
+
+private:
+    RefPtr<TouchList> m_touches;
+    RefPtr<TouchList> m_targetTouches;
+    RefPtr<TouchList> m_changedTouches;
+#ifndef NDEBUG
+    void checkReachability(TouchList*) const;
+#endif
+};
+
+inline TouchEventContext* toTouchEventContext(EventContext* eventContext)
 {
-    return m_node.get();
+    ASSERT_WITH_SECURITY_IMPLICATION(!eventContext || eventContext->isTouchEventContext());
+    return static_cast<TouchEventContext*>(eventContext);
+}
+#endif // ENABLE(TOUCH_EVENTS)
+
+#ifndef NDEBUG
+inline bool EventContext::isUnreachableNode(EventTarget* target)
+{
+    // FIXME: Checks also for SVG elements.
+    return target && target->toNode() && !target->toNode()->isSVGElement() && !isReachable(target->toNode());
 }
 
-inline EventTarget* EventContext::target() const
+inline bool EventContext::isReachable(Node* target) const
 {
-    return m_target.get();
+    ASSERT(target);
+    TreeScope* targetScope = target->treeScope();
+    for (TreeScope* scope = m_node->treeScope(); scope; scope = scope->parentTreeScope()) {
+        if (scope == targetScope)
+            return true;
+    }
+    return false;
 }
+#endif
 
-inline bool EventContext::currentTargetSameAsTarget() const
+inline void MouseOrFocusEventContext::setRelatedTarget(PassRefPtr<EventTarget> relatedTarget)
 {
-    return m_currentTarget.get() == m_target.get();
+    ASSERT(!isUnreachableNode(relatedTarget.get()));
+    m_relatedTarget = relatedTarget;
 }
 
 }

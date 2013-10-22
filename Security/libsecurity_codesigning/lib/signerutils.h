@@ -109,7 +109,7 @@ public:
 	typedef ArchMap::iterator Iterator;
 	ArchMap::iterator begin()		{ return architecture.begin(); }
 	ArchMap::iterator end()			{ return architecture.end(); }
-	unsigned count() const			{ return architecture.size(); }
+	unsigned count() const			{ return (unsigned)architecture.size(); }
 	
 	// methods needed for an actual implementation
 	virtual void allocate() = 0;			// interpass allocations

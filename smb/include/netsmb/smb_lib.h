@@ -101,17 +101,23 @@ struct smb_ctx {
 	struct sockaddr	*ct_saddr;
 	char *			ct_origshare;
 	CFStringRef		mountPath;
+	uint32_t		ct_vc_uid;
 	uint32_t		ct_vc_caps;		/* Obtained from the negotiate message */
+	uint32_t		ct_vc_smb2_caps;
 	uint32_t		ct_vc_flags;	/* Obtained from the negotiate message */
+    uint64_t		ct_vc_misc_flags;
+	uint32_t		ct_vc_hflags;
+	uint32_t		ct_vc_hflags2;
 	uint32_t		ct_vc_shared;	/* Obtained from the negotiate message, currently only tells if the vc is shared */
 	uint64_t		ct_vc_txmax;				
-	uint64_t		ct_vc_rxmax;				
-	uint64_t		ct_vc_wxmax;				
+	uint64_t		ct_vc_rxmax;
+    uint64_t		ct_vc_wxmax;
 	int				forceNewSession;
 	int				inCallback;
 	int				serverIsDomainController;
 	CFDictionaryRef mechDict;
 	struct smb_prefs prefs;
+    char *          model_info;     /* SMB2 Server model string, only MAC to MAC */
 };
 
 #define	SMBCF_RESOLVED			0x00000001	/* We have reolved the address and name */
@@ -178,6 +184,8 @@ int  smb_smb_close_print_file(struct smb_ctx *, smbfh);
 int  smb_read(struct smb_ctx *, smbfh, off_t, uint32_t, char *);
 int  smb_write(struct smb_ctx *, smbfh, off_t, uint32_t, const char *);
 void smb_ctx_get_user_mount_info(const char * /*mntonname */, CFMutableDictionaryRef);
+
+CF_RETURNS_RETAINED CFArrayRef smb_resolve_domain(CFStringRef serverNameRef);
 
 __END_DECLS
 

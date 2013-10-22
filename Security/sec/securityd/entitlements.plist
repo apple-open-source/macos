@@ -6,5 +6,7 @@
 	<string>com.apple.securityd</string>
 	<key>com.apple.keystore.access-keychain-keys</key>
 	<true/>
+	<key>com.apple.keystore.lockassertion</key>
+	<true/>
 </dict>
 </plist>

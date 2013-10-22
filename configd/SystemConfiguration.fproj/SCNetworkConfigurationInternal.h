@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,6 +73,9 @@ typedef struct {
 	// name
 	CFStringRef		name;
 
+	// external identifiers
+	CFMutableDictionaryRef	externalIDs;
+
 } SCNetworkServicePrivate, *SCNetworkServicePrivateRef;
 
 
@@ -143,6 +146,7 @@ typedef struct {
 	uint64_t		entryID;
 	CFMutableDictionaryRef	overrides;
 	Boolean			modemIsV92;
+	CFStringRef		prefix;
 	CFNumberRef		type;
 	CFNumberRef		unit;
 	struct {
@@ -158,8 +162,8 @@ typedef struct {
 	Boolean			supportsBond;
 	struct {
 		CFArrayRef		interfaces;
-		CFDictionaryRef		options;
 		CFNumberRef		mode;
+		CFDictionaryRef		options;
 	} bond;
 
 	// for Bridge interfaces
@@ -221,13 +225,13 @@ CFArrayRef
 __SCNetworkInterfaceCopyDeepConfiguration       (SCNetworkSetRef	set,
 						 SCNetworkInterfaceRef	interface);
 
-#if	!TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+#if	!TARGET_OS_IPHONE
 CFStringRef
 __SCNetworkInterfaceCopyXLocalizedDisplayName	(SCNetworkInterfaceRef	interface);
 
 CFStringRef
 __SCNetworkInterfaceCopyXNonLocalizedDisplayName(SCNetworkInterfaceRef	interface);
-#endif	// !TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+#endif	// !TARGET_OS_IPHONE
 
 int
 __SCNetworkInterfaceCreateCapabilities		(SCNetworkInterfaceRef	interface,

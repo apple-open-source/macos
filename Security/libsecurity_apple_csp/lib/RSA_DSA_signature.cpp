@@ -112,7 +112,7 @@ void RSASigner::sign(
 	}
 
 	/* signature := encrypted digest info */
-	irtn = RSA_private_encrypt(encodedInfo.length(), 
+	irtn = RSA_private_encrypt((int)encodedInfo.length(),
 		(unsigned char *)encodedInfo.data(),
 		(unsigned char *)sig, 
 		mRsaKey,
@@ -161,7 +161,7 @@ void RSASigner::verify(
 	unsigned decryptSigLen;
 	
 	/* signature should be encrypted digest info; decrypt the signature  */
-	irtn = RSA_public_decrypt(sigLen, 
+	irtn = RSA_public_decrypt((int)sigLen,
 		(unsigned char *)sig,
 		decryptSig, 
 		mRsaKey,
@@ -279,7 +279,7 @@ void DSASigner::sign(
 	}
 	
 	/* get signature in internal format */
-	DSA_SIG *dsaSig = DSA_do_sign((unsigned char *)data, dataLen, mDsaKey);
+	DSA_SIG *dsaSig = DSA_do_sign((unsigned char *)data, (int)dataLen, mDsaKey);
 	if(dsaSig == NULL) {
 		throwRsaDsa("DSA_do_sign");
 	}
@@ -319,12 +319,12 @@ void DSASigner::verify(
 
 	/* incoming sig is DER encoded....decode into internal format */
 	dsaSig = DSA_SIG_new();
-	crtn = DSASigDecode(dsaSig, sig, sigLen);
+	crtn = DSASigDecode(dsaSig, sig, (unsigned int)sigLen);
 	if(crtn) {
 		goto abort;
 	}
 
-	irtn = DSA_do_verify((unsigned char *)data, dataLen, dsaSig, mDsaKey);
+	irtn = DSA_do_verify((unsigned char *)data, (int)dataLen, dsaSig, mDsaKey);
 	if(irtn != 1) {
 		throwSigVerify = true;
 	}

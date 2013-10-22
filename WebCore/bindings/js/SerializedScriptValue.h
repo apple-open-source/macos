@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,14 +27,14 @@
 #ifndef SerializedScriptValue_h
 #define SerializedScriptValue_h
 
-#include "PlatformString.h"
 #include "ScriptState.h"
 #include <heap/Strong.h>
-#include <runtime/JSValue.h>
+#include <runtime/JSCJSValue.h>
 #include <wtf/ArrayBuffer.h>
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/text/WTFString.h>
 
 typedef const struct OpaqueJSContext* JSContextRef;
 typedef const struct OpaqueJSValue* JSValueRef;
@@ -51,6 +51,7 @@ enum SerializationReturnCode {
     InterruptedExecutionError,
     ValidationError,
     ExistingExceptionError,
+    DataCloneError,
     UnspecifiedError
 };
     
@@ -78,9 +79,11 @@ public:
     }
 
     static PassRefPtr<SerializedScriptValue> create();
-    static SerializedScriptValue* nullValue();
+    static PassRefPtr<SerializedScriptValue> nullValue();
     static PassRefPtr<SerializedScriptValue> undefinedValue();
     static PassRefPtr<SerializedScriptValue> booleanValue(bool value);
+
+    static uint32_t wireFormatVersion();
 
     String toString();
     
@@ -97,11 +100,15 @@ public:
 
 #if ENABLE(INDEXED_DATABASE)
     static PassRefPtr<SerializedScriptValue> create(JSC::ExecState*, JSC::JSValue);
-    static PassRefPtr<SerializedScriptValue> createFromWire(const String& data);
-    String toWireString() const;
     static PassRefPtr<SerializedScriptValue> numberValue(double value);
     JSC::JSValue deserialize(JSC::ExecState*, JSC::JSGlobalObject*);
 #endif
+
+    static PassRefPtr<SerializedScriptValue> createFromWireBytes(const Vector<uint8_t>& data)
+    {
+        return adoptRef(new SerializedScriptValue(data));
+    }
+    const Vector<uint8_t>& toWireBytes() const { return m_data; }
 
     ~SerializedScriptValue();
 
@@ -109,8 +116,9 @@ private:
     typedef Vector<WTF::ArrayBufferContents> ArrayBufferContentsArray;
     static void maybeThrowExceptionIfSerializationFailed(JSC::ExecState*, SerializationReturnCode);
     static bool serializationDidCompleteSuccessfully(SerializationReturnCode);
-    static PassOwnPtr<ArrayBufferContentsArray> transferArrayBuffers(ArrayBufferArray&, SerializationReturnCode&);
+    static PassOwnPtr<ArrayBufferContentsArray> transferArrayBuffers(JSC::ExecState*, ArrayBufferArray&, SerializationReturnCode&);
 
+    SerializedScriptValue(const Vector<unsigned char>&);
     SerializedScriptValue(Vector<unsigned char>&);
     SerializedScriptValue(Vector<unsigned char>&, Vector<String>& blobURLs);
     SerializedScriptValue(Vector<unsigned char>&, Vector<String>& blobURLs, PassOwnPtr<ArrayBufferContentsArray>);

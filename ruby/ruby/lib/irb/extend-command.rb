@@ -1,29 +1,37 @@
 #
-#   irb/extend-command.rb - irb extend command 
-#   	$Release Version: 0.9.5$
-#   	$Revision: 25814 $
-#   	$Date: 2009-11-17 15:51:29 +0900 (Tue, 17 Nov 2009) $
+#   irb/extend-command.rb - irb extend command
+#   	$Release Version: 0.9.6$
+#   	$Revision: 38515 $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
-#   
 #
-module IRB
-  #
-  # IRB extended command
-  #
+#
+module IRB # :nodoc:
+  # Installs the default irb extensions command bundle.
   module ExtendCommandBundle
-    EXCB = ExtendCommandBundle
+    EXCB = ExtendCommandBundle # :nodoc:
 
+    # See #install_alias_method.
     NO_OVERRIDE = 0
+    # See #install_alias_method.
     OVERRIDE_PRIVATE_ONLY = 0x01
+    # See #install_alias_method.
     OVERRIDE_ALL = 0x02
 
+    # Quits the current irb context
+    #
+    # +ret+ is the optional signal or message to send to Context#exit
+    #
+    # Same as <code>IRB.CurrentContext.exit</code>.
     def irb_exit(ret = 0)
       irb_context.exit(ret)
     end
 
+    # Displays current configuration.
+    #
+    # Modifing the configuration is achieved by sending a message to IRB.conf.
     def irb_context
       IRB.CurrentContext
     end
@@ -90,15 +98,15 @@ module IRB
 
       [:irb_load, :Load, "irb/cmd/load"],
       [:irb_require, :Require, "irb/cmd/load"],
-      [:irb_source, :Source, "irb/cmd/load", 
+      [:irb_source, :Source, "irb/cmd/load",
 	[:source, NO_OVERRIDE]],
 
       [:irb, :IrbCommand, "irb/cmd/subirb"],
-      [:irb_jobs, :Jobs, "irb/cmd/subirb", 
+      [:irb_jobs, :Jobs, "irb/cmd/subirb",
 	[:jobs, NO_OVERRIDE]],
-      [:irb_fg, :Foreground, "irb/cmd/subirb", 
+      [:irb_fg, :Foreground, "irb/cmd/subirb",
 	[:fg, NO_OVERRIDE]],
-      [:irb_kill, :Kill, "irb/cmd/subirb", 
+      [:irb_kill, :Kill, "irb/cmd/subirb",
 	[:kill, OVERRIDE_PRIVATE_ONLY]],
 
       [:irb_help, :Help, "irb/cmd/help",
@@ -106,13 +114,33 @@ module IRB
 
     ]
 
+    # Installs the default irb commands:
+    #
+    # +irb_current_working_workspace+::   Context#main
+    # +irb_change_workspace+::            Context#change_workspace
+    # +irb_workspaces+::                  Context#workspaces
+    # +irb_push_workspace+::              Context#push_workspace
+    # +irb_pop_workspace+::               Context#pop_workspace
+    # +irb_load+::                        #irb_load
+    # +irb_require+::                     #irb_require
+    # +irb_source+::                      IrbLoader#source_file
+    # +irb+::                             IRB.irb
+    # +irb_jobs+::                        JobManager
+    # +irb_fg+::                          JobManager#switch
+    # +irb_kill+::                        JobManager#kill
+    # +irb_help+::                        IRB@Command+line+options
     def self.install_extend_commands
       for args in @EXTEND_COMMANDS
 	def_extend_command(*args)
       end
     end
 
-    # aliases = [commands_alias, flag], ...
+    # Evaluate the given +cmd_name+ on the given +cmd_class+ Class.
+    #
+    # Will also define any given +aliases+ for the method.
+    #
+    # The optional +load_file+ parameter will be required within the method
+    # definition.
     def self.def_extend_command(cmd_name, cmd_class, load_file = nil, *aliases)
       case cmd_class
       when Symbol
@@ -123,28 +151,28 @@ module IRB
       end
 
       if load_file
-	eval %[
+	line = __LINE__; eval %[
 	  def #{cmd_name}(*opts, &b)
 	    require "#{load_file}"
 	    arity = ExtendCommand::#{cmd_class}.instance_method(:execute).arity
-	    args = (1..arity.abs).map {|i| "arg" + i.to_s }
+	    args = (1..(arity < 0 ? ~arity : arity)).map {|i| "arg" + i.to_s }
 	    args << "*opts" if arity < 0
 	    args << "&block"
 	    args = args.join(", ")
-	    eval %[
+	    line = __LINE__; eval %[
 	      def #{cmd_name}(\#{args})
 		ExtendCommand::#{cmd_class}.execute(irb_context, \#{args})
 	      end
-	    ]
+	    ], nil, __FILE__, line
 	    send :#{cmd_name}, *opts, &b
 	  end
-	]
+	], nil, __FILE__, line
       else
-	eval %[
+	line = __LINE__; eval %[
 	  def #{cmd_name}(*opts, &b)
 	    ExtendCommand::#{cmd_class}.execute(irb_context, *opts, &b)
 	  end
-	]
+	], nil, __FILE__, line
       end
 
       for ali, flag in aliases
@@ -152,7 +180,8 @@ module IRB
       end
     end
 
-    # override = {NO_OVERRIDE, OVERRIDE_PRIVATE_ONLY, OVERRIDE_ALL}
+    # Installs alias methods for the default irb commands, see
+    # ::install_extend_commands.
     def install_alias_method(to, from, override = NO_OVERRIDE)
       to = to.id2name unless to.kind_of?(String)
       from = from.id2name unless from.kind_of?(String)
@@ -161,10 +190,10 @@ module IRB
 	  (override == OVERRIDE_PRIVATE_ONLY) && !respond_to?(to) or
 	  (override == NO_OVERRIDE) &&  !respond_to?(to, true)
 	target = self
-	(class<<self;self;end).instance_eval{
-	  if target.respond_to?(to, true) && 
+	(class << self; self; end).instance_eval{
+	  if target.respond_to?(to, true) &&
 	      !target.respond_to?(EXCB.irb_original_method_name(to), true)
-	    alias_method(EXCB.irb_original_method_name(to), to) 
+	    alias_method(EXCB.irb_original_method_name(to), to)
 	  end
 	  alias_method to, from
 	}
@@ -173,12 +202,14 @@ module IRB
       end
     end
 
-    def self.irb_original_method_name(method_name)
+    def self.irb_original_method_name(method_name) # :nodoc:
       "irb_" + method_name + "_org"
     end
 
+    # Installs alias methods for the default irb commands on the given object
+    # using #install_alias_method.
     def self.extend_object(obj)
-      unless (class<<obj;ancestors;end).include?(EXCB)
+      unless (class << obj; ancestors; end).include?(EXCB)
 	super
 	for ali, com, flg in @ALIASES
 	  obj.install_alias_method(ali, com, flg)
@@ -189,9 +220,9 @@ module IRB
     install_extend_commands
   end
 
-  # extension support for Context
+  # Extends methods for the Context module
   module ContextExtender
-    CE = ContextExtender
+    CE = ContextExtender # :nodoc:
 
     @EXTEND_COMMANDS = [
       [:eval_history=, "irb/ext/history.rb"],
@@ -201,14 +232,25 @@ module IRB
       [:save_history=, "irb/ext/save-history.rb"],
     ]
 
+    # Installs the default context extensions as irb commands:
+    #
+    # Context#eval_history=::   +irb/ext/history.rb+
+    # Context#use_tracer=::     +irb/ext/tracer.rb+
+    # Context#math_mode=::      +irb/ext/math-mode.rb+
+    # Context#use_loader=::     +irb/ext/use-loader.rb+
+    # Context#save_history=::   +irb/ext/save-history.rb+
     def self.install_extend_commands
       for args in @EXTEND_COMMANDS
 	def_extend_command(*args)
       end
     end
 
+    # Evaluate the given +command+ from the given +load_file+ on the Context
+    # module.
+    #
+    # Will also define any given +aliases+ for the method.
     def self.def_extend_command(cmd_name, load_file, *aliases)
-      Context.module_eval %[
+      line = __LINE__; Context.module_eval %[
         def #{cmd_name}(*opts, &b)
 	  Context.module_eval {remove_method(:#{cmd_name})}
 	  require "#{load_file}"
@@ -217,13 +259,16 @@ module IRB
 	for ali in aliases
 	  alias_method ali, cmd_name
 	end
-      ]
+      ], __FILE__, line
     end
 
     CE.install_extend_commands
   end
 
+  # A convenience module for extending Ruby methods.
   module MethodExtender
+    # Extends the given +base_method+ with a prefix call to the given
+    # +extend_method+.
     def def_pre_proc(base_method, extend_method)
       base_method = base_method.to_s
       extend_method = extend_method.to_s
@@ -238,6 +283,8 @@ module IRB
       ]
     end
 
+    # Extends the given +base_method+ with a postfix call to the given
+    # +extend_method+.
     def def_post_proc(base_method, extend_method)
       base_method = base_method.to_s
       extend_method = extend_method.to_s
@@ -252,7 +299,13 @@ module IRB
       ]
     end
 
-    # return #{prefix}#{name}#{postfix}<num>
+    # Returns a unique method name to use as an alias for the given +name+.
+    #
+    # Usually returns <code>#{prefix}#{name}#{postfix}<num></code>, example:
+    #
+    #     new_alias_name('foo') #=> __alias_of__foo__
+    #     def bar; end
+    #     new_alias_name('bar') #=> __alias_of__bar__2
     def new_alias_name(name, prefix = "__alias_of__", postfix = "__")
       base_name = "#{prefix}#{name}#{postfix}"
       all_methods = instance_methods(true) + private_instance_methods(true)

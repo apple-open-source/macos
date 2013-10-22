@@ -19,32 +19,81 @@
 
  Host *
    SendEnv LANG LC_*
+
+# Configuration options and default values (see ssh_config(5) for their meaning):
+#
+#   Host # (no default)
+#   AddressFamily any
+#   AskPassGUI yes # (Apple only)
+#   BatchMode no
+#   BindAddress # (no default)
+#   ChallengeResponseAuthentication yes
+#   CheckHostIP yes
+#   Cipher 3des
+#   Ciphers aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,aes192-cbc,aes256-cbc,arcfour
+#   ClearAllForwardings no
+#   Compression no
+#   CompressionLevel 6
+#   ConnectionAttempts 1
+#   ConnectTimeout # (no default)
+#   ControlMaster no
+#   ControlPath  # (no default)
+#   ControlPersist no
+#   DynamicForward
+#   EnableSSHKeysign no
+#   EscapeChar ~
+#   ExitOnForwardFailure no
 #   ForwardAgent no
 #   ForwardX11 no
-#   RhostsRSAAuthentication no
-#   RSAAuthentication yes
-#   PasswordAuthentication yes
-#   HostbasedAuthentication no
+#   ForwardX11Timeout 1200
+#   ForwardX11Trusted no
+#   XauthLocation xauth # Default is to search $PATH.  It is recommended that a full path be provided.
+#   GatewayPorts no
+#   GlobalKnownHostsFile /etc/ssh/ssh_known_hosts,/etc/ssh/ssh_known_hosts2
 #   GSSAPIAuthentication no
 #   GSSAPIDelegateCredentials no
 #   GSSAPIKeyExchange no
 #   GSSAPITrustDNS no
-#   BatchMode no
-#   CheckHostIP yes
-#   AddressFamily any
-#   ConnectTimeout 0
-#   StrictHostKeyChecking ask
-#   IdentityFile ~/.ssh/identity
-#   IdentityFile ~/.ssh/id_rsa
-#   IdentityFile ~/.ssh/id_dsa
+#   HashKnownHosts no
+#   HostbasedAuthentication no
+#   HostKeyAlgorithms ecdsa-sha2-nistp256-cert-v01@openssh.com,ecdsa-sha2-nistp384-cert-v01@openssh.com,ecdsa-sha2-nistp521-cert-v01@openssh.com,ssh-rsa-cert-v01@openssh.com,ssh-dss-cert-v01@openssh.com,ssh-rsa-cert-v00@openssh.com,ssh-dss-cert-v00@openssh.com,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-rsa,ssh-dss
+#   HostKeyAlias # (no default)
+#   HostName # (set by command at run-time)
+#   IdentitiesOnly no
+#   IdentityFile .ssh/id_rsa,.ssh/id_dsa
+#   IPQoS lowdelay
+#   KbdInteractiveAuthentication yes
+#   KbdInteractiveDevices # (no default)
+#   KexAlgorithms ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group-exchange-sha1,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1
+#   LocalCommand  # (no default)
+#   LocalForward  # (no default)
+#   LogLevel INFO
+#   MACs hmac-md5,hmac-sha1,umac-64@openssh.com,hmac-ripemd160,hmac-sha1-96,hmac-md5-96,hmac-sha2-256,hmac-sha2-256-96,hmac-sha2-512,hmac-sha2-512-96
+#   NoHostAuthenticationForLocalhost no
+#   NumberOfPasswordPrompts 3
+#   PasswordAuthentication yes
+#   PermitLocalCommand no
+#   PKCS11Provider # (no default)
 #   Port 22
-#   Protocol 2,1
-#   Cipher 3des
-#   Ciphers aes128-ctr,aes192-ctr,aes256-ctr,arcfour256,arcfour128,aes128-cbc,3des-cbc
-#   MACs hmac-md5,hmac-sha1,umac-64@openssh.com,hmac-ripemd160
-#   EscapeChar ~
+#   PreferredAuthentications gssapi-with-mic,hostbased,publickey,keyboard-interactive,password  # (set by ssh at run-time)
+#   Protocol 2
+#   ProxyCommand # (no default)
+#   PubkeyAuthentication yes
+#   RekeyLimit 0
+#   RemoteForward # (no default)
+#   RequestTTY auto
+#   RhostsRSAAuthentication no
+#   RSAAuthentication yes
+#   SendEnv # (no default)
+#   ServerAliveCountMax 3
+#   ServerAliveInterval 0
+#   StrictHostKeyChecking ask
+#   TCPKeepAlive yes
 #   Tunnel no
 #   TunnelDevice any:any
-#   PermitLocalCommand no
+#   UsePrivilegedPort no
+#   User # (set by command at run-time)
+#   UserKnownHostsFile ~/.ssh/known_hosts,~/.ssh/known_hosts2
+#   VerifyHostKeyDNS no
 #   VisualHostKey no
-#   ProxyCommand ssh -q -W %h:%p gateway.example.com
+#   XAuthLocationi xauth

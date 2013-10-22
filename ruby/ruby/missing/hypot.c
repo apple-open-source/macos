@@ -1,9 +1,9 @@
 /* public domain rewrite of hypot */
 
+#include "ruby/missing.h"
 #include <math.h>
 
-double hypot(x,y)
-    double x, y;
+double hypot(double x, double y)
 {
     if (x < 0) x = -x;
     if (y < 0) y = -y;

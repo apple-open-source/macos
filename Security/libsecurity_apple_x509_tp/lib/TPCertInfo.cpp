@@ -1,12 +1,12 @@
 /*
  * Copyright (c) 2000-2011 Apple Inc. All Rights Reserved.
- * 
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
  * You may not use this file except in compliance with the License. Please obtain
  * a copy of the License at http://www.apple.com/publicsource and read it before
  * using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
  * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
@@ -40,7 +40,7 @@
 #include <Security/SecImportExport.h>
 #include <Security/SecTrustSettingsPriv.h>
 
-#define tpTimeDbg(args...)		secdebug("tpTime", ## args) 
+#define tpTimeDbg(args...)		secdebug("tpTime", ## args)
 #define tpCertInfoDbg(args...)	secdebug("tpCert", ## args)
 
 static const TPClItemCalls tpCertClCalls =
@@ -64,7 +64,7 @@ TPClItemInfo::TPClItemInfo(
 	const CSSM_DATA		*itemData,
 	TPItemCopy			copyItemData,
 	const char			*verifyTime)	// may be NULL
-		: 	
+		:
 			mClHand(clHand),
 			mCspHand(cspHand),
 			mClCalls(clCalls),
@@ -83,9 +83,9 @@ TPClItemInfo::TPClItemInfo(
 		CSSM_RETURN crtn = cacheItem(itemData, copyItemData);
 		if(crtn) {
 			CssmError::throwMe(crtn);
-		}			
-			
-		/* 
+		}
+
+		/*
 		 * Fetch standard fields...
 		 * Issue name assumes same OID for Certs and CRLs!
 		 */
@@ -93,9 +93,9 @@ TPClItemInfo::TPClItemInfo(
 		if(crtn) {
 			CssmError::throwMe(crtn);
 		}
-		
-		/* 
-		 * Signing algorithm, infer from TBS algId 
+
+		/*
+		 * Signing algorithm, infer from TBS algId
 		 * Note this assumes that the OID for fetching this field is the
 		 * same for CRLs and Certs.
 		 */
@@ -109,7 +109,7 @@ TPClItemInfo::TPClItemInfo(
 			tpErrorLog("TPClItemInfo: bad CSSM_X509_ALGORITHM_IDENTIFIER\n");
 			CssmError::throwMe(CSSMERR_TP_INTERNAL_ERROR);
 		}
-		CSSM_X509_ALGORITHM_IDENTIFIER *algId = 
+		CSSM_X509_ALGORITHM_IDENTIFIER *algId =
 			(CSSM_X509_ALGORITHM_IDENTIFIER *)algField->Data;
 		bool algFound = cssmOidToAlg(&algId->algorithm, &mSigAlg);
 		if(!algFound) {
@@ -124,7 +124,7 @@ TPClItemInfo::TPClItemInfo(
 			}
 		}
 		freeField(&CSSMOID_X509V1SignatureAlgorithmTBS, algField);
-	
+
 		fetchNotBeforeAfter();
 		calculateCurrent(verifyTime);
 	}
@@ -171,7 +171,7 @@ CSSM_RETURN TPClItemInfo::fetchField(
 	CSSM_DATA_PTR	*fieldData)		// mallocd by CL and RETURNED
 {
 	CSSM_RETURN crtn;
-	
+
 	uint32 NumberOfFields = 0;
 	CSSM_HANDLE resultHand = 0;
 	*fieldData = NULL;
@@ -189,7 +189,7 @@ CSSM_RETURN TPClItemInfo::fetchField(
 		return crtn;
 	}
 	if(NumberOfFields != 1) {
-		tpErrorLog("TPCertInfo::fetchField: numFields %d, expected 1\n", 
+		tpCertInfoDbg("TPClItemInfo::fetchField: numFields %d, expected 1\n",
 			(int)NumberOfFields);
 	}
   	mClCalls.abortQuery(mClHand, resultHand);
@@ -197,15 +197,15 @@ CSSM_RETURN TPClItemInfo::fetchField(
 }
 
 /* free arbitrary field obtained from fetchField() */
-CSSM_RETURN TPClItemInfo::freeField( 
+CSSM_RETURN TPClItemInfo::freeField(
 	const CSSM_OID	*fieldOid,
-	CSSM_DATA_PTR	fieldData)	
+	CSSM_DATA_PTR	fieldData)
 {
 	return CSSM_CL_FreeFieldValue(mClHand, fieldOid, fieldData);
 
 }
 
-/* 
+/*
  * Verify with an issuer cert - works on certs and CRLs.
  * Issuer/subject name match already performed by caller.
  * Optional paramCert is used to provide parameters when issuer
@@ -220,9 +220,9 @@ CSSM_RETURN TPClItemInfo::verifyWithIssuer(
 	assert(mClHand != 0);
 	assert(issuerCert->isIssuerOf(*this));
 	assert(mCspHand != 0);
-	
+
 	/*
-	 * Special case: detect partial public key right now; don't even 
+	 * Special case: detect partial public key right now; don't even
 	 * bother trying the cert verify in that case.
 	 */
 	if(issuerCert->hasPartialKey() && (paramCert == NULL)) {
@@ -230,7 +230,7 @@ CSSM_RETURN TPClItemInfo::verifyWithIssuer(
 		tpVfyDebug("verifyWithIssuer PUBLIC_KEY_INCOMPLETE");
 		return CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE;
 	}
-	
+
 	CSSM_CC_HANDLE ccHand;
 	crtn = CSSM_CSP_CreateSignatureContext(mCspHand,
 		mSigAlg,
@@ -243,10 +243,10 @@ CSSM_RETURN TPClItemInfo::verifyWithIssuer(
 	}
 	if(paramCert != NULL) {
 		assert(issuerCert->hasPartialKey());
-		
+
 		/* add in parameter-bearing key */
-		CSSM_CONTEXT_ATTRIBUTE		newAttr;	
-		
+		CSSM_CONTEXT_ATTRIBUTE		newAttr;
+
 		newAttr.AttributeType   = CSSM_ATTRIBUTE_PARAM_KEY;
 		newAttr.AttributeLength = sizeof(CSSM_KEY);
 		newAttr.Attribute.Key   = paramCert->pubKey();
@@ -256,8 +256,8 @@ CSSM_RETURN TPClItemInfo::verifyWithIssuer(
 			CssmError::throwMe(crtn);
 		}
 	}
-	crtn = mClCalls.itemVerify(mClHand, 
-    	ccHand, 
+	crtn = mClCalls.itemVerify(mClHand,
+    	ccHand,
     	mItemData,
     	NULL,				// issuer cert
     	NULL,				// VerifyScope
@@ -280,7 +280,7 @@ CSSM_RETURN TPClItemInfo::verifyWithIssuer(
 
 CSSM_RETURN TPClItemInfo::cacheItem(
 	const CSSM_DATA		*itemData,
-	TPItemCopy			copyItemData)												
+	TPItemCopy			copyItemData)
 {
 	switch(copyItemData) {
 		case TIC_NoCopy:
@@ -294,18 +294,18 @@ CSSM_RETURN TPClItemInfo::cacheItem(
 			assert(0);
 			CssmError::throwMe(CSSMERR_TP_INTERNAL_ERROR);
 	}
-	
+
 	/* cache the cert/CRL in the CL */
 	return mClCalls.cacheItem(mClHand, mItemData, &mCacheHand);
 }
 
-/* 
- * Calculate not before/after times as struct tm. Only throws on 
+/*
+ * Calculate not before/after times as struct tm. Only throws on
  * gross error (CSSMERR_TP_INVALID_CERT_POINTER, etc.).
  *
- * Only differences between Cert and CRL flavors of this are the 
+ * Only differences between Cert and CRL flavors of this are the
  * OIDs used to fetch the appropriate before/after times, both of
- * which are expressed as CSSM_X509_TIME structs for both Certs 
+ * which are expressed as CSSM_X509_TIME structs for both Certs
  * and CRLS.
  */
 void TPClItemInfo::fetchNotBeforeAfter()
@@ -314,17 +314,17 @@ void TPClItemInfo::fetchNotBeforeAfter()
 	CSSM_DATA_PTR	notAfterField = NULL;
 	CSSM_RETURN		crtn = CSSM_OK;
 	CSSM_X509_TIME 	*xTime;
-	
+
 	assert(cacheHand() != CSSM_INVALID_HANDLE);
 	crtn = fetchField(mClCalls.notBeforeOid, &notBeforeField);
 	if(crtn) {
 		tpErrorLog("fetchNotBeforeAfter: GetField error\n");
 		CssmError::throwMe(mClCalls.invalidItemRtn);
 	}
-	
+
 	/* subsequent errors to errOut */
 	xTime = (CSSM_X509_TIME *)notBeforeField->Data;
-	if(timeStringToCfDate((char *)xTime->time.Data, xTime->time.Length, &mNotBefore)) {
+	if(timeStringToCfDate((char *)xTime->time.Data, (unsigned)xTime->time.Length, &mNotBefore)) {
 		tpErrorLog("fetchNotBeforeAfter: malformed notBefore time\n");
 		crtn = mClCalls.invalidItemRtn;
 		goto errOut;
@@ -333,7 +333,7 @@ void TPClItemInfo::fetchNotBeforeAfter()
 	crtn = fetchField(mClCalls.notAfterOid, &notAfterField);
 	if(crtn) {
 		/*
-		 * Tolerate a missing NextUpdate in CRL only 
+		 * Tolerate a missing NextUpdate in CRL only
 		 */
 		if(mClCalls.notAfterOid == &CSSMOID_X509V1ValidityNotAfter) {
 			tpErrorLog("fetchNotBeforeAfter: GetField error\n");
@@ -344,14 +344,14 @@ void TPClItemInfo::fetchNotBeforeAfter()
 			/*
 			 * Fake NextUpdate to be "at the end of time"
 			 */
-			timeStringToCfDate(CSSM_APPLE_CRL_END_OF_TIME, 
-				strlen(CSSM_APPLE_CRL_END_OF_TIME), 
+			timeStringToCfDate(CSSM_APPLE_CRL_END_OF_TIME,
+				strlen(CSSM_APPLE_CRL_END_OF_TIME),
 				&mNotAfter);
 		}
 	}
 	else {
 		xTime = (CSSM_X509_TIME *)notAfterField->Data;
-		if(timeStringToCfDate((char *)xTime->time.Data, xTime->time.Length, &mNotAfter)) {
+		if(timeStringToCfDate((char *)xTime->time.Data, (unsigned)xTime->time.Length, &mNotAfter)) {
 			tpErrorLog("fetchNotBeforeAfter: malformed notAfter time\n");
 			crtn = mClCalls.invalidItemRtn;
 			goto errOut;
@@ -370,9 +370,9 @@ errOut:
 	}
 }
 
-/* 
+/*
  * Verify validity (not before/after) by comparing the reference
- * time (verifyString if present, or "now" if NULL) to the 
+ * time (verifyString if present, or "now" if NULL) to the
  * not before/after fields fetched from the item at construction.
  *
  * Called implicitly at construction; can be called again any time
@@ -389,10 +389,10 @@ CSSM_RETURN TPClItemInfo::calculateCurrent(
 	const char 			*verifyString)
 {
 	CFDateRef refTime = NULL;
-	
+
 	if(verifyString != NULL) {
 		/* caller specifies verification time base */
-		if(timeStringToCfDate(verifyString, strlen(verifyString), &refTime)) {
+		if(timeStringToCfDate(verifyString, (unsigned)strlen(verifyString), &refTime)) {
 			tpErrorLog("calculateCurrent: timeStringToCfDate error\n");
 			return CSSMERR_TP_INVALID_TIMESTRING;
 		}
@@ -403,7 +403,7 @@ CSSM_RETURN TPClItemInfo::calculateCurrent(
 	}
 	if(compareTimes(refTime, mNotBefore) < 0) {
 		mIsNotValidYet = true;
-		tpTimeDbg("\nTP_CERT_NOT_VALID_YET: now %g notBefore %g", 
+		tpTimeDbg("\nTP_CERT_NOT_VALID_YET: now %g notBefore %g",
 			CFDateGetAbsoluteTime(refTime), CFDateGetAbsoluteTime(mNotBefore));
 		CFRelease(refTime);
 		return mClCalls.notValidYetRtn;
@@ -414,7 +414,7 @@ CSSM_RETURN TPClItemInfo::calculateCurrent(
 
 	if(compareTimes(refTime, mNotAfter) > 0) {
 		mIsExpired = true;
-		tpTimeDbg("\nTP_CERT_EXPIRED: now %g notBefore %g", 
+		tpTimeDbg("\nTP_CERT_EXPIRED: now %g notBefore %g",
 			CFDateGetAbsoluteTime(refTime), CFDateGetAbsoluteTime(mNotBefore));
 		CFRelease(refTime);
 		return mClCalls.expiredRtn;
@@ -427,7 +427,7 @@ CSSM_RETURN TPClItemInfo::calculateCurrent(
 }
 
 
-/* 
+/*
  * No default constructor - this is the only way.
  * This caches the cert and fetches subjectName, issuerName, and
  * mPublicKey to ensure the incoming certData is well-constructed.
@@ -440,7 +440,7 @@ TPCertInfo::TPCertInfo(
 											// false - caller owns
 	const char			*verifyTime)		// may be NULL
 	:
-		TPClItemInfo(clHand, cspHand, tpCertClCalls, certData, 
+		TPClItemInfo(clHand, cspHand, tpCertClCalls, certData,
 			copyCertData, verifyTime),
 		mSubjectName(NULL),
 		mPublicKeyData(NULL),
@@ -472,7 +472,7 @@ TPCertInfo::TPCertInfo(
 	tpCertInfoDbg("TPCertInfo construct this %p", this);
 	mDlDbHandle.DLHandle = 0;
 	mDlDbHandle.DBHandle = 0;
-	
+
 	/* fetch subject name */
 	crtn = fetchField(&CSSMOID_X509V1SubjectName, &mSubjectName);
 	if(crtn) {
@@ -480,7 +480,7 @@ TPCertInfo::TPCertInfo(
 		releaseResources();
 		CssmError::throwMe(crtn);
 	}
-	
+
 	/* this cert's public key */
 	crtn = fetchField(&CSSMOID_CSSMKeyStruct, &mPublicKeyData);
 	if(crtn || (mPublicKeyData->Length != sizeof(CSSM_KEY))) {
@@ -489,7 +489,7 @@ TPCertInfo::TPCertInfo(
 		CssmError::throwMe(crtn);
 	}
 	mPublicKey = (CSSM_KEY_PTR)mPublicKeyData->Data;
-	
+
 	/* calculate other commonly used fields */
 	if(tpCompareCssmData(mSubjectName, issuerName())) {
 		/*
@@ -503,7 +503,7 @@ TPCertInfo::TPCertInfo(
 		mIsRoot = TRS_NotRoot;
 	}
 }
-	
+
 /* frees mSubjectName, mIssuerName, mCacheHand via mClHand */
 TPCertInfo::~TPCertInfo()
 {
@@ -541,10 +541,10 @@ const CSSM_DATA *TPCertInfo::subjectName()
 	return mSubjectName;
 }
 
-/* 
+/*
  * Perform semi-lazy evaluation of "rootness". Subject and issuer names
  * compared at constructor.
- * If avoidVerify is true, we won't do the signature verify: caller 
+ * If avoidVerify is true, we won't do the signature verify: caller
  * just wants to know if the subject and issuer names match.
  */
 bool TPCertInfo::isSelfSigned(bool avoidVerify)
@@ -577,7 +577,7 @@ bool TPCertInfo::isSelfSigned(bool avoidVerify)
 
 /*
  * Am I the issuer of the specified subject item? Returns true if so.
- * Works for subject certs as well as CRLs. 
+ * Works for subject certs as well as CRLs.
  */
 bool TPCertInfo::isIssuerOf(
 	const TPClItemInfo	&subject)
@@ -595,7 +595,7 @@ bool TPCertInfo::isIssuerOf(
 bool TPCertInfo::addStatusCode(CSSM_RETURN code)
 {
 	mNumStatusCodes++;
-	mStatusCodes = (CSSM_RETURN *)realloc(mStatusCodes, 
+	mStatusCodes = (CSSM_RETURN *)realloc(mStatusCodes,
 		mNumStatusCodes * sizeof(CSSM_RETURN));
 	mStatusCodes[mNumStatusCodes - 1] = code;
 	return isStatusFatal(code);
@@ -623,7 +623,7 @@ bool TPCertInfo::isStatusFatal(CSSM_RETURN code)
 	return true;
 }
 
-/* 
+/*
  * Indicate whether this cert's public key is a CSSM_KEYATTR_PARTIAL
  * key.
  */
@@ -696,8 +696,8 @@ bool TPCertInfo::shouldReject()
 }
 
 /*
- * Evaluate trust settings; returns true in *foundMatchingEntry if positive 
- * match found - i.e., cert chain construction is done. 
+ * Evaluate trust settings; returns true in *foundMatchingEntry if positive
+ * match found - i.e., cert chain construction is done.
  */
 OSStatus TPCertInfo::evaluateTrustSettings(
 	const CSSM_OID &policyOid,
@@ -707,9 +707,9 @@ OSStatus TPCertInfo::evaluateTrustSettings(
 	bool *foundMatchingEntry,			// RETURNED
 	bool *foundAnyEntry)				// RETURNED
 {
-	/* 
+	/*
 	 * We might have to force a re-evaluation if the requested key usage
-	 * is not a subset of what we already checked for (and cached). 
+	 * is not a subset of what we already checked for (and cached).
 	 */
 	if(mTrustSettingsEvaluated) {
 		bool doFlush = false;
@@ -738,10 +738,10 @@ OSStatus TPCertInfo::evaluateTrustSettings(
 		/* else we can safely use the cached values */
 	}
 	if(!mTrustSettingsEvaluated) {
-	
+
 		if(mCertHashStr == NULL) {
 			const CSSM_DATA *certData = itemData();
-			mCertHashStr = SecTrustSettingsCertHashStrFromData(certData->Data, 
+			mCertHashStr = SecTrustSettingsCertHashStrFromData(certData->Data,
 				certData->Length);
 		}
 
@@ -750,7 +750,7 @@ OSStatus TPCertInfo::evaluateTrustSettings(
 			policyString,
 			policyStringLen,
 			keyUse,
-			/* 
+			/*
 			 * This is the purpose of the avoidVerify option, right here.
 			 * If this is a root cert and it has trust settings, we avoid
 			 * the signature verify. If it turns out there are no trust
@@ -772,7 +772,7 @@ OSStatus TPCertInfo::evaluateTrustSettings(
 		mTrustSettingsKeyUsage = keyUse;
 		#ifndef	NDEBUG
 		if(mTrustSettingsFoundMatchingEntry) {
-			tpTrustSettingsDbg("evaluateTrustSettings: found for %p result %d", 
+			tpTrustSettingsDbg("evaluateTrustSettings: found for %p result %d",
 				this, (int)mTrustSettingsResult);
 		}
 		#endif
@@ -784,7 +784,7 @@ OSStatus TPCertInfo::evaluateTrustSettings(
 	*foundMatchingEntry = mTrustSettingsFoundMatchingEntry;
 	*foundAnyEntry = mTrustSettingsFoundAnyEntry;
 
-	return noErr;
+	return errSecSuccess;
 }
 
 /* true means "verification terminated due to user trust setting" */
@@ -799,7 +799,7 @@ bool TPCertInfo::trustSettingsFound()
 	}
 }
 
-/* 
+/*
  * Determine if this has an empty SubjectName field. Returns true if so.
  */
 bool TPCertInfo::hasEmptySubjectName()
@@ -810,16 +810,16 @@ bool TPCertInfo::hasEmptySubjectName()
 	 * field, as well as a possible BER-encoded subject with some extra cruft.
 	 */
 	if((mSubjectName == NULL) || (mSubjectName->Length <= 4)) {
-		return true;	
+		return true;
 	}
 	else {
-		return false;	
+		return false;
 	}
 }
 
-/* 
+/*
  * Free mUniqueRecord if it exists.
- * This is *not* done in our destructor because this record sometimes 
+ * This is *not* done in our destructor because this record sometimes
  * has to persist in the form of a CSSM evidence chain.
  */
 void TPCertInfo::freeUniqueRecord()
@@ -834,7 +834,7 @@ void TPCertInfo::freeUniqueRecord()
 /***
  *** TPCertGroup class
  ***/
- 
+
 /* build empty group */
 TPCertGroup::TPCertGroup(
 	Allocator			&alloc,
@@ -848,12 +848,12 @@ TPCertGroup::TPCertGroup(
 	tpCertInfoDbg("TPCertGroup simple construct this %p", this);
 	/* nothing for now */
 }
-	
+
 /*
  * Construct from unordered, untrusted CSSM_CERTGROUP. Resulting
  * TPCertInfos are more or less in the same order as the incoming
  * certs, though incoming certs are discarded if they don't parse.
- * No verification of any sort is performed. 
+ * No verification of any sort is performed.
  */
 TPCertGroup::TPCertGroup(
 	const CSSM_CERTGROUP 	&CertGroupFrag,
@@ -879,7 +879,7 @@ TPCertGroup::TPCertGroup(
 		CssmError::throwMe(CSSMERR_TP_INVALID_CL_HANDLE);
 	}
 	if(firstCertMustBeValid) {
-		if( (CertGroupFrag.NumCerts == 0) || 			
+		if( (CertGroupFrag.NumCerts == 0) ||
 	        (CertGroupFrag.GroupList.CertList[0].Data == NULL) ||
 	        (CertGroupFrag.GroupList.CertList[0].Length == 0)) {
 				CssmError::throwMe(CSSMERR_TP_INVALID_CERTIFICATE);
@@ -903,9 +903,9 @@ TPCertGroup::TPCertGroup(
 		default:
 			CssmError::throwMe(CSSMERR_TP_UNKNOWN_FORMAT);
 	}
-	
-	/* 
-	 * Add remaining input certs to mCertInfo. 
+
+	/*
+	 * Add remaining input certs to mCertInfo.
 	 */
 	TPCertInfo *certInfo = NULL;
 	for(unsigned certDex=0; certDex<CertGroupFrag.NumCerts; certDex++) {
@@ -960,7 +960,7 @@ void TPCertGroup::appendCert(
 		else {
 			mSizeofCertInfo *= 2;
 		}
-		mCertInfo = (TPCertInfo **)mAlloc.realloc(mCertInfo, 
+		mCertInfo = (TPCertInfo **)mAlloc.realloc(mCertInfo,
 			mSizeofCertInfo * sizeof(TPCertInfo *));
 	}
 	mCertInfo[mNumCerts++] = certInfo;
@@ -976,14 +976,14 @@ TPCertInfo *TPCertGroup::certAtIndex(
 }
 
 TPCertInfo *TPCertGroup::removeCertAtIndex(
-	unsigned			index)				// doesn't delete the cert, just 
+	unsigned			index)				// doesn't delete the cert, just
 											// removes it from out list
 {
 	if(index > (mNumCerts - 1)) {
 		CssmError::throwMe(CSSMERR_TP_INTERNAL_ERROR);
 	}
 	TPCertInfo *rtn = mCertInfo[index];
-	
+
 	/* removed requested element and compact remaining array */
 	unsigned i;
 	for(i=index; i<(mNumCerts - 1); i++) {
@@ -1017,21 +1017,21 @@ TPCertInfo *TPCertGroup::lastCert()
 /* build a CSSM_CERTGROUP corresponding with our mCertInfo */
 CSSM_CERTGROUP_PTR TPCertGroup::buildCssmCertGroup()
 {
-	CSSM_CERTGROUP_PTR cgrp = 
+	CSSM_CERTGROUP_PTR cgrp =
 		(CSSM_CERTGROUP_PTR)mAlloc.malloc(sizeof(CSSM_CERTGROUP));
 	cgrp->NumCerts = mNumCerts;
 	cgrp->CertGroupType = CSSM_CERTGROUP_DATA;
 	cgrp->CertType = CSSM_CERT_X_509v3;
-	cgrp->CertEncoding = CSSM_CERT_ENCODING_DER; 
+	cgrp->CertEncoding = CSSM_CERT_ENCODING_DER;
 	if(mNumCerts == 0) {
 		/* legal */
 		cgrp->GroupList.CertList = NULL;
 		return cgrp;
 	}
-	cgrp->GroupList.CertList = (CSSM_DATA_PTR)mAlloc.calloc(mNumCerts, 
+	cgrp->GroupList.CertList = (CSSM_DATA_PTR)mAlloc.calloc(mNumCerts,
 		sizeof(CSSM_DATA));
 	for(unsigned i=0; i<mNumCerts; i++) {
-		tpCopyCssmData(mAlloc, mCertInfo[i]->itemData(), 
+		tpCopyCssmData(mAlloc, mCertInfo[i]->itemData(),
 			&cgrp->GroupList.CertList[i]);
 	}
 	return cgrp;
@@ -1041,13 +1041,13 @@ CSSM_CERTGROUP_PTR TPCertGroup::buildCssmCertGroup()
 CSSM_TP_APPLE_EVIDENCE_INFO *TPCertGroup::buildCssmEvidenceInfo()
 {
 	CSSM_TP_APPLE_EVIDENCE_INFO *infoArray;
-	
+
 	infoArray = (CSSM_TP_APPLE_EVIDENCE_INFO *)mAlloc.calloc(mNumCerts,
 		sizeof(CSSM_TP_APPLE_EVIDENCE_INFO));
 	for(unsigned i=0; i<mNumCerts; i++) {
 		TPCertInfo *certInfo = mCertInfo[i];
 		CSSM_TP_APPLE_EVIDENCE_INFO *evInfo = &infoArray[i];
-		
+
 		/* first the booleans */
 		if(certInfo->isExpired()) {
 			evInfo->StatusBits |= CSSM_CERT_STATUS_EXPIRED;
@@ -1124,10 +1124,10 @@ CSSM_TP_APPLE_EVIDENCE_INFO *TPCertGroup::buildCssmEvidenceInfo()
 	}
 	return infoArray;
 }
-		
+
 /* Given a status for basic construction of a cert group and a status
  * of (optional) policy verification, plus the implicit notBefore/notAfter
- * status in the certs, calculate a global return code. This just 
+ * status in the certs, calculate a global return code. This just
  * encapsulates a policy for CertGroupConstruct and CertGroupVerify.
  */
 CSSM_RETURN TPCertGroup::getReturnCode(
@@ -1148,13 +1148,13 @@ CSSM_RETURN TPCertGroup::getReturnCode(
 	bool allowPostdated = allowExpired; // flag overrides any temporal invalidity
 	bool requireRevPerCert = (actionFlags & CSSM_TP_ACTION_REQUIRE_REV_PER_CERT) ?
 		true : false;
-		
+
 	/* check for expired, not valid yet */
 	for(unsigned i=0; i<mNumCerts; i++) {
 		TPCertInfo *ci = mCertInfo[i];
-		/* 
-		 * Note avoidVerify = true for isSelfSigned(); if it were appropriate to 
-		 * verify the signature, that would have happened in 
+		/*
+		 * Note avoidVerify = true for isSelfSigned(); if it were appropriate to
+		 * verify the signature, that would have happened in
 		 * buildCssmEvidenceInfo() at the latest.
 		 */
 		if(ci->isExpired() &&
@@ -1162,7 +1162,7 @@ CSSM_RETURN TPCertGroup::getReturnCode(
 		    ci->isStatusFatal(CSSMERR_TP_CERT_EXPIRED)) {	// allowed for this cert
 			expired = true;
 		}
-		if(ci->isNotValidYet() && 
+		if(ci->isNotValidYet() &&
 		   ci->isStatusFatal(CSSMERR_TP_CERT_NOT_VALID_YET)) {
 			postdated = true;
 		}
@@ -1173,7 +1173,7 @@ CSSM_RETURN TPCertGroup::getReturnCode(
 	if(postdated && !allowPostdated) {
 		return CSSMERR_TP_CERT_NOT_VALID_YET;
 	}
-	
+
 	/* Check for missing revocation check */
 	if(requireRevPerCert) {
 		for(unsigned i=0; i<mNumCerts; i++) {
@@ -1210,11 +1210,11 @@ void TPCertGroup::setAllUnused()
 /*
  * See if the specified error status is allowed (return true) or
  * fatal (return false) per each cert's mAllowedErrs[]. Returns
- * true if any cert returns false for its isStatusFatal() call. 
+ * true if any cert returns false for its isStatusFatal() call.
  * The list of errors which can apply to cert-chain-wide allowedErrors
  * is right here; if the incoming error is not in that list, we
  * return false. If the incoming error code is CSSM_OK we return
- * true as a convenience for our callers. 
+ * true as a convenience for our callers.
  */
 bool TPCertGroup::isAllowedError(
 	CSSM_RETURN	code)
@@ -1232,7 +1232,7 @@ bool TPCertGroup::isAllowedError(
 			break;
 		default:
 			/* not a candidate for cert-chain-wide allowedErrors */
-			return false; 
+			return false;
 	}
 
 	for(unsigned dex=0; dex<mNumCerts; dex++) {
@@ -1254,13 +1254,13 @@ bool TPCertGroup::isInGroup(TPCertInfo &certInfo)
 {
 	for(unsigned dex=0; dex<mNumCerts; dex++) {
 		if(tpCompareCssmData(certInfo.itemData(), mCertInfo[dex]->itemData())) {
-			return true;	
+			return true;
 		}
 	}
 	return false;
 }
 
-/* 
+/*
  * Encode issuing certs in this group as a PEM-encoded data blob.
  * Caller must free.
  */
@@ -1323,7 +1323,7 @@ void TPCertGroup::encodeIssuers(CSSM_DATA &issuers)
  * Search unused incoming certs to find an issuer of specified cert or CRL.
  * WARNING this assumes a valid "used" state for all certs in this group.
  * If partialIssuerKey is true on return, caller must re-verify signature
- * of subject later when sufficient info is available. 
+ * of subject later when sufficient info is available.
  */
 TPCertInfo *TPCertGroup::findIssuerForCertOrCrl(
 	const TPClItemInfo &subject,
@@ -1331,15 +1331,15 @@ TPCertInfo *TPCertGroup::findIssuerForCertOrCrl(
 {
 	partialIssuerKey = false;
 	TPCertInfo *expiredIssuer = NULL;
-	
+
 	for(unsigned certDex=0; certDex<mNumCerts; certDex++) {
 		TPCertInfo *certInfo = certAtIndex(certDex);
-		
+
 		/* has this one already been used in this search? */
 		if(certInfo->used()) {
 			continue;
 		}
-		
+
 		/* subject/issuer names match? */
 		if(certInfo->isIssuerOf(subject)) {
 			/* yep, do a sig verify */
@@ -1351,9 +1351,9 @@ TPCertInfo *TPCertGroup::findIssuerForCertOrCrl(
 					partialIssuerKey = true;
 					/* and fall thru */
 				case CSSM_OK:
-					/* 
+					/*
 					 * Temporal validity check: if we're not already holding an expired
-					 * issuer, and this one's invalid, hold it and keep going. 
+					 * issuer, and this one's invalid, hold it and keep going.
 					 */
 					if((crtn == CSSM_OK) && (expiredIssuer == NULL)) {
 						if(certInfo->isExpired() || certInfo->isNotValidYet()) {
@@ -1379,32 +1379,32 @@ TPCertInfo *TPCertGroup::findIssuerForCertOrCrl(
 		expiredIssuer->used(true);
 		return expiredIssuer;
 	}
-	
+
 	/* not found */
 	return NULL;
-} 	
+}
 
 /*
- * Construct ordered, verified cert chain from a variety of inputs. 
- * Time validity does not affect the function return or any status, 
- * we always try to find a valid cert to replace an expired or 
- * not-yet-valid cert if we can. Final temporal validity of each 
- * cert must be checked by caller (it's stored in each TPCertInfo 
- * we add to ourself during construction). 
- * 
+ * Construct ordered, verified cert chain from a variety of inputs.
+ * Time validity does not affect the function return or any status,
+ * we always try to find a valid cert to replace an expired or
+ * not-yet-valid cert if we can. Final temporal validity of each
+ * cert must be checked by caller (it's stored in each TPCertInfo
+ * we add to ourself during construction).
+ *
  * Only possible error returns are:
  *	 CSSMERR_TP_CERTIFICATE_CANT_OPERATE : issuer cert was found with a partial
- *			public key, rendering full verification impossible. 
- *   CSSMERR_TP_INVALID_CERT_AUTHORITY : issuer cert was found with a partial 
+ *			public key, rendering full verification impossible.
+ *   CSSMERR_TP_INVALID_CERT_AUTHORITY : issuer cert was found with a partial
  *			public key and which failed to perform subsequent signature
  *			verification.
  *
- * Other interesting status is returned via the verifiedToRoot and 
- * verifiedToAnchor flags. 
+ * Other interesting status is returned via the verifiedToRoot and
+ * verifiedToAnchor flags.
  *
- * NOTE: is it the caller's responsibility to call setAllUnused() for both 
+ * NOTE: is it the caller's responsibility to call setAllUnused() for both
  * incoming cert groups (inCertGroup and gatheredCerts). We don't do that
- * here because we may call ourself recursively. 
+ * here because we may call ourself recursively.
  */
 CSSM_RETURN TPCertGroup::buildCertGroup(
 	const TPClItemInfo		&subjectItem,	// Cert or CRL
@@ -1418,14 +1418,14 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 	/* FIXME - maybe this should be a TPCertGroup */
 	uint32 					numAnchorCerts,
 	const CSSM_DATA			*anchorCerts,
-	
-	/* 
+
+	/*
 	 * Certs to be freed by caller (i.e., TPCertInfo which we allocate
 	 * as a result of using a cert from anchorCerts or dbList) are added
 	 * to this group.
 	 */
 	TPCertGroup				&certsToBeFreed,
-	
+
 	/*
 	 * Other certificates gathered during the course of this operation,
 	 * currently consisting of certs fetched from DBs and from the net.
@@ -1433,32 +1433,32 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 	 * it's an optimization for the case when we're building a cert group
 	 * for TPCrlInfo::verifyWithContext - we avoid re-fetching certs from
 	 * the net which are needed to verify both the subject cert and a CRL.
-	 * We don't modify this TPCertGroup, we only use certs from it. 
+	 * We don't modify this TPCertGroup, we only use certs from it.
 	 */
 	TPCertGroup				*gatheredCerts,
-	
+
 	/*
 	 * Indicates that subjectItem is a cert in this cert group.
-	 * If true, that cert will be tested for "root-ness", including 
+	 * If true, that cert will be tested for "root-ness", including
 	 *   -- subject/issuer compare
 	 *   -- signature self-verify
 	 *   -- anchor compare
 	 */
 	CSSM_BOOL				subjectIsInGroup,
-	
-	/* 
+
+	/*
 	 * CSSM_TP_ACTION_FETCH_CERT_FROM_NET,
 	 * CSSM_TP_ACTION_TRUST_SETTING,
-	 * CSSM_TP_ACTION_IMPLICIT_ANCHORS are interesting 
+	 * CSSM_TP_ACTION_IMPLICIT_ANCHORS are interesting
 	 */
 	CSSM_APPLE_TP_ACTION_FLAGS	actionFlags,
-	
+
 	/* CSSM_TP_ACTION_TRUST_SETTING parameters */
 	const CSSM_OID			*policyOid,
 	const char				*policyStr,
 	uint32					policyStrLen,
 	SecTrustSettingsKeyUsage leafKeyUse,				// usage of *first* cert in chain
-	
+
 	/* returned */
 	CSSM_BOOL				&verifiedToRoot,			// end of chain self-verifies
 	CSSM_BOOL				&verifiedToAnchor,			// end of chain in anchors
@@ -1473,52 +1473,52 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 	bool attemptNetworkFetch = false;
 	CSSM_BOOL firstSubjectIsInGroup = subjectIsInGroup;
 	TPCertInfo *endCert;
-	
+
 	tpVfyDebug("buildCertGroup top");
-	
-	/* possible expired root which we'll only use if we can't find 
+
+	/* possible expired root which we'll only use if we can't find
 	 * a better one */
 	TPCertInfo *expiredRoot = NULL;
-	
+
 	/* and the general case of an expired or not yet valid cert */
 	TPCertInfo *expiredIssuer = NULL;
-	
+
 	verifiedToRoot = CSSM_FALSE;
 	verifiedToAnchor = CSSM_FALSE;
 	verifiedViaTrustSettings = CSSM_FALSE;
-	
+
 	/*** main loop to seach inCertGroup and dbList ***
 	 *
-	 * Exit loop on: 
+	 * Exit loop on:
 	 *   -- find a root cert in the chain (self-signed)
 	 *   -- find a non-root cert which is also in the anchors list
 	 *   -- find a cert which is trusted per Trust Settings (if enabled)
 	 *   -- memory error
-	 *   -- or no more certs to add to chain. 
+	 *   -- or no more certs to add to chain.
 	 */
 	for(;;) {
-		/* 
-		 * Top of loop: thisSubject is the item we're trying to verify. 
+		/*
+		 * Top of loop: thisSubject is the item we're trying to verify.
 		 */
-		 
+
 		/* is thisSubject a root cert or listed in user trust list?  */
 		if(subjectIsInGroup) {
 			TPCertInfo *subjCert = lastCert();
 			assert(subjCert != NULL);
-			
+
 			if(actionFlags & CSSM_TP_ACTION_TRUST_SETTINGS)	{
 				assert(policyOid != NULL);
-				
-				/* 
+
+				/*
 				 * Figure out key usage. If this is a leaf cert, the caller - actually
 				 * the per-policy code - inferred the usage. Else it could be for
-				 * verifying a cert or a CRL. 
+				 * verifying a cert or a CRL.
 				 *
-				 * We want to avoid multiple calls to the effective portion of 
-				 * evaluateTrustSettings(), but a CA cert could be usable for only 
-				 * signing certs and not CRLs. Thus we're evaluating a CA cert, 
-				 * try to evaluate for signing certs *and* CRLs in case we come 
-				 * this way again later when performing CRL verification. If that 
+				 * We want to avoid multiple calls to the effective portion of
+				 * evaluateTrustSettings(), but a CA cert could be usable for only
+				 * signing certs and not CRLs. Thus we're evaluating a CA cert,
+				 * try to evaluate for signing certs *and* CRLs in case we come
+				 * this way again later when performing CRL verification. If that
 				 * fails, then retry with just cert signing.
 				 */
 				SecTrustSettingsKeyUsage localKeyUse;
@@ -1531,7 +1531,7 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 				else {
 					localKeyUse = kSecTrustSettingsKeyUseSignCert | kSecTrustSettingsKeyUseSignRevocation;
 					/* and if necessary */
-					doRetry = true;	
+					doRetry = true;
 				}
 				/* this lets us avoid searching for the same thing twice when there
 				 * is in fact no entry for it */
@@ -1547,14 +1547,14 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 				if(!trustSettingsFound && foundEntry && doRetry) {
 					tpTrustSettingsDbg("buildCertGroup: retrying evaluateTrustSettings with Cert only");
 					ortn = subjCert->evaluateTrustSettings(*policyOid,
-						policyStr, policyStrLen, kSecTrustSettingsKeyUseSignCert, 
+						policyStr, policyStrLen, kSecTrustSettingsKeyUseSignCert,
 						&trustSettingsFound, &foundEntry);
 					if(ortn) {
 						crtn = ortn;
 						goto final_out;
 					}
 				}
-				if(trustSettingsFound) {					
+				if(trustSettingsFound) {
 					switch(subjCert->trustSettingsResult()) {
 						case kSecTrustSettingsResultInvalid:
 							/* should not happen... */
@@ -1571,14 +1571,14 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 							crtn = CSSMERR_APPLETP_TRUST_SETTING_DENY;
 							break;
 						case kSecTrustSettingsResultUnspecified:
-							/* special case here: this means "keep going, we don't trust or 
+							/* special case here: this means "keep going, we don't trust or
  							 * distrust this cert". Typically used to express allowed errors
-							 * only. 
+							 * only.
 							 */
 							tpTrustSettingsDbg("TrustResultUnspecified found");
 							goto post_trust_setting;
 						default:
-							tpTrustSettingsDbg("Unknown TrustResult (%d)", 
+							tpTrustSettingsDbg("Unknown TrustResult (%d)",
 								(int)subjCert->trustSettingsResult());
 							crtn = CSSMERR_TP_INTERNAL_ERROR;
 							break;
@@ -1593,14 +1593,14 @@ post_trust_setting:
 			if(subjCert->isSelfSigned()) {
 				/* We're at the end of the chain. */
 				verifiedToRoot = CSSM_TRUE;
-				
+
 				/*
 				 * Special case if this root is temporally invalid (and it's not
 				 * the leaf): remove it from the outgoing cert group, save it,
-				 * and proceed, looking another (good) root in anchors. 
+				 * and proceed, looking another (good) root in anchors.
 				 * There's no way we'll find another good one in this loop.
 				 */
-				if((subjCert->isExpired() || subjCert->isNotValidYet()) && 
+				if((subjCert->isExpired() || subjCert->isNotValidYet()) &&
 				   (!firstSubjectIsInGroup || (mNumCerts > 1))) {
 					tpDebug("buildCertGroup: EXPIRED ROOT %p, looking for good one", subjCert);
 					expiredRoot = subjCert;
@@ -1618,7 +1618,7 @@ post_trust_setting:
 				}
 				break;		/* out of main loop */
 			}	/* root */
-			
+
 			/*
 			 * If this non-root cert is in the provided anchors list,
 			 * we can stop building the chain at this point.
@@ -1666,39 +1666,39 @@ post_trust_setting:
 					break; /* out of main loop */
 				}
 			} /* non-root */
-			
+
 		}	/* subjectIsInGroup */
-		
-		/* 
+
+		/*
 		 * Search unused incoming certs to find an issuer.
 		 * Both cert groups are optional.
 		 * We'll add issuer to outCertGroup below.
 		 * If we find  a cert that's expired or not yet valid, we hold on to it
-		 * and look for a better one. If we don't find it here we drop back to the 
-		 * expired one at the end of the loop. If that expired cert is a root 
-		 * cert, we'll use the expiredRoot mechanism (see above) to roll back and 
-		 * see if we can find a good root in the incoming anchors. 
+		 * and look for a better one. If we don't find it here we drop back to the
+		 * expired one at the end of the loop. If that expired cert is a root
+		 * cert, we'll use the expiredRoot mechanism (see above) to roll back and
+		 * see if we can find a good root in the incoming anchors.
 	 	 */
 		if(inCertGroup != NULL) {
 			bool partial = false;
-			issuerCert = inCertGroup->findIssuerForCertOrCrl(*thisSubject, 
+			issuerCert = inCertGroup->findIssuerForCertOrCrl(*thisSubject,
 				partial);
 			if(issuerCert) {
 				issuerCert->isFromInputCerts(true);
 				if(partial) {
 					/* deal with this later */
 					foundPartialIssuer = true;
-					tpDebug("buildCertGroup: PARTIAL Cert FOUND in inCertGroup");		
+					tpDebug("buildCertGroup: PARTIAL Cert FOUND in inCertGroup");
 				}
 				else {
-					tpDebug("buildCertGroup: Cert FOUND in inCertGroup");		
+					tpDebug("buildCertGroup: Cert FOUND in inCertGroup");
 				}
 			}
 		}
 		if(issuerCert != NULL) {
 			if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
 				if(expiredIssuer == NULL) {
-					tpDebug("buildCertGroup: saving expired cert %p (1)", issuerCert);		
+					tpDebug("buildCertGroup: saving expired cert %p (1)", issuerCert);
 					expiredIssuer = issuerCert;
 					issuerCert = NULL;
 				}
@@ -1714,7 +1714,7 @@ post_trust_setting:
 				expiredIssuer = NULL;
 			}
 		}
-		
+
 		if((issuerCert == NULL) && (gatheredCerts != NULL)) {
 			bool partial = false;
 			issuerCert = gatheredCerts->findIssuerForCertOrCrl(*thisSubject,
@@ -1723,18 +1723,18 @@ post_trust_setting:
 				if(partial) {
 					/* deal with this later */
 					foundPartialIssuer = true;
-					tpDebug("buildCertGroup: PARTIAL Cert FOUND in gatheredCerts");		
+					tpDebug("buildCertGroup: PARTIAL Cert FOUND in gatheredCerts");
 				}
 				else {
 					tpDebug("buildCertGroup: Cert FOUND in gatheredCerts");
 				}
 			}
 		}
-		
+
 		if(issuerCert != NULL) {
 			if(issuerCert->isExpired() || issuerCert->isNotValidYet()) {
 				if(expiredIssuer == NULL) {
-					tpDebug("buildCertGroup: saving expired cert %p (2)", issuerCert);		
+					tpDebug("buildCertGroup: saving expired cert %p (2)", issuerCert);
 					expiredIssuer = issuerCert;
 					issuerCert = NULL;
 				}
@@ -1776,7 +1776,7 @@ post_trust_setting:
 
 				/*
 				 * Handle Radar 4566041, endless loop of cross-signed certs.
-				 * This can only happen when fetching certs from a DLDB or 
+				 * This can only happen when fetching certs from a DLDB or
 				 * from the net; we prevent that from happening when the certs
 				 * are in inCertGroup or gatheredCerts by keeping track of those
 				 * certs' mUsed state.
@@ -1792,7 +1792,7 @@ post_trust_setting:
 					if(partial) {
 						/* deal with this later */
 						foundPartialIssuer = true;
-						tpDebug("buildCertGroup: PARTIAL Cert FOUND in dbList");		
+						tpDebug("buildCertGroup: PARTIAL Cert FOUND in dbList");
 					}
 					else {
 						tpDebug("buildCertGroup: Cert FOUND in dbList");
@@ -1800,33 +1800,33 @@ post_trust_setting:
 				}
 			}
 		}	/*  searching DLDB list */
-		
+
 		/*
 		 * Note: we don't handle an expired cert returned from tpDbFindIssuerCert()
-		 * in any special way like we do with findIssuerForCertOrCrl(). 
+		 * in any special way like we do with findIssuerForCertOrCrl().
 		 * tpDbFindIssuerCert() does its best to give us a temporally valid cert; if
 		 * it returns an expired cert (or, if findIssuerForCertOrCrl() gave us an
-		 * expired cert and tpDbFindIssuerCert() could not do any better), that's all 
-		 * we have to work with at this point. We'll go back to the top of the loop 
-		 * and apply trust settings if enabled; if an expired cert is trusted per 
-		 * Trust Settings, we're done. (Note that anchors are fetched from a DLDB 
-		 * when Trust Settings are enabled, so even if two roots with the same key 
-		 * and subject name are in DLDBs, and one of them is expired, we'll have the 
-		 * good one at this time because of tpDbFindIssuerCert()'s ability to find 
-		 * the best cert.) 
-		 * 
-		 * If Trust Settings are not enabled, and we have an expired root at this 
-		 * point, the expiredRoot mechanism is used to roll back and search for 
-		 * an anchor that verifies the last good cert. 
+		 * expired cert and tpDbFindIssuerCert() could not do any better), that's all
+		 * we have to work with at this point. We'll go back to the top of the loop
+		 * and apply trust settings if enabled; if an expired cert is trusted per
+		 * Trust Settings, we're done. (Note that anchors are fetched from a DLDB
+		 * when Trust Settings are enabled, so even if two roots with the same key
+		 * and subject name are in DLDBs, and one of them is expired, we'll have the
+		 * good one at this time because of tpDbFindIssuerCert()'s ability to find
+		 * the best cert.)
+		 *
+		 * If Trust Settings are not enabled, and we have an expired root at this
+		 * point, the expiredRoot mechanism is used to roll back and search for
+		 * an anchor that verifies the last good cert.
 		 */
-		 
+
 		if((issuerCert == NULL) &&			/* tpDbFindIssuerCert() hasn't found one and
 											 * we don't have a good one */
 		   (expiredIssuer != NULL)) {		/* but we have an expired candidate */
-			/* 
-			 * OK, we'll take the expired issuer. 
+			/*
+			 * OK, we'll take the expired issuer.
 			 * Note we don't have to free expiredIssuer if we found a good one since
-			 * expiredIssuer can only come from inCertGroup or gatheredCerts (not from 
+			 * expiredIssuer can only come from inCertGroup or gatheredCerts (not from
 			 * dbList).
 			 */
 			tpDebug("buildCertGroup: USING expired cert %p", expiredIssuer);
@@ -1837,7 +1837,7 @@ post_trust_setting:
 			/* end of search, broken chain */
 			break;
 		}
-		
+
 		/*
 		 * One way or the other, we've found a cert which verifies subjectCert.
 		 * Add the issuer to outCertGroup and make it the new thisSubject for
@@ -1848,21 +1848,21 @@ post_trust_setting:
 		subjectIsInGroup = CSSM_TRUE;
 		issuerCert = NULL;
 	}	/* main loop */
-	
-	/* 
-	 * This can be NULL if we're evaluating a CRL (and we haven't 
+
+	/*
+	 * This can be NULL if we're evaluating a CRL (and we haven't
 	 * gotten very far).
 	 */
 	endCert = lastCert();
 
-	/* 
+	/*
 	 * This, on the other hand, is always valid. It could be a CRL.
 	 */
 	assert(thisSubject != NULL);
-	
+
 	if( (actionFlags & CSSM_TP_ACTION_IMPLICIT_ANCHORS) &&
 		( (endCert && endCert->isSelfSigned()) || expiredRoot) ) {
-		/* 
+		/*
 		 * Caller will be satisfied with this; skip further anchor processing.
 		 */
 		tpAnchorDebug("buildCertGroup: found IMPLICIT anchor");
@@ -1873,21 +1873,21 @@ post_trust_setting:
 		goto post_anchor;
 	}
 	assert(anchorCerts != NULL);
-	
+
 	/*** anchor cert handling ***/
-	
-	/* 
+
+	/*
 	 * Case 1: If thisSubject is not a root cert, try to validate with incoming anchor certs.
 	 */
 	expiredIssuer = NULL;
 	if(!(endCert && endCert->isSelfSigned())) {
 		for(certDex=0; certDex<numAnchorCerts; certDex++) {
-			
+
 			try {
 				anchorInfo = new TPCertInfo(clHand,
 					cspHand,
-					&anchorCerts[certDex], 
-					TIC_NoCopy, 
+					&anchorCerts[certDex],
+					TIC_NoCopy,
 					verifyTime);
 			}
 			catch(...) {
@@ -1895,8 +1895,8 @@ post_trust_setting:
 				anchorInfo = NULL;
 				continue;
 			}
-			
-			/* 
+
+			/*
 			 * We must subsequently delete anchorInfo one way or the other.
 			 * If we add it to tpCertGroup, we also add it to certsToBeFreed.
 			 * Otherwise we delete it.
@@ -1910,14 +1910,14 @@ post_trust_setting:
 			}
 
 			crtn = thisSubject->verifyWithIssuer(anchorInfo);
-			
+
 			if(crtn == CSSM_OK) {
 				if(anchorInfo->isExpired() || anchorInfo->isNotValidYet()) {
 					if(expiredIssuer == NULL) {
-						/* 
-						 * Hang on to this one; keep looking for a better one. 
+						/*
+						 * Hang on to this one; keep looking for a better one.
 						 */
-						tpDebug("buildCertGroup: saving expired anchor %p", anchorInfo);		
+						tpDebug("buildCertGroup: saving expired anchor %p", anchorInfo);
 						expiredIssuer = anchorInfo;
 						/* flag this condition for the switch below */
 						crtn = CSSM_CERT_STATUS_EXPIRED;
@@ -1929,8 +1929,8 @@ post_trust_setting:
 					/* else we already have an expired candidate anchor */
 				}
 				else {
-					/* 
-					 * Done with possible expiredIssuer. We don't delete it, since we already added 
+					/*
+					 * Done with possible expiredIssuer. We don't delete it, since we already added
 					 * it to certsToBeFreed, above.
 					 */
 					if(expiredIssuer != NULL) {
@@ -1939,13 +1939,13 @@ post_trust_setting:
 					}
 				}
 			}
-			
+
 			switch(crtn) {
 				case CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE:
 					/*
 					 * A bit of a corner case. Found an issuer in AnchorCerts, but
 					 * we can't do a signature verify since the issuer has a partial
-					 * public key. Proceed but return 
+					 * public key. Proceed but return
 					 * CSSMERR_TP_CERTIFICATE_CANT_OPERATE.
 					 */
 					if(anchorInfo->addStatusCode(CSSMERR_TP_CERTIFICATE_CANT_OPERATE)) {
@@ -1961,11 +1961,11 @@ post_trust_setting:
 					/*  A fully successful return. */
 					verifiedToAnchor = CSSM_TRUE;
 					if(anchorInfo->isSelfSigned()) {
-						verifiedToRoot = CSSM_TRUE;	
+						verifiedToRoot = CSSM_TRUE;
 					}
-					
+
 					/*
-					 * Add this anchor cert to the output group 
+					 * Add this anchor cert to the output group
 					 * and to certsToBeFreed.
 					 */
 					appendCert(anchorInfo);
@@ -1973,7 +1973,7 @@ post_trust_setting:
 					assert(!anchorInfo->isFromInputCerts());
 					anchorInfo->index(certDex);
 					certsToBeFreed.appendCert(anchorInfo);
-					tpDebug("buildCertGroup: Cert FOUND by signer in AnchorList");	
+					tpDebug("buildCertGroup: Cert FOUND by signer in AnchorList");
 					tpAnchorDebug("buildCertGroup: Cert FOUND by signer in AnchorList");
 					/* one more thing: partial public key processing needed? */
 					if(foundPartialIssuer) {
@@ -1982,7 +1982,7 @@ post_trust_setting:
 					else {
 						return crtn;
 					}
-					
+
 				default:
 					/* continue to next anchor */
 					if(crtn != CSSM_CERT_STATUS_EXPIRED) {
@@ -1995,17 +1995,17 @@ post_trust_setting:
 			}
 		}	/* for each anchor */
 	}	/* thisSubject not a root cert */
-	
+
 	/*
 	 * Case 2: Check whether endCert is present in anchor certs.
 	 *
-	 * Also used to validate an expiredRoot that we pulled off the chain in 
-	 * hopes of finding something better (which, if we're here, we haven't done). 
+	 * Also used to validate an expiredRoot that we pulled off the chain in
+	 * hopes of finding something better (which, if we're here, we haven't done).
 	 *
 	 * Note that the main loop above did the actual root self-verify test.
 	 */
 	if(endCert || expiredRoot) {
-		
+
 		TPCertInfo *theRoot;
 		if(expiredRoot) {
 			/* this is NOT in our outgoing cert group (yet) */
@@ -2026,7 +2026,7 @@ post_trust_setting:
 					theRoot->index(certDex);
 				}
 				if(expiredRoot) {
-					/* verified to anchor but caller will see 
+					/* verified to anchor but caller will see
 					 * CSSMERR_TP_CERT_EXPIRED */
 					appendCert(expiredRoot);
 				}
@@ -2040,7 +2040,7 @@ post_trust_setting:
 			}
 		}
 		tpAnchorDebug("buildCertGroup: end cert in input, NOT anchors");
-		
+
 		if(!expiredRoot && endCert->isSelfSigned()) {
 			/* verified to a root cert which is not an anchor */
 			/* Generally maps to CSSMERR_TP_INVALID_ANCHOR_CERT by caller */
@@ -2063,7 +2063,7 @@ post_trust_setting:
 		appendCert(expiredIssuer);
 		verifiedToAnchor = CSSM_TRUE;
 		if(expiredIssuer->isSelfSigned()) {
-			verifiedToRoot = CSSM_TRUE;	
+			verifiedToRoot = CSSM_TRUE;
 		}
 		/* no matter what, we don't want this one */
 		expiredRoot = NULL;
@@ -2071,7 +2071,7 @@ post_trust_setting:
 post_anchor:
 	if(expiredRoot) {
 		/*
-		 * One remaining special case: expiredRoot found in input certs, but 
+		 * One remaining special case: expiredRoot found in input certs, but
 		 * no luck resolving the problem with the anchors. Go ahead and (re-)append
 		 * the expired root and return.
 		 */
@@ -2098,11 +2098,11 @@ post_anchor:
 		 */
 		attemptNetworkFetch = false;
 	}
-	
-	/* 
+
+	/*
 	 * If we haven't verified to a root, and net fetch of certs is enabled,
 	 * try to get the issuer of the last cert in the chain from the net.
-	 * If that succeeds, then call ourself recursively to perform the 
+	 * If that succeeds, then call ourself recursively to perform the
 	 * whole search again (including comparing to or verifying against
 	 * anchor certs).
 	 */
@@ -2138,12 +2138,12 @@ post_anchor:
 					crtn = CSSMERR_TP_CERTGROUP_INCOMPLETE;
 					break;
 				}
-					
+
 				/* add this fetched cert to constructed group */
 				appendCert(issuer);
 				issuer->isFromNet(true);
 				certsToBeFreed.appendCert(issuer);
-				
+
 				/* and go again */
 				cr = buildCertGroup(*issuer,
 					inCertGroup,
@@ -2155,7 +2155,7 @@ post_anchor:
 					anchorCerts,
 					certsToBeFreed,
 					gatheredCerts,
-					CSSM_TRUE,		// subjectIsInGroup	
+					CSSM_TRUE,		// subjectIsInGroup
 					actionFlags,
 					policyOid,
 					policyStr,
@@ -2168,7 +2168,7 @@ post_anchor:
 				if(cr) {
 					return cr;
 				}
-				
+
 				/* one more thing: partial public key processing needed? */
 				if(foundPartialIssuer) {
 					return verifyWithPartialKeys(subjectItem);
@@ -2192,7 +2192,7 @@ final_out:
 	}
 }
 
-/* 
+/*
  * Called from buildCertGroup as final processing of a constructed
  * group when CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE has been
  * detected. Perform partial public key processing.
@@ -2201,9 +2201,9 @@ final_out:
  * issuers have partial public keys.
  *
  * Returns:
- *	 CSSMERR_TP_CERTIFICATE_CANT_OPERATE in the case of an issuer cert 
+ *	 CSSMERR_TP_CERTIFICATE_CANT_OPERATE in the case of an issuer cert
  *		with a partial public key which can't be completed.
- *	 CSSMERR_TP_INVALID_CERT_AUTHORITY if sig verify failed with 
+ *	 CSSMERR_TP_INVALID_CERT_AUTHORITY if sig verify failed with
  *		a (supposedly) completed partial key
  */
 CSSM_RETURN TPCertGroup::verifyWithPartialKeys(
@@ -2211,11 +2211,11 @@ CSSM_RETURN TPCertGroup::verifyWithPartialKeys(
 {
 	TPCertInfo *lastFullKeyCert = NULL;
 	tpDebug("verifyWithPartialKeys top");
-	
+
 	/* start from the end - it's easier */
 	for(int dex=mNumCerts-1; dex >= 0; dex--) {
 		TPCertInfo *thisCert = mCertInfo[dex];
-		
+
 		/*
 		 * If this is the start of the cert chain, and it's not being
 		 * used to verify subjectItem, then we're done.
@@ -2227,7 +2227,7 @@ CSSM_RETURN TPCertGroup::verifyWithPartialKeys(
 			}
 		}
 		if(!thisCert->hasPartialKey()) {
-			/* 
+			/*
 			 * Good to know. Record this and move on.
 			 */
 			lastFullKeyCert = thisCert;
@@ -2246,7 +2246,7 @@ CSSM_RETURN TPCertGroup::verifyWithPartialKeys(
 				break;
 			}
 		}
-		
+
 		/* do the verify - of next cert in chain or of subjectItem */
 		const TPClItemInfo *subject;
 		if(dex == 0) {
@@ -2257,7 +2257,7 @@ CSSM_RETURN TPCertGroup::verifyWithPartialKeys(
 			subject = mCertInfo[dex - 1];
 			tpDebug("...verifying with partial cert %d", dex);
 		}
-		CSSM_RETURN crtn = subject->verifyWithIssuer(thisCert, 
+		CSSM_RETURN crtn = subject->verifyWithIssuer(thisCert,
 			lastFullKeyCert);
 		if(crtn) {
 			tpDebug("CERT VERIFY ERROR with partial cert at index %d", dex);
@@ -2269,15 +2269,15 @@ CSSM_RETURN TPCertGroup::verifyWithPartialKeys(
 			}
 		}
 	}
-	
+
 	/* we just verified subjectItem - right?  */
 	assert((void *)mCertInfo[0] != (void *)&subjectItem);
 	tpDebug("verifyWithPartialKeys: success at subjectItem");
 	return CSSM_OK;
 }
 
-/* 
- * Free records obtained from DBs. Called when these records are not going to 
+/*
+ * Free records obtained from DBs. Called when these records are not going to
  * be passed to caller of CertGroupConstruct or CertGroupVerify.
  */
 void TPCertGroup::freeDbRecords()

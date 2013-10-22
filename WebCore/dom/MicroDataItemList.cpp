@@ -32,21 +32,27 @@
 #include "Document.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
+#include "NodeRareData.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
+const String& MicroDataItemList::undefinedItemType()
+{
+    return emptyString();
+}
+
 MicroDataItemList::MicroDataItemList(PassRefPtr<Node> rootNode, const String& typeNames)
-    : DynamicSubtreeNodeList(rootNode)
-    , m_typeNames(typeNames, node()->document()->inQuirksMode())
+    : LiveNodeList(rootNode, MicroDataItemListType, InvalidateOnItemAttrChange)
+    , m_typeNames(typeNames, document()->inQuirksMode())
     , m_originalTypeNames(typeNames)
 {
 }
 
 MicroDataItemList::~MicroDataItemList()
 {
-    rootNode()->document()->removeCachedMicroDataItemList(this, m_originalTypeNames);
+    ownerNode()->nodeLists()->removeCacheWithName(this, MicroDataItemListType, m_originalTypeNames);
 }
 
 bool MicroDataItemList::nodeMatches(Element* testNode) const

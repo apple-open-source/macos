@@ -1,0 +1,14 @@
+Index: Log-Log4perl/lib/Log/Log4perl/Appender/File.pm
+===================================================================
+--- Log-Log4perl/lib/Log/Log4perl/Appender/File.pm  (revision 32190)
++++ Log-Log4perl/lib/Log/Log4perl/Appender/File.pm  (working copy)
+@@ -240,7 +240,7 @@
+ 
+     if ($self->{fh}) {
+         my $fh = $self->{fh};
+-        close $fh;
++        close $fh if fileno $fh;
+     }
+ }
+ 
+

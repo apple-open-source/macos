@@ -31,6 +31,8 @@
 
 #if APPLE_OSX_mDNSResponder
 #include <mach-o/dyld.h>
+#include <uuid/uuid.h>
+#include <TargetConditionals.h>
 #endif
 
 #include "dnssd_ipc.h"
@@ -96,7 +98,11 @@ static void syslog( int priority, const char * message, ...)
 // Uncomment the line below to use the old error return mechanism of creating a temporary named socket (e.g. in /var/tmp)
 //#define USE_NAMED_ERROR_RETURN_SOCKET 1
 
-#define DNSSD_CLIENT_TIMEOUT 10  // In seconds
+// If the UDS client has not received a response from the daemon in 60 secs, it is unlikely to get one
+// Note: Timeout of 3 secs should be sufficient in normal scenarios, but 60 secs is chosen as a safeguard since
+// some clients may come up before mDNSResponder itself after a BOOT and on rare ocassions IOPM/Keychain/D2D calls
+// in mDNSResponder's INIT may take a much longer time to return
+#define DNSSD_CLIENT_TIMEOUT 60
 
 #ifndef CTL_PATH_PREFIX
 #define CTL_PATH_PREFIX "/var/tmp/dnssd_result_socket."
@@ -218,7 +224,11 @@ static int read_all(dnssd_sock_t sd, char *buf, int len)
         ssize_t num_read = recv(sd, buf, len, 0);
         // It is valid to get an interrupted system call error e.g., somebody attaching
         // in a debugger, retry without failing
-        if ((num_read < 0) && (errno == EINTR)) { syslog(LOG_INFO, "dnssd_clientstub read_all: EINTR continue"); continue; }
+        if ((num_read < 0) && (errno == EINTR)) 
+        { 
+            syslog(LOG_INFO, "dnssd_clientstub read_all: EINTR continue"); 
+            continue; 
+        }
         if ((num_read == 0) || (num_read < 0) || (num_read > len))
         {
             int printWarn = 0;
@@ -277,29 +287,29 @@ static int more_bytes(dnssd_sock_t sd)
         int nfdbits = sizeof (int) * 8;
         int nints = (sd/nfdbits) + 1;
         fs = (fd_set *)calloc(nints, sizeof(int));
-        if (fs == NULL) { syslog(LOG_WARNING, "dnssd_clientstub more_bytes: malloc failed"); return 0; }
+        if (fs == NULL) 
+        { 
+            syslog(LOG_WARNING, "dnssd_clientstub more_bytes: malloc failed"); 
+            return 0; 
+        }
     }
     FD_SET(sd, fs);
     ret = select((int)sd+1, fs, (fd_set*)NULL, (fd_set*)NULL, &tv);
-    if (fs != &readfds) free(fs);
+    if (fs != &readfds) 
+        free(fs);
     return (ret > 0);
 }
 
-// Wait for daemon to write to socket
-static int wait_for_daemon(dnssd_sock_t sock, int timeout)
+// set_waitlimit() implements a timeout using select. It is called from deliver_request() before recv() OR accept()
+// to ensure the UDS clients are not blocked in these system calls indefinitely.
+// Note: Ideally one should never be blocked here, because it indicates either mDNSResponder daemon is not yet up/hung/
+// superbusy/crashed or some other OS bug. For eg: On Windows which suffers from 3rd party software 
+// (primarily 3rd party firewall software) interfering with proper functioning of the TCP protocol stack it is possible 
+// the next operation on this socket(recv/accept) is blocked since we depend on TCP to communicate with the system service.
+static int set_waitlimit(dnssd_sock_t sock, int timeout)
 {
-#ifndef WIN32
-    // At this point the next operation (accept() or read()) on this socket may block for a few milliseconds waiting
-    // for the daemon to respond, but that's okay -- the daemon is a trusted service and we know if won't take more
-    // than a few milliseconds to respond.  So we'll forego checking for readability of the socket.
-        (void) sock;
-    (void) timeout;
-#else
-    // Windows on the other hand suffers from 3rd party software (primarily 3rd party firewall software) that
-    // interferes with proper functioning of the TCP protocol stack. Because of this and because we depend on TCP
-    // to communicate with the system service, we want to make sure that the next operation on this socket (accept() or
-    // read()) doesn't block indefinitely.
-    if (!gDaemonErr)
+    // To prevent stack corruption since select does not work with timeout if fds > FD_SETSIZE(1024)
+    if (!gDaemonErr && sock < FD_SETSIZE)
     {
         struct timeval tv;
         fd_set set;
@@ -310,11 +320,11 @@ static int wait_for_daemon(dnssd_sock_t sock, int timeout)
         tv.tv_usec = 0;
         if (!select((int)(sock + 1), &set, NULL, NULL, &tv))
         {
-            syslog(LOG_WARNING, "dnssd_clientstub wait_for_daemon timed out");
+            // Ideally one should never hit this case: See comments before set_waitlimit()
+            syslog(LOG_WARNING, "dnssd_clientstub set_waitlimit:_daemon timed out (%d secs) without any response: Socket %d", timeout, sock);
             gDaemonErr = kDNSServiceErr_Timeout;
         }
     }
-#endif
     return gDaemonErr;
 }
 
@@ -430,16 +440,16 @@ static void FreeDNSServiceOp(DNSServiceOp *x)
 // Return a connected service ref (deallocate with DNSServiceRefDeallocate)
 static DNSServiceErrorType ConnectToServer(DNSServiceRef *ref, DNSServiceFlags flags, uint32_t op, ProcessReplyFn ProcessReply, void *AppCallback, void *AppContext)
 {
-    #if APPLE_OSX_mDNSResponder
-    int NumTries = DNSSD_CLIENT_MAXTRIES;
-    #else
     int NumTries = 0;
-    #endif
 
     dnssd_sockaddr_t saddr;
     DNSServiceOp *sdr;
 
-    if (!ref) { syslog(LOG_WARNING, "dnssd_clientstub DNSService operation with NULL DNSServiceRef"); return kDNSServiceErr_BadParam; }
+    if (!ref) 
+    { 
+        syslog(LOG_WARNING, "dnssd_clientstub DNSService operation with NULL DNSServiceRef"); 
+        return kDNSServiceErr_BadParam; 
+    }
 
     if (flags & kDNSServiceFlagsShareConnection)
     {
@@ -448,10 +458,10 @@ static DNSServiceErrorType ConnectToServer(DNSServiceRef *ref, DNSServiceFlags f
             syslog(LOG_WARNING, "dnssd_clientstub kDNSServiceFlagsShareConnection used with NULL DNSServiceRef");
             return kDNSServiceErr_BadParam;
         }
-        if (!DNSServiceRefValid(*ref) || (*ref)->op != connection_request || (*ref)->primary)
+        if (!DNSServiceRefValid(*ref) || ((*ref)->op != connection_request && (*ref)->op != connection_delegate_request) || (*ref)->primary)
         {
-            syslog(LOG_WARNING, "dnssd_clientstub kDNSServiceFlagsShareConnection used with invalid DNSServiceRef %p %08X %08X",
-                   (*ref), (*ref)->sockfd, (*ref)->validator);
+            syslog(LOG_WARNING, "dnssd_clientstub kDNSServiceFlagsShareConnection used with invalid DNSServiceRef %p %08X %08X op %d",
+                   (*ref), (*ref)->sockfd, (*ref)->validator, (*ref)->op);
             *ref = NULL;
             return kDNSServiceErr_BadReference;
         }
@@ -465,11 +475,17 @@ static DNSServiceErrorType ConnectToServer(DNSServiceRef *ref, DNSServiceFlags f
         if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) { *ref = NULL; return kDNSServiceErr_ServiceNotRunning; }
     }
     // <rdar://problem/4096913> If the system service is disabled, we only want to try to connect once
-    if (IsSystemServiceDisabled()) NumTries = DNSSD_CLIENT_MAXTRIES;
+    if (IsSystemServiceDisabled()) 
+        NumTries = DNSSD_CLIENT_MAXTRIES;
     #endif
 
     sdr = malloc(sizeof(DNSServiceOp));
-    if (!sdr) { syslog(LOG_WARNING, "dnssd_clientstub ConnectToServer: malloc failed"); *ref = NULL; return kDNSServiceErr_NoMemory; }
+    if (!sdr) 
+    { 
+        syslog(LOG_WARNING, "dnssd_clientstub ConnectToServer: malloc failed"); 
+        *ref = NULL; 
+        return kDNSServiceErr_NoMemory; 
+    }
     sdr->next          = NULL;
     sdr->primary       = NULL;
     sdr->sockfd        = dnssd_InvalidSocket;
@@ -493,10 +509,12 @@ static DNSServiceErrorType ConnectToServer(DNSServiceRef *ref, DNSServiceFlags f
     if (flags & kDNSServiceFlagsShareConnection)
     {
         DNSServiceOp **p = &(*ref)->next;       // Append ourselves to end of primary's list
-        while (*p) p = &(*p)->next;
+        while (*p) 
+            p = &(*p)->next;
         *p = sdr;
         // Preincrement counter before we use it -- it helps with debugging if we know the all-zeroes ID should never appear
-        if (++(*ref)->uid.u32[0] == 0) ++(*ref)->uid.u32[1];    // In parent DNSServiceOp increment UID counter
+        if (++(*ref)->uid.u32[0] == 0) 
+            ++(*ref)->uid.u32[1];               // In parent DNSServiceOp increment UID counter
         sdr->primary    = *ref;                 // Set our primary pointer
         sdr->sockfd     = (*ref)->sockfd;       // Inherit primary's socket
         sdr->validator  = (*ref)->validator;
@@ -537,18 +555,30 @@ static DNSServiceErrorType ConnectToServer(DNSServiceRef *ref, DNSServiceFlags f
         }
         #endif
         #endif
-
+        
         while (1)
         {
             int err = connect(sdr->sockfd, (struct sockaddr *) &saddr, sizeof(saddr));
-            if (!err) break; // If we succeeded, return sdr
+            if (!err)
+                break; // If we succeeded, return sdr
             // If we failed, then it may be because the daemon is still launching.
             // This can happen for processes that launch early in the boot process, while the
-            // daemon is still coming up. Rather than fail here, we'll wait a bit and try again.
-            // If, after four seconds, we still can't connect to the daemon,
+            // daemon is still coming up. Rather than fail here, we wait 1 sec and try again.
+            // If, after DNSSD_CLIENT_MAXTRIES, we still can't connect to the daemon,
             // then we give up and return a failure code.
-            if (++NumTries < DNSSD_CLIENT_MAXTRIES) sleep(1); // Sleep a bit, then try again
-            else { dnssd_close(sdr->sockfd); FreeDNSServiceOp(sdr); return kDNSServiceErr_ServiceNotRunning; }
+            if (++NumTries < DNSSD_CLIENT_MAXTRIES)
+            {
+                syslog(LOG_WARNING, "dnssd_clientstub ConnectToServer: connect()-> No of tries: %d", NumTries);  
+                sleep(1); // Sleep a bit, then try again
+            }
+            else 
+            {
+                syslog(LOG_WARNING, "dnssd_clientstub ConnectToServer: connect() failed Socket:%d Err:%d Errno:%d %s", 
+                        sdr->sockfd, err, dnssd_errno, dnssd_strerror(dnssd_errno));
+                dnssd_close(sdr->sockfd); 
+                FreeDNSServiceOp(sdr); 
+                return kDNSServiceErr_ServiceNotRunning; 
+            }
         }
         //printf("ConnectToServer opened socket %d\n", sdr->sockfd);
     }
@@ -580,11 +610,17 @@ static DNSServiceErrorType deliver_request(ipc_msg_hdr *hdr, DNSServiceOp *sdr)
 
     if (!DNSServiceRefValid(sdr))
     {
+        if (hdr)
+            free(hdr);
         syslog(LOG_WARNING, "dnssd_clientstub deliver_request: invalid DNSServiceRef %p %08X %08X", sdr, sdr->sockfd, sdr->validator);
         return kDNSServiceErr_BadReference;
     }
 
-    if (!hdr) { syslog(LOG_WARNING, "dnssd_clientstub deliver_request: !hdr"); return kDNSServiceErr_Unknown; }
+    if (!hdr) 
+    { 
+        syslog(LOG_WARNING, "dnssd_clientstub deliver_request: !hdr"); 
+        return kDNSServiceErr_Unknown;  
+    }
 
     if (MakeSeparateReturnSocket)
     {
@@ -654,7 +690,8 @@ static DNSServiceErrorType deliver_request(ipc_msg_hdr *hdr, DNSServiceOp *sdr)
     // any associated data does not work reliably -- e.g. one particular issue we ran
     // into is that if the receiving program is in a kqueue loop waiting to be notified
     // of the received message, it doesn't get woken up when the control message arrives.
-    if (MakeSeparateReturnSocket || sdr->op == send_bpf) datalen--;     // Okay to use sdr->op when checking for op == send_bpf
+    if (MakeSeparateReturnSocket || sdr->op == send_bpf) 
+        datalen--;     // Okay to use sdr->op when checking for op == send_bpf
 #endif
 
     // At this point, our listening socket is set up and waiting, if necessary, for the daemon to connect back to
@@ -682,51 +719,58 @@ static DNSServiceErrorType deliver_request(ipc_msg_hdr *hdr, DNSServiceOp *sdr)
     }
 #endif
 
-    if (!MakeSeparateReturnSocket) errsd = sdr->sockfd;
+    if (!MakeSeparateReturnSocket) 
+        errsd = sdr->sockfd;
     if (MakeSeparateReturnSocket || sdr->op == send_bpf)    // Okay to use sdr->op when checking for op == send_bpf
     {
 #if defined(USE_TCP_LOOPBACK) || defined(USE_NAMED_ERROR_RETURN_SOCKET)
-        // At this point we may block in accept for a few milliseconds waiting for the daemon to connect back to us,
-        // but that's okay -- the daemon is a trusted service and we know if won't take more than a few milliseconds to respond.
+        // At this point we may wait in accept for a few milliseconds waiting for the daemon to connect back to us,
+        // but that's okay -- the daemon should not take more than a few milliseconds to respond.
+        // set_waitlimit() ensures we do not block indefinitely just in case something is wrong
         dnssd_sockaddr_t daddr;
         dnssd_socklen_t len = sizeof(daddr);
-        if ((err = wait_for_daemon(listenfd, DNSSD_CLIENT_TIMEOUT)) != kDNSServiceErr_NoError) goto cleanup;
+        if ((err = set_waitlimit(listenfd, DNSSD_CLIENT_TIMEOUT)) != kDNSServiceErr_NoError) 
+            goto cleanup;
         errsd = accept(listenfd, (struct sockaddr *)&daddr, &len);
-        if (!dnssd_SocketValid(errsd)) deliver_request_bailout("accept");
+        if (!dnssd_SocketValid(errsd)) 
+            deliver_request_bailout("accept");
 #else
 
         struct iovec vec = { ((char *)hdr) + sizeof(ipc_msg_hdr) + datalen, 1 }; // Send the last byte along with the SCM_RIGHTS
         struct msghdr msg;
         struct cmsghdr *cmsg;
-        char cbuf[CMSG_SPACE(sizeof(dnssd_sock_t))];
-
-        if (sdr->op == send_bpf)    // Okay to use sdr->op when checking for op == send_bpf
-        {
-            int i;
-            char p[12];     // Room for "/dev/bpf999" with terminating null
-            for (i=0; i<100; i++)
-            {
-                snprintf(p, sizeof(p), "/dev/bpf%d", i);
-                listenfd = open(p, O_RDWR, 0);
-                //if (dnssd_SocketValid(listenfd)) syslog(LOG_WARNING, "Sending fd %d for %s", listenfd, p);
-                if (!dnssd_SocketValid(listenfd) && dnssd_errno != EBUSY)
-                    syslog(LOG_WARNING, "Error opening %s %d (%s)", p, dnssd_errno, dnssd_strerror(dnssd_errno));
-                if (dnssd_SocketValid(listenfd) || dnssd_errno != EBUSY) break;
-            }
-        }
+        char cbuf[CMSG_SPACE(4 * sizeof(dnssd_sock_t))];
 
         msg.msg_name       = 0;
         msg.msg_namelen    = 0;
         msg.msg_iov        = &vec;
         msg.msg_iovlen     = 1;
-        msg.msg_control    = cbuf;
-        msg.msg_controllen = CMSG_LEN(sizeof(dnssd_sock_t));
         msg.msg_flags      = 0;
-        cmsg = CMSG_FIRSTHDR(&msg);
-        cmsg->cmsg_len     = CMSG_LEN(sizeof(dnssd_sock_t));
-        cmsg->cmsg_level   = SOL_SOCKET;
-        cmsg->cmsg_type    = SCM_RIGHTS;
-        *((dnssd_sock_t *)CMSG_DATA(cmsg)) = listenfd;
+        if (MakeSeparateReturnSocket || sdr->op == send_bpf)    // Okay to use sdr->op when checking for op == send_bpf
+        {
+            if (sdr->op == send_bpf)
+            {
+                int i;
+                char p[12];     // Room for "/dev/bpf999" with terminating null
+                for (i=0; i<100; i++)
+                {
+                    snprintf(p, sizeof(p), "/dev/bpf%d", i);
+                    listenfd = open(p, O_RDWR, 0);
+                    //if (dnssd_SocketValid(listenfd)) syslog(LOG_WARNING, "Sending fd %d for %s", listenfd, p);
+                    if (!dnssd_SocketValid(listenfd) && dnssd_errno != EBUSY)
+                        syslog(LOG_WARNING, "Error opening %s %d (%s)", p, dnssd_errno, dnssd_strerror(dnssd_errno));
+                    if (dnssd_SocketValid(listenfd) || dnssd_errno != EBUSY) break;
+                }
+            }
+            msg.msg_control    = cbuf;
+            msg.msg_controllen = CMSG_LEN(sizeof(dnssd_sock_t));
+
+            cmsg = CMSG_FIRSTHDR(&msg);
+            cmsg->cmsg_len     = CMSG_LEN(sizeof(dnssd_sock_t));
+            cmsg->cmsg_level   = SOL_SOCKET;
+            cmsg->cmsg_type    = SCM_RIGHTS;
+            *((dnssd_sock_t *)CMSG_DATA(cmsg)) = listenfd;
+        }
 
 #if TEST_KQUEUE_CONTROL_MESSAGE_BUG
         sleep(1);
@@ -753,25 +797,27 @@ static DNSServiceErrorType deliver_request(ipc_msg_hdr *hdr, DNSServiceOp *sdr)
 #endif // DEBUG_64BIT_SCM_RIGHTS
 
 #endif
-        // Close our end of the socketpair *before* blocking in read_all to get the four-byte error code.
-        // Otherwise, if the daemon closes our socket (or crashes), we block in read_all() forever
-        // because the socket is not closed (we still have an open reference to it ourselves).
+        // Close our end of the socketpair *before* calling read_all() to get the four-byte error code.
+        // Otherwise, if the daemon closes our socket (or crashes), we will have to wait for a timeout
+        // in read_all() because the socket is not closed (we still have an open reference to it)
+        // Note: listenfd is overwritten in the case of send_bpf above and that will be closed here
+        // for send_bpf operation.
         dnssd_close(listenfd);
-        listenfd = dnssd_InvalidSocket;     // Make sure we don't close it a second time in the cleanup handling below
+        listenfd = dnssd_InvalidSocket; // Make sure we don't close it a second time in the cleanup handling below
     }
 
-    // At this point we may block in read_all for a few milliseconds waiting for the daemon to send us the error code,
-    // but that's okay -- the daemon is a trusted service and we know if won't take more than a few milliseconds to respond.
+    // At this point we may wait in read_all for a few milliseconds waiting for the daemon to send us the error code,
+    // but that's okay -- the daemon should not take more than a few milliseconds to respond.
+    // set_waitlimit() ensures we do not block indefinitely just in case something is wrong
     if (sdr->op == send_bpf)    // Okay to use sdr->op when checking for op == send_bpf
         err = kDNSServiceErr_NoError;
-    else if ((err = wait_for_daemon(errsd, DNSSD_CLIENT_TIMEOUT)) == kDNSServiceErr_NoError)
+    else if ((err = set_waitlimit(errsd, DNSSD_CLIENT_TIMEOUT)) == kDNSServiceErr_NoError)
     {
         if (read_all(errsd, (char*)&err, (int)sizeof(err)) < 0)
             err = kDNSServiceErr_ServiceNotRunning; // On failure read_all will have written a message to syslog for us
         else
             err = ntohl(err);
     }
-
     //syslog(LOG_WARNING, "dnssd_clientstub deliver_request: retrieved error code %d", err);
 
 cleanup:
@@ -847,6 +893,7 @@ static void CallbackWithError(DNSServiceRef sdRef, DNSServiceErrorType error)
             if (sdr->AppCallback) ((DNSServiceDomainEnumReply) sdr->AppCallback)(sdr, 0, 0, error, NULL,                   sdr->AppContext);
             break;
         case connection_request:
+        case connection_delegate_request:
             // This means Register Record, walk the list of DNSRecords to do the callback
             rec = sdr->rec;
             while (rec)
@@ -1121,6 +1168,37 @@ DNSServiceErrorType DNSSD_API DNSServiceGetProperty(const char *property, void *
     return kDNSServiceErr_NoError;
 }
 
+DNSServiceErrorType DNSSD_API DNSServiceGetPID(const uint16_t srcport, int32_t *pid)
+{
+    char *ptr;
+    ipc_msg_hdr *hdr;
+    DNSServiceOp *tmp;
+    size_t len = sizeof(int32_t);
+
+    DNSServiceErrorType err = ConnectToServer(&tmp, 0, getpid_request, NULL, NULL, NULL);
+    if (err)
+        return err;
+
+    hdr = create_hdr(getpid_request, &len, &ptr, 0, tmp);
+    if (!hdr)
+    {
+        DNSServiceRefDeallocate(tmp);
+        return kDNSServiceErr_NoMemory;
+    }
+
+    put_uint16(srcport, &ptr);
+    err = deliver_request(hdr, tmp);        // Will free hdr for us
+
+    if (read_all(tmp->sockfd, (char*)pid, sizeof(int32_t)) < 0)
+    {
+        DNSServiceRefDeallocate(tmp);
+        return kDNSServiceErr_ServiceNotRunning;
+    }
+
+    DNSServiceRefDeallocate(tmp);
+    return kDNSServiceErr_NoError;
+}
+
 static void handle_resolve_response(DNSServiceOp *const sdr, const CallbackHeader *const cbh, const char *data, const char *end)
 {
     char fullname[kDNSServiceMaxDomainName];
@@ -1344,7 +1422,16 @@ static void handle_addrinfo_response(DNSServiceOp *const sdr, const CallbackHead
                 if (IN6_IS_ADDR_LINKLOCAL(&sa6.sin6_addr)) sa6.sin6_scope_id = cbh->cb_interface;
             }
         }
-        ((DNSServiceGetAddrInfoReply)sdr->AppCallback)(sdr, cbh->cb_flags, cbh->cb_interface, cbh->cb_err, hostname, sa, ttl, sdr->AppContext);
+        // Validation results are always delivered separately from the actual results of the
+        // DNSServiceGetAddrInfo. Set the "addr" to NULL as per the documentation.
+        //
+        // Note: If we deliver validation results along with the "addr" in the future, we need
+        // a way to differentiate the negative response from validation-only response as both
+        // has zero address.
+        if (!(cbh->cb_flags & kDNSServiceFlagsValidate))
+            ((DNSServiceGetAddrInfoReply)sdr->AppCallback)(sdr, cbh->cb_flags, cbh->cb_interface, cbh->cb_err, hostname, sa, ttl, sdr->AppContext);
+        else
+            ((DNSServiceGetAddrInfoReply)sdr->AppCallback)(sdr, cbh->cb_flags, cbh->cb_interface, cbh->cb_err, hostname, NULL, 0, sdr->AppContext);
         // MUST NOT touch sdr after invoking AppCallback -- client is allowed to dispose it from within callback function
     }
 }
@@ -1368,7 +1455,10 @@ DNSServiceErrorType DNSSD_API DNSServiceGetAddrInfo
     if (!hostname) return kDNSServiceErr_BadParam;
 
     err = ConnectToServer(sdRef, flags, addrinfo_request, handle_addrinfo_response, callBack, context);
-    if (err) return err;    // On error ConnectToServer leaves *sdRef set to NULL
+    if (err)
+    {
+         return err;    // On error ConnectToServer leaves *sdRef set to NULL
+    }
 
     // Calculate total message length
     len = sizeof(flags);
@@ -1625,7 +1715,7 @@ static void ConnectionResponse(DNSServiceOp *const sdr, const CallbackHeader *co
             return;
         }
 
-        if (sdr->op == connection_request)
+        if (sdr->op == connection_request || sdr->op == connection_delegate_request)
         {
             rec->AppCallback(rec->sdr, rec, cbh->cb_flags, cbh->cb_err, rec->AppContext);
         }
@@ -1653,6 +1743,72 @@ DNSServiceErrorType DNSSD_API DNSServiceCreateConnection(DNSServiceRef *sdRef)
     if (err) { DNSServiceRefDeallocate(*sdRef); *sdRef = NULL; }
     return err;
 }
+
+#if APPLE_OSX_mDNSResponder && !TARGET_IPHONE_SIMULATOR
+DNSServiceErrorType DNSSD_API DNSServiceCreateDelegateConnection(DNSServiceRef *sdRef, int32_t pid, uuid_t uuid)
+{
+    char *ptr;
+    size_t len = 0;
+    ipc_msg_hdr *hdr;
+
+    DNSServiceErrorType err = ConnectToServer(sdRef, 0, connection_delegate_request, ConnectionResponse, NULL, NULL);
+    if (err)
+    {
+         return err;    // On error ConnectToServer leaves *sdRef set to NULL
+    }
+
+    // Only one of the two options can be set. If pid is zero, uuid is used. 
+    // If both are specified only pid will be used. We send across the pid
+    // so that the daemon knows what to read from the socket.
+
+    len += sizeof(int32_t);
+
+    hdr = create_hdr(connection_delegate_request, &len, &ptr, 0, *sdRef);
+    if (!hdr)
+    {
+        DNSServiceRefDeallocate(*sdRef);
+        *sdRef = NULL;
+        return kDNSServiceErr_NoMemory;
+    }
+
+    if (pid && setsockopt((*sdRef)->sockfd, SOL_SOCKET, SO_DELEGATED, &pid, sizeof(pid)) == -1)
+    {  
+        // Free the hdr in case we return before calling deliver_request() 
+        if (hdr)
+            free(hdr);
+        DNSServiceRefDeallocate(*sdRef);
+        *sdRef = NULL;
+        return kDNSServiceErr_NoAuth;
+    }
+
+    if (!pid && setsockopt((*sdRef)->sockfd, SOL_SOCKET, SO_DELEGATED_UUID, uuid, sizeof(uuid_t)) == -1)
+    {
+        // Free the hdr in case we return before calling deliver_request()
+        if (hdr)
+            free(hdr);
+        DNSServiceRefDeallocate(*sdRef);
+        *sdRef = NULL;
+        return kDNSServiceErr_NoAuth;
+    }
+
+    put_uint32(pid, &ptr);
+
+    err = deliver_request(hdr, *sdRef);     // Will free hdr for us
+    if (err)
+    {
+        DNSServiceRefDeallocate(*sdRef);
+        *sdRef = NULL;
+    }
+    return err;
+}
+#elif TARGET_IPHONE_SIMULATOR // This hack is for Simulator platform only
+DNSServiceErrorType DNSSD_API DNSServiceCreateDelegateConnection(DNSServiceRef *sdRef, int32_t pid, uuid_t uuid)
+{
+    (void) pid;
+    (void) uuid;
+    return DNSServiceCreateConnection(sdRef);
+}
+#endif
 
 DNSServiceErrorType DNSSD_API DNSServiceRegisterRecord
 (
@@ -1690,7 +1846,7 @@ DNSServiceErrorType DNSSD_API DNSServiceRegisterRecord
         return kDNSServiceErr_BadReference;
     }
 
-    if (sdRef->op != connection_request)
+    if (sdRef->op != connection_request && sdRef->op != connection_delegate_request)
     {
         syslog(LOG_WARNING, "dnssd_clientstub DNSServiceRegisterRecord called with non-DNSServiceCreateConnection DNSServiceRef %p %d", sdRef, sdRef->op);
         return kDNSServiceErr_BadReference;

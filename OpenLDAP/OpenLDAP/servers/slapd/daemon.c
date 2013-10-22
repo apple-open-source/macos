@@ -84,6 +84,10 @@ ber_socket_t dtblsize;
 slap_ssf_t local_ssf = LDAP_PVT_SASL_LOCAL_SSF;
 struct runqueue_s slapd_rq;
 
+#ifdef __APPLE__
+int tls_token;
+#endif
+
 #define MAX_DAEMON_THREADS	16
 int slapd_daemon_threads = 1;
 int slapd_daemon_mask;
@@ -1947,6 +1951,11 @@ slapd_daemon_destroy( void )
 #endif /* TCP Wrappers */
 	}
 	sockdestroy();
+    
+#ifdef __APPLE__
+    notify_cancel(tls_token);
+#endif
+    
     if (gSDRef) {
 		DNSServiceRefDeallocate(gSDRef);
     }
@@ -2571,6 +2580,31 @@ slapd_daemon_task(
         /* Post a notification so opendirectoryd knows slapd is ready. */
 		Debug(LDAP_DEBUG_ANY, "daemon: posting com.apple.slapd.startup notification\n",0, 0, 0);
         notify_post("com.apple.slapd.startup");
+#ifdef HAVE_TLS
+        dispatch_queue_t queue;
+        queue = dispatch_queue_create("com.apple.slapd.tls.queue", NULL);
+        notify_register_dispatch("com.apple.opendirectory.cert.renewed",
+                                 &tls_token,
+                                 queue,
+                                 ^(__unused int token)
+                                 {
+                                     int opt = 1;
+                                     int rc = 0;
+                                     Debug(LDAP_DEBUG_ANY, "daemon: received renewed cert notification\n",0, 0, 0);
+                                     /* Force new ctx to be created */
+                                     rc = ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_NEWCTX, &opt );
+                                     if( rc == 0 ) {
+                                         /* The ctx's refcount is bumped up here */
+                                         ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CTX, &slap_tls_ctx );
+                                         load_extop( &slap_EXOP_START_TLS, 0, starttls_extop );
+                                     } else if ( rc != LDAP_NOT_SUPPORTED ) {
+                                         Debug( LDAP_DEBUG_ANY,
+                                               "main: TLS init def ctx failed: %d\n",
+                                               rc, 0, 0 );
+                                     }
+                                 });
+#endif
+
 #endif /* __APPLE__ */
 
 loop:
@@ -3334,7 +3368,7 @@ slap_add_listener( const char *url )
 	}
 
 	struct berval bv_url = { 0, NULL };
-	ber_str2bv( url, 0, 1, &bv_url );
+	ber_str2bv( url, 0, 0, &bv_url );
 
 	/* Count the listeners and make sure the url isn't already in the list. */
 	int numCurrent = 0;

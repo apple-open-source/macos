@@ -26,7 +26,6 @@
 #define _BLOCK_CRYPTOR_H_
 
 #include "AppleCSPContext.h"
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 
 /*
  * Base class for AppleCSPContexts associated with BlockCryptObjects. 

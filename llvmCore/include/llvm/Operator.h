@@ -15,8 +15,9 @@
 #ifndef LLVM_OPERATOR_H
 #define LLVM_OPERATOR_H
 
-#include "llvm/Instruction.h"
 #include "llvm/Constants.h"
+#include "llvm/Instruction.h"
+#include "llvm/Type.h"
 
 namespace llvm {
 
@@ -31,9 +32,11 @@ class Operator : public User {
 private:
   // Do not implement any of these. The Operator class is intended to be used
   // as a utility, and is never itself instantiated.
-  void *operator new(size_t, unsigned);
-  void *operator new(size_t s);
-  Operator();
+  void *operator new(size_t, unsigned) LLVM_DELETED_FUNCTION;
+  void *operator new(size_t s) LLVM_DELETED_FUNCTION;
+  Operator() LLVM_DELETED_FUNCTION;
+  // NOTE: cannot use LLVM_DELETED_FUNCTION because gcc errors when deleting
+  // an override of a non-deleted function.
   ~Operator();
 
 public:
@@ -76,7 +79,7 @@ public:
   };
 
 private:
-  ~OverflowingBinaryOperator(); // do not implement
+  ~OverflowingBinaryOperator(); // DO NOT IMPLEMENT
 
   friend class BinaryOperator;
   friend class ConstantExpr;
@@ -129,14 +132,15 @@ public:
     IsExact = (1 << 0)
   };
   
+private:
+  ~PossiblyExactOperator(); // DO NOT IMPLEMENT
+
   friend class BinaryOperator;
   friend class ConstantExpr;
   void setIsExact(bool B) {
     SubclassOptionalData = (SubclassOptionalData & ~IsExact) | (B * IsExact);
   }
   
-private:
-  ~PossiblyExactOperator(); // do not implement
 public:
   /// isExact - Test whether this division is known to be exact, with
   /// zero remainder.
@@ -161,14 +165,35 @@ public:
            (isa<ConstantExpr>(V) && classof(cast<ConstantExpr>(V)));
   }
 };
-  
+
+/// FPMathOperator - Utility class for floating point operations which can have
+/// information about relaxed accuracy requirements attached to them.
+class FPMathOperator : public Operator {
+private:
+  ~FPMathOperator(); // DO NOT IMPLEMENT
+
+public:
+
+  /// \brief Get the maximum error permitted by this operation in ULPs.  An
+  /// accuracy of 0.0 means that the operation should be performed with the
+  /// default precision.
+  float getFPAccuracy() const;
+
+  static inline bool classof(const FPMathOperator *) { return true; }
+  static inline bool classof(const Instruction *I) {
+    return I->getType()->isFPOrFPVectorTy();
+  }
+  static inline bool classof(const Value *V) {
+    return isa<Instruction>(V) && classof(cast<Instruction>(V));
+  }
+};
 
   
 /// ConcreteOperator - A helper template for defining operators for individual
 /// opcodes.
 template<typename SuperClass, unsigned Opc>
 class ConcreteOperator : public SuperClass {
-  ~ConcreteOperator(); // DO NOT IMPLEMENT
+  ~ConcreteOperator() LLVM_DELETED_FUNCTION;
 public:
   static inline bool classof(const ConcreteOperator<SuperClass, Opc> *) {
     return true;
@@ -187,44 +212,44 @@ public:
 
 class AddOperator
   : public ConcreteOperator<OverflowingBinaryOperator, Instruction::Add> {
-  ~AddOperator(); // DO NOT IMPLEMENT
+  ~AddOperator() LLVM_DELETED_FUNCTION;
 };
 class SubOperator
   : public ConcreteOperator<OverflowingBinaryOperator, Instruction::Sub> {
-  ~SubOperator(); // DO NOT IMPLEMENT
+  ~SubOperator() LLVM_DELETED_FUNCTION;
 };
 class MulOperator
   : public ConcreteOperator<OverflowingBinaryOperator, Instruction::Mul> {
-  ~MulOperator(); // DO NOT IMPLEMENT
+  ~MulOperator() LLVM_DELETED_FUNCTION;
 };
 class ShlOperator
   : public ConcreteOperator<OverflowingBinaryOperator, Instruction::Shl> {
-  ~ShlOperator(); // DO NOT IMPLEMENT
+  ~ShlOperator() LLVM_DELETED_FUNCTION;
 };
 
   
 class SDivOperator
   : public ConcreteOperator<PossiblyExactOperator, Instruction::SDiv> {
-  ~SDivOperator(); // DO NOT IMPLEMENT
+  ~SDivOperator() LLVM_DELETED_FUNCTION;
 };
 class UDivOperator
   : public ConcreteOperator<PossiblyExactOperator, Instruction::UDiv> {
-  ~UDivOperator(); // DO NOT IMPLEMENT
+  ~UDivOperator() LLVM_DELETED_FUNCTION;
 };
 class AShrOperator
   : public ConcreteOperator<PossiblyExactOperator, Instruction::AShr> {
-  ~AShrOperator(); // DO NOT IMPLEMENT
+  ~AShrOperator() LLVM_DELETED_FUNCTION;
 };
 class LShrOperator
   : public ConcreteOperator<PossiblyExactOperator, Instruction::LShr> {
-  ~LShrOperator(); // DO NOT IMPLEMENT
+  ~LShrOperator() LLVM_DELETED_FUNCTION;
 };
   
   
   
 class GEPOperator
   : public ConcreteOperator<Operator, Instruction::GetElementPtr> {
-  ~GEPOperator(); // DO NOT IMPLEMENT
+  ~GEPOperator() LLVM_DELETED_FUNCTION;
 
   enum {
     IsInBounds = (1 << 0)
@@ -261,8 +286,8 @@ public:
 
   /// getPointerOperandType - Method to return the pointer operand as a
   /// PointerType.
-  PointerType *getPointerOperandType() const {
-    return reinterpret_cast<PointerType*>(getPointerOperand()->getType());
+  Type *getPointerOperandType() const {
+    return getPointerOperand()->getType();
   }
 
   unsigned getNumIndices() const {  // Note: always non-negative

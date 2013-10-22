@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,8 +28,14 @@
 
 #include "WebContext.h"
 #include "WebGeolocationManagerMessages.h"
+#include "WebGeolocationManagerProxyMessages.h"
 
 namespace WebKit {
+
+const char* WebGeolocationManagerProxy::supplementName()
+{
+    return "WebGeolocationManagerProxy";
+}
 
 PassRefPtr<WebGeolocationManagerProxy> WebGeolocationManagerProxy::create(WebContext* context)
 {
@@ -37,18 +43,14 @@ PassRefPtr<WebGeolocationManagerProxy> WebGeolocationManagerProxy::create(WebCon
 }
 
 WebGeolocationManagerProxy::WebGeolocationManagerProxy(WebContext* context)
-    : m_isUpdating(false)
-    , m_context(context)
+    : WebContextSupplement(context)
+    , m_isUpdating(false)
 {
+    WebContextSupplement::context()->addMessageReceiver(Messages::WebGeolocationManagerProxy::messageReceiverName(), this);
 }
 
 WebGeolocationManagerProxy::~WebGeolocationManagerProxy()
 {
-}
-
-void WebGeolocationManagerProxy::invalidate()
-{
-    stopUpdating();
 }
 
 void WebGeolocationManagerProxy::initializeProvider(const WKGeolocationProvider* provider)
@@ -56,25 +58,42 @@ void WebGeolocationManagerProxy::initializeProvider(const WKGeolocationProvider*
     m_provider.initialize(provider);
 }
 
+// WebContextSupplement
+
+void WebGeolocationManagerProxy::contextDestroyed()
+{
+    stopUpdating();
+}
+
+void WebGeolocationManagerProxy::processDidClose(WebProcessProxy*)
+{
+    stopUpdating();
+}
+
+void WebGeolocationManagerProxy::refWebContextSupplement()
+{
+    APIObject::ref();
+}
+
+void WebGeolocationManagerProxy::derefWebContextSupplement()
+{
+    APIObject::deref();
+}
+
 void WebGeolocationManagerProxy::providerDidChangePosition(WebGeolocationPosition* position)
 {
-    if (!m_context)
+    if (!context())
         return;
 
-    m_context->sendToAllProcesses(Messages::WebGeolocationManager::DidChangePosition(position->data()));
+    context()->sendToAllProcesses(Messages::WebGeolocationManager::DidChangePosition(position->data()));
 }
 
-void WebGeolocationManagerProxy::providerDidFailToDeterminePosition()
+void WebGeolocationManagerProxy::providerDidFailToDeterminePosition(const String& errorMessage)
 {
-    if (!m_context)
+    if (!context())
         return;
 
-    m_context->sendToAllProcesses(Messages::WebGeolocationManager::DidFailToDeterminePosition());
-}
-
-void WebGeolocationManagerProxy::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
-{
-    didReceiveWebGeolocationManagerProxyMessage(connection, messageID, arguments);
+    context()->sendToAllProcesses(Messages::WebGeolocationManager::DidFailToDeterminePosition(errorMessage));
 }
 
 void WebGeolocationManagerProxy::startUpdating()

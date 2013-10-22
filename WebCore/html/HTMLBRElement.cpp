@@ -56,19 +56,19 @@ bool HTMLBRElement::isPresentationAttribute(const QualifiedName& name) const
     return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLBRElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+void HTMLBRElement::collectStyleForPresentationAttribute(const QualifiedName& name, const AtomicString& value, MutableStylePropertySet* style)
 {
-    if (attr->name() == clearAttr) {
+    if (name == clearAttr) {
         // If the string is empty, then don't add the clear property.
         // <br clear> and <br clear=""> are just treated like <br> by Gecko, Mac IE, etc. -dwh
-        if (!attr->isEmpty()) {
-            if (equalIgnoringCase(attr->value(), "all"))
-                addPropertyToAttributeStyle(style, CSSPropertyClear, CSSValueBoth);
+        if (!value.isEmpty()) {
+            if (equalIgnoringCase(value, "all"))
+                addPropertyToPresentationAttributeStyle(style, CSSPropertyClear, CSSValueBoth);
             else
-                addPropertyToAttributeStyle(style, CSSPropertyClear, attr->value());
+                addPropertyToPresentationAttributeStyle(style, CSSPropertyClear, value);
         }
     } else
-        HTMLElement::collectStyleForAttribute(attr, style);
+        HTMLElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
 RenderObject* HTMLBRElement::createRenderer(RenderArena* arena, RenderStyle* style)

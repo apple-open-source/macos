@@ -154,7 +154,7 @@ nfsd_accept_thread(__unused void *arg)
 				getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0);
 				DEBUG(1, "NFS IPv4 socket accepted from %s", hostbuf);
 			}
-			memset(&((struct sockaddr_in*)&peer)->sin_zero[0], 0, sizeof(&((struct sockaddr_in*)&peer)->sin_zero[0]));
+			memset(&((struct sockaddr_in*)&peer)->sin_zero[0], 0, sizeof(((struct sockaddr_in*)&peer)->sin_zero[0]));
 			if (setsockopt(newsock, SOL_SOCKET,
 			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0)
 				log(LOG_NOTICE, "setsockopt SO_KEEPALIVE: %s (%d)", strerror(errno), errno);

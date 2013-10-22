@@ -19,19 +19,13 @@
 #include "config.h"
 #include "IconDatabaseClientBlackBerry.h"
 
+#include "BlackBerryPlatformSettings.h"
 #include "IconDatabase.h"
 #include "WebSettings.h"
-#include "WebString.h"
 
 namespace WebCore {
 
-IconDatabaseClientBlackBerry* IconDatabaseClientBlackBerry::getInstance()
-{
-    static IconDatabaseClientBlackBerry* instance = 0;
-    if (!instance)
-        instance = new IconDatabaseClientBlackBerry();
-    return instance;
-}
+SINGLETON_INITIALIZER_THREADUNSAFE(IconDatabaseClientBlackBerry)
 
 bool IconDatabaseClientBlackBerry::initIconDatabase(const BlackBerry::WebKit::WebSettings* settings)
 {
@@ -50,19 +44,10 @@ bool IconDatabaseClientBlackBerry::initIconDatabase(const BlackBerry::WebKit::We
 
     iconDatabase().setClient(this);
 
-    BlackBerry::WebKit::WebString path = settings->databasePath();
-
-    if (path.isEmpty())
-        path = settings->localStoragePath();
-
-    m_initState = iconDatabase().open(path, IconDatabase::defaultDatabaseFilename()) ? InitializeSucceeded : InitializeFailed;
+    m_initState = iconDatabase().open(BlackBerry::Platform::Settings::instance()->applicationDataDirectory().c_str(),
+        IconDatabase::defaultDatabaseFilename()) ? InitializeSucceeded : InitializeFailed;
 
     return m_initState == InitializeSucceeded;
-}
-
-bool IconDatabaseClientBlackBerry::performImport()
-{
-    return true;
 }
 
 void IconDatabaseClientBlackBerry::didRemoveAllIcons()

@@ -967,11 +967,11 @@ read_children(struct archive_read *a, struct file_info *parent)
 			child = parse_file_info(a, parent, p);
 			if (child == NULL)
 				return (ARCHIVE_FATAL);
-			if (child->cl_offset)
+			if (child->cl_offset) {
 				if (heap_add_entry(a, &(iso9660->cl_files),
 				    child, child->cl_offset) != ARCHIVE_OK)
 					return (ARCHIVE_FATAL);
-			else {
+			} else {
 				if (child->multi_extent || multi != NULL) {
 					struct content *con;
 
@@ -1003,10 +1003,11 @@ read_children(struct archive_read *a, struct file_info *parent)
 						if (!child->multi_extent)
 							multi = NULL;
 					}
-				} else
+				} else {
 					if (add_entry(a, iso9660, child)
 					    != ARCHIVE_OK)
 						return (ARCHIVE_FATAL);
+				}
 			}
 		}
 	}
@@ -1070,12 +1071,13 @@ read_entries(struct archive_read *a)
 		    (strcmp(file->name.s, "rr_moved") == 0 ||
 		     strcmp(file->name.s, ".rr_moved") == 0)) {
 			iso9660->rr_moved = file;
-		} else if (file->re)
+		} else if (file->re) {
 			if (heap_add_entry(a, &(iso9660->re_dirs), file,
 			    file->offset) != ARCHIVE_OK)
 				return (ARCHIVE_FATAL);
-		else
+		} else {
 			cache_add_entry(iso9660, file);
+		}
 	}
 	if (file != NULL)
 		if (add_entry(a, iso9660, file) != ARCHIVE_OK)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -239,9 +239,7 @@ adjust_lru(dns_tsigkey_t *tkey) {
 		 * We may have been removed from the LRU list between
 		 * removing the read lock and aquiring the write lock.
 		 */
-		if (ISC_LINK_LINKED(tkey, link) &&
-		    tkey->ring->lru.tail != tkey)
-		{
+		if (ISC_LINK_LINKED(tkey, link)) {
 			ISC_LIST_UNLINK(tkey->ring->lru, tkey, link);
 			ISC_LIST_APPEND(tkey->ring->lru, tkey, link);
 		}
@@ -627,16 +625,14 @@ restore_key(dns_tsig_keyring_t *ring, isc_stdtime_t now, FILE *fp) {
 }
 
 static void
-dump_key(dns_tsigkey_t *tkey, FILE *fp) {
+dump_key(dns_tsigkey_t *tkey, FILE *fp)
+{
 	char *buffer = NULL;
 	int length = 0;
 	char namestr[DNS_NAME_FORMATSIZE];
 	char creatorstr[DNS_NAME_FORMATSIZE];
 	char algorithmstr[DNS_NAME_FORMATSIZE];
 	isc_result_t result;
-
-	REQUIRE(tkey != NULL);
-	REQUIRE(fp != NULL);
 
 	dns_name_format(&tkey->name, namestr, sizeof(namestr));
 	dns_name_format(tkey->creator, creatorstr, sizeof(creatorstr));
@@ -946,8 +942,7 @@ dns_tsig_sign(dns_message_t *msg) {
 		isc_buffer_t headerbuf;
 		isc_uint16_t digestbits;
 
-		ret = dst_context_create2(key->key, mctx,
-					  DNS_LOGCATEGORY_DNSSEC, &ctx);
+		ret = dst_context_create(key->key, mctx, &ctx);
 		if (ret != ISC_R_SUCCESS)
 			return (ret);
 
@@ -978,13 +973,6 @@ dns_tsig_sign(dns_message_t *msg) {
 			if (ret != ISC_R_SUCCESS)
 				goto cleanup_context;
 		}
-#if defined(__clang__)  && \
-       ( __clang_major__ < 3 || \
-	(__clang_major__ == 3 && __clang_minor__ < 2) || \
-	(__clang_major__ == 4 && __clang_minor__ < 2))
-	/* false positive: http://llvm.org/bugs/show_bug.cgi?id=14461 */
-		else memset(&querytsig, 0, sizeof(querytsig));
-#endif
 
 		/*
 		 * Digest the header.
@@ -1240,13 +1228,6 @@ dns_tsig_verify(isc_buffer_t *source, dns_message_t *msg,
 		if (ret != ISC_R_SUCCESS)
 			return (ret);
 	}
-#if defined(__clang__) && \
-       ( __clang_major__ < 3 || \
-	(__clang_major__ == 3 && __clang_minor__ < 2) || \
-	(__clang_major__ == 4 && __clang_minor__ < 2))
-	/* false positive: http://llvm.org/bugs/show_bug.cgi?id=14461 */
-		else memset(&querytsig, 0, sizeof(querytsig));
-#endif
 
 	/*
 	 * Do the key name and algorithm match that of the query?
@@ -1345,8 +1326,7 @@ dns_tsig_verify(isc_buffer_t *source, dns_message_t *msg,
 		sig_r.base = tsig.signature;
 		sig_r.length = tsig.siglen;
 
-		ret = dst_context_create2(key, mctx,
-					  DNS_LOGCATEGORY_DNSSEC, &ctx);
+		ret = dst_context_create(key, mctx, &ctx);
 		if (ret != ISC_R_SUCCESS)
 			return (ret);
 
@@ -1577,9 +1557,7 @@ tsig_verify_tcp(isc_buffer_t *source, dns_message_t *msg) {
 	key = tsigkey->key;
 
 	if (msg->tsigctx == NULL) {
-		ret = dst_context_create2(key, mctx,
-					  DNS_LOGCATEGORY_DNSSEC,
-					  &msg->tsigctx);
+		ret = dst_context_create(key, mctx, &msg->tsigctx);
 		if (ret != ISC_R_SUCCESS)
 			goto cleanup_querystruct;
 
@@ -1768,15 +1746,11 @@ static void
 free_tsignode(void *node, void *_unused) {
 	dns_tsigkey_t *key;
 
-	REQUIRE(node != NULL);
-
 	UNUSED(_unused);
 
+	REQUIRE(node != NULL);
+
 	key = node;
-	if (key->generated) {
-		if (ISC_LINK_LINKED(key, link))
-			ISC_LIST_UNLINK(key->ring->lru, key, link);
-	}
 	dns_tsigkey_detach(&key);
 }
 

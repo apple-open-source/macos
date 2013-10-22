@@ -212,7 +212,7 @@ void CFMDiskRep::Writer::flush()
 	size_t start = LowLevelMemoryUtilities::alignUp(rep->signingLimit(), 16);
 	Sentinel sentinel;
 	sentinel.magic = EmbeddedSignatureBlob::typeMagic;
-	sentinel.offset = start;
+	sentinel.offset = (uint32_t)start;
 	AutoFileDesc fd(rep->path(), O_RDWR);
 	fd.seek(start);
 	fd.writeAll(mSigningData, mSigningData->length());

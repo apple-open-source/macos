@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,8 +31,10 @@
  * - initial revision
  */
 
+#include <SystemConfiguration/SystemConfiguration.h>
 #include "configd.h"
 #include "configd_server.h"
+#include "pattern.h"
 #include "session.h"
 
 #include <unistd.h>
@@ -50,20 +52,6 @@ static CFRunLoopRef	sessionRunLoop	= NULL;
 
 /* temp session */
 static serverSessionRef	temp_session	= NULL;
-
-
-static void
-CFMachPortInvalidateSessionCallback(CFMachPortRef port, void *info)
-{
-	CFRunLoopRef	currentRunLoop	= CFRunLoopGetCurrent();
-
-	// Bear trap
-	if (!_SC_CFEqual(currentRunLoop, sessionRunLoop)) {
-		_SC_crash("SCDynamicStore CFMachPort invalidation error",
-			   CFSTR("CFMachPort invalidated"),
-			   CFSTR("An SCDynamicStore CFMachPort has incorrectly been invalidated."));
-	}
-}
 
 
 __private_extern__
@@ -120,11 +108,17 @@ tempSession(mach_port_t server, CFStringRef name, audit_token_t auditToken)
 		(void) __SCDynamicStoreOpen(&temp_session->store, NULL);
 	});
 
-	/* save audit token */
-	temp_session->auditToken        = auditToken;
-	temp_session->callerEUID        = -1;		/* not "root" */
-	temp_session->callerRootAccess  = UNKNOWN;
-	temp_session->callerWriteAccess = UNKNOWN;
+	/* save audit token, caller entitlements */
+	temp_session->auditToken		= auditToken;
+	temp_session->callerEUID		= 1;		/* not "root" */
+	temp_session->callerRootAccess		= UNKNOWN;
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
+	if ((temp_session->callerWriteEntitlement != NULL) &&
+	    (temp_session->callerWriteEntitlement != kCFNull)) {
+		CFRelease(temp_session->callerWriteEntitlement);
+	}
+	temp_session->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 	/* save name */
 	storePrivate = (SCDynamicStorePrivateRef)temp_session->store;
@@ -221,13 +215,6 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 							       configdCallback,
 							       &context);
 
-	//
-	// Set bear trap (an invalidation callback) to catch other
-	// threads stomping on us
-	//
-	CFMachPortSetInvalidationCallBack(sessions[n]->serverPort,
-					  CFMachPortInvalidateSessionCallback);
-
 	if (n > 0) {
 		// insert send right that will be moved to the client
 		(void) mach_port_insert_right(mach_task_self(),
@@ -236,12 +223,14 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 					      MACH_MSG_TYPE_MAKE_SEND);
 	}
 
-	sessions[n]->key		 = mp;
-//	sessions[n]->serverRunLoopSource = NULL;
-//	sessions[n]->store		 = NULL;
-	sessions[n]->callerEUID          = 1;           /* not "root" */
-	sessions[n]->callerRootAccess	 = UNKNOWN;
-	sessions[n]->callerWriteAccess	 = UNKNOWN;
+	sessions[n]->key			= mp;
+//	sessions[n]->serverRunLoopSource	= NULL;
+//	sessions[n]->store			= NULL;
+	sessions[n]->callerEUID			= 1;		/* not "root" */
+	sessions[n]->callerRootAccess		= UNKNOWN;
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
+	sessions[n]->callerWriteEntitlement	= kCFNull;	/* UNKNOWN */
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 	return sessions[n];
 }
@@ -283,6 +272,16 @@ cleanupSession(mach_port_t server)
 			 * Our send right has already been removed. Remove our receive right.
 			 */
 			(void) mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_RECEIVE, -1);
+
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
+			/*
+			 * release any entitlement info
+			 */
+			if ((thisSession->callerWriteEntitlement != NULL) &&
+			    (thisSession->callerWriteEntitlement != kCFNull)) {
+				CFRelease(thisSession->callerWriteEntitlement);
+			}
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 			/*
 			 * We don't need any remaining information in the
@@ -374,7 +373,7 @@ listSessions(FILE *f)
 }
 
 
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
 
 #include <Security/Security.h>
 #include <Security/SecTask.h>
@@ -397,66 +396,81 @@ sessionName(serverSessionRef session)
 	return (name != NULL) ? name : CFSTR("???");
 }
 
-
-static Boolean
-hasEntitlement(serverSessionRef session, CFStringRef entitlement)
+static CFTypeRef
+copyEntitlement(serverSessionRef session, CFStringRef entitlement)
 {
-	Boolean		hasEntitlement	= FALSE;
 	SecTaskRef	task;
+	CFTypeRef	value	= NULL;
 
-	/* Create the security task from the audit token. */
+	// Create the security task from the audit token
 	task = SecTaskCreateWithAuditToken(NULL, session->auditToken);
 	if (task != NULL) {
 		CFErrorRef	error	= NULL;
-		CFTypeRef	value;
 
-		/* Get the value for the entitlement. */
+		// Get the value for the entitlement
 		value = SecTaskCopyValueForEntitlement(task, entitlement, &error);
-		if (value != NULL) {
-			if (isA_CFBoolean(value)) {
-				if (CFBooleanGetValue(value)) {
-					/* if client DOES have entitlement */
-					hasEntitlement = TRUE;
-				}
-			} else {
+		if ((value == NULL) && (error != NULL)) {
+			CFIndex		code	= CFErrorGetCode(error);
+			CFStringRef	domain	= CFErrorGetDomain(error);
+
+			if (!CFEqual(domain, kCFErrorDomainMach) ||
+			    ((code != kIOReturnInvalid) && (code != kIOReturnNotFound))) {
+				// if unexpected error
 				SCLog(TRUE, LOG_ERR,
-				      CFSTR("hasEntitlement: entitlement not valid: %@"),
+				      CFSTR("SecTaskCopyValueForEntitlement(,\"%@\",) failed, error = %@ : %@"),
+				      entitlement,
+				      error,
 				      sessionName(session));
 			}
-
-			CFRelease(value);
-		}
-		if (error != NULL) {
-			SCLog(TRUE,
-			      (value == NULL) ? LOG_ERR : LOG_DEBUG,
-			      CFSTR("hasEntitlement SecTaskCopyValueForEntitlement() %s, error domain=%@, error code=%lx"),
-			      (value == NULL) ? "failed" : "warned",
-			      CFErrorGetDomain(error),
-			      CFErrorGetCode(error));
 			CFRelease(error);
 		}
 
 		CFRelease(task);
 	} else {
 		SCLog(TRUE, LOG_ERR,
-		      CFSTR("hasEntitlement SecTaskCreateWithAuditToken() failed: %@"),
+		      CFSTR("SecTaskCreateWithAuditToken() failed: %@"),
 		      sessionName(session));
 	}
 
-	return hasEntitlement;
+	return value;
 }
 
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
+
+
+static pid_t
+sessionPid(serverSessionRef session)
+{
+	pid_t	caller_pid;
+
+#if     (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
+	caller_pid = audit_token_to_pid(session->auditToken);
+#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
+	audit_token_to_au32(session->auditToken,
+			    NULL,		// auidp
+			    NULL,		// euid
+			    NULL,		// egid
+			    NULL,		// ruid
+			    NULL,		// rgid
+			    &caller_pid,	// pid
+			    NULL,		// asid
+			    NULL);		// tid
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
+
+	return caller_pid;
+}
 
 
 __private_extern__
 Boolean
 hasRootAccess(serverSessionRef session)
 {
+#if	!TARGET_IPHONE_SIMULATOR
+
 	if (session->callerRootAccess == UNKNOWN) {
-		/*
-		 * get the credentials associated with the caller.
-		 */
+#if     (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
+		session->callerEUID = audit_token_to_euid(session->auditToken);
+#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
 		audit_token_to_au32(session->auditToken,
 				    NULL,			// auidp
 				    &session->callerEUID,	// euid
@@ -466,35 +480,127 @@ hasRootAccess(serverSessionRef session)
 				    NULL,			// pid
 				    NULL,			// asid
 				    NULL);			// tid
-
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
 		session->callerRootAccess = (session->callerEUID == 0) ? YES : NO;
 	}
 
 	return (session->callerRootAccess == YES) ? TRUE : FALSE;
+
+#else	// !TARGET_IPHONE_SIMULATOR
+
+	/*
+	 * assume that all processes interacting with
+	 * the iOS Simulator "configd" are OK.
+	 */
+	return TRUE;
+
+#endif	// !TARGET_IPHONE_SIMULATOR
 }
 
 
 __private_extern__
 Boolean
-hasWriteAccess(serverSessionRef session)
+hasWriteAccess(serverSessionRef session, CFStringRef key)
 {
-	if (session->callerWriteAccess == UNKNOWN) {
-		/* assume that the client DOES NOT have the entitlement */
-		session->callerWriteAccess = NO;
+	Boolean	isSetup;
 
-		if (hasRootAccess(session)) {
-			// grant write access to eUID==0 processes
-			session->callerWriteAccess = YES;
+	// need to special case writing "Setup:" keys
+	isSetup = CFStringHasPrefix(key, kSCDynamicStoreDomainSetup);
+
+	if (hasRootAccess(session)) {
+		pid_t	pid;
+
+		// grant write access to eUID==0 processes
+
+		pid = sessionPid(session);
+		if (isSetup && (pid != getpid())) {
+			/*
+			 * WAIT!!!
+			 *
+			 * This is NOT configd (or a plugin) trying to
+			 * write to an SCDynamicStore "Setup:" key.  In
+			 * general, this is unwise and we should at the
+			 * very least complain.
+			 */
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("*** Non-configd process (pid=%d) attempting to modify \"%@\" ***"),
+			      pid,
+			      key);
 		}
-#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
-		else if (hasEntitlement(session, kSCWriteEntitlementName)) {
-			// grant write access to "entitled" processes
-			session->callerWriteAccess = YES;
-		}
-#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
+
+		return TRUE;
 	}
 
-	return (session->callerWriteAccess == YES) ? TRUE : FALSE;
+	if (isSetup) {
+		/*
+		 * STOP!!!
+		 *
+		 * This is a non-root process trying to write to
+		 * an SCDynamicStore "Setup:" key.  This is not
+		 * something we should ever allow (regardless of
+		 * any entitlements).
+		 */
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("*** Non-root process (pid=%d) attempting to modify \"%@\" ***"),
+		      sessionPid(session),
+		      key);
+
+		//return FALSE;		// return FALSE when rdar://9811832 has beed fixed
+	}
+
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
+	if (session->callerWriteEntitlement == kCFNull) {
+		session->callerWriteEntitlement = copyEntitlement(session,
+								  kSCWriteEntitlementName);
+	}
+
+	if (session->callerWriteEntitlement == NULL) {
+		return FALSE;
+	}
+
+	if (isA_CFBoolean(session->callerWriteEntitlement) &&
+	    CFBooleanGetValue(session->callerWriteEntitlement)) {
+		// grant write access to "entitled" processes
+		return TRUE;
+	}
+
+	if (isA_CFDictionary(session->callerWriteEntitlement)) {
+		CFArrayRef	keys;
+		CFArrayRef	patterns;
+
+		keys = CFDictionaryGetValue(session->callerWriteEntitlement, CFSTR("keys"));
+		if (isA_CFArray(keys)) {
+			if (CFArrayContainsValue(keys,
+						 CFRangeMake(0, CFArrayGetCount(keys)),
+						 key)) {
+				// if key matches one of the entitlement "keys", grant
+				// write access
+				return TRUE;
+			}
+		}
+
+		patterns = CFDictionaryGetValue(session->callerWriteEntitlement, CFSTR("patterns"));
+		if (isA_CFArray(patterns)) {
+			CFIndex		i;
+			CFIndex		n	= CFArrayGetCount(patterns);
+
+			for (i = 0; i < n; i++) {
+				CFStringRef	pattern;
+
+				pattern = CFArrayGetValueAtIndex(patterns, i);
+				if (isA_CFString(pattern)) {
+					if (patternKeyMatches(pattern, key)) {
+						// if key matches one of the entitlement
+						// "patterns", grant write access
+						return TRUE;
+					}
+				}
+			}
+		}
+	}
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080/*FIXME*/)
+
+	return FALSE;
 }
 
 
@@ -510,6 +616,9 @@ hasPathAccess(serverSessionRef session, const char *path)
 		return FALSE;
 	}
 
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
+	pid = audit_token_to_pid(session->auditToken);
+#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
 	audit_token_to_au32(session->auditToken,
 			    NULL,		// auidp
 			    NULL,		// euid
@@ -519,8 +628,11 @@ hasPathAccess(serverSessionRef session, const char *path)
 			    &pid,		// pid
 			    NULL,		// asid
 			    NULL);		// tid
-
-	if (sandbox_check(pid, "file-write-data", SANDBOX_FILTER_PATH, realPath) > 0) {
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1080) && !TARGET_OS_IPHONE
+	if (sandbox_check(pid,							// pid
+			  "file-write-data",					// operation
+			  SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT,	// sandbox_filter_type
+			  realPath) > 0) {					// ...
 		SCLog(TRUE, LOG_DEBUG, CFSTR("hasPathAccess sandbox access denied: %s"), strerror(errno));
 		return FALSE;
 	}

@@ -20,6 +20,8 @@
 #include "config.h"
 #include "WebViewInputMethodFilter.h"
 
+#include "Editor.h"
+#include "EventHandler.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "PlatformKeyboardEvent.h"
@@ -49,62 +51,67 @@ void WebViewInputMethodFilter::setWebView(WebKitWebView* webView)
 bool WebViewInputMethodFilter::canEdit()
 {
     Frame* frame = focusedOrMainFrame();
-    return frame && frame->editor()->canEdit();
+    return frame && frame->editor().canEdit();
 }
 
-bool WebViewInputMethodFilter::sendSimpleKeyEvent(GdkEventKey* event, WTF::String simpleString)
+bool WebViewInputMethodFilter::sendSimpleKeyEvent(GdkEventKey* event, WTF::String simpleString, EventFakedForComposition)
 {
     PlatformKeyboardEvent platformEvent(event, CompositionResults(simpleString));
     return focusedOrMainFrame()->eventHandler()->keyEvent(platformEvent);
 }
 
-bool WebViewInputMethodFilter::sendKeyEventWithCompositionResults(GdkEventKey* event, ResultsToSend resultsToSend)
+bool WebViewInputMethodFilter::sendKeyEventWithCompositionResults(GdkEventKey* event, ResultsToSend resultsToSend, EventFakedForComposition)
 {
-    PlatformKeyboardEvent platformEvent(event, CompositionResults(resultsToSend & Composition ? m_confirmedComposition : String(),
-                                                                  resultsToSend & Preedit ? m_preedit : String(),
-                                                                  m_cursorOffset));
-    return focusedOrMainFrame()->eventHandler()->keyEvent(platformEvent);
+    PlatformKeyboardEvent platformEvent(event, CompositionResults(CompositionResults::WillSendCompositionResultsSoon));
+    if (!focusedOrMainFrame()->eventHandler()->keyEvent(platformEvent))
+        return false;
+
+    if (resultsToSend & Composition && !m_confirmedComposition.isNull())
+        confirmCompositionText(m_confirmedComposition);
+    if (resultsToSend & Preedit && !m_preedit.isNull())
+        setPreedit(m_preedit, m_cursorOffset);
+    return true;
 }
 
 void WebViewInputMethodFilter::confirmCompositionText(String text)
 {
     Frame* frame = focusedOrMainFrame();
-    if (!frame || !frame->editor()->canEdit())
+    if (!frame || !frame->editor().canEdit())
         return;
 
     if (text.isNull()) {
         confirmCurrentComposition();
         return;
     }
-    frame->editor()->confirmComposition(m_confirmedComposition);
+    frame->editor().confirmComposition(m_confirmedComposition);
 }
 
 void WebViewInputMethodFilter::confirmCurrentComposition()
 {
     Frame* frame = focusedOrMainFrame();
-    if (!frame || !frame->editor()->canEdit())
+    if (!frame || !frame->editor().canEdit())
         return;
-    frame->editor()->confirmComposition();
+    frame->editor().confirmComposition();
 }
 
 void WebViewInputMethodFilter::cancelCurrentComposition()
 {
     Frame* frame = focusedOrMainFrame();
-    if (!frame || !frame->editor()->canEdit())
+    if (!frame || !frame->editor().canEdit())
         return;
-    frame->editor()->cancelComposition();
+    frame->editor().cancelComposition();
 }
 
 void WebViewInputMethodFilter::setPreedit(String newPreedit, int cursorOffset)
 {
     Frame* frame = focusedOrMainFrame();
-    if (!frame || !frame->editor()->canEdit())
+    if (!frame || !frame->editor().canEdit())
         return;
 
     // TODO: We should parse the PangoAttrList that we get from the IM context here.
     Vector<CompositionUnderline> underlines;
     underlines.append(CompositionUnderline(0, newPreedit.length(), Color(1, 1, 1), false));
-    frame->editor()->setComposition(newPreedit, underlines, m_cursorOffset, m_cursorOffset);
+    frame->editor().setComposition(newPreedit, underlines, m_cursorOffset, m_cursorOffset);
 }
 
 } // namespace WebKit

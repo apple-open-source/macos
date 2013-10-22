@@ -4,21 +4,6 @@
 /* Define to 1 if the `closedir' function returns void instead of `int'. */
 /* #undef CLOSEDIR_VOID */
 
-/* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
-   systems. This function is required for `alloca.c' support on those systems.
-   */
-/* #undef CRAY_STACKSEG_END */
-
-/* Define to 1 if using `alloca.c'. */
-/* #undef C_ALLOCA */
-
-/* Define to 1 if you have `alloca', as a function or macro. */
-#define HAVE_ALLOCA 1
-
-/* Define to 1 if you have <alloca.h> and it should be used (not on Ultrix).
-   */
-#define HAVE_ALLOCA_H 1
-
 /* Define to 1 if you have the <curses.h> header file. */
 #define HAVE_CURSES_H 1
 
@@ -34,6 +19,9 @@
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #define HAVE_FCNTL_H 1
+
+/* Define to 1 if you have the `fgetln' function. */
+#define HAVE_FGETLN 1
 
 /* Define to 1 if you have the `fork' function. */
 #define HAVE_FORK 1
@@ -56,10 +44,22 @@
 #define HAVE_ISSETUGID 1
 
 /* Define to 1 if you have the `curses' library (-lcurses). */
-#define HAVE_LIBCURSES 1
+/* #undef HAVE_LIBCURSES */
 
 /* Define to 1 if you have the `ncurses' library (-lncurses). */
 /* #undef HAVE_LIBNCURSES */
+
+/* Define to 1 if you have the `termcap' library (-ltermcap). */
+#define HAVE_LIBTERMCAP 1
+
+/* Define to 1 if you have the `terminfo' library (-lterminfo). */
+/* #undef HAVE_LIBTERMINFO */
+
+/* Define to 1 if you have the `termlib' library (-ltermlib). */
+/* #undef HAVE_LIBTERMLIB */
+
+/* Define to 1 if you have the `tinfo' library (-ltinfo). */
+/* #undef HAVE_LIBTINFO */
 
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
@@ -119,6 +119,12 @@
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
+/* Define to 1 if you have the `strlcat' function. */
+#define HAVE_STRLCAT 1
+
+/* Define to 1 if you have the `strlcpy' function. */
+#define HAVE_STRLCPY 1
+
 /* Define to 1 if you have the `strrchr' function. */
 #define HAVE_STRRCHR 1
 
@@ -127,6 +133,15 @@
 
 /* Define to 1 if you have the `strtol' function. */
 #define HAVE_STRTOL 1
+
+/* Define to 1 if struct dirent has member d_namlen */
+#define HAVE_STRUCT_DIRENT_D_NAMLEN 1
+
+/* Define to 1 if you have the `strunvis' function. */
+#define HAVE_STRUNVIS 1
+
+/* Define to 1 if you have the `strvis' function. */
+#define HAVE_STRVIS 1
 
 /* Define to 1 if you have the <sys/cdefs.h> header file. */
 #define HAVE_SYS_CDEFS_H 1
@@ -154,6 +169,9 @@
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #define HAVE_SYS_WAIT_H 1
 
+/* Define to 1 if you have the <termcap.h> header file. */
+#define HAVE_TERMCAP_H 1
+
 /* Define to 1 if you have the <term.h> header file. */
 #define HAVE_TERM_H 1
 
@@ -168,6 +186,9 @@
 
 /* Define to 1 if you have the <vfork.h> header file. */
 /* #undef HAVE_VFORK_H */
+
+/* Define to 1 if you have the `vis' function. */
+#define HAVE_VIS 1
 
 /* Define to 1 if you have the `wcsdup' function. */
 #define HAVE_WCSDUP 1
@@ -187,7 +208,7 @@
 #define LT_OBJDIR ".libs/"
 
 /* Name of package */
-#define PACKAGE "libedit-20100424"
+#define PACKAGE "libedit-20121213"
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT ""
@@ -199,7 +220,7 @@
 #define PACKAGE_STRING "libedit 3.0"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "libedit-20100424"
+#define PACKAGE_TARNAME "libedit-20121213"
 
 /* Define to the home page for this package. */
 #define PACKAGE_URL ""
@@ -209,14 +230,6 @@
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
-
-/* If using the C implementation of alloca, define if you know the
-   direction of stack growth for your system; otherwise it will be
-   automatically deduced at runtime.
-	STACK_DIRECTION > 0 => grows toward higher addresses
-	STACK_DIRECTION < 0 => grows toward lower addresses
-	STACK_DIRECTION = 0 => direction of growth unknown */
-/* #undef STACK_DIRECTION */
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -271,6 +284,10 @@
 /* Define as `fork' if `vfork' does not work. */
 /* #undef vfork */
 
+/* 13150025 */
+#define HAVE_FGETLN 1
+#define HAVE_STRLCAT 1
+#define HAVE_STRLCPY 1
 
 #include "sys.h"
 #define SCCSID

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004,2012 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2004,2012-2013 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,6 +36,16 @@
 extern "C" {
 #endif
 
+typedef uint32_t SecCertificateEscrowRootType;
+enum {
+    kSecCertificateBaselineEscrowRoot = 0,
+    kSecCertificateProductionEscrowRoot = 1,
+};
+
+extern CFTypeRef kSecCertificateProductionEscrowKey;
+extern CFTypeRef kSecCertificateEscrowFileName;
+
+
 /* Return a certificate for the DER representation of this certificate.
    Return NULL if the passed-in data is not a valid DER-encoded X.509
    certificate. */
@@ -47,6 +57,9 @@ CFIndex SecCertificateGetLength(SecCertificateRef certificate);
 
 /* Return the bytes of the DER representation of this certificate. */
 const UInt8 *SecCertificateGetBytePtr(SecCertificateRef certificate);
+
+/* Return the SHA-1 hash of this certificate. */
+CFDataRef SecCertificateGetSHA1Digest(SecCertificateRef certificate);
 
 /* Deprecated; use SecCertificateCopyCommonName() instead. */
 OSStatus SecCertificateGetCommonName(SecCertificateRef certificate, CFStringRef *commonName);
@@ -130,6 +143,12 @@ OSStatus SecCertificateReleaseFirstFieldValue(SecCertificateRef certificate, con
 OSStatus SecCertificateCopySubjectComponent(SecCertificateRef certificate, const CSSM_OID *component,
 	CFStringRef *result);
 
+/* Return the DER encoded issuer sequence for the certificate's issuer. */
+CFDataRef SecCertificateCopyIssuerSequence(SecCertificateRef certificate);
+
+/* Return the DER encoded subject sequence for the certificate's subject. */
+CFDataRef SecCertificateCopySubjectSequence(SecCertificateRef certificate);
+
 
 /*	Convenience functions for searching.
 */
@@ -161,17 +180,57 @@ OSStatus SecKeychainSearchCreateForCertificateByEmail(CFTypeRef keychainOrArray,
 CSSM_RETURN SecDigestGetData(CSSM_ALGORITHMS alg, CSSM_DATA* digest, const CSSM_DATA* data);
 
 /* Return true iff certificate is valid as of verifyTime. */
-bool SecCertificateIsValidX(SecCertificateRef certificate, CFAbsoluteTime verifyTime);
+/* DEPRECATED: Use SecCertificateIsValid instead. */
+bool SecCertificateIsValidX(SecCertificateRef certificate, CFAbsoluteTime verifyTime)
+    __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_7, __MAC_10_9, __IPHONE_NA, __IPHONE_NA);
 
-/* NOT EXPORTED YET; copied from SecurityInterface but could be useful in the future.
-CSSM_CSP_HANDLE	SecGetAppleCSPHandle();
-CSSM_CL_HANDLE SecGetAppleCLHandle();
+/*!
+	@function SecCertificateIsValid
+	@abstract Check certificate validity on a given date.
+	@param certificate A certificate reference.
+	@result Returns true if the specified date falls within the certificate's validity period, false otherwise.
 */
+bool SecCertificateIsValid(SecCertificateRef certificate, CFAbsoluteTime verifyTime)
+	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_2_0);
 
-/* determine whether a cert is self-signed */
-OSStatus SecCertificateIsSelfSigned(
-	SecCertificateRef certRef,
-	Boolean *isSelfSigned);		/* RETURNED */
+/*!
+	@function SecCertificateNotValidBefore
+	@abstract Obtain the starting date of the given certificate.
+	@param certificate A certificate reference.
+	@result Returns the absolute time at which the given certificate becomes valid,
+	or 0 if this value could not be obtained.
+*/
+CFAbsoluteTime SecCertificateNotValidBefore(SecCertificateRef certificate)
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_2_0);
+
+/*!
+	@function SecCertificateNotValidAfter
+	@abstract Obtain the expiration date of the given certificate.
+	@param certificate A certificate reference.
+	@result Returns the absolute time at which the given certificate expires,
+	or 0 if this value could not be obtained.
+*/
+CFAbsoluteTime SecCertificateNotValidAfter(SecCertificateRef certificate)
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_2_0);
+
+/*!
+	@function SecCertificateIsSelfSigned
+	@abstract Determine if the given certificate is self-signed.
+	@param certRef A certificate reference.
+	@param isSelfSigned Will be set to true on return if the certificate is self-signed, false otherwise.
+	@result A result code. Returns errSecSuccess if the certificate's status can be determined.
+*/
+OSStatus SecCertificateIsSelfSigned(SecCertificateRef certRef, Boolean *isSelfSigned)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
+/*!
+	@function SecCertificateCopyEscrowRoots
+	@abstract Retrieve the array of valid escrow certificates for a given root type.
+	@param escrowRootType An enumerated type indicating which root type to return.
+	@result An array of zero or more escrow certificates matching the provided type.
+*/
+CFArrayRef SecCertificateCopyEscrowRoots(SecCertificateEscrowRootType escrowRootType)
+    __OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
 
 
 #if defined(__cplusplus)

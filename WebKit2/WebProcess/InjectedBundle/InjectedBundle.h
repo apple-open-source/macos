@@ -47,18 +47,19 @@ typedef struct _GModule GModule;
 #include <Eina.h>
 #endif
 
+#if PLATFORM(MAC)
+OBJC_CLASS NSBundle;
+#endif
+
 namespace CoreIPC {
     class ArgumentDecoder;
     class Connection;
-    class MessageID;
 }
 
 namespace WebKit {
 
 #if PLATFORM(MAC)
-typedef CFBundleRef PlatformBundle;
-#elif PLATFORM(WIN)
-typedef HMODULE PlatformBundle;
+typedef NSBundle *PlatformBundle;
 #elif PLATFORM(QT)
 typedef QLibrary PlatformBundle;
 #elif PLATFORM(GTK)
@@ -71,14 +72,13 @@ class ImmutableArray;
 class InjectedBundleScriptWorld;
 class WebCertificateInfo;
 class WebConnection;
+class WebData;
 class WebFrame;
 class WebPage;
 class WebPageGroupProxy;
 
-class InjectedBundle : public APIObject {
+class InjectedBundle : public TypedAPIObject<APIObject::TypeBundle> {
 public:
-    static const Type APIType = TypeBundle;
-
     static PassRefPtr<InjectedBundle> create(const String& path)
     {
         return adoptRef(new InjectedBundle(path));
@@ -92,35 +92,41 @@ public:
     void initializeClient(WKBundleClient*);
     void postMessage(const String&, APIObject*);
     void postSynchronousMessage(const String&, APIObject*, RefPtr<APIObject>& returnData);
-#if PLATFORM(WIN)
-    void setHostAllowsAnyHTTPSCertificate(const String&);
-    void setClientCertificate(const String& host, const String& certificateSystemStoreName, const WebCertificateInfo*);
-#endif
 
     WebConnection* webConnectionToUIProcess() const;
 
     // TestRunner only SPI
     void setShouldTrackVisitedLinks(bool);
+    void setAlwaysAcceptCookies(bool);
     void removeAllVisitedLinks();
+    void setCacheModel(uint32_t);
     void activateMacFontAscentHack();
     void overrideBoolPreferenceForTestRunner(WebPageGroupProxy*, const String& preference, bool enabled);
     void overrideXSSAuditorEnabledForTestRunner(WebPageGroupProxy* pageGroup, bool enabled);
     void setAllowUniversalAccessFromFileURLs(WebPageGroupProxy*, bool);
     void setAllowFileAccessFromFileURLs(WebPageGroupProxy*, bool);
+    void setMinimumLogicalFontSize(WebPageGroupProxy*, int size);
     void setFrameFlatteningEnabled(WebPageGroupProxy*, bool);
-    void setGeoLocationPermission(WebPageGroupProxy*, bool);
+    void setPluginsEnabled(WebPageGroupProxy*, bool);
     void setJavaScriptCanAccessClipboard(WebPageGroupProxy*, bool);
     void setPrivateBrowsingEnabled(WebPageGroupProxy*, bool);
     void setPopupBlockingEnabled(WebPageGroupProxy*, bool);
     void switchNetworkLoaderToNewTestingSession();
     void setAuthorAndUserStylesEnabled(WebPageGroupProxy*, bool);
+    void setSpatialNavigationEnabled(WebPageGroupProxy*, bool);
     void addOriginAccessWhitelistEntry(const String&, const String&, const String&, bool);
     void removeOriginAccessWhitelistEntry(const String&, const String&, const String&, bool);
     void resetOriginAccessWhitelists();
+    void setAsynchronousSpellCheckingEnabled(WebPageGroupProxy*, bool);
     int numberOfPages(WebFrame*, double, double);
     int pageNumberForElementById(WebFrame*, const String&, double, double);
     String pageSizeAndMarginsInPixels(WebFrame*, int, int, int, int, int, int, int);
     bool isPageBoxVisible(WebFrame*, int);
+    void setUserStyleSheetLocation(WebPageGroupProxy*, const String&);
+    void setWebNotificationPermission(WebPage*, const String& originString, bool allowed);
+    void removeAllWebNotificationPermissions(WebPage*);
+    uint64_t webNotificationID(JSContextRef, JSValueRef);
+    PassRefPtr<WebData> createWebDataFromUint8Array(JSContextRef, JSValueRef);
 
     // UserContent API
     void addUserScript(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& source, const String& url, ImmutableArray* whitelist, ImmutableArray* blacklist, WebCore::UserScriptInjectionTime, WebCore::UserContentInjectedFrames);
@@ -137,7 +143,12 @@ public:
 
     // Application Cache API
     void clearApplicationCache();
+    void clearApplicationCacheForOrigin(const String& origin);
     void setAppCacheMaximumSize(uint64_t);
+    uint64_t appCacheUsageForOrigin(const String& origin);
+    void setApplicationCacheOriginQuota(const String& origin, uint64_t);
+    void resetApplicationCacheOriginQuota(const String& origin);
+    PassRefPtr<ImmutableArray> originsWithApplicationCache();
 
     // Garbage collection API
     void garbageCollectJavaScriptObjects();
@@ -149,19 +160,22 @@ public:
     void willDestroyPage(WebPage*);
     void didInitializePageGroup(WebPageGroupProxy*);
     void didReceiveMessage(const String&, APIObject*);
-
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+    void didReceiveMessageToPage(WebPage*, const String&, APIObject*);
 
     static void reportException(JSContextRef, JSValueRef exception);
 
     static bool isProcessingUserGesture();
 
-    void setPageVisibilityState(WebPageGroupProxy*, int state, bool isInitialState);
+    void setTabKeyCyclesThroughElements(WebPage*, bool enabled);
+    void setSerialLoadingEnabled(bool);
+    void setShadowDOMEnabled(bool);
+    void setCSSRegionsEnabled(bool);
+    void setCSSCompositingEnabled(bool);
+    void setSeamlessIFramesEnabled(bool);
+    void dispatchPendingLoadRequests();
 
 private:
-    InjectedBundle(const String&);
-
-    virtual Type type() const { return APIType; }
+    explicit InjectedBundle(const String&);
 
     String m_path;
     PlatformBundle m_platformBundle; // This is leaked right now, since we never unload the bundle/module.

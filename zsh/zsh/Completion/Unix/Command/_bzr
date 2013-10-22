@@ -259,7 +259,7 @@ case $cmd in
 	)
     ;;
 
-(diff|dif|di)
+(diff|dif|di|cdiff)
     args+=(
 	'(-r --revision)'{--revision=,-r}'[revision]:revision:'
 	'--diff-options=[options to pass to gdiff]:diff options:'
@@ -394,6 +394,10 @@ case $cmd in
 
 (sign-my-commits)
     args+=( '--dry-run[do not actually sign anything]' )
+    ;;
+
+(send)
+    args+=( '*:DIR:_files -/' )
     ;;
 
 (*)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -155,7 +155,7 @@ static void
 add_configured_interface(const void *key, const void *value, void *context)
 {
 	SCBridgeInterfaceRef		bridge;
-	CFStringRef			bridge_if		= (CFStringRef)key;
+	CFStringRef			bridge_if	= (CFStringRef)key;
 	CFDictionaryRef			bridge_info	= (CFDictionaryRef)value;
 	CFDictionaryRef			bridge_options;
 	CFIndex				i;
@@ -164,10 +164,16 @@ add_configured_interface(const void *key, const void *value, void *context)
 	CFMutableArrayRef		members		= NULL;
 	addContextRef			myContext	= (addContextRef)context;
 	CFStringRef			name;
+	CFStringRef			name_auto	= NULL;
 	CFIndex				n;
 
 	// create the bridge interface
 	bridge = (SCBridgeInterfaceRef)_SCBridgeInterfaceCreatePrivate(NULL, bridge_if);
+	assert(bridge != NULL);
+
+	// estabish link to the stored configuration
+	interfacePrivate = (SCNetworkInterfacePrivateRef)bridge;
+	interfacePrivate->prefs = CFRetain(myContext->prefs);
 
 	// add member interfaces
 	interfaces = CFDictionaryGetValue(bridge_info, kSCPropVirtualNetworkInterfacesBridgeInterfaces);
@@ -185,21 +191,24 @@ add_configured_interface(const void *key, const void *value, void *context)
 		CFRelease(members);
 	}
 
-	// set display name
-	name = CFDictionaryGetValue(bridge_info, kSCPropUserDefinedName);
-	if (isA_CFString(name)) {
-		SCBridgeInterfaceSetLocalizedDisplayName(bridge, name);
-	}
-
 	// set options
 	bridge_options = CFDictionaryGetValue(bridge_info, kSCPropVirtualNetworkInterfacesBridgeOptions);
 	if (isA_CFDictionary(bridge_options)) {
 		SCBridgeInterfaceSetOptions(bridge, bridge_options);
+		name_auto = CFDictionaryGetValue(bridge_options, CFSTR("__AUTO__"));
 	}
 
-	// estabish link to the stored configuration
-	interfacePrivate = (SCNetworkInterfacePrivateRef)bridge;
-	interfacePrivate->prefs = CFRetain(myContext->prefs);
+	// set display name
+	name = CFDictionaryGetValue(bridge_info, kSCPropUserDefinedName);
+	if (isA_CFString(name)) {
+		SCBridgeInterfaceSetLocalizedDisplayName(bridge, name);
+	} else if (isA_CFString(name_auto)) {
+		interfacePrivate->localized_key = name_auto;
+		if (interfacePrivate->localized_arg1 != NULL) {
+			CFRelease(interfacePrivate->localized_arg1);
+			interfacePrivate->localized_arg1 = NULL;
+		}
+	}
 
 	CFArrayAppendValue(myContext->bridges, bridge);
 	CFRelease(bridge);
@@ -210,6 +219,22 @@ add_configured_interface(const void *key, const void *value, void *context)
 
 #pragma mark -
 #pragma mark SCBridgeInterface APIs
+
+
+static __inline__ void
+my_CFDictionaryApplyFunction(CFDictionaryRef			theDict,
+			     CFDictionaryApplierFunction	applier,
+			     void				*context)
+{
+	CFAllocatorRef	myAllocator;
+	CFDictionaryRef	myDict;
+
+	myAllocator = CFGetAllocator(theDict);
+	myDict      = CFDictionaryCreateCopy(myAllocator, theDict);
+	CFDictionaryApplyFunction(myDict, applier, context);
+	CFRelease(myDict);
+	return;
+}
 
 
 CFArrayRef
@@ -229,7 +254,7 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 					kSCNetworkInterfaceTypeBridge);
 	dict = SCPreferencesPathGetValue(prefs, path);
 	if (isA_CFDictionary(dict)) {
-		CFDictionaryApplyFunction(dict, add_configured_interface, &context);
+		my_CFDictionaryApplyFunction(dict, add_configured_interface, &context);
 	}
 	CFRelease(path);
 
@@ -378,11 +403,24 @@ _SCBridgeInterfaceCopyActive(void)
 		struct ifbifconf		*ibc_p;
 		struct if_data			*if_data;
 		CFMutableArrayRef		members		= NULL;
+		size_t				n;
 
 		if_data = (struct if_data *)ifp->ifa_data;
 		if (if_data == NULL
 		    || ifp->ifa_addr->sa_family != AF_LINK
 		    || if_data->ifi_type != IFT_BRIDGE) {
+			continue;
+		}
+
+		// check the interface name ("bridgeNNN") and ensure that
+		// we leave all non-SC configured bridge interfaces (those
+		// with unit #'s >= 100) alone.
+		n = strlen(ifp->ifa_name);
+		if ((n > 3) &&
+		    isdigit(ifp->ifa_name[n - 1]) &&
+		    isdigit(ifp->ifa_name[n - 2]) &&
+		    isdigit(ifp->ifa_name[n - 3])) {
+			// if not SC managed bridge interface
 			continue;
 		}
 
@@ -436,7 +474,9 @@ _SCBridgeInterfaceCopyActive(void)
 
     done :
 
-	(void) close(s);
+	if (s != -1) {
+		(void) close(s);
+	}
 	freeifaddrs(ifap);
 	return bridges;
 }
@@ -466,7 +506,7 @@ SCBridgeInterfaceCreate(SCPreferencesRef prefs)
 		Boolean				ok;
 		CFStringRef			path;
 
-		bridge_if = CFStringCreateWithFormat(allocator, NULL, CFSTR("bridge%d"), i);
+		bridge_if = CFStringCreateWithFormat(allocator, NULL, CFSTR("bridge%ld"), i);
 		path    = CFStringCreateWithFormat(allocator,
 						   NULL,
 						   CFSTR("/%@/%@/%@"),
@@ -615,8 +655,9 @@ _SCBridgeInterfaceSetMemberInterfaces(SCBridgeInterfaceRef bridge, CFArrayRef me
 		newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 		CFDictionarySetValue(newDict, kSCPropVirtualNetworkInterfacesBridgeInterfaces, newMembers);
 		CFRelease(newMembers);
-
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}
@@ -766,7 +807,9 @@ SCBridgeInterfaceSetLocalizedDisplayName(SCBridgeInterfaceRef bridge, CFStringRe
 		} else {
 			CFDictionaryRemoveValue(newDict, kSCPropUserDefinedName);
 		}
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}
@@ -828,7 +871,9 @@ SCBridgeInterfaceSetOptions(SCBridgeInterfaceRef bridge, CFDictionaryRef newOpti
 		} else {
 			CFDictionaryRemoveValue(newDict, kSCPropVirtualNetworkInterfacesBridgeOptions);
 		}
-		ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		if (!CFEqual(dict, newDict)) {
+			ok = SCPreferencesPathSetValue(interfacePrivate->prefs, path, newDict);
+		}
 		CFRelease(newDict);
 		CFRelease(path);
 	}
@@ -840,7 +885,23 @@ SCBridgeInterfaceSetOptions(SCBridgeInterfaceRef bridge, CFDictionaryRef newOpti
 			interfacePrivate->bridge.options = NULL;
 		}
 		if (newOptions != NULL) {
+			CFStringRef	name_auto	= NULL;
+
 			interfacePrivate->bridge.options = CFDictionaryCreateCopy(NULL, newOptions);
+
+			// set [auto] display name from options
+			if ((interfacePrivate->localized_name == NULL) &&
+			    CFDictionaryGetValueIfPresent(newOptions,
+							  CFSTR("__AUTO__"),
+							  (const void **)&name_auto) &&
+			    isA_CFString(name_auto)) {
+				// set display name
+				interfacePrivate->localized_key = name_auto;
+				if (interfacePrivate->localized_arg1 != NULL) {
+					CFRelease(interfacePrivate->localized_arg1);
+					interfacePrivate->localized_arg1 = NULL;
+				}
+			}
 		}
 	}
 
@@ -984,10 +1045,10 @@ _SCBridgeInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 				CFIndex		c_count;
 
 				c_bridge_interfaces = SCBridgeInterfaceGetMemberInterfaces(c_bridge);
-				c_count           = (c_bridge_interfaces != NULL) ? CFArrayGetCount(c_bridge_interfaces) : 0;
+				c_count             = (c_bridge_interfaces != NULL) ? CFArrayGetCount(c_bridge_interfaces) : 0;
 
 				a_bridge_interfaces = SCBridgeInterfaceGetMemberInterfaces(a_bridge);
-				a_count           = (a_bridge_interfaces != NULL) ? CFArrayGetCount(a_bridge_interfaces) : 0;
+				a_count             = (a_bridge_interfaces != NULL) ? CFArrayGetCount(a_bridge_interfaces) : 0;
 
 				for (a = 0; a < a_count; a++) {
 					SCNetworkInterfaceRef	a_interface;

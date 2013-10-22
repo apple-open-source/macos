@@ -200,7 +200,7 @@ void IOAudioClientBufferSet::setWatchdogTimeout(AbsoluteTime *timeout)
     
     timerPending = true;
 
-    result = thread_call_enter1_delayed(watchdogThreadCall, (thread_call_param_t)generationCount, outputTimeout);
+    result = thread_call_enter1_delayed(watchdogThreadCall, (thread_call_param_t)(uintptr_t)generationCount, outputTimeout);
 	if (result) {
 		release();		// canceled the previous call
 	}
@@ -630,7 +630,7 @@ IOReturn IOAudioEngineUserClient::getNearestStartTime(IOAudioStream *audioStream
 	// <rdar://7363756>, <rdar://7529580>
 	if ( workLoop )
 	{
-		ret = workLoop->runAction(_getNearestStartTimeAction, this, (void *)audioStream, (void *)ioTimeStamp, (void *)isInput);	// <rdar://7529580>
+		ret = workLoop->runAction(_getNearestStartTimeAction, this, (void *)audioStream, (void *)ioTimeStamp, (void *)(uintptr_t)isInput);	// <rdar://7529580>
 	}
 
 	return ret;
@@ -1165,7 +1165,7 @@ IOReturn IOAudioEngineUserClient::registerNotificationPort(mach_port_t port, UIn
 			// <rdar://7363756>, <rdar://7529580>
 			if ( workLoop )
 			{
-				result = workLoop->runAction(_registerNotificationAction, this, (void *)port, (void *)refCon);	// <rdar://7529580>
+				result = workLoop->runAction(_registerNotificationAction, this, (void *)port, (void *)(uintptr_t)refCon);	// <rdar://7529580>
 			}
 			else
 			{
@@ -1333,7 +1333,7 @@ IOReturn IOAudioEngineUserClient::registerBuffer64(IOAudioStream *audioStream, m
 	// <rdar://7363756>, <rdar://7529580>
 	if ( workLoop )
 	{
-		ret = workLoop->runAction(_registerBufferAction, this, audioStream, &sourceBuffer, (void *)bufSizeInBytes, (void *)bufferSetID);	// <rdar://7529580>
+		ret = workLoop->runAction(_registerBufferAction, this, audioStream, &sourceBuffer, (void *)(uintptr_t)bufSizeInBytes, (void *)(uintptr_t)bufferSetID);	// <rdar://7529580>
 	}
 	
 	audioDebugIOLog(3, "- IOAudioEngineUserClient::registerBuffer64 0x%llx 0x%llx 0x%lx 0x%lx returns 0x%lX\n", (unsigned long long )audioStream, sourceBuffer, (long unsigned int)bufSizeInBytes, (long unsigned int)bufferSetID, (long unsigned int)ret ); 
@@ -1355,7 +1355,7 @@ IOReturn IOAudioEngineUserClient::unregisterBuffer64( mach_vm_address_t  sourceB
 	// <rdar://7363756>, <rdar://7529580>
 	if ( workLoop )
 	{
-		ret = workLoop->runAction(_unregisterBufferAction, this, ( void * ) & sourceBuffer, (void *)bufferSetID);	// <rdar://7529580>
+		ret = workLoop->runAction(_unregisterBufferAction, this, ( void * ) &sourceBuffer, (void *)(uintptr_t)bufferSetID);	// <rdar://7529580>
 	}
 	
 	return ret;
@@ -1873,10 +1873,9 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
     
     if (!isInactive()) 
 	{
-    
         lockBuffers();
         
-        if (isOnline() && (audioEngine->getState() == kIOAudioEngineRunning)) 
+        if (isOnline() && (audioEngine->getState() == kIOAudioEngineRunning) && audioEngine->status && ( audioEngine->status->fCurrentLoopCount || audioEngine->status->fLastLoopTime )  )			//	<rdar://12879939>	Wait for first takeTimeStamp call before allowing audio
 		{
             if (firstSampleFrame < audioEngine->numSampleFramesPerBuffer) 
 			{
@@ -1907,7 +1906,7 @@ IOReturn IOAudioEngineUserClient::performClientIO(UInt32 firstSampleFrame, UInt3
         } 
 		else 
 		{
-			audioDebugIOLog(3, "  OFFLINE\n");
+			audioDebugIOLog(3, "  AUDIO OFFLINE\n");
  	        result = kIOReturnOffline;
         }
         

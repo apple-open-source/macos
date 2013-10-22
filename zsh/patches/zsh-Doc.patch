@@ -16,8 +16,8 @@
 -Zsh/calsys.yo \
  Zsh/compat.yo Zsh/compctl.yo Zsh/compsys.yo Zsh/compwid.yo Zsh/cond.yo \
  Zsh/contrib.yo Zsh/exec.yo Zsh/expn.yo \
- Zsh/filelist.yo Zsh/files.yo Zsh/func.yo Zsh/grammar.yo Zsh/manual.yo \
-@@ -180,8 +179,6 @@
+ Zsh/filelist.yo Zsh/files.yo Zsh/ftp_sites.yo \
+@@ -191,8 +190,6 @@
  
  zshbuiltins.1: Zsh/builtins.yo
  
@@ -48,7 +48,7 @@
  \fIzshtcpsys\fP    Zsh built\-in TCP functions
  .TP
  \fIzshzftpsys\fP   Zsh built\-in FTP client
-@@ -500,7 +498,6 @@
+@@ -430,7 +428,6 @@
  .so man1/zshcompsys.1
  .so man1/zshcompctl.1
  .so man1/zshmodules.1

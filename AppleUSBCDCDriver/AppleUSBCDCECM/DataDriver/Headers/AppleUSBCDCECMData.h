@@ -114,8 +114,6 @@ private:
     
            // CDC Driver instance Methods
 	
-    void			USBLogData(UInt8 Dir, SInt32 Count, char *buf);
-    void			dumpData(char *buf, SInt32 size);
     bool			configureData(void);
     bool			wakeUp(void);
     void			putToSleep(void);
@@ -134,6 +132,11 @@ private:
     void			timeoutOccurred(IOTimerEventSource *timer);
 
 public:
+
+#if LOG_DATA
+    virtual void			USBLogData(UInt8 Dir, SInt32 Count, char *buf);
+    virtual void			dumpData(char *buf, SInt32 size);
+#endif
 
 	AppleUSBCDCECMControl		*fControlDriver;			// Our Control driver
     IOUSBInterface		*fDataInterface;

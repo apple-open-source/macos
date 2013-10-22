@@ -26,8 +26,9 @@
 #ifndef JSCTypedArrayStubs_h
 #define JSCTypedArrayStubs_h
 
-#include "JSObject.h"
+#include "JSDestructibleObject.h"
 #include "ObjectPrototype.h"
+#include "Operations.h"
 #include <wtf/Float32Array.h>
 #include <wtf/Float64Array.h>
 #include <wtf/Forward.h>
@@ -42,26 +43,26 @@
 namespace JSC {
     
 #define TYPED_ARRAY(name, type) \
-class JS##name##Array : public JSNonFinalObject { \
+class JS##name##Array : public JSDestructibleObject { \
 public: \
-    typedef JSNonFinalObject Base; \
+    typedef JSDestructibleObject Base; \
     static JS##name##Array* create(JSC::Structure* structure, JSGlobalObject* globalObject, PassRefPtr<name##Array> impl) \
     { \
-        JS##name##Array* ptr = new (NotNull, JSC::allocateCell<JS##name##Array>(globalObject->globalData().heap)) JS##name##Array(structure, globalObject, impl); \
-        ptr->finishCreation(globalObject->globalData()); \
+        JS##name##Array* ptr = new (NotNull, JSC::allocateCell<JS##name##Array>(globalObject->vm().heap)) JS##name##Array(structure, globalObject, impl); \
+        ptr->finishCreation(globalObject->vm()); \
         return ptr; \
     }\
 \
-    static bool getOwnPropertySlot(JSC::JSCell*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertySlot&);\
-    static bool getOwnPropertyDescriptor(JSC::JSObject*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertyDescriptor&);\
+    static bool getOwnPropertySlot(JSC::JSCell*, JSC::ExecState*, JSC::PropertyName propertyName, JSC::PropertySlot&);\
+    static bool getOwnPropertyDescriptor(JSC::JSObject*, JSC::ExecState*, JSC::PropertyName propertyName, JSC::PropertyDescriptor&);\
     static bool getOwnPropertySlotByIndex(JSC::JSCell*, JSC::ExecState*, unsigned propertyName, JSC::PropertySlot&);\
-    static void put(JSC::JSCell*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValue, JSC::PutPropertySlot&);\
+    static void put(JSC::JSCell*, JSC::ExecState*, JSC::PropertyName propertyName, JSC::JSValue, JSC::PutPropertySlot&);\
     static void putByIndex(JSC::JSCell*, JSC::ExecState*, unsigned propertyName, JSC::JSValue, bool);\
     static const JSC::ClassInfo s_info;\
 \
-    static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)\
+    static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)\
     {\
-        return JSC::Structure::create(globalData, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);\
+        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);\
     }\
 \
     static void getOwnPropertyNames(JSC::JSObject*, JSC::ExecState*, JSC::PropertyNameArray&, JSC::EnumerationMode mode = JSC::ExcludeDontEnumProperties);\
@@ -73,8 +74,8 @@ public: \
     RefPtr<name##Array> m_impl;\
 protected:\
     JS##name##Array(JSC::Structure*, JSGlobalObject*, PassRefPtr<name##Array>);\
-    void finishCreation(JSC::JSGlobalData&);\
-    static const unsigned StructureFlags = JSC::OverridesGetPropertyNames | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags;\
+    void finishCreation(JSC::VM&);\
+    static const unsigned StructureFlags = JSC::OverridesGetPropertyNames | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertySlot | Base::StructureFlags; \
     JSC::JSValue getByIndex(JSC::ExecState*, unsigned index);\
     void indexSetter(JSC::ExecState*, unsigned index, JSC::JSValue);\
 };\
@@ -82,42 +83,42 @@ protected:\
 const ClassInfo JS##name##Array::s_info = { #name "Array" , &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JS##name##Array) };\
 \
 JS##name##Array::JS##name##Array(Structure* structure, JSGlobalObject* globalObject, PassRefPtr<name##Array> impl)\
-    : Base(globalObject->globalData(), structure)\
+    : Base(globalObject->vm(), structure)\
     , m_impl(impl)\
 {\
 }\
 \
-void JS##name##Array::finishCreation(JSGlobalData& globalData)\
+void JS##name##Array::finishCreation(VM& vm)\
 {\
-    Base::finishCreation(globalData);\
+    Base::finishCreation(vm);\
     TypedArrayDescriptor descriptor(&JS##name##Array::s_info, OBJECT_OFFSETOF(JS##name##Array, m_storage), OBJECT_OFFSETOF(JS##name##Array, m_storageLength));\
-    globalData.registerTypedArrayDescriptor(m_impl.get(), descriptor);\
+    vm.registerTypedArrayDescriptor(m_impl.get(), descriptor);\
     m_storage = m_impl->data();\
     m_storageLength = m_impl->length();\
-    putDirect(globalData, globalData.propertyNames->length, jsNumber(m_storageLength), DontDelete | ReadOnly | DontEnum); \
+    putDirect(vm, vm.propertyNames->length, jsNumber(m_storageLength), DontDelete | ReadOnly | DontEnum); \
     ASSERT(inherits(&s_info));\
 }\
 \
-bool JS##name##Array::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)\
+bool JS##name##Array::getOwnPropertySlot(JSCell* cell, ExecState* exec, PropertyName propertyName, PropertySlot& slot)\
 {\
     JS##name##Array* thisObject = jsCast<JS##name##Array*>(cell);\
     ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);\
-    bool ok;\
-    unsigned index = propertyName.toUInt32(ok);\
-    if (ok && index < thisObject->m_storageLength) {\
+    unsigned index = propertyName.asIndex();\
+    if (index < thisObject->m_storageLength) {\
+        ASSERT(index != PropertyName::NotAnIndex);\
         slot.setValue(thisObject->getByIndex(exec, index));\
         return true;\
     }\
     return Base::getOwnPropertySlot(cell, exec, propertyName, slot);\
 }\
 \
-bool JS##name##Array::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)\
+bool JS##name##Array::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, PropertyName propertyName, PropertyDescriptor& descriptor)\
 {\
     JS##name##Array* thisObject = jsCast<JS##name##Array*>(object);\
     ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);\
-    bool ok;\
-    unsigned index = propertyName.toUInt32(ok);\
-    if (ok && index < thisObject->m_storageLength) {\
+    unsigned index = propertyName.asIndex();\
+    if (index < thisObject->m_storageLength) {\
+        ASSERT(index != PropertyName::NotAnIndex);\
         descriptor.setDescriptor(thisObject->getByIndex(exec, index), DontDelete);\
         return true;\
     }\
@@ -135,13 +136,12 @@ bool JS##name##Array::getOwnPropertySlotByIndex(JSCell* cell, ExecState* exec, u
     return thisObject->methodTable()->getOwnPropertySlot(thisObject, exec, Identifier::from(exec, propertyName), slot);\
 }\
 \
-void JS##name##Array::put(JSCell* cell, ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)\
+void JS##name##Array::put(JSCell* cell, ExecState* exec, PropertyName propertyName, JSValue value, PutPropertySlot& slot)\
 {\
     JS##name##Array* thisObject = jsCast<JS##name##Array*>(cell);\
     ASSERT_GC_OBJECT_INHERITS(thisObject, &s_info);\
-    bool ok;\
-    unsigned index = propertyName.toUInt32(ok);\
-    if (ok) {\
+    unsigned index = propertyName.asIndex();\
+    if (index != PropertyName::NotAnIndex) {\
         thisObject->indexSetter(exec, index, value);\
         return;\
     }\
@@ -174,7 +174,7 @@ JSValue JS##name##Array::getByIndex(ExecState*, unsigned index)\
 {\
     ASSERT_GC_OBJECT_INHERITS(this, &s_info);\
     type result = m_impl->item(index);\
-    if (isnan((double)result))\
+    if (std::isnan((double)result))\
         return jsNaN();\
     return JSValue(result);\
 }\
@@ -184,8 +184,11 @@ static EncodedJSValue JSC_HOST_CALL constructJS##name##Array(ExecState* callFram
     int32_t length = callFrame->argument(0).toInt32(callFrame); \
     if (length < 0) \
         return JSValue::encode(jsUndefined()); \
-    Structure* structure = JS##name##Array::createStructure(callFrame->globalData(), callFrame->lexicalGlobalObject(), callFrame->lexicalGlobalObject()->objectPrototype()); \
-    return JSValue::encode(JS##name##Array::create(structure, callFrame->lexicalGlobalObject(), name##Array::create(length)));\
+    Structure* structure = JS##name##Array::createStructure(callFrame->vm(), callFrame->lexicalGlobalObject(), callFrame->lexicalGlobalObject()->objectPrototype()); \
+    RefPtr<name##Array> buffer = name##Array::create(length); \
+    if (!buffer) \
+        return throwVMError(callFrame, createRangeError(callFrame, "ArrayBuffer size is not a small enough positive integer.")); \
+    return JSValue::encode(JS##name##Array::create(structure, callFrame->lexicalGlobalObject(), buffer.release())); \
 }
 
 TYPED_ARRAY(Uint8, uint8_t);

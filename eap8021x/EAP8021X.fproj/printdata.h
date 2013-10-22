@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,19 +32,28 @@
 #define _S_PRINTDATA_H
 
 #include <sys/types.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <CoreFoundation/CFString.h>
 
 void
-fprint_data(FILE * f, const u_char * data, int len);
+fprint_data(FILE * f, const uint8_t * data, int len);
 
 void
-print_data(const u_char * data, int len);
+print_data(const uint8_t * data, int len);
 
 void
-fprint_bytes(FILE * out_f, const u_char * data_p, int n_bytes);
+fprint_bytes(FILE * out_f, const uint8_t * data_p, int n_bytes);
 
 void
-print_bytes(const u_char * data, int len);
+print_bytes(const uint8_t * data, int len);
+
+void
+print_bytes_cfstr(CFMutableStringRef str, const uint8_t * data_p,
+		  int n_bytes);
+void
+print_data_cfstr(CFMutableStringRef str, const uint8_t * data_p,
+		 int n_bytes);
 
 #endif /* _S_PRINTDATA_H */
 

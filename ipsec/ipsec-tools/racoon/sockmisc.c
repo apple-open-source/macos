@@ -63,7 +63,6 @@
 #include "sockmisc.h"
 #include "debug.h"
 #include "gcmalloc.h"
-#include "debugrm.h"
 #include "libpfkey.h"
 
 #ifndef IP_IPSEC_POLICY
@@ -245,9 +244,7 @@ cmpsaddrwild(addr1, addr2)
  *	1: not equal.
  */
 int
-cmpsaddrstrict(addr1, addr2)
-	const struct sockaddr_storage *addr1;
-	const struct sockaddr_storage *addr2;
+cmpsaddrstrict(const struct sockaddr_storage *addr1, const struct sockaddr_storage *addr2)
 {
 	caddr_t sa1, sa2;
 	u_short port1, port2;
@@ -363,8 +360,7 @@ cmpsaddrstrict_withprefix(const struct sockaddr_storage *addr1, const struct soc
 
 /* get local address against the destination. */
 struct sockaddr_storage *
-getlocaladdr(remote)
-	struct sockaddr *remote;
+getlocaladdr(struct sockaddr *remote)
 {
 	struct sockaddr_storage *local;
 	u_int local_len = sizeof(struct sockaddr);
@@ -372,34 +368,33 @@ getlocaladdr(remote)
 
 	/* allocate buffer */
 	if ((local = racoon_calloc(1, local_len)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get address buffer.\n");
 		goto err;
 	}
 	
 	/* get real interface received packet */
 	if ((s = socket(remote->sa_family, SOCK_DGRAM, 0)) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"socket (%s)\n", strerror(errno));
 		goto err;
 	}
 
 	if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to put localaddr socket in non-blocking mode\n");
+		plog(ASL_LEVEL_ERR, "failed to put localaddr socket in non-blocking mode\n");
 	}
-
+    
 	setsockopt_bypass(s, remote->sa_family);
 	
 	if (connect(s, remote, sysdep_sa_len(remote)) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"connect (%s)\n", strerror(errno));
 		close(s);
 		goto err;
 	}
 
 	if (getsockname(s, (struct sockaddr *)local, &local_len) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"getsockname (%s)\n", strerror(errno));
 		close(s);
 		return NULL;
@@ -419,15 +414,14 @@ getlocaladdr(remote)
  * setsockopt() have already performed on socket.
  */
 int
-recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
-	int s;
-	void *buf;
-	size_t buflen;
-	int flags;
-	struct sockaddr_storage *from;
-	socklen_t *fromlen;
-	struct sockaddr_storage *to;
-	u_int *tolen;
+recvfromto(int s,
+           void *buf,
+           size_t buflen,
+           int flags,
+           struct sockaddr_storage *from,
+           socklen_t *fromlen,
+           struct sockaddr_storage *to,
+           u_int *tolen)
 {
 	int otolen;
 	ssize_t len;
@@ -445,8 +439,8 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 #endif
 
 	len = sizeof(ss);
-	if (getsockname(s, (struct sockaddr *)&ss, &len) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if (getsockname(s, (struct sockaddr *)&ss, (socklen_t*)&len) < 0) {
+		plog(ASL_LEVEL_ERR, 
 			"getsockname (%s)\n", strerror(errno));
 		return -1;
 	}
@@ -464,8 +458,7 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 	while ((len = recvmsg(s, &m, flags)) < 0) {
 		if (errno == EINTR)
 			continue;
-		plog(LLV_ERROR, LOCATION, NULL,
-			"recvmsg (%s)\n", strerror(errno));
+		plog(ASL_LEVEL_ERR, "recvmsg (%s)\n", strerror(errno));
 		return -1;
 	}
 	if (len == 0) {
@@ -479,7 +472,7 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 	     m.msg_controllen != 0 && cm && cm != cm_prev;
 	     cm_prev = cm, cm = (struct cmsghdr *)CMSG_NXTHDR(&m, cm)) {
 #if 0
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"cmsg %d %d\n", cm->cmsg_level, cm->cmsg_type);)
 #endif
 #if defined(INET6) && defined(INET6_ADVAPI)
@@ -540,7 +533,7 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 			continue;
 		}
 	}
-
+    plogdump(ASL_LEVEL_DEBUG, buf, buflen, "@@@@@@ data from readmsg:\n");
 	return len;
 }
 
@@ -558,27 +551,27 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 	int i;
 
 	if (src->ss_family != dst->ss_family) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"address family mismatch\n");
 		return -1;
 	}
 
 	len = sizeof(ss);
-	if (getsockname(s, (struct sockaddr *)&ss, &len) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if (getsockname(s, (struct sockaddr *)&ss, (socklen_t*)&len) < 0) {
+		plog(ASL_LEVEL_ERR, 
 			"getsockname (%s)\n", strerror(errno));
 		return -1;
 	}
 
-	plog(LLV_DEBUG, LOCATION, NULL,
+	plog(ASL_LEVEL_DEBUG, 
 		"sockname %s\n", saddr2str((struct sockaddr *)&ss));
-	plog(LLV_DEBUG, LOCATION, NULL,
+	plog(ASL_LEVEL_DEBUG, 
 		"send packet from %s\n", saddr2str((struct sockaddr *)src));
-	plog(LLV_DEBUG, LOCATION, NULL,
+	plog(ASL_LEVEL_DEBUG, 
 		"send packet to %s\n", saddr2str((struct sockaddr *)dst));
 
 	if (src->ss_family != ss.ss_family) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"address family mismatch\n");
 		return -1;
 	}
@@ -630,19 +623,19 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 		memcpy(&pi->ipi6_addr, &src6.sin6_addr, sizeof(src6.sin6_addr));
 		pi->ipi6_ifindex = ifindex;
 
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"src6 %s %d\n",
 			saddr2str((struct sockaddr *)&src6),
 			src6.sin6_scope_id);
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"dst6 %s %d\n",
 			saddr2str((struct sockaddr *)&dst6),
 			dst6.sin6_scope_id);
-
+            
 		for (i = 0; i < cnt; i++) {
 			len = sendmsg(s, &m, 0 /*MSG_DONTROUTE*/);
 			if (len < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"sendmsg (%s)\n", strerror(errno));
 				if (errno != EHOSTUNREACH && errno != ENETDOWN && errno != ENETUNREACH) {
 				        return -1;
@@ -651,12 +644,11 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 				// packet loss, in case the network interface is flaky
 				len = 0;
 			}
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"%d times of %d bytes message will be sent "
 				"to %s\n",
 				i + 1, len, saddr2str((struct sockaddr *)dst));
 		}
-		plogdump(LLV_DEBUG, (char *)buf, buflen);
 
 		return len;
 	    }
@@ -680,18 +672,17 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			 */
 			sendsock = socket(src->ss_family, SOCK_DGRAM, 0);
 			if (sendsock < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"socket (%s)\n", strerror(errno));
 				return -1;
 			}
 			if (fcntl(sendsock, F_SETFL, O_NONBLOCK) == -1) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to put sendsock socket in non-blocking mode\n");
+				plog(ASL_LEVEL_ERR, "failed to put sendsock socket in non-blocking mode\n");
 			}
 			if (setsockopt(sendsock, SOL_SOCKET,
 				       SO_REUSEPORT,
 				       (void *)&yes, sizeof(yes)) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"setsockopt SO_REUSEPORT (%s)\n", 
 					strerror(errno));
 				close(sendsock);
@@ -701,7 +692,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			if (src->ss_family == AF_INET6 &&
 			    setsockopt(sendsock, IPPROTO_IPV6, IPV6_USE_MIN_MTU,
 			    (void *)&yes, sizeof(yes)) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"setsockopt IPV6_USE_MIN_MTU (%s)\n", 
 					strerror(errno));
 				close(sendsock);
@@ -714,35 +705,37 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			}
 
 			if (bind(sendsock, (struct sockaddr *)src, sysdep_sa_len((struct sockaddr *)src)) < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"bind 1 (%s)\n", strerror(errno));
 				close(sendsock);
 				return -1;
 			}
 			needclose = 1;
 		}
-
-		for (i = 0; i < cnt; i++) {
+ 
+        plogdump(ASL_LEVEL_DEBUG, (void*)buf, buflen, "@@@@@@ data being sent:\n");
+		
+            for (i = 0; i < cnt; i++) {
 			len = sendto(sendsock, buf, buflen, 0, (struct sockaddr *)dst, sysdep_sa_len((struct sockaddr *)dst));
 			if (len < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"sendto (%s)\n", strerror(errno));
 				if (errno != EHOSTUNREACH && errno != ENETDOWN && errno != ENETUNREACH) {
 				        if (needclose)
 					        close(sendsock);
 					return -1;
 				}
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					"treating socket error (%s) like packet loss\n", strerror(errno));
 				// else treat these failures like a packet loss
 				len = 0;
 			}
-			plog(LLV_DEBUG, LOCATION, NULL,
+			plog(ASL_LEVEL_DEBUG, 
 				"%d times of %d bytes message will be sent "
 				"to %s\n",
 				i + 1, len, saddr2str((struct sockaddr *)dst));
 		}
-		plogdump(LLV_DEBUG, (char *)buf, buflen);
+		//plog(ASL_LEVEL_DEBUG, "sent %d bytes", buflen);
 
 		if (needclose)
 			close(sendsock);
@@ -753,8 +746,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 }
 
 int
-setsockopt_bypass(so, family)
-	int so, family;
+setsockopt_bypass(int so, int family)
 {
 	int level;
 	char *buf;
@@ -770,7 +762,7 @@ setsockopt_bypass(so, family)
 		break;
 #endif
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"unsupported address family %d\n", family);
 		return -1;
 	}
@@ -778,7 +770,7 @@ setsockopt_bypass(so, family)
 	policy = "in bypass";
 	buf = ipsec_set_policy(policy, strlen(policy));
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"ipsec_set_policy (%s)\n",
 			ipsec_strerror());
 		return -1;
@@ -787,7 +779,7 @@ setsockopt_bypass(so, family)
 	               (level == IPPROTO_IP ?
 	                         IP_IPSEC_POLICY : IPV6_IPSEC_POLICY),
 	               buf, ipsec_get_policylen(buf)) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"setsockopt IP_IPSEC_POLICY (%s)\n",
 			strerror(errno));
 		return -1;
@@ -797,7 +789,7 @@ setsockopt_bypass(so, family)
 	policy = "out bypass";
 	buf = ipsec_set_policy(policy, strlen(policy));
 	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"ipsec_set_policy (%s)\n",
 			ipsec_strerror());
 		return -1;
@@ -806,7 +798,7 @@ setsockopt_bypass(so, family)
 	               (level == IPPROTO_IP ?
 	                         IP_IPSEC_POLICY : IPV6_IPSEC_POLICY),
 	               buf, ipsec_get_policylen(buf)) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"setsockopt IP_IPSEC_POLICY (%s)\n",
 			strerror(errno));
 		return -1;
@@ -817,13 +809,12 @@ setsockopt_bypass(so, family)
 }
 
 struct sockaddr_storage *
-newsaddr(len)
-	int len;
+newsaddr(int len)
 {
 	struct sockaddr_storage *new;
 
-	if ((new = racoon_calloc(1, len)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if ((new = racoon_calloc(1, sizeof(*new))) == NULL) {
+		plog(ASL_LEVEL_ERR, 
 			"%s\n", strerror(errno)); 
 		goto out;
 	}
@@ -834,26 +825,23 @@ out:
 }
 
 struct sockaddr_storage *
-dupsaddr(src)
-	struct sockaddr *src;
+dupsaddr(struct sockaddr_storage *addr)
 {
-	struct sockaddr_storage *dst;
+	struct sockaddr_storage *new;
 
-	dst = racoon_calloc(1, sysdep_sa_len(src));
-	if (dst == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"%s\n", strerror(errno)); 
+	new = racoon_calloc(1, sizeof(*new));
+	if (new == NULL) {
+		plog(ASL_LEVEL_ERR, "%s\n", strerror(errno)); 
 		return NULL;
 	}
 
-	memcpy(dst, src, sysdep_sa_len(src));
-
-	return dst;
+	memcpy(new, addr, addr->ss_len);
+    
+	return new;
 }
 
 char *
-saddr2str(saddr)
-	const struct sockaddr *saddr;
+saddr2str(const struct sockaddr *saddr)
 {
 	static char buf[NI_MAXHOST + NI_MAXSERV + 10];
 	char addr[NI_MAXHOST], port[NI_MAXSERV];
@@ -874,9 +862,7 @@ saddr2str(saddr)
 }
 
 char *
-saddr2str_with_prefix(saddr, prefix)
-const struct sockaddr *saddr;
-int prefix;
+saddr2str_with_prefix(const struct sockaddr *saddr, int prefix)
 {
 	static char buf[NI_MAXHOST + NI_MAXSERV + 10];
 	char addr[NI_MAXHOST], port[NI_MAXSERV];
@@ -898,8 +884,7 @@ int prefix;
 
 
 char *
-saddrwop2str(saddr)
-	const struct sockaddr *saddr;
+saddrwop2str(const struct sockaddr *saddr)
 {
 	static char buf[NI_MAXHOST + NI_MAXSERV + 10];
 	char addr[NI_MAXHOST];
@@ -990,9 +975,7 @@ saddr2str_fromto(format, saddr, daddr)
 }
 
 struct sockaddr_storage *
-str2saddr(host, port)
-	char *host;
-	char *port;
+str2saddr(char *host, char *port)
 {
 	struct addrinfo hints, *res;
 	struct sockaddr_storage *saddr;
@@ -1004,14 +987,14 @@ str2saddr(host, port)
 	hints.ai_flags = AI_NUMERICHOST;
 	error = getaddrinfo(host, port, &hints, &res);
 	if (error != 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"getaddrinfo(%s%s%s): %s\n",
 			host, port ? "," : "", port ? port : "",
 			gai_strerror(error));
 		return NULL;
 	}
 	if (res->ai_next != NULL) {
-		plog(LLV_WARNING, LOCATION, NULL,
+		plog(ASL_LEVEL_WARNING, 
 			"getaddrinfo(%s%s%s): "
 			"resolved to multiple address, "
 			"taking the first one\n",
@@ -1019,7 +1002,7 @@ str2saddr(host, port)
 	}
 	saddr = newsaddr(sizeof(*saddr));
 	if (saddr == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to allocate buffer.\n");
 		freeaddrinfo(res);
 		return NULL;
@@ -1051,13 +1034,13 @@ mask_sockaddr(a, b, l)
 		break;
 #endif
 	default:
-		plog(LLV_ERROR2, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid address family: %d\n", b->ss_family);
 		exit(1);
 	}
 
 	if ((alen << 3) < l) {
-		plog(LLV_ERROR2, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"unexpected inconsistency: %d %zu\n", b->ss_family, l);
 		exit(1);
 	}
@@ -1088,7 +1071,7 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr_storage *saddr)
 	int port_score;
 
 	if (!naddr || !saddr) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 		     "Call with null args: naddr=%p, saddr=%p\n",
 		     naddr, saddr);
 		return -1;
@@ -1114,7 +1097,7 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr_storage *saddr)
 
 	/* Here it comes - compare network addresses. */
 	mask_sockaddr(&sa, saddr, naddr->prefix);
-	if (loglevel >= LLV_DEBUG) {	/* debug only */
+	if (loglevel >= ASL_LEVEL_DEBUG) {	/* debug only */
 		char *a1, *a2, *a3;
 		a1 = racoon_strdup(naddrwop2str(naddr));
 		a2 = racoon_strdup(saddrwop2str((struct sockaddr *)saddr));
@@ -1122,7 +1105,7 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr_storage *saddr)
 		STRDUP_FATAL(a1);
 		STRDUP_FATAL(a2);
 		STRDUP_FATAL(a3);
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 		     "naddr=%s, saddr=%s (masked=%s)\n",
 		     a1, a2, a3);
 		free(a1);
@@ -1135,7 +1118,7 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr_storage *saddr)
 	return -1;
 }
 
-/* Some usefull functions for sockaddr_storage port manipulations. */
+/* Some useful functions for sockaddr_storage port manipulations. */
 u_int16_t
 extract_port (const struct sockaddr_storage *addr)
 {
@@ -1152,7 +1135,7 @@ extract_port (const struct sockaddr_storage *addr)
       port = ((struct sockaddr_in6 *)addr)->sin6_port;
       break;
     default:
-      plog(LLV_ERROR, LOCATION, NULL, "unknown AF: %u\n", addr->ss_family);
+      plog(ASL_LEVEL_ERR, "unknown AF: %u\n", addr->ss_family);
       break;
   }
 
@@ -1175,7 +1158,7 @@ get_port_ptr (struct sockaddr_storage *addr)
       port_ptr = &(((struct sockaddr_in6 *)addr)->sin6_port);
       break;
     default:
-      plog(LLV_ERROR, LOCATION, NULL, "unknown AF: %u\n", addr->ss_family);
+      plog(ASL_LEVEL_ERR, "unknown AF: %u\n", addr->ss_family);
       return NULL;
       break;
   }

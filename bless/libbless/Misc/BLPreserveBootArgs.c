@@ -45,7 +45,8 @@ static const char *remove_boot_args[] = {
 
 int BLPreserveBootArgs(BLContextPtr context,
                        const char *input,
-                       char *output)
+                       char *output,
+                       int outputLen)
 {
     char oldbootargs[1024];
     char bootargs[1024];
@@ -100,7 +101,7 @@ int BLPreserveBootArgs(BLContextPtr context,
         }
     }
     
-    strcpy(output, bootargs);
+    strlcpy(output, bootargs, outputLen);
     
     return 0;
 }

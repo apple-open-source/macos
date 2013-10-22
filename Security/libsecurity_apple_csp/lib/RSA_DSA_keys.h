@@ -1,12 +1,12 @@
 /*
  * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
- * 
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
  * You may not use this file except in compliance with the License. Please obtain
  * a copy of the License at http://www.apple.com/publicsource and read it before
  * using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
  * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
@@ -19,7 +19,7 @@
 /*
  * RSA_DSA_keys.h - key pair support for RSA/DSA
  */
- 
+
 #ifndef	_RSA_DSA_KEYS_H_
 #define _RSA_DSA_KEYS_H_
 
@@ -43,12 +43,12 @@
 #define DSA_MAX_KEY_SIZE		4096
 #define DSA_KEY_BITS_MASK		(64 - 1)	/* these bits must be zero */
 											/* i.e., aligned to 64 bits */
-											
+
 #define RSA_MAX_KEY_SIZE			4096
 #define RSA_MAX_PUB_EXPONENT_SIZE	64
 
 /* Those max RSA sizes can be overridden with these system preferences */
-#define kRSAKeySizePrefsDomain		"com.apple.crypto"
+#define kRSAKeySizePrefsDomain		"com.apple.security"
 #define kRSAMaxKeySizePref			CFSTR("RSAMaxKeySize")
 #define kRSAMaxPublicExponentPref	CFSTR("RSAMaxPublicExponent")
 
@@ -68,21 +68,21 @@ public:
 		CSSM_KEYATTR_FLAGS	&attrFlags);	/* IN/OUT */
 
 	RSA						*mRsaKey;
-	
+
 	bool isOaep()				{ return mOaep; }
 	const CSSM_DATA &label()	{ return mLabel; }
 	void setOaep(
 		const CSSM_DATA		&label);
 private:
-	/* 
-	 * optional fields for OEAP keys 
-	 * (mKeyHeader.AlgorithmId == CSSM_ALGMODE_PKCS1_EME_OAEP) 
+	/*
+	 * optional fields for OEAP keys
+	 * (mKeyHeader.AlgorithmId == CSSM_ALGMODE_PKCS1_EME_OAEP)
 	 */
 	bool					mOaep;
 	CssmAutoData			mLabel;
 };
 
-class RSAKeyPairGenContext : 
+class RSAKeyPairGenContext :
 	public AppleCSPContext, private AppleKeyPairGenContext  {
 public:
 	RSAKeyPairGenContext(
@@ -91,31 +91,31 @@ public:
 			AppleCSPContext(session) {}
 
 	~RSAKeyPairGenContext() { }
-	
+
 	/* no init functionality, but we need to implement it */
 	void init(
-		const Context &, 
+		const Context &,
 		bool) { }
-		
+
 	// this one is specified in, and called from, CSPFullPluginSession
 	void generate(
-		const Context 	&context, 
-		CssmKey 		&pubKey, 
+		const Context 	&context,
+		CssmKey 		&pubKey,
 		CssmKey 		&privKey);
-		
+
 	// this one is specified in, and called from, AppleKeyPairGenContext
 	void generate(
 		const Context 	&context,
-		BinaryKey		&pubBinKey,	
+		BinaryKey		&pubBinKey,
 		BinaryKey		&privBinKey,
 		uint32			&keySize);
-	
+
 };	/* KeyPairGenContext */
 
 /*
  * CSPKeyInfoProvider for RSA keys
  */
-class RSAKeyInfoProvider : public CSPKeyInfoProvider 
+class RSAKeyInfoProvider : public CSPKeyInfoProvider
 {
 private:
 	RSAKeyInfoProvider(
@@ -156,7 +156,7 @@ public:
 	DSA						*mDsaKey;
 };
 
-class DSAKeyPairGenContext : 
+class DSAKeyPairGenContext :
 	public AppleCSPContext, private AppleKeyPairGenContext  {
 public:
 	DSAKeyPairGenContext(
@@ -165,33 +165,33 @@ public:
 			AppleCSPContext(session), mGenAttrs(NULL) {}
 
 	~DSAKeyPairGenContext() { freeGenAttrs(); }
-	
+
 	/* no init functionality, but we need to implement it */
 	void init(
-		const Context &, 
+		const Context &,
 		bool) { }
-		
+
 	// this one is specified in, and called from, CSPFullPluginSession
 	void generate(
-		const Context 	&context, 
-		CssmKey 		&pubKey, 
+		const Context 	&context,
+		CssmKey 		&pubKey,
 		CssmKey 		&privKey);
-		
+
 	// this one is specified in, and called from, AppleKeyPairGenContext
 	void generate(
 		const Context 	&context,
-		BinaryKey		&pubBinKey,	
+		BinaryKey		&pubBinKey,
 		BinaryKey		&privBinKey,
 		uint32			&keySize);
 
 	// specified in, and called from, CSPFullPluginSession - generate parameters
 	void generate(
-		const Context 	&context, 
+		const Context 	&context,
 		uint32 			bitSize,
 		CssmData 		&params,
-		uint32 			&attrCount, 
+		uint32 			&attrCount,
 		Context::Attr * &attrs);
-	
+
 	/*
 	 * Necessary to handle and deflect "context changed" notification which occurs
 	 * after the strange return from "generate parameters", when the plugin adds
@@ -205,7 +205,7 @@ public:
 		unsigned		inSeedLen,
 		NSS_DSAAlgParams &algParams,
 		SecNssCoder		&coder);
-	
+
 private:
 	/* gross hack to store attributes "returned" from GenParams */
 	Context::Attr		*mGenAttrs;
@@ -215,7 +215,7 @@ private:
 /*
  * CSPKeyInfoProvider for DSA keys
  */
-class DSAKeyInfoProvider : public CSPKeyInfoProvider 
+class DSAKeyInfoProvider : public CSPKeyInfoProvider
 {
 private:
 	DSAKeyInfoProvider(
@@ -225,7 +225,7 @@ public:
 	static CSPKeyInfoProvider *provider(
 		const CssmKey 		&cssmKey,
 		AppleCSPSession		&session);
-		
+
 	~DSAKeyInfoProvider() { }
 	void CssmKeyToBinary(
 		CssmKey				*paramKey,	// optional

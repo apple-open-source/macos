@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/az_Cyrl.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/az_Cyrl.xml
 // *
 // ***************************************************************************
 /**
@@ -35,8 +35,33 @@ az_Cyrl{
             }
         }
     }
-    Version{"2.0.67.8"}
+    Version{"2.0.82.45"}
     calendar{
+        generic{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d, MMMM, y G",
+                "d MMMM , y G",
+                "d MMM, y G",
+                "GGGGG y-MM-dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                MMM{"LLL"}
+                MMMEd{"E, d, MMM"}
+                MMMd{"d MMM"}
+                yMMM{"MMM, y"}
+                yMMMEd{"E, d, MMM, y"}
+                yMMMd{"d MMM, y"}
+            }
+        }
         gregorian{
             DateTimePatterns{
                 "HH:mm:ss zzzz",
@@ -46,7 +71,7 @@ az_Cyrl{
                 "EEEE, d, MMMM, y",
                 "d MMMM , y",
                 "d MMM, y",
-                "yyyy-MM-dd",
+                "y-MM-dd",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",

@@ -114,7 +114,7 @@ natt_vendorid (int vid)
 }
 
 vchar_t *
-natt_hash_addr (struct ph1handle *iph1, struct sockaddr_storage *addr)
+natt_hash_addr (phase1_handle_t *iph1, struct sockaddr_storage *addr)
 {
   vchar_t *natd;
   vchar_t *buf;
@@ -122,9 +122,11 @@ natt_hash_addr (struct ph1handle *iph1, struct sockaddr_storage *addr)
   void *addr_ptr, *addr_port;
   size_t buf_size, addr_size;
 
-  plog (LLV_INFO, LOCATION, addr, "Hashing %s with algo #%d %s\n",
-	saddr2str((struct sockaddr *)addr), iph1->approval->hashtype, 
-	(iph1->rmconf->nat_traversal == NATT_FORCE)?"(NAT-T forced)":"");
+	if (iph1->approval) {
+		plog(ASL_LEVEL_INFO, "Hashing %s with algo #%d %s\n",
+			 saddr2str((struct sockaddr *)addr), iph1->approval->hashtype, 
+			 (iph1->rmconf->nat_traversal == NATT_FORCE)?"(NAT-T forced)":"");
+	}
   
   if (addr->ss_family == AF_INET) {
     addr_size = sizeof (struct in_addr);	/* IPv4 address */
@@ -137,7 +139,7 @@ natt_hash_addr (struct ph1handle *iph1, struct sockaddr_storage *addr)
     addr_port = &((struct sockaddr_in6 *)addr)->sin6_port;
   }
   else {
-    plog (LLV_ERROR, LOCATION, addr, "Unsupported address family #0x%x\n", addr->ss_family);
+    plog(ASL_LEVEL_ERR, "Unsupported address family #0x%x\n", addr->ss_family);
     return NULL;
   }
 
@@ -174,7 +176,7 @@ natt_hash_addr (struct ph1handle *iph1, struct sockaddr_storage *addr)
 }
 
 int 
-natt_compare_addr_hash (struct ph1handle *iph1, vchar_t *natd_received,
+natt_compare_addr_hash (phase1_handle_t *iph1, vchar_t *natd_received,
 			int natd_seq)
 {
   vchar_t *natd_computed;
@@ -270,7 +272,7 @@ natt_fill_options (struct ph1natt_options *opts, int version)
       opts->encaps_type = UDP_ENCAP_ESPINUDP;
 	  break;
     default:
-      plog(LLV_ERROR, LOCATION, NULL, 
+      plog(ASL_LEVEL_ERR, 
 	   "unsupported NAT-T version: %s\n",
 	   vid_string_by_id(version));
       return -1;
@@ -282,7 +284,7 @@ natt_fill_options (struct ph1natt_options *opts, int version)
 }
 
 int
-create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa_r)
+create_natoa_payloads(phase2_handle_t *iph2, vchar_t **natoa_i, vchar_t **natoa_r)
 {
 	int natoa_type = 0;
 	vchar_t		*i;
@@ -323,7 +325,7 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 			break;
 #endif
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "invalid address family: %d\n", i_addr->ss_family);
 			return -1;		
 	}
@@ -338,21 +340,21 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 			break;
 #endif
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "invalid address family: %d\n", r_addr->ss_family);
 			return -1;		
 	}
 
 	i = vmalloc(sizeof(struct isakmp_pl_natoa) + i_size - sizeof(struct isakmp_gen));
 	if (i == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			 "failed to get buffer for natoa payload.\n");
 		return -1;
 	}
 	r = vmalloc(sizeof(struct isakmp_pl_natoa) + r_size - sizeof(struct isakmp_gen));
 	if (r == NULL) {
 		vfree(i);
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"failed to get buffer for natoa payload.\n");
 		return -1;
 	}
@@ -404,7 +406,7 @@ process_natoa_payload(vchar_t *buf)
 		case IPSECDOI_ID_IPV4_ADDR:
 			saddr = racoon_malloc(sizeof(struct sockaddr_in));
 			if (!saddr) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "error allocating addr for NAT-OA payload\n");
 				return NULL;
 			}
@@ -418,7 +420,7 @@ process_natoa_payload(vchar_t *buf)
 		case IPSECDOI_ID_IPV6_ADDR:
 			saddr = racoon_malloc(sizeof(struct sockaddr_in6));
 			if (!saddr) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "error allocating addr for NAT-OA payload\n");
 				return NULL;
 			}
@@ -430,7 +432,7 @@ process_natoa_payload(vchar_t *buf)
 			break;
 #endif
 		default:
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				 "invalid NAT-OA payload %d\n", id_b->type);
 			return NULL;
 	}
@@ -438,7 +440,7 @@ process_natoa_payload(vchar_t *buf)
 }
 
 void
-natt_float_ports (struct ph1handle *iph1)
+natt_float_ports (phase1_handle_t *iph1)
 {
 	
 	if (! (iph1->natt_flags & NAT_DETECTED) )
@@ -460,11 +462,12 @@ natt_float_ports (struct ph1handle *iph1)
 		set_port (iph1->remote, iph1->natt_options->float_port);
 	iph1->natt_flags |= NAT_PORTS_CHANGED | NAT_ADD_NON_ESP_MARKER;
 
-	ike_session_ikev1_float_ports(iph1);
+    if (iph1->version == ISAKMP_VERSION_NUMBER_IKEV1)
+        ike_session_ikev1_float_ports(iph1);
 }
 
 void
-natt_handle_vendorid (struct ph1handle *iph1, int vid_numeric)
+natt_handle_vendorid (phase1_handle_t *iph1, int vid_numeric)
 {
   int version;
 
@@ -472,7 +475,7 @@ natt_handle_vendorid (struct ph1handle *iph1, int vid_numeric)
     iph1->natt_options = racoon_calloc (1, sizeof (*iph1->natt_options));
 
   if (! iph1->natt_options) {
-    plog (LLV_ERROR, LOCATION, NULL,
+    plog (ASL_LEVEL_ERR, 
 	  "Allocating memory for natt_options failed!\n");
     return;
   }

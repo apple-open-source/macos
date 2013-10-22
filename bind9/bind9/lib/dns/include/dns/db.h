@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009, 2011-2013  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -171,8 +171,8 @@ typedef struct dns_dbmethods {
 					   dns_dbversion_t *version);
 	isc_boolean_t	(*isdnssec)(dns_db_t *db);
 	dns_stats_t	*(*getrrsetstats)(dns_db_t *db);
-	isc_result_t	(*rpz_enabled)(dns_db_t *db, dns_rpz_st_t *st);
-	void		(*rpz_findips)(dns_rpz_zone_t *rpz,
+	void		(*rpz_enabled)(dns_db_t *db, dns_rpz_st_t *st);
+	isc_result_t	(*rpz_findips)(dns_rpz_zone_t *rpz,
 				       dns_rpz_type_t rpz_type,
 				       dns_zone_t *zone, dns_db_t *db,
 				       dns_dbversion_t *version,
@@ -1500,14 +1500,14 @@ dns_db_getrrsetstats(dns_db_t *db);
  *	dns_rdatasetstats_create(); otherwise NULL.
  */
 
-isc_result_t
+void
 dns_db_rpz_enabled(dns_db_t *db, dns_rpz_st_t *st);
 /*%<
- * Mark a database for response policy rewriting
- * or find which RPZ data is available.
+ * See if a policy database has DNS_RPZ_TYPE_IP, DNS_RPZ_TYPE_NSIP, or
+ * DNS_RPZ_TYPE_NSDNAME records.
  */
 
-void
+isc_result_t
 dns_db_rpz_findips(dns_rpz_zone_t *rpz, dns_rpz_type_t rpz_type,
 		   dns_zone_t *zone, dns_db_t *db, dns_dbversion_t *version,
 		   dns_rdataset_t *ardataset, dns_rpz_st_t *st,
@@ -1524,6 +1524,10 @@ dns_db_rpz_findips(dns_rpz_zone_t *rpz, dns_rpz_type_t rpz_type,
  * \li	'ardataset' is an A or AAAA rdataset of addresses to check
  * \li	'found' specifies the previous best match if any or
  *	    or NULL, an empty name, 0, DNS_RPZ_POLICY_MISS, and 0
+ *
+ * Returns:
+ * \li	#ISC_R_SUCCESS
+ * \li	#ISC_R_UNEXPECTED
  */
 
 ISC_LANG_ENDDECLS

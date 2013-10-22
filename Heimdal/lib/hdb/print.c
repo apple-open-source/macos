@@ -60,7 +60,7 @@
 static krb5_error_code
 append_string(krb5_context context, krb5_storage *sp, const char *fmt, ...)
 {
-    krb5_error_code ret;
+    krb5_ssize_t sret;
     char *s;
     int rc;
     va_list ap;
@@ -71,9 +71,11 @@ append_string(krb5_context context, krb5_storage *sp, const char *fmt, ...)
 	krb5_set_error_message(context, ENOMEM, "malloc: out of memory");
 	return ENOMEM;
     }
-    ret = krb5_storage_write(sp, s, strlen(s));
+    sret = krb5_storage_write(sp, s, strlen(s));
     free(s);
-    return ret;
+    if (sret != strlen(s))
+	return ENOMEM;
+    return 0;
 }
 
 static krb5_error_code

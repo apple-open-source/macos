@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,8 +49,11 @@
 #include <sys/smb_apple.h>
 
 #include <netsmb/smb.h>
+#include <netsmb/smb_2.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_rq.h>
+#include <netsmb/smb_rq_2.h>
+#include <netsmb/smb_packets_2.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_tran.h>
 
@@ -68,7 +71,7 @@ MALLOC_DEFINE(M_SMBRQ, "SMBRQ", "SMB request");
  * object is a share then return the parent which should be the vc. In all cases
  * take a reference on the objects being return.
  */
-static int
+int
 smb_rq_getenv(struct smb_connobj *obj, struct smb_vc **vcp, struct smb_share **share)
 {
 	int error = 0;
@@ -105,14 +108,16 @@ smb_rq_getenv(struct smb_connobj *obj, struct smb_vc **vcp, struct smb_share **s
 static int
 smb_rq_new(struct smb_rq *rqp, u_char cmd, uint16_t extraFlags2)
 {
-	struct mbchain *mbp;
+	struct mbchain *mbp; 
+    struct mdchain *mdp;
 	int error;
 	
     smb_rq_getrequest(rqp, &mbp);
+    smb_rq_getreply(rqp, &mdp);
 
 	rqp->sr_cmd = cmd;
 	mb_done(mbp);
-	md_done(&rqp->sr_rp);
+	md_done(mdp);
 	error = mb_init(mbp);
 	if (error)
 		return error;
@@ -166,11 +171,14 @@ smb_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
 		goto done;
 	
 	rqp->sr_context = context;
+    
 	/*
-	 * We need to get the mid for this request. We now combind the high pid value
-	 * and the mid when checking for matching message. So the vc mid is now a
-	 * uint32_t value which we split into the mid and high pid. This allows us
-	 * to wrap on a much larger number. 
+	 * We need to get the mid for this request. We now combine the low pid 
+	 * value and the mid when checking for matching message. So the vc mid is
+	 * now a uint32_t value which we split into the mid and low pid. This 
+	 * allows us to wrap on a much larger number. 
+     *
+     * <12071582> Only done for async NT transaction and now uses the low pid.
 	 */
 	mid = OSIncrementAtomic(&rqp->sr_vc->vc_mid);
 	if ((mid & 0xffff) == 0xffff) {
@@ -178,24 +186,36 @@ smb_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd,
 		mid = OSIncrementAtomic(&rqp->sr_vc->vc_mid);
 	}
 	rqp->sr_mid = mid & 0xffff;
-	/*
-	 * Seems Windows and Darwin support setting the high pid, but Samba always
-	 * returns zero in the high pid field. To be safe we use the negotiate 
-	 * message to test if they support returning the high pid field. We always
-	 * set it to 1 on the negotiate message and if they return it then we turn
-	 * on supportHighPID otherwise we just use the low pid. 
-	 */
-	if (cmd == SMB_COM_NEGOTIATE) {
-		/* Set the high pid on the first message to see if */
-		rqp->sr_pidHigh = 1;
-		rqp->sr_pidLow = 1; 
-	} else if (rqp->sr_vc->supportHighPID) {
-		rqp->sr_pidHigh = (mid & 0xffff0000) >> 16;
-		rqp->sr_pidLow = 1; /* Currently we always keep it at one */
-	} else {
+
+ 	if (cmd == SMB_COM_NT_TRANSACT_ASYNC) {
+        /* 
+         * <12071582> For async SMB_COM_NT_TRANSACT requests, the mid/pid can 
+         * wrap around and its possible that we will match a reply to the
+         * wrong pending request.
+         *
+         * Example, you have a bunch of Async Change Notifications requests 
+         * that have been waiting a long time for a reply.  Then we do a bunch 
+         * of ACL requests.  One of those incoming ACL replies could end
+         * up matching to a pending Change Notification. The code does figure 
+         * out that its not correct, but then it dumps the reply and the ACL 
+         * request waits for its reply until the request times out and is
+         * retried.  This can cause hangs or long delays during an enumeration. 
+         */
 		rqp->sr_pidLow = ((mid & 0xffff0000) >> 16) + 1;
-		rqp->sr_pidHigh = 0; /* Not supported by Samba */
+		rqp->sr_pidHigh = 0;
+
+        cmd = SMB_COM_NT_TRANSACT;
 	}
+    else {
+        /* 
+         * All other request just have a hard code value for PID. Since the 
+         * pidLow for an async request can never be 0, make sure non async 
+         * request use 0 for the pidLow.
+         */
+		rqp->sr_pidLow = 0;
+		rqp->sr_pidHigh = 0;
+	}
+   
 	error = smb_rq_new(rqp, cmd, flags2);
 done:
 	if (error) {
@@ -240,7 +260,23 @@ smb_rq_alloc(struct smb_connobj *obj, u_char cmd, uint16_t flags2,
 void
 smb_rq_done(struct smb_rq *rqp)
 {
-	if (rqp->sr_share) {
+	struct mbchain *mbp; 
+    struct mdchain *mdp;
+	
+    smb_rq_getrequest(rqp, &mbp);
+    smb_rq_getreply(rqp, &mdp);
+
+    /* 
+     * For SMB2, if the request was never sent, then recover the unused credits 
+     */
+    if (rqp->sr_extflags & SMB2_REQUEST) {
+        if (!(rqp->sr_extflags & SMB2_REQ_SENT)) {
+            rqp->sr_rspcreditsgranted = rqp->sr_creditcharge;
+            smb2_rq_credit_increment(rqp);
+        }
+    }
+    
+    if (rqp->sr_share) {
 		smb_share_rele(rqp->sr_share, rqp->sr_context);
 	}
 	if (rqp->sr_vc) {
@@ -248,8 +284,8 @@ smb_rq_done(struct smb_rq *rqp)
 	}
 	rqp->sr_vc = NULL;
 	rqp->sr_share = NULL;
-	mb_done(&rqp->sr_rq);
-	md_done(&rqp->sr_rp);
+	mb_done(mbp);
+	md_done(mdp);
 	lck_mtx_destroy(&rqp->sr_slock, srs_lck_group);
 	if (rqp->sr_flags & SMBR_ALLOCED)
 		SMB_FREE(rqp, M_SMBRQ);
@@ -259,48 +295,111 @@ smb_rq_done(struct smb_rq *rqp)
  * Wait for reply on the request
  * Parse out the SMB Header into the smb_rq response fields
  */
-static int
+int
 smb_rq_reply(struct smb_rq *rqp)
 {
-	struct mdchain *mdp = &rqp->sr_rp;
+	struct mdchain *mdp = NULL;
 	uint32_t tdw;
 	uint8_t tb;
 	int error = 0, rperror = 0;
-	
+
 	/* If an async call then just remove it from the queue, no waiting required */
 	if (rqp->sr_flags & SMBR_ASYNC) {
 		smb_iod_removerq(rqp);
 		error = rqp->sr_lerror;
 	} else {
-		if (rqp->sr_timo == SMBNOREPLYWAIT)
+		if (rqp->sr_timo == SMBNOREPLYWAIT) {
+            /* Only Echo requests use this */
 			return (smb_iod_removerq(rqp));
+        }
 		error = smb_iod_waitrq(rqp);
 	}
 	if (error)
 		goto done;		
-	error = md_get_uint32(mdp, &tdw);
-	if (error)
-		goto done;		
-	error = md_get_uint8(mdp, &tb);
-	if (!error)
-		error = md_get_uint32le(mdp, &rqp->sr_ntstatus);
-	if (!error)
-		error = md_get_uint8(mdp, &rqp->sr_rpflags);
-	if (!error)
-		error = md_get_uint16le(mdp, &rqp->sr_rpflags2);
-	if (error)
-		goto done;		
-	
-	/* Convert any error class codes to be NTSTATUS error. */
-	if (!(rqp->sr_rpflags2 & SMB_FLAGS2_ERR_STATUS)) {
-		uint8_t errClass = rqp->sr_ntstatus & 0xff;
-		uint16_t errCode = rqp->sr_ntstatus >> 16;
-		rqp->sr_ntstatus = smb_errClassCodes_to_ntstatus(errClass, errCode);
-		/* We now have a NTSTATUS error, set the flag */
-		rqp->sr_rpflags2 |= SMB_FLAGS2_ERR_STATUS;
-	}
-	
-	rperror = smb_ntstatus_to_errno(rqp->sr_ntstatus);
+    
+    smb_rq_getreply(rqp, &mdp);
+    
+    if (rqp->sr_extflags & SMB2_RESPONSE) {
+        error = smb2_rq_parse_header(rqp, &mdp);
+        return (error);
+    }
+    else {
+        /* SMB1 Parsing */
+        
+        /* Get the Protocol */
+        error = md_get_uint32(mdp, &tdw);
+        if (error)
+            goto done;	
+        
+        /* Get the Command */
+        error = md_get_uint8(mdp, &tb);
+        
+        /* Get the NT Status */
+        if (!error)
+            error = md_get_uint32le(mdp, &rqp->sr_ntstatus);
+        
+        /* Get the Flags */
+        if (!error)
+            error = md_get_uint8(mdp, &rqp->sr_rpflags);
+        
+        /* Get the Flags 2 */
+        if (!error)
+            error = md_get_uint16le(mdp, &rqp->sr_rpflags2);
+
+        /* Convert any error class codes to be NTSTATUS error. */
+        if (!(rqp->sr_rpflags2 & SMB_FLAGS2_ERR_STATUS)) {
+            uint8_t errClass = rqp->sr_ntstatus & 0xff;
+            uint16_t errCode = rqp->sr_ntstatus >> 16;
+            rqp->sr_ntstatus = smb_errClassCodes_to_ntstatus(errClass, errCode);
+            /* We now have a NTSTATUS error, set the flag */
+            rqp->sr_rpflags2 |= SMB_FLAGS2_ERR_STATUS;
+        }
+
+        /* Get the PID High */
+        if (!error)
+            error = md_get_uint16(mdp, &rqp->sr_rppidHigh);
+
+        /* Get the Signature and ignore it */
+        if (!error)
+            error = md_get_uint32(mdp, NULL);
+        if (!error)
+            error = md_get_uint32(mdp, NULL);
+
+        /* Get the Reserved bytes and ignore them */
+        if (!error)
+            error = md_get_uint16(mdp, NULL);
+
+        /* Get the Tree ID */
+        if (!error)
+            error = md_get_uint16le(mdp, &rqp->sr_rptid);
+
+        /* Get the PID Low */
+        if (!error)
+            error = md_get_uint16le(mdp, &rqp->sr_rppidLow);
+
+        /* Get the UID */
+        if (!error)
+            error = md_get_uint16le(mdp, &rqp->sr_rpuid);
+
+        /* Get the Multiplex ID */
+        if (!error)
+            error = md_get_uint16le(mdp, &rqp->sr_rpmid);
+        
+        /* If its signed, then verify the signature */
+        if (error == 0 &&
+            (rqp->sr_vc->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE))
+            error = smb_rq_verify(rqp);
+
+        SMBSDEBUG("M:%04x, PHIGH:%04x, PLOW:%04x, U:%04x, T:%04x, E: %d\n",
+                  rqp->sr_rpmid, rqp->sr_rppidHigh, rqp->sr_rppidLow, 
+                  rqp->sr_rpuid, rqp->sr_rptid, rqp->sr_ntstatus);
+
+        if (error)
+            goto done;		
+    }
+
+    /* Convert NT Status to an errno value */
+    rperror = smb_ntstatus_to_errno(rqp->sr_ntstatus);
     if (rqp->sr_ntstatus == STATUS_INSUFFICIENT_RESOURCES) {
         SMBWARNING("STATUS_INSUFFICIENT_RESOURCES: while attempting cmd %x\n", 
                    rqp->sr_cmd);
@@ -321,31 +420,7 @@ smb_rq_reply(struct smb_rq *rqp)
 		rqp->sr_flags &= ~SMBR_MOREDATA;
 	}
 	
-	if (!error)
-		error = md_get_uint16(mdp, &rqp->sr_rppidHigh);
-	if (!error)
-		error = md_get_uint16(mdp, NULL);
-	if (!error)
-		error = md_get_uint32(mdp, NULL);
-	if (!error)
-		error = md_get_uint32(mdp, NULL);
-	if (!error)
-		error = md_get_uint16le(mdp, &rqp->sr_rptid);
-	if (!error)
-		error = md_get_uint16le(mdp, &rqp->sr_rppidLow);
-	if (!error)
-		error = md_get_uint16le(mdp, &rqp->sr_rpuid);
-	if (!error)
-		error = md_get_uint16le(mdp, &rqp->sr_rpmid);
-	
-	if (error == 0 &&
-	    (rqp->sr_vc->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE))
-		error = smb_rq_verify(rqp);
-	
 done:
-	SMBSDEBUG("M:%04x, PHIGH:%04x, PLOW:%04x, U:%04x, T:%04x, E: %d\n",
-			  rqp->sr_rpmid, rqp->sr_rppidHigh, rqp->sr_rppidLow, 
-			  rqp->sr_rpuid, rqp->sr_rptid, rqp->sr_ntstatus);
 	return error ? error : rperror;
 }
 
@@ -374,7 +449,10 @@ smb_rq_simple(struct smb_rq *rqp)
 void
 smb_rq_wstart(struct smb_rq *rqp)
 {
-	rqp->sr_wcount = (u_char *)mb_reserve(&rqp->sr_rq, sizeof(uint8_t));
+	struct mbchain *mbp;
+
+    smb_rq_getrequest(rqp, &mbp);
+	rqp->sr_wcount = (u_char *)mb_reserve(mbp, sizeof(uint8_t));
 	rqp->sr_rq.mb_count = 0;
 }
 
@@ -393,7 +471,10 @@ smb_rq_wend(struct smb_rq *rqp)
 void
 smb_rq_bstart(struct smb_rq *rqp)
 {
-	rqp->sr_bcount = (u_short*)mb_reserve(&rqp->sr_rq, sizeof(u_short));
+	struct mbchain *mbp;
+
+    smb_rq_getrequest(rqp, &mbp);
+	rqp->sr_bcount = (u_short*)mb_reserve(mbp, sizeof(u_short));
 	rqp->sr_rq.mb_count = 0;
 }
 
@@ -666,7 +747,7 @@ smb_t2_reply(struct smb_t2rq *t2p)
 	 */
 	totpgot = totdgot = 0;
 	totpcount = totdcount = 0xffff;
-	mdp = &rqp->sr_rp;
+    smb_rq_getreply(rqp, &mdp);
 	for (;;) {
 		m_dumpm(mdp->md_top);
 		if ((error2 = md_get_uint8(mdp, &wc)) != 0) {
@@ -741,7 +822,7 @@ smb_t2_reply(struct smb_t2rq *t2p)
 		 * We're done with this reply, look for the next one.
 		 */
 		SMBRQ_SLOCK(rqp);
-		md_next_record(&rqp->sr_rp);
+		md_next_record(mdp);
 		SMBRQ_SUNLOCK(rqp);
 		error2 = smb_rq_reply(rqp);
 		if (rqp->sr_flags & SMBR_MOREDATA)
@@ -788,7 +869,7 @@ smb_nt_reply(struct smb_ntrq *ntp)
 	 */
 	totpgot = totdgot = 0;
 	totpcount = totdcount = 0xffffffff;
-	mdp = &rqp->sr_rp;
+    smb_rq_getreply(rqp, &mdp);
 	for (;;) {
 		m_dumpm(mdp->md_top);
 		if ((error2 = md_get_uint8(mdp, &wc)) != 0)
@@ -864,7 +945,7 @@ smb_nt_reply(struct smb_ntrq *ntp)
 		 * We're done with this reply, look for the next one.
 		 */
 		SMBRQ_SLOCK(rqp);
-		md_next_record(&rqp->sr_rp);
+		md_next_record(mdp);
 		SMBRQ_SUNLOCK(rqp);
 		error2 = smb_rq_reply(rqp);
 		if (rqp->sr_flags & SMBR_MOREDATA)
@@ -1032,7 +1113,8 @@ int smb_t2_request(struct smb_t2rq *t2p)
 		 * this is an interim response, ignore it.
 		 */
 		SMBRQ_SLOCK(rqp);
-		md_next_record(&rqp->sr_rp);
+        smb_rq_getreply(rqp, &mdp);
+		md_next_record(mdp);
 		SMBRQ_SUNLOCK(rqp);
 	}
 	while (leftpcount || leftdcount) {
@@ -1261,7 +1343,8 @@ smb_nt_request(struct smb_ntrq *ntp)
 		 * this is an interim response, ignore it.
 		 */
 		SMBRQ_SLOCK(rqp);
-		md_next_record(&rqp->sr_rp);
+        smb_rq_getreply(rqp, &mdp);
+		md_next_record(mdp);
 		SMBRQ_SUNLOCK(rqp);
 	}
 	while (leftpcount || leftdcount) {
@@ -1404,9 +1487,12 @@ smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback,
 	} else
 		totdcount = 0;
 	
-	error = smb_rq_alloc(ntp->nt_obj, SMB_COM_NT_TRANSACT, 0, ntp->nt_context, &rqp);
-	if (error)
+	error = smb_rq_alloc(ntp->nt_obj, SMB_COM_NT_TRANSACT_ASYNC, 0,
+                         ntp->nt_context, &rqp);
+	if (error) {
 		return error;
+    }
+    
 	rqp->sr_timo = vcp->vc_timo;
     smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);

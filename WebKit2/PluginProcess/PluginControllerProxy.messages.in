@@ -22,7 +22,7 @@
 
 #if ENABLE(PLUGIN_PROCESS)
 
-messages -> PluginControllerProxy {
+messages -> PluginControllerProxy LegacyReceiver {
     # Sent when the plug-in geometry changes.
     GeometryDidChange(WebCore::IntSize pluginSize, WebCore::IntRect clipRect, WebCore::AffineTransform pluginToRootViewTransform, float scaleFactor, WebKit::ShareableBitmap::Handle backingStoreHandle)
 
@@ -73,6 +73,15 @@ messages -> PluginControllerProxy {
 
     # Sent when a keyboard should be processed.
     HandleKeyboardEvent(WebKit::WebKeyboardEvent keyboardEvent) -> (bool handled)
+    
+    # Sent when an editing command should be processed.
+    HandleEditingCommand(WTF::String commandName, WTF::String argument) -> (bool handled);
+    
+    # Return whether or not a plugin wants to enable the given editing command.
+    IsEditingCommandEnabled(WTF::String commandName) -> (bool enabled);
+    
+    # Return whether or not a plugin wants to handle page scale factor itself.
+    HandlesPageScaleFactor() -> (bool enabled);
 
     # Sent when the plug-in focus changes.
     SetFocus(bool isFocused)
@@ -103,9 +112,15 @@ messages -> PluginControllerProxy {
     SetLayerHostingMode(uint32_t layerHostingMode)
 #endif
 
-    # Return a snapshot of the plugin
+    # Does the plugin support snapshotting?
+    SupportsSnapshotting() -> (bool isSupported)
+
+    # Return a snapshot of the plugin.
     Snapshot() -> (WebKit::ShareableBitmap::Handle backingStoreHandle)
-    
+
+    # Sent when storage blocking policy changes
+    StorageBlockingStateChanged(bool storageBlockingEnabled)
+
     # Sent when private browsing is enabled or disabled
     PrivateBrowsingStateChanged(bool isPrivateBrowsingEnabled)
 

@@ -633,6 +633,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB173146EA1D6000BF1F3 /* debug.xcconfig */;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/securityd_client;
 				SKIP_INSTALL = NO;
 			};
@@ -642,6 +643,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 182BB175146EA1D6000BF1F3 /* release.xcconfig */;
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/securityd_client;
 				SKIP_INSTALL = NO;
 			};

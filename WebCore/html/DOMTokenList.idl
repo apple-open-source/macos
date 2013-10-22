@@ -22,23 +22,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module core {
-
-    interface [
-        JSGenerateIsReachable=ImplElementRoot,
-        IndexedGetter,
-        V8CustomToJSObject
-    ] DOMTokenList {
-        readonly attribute unsigned long length;
-        [TreatReturnedNullStringAs=Null] DOMString item(in unsigned long index);
-        boolean contains(in DOMString token) raises(DOMException);
-        void add(in DOMString token) raises(DOMException);
-        void remove(in DOMString token) raises(DOMException);
-        boolean toggle(in DOMString token) raises(DOMException);
+[
+    GenerateIsReachable=ImplElementRoot,
+    SkipVTableValidation
+] interface DOMTokenList {
+    readonly attribute unsigned long length;
+    [TreatReturnedNullStringAs=Null] getter DOMString item(unsigned long index);
+    [RaisesException] boolean contains(DOMString token);
+    [RaisesException] void add(DOMString... tokens);
+    [RaisesException] void remove(DOMString... tokens);
+    [RaisesException] boolean toggle(DOMString token, optional boolean force);
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-        [NotEnumerable] DOMString toString();
+    [NotEnumerable] DOMString toString();
 #endif
-    };
+};
 
-}

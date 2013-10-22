@@ -46,7 +46,9 @@ private:
     virtual void layerHostingModeDidChange() OVERRIDE;
     virtual void visibilityDidChange() OVERRIDE;
     virtual void sizeDidChange() OVERRIDE;
-    virtual void waitForPossibleGeometryUpdate() OVERRIDE;
+    virtual void waitForPossibleGeometryUpdate(double timeout = didUpdateBackingStoreStateTimeout) OVERRIDE;
+    virtual void colorSpaceDidChange() OVERRIDE;
+    virtual void minimumLayoutSizeDidChange() OVERRIDE;
 
     virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) OVERRIDE;
     virtual void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&) OVERRIDE;
@@ -54,6 +56,7 @@ private:
 
     // Message handlers.
     virtual void didUpdateGeometry() OVERRIDE;
+    virtual void intrinsicContentSizeDidChange(const WebCore::IntSize& newIntrinsicContentSize) OVERRIDE;
 
     void sendUpdateGeometry();
 
@@ -62,6 +65,10 @@ private:
 
     // The last size we sent to the web process.
     WebCore::IntSize m_lastSentSize;
+    WebCore::IntSize m_lastSentLayerPosition;
+
+    // The last minimum layout size we sent to the web process.
+    WebCore::IntSize m_lastSentMinimumLayoutSize;
 };
 
 } // namespace WebKit

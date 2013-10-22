@@ -1,5 +1,6 @@
 /*
- *  Copyright (C) 2012 Samsung Electronics
+ *  Copyright (C) 2012 Samsung Electronics.  All rights reserved.
+ *  Copyright (C) 2012 Intel Corporation. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -23,27 +24,27 @@
 #if ENABLE(BATTERY_STATUS)
 
 #include "BatteryController.h"
+#include "ewk_view_private.h"
 
-namespace WebCore {
-
-BatteryClientEfl::BatteryClientEfl()
-    : m_controller(0)
+BatteryClientEfl::BatteryClientEfl(Evas_Object* view)
+    : m_view(view)
+    , m_provider(this)
 {
 }
 
-void BatteryClientEfl::setController(BatteryController* controller)
+BatteryClientEfl::~BatteryClientEfl()
 {
-    m_controller = controller;
+    m_provider.stopUpdating();
 }
 
 void BatteryClientEfl::startUpdating()
 {
-    // FIXME: Need to implement for getting battery status to the efl port.
+    m_provider.startUpdating();
 }
 
 void BatteryClientEfl::stopUpdating()
 {
-    // FIXME: Need to implement for getting battery status to the efl port
+    m_provider.stopUpdating();
 }
 
 void BatteryClientEfl::batteryControllerDestroyed()
@@ -51,12 +52,9 @@ void BatteryClientEfl::batteryControllerDestroyed()
     delete this;
 }
 
-void BatteryClientEfl::setBatteryStatus(const AtomicString& eventType, PassRefPtr<BatteryStatus> batteryStatus)
+void BatteryClientEfl::didChangeBatteryStatus(const AtomicString& eventType, PassRefPtr<WebCore::BatteryStatus> status)
 {
-    m_controller->didChangeBatteryStatus(eventType, batteryStatus);
+    WebCore::BatteryController::from(EWKPrivate::corePage(m_view))->didChangeBatteryStatus(eventType, status);
 }
 
-}
-
-#endif // BATTERY_STATUS
-
+#endif // ENABLE(BATTERY_STATUS)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2013 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,12 +51,14 @@ void AddStringFromState(SCDynamicStoreRef store, CFStringRef serviceID, CFString
 Boolean isString (CFTypeRef obj);
 Boolean isData (CFTypeRef obj);
 Boolean isArray (CFTypeRef obj);
+Boolean isDictionary (CFTypeRef obj);
 
 Boolean my_CFEqual(CFTypeRef obj1, CFTypeRef obj2);
 void my_CFRelease(void *t);
 CFTypeRef my_CFRetain(CFTypeRef obj);
 void my_close(int fd);
 
+Boolean GetIntFromDict (CFDictionaryRef dict, CFStringRef property, u_int32_t *outval, u_int32_t defaultval);
 int GetStrFromDict (CFDictionaryRef dict, CFStringRef property, char *outstr, int maxlen, char *defaultval);
 
 void *my_Allocate(int size);
@@ -71,6 +73,8 @@ int publish_dictnumentry(SCDynamicStoreRef store, CFStringRef serviceID, CFStrin
 int unpublish_dictentry(SCDynamicStoreRef store, CFStringRef serviceID, CFStringRef dict, CFStringRef entry);
 int publish_dictstrentry(SCDynamicStoreRef store, CFStringRef serviceID, CFStringRef dict, CFStringRef entry, char *str, int encoding);
 int unpublish_dict(SCDynamicStoreRef store, CFStringRef serviceID, CFStringRef dict);
+int publish_multiple_dicts(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dictNames, CFArrayRef dicts);
+int unpublish_multiple_dicts(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dictNames, Boolean removeService);
 
 Boolean UpdatePasswordPrefs(CFStringRef serviceID, CFStringRef interfaceType, SCNetworkInterfacePasswordType passwordType, 
 								   CFStringRef passwordEncryptionKey, CFStringRef passwordEncryptionValue, CFStringRef logTitle);
@@ -90,16 +94,23 @@ int clear_ifaddr(char *ifname, u_int32_t o, u_int32_t h);
 int set_ifaddr6 (char *ifname, struct in6_addr *addr, int prefix);
 void in6_addr2net(struct in6_addr *addr, int prefix, struct in6_addr *net);
 int clear_ifaddr6 (char *ifname, struct in6_addr *addr);
-int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_name, u_int32_t server, u_int32_t o, 
+CFDictionaryRef create_ipv6_dummy_primary(char *if_name);
+CFDictionaryRef create_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_name, u_int32_t server, u_int32_t o,
 					  u_int32_t h, u_int32_t m, int isprimary);
-int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal, 
+CFDictionaryRef create_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal,
 					CFStringRef exceptionlist, CFArrayRef supp_domains);
 boolean_t set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char *ifname, int isnet);
 int route_gateway(int cmd, struct sockaddr *dest, struct sockaddr *mask, struct sockaddr *gateway, int use_gway_flag, int use_blackhole_flag);
 
-int publish_dns(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dns, CFStringRef domain, CFArrayRef supp_domains);
+CFDictionaryRef create_dns(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dns, CFStringRef domain, CFArrayRef supp_domains, Boolean neverSearchDomains);
 void in6_len2mask(struct in6_addr *mask, int len);
 void in6_maskaddr(struct in6_addr *addr, struct in6_addr *mask);
+CFStringRef copy_primary_interface_name(CFStringRef exceptionServiceID);
+CFStringRef copy_service_id_for_interface(CFStringRef interfaceName);
+CFStringRef copy_interface_type(CFStringRef service_id);
+CFDictionaryRef copy_dns_dict(CFStringRef service_id);
+CFStringRef copy_interface_name(CFStringRef serviceID);
+CFBundleRef copy_app_bundle_from_persistentregistration(CFStringRef bundleID);
 
 #define IP_FORMAT	"%d.%d.%d.%d"
 #define IP_CH(ip)	((u_char *)(ip))
@@ -119,9 +130,14 @@ void in6_maskaddr(struct in6_addr *addr, struct in6_addr *mask);
 #define CREATEGLOBALSTATE(a)	SCDynamicStoreKeyCreateNetworkGlobalEntity(0, \
                     kSCDynamicStoreDomainState, a)
 
+/* Define keys for AirPort Setup and State interface dictionaries */
+#define SC_AIRPORT_POWERENABLED_KEY		CFSTR("PowerEnabled")
+#define SC_AIRPORT_POWERSTATUS_KEY		CFSTR("Power Status")
+#define SC_AIRPORT_SSID_STR_KEY			CFSTR("SSID_STR")
+
 
 int create_tun_interface(char *name, int name_max_len, int *index, int flags, int ext_stats);
-int setup_bootstrap_port();
+int set_tun_delegate(int tunsock, char *delegate_ifname);
 int event_create_socket(void *ctxt, int *eventfd, CFSocketRef *eventref, CFSocketCallBack callout, Boolean anysubclass);
 
 pid_t
@@ -130,6 +146,9 @@ SCNCPluginExecCommand (CFRunLoopRef runloop, SCDPluginExecCallBack callback, voi
 pid_t
 SCNCPluginExecCommand2 (CFRunLoopRef runloop, SCDPluginExecCallBack callback, void *context, uid_t uid, gid_t gid,
 						const char *path,char * const argv[], SCDPluginExecSetup setup, void *setupContext);
+
+pid_t
+SCNCExecSBSLauncherCommandWithArguments (char *command, SCDPluginExecSetup setup, SCDPluginExecCallBack callback, void *callbackContext, ...);
 
 CFDictionaryRef
 collectEnvironmentVariables (SCDynamicStoreRef storeRef, CFStringRef serviceID);
@@ -169,5 +188,8 @@ const char *
 vpn_error_to_string (u_int32_t status);
 void
 cleanup_dynamicstore(void *serv);
+
+CFArrayRef
+copy_service_order(void);
 
 #endif

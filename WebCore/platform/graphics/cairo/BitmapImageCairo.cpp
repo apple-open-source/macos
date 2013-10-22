@@ -29,18 +29,12 @@
 #include "BitmapImage.h"
 
 #include "ImageObserver.h"
-#include "NativeImageCairo.h"
 #include "PlatformContextCairo.h"
 #include <cairo.h>
 
 namespace WebCore {
 
-PassRefPtr<BitmapImage> BitmapImage::create(cairo_surface_t* surface)
-{
-    return BitmapImage::create(new NativeImageCairo(surface));
-}
-
-BitmapImage::BitmapImage(NativeImageCairo* nativeImage, ImageObserver* observer)
+BitmapImage::BitmapImage(PassRefPtr<cairo_surface_t> nativeImage, ImageObserver* observer)
     : Image(observer)
     , m_currentFrame(0)
     , m_frames(0)
@@ -58,48 +52,74 @@ BitmapImage::BitmapImage(NativeImageCairo* nativeImage, ImageObserver* observer)
     , m_sizeAvailable(true)
     , m_haveFrameCount(true)
 {
-    initPlatformData();
-
-    cairo_surface_t* surface = nativeImage->surface();
-    int width = cairo_image_surface_get_width(surface);
-    int height = cairo_image_surface_get_height(surface);
+    int width = cairo_image_surface_get_width(nativeImage.get());
+    int height = cairo_image_surface_get_height(nativeImage.get());
     m_decodedSize = width * height * 4;
     m_size = IntSize(width, height);
 
     m_frames.grow(1);
+    m_frames[0].m_hasAlpha = cairo_surface_get_content(nativeImage.get()) != CAIRO_CONTENT_COLOR;
     m_frames[0].m_frame = nativeImage;
-    m_frames[0].m_hasAlpha = cairo_surface_get_content(surface) != CAIRO_CONTENT_COLOR;
     m_frames[0].m_haveMetadata = true;
     checkForSolidColor();
 }
 
-void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const FloatRect& src, ColorSpace styleColorSpace, CompositeOperator op)
+void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const FloatRect& src, ColorSpace styleColorSpace, CompositeOperator op, BlendMode blendMode)
 {
-    FloatRect srcRect(src);
-    FloatRect dstRect(dst);
+    draw(context, dst, src, styleColorSpace, op, blendMode, DoNotRespectImageOrientation);
+}
 
-    if (!dstRect.width() || !dstRect.height() || !srcRect.width() || !srcRect.height())
+void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const FloatRect& src, ColorSpace styleColorSpace, CompositeOperator op,
+    BlendMode blendMode, RespectImageOrientationEnum shouldRespectImageOrientation)
+{
+    if (!dst.width() || !dst.height() || !src.width() || !src.height())
         return;
 
     startAnimation();
 
-    NativeImageCairo* nativeImage = frameAtIndex(m_currentFrame);
-    if (!nativeImage) // If it's too early we won't have an image yet.
+    RefPtr<cairo_surface_t> surface = frameAtIndex(m_currentFrame);
+    if (!surface) // If it's too early we won't have an image yet.
         return;
 
     if (mayFillWithSolidColor()) {
-        fillWithSolidColor(context, dstRect, solidColor(), styleColorSpace, op);
+        fillWithSolidColor(context, dst, solidColor(), styleColorSpace, op);
         return;
     }
 
     context->save();
 
     // Set the compositing operation.
-    if (op == CompositeSourceOver && !frameHasAlphaAtIndex(m_currentFrame))
+    if (op == CompositeSourceOver && blendMode == BlendModeNormal && !frameHasAlphaAtIndex(m_currentFrame))
         context->setCompositeOperation(CompositeCopy);
     else
-        context->setCompositeOperation(op);
-    context->platformContext()->drawSurfaceToContext(nativeImage->surface(), dstRect, srcRect, context);
+        context->setCompositeOperation(op, blendMode);
+
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+    IntSize scaledSize(cairo_image_surface_get_width(surface.get()), cairo_image_surface_get_height(surface.get()));
+    FloatRect adjustedSrcRect = adjustSourceRectForDownSampling(src, scaledSize);
+#else
+    FloatRect adjustedSrcRect(src);
+#endif
+
+    ImageOrientation orientation = DefaultImageOrientation;
+    if (shouldRespectImageOrientation == RespectImageOrientation)
+        orientation = frameOrientationAtIndex(m_currentFrame);
+
+    FloatRect dstRect = dst;
+
+    if (orientation != DefaultImageOrientation) {
+        // ImageOrientation expects the origin to be at (0, 0).
+        context->translate(dstRect.x(), dstRect.y());
+        dstRect.setLocation(FloatPoint());
+        context->concatCTM(orientation.transformFromDefault(dstRect.size()));
+        if (orientation.usesWidthAsHeight()) {
+            // The destination rectangle will have it's width and height already reversed for the orientation of
+            // the image, as it was needed for page layout, so we need to reverse it back here.
+            dstRect = FloatRect(dstRect.x(), dstRect.y(), dstRect.height(), dstRect.width());
+        }
+    }
+
+    context->platformContext()->drawSurfaceToContext(surface.get(), dstRect, adjustedSrcRect, context);
 
     context->restore();
 
@@ -115,20 +135,19 @@ void BitmapImage::checkForSolidColor()
     if (frameCount() > 1)
         return;
 
-    NativeImageCairo* nativeImage = frameAtIndex(m_currentFrame);
-    if (!nativeImage) // If it's too early we won't have an image yet.
+    RefPtr<cairo_surface_t> surface = frameAtIndex(m_currentFrame);
+    if (!surface) // If it's too early we won't have an image yet.
         return;
 
-    cairo_surface_t* surface = nativeImage->surface();
-    ASSERT(cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE);
+    ASSERT(cairo_surface_get_type(surface.get()) == CAIRO_SURFACE_TYPE_IMAGE);
 
-    int width = cairo_image_surface_get_width(surface);
-    int height = cairo_image_surface_get_height(surface);
+    int width = cairo_image_surface_get_width(surface.get());
+    int height = cairo_image_surface_get_height(surface.get());
 
     if (width != 1 || height != 1)
         return;
 
-    unsigned* pixelColor = reinterpret_cast<unsigned*>(cairo_image_surface_get_data(surface));
+    unsigned* pixelColor = reinterpret_cast<unsigned*>(cairo_image_surface_get_data(surface.get()));
     m_solidColor = colorFromPremultipliedARGB(*pixelColor);
 
     m_isSolidColor = true;
@@ -140,8 +159,7 @@ bool FrameData::clear(bool clearMetadata)
         m_haveMetadata = false;
 
     if (m_frame) {
-        delete m_frame;
-        m_frame = 0;
+        m_frame.clear();
         return true;
     }
     return false;

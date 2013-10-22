@@ -22,7 +22,6 @@
 #ifndef _SSLHANDSHAKE_H_
 #define _SSLHANDSHAKE_H_
 
-#include "cryptType.h"
 #include "sslRecord.h"
 
 #ifdef __cplusplus
@@ -115,8 +114,6 @@ typedef enum
 										 *   notify msg */
     /* remainder must be consecutive */
     SSL_HdskStateServerHello,           /* must get server hello; client hello sent */
-    SSL_HdskStateServerHelloUnknownVersion,
-										/* Could get SSL 2 or SSL 3 server hello back */
     SSL_HdskStateKeyExchange,           /* must get key exchange; cipher spec
 										 *   requires it */
     SSL_HdskStateCert,               	/* may get certificate or certificate
@@ -130,11 +127,6 @@ typedef enum
     SSL_HdskStateChangeCipherSpec,      /* time to change the cipher spec */
     SSL_HdskStateFinished,              /* must get a finished message in the
 										 *   new cipher spec */
-    SSL2_HdskStateClientMasterKey,
-    SSL2_HdskStateClientFinished,
-    SSL2_HdskStateServerHello,
-    SSL2_HdskStateServerVerify,
-    SSL2_HdskStateServerFinished,
     SSL_HdskStateServerReady,          /* ready for I/O; server side */
     SSL_HdskStateClientReady           /* ready for I/O; client side */
 } SSLHandshakeState;
@@ -143,6 +135,14 @@ typedef struct
 {   SSLHandshakeType    type;
     SSLBuffer           contents;
 } SSLHandshakeMsg;
+
+
+uint8_t *SSLEncodeHandshakeHeader(
+    SSLContext *ctx,
+    SSLRecord *rec,
+    SSLHandshakeType type,
+    size_t msglen);
+
 
 #define SSL_Finished_Sender_Server  0x53525652
 #define SSL_Finished_Sender_Client  0x434C4E54
@@ -158,11 +158,20 @@ OSStatus DTLSRetransmit(SSLContext *ctx);
 OSStatus SSLResetFlight(SSLContext *ctx);
 OSStatus SSLSendFlight(SSLContext *ctx);
 
+OSStatus sslGetMaxProtVersion(SSLContext *ctx, SSLProtocolVersion	*version);	// RETURNED
+
+#ifdef	NDEBUG
+#define SSLChangeHdskState(ctx, newState) { ctx->state=newState; }
+#define SSLLogHdskMsg(msg, sent)
+#else
+void SSLChangeHdskState(SSLContext *ctx, SSLHandshakeState newState);
+void SSLLogHdskMsg(SSLHandshakeType msg, char sent);
+char *hdskStateToStr(SSLHandshakeState state);
+#endif
 
 /** sslChangeCipher.c **/
 OSStatus SSLEncodeChangeCipherSpec(SSLRecord *rec, SSLContext *ctx);
 OSStatus SSLProcessChangeCipherSpec(SSLRecord rec, SSLContext *ctx);
-OSStatus SSLDisposeCipherSuite(CipherContext *cipher, SSLContext *ctx);
 
 /** sslCert.c **/
 OSStatus SSLEncodeCertificate(SSLRecord *certificate, SSLContext *ctx);

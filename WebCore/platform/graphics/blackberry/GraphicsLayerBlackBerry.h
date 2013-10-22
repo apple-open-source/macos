@@ -34,8 +34,8 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "FilterOperations.h"
 #include "GraphicsLayer.h"
-
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -73,12 +73,16 @@ public:
     virtual void setContentsVisible(bool);
     virtual void setMaskLayer(GraphicsLayer*);
     virtual void setReplicatedByLayer(GraphicsLayer*);
-    virtual void setFixedPosition(bool);
     virtual void setHasFixedContainer(bool);
     virtual void setHasFixedAncestorInDOMTree(bool);
 
+#if ENABLE(CSS_FILTERS)
+    // Returns true if filter can be rendered by the compositor
+    virtual bool setFilters(const FilterOperations &);
+    const FilterOperations& filters() const { return m_filters; }
+#endif
+
     virtual void setBackgroundColor(const Color&);
-    virtual void clearBackgroundColor();
 
     virtual void setContentsOpaque(bool);
     virtual void setBackfaceVisibility(bool);
@@ -108,10 +112,10 @@ public:
     virtual void setDebugBackgroundColor(const Color&);
     virtual void setDebugBorder(const Color&, float borderWidth);
 
-    void notifySyncRequired()
+    void notifyFlushRequired()
     {
         if (m_client)
-            m_client->notifySyncRequired(this);
+            m_client->notifyFlushRequired(this);
     }
 
     void notifyAnimationStarted(double time)
@@ -119,8 +123,6 @@ public:
         if (m_client)
             m_client->notifyAnimationStarted(this, time);
     }
-
-    bool contentsVisible(const IntRect& contentRect) const;
 
 private:
     virtual void willBeDestroyed();
@@ -142,10 +144,12 @@ private:
     void updateBackfaceVisibility();
     void updateLayerPreserves3D();
     void updateLayerIsDrawable();
-    void updateFixedPosition();
     void updateHasFixedContainer();
     void updateHasFixedAncestorInDOMTree();
     void updateLayerBackgroundColor();
+#if ENABLE(CSS_FILTERS)
+    void updateFilters();
+#endif
     void updateAnimations();
 
     void updateContentsImage(Image*);
@@ -159,6 +163,10 @@ private:
     RefPtr<LayerWebKitThread> m_transformLayer;
     RefPtr<LayerWebKitThread> m_contentsLayer;
 
+#if ENABLE(CSS_FILTERS)
+    FilterOperations m_filters;
+#endif
+
     Vector<RefPtr<LayerAnimation> > m_runningAnimations;
     Vector<RefPtr<LayerAnimation> > m_suspendedAnimations;
     double m_suspendTime;
@@ -171,7 +179,6 @@ private:
     };
 
     ContentsLayerPurpose m_contentsLayerPurpose;
-    bool m_contentsLayerHasBackgroundColor : 1;
 };
 
 } // namespace WebCore

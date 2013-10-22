@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -128,30 +128,11 @@ typedef union {
 	u_short	u_data[128];
 } sa_u;
 
-static void ntreestuff __P((void));
 static void np_rtentry __P((struct rt_msghdr2 *));
 static void p_sockaddr __P((struct sockaddr *, struct sockaddr *, int, int));
 static void p_flags __P((int, char *));
 static uint32_t forgemask __P((uint32_t));
 static void domask __P((char *, uint32_t, uint32_t));
-
-/*
- * Print routing tables.
- */
-void
-routepr(uint32_t rtree)
-{
-	printf("Routing tables\n");
-
-	if (dflag == 0) {
-		ntreestuff();
-	} else {
-		if (rtree == 0) {
-			printf("rt_tables: symbol not in namelist\n");
-			return;
-		}
-				}
-			}
 
 /*
  * Print address family header before a section of the routing table.
@@ -225,13 +206,18 @@ pr_rthdr(int af)
 			"Flags", "Netif", "Expire");
 }
 
-static void
-ntreestuff(void)
+/*
+ * Print routing tables.
+ */
+void
+routepr(void)
 {
 	size_t needed;
 	int mib[6];
 	char *buf, *next, *lim;
 	struct rt_msghdr2 *rtm;
+
+	printf("Routing tables\n");
 
 	mib[0] = CTL_NET;
 	mib[1] = PF_ROUTE;

@@ -23,17 +23,18 @@
 #ifndef _SECURITYD_SPI_H_
 #define _SECURITYD_SPI_H_
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+#include <utilities/SecCFError.h>
+#include <xpc/xpc.h>
 
+__BEGIN_DECLS
 
 /* Calling this function initializes the spi interface in the library to call
-   directly into the backend. */
-void securityd_init(void);
+   directly into the backend. It uses home_dir for root of files if specified. */
+void securityd_init(char* home_dir);
 
-#if defined(__cplusplus)
-}
-#endif
+// Don't call this function unless you are really securityd
+void securityd_init_server(void);
+
+__END_DECLS
 
 #endif /* _SECURITYD_SPI_H_ */

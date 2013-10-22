@@ -46,7 +46,11 @@ int	 buffer_get_ret(Buffer *, void *, u_int);
 int	 buffer_consume_ret(Buffer *, u_int);
 int	 buffer_consume_end_ret(Buffer *, u_int);
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#else
 #include <openssl/bn.h>
+#endif
 
 void    buffer_put_bignum(Buffer *, const BIGNUM *);
 void    buffer_put_bignum2(Buffer *, const BIGNUM *);

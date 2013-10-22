@@ -21,7 +21,7 @@
 	<key>MBCPieceStyle</key>
 	<string>Wood</string>
 	<key>MBCSearchTime</key>
-	<integer>5</integer>
+	<integer>1</integer>
 	<key>MBCShowMoveInTitle</key>
 	<false/>
 	<key>MBCSpeakHumanMoves</key>

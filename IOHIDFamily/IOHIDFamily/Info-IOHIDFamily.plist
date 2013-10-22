@@ -22,6 +22,21 @@
 	<string>$(IOHIDFAMILY_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>IOHIDResource</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDResource</string>
+			<key>IOMatchCategory</key>
+			<string>IOHIDResource</string>
+			<key>IOProviderClass</key>
+			<string>IOResources</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
+			<key>IOUserClientClass</key>
+			<string>IOHIDResourceDeviceUserClient</string>
+		</dict>
 		<key>IOHIDSystem</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -31,7 +46,7 @@
 			<key>IOMatchCategory</key>
 			<string>IOHID</string>
 			<key>HIDPowerOnDelayNS</key>
-			<string>500000000</string>
+			<integer>500000000</integer>
 			<key>IOProviderClass</key>
 			<string>IOResources</string>
 			<key>IOResourceMatch</key>
@@ -61,8 +76,8 @@
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.driver.AppleKeyStore</key>
-		<string>28.18</string>
+		<key>com.apple.driver.AppleFDEKeyStore</key>
+		<string>28.21</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>11.0</string>
 		<key>com.apple.kpi.dsep</key>

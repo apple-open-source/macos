@@ -14,9 +14,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <sys/types.h>
 #include <config.h>
-#include <compat.h>
+
+#include <sys/types.h>
+
+#include "missing.h"
 
 /*
  * Case insensitive string compare routines, same semantics as str[n]cmp()

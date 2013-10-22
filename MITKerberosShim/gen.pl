@@ -87,6 +87,7 @@ my @rewritesyms = (
     "krb5_get_kdc_cred",
     "krb5_get_kdc_sec_offset",
     "krb5_init_context",
+    "krb5_init_context_flags",
     "krb5_make_principal",
     "krb5_parse_name",
     "krb5_principal_compare",

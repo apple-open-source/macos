@@ -27,12 +27,11 @@
 #include "config.h"
 #include "ThreadGlobalData.h"
 
-#include "DOMImplementation.h"
+#include "CachedResourceRequestInitiators.h"
 #include "EventNames.h"
 #include "InspectorCounters.h"
 #include "ThreadTimers.h"
 #include <wtf/MainThread.h>
-#include <wtf/UnusedParam.h>
 #include <wtf/WTFThreadData.h>
 #include <wtf/text/StringImpl.h>
 
@@ -59,9 +58,9 @@ ThreadGlobalData* ThreadGlobalData::staticData;
 #endif
 
 ThreadGlobalData::ThreadGlobalData()
-    : m_eventNames(adoptPtr(new EventNames))
+    : m_cachedResourceRequestInitiators(adoptPtr(new CachedResourceRequestInitiators))
+    , m_eventNames(adoptPtr(new EventNames))
     , m_threadTimers(adoptPtr(new ThreadTimers))
-    , m_xmlTypeRegExp(adoptPtr(new XMLMIMETypeRegExp))
 #ifndef NDEBUG
     , m_isMainThread(isMainThread())
 #endif
@@ -103,7 +102,6 @@ void ThreadGlobalData::destroy()
 
     m_eventNames.clear();
     m_threadTimers.clear();
-    m_xmlTypeRegExp.clear();
 }
 
 } // namespace WebCore

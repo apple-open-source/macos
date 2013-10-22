@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,12 +34,10 @@
 #include "net.h"
 #include "prefs.h"
 
-#include <SystemConfiguration/LinkConfiguration.h>
 
-
-#if	TARGET_OS_EMBEDDED
+#if	TARGET_OS_IPHONE
 #define	INLINE_PASSWORDS_USE_CFSTRING
-#endif	// TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_IPHONE
 
 
 #pragma mark -
@@ -465,6 +463,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 	CFStringRef	if_localized_name;
 	CFStringRef	if_mac_address;
 	CFStringRef	if_type;
+	Boolean		isPhysicalEthernet;
 	CFArrayRef	supported;
 
 	if_localized_name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
@@ -713,6 +712,10 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 	}
 	SCPrint(TRUE, stdout, CFSTR("\n"));
 
+	isPhysicalEthernet = _SCNetworkInterfaceIsPhysicalEthernet(interface);
+	SCPrint(TRUE, stdout, CFSTR("%@  is physical ethernet = %s \n"),
+		prefix, (isPhysicalEthernet == TRUE) ? "YES" : "NO");
+
 	if (configuration != NULL) {
 		CFMutableDictionaryRef	effective;
 
@@ -918,6 +921,33 @@ show_interfaces(int argc, char **argv)
 					i + 1,
 					childIndex,
 					interfaceName);
+			}
+
+			if (_sc_debug) {
+				CFMutableStringRef	desc;
+				CFStringRef		str;
+
+				str = CFCopyDescription(interface);
+				desc = CFStringCreateMutableCopy(NULL, 0, str);
+				CFRelease(str);
+
+				CFStringFindAndReplace(desc,
+						       CFSTR(" {"),
+						       CFSTR("\n       {\n         "),
+						       CFRangeMake(0, CFStringGetLength(desc)),
+						       0);
+				CFStringFindAndReplace(desc,
+						       CFSTR(", "),
+						       CFSTR(",\n         "),
+						       CFRangeMake(0, CFStringGetLength(desc)),
+						       0);
+				CFStringFindAndReplace(desc,
+						       CFSTR("}"),
+						       CFSTR("\n       }"),
+						       CFRangeMake(0, CFStringGetLength(desc)),
+						       0);
+				SCPrint(TRUE, stdout, CFSTR("\n     %@\n\n"), desc);
+				CFRelease(desc);
 			}
 
 			interface = SCNetworkInterfaceGetInterface(interface);

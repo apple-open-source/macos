@@ -1,0 +1,6 @@
+MANIFEST
+Makefile.PL
+t/WhiteHole.t
+lib/Class/WhiteHole.pm
+Changes
+META.yml                                Module meta-data (added by MakeMaker)

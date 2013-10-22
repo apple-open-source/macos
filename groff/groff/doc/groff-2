@@ -1602,7 +1602,7 @@ real glyph `foo'.
      ..
      .cp 0     \" switch compatibility mode off
      .xx caf\['e]
-         => cafÈ
+         => caf√©
 
 Since compatibility mode is on while `de' is called, the macro `xx'
 activates compatibility mode while executing.  Argument `$1' can still

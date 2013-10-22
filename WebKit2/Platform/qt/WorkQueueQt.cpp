@@ -31,7 +31,6 @@
 #include <QObject>
 #include <QThread>
 #include <QProcess>
-#include <WebCore/NotImplemented.h>
 #include <wtf/Threading.h>
 
 class WorkQueue::WorkItemQt : public QObject {
@@ -56,12 +55,12 @@ public:
 
     ~WorkItemQt()
     {
+        m_queue->deref();
     }
 
     Q_SLOT void execute() 
     { 
-        if (m_queue->m_isValid)
-            m_function();
+        m_function();
     }
 
     Q_SLOT void executeAndDelete()
@@ -90,7 +89,7 @@ QSocketNotifier* WorkQueue::registerSocketEventHandler(int socketDescriptor, QSo
     notifier->moveToThread(m_workThread);
     WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, notifier, SIGNAL(activated(int)), function);
     itemQt->moveToThread(m_workThread);
-    notifier->setEnabled(true);
+    QMetaObject::invokeMethod(notifier, "setEnabled", Q_ARG(bool, true));
     return notifier;
 }
 
@@ -109,6 +108,7 @@ void WorkQueue::platformInvalidate()
 
 void WorkQueue::dispatch(const Function<void()>& function)
 {
+    ref();
     WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, function);
     itemQt->moveToThread(m_workThread);
     QMetaObject::invokeMethod(itemQt, "executeAndDelete", Qt::QueuedConnection);
@@ -116,6 +116,7 @@ void WorkQueue::dispatch(const Function<void()>& function)
 
 void WorkQueue::dispatchAfterDelay(const Function<void()>& function, double delayInSecond)
 {
+    ref();
     WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, function);
     itemQt->startTimer(static_cast<int>(delayInSecond * 1000));
     itemQt->moveToThread(m_workThread);

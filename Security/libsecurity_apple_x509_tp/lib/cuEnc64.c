@@ -21,6 +21,7 @@
 #include "cuEnc64.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 
 #ifndef	NULL
 #define NULL ((void *)0)
@@ -405,7 +406,7 @@ static const char *findStr(
 {
 	/* probably not the hottest string search algorithm... */
 	const char *cp;
-	unsigned srchStrLen = strlen(str);
+	size_t srchStrLen = strlen(str);
 	char c = str[0];
 	
 	/* last char * we can search in inText for start of str */
@@ -455,7 +456,7 @@ static const char *getLine(
 		inTextLen--;
 		cp++;
 	}
-	unsigned linelen;
+	ptrdiff_t linelen;
 	if(newline) {
 		linelen = newline - inText;
 	}
@@ -496,7 +497,7 @@ int cuConvertPem(
 	const char *startLine = findStr(currCp, lenToGo, "-----BEGIN");
 	if(startLine != NULL) {
 		/* possibly skip over leading garbage */
-		consumed = startLine - currCp;
+		consumed = (unsigned)(startLine - currCp);
 		lenToGo -= consumed;
 		currCp = startLine;
 		
@@ -524,7 +525,7 @@ int cuConvertPem(
 			goto errOut;
 		}
 		int skipThis = 0;
-		unsigned lineLen = strlen(currLine);
+		size_t lineLen = strlen(currLine);
 		if(lineLen == 0) {
 			/* empty line */
 			skipThis = 1;
@@ -559,7 +560,7 @@ int cuConvertPem(
 			ortn = UNSUPPORTED_FORMAT_ERR;
 			goto errOut;
 		}
-		base64Len = end64 - start64;
+		base64Len = (unsigned)(end64 - start64);
 	}
 	/* else no END, no reason to complain about that as long as base64 decode works OK */
 	

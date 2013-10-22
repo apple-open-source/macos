@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -137,11 +137,14 @@ static	int ifconfig(int argc, char *const *argv, int iscreate,
 		const struct afswtch *afp);
 static	void status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		struct ifaddrs *ifa);
+static char *bytes_to_str(unsigned long long bytes);
 static char *bps_to_str(unsigned long long rate);
+static char *ns_to_str(unsigned long long nsec);
 static	void tunnel_status(int s);
 static	void usage(void);
 static char *sched2str(unsigned int s);
 static char *tl2str(unsigned int s);
+static char *ift2str(unsigned int t, unsigned int f, unsigned int sf);
 
 static struct afswtch *af_getbyname(const char *name);
 static struct afswtch *af_getbyfamily(int af);
@@ -947,19 +950,44 @@ setthrottle(const char *val, int dummy __unused, int s,
 	}
 }
 
+static void
+setlog(const char *val, int dummy __unused, int s,
+    const struct afswtch *afp)
+{
+	char *cp;
+
+	errno = 0;
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+	ifr.ifr_log.ifl_level = strtold(val, &cp);
+	if (val == cp || errno != 0) {
+		warn("Invalid value '%s'", val);
+		return;
+	}
+	ifr.ifr_log.ifl_flags = (IFRLOGF_DLIL|IFRLOGF_FAMILY|IFRLOGF_DRIVER|
+	    IFRLOGF_FIRMWARE);
+
+	if (ioctl(s, SIOCSIFLOG, &ifr) < 0)
+		warn("ioctl (set logging parameters)");
+}
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
 "\20MULTICAST"
 
 #define	IFEFBITS \
-"\020\1AUTOCONFIGURING\7ACCEPT_RTADV\10TXSTART\11RXPOLL\12VLAN\13BOND\14ARPLL" \
-"\15NOWINDOWSCALE\16NOAUTOIPV6LL\20ROUTER4\21ROUTER6" \
-"\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI\35SENDLIST"
+"\020\1AUTOCONFIGURING\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
+"\12VLAN\13BOND\14ARPLL\15NOWINDOWSCALE\16NOAUTOIPV6LL\20ROUTER4\21ROUTER6" \
+"\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI\35SENDLIST" \
+"\36DIRECTLINK"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
-"\6TSO4\7TSO6\10LRO\11AV"
+"\6TSO4\7TSO6\10LRO\11AV\12TXSTATUS"
+
+#define	IFRLOGF_BITS \
+"\020\1DLIL\21FAMILY\31DRIVER\35FIRMWARE"
 
 /*
  * Print the status of the interface.  If an address family was
@@ -1072,6 +1100,13 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	if (!verbose)
 		goto done;
 
+	if (ioctl(s, SIOCGIFTYPE, &ifr) != -1) {
+		char *c = ift2str(ifr.ifr_type.ift_type,
+		    ifr.ifr_type.ift_family, ifr.ifr_type.ift_subfamily);
+		if (c != NULL)
+			printf("\ttype: %s\n", c);
+	}
+
 	if (ioctl(s, SIOCGIFLINKQUALITYMETRIC, &ifr) != -1) {
 		int lqm = ifr.ifr_link_quality_metric;
 		if (verbose > 1) {
@@ -1111,6 +1146,11 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		u_int64_t obw_eff = iflpr.iflpr_output_bw.eff_bw;
 		u_int64_t obw_tbr = iflpr.iflpr_output_tbr_rate;
 		u_int32_t obw_pct = iflpr.iflpr_output_tbr_percent;
+		u_int64_t ilt_max = iflpr.iflpr_input_lt.max_lt;
+		u_int64_t ilt_eff = iflpr.iflpr_input_lt.eff_lt;
+		u_int64_t olt_max = iflpr.iflpr_output_lt.max_lt;
+		u_int64_t olt_eff = iflpr.iflpr_output_lt.eff_lt;
+
 
 		if (eflags & IFEF_TXSTART) {
 			u_int32_t flags = iflpr.iflpr_flags;
@@ -1171,6 +1211,33 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			printf("\tuplink rate: %s [tbr]\n",
 			    bps_to_str(obw_tbr));
 		}
+
+		if (ilt_max != 0 || olt_max != 0) {
+			if (ilt_max == olt_max && ilt_eff == olt_eff &&
+			    ilt_max == ilt_eff) {
+				printf("\tlink latency: %s\n",
+				    ns_to_str(ilt_max));
+			} else {
+				if (olt_max != 0 && olt_eff == olt_max) {
+					printf("\tuplink latency: %s\n",
+					    ns_to_str(olt_max));
+				} else if (olt_max != 0) {
+					printf("\tuplink latency: "
+					    "%s [eff] / ", ns_to_str(olt_eff));
+					printf("%s [max]\n",
+					    ns_to_str(olt_max));
+				}
+				if (ilt_max != 0 && ilt_eff == ilt_max) {
+					printf("\tdownlink latency: %s\n",
+					    ns_to_str(ilt_max));
+				} else if (ilt_max != 0) {
+					printf("\tdownlink latency: "
+					    "%s [eff] / ", ns_to_str(ilt_eff));
+					printf("%s [max]\n",
+					    ns_to_str(ilt_max));
+				}
+			}
+		}
 	}
 
 	/* Common OID prefix */
@@ -1184,8 +1251,12 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		err(1, "sysctl IFDATA_SUPPLEMENTAL");
 
 	if (ifmsupp.ifmd_data_extended.ifi_alignerrs != 0) {
-		printf("\tunaligned pkts: %lld\n",
+		printf("\tunaligned pkts: %llu\n",
 		    ifmsupp.ifmd_data_extended.ifi_alignerrs);
+	}
+	if (ifmsupp.ifmd_data_extended.ifi_dt_bytes != 0) {
+		printf("\tdata milestone interval: %s\n",
+		    bytes_to_str(ifmsupp.ifmd_data_extended.ifi_dt_bytes));
 	}
 
 	bzero(&ifdr, sizeof (ifdr));
@@ -1194,9 +1265,50 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		printf("\tdesc: %s\n", ifdr.ifdr_desc);
 	}
 
+	if (ioctl(s, SIOCGIFLOG, &ifr) != -1 && ifr.ifr_log.ifl_level) {
+		printf("\tlogging: level %d ", ifr.ifr_log.ifl_level);
+		printb("facilities", ifr.ifr_log.ifl_flags, IFRLOGF_BITS);
+		putchar('\n');
+	}
+
+	if (ioctl(s, SIOCGIFDELEGATE, &ifr) != -1 && ifr.ifr_delegated) {
+		char delegatedif[IFNAMSIZ+1];
+		if (if_indextoname(ifr.ifr_delegated, delegatedif) != NULL)
+			printf("\teffective interface: %s\n", delegatedif);
+	}
+
 done:
 	close(s);
 	return;
+}
+
+#define	KILOBYTES	1024
+#define	MEGABYTES	(KILOBYTES * KILOBYTES)
+#define	GIGABYTES	(KILOBYTES * KILOBYTES * KILOBYTES)
+
+static char *
+bytes_to_str(unsigned long long bytes)
+{
+        static char buf[32];
+        const char *u;
+        long double n = bytes, t;
+
+        if (bytes >= GIGABYTES) {
+                t = n / GIGABYTES;
+                u = "GB";
+        } else if (n >= MEGABYTES) {
+                t = n / MEGABYTES;
+                u = "MB";
+        } else if (n >= KILOBYTES) {
+                t = n / KILOBYTES;
+                u = "KB";
+        } else {
+                t = n;
+                u = "bytes";
+        }
+
+        snprintf(buf, sizeof (buf), "%-4.2Lf %s", t, u);
+        return (buf);
 }
 
 #define	GIGABIT_PER_SEC	1000000000	/* gigabit per second */
@@ -1222,6 +1334,35 @@ bps_to_str(unsigned long long rate)
         } else {
                 t = n;
                 u = "bps ";
+        }
+
+        snprintf(buf, sizeof (buf), "%-4.2Lf %4s", t, u);
+        return (buf);
+}
+
+#define	NSEC_PER_SEC	1000000000	/* nanosecond per second */
+#define	USEC_PER_SEC	1000000		/* microsecond per second */
+#define	MSEC_PER_SEC	1000		/* millisecond per second */
+
+static char *
+ns_to_str(unsigned long long nsec)
+{
+        static char buf[32];
+        const char *u;
+        long double n = nsec, t;
+
+        if (nsec >= NSEC_PER_SEC) {
+                t = n / NSEC_PER_SEC;
+                u = "sec ";
+        } else if (n >= USEC_PER_SEC) {
+                t = n / USEC_PER_SEC;
+                u = "msec";
+        } else if (n >= MSEC_PER_SEC) {
+                t = n / MSEC_PER_SEC;
+                u = "usec";
+        } else {
+                t = n;
+                u = "nsec";
         }
 
         snprintf(buf, sizeof (buf), "%-4.2Lf %4s", t, u);
@@ -1434,6 +1575,7 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD_ARG("desc",			setifdesc),
 	DEF_CMD_ARG("tbr",			settbr),
 	DEF_CMD_ARG("throttle",			setthrottle),
+	DEF_CMD_ARG("log",			setlog),
 };
 
 static __constructor void
@@ -1497,6 +1639,78 @@ tl2str(unsigned int s)
 	default:
 		c = "unknown";
 		break;
+	}
+
+	return (c);
+}
+
+static char *
+ift2str(unsigned int t, unsigned int f, unsigned int sf)
+{
+	static char buf[256];
+	char *c = NULL;
+
+	switch (t) {
+	case IFT_ETHER:
+		switch (sf) {
+		case IFRTYPE_SUBFAMILY_USB:
+			c = "USB Ethernet";
+			break;
+		case IFRTYPE_SUBFAMILY_BLUETOOTH:
+			c = "Bluetooth PAN";
+			break;
+		case IFRTYPE_SUBFAMILY_WIFI:
+			c = "Wi-Fi";
+			break;
+		case IFRTYPE_SUBFAMILY_THUNDERBOLT:
+			c = "IP over Thunderbolt";
+			break;
+		case IFRTYPE_SUBFAMILY_ANY:
+		default:
+			c = "Ethernet";
+			break;
+		}
+		break;
+
+	case IFT_IEEE1394:
+		c = "IP over FireWire";
+		break;
+
+	case IFT_PKTAP:
+		c = "Packet capture";
+		break;
+
+	case IFT_CELLULAR:
+		c = "Cellular";
+		break;
+
+	case IFT_BRIDGE:
+	case IFT_PFLOG:
+	case IFT_PFSYNC:
+	case IFT_OTHER:
+	case IFT_PPP:
+	case IFT_LOOP:
+	case IFT_GIF:
+	case IFT_STF:
+	case IFT_L2VLAN:
+	case IFT_IEEE8023ADLAG:
+	default:
+		break;
+	}
+
+	if (verbose > 1) {
+		if (c == NULL) {
+			(void) snprintf(buf, sizeof (buf),
+			    "0x%x family: %u subfamily: %u",
+			    ifr.ifr_type.ift_type, ifr.ifr_type.ift_family,
+			    ifr.ifr_type.ift_subfamily);
+		} else {
+			(void) snprintf(buf, sizeof (buf),
+			    "%s (0x%x) family: %u subfamily: %u", c,
+			    ifr.ifr_type.ift_type, ifr.ifr_type.ift_family,
+			    ifr.ifr_type.ift_subfamily);
+		}
+		c = buf;
 	}
 
 	return (c);

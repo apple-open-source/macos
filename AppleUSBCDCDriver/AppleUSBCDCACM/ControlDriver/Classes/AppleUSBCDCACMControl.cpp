@@ -36,7 +36,10 @@
 
 #include <IOKit/pwr_mgt/RootDomain.h>
 
+#if !TARGET_OS_IPHONE
 #include <IOKit/usb/IOUSBBus.h>
+#endif /* TARGET_OS_IPHONE */
+
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -251,7 +254,7 @@ void AppleUSBCDCACMControl::commReadComplete(void *obj, void *param, IOReturn rc
         XTRACE(me, 0, rc, "commReadComplete - error");
         if (rc != kIOReturnAborted)
         {
-			if (rc == kIOUSBPipeStalled)
+			if ((rc == kIOUSBPipeStalled) || (rc = kIOUSBHighSpeedSplitError))
 			{
 				rc = me->checkPipe(me->fCommPipe, true);
 			} else {
@@ -324,7 +327,7 @@ void AppleUSBCDCACMControl::merWriteComplete(void *obj, void *param, IOReturn rc
             XTRACE(me, MER->bRequest, remaining, "merWriteComplete - request");
         } else {
             XTRACE(me, MER->bRequest, rc, "merWriteComplete - io err");
-			if (rc == kIOUSBPipeStalled)
+			if ((rc == kIOUSBPipeStalled) || (rc == kIOUSBHighSpeedSplitError))
 			{
 				rc = me->checkPipe(me->fCommPipe, false);
 			}
@@ -344,7 +347,7 @@ void AppleUSBCDCACMControl::merWriteComplete(void *obj, void *param, IOReturn rc
             XTRACE(me, 0, remaining, "merWriteComplete (request unknown)");
         } else {
             XTRACE(me, 0, rc, "merWriteComplete (request unknown) - io err");
-			if (rc == kIOUSBPipeStalled)
+			if ((rc == kIOUSBPipeStalled) || (rc == kIOUSBHighSpeedSplitError))
 			{
 				rc = me->checkPipe(me->fCommPipe, false);
 			}

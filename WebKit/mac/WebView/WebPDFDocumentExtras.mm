@@ -29,13 +29,6 @@
 #import <wtf/Vector.h>
 #import <wtf/RetainPtr.h>
 #import <PDFKit/PDFDocument.h>
-#import <objc/objc-runtime.h>
-
-#ifdef BUILDING_ON_LEOPARD
-@interface PDFDocument (Internal)
-- (CGPDFDocumentRef)documentRef;
-@end
-#endif
 
 static void appendValuesInPDFNameSubtreeToVector(CGPDFDictionaryRef subtree, Vector<CGPDFObjectRef>& values)
 {
@@ -111,7 +104,7 @@ NSArray *allScriptsInPDFDocument(PDFDocument *document)
         RetainPtr<CFDataRef> data;
         if (CGPDFDictionaryGetStream(javaScriptAction, "JS", &stream)) {
             CGPDFDataFormat format;
-            data.adoptCF(CGPDFStreamCopyData(stream, &format));
+            data = adoptCF(CGPDFStreamCopyData(stream, &format));
             if (!data)
                 continue;
             bytes = CFDataGetBytePtr(data.get());

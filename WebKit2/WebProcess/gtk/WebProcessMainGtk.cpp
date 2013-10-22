@@ -27,16 +27,19 @@
 #include "config.h"
 #include "WebProcessMainGtk.h"
 
-#include "WebAuthDialog.h"
 #include "WKBase.h"
-#include <WebCore/GtkAuthenticationDialog.h>
+#include "WebKit2Initialize.h"
+#include <WebCore/AuthenticationChallenge.h>
+#include <WebCore/NetworkingContext.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/RunLoop.h>
 #include <WebKit2/WebProcess.h>
 #include <gtk/gtk.h>
-#include <runtime/InitializeThreading.h>
+#include <libintl.h>
+#include <libsoup/soup.h>
 #include <unistd.h>
-#include <wtf/MainThread.h>
+#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GRefPtr.h>
 
 using namespace WebCore;
 
@@ -52,25 +55,32 @@ WK_EXPORT int WebProcessMainGtk(int argc, char* argv[])
 #endif
 
     gtk_init(&argc, &argv);
-    g_type_init();
 
-    JSC::initializeThreading();
-    WTF::initializeMainThread();
+    bindtextdomain(GETTEXT_PACKAGE, PACKAGE_LOCALE_DIR);
+    bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
 
-    RunLoop::initializeMainRunLoop();
+    InitializeWebKit2();
+
     int socket = atoi(argv[1]);
-    WebProcess::shared().initialize(socket, RunLoop::main());
 
-    SoupSession* session = WebCore::ResourceHandle::defaultSession();
-    soup_session_add_feature_by_type(session, WEB_TYPE_AUTH_DIALOG);
+    ChildProcessInitializationParameters parameters;
+    parameters.connectionIdentifier = socket;
+
+    WebProcess::shared().initialize(parameters);
 
     // Despite using system CAs to validate certificates we're
     // accepting invalid certificates by default. New API will be
     // added later to let client accept/discard invalid certificates.
+    SoupSession* session = WebCore::ResourceHandle::defaultSession();
     g_object_set(session, SOUP_SESSION_SSL_USE_SYSTEM_CA_FILE, TRUE,
                  SOUP_SESSION_SSL_STRICT, FALSE, NULL);
 
     RunLoop::run();
+
+    if (SoupSessionFeature* soupCache = soup_session_get_feature(session, SOUP_TYPE_CACHE)) {
+        soup_cache_flush(SOUP_CACHE(soupCache));
+        soup_cache_dump(SOUP_CACHE(soupCache));
+    }
 
     return 0;
 }

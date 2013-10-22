@@ -226,11 +226,22 @@ external_passwd_quality (krb5_context context,
     return 0;
 }
 
+static int
+no_passwd_quality_check(krb5_context context,
+			krb5_principal principal,
+			krb5_data *pwd,
+			const char *opaque,
+			char *message,
+			size_t length)
+{
+    return 0;
+}
 
 static kadm5_passwd_quality_check_func_v0 passwd_quality_check =
 	min_length_passwd_quality_v0;
 
 struct kadm5_pw_policy_check_func builtin_funcs[] = {
+    { "no-check", no_passwd_quality_check },
     { "minimum-length", min_length_passwd_quality },
     { "character-class", char_class_passwd_quality },
     { "external-check", external_passwd_quality },

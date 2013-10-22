@@ -1,33 +1,36 @@
-LIST(APPEND WebCore_INCLUDE_DIRECTORIES
+list(APPEND WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/bindings/js"
     "${WEBCORE_DIR}/bridge/jsc"
 )
 
-LIST(APPEND WebCoreTestSupport_INCLUDE_DIRECTORIES
+list(APPEND WebCoreTestSupport_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/testing/js"
 )
 
-LIST(APPEND WebCore_IDL_INCLUDES
+list(APPEND WebCore_IDL_INCLUDES
     bindings/js
 )
 
-IF (PORT MATCHES "BlackBerry")
-    LIST(APPEND WebCore_IDL_INCLUDES
+if (PORT MATCHES "BlackBerry")
+    list(APPEND WebCore_IDL_INCLUDES
         testing/js
     )
-    LIST(APPEND WebCore_IDL_FILES
+    list(APPEND WebCore_IDL_FILES
         testing/Internals.idl
         testing/InternalSettings.idl
     )
-ENDIF ()
+endif ()
 
-LIST(APPEND WebCore_SOURCES
+list(APPEND WebCore_SOURCES
+    bindings/js/ArrayValue.cpp
+    bindings/js/BindingState.cpp
     bindings/js/CallbackFunction.cpp
     bindings/js/DOMObjectHashTableMap.cpp
     bindings/js/DOMWrapperWorld.cpp
     bindings/js/Dictionary.cpp
     bindings/js/GCController.cpp
     bindings/js/JSArrayBufferCustom.cpp
+    bindings/js/JSAudioBufferCustom.cpp
     bindings/js/JSAttrCustom.cpp
     bindings/js/JSBlobCustom.cpp
     bindings/js/JSCDATASectionCustom.cpp
@@ -46,8 +49,7 @@ LIST(APPEND WebCore_SOURCES
     bindings/js/JSCanvasRenderingContextCustom.cpp
     bindings/js/JSClipboardCustom.cpp
     bindings/js/JSConsoleCustom.cpp
-    bindings/js/JSCoordinatesCustom.cpp
-    bindings/js/JSCustomVoidCallback.cpp
+    bindings/js/JSCryptoCustom.cpp
     bindings/js/JSCustomXPathNSResolver.cpp
     bindings/js/JSDictionary.cpp
     bindings/js/JSDOMBinding.cpp
@@ -57,13 +59,12 @@ LIST(APPEND WebCore_SOURCES
     bindings/js/JSDOMMimeTypeArrayCustom.cpp
     bindings/js/JSDOMPluginArrayCustom.cpp
     bindings/js/JSDOMPluginCustom.cpp
+    bindings/js/JSDOMStringListCustom.cpp
     bindings/js/JSDOMStringMapCustom.cpp
     bindings/js/JSDOMTokenListCustom.cpp
     bindings/js/JSDOMWindowBase.cpp
     bindings/js/JSDOMWindowCustom.cpp
     bindings/js/JSDOMWindowShell.cpp
-    bindings/js/JSDOMWindowWebAudioCustom.cpp
-    bindings/js/JSDOMWindowWebSocketCustom.cpp
     bindings/js/JSDOMWrapper.cpp
     bindings/js/JSDeviceMotionEventCustom.cpp
     bindings/js/JSDeviceOrientationEventCustom.cpp
@@ -72,10 +73,8 @@ LIST(APPEND WebCore_SOURCES
     bindings/js/JSErrorHandler.cpp
     bindings/js/JSEventCustom.cpp
     bindings/js/JSEventListener.cpp
-    bindings/js/JSEventTarget.cpp
+    bindings/js/JSEventTargetCustom.cpp
     bindings/js/JSExceptionBase.cpp
-    bindings/js/JSFloat32ArrayCustom.cpp
-    bindings/js/JSFloat64ArrayCustom.cpp
     bindings/js/JSGeolocationCustom.cpp
     bindings/js/JSHTMLAllCollectionCustom.cpp
     bindings/js/JSHTMLAppletElementCustom.cpp
@@ -84,6 +83,7 @@ LIST(APPEND WebCore_SOURCES
     bindings/js/JSHTMLDocumentCustom.cpp
     bindings/js/JSHTMLElementCustom.cpp
     bindings/js/JSHTMLEmbedElementCustom.cpp
+    bindings/js/JSHTMLFormControlsCollectionCustom.cpp
     bindings/js/JSHTMLFormElementCustom.cpp
     bindings/js/JSHTMLFrameElementCustom.cpp
     bindings/js/JSHTMLFrameSetElementCustom.cpp
@@ -92,15 +92,12 @@ LIST(APPEND WebCore_SOURCES
     bindings/js/JSHTMLMediaElementCustom.cpp
     bindings/js/JSHTMLObjectElementCustom.cpp
     bindings/js/JSHTMLOptionsCollectionCustom.cpp
-    bindings/js/JSHTMLOutputElementCustom.cpp
     bindings/js/JSHTMLSelectElementCustom.cpp
     bindings/js/JSHTMLStyleElementCustom.cpp
+    bindings/js/JSHTMLTemplateElementCustom.cpp
     bindings/js/JSHistoryCustom.cpp
     bindings/js/JSImageConstructor.cpp
     bindings/js/JSImageDataCustom.cpp
-    bindings/js/JSInt16ArrayCustom.cpp
-    bindings/js/JSInt32ArrayCustom.cpp
-    bindings/js/JSInt8ArrayCustom.cpp
     bindings/js/JSInjectedScriptHostCustom.cpp
     bindings/js/JSInjectedScriptManager.cpp
     bindings/js/JSInspectorFrontendHostCustom.cpp
@@ -109,22 +106,21 @@ LIST(APPEND WebCore_SOURCES
     bindings/js/JSLocationCustom.cpp
     bindings/js/JSMainThreadExecState.cpp
     bindings/js/JSMediaListCustom.cpp
-    bindings/js/JSMemoryInfoCustom.cpp
     bindings/js/JSMessageChannelCustom.cpp
     bindings/js/JSMessageEventCustom.cpp
     bindings/js/JSMessagePortCustom.cpp
-    bindings/js/JSMutationCallbackCustom.cpp
+    bindings/js/JSMicroDataItemValueCustom.cpp
+    bindings/js/JSMutationCallback.cpp
+    bindings/js/JSMutationObserverCustom.cpp
     bindings/js/JSNamedNodeMapCustom.cpp
     bindings/js/JSNodeCustom.cpp
     bindings/js/JSNodeFilterCondition.cpp
     bindings/js/JSNodeFilterCustom.cpp
     bindings/js/JSNodeIteratorCustom.cpp
     bindings/js/JSNodeListCustom.cpp
-    bindings/js/JSNotificationCustom.cpp
     bindings/js/JSPluginElementFunctions.cpp
     bindings/js/JSPopStateEventCustom.cpp
     bindings/js/JSProcessingInstructionCustom.cpp
-    bindings/js/JSScriptProfileNodeCustom.cpp
     bindings/js/JSStorageCustom.cpp
     bindings/js/JSStyleSheetCustom.cpp
     bindings/js/JSStyleSheetListCustom.cpp
@@ -132,15 +128,8 @@ LIST(APPEND WebCore_SOURCES
     bindings/js/JSTouchCustom.cpp
     bindings/js/JSTouchListCustom.cpp
     bindings/js/JSTreeWalkerCustom.cpp
-    bindings/js/JSUint16ArrayCustom.cpp 
-    bindings/js/JSUint32ArrayCustom.cpp
-    bindings/js/JSUint8ArrayCustom.cpp
-    bindings/js/JSUint8ClampedArrayCustom.cpp
-    bindings/js/JSWebKitAnimationCustom.cpp
-    bindings/js/JSWebKitAnimationListCustom.cpp
     bindings/js/JSWebKitCSSKeyframeRuleCustom.cpp
     bindings/js/JSWebKitCSSKeyframesRuleCustom.cpp
-    bindings/js/JSWebKitMutationObserverCustom.cpp
     bindings/js/JSWebKitPointCustom.cpp
     bindings/js/JSXMLHttpRequestCustom.cpp
     bindings/js/JSXMLHttpRequestUploadCustom.cpp
@@ -180,48 +169,42 @@ LIST(APPEND WebCore_SOURCES
     bridge/jsc/BridgeJSC.cpp
 )
 
-LIST(APPEND WebCoreTestSupport_SOURCES
+list(APPEND WebCoreTestSupport_SOURCES
     testing/js/WebCoreTestSupport.cpp
 )
 
-IF (ENABLE_BLOB)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_BLOB)
+    list(APPEND WebCore_SOURCES
         bindings/js/JSFileReaderCustom.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_REQUEST_ANIMATION_FRAME)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_REQUEST_ANIMATION_FRAME)
+    list(APPEND WebCore_SOURCES
         bindings/js/JSRequestAnimationFrameCallbackCustom.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_SQL_DATABASE)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_SQL_DATABASE)
+    list(APPEND WebCore_SOURCES
         bindings/js/JSCustomSQLStatementErrorCallback.cpp
         bindings/js/JSSQLResultSetRowListCustom.cpp
         bindings/js/JSSQLTransactionCustom.cpp
         bindings/js/JSSQLTransactionSyncCustom.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_INDEXED_DATABASE)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_INDEXED_DATABASE)
+    list(APPEND WebCore_SOURCES
         bindings/js/IDBBindingUtilities.cpp
         bindings/js/JSIDBAnyCustom.cpp
-        bindings/js/JSIDBKeyCustom.cpp
-        bindings/js/JSIDBVersionChangeRequestCustom.cpp
+        bindings/js/JSIDBDatabaseCustom.cpp
+        bindings/js/JSIDBObjectStoreCustom.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_WEB_SOCKETS)
-    LIST(APPEND WebCore_SOURCES
-        bindings/js/JSWebSocketCustom.cpp
-    )
-ENDIF ()
-
-IF (ENABLE_WORKERS)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_WORKERS)
+    list(APPEND WebCore_SOURCES
         bindings/js/JSDedicatedWorkerContextCustom.cpp
         bindings/js/JSWorkerContextBase.cpp
         bindings/js/JSWorkerContextCustom.cpp
@@ -229,117 +212,120 @@ IF (ENABLE_WORKERS)
         bindings/js/WorkerScriptController.cpp
         bindings/js/WorkerScriptDebugServer.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_VIDEO_TRACK)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_VIDEO_TRACK)
+    list(APPEND WebCore_SOURCES
+        bindings/js/JSAudioTrackCustom.cpp
+        bindings/js/JSAudioTrackListCustom.cpp
         bindings/js/JSTextTrackCueCustom.cpp
         bindings/js/JSTextTrackCustom.cpp
         bindings/js/JSTextTrackListCustom.cpp
         bindings/js/JSTrackCustom.cpp
         bindings/js/JSTrackEventCustom.cpp
+        bindings/js/JSVideoTrackCustom.cpp
+        bindings/js/JSVideoTrackListCustom.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_SHARED_WORKERS)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_SHARED_WORKERS)
+    list(APPEND WebCore_SOURCES
         bindings/js/JSSharedWorkerCustom.cpp
     )
-ENDIF ()
-
-IF (ENABLE_NOTIFICATIONS)
-    LIST(APPEND WebCore_SOURCES
-        bindings/js/JSDesktopNotificationsCustom.cpp
-        bindings/js/JSNotificationsCustom.cpp
-    )
-ENDIF ()
+endif ()
 
 if (ENABLE_FILE_SYSTEM)
-    LIST(APPEND WebCore_SOURCES
-        bindings/js/JSDirectoryEntryCustom.cpp
-        bindings/js/JSDirectoryEntrySyncCustom.cpp
+    list(APPEND WebCore_SOURCES
         bindings/js/JSEntryCustom.cpp
         bindings/js/JSEntrySyncCustom.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_SVG)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_SVG)
+    list(APPEND WebCore_SOURCES
         bindings/js/JSSVGElementInstanceCustom.cpp
         bindings/js/JSSVGLengthCustom.cpp
         bindings/js/JSSVGPathSegCustom.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_WEBGL)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_WEBGL)
+    list(APPEND WebCore_SOURCES
         bindings/js/JSWebGLRenderingContextCustom.cpp
     )
-ENDIF ()
+endif ()
 
-IF (ENABLE_WEB_AUDIO)
-    LIST(APPEND WebCore_SOURCES
+if (ENABLE_WEB_AUDIO)
+    list(APPEND WebCore_SOURCES
         bindings/js/JSAudioBufferSourceNodeCustom.cpp
         bindings/js/JSAudioContextCustom.cpp
-        bindings/js/JSConvolverNodeCustom.cpp
-        bindings/js/JSJavaScriptAudioNodeCustom.cpp
-        bindings/js/JSWaveShaperNodeCustom.cpp
+        bindings/js/JSBiquadFilterNodeCustom.cpp
+        bindings/js/JSOscillatorNodeCustom.cpp
+        bindings/js/JSPannerNodeCustom.cpp
     )
-ENDIF ()
+endif ()
 
-LIST(APPEND SCRIPTS_BINDINGS
+if (ENABLE_MEDIA_STREAM)
+    list(APPEND WebCore_SOURCES
+        bindings/js/JSRTCStatsResponseCustom.cpp
+    )
+endif ()
+
+list(APPEND SCRIPTS_BINDINGS
     ${WEBCORE_DIR}/bindings/scripts/CodeGenerator.pm
+    ${WEBCORE_DIR}/bindings/scripts/CodeGeneratorJS.pm
 )
 
-SET(IDL_INCLUDES "")
-FOREACH (_include ${WebCore_IDL_INCLUDES})
-    LIST(APPEND IDL_INCLUDES --include=${WEBCORE_DIR}/${_include})
-ENDFOREACH ()
+set(IDL_INCLUDES "")
+foreach (_include ${WebCore_IDL_INCLUDES})
+    list(APPEND IDL_INCLUDES --include=${WEBCORE_DIR}/${_include})
+endforeach ()
 
-FOREACH (_include ${WebCoreTestSupport_IDL_INCLUDES})
-    LIST(APPEND IDL_INCLUDES --include=${WEBCORE_DIR}/${_include})
-ENDFOREACH ()
+foreach (_include ${WebCoreTestSupport_IDL_INCLUDES})
+    list(APPEND IDL_INCLUDES --include=${WEBCORE_DIR}/${_include})
+endforeach ()
 
-SET(FEATURE_DEFINES_JAVASCRIPT "LANGUAGE_JAVASCRIPT=1")
-FOREACH (_feature ${FEATURE_DEFINES})
-    SET(FEATURE_DEFINES_JAVASCRIPT "${FEATURE_DEFINES_JAVASCRIPT} ${_feature}")
-ENDFOREACH ()
+set(FEATURE_DEFINES_JAVASCRIPT "LANGUAGE_JAVASCRIPT=1 ${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}")
 
 # Create JavaScript C++ code given an IDL input
-FOREACH (_idl ${WebCore_IDL_FILES})
-    SET(IDL_FILES_LIST "${IDL_FILES_LIST}${WEBCORE_DIR}/${_idl}\n")
-ENDFOREACH ()
+foreach (_idl ${WebCore_IDL_FILES})
+    set(IDL_FILES_LIST "${IDL_FILES_LIST}${WEBCORE_DIR}/${_idl}\n")
+endforeach ()
 
-FOREACH (_idl ${WebCoreTestSupport_IDL_FILES})
-    SET(IDL_FILES_LIST "${IDL_FILES_LIST}${WEBCORE_DIR}/${_idl}\n")
-ENDFOREACH ()
+foreach (_idl ${WebCoreTestSupport_IDL_FILES})
+    set(IDL_FILES_LIST "${IDL_FILES_LIST}${WEBCORE_DIR}/${_idl}\n")
+endforeach ()
 
-FILE(WRITE ${IDL_FILES_TMP} ${IDL_FILES_LIST})
+set(IDL_FILES_LIST "${IDL_FILES_LIST}${DERIVED_SOURCES_WEBCORE_DIR}/InternalSettingsGenerated.idl\n")
+list(APPEND IDL_INCLUDES --include=${DERIVED_SOURCES_WEBCORE_DIR})
+list(APPEND WebCoreTestSupport_IDL_FILES ${DERIVED_SOURCES_WEBCORE_DIR}/InternalSettingsGenerated.idl)
 
-ADD_CUSTOM_COMMAND(
-    OUTPUT ${SUPPLEMENTAL_DEPENDENCY_FILE}
-    DEPENDS ${WEBCORE_DIR}/bindings/scripts/preprocess-idls.pl ${SCRIPTS_PREPROCESS_IDLS} ${WebCore_IDL_FILES} ${WebCoreTestSupport_IDL_FILES} ${IDL_ATTRIBUTES_FILE}
-    COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts ${WEBCORE_DIR}/bindings/scripts/preprocess-idls.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --idlFilesList ${IDL_FILES_TMP} --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" --supplementalDependencyFile ${SUPPLEMENTAL_DEPENDENCY_FILE} --idlAttributesFile ${IDL_ATTRIBUTES_FILE}
+file(WRITE ${IDL_FILES_TMP} ${IDL_FILES_LIST})
+
+add_custom_command(
+    OUTPUT ${SUPPLEMENTAL_DEPENDENCY_FILE} ${WINDOW_CONSTRUCTORS_FILE} ${WORKERCONTEXT_CONSTRUCTORS_FILE}
+    DEPENDS ${WEBCORE_DIR}/bindings/scripts/preprocess-idls.pl ${SCRIPTS_PREPROCESS_IDLS} ${WebCore_IDL_FILES} ${WebCoreTestSupport_IDL_FILES}
+    COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts ${WEBCORE_DIR}/bindings/scripts/preprocess-idls.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --idlFilesList ${IDL_FILES_TMP} --supplementalDependencyFile ${SUPPLEMENTAL_DEPENDENCY_FILE} --windowConstructorsFile ${WINDOW_CONSTRUCTORS_FILE} --workerContextConstructorsFile ${WORKERCONTEXT_CONSTRUCTORS_FILE}
     VERBATIM)
 
-FOREACH (_file ${WebCore_IDL_FILES})
-    GET_FILENAME_COMPONENT (_name ${_file} NAME_WE)
-    ADD_CUSTOM_COMMAND(
-        OUTPUT  ${DERIVED_SOURCES_WEBCORE_DIR}/JS${_name}.cpp ${DERIVED_SOURCES_WEBCORE_DIR}/JS${_name}.h
-        MAIN_DEPENDENCY ${_file}
-        DEPENDS ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl ${SCRIPTS_BINDINGS} ${WEBCORE_DIR}/bindings/scripts/CodeGeneratorJS.pm ${SUPPLEMENTAL_DEPENDENCY_FILE}
-        COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --generator JS ${IDL_INCLUDES} --outputDir "${DERIVED_SOURCES_WEBCORE_DIR}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" --supplementalDependencyFile ${SUPPLEMENTAL_DEPENDENCY_FILE} ${WEBCORE_DIR}/${_file}
-        VERBATIM)
-    LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_WEBCORE_DIR}/JS${_name}.cpp)
-ENDFOREACH ()
+GENERATE_BINDINGS(WebCore_SOURCES
+    "${WebCore_IDL_FILES}"
+    "${WEBCORE_DIR}"
+    "${IDL_INCLUDES}"
+    "${FEATURE_DEFINES_JAVASCRIPT}"
+    ${DERIVED_SOURCES_WEBCORE_DIR} JS JS
+    ${IDL_ATTRIBUTES_FILE}
+    ${SUPPLEMENTAL_DEPENDENCY_FILE}
+    ${WINDOW_CONSTRUCTORS_FILE}
+    ${WORKERCONTEXT_CONSTRUCTORS_FILE})
 
-FOREACH (_file ${WebCoreTestSupport_IDL_FILES})
-    GET_FILENAME_COMPONENT (_name ${_file} NAME_WE)
-    ADD_CUSTOM_COMMAND(
-        OUTPUT  ${DERIVED_SOURCES_WEBCORE_DIR}/JS${_name}.cpp ${DERIVED_SOURCES_WEBCORE_DIR}/JS${_name}.h
-        MAIN_DEPENDENCY ${_file}
-        DEPENDS ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl ${SCRIPTS_BINDINGS} ${WEBCORE_DIR}/bindings/scripts/CodeGeneratorJS.pm ${SUPPLEMENTAL_DEPENDENCY_FILE}
-        COMMAND ${PERL_EXECUTABLE} -I${WEBCORE_DIR}/bindings/scripts ${WEBCORE_DIR}/bindings/scripts/generate-bindings.pl --defines "${FEATURE_DEFINES_JAVASCRIPT}" --generator JS ${IDL_INCLUDES} --outputDir "${DERIVED_SOURCES_WEBCORE_DIR}" --preprocessor "${CODE_GENERATOR_PREPROCESSOR}" --supplementalDependencyFile ${SUPPLEMENTAL_DEPENDENCY_FILE} ${WEBCORE_DIR}/${_file}
-        VERBATIM)
-    LIST(APPEND WebCoreTestSupport_SOURCES ${DERIVED_SOURCES_WEBCORE_DIR}/JS${_name}.cpp)
-ENDFOREACH ()
+GENERATE_BINDINGS(WebCoreTestSupport_SOURCES
+    "${WebCoreTestSupport_IDL_FILES}"
+    "${WEBCORE_DIR}"
+    "${IDL_INCLUDES}"
+    "${FEATURE_DEFINES_JAVASCRIPT}"
+    ${DERIVED_SOURCES_WEBCORE_DIR} JS JS
+    ${IDL_ATTRIBUTES_FILE}
+    ${SUPPLEMENTAL_DEPENDENCY_FILE}
+    ${WINDOW_CONSTRUCTORS_FILE}
+    ${WORKERCONTEXT_CONSTRUCTORS_FILE})

@@ -16,8 +16,13 @@
 #ifndef RSA_H
 #define RSA_H
 
+#ifdef __APPLE_CRYPTO__
+#include "ossl-bn.h"
+#include "ossl-rsa.h"
+#else
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
+#endif
 
 void	 rsa_public_encrypt(BIGNUM *, BIGNUM *, RSA *);
 int	 rsa_private_decrypt(BIGNUM *, BIGNUM *, RSA *);

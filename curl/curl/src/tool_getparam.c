@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,9 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
-#include <curl/curl.h>
+#include "tool_setup.h"
 
 #include "rawstr.h"
 
@@ -30,7 +28,7 @@
 #include "curlx.h"
 
 #ifdef USE_MANUAL
-#  include "hugehelp.h"
+#  include "tool_hugehelp.h"
 #endif
 
 #include "tool_binmode.h"
@@ -41,6 +39,7 @@
 #include "tool_help.h"
 #include "tool_helpers.h"
 #include "tool_libinfo.h"
+#include "tool_metalink.h"
 #include "tool_msgs.h"
 #include "tool_paramhlp.h"
 #include "tool_parsecfg.h"
@@ -57,10 +56,11 @@
     free(*(str)); \
     *(str) = NULL; \
   } \
-  if((val)) \
+  if((val)) {              \
     *(str) = strdup((val)); \
-  if(!(val)) \
-    return PARAM_NO_MEM; \
+    if(!(*(str)))          \
+      return PARAM_NO_MEM; \
+  } \
 } WHILE_FALSE
 
 struct LongShort {
@@ -170,6 +170,9 @@ static const struct LongShort aliases[]= {
   {"$E", "proto-redir",              TRUE},
   {"$F", "resolve",                  TRUE},
   {"$G", "delegation",               TRUE},
+  {"$H", "mail-auth",                TRUE},
+  {"$I", "post303",                  FALSE},
+  {"$J", "metalink",                 FALSE},
   {"0",  "http1.0",                  FALSE},
   {"1",  "tlsv1",                    FALSE},
   {"2",  "sslv2",                    FALSE},
@@ -202,6 +205,7 @@ static const struct LongShort aliases[]= {
   {"Ek", "tlsuser",                  TRUE},
   {"El", "tlspassword",              TRUE},
   {"Em", "tlsauthtype",              TRUE},
+  {"En", "ssl-allow-beast",          FALSE},
   {"f",  "fail",                     FALSE},
   {"F",  "form",                     TRUE},
   {"Fs", "form-string",              TRUE},
@@ -394,8 +398,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         GetStr(&config->egd_file, nextarg);
         break;
       case 'c': /* connect-timeout */
-        if(str2num(&config->connecttimeout, nextarg))
-          return PARAM_BAD_NUMERIC;
+        err = str2unum(&config->connecttimeout, nextarg);
+        if(err)
+          return err;
         break;
       case 'd': /* ciphers */
         GetStr(&config->cipher_list, nextarg);
@@ -538,8 +543,12 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         break;
 
       case 's': /* --max-redirs */
-        /* specified max no of redirects (http(s)) */
-        if(str2num(&config->maxredirs, nextarg))
+        /* specified max no of redirects (http(s)), this accepts -1 as a
+           special condition */
+        err = str2num(&config->maxredirs, nextarg);
+        if(err)
+          return err;
+        if(config->maxredirs < -1)
           return PARAM_BAD_NUMERIC;
         break;
 
@@ -583,8 +592,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
           return PARAM_LIBCURL_DOESNT_SUPPORT;
         break;
       case 'y': /* --max-filesize */
-        if(str2offset(&config->max_filesize, nextarg))
-          return PARAM_BAD_NUMERIC;
+        err = str2offset(&config->max_filesize, nextarg);
+        if(err)
+          return err;
         break;
       case 'z': /* --disable-eprt */
         config->disable_eprt = toggle;
@@ -660,16 +670,19 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         config->proxybasic = toggle;
         break;
       case 'g': /* --retry */
-        if(str2num(&config->req_retry, nextarg))
-          return PARAM_BAD_NUMERIC;
+        err = str2unum(&config->req_retry, nextarg);
+        if(err)
+          return err;
         break;
       case 'h': /* --retry-delay */
-        if(str2num(&config->retry_delay, nextarg))
-          return PARAM_BAD_NUMERIC;
+        err = str2unum(&config->retry_delay, nextarg);
+        if(err)
+          return err;
         break;
       case 'i': /* --retry-max-time */
-        if(str2num(&config->retry_maxtime, nextarg))
-          return PARAM_BAD_NUMERIC;
+        err = str2unum(&config->retry_maxtime, nextarg);
+        if(err)
+          return err;
         break;
 
       case 'k': /* --proxy-negotiate */
@@ -738,8 +751,14 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         config->ftp_ssl_ccc_mode = ftpcccmethod(config, nextarg);
         break;
       case 'z': /* --libcurl */
+#ifdef CURL_DISABLE_LIBCURL_OPTION
+        warnf(config,
+              "--libcurl option was disabled at build-time!\n");
+        return PARAM_OPTION_UNKNOWN;
+#else
         GetStr(&config->libcurl, nextarg);
         break;
+#endif
       case '#': /* --raw */
         config->raw = toggle;
         break;
@@ -750,11 +769,15 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         config->nokeepalive = (!toggle)?TRUE:FALSE;
         break;
       case '3': /* --keepalive-time */
-        if(str2num(&config->alivetime, nextarg))
-          return PARAM_BAD_NUMERIC;
+        err = str2unum(&config->alivetime, nextarg);
+        if(err)
+          return err;
         break;
       case '4': /* --post302 */
         config->post302 = toggle;
+        break;
+      case 'I': /* --post303 */
+        config->post303 = toggle;
         break;
       case '5': /* --noproxy */
         /* This specifies the noproxy list */
@@ -774,7 +797,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         config->proxyver = CURLPROXY_HTTP_1_0;
         break;
       case '9': /* --tftp-blksize */
-        str2num(&config->tftp_blksize, nextarg);
+        err = str2unum(&config->tftp_blksize, nextarg);
+        if(err)
+          return err;
         break;
       case 'A': /* --mail-from */
         GetStr(&config->mail_from, nextarg);
@@ -806,6 +831,33 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       case 'G': /* --delegation LEVEL */
         config->gssapi_delegation = delegation(config, nextarg);
         break;
+      case 'H': /* --mail-auth */
+        GetStr(&config->mail_auth, nextarg);
+        break;
+      case 'J': /* --metalink */
+        {
+#ifdef USE_METALINK
+          int mlmaj, mlmin, mlpatch;
+          metalink_get_version(&mlmaj, &mlmin, &mlpatch);
+          if((mlmaj*10000)+(mlmin*100)+mlpatch < CURL_REQ_LIBMETALINK_VERS) {
+            warnf(config,
+                  "--metalink option cannot be used because the version of "
+                  "the linked libmetalink library is too old. "
+                  "Required: %d.%d.%d, found %d.%d.%d\n",
+                  CURL_REQ_LIBMETALINK_MAJOR,
+                  CURL_REQ_LIBMETALINK_MINOR,
+                  CURL_REQ_LIBMETALINK_PATCH,
+                  mlmaj, mlmin, mlpatch);
+            return PARAM_BAD_USE;
+          }
+          else
+            config->use_metalink = toggle;
+#else
+          warnf(config, "--metalink option is ignored because the binary is "
+                "built without the Metalink support.\n");
+#endif
+          break;
+        }
       }
       break;
     case '#': /* --progress-bar */
@@ -872,8 +924,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
     case 'C':
       /* This makes us continue an ftp transfer at given position */
       if(!curlx_strequal(nextarg, "-")) {
-        if(str2offset(&config->resume_from, nextarg))
-          return PARAM_BAD_NUMERIC;
+        err = str2offset(&config->resume_from, nextarg);
+        if(err)
+          return err;
         config->resume_from_current = FALSE;
       }
       else {
@@ -1144,6 +1197,10 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         else
           return PARAM_LIBCURL_DOESNT_SUPPORT;
         break;
+      case 'n': /* no empty SSL fragments */
+        if(curlinfo->features & CURL_VERSION_SSL)
+          config->ssl_allow_beast = toggle;
+        break;
       default: /* certificate file */
       {
         char *ptr = strchr(nextarg, ':');
@@ -1260,8 +1317,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       break;
     case 'm':
       /* specified max time */
-      if(str2num(&config->timeout, nextarg))
-        return PARAM_BAD_NUMERIC;
+      err = str2unum(&config->timeout, nextarg);
+      if(err)
+        return err;
       break;
     case 'M': /* M for manual, huge help */
       if(toggle) { /* --no-manual shows no manual... */
@@ -1530,6 +1588,9 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
           if(curlinfo->features & feats[i].bitmask)
             printf("%s ", feats[i].name);
         }
+#ifdef USE_METALINK
+        printf("Metalink ");
+#endif
         puts(""); /* newline */
       }
     }
@@ -1572,15 +1633,17 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
       break;
     case 'y':
       /* low speed time */
-      if(str2num(&config->low_speed_time, nextarg))
-        return PARAM_BAD_NUMERIC;
+      err = str2unum(&config->low_speed_time, nextarg);
+      if(err)
+        return err;
       if(!config->low_speed_limit)
         config->low_speed_limit = 1;
       break;
     case 'Y':
       /* low speed limit */
-      if(str2num(&config->low_speed_limit, nextarg))
-        return PARAM_BAD_NUMERIC;
+      err = str2unum(&config->low_speed_limit, nextarg);
+      if(err)
+        return err;
       if(!config->low_speed_time)
         config->low_speed_time = 30;
       break;

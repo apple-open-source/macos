@@ -1,42 +1,31 @@
 export USE_APPLE_PB_SUPPORT = all
-OFLAG = -Os
-LTO = -DLTO_SUPPORT
-TRIE = -DTRIE_SUPPORT
-RC_OS = macos
-X_CFLAGS =
 
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
   CXX = $(shell xcrun -find -sdk $(SDKROOT) c++)
-endif
-ifeq "clang" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) $(LTO) $(TRIE) -g -Wall -Wno-format-nonliteral \
-	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
+  DSYMUTIL = $(shell xcrun -find -sdk ${SDKROOT} dsymutil)
 else
-  CFLAGS = $(OFLAG) $(LTO) $(TRIE) -g -Wall $(X_CFLAGS) \
-	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
+  DSYMUTIL = dsymutil
 endif
 
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
+OFLAG = -Os
+LTO = -DLTO_SUPPORT
+TRIE = -DTRIE_SUPPORT
+CFLAGS = $(OFLAG) $(LTO) $(TRIE) -g -Wall \
+	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK) \
+	 -I$(DT_TOOLCHAIN_DIR)/usr/local/include
 
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
+CXXLIB = -stdlib=libc++
 
 ifeq "" "$(TRIE)"
   LIB_PRUNETRIE =
   else
-  LIB_PRUNETRIE = /usr/local/lib/libprunetrie.a
+  LIB_PRUNETRIE = -L$(DT_TOOLCHAIN_DIR)/usr/local/lib -lprunetrie
 endif
 
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
-else
-  MKDIRS = /bin/mkdir -p
-endif
-
+MKDIRS = /bin/mkdir -p
 SRCROOT = .
 OBJROOT = .
 OFILE_DIR = $(OBJROOT)
@@ -63,35 +52,18 @@ PROGS = $(OS_PROGS) size.NEW nm.NEW libtool.NEW checksyms.NEW \
 	pagestuff.NEW redo_prebinding.NEW seg_addr_table.NEW check_dylib.NEW \
 	seg_hack.NEW install_name_tool.NEW codesign_allocate.NEW ctf_insert.NEW
 
-teflon_all macos_all: $(PROGS)
-
-nextstep_all: $(PROGS)
-
-all:	$(OFILE_DIR) $(SYMROOT) $(RC_OS)_all lib_ofiles
+all:	$(OFILE_DIR) $(SYMROOT) $(PROGS) lib_ofiles
 
 os_tools: $(OFILE_DIR) $(SYMROOT) $(OS_PROGS)
 
 lib_ofiles: $(OFILE_DIR) $(SYMROOT) libredo_prebinding.a
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file \
-		$(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 libredo_prebinding.o: redo_prebinding.c
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c \
 		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
-else
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $(SRCROOT)/redo_prebinding.c -DLIBRARY_API
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 checksyms.NEW: checksyms.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -99,6 +71,7 @@ checksyms.NEW: checksyms.o
 		$(OFILE_DIR)/checksyms.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/checksyms.NEW \
 		$(OFILE_DIR)/checksyms.private.o
+	$(DSYMUTIL) $(SYMROOT)/checksyms.NEW
 
 cmpdylib.NEW: cmpdylib.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -106,6 +79,7 @@ cmpdylib.NEW: cmpdylib.o
 		$(OFILE_DIR)/cmpdylib.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/cmpdylib.NEW \
 		$(OFILE_DIR)/cmpdylib.private.o
+	$(DSYMUTIL) $(SYMROOT)/cmpdylib.NEW
 
 lipo.NEW: lipo.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -113,6 +87,7 @@ lipo.NEW: lipo.o
 		$(OFILE_DIR)/lipo.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/lipo.NEW \
 		$(OFILE_DIR)/lipo.private.o
+	$(DSYMUTIL) $(SYMROOT)/lipo.NEW
 
 size.NEW: size.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -120,6 +95,7 @@ size.NEW: size.o
 		$(OFILE_DIR)/size.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/size.NEW \
 		$(OFILE_DIR)/size.private.o
+	$(DSYMUTIL) $(SYMROOT)/size.NEW
 
 strings.NEW: strings.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -127,6 +103,7 @@ strings.NEW: strings.o
 		$(OFILE_DIR)/strings.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/strings.NEW \
 		$(OFILE_DIR)/strings.private.o
+	$(DSYMUTIL) $(SYMROOT)/strings.NEW
 
 nm.NEW: nm.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -134,6 +111,7 @@ nm.NEW: nm.o
 		$(OFILE_DIR)/nm.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/nm.NEW \
 		$(OFILE_DIR)/nm.private.o
+	$(DSYMUTIL) $(SYMROOT)/nm.NEW
 
 libtool.NEW: libtool.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -141,6 +119,7 @@ libtool.NEW: libtool.o
 		$(OFILE_DIR)/libtool.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/libtool.NEW \
 		$(OFILE_DIR)/libtool.private.o
+	$(DSYMUTIL) $(SYMROOT)/libtool.NEW
 
 redo_prebinding.NEW: redo_prebinding.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -148,6 +127,7 @@ redo_prebinding.NEW: redo_prebinding.o
 		$(OFILE_DIR)/redo_prebinding.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/redo_prebinding.NEW \
 		$(OFILE_DIR)/redo_prebinding.private.o
+	$(DSYMUTIL) $(SYMROOT)/redo_prebinding.NEW
 
 libredo_prebinding.a: libredo_prebinding.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r -o $(OBJROOT)/libredo.o \
@@ -160,6 +140,7 @@ seg_addr_table.NEW: seg_addr_table.o
 		$(OFILE_DIR)/seg_addr_table.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/seg_addr_table.NEW \
 		$(OFILE_DIR)/seg_addr_table.private.o
+	$(DSYMUTIL) $(SYMROOT)/seg_addr_table.NEW
 
 check_dylib.NEW: check_dylib.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -167,6 +148,7 @@ check_dylib.NEW: check_dylib.o
 		$(OFILE_DIR)/check_dylib.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/check_dylib.NEW \
 		$(OFILE_DIR)/check_dylib.private.o
+	$(DSYMUTIL) $(SYMROOT)/check_dylib.NEW
 
 inout.NEW: inout.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -174,6 +156,7 @@ inout.NEW: inout.o
 		$(OFILE_DIR)/inout.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/inout.NEW \
 		$(OFILE_DIR)/inout.private.o
+	$(DSYMUTIL) $(SYMROOT)/inout.NEW
 
 codesign_allocate.NEW: codesign_allocate.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -182,6 +165,7 @@ codesign_allocate.NEW: codesign_allocate.o
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/codesign_allocate.NEW \
 		-sectcreate __TEXT __info_plist Info.plist \
 		$(OFILE_DIR)/codesign_allocate.private.o
+	$(DSYMUTIL) $(SYMROOT)/codesign_allocate.NEW
 
 ctf_insert.NEW: ctf_insert.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -189,6 +173,7 @@ ctf_insert.NEW: ctf_insert.o
 		$(OFILE_DIR)/ctf_insert.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/ctf_insert.NEW \
 		$(OFILE_DIR)/ctf_insert.private.o
+	$(DSYMUTIL) $(SYMROOT)/ctf_insert.NEW
 
 seg_hack.NEW: seg_hack.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -196,6 +181,7 @@ seg_hack.NEW: seg_hack.o
 		$(OFILE_DIR)/seg_hack.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/seg_hack.NEW \
 		$(OFILE_DIR)/seg_hack.private.o
+	$(DSYMUTIL) $(SYMROOT)/seg_hack.NEW
 
 install_name_tool.NEW: install_name_tool.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -203,6 +189,7 @@ install_name_tool.NEW: install_name_tool.o
 		$(OFILE_DIR)/install_name_tool.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/install_name_tool.NEW \
 		$(OFILE_DIR)/install_name_tool.private.o
+	$(DSYMUTIL) $(SYMROOT)/install_name_tool.NEW
 
 indr.NEW: indr.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -210,13 +197,15 @@ indr.NEW: indr.o
 		$(OFILE_DIR)/indr.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/indr.NEW \
 		$(OFILE_DIR)/indr.private.o
+	$(DSYMUTIL) $(SYMROOT)/indr.NEW
 
 strip.NEW: strip.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(OBJROOT)/strip.private.o \
 		$(OFILE_DIR)/strip.o $(LIBSTUFF)
 	$(CXX) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/strip.NEW \
-		$(OFILE_DIR)/strip.private.o $(LIB_PRUNETRIE)
+		$(OFILE_DIR)/strip.private.o $(LIB_PRUNETRIE) $(CXXLIB)
+	$(DSYMUTIL) $(SYMROOT)/strip.NEW
 
 nmedit.NEW: nmedit.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -224,16 +213,11 @@ nmedit.NEW: nmedit.o
 		$(OFILE_DIR)/nmedit.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/nmedit.NEW \
 		$(OFILE_DIR)/nmedit.private.o
+	$(DSYMUTIL) $(SYMROOT)/nmedit.NEW
 
 nmedit.o: strip.c
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c \
 		-o $(OFILE_DIR)/nmedit.o $(SRCROOT)/strip.c -DNMEDIT
-else
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/nmedit.o $(SRCROOT)/strip.c -DNMEDIT
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 segedit.NEW: segedit.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -241,6 +225,7 @@ segedit.NEW: segedit.o
 		$(OFILE_DIR)/segedit.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/segedit.NEW \
 		$(OFILE_DIR)/segedit.private.o
+	$(DSYMUTIL) $(SYMROOT)/segedit.NEW
 
 pagestuff.NEW: pagestuff.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
@@ -248,6 +233,7 @@ pagestuff.NEW: pagestuff.o
 		$(OFILE_DIR)/pagestuff.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/pagestuff.NEW \
 		$(OFILE_DIR)/pagestuff.private.o
+	$(DSYMUTIL) $(SYMROOT)/pagestuff.NEW
 
 
 clean: shlib_clean
@@ -320,9 +306,10 @@ shlib_clean:
 	$(OFILE_DIR)/cmpdylib.private.o \
 	$(OFILE_DIR)/nmedit.private.o \
 	$(OFILE_DIR)/strip.private.o \
-	-rm -f $(OFILE_DIR)/Makedep make.out
+	-rm -f make.out
+	-rm -r -f *dSYM
 
-install: all $(RC_OS)_install os_tools_install
+install: all dt_install os_tools_install
 
 install_os_tools: os_tools os_tools_install
 
@@ -332,7 +319,7 @@ os_tools_install:
 		$(DSTROOT)$(USRBINDIR)/strings
 	install -c -s -m 555 $(SYMROOT)/lipo.NEW $(DSTROOT)$(USRBINDIR)/lipo
 
-teflon_install macos_install: common_install
+dt_install:
 	$(MKDIRS) $(DSTROOT)$(USRBINDIR)
 	install -c -s -m 555 $(SYMROOT)/strip.NEW $(DSTROOT)$(USRBINDIR)/strip
 	install -c -s -m 555 $(SYMROOT)/size.NEW $(DSTROOT)$(USRBINDIR)/size
@@ -355,27 +342,6 @@ teflon_install macos_install: common_install
 			  $(DSTROOT)$(USRBINDIR)/codesign_allocate
 	install -c -s -m 555 $(SYMROOT)/ctf_insert.NEW \
 			  $(DSTROOT)$(USRBINDIR)/ctf_insert
-
-nextstep_install: common_install
-	$(MKDIRS) $(DSTROOT)$(BINDIR)
-	$(MKDIRS) $(DSTROOT)$(LOCBINDIR)
-	install -c -s -m 555 $(SYMROOT)/strip.NEW $(DSTROOT)$(BINDIR)/strip
-	install -c -s -m 555 $(SYMROOT)/strings.NEW $(DSTROOT)$(BINDIR)/strings
-	install -c -s -m 555 $(SYMROOT)/size.NEW $(DSTROOT)$(BINDIR)/size
-	install -c -s -m 555 $(SYMROOT)/nm.NEW $(DSTROOT)$(BINDIR)/nm
-	install -c -s -m 555 $(SYMROOT)/libtool.NEW $(DSTROOT)$(BINDIR)/libtool
-	(cd $(DSTROOT)$(BINDIR); rm -f ranlib; ln -s libtool ranlib)
-	install -c -s -m 555 $(SYMROOT)/lipo.NEW $(DSTROOT)$(BINDIR)/lipo
-	install -c -s -m 555 $(SYMROOT)/segedit.NEW $(DSTROOT)$(BINDIR)/segedit
-	install -c -s -m 555 $(SYMROOT)/cmpdylib.NEW \
-		$(DSTROOT)$(BINDIR)/cmpdylib
-	install -c -s -m 555 $(SYMROOT)/pagestuff.NEW \
-		$(DSTROOT)$(BINDIR)/pagestuff
-	install -c -s -m 555 $(SYMROOT)/redo_prebinding.NEW \
-			  $(DSTROOT)$(BINDIR)/redo_prebinding
-	install -c -s -m 555 $(SYMROOT)/nmedit.NEW $(DSTROOT)$(LOCBINDIR)/nmedit
-
-common_install:
 	$(MKDIRS) $(DSTROOT)$(LOCBINDIR)
 	install -c -s -m 555 $(SYMROOT)/checksyms.NEW \
 			  $(DSTROOT)$(LOCBINDIR)/checksyms
@@ -400,5 +366,3 @@ installsrc:
 
 $(OFILE_DIR) $(SYMROOT):
 	$(MKDIRS) $@
-
--include $(OFILE_DIR)/Makedep

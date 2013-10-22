@@ -56,7 +56,8 @@ p.roffit {
 <p class="level0"><a name="CURLINFOEFFECTIVEURL"></a><span class="nroffip">CURLINFO_EFFECTIVE_URL</span> 
 <p class="level1">Pass a pointer to a char pointer to receive the last used effective URL. 
 <p class="level0"><a name="CURLINFORESPONSECODE"></a><span class="nroffip">CURLINFO_RESPONSE_CODE</span> 
-<p class="level1">Pass a pointer to a long to receive the last received HTTP or FTP code. This option was known as CURLINFO_HTTP_CODE in libcurl 7.10.7 and earlier. This will be zero if no server response code has been received. Note that a proxy's CONNECT response should be read with <a class="emphasis" href="#CURLINFOHTTPCONNECTCODE">CURLINFO_HTTP_CONNECTCODE</a> and not this. 
+<p class="level1">Pass a pointer to a long to receive the last received HTTP, FTP or SMTP response code. This option was previously known as CURLINFO_HTTP_CODE in libcurl 7.10.7 and earlier. The value will be zero if no server response code has been received. Note that a proxy's CONNECT response should be read with <a class="emphasis" href="#CURLINFOHTTPCONNECTCODE">CURLINFO_HTTP_CONNECTCODE</a> and not this. 
+<p class="level1">Support for SMTP responses added in 7.25.0. 
 <p class="level0"><a name="CURLINFOHTTPCONNECTCODE"></a><span class="nroffip">CURLINFO_HTTP_CONNECTCODE</span> 
 <p class="level1">Pass a pointer to a long to receive the last received proxy response code to a CONNECT request. 
 <p class="level0"><a name="CURLINFOFILETIME"></a><span class="nroffip">CURLINFO_FILETIME</span> 
@@ -108,7 +109,7 @@ p.roffit {
 <p class="level0"><a name="CURLINFOPROXYAUTHAVAIL"></a><span class="nroffip">CURLINFO_PROXYAUTH_AVAIL</span> 
 <p class="level1">Pass a pointer to a long to receive a bitmask indicating the authentication method(s) available for your proxy authentication.  (Added in 7.10.8) 
 <p class="level0"><a name="CURLINFOOSERRNO"></a><span class="nroffip">CURLINFO_OS_ERRNO</span> 
-<p class="level1">Pass a pointer to a long to receive the errno variable from a connect failure. Note that the value is only set on failure, it is not reset upon a successfull operation.  (Added in 7.12.2) 
+<p class="level1">Pass a pointer to a long to receive the errno variable from a connect failure. Note that the value is only set on failure, it is not reset upon a successful operation.  (Added in 7.12.2) 
 <p class="level0"><a name="CURLINFONUMCONNECTS"></a><span class="nroffip">CURLINFO_NUM_CONNECTS</span> 
 <p class="level1">Pass a pointer to a long to receive how many new connections libcurl had to create to achieve the previous transfer (only the successful connects are counted).  Combined with <a class="emphasis" href="#CURLINFOREDIRECTCOUNT">CURLINFO_REDIRECT_COUNT</a> you are able to know how many times libcurl successfully reused existing connection(s) or not.  See the Connection Options of <a class="emphasis" href="./curl_easy_setopt.html">curl_easy_setopt(3)</a> to see how libcurl tries to make persistent connections to save time.  (Added in 7.12.3) 
 <p class="level0"><a name="CURLINFOPRIMARYIP"></a><span class="nroffip">CURLINFO_PRIMARY_IP</span> 

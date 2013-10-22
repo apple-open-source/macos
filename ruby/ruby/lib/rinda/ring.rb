@@ -43,24 +43,24 @@ module Rinda
 
     def write_service
       Thread.new do
-	loop do
-	  msg = @soc.recv(1024)
-	  do_write(msg)
-	end
+        loop do
+          msg = @soc.recv(1024)
+          do_write(msg)
+        end
       end
     end
-  
+
     ##
     # Extracts the response URI from +msg+ and adds it to TupleSpace where it
     # will be picked up by +reply_service+ for notification.
 
     def do_write(msg)
       Thread.new do
-	begin
-	  tuple, sec = Marshal.load(msg)
-	  @ts.write(tuple, sec)
-	rescue
-	end
+        begin
+          tuple, sec = Marshal.load(msg)
+          @ts.write(tuple, sec)
+        rescue
+        end
       end
     end
 
@@ -69,18 +69,18 @@ module Rinda
 
     def reply_service
       Thread.new do
-	loop do
-	  do_reply
-	end
+        loop do
+          do_reply
+        end
       end
     end
-    
+
     ##
     # Pulls lookup tuples out of the TupleSpace and sends their DRb object the
     # address of the local TupleSpace.
 
     def do_reply
-      tuple = @ts.take([:lookup_ring, nil])
+      tuple = @ts.take([:lookup_ring, DRbObject])
       Thread.new { tuple[1].call(@ts) rescue nil}
     rescue
     end
@@ -104,9 +104,9 @@ module Rinda
     # created RingFinger.
 
     def self.finger
-      unless @@finger 
-	@@finger = self.new
-	@@finger.lookup_ring_any
+      unless @@finger
+        @@finger = self.new
+        @@finger.lookup_ring_any
       end
       @@finger
     end
@@ -178,15 +178,15 @@ module Rinda
 
       msg = Marshal.dump([[:lookup_ring, DRbObject.new(block)], timeout])
       @broadcast_list.each do |it|
-	soc = UDPSocket.open
-	begin
-	  soc.setsockopt(Socket::SOL_SOCKET, Socket::SO_BROADCAST, true)
-	  soc.send(msg, 0, it, @port)
-	rescue
-	  nil
-	ensure
-	  soc.close
-	end
+        soc = UDPSocket.open
+        begin
+          soc.setsockopt(Socket::SOL_SOCKET, Socket::SO_BROADCAST, true)
+          soc.send(msg, 0, it, @port)
+        rescue
+          nil
+        ensure
+          soc.close
+        end
       end
       sleep(timeout)
     end
@@ -198,18 +198,22 @@ module Rinda
     def lookup_ring_any(timeout=5)
       queue = Queue.new
 
-      th = Thread.new do
-	self.lookup_ring(timeout) do |ts|
-	  queue.push(ts)
-	end
-	queue.push(nil)
-	while it = queue.pop
-	  @rings.push(it)
-	end
+      Thread.new do
+        self.lookup_ring(timeout) do |ts|
+          queue.push(ts)
+        end
+        queue.push(nil)
       end
-      
+
       @primary = queue.pop
       raise('RingNotFound') if @primary.nil?
+
+      Thread.new do
+        while it = queue.pop
+          @rings.push(it)
+        end
+      end
+
       @primary
     end
 
@@ -252,19 +256,19 @@ if __FILE__ == $0
   when 's'
     require 'rinda/tuplespace'
     ts = Rinda::TupleSpace.new
-    place = Rinda::RingServer.new(ts)
+    Rinda::RingServer.new(ts)
     $stdin.gets
   when 'w'
     finger = Rinda::RingFinger.new(nil)
-    finger.lookup_ring do |ts|
-      p ts
-      ts.write([:hello, :world])
+    finger.lookup_ring do |ts2|
+      p ts2
+      ts2.write([:hello, :world])
     end
   when 'r'
     finger = Rinda::RingFinger.new(nil)
-    finger.lookup_ring do |ts|
-      p ts
-      p ts.take([nil, nil])
+    finger.lookup_ring do |ts2|
+      p ts2
+      p ts2.take([nil, nil])
     end
   end
 end

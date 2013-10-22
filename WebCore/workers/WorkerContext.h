@@ -33,6 +33,7 @@
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
+#include "GroupSettings.h"
 #include "ScriptExecutionContext.h"
 #include "WorkerEventQueue.h"
 #include "WorkerScriptController.h"
@@ -58,9 +59,9 @@ namespace WebCore {
     public:
         virtual ~WorkerContext();
 
-        virtual bool isWorkerContext() const { return true; }
+        virtual bool isWorkerContext() const OVERRIDE { return true; }
 
-        virtual ScriptExecutionContext* scriptExecutionContext() const;
+        virtual ScriptExecutionContext* scriptExecutionContext() const OVERRIDE;
 
         virtual bool isSharedWorkerContext() const { return false; }
         virtual bool isDedicatedWorkerContext() const { return false; }
@@ -68,9 +69,10 @@ namespace WebCore {
         const KURL& url() const { return m_url; }
         KURL completeURL(const String&) const;
 
+        const GroupSettings* groupSettings() { return m_groupSettings.get(); }
         virtual String userAgent(const KURL&) const;
 
-        virtual void disableEval();
+        virtual void disableEval(const String& errorMessage) OVERRIDE;
 
         WorkerScriptController* script() { return m_script.get(); }
         void clearScript() { m_script.clear(); }
@@ -82,7 +84,7 @@ namespace WebCore {
 
         bool hasPendingActivity() const;
 
-        virtual void postTask(PassOwnPtr<Task>); // Executes the task on context's thread asynchronously.
+        virtual void postTask(PassOwnPtr<Task>) OVERRIDE; // Executes the task on context's thread asynchronously.
 
         // WorkerGlobalScope
         WorkerContext* self() { return this; }
@@ -102,10 +104,10 @@ namespace WebCore {
         void clearInterval(int timeoutId);
 
         // ScriptExecutionContext
-        virtual WorkerEventQueue* eventQueue() const;
+        virtual WorkerEventQueue* eventQueue() const OVERRIDE;
 
-        virtual bool isContextThread() const;
-        virtual bool isJSExecutionForbidden() const;
+        virtual bool isContextThread() const OVERRIDE;
+        virtual bool isJSExecutionForbidden() const OVERRIDE;
 
 #if ENABLE(INSPECTOR)
         WorkerInspectorController* workerInspectorController() { return m_workerInspectorController.get(); }
@@ -136,30 +138,35 @@ namespace WebCore {
         void unregisterObserver(Observer*);
         void notifyObserversOfStop();
 
-    protected:
-        WorkerContext(const KURL&, const String&, WorkerThread*, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType);
+        virtual SecurityOrigin* topOrigin() const OVERRIDE { return m_topOrigin.get(); }
 
-        virtual void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, PassRefPtr<ScriptCallStack>);
-        void addMessageToWorkerConsole(MessageSource, MessageType, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack>);
+    protected:
+        WorkerContext(const KURL&, const String& userAgent, PassOwnPtr<GroupSettings>, WorkerThread*, PassRefPtr<SecurityOrigin> topOrigin);
+        void applyContentSecurityPolicyFromString(const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType);
+
+        virtual void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, PassRefPtr<ScriptCallStack>) OVERRIDE;
+        void addMessageToWorkerConsole(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, PassRefPtr<ScriptCallStack>, ScriptState* = 0, unsigned long requestIdentifier = 0);
 
     private:
-        virtual void refScriptExecutionContext() { ref(); }
-        virtual void derefScriptExecutionContext() { deref(); }
+        virtual void refScriptExecutionContext() OVERRIDE { ref(); }
+        virtual void derefScriptExecutionContext() OVERRIDE { deref(); }
 
-        virtual void refEventTarget() { ref(); }
-        virtual void derefEventTarget() { deref(); }
-        virtual EventTargetData* eventTargetData();
-        virtual EventTargetData* ensureEventTargetData();
+        virtual void refEventTarget() OVERRIDE { ref(); }
+        virtual void derefEventTarget() OVERRIDE { deref(); }
+        virtual EventTargetData* eventTargetData() OVERRIDE;
+        virtual EventTargetData* ensureEventTargetData() OVERRIDE;
 
-        virtual const KURL& virtualURL() const;
+        virtual const KURL& virtualURL() const OVERRIDE;
         virtual KURL virtualCompleteURL(const String&) const;
 
-        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack>);
+        virtual void addMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, PassRefPtr<ScriptCallStack>, ScriptState* = 0, unsigned long requestIdentifier = 0) OVERRIDE;
+        virtual void addConsoleMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier = 0) OVERRIDE;
 
-        virtual EventTarget* errorEventTarget();
+        virtual EventTarget* errorEventTarget() OVERRIDE;
 
         KURL m_url;
         String m_userAgent;
+        OwnPtr<GroupSettings> m_groupSettings;
 
         mutable RefPtr<WorkerLocation> m_location;
         mutable RefPtr<WorkerNavigator> m_navigator;
@@ -179,6 +186,8 @@ namespace WebCore {
         HashSet<Observer*> m_workerObservers;
 
         OwnPtr<WorkerEventQueue> m_eventQueue;
+
+        RefPtr<SecurityOrigin> m_topOrigin;
     };
 
 } // namespace WebCore

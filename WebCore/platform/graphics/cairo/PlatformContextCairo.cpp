@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2011 Igalia S.L.
  * Copyright (c) 2008, Google Inc. All rights reserved.
+ * Copyright (c) 2012, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,10 +28,10 @@
 #include "config.h"
 #include "PlatformContextCairo.h"
 
-#include "GraphicsContext.h"
 #include "CairoUtilities.h"
 #include "Gradient.h"
 #include "GraphicsContext.h"
+#include "OwnPtrCairo.h"
 #include "Pattern.h"
 #include <cairo.h>
 
@@ -62,11 +63,13 @@ class PlatformContextCairo::State {
 public:
     State()
         : m_globalAlpha(1)
+        , m_imageInterpolationQuality(InterpolationDefault)
     {
     }
 
     State(const State& state)
         : m_globalAlpha(state.m_globalAlpha)
+        , m_imageInterpolationQuality(state.m_imageInterpolationQuality)
     {
         // We do not copy m_imageMaskInformation because otherwise it would be applied
         // more than once during subsequent calls to restore().
@@ -74,11 +77,11 @@ public:
 
     ImageMaskInformation m_imageMaskInformation;
     float m_globalAlpha;
+    InterpolationQuality m_imageInterpolationQuality;
 };
 
 PlatformContextCairo::PlatformContextCairo(cairo_t* cr)
     : m_cr(cr)
-    , m_imageInterpolationQuality(InterpolationDefault)
 {
     m_stateStack.append(State());
     m_state = &m_stateStack.last();
@@ -151,14 +154,31 @@ static void drawPatternToCairoContext(cairo_t* cr, cairo_pattern_t* pattern, con
         cairo_fill(cr);
 }
 
-void PlatformContextCairo::drawSurfaceToContext(cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& srcRect, GraphicsContext* context)
+void PlatformContextCairo::drawSurfaceToContext(cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& originalSrcRect, GraphicsContext* context)
 {
-    // If we're drawing a sub portion of the image or scaling then create
-    // a pattern transformation on the image and draw the transformed pattern.
-    // Test using example site at http://www.meyerweb.com/eric/css/edge/complexspiral/demo.html
-    RefPtr<cairo_pattern_t> pattern = adoptRef(cairo_pattern_create_for_surface(surface));
+    FloatRect srcRect = originalSrcRect;
 
-    switch (m_imageInterpolationQuality) {
+    // We need to account for negative source dimensions by flipping the rectangle.
+    if (originalSrcRect.width() < 0) {
+        srcRect.setX(originalSrcRect.x() + originalSrcRect.width());
+        srcRect.setWidth(std::fabs(originalSrcRect.width()));
+    }
+    if (originalSrcRect.height() < 0) {
+        srcRect.setY(originalSrcRect.y() + originalSrcRect.height());
+        srcRect.setHeight(std::fabs(originalSrcRect.height()));
+    }
+
+    // Cairo subsurfaces don't support floating point boundaries well, so we expand the rectangle.
+    IntRect expandedSrcRect(enclosingIntRect(srcRect));
+
+    // We use a subsurface here so that we don't end up sampling outside the originalSrcRect rectangle.
+    // See https://bugs.webkit.org/show_bug.cgi?id=58309
+    RefPtr<cairo_surface_t> subsurface = adoptRef(cairo_surface_create_for_rectangle(
+        surface, expandedSrcRect.x(), expandedSrcRect.y(), expandedSrcRect.width(), expandedSrcRect.height()));
+    RefPtr<cairo_pattern_t> pattern = adoptRef(cairo_pattern_create_for_surface(subsurface.get()));
+
+    ASSERT(m_state);
+    switch (m_state->m_imageInterpolationQuality) {
     case InterpolationNone:
     case InterpolationLow:
         cairo_pattern_set_filter(pattern.get(), CAIRO_FILTER_FAST);
@@ -173,9 +193,15 @@ void PlatformContextCairo::drawSurfaceToContext(cairo_surface_t* surface, const 
     }
     cairo_pattern_set_extend(pattern.get(), CAIRO_EXTEND_PAD);
 
-    float scaleX = srcRect.width() / destRect.width();
-    float scaleY = srcRect.height() / destRect.height();
-    cairo_matrix_t matrix = { scaleX, 0, 0, scaleY, srcRect.x(), srcRect.y() };
+    // The pattern transformation properly scales the pattern for when the source rectangle is a
+    // different size than the destination rectangle. We also account for any offset we introduced
+    // by expanding floating point source rectangle sizes. It's important to take the absolute value
+    // of the scale since the original width and height might be negative.
+    float scaleX = std::fabs(srcRect.width() / destRect.width());
+    float scaleY = std::fabs(srcRect.height() / destRect.height());
+    float leftPadding = static_cast<float>(expandedSrcRect.x()) - floorf(srcRect.x());
+    float topPadding = static_cast<float>(expandedSrcRect.y()) - floorf(srcRect.y());
+    cairo_matrix_t matrix = { scaleX, 0, 0, scaleY, leftPadding, topPadding };
     cairo_pattern_set_matrix(pattern.get(), &matrix);
 
     ShadowBlur& shadow = context->platformContext()->shadowBlur();
@@ -190,6 +216,19 @@ void PlatformContextCairo::drawSurfaceToContext(cairo_surface_t* surface, const 
     drawPatternToCairoContext(m_cr.get(), pattern.get(), destRect, globalAlpha());
     cairo_restore(m_cr.get());
 }
+
+void PlatformContextCairo::setImageInterpolationQuality(InterpolationQuality quality)
+{
+    ASSERT(m_state);
+    m_state->m_imageInterpolationQuality = quality;
+}
+
+InterpolationQuality PlatformContextCairo::imageInterpolationQuality() const
+{
+    ASSERT(m_state);
+    return m_state->m_imageInterpolationQuality;
+}
+
 
 float PlatformContextCairo::globalAlpha() const
 {
@@ -235,6 +274,9 @@ void PlatformContextCairo::prepareForFilling(const GraphicsContextState& state, 
                               state.fillGradient.get(),
                               state.fillColor,
                               patternAdjustment == AdjustPatternForGlobalAlpha ? globalAlpha() : 1);
+
+    if (state.fillPattern)
+        clipForPatternFilling(state);
 }
 
 void PlatformContextCairo::prepareForStroking(const GraphicsContextState& state, AlphaPreservation alphaPreservation)
@@ -244,6 +286,45 @@ void PlatformContextCairo::prepareForStroking(const GraphicsContextState& state,
                               state.strokeGradient.get(),
                               state.strokeColor,
                               alphaPreservation == PreserveAlpha ? globalAlpha() : 1);
+}
+
+void PlatformContextCairo::clipForPatternFilling(const GraphicsContextState& state)
+{
+    ASSERT(state.fillPattern);
+
+    // Hold current cairo path in a variable for restoring it after configuring the pattern clip rectangle.
+    OwnPtr<cairo_path_t> currentPath = adoptPtr(cairo_copy_path(m_cr.get()));
+    cairo_new_path(m_cr.get());
+
+    // Initialize clipping extent from current cairo clip extents, then shrink if needed according to pattern.
+    // Inspired by GraphicsContextQt::drawRepeatPattern.
+    double x1, y1, x2, y2;
+    cairo_clip_extents(m_cr.get(), &x1, &y1, &x2, &y2);
+    FloatRect clipRect(x1, y1, x2 - x1, y2 - y1);
+
+    Image* patternImage = state.fillPattern->tileImage();
+    ASSERT(patternImage);
+    const AffineTransform& patternTransform = state.fillPattern->getPatternSpaceTransform();
+    FloatRect patternRect = patternTransform.mapRect(FloatRect(0, 0, patternImage->width(), patternImage->height()));
+
+    bool repeatX = state.fillPattern->repeatX();
+    bool repeatY = state.fillPattern->repeatY();
+
+    if (!repeatX) {
+        clipRect.setX(patternRect.x());
+        clipRect.setWidth(patternRect.width());
+    }
+    if (!repeatY) {
+        clipRect.setY(patternRect.y());
+        clipRect.setHeight(patternRect.height());
+    }
+    if (!repeatX || !repeatY) {
+        cairo_rectangle(m_cr.get(), clipRect.x(), clipRect.y(), clipRect.width(), clipRect.height());
+        cairo_clip(m_cr.get());
+    }
+
+    // Restoring cairo path.
+    cairo_append_path(m_cr.get(), currentPath.get());
 }
 
 } // namespace WebCore

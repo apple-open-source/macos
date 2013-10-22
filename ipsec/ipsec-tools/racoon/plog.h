@@ -39,48 +39,104 @@
 #else
 #include <varargs.h>
 #endif
-#include <syslog.h>
+#include  <asl.h>
+#include <sys/queue.h>
+#include <SystemConfiguration/SCPreferences.h>
 
-/*
- * INFO: begin negotiation, SA establishment/deletion/expiration.
- * NOTIFY: just notifiable.
- * WARNING: not error strictly.
- * ERROR: system call error. also invalid parameter/format.
- * ERROR2: error causing exit - to be logged to syslog.
- * DEBUG1: debugging informatioin.
- * DEBUG2: too more verbose. e.g. parsing config.
- */
-#define LLV_INFO	1
-#define LLV_NOTIFY	2
-#define LLV_WARNING	3
-#define LLV_ERROR	4
-#define LLV_ERROR2	5
-#define LLV_DEBUG	6
-#define LLV_DEBUG2	7
- 
-#define LLV_BASE	5	/* always logging less than or equal to this value. */
 
 extern char *pname;
 extern u_int32_t loglevel;
 extern int f_foreground;
 extern int print_location;
+extern char *logfile;
+extern char	logFileStr[];
+extern char *gSessId;
+extern char *gSessType;
+extern char *gSessVer;
+extern aslclient logRef;
 
 struct sockaddr_storage;
-extern void plog_func __P((int, const char *, struct sockaddr_storage *, const char *, ...))
-	__attribute__ ((__format__ (__printf__, 4, 5)));
-extern void plogv __P((int, const char *, struct sockaddr_storage *,
-	const char *, va_list *));
-extern void plogdump __P((int, void *, size_t));
-extern void ploginit __P((void));
-extern void plogset __P((char *));
 
-extern char* binsanitize __P((char*, size_t));
+typedef enum clog_err_op {
+	CLOG_ERR_OFF = 0,
+	CLOG_ERR_FILL,
+	CLOG_ERR_DUMP,
+} clog_err_op_t;
 
-#define plog(pri, func, sa, fmt, args...)	do {											\
-												if (pri <= loglevel) {						\
-													plog_func(pri, func, sa, fmt, ##args);	\
-												}											\
-											} while(0)
-extern void plogmtxinit __P((void));
+typedef struct clog_err {
+	int  clog_err_level; /* will be used for filtering */
+	int  clog_err_code; /* internal code */
+	char *client_id;
+	char *client_type;
+	char *description;
+	int   description_len;
+	const char *function;
+	const char *line;
+
+	// add a CFErrorRef for global error code (i.e. number-space)
+
+	TAILQ_HEAD(_chain_head, clog_err) chain_head;
+	TAILQ_ENTRY(clog_err) chain;
+} clog_err_t;
+
+extern const char *plog_facility;
+extern const char *plog_session_id;
+extern const char *plog_session_type;
+extern const char *plog_session_ver;
+extern void clog_func (clog_err_t *, clog_err_op_t, int, const char *, const char *, const char *, ...);
+extern void plogdump_asl (aslmsg, int, const char *, ...);
+extern void plogdump_func (int, void *, size_t, const char *, ...);
+extern void plogcf(int priority, CFStringRef fmt, ...);
+
+#define clog(cerr, cerr_op, pri, fmt, args...)	do {									\
+										if (pri <= loglevel) {							\
+											clog_func(cerr, cerr_op, pri, __FUNCTION__, __LINE__, fmt, ##args); \
+										}												\
+} while(0)
+
+#define plog(pri, fmt, args...)	do {													\
+										if (pri <= loglevel) {							\
+											aslmsg m;									\
+											if ((m = asl_new(ASL_TYPE_MSG))) {			\
+												asl_set(m, ASL_KEY_FACILITY, plog_facility); \
+												if (gSessId)							\
+													asl_set(m, plog_session_id, gSessId); \
+												if (gSessType)							\
+													asl_set(m, plog_session_type, gSessType); \
+												if (gSessVer)							\
+													asl_set(m, plog_session_ver, gSessVer); \
+												asl_log(logRef, m, pri, fmt, ##args); \
+                                                asl_free(m);                            \
+											}											\
+										}												\
+									} while(0)
+
+#define plogdump(pri, buf, len, fmt, args...)	do {									\
+										if (pri <= loglevel) {							\
+											plogdump_func(pri, buf, len, fmt, ##args);	\
+										}												\
+								} while(0)
+
+void ploginit(void);
+
+void plogreadprefs (void);
+
+void plogsetfile (char *);
+
+void plogresetfile (char *);
+
+int ploggetlevel(void);
+
+void plogsetlevel (int);
+
+void plogresetlevel (void);
+
+void plogsetlevelstr (char *);
+void plogsetlevelquotedstr (char *);
+
+// Called at the beginning of any dispatch event to initialize the logger with protocol client info
+void plogsetsessioninfo (const char *session_id,
+						 const char *session_type,
+						 const char *session_ver);
 
 #endif /* _PLOG_H */

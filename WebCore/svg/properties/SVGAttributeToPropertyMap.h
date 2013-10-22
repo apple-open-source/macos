@@ -21,26 +21,23 @@
 #define SVGAttributeToPropertyMap_h
 
 #if ENABLE(SVG)
-#include "QualifiedName.h"
-#include "SVGAnimatedPropertySynchronizer.h"
+#include "SVGPropertyInfo.h"
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 
 class SVGAnimatedProperty;
 class SVGElement;
-struct SVGPropertyInfo;
 
 class SVGAttributeToPropertyMap {
 public:
-    SVGAttributeToPropertyMap() { }
-    ~SVGAttributeToPropertyMap() { deleteAllValues(m_map); }
-
     bool isEmpty() const { return m_map.isEmpty(); }
 
-    void addProperties(SVGAttributeToPropertyMap&);
+    void addProperties(const SVGAttributeToPropertyMap&);
     void addProperty(const SVGPropertyInfo*);
 
+    // FIXME: To match WebKit coding style either these functions should have return values instead of out parameters,
+    // or the word "get" should be added as a prefix to their names.
     void animatedPropertiesForAttribute(SVGElement* contextElement, const QualifiedName& attributeName, Vector<RefPtr<SVGAnimatedProperty> >&);
     void animatedPropertyTypeForAttribute(const QualifiedName& attributeName, Vector<AnimatedPropertyType>&);
 
@@ -52,7 +49,7 @@ private:
     PassRefPtr<SVGAnimatedProperty> animatedProperty(SVGElement* contextElement, const QualifiedName& attributeName, const SVGPropertyInfo*);
 
     typedef Vector<const SVGPropertyInfo*> PropertiesVector;
-    typedef HashMap<QualifiedName, PropertiesVector*> AttributeToPropertiesMap;
+    typedef HashMap<QualifiedName, OwnPtr<PropertiesVector> > AttributeToPropertiesMap;
     AttributeToPropertiesMap m_map;
 };
 

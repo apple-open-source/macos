@@ -30,9 +30,11 @@
 #include "config.h"
 #include "FrameNetworkingContextEfl.h"
 
+#include "NotImplemented.h"
 #include "ResourceHandle.h"
 #include "ewk_frame.h"
 #include "ewk_view.h"
+#include "ewk_view_private.h"
 
 #include <Evas.h>
 
@@ -49,9 +51,17 @@ FrameNetworkingContextEfl::FrameNetworkingContextEfl(Frame* frame, Evas_Object* 
 {
 }
 
-SoupSession* FrameNetworkingContextEfl::soupSession() const
+NetworkStorageSession& FrameNetworkingContextEfl::storageSession() const
 {
-    return ewk_view_soup_session_get(ewk_frame_view_get(m_ewkFrame));
+    if (NetworkStorageSession* session = EWKPrivate::storageSession(ewk_frame_view_get(m_ewkFrame)))
+        return *session;
+    return NetworkStorageSession::defaultStorageSession();
+}
+
+uint64_t FrameNetworkingContextEfl::initiatingPageID() const
+{
+    notImplemented();
+    return 0;
 }
 
 }

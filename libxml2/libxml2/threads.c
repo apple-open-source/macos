@@ -146,6 +146,7 @@ struct _xmlRMutex {
 static pthread_key_t globalkey;
 static pthread_t mainthread;
 static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+static pthread_once_t once_control_init = PTHREAD_ONCE_INIT;
 static pthread_mutex_t global_init_lock = PTHREAD_MUTEX_INITIALIZER;
 #elif defined HAVE_WIN32_THREADS
 #if defined(HAVE_COMPILER_TLS)
@@ -251,7 +252,6 @@ xmlMutexLock(xmlMutexPtr tok)
 #ifdef DEBUG_THREADS
         xmlGenericError(xmlGenericErrorContext,
                         "xmlMutexLock():BeOS:Couldn't aquire semaphore\n");
-        exit();
 #endif
     }
     tok->tid = find_thread(NULL);
@@ -439,7 +439,7 @@ __xmlGlobalInitMutexLock(void)
     /* Make sure the global init lock is initialized and then lock it. */
 #ifdef HAVE_PTHREAD_H
     /* The mutex is statically initialized, so we just lock it. */
-    if (pthread_mutex_lock)
+    if (pthread_mutex_lock != NULL)
         pthread_mutex_lock(&global_init_lock);
 #elif defined HAVE_WIN32_THREADS
     LPCRITICAL_SECTION cs;
@@ -499,7 +499,6 @@ __xmlGlobalInitMutexLock(void)
 #ifdef DEBUG_THREADS
         xmlGenericError(xmlGenericErrorContext,
                         "xmlGlobalInitMutexLock():BeOS:Couldn't acquire semaphore\n");
-        exit();
 #endif
     }
 #endif
@@ -509,7 +508,7 @@ void
 __xmlGlobalInitMutexUnlock(void)
 {
 #ifdef HAVE_PTHREAD_H
-    if (pthread_mutex_unlock)
+    if (pthread_mutex_unlock != NULL)
         pthread_mutex_unlock(&global_init_lock);
 #elif defined HAVE_WIN32_THREADS
     if (global_init_lock != NULL) {
@@ -927,6 +926,7 @@ xmlCleanupThreads(void)
 #ifndef __APPLE__
     if ((libxml_is_threaded)  && (pthread_key_delete != NULL))
         pthread_key_delete(globalkey);
+    once_control = once_control_init;
 #endif // !defined(__APPLE__)
 #elif defined(HAVE_WIN32_THREADS) && !defined(HAVE_COMPILER_TLS) && (!defined(LIBXML_STATIC) || defined(LIBXML_STATIC_FOR_DLL))
     if (globalkey != TLS_OUT_OF_INDEXES) {
@@ -967,6 +967,7 @@ xmlOnceInit(void)
 #ifdef HAVE_PTHREAD_H
     (void) pthread_key_create(&globalkey, xmlFreeGlobalState);
     mainthread = pthread_self();
+    __xmlInitializeDict();
 #elif defined(HAVE_WIN32_THREADS)
     if (!run_once.done) {
         if (InterlockedIncrement(&run_once.control) == 1) {
@@ -974,6 +975,7 @@ xmlOnceInit(void)
             globalkey = TlsAlloc();
 #endif
             mainthread = GetCurrentThreadId();
+	    __xmlInitializeDict();
             run_once.done = 1;
         } else {
             /* Another thread is working; give up our slice and
@@ -987,6 +989,7 @@ xmlOnceInit(void)
         globalkey = tls_allocate();
         tls_set(globalkey, NULL);
         mainthread = find_thread(NULL);
+	__xmlInitializeDict();
     } else
         atomic_add(&run_once_init, -1);
 #endif

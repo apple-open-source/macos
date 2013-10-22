@@ -98,7 +98,7 @@ static long
 DER_GetInteger(SECItem *it)
 {
     long ival = 0;
-    unsigned len = it->Length;
+    CSSM_SIZE len = it->Length;
     unsigned char *cp = it->Data;
     unsigned long overflow = 0x1ffUL << (((sizeof(ival) - 1) * 8) - 1);
     unsigned long ofloinit;
@@ -615,7 +615,7 @@ SecCmsCipherContextDestroy(SecCmsCipherContextRef cc)
     PORT_Free(cc);
 }
 
-unsigned int
+static unsigned int
 SecCmsCipherContextLength(SecCmsCipherContextRef cc, unsigned int input_len, Boolean final, Boolean encrypt)
 {
     CSSM_QUERY_SIZE_DATA dataBlockSize[2] = { { input_len, 0 }, { input_len, 0 } };
@@ -655,7 +655,7 @@ size_t
 SecCmsCipherContextDecryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final)
 {
 #if 1
-    return SecCmsCipherContextLength(cc, input_len, final, PR_FALSE);
+    return SecCmsCipherContextLength(cc, (unsigned int)input_len, final, PR_FALSE);
 #else
     int blocks, block_size;
 
@@ -717,7 +717,7 @@ size_t
 SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, size_t input_len, Boolean final)
 {
 #if 1
-    return SecCmsCipherContextLength(cc, input_len, final, PR_TRUE);
+    return SecCmsCipherContextLength(cc, (unsigned int)input_len, final, PR_TRUE);
 #else
     int blocks, block_size;
     int pad_size;
@@ -761,7 +761,7 @@ SecCmsCipherContextEncryptLength(SecCmsCipherContextRef cc, size_t input_len, Bo
 }
 
 
-OSStatus
+static OSStatus
 SecCmsCipherContextCrypt(SecCmsCipherContextRef cc, unsigned char *output,
 		  size_t *output_len_p, size_t max_output_len,
 		  const unsigned char *input, size_t input_len,

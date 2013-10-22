@@ -76,7 +76,12 @@ ttymsg(struct iovec *iov, int iovcnt, const char *line, int tmout)
 		return ("too many iov's (change code in wall/ttymsg.c)");
 
 	p = device + sizeof(_PATH_DEV) - 1;
+#ifdef __APPLE__
+	/* radar:13145432 */
+	strlcpy(p, line, sizeof(device) - (sizeof(_PATH_DEV) - 1));
+#else
 	strlcpy(p, line, sizeof(device));
+#endif
 	if (strncmp(p, "pts/", 4) == 0)
 		p += 4;
 	if (strchr(p, '/') != NULL) {

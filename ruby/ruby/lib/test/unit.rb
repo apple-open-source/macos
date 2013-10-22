@@ -1,281 +1,865 @@
+# test/unit compatibility layer using minitest.
+
+require 'minitest/unit'
+require 'test/unit/assertions'
 require 'test/unit/testcase'
-require 'test/unit/autorunner'
+require 'optparse'
 
-module Test # :nodoc:
-  #
-  # = Test::Unit - Ruby Unit Testing Framework
-  # 
-  # == Introduction
-  # 
-  # Unit testing is making waves all over the place, largely due to the
-  # fact that it is a core practice of XP. While XP is great, unit testing
-  # has been around for a long time and has always been a good idea. One
-  # of the keys to good unit testing, though, is not just writing tests,
-  # but having tests. What's the difference? Well, if you just _write_ a
-  # test and throw it away, you have no guarantee that something won't
-  # change later which breaks your code. If, on the other hand, you _have_
-  # tests (obviously you have to write them first), and run them as often
-  # as possible, you slowly build up a wall of things that cannot break
-  # without you immediately knowing about it. This is when unit testing
-  # hits its peak usefulness.
-  # 
-  # Enter Test::Unit, a framework for unit testing in Ruby, helping you to
-  # design, debug and evaluate your code by making it easy to write and
-  # have tests for it.
-  # 
-  # 
-  # == Notes
-  # 
-  # Test::Unit has grown out of and superceded Lapidary.
-  # 
-  # 
-  # == Feedback
-  # 
-  # I like (and do my best to practice) XP, so I value early releases,
-  # user feedback, and clean, simple, expressive code. There is always
-  # room for improvement in everything I do, and Test::Unit is no
-  # exception. Please, let me know what you think of Test::Unit as it
-  # stands, and what you'd like to see expanded/changed/improved/etc. If
-  # you find a bug, let me know ASAP; one good way to let me know what the
-  # bug is is to submit a new test that catches it :-) Also, I'd love to
-  # hear about any successes you have with Test::Unit, and any
-  # documentation you might add will be greatly appreciated. My contact
-  # info is below.
-  # 
-  # 
-  # == Contact Information
-  # 
-  # A lot of discussion happens about Ruby in general on the ruby-talk
-  # mailing list (http://www.ruby-lang.org/en/ml.html), and you can ask
-  # any questions you might have there. I monitor the list, as do many
-  # other helpful Rubyists, and you're sure to get a quick answer. Of
-  # course, you're also welcome to email me (Nathaniel Talbott) directly
-  # at mailto:testunit@talbott.ws, and I'll do my best to help you out.
-  # 
-  # 
-  # == Credits
-  # 
-  # I'd like to thank...
-  # 
-  # Matz, for a great language!
-  # 
-  # Masaki Suketa, for his work on RubyUnit, which filled a vital need in
-  # the Ruby world for a very long time. I'm also grateful for his help in
-  # polishing Test::Unit and getting the RubyUnit compatibility layer
-  # right. His graciousness in allowing Test::Unit to supercede RubyUnit
-  # continues to be a challenge to me to be more willing to defer my own
-  # rights.
-  # 
-  # Ken McKinlay, for his interest and work on unit testing, and for his
-  # willingness to dialog about it. He was also a great help in pointing
-  # out some of the holes in the RubyUnit compatibility layer.
-  # 
-  # Dave Thomas, for the original idea that led to the extremely simple
-  # "require 'test/unit'", plus his code to improve it even more by
-  # allowing the selection of tests from the command-line. Also, without
-  # RDoc, the documentation for Test::Unit would stink a lot more than it
-  # does now.
-  # 
-  # Everyone who's helped out with bug reports, feature ideas,
-  # encouragement to continue, etc. It's a real privilege to be a part of
-  # the Ruby community.
-  # 
-  # The guys at RoleModel Software, for putting up with me repeating, "But
-  # this would be so much easier in Ruby!" whenever we're coding in Java.
-  # 
-  # My Creator, for giving me life, and giving it more abundantly.
-  # 
-  # 
-  # == License
-  # 
-  # Test::Unit is copyright (c) 2000-2003 Nathaniel Talbott. It is free
-  # software, and is distributed under the Ruby license. See the COPYING
-  # file in the standard Ruby distribution for details.
-  # 
-  # 
-  # == Warranty
-  # 
-  # This software is provided "as is" and without any express or
-  # implied warranties, including, without limitation, the implied
-  # warranties of merchantibility and fitness for a particular
-  # purpose.
-  # 
-  # 
-  # == Author
-  # 
-  # Nathaniel Talbott.
-  # Copyright (c) 2000-2003, Nathaniel Talbott
-  #
-  # ----
-  #
-  # = Usage
-  #
-  # The general idea behind unit testing is that you write a _test_
-  # _method_ that makes certain _assertions_ about your code, working
-  # against a _test_ _fixture_. A bunch of these _test_ _methods_ are
-  # bundled up into a _test_ _suite_ and can be run any time the
-  # developer wants. The results of a run are gathered in a _test_
-  # _result_ and displayed to the user through some UI. So, lets break
-  # this down and see how Test::Unit provides each of these necessary
-  # pieces.
-  #
-  #
-  # == Assertions
-  #
-  # These are the heart of the framework. Think of an assertion as a
-  # statement of expected outcome, i.e. "I assert that x should be equal
-  # to y". If, when the assertion is executed, it turns out to be
-  # correct, nothing happens, and life is good. If, on the other hand,
-  # your assertion turns out to be false, an error is propagated with
-  # pertinent information so that you can go back and make your
-  # assertion succeed, and, once again, life is good. For an explanation
-  # of the current assertions, see Test::Unit::Assertions.
-  #
-  #
-  # == Test Method & Test Fixture
-  #
-  # Obviously, these assertions have to be called within a context that
-  # knows about them and can do something meaningful with their
-  # pass/fail value. Also, it's handy to collect a bunch of related
-  # tests, each test represented by a method, into a common test class
-  # that knows how to run them. The tests will be in a separate class
-  # from the code they're testing for a couple of reasons. First of all,
-  # it allows your code to stay uncluttered with test code, making it
-  # easier to maintain. Second, it allows the tests to be stripped out
-  # for deployment, since they're really there for you, the developer,
-  # and your users don't need them. Third, and most importantly, it
-  # allows you to set up a common test fixture for your tests to run
-  # against.
-  #
-  # What's a test fixture? Well, tests do not live in a vacuum; rather,
-  # they're run against the code they are testing. Often, a collection
-  # of tests will run against a common set of data, also called a
-  # fixture. If they're all bundled into the same test class, they can
-  # all share the setting up and tearing down of that data, eliminating
-  # unnecessary duplication and making it much easier to add related
-  # tests.
-  #
-  # Test::Unit::TestCase wraps up a collection of test methods together
-  # and allows you to easily set up and tear down the same test fixture
-  # for each test. This is done by overriding #setup and/or #teardown,
-  # which will be called before and after each test method that is
-  # run. The TestCase also knows how to collect the results of your
-  # assertions into a Test::Unit::TestResult, which can then be reported
-  # back to you... but I'm getting ahead of myself. To write a test,
-  # follow these steps:
-  #
-  # * Make sure Test::Unit is in your library path.
-  # * require 'test/unit' in your test script.
-  # * Create a class that subclasses Test::Unit::TestCase.
-  # * Add a method that begins with "test" to your class.
-  # * Make assertions in your test method.
-  # * Optionally define #setup and/or #teardown to set up and/or tear
-  #   down your common test fixture.
-  # * You can now run your test as you would any other Ruby
-  #   script... try it and see!
-  #
-  # A really simple test might look like this (#setup and #teardown are
-  # commented out to indicate that they are completely optional):
-  #
-  #     require 'test/unit'
-  #     
-  #     class TC_MyTest < Test::Unit::TestCase
-  #       # def setup
-  #       # end
-  #     
-  #       # def teardown
-  #       # end
-  #     
-  #       def test_fail
-  #         assert(false, 'Assertion was false.')
-  #       end
-  #     end
-  #
-  #
-  # == Test Runners
-  #
-  # So, now you have this great test class, but you still need a way to
-  # run it and view any failures that occur during the run. This is
-  # where Test::Unit::UI::Console::TestRunner (and others, such as
-  # Test::Unit::UI::GTK::TestRunner) comes into play. The console test
-  # runner is automatically invoked for you if you require 'test/unit'
-  # and simply run the file. To use another runner, or to manually
-  # invoke a runner, simply call its run class method and pass in an
-  # object that responds to the suite message with a
-  # Test::Unit::TestSuite. This can be as simple as passing in your
-  # TestCase class (which has a class suite method). It might look
-  # something like this:
-  #
-  #    require 'test/unit/ui/console/testrunner'
-  #    Test::Unit::UI::Console::TestRunner.run(TC_MyTest)
-  #
-  #
-  # == Test Suite
-  #
-  # As more and more unit tests accumulate for a given project, it
-  # becomes a real drag running them one at a time, and it also
-  # introduces the potential to overlook a failing test because you
-  # forget to run it. Suddenly it becomes very handy that the
-  # TestRunners can take any object that returns a Test::Unit::TestSuite
-  # in response to a suite method. The TestSuite can, in turn, contain
-  # other TestSuites or individual tests (typically created by a
-  # TestCase). In other words, you can easily wrap up a group of
-  # TestCases and TestSuites like this:
-  #
-  #  require 'test/unit/testsuite'
-  #  require 'tc_myfirsttests'
-  #  require 'tc_moretestsbyme'
-  #  require 'ts_anothersetoftests'
-  #
-  #  class TS_MyTests
-  #    def self.suite
-  #      suite = Test::Unit::TestSuite.new
-  #      suite << TC_MyFirstTests.suite
-  #      suite << TC_MoreTestsByMe.suite
-  #      suite << TS_AnotherSetOfTests.suite
-  #      return suite
-  #    end
-  #  end
-  #  Test::Unit::UI::Console::TestRunner.run(TS_MyTests)
-  #
-  # Now, this is a bit cumbersome, so Test::Unit does a little bit more
-  # for you, by wrapping these up automatically when you require
-  # 'test/unit'. What does this mean? It means you could write the above
-  # test case like this instead:
-  #
-  #  require 'test/unit'
-  #  require 'tc_myfirsttests'
-  #  require 'tc_moretestsbyme'
-  #  require 'ts_anothersetoftests'
-  #
-  # Test::Unit is smart enough to find all the test cases existing in
-  # the ObjectSpace and wrap them up into a suite for you. It then runs
-  # the dynamic suite using the console TestRunner.
-  #
-  #
-  # == Questions?
-  #
-  # I'd really like to get feedback from all levels of Ruby
-  # practitioners about typos, grammatical errors, unclear statements,
-  # missing points, etc., in this document (or any other).
-  #
-
+module Test
   module Unit
-    # Set true when Test::Unit has run.  If set to true Test::Unit
-    # will not automatically run at exit.
-    def self.run=(flag)
-      @run = flag
+    TEST_UNIT_IMPLEMENTATION = 'test/unit compatibility layer using minitest'
+
+    module RunCount
+      @@run_count = 0
+
+      def self.have_run?
+        @@run_count.nonzero?
+      end
+
+      def run(*)
+        @@run_count += 1
+        super
+      end
+
+      def run_once
+        return if have_run?
+        return if $! # don't run if there was an exception
+        yield
+      end
+      module_function :run_once
     end
 
-    # Already tests have run?
-    def self.run?
-      @run ||= false
+    module Options
+      def initialize(*, &block)
+        @init_hook = block
+        @options = nil
+        super(&nil)
+      end
+
+      def option_parser
+        @option_parser ||= OptionParser.new
+      end
+
+      def process_args(args = [])
+        return @options if @options
+        orig_args = args.dup
+        options = {}
+        opts = option_parser
+        setup_options(opts, options)
+        opts.parse!(args)
+        orig_args -= args
+        args = @init_hook.call(args, options) if @init_hook
+        non_options(args, options)
+        @help = orig_args.map { |s| s =~ /[\s|&<>$()]/ ? s.inspect : s }.join " "
+        @options = options
+        if @options[:parallel]
+          @files = args
+          @args = orig_args
+        end
+        options
+      end
+
+      private
+      def setup_options(opts, options)
+        opts.separator 'minitest options:'
+        opts.version = MiniTest::Unit::VERSION
+
+        options[:retry] = true
+        options[:job_status] = nil
+
+        opts.on '-h', '--help', 'Display this help.' do
+          puts opts
+          exit
+        end
+
+        opts.on '-s', '--seed SEED', Integer, "Sets random seed" do |m|
+          options[:seed] = m
+        end
+
+        opts.on '-v', '--verbose', "Verbose. Show progress processing files." do
+          options[:verbose] = true
+          self.verbose = options[:verbose]
+        end
+
+        opts.on '-n', '--name PATTERN', "Filter test names on pattern." do |a|
+          options[:filter] = a
+        end
+
+        opts.on '--jobs-status [TYPE]', [:normal, :replace],
+                "Show status of jobs every file; Disabled when --jobs isn't specified." do |type|
+          options[:job_status] = type || :normal
+        end
+
+        opts.on '-j N', '--jobs N', "Allow run tests with N jobs at once" do |a|
+          if /^t/ =~ a
+            options[:testing] = true # For testing
+            options[:parallel] = a[1..-1].to_i
+          else
+            options[:parallel] = a.to_i
+          end
+        end
+
+        opts.on '--separate', "Restart job process after one testcase has done" do
+          options[:parallel] ||= 1
+          options[:separate] = true
+        end
+
+        opts.on '--retry', "Retry running testcase when --jobs specified" do
+          options[:retry] = true
+        end
+
+        opts.on '--no-retry', "Disable --retry" do
+          options[:retry] = false
+        end
+
+        opts.on '--ruby VAL', "Path to ruby; It'll have used at -j option" do |a|
+          options[:ruby] = a.split(/ /).reject(&:empty?)
+        end
+
+        opts.on '-q', '--hide-skip', 'Hide skipped tests' do
+          options[:hide_skip] = true
+        end
+
+        opts.on '--show-skip', 'Show skipped tests' do
+          options[:hide_skip] = false
+        end
+
+        opts.on '--color[=WHEN]',
+                [:always, :never, :auto],
+                "colorize the output.  WHEN defaults to 'always'", "or can be 'never' or 'auto'." do |c|
+          options[:color] = c || :always
+        end
+
+        opts.on '--tty[=WHEN]',
+                [:yes, :no],
+                "force to output tty control.  WHEN defaults to 'yes'", "or can be 'no'." do |c|
+          @tty = c != :no
+        end
+      end
+
+      def non_options(files, options)
+        begin
+          require "rbconfig"
+        rescue LoadError
+          warn "#{caller(1)[0]}: warning: Parallel running disabled because can't get path to ruby; run specify with --ruby argument"
+          options[:parallel] = nil
+        else
+          options[:ruby] ||= [RbConfig.ruby]
+        end
+
+        true
+      end
+    end
+
+    module GlobOption
+      @@testfile_prefix = "test"
+
+      def setup_options(parser, options)
+        super
+        parser.on '-b', '--basedir=DIR', 'Base directory of test suites.' do |dir|
+          options[:base_directory] = dir
+        end
+        parser.on '-x', '--exclude PATTERN', 'Exclude test files on pattern.' do |pattern|
+          (options[:reject] ||= []) << pattern
+        end
+      end
+
+      def non_options(files, options)
+        paths = [options.delete(:base_directory), nil].uniq
+        if reject = options.delete(:reject)
+          reject_pat = Regexp.union(reject.map {|r| /#{r}/ })
+        end
+        files.map! {|f|
+          f = f.tr(File::ALT_SEPARATOR, File::SEPARATOR) if File::ALT_SEPARATOR
+          ((paths if /\A\.\.?(?:\z|\/)/ !~ f) || [nil]).any? do |prefix|
+            if prefix
+              path = f.empty? ? prefix : "#{prefix}/#{f}"
+            else
+              next if f.empty?
+              path = f
+            end
+            if !(match = Dir["#{path}/**/#{@@testfile_prefix}_*.rb"]).empty?
+              if reject
+                match.reject! {|n|
+                  n[(prefix.length+1)..-1] if prefix
+                  reject_pat =~ n
+                }
+              end
+              break match
+            elsif !reject or reject_pat !~ f and File.exist? path
+              break path
+            end
+          end or
+            raise ArgumentError, "file not found: #{f}"
+        }
+        files.flatten!
+        super(files, options)
+      end
+    end
+
+    module LoadPathOption
+      def setup_options(parser, options)
+        super
+        parser.on '-Idirectory', 'Add library load path' do |dirs|
+          dirs.split(':').each { |d| $LOAD_PATH.unshift d }
+        end
+      end
+    end
+
+    module GCStressOption
+      def setup_options(parser, options)
+        super
+        parser.on '--[no-]gc-stress', 'Set GC.stress as true' do |flag|
+          options[:gc_stress] = flag
+        end
+      end
+
+      def non_options(files, options)
+        if options.delete(:gc_stress)
+          MiniTest::Unit::TestCase.class_eval do
+            oldrun = instance_method(:run)
+            define_method(:run) do |runner|
+              begin
+                gc_stress, GC.stress = GC.stress, true
+                oldrun.bind(self).call(runner)
+              ensure
+                GC.stress = gc_stress
+              end
+            end
+          end
+        end
+        super
+      end
+    end
+
+    module RequireFiles
+      def non_options(files, options)
+        return false if !super
+        result = false
+        files.each {|f|
+          d = File.dirname(path = File.realpath(f))
+          unless $:.include? d
+            $: << d
+          end
+          begin
+            require path unless options[:parallel]
+            result = true
+          rescue LoadError
+            puts "#{f}: #{$!}"
+          end
+        }
+        result
+      end
+    end
+
+    class Runner < MiniTest::Unit
+      include Test::Unit::Options
+      include Test::Unit::GlobOption
+      include Test::Unit::LoadPathOption
+      include Test::Unit::GCStressOption
+      include Test::Unit::RunCount
+
+      class Worker
+        def self.launch(ruby,args=[])
+          io = IO.popen([*ruby,
+                        "#{File.dirname(__FILE__)}/unit/parallel.rb",
+                        *args], "rb+")
+          new(io, io.pid, :waiting)
+        end
+
+        attr_reader :quit_called
+
+        def initialize(io, pid, status)
+          @io = io
+          @pid = pid
+          @status = status
+          @file = nil
+          @real_file = nil
+          @loadpath = []
+          @hooks = {}
+          @quit_called = false
+        end
+
+        def puts(*args)
+          @io.puts(*args)
+        end
+
+        def run(task,type)
+          @file = File.basename(task, ".rb")
+          @real_file = task
+          begin
+            puts "loadpath #{[Marshal.dump($:-@loadpath)].pack("m0")}"
+            @loadpath = $:.dup
+            puts "run #{task} #{type}"
+            @status = :prepare
+          rescue Errno::EPIPE
+            died
+          rescue IOError
+            raise unless ["stream closed","closed stream"].include? $!.message
+            died
+          end
+        end
+
+        def hook(id,&block)
+          @hooks[id] ||= []
+          @hooks[id] << block
+          self
+        end
+
+        def read
+          res = (@status == :quit) ? @io.read : @io.gets
+          res && res.chomp
+        end
+
+        def close
+          @io.close unless @io.closed?
+          self
+        rescue IOError
+        end
+
+        def quit
+          return if @io.closed?
+          @quit_called = true
+          @io.puts "quit"
+          @io.close
+        end
+
+        def kill
+          Process.kill(:KILL, @pid)
+        rescue Errno::ESRCH
+        end
+
+        def died(*additional)
+          @status = :quit
+          @io.close
+
+          call_hook(:dead,*additional)
+        end
+
+        def to_s
+          if @file
+            "#{@pid}=#{@file}"
+          else
+            "#{@pid}:#{@status.to_s.ljust(7)}"
+          end
+        end
+
+        attr_reader :io, :pid
+        attr_accessor :status, :file, :real_file, :loadpath
+
+        private
+
+        def call_hook(id,*additional)
+          @hooks[id] ||= []
+          @hooks[id].each{|hook| hook[self,additional] }
+          self
+        end
+
+      end
+
+      class << self; undef autorun; end
+
+      @@stop_auto_run = false
+      def self.autorun
+        at_exit {
+          Test::Unit::RunCount.run_once {
+            exit(Test::Unit::Runner.new.run(ARGV) || true)
+          } unless @@stop_auto_run
+        } unless @@installed_at_exit
+        @@installed_at_exit = true
+      end
+
+      def after_worker_down(worker, e=nil, c=false)
+        return unless @options[:parallel]
+        return if @interrupt
+        warn e if e
+        @need_quit = true
+        warn ""
+        warn "Some worker was crashed. It seems ruby interpreter's bug"
+        warn "or, a bug of test/unit/parallel.rb. try again without -j"
+        warn "option."
+        warn ""
+        STDERR.flush
+        exit c
+      end
+
+      def terminal_width
+        unless @terminal_width ||= nil
+          begin
+            require 'io/console'
+            width = $stdout.winsize[1]
+          rescue LoadError, NoMethodError, Errno::ENOTTY, Errno::EBADF
+            width = ENV["COLUMNS"].to_i.nonzero? || 80
+          end
+          width -= 1 if /mswin|mingw/ =~ RUBY_PLATFORM
+          @terminal_width = width
+        end
+        @terminal_width
+      end
+
+      def del_status_line
+        @status_line_size ||= 0
+        unless @options[:job_status] == :replace
+          $stdout.puts
+          return
+        end
+        print "\r"+" "*@status_line_size+"\r"
+        $stdout.flush
+        @status_line_size = 0
+      end
+
+      def put_status(line)
+        unless @options[:job_status] == :replace
+          print(line)
+          return
+        end
+        @status_line_size ||= 0
+        del_status_line
+        $stdout.flush
+        line = line[0...terminal_width]
+        print line
+        $stdout.flush
+        @status_line_size = line.size
+      end
+
+      def add_status(line)
+        unless @options[:job_status] == :replace
+          print(line)
+          return
+        end
+        @status_line_size ||= 0
+        line = line[0...(terminal_width-@status_line_size)]
+        print line
+        $stdout.flush
+        @status_line_size += line.size
+      end
+
+      def jobs_status
+        return unless @options[:job_status]
+        puts "" unless @options[:verbose] or @options[:job_status] == :replace
+        status_line = @workers.map(&:to_s).join(" ")
+        update_status(status_line) or (puts; nil)
+      end
+
+      def del_jobs_status
+        return unless @options[:job_status] == :replace && @status_line_size.nonzero?
+        del_status_line
+      end
+
+      def after_worker_quit(worker)
+        return unless @options[:parallel]
+        return if @interrupt
+        @workers.delete(worker)
+        @dead_workers << worker
+        @ios = @workers.map(&:io)
+      end
+
+      def launch_worker
+        begin
+          worker = Worker.launch(@options[:ruby],@args)
+        rescue => e
+          abort "ERROR: Failed to launch job process - #{e.class}: #{e.message}"
+        end
+        worker.hook(:dead) do |w,info|
+          after_worker_quit w
+          after_worker_down w, *info if !info.empty? && !worker.quit_called
+        end
+        @workers << worker
+        @ios << worker.io
+        @workers_hash[worker.io] = worker
+        worker
+      end
+
+      def delete_worker(worker)
+        @workers_hash.delete worker.io
+        @workers.delete worker
+        @ios.delete worker.io
+      end
+
+      def quit_workers
+        return if @workers.empty?
+        @workers.reject! do |worker|
+          begin
+            timeout(1) do
+              worker.quit
+            end
+          rescue Errno::EPIPE
+          rescue Timeout::Error
+          end
+          worker.close
+        end
+
+        return if @workers.empty?
+        begin
+          timeout(0.2 * @workers.size) do
+            Process.waitall
+          end
+        rescue Timeout::Error
+          @workers.each do |worker|
+            worker.kill
+          end
+          @worker.clear
+        end
+      end
+
+      def start_watchdog
+        Thread.new do
+          while stat = Process.wait2
+            break if @interrupt # Break when interrupt
+            pid, stat = stat
+            w = (@workers + @dead_workers).find{|x| pid == x.pid }
+            next unless w
+            w = w.dup
+            if w.status != :quit && !w.quit_called?
+              # Worker down
+              w.died(nil, !stat.signaled? && stat.exitstatus)
+            end
+          end
+        end
+      end
+
+      def deal(io, type, result, rep, shutting_down = false)
+        worker = @workers_hash[io]
+        case worker.read
+        when /^okay$/
+          worker.status = :running
+          jobs_status
+        when /^ready(!)?$/
+          bang = $1
+          worker.status = :ready
+
+          return nil unless task = @tasks.shift
+          if @options[:separate] and not bang
+            worker.quit
+            worker = add_worker
+          end
+          worker.run(task, type)
+          @test_count += 1
+
+          jobs_status
+        when /^done (.+?)$/
+          r = Marshal.load($1.unpack("m")[0])
+          result << r[0..1] unless r[0..1] == [nil,nil]
+          rep    << {file: worker.real_file, report: r[2], result: r[3], testcase: r[5]}
+          $:.push(*r[4]).uniq!
+          return true
+        when /^p (.+?)$/
+          del_jobs_status
+          print $1.unpack("m")[0]
+          jobs_status if @options[:job_status] == :replace
+        when /^after (.+?)$/
+          @warnings << Marshal.load($1.unpack("m")[0])
+        when /^bye (.+?)$/
+          after_worker_down worker, Marshal.load($1.unpack("m")[0])
+        when /^bye$/, nil
+          if shutting_down || worker.quit_called
+            after_worker_quit worker
+          else
+            after_worker_down worker
+          end
+        end
+        return false
+      end
+
+      def _run_parallel suites, type, result
+        if @options[:parallel] < 1
+          warn "Error: parameter of -j option should be greater than 0."
+          return
+        end
+
+        # Require needed things for parallel running
+        require 'thread'
+        require 'timeout'
+        @tasks = @files.dup # Array of filenames.
+        @need_quit = false
+        @dead_workers = []  # Array of dead workers.
+        @warnings = []
+        @total_tests = @tasks.size.to_s(10)
+        rep = [] # FIXME: more good naming
+
+        @workers      = [] # Array of workers.
+        @workers_hash = {} # out-IO => worker
+        @ios          = [] # Array of worker IOs
+        begin
+          # Thread: watchdog
+          watchdog = start_watchdog
+
+          @options[:parallel].times {launch_worker}
+
+          while _io = IO.select(@ios)[0]
+            break if _io.any? do |io|
+              @need_quit or
+                (deal(io, type, result, rep).nil? and
+                 !@workers.any? {|x| [:running, :prepare].include? x.status})
+            end
+          end
+        rescue Interrupt => ex
+          @interrupt = ex
+          return result
+        ensure
+          watchdog.kill if watchdog
+          if @interrupt
+            @ios.select!{|x| @workers_hash[x].status == :running }
+            while !@ios.empty? && (__io = IO.select(@ios,[],[],10))
+              __io[0].reject! {|io| deal(io, type, result, rep, true)}
+            end
+          end
+
+          quit_workers
+
+          unless @interrupt || !@options[:retry] || @need_quit
+            @options[:parallel] = false
+            suites, rep = rep.partition {|r| r[:testcase] && r[:file] && r[:report].any? {|e| !e[2].is_a?(MiniTest::Skip)}}
+            suites.map {|r| r[:file]}.uniq.each {|file| require file}
+            suites.map! {|r| eval("::"+r[:testcase])}
+            del_status_line or puts
+            unless suites.empty?
+              puts "Retrying..."
+              _run_suites(suites, type)
+            end
+          end
+          unless @options[:retry]
+            del_status_line or puts
+          end
+          unless rep.empty?
+            rep.each do |r|
+              r[:report].each do |f|
+                puke(*f) if f
+              end
+            end
+            if @options[:retry]
+              @errors   += rep.map{|x| x[:result][0] }.inject(:+)
+              @failures += rep.map{|x| x[:result][1] }.inject(:+)
+              @skips    += rep.map{|x| x[:result][2] }.inject(:+)
+            end
+          end
+          unless @warnings.empty?
+            warn ""
+            @warnings.uniq! {|w| w[1].message}
+            @warnings.each do |w|
+              warn "#{w[0]}: #{w[1].message} (#{w[1].class})"
+            end
+            warn ""
+          end
+        end
+      end
+
+      def _run_suites suites, type
+        _prepare_run(suites, type)
+        @interrupt = nil
+        result = []
+        GC.start
+        if @options[:parallel]
+          _run_parallel suites, type, result
+        else
+          suites.each {|suite|
+            begin
+              result << _run_suite(suite, type)
+            rescue Interrupt => e
+              @interrupt = e
+              break
+            end
+          }
+        end
+        report.reject!{|r| r.start_with? "Skipped:" } if @options[:hide_skip]
+        report.sort_by!{|r| r.start_with?("Skipped:") ? 0 : \
+                           (r.start_with?("Failure:") ? 1 : 2) }
+        result
+      end
+
+      alias mini_run_suite _run_suite
+
+      def output
+        (@output ||= nil) || super
+      end
+
+      def _prepare_run(suites, type)
+        options[:job_status] ||= :replace if @tty && !@verbose
+        case options[:color]
+        when :always
+          color = true
+        when :auto, nil
+          color = @options[:job_status] == :replace && /dumb/ !~ ENV["TERM"]
+        else
+          color = false
+        end
+        if color
+          # dircolors-like style
+          colors = (colors = ENV['TEST_COLORS']) ? Hash[colors.scan(/(\w+)=([^:]*)/)] : {}
+          @passed_color = "\e[#{colors["pass"] || "32"}m"
+          @failed_color = "\e[#{colors["fail"] || "31"}m"
+          @skipped_color = "\e[#{colors["skip"] || "33"}m"
+          @reset_color = "\e[m"
+        else
+          @passed_color = @failed_color = @skipped_color = @reset_color = ""
+        end
+        if color or @options[:job_status] == :replace
+          @verbose = !options[:parallel]
+          @output = StatusLineOutput.new(self)
+        end
+        if /\A\/(.*)\/\z/ =~ (filter = options[:filter])
+          filter = Regexp.new($1)
+        end
+        type = "#{type}_methods"
+        total = if filter
+                  suites.inject(0) {|n, suite| n + suite.send(type).grep(filter).size}
+                else
+                  suites.inject(0) {|n, suite| n + suite.send(type).size}
+                end
+        @test_count = 0
+        @total_tests = total.to_s(10)
+      end
+
+      def new_test(s)
+        @test_count += 1
+        update_status(s)
+      end
+
+      def update_status(s)
+        count = @test_count.to_s(10).rjust(@total_tests.size)
+        put_status("#{@passed_color}[#{count}/#{@total_tests}]#{@reset_color} #{s}")
+      end
+
+      def _print(s); $stdout.print(s); end
+      def succeed; del_status_line; end
+
+      def failed(s)
+        sep = "\n"
+        @report_count ||= 0
+        report.each do |msg|
+          if msg.start_with? "Skipped:"
+            if @options[:hide_skip]
+              del_status_line
+              next
+            end
+            color = @skipped_color
+          else
+            color = @failed_color
+          end
+          msg = msg.split(/$/, 2)
+          $stdout.printf("%s%s%3d) %s%s%s\n",
+                         sep, color, @report_count += 1,
+                         msg[0], @reset_color, msg[1])
+          sep = nil
+        end
+        report.clear
+      end
+
+      # Overriding of MiniTest::Unit#puke
+      def puke klass, meth, e
+        # TODO:
+        #   this overriding is for minitest feature that skip messages are
+        #   hidden when not verbose (-v), note this is temporally.
+        n = report.size
+        rep = super
+        if MiniTest::Skip === e and /no message given\z/ =~ e.message
+          report.slice!(n..-1)
+          rep = "."
+        end
+        rep
+      end
+
+      def initialize # :nodoc:
+        super
+        @tty = $stdout.tty?
+      end
+
+      def status(*args)
+        result = super
+        raise @interrupt if @interrupt
+        result
+      end
+
+      def run(*args)
+        result = super
+        puts "\nruby -v: #{RUBY_DESCRIPTION}"
+        result
+      end
+    end
+
+    class StatusLineOutput < Struct.new(:runner)
+      def puts(*a) $stdout.puts(*a) unless a.empty? end
+      def respond_to_missing?(*a) $stdout.respond_to?(*a) end
+      def method_missing(*a, &b) $stdout.__send__(*a, &b) end
+
+      def print(s)
+        case s
+        when /\A(.*\#.*) = \z/
+          runner.new_test($1)
+        when /\A(.* s) = \z/
+          runner.add_status(" = "+$1.chomp)
+        when /\A\.+\z/
+          runner.succeed
+        when /\A[EFS]\z/
+          runner.failed(s)
+        else
+          $stdout.print(s)
+        end
+      end
+    end
+
+    class AutoRunner
+      class Runner < Test::Unit::Runner
+        include Test::Unit::RequireFiles
+      end
+
+      attr_accessor :to_run, :options
+
+      def initialize(force_standalone = false, default_dir = nil, argv = ARGV)
+        @force_standalone = force_standalone
+        @runner = Runner.new do |files, options|
+          options[:base_directory] ||= default_dir
+          files << default_dir if files.empty? and default_dir
+          @to_run = files
+          yield self if block_given?
+          files
+        end
+        Runner.runner = @runner
+        @options = @runner.option_parser
+        if @force_standalone
+          @options.banner.sub!(/\[options\]/, '\& tests...')
+        end
+        @argv = argv
+      end
+
+      def process_args(*args)
+        @runner.process_args(*args)
+        !@to_run.empty?
+      end
+
+      def run
+        if @force_standalone and not process_args(@argv)
+          abort @options.banner
+        end
+        @runner.run(@argv) || true
+      end
+
+      def self.run(*args)
+        new(*args).run
+      end
+    end
+
+    class ProxyError < StandardError
+      def initialize(ex)
+        @message = ex.message
+        @backtrace = ex.backtrace
+      end
+
+      attr_accessor :message, :backtrace
     end
   end
 end
 
-at_exit do
-  unless $! || Test::Unit.run?
-    Kernel.exit Test::Unit::AutoRunner.run
+class MiniTest::Unit::TestCase
+  undef run_test
+  RUN_TEST_TRACE = "#{__FILE__}:#{__LINE__+3}:in `run_test'".freeze
+  def run_test(name)
+    progname, $0 = $0, "#{$0}: #{self.class}##{name}"
+    self.__send__(name)
+  ensure
+    $@.delete(RUN_TEST_TRACE) if $@
+    $0 = progname
   end
 end
+
+Test::Unit::Runner.autorun

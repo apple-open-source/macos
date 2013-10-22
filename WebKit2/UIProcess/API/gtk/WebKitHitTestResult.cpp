@@ -25,6 +25,8 @@
 #include <glib/gi18n-lib.h>
 #include <wtf/text/CString.h>
 
+using namespace WebKit;
+
 /**
  * SECTION: WebKitHitTestResult
  * @Short_description: Result of a Hit Test
@@ -52,8 +54,6 @@
  *
  */
 
-using namespace WebKit;
-
 enum {
     PROP_0,
 
@@ -74,13 +74,7 @@ struct _WebKitHitTestResultPrivate {
     CString mediaURI;
 };
 
-G_DEFINE_TYPE(WebKitHitTestResult, webkit_hit_test_result, G_TYPE_OBJECT)
-
-static void webkitHitTestResultFinalize(GObject* object)
-{
-    WEBKIT_HIT_TEST_RESULT(object)->priv->~WebKitHitTestResultPrivate();
-    G_OBJECT_CLASS(webkit_hit_test_result_parent_class)->finalize(object);
-}
+WEBKIT_DEFINE_TYPE(WebKitHitTestResult, webkit_hit_test_result, G_TYPE_OBJECT)
 
 static void webkitHitTestResultGetProperty(GObject* object, guint propId, GValue* value, GParamSpec* paramSpec)
 {
@@ -138,19 +132,11 @@ static void webkitHitTestResultSetProperty(GObject* object, guint propId, const 
     }
 }
 
-static void webkit_hit_test_result_init(WebKitHitTestResult* hitTestResult)
-{
-    WebKitHitTestResultPrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(hitTestResult, WEBKIT_TYPE_HIT_TEST_RESULT, WebKitHitTestResultPrivate);
-    hitTestResult->priv = priv;
-    new (priv) WebKitHitTestResultPrivate();
-}
-
 static void webkit_hit_test_result_class_init(WebKitHitTestResultClass* hitTestResultClass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(hitTestResultClass);
     objectClass->get_property = webkitHitTestResultGetProperty;
     objectClass->set_property = webkitHitTestResultSetProperty;
-    objectClass->finalize = webkitHitTestResultFinalize;
 
     GParamFlags paramFlags = static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
 
@@ -233,28 +219,32 @@ static void webkit_hit_test_result_class_init(WebKitHitTestResultClass* hitTestR
                                                         _("The media URI"),
                                                         0,
                                                         paramFlags));
-
-    g_type_class_add_private(hitTestResultClass, sizeof(WebKitHitTestResultPrivate));
 }
 
-WebKitHitTestResult* webkitHitTestResultCreate(WKHitTestResultRef wkHitTestResult)
+WebKitHitTestResult* webkitHitTestResultCreate(WebHitTestResult* hitTestResult)
 {
     unsigned context = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT;
 
-    const String& linkURL = toImpl(wkHitTestResult)->absoluteLinkURL();
+    const String& linkURL = hitTestResult->absoluteLinkURL();
     if (!linkURL.isEmpty())
         context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK;
 
-    const String& imageURL = toImpl(wkHitTestResult)->absoluteImageURL();
+    const String& imageURL = hitTestResult->absoluteImageURL();
     if (!imageURL.isEmpty())
         context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE;
 
-    const String& mediaURL = toImpl(wkHitTestResult)->absoluteMediaURL();
+    const String& mediaURL = hitTestResult->absoluteMediaURL();
     if (!mediaURL.isEmpty())
         context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA;
 
-    const String& linkTitle = toImpl(wkHitTestResult)->linkTitle();
-    const String& linkLabel = toImpl(wkHitTestResult)->linkLabel();
+    if (hitTestResult->isContentEditable())
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE;
+
+    if (hitTestResult->isScrollbar())
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_SCROLLBAR;
+
+    const String& linkTitle = hitTestResult->linkTitle();
+    const String& linkLabel = hitTestResult->linkLabel();
 
     return WEBKIT_HIT_TEST_RESULT(g_object_new(WEBKIT_TYPE_HIT_TEST_RESULT,
                                                "context", context,
@@ -271,14 +261,16 @@ static bool stringIsEqualToCString(const String& string, const CString& cString)
     return ((string.isEmpty() && cString.isNull()) || (string.utf8() == cString));
 }
 
-bool webkitHitTestResultCompare(WebKitHitTestResult* hitTestResult, WKHitTestResultRef wkHitTestResult)
+bool webkitHitTestResultCompare(WebKitHitTestResult* hitTestResult, WebHitTestResult* webHitTestResult)
 {
     WebKitHitTestResultPrivate* priv = hitTestResult->priv;
-    return stringIsEqualToCString(toImpl(wkHitTestResult)->absoluteLinkURL(), priv->linkURI)
-        && stringIsEqualToCString(toImpl(wkHitTestResult)->linkTitle(), priv->linkTitle)
-        && stringIsEqualToCString(toImpl(wkHitTestResult)->linkLabel(), priv->linkLabel)
-        && stringIsEqualToCString(toImpl(wkHitTestResult)->absoluteImageURL(), priv->imageURI)
-        && stringIsEqualToCString(toImpl(wkHitTestResult)->absoluteMediaURL(), priv->mediaURI);
+    return webHitTestResult->isContentEditable() == webkit_hit_test_result_context_is_editable(hitTestResult)
+        && webHitTestResult->isScrollbar() == webkit_hit_test_result_context_is_scrollbar(hitTestResult)
+        && stringIsEqualToCString(webHitTestResult->absoluteLinkURL(), priv->linkURI)
+        && stringIsEqualToCString(webHitTestResult->linkTitle(), priv->linkTitle)
+        && stringIsEqualToCString(webHitTestResult->linkLabel(), priv->linkLabel)
+        && stringIsEqualToCString(webHitTestResult->absoluteImageURL(), priv->imageURI)
+        && stringIsEqualToCString(webHitTestResult->absoluteMediaURL(), priv->mediaURI);
 }
 
 /**
@@ -345,6 +337,23 @@ gboolean webkit_hit_test_result_context_is_media(WebKitHitTestResult* hitTestRes
     g_return_val_if_fail(WEBKIT_IS_HIT_TEST_RESULT(hitTestResult), FALSE);
 
     return hitTestResult->priv->context & WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA;
+}
+
+/**
+ * webkit_hit_test_result_context_is_editable:
+ * @hit_test_result: a #WebKitHitTestResult
+ *
+ * Gets whether %WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE flag is present in
+ * #WebKitHitTestResult:context.
+ *
+ * Returns: %TRUE if there's an editable element at the coordinates of the @hit_test_result,
+ *    or %FALSE otherwise
+ */
+gboolean webkit_hit_test_result_context_is_editable(WebKitHitTestResult* hitTestResult)
+{
+    g_return_val_if_fail(WEBKIT_IS_HIT_TEST_RESULT(hitTestResult), FALSE);
+
+    return hitTestResult->priv->context & WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE;
 }
 
 /**
@@ -427,4 +436,21 @@ const gchar* webkit_hit_test_result_get_media_uri(WebKitHitTestResult* hitTestRe
     g_return_val_if_fail(WEBKIT_IS_HIT_TEST_RESULT(hitTestResult), 0);
 
     return hitTestResult->priv->mediaURI.data();
+}
+
+/**
+ * webkit_hit_test_result_context_is_scrollbar:
+ * @hit_test_result: a #WebKitHitTestResult
+ *
+ * Gets whether %WEBKIT_HIT_TEST_RESULT_CONTEXT_SCROLLBAR flag is present in
+ * #WebKitHitTestResult:context.
+ *
+ * Returns: %TRUE if there's a scrollbar element at the coordinates of the @hit_test_result,
+ *    or %FALSE otherwise
+ */
+gboolean webkit_hit_test_result_context_is_scrollbar(WebKitHitTestResult* hitTestResult)
+{
+    g_return_val_if_fail(WEBKIT_IS_HIT_TEST_RESULT(hitTestResult), FALSE);
+
+    return hitTestResult->priv->context & WEBKIT_HIT_TEST_RESULT_CONTEXT_SCROLLBAR;
 }

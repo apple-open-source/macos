@@ -1085,7 +1085,7 @@ static const unsigned short cns11643_2_2uni_page21[7650] = {
 };
 
 static int
-cns11643_2_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+cns11643_2_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c1 = s[0];
   if ((c1 >= 0x21 && c1 <= 0x72)) {

@@ -84,7 +84,7 @@ public:
 	{ 
         if (length > uint32_t(~0))
             UnixError::throwMe(ERANGE);
-        Endian<uint32_t> temp = length; (*this)(temp); (*this)(data, length); 
+        Endian<uint32_t> temp = (uint32_t)length; (*this)(temp); (*this)(data, length); 
     }
 	
 	template <class Data>

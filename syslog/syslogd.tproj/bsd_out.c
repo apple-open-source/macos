@@ -21,6 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
+
+#if TARGET_IPHONE_SIMULATOR
+struct _not_empty;
+#else
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -346,10 +352,10 @@ _parse_line(char *s)
 			out->count++;
 		}
 
-		freeList(comma);
+		free_string_list(comma);
 	}
 
-	freeList(semi);
+	free_string_list(semi);
 
 	TAILQ_INSERT_TAIL(&bsd_out_rule, out, entries);
 
@@ -537,7 +543,7 @@ _bsd_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t now)
 	}
 	else if (r->type == DST_TYPE_WALL)
 	{
-#ifndef CONFIG_IPHONE
+#if !TARGET_OS_EMBEDDED
 		FILE *pw = popen(_PATH_WALL, "w");
 		if (pw < 0)
 		{
@@ -656,11 +662,13 @@ bsd_out_message(aslmsg msg)
 {
 	if (msg == NULL) return;
 
+	OSAtomicIncrement32(&global.bsd_queue_count);
 	asl_msg_retain((asl_msg_t *)msg);
 
 	dispatch_async(bsd_out_queue, ^{
 		_bsd_match_and_send(msg);
 		asl_msg_release((asl_msg_t *)msg);
+		OSAtomicDecrement32(&global.bsd_queue_count);
 	});
 }
 
@@ -795,3 +803,5 @@ bsd_out_reset(void)
 
 	return 0;
 }
+
+#endif /* !TARGET_IPHONE_SIMULATOR */

@@ -45,19 +45,21 @@
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
 #include <Security/SecKeychainItemPriv.h>
-
+#include <Security/SecCertificateOIDs.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/oidsalg.h>
 #include <Security/cssmapi.h>
 #include <Security/SecPolicySearch.h>
 #endif
-
 #include <CoreFoundation/CoreFoundation.h>
+#if !TARGET_OS_EMBEDDED
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#endif
 #include "plog.h"
 #include "debug.h"
 #include "misc.h"
 #include "oakley.h"
+#include "gcmalloc.h"
 
 
 #include "crypto_cssm.h"
@@ -66,53 +68,60 @@
 static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef, SecKeyRef *publicKeyRef);
 
 #if !TARGET_OS_EMBEDDED
-static OSStatus FindPolicy(const CSSM_OID *policyOID, SecPolicyRef *policyRef);
-static OSStatus CopySystemKeychain(SecKeychainRef *keychainRef);
 #endif
 
 static SecPolicyRef
 crypto_cssm_x509cert_get_SecPolicyRef (CFStringRef hostname)
 {
 	SecPolicyRef		policyRef = NULL;
-#if !TARGET_OS_EMBEDDED
-    OSStatus			status;
-	CSSM_OID			ourPolicyOID = CSSMOID_APPLE_TP_IP_SEC; 
+	CFDictionaryRef		properties = NULL;
+	const void			*key[] = { kSecPolicyName };
+	const void			*value[] = { hostname };
 
-	// get our policy object
-	status = FindPolicy(&ourPolicyOID, &policyRef);
-	if (status != noErr && status != -1) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			 "error %d %s.\n", status, GetSecurityErrorString(status));
-	}
-#else
 	if (hostname) {
-		policyRef = SecPolicyCreateIPSec(FALSE, hostname);
-		if (policyRef == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
-				 "unable to create a SSL policyRef.\n");
+		properties = CFDictionaryCreate(NULL, key, value, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (properties == NULL) {
+			plog(ASL_LEVEL_ERR, 
+				"unable to create dictionary for policy properties.\n");
 		}
 	}	
-#endif	
+	policyRef = SecPolicyCreateWithProperties(kSecPolicyAppleIPsec, properties);
+	if (properties)
+		CFRelease(properties);
 	return policyRef;
 }
 
 SecCertificateRef
-crypto_cssm_x509cert_get_SecCertificateRef (vchar_t *cert)
+crypto_cssm_x509cert_CreateSecCertificateRef (vchar_t *cert)
 {
 	SecCertificateRef	certRef = NULL;
 
-	CFDataRef cert_data = CFDataCreateWithBytesNoCopy(NULL, cert->v, cert->l, kCFAllocatorNull);
+	CFDataRef cert_data = CFDataCreateWithBytesNoCopy(NULL, (uint8_t*)cert->v, cert->l, kCFAllocatorNull);
     if (cert_data) {
         certRef = SecCertificateCreateWithData(NULL, cert_data);
         CFRelease(cert_data);
     }
 
 	if (certRef == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			 "unable to create a certRef.\n");
+		plog(ASL_LEVEL_ERR, 
+			 "unable to get a certifcate reference.\n");
 	}
 	return certRef;
 }
+
+/* HACK!!! - temporary until this prototype gets moved */
+extern CFDataRef SecCertificateCopySubjectSequence( SecCertificateRef certificate);
+
+CFDataRef
+crypto_cssm_CopySubjectSequence(SecCertificateRef certRef)
+{
+    CFDataRef subject = NULL;
+
+    subject = SecCertificateCopySubjectSequence(certRef);
+    return subject;
+    
+}
+
 
 static cert_status_t
 crypto_cssm_check_x509cert_dates (SecCertificateRef certificateRef)
@@ -141,14 +150,14 @@ crypto_cssm_check_x509cert_dates (SecCertificateRef certificateRef)
 						/* get kSecPropertyKeyLabel */
 						if ( (datevalue) && (CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyLabel, (const void**)&labelvalue))){
 							if ( (labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid Before"), 0) == kCFCompareEqualTo)){
-								if ( notvalidbeforedate = CFDateGetAbsoluteTime(datevalue)) {
+								if ( (notvalidbeforedate = CFDateGetAbsoluteTime(datevalue))) {
 									if (notvalidbeforedatedata) {
 										CFRelease(notvalidbeforedatedata);
 									}
 									notvalidbeforedatedata = CFDateCreate(NULL, notvalidbeforedate);
 								}
 							}else if ((labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid After"), 0 ) == kCFCompareEqualTo)){
-								if ( notvalidafterdate = CFDateGetAbsoluteTime(datevalue)) {
+								if ( (notvalidafterdate = CFDateGetAbsoluteTime(datevalue))) {
 									if (notvalidafterdatedata) {
 										CFRelease(notvalidafterdatedata);
 									}
@@ -165,21 +174,21 @@ crypto_cssm_check_x509cert_dates (SecCertificateRef certificateRef)
 	if ( (timeNow = CFAbsoluteTimeGetCurrent()) && (nowcfdatedata = CFDateCreate( NULL, timeNow))){
 		if ( notvalidbeforedatedata ){
 			gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidbeforedate, NULL);
-			plog(LLV_DEBUG, LOCATION, NULL, 
-				 "cert not valid before yr %d, mon %d, days %d, hours %d, min %d\n", gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
+			plog(ASL_LEVEL_DEBUG, 
+				 "Certificate not valid before yr %d, mon %d, days %d, hours %d, min %d\n", (int)gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
 			gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidafterdate, NULL);
-			plog(LLV_DEBUG, LOCATION, NULL, 
-				 "cert not valid after yr %d, mon %d, days %d, hours %d, min %d\n", gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
+			plog(ASL_LEVEL_DEBUG, 
+				 "Certificate not valid after yr %d, mon %d, days %d, hours %d, min %d\n", (int)gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
 			if ( CFDateCompare( nowcfdatedata, notvalidbeforedatedata, NULL ) == kCFCompareLessThan){
-				plog(LLV_ERROR, LOCATION, NULL, 
+				plog(ASL_LEVEL_ERR, 
 					 "current time before valid time\n");
 				certStatus = CERT_STATUS_PREMATURE;
 			} else if (notvalidafterdatedata && (CFDateCompare( nowcfdatedata, notvalidafterdatedata, NULL ) == kCFCompareGreaterThan)){
-				plog(LLV_ERROR, LOCATION, NULL, 
+				plog(ASL_LEVEL_ERR, 
 					 "current time after valid time\n");
 				certStatus = CERT_STATUS_EXPIRED;
 			}else {
-				plog(LLV_INFO, LOCATION, NULL, "certificate expiration date OK\n");
+				plog(ASL_LEVEL_INFO, "Certificate expiration date is OK\n");
 				certStatus = CERT_STATUS_OK;
 			}
 		}
@@ -218,8 +227,8 @@ int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef
 	// find the total number of certs
 	for (p = certchain; p; p = p->chain, n++);
 	if (n> 1) {
-		plog(LLV_DEBUG2, LOCATION, NULL,
-			 "%s: checking chain of %d certificates.\n", __FUNCTION__, n);
+		plog(ASL_LEVEL_DEBUG, 
+			 "%s: checking chain of %d certificates.\n", __FUNCTION__, (int)n);
 	}
 	
 	certArraySiz = n * sizeof(CFTypeRef);
@@ -228,12 +237,12 @@ int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef
 		return -1;
 	}
 	bzero(certArrayRef, certArraySiz);
-	if ((certArrayRef[certArrayRefNumValues] = crypto_cssm_x509cert_get_SecCertificateRef(&hostcert->cert))) {
+	if ((certArrayRef[certArrayRefNumValues] = crypto_cssm_x509cert_CreateSecCertificateRef(&hostcert->cert))) {
 		/* don't overwrite any pending status */
 		if (!hostcert->status) {
 			hostcert->status = crypto_cssm_check_x509cert_dates(certArrayRef[certArrayRefNumValues]);
 			if (hostcert->status) {
-				plog(LLV_ERROR, LOCATION, NULL,
+				plog(ASL_LEVEL_ERR, 
 					 "host certificate failed date verification: %d.\n", hostcert->status);
 				certStatus = hostcert->status;
 			}
@@ -242,12 +251,12 @@ int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef
 	}
 	for (p = certchain; p && certArrayRefNumValues < n; p = p->chain) {
 		if (p != hostcert) {
-			if ((certArrayRef[certArrayRefNumValues] = crypto_cssm_x509cert_get_SecCertificateRef(&p->cert))) {
+			if ((certArrayRef[certArrayRefNumValues] = crypto_cssm_x509cert_CreateSecCertificateRef(&p->cert))) {
 				/* don't overwrite any pending status */
 				if (!p->status) {
 					p->status = crypto_cssm_check_x509cert_dates(certArrayRef[certArrayRefNumValues]);
 					if (p->status) {
-						plog(LLV_ERROR, LOCATION, NULL,
+						plog(ASL_LEVEL_ERR, 
 							 "other certificate in chain failed date verification: %d.\n", p->status);
 						if (!certStatus) {
 							certStatus = p->status;
@@ -271,8 +280,8 @@ int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef
 		CFRelease(policyRef);
 	
 	if (status != noErr && status != -1) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			 "error %d %s.\n", status, GetSecurityErrorString(status));
+		plog(ASL_LEVEL_ERR, 
+			 "error %d %s.\n", (int)status, GetSecurityErrorString(status));
 		status = -1;
 	} else if (certStatus == CERT_STATUS_PREMATURE || certStatus == CERT_STATUS_EXPIRED) {
 		status = -1;
@@ -282,9 +291,9 @@ int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef
 }
 
 
-int crypto_cssm_verify_x509sign(SecKeyRef publicKeyRef, vchar_t *hash, vchar_t *signature)
+int crypto_cssm_verify_x509sign(SecKeyRef publicKeyRef, vchar_t *hash, vchar_t *signature, Boolean useSHA1)
 {
-	return SecKeyRawVerify(publicKeyRef, kSecPaddingPKCS1, hash->v, hash->l, signature->v, signature->l);	
+	return SecKeyRawVerify(publicKeyRef, useSHA1 ? kSecPaddingPKCS1SHA1 : kSecPaddingPKCS1, (uint8_t*)hash->v, hash->l, (uint8_t*)signature->v, signature->l);
 }
 
 /*
@@ -325,8 +334,8 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 	if (sig == NULL)
 		goto end;
 	
-	status = SecKeyRawSign(privateKeyRef, kSecPaddingPKCS1, hash->v,
-                           hash->l, sig->v, &sig->l);				
+	status = SecKeyRawSign(privateKeyRef, kSecPaddingPKCS1, (uint8_t*)hash->v,
+                           hash->l, (uint8_t*)sig->v, &sig->l);				
 					
 		
 end:
@@ -346,8 +355,8 @@ end:
 	}
 
 	if (status != noErr && status != -1) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			"error %d %s.\n", status, GetSecurityErrorString(status));
+		plog(ASL_LEVEL_ERR, 
+			"error %d %s.\n", (int)status, GetSecurityErrorString(status));
 		status = -1;
 	}			
 	return sig;
@@ -364,78 +373,21 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
 
 	OSStatus				status = -1;
 	vchar_t					*cert = NULL;
+	SecCertificateRef		certificateRef = NULL;		
+	CFDictionaryRef         persistFind = NULL;
+	size_t                  dataLen;
+	CFDataRef               certData = NULL;
 	SecIdentityRef 			identityRef = NULL;
-	SecCertificateRef		certificateRef = NULL;
-
-#if !TARGET_OS_EMBEDDED
-	CSSM_DATA				cssmData;	
-	SecIdentitySearchRef	idSearchRef = NULL;
-	SecKeychainRef 			keychainRef = NULL;
-
-	// get cert ref
-	if (persistentCertRef) {
-		status = SecKeychainItemCopyFromPersistentReference(persistentCertRef, (SecKeychainItemRef*)&certificateRef);
-		if (status != noErr)
-			goto end;
-	} else {
-		// copy system keychain
-		status = CopySystemKeychain(&keychainRef);
-		if (status != noErr)
-			goto end;
-
-		// find first identity in system keychain
-		status = SecIdentitySearchCreate(keychainRef, CSSM_KEYUSE_SIGN, &idSearchRef);
-		if (status != noErr)
-			goto end;
-		
-		status = SecIdentitySearchCopyNext(idSearchRef, &identityRef);
-		if (status != noErr)
-			goto end;
-
-		// get certificate from identity
-		status = SecIdentityCopyCertificate(identityRef, &certificateRef);
-		if (status != noErr)
-			goto end;
-		
-	}
-
-	// get certificate data
-	cssmData.Length = 0;
-	cssmData.Data = NULL;
-	status = SecCertificateGetData(certificateRef, &cssmData);
-	if (status != noErr)
-		goto end;
-		
-	if (cssmData.Length == 0)
-		goto end;
-	
-	cert = vmalloc(cssmData.Length);
-	if (cert == NULL)
-		goto end;	
-	
-	// cssmData struct just points to the data
-	// data must be copied to be returned
-	memcpy(cert->v, cssmData.Data, cssmData.Length);	
-	
-	// verify expiry or missing fields
-	if (certStatus) {
-		*certStatus = CERT_STATUS_OK;
-	}
-#else
-		
-	CFDictionaryRef		persistFind = NULL;
-	const void			*keys_persist[] = { kSecReturnRef, kSecValuePersistentRef };
-	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef };
-	size_t				dataLen;
-	CFDataRef			certData = NULL;
+	const void              *keys_persist[] = { kSecReturnRef, kSecValuePersistentRef, kSecClass };
+	const void              *values_persist[] = { kCFBooleanTrue, persistentCertRef, kSecClassIdentity };
 	
 	/* find identity by persistent ref */
 	persistFind = CFDictionaryCreate(NULL, keys_persist, values_persist,
 		(sizeof(keys_persist) / sizeof(*keys_persist)), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	if (persistFind == NULL)
 		goto end;
-	
-	status = SecItemCopyMatching(persistFind, (CFTypeRef *)&identityRef);
+    
+    status = SecItemCopyMatching(persistFind, (CFTypeRef *)&identityRef);
 	if (status != noErr)
 		goto end;
 
@@ -455,69 +407,31 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
 	if (cert == NULL)
 		goto end;	
 	
-	CFDataGetBytes(certData, CFRangeMake(0, dataLen), cert->v); 
+	CFDataGetBytes(certData, CFRangeMake(0, dataLen), (uint8_t*)cert->v); 
 				
 	// verify expiry or missing fields
 	if (certStatus) {
 		*certStatus = crypto_cssm_check_x509cert_dates(certificateRef);
 	}
-
-#endif
 		
 end:
+    if (identityRef)
+		CFRelease(identityRef);
 	if (certificateRef)
 		CFRelease(certificateRef);
-	if (identityRef)
-		CFRelease(identityRef);
-#if !TARGET_OS_EMBEDDED
-	if (idSearchRef)
-		CFRelease(idSearchRef);
-	if (keychainRef)
-		CFRelease(keychainRef);
-#else
 	if (persistFind)
 		CFRelease(persistFind);
 	if (certData)
 		CFRelease(certData);
-#endif
 	
 	if (status != noErr && status != -1) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			"error %d %s.\n", status, GetSecurityErrorString(status));
+		plog(ASL_LEVEL_ERR, 
+			"error %d %s.\n", (int)status, GetSecurityErrorString(status));
 		status = -1;
 	}			
 	return cert;
 
 }
-
-#if !TARGET_OS_EMBEDDED
-/*
- * Find a policy ref by OID
- */
-static OSStatus FindPolicy(const CSSM_OID *policyOID, SecPolicyRef *policyRef)
-{
-	
-	OSStatus			status;
-	SecPolicySearchRef	searchRef = nil;
-	
-	status = SecPolicySearchCreate(CSSM_CERT_X_509v3, policyOID, NULL, &searchRef);
-	if (status != noErr)
-		goto end;
-		
-	status = SecPolicySearchCopyNext(searchRef, policyRef);
-	
-end:
-	if (searchRef)
-		CFRelease(searchRef);
-
-	if (status != noErr) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			"error %d %s.\n", status, GetSecurityErrorString(status));
-		status = -1;
-	}			
-	return status;
-}
-#endif		
 
 /*
  * Evaluate the trust of a cert using the policy provided
@@ -534,7 +448,7 @@ static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCert
 								&kCFTypeArrayCallBacks);
 										
 	if (!cfCertRef) {
-		plog(LLV_ERROR, LOCATION, NULL, 
+		plog(ASL_LEVEL_ERR, 
 			"unable to create CFArray.\n");		
 		return -1;
 	}
@@ -548,32 +462,32 @@ static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCert
 		goto end;
 	
 	if (evalResult != kSecTrustResultProceed && evalResult != kSecTrustResultUnspecified) {
-		plog(LLV_ERROR, LOCATION, NULL, "Error evaluating certificate.\n");
+		plog(ASL_LEVEL_ERR, "Error evaluating certificate.\n");
 
 		switch (evalResult) {
 			case kSecTrustResultInvalid:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultInvalid.\n");
+				plog(ASL_LEVEL_DEBUG, "eval result = kSecTrustResultInvalid.\n");
 				break;
 			case kSecTrustResultProceed:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultProceed.\n");
+				plog(ASL_LEVEL_DEBUG, "eval result = kSecTrustResultProceed.\n");
 				break;
 			case kSecTrustResultDeny:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultDeny.\n");
+				plog(ASL_LEVEL_DEBUG, "eval result = kSecTrustResultDeny.\n");
 				break;
 			case kSecTrustResultUnspecified:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultUnspecified.\n");
+				plog(ASL_LEVEL_DEBUG, "eval result = kSecTrustResultUnspecified.\n");
 				break;
 			case kSecTrustResultRecoverableTrustFailure:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultRecoverableTrustFailure.\n");
+				plog(ASL_LEVEL_DEBUG, "eval result = kSecTrustResultRecoverableTrustFailure.\n");
 				break;
 			case kSecTrustResultFatalTrustFailure:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultFatalTrustFailure.\n");
+				plog(ASL_LEVEL_DEBUG, "eval result = kSecTrustResultFatalTrustFailure.\n");
 				break;
 			case kSecTrustResultOtherError:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultOtherError.\n");
+				plog(ASL_LEVEL_DEBUG, "eval result = kSecTrustResultOtherError.\n");
 				break;
 			default:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result unknown: value = %d.\n", (int)evalResult);
+				plog(ASL_LEVEL_DEBUG, "eval result unknown: value = %d.\n", (int)evalResult);
 				break;
 		}
 
@@ -585,7 +499,7 @@ static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCert
 			const char *str;	
 			CFIndex count, maxcount = CFArrayGetCount(errorStrings);
 		
-			plog(LLV_ERROR, LOCATION, NULL, "---------------Returned error strings: ---------------.\n");
+			plog(ASL_LEVEL_ERR, "---------------Returned error strings: ---------------.\n");
 			for (count = 0; count < maxcount; count++) {
 				dict = CFArrayGetValueAtIndex(errorStrings, count);
 				if (dict && (CFGetTypeID(dict) == CFDictionaryGetTypeID())) {
@@ -593,17 +507,17 @@ static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCert
 					if (val && (CFGetTypeID(val) == CFStringGetTypeID())) {
 						str = CFStringGetCStringPtr(val, kCFStringEncodingMacRoman);	
 						if (str)		
-							plog(LLV_ERROR, LOCATION, NULL, "type = %s.\n", str);
+							plog(ASL_LEVEL_ERR, "type = %s.\n", str);
 					}
 					val = CFDictionaryGetValue(dict, kSecPropertyKeyValue);
 					if (val && (CFGetTypeID(val) == CFStringGetTypeID())) {
 						str = CFStringGetCStringPtr(val, kCFStringEncodingMacRoman);	
 						if (str)		
-							plog(LLV_ERROR, LOCATION, NULL, "value = %s.\n", str);
+							plog(ASL_LEVEL_ERR, "value = %s.\n", str);
 					}
 				}
 			}
-			plog(LLV_ERROR, LOCATION, NULL, "-----------------------------------------------------.\n");			
+			plog(ASL_LEVEL_ERR, "-----------------------------------------------------.\n");			
 			CFRelease(errorStrings);
 		}
 				
@@ -621,39 +535,12 @@ end:
 		CFRelease(trustRef);
 
 	if (status != noErr && status != -1) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			"error %d %s.\n", status, GetSecurityErrorString(status));
+		plog(ASL_LEVEL_ERR, 
+			"error %d %s.\n", (int)status, GetSecurityErrorString(status));
 		status = -1;
 	}			
 	return status;
 }
-
-#if !TARGET_OS_EMBEDDED
-/*
- * Copy the system keychain
- */
-static OSStatus CopySystemKeychain(SecKeychainRef *keychainRef)
-{
-
-	OSStatus status;
-
-	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
-	if (status != noErr)
-		goto end;
-
-	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem, keychainRef);
-	
-end:
-
-	if (status != noErr) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			"error %d %s.\n", status, GetSecurityErrorString(status));
-		status = -1;
-	}			
-	return status;
-
-}
-#endif
 
 /* 
  * Return string representation of Security-related OSStatus.
@@ -664,17 +551,20 @@ GetSecurityErrorString(OSStatus err)
     switch(err) {
 		case noErr:
 			return "noErr";
-		case memFullErr:
+	
+		/* SecBase.h: */
+		case errSecNotAvailable:
+			return "errSecNotAvailable";
+
+#if !TARGET_OS_EMBEDDED
+        case memFullErr:
 			return "memFullErr";
 		case paramErr:
 			return "paramErr";
 		case unimpErr:
 			return "unimpErr";
-	
-		/* SecBase.h: */
-		case errSecNotAvailable:
-			return "errSecNotAvailable";
-#if !TARGET_OS_EMBEDDED
+
+        /* SecBase.h: */
 		case errSecReadOnly:
 			return "errSecReadOnly";
 		case errSecAuthFailed:

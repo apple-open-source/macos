@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,15 +27,15 @@
 #include "JSStringJoiner.h"
 
 #include "ExceptionHelpers.h"
+#include "JSScope.h"
 #include "JSString.h"
-#include "ScopeChain.h"
+#include "Operations.h"
 #include <wtf/text/StringImpl.h>
-
 
 namespace JSC {
 
 // The destination is 16bits, at least one string is 16 bits.
-static inline void appendStringToData(UChar*& data, const UString& string)
+static inline void appendStringToData(UChar*& data, const String& string)
 {
     if (string.isNull())
         return;
@@ -57,7 +57,7 @@ static inline void appendStringToData(UChar*& data, const UString& string)
 }
 
 // If the destination is 8bits, we know every string has to be 8bit.
-static inline void appendStringToData(LChar*& data, const UString& string)
+static inline void appendStringToData(LChar*& data, const String& string)
 {
     if (string.isNull())
         return;
@@ -73,7 +73,7 @@ static inline void appendStringToData(LChar*& data, const UString& string)
 }
 
 template<typename CharacterType>
-static inline PassRefPtr<StringImpl> joinStrings(const Vector<UString>& strings, const UString& separator, unsigned outputLength)
+static inline PassRefPtr<StringImpl> joinStrings(const Vector<String>& strings, const String& separator, unsigned outputLength)
 {
     ASSERT(outputLength);
 
@@ -82,7 +82,7 @@ static inline PassRefPtr<StringImpl> joinStrings(const Vector<UString>& strings,
     if (!outputStringImpl)
         return PassRefPtr<StringImpl>();
 
-    const UString firstString = strings.first();
+    const String firstString = strings.first();
     appendStringToData(data, firstString);
 
     for (size_t i = 1; i < strings.size(); ++i) {
@@ -94,7 +94,7 @@ static inline PassRefPtr<StringImpl> joinStrings(const Vector<UString>& strings,
     return outputStringImpl.release();
 }
 
-JSValue JSStringJoiner::build(ExecState* exec)
+JSValue JSStringJoiner::join(ExecState* exec)
 {
     if (!m_isValid)
         return throwOutOfMemoryError(exec);
@@ -124,7 +124,7 @@ JSValue JSStringJoiner::build(ExecState* exec)
     if (!outputStringImpl)
         return throwOutOfMemoryError(exec);
 
-    return JSString::create(exec->globalData(), outputStringImpl.release());
+    return JSString::create(exec->vm(), outputStringImpl.release());
 }
 
 }

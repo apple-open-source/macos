@@ -74,15 +74,6 @@ enum {
     noErr                       = 0
 };
 
-typedef uintptr_t KernelProcessID;
-typedef uintptr_t AddressSpaceID;
-
-#if 0
-#ifndef __cplusplus
-enum { false, true };
-#endif
-#endif
-
 typedef unsigned char Byte;
 
 typedef signed char SignedByte;
@@ -100,19 +91,6 @@ typedef Fixed *FixedPtr;
 typedef UInt32 Fract;
 
 typedef Fract *FractPtr;
-
-struct _extended80 {
-    short                           exp;
-    short                           man[4];
-};
-struct _extended96 {
-    short                           exp[2];
-    short                           man[4];
-};
-typedef struct wide                             *WidePtr;
-
-typedef struct UnsignedWide             *UnsignedWidePtr;
-
 
 /*
 enum {
@@ -241,7 +219,7 @@ typedef struct DriverType                       DriverType;
 typedef DriverType *                            DriverTypePtr;
 
 /* OS Runtime Information Used to Setup and Maintain a Driver's Runtime Environment */
-typedef OptionBits RuntimeOptions;
+typedef IOOptionBits RuntimeOptions;
 
 
 enum {

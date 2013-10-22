@@ -39,7 +39,7 @@
 #include <Security/SecPolicy.h>
 #include <Security/SecTrust.h>
 #endif /* !USE_CDSA_CRYPTO */
-#include <Security/SecInternal.h>
+#include "utilities/SecCFRelease.h"
 
 #include "sslDebug.h"
 #include "sslKeychain.h"
@@ -47,6 +47,9 @@
 #include <string.h>
 #include <assert.h>
 
+#if TARGET_OS_IPHONE
+#include "utilities/SecCFRelease.h"
+#endif
 
 #ifdef USE_SSLCERTIFICATE
 
@@ -80,16 +83,16 @@ static OSStatus secCertToSslCert(
 
 	thisSslCert = (SSLCertificate *)sslMalloc(sizeof(SSLCertificate));
 	if(thisSslCert == NULL) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	if(SSLAllocBuffer(&thisSslCert->derCert, certData.Length,
 			ctx)) {
-		return memFullErr;
+		return errSecAllocate;
 	}
 	memcpy(thisSslCert->derCert.data, certData.Data, certData.Length);
 	thisSslCert->derCert.length = certData.Length;
 	*sslCert = thisSslCert;
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -124,7 +127,7 @@ static OSStatus sslCertSignerAlg(
 	if(!cssmOidToAlg(&algId->algorithm, &sigAlg)) {
 		/* Only way this could happen is if we're given a bad cert */
 		sslErrorLog("sslCertSignerAlg() bad sigAlg OID\n");
-		ortn = paramErr;
+		ortn = errSecParam;
 		goto errOut;
 	}
 
@@ -158,7 +161,7 @@ static OSStatus sslCertSignerAlg(
 			break;
 		default:
 			sslErrorLog("sslCertSignerAlg() unknown sigAlg\n");
-			ortn = paramErr;
+			ortn = errSecParam;
 			break;
 	}
 errOut:
@@ -222,11 +225,11 @@ parseIncomingCerts(
 	identity = (SecIdentityRef)CFArrayGetValueAtIndex(certs, 0);
 	if(identity == NULL) {
 		sslErrorLog("parseIncomingCerts: bad cert array (1)\n");
-		return paramErr;
+		return errSecParam;
 	}
 	if(CFGetTypeID(identity) != SecIdentityGetTypeID()) {
 		sslErrorLog("parseIncomingCerts: bad cert array (2)\n");
-		return paramErr;
+		return errSecParam;
 	}
 
 	/*
@@ -287,11 +290,11 @@ parseIncomingCerts(
 		certRef = (SecCertificateRef)CFArrayGetValueAtIndex(certs, cert);
 		if(certRef == NULL) {
 			sslErrorLog("parseIncomingCerts: bad cert array (5)\n");
-			return paramErr;
+			return errSecParam;
 		}
 		if(CFGetTypeID(certRef) != SecCertificateGetTypeID()) {
 			sslErrorLog("parseIncomingCerts: bad cert array (6)\n");
-			return paramErr;
+			return errSecParam;
 		}
 
 		/* Extract cert, convert to local format.
@@ -308,7 +311,7 @@ parseIncomingCerts(
 
 	/* SUCCESS */
 	*destCert = certChain;
-	return noErr;
+	return errSecSuccess;
 
 	/* free certChain, everything in it, other vars, return ortn */
 	sslDeleteCertificateChain(certChain, ctx);
@@ -335,7 +338,6 @@ parseIncomingCerts(
 	SecKeyRef			pubKey = NULL;		/* Retained */
 	SecKeyRef           privKey = NULL;		/* Retained */
 	SecTrustRef         trust = NULL;		/* Retained */
-	SecTrustResultType	trustResult;
 
 	assert(ctx != NULL);
 	assert(destCertChain != NULL);		/* though its referent may be NULL */
@@ -363,12 +365,12 @@ parseIncomingCerts(
 	identity = (SecIdentityRef)CFArrayGetValueAtIndex(certs, 0);
 	if (identity == NULL) {
 		sslErrorLog("parseIncomingCerts: bad cert array (1)\n");
-		ortn = paramErr;
+		ortn = errSecParam;
 		goto errOut;
 	}
 	if (CFGetTypeID(identity) != SecIdentityGetTypeID()) {
 		sslErrorLog("parseIncomingCerts: bad cert array (2)\n");
-		ortn = paramErr;
+		ortn = errSecParam;
 		goto errOut;
 	}
 
@@ -394,7 +396,7 @@ parseIncomingCerts(
 	certChain = CFArrayCreateMutable(kCFAllocatorDefault, numCerts,
 		&kCFTypeArrayCallBacks);
 	if (!certChain) {
-		ortn = memFullErr;
+		ortn = errSecAllocate;
 		goto errOut;
 	}
 	CFArrayAppendValue(certChain, leafCert);
@@ -403,12 +405,12 @@ parseIncomingCerts(
 			(SecCertificateRef)CFArrayGetValueAtIndex(certs, ix);
 		if (intermediate == NULL) {
 			sslErrorLog("parseIncomingCerts: bad cert array (5)\n");
-			ortn = paramErr;
+			ortn = errSecParam;
 			goto errOut;
 		}
 		if (CFGetTypeID(intermediate) != SecCertificateGetTypeID()) {
 			sslErrorLog("parseIncomingCerts: bad cert array (6)\n");
-			ortn = paramErr;
+			ortn = errSecParam;
 			goto errOut;
 		}
 
@@ -416,7 +418,7 @@ parseIncomingCerts(
 	}
 
 	/* Obtain public key from cert */
-#if TARGET_OS_IOS
+#if TARGET_OS_IPHONE
 	ortn = SecTrustCreateWithCertificates(certChain, NULL, &trust);
 #else
 	{
@@ -440,18 +442,27 @@ parseIncomingCerts(
 			(int)ortn);
 		goto errOut;
 	}
-	ortn = SecTrustEvaluate(trust, &trustResult);
-	if (ortn) {
-		sslErrorLog("parseIncomingCerts: SecTrustEvaluate err %d\n",
-			(int)ortn);
-		goto errOut;
-	}
+
+
+#if !TARGET_OS_IPHONE
+    /* This is not required on iOS, but still required on osx */
+    SecTrustResultType trustResult;
+    ortn = SecTrustEvaluate(trust, &trustResult);
+    if (ortn) {
+        sslErrorLog("parseIncomingCerts: SecTrustEvaluate err %d\n",
+                    (int)ortn);
+        goto errOut;
+    }
+#endif
+
+
 	pubKey = SecTrustCopyPublicKey(trust);
-	if (pubKey == NULL) {
-		sslErrorLog("parseIncomingCerts: SecTrustCopyPublicKey failed\n");
-		ortn = -67712; // errSecInvalidKeyRef
-		goto errOut;
-	}
+    if (!pubKey) {
+        /* We parsed the private key succesfully but could not get the public key: return an error */
+        sslErrorLog("parseIncomingCerts: SecTrustCopyPublicKey failed\n");
+        ortn = errSecParam;
+        goto errOut;
+    }
 
 	/* SUCCESS */
 errOut:

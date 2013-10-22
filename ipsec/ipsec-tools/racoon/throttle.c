@@ -128,7 +128,7 @@ restart:
 	if (!found) {
 		if (authfail) {
 			if ((te = throttle_add(addr)) == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL, 
+				plog(ASL_LEVEL_ERR, 
 				    "Throttle insertion failed\n");
 				return (time(NULL) 
 				    + isakmp_cfg_config.auth_throttle);

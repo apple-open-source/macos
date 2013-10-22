@@ -45,6 +45,8 @@ but performs the same operation on all of them.
 accepts single-character (classic) options, as well as GNU-style long
 options of the form --name and --name=value. Common options have both
 forms; less frequent and specialized options have only long form.
+Note that the form --name value (without equal sign) will not work as expected
+on options with optional values.
 .Pp
 .Sh OPTIONS
 The options are as follows:
@@ -63,9 +65,9 @@ This option applies only to Mach-O binary code and is ignored for other types.
 If the
 .Ar path
 uses the Mach-O format and contains no code of the given architecture, the command will fail.
-The default is to operate on the native host architecture as specified by the local system.
-.br
-Note that when signing,
+The default for verification is --all-architectures, to verify all architectures present.
+The default for display is to report on the native architecture of the host system.
+When signing,
 .Nm
 will always sign all architectures contained in a universal Mach-O file.
 .It Fl -bundle-version Ar version-string
@@ -89,11 +91,20 @@ the specified file. The code being signed is not modified and need not be
 writable.
 When verifying, designates a file containing a detached signature to be used
 for verification. Any embedded signature in the code is ignored.
-.It Fl -deep-verify
-When verifying a bundle, specifies that 
-any bundles and executables that are contained as
-helper executables, frameworks, plugins or XPC services will be
-verified as well.
+.It Fl -deep
+When signing a bundle, specifies that nested code content such as helpers, frameworks,
+and plug-ins, should be recursively signed in turn. Beware that all signing options you
+specify will apply, in turn, to such nested content.
+.br
+When verifying a bundle, specifies that any nested code content will be recursively
+verified as to its full content. By default, verification of nested content is limited
+to a shallow investigation that may not detect changes to the nested code.
+.br
+When displaying a signature, specifies that a list of directly nested code should be
+written to the display output. This lists only code directly nested within the subject;
+anything nested indirectly will require recursive application of the
+.Nm
+command.
 .It Fl -detached-database
 When signing, specifies that a detached signature should be generated as with
 the --detached option, but that the resulting signature should be written into a system
@@ -117,7 +128,7 @@ During signing, explicitly specify the unique identifier string that is embedded
 in code signatures. If this option is omitted, the identifier is derived from
 either the Info.plist (if present), or the filename of the executable being signed,
 possibly modified by the --prefix option.
-Note that it is a very bad idea to sign multiple programs with the same identifier.
+It is a \fBvery bad idea\fR to sign different programs with the same identifier.
 .It Fl o, -options Ar flag,...
 During signing, specifies a set of option flags to be embedded in the code
 signature. The value takes the form of a comma-separated list of names (with
@@ -216,6 +227,11 @@ specified. This can be used to break any matching ties if you have multiple
 similarly-named identities in several keychains on the user's search list.
 Note that the standard keychain search path is still consulted while constructing
 the certificate chain being embedded in the signature.
+.br
+Note that
+.Ar filename
+will not be searched to resolve the signing identity's certificate chain unless it
+is also on the user's keychain search list.
 .It Fl -prefix Ar string
 If no explicit unique identifier is specified (using the -i option), and if
 the implicitly generated identifier does not contain any dot (.) characters,
@@ -247,10 +263,11 @@ For historical reasons, this option can be given without a value, which preserve
 of these values as presently known. This use is deprecated and will eventually be removed;
 always specify an explicit list of preserved items.
 .It Fl -resource-rules Ar filename
-During signing, this option overrides the default rules for collecting bundle
-resources to be sealed into the signature. The argument is the path to a
-property list (plist) file containing resource scanning instructions.
-.It Fl -timestamp Ar [ URL ]
+During signing, this option overrides the default rules for identifying and collecting bundle
+resources and nested code to be sealed into the signature. The argument is the path to a
+property list (plist) file containing scanning and qualification instructions. See the code
+signing documentation for details.
+.It Fl -timestamp Ar [ =URL ]
 During signing, requests that a \fItimestamp authority server\fR
 be contacted to authenticate the time of signing. The server contacted is given by the \fIURL\fR value.
 If this option is given without a value, a default server provided by Apple is used.
@@ -286,11 +303,20 @@ is explicitly given, it is sealed into all
 Otherwise, each path derives its
 .Ar identifier
 independently from its Info.plist or pathname.
-The
-.Ar pagesize
-can be used to control the granularity of the code hash table. Usually, only
-specific sizes are acceptable to the verifying agents; this option should be used
-only in special cases.
+Code nested within bundle directories (as identified from the applicable \fIResource Rules\fP)
+must already be signed or the signing operation will \fIfail\fP, unless the
+.Fl -deep
+option is given, in which case any unsigned nested code will be recursively signed
+before proceeding, using the same signing options and parameters. If the
+.Fl -force
+option is given, any existing top-level signature is replaced, subject to any
+.Fl -preserve-metadata
+options also present. Combining the
+.Fl -force
+and
+.Fl -deep
+options results in forcible replacement of all signatures within the target bundle,
+as long as the resource rules identify them.
 .Pp
 .\" Verification
 .\" =============================================================================
@@ -308,7 +334,7 @@ is given, each
 is also checked against this requirement (but see DIAGNOSTICS below).
 If verbose verification is requested, the program is also checked against its own
 designated requirement, which should never fail for a properly signed program.
-.br
+.Pp
 If a
 .Ar path
 begins with a decimal digit, it is interpreted as the process id of a running
@@ -524,14 +550,20 @@ if you specified the -f option.
 If you require atomicity of signing stricter than provided by
 .Nm ,
 you need to make an explicit copy of your code and sign that.
+.Sh ENVIRONMENT
+If the CODESIGN_ALLOCATE environment variable is set, it identifies a substitute codesign_allocate
+tool used to allocate space for code signatures in Mach-O binaries. This is used by Xcode SDK
+distributions to provide architectural support for non-native platforms such as iPhones.
+The system will not accept such substitutes unless they are specially signed (by Apple).
 .Sh FILES
 .Bl -tag -width "/var/db/DetachedSignatures" -compact
 .It Pa /var/db/DetachedSignatures
 System-wide database of detached code signatures for unsigned code.
 .El
 .Sh SEE ALSO
-.Xr csreq 1
-.Xr xcodebuild 1
+.Xr csreq 1 ,
+.Xr xcodebuild 1 ,
+.Xr codesign_allocate 1
 .Sh HISTORY
 The
 .Nm
@@ -561,6 +593,10 @@ automatically if the CODE_SIGN_IDENTITY build variable is set.
 You can express any combination of
 .Nm
 options with additional build variables there.
+.Pp
+.Nm
+is fundamentally a shell around the code signing APIs, and performs nothing of the underlying work.
+Replacing it with older or newer versions is unlikely to have a useful effect.
 .Pp
 .Nm
 has several operations and options that are purposely left undocumented in this manual page because they

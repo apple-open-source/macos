@@ -56,7 +56,7 @@ SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* textRenderer, const TextRun&
     m_width = scaledFont.width(run, length, m_glyph.name) / scalingFactor;
     m_height = scaledFont.fontMetrics().floatHeight() / scalingFactor;
 
-    m_glyph.unicodeString = String(run.characters(), length);
+    m_glyph.unicodeString = run.is8Bit() ? String(run.characters8(), length) : String(run.characters16(), length);
     m_glyph.isValid = true;
 
     ASSERT(length >= 0);
@@ -70,7 +70,6 @@ TextRun SVGTextMetrics::constructTextRun(RenderSVGInlineText* text, const UChar*
 
     TextRun run(characters + position
                 , length
-                , false /* allowTabs */
                 , 0 /* xPos, only relevant with allowTabs=true */
                 , 0 /* padding, only relevant for justified text, not relevant for SVG */
                 , TextRun::AllowTrailingExpansion

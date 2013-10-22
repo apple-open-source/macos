@@ -82,7 +82,7 @@
 #endif
 #endif
 
-
+#if 0
 #if	FEE_DEBUG
 char printbuf1[200];
 char printbuf2[200];
@@ -109,6 +109,7 @@ void printGiantBuf2(giant x)
 	}
 }
 #endif	/* FEE_DEBUG */
+#endif /* 0 */
 
 /******** debugging flags *********/
 
@@ -138,7 +139,6 @@ void printGiantBuf2(giant x)
 #if	GIANT_MAC_DEBUG
 
 #include <string.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <TextUtils.h>
 
 /* this one needs a writable string */
@@ -253,7 +253,7 @@ void initGiantStacks(unsigned maxDigits)
 }
 
 /* called at shut down - free resources */ 
-void freeGiantStacks()
+void freeGiantStacks(void)
 {
 	int i;
 	int j;

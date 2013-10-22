@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010,2012 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,6 +34,7 @@
 #include "SecBridge.h"
 #include "TrustAdditions.h"
 #include "TrustKeychains.h"
+#include <security_cdsa_client/dlclient.h>
 
 
 using namespace Security;
@@ -74,12 +75,16 @@ class TrustKeychains
 public:
 	TrustKeychains();
 	~TrustKeychains()	{}
-	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore ? mRootStore->database()->handle() : nullCSSMDLDBHandle; }
+	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStoreHandle; }
 	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem ? mSystem->database()->handle() : nullCSSMDLDBHandle; }
-	Keychain			&rootStore()		{ return mRootStore; }
 	Keychain			&systemKc()			{ return mSystem; }
+	Keychain			&rootStore()		{ return *mRootStore; }
+
 private:
-	Keychain			mRootStore;
+	DL*					mRootStoreDL;
+	Db*					mRootStoreDb;
+	Keychain*			mRootStore;
+	CSSM_DL_DB_HANDLE	mRootStoreHandle;
 	Keychain			mSystem;
 };
 
@@ -91,10 +96,25 @@ private:
 static ModuleNexus<TrustKeychains> trustKeychains;
 static ModuleNexus<RecursiveMutex> trustKeychainsMutex;
 
+extern "C" bool GetServerMode();
+
 TrustKeychains::TrustKeychains() :
-	mRootStore(globals().storageManager.make(SYSTEM_ROOT_STORE_PATH, false)),
+	mRootStoreHandle(nullCSSMDLDBHandle),
 	mSystem(globals().storageManager.make(ADMIN_CERT_STORE_PATH, false))
 {
+	if (GetServerMode()) // in server mode?  Don't make a keychain for the root store
+	{
+		mRootStoreDL = new DL(gGuidAppleFileDL),
+		mRootStoreDb = new Db(*mRootStoreDL, SYSTEM_ROOT_STORE_PATH),
+		(*mRootStoreDb)->activate();
+		mRootStoreHandle = (*mRootStoreDb)->handle();
+	}
+	else
+	{
+		mRootStore = new Keychain(globals().storageManager.make(SYSTEM_ROOT_STORE_PATH, false));
+		(*mRootStore)->database()->activate();
+		mRootStoreHandle = (*mRootStore)->database()->handle();
+	}
 }
 
 RecursiveMutex& SecTrustKeychainsGetMutex()
@@ -110,10 +130,12 @@ RecursiveMutex& SecTrustKeychainsGetMutex()
 Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
     : mTP(gGuidAppleX509TP), mAction(CSSM_TP_ACTION_DEFAULT),
       mCerts(cfArrayize(certificates)), mPolicies(cfArrayize(policies)),
-      mResult(kSecTrustResultInvalid), mUsingTrustSettings(false),
-      mAnchorPolicy(useAnchorsDefault), mSearchLibsSet(false),
-      mSearchLibs(NULL), mMutex(Mutex::recursive)
+      mSearchLibs(NULL), mSearchLibsSet(false), mResult(kSecTrustResultInvalid),
+      mUsingTrustSettings(false), mAnchorPolicy(useAnchorsDefault), mMutex(Mutex::recursive)
 {
+	if (!mPolicies) {
+		mPolicies.take(CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks));
+	}
 }
 
 
@@ -126,6 +148,8 @@ Trust::~Trust()
 	if (mSearchLibs) {
 		delete mSearchLibs;
 	}
+    
+    mPolicies = NULL;
 }
 
 
@@ -167,12 +191,14 @@ CSSM_TP_VERIFY_CONTEXT_RESULT_PTR Trust::cssmResult()
 
 
 // SecCertificateRef -> CssmData
+static
 CssmData cfCertificateData(SecCertificateRef certificate)
 {
     return Certificate::required(certificate)->data();
 }
 
 // SecPolicyRef -> CssmField (CFDataRef/NULL or oid/value of a SecPolicy)
+static
 CssmField cfField(SecPolicyRef item)
 {
 	SecPointer<Policy> policy = Policy::required(SecPolicyRef(item));
@@ -180,11 +206,14 @@ CssmField cfField(SecPolicyRef item)
 }
 
 // SecKeychain -> CssmDlDbHandle
+#if 0
+static
 CSSM_DL_DB_HANDLE cfKeychain(SecKeychainRef ref)
 {
 	Keychain keychain = KeychainImpl::required(ref);
 	return keychain->database()->handle();
 }
+#endif
 
 #if !defined(NDEBUG)
 void showCertSKID(const void *value, void *context);
@@ -280,50 +309,72 @@ void Trust::evaluate(bool disableEV)
 		actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
 	}
 
-	if (policySpecified(mPolicies, CSSMOID_APPLE_TP_SSL)) {
-		// enable network cert fetch for SSL only: <rdar://7422356>
-		actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+	if (mNetworkPolicy == useNetworkDefault) {
+		if (policySpecified(mPolicies, CSSMOID_APPLE_TP_SSL)) {
+			// enable network cert fetch for SSL only: <rdar://7422356>
+			actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+		}
 	}
+	else if (mNetworkPolicy == useNetworkEnabled)
+		actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+	else if (mNetworkPolicy == useNetworkDisabled)
+		actionDataP->ActionFlags &= ~(CSSM_TP_ACTION_FETCH_CERT_FROM_NET);
 
     /*
 	 * Policies (one at least, please).
 	 * For revocation policies, see if any have been explicitly specified...
 	 */
 	CFMutableArrayRef allPolicies = NULL;
-	uint32 numSpecAdded = 0;
-	uint32 numPrefAdded = 0;
+	uint32 numRevocationAdded = 0;
 	bool requirePerCert = (actionDataP->ActionFlags & CSSM_TP_ACTION_REQUIRE_REV_PER_CERT);
-	if (isEVCandidate || requirePerCert) {
-		// force revocation checking for this evaluation
-		secdebug("evTrust", "Trust::evaluate() forcing OCSP/CRL revocation checking");
-		allPolicies = forceRevocationPolicies(numPrefAdded, context.allocator, requirePerCert);
+
+	// If a new unified revocation policy was explicitly specified,
+	// convert into old-style individual OCSP and CRL policies.
+	// Note that the caller could configure revocation policy options
+	// to explicitly disable both methods, so 0 policies might be added,
+	// in which case we must no longer consider the cert an EV candidate.
+
+	allPolicies = convertRevocationPolicy(numRevocationAdded, context.allocator);
+	if (allPolicies) {
+		// caller has explicitly set the revocation policy they want to use
+		secdebug("evTrust", "Trust::evaluate() using explicit revocation policy (%d)",
+			numRevocationAdded);
+		if (numRevocationAdded == 0)
+			isEVCandidate = false;
 	}
 	else if (mAnchors && (CFArrayGetCount(mAnchors)==0) && (searchLibs().size()==0)) {
-		// caller explicitly provided empty anchors and no keychain list;
+		// caller explicitly provided empty anchors and no keychain list,
+		// and did not explicitly specify the revocation policy;
 		// override global revocation check setting for this evaluation
+		secdebug("evTrust", "Trust::evaluate() has empty anchors and no keychains");
 		allPolicies = NULL; // use only mPolicies
+		isEVCandidate = false;
+	}
+	else if (isEVCandidate || requirePerCert) {
+		// force revocation checking for this evaluation
+		secdebug("evTrust", "Trust::evaluate() forcing OCSP/CRL revocation check");
+		allPolicies = forceRevocationPolicies(numRevocationAdded,
+			context.allocator, requirePerCert);
 	}
 	else if(!(revocationPolicySpecified(mPolicies))) {
-		/*
-		 * None specified in mPolicies; see if any specified via SPI.
-		 */
-		allPolicies = addSpecifiedRevocationPolicies(numSpecAdded, context.allocator);
-		if(allPolicies == NULL) {
-			/*
-			 * None there; try preferences.
-			 */
-			allPolicies = Trust::addPreferenceRevocationPolicies(numPrefAdded,
-				context.allocator);
-		}
-
+		// none specified in mPolicies; try preferences
+		allPolicies = addPreferenceRevocationPolicies(numRevocationAdded,
+			context.allocator);
 	}
-	if(allPolicies == NULL) {
-		allPolicies = CFMutableArrayRef(CFArrayRef(mPolicies));
+	if (allPolicies == NULL) {
+		// use mPolicies; no revocation checking will be performed
+		secdebug("evTrust", "Trust::evaluate() will not perform revocation check");
+		CFIndex numPolicies = CFArrayGetCount(mPolicies);
+		CFAllocatorRef allocator = CFGetAllocator(mPolicies);
+		allPolicies = CFArrayCreateMutableCopy(allocator, numPolicies, mPolicies);
 	}
 	orderRevocationPolicies(allPolicies);
     CFToVector<CssmField, SecPolicyRef, cfField> policies(allPolicies);
+#if 0
+	// error exit here if empty policies are not supported
     if (policies.empty())
         MacOSError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
+#endif
     context.setPolicies(policies, policies);
 
 	// anchor certificates (if caller provides them, or if cert requires EV)
@@ -399,7 +450,7 @@ void Trust::evaluate(bool disableEV)
 				/* Oh well, at least we got the root store DB */
 			}
 		}
-		context.setDlDbList(dlDbList.size(), &dlDbList[0]);
+		context.setDlDbList((uint32)dlDbList.size(), &dlDbList[0]);
 	}
 
     // verification time
@@ -420,7 +471,7 @@ void Trust::evaluate(bool disableEV)
     // Go TP!
     try {
         mTP->certGroupVerify(subjectCertGroup, context, &mTpResult);
-        mTpReturn = noErr;
+        mTpReturn = errSecSuccess;
     } catch (CommonError &err) {
         mTpReturn = err.osStatus();
         secdebug("trusteval", "certGroupVerify exception: %d", (int)mTpReturn);
@@ -452,12 +503,12 @@ void Trust::evaluate(bool disableEV)
 		CFRelease(fullChain);
 	}
 
-	/* Clean up Policies we created implicitly */
-	if(numSpecAdded) {
-		freeSpecifiedRevocationPolicies(allPolicies, numSpecAdded, context.allocator);
-	}
-	if(numPrefAdded) {
-		Trust::freePreferenceRevocationPolicies(allPolicies, numPrefAdded, context.allocator);
+	if (allPolicies) {
+		/* clean up revocation policies we created implicitly */
+		if(numRevocationAdded) {
+			freeAddedRevocationPolicyData(allPolicies, numRevocationAdded, context.allocator);
+		}
+		CFRelease(allPolicies);
 	}
 
 	if (holdSearchList) {
@@ -481,7 +532,6 @@ static const CSSM_RETURN recoverableErrors[] =
 	CSSMERR_TP_NOT_TRUSTED,
 	CSSMERR_TP_VERIFICATION_FAILURE,
 	CSSMERR_TP_VERIFY_ACTION_FAILED,
-	CSSMERR_TP_INVALID_CERTIFICATE,
 	CSSMERR_TP_INVALID_REQUEST_INPUTS,
 	CSSMERR_TP_CERT_EXPIRED,
 	CSSMERR_TP_CERT_NOT_VALID_YET,
@@ -508,6 +558,7 @@ static const CSSM_RETURN recoverableErrors[] =
 	CSSMERR_APPLETP_INCOMPLETE_REVOCATION_CHECK,
 	CSSMERR_APPLETP_NETWORK_FAILURE,
 	CSSMERR_APPLETP_OCSP_RESP_TRY_LATER,
+	CSSMERR_APPLETP_IDENTIFIER_MISSING,
 };
 #define NUM_RECOVERABLE_ERRORS	(sizeof(recoverableErrors) / sizeof(CSSM_RETURN))
 
@@ -528,7 +579,7 @@ SecTrustResultType Trust::diagnoseOutcome()
 	}
 
     switch (mTpReturn) {
-    case noErr:									// peachy
+    case errSecSuccess:									// peachy
 		if (mUsingTrustSettings)
 		{
 			if (chainLength)
@@ -613,17 +664,17 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
 
     // now walk the chain, leaf-to-root, checking for user settings
 	TrustStore &store = gStore();
-	SecPointer<Policy> policy =
-		Policy::required(SecPolicyRef(CFArrayGetValueAtIndex(mPolicies, 0)));
+	SecPointer<Policy> policy = (CFArrayGetCount(mPolicies)) ?
+		Policy::required(SecPolicyRef(CFArrayGetValueAtIndex(mPolicies, 0))) : NULL;
 	for (mResultIndex = 0;
-			mResult == kSecTrustResultUnspecified && mResultIndex < mCertChain.size();
+			mResult == kSecTrustResultUnspecified && mResultIndex < mCertChain.size() && policy;
 			mResultIndex++) {
 		if (!mCertChain[mResultIndex]) {
 			assert(false);
 			continue;
 		}
 		mResult = store.find(mCertChain[mResultIndex], policy, searchLibs());
-		secdebug("trusteval", "trustResult=%lu from cert %lu", mResult, (unsigned long)mResultIndex);
+		secdebug("trusteval", "trustResult=%d from cert %d", (int)mResult, (int)mResultIndex);
 	}
 }
 
@@ -741,7 +792,7 @@ CFArrayRef Trust::properties()
 				CFDictionarySetValue(dict, (const void *)kSecPropertyTypeTitle, (const void *)title);
 				CFRelease(title);
 			}
-			if (idx == 0 && mTpReturn != noErr) {
+			if (idx == 0 && mTpReturn != errSecSuccess) {
 				CFStringRef error = SecCopyErrorMessageString(mTpReturn, NULL);
 				if (error) {
 					CFDictionarySetValue(dict, (const void *)kSecPropertyTypeError, (const void *)error);
@@ -756,12 +807,54 @@ CFArrayRef Trust::properties()
 	return properties;
 }
 
+//
+// Return dictionary of evaluation results
+//
+CFDictionaryRef Trust::results()
+{
+	// Builds and returns a dictionary which the caller must release.
+	StLock<Mutex>_(mMutex);
+	CFMutableDictionaryRef results = CFDictionaryCreateMutable(NULL, 0,
+			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+	// kSecTrustResultValue
+	CFNumberRef numValue = CFNumberCreate(NULL, kCFNumberSInt32Type, &mResult);
+	if (numValue) {
+		CFDictionarySetValue(results, (const void *)kSecTrustResultValue, (const void *)numValue);
+		CFRelease(numValue);
+	}
+	if (mResult == kSecTrustResultInvalid || !mExtendedResult)
+		return results; // we have nothing more to add
+
+	// kSecTrustEvaluationDate
+	CFTypeRef evaluationDate;
+	if (CFDictionaryGetValueIfPresent(mExtendedResult, kSecTrustEvaluationDate, &evaluationDate))
+		CFDictionarySetValue(results, (const void *)kSecTrustEvaluationDate, (const void *)evaluationDate);
+
+	// kSecTrustExtendedValidation, kSecTrustOrganizationName
+	CFTypeRef organizationName;
+	if (CFDictionaryGetValueIfPresent(mExtendedResult, kSecEVOrganizationName, &organizationName)) {
+		CFDictionarySetValue(results, (const void *)kSecTrustOrganizationName, (const void *)organizationName);
+		CFDictionarySetValue(results, (const void *)kSecTrustExtendedValidation, (const void *)kCFBooleanTrue);
+	}
+
+	// kSecTrustRevocationChecked, kSecTrustRevocationValidUntilDate
+	CFTypeRef expirationDate;
+	if (CFDictionaryGetValueIfPresent(mExtendedResult, kSecTrustExpirationDate, &expirationDate)) {
+		CFDictionarySetValue(results, (const void *)kSecTrustRevocationValidUntilDate, (const void *)expirationDate);
+		CFDictionarySetValue(results, (const void *)kSecTrustRevocationChecked, (const void *)kCFBooleanTrue);
+	}
+
+	return results;
+}
+
 
 
 //* ===========================================================================
 //* We need a way to compare two CSSM_DL_DB_HANDLEs WITHOUT using a operator
 //* overload
 //* ===========================================================================
+static
 bool Compare_CSSM_DL_DB_HANDLE(const CSSM_DL_DB_HANDLE &h1, const CSSM_DL_DB_HANDLE &h2)
 {
     return (h1.DLHandle == h2.DLHandle && h1.DBHandle == h2.DBHandle);

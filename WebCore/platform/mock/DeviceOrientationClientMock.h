@@ -26,8 +26,8 @@
 #ifndef DeviceOrientationClientMock_h
 #define DeviceOrientationClientMock_h
 
-#include "DeviceOrientation.h"
 #include "DeviceOrientationClient.h"
+#include "DeviceOrientationData.h"
 #include "Timer.h"
 
 #include <wtf/PassRefPtr.h>
@@ -45,18 +45,18 @@ public:
     DeviceOrientationClientMock();
 
     // DeviceOrientationClient
-    virtual void setController(DeviceOrientationController*);
-    virtual void startUpdating();
-    virtual void stopUpdating();
-    virtual DeviceOrientation* lastOrientation() const { return m_orientation.get(); }
-    virtual void deviceOrientationControllerDestroyed() { }
+    virtual void setController(DeviceOrientationController*) OVERRIDE;
+    virtual void startUpdating() OVERRIDE;
+    virtual void stopUpdating() OVERRIDE;
+    virtual DeviceOrientationData* lastOrientation() const OVERRIDE { return m_orientation.get(); }
+    virtual void deviceOrientationControllerDestroyed() OVERRIDE { }
 
-    void setOrientation(PassRefPtr<DeviceOrientation>);
+    void setOrientation(PassRefPtr<DeviceOrientationData>);
 
 private:
     void timerFired(Timer<DeviceOrientationClientMock>*);
 
-    RefPtr<DeviceOrientation> m_orientation;
+    RefPtr<DeviceOrientationData> m_orientation;
     DeviceOrientationController* m_controller;
     Timer<DeviceOrientationClientMock> m_timer;
     bool m_isUpdating;

@@ -1,0 +1,8 @@
+/s = attribute_string(node, "type", "type64");/i
+	BOOL typeIsBlock = NO;
+.
+/if (s && \*s) {/a
+		typeIsBlock = (strcmp(s, "@?") == 0);
+.
+/if (attribute_bool(node, "block", NULL, NO)) {/s/)/) || typeIsBlock/
+w

@@ -71,7 +71,7 @@ public:
     void remove(const ModuleCallback &cb) { callbackSet.erase(cb); }
 
     unsigned int callbackCount() const { return callbackSet.size(); }
-    unsigned int attachmentCount() const { return attachmentMap.size(); }
+    unsigned int attachmentCount() const { return (int)attachmentMap.size(); }
 
 	void safeLock()		{ if (!isThreadSafe()) mLock.lock(); }
 	void safeUnlock()	{ if (!isThreadSafe()) mLock.unlock(); }

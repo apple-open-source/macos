@@ -1,9 +1,9 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2012 International Business Machines
-// * Corporation and others.  All Rights Reserved.
-// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File:<path>/common/main/es_US.xml
+// * Copyright (C) 2013 International Business Machines
+// * Corporation and others. All Rights Reserved.
+// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
+// * Source File: <path>/common/main/es_US.xml
 // *
 // ***************************************************************************
 es_US{
@@ -13,9 +13,46 @@ es_US{
         279,
         216,
     }
-    Version{"2.0.64.50"}
+    Version{"2.0.82.45"}
     calendar{
+        generic{
+            AmPmMarkers{
+                "AM",
+                "PM",
+            }
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d 'de' MMMM 'de' y G",
+                "d 'de' MMMM 'de' y G",
+                "MMM d, y G",
+                "M/d/yy GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                MEd{"E, MM/dd"}
+                MMMEd{"E, MMM d"}
+                MMMd{"MMM d"}
+                MMd{"MM/d"}
+                Md{"M/d"}
+                yM{"M/y"}
+                yMEd{"E, M/d/y"}
+                yMMMEd{"E, MMM d, y"}
+                yMMMd{"MMM d, y"}
+                yMd{"M/d/y"}
+            }
+        }
         gregorian{
+            AmPmMarkers{
+                "AM",
+                "PM",
+            }
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
@@ -37,11 +74,11 @@ es_US{
                 MMMd{"MMM d"}
                 MMd{"MM/d"}
                 Md{"M/d"}
-                yM{"M/yy"}
-                yMEd{"E, M/d/yy"}
+                yM{"M/y"}
+                yMEd{"E, M/d/y"}
                 yMMMEd{"E, MMM d, y"}
                 yMMMd{"MMM d, y"}
-                yMd{"M/d/yy"}
+                yMd{"M/d/y"}
             }
         }
     }

@@ -84,7 +84,6 @@
 #include "ntfs_time.h"
 #include "ntfs_unistr.h"
 #include "ntfs_usnjrnl.h"
-#include "ntfs_version.h"
 #include "ntfs_vnops.h"
 #include "ntfs_volume.h"
 
@@ -2650,6 +2649,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 		es1 = !vol->mftmirr_ni ? es1a : es1b;
 		/* If a read-write mount, convert it to a read-only mount. */
 		if (!NVolReadOnly(vol)) {
+			if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+				ntfs_error(vol->mp, "%s%s", es1, es2);
+				err = EIO;
+				goto err;
+			}
 			if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 					ON_ERRORS_CONTINUE))) {
 				ntfs_error(vol->mp, "%s and neither on_errors="
@@ -2773,6 +2777,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 				(unsigned)le16_to_cpu(vol->vol_flags));
 		/* If a read-write mount, convert it to a read-only mount. */
 		if (!NVolReadOnly(vol)) {
+			if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+				ntfs_error(vol->mp, "%s%s", es1, es2);
+				err = EINVAL;
+				goto err;
+			}
 			if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 					ON_ERRORS_CONTINUE))) {
 				ntfs_error(vol->mp, "%s and neither on_errors="
@@ -2822,6 +2831,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 		es1 = !vol->logfile_ni ? es1a : es1b;
 		/* If a read-write mount, convert it to a read-only mount. */
 		if (!NVolReadOnly(vol)) {
+			if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+				ntfs_error(vol->mp, "%s%s", es1, es2);
+				err = EROFS;
+				goto err;
+			}
 			if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 					ON_ERRORS_CONTINUE))) {
 				ntfs_error(vol->mp, "%s and neither on_errors="
@@ -2857,6 +2871,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 		es1 = err ? es1a : es1b;
 		/* If a read-write mount, convert it to a read-only mount. */
 		if (!NVolReadOnly(vol)) {
+			if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+				ntfs_error(vol->mp, "%s%s", es1, es2);
+				err = EROFS;
+				goto err;
+			}
 			if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 					ON_ERRORS_CONTINUE))) {
 				ntfs_error(vol->mp, "%s and neither on_errors="
@@ -2884,6 +2903,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 		static const char es2[] = ".  Run chkdsk.";
 
 		/* Convert to a read-only mount. */
+		if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+			ntfs_error(vol->mp, "%s%s", es1, es2);
+			err = EIO;
+			goto err;
+		}
 		if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 				ON_ERRORS_CONTINUE))) {
 			ntfs_error(vol->mp, "%s and neither on_errors="
@@ -2905,6 +2929,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 		static const char es1[] = "Failed to empty journal $LogFile";
 		static const char es2[] = ".  Mount in Windows.";
 
+		if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+			ntfs_error(vol->mp, "%s%s", es1, es2);
+			err = EIO;
+			goto err;
+		}
 		/* Convert to a read-only mount. */
 		if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 				ON_ERRORS_CONTINUE))) {
@@ -2950,6 +2979,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 
 		/* If a read-write mount, convert it to a read-only mount. */
 		if (!NVolReadOnly(vol)) {
+			if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+				ntfs_error(vol->mp, "%s%s", es1, es2);
+				err = EIO;
+				goto err;
+			}
 			if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 					ON_ERRORS_CONTINUE))) {
 				ntfs_error(vol->mp, "%s and neither on_errors="
@@ -2975,6 +3009,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 
 		/* If a read-write mount, convert it to a read-only mount. */
 		if (!NVolReadOnly(vol)) {
+			if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+				ntfs_error(vol->mp, "%s%s", es1, es2);
+				err = EIO;
+				goto err;
+			}
 			if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 					ON_ERRORS_CONTINUE))) {
 				ntfs_error(vol->mp, "%s and neither on_errors="
@@ -2998,6 +3037,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 		static const char es2[] = ".  Run chkdsk.";
 
 		/* Convert to a read-only mount. */
+		if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+			ntfs_error(vol->mp, "%s%s", es1, es2);
+			err = EIO;
+			goto err;
+		}
 		if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 				ON_ERRORS_CONTINUE))) {
 			ntfs_error(vol->mp, "%s and neither on_errors="
@@ -3021,6 +3065,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 
 		/* If a read-write mount, convert it to a read-only mount. */
 		if (!NVolReadOnly(vol)) {
+			if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+				ntfs_error(vol->mp, "%s%s", es1, es2);
+				err = EIO;
+				goto err;
+			}
 			if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 					ON_ERRORS_CONTINUE))) {
 				ntfs_error(vol->mp, "%s and neither on_errors="
@@ -3044,6 +3093,11 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 				"($UsnJrnl)";
 		static const char es2[] = ".  Run chkdsk.";
 
+		if (vol->on_errors & ON_ERRORS_FAIL_DIRTY) {
+			ntfs_error(vol->mp, "%s%s", es1, es2);
+			err = EIO;
+			goto err;
+		}
 		/* Convert to a read-only mount. */
 		if (!(vol->on_errors & (ON_ERRORS_REMOUNT_RO |
 				ON_ERRORS_CONTINUE))) {
@@ -4133,7 +4187,7 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 		.fmask = 0022,
 		.dmask = 0022,
 		.mft_zone_multiplier = 1,
-		.on_errors = ON_ERRORS_CONTINUE,
+		.on_errors = ON_ERRORS_CONTINUE|ON_ERRORS_FAIL_DIRTY,
 	};
 	lck_rw_init(&vol->mftbmp_lock, ntfs_lock_grp, ntfs_lock_attr);
 	lck_rw_init(&vol->lcnbmp_lock, ntfs_lock_grp, ntfs_lock_attr);
@@ -5454,7 +5508,7 @@ kern_return_t ntfs_module_start(kmod_info_t *ki __unused, void *data __unused)
 	errno_t err;
 	struct vfs_fsentry vfe;
 
-	printf("NTFS driver " VERSION " [Flags: R/W"
+    printf("NTFS driver " NTFS_VERSION_STRING " [Flags: R/W"
 #ifdef DEBUG
 			" DEBUG"
 #endif

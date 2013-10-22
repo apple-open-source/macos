@@ -37,8 +37,9 @@
 #include "Page.h"
 #include "PasteboardHelper.h"
 #include "PlatformKeyboardEvent.h"
+#include "Settings.h"
+#include "StylePropertySet.h"
 #include "UndoStep.h"
-#include "WebKitDOMBinding.h"
 #include "WebKitDOMCSSStyleDeclarationPrivate.h"
 #include "WebKitDOMHTMLElementPrivate.h"
 #include "WebKitDOMNodePrivate.h"
@@ -91,14 +92,6 @@ bool EditorClient::shouldDeleteRange(Range* range)
     gboolean accept = TRUE;
     GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-delete-range", kitRange.get(), &accept);
-    return accept;
-}
-
-bool EditorClient::shouldShowDeleteInterface(HTMLElement* element)
-{
-    gboolean accept = TRUE;
-    GRefPtr<WebKitDOMHTMLElement> kitElement(adoptGRef(kit(element)));
-    g_signal_emit_by_name(m_webView, "should-show-delete-interface-for-element", kitElement.get(), &accept);
     return accept;
 }
 
@@ -187,7 +180,7 @@ bool EditorClient::shouldChangeSelectedRange(Range* fromRange, Range* toRange, E
 bool EditorClient::shouldApplyStyle(WebCore::StylePropertySet* set, WebCore::Range* range)
 {
     gboolean accept = TRUE;
-    GRefPtr<WebKitDOMCSSStyleDeclaration> kitDeclaration(kit(set->ensureCSSStyleDeclaration()));
+    GRefPtr<WebKitDOMCSSStyleDeclaration> kitDeclaration(kit(set->mutableCopy()->ensureCSSStyleDeclaration()));
     GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-apply-style", kitDeclaration.get(), kitRange.get(), &accept);
     return accept;
@@ -262,12 +255,7 @@ void EditorClient::respondToChangedSelection(Frame* frame)
     setSelectionPrimaryClipboardIfNeeded(m_webView);
 #endif
 
-    if (m_updatingComposition || !frame->editor()->hasComposition() || frame->editor()->ignoreCompositionSelectionChange())
-        return;
-
-    unsigned start;
-    unsigned end;
-    if (!frame->editor()->getCompositionSelection(start, end))
+    if (frame->editor().cancelCompositionIfSelectionIsInvalid())
         m_webView->priv->imFilter.resetContext();
 }
 
@@ -279,6 +267,14 @@ void EditorClient::didEndEditing()
 void EditorClient::didWriteSelectionToPasteboard()
 {
     notImplemented();
+}
+
+void EditorClient::willWriteSelectionToPasteboard(WebCore::Range*)
+{
+}
+
+void EditorClient::getClientPasteboardDataForRange(WebCore::Range*, Vector<String>&, Vector<RefPtr<WebCore::SharedBuffer> >&)
+{
 }
 
 void EditorClient::didSetSelectionTypesForPasteboard()
@@ -364,21 +360,20 @@ void EditorClient::pageDestroyed()
     delete this;
 }
 
-void EditorClient::setSmartInsertDeleteEnabled(bool enabled)
-{
-    m_smartInsertDeleteEnabled = enabled;
-}
-
 bool EditorClient::smartInsertDeleteEnabled()
 {
-    return m_smartInsertDeleteEnabled;
+    WebCore::Page* corePage = core(m_webView);
+    if (!corePage)
+        return false;
+    return corePage->settings()->smartInsertDeleteEnabled();
 }
 
 bool EditorClient::isSelectTrailingWhitespaceEnabled()
 {
-    if (!DumpRenderTreeSupportGtk::dumpRenderTreeModeEnabled())
+    WebCore::Page* corePage = core(m_webView);
+    if (!corePage)
         return false;
-    return DumpRenderTreeSupportGtk::selectTrailingWhitespaceEnabled();
+    return corePage->settings()->selectTrailingWhitespaceEnabled();
 }
 
 void EditorClient::toggleContinuousSpellChecking()
@@ -399,7 +394,7 @@ bool EditorClient::executePendingEditorCommands(Frame* frame, bool allowTextInse
 {
     Vector<Editor::Command> commands;
     for (size_t i = 0; i < m_pendingEditorCommands.size(); i++) {
-        Editor::Command command = frame->editor()->command(m_pendingEditorCommands.at(i).utf8().data());
+        Editor::Command command = frame->editor().command(m_pendingEditorCommands.at(i).utf8().data());
         if (command.isTextInsertion() && !allowTextInsertion)
             return false;
 
@@ -418,7 +413,7 @@ bool EditorClient::executePendingEditorCommands(Frame* frame, bool allowTextInse
     return success;
 }
 
-bool EditorClient::handleInputMethodKeyboardEvent(KeyboardEvent* event)
+static bool keyboardEventHadCompositionResults(KeyboardEvent* event)
 {
     if (event->type() != eventNames().keydownEvent)
         return false;
@@ -427,33 +422,7 @@ bool EditorClient::handleInputMethodKeyboardEvent(KeyboardEvent* event)
     if (!platformEvent)
         return false;
 
-    Frame* frame = core(m_webView)->focusController()->focusedOrMainFrame();
-    if (!frame || !frame->editor()->canEdit())
-        return false;
-
-    const CompositionResults& compositionResults = platformEvent->compositionResults();
-    if (!compositionResults.compositionUpdated())
-        return false;
-
-    m_updatingComposition = true;
-
-    // PlatformKeyboardEvent returns an empty string when there are composition results.
-    // That prevents the delivery of keypress, which is the behavior we want for composition
-    // events. See EventHandler::keyEvent. 
-    ASSERT(platformEvent->text().isNull());
-
-    if (!compositionResults.confirmedComposition.isNull())
-        frame->editor()->confirmComposition(compositionResults.confirmedComposition);
-
-    String preedit = compositionResults.preedit;
-    if (!preedit.isNull()) {
-        Vector<CompositionUnderline> underlines;
-        underlines.append(CompositionUnderline(0, preedit.length(), Color(1, 1, 1), false));
-        frame->editor()->setComposition(preedit, underlines, compositionResults.preeditCursorOffset, compositionResults.preeditCursorOffset);
-    }
-
-    m_updatingComposition = false;
-    return true;
+    return platformEvent->compositionResults().compositionUpdated();
 }
 
 void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
@@ -467,7 +436,7 @@ void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
     if (!platformEvent)
         return;
 
-    if (handleInputMethodKeyboardEvent(event))
+    if (keyboardEventHadCompositionResults(event))
         return;
 
     KeyBindingTranslator::EventType type = event->type() == eventNames().keydownEvent ?
@@ -486,14 +455,15 @@ void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
         }
 
         // Only allow text insertion commands if the current node is editable.
-        if (executePendingEditorCommands(frame, frame->editor()->canEdit())) {
+        if (executePendingEditorCommands(frame, frame->editor().canEdit())) {
             event->setDefaultHandled();
             return;
         }
+        m_pendingEditorCommands.clear();
     }
 
     // Don't allow text insertion for nodes that cannot edit.
-    if (!frame->editor()->canEdit())
+    if (!frame->editor().canEdit())
         return;
 
     // This is just a normal text insertion, so wait to execute the insertion
@@ -510,7 +480,7 @@ void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
     if (platformEvent->ctrlKey() || platformEvent->altKey())
         return;
 
-    if (frame->editor()->insertText(platformEvent->text(), event))
+    if (frame->editor().insertText(platformEvent->text(), event))
         event->setDefaultHandled();
 }
 
@@ -519,6 +489,9 @@ void EditorClient::handleInputMethodKeydown(KeyboardEvent* event)
     // Input method results are handled in handleKeyboardEvent, so that we can wait
     // to trigger composition updates until after the keydown event handler. This better
     // matches other browsers.
+    const PlatformKeyboardEvent* platformEvent = event->keyEvent();
+    if (platformEvent && platformEvent->compositionResults().compositionUpdated())
+        event->preventDefault();
 }
 
 EditorClient::EditorClient(WebKitWebView* webView)
@@ -527,8 +500,6 @@ EditorClient::EditorClient(WebKitWebView* webView)
     , m_textCheckerClient(WEBKIT_SPELL_CHECKER(webkit_get_text_checker()))
 #endif
     , m_webView(webView)
-    , m_smartInsertDeleteEnabled(false)
-    , m_updatingComposition(false)
 {
 }
 
@@ -582,6 +553,15 @@ bool EditorClient::spellingUIIsShowing()
 {
     notImplemented();
     return false;
+}
+
+bool EditorClient::supportsGlobalSelection()
+{
+#if PLATFORM(X11)
+    return true;
+#else
+    return false;
+#endif
 }
 
 }

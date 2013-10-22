@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_config.c 29856 2010-11-22 07:21:45Z shyouhei $
+ * $Id: ossl_config.c 29359 2010-09-29 03:37:44Z nobu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -17,11 +17,9 @@
 VALUE cConfig;
 VALUE eConfigError;
 
-/* 
- * Public 
+/*
+ * Public
  */
-
-static CONF *parse_config(VALUE, CONF*);
 
 /*
  * GetConfigPtr is a public C-level function for getting OpenSSL CONF struct
@@ -56,6 +54,7 @@ GetConfigPtr(VALUE obj)
 
     return conf;
 }
+
 
 /*
  * INIT

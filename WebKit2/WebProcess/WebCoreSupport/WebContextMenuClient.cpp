@@ -33,7 +33,9 @@
 #include "WebContextMenuItemData.h"
 #include "WebPage.h"
 #include <WebCore/ContextMenu.h>
+#include <WebCore/Event.h>
 #include <WebCore/Frame.h>
+#include <WebCore/FrameLoader.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/UserGestureIndicator.h>
@@ -66,30 +68,28 @@ void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem*, const Conte
     notImplemented();
 }
 
-void WebContextMenuClient::downloadURL(const KURL& url)
+void WebContextMenuClient::downloadURL(const KURL&)
 {
     // This is handled in the UI process.
     ASSERT_NOT_REACHED();
 }
 
+#if !PLATFORM(MAC)
 void WebContextMenuClient::searchWithGoogle(const Frame* frame)
 {
-    // FIXME: this should use NSPerformService on Mac to support the system default search provider.
-
-    String searchString = frame->editor()->selectedText();
+    String searchString = frame->editor().selectedText();
     searchString.stripWhiteSpace();
     String encoded = encodeWithURLEscapeSequences(searchString);
     encoded.replace("%20", "+");
     
-    String url("http://www.google.com/search?q=");
-    url.append(encoded);
-    url.append("&ie=UTF-8&oe=UTF-8");
+    String url = "http://www.google.com/search?q=" + encoded + "&ie=UTF-8&oe=UTF-8";
 
     if (Page* page = frame->page()) {
-        UserGestureIndicator indicator(DefinitelyProcessingUserGesture);
+        UserGestureIndicator indicator(DefinitelyProcessingNewUserGesture);
         page->mainFrame()->loader()->urlSelected(KURL(ParsedURLString, url), String(), 0, false, false, MaybeSendReferrer);
     }
 }
+#endif
 
 #if USE(ACCESSIBILITY_CONTEXT_MENUS)
 void WebContextMenuClient::showContextMenu()

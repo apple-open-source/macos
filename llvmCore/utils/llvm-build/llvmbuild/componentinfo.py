@@ -42,6 +42,13 @@ class ComponentInfo(object):
         self.parent_instance = None
         self.children = []
 
+        # The original source path.
+        self._source_path = None
+
+        # A flag to mark "special" components which have some amount of magic
+        # handling (generally based on command line options).
+        self._is_special_group = False
+
     def set_parent_instance(self, parent):
         assert parent.name == self.parent, "Unexpected parent!"
         self.parent_instance = parent
@@ -60,6 +67,21 @@ class ComponentInfo(object):
 
     def get_llvmbuild_fragment(self):
         abstract
+
+    def get_parent_target_group(self):
+        """get_parent_target_group() -> ComponentInfo or None
+
+        Return the nearest parent target group (if any), or None if the
+        component is not part of any target group.
+        """
+
+        # If this is a target group, return it.
+        if self.type_name == 'TargetGroup':
+            return self
+
+        # Otherwise recurse on the parent, if any.
+        if self.parent_instance:
+            return self.parent_instance.get_parent_target_group()
 
 class GroupComponentInfo(ComponentInfo):
     """
@@ -88,16 +110,22 @@ class LibraryComponentInfo(ComponentInfo):
     type_name = 'Library'
 
     @staticmethod
-    def parse(subpath, items):
+    def parse_items(items):
         kwargs = ComponentInfo.parse_items(items)
         kwargs['library_name'] = items.get_optional_string('library_name')
         kwargs['required_libraries'] = items.get_list('required_libraries')
         kwargs['add_to_library_groups'] = items.get_list(
             'add_to_library_groups')
+        kwargs['installed'] = items.get_optional_bool('installed', True)
+        return kwargs
+
+    @staticmethod
+    def parse(subpath, items):
+        kwargs = LibraryComponentInfo.parse_items(items)
         return LibraryComponentInfo(subpath, **kwargs)
 
     def __init__(self, subpath, name, dependencies, parent, library_name,
-                 required_libraries, add_to_library_groups):
+                 required_libraries, add_to_library_groups, installed):
         ComponentInfo.__init__(self, subpath, name, dependencies, parent)
 
         # If given, the name to use for the library instead of deriving it from
@@ -111,6 +139,9 @@ class LibraryComponentInfo(ComponentInfo):
         # The names of the library group components this component should be
         # considered part of.
         self.add_to_library_groups = list(add_to_library_groups)
+
+        # Whether or not this library is installed.
+        self.installed = installed
 
     def get_component_references(self):
         for r in ComponentInfo.get_component_references(self):
@@ -133,13 +164,46 @@ class LibraryComponentInfo(ComponentInfo):
         if self.add_to_library_groups:
             print >>result, 'add_to_library_groups = %s' % ' '.join(
                 self.add_to_library_groups)
+        if not self.installed:
+            print >>result, 'installed = 0'
         return result.getvalue()
 
     def get_library_name(self):
         return self.library_name or self.name
 
+    def get_prefixed_library_name(self):
+        """
+        get_prefixed_library_name() -> str
+
+        Return the library name prefixed by the project name. This is generally
+        what the library name will be on disk.
+        """
+
+        basename = self.get_library_name()
+
+        # FIXME: We need to get the prefix information from an explicit project
+        # object, or something.
+        if basename in ('gtest', 'gtest_main'):
+            return basename
+
+        return 'LLVM%s' % basename
+
     def get_llvmconfig_component_name(self):
         return self.get_library_name().lower()
+
+class OptionalLibraryComponentInfo(LibraryComponentInfo):
+    type_name = "OptionalLibrary"
+
+    @staticmethod
+    def parse(subpath, items):
+      kwargs = LibraryComponentInfo.parse_items(items)
+      return OptionalLibraryComponentInfo(subpath, **kwargs)
+
+    def __init__(self, subpath, name, dependencies, parent, library_name,
+                 required_libraries, add_to_library_groups, installed):
+      LibraryComponentInfo.__init__(self, subpath, name, dependencies, parent,
+                                    library_name, required_libraries,
+                                    add_to_library_groups, installed)
 
 class LibraryGroupComponentInfo(ComponentInfo):
     type_name = 'LibraryGroup'
@@ -177,7 +241,7 @@ class LibraryGroupComponentInfo(ComponentInfo):
         print >>result, 'type = %s' % self.type_name
         print >>result, 'name = %s' % self.name
         print >>result, 'parent = %s' % self.parent
-        if self.required_libraries:
+        if self.required_libraries and not self._is_special_group:
             print >>result, 'required_libraries = %s' % ' '.join(
                 self.required_libraries)
         if self.add_to_library_groups:
@@ -198,10 +262,18 @@ class TargetGroupComponentInfo(ComponentInfo):
         kwargs['add_to_library_groups'] = items.get_list(
             'add_to_library_groups')
         kwargs['has_jit'] = items.get_optional_bool('has_jit', False)
+        kwargs['has_asmprinter'] = items.get_optional_bool('has_asmprinter',
+                                                           False)
+        kwargs['has_asmparser'] = items.get_optional_bool('has_asmparser',
+                                                          False)
+        kwargs['has_disassembler'] = items.get_optional_bool('has_disassembler',
+                                                             False)
         return TargetGroupComponentInfo(subpath, **kwargs)
 
     def __init__(self, subpath, name, parent, required_libraries = [],
-                 add_to_library_groups = [], has_jit = False):
+                 add_to_library_groups = [], has_jit = False,
+                 has_asmprinter = False, has_asmparser = False,
+                 has_disassembler = False):
         ComponentInfo.__init__(self, subpath, name, [], parent)
 
         # The names of the library components which are required when linking
@@ -214,6 +286,15 @@ class TargetGroupComponentInfo(ComponentInfo):
 
         # Whether or not this target supports the JIT.
         self.has_jit = bool(has_jit)
+
+        # Whether or not this target defines an assembly printer.
+        self.has_asmprinter = bool(has_asmprinter)
+
+        # Whether or not this target defines an assembly parser.
+        self.has_asmparser = bool(has_asmparser)
+
+        # Whether or not this target defines an disassembler.
+        self.has_disassembler = bool(has_disassembler)
 
         # Whether or not this target is enabled. This is set in response to
         # configuration parameters.
@@ -238,9 +319,10 @@ class TargetGroupComponentInfo(ComponentInfo):
         if self.add_to_library_groups:
             print >>result, 'add_to_library_groups = %s' % ' '.join(
                 self.add_to_library_groups)
-        if self.has_jit:
-            print >>result, 'has_jit = %s' % ' '.join(
-                int(self.has_jit))
+        for bool_key in ('has_asmparser', 'has_asmprinter', 'has_disassembler',
+                         'has_jit'):
+            if getattr(self, bool_key):
+                print >>result, '%s = 1' % (bool_key,)
         return result.getvalue()
 
     def get_llvmconfig_component_name(self):
@@ -333,12 +415,22 @@ _component_type_map = dict(
     for t in (GroupComponentInfo,
               LibraryComponentInfo, LibraryGroupComponentInfo,
               ToolComponentInfo, BuildToolComponentInfo,
-              TargetGroupComponentInfo))
+              TargetGroupComponentInfo, OptionalLibraryComponentInfo))
 def load_from_path(path, subpath):
     # Load the LLVMBuild.txt file as an .ini format file.
     parser = ConfigParser.RawConfigParser()
     parser.read(path)
 
+    # Extract the common section.
+    if parser.has_section("common"):
+        common = IniFormatParser(parser.items("common"))
+        parser.remove_section("common")
+    else:
+        common = IniFormatParser({})
+
+    return common, _read_components_from_parser(parser, path, subpath)
+
+def _read_components_from_parser(parser, path, subpath):
     # We load each section which starts with 'component' as a distinct component
     # description (so multiple components can be described in one file).
     for section in parser.sections():
@@ -372,4 +464,5 @@ def load_from_path(path, subpath):
             fatal("unable to load component %r in %r: %s" % (
                     section, path, e.message))
 
+        info._source_path = path
         yield info

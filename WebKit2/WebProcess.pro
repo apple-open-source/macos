@@ -11,18 +11,21 @@ DESTDIR = $${ROOT_BUILD_DIR}/bin
 
 SOURCES += qt/MainQt.cpp
 
-QT += network webkit widgets
+INCLUDEPATH = \
+    $$PWD/Shared/linux/SandboxProcess/ \
+    $$INCLUDEPATH
+
+QT += network webkit
 macx: QT += xml
 
-contains(QT_CONFIG, opengl) {
-    QT += opengl
-    DEFINES += QT_CONFIGURED_WITH_OPENGL
-}
+haveQtModule(widgets): QT += widgets webkitwidgets
+
+build?(webkit1): DEFINES += HAVE_WEBKIT1
 
 INSTALLS += target
 
 isEmpty(INSTALL_BINS) {
-    target.path = $$[QT_INSTALL_BINS]
+    target.path = $$[QT_INSTALL_LIBEXECS]
 } else {
     target.path = $$INSTALL_BINS
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,21 +30,11 @@
 
 #include <xpc/xpc.h>
 #include <xpc/private.h>
-
-#include "rb.h"
+#include <sys/rbtree.h>
 
 
 #pragma mark -
 #pragma mark Globals
-
-
-static const struct addrinfo	hints0	= {
-#ifdef  AI_PARALLEL
-	.ai_flags	= AI_PARALLEL | AI_ADDRCONFIG
-#else  // AI_PARALLEL
-	.ai_flags	= AI_ADDRCONFIG
-#endif  // AI_PARALLEL
-};
 
 
 static Boolean			serverAvailable	= TRUE;
@@ -70,50 +60,48 @@ log_xpc_object(const char *msg, xpc_object_t obj)
 
 
 typedef struct {
-	struct rb_node			rbn;
+	rb_node_t			rbn;
 	SCNetworkReachabilityRef	target;
 } reach_request_t;
 
 
-#define RBNODE_TO_REACH_REQUEST(node) \
-	((reach_request_t *)((uintptr_t)node - offsetof(reach_request_t, rbn)))
-
-
 static int
-_rbt_compare_transaction_nodes(const struct rb_node *n1, const struct rb_node *n2)
+_rbt_compare_transaction_nodes(void *context, const void *n1, const void *n2)
 {
-	uint64_t	a = (uintptr_t)(RBNODE_TO_REACH_REQUEST(n1)->target);
-	uint64_t	b = (uintptr_t)(RBNODE_TO_REACH_REQUEST(n2)->target);
+	uint64_t	a = (uintptr_t)(((reach_request_t *)n1)->target);
+	uint64_t	b = (uintptr_t)(((reach_request_t *)n2)->target);
 
 	return (a - b);
 }
 
 
 static int
-_rbt_compare_transaction_key(const struct rb_node *n1, const void *key)
+_rbt_compare_transaction_key(void *context, const void *n1, const void *key)
 {
-	uint64_t	a = (uintptr_t)(RBNODE_TO_REACH_REQUEST(n1)->target);
+	uint64_t	a = (uintptr_t)(((reach_request_t *)n1)->target);
 	uint64_t	b = *(uint64_t *)key;
 
 	return (a - b);
 }
 
 
-static struct rb_tree *
+static rb_tree_t *
 _reach_requests_rbt()
 {
 	static dispatch_once_t		once;
-	static const struct rb_tree_ops	ops = {
+	static const rb_tree_ops_t	ops = {
 		.rbto_compare_nodes	= _rbt_compare_transaction_nodes,
 		.rbto_compare_key	= _rbt_compare_transaction_key,
+		.rbto_node_offset	= offsetof(reach_request_t, rbn),
+		.rbto_context		= NULL
 	};
-	static struct rb_tree		rbtree;
+	static rb_tree_t		rbt;
 
 	dispatch_once(&once, ^{
-		rb_tree_init(&rbtree, &ops);
+		rb_tree_init(&rbt, &ops);
 	});
 
-	return &rbtree;
+	return &rbt;
 }
 
 
@@ -124,7 +112,7 @@ _reach_requests_rbt_queue()
 	static dispatch_queue_t	q;
 
 	dispatch_once(&once, ^{
-		q = dispatch_queue_create(REACH_SERVICE_NAME ".rbt", NULL);
+		q = dispatch_queue_create(REACH_SERVICE_NAME ".requests.rbt", NULL);
 	});
 
 	return q;
@@ -161,14 +149,13 @@ _reach_request_add(SCNetworkReachabilityRef target)
 	uint64_t	target_id	= (uintptr_t)target;
 
 	dispatch_sync(_reach_requests_rbt_queue(), ^{
-		struct rb_node		*rbn;
+		rb_tree_t	*rbt	= _reach_requests_rbt();
+		reach_request_t	*request;
 
-		rbn = rb_tree_find_node(_reach_requests_rbt(), &target_id);
-		if (rbn == NULL) {
-			reach_request_t	*request;
-
+		request = rb_tree_find_node(rbt, &target_id);
+		if (request == NULL) {
 			request = _reach_request_create(target);
-			if (request == NULL || !rb_tree_insert_node(_reach_requests_rbt(), &request->rbn)) {
+			if (request == NULL || !rb_tree_insert_node(rbt, request)) {
 				__builtin_trap();
 			}
 		}
@@ -184,17 +171,17 @@ _reach_request_remove(SCNetworkReachabilityRef target)
 	uint64_t	target_id	= (uintptr_t)target;
 
 	dispatch_sync(_reach_requests_rbt_queue(), ^{		// FIXME ?? use dispatch_async?
-		struct rb_node		*rbn;
-		struct rb_tree		*rbtree = _reach_requests_rbt();
+		rb_tree_t	*rbt	= _reach_requests_rbt();
+		reach_request_t	*request;
 
-		rbn = rb_tree_find_node(rbtree, &target_id);
-		if (rbn != NULL) {
-			reach_request_t	*request	= RBNODE_TO_REACH_REQUEST(rbn);
-
-			rb_tree_remove_node(rbtree, rbn);
+		request = rb_tree_find_node(rbt, &target_id);
+		if (request != NULL) {
+			rb_tree_remove_node(rbt, request);
 			_reach_request_release(request);
 		}
 	});
+
+	return;
 }
 
 
@@ -204,12 +191,12 @@ _reach_request_copy_target(uint64_t target_id)
 	__block SCNetworkReachabilityRef	target	= NULL;
 
 	dispatch_sync(_reach_requests_rbt_queue(), ^{
-		struct rb_node	*rbn;
+		rb_tree_t	*rbt	= _reach_requests_rbt();
+		reach_request_t	*request;
 
-		rbn = rb_tree_find_node(_reach_requests_rbt(), &target_id);
-		if (rbn != NULL) {
-			// handle the [async] reply
-			target = (SCNetworkReachabilityRef)(uintptr_t)target_id;
+		request = rb_tree_find_node(rbt, &target_id);
+		if (request != NULL) {
+			target = request->target;
 			CFRetain(target);
 		}
 	});
@@ -233,7 +220,7 @@ handle_reachability_status(SCNetworkReachabilityRef target, xpc_object_t dict)
 //		log_xpc_object("  status", dict);
 	}
 
-	__SCNetworkReachabilityPerformNoLock(target);
+	__SCNetworkReachabilityPerformConcurrent(target);
 
 	return;
 }
@@ -284,6 +271,11 @@ static xpc_connection_t
 _reach_connection_create()
 {
 	xpc_connection_t		c;
+#if	!TARGET_IPHONE_SIMULATOR
+	const uint64_t		flags	=	XPC_CONNECTION_MACH_SERVICE_PRIVILEGED;
+#else	// !TARGET_IPHONE_SIMULATOR
+	const uint64_t		flags	=	0;
+#endif	// !TARGET_IPHONE_SIMULATOR
 	const char			*name;
 	dispatch_queue_t		q	= _reach_xpc_queue();
 
@@ -293,9 +285,7 @@ _reach_connection_create()
 		name = REACH_SERVICE_NAME;
 	}
 
-	c = xpc_connection_create_mach_service(name,
-					       q,
-					       XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
+	c = xpc_connection_create_mach_service(name, q, flags);
 
 	xpc_connection_set_event_handler(c, ^(xpc_object_t xobj) {
 		xpc_type_t	type;
@@ -316,14 +306,18 @@ _reach_connection_create()
 
 			target = _reach_request_copy_target(target_id);
 			if (target == NULL) {
-				SCLog(TRUE, LOG_ERR,
-				      CFSTR("received unexpected target [ID] from SCNetworkReachability server"));
-				log_xpc_object("  reply", xobj);
+//				SCLog(TRUE, LOG_ERR,
+//				      CFSTR("received unexpected target [ID] from SCNetworkReachability server"));
+//				log_xpc_object("  reply", xobj);
 				return;
 			}
 
-			handle_async_notification(target, xobj);
-			CFRelease(target);
+			xpc_retain(xobj);
+			dispatch_async(__SCNetworkReachability_concurrent_queue(), ^{
+				handle_async_notification(target, xobj);
+				CFRelease(target);
+				xpc_release(xobj);
+			});
 
 		} else if (type == XPC_TYPE_ERROR) {
 			if (xobj == XPC_ERROR_CONNECTION_INVALID) {
@@ -403,7 +397,7 @@ add_proc_name(xpc_object_t reqdict)
 
 
 static void
-_reach_server_target_reconnect(xpc_connection_t connection, SCNetworkReachabilityRef target);
+_reach_server_target_reconnect(xpc_connection_t connection, SCNetworkReachabilityRef target, Boolean disconnect);
 
 
 static Boolean
@@ -427,11 +421,6 @@ _reach_server_target_add(xpc_connection_t connection, SCNetworkReachabilityRef t
 					  REACH_TARGET_NAME,
 					  targetPrivate->name);
 	}
-	if (targetPrivate->serv != NULL) {
-		xpc_dictionary_set_string(reqdict,
-					  REACH_TARGET_SERV,
-					  targetPrivate->serv);
-	}
 	if (targetPrivate->localAddress != NULL) {
 		xpc_dictionary_set_data(reqdict,
 					REACH_TARGET_LOCAL_ADDR,
@@ -443,12 +432,6 @@ _reach_server_target_add(xpc_connection_t connection, SCNetworkReachabilityRef t
 					REACH_TARGET_REMOTE_ADDR,
 					targetPrivate->remoteAddress,
 					targetPrivate->remoteAddress->sa_len);
-	}
-	if (bcmp(&targetPrivate->hints, &hints0, sizeof(struct addrinfo)) != 0) {
-		xpc_dictionary_set_data(reqdict,
-					REACH_TARGET_HINTS,
-					&targetPrivate->hints,
-					sizeof(targetPrivate->hints));
 	}
 	if (targetPrivate->if_index != 0) {
 		xpc_dictionary_set_int64(reqdict,
@@ -468,6 +451,7 @@ _reach_server_target_add(xpc_connection_t connection, SCNetworkReachabilityRef t
 					REACH_TARGET_RESOLVER_BYPASS,
 					TRUE);
 	}
+
 
 
 	// add the target [ID]
@@ -549,9 +533,9 @@ _reach_server_target_remove(xpc_connection_t connection, SCNetworkReachabilityRe
 					ok = TRUE;
 					break;
 				case REACH_REQUEST_REPLY_UNKNOWN :
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("reach target %p: SCNetworkReachability server failure, no need to remove"),
-					      target);
+					// target not known by the server (most likely due to a
+					// SCNetworkReachability server failure), no need to
+					// remove.
 					ok = TRUE;
 					break;
 				default : {
@@ -619,9 +603,9 @@ _reach_server_target_schedule(xpc_connection_t connection, SCNetworkReachability
 					ok = TRUE;
 					break;
 				case REACH_REQUEST_REPLY_UNKNOWN :
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("reach target %p: SCNetworkReachability server failure, retry schedule"),
-					      target);
+					// target not known by the server (most likely due to a
+					// SCNetworkReachability server failure), re-establish
+					// and retry scheduling.
 					retry = TRUE;
 					break;
 				default : {
@@ -655,7 +639,7 @@ _reach_server_target_schedule(xpc_connection_t connection, SCNetworkReachability
 
 	if (retry) {
 		// reconnect
-		_reach_server_target_reconnect(connection, target);
+		_reach_server_target_reconnect(connection, target, FALSE);
 
 		// and retry
 		retry = FALSE;
@@ -671,8 +655,9 @@ static void
 _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 			      xpc_object_t		reply)
 {
-	char				*if_name;
-	size_t				len		= 0;
+	char	*if_name;
+	size_t	len		= 0;
+
 	SCNetworkReachabilityPrivateRef	targetPrivate	= (SCNetworkReachabilityPrivateRef)target;
 
 	targetPrivate->serverInfo.cycle = xpc_dictionary_get_uint64(reply,
@@ -702,20 +687,20 @@ _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 	if (targetPrivate->type == reachabilityTypeName) {
 		xpc_object_t		addresses;
 
-		if (targetPrivate->resolvedAddress != NULL) {
-			CFRelease(targetPrivate->resolvedAddress);
-			targetPrivate->resolvedAddress = NULL;
+		if (targetPrivate->resolvedAddresses != NULL) {
+			CFRelease(targetPrivate->resolvedAddresses);
+			targetPrivate->resolvedAddresses = NULL;
 		}
 
-		targetPrivate->resolvedAddressError = xpc_dictionary_get_int64(reply,
-									       REACH_STATUS_RESOLVED_ADDRESS_ERROR);
+		targetPrivate->resolvedError = xpc_dictionary_get_int64(reply,
+									REACH_STATUS_RESOLVED_ERROR);
 
-		addresses = xpc_dictionary_get_value(reply, REACH_STATUS_RESOLVED_ADDRESS);
+		addresses = xpc_dictionary_get_value(reply, REACH_STATUS_RESOLVED_ADDRESSES);
 		if ((addresses != NULL) && (xpc_get_type(addresses) != XPC_TYPE_ARRAY)) {
 			addresses = NULL;
 		}
 
-		if ((targetPrivate->resolvedAddressError == 0) && (addresses != NULL)) {
+		if ((targetPrivate->resolvedError == NETDB_SUCCESS) && (addresses != NULL)) {
 			int			i;
 			int			n;
 			CFMutableArrayRef	newAddresses;
@@ -734,10 +719,10 @@ _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 				CFRelease(newAddress);
 			}
 
-			targetPrivate->resolvedAddress = newAddresses;
+			targetPrivate->resolvedAddresses = newAddresses;
 		} else {
 			/* save the error associated with the attempt to resolve the name */
-			targetPrivate->resolvedAddress = CFRetain(kCFNull);
+			targetPrivate->resolvedAddresses = CFRetain(kCFNull);
 		}
 		targetPrivate->needResolve = FALSE;
 	}
@@ -746,8 +731,7 @@ _reach_reply_set_reachability(SCNetworkReachabilityRef	target,
 }
 
 
-__private_extern__
-Boolean
+static Boolean
 _reach_server_target_status(xpc_connection_t connection, SCNetworkReachabilityRef target)
 {
 	Boolean				ok		= FALSE;
@@ -791,9 +775,9 @@ _reach_server_target_status(xpc_connection_t connection, SCNetworkReachabilityRe
 					ok = TRUE;
 					break;
 				case REACH_REQUEST_REPLY_UNKNOWN :
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("reach target %p: SCNetworkReachability server failure, retry status"),
-					      target);
+					// target not known by the server (most likely due to a
+					// SCNetworkReachability server failure), re-establish
+					// and retry status.
 					retry = TRUE;
 					break;
 				default :
@@ -844,7 +828,7 @@ _reach_server_target_status(xpc_connection_t connection, SCNetworkReachabilityRe
 
 	if (retry) {
 		// reconnect
-		_reach_server_target_reconnect(connection, target);
+		_reach_server_target_reconnect(connection, target, FALSE);
 
 		// and retry
 		retry = FALSE;
@@ -862,6 +846,7 @@ _reach_server_target_unschedule(xpc_connection_t connection, SCNetworkReachabili
 	Boolean				ok		= FALSE;
 	xpc_object_t			reply;
 	xpc_object_t			reqdict;
+	Boolean				retry		= FALSE;
 	SCNetworkReachabilityPrivateRef	targetPrivate	= (SCNetworkReachabilityPrivateRef)target;
 
 	// create message
@@ -887,18 +872,15 @@ _reach_server_target_unschedule(xpc_connection_t connection, SCNetworkReachabili
 					ok = TRUE;
 					break;
 				case REACH_REQUEST_REPLY_UNKNOWN :
-					SCLog(TRUE, LOG_DEBUG,
-					      CFSTR("reach target %p: SCNetworkReachability server failure, no need to unschedule"),
-					      target);
+					// target not known by the server (most likely due to a
+					// SCNetworkReachability server failure), re-establish
+					// but no need to unschedule.
+					retry = TRUE;
 					break;
 				default :
 					SCLog(TRUE, LOG_INFO, CFSTR("%s  target unschedule failed"),
 					      targetPrivate->log_prefix);
 					log_xpc_object("  reply", reply);
-			}
-
-			if (ok) {
-				CFRelease(target);
 			}
 		} else if ((type == XPC_TYPE_ERROR) && (reply == XPC_ERROR_CONNECTION_INVALID)) {
 			SCLog(TRUE, LOG_ERR,
@@ -907,9 +889,9 @@ _reach_server_target_unschedule(xpc_connection_t connection, SCNetworkReachabili
 			ok = TRUE;
 		} else if ((type == XPC_TYPE_ERROR) && (reply == XPC_ERROR_CONNECTION_INTERRUPTED)) {
 			SCLog(TRUE, LOG_DEBUG,
-			      CFSTR("reach target %p: SCNetworkReachability server failure, no need to unschedule"),
+			      CFSTR("reach target %p: SCNetworkReachability server failure, re-establish (but do not re-schedule)"),
 			      target);
-			ok = TRUE;
+			retry = TRUE;
 		} else {
 			SCLog(TRUE, LOG_ERR,
 			      CFSTR("reach target %p: _targetUnschedule with unexpected reply"),
@@ -918,6 +900,17 @@ _reach_server_target_unschedule(xpc_connection_t connection, SCNetworkReachabili
 		}
 
 		xpc_release(reply);
+	}
+
+	if (retry) {
+		// reconnect
+		targetPrivate->serverScheduled = FALSE;
+		_reach_server_target_reconnect(connection, target, FALSE);
+		ok = TRUE;
+	}
+
+	if (ok) {
+		CFRelease(target);
 	}
 
 	xpc_release(reqdict);
@@ -930,7 +923,7 @@ _reach_server_target_unschedule(xpc_connection_t connection, SCNetworkReachabili
 
 
 static void
-_reach_server_target_reconnect(xpc_connection_t connection, SCNetworkReachabilityRef target)
+_reach_server_target_reconnect(xpc_connection_t connection, SCNetworkReachabilityRef target, Boolean disconnect)
 {
 	Boolean				ok;
 	SCNetworkReachabilityPrivateRef	targetPrivate	= (SCNetworkReachabilityPrivateRef)target;
@@ -940,8 +933,17 @@ _reach_server_target_reconnect(xpc_connection_t connection, SCNetworkReachabilit
 		return;
 	}
 
-	// server has been restarted
-	targetPrivate->cycle = 0;
+	if (disconnect) {
+		// if we should first disconnect (unschedule, remove)
+		if (targetPrivate->serverScheduled) {
+			(void) _reach_server_target_unschedule(connection, target);
+		}
+
+		(void) _reach_server_target_remove(connection, target);
+	} else {
+		// server has been restarted
+		targetPrivate->cycle = 0;
+	}
 
 	// re-associate with server
 	ok = _reach_server_target_add(connection, target);
@@ -962,8 +964,11 @@ _reach_server_target_reconnect(xpc_connection_t connection, SCNetworkReachabilit
 		return;
 	}
 
-	// .. and update our status
-	__SCNetworkReachabilityPerformNoLock(target);
+	// For addresses, update our status now.  For names, queries will
+	// be updated with a callback
+	if (targetPrivate->type != reachabilityTypeName) {
+		__SCNetworkReachabilityPerform(target);
+	}
 
 	return;
 }
@@ -972,26 +977,20 @@ _reach_server_target_reconnect(xpc_connection_t connection, SCNetworkReachabilit
 static void
 _reach_connection_reconnect(xpc_connection_t connection)
 {
-	dispatch_queue_t	q;
+	dispatch_sync(_reach_requests_rbt_queue(), ^{
+		rb_tree_t	*rbt	= _reach_requests_rbt();
+		reach_request_t	*request;
 
-	q = _reach_requests_rbt_queue();
-	dispatch_sync(q, ^{
-		struct rb_node		*rbn;
-		struct rb_tree		*rbt;
-
-		rbt = _reach_requests_rbt();
-		rbn = rb_tree_iterate(rbt, NULL, RB_DIR_RIGHT);
-		for ( ; rbn != NULL ; rbn = rb_tree_iterate(rbt, rbn, RB_DIR_LEFT)) {
-			reach_request_t			*rbt_request;
+		RB_TREE_FOREACH(request, rbt) {
 			SCNetworkReachabilityRef	target;
 
-			rbt_request = RBNODE_TO_REACH_REQUEST(rbn);
-
-			target = rbt_request->target;
+			xpc_retain(connection);
+			target = request->target;
 			CFRetain(target);
 			dispatch_async(__SCNetworkReachability_concurrent_queue(), ^{
-				_reach_server_target_reconnect(connection, target);
+				_reach_server_target_reconnect(connection, target, FALSE);
 				CFRelease(target);
+				xpc_release(connection);
 			});
 		}
 	});
@@ -1182,5 +1181,7 @@ __SCNetworkReachabilityServer_targetUnschedule(SCNetworkReachabilityRef target)
 
 	return ok;
 }
+
+
 
 #endif	// HAVE_REACHABILITY_SERVER

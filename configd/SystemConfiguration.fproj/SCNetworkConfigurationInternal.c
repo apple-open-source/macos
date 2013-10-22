@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009, 2010, 2012, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,6 +72,7 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 			CFDictionaryRef		config,
 			Boolean			keepInactive)
 {
+	CFDictionaryRef		curConfig;
 	CFMutableDictionaryRef	newConfig	= NULL;
 	Boolean			ok;
 
@@ -80,13 +81,13 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 		return FALSE;
 	}
 
+	curConfig = SCPreferencesPathGetValue(prefs, path);
+
 	if (config != NULL) {
 		newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
 	}
 
 	if (keepInactive) {
-		CFDictionaryRef	curConfig;
-
 		if (config == NULL) {
 			newConfig = CFDictionaryCreateMutable(NULL,
 							      0,
@@ -94,7 +95,6 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 							      &kCFTypeDictionaryValueCallBacks);
 		}
 
-		curConfig = SCPreferencesPathGetValue(prefs, path);
 		if (isA_CFDictionary(curConfig) && CFDictionaryContainsKey(curConfig, kSCResvInactive)) {
 			// if currently disabled
 			CFDictionarySetValue(newConfig, kSCResvInactive, kCFBooleanTrue);
@@ -105,7 +105,11 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 	}
 
 	// set new configuration
-	if (newConfig != NULL) {
+	if (_SC_CFEqual(curConfig, newConfig)) {
+		// if no change
+		if (newConfig != NULL) CFRelease(newConfig);
+		ok = TRUE;
+	} else if (newConfig != NULL) {
 		// if new configuration (or we are preserving a disabled state)
 		ok = SCPreferencesPathSetValue(prefs, path, newConfig);
 		CFRelease(newConfig);
@@ -168,7 +172,11 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 	}
 
 	// set new configuration
-	if (newConfig != NULL) {
+	if (_SC_CFEqual(curConfig, newConfig)) {
+		// if no change
+		if (newConfig != NULL) CFRelease(newConfig);
+		ok = TRUE;
+	} else if (newConfig != NULL) {
 		// if updated configuration (or we are establishing as disabled)
 		ok = SCPreferencesPathSetValue(prefs, path, newConfig);
 		CFRelease(newConfig);
@@ -203,7 +211,10 @@ __copyTemplates()
 		return NULL;
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	ok = CFURLCreateDataAndPropertiesFromResource(NULL, url, &xmlTemplates, NULL, NULL, NULL);
+#pragma GCC diagnostic pop
 	CFRelease(url);
 	if (!ok || (xmlTemplates == NULL)) {
 		return NULL;

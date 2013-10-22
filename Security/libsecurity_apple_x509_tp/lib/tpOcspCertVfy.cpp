@@ -109,6 +109,7 @@ errOut:
  * be the issuer of both that response and the cert being verified. Returns
  * true if OK.
  */
+static
 bool tpOcspResponderIDCheck(
 	OCSPResponse	&ocspResp,
 	TPCertInfo		&signer)
@@ -144,7 +145,7 @@ bool tpOcspResponderIDCheck(
 		assert(pubKey != NULL);
 		uint8 digest[CC_SHA1_DIGEST_LENGTH];
 		CSSM_DATA keyHash = {CC_SHA1_DIGEST_LENGTH, digest};
-		ocspdSha1(pubKey->KeyData.Data, pubKey->KeyData.Length, digest);
+		ocspdSha1(pubKey->KeyData.Data, (CC_LONG)pubKey->KeyData.Length, digest);
 		const CSSM_DATA *respKeyHash = &ocspResp.responderID().byKey;
 		if(tpCompareCssmData(&keyHash, respKeyHash)) {
 			tpOcspDebug("tpOcspResponderIDCheck: good ResponderID.byKey");

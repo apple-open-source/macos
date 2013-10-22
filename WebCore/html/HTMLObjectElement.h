@@ -30,7 +30,7 @@ namespace WebCore {
 
 class HTMLFormElement;
 
-class HTMLObjectElement : public HTMLPlugInImageElement, public FormAssociatedElement {
+class HTMLObjectElement FINAL : public HTMLPlugInImageElement, public FormAssociatedElement {
 public:
     static PassRefPtr<HTMLObjectElement> create(const QualifiedName&, Document*, HTMLFormElement*, bool createdByParser);
     virtual ~HTMLObjectElement();
@@ -54,34 +54,34 @@ public:
 
     // Implementations of constraint validation API.
     // Note that the object elements are always barred from constraint validation.
-    String validationMessage() { return String(); }
+    virtual String validationMessage() const OVERRIDE { return String(); }
     bool checkValidity() { return true; }
-    void setCustomValidity(const String&) { }
+    virtual void setCustomValidity(const String&) OVERRIDE { }
 
-    using TreeShared<ContainerNode>::ref;
-    using TreeShared<ContainerNode>::deref;
+    using Node::ref;
+    using Node::deref;
 
     virtual bool canContainRangeEndPoint() const { return useFallbackContent(); }
 
 private:
     HTMLObjectElement(const QualifiedName&, Document*, HTMLFormElement*, bool createdByParser);
 
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
-    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
+    virtual void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStylePropertySet*) OVERRIDE;
 
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void removedFrom(Node*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
 
     virtual bool rendererIsNeeded(const NodeRenderingContext&);
     virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
 
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-    virtual bool isURLAttribute(Attribute*) const;
-    virtual const QualifiedName& imageSourceAttributeName() const;
+    virtual bool isURLAttribute(const Attribute&) const OVERRIDE;
+    virtual const AtomicString& imageSourceURL() const OVERRIDE;
 
-    virtual RenderWidget* renderWidgetForJSBindings();
+    virtual RenderWidget* renderWidgetForJSBindings() const;
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
@@ -101,20 +101,21 @@ private:
     virtual void derefFormAssociatedElement() { deref(); }
     virtual HTMLFormElement* virtualForm() const;
 
-    virtual const AtomicString& formControlName() const;
-
 #if ENABLE(MICRODATA)
     virtual String itemValueText() const OVERRIDE;
     virtual void setItemValueText(const String&, ExceptionCode&) OVERRIDE;
 #endif
 
-    virtual bool shouldRegisterAsNamedItem() const OVERRIDE { return isDocNamedItem(); }
-    virtual bool shouldRegisterAsExtraNamedItem() const OVERRIDE { return isDocNamedItem(); }
-
     String m_classId;
     bool m_docNamedItem : 1;
     bool m_useFallbackContent : 1;
 };
+
+inline HTMLObjectElement* toHTMLObjectElement(Node* node)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(!node || node->hasTagName(HTMLNames::objectTag));
+    return static_cast<HTMLObjectElement*>(node);
+}
 
 }
 

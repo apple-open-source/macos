@@ -30,7 +30,7 @@
 #ifndef _H_PCSCDEVICE
 #define _H_PCSCDEVICE
 
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <MacTypes.h>
 #include <security_utilities/iodevices.h>
 #include <security_utilities/refcount.h>
 

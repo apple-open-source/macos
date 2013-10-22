@@ -99,8 +99,8 @@ const SecAsn1Template kSecAsn1DigestInfoTemplate[] = {
     { 0 }
 };
 
-#pragma mark -
-#pragma mark *** RSA ***
+// MARK: -
+// MARK: *** RSA ***
 
 /*** RSA public key, PKCS1 format : NSS_RSAPublicKeyPKCS1 ***/
 const SecAsn1Template kSecAsn1RSAPublicKeyPKCS1Template[] = {
@@ -125,8 +125,8 @@ const SecAsn1Template kSecAsn1RSAPrivateKeyPKCS1Template[] = {
     { 0, }
 };
 
-#pragma mark -
-#pragma mark *** Diffie-Hellman ***
+// MARK: -
+// MARK: *** Diffie-Hellman ***
 
 /****
  **** Diffie-Hellman, from PKCS3.

@@ -81,7 +81,7 @@ bool SharedBufferChunkReader::nextChunk(Vector<char>& chunk, bool includeSeparat
             char currentCharacter = m_segment[m_segmentIndex++];
             if (currentCharacter != m_separator[m_separatorIndex]) {
                 if (m_separatorIndex > 0) {
-                    ASSERT(m_separatorIndex <= m_separator.size());
+                    ASSERT_WITH_SECURITY_IMPLICATION(m_separatorIndex <= m_separator.size());
                     chunk.append(m_separator.data(), m_separatorIndex);
                     m_separatorIndex = 0;
                 }
@@ -91,7 +91,7 @@ bool SharedBufferChunkReader::nextChunk(Vector<char>& chunk, bool includeSeparat
             m_separatorIndex++;
             if (m_separatorIndex == m_separator.size()) {
                 if (includeSeparator)
-                    chunk.append(m_separator);
+                    chunk.appendVector(m_separator);
                 m_separatorIndex = 0;
                 return true;
             }
@@ -118,7 +118,7 @@ String SharedBufferChunkReader::nextChunkAsUTF8StringWithLatin1Fallback(bool inc
     if (!nextChunk(data, includeSeparator))
         return String();
 
-    return data.size() ? String::fromUTF8WithLatin1Fallback(data.data(), data.size()) : String("");
+    return data.size() ? String::fromUTF8WithLatin1Fallback(data.data(), data.size()) : emptyString();
 }
 
 size_t SharedBufferChunkReader::peek(Vector<char>& data, size_t requestedSize)

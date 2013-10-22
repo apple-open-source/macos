@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,13 +39,17 @@
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
 #include "EAPOLControl.h"
 #include "EAPOLControlPrivate.h"
+#include "EAPOLControlPrefs.h"
 #include "myCFUtil.h"
 #include <TargetConditionals.h>
 
 typedef int func_t(int argc, char * argv[]);
 typedef func_t * funcptr_t;
-char * progname = NULL;
 
+static char * 	progname = NULL;
+static int 	S_command_index;
+
+static void	command_usage();
 static void	usage();
 
 void
@@ -341,14 +344,28 @@ S_input(int argc, char * argv[])
 }
 
 static int
-S_log(int argc, char * argv[])
+S_set_verbose(int argc, char * argv[])
 {
-    int32_t		level;
+    uint32_t		log_flags = 0;
     int 		result;
 
-    level = strtol(argv[1], 0, 0);
-    result = EAPOLControlSetLogLevel(argv[0], level);
-    fprintf(stderr, "EAPOLControlSetLogLevel returned %d\n", result);
+    if (strcasecmp(argv[0], "on") == 0) {
+	log_flags = -1;
+    }
+    else if (strcasecmp(argv[0], "off") == 0) {
+	log_flags = 0;
+    }
+    else {
+	command_usage();
+    }
+    if (EAPOLControlPrefsSetLogFlags(log_flags) == FALSE) {
+	fprintf(stderr, "Failed to set verbose %s\n",
+		log_flags != 0 ? "on" : "off");
+	result = 1;
+    }
+    else {
+	result = 0;
+    }
     return (result);
 }
 
@@ -384,14 +401,14 @@ S_set_user_autoconnect(int argc, char * argv[])
     const char * 	enable_str = argv[0];
     int 		result;
 
-    if (strcasecmp(enable_str, "true") == 0) {
+    if (strcasecmp(enable_str, "on") == 0) {
 	enable = TRUE;
     }
-    else if (strcasecmp(enable_str, "false") == 0) {
+    else if (strcasecmp(enable_str, "off") == 0) {
 	enable = FALSE;
     }
     else {
-	usage();
+	command_usage();
     }
     EAPOLControlSetUserAutoConnectEnabled(enable);
     return (0);
@@ -403,37 +420,7 @@ S_get_user_autoconnect(int argc, char * argv[])
     Boolean		enable;
 
     enable = EAPOLControlIsUserAutoConnectEnabled();
-    printf("%s\n", enable ? "true" : "false");
-    return (0);
-}
-
-static int
-S_set_user_autoconnect_verbose(int argc, char * argv[])
-{
-    Boolean		enable = FALSE;
-    const char * 	enable_str = argv[0];
-    int 		result;
-
-    if (strcasecmp(enable_str, "true") == 0) {
-	enable = TRUE;
-    }
-    else if (strcasecmp(enable_str, "false") == 0) {
-	enable = FALSE;
-    }
-    else {
-	usage();
-    }
-    EAPOLControlSetUserAutoConnectVerboseEnabled(enable);
-    return (0);
-}
-
-static int
-S_get_user_autoconnect_verbose(int argc, char * argv[])
-{
-    Boolean		enable;
-
-    enable = EAPOLControlIsUserAutoConnectVerboseEnabled();
-    printf("%s\n", enable ? "true" : "false");
+    printf("%s\n", enable ? "on" : "off");
     return (0);
 }
 
@@ -555,45 +542,125 @@ S_stress_start(int argc, char * argv[])
     return (result);
 }
 
-static struct {
+#include <EAP8021X/EAPCertificateUtil.h>
+
+static void
+dump_as_xml(CFPropertyListRef p)
+{
+    CFDataRef	xml;
+    
+    xml = CFPropertyListCreateXMLData(NULL, p);
+    if (xml != NULL) {
+	fwrite(CFDataGetBytePtr(xml), CFDataGetLength(xml), 1,
+	       stdout);
+	CFRelease(xml);
+    }
+    return;
+}
+
+static CFStringRef
+identity_copy_username(SecIdentityRef identity)
+{
+    SecCertificateRef 	cert;
+    OSStatus		status;
+    CFStringRef		username;
+
+    status = SecIdentityCopyCertificate(identity, &cert);
+    if (status != noErr) {
+	fprintf(stderr, "SecIdentityCopyCertificate failed %ld\n",
+		(long)status);
+	return (NULL);
+    }
+    username = EAPSecCertificateCopyUserNameString(cert);
+    CFRelease(cert);
+    return (username);
+}
+
+static int
+S_show_identities(int argc, char * argv[])
+{
+    int				count;
+    int				i;
+    CFArrayRef			list;
+    OSStatus			status;
+
+    status = EAPSecIdentityListCreate(&list);
+    if (status != noErr) {
+	fprintf(stderr, "EAPSecIdentityListCreate returned %ld\n",
+		(long)status);
+	return (-1);
+    }
+    count = CFArrayGetCount(list);
+    printf("Number of identities: %d\n", count);
+    for (i = 0; i < count; i++) {
+	EAPSecIdentityHandleRef	handle;
+	SecIdentityRef 		identity;
+	CFStringRef		username;
+
+	identity = (SecIdentityRef)CFArrayGetValueAtIndex(list, i);
+	username = identity_copy_username(identity);
+	SCPrint(TRUE, stdout, CFSTR("\n%d. '%@'\n"), i + 1, username);
+	CFRelease(username);
+	handle = EAPSecIdentityHandleCreate(identity);
+	dump_as_xml(handle);
+	CFRelease(handle);
+
+    }
+    CFRelease(list);
+    return (0);
+}
+
+typedef struct {
     char *	command;
     funcptr_t	func;
     int		argc;
     char *	usage;
-} commands[] = {
-    { "state", S_state, 1, "<interface_name" },
+} commandInfo, *commandInfoRef;
+
+static commandInfo commands[] = {
+    { "state", S_state, 1, "<interface_name>" },
     { "start", S_start, 2, "<interface_name> <config_file>" },
     { "stop", S_stop, 1, "<interface_name>" },
     { "retry", S_retry, 1, "<interface_name>" },
     { "update", S_update, 2, "<interface_name> <config_file>" },
     { "input", S_input, 1, "<interface_name> [ <config_file> ]" },
-    { "log", S_log, 2, "<interface_name> <level>" },
     { "monitor", S_monitor, 0, "[ <interface_name> ]" },
+    { "set_verbose", S_set_verbose, 1, "( on | off )" },
     { "stress_start", S_stress_start, 2, "<interface_name> <config_file>"  },
+    { "show_identities", S_show_identities, 0 },
 #if ! TARGET_OS_EMBEDDED
     { "start_system", S_start_system, 1, "<interface_name> [ <config_file> ]"},
     { "loginwindow_config", S_loginwindow_config, 1, "<interface_name>" },
     { "auto_detect_info", S_show_autodetect_info, 0, NULL },
-    { "set_user_autoconnect", S_set_user_autoconnect, 1, "( true | false )" },
+    { "set_user_autoconnect", S_set_user_autoconnect, 1, "( on | off )" },
     { "get_user_autoconnect", S_get_user_autoconnect, 0, "" },
-    { "set_user_autoconnect_verbose", S_set_user_autoconnect_verbose, 1, "( true | false )" },
-    { "get_user_autoconnect_verbose", S_get_user_autoconnect_verbose, 0, "" },
     { "did_user_cancel", S_did_user_cancel, 1, "<interface_name>" },
 #endif /* ! TARGET_OS_EMBEDDED */
     { NULL, NULL, 0, NULL },
 };
 
 static void
-usage()
+usage(void)
 {
-    int i;
+    commandInfoRef	cmd;
+    int 		i;
+
     fprintf(stderr, "usage: %s <command> <args>\n", progname);
     fprintf(stderr, "where <command> is one of ");
-    for (i = 0; commands[i].command; i++) {
-	fprintf(stderr, "%s%s",  i == 0 ? "" : ", ",
-		commands[i].command);
+    for (i = 0, cmd = commands; cmd->command; i++, cmd++) {
+	fprintf(stderr, "%s%s",  i == 0 ? "" : ", ", cmd->command);
     }
     fprintf(stderr, "\n");
+    exit(1);
+}
+
+static void
+command_usage(void)
+{
+    commandInfoRef	cmd = commands + S_command_index;
+
+    fprintf(stderr, "usage: %s %s\n", 
+	    cmd->command, cmd->usage ? cmd->usage : "");
     exit(1);
 }
 
@@ -604,9 +671,9 @@ S_lookup_func(char * cmd, int argc)
 
     for (i = 0; commands[i].command; i++) {
 	if (strcmp(cmd, commands[i].command) == 0) {
+	    S_command_index = i;
 	    if (argc < commands[i].argc) {
-		fprintf(stderr, "usage: %s %s\n", commands[i].command,
-			commands[i].usage ? commands[i].usage : "");
+		command_usage();
 		exit(1);
 	    }
 	    return commands[i].func;

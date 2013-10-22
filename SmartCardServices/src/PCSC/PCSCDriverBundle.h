@@ -31,7 +31,7 @@
 
 #include <string>
 #include <vector>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <MacTypes.h>
 #include <security_utilities/refcount.h>
 #include <security_utilities/osxcode.h>
 #include "PCSCDevice.h"

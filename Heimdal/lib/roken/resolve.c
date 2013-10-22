@@ -401,11 +401,8 @@ parse_record(const unsigned char *data, const unsigned char *end_data,
     return 0;
 }
 
-#ifndef TEST_RESOLVE
-static
-#endif
 struct rk_dns_reply*
-parse_reply(const unsigned char *data, size_t len)
+rk_dns_parse_reply(const unsigned char *data, size_t len)
 {
     const unsigned char *p;
     int status;
@@ -587,7 +584,8 @@ dns_lookup_int(const char *domain, int rr_class, int rr_type)
     }
 
     len = min(len, size);
-    r = parse_reply(reply, len);
+    
+    r = rk_dns_parse_reply(reply, len);
     free(reply);
 
     resolve_free_handle(handle);

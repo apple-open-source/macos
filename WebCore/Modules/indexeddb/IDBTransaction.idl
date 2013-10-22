@@ -24,37 +24,33 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-module storage {
+[
+    Conditional=INDEXED_DATABASE,
+    ActiveDOMObject,
+    EventTarget,
+    JSNoStaticTables
+] interface IDBTransaction {
 
-    interface [
-        Conditional=INDEXED_DATABASE,
-        ActiveDOMObject,
-        EventTarget
-    ] IDBTransaction {
-        // Modes
-        const unsigned short READ_ONLY = 0;
-        const unsigned short READ_WRITE = 1;
-        const unsigned short VERSION_CHANGE = 2;
+    // Properties
+    readonly attribute DOMString mode;
+    readonly attribute IDBDatabase db;
+    readonly attribute DOMError error;
+    [TreatReturnedNullStringAs=Undefined] readonly attribute DOMString webkitErrorMessage;
 
-        // Properties
-        readonly attribute unsigned short mode;
-        readonly attribute IDBDatabase db;
-        // Methods
-        IDBObjectStore objectStore (in DOMString name)
-            raises (IDBDatabaseException);
-        void abort ();
-        // Events
-        attribute EventListener onabort;
-        attribute EventListener oncomplete;
-        attribute EventListener onerror;
-        // EventTarget interface
-        void addEventListener(in DOMString type,
-                              in EventListener listener,
-                              in [Optional] boolean useCapture);
-        void removeEventListener(in DOMString type,
-                                 in EventListener listener,
-                                 in [Optional] boolean useCapture);
-        boolean dispatchEvent(in Event evt) 
-            raises(EventException);
-    };
-}
+    // Methods
+    [RaisesException] IDBObjectStore objectStore (DOMString name);
+    [RaisesException] void abort ();
+
+    // Events
+    attribute EventListener onabort;
+    attribute EventListener oncomplete;
+    attribute EventListener onerror;
+    // EventTarget interface
+    void addEventListener(DOMString type,
+                          EventListener listener,
+                          optional boolean useCapture);
+    void removeEventListener(DOMString type,
+                             EventListener listener,
+                             optional boolean useCapture);
+    [RaisesException] boolean dispatchEvent(Event evt);
+};

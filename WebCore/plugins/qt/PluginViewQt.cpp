@@ -28,9 +28,7 @@
 #include "config.h"
 #include "PluginView.h"
 
-#if USE(JSC)
 #include "BridgeJSC.h"
-#endif
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
@@ -49,51 +47,42 @@
 #include "HostWindow.h"
 #include "IFrameShimSupport.h"
 #include "Image.h"
-#if USE(JSC)
 #include "JSDOMBinding.h"
-#endif
+#include "JSDOMWindowBase.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
 #include "NotImplemented.h"
 #include "Page.h"
-#include "PlatformMouseEvent.h"
 #include "PlatformKeyboardEvent.h"
-#include "PluginContainerQt.h"
+#include "PlatformMouseEvent.h"
 #include "PluginDebug.h"
-#include "PluginPackage.h"
 #include "PluginMainThreadScheduler.h"
+#include "PluginPackage.h"
 #include "QWebPageClient.h"
 #include "RenderObject.h"
 #include "Settings.h"
 #include "npruntime_impl.h"
-#if USE(JSC)
 #include "runtime_root.h"
-#endif
-
-#include <QApplication>
-#include <QDesktopWidget>
-#include <QGraphicsWidget>
 #include <QKeyEvent>
 #include <QPainter>
-#include <QStyleOptionGraphicsItem>
-#include <QWidget>
-#include <QX11Info>
 #include <X11/X.h>
 #ifndef QT_NO_XRENDER
 #define Bool int
 #define Status int
 #include <X11/extensions/Xrender.h>
 #endif
+#include <runtime/JSCJSValue.h>
 #include <runtime/JSLock.h>
-#include <runtime/JSValue.h>
+
+#include "QtX11ImageConversion.h"
+#include <QGuiApplication>
+#include <QWindow>
+#include <qpa/qplatformnativeinterface.h>
 
 using JSC::ExecState;
-#if USE(JSC)
 using JSC::Interpreter;
-#endif
 using JSC::JSLock;
 using JSC::JSObject;
-using JSC::UString;
 
 using std::min;
 
@@ -105,30 +94,35 @@ bool PluginView::s_isRunningUnderDRT = false;
 
 using namespace HTMLNames;
 
-#if USE(ACCELERATED_COMPOSITING)
-// Qt's GraphicsLayer (GraphicsLayerQt) requires layers to be QGraphicsWidgets
-class PluginGraphicsLayerQt : public QGraphicsWidget {
-public:
-    PluginGraphicsLayerQt(PluginView* view) : m_view(view) { }
-    ~PluginGraphicsLayerQt() { }
-
-    void paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QWidget* widget = 0)
-    {
-        Q_UNUSED(widget);
-        m_view->paintUsingXPixmap(painter, option->exposedRect.toRect());
-    }
-
-private:
-    PluginView* m_view;
+struct X11Environment {
+    Display* display;
+    int screenID;
+    unsigned long rootWindowID;
+    int displayDepth;
 };
 
-bool PluginView::shouldUseAcceleratedCompositing() const
+static X11Environment x11Environment = { 0, 0, 0, 0 };
+
+static inline Display* x11Display() { return x11Environment.display; }
+static inline int x11Screen() { return x11Environment.screenID; }
+static inline unsigned long rootWindowID() { return x11Environment.rootWindowID; }
+static inline int displayDepth() { return x11Environment.displayDepth; }
+
+static inline void syncX()
 {
-    return m_parentFrame->page()->chrome()->client()->allowsAcceleratedCompositing()
-           && m_parentFrame->page()->settings()
-           && m_parentFrame->page()->settings()->acceleratedCompositingEnabled();
+    XSync(x11Display(), false);
 }
-#endif
+
+QWebPageClient* PluginView::platformPageClient() const
+{
+    FrameView* view = m_parentFrame->view();
+    if (!view)
+        return 0;
+    HostWindow* hostWindow = view->hostWindow();
+    if (!hostWindow)
+        return 0;
+    return hostWindow->platformPageClient();
+}
 
 void PluginView::updatePluginWidget()
 {
@@ -136,7 +130,7 @@ void PluginView::updatePluginWidget()
         return;
 
     ASSERT(parent()->isFrameView());
-    FrameView* frameView = static_cast<FrameView*>(parent());
+    FrameView* frameView = toFrameView(parent());
 
     IntRect oldWindowRect = m_windowRect;
     IntRect oldClipRect = m_clipRect;
@@ -154,11 +148,11 @@ void PluginView::updatePluginWidget()
 
     if (!m_isWindowed && m_windowRect.size() != oldWindowRect.size()) {
         if (m_drawable)
-            XFreePixmap(QX11Info::display(), m_drawable);
+            XFreePixmap(x11Display(), m_drawable);
 
-        m_drawable = XCreatePixmap(QX11Info::display(), QX11Info::appRootWindow(), m_windowRect.width(), m_windowRect.height(),
+        m_drawable = XCreatePixmap(x11Display(), rootWindowID(), m_windowRect.width(), m_windowRect.height(),
                                    ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth);
-        QApplication::syncX(); // make sure that the server knows about the Drawable
+        syncX(); // make sure that the server knows about the Drawable
     }
 
     // do not call setNPWindowIfNeeded immediately, will be called on paint()
@@ -187,12 +181,7 @@ void PluginView::updatePluginWidget()
 
 void PluginView::setFocus(bool focused)
 {
-    if (platformPluginWidget()) {
-        if (focused)
-            static_cast<QWidget*>(platformPluginWidget())->setFocus(Qt::OtherFocusReason);
-    } else {
-        Widget::setFocus(focused);
-    }
+    Widget::setFocus(focused);
 }
 
 void PluginView::show()
@@ -207,66 +196,34 @@ void PluginView::hide()
     Widget::hide();
 }
 
-void PluginView::paintUsingXPixmap(QPainter* painter, const QRect &exposedRect)
+static void setupGraphicsExposeEvent(Pixmap drawable, const QRect& exposedRect, XEvent& xevent)
 {
-    QPixmap qtDrawable = QPixmap::fromX11Pixmap(m_drawable, QPixmap::ExplicitlyShared);
-    const int drawableDepth = ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth;
-    ASSERT(drawableDepth == qtDrawable.depth());
-    const bool syncX = m_pluginDisplay && m_pluginDisplay != QX11Info::display();
-
-    // When printing, Qt uses a QPicture to capture the output in preview mode. The
-    // QPicture holds a reference to the X Pixmap. As a result, the print preview would
-    // update itself when the X Pixmap changes. To prevent this, we create a copy.
-    if (m_element->document()->printing())
-        qtDrawable = qtDrawable.copy();
-
-    if (m_isTransparent && drawableDepth != 32) {
-        // Attempt content propagation for drawable with no alpha by copying over from the backing store
-        QPoint offset;
-        QPaintDevice* backingStoreDevice =  QPainter::redirected(painter->device(), &offset);
-        offset = -offset; // negating the offset gives us the offset of the view within the backing store pixmap
-
-        const bool hasValidBackingStore = backingStoreDevice && backingStoreDevice->devType() == QInternal::Pixmap;
-        QPixmap* backingStorePixmap = static_cast<QPixmap*>(backingStoreDevice);
-
-        // We cannot grab contents from the backing store when painting on QGraphicsView items
-        // (because backing store contents are already transformed). What we really mean to do 
-        // here is to check if we are painting on QWebView, but let's be a little permissive :)
-        QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-        const bool backingStoreHasUntransformedContents = client && qobject_cast<QWidget*>(client->pluginParent());
-
-        if (hasValidBackingStore && backingStorePixmap->depth() == drawableDepth 
-            && backingStoreHasUntransformedContents) {
-            GC gc = XDefaultGC(QX11Info::display(), QX11Info::appScreen());
-            XCopyArea(QX11Info::display(), backingStorePixmap->handle(), m_drawable, gc,
-                offset.x() + m_windowRect.x() + exposedRect.x(), offset.y() + m_windowRect.y() + exposedRect.y(),
-                exposedRect.width(), exposedRect.height(), exposedRect.x(), exposedRect.y());
-        } else { // no backing store, clean the pixmap because the plugin thinks its transparent
-            QPainter painter(&qtDrawable);
-            painter.fillRect(exposedRect, Qt::white);
-        }
-
-        if (syncX)
-            QApplication::syncX();
-    }
-
-    XEvent xevent;
     memset(&xevent, 0, sizeof(XEvent));
     XGraphicsExposeEvent& exposeEvent = xevent.xgraphicsexpose;
     exposeEvent.type = GraphicsExpose;
-    exposeEvent.display = QX11Info::display();
-    exposeEvent.drawable = qtDrawable.handle();
+    exposeEvent.display = x11Display();
+    exposeEvent.drawable = drawable;
     exposeEvent.x = exposedRect.x();
     exposeEvent.y = exposedRect.y();
     exposeEvent.width = exposedRect.x() + exposedRect.width(); // flash bug? it thinks width is the right in transparent mode
     exposeEvent.height = exposedRect.y() + exposedRect.height(); // flash bug? it thinks height is the bottom in transparent mode
+}
 
+void PluginView::paintUsingXPixmap(QPainter* painter, const QRect &exposedRect)
+{
+    bool shouldSyncX = m_pluginDisplay && m_pluginDisplay != x11Display();
+    XEvent xevent;
+
+    setupGraphicsExposeEvent(m_drawable, exposedRect, xevent);
     dispatchNPEvent(xevent);
 
-    if (syncX)
+    if (shouldSyncX)
         XSync(m_pluginDisplay, false); // sync changes by plugin
 
-    painter->drawPixmap(QPoint(exposedRect.x(), exposedRect.y()), qtDrawable, exposedRect);
+    XImage* xImage = XGetImage(x11Display(), m_drawable, exposedRect.x(), exposedRect.y(),
+                               exposedRect.width(), exposedRect.height(), ULONG_MAX, ZPixmap);
+    painter->drawImage(QPoint(exposedRect.x(), exposedRect.y()), qimageFromXImage(xImage));
+    XDestroyImage(xImage);
 }
 
 void PluginView::paint(GraphicsContext* context, const IntRect& rect)
@@ -317,9 +274,7 @@ bool PluginView::dispatchNPEvent(NPEvent& event)
     }
 
     PluginView::setCurrentPluginView(this);
-#if USE(JSC)
-    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
-#endif
+    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
     setCallingPlugin(true);
     bool accepted = !m_plugin->pluginFuncs()->event(m_instance, &event);
     setCallingPlugin(false);
@@ -331,24 +286,24 @@ bool PluginView::dispatchNPEvent(NPEvent& event)
     return accepted;
 }
 
-void setSharedXEventFields(XEvent* xEvent, QWidget* ownerWidget)
+void setSharedXEventFields(XEvent* xEvent, QWebPageClient* pageClient)
 {
     xEvent->xany.serial = 0; // we are unaware of the last request processed by X Server
     xEvent->xany.send_event = false;
-    xEvent->xany.display = QX11Info::display();
+    xEvent->xany.display = x11Display();
     // NOTE: event->xany.window doesn't always respond to the .window property of other XEvent's
     // but does in the case of KeyPress, KeyRelease, ButtonPress, ButtonRelease, and MotionNotify
     // events; thus, this is right:
-    xEvent->xany.window = ownerWidget ? ownerWidget->window()->handle() : 0;
+    QWindow* window = pageClient ? pageClient->ownerWindow() : 0;
+    xEvent->xany.window = window ? window->winId() : 0;
 }
 
 void PluginView::initXEvent(XEvent* xEvent)
 {
     memset(xEvent, 0, sizeof(XEvent));
 
-    QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-    QWidget* ownerWidget = client ? client->ownerWidget() : 0;
-    setSharedXEventFields(xEvent, ownerWidget);
+    QWebPageClient* client = platformPageClient();
+    setSharedXEventFields(xEvent, client);
 }
 
 void PluginView::setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event)
@@ -356,7 +311,7 @@ void PluginView::setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event
     const PlatformKeyboardEvent* keyEvent = event->keyEvent();
 
     xEvent->type = (event->type() == eventNames().keydownEvent) ? 2 : 3; // ints as Qt unsets KeyPress and KeyRelease
-    xEvent->xkey.root = QX11Info::appRootWindow();
+    xEvent->xkey.root = rootWindowID();
     xEvent->xkey.subwindow = 0; // we have no child window
     xEvent->xkey.time = event->timeStamp();
     xEvent->xkey.state = keyEvent->nativeModifiers();
@@ -370,7 +325,7 @@ void PluginView::setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event
         QKeyEvent* qKeyEvent = keyEvent->qtEvent();
         ASSERT(qKeyEvent);
         QString keyText = qKeyEvent->text().left(1);
-        xEvent->xkey.keycode = XKeysymToKeycode(QX11Info::display(), XStringToKeysym(keyText.toUtf8().constData()));
+        xEvent->xkey.keycode = XKeysymToKeycode(x11Display(), XStringToKeysym(keyText.toUtf8().constData()));
     }
 
     xEvent->xkey.same_screen = true;
@@ -419,7 +374,7 @@ static void setXButtonEventSpecificFields(XEvent* xEvent, MouseEvent* event, con
 {
     XButtonEvent& xbutton = xEvent->xbutton;
     xbutton.type = event->type() == eventNames().mousedownEvent ? ButtonPress : ButtonRelease;
-    xbutton.root = QX11Info::appRootWindow();
+    xbutton.root = rootWindowID();
     xbutton.subwindow = 0;
     xbutton.time = event->timeStamp();
     xbutton.x = postZoomPos.x();
@@ -446,7 +401,7 @@ static void setXMotionEventSpecificFields(XEvent* xEvent, MouseEvent* event, con
 {
     XMotionEvent& xmotion = xEvent->xmotion;
     xmotion.type = MotionNotify;
-    xmotion.root = QX11Info::appRootWindow();
+    xmotion.root = rootWindowID();
     xmotion.subwindow = 0;
     xmotion.time = event->timeStamp();
     xmotion.x = postZoomPos.x();
@@ -462,7 +417,7 @@ static void setXCrossingEventSpecificFields(XEvent* xEvent, MouseEvent* event, c
 {
     XCrossingEvent& xcrossing = xEvent->xcrossing;
     xcrossing.type = event->type() == eventNames().mouseoverEvent ? EnterNotify : LeaveNotify;
-    xcrossing.root = QX11Info::appRootWindow();
+    xcrossing.root = rootWindowID();
     xcrossing.subwindow = 0;
     xcrossing.time = event->timeStamp();
     xcrossing.x = postZoomPos.y();
@@ -571,29 +526,8 @@ void PluginView::setNPWindowIfNeeded()
         return;
     m_hasPendingGeometryChange = false;
 
-    if (m_isWindowed) {
-        QWidget* widget = static_cast<QWidget*>(platformPluginWidget());
-        widget->setGeometry(m_windowRect);
-
-        // Cut out areas of the plugin occluded by iframe shims
-        Vector<IntRect> cutOutRects;
-        QRegion clipRegion = QRegion(m_clipRect);
-        getPluginOcclusions(m_element, this->parent(), frameRect(), cutOutRects);
-        for (size_t i = 0; i < cutOutRects.size(); i++) {
-            cutOutRects[i].move(-frameRect().x(), -frameRect().y());
-            clipRegion = clipRegion.subtracted(QRegion(cutOutRects[i]));
-        }
-        // if setMask is set with an empty QRegion, no clipping will
-        // be performed, so in that case we hide the plugin view
-        widget->setVisible(!clipRegion.isEmpty());
-        widget->setMask(clipRegion);
-
-        m_npWindow.x = m_windowRect.x();
-        m_npWindow.y = m_windowRect.y();
-    } else {
-        m_npWindow.x = 0;
-        m_npWindow.y = 0;
-    }
+    m_npWindow.x = 0;
+    m_npWindow.y = 0;
 
     // If the width or height are null, set the clipRect to null, indicating that
     // the plugin is not visible/scrolled out.
@@ -623,9 +557,7 @@ void PluginView::setNPWindowIfNeeded()
     }
 
     PluginView::setCurrentPluginView(this);
-#if USE(JSC)
-    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
-#endif
+    JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonVM());
     setCallingPlugin(true);
     m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
     setCallingPlugin(false);
@@ -638,9 +570,6 @@ void PluginView::setParentVisible(bool visible)
         return;
 
     Widget::setParentVisible(visible);
-
-    if (isSelfVisible() && platformPluginWidget())
-        static_cast<QWidget*>(platformPluginWidget())->setVisible(visible);
 }
 
 NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf)
@@ -701,7 +630,7 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
 {
     switch (variable) {
     case NPNVxDisplay:
-        *(void **)value = QX11Info::display();
+        *reinterpret_cast<void**>(value) = x11Display();
         *result = NPERR_NO_ERROR;
         return true;
 
@@ -710,9 +639,9 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
         return true;
 
     case NPNVnetscapeWindow: {
-        void* w = reinterpret_cast<void*>(value);
-        QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-        *((XID *)w) = client ? client->ownerWidget()->window()->winId() : 0;
+        QWebPageClient* client = platformPageClient();
+        QWindow* window = client ? client->ownerWindow() : 0;
+        *reinterpret_cast<XID*>(value) = window ? window->winId() : 0;
         *result = NPERR_NO_ERROR;
         return true;
     }
@@ -732,24 +661,6 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
 
 void PluginView::invalidateRect(const IntRect& rect)
 {
-#if USE(ACCELERATED_COMPOSITING) && !USE(TEXTURE_MAPPER)
-    if (m_platformLayer) {
-        m_platformLayer->update(QRectF(rect));
-        return;
-    }
-#endif
-
-    if (m_isWindowed) {
-        if (platformWidget()) {
-            // update() will schedule a repaint of the widget so ensure
-            // its knowledge of its position on the page is up to date.
-            QWidget* w = static_cast<QWidget*>(platformWidget());
-            w->setGeometry(m_windowRect);
-            w->update(rect);
-        }
-        return;
-    }
-
     invalidateWindowlessPluginRect(rect);
 }
 
@@ -803,47 +714,33 @@ static Display *getPluginDisplay()
     return (Display*)gdk_x11_display_get_xdisplay(gdk_display_get_default());
 }
 
-static void getVisualAndColormap(int depth, Visual **visual, Colormap *colormap)
+static bool getVisualAndColormap(int depth, Visual*& visual, Colormap& colormap, bool forceARGB32)
 {
-    *visual = 0;
-    *colormap = 0;
+    ASSERT(depth == 32 || !forceARGB32);
 
-#ifndef QT_NO_XRENDER
-    static const bool useXRender = qgetenv("QT_X11_NO_XRENDER").isNull(); // Should also check for XRender >= 0.5
-#else
-    static const bool useXRender = false;
-#endif
+    visual = 0;
+    colormap = 0;
 
-    if (!useXRender && depth == 32)
-        return;
+    if (forceARGB32)
+        return false;
 
     int nvi;
     XVisualInfo templ;
-    templ.screen  = QX11Info::appScreen();
+    templ.screen  = x11Screen();
     templ.depth   = depth;
     templ.c_class = TrueColor;
-    XVisualInfo* xvi = XGetVisualInfo(QX11Info::display(), VisualScreenMask | VisualDepthMask | VisualClassMask, &templ, &nvi);
-
+    XVisualInfo* xvi = XGetVisualInfo(x11Display(), VisualScreenMask | VisualDepthMask | VisualClassMask, &templ, &nvi);
+    ASSERT(xvi || forceARGB32);
     if (!xvi)
-        return;
+        return false;
 
-#ifndef QT_NO_XRENDER
-    if (depth == 32) {
-        for (int idx = 0; idx < nvi; ++idx) {
-            XRenderPictFormat* format = XRenderFindVisualFormat(QX11Info::display(), xvi[idx].visual);
-            if (format->type == PictTypeDirect && format->direct.alphaMask) {
-                 *visual = xvi[idx].visual;
-                 break;
-            }
-         }
-    } else
-#endif // QT_NO_XRENDER
-        *visual = xvi[0].visual;
+    visual = xvi[0].visual;
+    ASSERT(visual);
 
     XFree(xvi);
 
-    if (*visual)
-        *colormap = XCreateColormap(QX11Info::display(), QX11Info::appRootWindow(), *visual, AllocNone);
+    colormap = XCreateColormap(x11Display(), rootWindowID(), visual, AllocNone);
+    return true;
 }
 
 bool PluginView::platformStart()
@@ -851,40 +748,20 @@ bool PluginView::platformStart()
     ASSERT(m_isStarted);
     ASSERT(m_status == PluginStatusLoadedSuccessfully);
 
-    if (m_plugin->pluginFuncs()->getvalue) {
-        PluginView::setCurrentPluginView(this);
-#if USE(JSC)
-        JSC::JSLock::DropAllLocks dropAllLocks(JSDOMWindowBase::commonJSGlobalData());
-#endif
-        setCallingPlugin(true);
-        m_plugin->pluginFuncs()->getvalue(m_instance, NPPVpluginNeedsXEmbed, &m_needsXEmbed);
-        setCallingPlugin(false);
-        PluginView::setCurrentPluginView(0);
+    if (!x11Environment.display) {
+        Display* display;
+        display = static_cast<Display*>(QGuiApplication::platformNativeInterface()->nativeResourceForWindow("display", 0));
+        x11Environment.display = display;
+        x11Environment.screenID = XDefaultScreen(display);
+        x11Environment.displayDepth = XDefaultDepth(display, x11Environment.screenID);
+        x11Environment.rootWindowID = XDefaultRootWindow(display);
     }
 
-    if (m_isWindowed) {
-        QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-        if (m_needsXEmbed && client) {
-            setPlatformWidget(new PluginContainerQt(this, client->ownerWidget()));
-            // sync our XEmbed container window creation before sending the xid to plugins.
-            QApplication::syncX();
-        } else {
-            notImplemented();
-            m_status = PluginStatusCanNotLoadPlugin;
-            return false;
-        }
-    } else {
-        setPlatformWidget(0);
-        m_pluginDisplay = getPluginDisplay();
-
-#if USE(ACCELERATED_COMPOSITING) && !USE(TEXTURE_MAPPER)
-        if (shouldUseAcceleratedCompositing()) {
-            m_platformLayer = adoptPtr(new PluginGraphicsLayerQt(this));
-            // Trigger layer computation in RenderLayerCompositor
-            m_element->setNeedsStyleRecalc(SyntheticStyleChange);
-        }
-#endif
-    }
+    // Windowed mode is not supported with Qt5 yet.
+    if (m_isWindowed)
+        return false;
+    setPlatformWidget(0);
+    m_pluginDisplay = getPluginDisplay();
 
     // If the width and the height are not zero we show the PluginView.
     if (!frameRect().isEmpty())
@@ -893,42 +770,21 @@ bool PluginView::platformStart()
     NPSetWindowCallbackStruct* wsi = new NPSetWindowCallbackStruct();
     wsi->type = 0;
 
-    if (m_isWindowed) {
-        const QX11Info* x11Info = &static_cast<QWidget*>(platformPluginWidget())->x11Info();
+    int depth = displayDepth();
+    bool found = getVisualAndColormap(depth, m_visual, m_colormap, /* forceARGB32 = */ false);
+    ASSERT_UNUSED(found, found);
+    wsi->depth = depth;
 
-        wsi->display = x11Info->display();
-        wsi->visual = (Visual*)x11Info->visual();
-        wsi->depth = x11Info->depth();
-        wsi->colormap = x11Info->colormap();
+    wsi->display = x11Display();
+    wsi->visual = m_visual;
+    wsi->colormap = m_colormap;
 
-        m_npWindow.type = NPWindowTypeWindow;
-        m_npWindow.window = (void*)static_cast<QWidget*>(platformPluginWidget())->winId();
-        m_npWindow.width = -1;
-        m_npWindow.height = -1;
-    } else {
-        const QX11Info* x11Info = &QApplication::desktop()->x11Info();
-
-        if (x11Info->depth() == 32 || !m_plugin->quirks().contains(PluginQuirkRequiresDefaultScreenDepth)) {
-            getVisualAndColormap(32, &m_visual, &m_colormap);
-            wsi->depth = 32;
-        }
-
-        if (!m_visual) {
-            getVisualAndColormap(x11Info->depth(), &m_visual, &m_colormap);
-            wsi->depth = x11Info->depth();
-        }
-
-        wsi->display = x11Info->display();
-        wsi->visual = m_visual;
-        wsi->colormap = m_colormap;
-
-        m_npWindow.type = NPWindowTypeDrawable;
-        m_npWindow.window = 0; // Not used?
-        m_npWindow.x = 0;
-        m_npWindow.y = 0;
-        m_npWindow.width = -1;
-        m_npWindow.height = -1;
-    }
+    m_npWindow.type = NPWindowTypeDrawable;
+    m_npWindow.window = 0; // Not used?
+    m_npWindow.x = 0;
+    m_npWindow.y = 0;
+    m_npWindow.width = -1;
+    m_npWindow.height = -1;
 
     m_npWindow.ws_info = wsi;
 
@@ -946,10 +802,10 @@ void PluginView::platformDestroy()
         delete platformPluginWidget();
 
     if (m_drawable)
-        XFreePixmap(QX11Info::display(), m_drawable);
+        XFreePixmap(x11Display(), m_drawable);
 
     if (m_colormap)
-        XFreeColormap(QX11Info::display(), m_colormap);
+        XFreeColormap(x11Display(), m_colormap);
 }
 
 #if USE(ACCELERATED_COMPOSITING)

@@ -62,49 +62,37 @@
 
 #if !defined(__need_wchar_t) && !defined(__need_size_t) \
     && !defined(__need_ptrdiff_t) && !defined(__need_NULL) \
-    && !defined(__need_wint_t)
+    && !defined(__need_wint_t) && !defined(__need_rsize_t)
 #define __STDDEF_H__
 #endif /* none of __need_* defined */
 
 #include <_types.h>
 
 #if defined(__STDDEF_H__) || defined(__need_ptrdiff_t)
-#ifndef _PTRDIFF_T
-#define _PTRDIFF_T
-typedef	__darwin_ptrdiff_t	ptrdiff_t;
-#endif /* _PTRDIFF_T */
+#include <sys/_types/_ptrdiff_t.h>
 #endif /* __STDDEF_H__ || __need_ptrdiff_t */
 
 #if defined(__STDDEF_H__) || defined(__need_size_t)
-#ifndef	_SIZE_T
-#define	_SIZE_T
 /* DO NOT REMOVE THIS COMMENT: fixincludes needs to see:
  * _GCC_SIZE_T */
-typedef	__darwin_size_t		size_t;
-#endif /* _SIZE_T */
+#include <sys/_types/_size_t.h>
 #endif /* __STDDEF_H__ || __need_size_t */
 
+#if (defined(__STDDEF_H__) && defined(__STDC_WANT_LIB_EXT1__) && __STDC_WANT_LIB_EXT1__ >= 1) || defined(__need_rsize_t)
+#include <sys/_types/_rsize_t.h>
+#endif /* (__STDDEF_H__ && __STDC_WANT_LIB_EXT1__ >= 1) || __need_rsize_t */
+
 #if defined(__STDDEF_H__) || defined(__need_wchar_t)
-#ifndef	__cplusplus
-#ifndef	_WCHAR_T
-#define	_WCHAR_T
-typedef	__darwin_wchar_t	wchar_t;
-#endif	/* _WCHAR_T */
-#endif	/* __cplusplus */
+#include <sys/_types/_wchar_t.h>
 #endif /* __STDDEF_H__ || __need_wchar_t */
 
 #if (defined(__STDDEF_H__) && !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))) \
     || defined(__need_wint_t)
-#ifndef	_WINT_T
-#define	_WINT_T
-typedef	__darwin_wint_t		wint_t;
-#endif	/* _WINT_T */
+#include <sys/_types/_wint_t.h>
 #endif /* __STDDEF_H__ && !_ANSI_SOURCE && (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) || __need_wchar_t */
 
 #if defined(__STDDEF_H__) || defined(__need_NULL)
-#ifndef NULL
-#define NULL __DARWIN_NULL
-#endif /* ! NULL */
+#include <sys/_types/_null.h>
 #endif /* __STDDEF_H__ || __need_NULL */
 
 #ifdef __STDDEF_H__

@@ -31,15 +31,12 @@
 #ifndef InspectorValues_h
 #define InspectorValues_h
 
-#if ENABLE(INSPECTOR)
-
-#include "PlatformString.h"
-
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -395,5 +392,4 @@ inline void InspectorArrayBase::pushArray(PassRefPtr<InspectorArray> value)
 
 } // namespace WebCore
 
-#endif // ENABLE(INSPECTOR)
 #endif // !defined(InspectorValues_h)

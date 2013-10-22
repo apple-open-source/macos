@@ -33,14 +33,9 @@
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFString.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+#include "utilities/SecCFRelease.h"
 
-#define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
-#define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \
-	if (_cf) { (CF) = NULL; CFRelease(_cf); } }
-#define CFRetainSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRetain(_cf); }
+__BEGIN_DECLS
 
 #define DICT_DECLARE(MAXVALUES) \
 	CFIndex numValues = 0, maxValues = (MAXVALUES); \
@@ -76,9 +71,6 @@ static inline CFIndex getIntValue(CFTypeRef cf) {
     return -1;
 }
 
-
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECINTERNAL_H_ */

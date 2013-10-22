@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -53,15 +53,15 @@ OSStatus SecIdentityDeletePreferenceItemWithNameAndKeyUsage(
 
 
 CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage)
-{		
+{
 	CFIndex count = 0;
 	CSSM_KEYUSE result = (CSSM_KEYUSE) 0;
-		
+
 	if ((NULL == usage) || (0 == (count = CFArrayGetCount(usage))))
 	{
 		return result;
 	}
-	
+
 	for (CFIndex iCnt = 0; iCnt < count; iCnt++)
 	{
 		CFStringRef keyUsageStr = NULL;
@@ -116,7 +116,7 @@ SecIdentityGetTypeID(void)
 
 OSStatus
 SecIdentityCopyCertificate(
-            SecIdentityRef identityRef, 
+            SecIdentityRef identityRef,
             SecCertificateRef *certificateRef)
 {
     BEGIN_SECAPI
@@ -130,7 +130,7 @@ SecIdentityCopyCertificate(
 
 OSStatus
 SecIdentityCopyPrivateKey(
-            SecIdentityRef identityRef, 
+            SecIdentityRef identityRef,
             SecKeyRef *privateKeyRef)
 {
     BEGIN_SECAPI
@@ -172,12 +172,12 @@ SecIdentityCreate(
 		SecPointer<Identity> identityPtr(new Identity(keyItemPtr, certificatePtr));
 		identityRef = identityPtr->handle();
 
-		__secapiresult=noErr;
+		__secapiresult=errSecSuccess;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
-	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
-	catch (...) { __secapiresult=internalComponentErr; }
+	catch (const std::bad_alloc &) { __secapiresult=errSecAllocate; }
+	catch (...) { __secapiresult=errSecInternalComponent; }
 	return identityRef;
 }
 
@@ -212,13 +212,14 @@ SecIdentityCompare(
 	END_SECAPI1(kCFCompareGreaterThan);
 }
 
+static
 CFArrayRef _SecIdentityCopyPossiblePaths(
     CFStringRef name)
 {
     // utility function to build and return an array of possible paths for the given name.
     // if name is not a URL, this returns a single-element array.
     // if name is a URL, the array may contain 1..N elements, one for each level of the path hierarchy.
-    
+
     CFMutableArrayRef names = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (!name) {
         return names;
@@ -227,45 +228,52 @@ CFArrayRef _SecIdentityCopyPossiblePaths(
     CFArrayAppendValue(names, name);
 
     CFURLRef url = CFURLCreateWithString(NULL, name, NULL);
-    if (url && CFURLCanBeDecomposed(url)) {
-        // first, remove the query portion of this URL, if any
-        CFStringRef qs = CFURLCopyQueryString(url, NULL);
-        if (qs) {
-            CFMutableStringRef newName = CFStringCreateMutableCopy(NULL, oldLength, name);
-            if (newName) {
-                CFIndex qsLength = CFStringGetLength(qs) + 1; // include the '?'
-                CFStringDelete(newName, CFRangeMake(oldLength-qsLength, qsLength));
-                CFRelease(url);
-                url = CFURLCreateWithString(NULL, newName, NULL);
-                CFArraySetValueAtIndex(names, 0, newName);
-                CFRelease(newName);
-            }
-            CFRelease(qs);
-        }
-        // now add an entry for each level of the path
-        while (url) {
-            CFURLRef parent = CFURLCreateCopyDeletingLastPathComponent(NULL, url);
-            if (parent) {
-                CFStringRef parentURLString = CFURLGetString(parent);
-                if (parentURLString) {
-                    CFIndex newLength = CFStringGetLength(parentURLString);
-                    // check that string length has decreased as expected; for file URLs,
-                    // CFURLCreateCopyDeletingLastPathComponent can insert './' or '../'
-                    if ((newLength >= oldLength) || (!CFStringHasPrefix(name, parentURLString))) {
-                        CFRelease(parent);
-                        CFRelease(url);
-                        break;
-                    }
-                    oldLength = newLength;
-                    CFArrayAppendValue(names, parentURLString);
-                }
-            }
-            CFRelease(url);
-            url = parent;
-        }
-		// finally, add wildcard entries for each subdomain
-		url = CFURLCreateWithString(NULL, name, NULL);
-		if (url && CFURLCanBeDecomposed(url)) {
+    if (url) {
+		if (CFURLCanBeDecomposed(url)) {
+			// first, remove the query portion of this URL, if any
+			CFStringRef qs = CFURLCopyQueryString(url, NULL);
+			if (qs) {
+				CFMutableStringRef newName = CFStringCreateMutableCopy(NULL, oldLength, name);
+				if (newName) {
+					CFIndex qsLength = CFStringGetLength(qs) + 1; // include the '?'
+					CFStringDelete(newName, CFRangeMake(oldLength-qsLength, qsLength));
+					CFRelease(url);
+					url = CFURLCreateWithString(NULL, newName, NULL);
+					CFArraySetValueAtIndex(names, 0, newName);
+					CFRelease(newName);
+				}
+				CFRelease(qs);
+			}
+			// now add an entry for each level of the path
+			while (url) {
+				CFURLRef parent = CFURLCreateCopyDeletingLastPathComponent(NULL, url);
+				if (parent) {
+					CFStringRef parentURLString = CFURLGetString(parent);
+					if (parentURLString) {
+						CFIndex newLength = CFStringGetLength(parentURLString);
+						// check that string length has decreased as expected; for file URLs,
+						// CFURLCreateCopyDeletingLastPathComponent can insert './' or '../'
+						if ((newLength >= oldLength) || (!CFStringHasPrefix(name, parentURLString))) {
+							CFRelease(parent);
+							CFRelease(url);
+							break;
+						}
+						oldLength = newLength;
+						CFArrayAppendValue(names, parentURLString);
+					}
+				}
+				CFRelease(url);
+				url = parent;
+			}
+		}
+		else {
+			CFRelease(url);
+		}
+	}
+	// finally, add wildcard entries for each subdomain
+	url = CFURLCreateWithString(NULL, name, NULL);
+	if (url) {
+		if (CFURLCanBeDecomposed(url)) {
 			CFStringRef netLocString = CFURLCopyNetLocation(url);
 			if (netLocString) {
 				// first strip off port number, if present
@@ -300,13 +308,14 @@ CFArrayRef _SecIdentityCopyPossiblePaths(
 				CFRelease(hostnameArray);
 				CFRelease(netLocString);
 			}
-			CFRelease(url);
 		}
-    }
-    
+		CFRelease(url);
+	}
+
     return names;
 }
 
+static
 OSStatus _SecIdentityCopyPreferenceMatchingName(
     CFStringRef name,
     CSSM_KEYUSE keyUsage,
@@ -349,7 +358,7 @@ OSStatus _SecIdentityCopyPreferenceMatchingName(
 		CFRelease(pItemRef);
 	if (status)
 		return status;
-    
+
     // filter on valid issuers, if provided
     if (validIssuers) {
         //%%%TBI
@@ -377,9 +386,9 @@ SecIdentityRef SecIdentityCopyPreferred(CFStringRef name, CFArrayRef keyUsage, C
 	SecIdentityRef identityRef = NULL;
 	CSSM_KEYUSE keyUse = ConvertArrayToKeyUsage(keyUsage);
 	OSStatus status = SecIdentityCopyPreference(name, keyUse, validIssuers, &identityRef);
-	if (status != noErr && keyUse != CSSM_KEYUSE_ANY)
+	if (status != errSecSuccess && keyUse != CSSM_KEYUSE_ANY)
 		status = SecIdentityCopyPreference(name, CSSM_KEYUSE_ANY, validIssuers, &identityRef);
-	if (status != noErr && keyUse != 0)
+	if (status != errSecSuccess && keyUse != 0)
 		status = SecIdentityCopyPreference(name, 0, validIssuers, &identityRef);
 
 	return identityRef;
@@ -462,12 +471,12 @@ OSStatus SecIdentityCopyPreference(
                 syslog(LOG_NOTICE, "lookup complete; will use: \"%s\" for \"%s\"\n", labelBuf, nameBuf);
                 free(nameBuf);
             }
-            
+
             free(labelBuf);
             free(serviceBuf);
         }
 
-        if (status == noErr) {
+        if (status == errSecSuccess) {
             break; // match found
         }
     }
@@ -484,7 +493,7 @@ OSStatus SecIdentitySetPreference(
     CSSM_KEYUSE keyUsage)
 {
 	if (!name) {
-		return paramErr;
+		return errSecParam;
 	}
 	if (!identity) {
 		// treat NULL identity as a request to clear the preference
@@ -551,7 +560,7 @@ OSStatus SecIdentitySetPreference(
     item->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
 	item->setAttribute(Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
     item->setAttribute(Schema::attributeInfo(kSecLabelItemAttr), service);
-    
+
 	// generic attribute (store persistent certificate reference)
 	CFDataRef pItemRef = nil;
     certificate->copyPersistentReference(pItemRef);
@@ -588,7 +597,7 @@ OSStatus SecIdentitySetPreference(
     END_SECAPI
 }
 
-OSStatus 
+OSStatus
 SecIdentitySetPreferred(SecIdentityRef identity, CFStringRef name, CFArrayRef keyUsage)
 {
 	CSSM_KEYUSE keyUse = ConvertArrayToKeyUsage(keyUsage);
@@ -616,7 +625,7 @@ SecIdentityFindPreferenceItem(
 	}
     size_t idUTF8Len = strlen(idUTF8);
     if (!idUTF8Len)
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 
     CssmData service(const_cast<char *>(idUTF8), idUTF8Len);
     cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
@@ -654,7 +663,7 @@ SecIdentityFindPreferenceItemWithNameAndKeyUsage(
 	}
     size_t idUTF8Len = strlen(idUTF8);
     if (!idUTF8Len)
-        MacOSError::throwMe(paramErr);
+        MacOSError::throwMe(errSecParam);
 
     CssmData service(const_cast<char *>(idUTF8), idUTF8Len);
     cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
@@ -682,22 +691,23 @@ OSStatus SecIdentityDeletePreferenceItemWithNameAndKeyUsage(
 	// maxUsages represents the most matches there could theoretically be, so
 	// cut things off at that point if we're still finding items (if they can't
 	// be deleted for some reason, we'd never break out of the loop.)
-	
+
 	OSStatus status;
 	SecKeychainItemRef item = NULL;
 	int count = 0, maxUsages = 12;
 	while (++count <= maxUsages &&
-			(status = SecIdentityFindPreferenceItemWithNameAndKeyUsage(keychainOrArray, name, keyUsage, &item)) == noErr) {
+			(status = SecIdentityFindPreferenceItemWithNameAndKeyUsage(keychainOrArray, name, keyUsage, &item)) == errSecSuccess) {
 		status = SecKeychainItemDelete(item);
 		CFRelease(item);
 		item = NULL;
 	}
-	
+
 	// it's not an error if the item isn't found
-	return (status == errSecItemNotFound) ? noErr : status;
+	return (status == errSecItemNotFound) ? errSecSuccess : status;
 }
 
 
+static
 OSStatus _SecIdentityAddPreferenceItemWithName(
 	SecKeychainRef keychainRef,
 	SecIdentityRef identityRef,
@@ -708,7 +718,7 @@ OSStatus _SecIdentityAddPreferenceItemWithName(
     // caller must handle exceptions
 
 	if (!identityRef || !idString)
-		return paramErr;
+		return errSecParam;
 	SecPointer<Certificate> cert(Identity::required(identityRef)->certificate());
 	Item item(kSecGenericPasswordItemClass, 'aapl', 0, NULL, false);
 	sint32 keyUsage = 0;
@@ -776,7 +786,7 @@ OSStatus _SecIdentityAddPreferenceItemWithName(
     catch(...) {
         keychain = globals().storageManager.defaultKeychainUI(item);
     }
-	
+
 	try {
 		keychain->add(item);
 	}
@@ -807,7 +817,7 @@ OSStatus SecIdentityAddPreferenceItem(
 
     BEGIN_SECAPI
 
-    OSStatus status = internalComponentErr;
+    OSStatus status = errSecInternalComponent;
     CFArrayRef names = _SecIdentityCopyPossiblePaths(idString);
     if (!names) {
         return status;
@@ -822,8 +832,8 @@ OSStatus SecIdentityAddPreferenceItem(
         }
         catch (const MacOSError &err)   { status=err.osStatus(); }
         catch (const CommonError &err)  { status=SecKeychainErrFromOSStatus(err.osStatus()); }
-        catch (const std::bad_alloc &)  { status=memFullErr; }
-        catch (...)                     { status=internalComponentErr; }
+        catch (const std::bad_alloc &)  { status=errSecAllocate; }
+        catch (...)                     { status=errSecInternalComponent; }
     }
     if (total > 2) {
 		Boolean setDomainDefaultIdentity = FALSE;
@@ -838,15 +848,15 @@ OSStatus SecIdentityAddPreferenceItem(
 		}
 		if (setDomainDefaultIdentity) {
 			// add item for domain (second-to-last element in array, e.g. "*.apple.com")
-			OSStatus tmpStatus = noErr;
+			OSStatus tmpStatus = errSecSuccess;
 			CFStringRef aName = (CFStringRef)CFArrayGetValueAtIndex(names, total-2);
 			try {
 				tmpStatus = _SecIdentityAddPreferenceItemWithName(keychainRef, identityRef, aName, itemRef);
 			}
 			catch (const MacOSError &err)   { tmpStatus=err.osStatus(); }
 			catch (const CommonError &err)  { tmpStatus=SecKeychainErrFromOSStatus(err.osStatus()); }
-			catch (const std::bad_alloc &)  { tmpStatus=memFullErr; }
-			catch (...)                     { tmpStatus=internalComponentErr; }
+			catch (const std::bad_alloc &)  { tmpStatus=errSecAllocate; }
+			catch (...)                     { tmpStatus=errSecInternalComponent; }
 		}
     }
 
@@ -864,7 +874,7 @@ OSStatus SecIdentityUpdatePreferenceItem(
     BEGIN_SECAPI
 
 	if (!itemRef || !identityRef)
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	SecPointer<Certificate> certificate(Identity::required(identityRef)->certificate());
 	Item prefItem = ItemImpl::required(itemRef);
 
@@ -932,7 +942,7 @@ OSStatus SecIdentityCopyFromPreferenceItem(
     BEGIN_SECAPI
 
 	if (!itemRef || !identityRef)
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	Item prefItem = ItemImpl::required(itemRef);
 
 	// get persistent certificate reference
@@ -971,7 +981,7 @@ OSStatus SecIdentityCopyFromPreferenceItem(
 /* plist domain (in /Library/Preferences) */
 #define IDENTITY_DOMAIN		"com.apple.security.systemidentities"
 
-/* 
+/*
  * Our plist is a dictionary whose entries have the following format:
  * key   = domain name as CFString
  * value = public key hash as CFData
@@ -979,14 +989,14 @@ OSStatus SecIdentityCopyFromPreferenceItem(
 
 #define SYSTEM_KEYCHAIN_PATH	kSystemKeychainDir "/" kSystemKeychainName
 
-/* 
+/*
  * All accesses to system identities and its associated plist are
  * protected by this lock.
  */
 ModuleNexus<Mutex> systemIdentityLock;
 
 OSStatus SecIdentityCopySystemIdentity(
-   CFStringRef domain,          
+   CFStringRef domain,
    SecIdentityRef *idRef,
    CFStringRef *actualDomain) /* optional */
 {
@@ -994,16 +1004,16 @@ OSStatus SecIdentityCopySystemIdentity(
 
 	StLock<Mutex> _(systemIdentityLock());
 	auto_ptr<Dictionary> identDict;
-	
+
 	/* get top-level dictionary - if not present, we're done */
 	Dictionary* d = Dictionary::CreateDictionary(IDENTITY_DOMAIN, Dictionary::US_System);
 	if (d == NULL)
 	{
 		return errSecNotAvailable;
 	}
-	
+
 	identDict.reset(d);
-	
+
 	/* see if there's an entry for specified domain */
 	CFDataRef entryValue = identDict->getDataValue(domain);
 	if(entryValue == NULL) {
@@ -1015,22 +1025,22 @@ OSStatus SecIdentityCopySystemIdentity(
 			/* no default identity */
 			MacOSError::throwMe(errSecItemNotFound);
 		}
-		
+
 		/* remember that we're not fetching the requested domain */
 		domain = kSecIdentityDomainDefault;
 	}
-	
+
 	/* open system keychain - error here is fatal */
 	Keychain systemKc = globals().storageManager.make(SYSTEM_KEYCHAIN_PATH, false);
 	CFRef<SecKeychainRef> systemKcRef(systemKc->handle());
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(systemKcRef, keychains);
-	
+
 	/* search for specified cert */
 	SecKeychainAttributeList	attrList;
 	SecKeychainAttribute		attr;
 	attr.tag        = kSecPublicKeyHashItemAttr;
-	attr.length     = CFDataGetLength(entryValue);
+	attr.length     = (UInt32)CFDataGetLength(entryValue);
 	attr.data       = (void *)CFDataGetBytePtr(entryValue);
 	attrList.count  = 1;
 	attrList.attr   = &attr;
@@ -1040,7 +1050,7 @@ OSStatus SecIdentityCopySystemIdentity(
 	if(!cursor->next(certItem)) {
 		MacOSError::throwMe(errSecItemNotFound);
 	}
-	
+
 	/* found the cert; try matching with key to cook up identity */
 	SecPointer<Certificate> certificate(static_cast<Certificate *>(certItem.get()));
 	SecPointer<Identity> identity(new Identity(keychains, certificate));
@@ -1055,7 +1065,7 @@ OSStatus SecIdentityCopySystemIdentity(
 }
 
 OSStatus SecIdentitySetSystemIdentity(
-   CFStringRef domain,     
+   CFStringRef domain,
    SecIdentityRef idRef)
 {
     BEGIN_SECAPI
@@ -1064,7 +1074,7 @@ OSStatus SecIdentitySetSystemIdentity(
 	if(geteuid() != 0) {
 		MacOSError::throwMe(errSecAuthFailed);
 	}
-	
+
 	auto_ptr<MutableDictionary> identDict;
 	MutableDictionary *d = MutableDictionary::CreateMutableDictionary(IDENTITY_DOMAIN, Dictionary::US_System);
 	if (d)
@@ -1075,11 +1085,11 @@ OSStatus SecIdentitySetSystemIdentity(
 	{
 		if(idRef == NULL) {
 			/* nothing there, nothing to set - done */
-			return noErr;
+			return errSecSuccess;
 		}
 		identDict.reset(new MutableDictionary());
 	}
-	
+
 	if(idRef == NULL) {
 		/* Just delete the possible entry for this domain */
 		identDict->removeValue(domain);
@@ -1089,16 +1099,16 @@ OSStatus SecIdentitySetSystemIdentity(
 		SecPointer<Identity> identity(Identity::required(idRef));
 		SecPointer<Certificate> cert = identity->certificate();
 		const CssmData &pubKeyHash = cert->publicKeyHash();
-		CFRef<CFDataRef> pubKeyHashData(CFDataCreate(NULL, pubKeyHash.Data, 
+		CFRef<CFDataRef> pubKeyHashData(CFDataCreate(NULL, pubKeyHash.Data,
 			pubKeyHash.Length));
-		
+
 		/* add/replace to dictionary */
 		identDict->setValue(domain, pubKeyHashData);
 	}
-	
+
 	/* flush to disk */
 	if(!identDict->writePlistToPrefs(IDENTITY_DOMAIN, Dictionary::US_System)) {
-		MacOSError::throwMe(ioErr);
+		MacOSError::throwMe(errSecIO);
 	}
 
     END_SECAPI

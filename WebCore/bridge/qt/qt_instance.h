@@ -21,10 +21,11 @@
 #define qt_instance_h
 
 #include "BridgeJSC.h"
+#include "JSWeakObjectMapRefPrivate.h"
+#include "Weak.h"
+#include "WeakInlines.h"
 #include "runtime_root.h"
-#include <QStack>
-#include <QWeakPointer>
-#include <QtScript/qscriptengine.h>
+#include <QPointer>
 #include <qhash.h>
 #include <qset.h>
 
@@ -34,10 +35,37 @@ namespace Bindings {
 
 class QtClass;
 class QtField;
-class QtRuntimeMetaMethod;
+class QtRuntimeMethod;
+
+class WeakMapImpl : public RefCounted<WeakMapImpl> {
+public:
+    WeakMapImpl(JSContextGroupRef);
+    ~WeakMapImpl();
+
+    JSGlobalContextRef m_context;
+    JSWeakObjectMapRef m_map;
+};
+
+class WeakMap {
+public:
+    ~WeakMap();
+
+    void set(JSContextRef, void* key, JSObjectRef);
+    JSObjectRef get(void* key);
+    void remove(void* key);
+
+private:
+    RefPtr<WeakMapImpl> m_impl;
+};
 
 class QtInstance : public Instance {
 public:
+    enum ValueOwnership {
+        QtOwnership,
+        ScriptOwnership,
+        AutoOwnership
+    };
+
     ~QtInstance();
 
     virtual Class* getClass() const;
@@ -49,9 +77,7 @@ public:
     virtual JSValue valueOf(ExecState*) const;
     virtual JSValue defaultValue(ExecState*, PreferredPrimitiveType) const;
 
-    void visitAggregate(SlotVisitor&);
-
-    virtual JSValue getMethod(ExecState* exec, const Identifier& propertyName);
+    virtual JSValue getMethod(ExecState*, PropertyName);
     virtual JSValue invokeMethod(ExecState*, RuntimeMethod*);
 
     virtual void getPropertyNames(ExecState*, PropertyNameArray&);
@@ -63,42 +89,29 @@ public:
     QObject* getObject() const { return m_object.data(); }
     QObject* hashKey() const { return m_hashkey; }
 
-    static PassRefPtr<QtInstance> getQtInstance(QObject*, PassRefPtr<RootObject>, QScriptEngine::ValueOwnership ownership);
+    static PassRefPtr<QtInstance> getQtInstance(QObject*, PassRefPtr<RootObject>, ValueOwnership);
 
-    virtual bool getOwnPropertySlot(JSObject*, ExecState*, const Identifier&, PropertySlot&);
-    virtual void put(JSObject*, ExecState*, const Identifier&, JSValue, PutPropertySlot&);
-
-    void removeCachedMethod(JSObject*);
+    virtual bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
+    virtual void put(JSObject*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
 
     static QtInstance* getInstance(JSObject*);
 
-    class QtSenderStack {
-    public:
-        QObject* top() const { return m_stack.isEmpty() ? 0 : m_stack.top(); }
-        void push(QObject* object) { m_stack.push(object); }
-        void pop() { Q_ASSERT(!m_stack.isEmpty()); m_stack.pop(); }
-    private:
-        QStack<QObject*> m_stack;
-    };
-
-    // Used to implement '__qt_sender__'.
-    static QtSenderStack* qtSenderStack();
-
 private:
-    static PassRefPtr<QtInstance> create(QObject *instance, PassRefPtr<RootObject> rootObject, QScriptEngine::ValueOwnership ownership)
+    static PassRefPtr<QtInstance> create(QObject *instance, PassRefPtr<RootObject> rootObject, ValueOwnership ownership)
     {
         return adoptRef(new QtInstance(instance, rootObject, ownership));
     }
 
     friend class QtClass;
     friend class QtField;
-    QtInstance(QObject*, PassRefPtr<RootObject>, QScriptEngine::ValueOwnership ownership); // Factory produced only..
+    friend class QtRuntimeMethod;
+    QtInstance(QObject*, PassRefPtr<RootObject>, ValueOwnership); // Factory produced only..
     mutable QtClass* m_class;
-    QWeakPointer<QObject> m_object;
+    QPointer<QObject> m_object;
     QObject* m_hashkey;
-    mutable QHash<QByteArray, WriteBarrier<JSObject> > m_methods;
+    mutable QHash<QByteArray, QtRuntimeMethod*> m_methods;
     mutable QHash<QString, QtField*> m_fields;
-    QScriptEngine::ValueOwnership m_ownership;
+    ValueOwnership m_ownership;
 };
 
 } // namespace Bindings

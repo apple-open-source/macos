@@ -1,0 +1,22 @@
+--- #YAML:1.0
+name:               Mail-Sender
+version:            0.8.22
+abstract:           Send mails with attachments through a SMTP server, socket()s based.
+author:
+    - Jan Krynicky (Jenda@Krynicky.cz)
+license:            Perl
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
+requires:
+    MIME::Base64:  0
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.52
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4

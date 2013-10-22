@@ -24,6 +24,7 @@
 #include <sys/mount.h>
 #include <sys/syslimits.h>
 #include <sys/socket.h>
+#include <asl.h>
 
 #include <netinet/in.h>
 
@@ -40,6 +41,8 @@
 #include <time.h>
 #include <notify.h>
 #include <sandbox.h>
+#include <libxml/parser.h>
+#include <libxml/xmlmemory.h>
 
 #include <CoreServices/CoreServices.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -990,9 +993,6 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	/* Workaround for daemon/mach ports problem... */
-	CFRunLoopGetCurrent();
-	
 	/*
 	 * Set the default timeout value
 	 */
@@ -1025,6 +1025,9 @@ int main(int argc, char *argv[])
 
 	/* Start logging (and change name) */
 	openlog("webdavfs_agent", LOG_CONS | LOG_PID, LOG_DAEMON);
+	
+	/* Workaround for daemon/mach ports problem... */
+	CFRunLoopGetCurrent();
 
 	// Set default maximum file upload or download size to allow
 	// the file system to cache
@@ -1224,7 +1227,7 @@ int main(int argc, char *argv[])
 		socket_address.sin_len = sizeof(socket_address);
 		socket_address.sin_family = AF_INET;
 		socket_address.sin_port = 0;
-		socket_address.sin_addr.s_addr = INADDR_LOOPBACK;
+		socket_address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 		
 		reachabilityRef = SCNetworkReachabilityCreateWithAddress(kCFAllocatorDefault, (struct sockaddr*)&socket_address);
 		if (reachabilityRef != NULL)
@@ -1240,12 +1243,13 @@ int main(int argc, char *argv[])
 		syslog(LOG_ERR, "failed to register for low disk space notifications: err = %u\n", tempError);
 		lowdisk_notify_fd = -1;
 	}
-
+	xmlInitParser();
 	/* Put on seatbelt */
 	
 	if (sandbox_init("webdav_agent", SANDBOX_NAMED, &errorbuf) == -1) {
-		syslog(LOG_DEBUG, "sandbox_init: %s\n", errorbuf);
+		asl_log(NULL,NULL,ASL_LEVEL_ERR, "sandbox_init: %s\n", errorbuf);
 		sandbox_free_error(errorbuf);
+		exit(errno);
 	}
 	
 	/*
@@ -1406,7 +1410,8 @@ int main(int argc, char *argv[])
 	/* clear the immutable flag and unlink the name from the listening socket */
 	(void) chflags(un.sun_path, 0);
 	(void) unlink(un.sun_path);
-
+	
+	xmlCleanupParser();
 	exit(EXIT_SUCCESS);
 
 error_exit:
@@ -1442,5 +1447,6 @@ error_exit:
 				break;
 		}
 	}
+	xmlCleanupParser();
 	exit(error);
 }

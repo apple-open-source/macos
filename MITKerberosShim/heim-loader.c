@@ -182,6 +182,8 @@ fun_krb5_get_kdc_sec_offset = dlsym(hf, "krb5_get_kdc_sec_offset");
 if (!fun_krb5_get_kdc_sec_offset) { syslog(LOG_ERR, "krb5_get_kdc_sec_offset failed loading"); }
 fun_krb5_init_context = dlsym(hf, "krb5_init_context");
 if (!fun_krb5_init_context) { syslog(LOG_ERR, "krb5_init_context failed loading"); }
+fun_krb5_init_context_flags = dlsym(hf, "krb5_init_context_flags");
+if (!fun_krb5_init_context_flags) { syslog(LOG_ERR, "krb5_init_context_flags failed loading"); }
 fun_krb5_make_principal = dlsym(hf, "krb5_make_principal");
 if (!fun_krb5_make_principal) { syslog(LOG_ERR, "krb5_make_principal failed loading"); }
 fun_krb5_parse_name = dlsym(hf, "krb5_parse_name");

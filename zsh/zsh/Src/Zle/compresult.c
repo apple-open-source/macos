@@ -698,8 +698,10 @@ hasbrpsfx(Cmatch m, char *pre, char *suf)
     {
 	char *op = lastprebr, *os = lastpostbr;
 	VARARR(char, oline, zlemetall);
-	int oll = zlemetall, ocs = zlemetacs, ole = lastend, opcs = brpcs, oscs = brscs, ret;
+	int oll = zlemetall, newll, ole = lastend;
+	int opcs = brpcs, oscs = brscs, ret;
 
+	zle_save_positions();
 	memcpy(oline, zlemetaline, zlemetall);
 
 	lastprebr = lastpostbr = NULL;
@@ -710,7 +712,10 @@ hasbrpsfx(Cmatch m, char *pre, char *suf)
 	foredel(zlemetall, CUT_RAW);
 	spaceinline(oll);
 	memcpy(zlemetaline, oline, oll);
-	zlemetacs = ocs;
+	/* we do not want to restore zlemetall */
+	newll = zlemetall;
+	zle_restore_positions();
+	zlemetall = newll;
 	lastend = ole;
 	brpcs = opcs;
 	brscs = oscs;
@@ -901,7 +906,14 @@ do_allmatches(UNUSED(int end))
 
     for (minfo.group = amatches;
 	 minfo.group && !(minfo.group)->mcount;
-	 minfo.group = (minfo.group)->next);
+	 minfo.group = (minfo.group)->next) {
+#ifdef ZSH_HEAP_DEBUG
+	if (memory_validate(minfo.group->heap_id)) {
+	    HEAP_ERROR(minfo.group->heap_id);
+	}
+#endif
+    }
+
 
     mc = (minfo.group)->matches;
 
@@ -1167,6 +1179,11 @@ do_single(Cmatch m)
 	struct chdata dat;
 
 	dat.matches = amatches;
+#ifdef ZSH_HEAP_DEBUG
+	if (memory_validate(dat.matches->heap_id)) {
+	    HEAP_ERROR(dat.matches->heap_id);
+	}
+#endif
 	dat.num = nmatches;
 	dat.cur = m;
 
@@ -1205,8 +1222,14 @@ do_menucmp(int lst)
     do {
 	if (!*++(minfo.cur)) {
 	    do {
-		if (!(minfo.group = (minfo.group)->next))
+		if (!(minfo.group = (minfo.group)->next)) {
 		    minfo.group = amatches;
+#ifdef ZSH_HEAP_DEBUG
+		    if (memory_validate(minfo.group->heap_id)) {
+			HEAP_ERROR(minfo.group->heap_id);
+		    }
+#endif
+		}
 	    } while (!(minfo.group)->mcount);
 	    minfo.cur = minfo.group->matches;
 	}
@@ -1286,12 +1309,18 @@ accept_last(void)
 	    Cmgroup g;
 	    Cmatch *m;
 
-	    for (g = amatches, m = NULL; g && (!m || !*m); g = g->next)
+	    for (g = amatches, m = NULL; g && (!m || !*m); g = g->next) {
+#ifdef ZSH_HEAP_DEBUG
+		if (memory_validate(g->heap_id)) {
+		    HEAP_ERROR(g->heap_id);
+		}
+#endif
 		for (m = g->matches; *m; m++)
 		    if (!hasbrpsfx(*m, minfo.prebr, minfo.postbr)) {
 			showinglist = -2;
 			break;
 		    }
+	    }
 	}
     }
     menuacc++;
@@ -1376,7 +1405,13 @@ do_ambig_menu(void)
 	insgnum = comp_mod(insgnum, lastpermgnum);
 	for (minfo.group = amatches;
 	     minfo.group && (minfo.group)->num != insgnum + 1;
-	     minfo.group = (minfo.group)->next);
+	     minfo.group = (minfo.group)->next) {
+#ifdef ZSH_HEAP_DEBUG
+	    if (memory_validate(minfo.group->heap_id)) {
+		HEAP_ERROR(minfo.group->heap_id);
+	    }
+#endif
+	}
 	if (!minfo.group || !(minfo.group)->mcount) {
 	    minfo.cur = NULL;
 	    minfo.asked = 0;
@@ -1388,8 +1423,14 @@ do_ambig_menu(void)
 	insmnum = comp_mod(insmnum, lastpermmnum);
 	for (minfo.group = amatches;
 	     minfo.group && (minfo.group)->mcount <= insmnum;
-	     minfo.group = (minfo.group)->next)
+	     minfo.group = (minfo.group)->next) {
 	    insmnum -= (minfo.group)->mcount;
+#ifdef ZSH_HEAP_DEBUG
+	    if (memory_validate(minfo.group->heap_id)) {
+		HEAP_ERROR(minfo.group->heap_id);
+	    }
+#endif
+	}
 	if (!minfo.group) {
 	    minfo.cur = NULL;
 	    minfo.asked = 0;
@@ -1468,15 +1509,21 @@ calclist(int showall)
     if (lastinvcount == invcount &&
 	listdat.valid && onlyexpl == listdat.onlyexpl &&
 	menuacc == listdat.menuacc && showall == listdat.showall &&
-	lines == listdat.lines && columns == listdat.columns)
+	zterm_lines == listdat.zterm_lines &&
+	zterm_columns == listdat.zterm_columns)
 	return 0;
     lastinvcount = invcount;
 
     for (g = amatches; g; g = g->next) {
 	char **pp = g->ylist;
-	int nl = 0, l, glong = 1, gshort = columns, ndisp = 0, totl = 0;
+	int nl = 0, l, glong = 1, gshort = zterm_columns, ndisp = 0, totl = 0;
         int hasf = 0;
 
+#ifdef ZSH_HEAP_DEBUG
+	if (memory_validate(g->heap_id)) {
+	    HEAP_ERROR(g->heap_id);
+	}
+#endif
 	g->flags |= CGF_PACKED | CGF_ROWS;
 
 	if (!onlyexpl && pp) {
@@ -1490,7 +1537,7 @@ calclist(int showall)
 	    /* We have an ylist, lets see, if it contains newlines. */
 	    hidden = 1;
 	    while (!nl && *pp) {
-                if (MB_METASTRWIDTH(*pp) >= columns)
+                if (MB_METASTRWIDTH(*pp) >= zterm_columns)
                     nl = 1;
                 else
                     nl = !!strchr(*pp++, '\n');
@@ -1506,11 +1553,12 @@ calclist(int showall)
 		    while (*sptr) {
 			if ((nlptr = strchr(sptr, '\n'))) {
 			    *nlptr = '\0';
-			    nlines += 1 + (MB_METASTRWIDTH(sptr)-1) / columns;
+			    nlines += 1 + (MB_METASTRWIDTH(sptr)-1) /
+				zterm_columns;
 			    *nlptr = '\n';
 			    sptr = nlptr + 1;
 			} else {
-			    nlines += (MB_METASTRWIDTH(sptr)-1) / columns;
+			    nlines += (MB_METASTRWIDTH(sptr)-1) / zterm_columns;
 			    break;
 			}
 		    }
@@ -1602,7 +1650,7 @@ calclist(int showall)
 	g->dcount = ndisp;
 	g->width = glong + CM_SPACE;
 	g->shortest = gshort + CM_SPACE;
-	if ((g->cols = columns / g->width) > g->dcount)
+	if ((g->cols = zterm_columns / g->width) > g->dcount)
 	    g->cols = g->dcount;
 	if (g->cols) {
 	    i = g->cols * g->width - CM_SPACE;
@@ -1617,6 +1665,11 @@ calclist(int showall)
 	for (g = amatches; g; g = g->next) {
 	    glines = 0;
 
+#ifdef ZSH_HEAP_DEBUG
+	    if (memory_validate(g->heap_id)) {
+		HEAP_ERROR(g->heap_id);
+	    }
+#endif
 	    zfree(g->widths, 0);
 	    g->widths = NULL;
 
@@ -1631,9 +1684,10 @@ calclist(int showall)
 		    } else {
 			g->cols = 1;
 			g->width = 1;
-			
+
 			while (*pp)
-			    glines += 1 + (MB_METASTRWIDTH(*pp++) / columns);
+			    glines += 1 + (MB_METASTRWIDTH(*pp++) /
+					   zterm_columns);
 		    }
 		}
 	    } else {
@@ -1645,15 +1699,17 @@ calclist(int showall)
 		} else if (!(g->flags & CGF_LINES)) {
 		    g->cols = 1;
 		    g->width = 0;
-		    
+
 		    for (p = g->matches; (m = *p); p++)
 			if (!(m->flags & CMF_HIDE)) {
 			    if (m->disp) {
 				if (!(m->flags & CMF_DISPLINE))
-				    glines += 1 + ((mlens[m->gnum] - 1) / columns);
+				    glines += 1 + ((mlens[m->gnum] - 1) /
+						   zterm_columns);
 			    } else if (showall ||
 				       !(m->flags & (CMF_NOLIST | CMF_MULT)))
-				glines += 1 + (((mlens[m->gnum]) - 1) / columns);
+				glines += 1 + (((mlens[m->gnum]) - 1) /
+					       zterm_columns);
 			}
 		}
 	    }
@@ -1664,8 +1720,8 @@ calclist(int showall)
 	    if (!(g->flags & CGF_PACKED))
 		continue;
 
-	    ws = g->widths = (int *) zalloc(columns * sizeof(int));
-	    memset(ws, 0, columns * sizeof(int));
+	    ws = g->widths = (int *) zalloc(zterm_columns * sizeof(int));
+	    memset(ws, 0, zterm_columns * sizeof(int));
 	    tlines = g->lins;
 	    tcols = g->cols;
 	    width = 0;
@@ -1681,14 +1737,14 @@ calclist(int showall)
 		    if (g->flags & CGF_ROWS) {
                         int nth, tcol, len;
 
-                        for (tcols = columns / (g->shortest + CM_SPACE);
+                        for (tcols = zterm_columns / (g->shortest + CM_SPACE);
                              tcols > g->cols;
                              tcols--) {
 
                             memset(ws, 0, tcols * sizeof(int));
 
                             for (width = nth = tcol = 0, tlines = 1;
-                                 width < columns && nth < g->dcount;
+                                 width < zterm_columns && nth < g->dcount;
                                  nth++, tcol++) {
 
                                 m = *p;
@@ -1704,13 +1760,13 @@ calclist(int showall)
                                     ws[tcol] = len;
                                 }
                             }
-                            if (width < columns)
+                            if (width < zterm_columns)
                                 break;
                         }
 		    } else {
                         int nth, tcol, tline, len;
 
-                        for (tcols = columns / (g->shortest + CM_SPACE);
+                        for (tcols = zterm_columns / (g->shortest + CM_SPACE);
                              tcols > g->cols;
                              tcols--) {
 
@@ -1720,7 +1776,7 @@ calclist(int showall)
                             memset(ws, 0, tcols * sizeof(int));
 
                             for (width = nth = tcol = tline = 0;
-                                 width < columns && nth < g->dcount;
+                                 width < zterm_columns && nth < g->dcount;
                                  nth++, tline++) {
 
                                 m = *p;
@@ -1740,7 +1796,7 @@ calclist(int showall)
                                     ws[tcol] = len;
                                 }
                             }
-                            if (width < columns)
+                            if (width < zterm_columns)
                                 break;
                         }
 		    }
@@ -1749,7 +1805,7 @@ calclist(int showall)
 		if (g->flags & CGF_ROWS) {
                     int nth, tcol, len;
 
-                    for (tcols = columns / (g->shortest + CM_SPACE);
+                    for (tcols = zterm_columns / (g->shortest + CM_SPACE);
                          tcols > g->cols;
                          tcols--) {
 
@@ -1757,7 +1813,7 @@ calclist(int showall)
 
                         for (width = nth = tcol = 0, tlines = 1,
                              p = skipnolist(g->matches, showall);
-                             *p && width < columns && nth < g->dcount;
+                             *p && width < zterm_columns && nth < g->dcount;
                              nth++, p = skipnolist(p + 1, showall), tcol++) {
 
                             m = *p;
@@ -1774,13 +1830,13 @@ calclist(int showall)
                                 ws[tcol] = len;
                             }
                         }
-                        if (width < columns)
+                        if (width < zterm_columns)
                             break;
                     }
 		} else {
                     int nth, tcol, tline, len;
 
-                    for (tcols = columns / (g->shortest + CM_SPACE);
+                    for (tcols = zterm_columns / (g->shortest + CM_SPACE);
                          tcols > g->cols;
                          tcols--) {
 
@@ -1791,7 +1847,7 @@ calclist(int showall)
 
                         for (width = nth = tcol = tline = 0,
                              p = skipnolist(g->matches, showall);
-                             *p && width < columns && nth < g->dcount;
+                             *p && width < zterm_columns && nth < g->dcount;
                              nth++, p = skipnolist(p + 1, showall), tline++) {
 
                             m = *p;
@@ -1812,7 +1868,7 @@ calclist(int showall)
                                 ws[tcol] = len;
                             }
                         }
-                        if (width < columns) {
+                        if (width < zterm_columns) {
                             if (++tcol < tcols)
                                 tcols = tcol;
                             break;
@@ -1823,7 +1879,7 @@ calclist(int showall)
             if (tcols <= g->cols)
                 tlines = g->lins;
 	    if (tlines == g->lins) {
-		zfree(ws, columns * sizeof(int));
+		zfree(ws, zterm_columns * sizeof(int));
 		g->widths = NULL;
 	    } else {
 		nlines += tlines - g->lins;
@@ -1848,6 +1904,11 @@ calclist(int showall)
     else
 	for (g = amatches; g; g = g->next)
 	{
+#ifdef ZSH_HEAP_DEBUG
+	    if (memory_validate(g->heap_id)) {
+		HEAP_ERROR(g->heap_id);
+	    }
+#endif
 	    zfree(g->widths, 0);
 	    g->widths = NULL;
 	}
@@ -1857,8 +1918,8 @@ calclist(int showall)
     listdat.nlines = nlines;
     listdat.menuacc = menuacc;
     listdat.onlyexpl = onlyexpl;
-    listdat.columns = columns;
-    listdat.lines = lines;
+    listdat.zterm_columns = zterm_columns;
+    listdat.zterm_lines = zterm_lines;
     listdat.showall = showall;
 
     return 1;
@@ -1879,7 +1940,7 @@ asklist(void)
     if ((!minfo.cur || !minfo.asked) &&
 	((complistmax > 0 && listdat.nlist >= complistmax) ||
 	 (complistmax < 0 && listdat.nlines <= -complistmax) ||
-	 (!complistmax && listdat.nlines >= lines))) {
+	 (!complistmax && listdat.nlines >= zterm_lines))) {
 	int qup, l;
 
 	zsetterm();
@@ -1888,7 +1949,7 @@ asklist(void)
 		     listdat.nlist, listdat.nlines) :
 	     fprintf(shout, "zsh: do you wish to see all %d lines? ",
 		     listdat.nlines));
-	qup = ((l + columns - 1) / columns) - 1;
+	qup = ((l + zterm_columns - 1) / zterm_columns) - 1;
 	fflush(shout);
 	if (!getzlequery()) {
 	    if (clearflag) {
@@ -1935,6 +1996,11 @@ printlist(int over, CLPrintFunc printm, int showall)
     for (g = amatches; g; g = g->next) {
 	char **pp = g->ylist;
 
+#ifdef ZSH_HEAP_DEBUG
+	if (memory_validate(g->heap_id)) {
+	    HEAP_ERROR(g->heap_id);
+	}
+#endif
 	if ((e = g->expls)) {
 	    int l;
 
@@ -1982,7 +2048,7 @@ printlist(int over, CLPrintFunc printm, int showall)
 		while ((p = *pp++)) {
 		    zputs(p, shout);
 		    if (*pp) {
-                        if (MB_METASTRWIDTH(p) % columns)
+                        if (MB_METASTRWIDTH(p) % zterm_columns)
                             putc('\n', shout);
                         else
                             fputs(" \010", shout);
@@ -2108,7 +2174,7 @@ printlist(int over, CLPrintFunc printm, int showall)
     if (clearflag) {
 	/* Move the cursor up to the prompt, if always_last_prompt *
 	 * is set and all that...                                  */
-	if ((ml = listdat.nlines + nlnct - 1) < lines) {
+	if ((ml = listdat.nlines + nlnct - 1) < zterm_lines) {
 	    tcmultout(TCUP, TCMULTUP, ml);
 	    showinglist = -1;
 
@@ -2129,12 +2195,18 @@ bld_all_str(Cmatch all)
 {
     Cmgroup g;
     Cmatch *mp, m;
-    int len = columns - 5, t, add = 0;
-    VARARR(char, buf, columns + 1);
+    int len = zterm_columns - 5, t, add = 0;
+    VARARR(char, buf, zterm_columns + 1);
 
     buf[0] = '\0';
 
-    for (g = amatches; g && !g->mcount; g = g->next);
+    for (g = amatches; g && !g->mcount; g = g->next) {
+#ifdef ZSH_HEAP_DEBUG
+	if (memory_validate(g->heap_id)) {
+	    HEAP_ERROR(g->heap_id);
+	}
+#endif
+    }
 
     mp = g->matches;
     while (1) {
@@ -2252,6 +2324,11 @@ list_matches(UNUSED(Hookdef dummy), UNUSED(void *dummy2))
 #endif
 
     dat.matches = amatches;
+#ifdef ZSH_HEAP_DEBUG
+    if (memory_validate(dat.matches->heap_id)) {
+	HEAP_ERROR(dat.matches->heap_id);
+    }
+#endif
     dat.num = nmatches;
     dat.cur = NULL;
     ret = runhookdef(COMPLISTMATCHESHOOK, (void *) &dat);

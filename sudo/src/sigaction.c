@@ -18,10 +18,14 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
+#include <config.h>
+
+#include <sys/types.h>
+
 #include <signal.h>
 #include <errno.h>
 
-#include <compat.h>
+#include "missing.h"
 
 int
 sigaction(signo, sa, osa)
@@ -43,7 +47,7 @@ sigaction(signo, sa, osa)
     if (!error && osa)
 	osa->sa_flags ^= SV_INTERRUPT;		/* flip SV_INTERRUPT as above */
 
-    return(error);
+    return error;
 }
 
 int
@@ -52,7 +56,7 @@ sigemptyset(set)
 {
 
     *set = 0;
-    return(0);
+    return 0;
 }
 
 int
@@ -61,7 +65,7 @@ sigfillset(set)
 {
 
     *set = ~0;;
-    return(0);
+    return 0;
 }
 
 int
@@ -72,11 +76,11 @@ sigaddset(set, signo)
 
     if (signo <= 0 || signo >= NSIG) {
 	errno = EINVAL;
-	return(-1);
+	return -1;
     }
 
     SET(*set, sigmask(signo));
-    return(0);
+    return 0;
 }
 
 int
@@ -87,11 +91,11 @@ sigdelset(set, signo)
 
     if (signo <= 0 || signo >= NSIG) {
 	errno = EINVAL;
-	return(-1);
+	return -1;
     }
 
     CLR(*set, sigmask(signo));
-    return(0);
+    return 0;
 }
 
 int
@@ -100,7 +104,7 @@ sigismember(set, signo)
     int signo;
 {
 
-    return(ISSET(*set, sigmask(signo)));
+    return ISSET(*set, sigmask(signo));
 }
 
 int
@@ -120,18 +124,18 @@ sigprocmask(how, set, oset)
 		mask = sigblock(*set);
 		break;
 	    case SIG_UNBLOCK:
-		mask = sigsetmask(~*set);
+		mask = sigsetmask(sigblock(0) & ~(*set));
 		break;
 	    case SIG_SETMASK:
 		mask = sigsetmask(*set);
 		break;
 	    default:
-		return(-1);
+		return -1;
 	}
 
     if (mask == -1)
-	return(-1);
+	return -1;
     if (oset)
 	*oset = mask;
-    return(0);
+    return 0;
 }

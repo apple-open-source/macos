@@ -52,7 +52,6 @@
 
 #define JavaCocoaPluginIdentifier   "com.apple.JavaPluginCocoa"
 #define JavaCarbonPluginIdentifier  "com.apple.JavaAppletPlugin"
-#define JavaCFMPluginFilename       "Java Applet Plugin Enabler"
 
 #define QuickTimeCarbonPluginIdentifier       "com.apple.QuickTime Plugin.plugin"
 #define QuickTimeCocoaPluginIdentifier        "com.apple.quicktime.webplugin"
@@ -61,7 +60,6 @@
 - (NSArray *)_web_lowercaseStrings;
 @end;
 
-using namespace std;
 using namespace WebCore;
 
 @implementation WebBasePluginPackage
@@ -135,16 +133,13 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
         return nil;
         
     path = pathByResolvingSymlinksAndAliases(pluginPath);
-    cfBundle.adoptCF(CFBundleCreate(kCFAllocatorDefault, (CFURLRef)[NSURL fileURLWithPath:path]));
+    cfBundle = adoptCF(CFBundleCreate(kCFAllocatorDefault, (CFURLRef)[NSURL fileURLWithPath:path]));
 
-#ifndef __ppc__
-    // 32-bit PowerPC is the only platform where non-bundled CFM plugins are supported
     if (!cfBundle) {
         [self release];
         return nil;
     }
-#endif
-    
+
     return self;
 }
 
@@ -267,6 +262,8 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
         description = filename;
     pluginInfo.desc = description;
 
+    pluginInfo.isApplicationPlugin = false;
+
     return YES;
 }
 
@@ -312,7 +309,7 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
     for (size_t i = 0; i < pluginInfo.mimes.size(); ++i) {
         const Vector<String>& extensions = pluginInfo.mimes[i].extensions;
 
-        if (find(extensions.begin(), extensions.end(), extension) != extensions.end())
+        if (std::find(extensions.begin(), extensions.end(), extension) != extensions.end())
             return YES;
     }
 
@@ -339,7 +336,7 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
         const MimeClassInfo& mimeClassInfo = pluginInfo.mimes[i];
         const Vector<String>& extensions = mimeClassInfo.extensions;
 
-        if (find(extensions.begin(), extensions.end(), extension) != extensions.end())
+        if (std::find(extensions.begin(), extensions.end(), extension) != extensions.end())
             return mimeClassInfo.type;
     }
 
@@ -355,8 +352,7 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
 - (BOOL)isJavaPlugIn
 {
     const String& bundleIdentifier = [self bundleIdentifier];
-    return bundleIdentifier == JavaCocoaPluginIdentifier || bundleIdentifier == JavaCarbonPluginIdentifier ||
-        equalIgnoringCase(pluginInfo.file, JavaCFMPluginFilename);
+    return bundleIdentifier == JavaCocoaPluginIdentifier || bundleIdentifier == JavaCarbonPluginIdentifier;
 }
 
 static inline void swapIntsInHeader(uint32_t* rawData, size_t length)

@@ -579,7 +579,7 @@ using std::min;
 	
 	bool		wkr		= (fPromotionSide == kWhiteSide && piece == KNIGHT);
 
-	glPushAttrib(GL_ENABLE_BIT);
+	glPushAttrib(GL_ENABLE_BIT|GL_TEXTURE_BIT);
 	
 	[fSelectedPieceDrawStyle startStyle:1.0f];
 

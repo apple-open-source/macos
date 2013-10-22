@@ -23,6 +23,7 @@
 #ifndef _H_POLICYDB
 #define _H_POLICYDB
 
+#include "SecAssessment.h"
 #include <security_utilities/globalizer.h>
 #include <security_utilities/hashing.h>
 #include <security_utilities/sqlite++.h>
@@ -38,6 +39,8 @@ namespace SQLite = SQLite3;
 static const char defaultDatabase[] = "/var/db/SystemPolicy";
 static const char visibleSecurityFlagFile[] = "/var/db/.sp_visible"; /* old duchess/emir style configration */
 static const char prefsFile[] = "/var/db/SystemPolicy-prefs.plist";
+static const char lastRejectFile[] = "/var/db/.LastGKReject";
+static const char lastApprovedFile[] = "/var/db/.LastGKApp";
 
 static const char gkeAuthFile[] = "/var/db/gke.auth";
 static const char gkeSigsFile[] = "/var/db/gke.sigs";
@@ -77,6 +80,7 @@ enum {
 	kAuthorityFlagDefault =	0x0002,	// rule is part of the original default set
 	kAuthorityFlagInhibitCache = 0x0004, // never cache outcome of this rule
 	kAuthorityFlagWhitelist = 0x1000,	// whitelist override
+	kAuthorityFlagWhitelistV2 = 0x2000, // apply "deep" signature to this record
 };
 
 
@@ -100,7 +104,7 @@ public:
 	virtual ~PolicyDatabase();
 	
 public:
-	bool checkCache(CFURLRef path, AuthorityType type, CFMutableDictionaryRef result);
+	bool checkCache(CFURLRef path, AuthorityType type, SecAssessmentFlags flags, CFMutableDictionaryRef result);
 
 public:
 	void purgeAuthority();
@@ -124,7 +128,7 @@ private:
 //
 // Check the system-wide overriding flag file
 //
-bool overrideAssessment();
+bool overrideAssessment(SecAssessmentFlags flags = 0);
 void setAssessment(bool masterSwitch);
 
 } // end namespace CodeSigning

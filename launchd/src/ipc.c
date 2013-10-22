@@ -45,7 +45,7 @@
 #include <stdbool.h>
 #include <paths.h>
 #include <string.h>
-#include <assumes.h>
+#include <os/assumes.h>
 
 #include "launch.h"
 #include "launch_priv.h"
@@ -205,6 +205,21 @@ ipc_listen_callback(void *obj __attribute__((unused)), struct kevent *kev)
 
 	if ((cfd = _fd(accept(kev->ident, (struct sockaddr *)&sun, &sl))) == -1) {
 		return;
+	}
+
+	if (geteuid() == 0) {
+		uid_t euid, guid;
+		if (getpeereid(cfd, &euid, &guid) == -1) {
+			launchd_syslog(LOG_NOTICE | LOG_CONSOLE, "*** launchd[%d] failed to getpeereid on incoming caller (%d)", getpid(), errno);
+			(void)runtime_close(cfd);
+			return;
+		}
+
+		if (euid != geteuid()) {
+			launchd_syslog(LOG_NOTICE | LOG_CONSOLE, "*** launchd[%d] failed to euid check on incoming caller (%d != %d)", getpid(), euid, geteuid());
+			(void)runtime_close(cfd);
+			return;
+		}
 	}
 
 	ipc_open(cfd, NULL);
@@ -429,12 +444,6 @@ ipc_readmsg2(launch_data_t data, const char *cmd, void *context)
 					resp = job_export(j);
 					ipc_revoke_fds(resp);
 				}
-			} else if (!strcmp(cmd, LAUNCH_KEY_SETPRIORITYLIST)) {
-#if TARGET_OS_EMBEDDED
-				resp = launch_data_new_errno(launchd_set_jetsam_priorities(data));
-#else
-				resp = launch_data_new_errno(ENOTSUP);
-#endif
 			}
 		}
 #if TARGET_OS_EMBEDDED

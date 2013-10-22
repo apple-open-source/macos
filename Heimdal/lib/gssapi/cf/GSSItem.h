@@ -183,7 +183,10 @@ extern const struct __GSSOperationType __kGSSOperationGetGSSCredential /* gss_cr
 
 extern const struct __GSSOperationType __kGSSOperationDestoryTransient /* kCFBoolean{True,False}, NULL|error */
 	__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
-#define kGSSOperationDestoryTransient (&__kGSSOperationDestoryTransient)
+extern const struct __GSSOperationType __kGSSOperationDestroyTransient /* kCFBoolean{True,False}, NULL|error */
+	__OSX_AVAILABLE_STARTING(__MAC_10_9, __IPHONE_7_0);
+#define kGSSOperationDestoryTransient (&__kGSSOperationDestroyTransient)
+#define kGSSOperationDestroyTransient (&__kGSSOperationDestroyTransient)
 
 extern const struct __GSSOperationType __kGSSOperationRemoveBackingCredential /* kCFBoolean{True,False}, NULL|error */
 	__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);

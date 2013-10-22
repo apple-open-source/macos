@@ -36,7 +36,7 @@
  */
 
 #include <Security/SecCmsEncoder.h> /* @@@ Remove this when we move the Encoder method. */
-
+#include <Security/SecCmsSignerInfo.h>
 #include "cmslocal.h"
 
 #include "secitem.h"

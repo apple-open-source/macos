@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,55 +29,53 @@
 #include "APIObject.h"
 #include "GenericCallback.h"
 #include "ImmutableArray.h"
-
+#include "MessageReceiver.h"
+#include "WebContextSupplement.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
 namespace CoreIPC {
-    class ArgumentDecoder;
     class Connection;
-    class MessageID;
 }
 
 namespace WebKit {
 
-struct SecurityOriginData;
-class WebContext;
-class WebProcessProxy;
 class WebSecurityOrigin;
+struct SecurityOriginData;
 
 typedef GenericCallback<WKArrayRef> ArrayCallback;
 
-class WebApplicationCacheManagerProxy : public APIObject {
+class WebApplicationCacheManagerProxy : public TypedAPIObject<APIObject::TypeApplicationCacheManager>, public WebContextSupplement, private CoreIPC::MessageReceiver {
 public:
-    static const Type APIType = TypeApplicationCacheManager;
+    static const char* supplementName();
 
     static PassRefPtr<WebApplicationCacheManagerProxy> create(WebContext*);
     virtual ~WebApplicationCacheManagerProxy();
 
-    void invalidate();
-    void clearContext() { m_webContext = 0; }
-    
     void getApplicationCacheOrigins(PassRefPtr<ArrayCallback>);
     void deleteEntriesForOrigin(WebSecurityOrigin*);
     void deleteAllEntries();
 
-    void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-
-    bool shouldTerminate(WebProcessProxy*) const;
+    using APIObject::ref;
+    using APIObject::deref;
 
 private:
-    WebApplicationCacheManagerProxy(WebContext*);
-
-    virtual Type type() const { return APIType; }
+    explicit WebApplicationCacheManagerProxy(WebContext*);
 
     void didGetApplicationCacheOrigins(const Vector<SecurityOriginData>&, uint64_t callbackID);
-    
-    void didReceiveWebApplicationCacheManagerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 
-    WebContext* m_webContext;
-    HashMap<uint64_t, RefPtr<ArrayCallback> > m_arrayCallbacks;
+    // WebContextSupplement
+    virtual void contextDestroyed() OVERRIDE;
+    virtual void processDidClose(WebProcessProxy*) OVERRIDE;
+    virtual bool shouldTerminate(WebProcessProxy*) const OVERRIDE;
+    virtual void refWebContextSupplement() OVERRIDE;
+    virtual void derefWebContextSupplement() OVERRIDE;
+
+    // CoreIPC::MessageReceiver
+    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageDecoder&) OVERRIDE;
+
+    HashMap<uint64_t, RefPtr<ArrayCallback>> m_arrayCallbacks;
 };
 
 } // namespace WebKit

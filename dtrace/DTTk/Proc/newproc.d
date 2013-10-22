@@ -46,7 +46,7 @@ syscall::mmap:return
 
 	this->argv_ptr = curpsinfo->pr_argv;
 
-        printf("%d <%d> %s ", pid, ppid, this->is64Bit ? "64b" : "32b");
+	printf("%Y %d <%d> %s ", walltimestamp, pid, ppid, this->is64Bit ? "64b" : "32b");
 	this->need_newline = 1;
 }
 
@@ -126,7 +126,7 @@ syscall::mmap:return
 syscall::mmap:return
 / this->argc /
 {
-	printf(" <...>\n");
+	printf(" <...>");
 	this->argc = 0;
 }
 

@@ -1,7 +1,7 @@
 /*
  ********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1996-2011, International Business Machines Corporation and
+ * Copyright (c) 1996-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
  *
@@ -159,9 +159,9 @@ static struct {
 
 /*initializes some global variables */
 static UHashtable *SHARED_DATA_HASHTABLE = NULL;
-static UMTX        cnvCacheMutex = NULL;  /* Mutex for synchronizing cnv cache access. */
-                                          /*  Note:  the global mutex is used for      */
-                                          /*         reference count updates.          */
+static UMutex cnvCacheMutex = U_MUTEX_INITIALIZER;  /* Mutex for synchronizing cnv cache access. */
+                                                    /*  Note:  the global mutex is used for      */
+                                                    /*         reference count updates.          */
 
 static const char **gAvailableConverters = NULL;
 static uint16_t gAvailableConverterCount = 0;
@@ -219,9 +219,6 @@ static UBool U_CALLCONV ucnv_cleanup(void) {
     gDefaultAlgorithmicSharedData = NULL;
 #endif
 
-    umtx_destroy(&cnvCacheMutex);    /* Don't worry about destroying the mutex even  */
-                                     /*  if the hash table still exists.  The mutex  */
-                                     /*  will lazily re-init  itself if needed.      */
     return (SHARED_DATA_HASHTABLE == NULL);
 }
 
@@ -796,6 +793,8 @@ ucnv_loadSharedData(const char *converterName,
             * without updating the alias table, or when there is no alias table
             */
             pArgs->name = pPieces->cnvName;
+        } else if (internalErrorCode == U_AMBIGUOUS_ALIAS_WARNING) {
+            *err = U_AMBIGUOUS_ALIAS_WARNING;
         }
     }
 
@@ -1297,13 +1296,15 @@ ucnv_getDefaultName() {
 #endif
 }
 
+#if U_CHARSET_IS_UTF8
+U_CAPI void U_EXPORT2 ucnv_setDefaultName(const char *) {}
+#else
 /*
 This function is not thread safe, and it can't be thread safe.
 See internalSetName or the API reference for details.
 */
 U_CAPI void U_EXPORT2
 ucnv_setDefaultName(const char *converterName) {
-#if !U_CHARSET_IS_UTF8
     if(converterName==NULL) {
         /* reset to the default codepage */
         gDefaultConverterName=NULL;
@@ -1329,8 +1330,8 @@ ucnv_setDefaultName(const char *converterName) {
         /* reset the converter cache */
         u_flushDefaultConverter();
     }
-#endif
 }
+#endif
 
 /* data swapping ------------------------------------------------------------ */
 

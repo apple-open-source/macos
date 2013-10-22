@@ -49,6 +49,9 @@ struct free_function : public std::unary_function<void *, void>
     }
 };
 
+#ifndef __clang_analyzer__
+/* <12135199> Clang static analyzer does not understand the below code */
+
 rpc_mempool *
 rpc_mempool::allocate(
 					  size_t payload_size)
@@ -62,6 +65,7 @@ rpc_mempool::allocate(
 	
     return new (ptr) rpc_mempool();
 }
+#endif
 
 void
 rpc_mempool::destroy(

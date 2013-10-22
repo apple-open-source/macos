@@ -31,28 +31,27 @@
 #ifndef DateTimeInputType_h
 #define DateTimeInputType_h
 
+#if ENABLE(INPUT_TYPE_DATETIME_INCOMPLETE)
+#include "BaseChooserOnlyDateAndTimeInputType.h"
 #include "BaseDateAndTimeInputType.h"
-
-#if ENABLE(INPUT_TYPE_DATETIME)
 
 namespace WebCore {
 
-class DateTimeInputType : public BaseDateAndTimeInputType {
+class DateTimeInputType : public BaseChooserOnlyDateAndTimeInputType {
 public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
 
 private:
-    DateTimeInputType(HTMLInputElement* element) : BaseDateAndTimeInputType(element) { }
+    DateTimeInputType(HTMLInputElement* element) : BaseDateTimeInputType(element) { }
+    virtual void attach() OVERRIDE;
     virtual const AtomicString& formControlType() const OVERRIDE;
     virtual DateComponents::Type dateType() const OVERRIDE;
-    virtual double defaultValueForStepUp() const OVERRIDE;
-    virtual double minimum() const OVERRIDE;
-    virtual double maximum() const OVERRIDE;
-    virtual double defaultStep() const OVERRIDE;
-    virtual double stepScaleFactor() const OVERRIDE;
-    virtual bool scaledStepValueShouldBeInteger() const OVERRIDE;
+    virtual StepRange createStepRange(AnyStepHandling) const OVERRIDE;
+    virtual Decimal defaultValueForStepUp() const OVERRIDE;
     virtual bool parseToDateComponentsInternal(const UChar*, unsigned length, DateComponents*) const OVERRIDE;
     virtual bool setMillisecondToDateComponents(double, DateComponents*) const OVERRIDE;
+    virtual bool isDateTimeField() const OVERRIDE;
+    virtual String sanitizeValue(const String&) const OVERRIDE;
 };
 
 } // namespace WebCore

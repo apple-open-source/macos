@@ -151,12 +151,12 @@ The same as
 .Fl u ;
 indicate that the status of an already mounted file system should be changed.
 .It union
-Causes the namespace at the mount point to appear as the union
-of the mounted filesystem root and the existing directory.
+Causes the namespace to appear as the union of directories
+of the mounted filesystem with corresponding directories in the
+underlying filesystem.
 Lookups will be done in the mounted filesystem first.
 If those operations fail due to a non-existent file the underlying
 directory is then accessed.
-All creates are done in the mounted filesystem.
 .It noatime
 Do not update the file access time when reading from a file.
 This option is useful on file systems where there are large numbers of files

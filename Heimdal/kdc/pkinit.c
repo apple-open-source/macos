@@ -102,7 +102,7 @@ pk_check_pkauthenticator_win2k(krb5_context context,
     krb5_timeofday (context, &now);
 
     /* XXX cusec */
-    if (a->ctime == 0 || abs(a->ctime - now) > context->max_skew) {
+    if (a->ctime == 0 || krb5_time_abs(a->ctime, now) > context->max_skew) {
 	krb5_clear_error_message(context);
 	return KRB5KRB_AP_ERR_SKEW;
     }
@@ -124,7 +124,7 @@ pk_check_pkauthenticator(krb5_context context,
     krb5_timeofday (context, &now);
 
     /* XXX cusec */
-    if (a->ctime == 0 || abs(a->ctime - now) > context->max_skew) {
+    if (a->ctime == 0 || krb5_time_abs(a->ctime, now) > context->max_skew) {
 	krb5_clear_error_message(context);
 	return KRB5KRB_AP_ERR_SKEW;
     }
@@ -318,7 +318,7 @@ integer_to_BN(krb5_context context, const char *field, heim_integer *f)
 {
     BIGNUM *bn;
 
-    bn = BN_bin2bn((const unsigned char *)f->data, f->length, NULL);
+    bn = BN_bin2bn((const unsigned char *)f->data, (int)f->length, NULL);
     if (bn == NULL) {
 	krb5_set_error_message(context, KRB5_BADMSGTYPE,
 			       "PKINIT: parsing BN failed %s", field);
@@ -1517,6 +1517,7 @@ _kdc_pk_mk_pa_reply(krb5_context context,
 
 	if (ocsp.expire == 0 && ocsp.next_update > kdc_time) {
 	    struct stat sb;
+	    ssize_t sret;
 	    int fd;
 
 	    krb5_data_free(&ocsp.data);
@@ -1538,18 +1539,24 @@ _kdc_pk_mk_pa_reply(krb5_context context,
 			"PK-INIT failed to stat ocsp data %d", ret);
 		goto out_ocsp;
 	    }
-
-	    ret = krb5_data_alloc(&ocsp.data, sb.st_size);
+	    if (sb.st_size > SIZE_T_MAX) {
+		ret = errno;
+		close(fd);
+		kdc_log(context, config, 0,
+			"PK-INIT OCSP data too large %d", ret);
+		goto out_ocsp;
+	    }
+	    ret = krb5_data_alloc(&ocsp.data, (size_t)sb.st_size);
 	    if (ret) {
 		close(fd);
 		kdc_log(context, config, 0,
 			"PK-INIT failed to stat ocsp data %d", ret);
 		goto out_ocsp;
 	    }
-	    ocsp.data.length = sb.st_size;
-	    ret = read(fd, ocsp.data.data, sb.st_size);
+	    ocsp.data.length = (size_t)sb.st_size;
+	    sret = read(fd, ocsp.data.data, (size_t)sb.st_size);
 	    close(fd);
-	    if (ret != sb.st_size) {
+	    if (sret != sb.st_size) {
 		kdc_log(context, config, 0,
 			"PK-INIT failed to read ocsp data %d", errno);
 		goto out_ocsp;
@@ -2108,7 +2115,12 @@ krb5_kdc_pk_initialize(krb5_context context,
 	hx509_query_free(context->hx509ctx, q);
 	if (ret == 0) {
 	    if (hx509_cert_check_eku(context->hx509ctx, cert,
-				     &asn1_oid_id_pkkdcekuoid, 0)) {
+				     &asn1_oid_id_apple_system_id, 0) == 0)
+	    {
+		/* AppleID BTMM cert, then is all fine */
+	    } else if (hx509_cert_check_eku(context->hx509ctx, cert,
+					    &asn1_oid_id_pkkdcekuoid, 0))
+	    {
 		hx509_name name;
 		char *str;
 		ret = hx509_cert_get_subject(cert, &name);

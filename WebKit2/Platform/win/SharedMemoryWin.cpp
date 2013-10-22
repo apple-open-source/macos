@@ -51,18 +51,18 @@ bool SharedMemory::Handle::isNull() const
     return !m_handle;
 }
 
-void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder* encoder) const
+void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder& encoder) const
 {
-    encoder->encodeUInt64(m_size);
+    encoder << static_cast<uint64_t>(m_size);
 
     // Hand off ownership of our HANDLE to the receiving process. It will close it for us.
     // FIXME: If the receiving process crashes before it receives the memory, the memory will be
     // leaked. See <http://webkit.org/b/47502>.
-    encoder->encodeUInt64(reinterpret_cast<uint64_t>(m_handle));
+    encoder << reinterpret_cast<uint64_t>(m_handle);
     m_handle = 0;
 
     // Send along our PID so that the receiving process can duplicate the HANDLE for its own use.
-    encoder->encodeUInt32(::GetCurrentProcessId());
+    encoder << static_cast<uint32_t>(::GetCurrentProcessId());
 }
 
 static bool getDuplicatedHandle(HANDLE sourceHandle, DWORD sourcePID, HANDLE& duplicatedHandle)
@@ -84,21 +84,21 @@ static bool getDuplicatedHandle(HANDLE sourceHandle, DWORD sourcePID, HANDLE& du
     return success;
 }
 
-bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder* decoder, Handle& handle)
+bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder& decoder, Handle& handle)
 {
     ASSERT_ARG(handle, !handle.m_handle);
     ASSERT_ARG(handle, !handle.m_size);
 
     uint64_t size;
-    if (!decoder->decodeUInt64(size))
+    if (!decoder.decode(size))
         return false;
 
     uint64_t sourceHandle;
-    if (!decoder->decodeUInt64(sourceHandle))
+    if (!decoder.decode(sourceHandle))
         return false;
 
     uint32_t sourcePID;
-    if (!decoder->decodeUInt32(sourcePID))
+    if (!decoder.decode(sourcePID))
         return false;
 
     HANDLE duplicatedHandle;
@@ -183,7 +183,7 @@ SharedMemory::~SharedMemory()
     ::UnmapViewOfFile(m_data);
     ::CloseHandle(m_handle);
 }
-    
+
 bool SharedMemory::createHandle(Handle& handle, Protection protection)
 {
     ASSERT_ARG(handle, !handle.m_handle);

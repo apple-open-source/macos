@@ -280,22 +280,20 @@ umountfs(char *name, char **typelist)
 	char *type, *delimp, *hostname, *mntpt, rname[MAXPATHLEN], *tname;
 	char *pname = name; /* save the name parameter */
 
-	if (fflag & MNT_FORCE) {
-		/*
-		 * For force unmounts, we first directly check the
-		 * current mount list for a match.  If we find it,
-		 * we skip the realpath()/stat() below to avoid
-		 * depending on the "noremotehang" flag to save us
-		 * if we get hung up on an unresponsive file system.
-		 */
-		tname = name;
-		/* check if name is a non-device "mount from" name */
-		if ((mntpt = getmntname(tname, MNTON, &type)) == NULL) {
-			/* or if name is a mounted-on directory */
-			mntpt = tname;
-			tname = getmntname(mntpt, MNTFROM, &type);
-		}
-		if (mntpt && tname) {
+	/*
+	 * First directly check the
+	 * current mount list for a match.  If we find it,
+	 * we skip the realpath()/stat() below.
+	 */
+	tname = name;
+	/* check if name is a non-device "mount from" name */
+	if ((mntpt = getmntname(tname, MNTON, &type)) == NULL) {
+		/* or if name is a mounted-on directory */
+		mntpt = tname;
+		tname = getmntname(mntpt, MNTFROM, &type);
+	}
+	if (mntpt && tname) {
+		if (fflag & MNT_FORCE) {
 			/*
 			 * The bulk of this block is to try to do a sync on the filesystem
 			 * being unmounted.  We want to do this in another thread, so we
@@ -308,26 +306,26 @@ umountfs(char *name, char **typelist)
 			int rv;
 			pthread_t tid;
 			pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-                        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+			pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 			struct syncarg args;
 			struct timespec timeout;
-
+			
 			/* we found a match */
 			name = tname;
-
+			
 			args.mntname = mntpt;
 			args.wakeup_flag = 0;
 			args.wakeup_cond = &cond;
 			args.wakeup_lock = &lock;
-
+			
 			timeout.tv_sec = time(NULL) + 10;	/* Wait 10 seconds */
 			timeout.tv_nsec = 0;
-
+			
 			rv = pthread_create(&tid, NULL, &syncit, &args);
 			if (rv == 0 && pthread_mutex_lock(&lock) == 0) {
 				while (args.wakeup_flag == 0 && rv == 0)
 					rv = pthread_cond_timedwait(&cond, &lock, &timeout);
-
+				
 				/* If this fails, not much we can do at this point... */
 				(void)pthread_mutex_unlock(&lock);
 				if (rv != 0) {
@@ -335,8 +333,8 @@ umountfs(char *name, char **typelist)
 					warn("pthread_cond_timeout failed; continuing with unmount");
 				}
 			}
-			goto got_mount_point;
 		}
+		goto got_mount_point;
 	}
 
 	/*

@@ -30,43 +30,73 @@
 #include "config.h"
 #include "InitWebCoreQt.h"
 
+#include "Chrome.h"
+#include "ChromeClientQt.h"
+#include "Font.h"
 #include "Image.h"
+#include "InitializeLogging.h"
+#include "MemoryCache.h"
 #include "NotImplemented.h"
+#include "Page.h"
 #include "PlatformStrategiesQt.h"
 #include "RenderThemeQStyle.h"
 #include "ScriptController.h"
 #include "ScrollbarThemeQStyle.h"
 #include "SecurityPolicy.h"
-#if USE(QTKIT)
-#include "WebSystemInterface.h"
-#endif
 
 #include "qwebelement_p.h"
 #include <JavaScriptCore/runtime/InitializeThreading.h>
-#include <QApplication>
-#include <QStyle>
 #include <wtf/MainThread.h>
 
 namespace WebKit {
 
-// Called also from WebKit2's WebProcess.
-Q_DECL_EXPORT void initializeWebKit2Theme()
+static QtStyleFacadeFactoryFunction initCallback = 0;
+
+Q_DECL_EXPORT void setWebKitWidgetsInitCallback(QtStyleFacadeFactoryFunction callback)
 {
-    if (qgetenv("QT_WEBKIT_THEME_NAME") == "qstyle")
+    initCallback = callback;
+}
+
+static WebCore::QStyleFacade* createStyleForPage(WebCore::Page* page)
+{
+    QWebPageAdapter* pageAdapter = 0;
+    if (page)
+        pageAdapter = static_cast<WebCore::ChromeClientQt*>(page->chrome().client())->m_webPage;
+    return initCallback(pageAdapter);
+}
+
+// Called also from WebKit2's WebProcess
+Q_DECL_EXPORT void initializeWebKitQt()
+{
+    if (initCallback) {
+        WebCore::RenderThemeQStyle::setStyleFactoryFunction(createStyleForPage);
         WebCore::RenderThemeQt::setCustomTheme(WebCore::RenderThemeQStyle::create, new WebCore::ScrollbarThemeQStyle);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 1, 0)
+        // Only enable kerning by default in Qt 5.1 where it can use the fast font path.
+        // In Qt 5.0 this would have forced the complex font path.
+        WebCore::Font::setDefaultTypesettingFeatures(WebCore::Kerning);
+#endif
+    }
+}
+
+Q_DECL_EXPORT void setImagePlatformResource(const char* name, const QPixmap& pixmap)
+{
+    WebCore::Image::setPlatformResource(name, pixmap);
 }
 
 }
 
 namespace WebCore {
 
-void initializeWebCoreQt()
+Q_DECL_EXPORT void initializeWebCoreQt()
 {
     static bool initialized = false;
     if (initialized)
         return;
 
+#if !LOG_DISABLED
     WebCore::initializeLoggingChannelsIfNecessary();
+#endif // !LOG_DISABLED
     ScriptController::initializeThreading();
     WTF::initializeMainThread();
     WebCore::SecurityPolicy::setLocalLoadPolicy(WebCore::SecurityPolicy::AllowLocalLoadsForLocalAndSubstituteData);
@@ -74,16 +104,8 @@ void initializeWebCoreQt()
     PlatformStrategiesQt::initialize();
     QtWebElementRuntime::initialize();
 
-    RenderThemeQt::setCustomTheme(RenderThemeQStyle::create, new ScrollbarThemeQStyle);
-
-#if USE(QTKIT)
-    InitWebCoreSystemInterface();
-#endif
-
-    // QWebSettings::SearchCancelButtonGraphic
-    Image::setPlatformResource("searchCancelButton", QApplication::style()->standardPixmap(QStyle::SP_DialogCloseButton));
-    // QWebSettings::SearchCancelButtonPressedGraphic
-    Image::setPlatformResource("searchCancelButtonPressed", QApplication::style()->standardPixmap(QStyle::SP_DialogCloseButton));
+    if (!WebCore::memoryCache()->disabled())
+        WebCore::memoryCache()->setDeadDecodedDataDeletionInterval(60);
 
     initialized = true;
 }

@@ -129,7 +129,7 @@ static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRe
 	
 	int ret;
 	
-	strcpy(booterDev, "/dev/");
+	strlcpy(booterDev, "/dev/", sizeof booterDev);
 	
 	ret = BLDeviceNeedsBooter(context, device,
 							  &needsBooter,

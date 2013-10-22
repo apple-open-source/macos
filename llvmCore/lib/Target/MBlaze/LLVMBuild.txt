@@ -15,10 +15,16 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+[common]
+subdirectories = AsmParser Disassembler InstPrinter MCTargetDesc TargetInfo
+
 [component_0]
 type = TargetGroup
 name = MBlaze
 parent = Target
+has_asmparser = 1
+has_asmprinter = 1
+has_disassembler = 1
 
 [component_1]
 type = Library
@@ -26,4 +32,3 @@ name = MBlazeCodeGen
 parent = MBlaze
 required_libraries = AsmPrinter CodeGen Core MBlazeAsmPrinter MBlazeDesc MBlazeInfo MC SelectionDAG Support Target
 add_to_library_groups = MBlaze
-

@@ -28,17 +28,14 @@
 #define PlatformKeyboardEvent_h
 
 #include "PlatformEvent.h"
+#if OS(WINDOWS)
+#include "WindowsExtras.h"
+#endif
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
 OBJC_CLASS NSEvent;
-#endif
-
-#if PLATFORM(WIN)
-typedef struct HWND__ *HWND;
-typedef unsigned WPARAM;
-typedef long LPARAM;
 #endif
 
 #if PLATFORM(GTK)
@@ -50,10 +47,6 @@ typedef struct _GdkEventKey GdkEventKey;
 QT_BEGIN_NAMESPACE
 class QKeyEvent;
 QT_END_NAMESPACE
-#endif
-
-#if PLATFORM(WX)
-class wxKeyEvent;
 #endif
 
 #if PLATFORM(BLACKBERRY)
@@ -72,6 +65,7 @@ typedef struct _Evas_Event_Key_Up Evas_Event_Key_Up;
 namespace WebCore {
 
     class PlatformKeyboardEvent : public PlatformEvent {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         PlatformKeyboardEvent()
             : PlatformEvent(PlatformEvent::KeyDown)
@@ -140,7 +134,7 @@ namespace WebCore {
         static void getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey);
 
 #if PLATFORM(BLACKBERRY)
-        unsigned short unmodifiedCharacter() const { return m_unmodifiedCharacter; }
+        unsigned unmodifiedCharacter() const { return m_unmodifiedCharacter; }
 #endif
 
 #if PLATFORM(MAC)
@@ -169,17 +163,13 @@ namespace WebCore {
         uint32_t nativeScanCode() const;
 #endif
 
-#if PLATFORM(WX)
-        PlatformKeyboardEvent(wxKeyEvent&);
-#endif
-
 #if PLATFORM(BLACKBERRY)
         PlatformKeyboardEvent(const BlackBerry::Platform::KeyboardEvent&);
 #endif
 
 #if PLATFORM(EFL)
-        PlatformKeyboardEvent(const Evas_Event_Key_Down*);
-        PlatformKeyboardEvent(const Evas_Event_Key_Up*);
+        explicit PlatformKeyboardEvent(const Evas_Event_Key_Down*);
+        explicit PlatformKeyboardEvent(const Evas_Event_Key_Up*);
 #endif
 
     protected:
@@ -194,7 +184,7 @@ namespace WebCore {
         bool m_isSystemKey;
 
 #if PLATFORM(BLACKBERRY)
-        unsigned short m_unmodifiedCharacter;
+        unsigned m_unmodifiedCharacter;
 #endif
 
 #if PLATFORM(MAC)

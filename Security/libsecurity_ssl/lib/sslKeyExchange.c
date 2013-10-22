@@ -32,28 +32,30 @@
 #include "sslDebug.h"
 #include "sslUtils.h"
 #include "sslCrypto.h"
-
+#include "sslRand.h"
 #include "sslDigests.h"
 
 #include <assert.h>
 #include <string.h>
 
 #include <stdio.h>
-
+#include <utilities/SecCFRelease.h>
 #include <corecrypto/ccdh_gp.h>
 
 #ifdef USE_CDSA_CRYPTO
-//#include <security_utilities/globalizer.h>
-//#include <security_utilities/threading.h>
+//#include <utilities/globalizer.h>
+//#include <utilities/threading.h>
 #include <Security/cssmapi.h>
 #include <Security/SecKeyPriv.h>
 #include "ModuleAttacher.h"
 #else
-#include <Security/SecRSAKey.h>
 #include <AssertMacros.h>
 #include <Security/oidsalg.h>
 #if APPLE_DH
 
+#if TARGET_OS_IPHONE
+#include <Security/SecRSAKey.h>
+#endif
 
 static OSStatus SSLGenServerDHParamsAndKey(SSLContext *ctx);
 static size_t SSLEncodedDHKeyParamsLen(SSLContext *ctx);
@@ -62,10 +64,8 @@ static OSStatus SSLEncodeDHKeyParams(SSLContext *ctx, uint8_t *charPtr);
 #endif /* APPLE_DH */
 #endif /* USE_CDSA_CRYPTO */
 
-#include <pthread.h>
-
-#pragma mark -
-#pragma mark Forward Static Declarations
+// MARK: -
+// MARK: Forward Static Declarations
 
 #if APPLE_DH
 #if USE_CDSA_CRYPTO
@@ -108,8 +108,8 @@ static void dumpBuf(const char *name, SSLBuffer *buf)
 
 #if 	APPLE_DH
 
-#pragma mark -
-#pragma mark Local Diffie-Hellman Parameter Generator
+// MARK: -
+// MARK: Local Diffie-Hellman Parameter Generator
 
 /*
  * Process-wide server-supplied Diffie-Hellman parameters.
@@ -128,8 +128,8 @@ struct ServerDhParams
 
 #endif	/* APPLE_DH */
 
-#pragma mark -
-#pragma mark RSA Key Exchange
+// MARK: -
+// MARK: RSA Key Exchange
 
 /*
  * Client RSA Key Exchange msgs actually start with a two-byte
@@ -160,8 +160,8 @@ SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLPubKey *key, SSLContext *ctx)
 		&modulus,
 		&exponent);
 	if(err) {
-		SSLFreeBuffer(&modulus, ctx);
-		SSLFreeBuffer(&exponent, ctx);
+		SSLFreeBuffer(&modulus);
+		SSLFreeBuffer(&exponent);
 		return err;
 	}
 
@@ -177,9 +177,9 @@ SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLPubKey *key, SSLContext *ctx)
     memcpy(charPtr, exponent.data, exponent.length);
 
 	/* these were mallocd by sslGetPubKeyBits() */
-	SSLFreeBuffer(&modulus, ctx);
-	SSLFreeBuffer(&exponent, ctx);
-    return noErr;
+	SSLFreeBuffer(&modulus);
+	SSLFreeBuffer(&exponent);
+    return errSecSuccess;
 #else
     CFDataRef modulus = SecKeyCopyModulus(SECKEYREF(key));
     if (!modulus) {
@@ -198,8 +198,10 @@ SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLPubKey *key, SSLContext *ctx)
 	sslDebugLog("SSLEncodeRSAKeyParams: modulus len=%ld, exponent len=%ld\n",
 		modulusLength, exponentLength);
     OSStatus err;
-    if ((err = SSLAllocBuffer(keyParams,
-			modulusLength + exponentLength + 4, ctx)) != 0) {
+    if ((err = SSLAllocBuffer(keyParams, 
+			modulusLength + exponentLength + 4)) != 0) {
+        CFReleaseSafe(exponent);
+        CFReleaseSafe(modulus);
         return err;
 	}
     uint8_t *charPtr = keyParams->data;
@@ -210,7 +212,7 @@ SSLEncodeRSAKeyParams(SSLBuffer *keyParams, SSLPubKey *key, SSLContext *ctx)
     memcpy(charPtr, CFDataGetBytePtr(exponent), exponentLength);
     CFRelease(modulus);
     CFRelease(exponent);
-    return noErr;
+    return errSecSuccess;
 #endif
 }
 
@@ -218,20 +220,19 @@ static OSStatus
 SSLEncodeRSAPremasterSecret(SSLContext *ctx)
 {   SSLBuffer           randData;
     OSStatus            err;
-    SSLProtocolVersion	maxVersion;
 
-    if ((err = SSLAllocBuffer(&ctx->preMasterSecret,
-			SSL_RSA_PREMASTER_SECRET_SIZE, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&ctx->preMasterSecret, 
+			SSL_RSA_PREMASTER_SECRET_SIZE)) != 0)
         return err;
 
 	assert(ctx->negProtocolVersion >= SSL_Version_3_0);
-	sslGetMaxProtVersion(ctx, &maxVersion);
-    SSLEncodeInt(ctx->preMasterSecret.data, maxVersion, 2);
+
+    SSLEncodeInt(ctx->preMasterSecret.data, ctx->clientReqProtocol, 2);
     randData.data = ctx->preMasterSecret.data+2;
     randData.length = SSL_RSA_PREMASTER_SECRET_SIZE - 2;
-    if ((err = sslRand(ctx, &randData)) != 0)
+    if ((err = sslRand(&randData)) != 0)
         return err;
-    return noErr;
+    return errSecSuccess;
 }
 
 /*
@@ -282,7 +283,7 @@ SSLSignServerKeyExchangeTls12(SSLContext *ctx, SSLSignatureAndHashAlgorithm sigA
     hashOut.data = hashes;
     hashOut.length = hashRef->digestSize;
 
-    if ((err = ReadyHash(hashRef, &hashCtx, ctx)) != 0)
+    if ((err = ReadyHash(hashRef, &hashCtx)) != 0)
         goto fail;
     if ((err = hashRef->update(&hashCtx, &clientRandom)) != 0)
         goto fail;
@@ -319,8 +320,8 @@ SSLSignServerKeyExchangeTls12(SSLContext *ctx, SSLSignatureAndHashAlgorithm sigA
 	}
 
 fail:
-    SSLFreeBuffer(&signedHashes, ctx);
-    SSLFreeBuffer(&hashCtx, ctx);
+    SSLFreeBuffer(&signedHashes);
+    SSLFreeBuffer(&hashCtx);
     return err;
 }
 
@@ -348,7 +349,7 @@ SSLSignServerKeyExchange(SSLContext *ctx, bool isRsa, SSLBuffer exchangeParams, 
         hash.data = &hashes[0];
         hash.length = SSL_MD5_DIGEST_LEN;
 
-        if ((err = ReadyHash(&SSLHashMD5, &hashCtx, ctx)) != 0)
+        if ((err = ReadyHash(&SSLHashMD5, &hashCtx)) != 0)
             goto fail;
         if ((err = SSLHashMD5.update(&hashCtx, &clientRandom)) != 0)
             goto fail;
@@ -358,7 +359,7 @@ SSLSignServerKeyExchange(SSLContext *ctx, bool isRsa, SSLBuffer exchangeParams, 
             goto fail;
         if ((err = SSLHashMD5.final(&hashCtx, &hash)) != 0)
             goto fail;
-        if ((err = SSLFreeBuffer(&hashCtx, ctx)) != 0)
+        if ((err = SSLFreeBuffer(&hashCtx)) != 0)
             goto fail;
     }
     else {
@@ -368,7 +369,7 @@ SSLSignServerKeyExchange(SSLContext *ctx, bool isRsa, SSLBuffer exchangeParams, 
     }
     hash.data = &hashes[SSL_MD5_DIGEST_LEN];
     hash.length = SSL_SHA1_DIGEST_LEN;
-    if ((err = ReadyHash(&SSLHashSHA1, &hashCtx, ctx)) != 0)
+    if ((err = ReadyHash(&SSLHashSHA1, &hashCtx)) != 0)
     goto fail;
     if ((err = SSLHashSHA1.update(&hashCtx, &clientRandom)) != 0)
     goto fail;
@@ -378,7 +379,7 @@ SSLSignServerKeyExchange(SSLContext *ctx, bool isRsa, SSLBuffer exchangeParams, 
     goto fail;
     if ((err = SSLHashSHA1.final(&hashCtx, &hash)) != 0)
     goto fail;
-    if ((err = SSLFreeBuffer(&hashCtx, ctx)) != 0)
+    if ((err = SSLFreeBuffer(&hashCtx)) != 0)
     goto fail;
 
 
@@ -394,7 +395,7 @@ SSLSignServerKeyExchange(SSLContext *ctx, bool isRsa, SSLBuffer exchangeParams, 
     }
 
 fail:
-    SSLFreeBuffer(&hashCtx, ctx);
+    SSLFreeBuffer(&hashCtx);
 
     return err;
 }
@@ -422,7 +423,7 @@ OSStatus FindSigAlg(SSLContext *ctx,
         //Let's only support SHA1 and SHA256. SHA384 does not work with 512 bits keys.
         // We should actually test against what the cert can do.
         if((alg->hash==SSL_HashAlgorithmSHA1) || (alg->hash==SSL_HashAlgorithmSHA256)) {
-            return noErr;
+            return errSecSuccess;
         }
     }
     // We could not find a supported signature and hash algorithm
@@ -455,7 +456,7 @@ SSLEncodeSignedServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 
 
 	/* Set up parameter block to hash ==> exchangeParams */
-	switch(ctx->selectedCipherSpec.keyExchangeMethod) {
+	switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
 		case SSL_RSA:
         case SSL_RSA_EXPORT:
 			/*
@@ -488,7 +489,7 @@ SSLEncodeSignedServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 				return err;
 			}
             size_t len = SSLEncodedDHKeyParamsLen(ctx);
-			err = SSLAllocBuffer(&exchangeParams, len, ctx);
+			err = SSLAllocBuffer(&exchangeParams, len);
 			if(err) {
 				goto fail;
 			}
@@ -512,7 +513,7 @@ SSLEncodeSignedServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
     if(err) {
         goto fail;
     }
-    err = SSLAllocBuffer(&signature, maxSigLen, ctx);
+    err = SSLAllocBuffer(&signature, maxSigLen);
     if(err) {
         goto fail;
     }
@@ -543,7 +544,7 @@ SSLEncodeSignedServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 	/* package it all up */
     keyExch->protocolVersion = ctx->negProtocolVersion;
     keyExch->contentType = SSL_RecordTypeHandshake;
-    if ((err = SSLAllocBuffer(&keyExch->contents, outputLen+head, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&keyExch->contents, outputLen+head)) != 0)
         goto fail;
 
     charPtr = SSLEncodeHandshakeHeader(ctx, keyExch, SSL_HdskServerKeyExchange, outputLen);
@@ -562,11 +563,11 @@ SSLEncodeSignedServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
     assert((charPtr + actSigLen) ==
 		   (keyExch->contents.data + keyExch->contents.length));
 
-    err = noErr;
+    err = errSecSuccess;
 
 fail:
-    SSLFreeBuffer(&exchangeParams, ctx);
-    SSLFreeBuffer(&signature, ctx);
+    SSLFreeBuffer(&exchangeParams);
+    SSLFreeBuffer(&signature);
     return err;
 }
 
@@ -596,8 +597,8 @@ SSLVerifySignedServerKeyExchange(SSLContext *ctx, bool isRsa, SSLBuffer signedPa
 		dataToSignLen = SSL_SHA1_DIGEST_LEN + SSL_MD5_DIGEST_LEN;
 		hashOut.data = hashes;
 		hashOut.length = SSL_MD5_DIGEST_LEN;
-
-		if ((err = ReadyHash(&SSLHashMD5, &hashCtx, ctx)) != 0)
+		
+		if ((err = ReadyHash(&SSLHashMD5, &hashCtx)) != 0)
 			goto fail;
 		if ((err = SSLHashMD5.update(&hashCtx, &clientRandom)) != 0)
 			goto fail;
@@ -616,16 +617,17 @@ SSLVerifySignedServerKeyExchange(SSLContext *ctx, bool isRsa, SSLBuffer signedPa
 
 	hashOut.data = hashes + SSL_MD5_DIGEST_LEN;
     hashOut.length = SSL_SHA1_DIGEST_LEN;
-    if ((err = SSLFreeBuffer(&hashCtx, ctx)) != 0)
+    if ((err = SSLFreeBuffer(&hashCtx)) != 0)
         goto fail;
 
-    if ((err = ReadyHash(&SSLHashSHA1, &hashCtx, ctx)) != 0)
+    if ((err = ReadyHash(&SSLHashSHA1, &hashCtx)) != 0)
         goto fail;
     if ((err = SSLHashSHA1.update(&hashCtx, &clientRandom)) != 0)
         goto fail;
     if ((err = SSLHashSHA1.update(&hashCtx, &serverRandom)) != 0)
         goto fail;
     if ((err = SSLHashSHA1.update(&hashCtx, &signedParams)) != 0)
+        goto fail;
         goto fail;
     if ((err = SSLHashSHA1.final(&hashCtx, &hashOut)) != 0)
         goto fail;
@@ -643,8 +645,8 @@ SSLVerifySignedServerKeyExchange(SSLContext *ctx, bool isRsa, SSLBuffer signedPa
 	}
 
 fail:
-    SSLFreeBuffer(&signedHashes, ctx);
-    SSLFreeBuffer(&hashCtx, ctx);
+    SSLFreeBuffer(&signedHashes);
+    SSLFreeBuffer(&hashCtx);
     return err;
 
 }
@@ -694,7 +696,7 @@ SSLVerifySignedServerKeyExchangeTls12(SSLContext *ctx, SSLSignatureAndHashAlgori
     hashOut.data = hashes;
     hashOut.length = hashRef->digestSize;
 
-    if ((err = ReadyHash(hashRef, &hashCtx, ctx)) != 0)
+    if ((err = ReadyHash(hashRef, &hashCtx)) != 0)
         goto fail;
     if ((err = hashRef->update(&hashCtx, &clientRandom)) != 0)
         goto fail;
@@ -729,8 +731,8 @@ SSLVerifySignedServerKeyExchangeTls12(SSLContext *ctx, SSLSignatureAndHashAlgori
 	}
 
 fail:
-    SSLFreeBuffer(&signedHashes, ctx);
-    SSLFreeBuffer(&hashCtx, ctx);
+    SSLFreeBuffer(&signedHashes);
+    SSLFreeBuffer(&hashCtx);
     return err;
 
 }
@@ -757,7 +759,7 @@ SSLDecodeSignedServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 	/* first extract the key-exchange-method-specific parameters */
     uint8_t *charPtr = message.data;
 	uint8_t *endCp = charPtr + message.length;
-	switch(ctx->selectedCipherSpec.keyExchangeMethod) {
+	switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
 		case SSL_RSA:
         case SSL_RSA_EXPORT:
 			modulusLen = SSLDecodeInt(charPtr, 2);
@@ -844,7 +846,7 @@ SSLDecodeSignedServerKeyExchange(SSLBuffer message, SSLContext *ctx)
         goto fail;
 
 	/* Signature matches; now replace server key with new key (RSA only) */
-	switch(ctx->selectedCipherSpec.keyExchangeMethod) {
+	switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
 		case SSL_RSA:
         case SSL_RSA_EXPORT:
 		{
@@ -889,24 +891,9 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 	SSLPrivKey			*keyRef = NULL;
 
 	assert(ctx->protocolSide == kSSLServerSide);
-
-	#if		SSL_SERVER_KEYEXCH_HACK
-		/*
-		 * the way we work with Netscape.
-		 * FIXME - maybe we should *require* an encryptPrivKey in this
-		 * situation?
-		 */
-		if((ctx->selectedCipherSpec.keyExchangeMethod == SSL_RSA_EXPORT) &&
-			(ctx->encryptPrivKey != NULL)) {
-			useEncryptKey = true;
-		}
-
-	#else	/* !SSL_SERVER_KEYEXCH_HACK */
-		/* The "correct" way, I think, which doesn't work with Netscape */
-		if (ctx->encryptPrivKeyRef) {
-			useEncryptKey = true;
-		}
-	#endif	/* SSL_SERVER_KEYEXCH_HACK */
+    if (ctx->encryptPrivKeyRef) {
+		useEncryptKey = true;
+    }
 	if (useEncryptKey) {
 		keyRef  = ctx->encryptPrivKeyRef;
 		/* FIXME: when 3420180 is implemented, pick appropriate creds here */
@@ -940,7 +927,7 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 			(unsigned)localKeyModulusLen, (unsigned)keyExchange.length);
         return errSSLProtocol;
 	}
-    err = SSLAllocBuffer(&ctx->preMasterSecret, SSL_RSA_PREMASTER_SECRET_SIZE, ctx);
+    err = SSLAllocBuffer(&ctx->preMasterSecret, SSL_RSA_PREMASTER_SECRET_SIZE);
 	if(err != 0) {
         return err;
 	}
@@ -973,7 +960,7 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 		SSL_RSA_PREMASTER_SECRET_SIZE,	// plaintext buf available
 		&outputLen);
 
-	if(err != noErr) {
+	if(err != errSecSuccess) {
 		/* possible Bleichenbacher attack */
 		sslLogNegotiateDebug("SSLDecodeRSAKeyExchange: RSA decrypt fail");
 	}
@@ -982,7 +969,7 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
     	err = errSSLProtocol;							// not passed back to caller
     }
 
-	if(err == noErr) {
+	if(err == errSecSuccess) {
 		/*
 		 * Two legal values here - the one we actually negotiated (which is
 		 * technically incorrect but not uncommon), and the one the client
@@ -996,7 +983,7 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 			err = errSSLProtocol;
 		}
     }
-	if(err != noErr) {
+	if(err != errSecSuccess) {
 		/*
 		 * Obfuscate failures for defense against Bleichenbacher and
 		 * Klima-Pokorny-Rosa attacks.
@@ -1006,11 +993,11 @@ SSLDecodeRSAKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 		tmpBuf.data   = ctx->preMasterSecret.data + 2;
 		tmpBuf.length = SSL_RSA_PREMASTER_SECRET_SIZE - 2;
 		/* must ignore failures here */
-		sslRand(ctx, &tmpBuf);
+		sslRand(&tmpBuf);
 	}
 
 	/* in any case, save premaster secret (good or bogus) and proceed */
-    return noErr;
+    return errSecSuccess;
 }
 
 static OSStatus
@@ -1049,9 +1036,9 @@ SSLEncodeRSAKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 	#endif
     head = SSLHandshakeHeaderSize(keyExchange);
     bufLen = msglen + head;
-    if ((err = SSLAllocBuffer(&keyExchange->contents,
-		bufLen,ctx)) != 0)
-    {
+    if ((err = SSLAllocBuffer(&keyExchange->contents, 
+		bufLen)) != 0)
+    {   
         return err;
     }
 	dst = keyExchange->contents.data + head;
@@ -1082,20 +1069,20 @@ SSLEncodeRSAKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 		peerKeyModulusLen,
 		&outputLen);
 	if(err) {
-		sslErrorLog("SSLEncodeRSAKeyExchange: error %d\n", err);
+		sslErrorLog("SSLEncodeRSAKeyExchange: error %d\n", (int)err);
 		return err;
 	}
 
     assert(outputLen == (encodeLen ? msglen - 2 : msglen));
 
-    return noErr;
+    return errSecSuccess;
 }
 
 
 #if APPLE_DH
 
-#pragma mark -
-#pragma mark Diffie-Hellman Key Exchange
+// MARK: -
+// MARK: Diffie-Hellman Key Exchange
 
 /*
  * Diffie-Hellman setup, server side. On successful return, the
@@ -1148,7 +1135,7 @@ SSLGenServerDHParamsAndKey(
 #if USE_CDSA_CRYPTO
 	/* generate per-session D-H key pair */
 	sslFreeKey(ctx->cspHand, &ctx->dhPrivate, NULL);
-	SSLFreeBuffer(&ctx->dhExchangePublic, ctx);
+	SSLFreeBuffer(&ctx->dhExchangePublic);
 	ctx->dhPrivate = (CSSM_KEY *)sslMalloc(sizeof(CSSM_KEY));
 	CSSM_KEY pubKey;
 	ortn = sslDhGenerateKeyPair(ctx,
@@ -1167,7 +1154,7 @@ SSLGenServerDHParamsAndKey(
     }
     return sslDhGenerateKeyPair(ctx);
 #endif
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -1219,7 +1206,7 @@ SSLEncodeDHKeyParams(
 	dumpBuf("server generator", &generator);
 	dumpBuf("server pub key", &ctx->dhExchangePublic);
 
-	return noErr;
+	return errSecSuccess;
 }
 
 /*
@@ -1231,7 +1218,7 @@ SSLDecodeDHKeyParams(
 	uint8_t **charPtr,		// IN/OUT
 	size_t length)
 {
-	OSStatus        err = noErr;
+	OSStatus        err = errSecSuccess;
     SSLBuffer       prime;
     SSLBuffer       generator;
 
@@ -1239,8 +1226,8 @@ SSLDecodeDHKeyParams(
     uint8_t *endCp = *charPtr + length;
 
 	/* Allow reuse via renegotiation */
-	SSLFreeBuffer(&ctx->dhPeerPublic, ctx);
-
+	SSLFreeBuffer(&ctx->dhPeerPublic);
+	
 	/* Prime, with a two-byte length */
 	UInt32 len = SSLDecodeInt(*charPtr, 2);
 	(*charPtr) += 2;
@@ -1270,7 +1257,7 @@ SSLDecodeDHKeyParams(
 	/* peer public key, with a two-byte length */
 	len = SSLDecodeInt(*charPtr, 2);
 	(*charPtr) += 2;
-	err = SSLAllocBuffer(&ctx->dhPeerPublic, len, ctx);
+	err = SSLAllocBuffer(&ctx->dhPeerPublic, len);
 	if(err) {
 		return err;
 	}
@@ -1278,8 +1265,8 @@ SSLDecodeDHKeyParams(
 	(*charPtr) += len;
 
 	dumpBuf("client peer pub", &ctx->dhPeerPublic);
-	dumpBuf("client prime", &ctx->dhParamsPrime);
-	dumpBuf("client generator", &ctx->dhParamsGenerator);
+    //	dumpBuf("client prime", &ctx->dhParamsPrime);
+	//  dumpBuf("client generator", &ctx->dhParamsGenerator);
 
 	return err;
 }
@@ -1349,7 +1336,7 @@ out:
 static OSStatus
 SSLEncodeDHanonServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 {
-	OSStatus            ortn = noErr;
+	OSStatus            ortn = errSecSuccess;
     int                 head;
 
 	assert(ctx->negProtocolVersion >= SSL_Version_3_0);
@@ -1368,7 +1355,7 @@ SSLEncodeDHanonServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 	keyExch->protocolVersion = ctx->negProtocolVersion;
 	keyExch->contentType = SSL_RecordTypeHandshake;
     head = SSLHandshakeHeaderSize(keyExch);
-	if ((ortn = SSLAllocBuffer(&keyExch->contents, length+head, ctx)) != 0)
+	if ((ortn = SSLAllocBuffer(&keyExch->contents, length+head)))
 		return ortn;
 
     uint8_t *charPtr = SSLEncodeHandshakeHeader(ctx, keyExch, SSL_HdskServerKeyExchange, length);
@@ -1380,7 +1367,7 @@ SSLEncodeDHanonServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 static OSStatus
 SSLDecodeDHanonServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 {
-	OSStatus        err = noErr;
+	OSStatus        err = errSecSuccess;
 
 	assert(ctx->protocolSide == kSSLClientSide);
     if (message.length < 6) {
@@ -1390,7 +1377,7 @@ SSLDecodeDHanonServerKeyExchange(SSLBuffer message, SSLContext *ctx)
     }
     uint8_t *charPtr = message.data;
 	err = SSLDecodeDHKeyParams(ctx, &charPtr, message.length);
-	if(err == noErr) {
+	if(err == errSecSuccess) {
 		if((message.data + message.length) != charPtr) {
 			err = errSSLProtocol;
 		}
@@ -1401,7 +1388,7 @@ SSLDecodeDHanonServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 static OSStatus
 SSLDecodeDHClientKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 {
-	OSStatus        ortn = noErr;
+	OSStatus        ortn = errSecSuccess;
     unsigned int    publicLen;
 
 	assert(ctx->protocolSide == kSSLServerSide);
@@ -1422,15 +1409,15 @@ SSLDecodeDHClientKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
         return errSSLProtocol;
     }
     */
-	SSLFreeBuffer(&ctx->dhPeerPublic, ctx);	// allow reuse via renegotiation
-	ortn = SSLAllocBuffer(&ctx->dhPeerPublic, publicLen, ctx);
+	SSLFreeBuffer(&ctx->dhPeerPublic);	// allow reuse via renegotiation
+	ortn = SSLAllocBuffer(&ctx->dhPeerPublic, publicLen);
 	if(ortn) {
 		return ortn;
 	}
 	memmove(ctx->dhPeerPublic.data, charPtr, publicLen);
 
 	/* DH Key exchange, result --> premaster secret */
-	SSLFreeBuffer(&ctx->preMasterSecret, ctx);
+	SSLFreeBuffer(&ctx->preMasterSecret);
 #if USE_CDSA_CRYPTO
 	ortn = sslDhKeyExchange(ctx, ctx->dhParamsPrime.length * 8,
 		&ctx->preMasterSecret);
@@ -1459,7 +1446,7 @@ SSLEncodeDHClientKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 
     outputLen = ctx->dhExchangePublic.length + 2;
     head = SSLHandshakeHeaderSize(keyExchange);
-    if ((err = SSLAllocBuffer(&keyExchange->contents,outputLen + head,ctx)) != 0)
+    if ((err = SSLAllocBuffer(&keyExchange->contents,outputLen + head)))
         return err;
 
     uint8_t *charPtr = SSLEncodeHandshakeHeader(ctx, keyExchange, SSL_HdskClientKeyExchange, outputLen);
@@ -1470,13 +1457,13 @@ SSLEncodeDHClientKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 	dumpBuf("client pub key", &ctx->dhExchangePublic);
 	dumpBuf("client premaster", &ctx->preMasterSecret);
 
-    return noErr;
+    return errSecSuccess;
 }
 
 #endif	/* APPLE_DH */
 
-#pragma mark -
-#pragma mark ECDSA Key Exchange
+// MARK: -
+// MARK: ECDSA Key Exchange
 
 /*
  * Given the server's ECDH curve params and public key, generate our
@@ -1503,7 +1490,7 @@ SSLGenClientECDHKeyAndExchange(SSLContext *ctx)
 
     assert(ctx->protocolSide == kSSLClientSide);
 
-	switch(ctx->selectedCipherSpec.keyExchangeMethod) {
+	switch(ctx->selectedCipherSpecParams.keyExchangeMethod) {
 		case SSL_ECDHE_ECDSA:
 		case SSL_ECDHE_RSA:
 			/* Server sent us an ephemeral key with peer curve specified */
@@ -1548,7 +1535,7 @@ SSLGenClientECDHKeyAndExchange(SSLContext *ctx)
 #if USE_CDSA_CRYPTO
 		//assert(ctx->cspHand != 0);
 		sslFreeKey(ctx->cspHand, &ctx->ecdhPrivate, NULL);
-		SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
+		SSLFreeBuffer(&ctx->ecdhExchangePublic);
 		ortn = SecKeyGetCSSMKey(ctx->signingPrivKeyRef, (const CSSM_KEY **)&ctx->ecdhPrivate);
 		if(ortn) {
 			return ortn;
@@ -1580,7 +1567,7 @@ SSLGenClientECDHKeyAndExchange(SSLContext *ctx)
 	if(ortn) {
 		return ortn;
 	}
-	return noErr;
+	return errSecSuccess;
 }
 
 
@@ -1593,7 +1580,7 @@ SSLDecodeECDHKeyParams(
 	uint8_t **charPtr,		// IN/OUT
 	size_t length)
 {
-	OSStatus        err = noErr;
+	OSStatus        err = errSecSuccess;
 
 	sslEcdsaDebug("+++ Decoding ECDH Server Key Exchange");
 
@@ -1601,7 +1588,7 @@ SSLDecodeECDHKeyParams(
     uint8_t *endCp = *charPtr + length;
 
 	/* Allow reuse via renegotiation */
-	SSLFreeBuffer(&ctx->ecdhPeerPublic, ctx);
+	SSLFreeBuffer(&ctx->ecdhPeerPublic);
 
 	/*** ECParameters - just a curveType and a named curve ***/
 
@@ -1648,7 +1635,7 @@ SSLDecodeECDHKeyParams(
 	if((*charPtr + len) > endCp) {
 		return errSSLProtocol;
 	}
-	err = SSLAllocBuffer(&ctx->ecdhPeerPublic, len, ctx);
+	err = SSLAllocBuffer(&ctx->ecdhPeerPublic, len);
 	if(err) {
 		return err;
 	}
@@ -1696,7 +1683,7 @@ SSLEncodeECDHClientKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 	assert(ctx->negProtocolVersion >= SSL_Version_3_0);
     keyExchange->protocolVersion = ctx->negProtocolVersion;
     head = SSLHandshakeHeaderSize(keyExchange);
-    if ((err = SSLAllocBuffer(&keyExchange->contents,outputLen + head,ctx)) != 0)
+    if ((err = SSLAllocBuffer(&keyExchange->contents,outputLen + head)))
         return err;
 
     uint8_t *charPtr = SSLEncodeHandshakeHeader(ctx, keyExchange, SSL_HdskClientKeyExchange, outputLen);
@@ -1712,16 +1699,108 @@ SSLEncodeECDHClientKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 
 	dumpBuf("client pub key", &ctx->ecdhExchangePublic);
 	dumpBuf("client premaster", &ctx->preMasterSecret);
-    return noErr;
+    return errSecSuccess;
 }
 
-#pragma mark -
-#pragma mark Public Functions
+
+
+static OSStatus
+SSLDecodePSKClientKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
+{
+	OSStatus        ortn = errSecSuccess;
+    unsigned int    identityLen;
+
+	assert(ctx->protocolSide == kSSLServerSide);
+
+	/* this message simply contains the client's PSK identity */
+	uint8_t *charPtr = keyExchange.data;
+    identityLen = SSLDecodeInt(charPtr, 2);
+	charPtr += 2;
+
+	SSLFreeBuffer(&ctx->pskIdentity);	// allow reuse via renegotiation
+	ortn = SSLAllocBuffer(&ctx->pskIdentity, identityLen);
+	if(ortn) {
+		return ortn;
+	}
+	memmove(ctx->pskIdentity.data, charPtr, identityLen);
+
+    /* TODO: At this point we know the identity of the PSK client,
+      we should break out of the handshake, so we can select the appropriate
+      PreShared secret. As this stands, the preshared secret needs to be known
+      before the handshake starts. */
+
+    size_t n=ctx->pskSharedSecret.length;
+
+    if(n==0) return errSSLBadConfiguration;
+
+    if ((ortn = SSLAllocBuffer(&ctx->preMasterSecret, 2*(n+2))) != 0)
+        return ortn;
+
+    uint8_t *p=ctx->preMasterSecret.data;
+
+    p = SSLEncodeInt(p, n, 2);
+    memset(p, 0, n); p+=n;
+    p = SSLEncodeInt(p, n, 2);
+    memcpy(p, ctx->pskSharedSecret.data, n);
+
+    dumpBuf("server premaster (PSK)", &ctx->preMasterSecret);
+
+	return ortn;
+}
+
+
+static OSStatus
+SSLEncodePSKClientKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
+{
+    OSStatus            err;
+    size_t				outputLen;
+    int                 head;
+
+	assert(ctx->protocolSide == kSSLClientSide);
+
+	outputLen = ctx->pskIdentity.length+2;
+
+    keyExchange->contentType = SSL_RecordTypeHandshake;
+	assert(ctx->negProtocolVersion >= SSL_Version_3_0);
+    keyExchange->protocolVersion = ctx->negProtocolVersion;
+    head = SSLHandshakeHeaderSize(keyExchange);
+    if ((err = SSLAllocBuffer(&keyExchange->contents,outputLen + head)))
+        return err;
+
+    uint8_t *charPtr = SSLEncodeHandshakeHeader(ctx, keyExchange, SSL_HdskClientKeyExchange, outputLen);
+
+	charPtr = SSLEncodeSize(charPtr, ctx->pskIdentity.length, 2);
+	memcpy(charPtr, ctx->pskIdentity.data, ctx->pskIdentity.length);
+
+
+    /* We better have a pskSharedSecret already */
+    size_t n=ctx->pskSharedSecret.length;
+
+    if(n==0) return errSSLBadConfiguration;
+
+    if ((err = SSLAllocBuffer(&ctx->preMasterSecret, 2*(n+2))) != 0)
+        return err;
+
+    uint8_t *p=ctx->preMasterSecret.data;
+
+    p = SSLEncodeInt(p, n, 2);
+    memset(p, 0, n); p+=n;
+    p = SSLEncodeInt(p, n, 2);
+    memcpy(p, ctx->pskSharedSecret.data, n);
+
+    dumpBuf("client premaster (PSK)", &ctx->preMasterSecret);
+
+    return errSecSuccess;
+}
+
+
+// MARK: -
+// MARK: Public Functions
 OSStatus
 SSLEncodeServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
 {   OSStatus      err;
-
-    switch (ctx->selectedCipherSpec.keyExchangeMethod)
+    
+    switch (ctx->selectedCipherSpecParams.keyExchangeMethod)
     {   case SSL_RSA:
         case SSL_RSA_EXPORT:
         #if		APPLE_DH
@@ -1741,18 +1820,18 @@ SSLEncodeServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx)
             break;
         #endif
         default:
-            return unimpErr;
+            return errSecUnimplemented;
     }
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
 SSLProcessServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 {
 	OSStatus      err;
-
-    switch (ctx->selectedCipherSpec.keyExchangeMethod) {
+    
+    switch (ctx->selectedCipherSpecParams.keyExchangeMethod) {
 		case SSL_RSA:
         case SSL_RSA_EXPORT:
         #if		APPLE_DH
@@ -1772,7 +1851,7 @@ SSLProcessServerKeyExchange(SSLBuffer message, SSLContext *ctx)
             break;
         #endif
         default:
-            err = unimpErr;
+            err = errSecUnimplemented;
 			break;
     }
 
@@ -1782,10 +1861,10 @@ SSLProcessServerKeyExchange(SSLBuffer message, SSLContext *ctx)
 OSStatus
 SSLEncodeKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 {   OSStatus      err;
-
-	assert(ctx->protocolSide == kSSLClientSide);
-
-	switch (ctx->selectedCipherSpec.keyExchangeMethod) {
+    
+    assert(ctx->protocolSide == kSSLClientSide);
+    
+    switch (ctx->selectedCipherSpecParams.keyExchangeMethod) {
 		case SSL_RSA:
 		case SSL_RSA_EXPORT:
 			sslDebugLog("SSLEncodeKeyExchange: RSA method\n");
@@ -1810,10 +1889,13 @@ SSLEncodeKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 			sslDebugLog("SSLEncodeKeyExchange: ECDH method\n");
 			err = SSLEncodeECDHClientKeyExchange(keyExchange, ctx);
 			break;
+        case TLS_PSK:
+            err = SSLEncodePSKClientKeyExchange(keyExchange, ctx);
+            break;
 		default:
-			sslDebugLog("SSLEncodeKeyExchange: unknown method (%d)\n",
-					ctx->selectedCipherSpec.keyExchangeMethod);
-			err = unimpErr;
+			sslErrorLog("SSLEncodeKeyExchange: unknown method (%d)\n",
+					ctx->selectedCipherSpecParams.keyExchangeMethod);
+			err = errSecUnimplemented;
 	}
 
 	return err;
@@ -1822,187 +1904,66 @@ SSLEncodeKeyExchange(SSLRecord *keyExchange, SSLContext *ctx)
 OSStatus
 SSLProcessKeyExchange(SSLBuffer keyExchange, SSLContext *ctx)
 {   OSStatus      err;
-
-	switch (ctx->selectedCipherSpec.keyExchangeMethod)
-	{   case SSL_RSA:
-		case SSL_RSA_EXPORT:
-			sslDebugLog("SSLProcessKeyExchange: processing RSA key exchange (%d)\n",
-					ctx->selectedCipherSpec.keyExchangeMethod);
-			if ((err = SSLDecodeRSAKeyExchange(keyExchange, ctx)) != 0)
-				return err;
-			break;
-#if		APPLE_DH
-		case SSL_DH_anon:
+    
+    switch (ctx->selectedCipherSpecParams.keyExchangeMethod)
+    {   case SSL_RSA:
+        case SSL_RSA_EXPORT:
+            if ((err = SSLDecodeRSAKeyExchange(keyExchange, ctx)) != 0)
+                return err;
+            break;
+		#if		APPLE_DH
+        case SSL_DH_anon:
 		case SSL_DHE_DSS:
 		case SSL_DHE_DSS_EXPORT:
 		case SSL_DHE_RSA:
 		case SSL_DHE_RSA_EXPORT:
 		case SSL_DH_anon_EXPORT:
 			sslDebugLog("SSLProcessKeyExchange: processing DH key exchange (%d)\n",
-					ctx->selectedCipherSpec.keyExchangeMethod);
+					ctx->selectedCipherSpecParams.keyExchangeMethod);
 			if ((err = SSLDecodeDHClientKeyExchange(keyExchange, ctx)) != 0)
 				return err;
 			break;
 #endif
+        case TLS_PSK:
+			if ((err = SSLDecodePSKClientKeyExchange(keyExchange, ctx)) != 0)
+				return err;
+			break;
 		default:
 			sslErrorLog("SSLProcessKeyExchange: unknown keyExchangeMethod (%d)\n",
-					ctx->selectedCipherSpec.keyExchangeMethod);
-			return unimpErr;
+					ctx->selectedCipherSpecParams.keyExchangeMethod);
+			return errSecUnimplemented;
 	}
 
-	return noErr;
+	return errSecSuccess;
 }
 
 OSStatus
 SSLInitPendingCiphers(SSLContext *ctx)
 {   OSStatus        err;
     SSLBuffer       key;
-    uint8_t         *keyDataProgress, *keyPtr, *ivPtr;
     int             keyDataLen;
-    CipherContext   *serverPending, *clientPending;
-
+        
+    err = errSecSuccess;
     key.data = 0;
 
-    ctx->readPending.macRef = ctx->selectedCipherSpec.macAlgorithm;
-    ctx->writePending.macRef = ctx->selectedCipherSpec.macAlgorithm;
-    ctx->readPending.symCipher = ctx->selectedCipherSpec.cipher;
-    ctx->writePending.symCipher = ctx->selectedCipherSpec.cipher;
-
-    if(ctx->negProtocolVersion == DTLS_Version_1_0)
-    {
-        ctx->readPending.sequenceNum.high = (ctx->readPending.sequenceNum.high & (0xffff<<16)) + (1<<16);
-        ctx->writePending.sequenceNum.high = (ctx->writePending.sequenceNum.high & (0xffff<<16)) + (1<<16);
-    } else {
-        ctx->writePending.sequenceNum.high=0;
-        ctx->readPending.sequenceNum.high=0;
-    }
-    ctx->readPending.sequenceNum.low = 0;
-    ctx->writePending.sequenceNum.low = 0;
-
-    keyDataLen = ctx->selectedCipherSpec.macAlgorithm->hash->digestSize +
-                     ctx->selectedCipherSpec.cipher->secretKeySize;
-    if (ctx->selectedCipherSpec.isExportable == NotExportable)
-        keyDataLen += ctx->selectedCipherSpec.cipher->ivSize;
+    keyDataLen = ctx->selectedCipherSpecParams.macSize +
+                    ctx->selectedCipherSpecParams.keySize +
+                    ctx->selectedCipherSpecParams.ivSize;
     keyDataLen *= 2;        /* two of everything */
 
-    if ((err = SSLAllocBuffer(&key, keyDataLen, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&key, keyDataLen)))
         return err;
 	assert(ctx->sslTslCalls != NULL);
     if ((err = ctx->sslTslCalls->generateKeyMaterial(key, ctx)) != 0)
         goto fail;
-
-    if (ctx->protocolSide == kSSLServerSide)
-    {   serverPending = &ctx->writePending;
-        clientPending = &ctx->readPending;
-    }
-    else
-    {   serverPending = &ctx->readPending;
-        clientPending = &ctx->writePending;
-    }
-
-    keyDataProgress = key.data;
-    memcpy(clientPending->macSecret, keyDataProgress,
-		ctx->selectedCipherSpec.macAlgorithm->hash->digestSize);
-    keyDataProgress += ctx->selectedCipherSpec.macAlgorithm->hash->digestSize;
-    memcpy(serverPending->macSecret, keyDataProgress,
-		ctx->selectedCipherSpec.macAlgorithm->hash->digestSize);
-    keyDataProgress += ctx->selectedCipherSpec.macAlgorithm->hash->digestSize;
-
-	/* init the reusable-per-record MAC contexts */
-	err = ctx->sslTslCalls->initMac(clientPending, ctx);
-	if(err) {
-		goto fail;
-	}
-	err = ctx->sslTslCalls->initMac(serverPending, ctx);
-	if(err) {
-		goto fail;
-	}
-
-    if (ctx->selectedCipherSpec.isExportable == NotExportable)
-    {   keyPtr = keyDataProgress;
-        keyDataProgress += ctx->selectedCipherSpec.cipher->secretKeySize;
-        /* Skip server write key to get to IV */
-		UInt8 ivSize = ctx->selectedCipherSpec.cipher->ivSize;
-
-		if (ivSize == 0)
-		{
-			ivPtr = NULL;
-		}
-		else
-		{
-			ivPtr = keyDataProgress + ctx->selectedCipherSpec.cipher->secretKeySize;
-		}
-
-        if ((err = ctx->selectedCipherSpec.cipher->initialize(keyPtr, ivPtr,
-                                    clientPending, ctx)) != 0)
-            goto fail;
-        keyPtr = keyDataProgress;
-        keyDataProgress += ctx->selectedCipherSpec.cipher->secretKeySize;
-        /* Skip client write IV to get to server write IV */
-		if (ivSize == 0)
-		{
-			ivPtr = NULL;
-		}
-		else
-		{
-			ivPtr = keyDataProgress + ctx->selectedCipherSpec.cipher->ivSize;
-		}
-
-        if ((err = ctx->selectedCipherSpec.cipher->initialize(keyPtr, ivPtr,
-                                    serverPending, ctx)) != 0)
-            goto fail;
-    }
-    else {
-        uint8_t		clientExportKey[16], serverExportKey[16],
-					clientExportIV[16],  serverExportIV[16];
-        SSLBuffer   clientWrite, serverWrite;
-        SSLBuffer	finalClientWrite, finalServerWrite;
-		SSLBuffer	finalClientIV, finalServerIV;
-
-        assert(ctx->selectedCipherSpec.cipher->keySize <= 16);
-        assert(ctx->selectedCipherSpec.cipher->ivSize <= 16);
-
-		/* Inputs to generateExportKeyAndIv are clientRandom, serverRandom,
-		 *    clientWriteKey, serverWriteKey. The first two are already present
-		 *    in ctx.
-		 * Outputs are a key and IV for each of {server, client}.
-		 */
-        clientWrite.data = keyDataProgress;
-        clientWrite.length = ctx->selectedCipherSpec.cipher->secretKeySize;
-        serverWrite.data = keyDataProgress + clientWrite.length;
-        serverWrite.length = ctx->selectedCipherSpec.cipher->secretKeySize;
-		finalClientWrite.data = clientExportKey;
-		finalServerWrite.data   = serverExportKey;
-		finalClientIV.data      = clientExportIV;
-		finalServerIV.data      = serverExportIV;
-		finalClientWrite.length = 16;
-		finalServerWrite.length = 16;
-		/* these can be zero */
-		finalClientIV.length    = ctx->selectedCipherSpec.cipher->ivSize;
-		finalServerIV.length    = ctx->selectedCipherSpec.cipher->ivSize;
-
-		assert(ctx->sslTslCalls != NULL);
-		err = ctx->sslTslCalls->generateExportKeyAndIv(ctx, clientWrite, serverWrite,
-			finalClientWrite, finalServerWrite, finalClientIV, finalServerIV);
-		if(err) {
-			goto fail;
-		}
-        if ((err = ctx->selectedCipherSpec.cipher->initialize(clientExportKey,
-				clientExportIV, clientPending, ctx)) != 0)
-            goto fail;
-        if ((err = ctx->selectedCipherSpec.cipher->initialize(serverExportKey,
-				serverExportIV, serverPending, ctx)) != 0)
-            goto fail;
-    }
-
-	/* Ciphers are ready for use */
-    ctx->writePending.ready = 1;
-    ctx->readPending.ready = 1;
-
-	/* Ciphers get swapped by sending or receiving a change cipher spec message */
-
-    err = noErr;
+    
+    if((err = ctx->recFuncs->initPendingCiphers(ctx->recCtx, ctx->selectedCipher, (ctx->protocolSide==kSSLServerSide), key)) != 0)
+        goto fail;
+    
+    ctx->writePending_ready = 1;
+    ctx->readPending_ready = 1;
+    
 fail:
-    SSLFreeBuffer(&key, ctx);
+    SSLFreeBuffer(&key);
     return err;
 }

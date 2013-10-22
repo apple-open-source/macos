@@ -509,7 +509,7 @@ o Added \*[RULE] ( = \l'\n(.lu' ) so that full measure rules (either to
 
 o Macro .PS renamed to .PT_SIZE.  Alias .TS removed.
 
-o .tr bits in .CAPS rewritten in the form .tr é\[`E].
+o .tr bits in .CAPS rewritten in the form .tr Ã©\[`E].
 
 o General cleanup of docs to reflect changes
 

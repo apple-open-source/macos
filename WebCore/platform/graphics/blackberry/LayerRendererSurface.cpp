@@ -24,6 +24,7 @@
 
 #include "LayerCompositingThread.h"
 #include "LayerRenderer.h"
+#include "LayerUtilities.h"
 #include "TextureCacheCompositingThread.h"
 
 namespace WebCore {
@@ -45,29 +46,19 @@ void LayerRendererSurface::setContentRect(const IntRect& contentRect)
     m_size = contentRect.size();
 }
 
-FloatRect LayerRendererSurface::drawRect() const
+FloatRect LayerRendererSurface::boundingBox() const
 {
-    float bx = m_size.width() / 2.0;
-    float by = m_size.height() / 2.0;
+    FloatRect rect = WebCore::boundingBox(transformedBounds());
 
-    FloatQuad transformedBounds;
-    transformedBounds.setP1(m_drawTransform.mapPoint(FloatPoint(-bx, -by)));
-    transformedBounds.setP2(m_drawTransform.mapPoint(FloatPoint(-bx, by)));
-    transformedBounds.setP3(m_drawTransform.mapPoint(FloatPoint(bx, by)));
-    transformedBounds.setP4(m_drawTransform.mapPoint(FloatPoint(bx, -by)));
-
-    FloatRect rect = transformedBounds.boundingBox();
-
-    if (m_ownerLayer->replicaLayer()) {
-        FloatQuad bounds;
-        bounds.setP1(m_replicaDrawTransform.mapPoint(FloatPoint(-bx, -by)));
-        bounds.setP2(m_replicaDrawTransform.mapPoint(FloatPoint(-bx, by)));
-        bounds.setP3(m_replicaDrawTransform.mapPoint(FloatPoint(bx, by)));
-        bounds.setP4(m_replicaDrawTransform.mapPoint(FloatPoint(bx, -by)));
-        rect.unite(bounds.boundingBox());
-    }
+    if (m_ownerLayer->replicaLayer())
+        rect.unite(m_replicaDrawTransform.mapQuad(FloatRect(-origin(), size())).boundingBox());
 
     return rect;
+}
+
+Vector<FloatPoint, 4> LayerRendererSurface::transformedBounds() const
+{
+    return toVector<FloatPoint, 4>(m_drawTransform.mapQuad(FloatRect(-origin(), size())));
 }
 
 bool LayerRendererSurface::ensureTexture()
@@ -75,7 +66,7 @@ bool LayerRendererSurface::ensureTexture()
     if (!m_texture)
         m_texture = textureCacheCompositingThread()->createTexture();
 
-    return m_texture->protect(m_size);
+    return m_texture->protect(m_size, BlackBerry::Platform::Graphics::AlwaysBacked);
 }
 
 void LayerRendererSurface::releaseTexture()

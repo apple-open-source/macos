@@ -40,7 +40,7 @@ while TRUE
   while i < lines
     setpos(i, 0)
     #clrtoeol
-    addstr(data_lines[lptr + i]) #if data_lines[lptr + i]
+    addstr(data_lines[lptr + i] || '')
     i += 1
   end
   refresh
@@ -48,7 +48,7 @@ while TRUE
   explicit = FALSE
   n = 0
   while TRUE
-    c = getch.chr
+    c = getch
     if c =~ /[0-9]/
       n = 10 * n + c.to_i
     else
@@ -67,10 +67,10 @@ while TRUE
       else
 	break
       end
-      i += 1 
+      i += 1
     end
     #wscrl(i)
-      
+
   when "p"  #when KEY_UP
     i = 0
     while i < n
@@ -79,8 +79,8 @@ while TRUE
       else
 	break
       end
-      i += 1 
-    end    
+      i += 1
+    end
     #wscrl(-i)
 
   when "q"

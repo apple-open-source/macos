@@ -1,0 +1,2 @@
+[% DEFAULT g = c.f.g -%]
+This is the golf file, g is $g

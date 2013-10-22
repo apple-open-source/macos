@@ -20,11 +20,11 @@
 #include "config.h"
 #include "GraphicsContext3DPrivate.h"
 
-#if ENABLE(WEBGL)
+#if USE(3D_GRAPHICS)
 
 #include "HostWindow.h"
 #include "NotImplemented.h"
-
+#include "TransformationMatrix.h"
 
 namespace WebCore {
 
@@ -61,4 +61,4 @@ void GraphicsContext3DPrivate::paintToGraphicsLayerActor(ClutterActor*, const Fl
 
 } // namespace WebCore
 
-#endif // ENABLE_WEBGL
+#endif // USE(3D_GRAPHICS)

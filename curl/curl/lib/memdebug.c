@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2013, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,22 +20,15 @@
  *
  ***************************************************************************/
 
-#include "setup.h"
+#include "curl_setup.h"
 
 #ifdef CURLDEBUG
-#include <curl/curl.h>
 
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
+#include <curl/curl.h>
 
 #define _MPRINTF_REPLACE
 #include <curl/mprintf.h>
 #include "urldata.h"
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 
 #define MEMDEBUG_NODEFINES /* don't redefine the standard functions */
 #include "curl_memory.h"
@@ -245,6 +238,32 @@ char *curl_dostrdup(const char *str, int line, const char *source)
 
   return mem;
 }
+
+#ifdef WIN32
+wchar_t *curl_dowcsdup(const wchar_t *str, int line, const char *source)
+{
+  wchar_t *mem;
+  size_t wsiz, bsiz;
+
+  assert(str != NULL);
+
+  if(countcheck("wcsdup", line, source))
+    return NULL;
+
+  wsiz = wcslen(str) + 1;
+  bsiz = wsiz * sizeof(wchar_t);
+
+  mem = curl_domalloc(bsiz, 0, NULL); /* NULL prevents logging */
+  if(mem)
+    memcpy(mem, str, bsiz);
+
+  if(source)
+    curl_memlog("MEM %s:%d wcsdup(%p) (%zu) = %p\n",
+                source, line, str, bsiz, mem);
+
+  return mem;
+}
+#endif
 
 /* We provide a realloc() that accepts a NULL as pointer, which then
    performs a malloc(). In order to work with ares. */

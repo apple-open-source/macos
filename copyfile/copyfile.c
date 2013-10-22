@@ -51,24 +51,28 @@
 #endif
 
 #include <TargetConditionals.h>
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
 #include <quarantine.h>
 
 #define	XATTR_QUARANTINE_NAME qtn_xattr_name
-#else /* TARGET_OS_EMBEDDED */
+#else /* TARGET_OS_IPHONE */
 #define qtn_file_t void *
 #define QTN_SERIALIZED_DATA_MAX 0
 static void * qtn_file_alloc(void) { return NULL; }
 static int qtn_file_init_with_fd(void *x, int y) { return -1; }
+static int qtn_file_init_with_path(void *x, const char *path) { return -1; }
+static int qtn_file_init_with_data(void *x, const void *data, size_t len) { return -1; }
 static void qtn_file_free(void *x) { return; }
 static int qtn_file_apply_to_fd(void *x, int y) { return 0; }
 static char *qtn_error(int x) { return NULL; }
 static int qtn_file_to_data(void *x, char *y, size_t z) { return -1; }
 static void *qtn_file_clone(void *x) { return NULL; }
 #define	XATTR_QUARANTINE_NAME "figgledidiggledy"
-#endif /* TARGET_OS_EMBEDDED */
+#endif /* TARGET_OS_IPHONE */
 
 #include "copyfile.h"
+#include "copyfile_private.h"
+#include "xattr_properties.h"
 
 enum cfInternalFlags {
 	cfDelayAce = 1 << 0,
@@ -105,6 +109,7 @@ struct _copyfile_state
     off_t totalCopied;
     int err;
     char *xattr_name;
+    CopyOperationIntent_t copyIntent;
 };
 
 struct acl_entry {
@@ -1050,6 +1055,9 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 
     (void)fcntl(s->src_fd, F_NOCACHE, 1);
     (void)fcntl(s->dst_fd, F_NOCACHE, 1);
+#ifdef F_SINGLE_WRITER
+    (void)fcntl(s->dst_fd, F_SINGLE_WRITER, 1);
+#endif
 
     ret = copyfile_internal(s, flags);
     if (ret == -1)
@@ -2288,6 +2296,11 @@ static int copyfile_xattr(copyfile_state_t s)
 	}
 #endif
 
+	// If we have a copy intention stated, and the EA is to be ignored, we ignore it
+	if (s->copyIntent
+	    && _PreserveEA(name, s->copyIntent) == 0)
+		continue;
+
 	s->xattr_name = strdup(name);
 	
 	if (s->statuscb) {
@@ -2397,6 +2410,11 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 		*(char**)ret = s->xattr_name;
 		break;
 #endif
+#ifdef COPYFILE_STATE_INTENT
+       case COPYFILE_STATE_INTENT:
+           *(CopyOperationIntent_t*)ret = s->copyIntent;
+	   break;
+#endif
 	default:
 	    errno = EINVAL;
 	    ret = NULL;
@@ -2467,6 +2485,11 @@ int copyfile_state_set(copyfile_state_t s, uint32_t flag, const void * thing)
 	case COPYFILE_STATE_STATUS_CTX:
 	    s->ctx = (void*)thing;
 	    break;
+#endif
+#ifdef COPYFILE_STATE_INTENT
+       case COPYFILE_STATE_INTENT:
+           s->copyIntent = *(CopyOperationIntent_t*)thing;
+	   break;
 #endif
 	default:
 	    errno = EINVAL;
@@ -2541,7 +2564,7 @@ int main(int c, char *v[])
 
 #define offsetof(type, member)	((size_t)(&((type *)0)->member))
 
-#define	XATTR_MAXATTRLEN   (32*1024)
+#define	XATTR_MAXATTRLEN   (16*1024*1024)
 
 
 /*
@@ -2632,7 +2655,7 @@ int main(int c, char *v[])
 #define ATTR_BUF_SIZE      4096        /* default size of the attr file and how much we'll grow by */
 
 /* Implementation Limits */
-#define ATTR_MAX_SIZE      (128*1024)  /* 128K maximum attribute data size */
+#define ATTR_MAX_SIZE      (16*1024*1024)	/* 16 megabyte maximum attribute data size */
 #define ATTR_MAX_NAME_LEN  128
 #define ATTR_MAX_HDR_SIZE  (65536+18)
 
@@ -2822,7 +2845,7 @@ static const u_int32_t emptyfinfo[8] = {0};
 static int copyfile_unpack(copyfile_state_t s)
 {
     ssize_t bytes;
-    void * buffer, * endptr;
+    void * buffer, * endptr, * dataptr = NULL;
     apple_double_header_t *adhdr;
     ssize_t hdrsize;
     int error = 0;
@@ -2936,7 +2959,6 @@ static int copyfile_unpack(copyfile_state_t s)
 
 	for (i = 0; i < count; i++)
 	{
-	    void * dataptr;
 
 	    /*
 	     * First we do some simple sanity checking.
@@ -3020,6 +3042,7 @@ static int copyfile_unpack(copyfile_state_t s)
 	    copyfile_debug(3, "extracting \"%s\" (%d bytes) at offset %u",
 		entry->name, entry->length, entry->offset);
 
+#if 0
 	    dataptr = (char *)attrhdr + entry->offset;
 
 	    if (dataptr > endptr || dataptr < buffer) {
@@ -3028,6 +3051,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		s->err = EINVAL;	/* Invalid buffer */
 		goto exit;
 	    }
+
 	    if (((char*)dataptr + entry->length) > (char*)endptr ||
 		(((char*)dataptr + entry->length) < (char*)buffer) ||
 		(entry->length > (size_t)hdrsize)) {
@@ -3039,6 +3063,22 @@ static int copyfile_unpack(copyfile_state_t s)
 		s->err = EINVAL;	/* Invalid buffer */
 		goto exit;
 	    }
+
+#else
+	    dataptr = malloc(entry->length);
+	    if (dataptr == NULL) {
+		    copyfile_debug(1, "no memory for %u bytes\n", entry->length);
+		    error = -1;
+		    s->err = ENOMEM;
+		    goto exit;
+	    }
+	    if (pread(s->src_fd, dataptr, entry->length, entry->offset) != (ssize_t)entry->length) {
+		    copyfile_debug(1, "failed to read %u bytes at offset %u\n", entry->length, entry->offset);
+		    error = -1;
+		    s->err = EINVAL;
+		    goto exit;
+	    }
+#endif	    
 
 	    if (strcmp((char*)entry->name, XATTR_QUARANTINE_NAME) == 0)
 	    {
@@ -3160,56 +3200,63 @@ acl_done:
 	    /* And, finally, everything else */
 	    else
 	    {
-		if (s->statuscb) {
-			int rv;
-			s->xattr_name = strdup((char*)entry->name);
-			s->totalCopied = 0;
-			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
-			if (s->xattr_name) {
-				free(s->xattr_name);
-				s->xattr_name = NULL;
-			}
-			if (rv == COPYFILE_QUIT) {
-				s->err = ECANCELED;
-				error = -1;
-				goto exit;
-			}
-		}
-		if (fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0) == -1) {
-			if (COPYFILE_VERBOSE & s->flags)
-				copyfile_warn("error %d setting attribute %s", error, entry->name);
+		if (s->copyIntent ||
+		    _PreserveEA((char*)entry->name, s->copyIntent) == 1) {
 			if (s->statuscb) {
 				int rv;
-
 				s->xattr_name = strdup((char*)entry->name);
-				rv = (s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+				s->totalCopied = 0;
+				rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+				if (s->xattr_name) {
+					free(s->xattr_name);
+					s->xattr_name = NULL;
+				}
+				if (rv == COPYFILE_QUIT) {
+					s->err = ECANCELED;
+					error = -1;
+					goto exit;
+				}
+			}
+			if (fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0) == -1) {
+				if (COPYFILE_VERBOSE & s->flags)
+					copyfile_warn("error %d setting attribute %s", errno, entry->name);
+				if (s->statuscb) {
+					int rv;
+					
+					s->xattr_name = strdup((char*)entry->name);
+					rv = (s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+					if (s->xattr_name) {
+						free(s->xattr_name);
+						s->xattr_name = NULL;
+					}
+					if (rv == COPYFILE_QUIT) {
+						error = -1;
+						goto exit;
+					}
+				} else {
+					error = -1;
+					goto exit;
+				}
+			} else if (s->statuscb) {
+				int rv;
+				s->xattr_name = strdup((char*)entry->name);
+				s->totalCopied = entry->length;
+				rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
 				if (s->xattr_name) {
 					free(s->xattr_name);
 					s->xattr_name = NULL;
 				}
 				if (rv == COPYFILE_QUIT) {
 					error = -1;
+					s->err = ECANCELED;
 					goto exit;
 				}
-			} else {
-				error = -1;
-				goto exit;
-			}
-		} else if (s->statuscb) {
-			int rv;
-			s->xattr_name = strdup((char*)entry->name);
-			s->totalCopied = entry->length;
-			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
-			if (s->xattr_name) {
-				free(s->xattr_name);
-				s->xattr_name = NULL;
-			}
-			if (rv == COPYFILE_QUIT) {
-				error = -1;
-				s->err = ECANCELED;
-				goto exit;
 			}
 		}
+	    }
+	    if (dataptr) {
+		    free(dataptr);
+		    dataptr = NULL;
 	    }
 	    entry = ATTR_NEXT(entry);
 	}
@@ -3249,7 +3296,7 @@ acl_done:
 	if (error) {
 		if (s->statuscb) {
 			int rv;
-			s->xattr_name = XATTR_FINDERINFO_NAME;
+			s->xattr_name = (char *)XATTR_FINDERINFO_NAME;
 			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
 			s->xattr_name = NULL;
 			if (rv == COPYFILE_QUIT) {
@@ -3261,7 +3308,7 @@ acl_done:
 	    goto exit;
 	} else if (s->statuscb) {
 		int rv;
-		s->xattr_name = XATTR_FINDERINFO_NAME;
+		s->xattr_name = (char *)XATTR_FINDERINFO_NAME;
 		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
 		s->xattr_name = NULL;
 		if (rv == COPYFILE_QUIT) {
@@ -3323,7 +3370,7 @@ skip_fi:
 	}
 	if (s->statuscb) {
 		int rv;
-		s->xattr_name = XATTR_RESOURCEFORK_NAME;
+		s->xattr_name = (char *)XATTR_RESOURCEFORK_NAME;
 		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
 		s->xattr_name = NULL;
 		if (rv == COPYFILE_QUIT) {
@@ -3356,7 +3403,7 @@ skip_fi:
 	    }
 	    if (s->statuscb) {
 		int rv;
-		s->xattr_name = XATTR_RESOURCEFORK_NAME;
+		s->xattr_name = (char *)XATTR_RESOURCEFORK_NAME;
 		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
 		s->xattr_name = NULL;
 		if (rv == COPYFILE_CONTINUE) {
@@ -3369,7 +3416,7 @@ skip_fi:
 	    goto bad;
 	} else if (s->statuscb) {
 		int rv;
-		s->xattr_name = XATTR_RESOURCEFORK_NAME;
+		s->xattr_name = (char *)XATTR_RESOURCEFORK_NAME;
 		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
 		s->xattr_name = NULL;
 		if (rv == COPYFILE_QUIT) {
@@ -3403,6 +3450,7 @@ bad:
     }
 exit:
     if (buffer) free(buffer);
+    if (dataptr) free(dataptr);
     return error;
 }
 
@@ -3607,12 +3655,13 @@ static int copyfile_pack(copyfile_state_t s)
     int error = 0;
     int seenq = 0;	// Have we seen any quarantine info already?
 
-    filehdr = (attr_header_t *) calloc(1, ATTR_MAX_SIZE);
+    filehdr = (attr_header_t *) calloc(1, ATTR_MAX_HDR_SIZE);
+
     if (filehdr == NULL) {
 	error = -1;
 	goto exit;
     } else {
-	    endfilehdr = (attr_header_t*)(((char*)filehdr) + ATTR_MAX_SIZE);
+	    endfilehdr = (attr_header_t*)(((char*)filehdr) + ATTR_MAX_HDR_SIZE);
     }
 
     attrnamebuf = calloc(1, ATTR_MAX_HDR_SIZE);
@@ -3706,6 +3755,17 @@ static int copyfile_pack(copyfile_state_t s)
 	    if (namelen > XATTR_MAXNAMELEN + 1) {
 		namelen = XATTR_MAXNAMELEN + 1;
 	    }
+	    if (s->copyIntent &&
+		_PreserveEA(nameptr, s->copyIntent) == 0) {
+		    // Skip it
+		    size_t amt = endnamebuf - (nameptr + namelen);
+		    memmove(nameptr, nameptr + namelen, amt);
+		    endnamebuf -= namelen;
+		    /* Set namelen to 0 so continue doesn't miss names */
+		    namelen = 0;
+		    continue;
+	    }
+		    
 	    if (s->statuscb) {
 		int rv;
 		char eaname[namelen];
@@ -3937,6 +3997,7 @@ static int copyfile_pack(copyfile_state_t s)
 	entry->offset = filehdr->data_start + filehdr->data_length;
 
 	filehdr->data_length += (u_int32_t)datasize;
+#if 0
 	/*
 	 * >>>  WARNING <<<
 	 * This assumes that the data is fits in memory (not
@@ -3949,6 +4010,11 @@ static int copyfile_pack(copyfile_state_t s)
 	} else {
 		bcopy(databuf, (char*)filehdr + entry->offset, datasize);
 	}
+#else
+	if (pwrite(s->dst_fd, databuf, datasize, entry->offset) != datasize) {
+		error = 1;
+	}
+#endif
 	free(databuf);
 
 	copyfile_debug(3, "copied %ld bytes of \"%s\" data @ offset 0x%08x", datasize, nameptr, entry->offset);
@@ -3958,24 +4024,21 @@ next:
 	entry = (attr_entry_t *)((char *)entry + entrylen);
     }
 
-    if (filehdr->data_length > 0)
-    {
-	/* Now we know where the resource fork data starts. */
-	filehdr->appledouble.entries[1].offset = (filehdr->data_start + filehdr->data_length);
-
-	/* We also know the size of the "Finder Info entry. */
-	filehdr->appledouble.entries[0].length =
+    /* Now we know where the resource fork data starts. */
+    filehdr->appledouble.entries[1].offset = (filehdr->data_start + filehdr->data_length);
+    
+    /* We also know the size of the "Finder Info entry. */
+    filehdr->appledouble.entries[0].length =
 	    filehdr->appledouble.entries[1].offset - filehdr->appledouble.entries[0].offset;
-
-	filehdr->total_size  = filehdr->appledouble.entries[1].offset;
-    }
-
+    
+    filehdr->total_size  = filehdr->appledouble.entries[1].offset;
+    
     /* Copy Resource Fork. */
     if (hasrsrcfork && (error = copyfile_pack_rsrcfork(s, filehdr)))
 	goto exit;
 
     /* Write the header to disk. */
-    datasize = filehdr->appledouble.entries[1].offset;
+    datasize = filehdr->data_start;
 
     swap_adhdr(&filehdr->appledouble);
     swap_attrhdr(filehdr);

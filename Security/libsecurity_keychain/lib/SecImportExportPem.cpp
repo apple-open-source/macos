@@ -28,7 +28,6 @@
 #include "SecImportExportUtils.h"
 #include <security_cdsa_utils/cuEnc64.h>
 #include <security_cdsa_utils/cuPem.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -46,7 +45,7 @@ static const char *findStr(
 {
 	/* probably not the hottest string search algorithm... */
 	const char *cp;
-	unsigned srchStrLen = strlen(str);
+	unsigned srchStrLen = (unsigned)strlen(str);
 	char c = str[0];
 	
 	/* last char * we can search in inText for start of str */
@@ -98,7 +97,7 @@ static const char *getLine(
 	}
 	unsigned linelen;
 	if(newline) {
-		linelen = newline - inText;
+		linelen = (unsigned)(newline - inText);
 	}
 	else {
 		linelen = *consumed;
@@ -163,7 +162,7 @@ static OSStatus impExpImportSinglePEM(
 	const char *currLine = NULL;		// mallocd by getLine()
 	const char *lastCp = currCp;
 	CFMutableArrayRef pemParamLines = NULL;
-	OSStatus ortn = noErr;
+	OSStatus ortn = errSecSuccess;
 	CFDataRef cdata = NULL;
 	Security::KeychainCore::SecImportRep *rep = NULL;
 	const char *start64;
@@ -181,7 +180,7 @@ static OSStatus impExpImportSinglePEM(
 	const char *startLine = findStr(currCp, lenToGo, "-----BEGIN");
 	if(startLine != NULL) {
 		/* possibly skip over leading garbage */
-		consumed = startLine - currCp;
+		consumed = (unsigned)(startLine - currCp);
 		lenToGo -= consumed;
 		currCp = startLine;
 		
@@ -235,7 +234,7 @@ static OSStatus impExpImportSinglePEM(
 		lastCp = currCp;
 		
 		bool skipThis = false;
-		unsigned lineLen = strlen(currLine);
+		unsigned lineLen = (unsigned)strlen(currLine);
 		if(lineLen == 0) {
 			/* empty line */
 			skipThis = true;
@@ -297,7 +296,7 @@ static OSStatus impExpImportSinglePEM(
 			ortn = errSecUnsupportedFormat;
 			goto errOut;
 		}
-		base64Len = end64 - start64;
+		base64Len = (unsigned)(end64 - start64);
 	}
 	/* else no END, no reason to complain about that as long as base64 decode works OK */
 	
@@ -315,7 +314,7 @@ static OSStatus impExpImportSinglePEM(
 		pemParamLines);
 	CFArrayAppendValue(importReps, rep);
 	CFRelease(cdata);		// SecImportRep holds ref
-	return noErr;
+	return errSecSuccess;
 	
 errOut:
 	if(pemParamLines != NULL) {
@@ -340,7 +339,7 @@ OSStatus impExpParsePemToImportRefs(
 	 */
 	const char *currCp = (const char *)CFDataGetBytePtr(importedData);
 	const char *cp = currCp;
-	unsigned lenToGo = CFDataGetLength(importedData);
+	unsigned lenToGo = (unsigned)CFDataGetLength(importedData);
 	OSStatus ortn;
 	
 	*isPem = false;
@@ -351,13 +350,13 @@ OSStatus impExpParsePemToImportRefs(
 		if (!isspace(*cp)) {
 			// it's not a space.  Is it a non-ascii character?
 			if (!isascii(*cp)) {
-				return noErr;
+				return errSecSuccess;
 			}
 			
 			// is it a control character?
 			if (iscntrl(*cp))
 			{
-				return noErr;
+				return errSecSuccess;
 			}
 			
 			// no, mark that an acceptable character was encountered and keep going
@@ -367,7 +366,7 @@ OSStatus impExpParsePemToImportRefs(
 
 	if (allBlanks)
 	{
-		return noErr;
+		return errSecSuccess;
 	}
 	
 	/* search for START line */
@@ -376,14 +375,14 @@ OSStatus impExpParsePemToImportRefs(
 		/* Assume one item, raw base64 */
 		SecImpInferDbg("impExpParsePemToImportRefs no PEM headers, assuming raw base64");
 		ortn = impExpImportSinglePEM(currCp, lenToGo, importReps);
-		if(ortn == noErr) {
+		if(ortn == errSecSuccess) {
 			*isPem = true;
 		}
 		return ortn;
 	}
 
 	/* break up input into chunks between START and END lines */
-	ortn = noErr;
+	ortn = errSecSuccess;
 	bool gotSomePem = false;
 	do {
 		/* get to beginning of START line */
@@ -391,7 +390,7 @@ OSStatus impExpParsePemToImportRefs(
 		if(startLine == NULL) {
 			break;
 		}
-		unsigned consumed = startLine - currCp;
+		unsigned consumed = (unsigned)(startLine - currCp);
 		assert(consumed <= lenToGo);
 		lenToGo -= consumed;
 		currCp  += consumed;
@@ -400,7 +399,7 @@ OSStatus impExpParsePemToImportRefs(
 		const char *endLine = findStr(currCp+10, lenToGo, "-----END");
 		unsigned toDecode = lenToGo;
 		if(endLine) {
-			consumed = endLine - startLine;
+			consumed = (unsigned)(endLine - startLine);
 			assert(consumed <= lenToGo);
 			currCp  += consumed;
 			lenToGo -= consumed;
@@ -409,7 +408,7 @@ OSStatus impExpParsePemToImportRefs(
 			const char *tmpLine = getLine(endLine, lenToGo, &consumed);
 			assert((tmpLine != NULL) && (tmpLine[0] != 0));
 			/* don't decode the terminators */
-			toDecode = endLine - startLine + strlen(tmpLine);
+			toDecode = (unsigned)(endLine - startLine + strlen(tmpLine));
 			free((void *)tmpLine);
 			
 			/* skip past END line and newlines */
@@ -428,7 +427,7 @@ OSStatus impExpParsePemToImportRefs(
 		}
 		gotSomePem = true;
 	} while(lenToGo != 0);
-	if(ortn == noErr) {
+	if(ortn == errSecSuccess) {
 		if(gotSomePem) {
 			*isPem = true;
 		}
@@ -455,16 +454,16 @@ OSStatus impExpPemEncodeExportRep(
 	
 	char headerLine[200];
 	if(strlen(pemHeader) > 150) {
-		return paramErr;
+		return errSecParam;
 	}
 
 	/* First base64 encode */
-	enc = cuEnc64WithLines(CFDataGetBytePtr(derData), CFDataGetLength(derData), 
+	enc = cuEnc64WithLines(CFDataGetBytePtr(derData), (unsigned)CFDataGetLength(derData),
 		64, &encLen);
 	if(enc == NULL) {
 		/* malloc error is actually the only known failure */
 		SecImpExpDbg("impExpPemEncodeExportRep: cuEnc64WithLines failure");
-		return memFullErr;
+		return errSecAllocate;
 	}
 	
 	/* strip off trailing NULL */
@@ -500,6 +499,6 @@ OSStatus impExpPemEncodeExportRep(
 	sprintf(headerLine, "-----END %s-----\n", pemHeader);
 	CFDataAppendBytes(outData, (const UInt8 *)headerLine, strlen(headerLine));
 	free((void *)enc);
-	return noErr;
+	return errSecSuccess;
 }
 	

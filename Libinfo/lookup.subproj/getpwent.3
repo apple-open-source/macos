@@ -62,7 +62,7 @@
 .Fn getpwuid "uid_t uid"
 .Ft int
 .Fn getpwuid_r "uid_t uid" "struct passwd *pwd" "char *buffer" "size_t bufsize" "struct passwd **result"
-.Ft int
+.Ft struct passwd *
 .Fn getpwuuid "uuid_t uuid"
 .Ft int
 .Fn getpwuuid_r "uuid_t uuid" "struct passwd *pwd" "char *buffer" "size_t bufsize" "struct passwd **result"
@@ -212,6 +212,22 @@ earlier versions of Mac OS X whose
 .Dt AuthenticationAuthority
 attribute contains the value
 .Ql ;basic; .
+.Pp
+Note that
+.Xr opendirectoryd 8
+allows user records from some sources which may not include all the component
+fields present in a passwd structure.
+Only the name, uid, and gid of a user record are required.
+Default values will be supplied as follows:
+.Bd -literal -offset indent
+pw_passwd = "*"
+pw_change = 0
+pw_class = ""
+pw_gecos = ""
+pw_dir = "/var/empty"
+pw_shell = "/usr/bin/false"
+pw_expire = 0
+.Ed
 .Sh RETURN VALUES
 The functions
 .Fn getpwent ,

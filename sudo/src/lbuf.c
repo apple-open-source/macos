@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2007-2011 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -31,6 +31,9 @@
 # endif
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
+# if defined(HAVE_MEMORY_H) && !defined(STDC_HEADERS)
+#  include <memory.h>
+# endif
 # include <string.h>
 #endif /* HAVE_STRING_H */
 #ifdef HAVE_STRINGS_H
@@ -51,10 +54,11 @@
 #include "sudo.h"
 #include "lbuf.h"
 
-#if !defined(TIOCGSIZE) && defined(TIOCGWINSZ)
-# define TIOCGSIZE	TIOCGWINSZ
-# define ttysize	winsize
-# define ts_cols	ws_col
+/* Compatibility with older tty systems. */
+#if !defined(TIOCGWINSZ) && defined(TIOCGSIZE)
+# define TIOCGWINSZ	TIOCGSIZE
+# define winsize	ttysize
+# define ws_col		ts_cols
 #endif
 
 int
@@ -62,17 +66,17 @@ get_ttycols()
 {
     char *p;
     int cols;
-#ifdef TIOCGSIZE
-    struct ttysize win;
+#ifdef TIOCGWINSZ
+    struct winsize wsize;
 
-    if (ioctl(STDERR_FILENO, TIOCGSIZE, &win) == 0 && win.ts_cols != 0)
-	return((int)win.ts_cols);
+    if (ioctl(STDERR_FILENO, TIOCGWINSZ, &wsize) == 0 && wsize.ws_col != 0)
+	return (int)wsize.ws_col;
 #endif
 
     /* Fall back on $COLUMNS. */
     if ((p = getenv("COLUMNS")) == NULL || (cols = atoi(p)) <= 0)
 	cols = 80;
-    return(cols);
+    return cols;
 }
 
 void
@@ -100,110 +104,112 @@ lbuf_destroy(lbuf)
 }
 
 /*
- * Append strings to the buffer, expanding it as needed.
+ * Parse the format and append strings, only %s and %% escapes are supported.
+ * Any characters in set are quoted with a backslash.
  */
 void
 #ifdef __STDC__
-lbuf_append_quoted(struct lbuf *lbuf, const char *set, ...)
+lbuf_append_quoted(struct lbuf *lbuf, const char *set, const char *fmt, ...)
 #else
-lbuf_append_quoted(lbuf, set, va_alist)
-	struct lbuf *lbuf;
-	const char *set;
-	va_dcl
+lbuf_append_quoted(lbuf, set, fmt, va_alist)
+       struct lbuf *lbuf;
+       const char *set;
+       const char *fmt;
+       va_dcl
 #endif
 {
     va_list ap;
-    int len = 0;
-    char *cp, *s;
+    int len;
+    char *cp, *s = NULL;
 
 #ifdef __STDC__
-    va_start(ap, set);
+    va_start(ap, fmt);
 #else
     va_start(ap);
 #endif
-    while ((s = va_arg(ap, char *)) != NULL) {
-	len += strlen(s);
-	for (cp = s; (cp = strpbrk(cp, set)) != NULL; cp++)
-	    len++;
-    }
-    va_end(ap);
-
-    /* Expand buffer as needed. */
-    if (lbuf->len + len >= lbuf->size) {
-	do {
-	    lbuf->size += 256;
-	} while (lbuf->len + len >= lbuf->size);
-	lbuf->buf = erealloc(lbuf->buf, lbuf->size);
-    }
-
-#ifdef __STDC__
-    va_start(ap, set);
-#else
-    va_start(ap);
-#endif
-    /* Append each string. */
-    while ((s = va_arg(ap, char *)) != NULL) {
-	while ((cp = strpbrk(s, set)) != NULL) {
-	    len = (int)(cp - s);
-	    memcpy(lbuf->buf + lbuf->len, s, len);
-	    lbuf->len += len;
-	    lbuf->buf[lbuf->len++] = '\\';
-	    lbuf->buf[lbuf->len++] = *cp;
-	    s = cp + 1;
-	}
-	if (*s != '\0') {
+    while (*fmt != '\0') {
+	len = 1;
+	if (fmt[0] == '%' && fmt[1] == 's') {
+	    s = va_arg(ap, char *);
 	    len = strlen(s);
-	    memcpy(lbuf->buf + lbuf->len, s, len);
-	    lbuf->len += len;
 	}
+	/* Assume worst case that all chars must be escaped. */
+	if (lbuf->len + (len * 2) + 1 >= lbuf->size) {
+	    do {
+		lbuf->size += 256;
+	    } while (lbuf->len + len + 1 >= lbuf->size);
+	    lbuf->buf = erealloc(lbuf->buf, lbuf->size);
+	}
+	if (*fmt == '%') {
+	    if (*(++fmt) == 's') {
+		while ((cp = strpbrk(s, set)) != NULL) {
+		    len = (int)(cp - s);
+		    memcpy(lbuf->buf + lbuf->len, s, len);
+		    lbuf->len += len;
+		    lbuf->buf[lbuf->len++] = '\\';
+		    lbuf->buf[lbuf->len++] = *cp;
+		    s = cp + 1;
+		}
+		if (*s != '\0') {
+		    len = strlen(s);
+		    memcpy(lbuf->buf + lbuf->len, s, len);
+		    lbuf->len += len;
+		}
+		fmt++;
+		continue;
+	    }
+	}
+	if (strchr(set, *fmt) != NULL)
+	    lbuf->buf[lbuf->len++] = '\\';
+	lbuf->buf[lbuf->len++] = *fmt++;
     }
     lbuf->buf[lbuf->len] = '\0';
     va_end(ap);
 }
 
 /*
- * Append strings to the buffer, expanding it as needed.
+ * Parse the format and append strings, only %s and %% escapes are supported.
  */
 void
 #ifdef __STDC__
-lbuf_append(struct lbuf *lbuf, ...)
+lbuf_append(struct lbuf *lbuf, const char *fmt, ...)
 #else
-lbuf_append(lbuf, va_alist)
-	struct lbuf *lbuf;
-	va_dcl
+lbuf_append(lbuf, fmt, va_alist)
+       struct lbuf *lbuf;
+       const char *fmt;
+       va_dcl
 #endif
 {
     va_list ap;
-    int len = 0;
-    char *s;
+    int len;
+    char *s = NULL;
 
 #ifdef __STDC__
-    va_start(ap, lbuf);
+    va_start(ap, fmt);
 #else
     va_start(ap);
 #endif
-    while ((s = va_arg(ap, char *)) != NULL)
-	len += strlen(s);
-    va_end(ap);
-
-    /* Expand buffer as needed. */
-    if (lbuf->len + len >= lbuf->size) {
-	do {
-	    lbuf->size += 256;
-	} while (lbuf->len + len >= lbuf->size);
-	lbuf->buf = erealloc(lbuf->buf, lbuf->size);
-    }
-
-#ifdef __STDC__
-    va_start(ap, lbuf);
-#else
-    va_start(ap);
-#endif
-    /* Append each string. */
-    while ((s = va_arg(ap, char *)) != NULL) {
-	len = strlen(s);
-	memcpy(lbuf->buf + lbuf->len, s, len);
-	lbuf->len += len;
+    while (*fmt != '\0') {
+	len = 1;
+	if (fmt[0] == '%' && fmt[1] == 's') {
+	    s = va_arg(ap, char *);
+	    len = strlen(s);
+	}
+	if (lbuf->len + len + 1 >= lbuf->size) {
+	    do {
+		lbuf->size += 256;
+	    } while (lbuf->len + len + 1 >= lbuf->size);
+	    lbuf->buf = erealloc(lbuf->buf, lbuf->size);
+	}
+	if (*fmt == '%') {
+	    if (*(++fmt) == 's') {
+		memcpy(lbuf->buf + lbuf->len, s, len);
+		lbuf->len += len;
+		fmt++;
+		continue;
+	    }
+	}
+	lbuf->buf[lbuf->len++] = *fmt++;
     }
     lbuf->buf[lbuf->len] = '\0';
     va_end(ap);
@@ -276,14 +282,16 @@ lbuf_print(lbuf)
     struct lbuf *lbuf;
 {
     char *cp, *ep;
-    int len, contlen;
+    int len;
 
-    contlen = lbuf->continuation ? strlen(lbuf->continuation) : 0;
+    if (lbuf->buf == NULL || lbuf->len == 0)
+	goto done;
 
     /* For very small widths just give up... */
-    if (lbuf->cols <= lbuf->indent + contlen + 20) {
+    len = lbuf->continuation ? strlen(lbuf->continuation) : 0;
+    if (lbuf->cols <= lbuf->indent + len + 20) {
+	lbuf->buf[lbuf->len] = '\0';
 	lbuf->output(lbuf->buf);
-	lbuf->output("\n");
 	goto done;
     }
 
@@ -293,9 +301,11 @@ lbuf_print(lbuf)
 	    lbuf->output("\n");
 	    cp++;
 	} else {
-	    ep = memchr(cp, '\n', lbuf->len - (cp - lbuf->buf));
-	    len = ep ? (int)(ep - cp) : lbuf->len;
-	    lbuf_println(lbuf, cp, len);
+	    len = lbuf->len - (cp - lbuf->buf);
+	    if ((ep = memchr(cp, '\n', len)) != NULL)
+		len = (int)(ep - cp);
+	    if (len)
+		lbuf_println(lbuf, cp, len);
 	    cp = ep ? ep + 1 : NULL;
 	}
     }

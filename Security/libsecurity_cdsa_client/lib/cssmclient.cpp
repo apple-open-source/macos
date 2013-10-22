@@ -30,7 +30,7 @@
 // and thus don't need to be interlocked explicitly.
 //
 #include <security_cdsa_client/cssmclient.h>
-
+#include <syslog.h>
 
 using namespace CssmClient;
 
@@ -77,8 +77,11 @@ ObjectImpl::ObjectImpl(const Object &mommy) : mParent(mommy.mImpl), mChildCount(
 ObjectImpl::~ObjectImpl()
 try
 {
-	assert(!mActive);	// subclass must have deactivated us
-	assert(isIdle());
+    if (!isIdle())
+    {
+        int i = mChildCount;
+        syslog(LOG_ALERT, "Object %p still has %d children at delete.\n", this, i);
+    }
 		
 	// release parent from her obligations (if we still have one)
 	if (mParent)
@@ -410,8 +413,8 @@ ModuleImpl::activate()
             mActive = true;
         }
     }
-
-	session()->catchExit();
+    
+    session()->catchExit();
 }
 
 void

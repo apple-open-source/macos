@@ -200,8 +200,8 @@ void RC2_encrypt(unsigned long *d, RC2_KEY *key)
 			}
 		}
 
-	d[0]=(unsigned long)(x0&0xffff)|((unsigned long)(x1&0xffff)<<16L);
-	d[1]=(unsigned long)(x2&0xffff)|((unsigned long)(x3&0xffff)<<16L);
+	d[0]=(RC2_INT)(x0&0xffff)|((RC2_INT)(x1&0xffff)<<16L);
+	d[1]=(RC2_INT)(x2&0xffff)|((RC2_INT)(x3&0xffff)<<16L);
 	}
 
 #ifdef	_OPENSSL_APPLE_CDSA_
@@ -250,7 +250,7 @@ void RC2_decrypt(unsigned long *d, RC2_KEY *key)
 			}
 		}
 
-	d[0]=(unsigned long)(x0&0xffff)|((unsigned long)(x1&0xffff)<<16L);
-	d[1]=(unsigned long)(x2&0xffff)|((unsigned long)(x3&0xffff)<<16L);
+	d[0]=(RC2_INT)(x0&0xffff)|((RC2_INT)(x1&0xffff)<<16L);
+	d[1]=(RC2_INT)(x2&0xffff)|((RC2_INT)(x3&0xffff)<<16L);
 	}
 

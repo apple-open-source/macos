@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2008, 2013 Apple Inc.  All rights reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2009 Google Inc.  All rights reserved.
  *
@@ -74,6 +74,21 @@ String ContentType::type() const
         strippedType = strippedType.left(semi).stripWhiteSpace();
 
     return strippedType;
+}
+
+Vector<String> ContentType::codecs() const
+{
+    String codecsParameter = parameter(ASCIILiteral("codecs"));
+
+    if (codecsParameter.isEmpty())
+        return Vector<String>();
+
+    Vector<String> codecs;
+    codecsParameter.split(',', codecs);
+    for (size_t i = 0; i < codecs.size(); ++i)
+        codecs[i] = codecs[i].simplifyWhiteSpace();
+
+    return codecs;
 }
 
 } // namespace WebCore

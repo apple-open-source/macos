@@ -108,6 +108,7 @@ init_context_from_config_file(krb5_context context)
 
     INIT_FIELD(context, time, max_skew, 5 * 60, "clockskew");
     INIT_FIELD(context, time, kdc_timeout, 30, "kdc_timeout");
+    INIT_FIELD(context, time, host_timeout, 3, "host_timeout");
     INIT_FIELD(context, time, tgs_negative_timeout, 1200, "tgs_negative_cache_timeout");
     INIT_FIELD(context, int, max_retries, 3, "max_retries");
 
@@ -249,6 +250,9 @@ init_context_from_config_file(krb5_context context)
 	for(p = s; *p; p++)
 	    krb5_addlog_dest(context, context->debug_dest, *p);
 	krb5_config_free_strings(s);
+    } else if (context->debug_dest == NULL) {
+	krb5_initlog(context, "libkrb5", &context->debug_dest);
+	krb5_addlog_dest(context, context->debug_dest, "0-1/ASL:DEBUG:libkrb5");
     }
 
     tmp = krb5_config_get_string(context, NULL, "libdefaults",
@@ -283,8 +287,8 @@ cc_ops_register(krb5_context context)
 #endif
     krb5_cc_register(context, &krb5_kcm_ops, TRUE);
 #endif
-#ifdef HAVE_KCC
-    krb5_cc_register(context, &krb5_kcc_ops, TRUE);
+#ifdef HAVE_XCC
+    krb5_cc_register(context, &krb5_xcc_ops, TRUE);
 #endif
     _krb5_load_ccache_plugins(context);
     return 0;
@@ -397,6 +401,8 @@ krb5_init_context_flags(unsigned int flags, krb5_context *context)
     if (ret)
 	goto out;
 
+    heim_base_once_f(&init_context, p, init_context_once);
+
     /* init error tables */
     krb5_init_ets(p);
     cc_ops_register(p);
@@ -414,8 +420,6 @@ out:
     if (ret) {
 	krb5_free_context(p);
 	p = NULL;
-    } else {
-	heim_base_once_f(&init_context, p, init_context_once);
     }
 
     *context = p;
@@ -643,7 +647,9 @@ krb5_free_context(krb5_context context)
 	krb5_closelog(context, context->debug_dest);
     krb5_set_extra_addresses(context, NULL);
     krb5_set_ignore_addresses(context, NULL);
+#ifndef HEIMDAL_SMALLER
     krb5_set_send_to_kdc_func(context, NULL, NULL);
+#endif
 
 #ifdef PKINIT
     if (context->hx509ctx)

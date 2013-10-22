@@ -90,6 +90,11 @@ command = {
 		help = "Verbose output"
 	}
 	option = {
+		long = "json"
+		type = "flag"
+		help = "JSON formated output"
+	}
+	option = {
 		name = "a"
 		short = "a"
 		type = "flag"
@@ -205,6 +210,22 @@ command = {
 		long = "version"
 		type = "flag"
 	}
+}
+command = {
+	name = "kdc"
+	option = {
+	       long = "json"
+	       type = "flag"
+	       help = "format output in json"
+	}
+	option = {
+	       long = "type"
+	       type = "string"
+	       help = "type to fetch (kdc|kpasswd|kadmin|kkdcp)"
+	}
+	argument = "realm..."
+	min_args = "1"
+	help = "Print the KDC the client will try for a specific realms"
 }
 command = {
 	name = "copy_cred_cache"

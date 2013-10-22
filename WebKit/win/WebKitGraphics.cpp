@@ -36,9 +36,9 @@
 #include <WebCore/FontDescription.h>
 #include <WebCore/FontSelector.h>
 #include <WebCore/GraphicsContext.h>
-#include <WebCore/PlatformString.h>
 #include <WebCore/StringTruncator.h>
 #include <WebCore/WebCoreTextRenderer.h>
+#include <wtf/text/WTFString.h>
 #include <wtf/unicode/CharacterNames.h>
 
 #include <CoreGraphics/CoreGraphics.h>
@@ -54,9 +54,7 @@ static Font makeFont(const WebFontDescription& description)
     String fontFamilyString(description.family, description.familyLength);
 
     FontDescription f;
-    FontFamily family;
-    family.setFamily(fontFamilyString);
-    f.setFamily(family);
+    f.setOneFamily(fontFamilyString);
     f.setSpecifiedSize(description.size);
     f.setComputedSize(description.size);
     f.setItalic(description.italic);

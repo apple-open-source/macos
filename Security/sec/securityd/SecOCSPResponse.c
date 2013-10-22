@@ -30,7 +30,7 @@
 #include <Security/SecFramework.h>
 #include <Security/SecKeyPriv.h>
 #include <AssertMacros.h>
-#include <security_utilities/debugging.h>
+#include <utilities/debugging.h>
 #include <security_asn1/SecAsn1Coder.h>
 #include <security_asn1/ocspTemplates.h>
 #include <security_asn1/oidsalg.h>
@@ -175,6 +175,8 @@ errOut:
     return NULL;
 }
 
+#define LEEWAY (4500.0)
+
 /* Calculate temporal validity; set latestNextUpdate and expireTime. Only
    called from SecOCSPResponseCreate. Returns true if valid, else returns
    false. */
@@ -184,8 +186,8 @@ static bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 	this->latestNextUpdate = NULL_TIME;
 	CFAbsoluteTime now = this->verifyTime = CFAbsoluteTimeGetCurrent();
 
-    if (this->producedAt > now) {
-        ocspdErrorLog("OCSPResponse: producedAt later than current time");
+    if (this->producedAt > now + LEEWAY) {
+        ocspdErrorLog("OCSPResponse: producedAt more than 1:15 from now");
         return false;
     }
 
@@ -197,8 +199,8 @@ static bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
 		
 		/* thisUpdate later than 'now' invalidates the whole response. */
 		CFAbsoluteTime thisUpdate = genTimeToCFAbsTime(&resp->thisUpdate);
-		if (thisUpdate > now) {
-			ocspdErrorLog("OCSPResponse: thisUpdate later than current time");
+		if (thisUpdate > now + LEEWAY) {
+			ocspdErrorLog("OCSPResponse: thisUpdate more than 1:15 from now");
 			return false;
 		}
 
@@ -258,8 +260,8 @@ static bool SecOCSPResponseCalculateValidity(SecOCSPResponseRef this,
         /* See comment above on RFC 5019 section 2.2.4. */
 		/* Absolute expire time = current time plus defaultTTL */
 		this->expireTime = now + defaultTTL;
-	} else if (this->latestNextUpdate < now) {
-			ocspdErrorLog("OCSPResponse: now > latestNextUpdate");
+	} else if (this->latestNextUpdate < now - LEEWAY) {
+			ocspdErrorLog("OCSPResponse: latestNextUpdate more than 1:15 ago");
 			return false;
     } else if (maxAge > 0) {
         /* Beware of double overflows such as:
@@ -430,6 +432,7 @@ CFArrayRef SecOCSPResponseCopySigners(SecOCSPResponseRef this) {
 
 void SecOCSPResponseFinalize(SecOCSPResponseRef this) {
     CFReleaseSafe(this->data);
+    CFReleaseSafe(this->nonce);
     SecAsn1CoderRelease(this->coder);
     free(this);
 }
@@ -538,7 +541,7 @@ static bool SecOCSPResponseVerifySignature(SecOCSPResponseRef this,
         this->basicResponse.tbsResponseData.Data,
         this->basicResponse.tbsResponseData.Length,
         this->basicResponse.sig.Data,
-        this->basicResponse.sig.Length / 8) == noErr;
+        this->basicResponse.sig.Length / 8) == errSecSuccess;
 }
 
 static bool SecOCSPResponseIsIssuer(SecOCSPResponseRef this,

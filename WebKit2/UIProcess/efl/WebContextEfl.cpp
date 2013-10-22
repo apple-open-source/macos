@@ -24,21 +24,75 @@
  */
 
 #include "config.h"
+#include "WebCookieManagerProxy.h"
 #include "WebContext.h"
 
+#include "Logging.h"
+#include "WebInspectorServer.h"
+#include "WebProcessCreationParameters.h"
+#include "WebProcessMessages.h"
+#include "WebSoupRequestManagerProxy.h"
+#include <Efreet.h>
 #include <WebCore/ApplicationCacheStorage.h>
+#include <WebCore/IconDatabase.h>
 #include <WebCore/NotImplemented.h>
 
 namespace WebKit {
 
-String WebContext::applicationCacheDirectory()
+static void initializeInspectorServer()
 {
-    return WebCore::cacheStorage().cacheDirectory();
+#if ENABLE(INSPECTOR_SERVER)
+    static bool initialized = false;
+    if (initialized)
+        return;
+
+    // It should be set to true always.
+    // Because it is to ensure initializeInspectorServer() is executed only once,
+    // even if the server fails to run.
+    initialized = true;
+
+    String serverAddress(getenv("WEBKIT_INSPECTOR_SERVER"));
+    if (!serverAddress.isNull()) {
+        String bindAddress = ASCIILiteral("127.0.0.1");
+        unsigned short port = 2999;
+
+        Vector<String> result;
+        serverAddress.split(':', result);
+
+        if (result.size() == 2) {
+            bindAddress = result[0];
+            bool ok = false;
+            port = result[1].toUInt(&ok);
+            if (!ok) {
+                port = 2999;
+                LOG_ERROR("Couldn't parse the port. Using 2999 instead.");
+            }
+        } else
+            LOG_ERROR("Couldn't parse %s, wrong format? Using 127.0.0.1:2999 instead.", serverAddress.utf8().data());
+
+        if (!WebInspectorServer::shared().listen(bindAddress, port))
+            LOG_ERROR("Couldn't start listening on: IP address=%s, port=%d.", bindAddress.utf8().data(), port);
+
+        return;
+    }
+
+    LOG(InspectorServer, "To start inspector server set WEBKIT_INSPECTOR_SERVER to 127.0.0.1:2999 for example.");
+#endif
 }
 
-void WebContext::platformInitializeWebProcess(WebProcessCreationParameters&)
+String WebContext::platformDefaultApplicationCacheDirectory() const
 {
-    notImplemented();
+    return String::fromUTF8(efreet_cache_home_get()) + "/WebKitEfl/Applications";
+}
+
+void WebContext::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
+{
+    initializeInspectorServer();
+
+    parameters.urlSchemesRegistered = supplement<WebSoupRequestManagerProxy>()->registeredURISchemes();
+    supplement<WebCookieManagerProxy>()->getCookiePersistentStorage(parameters.cookiePersistentStoragePath, parameters.cookiePersistentStorageType);
+    parameters.cookieAcceptPolicy = m_initialHTTPCookieAcceptPolicy;
+    parameters.ignoreTLSErrors = m_ignoreTLSErrors;
 }
 
 void WebContext::platformInvalidateContext()
@@ -48,20 +102,34 @@ void WebContext::platformInvalidateContext()
 
 String WebContext::platformDefaultDatabaseDirectory() const
 {
-    notImplemented();
-    return "";
+    return String::fromUTF8(efreet_data_home_get()) + "/WebKitEfl/Databases";
 }
 
 String WebContext::platformDefaultIconDatabasePath() const
 {
-    notImplemented();
-    return "";
+    return String::fromUTF8(efreet_data_home_get()) + "/WebKitEfl/IconDatabase/" + WebCore::IconDatabase::defaultDatabaseFilename();
 }
 
 String WebContext::platformDefaultLocalStorageDirectory() const
 {
+    return String::fromUTF8(efreet_data_home_get()) + "/WebKitEfl/LocalStorage";
+}
+
+String WebContext::platformDefaultDiskCacheDirectory() const
+{
+    return String::fromUTF8(efreet_cache_home_get()) + "/WebKitEfl";
+}
+
+String WebContext::platformDefaultCookieStorageDirectory() const
+{
     notImplemented();
-    return "";
+    return String();
+}
+
+void WebContext::setIgnoreTLSErrors(bool ignoreTLSErrors)
+{
+    m_ignoreTLSErrors = ignoreTLSErrors;
+    sendToAllProcesses(Messages::WebProcess::SetIgnoreTLSErrors(m_ignoreTLSErrors));
 }
 
 } // namespace WebKit

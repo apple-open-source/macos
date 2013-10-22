@@ -804,7 +804,7 @@ static const unsigned char uhc_1_2uni_page81[5696] = {
 };
 
 static int
-uhc_1_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+uhc_1_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c1 = s[0];
   if ((c1 >= 0x81 && c1 <= 0xa0)) {
@@ -1697,7 +1697,7 @@ static const Summary16 uhc_1_uni2indx_pageac[459] = {
 };
 
 static int
-uhc_1_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+uhc_1_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   if (n >= 2) {
     if (wc >= 0xac00 && wc < 0xc8b0) {

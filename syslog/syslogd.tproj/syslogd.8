@@ -113,13 +113,19 @@ Note that if archival is enabled (see the
 manual), these messages will be copied to an archive
 after the regular time-to-live interval, but will persist in the data store until their own expiry time.
 .It Fl mps_limit
-Sets the per-process quota for messages per second allowed by
+Sets the kernel quota for messages per second allowed by
 .Nm .
 Any messages in excess of the quota limit from any process are ignored.
-An error message is logged on behalf of the limited process, stating that its message quota has
+An error message is logged stating that the kernel message quota has
 been exceeded, and that remaining messages for the current second will be discarded.
 The default limit is 500 messages per second per process.
 A value of 0 turns off the quota mechanism.
+.Pp
+Note that this setting only limits the number of kernel messages that will be saved by
+.Nm .
+User processes are limited to 36000 messages per hour.
+The limit for a user process is not enforced if a remote-control ASL filter is in
+place for the process.
 .It Fl dup_delay
 Sets the time to delay for coalescing duplicate message in log files.
 If a process logs multiple messages with the same text,
@@ -270,7 +276,7 @@ bsd_out module configuration file
 asl_action module configuration file
 .It Pa /var/run/syslog.pid
 process ID file
-.It Pa /var/run/log
+.It Pa /var/run/syslog
 name of the
 .Ux
 domain datagram log socket

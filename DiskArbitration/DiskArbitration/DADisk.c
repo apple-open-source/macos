@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -148,7 +148,7 @@ __private_extern__ DADiskRef _DADiskCreate( CFAllocatorRef allocator, DASessionR
     return disk;
 }
 
-__private_extern__ DADiskRef _DADiskCreateFromSerialization( CFAllocatorRef allocator, DASessionRef session, CFDataRef serialization )
+DADiskRef _DADiskCreateFromSerialization( CFAllocatorRef allocator, DASessionRef session, CFDataRef serialization )
 {
     DADiskRef disk = NULL;
 
@@ -184,54 +184,6 @@ __private_extern__ DADiskRef _DADiskCreateFromSerialization( CFAllocatorRef allo
             }
 
             CFRelease( description );
-        }
-    }
-
-    return disk;
-}
-
-__private_extern__ DADiskRef _DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path )
-{
-    DADiskRef disk = NULL;
-
-    if ( path )
-    {
-        char * _path;
-
-        _path = ___CFURLCopyFileSystemRepresentation( path );
-
-        if ( _path )
-        {
-            struct statfs fs;
-            int           status;
-
-            status = ___statfs( _path, &fs, MNT_NOWAIT );
-
-            if ( status )
-            {
-                char name[MAXPATHLEN];
-
-                if ( realpath( _path, name ) )
-                {
-                    status = ___statfs( name, &fs, MNT_NOWAIT );
-                }
-            }
-
-            if ( status == 0 )
-            {
-                char * id;
-
-                id = _DAVolumeCopyID( &fs );
-
-                if ( id )
-                {
-                    disk = _DADiskCreate( allocator, session, id );
-
-                    free( id );
-                }
-            }
-
-            free( _path );
         }
     }
 
@@ -421,6 +373,54 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, DASessionRef sessio
             disk = DADiskCreateFromBSDName( allocator, session, name );
 
             CFRelease( string );
+        }
+    }
+
+    return disk;
+}
+
+DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path )
+{
+    DADiskRef disk = NULL;
+
+    if ( path )
+    {
+        char * _path;
+
+        _path = ___CFURLCopyFileSystemRepresentation( path );
+
+        if ( _path )
+        {
+            struct statfs fs;
+            int           status;
+
+            status = ___statfs( _path, &fs, MNT_NOWAIT );
+
+            if ( status )
+            {
+                char name[MAXPATHLEN];
+
+                if ( realpath( _path, name ) )
+                {
+                    status = ___statfs( name, &fs, MNT_NOWAIT );
+                }
+            }
+
+            if ( status == 0 )
+            {
+                char * id;
+
+                id = _DAVolumeCopyID( &fs );
+
+                if ( id )
+                {
+                    disk = _DADiskCreate( allocator, session, id );
+
+                    free( id );
+                }
+            }
+
+            free( _path );
         }
     }
 

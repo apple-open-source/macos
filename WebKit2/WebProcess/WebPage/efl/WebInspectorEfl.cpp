@@ -28,15 +28,19 @@
 
 #if ENABLE(INSPECTOR)
 
-#include <WebCore/NotImplemented.h>
+#include <WebCore/EflInspectorUtilities.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
 
+bool WebInspector::canSave() const
+{
+    return false;
+}
+
 String WebInspector::localizedStringsURL() const
 {
-    notImplemented();
-    return String();
+    return "file://" + WebCore::inspectorResourcePath() + "/localizedStrings.js";
 }
 
 } // namespace WebKit

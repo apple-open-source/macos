@@ -11,7 +11,7 @@ EXTRA_DIST =		\
 	normal.out	\
 	xinclude.out
 
-all:
+CLEANFILES = .memdump
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'

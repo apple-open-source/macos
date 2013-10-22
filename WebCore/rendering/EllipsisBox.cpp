@@ -21,8 +21,10 @@
 #include "EllipsisBox.h"
 
 #include "Document.h"
+#include "Font.h"
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
+#include "InlineTextBox.h"
 #include "PaintInfo.h"
 #include "RenderBlock.h"
 #include "RootInlineBox.h"
@@ -34,13 +36,13 @@ void EllipsisBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, La
 {
     GraphicsContext* context = paintInfo.context;
     RenderStyle* style = m_renderer->style(isFirstLineStyle());
-    Color textColor = style->visitedDependentColor(CSSPropertyColor);
+    Color textColor = style->visitedDependentColor(CSSPropertyWebkitTextFillColor);
     if (textColor != context->fillColor())
         context->setFillColor(textColor, style->colorSpace());
     bool setShadow = false;
     if (style->textShadow()) {
         context->setShadow(LayoutSize(style->textShadow()->x(), style->textShadow()->y()),
-                           style->textShadow()->blur(), style->textShadow()->color(), style->colorSpace());
+                           style->textShadow()->radius(), style->textShadow()->color(), style->colorSpace());
         setShadow = true;
     }
 
@@ -49,7 +51,7 @@ void EllipsisBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, La
         paintSelection(context, paintOffset, style, font);
 
         // Select the correct color for painting the text.
-        Color foreground = paintInfo.forceBlackText ? Color::black : renderer()->selectionForegroundColor();
+        Color foreground = paintInfo.forceBlackText() ? Color::black : renderer()->selectionForegroundColor();
         if (foreground.isValid() && foreground != textColor)
             context->setFillColor(foreground, style->colorSpace());
     }
@@ -67,26 +69,35 @@ void EllipsisBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, La
     paintMarkupBox(paintInfo, paintOffset, lineTop, lineBottom, style);
 }
 
-void EllipsisBox::paintMarkupBox(PaintInfo& paintInfo, const LayoutPoint& paintOffset, LayoutUnit lineTop, LayoutUnit lineBottom, RenderStyle* style)
+InlineBox* EllipsisBox::markupBox() const
 {
     if (!m_shouldPaintMarkupBox || !m_renderer->isRenderBlock())
-        return;
+        return 0;
 
     RenderBlock* block = toRenderBlock(m_renderer);
     RootInlineBox* lastLine = block->lineAtIndex(block->lineCount() - 1);
     if (!lastLine)
-        return;
+        return 0;
 
     // If the last line-box on the last line of a block is a link, -webkit-line-clamp paints that box after the ellipsis.
     // It does not actually move the link.
     InlineBox* anchorBox = lastLine->lastChild();
     if (!anchorBox || !anchorBox->renderer()->style()->isLink())
+        return 0;
+
+    return anchorBox;
+}
+
+void EllipsisBox::paintMarkupBox(PaintInfo& paintInfo, const LayoutPoint& paintOffset, LayoutUnit lineTop, LayoutUnit lineBottom, RenderStyle* style)
+{
+    InlineBox* markupBox = this->markupBox();
+    if (!markupBox)
         return;
 
     LayoutPoint adjustedPaintOffset = paintOffset;
-    adjustedPaintOffset.move(x() + m_logicalWidth - anchorBox->x(),
-        y() + style->fontMetrics().ascent() - (anchorBox->y() + anchorBox->renderer()->style(isFirstLineStyle())->fontMetrics().ascent()));
-    anchorBox->paint(paintInfo, adjustedPaintOffset, lineTop, lineBottom);
+    adjustedPaintOffset.move(x() + m_logicalWidth - markupBox->x(),
+        y() + style->fontMetrics().ascent() - (markupBox->y() + markupBox->renderer()->style(isFirstLineStyle())->fontMetrics().ascent()));
+    markupBox->paint(paintInfo, adjustedPaintOffset, lineTop, lineBottom);
 }
 
 IntRect EllipsisBox::selectionRect()
@@ -112,45 +123,32 @@ void EllipsisBox::paintSelection(GraphicsContext* context, const LayoutPoint& pa
     GraphicsContextStateSaver stateSaver(*context);
     LayoutUnit top = root()->selectionTop();
     LayoutUnit h = root()->selectionHeight();
-    // FIXME: We'll need to apply the correct clip rounding here: https://bugs.webkit.org/show_bug.cgi?id=63656
-    context->clip(IntRect(x() + paintOffset.x(), top + paintOffset.y(), m_logicalWidth, h));
+    FloatRect clipRect(x() + paintOffset.x(), top + paintOffset.y(), m_logicalWidth, h);
+    alignSelectionRectToDevicePixels(clipRect);
+    context->clip(clipRect);
     // FIXME: Why is this always LTR? Fix by passing correct text run flags below.
-    context->drawHighlightForText(font, RenderBlock::constructTextRun(renderer(), font, m_str, style, TextRun::AllowTrailingExpansion), IntPoint(x() + paintOffset.x(), y() + paintOffset.y() + top), h, c, style->colorSpace());
+    context->drawHighlightForText(font, RenderBlock::constructTextRun(renderer(), font, m_str, style, TextRun::AllowTrailingExpansion), roundedIntPoint(LayoutPoint(x() + paintOffset.x(), y() + paintOffset.y() + top)), h, c, style->colorSpace());
 }
 
-bool EllipsisBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom)
+bool EllipsisBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom)
 {
-    if (!m_shouldPaintMarkupBox || !m_renderer->isRenderBlock()) 
-         return false; 
-     
-     RenderBlock* block = toRenderBlock(m_renderer); 
-     RootInlineBox* lastLine = block->lineAtIndex(block->lineCount() - 1); 
-     if (!lastLine) 
-         return false; 
-     
-     // If the last line-box on the last line of a block is a link, -webkit-line-clamp paints that box after the ellipsis. 
-     // It does not actually move the link. 
-     InlineBox* anchorBox = lastLine->lastChild(); 
-     if (!anchorBox || !anchorBox->renderer()->style()->isLink()) 
-         return false;
-    
     LayoutPoint adjustedLocation = accumulatedOffset + roundedLayoutPoint(topLeft());
 
     // Hit test the markup box.
-    if (anchorBox) {
+    if (InlineBox* markupBox = this->markupBox()) {
         RenderStyle* style = m_renderer->style(isFirstLineStyle());
-        LayoutUnit mtx = adjustedLocation.x() + m_logicalWidth - anchorBox->x(); 
-         LayoutUnit mty = adjustedLocation.y() + style->fontMetrics().ascent() - (anchorBox->y() + anchorBox->renderer()->style(isFirstLineStyle())->fontMetrics().ascent()); 
-         if (anchorBox->nodeAtPoint(request, result, pointInContainer, LayoutPoint(mtx, mty), lineTop, lineBottom)) {
-            renderer()->updateHitTestResult(result, pointInContainer - LayoutSize(mtx, mty));
+        LayoutUnit mtx = adjustedLocation.x() + m_logicalWidth - markupBox->x();
+        LayoutUnit mty = adjustedLocation.y() + style->fontMetrics().ascent() - (markupBox->y() + markupBox->renderer()->style(isFirstLineStyle())->fontMetrics().ascent());
+        if (markupBox->nodeAtPoint(request, result, locationInContainer, LayoutPoint(mtx, mty), lineTop, lineBottom)) {
+            renderer()->updateHitTestResult(result, locationInContainer.point() - LayoutSize(mtx, mty));
             return true;
         }
     }
 
     LayoutRect boundsRect(adjustedLocation, LayoutSize(m_logicalWidth, m_height));
-    if (visibleToHitTesting() && boundsRect.intersects(result.rectForPoint(pointInContainer))) {
-        renderer()->updateHitTestResult(result, pointInContainer - toLayoutSize(adjustedLocation));
-        if (!result.addNodeToRectBasedTestResult(renderer()->node(), pointInContainer, boundsRect))
+    if (visibleToHitTesting() && boundsRect.intersects(HitTestLocation::rectForPoint(locationInContainer.point(), 0, 0, 0, 0))) {
+        renderer()->updateHitTestResult(result, locationInContainer.point() - toLayoutSize(adjustedLocation));
+        if (!result.addNodeToRectBasedTestResult(renderer()->node(), request, locationInContainer, boundsRect))
             return true;
     }
 

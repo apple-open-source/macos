@@ -1,6 +1,7 @@
 /*
     Copyright (C) 1999 Lars Knoll (knoll@kde.org)
     Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+    Copyright (c) 2012, Google Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,8 +23,12 @@
 #define LengthBox_h
 
 #include "Length.h"
+#include "TextDirection.h"
+#include "WritingMode.h"
 
 namespace WebCore {
+
+class RenderStyle;
 
 struct LengthBox {
     LengthBox()
@@ -66,6 +71,14 @@ struct LengthBox {
     Length right() const { return m_right; }
     Length top() const { return m_top; }
     Length bottom() const { return m_bottom; }
+
+    Length logicalLeft(WritingMode) const;
+    Length logicalRight(WritingMode) const;
+
+    Length before(WritingMode) const;
+    Length after(WritingMode) const;
+    Length start(WritingMode, TextDirection) const;
+    Length end(WritingMode, TextDirection) const;
 
     bool operator==(const LengthBox& o) const
     {

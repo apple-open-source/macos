@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,9 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
-#include <curl/curl.h>
+#include "tool_setup.h"
 
 #define _MPRINTF_REPLACE /* we want curl-functions instead of native ones */
 #include <curl/mprintf.h>
@@ -66,7 +64,10 @@ static GlobCode glob_set(URLGlob *glob, char *pattern,
   pat->content.Set.ptr_s = 0;
   pat->content.Set.elements = NULL;
 
-  ++glob->size;
+  if(++glob->size > (GLOB_PATTERN_NUM*2)) {
+    snprintf(glob->errormsg, sizeof(glob->errormsg), "too many globs used\n");
+    return GLOB_ERROR;
+  }
 
   while(!done) {
     switch (*pattern) {
@@ -183,7 +184,10 @@ static GlobCode glob_range(URLGlob *glob, char *pattern,
 
   pat = &glob->pattern[glob->size / 2];
   /* patterns 0,1,2,... correspond to size=1,3,5,... */
-  ++glob->size;
+  if(++glob->size > (GLOB_PATTERN_NUM*2)) {
+    snprintf(glob->errormsg, sizeof(glob->errormsg), "too many globs used\n");
+    return GLOB_ERROR;
+  }
 
   if(ISALPHA(*pattern)) {
     /* character range detected */

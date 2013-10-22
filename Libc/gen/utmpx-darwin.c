@@ -52,7 +52,6 @@
 #include <mach/mach_types.h>
 #include <servers/bootstrap.h>
 #include <pthread.h>
-#include <asl_ipc.h>
 
 #ifdef UTMP_COMPAT
 #include <ttyent.h>
@@ -66,7 +65,7 @@ static void msg2lastlogx(const aslmsg, struct lastlogx *);
 static void msg2utmpx(const aslmsg, struct utmpx *);
 static void utmpx2msg(const struct utmpx *, aslmsg);
 
-static int pw_size = 0;
+static size_t pw_size = 0;
 
 #define FACILITY		"Facility"
 #define WTMP_COUNT		32

@@ -261,10 +261,10 @@ kcm_resolve(krb5_context context, krb5_ccache *id, const char *res)
 static krb5_error_code
 kcm_gen_new(krb5_context context, krb5_ccache *id)
 {
-    krb5_kcmcache *k;
+    uuid_string_t uuidstr;
     krb5_error_code ret;
-    krb5_storage *request, *response;
-    krb5_data response_data;
+    krb5_kcmcache *k;
+    uuid_t uuid;
 
     ret = kcm_alloc(context, NULL, id);
     if (ret)
@@ -272,26 +272,12 @@ kcm_gen_new(krb5_context context, krb5_ccache *id)
 
     k = KCMCACHE(*id);
 
-    ret = krb5_kcm_storage_request(context, KCM_OP_GEN_NEW, &request);
-    if (ret) {
-	kcm_free(context, id);
-	return ret;
-    }
+    uuid_generate_random(uuid);
+    uuid_unparse(uuid, uuidstr);
 
-    ret = krb5_kcm_call(context, request, &response, &response_data);
-    if (ret) {
-	krb5_storage_free(request);
-	kcm_free(context, id);
-	return ret;
-    }
-
-    ret = krb5_ret_stringz(response, &k->name);
-    if (ret)
-	ret = KRB5_CC_IO;
-
-    krb5_storage_free(request);
-    krb5_storage_free(response);
-    krb5_data_free(&response_data);
+    k->name = strdup(uuidstr);
+    if (k->name == NULL)
+	ret = ENOMEM;
 
     if (ret)
 	kcm_free(context, id);
@@ -1061,7 +1047,7 @@ kcm_set_kdc_offset(krb5_context context, krb5_ccache id, krb5_deltat kdc_offset)
 	krb5_storage_free(request);
 	return ret;
     }
-    ret = krb5_store_int32(request, kdc_offset);
+    ret = krb5_store_int32(request, (uint32_t)kdc_offset);
     if (ret) {
 	krb5_storage_free(request);
 	return ret;
@@ -1504,14 +1490,15 @@ _krb5_kcm_ntlm_challenge(krb5_context context, int op __attribute((__unused__)),
 			 uint8_t chal[8])
 {
     krb5_error_code ret;
+    krb5_ssize_t sret;
     krb5_storage *request;
 
     ret = krb5_kcm_storage_request(context, KCM_OP_ADD_NTLM_CHALLENGE, &request);
     if (ret)
 	return ret;
 
-    ret = krb5_storage_write(request, chal, 8);
-    if (ret != 8) {
+    sret = krb5_storage_write(request, chal, 8);
+    if (sret != 8) {
 	ret = EINVAL;
 	goto out;
     }

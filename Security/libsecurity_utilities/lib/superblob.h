@@ -184,7 +184,7 @@ template <class _BlobType, uint32_t _magic, class _Type>
 size_t SuperBlobCore<_BlobType, _magic, _Type>::Maker::size(size_t size1, ...) const
 {
 	// count established blobs
-	unsigned count = mPieces.size();
+	size_t count = mPieces.size();
 	size_t total = 0;
 	for (typename BlobMap::const_iterator it = mPieces.begin(); it != mPieces.end(); ++it)
 		total += it->second->length();
@@ -212,17 +212,17 @@ size_t SuperBlobCore<_BlobType, _magic, _Type>::Maker::size(size_t size1, ...) c
 template <class _BlobType, uint32_t _magic, class _Type>
 _BlobType *SuperBlobCore<_BlobType, _magic, _Type>::Maker::make() const
 {
-	Offset pc = sizeof(SuperBlobCore) + mPieces.size() * sizeof(Index);
-	Offset total = size();
+	Offset pc = (Offset)(sizeof(SuperBlobCore) + mPieces.size() * sizeof(Index));
+	Offset total = (Offset)size();
 	_BlobType *result = (_BlobType *)malloc(total);
 	if (!result)
 		UnixError::throwMe(ENOMEM);
-	result->setup(total, mPieces.size());
+	result->setup(total, (unsigned)mPieces.size());
 	unsigned n = 0;
 	for (typename BlobMap::const_iterator it = mPieces.begin(); it != mPieces.end(); ++it) {
 		result->mIndex[n].type = it->first;
 		result->mIndex[n].offset = pc;
-		memcpy(result->at<unsigned char>(pc), it->second, it->second->length());
+		memcpy(result->template at<unsigned char>(pc), it->second, it->second->length());
 		pc += it->second->length();
 		n++;
 	}

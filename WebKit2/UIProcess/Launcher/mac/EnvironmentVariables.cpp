@@ -136,8 +136,6 @@ void EnvironmentVariables::copyEnvironmentVariables()
     m_environmentPointer = m_environmentVariables.data();
 }
 
-#if !defined(BUILDING_ON_SNOW_LEOPARD)
-
 const char* EnvironmentVariables::preexistingProcessServiceNameKey()
 {
     return "WEBKIT_PREEXISTING_PROCESS_SERVICE_NAME";
@@ -148,6 +146,12 @@ const char* EnvironmentVariables::preexistingProcessTypeKey()
     return "WEBKIT_PREEXISTING_PROCESS_TYPE";
 }
 
-#endif // !defined(BUILDING_ON_SNOW_LEOPARD)
+void EnvironmentVariables::dump()
+{
+    for (size_t i = 0; (*_NSGetEnviron())[i]; i++)
+        printf("%s\n", (*_NSGetEnviron())[i]);
+
+    printf("\n\n\n");
+}
 
 } // namespace WebKit

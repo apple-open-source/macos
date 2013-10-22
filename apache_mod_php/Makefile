@@ -9,7 +9,7 @@ Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
 ToolType        = Commands
-Submission      = 79.1
+Submission      = 84
 
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
@@ -31,6 +31,7 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--with-apxs2=$(USRSBINDIR)/apxs \
 			--enable-cli \
 			--with-config-file-path=/etc \
+			--with-config-file-scan-dir=/Library/Server/Web/Config/php \
 			--with-libxml-dir=$(USRDIR) \
 			--with-openssl=$(USRDIR) \
 			--with-kerberos=$(USRDIR) \
@@ -43,6 +44,7 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-dba \
 				--enable-ndbm=$(USRDIR) \
 			--enable-exif \
+			--enable-fpm \
 			--enable-ftp \
 			--with-gd \
 				--with-freetype-dir=$(DSTROOT)$(USRDIR)/local \
@@ -50,7 +52,6 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 				--with-png-dir=$(DSTROOT)$(USRDIR)/local \
 				--enable-gd-native-ttf \
 			--with-icu-dir=$(USRDIR) \
-			--with-iodbc=$(USRDIR) \
 			--with-ldap=$(USRDIR) \
 				--with-ldap-sasl=$(USRDIR) \
 			--with-libedit=$(USRDIR) \
@@ -80,17 +81,16 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.3.26
+AEP_Version	= 5.4.17
 AEP_LicenseFile	= $(Sources)/LICENSE
-AEP_Patches	= suhosin-patch-5.3.23-0.9.10.patch \
-			MacOSX_build.patch arches.patch \
-			iconv.patch mysql_sock.patch pear.patch phar.patch \
-			xdebug.patch dSYM.patch
+AEP_Patches	=  \
+			MacOSX_build.patch \
+			iconv.patch pear.patch phar.patch 
 AEP_ConfigDir	= $(ETCDIR)
-AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php 
+AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
 AEP_ManPages	= pear.1 phar.1 phar.phar.1
-Dependencies	= freetype libjpeg libpng phpfpm
-GnuAfterInstall	= archive-strip-binaries install-macosx install-xdebug
+Dependencies	= libpng freetype libjpeg 
+GnuAfterInstall = archive-strip-binaries install-macosx install-xdebug install-open-source-files # needs a path adjustment
 
 
 # Local targets that must be defined before including the following
@@ -99,7 +99,223 @@ GnuAfterInstall	= archive-strip-binaries install-macosx install-xdebug
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/AEP.make
+# Define AEP variables
+#
+ifndef AEP_Project
+    AEP_Project		= $(Project)
+endif
+
+ifndef AEP_ProjVers
+  ifdef AEP_Version
+    AEP_ProjVers	= $(AEP_Project)-$(AEP_Version)
+  else
+    AEP_ProjVers	= $(AEP_Project)
+  endif
+endif
+
+ifndef AEP_Filename
+    AEP_Filename	= $(wildcard $(AEP_ProjVers).tar.gz $(AEP_ProjVers).tar.bz2)
+endif
+ifeq ($(suffix $(AEP_Filename)),.bz2)
+    AEP_ExtractOption	= j
+else
+    AEP_ExtractOption	= z
+endif
+
+ifndef AEP_ExtractDir
+    AEP_ExtractDir	= $(AEP_ProjVers)
+endif
+
+ifndef AEP_LicenseFile
+    AEP_LicenseFile	= $(SRCROOT)/$(ProjectName).txt
+endif
+
+ifndef AEP_ManPages
+    AEP_ManPages := $(wildcard *.[1-9] man/*.[1-9])
+endif
+
+ifndef AEP_ConfigDir
+    AEP_ConfigDir	= $(ETCDIR)
+endif
+
+ifndef AEP_Binaries
+    AEP_Binaries	= $(subst ./,/,$(shell cd $(DSTROOT) && $(FIND) . -type f -perm +0111 -exec $(SHELL) -c 'test \"`file -b --mime-type {}`\" = \"application/octet-stream\"' \; -print))
+endif
+
+#AEP_ExtractRoot		= $(SRCROOT)
+AEP_ExtractRoot		= $(OBJROOT)
+
+# Redefine the Sources directory defined elsewhere
+# ...but save the version of ConfigStamp (based on Sources)
+# GNUSource.make uses.
+GNUConfigStamp		:= $(ConfigStamp)
+Sources			= $(AEP_ExtractRoot)/$(AEP_Project)
+
+# Redefine Configure to allow extra "helper" environment variables.
+# This logic was moved to GNUSource.make in 10A251, so only override the setting
+# if building on an earlier system. (Make_Flags is only defined with that patch.)
+ifndef Make_Flags
+ifdef Extra_Configure_Environment
+      Configure		:= $(Extra_Configure_Environment) $(Configure)
+endif
+endif
+
+
+# Open Source configuration directories
+OSVDIR	= $(USRDIR)/local/OpenSourceVersions
+OSLDIR	= $(USRDIR)/local/OpenSourceLicenses
+
+# Launchd / startup item paths
+LAUNCHDDIR		= $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/LaunchDaemons
+SYSTEM_STARTUP_DIR	= $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/StartupItems
+
+
+#
+# AEP targets
+#
+.PHONY: extract-source build-dependencies archive-strip-binaries
+.PHONY: install-open-source-files install-startup-files
+.PHONY: install-top-level-man-pages install-configuration-files
+
+ifdef ConfigStamp
+$(GNUConfigStamp): extract-source build-dependencies
+else
+build:: extract-source build-dependencies
+endif
+
+# Because GNUSource's ConfigStamp's rules are processed before this file is included,
+# it's easier to copy the sources to the build directory and work from there.
+extract-source::
+ifeq ($(AEP),YES)
+	@echo "Extracting source for $(Project)..."
+	$(MKDIR) $(AEP_ExtractRoot)
+	$(TAR) -C $(AEP_ExtractRoot) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(RMDIR) $(Sources)
+	$(_v) $(RM) $(GNUConfigStamp)
+	$(MV) $(AEP_ExtractRoot)/$(AEP_ExtractDir) $(Sources)
+ifdef AEP_Patches
+	for patchfile in $(AEP_Patches); do \
+	   echo "Applying $$patchfile..."; \
+	   cd $(Sources) && $(PATCH) -lp1 < $(SRCROOT)/patches/$$patchfile; \
+	done
+endif
+ifeq ($(AEP_BuildInSources),YES)
+ifneq ($(Sources),$(BuildDirectory))
+	@echo "Copying sources to build directory..."
+	$(_v) $(CP) $(Sources) $(BuildDirectory)
+endif
+endif
+else
+	@echo "Source extraction for $(Project) skipped!"
+endif
+
+# Common.make's recurse doesn't reset SRCROOT and misdefines Sources
+build-dependencies:
+ifdef Dependencies
+	$(_v) for Dependency in $(Dependencies); do			\
+		$(MKDIR) $(SYMROOT)/$${Dependency};			\
+		$(MAKE) -C $${Dependency} $(TARGET)			\
+			SRCROOT=$(SRCROOT)/$${Dependency}		\
+			OBJROOT=$(OBJROOT)				\
+			SYMROOT=$(SYMROOT)/$${Dependency}		\
+			DSTROOT=$(DSTROOT)				\
+			BuildDirectory=$(OBJROOT)/Build/$${Dependency}	\
+			Sources=$(OBJROOT)/$${Dependency}		\
+			CoreOSMakefiles=$(CoreOSMakefiles)		\
+			$(Extra_Dependency_Flags);			\
+		done
+endif
+
+archive-strip-binaries:: $(SYMROOT)
+ifdef AEP_Binaries
+	@echo "Archiving and stripping binaries..."
+	$(_v) for file in $(addprefix $(DSTROOT),$(AEP_Binaries));	\
+	do \
+		_type=`file -b --mime-type $${file}`;			\
+		if [ "$${_type}" = "application/octet-stream" ]; then	\
+			echo "\tProcessing $${file}...";			\
+			$(CP) $${file} $(SYMROOT);				\
+			$(DSYMUTIL) --out=$(SYMROOT)/$${file##*/}.dSYM $${file};\
+			$(STRIP) -S $${file};					\
+		else	\
+			echo "\tSkipped non-binary $${file}; type is $${_type}";\
+		fi	\
+	done
+endif
+
+install-startup-files::
+ifdef AEP_LaunchdConfigs
+	@echo "Installing launchd configuration files..."
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(LAUNCHDDIR)
+	$(INSTALL_FILE) $(AEP_LaunchdConfigs) $(DSTROOT)$(LAUNCHDDIR)
+endif
+ifdef AEP_StartupItem
+	@echo "Installing StartupItem..."
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)
+	$(INSTALL_SCRIPT) $(StartupItem) $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)
+	$(INSTALL_FILE) StartupParameters.plist $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)/Resources/English.lproj
+	$(INSTALL_FILE) Localizable.strings $(DSTROOT)$(SYSTEM_STARTUP_DIR)/$(AEP_StartupItem)/Resources/English.lproj
+endif
+
+install-open-source-files::
+	@echo "Installing Apple-internal open-source documentation..."
+	if [ -e $(SRCROOT)/$(ProjectName).plist ]; then	\
+		$(MKDIR) $(DSTROOT)/$(OSVDIR);	   	\
+		$(INSTALL_FILE) $(SRCROOT)/$(ProjectName).plist $(DSTROOT)/$(OSVDIR)/$(ProjectName).plist;	\
+	else	\
+		echo "WARNING: No open-source file for this project!";	\
+	fi
+	if [ -e $(AEP_LicenseFile) ]; then	\
+		$(MKDIR) $(DSTROOT)/$(OSLDIR);	\
+		$(INSTALL_FILE) $(AEP_LicenseFile) $(DSTROOT)/$(OSLDIR)/$(ProjectName).txt;	\
+	else	\
+		echo "WARNING: No open-source file for this project!";	\
+	fi
+
+
+#
+# Install any man pages at the top-level directory or its "man" subdirectory
+#
+install-top-level-man-pages::
+ifdef AEP_ManPages
+	@echo "Installing top-level man pages..."
+	for _page in $(AEP_ManPages); do				\
+		_section_dir=$(Install_Man)/man$${_page##*\.};		\
+		$(INSTALL_DIRECTORY) $(DSTROOT)$${_section_dir};	\
+		$(INSTALL_FILE) $${_page} $(DSTROOT)$${_section_dir};	\
+	done
+endif
+
+
+#
+# Install configuration files and their corresponding ".default" files
+# to one standard location.
+#
+install-configuration-files::
+ifdef AEP_ConfigFiles
+	@echo "Installing configuration files..."
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(AEP_ConfigDir)
+	for file in $(AEP_ConfigFiles); \
+	do \
+		$(INSTALL_FILE) $${file} $(DSTROOT)$(AEP_ConfigDir); \
+		$(CHMOD) u+w $(DSTROOT)$(AEP_ConfigDir)/$${file}; \
+		if [ "${file##*.}" != "default" ]; then \
+			$(INSTALL_FILE) $${file} $(DSTROOT)$(AEP_ConfigDir)/$${file}.default; \
+		fi; \
+	done
+endif
+
+
+clean::
+	$(_v) if [ -d $(Sources) ]; then \
+	    cd $(Sources) && make clean; \
+	fi
+
+$(DSTROOT) $(DSTROOT)$(AEP_ConfigDir) $(SYMROOT) $(TMPDIR):
+	$(MKDIR) $@
+
+#include $(MAKEFILEPATH)/CoreOS/ReleaseControl/AEP.make
 
 # Override settings from above includes
 BuildDirectory	= $(OBJROOT)/Build/$(AEP_Project)
@@ -117,11 +333,6 @@ Install_Flags	= DESTDIR="$(DSTROOT)"
 ifneq ($(strip $(wildcard $(USRDIR)/local/include/pcre.*)),)
 Extra_Configure_Flags	+= --with-pcre-regex=$(USRDIR)
 endif
-# The PostgreSQL library is only installed on Lion and later.
-ifneq ($(strip $(wildcard $(USRINCLUDEDIR)/postgres*)),)
-Extra_Configure_Flags	+= --with-pgsql=$(USRDIR) --with-pdo-pgsql=$(USRDIR)
-endif
-
 
 # Build rules
 # Dependency info necessary to ensure temp directory and cleanup are performed.
@@ -145,8 +356,8 @@ install-macosx:
 	-$(RMDIR) $(DSTROOT)$(ETCDIR)/apache2
 	$(CHOWN) -R root:wheel $(DSTROOT)/
 	$(INSTALL_FILE) $(Sources)/php.ini-production $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
-	$(PERL) -i -pe 's|^extension_dir =.*|extension_dir = $(USRLIBDIR)/php/extensions/no-debug-non-zts-20060613|' $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
-	$(INSTALL_DIRECTORY) $(DSTROOT)$(USRLIBDIR)/php/extensions/no-debug-non-zts-20060613
+	$(PERL) -i -pe 's|^extension_dir =.*|extension_dir = $(USRLIBDIR)/php/extensions/no-debug-non-zts-20100525|' $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
+	$(INSTALL_DIRECTORY) $(DSTROOT)$(USRLIBDIR)/php/extensions/no-debug-non-zts-20100525
 	@echo "Removing references to DSTROOT in php-config and include files..."
 	$(CP) $(DSTROOT)$(USRBINDIR)/php-config $(SYMROOT)/php-config \
 		&& $(SED) -e 's=-L$(DSTROOT)$(USRDIR)/local/lib==' $(SYMROOT)/php-config \
@@ -159,6 +370,8 @@ install-macosx:
 	@echo "Deleting private dependencies..."
 	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/lib
 	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/include
+	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/bin
+	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/share
 	@echo "Installing PEAR phar for installation at setup time."
 	$(INSTALL_FILE) $(SRCROOT)/install-pear-nozlib.phar $(DSTROOT)$(USRLIBDIR)/php
 	@echo "Fixing PEAR configuration file..."
@@ -182,7 +395,9 @@ install-macosx:
 		$(DSTROOT)/.registry \
 		$(DSTROOT)$(USRLIBDIR)/php/.lock \
 		$(DSTROOT)$(USRLIBDIR)/php/.depdblock
+	-$(STRIP) -x $(DSTROOT)/usr/bin/php $(DSTROOT)/usr/sbin/php-fpm
 	-$(RM) -rf $(DSTROOT)/usr/var
+	-$(MV) $(DSTROOT)/usr/php $(DSTROOT)/usr/share
 	@echo "Mac OS X-specific cleanup complete."
 
 install-xdebug:

@@ -94,12 +94,12 @@ __RCSID("$NetBSD: lockd.c,v 1.7 2000/08/12 18:08:44 thorpej Exp $");
 #include <launch.h>
 
 #include <oncrpc/rpc.h>
-#include <oncrpc/pmap_clnt.h>
+#include <oncrpc/rpcb.h>
+
 #include "sm_inter.h"
 
 #include "lockd.h"
 #include "nlm_prot.h"
-
 int bindresvport_sa(int sd, struct sockaddr *sa);
 
 int		_rpcsvcdirty = 0;
@@ -640,10 +640,10 @@ init_nsm(void)
 	 * number of times in case statd is just slow in coming up.
 	 */
 	do {
-		ret = callrpc("localhost", SM_PROG, SM_VERS, SM_UNMON_ALL,
+		ret = callrpc((char *) "localhost", SM_PROG, SM_VERS, SM_UNMON_ALL,
 		    (xdrproc_t)xdr_my_id, &mon_host.mon_id.my_id, (xdrproc_t)xdr_sm_stat, &mstat);
 		if (ret) {
-			syslog(LOG_WARNING, "can't contact statd, %lu %s", SM_PROG, clnt_sperrno(ret));
+			syslog(LOG_WARNING, "can't contact statd, %u %s", SM_PROG, clnt_sperrno(ret));
 			if (++attempt < 20) {
 				/* attempt to start it again */
 				statd_start();
@@ -655,7 +655,7 @@ init_nsm(void)
 	} while (1);
 
 	if (ret != 0) {
-		syslog(LOG_ERR, "server init_nsm failed! %lu %s", SM_PROG, clnt_sperrno(ret));
+		syslog(LOG_ERR, "server init_nsm failed! %u %s", SM_PROG, clnt_sperrno(ret));
 		exit(1);
 	}
 
@@ -801,7 +801,7 @@ config_read(struct nfs_conf_lockd *conf)
 		}
 		val = !value ? 1 : strtol(value, NULL, 0);
 		if (config.verbose)
-			syslog(LOG_DEBUG, "%4ld %s=%s (%d)\n", linenum, key, value ? value : "", val);
+			syslog(LOG_DEBUG, "%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", val);
 
 		if (!strcmp(key, "nfs.lockd.grace_period")) {
 			if (value && val)

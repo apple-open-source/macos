@@ -34,12 +34,31 @@ char *calloc _((size_t, size_t));
 #endif
 
 #if !(defined(USES_TERMCAP_H) || defined(USES_TERM_H))
-extern int tgetent _((char *bp, char *name));
+/*
+ * These prototypes are only used where we don't have the
+ * headers.  In some cases they need tweaking.
+ * TBD: we'd much prefer to get hold of the header where
+ * these are defined.
+ */
+#ifdef _AIX
+#define TC_CONST const
+#else
+#define TC_CONST
+#endif
+extern int tgetent _((char *bp, TC_CONST char *name));
 extern int tgetnum _((char *id));
 extern int tgetflag _((char *id));
 extern char *tgetstr _((char *id, char **area));
-extern char *tgoto _((char *cm, int destcol, int destline));
-extern int tputs _((char *cp, int affcnt, int (*outc) (int)));
+extern int tputs _((TC_CONST char *cp, int affcnt, int (*outc) (int)));
+#undef TC_CONST
+#endif
+
+/*
+ * Some systems that do have termcap headers nonetheless don't
+ * declare tgoto, so we detect if that is missing separately.
+ */
+#ifdef TGOTO_PROTO_MISSING
+char *tgoto(const char *cap, int col, int row);
 #endif
 
 /* MISSING PROTOTYPES FOR VARIOUS OPERATING SYSTEMS */

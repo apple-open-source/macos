@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "December 20, 2010" "zsh 4\&.3\&.11"
+.TH "ZSHZLE" "1" "December 21, 2012" "zsh 5\&.0\&.2"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -433,6 +433,9 @@ refer to a terminal an error is reported\&.
 .PD 0
 \fBzle\fP \fB\-I\fP
 .TP
+.PD 0
+\fBzle\fP \fB\-T\fP [ \fBtc\fP \fIfunction\fP | \fB\-r\fP \fBtc\fP | \fB\-L\fP ] 
+.TP
 .PD
 \fBzle\fP \fIwidget\fP \fB[ \-n\fP \fInum\fP \fB]\fP \fB[ \-Nw ] [ \-K\fP \fIkeymap\fP \fB]\fP \fIargs\fP \&.\&.\&.
 The \fBzle\fP builtin performs a number of different actions concerning
@@ -460,11 +463,16 @@ commands to create the widgets\&.
 When combined with the \fB\-a\fP option, all widget names are listed,
 including the builtin ones\&. In this case the \fB\-L\fP option is ignored\&.
 .PP
-If at least one \fIstring\fP is given, nothing will be printed but the
-return status will be zero if all \fIstring\fPs are names of existing
-widgets (or of user\-defined widgets if the \fB\-a\fP flag is not given)
-and non\-zero if at least one \fIstring\fP is not a name of an defined
-widget\&.
+If at least one \fIstring\fP is given, and \fB\-a\fP is present or \fB\-L\fP is
+not used, nothing will be printed\&.  The return status will be zero if
+all \fIstring\fPs are names of existing widgets and non\-zero if at least one
+\fIstring\fP is not a name of a defined widget\&.  If \fB\-a\fP is also
+present, all widget names are used for the comparison including builtin
+widgets, else only user\-defined widgets are used\&.
+.PP
+If at least one \fIstring\fP is present and the \fB\-L\fP option is used,
+user\-defined widgets matching any \fIstring\fP are listed in the form of
+\fBzle\fP commands to create the widgets\&.
 .RE
 .TP
 \fB\-D\fP \fIwidget\fP \&.\&.\&.
@@ -646,6 +654,35 @@ The returned status is zero if zle was invalidated, even though
 this may have been by a previous call to `\fBzle \-I\fP\&' or by a system
 notification\&.  To test if a zle widget may be called at this point, execute
 \fBzle\fP with no arguments and examine the return status\&.
+.RE
+.TP
+\fB\-T\fP
+This is used to add, list or remove internal transformations on the
+processing performed by the line editor\&.  It is typically used only for
+debugging or testing and is therefore of little interest to the general
+user\&.
+.RS
+.PP
+`\fBzle \-T\fP \fItransformation\fP \fIfunc\fP\&' specifies that the
+given \fItransformation\fP (see below) is effected by shell function
+\fIfunc\fP\&.
+.PP
+`\fBzle \-Tr\fP \fItransformation\fP\&' removes the given \fItransformation\fP
+if it was present (it is not an error if none was)\&.
+.PP
+`\fBzle \-TL\fP\&' can be used to list all transformations currently in
+operation\&.
+.PP
+Currently the only transformation is \fBtc\fP\&.  This is used instead
+of outputting termcap codes to the terminal\&.  When the transformation is
+in operation the shell function is passed the termcap code that would be
+output as its first argument; if the operation required a numeric
+argument, that is passed as a second argument\&.  The function should set
+the shell variable \fBREPLY\fP to the transformed termcap code\&.  Typically
+this is used to produce some simply formatted version of the code and
+optional argument for debugging or testing\&.  Note that this
+transformation is not applied to other non\-printing characters such as
+carriage returns and newlines\&.
 .RE
 .TP
 \fIwidget\fP \fB[ \-n\fP \fInum\fP \fB]\fP \fB[ \-Nw ] [ \-K\fP \fIkeymap\fP \fB]\fP \fIargs\fP \&.\&.\&.
@@ -907,11 +944,13 @@ specifies that the first twenty characters of the text including
 any predisplay string should be highlighted in bold\&.
 .PP
 Note that the effect of \fBregion_highlight\fP is not saved and disappears
-as soon as the line is accepted\&.  The line editor makes no attempt to
-keep the highlighting effect synchronised with the line as it is edited;
-hence region highlighting is best limited to static effects within
-user widgets\&.
+as soon as the line is accepted\&.
 .RE
+.TP
+\fBUNDO_CHANGE_NO\fP (integer)
+A number representing the state of the undo history\&.  The only use
+of this is passing as an argument to the \fBundo\fP widget in order to
+undo back to the recorded point\&.  Read\-only\&.
 .TP
 \fBWIDGET\fP (scalar)
 The name of the widget currently being executed; read\-only\&.
@@ -921,7 +960,7 @@ The name of the shell function that implements a widget defined with
 either \fBzle \-N\fP or \fBzle \-C\fP\&.  In the former case, this is the second
 argument to the \fBzle \-N\fP command that defined the widget, or
 the first argument if there was no second argument\&.  In the latter case
-this is the the third argument to the \fBzle \-C\fP command that defined the
+this is the third argument to the \fBzle \-C\fP command that defined the
 widget\&.  Read\-only\&.
 .TP
 \fBWIDGETSTYLE\fP (scalar)
@@ -935,11 +974,24 @@ Contains a set of space\-separated words that describe the current \fBzle\fP
 state\&.
 .RS
 .PP
-Currently, the only state shown is the insert mode as set by the
-\fBoverwrite\-mode\fP or \fBvi\-replace\fP widgets\&.  The string contains
-`\fBinsert\fP\&' if characters to be inserted on the command line move existing
-characters to the right, `\fBoverwrite\fP\&' if characters to be inserted
-overwrite existing characters\&.
+Currently, the states shown are the insert mode as set by the
+\fBoverwrite\-mode\fP or \fBvi\-replace\fP widgets and whether history commands
+will visit imported entries as controlled by the set\-local\-history widget\&.
+The string contains `\fBinsert\fP\&' if characters to be inserted on the
+command line move existing characters to the right or `\fBoverwrite\fP\&'
+if characters to be inserted overwrite existing characters\&. It contains
+`\fBlocalhistory\fP\&' if only local history commands will be visited or
+`\fBglobalhistory\fP\&' if imported history commands will also be visited\&.
+.PP
+The substrings are sorted in alphabetical order so that if you want to
+test for two specific substrings in a future\-proof way, you can do match
+by doing:
+.PP
+.RS
+.nf
+\fBif [[ $ZLE_STATE == *insert*globalhistory* ]]; then \&.\&.\&.; fi\fP
+.fi
+.RE
 .RE
 .RE
 .PP
@@ -1002,6 +1054,9 @@ equivalent to \fBzle vi\-cmd\-mode\fP\&.)
 \fBzle\-line\-finish\fP
 This is similar to \fBzle\-line\-init\fP but is executed every time the
 line editor has finished reading a line of input\&.
+.TP
+\fBzle\-history\-line\-set\fP
+Executed when the history line changes\&.
 .TP
 \fBzle\-keymap\-select\fP
 Executed every time the keymap changes, i\&.e\&. the special parameter
@@ -1489,6 +1544,12 @@ Move to the previous event in the history list\&.
 Search forward in the history for a line beginning with the current
 line up to the cursor\&.
 This leaves the cursor in its original position\&.
+.TP
+\fBset\-local\-history\fP
+By default, history movement commands visit the imported lines as well as
+the local lines\&. This widget lets you toggle this on and off, or set it with
+the numeric argument\&. Zero for both local and imported lines and nonzero for
+only local lines\&.
 .SS "Modifying Text"
 .PD 0
 .TP
@@ -1851,7 +1912,7 @@ executed as a shell command\&.
 .TP
 \fBaccept\-line\-and\-down\-history\fP (^O) (unbound) (unbound)
 Execute the current line, and push the next history
-event on the the buffer stack\&.
+event on the buffer stack\&.
 .TP
 \fBauto\-suffix\-remove\fP
 If the previous action added a suffix (space, slash, etc\&.) to the word on
@@ -2105,7 +2166,10 @@ This command is executed when a key sequence that is not bound to any
 command is typed\&.  By default it beeps\&.
 .TP
 \fBundo\fP (^_ ^Xu ^X^U) (unbound) (unbound)
-Incrementally undo the last text modification\&.
+Incrementally undo the last text modification\&.  When called from a
+user\-defined widget, takes an optional argument indicating a previous state
+of the undo history as returned by the \fBUNDO_CHANGE_NO\fP variable;
+modifications are undone until that state is reached\&.
 .TP
 \fBredo\fP
 Incrementally redo undone text modifications\&.
@@ -2120,7 +2184,7 @@ hexadecimal number, the current cursor position within the buffer and the
 column of the cursor in the current line\&.
 .TP
 \fBwhere\-is\fP
-Read the name of an editor command and and print the listing of key
+Read the name of an editor command and print the listing of key
 sequences that invoke the specified command\&.
 A restricted set of editing functions is available in the
 mini\-buffer\&.  Keys are looked up in the special
@@ -2314,7 +2378,11 @@ Not all systems support this: for it to work, the system\&'s representation of
 wide characters must be code values from the Universal Character Set,
 as defined by IS0 10646 (also known as Unicode)\&.
 .RE
-.RE
+.TP
+Wrapped double\-width characters
+When a double\-width character appears in the final column of a line, it
+is instead shown on the next line\&. The empty space left in the original
+position is highlighted as a special character\&.
 .PP
 If \fBzle_highlight\fP is not set or no value applies to a particular
 context, the defaults applied are equivalent to

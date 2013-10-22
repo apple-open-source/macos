@@ -323,7 +323,7 @@ static CSSM_DB_UNIQUE_RECORD_PTR tpCrlLookup(
 	/* now before/after. Cook up an appropriate time string. */
 	if(verifyTime != NULL) {
 		/* Caller spec'd tolerate any format */
-		int rtn = tpTimeToCssmTimestring(verifyTime, strlen(verifyTime), timeStr);
+		int rtn = tpTimeToCssmTimestring(verifyTime, (unsigned)strlen(verifyTime), timeStr);
 		if(rtn) {
 			tpErrorLog("tpCrlLookup: Invalid VerifyTime string\n");
 			return NULL;

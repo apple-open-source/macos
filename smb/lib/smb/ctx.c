@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2011 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +55,10 @@
 #include <CFNetwork/CFNetServices.h>
 #include <CFNetwork/CFNetServicesPriv.h>	/* Required for _CFNetServiceCreateFromURL */
 
+/* Needed for netfs MessageTracer logging */
+#include <NetFS/NetFSUtilPrivate.h>
+
+#include "smbclient.h"
 #include <smbclient/ntstatus.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/netbios.h>
@@ -62,9 +66,12 @@
 #include <netsmb/smb_conn.h>
 #include <smbfs/smbfs.h>
 #include <netsmb/smbio.h>
+#include <netsmb/smbio_2.h>
 #include <charsets.h>
 #include <parse_url.h>
 #include <com_err.h>
+#include <netsmb/upi_mbuf.h>
+#include <sys/mchain.h>
 #include "msdfs.h"
 #include <smbclient/smbclient.h>
 #include <smbclient/smbclient_internal.h>
@@ -145,7 +152,7 @@ static void smb_get_os_lanman(struct smb_ctx *ctx, CFMutableDictionaryRef mutabl
 	/* See if the kernel has the Native OS and Native Lanman Strings */
 	memset(&OSLanman, 0, sizeof(OSLanman));
 	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_GET_OS_LANMAN, &OSLanman) == -1) {
-		smb_log_info("The SMBIOC_GET_OS_LANMAN call failed, syserr = %s", 
+		smb_log_info("The SMBIOC_GET_OS_LANMAN call failed, syserr = %s",
 					 ASL_LEVEL_DEBUG, strerror(errno));
 	}
 	/* Didn't get a Native OS, default to UNIX or Windows */
@@ -683,7 +690,7 @@ static int findMatchingVC(struct smb_ctx *ctx, CFMutableArrayRef addressArray)
 		} else {
 			ctx->ct_vc_shared = FALSE;
 		}
-
+        
 		/* If we have no username and the kernel does then use the name in the kernel */
 		if ((ctx->ct_setup.ioc_user[0] == 0) && rq.ioc_user[0]) {
 			strlcpy(ctx->ct_setup.ioc_user, rq.ioc_user, sizeof(ctx->ct_setup.ioc_user));
@@ -712,8 +719,8 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 {
 	struct smbioc_negotiate	rq;
 	int	error = 0;
+    struct timespec timeout;
 
-	
 	error = smb_ctx_gethandle(ctx);
 	if (error)
 		return (error);
@@ -743,9 +750,66 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 	if (forceNewSession) {
 		rq.ioc_extra_flags |= SMB_FORCE_NEW_SESSION;
 	}
-	rq.ioc_negotiate_token_len = SMB_IOC_SPI_INIT_SIZE;
 
-	/* Call the kernel to make the negotiate call */
+    if (ctx->prefs.smb_negotiate != 0) {
+        switch (ctx->prefs.smb_negotiate) {
+            case 1:
+                rq.ioc_extra_flags |= SMB_SMB1_ONLY;
+                break;
+                
+            case 2:
+                rq.ioc_extra_flags |= SMB_SMB2_ONLY;
+                break;
+
+            default:
+                /* ignore any other values */
+                break;
+        }
+    }
+    if (ctx->prefs.signing_required) {
+        rq.ioc_extra_flags |= SMB_SIGNING_REQUIRED;
+        
+    }
+    /* 
+     * If we are NOT doing SMB 1.x or 2.x only, then see if "cifs://" was  
+     * specified. Specifying "cifs://" forces us to only try SMB 1.x
+     */
+    if (!(rq.ioc_extra_flags & SMB_SMB1_ONLY) &&
+        !(rq.ioc_extra_flags & SMB_SMB2_ONLY)) {
+        CFStringRef scheme = CFURLCopyScheme (ctx->ct_url);
+        
+        if (scheme != NULL) {
+            if (kCFCompareEqualTo == CFStringCompare (scheme, CFSTR("cifs"),
+                                                      kCFCompareCaseInsensitive)) {
+                smb_log_info("%s: cifs specified so force using SMB 1.x",
+                             ASL_LEVEL_DEBUG, __FUNCTION__);
+                
+                /* Clear SMB2 only flag in case its set */
+                rq.ioc_extra_flags &= ~SMB_SMB2_ONLY;
+                
+                /* Set SMB1 only flag */
+                rq.ioc_extra_flags |= SMB_SMB1_ONLY;
+            }
+
+            CFRelease(scheme);
+        }
+    }
+    
+    rq.ioc_negotiate_token_len = SMB_IOC_SPI_INIT_SIZE;
+
+    /* Need Client Guid for SMB 2.x Neg request */
+    timeout.tv_nsec = 0;
+    timeout.tv_sec = 180;   /* 3 mins should be plenty of time to get uuid */
+    
+    /* prefill with 1's in case we fail to get the host uuid */
+    memset(rq.ioc_client_guid, 1, sizeof(rq.ioc_client_guid));
+    
+    error = gethostuuid(rq.ioc_client_guid, &timeout);
+    if (error) {
+		smb_log_info("gethostuuid failed %d", ASL_LEVEL_ERR, errno);
+    }
+    
+    /* Call the kernel to make the negotiate call */
 	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_NEGOTIATE, &rq) == -1)
 		error = errno;	/* Some internal error happen? */
 	else
@@ -763,7 +827,7 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 					 __FUNCTION__, ctx->serverName, rq.ioc_negotiate_token_len);
 		rq.ioc_negotiate_token_len = 0;
 	}
-	
+    
 	/* Get the server's capablilities */
 	ctx->ct_vc_caps = rq.ioc_ret_caps;
 	/* Get the virtual circuit flags */
@@ -775,7 +839,7 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 	} else {
 		ctx->ct_vc_shared = FALSE;
 	}
-	
+    
 	/* If we have no username and the kernel does then use the name in the kernel */
 	if ((ctx->ct_setup.ioc_user[0] == 0) && rq.ioc_user[0]) {
 		strlcpy(ctx->ct_setup.ioc_user, rq.ioc_user, sizeof(ctx->ct_setup.ioc_user));
@@ -797,7 +861,19 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 		}
 	}
     
-    if ((ctx->mechDict == NULL) &&  (ctx->ct_vc_caps & SMB_CAP_EXT_SECURITY)) {
+    /* Remove this when <12991970> is fixed */
+    if ((ctx->mechDict) && (ctx->prefs.altflags & SMBFS_MNT_KERBEROS_OFF)) {
+        if (CFDictionaryGetValue(ctx->mechDict, KSPNEGOSupportsLKDC)) {
+            smb_log_info("%s: Leaving LKDC on", ASL_LEVEL_DEBUG, __FUNCTION__);
+        }
+        else {
+            smb_log_info("%s: Kerberos turned off in preferences", ASL_LEVEL_ERR, __FUNCTION__);
+            CFRelease(ctx->mechDict);
+            ctx->mechDict = NULL;
+        }
+    }
+    
+    if ((ctx->mechDict == NULL) && (ctx->ct_vc_caps & SMB_CAP_EXT_SECURITY)) {
 		/* 
 		 * The server does extended security, but they didn't return any mech 
 		 * types. Then create a default RAW NTLMSSP mech dictionary.
@@ -908,13 +984,35 @@ void smb_get_vc_properties(struct smb_ctx *ctx)
 	memset(&properties, 0, sizeof(properties));
 	properties.ioc_version = SMB_IOC_STRUCT_VERSION;
 	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_VC_PROPERTIES, &properties) == -1)
-		smb_log_info("%s: Getting the vc properties falied, syserr = %s", 
+		smb_log_info("%s: Getting the vc properties failed, syserr = %s", 
 					 ASL_LEVEL_ERR, __FUNCTION__, strerror(errno));
 	else {
+        size_t model_len = 0;
+        
+		ctx->ct_vc_uid = properties.uid;
+        ctx->ct_vc_caps = properties.smb1_caps;
+        ctx->ct_vc_smb2_caps = properties.smb2_caps;
 		ctx->ct_vc_flags = properties.flags;
+        ctx->ct_vc_misc_flags = properties.misc_flags;
+        ctx->ct_vc_hflags = properties.hflags;
+        ctx->ct_vc_hflags2 = properties.hflags2;
 		ctx->ct_vc_txmax = properties.txmax;			
-		ctx->ct_vc_rxmax = properties.rxmax;				
-		ctx->ct_vc_wxmax = properties.wxmax;			
+		ctx->ct_vc_rxmax = properties.rxmax;
+        ctx->ct_vc_wxmax = properties.wxmax;
+        /* if we are mac to mac and smb2 then we have model info, so update it */
+        if (ctx->model_info) {
+            free(ctx->model_info);
+            ctx->model_info = NULL;
+        }
+        model_len = strlen(properties.model_info);
+        if ((properties.misc_flags & SMBV_OSX_SERVER) && (model_len > 0)) {
+            /* SMBV_OSX_SERVER and we have the model information from VC */
+            ctx->model_info = malloc(model_len);
+            if (ctx->model_info) {
+                memset(ctx->model_info, 0, model_len);
+                memcpy(ctx->model_info, properties.model_info, model_len);
+            }
+        }
 	}
 }
 
@@ -1443,8 +1541,10 @@ skip_minauth_check:
 	 * authenication message.
 	 */
 	if ((ctx->ct_vc_caps & SMB_CAP_EXT_SECURITY) != SMB_CAP_EXT_SECURITY) {
+		netfs_log_message_tracer_auth_type((char *)"non-extended");
 		return AuthenticateWithNonExtSecurity(ctx);
 	}
+	netfs_log_message_tracer_auth_type((char *)"extended");
 	
 	/*
 	 * They gave us a authentication dictionary then use it.
@@ -1747,7 +1847,7 @@ WeAreDone:
 }
 
 /*
- * First we reolsve the name, once we have it resolved then we are done.
+ * First we resolve the name, once we have it resolved then we are done.
  */
 static int 
 smb_connect_one(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowed)
@@ -1871,6 +1971,7 @@ smb_dc_lookup(ODNodeRef nodeRef, CFStringRef lookupName)
 	if (!name) {
 		return NULL;
 	}
+    
 	response = ODNodeCustomCall(nodeRef, eODCustomCallActiveDirectoryDCsForName, name, NULL);
     if (response) {
         CFPropertyListRef plist = CFPropertyListCreateWithData(kCFAllocatorDefault, response, kCFPropertyListImmutable, NULL, NULL);
@@ -1880,7 +1981,9 @@ smb_dc_lookup(ODNodeRef nodeRef, CFStringRef lookupName)
             }
             CFRelease(plist);
         }
+        CFRelease(response);
     }
+    
 	CFRelease(name);
     return result;
 }
@@ -1890,12 +1993,12 @@ smb_dc_lookup(ODNodeRef nodeRef, CFStringRef lookupName)
  * connect to one of domain controllers. The old code would just use DNS, but 
  * not all AD enviroments are configure to have the AD Domain Name resolve to
  * the domain controllers. So now lets ask the AD plugin for help. If this is 
- * an AD Domain Name that we are bound to then the AD plugin will return the list
+ * an AD Domain Name that we are bound to then the AD plugin will return a list
  * of domain controllers for that domain. If not bound or if this name is not
  * part of the AD domain then the plugin will return NULL.
  */
 CF_RETURNS_RETAINED
-static CFArrayRef
+CFArrayRef
 smb_resolve_domain(CFStringRef serverNameRef)
 {
     CFArrayRef result = NULL;
@@ -1906,43 +2009,59 @@ smb_resolve_domain(CFStringRef serverNameRef)
 	
 	/* Just to be safe should never happen */
 	if (!serverNameRef) {
+        smb_log_info("%s: No server name", ASL_LEVEL_DEBUG, __FUNCTION__);
 		return NULL;
 	}
 
 	store = SCDynamicStoreCreate(kCFAllocatorDefault, NULL, NULL, NULL);
 	if (!store) {
+        smb_log_info("%s: SCDynamicStoreCreate failed", ASL_LEVEL_DEBUG,
+                     __FUNCTION__);
 		return NULL;
 	}
 	
 	/* If SCDynamicStoreCopyValue returns null then we are not bound to AD */
-	dict = SCDynamicStoreCopyValue(store, CFSTR("com.apple.opendirectoryd.ActiveDirectory"));
+	dict = SCDynamicStoreCopyValue(store,
+                                   CFSTR("com.apple.opendirectoryd.ActiveDirectory"));
 	if (dict != NULL) {
 		nodename = CFDictionaryGetValue(dict, CFSTR("NodeName"));
 		if (!nodename) {
-			smb_log_info("%s: Failed to obtain the AD node?", ASL_LEVEL_DEBUG, __FUNCTION__);					
+			smb_log_info("%s: Failed to obtain the AD node?", ASL_LEVEL_DEBUG,
+                         __FUNCTION__);
 		}
-	} else {
-		smb_log_info("%s: We are not bound to AD", ASL_LEVEL_DEBUG, __FUNCTION__);			
+	}
+    else {
+		smb_log_info("%s: We are not bound to AD", ASL_LEVEL_DEBUG,
+                     __FUNCTION__);
 	}
 	
 	if (nodename) {
 		/* Open the the AD Plugin Node */
-		nodeRef = ODNodeCreateWithName(kCFAllocatorDefault, kODSessionDefault, nodename, NULL);
+		nodeRef = ODNodeCreateWithName(kCFAllocatorDefault, kODSessionDefault,
+                                       nodename, NULL);
 		if (nodeRef) {
 			/* attempt to get the list of domain controllers */
 			result = smb_dc_lookup(nodeRef, serverNameRef);
+            if (!result) {
+                smb_log_info("%s: smb_dc_lookup failed", ASL_LEVEL_DEBUG,
+                             __FUNCTION__);
+            }
+
 		}
 	}
 
 	if (nodeRef) {
 		CFRelease(nodeRef);
 	}
+    
 	if (dict) {
 		CFRelease(dict);
 	}
+    
 	if (store) {
 		CFRelease(store);
 	}
+    
 	return result;
 }
 
@@ -1976,6 +2095,7 @@ smb_connect(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowed)
 	CFIndex numItems = (dcArrayRef) ? CFArrayGetCount(dcArrayRef) : 0;
 	
 	ctx->serverIsDomainController = FALSE;
+
 	/*
 	 * Did we get a list of domain controllers, then attempt to connect to one
 	 * of them, otherwise just use the server name passed in.
@@ -2003,30 +2123,43 @@ smb_connect(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowed)
 				smb_log_info("%s: We have a NULL domain controller entry?", ASL_LEVEL_ERR, __FUNCTION__);	
 				error = EHOSTUNREACH;
 			}
-		} 
+		}
+
 		if (error) {
+            /* Could not connect to any of the domain controllers */
 			if (ctx->serverName) {
 				free(ctx->serverName);
 			}
+            
+            /* Fall back to server name that was passed in */
 			ctx->serverName = hold_serverName;
-			/* Everything failed should we fallback? */
+            
 			ctx->ct_flags &= ~(SMBCF_CONNECTED | SMBCF_RESOLVED);
 			error = smb_connect_one(ctx, forceNewSession, loopBackAllowed);
 			smb_log_info("%s: Connecting to all the domain controller failed! Connecting to %s %s", 
 						 ASL_LEVEL_DEBUG, __FUNCTION__, ctx->serverName, 
 						 (error) ? "FAILED" : "SUCCEED");	
-		} else {
+		}
+        else {
 			ctx->serverIsDomainController = TRUE;			
 			free(hold_serverName);
 		}
-	} else {
+	}
+    else {
+        /* 
+         * No list of domain controllers, just try to connect using the name
+         * passed in.
+         */
 		error = smb_connect_one(ctx, forceNewSession, loopBackAllowed);
 	}
+
 	if (dcArrayRef) {
 		CFRelease(dcArrayRef);
 	}
+
 	return error;
 }
+
 /*
  * Common code used by both  smb_get_server_info and smb_open_session. 
  */
@@ -2050,13 +2183,30 @@ static void smb_get_sessioninfo(struct smb_ctx *ctx, CFMutableDictionaryRef muta
 			CFRelease (userNameRef);
 		}
 	}
+	/* if the server is OSX server, get the model string if VC has it */
+	smb_get_vc_properties(ctx);
+	if (ctx->model_info) {
+		CFStringRef modelInfoRef = NULL;
+		modelInfoRef = CFStringCreateWithCString(NULL, ctx->model_info, kCFStringEncodingUTF8);
+		if (modelInfoRef) {
+			smb_log_info("%s: kNetFSMachineTypeKey model_info = %s",
+						 ASL_LEVEL_DEBUG,__FUNCTION__, ctx->model_info);
+			CFDictionarySetValue(mutableDict, kNetFSMachineTypeKey, modelInfoRef);
+			CFRelease(modelInfoRef);
+		}
+		else {
+			smb_log_info("%s: CFStringCreateWithCString() failed for model_info = %s",
+						 ASL_LEVEL_DEBUG,__FUNCTION__, ctx->model_info);
+		}
+	}
+
 }
 
 /*
  * smb_get_server_info
  *
  * Every call to this routine will force a new connection to happen. So if this
- * session already has a connection that connection will be broken and a new 
+ * session already has a connection that connection will be broken and a new
  * connection will be start.
  */
 int smb_get_server_info(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOptions, CFDictionaryRef *ServerParams)
@@ -2217,7 +2367,7 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 			if (mechanismRef) {
 				char mechanismStr[256];
 				CFStringGetCString(mechanismRef, mechanismStr, sizeof(mechanismStr), kCFStringEncodingUTF8);
-				smb_log_info("%s: Connecting to %s Authentication Info kNAHMechanism %s", 
+				smb_log_info("%s: Connecting to %s Authentication Info kNAHMechanism %s",
 							 ASL_LEVEL_DEBUG, __FUNCTION__, ctx->serverName, 
 							 mechanismStr);
 			} else {
@@ -2331,10 +2481,15 @@ int smb_open_session(struct smb_ctx *ctx, CFURLRef url, CFDictionaryRef OpenOpti
 		/* create and return session info dictionary */
 		CFMutableDictionaryRef mutableDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
 												&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-		if (mutableDict)
-			smb_get_sessioninfo(ctx, mutableDict, __FUNCTION__);
-		*sessionInfo = mutableDict;
+        if (mutableDict) {
+            smb_get_sessioninfo(ctx, mutableDict, __FUNCTION__);
+        }
+        else {
+            smb_log_info("%s: CFDictionaryCreateMutable() failed",  ASL_LEVEL_DEBUG, __FUNCTION__);
+        }
+        *sessionInfo = mutableDict;
 	}
+    
 done:
 	if (tmscheme) {
 		free(tmscheme);
@@ -2412,7 +2567,7 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,  CFDictionaryRef mOptions
      * since the tree connect can fail because we are going to a domain instead
      * of a server.
      */	
-	error = checkForDfsReferral(ctx, &dfs_ctx, tmscheme);
+	error = checkForDfsReferral(ctx, &dfs_ctx, tmscheme, NULL);
     if (error) {
         /* Connection went down, make sure we return the correct error */
   		if ((error == ENOTCONN) || (smb_ctx_connstate(ctx) == ENOTCONN)) {
@@ -2501,7 +2656,7 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,  CFDictionaryRef mOptions
 		if (newpath) {
 			uint32_t ntError;
 			
-			error = smbio_check_directory(dfs_ctx, newpath, 0, &ntError);
+			error = smb2io_check_directory(dfs_ctx, newpath, 0, &ntError);
 			if (error)
 				smb_log_info("%s Check path on %s return ntstatus = 0x%x, syserr = %s", 
 							 ASL_LEVEL_DEBUG, __FUNCTION__, newpath, ntError, strerror(error));
@@ -2711,7 +2866,7 @@ CreateAuthDictionary(struct smb_ctx *ctx, uint32_t authFlags,
 					 const char * clientPrincipal, uint32_t clientNameType)
 {
 	uint32_t serverNameType = GSSD_HOSTBASED;
-	CFStringRef serverPrincipalRef = TargetNameCreatedWithHostName(ctx);
+	CFStringRef serverPrincipalRef = TargetNameCreateWithHostName(ctx);
 	CFNumberRef serverNameTypeRef;
 	CFStringRef clientPrincipalRef;
 	CFNumberRef clientNameTypeRef;

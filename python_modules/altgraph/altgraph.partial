@@ -2,17 +2,17 @@
         <key>OpenSourceProject</key>
         <string>altgraph</string>
         <key>OpenSourceVersion</key>
-        <string>0.9</string>
+        <string>0.10.1</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://pypi.python.org/pypi/altgraph/</string>
         <key>OpenSourceURL</key>
-        <string>http://pypi.python.org/packages/source/a/altgraph/altgraph-0.9.tar.gz#md5=367015bf871815b632975a26d1750133</string>
+        <string>http://pypi.python.org/packages/source/a/altgraph/altgraph-0.10.1.tar.gz</string>
         <key>OpenSourceImportDate</key>
-        <string>2011-11-14</string>
+        <string>2012-11-11</string>
         <key>OpenSourceLicense</key>
         <string>MIT</string>
         <key>OpenSourceLicenseFile</key>
         <string>python_modules.txt</string>
         <key>OpenSourceMD5</key>
-        <string>367015bf871815b632975a26d1750133</string>
+        <string>ebef6fff05ea80c6499ac302151a026f</string>
 </dict>

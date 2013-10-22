@@ -48,7 +48,7 @@ uint32_t object_size,
 enum bool verbose)
 {
     char *sect, *p;
-    uint64_t sect_addr, sect_size, size;
+    uint64_t sect_addr, sect_size, size, seg_addr;
     int64_t left;
     struct relocation_info *sect_relocs;
     uint32_t sect_nrelocs, sect_flags, block_size;
@@ -61,7 +61,7 @@ enum bool verbose)
 	if(get_sect_info("__RELOC", "__reloc", load_commands,
 	    ncmds, sizeofcmds, filetype, object_byte_sex,
 	    object_addr, object_size, &sect, &sect_size, &sect_addr,
-	    &sect_relocs, &sect_nrelocs, &sect_flags) == TRUE){
+	    &sect_relocs, &sect_nrelocs, &sect_flags, &seg_addr) == TRUE){
 
 	    host_byte_sex = get_host_byte_sex();
 	    swapped = host_byte_sex != object_byte_sex;

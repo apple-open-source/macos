@@ -33,6 +33,8 @@
    Curl_nss_ - prefix for NSS ones
    Curl_polarssl_ - prefix for PolarSSL ones
    Curl_cyassl_ - prefix for CyaSSL ones
+   Curl_schannel_ - prefix for Schannel SSPI ones
+   Curl_darwinssl_ - prefix for SecureTransport (Darwin) ones
 
    Note that this source code uses curlssl_* functions, and they are all
    defines/macros #defined by the lib-specific header files.
@@ -41,11 +43,7 @@
    http://httpd.apache.org/docs-2.0/ssl/ssl_intro.html
 */
 
-#include "setup.h"
-
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
+#include "curl_setup.h"
 
 #include "urldata.h"
 #define SSLGEN_C
@@ -57,6 +55,8 @@
 #include "polarssl.h" /* PolarSSL versions */
 #include "axtls.h"  /* axTLS versions */
 #include "cyassl.h"  /* CyaSSL versions */
+#include "curl_schannel.h" /* Schannel SSPI version */
+#include "curl_darwinssl.h" /* SecureTransport (Darwin) version */
 #include "sendf.h"
 #include "rawstr.h"
 #include "url.h"
@@ -211,18 +211,18 @@ CURLcode
 Curl_ssl_connect_nonblocking(struct connectdata *conn, int sockindex,
                              bool *done)
 {
-#ifdef curlssl_connect_nonblocking
   CURLcode res;
   /* mark this is being ssl requested from here on. */
   conn->ssl[sockindex].use = TRUE;
+#ifdef curlssl_connect_nonblocking
   res = curlssl_connect_nonblocking(conn, sockindex, done);
+#else
+  *done = TRUE; /* fallback to BLOCKING */
+  res = curlssl_connect(conn, sockindex);
+#endif /* non-blocking connect support */
   if(!res && *done)
     Curl_pgrsTime(conn->data, TIMER_APPCONNECT); /* SSL is connected */
   return res;
-#else
-  *done = TRUE; /* fallback to BLOCKING */
-  return Curl_ssl_connect(conn, sockindex);
-#endif /* non-blocking connect support */
 }
 
 /*
@@ -517,4 +517,25 @@ void Curl_ssl_free_certinfo(struct SessionHandle *data)
     ci->num_of_certs = 0;
   }
 }
+
+#if defined(USE_SSLEAY) || defined(USE_GNUTLS) || defined(USE_NSS) || \
+    defined(USE_DARWINSSL)
+/* these functions are only used by some SSL backends */
+
+void Curl_ssl_random(struct SessionHandle *data,
+                     unsigned char *entropy,
+                     size_t length)
+{
+  curlssl_random(data, entropy, length);
+}
+
+void Curl_ssl_md5sum(unsigned char *tmp, /* input */
+                     size_t tmplen,
+                     unsigned char *md5sum, /* output */
+                     size_t md5len)
+{
+  curlssl_md5sum(tmp, tmplen, md5sum, md5len);
+}
+#endif /* USE_SSLEAY || USE_GNUTLS || USE_NSS || USE_DARWINSSL */
+
 #endif /* USE_SSL */

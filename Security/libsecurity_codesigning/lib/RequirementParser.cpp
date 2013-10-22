@@ -57,7 +57,7 @@ ANTLR_BEGIN_NAMESPACE(Security_CodeSigning)
 	
 	static const char *matchPrefix(const string &key, const char *prefix)
 	{
-		unsigned pLength = strlen(prefix);
+		size_t pLength = strlen(prefix);
 		if (!key.compare(0, pLength, prefix, 0, pLength))
 			return key.c_str() + pLength;
 		else
@@ -247,7 +247,7 @@ uint32_t  RequirementParser::requirementType() {
 		{
 			stype = LT(1);
 			match(INTEGER);
-			type = atol(stype->getText().c_str());
+			type = (uint32_t)atol(stype->getText().c_str());
 			break;
 		}
 		default:
@@ -759,7 +759,7 @@ int32_t  RequirementParser::certSlot() {
 		{
 			s = LT(1);
 			match(INTEGER);
-			slot = atol(s->getText().c_str());
+			slot = (int32_t)atol(s->getText().c_str());
 			break;
 		}
 		case NEG:
@@ -767,7 +767,7 @@ int32_t  RequirementParser::certSlot() {
 			match(NEG);
 			ss = LT(1);
 			match(INTEGER);
-			slot = -atol(ss->getText().c_str());
+			slot = (int32_t)-atol(ss->getText().c_str());
 			break;
 		}
 		case LITERAL_leaf:

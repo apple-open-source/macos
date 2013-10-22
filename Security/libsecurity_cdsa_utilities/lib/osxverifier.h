@@ -53,7 +53,7 @@ public:
 
 	// components
 	const unsigned char *legacyHash() const { return mLegacyHash; }
-	std::string path() const { return mPath; }
+	const std::string& path() const { return mPath; }
 	SecRequirementRef requirement() const { return mRequirement; }
 
 public:

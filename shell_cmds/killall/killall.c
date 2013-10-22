@@ -360,7 +360,7 @@ main(int ac, char **av)
 
 	for (i = 0; i < nprocs; i++) {
 #ifdef __APPLE__
-		if ((procs[i].kp_proc.p_stat & SZOMB) == SZOMB && !zflag)
+		if (procs[i].kp_proc.p_stat == SZOMB && !zflag)
 			continue;
 		thispid = procs[i].kp_proc.p_pid;
 
@@ -424,7 +424,7 @@ main(int ac, char **av)
 
 		thistdev = procs[i].kp_eproc.e_tdev;
 #else /* !__APPLE__ */
-		if ((procs[i].ki_stat & SZOMB) == SZOMB && !zflag)
+		if (procs[i].ki_stat == SZOMB && !zflag)
 			continue;
 		thispid = procs[i].ki_pid;
 		strncpy(thiscmd, procs[i].ki_comm, MAXCOMLEN);

@@ -50,6 +50,7 @@
 #include "ipsec_doi.h"
 #include "gcmalloc.h"
 
+
 static struct hash_algorithm oakley_hashdef[] = {
 { "md5",	algtype_md5,		OAKLEY_ATTR_HASH_ALG_MD5,
 		eay_md5_init,		eay_md5_update,
@@ -75,12 +76,13 @@ static struct hash_algorithm oakley_hashdef[] = {
 #endif
 };
 
+
 static struct hmac_algorithm oakley_hmacdef[] = {
-{ "hmac_md5",	algtype_md5,		OAKLEY_ATTR_HASH_ALG_MD5,
+{ "hmac_md5",	algtype_hmac_md5_128,       OAKLEY_ATTR_HASH_ALG_MD5,
 		eay_hmacmd5_init,	eay_hmacmd5_update,
 		eay_hmacmd5_final,	NULL,
 		eay_hmacmd5_one, },
-{ "hmac_sha1",	algtype_sha1,		OAKLEY_ATTR_HASH_ALG_SHA,
+{ "hmac_sha1",	algtype_hmac_sha1_160,		OAKLEY_ATTR_HASH_ALG_SHA,
 		eay_hmacsha1_init,	eay_hmacsha1_update,
 		eay_hmacsha1_final,	NULL,
 		eay_hmacsha1_one, },
@@ -101,13 +103,16 @@ static struct hmac_algorithm oakley_hmacdef[] = {
 };
 
 static struct enc_algorithm oakley_encdef[] = {
-{ "des",	algtype_des,		OAKLEY_ATTR_ENC_ALG_DES,	8,
+{ "des",	algtype_des,		OAKLEY_ATTR_ENC_ALG_DES,
+        8,
 		eay_des_encrypt,	eay_des_decrypt,
 		eay_des_weakkey,	eay_des_keylen, },
-{ "3des",	algtype_3des,		OAKLEY_ATTR_ENC_ALG_3DES,	8,
+{ "3des",	algtype_3des,		OAKLEY_ATTR_ENC_ALG_3DES,
+        8,
 		eay_3des_encrypt,	eay_3des_decrypt,
 		eay_3des_weakkey,	eay_3des_keylen, },
-{ "aes",	algtype_aes,	OAKLEY_ATTR_ENC_ALG_AES,	16,
+{ "aes",	algtype_aes,	OAKLEY_ATTR_ENC_ALG_AES,
+        16,
 		eay_aes_encrypt,	eay_aes_decrypt,
 		eay_aes_weakkey,	eay_aes_keylen, },
 };
@@ -134,16 +139,24 @@ static struct enc_algorithm ipsec_encdef[] = {
 };
 
 static struct hmac_algorithm ipsec_hmacdef[] = {
-{ "md5",	algtype_hmac_md5,	IPSECDOI_ATTR_AUTH_HMAC_MD5,
+{ "hmac_md5_96",	algtype_hmac_md5_96,	IPSECDOI_ATTR_AUTH_HMAC_MD5_96,
 		NULL,			NULL,
 		NULL,			eay_md5_hashlen,
 		NULL, },
-{ "sha1",	algtype_hmac_sha1,	IPSECDOI_ATTR_AUTH_HMAC_SHA1,
+{ "hmac_sha1_96",	algtype_hmac_sha1_96,	IPSECDOI_ATTR_AUTH_HMAC_SHA1_96,
+		NULL,			NULL,
+		NULL,			eay_sha1_hashlen,
+		NULL, },
+{ "md5",	algtype_hmac_md5_128,	IPSECDOI_ATTR_AUTH_HMAC_MD5,
+		NULL,			NULL,
+		NULL,			eay_md5_hashlen,
+		NULL, },
+{ "sha1",	algtype_hmac_sha1_160,	IPSECDOI_ATTR_AUTH_HMAC_SHA1,
 		NULL,			NULL,
 		NULL,			eay_sha1_hashlen,
 		NULL, },
 { "null",	algtype_non_auth,	IPSECDOI_ATTR_AUTH_NONE,
-		NULL,			NULL,
+        NULL,			NULL,
 		NULL,			eay_null_hashlen,
 		NULL, },
 #ifdef WITH_SHA2
@@ -152,7 +165,7 @@ static struct hmac_algorithm ipsec_hmacdef[] = {
 		NULL,			eay_sha2_256_hashlen,
 		NULL, },
 { "hmac_sha2_384",	algtype_hmac_sha2_384,IPSECDOI_ATTR_AUTH_HMAC_SHA2_384,
-		NULL,			NULL,
+        NULL,			NULL,
 		NULL,			eay_sha2_384_hashlen,
 		NULL, },
 { "hmac_sha2_512",	algtype_hmac_sha2_512,IPSECDOI_ATTR_AUTH_HMAC_SHA2_512,
@@ -208,6 +221,12 @@ static struct misc_algorithm oakley_authdef[] = {
 
 { "xauth_rsa_client",	algtype_xauth_rsa_c,	
     OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSASIG_I, },
+    
+{ "eap_psk_client", algtype_eap_psk_c,
+    OAKLEY_ATTR_AUTH_METHOD_EAP_PSKEY_I, },
+    
+{ "eap_rsa_client", algtype_eap_rsa_c,
+    OAKLEY_ATTR_AUTH_METHOD_EAP_RSASIG_I, },
 #endif
 };
 
@@ -230,12 +249,12 @@ static struct dh_algorithm oakley_dhdef[] = {
 		&dh_modp8192, },
 };
 
-static struct hash_algorithm *alg_oakley_hashdef __P((int));
-static struct hmac_algorithm *alg_oakley_hmacdef __P((int));
-static struct enc_algorithm *alg_oakley_encdef __P((int));
-static struct enc_algorithm *alg_ipsec_encdef __P((int));
-static struct hmac_algorithm *alg_ipsec_hmacdef __P((int));
-static struct dh_algorithm *alg_oakley_dhdef __P((int));
+static struct hash_algorithm *alg_oakley_hashdef (int);
+static struct hmac_algorithm *alg_oakley_hmacdef (int);
+static struct enc_algorithm *alg_oakley_encdef (int);
+static struct enc_algorithm *alg_ipsec_encdef (int);
+static struct hmac_algorithm *alg_ipsec_hmacdef (int);
+static struct dh_algorithm *alg_oakley_dhdef (int);
 
 /* oakley hash algorithm */
 static struct hash_algorithm *
@@ -246,7 +265,7 @@ alg_oakley_hashdef(doi)
 
 	for (i = 0; i < ARRAYLEN(oakley_hashdef); i++)
 		if (doi == oakley_hashdef[i].doi) {
-			plog(LLV_DEBUG, LOCATION, NULL, "hash(%s)\n",
+			plog(ASL_LEVEL_DEBUG, "hash(%s)\n",
 				oakley_hashdef[i].name);
 			return &oakley_hashdef[i];
 		}
@@ -329,7 +348,7 @@ alg_oakley_hmacdef(doi)
 
 	for (i = 0; i < ARRAYLEN(oakley_hmacdef); i++)
 		if (doi == oakley_hmacdef[i].doi) {
-			plog(LLV_DEBUG, LOCATION, NULL, "hmac(%s)\n",
+			plog(ASL_LEVEL_DEBUG, "hmac(%s)\n",
 				oakley_hmacdef[i].name);
 			return &oakley_hmacdef[i];
 		}
@@ -373,7 +392,7 @@ alg_oakley_hmacdef_one(doi, key, buf)
 
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s size=%zu): %8.6f", __func__,
+	plog(ASL_LEVEL_NOTICE, "%s(%s size=%zu): %8.6f", __func__,
 		f->name, buf->l, timedelta(&start, &end));
 #endif
 
@@ -389,7 +408,7 @@ alg_oakley_encdef(doi)
 
 	for (i = 0; i < ARRAYLEN(oakley_encdef); i++)
 		if (doi == oakley_encdef[i].doi) {
-			plog(LLV_DEBUG, LOCATION, NULL, "encryption(%s)\n",
+			plog(ASL_LEVEL_DEBUG, "encryption(%s)\n",
 				oakley_encdef[i].name);
 			return &oakley_encdef[i];
 		}
@@ -485,7 +504,7 @@ alg_oakley_encdef_decrypt(doi, buf, key, iv)
 
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s klen=%zu size=%zu): %8.6f", __func__,
+	plog(ASL_LEVEL_NOTICE, "%s(%s klen=%zu size=%zu): %8.6f", __func__,
 		f->name, key->l << 3, buf->l, timedelta(&start, &end));
 #endif
 	return res;
@@ -514,7 +533,7 @@ alg_oakley_encdef_encrypt(doi, buf, key, iv)
 
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s klen=%zu size=%zu): %8.6f", __func__,
+	plog(ASL_LEVEL_NOTICE, "%s(%s klen=%zu size=%zu): %8.6f", __func__,
 		f->name, key->l << 3, buf->l, timedelta(&start, &end));
 #endif
 	return res;
@@ -529,7 +548,7 @@ alg_ipsec_encdef(doi)
 
 	for (i = 0; i < ARRAYLEN(ipsec_encdef); i++)
 		if (doi == ipsec_encdef[i].doi) {
-			plog(LLV_DEBUG, LOCATION, NULL, "encryption(%s)\n",
+			plog(ASL_LEVEL_DEBUG, "encryption(%s)\n",
 				ipsec_encdef[i].name);
 			return &ipsec_encdef[i];
 		}
@@ -572,7 +591,7 @@ alg_ipsec_hmacdef(doi)
 
 	for (i = 0; i < ARRAYLEN(ipsec_hmacdef); i++)
 		if (doi == ipsec_hmacdef[i].doi) {
-			plog(LLV_DEBUG, LOCATION, NULL, "hmac(%s)\n",
+			plog(ASL_LEVEL_DEBUG, "hmac(%s)\n",
 				ipsec_hmacdef[i].name);
 			return &ipsec_hmacdef[i];
 		}
@@ -630,7 +649,7 @@ alg_oakley_dhdef(doi)
 
 	for (i = 0; i < ARRAYLEN(oakley_dhdef); i++)
 		if (doi == oakley_dhdef[i].doi) {
-			plog(LLV_DEBUG, LOCATION, NULL, "hmac(%s)\n",
+			plog(ASL_LEVEL_DEBUG, "hmac(%s)\n",
 				oakley_dhdef[i].name);
 			return &oakley_dhdef[i];
 		}
@@ -717,6 +736,7 @@ alg_oakley_authdef_name (doi)
 	return "*UNKNOWN*";
 }
 
+
 /*
  * give the default key length
  * OUT:	-1:		NG
@@ -765,8 +785,8 @@ check_keylen(class, type, len)
 		break;
 	default:
 		/* unknown class, punt */
-		plog(LLV_ERROR, LOCATION, NULL,
-			"unknown algclass %d\n", class);
+		plog(ASL_LEVEL_ERR, 
+			"unknown algorithm class %d\n", class);
 		return -1;
 	}
 
@@ -778,7 +798,7 @@ check_keylen(class, type, len)
 	case algtype_aes:
 	case algtype_twofish:
 		if (len % 8 != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"key length %d is not multiple of 8\n", len);
 			return -1;
 		}
@@ -810,14 +830,14 @@ check_keylen(class, type, len)
 		break;
 	default:
 		if (len) {
-			plog(LLV_ERROR, LOCATION, NULL,
+			plog(ASL_LEVEL_ERR, 
 				"key length is not allowed");
 			return -1;
 		}
 		break;
 	}
 	if (badrange) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"key length out of range\n");
 		return -1;
 	}
@@ -861,6 +881,7 @@ algtype2doi(class, type)
 	}
 	return res;
 }
+
 
 /*
  * convert algorithm class to DOI value.

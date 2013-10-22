@@ -46,6 +46,7 @@ struct _krb5_key_data;
 struct _krb5_key_type;
 struct _krb5_checksum_type;
 struct _krb5_encryption_type;
+struct _krb5_srv_query_ctx;
 #include <heimbase.h>
 #include <hx509.h>
 #include <krb5-private.h>

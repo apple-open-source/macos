@@ -196,7 +196,12 @@ public:
     void lockAll(bool forSleep);
     void unlock(DbHandle db);
     void unlock(DbHandle db, const CssmData &passPhrase);
+    void stashDb(DbHandle db);
+    void stashDbCheck(DbHandle db);
     bool isLocked(DbHandle db);
+    void verifyKeyStorePassphrase(uint32_t retries);
+    void resetKeyStorePassphrase(const CssmData &passphrase);
+    void changeKeyStorePassphrase();
 	
 public:
 	//

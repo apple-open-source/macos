@@ -390,6 +390,7 @@ CSSM_DB_HANDLE cuDbStartupByName(CSSM_DL_HANDLE dlHand,
  * CSSM_CONTEXT_ATTRIBUTE to the context as specified by AttributeType,
  * AttributeLength, and an untyped pointer.
  */
+static
 CSSM_RETURN cuAddContextAttribute(CSSM_CC_HANDLE CCHandle,
 	uint32 AttributeType,
 	uint32 AttributeLength,

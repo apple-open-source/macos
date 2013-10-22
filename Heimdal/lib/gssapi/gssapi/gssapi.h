@@ -280,7 +280,9 @@ typedef struct gss_auth_identity *gss_auth_identity_t;
 
 GSSAPI_CPP_START
 
+#ifndef __KRB5_H__ /* provide forward declaration if its not already defined */
 struct krb5_ccache_data; /* for gss_krb5_copy_ccache, deprecated */
+#endif
 
 #include <gssapi_oid.h>
 #include <gssapi_protos.h>
@@ -512,8 +514,7 @@ extern GSSAPI_LIB_VARIABLE gss_buffer_desc __gss_c_attr_local_login_user;
 
 #ifdef __APPLE__
 
-#import <CoreFoundation/CFDictionary.h>
-#import <CoreFoundation/CFError.h>
+#import <CoreFoundation/CoreFoundation.h>
 
 #define kGSSICPassword			CFSTR("kGSSICPassword")
 #define kGSSICCertificate		CFSTR("kGSSICCertificate")
@@ -524,17 +525,16 @@ extern GSSAPI_LIB_VARIABLE gss_buffer_desc __gss_c_attr_local_login_user;
 #define kGSS_C_ACCEPT			CFSTR("kGSS_C_ACCEPT")
 #define kGSS_C_BOTH			CFSTR("kGSS_C_BOTH")
 
+#define kGSSICLKDCHostname		CFSTR("kGSSICLKDCHostname")
+
+#define kGSSICKerberosCacheName		CFSTR("kGSSICKerberosCacheName")
+#define kGSSICAppIdentifierACL		CFSTR("kGSSICAppIdentifierACL")
+
 #include <gssapi_apple.h>
 
 
 #define kGSSChangePasswordOldPassword	CFSTR("kGSSChangePasswordOldPassword")
 #define kGSSChangePasswordNewPassword	CFSTR("kGSSChangePasswordNewPassword")
-
-OM_uint32 GSSAPI_LIB_FUNCTION
-gss_aapl_change_password(const gss_name_t name,
-			 gss_const_OID mech,
-			 CFDictionaryRef attributes,
-			 CFErrorRef *error);
 
 #endif
 

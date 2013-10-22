@@ -22,7 +22,7 @@
 #define SVGFEImageElement_h
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
-#include "CachedImage.h"
+#include "CachedImageClient.h"
 #include "CachedResourceHandle.h"
 #include "ImageBuffer.h"
 #include "SVGAnimatedBoolean.h"
@@ -35,11 +35,11 @@
 
 namespace WebCore {
 
-class SVGFEImageElement : public SVGFilterPrimitiveStandardAttributes,
-                          public SVGURIReference,
-                          public SVGLangSpace,
-                          public SVGExternalResourcesRequired,
-                          public CachedImageClient {
+class SVGFEImageElement FINAL : public SVGFilterPrimitiveStandardAttributes,
+                                public SVGURIReference,
+                                public SVGLangSpace,
+                                public SVGExternalResourcesRequired,
+                                public CachedImageClient {
 public:
     static PassRefPtr<SVGFEImageElement> create(const QualifiedName&, Document*);
 
@@ -49,7 +49,7 @@ private:
     SVGFEImageElement(const QualifiedName&, Document*);
 
     bool isSupportedAttribute(const QualifiedName&);
-    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual void parseAttribute(const QualifiedName&, const AtomicString&) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
     virtual void notifyFinished(CachedResource*);
 
@@ -60,8 +60,8 @@ private:
     void requestImageResource();
 
     virtual void buildPendingResource();
-    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
-    virtual void removedFrom(Node*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(ContainerNode*) OVERRIDE;
+    virtual void removedFrom(ContainerNode*) OVERRIDE;
 
     BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEImageElement)
         DECLARE_ANIMATED_PRESERVEASPECTRATIO(PreserveAspectRatio, preserveAspectRatio)

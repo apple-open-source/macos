@@ -1,0 +1,142 @@
+Prereq: "2.9.3"
+diff -cr --new-file /var/tmp/postfix-2.9.3/src/global/mail_version.h ./src/global/mail_version.h
+*** /var/tmp/postfix-2.9.3/src/global/mail_version.h	Sun May 20 18:24:22 2012
+--- ./src/global/mail_version.h	Wed Aug  1 17:48:05 2012
+***************
+*** 20,27 ****
+    * Patches change both the patchlevel and the release date. Snapshots have no
+    * patchlevel; they change the release date only.
+    */
+! #define MAIL_RELEASE_DATE	"20120520"
+! #define MAIL_VERSION_NUMBER	"2.9.3"
+  
+  #ifdef SNAPSHOT
+  # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+--- 20,27 ----
+    * Patches change both the patchlevel and the release date. Snapshots have no
+    * patchlevel; they change the release date only.
+    */
+! #define MAIL_RELEASE_DATE	"20120801"
+! #define MAIL_VERSION_NUMBER	"2.9.4"
+  
+  #ifdef SNAPSHOT
+  # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+diff -cr --new-file /var/tmp/postfix-2.9.3/HISTORY ./HISTORY
+*** /var/tmp/postfix-2.9.3/HISTORY	Sun May 20 18:04:07 2012
+--- ./HISTORY	Wed Aug  1 17:33:29 2012
+***************
+*** 17701,17703 ****
+--- 17701,17720 ----
+  	command must wait until its requests have reached the pickup
+  	and qmgr servers before closing the UNIX-domain request
+  	sockets.  Files: postqueue/postqueue.c, postqueue/Makefile.in.
++ 
++ 20120621
++ 
++ 	Bugfix (introduced: Postfix 2.8): the unused "pass" trigger
++ 	client could close the wrong file descriptors.  File:
++ 	util/unix_pass_trigger.c.
++ 
++ 20120702
++ 
++ 	Bugfix (introduced: 19990127): the BIFF client leaked an
++ 	unprivileged UDP socket. Fix by Jaroslav Skarvada.  File:
++ 	local/biff_notify.c.
++ 
++ 20120730
++ 
++ 	Bugfix (introduced: 20000314): AUTH is not allowed after
++ 	MAIL. Timo Sirainen.  File: smtpd/smtpd_sasl_proto.c.
+diff -cr --new-file /var/tmp/postfix-2.9.3/src/local/biff_notify.c ./src/local/biff_notify.c
+*** /var/tmp/postfix-2.9.3/src/local/biff_notify.c	Wed Jul 13 16:46:18 2005
+--- ./src/local/biff_notify.c	Thu Jul  5 12:56:30 2012
+***************
+*** 43,48 ****
+--- 43,49 ----
+  /* Utility library. */
+  
+  #include <msg.h>
++ #include <iostuff.h>
+  
+  /* Application-specific. */
+  
+***************
+*** 81,89 ****
+      /*
+       * Open a socket, or re-use an existing one.
+       */
+!     if (sock < 0 && (sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+! 	msg_warn("socket: %m");
+! 	return;
+      }
+  
+      /*
+--- 82,93 ----
+      /*
+       * Open a socket, or re-use an existing one.
+       */
+!     if (sock < 0) {
+! 	if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+! 	    msg_warn("socket: %m");
+! 	    return;
+! 	}
+! 	close_on_exec(sock, CLOSE_ON_EXEC);
+      }
+  
+      /*
+diff -cr --new-file /var/tmp/postfix-2.9.3/src/smtpd/smtpd_sasl_proto.c ./src/smtpd/smtpd_sasl_proto.c
+*** /var/tmp/postfix-2.9.3/src/smtpd/smtpd_sasl_proto.c	Sun Dec 18 20:22:45 2011
+--- ./src/smtpd/smtpd_sasl_proto.c	Wed Aug  1 17:23:15 2012
+***************
+*** 164,169 ****
+--- 164,175 ----
+  	smtpd_chat_reply(state, "503 5.5.1 Error: authentication not enabled");
+  	return (-1);
+      }
++ #define IN_MAIL_TRANSACTION(state) ((state)->sender != 0)
++     if (IN_MAIL_TRANSACTION(state)) {
++ 	state->error_mask |= MAIL_ERROR_PROTOCOL;
++ 	smtpd_chat_reply(state, "503 5.5.1 Error: MAIL transaction in progress");
++ 	return (-1);
++     }
+      if (smtpd_milters != 0 && (err = milter_other_event(smtpd_milters)) != 0) {
+  	if (err[0] == '5') {
+  	    state->error_mask |= MAIL_ERROR_POLICY;
+diff -cr --new-file /var/tmp/postfix-2.9.3/src/util/unix_pass_trigger.c ./src/util/unix_pass_trigger.c
+*** /var/tmp/postfix-2.9.3/src/util/unix_pass_trigger.c	Sun Jan  9 19:43:52 2011
+--- ./src/util/unix_pass_trigger.c	Thu Jun 21 09:41:58 2012
+***************
+*** 63,69 ****
+  struct unix_pass_trigger {
+      int     fd;
+      char   *service;
+!     int    *pair;
+  };
+  
+  /* unix_pass_trigger_event - disconnect from peer */
+--- 63,69 ----
+  struct unix_pass_trigger {
+      int     fd;
+      char   *service;
+!     int     pair[2];
+  };
+  
+  /* unix_pass_trigger_event - disconnect from peer */
+***************
+*** 129,135 ****
+      up = (struct unix_pass_trigger *) mymalloc(sizeof(*up));
+      up->fd = fd;
+      up->service = mystrdup(service);
+!     up->pair = pair;
+  
+      /*
+       * Write the request...
+--- 129,136 ----
+      up = (struct unix_pass_trigger *) mymalloc(sizeof(*up));
+      up->fd = fd;
+      up->service = mystrdup(service);
+!     up->pair[0] = pair[0];
+!     up->pair[1] = pair[1];
+  
+      /*
+       * Write the request...

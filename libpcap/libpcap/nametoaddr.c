@@ -250,6 +250,7 @@ pcap_nametoportrange(const char *name, int *port1, int *port2, int *proto)
 
 		if (*proto != save_proto)
 			*proto = PROTO_UNDEF;
+		free(cpy);
 	} else {
 		*port1 = p1;
 		*port2 = p2;

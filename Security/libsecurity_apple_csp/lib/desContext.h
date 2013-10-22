@@ -29,7 +29,7 @@
 #include "AppleCSPSession.h"
 #include "BlockCryptor.h"
 #include <CommonCrypto/CommonCryptor.h>
-#include "/usr/local/include/CommonCrypto/CommonCryptorSPI.h"
+#include <CommonCrypto/CommonCryptorSPI.h>
 
 #define DES_KEY_SIZE_BITS_EXTERNAL		(kCCKeySizeDES * 8)
 #define DES_BLOCK_SIZE_BYTES			kCCBlockSizeDES

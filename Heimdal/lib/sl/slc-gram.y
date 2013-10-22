@@ -495,6 +495,10 @@ gen_wrapper(struct assignment *as)
     int narguments = 0;
 
     name = find(as, "name");
+    if (name == NULL) {
+        ex(as, "no name");
+        exit(1);
+    }
     n = strdup(name->u.value);
     gen_name(n);
     arg = find(as, "argument");

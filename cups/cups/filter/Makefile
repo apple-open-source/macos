@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile 9668 2011-04-01 05:55:27Z mike $"
+# "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $"
 #
 #   Filter makefile for CUPS.
 #
@@ -110,6 +110,7 @@ install-exec:
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(FILTERS); do \
 			cp $$file $(SYMROOT); \
+			dsymutil $(SYMROOT)/$$file; \
 		done \
 	fi
 
@@ -139,6 +140,7 @@ install-libs: $(INSTALLSTATIC)
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		cp $(LIBCUPSIMAGE) $(SYMROOT); \
+		dsymutil $(SYMROOT)/$(LIBCUPSIMAGE); \
 	fi
 
 installstatic:
@@ -396,5 +398,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 9668 2011-04-01 05:55:27Z mike $".
+# End of "$Id: Makefile 11093 2013-07-03 20:48:42Z msweet $".
 #

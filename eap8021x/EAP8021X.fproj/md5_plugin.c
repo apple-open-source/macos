@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +36,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <syslog.h>
+#include "EAPLog.h"
 
 /*
  * Declare these here to ensure that the compiler
@@ -62,13 +61,13 @@ md5_request(EAPClientPluginDataRef plugin, const EAPPacketRef in_pkt_p)
     int				size;
 
     if (in_length < sizeof(*in_md5_p)) {
-	syslog(LOG_NOTICE, "md5_request: header too short (length %d < %ld)",
-	       in_length, sizeof(*in_md5_p));
+	EAPLOG_FL(LOG_NOTICE, "header too short (length %d < %ld)",
+		  in_length, sizeof(*in_md5_p));
 	goto failed;
     }
     if (in_length < (sizeof(*in_md5_p) + in_md5_p->value_size)) {
-	syslog(LOG_NOTICE, "md5_request: value too short (length %d < %ld)",
-	       in_length, sizeof(*in_md5_p) + in_md5_p->value_size);
+	EAPLOG_FL(LOG_NOTICE, "value too short (length %d < %ld)",
+		  in_length, sizeof(*in_md5_p) + in_md5_p->value_size);
 	goto failed;
     }
     size = sizeof(*out_md5_p) + plugin->username_length;

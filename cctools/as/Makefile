@@ -1,32 +1,20 @@
-RC_OS = macos
 export USE_APPLE_PB_SUPPORT = all
-OFLAG = -Os
-X_CFLAGS =
-
-ifneq "clang" "$(notdir $(CC))"
-  GCC_FLAGS = -Wall $(X_CFLAGS)
-endif
-
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "clang" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
 
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
+  DSYMUTIL = $(shell xcrun -find -sdk ${SDKROOT} dsymutil)
+else
+  DSYMUTIL = dsymutil
 endif
-CFLAGS = $(OFLAG) -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) \
-	$(GCC_FLAGS) -DNeXT_MOD $(SDK)
 
+OFLAG = -Os
+CFLAGS = $(OFLAG) -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) \
+	-Wall -DNeXT_MOD $(SDK)
 LIBSTUFF_DIR = -L$(SYMROOT)/../../libstuff
 LIBSTUFF = -lstuff
 
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
-else
-  MKDIRS = /bin/mkdir -p
-endif
+MKDIRS = /bin/mkdir -p
 
 SRCROOT = .
 SYMROOT = .
@@ -57,13 +45,8 @@ OFILE_DIRS = $(OBJROOT)/driver_dir \
 
 BINDIR = /bin
 USRBINDIR = /usr/bin
-ifeq "macos" "$(RC_OS)"
-  LIBDIR = /usr/libexec/as
-  LOCLIBDIR = /usr/local/libexec/as
-else
-  LIBDIR = /usr/libexec
-  LOCLIBDIR = /usr/local/libexec
-endif
+LIBDIR = /usr/libexec/as
+LOCLIBDIR = /usr/local/libexec/as
 
 DWARF = dwarf2dbg.c
 CFILES = app.c as.c atof-generic.c atof-ieee.c expr.c fixes.c flonum-const.c \
@@ -115,14 +98,14 @@ driver_build:	$(OBJROOT)/driver_dir
 	@if [ $(SRCROOT) = . ];						\
 	then								\
 	    cd driver_dir;  $(MAKE) -f ../Makefile driver VPATH=..	\
-		CFLAGS="-g -Os -I../../include $(GCC_FLAGS) $(SDK)"	\
+		CFLAGS="-g -I../../include $(OFLAG) $(SDK)" 		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" OFILE_DIR=.	\
 		RC_FLAGS="$(RC_CFLAGS)" DEP_DIR=driver_dir;		\
 	else								\
 	    cd $(OBJROOT)/driver_dir; $(MAKE) -f $(SRCROOT)/Makefile	\
 		driver VPATH=$(SRCROOT) OFILE_DIR=$(OBJROOT)/driver_dir \
 		SYMROOT=$(SYMROOT)/driver_dir SRCROOT=$(SRCROOT)	\
-		CFLAGS="-g -Os -I$(SRCROOT)/../include $(GCC_FLAGS) $(SDK)" \
+		CFLAGS="-g -I$(SRCROOT)/../include $(OFLAG) $(SDK)"	\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		RC_FLAGS="$(RC_CFLAGS)" DEP_DIR=driver_dir;		\
 	fi
@@ -344,12 +327,14 @@ aarm_test: aarm_dir
 driver:	driver.o
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/driver \
 		$(OFILE_DIR)/driver.o $(LIBSTUFF_DIR) $(LIBSTUFF)
+	$(DSYMUTIL) $(SYMROOT)/driver
 
 as:	$(OBJS) $(TARGET_OBJS)
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(SYMROOT)/as.private.o $(OBJS) $(TARGET_OBJS) \
 		$(LIBSTUFF_DIR) $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/as $(SYMROOT)/as.private.o
+	$(DSYMUTIL) $(SYMROOT)/as
 
 m68k-check:
 	$(CC) $(COPTS) $(CFLAGS) -o check ../m68k-check.c
@@ -387,15 +372,8 @@ test:
 	diff check1.s check2.s > check.out
 	cmp check.o check1.o
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -c -MD \
-		-dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 clean shlib_clean:
 	-rm -r -f $(OFILE_DIRS) make.out
@@ -406,22 +384,13 @@ installsrc installGASsrc:
 	gnutar cf - $(INSTALL_FILES) | (cd $(SRCROOT); gnutar xf -)
 	chmod 444 $(SRCROOT)/*
 
-install: all $(RC_OS)_install
-
-macos_install: common_install xcommon_install
+install: all
 	$(MKDIRS) $(DSTROOT)$(LIBDIR)/i386
 	install -c -s -m 555 $(SYMROOT)/a386_dir/as \
 		$(DSTROOT)$(LIBDIR)/i386/as
 	$(MKDIRS) $(DSTROOT)$(LIBDIR)/x86_64
 	install -c -s -m 555 $(SYMROOT)/ax86_64_dir/as \
 		$(DSTROOT)$(LIBDIR)/x86_64/as
-
-teflon_install: common_install xcommon_install
-	$(MKDIRS) $(DSTROOT)$(LIBDIR)/i386
-	install -c -s -m 555 $(SYMROOT)/a386_dir/as \
-		$(DSTROOT)$(LIBDIR)/i386/as
-
-xcommon_install:
 	$(MKDIRS) $(DSTROOT)$(USRBINDIR)
 	install -c -s -m 555 $(SYMROOT)/driver_dir/driver \
 		$(DSTROOT)$(USRBINDIR)/as	
@@ -446,25 +415,6 @@ xcommon_install:
 	$(MKDIRS) $(DSTROOT)$(LIBDIR)/arm
 	install -c -s -m 555 $(SYMROOT)/aarm_dir/as \
 		$(DSTROOT)$(LIBDIR)/arm/as
-
-nextstep_install: common_install
-	$(MKDIRS) $(DSTROOT)$(BINDIR)
-	install -c -s -m 555 $(SYMROOT)/driver_dir/driver \
-		$(DSTROOT)$(BINDIR)/as	
-	$(MKDIRS) $(DSTROOT)$(LIBDIR)/m68k
-	install -c -s -m 555 $(SYMROOT)/a68_dir/as \
-		$(DSTROOT)$(LIBDIR)/m68k/as
-	$(MKDIRS) $(DSTROOT)$(LIBDIR)/i386
-	install -c -s -m 555 $(SYMROOT)/a386_dir/as \
-		$(DSTROOT)$(LIBDIR)/i386/as
-	$(MKDIRS) $(DSTROOT)$(LIBDIR)/sparc
-	install -c -s -m 555 $(SYMROOT)/asparc_dir/as \
-		$(DSTROOT)$(LIBDIR)/sparc/as
-	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)/ppc
-	install -c -s -m 555 $(SYMROOT)/appc_dir/as \
-		$(DSTROOT)$(LOCLIBDIR)/ppc/as
-
-common_install:
 	$(MKDIRS) $(DSTROOT)$(LOCLIBDIR)/m88k
 	install -c -s -m 555 $(SYMROOT)/a88_dir/as \
 		$(DSTROOT)$(LOCLIBDIR)/m88k/as
@@ -477,5 +427,3 @@ common_install:
 
 $(OFILE_DIRS) $(SYM_DIRS):
 	$(MKDIRS) $@
-
--include $(DEP_DIR)/Makedep

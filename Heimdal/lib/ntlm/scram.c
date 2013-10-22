@@ -143,7 +143,7 @@ scram_add_base64(heim_scram_pairs *d, char type, heim_scram_data *data)
     char *str;
     int ret;
     
-    if (base64_encode(data->data, data->length, &str) < 0)
+    if (base64_encode(data->data, (int)data->length, &str) < 0)
 	return ENOMEM;
 
     ret = scram_add_string(d, type, str);
@@ -380,7 +380,7 @@ generate_nonce(size_t len, heim_scram_data *result)
     if (CCRandomCopyBytes(kCCRandomDefault, p, len) != 0)
 	heim_abort("CCRandomCopyBytes failes");
     
-    if (base64_encode(p, len, &str) < 0)
+    if (base64_encode(p, (int)len, &str) < 0)
 	heim_abort("base64 encode failed");
 
     free(p);
@@ -601,8 +601,7 @@ heim_scram_validate_client_signature(heim_scram_method method,
 				     heim_scram_data *clientKey)
 {
     unsigned char *p, *q, *u = NULL;
-    unsigned int length;
-    size_t n;
+    size_t length, n;
     int ret;
 
     scram_data_zero(clientKey);
@@ -894,7 +893,7 @@ heim_scram_client3(heim_scram_data *in,
     data = scram_find_type(p, 'v');
 
     if (base64_encode(scram->ServerSignature.data,
-		      scram->ServerSignature.length,
+		      (int)scram->ServerSignature.length,
 		      &str) < 0) {
 	ret = EINVAL;
 	goto out;
@@ -1027,7 +1026,7 @@ heim_scram_stored_key(heim_scram_method method,
 		      heim_scram_data *stored_key,
 		      heim_scram_data *server_key)
 {
-    unsigned int length;
+    size_t length;
     heim_scram_data sk;
     int ret;
 

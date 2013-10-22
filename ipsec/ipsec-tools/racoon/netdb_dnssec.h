@@ -66,7 +66,7 @@ struct certinfo {
 	struct certinfo *ci_next;	/* next structure */
 };
 
-extern void freecertinfo __P((struct certinfo *));
-extern int getcertsbyname __P((char *, struct certinfo **));
+extern void freecertinfo (struct certinfo *);
+extern int getcertsbyname (char *, struct certinfo **);
 
 #endif /* _NETDB_DNSSEC_H */

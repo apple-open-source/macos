@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_bn.c 31657 2011-05-20 22:25:35Z shyouhei $
+ * $Id: ossl_bn.c 40113 2013-04-04 15:56:00Z nagachika $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Technorama team <oss-ruby@technorama.net>
  * All rights reserved.
@@ -12,22 +12,22 @@
 #include "ossl.h"
 
 #define WrapBN(klass, obj, bn) do { \
-  if (!bn) { \
+  if (!(bn)) { \
     ossl_raise(rb_eRuntimeError, "BN wasn't initialized!"); \
   } \
-  obj = Data_Wrap_Struct(klass, 0, BN_clear_free, bn); \
+  (obj) = Data_Wrap_Struct((klass), 0, BN_clear_free, (bn)); \
 } while (0)
 
 #define GetBN(obj, bn) do { \
-  Data_Get_Struct(obj, BIGNUM, bn); \
-  if (!bn) { \
+  Data_Get_Struct((obj), BIGNUM, (bn)); \
+  if (!(bn)) { \
     ossl_raise(rb_eRuntimeError, "BN wasn't initialized!"); \
   } \
 } while (0)
 
 #define SafeGetBN(obj, bn) do { \
-  OSSL_Check_Kind(obj, cBN); \
-  GetBN(obj, bn); \
+  OSSL_Check_Kind((obj), cBN); \
+  GetBN((obj), (bn)); \
 } while (0)
 
 /*
@@ -70,6 +70,8 @@ GetBNPtr(VALUE obj)
 	}
 	WrapBN(cBN, obj, bn); /* Handle potencial mem leaks */
 	break;
+    case T_NIL:
+	break;
     default:
 	ossl_raise(rb_eTypeError, "Cannot convert into OpenSSL::BN");
     }
@@ -91,7 +93,7 @@ ossl_bn_alloc(VALUE klass)
 {
     BIGNUM *bn;
     VALUE obj;
-	
+
     if (!(bn = BN_new())) {
 	ossl_raise(eBNError, NULL);
     }
@@ -117,11 +119,11 @@ ossl_bn_initialize(int argc, VALUE *argv, VALUE self)
     if (rb_scan_args(argc, argv, "11", &str, &bs) == 2) {
 	base = NUM2INT(bs);
     }
-    StringValue(str);
-    GetBN(self, bn);
+
     if (RTEST(rb_obj_is_kind_of(str, cBN))) {
 	BIGNUM *other;
 
+	GetBN(self, bn);
 	GetBN(str, other); /* Safe - we checked kind_of? above */
 	if (!BN_copy(bn, other)) {
 	    ossl_raise(eBNError, NULL);
@@ -129,14 +131,16 @@ ossl_bn_initialize(int argc, VALUE *argv, VALUE self)
 	return self;
     }
 
+    StringValue(str);
+    GetBN(self, bn);
     switch (base) {
     case 0:
-	if (!BN_mpi2bn(RSTRING_PTR(str), RSTRING_LEN(str), bn)) {
+	if (!BN_mpi2bn((unsigned char *)RSTRING_PTR(str), RSTRING_LENINT(str), bn)) {
 	    ossl_raise(eBNError, NULL);
 	}
 	break;
     case 2:
-	if (!BN_bin2bn(RSTRING_PTR(str), RSTRING_LEN(str), bn)) {
+	if (!BN_bin2bn((unsigned char *)RSTRING_PTR(str), RSTRING_LENINT(str), bn)) {
 	    ossl_raise(eBNError, NULL);
 	}
 	break;
@@ -185,22 +189,22 @@ ossl_bn_to_s(int argc, VALUE *argv, VALUE self)
     case 0:
 	len = BN_bn2mpi(bn, NULL);
         str = rb_str_new(0, len);
-	if (BN_bn2mpi(bn, RSTRING_PTR(str)) != len)
+	if (BN_bn2mpi(bn, (unsigned char *)RSTRING_PTR(str)) != len)
 	    ossl_raise(eBNError, NULL);
 	break;
     case 2:
 	len = BN_num_bytes(bn);
         str = rb_str_new(0, len);
-	if (BN_bn2bin(bn, RSTRING_PTR(str)) != len)
+	if (BN_bn2bin(bn, (unsigned char *)RSTRING_PTR(str)) != len)
 	    ossl_raise(eBNError, NULL);
 	break;
     case 10:
 	if (!(buf = BN_bn2dec(bn))) ossl_raise(eBNError, NULL);
-	str = ossl_buf2str(buf, strlen(buf));
+	str = ossl_buf2str(buf, rb_long2int(strlen(buf)));
 	break;
     case 16:
 	if (!(buf = BN_bn2hex(bn))) ossl_raise(eBNError, NULL);
-	str = ossl_buf2str(buf, strlen(buf));
+	str = ossl_buf2str(buf, rb_long2int(strlen(buf)));
 	break;
     default:
 	ossl_raise(rb_eArgError, "invalid radix %d", base);
@@ -380,7 +384,7 @@ ossl_bn_div(VALUE self, VALUE other)
     }
     WrapBN(CLASS_OF(self), obj1, r1);
     WrapBN(CLASS_OF(self), obj2, r2);
-    
+
     return rb_ary_new3(2, obj1, obj2);
 }
 
@@ -573,7 +577,7 @@ ossl_bn_s_generate_prime(int argc, VALUE *argv, VALUE klass)
     VALUE vnum, vsafe, vadd, vrem, obj;
 
     rb_scan_args(argc, argv, "13", &vnum, &vsafe, &vadd, &vrem);
-	
+
     num = NUM2INT(vnum);
 
     if (vsafe == Qfalse) {
@@ -591,7 +595,7 @@ ossl_bn_s_generate_prime(int argc, VALUE *argv, VALUE klass)
 	ossl_raise(eBNError, NULL);
     }
     WrapBN(klass, obj, result);
-    
+
     return obj;
 }
 
@@ -615,14 +619,14 @@ static VALUE
 ossl_bn_copy(VALUE self, VALUE other)
 {
     BIGNUM *bn1, *bn2;
-    
+
     rb_check_frozen(self);
-    
+
     if (self == other) return self;
-    
+
     GetBN(self, bn1);
     bn2 = GetBNPtr(other);
-    
+
     if (!BN_copy(bn1, bn2)) {
 	ossl_raise(eBNError, NULL);
     }
@@ -731,8 +735,8 @@ ossl_bn_is_prime_fasttest(int argc, VALUE *argv, VALUE self)
 void
 Init_ossl_bn()
 {
-#if 0 /* let rdoc know about mOSSL */
-    mOSSL = rb_define_module("OpenSSL");
+#if 0
+    mOSSL = rb_define_module("OpenSSL"); /* let rdoc know about mOSSL */
 #endif
 
     if (!(ossl_bn_ctx = BN_CTX_new())) {
@@ -745,7 +749,7 @@ Init_ossl_bn()
 
     rb_define_alloc_func(cBN, ossl_bn_alloc);
     rb_define_method(cBN, "initialize", ossl_bn_initialize, -1);
-	
+
     rb_define_copy_func(cBN, ossl_bn_copy);
     rb_define_method(cBN, "copy", ossl_bn_copy, 1);
 
@@ -793,7 +797,7 @@ Init_ossl_bn()
      * value_one - DON'T IMPL.
      * set_word
      * get_word */
-    
+
     rb_define_singleton_method(cBN, "rand", ossl_bn_s_rand, -1);
     rb_define_singleton_method(cBN, "pseudo_rand", ossl_bn_s_pseudo_rand, -1);
     rb_define_singleton_method(cBN, "rand_range", ossl_bn_s_rand_range, 1);
@@ -830,7 +834,7 @@ Init_ossl_bn()
     rb_define_alias(cBN, "to_int", "to_i");
     rb_define_method(cBN, "to_bn", ossl_bn_to_bn, 0);
     rb_define_method(cBN, "coerce", ossl_bn_coerce, 1);
-	
+
     /*
      * TODO:
      * But how to: from_bin, from_mpi? PACK?

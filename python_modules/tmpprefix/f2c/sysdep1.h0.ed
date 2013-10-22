@@ -1,0 +1,2 @@
+g/__FreeBSD__/s//__APPLE__/
+w

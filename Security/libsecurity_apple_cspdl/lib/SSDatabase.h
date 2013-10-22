@@ -60,6 +60,8 @@ public:
 	void lock();
 	void unlock();
 	void unlock(const CSSM_DATA &password);
+    void stash();
+    void stashCheck();
 	void getSettings(uint32 &outIdleTimeout, bool &outLockOnSleep);
 	void setSettings(uint32 inIdleTimeout, bool inLockOnSleep);
 	bool isLocked();

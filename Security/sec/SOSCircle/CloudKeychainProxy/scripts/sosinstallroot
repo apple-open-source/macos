@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# This script should be run as root on the target device
+
+if [ $(id -u) != "0" ]; then
+    echo "You must be root to run this script" >&2
+    exit 1
+fi
+
+echo "-----------------------------------------------"
+echo "Tell launchctl to unload the old one"
+launchctl unload -w  /System/Library/LaunchDaemons/com.apple.security.cloudkeychainproxy.plist
+
+echo "call darwinup install"
+darwinup install  /var/mobile/security.roots.tgz
+
+/usr/local/bin/darwinup uninstall superseded > /dev/null 2>&1 || true
+
+echo "Untar sym files"
+symdir="/var/mobile/secsyms"
+if [ ! -d "$symdir" ]; then
+    mkdir $symdir
+fi
+echo "Untar sym files to " $symdir
+tar -xzvf /var/mobile/security.syms.tgz -C $symdir
+echo "To use, enter e.g. in gdb: add-dsym /var/mobile/secsyms/SecurityTests.app.dSYM"
+
+echo "touch cache"
+touch /System/Library/Caches/com.apple.xpcd/xpcd_cache.dylib 
+
+echo "Killing off old CloudKeychainProxy..."
+killall -9 CloudKeychainProxy || true
+
+echo "Tell launchctl to load the new one"
+launchctl  load -w /System/Library/LaunchDaemons/com.apple.security.cloudkeychainproxy.plist
+echo "done"
+
+echo "Kill the old SyncTest"
+killall -9 SyncTest2  || true
+
+echo "Rebuild mobile app cache"
+/usr/local/bin/mobile_install rebuild internal || true

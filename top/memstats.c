@@ -34,6 +34,7 @@
 	memcpy(buf, "N/A", 4); 	   \
     } while(0)
 
+#ifndef TOP_ANONYMOUS_MEMORY
 /*rsize*/
 static bool rsize_insert_cell(struct statistic *s, const void *sample) {
     const libtop_psamp_t *psamp = sample;
@@ -66,6 +67,7 @@ struct statistic *top_rsize_create(WINDOW *parent, const char *name) {
     return create_statistic(STATISTIC_RSIZE, parent, NULL, &rsize_callbacks,
 			    name);
 }
+#endif /* !TOP_ANONYMOUS_MEMORY */
 
 /*vsize*/
 static bool vsize_insert_cell(struct statistic *s, const void *sample) {
@@ -164,6 +166,7 @@ struct statistic *top_vprvt_create(WINDOW *parent, const char *name) {
                             name);
 }
 
+#ifndef TOP_ANONYMOUS_MEMORY
 /*rshrd*/
 static bool rshrd_insert_cell(struct statistic *s, const void *sample) {
     const libtop_psamp_t *psamp = sample;
@@ -195,6 +198,7 @@ struct statistic *top_rshrd_create(WINDOW *parent, const char *name) {
     return create_statistic(STATISTIC_RSHRD, parent, NULL, &rshrd_callbacks,
 			    name);
 }
+#endif /* !TOP_ANONYMOUS_MEMORY */
 
 
 /*reg/mregions*/
@@ -327,3 +331,92 @@ struct statistic *top_kshrd_create(WINDOW *parent, const char *name) {
     return create_statistic(STATISTIC_KSHRD, parent, NULL, &kshrd_callbacks,
                             name);
 }
+
+#ifdef TOP_ANONYMOUS_MEMORY
+static bool
+rmem_insert_cell(struct statistic *s, const void *sample)
+{
+	const libtop_psamp_t *psamp = sample;
+	char buf[7];
+
+	if (top_uinteger_format_mem_result(buf, sizeof(buf), psamp->anonymous, psamp->p_anonymous, 0ULL)) {
+		return true;
+	}
+
+	return generic_insert_cell(s, buf);
+}
+
+static struct statistic_callbacks rmem_callbacks = {
+	.draw = generic_draw,
+	.resize_cells = generic_resize_cells,
+	.move_cells = generic_move_cells,
+	.get_request_size = generic_get_request_size,
+	.get_minimum_size = generic_get_minimum_size,
+	.insert_cell = rmem_insert_cell,
+	.reset_insertion = generic_reset_insertion,
+};
+
+struct statistic *
+top_rmem_create(WINDOW *parent, const char *name)
+{
+	return create_statistic(STATISTIC_RMEM, parent, NULL, &rmem_callbacks, name);
+}
+
+static bool
+purg_insert_cell(struct statistic *s, const void *sample)
+{
+	const libtop_psamp_t *psamp = sample;
+	char buf[7];
+
+	if (top_uinteger_format_mem_result(buf, sizeof(buf), psamp->purgeable, psamp->p_purgeable, 0ULL)) {
+		return true;
+	}
+
+	return generic_insert_cell(s, buf);
+}
+
+static struct statistic_callbacks purg_callbacks = {
+	.draw = generic_draw,
+	.resize_cells = generic_resize_cells,
+	.move_cells = generic_move_cells,
+	.get_request_size = generic_get_request_size,
+	.get_minimum_size = generic_get_minimum_size,
+	.insert_cell = purg_insert_cell,
+	.reset_insertion = generic_reset_insertion,
+};
+
+struct statistic *
+top_purg_create(WINDOW *parent, const char *name)
+{
+	return create_statistic(STATISTIC_PURG, parent, NULL, &purg_callbacks, name);
+}
+
+static bool
+compressed_insert_cell(struct statistic *s, const void *sample)
+{
+	const libtop_psamp_t *psamp = sample;
+	char buf[7];
+
+	if (top_uinteger_format_mem_result(buf, sizeof(buf), psamp->compressed, psamp->p_compressed, 0ULL)) {
+		return true;
+	}
+
+	return generic_insert_cell(s, buf);
+}
+
+static struct statistic_callbacks compressed_callbacks = {
+	.draw = generic_draw,
+	.resize_cells = generic_resize_cells,
+	.move_cells = generic_move_cells,
+	.get_request_size = generic_get_request_size,
+	.get_minimum_size = generic_get_minimum_size,
+	.insert_cell = compressed_insert_cell,
+	.reset_insertion = generic_reset_insertion,
+};
+
+struct statistic *
+top_compressed_create(WINDOW *parent, const char *name)
+{
+	return create_statistic(STATISTIC_COMPRESSED, parent, NULL, &compressed_callbacks, name);
+}
+#endif /* TOP_ANONYMOUS_MEMORY */

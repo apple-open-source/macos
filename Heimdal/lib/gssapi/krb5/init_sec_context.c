@@ -38,6 +38,7 @@
 #ifdef __APPLE__
 
 #include <notify.h>
+#include <notify_keys.h>
 #include "kcm.h"
 
 /*
@@ -62,7 +63,8 @@ static HEIMDAL_MUTEX nc_mutex = HEIMDAL_MUTEX_INITIALIZER;
 
 static struct gnegative_cache {
     int inited;
-    int token;
+    int token_cache;
+    int token_time;
     size_t next_entry;
     struct negative_cache cache[7];
 } nc;
@@ -91,22 +93,21 @@ check_neg_cache(OM_uint32 *minor_status,
     krb5_principal server = (krb5_principal)target_name;
     gsskrb5_cred cred = (gsskrb5_cred)gss_cred;
     OM_uint32 major;
-    int check, i;
+    int check = 0, i;
 
     HEIMDAL_MUTEX_lock(&nc_mutex);
 
     if (!nc.inited) {
-        int status;
 
-        status = notify_register_check(KRB5_KCM_NOTIFY_CACHE_CHANGED, &nc.token);
-        if (status != NOTIFY_STATUS_OK) {
-	    HEIMDAL_MUTEX_unlock(&nc_mutex);
-            return GSS_S_COMPLETE;
-        }
+        (void)notify_register_check(KRB5_KCM_NOTIFY_CACHE_CHANGED, &nc.token_cache);
+	(void)notify_register_check(kNotifyClockSet, &nc.token_time);
+
         nc.inited = 1;
     }
 
-    notify_check(nc.token, &check);
+    notify_check(nc.token_cache, &check);
+    if (!check)
+	notify_check(nc.token_time, &check);
 
     /* if something changed, remove cache and return success */
     if (check) {
@@ -448,6 +449,7 @@ gsskrb5_get_creds(
     if (ret) return ret;
 
     if (lifetime_rec == 0) {
+	_gss_mg_log(1, "gss-krb5: credentials expired");
 	*minor_status = 0;
 	return GSS_S_CONTEXT_EXPIRED;
     }
@@ -590,6 +592,11 @@ setup_icc(krb5_context context,
     krb5_error_code ret;
 
     heim_assert(ctx->gic_opt == NULL, "icc already setup");
+
+    _gss_mg_log(1, "gss-iakerb: setup_icc: cert: %s passwd: %s",
+		ctx->cert ? "yes" : "no",
+		ctx->password ? "yes" : "no");
+
 
     ret = krb5_get_init_creds_opt_alloc(context, &ctx->gic_opt);
     if (ret)
@@ -1069,6 +1076,8 @@ init_iakerb_auth(OM_uint32 * minor_status,
 
 	ctx->cert = heim_retain(cred->cert);
 #endif
+    } else if (cred->cred_flags & GSS_CF_IAKERB_RESOLVED) {
+	/* all work done in auth_tgs */
     } else {
 
 	*minor_status = EINVAL;
@@ -1081,8 +1090,14 @@ init_iakerb_auth(OM_uint32 * minor_status,
     krb5_cc_get_config(context, ctx->ccache, NULL, "FriendlyName", &ctx->friendlyname);
     krb5_cc_get_config(context, ctx->ccache, NULL, "lkdc-hostname", &ctx->lkdchostname);
 
+    if (cred->cred_flags & GSS_CF_IAKERB_RESOLVED) {
+	ctx->initiator_state = step_iakerb_auth_tgs;
+    } else {
+	ctx->initiator_state = step_iakerb_auth_as;
+    }
+
     *minor_status = 0;
-    ctx->initiator_state = step_iakerb_auth_as;
+
 
     return GSS_S_COMPLETE;
 }
@@ -1132,6 +1147,9 @@ step_iakerb_auth_as(OM_uint32 * minor_status,
 
     ret = krb5_init_creds_step(context, ctx->asctx, &in, &out, NULL, &realm, &flags);
     if (ret) {
+	_gss_mg_log(1, "gss-iakerb: init_creds_step: %d", ret);
+	_gsskrb5_error_token(minor_status, ctx->mech, context, ret,
+			     NULL, NULL, output_token);
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
@@ -1156,12 +1174,16 @@ step_iakerb_auth_as(OM_uint32 * minor_status,
 
 	memset(&kcred, 0, sizeof(kcred));
 	
+	_gss_mg_log(1, "gss-iakerb: going to state auth-tgs");
+
 	heim_assert(out.length == 0, "output of AS-REQ not 0 when done");
 	
 	/* store credential in credential cache and lets continue the TGS REQ */
 	ret = krb5_init_creds_get_creds(context, ctx->asctx, &kcred);
 	if (ret) {
 	    *minor_status = ret;
+	    _gsskrb5_error_token(minor_status, ctx->mech, context, ret,
+				 NULL, NULL, output_token);
 	    return GSS_S_FAILURE;
 	}
 
@@ -1192,6 +1214,7 @@ step_iakerb_auth_as(OM_uint32 * minor_status,
 	    krb5_data data = { 1, "1" } ;
 	    krb5_cc_set_config(context, ctx->ccache, NULL, "lkdc-hostname", &ctx->lkdchostname);
 	    krb5_cc_set_config(context, ctx->ccache, NULL, "nah-created", &data);
+	    krb5_cc_set_config(context, ctx->ccache, NULL, "iakerb", &data);
 	}
 	
 	/* update source if we got a referrals */
@@ -1242,6 +1265,8 @@ step_iakerb_auth_tgs(OM_uint32 * minor_status,
 	ret = krb5_tkt_creds_init(context, ctx->ccache, &incred, 0, &ctx->tgsctx);
 	if (ret) {
 	    *minor_status = ret;
+	    _gsskrb5_error_token(minor_status, ctx->mech, context, ret,
+				 NULL, NULL, output_token);
 	    return GSS_S_FAILURE;
 	}
 	
@@ -1258,6 +1283,9 @@ step_iakerb_auth_tgs(OM_uint32 * minor_status,
     
     ret = krb5_tkt_creds_step(context, ctx->tgsctx, &in, &out, &realm, &flags);
     if (ret) {
+	_gss_mg_log(1, "gss-iakerb: tkt_creds_step: %d", ret);
+	_gsskrb5_error_token(minor_status, ctx->mech, context, ret,
+			     NULL, NULL, output_token);
 	*minor_status = ret;
 	return GSS_S_FAILURE;
     }
@@ -1278,8 +1306,13 @@ step_iakerb_auth_tgs(OM_uint32 * minor_status,
     } else {
 	heim_assert(out.length == 0, "output data is not zero");
 	
+	_gss_mg_log(1, "gss-iakerb: going to state setup-keys");
+
 	ret = krb5_tkt_creds_get_creds(context, ctx->tgsctx, &ctx->kcred);
 	if (ret) {
+	    _gss_mg_log(1, "gss-iakerb: tkt_get_creds: %d", ret);
+	    _gsskrb5_error_token(minor_status, ctx->mech, context, ret,
+				 NULL, NULL, output_token);
 	    *minor_status = ret;
 	    return GSS_S_FAILURE;
 	}
@@ -1411,6 +1444,7 @@ init_krb5_auth(OM_uint32 * minor_status,
 	goto failure;
 
     if (lifetime_rec == 0) {
+	_gss_mg_log(1, "gss-krb5: credentials expired");
 	*minor_status = 0;
 	ret = GSS_S_CONTEXT_EXPIRED;
 	goto failure;
@@ -1759,7 +1793,7 @@ handle_error_packet(OM_uint32 *minor_status,
 	    if ((ctx->more_flags & RETRIED_SKEW) == 0) {
 		krb5_data timedata;
 		uint8_t p[4];
-		int32_t t = error.stime - time(NULL);
+		int32_t t = (int32_t)(error.stime - time(NULL));
 
 		_gss_mg_encode_be_uint32(t, p);
 

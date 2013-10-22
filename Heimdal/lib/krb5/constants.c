@@ -35,8 +35,16 @@
 
 #include "krb5_locl.h"
 
+
 KRB5_LIB_VARIABLE const char *krb5_config_file =
+#ifdef __APPLE_TARGET_EMBEDDED__
+"%{ApplicationResources}/com.apple.Kerberos.plist" PATH_SEP
+"~/Library/Preferences/com.apple.Kerberos.plist" PATH_SEP
+"~/Library/Preferences/edu.mit.Kerberos" PATH_SEP
+"~/.krb5/config" PATH_SEP
+#else /* __APPLE_TARGET_EMBEDDED__ */
 #ifdef __APPLE__
+"%{ApplicationResources}/com.apple.Kerberos.plist" PATH_SEP
 "~/Library/Preferences/com.apple.Kerberos.plist" PATH_SEP
 "/Library/Preferences/com.apple.Kerberos.plist" PATH_SEP
 "~/Library/Preferences/edu.mit.Kerberos" PATH_SEP
@@ -47,9 +55,10 @@ SYSCONFDIR "/krb5.conf"
 #ifdef _WIN32
 PATH_SEP "%{COMMON_APPDATA}/Kerberos/krb5.conf"
 PATH_SEP "%{WINDOWS}/krb5.ini"
-#else
+#else /* _WIN32 */
 PATH_SEP "/etc/krb5.conf"
-#endif
+#endif /* _WIN32 */
+#endif /* __APPLE_TARGET_EMBEDDED__ */
 ;
 
 KRB5_LIB_VARIABLE const char *krb5_defkeyname = KEYTAB_DEFAULT;

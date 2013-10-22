@@ -38,6 +38,10 @@ header=$(client_header "$idl")
 
 # -I $inludes: locates the .acf files
 
+# Since dceidl resides in /usr/local/bin, it needs to be in the search path so that
+# xcrun can find it. This is for when we build in Xcode using the Human Interface.
+export PATH=$PATH:/usr/local/bin
+
 echo generating client stubs for $(basename $idl)
 xcrun dceidl "$idl" \
     -server none \

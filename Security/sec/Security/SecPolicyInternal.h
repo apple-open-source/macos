@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2008-2012 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -37,9 +37,7 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFRuntime.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /********************************************************
  ****************** SecPolicy struct ********************
@@ -52,7 +50,7 @@ struct __SecPolicy {
 
 /*!
     @enum Policy Check Keys
-    @discussion Key that represent various check that can be done be a trust
+    @discussion Keys that represent various checks that can be done in a trust
 	policy.
     @constant kSecPolicyCheckCriticalExtensions Ensure that no certificate in the chain has any critical extensions that we do not understand.
     @constant kSecPolicyCheckIdLinkage Check that all the certificates in the chain that have a SubjectId, match the AuthorityId of the certificate they sign.  This check is optional, in that if either certificate is missing the required extension the check succeeds.
@@ -98,25 +96,28 @@ extern CFStringRef kSecPolicyCheckIssuerCommonName;
 extern CFStringRef kSecPolicyCheckSubjectCommonName;
 extern CFStringRef kSecPolicyCheckSubjectCommonNameTEST;
 extern CFStringRef kSecPolicyCheckSubjectOrganization;
+extern CFStringRef kSecPolicyCheckSubjectOrganizationalUnit;
 extern CFStringRef kSecPolicyCheckSubjectCommonNamePrefix;
 extern CFStringRef kSecPolicyCheckChainLength;
 extern CFStringRef kSecPolicyCheckNotValidBefore;
 extern CFStringRef kSecPolicyCheckEAPTrustedServerNames;
+extern CFStringRef kSecPolicyCheckCertificatePolicy;
 extern CFStringRef kSecPolicyCheckBasicCertificateProcessing;
 extern CFStringRef kSecPolicyCheckExtendedValidation;
 extern CFStringRef kSecPolicyCheckRevocation;
 extern CFStringRef kSecPolicyCheckNoNetworkAccess;
 extern CFStringRef kSecPolicyCheckBlackListedLeaf;
 extern CFStringRef kSecPolicyCheckBlackListedKey;
+extern CFStringRef kSecPolicyCheckGrayListedLeaf;
 extern CFStringRef kSecPolicyCheckLeafMarkerOid;
 extern CFStringRef kSecPolicyCheckIntermediateMarkerOid;
+extern CFStringRef kSecPolicyCheckGrayListedKey;
 
 SecPolicyRef SecPolicyCreate(CFStringRef oid, CFDictionaryRef options);
 
-CFArrayRef SecPolicyArraySerialize(CFArrayRef policies);
+xpc_object_t SecPolicyArrayCopyXPCArray(CFArrayRef policies, CFErrorRef *error);
+CFArrayRef SecPolicyXPCArrayCopyArray(xpc_object_t xpc_policies, CFErrorRef *error);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECPOLICYINTERNAL_H_ */

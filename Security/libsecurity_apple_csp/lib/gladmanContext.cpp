@@ -109,7 +109,7 @@ void GAESContext::init(
 
 		/* save this raw key data */
 		memmove(mRawKey, keyData, keyLen); 
-		mRawKeySize = keyLen;
+		mRawKeySize = (uint32)keyLen;
 		mWasEncrypting = encrypting;
 	}
 

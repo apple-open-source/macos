@@ -1,0 +1,495 @@
+//
+//  SOSCoder.c
+//  sec
+//
+//  Created by Richard Murphy on 2/6/13.
+//
+//
+#include <stdlib.h>
+
+#include <CoreFoundation/CFBase.h>
+#include <CoreFoundation/CFError.h>
+
+#include <Security/SecBasePriv.h>
+#include <Security/SecOTR.h>
+#include <Security/SecOTRSession.h>
+#include <SecureObjectSync/SOSInternal.h>
+#include <SecureObjectSync/SOSFullPeerInfo.h>
+#include <SecureObjectSync/SOSPeerInfo.h>
+#include <SecureObjectSync/SOSPeer.h>
+#include <SecureObjectSync/SOSCoder.h>
+
+#include <utilities/SecCFRelease.h>
+#include <utilities/SecCFWrappers.h>
+#include <utilities/SecIOFormat.h>
+#include <utilities/SecCFError.h>
+#include <utilities/debugging.h>
+
+#include <utilities/der_plist.h>
+#include <utilities/der_plist_internal.h>
+
+#include <corecrypto/ccder.h>
+#include <utilities/iCloudKeychainTrace.h>
+
+#include "AssertMacros.h"
+
+struct __OpaqueSOSCoder {
+    CFStringRef peer_id;
+    SecOTRSessionRef sessRef;
+    bool waitingForDataPacket;
+};
+
+static const char *SOSPeerCoderString(SOSPeerCoderStatus coderStatus) {
+    switch (coderStatus) {
+        case kSOSPeerCoderDataReturned: return "DataReturned";
+        case kSOSPeerCoderNegotiating: return "Negotiating";
+        case kSOSPeerCoderNegotiationCompleted: return "NegotiationCompleted";
+        case kSOSPeerCoderFailure: return "Failure";
+        case kSOSPeerCoderStaleEvent: return "StaleEvent";
+        default: return "StatusUnknown";
+    }
+}
+
+static size_t der_sizeof_bool(bool value) {
+    return ccder_sizeof(CCDER_BOOLEAN, 1);
+}
+
+static uint8_t* der_encode_bool(bool value, const uint8_t *der, uint8_t *der_end) {
+    uint8_t valueByte = value;
+    return ccder_encode_tl(CCDER_BOOLEAN, 1, der,
+              ccder_encode_body(1, &valueByte, der, der_end));
+}
+
+static const uint8_t* der_decode_bool(bool *value, const uint8_t *der, const uint8_t *der_end) {
+    size_t payload_size = 0;
+    
+    der = ccder_decode_tl(CCDER_BOOLEAN, &payload_size, der, der_end);
+    
+    if (payload_size != 1) {
+        der = NULL;
+    }
+    
+    if (der != NULL) {
+        *value = (*der != 0);
+        der++;
+    }
+
+    return der;
+}
+
+static CFMutableDataRef sessSerialized(SOSCoderRef coder, CFErrorRef *error) {
+    CFMutableDataRef otr_state = NULL;
+        
+    if(!coder || !coder->sessRef) {
+        SOSCreateErrorWithFormat(kSOSErrorUnexpectedType, NULL, error, 0, CFSTR("No session reference."));
+        return NULL;
+    }
+    
+    if ((otr_state = CFDataCreateMutable(NULL, 0)) == NULL) {
+        SOSCreateErrorWithFormat(kSOSErrorAllocationFailure, NULL, error, 0, CFSTR("Mutable Data allocation failed."));
+        return NULL;
+    }
+    
+    if (errSecSuccess != SecOTRSAppendSerialization(coder->sessRef, otr_state)) {
+        SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, NULL, error, 0, CFSTR("Append Serialization failed."));
+        CFReleaseSafe(otr_state);
+        return NULL;
+    }
+    
+    return otr_state;
+
+}
+
+static size_t SOSCoderGetDEREncodedSize(SOSCoderRef coder, CFErrorRef *error) {
+    size_t encoded_size = 0;
+    CFMutableDataRef otr_state = sessSerialized(coder, error);
+
+    if (otr_state) {
+        size_t data_size = der_sizeof_data(otr_state, error);
+        size_t waiting_size = der_sizeof_bool(coder->waitingForDataPacket);
+        
+        if ((data_size != 0) && (waiting_size != 0))
+        {
+            encoded_size = ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, data_size + waiting_size);
+        }
+        CFReleaseSafe(otr_state);
+    }
+    return encoded_size;
+}
+
+static uint8_t* SOSCoderEncodeToDER(SOSCoderRef coder, CFErrorRef* error, const uint8_t* der, uint8_t* der_end) {
+    if(!der_end) return NULL;
+    uint8_t* result = NULL;
+    CFMutableDataRef otr_state = sessSerialized(coder, error);
+    
+    if(otr_state) {
+        result = ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
+                 der_encode_data(otr_state, error, der,
+                 der_encode_bool(coder->waitingForDataPacket, der, der_end)));
+        CFReleaseSafe(otr_state);
+    }
+    return result;
+}
+
+
+CFDataRef SOSCoderCopyDER(SOSCoderRef coder, CFErrorRef* error) {
+    CFMutableDataRef encoded = NULL;
+    size_t encoded_size = SOSCoderGetDEREncodedSize(coder, error);
+    
+    if (encoded_size > 0) {
+        encoded = CFDataCreateMutable(NULL, encoded_size);
+        if (encoded) {
+            CFDataSetLength(encoded, encoded_size);
+            uint8_t * der = CFDataGetMutableBytePtr(encoded);
+            uint8_t * der_end = der + encoded_size;
+            if (!SOSCoderEncodeToDER(coder, error, der, der_end)) {
+                CFReleaseNull(encoded);
+                encoded = NULL;
+            }
+        }
+    }
+    return encoded;
+}
+
+SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error) {
+    
+    SOSCoderRef p = calloc(1, sizeof(struct __OpaqueSOSCoder));
+    
+    const uint8_t *der = CFDataGetBytePtr(exportedData);
+    const uint8_t *der_end = der + CFDataGetLength(exportedData);
+    
+    CFDataRef otr_data = NULL;
+
+    ccder_tag tag;
+    require(ccder_decode_tag(&tag, der, der_end),fail);
+
+    switch (tag) {
+        case CCDER_OCTET_STRING:
+        {
+            der = der_decode_data(kCFAllocatorDefault, 0, &otr_data, error, der, der_end);
+            p->waitingForDataPacket = false;
+        }
+        break;
+        
+        case CCDER_CONSTRUCTED_SEQUENCE:
+        {
+            const uint8_t *sequence_end = NULL;
+            der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
+            
+            require_action_quiet(sequence_end == der_end, fail, SecCFDERCreateError(kSOSErrorDecodeFailure, CFSTR("Extra data in SOS coder"), NULL, error));
+            
+            der = der_decode_data(kCFAllocatorDefault, 0, &otr_data, error, der, der_end);
+            der = der_decode_bool(&p->waitingForDataPacket, der, sequence_end);
+        }
+        break;
+        
+        default:
+            SecCFDERCreateError(kSOSErrorDecodeFailure, CFSTR("Unsupported SOS Coder DER"), NULL, error);
+            goto fail;
+    }
+
+    require(der, fail);
+    
+    p->sessRef = SecOTRSessionCreateFromData(NULL, otr_data);
+    require(p->sessRef, fail);
+
+    CFReleaseSafe(otr_data);
+    return p;
+        
+fail:
+    SOSCoderDispose(p);
+    CFReleaseSafe(otr_data);
+    return NULL;
+}
+
+
+SOSCoderRef SOSCoderCreate(SOSPeerInfoRef peerInfo, SOSFullPeerInfoRef myPeerInfo, CFErrorRef *error) {        
+    CFAllocatorRef allocator = CFGetAllocator(peerInfo);
+    
+    SOSCoderRef p = calloc(1, sizeof(struct __OpaqueSOSCoder));
+
+    SecOTRFullIdentityRef myRef = NULL;
+    SecOTRPublicIdentityRef peerRef = NULL;
+    SecKeyRef privateKey = NULL;
+    SecKeyRef publicKey = NULL;
+
+    if (myPeerInfo && peerInfo) {
+        privateKey = SOSFullPeerInfoCopyDeviceKey(myPeerInfo, error);
+        require_quiet(privateKey, errOut);
+
+        myRef = SecOTRFullIdentityCreateFromSecKeyRef(allocator, privateKey, error);
+        require_quiet(myRef, errOut);
+        
+        CFReleaseNull(privateKey);
+    
+        publicKey = SOSPeerInfoCopyPubKey(peerInfo);
+        
+        peerRef = SecOTRPublicIdentityCreateFromSecKeyRef(allocator, publicKey, error);
+        require_quiet(peerRef, errOut);
+        
+        p->sessRef = SecOTRSessionCreateFromID(allocator, myRef, peerRef);
+
+        require(p->sessRef, errOut);
+        
+        p->waitingForDataPacket = false;
+        
+        CFReleaseNull(publicKey);
+        CFReleaseNull(privateKey);
+        CFReleaseNull(myRef);
+        CFReleaseNull(peerRef);
+    } else {
+        secnotice("coder", "NULL Coder requested, no transport security");
+    }
+
+    return p;
+
+errOut:
+    secerror("Coder create failed: %@\n", *error);
+    CFReleaseNull(myRef);
+    CFReleaseNull(peerRef);
+    CFReleaseNull(publicKey);
+    CFReleaseNull(privateKey);
+
+    free(p);
+    return NULL;
+}
+
+void SOSCoderDispose(SOSCoderRef coder)
+{
+    CFReleaseNull(coder->sessRef);
+    
+    free(coder);
+}
+
+void SOSCoderReset(SOSCoderRef coder)
+{
+    SecOTRSessionReset(coder->sessRef);
+    coder->waitingForDataPacket = false;
+}
+
+static bool SOSOTRSAppendStartPacket(SecOTRSessionRef session, CFMutableDataRef appendPacket, CFErrorRef *error) {
+    OSStatus otrStatus = SecOTRSAppendStartPacket(session, appendPacket);
+    if (otrStatus != errSecSuccess) {
+        SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, (error != NULL) ? *error : NULL, error, NULL, CFSTR("append start packet returned: %" PRIdOSStatus), otrStatus);
+    }
+    return otrStatus == errSecSuccess;
+}
+
+// Start OTR negotiation if we haven't already done so.
+SOSPeerCoderStatus
+SOSCoderStart(SOSCoderRef coder, SOSPeerSendBlock sendBlock, CFStringRef clientId, CFErrorRef *error) {
+    CFMutableStringRef action = CFStringCreateMutable(kCFAllocatorDefault, 0);
+    CFStringRef beginState = NULL;
+    SOSPeerCoderStatus result = kSOSPeerCoderFailure;
+    CFMutableDataRef startPacket = NULL;
+
+    require_action_quiet(coder->sessRef, coderFailure, CFStringAppend(action, CFSTR("*** no otr session ***")));
+    beginState = CFCopyDescription(coder->sessRef);
+    require_action_quiet(!coder->waitingForDataPacket, negotiatingOut, CFStringAppend(action, CFSTR("waiting for peer to send first data packet")));
+    require_action_quiet(!SecOTRSGetIsReadyForMessages(coder->sessRef), coderFailure, CFStringAppend(action, CFSTR("otr session ready"));
+                         result = kSOSPeerCoderDataReturned);
+    require_action_quiet(SecOTRSGetIsIdle(coder->sessRef), negotiatingOut, CFStringAppend(action, CFSTR("otr negotiating already")));
+    require_action_quiet(startPacket = CFDataCreateMutable(kCFAllocatorDefault, 0), coderFailure, SOSCreateError(kSOSErrorAllocationFailure, CFSTR("alloc failed"), NULL, error));
+    require_quiet(SOSOTRSAppendStartPacket(coder->sessRef, startPacket, error), coderFailure);
+    require_quiet(sendBlock(startPacket, error), coderFailure);
+
+negotiatingOut:
+    result = kSOSPeerCoderNegotiating;
+coderFailure:
+    // Uber state log
+    if (result == kSOSPeerCoderFailure && error && *error)
+        CFStringAppendFormat(action, NULL, CFSTR(" %@"), *error);
+    secnotice("coder", "%@ %@ %s %@ %@ returned %s", clientId, beginState,
+              SecOTRPacketTypeString(startPacket), action, coder->sessRef, SOSPeerCoderString(result));
+    CFReleaseNull(startPacket);
+    CFReleaseSafe(beginState);
+    CFRelease(action);
+
+    return result;
+
+}
+
+SOSPeerCoderStatus
+SOSCoderResendDH(SOSCoderRef coder, SOSPeerSendBlock sendBlock, CFErrorRef *error) {
+    if(coder->sessRef == NULL) return kSOSPeerCoderDataReturned;
+    
+    CFMutableDataRef startPacket = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    if (SecOTRSAppendRestartPacket(coder->sessRef, startPacket)) {
+        return kSOSPeerCoderFailure;
+    }
+    
+    secnotice("coder", "Resending OTR Start %@", startPacket);
+    SOSPeerCoderStatus result = sendBlock(startPacket, error) ? kSOSPeerCoderNegotiating : kSOSPeerCoderFailure;
+    CFReleaseNull(startPacket);
+    return result;
+}
+
+
+static SOSPeerCoderStatus nullCoder(CFDataRef from, CFMutableDataRef *to) {
+    *to = CFDataCreateMutableCopy(NULL, CFDataGetLength(from), from);
+    return kSOSPeerCoderDataReturned;
+}
+
+SOSPeerCoderStatus SOSCoderUnwrap(SOSCoderRef coder, SOSPeerSendBlock send_block,
+                                  CFDataRef codedMessage, CFMutableDataRef *message,
+                                  CFStringRef clientId,
+                                  CFErrorRef *error) {
+    if(codedMessage == NULL) return kSOSPeerCoderDataReturned;
+    if(coder->sessRef == NULL) return nullCoder(codedMessage, message);
+    CFMutableStringRef action = CFStringCreateMutable(kCFAllocatorDefault, 0);
+    /* This should be the "normal" case.  We just use OTR to unwrap the received message. */
+    SOSPeerCoderStatus result = kSOSPeerCoderFailure;
+
+    CFStringRef beginState = CFCopyDescription(coder->sessRef);
+    enum SecOTRSMessageKind kind = SecOTRSGetMessageKind(coder->sessRef, codedMessage);
+
+    switch (kind) {
+        case kOTRNegotiationPacket: {
+            if(send_block) {
+                /* If we're in here we haven't completed negotiating a session.  Use SecOTRSProcessPacket() to go through
+                 the negotiation steps and immediately send a reply back if necessary using the sendBlock.  This
+                 assumes the sendBlock is still available.
+                 */
+                CFMutableDataRef response = CFDataCreateMutable(kCFAllocatorDefault, 0);
+                OSStatus ppstatus = errSecSuccess;
+                if (response) {
+                    switch (ppstatus = SecOTRSProcessPacket(coder->sessRef, codedMessage, response)) {
+                        case errSecSuccess:
+                            if (CFDataGetLength(response) > 1) {
+                                CFStringAppendFormat(action, NULL, CFSTR("Sending OTR Response %s"), SecOTRPacketTypeString(response));
+                                if (send_block(response, error)) {
+                                    result = kSOSPeerCoderNegotiating;
+                                    if (SecOTRSGetIsReadyForMessages(coder->sessRef)) {
+                                        CFStringAppend(action, CFSTR(" begin waiting for data packet"));
+                                        coder->waitingForDataPacket = true;
+                                    }
+                                } else {
+                                    secerror("%@ Coder send Error %@", clientId, (CFTypeRef)error);
+                                    result =  kSOSPeerCoderFailure;
+                                }
+                            } else if(!SecOTRSGetIsReadyForMessages(coder->sessRef)) {
+                                CFStringAppend(action, CFSTR("stuck?"));
+                                result = kSOSPeerCoderNegotiating;
+                            } else {
+                                CFStringAppend(action, CFSTR("completed negotiation"));
+                                result = kSOSPeerCoderNegotiationCompleted;
+                                coder->waitingForDataPacket = false;
+                            }
+                            break;
+                        case errSecDecode:
+                            CFStringAppend(action, CFSTR("resending dh"));
+                            result = SOSCoderResendDH(coder, send_block, error);
+                            break;
+                        default:
+                            SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, (error != NULL) ? *error : NULL, error, NULL, CFSTR("%@ Cannot negotiate session (%ld)"), clientId, (long)ppstatus);
+                            result = kSOSPeerCoderFailure;
+                            break;
+                    };
+                } else {
+                    SOSCreateErrorWithFormat(kSOSErrorAllocationFailure, (error != NULL) ? *error : NULL, error, NULL, CFSTR("%@ Cannot allocate CFData"), clientId);
+                    result = kSOSPeerCoderFailure;
+                }
+
+                CFReleaseNull(response);
+            } else {
+                secerror("%@ Can't send, no send_block!!", clientId);
+                SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, (error != NULL) ? *error : NULL, error, NULL, CFSTR("%@ Cannot negotiate session"), clientId);
+                result = kSOSPeerCoderFailure;
+            }
+
+            break;
+        }
+
+        case kOTRDataPacket:
+            if(!SecOTRSGetIsReadyForMessages(coder->sessRef)) {
+                CFStringAppend(action, CFSTR("not ready, resending DH packet"));
+				SetCloudKeychainTraceValueForKey(kCloudKeychainNumberOfTimesSyncFailed, 1);
+                CFStringAppend(action, CFSTR("not ready for data; resending dh"));
+                result = SOSCoderResendDH(coder, send_block, error);
+            } else {
+                if (coder->waitingForDataPacket) {
+                    CFStringAppend(action, CFSTR("got data packet we were waiting for "));
+                    coder->waitingForDataPacket = false;
+                }
+                CFMutableDataRef exposed = CFDataCreateMutable(0, 0);
+                OSStatus otrResult = SecOTRSVerifyAndExposeMessage(coder->sessRef, codedMessage, exposed);
+                CFStringAppend(action, CFSTR("verify and expose message"));
+                if (otrResult) {
+                    if (otrResult == errSecOTRTooOld) {
+                        CFStringAppend(action, CFSTR(" too old"));
+                        result = kSOSPeerCoderStaleEvent;
+                    } else {
+                        SecError(otrResult, error, CFSTR("%@ Cannot expose message: %" PRIdOSStatus), clientId, otrResult);
+                        secerror("%@ Decode OTR Protected Packet: %@", clientId, error ? *error : NULL);
+                        result = kSOSPeerCoderFailure;
+                    }
+                } else {
+                    CFStringAppend(action, CFSTR("decoded OTR protected packet"));
+                    *message = exposed;
+                    exposed = NULL;
+                    result = kSOSPeerCoderDataReturned;
+                }
+                CFReleaseNull(exposed);
+            }
+            break;
+
+        default:
+            secerror("%@ Unknown packet type: %@", clientId, codedMessage);
+            SOSCreateError(kSOSErrorDecodeFailure, CFSTR("Unknown packet type"), (error != NULL) ? *error : NULL, error);
+            result = kSOSPeerCoderFailure;
+            break;
+    };
+
+    // Uber state log
+    if (result == kSOSPeerCoderFailure && error && *error)
+        CFStringAppendFormat(action, NULL, CFSTR(" %@"), *error);
+    secnotice("coder", "%@ %@ %s %@ %@ returned %s", clientId, beginState,
+              SecOTRPacketTypeString(codedMessage), action, coder->sessRef, SOSPeerCoderString(result));
+    CFReleaseSafe(beginState);
+    CFRelease(action);
+
+    return result;
+}
+
+
+SOSPeerCoderStatus SOSCoderWrap(SOSCoderRef coder, CFDataRef message, CFMutableDataRef *codedMessage, CFStringRef clientId, CFErrorRef *error) {
+    CFMutableStringRef action = CFStringCreateMutable(kCFAllocatorDefault, 0);
+    SOSPeerCoderStatus result = kSOSPeerCoderDataReturned;
+    CFStringRef beginState = NULL;
+    CFMutableDataRef encoded = NULL;
+    OSStatus otrStatus = 0;
+
+    require_action_quiet(coder->sessRef, errOut,
+                         CFStringAppend(action, CFSTR("*** using null coder ***"));
+                         result = nullCoder(message, codedMessage));
+    beginState = CFCopyDescription(coder->sessRef);
+    require_action_quiet(SecOTRSGetIsReadyForMessages(coder->sessRef), errOut,
+                         CFStringAppend(action, CFSTR("not ready"));
+                         result = kSOSPeerCoderNegotiating);
+    require_action_quiet(!coder->waitingForDataPacket, errOut,
+                         CFStringAppend(action, CFSTR("waiting for peer to send data packet first"));
+                         result = kSOSPeerCoderNegotiating);
+    require_action_quiet(encoded = CFDataCreateMutable(kCFAllocatorDefault, 0), errOut,
+                         SOSCreateErrorWithFormat(kSOSErrorAllocationFailure, NULL, error, NULL, CFSTR("%@ alloc failed"), clientId);
+                         result = kSOSPeerCoderFailure);
+    require_noerr_action_quiet(otrStatus = SecOTRSSignAndProtectMessage(coder->sessRef, message, encoded), errOut,
+                               SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, (error != NULL) ? *error : NULL, error, NULL, CFSTR("%@ cannot protect message: %" PRIdOSStatus), clientId, otrStatus);
+                               CFReleaseNull(encoded);
+                               result = kSOSPeerCoderFailure);
+    *codedMessage = encoded;
+
+errOut:
+    // Uber state log
+    if (result == kSOSPeerCoderFailure && error && *error)
+        CFStringAppendFormat(action, NULL, CFSTR(" %@"), *error);
+    secnotice("coder", "%@ %@ %s %@ %@ returned %s", clientId, beginState,
+              SecOTRPacketTypeString(encoded), action, coder->sessRef, SOSPeerCoderString(result));
+    CFReleaseSafe(beginState);
+    CFRelease(action);
+
+    return result;
+}
+
+bool SOSCoderCanWrap(SOSCoderRef coder) {
+    return coder->sessRef && SecOTRSGetIsReadyForMessages(coder->sessRef) && !coder->waitingForDataPacket;
+}

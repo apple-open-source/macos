@@ -34,9 +34,7 @@
 #include <Security/SecKeyPriv.h>
 #include <CoreFoundation/CFData.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 typedef struct SecECPublicKeyParams {
 	uint8_t             *modulus;			/* modulus */
@@ -76,8 +74,6 @@ typedef enum
 SecECNamedCurve SecECKeyGetNamedCurve(SecKeyRef ecPrivateKey);
 CFDataRef SecECKeyCopyPublicBits(SecKeyRef key);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECECKEY_H_ */

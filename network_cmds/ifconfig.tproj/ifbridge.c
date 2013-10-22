@@ -1,3 +1,31 @@
+/*
+ * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
 /*-
  * Copyright 2001 Wasabi Systems, Inc.
  * All rights reserved.
@@ -32,11 +60,6 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
-#ifndef lint
-static const char rcsid[] =
-  "$FreeBSD: src/sbin/ifconfig/ifbridge.c,v 1.11.2.1.2.1 2008/11/25 02:59:29 kensmith Exp $";
-#endif /* not lint */
 
 #include <sys/param.h>
 #include <sys/ioctl.h>
@@ -79,7 +102,6 @@ static const char *stpstates[] = {
 	"blocking",
 	"discarding"
 };
-#ifdef notdef
 static const char *stpproto[] = {
 	"stp",
 	"-",
@@ -92,7 +114,6 @@ static const char *stproles[] = {
 	"alternate",
 	"backup"
 };
-#endif
 
 static int
 get_val(const char *cp, u_long *valp)
@@ -181,15 +202,12 @@ bridge_interfaces(int s, const char *prefix)
 		printf("\n");
 
 		printf("%s", pad);
-#ifdef notdef
 		printf("ifmaxaddr %u", req->ifbr_addrmax);
-#endif
 		printf(" port %u priority %u", req->ifbr_portno,
 		    req->ifbr_priority);
 		printf(" path cost %u", req->ifbr_path_cost);
 
 		if (req->ifbr_ifsflags & IFBIF_STP) {
-#ifdef notdef
 			if (req->ifbr_proto <
 			    sizeof(stpproto) / sizeof(stpproto[0]))
 				printf(" proto %s", stpproto[req->ifbr_proto]);
@@ -204,7 +222,6 @@ bridge_interfaces(int s, const char *prefix)
 			else
 				printf("<unknown role %d>",
 				    req->ifbr_role);
-#endif
 			if (req->ifbr_state <
 			    sizeof(stpstates) / sizeof(stpstates[0]))
 				printf(" state %s", stpstates[req->ifbr_state]);
@@ -244,13 +261,8 @@ bridge_addresses(int s, const char *prefix)
 		ifba = ifbac.ifbac_req + i;
 		memcpy(ea.octet, ifba->ifba_dst,
 		    sizeof(ea.octet));
-#ifdef notdef
 		printf("%s%s Vlan%d %s %lu ", prefix, ether_ntoa(&ea),
 		    ifba->ifba_vlan, ifba->ifba_ifsname, ifba->ifba_expire);
-#else
-		printf("%s%s %s %lu ", prefix, ether_ntoa(&ea),
-			   ifba->ifba_ifsname, ifba->ifba_expire);
-#endif
 		printb("flags", ifba->ifba_flags, IFBAFBITS);
 		printf("\n");
 	}
@@ -258,58 +270,17 @@ bridge_addresses(int s, const char *prefix)
 	free(inbuf);
 }
 
-void
-show_config(int sock, const char *prefix)
-{
-	struct ifbrparam param;
-	u_int32_t ipfflags;
-	u_int16_t pri;
-	u_int8_t ht, fd, ma;
-	
-	if (do_cmd(sock, BRDGGPRI, &param, sizeof(param), 0) < 0)
-		err(1, "unable to get bridge priority");
-	pri = param.ifbrp_prio;
-	
-	if (do_cmd(sock, BRDGGHT, &param, sizeof(param), 0) < 0)
-		err(1, "unable to get hellotime");
-	ht = param.ifbrp_hellotime;
-	
-	if (do_cmd(sock, BRDGGFD, &param, sizeof(param), 0) < 0)
-		err(1, "unable to get forward delay");
-	fd = param.ifbrp_fwddelay;
-	
-	if (do_cmd(sock, BRDGGMA, &param, sizeof(param), 0) < 0)
-		err(1, "unable to get max age");
-	ma = param.ifbrp_maxage;
-	
-	printf("%spriority %u hellotime %u fwddelay %u maxage %u\n",
-		   prefix, pri, ht, fd, ma);
-	
-	if (do_cmd(sock, BRDGGFILT, &param, sizeof(param), 0) < 0) {
-		/* err(1, "unable to get ipfilter status"); */
-		param.ifbrp_filter = 0;
-	}
-	
-	ipfflags = param.ifbrp_filter;
-	printf("%sipfilter %s flags 0x%x\n", prefix,
-		   (ipfflags & IFBF_FILT_USEIPF) ? "enabled" : "disabled",
-		   ipfflags);
-}
-
 static void
 bridge_status(int s)
 {
-#ifdef notdef
 	struct ifbropreq ifbp;
-#endif
 	struct ifbrparam param;
-#ifdef notdef
 	u_int16_t pri;
 	u_int8_t ht, fd, ma, hc, pro;
 	u_int8_t lladdr[ETHER_ADDR_LEN];
 	u_int16_t bprio;
-#endif
 	u_int32_t csize, ctime;
+	u_int32_t ipfflags;
 
 	if (do_cmd(s, BRDGGCACHE, &param, sizeof(param), 0) < 0)
 		return;
@@ -317,7 +288,9 @@ bridge_status(int s)
 	if (do_cmd(s, BRDGGTO, &param, sizeof(param), 0) < 0)
 		return;
 	ctime = param.ifbrp_ctime;
-#ifdef notdef
+	if (do_cmd(s, BRDGGFILT, &param, sizeof(param), 0) < 0)
+		return;	
+	ipfflags = param.ifbrp_filter;
 	if (do_cmd(s, BRDGPARAM, &ifbp, sizeof(ifbp), 0) < 0)
 		return;
 	pri = ifbp.ifbop_priority;
@@ -327,26 +300,25 @@ bridge_status(int s)
 	hc = ifbp.ifbop_holdcount;
 	ma = ifbp.ifbop_maxage;
 
+	printf("\tConfiguration:\n");
 	PV2ID(ifbp.ifbop_bridgeid, bprio, lladdr);
-	printf("\tid %s priority %u hellotime %u fwddelay %u\n",
+	printf("\t\tid %s priority %u hellotime %u fwddelay %u\n",
 	    ether_ntoa((struct ether_addr *)lladdr), pri, ht, fd);
-	printf("\tmaxage %u holdcnt %u proto %s maxaddr %u timeout %u\n",
+	printf("\t\tmaxage %u holdcnt %u proto %s maxaddr %u timeout %u\n",
 	    ma, hc, stpproto[pro], csize, ctime);
 
 	PV2ID(ifbp.ifbop_designated_root, bprio, lladdr);
-	printf("\troot id %s priority %d ifcost %u port %u\n",
+	printf("\t\troot id %s priority %d ifcost %u port %u\n",
 	    ether_ntoa((struct ether_addr *)lladdr), bprio,
 	    ifbp.ifbop_root_path_cost, ifbp.ifbop_root_port & 0xfff);
-#else
-	printf("\tConfiguration:\n");
-	show_config(s, "\t\t");
-#endif
+
+	printf("\t\tipfilter %s flags 0x%x\n",
+	   (ipfflags & IFBF_FILT_USEIPF) ? "enabled" : "disabled", ipfflags);
 
 	bridge_interfaces(s, "\tmember: ");
 
-	if (!all || verbose) {
-		printf("\tAddress cache (max cache: %u, timeout: %u):\n",
-			   csize, ctime);
+	if (!all || verbose > 1) {
+		printf("\tAddress cache:\n");
 		bridge_addresses(s, "\t\t");
 	}
 	return;
@@ -543,10 +515,8 @@ setbridge_static(const char *val, const char *mac, int s,
 
 	memcpy(req.ifba_dst, ea->octet, sizeof(req.ifba_dst));
 	req.ifba_flags = IFBAF_STATIC;
-#ifdef notdef
 	req.ifba_vlan = 1; /* XXX allow user to specify */
-#endif
-	
+
 	if (do_cmd(s, BRDGSADDR, &req, sizeof(req), 1) < 0)
 		err(1, "BRDGSADDR %s",  val);
 }
@@ -668,6 +638,7 @@ setbridge_protocol(const char *arg, int d, int s, const struct afswtch *afp)
 	if (do_cmd(s, BRDGSPROTO, &param, sizeof(param), 1) < 0)
 		err(1, "BRDGSPROTO %s",  arg);
 }
+
 static void
 setbridge_holdcount(const char *arg, int d, int s, const struct afswtch *afp)
 {
@@ -781,20 +752,24 @@ static struct cmd bridge_cmds[] = {
 	DEF_CMD_ARG("-discover",	unsetbridge_discover),
 	DEF_CMD_ARG("learn",		setbridge_learn),
 	DEF_CMD_ARG("-learn",		unsetbridge_learn),
-	//DEF_CMD_ARG("sticky",		setbridge_sticky),
-	//DEF_CMD_ARG("-sticky",		unsetbridge_sticky),
-	//DEF_CMD_ARG("span",		setbridge_span),
-	//DEF_CMD_ARG("-span",		unsetbridge_span),
+#ifdef notdef
+	DEF_CMD_ARG("sticky",		setbridge_sticky),
+	DEF_CMD_ARG("-sticky",		unsetbridge_sticky),
+	DEF_CMD_ARG("span",		setbridge_span),
+	DEF_CMD_ARG("-span",		unsetbridge_span),
+#endif
 	DEF_CMD_ARG("stp",		setbridge_stp),
 	DEF_CMD_ARG("-stp",		unsetbridge_stp),
-	//DEF_CMD_ARG("edge",		setbridge_edge),
-	//DEF_CMD_ARG("-edge",		unsetbridge_edge),
-	//DEF_CMD_ARG("autoedge",		setbridge_autoedge),
-	//DEF_CMD_ARG("-autoedge",	unsetbridge_autoedge),
-	//DEF_CMD_ARG("ptp",		setbridge_ptp),
-	//DEF_CMD_ARG("-ptp",		unsetbridge_ptp),
-	//DEF_CMD_ARG("autoptp",		setbridge_autoptp),
-	//DEF_CMD_ARG("-autoptp",		unsetbridge_autoptp),
+#ifdef notdef
+	DEF_CMD_ARG("edge",		setbridge_edge),
+	DEF_CMD_ARG("-edge",		unsetbridge_edge),
+	DEF_CMD_ARG("autoedge",		setbridge_autoedge),
+	DEF_CMD_ARG("-autoedge",	unsetbridge_autoedge),
+	DEF_CMD_ARG("ptp",		setbridge_ptp),
+	DEF_CMD_ARG("-ptp",		unsetbridge_ptp),
+	DEF_CMD_ARG("autoptp",		setbridge_autoptp),
+	DEF_CMD_ARG("-autoptp",		unsetbridge_autoptp),
+#endif
 	DEF_CMD("flush", 0,		setbridge_flush),
 	DEF_CMD("flushall", 0,		setbridge_flushall),
 	DEF_CMD_ARG2("static",		setbridge_static),
@@ -805,14 +780,20 @@ static struct cmd bridge_cmds[] = {
 	DEF_CMD_ARG("fwddelay",		setbridge_fwddelay),
 	DEF_CMD_ARG("maxage",		setbridge_maxage),
 	DEF_CMD_ARG("priority",		setbridge_priority),
-	//DEF_CMD_ARG("proto",		setbridge_protocol),
-	//DEF_CMD_ARG("holdcnt",		setbridge_holdcount),
+#ifdef notdef
+	DEF_CMD_ARG("proto",		setbridge_protocol),
+	DEF_CMD_ARG("holdcnt",		setbridge_holdcount),
+#endif
 	DEF_CMD_ARG2("ifpriority",	setbridge_ifpriority),
 	DEF_CMD_ARG2("ifpathcost",	setbridge_ifpathcost),
-	//DEF_CMD_ARG2("ifmaxaddr",	setbridge_ifmaxaddr),
+#ifdef notdef
+	DEF_CMD_ARG2("ifmaxaddr",	setbridge_ifmaxaddr),
+#endif
 	DEF_CMD_ARG("timeout",		setbridge_timeout),
-	//DEF_CMD_ARG("private",		setbridge_private),
-	//DEF_CMD_ARG("-private",		unsetbridge_private),
+#ifdef notdef
+	DEF_CMD_ARG("private",		setbridge_private),
+	DEF_CMD_ARG("-private",		unsetbridge_private),
+#endif
 };
 static struct afswtch af_bridge = {
 	.af_name	= "af_bridge",

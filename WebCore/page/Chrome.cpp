@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2010 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2012, Samsung Electronics. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +24,7 @@
 
 #include "ChromeClient.h"
 #include "DNS.h"
+#include "DateTimeChooser.h"
 #include "Document.h"
 #include "FileIconLoader.h"
 #include "FileChooser.h"
@@ -39,6 +41,7 @@
 #include "InspectorInstrumentation.h"
 #include "Page.h"
 #include "PageGroupLoadDeferrer.h"
+#include "PopupOpeningObserver.h"
 #include "RenderObject.h"
 #include "ResourceHandle.h"
 #include "SecurityOrigin.h"
@@ -94,6 +97,7 @@ void Chrome::invalidateContentsForSlowScroll(const IntRect& updateRect, bool imm
 void Chrome::scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
     m_client->scroll(scrollDelta, rectToScroll, clipRect);
+    InspectorInstrumentation::didScroll(m_page);
 }
 
 #if USE(TILED_BACKING_STORE)
@@ -186,11 +190,11 @@ void Chrome::focusedFrameChanged(Frame* frame) const
 Page* Chrome::createWindow(Frame* frame, const FrameLoadRequest& request, const WindowFeatures& features, const NavigationAction& action) const
 {
     Page* newPage = m_client->createWindow(frame, request, features, action);
+    if (!newPage)
+        return 0;
 
-    if (newPage) {
-        if (StorageNamespace* oldSessionStorage = m_page->sessionStorage(false))
-            newPage->setSessionStorage(oldSessionStorage->copy());
-    }
+    if (StorageNamespace* oldSessionStorage = m_page->sessionStorage(false))
+        newPage->setSessionStorage(oldSessionStorage->copy(newPage));
 
     return newPage;
 }
@@ -210,7 +214,7 @@ static bool canRunModalIfDuringPageDismissal(Page* page, ChromeClient::DialogTyp
     for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
         FrameLoader::PageDismissalType dismissal = frame->loader()->pageDismissalEventBeingDispatched();
         if (dismissal != FrameLoader::NoDismissal)
-            return page->chrome()->client()->shouldRunModalDialogDuringPageDismissal(dialog, message, dismissal);
+            return page->chrome().client()->shouldRunModalDialogDuringPageDismissal(dialog, message, dismissal);
     }
     return true;
 }
@@ -289,7 +293,10 @@ bool Chrome::runBeforeUnloadConfirmPanel(const String& message, Frame* frame)
     // otherwise cause the load to continue while we're in the middle of executing JavaScript.
     PageGroupLoadDeferrer deferrer(m_page, true);
 
-    return m_client->runBeforeUnloadConfirmPanel(message, frame);
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willRunJavaScriptDialog(m_page, message);
+    bool ok = m_client->runBeforeUnloadConfirmPanel(message, frame);
+    InspectorInstrumentation::didRunJavaScriptDialog(cookie);
+    return ok;
 }
 
 void Chrome::closeWindowSoon()
@@ -307,7 +314,12 @@ void Chrome::runJavaScriptAlert(Frame* frame, const String& message)
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    m_client->runJavaScriptAlert(frame, frame->displayStringModifiedByEncoding(message));
+    notifyPopupOpeningObservers();
+    String displayMessage = frame->displayStringModifiedByEncoding(message);
+
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willRunJavaScriptDialog(m_page, displayMessage);
+    m_client->runJavaScriptAlert(frame, displayMessage);
+    InspectorInstrumentation::didRunJavaScriptDialog(cookie);
 }
 
 bool Chrome::runJavaScriptConfirm(Frame* frame, const String& message)
@@ -320,7 +332,13 @@ bool Chrome::runJavaScriptConfirm(Frame* frame, const String& message)
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    return m_client->runJavaScriptConfirm(frame, frame->displayStringModifiedByEncoding(message));
+    notifyPopupOpeningObservers();
+    String displayMessage = frame->displayStringModifiedByEncoding(message);
+
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willRunJavaScriptDialog(m_page, displayMessage);
+    bool ok = m_client->runJavaScriptConfirm(frame, displayMessage);
+    InspectorInstrumentation::didRunJavaScriptDialog(cookie);
+    return ok;
 }
 
 bool Chrome::runJavaScriptPrompt(Frame* frame, const String& prompt, const String& defaultValue, String& result)
@@ -333,7 +351,12 @@ bool Chrome::runJavaScriptPrompt(Frame* frame, const String& prompt, const Strin
     PageGroupLoadDeferrer deferrer(m_page, true);
 
     ASSERT(frame);
-    bool ok = m_client->runJavaScriptPrompt(frame, frame->displayStringModifiedByEncoding(prompt), frame->displayStringModifiedByEncoding(defaultValue), result);
+    notifyPopupOpeningObservers();
+    String displayPrompt = frame->displayStringModifiedByEncoding(prompt);
+
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willRunJavaScriptDialog(m_page, displayPrompt);
+    bool ok = m_client->runJavaScriptPrompt(frame, displayPrompt, frame->displayStringModifiedByEncoding(defaultValue), result);
+    InspectorInstrumentation::didRunJavaScriptDialog(cookie);
 
     if (ok)
         result = frame->displayStringModifiedByEncoding(result);
@@ -355,13 +378,6 @@ bool Chrome::shouldInterruptJavaScript()
 
     return m_client->shouldInterruptJavaScript();
 }
-
-#if ENABLE(REGISTER_PROTOCOL_HANDLER)
-void Chrome::registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title) 
-{
-    m_client->registerProtocolHandler(scheme, baseURL, url, title);
-}
-#endif
 
 IntRect Chrome::windowResizerRect() const
 {
@@ -445,6 +461,16 @@ void Chrome::print(Frame* frame)
     m_client->print(frame);
 }
 
+void Chrome::enableSuddenTermination()
+{
+    m_client->enableSuddenTermination();
+}
+
+void Chrome::disableSuddenTermination()
+{
+    m_client->disableSuddenTermination();
+}
+
 #if ENABLE(DIRECTORY_UPLOAD)
 void Chrome::enumerateChosenDirectory(FileChooser* fileChooser)
 {
@@ -455,12 +481,22 @@ void Chrome::enumerateChosenDirectory(FileChooser* fileChooser)
 #if ENABLE(INPUT_TYPE_COLOR)
 PassOwnPtr<ColorChooser> Chrome::createColorChooser(ColorChooserClient* client, const Color& initialColor)
 {
+    notifyPopupOpeningObservers();
     return m_client->createColorChooser(client, initialColor);
+}
+#endif
+
+#if ENABLE(DATE_AND_TIME_INPUT_TYPES)
+PassRefPtr<DateTimeChooser> Chrome::openDateTimeChooser(DateTimeChooserClient* client, const DateTimeChooserParameters& parameters)
+{
+    notifyPopupOpeningObservers();
+    return m_client->openDateTimeChooser(client, parameters);
 }
 #endif
 
 void Chrome::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileChooser)
 {
+    notifyPopupOpeningObservers();
     m_client->runOpenPanel(frame, fileChooser);
 }
 
@@ -495,8 +531,8 @@ void Chrome::scheduleAnimation()
 
 // --------
 
-#if ENABLE(DASHBOARD_SUPPORT)
-void ChromeClient::dashboardRegionsChanged()
+#if ENABLE(DASHBOARD_SUPPORT) || ENABLE(DRAGGABLE_REGION)
+void ChromeClient::annotatedRegionsChanged()
 {
 }
 #endif
@@ -547,17 +583,39 @@ bool Chrome::hasOpenedPopup() const
 
 PassRefPtr<PopupMenu> Chrome::createPopupMenu(PopupMenuClient* client) const
 {
+    notifyPopupOpeningObservers();
     return m_client->createPopupMenu(client);
 }
 
 PassRefPtr<SearchPopupMenu> Chrome::createSearchPopupMenu(PopupMenuClient* client) const
 {
+    notifyPopupOpeningObservers();
     return m_client->createSearchPopupMenu(client);
 }
 
 bool Chrome::requiresFullscreenForVideoPlayback()
 {
     return m_client->requiresFullscreenForVideoPlayback();
+}
+
+void Chrome::registerPopupOpeningObserver(PopupOpeningObserver* observer)
+{
+    ASSERT(observer);
+    m_popupOpeningObservers.append(observer);
+}
+
+void Chrome::unregisterPopupOpeningObserver(PopupOpeningObserver* observer)
+{
+    size_t index = m_popupOpeningObservers.find(observer);
+    ASSERT(index != notFound);
+    m_popupOpeningObservers.remove(index);
+}
+
+void Chrome::notifyPopupOpeningObservers() const
+{
+    const Vector<PopupOpeningObserver*> observers(m_popupOpeningObservers);
+    for (size_t i = 0; i < observers.size(); ++i)
+        observers[i]->willOpenPopup();
 }
 
 } // namespace WebCore

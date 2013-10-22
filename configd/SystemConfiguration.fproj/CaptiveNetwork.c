@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2010, 2012, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,11 +34,11 @@
 #pragma mark CaptiveNetwork.framework APIs (exported through the SystemConfiguration.framework)
 
 
-#if	TARGET_OS_EMBEDDED
+#if	TARGET_OS_IPHONE
 const CFStringRef kCNNetworkInfoKeySSIDData    = CFSTR("SSIDDATA");
 const CFStringRef kCNNetworkInfoKeySSID        = CFSTR("SSID");
 const CFStringRef kCNNetworkInfoKeyBSSID       = CFSTR("BSSID");
-#endif	// TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_IPHONE
 
 
 static void *
@@ -109,7 +109,7 @@ CNCopySupportedInterfaces(void)
 }
 
 
-#if	TARGET_OS_EMBEDDED
+#if	TARGET_OS_IPHONE
 CFDictionaryRef
 CNCopyCurrentNetworkInfo(CFStringRef	interfaceName)
 {
@@ -120,4 +120,4 @@ CNCopyCurrentNetworkInfo(CFStringRef	interfaceName)
 	}
 	return dyfunc ? dyfunc(interfaceName) : NULL;
 }
-#endif	// TARGET_OS_EMBEDDED
+#endif	// TARGET_OS_IPHONE

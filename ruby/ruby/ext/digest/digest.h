@@ -2,14 +2,14 @@
 
   digest.h - header file for ruby digest modules
 
-  $Author: shyouhei $
+  $Author: akr $
   created at: Fri May 25 08:54:56 JST 2001
 
 
   Copyright (C) 2001-2006 Akinori MUSHA
 
   $RoughId: digest.h,v 1.3 2001/07/13 15:38:27 knu Exp $
-  $Id: digest.h 11708 2007-02-12 23:01:19Z shyouhei $
+  $Id: digest.h 25189 2009-10-02 12:04:37Z akr $
 
 ************************************************/
 

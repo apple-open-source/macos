@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -159,14 +159,6 @@ static int	S_scan_period_secs = SCAN_PERIOD_SECS;
 #define NUMBER_OF_SCANS			1
 static int	S_number_of_scans = NUMBER_OF_SCANS;
 
-/* 
- * Static: S_debug
- *
- * Purpose:
- *   Controls whether the packet trace is dumped to stdout or not.
- */
-static bool	S_debug = FALSE;
-
 /*
  * Static: S_transmit_loss_percent, S_receive_loss_percent
  * Purpose:
@@ -233,8 +225,9 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
 			  EAPOLSocketRef sock,
 			  EAPOLPacketType packet_type,
 			  void * body, unsigned int body_length);
-static bool
-EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source);
+static void
+EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source,
+				    const struct ether_addr * rx_source_mac);
 
 static EAPOLSocketRef
 EAPOLSocketSourceLookupPreauthSocket(EAPOLSocketSourceRef source, 
@@ -275,13 +268,8 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key, boolean_t def)
     if (b != NULL) {
 	ret = CFBooleanGetValue(b);
     }
-    if (eapolclient_should_log(kLogFlagTunables)) {
-	FILE *	log_file = eapolclient_log_file();
-
-	SCPrint(TRUE, log_file,
-		CFSTR("%@ = %s\n"), key, ret == TRUE ? "true" : "false");
-	fflush(log_file);
-    }
+    eapolclient_log(kLogFlagTunables,
+		    "%@ = %s", key, ret == TRUE ? "true" : "false");
     return (ret);
 }
 
@@ -299,11 +287,8 @@ S_get_plist_int_log(CFDictionaryRef plist, CFStringRef key, int def,
 	    ret = def;
 	}
     }
-    if (should_log && eapolclient_should_log(kLogFlagTunables)) {
-	FILE *	log_file = eapolclient_log_file();
-
-	SCPrint(TRUE, log_file, CFSTR("%@ = %d\n"), key, ret);
-	fflush(log_file);
+    if (should_log) {
+	eapolclient_log(kLogFlagTunables, "%@ = %d", key, ret);
     }
     return (ret);
 }
@@ -352,12 +337,12 @@ EAPOLSocketSetGlobals(SCPreferencesRef prefs)
 
 	if (CFNumberGetValue(mtu, kCFNumberIntType, 
 			     &mtu_val) == FALSE) {
-	    my_log(LOG_NOTICE, "com.apple.eapolclient.MTU invalid");
+	    EAPLOG_FL(LOG_NOTICE, "com.apple.eapolclient.MTU invalid");
 	}
 	else if (mtu_val < EAPOL_MTU_MIN) {
-	    my_log(LOG_NOTICE,
-		   "com.apple.eapolclient.MTU %d < %d, using default %d",
-		   mtu_val, EAPOL_MTU_MIN, EAPOL_MTU_DEFAULT);
+	    EAPLOG_FL(LOG_NOTICE,
+		      "com.apple.eapolclient.MTU %d < %d, using default %d",
+		      mtu_val, EAPOL_MTU_MIN, EAPOL_MTU_DEFAULT);
 	}
 	else {
 	    S_mtu = mtu_val;
@@ -390,20 +375,14 @@ EAPOLSocketSetGlobals(SCPreferencesRef prefs)
 	S_transmit_loss_percent 
 	    = S_get_plist_int_log(plist, kTransmitPacketLossPercent, 0, FALSE);
 	if (S_transmit_loss_percent != 0) {
-	    eapolclient_log(kLogFlagBasic,
-			    "Will simulate %d%% transmit packet loss\n",
-			    S_transmit_loss_percent);
-	    my_log(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "Will simulate %d%% transmit packet loss",
 		   S_transmit_loss_percent);
 	}
 	S_receive_loss_percent
 	    = S_get_plist_int_log(plist, kReceivePacketLossPercent, 0, FALSE);
 	if (S_receive_loss_percent != 0) {
-	    eapolclient_log(kLogFlagBasic,
-			    "Will simulate %d%% receive packet loss\n",
-			    S_receive_loss_percent);
-	    my_log(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "Will simulate %d%% receive packet loss",
 		   S_receive_loss_percent);
 	}
@@ -434,13 +413,6 @@ EAPOLSocketSetEAPTxPacket(EAPOLSocketRef sock, EAPPacketRef pkt, int length)
 	bcopy(pkt, sock->eap_tx_packet, length);
 	sock->eap_tx_packet_length = length;
     }
-    return;
-}
-
-void
-EAPOLSocketSetDebug(boolean_t debug)
-{
-    S_debug = debug;
     return;
 }
 
@@ -520,7 +492,7 @@ EAPOLSocketFree(EAPOLSocketRef * sock_p)
 
 boolean_t
 EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type, 
-		    int index, const uint8_t * key, int key_length)
+		  int index, const uint8_t * key, int key_length)
 {
 #ifdef NO_WIRELESS
     return (FALSE);
@@ -608,7 +580,7 @@ EAPOLSocketClearPMKCache(EAPOLSocketRef sock)
 	return;
     }
     if (wireless_clear_wpa_pmk_cache(source->wref)) {
-	eapolclient_log(kLogFlagBasic, "PMK cache cleared\n");
+	eapolclient_log(kLogFlagBasic, "PMK cache cleared");
     }
 #endif /* NO_WIRELESS */
     return;
@@ -643,16 +615,14 @@ EAPOLSocketSetWPAKey(EAPOLSocketRef sock,
 	/* pre-auth supplicant */
 	bssid = &sock->bssid;
     }
-    if (eapolclient_should_log(kLogFlagBasic)) {
-	if (bssid == NULL) {
-	    eapolclient_log(kLogFlagBasic, "set_key %d/%d\n",
-			    session_key_length, server_key_length);
-	}
-	else {
-	    eapolclient_log(kLogFlagBasic, 
-			    "set_key %s %d/%d\n", ether_ntoa(bssid),
-			    session_key_length, server_key_length);
-	}
+    if (bssid == NULL) {
+	eapolclient_log(kLogFlagBasic, "set_key %d/%d",
+			session_key_length, server_key_length);
+    }
+    else {
+	eapolclient_log(kLogFlagBasic, 
+			"set_key %s %d/%d", ether_ntoa(bssid),
+			session_key_length, server_key_length);
     }
     return (wireless_set_wpa_key(source->wref, bssid,
 				 session_key, session_key_length,
@@ -703,16 +673,17 @@ EAPOLSocketReportStatus(EAPOLSocketRef sock, CFDictionaryRef status_dict)
 	    break;
 	case kSupplicantStateLogoff:
 	    if (EAPOLSocketIsWireless(sock) == FALSE) {
-		/* 5900529: wait for 1/2 second before the force renew */
-		usleep(500 * 1000);
+		source->need_force_renew = TRUE;
 	    }
-	    EAPOLSocketSourceForceRenew(source);
+	    else {
+		EAPOLSocketSourceForceRenew(source);
+	    }
 	    break;
 	}
 	result = EAPOLClientReportStatus(client, status_dict);
 	if (result != 0) {
-	    my_log(LOG_NOTICE, "EAPOLClientReportStatus failed: %s",
-		   strerror(result));
+	    EAPLOG_FL(LOG_NOTICE, "EAPOLClientReportStatus failed: %s",
+		      strerror(result));
 	}
 	if (S_enable_preauth && sock->source->is_wireless) {
 	    switch (supplicant_state) {
@@ -733,31 +704,22 @@ EAPOLSocketReportStatus(EAPOLSocketRef sock, CFDictionaryRef status_dict)
 
 	switch (Supplicant_get_state(sock->supp, &client_status)) {
 	case kSupplicantStateHeld:
-	    my_log(LOG_NOTICE, "Supplicant %s Held, status %d",
+	    EAPLOG(LOG_NOTICE, "Supplicant %s Held, status %d",
 		   ether_ntoa(&sock->bssid), client_status);
-	    eapolclient_log(kLogFlagBasic,
-			    "Supplicant %s Held, status %d\n",
-			    ether_ntoa(&sock->bssid), client_status);
 	    EAPOLSocketMarkForRemoval(sock);
 	    break;
 	case kSupplicantStateAuthenticated:
-	    if (eapolclient_should_log(kLogFlagBasic)) {
-		eapolclient_log(kLogFlagBasic,
-				"Supplicant %s Authenticated - Complete\n",
-				ether_ntoa(&sock->bssid));
-	    }
+	    eapolclient_log(kLogFlagBasic,
+			    "Supplicant %s Authenticated - Complete",
+			    ether_ntoa(&sock->bssid));
 	    EAPOLSocketMarkForRemoval(sock);
 	    break;
 	case kSupplicantStateAuthenticating:
 	    /* check for user input required, if so kill it */
 	    if (client_status == kEAPClientStatusUserInputRequired) {
-		my_log(LOG_NOTICE,
+		EAPLOG(LOG_NOTICE,
 		       "Supplicant %s Authenticating, requires user input",
 		       ether_ntoa(&sock->bssid));
-		eapolclient_log(kLogFlagBasic,
-				"Supplicant %s Authenticating,"
-				" requires user input\n", 
-				ether_ntoa(&sock->bssid));
 		EAPOLSocketMarkForRemoval(sock);
 	    }
 	    break;
@@ -821,35 +783,17 @@ EAPOLSocketReassociate(EAPOLSocketRef sock)
 }
 
 /**
- ** packet validation/printing routines
+ ** packet printing
  **/
 static void
-ether_header_fprint(FILE * f, struct ether_header * eh_p)
+ether_header_print_to_string(CFMutableStringRef str, struct ether_header * eh_p)
 {
-    fprintf(f, "Ether packet: dest %s ",
-	    ether_ntoa((void *)eh_p->ether_dhost));
-    fprintf(f, "source %s type 0x%04x\n", 
-	    ether_ntoa((void *)eh_p->ether_shost),
-	    ntohs(eh_p->ether_type));
+    STRING_APPEND(str, "Ether packet: dest %s ",
+		  ether_ntoa((void *)eh_p->ether_dhost));
+    STRING_APPEND(str, "source %s type 0x%04x\n", 
+		  ether_ntoa((void *)eh_p->ether_shost),
+		  ntohs(eh_p->ether_type));
     return;
-}
-
-static bool
-ether_header_valid(struct ether_header * eh_p, unsigned int length,
-		   FILE * f)
-{
-    if (length < sizeof(*eh_p)) {
-	if (f != NULL) {
-	    fprintf(f, "Packet length %d < sizeof(*eh_p) %ld\n",
-		    length, sizeof(*eh_p));
-	    fprint_data(f, (void *)eh_p, length);
-	}
-	return (FALSE);
-    }
-    if (f != NULL) {
-	ether_header_fprint(f, eh_p);
-    }
-    return (TRUE);
 }
 
 /**
@@ -871,8 +815,8 @@ link_event_register(const char * if_name,
     store = SCDynamicStoreCreate(NULL, CFSTR("EAPOLClient"), 
 				 func, &context);
     if (store == NULL) {
-	my_log(LOG_NOTICE, "SCDynamicStoreCreate() failed, %s",
-	       SCErrorString(SCError()));
+	EAPLOG_FL(LOG_NOTICE, "SCDynamicStoreCreate() failed, %s",
+		  SCErrorString(SCError()));
 	return (NULL);
     }
     keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -913,7 +857,7 @@ EAPOLSocketSourceForceRenew(EAPOLSocketSourceRef source)
     if (client == NULL) {
 	return;
     }
-    eapolclient_log(kLogFlagBasic, "force renew\n");
+    eapolclient_log(kLogFlagBasic, "force renew");
     (void)EAPOLClientForceRenew(client);
     return;
 }
@@ -921,7 +865,8 @@ EAPOLSocketSourceForceRenew(EAPOLSocketSourceRef source)
 static void
 EAPOLSocketSourceStop(EAPOLSocketSourceRef source)
 {
-    my_log(LOG_NOTICE, "%s STOP", source->if_name);
+    EAPLOG(LOG_NOTICE, "%s STOP", source->if_name);
+    source->need_force_renew = FALSE;
     Supplicant_stop(source->sock->supp);
     EAPOLSocketSourceFree(&source);
     exit(EX_OK);
@@ -940,7 +885,7 @@ EAPOLSocketSourceClientNotification(EAPOLClientRef client, Boolean server_died,
     EAPOLSocketSourceRef	source = (EAPOLSocketSourceRef)context;
 
     if (server_died) {
-	my_log(LOG_NOTICE, "%s: EAPOLController died", source->if_name);
+	EAPLOG(LOG_NOTICE, "%s: EAPOLController died", source->if_name);
 	if (source->mode == kEAPOLControlModeUser) {
 	    goto stop;
 	}
@@ -949,20 +894,20 @@ EAPOLSocketSourceClientNotification(EAPOLClientRef client, Boolean server_died,
     }
     result = EAPOLClientGetConfig(client, &control_dict);
     if (result != 0) {
-	my_log(LOG_NOTICE, "%s: EAPOLClientGetConfig failed, %s",
+	EAPLOG(LOG_NOTICE, "%s: EAPOLClientGetConfig failed, %s",
 	       source->if_name, strerror(result));
 	goto stop;
     }
     if (control_dict == NULL) {
-	my_log(LOG_NOTICE, "%s: EAPOLClientGetConfig returned NULL control",
-	       source->if_name);
+	EAPLOG_FL(LOG_NOTICE, "%s: EAPOLClientGetConfig returned NULL control",
+		  source->if_name);
 	goto stop;
     }
     command_cf = CFDictionaryGetValue(control_dict,
 				      kEAPOLClientControlCommand);
     if (get_number(command_cf, &command) == FALSE) {
-	my_log(LOG_NOTICE, "%s: invalid/missing command",
-	       source->if_name);
+	EAPLOG_FL(LOG_NOTICE, "%s: invalid/missing command",
+		  source->if_name);
 	goto stop;
     }
     if (Supplicant_control(source->sock->supp, command, 
@@ -1040,12 +985,12 @@ EAPOLSocketSourceLinkStatusChanged(SCDynamicStoreRef session,
     EAPOLSocketSourceRef	source = (EAPOLSocketSourceRef)info;
 
     source->link_active = is_link_active(source->if_name);
-    eapolclient_log(kLogFlagBasic, "link %s\n",
+    eapolclient_log(kLogFlagBasic, "link %s",
 		    source->link_active ? "active" : "inactive");
 
     /* make sure our wireless information is up to date */
     if (source->is_wireless) {
-	EAPOLSocketSourceUpdateWirelessInfo(source);
+	EAPOLSocketSourceUpdateWirelessInfo(source, NULL);
     }
 
     /* let the 802.1X Supplicant know about the link status change */
@@ -1062,7 +1007,8 @@ EAPOLSocketSourceLinkStatusChanged(SCDynamicStoreRef session,
 static void
 EAPOLSocketSourceReceive(void * arg1, void * arg2)
 {
-    uint32_t			buf[EAPOLSOCKET_RECV_BUFSIZE / sizeof(uint32_t)];
+    uint32_t			buf[EAPOLSOCKET_RECV_BUFSIZE
+				    / sizeof(uint32_t)];
     EAPOLPacketRef		eapol_p;
     struct ether_header *	eh_p = (struct ether_header *)buf;
     uint16_t			ether_type;
@@ -1075,18 +1021,13 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
     n = recv(FDHandler_fd(source->handler), (char *)buf, sizeof(buf), 0);
     if (n <= 0) {
 	if (n < 0) {
-	    my_log(LOG_NOTICE, "EAPOLSocketSourceReceive: recv failed %s",
-		   strerror(errno));
+	    EAPLOG_FL(LOG_NOTICE, "recv failed %s", strerror(errno));
 	}
 	goto done;
     }
-    if (S_debug) {
-	printf("\n"
-	       "----------------------------------------\n");
-	timestamp_fprintf(stdout, "Receive Packet Size: %d\n", n);
-    }
-    if (ether_header_valid(eh_p, n, S_debug ? stdout : NULL)
-	== FALSE) {
+    if (n < sizeof(*eh_p)) {
+	EAPLOG_FL(LOG_NOTICE, "Packet truncated (%d < %d)",
+		  n, (int)sizeof(*eh_p));
 	goto done;
     }
     ether_type = ntohs(eh_p->ether_type);
@@ -1095,15 +1036,22 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
     case IEEE80211_PREAUTH_ETHERTYPE:
 	break;
     default:
-	if (S_debug) {
-	    fprintf(stdout, "Unexpected ethertype (%02x)\n",
-		    ether_type);
-	}
+	EAPLOG_FL(LOG_NOTICE, "Unexpected ethertype (%02x)", ether_type);
 	goto done;
     }
     eapol_p = (void *)(eh_p + 1);
     length = n - sizeof(*eh_p);
-    if (EAPOLPacketValid(eapol_p, length, S_debug ? stdout : NULL) == FALSE) {
+    if (EAPOLPacketIsValid(eapol_p, length, NULL) == FALSE) {
+	if (eapolclient_should_log(kLogFlagBasic)) {
+	    CFMutableStringRef	log_msg;
+	    
+	    log_msg = CFStringCreateMutable(NULL, 0);
+	    ether_header_print_to_string(log_msg, eh_p);
+	    EAPOLPacketIsValid(eapol_p, length, log_msg);
+	    EAPLOG(-LOG_DEBUG, "Ignoring Receive Packet Size %d\n%@",
+		   n, log_msg);
+	    CFRelease(log_msg);
+	}
 	goto done;
     }
     if (ether_type == EAPOL_802_1_X_ETHERTYPE) {
@@ -1114,7 +1062,9 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
 	    if (source->bssid_valid == FALSE
 		|| bcmp(eh_p->ether_shost, &source->bssid,
 			sizeof(eh_p->ether_shost)) != 0) {
-		EAPOLSocketSourceUpdateWirelessInfo(source);
+		EAPOLSocketSourceUpdateWirelessInfo(source,
+						    (const struct ether_addr *)
+						    eh_p->ether_shost);
 	    }
 	}
     }
@@ -1122,19 +1072,19 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
     rx->length = length;
     rx->eapol_p = eapol_p;
     if (eapolclient_should_log(kLogFlagPacketDetails)) {
-	FILE *	log_file = eapolclient_log_file();
-	
-	eapolclient_log(kLogFlagPacketDetails,
-			"Receive Packet Size %d\n", n);
-	ether_header_fprint(log_file, eh_p);
-	EAPOLPacketValid(eapol_p, length, log_file);
-	fflush(log_file);
+	CFMutableStringRef	log_msg;
+
+	log_msg = CFStringCreateMutable(NULL, 0);
+	ether_header_print_to_string(log_msg, eh_p);
+	EAPOLPacketIsValid(eapol_p, length, log_msg);
+	EAPLOG(-LOG_DEBUG, "Receive Packet Size %d\n%@", n, log_msg);
+	CFRelease(log_msg);
     }
     else if (eapolclient_should_log(kLogFlagBasic)) {
-	eapolclient_log(kLogFlagBasic,
-			"Receive Size %d Type 0x%04x From %s\n",
-			n, ntohs(eh_p->ether_type),
-			ether_ntoa((void *)eh_p->ether_shost));
+	EAPLOG(LOG_DEBUG,
+	       "Receive Size %d Type 0x%04x From %s",
+	       n, ntohs(eh_p->ether_type),
+	       ether_ntoa((void *)eh_p->ether_shost));
     }
     /* dispatch the packet to the right socket */
     if (ether_type == EAPOL_802_1_X_ETHERTYPE) {
@@ -1162,7 +1112,7 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
 	}
 	if (retransmit) {
 	    eapolclient_log(kLogFlagBasic,
-			    "Retransmit EAP packet %d bytes\n",
+			    "Retransmit EAP packet %d bytes",
 			    sock->eap_tx_packet_length);
 	    EAPOLSocketSourceTransmit(sock->source, sock,
 				      kEAPOLPacketTypeEAPPacket,
@@ -1172,10 +1122,7 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
 	else if (S_receive_loss_percent != 0 
 		 && S_simulated_event_occurred(S_receive_loss_percent)) {
 	    /* drop the packet */
-	    eapolclient_log(kLogFlagBasic,
-			    "Simulate receive packet loss: dropping %d bytes\n",
-			    length);
-	    my_log(LOG_NOTICE,
+	    EAPLOG(LOG_NOTICE,
 		   "Simulate receive packet loss: dropping %d bytes",
 		   length);
 	}
@@ -1184,10 +1131,6 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
 	}
     }
     rx->eapol_p = NULL;
-    if (S_debug) {
-	fflush(stdout);
-	fflush(stderr);
-    }
 
  done:
     return;
@@ -1221,17 +1164,13 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
 	if (source->is_wireless) {
 	    /* if we don't know the bssid, try to update it now */
 	    if (source->bssid_valid == FALSE) {
-		EAPOLSocketSourceUpdateWirelessInfo(source);
+		EAPOLSocketSourceUpdateWirelessInfo(source, NULL);
 		if (source->bssid_valid == FALSE) {
 		    /* bssid unknown, drop the packet */
 		    eapolclient_log(kLogFlagBasic,
 				    "Transmit: unknown BSSID,"
-				    " not sending %d bytes\n",
+				    " not sending %d bytes",
 				    body_length + sizeof(*eapol_p));
-		    my_log(LOG_DEBUG,
-			   "EAPOLSocketSourceTransmit: unknown BSSID"
-			   ", not sending %d bytes",
-			   body_length + sizeof(*eapol_p));
 		    return (-1);
 		}
 	    }
@@ -1267,47 +1206,32 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
     ndrv.snd_len = sizeof(ndrv);
     ndrv.snd_family = AF_NDRV;
 
-    if (S_debug) {
-	printf("\n"
-	       "========================================\n");
-	timestamp_fprintf(stdout, "Transmit Packet Size %d\n", size);
-	ether_header_valid(eh_p, size, stdout);
-	EAPOLPacketValid(eapol_p, body_length + sizeof(*eapol_p), stdout);
-	fflush(stdout);
-	fflush(stderr);
-    }
-
     if (eapolclient_should_log(kLogFlagPacketDetails)) {
-	FILE *		log_file = eapolclient_log_file();
+	CFMutableStringRef	log_msg;
 
-	eapolclient_log(kLogFlagPacketDetails,
-			"Transmit Packet Size %d\n", 
-			body_length + sizeof(*eapol_p));
-	ether_header_fprint(log_file, eh_p);
-	EAPOLPacketValid(eapol_p, 
-			 body_length + sizeof(*eapol_p),
-			 log_file);
-	fflush(log_file);
+	log_msg = CFStringCreateMutable(NULL, 0);
+	ether_header_print_to_string(log_msg, eh_p);
+	EAPOLPacketIsValid(eapol_p, body_length + sizeof(*eapol_p), log_msg);
+	EAPLOG(-LOG_DEBUG, "Transmit Packet Size %d\n%@", 
+	       body_length + sizeof(*eapol_p), log_msg);
+	CFRelease(log_msg);
     }
     else if (eapolclient_should_log(kLogFlagBasic)) {
-	eapolclient_log(kLogFlagBasic,
-			"Transmit Size %d Type 0x%04x To %s\n",
-			body_length + sizeof(*eapol_p),
-			ntohs(eh_p->ether_type),
-			ether_ntoa((void *)eh_p->ether_dhost));
+	EAPLOG(LOG_DEBUG,
+	       "Transmit Size %d Type 0x%04x To %s",
+	       body_length + sizeof(*eapol_p),
+	       ntohs(eh_p->ether_type),
+	       ether_ntoa((void *)eh_p->ether_dhost));
     }
     if (S_transmit_loss_percent != 0 
 	&& S_simulated_event_occurred(S_transmit_loss_percent)) {
-	eapolclient_log(kLogFlagBasic,
-			"Simulate transmit packet loss: dropping %d bytes\n",
-			body_length);
-	my_log(LOG_NOTICE,
-	       "Simulate transmit packet loss: dropping %d bytes",
+	EAPLOG(LOG_NOTICE,
+	       "Simulating transmit packet loss: dropping %d bytes",
 	       body_length);
     }
     else if (sendto(FDHandler_fd(source->handler), eh_p, size,
 		    0, (struct sockaddr *)&ndrv, sizeof(ndrv)) < size) {
-	my_log(LOG_NOTICE, "EAPOLSocketSourceTransmit: sendto failed, %s",
+	EAPLOG(LOG_NOTICE, "EAPOLSocketSourceTransmit: sendto failed, %s",
 	       strerror(errno));
 	return (-1);
     }
@@ -1333,7 +1257,7 @@ EAPOLSocketSourceRemovePreauthSockets(EAPOLSocketSourceRef source)
 	EAPOLSocketRef	sock = remove_list[i];
 
 	if (eapolclient_should_log(kLogFlagBasic)) {
-	    eapolclient_log(kLogFlagBasic, "Removing Supplicant for %s\n",
+	    eapolclient_log(kLogFlagBasic, "Removing Supplicant for %s",
 			    ether_ntoa(&sock->bssid));
 	}
 	Supplicant_free(&sock->supp);
@@ -1398,20 +1322,20 @@ EAPOLSocketSourceCreate(const char * if_name,
     else {
 	fd = eapol_socket(if_name, is_wireless);
 	if (fd == -1) {
-	    my_log(LOG_NOTICE,
-		   "EAPOLSocketSourceCreate: eapol_socket(%s) failed, %m");
+	    EAPLOG_FL(LOG_NOTICE, "eapol_socket(%s) failed, %s",
+		      strerror(errno));
 	    goto failed;
 	}
     }
     handler = FDHandler_create(fd);
     if (handler == NULL) {
-	my_log(LOG_NOTICE, "EAPOLSocketSourceCreate: FDHandler_create failed");
+	EAPLOG_FL(LOG_NOTICE, "FDHandler_create failed");
 	goto failed;
     }
 
     source = malloc(sizeof(*source));
     if (source == NULL) {
-	my_log(LOG_NOTICE, "EAPOLSocketSourceCreate: malloc failed");
+	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	goto failed;
     }
     bzero(source, sizeof(*source));
@@ -1424,12 +1348,12 @@ EAPOLSocketSourceCreate(const char * if_name,
 					   EAPOLSocketSourceObserver,
 					   &context);
 	if (observer == NULL) {
-	    my_log(LOG_INFO, "CFRunLoopObserverCreate failed\n");
+	    EAPLOG_FL(LOG_NOTICE, "CFRunLoopObserverCreate failed");
 	    goto failed;
 	}
 	scan_timer = Timer_create();
 	if (scan_timer == NULL) {
-	    my_log(LOG_INFO, "Timer_create failed\n");
+	    EAPLOG_FL(LOG_NOTICE, "Timer_create failed");
 	    goto failed;
 	}
     }
@@ -1437,8 +1361,8 @@ EAPOLSocketSourceCreate(const char * if_name,
 				EAPOLSocketSourceLinkStatusChanged,
 				source);
     if (store == NULL) {
-	my_log(LOG_NOTICE, "link_event_register failed: %s",
-	       SCErrorString(SCError()));
+	EAPLOG_FL(LOG_NOTICE, "link_event_register failed: %s",
+		  SCErrorString(SCError()));
 	goto failed;
     }
     TAILQ_INIT(&source->preauth_sockets);
@@ -1455,8 +1379,8 @@ EAPOLSocketSourceCreate(const char * if_name,
 				       EAPOLSocketSourceClientNotification, 
 				       source, control_dict_p, &result);
     if (source->client == NULL) {
-	my_log(LOG_NOTICE, "EAPOLClientAttach(%s) failed: %s",
-	       source->if_name, strerror(result));
+	EAPLOG_FL(LOG_NOTICE, "EAPOLClientAttach(%s) failed: %s",
+		  source->if_name, strerror(result));
     }
     if (observer != NULL) {
 	source->observer = observer;
@@ -1504,7 +1428,7 @@ EAPOLSocketSourceRemoveSocketWithBSSID(EAPOLSocketSourceRef source,
 	return;
     }
     if (eapolclient_should_log(kLogFlagBasic)) {
-	eapolclient_log(kLogFlagBasic, "Removing Supplicant for %s\n",
+	eapolclient_log(kLogFlagBasic, "Removing Supplicant for %s",
 			ether_ntoa(bssid));
     }
     Supplicant_free(&sock->supp);
@@ -1512,52 +1436,73 @@ EAPOLSocketSourceRemoveSocketWithBSSID(EAPOLSocketSourceRef source,
     return;
 }
 
-static bool
-EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source)
+static void
+EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source,
+				    const struct ether_addr * rx_source_mac)
 {
 #ifdef NO_WIRELESS
-    return (FALSE);
+    return;
 #else /* NO_WIRELESS */
     struct ether_addr	ap_mac;
     bool 		ap_mac_valid = FALSE;
-    bool		changed = FALSE;
 
     if (source->is_wireless == FALSE) {
-	return (FALSE);
+	return;
     }
     ap_mac_valid = wireless_ap_mac(source->wref, &ap_mac);
     if (ap_mac_valid == FALSE) {
-	my_log(LOG_DEBUG,
-	       "EAPOLSocketSourceUpdateWirelessInfo: not associated");
-	changed = source->bssid_valid;
 	source->bssid_valid = FALSE;
 	source->is_wpa_enterprise = FALSE;
 	EAPOLSocketSourceUnscheduleHandshakeNotification(source);
-	eapolclient_log(kLogFlagBasic, "Disassociated\n");
+	eapolclient_log(kLogFlagBasic, "Disassociated");
 	my_CFRelease(&source->ssid);
 	Timer_cancel(source->scan_timer);
 	wireless_scan_cancel(source->wref);
 	source->authenticated = FALSE;
     }
     else {
-	CFStringRef	ssid;
-
+	const struct ether_addr *	bssid;
+	bool				changed;
+	CFStringRef			ssid;
+	
+	/*
+	 * Update the BSSID
+	 *
+	 * If we have a source MAC address i.e. we're being called from receive,
+	 * use that as the BSSID instead of the value from the ioctl: the value
+	 * from the ioctl could potentially be stale (see rdar://12350239).
+	 *
+	 * If we don't have a source MAC address, only update the BSSID if
+	 * we don't know a value yet.
+	 */
+	if (rx_source_mac != NULL) {
+	    bssid = rx_source_mac;
+	}
+	else if (source->bssid_valid) {
+	    return;
+	}
+	else {
+	    bssid = &ap_mac;
+	}
 	if (source->bssid_valid == FALSE
-	    || bcmp(&ap_mac, &source->bssid, sizeof(ap_mac)) != 0) {
+	    || bcmp(bssid, &source->bssid, sizeof(source->bssid)) != 0) {
 	    changed = TRUE;
 
 	    if (S_enable_preauth) {
 		/* remove any pre-auth socket with the new bssid */
-		EAPOLSocketSourceRemoveSocketWithBSSID(source, &ap_mac);
+		EAPOLSocketSourceRemoveSocketWithBSSID(source, bssid);
 		if (source->bssid_valid == TRUE) {
 		    /* we roamed */
 		    EAPOLSocketSourceScheduleScan(source,
-						  S_scan_delay_roam_secs);
+					      S_scan_delay_roam_secs);
 		}
 	    }
 	}
+	else {
+	    changed = FALSE;
+	}
 	source->bssid_valid = TRUE;
-	source->bssid = ap_mac;
+	source->bssid = *bssid;
 	ssid = wireless_copy_ssid_string(source->wref);
 	source->is_wpa_enterprise = wireless_is_wpa_enterprise(source->wref);
 	if (source->ssid != NULL && ssid != NULL
@@ -1566,24 +1511,15 @@ EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source)
 	}
 	my_CFRelease(&source->ssid);
 	source->ssid = ssid;
-	if (S_debug) {
-	    SCLog(TRUE, LOG_NOTICE, 
-		  CFSTR("EAPOLSocketSourceUpdateWirelessInfo:"
-			" ssid %@ bssid %s"),
-		  (source->ssid != NULL) ? source->ssid : CFSTR("<unknown>"),
-		  ether_ntoa(&ap_mac));
-	}
-	if (eapolclient_should_log(kLogFlagBasic)) {
-	    FILE *	log_file = eapolclient_log_file();
-
-	    eapolclient_log(kLogFlagBasic, "Associated");
-	    SCPrint(TRUE, log_file, CFSTR(" SSID %@ BSSID %s\n"),
-		    (source->ssid != NULL) ? source->ssid : CFSTR("<unknown>"),
-		    ether_ntoa(&ap_mac));
-	    fflush(log_file);
+	if (changed) {
+	    eapolclient_log(kLogFlagBasic,
+			    "Associated SSID %@ BSSID %s",
+			    (source->ssid != NULL) ? source->ssid
+			    : CFSTR("<unknown>"),
+			    ether_ntoa(bssid));
 	}
     }
-    return (changed);
+    return;
 #endif /* NO_WIRELESS */
 }
 
@@ -1611,6 +1547,11 @@ EAPOLSocketSourceFree(EAPOLSocketSourceRef * source_p)
 	    my_CFRelease(&source->observer);
 	}
 	my_CFRelease(&source->store);
+	if (source->need_force_renew) {
+	    /* 5900529: wait for 1/2 second before the force renew */
+	    usleep(500 * 1000);
+	    EAPOLSocketSourceForceRenew(source);
+	}
 	EAPOLClientDetach(&source->client);
 
 	Timer_free(&source->scan_timer);
@@ -1630,7 +1571,7 @@ EAPOLSocketSourceCreateSocket(EAPOLSocketSourceRef source,
 
     sock = malloc(sizeof(*sock));
     if (sock == NULL) {
-	my_log(LOG_NOTICE, "EAOLSocketSourceCreateSocket: malloc failed");
+	EAPLOG_FL(LOG_NOTICE, "malloc failed");
 	return (NULL);
     }
     bzero(sock, sizeof(*sock));
@@ -1667,21 +1608,21 @@ EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
 	    goto failed;
 	}
 	if (command != kEAPOLClientControlCommandRun) {
-	    my_log(LOG_NOTICE, "%s: received stop command", source->if_name);
+	    EAPLOG(LOG_NOTICE, "%s: received stop command", source->if_name);
 	    goto failed;
 	}
 	mode_cf = CFDictionaryGetValue(control_dict,
 				       kEAPOLClientControlMode);
 	if (mode_cf != NULL
 	    && get_number(mode_cf, &mode) == FALSE) {
-	    my_log(LOG_NOTICE, "%s: Mode property invalid",
-		   source->if_name);
+	    EAPLOG_FL(LOG_NOTICE, "%s: Mode property invalid",
+		      source->if_name);
 	    goto failed;
 	}
 	config_dict = CFDictionaryGetValue(control_dict,
 					   kEAPOLClientControlConfiguration);
 	if (config_dict == NULL) {
-	    my_log(LOG_NOTICE, "%s: configuration empty", source->if_name);
+	    EAPLOG_FL(LOG_NOTICE, "%s: configuration empty", source->if_name);
 	    goto failed;
 	}
     }
@@ -1720,24 +1661,25 @@ EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
 static void
 S_log_bssid_list(CFArrayRef bssid_list)
 {
-    int		count;
-    int		i;
-    FILE *	log_file = eapolclient_log_file();
+    int			count;
+    int			i;
+    CFMutableStringRef	log_msg;
 
     count = CFArrayGetCount(bssid_list);
-    eapolclient_log(kLogFlagBasic, "Scan complete: %d AP%s = {", 
-		    count, (count == 1) ? "" : "s");
+    log_msg = CFStringCreateMutable(NULL, 0);
     for (i = 0; i < count; i++) {
 	CFDataRef			bssid_data;
 	const struct ether_addr *	bssid;
-		
+	
 	bssid_data = CFArrayGetValueAtIndex(bssid_list, i);
 	bssid = (const struct ether_addr *)CFDataGetBytePtr(bssid_data);
-	fprintf(log_file, "%s%s", (i == 0) ? "" : ", ",
-		ether_ntoa(bssid));
+	STRING_APPEND(log_msg, "%s%s", (i == 0) ? "" : ", ",
+		      ether_ntoa(bssid));
     }
-    fprintf(log_file, "}\n");
-    fflush(log_file);
+    EAPLOG(-LOG_DEBUG, "Scan complete: %d AP%s = { %@ }", 
+	   count, (count == 1) ? "" : "s", log_msg);
+    CFRelease(log_msg);
+    return;
 }
 
 static void
@@ -1747,12 +1689,10 @@ EAPOLSocketSourceScanCallback(wireless_t wref,
     EAPOLSocketSourceRef	source = (EAPOLSocketSourceRef)arg;
 
     if (bssid_list == NULL) {
-	eapolclient_log(kLogFlagBasic, "Scan complete: no APs\n");
+	eapolclient_log(kLogFlagBasic, "Scan complete: no APs");
     }
     else if (source->bssid_valid == FALSE) {
-	eapolclient_log(kLogFlagBasic,
-			"Scan complete: Supplicant bssid unknown\n");
-	my_log(LOG_NOTICE, "main Supplicant bssid is unknown, skipping");
+	EAPLOG(LOG_NOTICE, "main Supplicant bssid is unknown, skipping");
     }
     else {
 	int	count;
@@ -1785,21 +1725,14 @@ EAPOLSocketSourceScanCallback(wireless_t wref,
 	    sock->supp = Supplicant_create_with_supplicant(sock,
 							   source->sock->supp);
 	    if (sock->supp == NULL) {
-		my_log(LOG_NOTICE, "Supplicant create %s failed",
-		       ether_ntoa(&sock->bssid));
-		if (eapolclient_should_log(kLogFlagBasic)) {
-		    eapolclient_log(kLogFlagBasic,
-				    "Supplicant create %s failed\n",
-				    ether_ntoa(&sock->bssid));
-		}
+		EAPLOG_FL(LOG_NOTICE, "Supplicant create %s failed",
+			  ether_ntoa(&sock->bssid));
 		EAPOLSocketFree(&sock);
 	    }
 	    else {
-		if (eapolclient_should_log(kLogFlagBasic)) {
-		    eapolclient_log(kLogFlagBasic,
-				    "Supplicant %s created\n",
-				    ether_ntoa(&sock->bssid));
-		}
+		eapolclient_log(kLogFlagBasic,
+				"Supplicant %s created",
+				ether_ntoa(&sock->bssid));
 		Supplicant_start(sock->supp);
 	    }
 	}
@@ -1817,7 +1750,7 @@ EAPOLSocketSourceInitiateScan(EAPOLSocketSourceRef source)
 	wireless_scan(source->wref, source->ssid,
 		      S_number_of_scans, EAPOLSocketSourceScanCallback,
 		      (void *)source);
-	eapolclient_log(kLogFlagBasic, "Scan initiated\n");
+	eapolclient_log(kLogFlagBasic, "Scan initiated");
     }
     return;
 }
@@ -1867,7 +1800,7 @@ EAPOLSocketSourceHandshakeComplete(InterestNotificationRef interest_p,
     EAPOLSocketSourceRef	source = (EAPOLSocketSourceRef)arg;
     SupplicantState		supplicant_state;
 
-    eapolclient_log(kLogFlagBasic, "4-way handshake complete\n");
+    eapolclient_log(kLogFlagBasic, "4-way handshake complete");
     supplicant_state = Supplicant_get_state(source->sock->supp, &client_status);
     switch (supplicant_state) {
     case kSupplicantStateAuthenticated:
@@ -1902,7 +1835,7 @@ EAPOLSocketSourceScheduleHandshakeNotification(EAPOLSocketSourceRef source)
 	}
 	source->authenticated = TRUE;
 	eapolclient_log(kLogFlagBasic,
-			"4-way handshake notification scheduled\n");
+			"4-way handshake notification scheduled");
     }
     return;
 }
@@ -1912,7 +1845,7 @@ EAPOLSocketSourceUnscheduleHandshakeNotification(EAPOLSocketSourceRef source)
 {
     if (EAPOLSocketSourceReleaseHandshakeNotification(source)) {
 	eapolclient_log(kLogFlagBasic,
-			"4-way handshake notification unscheduled\n");
+			"4-way handshake notification unscheduled");
     }
     return;
 }

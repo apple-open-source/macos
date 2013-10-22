@@ -1,19 +1,18 @@
 #include "base.xcconfig"
-#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/AspenFamily.xcconfig"
 
 PRODUCT_NAME = $(TARGET_NAME)
 EXECUTABLE_PREFIX = 
 
 CODE_SIGN_IDENTITY = 
 
-HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR) $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers $(inherited)
+HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR) $(PROJECT_DIR)/../include $(BUILT_PRODUCTS_DIR)/derived_src $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers $(inherited)
 
-HEADER_SEARCH_PATHS[sdk=iphone*] = $(PROJECT_DIR) $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(inherited)
+HEADER_SEARCH_PATHS[sdk=iphone*] = $(PROJECT_DIR) $(PROJECT_DIR)/../sec $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(inherited)
 
 INSTALL_PATH = $(INDIGO_INSTALL_PATH_PREFIX)/usr/local/lib
 INSTALL_PATH_ACTUAL[sdk=iphonesimulator*] = /usr/local/lib
 PRIVATE_HEADERS_FOLDER_PATH[sdk=iphone*] = $(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include/security_asn1
-PUBLIC_HEADERS_FOLDER_PATH[sdk=iphone*] = $(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include/Security
+PUBLIC_HEADERS_FOLDER_PATH[sdk=iphone*] = $(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include/security_asn1
 PRIVATE_HEADERS_FOLDER_PATH[sdk=macosx*] = /usr/local/include/security_asn1
 PUBLIC_HEADERS_FOLDER_PATH[sdk=macosx*] = /usr/local/include/security_asn1
 

@@ -117,7 +117,7 @@ const CssmQuery &Query::cssmQuery() const
 			pred.attribute().set(it->mValue.get());
 			mPredicates.push_back(pred);
 		}
-		mQuery.set(mPredicates.size(), &mPredicates[0]);
+		mQuery.set((uint32)mPredicates.size(), &mPredicates[0]);
 		mQueryValid = true;
 	}
 	return mQuery;

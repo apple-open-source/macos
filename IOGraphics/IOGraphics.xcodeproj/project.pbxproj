@@ -56,14 +56,9 @@
 		A68335A00D450E6600307FE3 /* IONDRVFramebuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4E900BB072011CA2A5F /* IONDRVFramebuffer.h */; };
 		A68335A10D450E6600307FE3 /* IONDRVSupport.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4EA00BB072011CA2A5F /* IONDRVSupport.h */; };
 		A68335A20D450E6600307FE3 /* IONDRV.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4ED00BB072011CA2A5F /* IONDRV.h */; };
-		A68335A30D450E6600307FE3 /* IOPEFInternals.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4F100BB072011CA2A5F /* IOPEFInternals.h */; };
-		A68335A40D450E6600307FE3 /* IOPEFLibraries.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4F200BB072011CA2A5F /* IOPEFLibraries.h */; };
-		A68335A50D450E6600307FE3 /* IOPEFLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 221BC4F400BB072011CA2A5F /* IOPEFLoader.h */; };
 		A68335A70D450E6600307FE3 /* IONDRV.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4EC00BB072011CA2A5F /* IONDRV.cpp */; };
 		A68335A80D450E6600307FE3 /* IONDRVFramebuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */; };
 		A68335A90D450E6600307FE3 /* IONDRVLibraries.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */; };
-		A68335AA0D450E6600307FE3 /* IOPEFInternals.c in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4F000BB072011CA2A5F /* IOPEFInternals.c */; };
-		A68335AB0D450E6600307FE3 /* IOPEFLoader.c in Sources */ = {isa = PBXBuildFile; fileRef = 221BC4F300BB072011CA2A5F /* IOPEFLoader.c */; };
 		A68335B70D450E6600307FE3 /* IOGraphicsTypesPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 0347EDA701BC52A103CA2A5F /* IOGraphicsTypesPrivate.h */; };
 		A68335B80D450E6600307FE3 /* IOI2CInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 03E63E0301BD474F03CA2A5F /* IOI2CInterface.h */; };
 		A68335B90D450E6600307FE3 /* IOI2CInterfacePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 03E63E0401BD474F03CA2A5F /* IOI2CInterfacePrivate.h */; };
@@ -298,11 +293,6 @@
 		221BC4ED00BB072011CA2A5F /* IONDRV.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRV.h; sourceTree = "<group>"; };
 		221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVFramebuffer.cpp; sourceTree = "<group>"; };
 		221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVLibraries.cpp; sourceTree = "<group>"; };
-		221BC4F000BB072011CA2A5F /* IOPEFInternals.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOPEFInternals.c; sourceTree = "<group>"; };
-		221BC4F100BB072011CA2A5F /* IOPEFInternals.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPEFInternals.h; sourceTree = "<group>"; };
-		221BC4F200BB072011CA2A5F /* IOPEFLibraries.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPEFLibraries.h; sourceTree = "<group>"; };
-		221BC4F300BB072011CA2A5F /* IOPEFLoader.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOPEFLoader.c; sourceTree = "<group>"; };
-		221BC4F400BB072011CA2A5F /* IOPEFLoader.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPEFLoader.h; sourceTree = "<group>"; };
 		A68335990D450E6600307FE3 /* Info-IOGraphicsFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOGraphicsFamily.plist"; sourceTree = "<group>"; };
 		A683359A0D450E6600307FE3 /* IOGraphicsFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOGraphicsFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		A68335B30D450E6600307FE3 /* Info-IONDRVSupport.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IONDRVSupport.plist"; sourceTree = "<group>"; };
@@ -421,11 +411,6 @@
 				221BC4ED00BB072011CA2A5F /* IONDRV.h */,
 				221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */,
 				221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */,
-				221BC4F000BB072011CA2A5F /* IOPEFInternals.c */,
-				221BC4F100BB072011CA2A5F /* IOPEFInternals.h */,
-				221BC4F200BB072011CA2A5F /* IOPEFLibraries.h */,
-				221BC4F300BB072011CA2A5F /* IOPEFLoader.c */,
-				221BC4F400BB072011CA2A5F /* IOPEFLoader.h */,
 				03F3AC4701BD482403CA2A5F /* IONDRVI2CInterface.cpp */,
 				03F3AC4801BD482403CA2A5F /* IONDRVI2CInterface.h */,
 			);
@@ -489,9 +474,6 @@
 				A68335A00D450E6600307FE3 /* IONDRVFramebuffer.h in Headers */,
 				A68335A10D450E6600307FE3 /* IONDRVSupport.h in Headers */,
 				A68335A20D450E6600307FE3 /* IONDRV.h in Headers */,
-				A68335A30D450E6600307FE3 /* IOPEFInternals.h in Headers */,
-				A68335A40D450E6600307FE3 /* IOPEFLibraries.h in Headers */,
-				A68335A50D450E6600307FE3 /* IOPEFLoader.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -701,8 +683,6 @@
 				A68335A70D450E6600307FE3 /* IONDRV.cpp in Sources */,
 				A68335A80D450E6600307FE3 /* IONDRVFramebuffer.cpp in Sources */,
 				A68335A90D450E6600307FE3 /* IONDRVLibraries.cpp in Sources */,
-				A68335AA0D450E6600307FE3 /* IOPEFInternals.c in Sources */,
-				A68335AB0D450E6600307FE3 /* IOPEFLoader.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -244,7 +244,7 @@ int ppp_link_input(struct ppp_link *link, mbuf_t m)
 			return 0;
 	}
 
-    p = mbuf_data(m);
+    p = mbuf_data(m);	// no alignment issue as p is *uchar.
     if ((p[0] == PPP_ALLSTATIONS) && (p[1] == PPP_UI)) {
         mbuf_adj(m, 2);
         p = mbuf_data(m);
@@ -400,7 +400,7 @@ it should be done accordingly to the ppp negociation as well.
 ----------------------------------------------------------------------------- */
 int ppp_link_send(struct ppp_link *link, mbuf_t m)
 {
-    u_char 	*p = mbuf_data(m);
+    u_char 	*p = mbuf_data(m);	// no alignment issue as p is *uchar.
     u_int16_t 	proto = ((u_int16_t)p[0] << 8) + p[1];
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
@@ -448,7 +448,7 @@ void ppp_link_logmbuf(struct ppp_link *link, char *msg, mbuf_t m)
     IOLog("%s: [ifnet = %s%d] [link = %s%d]\n", msg,
             LKIFNAME(link), LKIFUNIT(link), LKNAME(link), LKUNIT(link));
 
-    for (count = mbuf_len(m), data = mbuf_data(m); m != NULL; ) {
+    for (count = mbuf_len(m), data = mbuf_data(m); m != NULL; ) {	// no alignment issue as data is *uchar.
         /* build a line of output */
         for(lcount = 0; lcount < sizeof(lbuf); lcount += copycount) {
             if (!count) {

@@ -58,7 +58,7 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 
-#include <System/net/pfkeyv2.h>
+#include <net/pfkeyv2.h>
 
 #include <netinet/in.h>
 #ifndef HAVE_NETINET6_IPSEC
@@ -94,11 +94,8 @@
 #include "isakmp_var.h"
 #include "isakmp.h"
 #include "oakley.h"
-#include "evt.h"
 #include "pfkey.h"
 #include "ipsec_doi.h"
-#include "admin.h"
-#include "admin_var.h"
 #include "isakmp_inf.h"
 #ifdef ENABLE_HYBRID
 #include "isakmp_cfg.h"
@@ -109,6 +106,7 @@
 #include "sainfo.h"
 #include "ipsec_doi.h"
 #include "nattraversal.h"
+#include "fsm.h"
 
 #include "vpn_control.h"
 #include "vpn_control_var.h"
@@ -117,7 +115,7 @@
 #include "ipsecMessageTracer.h"
 
 
-static int vpn_get_ph2pfs(struct ph1handle *);
+static int vpn_get_ph2pfs (phase1_handle_t *);
 
 int
 vpn_connect(struct bound_addr *srv, int oper)
@@ -141,7 +139,7 @@ vpn_connect(struct bound_addr *srv, int oper)
 	 * Find the source address
 	 */	 
 	if ((local = getlocaladdr((struct sockaddr *)dst)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"cannot get local address\n");
 		goto out1;
 	}
@@ -149,15 +147,15 @@ vpn_connect(struct bound_addr *srv, int oper)
 	/* find appropreate configuration */
 	rmconf = getrmconf(dst);
 	if (rmconf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"no configuration found "
 			"for %s\n", saddrwop2str((struct sockaddr *)dst));
 		goto out1;
 	}
 
 	/* get remote IP address and port number. */
-	if ((remote = dupsaddr((struct sockaddr *)dst)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
+	if ((remote = dupsaddr(dst)) == NULL) {
+		plog(ASL_LEVEL_ERR, 
 			"failed to duplicate address\n");
 		goto out1;
 	}
@@ -174,7 +172,7 @@ vpn_connect(struct bound_addr *srv, int oper)
 		break;
 #endif
 	default:
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"invalid family: %d\n",
 			remote->ss_family);
 		goto out1;
@@ -185,17 +183,16 @@ vpn_connect(struct bound_addr *srv, int oper)
 	if (set_port(local, port) == NULL) 
 		goto out1;
 
-	plog(LLV_INFO, LOCATION, NULL,
+	plog(ASL_LEVEL_INFO, 
 		"accept a request to establish IKE-SA: "
 		"%s\n", saddrwop2str((struct sockaddr *)remote));
 
 	IPSECLOGASLMSG("IPSec connecting to server %s\n",
 				   saddrwop2str((struct sockaddr *)remote));
-
-	/* begin ident mode */
-	if (isakmp_ph1begin_i(rmconf, remote, local, oper) < 0)
-		goto out1;
-		
+    {
+		if (ikev1_ph1begin_i(NULL, rmconf, remote, local, oper) < 0)
+			goto out1;
+	}
 	error = 0;
 
 out1:
@@ -230,7 +227,7 @@ vpn_disconnect(struct bound_addr *srv, const char *reason)
 	ike_sessions_stopped_by_controller(&u.ss,
                                        0,
                                        reason);
-	if (purgephXbydstaddrwop(&u.ss) > 0) {
+	if (ike_session_purgephXbydstaddrwop(&u.ss) > 0) {
 		return 0;
 	} else {
 		return -1;
@@ -246,7 +243,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 	struct sainfoalg	*new_algo;
 	struct sainfo		*new_sainfo = NULL, *check;
 	u_int16_t			class, algorithm, keylen;
-	struct ph1handle	*ph1;
+	phase1_handle_t	*ph1;
 	struct sockaddr_in	saddr;
 	
 	struct id {
@@ -263,15 +260,15 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 	saddr.sin_addr.s_addr = addr->address;
 	saddr.sin_port = 0;
 	saddr.sin_family = AF_INET;
-	ph1 = getph1bydstaddrwop((struct sockaddr_storage *)(&saddr));
+	ph1 = ike_session_getph1bydstaddrwop(NULL, (struct sockaddr_storage *)(&saddr));
 	if (ph1 == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"cannot start phase2 - no phase1 found.\n");
+		plog(ASL_LEVEL_ERR,
+			"Cannot start Phase 2 - no Phase 1 found.\n");
 		return -1;
 	}
-	if (ph1->status != PHASE1ST_ESTABLISHED) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "cannot start phase2 - phase1 not established.\n");
+	if (!FSM_STATE_IS_ESTABLISHED(ph1->status)) {
+		plog(ASL_LEVEL_ERR,
+			 "Cannot start Phase 2 - Phase 1 not established.\n");
 		return -1;
 	}
 
@@ -279,10 +276,10 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 	algo_ptr = (struct vpnctl_algo *)(selector_ptr + ntohs(pkt->selector_count));
 
 	for (i = 0; i < ntohs(pkt->selector_count); i++, selector_ptr++) {
-		new_sainfo = newsainfo();
+		new_sainfo = create_sainfo();
 		if (new_sainfo == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"unable to allocate sainfo struct.\n");
+			plog(ASL_LEVEL_ERR, 
+				"Unable to allocate sainfo struct.\n");
 			goto fail;
 		}
 		
@@ -291,8 +288,8 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 		else
 			new_sainfo->idsrc = vmalloc(sizeof(struct id));
 		if (new_sainfo->idsrc == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "unable to allocate id struct.\n");
+			plog(ASL_LEVEL_ERR, 
+				 "Unable to allocate id struct.\n");
 			goto fail;
 		}
 		if (selector_ptr->dst_tunnel_mask == 0xFFFFFFFF)
@@ -300,8 +297,8 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 		else
 			new_sainfo->iddst = vmalloc(sizeof(struct id));
 		if (new_sainfo->iddst == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "unable to allocate id struct.\n");
+			plog(ASL_LEVEL_ERR, 
+				 "Unable to allocate id struct.\n");
 			goto fail;
 		}			
 		
@@ -333,7 +330,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 		if (ntohs(pkt->pfs_group) != 0) {
 			new_sainfo->pfs_group = algtype2doi(algclass_isakmp_dh, ntohs(pkt->pfs_group));
 			if (new_sainfo->pfs_group == -1) {
-				plog(LLV_ERROR, LOCATION, NULL, "invalid dh group specified\n");
+				plog(ASL_LEVEL_ERR, "Invalid dh group specified\n");
 				goto fail;
 			}
 		}
@@ -341,8 +338,8 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 
 			new_algo = newsainfoalg();
 			if (new_algo == NULL) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"failed to allocate algorithm structure\n");
+				plog(ASL_LEVEL_ERR, 
+					"Failed to allocate algorithm structure\n");
 				goto fail;
 			}
 
@@ -352,7 +349,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 			
 			new_algo->alg = algtype2doi(class, algorithm);
 			if (new_algo->alg == -1) {
-				plog(LLV_ERROR, LOCATION, NULL, "algorithm mismatched\n");
+				plog(ASL_LEVEL_ERR, "Algorithm mismatched\n");
 				racoon_free(new_algo);
 				goto fail;
 			}
@@ -360,13 +357,13 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 			defklen = default_keylen(class, algorithm);
 			if (defklen == 0) {
 				if (keylen) {
-					plog(LLV_ERROR, LOCATION, NULL, "keylen not allowed\n");
+					plog(ASL_LEVEL_ERR, "keylen not allowed\n");
 					racoon_free(new_algo);
 					goto fail;
 				}
 			} else {
 				if (keylen && check_keylen(class, algorithm, keylen) < 0) {
-					plog(LLV_ERROR, LOCATION, NULL, "invalid keylen %d\n", keylen);
+					plog(ASL_LEVEL_ERR, "invalid keylen %d\n", keylen);
 					racoon_free(new_algo);
 					goto fail;
 				}
@@ -384,8 +381,8 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 				int b = new_algo->alg;
 				if (a == IPSECDOI_ATTR_AUTH)
 					a = IPSECDOI_PROTO_IPSEC_AH;
-				plog(LLV_ERROR, LOCATION, NULL, 
-					"algorithm %s not supported by the kernel (missing module?)\n", s_ipsecdoi_trns(a, b));
+				plog(ASL_LEVEL_ERR, 
+					"Algorithm %s not supported by the kernel (missing module?)\n", s_ipsecdoi_trns(a, b));
 				racoon_free(new_algo);
 				goto fail;
 			}
@@ -393,28 +390,28 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 		}
 
 		if (new_sainfo->algs[algclass_ipsec_enc] == 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"no encryption algorithm at %s\n", sainfo2str(new_sainfo));
+			plog(ASL_LEVEL_ERR, 
+				"No encryption algorithm at %s\n", sainfo2str(new_sainfo));
 			goto fail;
 		}
 		if (new_sainfo->algs[algclass_ipsec_auth] == 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"no authentication algorithm at %s\n", sainfo2str(new_sainfo));
+			plog(ASL_LEVEL_ERR, 
+				"No authentication algorithm at %s\n", sainfo2str(new_sainfo));
 			goto fail;
 		}
 		if (new_sainfo->algs[algclass_ipsec_comp] == 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"no compression algorithm at %s\n", sainfo2str(new_sainfo));
+			plog(ASL_LEVEL_ERR, 
+				"No compression algorithm at %s\n", sainfo2str(new_sainfo));
 			goto fail;
 		}
 
 		/* duplicate check */
 		check = getsainfo(new_sainfo->idsrc, new_sainfo->iddst, new_sainfo->id_i, 0);
 		if (check && (!check->idsrc && !new_sainfo->idsrc)) {
-			plog(LLV_ERROR, LOCATION, NULL,"duplicated sainfo: %s\n", sainfo2str(new_sainfo));
+			plog(ASL_LEVEL_ERR, "Duplicated sainfo: %s\n", sainfo2str(new_sainfo));
 			goto fail;
 		}
-		//plog(LLV_DEBUG2, LOCATION, NULL, "create sainfo: %s\n", sainfo2str(new_sainfo));
+		//plog(ASL_LEVEL_DEBUG, "create sainfo: %s\n", sainfo2str(new_sainfo));
 		inssainfo(new_sainfo);
 		new_sainfo = NULL;
 	}
@@ -423,19 +420,19 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 	
 fail:
 	if (new_sainfo)
-		delsainfo(new_sainfo);
+		release_sainfo(new_sainfo);
 	flushsainfo_dynamic((u_int32_t)addr->address);
 	return -1;
 }
 
 static int 
-vpn_get_ph2pfs(struct ph1handle *ph1)
+vpn_get_ph2pfs(phase1_handle_t *ph1)
 {
 }
 
 
 int
-vpn_get_config(struct ph1handle *iph1, struct vpnctl_status_phase_change **msg, size_t *msg_size)
+vpn_get_config(phase1_handle_t *iph1, struct vpnctl_status_phase_change **msg, size_t *msg_size)
 {
 
 	struct vpnctl_modecfg_params *params;
@@ -447,7 +444,7 @@ vpn_get_config(struct ph1handle *iph1, struct vpnctl_status_phase_change **msg, 
 	msize = 0;
 	
 	if (((struct sockaddr_in *)iph1->local)->sin_family != AF_INET) {
-		plog(LLV_ERROR, LOCATION, NULL,
+		plog(ASL_LEVEL_ERR, 
 			"IPv6 not supported for mode config.\n");
 		return -1;
 	}
@@ -457,8 +454,8 @@ vpn_get_config(struct ph1handle *iph1, struct vpnctl_status_phase_change **msg, 
 		
 	myaddr = find_myaddr((struct sockaddr *)iph1->local, 0);
 	if (myaddr == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"unable to find address structure.\n");
+		plog(ASL_LEVEL_ERR, 
+			"Unable to find address structure.\n");
 		return -1;
 	}
 	
@@ -468,8 +465,8 @@ vpn_get_config(struct ph1handle *iph1, struct vpnctl_status_phase_change **msg, 
 
 	*msg = racoon_calloc(1, msize);
 	if (*msg == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"faled to allocate space for message.\n");
+		plog(ASL_LEVEL_ERR, 
+			"Failed to allocate space for message.\n");
 		return -1;
 	}
 	
@@ -498,7 +495,7 @@ vpn_xauth_reply(u_int32_t address, void *attr_list, size_t attr_len)
 	struct isakmp_pl_attr *reply;
 	void* attr_ptr;
 	vchar_t *payload = NULL;
-	struct ph1handle	*iph1;
+	phase1_handle_t	*iph1;
 	struct sockaddr_in	saddr;
 	int error = -1;
 	int tlen = attr_len;
@@ -511,15 +508,15 @@ vpn_xauth_reply(u_int32_t address, void *attr_list, size_t attr_len)
 	saddr.sin_addr.s_addr = address;
 	saddr.sin_port = 0;
 	saddr.sin_family = AF_INET;
-	iph1 = getph1bydstaddrwop((struct sockaddr_storage *)(&saddr));
+	iph1 = ike_session_getph1bydstaddrwop(NULL, (struct sockaddr_storage *)(&saddr));
 	if (iph1 == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"cannot reply to xauth request - no ph1 found.\n");
+		plog(ASL_LEVEL_ERR, 
+			"Cannot reply to xauth request - no ph1 found.\n");
 		goto end;
 	}
 
 	if (iph1->xauth_awaiting_userinput == 0) {
-		plog(LLV_ERROR, LOCATION, NULL, "Huh? recvd xauth reply data with no xauth reply pending \n");
+		plog(ASL_LEVEL_ERR, "Received xauth reply data with no xauth reply pending \n");
 		goto end;
 	}
 	
@@ -539,13 +536,13 @@ vpn_xauth_reply(u_int32_t address, void *attr_list, size_t attr_len)
 		dataptr += sizeof(u_int32_t);
 	}
 	if (tlen != 0) {
-		plog(LLV_ERROR, LOCATION, NULL, "invalid auth info received from VPN Control socket.\n");
+		plog(ASL_LEVEL_ERR, "Invalid auth info received from VPN Control socket.\n");
 		goto end;
 	}
 	
 	payload = vmalloc(sizeof(struct isakmp_pl_attr) + attr_len);
 	if (payload == NULL) {	
-		plog(LLV_ERROR, LOCATION, NULL, "Cannot allocate memory for xauth reply\n");
+		plog(ASL_LEVEL_ERR, "Cannot allocate memory for xauth reply\n");
 		goto end;
 	}
 	memset(payload->v, 0, sizeof(reply));
@@ -558,7 +555,7 @@ vpn_xauth_reply(u_int32_t address, void *attr_list, size_t attr_len)
 	attr_ptr = reply + 1;
 	memcpy(attr_ptr, attr_list, attr_len);
 
-	plog(LLV_DEBUG, LOCATION, NULL, 
+	plog(ASL_LEVEL_DEBUG, 
 		    "Sending MODE_CFG REPLY\n");
 	error = isakmp_cfg_send(iph1, payload, 
 	    ISAKMP_NPTYPE_ATTR, ISAKMP_FLAG_E, 0, 0, iph1->xauth_awaiting_userinput_msg);
@@ -577,10 +574,11 @@ int
 vpn_assert(struct sockaddr_storage *src_addr, struct sockaddr_storage *dst_addr)
 {
 	if (ike_session_assert(src_addr, dst_addr)) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "cannot assert - no matching session.\n");
+		plog(ASL_LEVEL_ERR, 
+			 "Cannot assert - no matching session.\n");
 		return -1;
 	}
 
 	return 0;
 }
+

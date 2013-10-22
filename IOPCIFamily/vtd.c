@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if ACPI_SUPPORT && _IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_
+#if ACPI_SUPPORT
 
 #include <IOKit/IOMapper.h>
 #include <IOKit/IOKitKeysPrivate.h>
@@ -1561,6 +1561,7 @@ AppleVTD::iovmFree(ppnum_t addr, IOItemCount pages)
 	IOItemCount  unitPages;
 	uint32_t     idx;
 	uint32_t     next;
+	uint32_t     count;
 	uint64_t     stamp;
 
 #if KP
@@ -1611,6 +1612,7 @@ AppleVTD::iovmFree(ppnum_t addr, IOItemCount pages)
 		unitAddr = addr;
 		unitPages = pages;
 		idx = unit->qi_tail;
+		count = 0;
 		while (unitPages)
 		{
 			next = (idx + 1) & unit->qi_mask;
@@ -1627,9 +1629,6 @@ AppleVTD::iovmFree(ppnum_t addr, IOItemCount pages)
 			{
 				unit->qi_table[idx].command = (kTlbDrainReads<<7) | (kTlbDrainWrites<<6) | (1<<4) | (2);
 			}
-//			__mfence();
-//			unit->regs->invalidation_queue_tail = (next << 4);
-//			__mfence();
 
 			if (!unit->selective 
 				|| (unitPages <= (1U << unit->rounding)))
@@ -1640,6 +1639,12 @@ AppleVTD::iovmFree(ppnum_t addr, IOItemCount pages)
 			{
 				unitPages -= (1U << unit->rounding);
 				unitAddr  += (1U << unit->rounding);
+				count++;
+				if (!(count & (unit->qi_mask >> 5)))
+				{
+					__mfence();
+					unit->regs->invalidation_queue_tail = (next << 4);
+				}
 			}
 			idx = next;
 		}
@@ -1789,5 +1794,5 @@ AppleVTD::iovmInsert(ppnum_t addr, IOItemCount offset,
 	STAT_ADD(fSpace, inserts, pageCount);
 }
 
-#endif /* ACPI_SUPPORT && _IOBUFFERMEMORYDESCRIPTOR_HOSTPHYSICALLYCONTIGUOUS_ */
+#endif /* ACPI_SUPPORT */
 

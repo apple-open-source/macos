@@ -32,8 +32,7 @@
 #include "pkcs12Utils.h"
 #include <security_asn1/nssUtils.h>
 #include <assert.h>
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
-
+#include <Security/SecBase.h>
 /* 
  * Copying constructor used by P12SafeBag during encoding
  */
@@ -85,7 +84,7 @@ void P12BagAttrs::addAttr(
 {
 	NSS_Attribute *newAttr = reallocAttrs(numAttrs() + 1);
 	p12CfDataToCssm(attrOid, newAttr->attrType, mCoder);
-	unsigned numVals = CFArrayGetCount(attrValues);
+	uint32 numVals = (uint32)CFArrayGetCount(attrValues);
 	newAttr->attrValue = (CSSM_DATA **)p12NssNullArray(numVals, mCoder);
 	for(unsigned dex=0; dex<numVals; dex++) {
 		CSSM_DATA *dstVal = (CSSM_DATA *)mCoder.malloc(sizeof(CSSM_DATA));
@@ -105,7 +104,7 @@ void P12BagAttrs::getAttr(
 	CFArrayRef			*attrValues)	// RETURNED
 {
 	if(attrNum >= numAttrs()) {
-		MacOSError::throwMe(paramErr);
+		MacOSError::throwMe(errSecParam);
 	}
 	NSS_Attribute *attr = mAttrs[attrNum];
 	*attrOid = p12CssmDataToCf(attr->attrType);
@@ -135,7 +134,7 @@ NSS_Attribute *P12BagAttrs::reallocAttrs(
 	unsigned curSize = numAttrs();
 	assert(numNewAttrs > curSize);
 	NSS_Attribute **newAttrs = 
-		(NSS_Attribute **)p12NssNullArray(numNewAttrs, mCoder);
+		(NSS_Attribute **)p12NssNullArray((uint32)numNewAttrs, mCoder);
 	for(unsigned dex=0; dex<curSize; dex++) {
 		newAttrs[dex] = mAttrs[dex];
 	}

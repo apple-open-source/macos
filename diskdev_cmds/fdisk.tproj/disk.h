@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002,2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,11 +56,11 @@
 
 /* Data types */
 typedef struct _DISK_metrics {
-	int cylinders;
-	int heads;
-	int sectors;
-	int size;		/* Number of sectors in disk */
-	int sector_size;	/* Bytes per sector */
+	unsigned int cylinders;
+	unsigned int heads;
+	unsigned int sectors;
+	unsigned int size;		/* Number of sectors in disk */
+	unsigned int sector_size;	/* Bytes per sector */
 } DISK_metrics;
 
 typedef struct _disk_t {

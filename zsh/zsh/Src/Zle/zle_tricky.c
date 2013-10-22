@@ -398,7 +398,18 @@ mod_export char *cmdstr;
 /**/
 mod_export char *varname;
 
-/* != 0 if we are in a subscript */
+/*
+ * != 0 if we are in a subscript.
+ * Of course, this being the completion code, you're expected to guess
+ * what the different numbers actually mean, but here's a cheat:
+ * 1: Key of an ordinary array
+ * 2: Key of a hash
+ * 3: Ummm.... this appears to be a special case of 2.  After a lot
+ *    of uncommented code looking for groups of brackets, we suddenly
+ *    decide to set it to 2.  The only upshot seems to be that compctl
+ *    then doesn't add a matching ']' at the end, so I think it means
+ *    there's one there already.
+ */
 
 /**/
 mod_export int insubscr;
@@ -529,7 +540,7 @@ parambeg(char *s)
 	 * or $'...').
 	 */
 	char *b = p + 1, *e = b;
-	int n = 0, br = 1, nest = 0;
+	int n = 0, br = 1;
 
 	if (*b == Inbrace) {
 	    char *tb = b;
@@ -541,10 +552,6 @@ parambeg(char *s)
 	    /* Ignore the possible (...) flags. */
 	    b++, br++;
 	    n = skipparens(Inpar, Outpar, &b);
-
-	    for (tb = p - 1; tb > s && *tb != Outbrace && *tb != Inbrace; tb--);
-	    if (tb > s && *tb == Inbrace && (tb[-1] == String || *tb == Qstring))
-		nest = 1;
 	}
 
 	/* Ignore the stuff before the parameter name. */
@@ -1064,7 +1071,8 @@ has_real_token(const char *s)
 static char *
 get_comp_string(void)
 {
-    int t0, tt0, i, j, k, cp, rd, sl, ocs, ins, oins, ia, parct, varq = 0;
+    enum lextok t0, tt0;
+    int i, j, k, cp, rd, sl, ocs, ins, oins, ia, parct, varq = 0;
     int ona = noaliases;
     /*
      * Index of word being considered
@@ -1145,7 +1153,8 @@ get_comp_string(void)
     lexflags = LEXFLAGS_ZLE;
     inpush(dupstrspace(linptr), 0, NULL);
     strinbeg(0);
-    wordpos = tt0 = cp = rd = ins = oins = linarr = parct = ia = redirpos = 0;
+    wordpos = cp = rd = ins = oins = linarr = parct = ia = redirpos = 0;
+    tt0 = NULLTOK;
 
     /* This loop is possibly the wrong way to do this.  It goes through *
      * the previously massaged command line using the lexer.  It stores *
@@ -1231,7 +1240,8 @@ get_comp_string(void)
 	    if (tt)
 		break;
 	    /* Otherwise reset the variables we are collecting data in. */
-	    wordpos = tt0 = cp = rd = ins = redirpos = 0;
+	    wordpos = cp = rd = ins = redirpos = 0;
+	    tt0 = NULLTOK;
 	}
 	if (lincmd && (tok == STRING || tok == FOR || tok == FOREACH ||
 		       tok == SELECT || tok == REPEAT || tok == CASE)) {
@@ -1244,7 +1254,7 @@ get_comp_string(void)
 	    if (wordpos != redirpos)
 		wordpos = redirpos = 0;
 	}
-	if (!lexflags && !tt0) {
+	if (!lexflags && tt0 == NULLTOK) {
 	    /* This is done when the lexer reached the word the cursor is on. */
 	    tt = tokstr ? dupstring(tokstr) : NULL;
 
@@ -1345,7 +1355,7 @@ get_comp_string(void)
 				 (sl - 1) : (zlemetacs_qsub - wb)]);
 	}
     } while (tok != LEXERR && tok != ENDINPUT &&
-	     (tok != SEPER || (lexflags && !tt0)));
+	     (tok != SEPER || (lexflags && tt0 == NULLTOK)));
     /* Calculate the number of words stored in the clwords array. */
     clwnum = (tt || !wordpos) ? wordpos : wordpos - 1;
     zsfree(clwords[clwnum]);
@@ -1381,7 +1391,7 @@ get_comp_string(void)
 
     if (inwhat == IN_MATH)
 	s = NULL;
-    else if (!t0 || t0 == ENDINPUT) {
+    else if (t0 == NULLTOK || t0 == ENDINPUT) {
 	/* There was no word (empty line). */
 	s = ztrdup("");
 	we = wb = zlemetacs;
@@ -1862,6 +1872,10 @@ get_comp_string(void)
 		}
 	    } else if (p < curs) {
 		if (*p == Outbrace) {
+		    /*
+		     * HERE: strip and remember code from last
+		     * comma to here.
+		     */
 		    cant = 1;
 		    break;
 		}
@@ -1869,6 +1883,16 @@ get_comp_string(void)
 		    char *tp = p;
 
 		    if (!skipparens(Inbrace, Outbrace, &tp)) {
+			/*
+			 * Balanced brace: skip.
+			 * We only deal with unfinished braces, so
+			 *  something{foo<x>bar,morestuff}else
+			 * doesn't work
+			 *
+			 * HERE: instead, continue, look for a comma.
+			 * Stack tp and brace for popping when we
+			 * find a comma at each level.
+			 */
 			i += tp - p - 1;
 			dp += tp - p - 1;
 			p = tp - 1;
@@ -1899,7 +1923,7 @@ get_comp_string(void)
 			*dbeg = '{';
 			i -= len;
 			boffs -= len;
-			strcpy(dbeg, dbeg + len);
+			memmove(dbeg, dbeg + len, 1+strlen(dbeg+len));
 			dp -= len;
 		    }
 		    bbeg = lastp = p;
@@ -1911,10 +1935,16 @@ get_comp_string(void)
 		    hascom = 1;
 		}
 	    } else {
+		/* On or after the cursor position */
 		if (*p == Inbrace) {
 		    char *tp = p;
 
 		    if (!skipparens(Inbrace, Outbrace, &tp)) {
+			/*
+			 * Balanced braces after the cursor.
+			 * Could do the same with these as
+			 * those before the cursor.
+			 */
 			i += tp - p - 1;
 			dp += tp - p - 1;
 			p = tp - 1;
@@ -1925,6 +1955,14 @@ get_comp_string(void)
 		    break;
 		}
 		if (p == curs) {
+		    /*
+		     * We've reached the cursor position.
+		     * If there's a pending open brace at this
+		     * point we need to stack the text.
+		     * We've marked the bit we don't want from
+		     * bbeg to bend, which might be a comma
+		     * between the opening brace and us.
+		     */
 		    if (bbeg) {
 			Brinfo new;
 			int len = bend - bbeg;
@@ -1948,16 +1986,29 @@ get_comp_string(void)
 			*dbeg = '{';
 			i -= len;
 			boffs -= len;
-			strcpy(dbeg, dbeg + len);
+			memmove(dbeg, dbeg + len, 1+strlen(dbeg+len));
 			dp -= len;
 		    }
 		    bbeg = NULL;
 		}
 		if (*p == Comma) {
+		    /*
+		     * Comma on or after cursor.
+		     * We set bbeg to NULL at the cursor; here
+		     * it's being used to find the first comma
+		     * afterwards.
+		     */
 		    if (!bbeg)
 			bbeg = p;
 		    hascom = 2;
 		} else if (*p == Outbrace) {
+		    /*
+		     * Closing brace on or after the cursor.
+		     * Not sure how this can be after the cursor;
+		     * if it was matched, wouldn't we have skipped
+		     * over the group, and if it wasn't, surely we're
+		     * not interested in it?
+		     */
 		    Brinfo new;
 		    int len;
 
@@ -2013,7 +2064,7 @@ get_comp_string(void)
 		new->qpos = strlen(quotename(predup, NULL));
 		*dbeg = '{';
 		boffs -= len;
-		strcpy(dbeg, dbeg + len);
+		memmove(dbeg, dbeg + len, 1+strlen(dbeg+len));
 	    }
 	    if (brend) {
 		Brinfo bp, prev = NULL;
@@ -2026,7 +2077,7 @@ get_comp_string(void)
 		    l = bp->qpos;
 		    bp->pos = strlen(predup + p + l);
 		    bp->qpos = strlen(quotename(predup + p + l, NULL));
-		    strcpy(predup + p, predup + p + l);
+		    memmove(predup + p, predup + p + l, 1+bp->pos);
 		}
 	    }
 	    if (hascom) {
@@ -2150,10 +2201,6 @@ doexpansion(char *s, int lst, int olst, int explincmd)
 	ss = quotename(ss, NULL);
 	untokenize(ss);
 	inststr(ss);
-#if 0
-	if (olst != COMP_EXPAND_COMPLETE || nonempty(vl) ||
-	    (zlemetacs && zlemetaline[zlemetacs-1] != '/')) {
-#endif
 	if (nonempty(vl) || !first) {
 	    spaceinline(1);
 	    zlemetaline[zlemetacs++] = ' ';
@@ -2419,13 +2466,13 @@ printfmt(char *fmt, int n, int dopr, int doesc)
 		    if (tccan(TCCLEAREOL))
 			tcout(TCCLEAREOL);
 		    else {
-			int s = columns - 1 - (cc % columns);
+			int s = zterm_columns - 1 - (cc % zterm_columns);
 
 			while (s-- > 0)
 			    putc(' ', shout);
 		    }
 		}
-		l += 1 + ((cc - 1) / columns);
+		l += 1 + ((cc - 1) / zterm_columns);
 		cc = 0;
 		if (dopr)
 		    putc('\n', shout);
@@ -2445,18 +2492,18 @@ printfmt(char *fmt, int n, int dopr, int doesc)
 		} else
 		    p += clen;
 		cc += WCWIDTH_WINT(cchar);
-		if (dopr && !(cc % columns))
+		if (dopr && !(cc % zterm_columns))
 			fputs(" \010", shout);
 	    }
 	}
     }
     if (dopr) {
-        if (!(cc % columns))
+        if (!(cc % zterm_columns))
             fputs(" \010", shout);
 	if (tccan(TCCLEAREOL))
 	    tcout(TCCLEAREOL);
 	else {
-	    int s = columns - 1 - (cc % columns);
+	    int s = zterm_columns - 1 - (cc % zterm_columns);
 
 	    while (s-- > 0)
 		putc(' ', shout);
@@ -2467,7 +2514,7 @@ printfmt(char *fmt, int n, int dopr, int doesc)
      * cc is correct, i.e. if just misses wrapping we still add 1.
      * (Why?)
      */
-    return l + (cc / columns);
+    return l + (cc / zterm_columns);
 }
 
 /* This is used to print expansions. */
@@ -2481,8 +2528,8 @@ listlist(LinkList l)
     LinkNode node;
     char **p;
     VARARR(int, lens, num);
-    VARARR(int, widths, columns);
-    int longest = 0, shortest = columns, totl = 0;
+    VARARR(int, widths, zterm_columns);
+    int longest = 0, shortest = zterm_columns, totl = 0;
     int len, ncols, nlines, tolast, col, i, max, pack = 0, *lenp;
 
     for (node = firstnode(l), p = data; node; incnode(node), p++)
@@ -2500,7 +2547,7 @@ listlist(LinkList l)
 	    shortest = len;
 	totl += len;
     }
-    if ((ncols = ((columns + 2) / longest))) {
+    if ((ncols = ((zterm_columns + 2) / longest))) {
 	int tlines = 0, tline, tcols = 0, maxlen, nth, width;
 
 	nlines = (num + ncols - 1) / ncols;
@@ -2509,7 +2556,7 @@ listlist(LinkList l)
 	    if (isset(LISTROWSFIRST)) {
 		int count, tcol, first, maxlines = 0, llines;
 
-		for (tcols = columns / shortest; tcols > ncols;
+		for (tcols = zterm_columns / shortest; tcols > ncols;
 		     tcols--) {
 		    for (nth = first = maxlen = width = maxlines =
 			     llines = tcol = 0,
@@ -2522,7 +2569,7 @@ listlist(LinkList l)
 			nth += tcols;
 			tlines++;
 			if (nth >= num) {
-			    if ((width += maxlen) >= columns)
+			    if ((width += maxlen) >= zterm_columns)
 				break;
 			    widths[tcol++] = maxlen;
 			    maxlen = 0;
@@ -2536,13 +2583,13 @@ listlist(LinkList l)
 			widths[tcol++] = maxlen;
 			width += maxlen;
 		    }
-		    if (!count && width < columns)
+		    if (!count && width < zterm_columns)
 			break;
 		}
 		if (tcols > ncols)
 		    tlines = maxlines;
 	    } else {
-		for (tlines = ((totl + columns) / columns);
+		for (tlines = ((totl + zterm_columns) / zterm_columns);
 		     tlines < nlines; tlines++) {
 		    for (p = data, nth = tline = width =
 			     maxlen = tcols = 0;
@@ -2550,7 +2597,7 @@ listlist(LinkList l)
 			if (lens[nth] > maxlen)
 			    maxlen = lens[nth];
 			if (++tline == tlines) {
-			    if ((width += maxlen) >= columns)
+			    if ((width += maxlen) >= zterm_columns)
 				break;
 			    widths[tcols++] = maxlen;
 			    maxlen = tline = 0;
@@ -2560,7 +2607,7 @@ listlist(LinkList l)
 			widths[tcols++] = maxlen;
 			width += maxlen;
 		    }
-		    if (nth == num && width < columns)
+		    if (nth == num && width < zterm_columns)
 			break;
 		}
 	    }
@@ -2572,7 +2619,7 @@ listlist(LinkList l)
     } else {
 	nlines = 0;
 	for (p = data; *p; p++)
-	    nlines += 1 + (strlen(*p) / columns);
+	    nlines += 1 + (strlen(*p) / zterm_columns);
     }
     /* Set the cursor below the prompt. */
     trashzle();
@@ -2581,7 +2628,7 @@ listlist(LinkList l)
     clearflag = (isset(USEZLE) && !termflags && tolast);
 
     max = getiparam("LISTMAX");
-    if ((max && num > max) || (!max && nlines > lines)) {
+    if ((max && num > max) || (!max && nlines > zterm_lines)) {
 	int qup, l;
 
 	zsetterm();
@@ -2589,7 +2636,7 @@ listlist(LinkList l)
 	     fprintf(shout, "zsh: do you wish to see all %d possibilities (%d lines)? ",
 		     num, nlines) :
 	     fprintf(shout, "zsh: do you wish to see all %d lines? ", nlines));
-	qup = ((l + columns - 1) / columns) - 1;
+	qup = ((l + zterm_columns - 1) / zterm_columns) - 1;
 	fflush(shout);
 	if (!getzlequery()) {
 	    if (clearflag) {
@@ -2650,11 +2697,13 @@ listlist(LinkList l)
     } else {
 	for (p = data; *p; p++) {
 	    nicezputs(*p, shout);
-	    putc('\n', shout);
+	    /* One column: newlines between elements, not after the last */
+	    if (p[1])
+		putc('\n', shout);
 	}
     }
     if (clearflag) {
-	if ((nlines += nlnct - 1) < lines) {
+	if ((nlines += nlnct - 1) < zterm_lines) {
 	    tcmultout(TCUP, TCMULTUP, nlines);
 	    showinglist = -1;
 	} else
@@ -2675,14 +2724,13 @@ int
 doexpandhist(void)
 {
     char *ol;
-    int oll, ocs, ne = noerrs, err, ona = noaliases;
+    int ne = noerrs, err, ona = noaliases;
 
     UNMETACHECK();
 
     pushheap();
     metafy_line();
-    oll = zlemetall;
-    ocs = zlemetacs;
+    zle_save_positions();
     ol = dupstring(zlemetaline);
     expanding = 1;
     excs = zlemetacs;
@@ -2725,8 +2773,7 @@ doexpandhist(void)
     }
 
     strcpy(zlemetaline, ol);
-    zlemetall = oll;
-    zlemetacs = ocs;
+    zle_restore_positions();
     unmetafy_line();
 
     popheap();

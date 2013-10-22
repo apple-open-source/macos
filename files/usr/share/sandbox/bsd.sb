@@ -22,9 +22,9 @@
     ; Allow files accessed by system dylibs and frameworks
     #"/\.CFUserTextEncoding$"
     #"^/usr/share/nls/"
-    #"^/usr/share/zoneinfo/"
+    #"^TO-BE-REPLACED-WITH-TZDIR/"
   ))
 
-(allow ipc-posix-shm) ; Libnotify
+(allow ipc-posix-shm (ipc-posix-name "apple.shm.notification_center")) ; Libnotify
 
 (allow signal (target self))

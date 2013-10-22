@@ -699,6 +699,7 @@ in_shared_region(mach_vm_address_t addr, cpu_type_t type) {
 			size = SHARED_REGION_SIZE_ARM;
 		break;
 
+
 		case CPU_TYPE_X86_64:
 			base = SHARED_REGION_BASE_X86_64;
 			size = SHARED_REGION_SIZE_X86_64;
@@ -941,7 +942,7 @@ libtop_tsamp_update_vm_stats(libtop_tsamp_t* tsamp) {
 	tsamp->p_vm_stat = tsamp->vm_stat;
 	
 	mach_msg_type_number_t count = sizeof(tsamp->vm_stat) / sizeof(natural_t);
-	kr = host_statistics(libtop_port, HOST_VM_INFO, (host_info_t)&tsamp->vm_stat, &count);
+	kr = host_statistics64(libtop_port, HOST_VM_INFO64, (host_info64_t)&tsamp->vm_stat, &count);
 	if (kr != KERN_SUCCESS) {
 		return kr;
 	}
@@ -1470,6 +1471,92 @@ libtop_pinfo_update_kernmem_info(task_t task, libtop_pinfo_t* pinfo) {
 }
 
 static kern_return_t
+libtop_pinfo_update_power_info(task_t task, libtop_pinfo_t *pinfo)
+{
+	kern_return_t kr;
+	mach_msg_type_number_t count = TASK_POWER_INFO_COUNT;
+
+	pinfo->psamp.p_power = pinfo->psamp.power;
+
+	kr = task_info(task, TASK_POWER_INFO, (task_info_t)&pinfo->psamp.power, &count);
+	if (kr != KERN_SUCCESS) return kr;
+
+	if (pinfo->psamp.p_seq == 0) {
+		pinfo->psamp.b_power = pinfo->psamp.power;
+		pinfo->psamp.p_power = pinfo->psamp.power;
+	}
+
+	return kr;
+}
+
+#ifndef TASK_VM_INFO_PURGEABLE
+// cribbed from sysmond
+static uint64_t
+sum_vm_purgeable_info(const vm_purgeable_info_t info)
+{
+	uint64_t sum = 0;
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		sum += info->fifo_data[i].size;
+	}
+	sum += info->obsolete_data.size;
+	for (i = 0; i < 8; i++) {
+		sum += info->lifo_data[i].size;
+	}
+
+	return sum;
+}
+#endif /* !TASK_VM_INFO_PURGEABLE */
+
+static kern_return_t
+libtop_pinfo_update_vm_info(task_t task, libtop_pinfo_t *pinfo)
+{
+	kern_return_t kr;
+#ifndef TASK_VM_INFO_PURGEABLE
+	task_purgable_info_t purgeable_info;
+	uint64_t purgeable_sum = 0;
+#endif /* !TASK_VM_INFO_PURGEABLE */
+	mach_msg_type_number_t info_count;
+	task_vm_info_data_t vm_info;
+
+	pinfo->psamp.p_purgeable = pinfo->psamp.purgeable;
+	pinfo->psamp.p_anonymous = pinfo->psamp.anonymous;
+	pinfo->psamp.p_compressed = pinfo->psamp.compressed;
+
+#ifndef TASK_VM_INFO_PURGEABLE
+	kr = task_purgable_info(task, &purgeable_info);
+	if (kr == KERN_SUCCESS) {
+		purgeable_sum = sum_vm_purgeable_info(&purgeable_info);
+		pinfo->psamp.purgeable = purgeable_sum;
+	}
+#endif /* !TASK_VM_INFO_PURGEABLE */
+
+	info_count = TASK_VM_INFO_COUNT;
+#ifdef TASK_VM_INFO_PURGEABLE
+	kr = task_info(task, TASK_VM_INFO_PURGEABLE, (task_info_t)&vm_info, &info_count);
+#else
+	kr = task_info(task, TASK_VM_INFO, (task_info_t)&vm_info, &info_count);
+#endif
+	if (kr == KERN_SUCCESS) {
+#ifdef TASK_VM_INFO_PURGEABLE
+		pinfo->psamp.purgeable = vm_info.purgeable_volatile_resident;
+		pinfo->psamp.anonymous = vm_info.internal - vm_info.purgeable_volatile_pmap;
+#else
+		if (purgeable_sum < vm_info.internal) {
+			pinfo->psamp.anonymous = vm_info.internal - purgeable_sum;
+		} else {
+			/* radar:13816348 */
+			pinfo->psamp.anonymous = 0;
+		}
+#endif
+		pinfo->psamp.compressed = vm_info.compressed;
+	}
+
+	return kr;
+}
+
+static kern_return_t
 libtop_pinfo_update_cpu_usage(task_t task, libtop_pinfo_t* pinfo, int *state) {
 	kern_return_t kr;
 	thread_act_array_t threads;
@@ -1912,6 +1999,16 @@ libtop_p_task_update(task_t task, boolean_t reg)
 	 * Get updated wired memory usage numbers
 	 */
 	kr = libtop_pinfo_update_kernmem_info(task, pinfo);
+
+	/*
+	 * Get power info (platform idle wakeups)
+	 */
+	kr = libtop_pinfo_update_power_info(task, pinfo);
+
+	/*
+	 * Get VM info (anonymous, purgeable, and compressed memory).
+	 */
+	kr = libtop_pinfo_update_vm_info(task, pinfo);
 
 	libtop_p_wq_update(pinfo);
 	

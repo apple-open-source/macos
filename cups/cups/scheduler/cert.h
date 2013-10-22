@@ -1,5 +1,5 @@
 /*
- * "$Id: cert.h 7383 2008-03-20 20:58:07Z mike $"
+ * "$Id: cert.h 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Authentication certificate definitions for the CUPS scheduler.
  *
@@ -49,5 +49,5 @@ extern void		cupsdInitCerts(void);
 
 
 /*
- * End of "$Id: cert.h 7383 2008-03-20 20:58:07Z mike $".
+ * End of "$Id: cert.h 11093 2013-07-03 20:48:42Z msweet $".
  */

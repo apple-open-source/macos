@@ -37,7 +37,9 @@
 GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_release_oid(OM_uint32 *minor_status, gss_OID *oid)
 {
+    struct _gss_mech_switch *m;
     gss_OID o = *oid;
+    size_t n;
 
     *oid = GSS_C_NO_OID;
 
@@ -46,6 +48,24 @@ gss_release_oid(OM_uint32 *minor_status, gss_OID *oid)
 
     if (o == GSS_C_NO_OID)
 	return GSS_S_COMPLETE;
+
+    /*
+     * Program broken and tries to release an static oid, don't let
+     * it crash us, search static tables forst.
+     */
+    for (n = 0; _gss_ont_mech[n].oid; n++)
+	if (_gss_ont_mech[n].oid == o)
+	    return GSS_S_COMPLETE;
+    for (n = 0; _gss_ont_ma[n].oid; n++)
+	if (_gss_ont_mech[n].oid == o)
+	    return GSS_S_COMPLETE;
+
+    HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {
+	if (&m->gm_mech.gm_mech_oid == o)
+	    return GSS_S_COMPLETE;
+    }
+
+    /* ok, the program doesn't try to crash us, lets release it for real now */
 
     if (o->elements != NULL) {
 	free(o->elements);

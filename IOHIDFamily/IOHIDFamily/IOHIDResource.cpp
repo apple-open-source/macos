@@ -38,7 +38,7 @@ bool IOHIDResource::start(IOService *provider)
     if ( !_workLoop )
         return false;
 
-    registerService(kIOServiceSynchronous);
+    registerService(kIOServiceAsynchronous);
 
 	return true;
 }

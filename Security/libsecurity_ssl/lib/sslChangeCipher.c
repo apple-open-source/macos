@@ -30,7 +30,7 @@
 #include "sslMemory.h"
 #include "sslAlertMessage.h"
 #include "sslDebug.h"
-#include "cipherSpecs.h"
+#include "sslCipherSpecs.h"
 
 #include <assert.h>
 #include <string.h>
@@ -38,21 +38,21 @@
 OSStatus
 SSLEncodeChangeCipherSpec(SSLRecord *rec, SSLContext *ctx)
 {   OSStatus          err;
-
-    assert(ctx->writePending.ready);
-
+    
+    assert(ctx->writePending_ready);
+    
     sslLogNegotiateDebug("===Sending changeCipherSpec msg");
     rec->contentType = SSL_RecordTypeChangeCipher;
 	assert(ctx->negProtocolVersion >= SSL_Version_3_0);
     rec->protocolVersion = ctx->negProtocolVersion;
     rec->contents.length = 1;
-    if ((err = SSLAllocBuffer(&rec->contents, 1, ctx)) != 0)
+    if ((err = SSLAllocBuffer(&rec->contents, 1)))
         return err;
     rec->contents.data[0] = 1;
 
     ctx->messageQueueContainsChangeCipherSpec=true;
 
-    return noErr;
+    return errSecSuccess;
 }
 
 OSStatus
@@ -96,44 +96,26 @@ SSLProcessChangeCipherSpec(SSLRecord rec, SSLContext *ctx)
 		SSLChangeHdskState(ctx, SSL_HdskStateChangeCipherSpec);
 	}
 
-    if (!ctx->readPending.ready || ctx->state != SSL_HdskStateChangeCipherSpec)
+    if (!ctx->readPending_ready || ctx->state != SSL_HdskStateChangeCipherSpec)
     {
         if(ctx->isDTLS)
             return errSSLWouldBlock;
 
         SSLFatalSessionAlert(SSL_AlertUnexpectedMsg, ctx);
     	sslErrorLog("***bad changeCipherSpec msg: readPending.ready %d state %d\n",
-    		(unsigned)ctx->readPending.ready, (unsigned)ctx->state);
+		(unsigned)ctx->readPending_ready, (unsigned)ctx->state);
         return errSSLProtocol;
     }
 
     sslLogNegotiateDebug("===Processing changeCipherSpec msg");
 
     /* Install new cipher spec on read side */
-    if ((err = SSLDisposeCipherSuite(&ctx->readCipher, ctx)) != 0)
+    if ((err = ctx->recFuncs->advanceReadCipher(ctx->recCtx)) != 0)
     {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
         return err;
     }
-    ctx->readCipher = ctx->readPending;
-    ctx->readCipher.ready = 0;      /* Can't send data until Finished is sent */
+    ctx->readCipher_ready = 0;      /* Can't send data until Finished is sent */
     SSLChangeHdskState(ctx, SSL_HdskStateFinished);
-    memset(&ctx->readPending, 0, sizeof(CipherContext)); 	/* Zero out old data */
-    return noErr;
+    return errSecSuccess;
 }
 
-OSStatus
-SSLDisposeCipherSuite(CipherContext *cipher, SSLContext *ctx)
-{   OSStatus      err;
-
-	/* symmetric encryption context */
-	if(cipher->symCipher) {
-		if ((err = cipher->symCipher->finish(cipher, ctx)) != 0) {
-			return err;
-		}
-	}
-
-	/* per-record hash/hmac context */
-	ctx->sslTslCalls->freeMac(cipher);
-
-    return noErr;
-}

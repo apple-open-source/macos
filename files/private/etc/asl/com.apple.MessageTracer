@@ -1,0 +1,3 @@
+# redirect com.apple.message.domain to /var/log/DiagnosticMessages
+? [T com.apple.message.domain] claim only
+* store_dir /var/log/DiagnosticMessages

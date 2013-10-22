@@ -58,74 +58,6 @@ IOReturn _IONDRVLibrariesFinalize( IOService * provider );
 #endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-UInt32 EndianSwap32Bit( UInt32 data );
-
-UInt16 EndianSwap16Bit( UInt16 data );
-
-void SynchronizeIO(void);
-
-OSErr ExpMgrConfigReadLong(
-  RegEntryIDPtr    node,
-  LogicalAddress   configAddr,
-  UInt32 *         valuePtr);
-
-OSErr ExpMgrConfigWriteLong(
-  RegEntryIDPtr    node,
-  LogicalAddress   configAddr,
-  UInt32           value);
-
-OSErr ExpMgrConfigReadWord(
-  RegEntryIDPtr    node,
-  LogicalAddress   configAddr,
-  UInt16 *         valuePtr);
-
-OSErr ExpMgrConfigWriteWord(
-  RegEntryIDPtr    node,
-  LogicalAddress   configAddr,
-  UInt16           value);
-
-OSErr ExpMgrConfigReadByte(
-  RegEntryIDPtr    node,
-  LogicalAddress   configAddr,
-  UInt8 *          valuePtr);
-
-OSErr ExpMgrConfigWriteByte(
-  RegEntryIDPtr    node,
-  LogicalAddress   configAddr,
-  UInt8            value);
-
-OSErr ExpMgrIOReadLong(
-  RegEntryIDPtr    node,
-  LogicalAddress   ioAddr,
-  UInt32 *         valuePtr);
-
-OSErr ExpMgrIOWriteLong(
-  RegEntryIDPtr    node,
-  LogicalAddress   ioAddr,
-  UInt32           value);
-
-OSErr ExpMgrIOReadWord(
-  RegEntryIDPtr    node,
-  LogicalAddress   ioAddr,
-  UInt16 *         valuePtr);
-
-OSErr ExpMgrIOWriteWord(
-  RegEntryIDPtr    node,
-  LogicalAddress   ioAddr,
-  UInt16           value);
-
-OSErr ExpMgrIOReadByte(
-  RegEntryIDPtr    node,
-  LogicalAddress   ioAddr,
-  UInt8 *          valuePtr);
-
-OSErr ExpMgrIOWriteByte(
-  RegEntryIDPtr    node,
-  LogicalAddress   ioAddr,
-  UInt8            value);
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*******************************************************************************
  * 
  * Foundation Types
@@ -302,9 +234,6 @@ OSStatus RegistryEntryIterateCreate( RegEntryIter * cookie);
 
 OSStatus RegistryEntryIterateDispose( RegEntryIter * cookie);
 
-OSStatus RegistryEntryIterateSet( RegEntryIter * cookie,
-                                    const RegEntryID * startEntryID);
-
 OSStatus RegistryEntryIterate( RegEntryIter *   cookie,
                         RegEntryIterationOp     relationship,
                         RegEntryID *    foundEntry,
@@ -319,165 +248,7 @@ OSStatus RegistryCStrEntryLookup(  const RegEntryID *   parentEntry,
                             const RegCStrPathName *     path,
                             RegEntryID *                newEntry);
 
-OSStatus RegistryCStrEntryCreate(  const RegEntryID *   parentEntry,
-                            const RegCStrPathName *     name,
-                            RegEntryID *                newEntry);
-
-OSStatus RegistryEntryDelete(const RegEntryID * entryID);
-
 OSStatus RegistryEntryIDDispose(RegEntryID * entryID);
-
-//
-
-OSStatus RegistryEntryCopy(
-  RegEntryID *  parentEntryID,
-  RegEntryID *  sourceDevice,
-  RegEntryID *  destDevice);
-
-OSStatus RegistryEntrySearch(
-  RegEntryIter *           cookie,
-  RegEntryIterationOp      relationship,
-  RegEntryID *             foundEntry,
-  Boolean *                done,
-  const RegPropertyName *  propertyName,
-  const void *             propertyValue,
-  RegPropertyValueSize     propertySize);
-
-OSStatus RegistryEntryToPathSize(
-  const RegEntryID *  entryID,
-  RegPathNameSize *   pathSize);
-
-OSStatus RegistryCStrEntryToPath(
-  const RegEntryID *  entryID,
-  RegCStrPathName *   pathName,
-  RegPathNameSize     pathSize);
-
-OSStatus RegistryPropertyRename(
-  const RegEntryID *       entry,
-  const RegPropertyName *  oldName,
-  const RegPropertyName *  newName);
-
-OSStatus RegistryEntryGetMod(
-  const RegEntryID *   entry,
-  RegEntryModifiers *  modifiers);
-
-OSStatus RegistryEntrySetMod(
-  const RegEntryID *  entry,
-  RegEntryModifiers   modifiers);
-
-OSStatus RegistryEntryMod(
-  RegEntryIter *        cookie,
-  RegEntryIterationOp   relationship,
-  RegEntryID *          foundEntry,
-  Boolean *             done,
-  RegEntryModifiers     matchingModifiers);
-
-OSStatus RegistryEntryPropertyMod(
-  RegEntryIter *         cookie,
-  RegEntryIterationOp    relationship,
-  RegEntryID *           foundEntry,
-  Boolean *              done,
-  RegPropertyModifiers   matchingModifiers);
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-void SynchronizeIO(void);
-
-Boolean CompareAndSwap(
-  UInt32    oldVvalue,
-  UInt32    newValue,
-  UInt32 *  OldValueAdr);
-
-UInt32 CStrLen(const char * src);
-
-char * CStrCopy( char * dst, const char * src);
-
-SInt16 CStrCmp(
-  const char *  s1,
-  const char *  s2);
-
-char * CStrCat(
-  char *        dst,
-  const char *  src);
-char * CStrNCopy(
-  char *        dst,
-  const char *  src,
-  UInt32        max);
-SInt16 CStrNCmp(
-  const char *  s1,
-  const char *  s2,
-  UInt32        max);
-char * CStrNCat(
-  char *        dst,
-  const char *  src,
-  UInt32        max);
-
-void BlockCopy(
-  const void *  srcPtr,
-  void *        destPtr,
-  Size          byteCount);
-void BlockMove(
-  const void *  srcPtr,
-  void *        destPtr,
-  Size          byteCount);
-void BlockMoveData(
-  const void *  srcPtr,
-  void *        destPtr,
-  Size          byteCount);
-void BlockMoveDataUncached(
-  const void *  srcPtr,
-  void *        destPtr,
-  Size          byteCount);
-void BlockMoveUncached(
-  const void *  srcPtr,
-  void *        destPtr,
-  Size          byteCount);
-void BlockZero(
-  const void *  srcPtr,
-  Size          byteCount);
-void BlockZeroUncached(
-  const void *  srcPtr,
-  Size          byteCount);
-
-char * PStrCopy( char *to, const char *from );
-
-void PStrToCStr( char *to, const char *from );
-
-void CStrToPStr( char *to, const char *from );
-
-LogicalAddress PoolAllocateResident(ByteCount byteSize, Boolean clear);
-
-OSStatus PoolDeallocate( LogicalAddress address );
-
-UInt32  CurrentExecutionLevel(void);
-
-UnsignedWide UpTime( void );
-
-UnsignedWide AddAbsoluteToAbsolute(UnsignedWide left, UnsignedWide right);
-
-UnsignedWide SubAbsoluteFromAbsolute(UnsignedWide left, UnsignedWide right);
-
-UnsignedWide DurationToAbsolute( Duration theDuration);
-
-UnsignedWide AddDurationToAbsolute( Duration duration, UnsignedWide absolute );
-
-UnsignedWide NanosecondsToAbsolute ( UnsignedWide theNanoseconds);
-
-UnsignedWide AbsoluteToNanoseconds( UnsignedWide absolute );
-
-Duration AbsoluteDeltaToDuration( UnsignedWide left, UnsignedWide right );
-
-Duration AbsoluteToDuration( UnsignedWide result );
-
-OSStatus DelayForHardware( UnsignedWide time );
-
-OSStatus DelayUntil( UnsignedWide time );
-
-OSStatus DelayFor( Duration theDuration );
-
-void SysDebugStr( const char * from );
-
-void SysDebug( void );
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -566,21 +337,11 @@ enum {
 OSStatus
 VSLGestalt( VSLGestaltType selector, UInt32 * response );
 
-OSStatus 
-VSLSetDisplayConfiguration(RegEntryID * entryID,
-                                        RegPropertyName *  propertyName,
-                                        RegPropertyValue        configData,
-                                        RegPropertyValueSize configDataSize);
 OSErr
 VSLNewInterruptService(
   RegEntryID *            serviceDevice,
   InterruptServiceType    serviceType,
   InterruptServiceIDPtr   serviceID);
-
-OSErr
-VSLWaitOnInterruptService(
-  InterruptServiceIDType   serviceID,
-  Duration                 timeout);
 
 OSErr
 VSLDisposeInterruptService(InterruptServiceIDType serviceID);
@@ -594,7 +355,7 @@ VSLPrepareCursorForHardwareCursor(
   IOHardwareCursorDescriptor *  hardwareDescriptor,
   IOHardwareCursorInfo *        hwCursorInfo);
 
-typedef UnsignedWide Nanoseconds;
+
 enum {
                                         /* Version Release Stage Codes */
   developStage                  = 0x20,
@@ -610,83 +371,7 @@ typedef struct OpaqueIOCommandID*       IOCommandID;
 typedef UInt32 IOCommandKind;
 typedef UInt32 IOCommandCode;
 
-OSErr IOCommandIsComplete( IOCommandID commandID, OSErr result);
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-#ifndef __IONDRV__
-typedef struct OpaqueInterruptSetID*    InterruptSetID;
-#else
-typedef class IONDRVInterruptSet *      InterruptSetID;
-#endif /* __IONDRV__ */
-
-typedef long                            InterruptMemberNumber;
-struct InterruptSetMember {
-  InterruptSetID      setID;
-  InterruptMemberNumber  member;
-};
-typedef struct InterruptSetMember       InterruptSetMember;
-enum {
-  kISTChipInterruptSource       = 0,
-  kISTOutputDMAInterruptSource  = 1,
-  kISTInputDMAInterruptSource   = 2,
-  kISTPropertyMemberCount       = 3
-};
-
-typedef InterruptSetMember              ISTProperty[3];
-#define kISTPropertyName    "driver-ist" 
-
-typedef long                            InterruptReturnValue;
-enum {
-  kFirstMemberNumber            = 1,
-  kIsrIsComplete                = 0,
-  kIsrIsNotComplete             = -1,
-  kMemberNumberParent           = -2
-};
-
-typedef Boolean                         InterruptSourceState;
-enum {
-  kSourceWasEnabled             = true,
-  kSourceWasDisabled            = false
-};
-
-typedef InterruptMemberNumber   (*InterruptHandler) (InterruptSetMember ISTmember, void *refCon, UInt32 theIntCount);
-typedef void                    (*InterruptEnabler) (InterruptSetMember ISTmember, void *refCon);
-typedef InterruptSourceState    (*InterruptDisabler)(InterruptSetMember ISTmember, void *refCon);
-
-enum {
-  kReturnToParentWhenComplete   = 0x00000001,
-  kReturnToParentWhenNotComplete = 0x00000002
-};
-
-typedef OptionBits      InterruptSetOptions;
-
-
-OSStatus GetInterruptFunctions(
-  InterruptSetID          setID,
-  InterruptMemberNumber   member,
-  void **                 refCon,
-  InterruptHandler *      handlerFunction,
-  InterruptEnabler *      enableFunction,
-  InterruptDisabler *     disableFunction);
-
-OSStatus InstallInterruptFunctions(
-  InterruptSetID          setID,
-  InterruptMemberNumber   member,
-  void *                  refCon,
-  InterruptHandler        handlerFunction,
-  InterruptEnabler        enableFunction,
-  InterruptDisabler       disableFunction);
-
-OSStatus CreateInterruptSet(
-  InterruptSetID          parentSet,
-  InterruptMemberNumber   parentMember,
-  InterruptMemberNumber   setSize,
-  InterruptSetID *        setID,
-  InterruptSetOptions     options);
-
-OSStatus DeleteInterruptSet( InterruptSetID setID );
-
 
 #ifdef __cplusplus
 }

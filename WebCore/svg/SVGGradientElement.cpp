@@ -75,38 +75,38 @@ bool SVGGradientElement::isSupportedAttribute(const QualifiedName& attrName)
     return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGGradientElement::parseAttribute(Attribute* attr)
+void SVGGradientElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (!isSupportedAttribute(attr->name())) {
-        SVGStyledElement::parseAttribute(attr);
+    if (!isSupportedAttribute(name)) {
+        SVGStyledElement::parseAttribute(name, value);
         return;
     }
 
-    if (attr->name() == SVGNames::gradientUnitsAttr) {
-        SVGUnitTypes::SVGUnitType propertyValue = SVGPropertyTraits<SVGUnitTypes::SVGUnitType>::fromString(attr->value());
+    if (name == SVGNames::gradientUnitsAttr) {
+        SVGUnitTypes::SVGUnitType propertyValue = SVGPropertyTraits<SVGUnitTypes::SVGUnitType>::fromString(value);
         if (propertyValue > 0)
             setGradientUnitsBaseValue(propertyValue);
         return;
     }
 
-    if (attr->name() == SVGNames::gradientTransformAttr) {
+    if (name == SVGNames::gradientTransformAttr) {
         SVGTransformList newList;
-        newList.parse(attr->value());
+        newList.parse(value);
         detachAnimatedGradientTransformListWrappers(newList.size());
         setGradientTransformBaseValue(newList);
         return;
     }
 
-    if (attr->name() == SVGNames::spreadMethodAttr) {
-        SVGSpreadMethodType propertyValue = SVGPropertyTraits<SVGSpreadMethodType>::fromString(attr->value());
+    if (name == SVGNames::spreadMethodAttr) {
+        SVGSpreadMethodType propertyValue = SVGPropertyTraits<SVGSpreadMethodType>::fromString(value);
         if (propertyValue > 0)
             setSpreadMethodBaseValue(propertyValue);
         return;
     }
 
-    if (SVGURIReference::parseAttribute(attr))
+    if (SVGURIReference::parseAttribute(name, value))
         return;
-    if (SVGExternalResourcesRequired::parseAttribute(attr))
+    if (SVGExternalResourcesRequired::parseAttribute(name, value))
         return;
 
     ASSERT_NOT_REACHED();
@@ -142,11 +142,11 @@ Vector<Gradient::ColorStop> SVGGradientElement::buildStops()
 
     float previousOffset = 0.0f;
     for (Node* n = firstChild(); n; n = n->nextSibling()) {
-        SVGElement* element = n->isSVGElement() ? static_cast<SVGElement*>(n) : 0;
+        SVGElement* element = n->isSVGElement() ? toSVGElement(n) : 0;
         if (!element || !element->isGradientStop())
             continue;
 
-        SVGStopElement* stop = static_cast<SVGStopElement*>(element);
+        SVGStopElement* stop = toSVGStopElement(element);
         Color color = stop->stopColorIncludingOpacity();
 
         // Figure out right monotonic offset

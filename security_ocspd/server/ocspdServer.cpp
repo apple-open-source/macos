@@ -24,6 +24,7 @@
 /*
  * ocspdServer.cpp - Server class for OCSP helper
  */
+
 #if OCSP_DEBUG
 #define OCSP_USE_SYSLOG	1
 #endif
@@ -132,7 +133,7 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 			ocspdErrorLog("ocspdHandleReq: localRespURI but no request to send\n");
 			return NULL;
 		}
-		crtn = ocspdHttpPost(coder, *request.localRespURI, *request.ocspReq, derResp);
+		crtn = ocspdHttpFetch(coder, *request.localRespURI, *request.ocspReq, derResp);
 		if(crtn == CSSM_OK) {
 			SecAsn1OCSPDReply *reply = ocspdGenReply(coder, derResp, request.certID);
 			if(!cacheWriteDisable) {
@@ -191,7 +192,7 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 
 		if(reqOK) {
 			/* go ahead with this OCSP request */
-			crtn = ocspdHttpPost(coder, *uri, *request.ocspReq, derResp);
+			crtn = ocspdHttpFetch(coder, *uri, *request.ocspReq, derResp);
 		} else {
 			crtn = CSSMERR_APPLETP_OCSP_BAD_REQUEST;
 		}
@@ -247,11 +248,11 @@ static char* crlGenerateFileName(
     }
     unsigned char digest[CC_SHA1_DIGEST_LENGTH];
     unsigned char *dataPtr = key;
-    size_t dataLen = keyLen;
+    unsigned int dataLen = (unsigned int)keyLen;
 
     CC_SHA1(dataPtr, dataLen, digest);
     char *outPtr = &fileName[0];
-    size_t outLen = fileNameLen;
+    unsigned int outLen = (unsigned int)fileNameLen;
     strlcpy(outPtr, pathPrefix, outLen);
     outPtr += prefixLen;
     outLen -= prefixLen;
@@ -333,6 +334,42 @@ bool crlSignatureValid(
 	free(command);
 	if(!valid) {
 		ocspdCrlDebug("crlSignatureValid: CRL failed to verify: %s\n", crlFileName);
+		if(updateFileName) {
+			/* to prevent constant refetching of a CRL we cannot verify,
+			 * create .update file with a nextUpdate value in 5 minutes
+			 */
+			const char *uc1 = "/bin/date -u -v +5M \'+%b %d %H:%M:%S %Y GMT\' > \"";
+			const char *uc2 = "\"";
+			cmdLen = strlen(uc1)+strlen(updateFileName)+strlen(uc2)+1;
+			command = (char*)malloc(cmdLen);
+			tmpLen = cmdLen;
+			strlcpy(command, uc1, tmpLen);
+			tmpLen -= strlen(uc1);
+			strncat(command, updateFileName, tmpLen);
+			tmpLen -= strlen(updateFileName);
+			strncat(command, uc2, tmpLen);
+
+			system(command);
+			free(command);
+
+			if(chmod(updateFileName, 0644)) {
+				ocspdErrorLog("crlSignatureValid: chmod error %d for %s",
+					errno, updateFileName);
+			}
+		}
+		if(revokedFileName) {
+			int fd = open(revokedFileName, O_CREAT | O_TRUNC, 0644);
+			if(fd == -1) {
+				ocspdErrorLog("crlSignatureValid: truncate error %d for %s",
+					errno, revokedFileName);
+			} else {
+				close(fd);
+				if(chmod(revokedFileName, 0644)) {
+					ocspdErrorLog("crlSignatureValid: chmod error %d for %s",
+						errno, revokedFileName);
+				}
+			}
+		}
 		return false;
 	}
 
@@ -425,7 +462,7 @@ bool crlUpdateValid(
 		setlocale(LC_TIME, "POSIX");
 		if(strptime((const char *)updateBytes, format, &tm_next)) {
 			time_t now = time(NULL);
-			time_t next = timegm(&tm_next);
+			time_t next = timelocal(&tm_next);
 			result = (now < next);
 
 			#if OCSP_DEBUG
@@ -577,7 +614,7 @@ kern_return_t ocsp_server_ocspdFetch (
 		Allocator &alloc = OcspdServer::active().alloc();
 		*ocspd_rep = alloc.malloc(derRep.Length);
 		memmove(*ocspd_rep, derRep.Data, derRep.Length);
-		*ocspd_repCnt = derRep.Length;
+		*ocspd_repCnt = (unsigned int)derRep.Length;
 		MachPlusPlus::MachServer::active().releaseWhenDone(alloc, *ocspd_rep);
 	}
 	ocspdDebug("ocsp_server_ocspFetch returning %u bytes of replies",
@@ -622,7 +659,7 @@ void passDataToCaller(
 {
 	Allocator &alloc = OcspdServer::active().alloc();
 	*outData    = srcData.Data;
-	*outDataCnt = srcData.Length;
+	*outDataCnt = (unsigned int)srcData.Length;
 	MachPlusPlus::MachServer::active().releaseWhenDone(alloc, srcData.Data);
 }
 
@@ -631,19 +668,19 @@ void passDataToCaller(
  * only to applications running under App Sandbox.
  */
 bool callerHasNetworkEntitlement(
-	audit_token_t auditToken)
+		audit_token_t auditToken)
 {
 	bool result = true; /* until proven otherwise */
 	SecTaskRef task = SecTaskCreateWithAuditToken(NULL, auditToken);
 	if(task != NULL) {
 		CFTypeRef appSandboxValue = SecTaskCopyValueForEntitlement(task,
-			CFSTR("com.apple.security.app-sandbox"),
-			NULL);
+				CFSTR("com.apple.security.app-sandbox"),
+				NULL);
 		if(appSandboxValue != NULL) {
 			if(!CFEqual(kCFBooleanFalse, appSandboxValue)) {
 				CFTypeRef networkClientValue = SecTaskCopyValueForEntitlement(task,
-					CFSTR("com.apple.security.network.client"),
-					NULL);
+						CFSTR("com.apple.security.network.client"),
+						NULL);
 				if(networkClientValue != NULL) {
 					result = (!CFEqual(kCFBooleanFalse, networkClientValue));
 					CFRelease(networkClientValue);
@@ -728,7 +765,7 @@ kern_return_t ocsp_server_crlStatus (
     mach_msg_type_number_t crl_urlCnt)
 {
 	ocspdCrlDebug("Processing crlStatus request");
-	ocspdCrlDebug("Status requested for %ld issuer bytes, %ld URL bytes", crl_issuerCnt, crl_urlCnt);
+	ocspdCrlDebug("Status requested for %u issuer bytes, %u URL bytes", crl_issuerCnt, crl_urlCnt);
 	ServerActivity();
 	kern_return_t krtn;
 	struct stat sb;

@@ -1,19 +1,6 @@
-RC_OS = macos
-OFLAG = -Os
-LTO = -DLTO_SUPPORT
 LEGACY = -D_MACH_I386_THREAD_STATUS_FPSTATE_LEGACY_FIELD_NAMES_ \
 	 -D_ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_
 
-ifneq "$(RC_MAJOR_RELEASE_TRAIN)" "Tiger"
-KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
-       -msoft-float -nostdinc \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers/libsa \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers/bsd \
-       -iwithsysroot /System/Library/Frameworks/Kernel.framework/Headers \
-       -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
-else
 KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
        -msoft-float -nostdinc \
 -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
@@ -22,37 +9,19 @@ KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
        -I$(NEXT_ROOT)/System/Library/Frameworks/Kernel.framework/Headers \
        -DKERNEL -DKERNEL_PRIVATE -DAPPLE -DNeXT -DLIBSA_PRIVATE
-endif
 
-X_CFLAGS =
-
-USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
-				  [ "$(RC_XBS)" != "YES" ]; then \
-	     echo YES ; else echo NO ; \
-	     fi; )
-	
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
 endif
 
+OFLAG = -Os
+LTO = -DLTO_SUPPORT
 G = -g
-ifeq "clang" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) $(LTO) $(G) -I$(SRCROOT)/../include -Wall \
-	   $(LEGACY) $(SDK)
-  PG =
-else
-  CFLAGS = $(OFLAG) $(LTO) $(G) -I$(SRCROOT)/../include -Wall \
-	   $(X_CFLAGS) $(LEGACY) $(SDK)
-  PG = -pg
-endif
+CFLAGS = $(OFLAG) $(LTO) $(G) -I$(SRCROOT)/../include -Wall $(LEGACY) $(SDK)
+PG = -pg
 
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
-else
-  MKDIRS = /bin/mkdir -p
-endif
-
+MKDIRS = /bin/mkdir -p
 SRCROOT = .
 SYMROOT = .
 OBJROOT = .
@@ -84,16 +53,13 @@ else
 	STATIC_KLD = 
 endif
 
-#all: $(OFILE_DIRS) $(SYMROOT) static dynamic profile $(STATIC_KLD) $(RC_OS)
-all: $(OFILE_DIRS) $(SYMROOT) dynamic profile $(STATIC_KLD) $(RC_OS)
+all: $(OFILE_DIRS) $(SYMROOT) dynamic profile $(STATIC_KLD)
+
+lib_static_ofiles: $(STATIC_KLD)
 
 lib_ofiles: $(OFILE_DIRS) $(SYMROOT) dynamic
 
 lib_ofiles_install: lib_ofiles
-
-teflon macos:
-
-nextstep: shlib
 
 static: $(OBJROOT)/static_obj
 	@if [ $(SRCROOT) = . ];						\
@@ -248,7 +214,6 @@ apple_version.c:
 	echo "const char apple_version[]=" > $(OFILE_DIR)/$@
 	echo "\"cctools-$(RC_ProjectSourceVersion)\";" >> $(OFILE_DIR)/$@
 
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c -o $(OFILE_DIR)/$*.o $<
 
@@ -257,21 +222,6 @@ lto.o: lto.c
 		-I/Developer/usr/local/include \
 		-I$(DT_TOOLCHAIN_DIR)/usr/local/include \
 		-o $(OFILE_DIR)/$*.o $<
-else
-.c.o:
-	$(CC) $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
-		-MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-
-lto.o: lto.c
-	$(CC) -std=c99 $(CFLAGS) $(RC_CFLAGS) $(COPTS) -c \
-		-I/Developer/usr/local/include \
-		-I$(DT_TOOLCHAIN_DIR)/usr/local/include \
-		-MD -dependency-file $(OFILE_DIR)/$*.d \
-		-o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
 
 clean shlib_clean:
 	-rm -r -f $(OFILE_DIRS)
@@ -307,5 +257,3 @@ fromGASsrc: $(OBJROOT)/dynamic_obj
 
 $(OFILE_DIRS) $(SYMROOT):
 	$(MKDIRS) $@
-
--include $(OFILE_DIR)/Makedep

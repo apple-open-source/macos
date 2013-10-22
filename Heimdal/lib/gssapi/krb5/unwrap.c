@@ -60,7 +60,7 @@ unwrap_des
   OM_uint32 ret;
   int cstate;
   int cmp;
-  int token_len;
+  size_t token_len;
 
   if (IS_DCE_STYLE(context_handle)) {
      token_len = 22 + 8 + 15; /* 45 */
@@ -216,7 +216,7 @@ unwrap_des3
   krb5_crypto crypto;
   Checksum csum;
   int cmp;
-  int token_len;
+  size_t token_len;
 
   if (IS_DCE_STYLE(context_handle)) {
      token_len = 34 + 8 + 15; /* 57 */

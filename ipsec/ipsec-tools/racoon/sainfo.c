@@ -79,9 +79,7 @@ static LIST_HEAD(_sitree, sainfo) sitree;
  * First pass is for sainfo from a specified peer, second for others.
  */
 struct sainfo *
-getsainfo(src, dst, peer, use_nat_addr)
-	const vchar_t *src, *dst, *peer;
-	int use_nat_addr;
+getsainfo(const vchar_t *src, const vchar_t *dst, const vchar_t *peer, int use_nat_addr)
 {
 	struct sainfo *s = NULL;
 	struct sainfo *anonymous = NULL;
@@ -90,30 +88,10 @@ getsainfo(src, dst, peer, use_nat_addr)
 	if (use_nat_addr && lcconf->ext_nat_id == NULL)
 		return NULL;
 
-	//plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - src id:\n");
-	//if (src != NULL)
-	//	plogdump(LLV_DEBUG2, src->v, src->l);
-	//else
-	//	plog(LLV_DEBUG2, LOCATION, NULL, " anonymous\n");
-	//plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - dst id:\n");
-	//if (dst != NULL)
-	//	plogdump(LLV_DEBUG2, dst->v, dst->l);
-	//else
-	//	plog(LLV_DEBUG2, LOCATION, NULL, " anonymous\n");
 	if (peer == NULL)
 		pass = 2;
     again:
 	LIST_FOREACH(s, &sitree, chain) {
-		if (s->to_delete || s->to_remove) {
-			continue;
-		}
-		//if (s->idsrc != NULL) {
-		//	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id - src & dst:\n");
-		//	plogdump(LLV_DEBUG2, s->idsrc->v, s->idsrc->l);
-		//	plogdump(LLV_DEBUG2, s->iddst->v, s->iddst->l);
-		//} else {
-		//	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id = anonymous\n");
-		//}
 		if (s->id_i != NULL) {
 			if (pass == 2)
 				continue;
@@ -133,12 +111,11 @@ getsainfo(src, dst, peer, use_nat_addr)
 			continue;
 		}
 
-		if (memcmp(src->v, s->idsrc->v, s->idsrc->l) == 0) {
+        // TODO: handle wildcard port numbers in the id		
+        if (memcmp(src->v, s->idsrc->v, s->idsrc->l) == 0) {
 			if (use_nat_addr) {
 				if (memcmp(lcconf->ext_nat_id->v, s->iddst->v, s->iddst->l) == 0) {
-					plog(LLV_DEBUG, LOCATION, NULL,
-						"matched external nat address.\n");
-					plogdump(LLV_DEBUG2, lcconf->ext_nat_id->v, lcconf->ext_nat_id->l);
+					plogdump(ASL_LEVEL_DEBUG, lcconf->ext_nat_id->v, lcconf->ext_nat_id->l, "matched external nat address.\n");
 					return s;
 				}
 			} else if (memcmp(dst->v, s->iddst->v, s->iddst->l) == 0)
@@ -147,7 +124,7 @@ getsainfo(src, dst, peer, use_nat_addr)
 	}
 
 	if (anonymous) {
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			"anonymous sainfo selected.\n");
 	} else if (pass == 1) {
 		pass = 2;
@@ -164,32 +141,26 @@ getsainfo(src, dst, peer, use_nat_addr)
  * XXX by each data type, should be changed to compare the buffer.
  */
 struct sainfo *
-getsainfo_by_dst_id(dst, peer)
-	const vchar_t *dst, *peer;
+getsainfo_by_dst_id(const vchar_t *dst, const vchar_t *peer)
 {
 	struct sainfo *s = NULL;
 	struct sainfo *anonymous = NULL;
 
-	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - dst id:\n");
+	plog(ASL_LEVEL_DEBUG, "getsainfo_by_dst_id - dst id:\n");
 	if (dst != NULL)
-		plogdump(LLV_DEBUG2, dst->v, dst->l);
+		plogdump(ASL_LEVEL_DEBUG, dst->v, dst->l, "getsainfo_by_dst_id - dst id:\n");
 	else
 		return NULL;
 
 	LIST_FOREACH(s, &sitree, chain) {
-		if (s->to_delete || s->to_remove) {
-			continue;
+		if (s->idsrc != NULL) {
+			plogdump(ASL_LEVEL_DEBUG, s->idsrc->v, s->idsrc->l, "getsainfo_by_dst_id - sainfo id - src:\n");
+			plogdump(ASL_LEVEL_DEBUG, s->iddst->v, s->iddst->l, "getsainfo_by_dst_id - sainfo id - dst:\n");
+		} else {
+			plog(ASL_LEVEL_DEBUG, "getsainfo_by_dst_id - sainfo id = anonymous\n");
 		}
-		//if (s->idsrc != NULL) {
-		//	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - sainfo id - src & dst:\n");
-		//	plogdump(LLV_DEBUG2, s->idsrc->v, s->idsrc->l);
-		//	plogdump(LLV_DEBUG2, s->iddst->v, s->iddst->l);
-		//} else {
-		//	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - sainfo id = anonymous\n");
-		//}
 		if (s->id_i != NULL) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - sainfo id_i:\n");
-			plogdump(LLV_DEBUG2, s->id_i->v, s->id_i->l);
+			plogdump(ASL_LEVEL_DEBUG, s->id_i->v, s->id_i->l, "getsainfo_by_dst_id - sainfo id_i:\n");
 			if (peer == NULL)
 				continue;
 			if (memcmp(peer->v, s->id_i->v, s->id_i->l) != 0)
@@ -205,50 +176,16 @@ getsainfo_by_dst_id(dst, peer)
 	}
 
 	if (anonymous) {
-		plog(LLV_DEBUG, LOCATION, NULL,
+		plog(ASL_LEVEL_DEBUG, 
 			 "anonymous sainfo selected.\n");
 	}
 	
 	return anonymous;
 }
 
-int
-link_sainfo_to_ph2 (struct sainfo *new)
-{
-	if (!new) {
-		return(-1);
-	}
-	if (new->to_delete ||
-		new->to_remove) {
-		return(-1);
-	}
-	new->linked_to_ph2++;
-	return(0);
-}
-
-int
-unlink_sainfo_from_ph2 (struct sainfo *old)
-{
-	if (!old) {
-		return(-1);
-	}
-	if (old->linked_to_ph2 <= 0) {
-		return(-1);
-	}
-	old->linked_to_ph2--;
-	if (old->linked_to_ph2 == 0) {
-		if (old->to_remove) {
-			remsainfo(old);
-		}
-		if (old->to_delete) {
-			delsainfo(old);
-		}
-	}
-	return(0);
-}
 
 struct sainfo *
-newsainfo()
+create_sainfo()
 {
 	struct sainfo *new;
 
@@ -258,23 +195,17 @@ newsainfo()
 
 	new->lifetime = IPSECDOI_ATTR_SA_LD_SEC_DEFAULT;
 	new->lifebyte = IPSECDOI_ATTR_SA_LD_KB_MAX;
-	new->to_remove = FALSE;
-	new->to_delete = FALSE;
-	new->linked_to_ph2 = 0;
+	new->refcount = 1;
+    new->in_list = 0;
 
 	return new;
 }
 
+
 void
-delsainfo(si)
-	struct sainfo *si;
+delsainfo(struct sainfo *si)
 {
 	int i;
-
-	if (si->linked_to_ph2) {
-		si->to_delete = TRUE;
-		return;
-	}
 	
 	for (i = 0; i < MAXALGCLASS; i++)
 		delsainfoalg(si->algs[i]);
@@ -293,49 +224,66 @@ delsainfo(si)
 }
 
 void
-inssainfo(new)
-	struct sainfo *new;
+inssainfo(struct sainfo *new)
 {
 	LIST_INSERT_HEAD(&sitree, new, chain);
+    new->in_list = 1;
 }
 
 void
-remsainfo(si)
-	struct sainfo *si;
+remsainfo(struct sainfo *si)
 {
-	if (si->linked_to_ph2) {
-		si->to_remove = TRUE;
-		return;
-	}
-	LIST_REMOVE(si, chain);
+    if (si->in_list) {
+        LIST_REMOVE(si, chain);
+        si->in_list = 0;
+    }
 }
 
+// remove sainfos from linked list
+// if not used - delete it
 void
 flushsainfo()
 {
 	struct sainfo *s, *next;
 
-	for (s = LIST_FIRST(&sitree); s; s = next) {
-		next = LIST_NEXT(s, chain);
+	LIST_FOREACH_SAFE(s, &sitree, chain, next) {
 		if (s->dynamic == 0) {
-			remsainfo(s);
-			delsainfo(s);
+            remsainfo(s);
+            if (--(s->refcount) <= 0)
+                delsainfo(s);
 		}
 	}
 }
 
+// remove sainfos from linked list
+// if not used - delete it
 void
 flushsainfo_dynamic(u_int32_t addr)
 {
 	struct sainfo *s, *next;
 
-	for (s = LIST_FIRST(&sitree); s; s = next) {
-		next = LIST_NEXT(s, chain);
+	LIST_FOREACH_SAFE(s, &sitree, chain, next) {
 		if (s->dynamic == addr) {
-			remsainfo(s);
-			delsainfo(s);
+            remsainfo(s);
+            if (--(s->refcount) <= 0)
+                delsainfo(s);
 		}
 	}
+}
+
+void
+retain_sainfo(struct sainfo *si)
+{
+	(si->refcount)++;
+}
+
+void
+release_sainfo(struct sainfo *si)
+{
+	if (--(si->refcount) <= 0) {
+        remsainfo(si);
+        delsainfo(si);
+    }
 }
 
 void
@@ -357,8 +305,7 @@ newsainfoalg()
 }
 
 void
-delsainfoalg(alg)
-	struct sainfoalg *alg;
+delsainfoalg(struct sainfoalg *alg)
 {
 	struct sainfoalg *a, *next;
 
@@ -369,9 +316,7 @@ delsainfoalg(alg)
 }
 
 void
-inssainfoalg(head, new)
-	struct sainfoalg **head;
-	struct sainfoalg *new;
+inssainfoalg(struct sainfoalg **head, struct sainfoalg *new)
 {
 	struct sainfoalg *a;
 
@@ -383,9 +328,10 @@ inssainfoalg(head, new)
 		*head = new;
 }
 
+
+
 const char *
-sainfo2str(si)
-	const struct sainfo *si;
+sainfo2str(const struct sainfo *si)
 {
     char *idsrc_str;
     char *iddst_str;

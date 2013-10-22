@@ -43,19 +43,25 @@ public:
     static const int IDBDatabaseExceptionMax = 1299;
 
     enum IDBDatabaseExceptionCode {
-        NO_ERR = IDBDatabaseExceptionOffset,
-        UNKNOWN_ERR,
-        NON_TRANSIENT_ERR,
-        NOT_FOUND_ERR,
-        CONSTRAINT_ERR,
-        DATA_ERR,
-        NOT_ALLOWED_ERR,
-        TRANSACTION_INACTIVE_ERR,
-        ABORT_ERR,
-        READ_ONLY_ERR,
-        TIMEOUT_ERR,
-        QUOTA_ERR,
-        VER_ERR
+        NoError = IDBDatabaseExceptionOffset,
+
+        // IndexedDB uses the following new DOMException types with their various messages:
+        UnknownError,
+        ConstraintError,
+        DataError,
+        TransactionInactiveError,
+        ReadOnlyError,
+        VersionError,
+
+        // IndexedDB reuses the following existing DOMException types, but with IDB-specific error messages.
+        NotFoundError,
+        InvalidStateError,
+        InvalidAccessError,
+        AbortError,
+        TimeoutError,
+        QuotaExceededError,
+        SyntaxError,
+        DataCloneError,
     };
 
     static int ErrorCodeToExceptionCode(int errorCode)
@@ -66,6 +72,9 @@ public:
     }
 
     static bool initializeDescription(ExceptionCode, ExceptionCodeDescription*);
+    static String getErrorName(ExceptionCode);
+    static String getErrorDescription(ExceptionCode);
+    static ExceptionCode getLegacyErrorCode(ExceptionCode);
 
 private:
     IDBDatabaseException(const ExceptionCodeDescription& description)

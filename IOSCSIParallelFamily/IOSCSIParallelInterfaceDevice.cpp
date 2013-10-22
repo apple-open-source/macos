@@ -1288,7 +1288,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 							SCSIServiceResponse 		serviceResponse,
 							SCSITaskStatus 				completionStatus )
 {
-	
+
 	SCSITaskIdentifier	clientRequest	= NULL;
 	SCSIParallelTask *	task			= ( SCSIParallelTask * ) completedTask;
 	UInt8				retryCount		= task->fTaskRetryCount;
@@ -1354,6 +1354,8 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	// Release the SCSI Parallel Task object.
 	FreeSCSIParallelTask ( completedTask );
 
+	IOSimpleLockLock ( fQueueLock );
+
 	// If there are requests on the resend queue, send them first.
 	// Currently only the element at the head of the queue will be sent.
 	// If the desire is to allow all elements to be sent, the break
@@ -1362,10 +1364,16 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	{
 		
 		SCSIParallelTaskIdentifier 	parallelTask;
-		
+		SCSIParallelTask *		task = NULL;
+
 		parallelTask = ( SCSIParallelTaskIdentifier ) queue_first ( &fResendTaskList );
 		
-		RemoveFromResendTaskList ( parallelTask);
+		task = ( SCSIParallelTask * ) parallelTask ;
+
+		queue_remove ( &fResendTaskList, task, SCSIParallelTask *, fResendTaskChain );
+
+		IOSimpleLockUnlock ( fQueueLock );
+
 		
 		if ( ExecuteParallelTask ( parallelTask ) != kSCSIServiceResponse_Request_In_Process )
 		{
@@ -1382,17 +1390,29 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 			
 			CommandCompleted ( nextRequest, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE, kSCSITaskStatus_No_Status );
 			
+
+			IOSimpleLockLock ( fQueueLock );
+
 			// Since this command has already completed, start the next
 			// one on the queue.
 			continue;
 			
+		} 
+
+		else 
+		{
+		
+			IOSimpleLockLock ( fQueueLock );
+
+			// A command was successfully sent, wait for it to complete
+			// before sending the next one.
+			break;
+
 		}
 		
-		// A command was successfully sent, wait for it to complete
-		// before sending the next one.
-		break;
-		
 	}
+
+	IOSimpleLockUnlock ( fQueueLock );
 
 	// If the IO completed with TASK_SET_FULL but has exhausted its max retries,
 	// complete it with taskStatus BUSY. The upper layer will retry it again.

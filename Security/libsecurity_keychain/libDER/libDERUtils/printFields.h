@@ -15,9 +15,9 @@
 extern "C" {
 #endif
 
-void doIndent();
-void incrIndent();
-void decrIndent();
+void doIndent(void);
+void incrIndent(void);
+void decrIndent(void);
 void printHex(DERItem *item);
 void printBitString(DERItem *item);
 void printString(DERItem *item);

@@ -51,6 +51,7 @@ OSStatus SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, v
 #include <Security/SecRSAKey.h>
 #include <Security/SecKeyPriv.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonDigestSPI.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFString.h>
 
@@ -70,22 +71,28 @@ CFTypeRef kSecOidOrganizationalUnit = CFSTR("OU");
 const unsigned char SecASN1PrintableString = SEC_ASN1_PRINTABLE_STRING;
 const unsigned char SecASN1UTF8String = SEC_ASN1_UTF8_STRING;
 
-static void mod128_oid_encoding(CFMutableDataRef dst, uint32_t src, bool final)
+static uint8_t * mod128_oid_encoding_ptr(uint8_t *ptr, uint32_t src, bool final)
 {
     if (src > 128)
-        mod128_oid_encoding(dst, src / 128, false);
+        ptr = mod128_oid_encoding_ptr(ptr, src / 128, false);
     
     unsigned char octet = src % 128;
     if (!final)
         octet |= 128;
-    CFDataAppendBytes(dst, &octet, 1);
+    *ptr++ = octet;
+
+    return ptr;
 }
 
-static CFDataRef oid_der(CFStringRef oid_string)
+static uint8_t * oid_der_data(PRArenaPool *poolp, CFStringRef oid_string, size_t *oid_data_len)
 {
-    CFMutableDataRef oid_der_data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    /* estimate encoded length from base 10 (4 bits) to base 128 (7 bits) */
+    size_t tmp_oid_length = ((CFStringGetLength(oid_string) * 4) / 7) + 1;
+    uint8_t *tmp_oid_data = PORT_ArenaAlloc(poolp, tmp_oid_length);
+    uint8_t *tmp_oid_data_ptr = tmp_oid_data;
+
     CFArrayRef oid = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault,
-        oid_string, CFSTR("."));
+                                                            oid_string, CFSTR("."));
     CFIndex i = 0, count = CFArrayGetCount(oid);
     SInt32 first_digit = 0, digit;
     for (i = 0; i < count; i++) {
@@ -99,15 +106,17 @@ static CFDataRef oid_der(CFStringRef oid_string)
                 digit = 40 * first_digit + oid_octet_int_value;
             else
                 digit = oid_octet_int_value;
-            mod128_oid_encoding(oid_der_data, digit, true);
+            tmp_oid_data_ptr = mod128_oid_encoding_ptr(tmp_oid_data_ptr, digit, true);
         }
     }
     CFReleaseSafe(oid);
-    return oid_der_data;
+
+    *oid_data_len = tmp_oid_data_ptr - tmp_oid_data;
+    return tmp_oid_data;
 out:
-    CFReleaseSafe(oid_der_data);
     return NULL;
 }
+
 
 /*
 Get challenge password conversion and apply this:
@@ -190,13 +199,8 @@ static bool make_nss_atv(PRArenaPool *poolp,
         } else if (CFEqual(kSecOidOrganizationalUnit, oid)) {
             oid_length = oidOrganizationalUnitName.length; oid_data = oidOrganizationalUnitName.data;
         } else {
-            CFDataRef oid_der_data = oid_der(oid);
-            require(oid_der_data, out);
-            oid_length = CFDataGetLength(oid_der_data);
-            oid_data = PORT_ArenaAlloc(poolp, oid_length);
-            require(oid_length && oid_data, out);
-            memcpy(oid_data, CFDataGetBytePtr(oid_der_data), oid_length);
-            CFReleaseSafe(oid_der_data);
+            oid_data = oid_der_data(poolp, oid, &oid_length);
+            require(oid_data, out);
         }
     } else if (CFGetTypeID(oid) == CFDataGetTypeID()) {
         /* will remain valid for the duration of the operation, still maybe copy into pool */
@@ -395,6 +399,7 @@ CFTypeRef kSecCSRChallengePassword = CFSTR("csrChallengePassword");
 CFTypeRef kSecSubjectAltName = CFSTR("subjectAltName");
 CFTypeRef kSecCertificateKeyUsage = CFSTR("keyUsage");
 CFTypeRef kSecCSRBasicContraintsPathLen = CFSTR("basicConstraints");
+CFTypeRef kSecCertificateExtensions = CFSTR("certificateExtensions");
 
 static const uint8_t pkcs9ExtensionsRequested[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 14 };
 static const uint8_t pkcs9ChallengePassword[] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 7 };
@@ -413,12 +418,54 @@ static inline uint32_t highest_bit(uint32_t n)
             (n);
 }
 
+struct add_custom_extension_args {
+    PLArenaPool *poolp;
+    NSS_CertExtension *csr_extension;
+    uint32_t num_extensions;
+    uint32_t max_extensions;
+};
+
+static void add_custom_extension(const void *key, const void *value, void *context)
+{
+    struct add_custom_extension_args *args = (struct add_custom_extension_args *)context;
+    size_t der_data_len;
+
+    require(args->num_extensions < args->max_extensions, out);
+
+    uint8_t * der_data = oid_der_data(args->poolp, key, &der_data_len);
+    SecAsn1Item encoded_value = {};
+
+    if (CFGetTypeID(value) == CFStringGetTypeID()) {
+        CFIndex buffer_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(value), kCFStringEncodingUTF8);
+        char *buffer = (char *)PORT_ArenaZNewArray(args->poolp, uint8_t, buffer_size);
+        if (!CFStringGetCString(value, buffer, buffer_size, kCFStringEncodingUTF8))
+            goto out;
+
+        SecAsn1Item buffer_item = { strlen(buffer), (uint8_t*)buffer };
+        SEC_ASN1EncodeItem(args->poolp, &encoded_value, &buffer_item, kSecAsn1UTF8StringTemplate);
+    } else if (CFGetTypeID(value) == CFDataGetTypeID()) {
+        SecAsn1Item data_item = { CFDataGetLength(value), (uint8_t*)CFDataGetBytePtr(value) };
+        SEC_ASN1EncodeItem(args->poolp, &encoded_value, &data_item, kSecAsn1OctetStringTemplate);
+    } else
+        goto out;
+
+
+    if (der_data && encoded_value.Length) {
+        args->csr_extension[args->num_extensions].value = encoded_value;
+        args->csr_extension[args->num_extensions].extnId.Length = der_data_len;
+        args->csr_extension[args->num_extensions].extnId.Data = der_data;
+        args->num_extensions++;
+    }
+out:
+    return;
+}
+
 static
 NSS_CertExtension **
 extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters)
 {
-    uint32_t num_extensions = 0, max_extensions = 4;
-    NSS_CertExtension **csr_extensions = PORT_ArenaZNewArray(poolp, NSS_CertExtension *, max_extensions);
+    uint32_t num_extensions = 0, max_extensions = 10;
+    NSS_CertExtension **csr_extensions = PORT_ArenaZNewArray(poolp, NSS_CertExtension *, max_extensions + 1); /* NULL terminated array */
     NSS_CertExtension *csr_extension = PORT_ArenaZNewArray(poolp, NSS_CertExtension, max_extensions);
 
     CFNumberRef basic_contraints_num = CFDictionaryGetValue(parameters, kSecCSRBasicContraintsPathLen);
@@ -429,7 +476,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters)
         int basic_contraints_path_len = 0;
         require(CFNumberGetValue(basic_contraints_num, kCFNumberIntType, &basic_contraints_path_len), out);
         if (basic_contraints_path_len >= 0 && basic_contraints_path_len < 256) {
-            path_len = basic_contraints_path_len;
+            path_len = (uint8_t)basic_contraints_path_len;
             basic_contraints.pathLenConstraint.Length = sizeof(path_len);
             basic_contraints.pathLenConstraint.Data = &path_len;
         }
@@ -483,14 +530,29 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters)
         }
     }
 
+    CFDictionaryRef custom_extension_requested = CFDictionaryGetValue(parameters, kSecCertificateExtensions);
+    if (custom_extension_requested) {
+        require(CFGetTypeID(custom_extension_requested) == CFDictionaryGetTypeID(), out);
+        struct add_custom_extension_args args = {
+            poolp,
+            csr_extension,
+            num_extensions,
+            max_extensions
+        };
+        CFDictionaryApplyFunction(custom_extension_requested, add_custom_extension, &args);
+        num_extensions = args.num_extensions;
+    }
+
     /* extensions requested (subjectAltName, keyUsage) sequence of extension sequences */
     uint32_t ix = 0;
-    for (ix = 0; ix <= num_extensions; ix++)
+    for (ix = 0; ix < num_extensions; ix++)
         csr_extensions[ix] = csr_extension[ix].extnId.Length ? &csr_extension[ix] : NULL;
 
 out:
     return csr_extensions;
 }
+
+
 
 static
 NSS_Attribute **nss_attributes_from_parameters_dict(PRArenaPool *poolp, CFDictionaryRef parameters)
@@ -647,11 +709,10 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     /* encode request info by itself to calculate signature */
     SecAsn1Item reqinfo = {};
     SEC_ASN1EncodeItem(poolp, &reqinfo, &certReq.reqInfo, kSecAsn1CertRequestInfoTemplate);
-    require(reqinfo.Length<=UINT32_MAX, out);
 
     /* calculate signature */
     uint8_t reqinfo_hash[CC_SHA1_DIGEST_LENGTH];
-    CC_SHA1(reqinfo.Data, (CC_LONG)reqinfo.Length, reqinfo_hash);
+    CCDigest(kCCDigestSHA1, reqinfo.Data, (CC_LONG)reqinfo.Length, reqinfo_hash);
     require_noerr_quiet(SecKeyRawSign(privateKey, kSecPaddingPKCS1SHA1, 
         reqinfo_hash, sizeof(reqinfo_hash), signature, &signature_length), out);
     
@@ -715,11 +776,10 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     /* encode request info by itself to calculate signature */
     SecAsn1Item reqinfo = {};
     SEC_ASN1EncodeItem(poolp, &reqinfo, &certReq.reqInfo, kSecAsn1CertRequestInfoTemplate);
-    require(reqinfo.Length<=UINT32_MAX, out);
 
     /* calculate signature */
     uint8_t reqinfo_hash[CC_SHA1_DIGEST_LENGTH];
-    CC_SHA1(reqinfo.Data, reqinfo.Length, reqinfo_hash);
+    CCDigest(kCCDigestSHA1, reqinfo.Data, reqinfo.Length, reqinfo_hash);
     require_noerr_quiet(SecKeyRawSign(privateKey, kSecPaddingPKCS1SHA1, 
         reqinfo_hash, sizeof(reqinfo_hash), signature, &signature_length), out);
     
@@ -770,7 +830,7 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
     /* calculate signature */
     uint8_t reqinfo_hash[CC_SHA1_DIGEST_LENGTH];
     require(reqinfo.Length<=UINT32_MAX, out);
-    CC_SHA1(reqinfo.Data, (CC_LONG)reqinfo.Length, reqinfo_hash);
+    CCDigest(kCCDigestSHA1, reqinfo.Data, (CC_LONG)reqinfo.Length, reqinfo_hash);
 
     /* @@@ check for version 0 */
 
@@ -925,8 +985,7 @@ SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDictionaryRef parameters,
 
         /* calculate signature */
         uint8_t tbscert_hash[CC_SHA1_DIGEST_LENGTH];
-        require(tbscert.Length<=UINT32_MAX, out);
-        CC_SHA1(tbscert.Data, tbscert.Length, tbscert_hash);
+        CCDigest(kCCDigestSHA1, tbscert.Data, tbscert.Length, tbscert_hash);
         uint8_t signature[8 * CFDataGetLength(pkcs1_pubkey)];
         size_t signature_length = sizeof(signature);
         require_noerr_quiet(SecKeyRawSign(privateKey, kSecPaddingPKCS1SHA1, 
@@ -986,7 +1045,7 @@ SecIdentitySignCertificate(SecIdentityRef issuer, CFDataRef serialno,
 
     SecCertificateRef issuer_cert = NULL;
     require_noerr(SecIdentityCopyCertificate(issuer, &issuer_cert), out);
-    CFDataRef issuer_name = SecCertificateCopyIssuerSequence(issuer_cert);
+    CFDataRef issuer_name = SecCertificateCopySubjectSequence(issuer_cert);
     SecAsn1Item issuer_item = { CFDataGetLength(issuer_name), (uint8_t*)CFDataGetBytePtr(issuer_name) };
     require_noerr_action_quiet(SEC_ASN1DecodeItem(poolp, &cert_tmpl.tbs.issuer.rdns, 
         kSecAsn1NameTemplate, &issuer_item), out, CFReleaseNull(issuer_name));
@@ -1033,8 +1092,7 @@ SecIdentitySignCertificate(SecIdentityRef issuer, CFDataRef serialno,
 
         /* calculate signature */
         uint8_t tbscert_hash[CC_SHA1_DIGEST_LENGTH];
-        require(tbscert.Length<=UINT32_MAX, out);
-        CC_SHA1(tbscert.Data, tbscert.Length, tbscert_hash);
+        CCDigest(kCCDigestSHA1, tbscert.Data, tbscert.Length, tbscert_hash);
         uint8_t signature[8 * CFDataGetLength(pkcs1_pubkey)];
         size_t signature_length = sizeof(signature);
         

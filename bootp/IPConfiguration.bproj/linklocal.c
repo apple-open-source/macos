@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -121,15 +121,15 @@ set_arp_linklocal(const char * name, int val)
     int	s;
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s == -1) {
-	my_log(LOG_NOTICE, "set_arp_linklocal(%s) socket() failed, %m",
-	       name);
+	my_log(LOG_NOTICE, "set_arp_linklocal(%s) socket() failed, %s",
+	       name, strerror(errno));
 	return;
     }
     if (siocarpipll(s, name, val) < 0) {
 	if (errno != ENXIO) {
 	    my_log(LOG_NOTICE,
-		   "set_arp_linklocal(%s) SIOCARPIPLL %d failed, %m",
-		   name, val);
+		   "set_arp_linklocal(%s) SIOCARPIPLL %d failed, %s",
+		   name, val, strerror(errno));
 	}
     }
     close(s);
@@ -165,11 +165,19 @@ parent_service_ip_address(ServiceRef service_p, struct in_addr * ret_ip)
 }
 
 struct in_addr
-S_find_linklocal_address(interface_t * if_p)
+S_find_linklocal_address(ServiceRef service_p)
 {
-    int				count = if_inet_count(if_p);
+    int				count;
     int				i;
+    interface_t *		if_p;
+    struct in_addr		ll_addr;
 
+    ll_addr = linklocal_get_address(service_p);
+    if (ll_addr.s_addr != 0) {
+	return (ll_addr);
+    }
+    if_p = service_interface(service_p);
+    count = if_inet_count(if_p);
     for (i = 0; i < count; i++) {
 	inet_addrinfo_t * 	info = if_inet_addr_at(if_p, i);
 
@@ -342,7 +350,7 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 	      break;
 	  }
 	  if (result->in_use 
-	      || service_is_using_ip(service_p, linklocal->probe) == FALSE) {
+	      || service_is_using_ip(service_p, linklocal->probe)) {
 	      if (result->in_use) {
 	          my_log(LOG_DEBUG, "LINKLOCAL %s: IP address " 
 		         IP_FORMAT " is in use by " EA_FORMAT, 
@@ -351,7 +359,7 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 		         EA_LIST(result->addr.target_hardware));
 	      }
 	      else {
-	          my_log(LOG_DEBUG, "LINKLOCAL %s: IP address "
+		  my_log(LOG_DEBUG, "LINKLOCAL %s: IP address "
 			 IP_FORMAT " is no longer unique", 
 			 if_name(if_p));
 	      }
@@ -376,6 +384,7 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 	      /* ad-hoc IP address is not in use, so use it */
 	      (void)service_set_address(service_p, linklocal->probe, 
 					linklocal_mask, G_ip_zeroes);
+	      linklocal_set_address(service_p, linklocal->probe);
 	      arp_linklocal_enable(if_name(if_p));
 	      linklocal_cancel_pending_events(service_p);
 	      linklocal->our_ip = linklocal->probe;
@@ -493,7 +502,7 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      linklocal_detect_proxy_arp(service_p, IFEventID_start_e, NULL);
 	      break;
 	  }
-	  linklocal->our_ip = S_find_linklocal_address(if_p);
+	  linklocal->our_ip = S_find_linklocal_address(service_p);
 	  linklocal_allocate(service_p, IFEventID_start_e, NULL);
 	  break;
       }
@@ -543,7 +552,7 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  if (linklocal->allocate != allocate) {
 	      linklocal->allocate = allocate;
 	      if (allocate) {
-		  linklocal->our_ip = S_find_linklocal_address(if_p);
+		  linklocal->our_ip = S_find_linklocal_address(service_p);
 		  linklocal_allocate(service_p, IFEventID_start_e, NULL);
 	      }
 	      else {

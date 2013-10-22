@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,21 +29,28 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGAbstractValue.h"
+#include "DFGBranchDirection.h"
 #include "DFGNode.h"
+#include "DFGVariadicFunction.h"
 #include "Operands.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/Vector.h>
 
 namespace JSC { namespace DFG {
 
+class Graph;
+
 typedef Vector <BlockIndex, 2> PredecessorList;
 
-struct BasicBlock : Vector<NodeIndex, 8> {
+struct BasicBlock : Vector<Node*, 8> {
     BasicBlock(unsigned bytecodeBegin, unsigned numArguments, unsigned numLocals)
         : bytecodeBegin(bytecodeBegin)
         , isOSRTarget(false)
         , cfaHasVisited(false)
         , cfaShouldRevisit(false)
+        , cfaFoundConstants(false)
+        , cfaDidFinish(true)
+        , cfaBranchDirection(InvalidBranchDirection)
 #if !ASSERT_DISABLED
         , isLinked(false)
 #endif
@@ -55,6 +62,10 @@ struct BasicBlock : Vector<NodeIndex, 8> {
     {
     }
     
+    ~BasicBlock()
+    {
+    }
+    
     void ensureLocals(unsigned newNumLocals)
     {
         variablesAtHead.ensureLocals(newNumLocals);
@@ -62,7 +73,39 @@ struct BasicBlock : Vector<NodeIndex, 8> {
         valuesAtHead.ensureLocals(newNumLocals);
         valuesAtTail.ensureLocals(newNumLocals);
     }
-
+    
+    size_t numNodes() const { return phis.size() + size(); }
+    Node* node(size_t i) const
+    {
+        if (i < phis.size())
+            return phis[i];
+        return at(i - phis.size());
+    }
+    bool isPhiIndex(size_t i) const { return i < phis.size(); }
+    
+    bool isInPhis(Node* node) const
+    {
+        for (size_t i = 0; i < phis.size(); ++i) {
+            if (phis[i] == node)
+                return true;
+        }
+        return false;
+    }
+    
+    bool isInBlock(Node* myNode) const
+    {
+        for (size_t i = 0; i < numNodes(); ++i) {
+            if (node(i) == myNode)
+                return true;
+        }
+        return false;
+    }
+    
+#define DFG_DEFINE_APPEND_NODE(templatePre, templatePost, typeParams, valueParamsComma, valueParams, valueArgs) \
+    templatePre typeParams templatePost Node* appendNode(Graph&, SpeculatedType valueParamsComma valueParams);
+    DFG_VARIADIC_TEMPLATE_FUNCTION(DFG_DEFINE_APPEND_NODE)
+#undef DFG_DEFINE_APPEND_NODE
+    
     // This value is used internally for block linking and OSR entry. It is mostly meaningless
     // for other purposes due to inlining.
     unsigned bytecodeBegin;
@@ -70,16 +113,19 @@ struct BasicBlock : Vector<NodeIndex, 8> {
     bool isOSRTarget;
     bool cfaHasVisited;
     bool cfaShouldRevisit;
+    bool cfaFoundConstants;
+    bool cfaDidFinish;
+    BranchDirection cfaBranchDirection;
 #if !ASSERT_DISABLED
     bool isLinked;
 #endif
     bool isReachable;
     
-    Vector<NodeIndex> phis;
+    Vector<Node*> phis;
     PredecessorList m_predecessors;
     
-    Operands<NodeIndex, NodeIndexTraits> variablesAtHead;
-    Operands<NodeIndex, NodeIndexTraits> variablesAtTail;
+    Operands<Node*, NodePointerTraits> variablesAtHead;
+    Operands<Node*, NodePointerTraits> variablesAtTail;
     
     Operands<AbstractValue> valuesAtHead;
     Operands<AbstractValue> valuesAtTail;

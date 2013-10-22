@@ -160,6 +160,8 @@ findproc(pid_t pid, Job *jptr, Process *pptr, int aux)
     Process pn;
     int i;
 
+    *jptr = NULL;
+    *pptr = NULL;
     for (i = 1; i <= maxjob; i++)
     {
 	/*
@@ -173,14 +175,32 @@ findproc(pid_t pid, Job *jptr, Process *pptr, int aux)
 
 	for (pn = aux ? jobtab[i].auxprocs : jobtab[i].procs;
 	     pn; pn = pn->next)
+	{
+	    /*
+	     * Make sure we match a process that's still running.
+	     *
+	     * When a job contains two pids, one terminated pid and one
+	     * running pid, then the condition (jobtab[i].stat &
+	     * STAT_DONE) will not stop these pids from being candidates
+	     * for the findproc result (which is supposed to be a
+	     * RUNNING pid), and if the terminated pid is an identical
+	     * process number for the pid identifying the running
+	     * process we are trying to find (after pid number
+	     * wrapping), then we need to avoid returning the terminated
+	     * pid, otherwise the shell would block and wait forever for
+	     * the termination of the process which pid we were supposed
+	     * to return in a different job.
+	     */
 	    if (pn->pid == pid) {
 		*pptr = pn;
 		*jptr = jobtab + i;
-		return 1;
+		if (pn->status == SP_RUNNING) 
+		    return 1;
 	    }
+	}
     }
 
-    return 0;
+    return (*pptr && *jptr);
 }
 
 /* Does the given job number have any processes? */
@@ -189,7 +209,13 @@ findproc(pid_t pid, Job *jptr, Process *pptr, int aux)
 int
 hasprocs(int job)
 {
-    Job jn = jobtab + job;
+    Job jn;
+
+    if (job < 0) {
+	DPUTS(1, "job number invalid in hasprocs");
+	return 0;
+    }
+    jn = jobtab + job;
 
     return jn->procs || jn->auxprocs;
 }
@@ -249,7 +275,7 @@ handle_sub(int job, int fg)
 	       sleep, the rest will be executed by a sub-shell,
 	       but the parent shell gets notified for the
 	       sleep.
-	       deletejob(sj); */
+	       deletejob(sj, 0); */
 	    /* If this super-job contains only the sub-shell,
 	       we have to attach the tty to its process group
 	       now. */
@@ -514,7 +540,7 @@ update_job(Job jn)
 
     /* When MONITOR is set, the foreground process runs in a different *
      * process group from the shell, so the shell will not receive     *
-     * terminal signals, therefore we we pretend that the shell got    *
+     * terminal signals, therefore we pretend that the shell got       *
      * the signal too.                                                 */
     if (inforeground == 2 && isset(MONITOR) && WIFSIGNALED(status)) {
 	int sig = WTERMSIG(status);
@@ -696,17 +722,22 @@ printtime(struct timeval *real, child_times_t *ti, char *desc)
 #endif
 #ifdef HAVE_STRUCT_RUSAGE_RU_IXRSS
 	    case 'X':
-		fprintf(stderr, "%ld", (long)(ti->ru_ixrss / total_time));
+		fprintf(stderr, "%ld", 
+			total_time ?
+			(long)(ti->ru_ixrss / total_time) :
+			(long)0);
 		break;
 #endif
 #ifdef HAVE_STRUCT_RUSAGE_RU_IDRSS
 	    case 'D':
 		fprintf(stderr, "%ld",
+			total_time ? 
 			(long) ((ti->ru_idrss
 #ifdef HAVE_STRUCT_RUSAGE_RU_ISRSS
 				 + ti->ru_isrss
 #endif
-				    ) / total_time));
+				    ) / total_time) :
+			(long)0);
 		break;
 #endif
 #if defined(HAVE_STRUCT_RUSAGE_RU_IDRSS) || \
@@ -715,6 +746,7 @@ printtime(struct timeval *real, child_times_t *ti, char *desc)
 	    case 'K':
 		/* treat as D if X not available */
 		fprintf(stderr, "%ld",
+			total_time ?
 			(long) ((
 #ifdef HAVE_STRUCT_RUSAGE_RU_IXRSS
 				    ti->ru_ixrss
@@ -727,7 +759,8 @@ printtime(struct timeval *real, child_times_t *ti, char *desc)
 #ifdef HAVE_STRUCT_RUSAGE_RU_ISRSS
 				    + ti->ru_isrss
 #endif
-				    ) / total_time));
+				    ) / total_time) :
+			(long)0);
 		break;
 #endif
 #ifdef HAVE_STRUCT_RUSAGE_RU_MAXRSS
@@ -841,6 +874,8 @@ should_report_time(Job j)
     /* can this ever happen? */
     if (!j->procs)
 	return 0;
+    if (zleactive)
+	return 0;
 
 #ifdef HAVE_GETRUSAGE
     reporttime -= j->procs->ti.ru_utime.tv_sec + j->procs->ti.ru_stime.tv_sec;
@@ -876,7 +911,7 @@ printjob(Job jn, int lng, int synch)
 {
     Process pn;
     int job, len = 9, sig, sflag = 0, llen;
-    int conted = 0, lineleng = columns, skip = 0, doputnl = 0;
+    int conted = 0, lineleng = zterm_columns, skip = 0, doputnl = 0;
     int doneprint = 0, skip_print = 0;
     FILE *fout = (synch == 2 || !shout) ? stdout : shout;
 
@@ -933,7 +968,9 @@ printjob(Job jn, int lng, int synch)
 
     if (skip_print) {
 	if (jn->stat & STAT_DONE) {
-	    deletejob(jn);
+	    if (should_report_time(jn))
+		dumptime(jn);
+	    deletejob(jn, 0);
 	    if (job == curjob) {
 		curjob = prevjob;
 		prevjob = job;
@@ -1063,7 +1100,7 @@ printjob(Job jn, int lng, int synch)
     if (jn->stat & STAT_DONE) {
 	if (should_report_time(jn))
 	    dumptime(jn);
-	deletejob(jn);
+	deletejob(jn, 0);
 	if (job == curjob) {
 	    curjob = prevjob;
 	    prevjob = job;
@@ -1078,12 +1115,13 @@ printjob(Job jn, int lng, int synch)
 
 /**/
 void
-deletefilelist(LinkList file_list)
+deletefilelist(LinkList file_list, int disowning)
 {
     char *s;
     if (file_list) {
 	while ((s = (char *)getlinknode(file_list))) {
-	    unlink(s);
+	    if (!disowning)
+		unlink(s);
 	    zsfree(s);
 	}
 	zfree(file_list, sizeof(struct linklist));
@@ -1119,7 +1157,7 @@ freejob(Job jn, int deleting)
 	/* careful in case we shrink and move the job table */
 	int job = jn - jobtab;
 	if (deleting)
-	    deletejob(jobtab + jn->other);
+	    deletejob(jobtab + jn->other, 0);
 	else
 	    freejob(jobtab + jn->other, 0);
 	jn = jobtab + job;
@@ -1139,13 +1177,17 @@ freejob(Job jn, int deleting)
 /*
  * We are actually finished with this job, rather
  * than freeing it to make space.
+ *
+ * If "disowning" is set, files associated with the job are not
+ * actually deleted --- and won't be as there is nothing left
+ * to clear up.
  */
 
 /**/
 void
-deletejob(Job jn)
+deletejob(Job jn, int disowning)
 {
-    deletefilelist(jn->filelist);
+    deletefilelist(jn->filelist, disowning);
     if (jn->stat & STAT_ATTACH) {
 	attachtty(mypgrp);
 	adjustwinsize(0);
@@ -1321,7 +1363,7 @@ zwaitjob(int job, int wait_cmd)
 	    child_block();
 	}
     } else {
-	deletejob(jn);
+	deletejob(jn, 0);
 	pipestats[0] = lastval;
 	numpipestats = 1;
     }
@@ -1344,7 +1386,7 @@ waitjobs(void)
     if (jn->procs || jn->auxprocs)
 	zwaitjob(thisjob, 0);
     else {
-	deletejob(jn);
+	deletejob(jn, 0);
 	pipestats[0] = lastval;
 	numpipestats = 1;
     }
@@ -1472,7 +1514,7 @@ spawnjob(void)
 	}
     }
     if (!hasprocs(thisjob))
-	deletejob(jobtab + thisjob);
+	deletejob(jobtab + thisjob, 0);
     else
 	jobtab[thisjob].stat |= STAT_LOCKED;
     thisjob = -1;
@@ -1701,12 +1743,14 @@ init_jobs(char **argv, char **envp)
 	    goto done;
 	p = strchr(q, 0);
     }
+#if !defined(HAVE_PUTENV) && !defined(USE_SET_UNSET_ENV)
     for(; *envp; envp++) {
 	q = *envp;
 	if(q != p+1)
 	    goto done;
 	p = strchr(q, 0);
     }
+#endif
     done:
     hackspace = p - hackzero;
 #endif
@@ -1913,12 +1957,19 @@ bin_fg(char *name, char **argv, Options ops, int func)
 	    Process p;
 
 	    if (findproc(pid, &j, &p, 0)) {
-		/*
-		 * returns 0 for normal exit, else signal+128
-		 * in which case we should return that status.
-		 */
-		retval = waitforpid(pid, 1);
-		if (!retval)
+		if (j->stat & STAT_STOPPED) {
+		    retval = (killjb(j, SIGCONT) != 0);
+		    if (retval == 0)
+			makerunning(j);
+		}
+		if (retval == 0) {
+		    /*
+		     * returns 0 for normal exit, else signal+128
+		     * in which case we should return that status.
+		     */
+		    retval = waitforpid(pid, 1);
+		}
+		if (retval == 0)
 		    retval = lastval2;
 	    } else if (isset(POSIXJOBS) &&
 		       pid == lastpid && lastpid_status >= 0L) {
@@ -2041,7 +2092,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
 		waitjobs();
 		retval = lastval2;
 	    } else if (ofunc == BIN_DISOWN)
-	        deletejob(jobtab + job);
+	        deletejob(jobtab + job, 1);
 	    break;
 	case BIN_JOBS:
 	    printjob(job + (oldjobtab ? oldjobtab : jobtab), lng, 2);
@@ -2077,7 +2128,7 @@ bin_fg(char *name, char **argv, Options ops, int func)
 #endif
                          pids);
 	    }
-	    deletejob(jobtab + job);
+	    deletejob(jobtab + job, 1);
 	    break;
 	}
 	thisjob = ocj;
@@ -2123,10 +2174,15 @@ bin_kill(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 
     /* check for, and interpret, a signal specifier */
     if (*argv && **argv == '-') {
-	if (idigit((*argv)[1]))
+	if (idigit((*argv)[1])) {
+	    char *endp;
 	    /* signal specified by number */
-	    sig = atoi(*argv + 1);
-	else if ((*argv)[1] != '-' || (*argv)[2]) {
+	    sig = zstrtol(*argv + 1, &endp, 10);
+	    if (*endp) {
+		zwarnnam(nam, "invalid signal number: %s", *argv);
+		return 1;
+	    }
+	} else if ((*argv)[1] != '-' || (*argv)[2]) {
 	    char *signame;
 
 	    /* with argument "-l" display the list of signal names */
@@ -2228,7 +2284,7 @@ bin_kill(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 		}
 		if (sig > SIGCOUNT) {
 		    zwarnnam(nam, "unknown signal: SIG%s", signame);
-		    zwarnnam(nam, "type kill -l for a List of signals");
+		    zwarnnam(nam, "type kill -l for a list of signals");
 		    return 1;
 		}
 	    }

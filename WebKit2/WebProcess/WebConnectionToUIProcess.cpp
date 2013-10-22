@@ -27,86 +27,55 @@
 #include "WebConnectionToUIProcess.h"
 
 #include "InjectedBundleUserMessageCoders.h"
-#include "WebConnectionMessageKinds.h"
+#include "WebConnectionMessages.h"
 #include "WebProcess.h"
 
 using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<WebConnectionToUIProcess> WebConnectionToUIProcess::create(WebProcess* process, CoreIPC::Connection::Identifier connectionIdentifier, RunLoop* runLoop)
+PassRefPtr<WebConnectionToUIProcess> WebConnectionToUIProcess::create(WebProcess* process)
 {
-    return adoptRef(new WebConnectionToUIProcess(process, connectionIdentifier, runLoop));
+    return adoptRef(new WebConnectionToUIProcess(process));
 }
 
-WebConnectionToUIProcess::WebConnectionToUIProcess(WebProcess* process, CoreIPC::Connection::Identifier connectionIdentifier, RunLoop* runLoop)
+WebConnectionToUIProcess::WebConnectionToUIProcess(WebProcess* process)
     : m_process(process)
-    , m_connection(CoreIPC::Connection::createClientConnection(connectionIdentifier, this, runLoop))
 {
-    m_connection->setDidCloseOnConnectionWorkQueueCallback(ChildProcess::didCloseOnConnectionWorkQueue);
-    m_connection->setShouldExitOnSyncMessageSendFailure(true);
+    m_process->addMessageReceiver(Messages::WebConnection::messageReceiverName(), this);
 }
 
 void WebConnectionToUIProcess::invalidate()
 {
-    m_connection->invalidate();
-    m_connection = nullptr;
     m_process = 0;
 }
 
 // WebConnection
 
-void WebConnectionToUIProcess::postMessage(const String& messageName, APIObject* messageBody)
+void WebConnectionToUIProcess::encodeMessageBody(CoreIPC::ArgumentEncoder& encoder, APIObject* messageBody)
 {
-    if (!m_process)
-        return;
-
-    m_connection->deprecatedSend(WebConnectionLegacyMessage::PostMessage, 0, CoreIPC::In(messageName, InjectedBundleUserMessageEncoder(messageBody)));
+    encoder << InjectedBundleUserMessageEncoder(messageBody);
 }
 
-// CoreIPC::Connection::Client
-
-void WebConnectionToUIProcess::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
+bool WebConnectionToUIProcess::decodeMessageBody(CoreIPC::ArgumentDecoder& decoder, RefPtr<APIObject>& messageBody)
 {
-    if (messageID.is<CoreIPC::MessageClassWebConnectionLegacy>()) {
-        switch (messageID.get<WebConnectionLegacyMessage::Kind>()) {
-            case WebConnectionLegacyMessage::PostMessage: {
-                String messageName;            
-                RefPtr<APIObject> messageBody;
-                InjectedBundleUserMessageDecoder messageDecoder(messageBody);
-                if (!arguments->decode(CoreIPC::Out(messageName, messageDecoder)))
-                    return;
-
-                forwardDidReceiveMessageToClient(messageName, messageBody.get());
-                return;
-            }
-        }
-        return;
-    }
-
-    m_process->didReceiveMessage(connection, messageID, arguments);
+    InjectedBundleUserMessageDecoder messageBodyDecoder(messageBody);
+    return decoder.decode(messageBodyDecoder);
 }
 
-void WebConnectionToUIProcess::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
+bool WebConnectionToUIProcess::hasValidConnection() const
 {
-    m_process->didReceiveSyncMessage(connection, messageID, arguments, reply);
+    return m_process;
 }
 
-void WebConnectionToUIProcess::didClose(CoreIPC::Connection* connection)
+CoreIPC::Connection* WebConnectionToUIProcess::messageSenderConnection()
 {
-    m_process->didClose(connection);
+    return m_process->parentProcessConnection();
 }
 
-void WebConnectionToUIProcess::didReceiveInvalidMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID)
+uint64_t WebConnectionToUIProcess::messageSenderDestinationID()
 {
-    m_process->didReceiveInvalidMessage(connection, messageID);
+    return 0;
 }
-
-#if PLATFORM(WIN)
-Vector<HWND> WebConnectionToUIProcess::windowsToReceiveSentMessagesWhileWaitingForSyncReply()
-{
-    return m_process->windowsToReceiveSentMessagesWhileWaitingForSyncReply();
-}
-#endif
 
 } // namespace WebKit

@@ -21,6 +21,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#include <AssertMacros.h>
+
 #include "IOHITablet.h"
 #include "IOHITabletPointer.h"
 
@@ -117,25 +120,15 @@ void IOHITablet::dispatchProximityEvent(NXEventData *proximityEvent,
 
 bool IOHITablet::startTabletPointer(IOHITabletPointer *pointer, OSDictionary *properties)
 {
-    bool result = false;
-
-    do {
-        if (!pointer)
-            break;
-
-        if (!pointer->init(properties))
-            break;
-
-        if (!pointer->attach(this))
-            break;
-
-        if (!pointer->start(this))
-            break;
-
-        result = true;
-    } while (false);
-
-    return result;
+    require(pointer, no_attach);
+    require(pointer->init(properties), no_attach);
+    require(pointer->attach(this), no_attach);
+    require(pointer->start(this), no_start);
+    
+no_start:
+    pointer->detach(this);
+no_attach:
+    return false;
 }
 
 void IOHITablet::_tabletEvent(IOHITablet *self,

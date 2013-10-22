@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -202,14 +202,14 @@ my_SCDynamicStorePublish(SCDynamicStoreRef store)
 				  NULL);
 	if (G_IPConfiguration_verbose) {
 	    if (S_keys_to_set != NULL) {
-		SCLog(TRUE, LOG_NOTICE, 
-		      CFSTR("IPConfiguration: PublishService Set = %@"),
-		      S_keys_to_set);
+		my_log(-LOG_DEBUG, 
+		       "DynamicStore Publish\n%@",
+		       S_keys_to_set);
 	    }
 	    if (S_keys_to_remove != NULL) {
-		SCLog(TRUE, LOG_NOTICE, 
-		      CFSTR("IPConfiguration: PublishService Remove = %@"),
-		      S_keys_to_remove);
+		my_log(-LOG_DEBUG, 
+		       "DynamicStore Remove\n%@",
+		       S_keys_to_remove);
 	    }
 	}
 	my_CFRelease(&S_keys_to_remove);
@@ -276,7 +276,7 @@ DHCPInfoDictionaryCreate(ipconfig_method_t method, dhcpol_t * options_p,
     return (dict);
 }
 
-static void *
+PRIVATE_EXTERN void *
 bytesFromColonHexString(CFStringRef colon_hex, int * len)
 {
     CFArrayRef	arr = NULL;
@@ -323,9 +323,9 @@ IPv4ARPCollisionKeyParse(CFStringRef cache_key, struct in_addr * ipaddr_p,
 
     /* 
      * Turn
-     *   State:/Network/Interface/ifname/IPV4ARPCollision/ipaddr/hwaddr 
+     *   State:/Network/Interface/ifname/IPv4ARPCollision/ipaddr/hwaddr 
      * into
-     *   { "State:", "Network", "Interface", ifname, "IPV4ARPCollision",
+     *   { "State:", "Network", "Interface", ifname, "IPv4ARPCollision",
      *      ipaddr, hwaddr }
      */
     components = CFStringCreateArrayBySeparatingStrings(NULL, cache_key, 

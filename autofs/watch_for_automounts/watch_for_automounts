@@ -2,28 +2,44 @@
 /*
  * Usage: sudo watch_for_automounts
  *
- * Watches for paths that trigger kernel
- * interaction with automountd.
+ * Watches for paths that trigger automounts
  */
 #pragma D option quiet
 
 BEGIN
 {
+	mounts = 0;
 	printf("Watching for automounts - ^C to quit ...\n");
 }
 
 fbt::lookup:entry
 {
 	self->nd = (struct nameidata *) arg0;
+	self->mounts = mounts;
+	self->automounted = 0;
 }
+
+fbt::lookup:return / self->automounted && mounts > self->mounts /
+{
+	printf("\n\t%Y uid=%-4d pid=%-4d %s %s returns %d\n", walltimestamp,
+		uid, pid, execname, ((struct nameidata *) self->nd)->ni_pathbuf, arg1);
+	ustack();
+}
+
 fbt::lookup:return
 {
 	self->nd = NULL;
+	self->automounted = 0;
 }
 
-fbt::host_get_special_port:entry / self->nd /
+fbt::auto_new_thread:entry,
+fbt::host_get_special_port:entry
+/ self->nd /
 {
-	printf("\n\t%Y uid=%-4d pid=%-4d %s %s\n", walltimestamp,
-		uid, pid, execname, ((struct nameidata *) self->nd)->ni_pathbuf);
-	ustack();
+	self->automounted = 1;
+}
+
+fbt::mount:return
+{
+	mounts++;
 }

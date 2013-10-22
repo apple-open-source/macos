@@ -1,0 +1,3 @@
+begin process
+[% PROCESS $template -%]
+end process

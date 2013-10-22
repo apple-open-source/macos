@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2008-2013 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,13 +17,14 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*!
 	@header SecTrustPriv
-	The functions and data types in SecTrustPriv implement trust computation and allow the user to apply trust decisions to the trust configuration.
+	The functions and data types in SecTrustPriv implement trust computation
+	and allow the user to apply trust decisions to the trust configuration.
 */
 
 #ifndef _SECURITY_SECTRUSTPRIV_H_
@@ -33,32 +34,34 @@
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFDictionary.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
+
+typedef enum {
+	useNetworkDefault,		// default policy: network fetch enabled only for SSL
+	useNetworkDisabled,		// explicitly disable network use for any policy
+	useNetworkEnabled		// explicitly enable network use for any policy
+} SecNetworkPolicy;
 
 /* Constants used as keys in property lists.  See
    SecTrustCopySummaryPropertiesAtIndex for more information. */
-extern CFStringRef kSecPropertyKeyType;
-extern CFStringRef kSecPropertyKeyLabel;
-extern CFStringRef kSecPropertyKeyLocalizedLabel;
-extern CFStringRef kSecPropertyKeyValue;
+extern CFTypeRef kSecPropertyKeyType;
+extern CFTypeRef kSecPropertyKeyLabel;
+extern CFTypeRef kSecPropertyKeyLocalizedLabel;
+extern CFTypeRef kSecPropertyKeyValue;
 
-extern CFStringRef kSecPropertyTypeWarning;
-extern CFStringRef kSecPropertyTypeError;
-extern CFStringRef kSecPropertyTypeSuccess;
-extern CFStringRef kSecPropertyTypeTitle;
-extern CFStringRef kSecPropertyTypeSection;
-extern CFStringRef kSecPropertyTypeData;
-extern CFStringRef kSecPropertyTypeString;
-extern CFStringRef kSecPropertyTypeURL;
-extern CFStringRef kSecPropertyTypeDate;
+extern CFTypeRef kSecPropertyTypeWarning;
+extern CFTypeRef kSecPropertyTypeSuccess;
+extern CFTypeRef kSecPropertyTypeSection;
+extern CFTypeRef kSecPropertyTypeData;
+extern CFTypeRef kSecPropertyTypeString;
+extern CFTypeRef kSecPropertyTypeURL;
+extern CFTypeRef kSecPropertyTypeDate;
 
 /* Constants used as keys in the dictionary returned by SecTrustCopyInfo. */
-extern CFStringRef kSecTrustInfoExtendedValidationKey;
-extern CFStringRef kSecTrustInfoCompanyNameKey;
-extern CFStringRef kSecTrustInfoRevocationKey;
-extern CFStringRef kSecTrustInfoRevocationValidUntilKey;
+extern CFTypeRef kSecTrustInfoExtendedValidationKey;
+extern CFTypeRef kSecTrustInfoCompanyNameKey;
+extern CFTypeRef kSecTrustInfoRevocationKey;
+extern CFTypeRef kSecTrustInfoRevocationValidUntilKey;
 
 /*!
 	@function SecTrustCopySummaryPropertiesAtIndex
@@ -68,7 +71,7 @@ extern CFStringRef kSecTrustInfoRevocationValidUntilKey;
     (leaf) to the anchor (or last certificate found if no anchor was found).
     @result A property array. It is the caller's responsibility to CFRelease
     the returned array when it is no longer needed. This function returns a
-    short summary description of the certificate in question.  The property 
+    short summary description of the certificate in question.  The property
     at index 0 of the array might also include general information about the
     entire chain's validity in the context of this trust evaluation.
 
@@ -82,11 +85,11 @@ extern CFStringRef kSecTrustInfoRevocationValidUntilKey;
            kSecPropertyTypeWarning
 		       The kSecPropertyKeyLocalizedLabel and kSecPropertyKeyLabel keys are not
 			   set.  The kSecPropertyKeyValue is a CFStringRef which should
-			   be displayed in yellow with a warning triangle. 
+			   be displayed in yellow with a warning triangle.
            kSecPropertyTypeError
 		       The kSecPropertyKeyLocalizedLabel and kSecPropertyKeyLabel keys are not
 			   set.  The kSecPropertyKeyValue is a CFStringRef which should
-			   be displayed in red with an error X. 
+			   be displayed in red with an error X.
            kSecPropertyTypeSuccess
 		       The kSecPropertyKeyLocalizedLabel and kSecPropertyKeyLabel keys are not
 			   set.  The kSecPropertyKeyValue is a CFStringRef which should
@@ -202,8 +205,25 @@ CFDictionaryRef SecTrustCopyInfo(SecTrustRef trust);
 /* For debugging purposes. */
 CFArrayRef SecTrustGetDetails(SecTrustRef trust);
 
-#if defined(__cplusplus)
-}
-#endif
+/* For debugging purposes. */
+CFStringRef SecTrustCopyFailureDescription(SecTrustRef trust);
+
+/*!
+	@function SecTrustSetPolicies
+	@abstract Set the trust policies against which the trust should be verified.
+	@param trust A reference to a trust object.
+    @param policies An array of one or more policies. You may pass a
+    SecPolicyRef to represent a single policy.
+	@result A result code.  See "Security Error Codes" (SecBase.h).
+    @discussion This function does not invalidate the trust, but should do so in the future.
+*/
+OSStatus SecTrustSetPolicies(SecTrustRef trust, CFTypeRef policies)
+   __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_6_0);
+
+OSStatus SecTrustGetOTAPKIAssetVersionNumber(int* versionNumber);
+
+OSStatus SecTrustOTAPKIGetUpdatedAsset(int* didUpdateAsset);
+
+__END_DECLS
 
 #endif /* !_SECURITY_SECTRUSTPRIV_H_ */

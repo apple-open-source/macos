@@ -56,7 +56,7 @@ krb5_set_real_time (krb5_context context,
 
     gettimeofday(&tv, NULL);
 
-    context->kdc_sec_offset = sec - tv.tv_sec;
+    context->kdc_sec_offset = (uint32_t)(sec - tv.tv_sec);
 
     /**
      * If the caller passes in a negative usec, its assumed to be
@@ -130,4 +130,13 @@ krb5_string_to_deltat(const char *string, krb5_deltat *deltat)
     if((*deltat = parse_time(string, "s")) == -1)
 	return KRB5_DELTAT_BADFORMAT;
     return 0;
+}
+
+krb5_deltat
+krb5_time_abs(krb5_deltat t1, krb5_deltat t2)
+{
+    krb5_deltat t = t1 - t2;
+    if (t < 0)
+	return -t;
+    return t;
 }

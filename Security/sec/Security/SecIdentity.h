@@ -33,9 +33,7 @@
 #include <Security/SecBase.h>
 #include <CoreFoundation/CFBase.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /*!
 	@function SecIdentityGetTypeID
@@ -72,8 +70,6 @@ OSStatus SecIdentityCopyPrivateKey(
             SecKeyRef *privateKeyRef)
     __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_2_0);
 
-#if defined(__cplusplus)
-}
-#endif
+__END_DECLS
 
 #endif /* !_SECURITY_SECIDENTITY_H_ */

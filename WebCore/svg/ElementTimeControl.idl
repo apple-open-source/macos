@@ -24,17 +24,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
  
-module svg {
+[
+    NoInterfaceObject,
+    Conditional=SVG,
+    ObjCProtocol,
+] interface ElementTimeControl { 
+    void beginElement();
+    void beginElementAt([Default=Undefined] optional float offset);
+    void endElement();
+    void endElementAt([Default=Undefined] optional float offset);
+};
 
-    interface [
-        Conditional=SVG,
-        ObjCProtocol,
-        OmitConstructor
-    ] ElementTimeControl { 
-        void beginElement();
-        void beginElementAt(in [Optional=DefaultIsUndefined] float offset);
-        void endElement();
-        void endElementAt(in [Optional=DefaultIsUndefined] float offset);
-    };
-
-}

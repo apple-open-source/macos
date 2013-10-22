@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,9 +19,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
-#include "setup.h"
-
-#include <curl/curl.h>
+#include "tool_setup.h"
 
 #include "rawstr.h"
 
@@ -148,27 +146,41 @@ void cleanarg(char *str)
 }
 
 /*
- * Parse the string and write the integer in the given address. Return
- * non-zero on failure, zero on success.
- *
- * The string must start with a digit to be valid.
+ * Parse the string and write the long in the given address. Return PARAM_OK
+ * on success, otherwise a parameter specific error enum.
  *
  * Since this function gets called with the 'nextarg' pointer from within the
  * getparameter a lot, we must check it for NULL before accessing the str
  * data.
  */
 
-int str2num(long *val, const char *str)
+ParameterError str2num(long *val, const char *str)
 {
-  if(str && ISDIGIT(*str)) {
+  if(str) {
     char *endptr;
     long num = strtol(str, &endptr, 10);
     if((endptr != str) && (endptr == str + strlen(str))) {
       *val = num;
-      return 0;  /* Ok */
+      return PARAM_OK;  /* Ok */
     }
   }
-  return 1; /* badness */
+  return PARAM_BAD_NUMERIC; /* badness */
+}
+
+/*
+ * Parse the string and write the long in the given address. Return PARAM_OK
+ * on success, otherwise a parameter error enum. ONLY ACCEPTS POSITIVE NUMBERS!
+ *
+ * Since this function gets called with the 'nextarg' pointer from within the
+ * getparameter a lot, we must check it for NULL before accessing the str
+ * data.
+ */
+
+ParameterError str2unum(long *val, const char *str)
+{
+  if(str[0]=='-')
+    return PARAM_NEGATIVE_NUMERIC; /* badness */
+  return str2num(val, str);
 }
 
 /*
@@ -278,25 +290,33 @@ long proto2num(struct Configurable *config, long *val, const char *str)
 }
 
 /**
- * Parses the given string looking for an offset (which may be
- * a larger-than-integer value).
+ * Parses the given string looking for an offset (which may be a
+ * larger-than-integer value). The offset CANNOT be negative!
  *
  * @param val  the offset to populate
  * @param str  the buffer containing the offset
- * @return zero if successful, non-zero if failure.
+ * @return PARAM_OK if successful, a parameter specific error enum if failure.
  */
-int str2offset(curl_off_t *val, const char *str)
+ParameterError str2offset(curl_off_t *val, const char *str)
 {
+  char *endptr;
+  if(str[0] == '-')
+    /* offsets aren't negative, this indicates weird input */
+    return PARAM_NEGATIVE_NUMERIC;
+
 #if(CURL_SIZEOF_CURL_OFF_T > CURL_SIZEOF_LONG)
-  *val = curlx_strtoofft(str, NULL, 0);
+  *val = curlx_strtoofft(str, &endptr, 0);
   if((*val == CURL_OFF_T_MAX || *val == CURL_OFF_T_MIN) && (ERRNO == ERANGE))
-    return 1;
+    return PARAM_BAD_NUMERIC;
 #else
-  *val = strtol(str, NULL, 0);
+  *val = strtol(str, &endptr, 0);
   if((*val == LONG_MIN || *val == LONG_MAX) && ERRNO == ERANGE)
-    return 1;
+    return PARAM_BAD_NUMERIC;
 #endif
-  return 0;
+  if((endptr != str) && (endptr == str + strlen(str)))
+    return PARAM_OK;
+
+  return PARAM_BAD_NUMERIC;
 }
 
 ParameterError checkpasswd(const char *kind, /* for what purpose */

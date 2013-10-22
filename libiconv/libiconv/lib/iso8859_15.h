@@ -32,7 +32,7 @@ static const unsigned short iso8859_15_2uni[32] = {
 };
 
 static int
-iso8859_15_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
+iso8859_15_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, size_t n)
 {
   unsigned char c = *s;
   if (c >= 0xa0 && c < 0xc0)
@@ -58,7 +58,7 @@ static const unsigned char iso8859_15_page01[48] = {
 };
 
 static int
-iso8859_15_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
+iso8859_15_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, size_t n)
 {
   unsigned char c = 0;
   if (wc < 0x00a0) {

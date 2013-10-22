@@ -1,9 +1,9 @@
 /*
- * "$Id: cupsd.h 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: cupsd.h 11093 2013-07-03 20:48:42Z msweet $"
  *
  *   Main header file for the CUPS scheduler.
  *
- *   Copyright 2007-2012 by Apple Inc.
+ *   Copyright 2007-2013 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -187,6 +187,7 @@ extern cups_file_t	*cupsdCreateConfFile(const char *filename, mode_t mode);
 extern cups_file_t	*cupsdOpenConfFile(const char *filename);
 extern int		cupsdOpenPipe(int *fds);
 extern int		cupsdRemoveFile(const char *filename);
+extern int		cupsdUnlinkOrRemoveFile(const char *filename);
 
 /* main.c */
 extern int		cupsdAddString(cups_array_t **a, const char *s);
@@ -230,5 +231,5 @@ extern void		cupsdStopServer(void);
 
 
 /*
- * End of "$Id: cupsd.h 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: cupsd.h 11093 2013-07-03 20:48:42Z msweet $".
  */

@@ -30,7 +30,7 @@ serverprefix _;
 #include <mach/mach_types.defs>
 //import <TargetConditionals.h>;
 // RY: Looks like TargetConditionals is not working with MIG
-// Using NO_SECURITY_FRAMEWORK instead of !TARGET_OS_EMBEDDED
+// Using NO_SECURITY_FRAMEWORK instead of !TARGET_OS_IPHONE
 #ifndef NO_SECURITY_FRAMEWORK
 import <Security/Authorization.h>;
 #endif /* NO_SECURITY_FRAMEWORK */

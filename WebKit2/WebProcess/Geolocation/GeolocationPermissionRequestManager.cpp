@@ -33,6 +33,7 @@
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include <WebCore/Frame.h>
+#include <WebCore/FrameLoader.h>
 #include <WebCore/Geolocation.h>
 #include <WebCore/SecurityOrigin.h>
 
@@ -61,7 +62,10 @@ void GeolocationPermissionRequestManager::startRequestForGeolocation(Geolocation
 
     Frame* frame = geolocation->frame();
 
-    WebFrame* webFrame = static_cast<WebFrameLoaderClient*>(frame->loader()->client())->webFrame();
+    WebFrameLoaderClient* webFrameLoaderClient = toWebFrameLoaderClient(frame->loader()->client());
+    WebFrame* webFrame = webFrameLoaderClient ? webFrameLoaderClient->webFrame() : 0;
+    ASSERT(webFrame);
+
     SecurityOrigin* origin = frame->document()->securityOrigin();
 
     m_page->send(Messages::WebPageProxy::RequestGeolocationPermissionForFrame(geolocationID, webFrame->frameID(), origin->databaseIdentifier()));
@@ -73,8 +77,9 @@ void GeolocationPermissionRequestManager::cancelRequestForGeolocation(Geolocatio
     if (it == m_geolocationToIDMap.end())
         return;
 
+    uint64_t geolocationID = it->value;
     m_geolocationToIDMap.remove(it);
-    m_idToGeolocationMap.remove(it->second);
+    m_idToGeolocationMap.remove(geolocationID);
 }
 
 void GeolocationPermissionRequestManager::didReceiveGeolocationPermissionDecision(uint64_t geolocationID, bool allowed)
@@ -83,7 +88,7 @@ void GeolocationPermissionRequestManager::didReceiveGeolocationPermissionDecisio
     if (it == m_idToGeolocationMap.end())
         return;
 
-    Geolocation* geolocation = it->second;
+    Geolocation* geolocation = it->value;
     geolocation->setIsAllowed(allowed);
 
     m_idToGeolocationMap.remove(it);

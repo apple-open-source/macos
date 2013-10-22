@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.40 2011/09/07 19:13:49 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.40 2011/09/07 19:13:49 abe Exp abe $";
 #endif
 
 
@@ -240,6 +240,8 @@ char *InodeFmt_d = (char *) NULL;
 				/* INODETYPE decimal printf specification */
 char *InodeFmt_x = (char *) NULL;
 				/* INODETYPE hexadecimal printf specification */
+int LastPid = -1;		/* last PID listed (for eliminating duplicates
+				 * in terse output) */
 struct lfile *Lf = (struct lfile *)NULL;
 				/* current local file structure */
 struct lproc *Lp = (struct lproc *)NULL;

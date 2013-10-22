@@ -1,9 +1,9 @@
 /*
- * "$Id: dest-localization.c 3835 2012-05-23 22:57:19Z msweet $"
+ * "$Id: dest-localization.c 4218 2013-03-11 14:05:11Z msweet $"
  *
  *   Destination localization support for CUPS.
  *
- *   Copyright 2012 by Apple Inc.
+ *   Copyright 2012-2013 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -178,7 +178,7 @@ cups_create_localizations(
   if (httpSeparateURI(HTTP_URI_CODING_ALL, attr->values[0].string.text,
                       scheme, sizeof(scheme), userpass, sizeof(userpass),
                       hostname, sizeof(hostname), &port, resource,
-                      sizeof(resource)) < HTTP_URI_OK)
+                      sizeof(resource)) < HTTP_URI_STATUS_OK)
   {
     DEBUG_printf(("4cups_create_localizations: Bad printer-strings-uri value "
                   "\"%s\".", attr->values[0].string.text));
@@ -188,7 +188,7 @@ cups_create_localizations(
   httpGetHostname(http, http_hostname, sizeof(http_hostname));
 
   if (!_cups_strcasecmp(http_hostname, hostname) &&
-      port == _httpAddrPort(http->hostaddr))
+      port == httpAddrPort(http->hostaddr))
   {
    /*
     * Use the same connection...
@@ -203,11 +203,12 @@ cups_create_localizations(
     */
 
     if (!strcmp(scheme, "https"))
-      encryption = HTTP_ENCRYPT_ALWAYS;
+      encryption = HTTP_ENCRYPTION_ALWAYS;
     else
-      encryption = HTTP_ENCRYPT_IF_REQUESTED;
+      encryption = HTTP_ENCRYPTION_IF_REQUESTED;
 
-    if ((http2 = httpConnectEncrypt(hostname, port, encryption)) == NULL)
+    if ((http2 = httpConnect2(hostname, port, NULL, AF_UNSPEC, encryption, 1,
+                              30000, NULL)) == NULL)
     {
       DEBUG_printf(("4cups_create_localizations: Unable to connect to "
                     "%s:%d: %s", hostname, port, cupsLastErrorString()));
@@ -233,7 +234,7 @@ cups_create_localizations(
   DEBUG_printf(("4cups_create_localizations: GET %s = %s", resource,
                 httpStatus(status)));
 
-  if (status == HTTP_OK)
+  if (status == HTTP_STATUS_OK)
   {
    /*
     * Got the file, read it...
@@ -382,5 +383,5 @@ cups_scan_strings(char *buffer)		/* I - Start of string */
 
 
 /*
- * End of "$Id: dest-localization.c 3835 2012-05-23 22:57:19Z msweet $".
+ * End of "$Id: dest-localization.c 4218 2013-03-11 14:05:11Z msweet $".
  */

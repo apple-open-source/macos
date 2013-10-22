@@ -45,7 +45,7 @@ SecPointerBase::SecPointerBase(const SecPointerBase& p)
 static void CheckForRelease(SecCFObject* ptr)
 {
 	CFTypeRef tr = ptr->operator CFTypeRef();
-	int retainCount = CFGetRetainCount(tr);
+	CFIndex retainCount = CFGetRetainCount(tr);
 	if (retainCount == 1 || retainCount == -1)
 	{
 		ptr->aboutToDestruct();
@@ -159,7 +159,7 @@ SecCFObject::allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc)
 
 	if (SECURITY_DEBUG_SEC_CREATE_ENABLED()) {
 		const CFRuntimeClass *rtc = _CFRuntimeGetClassWithTypeID(cfclass.typeID);
-		SECURITY_DEBUG_SEC_CREATE(q, rtc ? (char *)rtc->className : NULL, cfclass.typeID);
+		SECURITY_DEBUG_SEC_CREATE(q, rtc ? (char *)rtc->className : NULL, (unsigned int)cfclass.typeID);
 	}
 	return q;
 }
@@ -260,4 +260,11 @@ Mutex*
 SecCFObject::getMutexForObject()
 {
 	return NULL; // we only worry about descendants of KeychainImpl and ItemImpl
+}
+
+
+
+bool SecCFObject::mayDelete()
+{
+    return true;
 }

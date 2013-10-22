@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2012 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2013 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@
 #include <pthread.h>
 #include <sys/loadable_fs.h>
 #include <sys/stat.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 
 struct __DAAuthorizeWithCallbackContext
@@ -113,29 +114,6 @@ DAReturn DAAuthorize( DASessionRef        session,
     {
         AuthorizationRef authorization;
 
-///w:start
-        authorization = NULL;
-
-        if ( session == NULL )
-        {
-            CFIndex count;
-            CFIndex index;
-
-            count = CFArrayGetCount( gDASessionList );
-
-            for ( index = 0; index < count; index++, session = NULL )
-            {
-                session = ( void * ) CFArrayGetValueAtIndex( gDASessionList, index );
-
-                if ( strcmp( _DASessionGetName( session ), "SystemUIServer" ) == 0 )
-                {
-                    break;
-                }
-            }
-        }
-
-        if ( session )
-///w:stop
         authorization = DASessionGetAuthorization( session );
 
         if ( authorization )
@@ -150,21 +128,38 @@ DAReturn DAAuthorize( DASessionRef        session,
             if ( ( options & _kDAAuthorizeOptionAuthenticateAdministrator ) )
             {
                 flags |= kAuthorizationFlagInteractionAllowed;
-            }
 
-            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
-            {
-                asprintf( &name, "system.volume.removable.%s", right );
+                asprintf( &name, "system.volume.workgroup.%s", right );
             }
             else
             {
-                if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
                 {
-                    asprintf( &name, "system.volume.internal.%s", right );
-                }
-                else
-                {
-                    asprintf( &name, "system.volume.external.%s", right );
+                    CFTypeRef object;
+
+                    object = DADiskGetDescription( disk, kDADiskDescriptionDeviceProtocolKey );
+
+                    if ( object && CFEqual( object, CFSTR( kIOPropertyPhysicalInterconnectTypeVirtual ) ) )
+                    {
+                        asprintf( &name, "system.volume.virtual.%s", right );
+                    }
+                    else
+                    {
+                        if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
+                        {
+                            asprintf( &name, "system.volume.removable.%s", right );
+                        }
+                        else
+                        {
+                            if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
+                            {
+                                asprintf( &name, "system.volume.internal.%s", right );
+                            }
+                            else
+                            {
+                                asprintf( &name, "system.volume.external.%s", right );
+                            }
+                        }
+                    }
                 }
             }
 
@@ -202,41 +197,30 @@ void DAAuthorizeWithCallback( DASessionRef        session,
                               void *              callbackContext,
                               const char *        right )
 {
-    DAReturn status;
+    __DAAuthorizeWithCallbackContext * context;
 
-    status = DAAuthorize( session, ( options & ~_kDAAuthorizeOptionAuthenticateAdministrator ), disk, userUID, userGID, right );
+    context = malloc( sizeof( __DAAuthorizeWithCallbackContext ) );
 
-    if ( status )
+    if ( context )
     {
-        __DAAuthorizeWithCallbackContext * context;
+        if ( disk    )  CFRetain( disk );
+        if ( session )  CFRetain( session );
 
-        context = malloc( sizeof( __DAAuthorizeWithCallbackContext ) );
+        context->callback        = callback;
+        context->callbackContext = callbackContext;
+        context->disk            = disk;
+        context->options         = options;
+        context->right           = strdup( right );
+        context->session         = session;
+        context->status          = kDAReturnNotPrivileged;
+        context->userGID         = userGID;
+        context->userUID         = userUID;
 
-        if ( context )
-        {
-            if ( disk    )  CFRetain( disk );
-            if ( session )  CFRetain( session );
-
-            context->callback        = callback;
-            context->callbackContext = callbackContext;
-            context->disk            = disk;
-            context->options         = options;
-            context->right           = strdup( right );
-            context->session         = session;
-            context->status          = kDAReturnNotPrivileged;
-            context->userGID         = userGID;
-            context->userUID         = userUID;
-
-            DAThreadExecute( __DAAuthorizeWithCallback, context, __DAAuthorizeWithCallbackCallback, context );
-        }
-        else
-        {
-            ( callback )( kDAReturnNotPrivileged, callbackContext );
-        }
+        DAThreadExecute( __DAAuthorizeWithCallback, context, __DAAuthorizeWithCallbackCallback, context );
     }
     else
     {
-        ( callback )( kDAReturnSuccess, callbackContext );
+        ( callback )( kDAReturnNotPrivileged, callbackContext );
     }
 }
 
@@ -277,116 +261,119 @@ void DAFileSystemListRefresh( void )
      * Determine whether the file system list is up-to-date.
      */
 
-    if ( stat( FS_DIR_LOCATION, &status ) == 0 )
+    if ( stat( FS_DIR_LOCATION, &status ) )
     {
-        if ( __gDAFileSystemListTime.tv_sec  != status.st_mtimespec.tv_sec  ||
-             __gDAFileSystemListTime.tv_nsec != status.st_mtimespec.tv_nsec )
+        __gDAFileSystemListTime.tv_sec  = 0;
+        __gDAFileSystemListTime.tv_nsec = 0;
+    }
+
+    if ( __gDAFileSystemListTime.tv_sec  != status.st_mtimespec.tv_sec  ||
+         __gDAFileSystemListTime.tv_nsec != status.st_mtimespec.tv_nsec )
+    {
+        CFURLRef base;
+
+        __gDAFileSystemListTime.tv_sec  = status.st_mtimespec.tv_sec;
+        __gDAFileSystemListTime.tv_nsec = status.st_mtimespec.tv_nsec;
+
+        /*
+         * Clear the file system list.
+         */
+
+        CFArrayRemoveAllValues( gDAFileSystemList );
+        CFArrayRemoveAllValues( gDAFileSystemProbeList );
+
+        /*
+         * Build the file system list.
+         */
+
+        base = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR( FS_DIR_LOCATION ), kCFURLPOSIXPathStyle, TRUE );
+
+        if ( base )
         {
-            CFURLRef base;
-
-            __gDAFileSystemListTime.tv_sec  = status.st_mtimespec.tv_sec;
-            __gDAFileSystemListTime.tv_nsec = status.st_mtimespec.tv_nsec;
+            DIR * folder;
 
             /*
-             * Clear the file system list.
+             * Scan the filesystems in the file system folder.
              */
 
-            CFArrayRemoveAllValues( gDAFileSystemList );
-            CFArrayRemoveAllValues( gDAFileSystemProbeList );
+            folder = opendir( FS_DIR_LOCATION );
 
-            /*
-             * Build the file system list.
-             */
-
-            base = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR( FS_DIR_LOCATION ), kCFURLPOSIXPathStyle, TRUE );
-
-            if ( base )
+            if ( folder )
             {
-                DIR * folder;
+                struct dirent * item;
 
-                /*
-                 * Scan the filesystems in the file system folder.
-                 */
+                DALogDebugHeader( "filesystems have been refreshed." );
 
-                folder = opendir( FS_DIR_LOCATION );
-
-                if ( folder )
+                while ( ( item = readdir( folder ) ) )
                 {
-                    struct dirent * item;
+                    char * suffix;
 
-                    DALogDebugHeader( "filesystems have been refreshed." );
+                    suffix = item->d_name + strlen( item->d_name ) - strlen( FS_DIR_SUFFIX );
 
-                    while ( ( item = readdir( folder ) ) )
+                    if ( suffix > item->d_name )
                     {
-                        char * suffix;
-
-                        suffix = item->d_name + strlen( item->d_name ) - strlen( FS_DIR_SUFFIX );
-
-                        if ( suffix > item->d_name )
+                        if ( strcmp( suffix, FS_DIR_SUFFIX ) == 0 )
                         {
-                            if ( strcmp( suffix, FS_DIR_SUFFIX ) == 0 )
+                            CFURLRef path;
+
+                            path = CFURLCreateFromFileSystemRepresentationRelativeToBase( kCFAllocatorDefault,
+                                                                                          ( void * ) item->d_name,
+                                                                                          strlen( item->d_name ),
+                                                                                          TRUE,
+                                                                                          base );
+
+                            if ( path )
                             {
-                                CFURLRef path;
+                                DAFileSystemRef filesystem;
 
-                                path = CFURLCreateFromFileSystemRepresentationRelativeToBase( kCFAllocatorDefault,
-                                                                                              ( void * ) item->d_name,
-                                                                                              strlen( item->d_name ),
-                                                                                              TRUE,
-                                                                                              base );
+                                /*
+                                 * Create a file system object for this file system.
+                                 */
 
-                                if ( path )
+                                filesystem = DAFileSystemCreate( kCFAllocatorDefault, path );
+
+                                if ( filesystem )
                                 {
-                                    DAFileSystemRef filesystem;
+                                    CFDictionaryRef probe;
 
                                     /*
-                                     * Create a file system object for this file system.
+                                     * Add this file system object to our list.
                                      */
 
-                                    filesystem = DAFileSystemCreate( kCFAllocatorDefault, path );
+                                    DALogDebug( "  created filesystem, id = %@.", filesystem );
 
-                                    if ( filesystem )
+                                    CFArrayAppendValue( gDAFileSystemList, filesystem );
+
+                                    probe = DAFileSystemGetProbeList( filesystem );
+
+                                    if ( probe )
                                     {
-                                        CFDictionaryRef probe;
-
-                                        /*
-                                         * Add this file system object to our list.
-                                         */
-
-                                        DALogDebug( "  created filesystem, id = %@.", filesystem );
-
-                                        CFArrayAppendValue( gDAFileSystemList, filesystem );
-
-                                        probe = DAFileSystemGetProbeList( filesystem );
-
-                                        if ( probe )
-                                        {
-                                            CFDictionaryApplyFunction( probe, __DAFileSystemProbeListAppendValue, filesystem );
-                                        }
-
-                                        CFRelease( filesystem );
+                                        CFDictionaryApplyFunction( probe, __DAFileSystemProbeListAppendValue, filesystem );
                                     }
 
-                                    CFRelease( path );
+                                    CFRelease( filesystem );
                                 }
+
+                                CFRelease( path );
                             }
                         }
                     }
-
-                    closedir( folder );
                 }
 
-                CFRelease( base );
+                closedir( folder );
             }
 
-            /*
-             * Order the probe list.
-             */
-
-            CFArraySortValues( gDAFileSystemProbeList,
-                               CFRangeMake( 0, CFArrayGetCount( gDAFileSystemProbeList ) ),
-                               __DAFileSystemProbeListCompare,
-                               NULL );
+            CFRelease( base );
         }
+
+        /*
+         * Order the probe list.
+         */
+
+        CFArraySortValues( gDAFileSystemProbeList,
+                           CFRangeMake( 0, CFArrayGetCount( gDAFileSystemProbeList ) ),
+                           __DAFileSystemProbeListCompare,
+                           NULL );
     }
 }
 
@@ -421,7 +408,7 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
 
                 if ( strcmp( fs->fs_spec, "UUID" ) == 0 )
                 {
-                    id = _DAFileSystemCreateUUIDFromString( kCFAllocatorDefault, idAsString );
+                    id = ___CFUUIDCreateFromString( kCFAllocatorDefault, idAsString );
                 }
                 else if ( strcmp( fs->fs_spec, "LABEL" ) == 0 )
                 {
@@ -530,44 +517,47 @@ void DAMountMapListRefresh1( void )
      * Determine whether the mount map list is up-to-date.
      */
 
-    if ( stat( _PATH_FSTAB, &status ) == 0 )
+    if ( stat( _PATH_FSTAB, &status ) )
     {
-        if ( __gDAMountMapListTime1.tv_sec  != status.st_mtimespec.tv_sec  ||
-             __gDAMountMapListTime1.tv_nsec != status.st_mtimespec.tv_nsec )
+        __gDAMountMapListTime1.tv_sec  = 0;
+        __gDAMountMapListTime1.tv_nsec = 0;
+    }
+
+    if ( __gDAMountMapListTime1.tv_sec  != status.st_mtimespec.tv_sec  ||
+         __gDAMountMapListTime1.tv_nsec != status.st_mtimespec.tv_nsec )
+    {
+        __gDAMountMapListTime1.tv_sec  = status.st_mtimespec.tv_sec;
+        __gDAMountMapListTime1.tv_nsec = status.st_mtimespec.tv_nsec;
+
+        /*
+         * Clear the mount map list.
+         */
+
+        CFArrayRemoveAllValues( gDAMountMapList1 );
+
+        /*
+         * Build the mount map list.
+         */
+
+        if ( setfsent( ) )
         {
-            __gDAMountMapListTime1.tv_sec  = status.st_mtimespec.tv_sec;
-            __gDAMountMapListTime1.tv_nsec = status.st_mtimespec.tv_nsec;
+            struct fstab * item;
 
-            /*
-             * Clear the mount map list.
-             */
-
-            CFArrayRemoveAllValues( gDAMountMapList1 );
-
-            /*
-             * Build the mount map list.
-             */
-
-            if ( setfsent( ) )
+            while ( ( item = getfsent( ) ) )
             {
-                struct fstab * item;
+                CFDictionaryRef map;
 
-                while ( ( item = getfsent( ) ) )
+                map = __DAMountMapCreate1( kCFAllocatorDefault, item );
+
+                if ( map )
                 {
-                    CFDictionaryRef map;
+                    CFArrayAppendValue( gDAMountMapList1, map );
 
-                    map = __DAMountMapCreate1( kCFAllocatorDefault, item );
-
-                    if ( map )
-                    {
-                        CFArrayAppendValue( gDAMountMapList1, map );
-
-                        CFRelease( map );
-                    }
+                    CFRelease( map );
                 }
-
-                endfsent( );
             }
+
+            endfsent( );
         }
     }
 }
@@ -638,49 +628,53 @@ void DAMountMapListRefresh2( void )
      * Determine whether the mount map list is up-to-date.
      */
 
-    if ( stat( _PATH_VSDB, &status ) == 0 )
+    if ( stat( _PATH_VSDB, &status ) )
     {
-        if ( __gDAMountMapListTime2.tv_sec  != status.st_mtimespec.tv_sec  ||
-             __gDAMountMapListTime2.tv_nsec != status.st_mtimespec.tv_nsec )
+        __gDAMountMapListTime2.tv_sec  = 0;
+        __gDAMountMapListTime2.tv_nsec = 0;
+    }
+
+    if ( __gDAMountMapListTime2.tv_sec  != status.st_mtimespec.tv_sec  ||
+         __gDAMountMapListTime2.tv_nsec != status.st_mtimespec.tv_nsec )
+    {
+        __gDAMountMapListTime2.tv_sec  = status.st_mtimespec.tv_sec;
+        __gDAMountMapListTime2.tv_nsec = status.st_mtimespec.tv_nsec;
+
+        /*
+         * Clear the mount map list.
+         */
+
+        CFArrayRemoveAllValues( gDAMountMapList2 );
+
+        /*
+         * Build the mount map list.
+         */
+
+        if ( setvsent( ) )
         {
-            __gDAMountMapListTime2.tv_sec  = status.st_mtimespec.tv_sec;
-            __gDAMountMapListTime2.tv_nsec = status.st_mtimespec.tv_nsec;
+            struct vsdb * item;
 
-            /*
-             * Clear the mount map list.
-             */
-
-            CFArrayRemoveAllValues( gDAMountMapList2 );
-
-            /*
-             * Build the mount map list.
-             */
-
-            if ( setvsent( ) )
+            while ( ( item = getvsent( ) ) )
             {
-                struct vsdb * item;
+                CFDictionaryRef map;
 
-                while ( ( item = getvsent( ) ) )
+                map = __DAMountMapCreate2( kCFAllocatorDefault, item );
+
+                if ( map )
                 {
-                    CFDictionaryRef map;
+                    CFArrayAppendValue( gDAMountMapList2, map );
 
-                    map = __DAMountMapCreate2( kCFAllocatorDefault, item );
-
-                    if ( map )
-                    {
-                        CFArrayAppendValue( gDAMountMapList2, map );
-
-                        CFRelease( map );
-                    }
+                    CFRelease( map );
                 }
-
-                endvsent( );
             }
+
+            endvsent( );
         }
     }
 }
 
-static struct timespec __gDAPreferenceListTime = { 0, 0 };
+static struct timespec __gDAPreferenceListTime1 = { 0, 0 };
+static struct timespec __gDAPreferenceListTime2 = { 0, 0 };
 
 const CFStringRef kDAPreferenceMountDeferExternalKey  = CFSTR( "DAMountDeferExternal"  );
 const CFStringRef kDAPreferenceMountDeferInternalKey  = CFSTR( "DAMountDeferInternal"  );
@@ -691,124 +685,138 @@ const CFStringRef kDAPreferenceMountTrustRemovableKey = CFSTR( "DAMountTrustRemo
 
 void DAPreferenceListRefresh( void )
 {
-    struct stat status;
+    struct stat status1;
+    struct stat status2;
 
     /*
      * Determine whether the preference list is up-to-date.
      */
 
-    if ( stat( ___PREFS_DEFAULT_DIR, &status ) == 0 )
+    if ( stat( ___PREFS_DEFAULT_DIR "/" "autodiskmount.plist", &status1 ) )
     {
-        if ( __gDAPreferenceListTime.tv_sec  != status.st_mtimespec.tv_sec  ||
-             __gDAPreferenceListTime.tv_nsec != status.st_mtimespec.tv_nsec )
+        __gDAPreferenceListTime1.tv_sec  = 0;
+        __gDAPreferenceListTime1.tv_nsec = 0;
+    }
+
+    if ( stat( ___PREFS_DEFAULT_DIR "/" _kDADaemonName ".plist", &status2 ) )
+    {
+        __gDAPreferenceListTime2.tv_sec  = 0;
+        __gDAPreferenceListTime2.tv_nsec = 0;
+    }
+
+    if ( __gDAPreferenceListTime1.tv_sec  != status1.st_mtimespec.tv_sec  ||
+         __gDAPreferenceListTime1.tv_nsec != status1.st_mtimespec.tv_nsec ||
+         __gDAPreferenceListTime2.tv_sec  != status2.st_mtimespec.tv_sec  ||
+         __gDAPreferenceListTime2.tv_nsec != status2.st_mtimespec.tv_nsec )
+    {
+        SCPreferencesRef preferences;
+
+        __gDAPreferenceListTime1.tv_sec  = status1.st_mtimespec.tv_sec;
+        __gDAPreferenceListTime1.tv_nsec = status1.st_mtimespec.tv_nsec;
+        __gDAPreferenceListTime2.tv_sec  = status2.st_mtimespec.tv_sec;
+        __gDAPreferenceListTime2.tv_nsec = status2.st_mtimespec.tv_nsec;
+
+        /*
+         * Clear the preference list.
+         */
+
+        CFDictionaryRemoveAllValues( gDAPreferenceList );
+
+        /*
+         * Build the preference list.
+         */
+
+        preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( "autodiskmount" ), CFSTR( "autodiskmount.plist" ) );
+
+        if ( preferences )
         {
-            SCPreferencesRef preferences;
+            CFTypeRef value;
 
-            __gDAPreferenceListTime.tv_sec  = status.st_mtimespec.tv_sec;
-            __gDAPreferenceListTime.tv_nsec = status.st_mtimespec.tv_nsec;
+            value = SCPreferencesGetValue( preferences, CFSTR( "AutomountDisksWithoutUserLogin" ) );
 
-            /*
-             * Clear the preference list.
-             */
-
-            CFDictionaryRemoveAllValues( gDAPreferenceList );
-
-            /*
-             * Build the preference list.
-             */
-
-            preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( "autodiskmount" ), CFSTR( "autodiskmount.xml" ) );
-
-            if ( preferences )
+            if ( value == kCFBooleanTrue )
             {
-                CFTypeRef value;
-
-                value = SCPreferencesGetValue( preferences, CFSTR( "AutomountDisksWithoutUserLogin" ) );
-
-                if ( value == kCFBooleanTrue )
-                {
-                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey,  kCFBooleanFalse );
-                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, kCFBooleanFalse );
-                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey,  kCFBooleanTrue  );
-                }
-                else if ( value == kCFBooleanFalse )
-                {
-                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey,  kCFBooleanFalse );
-                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, kCFBooleanTrue  );
-                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey,  kCFBooleanTrue  );
-                }
-
-                CFRelease( preferences );
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey,  kCFBooleanFalse );
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, kCFBooleanFalse );
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey,  kCFBooleanTrue  );
+            }
+            else if ( value == kCFBooleanFalse )
+            {
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey,  kCFBooleanFalse );
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, kCFBooleanTrue  );
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey,  kCFBooleanTrue  );
             }
 
-            preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( _kDADaemonName ), CFSTR( _kDADaemonName ".plist" ) );
+            CFRelease( preferences );
+        }
 
-            if ( preferences )
+        preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( _kDADaemonName ), CFSTR( _kDADaemonName ".plist" ) );
+
+        if ( preferences )
+        {
+            CFTypeRef value;
+
+            value = SCPreferencesGetValue( preferences, kDAPreferenceMountDeferExternalKey );
+
+            if ( value )
             {
-                CFTypeRef value;
-
-                value = SCPreferencesGetValue( preferences, kDAPreferenceMountDeferExternalKey );
-
-                if ( value )
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
                 {
-                    if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
-                    {
-                        CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey, value );
-                    }
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey, value );
                 }
-
-                value = SCPreferencesGetValue( preferences, kDAPreferenceMountDeferInternalKey );
-
-                if ( value )
-                {
-                    if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
-                    {
-                        CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferInternalKey, value );
-                    }
-                }
-
-                value = SCPreferencesGetValue( preferences, kDAPreferenceMountDeferRemovableKey );
-
-                if ( value )
-                {
-                    if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
-                    {
-                        CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, value );
-                    }
-                }
-
-                value = SCPreferencesGetValue( preferences, kDAPreferenceMountTrustExternalKey );
-
-                if ( value )
-                {
-                    if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
-                    {
-                        CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey, value );
-                    }
-                }
-
-                value = SCPreferencesGetValue( preferences, kDAPreferenceMountTrustInternalKey );
-
-                if ( value )
-                {
-                    if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
-                    {
-                        CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustInternalKey, value );
-                    }
-                }
-
-                value = SCPreferencesGetValue( preferences, kDAPreferenceMountTrustRemovableKey );
-
-                if ( value )
-                {
-                    if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
-                    {
-                        CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustRemovableKey, value );
-                    }
-                }
-
-                CFRelease( preferences );
             }
+
+            value = SCPreferencesGetValue( preferences, kDAPreferenceMountDeferInternalKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferInternalKey, value );
+                }
+            }
+
+            value = SCPreferencesGetValue( preferences, kDAPreferenceMountDeferRemovableKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, value );
+                }
+            }
+
+            value = SCPreferencesGetValue( preferences, kDAPreferenceMountTrustExternalKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey, value );
+                }
+            }
+
+            value = SCPreferencesGetValue( preferences, kDAPreferenceMountTrustInternalKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustInternalKey, value );
+                }
+            }
+
+            value = SCPreferencesGetValue( preferences, kDAPreferenceMountTrustRemovableKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustRemovableKey, value );
+                }
+            }
+
+            CFRelease( preferences );
         }
     }
 }

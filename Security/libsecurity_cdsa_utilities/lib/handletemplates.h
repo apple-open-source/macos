@@ -32,6 +32,7 @@
 #include <security_utilities/threading.h>
 #include <security_utilities/globalizer.h>
 #include <security_cdsa_utilities/cssmerrors.h>
+#include <vector>
 
 #if __GNUC__ > 2
 #include <ext/hash_map>
@@ -129,7 +130,7 @@ public:
     // @@@  Remove when 4003540 is fixed
     template <class Subtype>
     static void findAllRefs(std::vector<_Handle> &refs) {
-        state().findAllRefs<Subtype>(refs);
+        state().template findAllRefs<Subtype>(refs);
     }
     
 protected:

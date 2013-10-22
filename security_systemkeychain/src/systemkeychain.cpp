@@ -160,7 +160,7 @@ int main (int argc, char * argv[])
 			test(systemKCName);
 			break;
 		case tokenProtectedKCCreate:
-			if (status = createTokenProtectedKeychain(systemKCName))
+			if ((status = createTokenProtectedKeychain(systemKCName)))
 			{
 				cssmPerror("unable to create token protected keychain", status);
 				exit(1);
@@ -533,7 +533,7 @@ void flattenKey(const CssmKey &rawKey, CssmDataContainer &flatKey)
 	// A CSSM_KEY is a CSSM_KEYHEADER followed by a CSSM_DATA
 	
 	CssmKey rawKeyCopy(rawKey);
-	const uint32 keyDataLength = rawKeyCopy.length();
+	const uint32 keyDataLength = (uint32)rawKeyCopy.length();
 	uint32 sz = (sizeof(CSSM_KEY) + keyDataLength);
 	flatKey.Data = flatKey.mAllocator.alloc<uint8>(sz);
 	flatKey.Length = sz;
@@ -616,8 +616,8 @@ void systemKeychainCheck()
 				// or change the code below to check for overflowing sun_path's length.
 				const char *searchFor = ".socket";
 				const char *replaceWith = ".done";
-				int searchForLength = strlen(searchFor);
-				int pathLength = strlen(socketName.sun_path);
+				size_t searchForLength = strlen(searchFor);
+				size_t pathLength = strlen(socketName.sun_path);
 				if (pathLength > searchForLength && socketName.sun_path[0] == '/') {
 					strcpy(socketName.sun_path + pathLength - searchForLength, replaceWith);
 					syslog(LOG_ERR, "done file: %s", socketName.sun_path);
@@ -660,7 +660,7 @@ void systemKeychainCheck()
 		if (rc) {
 			int exit_code = EX_SOFTWARE;
 			if (rc < 0) {
-				syslog(LOG_ERR, "Failure %d running security-checksystem");
+				syslog(LOG_ERR, "Failure %d running security-checksystem", rc);
 			} else {
 				syslog(LOG_ERR, "Could not run security-checksystem failure %m");
 				exit_code = EX_OSERR;

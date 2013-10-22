@@ -295,6 +295,11 @@ isint:				cs[2] = '\0';
 				case 2:
 					pr->bcnt = 2;
 					break;
+#ifdef __APPLE__
+				case 8:
+					pr->bcnt = 8;
+					break;
+#endif /* __APPLE__ */
 				default:
 					p1[1] = '\0';
 					badcnt((char *)p1);

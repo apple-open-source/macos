@@ -115,18 +115,18 @@
 		18BBC73C1471F6DF00F2B224 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
 		18BBC73D1471F6DF00F2B224 /* security.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = security.xcconfig; sourceTree = "<group>"; };
 		18C5A963148443F00010EF34 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
-		18C5A9651484440D0010EF34 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = ../../../../../../../System/Library/Frameworks/Foundation.framework; sourceTree = "<group>"; };
+		18C5A9651484440D0010EF34 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		4C010B87121AE8DF0094CB72 /* input-speed-test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "input-speed-test"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C010B99121AE9960094CB72 /* speed-test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "speed-test.h"; path = "misc/speed-test.h"; sourceTree = "<group>"; };
 		4C010B9A121AE9960094CB72 /* speed-test.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "speed-test.mm"; path = "misc/speed-test.mm"; sourceTree = "<group>"; };
-		4C010BBE121AED340094CB72 /* libc++.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libc++.dylib"; path = "/usr/lib/libc++.dylib"; sourceTree = "<absolute>"; };
+		4C010BBE121AED340094CB72 /* libc++.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libc++.dylib"; path = "usr/lib/libc++.dylib"; sourceTree = SDKROOT; };
 		4C010C4B121AFCA70094CB72 /* SecExternalSourceTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecExternalSourceTransform.h; sourceTree = "<group>"; };
 		4C010C4C121AFCA70094CB72 /* SecExternalSourceTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecExternalSourceTransform.cpp; sourceTree = "<group>"; };
 		4C01134F1468693100E4F866 /* SecMaskGenerationFunctionTransform.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecMaskGenerationFunctionTransform.c; sourceTree = "<group>"; };
 		4C0113501468693100E4F866 /* SecMaskGenerationFunctionTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecMaskGenerationFunctionTransform.h; sourceTree = "<group>"; };
 		4C01135A14686F2600E4F866 /* NSData+HexString.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSData+HexString.m"; sourceTree = "<group>"; };
 		4C01135B14686F2600E4F866 /* NSData+HexString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSData+HexString.h"; sourceTree = "<group>"; };
-		4C27A37414F2D66C007FCA66 /* libcorecrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcorecrypto.dylib; path = ../../../../../../../../usr/lib/system/libcorecrypto.dylib; sourceTree = "<group>"; };
+		4C27A37414F2D66C007FCA66 /* libcorecrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcorecrypto.dylib; path = usr/lib/system/libcorecrypto.dylib; sourceTree = SDKROOT; };
 		4C27A37714F2DCB4007FCA66 /* CEncryptDecrypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CEncryptDecrypt.c; sourceTree = "<group>"; };
 		4C6E5964116D4E3E00A70E8F /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
 		4C6E5965116D4E3E00A70E8F /* misc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = misc.h; sourceTree = "<group>"; };
@@ -139,12 +139,12 @@
 		4CB89E61124D5667004DEC20 /* SecTransformValidator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransformValidator.h; sourceTree = "<group>"; };
 		4CBCBEB61130A2D700CC18E9 /* 100-sha2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "100-sha2"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CBCBEB81130A2D800CC18E9 /* Info-security_transform.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-security_transform.plist"; sourceTree = "<group>"; };
-		4CD6A668113F41990094F287 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
+		4CD6A668113F41990094F287 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		4CD87F3D1130A34700A98C5E /* 100-sha2.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "100-sha2.m"; sourceTree = "<group>"; };
 		4CDF6DC9113C4E9E00C64234 /* EncodeDecodeTransforms.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EncodeDecodeTransforms.c; sourceTree = "<group>"; };
 		4CDF6DCA113C4E9E00C64234 /* SecDecodeTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecDecodeTransform.h; sourceTree = "<group>"; };
 		4CDF6DCB113C4E9E00C64234 /* SecEncodeTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecEncodeTransform.h; sourceTree = "<group>"; };
-		5D16D6FB114EA1000096BD75 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		5D16D6FB114EA1000096BD75 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		5DCAD5B511F0E099003F2E7A /* SecCollectTransform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecCollectTransform.cpp; sourceTree = "<group>"; };
 		5DCAD5B611F0E099003F2E7A /* SecCollectTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCollectTransform.h; sourceTree = "<group>"; };
 		5DD2E91C114E9044007429E7 /* EncryptTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = EncryptTransform.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
@@ -274,10 +274,10 @@
 		4CA1FEA7052A3C3800F22E42 = {
 			isa = PBXGroup;
 			children = (
-				4C27A37414F2D66C007FCA66 /* libcorecrypto.dylib */,
 				18C5A9651484440D0010EF34 /* Foundation.framework */,
 				18C5A963148443F00010EF34 /* SenTestingKit.framework */,
 				18BBC7381471F6DF00F2B224 /* config */,
+				4C27A37414F2D66C007FCA66 /* libcorecrypto.dylib */,
 				4C010BBE121AED340094CB72 /* libc++.dylib */,
 				4CD6A668113F41990094F287 /* libz.dylib */,
 				4C73825F112DF66700EA003B /* unit-tests */,
@@ -517,7 +517,7 @@
 		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0440;
+				LastUpgradeCheck = 0500;
 			};
 			buildConfigurationList = C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_transform" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -692,11 +692,12 @@
 		};
 		4C738259112DF65400EA003B /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18BBC73A1471F6DF00F2B224 /* debug.xcconfig */;
+			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(DEVELOPER_FRAMEWORKS_DIR)\"",
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
 				);
 				INFOPLIST_FILE = "unit-tests-Info.plist";
 				LIBRARY_SEARCH_PATHS = (
@@ -710,11 +711,12 @@
 		};
 		4C73825B112DF65400EA003B /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18BBC73C1471F6DF00F2B224 /* release.xcconfig */;
+			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(DEVELOPER_FRAMEWORKS_DIR)\"",
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
 				);
 				INFOPLIST_FILE = "unit-tests-Info.plist";
 				LIBRARY_SEARCH_PATHS = (
@@ -767,8 +769,9 @@
 		};
 		C27AD4010987FCDF001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18BBC73A1471F6DF00F2B224 /* debug.xcconfig */;
+			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/lib/system,
@@ -776,14 +779,19 @@
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-DCOM_APPLE_SECURITY_SANE_INCLUDES",
+				);
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
 				);
 			};
 			name = Debug;
 		};
 		C27AD4030987FCDF001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18BBC73C1471F6DF00F2B224 /* release.xcconfig */;
+			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
 			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/lib/system,
@@ -792,19 +800,23 @@
 					"$(inherited)",
 					"-DCOM_APPLE_SECURITY_SANE_INCLUDES",
 				);
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-error=overloaded-virtual",
+				);
 			};
 			name = Release;
 		};
 		C27AD4050987FCDF001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
+			baseConfigurationReference = 18BBC73A1471F6DF00F2B224 /* debug.xcconfig */;
 			buildSettings = {
 			};
 			name = Debug;
 		};
 		C27AD4070987FCDF001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 18BBC73B1471F6DF00F2B224 /* lib.xcconfig */;
+			baseConfigurationReference = 18BBC73C1471F6DF00F2B224 /* release.xcconfig */;
 			buildSettings = {
 			};
 			name = Release;

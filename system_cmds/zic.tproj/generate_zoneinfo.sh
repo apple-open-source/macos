@@ -66,7 +66,9 @@ fi
 if [ "${PLATFORM_NAME}" = "iphoneos" ]; then
     mkdir -p "${PRIVATEDIR}/var/db"
     mkdir -p -m a+rwx "${PRIVATEDIR}/var/db/timezone"
-    ln -hfs "/usr/share/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/var/db/timezone/localtime"
+
+    # This link must precisely start with TZDIR followed by a slash. radar:13532660
+    ln -hfs "/var/db/timezone/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/var/db/timezone/localtime"
 else
     mkdir -p "${PRIVATEDIR}/etc"
     ln -hfs "/usr/share/zoneinfo/${LOCALTIME}" "${PRIVATEDIR}/etc/localtime"

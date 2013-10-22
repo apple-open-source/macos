@@ -281,7 +281,7 @@ svcudp_getargs(xprt, xdr_args, args_ptr)
 	caddr_t args_ptr;
 {
 
-	return ((*xdr_args)(&(su_data(xprt)->su_xdrs), args_ptr));
+	return ((*xdr_args)(&(su_data(xprt)->su_xdrs), args_ptr, 0));
 }
 
 static bool_t
@@ -293,7 +293,7 @@ svcudp_freeargs(xprt, xdr_args, args_ptr)
 	register XDR *xdrs = &(su_data(xprt)->su_xdrs);
 
 	xdrs->x_op = XDR_FREE;
-	return ((*xdr_args)(xdrs, args_ptr));
+	return ((*xdr_args)(xdrs, args_ptr, 0));
 }
 
 static void

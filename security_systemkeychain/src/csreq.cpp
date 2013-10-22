@@ -43,7 +43,7 @@ static enum {
 	outputBinary
 } outputType = outputCheck;
 
-static SecCSFlags reqType = kSecCSDefaultFlags;
+static SecCSFlags reqType = kSecCSParseRequirement | kSecCSParseRequirementSet;
 
 
 //
@@ -77,7 +77,7 @@ const struct option options[] = {
 int main(int argc, char *argv[])
 {
 	try {
-		extern int optind;
+		//extern int optind;
 		extern char *optarg;
 		int arg, argslot;
 		while (argslot = -1,
@@ -152,6 +152,8 @@ int main(int argc, char *argv[])
 	}
 }
 
+static void usage() __attribute__((__noreturn__));
+
 static void usage()
 {
 	fprintf(stderr,
@@ -171,7 +173,7 @@ static SecCSFlags type(const char *t)
 	else if (!strncmp("group", t, strlen(t)))
 		return kSecCSParseRequirementSet;
 	else if (!strncmp("auto", t, strlen(t)))
-		return kSecCSDefaultFlags;
+		return kSecCSParseRequirement | kSecCSParseRequirementSet;
 	else {
 		fprintf(stderr, "%s: invalid type\n", t);
 		usage();
